@@ -22,6 +22,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.15.11  2004/01/11 01:07:05  pbi
+# - srloop() and srploop() improvements
+#
 # Revision 0.9.15.10  2004/01/10 23:42:58  pbi
 # - added srloop() and srploop() functions
 #
@@ -324,7 +327,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.15.10 2004/01/10 23:42:58 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.15.11 2004/01/11 01:07:05 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -3121,7 +3124,7 @@ if PCAP:
 
 
 
-def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None):
+def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0):
 
     if not isinstance(pkt, Gen):
         pkt = SetGen(pkt)
@@ -3220,7 +3223,8 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None):
                     if remaintime < 0:
                         break
         except KeyboardInterrupt:
-            pass
+            if chainCC:
+                raise KeyboardInterrupt
 
         try:
             ac = pickle.load(rdpipe)
@@ -3307,8 +3311,9 @@ def srp1(x,iface=None,filter=None,type=ETH_P_ALL, *args,**kargs):
     else:
         return None
 
-def __sr_loop(srfunc, pkts, prn=lambda x:x.summary(), inter=1, timeout=0, count=None, verbose=0,  *args, **kargs):
-    n = 0;
+def __sr_loop(srfunc, pkts, prn=lambda x:x[0][0][1].summary(), inter=1, timeout=0, count=None, verbose=0,  *args, **kargs):
+    n = 0
+    r = 0
     if timeout == 0:
         timeout = min(2*inter, 5)
     try:
@@ -3318,29 +3323,31 @@ def __sr_loop(srfunc, pkts, prn=lambda x:x.summary(), inter=1, timeout=0, count=
                     break
                 count -= 1
             start = time.time()
-            os.write(1, ". ")
-            n += 1
-            res = srfunc(pkts, timeout=timeout, verbose=0, *args, **kargs)
-            if res is None:
-                print "no response"
-            else:
+            os.write(1,"send...")
+            res = srfunc(pkts, timeout=timeout, verbose=0, chainCC=1, *args, **kargs)
+            n += len(res[0])+len(res[1])
+            r += len(res[0])
+            print "\rrecv %i:" % len(res[0]),
+            try:
                 print prn(res)
+            except IndexError:
+                print "--"
             end=time.time()
             if end-start < inter:
                 time.sleep(inter+start-end)
     except KeyboardInterrupt:
         pass
-    print "\nSent %i packets." % n
+    print "\nSent %i packets, received %i packets. %3.1f%% hits" % (n,r,100.0*r/n)
 
 def srloop(pkts, *args, **kargs):
     """Send a packet at layer 3 in loop and print the answer each time
 srloop(pkts, [prn], [inter], [count], ...) --> None"""
-    __sr_loop(sr1, pkts, *args, **kargs)
+    __sr_loop(sr, pkts, *args, **kargs)
 
 def srploop(pkts, *args, **kargs):
     """Send a packet at layer 2 in loop and print the answer each time
 srloop(pkts, [prn], [inter], [count], ...) --> None"""
-    __sr_loop(srp1, pkts, *args, **kargs)
+    __sr_loop(srp, pkts, *args, **kargs)
 
            
 
