@@ -22,6 +22,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.15.13  2004/01/11 11:47:07  pbi
+# - srploop() and srloop() improvements
+#
 # Revision 0.9.15.12  2004/01/11 01:28:21  pbi
 # - srloop() and srploop() improvements
 #
@@ -330,7 +333,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.15.12 2004/01/11 01:28:21 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.15.13 2004/01/11 11:47:07 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -3330,23 +3333,26 @@ def __sr_loop(srfunc, pkts, prn=lambda x:x[1].summary(), prnfail=lambda x:x.summ
             res = srfunc(pkts, timeout=timeout, verbose=0, chainCC=1, *args, **kargs)
             n += len(res[0])+len(res[1])
             r += len(res[0])
-            msg = "RECV %i:" % len(res[0])
-            print  "\r%s" % msg,
-            for p in res[0]:
-                print prn(p)
-                print " "*len(msg),
-            if len(res[1]) > 0:
+            if prn and len(res[0]) > 0:
+                msg = "RECV %i:" % len(res[0])
+                print  "\r%s" % msg,
+                for p in res[0]:
+                    print prn(p)
+                    print " "*len(msg),
+            if prnfail and len(res[1]) > 0:
                 msg = "fail %i:" % len(res[1])
                 print "\r%s" % msg,
                 for p in res[1]:
                     print prnfail(p)
                     print " "*len(msg),
+            if not (prn or prnfail):
+                print "recv:%i  fail:%i" % tuple(map(len, res[:2]))
             end=time.time()
             if end-start < inter:
                 time.sleep(inter+start-end)
     except KeyboardInterrupt:
         pass
-    print "\nSent %i packets, received %i packets. %3.1f%% hits" % (n,r,100.0*r/n)
+    print "\nSent %i packets, received %i packets. %3.1f%% hits." % (n,r,100.0*r/n)
 
 def srloop(pkts, *args, **kargs):
     """Send a packet at layer 3 in loop and print the answer each time
