@@ -22,6 +22,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.15.15  2004/01/26 18:00:08  pbi
+# - added more text for DNS codes
+#
 # Revision 0.9.15.14  2004/01/15 13:24:48  pbi
 # - fixed the case where IP field is a list of nets
 # - randomize IPID in traceroute() to work better with conf.checkIPsrc=0
@@ -340,7 +343,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.15.14 2004/01/15 13:24:48 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.15.15 2004/01/26 18:00:08 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2529,13 +2532,13 @@ class DNS(Packet):
     name = "DNS"
     fields_desc = [ ShortField("id",0),
                     BitField("qr",0, 1),
-                    BitField("opcode", 0, 4),
+                    BitEnumField("opcode", 0, 4, {0:"QUERY",1:"IQUERY",2:"STATUS"}),
                     BitField("aa", 0, 1),
                     BitField("tc", 0, 1),
                     BitField("rd", 0, 1),
                     BitField("ra", 0 ,1),
                     BitField("z", 0, 3),
-                    BitField("rcode", 0, 4),
+                    BitEnumField("rcode", 0, 4, {0:"ok", 1:"format-error", 2:"server-failure", 3:"name-error", 4:"not-implemented", 5:"refused"}),
                     DNSRRCountField("qdcount", None, "qd"),
                     DNSRRCountField("ancount", None, "an"),
                     DNSRRCountField("nscount", None, "ns"),
