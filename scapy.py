@@ -22,6 +22,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.13.4  2003/06/25 12:35:57  pbi
+# - fixed a regression in L3PacketSocket for ppp links
+#
 # Revision 0.9.13.3  2003/05/31 14:01:12  biondi
 # - more tweaks on Packet.sprintf(). Added __doc__.
 #
@@ -242,7 +245,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.13.3 2003/05/31 14:01:12 biondi Exp $"
+RCSID="$Id: scapy.py,v 0.9.13.4 2003/06/25 12:35:57 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -438,6 +441,7 @@ ETH_P_ARP = 0x806
 # From net/if_arp.h
 ARPHDR_ETHER = 1
 ARPHDR_METRICOM = 23
+ARPHDR_PPP = 512
 ARPHDR_LOOPBACK = 772
 
 # From bits/ioctls.h
@@ -2581,11 +2585,14 @@ class L3PacketSocket(SuperSocket):
             iff,a,gw = choose_route(x.dst)
         else:
             iff = conf.iff
-        self.outs.bind((iff, self.type))
+        sdto = (iff, self.type)
+        self.outs.bind(sdto)
         sn = self.outs.getsockname()
         if LLTypes.has_key(sn[3]):
             x = LLTypes[sn[3]]()/x
-        self.outs.sendto(str(x), (iff, self.type))
+        elif sn[3] == ARPHDR_PPP:
+            sdto = (iff, ETH_P_IP)
+        self.outs.sendto(str(x), sdto)
 
 
 
