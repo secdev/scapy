@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.28  2005/01/22 21:47:11  pbi
+# - added ARPingResult to handle arping() results
+# - moved ARPing displaying logic to ARPing object
+#
 # Revision 0.9.17.27  2005/01/22 21:42:59  pbi
 # - added args todo_graph()
 # - added TracerouteResults object to handle traceroute results
@@ -526,7 +530,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.27 2005/01/22 21:42:59 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.28 2005/01/22 21:47:11 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1353,6 +1357,16 @@ class SndRcvAns(PacketList):
         return elt[1]
     def elt2sum(self, elt):
         return "%s ==> %s" % (elt[0].summary(),elt[1].summary()) 
+
+
+class ARPingResult(SndRcvAns):
+    def __init__(self, res, name="ARPing"):
+        PacketList.__init__(self, res, name)
+
+    def display(self):
+        for s,r in self.res:
+            print r.sprintf("%Ether.src% %ARP.psrc%")
+
 
 class TracerouteResult(SndRcvAns):
     def __init__(self, res, name="Traceroute"):
@@ -5520,9 +5534,9 @@ def arping(net, **kargs):
 arping(net, iface=conf.iface) -> None"""
     ans,unans = srp(Ether(dst="ff:ff:ff:ff:ff:ff")/ARP(pdst=net),
                     filter="arp and arp[7] = 2", timeout=2, **kargs)
-    for s,r in ans:
-        print r.sprintf("%Ether.src% %ARP.psrc%")
-    last = ans,unans
+    ans = ARPingResult(ans.res)
+    ans.display()
+    return ans
 
 def dyndns_add(nameserver, name, rdata, type="A", ttl=10):
     """Send a DNS add message to a nameserver for "name" to have a new "rdata"
