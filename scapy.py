@@ -3,15 +3,14 @@
 #############################################################################
 ##                                                                         ##
 ## scapy.py --- Interactive packet manipulation tool                       ##
-##              see http://www.cartel-securite.net/pbiondi/scapy.html      ##
+##              see http://www.secdev.org/projects/scapy.html              ##
 ##              for more informations                                      ##
 ##                                                                         ##
-## Copyright (C) 2003  Philippe Biondi <biondi@cartel-securite.fr>         ##
+## Copyright (C) 2003  Philippe Biondi <phil@secdev.org>                   ##
 ##                                                                         ##
 ## This program is free software; you can redistribute it and/or modify it ##
-## under the terms of the GNU General Public License as published by the   ##
-## Free Software Foundation; either version 2, or (at your option) any     ##
-## later version.                                                          ##
+## under the terms of the GNU General Public License version 2 as          ##
+## published by the Free Software Foundation; version 2.                   ##
 ##                                                                         ##
 ## This program is distributed in the hope that it will be useful, but     ##
 ## WITHOUT ANY WARRANTY; without even the implied warranty of              ##
@@ -22,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.16.13  2004/07/09 09:11:15  pbi
+# - changed the header and blocked the licence to GPLv2 only
+#
 # Revision 0.9.16.12  2004/07/09 09:07:41  pbi
 # - added an independant routing table (conf.route) and methods to manipulate it
 # - tweaked results stats
@@ -388,7 +390,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.16.12 2004/07/09 09:07:41 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.16.13 2004/07/09 09:11:15 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
