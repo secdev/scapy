@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.33  2005/01/26 23:41:58  pbi
+# - small simplification of TracerouteResult display() thanks to new sprintf()
+#   conditionnal statement
+#
 # Revision 0.9.17.32  2005/01/26 23:12:59  pbi
 # - added conditionnal statements in format strings
 #
@@ -542,7 +546,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.32 2005/01/26 23:12:59 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.33 2005/01/26 23:41:58 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1387,13 +1391,10 @@ class TracerouteResult(SndRcvAns):
         self.graphdef = None        
 
     def display(self):
-        def result((s,r)):
-            if r.haslayer(ICMP):
-                return r.sprintf("%-15s,IP.src%")
-            else:
-                return r.sprintf("%-15s,IP.src% %TCP.flags%")
 
-        return self.make_table(lambda x: x[0].sprintf("%IP.dst%:%TCP.dport%"), lambda x:x[0].ttl, result)
+        return self.make_table(lambda x: x[0].sprintf("%IP.dst%:{TCP:%TCP.dport%}{UDP:%UDP.dport%}{ICMP:ICMP}"),
+                               lambda x: x[0].ttl,
+                               lambda x: x[1].sprintf("%-15s,IP.src% {TCP:%TCP.flags%}{ICMP:%ir,ICMP.type%}"))
 
     def make_graph(self):
         ips = {}
