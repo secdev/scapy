@@ -22,6 +22,13 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.14.2  2003/07/20 00:12:04  pbi
+# -added "-i any" for tcpdump to compile filters even if they don't work on main interface
+# - put PPP special case before layer 2 general case in a super socket
+# - added th filter parameter to L3RawSocket
+# - added a special case in getmacbyip() when loopback interface is concernet
+# - added value for RAWIP linktype in pcap capture files
+#
 # Revision 0.9.14.1  2003/06/25 13:18:23  pbi
 # Release 0.9.14, from 0.9.13.4
 #
@@ -248,7 +255,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.14.1 2003/06/25 13:18:23 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.14.2 2003/07/20 00:12:04 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -692,6 +699,8 @@ if 0 and DNET: ## XXX Can't use this because it does not resolve IPs not in cach
     dnet_arp_object = dnet.arp()
     def getmacbyip(ip):
         iff,a,gw = choose_route(ip)
+        if iff == "lo":
+            return "ff:ff:ff:ff:ff:ff"
         if gw != "0.0.0.0":
             ip = gw
         res = dnet_arp_object.get(dnet.addr(ip))
@@ -702,6 +711,8 @@ if 0 and DNET: ## XXX Can't use this because it does not resolve IPs not in cach
 else:
     def getmacbyip(ip):
         iff,a,gw = choose_route(ip)
+        if iff == "lo":
+            return "ff:ff:ff:ff:ff:ff"
         if gw != "0.0.0.0":
             ip = gw
     
@@ -2485,6 +2496,7 @@ def fragment(pkt, fragsize=1480):
 LLTypes = { ARPHDR_ETHER : Ether,
             ARPHDR_METRICOM : Ether,
             ARPHDR_LOOPBACK : Ether,
+	    101 : IP,
             }
 
 L3Types = { ETH_P_IP : IP,
@@ -2519,7 +2531,7 @@ class SuperSocket:
         self.close()
 
 class L3RawSocket(SuperSocket):
-    def __init__(self, type = ETH_P_IP):
+    def __init__(self, type = ETH_P_IP, filter=None):
         self.outs = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_RAW)
         self.outs.setsockopt(socket.SOL_IP, socket.IP_HDRINCL, 1)
         self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))
@@ -2591,10 +2603,10 @@ class L3PacketSocket(SuperSocket):
         sdto = (iff, self.type)
         self.outs.bind(sdto)
         sn = self.outs.getsockname()
-        if LLTypes.has_key(sn[3]):
-            x = LLTypes[sn[3]]()/x
-        elif sn[3] == ARPHDR_PPP:
+        if sn[3] == ARPHDR_PPP:
             sdto = (iff, ETH_P_IP)
+        elif LLTypes.has_key(sn[3]):
+            x = LLTypes[sn[3]]()/x
         self.outs.sendto(str(x), sdto)
 
 
@@ -2990,7 +3002,7 @@ def rdpcap(filename):
 
 
 def attach_filter(s, filter):
-    f = os.popen("tcpdump -ddd -s 1600 '%s'" % filter)
+    f = os.popen("tcpdump -i any -ddd -s 1600 '%s'" % filter)
     lines = f.readlines()
     if f.close():
         raise Exception("Filter parse error")
@@ -3500,7 +3512,7 @@ arping(net, iface=conf.iff) -> None"""
     ans,unans = srp(Ether(dst="ff:ff:ff:ff:ff:ff")/ARP(pdst=net),
                     filter="arp and arp[7] = 2", timeout=2, iface=iface)
     for s,r in ans:
-        print r.payload.psrc
+        print r.sprintf("%Ether.src% %ARP.psrc%")
     last = ans,unans
 
 
