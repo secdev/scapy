@@ -21,6 +21,11 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.20  2004/12/01 17:13:28  pbi
+# - Early WEP support
+# - voip_play() tweaks
+# - Added LEShortField for Dot11 SC field
+#
 # Revision 0.9.17.19  2004/10/18 13:42:50  pbi
 # - HSRP early support
 # - Cisco CSSP Skinny early support
@@ -487,7 +492,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.19 2004/10/18 13:42:50 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.20 2004/12/01 17:13:28 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -653,6 +658,12 @@ try:
     DNET = 1
 except ImportError:
     DNET = 0
+
+try:
+    from Crypto.Cipher import ARC4
+except ImportError:
+    warning("Can't find Crypto python lib. Won't be able to decrypt WEP")
+
 
 # Workarround bug 643005 : https://sourceforge.net/tracker/?func=detail&atid=105470&aid=643005&group_id=5470
 try:
@@ -1545,6 +1556,10 @@ class ShortField(Field):
     def __init__(self, name, default):
         Field.__init__(self, name, default, "H")
 
+class LEShortField(Field):
+    def __init__(self, name, default):
+        Field.__init__(self, name, default, "@H")
+
 class XShortField(ShortField):
     def i2repr(self, pkt, x):
 	if x is None:
@@ -2218,6 +2233,9 @@ class Packet(Gen):
     def extract_padding(self, s):
         return s,None
 
+    def post_dissect(self, s):
+        return s
+
     def do_dissect(self, s):
         flist = self.fields_desc[:]
         flist.reverse()
@@ -2225,6 +2243,9 @@ class Packet(Gen):
             f = flist.pop()
             s,fval = f.getfield(self, s)
             self.fields[f] = fval
+
+        s = self.post_dissect(s)
+            
         payl,pad = self.extract_padding(s)
         self.do_dissect_payload(payl)
         if pad and conf.padding:
@@ -3092,11 +3113,17 @@ class Dot11(Packet):
                     MACField("addr1", ETHER_ANY),
                     Dot11Addr2MACField("addr2", ETHER_ANY),
                     Dot11Addr3MACField("addr3", ETHER_ANY),
-                    ShortField("SC", 0),
+                    LEShortField("SC", 0),
                     Dot11Addr4MACField("addr4", ETHER_ANY) 
                     ]
     def mysummary(self):
         return self.sprintf("802.11 %Dot11.type% %Dot11.subtype% %Dot11.addr1%")
+    def guess_payload_class(self):
+        if self.FCfield & 0x40:
+            return Dot11WEP
+        else:
+            return Packet.guess_payload_class(self)
+
 
 capability_list = [ "res8", "res9", "short-slot", "res11",
                     "res12", "DSSS-OFDM", "res14", "res15",
@@ -3176,6 +3203,26 @@ class Dot11Auth(Packet):
 class Dot11Deauth(Packet):
     name = "802.11 Deauthentication"
     fields_desc = [ ShortEnumField("reason", 1, reason_code) ]
+
+
+
+class Dot11WEP(Packet):
+    name = "802.11 WEP packet"
+    fields_desc = [ StrFixedLenField("iv", "", 3),
+                    ByteField("key", 0),
+                    StrField("wepdata",""),
+                    IntField("icv",0) ]
+
+    def post_dissect(self, s):
+        self.icv, = struct.unpack("!I",self.wepdata[-4:])
+        self.wepdata=self.wepdata[:-4]
+        self.decrypt()
+
+    def decrypt(self):
+        if conf.wepkey:
+            c = ARC4.new(self.iv+conf.wepkey)
+            self.add_payload(LLC(c.decrypt(self.wepdata[:-4])))
+                    
 
 
 class PrismHeader(Packet):
@@ -5454,7 +5501,7 @@ for am in AM_classes:
 ## Testing stuff ##
 ###################
 
-ss
+
 
 def merge(x,y):
     if len(x) > len(y):
@@ -5468,21 +5515,21 @@ def merge(x,y):
 #    return  "".join(map(str.__add__, x, y))
 
 
-#    FIFO="/tmp/conv1.%i.%%i" % os.getpid()
-#    FIFO1=FIFO % 1
-#    FIFO2=FIFO % 2
-#    
-#    os.mkfifo(FIFO1)
-#    os.mkfifo(FIFO2)
-#    os.system("strace -o /tmp/sss soxmix -t .ul %s -t .ul %s -t ossdsp /dev/dsp &" % (FIFO1,FIFO2))
-#    
-#    c1=open(FIFO1,"w", 4096)
-#    c2=open(FIFO2,"w", 4096)
-#    fcntl.fcntl(c1.fileno(),fcntl.F_SETFL, os.O_NONBLOCK)
-#    fcntl.fcntl(c2.fileno(),fcntl.F_SETFL, os.O_NONBLOCK)
-
 def voip_play(s1,**kargs):
-    dsp,rd = os.popen2("sox -t .ul -c 2 - -t ossdsp /dev/dsp")
+    FIFO="/tmp/conv1.%i.%%i" % os.getpid()
+    FIFO1=FIFO % 1
+    FIFO2=FIFO % 2
+    
+    os.mkfifo(FIFO1)
+    os.mkfifo(FIFO2)
+    os.system("strace -o /tmp/sss soxmix -t .ul %s -t .ul %s -t ossdsp /dev/dsp &" % (FIFO1,FIFO2))
+    
+    c1=open(FIFO1,"w", 4096)
+    c2=open(FIFO2,"w", 4096)
+    fcntl.fcntl(c1.fileno(),fcntl.F_SETFL, os.O_NONBLOCK)
+    fcntl.fcntl(c2.fileno(),fcntl.F_SETFL, os.O_NONBLOCK)
+
+#    dsp,rd = os.popen2("sox -t .ul -c 2 - -t ossdsp /dev/dsp")
     def play(pkt,last=[]):
         if not pkt:
             return 
@@ -5494,20 +5541,20 @@ def voip_play(s1,**kargs):
                 last.append(pkt)
                 return
             load=last.pop()
-            x1 = load.load[12:]
-#            c1.write(load.load[12:])
+#            x1 = load.load[12:]
+            c1.write(load.load[12:])
             if load.getlayer(IP).src == ip.src:
-                x2 = ""
-#                c2.write("\x00"*len(load.load[12:]))
+#                x2 = ""
+                c2.write("\x00"*len(load.load[12:]))
                 last.append(pkt)
             else:
-                x2 = pkt.load[:12]
-#                c2.write(pkt.load[12:])
-            dsp.write(merge(x1,x2))
+#                x2 = pkt.load[:12]
+                c2.write(pkt.load[12:])
+#            dsp.write(merge(x1,x2))
             
     sniff(store=0, prn=play, **kargs)
-#    os.unlink(FIFO1)
-#    os.unlink(FIFO2)
+    os.unlink(FIFO1)
+    os.unlink(FIFO2)
 
 
 def IPID_count(lst, funcID=lambda x:x[1].id, funcpres=lambda x:x[1].summary()):
@@ -5777,6 +5824,7 @@ route    : holds the Scapy routing table and provides methods to manipulate it
     except_filter = ""
     debug_match = 0
     route = Route()
+    wepkey = ""
         
 
 conf=Conf()
