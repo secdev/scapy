@@ -22,6 +22,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.12.2  2003/05/06 10:41:58  pbi
+# - externalized conversion from probes to signature with nmap_probes2sig() use probe results from, say, a pcap file
+#
 # Revision 0.9.12.1  2003/04/27 10:07:30  pbi
 # Release 0.9.12
 #
@@ -204,7 +207,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.12.1 2003/04/27 10:07:30 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.12.2 2003/05/06 10:41:58 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -3155,7 +3158,7 @@ def TCPflags2str(f):
         f >>= 1
     return s
 
-def nmap_packet_sig(pkt):
+def nmap_tcppacket_sig(pkt):
     r = {}
     if pkt is not None:
 #        r["Resp"] = "Y"
@@ -3167,6 +3170,25 @@ def nmap_packet_sig(pkt):
     else:
         r["Resp"] = "N"
     return r
+
+
+def nmap_udppacket_sig(S,T):
+    r={}
+    if T is None:
+        r["Resp"] = "N"
+    else:
+        r["DF"] = (T.flags & 2) and "Y" or "N"
+        r["TOS"] = "%X" % T.tos
+        r["IPLEN"] = "%X" % T.len
+        r["RIPTL"] = "%X" % T.payload.payload.len
+        r["RID"] = S.id == T.payload.payload.id and "E" or "F"
+        r["RIPCK"] = S.chksum == T.getlayer(IPerror).chksum and "E" or T.getlayer(IPerror).chksum == 0 and "0" or "F"
+        r["UCK"] = S.payload.chksum == T.getlayer(UDPerror).chksum and "E" or T.getlayer(UDPerror).chksum ==0 and "0" or "F"
+        r["ULEN"] = "%X" % T.getlayer(UDPerror).len
+        r["DAT"] = T.getlayer(Raw) is None and "E" or S.getlayer(Raw).load == T.getlayer(Raw).load and "E" or "F"
+    return r
+    
+
 
 def nmap_match_one_sig(seen, ref):
     c = 0
@@ -3202,28 +3224,26 @@ def nmap_sig(target, oport=80, cport=81, ucport=1):
 
     for S,T in ans:
         if S.sport == 5008:
-            r={}
-            if T is None:
-                r["Resp"] = "N"
-            else:
-                r["DF"] = (T.flags & 2) and "Y" or "N"
-                r["TOS"] = "%X" % T.tos
-                r["IPLEN"] = "%X" % T.len
-                r["RIPTL"] = "%X" % T.payload.payload.len
-                r["RID"] = S.id == T.payload.payload.id and "E" or "F"
-                r["RIPCK"] = S.chksum == T.getlayer(IPerror).chksum and "E" or T.getlayer(IPerror).chksum == 0 and "0" or "F"
-                r["UCK"] = S.payload.chksum == T.getlayer(UDPerror).chksum and "E" or T.getlayer(UDPerror).chksum ==0 and "0" or "F"
-                r["ULEN"] = "%X" % T.getlayer(UDPerror).len
-                r["DAT"] = T.getlayer(Raw) is None and "E" or S.getlayer(Raw).load == T.getlayer(Raw).load and "E" or "F"
-            res["PU"] = r
+            res["PU"] = nmap_udppacket_sig(S,T)
         else:
             t = "T%i" % (S.sport-5000)
             if T is not None and T.haslayer(ICMP):
                 warning("Test %s answered by an ICMP" % t)
                 T=None
-            res[t] = nmap_packet_sig(T)
+            res[t] = nmap_tcppacket_sig(T)
 
     return res
+
+def nmap_probes2sig(tests):
+    tests=tests.copy()
+    res = {}
+    if "PU" in tests:
+        res["PU"] = nmap_udppacket_sig(*tests["PU"])
+        del(tests["PU"])
+    for k in tests:
+        res[k] = nmap_tcppacket_sig(tests[k])
+    return res
+        
 
 def nmap_search(sigs):
     guess = 0,[]
