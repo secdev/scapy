@@ -22,6 +22,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.10.3  2003/04/16 14:35:32  pbi
+# - added L2dnetSocket()
+# - improved arping()
+#
 # Revision 0.9.10.2  2003/04/16 12:40:40  pbi
 # - fixed the case when the history file does not exist
 #
@@ -155,7 +159,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.10.2 2003/04/16 12:40:40 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.10.3 2003/04/16 14:35:32 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2440,6 +2444,7 @@ class L2ListenSocket(SuperSocket):
 
 
 if DNET and PCAP:
+    # XXX: works only for Ethernet
     class L3dnetSocket(SuperSocket):
         def __init__(self, type = None, filter=None, promisc=None, iface=None):
             self.iflist = {}
@@ -2461,9 +2466,30 @@ if DNET and PCAP:
         def recv(self,x):
             return Ether(self.ins.next()[1][2:]).payload
         def close(self):
-            del(self.ins)
-            for iff in self.iflist:
-                iff.close()
+            if hasattr(self, "ins"):
+                del(self.ins)
+            if hasattr(self, "outs"):
+                del(self.outs)
+
+    class L2dnetSocket(SuperSocket):
+        def __init__(self, iface = None, type = ETH_P_ALL, filter=None):
+            if iface is None:
+                iface = conf.iff
+            self.ins = pcap.pcapObject()
+            self.ins.open_live(iface, 1600, 0, 100)
+            if filter:
+                self.ins.setfilter(filter, 0, 0)
+            self.outs = dnet.eth(iface)
+        def recv(self,x):
+            return Ether(self.ins.next()[1])
+        def close(self):
+            if hasattr(self, "ins"):
+                del(self.ins)
+            if hasattr(self, "outs"):
+                del(self.outs)
+        
+    
+    
 
 
 if PCAP:
@@ -2993,10 +3019,13 @@ user_commands = [ sr, sr1, srp, sniff, p0f, arpcachepoison, send, sendp, tracero
 last=None
 
 def arping(net, iface=None):
-    ans, unans, x = sndrcv(conf.L2socket(iface=iface), Ether(dst="ff:ff:ff:ff:ff:ff")/ARP(pdst=net))
+    ans,unans = srp(Ether(dst="ff:ff:ff:ff:ff:ff")/ARP(pdst=net),
+                    filter="arp and arp[7] = 2", timeout=5, iface=iface)
+    
+#    ans, unans, x = sndrcv(conf.L2socket(iface=iface, filter="arp"), Ether(dst="ff:ff:ff:ff:ff:ff")/ARP(pdst=net),timeout=10, )
     for s,r in ans:
         print r.payload.psrc
-    last = ans,unans,x
+    last = ans,unans
 
 def icmping(net):
     global last
