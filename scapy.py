@@ -22,6 +22,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.13.2  2003/05/31 13:17:42  biondi
+# - small tweaks in Packet.sprintf()
+#
 # Revision 0.9.13.1  2003/05/16 13:34:30  pbi
 # Release 0.9.13
 #
@@ -236,7 +239,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.13.1 2003/05/16 13:34:30 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.13.2 2003/05/31 13:17:42 biondi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1767,7 +1770,6 @@ class Packet(Gen):
                         val = time.strftime("%H:%M:%S.%%06i", time.localtime(self.time)) % int((self.time-int(self.time))*1000000)
                     elif cls == self.__class__.__name__ and hasattr(self, fld):
                         if num > 1:
-                            print "toto"
                             val = self.payload.sprintf("%%%s,%s:%s.%s%%" % (f,cls,num-1,fld), relax)
                             f = "s"
                         elif f[-1] == "r":  # Raw field value
@@ -1777,7 +1779,7 @@ class Packet(Gen):
                                 f = "s"
                         else:
                             val = getattr(self,fld)
-                            if fld in self.fieldtype:
+                            if f == "s" and fld in self.fieldtype:
                                 val = self.fieldtype[fld].i2repr(self,val)
                     else:
                         val = self.payload.sprintf("%%%s%%" % sfclsfld, relax)
@@ -2029,7 +2031,7 @@ class IP(Packet, IPTools):
                     FlagsField("flags", 0, 3, ["MF","DF","evil"]),
                     BitField("frag", 0, 13),
                     ByteField("ttl", 64),
-                    ByteEnumField("proto", 0, {0:"IP",1:"ICMP",6:"TCP",17:"UDP"}),
+                    ByteEnumField("proto", 0, {0:"IP",1:"ICMP",6:"TCP",17:"UDP",47:"GRE"}),
                     XShortField("chksum", None),
                     #IPField("src", "127.0.0.1"),
                     SourceIPField("src","dst"),
