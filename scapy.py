@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.39  2005/02/20 22:22:23  pbi
+# - Graphic traceroute enhanced to cope with TCP, UDP, ICMP or other traceroutes
+# - ASN clustering in graphic traceroute can be controlled with the "ASN" parameter
+#
 # Revision 0.9.17.38  2005/02/18 21:03:26  pbi
 # - MGCP  early support
 # - RandString()
@@ -567,7 +571,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.38 2005/02/18 21:03:26 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.39 2005/02/20 22:22:23 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -891,6 +895,10 @@ def strxor(x,y):
 
 
 def do_graph(graph,type="svg",target="| display"):
+    """do_graph(graph, type="svg",target="| display"):
+    graph: GraphViz graph description
+    type: output type (svg, ps, gif, jpg, etc.), passed to dot's "-T" option
+    target: filename or redirect. Defaults pipe to Imagemagick's display program"""
     w,r = os.popen2("dot -T %s %s" % (type,target))
     w.write(graph)
     w.close()
@@ -1450,7 +1458,8 @@ class ARPingResult(SndRcvAns):
 class TracerouteResult(SndRcvAns):
     def __init__(self, res, name="Traceroute"):
         PacketList.__init__(self, res, name)
-        self.graphdef = None        
+        self.graphdef = None
+        self.graphASN = 0
 
     def display(self):
 
@@ -1458,23 +1467,39 @@ class TracerouteResult(SndRcvAns):
                                lambda x: x[0].ttl,
                                lambda x: x[1].sprintf("%-15s,IP.src% {TCP:%TCP.flags%}{ICMP:%ir,ICMP.type%}"))
 
-    def make_graph(self):
+    def make_graph(self,ASN):
+        self.graphASN = ASN
         ips = {}
         rt = {}
         ports = {}
         ports_done = {}
         for s,r in self.res:
             ips[r.src] = None
-            trace_id = (s.dst,s.dport)
+            if s.haslayer(TCP) or s.haslayer(UDP):
+                trace_id = (s.src,s.dst,s.proto,s.dport)
+            elif s.haslayer(ICMP):
+                trace_id = (s.src,s.dst,s.proto,s.type)
+            else:
+                trace_id = (s.src,s.dst,s.proto,0)
             trace = rt.get(trace_id,{})
-            if r.haslayer(TCP):
+            if not r.haslayer(ICMP) or r.type != 11:
                 if ports_done.has_key(trace_id):
                     continue
                 ports_done[trace_id] = None
                 p = ports.get(r.src,[])
-                p.append(r.sprintf("<%TCP.sport%> %TCP.sport%: %TCP.flags%"))
+                if r.haslayer(TCP):
+                    p.append(r.sprintf("<T%ir,TCP.sport%> %TCP.sport%: %TCP.flags%"))
+                    trace[s.ttl] = r.sprintf('"%IP.src%":T%ir,TCP.sport%')
+                elif r.haslayer(UDP):
+                    p.append(r.sprintf("<U%ir,UDP.sport%> %UDP.sport%"))
+                    trace[s.ttl] = r.sprintf('"%IP.src%":U%ir,UDP.sport%')
+                elif r.haslayer(ICMP):
+                    p.append(r.sprintf("<I%ir,ICMP.type%> ICMP %ICMP.type%"))
+                    trace[s.ttl] = r.sprintf('"%IP.src%":I%ir,ICMP.type%')
+                else:
+                    p.append(r.sprintf("<P%ir,IP.proto> IP %IP.proto%"))
+                    trace[s.ttl] = r.sprintf('"%IP.src%":P%ir,IP.proto%')                    
                 ports[r.src] = p
-                trace[s.ttl] = r.sprintf('"%IP.src%":%TCP.sport%')
             else:
                 trace[s.ttl] = r.sprintf('"%IP.src%"')
             rt[trace_id] = trace
@@ -1490,39 +1515,73 @@ class TracerouteResult(SndRcvAns):
                     trace[n] = "unk%i" % unk
                     unk += 1
             if not ports_done.has_key(rtk):
-                bh = '%s:%i' % rtk
+                if rtk[2] == 1: #ICMP
+                    bh = "%s %i" % (rtk[1],rtk[3])
+                elif rtk[2] == 6: #TCP
+                    bh = "%s:%i/tcp" % (rtk[1],rtk[3])
+                elif rtk[2] == 17: #UDP                    
+                    bh = '%s:%i/udp' % (rtk[1],rtk[3])
+                else:
+                    bh = '%s,proto %i' % (rtk[1],rtk[2]) 
                 ips[bh] = None
                 bh = '"%s"' % bh
                 trace[max(k)+1] = bh
                 blackholes.append(bh)
     
         # Find AS numbers
-        def parseWhois(x):
-            asn,desc = None,""
-            for l in x.splitlines():
-                if not asn and l.startswith("origin:"):
-                    asn = l[7:].strip()
-                if l.startswith("descr:"):
-                    if desc:
-                        desc += r"\n"
-                    desc += l[6:].strip()
-                if asn is not None and desc:
-                    break
-            return asn,desc.strip()
     
     
-        def getASNlist(list):
-            ASNlist=[]
-            s=socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.connect(("whois.ra.net",43)) ## whois.cymru.com
+        def getASNlist_radb(list):
+            
+            def parseWhois(x):
+                asn,desc = None,""
+                for l in x.splitlines():
+                    if not asn and l.startswith("origin:"):
+                        asn = l[7:].strip()
+                    if l.startswith("descr:"):
+                        if desc:
+                            desc += r"\n"
+                        desc += l[6:].strip()
+                    if asn is not None and desc:
+                        break
+                return asn,desc.strip()
+
+            ASNlist = []
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.connect(("whois.ra.net",43))
             for ip in list:
-                s.send("-k %s\n" % ip.split(":")[0])
+                s.send("-k %s\n" % ip)
                 asn,desc = parseWhois(s.recv(8192))
                 ASNlist.append((ip,asn,desc))
             return ASNlist
+        
+        def getASNlist_cymru(list):
+            ASNlist = []
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.connect(("whois.cymru.com",43))
+            s.send("begin\r\n"+"\r\n".join(list)+"\r\nend\r\n")
+            r = ""
+            while 1:
+                l = s.recv(8192)
+                if l == "":
+                    break
+                r += l
+            s.close()
+            for l in r.splitlines()[1:]:
+                asn,ip,desc = map(str.strip, l.split("|"))
+                if asn == "NA":
+                    continue
+                asn = int(asn)
+                ASNlist.append((ip,asn,desc))
+            return ASNlist
                 
-    
-        ASNlist = getASNlist(ips)
+
+        if ASN == 1:
+            ASNlist = getASNlist_cymru(map(lambda x:x.split(":")[0],ips))
+        elif ASN == 2:
+            ASNlist = getASNlist_radb(map(lambda x:x.split(":")[0],ips))
+        else:
+            ASNlist = []
     
     
         ASNs = {}
@@ -1598,9 +1657,14 @@ class TracerouteResult(SndRcvAns):
         s += "}\n";
         self.graphdef = s
     
-    def graph(self, **kargs):
-        if self.graphdef is None:
-            self.make_graph()
+    def graph(self, ASN=1, **kargs):
+    """x.graph(ASN=1, other args):
+    ASN=0 : no clustering
+    ASN=1 : use whois.cymru.net AS clustering
+    ASN=2 : use whois.ra.net AS clustering
+    other args are passed to do_graph()"""
+        if self.graphdef is None or self.graphASN != ASN:
+            self.make_graph(ASN)
 
         do_graph(self.graphdef, **kargs)
 
