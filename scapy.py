@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.47  2005/03/14 10:20:49  pbi
+# - added unwep() method to Dot11 packets
+# - fixed 4 missing bytes in Dot11WEP
+#
 # Revision 0.9.17.46  2005/03/08 17:56:49  pbi
 # - added a possibility to give a hint for srp() to choose the intended interface
 # - added is_promisc() to find boxes in promisc mode (will not always work) (Javier Merino)
@@ -594,7 +598,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.46 2005/03/08 17:56:49 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.47 2005/03/14 10:20:49 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -3826,6 +3830,15 @@ class Dot11(Packet):
             return Dot11WEP
         else:
             return Packet.guess_payload_class(self)
+    def unwep(self):
+        if self.FCfield & 0x40 == 0:
+            warning("No WEP to remove")
+            return
+        if  isinstance(self.payload.payload, NoPayload):
+            warning("Dot11 must be already decrypted. Check conf.wepkey.")
+            return
+        self.FCfield &= ~0x40
+        self.payload=self.payload.payload
 
 
 capability_list = [ "res8", "res9", "short-slot", "res11",
@@ -3917,8 +3930,6 @@ class Dot11WEP(Packet):
                     IntField("icv",0) ]
 
     def post_dissect(self, s):
-        self.icv, = struct.unpack("!I",self.wepdata[-4:])
-        self.wepdata=self.wepdata[:-4]
         self.decrypt()
 
     def decrypt(self):
