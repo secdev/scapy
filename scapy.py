@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.71  2005/04/06 10:49:11  pbi
+# - forgotten debug msg in Net()
+#
 # Revision 0.9.17.70  2005/04/04 17:58:15  pbi
 # - modified Net() to recognize things like 172.16.*.1-10
 #
@@ -685,7 +688,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.70 2005/04/04 17:58:15 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.71 2005/04/06 10:49:11 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1494,7 +1497,6 @@ class Net(Gen):
 
         def parse_digit(a,netmask):
             netmask = min(8,max(netmask,0))
-            print netmask
             if a == "*":
                 a = (0,256)
             elif a.find("-") >= 0:
