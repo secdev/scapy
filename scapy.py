@@ -21,6 +21,12 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.15  2004/09/17 22:00:47  pbi
+# - transfert traceroute() and arping() options to sndrcv() ("retry", etc.)
+# - fixed retry option in sndrcv()
+# - tweaked AnweringMachine class
+# - rewrited airpwn to use AnsweringMachine
+#
 # Revision 0.9.17.14  2004/09/13 16:57:01  pbi
 # - added loopback routing
 #
@@ -460,7 +466,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.14 2004/09/13 16:57:01 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.15 2004/09/17 22:00:47 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -3881,6 +3887,8 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0,retry=0):
             retry = autostop
             
         tobesent = remain
+        if len(tobesent) == 0:
+            break
         retry -= 1
         
     if conf.debug_match:
@@ -4725,12 +4733,12 @@ arpcachepoison(target, victim, [interval=60]) -> None
     except KeyboardInterrupt:
         pass
 
-def traceroute(target, maxttl=30, dport=80, sport=RandShort(),minttl=1):
+def traceroute(target, maxttl=30, dport=80, sport=RandShort(),minttl=1,**kargs):
     """Instant TCP traceroute
 traceroute(target, [maxttl=30], [dport=80], [sport=80]) -> None
 """
     a,b = sr(IP(dst=target, id=RandShort(), ttl=(minttl,maxttl))/TCP(seq=RandInt(),sport=sport, dport=dport),
-             timeout=2, filter="(icmp and icmp[0]=11) or (tcp and (tcp[13] & 0x16 > 0x10))")
+             timeout=2, filter="(icmp and icmp[0]=11) or (tcp and (tcp[13] & 0x16 > 0x10))", **kargs)
     res = {}
     for s,r in a:
         if r.haslayer(ICMP):
@@ -4745,11 +4753,11 @@ traceroute(target, [maxttl=30], [dport=80], [sport=80]) -> None
         print "%2i %s" % (i, res[i])
     
 
-def arping(net, iface=None):
+def arping(net, **kargs):
     """Send ARP who-has requests to determine which hosts are up
 arping(net, iface=conf.iface) -> None"""
     ans,unans = srp(Ether(dst="ff:ff:ff:ff:ff:ff")/ARP(pdst=net),
-                    filter="arp and arp[7] = 2", timeout=2, iface=iface)
+                    filter="arp and arp[7] = 2", timeout=2, **kargs)
     for s,r in ans:
         print r.sprintf("%Ether.src% %ARP.psrc%")
     last = ans,unans
@@ -5012,10 +5020,13 @@ class AnsweringMachine:
         self.optsniff.update(optsniff)
 
         try:
-            sniff(**self.optsniff)
+            self.sniff()
         except KeyboardInterrupt:
             print "Interrupted by user"
         
+    def sniff(self):
+        sniff(**self.optsniff)
+
 
 class BOOTP_am(AnsweringMachine):
     function_name = "bootpd"
@@ -5063,7 +5074,8 @@ class BOOTP_am(AnsweringMachine):
         return rep
 
     def send_reply(self, reply):
-        sendp(reply, verbose=0, iface=self.iface)
+        sendp(reply, **self.optsend)
+        
 
 class DHCP_am(BOOTP_am):
     function_name="dhcpd"
@@ -5084,7 +5096,6 @@ class DHCP_am(BOOTP_am):
 class DNS_am(AnsweringMachine):
     function_name="dns_spoof"
     filter = "udp port 53"
-    the_ip = "1.2.3.5"
 
     def parse_options(self, joker="192.168.1.1", match=None):
         if match is None:
@@ -5106,7 +5117,77 @@ class DNS_am(AnsweringMachine):
         return resp
 
 
-AM_classes = [ BOOTP_am, DHCP_am, DNS_am]
+class WiFi_am(AnsweringMachine):
+    """Before using this, initialize "iffrom" and "ifto" interfaces:
+iwconfig iffrom mode monitor
+iwpriv orig_ifto hostapd 1
+ifconfig ifto up
+note: if ifto=wlan0ap then orig_ifto=wlan0
+note: ifto and iffrom must be set on the same channel
+ex:
+ifconfig eth1 up
+iwconfig eth1 mode monitor
+iwconfig eth1 channel 11
+iwpriv wlan0 hostapd 1
+ifconfig wlan0ap up
+iwconfig wlan0 channel 11
+iwconfig wlan0 essid dontexist
+iwconfig wlan0 mode managed
+"""
+    function_name = "airpwn"
+    filter = None
+    
+    def parse_options(iffrom, ifto, replace, pattern="", ignorepattern=""):
+        self.iffrom = iffrom
+        self.ifto = ifto
+        ptrn = re.compile(pattern)
+        iptrn = re.compile(ignorepattern)
+        
+    def is_request(self, pkt):
+        if not isinstance(pkt,Dot11):
+            return 0
+        if not pkt.FCfield & 1:
+            return 0
+        if not pkt.haslayer(TCP):
+            return 0
+        ip = pkt.getlayer(IP)
+        tcp = pkt.getlayer(TCP)
+        pay = str(tcp.payload)
+        if not self.ptrn.match(pay):
+            return 0
+        if self.iptrn.match(pay):
+            return 0
+
+    def make_reply(self, p):
+        ip = p.getlayer(IP)
+        tcp = p.getlayer(TCP)
+        pay = str(tcp.payload)
+        del(p.payload.payload.payload)
+        p.FCfield="from-DS"
+        p.addr1,p.addr2 = p.addr2,p.addr1
+        p /= IP(src=ip.dst,dst=ip.src)
+        p /= TCP(sport=tcp.dport, dport=tcp.sport,
+                 seq=tcp.ack, ack=tcp.seq+len(pay),
+                 flags="PA")
+        q = p.copy()
+        p /= self.replace
+        q.ID += 1
+        q.getlayer(TCP).flags="RA"
+        q.getlayer(TCP).seq+=len(replace)
+        return [p,q]
+    
+    def print_reply(self):
+        print p.sprintf("Sent %IP.src%:%IP.sport% > %IP.dst%:%TCP.dport%")
+
+    def send_reply(self, reply):
+        sendp(reply, iface=self.ifto, **self.optsend)
+
+    def sniff(self):
+        sniff(iface=self.iffrom, **self.optsniff)
+
+
+
+AM_classes = [ BOOTP_am, DHCP_am, DNS_am, WiFi_am]
 
 for am in AM_classes:
     locals()[am.function_name] = lambda *args,**kargs: am(*args,**kargs).run()
