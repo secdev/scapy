@@ -22,6 +22,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.9.8  2003/04/11 16:52:29  pbi
+# - better integration of libpcap and libdnet, if available
+#
 # Revision 0.9.9.7  2003/04/11 15:49:31  pbi
 # - some tweaks about supersockets close() and __del__() (not satisfied)
 # - added L3dnetSocket, that use libdnet and libpcap if available
@@ -122,7 +125,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.9.7 2003/04/11 15:49:31 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.9.8 2003/04/11 16:52:29 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -231,6 +234,18 @@ import socket, sys, getopt, string, struct, time, random, os, traceback
 import pickle, types
 from select import select
 from fcntl import ioctl
+
+try:
+    import pcap
+    PCAP = 1
+except ImportError:
+    PCAP = 0
+try:
+    import dnet
+    DNET = 1
+except ImportError:
+    DNET = 0
+
 
 ############
 ## Consts ##
@@ -356,12 +371,9 @@ class IPTools:
 
 
 
-###################
-## Routing stuff ##
-###################
-
-
-
+##############################
+## Routing/Interfaces stuff ##
+##############################
 
 def read_routes():
     f=open("/proc/net/route","r")
@@ -410,6 +422,22 @@ def choose_route(dst):
     # XXX: we don't care about metrics
     pathes.sort()
     return pathes[-1][1] 
+
+
+        
+if PCAP:
+    def get_if_list():
+        return map(lambda x:x[0],filter(lambda x:x[1] is None,pcap.findalldevs()))
+else:
+    def get_if_list():
+        f=open("/proc/net/dev","r")
+        lst = []
+        f.readline()
+        f.readline()
+        for l in f:
+            lst.append(l.split(":")[0].strip())
+        return lst
+
         
 def get_if(iff,cmd):
     s=socket.socket()
@@ -424,14 +452,6 @@ def get_if_hwaddr(iff):
     else:
         raise Exception("Unsupported address family (%i)"%addrfamily)
 
-def get_if_list():
-    f=open("/proc/net/dev","r")
-    lst = []
-    f.readline()
-    f.readline()
-    for l in f:
-        lst.append(l.split(":")[0].strip())
-    return lst
 
 def get_if_index(iff):
     return int(struct.unpack("I",get_if(iff, SIOCGIFINDEX)[16:20])[0])
@@ -454,29 +474,37 @@ ARPTIMEOUT=120
 # XXX Fill arp_cache with /etc/ether and arp cache
 arp_cache={}
 
-def getmacbyip(ip):
-    iff,a,gw = choose_route(ip)
-    if gw != "0.0.0.0":
-        ip = gw
-
-    if arp_cache.has_key(ip):
-        mac, timeout = arp_cache[ip]
-        if timeout and (time.time()-timeout < ARPTIMEOUT):
-            return mac
-
+if DNET:
+    dnet_arp_object = dnet.arp()
+    def getmacbyip(ip):
+        iff,a,gw = choose_route(ip)
+        if gw != "0.0.0.0":
+            ip = gw
+        return dnet_arp_object.get(dnet.addr(ip)).ntoa()
+else:
+    def getmacbyip(ip):
+        iff,a,gw = choose_route(ip)
+        if gw != "0.0.0.0":
+            ip = gw
     
-    res = srp1(Ether(dst=ETHER_BROADCAST)/ARP(op=ARP.who_has,
-                                              pdst=ip),
-              filter="arp",
-              iface = iff,
-              timeout=2,
-              verbose=0)
-    if res is not None:
-        mac = res.payload.hwsrc
-        arp_cache[ip] = (mac,time.time())
-        return mac
-    return None
-
+        if arp_cache.has_key(ip):
+            mac, timeout = arp_cache[ip]
+            if timeout and (time.time()-timeout < ARPTIMEOUT):
+                return mac
+    
+        
+        res = srp1(Ether(dst=ETHER_BROADCAST)/ARP(op=ARP.who_has,
+                                                  pdst=ip),
+                  filter="arp",
+                  iface = iff,
+                  timeout=2,
+                  verbose=0)
+        if res is not None:
+            mac = res.payload.hwsrc
+            arp_cache[ip] = (mac,time.time())
+            return mac
+        return None
+    
 
 
 ############
@@ -1791,7 +1819,7 @@ class IPerror(IP):
                  (self.id == other.id) and
                  (self.proto == other.proto) ):
             return 0
-        return self.payload < other.payload
+        return self.payload.answers(other.payload)
 
 
 class TCPerror(TCP):
@@ -2088,8 +2116,7 @@ class L2ListenSocket(SuperSocket):
 
 
 
-try:
-    import dnet,pcap
+if DNET and PCAP:
     class L3dnetSocket(SuperSocket):
         def __init__(self, type = ETH_P_IP, filter=None, promisc=None, iface=None):
             self.iflist = {}
@@ -2137,9 +2164,6 @@ try:
             os.waitpid(self.pid, 0)
             for iff in self.iflist:
                 iff.close()
-            
-except ImportError:
-    pass
 
 
 
@@ -2760,15 +2784,7 @@ class ConfClass:
     def configure(self, cnf):
         self.__dict__ = cnf.__dict__.copy()
     def __repr__(self):
-        s=""
-        keys = self.__class__.__dict__.copy()
-        keys.update(self.__dict__)
-        keys = keys.keys()
-        keys.sort()
-        for i in keys:
-            if i[0] != "_":
-                s += " %s=%s" % (i, repr(getattr(self, i)))
-        return "<Conf%s>" % s
+        return str(self)
     def __str__(self):
         s=""
         keys = self.__class__.__dict__.copy()
