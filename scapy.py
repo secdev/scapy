@@ -22,6 +22,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.13.3  2003/05/31 14:01:12  biondi
+# - more tweaks on Packet.sprintf(). Added __doc__.
+#
 # Revision 0.9.13.2  2003/05/31 13:17:42  biondi
 # - small tweaks in Packet.sprintf()
 #
@@ -239,7 +242,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.13.2 2003/05/31 13:17:42 biondi Exp $"
+RCSID="$Id: scapy.py,v 0.9.13.3 2003/05/31 14:01:12 biondi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1736,6 +1739,17 @@ class Packet(Gen):
         self.payload.display(lvl+1)
 
     def sprintf(self, fmt, relax=1):
+        """sprintf(format, [relax=1]) -> str
+where format is a string that can include directives. A directive begins and
+ends by % and has the following format %[fmt[r],][cls[:nb].]field%.
+
+fmt is a classic printf directive, "r" can be appended for raw substitution
+(ex: IP.flags=0x18 instead of SA), nb is the number of the layer we want
+(ex: for IP/IP packets, IP:2.src is the src of the upper IP layer).
+Special case : "%.time%" is the creation time.
+Ex : p.sprintf("%.time% %-15s,IP.src% -> %-15s,IP.dst% %IP.chksum% "
+               "%03xr,IP.proto% %r,TCP.flags%")
+"""
         s = ""
         while "%" in fmt:
             i = fmt.index("%")
@@ -1779,7 +1793,7 @@ class Packet(Gen):
                                 f = "s"
                         else:
                             val = getattr(self,fld)
-                            if f == "s" and fld in self.fieldtype:
+                            if fld in self.fieldtype:
                                 val = self.fieldtype[fld].i2repr(self,val)
                     else:
                         val = self.payload.sprintf("%%%s%%" % sfclsfld, relax)
