@@ -22,6 +22,12 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.16.10  2004/07/05 08:53:41  pbi
+# - added retry option to sndrcv()
+# - improved debug class
+# - added ottl() and hops() methods for IPTools class
+# - improved UDP and ICMP summary()
+#
 # Revision 0.9.16.9  2004/06/07 16:09:21  pbi
 # - fix again TCP.answers() and TCPerror.answers()
 #
@@ -374,7 +380,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.16.9 2004/06/07 16:09:21 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.16.10 2004/07/05 08:53:41 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -691,6 +697,7 @@ def strxor(x,y):
 class debug:
     recv=[]
     sent=[]
+    match=[]
 
 
 
@@ -702,6 +709,12 @@ class IPTools:
     """Add more powers to a class that have a "src" attribute."""
     def whois(self):
         os.system("whois %s" % self.src)
+    def ottl(self):
+	t = [32,64,128,255]+[self.ttl]
+	t.sort()
+	return t[t.index(self.ttl)+1]
+    def hops(self):
+        return self.ottl()-self.ttl-1 
 
 
 
@@ -2524,7 +2537,7 @@ class UDP(Packet):
         return 1
     def mysummary(self):
         if isinstance(self.underlayer, IP):
-            return "%s:%i > %s:%i" % (self.underlayer.src, self.sport,
+            return "UDP %s:%i > %s:%i" % (self.underlayer.src, self.sport,
                                     self.underlayer.dst, self.dport)
         else:
             return "UDP %i > %i" % (self.sport, self.dport)
@@ -2574,7 +2587,10 @@ class ICMP(Packet):
         else:
             return None
     def mysummary(self):
-        return self.sprintf("ICMP %ICMP.type% %ICMP.code%")
+        if isinstance(self.underlayer, IP):
+            return self.underlayer.sprintf("ICMP %IP.src% %ICMP.type% %ICMP.code%")
+        else:
+            return self.sprintf("ICMP %ICMP.type% %ICMP.code%")
     
         
 
@@ -3317,7 +3333,7 @@ if PCAP:
 
 
 
-def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0):
+def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0,retry=0):
 
     if not isinstance(pkt, Gen):
         pkt = SetGen(pkt)
@@ -3326,115 +3342,121 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0):
         verbose = conf.verb
     debug.recv = []
     debug.sent = []
+    debug.match = []
     nbrecv=0
     ans = []
     # do it here to fix random fields, so that parent and child have the same
-    sent = [p for p in pkt]
-    notans = len(sent)
+    tobesent = [p for p in pkt]
+    notans = len(tobesent)
 
     hsent={}
-    for i in sent:
+    for i in tobesent:
         h = i.hashret()
         if h in hsent:
             hsent[h].append(i)
         else:
             hsent[h] = [i]
 
+    while retry >= 0:
     
-    if timeout < 0:
-        timeout = None
         
-    rdpipe,wrpipe = os.pipe()
-    rdpipe=os.fdopen(rdpipe)
-    wrpipe=os.fdopen(wrpipe,"w")
-
-    pid = os.fork()
-    if pid == 0:
-        sys.stdin.close()
-        rdpipe.close()
-        try:
-            i = 0
-            if verbose:
-                print "Begin emission:"
-            for p in sent:
-                pks.send(p)
-                i += 1
-                time.sleep(inter)
-            if verbose:
-                print "Finished to send %i packets." % i
-        except SystemExit:
-            pass
-        except KeyboardInterrupt:
-            pass
-        except:
-            print "--- Error in child %i" % os.getpid()
-            traceback.print_exc()
-            print "--- End of error in child %i" % os.getpid()
+        if timeout < 0:
+            timeout = None
+            
+        rdpipe,wrpipe = os.pipe()
+        rdpipe=os.fdopen(rdpipe)
+        wrpipe=os.fdopen(wrpipe,"w")
+    
+        pid = os.fork()
+        if pid == 0:
+            sys.stdin.close()
+            rdpipe.close()
+            try:
+                i = 0
+                if verbose:
+                    print "Begin emission:"
+                for p in tobesent:
+                    pks.send(p)
+                    i += 1
+                    time.sleep(inter)
+                if verbose:
+                    print "Finished to send %i packets." % i
+            except SystemExit:
+                pass
+            except KeyboardInterrupt:
+                pass
+            except:
+                print "--- Error in child %i" % os.getpid()
+                traceback.print_exc()
+                print "--- End of error in child %i" % os.getpid()
+                sys.exit()
+            else:
+                pickle.dump(arp_cache, wrpipe)
+                wrpipe.close()
             sys.exit()
+        elif pid < 0:
+            print "fork error"
         else:
-            pickle.dump(arp_cache, wrpipe)
             wrpipe.close()
-        sys.exit()
-    elif pid < 0:
-        print "fork error"
-    else:
-        wrpipe.close()
-        finished = 0
-        remaintime = timeout
-        inmask = [rdpipe,pks]
-        try:
-            while 1:
-                start = time.time()
-                inp, out, err = select(inmask,[],[], remaintime)
-                if len(inp) == 0:
-                    break
-                if rdpipe in inp:
-                    finished = 1
-                    del(inmask[inmask.index(rdpipe)])
-                    continue
-                r = pks.recv(MTU)
-                ok = 0
-                h = r.hashret()
-                if h in hsent:
-                    hlst = hsent[h]
-                    for i in range(len(hlst)):
-                        if r.answers(hlst[i]):
-                            ans.append((hlst[i],r))
-                            if verbose > 1:
-                                os.write(1, "*")
-                            ok = 1
-                            notans -= 1
-                            del(hlst[i])
-                            break
-                if notans == 0:
-                    break
-                if not ok:
-                    if verbose > 1:
-                        os.write(1, ".")
-                    nbrecv += 1
-                    if conf.debug_match:
-                        debug.recv.append(r)
-                if finished and remaintime:
-                    end = time.time()
-                    remaintime -= end-start
-                    if remaintime < 0:
+            finished = 0
+            remaintime = timeout
+            inmask = [rdpipe,pks]
+            try:
+                while 1:
+                    start = time.time()
+                    inp, out, err = select(inmask,[],[], remaintime)
+                    if len(inp) == 0:
                         break
-        except KeyboardInterrupt:
-            if chainCC:
-                raise KeyboardInterrupt
-
-        try:
-            ac = pickle.load(rdpipe)
-        except EOFError:
-            warning("Child died unexpectedly. Packets may have not been sent")
-        else:
-            arp_cache.update(ac)
-            os.waitpid(pid,0)
-
-    del(sent)
-    remain = reduce(list.__add__, hsent.values())
+                    if rdpipe in inp:
+                        finished = 1
+                        del(inmask[inmask.index(rdpipe)])
+                        continue
+                    r = pks.recv(MTU)
+                    ok = 0
+                    h = r.hashret()
+                    if h in hsent:
+                        hlst = hsent[h]
+                        for i in range(len(hlst)):
+                            if r.answers(hlst[i]):
+                                ans.append((hlst[i],r))
+                                if verbose > 1:
+                                    os.write(1, "*")
+                                ok = 1
+                                notans -= 1
+                                del(hlst[i])
+                                break
+                    if notans == 0:
+                        break
+                    if not ok:
+                        if verbose > 1:
+                            os.write(1, ".")
+                        nbrecv += 1
+                        if conf.debug_match:
+                            debug.recv.append(r)
+                    if finished and remaintime:
+                        end = time.time()
+                        remaintime -= end-start
+                        if remaintime < 0:
+                            break
+            except KeyboardInterrupt:
+                if chainCC:
+                    raise KeyboardInterrupt
+    
+            try:
+                ac = pickle.load(rdpipe)
+            except EOFError:
+                warning("Child died unexpectedly. Packets may have not been sent")
+            else:
+                arp_cache.update(ac)
+                os.waitpid(pid,0)
+    
+        remain = reduce(list.__add__, hsent.values())
+        tobesent = remain
+        retry -= 1
+        
     if conf.debug_match:
         debug.sent=remain[:]
+        debug.match=ans[:]
     if verbose:
         print "\nReceived %i packets, got %i answers, remaining %i packets" % (nbrecv+len(ans), len(ans), notans)
     return ans,remain,debug.recv
