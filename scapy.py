@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.12  2004/09/10 16:54:46  pbi
+# - AnsweringMachine twaking
+# - added DNS spoofing answering machine
+#
 # Revision 0.9.17.11  2004/09/08 13:42:38  pbi
 # - renamed  ScapyPcapWriter class to PcapWriter
 # - added linktype parameter to PcapWriter (William McVey)
@@ -450,7 +454,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.11 2004/09/08 13:42:38 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.12 2004/09/10 16:54:46 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -4924,14 +4928,18 @@ class AnsweringMachine:
         return req
 
     def send_reply(self, reply):
-        send(reply, iface=self.iface)
+        send(reply, verbose=0, iface=self.iface)
 
+    def print_reply(self, req, reply):
+        print "%s ==> %s" % (req.summary(),reply.summary())
 
     def reply(self, pkt):
         if not self.is_request(pkt):
             return
         reply = self.make_reply(pkt)
         self.send_reply(reply)
+        if conf.verb >= 0:
+            self.print_reply(pkt, reply)
 
     def run(self, *args, **kargs):
         a = self.def_args + args
@@ -4970,7 +4978,11 @@ class BOOTP_am(AnsweringMachine):
         if reqb.op != 1:
             return 0
         return 1
-        
+
+    def print_reply(self, req, reply):
+        print "Reply %s to %s" % (reply.getlayer(IP).dst,reply.dst)
+
+
     def make_reply(self, req):        
         mac = req.src
         if type(self.ipset) is list:
@@ -4978,9 +4990,7 @@ class BOOTP_am(AnsweringMachine):
                 self.leases[mac] = self.ipset.pop()
             ip = self.leases[mac]
         else:
-            ip = ipset
-        if conf.verb >= 1:
-            print "Reply %s to %s" % (ip,mac)
+            ip = self.ipset
             
         repb = req.getlayer(BOOTP).copy()
         repb.options = ""
@@ -4993,8 +5003,7 @@ class BOOTP_am(AnsweringMachine):
         return rep
 
     def send_reply(self, reply):
-        sendp(reply, iface=self.iface)
-
+        sendp(reply, verbose=0, iface=self.iface)
 
 class DHCP_am(BOOTP_am):
     function_name="dhcpd"
@@ -5011,12 +5020,24 @@ class DHCP_am(BOOTP_am):
         resp.getlayer(BOOTP).options = opt[:6]+dhcprespmap[opt[6]]+opt[7:]
 
 
-def bootpd2(*args, **kargs):
-    BOOTP_am(*args, **kargs).run()
+
+class DNS_am(AnsweringMachine):
+    function_name="dns_spoof"
+    filter = "udp port 53"
+    the_ip = "1.2.3.5"
+    def is_request(self, req):
+        return req.haslayer(DNS) and req.getlayer(DNS).qr == 0
+    
+    def make_reply(self, req):
+        ip = req.getlayer(IP)
+        dns = req.getlayer(DNS)
+        resp = IP(dst=ip.src, src=ip.dst)/UDP(dport=ip.sport,sport=ip.dport)
+        resp /= DNS(id=dns.id, qr=1, qd=dns.qd,
+                    an=DNSRR(rrname=dns.qd.qname, ttl=10, rdata=self.the_ip))
+        return resp
 
 
-
-AM_classes = [ BOOTP_am, DHCP_am ]
+AM_classes = [ BOOTP_am, DHCP_am, DNS_am]
 
 for am in AM_classes:
     locals()[am.function_name] = lambda *args,**kargs: am(*args,**kargs).run()
