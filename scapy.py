@@ -21,6 +21,11 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.60  2005/03/23 17:07:56  pbi
+# - fixed session loading with -s
+# - prevented save_session() to trash current session
+# - changed AnsweringMachine to make send_reply() a bit more generic
+#
 # Revision 0.9.17.59  2005/03/22 16:52:44  pbi
 # - added _elt2show() to PacketList
 # - changed PacketList.show() to use _elt2show()
@@ -646,7 +651,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.59 2005/03/22 16:52:44 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.60 2005/03/23 17:07:56 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -752,16 +757,20 @@ if __name__ == "__main__":
 
     if session_name:
         try:
-            f=open(session_name)
-            session=cPickle.load(f)
-            f.close()
-            print "Using session [%s]" % session_name
-        except IOError:
+            os.stat(session_name)
+        except OSError:
             print "New session [%s]" % session_name
-        except EOFError:
-            print "Error opening session [%s]" % session_name
-        except AttributeError:
-            print "Error opening session [%s]. Attribute missing" %  session_name
+        else:
+            try:
+                try:
+                    session = cPickle.load(gzip.open(session_name))
+                except IOError:
+                    session = cPickle.load(open(session_name))
+                print "Using session [%s]" % session_name
+            except EOFError:
+                print "Error opening session [%s]" % session_name
+            except AttributeError:
+                print "Error opening session [%s]. Attribute missing" %  session_name
 
         if session:
             if "conf" in session:
@@ -993,27 +1002,26 @@ def do_graph(graph,type="svg",target="| display"):
 def save_session(fname, session=None, pickleProto=-1):
     if session is None:
         session = scapy_session
-        
-    saved = {}
-        
-    if session.has_key("__builtins__"):
-        saved["__builtins__"] = session["__builtins__"]
-        del(session["__builtins__"])
 
-    for k in session.keys():
-        if type(session[k]) in [types.ClassType, types.ModuleType]:
-             print "[%s] (%s) can't be saved. Deleted." % (k, type(session[k]))
-             saved[k] = session[k]
-             del(session[k])
+    to_be_saved = session.copy()
+        
+    if to_be_saved.has_key("__builtins__"):
+        del(to_be_saved["__builtins__"])
+
+    for k in to_be_saved.keys():
+        if type(to_be_saved[k]) in [types.ClassType, types.ModuleType]:
+             print "[%s] (%s) can't be saved. Deleted." % (k, type(to_be_saved[k]))
+             del(to_be_saved[k])
 
     try:
         os.rename(fname, fname+".bak")
     except OSError:
         pass
     f=gzip.open(fname,"w")
-    cPickle.dump(session, f, pickleProto)
+    cPickle.dump(to_be_saved, f, pickleProto)
     f.close()
-    session.update(saved)
+        
+        
     
 
 def load_session(fname):
@@ -1038,6 +1046,11 @@ def import_object(obj=None):
     if obj is None:
         obj = sys.stdin.read()
     return cPickle.loads(gzip.zlib.decompress(base64.decodestring(obj.strip())))
+def save_object(fname, obj):
+    cPickle.dump(obj,open(fname,"w"))
+
+def load_object(fname):
+    return cPickle.load(open(fname))
 
 
 
@@ -6475,6 +6488,7 @@ class AnsweringMachine:
     sniff_options_list = [ "store", "iface", "count", "promisc", "filter", "type", "prn" ]
     send_options = { "verbose":0 }
     send_options_list = ["iface", "inter", "loop", "verbose"]
+    send_function = staticmethod(send)
     
     
     def __init__(self, **kargs):
@@ -6539,7 +6553,7 @@ class AnsweringMachine:
         return req
 
     def send_reply(self, reply):
-        send(reply, **self.optsend)
+        self.send_function(reply, **self.optsend)
 
     def print_reply(self, req, reply):
         print "%s ==> %s" % (req.summary(),reply.summary())
@@ -6571,6 +6585,7 @@ class AnsweringMachine:
 class BOOTP_am(AnsweringMachine):
     function_name = "bootpd"
     filter = "udp and port 68 and port 67"
+    send_function = staticmethod(sendp)
     def parse_options(self, ipset=Net("192.168.1.128/25"),gw="192.168.1.1"):
         if type(ipset) is str:
             ipset = Net(ipset)
@@ -6613,9 +6628,6 @@ class BOOTP_am(AnsweringMachine):
         rep=Ether(dst=mac)/IP(dst=ip)/UDP(sport=req.dport,dport=req.sport)/repb
         return rep
 
-    def send_reply(self, reply):
-        sendp(reply, **self.optsend)
-        
 
 class DHCP_am(BOOTP_am):
     function_name="dhcpd"
@@ -6730,6 +6742,7 @@ iwconfig wlan0 mode managed
 class ARP_am(AnsweringMachine):
     function_name="farpd"
     filter = "arp"
+    send_function = staticmethod(sendp)
 
     def parse_options(self, IP_addr=None, iface=None, ARP_addr=None):
         self.IP_addr=IP_addr
@@ -6756,9 +6769,6 @@ class ARP_am(AnsweringMachine):
                                        hwdst=arp.hwsrc,
                                        pdst=arp.pdst)
         return resp
-
-    def send_reply(self, reply):
-        sendp(reply, **self.optsend)
 
     def sniff(self):
         sniff(iface=self.iface, **self.optsniff)
