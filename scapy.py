@@ -22,6 +22,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.13.1  2003/05/16 13:34:30  pbi
+# Release 0.9.13
+#
 # Revision 0.9.12.9  2003/05/16 13:32:38  pbi
 # - fixed verbose parameter in nmap_fp()
 #
@@ -233,7 +236,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.12.9 2003/05/16 13:32:38 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.13.1 2003/05/16 13:34:30 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
