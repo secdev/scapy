@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.62  2005/03/24 16:19:33  pbi
+# - made it possible to use a PacketList as a parameter for send* or sr*
+#
 # Revision 0.9.17.61  2005/03/23 18:27:06  pbi
 # - used init_cookie for ISAKMP.answers()
 # - raised an exception in route.make_route if parameters are incomplete
@@ -655,7 +658,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.61 2005/03/23 18:27:06 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.62 2005/03/24 16:19:33 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1422,6 +1425,8 @@ class SetGen(Gen):
     def __init__(self, set):
         if type(set) is list:
             self.set = set
+        elif isinstance(set, PacketList):
+            self.set = list(set)
         else:
             self.set = [set]
     def transf(self, element):
