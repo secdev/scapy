@@ -22,6 +22,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.12.5  2003/05/12 15:15:02  pbi
+# - added minttl parameter to traceroute()
+#
 # Revision 0.9.12.4  2003/05/06 13:39:21  pbi
 # - Improved random number object (thanks to O. Poyen)
 #
@@ -213,7 +216,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.12.4 2003/05/06 13:39:21 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.12.5 2003/05/12 15:15:02 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -3305,11 +3308,11 @@ arpspoof(target, victim, [interval=60]) -> None
     except KeyboardInterrupt:
         pass
 
-def traceroute(target, maxttl=30, dport=80, sport=RandShort()):
+def traceroute(target, maxttl=30, dport=80, sport=RandShort(),minttl=1):
     """Instant TCP traceroute
 traceroute(target, [maxttl=30], [dport=80], [sport=80]) -> None
 """
-    a,b = sr(IP(dst=target, ttl=(1,maxttl))/TCP(seq=RandInt(),sport=sport, dport=dport),
+    a,b = sr(IP(dst=target, ttl=(minttl,maxttl))/TCP(seq=RandInt(),sport=sport, dport=dport),
              timeout=2, filter="(icmp and icmp[0]=11) or (tcp and (tcp[13] & 0x16 > 0x10))")
     res = {}
     for s,r in a:
