@@ -1,4 +1,4 @@
-#! /usr/bin/python
+#! /usr/bin/env python
 
 #############################################################################
 ##                                                                         ##
@@ -22,6 +22,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.8.7  2003/04/07 15:32:10  pbi
+# - uses /usr/bin/env invocation
+#
 # Revision 0.9.8.6  2003/04/07 14:57:12  pbi
 # - catch error during payload dissection and consider payload as raw data
 #
@@ -83,7 +86,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.8.6 2003/04/07 14:57:12 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.8.7 2003/04/07 15:32:10 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
