@@ -22,6 +22,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.16.2  2004/02/22 17:49:51  pbi
+# added first sketch of a bootp daemon: bootpd()
+#
 # Revision 0.9.16.1  2004/01/26 18:01:00  pbi
 # Release 0.9.16
 #
@@ -346,7 +349,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.16.1 2004/01/26 18:01:00 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.16.2 2004/02/22 17:49:51 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2582,7 +2585,7 @@ class DNSRR(Packet):
 class BOOTP(Packet):
     name = "BOOTP"
     fields_desc = [ ByteEnumField("op",1, {1:"BOOTREQUEST", 2:"BOOTREPLY"}),
-                    ByteField("htype",0),
+                    ByteField("htype",1),
                     ByteField("hlen",6),
                     ByteField("hops",0),
                     IntField("xid",0),
@@ -4286,6 +4289,50 @@ def fragleak(target,sport=123, dport=123):
     except KeyboardInterrupt:
         pass
 
+
+def bootpd(ipset=Net("192.168.1.128/25"),gw="192.168.1.1",filter="udp and port 68 and port 67",iface=None, *args,**kargs):
+    if iface is None:
+        iface=conf.iface
+    leases = {}
+    if isinstance(ipset,Gen):
+        ipset = [k for k in ipset]
+        ipset.reverse()
+    ip=ipset
+    try:
+        while 1:
+            req=sniff(filter=filter, iface=iface, count=1, **kargs)
+            if not req:
+                break
+            req = req[0]
+            print repr(req)
+            if not req.haslayer(BOOTP):
+                continue
+            reqb = req.getlayer(BOOTP)
+            if reqb.op != 1:
+                continue
+            if type(ipset) is list:
+                mac=req.src
+                if not leases.has_key(mac):
+                    leases[mac]=ipset.pop()
+                ip=leases[mac]
+            if conf.verb >= 1:
+                print "Reply %s to %s" % (ip,mac)
+            repb=reqb.copy()
+            dhcprespmap={"\x01":"\x02","\x03":"\x05"}
+            repb.options = reqb.options[:6]+dhcprespmap[reqb.options[6]]+reqb.options[7:]
+            repb.op="BOOTREPLY"
+            repb.yiaddr=ip
+            repb.siaddr=gw
+            repb.ciaddr=gw
+            repb.giaddr=gw
+            rep=Ether(dst=mac)/IP(dst=ip)/UDP(sport=req.dport,dport=req.sport)/repb
+            print repr(rep)
+            sendp(rep,iface=iface)
+    except KeyboardInterrupt:
+        pass
+            
+        
+        
 
 
 ############
