@@ -22,6 +22,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.16.11  2004/07/05 22:43:49  pbi
+# - wrapper classes for results presentations and manipulation
+# - sndrcv() retry auto adjustment when giving a negative value
+#
 # Revision 0.9.16.10  2004/07/05 08:53:41  pbi
 # - added retry option to sndrcv()
 # - improved debug class
@@ -380,7 +384,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.16.10 2004/07/05 08:53:41 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.16.11 2004/07/05 22:43:49 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1011,6 +1015,56 @@ class Net(Gen):
     def __repr__(self):
         return "<Net %s>" % self.repr
 
+
+#############
+## Results ##
+#############
+
+class SndRcvAns:
+    def __init__(self, res):
+        self.res = res
+    def __repr__(self):
+        stats={TCP:0,UDP:0,ICMP:0}
+        for s,r in self.res:
+            for p in stats:
+                if r.haslayer(p):
+                    stats[p] += 1
+        s = ""
+        for p in stats:
+            s += " %s:%i" % (p.name,stats[p])
+        return "<Results:%s>" % s
+    def __getattr__(self, attr):
+        return getattr(self.res, attr)
+    def summary(self):
+        for s,r in self.res:
+            print s.summary(),"==>",r.summary()
+    def make_table(self, *args, **kargs):
+        return make_table(self.res, *args, **kargs)
+    def make_lined_table(self, *args, **kargs):
+        return make_lined_table(self.res, *args, **kargs)
+    def make_tex_table(self, *args, **kargs):
+        return make_tex_table(self.res, *args, **kargs)
+
+class SndRcvList:
+    def __init__(self, res):
+        self.res = res
+    def __repr__(self):
+        stats={TCP:0,UDP:0,ICMP:0}
+        for r in self.res:
+            for p in stats:
+                if r.haslayer(p):
+                    stats[p] += 1
+        s = ""
+        for p in stats:
+            s += " %s:%i" % (p.name,stats[p])
+        return "<Unanswered:%s>" % s
+    def __getattr__(self, attr):
+        return getattr(self.res, attr)
+    def summary(self):
+        for r in self.res:
+            print r.summary()
+        
+    
 ############
 ## Fields ##
 ############
@@ -1375,7 +1429,7 @@ class BitField(Field):
             b |= long(bytes[c]) << (nb_bytes-c-1)*8
 
         # get rid of high order bits
-        b &= (1 << (nb_bytes*8-bn+1)) - 1
+        b &= (1L << (nb_bytes*8-bn+1)) - 1
 
         # remove low order bits
         b = b >> (nb_bytes*8 - self.size - bn)
@@ -3334,15 +3388,14 @@ if PCAP:
 
 
 def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0,retry=0):
-
     if not isinstance(pkt, Gen):
         pkt = SetGen(pkt)
         
     if verbose is None:
         verbose = conf.verb
-    debug.recv = []
-    debug.sent = []
-    debug.match = []
+    debug.recv = SndRcvList([])
+    debug.sent = SndRcvList([])
+    debug.match = SndRcvAns([])
     nbrecv=0
     ans = []
     # do it here to fix random fields, so that parent and child have the same
@@ -3356,8 +3409,15 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0,retry=0):
             hsent[h].append(i)
         else:
             hsent[h] = [i]
+    if retry < 0:
+        retry = -retry
+        autostop=retry
+    else:
+        autostop=0
+
 
     while retry >= 0:
+        found=0
     
         
         if timeout < 0:
@@ -3451,15 +3511,18 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0,retry=0):
                 os.waitpid(pid,0)
     
         remain = reduce(list.__add__, hsent.values())
+        if autostop and len(remain) > 0 and len(remain) != len(tobesent):
+            retry = autostop
+            
         tobesent = remain
         retry -= 1
         
     if conf.debug_match:
-        debug.sent=remain[:]
-        debug.match=ans[:]
+        debug.sent=SndRcvList(remain[:])
+        debug.match=SndRcvAns(ans[:])
     if verbose:
         print "\nReceived %i packets, got %i answers, remaining %i packets" % (nbrecv+len(ans), len(ans), notans)
-    return ans,remain,debug.recv
+    return SndRcvAns(ans),SndRcvList(remain),debug.recv
 
 
 def __gen_send(s, x, inter=0, loop=0, verbose=None, *args, **kargs):
