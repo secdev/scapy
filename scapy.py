@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.23  2005/01/10 21:55:14  pbi
+# - addded promisc and iface parameters to L3RawSocket
+#
 # Revision 0.9.17.22  2004/12/26 18:07:43  pbi
 # - Improved PacketList with stability by addition and slicing
 # - Added plot() to PacketList using Gnuplot
@@ -506,7 +509,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.22 2004/12/26 18:07:43 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.23 2005/01/10 21:55:14 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -3986,7 +3989,7 @@ class SuperSocket:
 
 
 class L3RawSocket(SuperSocket):
-    def __init__(self, type = ETH_P_IP, filter=None):
+    def __init__(self, type = ETH_P_IP, filter=None, iface=None, promisc=None):
         self.outs = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_RAW)
         self.outs.setsockopt(socket.SOL_IP, socket.IP_HDRINCL, 1)
         self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))
