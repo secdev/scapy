@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.55  2005/03/14 17:59:23  pbi
+# - indentation cosmetic fix
+#
 # Revision 0.9.17.54  2005/03/14 17:53:56  pbi
 # - wrpcap() now writes the correct linktype in the pcap file
 #
@@ -623,7 +626,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.54 2005/03/14 17:53:56 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.55 2005/03/14 17:59:23 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -5407,126 +5410,126 @@ def rdpcap(filename):
 
 
 class PcapReader:
-	"""A stateful pcap reader
+    """A stateful pcap reader
+    
+    Based entirely on scapy.rdpcap(), this class allows for packets
+    to be dispatched without having to be loaded into memory all at
+    once
+    """
 
-	Based entirely on scapy.rdpcap(), this class allows for packets
-	to be dispatched without having to be loaded into memory all at
-	once
-	"""
+    def __init__(self, filename):
+        self.filename = filename
+        self.f = open(filename,"r")
+        hdr = self.f.read(24)
+        if len(hdr)<24:
+            raise RuntimeWarning, "Invalid pcap file"
+        magic,vermaj,vermin,tz,sig,snaplen,linktype = struct.unpack("IHHIIII",hdr)
+        if magic != 0xa1b2c3d4L:
+            raise RuntimeWarning, "Not a pcap capture file (bad magic)"
+        self.LLcls = LLTypes.get(linktype, Raw)
+        if self.LLcls == Raw:
+            warning("PcapReader: LL type unknown. Using Raw packets")
 
-	def __init__(self, filename):
-		self.filename = filename
-		self.f = open(filename,"r")
-		hdr = self.f.read(24)
-		if len(hdr)<24:
-			raise RuntimeWarning, "Invalid pcap file"
-		magic,vermaj,vermin,tz,sig,snaplen,linktype = struct.unpack("IHHIIII",hdr)
-		if magic != 0xa1b2c3d4L:
-			raise RuntimeWarning, "Not a pcap capture file (bad magic)"
-		self.LLcls = LLTypes.get(linktype, Raw)
-		if self.LLcls == Raw:
-			warning("PcapReader: LL type unknown. Using Raw packets")
+    def __del__(self):
+        self.f.close()
 
-	def __del__(self):
-		self.f.close()
+    def __iter__(self):
+        return self
 
-	def __iter__(self):
-		return self
-
-	def next(self):
-		"""impliment the iterator protocol on a set of packets in a
-		pcap file
-		"""
-		pkt = self.read_packet()
-		if pkt == None:
-			raise StopIteration
-		return pkt
+    def next(self):
+        """impliment the iterator protocol on a set of packets in a
+        pcap file
+        """
+        pkt = self.read_packet()
+        if pkt == None:
+            raise StopIteration
+        return pkt
 
 
-	def read_packet(self):
-		"""return a single packet read from the file
-
-		returns None when no more packets are available
-		"""
-		hdr = self.f.read(16)
-		if len(hdr) < 16:
-			return None
-		sec,usec,caplen,olen = struct.unpack("IIII", hdr)
-		p = self.LLcls(self.f.read(caplen))
-		p.time = sec+0.000001*usec
-		return p
+    def read_packet(self):
+        """return a single packet read from the file
+        
+        returns None when no more packets are available
+        """
+        hdr = self.f.read(16)
+        if len(hdr) < 16:
+            return None
+        sec,usec,caplen,olen = struct.unpack("IIII", hdr)
+        p = self.LLcls(self.f.read(caplen))
+        p.time = sec+0.000001*usec
+        return p
 	
-	def dispatch(self, callback):
-		"""call the specified callback routine for each packet read
+    def dispatch(self, callback):
+        """call the specified callback routine for each packet read
+        
+        This is just a convienience function for the main loop
+        that allows for easy launching of packet processing in a 
+        thread.
+        """
+        p = self.read_packet()
+        while p != None:
+            callback(p)
+            p = self.read_packet()
 
-		This is just a convienience function for the main loop
-		that allows for easy launching of packet processing in a 
-		thread.
-		"""
-		p = self.read_packet()
-		while p != None:
-			callback(p)
-			p = self.read_packet()
+    def read_all(self):
+        """return a list of all packets in the pcap file
+        """
+        res=[]
+        p = self.read_packet()
+        while p != None:
+            res.append(p)
+        return(p)
 
-	def read_all(self):
-		"""return a list of all packets in the pcap file
-		"""
-		res=[]
-		p = self.read_packet()
-		while p != None:
-			res.append(p)
-		return(p)
+    def read_PacketList(self):
+        """return a PacketList() of all packets in the pcap file
+        """
+        return PacketList(self.read_all(), self.filename)
 
-	def read_PacketList(self):
-		"""return a PacketList() of all packets in the pcap file
-		"""
-		return PacketList(self.read_all(), self.filename)
-
-        def recv(self, size):
-                """ Emulate a socket
-                """
-                return self.read_packet()
+    def recv(self, size):
+        """ Emulate a socket
+        """
+        return self.read_packet()
         
 
 
 class ScapyPcapWriter:
-        """A pcap writer with more control than wrpcap()
+    """A pcap writer with more control than wrpcap()
+    
+    This routine is based entirely on scapy.wrpcap(), but adds capability
+    of writing one packet at a time in a streaming manner.
+    """
+    def __init__(self, filename, linktype=1):
+        self.f = open(filename,"w")
+        self.f.write(struct.pack("IHHIIII",
+                                 0xa1b2c3d4L,
+                                 2, 4,
+                                 0,
+                                 0,
+                                 MTU,
+                                 linktype)) # XXX Find the link type
 
-        This routine is based entirely on scapy.wrpcap(), but adds capability
-        of writing one packet at a time in a streaming manner.
+    def write(self, packets):
+        """accepts a either a single packet or a list of packets
+        to be written to the dumpfile
         """
-        def __init__(self, filename, linktype=1):
-                self.f = open(filename,"w")
-                self.f.write(struct.pack("IHHIIII",
-                                                0xa1b2c3d4L,
-                                                2, 4,
-                                                0,
-                                                0,
-                                                MTU,
-                                                linktype)) # XXX Find the link type
+        if type(packets) == type(list):
+            for p in packets:
+                self.write_packet(p)
+        else:
+            self.write_packet(packets)
 
-        def write(self, packets):
-                """accepts a either a single packet or a list of packets
-                to be written to the dumpfile
-                """
-                if type(packets) == type(list):
-                        for p in packets:
-                                self.write_packet(p)
-                else:
-                        self.write_packet(packets)
+    def write_packet(self, packet):
+        """writes a single packet to the pcap file
+        """
+        s = str(packet)
+        l = len(s)
+        sec = int(packet.time)
+        usec = int((packet.time-sec)*1000000)
+        self.f.write(struct.pack("IIII", sec, usec, l, l))
+        self.f.write(s)
 
-        def write_packet(self, packet):
-                """writes a single packet to the pcap file
-                """
-                s = str(packet)
-                l = len(s)
-                sec = int(packet.time)
-                usec = int((packet.time-sec)*1000000)
-                self.f.write(struct.pack("IIII", sec, usec, l, l))
-                self.f.write(s)
-
-        def __del__(self):
-                self.f.close()
+    def __del__(self):
+        self.f.close()
 
 
 
