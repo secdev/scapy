@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.69  2005/04/04 14:24:00  pbi
+# - fix DHCP
+# - added dhcp_request()
+#
 # Revision 0.9.17.68  2005/03/28 22:18:04  pbi
 # - first attempt with time skew graphing
 #
@@ -678,7 +682,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.68 2005/03/28 22:18:04 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.69 2005/04/04 14:24:00 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -4038,7 +4042,7 @@ DHCPOptions = {
     44: IPField("NetBIOS_server","0.0.0.0"),
     45: IPField("NetBIOS_dist_server","0.0.0.0"),
     51: IntField("lease_time", 43200),
-    54: IPField("serveur_id","0.0.0.0"),
+    54: IPField("server_id","0.0.0.0"),
     57: ShortField("max_dhcp_size", 1500),
     58: IntField("renewal_time", 21600),
     59: IntField("rebinding_time", 37800),
@@ -4126,7 +4130,8 @@ class DHCPOptionsField(StrField):
 		    x = x[olen+2:]
 		else:
 		    olen = ord(x[1])
-		    left, val = f.m2i(pkt,f.getfield(pkt,x[2:olen+2]))
+		    left, val = f.getfield(pkt,x[2:olen+2])
+#                    val = f.m2i(pkt,val)
 		    if left:
 			print "m2i data left left=%s" % left
 		    opt.append((f.name, val))
@@ -6515,6 +6520,10 @@ def ikescan(ip):
                                       exch_type=2)/ISAKMP_payload_SA(prop=ISAKMP_payload_Proposal()))
 
 
+def dhcp_request(**kargs):
+    if conf.checkIPaddr != 0:
+        warning("conf.checkIPaddr is not 0, I may not be able to match the answer")
+    return srp1(Ether(dst="ff:ff:ff:ff:ff:ff")/IP(src="0.0.0.0",dst="255.255.255.255")/UDP(sport=68,dport=67)/BOOTP()/DHCP(options=[("message-type","discover"),"end"]),**kargs)
 
 
 #####################
