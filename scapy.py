@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.70  2005/04/04 17:58:15  pbi
+# - modified Net() to recognize things like 172.16.*.1-10
+#
 # Revision 0.9.17.69  2005/04/04 14:24:00  pbi
 # - fix DHCP
 # - added dhcp_request()
@@ -682,7 +685,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.69 2005/04/04 14:24:00 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.70 2005/04/04 17:58:15 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1478,23 +1481,39 @@ class SetGen(Gen):
 class Net(Gen):
     """Generate a list of IPs from a network address or a name"""
     name = "ip"
+    ipaddress = re.compile(r"^(\*|[0-2]?[0-9]?[0-9](-[0-2]?[0-9]?[0-9])?)\.(\*|[0-2]?[0-9]?[0-9](-[0-2]?[0-9]?[0-9])?)\.(\*|[0-2]?[0-9]?[0-9](-[0-2]?[0-9]?[0-9])?)\.(\*|[0-2]?[0-9]?[0-9](-[0-2]?[0-9]?[0-9])?)(/[0-3]?[0-9])?$")
     def __init__(self, net):
         self.repr=net
-        tmp=net.split('/')+["32"]
 
-        try:
-            ip=inet_aton(tmp[0])
-        except socket.error:
-            ip=socket.gethostbyname(tmp[0])
-            ip=inet_aton(ip)
-        
-        self.ip=struct.unpack("!I", ip)[0]
-        netsz=2**(32-int(tmp[1]))
-        self.ip=self.ip&(~(netsz-1))
-        self.size=netsz
+        tmp=net.split('/')+["32"]
+        if not self.ipaddress.match(net):
+            tmp[0]=socket.gethostbyname(tmp[0])
+        netmask = int(tmp[1])
+
+            
+
+        def parse_digit(a,netmask):
+            netmask = min(8,max(netmask,0))
+            print netmask
+            if a == "*":
+                a = (0,256)
+            elif a.find("-") >= 0:
+                x,y = map(int,a.split("-"))
+                if x > y:
+                    y = x
+                a = (x &  (0xffL<<netmask) , max(y, (x | (0xffL>>(8-netmask))))+1)
+            else:
+                a = (int(a) & (0xffL<<netmask),(int(a) | (0xffL>>(8-netmask)))+1)
+            return a
+
+        self.parsed = map(lambda x,y: parse_digit(x,y), tmp[0].split("."), map(lambda x,nm=netmask: x-nm, (8,16,24,32)))
+                                                                                               
     def __iter__(self):
-        for i in xrange(self.size):
-            yield socket.inet_ntoa(struct.pack("!I",self.ip+i))
+        for d in xrange(*self.parsed[3]):
+            for c in xrange(*self.parsed[2]):
+                for b in xrange(*self.parsed[1]):
+                    for a in xrange(*self.parsed[0]):
+                        yield "%i.%i.%i.%i" % (a,b,c,d)
     def __repr__(self):
         return "<Net %s>" % self.repr
 
