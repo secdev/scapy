@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.40  2005/02/20 22:31:49  pbi
+# - added ARP answering machine (farpd) (Pierre Lalet)
+#
 # Revision 0.9.17.39  2005/02/20 22:22:23  pbi
 # - Graphic traceroute enhanced to cope with TCP, UDP, ICMP or other traceroutes
 # - ASN clustering in graphic traceroute can be controlled with the "ASN" parameter
@@ -571,7 +574,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.39 2005/02/20 22:22:23 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.40 2005/02/20 22:31:49 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1658,7 +1661,7 @@ class TracerouteResult(SndRcvAns):
         self.graphdef = s
     
     def graph(self, ASN=1, **kargs):
-    """x.graph(ASN=1, other args):
+        """x.graph(ASN=1, other args):
     ASN=0 : no clustering
     ASN=1 : use whois.cymru.net AS clustering
     ASN=2 : use whois.ra.net AS clustering
@@ -6196,7 +6199,46 @@ iwconfig wlan0 mode managed
 
 
 
-AM_classes = [ BOOTP_am, DHCP_am, DNS_am, WiFi_am]
+class ARP_am(AnsweringMachine):
+    function_name="farpd"
+    filter = "arp"
+
+    def parse_options(self, IP_addr=None, iface=None, ARP_addr=None):
+        self.IP_addr=IP_addr
+        self.iface=iface
+        self.ARP_addr=ARP_addr
+
+    def is_request(self, req):
+        return (req.haslayer(ARP) and
+                req.getlayer(ARP).op == 1 and
+                (self.IP_addr == None or self.IP_addr == req.getlayer(ARP).pdst))
+    
+    def make_reply(self, req):
+        ether = req.getlayer(Ether)
+        arp = req.getlayer(ARP)
+        iff,a,gw = conf.route.route(arp.psrc)
+        if self.iface != None:
+            iff = iface
+        ARP_addr = self.ARP_addr
+        IP_addr = arp.pdst
+        resp = Ether(dst=ether.src,
+                     src=ARP_addr)/ARP(op="is-at",
+                                       hwsrc=ARP_addr,
+                                       psrc=IP_addr,
+                                       hwdst=arp.hwsrc,
+                                       pdst=arp.pdst)
+        return resp
+
+    def send_reply(self, reply):
+        sendp(reply, **self.optsend)
+
+    def sniff(self):
+        sniff(iface=self.iface, **self.optsniff)
+
+
+
+
+AM_classes = [ BOOTP_am, DHCP_am, DNS_am, WiFi_am, ARP_am]
 
 for am in AM_classes:
     locals()[am.function_name] = lambda *args,**kargs: am(*args,**kargs).run()
