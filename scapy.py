@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.56  2005/03/14 18:14:28  pbi
+# - LLNumTypes fix
+# - Added linktype recognition to PcapWriter class
+#
 # Revision 0.9.17.55  2005/03/14 17:59:23  pbi
 # - indentation cosmetic fix
 #
@@ -626,7 +630,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.55 2005/03/14 17:59:23 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.56 2005/03/14 18:14:28 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -4779,9 +4783,14 @@ LLTypes = { ARPHDR_ETHER : Ether,
             113 : CookedLinux
             }
 
-LLNumTypes = {}
-for k in LLTypes:
-    LLNumTypes[LLTypes[k]] = k
+LLNumTypes = { Ether : ARPHDR_ETHER,
+               IP  : 12,
+               IP  : 101,
+               Dot11  : 801,
+               PrismHeader : 802,
+               Dot11 : 105,
+               CookedLinux : 113,
+            }
 
 L3Types = { ETH_P_IP : IP,
             ETH_P_ARP : ARP,
@@ -5492,31 +5501,39 @@ class PcapReader:
         
 
 
-class ScapyPcapWriter:
+class PcapWriter:
     """A pcap writer with more control than wrpcap()
     
     This routine is based entirely on scapy.wrpcap(), but adds capability
     of writing one packet at a time in a streaming manner.
     """
-    def __init__(self, filename, linktype=1):
+    def __init__(self, filename, linktype=None):
+        self.linktype = linktype
+        self.header_done = 0
         self.f = open(filename,"w")
-        self.f.write(struct.pack("IHHIIII",
-                                 0xa1b2c3d4L,
-                                 2, 4,
-                                 0,
-                                 0,
-                                 MTU,
-                                 linktype)) # XXX Find the link type
 
-    def write(self, packets):
+    def write(self, pkt):
         """accepts a either a single packet or a list of packets
         to be written to the dumpfile
         """
-        if type(packets) == type(list):
-            for p in packets:
-                self.write_packet(p)
-        else:
-            self.write_packet(packets)
+        
+        if self.header_done == 0:
+            if self.linktype == None:
+                if isinstance(pkt,Packet):
+                    print "x",pkt.__class__
+                    linktype = LLNumTypes.get(pkt.__class__,1)
+                else:
+                    print "xx",pkt[0].__class__
+                    linktype = LLNumTypes.get(pkt[0].__class__,1)
+
+            print linktype
+            self.f.write(struct.pack("IHHIIII", 0xa1b2c3d4L,
+                                     2, 4, 0, 0, MTU, linktype))
+            self.header_done = 1
+
+        print "yo"
+        for p in pkt:
+            self.write_packet(p)
 
     def write_packet(self, packet):
         """writes a single packet to the pcap file
