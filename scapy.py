@@ -22,6 +22,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.8.2  2003/03/27 15:58:54  pbi
+# - fixed sprintf() regression to use attributes from a packet that are not fields (eg: payload)
+#
 # Revision 0.9.8.1  2003/03/27 15:43:20  pbi
 # Release 0.9.8
 #
@@ -62,7 +65,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.8.1 2003/03/27 15:43:20 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.8.2 2003/03/27 15:58:54 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1319,6 +1322,7 @@ class Packet(Gen):
                         val = time.strftime("%H:%M:%S.%%06i", time.localtime(self.time)) % int((self.time-int(self.time))*1000000)
                     elif cls == self.__class__.__name__ and hasattr(self, fld):
                         if num > 1:
+                            print "toto"
                             val = self.payload.sprintf("%%%s,%s:%s.%s%%" % (f,cls,num-1,fld), relax)
                             f = "s"
                         elif f[-1] == "r":  # Raw field value
@@ -1327,7 +1331,9 @@ class Packet(Gen):
                             if not f:
                                 f = "s"
                         else:
-                            val = self.fieldtype[fld].i2repr(self,(getattr(self,fld)))
+                            val = getattr(self,fld)
+                            if fld in self.fieldtype:
+                                val = self.fieldtype[fld].i2repr(self,val)
                     else:
                         val = self.payload.sprintf("%%%s%%" % sfclsfld, relax)
                         f = "s"
