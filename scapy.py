@@ -22,6 +22,14 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.15.5  2003/12/19 15:54:30  pbi
+# - added checkIPID and checkIPsrc options in conf to recognize IP in ICMP errors from broken IP stacks (see conf.__doc__)
+# - changed default TCP source port to 20 (Muahahahah!)
+# - tweaked TCP summary
+# - changed default UDP source and destination ports to 53
+# - created import_hexcap() to copy-paste an hexcap from tcpdump -xX, and get a string to feed IP() or ARP() or whatever
+# - created make_table() to present results in a table from a list, and functions that map the list to x,y and z=f(x,y).
+#
 # Revision 0.9.15.4  2003/10/30 16:11:41  pbi
 # - little enhancements to the DNS packets
 # - added dyndns_add() and dyndns_del() (rfc2136)
@@ -301,7 +309,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.15.4 2003/10/30 16:11:41 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.15.5 2003/12/19 15:54:30 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2245,7 +2253,10 @@ class IP(Packet, IPTools):
              and (self.payload.type in [3,4,5,11,12]) ):
             return self.payload.payload.hashret()
         else:
-            return strxor(inet_aton(self.src),inet_aton(self.dst))+struct.pack("B",self.proto)+self.payload.hashret()
+            if conf.checkIPsrc:
+                return strxor(inet_aton(self.src),inet_aton(self.dst))+struct.pack("B",self.proto)+self.payload.hashret()
+            else:
+                return struct.pack("B", self.proto)+self.payload.hashret()
     def answers(self, other):
         if not isinstance(other,IP):
             return 0
@@ -2269,7 +2280,7 @@ class IP(Packet, IPTools):
 
 class TCP(Packet):
     name = "TCP"
-    fields_desc = [ ShortField("sport", 80),
+    fields_desc = [ ShortField("sport", 20),
                     ShortField("dport", 80),
                     IntField("seq", 0),
                     IntField("ack", 0),
@@ -2310,15 +2321,14 @@ class TCP(Packet):
         return 1
     def mysummary(self):
         if isinstance(self.underlayer, IP):
-            return "%s:%i > %s:%i" % (self.underlayer.src, self.sport,
-                                      self.underlayer.dst, self.dport)
+            return self.underlayer.sprintf("TCP %IP.src%:%TCP.sport% > %IP.dst%:%TCP.dport% %TCP.flags%")
         else:
-            return "TCP %i > %i" % (self.sport, self.dport)
+            return self.sprintf("TCP %TCP.sport% > %TCP.dport% %TCP.flags%")
 
 class UDP(Packet):
     name = "UDP"
-    fields_desc = [ ShortField("sport", 80),
-                    ShortField("dport", 80),
+    fields_desc = [ ShortField("sport", 53),
+                    ShortField("dport", 53),
                     ShortField("len", None),
                     XShortField("chksum", None), ]
     def post_build(self, p):
@@ -2413,9 +2423,11 @@ class IPerror(IP):
     def answers(self, other):
         if not isinstance(other, IP):
             return 0
-        if not ( (self.dst == other.dst) and
+        if not ( ((conf.checkIPsrc == 0) or (self.dst == other.dst)) and
                  (self.src == other.src) and
-                 (self.id == other.id) and
+                 ( ((conf.checkIPID == 0)
+                    or (self.id == other.id)
+                    or (self.id == socket.htons(other.id) and conf.checkIPID == 1))) and
                  (self.proto == other.proto) ):
             return 0
         return self.payload.answers(other.payload)
@@ -3320,6 +3332,23 @@ def rdpcap(filename):
     return res
 
 
+def import_hexcap():
+    p = ""
+    try:
+        while 1:
+            l = raw_input()
+            l = l[l.find("   ")+3:]
+            l = l[:l.find("   ")]
+            l = "".join(l.split())
+            p += l
+    except EOFError:
+        pass
+    p2=""
+    for i in range(len(p)/2):
+        p2 += chr(int(p[2*i:2*i+2],16))
+    return p2
+        
+
 ###############
 ## BPF stuff ##
 ###############
@@ -3937,6 +3966,45 @@ report_ports(target, ports) -> string"""
     rep += "\\hline\n\\end{tabular}\n"
     return rep
 
+
+def make_table(list, fx, fy, fz, sortx=None, sorty=None):
+    vx = {}
+    vy = {}
+    vz = {}
+    l = 0
+    for e in list:
+        xx = str(fx(e))
+        yy = str(fy(e))
+        zz = str(fz(e))
+        l = max(len(yy),l)
+        vx[xx] = max(vx.get(xx,0), len(xx), len(zz))
+        vy[yy] = None
+        vz[(xx,yy)] = zz
+
+    vxk = vx.keys()
+    vyk = vy.keys()
+    if sortx:
+        vxk.sort(sortx)
+    else:
+        vxk.sort()
+    if sorty:
+        vyk.sort(sorty)
+    else:
+        vyk.sort()
+
+    fmt = "%%-%is" % l
+    print fmt % "",
+    for x in vxk:
+        vx[x] = "%%-%is" % vx[x]
+        print vx[x] % x,
+    print
+    for y in vyk:
+        print fmt % y,
+        for x in vxk:
+            print vx[x] % vz.get((x,y), "-"),
+        print
+    
+    
     
 
 ######################
@@ -4111,7 +4179,7 @@ class ConfClass:
     def __repr__(self):
         return str(self)
     def __str__(self):
-        s=""
+        s="Version    = %s\n" % VERSION
         keys = self.__class__.__dict__.copy()
         keys.update(self.__dict__)
         keys = keys.keys()
@@ -4128,23 +4196,28 @@ class ConfClass:
 class Conf(ConfClass):
     """This object contains the configuration of scapy.
 session  : filename where the session will be saved
-stealth  : if 1, prevent any unwanted packet to go out (ARP, DNS, ...)
-iff      : select the default output interface for srp() and sendp(). default:"eth0")
+stealth  : if 1, prevents any unwanted packet to go out (ARP, DNS, ...)
+checkIPID: if 0, doesn't check that IPID matches between IP sent and ICMP IP citation received
+           if 1, checks that they either are equal or byte swapped equals (bug in some IP stacks)
+           if 2, strictly checks that they are equals
+checkIPsrc: if 1, checks IP src in IP and ICMP IP citation match (bug in some NAT stacks)
+iff      : selects the default output interface for srp() and sendp(). default:"eth0")
 verb     : level of verbosity, from 0 (almost mute) to 3 (verbose)
 promisc  : default mode for listening socket (to get answers if you spoof on a lan)
 sniff_promisc : default mode for sniff()
 filter   : bpf filter added to every sniffing socket to exclude traffic from analysis
 histfile : history file
-padding  : include padding in desassembled packets
+padding  : includes padding in desassembled packets
 except_filter : BPF filter for packets to ignore
 """
     session = ""  
     stealth = "not implemented"
     iface = get_working_if()
+    checkIPID = 1
+    checkIPsrc = 1
     verb = 2
     promisc = "not implemented"
     sniff_promisc = 0
-    filter = "not implemented"
     L3socket = L3PacketSocket
     L2socket = L2Socket
     L2listen = L2ListenSocket
