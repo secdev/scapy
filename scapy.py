@@ -22,6 +22,12 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.7.8  2003/03/27 14:45:11  pbi
+# - better timeout management in sndrcv
+# - bugfixed sys.exit() imbrication issues
+# - some self documentation
+# - added lsc()command
+#
 # Revision 0.9.7.7  2003/03/26 17:51:33  pbi
 # - Added IPTool class, to add commands like whois() to IP layer.
 # - Have unknown class attributes be asked to payload before raising an exception.
@@ -49,7 +55,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.7.7 2003/03/26 17:51:33 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.7.8 2003/03/27 14:45:11 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1989,6 +1995,9 @@ def send(x, iface=None, slp=-1):
 
 def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None):
 
+    if not isinstance(pkt, Packet):
+        pkt = SetGen(pkt)
+        
     if verbose is None:
         verbose = conf.verb
     recv = []
@@ -2018,9 +2027,13 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None):
         except SystemExit:
             pass
         except:
+            print "--- Error in child %i" % os.getpid()
             traceback.print_exc()
-        pickle.dump(arp_cache, wrpipe)
-        wrpipe.close()
+            print "--- End of error in child %i" % os.getpid()
+            sys.exit()
+        else:
+            pickle.dump(arp_cache, wrpipe)
+            wrpipe.close()
         sys.exit()
     elif pid < 0:
         print "fork error"
@@ -2028,12 +2041,11 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None):
         wrpipe.close()
         finished = 0
         remaintime = timeout
-        inmask = [pks,rdpipe]
+        inmask = [rdpipe,pks]
         try:
             while 1:
                 start = time.time()
                 inp, out, err = select(inmask,[],[], remaintime)
-                end = time.time()
                 if len(inp) == 0:
                     break
                 if rdpipe in inp:
@@ -2057,6 +2069,7 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None):
                         os.write(1, ".")
                     recv.append(r)
                 if finished and remaintime:
+                    end = time.time()
                     remaintime -= end-start
                     if remaintime < 0:
                         break
@@ -2274,6 +2287,9 @@ def p0f_dist(x,y):
     
 
 def p0f(pkt):
+    """Passive OS fingerprinting: guess the OS that emitted this TCP syn
+p0f(packet) -> accuracy, [list of guesses]
+"""
     if len(p0f_base) == 0:
         warning("p0f base empty.")
         return []
@@ -2300,26 +2316,6 @@ def prnp0f(pkt):
     
 
 
-######################
-## Online doc stuff ##
-######################
-
-def ls(obj=None):
-    if obj is None:
-        for i in __builtins__:
-            obj = __builtins__[i]
-            if not type(obj) is types.ClassType:
-                continue
-            if issubclass(obj, Packet):
-                print "%-10s : %s" %(i,obj.name)
-    else:
-        if type(obj) is types.ClassType and issubclass(obj, Packet):
-            for f in obj.fields_desc:
-                print "%-10s : %s (%s)" % (f.name, f.__class__.__name__, repr(f.default))
-        else:
-            print "Not a packet class. Type 'ls()' to list packet classes."
-    
-    
     
 
 
@@ -2329,6 +2325,9 @@ def ls(obj=None):
 
 
 def sniff(count=0, prn = None, *arg, **karg):
+    """Sniff packets
+sniff([count,] [prn,] + L2ListenSocket args) -> list of packets
+    """
     c = 0
     s = L2ListenSocket(type=ETH_P_ALL, *arg, **karg)
     lst = []
@@ -2349,21 +2348,80 @@ def sniff(count=0, prn = None, *arg, **karg):
 
 
 
-def arpspoof(target, victim, timeout=60):
+def arpcachepoison(target, victim, interval=60):
+    """Poison target's cache with (your MAC,victim's IP) couple
+arpspoof(target, victim, [interval=60]) -> None
+"""
     tmac = getmacbyip(target)
-    vmac = getmacbyip(victim)
     p = Ether(dst=tmac)/ARP(op=ARP.who_has, psrc=victim, pdst=target)
     try:
         while 1:
             sendp(p)
             if conf.verb > 1:
                 os.write(1,".")
-            time.sleep(timeout)
+            time.sleep(interval)
     except KeyboardInterrupt:
         pass
+
+def traceroute(target, maxttl=30, dport=80, sport=80):
+    """Instant TCP traceroute
+traceroute(target, [maxttl=30], [dport=80], [sport=80]) -> None
+"""
+    a,b = sr(IP(dst=target, ttl=(1,maxttl))/TCP(seq=RandInt(),sport=sport, dport=dport), timeout=5)
+    res = {}
+    for s,r in a:
+        if r.hastype(ICMP):
+            res[s.ttl] = r.sprintf("%-15s,IP.src%")
+        else:
+            res[s.ttl] = r.sprintf("%-15s,IP.src% %TCP.flags%")
+    for s in b:
+        res[s.ttl] = ""
+    lst = res.keys()
+    lst.sort()
+    for i in lst:
+        print "%2i %s" % (i, res[i])
     
 
 
+
+######################
+## Online doc stuff ##
+######################
+
+
+def lsc(cmd=None):
+    """List user commands"""
+    if cmd is None:
+        for c in user_commands:
+            doc = "No doc. available"
+            if c.__doc__:
+                doc = c.__doc__.split("\n")[0]
+            
+            print "%-16s : %s" % (c.__name__, doc)
+    else:
+        print cmd.__doc__
+
+def ls(obj=None):
+    """List  available layers, or infos on a given layer"""
+    if obj is None:
+        for i in __builtins__:
+            obj = __builtins__[i]
+            if not type(obj) is types.ClassType:
+                continue
+            if issubclass(obj, Packet):
+                print "%-10s : %s" %(i,obj.name)
+    else:
+        if type(obj) is types.ClassType and issubclass(obj, Packet):
+            for f in obj.fields_desc:
+                print "%-10s : %s (%s)" % (f.name, f.__class__.__name__, repr(f.default))
+        else:
+            print "Not a packet class. Type 'ls()' to list packet classes."
+
+
+    
+
+
+user_commands = [ sr, sr1, srp, sniff, p0f, arpcachepoison, send, sendp, traceroute, ls, lsc ]
 
 
 ###################
@@ -2471,9 +2529,4 @@ def fragleak(target):
                 intr=1
     except KeyboardInterrupt:
         pass
-    
-            
-
-
-
 
