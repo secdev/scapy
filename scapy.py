@@ -22,6 +22,15 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.14.3  2003/09/10 08:47:41  pbi
+# - fixed the fact that bpf filters were generated in cooked mode, and thus did
+#   not work
+# - filter on socket type ETH_P_ARP instead of using a bpf filter for ARP replies
+# - fixed the way of handling the SuperSocket close.
+# - uniformised the naming for interface parameter : iface instead of iff
+# - fixed the FutureWarning for long integers
+# - fixed a typo in 3 format strings (%*i instead of %i)
+#
 # Revision 0.9.14.2  2003/07/20 00:12:04  pbi
 # -added "-i any" for tcpdump to compile filters even if they don't work on main interface
 # - put PPP special case before layer 2 general case in a super socket
@@ -255,7 +264,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.14.2 2003/07/20 00:12:04 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.14.3 2003/09/10 08:47:41 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -722,7 +731,7 @@ else:
                 return mac
         
         res = srp1(Ether(dst=ETHER_BROADCAST)/ARP(op="who-has", pdst=ip),
-                  filter="arp",
+                  type=ETH_P_ARP,
                   iface = iff,
                   timeout=2,
                   verbose=0)
@@ -2497,6 +2506,7 @@ LLTypes = { ARPHDR_ETHER : Ether,
             ARPHDR_METRICOM : Ether,
             ARPHDR_LOOPBACK : Ether,
 	    101 : IP,
+            801 : Dot11,
             }
 
 L3Types = { ETH_P_IP : IP,
@@ -2507,6 +2517,7 @@ L3Types = { ETH_P_IP : IP,
 
 
 class SuperSocket:
+    closed=0
     def __init__(self, family=socket.AF_INET,type=socket.SOCK_STREAM, proto=0):
         self.ins = socket.socket(family, type, proto)
         self.outs = self.ins
@@ -2518,6 +2529,9 @@ class SuperSocket:
     def fileno(self):
         return self.ins.fileno()
     def close(self):
+        if self.closed:
+            return
+        self.closed=1
         if self.ins != self.outs:
             if self.outs and self.outs.fileno() != -1:
                 self.outs.close()
@@ -2527,8 +2541,7 @@ class SuperSocket:
         self.ins.bind(addr)
     def bind_out(self, addr):
         self.outs.bind(addr)
-    def __del__(self):
-        self.close()
+
 
 class L3RawSocket(SuperSocket):
     def __init__(self, type = ETH_P_IP, filter=None):
@@ -2572,6 +2585,9 @@ class L3PacketSocket(SuperSocket):
             for i in self.iff:
                 set_promisc(self.ins, i)
     def close(self):
+        if self.closed:
+            return
+        self.closed=1
         if self.promisc:
             for i in self.iff:
                 set_promisc(self.ins, i, 0)
@@ -2586,7 +2602,7 @@ class L3PacketSocket(SuperSocket):
             cls = L3Types[sa_ll[1]]
             lvl = 3
         else:
-            warning("Unable to guess type (interface=%s protocol=%#x family=%*i). Using Ethernet" % sa_ll[:4])
+            warning("Unable to guess type (interface=%s protocol=%#x family=%i). Using Ethernet" % sa_ll[:4])
             cls = Ether
             lvl = 2
 
@@ -2599,7 +2615,7 @@ class L3PacketSocket(SuperSocket):
         if hasattr(x,"dst"):
             iff,a,gw = choose_route(x.dst)
         else:
-            iff = conf.iff
+            iff = conf.iface
         sdto = (iff, self.type)
         self.outs.bind(sdto)
         sn = self.outs.getsockname()
@@ -2614,7 +2630,7 @@ class L3PacketSocket(SuperSocket):
 class L2Socket(SuperSocket):
     def __init__(self, iface = None, type = ETH_P_ALL, filter=None):
         if iface is None:
-            iface = conf.iff
+            iface = conf.iface
         self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))
         if conf.except_filter:
             if filter:
@@ -2631,7 +2647,7 @@ class L2Socket(SuperSocket):
         elif L3Types.has_key(sa_ll[1]):
             self.LL = L3Types[sa_ll[1]]
         else:
-            warning("Unable to guess type (interface=%s protocol=%#x family=%*i). Using Ethernet" % sa_ll[:4])
+            warning("Unable to guess type (interface=%s protocol=%#x family=%i). Using Ethernet" % sa_ll[:4])
             self.LL = Ether
     def recv(self, x):
         return self.LL(self.ins.recv(x))
@@ -2678,7 +2694,7 @@ class L2ListenSocket(SuperSocket):
         elif L3Types.has_key(sa_ll[1]):
             cls = L3Types[sa_ll[1]]
         else:
-            warning("Unable to guess type (interface=%s protocol=%#x family=%*i). Using Ethernet" % sa_ll[:3])
+            warning("Unable to guess type (interface=%s protocol=%#x family=%i %i). Using Ethernet" % sa_ll[:4])
             cls = Ether
 
         pkt = cls(pkt)
@@ -2709,7 +2725,7 @@ if DNET and PCAP:
             if hasattr(x,"dst"):
                 iff,a,gw = choose_route(x.dst)
             else:
-                iff = conf.iff
+                iff = conf.iface
             ifs = self.iflist.get(iff)
             if ifs is None:
                 self.iflist[iff] = ifs = dnet.eth(iff)
@@ -2725,7 +2741,7 @@ if DNET and PCAP:
     class L2dnetSocket(SuperSocket):
         def __init__(self, iface = None, type = ETH_P_ALL, filter=None):
             if iface is None:
-                iface = conf.iff
+                iface = conf.iface
             self.ins = pcap.pcapObject()
             self.ins.open_live(iface, 1600, 0, 100)
             if conf.except_filter:
@@ -2905,6 +2921,7 @@ def send(x, inter=0, *args, **kargs):
     for p in x:
         s.send(p)
         time.sleep(inter)
+    s.close()
 
 def sendp(x, inter=0, *args, **kargs):
     """Send packets at layer 2"""
@@ -2914,38 +2931,43 @@ def sendp(x, inter=0, *args, **kargs):
     for p in x:
         s.send(p)
         time.sleep(inter)
+    s.close()
 
 
     
-def sr(x,filter=None, *args,**kargs):
+def sr(x,filter=None, iface=None, *args,**kargs):
     """Send and receive packets at layer 3"""
     if not kargs.has_key("timeout"):
         kargs["timeout"] = -1
-    a,b,c=sndrcv(conf.L3socket(filter=filter),x,*args,**kargs)
+    s = conf.L3socket(filter=filter, iface=iface)
+    a,b,c=sndrcv(s,x,*args,**kargs)
+    s.close()
     return a,b
 
-def sr1(x,filter=None, *args,**kargs):
+def sr1(x,filter=None,iface=None, *args,**kargs):
     """Send packets at layer 3 and return only the first answer"""
     if not kargs.has_key("timeout"):
         kargs["timeout"] = -1
-    a,b,c=sndrcv(conf.L3socket(filter=filter),x,*args,**kargs)
+    s=conf.L3socket(filter=filter, iface=iface)
+    a,b,c=sndrcv(s,x,*args,**kargs)
+    s.close()
     if len(a) > 0:
         return a[0][1]
     else:
         return None
 
-def srp(x,iface=None,filter=None, *args,**kargs):
+def srp(x,iface=None,filter=None,type=None, *args,**kargs):
     """Send and receive packets at layer 2"""
     if not kargs.has_key("timeout"):
         kargs["timeout"] = -1
-    a,b,c=sndrcv(conf.L2socket(iface=iface, filter=filter),x,*args,**kargs)
+    a,b,c=sndrcv(conf.L2socket(iface=iface, filter=filter, type=type),x,*args,**kargs)
     return a,b
 
-def srp1(x,iface=None,filter=None, *args,**kargs):
+def srp1(x,iface=None,filter=None,type=None, *args,**kargs):
     """Send and receive packets at layer 2 and return only the first answer"""
     if not kargs.has_key("timeout"):
         kargs["timeout"] = -1
-    a,b,c=sndrcv(conf.L2socket(iface=iface, filter=filter),x,*args,**kargs)
+    a,b,c=sndrcv(conf.L2socket(iface=iface, filter=filter, type=type),x,*args,**kargs)
     if len(a) > 0:
         return a[0][1]
     else:
@@ -2960,7 +2982,7 @@ def srp1(x,iface=None,filter=None, *args,**kargs):
 def wrpcap(filename, pkt):
     f=open(filename,"w")
     f.write(struct.pack("IHHIIII",
-                        0xa1b2c3d4,
+                        0xa1b2c3d4L,
                         2, 4,
                         0,
                         0,
@@ -3002,7 +3024,13 @@ def rdpcap(filename):
 
 
 def attach_filter(s, filter):
-    f = os.popen("tcpdump -i any -ddd -s 1600 '%s'" % filter)
+    # XXX We generate the filter on the interface conf.iface 
+    # because tcpdump open the "any" interface and ppp interfaces
+    # in cooked mode. As we use them in raw mode, the filter will not
+    # work... one solution could be to use "any" interface and translate
+    # the filter from cooked mode to raw mode
+    # mode
+    f = os.popen("tcpdump -i s -ddd -s 1600 '%s'" % (conf.iface,filter))
     lines = f.readlines()
     if f.close():
         raise Exception("Filter parse error")
@@ -3508,7 +3536,7 @@ traceroute(target, [maxttl=30], [dport=80], [sport=80]) -> None
 
 def arping(net, iface=None):
     """Send ARP who-has requests to determine which hosts are up
-arping(net, iface=conf.iff) -> None"""
+arping(net, iface=conf.iface) -> None"""
     ans,unans = srp(Ether(dst="ff:ff:ff:ff:ff:ff")/ARP(pdst=net),
                     filter="arp and arp[7] = 2", timeout=2, iface=iface)
     for s,r in ans:
@@ -3736,7 +3764,7 @@ except_filter : BPF filter for packets to ignore
 """
     session = ""  
     stealth = "not implemented"
-    iff = get_working_if()
+    iface = get_working_if()
     verb = 2
     promisc = "not implemented"
     sniff_promisc = 0
