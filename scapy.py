@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.16.16  2004/07/16 15:39:37  pbi
+# - small fix on bootpd
+#
 # Revision 0.9.16.15  2004/07/10 13:13:25  pbi
 # - finished testing ethertype in supersockets to decide wether or not to apply BPF filters
 #
@@ -397,7 +400,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.16.15 2004/07/10 13:13:25 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.16.16 2004/07/16 15:39:37 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -3830,7 +3833,6 @@ def attach_filter(s, filter):
     # mode
     f = os.popen("tcpdump -i %s -ddd -s 1600 '%s'" % (conf.iface,filter))
     lines = f.readlines()
-    print lines
     if f.close():
         raise Exception("Filter parse error")
     nb = int(lines[0])
@@ -4679,8 +4681,8 @@ def bootpd(ipset=Net("192.168.1.128/25"),gw="192.168.1.1",filter="udp and port 6
             reqb = req.getlayer(BOOTP)
             if reqb.op != 1:
                 continue
+            mac=req.src
             if type(ipset) is list:
-                mac=req.src
                 if not leases.has_key(mac):
                     leases[mac]=ipset.pop()
                 ip=leases[mac]
