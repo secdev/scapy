@@ -22,6 +22,11 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.9.5  2003/04/10 14:50:22  pbi
+# - clean session only if it is to be saved
+# - forgot to give its name to Padding class
+# - fixed the NoPayload comparison tests so that they work on reloaded sessions
+#
 # Revision 0.9.9.4  2003/04/10 13:45:22  pbi
 # - Prepared the configuration of L2/L3 supersockets
 #
@@ -109,7 +114,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.9.4 2003/04/10 13:45:22 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.9.5 2003/04/10 14:50:22 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -190,15 +195,16 @@ if __name__ == "__main__":
 
     code.interact(banner = "Welcome to Scapy (%s)"%VERSION, local=session)
 
-    if session.has_key("__builtins__"):
-        del(session["__builtins__"])
-
-    for k in session.keys():
-        if type(session[k]) in [types.ClassType, types.ModuleType]:
-             print "[%s] (%s) can't be saved. Deleted." % (k, type(session[k]))
-             del(session[k])
-
     if scapy.conf.session:
+
+        if session.has_key("__builtins__"):
+            del(session["__builtins__"])
+
+        for k in session.keys():
+            if type(session[k]) in [types.ClassType, types.ModuleType]:
+                 print "[%s] (%s) can't be saved. Deleted." % (k, type(session[k]))
+                 del(session[k])
+
         try:
             os.rename(scapy.conf.session, scapy.conf.session+".bak")
         except OSError:
@@ -1072,7 +1078,7 @@ class Packet(Gen):
     def add_payload(self, payload):
         if payload is None:
             return
-        elif self.payload != NoPayload():
+        elif not isinstance(self.payload, NoPayload):
             self.payload.add_payload(payload)
         else:
             if isinstance(payload, Packet):
@@ -1255,7 +1261,7 @@ class Packet(Gen):
                     for x in loop(todo[:], done):
                         yield x
             else:
-                if self.payload == NoPayload():
+                if isinstance(self.payload,NoPayload):
                     payloads = [None]
                 else:
                     payloads = self.payload
@@ -1436,7 +1442,7 @@ class Raw(Packet):
         return  s[:l] == t[:l]
         
 class Padding(Raw):
-    pass
+    name = "Padding"
 
 class Ether(Packet):
     name = "Ethernet"
@@ -2430,7 +2436,7 @@ def pkt2uptime(pkt, HZ=100):
 pkt2uptime(pkt, [HZ=100])"""
     if not isinstance(pkt, Packet):
         raise TypeError("Not a TCP packet")
-    if pkt == NoPayload():
+    if isinstance(pkt,NoPayload):
         raise TypeError("Not a TCP packet")
     if not isinstance(pkt, TCP):
         return pkt2uptime(pkt.payload)
