@@ -22,6 +22,12 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.7.6  2003/03/26 17:35:36  pbi
+# More powerful sprintf format string : %[fmt[r],][cls[:nb].]field% where fmt is a classic one, r can be
+# appended for raw substitution (ex: IP.flags=0x18 instead of SA), nb is the number of the layer we want
+# (ex: for IP/IP packets, IP:2.src is the src of the upper IP layer). Special case : "%.time" is the creation time.
+# Ex : p.sprintf("%.time% %-15s,IP.src% -> %-15s,IP.dst% %IP.chksum% %03xr,IP.proto% %r,TCP.flags%")
+#
 # Revision 0.9.7.5  2003/03/26 14:47:39  pbi
 # Added creation time packet. Supported by read/write pcap.
 #
@@ -39,7 +45,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.7.5 2003/03/26 14:47:39 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.7.6 2003/03/26 17:35:36 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -57,6 +63,8 @@ def usage():
 #  - add a IPtools class (with whois()...) and have IP inherit it)
 #  - use i2repr() in sprintf() ?
 #  - sprintf support for IP/IP
+#  - better self-doc
+#  - add lsc() to list commands
 #
 ##
 ##########[XXX]#=--
@@ -1249,35 +1257,58 @@ class Packet(Gen):
             print "%s%-10s= %s" % ("   "*lvl, f.name, f.i2repr(self,self.__getattr__(f)))
         self.payload.display(lvl+1)
 
-    def sprintf(self, fmt):
+    def sprintf(self, fmt, relax=1):
         s = ""
         while "%" in fmt:
             i = fmt.index("%")
             s += fmt[:i]
             fmt = fmt[i+1:]
             if fmt[0] == "%":
-                val = "%"
                 fmt = fmt[1:]
+                s += "%"
+                continue
             else:
                 try:
                     i = fmt.index("%")
-                    clsfld = fmt[:i]
+                    sfclsfld = fmt[:i]
+                    fclsfld = sfclsfld.split(",")
+                    if len(fclsfld) == 1:
+                        f = "s"
+                        clsfld = fclsfld[0]
+                    elif len(fclsfld) == 2:
+                        f,clsfld = fclsfld
+                    else:
+                        raise Exception
                     cls,fld = clsfld.split(".")
+                    num = 1
+                    if ":" in cls:
+                        cls,num = cls.split(":")
+                        num = int(num)
                     fmt = fmt[i+1:]
-                    
                 except:
-                    raise Exception("Bad format string [%%%s%s]" % (fmt[:15], fmt[15:] and "..."))
+                    raise Exception("Bad format string [%%%s%s]" % (fmt[:25], fmt[25:] and "..."))
                 else:
                     if fld == "time":
                         val = time.strftime("%H:%M:%S.%%06i", time.localtime(self.time)) % int((self.time-int(self.time))*1000000)
                     elif cls == self.__class__.__name__ and hasattr(self, fld):
-                        val = str(getattr(self,fld))
+                        if num > 1:
+                            val = self.payload.sprintf("%%%s,%s:%s.%s%%" % (f,cls,num-1,fld), relax)
+                            f = "s"
+                        elif f[-1] == "r":  # Raw field value
+                            val = getattr(self,fld)
+                            f = f[:-1]
+                            if not f:
+                                f = "s"
+                        else:
+                            val = self.fieldtype[fld].i2repr(self,(getattr(self,fld)))
                     else:
-                        val = self.payload.sprintf("%%%s%%" % clsfld)
-            s += val
+                        val = self.payload.sprintf("%%%s%%" % sfclsfld, relax)
+                        f = "s"
+                    s += ("%"+f) % val
             
         s += fmt
         return s
+
         
 
 ####################
@@ -1318,8 +1349,11 @@ class NoPayload(Packet,object):
         return 0
     def display(self, lvl=0):
         pass
-    def sprintf(self, fmt):
-        raise Exception("Format not found [%s]"%fmt)
+    def sprintf(self, fmt, relax):
+        if relax:
+            return "??"
+        else:
+            raise Exception("Format not found [%s]"%fmt)
     
     
     
