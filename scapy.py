@@ -22,6 +22,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.14.6  2003/09/12 14:45:35  pbi
+# - had Dot11 working
+#
 # Revision 0.9.14.5  2003/09/12 10:04:05  pbi
 # - added summary() method to Packet objects
 #
@@ -273,7 +276,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.14.5 2003/09/12 10:04:05 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.14.6 2003/09/12 14:45:35 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1015,7 +1018,49 @@ class ARPSourceMACField(MACField):
         return MACField.i2h(self, pkt, x)
     def i2m(self, pkt, x):
         return MACField.i2m(self, pkt, self.i2h(pkt, x))
-        
+
+class Dot11AddrMACField(MACField):
+    def is_applicable(self, pkt):
+        return 1
+    def addfield(self, pkt, s, val):
+        if self.is_applicable(pkt):
+            return MACField.addfield(self, pkt, s, val)
+        else:
+            return s        
+    def getfield(self, pkt, s):
+        if self.is_applicable(pkt):
+            return MACField.getfield(self, pkt, s)
+        else:
+            return s,None
+
+class Dot11Addr2MACField(MACField):
+    def is_applicable(self, pkt):
+        if pkt.type == 1:
+            return pkt.subtype in [ 0xb, 0xa, 0xe, 0xf] # RTS, PS-Poll, CF-End, CF-End+CF-Ack
+        return 0
+
+class Dot11Addr3MACField(MACField):
+    def is_applicable(self, pkt):
+        if pkt.type in [0,2]:
+            return 1
+        return 0
+
+class Dot11Addr4MACField(MACField):
+    def is_applicable(self, pkt):
+        if pkt.type == 2:
+            if pkt.FCfield & 0x3 == 0x3: # To-DS and From-DS are set
+                return 1
+        return 0
+    def addfield(self, pkt, s, val):
+        if self.is_applicable(pkt):
+            return MACField.addfield(self, pkt, s, val)
+        else:
+            return s        
+    def getfield(self, pkt, s):
+        if self.is_applicable(pkt):
+            return MACField.getfield(self, pkt, s)
+        else:
+            return s,None
 
     
 class IPField(Field):
@@ -1213,10 +1258,17 @@ class EnumField(Field):
             x = self.s2i[x]
         return x
     def i2repr(self, pkt, x):
-        y = self.i2s.get(x)
-        if y is None:
-            y = x
-        return y            
+        return self.i2s.get(x, x)            
+
+
+class BitEnumField(BitField,EnumField):
+    def __init__(self, name, default, size, enum):
+        EnumField.__init__(self, name, default, enum)
+        self.size = size
+    def any2i(self, pkt, x):
+        return EnumField.any2i(self, pkt, x)
+    def i2repr(self, pkt, x):
+        return EnumField.i2repr(self, pkt, x)
 
 class ShortEnumField(EnumField):
     def __init__(self, name, default, enum):
@@ -2465,16 +2517,19 @@ dhcpmagic="".join(map(chr,[99,130,83,99]))
 class Dot11(Packet):
     name = "802.11"
     fields_desc = [
-                    BitField("proto", 0, 2),
-                    BitField("type", 0, 2),
                     BitField("subtype", 0, 4),
-                    FlagsField("fc", 0, 8, ["to-DS", "from-DS", "MF", "retry", "pw-mgt", "MD", "wep", "order"]),
+                    BitEnumField("type", 0, 2, ["Management", "Control", "Data", "Reserved"]),
+                    BitField("proto", 0, 2),
+                    FlagsField("FCfield", 0, 8, ["to-DS", "from-DS", "MF", "retry", "pw-mgt", "MD", "wep", "order"]),
                     ShortField("ID",0),
                     MACField("addr1", ETHER_ANY),
-                    MACField("addr2", ETHER_ANY),
-                    MACField("addr3", ETHER_ANY),
+                    Dot11Addr2MACField("addr2", ETHER_ANY),
+                    Dot11Addr3MACField("addr3", ETHER_ANY),
                     ShortField("SC", 0),
-                    MACField("addr4", ETHER_ANY) ]
+                    Dot11Addr4MACField("addr4", ETHER_ANY) 
+                    ]
+    def mysummary(self):
+        return self.sprintf("802.11 %Dot11.type% %Dot11.subtype% %Dot11.addr1%")
     
 #########
 ##
@@ -2522,6 +2577,7 @@ def bind_layers(lower, upper, fval):
     
 
 layer_bonds = [ ( Dot3,   LLC,      { } ),
+                ( Dot11,  LLC,      { "type" : 2 } ),
                 ( LLPPP,  IP,       { } ),
                 ( Ether,  Dot1Q,    { "type" : 0x8100 } ),
                 ( Ether,  Ether,    { "type" : 0x0001 } ),
