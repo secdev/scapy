@@ -21,6 +21,11 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.48  2005/03/14 12:48:29  pbi
+# - Modified PacketField to stop at Padding instead of Raw
+# - Added PacketLenField
+# - More ISAKMP rework. Almost working.
+#
 # Revision 0.9.17.47  2005/03/14 10:20:49  pbi
 # - added unwep() method to Dot11 packets
 # - fixed 4 missing bytes in Dot11WEP
@@ -598,7 +603,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.47 2005/03/14 10:20:49 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.48 2005/03/14 12:48:29 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2055,11 +2060,27 @@ class PacketField(StrField):
     def getfield(self, pkt, s):
         i = self.m2i(pkt, s)
         remain = ""
-        if i.haslayer(Raw):
-            r = i.getlayer(Raw)
+        if i.haslayer(Padding):
+            r = i.getlayer(Padding)
             del(r.underlayer.payload)
             remain = r.load
         return remain,i
+    
+class PacketLenField(PacketField):
+    def __init__(self, name, default, cls, fld):
+        PacketField.__init__(self, name, default, cls)
+        self.fld = fld
+    def i2m(self, pkt, i):
+        return str(i)
+    def m2i(self, pkt, m):
+        return self.cls(m)
+    def getfield(self, pkt, s):
+        l = getattr(pkt, self.fld)
+        l += pkt.fields_desc[pkt.fields_desc.index(self.fld)].shift
+        
+        i = self.m2i(pkt, s[:l])
+      
+        return s[l:],i
 
 
 class StrFixedLenField(StrField):
@@ -4083,13 +4104,26 @@ class RIPEntry(Packet):
 
 
 
-ISAKMP_payload_type = ["None","SA","P","T","KE","ID","CERT","CR","HASH",
+ISAKMP_payload_type = ["None","SA","Proposal","Transform","KE","ID","CERT","CR","Hash",
                        "SIG","Nonce","N","D","VendorID"]
 
 ISAKMP_exchange_type = ["None","base","identity prot.",
                         "auth only", "aggressive", "info"]
 
-class ISAKMP(Packet): # rfc2408
+
+class ISAKMP_class(Packet):
+    def guess_payload_class(self):
+        np = self.next_payload
+        if np == 0:
+            return Padding
+        elif np < len(ISAKMP_payload_type):
+            pt = ISAKMP_payload_type[np]
+            return globals().get("ISAKMP_payload_%s" % pt, ISAKMP_payload)
+        else:
+            return ISAKMP_payload
+
+
+class ISAKMP(ISAKMP_class): # rfc2408
     name = "ISAKMP"
     fields_desc = [
         StrFixedLenField("init_cookie","",8),
@@ -4109,49 +4143,29 @@ class ISAKMP(Packet): # rfc2408
         return p
        
 
-class ISAKMP_payload(Packet):
-    name = "ISAKMP payload"
-    fields_desc = [
-        ByteEnumField("next_payload",None,ISAKMP_payload_type),
-        ByteField("res",0),
-        FieldLenField("length",None,"load","H",shift=-4),
-        StrLenField("load","","length"),
-        ]
-#    def post_build(self, p):
-#        if self.length is None:
-#            p = p[:2]+struct.pack("!H",4+len(self.load))+p[4:]
-#        if self.next_payload is None:
-#            t = getattr(getattr(self.payload,"load", NoPayload), "ISAKMP_payload_type",0)
-#            if t:
-#                p = chr(t)+p[1:]
-#        return p
-                     
 
 
-class IKE_transform(Packet):
+class ISAKMP_payload_Transform(ISAKMP_class):
     name = "IKE Transform"
-#    ISAKMP_payload_type = 3
     fields_desc = [
         ByteEnumField("next_payload",None,ISAKMP_payload_type),
         ByteField("res",0),
-#        FieldLenField("length",None,"load","H",shift=-4),
         ShortField("length",None),
         ByteField("num",None),
         ByteEnumField("id",1,{1:"KEY_IKE"}),
         ShortField("res",0),
-#        SAattrField("attr"),
         XIntField("enc",0x80010005L),
         XIntField("hash",0x80020002L),
         XIntField("auth",0x80030001L),
         XIntField("group",0x80040002L),
         XIntField("life_type",0x800b0001L),
         XIntField("durationh",0x000c0004L),
-        XIntField("durationl",0x00007080L),
+#        XIntField("durationl",0x00007080L),
         ]
 
 
         
-class IKE_proposal(Packet):
+class ISAKMP_payload_Proposal(ISAKMP_class):
     name = "IKE proposal"
 #    ISAKMP_payload_type = 0
     fields_desc = [
@@ -4162,31 +4176,101 @@ class IKE_proposal(Packet):
         ByteEnumField("proto",1,{1:"ISAKMP"}),
         ByteField("SPIsize",0),
         ByteField("trans_nb",None),
-        PacketField("trans",Raw(),IKE_transform),
-#        StrLenField("load","","length"),
-#        Field("transforms","")
+        PacketField("trans",Raw(),ISAKMP_payload_Transform),
         ]
-    def post_build(self,p):
-        if self.trans_nb is None:
-            n = 0
-            i = self.transforms
-            while isinstance(IKETransform,i):
-                n += 1
-                i = i.payload
-            p = p[:3]+chr(n)+p[4:]
-        return p
 
 
-class IKE_SA(Packet):
-    name = "IKE SA"
-    ISAKMP_payload_type = 0
+class ISAKMP_payload_metaclass(type):
+    def __new__(cls, name, bases, dct):
+        f = dct["fields_desc"]
+        f = [ ByteEnumField("next_payload",None,ISAKMP_payload_type),
+              ByteField("res",0),
+              ShortField("length",None),
+              ] + f
+        dct["fields_desc"] = f
+        return super(ISAKMP_payload_metaclass, cls).__new__(cls, name, bases, dct)
+
+
+class ISAKMP_payload(ISAKMP_class):
+    name = "ISAKMP payload"
     fields_desc = [
+        ByteEnumField("next_payload",None,ISAKMP_payload_type),
+        ByteField("res",0),
+        FieldLenField("length",None,"load","H",shift=-4),
+        StrLenField("load","","length"),
+        ]
+
+
+class ISAKMP_payload_VendorID(ISAKMP_class):
+    name = "ISAKMP Vendor ID"
+    overload_fields = { ISAKMP: { "next_payload":13 }}
+    fields_desc = [
+        ByteEnumField("next_payload",None,ISAKMP_payload_type),
+        ByteField("res",0),
+        FieldLenField("length",None,"load","H",shift=-4),
+        StrLenField("vendorID","","length"),
+        ]
+
+class ISAKMP_payload_SA(ISAKMP_class):
+    name = "ISAKMP SA"
+    overload_fields = { ISAKMP: { "next_payload":1 }}
+    fields_desc = [
+        ByteEnumField("next_payload",None,ISAKMP_payload_type),
+        ByteField("res",0),
+        FieldLenField("len",None,"prop","H",shift=-12),
         IntEnumField("DOI",1,{1:"IPSEC"}),
         IntEnumField("situation",1,{1:"identity"}),
-        PacketField("trans",Raw(),IKE_proposal),
-#        Field("load",""),
+        PacketLenField("prop",Raw(),ISAKMP_payload_Proposal,"len"),
         ]
-    
+
+class ISAKMP_payload_Nonce(ISAKMP_class):
+    name = "ISAKMP Nonce"
+    overload_fields = { ISAKMP: { "next_payload":10 }}
+    fields_desc = [
+        ByteEnumField("next_payload",None,ISAKMP_payload_type),
+        ByteField("res",0),
+        FieldLenField("length",None,"load","H",shift=-4),
+        StrLenField("load","","length"),
+        ]
+
+class ISAKMP_payload_KE(ISAKMP_class):
+    name = "ISAKMP Key Exchange"
+    overload_fields = { ISAKMP: { "next_payload":4 }}
+    fields_desc = [
+        ByteEnumField("next_payload",None,ISAKMP_payload_type),
+        ByteField("res",0),
+        FieldLenField("length",None,"load","H",shift=-4),
+        StrLenField("load","","length"),
+        ]
+
+class ISAKMP_payload_ID(ISAKMP_class):
+    name = "ISAKMP Identification"
+    overload_fields = { ISAKMP: { "next_payload":5 }}
+    fields_desc = [
+        ByteEnumField("next_payload",None,ISAKMP_payload_type),
+        ByteField("res",0),
+        FieldLenField("length",None,"load","H",shift=-8),
+        ByteEnumField("IDtype",1,{1:"IPv4_addr", 11:"Key"}),
+        ByteEnumField("ProtoID",0,{0:"Unused"}),
+        ShortEnumField("Port",0,{0:"Unused"}),
+#        IPField("IdentData","127.0.0.1"),
+        StrLenField("load","","length"),
+        ]
+
+
+
+class ISAKMP_payload_Hash(ISAKMP_class):
+    name = "ISAKMP Hash"
+    overload_fields = { ISAKMP: { "next_payload":8 }}
+    fields_desc = [
+        ByteEnumField("next_payload",None,ISAKMP_payload_type),
+        ByteField("res",0),
+        FieldLenField("length",None,"load","H",shift=-4),
+        StrLenField("load","","length"),
+        ]
+
+
+
 
         
 
@@ -4558,8 +4642,6 @@ layer_bonds = [ ( Dot3,   LLC,      { } ),
                 ( SebekHead, SebekV1,        { "version" : 1 } ),
                 ( SebekHead, SebekV2,        { "version" : 2 } ),
                 ( SebekHead, SebekV2Sock,    { "version" : 2, "type" : 2 } ),
-                ( ISAKMP,    ISAKMP_payload,    { } ),
-                ( ISAKMP_payload,ISAKMP_payload,{ } ),
                 ]
 
 for l in layer_bonds:
