@@ -21,6 +21,14 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.22  2004/12/26 18:07:43  pbi
+# - Improved PacketList with stability by addition and slicing
+# - Added plot() to PacketList using Gnuplot
+# - Added StrStopField
+# - Added conf.debug_disssector to prevent dissector's exception from being catched
+# - Added CookedLinux packet type
+# - Show linktype number when it is unknown
+#
 # Revision 0.9.17.21  2004/12/26 16:04:57  pbi
 # - removed strace in soxmix command line
 # - DHCP support (from Mattias Wadman)
@@ -498,7 +506,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.21 2004/12/26 16:04:57 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.22 2004/12/26 18:07:43 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -653,6 +661,13 @@ import cPickle, types, gzip, re
 from select import select
 from fcntl import ioctl
 import fcntl
+
+
+try:
+    import Gnuplot
+    GNUPLOT=1
+except ImportError:
+    GNUPLOT=0
 
 try:
     import pcap
@@ -1248,58 +1263,22 @@ class Net(Gen):
 ## Results ##
 #############
 
-class SndRcvAns:
-    res = []
-    def __init__(self, res):
-        self.res = res
-    def __repr__(self):
-        stats={TCP:0,UDP:0,ICMP:0}
-        other = 0
-        for s,r in self.res:
-            f = 0
-            for p in stats:
-                if r.haslayer(p):
-                    stats[p] += 1
-                    f = 1
-                    break
-            if not f:
-                other += 1
-        s = ""
-        for p in stats:
-            s += " %s:%i" % (p.name,stats[p])
-        s += " Other:%i" % other
-        return "<Results:%s>" % s
-    def __getattr__(self, attr):
-        return getattr(self.res, attr)
-    def summary(self):
-        for s,r in self.res:
-            print s.summary(),"==>",r.summary()
-    def nsummary(self):
-        for i in range(len(self.res)):
-            s,r = self.res[i]
-            print "%04i %s ==> %s" % (i,s.summary(),r.summary())
-    def make_table(self, *args, **kargs):
-        return make_table(self.res, *args, **kargs)
-    def make_lined_table(self, *args, **kargs):
-        return make_lined_table(self.res, *args, **kargs)
-    def make_tex_table(self, *args, **kargs):
-        return make_tex_table(self.res, *args, **kargs)
-    def filter(self, func):
-        return PacketList(filter(func,self.res),
-                          name="filtered %s"%self.listname)
-
 class PacketList:
     res = []
     def __init__(self, res, name="PacketList"):
         self.res = res
         self.listname = name
+    def elt2pkt(self, elt):
+        return elt
+    def elt2sum(self, elt):
+        return elt.summary()
     def __repr__(self):
         stats={TCP:0,UDP:0,ICMP:0}
         other = 0
         for r in self.res:
             f = 0
             for p in stats:
-                if r.haslayer(p):
+                if self.elt2pkt(r).haslayer(p):
                     stats[p] += 1
                     f = 1
                     break
@@ -1312,21 +1291,40 @@ class PacketList:
         return "<%s:%s>" % (self.listname,s)
     def __getattr__(self, attr):
         return getattr(self.res, attr)
+    def __getslice__(self, *args, **kargs):
+        return self.__class__(self.res.__getslice__(*args, **kargs),
+                              name="mod %s"%self.listname)
+    def __add__(self, other):
+        return self.__class__(self.res+other.res,
+                              name="%s+%s"%(self.listname,other.listname))
     def summary(self):
         for r in self.res:
-            print r.summary()
+            print self.elt2sum(r)
     def nsummary(self):
         for i in range(len(self.res)):
-            print "%04i %s" % (i,self.res[i].summary())
+            print "%04i %s" % (i,self.elt2sum(self.res[i]))
     def filter(self, func):
-        return PacketList(filter(func,self.res),
-                          name="filtered %s"%self.listname)
+        return self.__class__(filter(func,self.res),
+                              name="filtered %s"%self.listname)
     def make_table(self, *args, **kargs):
         return make_table(self.res, *args, **kargs)
     def make_lined_table(self, *args, **kargs):
         return make_lined_table(self.res, *args, **kargs)
     def make_tex_table(self, *args, **kargs):
         return make_tex_table(self.res, *args, **kargs)
+
+    def plot(self, f, **kargs):
+        g=Gnuplot.Gnuplot()
+        g.plot(Gnuplot.Data(map(f,self.res), **kargs))
+        return g
+
+class SndRcvAns(PacketList):
+    def __init__(self, res, name="Results"):
+        PacketList.__init__(self, res, name)
+    def elt2pkt(self, elt):
+        return elt[1]
+    def elt2sum(self, elt):
+        return "%s ==> %s" % (elt[0].summary(),elt[1].summary()) 
 
 
         
@@ -1646,6 +1644,19 @@ class FieldLenField(Field):
         if x is None:
             x = len(getattr(pkt, self.fld))
         return x
+
+
+class StrStopField(StrField):
+    def __init__(self, name, default, stop, additionnal=0):
+        Field.__init__(self, name, default)
+        self.stop=stop
+        self.additionnal=additionnal
+    def getfield(self, pkt, s):
+        l = s.find(self.stop)
+        if l < 0:
+            raise Exception,"StrStopField: stop value not found"
+        l += len(self.stop)+self.additionnal
+        return s[l:],s[:l]
 
 class LenField(Field):
     def i2m(self, pkt, x):
@@ -2268,9 +2279,11 @@ class Packet(Gen):
             try:
                 p = cls(s)
             except:
-#                print "Warning: %s dissector failed" % cls.name
-#                traceback.print_exc()
-                p = Raw(s)
+                if conf.debug_dissector:
+                    print "Warning: %s dissector failed" % cls.name
+                    raise
+                else:
+                    p = Raw(s)
             self.add_payload(p)
 
     def dissect(self, s):
@@ -2590,6 +2603,18 @@ class LLC(Packet):
     fields_desc = [ XByteField("dsap", 0x00),
                     XByteField("ssap", 0x00),
                     ByteField("ctrl", 0) ]
+
+
+class CookedLinux(Packet):
+    name = "cooked linux"
+    fields_desc = [ ShortEnumField("pkttype",0, {0: "unicast",
+                                                 4:"sent-by-us"}), #XXX incomplete
+                    XShortField("lladdrtype",512),
+                    ShortField("lladdrlen",0),
+                    StrFixedLenField("src","",8),
+                    XShortField("proto",0x800) ]
+                    
+                                   
 
 class SNAP(Packet):
     name = "SNAP"
@@ -3819,6 +3844,14 @@ layer_bonds = [ ( Dot3,   LLC,      { } ),
                 ( Ether,  EAPOL,    { "type" : 0x888e, "dst" : "01:80:c2:00:00:03" } ),
                 ( Ether,  PPPoED,   { "type" : 0x8863 } ),
                 ( Ether,  PPPoE,    { "type" : 0x8864 } ),
+                ( CookedLinux,  LLC,      { "proto" : 0x007a } ),
+                ( CookedLinux,  Dot1Q,    { "proto" : 0x8100 } ),
+                ( CookedLinux,  Ether,    { "proto" : 0x0001 } ),
+                ( CookedLinux,  ARP,      { "proto" : 0x0806 } ),
+                ( CookedLinux,  IP,       { "proto" : 0x0800 } ),
+                ( CookedLinux,  EAPOL,    { "proto" : 0x888e } ),
+                ( CookedLinux,  PPPoED,   { "proto" : 0x8863 } ),
+                ( CookedLinux,  PPPoE,    { "proto" : 0x8864 } ),
                 ( PPPoE,  PPP,      { "code" : 0x00 } ),
                 ( EAPOL,  EAP,      { "type" : EAPOL.EAP_PACKET } ),
                 ( LLC,    STP,      { "dsap" : 0x42 , "ssap" : 0x42 } ),
@@ -3915,6 +3948,7 @@ LLTypes = { ARPHDR_ETHER : Ether,
             801 : Dot11,
             802 : PrismHeader,
             105 : Dot11,
+            113 : CookedLinux
             }
 
 L3Types = { ETH_P_IP : IP,
@@ -4525,7 +4559,7 @@ def rdpcap(filename):
     vermaj,vermin,tz,sig,snaplen,linktype = struct.unpack(endian+"HHIIII",hdr)
     LLcls = LLTypes.get(linktype, Raw)
     if LLcls == Raw:
-        warning("LL type unknown. Using Raw packets")
+        warning("LL type %i unknown. Using Raw packets"%linktype)
     while 1:
         hdr = f.read(16)
         if len(hdr) < 16:
@@ -6006,6 +6040,7 @@ route    : holds the Scapy routing table and provides methods to manipulate it
     debug_match = 0
     route = Route()
     wepkey = ""
+    debug_dissector = 0
         
 
 conf=Conf()
