@@ -22,6 +22,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.12.1  2003/04/27 10:07:30  pbi
+# Release 0.9.12
+#
 # Revision 0.9.11.5  2003/04/27 10:04:03  pbi
 # - Fixed long int conversion in attach_filter()
 #
@@ -201,7 +204,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.11.5 2003/04/27 10:04:03 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.12.1 2003/04/27 10:07:30 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
