@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.16.18  2004/07/26 19:50:16  pbi
+# - added ScapyPcapWriter class (William McVey)
+#
 # Revision 0.9.16.17  2004/07/26 19:24:48  pbi
 # - do not need to be named 'scapy.py' anymore
 # - use of PacketList() for rdpcap() and sniff()
@@ -406,7 +409,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.16.17 2004/07/26 19:24:48 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.16.18 2004/07/26 19:50:16 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -3917,6 +3920,47 @@ def rdpcap(filename):
     f.close()
     filename = filename[filename.rfind("/")+1:]
     return PacketList(res,filename)
+
+
+class ScapyPcapWriter:                                                          
+        """A pcap writer with more control than wrpcap()                        
+                                                                                
+        This routine is based entirely on scapy.wrpcap(), but adds capability   
+        of writing one packet at a time in a streaming manner.                  
+        """                                                                     
+        def __init__(self, filename):                                           
+                self.f = open(filename,"w")                                     
+                self.f.write(struct.pack("IHHIIII",                             
+                                                0xa1b2c3d4L,                    
+                                                2, 4,                           
+                                                0,                              
+                                                0,                              
+                                                scapy.MTU,                      
+                                                1)) # XXX Find the link type    
+                                                                                
+        def write(self, packets):                                               
+                """accepts a either a single packet or a list of packets        
+                to be written to the dumpfile                                   
+                """                                                             
+                if type(packets) == type(list):                                 
+                        for p in packets:                                       
+                                self.write_packet(p)                            
+                else:                                                           
+                        self.write_packet(packets)                              
+                                                                                
+        def write_packet(self, packet):                                         
+                """writes a single packet to the pcap file                      
+                """                                                             
+                s = str(packet)                                                 
+                l = len(s)                                                      
+                sec = int(packet.time)                                          
+                usec = int((packet.time-sec)*1000000)                           
+                self.f.write(struct.pack("IIII", sec, usec, l, l))              
+                self.f.write(s)                                                 
+                                                                                
+        def __del__(self):                                                      
+                self.f.close()                                                  
+
 
 
 def import_hexcap():
