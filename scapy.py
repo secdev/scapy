@@ -22,6 +22,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.12.6  2003/05/16 09:28:40  pbi
+# - improved the __repr__() method of Packet class
+#
 # Revision 0.9.12.5  2003/05/12 15:15:02  pbi
 # - added minttl parameter to traceroute()
 #
@@ -216,7 +219,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.12.5 2003/05/12 15:15:02 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.12.6 2003/05/16 09:28:40 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1535,17 +1538,11 @@ class Packet(Gen):
             
     def __repr__(self):
         s = ""
-        for fname in self.fields.keys():
-            try:
-                ftype = self.fieldtype[fname]
-            except KeyError:
-                pass  # unknown field => don't display
-            else:
-                s=s+" %s=%s" % (fname, ftype.i2repr(self, self.fields[fname]))
-        for fname in self.overloaded_fields.keys():
-            if not self.fields.has_key(fname):
-                ftype = self.fieldtype[fname]
-                s=s+" %s=%s" % (fname, ftype.i2repr(self, self.overloaded_fields[fname]))
+        for f in self.fields_desc:
+            if f in self.fields:
+                s += " %s=%s" % (f, f.i2repr(self, self.fields[f]))
+            elif f in self.overloaded_fields:
+                s += " %s=%s" % (f, f.i2repr(self, self.overloaded_fields[f]))
         return "<%s%s |%s>"% (self.__class__.__name__,
                               s, repr(self.payload))
     def __str__(self):
