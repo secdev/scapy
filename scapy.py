@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.16  2004/09/21 14:58:15  pbi
+# - added VOIP playing functions (not tested)
+#
 # Revision 0.9.17.15  2004/09/17 22:00:47  pbi
 # - transfert traceroute() and arping() options to sndrcv() ("retry", etc.)
 # - fixed retry option in sndrcv()
@@ -466,7 +469,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.15 2004/09/17 22:00:47 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.16 2004/09/21 14:58:15 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -5198,6 +5201,19 @@ for am in AM_classes:
 ###################
 ## Testing stuff ##
 ###################
+
+
+def voip_play_sniff(**kargs):
+    dsp,rd = os.popen2("sox -t .ul - -t ossdsp /dev/dsp")
+    def play(pkt, dsp=dsp):
+       dsp.write(pkt.load[12:])
+    sniff(store=0, prn=play, **kargs)
+
+
+def voip_play_offline(lst):
+    dsp,rd = os.popen2("sox -t .ul - -t ossdsp /dev/dsp")
+    for p in lst:
+       dsp.write(p.load[12:])
 
 
 
