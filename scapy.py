@@ -22,6 +22,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.15.10  2004/01/10 23:42:58  pbi
+# - added srloop() and srploop() functions
+#
 # Revision 0.9.15.9  2004/01/10 23:40:51  pbi
 # - added
 #
@@ -321,7 +324,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.15.9 2004/01/10 23:40:51 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.15.10 2004/01/10 23:42:58 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -4110,7 +4113,7 @@ def ls(obj=None):
     
 
 
-user_commands = [ sr, sr1, srp, sniff, p0f, arpcachepoison, send, sendp, traceroute, arping, ls, lsc, queso, nmap_fp, report_ports, dyndns_add, dyndns_del ]
+user_commands = [ sr, sr1, srp, srp1, srloop, srploop, sniff, p0f, arpcachepoison, send, sendp, traceroute, arping, ls, lsc, queso, nmap_fp, report_ports, dyndns_add, dyndns_del ]
 
 
 ###################
