@@ -22,6 +22,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.9.9  2003/04/12 22:15:40  biondi
+# - added EnumField
+# - used EnumField for ARP(), ICMP(), IP(), EAPOL(), EAP(),...
+#
 # Revision 0.9.9.8  2003/04/11 16:52:29  pbi
 # - better integration of libpcap and libdnet, if available
 #
@@ -125,7 +129,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.9.8 2003/04/11 16:52:29 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.9.9 2003/04/12 22:15:40 biondi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -491,10 +495,8 @@ else:
             mac, timeout = arp_cache[ip]
             if timeout and (time.time()-timeout < ARPTIMEOUT):
                 return mac
-    
         
-        res = srp1(Ether(dst=ETHER_BROADCAST)/ARP(op=ARP.who_has,
-                                                  pdst=ip),
+        res = srp1(Ether(dst=ETHER_BROADCAST)/ARP(op="who-has", pdst=ip),
                   filter="arp",
                   iface = iff,
                   timeout=2,
@@ -952,6 +954,43 @@ class XBitField(BitField):
         return hex(self.i2h(pkt,x))
 
 
+class EnumField(Field):
+    def __init__(self, name, default, enum, fmt = "H"):
+        Field.__init__(self, name, default, fmt)
+        i2s = self.i2s = {}
+        s2i = self.s2i = {}
+        if type(enum) is list:
+            keys = xrange(len(enum))
+        else:
+            keys = enum.keys()
+        if filter(lambda x: type(x) is str, keys):
+            i2s,s2i = s2i,i2s
+        for k in keys:
+            i2s[k] = enum[k]
+            s2i[enum[k]] = k
+    def any2i(self, pkt, x):
+        if type(x) is str:
+            x = self.s2i[x]
+        return x
+    def i2repr(self, pkt, x):
+        y = self.i2s.get(x)
+        if y is None:
+            y = x
+        return y            
+
+class ShortEnumField(EnumField):
+    def __init__(self, name, default, enum):
+        EnumField.__init__(self, name, default, enum, "H")
+
+class ByteEnumField(EnumField):
+    def __init__(self, name, default, enum):
+        EnumField.__init__(self, name, default, enum, "B")
+
+class IntEnumField(EnumField):
+    def __init__(self, name, default, enum):
+        EnumField.__init__(self, name, default, enum, "I")
+
+
 class FlagsField(BitField):
     def __init__(self, name, default, size, names):
         BitField.__init__(self, name, default, size)
@@ -1221,7 +1260,7 @@ class Packet(Gen):
             return other.__rdiv__(self)
     def __rdiv__(self, other):
         if type(other) is str:
-            return Raw(load=other)/self.str
+            return Raw(load=other)/self
         else:
             raise TypeError
     def __len__(self):
@@ -1556,7 +1595,7 @@ class STP(Packet):
 class EAPOL(Packet):
     name = "EAPOL"
     fields_desc = [ ByteField("version", 1),
-                    ByteField("type", 0),
+                    ByteEnumField("type", 0, ["EAP_PACKET", "START", "LOGOFF", "KEY", "ASF"]),
                     LenField("len", None, "H") ]
     
     EAP_PACKET= 0
@@ -1577,9 +1616,9 @@ class EAPOL(Packet):
 
 class EAP(Packet):
     name = "EAP"
-    fields_desc = [ ByteField("code", 4),
+    fields_desc = [ ByteEnumField("code", 4, {1:"REQUEST",2:"RESPONSE",3:"SUCCESS",4:"FAILURE"}),
                     ByteField("id", 0),
-                    ByteField("type",0),
+                    ByteEnumField("type",0, {1:"ID",4:"MD5"}),
                     ByteField("len",None)]
     
     REQUEST = 1
@@ -1625,10 +1664,8 @@ class ARP(Packet):
                     XShortField("ptype",  0x0800),
                     ByteField("hwlen", 6),
                     ByteField("plen", 4),
-                    ShortField("op", 1),
-#                    MACField("hwsrc", ETHER_ANY),
+                    ShortEnumField("op", 1, {"who-has":1, "is-at":2}),
                     ARPSourceMACField("hwsrc"),
-#                    IPField("psrc", "127.0.0.1"),
                     SourceIPField("psrc","pdst"),
                     MACField("hwdst", ETHER_ANY),
                     IPField("pdst", "0.0.0.0") ]
@@ -1652,7 +1689,7 @@ class IP(Packet, IPTools):
                     FlagsField("flags", 0, 3, ["MF","DF","evil"]),
                     BitField("frag", 0, 13),
                     ByteField("ttl", 64),
-                    ByteField("proto", 0),
+                    ByteEnumField("proto", 0, {0:"IP",1:"ICMP",6:"TCP",17:"UDP"}),
                     XShortField("chksum", None),
                     #IPField("src", "127.0.0.1"),
                     SourceIPField("src","dst"),
@@ -1776,11 +1813,24 @@ class UDP(Packet):
             return 0
         return 1
     
-    
-                    
+
+icmptypes = { 0 : "echo-reply",
+              3 : "dest-unreach",
+              4 : "source-quench",
+              5 : "redirect",
+              8 : "echo-request",
+              9 : "router-advertisement",
+              10 : "router-solicitation",
+              11 : "time-exceeded",
+              12 : "parameter-problem",
+              13 : "timestamp-request",
+              14 : "timestamp-reply",
+              17 : "address-mask-request",
+              18 : "address-mask-reply" }
+
 class ICMP(Packet):
     name = "ICMP"
-    fields_desc = [ ByteField("type",8),
+    fields_desc = [ ByteEnumField("type",8, icmptypes),
                     ByteField("code",0),
                     XShortField("chksum", None),
                     XShortField("id",0),
@@ -1966,8 +2016,10 @@ class SuperSocket:
         return self.ins.fileno()
     def close(self):
         if self.ins != self.outs:
-            self.outs.close()
-        self.ins.close()
+            if self.outs:
+                self.outs.close()
+        if self.ins:
+            self.ins.close()
     def bind_in(self, addr):
         self.ins.bind(addr)
     def bind_out(self, addr):
@@ -2096,6 +2148,7 @@ class L2ListenSocket(SuperSocket):
         SuperSocket.close(self)
         if self.promisc:
             for i in self.iff:
+
                 set_promisc(self.ins, i, 0)
 
     def recv(self, x):
@@ -2562,7 +2615,7 @@ def arpcachepoison(target, victim, interval=60):
 arpspoof(target, victim, [interval=60]) -> None
 """
     tmac = getmacbyip(target)
-    p = Ether(dst=tmac)/ARP(op=ARP.who_has, psrc=victim, pdst=target)
+    p = Ether(dst=tmac)/ARP(op="who-has", psrc=victim, pdst=target)
     try:
         while 1:
             sendp(p)
