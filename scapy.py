@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.43  2005/03/03 17:15:26  pbi
+# - ISAKMP work
+#
 # Revision 0.9.17.42  2005/03/02 18:09:00  pbi
 # - added make_world_trace() method to TracerouteResult for a xtraceroute-like
 #
@@ -580,7 +583,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.42 2005/03/02 18:09:00 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.43 2005/03/03 17:15:26 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2036,19 +2039,22 @@ class StrLenField(StrField):
         self.fld = fld
     def getfield(self, pkt, s):
         l = getattr(pkt, self.fld)
+        # add the shift from the length field
+        l += pkt.fields_desc[pkt.fields_desc.index(self.fld)].shift
         return s[l:], self.m2i(pkt,s[:l])
 
 class FieldLenField(Field):
-    def __init__(self, name, default, fld, fmt = "H"):
+    def __init__(self, name, default, fld, fmt = "H", shift=0):
         Field.__init__(self, name, default, fmt)
         self.fld = fld
+        self.shift = shift
     def i2m(self, pkt, x):
         if x is None:
-            x = len(getattr(pkt, self.fld))
+            x = len(getattr(pkt, self.fld))-self.shift
         return x
     def i2h(self, pkt, x):
         if x is None:
-            x = len(getattr(pkt, self.fld))
+            x = len(getattr(pkt, self.fld))+self.shift
         return x
 
 
@@ -4018,7 +4024,7 @@ class RIPEntry(Packet):
 
 
 ISAKMP_payload_type = ["None","SA","P","T","KE","ID","CERT","CR","HASH",
-                       "SIG","Nonce","N","D","VID"]
+                       "SIG","Nonce","N","D","VendorID"]
 
 ISAKMP_exchange_type = ["None","base","identity prot.",
                         "auth only", "aggressive", "info"]
@@ -4048,17 +4054,17 @@ class ISAKMP_payload(Packet):
     fields_desc = [
         ByteEnumField("next_payload",None,ISAKMP_payload_type),
         ByteField("res",0),
-        ShortField("length",None),
-        Field("load",""),
+        FieldLenField("length",None,"load","H",shift=-4),
+        StrLenField("load","","length"),
         ]
-    def post_build(self, p):
-        if self.length is None:
-            p = p[:2]+struct.pack("!H",4+len(self.load))+p[4:]
-        if self.next_payload is None:
-            t = getattr(getattr(self.payload,"load", NoPayload), "ISAKMP_payload_type",0)
-            if t:
-                p = chr(t)+p[1:]
-        return p
+#    def post_build(self, p):
+#        if self.length is None:
+#            p = p[:2]+struct.pack("!H",4+len(self.load))+p[4:]
+#        if self.next_payload is None:
+#            t = getattr(getattr(self.payload,"load", NoPayload), "ISAKMP_payload_type",0)
+#            if t:
+#                p = chr(t)+p[1:]
+#        return p
                      
         
 
@@ -4444,6 +4450,8 @@ layer_bonds = [ ( Dot3,   LLC,      { } ),
                 ( SebekHead, SebekV1,        { "version" : 1 } ),
                 ( SebekHead, SebekV2,        { "version" : 2 } ),
                 ( SebekHead, SebekV2Sock,    { "version" : 2, "type" : 2 } ),
+                ( ISAKMP,    ISAKMP_payload,    { } ),
+                ( ISAKMP_payload,ISAKMP_payload,{ } ),
                 ]
 
 for l in layer_bonds:
