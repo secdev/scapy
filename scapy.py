@@ -22,6 +22,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.15.1  2003/10/02 15:24:29  pbi
+# Release 0.9.15
+#
 # Revision 0.9.14.8  2003/10/02 15:16:26  pbi
 # - small fix for p0f_base
 # - lazy loading for p0f, queso and nmap knowledge databases
@@ -285,7 +288,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.14.8 2003/10/02 15:16:26 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.15.1 2003/10/02 15:24:29 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
