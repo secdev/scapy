@@ -22,6 +22,12 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.11.4  2003/04/27 10:00:57  pbi
+# - rectification in SetGen to unroll Gen instances in lists
+# - Completed DNS types and qtypes names
+# - Small tuning in nmap_match_one_sig()
+# - Parallelized nmap_sig()
+#
 # Revision 0.9.11.3  2003/04/24 12:47:49  pbi
 # - removed 4 byte IP string autorecognition. Never used and broken for 4 byte names
 # - added "islist" flag to fields to distinguish a list value from a list of values
@@ -192,7 +198,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.11.3 2003/04/24 12:47:49 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.11.4 2003/04/27 10:00:57 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -788,6 +794,9 @@ class SetGen(Gen):
                     while j <= i[1]:
                         yield j
                         j += 1
+            elif isinstance(i, Gen):
+                for j in i:
+                    yield j
             else:
                 yield i
     def __repr__(self):
@@ -2251,17 +2260,20 @@ class DNS(Packet):
                     DNSRRField("ar", "arcount",0) ]
 
 
-dnstypes = [0,"A","NS","MD","MD","CNAME","SOA","MB","MG","MR","NULL","WKS","PTR","HINFO","MINFO","MX","TXT"]
-dnsqtypes = {252:"AXFR",253:"MAILB",254:"MAILA"}
-for i in range(len(dnstypes)):
-    dnsqtypes[i] = dnstypes[i]
-    
+dnstypes = { 1:"A", 2:"NS", 3:"MD", 4:"MD", 5:"CNAME", 6:"SOA", 7: "MB", 8:"MG",
+             9:"MR",10:"NULL",11:"WKS",12:"PTR",13:"HINFO",14:"MINFO",15:"MX",16:"TXT",
+             17:"RP",18:"AFSDB",28:"AAAA", 33:"SRV",38:"A6",39:"DNAME"}
+
+dnsqtypes = {251:"IXFR",252:"AXFR",253:"MAILB",254:"MAILA",255:"ALL"}
+dnsqtypes.update(dnstypes)
+dnsclasses =  {1: 'IN',  2: 'CS',  3: 'CH',  4: 'HS',  255: 'ANY'}
+
 
 class DNSQR(Packet):
     name = "DNS Question Record"
     fields_desc = [ DNSStrField("qname",""),
                     ShortEnumField("qtype", 1, dnsqtypes),
-                    ShortEnumField("qclass", 1, [0, "IN", "CS", "CH", "HS"]) ]
+                    ShortEnumField("qclass", 1, dnsclasses) ]
                     
                     
 
@@ -2269,7 +2281,7 @@ class DNSRR(Packet):
     name = "DNS Resource Record"
     fields_desc = [ DNSStrField("rrname",""),
                     ShortEnumField("type", 1, dnstypes),
-                    ShortEnumField("class", 1, [0, "IN", "CS", "CH", "HS"]),
+                    ShortEnumField("class", 1, dnsclasses),
                     IntField("ttl", 0),
                     RDLenField("rdlen"),
                     RDataField("rdata", "", "rdlen") ]
@@ -3156,7 +3168,10 @@ def nmap_match_one_sig(seen, ref):
         if ref.has_key(k):
             if seen[k] in ref[k].split("|"):
                 c += 1
-    return 1.0*c/len(seen.keys())
+    if c == 0 and seen.get("Resp") == "N":
+        return 0.7
+    else:
+        return 1.0*c/len(seen.keys())
         
         
 
@@ -3167,38 +3182,40 @@ def nmap_sig(target, oport=80, cport=81, ucport=1):
                ("NOP",None),
                ("MSS", 256),
                ("Timestamp",(123,0)) ]
-    tests = { "T1": IP(dst=target)/TCP(seq=1, dport=oport, options=tcpopt, flags="CS"),
-              "T2": IP(dst=target)/TCP(seq=1, dport=oport, options=tcpopt, flags=0),
-              "T3": IP(dst=target)/TCP(seq=1, dport=oport, options=tcpopt, flags="SFUP"),
-              "T4": IP(dst=target)/TCP(seq=1, dport=oport, options=tcpopt, flags="A"),
-              "T5": IP(dst=target)/TCP(seq=1, dport=cport, options=tcpopt, flags="S"),
-              "T6": IP(dst=target)/TCP(seq=1, dport=cport, options=tcpopt, flags="A"),
-              "T7": IP(dst=target)/TCP(seq=1, dport=cport, options=tcpopt, flags="FPU") }
+    tests = [ IP(dst=target, id=1)/TCP(seq=1, sport=5001, dport=oport, options=tcpopt, flags="CS"),
+              IP(dst=target, id=1)/TCP(seq=1, sport=5002, dport=oport, options=tcpopt, flags=0),
+              IP(dst=target, id=1)/TCP(seq=1, sport=5003, dport=oport, options=tcpopt, flags="SFUP"),
+              IP(dst=target, id=1)/TCP(seq=1, sport=5004, dport=oport, options=tcpopt, flags="A"),
+              IP(dst=target, id=1)/TCP(seq=1, sport=5005, dport=cport, options=tcpopt, flags="S"),
+              IP(dst=target, id=1)/TCP(seq=1, sport=5006, dport=cport, options=tcpopt, flags="A"),
+              IP(dst=target, id=1)/TCP(seq=1, sport=5007, dport=cport, options=tcpopt, flags="FPU"),
+              IP(str(IP(dst=target)/UDP(sport=5008,dport=ucport)/(300*"i"))) ]
 
-    for t in tests.keys():
-        T = sr1(tests[t], timeout=2, verbose=2)
-        if T is not None and T.haslayer(ICMP):
-            warning("Test %s answered by an ICMP" % t)
-            T=None
-        res[t] = nmap_packet_sig(T)
+    ans, unans = sr(tests, timeout=2, verbose=2)
+    ans += map(lambda x: (x,None), unans)
 
-    # Assemble then dissect to calculate checksums
-    PU = IP(str(IP(dst=target)/UDP(dport=ucport)/(300*"i"))) 
-    T = sr1(PU, verbose=2, timeout=2)
-    r={}
-    if T is None:
-        r["Resp"] = "N"
-    else:
-        r["DF"] = (T.flags & 2) and "Y" or "N"
-        r["TOS"] = "%X" % T.tos
-        r["IPLEN"] = "%X" % T.len
-        r["RIPTL"] = "%X" % T.payload.payload.len
-        r["RID"] = PU.id == T.payload.payload.id and "E" or "F"
-        r["RIPCK"] = PU.chksum == T.getlayer(IPerror).chksum and "E" or T.getlayer(IPerror).chksum == 0 and "0" or "F"
-        r["UCK"] = PU.payload.chksum == T.getlayer(UDPerror).chksum and "E" or T.getlayer(UDPerror).chksum ==0 and "0" or "F"
-        r["ULEN"] = "%X" % T.getlayer(UDPerror).len
-        r["DAT"] = T.getlayer(Raw) is None and "E" or PU.getlayer(Raw).load == T.getlayer(Raw).load and "E" or "F"
-    res["PU"] = r
+    for S,T in ans:
+        if S.sport == 5008:
+            r={}
+            if T is None:
+                r["Resp"] = "N"
+            else:
+                r["DF"] = (T.flags & 2) and "Y" or "N"
+                r["TOS"] = "%X" % T.tos
+                r["IPLEN"] = "%X" % T.len
+                r["RIPTL"] = "%X" % T.payload.payload.len
+                r["RID"] = S.id == T.payload.payload.id and "E" or "F"
+                r["RIPCK"] = S.chksum == T.getlayer(IPerror).chksum and "E" or T.getlayer(IPerror).chksum == 0 and "0" or "F"
+                r["UCK"] = S.payload.chksum == T.getlayer(UDPerror).chksum and "E" or T.getlayer(UDPerror).chksum ==0 and "0" or "F"
+                r["ULEN"] = "%X" % T.getlayer(UDPerror).len
+                r["DAT"] = T.getlayer(Raw) is None and "E" or S.getlayer(Raw).load == T.getlayer(Raw).load and "E" or "F"
+            res["PU"] = r
+        else:
+            t = "T%i" % (S.sport-5000)
+            if T is not None and T.haslayer(ICMP):
+                warning("Test %s answered by an ICMP" % t)
+                T=None
+            res[t] = nmap_packet_sig(T)
 
     return res
 
