@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.42  2005/03/02 18:09:00  pbi
+# - added make_world_trace() method to TracerouteResult for a xtraceroute-like
+#
 # Revision 0.9.17.41  2005/02/20 22:33:55  pbi
 # - Sebek protocol definitions enhancements (Pierre Lalet)
 #
@@ -577,7 +580,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.41 2005/02/20 22:33:55 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.42 2005/03/02 18:09:00 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1461,17 +1464,72 @@ class ARPingResult(SndRcvAns):
             print r.sprintf("%Ether.src% %ARP.psrc%")
 
 
+
+
 class TracerouteResult(SndRcvAns):
     def __init__(self, res, name="Traceroute"):
         PacketList.__init__(self, res, name)
         self.graphdef = None
         self.graphASN = 0
+        self.hloc = None
+        self.nloc = None
 
     def display(self):
 
         return self.make_table(lambda x: x[0].sprintf("%IP.dst%:{TCP:tcp%TCP.dport%}{UDP:udp%UDP.dport%}{ICMP:ICMP}"),
                                lambda x: x[0].ttl,
                                lambda x: x[1].sprintf("%-15s,IP.src% {TCP:%TCP.flags%}{ICMP:%ir,ICMP.type%}"))
+
+
+    def make_world_trace(self):
+        ips = {}
+        rt = {}
+        ports_done = {}
+        for s,r in self.res:
+            ips[r.src] = None
+            if s.haslayer(TCP) or s.haslayer(UDP):
+                trace_id = (s.src,s.dst,s.proto,s.dport)
+            elif s.haslayer(ICMP):
+                trace_id = (s.src,s.dst,s.proto,s.type)
+            else:
+                trace_id = (s.src,s.dst,s.proto,0)
+            trace = rt.get(trace_id,{})
+            if not r.haslayer(ICMP) or r.type != 11:
+                if ports_done.has_key(trace_id):
+                    continue
+                ports_done[trace_id] = None
+            trace[s.ttl] = r.src
+            rt[trace_id] = trace
+
+        trt = {}
+        for trace_id in rt:
+            print "#####",trace_id
+            trace = rt[trace_id]
+            loctrace = []
+            for i in range(max(trace.keys())):
+                ip = trace.get(i,None)
+                if ip is None:
+                    continue
+                loc = locate_ip(ip)
+                print i,ip,loc
+                if loc is None:
+                    continue
+#                loctrace.append((ip,loc)) # no labels yet
+                loctrace.append(loc)
+            if loctrace:
+                trt[trace_id] = loctrace
+
+        print trt
+        tr = map(lambda x: Gnuplot.Data(x,with="lines"), trt.values())
+        print tr
+        g = Gnuplot.Gnuplot()
+        world = Gnuplot.File(conf.gnuplot_world,with="lines")
+        g.plot(world,*tr)
+        return g
+        
+        
+        
+
 
     def make_graph(self,ASN):
         self.graphASN = ASN
@@ -5251,6 +5309,79 @@ class KnowledgeBase:
     
 
 
+##########################
+## IP location database ##
+##########################
+
+class LocationKnowledgeBase(KnowledgeBase):
+    def __init__(self, filenames):
+        KnowledgeBase.__init__(self, filenames)
+
+
+    def lazy_init(self):
+        def parse_coords(coords):
+            c = int(coords.pop())
+            mc = coords.pop()
+            if mc[-1] in ["n","s","e","w"]:
+                c += int(mc[:-1])/60.0
+            else:
+                c += int(mc)/60.0
+            while mc[-1] not in ["n","s","e","w"]:
+                mc = coords.pop()
+            if mc[-1] in ["s","w"]:
+                c = -c
+            return c,coords
+
+            
+        try:
+            hf=open(self.filename[0])
+            nf=open(self.filename[1])
+        except IOError:
+            warning("Can't open base [%s] or [%s]" % self.filename)
+            return
+        try:
+            hloc = {}
+            for l in hf.readlines():
+                l = l.strip().lower()
+                l = l.split()
+                l.reverse()
+                ip = l.pop()
+                l.pop()
+                lat,l = parse_coords(l)
+                lng,l = parse_coords(l)
+                hloc[ip] = (lng,lat)
+                
+            nloc = {}
+            for l in nf.readlines():
+                l.strip()
+                l = l.split("#")[0]
+                l = l.split()
+                l.reverse()
+                ip = l.pop()
+                lat,l = parse_coords(l)
+                lng,l = parse_coords(l)
+                hloc[ip] = (lng,lat)
+                nloc[ip] = (lng,lat)
+            self.base = (hloc,nloc)
+        except SystemExit:
+            warning("Can't parse database")
+            self.base = None
+
+
+def locate_ip(ip):
+    bases = location_kdb.get_base()
+    if bases is None:
+        return
+    hloc,nloc = bases
+    if ip in hloc:
+        return hloc[ip]
+
+    for k in nloc:
+        if ip.startswith(k):
+            return nloc[k]
+
+    
+
 ###############
 ## p0f stuff ##
 ###############
@@ -6520,6 +6651,9 @@ route    : holds the Scapy routing table and provides methods to manipulate it
     p0f_base ="/etc/p0f.fp"
     queso_base ="/etc/queso.conf"
     nmap_base ="/usr/share/nmap/nmap-os-fingerprints"
+    host_locations = "hosts.cache"
+    network_locations = "networks.cache"
+    gnuplot_world = "world.dat"
     except_filter = ""
     debug_match = 0
     route = Route()
@@ -6532,3 +6666,4 @@ conf=Conf()
 p0f_kdb = p0fKnowledgeBase(conf.p0f_base)
 queso_kdb = QuesoKnowledgeBase(conf.queso_base)
 nmap_kdb = NmapKnowledgeBase(conf.nmap_base)
+location_kdb = LocationKnowledgeBase((conf.host_locations,conf.network_locations))
