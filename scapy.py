@@ -22,6 +22,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.9.6  2003/04/11 13:46:49  pbi
+# - fixed a regression in bitfield dissection
+# - tweaked and fixed a lot of small things arround supersockets
+#
 # Revision 0.9.9.5  2003/04/10 14:50:22  pbi
 # - clean session only if it is to be saved
 # - forgot to give its name to Padding class
@@ -114,7 +118,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.9.5 2003/04/10 14:50:22 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.9.6 2003/04/11 13:46:49 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -875,7 +879,7 @@ class BitField(Field):
     def __init__(self, name, default, size):
         Field.__init__(self, name, default)
         self.size = size
-    def addfield(self, packet, s, val):
+    def addfield(self, pkt, s, val):
         if val is None:
             val = 0
         if type(s) is tuple:
@@ -894,7 +898,7 @@ class BitField(Field):
             return s,bitsdone,v
         else:
             return s
-    def getfield(self, packet, s):
+    def getfield(self, pkt, s):
         if type(s) is tuple:
             s,bn = s
         else:
@@ -955,10 +959,10 @@ class FlagsField(BitField):
 class IPoptionsField(StrField):
     def i2m(self, pkt, x):
         return x+"\x00"*(3-((len(x)+3)%4))
-    def getfield(self, packet, s):
-        opsz = (packet.ihl-5)*4
+    def getfield(self, pkt, s):
+        opsz = (pkt.ihl-5)*4
         if opsz < 0:
-            warning("bad ihl (%i). Assuming ihl=5"%packet.ihl)
+            warning("bad ihl (%i). Assuming ihl=5"%pkt.ihl)
             opsz = 0
         return s[opsz:],s[:opsz]
 
@@ -982,10 +986,10 @@ TCPOptions = (
                 } )
 
 class TCPOptionsField(StrField):
-    def getfield(self, packet, s):
-        opsz = (packet.dataofs-5)*4
+    def getfield(self, pkt, s):
+        opsz = (pkt.dataofs-5)*4
         if opsz < 0:
-            warning("bad dataofs (%i). Assuming dataofs=5"%packet.dataofs)
+            warning("bad dataofs (%i). Assuming dataofs=5"%pkt.dataofs)
             opsz = 0
         return s[opsz:],self.m2i(pkt,s[:opsz])
     def m2i(self, pkt, x):
@@ -1411,7 +1415,7 @@ class NoPayload(Packet,object):
     def __iter__(self):
         return iter([])
     def answers(self, other):
-        return self == other
+        return isinstance(other, NoPayload) or isinstance(other, Padding)
     def haslayer(self, cls):
         return 0
     def getlayer(self, cls):
@@ -1897,18 +1901,6 @@ def fragment(pkt, fragsize=1480):
             h2.add_payload(r)
             lst.append(h2)
     return lst
-        
-    
-
-
-#####################
-## Default sockets ##
-#####################
-
-pkt=socket.socket(socket.AF_PACKET, socket.SOCK_RAW, 0)
-pkt.bind(("eth0", 0))
-raw=socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_RAW)
-raw.setsockopt(socket.SOL_IP, socket.IP_HDRINCL, 1)
 
 
 ###################
@@ -1952,13 +1944,10 @@ class SuperSocket:
         self.outs.bind(addr)        
 
 class L3RawSocket(SuperSocket):
-    def __init__(self, iface = None, type = ETH_P_IP):
-        if iface is None:
-            iface = conf.iff
+    def __init__(self, type = ETH_P_IP):
         self.outs = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_RAW)
         self.outs.setsockopt(socket.SOL_IP, socket.IP_HDRINCL, 1)
-        self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, type)
-        self.ins.bind((iface, type))
+        self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))
     def recv(self, x):
         return Ether(self.ins.recv(x)).payload
     def send(self, x):
@@ -1970,7 +1959,7 @@ class L3RawSocket(SuperSocket):
 
 
 class L3PacketSocket(SuperSocket):
-    def __init__(self, type = ETH_P_IP, filter=None, promisc=None, iface=None):
+    def __init__(self, type = ETH_P_ALL, filter=None, promisc=None, iface=None):
         self.type = type
         self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))
         self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 2**30)
@@ -2014,7 +2003,10 @@ class L3PacketSocket(SuperSocket):
         return pkt
     
     def send(self, x):
-        iff,a,gw = choose_route(x.dst)
+        if hasattr(x,"dst"):
+            iff,a,gw = choose_route(x.dst)
+        else:
+            iff = conf.iff
         self.outs.bind((iff, self.type))
         sn = self.outs.getsockname()
         if LLTypes.has_key(sn[3]):
@@ -2074,7 +2066,6 @@ class L2ListenSocket(SuperSocket):
 
     def recv(self, x):
         pkt, sa_ll = self.ins.recvfrom(x)
-        # XXX: if sa_ll[2] == 4 (OUTGOING_PACKET) : skip
         if LLTypes.has_key(sa_ll[3]):
             cls = LLTypes[sa_ll[3]]
         elif L3Types.has_key(sa_ll[1]):
@@ -2100,7 +2091,7 @@ class L2ListenSocket(SuperSocket):
 
 def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None):
 
-    if not isinstance(pkt, Packet):
+    if not isinstance(pkt, Gen):
         pkt = SetGen(pkt)
         
     if verbose is None:
@@ -2192,14 +2183,18 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None):
 
 def send(x, inter=0, *args, **kargs):
     """Send packets at layer 3"""
-    s=L3PacketSocket(*args, **kargs)
+    if not isinstance(x, Gen):
+        x = SetGen(x)
+    s=conf.L3socket(*args, **kargs)
     for p in x:
         s.send(p)
         time.sleep(inter)
 
 def sendp(x, inter=0, *args, **kargs):
     """Send packets at layer 2"""
-    s=L2Socket(*args, **kargs)
+    if not isinstance(x, Gen):
+        x = SetGen(x)
+    s=conf.L2socket(*args, **kargs)
     for p in x:
         s.send(p)
         time.sleep(inter)
@@ -2210,14 +2205,14 @@ def sr(x,filter=None, *args,**kargs):
     """Send and receive packets at layer 3"""
     if not kargs.has_key("timeout"):
         kargs["timeout"] = -1
-    a,b,c=sndrcv(L3PacketSocket(filter=filter),x,*args,**kargs)
+    a,b,c=sndrcv(conf.L3socket(filter=filter),x,*args,**kargs)
     return a,b
 
 def sr1(x,filter=None, *args,**kargs):
     """Send and receive packets at layer 3 and return only the first answer"""
     if not kargs.has_key("timeout"):
         kargs["timeout"] = -1
-    a,b,c=sndrcv(L3PacketSocket(filter=filter),x,*args,**kargs)
+    a,b,c=sndrcv(conf.L3socket(filter=filter),x,*args,**kargs)
     if len(a) > 0:
         return a[0][1]
     else:
@@ -2227,14 +2222,14 @@ def srp(x,iface=None,filter=None, *args,**kargs):
     """Send and receive packets at layer 2"""
     if not kargs.has_key("timeout"):
         kargs["timeout"] = -1
-    a,b,c=sndrcv(L2Socket(iface=iface, filter=filter),x,*args,**kargs)
+    a,b,c=sndrcv(conf.L2socket(iface=iface, filter=filter),x,*args,**kargs)
     return a,b
 
 def srp1(x,iface=None,filter=None, *args,**kargs):
     """Send and receive packets at layer 2 and return only the first answer"""
     if not kargs.has_key("timeout"):
         kargs["timeout"] = -1
-    a,b,c=sndrcv(L2Socket(iface=iface, filter=filter),x,*args,**kargs)
+    a,b,c=sndrcv(conf.L2socket(iface=iface, filter=filter),x,*args,**kargs)
     if len(a) > 0:
         return a[0][1]
     else:
@@ -2458,7 +2453,7 @@ def sniff(count=0, prn = None, *arg, **karg):
 sniff([count,] [prn,] + L2ListenSocket args) -> list of packets
     """
     c = 0
-    s = L2ListenSocket(type=ETH_P_ALL, *arg, **karg)
+    s = conf.L2listen(type=ETH_P_ALL, *arg, **karg)
     lst = []
     while 1:
         try:
@@ -2497,7 +2492,7 @@ def traceroute(target, maxttl=30, dport=80, sport=RandShort()):
 traceroute(target, [maxttl=30], [dport=80], [sport=80]) -> None
 """
     a,b = sr(IP(dst=target, ttl=(1,maxttl))/TCP(seq=RandInt(),sport=sport, dport=dport),
-             timeout=5, filter="(icmp and icmp[0]=11) or (tcp and (tcp[13] & 0x16 > 0x10))")
+             timeout=2, filter="(icmp and icmp[0]=11) or (tcp and (tcp[13] & 0x16 > 0x10))")
     res = {}
     for s,r in a:
         if r.haslayer(ICMP):
@@ -2585,23 +2580,22 @@ user_commands = [ sr, sr1, srp, sniff, p0f, arpcachepoison, send, sendp, tracero
 
 last=None
 
-def arping(net):
-    global last
-    ans, unans, x = sndrcv(PacketRawSocket(iface=iface), Ether(dst="ff:ff:ff:ff:ff:ff")/ARP(pdst=net))
+def arping(net, iface=None):
+    ans, unans, x = sndrcv(conf.L2socket(iface=iface), Ether(dst="ff:ff:ff:ff:ff:ff")/ARP(pdst=net))
     for s,r in ans:
         print r.payload.psrc
     last = ans,unans,x
 
 def icmping(net):
     global last
-    ans, unans, x = sndrcv(InetPacketSocket(),IP(dst=net)/ICMP())
+    ans, unans, x = sndrcv(conf.L3socket(),IP(dst=net)/ICMP())
     for s,r in ans:
         print r.src
     last = ans,unans,x
 
 def tcping(net, port):
     global last
-    ans, unans, x = sndrcv(InetPacketSocket(),IP(dst=net)/TCP(dport=port, flags=2))
+    ans, unans, x = sndrcv(conf.L3socket(),IP(dst=net)/TCP(dport=port, flags=2))
     for s,r in ans:
         if isinstance(r.payload,TCP):
             print r.src,r.payload.sport, r.payload.flags
@@ -2611,7 +2605,7 @@ def tcping(net, port):
 
 def tcptraceroute(net, port=80):
     global last
-    ans, unans, x = sndrcv(InetPacketSocket(),
+    ans, unans, x = sndrcv(conf.L3socket(),
                            IP(dst=net,
                               id=RandShort(),
                               ttl=(1,25))/TCP(seq=RandInt(),
@@ -2650,7 +2644,7 @@ def fragleak(target):
 #    getmacbyip(target)
 #    pkt = IP(dst=target, id=RandShort(), options="\x22"*40)/UDP()/load
     pkt = IP(dst=target, id=RandShort(), options="\x00"*40, flags=1)/UDP()/load
-    s=L3PacketSocket()
+    s=conf.L3socket()
     intr=0
     found={}
     try:
@@ -2747,6 +2741,7 @@ filter : bpf filter added to every sniffing socket to exclude traffic from analy
     filter = "not implemented"
     L3socket = L3PacketSocket
     L2socket = L2Socket
+    L2listen = L2ListenSocket
         
 
 conf=Conf()
