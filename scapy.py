@@ -22,6 +22,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.16.9  2004/06/07 16:09:21  pbi
+# - fix again TCP.answers() and TCPerror.answers()
+#
 # Revision 0.9.16.8  2004/06/07 16:06:27  pbi
 # - fixed conf.checkIPsrc behaviour of answers() and hashret() for TCP/UDP/TCPerror/UDPerror
 # - added conf.debug_match to keep track of unanswered packets in debug.sent and debug.recv
@@ -371,7 +374,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.16.8 2004/06/07 16:06:27 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.16.9 2004/06/07 16:09:21 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2471,8 +2474,8 @@ class TCP(Packet):
             if not ((self.sport == other.dport) and
                     (self.dport == other.sport)):
                 return 0
-            if (abs(other.seq-self.ack) > 2):
-                return 0
+        if (abs(other.seq-self.ack) > 2):
+            return 0
         return 1
     def mysummary(self):
         if isinstance(self.underlayer, IP):
@@ -2603,12 +2606,12 @@ class TCPerror(TCP):
             if not ((self.sport == other.sport) and
                     (self.dport == other.dport)):
                 return 0
-            if self.seq is not None:
-                if self.seq != other.seq:
-                    return 0
-            if self.ack is not None:
-                if self.ack != other.ack:
-                    return 0
+        if self.seq is not None:
+            if self.seq != other.seq:
+                return 0
+        if self.ack is not None:
+            if self.ack != other.ack:
+                return 0
         return 1
     def mysummary(self):
         return Packet.mysummary(self)
