@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.45  2005/03/08 17:21:14  pbi
+# - added PacketField
+# - ISAKMP work
+#
 # Revision 0.9.17.44  2005/03/06 17:50:06  pbi
 # - changed PCAP and DNET defaults
 #
@@ -586,7 +590,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.44 2005/03/06 17:50:06 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.45 2005/03/08 17:21:14 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1798,6 +1802,10 @@ class Field:
 
 
 
+        
+        
+    
+
 
 class MACField(Field):
     def __init__(self, name, default):
@@ -2029,7 +2037,25 @@ class StrField(Field):
     def addfield(self, pkt, s, val):
         return s+self.i2m(pkt, val)
     def getfield(self, pkt, s):
-        return "",s
+        return "",self.m2i(pkt, s)
+
+class PacketField(StrField):
+    def __init__(self, name, default, cls):
+        StrField.__init__(self, name, default)
+        self.cls = cls
+    def i2m(self, pkt, i):
+        return str(i)
+    def m2i(self, pkt, m):
+        return self.cls(m)
+    def getfield(self, pkt, s):
+        i = self.m2i(pkt, s)
+        remain = ""
+        if i.haslayer(Raw):
+            r = i.getlayer(Raw)
+            del(r.underlayer.payload)
+            remain = r.load
+        return remain,i
+
 
 class StrFixedLenField(StrField):
     def __init__(self, name, default, length):
@@ -4088,41 +4114,16 @@ class ISAKMP_payload(Packet):
 #                p = chr(t)+p[1:]
 #        return p
                      
-        
 
-class IKE_SA(Packet):
-    name = "IKE SA"
-    ISAKMP_payload_type = 0
-    fields_desc = [
-        IntEnumField("DOI",1,{1:"IPSEC"}),
-        IntEnumField("situation",1,{1:"identity"}),
-        Field("load",""),
-        ]
-    
-class IKE_proposal(Packet):
-    name = "IKE proposal"
-    ISAKMP_payload_type = 0
-    fields_desc = [
-        ByteField("proposal",1),
-        ByteEnumField("proto",1,{1:"ISAKMP"}),
-        ByteField("SPIsize",0),
-        ByteField("trans_nb",None),
-        Field("transforms","")
-        ]
-    def post_build(self,p):
-        if self.trans_nb is None:
-            n = 0
-            i = self.transforms
-            while isinstance(IKETransform,i):
-                n += 1
-                i = i.payload
-            p = p[:3]+chr(n)+p[4:]
-        return p
 
-class IKETransform(Packet):
+class IKE_transform(Packet):
     name = "IKE Transform"
-    ISAKMP_payload_type = 3
+#    ISAKMP_payload_type = 3
     fields_desc = [
+        ByteEnumField("next_payload",None,ISAKMP_payload_type),
+        ByteField("res",0),
+#        FieldLenField("length",None,"load","H",shift=-4),
+        ShortField("length",None),
         ByteField("num",None),
         ByteEnumField("id",1,{1:"KEY_IKE"}),
         ShortField("res",0),
@@ -4135,6 +4136,46 @@ class IKETransform(Packet):
         XIntField("durationh",0x000c0004L),
         XIntField("durationl",0x00007080L),
         ]
+
+
+        
+class IKE_proposal(Packet):
+    name = "IKE proposal"
+#    ISAKMP_payload_type = 0
+    fields_desc = [
+        ByteEnumField("next_payload",None,ISAKMP_payload_type),
+        ByteField("res",0),
+        FieldLenField("length",None,"load","H",shift=-4),
+        ByteField("proposal",1),
+        ByteEnumField("proto",1,{1:"ISAKMP"}),
+        ByteField("SPIsize",0),
+        ByteField("trans_nb",None),
+        PacketField("trans",Raw(),IKE_transform),
+#        StrLenField("load","","length"),
+#        Field("transforms","")
+        ]
+    def post_build(self,p):
+        if self.trans_nb is None:
+            n = 0
+            i = self.transforms
+            while isinstance(IKETransform,i):
+                n += 1
+                i = i.payload
+            p = p[:3]+chr(n)+p[4:]
+        return p
+
+
+class IKE_SA(Packet):
+    name = "IKE SA"
+    ISAKMP_payload_type = 0
+    fields_desc = [
+        IntEnumField("DOI",1,{1:"IPSEC"}),
+        IntEnumField("situation",1,{1:"identity"}),
+        PacketField("trans",Raw(),IKE_proposal),
+#        Field("load",""),
+        ]
+    
+
         
 
 # Cisco Skinny protocol
