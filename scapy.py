@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.53  2005/03/14 17:22:23  pbi
+# - added ISAKMP transforms decoding
+#
 # Revision 0.9.17.52  2005/03/14 16:40:58  pbi
 # - added ikescan()
 # - added ISAKMPTransformField
@@ -617,7 +620,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.52 2005/03/14 16:40:58 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.53 2005/03/14 17:22:23 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2149,14 +2152,56 @@ class FieldLenField(Field):
             x = len(getattr(pkt, self.fld))+self.shift
         return x
 
+ISAKMPTransformTypes = { "Encryption":    (1, { "DES-CBS"  : 1,
+                                                "3DES-CBC" : 5, }),
+                         "Hash":          (2, { "MD5": 1,
+                                                "SHA": 2, }),
+                         "Authentication":(3, { "PSK": 1, }),
+                         "GroupDesc":     (4, { "768MODPgr"  : 1,
+                                                "1024MODPgr" : 2, }),
+                         "LifeType":      (11,{ "Seconds":1, }),
+                         "LifeDuration":  (12,{}),
+                         }
+
+ISAKMPTransformNum = {}
+for n in ISAKMPTransformTypes:
+    val = ISAKMPTransformTypes[n]
+    tmp = {}
+    for e in val[1]:
+        tmp[val[1][e]] = e
+    ISAKMPTransformNum[val[0]] = (n,tmp)
+    
+
 
 class ISAKMPTransformSetField(StrLenField):
+    islist=1
+    def type2num(self, (typ,enc)):
+        if ISAKMPTransformTypes.has_key(typ):
+            val = ISAKMPTransformTypes[typ]
+        else:
+            val = (int(typ),{})
+        if val[1].has_key(enc):
+            enc = val[1][enc]
+        else:
+            enc = int(enc)
+        return ((val[0] | 0x8000L) << 16) | enc
+    def num2type(self, num):
+        typ = (num >> 16) & 0x7fff
+        enc = num & 0xffff
+        val = ISAKMPTransformNum.get(typ,(typ,{}))
+        enc = val[1].get(enc,enc)
+        return (val[0],enc)
+        
+        
     def i2m(self, pkt, i):
         if i is None:
             return ""
+        i = map(self.type2num, i)
         return struct.pack("!"+"I"*len(i),*i)
     def m2i(self, pkt, m):
-        return struct.unpack("!"+"I"*(len(m)/4),m)
+        lst = struct.unpack("!"+"I"*(len(m)/4),m)
+        lst = map(self.num2type, lst)
+        return lst
     def getfield(self, pkt, s):
         l = getattr(pkt, self.fld)
         l += pkt.fields_desc[pkt.fields_desc.index(self.fld)].shift
