@@ -22,6 +22,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.16.7  2004/06/07 09:20:43  pbi
+# - added LEIntField and StrFixedLenField
+# - added partial PrismHeader support
+#
 # Revision 0.9.16.6  2004/04/29 15:46:19  pbi
 # - fixed fragment()
 #
@@ -363,7 +367,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.16.6 2004/04/29 15:46:19 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.16.7 2004/06/07 09:20:43 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -985,7 +989,10 @@ class Field:
     islist=0
     def __init__(self, name, default, fmt="H"):
         self.name = name
-        self.fmt = "!"+fmt
+        if fmt[0] in "@=<>!":
+            self.fmt = fmt
+        else:
+            self.fmt = "!"+fmt
         self.default = self.any2i(None,default)
         self.sz = struct.calcsize(self.fmt)
 
@@ -1222,6 +1229,10 @@ class IntField(Field):
     def __init__(self, name, default):
         Field.__init__(self, name, default, "I")
 
+class LEIntField(Field):
+    def __init__(self, name, default):
+        Field.__init__(self, name, default, "@I")
+
 class XIntField(IntField):
     def i2repr(self, pkt, x):
 	if x is None:
@@ -1250,6 +1261,16 @@ class StrField(Field):
         return s+self.i2m(pkt, val)
     def getfield(self, pkt, s):
         return "",s
+
+class StrFixedLenField(StrField):
+    def __init__(self, name, default, length):
+        StrField.__init__(self, name, default)
+        self.length = length
+    def getfield(self, pkt, s):
+        return s[self.length:], self.m2i(pkt,s[:self.length])
+    def addfield(self, pkt, s, val):
+        return s+struct.pack("16s",self.i2m(pkt, val))
+    
 
 class StrLenField(StrField):
     def __init__(self, name, default, fld):
@@ -2773,6 +2794,21 @@ class Dot11Deauth(Packet):
     name = "802.11 Deauthentication"
     fields_desc = [ ShortEnumField("reason", 1, reason_code) ]
 
+
+class PrismHeader(Packet):
+    """ iwpriv wlan0 monitor 3 """
+    fields_desc = [ LEIntField("msgcode",68),
+                    LEIntField("len",144),
+                    StrFixedLenField("dev","",16),
+                    StrFixedLenField("truc","",68),
+                    LEIntField("signal",0),
+                    LEIntField("toto1",0),
+                    LEIntField("toto2",0),
+                    LEIntField("noise",0),
+                    StrFixedLenField("tit","",36)                    
+                    ]
+
+
 class NTP(Packet):
     # RFC 1769
     name = "NTP"
@@ -2853,6 +2889,7 @@ def bind_layers(lower, upper, fval):
     
 
 layer_bonds = [ ( Dot3,   LLC,      { } ),
+                ( PrismHeader, Dot11, { }),
                 ( Dot11,  LLC,      { "type" : 2 } ),
                 ( LLPPP,  IP,       { } ),
                 ( Ether,  LLC,      { "type" : 0x007a } ),
@@ -2946,6 +2983,7 @@ LLTypes = { ARPHDR_ETHER : Ether,
             ARPHDR_LOOPBACK : Ether,
 	    101 : IP,
             801 : Dot11,
+            802 : PrismHeader,
             105 : Dot11,
             }
 
@@ -3141,7 +3179,7 @@ class L2ListenSocket(SuperSocket):
         elif L3Types.has_key(sa_ll[1]):
             cls = L3Types[sa_ll[1]]
         else:
-            warning("Unable to guess type (interface=%s protocol=%#x family=%i %i). Using Ethernet" % (sa_ll[0],sa_ll[1],sa_ll[3]))
+            warning("Unable to guess type (interface=%s protocol=%#x family=%i). Using Ethernet" % (sa_ll[0],sa_ll[1],sa_ll[3]))
             cls = Ether
 
         try:
