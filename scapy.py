@@ -22,6 +22,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.14.8  2003/10/02 15:16:26  pbi
+# - small fix for p0f_base
+# - lazy loading for p0f, queso and nmap knowledge databases
+#
 # Revision 0.9.14.7  2003/10/02 14:14:17  pbi
 # - added a LongField
 # - added classes and bonds for 802.11
@@ -281,7 +285,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.14.7 2003/10/02 14:14:17 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.14.8 2003/10/02 15:16:26 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -3320,6 +3324,33 @@ def attach_filter(s, filter):
     s.setsockopt(SOL_SOCKET, SO_ATTACH_FILTER, bpfh)
 
 
+#####################
+## knowledge bases ##
+#####################
+
+class KnowledgeBase:
+    def __init__(self, filename):
+        self.filename = filename
+        self.base = None
+
+    def lazy_init(self):
+        self.base = ""
+
+    def reload(self, filename = None):
+        if filename is not None:
+            self.filename = filename
+        oldbase = self.base
+        self.base = None
+        self.lazy_init()
+        if self.base is None:
+            self.base = oldbase
+
+    def get_base(self):
+        if self.base is None:
+            self.lazy_init()
+        return self.base
+    
+
 
 ###############
 ## p0f stuff ##
@@ -3340,44 +3371,44 @@ def attach_filter(s, filter):
 
 
 
-p0f_base = []
-p0f_ttl_range=[255]
-
-def init_p0f(base=None,reset=1):
-    global p0f_base
-    global p0f_ttl_range
-    if reset:
-        p0f_base=[]
-        p0f_ttl_range=[255]
-    if base is None:
-        base = conf.p0f_base
-    try:
-        f=open(base)
-    except IOError:
-        return
-    for l in f:
-        if l[0] in ["#","\n"]:
-            continue
-        l = tuple(l.split(":"))
-        if len(l) < 9:
-            continue
-        li = map(int,l[:8])
-        if li[1] not in p0f_ttl_range:
-            p0f_ttl_range.append(li[1])
-            p0f_ttl_range.sort()
-        p0f_base.append((li,":".join(l[8:])[:-1]))
-    f.close()
-
-
+class p0fKnowledgeBase(KnowledgeBase):
+    def __init__(self, filename):
+        KnowledgeBase.__init__(self, filename)
+        self.ttl_range=[255]
+    def lazy_init(self):
+        try:
+            f=open(self.filename)
+        except IOError:
+            warning("Can't open base %s" % self.filename)
+            return
+        try:
+            self.base = []
+            for l in f:
+                if l[0] in ["#","\n"]:
+                    continue
+                l = tuple(l.split(":"))
+                if len(l) < 9:
+                    continue
+                li = map(int,l[:8])
+                if li[1] not in self.ttl_range:
+                    self.ttl_range.append(li[1])
+                    self.ttl_range.sort()
+                self.base.append((li,":".join(l[8:])[:-1]))
+        except:
+            warning("Can't parse p0f database (new p0f version ?)")
+            self.base = None
+        f.close()
 
 
 def packet2p0f(pkt):
-    if not isinstance(pkt, Packet):
+    while pkt.haslayer(IP) and pkt.haslayer(TCP):
+        pkt = pkt.getlayer(IP)
+        if isinstance(pkt.payload, TCP):
+            break
+        pkt = pkt.payload
+
+    if not isinstance(pkt, IP) or not isinstance(pkt.payload, TCP):
         raise TypeError("Not a TCP/IP packet")
-    if not isinstance(pkt, IP):
-        return packet2p0f(pkt.payload)
-    if not isinstance(pkt.payload, TCP):
-        raise TypeError("Not a TCP packet")
     if pkt.payload.flags & 0x13 != 0x02: #S,!A,!F
         raise TypeError("Not a syn packet")
 
@@ -3389,7 +3420,7 @@ def packet2p0f(pkt):
         wscale = pkt.payload.options["WScale"]
     else:
         wscale = -1
-    t = p0f_ttl_range[:]
+    t = p0f_kdb.ttl_range[:]
     t += [pkt.ttl]
     t.sort()
     ttl=t[t.index(pkt.ttl)+1]
@@ -3417,14 +3448,15 @@ def p0f(pkt):
     """Passive OS fingerprinting: which OS emitted this TCP SYN ?
 p0f(packet) -> accuracy, [list of guesses]
 """
-    if len(p0f_base) == 0:
+    pb = p0f_kdb.get_base()
+    if not pb:
         warning("p0f base empty.")
         return []
-    s = len(p0f_base[0][0])
+    s = len(pb[0][0])
     r = []
     min = s+1
     sig = packet2p0f(pkt)
-    for b,name in p0f_base:
+    for b,name in pb:
         d = p0f_dist(sig,b)
         if d < min:
             r = []
@@ -3441,7 +3473,6 @@ def prnp0f(pkt):
     except:
         pass
     
-
 
 def pkt2uptime(pkt, HZ=100):
     """Calculate the date the machine which emitted the packet booted using TCP timestamp
@@ -3464,7 +3495,6 @@ pkt2uptime(pkt, [HZ=100])"""
 ## Queso stuff ##
 #################
 
-queso_base={}
 
 def quesoTCPflags(flags):
     if flags == "-":
@@ -3475,45 +3505,45 @@ def quesoTCPflags(flags):
         v |= 2**flv.index(i)
     return "%x" % v
 
-def init_queso(base=None, reset=1):
-    global queso_base 
-    if reset:
-        queso_base = {}
-    if base is None:
-        base = conf.queso_base
-    try:
-        f = open(base)
-    except IOError:
-        return
-    p = None
-    for l in f:
-        l = l.strip()
-        if not l or l[0] == ';':
-            continue
-        if l[0] == '*':
+class QuesoKnowledgeBase(KnowledgeBase):
+    def lazy_init(self):
+        try:
+            f = open(self.filename)
+        except IOError:
+            return
+        self.base = {}
+        p = None
+        try:
+            for l in f:
+                l = l.strip()
+                if not l or l[0] == ';':
+                    continue
+                if l[0] == '*':
+                    if p is not None:
+                        p[""] = name
+                    name = l[1:].strip()
+                    p = self.base
+                    continue
+                if l[0] not in list("0123456"):
+                    continue
+                res = l[2:].split()
+                res[-1] = quesoTCPflags(res[-1])
+                res = " ".join(res)
+                if not p.has_key(res):
+                    p[res] = {}
+                p = p[res]
             if p is not None:
                 p[""] = name
-            name = l[1:].strip()
-            p = queso_base
-            continue
-        if l[0] not in list("0123456"):
-            continue
-        res = l[2:].split()
-        res[-1] = quesoTCPflags(res[-1])
-        res = " ".join(res)
-        if not p.has_key(res):
-            p[res] = {}
-        p = p[res]
-    if p is not None:
-        p[""] = name
-    f.close()
-        
+        except:
+            self.base = None
+            warning("Can't load queso base [%s]", self.filename)
+        f.close()
+            
         
 
     
 def queso_sig(target, dport=80, timeout=3):
-    global queso_base
-    p = queso_base
+    p = queso_kdb.get_base()
     ret = []
     for flags in ["S", "SA", "F", "FA", "SF", "P", "SEC"]:
         ans, unans = sr(IP(dst=target)/TCP(dport=dport,flags=flags,seq=RandInt()),
@@ -3535,7 +3565,7 @@ def queso_sig(target, dport=80, timeout=3):
     return ret
             
 def queso_search(sig):
-    p = queso_base
+    p = queso_kdb.get_base()
     sig.reverse()
     ret = []
     try:
@@ -3560,46 +3590,46 @@ queso(target, dport=80, timeout=3)"""
 ## nmap OS fp stuff ##
 ######################
 
-nmap_base = []
 
-def init_nmap(base=None, reset=1):
-    global nmap_base
-    if reset:
-        nmap_base=[]
-    if base is None:
-        base = conf.nmap_base
-    try:
-        f=open(base)
-    except IOError:
-        return
+class NmapKnowledgeBase(KnowledgeBase):
+    def lazy_init(self):
+        try:
+            f=open(self.filename)
+        except IOError:
+            return
 
-    name = None
-    for l in f:
-        l = l.strip()
-        if not l or l[0] == "#":
-            continue
-        if l[:12] == "Fingerprint ":
+        self.base = []
+        name = None
+        try:
+            for l in f:
+                l = l.strip()
+                if not l or l[0] == "#":
+                    continue
+                if l[:12] == "Fingerprint ":
+                    if name is not None:
+                        self.base.append((name,sig))
+                    name = l[12:].strip()
+                    sig={}
+                    p = self.base
+                    continue
+                op = l.find("(")
+                cl = l.find(")")
+                if op < 0 or cl < 0:
+                    warning("error reading nmap os fp base file")
+                    continue
+                test = l[:op]
+                s = map(lambda x: x.split("="), l[op+1:cl].split("%"))
+                si = {}
+                for n,v in s:
+                    si[n] = v
+                sig[test]=si
             if name is not None:
-                nmap_base.append((name,sig))
-            name = l[12:].strip()
-            sig={}
-            p = nmap_base
-            continue
-        op = l.find("(")
-        cl = l.find(")")
-        if op < 0 or cl < 0:
-            warning("error reading nmap os fp base file")
-            continue
-        test = l[:op]
-        s = map(lambda x: x.split("="), l[op+1:cl].split("%"))
-        si = {}
-        for n,v in s:
-            si[n] = v
-        sig[test]=si
-    if name is not None:
-        nmap_base.append((name,sig))
-    f.close()
-    
+                self.base.append((name,sig))
+        except:
+            self.base = None
+            warning("Can't read nmap database [%s](new nmap version ?)" % base.filename)
+        f.close()
+        
 def TCPflags2str(f):
     fl="FSRPAUEC"
     s=""
@@ -3698,7 +3728,7 @@ def nmap_probes2sig(tests):
 
 def nmap_search(sigs):
     guess = 0,[]
-    for os,fp in nmap_base:
+    for os,fp in nmap_kdb.get_base():
         c = 0.0
         for t in sigs.keys():
             if t in fp:
@@ -4065,6 +4095,6 @@ except_filter : BPF filter for packets to ignore
 
 conf=Conf()
 
-init_p0f()
-init_queso()
-init_nmap()
+p0f_kdb = p0fKnowledgeBase(conf.p0f_base)
+queso_kdb = QuesoKnowledgeBase(conf.queso_base)
+nmap_kdb = NmapKnowledgeBase(conf.nmap_base)
