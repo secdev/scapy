@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.41  2005/02/20 22:33:55  pbi
+# - Sebek protocol definitions enhancements (Pierre Lalet)
+#
 # Revision 0.9.17.40  2005/02/20 22:31:49  pbi
 # - added ARP answering machine (farpd) (Pierre Lalet)
 #
@@ -574,7 +577,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.40 2005/02/20 22:31:49 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.41 2005/02/20 22:33:55 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -4220,11 +4223,8 @@ class SebekV1(Packet):
                     IntField("uid", 0),
                     IntField("fd", 0),
                     StrFixedLenField("command", "", 12),
-                    IntField("data_length", 0) ]
-    def post_build(self, p):
-        l=socket.htonl(p.__len__() - 28)
-        p=p[:24]+struct.pack("I", l)+p[28:]
-        return p
+                    FieldLenField("data_length", None, "data"),
+                    StrLenField("data", "", "data_length") ]
 
 class SebekV2(Packet):
     name = "Sebek v2"
@@ -4234,11 +4234,8 @@ class SebekV2(Packet):
                     IntField("fd", 0),
                     IntField("inode", 0),
                     StrFixedLenField("command", "", 12),
-                    IntField("data_length", 0) ]
-    def post_build(self, p):
-        l=socket.htonl(p.__len__() - 36)
-        p=p[:32]+ struct.pack("I", l) +p[36:]
-        return p
+                    FieldLenField("data_length", None, "data"),
+                    StrLenField("data", "", "data_length") ]
 
 class SebekV2Sock(Packet):
     name = "Sebek v2 socket"
