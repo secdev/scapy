@@ -22,6 +22,13 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.15.14  2004/01/15 13:24:48  pbi
+# - fixed the case where IP field is a list of nets
+# - randomize IPID in traceroute() to work better with conf.checkIPsrc=0
+# - added make_tex_table() and make_lined_table()
+# - added IPID_count() to identify machines with their IPID
+# - added sport and dport args to fragleak()
+#
 # Revision 0.9.15.13  2004/01/11 11:47:07  pbi
 # - srploop() and srloop() improvements
 #
@@ -333,7 +340,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.15.13 2004/01/11 11:47:07 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.15.14 2004/01/15 13:24:48 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1118,6 +1125,8 @@ class IPField(Field):
                 inet_aton(x)
             except socket.error:
                 x = Net(x)
+        elif type(x) is list:
+            x = map(Net, x)
         return x
     def i2m(self, pkt, x):
         return inet_aton(x)
@@ -3958,7 +3967,7 @@ def traceroute(target, maxttl=30, dport=80, sport=RandShort(),minttl=1):
     """Instant TCP traceroute
 traceroute(target, [maxttl=30], [dport=80], [sport=80]) -> None
 """
-    a,b = sr(IP(dst=target, ttl=(minttl,maxttl))/TCP(seq=RandInt(),sport=sport, dport=dport),
+    a,b = sr(IP(dst=target, id=RandShort(), ttl=(minttl,maxttl))/TCP(seq=RandInt(),sport=sport, dport=dport),
              timeout=2, filter="(icmp and icmp[0]=11) or (tcp and (tcp[13] & 0x16 > 0x10))")
     res = {}
     for s,r in a:
@@ -4050,7 +4059,7 @@ report_ports(target, ports) -> string"""
     return rep
 
 
-def make_table(list, fx, fy, fz, sortx=None, sorty=None):
+def __make_table(yfmtfunc, fmtfunc, endline, list, fx, fy, fz, sortx=None, sorty=None):
     vx = {}
     vy = {}
     vz = {}
@@ -4075,19 +4084,26 @@ def make_table(list, fx, fy, fz, sortx=None, sorty=None):
     else:
         vyk.sort()
 
-    fmt = "%%-%is" % l
+    fmt = yfmtfunc(l)
     print fmt % "",
     for x in vxk:
-        vx[x] = "%%-%is" % vx[x]
+        vx[x] = fmtfunc(vx[x])
         print vx[x] % x,
-    print
+    print endline
     for y in vyk:
         print fmt % y,
         for x in vxk:
             print vx[x] % vz.get((x,y), "-"),
-        print
+        print endline
+
+def make_table(*args, **kargs):
+    __make_table(lambda l:"%%-%is" % l, lambda l:"%%-%is" % l, "", *args, **kargs)
     
-    
+def make_lined_table(*args, **kargs):
+    __make_table(lambda l:"%%-%is |" % l, lambda l:"%%-%is |" % l, "", *args, **kargs)
+
+def make_tex_table(*args, **kargs):
+    __make_table(lambda l: "%s", lambda l: "& %s", "\\\\", *args, **kargs)
     
 
 ######################
@@ -4141,7 +4157,21 @@ user_commands = [ sr, sr1, srp, srp1, srloop, srploop, sniff, p0f, arpcachepoiso
 ###################
 ## Testing stuff ##
 ###################
-            
+
+
+
+def IPID_count(lst, funcID=lambda x:x[1].id, funcpres=lambda x:x[1].summary()):
+    idlst = map(funcID, lst)
+    idlst.sort()
+    classes = [idlst[0]]+map(lambda x:x[1],filter(lambda (x,y): abs(x-y)>50, map(lambda x,y: (x,y),idlst[:-1], idlst[1:])))
+    lst = map(lambda x:(funcID(x), funcpres(x)), lst)
+    lst.sort()
+    print "Probably %i classes:" % len(classes), classes
+    for id,pr in lst:
+        print "%5i" % id, pr
+    
+    
+    
             
 
 last=None
@@ -4200,11 +4230,11 @@ def tethereal(*args,**kargs):
 
 
 
-def fragleak(target):
+def fragleak(target,sport=123, dport=123):
     load = "XXXXYYYYYYYYYY"
 #    getmacbyip(target)
 #    pkt = IP(dst=target, id=RandShort(), options="\x22"*40)/UDP()/load
-    pkt = IP(dst=target, id=RandShort(), options="\x00"*40, flags=1)/UDP()/load
+    pkt = IP(dst=target, id=RandShort(), options="\x00"*40, flags=1)/UDP(sport=sport, dport=sport)/load
     s=conf.L3socket()
     intr=0
     found={}
