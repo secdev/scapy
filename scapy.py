@@ -22,6 +22,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.10.4  2003/04/16 14:53:36  pbi
+# - added option to include padding or not
+#
 # Revision 0.9.10.3  2003/04/16 14:35:32  pbi
 # - added L2dnetSocket()
 # - improved arping()
@@ -159,7 +162,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.10.3 2003/04/16 14:35:32 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.10.4 2003/04/16 14:53:36 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1525,7 +1528,7 @@ class Packet(Gen):
             self.fields[f] = fval
         payl,pad = self.extract_padding(s)
         self.do_dissect_payload(payl)
-        if pad:
+        if pad and conf.padding:
             self.add_payload(Padding(pad))
     def do_dissect_payload(self, s):
         if s:
@@ -3158,13 +3161,16 @@ class ConfClass:
 
 class Conf(ConfClass):
     """This object contains the configuration of scapy.
-session : filename where the session will be saved
-stealth : if 1, prevent any unwanted packet to go out (ARP, DNS, ...)
-iff : select the default output interface for srp() and sendp(). default:"eth0")
-verb : level of verbosity, from 0 (almost mute) to 3 (verbose)
-promisc : default mode for listening socket (to get answers if you spoof on a lan)
+session  : filename where the session will be saved
+stealth  : if 1, prevent any unwanted packet to go out (ARP, DNS, ...)
+iff      : select the default output interface for srp() and sendp(). default:"eth0")
+verb     : level of verbosity, from 0 (almost mute) to 3 (verbose)
+promisc  : default mode for listening socket (to get answers if you spoof on a lan)
 sniff_promisc : default mode for sniff()
-filter : bpf filter added to every sniffing socket to exclude traffic from analysis"""
+filter   : bpf filter added to every sniffing socket to exclude traffic from analysis
+histfile : history file
+padding  : include padding in desassembled packets
+"""
     session = ""  
     stealth = "not implemented"
     iff = get_working_if()
@@ -3176,6 +3182,7 @@ filter : bpf filter added to every sniffing socket to exclude traffic from analy
     L2socket = L2Socket
     L2listen = L2ListenSocket
     histfile = os.path.join(os.environ["HOME"], ".scapy_history")
+    padding = 1
         
 
 conf=Conf()
