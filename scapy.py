@@ -21,6 +21,12 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.8  2004/09/06 14:17:11  pbi
+# - added "store" parameter to sniff()
+# - added AnsweringMachine class to handle request/response protocols
+# - replaced bootpd by a AnsweringMachine subclass
+# - created DHCP answering machine draft
+#
 # Revision 0.9.17.7  2004/09/03 22:11:35  pbi
 # - finished airpwn()
 #
@@ -433,7 +439,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.7 2004/09/03 22:11:35 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.8 2004/09/06 14:17:11 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -4551,7 +4557,7 @@ def nmap_sig2txt(sig):
 ###################
 
 
-def sniff(count=0, prn = None, *arg, **karg):
+def sniff(count=0, store=1, prn = None, *arg, **karg):
     """Sniff packets
 sniff([count,] [prn,] + L2ListenSocket args) -> list of packets
     """
@@ -4560,8 +4566,9 @@ sniff([count,] [prn,] + L2ListenSocket args) -> list of packets
     lst = []
     while 1:
         try:
-            p = s.recv(1600)
-            lst.append(p)
+            p = s.recv(MTU)
+            if store:
+                lst.append(p)
             c += 1
             if prn:
                 r = prn(p)
@@ -4781,6 +4788,131 @@ def ls(obj=None):
 user_commands = [ sr, sr1, srp, srp1, srloop, srploop, sniff, p0f, arpcachepoison, send, sendp, traceroute, arping, ls, lsc, queso, nmap_fp, report_ports, dyndns_add, dyndns_del ]
 
 
+########################
+## Answering machines ##
+########################
+
+class AnsweringMachine:
+    function_name = "Template"
+    filter = None
+    default_kargs = { "store":0 }
+    
+    def __init__(self, *args, **kargs):
+        if self.filter:
+            kargs.setdefault("filter",self.filter)
+        self.def_args = args
+        self.def_kargs = self.default_kargs.copy()
+        self.def_kargs.setdefault("prn", self.reply)
+        self.def_kargs.update(kargs)
+        self.iface = self.def_kargs.get("iface",None)
+
+    def is_request(self, req):
+        return 1
+
+    def make_reply(self, req):
+        return req
+
+    def send_reply(self, reply):
+        send(reply, iface=self.iface)
+
+
+    def reply(self, pkt):
+        if not self.is_request(pkt):
+            return
+        reply = self.make_reply(pkt)
+        self.send_reply(reply)
+
+    def run(self, *args, **kargs):
+        a = self.def_args + args
+        ka = self.def_kargs.copy()
+        ka.update(kargs)
+        self.iface = ka.get("iface",None)
+        
+        try:
+            sniff(*a, **ka)
+        except KeyboardInterrupt:
+            print "Interrupted by user"
+            pass
+        
+
+class BOOTP_am(AnsweringMachine):
+    function_name = "bootpd"
+    filter = "udp and port 68 and port 67"
+    def __init__(self, ipset=Net("192.168.1.128/25"),gw="192.168.1.1", *args,**kargs):
+        AnsweringMachine.__init__(self, *args, **kargs)
+        if type(ipset) is str:
+            ipset = Net(ipset)
+        if isinstance(ipset,Gen):
+            ipset = [k for k in ipset]
+            ipset.reverse()
+        if len(ipset) == 1:
+            ipset, = ipset
+        self.ipset = ipset
+        self.gw = gw
+        self.leases = {}
+
+    def is_request(self, req):
+        print repr(req)
+        if not req.haslayer(BOOTP):
+            return 0
+        reqb = req.getlayer(BOOTP)
+        if reqb.op != 1:
+            return 0
+        return 1
+        
+    def make_reply(self, req):        
+        mac = req.src
+        if type(self.ipset) is list:
+            if not self.leases.has_key(mac):
+                self.leases[mac] = self.ipset.pop()
+            ip = self.leases[mac]
+        else:
+            ip = ipset
+        if conf.verb >= 1:
+            print "Reply %s to %s" % (ip,mac)
+            
+        repb = req.getlayer(BOOTP).copy()
+        repb.options = ""
+        repb.op="BOOTREPLY"
+        repb.yiaddr = ip
+        repb.siaddr = self.gw
+        repb.ciaddr = self.gw
+        repb.giaddr = self.gw
+        rep=Ether(dst=mac)/IP(dst=ip)/UDP(sport=req.dport,dport=req.sport)/repb
+        return rep
+
+    def send_reply(self, reply):
+        sendp(reply, iface=self.iface)
+
+
+class DHCP_am(BOOTP_am):
+    function_name="dhcpd"
+    def is_request(self, req):
+        if not BOOTP_am.is_request(self, req):
+            return 02
+        if req.getlayer(BOOTP).options[:4] != "'c\x82Sc":
+            return 0
+        return 1
+    def make_reply(self, req):
+        dhcprespmap={"\x01":"\x02","\x03":"\x05"}
+        resp = BOOTP_am.make_reply(self, req)
+        opt = req.getlayer(BOOTP).options
+        resp.getlayer(BOOTP).options = opt[:6]+dhcprespmap[opt[6]]+opt[7:]
+
+
+def bootpd2(*args, **kargs):
+    BOOTP_am(*args, **kargs).run()
+
+
+
+AM_classes = [ BOOTP_am, DHCP_am ]
+
+for am in AM_classes:
+    locals()[am.function_name] = lambda *args,**kargs: am(*args,**kargs).run()
+
+
+
+
 ###################
 ## Testing stuff ##
 ###################
@@ -4907,47 +5039,6 @@ def fragleak(target,sport=123, dport=123):
     except KeyboardInterrupt:
         pass
 
-
-def bootpd(ipset=Net("192.168.1.128/25"),gw="192.168.1.1",filter="udp and port 68 and port 67",iface=None, *args,**kargs):
-    if iface is None:
-        iface=conf.iface
-    leases = {}
-    if isinstance(ipset,Gen):
-        ipset = [k for k in ipset]
-        ipset.reverse()
-    ip=ipset
-    try:
-        while 1:
-            req=sniff(filter=filter, iface=iface, count=1, **kargs)
-            if not req:
-                break
-            req = req[0]
-            print repr(req)
-            if not req.haslayer(BOOTP):
-                continue
-            reqb = req.getlayer(BOOTP)
-            if reqb.op != 1:
-                continue
-            mac=req.src
-            if type(ipset) is list:
-                if not leases.has_key(mac):
-                    leases[mac]=ipset.pop()
-                ip=leases[mac]
-            if conf.verb >= 1:
-                print "Reply %s to %s" % (ip,mac)
-            repb=reqb.copy()
-            dhcprespmap={"\x01":"\x02","\x03":"\x05"}
-            repb.options = reqb.options[:6]+dhcprespmap[reqb.options[6]]+reqb.options[7:]
-            repb.op="BOOTREPLY"
-            repb.yiaddr=ip
-            repb.siaddr=gw
-            repb.ciaddr=gw
-            repb.giaddr=gw
-            rep=Ether(dst=mac)/IP(dst=ip)/UDP(sport=req.dport,dport=req.sport)/repb
-            print repr(rep)
-            sendp(rep,iface=iface)
-    except KeyboardInterrupt:
-        pass
 
 plst=[]
 def get_toDS():
