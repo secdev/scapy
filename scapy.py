@@ -22,6 +22,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.16.5  2004/03/31 09:24:43  pbi
+# - fix nmap fingerprint db parsing to handle the new format (Jochen Bartl)
+#
 # Revision 0.9.16.4  2004/03/23 08:45:10  pbi
 # - Support for reading big endian pcap files (Pekka Pietikainen)
 #
@@ -357,7 +360,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.16.4 2004/03/23 08:45:10 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.16.5 2004/03/31 09:24:43 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -3867,6 +3870,8 @@ class NmapKnowledgeBase(KnowledgeBase):
                     name = l[12:].strip()
                     sig={}
                     p = self.base
+                    continue
+                elif l[:6] == "Class ":
                     continue
                 op = l.find("(")
                 cl = l.find(")")
