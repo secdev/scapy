@@ -22,6 +22,14 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.8.5  2003/04/07 14:43:13  pbi
+# - srp() becomes srp1() and sr() equivalent for L2 is called srp()
+# - hastype() Packet methods renamed to haslayer()
+# - added getlayer() Packet method
+# - added padding detection for layers that have a length field
+# - added fragment() that fragment an IP packet
+# - added report_ports() to scan a machine and output LaTeX report
+#
 # Revision 0.9.8.4  2003/04/01 11:19:06  pbi
 # - added FlagsField(), used for TCP and IP
 # - rfc3514 compliance
@@ -72,7 +80,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.8.4 2003/04/01 11:19:06 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.8.5 2003/04/07 14:43:13 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -459,8 +467,8 @@ def getmacbyip(ip):
             return mac
 
     
-    res = srp(Ether(dst=ETHER_BROADCAST)/ARP(op=ARP.who_has,
-                                            pdst=ip),
+    res = srp1(Ether(dst=ETHER_BROADCAST)/ARP(op=ARP.who_has,
+                                              pdst=ip),
               filter="arp",
               iface = iff,
               timeout=2,
@@ -1109,6 +1117,7 @@ class Packet(Gen):
             clone.fields[k]=self.fieldtype[k].copy(clone.fields[k])
         clone.default_fields = self.default_fields.copy()
         clone.overloaded_fields = self.overloaded_fields.copy()
+        clone.overload_fields = self.overload_fields.copy()
         clone.underlayer=self.underlayer
         clone.__dict__["payload"] = self.payload.copy()
         clone.payload.add_underlayer(clone)
@@ -1204,6 +1213,9 @@ class Packet(Gen):
     def build(self):
         return self.post_build(self.do_build())
 
+    def extract_padding(self, s):
+        return s,None
+
     def do_dissect(self, s):
         flist = self.fields_desc[:]
         flist.reverse()
@@ -1211,7 +1223,10 @@ class Packet(Gen):
             f = flist.pop()
             s,fval = f.getfield(self, s)
             self.fields[f] = fval
-        self.do_dissect_payload(s)
+        payl,pad = self.extract_padding(s)
+        self.do_dissect_payload(payl)
+        if pad:
+            self.add_payload(Padding(pad))
     def do_dissect_payload(self, s):
         if s:
             cls = self.guess_payload_class()
@@ -1265,6 +1280,7 @@ class Packet(Gen):
                             done2[k] = int(done2[k])
                     pkt = self.__class__(**done2)
                     pkt.underlayer = self.underlayer
+                    pkt.overload_fields = self.overload_fields.copy()
                     if payl is None:
                         yield pkt
                     else:
@@ -1295,10 +1311,15 @@ class Packet(Gen):
     def answers(self, other):
         return 0
 
-    def hastype(self, cls):
+    def haslayer(self, cls):
         if self.__class__ == cls:
             return 1
-        return self.payload.hastype(cls)
+        return self.payload.haslayer(cls)
+    def getlayer(self, cls):
+        if self.__class__ == cls:
+            return self
+        return self.payload.getlayer(cls)
+    
 
     def display(self, lvl=0):
         print "---[ %s ]---" % self.name
@@ -1399,8 +1420,10 @@ class NoPayload(Packet,object):
         return iter([])
     def answers(self, other):
         return self == other
-    def hastype(self, cls):
+    def haslayer(self, cls):
         return 0
+    def getlayer(self, cls):
+        return None
     def display(self, lvl=0):
         pass
     def sprintf(self, fmt, relax):
@@ -1421,8 +1444,14 @@ class Raw(Packet):
     name = "Raw"
     fields_desc = [ StrField("load", "") ]
     def answers(self, other):
-        return str(self) == str(other)
+        s = str(other)
+        t = self.load
+        l = min(len(s), len(t))
+        return  s[:l] == t[:l]
         
+class Padding(Raw):
+    pass
+
 class Ether(Packet):
     name = "Ethernet"
     payload_type_field = "type"
@@ -1443,6 +1472,9 @@ class Dot3(Packet):
     fields_desc = [ MACField("dst", ETHER_BROADCAST),
                     MACField("src", ETHER_ANY),
                     LenField("len", None, "H") ]
+    def extract_padding(self,s):
+        l = self.len
+        return s[:l],s[l:]
     def answers(self, other):
         if isinstance(other,Ether):
             if self.type == other.type:
@@ -1504,6 +1536,9 @@ class EAPOL(Packet):
     LOGOFF = 2
     KEY = 3
     ASF = 4
+    def extract_padding(self, s):
+        l = self.len
+        return s[:l],s[l:]
     def answers(self, other):
         if isinstance(other,EAPOL):
             if ( (self.type == self.EAP_PACKET) and
@@ -1607,6 +1642,10 @@ class IP(Packet, IPTools):
             ck = checksum(p[:ihl*4])
             p = p[:10]+chr(ck>>8)+chr(ck&0xff)+p[12:]
         return p
+
+    def extract_padding(self, s):
+        l = self.len - (self.ihl << 2)
+        return s[:l],s[l:]
 
     def send(self, s, slp=0):
         for p in self:
@@ -1838,6 +1877,33 @@ layer_bonds = [ ( Dot3,   LLC,      { } ),
 for l in layer_bonds:
     bind_layers(*l)
                 
+
+###################
+## Fragmentation ##
+###################
+
+def fragment(pkt, fragsize=1480):
+    fragsize = (fragsize/8)*8
+    h = pkt.copy()
+    h.flags = "MF"
+    del(h.payload)
+    lst = []
+    for p in pkt.payload:
+        s = str(p)
+        nb = len(s)/fragsize+1
+        for i in range(nb):
+            r = Raw(load=s[i*fragsize:(i+1)*fragsize])
+            r.overload_fields = p.overload_fields.copy()
+            h2 = h.copy()
+            if i == nb-1:
+                h2.flags=0
+            h2.frag = i*fragsize/8
+            h2.add_payload(r)
+            lst.append(h2)
+    return lst
+        
+    
+
 
 #####################
 ## Default sockets ##
@@ -2158,6 +2224,13 @@ def srp(x,iface=None,filter=None, *args,**kargs):
     if not kargs.has_key("timeout"):
         kargs["timeout"] = -1
     a,b,c=sndrcv(L2Socket(iface=iface, filter=filter),x,*args,**kargs)
+    return a,b
+
+def srp1(x,iface=None,filter=None, *args,**kargs):
+    """Send and receive packets at layer 2 and return only the first answer"""
+    if not kargs.has_key("timeout"):
+        kargs["timeout"] = -1
+    a,b,c=sndrcv(L2Socket(iface=iface, filter=filter),x,*args,**kargs)
     if len(a) > 0:
         return a[0][1]
     else:
@@ -2423,7 +2496,7 @@ traceroute(target, [maxttl=30], [dport=80], [sport=80]) -> None
              timeout=5, filter="(icmp and icmp[0]=11) or (tcp and (tcp[13] & 0x16 > 0x10))")
     res = {}
     for s,r in a:
-        if r.hastype(ICMP):
+        if r.haslayer(ICMP):
             res[s.ttl] = r.sprintf("%-15s,IP.src%")
         else:
             res[s.ttl] = r.sprintf("%-15s,IP.src% %TCP.flags%")
@@ -2436,6 +2509,29 @@ traceroute(target, [maxttl=30], [dport=80], [sport=80]) -> None
     
 
 
+
+#####################
+## Reporting stuff ##
+#####################
+
+def report_ports(target, ports):
+    ans,unans = sr(IP(dst=target)/TCP(dport=ports),timeout=5)
+    print "\\begin{tabular}{|l|l|l|}\n\\hline"
+    for s,r in ans:
+        if not r.haslayer(ICMP):
+            if r.payload.flags == 0x12:
+                print r.sprintf("%TCP.sport% & open & SA \\\\")
+    print "\\hline"
+    for s,r in ans:
+        if r.haslayer(ICMP):
+            print r.sprintf("%TCP.dport% & closed & ICMP type %ICMP.type% from %ICMP.src% \\\\")
+        elif r.payload.flags != 0x12:
+            print r.sprintf("%TCP.sport% & closed & TCP %TCP.flags% \\\\")
+    print "\\hline"
+    for i in unans:
+        print i.sprintf("%TCP.dport% & ? & unanswered \\\\")
+    print "\\hline\n\\end{tabular}"
+    
 
 ######################
 ## Online doc stuff ##
