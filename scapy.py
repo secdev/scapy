@@ -21,6 +21,11 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.3  2004/08/07 10:59:34  pbi
+# - fixed self reloading when launched from a different directory
+# - fixed session reloading problems with PacketList() and SndRcvAns()
+# - added load_session(), save_session(), update_session()
+#
 # Revision 0.9.17.2  2004/07/28 21:16:12  pbi
 # - added nsummary() method to SndRcvList() class
 #
@@ -415,7 +420,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.2 2004/07/28 21:16:12 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.3 2004/08/07 10:59:34 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -444,7 +449,7 @@ def usage():
 if __name__ == "__main__":
     import code,sys,cPickle,types,os,imp
 
-    scapy_module = sys.argv[0]
+    scapy_module = sys.argv[0][sys.argv[0].rfind("/")+1:]
     if not scapy_module:
         scapy_module = "scapy"
     else:
@@ -543,6 +548,8 @@ if __name__ == "__main__":
     else:
         session={"conf": scapy.conf}
 
+    __builtins__.__dict__["scapy_session"] = session
+
     if scapy.conf.histfile:
         try:
             readline.read_history_file(scapy.conf.histfile)
@@ -552,22 +559,7 @@ if __name__ == "__main__":
     code.interact(banner = "Welcome to Scapy (%s)"%VERSION, local=session)
 
     if scapy.conf.session:
-
-        if session.has_key("__builtins__"):
-            del(session["__builtins__"])
-
-        for k in session.keys():
-            if type(session[k]) in [types.ClassType, types.ModuleType]:
-                 print "[%s] (%s) can't be saved. Deleted." % (k, type(session[k]))
-                 del(session[k])
-
-        try:
-            os.rename(scapy.conf.session, scapy.conf.session+".bak")
-        except OSError:
-            pass
-        f=open(scapy.conf.session,"w")
-        cPickle.dump(session, f)
-        f.close()
+        save_session(scapy.conf.session, session)
 
     if scapy.conf.histfile:
         readline.write_history_file(scapy.conf.histfile)
@@ -579,7 +571,7 @@ if __name__ == "__main__":
 ##################
 
 import socket, sys, getopt, string, struct, time, random, os, traceback
-import pickle, types
+import cPickle, types
 from select import select
 from fcntl import ioctl
 
@@ -734,6 +726,42 @@ def str2mac(s):
 
 def strxor(x,y):
     return "".join(map(lambda x,y:chr(ord(x)^ord(y)),x,y))
+
+
+
+##############################
+## Session saving/restoring ##
+##############################
+
+
+def save_session(fname, session=None):
+    if session is None:
+        session = scapy_session
+        
+    if session.has_key("__builtins__"):
+            del(session["__builtins__"])
+
+    for k in session.keys():
+        if type(session[k]) in [types.ClassType, types.ModuleType]:
+             print "[%s] (%s) can't be saved. Deleted." % (k, type(session[k]))
+             del(session[k])
+
+    try:
+        os.rename(fname, fname+".bak")
+    except OSError:
+        pass
+    f=open(fname,"w")
+    cPickle.dump(session, f)
+    f.close()
+
+def load_session(fname):
+    f=open(fname)
+    scapy_session.clear()
+    scapy_session.update(cPickle.load(f))
+
+def update_session(fname):
+    f=open(fname)
+    scapy_session.update(cPickle.load(f))
 
 
 #################
@@ -1127,6 +1155,7 @@ class Net(Gen):
 #############
 
 class SndRcvAns:
+    res = []
     def __init__(self, res):
         self.res = res
     def __repr__(self):
@@ -1163,6 +1192,7 @@ class SndRcvAns:
         return make_tex_table(self.res, *args, **kargs)
 
 class PacketList:
+    res = []
     def __init__(self, res, name="PacketList"):
         self.res = res
         self.listname = name
@@ -3684,7 +3714,7 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0,retry=0):
                 print "--- End of error in child %i" % os.getpid()
                 sys.exit()
             else:
-                pickle.dump(arp_cache, wrpipe)
+                cPickle.dump(arp_cache, wrpipe)
                 wrpipe.close()
             sys.exit()
         elif pid < 0:
@@ -3736,7 +3766,7 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0,retry=0):
                     raise KeyboardInterrupt
     
             try:
-                ac = pickle.load(rdpipe)
+                ac = cPickle.load(rdpipe)
             except EOFError:
                 warning("Child died unexpectedly. Packets may have not been sent")
             else:
