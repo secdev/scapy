@@ -21,6 +21,12 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.18  2004/09/21 21:45:20  pbi
+# - added recv() method to PcapReader to emulate a SuperSocket
+# - added "offline" parameter to sniff() to use sniff on pcap files
+# - removed voip_play_offline() and renamed voip_play_sniff() to voip_play()
+#   which is now available to play offline
+#
 # Revision 0.9.17.17  2004/09/21 21:32:41  pbi
 # - added early PPPoE support (Ralf Ertzinger)
 # - fixed DNS summary() to handle empty queries or answers
@@ -473,7 +479,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.17 2004/09/21 21:32:41 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.18 2004/09/21 21:45:20 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -4190,6 +4196,12 @@ class PcapReader:
 		"""
 		return PacketList(self.read_all(), self.filename)
 
+        def recv(self, size):
+                """ Emulate a socket
+                """
+                return self.read_packet()
+        
+
 
 class ScapyPcapWriter:
         """A pcap writer with more control than wrpcap()
@@ -4734,12 +4746,23 @@ def nmap_sig2txt(sig):
 ###################
 
 
-def sniff(count=0, store=1, prn = None, *arg, **karg):
+def sniff(count=0, store=1, offline=None, prn = None, *arg, **karg):
     """Sniff packets
-sniff([count,] [prn,] + L2ListenSocket args) -> list of packets
+sniff([count=0,] [prn=None,] [store=1,] [offline=None,] + L2ListenSocket args) -> list of packets
+
+  count: number of packets to capture. 0 means infinity
+  store: wether to store sniffed packets or discard them
+    prn: function to apply to each packet. If something is returned,
+         it is displayed. Ex:
+         prn = lambda x: x.summary()
+offline: pcap file to read packets from, instead of sniffing them
     """
     c = 0
-    s = conf.L2listen(type=ETH_P_ALL, *arg, **karg)
+
+    if offline is None:
+        s = conf.L2listen(type=ETH_P_ALL, *arg, **karg)
+    else:
+        s = PcapReader(offline)
     lst = []
     while 1:
         try:
@@ -5241,18 +5264,11 @@ for am in AM_classes:
 ###################
 
 
-def voip_play_sniff(**kargs):
+def voip_play(**kargs):
     dsp,rd = os.popen2("sox -t .ul - -t ossdsp /dev/dsp")
     def play(pkt, dsp=dsp):
        dsp.write(pkt.load[12:])
     sniff(store=0, prn=play, **kargs)
-
-
-def voip_play_offline(lst):
-    dsp,rd = os.popen2("sox -t .ul - -t ossdsp /dev/dsp")
-    for p in lst:
-       dsp.write(p.load[12:])
-
 
 
 def IPID_count(lst, funcID=lambda x:x[1].id, funcpres=lambda x:x[1].summary()):
