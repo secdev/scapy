@@ -22,6 +22,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.8.3  2003/03/28 14:55:18  pbi
+# Added pkt2uptime() : uses TCP timestamp to predict when the machine was booted
+#
 # Revision 0.9.8.2  2003/03/27 15:58:54  pbi
 # - fixed sprintf() regression to use attributes from a packet that are not fields (eg: payload)
 #
@@ -65,7 +68,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.8.2 2003/03/27 15:58:54 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.8.3 2003/03/28 14:55:18 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -81,7 +84,6 @@ def usage():
 #
 #  - improve pcap capture file support
 #  - better self-doc
-#  - add lsc() to list commands
 #
 ##
 ##########[XXX]#=--
@@ -2335,6 +2337,20 @@ def prnp0f(pkt):
     
 
 
+def pkt2uptime(pkt, HZ=100):
+    """Calculate the date the machine which emitted the packet booted using TCP timestamp
+pkt2uptime(pkt, [HZ=100])"""
+    if not isinstance(pkt, Packet):
+        raise TypeError("Not a TCP packet")
+    if pkt == NoPayload():
+        raise TypeError("Not a TCP packet")
+    if not isinstance(pkt, TCP):
+        return pkt2uptime(pkt.payload)
+    if "Timestamp" not in pkt.options:
+        raise TypeError("No timestamp option")
+    t = pkt.options["Timestamp"][0]
+    t = pkt.time-t*1.0/HZ
+    return time.ctime(t)
     
 
 
