@@ -22,6 +22,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.9.11  2003/04/13 21:41:01  biondi
+# - added get_working_if()
+# - use get_working_if() for default interface
+#
 # Revision 0.9.9.10  2003/04/12 23:33:42  biondi
 # - add DNS layer (do not compress when assemble, answers() is missing)
 #
@@ -132,7 +136,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.9.10 2003/04/12 23:33:42 biondi Exp $"
+RCSID="$Id: scapy.py,v 0.9.9.11 2003/04/13 21:41:01 biondi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -281,6 +285,18 @@ SIOCGIFFLAGS   = 0x8913          # get flags
 SIOCSIFFLAGS   = 0x8914          # set flags               
 SIOCGIFINDEX   = 0x8933          # name -> if_index mapping
 SIOCGIFCOUNT   = 0x8938          # get number of devices
+
+
+# From if.h
+IFF_UP = 0x1               # Interface is up.
+IFF_BROADCAST = 0x2        # Broadcast address valid.
+IFF_DEBUG = 0x4            # Turn on debugging.
+IFF_LOOPBACK = 0x8         # Is a loopback net.
+IFF_POINTOPOINT = 0x10     # Interface is point-to-point link.
+IFF_NOTRAILERS = 0x20      # Avoid use of trailers.
+IFF_RUNNING = 0x40         # Resources allocated.
+IFF_NOARP = 0x80           # No address resolution protocol.
+IFF_PROMISC = 0x100        # Receive all packets.
 
 
 
@@ -434,7 +450,13 @@ def choose_route(dst):
         
 if PCAP:
     def get_if_list():
+        # remove 'any' interface
         return map(lambda x:x[0],filter(lambda x:x[1] is None,pcap.findalldevs()))
+    def get_working_if():
+        try:
+            return pcap.lookupdev()
+        except pcapc.EXCEPTION:
+            return 'lo'
 else:
     def get_if_list():
         f=open("/proc/net/dev","r")
@@ -444,6 +466,15 @@ else:
         for l in f:
             lst.append(l.split(":")[0].strip())
         return lst
+    def get_working_if():
+        for i in get_if_list():
+            if i == 'lo':                
+                continue
+            ifflags = struct.unpack("16xH14x",get_if(i,SIOCGIFFLAGS))[0]
+            if ifflags & IFF_UP:
+                return i
+        return "lo"
+            
 
         
 def get_if(iff,cmd):
@@ -3076,7 +3107,7 @@ sniff_promisc : default mode for sniff()
 filter : bpf filter added to every sniffing socket to exclude traffic from analysis"""
     session = ""  
     stealth = "not implemented"
-    iff = "eth0"
+    iff = get_working_if()
     verb = 2
     promisc = "not implemented"
     sniff_promisc = 0
