@@ -22,6 +22,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.12.4  2003/05/06 13:39:21  pbi
+# - Improved random number object (thanks to O. Poyen)
+#
 # Revision 0.9.12.3  2003/05/06 10:45:27  pbi
 # - fixed a name overlap on "type" in L2ListenSocket and L3PacketSocket (thanks to E. M. Hopper)
 #
@@ -210,7 +213,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.12.3 2003/05/06 10:45:27 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.12.4 2003/05/06 13:39:21 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -724,44 +727,8 @@ class RandNum:
     def randint(self):
         # XXX: replace with sth that guarantee unicity
         return random.randint(self.min, self.max)
-    def __add__(self, val):
-        return self.randint() + val
-    def __sub__(self, val):
-        return self.randint() - val
-    def __mul__(self, val):
-        return self.randint() * val
-    def __div__(self, val):
-        return self.randint() / val
-    def __mod__(self, val):
-        return self.randint() % val
-    def __divmod__(self, val):
-        return divmod(self.randint(), val)
-    def __and__(self, val):
-        return self.randint() & val
-    def __or__(self, val):
-        return self.randint() | val
-    def __xor__(self, val):
-        return self.randint() ^ val
-    def __pow__(self, val):
-        return self.randint() ** val
-    def __cmp__(self, val):
-        return cmp(self.randint(), val)
-    def __neg__(self):
-        return -self.randint()
-    def __pos__(self):
-        return +self.randint()
-    def __abs__(self):
-        return self.randint()
-    def __nonzero__(self):
-        return self.randint()
-    def __repr__(self):
-        return repr(self.randint())
-    def __str__(self):
-        return str(self.randint())
-    def __int__(self):
-        return self.randint()
-    def __hex__(self):
-        return hex(self.randint())
+    def __getattr__(self, attr):
+        return getattr(self.randint(), attr)
 
 class RandByte(RandNum):
     def __init__(self):
