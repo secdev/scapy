@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.38  2005/02/18 21:03:26  pbi
+# - MGCP  early support
+# - RandString()
+#
 # Revision 0.9.17.37  2005/02/10 22:33:13  pbi
 # - export_object()/import_object() to copy/paste base64 gzipped pickled objects
 # - prevent save_session from deleting unpicklable objects
@@ -563,7 +567,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.37 2005/02/10 22:33:13 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.38 2005/02/18 21:03:26 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1251,7 +1255,10 @@ ConstEnum = ProtoEnumMetaClass("ConstEnum", (), {"consts":{}})
 ## Random numbers ##
 ####################
 
-class RandNum:
+class RandField:
+    pass
+
+class RandNum(RandField):
     def __init__(self, min, max):
         self.min = min
         self.max = max
@@ -1274,8 +1281,19 @@ class RandInt(RandNum):
         # Well, 2147483647 won't be reached because max+1 must be int
         # and 2147483647+1 is longint. (random module limitation)
         RandNum.__init__(self, 0, 2147483646)
-        
 
+
+class RandString(RandField):
+    def __init__(self, size, chars="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"):
+        self.chars = chars
+        self.size = size
+    def randstr(self):
+        s = ""
+        for i in range(self.size):
+            s += random.choice(self.chars)
+        return s
+    def __getattr__(self, attr):
+        return getattr(self.randstr(), attr)
 
 
 
@@ -2592,8 +2610,8 @@ class Packet(Gen):
                 for payl in payloads:
                     done2=done.copy()
                     for k in done2:
-                        if isinstance(done2[k], RandNum):
-                            done2[k] = int(done2[k])
+                        if isinstance(done2[k], RandField):
+                            done2[k] = done2[k]*1
                     pkt = self.__class__(**done2)
                     pkt.underlayer = self.underlayer
                     pkt.overload_fields = self.overload_fields.copy()
@@ -4174,6 +4192,35 @@ class SebekV2Sock(Packet):
                                                "recvfrom":12}),
                     ByteField("proto", 0) ]
 
+
+class MGCP(Packet):
+    name = "MGCP"
+    longname = "Media Gateway Control Protocol"
+    fields_desc = [ StrStopField("verb","AUEP"," ", -1),
+                    StrFixedLenField("sep1"," ",1),
+                    StrStopField("transaction_id","1234567"," ", -1),
+                    StrFixedLenField("sep2"," ",1),
+                    StrStopField("endpoint","dummy@dummy.net"," ", -1),
+                    StrFixedLenField("sep3"," ",1),
+                    StrStopField("version","MGCP 1.0 NCS 1.0","\x0a", -1),
+                    StrFixedLenField("sep4","\x0a",1),
+                    ]
+                    
+    
+#class MGCP(Packet):
+#    name = "MGCP"
+#    longname = "Media Gateway Control Protocol"
+#    fields_desc = [ ByteEnumField("type",0, ["request","response","others"]),
+#                    ByteField("code0",0),
+#                    ByteField("code1",0),
+#                    ByteField("code2",0),
+#                    ByteField("code3",0),
+#                    ByteField("code4",0),
+#                    IntField("trasid",0),
+#                    IntField("req_time",0),
+#                    ByteField("is_duplicate",0),
+#                    ByteField("req_available",0) ]
+#
 class GPRS(Packet):
     name = "GPRSdummy"
     fields_desc = [
@@ -4234,7 +4281,10 @@ layer_bonds = [ ( Dot3,   LLC,      { } ),
                 ( IP,     ICMP,     { "proto" : socket.IPPROTO_ICMP } ),
                 ( IP,     TCP,      { "proto" : socket.IPPROTO_TCP } ),
                 ( IP,     UDP,      { "proto" : socket.IPPROTO_UDP } ),
+                ( UDP,    MGCP,     { "dport" : 2727 } ),
+                ( UDP,    MGCP,     { "sport" : 2727 } ),
                 ( UDP,    DNS,      { "dport" : 53 } ),
+                ( UDP,    DNS,      { "sport" : 53 } ),
                 ( UDP,    ISAKMP,   { "sport" : 500, "dport" : 500 } ),
                 ( UDP,    HSRP,     { "sport" : 1985, "dport" : 1985} ),
                 ( UDP,    NTP,      { "sport" : 123, "dport" : 123 } ),
@@ -4243,7 +4293,6 @@ layer_bonds = [ ( Dot3,   LLC,      { } ),
                 ( BOOTP,  DHCP,     { "options" : dhcpmagic } ),
                 ( UDP,    RIP,      { "sport" : 520 } ),
                 ( UDP,    RIP,      { "dport" : 520 } ),
-                ( UDP,    DNS,      { "sport" : 53 } ),
                 ( RIP,    RIPEntry, { } ),
                 ( RIPEntry,RIPEntry,{ } ),
                 ( Dot11, Dot11AssoReq,    { "type" : 0, "subtype" : 0 } ),
@@ -4784,7 +4833,6 @@ def __gen_send(s, x, inter=0, loop=0, verbose=None, *args, **kargs):
                 time.sleep(inter)
             if not loop:
                 break
-            time.sleep(loop)
     except KeyboardInterrupt:
         pass
     s.close()
