@@ -22,6 +22,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.8.1  2003/03/27 15:43:20  pbi
+# Release 0.9.8
+#
 # Revision 0.9.7.9  2003/03/27 15:07:42  pbi
 # - add filter support for sr(), sr1() and srp()
 # - use filters for getmacbyip() and traceroute() for better reliability under heavy load
@@ -59,7 +62,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.7.9 2003/03/27 15:07:42 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.8.1 2003/03/27 15:43:20 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
