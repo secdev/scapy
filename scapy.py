@@ -22,6 +22,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.12.3  2003/05/06 10:45:27  pbi
+# - fixed a name overlap on "type" in L2ListenSocket and L3PacketSocket (thanks to E. M. Hopper)
+#
 # Revision 0.9.12.2  2003/05/06 10:41:58  pbi
 # - externalized conversion from probes to signature with nmap_probes2sig() use probe results from, say, a pcap file
 #
@@ -207,7 +210,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.12.2 2003/05/06 10:41:58 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.12.3 2003/05/06 10:45:27 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2436,7 +2439,7 @@ class L3PacketSocket(SuperSocket):
         if iface is None:
             self.iff = get_if_list()
         else:
-            if type(iface) is list:
+            if iface.__class__ is list:
                 self.iff = iface
             else:
                 self.iff = [iface]
@@ -2527,7 +2530,7 @@ class L2ListenSocket(SuperSocket):
         if iface is None:
             self.iff = get_if_list()
         else:
-            if type(iface) is list:
+            if iface.__class__ is list:
                 self.iff = iface
             else:
                 self.iff = [iface]
