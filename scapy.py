@@ -22,6 +22,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.9.1  2003/04/08 17:23:33  pbi
+# Release 0.9.9
+#
 # Revision 0.9.8.9  2003/04/08 17:22:25  pbi
 # - use cPickle instead of pickle (quicker and works with __getattr__() recursion)
 # - small fixes on send() and sendp()
@@ -95,7 +98,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.8.9 2003/04/08 17:22:25 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.9.1 2003/04/08 17:23:33 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
