@@ -22,6 +22,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.8.6  2003/04/07 14:57:12  pbi
+# - catch error during payload dissection and consider payload as raw data
+#
 # Revision 0.9.8.5  2003/04/07 14:43:13  pbi
 # - srp() becomes srp1() and sr() equivalent for L2 is called srp()
 # - hastype() Packet methods renamed to haslayer()
@@ -80,7 +83,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.8.5 2003/04/07 14:43:13 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.8.6 2003/04/07 14:57:12 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1230,9 +1233,11 @@ class Packet(Gen):
     def do_dissect_payload(self, s):
         if s:
             cls = self.guess_payload_class()
-            if cls is None:
-                cls = Raw
-            self.add_payload(cls(s))
+            try:
+                p = cls(s)
+            except:
+                p = Raw(s)
+            self.add_payload(p)
 
     def dissect(self, s):
         return self.do_dissect(s)
