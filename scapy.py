@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.49  2005/03/14 12:52:41  pbi
+# - Deprecated display() method (for all objects). Use show() instead.
+#
 # Revision 0.9.17.48  2005/03/14 12:48:29  pbi
 # - Modified PacketField to stop at Padding instead of Raw
 # - Added PacketLenField
@@ -603,7 +606,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.48 2005/03/14 12:48:29 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.49 2005/03/14 12:52:41 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1446,7 +1449,9 @@ class PacketList:
     def nsummary(self):
         for i in range(len(self.res)):
             print "%04i %s" % (i,self.elt2sum(self.res[i]))
-    def display(self):
+    def display(self): # Deprecated. Use show()
+        self.show()
+    def show(self):
         self.nsummary()
     
     def filter(self, func):
@@ -1504,7 +1509,9 @@ class TracerouteResult(SndRcvAns):
         self.hloc = None
         self.nloc = None
 
-    def display(self):
+    def display(self): # Deprecated. Use show()
+        self.show()
+    def show(self):
 
         return self.make_table(lambda x: x[0].sprintf("%IP.dst%:{TCP:tcp%TCP.dport%}{UDP:udp%UDP.dport%}{ICMP:ICMP}"),
                                lambda x: x[0].ttl,
@@ -2865,7 +2872,9 @@ class Packet(Gen):
         return self.payload.getlayer(cls)
     
 
-    def display(self, lvl=0):
+    def display(self,*args,**kargs):  # Deprecated. Use show()
+        self.show(*args,**kargs)
+    def show(self, lvl=0):
         print "---[ %s ]---" % self.name
         for f in self.fields_desc:
             print "%s%-10s= %s" % ("   "*lvl, f.name, f.i2repr(self,self.__getattr__(f)))
@@ -3036,7 +3045,7 @@ class NoPayload(Packet,object):
         return 0
     def getlayer(self, cls):
         return None
-    def display(self, lvl=0):
+    def show(self, lvl=0):
         pass
     def sprintf(self, fmt, relax):
         if relax:
