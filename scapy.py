@@ -22,6 +22,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.16.6  2004/04/29 15:46:19  pbi
+# - fixed fragment()
+#
 # Revision 0.9.16.5  2004/03/31 09:24:43  pbi
 # - fix nmap fingerprint db parsing to handle the new format (Jochen Bartl)
 #
@@ -360,7 +363,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.16.5 2004/03/31 09:24:43 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.16.6 2004/04/29 15:46:19 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2912,23 +2915,23 @@ for l in layer_bonds:
 ###################
 
 def fragment(pkt, fragsize=1480):
-    fragsize = (fragsize/8)*8
-    h = pkt.copy()
-    h.flags = "MF"
-    del(h.payload)
+    fragsize = (fragsize+7)/8*8
+    pkt = pkt.copy()
+    pkt.flags = "MF"
     lst = []
-    for p in pkt.payload:
-        s = str(p)
-        nb = len(s)/fragsize+1
-        for i in range(nb):
+    for p in pkt:
+        q = p.copy()
+        del(q.payload)
+        s = str(p.payload)
+        nb = (len(s)+fragsize-1)/fragsize
+        for i in range(nb):            
             r = Raw(load=s[i*fragsize:(i+1)*fragsize])
-            r.overload_fields = p.overload_fields.copy()
-            h2 = h.copy()
+            r.overload_fields = p.payload.overload_fields.copy()
             if i == nb-1:
-                h2.flags=0
-            h2.frag = i*fragsize/8
-            h2.add_payload(r)
-            lst.append(h2)
+                q.flags=0
+            q.frag = i*fragsize/8
+            q.add_payload(r)
+            lst.append(q)
     return lst
 
 
