@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.63  2005/03/28 14:22:38  pbi
+# - added colors, color themes, colored prompt
+#
 # Revision 0.9.17.62  2005/03/24 16:19:33  pbi
 # - made it possible to use a PacketList as a parameter for send* or sr*
 #
@@ -658,7 +661,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.62 2005/03/24 16:19:33 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.63 2005/03/28 14:22:38 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -798,7 +801,8 @@ if __name__ == "__main__":
         except IOError:
             pass
 
-    code.interact(banner = "Welcome to Scapy (%s)"%VERSION, local=session)
+    sys.ps1 = scapy.ColorPrompt()
+    code.interact(banner = "%sWelcome to Scapy (%s)"% (scapy.conf.color_theme.normal,VERSION), local=session)
 
     if scapy.conf.session:
         save_session(scapy.conf.session, session)
@@ -943,7 +947,7 @@ def sane(x):
     for i in x:
         j = ord(i)
         if (j < 32) or (j >= 127):
-            r=r+"."
+            r=r+conf.color_theme.not_printable+"."+conf.color_theme.normal
         else:
             r=r+i
     return r
@@ -1501,9 +1505,23 @@ class PacketList:
                 other += 1
         s = ""
         for p in stats:
-            s += " %s:%i" % (p.name,stats[p])
-        s += " Other:%i" % other
-        return "<%s:%s>" % (self.listname,s)
+            s += " %s%s%s:%s%i%s" % (conf.color_theme.packetlist_proto,
+                                     p.name,
+                                     conf.color_theme.punct,
+                                     conf.color_theme.packetlist_value,
+                                     stats[p],
+                                     conf.color_theme.punct)
+        s += " %sOther%s:%s%i%s" % (conf.color_theme.packetlist_proto,conf.color_theme.punct,
+                                    conf.color_theme.packetlist_value,
+                                    other,
+                                    conf.color_theme.punct)
+        return "%s<%s%s%s:%s>%s" % (conf.color_theme.punct,
+                                    conf.color_theme.packetlist_name,
+                                    self.listname,
+                                    conf.color_theme.punct,
+                                    s,
+                                    conf.color_theme.normal,
+                                    )
     def __getattr__(self, attr):
         return getattr(self.res, attr)
     def __getslice__(self, *args, **kargs):
@@ -1930,6 +1948,11 @@ class Field:
         return self.name
 
 
+class Emph:
+    def __init__(self, fld):
+        self.__fld = fld
+    def __getattr__(self, attr):
+        return getattr(self.__fld,attr)
 
 
 class MACField(Field):
@@ -2879,11 +2902,28 @@ class Packet(Gen):
         s = ""
         for f in self.fields_desc:
             if f in self.fields:
-                s += " %s=%s" % (f, f.i2repr(self, self.fields[f]))
+                val = f.i2repr(self, self.fields[f])
             elif f in self.overloaded_fields:
-                s += " %s=%s" % (f, f.i2repr(self, self.overloaded_fields[f]))
-        return "<%s%s |%s>"% (self.__class__.__name__,
-                              s, repr(self.payload))
+                val =  f.i2repr(self, self.overloaded_fields[f])
+            else:
+                continue
+            if isinstance(f, Emph):
+                ncol = conf.color_theme.emph_field_name
+                vcol = conf.color_theme.emph_field_value
+            else:
+                ncol = conf.color_theme.field_name
+                vcol = conf.color_theme.field_value
+
+                
+            s += " %s%s%s=%s%s%s" % (ncol, f.name, conf.color_theme.punct,
+                                     vcol, val, conf.color_theme.punct)
+        return "%s<%s%s%s%s |%s%s>%s"% (conf.color_theme.punct,
+                                        conf.color_theme.layer_name,
+                                        self.__class__.__name__,
+                                        conf.color_theme.punct,
+                                        s, repr(self.payload),
+                                        conf.color_theme.punct,
+                                        conf.color_theme.normal)
     def __str__(self):
         return self.__iter__().next().build()
     def __div__(self, other):
@@ -3050,10 +3090,29 @@ class Packet(Gen):
     def display(self,*args,**kargs):  # Deprecated. Use show()
         self.show(*args,**kargs)
     def show(self, lvl=0):
-        print "---[ %s ]---" % self.name
+        print "%s---[ %s%s%s ]---%s" % (conf.color_theme.punct,
+                                    conf.color_theme.layer_name,
+                                    self.name,
+                                    conf.color_theme.punct,
+                                    conf.color_theme.normal)
         for f in self.fields_desc:
-            print "%s%-10s= %s" % ("   "*lvl, f.name, f.i2repr(self,self.__getattr__(f)))
+            if isinstance(f, Emph):
+                ncol = conf.color_theme.emph_field_name
+                vcol = conf.color_theme.emph_field_value
+            else:
+                ncol = conf.color_theme.field_name
+                vcol = conf.color_theme.field_value
+            print "%s%s%-10s%s= %s%s%s" % ("   "*lvl,
+                                           ncol,
+                                           f.name,
+                                           conf.color_theme.punct,
+                                           vcol,
+                                           f.i2repr(self,self.__getattr__(f)),
+                                           conf.color_theme.normal)
         self.payload.display(lvl+1)
+
+    def show2(self):
+        self.__class__(str(self)).show()
 
     def sprintf(self, fmt, relax=1):
         """sprintf(format, [relax=1]) -> str
@@ -3481,8 +3540,8 @@ class IP(Packet, IPTools):
                     ByteEnumField("proto", 0, {0:"IP",1:"ICMP",6:"TCP",17:"UDP",47:"GRE"}),
                     XShortField("chksum", None),
                     #IPField("src", "127.0.0.1"),
-                    SourceIPField("src","dst"),
-                    IPField("dst", "127.0.0.1"),
+                    Emph(SourceIPField("src","dst")),
+                    Emph(IPField("dst", "127.0.0.1")),
                     IPoptionsField("options", "") ]
     def post_build(self, p):
         ihl = self.ihl
@@ -7015,8 +7074,94 @@ iwconfig wlan0 mode managed
             
         
     
+##################
+## Color themes ##
+##################
+
+class Color:
+    normal = "\033[0m"
+    black = "\033[30m"
+    red = "\033[31m"
+    green = "\033[32m"
+    yellow = "\033[33m"
+    blue = "\033[34m"
+    purple = "\033[35m"
+    cyan = "\033[36m"
+    grey = "\033[37m"
+
+    bold = "\033[1m"
+    uline = "\033[4m"
+    blink = "\033[5m"
+    invert = "\033[7m"
         
 
+class ColorTheme:
+    normal = ""
+    prompt = ""
+    punct = ""
+    not_printable = ""
+    layer_name = ""
+    field_name = ""
+    field_value = ""
+    emph_field_name = ""
+    emph_field_value = ""
+    packetlist_name = ""
+    packetlist_proto = ""
+    packetlist_value = ""
+
+class BlackAndWhite(ColorTheme):
+    pass
+
+class DefaultTheme(ColorTheme):
+    normal = Color.normal
+    prompt = Color.green
+    punct = Color.normal
+    not_printable = Color.grey
+    layer_name = Color.red+Color.bold
+    field_name = Color.blue
+    field_value = Color.purple
+    emph_field_name = Color.blue+Color.uline+Color.bold
+    emph_field_value = Color.purple+Color.uline+Color.bold
+    packetlist_name = Color.red+Color.bold
+    packetlist_proto = Color.blue
+    packetlist_value = Color.purple
+    
+class BrightTheme(ColorTheme):
+    normal = Color.normal
+    punct = Color.normal
+    layer_name = Color.red+Color.bold
+    field_name = Color.yellow+Color.bold
+    field_value = Color.purple+Color.bold
+    emph_field_name = Color.yellow+Color.bold
+    emph_field_value = Color.green+Color.bold
+    packetlist_name = Color.red+Color.bold
+    packetlist_proto = Color.yellow+Color.bold
+    packetlist_value = Color.purple+Color.bold
+
+
+class RastaTheme(ColorTheme):
+    normal = Color.green+Color.bold
+    prompt = Color.yellow+Color.bold
+    punct = Color.red
+    not_printable = Color.green
+    layer_name = Color.red+Color.bold
+    field_name = Color.yellow+Color.bold
+    field_value = Color.green+Color.bold
+    emph_field_name = Color.green
+    emph_field_value = Color.green
+    packetlist_name = Color.red+Color.bold
+    packetlist_proto = Color.yellow+Color.bold
+    packetlist_value = Color.green+Color.bold
+
+
+class ColorPrompt:
+    __prompt = ">>> "
+    def __str__(self):
+        ## ^A and ^B delimit invisible caracters for readline to count right
+        return "\001%s%s\002%s\001%s\002" % (conf.color_theme.normal,  #reset attributes
+                                             conf.color_theme.prompt,
+                                             conf.prompt,
+                                             conf.color_theme.normal)
 
 ############
 ## Config ##
@@ -7039,7 +7184,9 @@ class ConfClass:
         return s[:-1]
     def reset(self):
         self.__dict__ = {}
-        
+
+    
+    
 
 
 class Conf(ConfClass):
@@ -7068,6 +7215,7 @@ route    : holds the Scapy routing table and provides methods to manipulate it
     checkIPsrc = 1
     checkIPaddr = 1
     verb = 2
+    prompt = ">>> "
     promisc = "not implemented"
     sniff_promisc = 0
     L3socket = L3PacketSocket
@@ -7086,6 +7234,7 @@ route    : holds the Scapy routing table and provides methods to manipulate it
     route = Route()
     wepkey = ""
     debug_dissector = 0
+    color_theme = DefaultTheme
         
 
 conf=Conf()
