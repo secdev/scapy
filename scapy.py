@@ -22,6 +22,11 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.9.3  2003/04/08 18:34:48  pbi
+# - little fix in L2ListenSocket.__del__()
+# - added doc and options in Conf class
+# - added promisc support for L3PacketSocket, so that you can get answers to spoofed packets
+#
 # Revision 0.9.9.2  2003/04/08 17:42:19  pbi
 # - added extract_padding() method to UDP
 #
@@ -101,7 +106,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.9.2 2003/04/08 17:42:19 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.9.3 2003/04/08 18:34:48 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -297,11 +302,22 @@ class ConfClass:
 
 
 class Conf(ConfClass):
-    session = ""  # filename where the session will be saved
+    """This object contains the configuration of scapy.
+session : filename where the session will be saved
+stealth : if 1, prevent any unwanted packet to go out (ARP, DNS, ...)
+iff : select the default output interface for srp() and sendp(). default:"eth0")
+verb : level of verbosity, from 0 (almost mute) to 3 (verbose)
+promisc : default mode for listening socket (to get answers if you spoof on a lan)
+sniff_promisc : default mode for sniff()
+filter : bpf filter added to every sniffing socket to exclude traffic from analysis"""
+    session = ""  
     stealth = "not implemented"
     iff = "eth0"
     verb = 2
-    promisc = 0
+    promisc = "not implemented"
+    sniff_promisc = 0
+    filter = "not implemented"
+    
         
 
 conf=Conf()
@@ -1962,6 +1978,7 @@ class SuperSocket:
     def __init__(self, family=socket.AF_INET,type=socket.SOCK_STREAM, proto=0):
         self.ins = socket.socket(family, type, proto)
         self.outs = self.ins
+        self.promisc=None
     def send(self, x):
         return self.outs.send(str(x))
     def recv(self, x):
@@ -1977,8 +1994,7 @@ class SuperSocket:
     def bind_in(self, addr):
         self.ins.bind(addr)
     def bind_out(self, addr):
-        self.outs.bind(addr)
-        
+        self.outs.bind(addr)        
 
 class L3RawSocket(SuperSocket):
     def __init__(self, iface = None, type = ETH_P_IP):
@@ -1999,13 +2015,30 @@ class L3RawSocket(SuperSocket):
 
 
 class L3PacketSocket(SuperSocket):
-    def __init__(self, type = ETH_P_IP, filter=None):
+    def __init__(self, type = ETH_P_IP, filter=None, promisc=None, iface=None):
         self.type = type
         self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))
         self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 2**30)
         if filter is not None:
             attach_filter(self.ins, filter)
         self.outs = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))
+        if promisc is None:
+            promisc = conf.promisc
+        self.promisc = promisc
+        if iface is None:
+            self.iff = get_if_list()
+        else:
+            if type(iface) is list:
+                self.iff = iface
+            else:
+                self.iff = [iface]
+        if self.promisc:
+            for i in self.iff:
+                set_promisc(self.ins, i)
+    def __del__(self):
+        if self.promisc:
+            for i in self.iff:
+                set_promisc(self.ins, i, 0)
     def recv(self, x):
         pkt, sa_ll = self.ins.recvfrom(x)
         # XXX: if sa_ll[2] == socket.PACKET_OUTGOING : skip
@@ -2067,18 +2100,21 @@ class L2ListenSocket(SuperSocket):
         if filter is not None:
             attach_filter(self.ins, filter)
         if promisc is None:
-            promisc = conf.promisc
+            promisc = conf.sniff_promisc
         self.promisc = promisc
         if iface is None:
             self.iff = get_if_list()
         else:
-            self.iff = [iface]
+            if type(iface) is list:
+                self.iff = iface
+            else:
+                self.iff = [iface]
         if self.promisc:
             for i in self.iff:
                 set_promisc(self.ins, i)
     def __del__(self):
         if self.promisc:
-            for i in iff:
+            for i in self.iff:
                 set_promisc(self.ins, i, 0)
 
     def recv(self, x):
