@@ -22,6 +22,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.9.2  2003/04/08 17:42:19  pbi
+# - added extract_padding() method to UDP
+#
 # Revision 0.9.9.1  2003/04/08 17:23:33  pbi
 # Release 0.9.9
 #
@@ -98,7 +101,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.9.1 2003/04/08 17:23:33 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.9.2 2003/04/08 17:42:19 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1755,6 +1758,9 @@ class UDP(Packet):
             else:
                 warning("No IP underlayer to compute checksum. Leaving null.")
         return p
+    def extract_padding(self, s):
+        l = self.len - 8
+        return s[:l],s[l:]
     def answers(self, other):
         if not isinstance(other, UDP):
             return 0
