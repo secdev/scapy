@@ -22,6 +22,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.14.5  2003/09/12 10:04:05  pbi
+# - added summary() method to Packet objects
+#
 # Revision 0.9.14.4  2003/09/12 09:28:28  pbi
 # - added SNAP protocol
 # - catched broken pipe exception when shild die in sndrcv()
@@ -270,7 +273,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.14.4 2003/09/12 09:28:28 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.14.5 2003/09/12 10:04:05 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1845,6 +1848,17 @@ Ex : p.sprintf("%.time% %-15s,IP.src% -> %-15s,IP.dst% %IP.chksum% "
         s += fmt
         return s
 
+    def mysummary(self):
+        ret = ""
+        if self.underlayer is not None:
+            ret += self.underlayer.mysummary()
+            ret += " / "
+        return ret+self.name
+    def summary(self):
+        ret = self.payload.summary()
+        if ret == "":
+            ret = self.mysummary()
+        return ret
         
 
 class NoPayload(Packet,object):
@@ -1896,6 +1910,8 @@ class NoPayload(Packet,object):
             return "??"
         else:
             raise Exception("Format not found [%s]"%fmt)
+    def summary(self):
+        return ""
     
 
 ####################
@@ -1929,7 +1945,8 @@ class Ether(Packet):
             if self.type == other.type:
                 return self.payload.answers(other.payload)
         return 0
-    
+    def mysummary(self):
+        return "%s > %s (%04x)" % (self.src, self.dst, self.type)
 
 class Dot3(Packet):
     name = "802.3"
@@ -1943,6 +1960,8 @@ class Dot3(Packet):
         if isinstance(other,Dot3):
             return self.payload.answers(other.payload)
         return 0
+    def mysummary(self):
+        return "%s > %s" % (self.src, self.dst)
 
 
 class LLC(Packet):
@@ -2015,6 +2034,8 @@ class EAPOL(Packet):
                  (other.type == self.EAP_PACKET) ):
                 return self.payload.answers(other.payload)
         return 0
+    def mysummary(self):
+        return self.sprintf("EAPOL %EAPOL.type%")
              
 
 class EAP(Packet):
@@ -2080,6 +2101,15 @@ class ARP(Packet):
                  (other.op == self.who_has) and
                  (self.psrc == other.pdst) ):
                 return 1
+    def extract_padding(self, s):
+        return "",s
+    def mysummary(self):
+        if self.op == self.is_at:
+            return "ARP is at %s says %s" % (self.hwsrc, self.psrc)
+        elif self.op == self.who_has:
+            return "ARP who has %s says %s" % (self.pdst, self.psrc)
+        else:
+            return "ARP %ARP.op% %ARP.psrc% > %ARP.pdst%"
                  
 
 class IP(Packet, IPTools):
@@ -2146,6 +2176,8 @@ class IP(Packet, IPTools):
                  (self.proto != other.proto) ):
                 return 0
             return self.payload.answers(other.payload)
+    def mysummary(self):
+        return "%s > %s (%i)" % (self.src,self.dst, self.proto)
                  
     
 
@@ -2190,6 +2222,12 @@ class TCP(Packet):
         if (abs(other.seq-self.ack) > 2):
             return 0
         return 1
+    def mysummary(self):
+        if isinstance(self.underlayer, IP):
+            return "%s:%i > %s:%i" % (self.underlayer.src, self.sport,
+                                      self.underlayer.dst, self.dport)
+        else:
+            return "TCP %i > %i" % (self.sport, self.dport)
 
 class UDP(Packet):
     name = "UDP"
@@ -2226,6 +2264,12 @@ class UDP(Packet):
                 (self.dport == other.sport)):
             return 0
         return 1
+    def mysummary(self):
+        if isinstance(self.underlayer, IP):
+            return "%s:%i > %s:%i" % (self.underlayer.src, self.sport,
+                                    self.underlayer.dst, self.dport)
+        else:
+            return "UDP %i > %i" % (self.sport, self.dport)
     
 
 icmptypes = { 0 : "echo-reply",
@@ -2271,12 +2315,15 @@ class ICMP(Packet):
             return IPerror
         else:
             return None
+    def mysummary(self):
+        return self.sprintf("ICMP %ICMP.type% %ICMP.code%")
+    
         
 
 
 
 class IPerror(IP):
-    name = "IP in ICMP citation"
+    name = "IP in ICMP"
     def answers(self, other):
         if not isinstance(other, IP):
             return 0
@@ -2286,10 +2333,12 @@ class IPerror(IP):
                  (self.proto == other.proto) ):
             return 0
         return self.payload.answers(other.payload)
+    def mysummary(self):
+        return Packet.mysummary(self)
 
 
 class TCPerror(TCP):
-    name = "TCP in ICMP citation"
+    name = "TCP in ICMP"
     def answers(self, other):
         if not isinstance(other, TCP):
             return 0
@@ -2303,9 +2352,12 @@ class TCPerror(TCP):
             if self.ack != other.ack:
                 return 0
         return 1
+    def mysummary(self):
+        return Packet.mysummary(self)
+
 
 class UDPerror(UDP):
-    name = "UDP in ICMP citation"
+    name = "UDP in ICMP"
     def answers(self, other):
         if not isinstance(other, UDP):
             return 0
@@ -2313,10 +2365,13 @@ class UDPerror(UDP):
                 (self.dport == other.dport)):
             return 0
         return 1
+    def mysummary(self):
+        return Packet.mysummary(self)
+
                     
 
 class ICMPerror(ICMP):
-    name = "ICMP in ICMP citation"
+    name = "ICMP in ICMP"
     def answers(self, other):
         if not isinstance(other,ICMP):
             return 0
@@ -2331,6 +2386,9 @@ class ICMPerror(ICMP):
                 return 0
         else:
             return 1
+    def mysummary(self):
+        return Packet.mysummary(self)
+
                 
 class LLPPP(Packet):
     name = "PPP Link Layer"
