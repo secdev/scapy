@@ -22,6 +22,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.10.7  2003/04/22 13:55:01  pbi
+# - some getattr/setattr/delattr enhancements
+#
 # Revision 0.9.10.6  2003/04/22 13:52:00  pbi
 # - added experimental support for QueSO OS fingerprinting. Has someone a *recent* database ?
 #
@@ -169,7 +172,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.10.6 2003/04/22 13:52:00 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.10.7 2003/04/22 13:55:01 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -948,11 +951,11 @@ class SourceIPField(IPField):
         self.dstname = dstname
     def i2m(self, pkt, x):
         if x is None:
-            iff,x,gw = choose_route(pkt.__getattr__(self.dstname))
+            iff,x,gw = choose_route(getattr(pkt,self.dstname))
         return IPField.i2m(self, pkt, x)
     def i2h(self, pkt, x):
         if x is None:
-            dst=pkt.__getattr__(self.dstname)
+            dst=getattr(pkt,self.dstname)
             if isinstance(dst,Gen):
                 r = map(choose_route, dst)
                 r.sort()
@@ -1414,7 +1417,7 @@ class Packet(Gen):
     underlayer = None
 
     payload_guess = []
-
+    initialized = 0
 
     def __init__(self, pkt="", **fields):
         self.time  = time.time()
@@ -1427,6 +1430,7 @@ class Packet(Gen):
         for f in self.fields_desc:
             self.default_fields[f] = f.default
             self.fieldtype[f] = f
+        self.initialized = 1
         if pkt:
             self.dissect(pkt)
         for f in fields.keys():
@@ -1470,49 +1474,50 @@ class Packet(Gen):
         clone.payload.add_underlayer(clone)
         return clone
     def __getattr__(self, attr):
-        if self.__dict__.has_key("fieldtype") and self.fieldtype.has_key(attr):
-            i2h = self.fieldtype[attr].i2h
-        else:
-            i2h = lambda x,y: y
-        if self.__dict__.has_key("fields") and self.fields.has_key(attr):
-            return i2h(self, self.fields[attr])
-        elif self.__dict__.has_key("overloaded_fields") and self.overloaded_fields.has_key(attr):
-            return i2h(self, self.overloaded_fields[attr])
-        elif self.__dict__.has_key("default_fields") and self.default_fields.has_key(attr):
-            return i2h(self, self.default_fields[attr])
-        elif self.__dict__.has_key(attr):
-            return self.__dict__[attr]
-        else:
-            return getattr(self.payload,attr)
-#            raise AttributeError, attr
+        if self.initialized:
+            fld = self.fieldtype.get(attr)
+            if fld is None:
+                i2h = lambda x,y: y
+            else:
+                i2h = fld.i2h
+            for f in ["fields", "overloaded_fields", "default_fields"]:
+                fields = self.__dict__[f]
+                if fields.has_key(attr):
+                    return i2h(self, fields[attr] )
+            return getattr(self.payload, attr)
+        raise AttributeError(attr)
+
     def __setattr__(self, attr, val):
-        if self.__dict__.has_key("fieldtype") and self.fieldtype.has_key(attr):
-            any2i = self.fieldtype[attr].any2i
-        else:
-            any2i = lambda x,y: y
-        if ( self.__dict__.has_key("fields") and
-             ( ( self.fields.has_key(attr) or
-                 ( self.__dict__.has_key("default_fields") and
-                   self.default_fields.has_key(attr) ) ) ) ):
-                self.fields[attr] = any2i(self,val)
-        elif attr == "payload":
-            self.remove_payload()
-            self.add_payload(val)
+        if self.initialized:
+            if self.default_fields.has_key(attr):
+                fld = self.fieldtype.get(attr)
+                if fld is None:
+                    any2i = lambda x,y: y
+                else:
+                    any2i = fld.any2i
+                self.fields[attr] = any2i(self, val)
+            elif attr == "payload":
+                self.remove_payload()
+                self.add_payload(val)
+            else:
+                self.__dict__[attr] = val
         else:
             self.__dict__[attr] = val
     def __delattr__(self, attr):
-        if self.__dict__.has_key("fields") and self.fields.has_key(attr):
-            del(self.fields[attr])
-        elif self.__dict__.has_key("overloaded_fields") and self.overloaded_fields.has_key(attr):
-            pass
-        elif self.__dict__.has_key("default_fields") and self.default_fields.has_key(attr):
-            pass
-        elif attr == "payload":
-            self.remove_payload()
-        elif self.__dict__.has_key(attr):
+        if self.initialized:
+            if self.fields.has_key(attr):
+                del(self.fields[attr])
+                return
+            elif self.default_fields.has_key(attr):
+                return
+            elif attr == "payload":
+                self.remove_payload()
+                return
+        if self.__dict__.has_key(attr):
             del(self.__dict__[attr])
         else:
-            raise AttributeError, attr
+            raise AttributeError(attr)
+            
     def __repr__(self):
         s = ""
         for fname in self.fields.keys():
@@ -1591,7 +1596,7 @@ class Packet(Gen):
             for fval, cls in t.payload_guess:
                 ok = 1
                 for k in fval.keys():
-                    if fval[k] != self.__getattr__(k):
+                    if fval[k] != getattr(self,k):
                         ok = 0
                         break
                 if ok:
