@@ -22,6 +22,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.15.7  2004/01/09 16:04:07  pbi
+# - fixed ARP opcodes values
+#
 # Revision 0.9.15.6  2004/01/09 15:53:46  pbi
 # - added RARP and IARP req/resp description in ARP operation Enum field
 #
@@ -312,7 +315,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.15.6 2004/01/09 15:53:46 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.15.7 2004/01/09 16:04:07 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2185,7 +2188,7 @@ class ARP(Packet):
                     XShortField("ptype",  0x0800),
                     ByteField("hwlen", 6),
                     ByteField("plen", 4),
-                    ShortEnumField("op", 1, {"who-has":1, "is-at":2, "RARP-req":3, "RARP-resp":4, "IARP-req":5, "IARP-resp":6}),
+                    ShortEnumField("op", 1, {"who-has":1, "is-at":2, "RARP-req":3, "RARP-rep":4, "Dyn-RARP-req":5, "Dyn-RAR-rep":6, "Dyn-RARP-err":7, "InARP-req":8, "InARP-rep":9}),
                     ARPSourceMACField("hwsrc"),
                     SourceIPField("psrc","pdst"),
                     MACField("hwdst", ETHER_ANY),
