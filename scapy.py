@@ -22,6 +22,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.9.7  2003/04/11 15:49:31  pbi
+# - some tweaks about supersockets close() and __del__() (not satisfied)
+# - added L3dnetSocket, that use libdnet and libpcap if available
+#
 # Revision 0.9.9.6  2003/04/11 13:46:49  pbi
 # - fixed a regression in bitfield dissection
 # - tweaked and fixed a lot of small things arround supersockets
@@ -118,7 +122,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.9.6 2003/04/11 13:46:49 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.9.7 2003/04/11 15:49:31 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1931,17 +1935,17 @@ class SuperSocket:
     def recv(self, x):
         return Raw(self.ins.recv(x))
     def fileno(self):
-        return self.fileno_in()
-    def fileno_in(self):
         return self.ins.fileno()
     def close(self):
-        self.ins.close()
         if self.ins != self.outs:
             self.outs.close()
+        self.ins.close()
     def bind_in(self, addr):
         self.ins.bind(addr)
     def bind_out(self, addr):
-        self.outs.bind(addr)        
+        self.outs.bind(addr)
+    def __del__(self):
+        self.close()
 
 class L3RawSocket(SuperSocket):
     def __init__(self, type = ETH_P_IP):
@@ -1979,7 +1983,8 @@ class L3PacketSocket(SuperSocket):
         if self.promisc:
             for i in self.iff:
                 set_promisc(self.ins, i)
-    def __del__(self):
+    def close(self):
+        SuperSocket.close(self)
         if self.promisc:
             for i in self.iff:
                 set_promisc(self.ins, i, 0)
@@ -2059,7 +2064,8 @@ class L2ListenSocket(SuperSocket):
         if self.promisc:
             for i in self.iff:
                 set_promisc(self.ins, i)
-    def __del__(self):
+    def close(self):
+        SuperSocket.close(self)
         if self.promisc:
             for i in self.iff:
                 set_promisc(self.ins, i, 0)
@@ -2079,6 +2085,61 @@ class L2ListenSocket(SuperSocket):
     
     def send(self, x):
         raise Exception("Can't send anything with L2ListenSocket")
+
+
+
+try:
+    import dnet,pcap
+    class L3dnetSocket(SuperSocket):
+        def __init__(self, type = ETH_P_IP, filter=None, promisc=None, iface=None):
+            self.iflist = {}
+            # why on earth doesn't socketpair() exist in python ?!
+            self.ins = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+            skn = os.tmpnam()
+            self.ins.bind(skn)
+            self.ins.connect(skn)
+            os.unlink(skn)
+            pid=os.fork()
+            if pid < 0:
+                raise Exception("L3dnetsocket: Can't fork")
+            elif pid > 0:
+                self.pid = pid
+            else:
+                os.close(0)
+                def cb(pktlen, data, timestamp):
+                    self.ins.send(data[2:])
+                try:
+                    p = pcap.pcapObject()
+                    if iface is None:
+                        iface = "any"
+                    p.open_live(iface, 1600, 0, 100)
+                    if filter:
+                        p.setfilter(filter, 0, 0)
+                    p.loop(0, cb)
+                except:
+                    print "--- Error in child %i" % os.getpid()
+                    traceback.print_exc()
+                    print "--- End of error in child %i" % os.getpid()
+                sys.exit()
+        def send(self, x):
+            if hasattr(x,"dst"):
+                iff,a,gw = choose_route(x.dst)
+            else:
+                iff = conf.iff
+            ifs = self.iflist.get(iff)
+            if ifs is None:
+                self.iflist[iff] = ifs = dnet.eth(iff)
+            ifs.send(str(Ether()/x))
+        def recv(self,x):
+            return Ether(self.ins.recv(1600)).payload
+        def close(self):
+            os.kill(self.pid, 15)
+            os.waitpid(self.pid, 0)
+            for iff in self.iflist:
+                iff.close()
+            
+except ImportError:
+    pass
 
 
 
