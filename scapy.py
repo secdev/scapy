@@ -22,8 +22,15 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.10.2  2003/04/16 12:40:40  pbi
+# - fixed the case when the history file does not exist
+#
 # Revision 0.9.10.1  2003/04/14 15:43:45  pbi
 # Release 0.9.10
+#
+# Revision 0.9.9.15  2003/04/14 15:42:47  pbi
+# - added L3pcapListenSocket
+# - fixed L3ListenSocket to use ETH_P_ALL instead of ETH_P_IP by default
 #
 # Revision 0.9.9.14  2003/04/14 14:57:53  pbi
 # - reworked L3dnetSocket
@@ -148,7 +155,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.10.1 2003/04/14 15:43:45 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.10.2 2003/04/16 12:40:40 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -228,7 +235,10 @@ if __name__ == "__main__":
         session={"conf": scapy.conf}
 
     if scapy.conf.histfile:
-        readline.read_history_file(scapy.conf.histfile)
+        try:
+            readline.read_history_file(scapy.conf.histfile)
+        except IOError:
+            pass
 
     code.interact(banner = "Welcome to Scapy (%s)"%VERSION, local=session)
 
