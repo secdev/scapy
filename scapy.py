@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.9  2004/09/06 14:28:02  pbi
+# - early radius support
+#
 # Revision 0.9.17.8  2004/09/06 14:17:11  pbi
 # - added "store" parameter to sniff()
 # - added AnsweringMachine class to handle request/response protocols
@@ -439,7 +442,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.8 2004/09/06 14:17:11 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.9 2004/09/06 14:28:02 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -3126,36 +3129,30 @@ class NTP(Packet):
          TimeStampField('sent', -1, 64) 
          ]
 
-#class Dot11Reason
 
-    
-#########
-##
-##    char *typestring[4] = { "Management", "Control", "Data", "Reserved" };
-##  
-##  /*
-##   * subtype lookup vectors
-##   */
-##    char *mgmtsubtypestring[16] =
-##      { "Association Request", "Association Response",
-##      "ReAssociation Request", "Reassociation Response", "Probe Request",
-##      "Probe Response", "Reserved", "Reserved", "Beacon", "ATIM",
-##      "Disassociation", "Authentication", "Deauthentication", "Reserved",
-##      "Reserved", "Reserved"
-##    };
-##  
-##    char *ctrlsubtypestring[16] =
-##      { "Reserved", "Reserved", "Reserved", "Reserved",
-##      "Reserved", "Reserved", "Reserved", "Reserved", "Reserved", "Reserved",
-##      "PS-Poll", "RTS", "CTS", "ACK", "CF End", "CF End + CF Ack"
-##    };
-##  
-##    char *datasubtypestring[16] = { "Data", "Data + CF Ack", "Data + CF Poll",
-##      "Data + CF Ack + CF Poll", "NULL Function", "CF Ack (no data)",
-##      "CF Poll (no data)", "CF Ack + CF Poll (no data)", "Reserved",
-##      "Reserved", "Reserved", "Reserved", "Reserved", "Reserved",
-##      "Reserved", "Reserved"
-##  
+
+class Radius(Packet):
+    name = "Radius"
+    fields_desc = [ ByteEnumField("code", 1, {1: "Access-Request",
+                                              2: "Access-Accept",
+                                              3: "Access-Reject",
+                                              4: "Accounting-Request",
+                                              5: "Accounting-Accept",
+                                              11:"Access-Challenge",
+                                              12:"Status-Server",
+                                              13:"Status-Client",
+                                              255:"Reserved"} ),
+                    ByteField("id", 0),
+                    ShortField("len", None),
+                    StrFixedLenField("authenticator","",16) ]
+    def post_build(self, p):
+        l = self.len
+        if l is None:
+            l = len(p)
+            p = p[:2]+struct.pack("!H",l)+p[4:]
+        return p
+
+
 
 
 class RIP(Packet):
