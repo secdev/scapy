@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.64  2005/03/28 14:28:20  pbi
+# - forgot to delete temporary variables in scapy's global scope
+#
 # Revision 0.9.17.63  2005/03/28 14:22:38  pbi
 # - added colors, color themes, colored prompt
 #
@@ -661,7 +664,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.63 2005/03/28 14:22:38 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.64 2005/03/28 14:28:20 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2282,7 +2285,10 @@ for n in ISAKMPTransformTypes:
     for e in val[1]:
         tmp[val[1][e]] = e
     ISAKMPTransformNum[val[0]] = (n,tmp)
-    
+del(n)
+del(e)
+del(tmp)
+del(val)
 
 
 class ISAKMPTransformSetField(StrLenField):
@@ -4897,6 +4903,7 @@ layer_bonds = [ ( Dot3,   LLC,      { } ),
 
 for l in layer_bonds:
     bind_layers(*l)
+del(l)
                 
 
 ###################
@@ -6856,6 +6863,7 @@ AM_classes = [ BOOTP_am, DHCP_am, DNS_am, WiFi_am, ARP_am]
 
 for am in AM_classes:
     locals()[am.function_name] = lambda *args,**kargs: am(*args,**kargs).run()
+del(am)
 
 
 
