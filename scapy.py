@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.14  2004/09/13 16:57:01  pbi
+# - added loopback routing
+#
 # Revision 0.9.17.13  2004/09/12 21:44:45  pbi
 # - AnsweringMachine working as I wanted!
 #
@@ -457,7 +460,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.13 2004/09/12 21:44:45 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.14 2004/09/13 16:57:01 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -908,6 +911,9 @@ class Route:
         dst=struct.unpack("I",dst)[0]
         pathes=[]
         for d,m,gw,i,a in self.routes:
+            aa, = struct.unpack("I",inet_aton(a))
+            if aa == dst:
+                pathes.append((0xffffffffL,("lo",a,"0.0.0.0")))
             if (dst & m) == (d & m):
                 pathes.append((m,(i,a,gw)))
         if not pathes:
