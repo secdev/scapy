@@ -22,6 +22,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.16.12  2004/07/09 09:07:41  pbi
+# - added an independant routing table (conf.route) and methods to manipulate it
+# - tweaked results stats
+#
 # Revision 0.9.16.11  2004/07/05 22:43:49  pbi
 # - wrapper classes for results presentations and manipulation
 # - sndrcv() retry auto adjustment when giving a negative value
@@ -384,7 +388,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.16.11 2004/07/05 22:43:49 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.16.12 2004/07/09 09:07:41 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -453,7 +457,9 @@ if __name__ == "__main__":
             return matches
 
     readline.set_completer(ScapyCompleter().complete)
+    readline.parse_and_bind("C-o: operate-and-get-next")
     readline.parse_and_bind("tab: complete")
+    
     
     
     session=None
@@ -727,6 +733,84 @@ class IPTools:
 ## Routing/Interfaces stuff ##
 ##############################
 
+
+def atol(x):
+    try:
+        ip = inet_aton(x)
+    except socket.error:
+        ip = inet_aton(socket.gethostbyname(x))
+    return struct.unpack("I", ip)[0]
+def ltoa(x):
+    return socket.inet_ntoa(struct.pack("I", x))
+
+class Route:
+    def __init__(self):
+        self.resync()
+        self.s=socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+    def resync(self):
+        self.routes = read_routes()
+
+    def __repr__(self):
+        rt = "Network         Netmask         Gateway         Iface\n"
+        for net,msk,gw,iface,addr in self.routes:
+            rt += "%-15s %-15s %-15s %s\n" % (ltoa(net),
+                                              ltoa(msk),
+                                              gw,
+                                              iface)
+        return rt
+
+    def make_route(self, host=None, net=None, gw=None, dev=None):
+        if host is not None:
+            thenet,msk = host,32
+        elif net is not None:
+            thenet,msk = net.split("/")
+            msk = int(msk)
+        if gw is None:
+            gw="0.0.0.0"
+        if dev is None:
+            if gw:
+                nhop = gw
+            else:
+                nhop = thenet
+            dev,ifaddr,x = self.route(nhop)
+        else:    
+            ifreq = ioctl(s, SIOCGIFADDR,struct.pack("16s16x",dev))
+            ifaddr = socket.inet_ntoa(ifreq[20:24])
+        return (atol(thenet),(1L<<msk)-1, gw, dev, ifaddr)
+
+    def add(self, *args, **kargs):
+        self.routes.append(self.make_route(*args,**kargs))
+
+        
+    def delt(self,  *args, **kargs):
+        route = self.make_route(*args,**kargs)
+        try:
+            i=self.routes.index(route)
+            del(self.routes[i])
+        except ValueError:
+            warning("no matching route found")
+             
+        
+
+    def route(self,dst):
+        try:
+            dst=inet_aton(dst)
+        except socket.error:
+            dst=inet_aton(socket.gethostbyname(dst))
+        dst=struct.unpack("I",dst)[0]
+        pathes=[]
+        for d,m,gw,i,a in self.routes:
+            if (dst & m) == (d & m):
+                pathes.append((m,(i,a,gw)))
+        if not pathes:
+            raise Exception("no route found")
+        # Choose the more specific route (greatest netmask).
+        # XXX: we don't care about metrics
+        pathes.sort()
+        return pathes[-1][1] 
+            
+
 def read_routes():
     f=open("/proc/net/route","r")
     routes = []
@@ -760,20 +844,6 @@ def read_routes():
     
     f.close()
     return routes
-
-def choose_route(dst):
-    routes = read_routes()
-    dst=struct.unpack("I",inet_aton(dst))[0]
-    pathes=[]
-    for d,m,gw,i,a in routes:
-        if (dst & m) == (d & m):
-            pathes.append((m,(i,a,gw)))
-    if not pathes:
-        raise Exception("no route found")
-    # Choose the more specific route (greatest netmask).
-    # XXX: we don't care about metrics
-    pathes.sort()
-    return pathes[-1][1] 
 
 
         
@@ -844,7 +914,7 @@ arp_cache={}
 if 0 and DNET: ## XXX Can't use this because it does not resolve IPs not in cache
     dnet_arp_object = dnet.arp()
     def getmacbyip(ip):
-        iff,a,gw = choose_route(ip)
+        iff,a,gw = conf.route.route(ip)
         if iff == "lo":
             return "ff:ff:ff:ff:ff:ff"
         if gw != "0.0.0.0":
@@ -856,7 +926,7 @@ if 0 and DNET: ## XXX Can't use this because it does not resolve IPs not in cach
             return res.ntoa()
 else:
     def getmacbyip(ip):
-        iff,a,gw = choose_route(ip)
+        iff,a,gw = conf.route.route(ip)
         if iff == "lo":
             return "ff:ff:ff:ff:ff:ff"
         if gw != "0.0.0.0":
@@ -1025,13 +1095,20 @@ class SndRcvAns:
         self.res = res
     def __repr__(self):
         stats={TCP:0,UDP:0,ICMP:0}
+        other = 0
         for s,r in self.res:
+            f = 0
             for p in stats:
                 if r.haslayer(p):
                     stats[p] += 1
+                    f = 1
+                    break
+            if not f:
+                other += 1
         s = ""
         for p in stats:
             s += " %s:%i" % (p.name,stats[p])
+        s += " Other:%i" % other
         return "<Results:%s>" % s
     def __getattr__(self, attr):
         return getattr(self.res, attr)
@@ -1050,13 +1127,20 @@ class SndRcvList:
         self.res = res
     def __repr__(self):
         stats={TCP:0,UDP:0,ICMP:0}
+        other = 0
         for r in self.res:
+            f = 0
             for p in stats:
                 if r.haslayer(p):
                     stats[p] += 1
+                    f = 1
+                    break
+            if not f:
+                other += 1
         s = ""
         for p in stats:
             s += " %s:%i" % (p.name,stats[p])
+        s += " Other:%i" % other
         return "<Unanswered:%s>" % s
     def __getattr__(self, attr):
         return getattr(self.res, attr)
@@ -1170,7 +1254,7 @@ class SourceMACField(MACField):
                 return None
             x = "00:00:00:00:00:00"
             if dstip is not None:
-                iff,a,gw = choose_route(dstip)
+                iff,a,gw = conf.route.route(dstip)
                 m = get_if_hwaddr(iff)
                 if m:
                     x = m
@@ -1189,7 +1273,7 @@ class ARPSourceMACField(MACField):
                 return None
             x = "00:00:00:00:00:00"
             if dstip is not None:
-                iff,a,gw = choose_route(dstip)
+                iff,a,gw = conf.route.route(dstip)
                 m = get_if_hwaddr(iff)
                 if m:
                     x = m
@@ -1259,13 +1343,13 @@ class SourceIPField(IPField):
         self.dstname = dstname
     def i2m(self, pkt, x):
         if x is None:
-            iff,x,gw = choose_route(getattr(pkt,self.dstname))
+            iff,x,gw = conf.route.route(getattr(pkt,self.dstname))
         return IPField.i2m(self, pkt, x)
     def i2h(self, pkt, x):
         if x is None:
             dst=getattr(pkt,self.dstname)
             if isinstance(dst,Gen):
-                r = map(choose_route, dst)
+                r = map(conf.route.route, dst)
                 r.sort()
                 if r[0] == r[-1]:
                     x=r[0][1]
@@ -1273,7 +1357,7 @@ class SourceIPField(IPField):
                     warning("More than one possible route for %s"%repr(dst))
                     return None
             else:
-                iff,x,gw = choose_route(dst)
+                iff,x,gw = conf.route.route(dst)
         return IPField.i2h(self, pkt, x)
 
     
@@ -2174,6 +2258,8 @@ Ex : p.sprintf("%.time% %-15s,IP.src% -> %-15s,IP.dst% %IP.chksum% "
             return self.summaryback()
         else:
             return self.payload.summary()
+    def lastlayer(self,layer=None):
+        return self.payload.lastlayer(self)
         
 
 class NoPayload(Packet,object):
@@ -2227,10 +2313,12 @@ class NoPayload(Packet,object):
             raise Exception("Format not found [%s]"%fmt)
     def summary(self):
         return self.summaryback()
+    def lastlayer(self,layer):
+        return layer
     
 
 ####################
-## Packet classes ##
+## packet classes ##
 ####################
     
     
@@ -3191,7 +3279,7 @@ class L3PacketSocket(SuperSocket):
     
     def send(self, x):
         if hasattr(x,"dst"):
-            iff,a,gw = choose_route(x.dst)
+            iff,a,gw = conf.route.route(x.dst)
         else:
             iff = conf.iface
         sdto = (iff, self.type)
@@ -3308,7 +3396,7 @@ if DNET and PCAP:
                 self.ins.setfilter(filter, 0, 0)
         def send(self, x):
             if hasattr(x,"dst"):
-                iff,a,gw = choose_route(x.dst)
+                iff,a,gw = conf.route.route(x.dst)
             else:
                 iff = conf.iface
             ifs = self.iflist.get(iff)
@@ -3727,8 +3815,10 @@ def attach_filter(s, filter):
     # work... one solution could be to use "any" interface and translate
     # the filter from cooked mode to raw mode
     # mode
+    print "tcpdump -i %s -ddd -s 1600 '%s'" % (conf.iface,filter)
     f = os.popen("tcpdump -i %s -ddd -s 1600 '%s'" % (conf.iface,filter))
     lines = f.readlines()
+    print lines
     if f.close():
         raise Exception("Filter parse error")
     nb = int(lines[0])
@@ -4662,6 +4752,7 @@ debug_match : when 1, store received packet that are not matched into debug.recv
     nmap_base ="/usr/share/nmap/nmap-os-fingerprints"
     except_filter = ""
     debug_match = 0
+    route = Route()
         
 
 conf=Conf()
