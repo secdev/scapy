@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.57  2005/03/16 14:18:28  pbi
+# - added StrNullField
+#
 # Revision 0.9.17.56  2005/03/14 18:14:28  pbi
 # - LLNumTypes fix
 # - Added linktype recognition to PcapWriter class
@@ -630,7 +633,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.56 2005/03/14 18:14:28 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.57 2005/03/16 14:18:28 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2219,6 +2222,15 @@ class ISAKMPTransformSetField(StrLenField):
       
         return s[l:],i
 
+class StrNullField(StrField):
+    def addfield(self, pkt, s, val):
+        return s+"\x00"+self.i2m(pkt, val)
+    def getfield(self, pkt, s):
+        l = s.find("\x00")
+        if l < 0:
+            #XXX \x00 not found
+            return "",s
+        return s[l+1:],self.m2i(pkt, s[:l])
 
 class StrStopField(StrField):
     def __init__(self, name, default, stop, additionnal=0):
