@@ -22,6 +22,13 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.9.15  2003/04/14 15:42:47  pbi
+# - added L3pcapListenSocket
+# - fixed L3ListenSocket to use ETH_P_ALL instead of ETH_P_IP by default
+#
+# Revision 0.9.10.1  2003/04/14 15:43:45  pbi
+# Release 0.9.10
+#
 # Revision 0.9.9.14  2003/04/14 14:57:53  pbi
 # - reworked L3dnetSocket
 #
@@ -145,7 +152,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.9.14 2003/04/14 14:57:53 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.9.15 2003/04/14 15:42:47 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2381,7 +2388,7 @@ class L2Socket(SuperSocket):
 
 
 class L2ListenSocket(SuperSocket):
-    def __init__(self, iface = None, type = ETH_P_IP, promisc=None, filter=None):
+    def __init__(self, iface = None, type = ETH_P_ALL, promisc=None, filter=None):
         self.type = type
         self.outs = None
         self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))
@@ -2428,7 +2435,7 @@ class L2ListenSocket(SuperSocket):
 
 if DNET and PCAP:
     class L3dnetSocket(SuperSocket):
-        def __init__(self, type = ETH_P_IP, filter=None, promisc=None, iface=None):
+        def __init__(self, type = None, filter=None, promisc=None, iface=None):
             self.iflist = {}
             self.ins = pcap.pcapObject()
             if iface is None:
@@ -2452,6 +2459,31 @@ if DNET and PCAP:
             for iff in self.iflist:
                 iff.close()
 
+
+if PCAP:
+    class L2pcapListenSocket(SuperSocket):
+        def __init__(self, iface = None, type = ETH_P_ALL, promisc=None, filter=None):
+            self.type = type
+            self.outs = None
+            self.ins = pcap.pcapObject()
+            if iface is None:
+                iface = "any"
+            if promisc is None:
+                promisc = conf.sniff_promisc
+            self.promisc = promisc
+            self.ins.open_live(iface, 1600, self.promisc, 100)
+            if filter:
+                self.ins.setfilter(filter, 0, 0)
+
+        def close(self):
+            del(self.ins)
+    
+        def recv(self, x):
+            return Ether(self.ins.next()[1][2:])
+        
+        def send(self, x):
+            raise Exception("Can't send anything with L2pcapListenSocket")
+    
 
 
 ####################
@@ -2493,6 +2525,8 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None):
             if verbose:
                 print "Finished to send %i packets." % i
         except SystemExit:
+            pass
+        except KeyboardInterrupt:
             pass
         except:
             print "--- Error in child %i" % os.getpid()
