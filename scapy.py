@@ -21,6 +21,11 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.25  2005/01/17 22:10:58  pbi
+# - added do_graph() to draw GraphViz graphs using SVG output, displayed with ImageMagick
+# - added graph_traceroute() to make a graph from multiple traceroutes
+# - added timeout parameter to traceroute()
+#
 # Revision 0.9.17.24  2005/01/13 14:25:00  pbi
 # - added Sebek v1 and v2 protocols (Pierre Lalet)
 #
@@ -512,7 +517,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.24 2005/01/13 14:25:00 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.25 2005/01/17 22:10:58 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -833,6 +838,11 @@ def str2mac(s):
 def strxor(x,y):
     return "".join(map(lambda x,y:chr(ord(x)^ord(y)),x,y))
 
+
+def do_graph(graph):
+    w,r = os.popen2("dot -T svg | display")
+    w.write(graph)
+    w.close()
 
 
 ##############################
@@ -5320,12 +5330,12 @@ arpcachepoison(target, victim, [interval=60]) -> None
     except KeyboardInterrupt:
         pass
 
-def traceroute(target, maxttl=30, dport=80, sport=RandShort(),minttl=1,**kargs):
+def traceroute(target, maxttl=30, dport=80, sport=RandShort(),minttl=1, timeout=2,**kargs):
     """Instant TCP traceroute
 traceroute(target, [maxttl=30], [dport=80], [sport=80]) -> None
 """
     a,b = sr(IP(dst=target, id=RandShort(), ttl=(minttl,maxttl))/TCP(seq=RandInt(),sport=sport, dport=dport),
-             timeout=2, filter="(icmp and icmp[0]=11) or (tcp and (tcp[13] & 0x16 > 0x10))", **kargs)
+             timeout=timeout, filter="(icmp and icmp[0]=11) or (tcp and (tcp[13] & 0x16 > 0x10))", **kargs)
     res = {}
     for s,r in a:
         if r.haslayer(ICMP):
@@ -5338,7 +5348,77 @@ traceroute(target, [maxttl=30], [dport=80], [sport=80]) -> None
     lst.sort()
     for i in lst:
         print "%2i %s" % (i, res[i])
-    
+
+
+def graph_traceroute(target, maxttl=30, dport=80, sport=RandShort(),retry=-2, timeout=2, minttl=1,**kargs):
+    a,b = sr(IP(dst=target, id=RandShort(), ttl=(minttl,maxttl))/TCP(seq=RandInt(),sport=sport, dport=dport),
+             timeout=timeout,retry=retry, filter="(icmp and icmp[0]=11) or (tcp and (tcp[13] & 0x16 > 0x10))", **kargs)
+
+    mxttl = minttl
+    mnttl = maxttl
+    rt = {}
+    ports = {}
+    ports_done = {}
+    for s,r in a:
+        trace_id = (s.dst,s.dport)
+        trace = rt.get(trace_id,{})
+        if r.haslayer(TCP):
+            if ports_done.has_key(trace_id):
+                continue
+            ports_done[trace_id] = None
+            p = ports.get(r.src,[])
+            p.append(r.sprintf("<%TCP.sport%> %TCP.sport%: %TCP.flags%"))
+            ports[r.src] = p
+            trace[s.ttl] = r.sprintf('"%IP.src%":%TCP.sport%')
+            mxttl = max(mxttl,s.ttl)
+        else:
+            trace[s.ttl] = r.sprintf('"%IP.src%"')
+            mnttl = min(mnttl,s.ttl)
+        rt[trace_id] = trace
+
+    # Fill holes with unk%i nodes
+    unk = 0
+    blackholes = []
+    for rtk in rt:
+        trace = rt[rtk]
+        k = trace.keys()
+        for n in range(minttl, max(k)):
+            if not trace.has_key(n):
+                trace[n] = "unk%i" % unk
+                unk += 1
+        if not ports_done.has_key(rtk):
+            bh = '"%s:%i"' % rtk
+            trace[max(k)+1] = bh
+            blackholes.append(bh)
+
+    s = "digraph trace {\n"
+
+    s += "#endpoints\n"
+    s += "\tnode [shape=record,color=black,fillcolor=green,style=filled];\n"
+    for p in ports:
+        s += '\t"%s" [label="%s|%s"];\n' % (p,p,"|".join(ports[p]))
+
+    s += "\n#Blackholes\n"
+    s += '\t node [shape=octagon,color=black,fillcolor=red,style=filled]\n'
+    for bh in blackholes:
+        s += '\t%s;\n' % bh
+
+    s += "\n\tnode [shape=ellipse,color=black,style=solid];\n\n"
+
+    for rtk in rt:
+        s += "#---[%s\n" % `rtk`
+        trace = rt[rtk]
+        k = trace.keys()
+        for n in range(min(k), max(k)):
+            s += '\t%s ->\n' % trace[n]
+        s += '\t%s;\n' % trace[max(k)]
+
+    s += "}\n";
+
+    print s
+
+    do_graph(s)
+
 
 def arping(net, **kargs):
     """Send ARP who-has requests to determine which hosts are up
