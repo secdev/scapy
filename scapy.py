@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.65  2005/03/28 14:29:03  pbi
+# - first attempt to generate libnet C code from a packet
+#
 # Revision 0.9.17.64  2005/03/28 14:28:20  pbi
 # - forgot to delete temporary variables in scapy's global scope
 #
@@ -664,7 +667,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.64 2005/03/28 14:28:20 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.65 2005/03/28 14:29:03 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -3241,6 +3244,22 @@ A side effect is that, to obtain "{" and "}" characters, you must use
             return self.payload.summary()
     def lastlayer(self,layer=None):
         return self.payload.lastlayer(self)
+
+    def libnet(self):
+        print "libnet_build_%s(" % self.__class__.name.lower()
+        det = self.__class__(str(self))
+        for f in self.fields_desc:
+            val = getattr(det, f.name)
+            if val is None:
+                val = 0
+            elif type(val) is int:
+                val = str(val)
+            else:
+                val = '"%s"' % str(val)
+            print "\t%s, \t\t/* %s */" % (val,f.name)
+        print ");"
+                       
+    
         
 
 class NoPayload(Packet,object):
