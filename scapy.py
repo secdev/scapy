@@ -22,6 +22,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.7.4  2003/03/26 14:25:09  pbi
+# Added the NoPayload terminal class
+#
 # Revision 0.9.7.3  2003/03/26 13:31:11  pbi
 # Fixed RCS Id
 #
@@ -33,9 +36,9 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.7.3 2003/03/26 13:31:11 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.7.4 2003/03/26 14:25:09 pbi Exp $"
 
-VERSION = "0.9.7beta"
+VERSION = RCSID.split()[2]+"beta"
 
 
 def usage():
@@ -51,6 +54,8 @@ def usage():
 #    (no more "if isinstance(payload, Packet)..."
 #  - improve pcap capture file support
 #  - add a IPtools class (with whois()...) and have IP inherit it)
+#  - use i2repr() in sprintf() ?
+#  - add a creation time to packets
 #
 ##
 ##########[XXX]#=--
@@ -1005,7 +1010,7 @@ class Packet(Gen):
         self.overloaded_fields = {}
         self.fields={}
         self.fieldtype={}
-        self.__dict__["payload"] = ""
+        self.__dict__["payload"] = NoPayload()
         for f in self.fields_desc:
             self.default_fields[f] = f.default
             self.fieldtype[f] = f
@@ -1017,7 +1022,7 @@ class Packet(Gen):
     def add_payload(self, payload):
         if payload is None:
             return
-        elif isinstance(self.payload, Packet):
+        elif self.payload != NoPayload():
             self.payload.add_payload(payload)
         else:
             if isinstance(payload, Packet):
@@ -1030,12 +1035,10 @@ class Packet(Gen):
             elif type(payload) is str:
                 self.__dict__["payload"] = Raw(load=payload)
             else:
-                print "##",repr(payload),"##"
-                raise TypeError("payload must be either 'Packet' or 'str'")
+                raise TypeError("payload must be either 'Packet' or 'str', not [%s]" % repr(payload))
     def remove_payload(self):
-        if isinstance(self.payload, Packet):
-            self.payload.remove_underlayer(self)
-        self.__dict__["payload"] = ""
+        self.payload.remove_underlayer(self)
+        self.__dict__["payload"] = NoPayload()
         self.overloaded_fields = {}
     def add_underlayer(self, underlayer):
         self.underlayer = underlayer
@@ -1049,11 +1052,8 @@ class Packet(Gen):
         clone.default_fields = self.default_fields.copy()
         clone.overloaded_fields = self.overloaded_fields.copy()
         clone.underlayer=self.underlayer
-        if isinstance(self.payload, Packet):
-            clone.__dict__["payload"] = self.payload.copy()
-            clone.payload.add_underlayer(clone)
-        else:
-            clone.__dict__["payload"] = self.payload
+        clone.__dict__["payload"] = self.payload.copy()
+        clone.payload.add_underlayer(clone)
         return clone
     def __getattr__(self, attr):
         if self.__dict__.has_key("fieldtype") and self.fieldtype.has_key(attr):
@@ -1180,8 +1180,7 @@ class Packet(Gen):
             if self.default_fields.has_key(k):
                 if self.default_fields[k] == self.fields[k]:
                     del(self.fields[k])
-        if isinstance(self.payload, Packet):
-            self.payload.hide_defaults()
+        self.payload.hide_defaults()
             
 
     def __iter__(self):
@@ -1196,10 +1195,10 @@ class Packet(Gen):
                     for x in loop(todo[:], done):
                         yield x
             else:
-                if isinstance(self.payload, Packet):
-                    payloads = self.payload
-                else:
+                if self.payload == NoPayload():
                     payloads = [None]
+                else:
+                    payloads = self.payload
                 for payl in payloads:
                     done2=done.copy()
                     for k in done2:
@@ -1240,16 +1239,13 @@ class Packet(Gen):
     def hastype(self, cls):
         if self.__class__ == cls:
             return 1
-        if isinstance(self.payload, Packet):
-            return self.payload.hastype(cls)
-        return 0
+        return self.payload.hastype(cls)
 
     def display(self, lvl=0):
         print "---[ %s ]---" % self.name
         for f in self.fields_desc:
             print "%s%-10s= %s" % ("   "*lvl, f.name, f.i2repr(self,self.__getattr__(f)))
-        if isinstance(self.payload, Packet):
-            self.payload.display(lvl+1)
+        self.payload.display(lvl+1)
 
     def sprintf(self, fmt):
         s = ""
@@ -1271,10 +1267,8 @@ class Packet(Gen):
                 else:
                     if cls == self.__class__.__name__ and hasattr(self, fld):
                         val = str(getattr(self,fld))
-                    elif isinstance(self.payload, Packet):
-                        val = self.payload.sprintf("%%%s%%" % clsfld)
                     else:
-                        raise Exception("Unknown class/field [%s]"%clsfld)
+                        val = self.payload.sprintf("%%%s%%" % clsfld)
             s += val
             
         s += fmt
@@ -1286,6 +1280,52 @@ class Packet(Gen):
 ####################
     
 
+class NoPayload(Packet,object):
+    def __new__(cls, *args, **kargs):
+        singl = cls.__dict__.get("__singl__")
+        if singl is None:
+            cls.__singl__ = singl = object.__new__(cls)
+            Packet.__init__(singl, *args, **kargs)
+        return singl
+    def __init__(self, *args, **kargs):
+        pass
+    def add_payload(self, payload):
+        raise Exception("Can't add payload to NoPayload instance")
+    def remove_payload(self):
+        pass
+    def add_underlayer(self,underlayer):
+        pass
+    def remove_underlayer(self):
+        pass
+    def copy(self):
+        return self
+    def __repr__(self):
+        return ""
+    def __str__(self):
+        return ""
+    def hide_defaults(self):
+        pass
+    def __iter__(self):
+        return iter([])
+    def answers(self, other):
+        return self == other
+    def hastype(self, cls):
+        return 0
+    def display(self, lvl=0):
+        pass
+    def sprintf(self, fmt):
+        raise Exception("Format not found [%s]"%fmt)
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
             
 class Raw(Packet):
     name = "Raw"
