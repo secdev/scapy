@@ -22,6 +22,11 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.16.3  2004/02/28 11:12:12  pbi
+# - got rid of some future warnings (N. Bareil <nbareil@mouarf.org>)
+# - improved BitField() for arbitrary length bit fields (N. Bareil <nbareil@mouarf.org>)
+# - NTP protocol (N. Bareil <nbareil@mouarf.org>)
+#
 # Revision 0.9.16.2  2004/02/22 17:49:51  pbi
 # added first sketch of a bootp daemon: bootpd()
 #
@@ -349,7 +354,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.16.2 2004/02/22 17:49:51 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.16.3 2004/02/28 11:12:12 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1283,12 +1288,12 @@ class BitField(Field):
             bitsdone = 0
             v = 0
         v <<= self.size
-        v |= val & ((1<<self.size) - 1)
+        v |= val & ((1L<<self.size) - 1)
         bitsdone += self.size
         while bitsdone >= 8:
             bitsdone -= 8
             s = s+struct.pack("!B", v >> bitsdone)
-            v &= (1<<bitsdone)-1
+            v &= (1L<<bitsdone)-1
         if bitsdone:
             return s,bitsdone,v
         else:
@@ -1298,10 +1303,23 @@ class BitField(Field):
             s,bn = s
         else:
             bn = 0
-        fmt,sz=[("!B",1),("!H",2),("!I",4),("!I",4)][self.size/8]
-        b = struct.unpack(fmt, s[:sz])[0] << bn
-        b >>= (sz*8-self.size)
-        b &= (1 << self.size)-1
+        # we don't want to process all the string
+        nb_bytes = (self.size+bn-1)/8 + 1
+        w = s[:nb_bytes]
+
+        # split the substring byte by byte
+        bytes = struct.unpack('!%dB' % nb_bytes , w)
+
+        b = 0L
+        for c in range(nb_bytes):
+            b |= long(bytes[c]) << (nb_bytes-c-1)*8
+
+        # get rid of high order bits
+        b &= (1 << (nb_bytes*8-bn+1)) - 1
+
+        # remove low order bits
+        b = b >> (nb_bytes*8 - self.size - bn)
+
         bn += self.size
         s = s[bn/8:]
         bn = bn%8
@@ -1630,8 +1648,53 @@ class RDLenField(Field):
             x = len(rdataf.i2m(pkt, pkt.rdata))
         return x
     
-    
-    
+# seconds between 01-01-1900 and 01-01-1970
+ntp_basetime = 2208988800
+
+class TimeStampField(BitField):
+    def __init__(self, name, default, size):
+        BitField.__init__(self, name, default, size)
+        self.size  = size
+    def getfield(self, pkt, s):
+        s,timestamp = BitField.getfield(self, pkt, s)
+
+        if timestamp:
+            # timestamp is a 64 bits field :
+            #  + first 32 bits : number of seconds since 1900
+            #  + last 32 bits  : fraction part
+            timestamp >>= 32
+            timestamp -= ntp_basetime
+            
+            from time import gmtime, strftime
+            b = strftime("%a, %d %b %Y %H:%M:%S +0000", gmtime(timestamp))
+        else:
+            b = 'None'
+        
+        return s, b
+    def addfield(self, pkt, s, val):
+        t = -1
+        if type(val) is str:
+            from time import strptime, mktime
+            t = int(mktime(strptime(val))) + ntp_basetime + 3600
+        else:
+            if val == -1:
+                from time import time
+                t = int(time()) + ntp_basetime
+            else:
+                t = val
+        t <<= 32
+        return BitField.addfield(self,pkt,s, t)
+
+class FloatField(BitField):
+    def getfield(self, pkt, s):
+        s,b = BitField.getfield(self, pkt, s)
+        
+        # fraction point between bits 15 and 16.
+        sec = b >> 16
+        frac = b & (1L << (32+1)) - 1
+        frac /= 65536.0
+        b = sec+frac
+        return s,b    
 
 ###########################
 ## Packet abstract class ##
@@ -1811,6 +1874,8 @@ class Packet(Gen):
             try:
                 p = cls(s)
             except:
+#                print "Warning: %s dissector failed" % cls.name
+#                traceback.print_exc()
                 p = Raw(s)
             self.add_payload(p)
 
@@ -2699,8 +2764,36 @@ class Dot11Deauth(Packet):
     name = "802.11 Deauthentication"
     fields_desc = [ ShortEnumField("reason", 1, reason_code) ]
 
-
-
+class NTP(Packet):
+    # RFC 1769
+    name = "NTP"
+    fields_desc = [ 
+         BitEnumField('leap', 0, 2,
+                      { 0: 'nowarning',
+                        1: 'longminute',
+                        2: 'shortminute',
+                        3: 'notsync'}),
+         BitField('version', 3, 3),
+         BitEnumField('mode', 3, 3,
+                      { 0: 'reserved',
+                        1: 'sym_active',
+                        2: 'sym_passive',
+                        3: 'client',
+                        4: 'server',
+                        5: 'broadcast',
+                        6: 'control',
+                        7: 'private'}),
+         BitField('stratum', 2, 8),
+         BitField('poll', 0xa, 8),          ### XXX : it's a signed int
+         BitField('precision', 0, 8),       ### XXX : it's a signed int
+         FloatField('delay', 0, 32),
+         FloatField('dispersion', 0, 32),
+         IPField('id', "127.0.0.1"),
+         TimeStampField('ref', 0, 64),
+         TimeStampField('orig', -1, 64),  # -1 means current time
+         TimeStampField('recv', 0, 64),
+         TimeStampField('sent', -1, 64) 
+         ]
 
 #class Dot11Reason
 
@@ -2778,6 +2871,8 @@ layer_bonds = [ ( Dot3,   LLC,      { } ),
                 ( IP,     UDP,      { "proto" : socket.IPPROTO_UDP } ),
                 ( UDP,    DNS,      { "sport" : 53 } ),
                 ( UDP,    DNS,      { "dport" : 53 } ),
+                ( UDP,    DNS,      { "dport" : 53 } ),
+                ( UDP,    NTP,      { "sport" : 123, "dport" : 123 } ),
                 ( UDP,    BOOTP,    { "sport" : 68, "dport" : 67 } ),
                 ( UDP,    BOOTP,    { "sport" : 67, "dport" : 68 } ),
                 ( Dot11, Dot11AssoReq,    { "type" : 0, "subtype" : 0 } ),
@@ -4235,7 +4330,7 @@ def gotrace():
 
 
 def tethereal(*args,**kargs):
-    sniff(prnt_cb=lambda x: x.display(),*args,**kargs)
+    sniff(prn=lambda x: x.display(),*args,**kargs)
 
 
 
