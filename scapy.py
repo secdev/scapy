@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.50  2005/03/14 12:56:24  pbi
+# - make internal methods of PacketResult begins with __
+#
 # Revision 0.9.17.49  2005/03/14 12:52:41  pbi
 # - Deprecated display() method (for all objects). Use show() instead.
 #
@@ -606,7 +609,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.49 2005/03/14 12:52:41 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.50 2005/03/14 12:56:24 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1414,9 +1417,9 @@ class PacketList:
     def __init__(self, res, name="PacketList"):
         self.res = res
         self.listname = name
-    def elt2pkt(self, elt):
+    def __elt2pkt(self, elt):
         return elt
-    def elt2sum(self, elt):
+    def __elt2sum(self, elt):
         return elt.summary()
     def __repr__(self):
         stats={TCP:0,UDP:0,ICMP:0}
@@ -1424,7 +1427,7 @@ class PacketList:
         for r in self.res:
             f = 0
             for p in stats:
-                if self.elt2pkt(r).haslayer(p):
+                if self.__elt2pkt(r).haslayer(p):
                     stats[p] += 1
                     f = 1
                     break
@@ -1445,10 +1448,10 @@ class PacketList:
                               name="%s+%s"%(self.listname,other.listname))
     def summary(self):
         for r in self.res:
-            print self.elt2sum(r)
+            print self.__elt2sum(r)
     def nsummary(self):
         for i in range(len(self.res)):
-            print "%04i %s" % (i,self.elt2sum(self.res[i]))
+            print "%04i %s" % (i,self.__elt2sum(self.res[i]))
     def display(self): # Deprecated. Use show()
         self.show()
     def show(self):
@@ -1471,22 +1474,22 @@ class PacketList:
 
     def hexdump(self):
         for p in self:
-            hexdump(self.elt2pkt(p))
+            hexdump(self.__elt2pkt(p))
 
 
     def hexraw(self):
         for i in range(len(self.res)):
-            p = self.elt2pkt(self.res[i])
-            print "%04i %s %s" % (i,p.sprintf("%.time%"),self.elt2sum(self.res[i]))
+            p = self.__elt2pkt(self.res[i])
+            print "%04i %s %s" % (i,p.sprintf("%.time%"),self.__elt2sum(self.res[i]))
             if p.haslayer(Raw):
                 hexdump(p.getlayer(Raw).load)
 
 class SndRcvAns(PacketList):
     def __init__(self, res, name="Results"):
         PacketList.__init__(self, res, name)
-    def elt2pkt(self, elt):
+    def __elt2pkt(self, elt):
         return elt[1]
-    def elt2sum(self, elt):
+    def __elt2sum(self, elt):
         return "%s ==> %s" % (elt[0].summary(),elt[1].summary()) 
 
 
