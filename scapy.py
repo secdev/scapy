@@ -22,6 +22,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.9.10  2003/04/12 23:33:42  biondi
+# - add DNS layer (do not compress when assemble, answers() is missing)
+#
 # Revision 0.9.9.9  2003/04/12 22:15:40  biondi
 # - added EnumField
 # - used EnumField for ARP(), ICMP(), IP(), EAPOL(), EAP(),...
@@ -129,7 +132,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.9.9 2003/04/12 22:15:40 biondi Exp $"
+RCSID="$Id: scapy.py,v 0.9.9.10 2003/04/12 23:33:42 biondi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -897,6 +900,27 @@ class StrField(Field):
     def getfield(self, pkt, s):
         return "",s
 
+class StrLenField(StrField):
+    def __init__(self, name, default, fld):
+        StrField.__init__(self, name, default)
+        self.fld = fld
+    def getfield(self, pkt, s):
+        l = getattr(pkt, self.fld)
+        return s[l:], self.m2i(pkt,s[:l])
+
+class FieldLenField(Field):
+    def __init__(self, name, default, fld, fmt = "H"):
+        Field.__init__(self, name, default, fmt)
+        self.fld = fld
+    def i2m(self, pkt, x):
+        if x is None:
+            x = len(getattr(pkt, self.fld))
+        return x
+    def i2h(self, pkt, x):
+        if x is None:
+            x = len(getattr(pkt, self.fld))
+        return x
+
 class LenField(Field):
     def i2m(self, pkt, x):
         if x is None:
@@ -1113,6 +1137,155 @@ class TCPOptionsField(StrField):
             opt += chr(onum)+chr(2+len(oval))+oval
         return opt+"\x00"*(3-((len(opt)+3)%4))
     
+
+class DNSStrField(StrField):
+    def i2m(self, pkt, x):
+        x = x.split(".")
+        x = map(lambda y: chr(len(y))+y, x)
+        x = "".join(x)
+        if x[-1] != "\x00":
+            x += "\x00"
+        return x
+    def getfield(self, pkt, s):
+        n = ""
+        while 1:
+            l = ord(s[0])
+            s = s[1:]
+            if not l:
+                break
+            if l & 0xc0:
+                raise Exception("DNS message can't be compressed at this point!")
+            else:
+                n += s[:l]+"."
+                s = s[l:]
+        return s, n
+
+
+class DNSRRCountField(ShortField):
+    def __init__(self, name, default, rr):
+        ShortField.__init__(self, name, default)
+        self.rr = rr
+    def i2m(self, pkt, x):
+        if x is None:
+            x = getattr(pkt,self.rr)
+            i = 0
+            while isinstance(x, DNSRR) or isinstance(x, DNSQR):
+                x = x.payload
+                i += 1
+            x = i
+        return x
+    def i2h(self, pkt, x):
+        return self.i2m(pkt, x)
+
+
+    
+
+def DNSgetstr(s,p):
+    name = ""
+    q = 0
+    while 1:
+        if p >= len(s):
+            warning("DNS RR prematured end (ofs=%i, len=%i)"%(p,len(s)))
+            break
+        l = ord(s[p])
+        p += 1
+        if l & 0xc0:
+            if not q:
+                q = p+1
+            p = ((l & 0x3f) << 8) + ord(s[p]) - 12
+            continue
+        elif l > 0:
+            name += s[p:p+l]+"."
+            p += l
+            continue
+        break
+    if q:
+        p = q
+    return name,p
+        
+
+class DNSRRField(StrField):
+    def __init__(self, name, countfld, passon=1):
+        StrField.__init__(self, name, None)
+        self.countfld = countfld
+        self.passon = passon
+    def i2m(self, pkt, x):
+        if x is None:
+            return ""
+        return str(x)
+    def decodeRR(self, name, s, p):
+        ret = s[p:p+10]
+        type,cls,ttl,rdlen = struct.unpack("!HHIH", ret)
+        p += 10
+        rr = DNSRR("\x00"+ret+s[p:p+rdlen])
+        if rr.type in [2, 3, 4, 5]:
+            rr.rdata = DNSgetstr(s,p)[0]
+        del(rr.rdlen)
+        
+        p += rdlen
+        
+        rr.rrname = name
+        return rr,p
+    def getfield(self, pkt, s):
+        if type(s) is tuple :
+            s,p = s
+        else:
+            p = 0
+        ret = None
+        c = getattr(pkt, self.countfld)
+        while c:
+            c -= 1
+            name,p = DNSgetstr(s,p)
+            rr,p = self.decodeRR(name, s, p)
+            if ret is None:
+                ret = rr
+            else:
+                ret.add_payload(rr)
+        if self.passon:
+            return (s,p),ret
+        else:
+            return s[p:],ret
+            
+            
+class DNSQRField(DNSRRField):
+    def decodeRR(self, name, s, p):
+        ret = s[p:p+4]
+        p += 4
+        rr = DNSQR("\x00"+ret)
+        rr.qname = name
+        return rr,p
+        
+        
+
+class RDataField(StrLenField):
+    def m2i(self, pkt, s):
+        if pkt.type == 1:
+            s = socket.inet_ntoa(s)
+        return s
+    def i2m(self, pkt, s):
+        if pkt.type == 1:
+            s = socket.inet_aton(s)
+        elif pkt.type in [2,3,4,5]:
+            s = "".join(map(lambda x: chr(len(x))+x, s.split(".")))
+            if ord(s[-1]):
+                s += "\x00"
+        return s
+
+class RDLenField(Field):
+    def __init__(self, name):
+        Field.__init__(self, name, None, "H")
+    def i2m(self, pkt, x):
+        if x is None:
+            rdataf = pkt.fieldtype["rdata"]
+            x = len(rdataf.i2m(pkt, pkt.rdata))
+        return x
+    def i2h(self, pkt, x):
+        if x is None:
+            rdataf = pkt.fieldtype["rdata"]
+            x = len(rdataf.i2m(pkt, pkt.rdata))
+        return x
+    
+    
     
 
 ###########################
@@ -1130,7 +1303,6 @@ class Packet(Gen):
 
     underlayer = None
 
-    payload_type_field = None
     payload_guess = []
 
 
@@ -1521,11 +1693,8 @@ class Padding(Raw):
 
 class Ether(Packet):
     name = "Ethernet"
-    payload_type_field = "type"
     fields_desc = [ DestMACField("dst"),
-#                   MACField("dst", ETHER_BROADCAST),
                     SourceMACField("src"),
-#                   MACField("src", ETHER_ANY),
                     XShortField("type", 0x0000) ]
     def answers(self, other):
         if isinstance(other,Ether):
@@ -1543,9 +1712,8 @@ class Dot3(Packet):
         l = self.len
         return s[:l],s[l:]
     def answers(self, other):
-        if isinstance(other,Ether):
-            if self.type == other.type:
-                return self.payload < other.payload
+        if isinstance(other,Dot3):
+            return self.payload.answers(other.payload)
         return 0
 
 
@@ -1920,8 +2088,50 @@ class LLPPP(Packet):
     name = "PPP Link Layer"
             
         
+class DNS(Packet):
+    name = "DNS"
+    fields_desc = [ ShortField("id",0),
+                    BitField("qr",0, 1),
+                    BitField("opcode", 0, 4),
+                    BitField("aa", 0, 1),
+                    BitField("tc", 0, 1),
+                    BitField("rd", 0, 1),
+                    BitField("ra", 0 ,1),
+                    BitField("z", 0, 3),
+                    BitField("rcode", 0, 4),
+                    DNSRRCountField("qdcount", None, "qd"),
+                    DNSRRCountField("ancount", None, "an"),
+                    DNSRRCountField("nscount", None, "ns"),
+                    DNSRRCountField("arcount", None, "ar"),
+                    DNSQRField("qd", "qdcount"),
+                    DNSRRField("an", "ancount"),
+                    DNSRRField("ns", "nscount"),
+                    DNSRRField("ar", "arcount",0) ]
 
+
+dnstypes = [0,"A","NS","MD","MD","CNAME","SOA","MB","MG","MR","NULL","WKS","PTR","HINFO","MINFO","MX","TXT"]
+dnsqtypes = {252:"AXFR",253:"MAILB",254:"MAILA"}
+for i in range(len(dnstypes)):
+    dnsqtypes[i] = dnstypes[i]
     
+
+class DNSQR(Packet):
+    name = "DNS Question Record"
+    fields_desc = [ DNSStrField("qname",""),
+                    ShortEnumField("qtype", 1, dnsqtypes),
+                    ShortEnumField("qclass", 1, [0, "IN", "CS", "CH", "HS"]) ]
+                    
+                    
+
+class DNSRR(Packet):
+    name = "DNS Resource Record"
+    fields_desc = [ DNSStrField("rrname",""),
+                    ShortEnumField("type", 1, dnstypes),
+                    ShortEnumField("class", 1, [0, "IN", "CS", "CH", "HS"]),
+                    IntField("ttl", 0),
+                    RDLenField("rdlen"),
+                    RDataField("rdata", "", "rdlen") ]
+
 
 #################
 ## Bind layers ##
@@ -1954,6 +2164,8 @@ layer_bonds = [ ( Dot3,   LLC,      { } ),
                 ( IP,     ICMP,     { "proto" : socket.IPPROTO_ICMP } ),
                 ( IP,     TCP,      { "proto" : socket.IPPROTO_TCP } ),
                 ( IP,     UDP,      { "proto" : socket.IPPROTO_UDP } ),
+                ( UDP,    DNS,      { "sport" : 53 } ),
+                ( UDP,    DNS,      { "dport" : 53 } ),
                 ]
 
 for l in layer_bonds:
