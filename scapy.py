@@ -22,6 +22,11 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.8.8  2003/04/08 16:48:04  pbi
+# - EAPOL overload Ether dst with PAE_GROUP_ADDR
+# - tuning in ports_report()
+# - tuning in fragleak
+#
 # Revision 0.9.8.7  2003/04/07 15:32:10  pbi
 # - uses /usr/bin/env invocation
 #
@@ -86,7 +91,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.8.7 2003/04/07 15:32:10 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.8.8 2003/04/08 16:48:04 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1870,6 +1875,7 @@ layer_bonds = [ ( Dot3,   LLC,      { } ),
                 ( Ether,  ARP,      { "type" : 0x0806 } ),
                 ( Ether,  IP,       { "type" : 0x0800 } ),
                 ( Ether,  EAPOL,    { "type" : 0x888e } ),
+                ( Ether,  EAPOL,    { "type" : 0x888e, "dst" : "01:80:c2:00:00:03" } ),
                 ( EAPOL,  EAP,      { "type" : EAPOL.EAP_PACKET } ),
                 ( LLC,    STP,      { "dsap" : 0x42 , "ssap" : 0x42 } ),
                 ( IPerror,IPerror,  { "proto" : socket.IPPROTO_IP } ),
@@ -2532,7 +2538,7 @@ def report_ports(target, ports):
     print "\\hline"
     for s,r in ans:
         if r.haslayer(ICMP):
-            print r.sprintf("%TCP.dport% & closed & ICMP type %ICMP.type% from %ICMP.src% \\\\")
+            print r.sprintf("%TCPerror.dport% & closed & ICMP type %ICMP.type%/%ICMP.code% from %IP.src% \\\\")
         elif r.payload.flags != 0x12:
             print r.sprintf("%TCP.sport% & closed & TCP %TCP.flags% \\\\")
     print "\\hline"
@@ -2652,8 +2658,8 @@ def tethereal(*args,**kargs):
 def fragleak(target):
     load = "XXXXYYYYYYYYYY"
 #    getmacbyip(target)
-    pkt = IP(dst=target, id=RandShort(), options="\x22"*40)/UDP()/load
-#    pkt = IP(dst=target, id=RandShort(), options="", flags=1)/UDP()/load
+#    pkt = IP(dst=target, id=RandShort(), options="\x22"*40)/UDP()/load
+    pkt = IP(dst=target, id=RandShort(), options="\x00"*40, flags=1)/UDP()/load
     s=L3PacketSocket()
     intr=0
     found={}
@@ -2674,9 +2680,21 @@ def fragleak(target):
                     continue
                 if ans.payload.payload.dst != target:
                     continue
-                if not isinstance(ans.payload.payload.payload.payload, Raw):
+                if ans.src  != target:
+                    print "leak from", ans.src,
+
+
+#                print repr(ans)
+                if not ans.haslayer(Padding):
                     continue
-                leak = ans.payload.payload.payload.payload.load[len(load):]
+
+                
+#                print repr(ans.payload.payload.payload.payload)
+                
+#                if not isinstance(ans.payload.payload.payload.payload, Raw):
+#                    continue
+#                leak = ans.payload.payload.payload.payload.load[len(load):]
+                leak = ans.getlayer(Padding).load
                 if leak not in found:
                     found[leak]=None
                     linehexdump(leak)
