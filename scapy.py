@@ -22,6 +22,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.10.5  2003/04/18 17:45:15  pbi
+# - improved the completer to complete with protocol fields
+# - small fix in get_working_if()
+#
 # Revision 0.9.10.4  2003/04/16 14:53:36  pbi
 # - added option to include padding or not
 #
@@ -162,7 +166,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.10.4 2003/04/16 14:53:36 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.10.5 2003/04/18 17:45:15 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -193,6 +197,43 @@ if __name__ == "__main__":
     __builtins__.__dict__.update(scapy.__dict__)
 
     import rlcompleter,readline
+    import re
+
+    class ScapyCompleter(rlcompleter.Completer):
+        def global_matches(self, text):
+            matches = []
+            n = len(text)
+            for list in [dir(__builtins__), session.keys()]:
+                for word in list:
+                    if word[:n] == text and word != "__builtins__":
+                        matches.append(word)
+            return matches
+    
+
+        def attr_matches(self, text):
+            m = re.match(r"(\w+(\.\w+)*)\.(\w*)", text)
+            if not m:
+                return
+            expr, attr = m.group(1, 3)
+            try:
+                object = eval(expr)
+            except:
+                object = eval(expr, session)
+            if isinstance(object, scapy.Packet):
+                words = filter(lambda x: x[0]!="_",dir(object))
+                words += map(str, object.fields_desc)
+            else:
+                words = dir(object)
+                if hasattr( object,"__class__" ):
+                    words = words + rlcompleter.get_class_members(object.__class__)
+            matches = []
+            n = len(attr)
+            for word in words:
+                if word[:n] == attr and word != "__builtins__":
+                    matches.append("%s.%s" % (expr, word))
+            return matches
+
+    readline.set_completer(ScapyCompleter().complete)
     readline.parse_and_bind("tab: complete")
     
     
@@ -490,7 +531,7 @@ if PCAP:
     def get_working_if():
         try:
             return pcap.lookupdev()
-        except pcapc.EXCEPTION:
+        except pcap.pcapc.EXCEPTION:
             return 'lo'
 else:
     def get_if_list():
