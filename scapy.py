@@ -22,6 +22,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.16.8  2004/06/07 16:06:27  pbi
+# - fixed conf.checkIPsrc behaviour of answers() and hashret() for TCP/UDP/TCPerror/UDPerror
+# - added conf.debug_match to keep track of unanswered packets in debug.sent and debug.recv
+#
 # Revision 0.9.16.7  2004/06/07 09:20:43  pbi
 # - added LEIntField and StrFixedLenField
 # - added partial PrismHeader support
@@ -367,7 +371,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.16.7 2004/06/07 09:20:43 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.16.8 2004/06/07 16:06:27 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -675,6 +679,16 @@ def str2mac(s):
 
 def strxor(x,y):
     return "".join(map(lambda x,y:chr(ord(x)^ord(y)),x,y))
+
+
+#################
+## Debug class ##
+#################
+
+class debug:
+    recv=[]
+    sent=[]
+
 
 
 ####################
@@ -2446,15 +2460,19 @@ class TCP(Packet):
                 warning("No IP underlayer to compute checksum. Leaving null.")
         return p
     def hashret(self):
-        return struct.pack("H",self.sport ^ self.dport)+self.payload.hashret()
+        if conf.checkIPsrc:
+            return struct.pack("H",self.sport ^ self.dport)+self.payload.hashret()
+        else:
+            return self.payload.hashret()
     def answers(self, other):
         if not isinstance(other, TCP):
             return 0
-        if not ((self.sport == other.dport) and
-                (self.dport == other.sport)):
-            return 0
-        if (abs(other.seq-self.ack) > 2):
-            return 0
+        if conf.checkIPsrc:
+            if not ((self.sport == other.dport) and
+                    (self.dport == other.sport)):
+                return 0
+            if (abs(other.seq-self.ack) > 2):
+                return 0
         return 1
     def mysummary(self):
         if isinstance(self.underlayer, IP):
@@ -2489,13 +2507,17 @@ class UDP(Packet):
         l = self.len - 8
         return s[:l],s[l:]
     def hashret(self):
-        return struct.pack("H",self.sport ^ self.dport)+self.payload.hashret()
+        if conf.checkIPsrc:
+            return struct.pack("H",self.sport ^ self.dport)+self.payload.hashret()
+        else:
+            return self.payload.hashret()
     def answers(self, other):
         if not isinstance(other, UDP):
             return 0
-        if not ((self.sport == other.dport) and
-                (self.dport == other.sport)):
-            return 0
+        if conf.checkIPsrc:
+            if not ((self.sport == other.dport) and
+                    (self.dport == other.sport)):
+                return 0
         return 1
     def mysummary(self):
         if isinstance(self.underlayer, IP):
@@ -2577,15 +2599,16 @@ class TCPerror(TCP):
     def answers(self, other):
         if not isinstance(other, TCP):
             return 0
-        if not ((self.sport == other.sport) and
-                (self.dport == other.dport)):
-            return 0
-        if self.seq is not None:
-            if self.seq != other.seq:
+        if conf.checkIPsrc:
+            if not ((self.sport == other.sport) and
+                    (self.dport == other.dport)):
                 return 0
-        if self.ack is not None:
-            if self.ack != other.ack:
-                return 0
+            if self.seq is not None:
+                if self.seq != other.seq:
+                    return 0
+            if self.ack is not None:
+                if self.ack != other.ack:
+                    return 0
         return 1
     def mysummary(self):
         return Packet.mysummary(self)
@@ -2596,9 +2619,10 @@ class UDPerror(UDP):
     def answers(self, other):
         if not isinstance(other, UDP):
             return 0
-        if not ((self.sport == other.sport) and
-                (self.dport == other.dport)):
-            return 0
+        if conf.checkIPsrc:
+            if not ((self.sport == other.sport) and
+                    (self.dport == other.dport)):
+                return 0
         return 1
     def mysummary(self):
         return Packet.mysummary(self)
@@ -3297,7 +3321,9 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0):
         
     if verbose is None:
         verbose = conf.verb
-    recv = []
+    debug.recv = []
+    debug.sent = []
+    nbrecv=0
     ans = []
     # do it here to fix random fields, so that parent and child have the same
     sent = [p for p in pkt]
@@ -3382,7 +3408,9 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0):
                 if not ok:
                     if verbose > 1:
                         os.write(1, ".")
-                    recv.append(r)
+                    nbrecv += 1
+                    if conf.debug_match:
+                        debug.recv.append(r)
                 if finished and remaintime:
                     end = time.time()
                     remaintime -= end-start
@@ -3402,9 +3430,11 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0):
 
     del(sent)
     remain = reduce(list.__add__, hsent.values())
+    if conf.debug_match:
+        debug.sent=remain[:]
     if verbose:
-        print "\nReceived %i packets, got %i answers, remaining %i packets" % (len(recv)+len(ans), len(ans), notans)
-    return ans,remain,recv
+        print "\nReceived %i packets, got %i answers, remaining %i packets" % (nbrecv+len(ans), len(ans), notans)
+    return ans,remain,debug.recv
 
 
 def __gen_send(s, x, inter=0, loop=0, verbose=None, *args, **kargs):
@@ -4524,6 +4554,7 @@ filter   : bpf filter added to every sniffing socket to exclude traffic from ana
 histfile : history file
 padding  : includes padding in desassembled packets
 except_filter : BPF filter for packets to ignore
+debug_match : when 1, store received packet that are not matched into debug.recv
 """
     session = ""  
     stealth = "not implemented"
@@ -4542,6 +4573,7 @@ except_filter : BPF filter for packets to ignore
     queso_base ="/etc/queso.conf"
     nmap_base ="/usr/share/nmap/nmap-os-fingerprints"
     except_filter = ""
+    debug_match = 0
         
 
 conf=Conf()
