@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.4  2004/08/09 14:00:20  pbi
+# - added gzip support to sessions saving
+# - can force pickle protocol to inferior values for pickle backward compatility
+#
 # Revision 0.9.17.3  2004/08/07 10:59:34  pbi
 # - fixed self reloading when launched from a different directory
 # - fixed session reloading problems with PacketList() and SndRcvAns()
@@ -420,7 +424,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.3 2004/08/07 10:59:34 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.4 2004/08/09 14:00:20 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -571,7 +575,7 @@ if __name__ == "__main__":
 ##################
 
 import socket, sys, getopt, string, struct, time, random, os, traceback
-import cPickle, types
+import cPickle, types, gzip
 from select import select
 from fcntl import ioctl
 
@@ -734,7 +738,7 @@ def strxor(x,y):
 ##############################
 
 
-def save_session(fname, session=None):
+def save_session(fname, session=None, pickleProto=-1):
     if session is None:
         session = scapy_session
         
@@ -750,18 +754,24 @@ def save_session(fname, session=None):
         os.rename(fname, fname+".bak")
     except OSError:
         pass
-    f=open(fname,"w")
-    cPickle.dump(session, f)
+    f=gzip.open(fname,"w")
+    cPickle.dump(session, f, pickleProto)
     f.close()
 
 def load_session(fname):
-    f=open(fname)
+    try:
+        s = cPickle.load(gzip.open(fname))
+    except IOError:
+        s = cPickle.load(open(fname))
     scapy_session.clear()
-    scapy_session.update(cPickle.load(f))
+    scapy_session.update(s)
 
 def update_session(fname):
-    f=open(fname)
-    scapy_session.update(cPickle.load(f))
+    try:
+        s = cPickle.load(gzip.open(fname))
+    except IOError:
+        s = cPickle.load(open(fname))
+    scapy_session.update(s)
 
 
 #################
