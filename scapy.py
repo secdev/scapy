@@ -22,6 +22,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.11.5  2003/04/27 10:04:03  pbi
+# - Fixed long int conversion in attach_filter()
+#
 # Revision 0.9.11.4  2003/04/27 10:00:57  pbi
 # - rectification in SetGen to unroll Gen instances in lists
 # - Completed DNS types and qtypes names
@@ -198,7 +201,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.11.4 2003/04/27 10:00:57 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.11.5 2003/04/27 10:04:03 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2852,7 +2855,7 @@ def attach_filter(s, filter):
     nb = int(lines[0])
     bpf = ""
     for l in lines[1:]:
-        bpf += struct.pack("HBBI",*map(int,l.split()))
+        bpf += struct.pack("HBBI",*map(long,l.split()))
 
     # XXX. Argl! We need to give the kernel a pointer on the BPF,
     # python object header seems to be 20 bytes
