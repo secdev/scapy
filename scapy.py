@@ -22,6 +22,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.11.2  2003/04/23 21:23:30  pbi
+# - small fixes in init_queso()
+# - experimental support of nmap fingerprinting (not complete yet)
+#
 # Revision 0.9.11.1  2003/04/22 14:38:16  pbi
 # Release 0.9.11
 #
@@ -180,7 +184,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.11.1 2003/04/22 14:38:16 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.11.2 2003/04/23 21:23:30 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2969,23 +2973,17 @@ def init_queso(base=None, reset=1):
     except IOError:
         return
     p = None
-    while 1:
-        l = f.readline()
-        if not l:
-            break
+    for l in f:
         l = l.strip()
-        if not l:
-            continue
-        if l[0] == ';':
+        if not l or l[0] == ';':
             continue
         if l[0] == '*':
             if p is not None:
                 p[""] = name
             name = l[1:].strip()
             p = queso_base
-            
             continue
-        if l[0] not in ["0","1","2","3","4","5","6"]:
+        if l[0] not in list("0123456"):
             continue
         res = l[2:].split()
         res[-1] = quesoTCPflags(res[-1])
@@ -2993,7 +2991,9 @@ def init_queso(base=None, reset=1):
         if not p.has_key(res):
             p[res] = {}
         p = p[res]
-    return queso_base
+    if p is not None:
+        p[""] = name
+    f.close()
         
         
 
@@ -3040,6 +3040,119 @@ def queso(*args,**kargs):
     """Guess the operating system of a machine looking at its TCP stack behaviour
 queso(target, dport=80, timeout=3)"""
     return queso_search(queso_sig(*args, **kargs))
+
+
+
+######################
+## nmap OS fp stuff ##
+######################
+
+nmap_base = []
+
+def init_nmap(base=None, reset=1):
+    global nmap_base
+    if reset:
+        nmap_base=[]
+    if base is None:
+        base = conf.nmap_base
+    try:
+        f=open(base)
+    except IOError:
+        return
+
+    name = None
+    for l in f:
+        l = l.strip()
+        if not l or l[0] == "#":
+            continue
+        if l[:12] == "Fingerprint ":
+            if name is not None:
+                nmap_base.append((name,sig))
+            name = l[12:].strip()
+            sig={}
+            p = nmap_base
+            continue
+        op = l.find("(")
+        cl = l.find(")")
+        if op < 0 or cl < 0:
+            warning("error reading nmap os fp base file")
+            continue
+        test = l[:op]
+        s = map(lambda x: x.split("="), l[op+1:cl].split("%"))
+        si = {}
+        for n,v in s:
+            si[n] = v
+        sig[test]=si
+    if name is not None:
+        nmap_base.append((name,sig))
+    f.close()
+    
+def TCPflags2str(f):
+    fl="FSRPAUEC"
+    s=""
+    for i in range(len(fl)):
+        if f & 1:
+            s += fl[i]
+        f >>= 1
+    return s
+
+def nmap_packet_sig(pkt):
+    r = {}
+    if pkt is not None:
+#        r["Resp"] = "Y"
+        r["DF"] = (pkt.flags & 2) and "Y" or "N"
+        r["W"] = "%X" % pkt.window
+        r["ACK"] = pkt.ack==2 and "S++" or pkt.ack==1 and "S" or "O"
+        r["Flags"] = TCPflags2str(pkt.payload.flags)
+        r["Ops"] = "".join(map(lambda x: x[0],pkt.payload.options.keys()))
+    else:
+        r["Resp"] = "N"
+    return r
+
+def nmap_match_one_sig(seen, ref):
+    c = 0
+    for k in seen.keys():
+        if ref.has_key(k) and seen[k] in ref[k].split("|"):
+            c += 1
+    return 1.0*c/len(seen.keys())
+        
+        
+
+def nmap_sig(target, oport=80, cport=81):
+    res = {}
+
+    tcpopt = { "WScale": 10,
+               "NOP":(),
+               "MSS": 256,
+               "Timestamp" : (123,0) }
+    tests = { "T1": IP(dst=target)/TCP(seq=1, dport=oport, options=tcpopt, flags="CS"),
+              "T2": IP(dst=target)/TCP(seq=1, dport=oport, options=tcpopt, flags=0),
+              "T3": IP(dst=target)/TCP(seq=1, dport=oport, options=tcpopt, flags="SFUP"),
+              "T4": IP(dst=target)/TCP(seq=1, dport=oport, options=tcpopt, flags="A"),
+              "T5": IP(dst=target)/TCP(seq=1, dport=cport, options=tcpopt, flags="S"),
+              "T6": IP(dst=target)/TCP(seq=1, dport=cport, options=tcpopt, flags="A"),
+              "T7": IP(dst=target)/TCP(seq=1, dport=cport, options=tcpopt, flags="FPU") }
+
+    for t in tests.keys():
+        T = sr1(tests[t], timeout=2)
+        res[t] = nmap_packet_sig(T)
+    
+    return res
+    
+def nmap_fp(target, oport=80, cport=81):
+    sigs = nmap_sig(target, oport, cport)
+    guess = 0,[]
+    for os,fp in nmap_base:
+        c = 0
+        for t in sigs.keys():
+            c += nmap_match_one_sig(sigs[t], fp[t])
+        if c > guess[0]:
+            guess = c,[ os ]
+        elif c == guess[0]:
+            guess[1].append(os)
+    return guess
+        
+
 
 
 
@@ -3346,9 +3459,11 @@ padding  : include padding in desassembled packets
     padding = 1
     p0f_base ="/etc/p0f.fp"
     queso_base ="/etc/queso.conf"
+    nmap_base ="/usr/share/nmap/nmap-os-fingerprints"
         
 
 conf=Conf()
 
 init_p0f()
 init_queso()
+init_nmap()
