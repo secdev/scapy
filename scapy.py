@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.16.14  2004/07/10 13:06:38  pbi
+# - do not apply any BPF filter if ethertype is given to a supersocket (so that ARP requests will work
+#   whatever the conf.except_filter value is)
+#
 # Revision 0.9.16.13  2004/07/09 09:11:15  pbi
 # - changed the header and blocked the licence to GPLv2 only
 #
@@ -390,7 +394,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.16.13 2004/07/09 09:11:15 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.16.14 2004/07/10 13:06:38 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -3300,13 +3304,14 @@ class L2Socket(SuperSocket):
         if iface is None:
             iface = conf.iface
         self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))
-        if conf.except_filter:
-            if filter:
-                filter = "(%s) and not (%s)" % (filter, conf.except_filter)
-            else:
-                filter = "not (%s)" % conf.except_filter
-        if filter is not None:
-            attach_filter(self.ins, filter)
+        if type == ETH_P_ALL: # Do not apply any filter if Ethernet type is given
+            if conf.except_filter:
+                if filter:
+                    filter = "(%s) and not (%s)" % (filter, conf.except_filter)
+                else:
+                    filter = "not (%s)" % conf.except_filter
+            if filter is not None:
+                attach_filter(self.ins, filter)
         self.ins.bind((iface, type))
         self.outs = self.ins
         sa_ll = self.outs.getsockname()
@@ -3333,13 +3338,14 @@ class L2ListenSocket(SuperSocket):
         self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))
         if iface is not None:
             self.ins.bind((iface, type))
-        if conf.except_filter:
-            if filter:
-                filter = "(%s) and not (%s)" % (filter, conf.except_filter)
-            else:
-                filter = "not (%s)" % conf.except_filter
-        if filter is not None:
-            attach_filter(self.ins, filter)
+        if type == ETH_P_ALL: # Do not apply any filter if Ethernet type is given
+            if conf.except_filter:
+                if filter:
+                    filter = "(%s) and not (%s)" % (filter, conf.except_filter)
+                else:
+                    filter = "not (%s)" % conf.except_filter
+            if filter is not None:
+                attach_filter(self.ins, filter)
         if promisc is None:
             promisc = conf.sniff_promisc
         self.promisc = promisc
