@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.26  2005/01/20 22:59:07  pbi
+# - graph_traceroute : added AS clustering, colors, tweaks
+#
 # Revision 0.9.17.25  2005/01/17 22:10:58  pbi
 # - added do_graph() to draw GraphViz graphs using SVG output, displayed with ImageMagick
 # - added graph_traceroute() to make a graph from multiple traceroutes
@@ -517,7 +520,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.25 2005/01/17 22:10:58 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.26 2005/01/20 22:59:07 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -5354,12 +5357,13 @@ def graph_traceroute(target, maxttl=30, dport=80, sport=RandShort(),retry=-2, ti
     a,b = sr(IP(dst=target, id=RandShort(), ttl=(minttl,maxttl))/TCP(seq=RandInt(),sport=sport, dport=dport),
              timeout=timeout,retry=retry, filter="(icmp and icmp[0]=11) or (tcp and (tcp[13] & 0x16 > 0x10))", **kargs)
 
-    mxttl = minttl
-    mnttl = maxttl
+
+    ips = {}
     rt = {}
     ports = {}
     ports_done = {}
     for s,r in a:
+        ips[r.src] = None
         trace_id = (s.dst,s.dport)
         trace = rt.get(trace_id,{})
         if r.haslayer(TCP):
@@ -5370,10 +5374,8 @@ def graph_traceroute(target, maxttl=30, dport=80, sport=RandShort(),retry=-2, ti
             p.append(r.sprintf("<%TCP.sport%> %TCP.sport%: %TCP.flags%"))
             ports[r.src] = p
             trace[s.ttl] = r.sprintf('"%IP.src%":%TCP.sport%')
-            mxttl = max(mxttl,s.ttl)
         else:
             trace[s.ttl] = r.sprintf('"%IP.src%"')
-            mnttl = min(mnttl,s.ttl)
         rt[trace_id] = trace
 
     # Fill holes with unk%i nodes
@@ -5387,26 +5389,109 @@ def graph_traceroute(target, maxttl=30, dport=80, sport=RandShort(),retry=-2, ti
                 trace[n] = "unk%i" % unk
                 unk += 1
         if not ports_done.has_key(rtk):
-            bh = '"%s:%i"' % rtk
+            bh = '%s:%i' % rtk
+            ips[bh] = None
+            bh = '"%s"' % bh
             trace[max(k)+1] = bh
             blackholes.append(bh)
 
+    # Find AS numbers
+
+    def parseWhois(x):
+#        f = os.popen("whois -h whois.ra.net %s" % x)
+        asn,desc = None,""
+        for l in x.splitlines():
+            if not asn and l.startswith("origin:"):
+                asn = l.split()[1]
+            if l.startswith("descr:"):
+                if desc:
+                    desc += r"\n"
+                desc += l.split(":")[1].strip()
+            if asn is not None and desc:
+                break
+        return asn,desc.strip()
+
+
+    def getASNlist(list):
+        ASNlist=[]
+        s=socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.connect(("whois.ra.net",43)) ## whois.cymru.com
+        for ip in list:
+            s.send("-k %s\n" % ip.split(":")[0])
+            asn,desc = parseWhois(s.recv(8192))
+            ASNlist.append((ip,asn,desc))
+        return ASNlist
+            
+
+    ASNlist = getASNlist(ips)
+
+
+    ASNs = {}
+    ASDs = {}
+    for ip,asn,desc, in ASNlist:
+        if asn is None:
+            continue
+        iplist = ASNs.get(asn,[])
+        iplist.append(ip)
+        ASNs[asn] = iplist
+        ASDs[asn] = desc
+
+    def makecol(lstcol):
+        b = []
+        for i in range(len(lstcol)):
+            for j in range(len(lstcol)):
+                for k in range(len(lstcol)):
+                    if i != j or j != k or k != i:
+                        b.append('"#%s%s%s"' % (lstcol[(i+j)%len(lstcol)],lstcol[(j+k)%len(lstcol)],lstcol[(k+i)%len(lstcol)]))
+        return b
+
+    backcolorlist=makecol(["60","86","ba","ff"])
+    forecolorlist=makecol(["a0","70","40","20"])
+    clustcol = 0
+    edgecol = 0
+
     s = "digraph trace {\n"
-
-    s += "#endpoints\n"
-    s += "\tnode [shape=record,color=black,fillcolor=green,style=filled];\n"
-    for p in ports:
-        s += '\t"%s" [label="%s|%s"];\n' % (p,p,"|".join(ports[p]))
-
-    s += "\n#Blackholes\n"
-    s += '\t node [shape=octagon,color=black,fillcolor=red,style=filled]\n'
-    for bh in blackholes:
-        s += '\t%s;\n' % bh
 
     s += "\n\tnode [shape=ellipse,color=black,style=solid];\n\n"
 
+    s += "\n#ASN clustering\n"
+    for asn in ASNs:
+        s += '\tsubgraph cluster_%s {\n' % asn
+        s += '\t\tcolor=%s;' % backcolorlist[clustcol%(len(backcolorlist))]
+#        s += '\t\tnode [fillcolor=%s,style=filled];' % backcolorlist[clustcol%(len(backcolorlist))]
+        clustcol += 1
+        s += '\t\tfontsize = 10;'
+        s += '\t\tlabel = "%s\\n[%s]"\n' % (asn,ASDs[asn])
+#        s += '\t\tlabel = "%s [%s]"\n' % (asn,"")
+        for ip in ASNs[asn]:
+
+            s += '\t\t"%s";\n'%ip
+        s += "\t}\n"
+
+
+
+
+    s += "#endpoints\n"
+#    s += "\tnode [];\n"
+    for p in ports:
+        s += '\t"%s" [shape=record,color=black,fillcolor=green,style=filled,label="%s|%s"];\n' % (p,p,"|".join(ports[p]))
+
+    s += "\n#Blackholes\n"
+    for bh in blackholes:
+        s += '\t%s [shape=octagon,color=black,fillcolor=red,style=filled];\n' % bh
+
+        
+
+
+
+        
+    s += "\n\tnode [shape=ellipse,color=black,style=solid];\n\n"
+
+
     for rtk in rt:
         s += "#---[%s\n" % `rtk`
+        s += '\t\tedge [color=%s];\n' % forecolorlist[edgecol%(len(forecolorlist))]
+        edgecol += 1
         trace = rt[rtk]
         k = trace.keys()
         for n in range(min(k), max(k)):
