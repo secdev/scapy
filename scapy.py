@@ -22,6 +22,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.12.8  2003/05/16 13:28:49  pbi
+# - small enhancements in self-documentation
+# - added early experiemental support for BOOTP and 802.11
+#
 # Revision 0.9.12.7  2003/05/16 11:25:48  pbi
 # - added workarroung python bug 643005 (socket.inet_aton("255.255.255.255"))
 # - use answers() method instead of operator
@@ -226,7 +230,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.12.7 2003/05/16 11:25:48 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.12.8 2003/05/16 13:28:49 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -240,6 +244,7 @@ def usage():
 ##
 #   Next things to do :
 #
+#  - fields to manage variable length hw addr (ARP, BOOTP, etc.)
 #  - improve pcap capture file support
 #  - better self-doc
 #
@@ -2309,6 +2314,72 @@ class DNSRR(Packet):
                     RDLenField("rdlen"),
                     RDataField("rdata", "", "rdlen") ]
 
+class BOOTP(Packet):
+    name = "BOOTP"
+    fields_desc = [ ByteEnumField("op",1, {1:"BOOTREQUEST", 2:"BOOTREPLY"}),
+                    ByteField("htype",0),
+                    ByteField("hlen",6),
+                    ByteField("hops",0),
+                    IntField("xid",0),
+                    ShortField("secs",0),
+                    FlagsField("flags", 0, 16, "???????????????B"),
+                    IPField("ciaddr","0.0.0.0"),
+                    IPField("yiaddr","0.0.0.0"),
+                    IPField("siaddr","0.0.0.0"),
+                    IPField("giaddr","0.0.0.0"),
+                    Field("chaddr","", "16s"),
+                    Field("sname","","64s"),
+                    Field("file","","128s"),
+                    StrField("options","") ]
+
+dhcpmagic="".join(map(chr,[99,130,83,99]))
+
+
+class Dot11(Packet):
+    name = "802.11"
+    fields_desc = [
+                    BitField("proto", 0, 2),
+                    BitField("type", 0, 2),
+                    BitField("subtype", 0, 4),
+                    FlagsField("fc", 0, 8, ["to-DS", "from-DS", "MF", "retry", "pw-mgt", "MD", "wep", "order"]),
+                    ShortField("ID",0),
+                    MACField("addr1", ETHER_ANY),
+                    MACField("addr2", ETHER_ANY),
+                    MACField("addr3", ETHER_ANY),
+                    ShortField("SC", 0),
+                    MACField("addr4", ETHER_ANY) ]
+    
+#########
+##
+##    char *typestring[4] = { "Management", "Control", "Data", "Reserved" };
+##  
+##  /*
+##   * subtype lookup vectors
+##   */
+##    char *mgmtsubtypestring[16] =
+##      { "Association Request", "Association Response",
+##      "ReAssociation Request", "Reassociation Response", "Probe Request",
+##      "Probe Response", "Reserved", "Reserved", "Beacon", "ATIM",
+##      "Disassociation", "Authentication", "Deauthentication", "Reserved",
+##      "Reserved", "Reserved"
+##    };
+##  
+##    char *ctrlsubtypestring[16] =
+##      { "Reserved", "Reserved", "Reserved", "Reserved",
+##      "Reserved", "Reserved", "Reserved", "Reserved", "Reserved", "Reserved",
+##      "PS-Poll", "RTS", "CTS", "ACK", "CF End", "CF End + CF Ack"
+##    };
+##  
+##    char *datasubtypestring[16] = { "Data", "Data + CF Ack", "Data + CF Poll",
+##      "Data + CF Ack + CF Poll", "NULL Function", "CF Ack (no data)",
+##      "CF Poll (no data)", "CF Ack + CF Poll (no data)", "Reserved",
+##      "Reserved", "Reserved", "Reserved", "Reserved", "Reserved",
+##      "Reserved", "Reserved"
+##  
+
+
+
+
 
 #################
 ## Bind layers ##
@@ -2343,6 +2414,8 @@ layer_bonds = [ ( Dot3,   LLC,      { } ),
                 ( IP,     UDP,      { "proto" : socket.IPPROTO_UDP } ),
                 ( UDP,    DNS,      { "sport" : 53 } ),
                 ( UDP,    DNS,      { "dport" : 53 } ),
+                ( UDP,    BOOTP,    { "sport" : 68, "dport" : 67 } ),
+                ( UDP,    BOOTP,    { "sport" : 67, "dport" : 68 } ),
                 ]
 
 for l in layer_bonds:
@@ -2808,7 +2881,7 @@ def sr(x,filter=None, *args,**kargs):
     return a,b
 
 def sr1(x,filter=None, *args,**kargs):
-    """Send and receive packets at layer 3 and return only the first answer"""
+    """Send packets at layer 3 and return only the first answer"""
     if not kargs.has_key("timeout"):
         kargs["timeout"] = -1
     a,b,c=sndrcv(conf.L3socket(filter=filter),x,*args,**kargs)
@@ -2994,7 +3067,7 @@ def p0f_dist(x,y):
     
 
 def p0f(pkt):
-    """Passive OS fingerprinting: guess the OS that emitted this TCP syn
+    """Passive OS fingerprinting: which OS emitted this TCP SYN ?
 p0f(packet) -> accuracy, [list of guesses]
 """
     if len(p0f_base) == 0:
@@ -3130,7 +3203,7 @@ def queso_search(sig):
         
 
 def queso(*args,**kargs):
-    """Guess the operating system of a machine looking at its TCP stack behaviour
+    """Queso OS fingerprinting
 queso(target, dport=80, timeout=3)"""
     return queso_search(queso_sig(*args, **kargs))
 
@@ -3292,6 +3365,9 @@ def nmap_search(sigs):
     
     
 def nmap_fp(target, oport=80, cport=81):
+    """nmap fingerprinting
+nmap_fp(target, [oport=80,] [cport=81,]) -> list of best guesses with accuracy
+"""
     sigs = nmap_sig(target, oport, cport)
     return nmap_search(sigs)
         
@@ -3401,6 +3477,8 @@ arping(net, iface=conf.iff) -> None"""
 #####################
 
 def report_ports(target, ports):
+    """portscan a target and output a LaTeX table
+report_ports(target, ports) -> string"""
     ans,unans = sr(IP(dst=target)/TCP(dport=ports),timeout=5)
     rep = "\\begin{tabular}{|r|l|l|}\n\\hline\n"
     for s,r in ans:
@@ -3458,7 +3536,7 @@ def ls(obj=None):
     
 
 
-user_commands = [ sr, sr1, srp, sniff, p0f, arpcachepoison, send, sendp, traceroute, arping, ls, lsc, queso ]
+user_commands = [ sr, sr1, srp, sniff, p0f, arpcachepoison, send, sendp, traceroute, arping, ls, lsc, queso, nmap_fp, report_ports ]
 
 
 ###################
