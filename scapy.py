@@ -22,6 +22,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.16.1  2004/01/26 18:01:00  pbi
+# Release 0.9.16
+#
 # Revision 0.9.15.15  2004/01/26 18:00:08  pbi
 # - added more text for DNS codes
 #
@@ -343,7 +346,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.15.15 2004/01/26 18:00:08 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.16.1 2004/01/26 18:01:00 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
