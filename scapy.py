@@ -22,6 +22,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.9.14  2003/04/14 14:57:53  pbi
+# - reworked L3dnetSocket
+#
 # Revision 0.9.9.13  2003/04/14 13:53:28  pbi
 # - added completion (rlcompleter) and history support
 #
@@ -142,7 +145,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.9.13 2003/04/14 13:53:28 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.9.14 2003/04/14 14:57:53 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2427,34 +2430,12 @@ if DNET and PCAP:
     class L3dnetSocket(SuperSocket):
         def __init__(self, type = ETH_P_IP, filter=None, promisc=None, iface=None):
             self.iflist = {}
-            # why on earth doesn't socketpair() exist in python ?!
-            self.ins = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
-            skn = os.tmpnam()
-            self.ins.bind(skn)
-            self.ins.connect(skn)
-            os.unlink(skn)
-            pid=os.fork()
-            if pid < 0:
-                raise Exception("L3dnetsocket: Can't fork")
-            elif pid > 0:
-                self.pid = pid
-            else:
-                os.close(0)
-                def cb(pktlen, data, timestamp):
-                    self.ins.send(data[2:])
-                try:
-                    p = pcap.pcapObject()
-                    if iface is None:
-                        iface = "any"
-                    p.open_live(iface, 1600, 0, 100)
-                    if filter:
-                        p.setfilter(filter, 0, 0)
-                    p.loop(0, cb)
-                except:
-                    print "--- Error in child %i" % os.getpid()
-                    traceback.print_exc()
-                    print "--- End of error in child %i" % os.getpid()
-                sys.exit()
+            self.ins = pcap.pcapObject()
+            if iface is None:
+                iface = "any"
+            self.ins.open_live(iface, 1600, 0, 100)
+            if filter:
+                self.ins.setfilter(filter, 0, 0)
         def send(self, x):
             if hasattr(x,"dst"):
                 iff,a,gw = choose_route(x.dst)
@@ -2465,10 +2446,9 @@ if DNET and PCAP:
                 self.iflist[iff] = ifs = dnet.eth(iff)
             ifs.send(str(Ether()/x))
         def recv(self,x):
-            return Ether(self.ins.recv(1600)).payload
+            return Ether(self.ins.next()[1][2:]).payload
         def close(self):
-            os.kill(self.pid, 15)
-            os.waitpid(self.pid, 0)
+            del(self.ins)
             for iff in self.iflist:
                 iff.close()
 
