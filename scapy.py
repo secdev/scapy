@@ -22,6 +22,12 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.14.4  2003/09/12 09:28:28  pbi
+# - added SNAP protocol
+# - catched broken pipe exception when shild die in sndrcv()
+# - fixed default L2socket type in srp() and srp1() (ETH_P_ALL)
+# - fixed format string in attach_filter()
+#
 # Revision 0.9.14.3  2003/09/10 08:47:41  pbi
 # - fixed the fact that bpf filters were generated in cooked mode, and thus did
 #   not work
@@ -264,7 +270,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.14.3 2003/09/10 08:47:41 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.14.4 2003/09/12 09:28:28 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1065,6 +1071,15 @@ class XByteField(ByteField):
 	if x is None:
 	    x = 0
         return hex(self.i2h(pkt, x))
+
+class X3BytesField(XByteField):
+    def __init__(self, name, default):
+        Field.__init__(self, name, default, "I")
+    def addfield(self, pkt, s, val):
+        return s+struct.pack(self.fmt, self.i2m(pkt,val))[:3]
+    def getfield(self, pkt, s):
+        return  s[3:], self.m2i(pkt, struct.unpack(self.fmt, "\x00"+s[:3])[0])
+
 
 class ShortField(Field):
     def __init__(self, name, default):
@@ -1936,6 +1951,11 @@ class LLC(Packet):
                     XByteField("ssap", 0x00),
                     ByteField("ctrl", 0) ]
 
+class SNAP(Packet):
+    name = "SNAP"
+    fields_desc = [ X3BytesField("OUI",0x000000),
+                    XShortField("code", 0x000) ]
+
 
 class Dot1Q(Packet):
     name = "802.1Q"
@@ -2453,6 +2473,12 @@ layer_bonds = [ ( Dot3,   LLC,      { } ),
                 ( Ether,  EAPOL,    { "type" : 0x888e, "dst" : "01:80:c2:00:00:03" } ),
                 ( EAPOL,  EAP,      { "type" : EAPOL.EAP_PACKET } ),
                 ( LLC,    STP,      { "dsap" : 0x42 , "ssap" : 0x42 } ),
+                ( LLC,    SNAP,     { "dsap" : 0xAA , "ssap" : 0xAA } ),
+                ( SNAP,   Dot1Q,    { "code" : 0x8100 } ),
+                ( SNAP,   Ether,    { "code" : 0x0001 } ),
+                ( SNAP,   ARP,      { "code" : 0x0806 } ),
+                ( SNAP,   IP,       { "code" : 0x0800 } ),
+                ( SNAP,   EAPOL,    { "code" : 0x888e } ),
                 ( IPerror,IPerror,  { "proto" : socket.IPPROTO_IP } ),
                 ( IPerror,ICMPerror,{ "proto" : socket.IPPROTO_ICMP } ),
                 ( IPerror,TCPerror, { "proto" : socket.IPPROTO_TCP } ),
@@ -2507,6 +2533,7 @@ LLTypes = { ARPHDR_ETHER : Ether,
             ARPHDR_LOOPBACK : Ether,
 	    101 : IP,
             801 : Dot11,
+            105 : Dot11,
             }
 
 L3Types = { ETH_P_IP : IP,
@@ -2833,6 +2860,7 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None):
 
     pid = os.fork()
     if pid == 0:
+        sys.stdin.close()
         rdpipe.close()
         try:
             i = 0
@@ -2902,9 +2930,13 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None):
         except KeyboardInterrupt:
             pass
 
-        ac = pickle.load(rdpipe)
-        arp_cache.update(ac)
-        os.waitpid(pid,0)
+        try:
+            ac = pickle.load(rdpipe)
+        except EOFError:
+            warning("Child died unexpectedly. Packets may have not been sent")
+        else:
+            arp_cache.update(ac)
+            os.waitpid(pid,0)
 
     del(sent)
     remain = reduce(list.__add__, hsent.values())
@@ -2956,14 +2988,14 @@ def sr1(x,filter=None,iface=None, *args,**kargs):
     else:
         return None
 
-def srp(x,iface=None,filter=None,type=None, *args,**kargs):
+def srp(x,iface=None,filter=None,type=ETH_P_ALL, *args,**kargs):
     """Send and receive packets at layer 2"""
     if not kargs.has_key("timeout"):
         kargs["timeout"] = -1
     a,b,c=sndrcv(conf.L2socket(iface=iface, filter=filter, type=type),x,*args,**kargs)
     return a,b
 
-def srp1(x,iface=None,filter=None,type=None, *args,**kargs):
+def srp1(x,iface=None,filter=None,type=ETH_P_ALL, *args,**kargs):
     """Send and receive packets at layer 2 and return only the first answer"""
     if not kargs.has_key("timeout"):
         kargs["timeout"] = -1
@@ -3030,7 +3062,7 @@ def attach_filter(s, filter):
     # work... one solution could be to use "any" interface and translate
     # the filter from cooked mode to raw mode
     # mode
-    f = os.popen("tcpdump -i s -ddd -s 1600 '%s'" % (conf.iface,filter))
+    f = os.popen("tcpdump -i %s -ddd -s 1600 '%s'" % (conf.iface,filter))
     lines = f.readlines()
     if f.close():
         raise Exception("Filter parse error")
@@ -3600,7 +3632,15 @@ def ls(obj=None):
     else:
         if type(obj) is types.ClassType and issubclass(obj, Packet):
             for f in obj.fields_desc:
-                print "%-10s : %s (%s)" % (f.name, f.__class__.__name__, repr(f.default))
+                print "%-10s : %-20s = (%s)" % (f.name, f.__class__.__name__,  repr(f.default))
+        elif isinstance(obj, Packet):
+            for f in obj.fields_desc:
+                print "%-10s : %-20s = %-15s (%s)" % (f.name, f.__class__.__name__, repr(getattr(obj,f.name)), repr(f.default))
+            if not isinstance(obj.payload, NoPayload):
+                print "--"
+                ls(obj.payload)
+                
+
         else:
             print "Not a packet class. Type 'ls()' to list packet classes."
 
