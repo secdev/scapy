@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.36  2005/02/02 22:39:48  pbi
+# - added GPRS dummy packet class
+#
 # Revision 0.9.17.35  2005/01/29 00:29:25  pbi
 # - added l4 parameter to traceroute() for UDP, ICMP and other layer 4 traceroutes
 # - tweaked TracerouteResult display()
@@ -553,7 +556,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.35 2005/01/29 00:29:25 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.36 2005/02/02 22:39:48 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -4135,6 +4138,13 @@ class SebekV2Sock(Packet):
                                                "recvfrom":12}),
                     ByteField("proto", 0) ]
 
+class GPRS(Packet):
+    name = "GPRSdummy"
+    fields_desc = [
+        StrStopField("dummy","","\x65\x00\x00",1)
+        ]
+
+
 
 #################
 ## Bind layers ##
@@ -4150,6 +4160,7 @@ def bind_layers(lower, upper, fval):
     
 
 layer_bonds = [ ( Dot3,   LLC,      { } ),
+                ( GPRS,   IP,       { } ),
                 ( PrismHeader, Dot11, { }),
                 ( Dot11,  LLC,      { "type" : 2 } ),
                 ( PPP,    IP,       { "proto" : 0x0021 } ),
