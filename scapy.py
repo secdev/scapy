@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.54  2005/03/14 17:53:56  pbi
+# - wrpcap() now writes the correct linktype in the pcap file
+#
 # Revision 0.9.17.53  2005/03/14 17:22:23  pbi
 # - added ISAKMP transforms decoding
 #
@@ -620,7 +623,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.53 2005/03/14 17:22:23 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.54 2005/03/14 17:53:56 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -4773,6 +4776,10 @@ LLTypes = { ARPHDR_ETHER : Ether,
             113 : CookedLinux
             }
 
+LLNumTypes = {}
+for k in LLTypes:
+    LLNumTypes[LLTypes[k]] = k
+
 L3Types = { ETH_P_IP : IP,
             ETH_P_ARP : ARP,
             ETH_P_ALL : IP
@@ -5346,13 +5353,18 @@ srloop(pkts, [prn], [inter], [count], ...) --> None"""
 
 def wrpcap(filename, pkt):
     f=open(filename,"w")
+    if isinstance(pkt,Packet):
+        linktype = LLNumTypes.get(pkt.__class__,1)
+    else:
+        linktype = LLNumTypes.get(pkt[0].__class__,1)
+        
     f.write(struct.pack("IHHIIII",
                         0xa1b2c3d4L,
                         2, 4,
                         0,
                         0,
                         MTU,
-                        1)) # XXX Find the link type
+                        linktype))
     for p in pkt:
         s = str(p)
         l = len(s)
