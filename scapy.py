@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.30  2005/01/22 22:25:24  pbi
+# - re-added node coloring lost code line in traceroute graphing code
+#
 # Revision 0.9.17.29  2005/01/22 21:48:55  pbi
 # - fixed need for warning() before it was declared
 #
@@ -533,7 +536,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.29 2005/01/22 21:48:55 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.30 2005/01/22 22:25:24 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -710,6 +713,7 @@ except ImportError:
 try:
     from Crypto.Cipher import ARC4
 except ImportError:
+    # warning()
     print "WARNING: Can't find Crypto python lib. Won't be able to decrypt WEP"
 
 
@@ -1484,6 +1488,7 @@ class TracerouteResult(SndRcvAns):
         for asn in ASNs:
             s += '\tsubgraph cluster_%s {\n' % asn
             s += '\t\tcolor=%s;' % backcolorlist[clustcol%(len(backcolorlist))]
+            s += '\t\tnode [fillcolor=%s,style=filled];' % backcolorlist[clustcol%(len(backcolorlist))]
             clustcol += 1
             s += '\t\tfontsize = 10;'
             s += '\t\tlabel = "%s\\n[%s]"\n' % (asn,ASDs[asn])
@@ -5518,7 +5523,7 @@ arpcachepoison(target, victim, [interval=60]) -> None
     except KeyboardInterrupt:
         pass
 
-def traceroute(target, maxttl=30, dport=80, sport=RandShort(),minttl=1, timeout=2,**kargs):
+def traceroute(target, maxttl=30, dport=80, sport=RandShort(),minttl=1, timeout=2, **kargs):
     """Instant TCP traceroute
 traceroute(target, [maxttl=30], [dport=80], [sport=80]) -> None
 """
