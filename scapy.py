@@ -20,7 +20,17 @@
 ##                                                                         ##
 #############################################################################
 
+#
+# $Log: scapy.py,v $
+# Revision 0.9.7.2  2003/03/26 13:30:05  pbi
+# Adding RCS Id
+#
+#
+
+
 from __future__ import generators
+
+RCSID="$Id"
 
 VERSION = "0.9.7beta"
 
