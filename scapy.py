@@ -22,6 +22,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.15.8  2004/01/09 16:42:42  pbi
+# - improved send() and sendp() with parameters loop and verbose
+#
 # Revision 0.9.15.7  2004/01/09 16:04:07  pbi
 # - fixed ARP opcodes values
 #
@@ -315,7 +318,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.15.7 2004/01/09 16:04:07 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.15.8 2004/01/09 16:42:42 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -3228,27 +3231,37 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None):
     return ans,remain,recv
 
 
-def send(x, inter=0, *args, **kargs):
-    """Send packets at layer 3"""
+def __gen_send(s, x, inter=0, loop=0, verbose=None, *args, **kargs):
     if not isinstance(x, Gen):
         x = SetGen(x)
-    s=conf.L3socket(*args, **kargs)
-    for p in x:
-        s.send(p)
-        time.sleep(inter)
+    if verbose is None:
+        verbose = conf.verb
+    n = 0
+    try:
+        while 1:
+            for p in x:
+                s.send(p)
+                n += 1
+                if verbose:
+                    os.write(1,".")
+                time.sleep(inter)
+            if not loop:
+                break
+    except KeyboardInterrupt:
+        pass
     s.close()
+    if verbose:
+        print "\nSent %i packets." % n
 
-def sendp(x, inter=0, *args, **kargs):
-    """Send packets at layer 2"""
-    if not isinstance(x, Gen):
-        x = SetGen(x)
-    s=conf.L2socket(*args, **kargs)
-    for p in x:
-        s.send(p)
-        time.sleep(inter)
-    s.close()
+def send(x, inter=0, loop=0, verbose=None, *args, **kargs):
+    """Send packets at layer 3
+send(packets, [inter=0], [loop=0], [verbose=conf.verb]) -> None"""
+    __gen_send(conf.L3socket(*args, **kargs), x, inter=inter, loop=loop, verbose=verbose)
 
-
+def sendp(x, inter=0, loop=0, verbose=None, *args, **kargs):
+    """Send packets at layer 2
+send(packets, [inter=0], [loop=0], [verbose=conf.verb]) -> None"""
+    __gen_send(conf.L2socket(*args, **kargs), x, inter=inter, loop=loop, verbose=verbose)
     
 def sr(x,filter=None, iface=None, *args,**kargs):
     """Send and receive packets at layer 3"""
