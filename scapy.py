@@ -22,6 +22,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.15.9  2004/01/10 23:40:51  pbi
+# - added
+#
 # Revision 0.9.15.8  2004/01/09 16:42:42  pbi
 # - improved send() and sendp() with parameters loop and verbose
 #
@@ -318,7 +321,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.15.8 2004/01/09 16:42:42 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.15.9 2004/01/10 23:40:51 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -3301,6 +3304,42 @@ def srp1(x,iface=None,filter=None,type=ETH_P_ALL, *args,**kargs):
     else:
         return None
 
+def __sr_loop(srfunc, pkts, prn=lambda x:x.summary(), inter=1, timeout=0, count=None, verbose=0,  *args, **kargs):
+    n = 0;
+    if timeout == 0:
+        timeout = min(2*inter, 5)
+    try:
+        while 1:
+            if count is not None:
+                if count == 0:
+                    break
+                count -= 1
+            start = time.time()
+            os.write(1, ". ")
+            n += 1
+            res = srfunc(pkts, timeout=timeout, verbose=0, *args, **kargs)
+            if res is None:
+                print "no response"
+            else:
+                print prn(res)
+            end=time.time()
+            if end-start < inter:
+                time.sleep(inter+start-end)
+    except KeyboardInterrupt:
+        pass
+    print "\nSent %i packets." % n
+
+def srloop(pkts, *args, **kargs):
+    """Send a packet at layer 3 in loop and print the answer each time
+srloop(pkts, [prn], [inter], [count], ...) --> None"""
+    __sr_loop(sr1, pkts, *args, **kargs)
+
+def srploop(pkts, *args, **kargs):
+    """Send a packet at layer 2 in loop and print the answer each time
+srloop(pkts, [prn], [inter], [count], ...) --> None"""
+    __sr_loop(srp1, pkts, *args, **kargs)
+
+           
 
 
 #############################
