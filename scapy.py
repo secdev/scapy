@@ -21,6 +21,11 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.67  2005/03/28 22:17:44  pbi
+# - use gzip compression for load_object/save_object
+# - made RandNum() and Emph() pickable
+# - changed prompt color in default color theme
+#
 # Revision 0.9.17.66  2005/03/28 14:30:01  pbi
 # - more DHCP work
 #
@@ -670,7 +675,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.66 2005/03/28 14:30:01 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.67 2005/03/28 22:17:44 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1067,10 +1072,10 @@ def import_object(obj=None):
         obj = sys.stdin.read()
     return cPickle.loads(gzip.zlib.decompress(base64.decodestring(obj.strip())))
 def save_object(fname, obj):
-    cPickle.dump(obj,open(fname,"w"))
+    cPickle.dump(obj,gzip.open(fname,"w"))
 
 def load_object(fname):
-    return cPickle.load(open(fname))
+    return cPickle.load(gzip.open(fname))
 
 
 
@@ -1387,6 +1392,8 @@ class RandField:
     pass
 
 class RandNum(RandField):
+    min = 0
+    max = 0
     def __init__(self, min, max):
         self.min = min
         self.max = max
@@ -1958,10 +1965,11 @@ class Field:
 
 
 class Emph:
+    fld = ""
     def __init__(self, fld):
-        self.__fld = fld
+        self.fld = fld
     def __getattr__(self, attr):
-        return getattr(self.__fld,attr)
+        return getattr(self.fld,attr)
 
 
 class MACField(Field):
@@ -7188,7 +7196,7 @@ class BlackAndWhite(ColorTheme):
 
 class DefaultTheme(ColorTheme):
     normal = Color.normal
-    prompt = Color.green
+    prompt = Color.blue+Color.bold
     punct = Color.normal
     not_printable = Color.grey
     layer_name = Color.red+Color.bold
