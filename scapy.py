@@ -21,6 +21,13 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.37  2005/02/10 22:33:13  pbi
+# - export_object()/import_object() to copy/paste base64 gzipped pickled objects
+# - prevent save_session from deleting unpicklable objects
+# - added hexdump() and hexraw() methods to PacketList object
+# - Raw packet answers any Raw packet
+# - added conf.checkIPaddr to recognize broadcast replies (BOOTP/DHCP)
+#
 # Revision 0.9.17.36  2005/02/02 22:39:48  pbi
 # - added GPRS dummy packet class
 #
@@ -556,7 +563,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.36 2005/02/02 22:39:48 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.37 2005/02/10 22:33:13 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -707,7 +714,7 @@ if __name__ == "__main__":
 ##################
 
 import socket, sys, getopt, string, struct, time, random, os, traceback
-import cPickle, types, gzip, re
+import cPickle, types, gzip, base64, re
 from select import select
 from fcntl import ioctl
 import fcntl
@@ -894,12 +901,16 @@ def save_session(fname, session=None, pickleProto=-1):
     if session is None:
         session = scapy_session
         
+    saved = {}
+        
     if session.has_key("__builtins__"):
-            del(session["__builtins__"])
+        saved["__builtins__"] = session["__builtins__"]
+        del(session["__builtins__"])
 
     for k in session.keys():
         if type(session[k]) in [types.ClassType, types.ModuleType]:
              print "[%s] (%s) can't be saved. Deleted." % (k, type(session[k]))
+             saved[k] = session[k]
              del(session[k])
 
     try:
@@ -909,6 +920,8 @@ def save_session(fname, session=None, pickleProto=-1):
     f=gzip.open(fname,"w")
     cPickle.dump(session, f, pickleProto)
     f.close()
+    session.update(saved)
+    
 
 def load_session(fname):
     try:
@@ -924,6 +937,15 @@ def update_session(fname):
     except IOError:
         s = cPickle.load(open(fname))
     scapy_session.update(s)
+
+def export_object(obj):
+    print base64.encodestring(gzip.zlib.compress(cPickle.dumps(obj,2),9))
+
+def import_object(obj=None):
+    if obj is None:
+        obj = sys.stdin.read()
+    return cPickle.loads(gzip.zlib.decompress(base64.decodestring(obj.strip())))
+
 
 
 #################
@@ -1376,6 +1398,18 @@ class PacketList:
         g=Gnuplot.Gnuplot()
         g.plot(Gnuplot.Data(map(f,self.res), **kargs))
         return g
+
+    def hexdump(self):
+        for p in self:
+            hexdump(self.elt2pkt(p))
+
+
+    def hexraw(self):
+        for i in range(len(self.res)):
+            p = self.elt2pkt(self.res[i])
+            print "%04i %s %s" % (i,p.sprintf("%.time%"),self.elt2sum(self.res[i]))
+            if p.haslayer(Raw):
+                hexdump(p.getlayer(Raw).load)
 
 class SndRcvAns(PacketList):
     def __init__(self, res, name="Results"):
@@ -1880,7 +1914,8 @@ class StrStopField(StrField):
     def getfield(self, pkt, s):
         l = s.find(self.stop)
         if l < 0:
-            raise Exception,"StrStopField: stop value not found"
+            return "",s
+#            raise Exception,"StrStopField: stop value [%s] not found" %stop
         l += len(self.stop)+self.additionnal
         return s[l:],s[:l]
 
@@ -2799,10 +2834,11 @@ class Raw(Packet):
     name = "Raw"
     fields_desc = [ StrField("load", "") ]
     def answers(self, other):
-        s = str(other)
-        t = self.load
-        l = min(len(s), len(t))
-        return  s[:l] == t[:l]
+        return 1
+#        s = str(other)
+#        t = self.load
+#        l = min(len(s), len(t))
+#        return  s[:l] == t[:l]
         
 class Padding(Raw):
     name = "Padding"
@@ -3067,14 +3103,14 @@ class IP(Packet, IPTools):
              and (self.payload.type in [3,4,5,11,12]) ):
             return self.payload.payload.hashret()
         else:
-            if conf.checkIPsrc:
+            if conf.checkIPsrc and conf.checkIPaddr:
                 return strxor(inet_aton(self.src),inet_aton(self.dst))+struct.pack("B",self.proto)+self.payload.hashret()
             else:
                 return struct.pack("B", self.proto)+self.payload.hashret()
     def answers(self, other):
         if not isinstance(other,IP):
             return 0
-        if (self.dst != other.src):
+        if conf.checkIPaddr and (self.dst != other.src):
             return 0
         if ( (self.proto == socket.IPPROTO_ICMP) and
              (isinstance(self.payload, ICMP)) and
@@ -3083,7 +3119,7 @@ class IP(Packet, IPTools):
             return self.payload.payload.answers(other)
 
         else:
-            if ( (self.src != other.dst) or
+            if ( (conf.checkIPaddr and (self.src != other.dst)) or
                  (self.proto != other.proto) ):
                 return 0
             return self.payload.answers(other.payload)
@@ -6321,6 +6357,7 @@ route    : holds the Scapy routing table and provides methods to manipulate it
     iface = get_working_if()
     checkIPID = 1
     checkIPsrc = 1
+    checkIPaddr = 1
     verb = 2
     promisc = "not implemented"
     sniff_promisc = 0
