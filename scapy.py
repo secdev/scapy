@@ -22,6 +22,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.16.4  2004/03/23 08:45:10  pbi
+# - Support for reading big endian pcap files (Pekka Pietikainen)
+#
 # Revision 0.9.16.3  2004/02/28 11:12:12  pbi
 # - got rid of some future warnings (N. Bareil <nbareil@mouarf.org>)
 # - improved BitField() for arbitrary length bit fields (N. Bareil <nbareil@mouarf.org>)
@@ -354,7 +357,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.16.3 2004/02/28 11:12:12 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.16.4 2004/03/23 08:45:10 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -3505,14 +3508,19 @@ def wrpcap(filename, pkt):
 def rdpcap(filename):
     res=[]
     f=open(filename)
-    hdr = f.read(24)
-    if len(hdr)<24:
-        warning("Invalid pcap file")
-        return res
-    magic,vermaj,vermin,tz,sig,snaplen,linktype = struct.unpack("IHHIIII",hdr)
-    if magic != 0xa1b2c3d4L:
+    magic = f.read(4)
+    if struct.unpack("<I",magic) == (0xa1b2c3d4L,):
+       endian = "<"
+    elif struct.unpack(">I",magic) == (0xa1b2c3d4L,):
+       endian = ">"
+    else:
         warning("Not a pcap capture file (bad magic)")
         return []
+    hdr = f.read(20)
+    if len(hdr)<20:
+        warning("Invalid pcap file")
+        return res
+    vermaj,vermin,tz,sig,snaplen,linktype = struct.unpack(endian+"HHIIII",hdr)
     LLcls = LLTypes.get(linktype, Raw)
     if LLcls == Raw:
         warning("LL type unknown. Using Raw packets")
@@ -3520,7 +3528,7 @@ def rdpcap(filename):
         hdr = f.read(16)
         if len(hdr) < 16:
             break
-        sec,usec,caplen,olen = struct.unpack("IIII", hdr )
+        sec,usec,caplen,olen = struct.unpack(endian+"IIII", hdr )
         p = LLcls(f.read(caplen))
         p.time = sec+0.000001*usec
         res.append(p)
