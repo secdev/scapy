@@ -22,6 +22,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.9.12  2003/04/14 10:05:42  pbi
+# - bugfixed the close() method of some supersockets
+#
 # Revision 0.9.9.11  2003/04/13 21:41:01  biondi
 # - added get_working_if()
 # - use get_working_if() for default interface
@@ -136,7 +139,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.9.11 2003/04/13 21:41:01 biondi Exp $"
+RCSID="$Id: scapy.py,v 0.9.9.12 2003/04/14 10:05:42 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2259,9 +2262,9 @@ class SuperSocket:
         return self.ins.fileno()
     def close(self):
         if self.ins != self.outs:
-            if self.outs:
+            if self.outs and self.outs.fileno() != -1:
                 self.outs.close()
-        if self.ins:
+        if self.ins and self.ins.fileno() != -1:
             self.ins.close()
     def bind_in(self, addr):
         self.ins.bind(addr)
@@ -2307,10 +2310,10 @@ class L3PacketSocket(SuperSocket):
             for i in self.iff:
                 set_promisc(self.ins, i)
     def close(self):
-        SuperSocket.close(self)
         if self.promisc:
             for i in self.iff:
                 set_promisc(self.ins, i, 0)
+        SuperSocket.close(self)
     def recv(self, x):
         pkt, sa_ll = self.ins.recvfrom(x)
         # XXX: if sa_ll[2] == socket.PACKET_OUTGOING : skip
@@ -2388,11 +2391,10 @@ class L2ListenSocket(SuperSocket):
             for i in self.iff:
                 set_promisc(self.ins, i)
     def close(self):
-        SuperSocket.close(self)
         if self.promisc:
             for i in self.iff:
-
                 set_promisc(self.ins, i, 0)
+        SuperSocket.close(self)
 
     def recv(self, x):
         pkt, sa_ll = self.ins.recvfrom(x)
