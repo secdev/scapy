@@ -22,6 +22,11 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.14.7  2003/10/02 14:14:17  pbi
+# - added a LongField
+# - added classes and bonds for 802.11
+# - added error handling and magic checks for rdpcap()
+#
 # Revision 0.9.14.6  2003/09/12 14:45:35  pbi
 # - had Dot11 working
 #
@@ -276,7 +281,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.14.6 2003/09/12 14:45:35 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.14.7 2003/10/02 14:14:17 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1151,6 +1156,18 @@ class XIntField(IntField):
         return hex(self.i2h(pkt, x))
 
 
+class LongField(Field):
+    def __init__(self, name, default):
+        Field.__init__(self, name, default, "Q")
+
+class XLongField(LongField):
+    def i2repr(self, pkt, x):
+	if x is None:
+	    x = 0
+        return hex(self.i2h(pkt, x))
+
+
+
 class StrField(Field):
     def i2m(self, pkt, x):
         if x is None:
@@ -1900,12 +1917,14 @@ Ex : p.sprintf("%.time% %-15s,IP.src% -> %-15s,IP.dst% %IP.chksum% "
         s += fmt
         return s
 
+    def sum(self):
+        return self.name
     def mysummary(self):
         ret = ""
         if self.underlayer is not None:
             ret += self.underlayer.mysummary()
             ret += " / "
-        return ret+self.name
+        return ret+self.sum()
     def summary(self):
         ret = self.payload.summary()
         if ret == "":
@@ -2530,6 +2549,91 @@ class Dot11(Packet):
                     ]
     def mysummary(self):
         return self.sprintf("802.11 %Dot11.type% %Dot11.subtype% %Dot11.addr1%")
+
+capability_list = [ "res8", "res9", "short-slot", "res11",
+                    "res12", "DSSS-OFDM", "res14", "res15",
+                   "ESS", "IBSS", "CFP", "CFP-req",
+                   "privacy", "short-preamble", "PBCC", "agility"]
+
+reason_code = {0:"reserved",1:"unspec", 2:"auth-expired",
+               3:"deauth-ST-leaving",
+               4:"inactivity", 5:"AP-full", 6:"class2-from-nonauth",
+               7:"class3-from-nonass", 8:"disas-ST-leaving",
+               9:"ST-not-auth"}
+
+status_code = {0:"success", 1:"failure", 10:"cannot-support-all-cap",
+               11:"inexist-asso", 12:"asso-denied", 13:"algo-unsupported",
+               14:"bad-seq-num", 15:"challenge-failure",
+               16:"timeout", 17:"AP-full",18:"rate-unsupported" }
+
+class Dot11Beacon(Packet):
+    name = "802.11 Beacon"
+    fields_desc = [ LongField("timestamp", 0),
+                    ShortField("beacon_interval", 0x6400),
+                    FlagsField("cap", 0, 16, capability_list) ]
+    
+
+class Dot11Elt(Packet):
+    name = "802.11 Information Element"
+    fields_desc = [ ByteEnumField("ID", 0, {0:"SSID", 1:"Rates", 2: "FHset", 3:"DSset", 4:"CFset", 5:"TIM", 6:"IBSSset", 16:"challenge"}),
+                    FieldLenField("len", None, "info", "B"),
+                    StrLenField("info", "", "len") ]
+    def sum(self):
+        return self.sprintf("Info %Dot11Elt.ID%")
+
+class Dot11ATIM(Packet):
+    name = "802.11 ATIM"
+
+class Dot11Disas(Packet):
+    name = "802.11 Disassociation"
+    fields_desc = [ ShortEnumField("reason", 1, reason_code) ]
+
+class Dot11AssoReq(Packet):
+    name = "802.11 Association Request"
+    fields_desc = [ FlagsField("cap", 0, 16, capability_list),
+                    ShortField("listen_interval", 0xc800) ]
+
+
+class Dot11AssoResp(Packet):
+    name = "802.11 Association Response"
+    fields_desc = [ FlagsField("cap", 0, 16, capability_list),
+                    ShortField("status", 0),
+                    ShortField("AID", 0) ]
+
+class Dot11ReassoReq(Packet):
+    name = "802.11 Reassociation Request"
+    fields_desc = [ FlagsField("cap", 0, 16, capability_list),
+                    MACField("current_AP", ETHER_ANY),
+                    ShortField("listen_interval", 0xc800) ]
+
+
+class Dot11ReassoResp(Dot11AssoResp):
+    name = "802.11 Reassociation Response"
+
+class Dot11ProbeReq(Packet):
+    name = "802.11 Probe Request"
+    
+class Dot11ProbeResp(Packet):
+    name = "802.11 Probe Response"
+    fields_desc = [ LongField("timestamp", 0),
+                    ShortField("beacon_interval", 0x6400),
+                    FlagsField("cap", 0, 16, capability_list) ]
+    
+class Dot11Auth(Packet):
+    name = "802.11 Authentication"
+    fields_desc = [ ShortEnumField("algo", 0, ["open", "sharedkey"]),
+                    ShortField("seqnum", 0),
+                    ShortEnumField("status", 0, status_code) ]
+
+class Dot11Deauth(Packet):
+    name = "802.11 Deauthentication"
+    fields_desc = [ ShortEnumField("reason", 1, reason_code) ]
+
+
+
+
+#class Dot11Reason
+
     
 #########
 ##
@@ -2605,6 +2709,26 @@ layer_bonds = [ ( Dot3,   LLC,      { } ),
                 ( UDP,    DNS,      { "dport" : 53 } ),
                 ( UDP,    BOOTP,    { "sport" : 68, "dport" : 67 } ),
                 ( UDP,    BOOTP,    { "sport" : 67, "dport" : 68 } ),
+                ( Dot11, Dot11AssoReq,    { "type" : 0, "subtype" : 0 } ),
+                ( Dot11, Dot11AssoResp,   { "type" : 0, "subtype" : 1 } ),
+                ( Dot11, Dot11ReassoReq,  { "type" : 0, "subtype" : 2 } ),
+                ( Dot11, Dot11ReassoResp, { "type" : 0, "subtype" : 3 } ),
+                ( Dot11, Dot11ProbeReq,   { "type" : 0, "subtype" : 4 } ),
+                ( Dot11, Dot11ProbeResp,  { "type" : 0, "subtype" : 5 } ),
+                ( Dot11, Dot11Beacon,     { "type" : 0, "subtype" : 8 } ),
+                ( Dot11, Dot11ATIM ,      { "type" : 0, "subtype" : 9 } ),
+                ( Dot11, Dot11Disas ,     { "type" : 0, "subtype" : 10 } ),
+                ( Dot11, Dot11Auth,       { "type" : 0, "subtype" : 11 } ),
+                ( Dot11, Dot11Deauth,     { "type" : 0, "subtype" : 12 } ),
+                ( Dot11Beacon, Dot11Elt,     {} ),
+                ( Dot11AssoReq, Dot11Elt,    {} ),
+                ( Dot11AssoResp, Dot11Elt,   {} ),
+                ( Dot11ReassoReq, Dot11Elt,  {} ),
+                ( Dot11ReassoResp, Dot11Elt, {} ),
+                ( Dot11ProbeReq, Dot11Elt,   {} ),
+                ( Dot11ProbeResp, Dot11Elt,  {} ),
+                ( Dot11Auth, Dot11Elt,       {} ),
+                ( Dot11Elt, Dot11Elt,        {} ),
                 ]
 
 for l in layer_bonds:
@@ -3151,7 +3275,12 @@ def rdpcap(filename):
         warning("Invalid pcap file")
         return res
     magic,vermaj,vermin,tz,sig,snaplen,linktype = struct.unpack("IHHIIII",hdr)
-    LLcls=LLTypes[linktype]
+    if magic != 0xa1b2c3d4L:
+        warning("Not a pcap capture file (bad magic)")
+        return []
+    LLcls = LLTypes.get(linktype, Raw)
+    if LLcls == Raw:
+        warning("LL type unknown. Using Raw packets")
     while 1:
         hdr = f.read(16)
         if len(hdr) < 16:
