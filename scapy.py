@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.66  2005/03/28 14:30:01  pbi
+# - more DHCP work
+#
 # Revision 0.9.17.65  2005/03/28 14:29:03  pbi
 # - first attempt to generate libnet C code from a packet
 #
@@ -667,7 +670,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.65 2005/03/28 14:29:03 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.66 2005/03/28 14:30:01 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -3981,61 +3984,98 @@ DHCPTypes = {
 #		    "message-type": (53, DHCP_TYPE)
 #		    } )
 
-DHCPOptions = (
-		{
-		    0: "pad",
-		    1: IPField("subnet_mask", "0.0.0.0"),
-                    2: "time_zone",
-#		    3: IPListField("routers"),
-                    4: "time_server",
-                    5: "IEN_name_server",
-                    6: "name_server",
-                    7: "log_server",
-                    8: "cookie_server",
-                    9: "lpr_server",
-                    14: "dump_path",
-                    15: "domain",
-                    17: "root_disk_path",
-                    22: "max_dgram_reass_size",
-                    23: "default_ttl",
-                    24: "pmtu_timeout",
-                    35: "arp_cache_timeout",
-                    36: "ether_or_dot3",
-                    37: "tcp_ttl",
-                    38: "tcp_keepalive_interval",
-                    39: "tcp_keepalive_garbage",
-                    40: "NIS_domain",
-                    41: "NIS_server",
-                    42: "NTP_server",
-                    43: "vendor_specific",
-                    44: "NetBIOS_server",
-                    45: "NetBIOS_dist_server",
-                    64: "NISplus_domain",
-                    65: "NISplus_server",
-                    69: "SMTP_server",
-                    70: "POP3_server",
-                    71: "NNTP_server",
-                    72: "WWW_server",
-                    73: "Finger_server",
-                    74: "IRC_server",
-                    75: "StreetTalk_server",
-                    76: "StreetTalk_Dir_Assistance",
-		    53: ByteEnumField("message-type", 1, DHCPTypes),
-#		    55: DHCPRequestListField("request-list"),
-		    255: "end"
-		    },
-		{
-		    "pad": (0, None),
-		    "subnet-mask": (1, IPField("subnet-mask", "0.0.0.0")),
-#		    "routers": (3, IPListField("routers")),
-		    "message-type": (53, ByteEnumField("message-type", 1, DHCPTypes)),
-		    "end": (255, None)
-		    } )
+DHCPOptions = {
+    0: "pad",
+    1: IPField("subnet_mask", "0.0.0.0"),
+    2: "time_zone",
+    3: IPField("router","0.0.0.0"),
+    4: IPField("time_server","0.0.0.0"),
+    5: IPField("IEN_name_server","0.0.0.0"),
+    6: IPField("name_server","0.0.0.0"),
+    7: IPField("log_server","0.0.0.0"),
+    8: IPField("cookie_server","0.0.0.0"),
+    9: IPField("lpr_server","0.0.0.0"),
+    14: "dump_path",
+    15: "domain",
+    17: "root_disk_path",
+    22: "max_dgram_reass_size",
+    23: "default_ttl",
+    24: "pmtu_timeout",
+    28: IPField("broadcast_address","0.0.0.0"),
+    35: "arp_cache_timeout",
+    36: "ether_or_dot3",
+    37: "tcp_ttl",
+    38: "tcp_keepalive_interval",
+    39: "tcp_keepalive_garbage",
+    40: "NIS_domain",
+    41: IPField("NIS_server","0.0.0.0"),
+    42: IPField("NTP_server","0.0.0.0"),
+    43: "vendor_specific",
+    44: IPField("NetBIOS_server","0.0.0.0"),
+    45: IPField("NetBIOS_dist_server","0.0.0.0"),
+    51: IntField("lease_time", 43200),
+    54: IPField("serveur_id","0.0.0.0"),
+    57: ShortField("max_dhcp_size", 1500),
+    58: IntField("renewal_time", 21600),
+    59: IntField("rebinding_time", 37800),
+    
+    64: "NISplus_domain",
+    65: IPField("NISplus_server","0.0.0.0"),
+    69: IPField("SMTP_server","0.0.0.0"),
+    70: IPField("POP3_server","0.0.0.0"),
+    71: IPField("NNTP_server","0.0.0.0"),
+    72: IPField("WWW_server","0.0.0.0"),
+    73: IPField("Finger_server","0.0.0.0"),
+    74: IPField("IRC_server","0.0.0.0"),
+    75: IPField("StreetTalk_server","0.0.0.0"),
+    76: "StreetTalk_Dir_Assistance",
+    53: ByteEnumField("message-type", 1, DHCPTypes),
+    #		    55: DHCPRequestListField("request-list"),
+    255: "end"
+    }
+
+DHCPRevOptions = {}
+
+for k,v in DHCPOptions.iteritems():
+    if type(v) is str:
+        n = v
+        v = None
+    else:
+        n = str(v)
+    DHCPRevOptions[n] = (k,v)
+del(n)
+del(v)
+del(k)
+    
+    
+
+#
+#{
+#		    "pad": (0, None),
+#		    "subnet-mask": (1, IPField("subnet-mask", "0.0.0.0")),
+##		    "routers": (3, IPListField("routers")),
+#		    "message-type": (53, ByteEnumField("message-type", 1, DHCPTypes)),
+#		    "end": (255, None)
+#		    } )
 
 
 
 class DHCPOptionsField(StrField):
     islist=1
+    def i2repr(self,pkt,x):
+        s = []
+        for v in x:
+            if type(v) is tuple and len(v) == 2:
+                if  DHCPRevOptions.has_key(v[0]) and isinstance(DHCPRevOptions[v[0]][1],Field):
+                    f = DHCPRevOptions[v[0]][1]
+                    vv = f.i2repr(pkt,v[1])
+                else:
+                    vv = repr(v[1])
+                s.append("%s=%s" % (v[0],vv))
+            else:
+                s.append(str(v))
+        return "[%s]" % (" ".join(s))
+        
     def getfield(self, pkt, s):
 	#print "getfield s=%s %d" % (s, len(s))
 	return "", self.m2i(pkt, s)
@@ -4045,15 +4085,24 @@ class DHCPOptionsField(StrField):
 	while x:
 	    o = ord(x[0])
 	    #print "o=%d x=%s len=%d" % (o, x, len(x))
-	    if DHCPOptions[0].has_key(o):
-		f = DHCPOptions[0][o]
+            if o == 255:
+                opt.append("end")
+                x = x[1:]
+                continue
+            if o == 0:
+                opt.append("pad")
+                x = x[1:]
+                continue
+	    if DHCPOptions.has_key(o):
+		f = DHCPOptions[o]
 
 		if isinstance(f, str):
-		    opt.append(f)
-		    x = x[1:]
+                    olen = ord(x[1])
+                    opt.append( (f,x[2:olen+2]) )
+		    x = x[olen+2:]
 		else:
 		    olen = ord(x[1])
-		    left, val = f.getfield(pkt,x[2:olen+2])
+		    left, val = f.m2i(pkt,f.getfield(pkt,x[2:olen+2]))
 		    if left:
 			print "m2i data left left=%s" % left
 		    opt.append((f.name, val))
@@ -4067,31 +4116,29 @@ class DHCPOptionsField(StrField):
 	#print "i2m x=%s" % x
 	s = ""
 	for o in x:
-	    if isinstance(o, tuple) and len(o) == 2:
+	    if type(o) is tuple and len(o) == 2:
 		name, val = o
 
 		if isinstance(name, int):
 		    onum, oval = name, val
-	#	    print "raw"
-		elif DHCPOptions[1].has_key(name) and DHCPOptions[1][name][1] != None:
-		    onum, f = DHCPOptions[1][name]
-		    oval = f.addfield(pkt,"",val)
-	#	    print "type"
+		elif DHCPRevOptions.has_key(name) and DHCPRevOptions[name][1] is not None:
+		    onum, f = DHCPRevOptions[name]
+		    oval = f.addfield(pkt,"",f.i2m(pkt,f.any2i(pkt,val)))
 		else:
-		    print "Unknown field option %s" % name
+		    warning("Unknown field option %s" % name)
 		    continue
 
-	#	print "oval=%s" % oval
-		    
 		s += chr(onum)
 		s += chr(len(oval))
 		s += oval
 		
-	    elif isinstance(o, str) and DHCPOptions[1].has_key(o) and \
-		 DHCPOptions[1][o][1] == None:
-		s += chr(DHCPOptions[1][o][0])
+	    elif (type(o) is str and DHCPRevOptions.has_key(o) and 
+                  DHCPRevOptions[o][1] == None):
+		s += chr(DHCPRevOptions[o][0])
+            elif type(o) is int:
+                s += chr(o)
 	    else:
-		print "Malformed option %s" % o
+		warning("Malformed option %s" % o)
 	return s
 
 
