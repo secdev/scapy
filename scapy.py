@@ -22,6 +22,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.11.1  2003/04/22 14:38:16  pbi
+# Release 0.9.11
+#
 # Revision 0.9.10.8  2003/04/22 14:37:32  pbi
 # - fixed bug in getmacbyip() using dnet module
 # - deactivated getmacbyip() using dnet module because it did not resolve unknown IPs
@@ -177,7 +180,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.10.8 2003/04/22 14:37:32 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.11.1 2003/04/22 14:38:16 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
