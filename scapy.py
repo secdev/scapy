@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.17  2004/09/21 21:32:41  pbi
+# - added early PPPoE support (Ralf Ertzinger)
+# - fixed DNS summary() to handle empty queries or answers
+#
 # Revision 0.9.17.16  2004/09/21 14:58:15  pbi
 # - added VOIP playing functions (not tested)
 #
@@ -469,7 +473,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.16 2004/09/21 14:58:15 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.17 2004/09/21 21:32:41 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2485,6 +2489,28 @@ class Ether(Packet):
     def mysummary(self):
         return "%s > %s (%04x)" % (self.src, self.dst, self.type)
 
+class PPPoE(Packet):
+    name = "PPP over Ethernet"
+    fields_desc = [ BitField("version", 1, 4),
+                    BitField("type", 1, 4),
+                    ByteEnumField("code", 0, {0:"Session"}),
+                    XShortField("sessionid", 0x0),
+                    ShortField("len", None) ]
+
+    def post_build(self,p):
+        if self.len is None:
+            l = len(p)-6
+            p = p[:4]+struct.pack("!H", l)+p[6:]
+        return p
+
+class PPPoED(PPPoE):
+    name = "PPP over Ethernet Discovery"
+    fields_desc = [ BitField("version", 1, 4),
+                    BitField("type", 1, 4),
+                    ByteEnumField("code", 0x09, {0x09:"PADI",0x07:"PADO",0x19:"PADR",0x65:"PADS",0xa7:"PADT"}),
+                    XShortField("sessionid", 0x0),
+                    ShortField("len", None) ]
+
 class Dot3(Packet):
     name = "802.3"
     fields_desc = [ MACField("dst", ETHER_BROADCAST),
@@ -2944,8 +2970,10 @@ class ICMPerror(ICMP):
         return Packet.mysummary(self)
 
                 
-class LLPPP(Packet):
+class PPP(Packet):
     name = "PPP Link Layer"
+    fields_desc = [ ShortEnumField("proto", 0x0021, {0x0021: "IP",
+                                                     0xc021: "LCP"} ) ]
             
         
 class DNS(Packet):
@@ -2968,10 +2996,17 @@ class DNS(Packet):
                     DNSRRField("ns", "nscount"),
                     DNSRRField("ar", "arcount",0) ]
     def mysummary(self):
+        type = ["Qry","Ans"][self.qr]
+        name = ""
         if self.qr:
-            return 'DNS Ans "%s"' % self.an.rdata
+            type = "Ans"
+            if self.ancount > 0:
+                name = ' "%s"' % self.an.rdata
         else:
-            return 'DNS Query "%s"' % self.qd.qname
+            type = "Qry"
+            if self.qdcount > 0:
+                name = ' "%s"' % self.qd.qname
+        return 'DNS %s%s ' % (type, name)
 
 dnstypes = { 0:"ANY", 255:"ALL",
              1:"A", 2:"NS", 3:"MD", 4:"MD", 5:"CNAME", 6:"SOA", 7: "MB", 8:"MG",
@@ -3354,7 +3389,7 @@ def bind_layers(lower, upper, fval):
 layer_bonds = [ ( Dot3,   LLC,      { } ),
                 ( PrismHeader, Dot11, { }),
                 ( Dot11,  LLC,      { "type" : 2 } ),
-                ( LLPPP,  IP,       { } ),
+                ( PPP,    IP,       { "proto" : 0x0021 } ),
                 ( Ether,  LLC,      { "type" : 0x007a } ),
                 ( Ether,  Dot1Q,    { "type" : 0x8100 } ),
                 ( Ether,  Ether,    { "type" : 0x0001 } ),
@@ -3362,6 +3397,9 @@ layer_bonds = [ ( Dot3,   LLC,      { } ),
                 ( Ether,  IP,       { "type" : 0x0800 } ),
                 ( Ether,  EAPOL,    { "type" : 0x888e } ),
                 ( Ether,  EAPOL,    { "type" : 0x888e, "dst" : "01:80:c2:00:00:03" } ),
+                ( Ether,  PPPoED,   { "type" : 0x8863 } ),
+                ( Ether,  PPPoE,    { "type" : 0x8864 } ),
+                ( PPPoE,  PPP,      { "code" : 0x00 } ),
                 ( EAPOL,  EAP,      { "type" : EAPOL.EAP_PACKET } ),
                 ( LLC,    STP,      { "dsap" : 0x42 , "ssap" : 0x42 } ),
                 ( LLC,    SNAP,     { "dsap" : 0xAA , "ssap" : 0xAA } ),
