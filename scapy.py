@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.2  2004/07/28 21:16:12  pbi
+# - added nsummary() method to SndRcvList() class
+#
 # Revision 0.9.17.1  2004/07/26 19:52:55  pbi
 # Release 0.9.17
 #
@@ -412,7 +415,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.1 2004/07/26 19:52:55 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.2 2004/07/28 21:16:12 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1148,6 +1151,10 @@ class SndRcvAns:
     def summary(self):
         for s,r in self.res:
             print s.summary(),"==>",r.summary()
+    def nsummary(self):
+        for i in range(len(self.res)):
+            s,r = self.res[i]
+            print "%04i %s ==> %s" % (i,s.summary(),r.summary())
     def make_table(self, *args, **kargs):
         return make_table(self.res, *args, **kargs)
     def make_lined_table(self, *args, **kargs):
