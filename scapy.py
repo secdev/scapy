@@ -22,10 +22,6 @@
 
 #
 # $Log: scapy.py,v $
-# Revision 0.9.9.15  2003/04/14 15:42:47  pbi
-# - added L3pcapListenSocket
-# - fixed L3ListenSocket to use ETH_P_ALL instead of ETH_P_IP by default
-#
 # Revision 0.9.10.1  2003/04/14 15:43:45  pbi
 # Release 0.9.10
 #
@@ -152,7 +148,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.9.15 2003/04/14 15:42:47 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.10.1 2003/04/14 15:43:45 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
