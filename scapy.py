@@ -22,6 +22,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.13.5  2003/06/25 13:17:00  pbi
+# - tried to avoid the "import scapy". completer does not work well anymore, and performance is the same
+#
 # Revision 0.9.13.4  2003/06/25 12:35:57  pbi
 # - fixed a regression in L3PacketSocket for ppp links
 #
@@ -245,7 +248,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.13.4 2003/06/25 12:35:57 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.13.5 2003/06/25 13:17:00 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -266,132 +269,6 @@ def usage():
 ##
 ##########[XXX]#=--
 
-################
-##### Main #####
-################
-
-
-if __name__ == "__main__":
-    import code,sys,cPickle,types,os
-    import scapy
-    __builtins__.__dict__.update(scapy.__dict__)
-
-    import rlcompleter,readline
-    import re
-
-    class ScapyCompleter(rlcompleter.Completer):
-        def global_matches(self, text):
-            matches = []
-            n = len(text)
-            for list in [dir(__builtins__), session.keys()]:
-                for word in list:
-                    if word[:n] == text and word != "__builtins__":
-                        matches.append(word)
-            return matches
-    
-
-        def attr_matches(self, text):
-            m = re.match(r"(\w+(\.\w+)*)\.(\w*)", text)
-            if not m:
-                return
-            expr, attr = m.group(1, 3)
-            try:
-                object = eval(expr)
-            except:
-                object = eval(expr, session)
-            if isinstance(object, scapy.Packet):
-                words = filter(lambda x: x[0]!="_",dir(object))
-                words += map(str, object.fields_desc)
-            else:
-                words = dir(object)
-                if hasattr( object,"__class__" ):
-                    words = words + rlcompleter.get_class_members(object.__class__)
-            matches = []
-            n = len(attr)
-            for word in words:
-                if word[:n] == attr and word != "__builtins__":
-                    matches.append("%s.%s" % (expr, word))
-            return matches
-
-    readline.set_completer(ScapyCompleter().complete)
-    readline.parse_and_bind("tab: complete")
-    
-    
-    session=None
-    session_name=""
-
-    opts=getopt.getopt(sys.argv[1:], "hs:")
-    iface = None
-    try:
-        for opt, parm in opts[0]:
-	    if opt == "-h":
-	        usage()
-            elif opt == "-s":
-                session_name = parm
-        
-	if len(opts[1]) > 0:
-	    raise getopt.GetoptError("Too many parameters : [%s]" % string.join(opts[1]),None)
-
-
-    except getopt.error, msg:
-        print "ERROR:", msg
-        sys.exit(1)
-
-
-    if session_name:
-        try:
-            f=open(session_name)
-            session=cPickle.load(f)
-            f.close()
-            print "Using session [%s]" % session_name
-        except IOError:
-            print "New session [%s]" % session_name
-        except EOFError:
-            print "Error opening session [%s]" % session_name
-        except AttributeError:
-            print "Error opening session [%s]. Attribute missing" %  session_name
-
-        if session:
-            if "conf" in session:
-                scapy.conf.configure(session["conf"])
-                session["conf"] = scapy.conf
-        else:
-            scapy.conf.session = session_name
-            session={"conf":scapy.conf}
-            
-    else:
-        session={"conf": scapy.conf}
-
-    if scapy.conf.histfile:
-        try:
-            readline.read_history_file(scapy.conf.histfile)
-        except IOError:
-            pass
-
-    code.interact(banner = "Welcome to Scapy (%s)"%VERSION, local=session)
-
-    if scapy.conf.session:
-
-        if session.has_key("__builtins__"):
-            del(session["__builtins__"])
-
-        for k in session.keys():
-            if type(session[k]) in [types.ClassType, types.ModuleType]:
-                 print "[%s] (%s) can't be saved. Deleted." % (k, type(session[k]))
-                 del(session[k])
-
-        try:
-            os.rename(scapy.conf.session, scapy.conf.session+".bak")
-        except OSError:
-            pass
-        f=open(scapy.conf.session,"w")
-        cPickle.dump(session, f)
-        f.close()
-
-    if scapy.conf.histfile:
-        readline.write_history_file(scapy.conf.histfile)
-    
-    sys.exit()
 
 ##################
 ##### Module #####
@@ -3497,7 +3374,7 @@ arping(net, iface=conf.iff) -> None"""
     ans,unans = srp(Ether(dst="ff:ff:ff:ff:ff:ff")/ARP(pdst=net),
                     filter="arp and arp[7] = 2", timeout=2, iface=iface)
     for s,r in ans:
-        print r.payload.psrc
+        print r.sprintf("%Ether.src% %ARP.psrc%");
     last = ans,unans
 
 
@@ -3548,8 +3425,8 @@ def lsc(cmd=None):
 def ls(obj=None):
     """List  available layers, or infos on a given layer"""
     if obj is None:
-        for i in __builtins__:
-            obj = __builtins__[i]
+        for i in __builtins__.__dict__:
+            obj = __builtins__.__dict__[i]
             if not type(obj) is types.ClassType:
                 continue
             if issubclass(obj, Packet):
@@ -3742,3 +3619,138 @@ conf=Conf()
 init_p0f()
 init_queso()
 init_nmap()
+
+
+################
+##### Main #####
+################
+
+
+if __name__ == "__main__":
+    import code,sys,cPickle,types,os
+
+    _scapy = {}
+    for i in dir():
+        if i[0] != "_":
+            _scapy[i] = eval(i)
+    
+    
+    __builtins__.__dict__.update(_scapy)
+
+    import rlcompleter,readline
+    import re
+
+    class ScapyCompleter(rlcompleter.Completer):
+        def global_matches(self, text):
+            matches = []
+            n = len(text)
+            for list in [dir(__builtins__), session.keys()]:
+                for word in list:
+                    if word[:n] == text and word != "__builtins__":
+                        matches.append(word)
+            return matches
+    
+
+        def attr_matches(self, text):
+            m = re.match(r"(\w+(\.\w+)*)\.(\w*)", text)
+            if not m:
+                return
+            expr, attr = m.group(1, 3)
+            try:
+                object = eval(expr)
+            except:
+                object = eval(expr, session)
+            if isinstance(object, _scapy["Packet"]):
+                words = filter(lambda x: x[0]!="_",dir(object))
+                words += map(str, object.fields_desc)
+            else:
+                words = dir(object)
+                if hasattr( object,"__class__" ):
+                    words = words + rlcompleter.get_class_members(object.__class__)
+            matches = []
+            n = len(attr)
+            for word in words:
+                if word[:n] == attr and word != "__builtins__":
+                    matches.append("%s.%s" % (expr, word))
+            return matches
+
+    readline.set_completer(ScapyCompleter().complete)
+    readline.parse_and_bind("tab: complete")
+    
+    
+    session=None
+    session_name=""
+
+    opts=getopt.getopt(sys.argv[1:], "hs:")
+    iface = None
+    try:
+        for opt, parm in opts[0]:
+	    if opt == "-h":
+	        usage()
+            elif opt == "-s":
+                session_name = parm
+        
+	if len(opts[1]) > 0:
+	    raise getopt.GetoptError("Too many parameters : [%s]" % string.join(opts[1]),None)
+
+
+    except getopt.error, msg:
+        print "ERROR:", msg
+        sys.exit(1)
+
+
+    if session_name:
+        try:
+            f=open(session_name)
+            session=cPickle.load(f)
+            f.close()
+            print "Using session [%s]" % session_name
+        except IOError:
+            print "New session [%s]" % session_name
+        except EOFError:
+            print "Error opening session [%s]" % session_name
+        except AttributeError:
+            print "Error opening session [%s]. Attribute missing" %  session_name
+
+        if session:
+            if "conf" in session:
+                _scapy["conf"].configure(session["conf"])
+                session["conf"] = _scapy["conf"]
+        else:
+            _scapy["conf"].session = session_name
+            session={"conf":_scapy["conf"]}
+            
+    else:
+        session={"conf": _scapy["conf"]}
+
+    if _scapy["conf"].histfile:
+        try:
+            readline.read_history_file(_scapy["conf"].histfile)
+        except IOError:
+            pass
+
+    code.interact(banner = "Welcome to Scapy (%s)"%VERSION, local=session)
+
+    if _scapy["conf"].session:
+
+        if session.has_key("__builtins__"):
+            del(session["__builtins__"])
+
+        for k in session.keys():
+            if type(session[k]) in [types.ClassType, types.ModuleType]:
+                 print "[%s] (%s) can't be saved. Deleted." % (k, type(session[k]))
+                 del(session[k])
+
+        try:
+            os.rename(_scapy["conf"].session, _scapy["conf"].session+".bak")
+        except OSError:
+            pass
+        f=open(_scapy["conf"].session,"w")
+        cPickle.dump(session, f)
+        f.close()
+
+    if _scapy["conf"].histfile:
+        readline.write_history_file(_scapy["conf"].histfile)
+    
+    sys.exit()
+
