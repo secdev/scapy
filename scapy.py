@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.35  2005/01/29 00:29:25  pbi
+# - added l4 parameter to traceroute() for UDP, ICMP and other layer 4 traceroutes
+# - tweaked TracerouteResult display()
+#
 # Revision 0.9.17.34  2005/01/26 23:43:19  pbi
 # - removed some outdated functions
 #
@@ -549,7 +553,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.34 2005/01/26 23:43:19 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.35 2005/01/29 00:29:25 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1395,7 +1399,7 @@ class TracerouteResult(SndRcvAns):
 
     def display(self):
 
-        return self.make_table(lambda x: x[0].sprintf("%IP.dst%:{TCP:%TCP.dport%}{UDP:%UDP.dport%}{ICMP:ICMP}"),
+        return self.make_table(lambda x: x[0].sprintf("%IP.dst%:{TCP:tcp%TCP.dport%}{UDP:udp%UDP.dport%}{ICMP:ICMP}"),
                                lambda x: x[0].ttl,
                                lambda x: x[1].sprintf("%-15s,IP.src% {TCP:%TCP.flags%}{ICMP:%ir,ICMP.type%}"))
 
@@ -5569,12 +5573,16 @@ arpcachepoison(target, victim, [interval=60]) -> None
     except KeyboardInterrupt:
         pass
 
-def traceroute(target, maxttl=30, dport=80, sport=RandShort(),minttl=1, timeout=2, **kargs):
+def traceroute(target, dport=80, minttl=1, maxttl=30, sport=RandShort(), l4 = None, timeout=2, **kargs):
     """Instant TCP traceroute
 traceroute(target, [maxttl=30], [dport=80], [sport=80]) -> None
 """
-    a,b = sr(IP(dst=target, id=RandShort(), ttl=(minttl,maxttl))/TCP(seq=RandInt(),sport=sport, dport=dport),
-             timeout=timeout, filter="(icmp and icmp[0]=11) or (tcp and (tcp[13] & 0x16 > 0x10))", **kargs)
+    if l4 is None:
+        a,b = sr(IP(dst=target, id=RandShort(), ttl=(minttl,maxttl))/TCP(seq=RandInt(),sport=sport, dport=dport),
+                 timeout=timeout, filter="(icmp and icmp[0]=11) or (tcp and (tcp[13] & 0x16 > 0x10))", **kargs)
+    else:
+        a,b = sr(IP(dst=target, id=RandShort(), ttl=(minttl,maxttl))/l4,
+                 timeout=timeout, **kargs)
 
     a = TracerouteResult(a.res)
     a.display()
