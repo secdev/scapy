@@ -22,6 +22,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.8.4  2003/04/01 11:19:06  pbi
+# - added FlagsField(), used for TCP and IP
+# - rfc3514 compliance
+#
 # Revision 0.9.8.3  2003/03/28 14:55:18  pbi
 # Added pkt2uptime() : uses TCP timestamp to predict when the machine was booted
 #
@@ -68,7 +72,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.8.3 2003/03/28 14:55:18 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.8.4 2003/04/01 11:19:06 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -914,23 +918,36 @@ class XBitField(BitField):
         return hex(self.i2h(pkt,x))
 
 
-class TCPFlagsField(BitField):
-    TCPFlagsNames = "FSRPAUEC"
+class FlagsField(BitField):
+    def __init__(self, name, default, size, names):
+        BitField.__init__(self, name, default, size)
+        self.multi = type(names) is list
+        if self.multi:
+            self.names = map(lambda x:[x], names)
+        else:
+            self.names = names
     def any2i(self, pkt, x):
         if type(x) is str:
+            if self.multi:
+                x = map(lambda y:[y], x.split("+"))
             y = 0
             for i in x:
-                y |= 1 << self.TCPFlagsNames.index(i)
+                y |= 1 << self.names.index(i)
             x = y
         return x
     def i2repr(self, pkt, x):
-        r = ""
+        if self.multi:
+            r = []
+        else:
+            r = ""
         i=0
         while x:
             if x & 1:
-                r += self.TCPFlagsNames[i]
+                r += self.names[i]
             i += 1
             x >>= 1
+        if self.multi:
+            r = "+".join(r)
         return r
 
             
@@ -1569,7 +1586,7 @@ class IP(Packet, IPTools):
                     XByteField("tos", 0),
                     ShortField("len", None),
                     ShortField("id", 1),
-                    BitField("flags", 0, 3),
+                    FlagsField("flags", 0, 3, ["MF","DF","evil"]),
                     BitField("frag", 0, 13),
                     ByteField("ttl", 64),
                     ByteField("proto", 0),
@@ -1626,7 +1643,7 @@ class TCP(Packet):
                     IntField("ack", 0),
                     BitField("dataofs", None, 4),
                     BitField("reserved", 0, 4),
-                    TCPFlagsField("flags", 0x2, 8),
+                    FlagsField("flags", 0x2, 8, "FSRPAUEC"),
                     ShortField("window", 0),
                     XShortField("chksum", None),
                     ShortField("urgptr", 0),
