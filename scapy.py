@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.5  2004/08/11 15:25:08  pbi
+# - added RIP protocol
+#
 # Revision 0.9.17.4  2004/08/09 14:00:20  pbi
 # - added gzip support to sessions saving
 # - can force pickle protocol to inferior values for pickle backward compatility
@@ -424,7 +427,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.4 2004/08/09 14:00:20 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.5 2004/08/11 15:25:08 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -3143,6 +3146,30 @@ class NTP(Packet):
 ##  
 
 
+class RIP(Packet):
+    name = "RIP header"
+    fields_desc = [
+        ByteEnumField("command",1,{1:"req",2:"resp",3:"traceOn",4:"traceOff",5:"sun",
+                                   6:"trigReq",7:"trigResp",8:"trigAck",9:"updateReq",
+                                   10:"updateResp",11:"updateAck"}),
+        ByteField("version",1),
+        ShortField("null",0),
+        ]
+
+class RIPEntry(Packet):
+    name = "RIP entry"
+    fields_desc = [
+        ShortEnumField("AF",2,{2:"IP"}),
+        ShortField("RouteTag",0),
+        IPField("addr","0.0.0.0"),
+        IPField("mask","0.0.0.0"),
+        IPField("nextHop","0.0.0.0"),
+        IntEnumField("metric",1,{16:"Unreach"}),
+        ]
+        
+
+
+
 ISAKMP_payload_type = ["None","SA","P","T","KE","ID","CERT","CR","HASH",
                        "SIG","Nonce","N","D","VID"]
 
@@ -3280,13 +3307,16 @@ layer_bonds = [ ( Dot3,   LLC,      { } ),
                 ( IP,     ICMP,     { "proto" : socket.IPPROTO_ICMP } ),
                 ( IP,     TCP,      { "proto" : socket.IPPROTO_TCP } ),
                 ( IP,     UDP,      { "proto" : socket.IPPROTO_UDP } ),
-                ( UDP,    DNS,      { "sport" : 53 } ),
-                ( UDP,    DNS,      { "dport" : 53 } ),
                 ( UDP,    DNS,      { "dport" : 53 } ),
                 ( UDP,    ISAKMP,   { "sport" : 500, "dport" : 500 } ),
                 ( UDP,    NTP,      { "sport" : 123, "dport" : 123 } ),
                 ( UDP,    BOOTP,    { "sport" : 68, "dport" : 67 } ),
                 ( UDP,    BOOTP,    { "sport" : 67, "dport" : 68 } ),
+                ( UDP,    RIP,      { "sport" : 520 } ),
+                ( UDP,    RIP,      { "dport" : 520 } ),
+                ( UDP,    DNS,      { "sport" : 53 } ),
+                ( RIP,    RIPEntry, { } ),
+                ( RIPEntry,RIPEntry,{ } ),
                 ( Dot11, Dot11AssoReq,    { "type" : 0, "subtype" : 0 } ),
                 ( Dot11, Dot11AssoResp,   { "type" : 0, "subtype" : 1 } ),
                 ( Dot11, Dot11ReassoReq,  { "type" : 0, "subtype" : 2 } ),
