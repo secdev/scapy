@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.16.15  2004/07/10 13:13:25  pbi
+# - finished testing ethertype in supersockets to decide wether or not to apply BPF filters
+#
 # Revision 0.9.16.14  2004/07/10 13:06:38  pbi
 # - do not apply any BPF filter if ethertype is given to a supersocket (so that ARP requests will work
 #   whatever the conf.except_filter value is)
@@ -394,7 +397,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.16.14 2004/07/10 13:06:38 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.16.15 2004/07/10 13:13:25 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -3425,13 +3428,14 @@ if DNET and PCAP:
                 iface = conf.iface
             self.ins = pcap.pcapObject()
             self.ins.open_live(iface, 1600, 0, 100)
-            if conf.except_filter:
+            if type == ETH_P_ALL: # Do not apply any filter if Ethernet type is given
+                if conf.except_filter:
+                    if filter:
+                        filter = "(%s) and not (%s)" % (filter, conf.except_filter)
+                    else:
+                        filter = "not (%s)" % conf.except_filter
                 if filter:
-                    filter = "(%s) and not (%s)" % (filter, conf.except_filter)
-                else:
-                    filter = "not (%s)" % conf.except_filter
-            if filter:
-                self.ins.setfilter(filter, 0, 0)
+                    self.ins.setfilter(filter, 0, 0)
             self.outs = dnet.eth(iface)
         def recv(self,x):
             return Ether(self.ins.next()[1])
@@ -3457,13 +3461,14 @@ if PCAP:
                 promisc = conf.sniff_promisc
             self.promisc = promisc
             self.ins.open_live(iface, 1600, self.promisc, 100)
-            if conf.except_filter:
+            if type == ETH_P_ALL: # Do not apply any filter if Ethernet type is given
+                if conf.except_filter:
+                    if filter:
+                        filter = "(%s) and not (%s)" % (filter, conf.except_filter)
+                    else:
+                        filter = "not (%s)" % conf.except_filter
                 if filter:
-                    filter = "(%s) and not (%s)" % (filter, conf.except_filter)
-                else:
-                    filter = "not (%s)" % conf.except_filter
-            if filter:
-                self.ins.setfilter(filter, 0, 0)
+                    self.ins.setfilter(filter, 0, 0)
 
         def close(self):
             del(self.ins)
@@ -3823,7 +3828,6 @@ def attach_filter(s, filter):
     # work... one solution could be to use "any" interface and translate
     # the filter from cooked mode to raw mode
     # mode
-    print "tcpdump -i %s -ddd -s 1600 '%s'" % (conf.iface,filter)
     f = os.popen("tcpdump -i %s -ddd -s 1600 '%s'" % (conf.iface,filter))
     lines = f.readlines()
     print lines
@@ -4741,6 +4745,7 @@ histfile : history file
 padding  : includes padding in desassembled packets
 except_filter : BPF filter for packets to ignore
 debug_match : when 1, store received packet that are not matched into debug.recv
+route    : holds the Scapy routing table and provides methods to manipulate it
 """
     session = ""  
     stealth = "not implemented"
