@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.32  2005/01/26 23:12:59  pbi
+# - added conditionnal statements in format strings
+#
 # Revision 0.9.17.31  2005/01/26 22:30:36  pbi
 # - removed an uneeded "else" in  sprintf()
 #
@@ -539,7 +542,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.31 2005/01/26 22:30:36 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.32 2005/01/26 23:12:59 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2607,15 +2610,52 @@ fmt is a classic printf directive, "r" can be appended for raw substitution
 Special case : "%.time%" is the creation time.
 Ex : p.sprintf("%.time% %-15s,IP.src% -> %-15s,IP.dst% %IP.chksum% "
                "%03xr,IP.proto% %r,TCP.flags%")
+
+Moreover, the format string can include conditionnal statements. A conditionnal
+statement looks like : {layer:string} where layer is a layer name, and string
+is the string to insert in place of the condition if it is true, i.e. if layer
+is present. If layer is preceded by a "!", the result si inverted. Conditions
+can be imbricated. A valid statement can be :
+  p.sprintf("This is a{TCP: TCP}{UDP: UDP}{ICMP:n ICMP} packet")
+  p.sprintf("{IP:%IP.dst% {ICMP:%ICMP.type%}{TCP:%TCP.dport%}}")
+
+A side effect is that, to obtain "{" and "}" characters, you must use
+"%(" and "%)".
 """
+
+        escape = { "%": "%",
+                   "(": "{",
+                   ")": "}" }
+
+
+        # Evaluate conditions 
+        while "{" in fmt:
+            i = fmt.rindex("{")
+            j = fmt[i+1:].index("}")
+            cond = fmt[i+1:i+j+1]
+            k = cond.find(":")
+            if k < 0:
+                raise Exception("Bad condition in format string: [%s] (read sprintf doc!)"%cond)
+            cond,format = cond[:k],cond[k+1:]
+            res = False
+            if cond[0] == "!":
+                res = True
+                cond = cond[1:]
+            if self.haslayer(eval(cond)):
+                res = not res
+            if not res:
+                format = ""
+            fmt = fmt[:i]+format+fmt[i+j+2:]
+
+        # Evaluate directives
         s = ""
         while "%" in fmt:
             i = fmt.index("%")
             s += fmt[:i]
             fmt = fmt[i+1:]
-            if fmt[0] == "%":
+            if fmt[0] in escape:
+                s += escape[fmt[0]]
                 fmt = fmt[1:]
-                s += "%"
                 continue
             try:
                 i = fmt.index("%")
