@@ -22,6 +22,11 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.10.8  2003/04/22 14:37:32  pbi
+# - fixed bug in getmacbyip() using dnet module
+# - deactivated getmacbyip() using dnet module because it did not resolve unknown IPs
+# - added some commands listed by lsc()
+#
 # Revision 0.9.10.7  2003/04/22 13:55:01  pbi
 # - some getattr/setattr/delattr enhancements
 #
@@ -172,7 +177,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.10.7 2003/04/22 13:55:01 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.10.8 2003/04/22 14:37:32 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -594,13 +599,17 @@ ARPTIMEOUT=120
 # XXX Fill arp_cache with /etc/ether and arp cache
 arp_cache={}
 
-if DNET:
+if 0 and DNET: ## XXX Can't use this because it does not resolve IPs not in cache
     dnet_arp_object = dnet.arp()
     def getmacbyip(ip):
         iff,a,gw = choose_route(ip)
         if gw != "0.0.0.0":
             ip = gw
-        return dnet_arp_object.get(dnet.addr(ip)).ntoa()
+        res = dnet_arp_object.get(dnet.addr(ip))
+        if res is None:
+            return None
+        else:
+            return res.ntoa()
 else:
     def getmacbyip(ip):
         iff,a,gw = choose_route(ip)
@@ -3025,6 +3034,8 @@ def queso_search(sig):
         
 
 def queso(*args,**kargs):
+    """Guess the operating system of a machine looking at its TCP stack behaviour
+queso(target, dport=80, timeout=3)"""
     return queso_search(queso_sig(*args, **kargs))
 
 
@@ -3093,6 +3104,14 @@ traceroute(target, [maxttl=30], [dport=80], [sport=80]) -> None
         print "%2i %s" % (i, res[i])
     
 
+def arping(net, iface=None):
+    """Send ARP who-has requests to determine which hosts are up
+arping(net, iface=conf.iff) -> None"""
+    ans,unans = srp(Ether(dst="ff:ff:ff:ff:ff:ff")/ARP(pdst=net),
+                    filter="arp and arp[7] = 2", timeout=2, iface=iface)
+    for s,r in ans:
+        print r.payload.psrc
+    last = ans,unans
 
 
 #####################
@@ -3116,6 +3135,8 @@ def report_ports(target, ports):
     for i in unans:
         print i.sprintf("%TCP.dport% & ? & unanswered \\\\")
     print "\\hline\n\\end{tabular}"
+
+
     
 
 ######################
@@ -3155,7 +3176,7 @@ def ls(obj=None):
     
 
 
-user_commands = [ sr, sr1, srp, sniff, p0f, arpcachepoison, send, sendp, traceroute, ls, lsc ]
+user_commands = [ sr, sr1, srp, sniff, p0f, arpcachepoison, send, sendp, traceroute, arping, ls, lsc, queso ]
 
 
 ###################
@@ -3166,14 +3187,6 @@ user_commands = [ sr, sr1, srp, sniff, p0f, arpcachepoison, send, sendp, tracero
 
 last=None
 
-def arping(net, iface=None):
-    ans,unans = srp(Ether(dst="ff:ff:ff:ff:ff:ff")/ARP(pdst=net),
-                    filter="arp and arp[7] = 2", timeout=5, iface=iface)
-    
-#    ans, unans, x = sndrcv(conf.L2socket(iface=iface, filter="arp"), Ether(dst="ff:ff:ff:ff:ff:ff")/ARP(pdst=net),timeout=10, )
-    for s,r in ans:
-        print r.payload.psrc
-    last = ans,unans
 
 def icmping(net):
     global last
