@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.29  2005/01/22 21:48:55  pbi
+# - fixed need for warning() before it was declared
+#
 # Revision 0.9.17.28  2005/01/22 21:47:11  pbi
 # - added ARPingResult to handle arping() results
 # - moved ARPing displaying logic to ARPing object
@@ -530,7 +533,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.28 2005/01/22 21:47:11 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.29 2005/01/22 21:48:55 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -707,7 +710,7 @@ except ImportError:
 try:
     from Crypto.Cipher import ARC4
 except ImportError:
-    warning("Can't find Crypto python lib. Won't be able to decrypt WEP")
+    print "WARNING: Can't find Crypto python lib. Won't be able to decrypt WEP"
 
 
 # Workarround bug 643005 : https://sourceforge.net/tracker/?func=detail&atid=105470&aid=643005&group_id=5470
