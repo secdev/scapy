@@ -22,6 +22,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.7.9  2003/03/27 15:07:42  pbi
+# - add filter support for sr(), sr1() and srp()
+# - use filters for getmacbyip() and traceroute() for better reliability under heavy load
+#
 # Revision 0.9.7.8  2003/03/27 14:45:11  pbi
 # - better timeout management in sndrcv
 # - bugfixed sys.exit() imbrication issues
@@ -55,7 +59,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.7.8 2003/03/27 14:45:11 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.7.9 2003/03/27 15:07:42 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -445,6 +449,7 @@ def getmacbyip(ip):
     
     res = srp(Ether(dst=ETHER_BROADCAST)/ARP(op=ARP.who_has,
                                             pdst=ip),
+              filter="arp",
               iface = iff,
               timeout=2,
               verbose=0)
@@ -1875,9 +1880,12 @@ class L3RawSocket(SuperSocket):
 
 
 class L3PacketSocket(SuperSocket):
-    def __init__(self, type = ETH_P_IP):
+    def __init__(self, type = ETH_P_IP, filter=None):
         self.type = type
         self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))
+        self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 2**30)
+        if filter is not None:
+            attach_filter(self.ins, filter)
         self.outs = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))
     def recv(self, x):
         pkt, sa_ll = self.ins.recvfrom(x)
@@ -1909,10 +1917,12 @@ class L3PacketSocket(SuperSocket):
 
 
 class L2Socket(SuperSocket):
-    def __init__(self, iface = None, type = ETH_P_ALL):
+    def __init__(self, iface = None, type = ETH_P_ALL, filter=None):
         if iface is None:
             iface = conf.iff
         self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))
+        if filter is not None:
+            attach_filter(self.ins, filter)
         self.ins.bind((iface, type))
         self.outs = self.ins
         sa_ll = self.outs.getsockname()
@@ -2098,28 +2108,28 @@ def sendp(x, *args, **kargs):
 
 
     
-def sr(x,*args,**kargs):
+def sr(x,filter=None, *args,**kargs):
     """Send and receive packets at layer 3"""
     if not kargs.has_key("timeout"):
         kargs["timeout"] = -1
-    a,b,c=sndrcv(L3PacketSocket(),x,*args,**kargs)
+    a,b,c=sndrcv(L3PacketSocket(filter=filter),x,*args,**kargs)
     return a,b
 
-def sr1(x,*args,**kargs):
+def sr1(x,filter=None, *args,**kargs):
     """Send and receive packets at layer 3 and return only the first answer"""
     if not kargs.has_key("timeout"):
         kargs["timeout"] = -1
-    a,b,c=sndrcv(L3PacketSocket(),x,*args,**kargs)
+    a,b,c=sndrcv(L3PacketSocket(filter=filter),x,*args,**kargs)
     if len(a) > 0:
         return a[0][1]
     else:
         return None
 
-def srp(x,iface=None,*args,**kargs):
+def srp(x,iface=None,filter=None, *args,**kargs):
     """Send and receive packets at layer 2"""
     if not kargs.has_key("timeout"):
         kargs["timeout"] = -1
-    a,b,c=sndrcv(L2Socket(iface=iface),x,*args,**kargs)
+    a,b,c=sndrcv(L2Socket(iface=iface, filter=filter),x,*args,**kargs)
     if len(a) > 0:
         return a[0][1]
     else:
@@ -2363,11 +2373,12 @@ arpspoof(target, victim, [interval=60]) -> None
     except KeyboardInterrupt:
         pass
 
-def traceroute(target, maxttl=30, dport=80, sport=80):
+def traceroute(target, maxttl=30, dport=80, sport=RandShort()):
     """Instant TCP traceroute
 traceroute(target, [maxttl=30], [dport=80], [sport=80]) -> None
 """
-    a,b = sr(IP(dst=target, ttl=(1,maxttl))/TCP(seq=RandInt(),sport=sport, dport=dport), timeout=5)
+    a,b = sr(IP(dst=target, ttl=(1,maxttl))/TCP(seq=RandInt(),sport=sport, dport=dport),
+             timeout=5, filter="(icmp and icmp[0]=11) or (tcp and (tcp[13] & 0x16 > 0x10))")
     res = {}
     for s,r in a:
         if r.hastype(ICMP):
