@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.61  2005/03/23 18:27:06  pbi
+# - used init_cookie for ISAKMP.answers()
+# - raised an exception in route.make_route if parameters are incomplete
+#
 # Revision 0.9.17.60  2005/03/23 17:07:56  pbi
 # - fixed session loading with -s
 # - prevented save_session() to trash current session
@@ -651,7 +655,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.60 2005/03/23 17:07:56 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.61 2005/03/23 18:27:06 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1120,6 +1124,8 @@ class Route:
         elif net is not None:
             thenet,msk = net.split("/")
             msk = int(msk)
+        else:
+            raise Exception("make_route: Incorrect parameters. You should specify a host or a net")
         if gw is None:
             gw="0.0.0.0"
         if dev is None:
@@ -1128,12 +1134,15 @@ class Route:
             else:
                 nhop = thenet
             dev,ifaddr,x = self.route(nhop)
-        else:    
+        else:
             ifreq = ioctl(s, SIOCGIFADDR,struct.pack("16s16x",dev))
             ifaddr = socket.inet_ntoa(ifreq[20:24])
         return (atol(thenet),(1L<<msk)-1, gw, dev, ifaddr)
 
     def add(self, *args, **kargs):
+        """Ex:
+        add(net="192.168.1.0/24",gw="1.2.3.4")
+        """
         self.routes.append(self.make_route(*args,**kargs))
 
         
@@ -4309,7 +4318,10 @@ class ISAKMP(ISAKMP_class): # rfc2408
         ]
 
     def answers(self, other):
-        return 1
+        if isinstance(other, ISAKMP):
+            if other.init_cookie == self.init_cookie:
+                return 1
+        return 0
     def post_build(self, p):
         if self.length is None:
             p = p[:24]+struct.pack("!I",len(p))+p[28:]
