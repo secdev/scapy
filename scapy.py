@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.1  2004/07/26 19:52:55  pbi
+# Release 0.9.17
+#
 # Revision 0.9.16.18  2004/07/26 19:50:16  pbi
 # - added ScapyPcapWriter class (William McVey)
 #
@@ -409,7 +412,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.16.18 2004/07/26 19:50:16 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.1 2004/07/26 19:52:55 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
