@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.59  2005/03/22 16:52:44  pbi
+# - added _elt2show() to PacketList
+# - changed PacketList.show() to use _elt2show()
+#
 # Revision 0.9.17.58  2005/03/22 16:21:39  pbi
 # - added conversation() to PacketList
 # - added padding() to PacketList
@@ -642,7 +646,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.58 2005/03/22 16:21:39 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.59 2005/03/22 16:52:44 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1454,6 +1458,8 @@ class PacketList:
         return elt
     def _elt2sum(self, elt):
         return elt.summary()
+    def _elt2show(self, elt):
+        return self._elt2sum(elt)
     def __repr__(self):
         stats={TCP:0,UDP:0,ICMP:0}
         other = 0
@@ -1494,7 +1500,8 @@ class PacketList:
     def display(self): # Deprecated. Use show()
         self.show()
     def show(self):
-        self.nsummary()
+        for i in range(len(self.res)):
+            print "%04i %s" % (i,self._elt2show(self.res[i]))
     
     def filter(self, func):
         return self.__class__(filter(func,self.res),
