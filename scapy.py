@@ -22,6 +22,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.7.7  2003/03/26 17:51:33  pbi
+# - Added IPTool class, to add commands like whois() to IP layer.
+# - Have unknown class attributes be asked to payload before raising an exception.
+#
 # Revision 0.9.7.6  2003/03/26 17:35:36  pbi
 # More powerful sprintf format string : %[fmt[r],][cls[:nb].]field% where fmt is a classic one, r can be
 # appended for raw substitution (ex: IP.flags=0x18 instead of SA), nb is the number of the layer we want
@@ -45,7 +49,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.7.6 2003/03/26 17:35:36 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.7.7 2003/03/26 17:51:33 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -60,9 +64,6 @@ def usage():
 #   Next things to do :
 #
 #  - improve pcap capture file support
-#  - add a IPtools class (with whois()...) and have IP inherit it)
-#  - use i2repr() in sprintf() ?
-#  - sprintf support for IP/IP
 #  - better self-doc
 #  - add lsc() to list commands
 #
@@ -313,6 +314,17 @@ def mac2str(mac):
 
 def str2mac(s):
     return ("%02x:"*6)[:-1] % tuple(map(ord, s)) 
+
+
+####################
+## IP Tools class ##
+####################
+
+class IPTools:
+    """Add more powers to a class that have a "src" attribute."""
+    def whois(self):
+        os.system("whois %s" % self.src)
+
 
 
 
@@ -1079,7 +1091,8 @@ class Packet(Gen):
         elif self.__dict__.has_key(attr):
             return self.__dict__[attr]
         else:
-            raise AttributeError, attr
+            return getattr(self.payload,attr)
+#            raise AttributeError, attr
     def __setattr__(self, attr, val):
         if self.__dict__.has_key("fieldtype") and self.fieldtype.has_key(attr):
             any2i = self.fieldtype[attr].any2i
@@ -1311,11 +1324,6 @@ class Packet(Gen):
 
         
 
-####################
-## Packet classes ##
-####################
-    
-
 class NoPayload(Packet,object):
     def __new__(cls, *args, **kargs):
         singl = cls.__dict__.get("__singl__")
@@ -1339,6 +1347,13 @@ class NoPayload(Packet,object):
         return ""
     def __str__(self):
         return ""
+    def __getattr__(self, attr):
+        if attr in self.__dict__:
+            return self.__dict__[attr]
+        elif attr in self.__class__.__dict__:
+            return self.__class__.__dict__[attr]
+        else:
+            raise AttributeError, attr
     def hide_defaults(self):
         pass
     def __iter__(self):
@@ -1354,6 +1369,11 @@ class NoPayload(Packet,object):
             return "??"
         else:
             raise Exception("Format not found [%s]"%fmt)
+    
+
+####################
+## Packet classes ##
+####################
     
     
     
@@ -1520,7 +1540,7 @@ class ARP(Packet):
                 return 1
                  
 
-class IP(Packet):
+class IP(Packet, IPTools):
     name = "IP"
     fields_desc = [ BitField("version" , 4 , 4),
                     BitField("ihl", None, 4),
