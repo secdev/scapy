@@ -22,6 +22,11 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.15.4  2003/10/30 16:11:41  pbi
+# - little enhancements to the DNS packets
+# - added dyndns_add() and dyndns_del() (rfc2136)
+# - fixed a format string error (3 times)
+#
 # Revision 0.9.15.3  2003/10/16 10:41:42  biondi
 # - redesign summary() method
 # - fixed Dot11 addresses fields
@@ -296,7 +301,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.15.3 2003/10/16 10:41:42 biondi Exp $"
+RCSID="$Id: scapy.py,v 0.9.15.4 2003/10/30 16:11:41 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1553,7 +1558,8 @@ class RDataField(StrLenField):
         return s
     def i2m(self, pkt, s):
         if pkt.type == 1:
-            s = inet_aton(s)
+            if s:
+                s = inet_aton(s)
         elif pkt.type in [2,3,4,5]:
             s = "".join(map(lambda x: chr(len(x))+x, s.split(".")))
             if ord(s[-1]):
@@ -2495,7 +2501,8 @@ class DNS(Packet):
                     DNSRRField("ar", "arcount",0) ]
 
 
-dnstypes = { 1:"A", 2:"NS", 3:"MD", 4:"MD", 5:"CNAME", 6:"SOA", 7: "MB", 8:"MG",
+dnstypes = { 0:"ANY", 255:"ALL",
+             1:"A", 2:"NS", 3:"MD", 4:"MD", 5:"CNAME", 6:"SOA", 7: "MB", 8:"MG",
              9:"MR",10:"NULL",11:"WKS",12:"PTR",13:"HINFO",14:"MINFO",15:"MX",16:"TXT",
              17:"RP",18:"AFSDB",28:"AAAA", 33:"SRV",38:"A6",39:"DNAME"}
 
@@ -2516,7 +2523,7 @@ class DNSRR(Packet):
     name = "DNS Resource Record"
     fields_desc = [ DNSStrField("rrname",""),
                     ShortEnumField("type", 1, dnstypes),
-                    ShortEnumField("class", 1, dnsclasses),
+                    ShortEnumField("rclass", 1, dnsclasses),
                     IntField("ttl", 0),
                     RDLenField("rdlen"),
                     RDataField("rdata", "", "rdlen") ]
@@ -2692,6 +2699,7 @@ def bind_layers(lower, upper, fval):
 layer_bonds = [ ( Dot3,   LLC,      { } ),
                 ( Dot11,  LLC,      { "type" : 2 } ),
                 ( LLPPP,  IP,       { } ),
+                ( Ether,  LLC,      { "type" : 0x007a } ),
                 ( Ether,  Dot1Q,    { "type" : 0x8100 } ),
                 ( Ether,  Ether,    { "type" : 0x0001 } ),
                 ( Ether,  ARP,      { "type" : 0x0806 } ),
@@ -2876,7 +2884,7 @@ class L3PacketSocket(SuperSocket):
             cls = L3Types[sa_ll[1]]
             lvl = 3
         else:
-            warning("Unable to guess type (interface=%s protocol=%#x family=%i). Using Ethernet" % sa_ll[:4])
+            warning("Unable to guess type (interface=%s protocol=%#x family=%i). Using Ethernet" % (sa_ll[0],sa_ll[1],sa_ll[3]))
             cls = Ether
             lvl = 2
 
@@ -2924,7 +2932,7 @@ class L2Socket(SuperSocket):
         elif L3Types.has_key(sa_ll[1]):
             self.LL = L3Types[sa_ll[1]]
         else:
-            warning("Unable to guess type (interface=%s protocol=%#x family=%i). Using Ethernet" % sa_ll[:4])
+            warning("Unable to guess type (interface=%s protocol=%#x family=%i). Using Ethernet" % (sa_ll[0],sa_ll[1],sa_ll[3]))
             self.LL = Ether
     def recv(self, x):
         p = self.ins.recv(x)
@@ -2975,7 +2983,7 @@ class L2ListenSocket(SuperSocket):
         elif L3Types.has_key(sa_ll[1]):
             cls = L3Types[sa_ll[1]]
         else:
-            warning("Unable to guess type (interface=%s protocol=%#x family=%i %i). Using Ethernet" % sa_ll[:4])
+            warning("Unable to guess type (interface=%s protocol=%#x family=%i %i). Using Ethernet" % (sa_ll[0],sa_ll[1],sa_ll[3]))
             cls = Ether
 
         try:
@@ -3821,7 +3829,7 @@ sniff([count,] [prn,] + L2ListenSocket args) -> list of packets
 
 def arpcachepoison(target, victim, interval=60):
     """Poison target's cache with (your MAC,victim's IP) couple
-arpspoof(target, victim, [interval=60]) -> None
+arpcachepoison(target, victim, [interval=60]) -> None
 """
     tmac = getmacbyip(target)
     p = Ether(dst=tmac)/ARP(op="who-has", psrc=victim, pdst=target)
@@ -3862,6 +3870,46 @@ arping(net, iface=conf.iface) -> None"""
     for s,r in ans:
         print r.sprintf("%Ether.src% %ARP.psrc%")
     last = ans,unans
+
+def dyndns_add(nameserver, name, rdata, type="A", ttl=10):
+    """Send a DNS add message to a nameserver for "name" to have a new "rdata"
+dyndns_add(nameserver, name, rdata, type="A", ttl=10) -> result code (0=ok)
+
+example: dyndns_add("ns1.toto.com", "dyn.toto.com", "127.0.0.1")
+RFC2136
+"""
+    zone = name[name.find(".")+1:]
+    r=sr1(IP(dst=nameserver)/UDP()/DNS(opcode=5,
+                                       qd=[DNSQR(qname=zone, qtype="SOA")],
+                                       ns=[DNSRR(rrname=name, type="A",
+                                                 ttl=ttl, rdata=rdata)]),
+          verbose=0, timeout=5)
+    if r and r.haslayer(DNS):
+        return r.getlayer(DNS).rcode
+    else:
+        return -1
+    
+    
+    
+
+def dyndns_del(nameserver, name, type="ALL", ttl=10):
+    """Send a DNS delete message to a nameserver for "name"
+dyndns_del(nameserver, name, type="ANY", ttl=10) -> result code (0=ok)
+
+example: dyndns_del("ns1.toto.com", "dyn.toto.com")
+RFC2136
+"""
+    zone = name[name.find(".")+1:]
+    r=sr1(IP(dst=nameserver)/UDP()/DNS(opcode=5,
+                                       qd=[DNSQR(qname=zone, qtype="SOA")],
+                                       ns=[DNSRR(rrname=name, type=type,
+                                                 rclass="ANY", ttl=0, rdata="")]),
+          verbose=0, timeout=5)
+    if r and r.haslayer(DNS):
+        return r.getlayer(DNS).rcode
+    else:
+        return -1
+    
 
 
 #####################
@@ -3936,7 +3984,7 @@ def ls(obj=None):
     
 
 
-user_commands = [ sr, sr1, srp, sniff, p0f, arpcachepoison, send, sendp, traceroute, arping, ls, lsc, queso, nmap_fp, report_ports ]
+user_commands = [ sr, sr1, srp, sniff, p0f, arpcachepoison, send, sendp, traceroute, arping, ls, lsc, queso, nmap_fp, report_ports, dyndns_add, dyndns_del ]
 
 
 ###################
