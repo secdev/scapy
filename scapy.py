@@ -22,6 +22,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.8.9  2003/04/08 17:22:25  pbi
+# - use cPickle instead of pickle (quicker and works with __getattr__() recursion)
+# - small fixes on send() and sendp()
+#
 # Revision 0.9.8.8  2003/04/08 16:48:04  pbi
 # - EAPOL overload Ether dst with PAE_GROUP_ADDR
 # - tuning in ports_report()
@@ -91,7 +95,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.8.8 2003/04/08 16:48:04 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.8.9 2003/04/08 17:22:25 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -117,7 +121,7 @@ def usage():
 
 
 if __name__ == "__main__":
-    import code,sys,pickle,types,os
+    import code,sys,cPickle,types,os
     import scapy
     __builtins__.__dict__.update(scapy.__dict__)
 
@@ -145,7 +149,7 @@ if __name__ == "__main__":
     if session_name:
         try:
             f=open(session_name)
-            session=pickle.load(f)
+            session=cPickle.load(f)
             f.close()
             print "Using session [%s]" % session_name
         except IOError:
@@ -186,7 +190,7 @@ if __name__ == "__main__":
         except OSError:
             pass
         f=open(scapy.conf.session,"w")
-        pickle.dump(session, f)
+        cPickle.dump(session, f)
         f.close()
         
     sys.exit()
@@ -253,8 +257,6 @@ RTF_UP = 0x0001  # Route usable
 
 MTU = 1600
 
-class param:
-    iface="eth0"
 
 ############
 ## Config ##
@@ -2092,22 +2094,6 @@ class L2ListenSocket(SuperSocket):
 ## Send / Receive ##
 ####################
 
-def send(x, iface=None, slp=-1):
-    if iface is None:
-        iface = param.iface
-    s=socket.socket(socket.AF_PACKET, socket.SOCK_RAW, 0)
-    s.bind((iface, 0))
-    if slp >= 0:
-        try:
-            while 1:
-                s.send(str(x))
-                time.sleep(slp)
-        except KeyboardInterrupt:
-            pass
-    else:
-        s.send(str(x))
-    s.close()
-
 
 
 
@@ -2203,16 +2189,19 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None):
     return ans,sent,recv
 
 
-def send(x, *args, **kargs):
+def send(x, inter=0, *args, **kargs):
     """Send packets at layer 3"""
-    s=L3PacketSocket()
-    s.send(x)
+    s=L3PacketSocket(*args, **kargs)
+    for p in x:
+        s.send(p)
+        time.sleep(inter)
 
-def sendp(x, *args, **kargs):
+def sendp(x, inter=0, *args, **kargs):
     """Send packets at layer 2"""
-    s=L2Socket()
-    s.send(x)
-
+    s=L2Socket(*args, **kargs)
+    for p in x:
+        s.send(p)
+        time.sleep(inter)
 
 
     
