@@ -22,6 +22,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.15.3  2003/10/16 10:41:42  biondi
+# - redesign summary() method
+# - fixed Dot11 addresses fields
+#
 # Revision 0.9.15.2  2003/10/15 14:41:09  biondi
 # - caching format size (calcsize()) in Field main class
 # - allow first packet desassembly to fail in SuperSockets, falling back to Raw
@@ -292,7 +296,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.15.2 2003/10/15 14:41:09 biondi Exp $"
+RCSID="$Id: scapy.py,v 0.9.15.3 2003/10/16 10:41:42 biondi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1049,35 +1053,24 @@ class Dot11AddrMACField(MACField):
         else:
             return s,None
 
-class Dot11Addr2MACField(MACField):
+class Dot11Addr2MACField(Dot11AddrMACField):
     def is_applicable(self, pkt):
         if pkt.type == 1:
             return pkt.subtype in [ 0xb, 0xa, 0xe, 0xf] # RTS, PS-Poll, CF-End, CF-End+CF-Ack
-        return 0
+        return 1
 
-class Dot11Addr3MACField(MACField):
+class Dot11Addr3MACField(Dot11AddrMACField):
     def is_applicable(self, pkt):
         if pkt.type in [0,2]:
             return 1
         return 0
 
-class Dot11Addr4MACField(MACField):
+class Dot11Addr4MACField(Dot11AddrMACField):
     def is_applicable(self, pkt):
         if pkt.type == 2:
             if pkt.FCfield & 0x3 == 0x3: # To-DS and From-DS are set
                 return 1
         return 0
-    def addfield(self, pkt, s, val):
-        if self.is_applicable(pkt):
-            return MACField.addfield(self, pkt, s, val)
-        else:
-            return s        
-    def getfield(self, pkt, s):
-        if self.is_applicable(pkt):
-            return MACField.getfield(self, pkt, s)
-        else:
-            return s,None
-
     
 class IPField(Field):
     def __init__(self, name, default):
@@ -1928,19 +1921,24 @@ Ex : p.sprintf("%.time% %-15s,IP.src% -> %-15s,IP.dst% %IP.chksum% "
         s += fmt
         return s
 
-    def sum(self):
-        return self.name
     def mysummary(self):
+        return ""
+    def summaryback(self, smallname=0):
         ret = ""
-        if self.underlayer is not None:
-            ret += self.underlayer.mysummary()
-            ret += " / "
-        return ret+self.sum()
-    def summary(self):
-        ret = self.payload.summary()
-        if ret == "":
+        if not smallname:
             ret = self.mysummary()
+        if ret:
+            smallname = 1
+        else:
+            ret = self.__class__.__name__
+        if self.underlayer is not None:
+            ret = "%s / %s" % (self.underlayer.summaryback(smallname),ret)
         return ret
+    def summary(self, onlyname=0):
+        if isinstance(self.payload, NoPayload):
+            return self.summaryback()
+        else:
+            return self.payload.summary()
         
 
 class NoPayload(Packet,object):
@@ -1993,7 +1991,7 @@ class NoPayload(Packet,object):
         else:
             raise Exception("Format not found [%s]"%fmt)
     def summary(self):
-        return ""
+        return self.summaryback()
     
 
 ####################
