@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.44  2005/03/06 17:50:06  pbi
+# - changed PCAP and DNET defaults
+#
 # Revision 0.9.17.43  2005/03/03 17:15:26  pbi
 # - ISAKMP work
 #
@@ -583,7 +586,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.43 2005/03/03 17:15:26 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.44 2005/03/06 17:50:06 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -746,16 +749,22 @@ try:
 except ImportError:
     GNUPLOT=0
 
-try:
-    import pcap
-    PCAP = 1
-except ImportError:
-    PCAP = 0
-try:
-    import dnet
-    DNET = 1
-except ImportError:
-    DNET = 0
+PCAP=0
+DNET=0
+
+if PCAP:
+    try:
+        import pcap
+        PCAP = 1
+    except ImportError:
+        PCAP = 0
+
+if DNET:
+    try:
+        import dnet
+        DNET = 1
+    except ImportError:
+        DNET = 0
 
 try:
     from Crypto.Cipher import ARC4
@@ -2012,7 +2021,6 @@ class XLongField(LongField):
         return hex(self.i2h(pkt, x))
 
 
-
 class StrField(Field):
     def i2m(self, pkt, x):
         if x is None:
@@ -2031,7 +2039,21 @@ class StrFixedLenField(StrField):
         return s[self.length:], self.m2i(pkt,s[:self.length])
     def addfield(self, pkt, s, val):
         return s+struct.pack("%ss"%self.length,self.i2m(pkt, val))
-    
+
+class NetBIOSNameField(StrFixedLenField):
+    def __init__(self, name, default, length=34):
+        StrFixedLenField.__init__(self, name, default, length)
+    def i2m(self, pkt, x):
+        if x is None:
+            x = ""
+        x += " "*(self.length/2-1)
+        x = x[:(self.length/2-1)]
+        x = "".join(map(lambda x: chr(0x41+(ord(x)>>4))+chr(0x41+(ord(x)&0xf)), x))
+        x = " "+x
+        return x
+    def m2i(self, pkt, x):
+        x = x.strip("\x00").strip(" ")
+        return "".join(map(lambda x,y: chr((((ord(x)-1)&0xf)<<4)+((ord(y)-1)&0xf)), x[::2],x[1::2]))
 
 class StrLenField(StrField):
     def __init__(self, name, default, fld):
@@ -4354,6 +4376,39 @@ class GPRS(Packet):
     fields_desc = [
         StrStopField("dummy","","\x65\x00\x00",1)
         ]
+
+
+class NetBIOS_DS(Packet):
+    name = "NetBIOS datagram service"
+    fields_desc = [
+        ByteEnumField("type",17, {17:"direct_group"}),
+        ByteField("flags",0),
+        XShortField("id",0),
+        IPField("src","127.0.0.1"),
+        ShortField("sport",138),
+        ShortField("len",None),
+        ShortField("ofs",0),
+        NetBIOSNameField("srcname",""),
+        NetBIOSNameField("dstname",""),
+        ]
+    def post_build(self, p):
+        if self.len is None:
+            l = len(p)-14
+            p = p[:10]+struct.pack("!H", l)+p[12:]
+        return p
+        
+#        ShortField("length",0),
+#        ShortField("Delimitor",0),
+#        ByteField("command",0),
+#        ByteField("data1",0),
+#        ShortField("data2",0),
+#        ShortField("XMIt",0),
+#        ShortField("RSPCor",0),
+#        StrFixedLenField("dest","",16),
+#        StrFixedLenField("source","",16),
+#        
+#        ]
+#
 
 
 
