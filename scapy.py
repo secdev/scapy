@@ -22,6 +22,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.15.12  2004/01/11 01:28:21  pbi
+# - srloop() and srploop() improvements
+#
 # Revision 0.9.15.11  2004/01/11 01:07:05  pbi
 # - srloop() and srploop() improvements
 #
@@ -327,7 +330,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.15.11 2004/01/11 01:07:05 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.15.12 2004/01/11 01:28:21 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -3311,7 +3314,7 @@ def srp1(x,iface=None,filter=None,type=ETH_P_ALL, *args,**kargs):
     else:
         return None
 
-def __sr_loop(srfunc, pkts, prn=lambda x:x[0][0][1].summary(), inter=1, timeout=0, count=None, verbose=0,  *args, **kargs):
+def __sr_loop(srfunc, pkts, prn=lambda x:x[1].summary(), prnfail=lambda x:x.summary(), inter=1, timeout=0, count=None, verbose=0,  *args, **kargs):
     n = 0
     r = 0
     if timeout == 0:
@@ -3323,15 +3326,21 @@ def __sr_loop(srfunc, pkts, prn=lambda x:x[0][0][1].summary(), inter=1, timeout=
                     break
                 count -= 1
             start = time.time()
-            os.write(1,"send...")
+            print "\rsend...\r",
             res = srfunc(pkts, timeout=timeout, verbose=0, chainCC=1, *args, **kargs)
             n += len(res[0])+len(res[1])
             r += len(res[0])
-            print "\rrecv %i:" % len(res[0]),
-            try:
-                print prn(res)
-            except IndexError:
-                print "--"
+            msg = "RECV %i:" % len(res[0])
+            print  "\r%s" % msg,
+            for p in res[0]:
+                print prn(p)
+                print " "*len(msg),
+            if len(res[1]) > 0:
+                msg = "fail %i:" % len(res[1])
+                print "\r%s" % msg,
+                for p in res[1]:
+                    print prnfail(p)
+                    print " "*len(msg),
             end=time.time()
             if end-start < inter:
                 time.sleep(inter+start-end)
