@@ -21,6 +21,15 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.58  2005/03/22 16:21:39  pbi
+# - added conversation() to PacketList
+# - added padding() to PacketList
+# - fixed StrNullField
+# - added haslayer_str() to Packet
+# - changed Packet.sprintf() to use haslayer_str
+# - changed answers() to ask payload if same class as other
+# - add count parameter to rdpcap
+#
 # Revision 0.9.17.57  2005/03/16 14:18:28  pbi
 # - added StrNullField
 #
@@ -633,7 +642,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.57 2005/03/16 14:18:28 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.58 2005/03/22 16:21:39 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1513,6 +1522,39 @@ class PacketList:
             if p.haslayer(Raw):
                 hexdump(p.getlayer(Raw).load)
 
+    def padding(self):
+        for i in range(len(self.res)):
+            p = self._elt2pkt(self.res[i])
+            if p.haslayer(Padding):
+                print "%04i %s %s" % (i,p.sprintf("%.time%"),self._elt2sum(self.res[i]))
+                hexdump(p.getlayer(Padding).load)
+
+    def conversations(self, getsrc=None, getdst=None,**kargs):
+        if getsrc is None:
+            getsrc = lambda x:x.getlayer(IP).src
+        if getdst is None:
+            getdst = lambda x:x.getlayer(IP).dst
+        conv = {}
+        for p in self.res:
+            p = self._elt2pkt(p)
+            try:
+                c = (getsrc(p),getdst(p))
+            except:
+                #XXX warning()
+                continue
+            conv[c] = conv.get(c,0)+1
+        gr = 'digraph "conv" {\n'
+        for s,d in conv:
+            gr += '\t "%s" -> "%s"\n' % (s,d)
+        gr += "}\n"
+
+        
+        do_graph(gr, **kargs)
+        
+                
+        
+        
+
 class SndRcvAns(PacketList):
     def __init__(self, res, name="Results"):
         PacketList.__init__(self, res, name)
@@ -2224,7 +2266,7 @@ class ISAKMPTransformSetField(StrLenField):
 
 class StrNullField(StrField):
     def addfield(self, pkt, s, val):
-        return s+"\x00"+self.i2m(pkt, val)
+        return s+self.i2m(pkt, val)+"\x00"
     def getfield(self, pkt, s):
         l = s.find("\x00")
         if l < 0:
@@ -2953,12 +2995,18 @@ class Packet(Gen):
     def hashret(self):
         return self.payload.hashret()
     def answers(self, other):
+        if other.__class__ == self.__class__:
+            return self.payload.answers(other.payload)
         return 0
 
     def haslayer(self, cls):
         if self.__class__ == cls:
             return 1
         return self.payload.haslayer(cls)
+    def haslayer_str(self, cls):
+        if self.__class__.__name__ == cls:
+            return 1
+        return self.payload.haslayer_str(cls)
     def getlayer(self, cls):
         if self.__class__ == cls:
             return self
@@ -3015,7 +3063,7 @@ A side effect is that, to obtain "{" and "}" characters, you must use
             if cond[0] == "!":
                 res = True
                 cond = cond[1:]
-            if self.haslayer(eval(cond)):
+            if self.haslayer_str(cond):
                 res = not res
             if not res:
                 format = ""
@@ -3135,6 +3183,8 @@ class NoPayload(Packet,object):
     def answers(self, other):
         return isinstance(other, NoPayload) or isinstance(other, Padding)
     def haslayer(self, cls):
+        return 0
+    def haslayer_str(self, cls):
         return 0
     def getlayer(self, cls):
         return None
@@ -5398,7 +5448,7 @@ def wrpcap(filename, pkt):
         f.write(s)
     f.close()
 
-def rdpcap(filename):
+def rdpcap(filename, count=-1):
     res=[]
     f=open(filename)
     magic = f.read(4)
@@ -5417,7 +5467,8 @@ def rdpcap(filename):
     LLcls = LLTypes.get(linktype, Raw)
     if LLcls == Raw:
         warning("LL type %i unknown. Using Raw packets"%linktype)
-    while 1:
+    while count != 0:
+        count -= 1
         hdr = f.read(16)
         if len(hdr) < 16:
             break
