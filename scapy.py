@@ -22,6 +22,13 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.12.7  2003/05/16 11:25:48  pbi
+# - added workarroung python bug 643005 (socket.inet_aton("255.255.255.255"))
+# - use answers() method instead of operator
+# - added hashret() method : returns a hash that is invariant for a packet and its reply
+# - use hashret() in sndrcv() for dramatic improvements for matching replies on big set of packets
+# - change report_ports() to return a string instead of printing
+#
 # Revision 0.9.12.6  2003/05/16 09:28:40  pbi
 # - improved the __repr__() method of Packet class
 #
@@ -219,7 +226,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.12.6 2003/05/16 09:28:40 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.12.7 2003/05/16 11:25:48 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -386,6 +393,19 @@ try:
 except ImportError:
     DNET = 0
 
+# Workarround bug 643005 : https://sourceforge.net/tracker/?func=detail&atid=105470&aid=643005&group_id=5470
+try:
+    socket.inet_aton("255.255.255.255")
+except socket.error:
+    def inet_aton(x):
+        if x == "255.255.255.255":
+            return "\xff"*4
+        else:
+            return socket.inet_aton(x)
+else:
+    inet_aton = socket.inet_aton
+
+
 
 ############
 ## Consts ##
@@ -510,6 +530,9 @@ def mac2str(mac):
 def str2mac(s):
     return ("%02x:"*6)[:-1] % tuple(map(ord, s)) 
 
+def strxor(x,y):
+    return "".join(map(lambda x,y:chr(ord(x)^ord(y)),x,y))
+
 
 ####################
 ## IP Tools class ##
@@ -563,7 +586,7 @@ def read_routes():
 
 def choose_route(dst):
     routes = read_routes()
-    dst=struct.unpack("I",socket.inet_aton(dst))[0]
+    dst=struct.unpack("I",inet_aton(dst))[0]
     pathes=[]
     for d,m,gw,i,a in routes:
         if (dst & m) == (d & m):
@@ -796,10 +819,10 @@ class Net(Gen):
         tmp=net.split('/')+["32"]
 
         try:
-            ip=socket.inet_aton(tmp[0])
+            ip=inet_aton(tmp[0])
         except socket.error:
             ip=socket.gethostbyname(tmp[0])
-            ip=socket.inet_aton(ip)
+            ip=inet_aton(ip)
         
         self.ip=struct.unpack("!I", ip)[0]
         netsz=2**(32-int(tmp[1]))
@@ -948,12 +971,12 @@ class IPField(Field):
     def h2i(self, pkt, x):
         if type(x) is str:
             try:
-                socket.inet_aton(x)
+                inet_aton(x)
             except socket.error:
                 x = Net(x)
         return x
     def i2m(self, pkt, x):
-        return socket.inet_aton(x)
+        return inet_aton(x)
     def m2i(self, pkt, x):
         return socket.inet_ntoa(x)
     def any2i(self, pkt, x):
@@ -1395,7 +1418,7 @@ class RDataField(StrLenField):
         return s
     def i2m(self, pkt, s):
         if pkt.type == 1:
-            s = socket.inet_aton(s)
+            s = inet_aton(s)
         elif pkt.type in [2,3,4,5]:
             s = "".join(map(lambda x: chr(len(x))+x, s.split(".")))
             if ord(s[-1]):
@@ -1676,7 +1699,9 @@ class Packet(Gen):
             return 1
         else:
             raise TypeError((self, other))
-
+        
+    def hashret(self):
+        return self.payload.hashret()
     def answers(self, other):
         return 0
 
@@ -1787,6 +1812,8 @@ class NoPayload(Packet,object):
         pass
     def __iter__(self):
         return iter([])
+    def hashret(self):
+        return ""
     def answers(self, other):
         return isinstance(other, NoPayload) or isinstance(other, Padding)
     def haslayer(self, cls):
@@ -1826,10 +1853,12 @@ class Ether(Packet):
     fields_desc = [ DestMACField("dst"),
                     SourceMACField("src"),
                     XShortField("type", 0x0000) ]
+    def hashret(self):
+        return struct.pack("H",self.type)+self.payload.hashret()
     def answers(self, other):
         if isinstance(other,Ether):
             if self.type == other.type:
-                return self.payload < other.payload
+                return self.payload.answers(other.payload)
         return 0
     
 
@@ -1865,9 +1894,9 @@ class Dot1Q(Packet):
         if isinstance(other,Dot1Q):
             if ( (self.type == other.type) and
                  (self.vlan == other.vlan) ):
-                return self.payload < other.payload
+                return self.payload.answers(other.payload)
         else:
-            return self.payload < other
+            return self.payload.answers(other)
         return 0
 
 
@@ -1904,11 +1933,13 @@ class EAPOL(Packet):
     def extract_padding(self, s):
         l = self.len
         return s[:l],s[l:]
+    def hashret(self):
+        return chr(self.type)+self.payload.hashret()
     def answers(self, other):
         if isinstance(other,EAPOL):
             if ( (self.type == self.EAP_PACKET) and
                  (other.type == self.EAP_PACKET) ):
-                return self.payload < other.payload
+                return self.payload.answers(other.payload)
         return 0
              
 
@@ -2018,6 +2049,13 @@ class IP(Packet, IPTools):
                 print msg
             if slp:
                 time.sleep(slp)
+    def hashret(self):
+        if ( (self.proto == socket.IPPROTO_ICMP)
+             and (isinstance(self.payload, ICMP))
+             and (self.payload.type in [3,4,5,11,12]) ):
+            return self.payload.payload.hashret()
+        else:
+            return strxor(inet_aton(self.src),inet_aton(self.dst))+struct.pack("B",self.proto)+self.payload.hashret()
     def answers(self, other):
         if not isinstance(other,IP):
             return 0
@@ -2027,13 +2065,13 @@ class IP(Packet, IPTools):
              (isinstance(self.payload, ICMP)) and
              (self.payload.type in [3,4,5,11,12]) ):
             # ICMP error message
-            return self.payload.payload < other
+            return self.payload.payload.answers(other)
 
         else:
             if ( (self.src != other.dst) or
                  (self.proto != other.proto) ):
                 return 0
-            return self.payload < other.payload
+            return self.payload.answers(other.payload)
                  
     
 
@@ -2058,8 +2096,8 @@ class TCP(Packet):
         if self.chksum is None:
             if isinstance(self.underlayer, IP):
                 psdhdr = struct.pack("!4s4sHH",
-                                     socket.inet_aton(self.underlayer.src),
-                                     socket.inet_aton(self.underlayer.dst),
+                                     inet_aton(self.underlayer.src),
+                                     inet_aton(self.underlayer.dst),
                                      self.underlayer.proto,
                                      len(p))
                 ck=checksum(psdhdr+p)
@@ -2067,6 +2105,8 @@ class TCP(Packet):
             else:
                 warning("No IP underlayer to compute checksum. Leaving null.")
         return p
+    def hashret(self):
+        return struct.pack("H",self.sport ^ self.dport)+self.payload.hashret()
     def answers(self, other):
         if not isinstance(other, TCP):
             return 0
@@ -2091,8 +2131,8 @@ class UDP(Packet):
         if self.chksum is None:
             if isinstance(self.underlayer, IP):
                 psdhdr = struct.pack("!4s4sHH",
-                                     socket.inet_aton(self.underlayer.src),
-                                     socket.inet_aton(self.underlayer.dst),
+                                     inet_aton(self.underlayer.src),
+                                     inet_aton(self.underlayer.dst),
                                      self.underlayer.proto,
                                      len(p))
                 ck=checksum(psdhdr+p)
@@ -2103,6 +2143,8 @@ class UDP(Packet):
     def extract_padding(self, s):
         l = self.len - 8
         return s[:l],s[l:]
+    def hashret(self):
+        return struct.pack("H",self.sport ^ self.dport)+self.payload.hashret()
     def answers(self, other):
         if not isinstance(other, UDP):
             return 0
@@ -2139,6 +2181,8 @@ class ICMP(Packet):
             p = p[:2]+chr(ck>>8)+chr(ck&0xff)+p[4:]
         return p
     
+    def hashret(self):
+        return struct.pack("HH",self.id,self.seq)+self.payload.hashret()
     def answers(self, other):
         if not isinstance(other,ICMP):
             return 0
@@ -2636,6 +2680,15 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None):
     ans = []
     # do it here to fix random fields, so that parent and child have the same
     sent = [p for p in pkt]
+    notans = len(sent)
+
+    hsent={}
+    for i in sent:
+        h = i.hashret()
+        if h in hsent:
+            hsent[h].append(i)
+        else:
+            hsent[h] = [i]
 
     
     if timeout < 0:
@@ -2650,6 +2703,8 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None):
         rdpipe.close()
         try:
             i = 0
+            if verbose:
+                print "Begin emission:"
             for p in sent:
                 pks.send(p)
                 i += 1
@@ -2688,15 +2743,19 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None):
                     continue
                 r = pks.recv(MTU)
                 ok = 0
-                for i in range(len(sent)):
-                    if sent[i] > r:
-                        ans.append((sent[i],r))
-                        if verbose > 1:
-                            os.write(1, "*")
-                        ok = 1
-                        del(sent[i])
-                        break
-                if len(sent) == 0:
+                h = r.hashret()
+                if h in hsent:
+                    hlst = hsent[h]
+                    for i in range(len(hlst)):
+                        if r.answers(hlst[i]):
+                            ans.append((hlst[i],r))
+                            if verbose > 1:
+                                os.write(1, "*")
+                            ok = 1
+                            notans -= 1
+                            del(hlst[i])
+                            break
+                if notans == 0:
                     break
                 if not ok:
                     if verbose > 1:
@@ -2714,9 +2773,11 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None):
         arp_cache.update(ac)
         os.waitpid(pid,0)
 
+    del(sent)
+    remain = reduce(list.__add__, hsent.values())
     if verbose:
-        print "\nReceived %i packets, got %i answers, remaining %i packets" % (len(recv)+len(ans), len(ans), len(sent))
-    return ans,sent,recv
+        print "\nReceived %i packets, got %i answers, remaining %i packets" % (len(recv)+len(ans), len(ans), notans)
+    return ans,remain,recv
 
 
 def send(x, inter=0, *args, **kargs):
@@ -3341,22 +3402,22 @@ arping(net, iface=conf.iff) -> None"""
 
 def report_ports(target, ports):
     ans,unans = sr(IP(dst=target)/TCP(dport=ports),timeout=5)
-    print "\\begin{tabular}{|l|l|l|}\n\\hline"
+    rep = "\\begin{tabular}{|r|l|l|}\n\\hline\n"
     for s,r in ans:
         if not r.haslayer(ICMP):
             if r.payload.flags == 0x12:
-                print r.sprintf("%TCP.sport% & open & SA \\\\")
-    print "\\hline"
+                rep += r.sprintf("%TCP.sport% & open & SA \\\\\n")
+    rep += "\\hline\n"
     for s,r in ans:
         if r.haslayer(ICMP):
-            print r.sprintf("%TCPerror.dport% & closed & ICMP type %ICMP.type%/%ICMP.code% from %IP.src% \\\\")
+            rep += r.sprintf("%TCPerror.dport% & closed & ICMP type %ICMP.type%/%ICMP.code% from %IP.src% \\\\\n")
         elif r.payload.flags != 0x12:
-            print r.sprintf("%TCP.sport% & closed & TCP %TCP.flags% \\\\")
-    print "\\hline"
+            rep += r.sprintf("%TCP.sport% & closed & TCP %TCP.flags% \\\\\n")
+    rep += "\\hline\n"
     for i in unans:
-        print i.sprintf("%TCP.dport% & ? & unanswered \\\\")
-    print "\\hline\n\\end{tabular}"
-
+        rep += i.sprintf("%TCP.dport% & ? & unanswered \\\\\n")
+    rep += "\\hline\n\\end{tabular}\n"
+    return rep
 
     
 
