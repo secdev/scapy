@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.31  2005/01/26 22:30:36  pbi
+# - removed an uneeded "else" in  sprintf()
+#
 # Revision 0.9.17.30  2005/01/22 22:25:24  pbi
 # - re-added node coloring lost code line in traceroute graphing code
 #
@@ -536,7 +539,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.30 2005/01/22 22:25:24 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.31 2005/01/26 22:30:36 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2614,46 +2617,45 @@ Ex : p.sprintf("%.time% %-15s,IP.src% -> %-15s,IP.dst% %IP.chksum% "
                 fmt = fmt[1:]
                 s += "%"
                 continue
-            else:
-                try:
-                    i = fmt.index("%")
-                    sfclsfld = fmt[:i]
-                    fclsfld = sfclsfld.split(",")
-                    if len(fclsfld) == 1:
-                        f = "s"
-                        clsfld = fclsfld[0]
-                    elif len(fclsfld) == 2:
-                        f,clsfld = fclsfld
-                    else:
-                        raise Exception
-                    cls,fld = clsfld.split(".")
-                    num = 1
-                    if ":" in cls:
-                        cls,num = cls.split(":")
-                        num = int(num)
-                    fmt = fmt[i+1:]
-                except:
-                    raise Exception("Bad format string [%%%s%s]" % (fmt[:25], fmt[25:] and "..."))
+            try:
+                i = fmt.index("%")
+                sfclsfld = fmt[:i]
+                fclsfld = sfclsfld.split(",")
+                if len(fclsfld) == 1:
+                    f = "s"
+                    clsfld = fclsfld[0]
+                elif len(fclsfld) == 2:
+                    f,clsfld = fclsfld
                 else:
-                    if fld == "time":
-                        val = time.strftime("%H:%M:%S.%%06i", time.localtime(self.time)) % int((self.time-int(self.time))*1000000)
-                    elif cls == self.__class__.__name__ and hasattr(self, fld):
-                        if num > 1:
-                            val = self.payload.sprintf("%%%s,%s:%s.%s%%" % (f,cls,num-1,fld), relax)
-                            f = "s"
-                        elif f[-1] == "r":  # Raw field value
-                            val = getattr(self,fld)
-                            f = f[:-1]
-                            if not f:
-                                f = "s"
-                        else:
-                            val = getattr(self,fld)
-                            if fld in self.fieldtype:
-                                val = self.fieldtype[fld].i2repr(self,val)
-                    else:
-                        val = self.payload.sprintf("%%%s%%" % sfclsfld, relax)
+                    raise Exception
+                cls,fld = clsfld.split(".")
+                num = 1
+                if ":" in cls:
+                    cls,num = cls.split(":")
+                    num = int(num)
+                fmt = fmt[i+1:]
+            except:
+                raise Exception("Bad format string [%%%s%s]" % (fmt[:25], fmt[25:] and "..."))
+            else:
+                if fld == "time":
+                    val = time.strftime("%H:%M:%S.%%06i", time.localtime(self.time)) % int((self.time-int(self.time))*1000000)
+                elif cls == self.__class__.__name__ and hasattr(self, fld):
+                    if num > 1:
+                        val = self.payload.sprintf("%%%s,%s:%s.%s%%" % (f,cls,num-1,fld), relax)
                         f = "s"
-                    s += ("%"+f) % val
+                    elif f[-1] == "r":  # Raw field value
+                        val = getattr(self,fld)
+                        f = f[:-1]
+                        if not f:
+                            f = "s"
+                    else:
+                        val = getattr(self,fld)
+                        if fld in self.fieldtype:
+                            val = self.fieldtype[fld].i2repr(self,val)
+                else:
+                    val = self.payload.sprintf("%%%s%%" % sfclsfld, relax)
+                    f = "s"
+                s += ("%"+f) % val
             
         s += fmt
         return s
