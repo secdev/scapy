@@ -21,6 +21,12 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.21  2004/12/26 16:04:57  pbi
+# - removed strace in soxmix command line
+# - DHCP support (from Mattias Wadman)
+# - added missing make_table to PacketList class
+# - have UDP class asks its payload for answers()
+#
 # Revision 0.9.17.20  2004/12/01 17:13:28  pbi
 # - Early WEP support
 # - voip_play() tweaks
@@ -492,7 +498,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.20 2004/12/01 17:13:28 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.21 2004/12/26 16:04:57 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1315,6 +1321,12 @@ class PacketList:
     def filter(self, func):
         return PacketList(filter(func,self.res),
                           name="filtered %s"%self.listname)
+    def make_table(self, *args, **kargs):
+        return make_table(self.res, *args, **kargs)
+    def make_lined_table(self, *args, **kargs):
+        return make_lined_table(self.res, *args, **kargs)
+    def make_tex_table(self, *args, **kargs):
+        return make_tex_table(self.res, *args, **kargs)
 
 
         
@@ -2882,7 +2894,7 @@ class UDP(Packet):
             if not ((self.sport == other.dport) and
                     (self.dport == other.sport)):
                 return 0
-        return 1
+	return self.payload.answers(other.payload)
     def mysummary(self):
         if isinstance(self.underlayer, IP):
             return "UDP %s:%i > %s:%i" % (self.underlayer.src, self.sport,
@@ -3081,6 +3093,9 @@ class DNSRR(Packet):
                     RDLenField("rdlen"),
                     RDataField("rdata", "", "rdlen") ]
 
+dhcpmagic="c\x82Sc"
+
+
 class BOOTP(Packet):
     name = "BOOTP"
     fields_desc = [ ByteEnumField("op",1, {1:"BOOTREQUEST", 2:"BOOTREPLY"}),
@@ -3098,8 +3113,172 @@ class BOOTP(Packet):
                     Field("sname","","64s"),
                     Field("file","","128s"),
                     StrField("options","") ]
+    def guess_payload_class(self):
+	if self.options[:len(dhcpmagic)] == dhcpmagic:
+	    return DHCP
+	else:
+            return Packet.guess_payload_class(self)
+    def extract_padding(self,s):
+	if self.options[:len(dhcpmagic)] == dhcpmagic:
+	    # set BOOTP options to DHCP magic cookie and make rest a payload of DHCP options
+	    payload = self.options[len(dhcpmagic):]
+	    self.options = self.options[:len(dhcpmagic)]
+	    return payload, None
+	else:
+	    return "", None
+    def hashret(self):
+	return struct.pack("L", self.xid)
+    def answers(self, other):
+    	if not isinstance(other, BOOTP):
+	    return 0
+	return self.xid == other.xid
 
-dhcpmagic="".join(map(chr,[99,130,83,99]))
+
+
+#DHCP_UNKNOWN, DHCP_IP, DHCP_IPLIST, DHCP_TYPE \
+#= range(4)
+#
+
+DHCPTypes = {
+		1: "discover",
+		2: "offer",
+		3: "decline",
+		4: "ack",
+		5: "nak",
+		6: "release",
+		7: "inform"
+		}
+#
+#DHCPOptions = (
+#		{
+#		    1: ("subnet-mask", DHCP_IP),
+#		    3: ("routers", DHCP_IPLIST),
+#		    53: ("message-type", DHCP_MESSAGE_TYPE),
+#		    55: ("request-list", DHCP_REQUEST_LIST
+#		    },
+#		{
+#		    "subnet-mask": (1, DHCP_IP)
+#		    "routers": (3, DHCP_IPLIST)
+#		    "message-type": (53, DHCP_TYPE)
+#		    } )
+
+DHCPOptions = (
+		{
+		    0: "pad",
+		    1: IPField("subnet_mask", "0.0.0.0"),
+                    2: "time_zone",
+#		    3: IPListField("routers"),
+                    4: "time_server",
+                    5: "IEN_name_server",
+                    6: "name_server",
+                    7: "log_server",
+                    8: "cookie_server",
+                    9: "lpr_server",
+                    14: "dump_path",
+                    15: "domain",
+                    17: "root_disk_path",
+                    22: "max_dgram_reass_size",
+                    23: "default_ttl",
+                    24: "pmtu_timeout",
+                    35: "arp_cache_timeout",
+                    36: "ether_or_dot3",
+                    37: "tcp_ttl",
+                    38: "tcp_keepalive_interval",
+                    39: "tcp_keepalive_garbage",
+                    40: "NIS_domain",
+                    41: "NIS_server",
+                    42: "NTP_server",
+                    43: "vendor_specific",
+                    44: "NetBIOS_server",
+                    45: "NetBIOS_dist_server",
+                    64: "NISplus_domain",
+                    65: "NISplus_server",
+                    69: "SMTP_server",
+                    70: "POP3_server",
+                    71: "NNTP_server",
+                    72: "WWW_server",
+                    73: "Finger_server",
+                    74: "IRC_server",
+                    75: "StreetTalk_server",
+                    76: "StreetTalk_Dir_Assistance",
+		    53: ByteEnumField("message-type", 1, DHCPTypes),
+#		    55: DHCPRequestListField("request-list"),
+		    255: "end"
+		    },
+		{
+		    "pad": (0, None),
+		    "subnet-mask": (1, IPField("subnet-mask", "0.0.0.0")),
+#		    "routers": (3, IPListField("routers")),
+		    "message-type": (53, ByteEnumField("message-type", 1, DHCPTypes)),
+		    "end": (255, None)
+		    } )
+
+
+
+class DHCPOptionsField(StrField):
+    islist=1
+    def getfield(self, pkt, s):
+	#print "getfield s=%s %d" % (s, len(s))
+	return "", self.m2i(pkt, s)
+    def m2i(self, pkt, x):
+	#print "m2i x=%s len=%d" % (x, len(x))
+	opt = []
+	while x:
+	    o = ord(x[0])
+	    #print "o=%d x=%s len=%d" % (o, x, len(x))
+	    if DHCPOptions[0].has_key(o):
+		f = DHCPOptions[0][o]
+
+		if isinstance(f, str):
+		    opt.append(f)
+		    x = x[1:]
+		else:
+		    olen = ord(x[1])
+		    left, val = f.getfield(pkt,x[2:olen+2])
+		    if left:
+			print "m2i data left left=%s" % left
+		    opt.append((f.name, val))
+		    x = x[olen+2:]
+	    else:
+		olen = ord(x[1])
+		opt.append((o, x[2:olen+2]))
+		x = x[olen+2:]
+	return opt
+    def i2m(self, pkt, x):
+	#print "i2m x=%s" % x
+	s = ""
+	for o in x:
+	    if isinstance(o, tuple) and len(o) == 2:
+		name, val = o
+
+		if isinstance(name, int):
+		    onum, oval = name, val
+	#	    print "raw"
+		elif DHCPOptions[1].has_key(name) and DHCPOptions[1][name][1] != None:
+		    onum, f = DHCPOptions[1][name]
+		    oval = f.addfield(pkt,"",val)
+	#	    print "type"
+		else:
+		    print "Unknown field option %s" % name
+		    continue
+
+	#	print "oval=%s" % oval
+		    
+		s += chr(onum)
+		s += chr(len(oval))
+		s += oval
+		
+	    elif isinstance(o, str) and DHCPOptions[1].has_key(o) and \
+		 DHCPOptions[1][o][1] == None:
+		s += chr(DHCPOptions[1][o][0])
+	    else:
+		print "Malformed option %s" % o
+	return s
+
+
+class DHCP(Packet):
+    name = "DHCP options"
+    fields_desc = [ DHCPOptionsField("options","") ]	
 
 
 class Dot11(Packet):
@@ -3226,6 +3405,7 @@ class Dot11WEP(Packet):
 
 
 class PrismHeader(Packet):
+    name = "Prism header"
     """ iwpriv wlan0 monitor 3 """
     fields_desc = [ LEIntField("msgcode",68),
                     LEIntField("len",144),
@@ -3445,7 +3625,7 @@ class IKE_proposal(Packet):
 class IKETransform(Packet):
     name = "IKE Transform"
     ISAKMP_payload_type = 3
-    field_desc = [
+    fields_desc = [
         ByteField("num",None),
         ByteEnumField("id",1,{1:"KEY_IKE"}),
         ShortField("res",0),
@@ -3662,6 +3842,7 @@ layer_bonds = [ ( Dot3,   LLC,      { } ),
                 ( UDP,    NTP,      { "sport" : 123, "dport" : 123 } ),
                 ( UDP,    BOOTP,    { "sport" : 68, "dport" : 67 } ),
                 ( UDP,    BOOTP,    { "sport" : 67, "dport" : 68 } ),
+                ( BOOTP,  DHCP,     { "options" : dhcpmagic } ),
                 ( UDP,    RIP,      { "sport" : 520 } ),
                 ( UDP,    RIP,      { "dport" : 520 } ),
                 ( UDP,    DNS,      { "sport" : 53 } ),
@@ -5522,7 +5703,7 @@ def voip_play(s1,**kargs):
     
     os.mkfifo(FIFO1)
     os.mkfifo(FIFO2)
-    os.system("strace -o /tmp/sss soxmix -t .ul %s -t .ul %s -t ossdsp /dev/dsp &" % (FIFO1,FIFO2))
+    os.system("soxmix -t .ul %s -t .ul %s -t ossdsp /dev/dsp &" % (FIFO1,FIFO2))
     
     c1=open(FIFO1,"w", 4096)
     c2=open(FIFO2,"w", 4096)
