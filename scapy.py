@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.34  2005/01/26 23:43:19  pbi
+# - removed some outdated functions
+#
 # Revision 0.9.17.33  2005/01/26 23:41:58  pbi
 # - small simplification of TracerouteResult display() thanks to new sprintf()
 #   conditionnal statement
@@ -546,7 +549,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.33 2005/01/26 23:41:58 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.34 2005/01/26 23:43:19 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -6109,54 +6112,6 @@ def IPID_count(lst, funcID=lambda x:x[1].id, funcpres=lambda x:x[1].summary()):
             
 
 last=None
-
-
-def icmping(net):
-    global last
-    ans, unans, x = sndrcv(conf.L3socket(),IP(dst=net)/ICMP())
-    for s,r in ans:
-        print r.src
-    last = ans,unans,x
-
-def tcping(net, port):
-    global last
-    ans, unans, x = sndrcv(conf.L3socket(),IP(dst=net)/TCP(dport=port, flags=2))
-    for s,r in ans:
-        if isinstance(r.payload,TCP):
-            print r.src,r.payload.sport, r.payload.flags
-        else:
-            print r.src,"icmp",r.payload.type
-    last = ans, unans, x
-
-def tcptraceroute(net, port=80):
-    global last
-    ans, unans, x = sndrcv(conf.L3socket(),
-                           IP(dst=net,
-                              id=RandShort(),
-                              ttl=(1,25))/TCP(seq=RandInt(),
-                                              dport=port,
-                                              flags=2))
-    ans.sort(lambda (s1,r1),(s2,r2): cmp(s1.ttl,s2.ttl))
-    for s,r in ans:
-        if isinstance(r.payload, ICMP):
-            print "%2i: %s" % (s.ttl,r.src)
-        else:
-            print "%2i: %s <- %#02x" % (s.ttl,r.src,r.payload.flags)
-    last = ans, unans, x
-
-
-def goarp():
-    arping(Net("172.16.1.0/28"))
-
-def goicmp():
-    icmping(Net("172.16.1.0/28"))
-
-def gotcp():
-    tcping(Net("172.16.1.0/28"),[80,443])
-
-def gotrace():
-    tcptraceroute(Net("www.google.com"))
-
 
 
 def tethereal(*args,**kargs):
