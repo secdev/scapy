@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.46  2005/03/08 17:56:49  pbi
+# - added a possibility to give a hint for srp() to choose the intended interface
+# - added is_promisc() to find boxes in promisc mode (will not always work) (Javier Merino)
+#
 # Revision 0.9.17.45  2005/03/08 17:21:14  pbi
 # - added PacketField
 # - ISAKMP work
@@ -590,7 +594,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.45 2005/03/08 17:21:14 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.46 2005/03/08 17:56:49 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1079,6 +1083,7 @@ class Route:
         
 
     def route(self,dst):
+        dst = dst.split("/")[0]
         try:
             dst=inet_aton(dst)
         except socket.error:
@@ -1801,10 +1806,6 @@ class Field:
         return self.name
 
 
-
-        
-        
-    
 
 
 class MACField(Field):
@@ -5096,18 +5097,18 @@ def sr1(x,filter=None,iface=None, *args,**kargs):
     else:
         return None
 
-def srp(x,iface=None,filter=None,type=ETH_P_ALL, *args,**kargs):
+def srp(x,iface=None, iface_hint=None, filter=None,type=ETH_P_ALL, *args,**kargs):
     """Send and receive packets at layer 2"""
     if not kargs.has_key("timeout"):
         kargs["timeout"] = -1
+    if iface is None and iface_hint is not None:
+        iface = conf.route.route(iface_hint)[0]
     a,b,c=sndrcv(conf.L2socket(iface=iface, filter=filter, type=type),x,*args,**kargs)
     return a,b
 
-def srp1(x,iface=None,filter=None,type=ETH_P_ALL, *args,**kargs):
+def srp1(*args,**kargs):
     """Send and receive packets at layer 2 and return only the first answer"""
-    if not kargs.has_key("timeout"):
-        kargs["timeout"] = -1
-    a,b,c=sndrcv(conf.L2socket(iface=iface, filter=filter, type=type),x,*args,**kargs)
+    a,b=srp(*args,**kargs)
     if len(a) > 0:
         return a[0][1]
     else:
@@ -5989,7 +5990,7 @@ def arping(net, **kargs):
     """Send ARP who-has requests to determine which hosts are up
 arping(net, iface=conf.iface) -> None"""
     ans,unans = srp(Ether(dst="ff:ff:ff:ff:ff:ff")/ARP(pdst=net),
-                    filter="arp and arp[7] = 2", timeout=2, **kargs)
+                    filter="arp and arp[7] = 2", timeout=2, iface_hint=net, **kargs)
     ans = ARPingResult(ans.res)
     ans.display()
     return ans
@@ -6033,6 +6034,17 @@ RFC2136
     else:
         return -1
     
+
+def is_promisc(ip, fake_bcast="ff:ff:00:00:00:00",**kargs):
+    """Try to guess if target is in Promisc mode. The target is provided by its ip."""
+
+    responses = srp1(Ether(dst=fake_bcast) / ARP(op="who-has", pdst=ip),type=ETH_P_ARP, iface_hint=ip, timeout=1, verbose=0,**kargs)
+    print responses
+
+    if responses is None:
+        return False
+    return True
+
 
 
 #####################
@@ -6165,7 +6177,7 @@ def ls(obj=None):
     
 
 
-user_commands = [ sr, sr1, srp, srp1, srloop, srploop, sniff, p0f, arpcachepoison, send, sendp, traceroute, arping, ls, lsc, queso, nmap_fp, report_ports, dyndns_add, dyndns_del ]
+user_commands = [ sr, sr1, srp, srp1, srloop, srploop, sniff, p0f, arpcachepoison, send, sendp, traceroute, arping, ls, lsc, queso, nmap_fp, report_ports, dyndns_add, dyndns_del, is_promisc ]
 
 
 ########################
