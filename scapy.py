@@ -21,6 +21,12 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.16.17  2004/07/26 19:24:48  pbi
+# - do not need to be named 'scapy.py' anymore
+# - use of PacketList() for rdpcap() and sniff()
+# - fixed a bug in StrFixedLenField
+# - early IKE and ISAKMP support
+#
 # Revision 0.9.16.16  2004/07/16 15:39:37  pbi
 # - small fix on bootpd
 #
@@ -400,7 +406,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.16.16 2004/07/16 15:39:37 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.16.17 2004/07/26 19:24:48 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -427,8 +433,17 @@ def usage():
 
 
 if __name__ == "__main__":
-    import code,sys,cPickle,types,os
-    import scapy
+    import code,sys,cPickle,types,os,imp
+
+    scapy_module = sys.argv[0]
+    if not scapy_module:
+        scapy_module = "scapy"
+    else:
+        if scapy_module.endswith(".py"):
+            scapy_module = scapy_module[:-3]
+
+    scapy=imp.load_module("scapy",*imp.find_module(scapy_module))
+    
     __builtins__.__dict__.update(scapy.__dict__)
 
     import rlcompleter,readline
@@ -1134,9 +1149,10 @@ class SndRcvAns:
     def make_tex_table(self, *args, **kargs):
         return make_tex_table(self.res, *args, **kargs)
 
-class SndRcvList:
-    def __init__(self, res):
+class PacketList:
+    def __init__(self, res, name="PacketList"):
         self.res = res
+        self.listname = name
     def __repr__(self):
         stats={TCP:0,UDP:0,ICMP:0}
         other = 0
@@ -1153,12 +1169,17 @@ class SndRcvList:
         for p in stats:
             s += " %s:%i" % (p.name,stats[p])
         s += " Other:%i" % other
-        return "<Unanswered:%s>" % s
+        return "<%s:%s>" % (self.listname,s)
     def __getattr__(self, attr):
         return getattr(self.res, attr)
     def summary(self):
         for r in self.res:
             print r.summary()
+    def nsummary(self):
+        for i in range(len(self.res)):
+            print "%04i %s" % (i,self.res[i].summary())
+
+
         
     
 ############
@@ -1449,7 +1470,7 @@ class StrFixedLenField(StrField):
     def getfield(self, pkt, s):
         return s[self.length:], self.m2i(pkt,s[:self.length])
     def addfield(self, pkt, s, val):
-        return s+struct.pack("16s",self.i2m(pkt, val))
+        return s+struct.pack("%ss"%self.length,self.i2m(pkt, val))
     
 
 class StrLenField(StrField):
@@ -3069,6 +3090,100 @@ class NTP(Packet):
 ##  
 
 
+ISAKMP_payload_type = ["None","SA","P","T","KE","ID","CERT","CR","HASH",
+                       "SIG","Nonce","N","D","VID"]
+
+ISAKMP_exchange_type = ["None","base","identity prot.",
+                        "auth only", "aggressive", "info"]
+
+class ISAKMP(Packet): # rfc2408
+    name = "ISAKMP"
+    fields_desc = [
+        StrFixedLenField("init_cookie","",8),
+        StrFixedLenField("resp_cookie","",8),
+        ByteEnumField("next_payload",0,ISAKMP_payload_type),
+        XByteField("version",0x10),
+        ByteEnumField("exch_type",0,ISAKMP_exchange_type),
+        ByteField("flags",0), # XXX use a Flag field
+        IntField("id",0),
+        IntField("length",None)
+        ]
+
+
+    def post_build(self, p):
+        if self.length is None:
+            p = p[:24]+struct.pack("!I",len(p))+p[28:]
+        return p
+       
+
+class ISAKMP_payload(Packet):
+    name = "ISAKMP payload"
+    fields_desc = [
+        ByteEnumField("next_payload",None,ISAKMP_payload_type),
+        ByteField("res",0),
+        ShortField("length",None),
+        Field("load",""),
+        ]
+    def post_build(self, p):
+        if self.length is None:
+            p = p[:2]+struct.pack("!I",len(self.load))+p[4:]
+        if self.next_payload is None:
+            t = getattr(self,"ISAKMP_payload_type",0)
+            if t:
+                p = chr(t)+p[1:]
+        return p
+                     
+        
+
+class IKE_SA(Packet):
+    name = "IKE SA"
+    ISAKMP_payload_type = 0
+    fields_desc = [
+        IntEnumField("DOI",1,{1:"IPSEC"}),
+        IntEnumField("situation",1,{1:"identity"}),
+        Field("load",""),
+        ]
+    
+class IKE_proposal(Packet):
+    name = "IKE proposal"
+    ISAKMP_payload_type = 0
+    fields_desc = [
+        ByteField("proposal",1),
+        ByteEnumField("proto",1,{1:"ISAKMP"}),
+        ByteField("SPIsize",0),
+        ByteField("trans_nb",None),
+        Field("transforms","")
+        ]
+    def post_build(self,p):
+        if self.trans_nb is None:
+            n = 0
+            i = self.transforms
+            while isinstance(IKETransform,i):
+                n += 1
+                i = i.payload
+            p = p[:3]+chr(n)+p[4:]
+        return p
+
+class IKETransform(Packet):
+    name = "IKE Transform"
+    ISAKMP_payload_type = 3
+    field_desc = [
+        ByteField("num",None),
+        ByteEnumField("id",1,{1:"KEY_IKE"}),
+        ShortField("res",0),
+#        SAattrField("attr"),
+        XIntField("enc",0x80010005L),
+        XIntField("hash",0x80020002L),
+        XIntField("auth",0x80030001L),
+        XIntField("group",0x80040002L),
+        XIntField("life_type",0x800b0001L),
+        XIntField("durationh",0x000c0004L),
+        XIntField("durationl",0x00007080L),
+        ]
+        
+        
+        
+        
 
 
 
@@ -3115,6 +3230,7 @@ layer_bonds = [ ( Dot3,   LLC,      { } ),
                 ( UDP,    DNS,      { "sport" : 53 } ),
                 ( UDP,    DNS,      { "dport" : 53 } ),
                 ( UDP,    DNS,      { "dport" : 53 } ),
+                ( UDP,    ISAKMP,   { "sport" : 500, "dport" : 500 } ),
                 ( UDP,    NTP,      { "sport" : 123, "dport" : 123 } ),
                 ( UDP,    BOOTP,    { "sport" : 68, "dport" : 67 } ),
                 ( UDP,    BOOTP,    { "sport" : 67, "dport" : 68 } ),
@@ -3497,8 +3613,8 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0,retry=0):
         
     if verbose is None:
         verbose = conf.verb
-    debug.recv = SndRcvList([])
-    debug.sent = SndRcvList([])
+    debug.recv = PacketList([],"Unanswered")
+    debug.sent = PacketList([],"Sent")
     debug.match = SndRcvAns([])
     nbrecv=0
     ans = []
@@ -3622,11 +3738,11 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0,retry=0):
         retry -= 1
         
     if conf.debug_match:
-        debug.sent=SndRcvList(remain[:])
+        debug.sent=PacketList(remain[:],"Sent")
         debug.match=SndRcvAns(ans[:])
     if verbose:
         print "\nReceived %i packets, got %i answers, remaining %i packets" % (nbrecv+len(ans), len(ans), notans)
-    return SndRcvAns(ans),SndRcvList(remain),debug.recv
+    return SndRcvAns(ans),PacketList(remain,"Unanswered"),debug.recv
 
 
 def __gen_send(s, x, inter=0, loop=0, verbose=None, *args, **kargs):
@@ -3799,7 +3915,8 @@ def rdpcap(filename):
         p.time = sec+0.000001*usec
         res.append(p)
     f.close()
-    return res
+    filename = filename[filename.rfind("/")+1:]
+    return PacketList(res,filename)
 
 
 def import_hexcap():
@@ -4324,7 +4441,7 @@ sniff([count,] [prn,] + L2ListenSocket args) -> list of packets
                 break
         except KeyboardInterrupt:
             break
-    return lst
+    return PacketList(lst,"Sniffed")
 
 
 
