@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.24  2005/01/13 14:25:00  pbi
+# - added Sebek v1 and v2 protocols (Pierre Lalet)
+#
 # Revision 0.9.17.23  2005/01/10 21:55:14  pbi
 # - addded promisc and iface parameters to L3RawSocket
 #
@@ -509,7 +512,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.23 2005/01/10 21:55:14 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.24 2005/01/13 14:25:00 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -3818,7 +3821,66 @@ class Skinny(Packet):
     
 
 
+### SEBEK
 
+
+class SebekHead(Packet):
+    name = "Sebek header"
+    fields_desc = [ XIntField("magic", 0xd0d0d0),
+                    ShortField("version", 1),
+                    ShortEnumField("type", 0, {"read":0, "write":1,
+                                             "socket":2, "open":3}),
+                    IntField("counter", 0),
+                    IntField("time_sec", 0),
+                    IntField("time_usec", 0) ]
+
+# we need this because Sebek headers differ between v1 and v2, and
+# between v2 type socket and v2 others
+
+class SebekV1(Packet):
+    name = "Sebek v1"
+    fields_desc = [ IntField("pid", 0),
+                    IntField("uid", 0),
+                    IntField("fd", 0),
+                    StrFixedLenField("command", "", 12),
+                    IntField("data_length", 0) ]
+    def post_build(self, p):
+        l=socket.htonl(p.__len__() - 28)
+        p=p[:24]+struct.pack("I", l)+p[28:]
+        return p
+
+class SebekV2(Packet):
+    name = "Sebek v2"
+    fields_desc = [ IntField("parent_pid", 0),
+                    IntField("pid", 0),
+                    IntField("uid", 0),
+                    IntField("fd", 0),
+                    IntField("inode", 0),
+                    StrFixedLenField("command", "", 12),
+                    IntField("data_length", 0) ]
+    def post_build(self, p):
+        l=socket.htonl(p.__len__() - 36)
+        p=p[:32]+ struct.pack("I", l) +p[36:]
+        return p
+
+class SebekV2Sock(Packet):
+    name = "Sebek v2 socket"
+    fields_desc = [ IntField("parent_pid", 0),
+                    IntField("pid", 0),
+                    IntField("uid", 0),
+                    IntField("fd", 0),
+                    IntField("inode", 0),
+                    StrFixedLenField("command", "", 12),
+                    IntField("data_length", 15),
+                    IntField("dip", 0),
+                    ShortField("dport", 0),
+                    IntField("sip", 0),
+                    ShortField("sport", 0),
+                    ShortEnumField("call", 0, {"connect":3, "listen":4,
+                                               "accept":5, "sendmsg":16,
+                                               "recvmsg":17, "sendto":11,
+                                               "recvfrom":12}),
+                    ByteField("proto", 0) ]
 
 
 #################
@@ -3906,6 +3968,11 @@ layer_bonds = [ ( Dot3,   LLC,      { } ),
                 ( Dot11Elt, Dot11Elt,        {} ),
                 ( TCP,      Skinny,          { "dport": 2000 } ),
                 ( TCP,      Skinny,          { "sport": 2000 } ),
+                ( UDP,      SebekHead,       { "sport" : 1101 } ),
+                ( UDP,      SebekHead,       { "dport" : 1101 } ),
+                ( SebekHead, SebekV1,        { "version" : 1 } ),
+                ( SebekHead, SebekV2,        { "version" : 2 } ),
+                ( SebekHead, SebekV2Sock,    { "version" : 2, "type" : 2 } ),
                 ]
 
 for l in layer_bonds:
