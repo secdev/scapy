@@ -22,6 +22,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.7.5  2003/03/26 14:47:39  pbi
+# Added creation time packet. Supported by read/write pcap.
+#
 # Revision 0.9.7.4  2003/03/26 14:25:09  pbi
 # Added the NoPayload terminal class
 #
@@ -36,7 +39,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.7.4 2003/03/26 14:25:09 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.7.5 2003/03/26 14:47:39 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -50,12 +53,10 @@ def usage():
 ##
 #   Next things to do :
 #
-#  - make a special Packet class for the last layer
-#    (no more "if isinstance(payload, Packet)..."
 #  - improve pcap capture file support
 #  - add a IPtools class (with whois()...) and have IP inherit it)
 #  - use i2repr() in sprintf() ?
-#  - add a creation time to packets
+#  - sprintf support for IP/IP
 #
 ##
 ##########[XXX]#=--
@@ -1005,6 +1006,7 @@ class Packet(Gen):
 
 
     def __init__(self, pkt="", **fields):
+        self.time  = time.time()
         self.aliastypes = [ self.__class__ ] + self.aliastypes
         self.default_fields = {}
         self.overloaded_fields = {}
@@ -1262,10 +1264,13 @@ class Packet(Gen):
                     clsfld = fmt[:i]
                     cls,fld = clsfld.split(".")
                     fmt = fmt[i+1:]
+                    
                 except:
-                    raise Exception("Bad format string [%%%s...]" % fmt[:15])
+                    raise Exception("Bad format string [%%%s%s]" % (fmt[:15], fmt[15:] and "..."))
                 else:
-                    if cls == self.__class__.__name__ and hasattr(self, fld):
+                    if fld == "time":
+                        val = time.strftime("%H:%M:%S.%%06i", time.localtime(self.time)) % int((self.time-int(self.time))*1000000)
+                    elif cls == self.__class__.__name__ and hasattr(self, fld):
                         val = str(getattr(self,fld))
                     else:
                         val = self.payload.sprintf("%%%s%%" % clsfld)
@@ -1315,14 +1320,6 @@ class NoPayload(Packet,object):
         pass
     def sprintf(self, fmt):
         raise Exception("Format not found [%s]"%fmt)
-    
-    
-    
-    
-    
-    
-    
-    
     
     
     
@@ -2079,7 +2076,9 @@ def wrpcap(filename, pkt):
     for p in pkt:
         s = str(p)
         l = len(s)
-        f.write(struct.pack("IIII", 0, 0, l, l))
+        sec = int(p.time)
+        usec = int((p.time-sec)*1000000)
+        f.write(struct.pack("IIII", sec, usec, l, l))
         f.write(s)
     f.close()
 
@@ -2096,8 +2095,10 @@ def rdpcap(filename):
         hdr = f.read(16)
         if len(hdr) < 16:
             break
-        ts,uts,caplen,olen = struct.unpack("IIII", hdr )
-        res.append(LLcls(f.read(caplen)))
+        sec,usec,caplen,olen = struct.unpack("IIII", hdr )
+        p = LLcls(f.read(caplen))
+        p.time = sec+0.000001*usec
+        res.append(p)
     f.close()
     return res
 
