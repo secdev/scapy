@@ -22,6 +22,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.9.4  2003/04/10 13:45:22  pbi
+# - Prepared the configuration of L2/L3 supersockets
+#
 # Revision 0.9.9.3  2003/04/08 18:34:48  pbi
 # - little fix in L2ListenSocket.__del__()
 # - added doc and options in Conf class
@@ -106,7 +109,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.9.3 2003/04/08 18:34:48 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.9.4 2003/04/10 13:45:22 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -267,60 +270,6 @@ RTF_UP = 0x0001  # Route usable
 
 
 MTU = 1600
-
-
-############
-## Config ##
-############
-
-class ConfClass:
-    def configure(self, cnf):
-        self.__dict__ = cnf.__dict__.copy()
-    def __repr__(self):
-        s=""
-        keys = self.__class__.__dict__.copy()
-        keys.update(self.__dict__)
-        keys = keys.keys()
-        keys.sort()
-        for i in keys:
-            if i[0] != "_":
-                s += " %s=%s" % (i, repr(getattr(self, i)))
-        return "<Conf%s>" % s
-    def __str__(self):
-        s=""
-        keys = self.__class__.__dict__.copy()
-        keys.update(self.__dict__)
-        keys = keys.keys()
-        keys.sort()
-        for i in keys:
-            if i[0] != "_":
-                s += "%-10s = %s\n" % (i, repr(getattr(self, i)))
-        return s[:-1]
-    def reset(self):
-        self.__dict__ = {}
-        
-
-
-class Conf(ConfClass):
-    """This object contains the configuration of scapy.
-session : filename where the session will be saved
-stealth : if 1, prevent any unwanted packet to go out (ARP, DNS, ...)
-iff : select the default output interface for srp() and sendp(). default:"eth0")
-verb : level of verbosity, from 0 (almost mute) to 3 (verbose)
-promisc : default mode for listening socket (to get answers if you spoof on a lan)
-sniff_promisc : default mode for sniff()
-filter : bpf filter added to every sniffing socket to exclude traffic from analysis"""
-    session = ""  
-    stealth = "not implemented"
-    iff = "eth0"
-    verb = 2
-    promisc = "not implemented"
-    sniff_promisc = 0
-    filter = "not implemented"
-    
-        
-
-conf=Conf()
 
     
 
@@ -2135,6 +2084,7 @@ class L2ListenSocket(SuperSocket):
         raise Exception("Can't send anything with L2ListenSocket")
 
 
+
 ####################
 ## Send / Receive ##
 ####################
@@ -2739,3 +2689,58 @@ def fragleak(target):
     except KeyboardInterrupt:
         pass
 
+
+
+############
+## Config ##
+############
+
+class ConfClass:
+    def configure(self, cnf):
+        self.__dict__ = cnf.__dict__.copy()
+    def __repr__(self):
+        s=""
+        keys = self.__class__.__dict__.copy()
+        keys.update(self.__dict__)
+        keys = keys.keys()
+        keys.sort()
+        for i in keys:
+            if i[0] != "_":
+                s += " %s=%s" % (i, repr(getattr(self, i)))
+        return "<Conf%s>" % s
+    def __str__(self):
+        s=""
+        keys = self.__class__.__dict__.copy()
+        keys.update(self.__dict__)
+        keys = keys.keys()
+        keys.sort()
+        for i in keys:
+            if i[0] != "_":
+                s += "%-10s = %s\n" % (i, repr(getattr(self, i)))
+        return s[:-1]
+    def reset(self):
+        self.__dict__ = {}
+        
+
+
+class Conf(ConfClass):
+    """This object contains the configuration of scapy.
+session : filename where the session will be saved
+stealth : if 1, prevent any unwanted packet to go out (ARP, DNS, ...)
+iff : select the default output interface for srp() and sendp(). default:"eth0")
+verb : level of verbosity, from 0 (almost mute) to 3 (verbose)
+promisc : default mode for listening socket (to get answers if you spoof on a lan)
+sniff_promisc : default mode for sniff()
+filter : bpf filter added to every sniffing socket to exclude traffic from analysis"""
+    session = ""  
+    stealth = "not implemented"
+    iff = "eth0"
+    verb = 2
+    promisc = "not implemented"
+    sniff_promisc = 0
+    filter = "not implemented"
+    L3socket = L3PacketSocket
+    L2socket = L2Socket
+        
+
+conf=Conf()
