@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.51  2005/03/14 13:03:11  pbi
+# - added a prn parameter to PacketList's summary() and nsummary()
+#
 # Revision 0.9.17.50  2005/03/14 12:56:24  pbi
 # - make internal methods of PacketResult begins with __
 #
@@ -609,7 +612,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.50 2005/03/14 12:56:24 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.51 2005/03/14 13:03:11 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1446,12 +1449,18 @@ class PacketList:
     def __add__(self, other):
         return self.__class__(self.res+other.res,
                               name="%s+%s"%(self.listname,other.listname))
-    def summary(self):
+    def summary(self, prn=None):
         for r in self.res:
-            print self.__elt2sum(r)
-    def nsummary(self):
+            if prn is None:
+                print self.__elt2sum(r)
+            else:
+                print prn(r)
+    def nsummary(self,prn=None):
         for i in range(len(self.res)):
-            print "%04i %s" % (i,self.__elt2sum(self.res[i]))
+            if prn is None:
+                print "%04i %s" % (i,self.__elt2sum(self.res[i]))
+            else:
+                print "%04i %s" % (i,prn(self.res[i]))
     def display(self): # Deprecated. Use show()
         self.show()
     def show(self):
@@ -1475,7 +1484,6 @@ class PacketList:
     def hexdump(self):
         for p in self:
             hexdump(self.__elt2pkt(p))
-
 
     def hexraw(self):
         for i in range(len(self.res)):
