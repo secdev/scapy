@@ -21,6 +21,14 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.19  2004/10/18 13:42:50  pbi
+# - HSRP early support
+# - Cisco CSSP Skinny early support
+# - added Little Endian IntEnumField
+# - added filter() method to PacketList
+# - some voip_play() work
+# - loop parameter value in send*() is used as the time to sleep between 2 loops
+#
 # Revision 0.9.17.18  2004/09/21 21:45:20  pbi
 # - added recv() method to PcapReader to emulate a SuperSocket
 # - added "offline" parameter to sniff() to use sniff on pcap files
@@ -479,7 +487,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.18 2004/09/21 21:45:20 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.19 2004/10/18 13:42:50 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -633,6 +641,7 @@ import socket, sys, getopt, string, struct, time, random, os, traceback
 import cPickle, types, gzip, re
 from select import select
 from fcntl import ioctl
+import fcntl
 
 try:
     import pcap
@@ -1258,6 +1267,9 @@ class SndRcvAns:
         return make_lined_table(self.res, *args, **kargs)
     def make_tex_table(self, *args, **kargs):
         return make_tex_table(self.res, *args, **kargs)
+    def filter(self, func):
+        return PacketList(filter(func,self.res),
+                          name="filtered %s"%self.listname)
 
 class PacketList:
     res = []
@@ -1289,6 +1301,9 @@ class PacketList:
     def nsummary(self):
         for i in range(len(self.res)):
             print "%04i %s" % (i,self.res[i].summary())
+    def filter(self, func):
+        return PacketList(filter(func,self.res),
+                          name="filtered %s"%self.listname)
 
 
         
@@ -1717,6 +1732,10 @@ class ByteEnumField(EnumField):
 class IntEnumField(EnumField):
     def __init__(self, name, default, enum):
         EnumField.__init__(self, name, default, enum, "I")
+
+class LEIntEnumField(EnumField):
+    def __init__(self, name, default, enum):
+        EnumField.__init__(self, name, default, enum, "@I")
 
 
 class FlagsField(BitField):
@@ -3173,6 +3192,26 @@ class PrismHeader(Packet):
                     ]
 
 
+class HSRP(Packet):
+    name = "HSRP"
+    fields_desc = [
+        ByteField("version", 0),
+        ByteEnumField("opcode", 0, { 0:"Hello"}),
+        ByteEnumField("state", 16, { 16:"Active"}),
+        ByteField("hellotime", 3),
+        ByteField("holdtime", 10),
+        ByteField("priority", 120),
+        ByteField("group", 1),
+        ByteField("reserved", 0),
+        StrFixedLenField("auth","cisco",8),
+        IPField("virtualIP","192.168.1.1") ]
+        
+
+
+        
+        
+
+
 class NTP(Packet):
     # RFC 1769
     name = "NTP"
@@ -3373,9 +3412,157 @@ class IKETransform(Packet):
         XIntField("durationl",0x00007080L),
         ]
         
+
+# Cisco Skinny protocol
+
+# shamelessly ripped from Ethereal dissector
+skinny_messages = { 
+# Station -> Callmanager
+  0x0000: "KeepAliveMessage",
+  0x0001: "RegisterMessage",
+  0x0002: "IpPortMessage",
+  0x0003: "KeypadButtonMessage",
+  0x0004: "EnblocCallMessage",
+  0x0005: "StimulusMessage",
+  0x0006: "OffHookMessage",
+  0x0007: "OnHookMessage",
+  0x0008: "HookFlashMessage",
+  0x0009: "ForwardStatReqMessage",
+  0x000A: "SpeedDialStatReqMessage",
+  0x000B: "LineStatReqMessage",
+  0x000C: "ConfigStatReqMessage",
+  0x000D: "TimeDateReqMessage",
+  0x000E: "ButtonTemplateReqMessage",
+  0x000F: "VersionReqMessage",
+  0x0010: "CapabilitiesResMessage",
+  0x0011: "MediaPortListMessage",
+  0x0012: "ServerReqMessage",
+  0x0020: "AlarmMessage",
+  0x0021: "MulticastMediaReceptionAck",
+  0x0022: "OpenReceiveChannelAck",
+  0x0023: "ConnectionStatisticsRes",
+  0x0024: "OffHookWithCgpnMessage",
+  0x0025: "SoftKeySetReqMessage",
+  0x0026: "SoftKeyEventMessage",
+  0x0027: "UnregisterMessage",
+  0x0028: "SoftKeyTemplateReqMessage",
+  0x0029: "RegisterTokenReq",
+  0x002A: "MediaTransmissionFailure",
+  0x002B: "HeadsetStatusMessage",
+  0x002C: "MediaResourceNotification",
+  0x002D: "RegisterAvailableLinesMessage",
+  0x002E: "DeviceToUserDataMessage",
+  0x002F: "DeviceToUserDataResponseMessage",
+  0x0030: "UpdateCapabilitiesMessage",
+  0x0031: "OpenMultiMediaReceiveChannelAckMessage",
+  0x0032: "ClearConferenceMessage",
+  0x0033: "ServiceURLStatReqMessage",
+  0x0034: "FeatureStatReqMessage",
+  0x0035: "CreateConferenceResMessage",
+  0x0036: "DeleteConferenceResMessage",
+  0x0037: "ModifyConferenceResMessage",
+  0x0038: "AddParticipantResMessage",
+  0x0039: "AuditConferenceResMessage",
+  0x0040: "AuditParticipantResMessage",
+  0x0041: "DeviceToUserDataVersion1Message",
+# Callmanager -> Station */
+  0x0081: "RegisterAckMessage",
+  0x0082: "StartToneMessage",
+  0x0083: "StopToneMessage",
+  0x0085: "SetRingerMessage",
+  0x0086: "SetLampMessage",
+  0x0087: "SetHkFDetectMessage",
+  0x0088: "SetSpeakerModeMessage",
+  0x0089: "SetMicroModeMessage",
+  0x008A: "StartMediaTransmission",
+  0x008B: "StopMediaTransmission",
+  0x008C: "StartMediaReception",
+  0x008D: "StopMediaReception",
+  0x008F: "CallInfoMessage",
+  0x0090: "ForwardStatMessage",
+  0x0091: "SpeedDialStatMessage",
+  0x0092: "LineStatMessage",
+  0x0093: "ConfigStatMessage",
+  0x0094: "DefineTimeDate",
+  0x0095: "StartSessionTransmission",
+  0x0096: "StopSessionTransmission",
+  0x0097: "ButtonTemplateMessage",
+  0x0098: "VersionMessage",
+  0x0099: "DisplayTextMessage",
+  0x009A: "ClearDisplay",
+  0x009B: "CapabilitiesReqMessage",
+  0x009C: "EnunciatorCommandMessage",
+  0x009D: "RegisterRejectMessage",
+  0x009E: "ServerResMessage",
+  0x009F: "Reset",
+  0x0100: "KeepAliveAckMessage",
+  0x0101: "StartMulticastMediaReception",
+  0x0102: "StartMulticastMediaTransmission",
+  0x0103: "StopMulticastMediaReception",
+  0x0104: "StopMulticastMediaTransmission",
+  0x0105: "OpenReceiveChannel",
+  0x0106: "CloseReceiveChannel",
+  0x0107: "ConnectionStatisticsReq",
+  0x0108: "SoftKeyTemplateResMessage",
+  0x0109: "SoftKeySetResMessage",
+  0x0110: "SelectSoftKeysMessage",
+  0x0111: "CallStateMessage",
+  0x0112: "DisplayPromptStatusMessage",
+  0x0113: "ClearPromptStatusMessage",
+  0x0114: "DisplayNotifyMessage",
+  0x0115: "ClearNotifyMessage",
+  0x0116: "ActivateCallPlaneMessage",
+  0x0117: "DeactivateCallPlaneMessage",
+  0x0118: "UnregisterAckMessage",
+  0x0119: "BackSpaceReqMessage",
+  0x011A: "RegisterTokenAck",
+  0x011B: "RegisterTokenReject",
+  0x0042: "DeviceToUserDataResponseVersion1Message",
+  0x011C: "StartMediaFailureDetection",
+  0x011D: "DialedNumberMessage",
+  0x011E: "UserToDeviceDataMessage",
+  0x011F: "FeatureStatMessage",
+  0x0120: "DisplayPriNotifyMessage",
+  0x0121: "ClearPriNotifyMessage",
+  0x0122: "StartAnnouncementMessage",
+  0x0123: "StopAnnouncementMessage",
+  0x0124: "AnnouncementFinishMessage",
+  0x0127: "NotifyDtmfToneMessage",
+  0x0128: "SendDtmfToneMessage",
+  0x0129: "SubscribeDtmfPayloadReqMessage",
+  0x012A: "SubscribeDtmfPayloadResMessage",
+  0x012B: "SubscribeDtmfPayloadErrMessage",
+  0x012C: "UnSubscribeDtmfPayloadReqMessage",
+  0x012D: "UnSubscribeDtmfPayloadResMessage",
+  0x012E: "UnSubscribeDtmfPayloadErrMessage",
+  0x012F: "ServiceURLStatMessage",
+  0x0130: "CallSelectStatMessage",
+  0x0131: "OpenMultiMediaChannelMessage",
+  0x0132: "StartMultiMediaTransmission",
+  0x0133: "StopMultiMediaTransmission",
+  0x0134: "MiscellaneousCommandMessage",
+  0x0135: "FlowControlCommandMessage",
+  0x0136: "CloseMultiMediaReceiveChannel",
+  0x0137: "CreateConferenceReqMessage",
+  0x0138: "DeleteConferenceReqMessage",
+  0x0139: "ModifyConferenceReqMessage",
+  0x013A: "AddParticipantReqMessage",
+  0x013B: "DropParticipantReqMessage",
+  0x013C: "AuditConferenceReqMessage",
+  0x013D: "AuditParticipantReqMessage",
+  0x013F: "UserToDeviceDataVersion1Message",
+  }
+
+
         
-        
-        
+class Skinny(Packet):
+    name="Skinny"
+    fields_desc = [ LEIntField("len",0),
+                    LEIntField("res",0),
+                    LEIntEnumField("msg",0,skinny_messages) ]
+    
+
+
 
 
 
@@ -3424,6 +3611,7 @@ layer_bonds = [ ( Dot3,   LLC,      { } ),
                 ( IP,     UDP,      { "proto" : socket.IPPROTO_UDP } ),
                 ( UDP,    DNS,      { "dport" : 53 } ),
                 ( UDP,    ISAKMP,   { "sport" : 500, "dport" : 500 } ),
+                ( UDP,    HSRP,     { "sport" : 1985, "dport" : 1985} ),
                 ( UDP,    NTP,      { "sport" : 123, "dport" : 123 } ),
                 ( UDP,    BOOTP,    { "sport" : 68, "dport" : 67 } ),
                 ( UDP,    BOOTP,    { "sport" : 67, "dport" : 68 } ),
@@ -3452,6 +3640,8 @@ layer_bonds = [ ( Dot3,   LLC,      { } ),
                 ( Dot11ProbeResp, Dot11Elt,  {} ),
                 ( Dot11Auth, Dot11Elt,       {} ),
                 ( Dot11Elt, Dot11Elt,        {} ),
+                ( TCP,      Skinny,          { "dport": 2000 } ),
+                ( TCP,      Skinny,          { "sport": 2000 } ),
                 ]
 
 for l in layer_bonds:
@@ -3962,6 +4152,7 @@ def __gen_send(s, x, inter=0, loop=0, verbose=None, *args, **kargs):
                 time.sleep(inter)
             if not loop:
                 break
+            time.sleep(loop)
     except KeyboardInterrupt:
         pass
     s.close()
@@ -5263,12 +5454,60 @@ for am in AM_classes:
 ## Testing stuff ##
 ###################
 
+ss
 
-def voip_play(**kargs):
-    dsp,rd = os.popen2("sox -t .ul - -t ossdsp /dev/dsp")
-    def play(pkt, dsp=dsp):
-       dsp.write(pkt.load[12:])
+def merge(x,y):
+    if len(x) > len(y):
+        y += "\x00"*(len(x)-len(y))
+    elif len(x) < len(y):
+        x += "\x00"*(len(y)-len(x))
+    m = ""
+    for i in range(len(x)/ss):
+        m += x[ss*i:ss*(i+1)]+y[ss*i:ss*(i+1)]
+    return  m
+#    return  "".join(map(str.__add__, x, y))
+
+
+#    FIFO="/tmp/conv1.%i.%%i" % os.getpid()
+#    FIFO1=FIFO % 1
+#    FIFO2=FIFO % 2
+#    
+#    os.mkfifo(FIFO1)
+#    os.mkfifo(FIFO2)
+#    os.system("strace -o /tmp/sss soxmix -t .ul %s -t .ul %s -t ossdsp /dev/dsp &" % (FIFO1,FIFO2))
+#    
+#    c1=open(FIFO1,"w", 4096)
+#    c2=open(FIFO2,"w", 4096)
+#    fcntl.fcntl(c1.fileno(),fcntl.F_SETFL, os.O_NONBLOCK)
+#    fcntl.fcntl(c2.fileno(),fcntl.F_SETFL, os.O_NONBLOCK)
+
+def voip_play(s1,**kargs):
+    dsp,rd = os.popen2("sox -t .ul -c 2 - -t ossdsp /dev/dsp")
+    def play(pkt,last=[]):
+        if not pkt:
+            return 
+        if not pkt.haslayer(UDP):
+            return 
+        ip=pkt.getlayer(IP)
+        if s1 in [ip.src, ip.dst]:
+            if not last:
+                last.append(pkt)
+                return
+            load=last.pop()
+            x1 = load.load[12:]
+#            c1.write(load.load[12:])
+            if load.getlayer(IP).src == ip.src:
+                x2 = ""
+#                c2.write("\x00"*len(load.load[12:]))
+                last.append(pkt)
+            else:
+                x2 = pkt.load[:12]
+#                c2.write(pkt.load[12:])
+            dsp.write(merge(x1,x2))
+            
     sniff(store=0, prn=play, **kargs)
+#    os.unlink(FIFO1)
+#    os.unlink(FIFO2)
 
 
 def IPID_count(lst, funcID=lambda x:x[1].id, funcpres=lambda x:x[1].summary()):
