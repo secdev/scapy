@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.68  2005/03/28 22:18:04  pbi
+# - first attempt with time skew graphing
+#
 # Revision 0.9.17.67  2005/03/28 22:17:44  pbi
 # - use gzip compression for load_object/save_object
 # - made RandNum() and Emph() pickable
@@ -675,7 +678,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.67 2005/03/28 22:17:44 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.68 2005/03/28 22:18:04 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1619,7 +1622,20 @@ class PacketList:
         
         do_graph(gr, **kargs)
         
-                
+    def timeskew_graph(self, ip, **kargs):
+        b = filter(lambda x:x.haslayer(IP) and x.getlayer(IP).src == ip and x.haslayer(TCP), self.res)
+        c = []
+        for p in b:
+            opts = p.getlayer(TCP).options
+            for o in opts:
+                if o[0] == "Timestamp":
+                    c.append((p.time,o[1][0]))
+        d = map(lambda (x,y): (x%2000,((x-c[0][0])-((y-c[0][1])/1000.0))),c)
+        g = Gnuplot.Gnuplot()
+        g.plot(Gnuplot.Data(d,**kargs))
+        return g
+        
+
         
         
 
