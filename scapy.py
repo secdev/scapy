@@ -21,6 +21,11 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.52  2005/03/14 16:40:58  pbi
+# - added ikescan()
+# - added ISAKMPTransformField
+# - fixed PacketList's private methods names do begin only with one "_"
+#
 # Revision 0.9.17.51  2005/03/14 13:03:11  pbi
 # - added a prn parameter to PacketList's summary() and nsummary()
 #
@@ -612,7 +617,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.51 2005/03/14 13:03:11 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.52 2005/03/14 16:40:58 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1420,9 +1425,9 @@ class PacketList:
     def __init__(self, res, name="PacketList"):
         self.res = res
         self.listname = name
-    def __elt2pkt(self, elt):
+    def _elt2pkt(self, elt):
         return elt
-    def __elt2sum(self, elt):
+    def _elt2sum(self, elt):
         return elt.summary()
     def __repr__(self):
         stats={TCP:0,UDP:0,ICMP:0}
@@ -1430,7 +1435,7 @@ class PacketList:
         for r in self.res:
             f = 0
             for p in stats:
-                if self.__elt2pkt(r).haslayer(p):
+                if self._elt2pkt(r).haslayer(p):
                     stats[p] += 1
                     f = 1
                     break
@@ -1452,13 +1457,13 @@ class PacketList:
     def summary(self, prn=None):
         for r in self.res:
             if prn is None:
-                print self.__elt2sum(r)
+                print self._elt2sum(r)
             else:
                 print prn(r)
     def nsummary(self,prn=None):
         for i in range(len(self.res)):
             if prn is None:
-                print "%04i %s" % (i,self.__elt2sum(self.res[i]))
+                print "%04i %s" % (i,self._elt2sum(self.res[i]))
             else:
                 print "%04i %s" % (i,prn(self.res[i]))
     def display(self): # Deprecated. Use show()
@@ -1483,21 +1488,21 @@ class PacketList:
 
     def hexdump(self):
         for p in self:
-            hexdump(self.__elt2pkt(p))
+            hexdump(self._elt2pkt(p))
 
     def hexraw(self):
         for i in range(len(self.res)):
-            p = self.__elt2pkt(self.res[i])
-            print "%04i %s %s" % (i,p.sprintf("%.time%"),self.__elt2sum(self.res[i]))
+            p = self._elt2pkt(self.res[i])
+            print "%04i %s %s" % (i,p.sprintf("%.time%"),self._elt2sum(self.res[i]))
             if p.haslayer(Raw):
                 hexdump(p.getlayer(Raw).load)
 
 class SndRcvAns(PacketList):
     def __init__(self, res, name="Results"):
         PacketList.__init__(self, res, name)
-    def __elt2pkt(self, elt):
+    def _elt2pkt(self, elt):
         return elt[1]
-    def __elt2sum(self, elt):
+    def _elt2sum(self, elt):
         return "%s ==> %s" % (elt[0].summary(),elt[1].summary()) 
 
 
@@ -2088,17 +2093,12 @@ class PacketLenField(PacketField):
     def __init__(self, name, default, cls, fld):
         PacketField.__init__(self, name, default, cls)
         self.fld = fld
-    def i2m(self, pkt, i):
-        return str(i)
-    def m2i(self, pkt, m):
-        return self.cls(m)
     def getfield(self, pkt, s):
         l = getattr(pkt, self.fld)
-        l += pkt.fields_desc[pkt.fields_desc.index(self.fld)].shift
-        
+        l += pkt.fields_desc[pkt.fields_desc.index(self.fld)].shift        
         i = self.m2i(pkt, s[:l])
-      
         return s[l:],i
+
 
 
 class StrFixedLenField(StrField):
@@ -2148,6 +2148,21 @@ class FieldLenField(Field):
         if x is None:
             x = len(getattr(pkt, self.fld))+self.shift
         return x
+
+
+class ISAKMPTransformSetField(StrLenField):
+    def i2m(self, pkt, i):
+        if i is None:
+            return ""
+        return struct.pack("!"+"I"*len(i),*i)
+    def m2i(self, pkt, m):
+        return struct.unpack("!"+"I"*(len(m)/4),m)
+    def getfield(self, pkt, s):
+        l = getattr(pkt, self.fld)
+        l += pkt.fields_desc[pkt.fields_desc.index(self.fld)].shift
+        i = self.m2i(pkt, s[:l])
+      
+        return s[l:],i
 
 
 class StrStopField(StrField):
@@ -4156,7 +4171,8 @@ class ISAKMP(ISAKMP_class): # rfc2408
         IntField("length",None)
         ]
 
-
+    def answers(self, other):
+        return 1
     def post_build(self, p):
         if self.length is None:
             p = p[:24]+struct.pack("!I",len(p))+p[28:]
@@ -4170,16 +4186,18 @@ class ISAKMP_payload_Transform(ISAKMP_class):
     fields_desc = [
         ByteEnumField("next_payload",None,ISAKMP_payload_type),
         ByteField("res",0),
-        ShortField("length",None),
+#        ShortField("len",None),
+        FieldLenField("len",None,"load","H",shift=-8),
         ByteField("num",None),
         ByteEnumField("id",1,{1:"KEY_IKE"}),
-        ShortField("res",0),
-        XIntField("enc",0x80010005L),
-        XIntField("hash",0x80020002L),
-        XIntField("auth",0x80030001L),
-        XIntField("group",0x80040002L),
-        XIntField("life_type",0x800b0001L),
-        XIntField("durationh",0x000c0004L),
+        ShortField("res2",0),
+        ISAKMPTransformSetField("transforms",None,"len")
+#        XIntField("enc",0x80010005L),
+#        XIntField("hash",0x80020002L),
+#        XIntField("auth",0x80030001L),
+#        XIntField("group",0x80040002L),
+#        XIntField("life_type",0x800b0001L),
+#        XIntField("durationh",0x000c0004L),
 #        XIntField("durationl",0x00007080L),
         ]
 
@@ -4191,7 +4209,7 @@ class ISAKMP_payload_Proposal(ISAKMP_class):
     fields_desc = [
         ByteEnumField("next_payload",None,ISAKMP_payload_type),
         ByteField("res",0),
-        FieldLenField("length",None,"load","H",shift=-4),
+        FieldLenField("len",None,"trans","H",shift=-8),
         ByteField("proposal",1),
         ByteEnumField("proto",1,{1:"ISAKMP"}),
         ByteField("SPIsize",0),
@@ -6157,6 +6175,12 @@ def is_promisc(ip, fake_bcast="ff:ff:00:00:00:00",**kargs):
     if responses is None:
         return False
     return True
+
+
+def ikescan(ip):
+    return sr(IP(dst=ip)/UDP()/ISAKMP(init_cookie=RandString(8),
+                                      exch_type=2)/ISAKMP_payload_SA(prop=ISAKMP_payload_Proposal()))
+
 
 
 
