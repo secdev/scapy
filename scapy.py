@@ -22,6 +22,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.9.13  2003/04/14 13:53:28  pbi
+# - added completion (rlcompleter) and history support
+#
 # Revision 0.9.9.12  2003/04/14 10:05:42  pbi
 # - bugfixed the close() method of some supersockets
 #
@@ -139,7 +142,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.9.12 2003/04/14 10:05:42 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.9.13 2003/04/14 13:53:28 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -169,6 +172,10 @@ if __name__ == "__main__":
     import scapy
     __builtins__.__dict__.update(scapy.__dict__)
 
+    import rlcompleter,readline
+    readline.parse_and_bind("tab: complete")
+    
+    
     session=None
     session_name=""
 
@@ -214,9 +221,8 @@ if __name__ == "__main__":
     else:
         session={"conf": scapy.conf}
 
-    if iface is not None:
-        pass
-
+    if scapy.conf.histfile:
+        readline.read_history_file(scapy.conf.histfile)
 
     code.interact(banner = "Welcome to Scapy (%s)"%VERSION, local=session)
 
@@ -237,7 +243,10 @@ if __name__ == "__main__":
         f=open(scapy.conf.session,"w")
         cPickle.dump(session, f)
         f.close()
-        
+
+    if scapy.conf.histfile:
+        readline.write_history_file(scapy.conf.histfile)
+    
     sys.exit()
 
 ##################
@@ -3117,6 +3126,7 @@ filter : bpf filter added to every sniffing socket to exclude traffic from analy
     L3socket = L3PacketSocket
     L2socket = L2Socket
     L2listen = L2ListenSocket
+    histfile = os.path.join(os.environ["HOME"], ".scapy_history")
         
 
 conf=Conf()
