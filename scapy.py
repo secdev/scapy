@@ -22,6 +22,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.12.9  2003/05/16 13:32:38  pbi
+# - fixed verbose parameter in nmap_fp()
+#
 # Revision 0.9.12.8  2003/05/16 13:28:49  pbi
 # - small enhancements in self-documentation
 # - added early experiemental support for BOOTP and 802.11
@@ -230,7 +233,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.12.8 2003/05/16 13:28:49 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.12.9 2003/05/16 13:32:38 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -3323,7 +3326,7 @@ def nmap_sig(target, oport=80, cport=81, ucport=1):
               IP(dst=target, id=1)/TCP(seq=1, sport=5007, dport=cport, options=tcpopt, flags="FPU"),
               IP(str(IP(dst=target)/UDP(sport=5008,dport=ucport)/(300*"i"))) ]
 
-    ans, unans = sr(tests, timeout=2, verbose=2)
+    ans, unans = sr(tests, timeout=2)
     ans += map(lambda x: (x,None), unans)
 
     for S,T in ans:
