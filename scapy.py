@@ -22,6 +22,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.10.6  2003/04/22 13:52:00  pbi
+# - added experimental support for QueSO OS fingerprinting. Has someone a *recent* database ?
+#
 # Revision 0.9.10.5  2003/04/18 17:45:15  pbi
 # - improved the completer to complete with protocol fields
 # - small fix in get_working_if()
@@ -166,7 +169,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.10.5 2003/04/18 17:45:15 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.10.6 2003/04/22 13:52:00 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2802,7 +2805,6 @@ def attach_filter(s, filter):
 # I    - packet size (-1 = irrevelant)
 
 
-POF_BASE="/etc/p0f.fp"
 
 p0f_base = []
 p0f_ttl_range=[255]
@@ -2814,7 +2816,7 @@ def init_p0f(base=None,reset=1):
         p0f_base=[]
         p0f_ttl_range=[255]
     if base is None:
-        base = POF_BASE
+        base = conf.p0f_base
     try:
         f=open(base)
     except IOError:
@@ -2833,7 +2835,6 @@ def init_p0f(base=None,reset=1):
     f.close()
 
 
-init_p0f()
 
 
 def packet2p0f(pkt):
@@ -2923,6 +2924,104 @@ pkt2uptime(pkt, [HZ=100])"""
     t = pkt.time-t*1.0/HZ
     return time.ctime(t)
     
+
+
+#################
+## Queso stuff ##
+#################
+
+queso_base={}
+
+def quesoTCPflags(flags):
+    if flags == "-":
+        return "-"
+    flv = "FSRPAUXY"
+    v = 0
+    for i in flags:
+        v |= 2**flv.index(i)
+    return "%x" % v
+
+def init_queso(base=None, reset=1):
+    global queso_base 
+    if reset:
+        queso_base = {}
+    if base is None:
+        base = conf.queso_base
+    try:
+        f = open(base)
+    except IOError:
+        return
+    p = None
+    while 1:
+        l = f.readline()
+        if not l:
+            break
+        l = l.strip()
+        if not l:
+            continue
+        if l[0] == ';':
+            continue
+        if l[0] == '*':
+            if p is not None:
+                p[""] = name
+            name = l[1:].strip()
+            p = queso_base
+            
+            continue
+        if l[0] not in ["0","1","2","3","4","5","6"]:
+            continue
+        res = l[2:].split()
+        res[-1] = quesoTCPflags(res[-1])
+        res = " ".join(res)
+        if not p.has_key(res):
+            p[res] = {}
+        p = p[res]
+    return queso_base
+        
+        
+
+    
+def queso_sig(target, dport=80, timeout=3):
+    global queso_base
+    p = queso_base
+    ret = []
+    for flags in ["S", "SA", "F", "FA", "SF", "P", "SEC"]:
+        ans, unans = sr(IP(dst=target)/TCP(dport=dport,flags=flags,seq=RandInt()),
+                        timeout=timeout, verbose=0)
+        if len(ans) == 0:
+            rs = "- - - -"
+        else:
+            s,r = ans[0]
+            rs = "%i" % (r.seq != 0)
+            if not r.ack:
+                r += " 0"
+            elif r.ack-s.seq > 666:
+                rs += " R" % 0
+            else:
+                rs += " +%i" % (r.ack-s.seq)
+            rs += " %X" % r.window
+            rs += " %x" % r.payload.flags
+        ret.append(rs)
+    return ret
+            
+def queso_search(sig):
+    p = queso_base
+    sig.reverse()
+    ret = []
+    try:
+        while sig:
+            s = sig.pop()
+            p = p[s]
+            if p.has_key(""):
+                ret.append(p[""])
+    except KeyError:
+        pass
+    return ret
+        
+
+def queso(*args,**kargs):
+    return queso_search(queso_sig(*args, **kargs))
+
 
 
 ###################
@@ -3224,6 +3323,11 @@ padding  : include padding in desassembled packets
     L2listen = L2ListenSocket
     histfile = os.path.join(os.environ["HOME"], ".scapy_history")
     padding = 1
+    p0f_base ="/etc/p0f.fp"
+    queso_base ="/etc/queso.conf"
         
 
 conf=Conf()
+
+init_p0f()
+init_queso()
