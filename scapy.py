@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.10  2004/09/08 13:06:01  pbi
+# - added some text correspondances to Radius code field
+#
 # Revision 0.9.17.9  2004/09/06 14:28:02  pbi
 # - early radius support
 #
@@ -442,7 +445,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.9 2004/09/06 14:28:02 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.10 2004/09/08 13:06:01 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -3138,10 +3141,38 @@ class Radius(Packet):
                                               3: "Access-Reject",
                                               4: "Accounting-Request",
                                               5: "Accounting-Accept",
-                                              11:"Access-Challenge",
-                                              12:"Status-Server",
-                                              13:"Status-Client",
-                                              255:"Reserved"} ),
+                                              6: "Accounting-Status",
+                                              7: "Password-Request",
+                                              8: "Password-Ack",
+                                              9: "Password-Reject",
+                                              10: "Accounting-Message",
+                                              11: "Access-Challenge",
+                                              12: "Status-Server",
+                                              13: "Status-Client",
+                                              21: "Resource-Free-Request",
+                                              22: "Resource-Free-Response",
+                                              23: "Resource-Query-Request",
+                                              24: "Resource-Query-Response",
+                                              25: "Alternate-Resource-Reclaim-Request",
+                                              26: "NAS-Reboot-Request",
+                                              27: "NAS-Reboot-Response",
+                                              29: "Next-Passcode",
+                                              30: "New-Pin",
+                                              31: "Terminate-Session",
+                                              32: "Password-Expired",
+                                              33: "Event-Request",
+                                              34: "Event-Response",
+                                              40: "Disconnect-Request",
+                                              41: "Disconnect-ACK",
+                                              42: "Disconnect-NAK",
+                                              43: "CoA-Request",
+                                              44: "CoA-ACK",
+                                              45: "CoA-NAK",
+                                              50: "IP-Address-Allocate",
+                                              51: "IP-Address-Release",
+                                              253: "Experimental-use",
+                                              254: "Reserved",
+                                              255: "Reserved"} ),
                     ByteField("id", 0),
                     ShortField("len", None),
                     StrFixedLenField("authenticator","",16) ]
