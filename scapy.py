@@ -22,6 +22,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.15.2  2003/10/15 14:41:09  biondi
+# - caching format size (calcsize()) in Field main class
+# - allow first packet desassembly to fail in SuperSockets, falling back to Raw
+#
 # Revision 0.9.15.1  2003/10/02 15:24:29  pbi
 # Release 0.9.15
 #
@@ -288,7 +292,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.15.1 2003/10/02 15:24:29 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.15.2 2003/10/15 14:41:09 biondi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -912,6 +916,7 @@ class Field:
         self.name = name
         self.fmt = "!"+fmt
         self.default = self.any2i(None,default)
+        self.sz = struct.calcsize(self.fmt)
 
     def h2i(self, pkt, x):
         return x
@@ -932,8 +937,7 @@ class Field:
     def addfield(self, pkt, s, val):
         return s+struct.pack(self.fmt, self.i2m(pkt,val))
     def getfield(self, pkt, s):
-        sz = struct.calcsize(self.fmt)
-        return  s[sz:], self.m2i(pkt, struct.unpack(self.fmt, s[:sz])[0])
+        return  s[self.sz:], self.m2i(pkt, struct.unpack(self.fmt, s[:self.sz])[0])
     def copy(self, x):
         if hasattr(x, "copy"):
             return x.copy()
@@ -2878,7 +2882,10 @@ class L3PacketSocket(SuperSocket):
             cls = Ether
             lvl = 2
 
-        pkt = cls(pkt)
+        try:
+            pkt = cls(pkt)
+        except:
+            pkt = Raw(pkt)
         if lvl == 2:
             pkt = pkt.payload
         return pkt
@@ -2922,8 +2929,12 @@ class L2Socket(SuperSocket):
             warning("Unable to guess type (interface=%s protocol=%#x family=%i). Using Ethernet" % sa_ll[:4])
             self.LL = Ether
     def recv(self, x):
-        return self.LL(self.ins.recv(x))
-
+        p = self.ins.recv(x)
+        try:
+            q = self.LL(p)
+        except:
+            q = Raw(p)
+        return q
 
 
 class L2ListenSocket(SuperSocket):
@@ -2969,7 +2980,10 @@ class L2ListenSocket(SuperSocket):
             warning("Unable to guess type (interface=%s protocol=%#x family=%i %i). Using Ethernet" % sa_ll[:4])
             cls = Ether
 
-        pkt = cls(pkt)
+        try:
+            pkt = cls(pkt)
+        except:
+            pkt = Raw(pkt)
         return pkt
     
     def send(self, x):
