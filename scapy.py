@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.13  2004/09/12 21:44:45  pbi
+# - AnsweringMachine working as I wanted!
+#
 # Revision 0.9.17.12  2004/09/10 16:54:46  pbi
 # - AnsweringMachine twaking
 # - added DNS spoofing answering machine
@@ -454,7 +457,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.12 2004/09/10 16:54:46 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.13 2004/09/12 21:44:45 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2949,7 +2952,11 @@ class DNS(Packet):
                     DNSRRField("an", "ancount"),
                     DNSRRField("ns", "nscount"),
                     DNSRRField("ar", "arcount",0) ]
-
+    def mysummary(self):
+        if self.qr:
+            return 'DNS Ans "%s"' % self.an.rdata
+        else:
+            return 'DNS Query "%s"' % self.qd.qname
 
 dnstypes = { 0:"ANY", 255:"ALL",
              1:"A", 2:"NS", 3:"MD", 4:"MD", 5:"CNAME", 6:"SOA", 7: "MB", 8:"MG",
@@ -4910,16 +4917,66 @@ user_commands = [ sr, sr1, srp, srp1, srloop, srploop, sniff, p0f, arpcachepoiso
 class AnsweringMachine:
     function_name = "Template"
     filter = None
-    default_kargs = { "store":0 }
+    sniff_options = { "store":0 }
+    sniff_options_list = [ "store", "iface", "count", "promisc", "filter", "type", "prn" ]
+    send_options = { "verbose":0 }
+    send_options_list = ["iface", "inter", "loop", "verbose"]
     
-    def __init__(self, *args, **kargs):
+    
+    def __init__(self, **kargs):
+        self.mode = 0
         if self.filter:
             kargs.setdefault("filter",self.filter)
-        self.def_args = args
-        self.def_kargs = self.default_kargs.copy()
-        self.def_kargs.setdefault("prn", self.reply)
-        self.def_kargs.update(kargs)
-        self.iface = self.def_kargs.get("iface",None)
+        kargs.setdefault("prn", self.reply)
+        self.optam1 = {}
+        self.optam2 = {}
+        self.optam0 = {}
+        doptsend,doptsniff = self.parse_all_options(1, kargs)
+        self.defoptsend = self.send_options.copy()
+        self.defoptsend.update(doptsend)
+        self.defoptsniff = self.sniff_options.copy()
+        self.defoptsniff.update(doptsniff)
+        self.optsend,self.optsniff = [{},{}]
+
+    def __getattr__(self, attr):
+        for d in [self.optam2, self.optam1]:
+            if attr in d:
+                return d[attr]
+        raise AttributeError,attr
+                
+    def __setattr__(self, attr, val):
+        mode = self.__dict__.get("mode",0)
+        if mode == 0:
+            self.__dict__[attr] = val
+        else:
+            [self.optam1, self.optam2][mode-1][attr] = val
+
+    def parse_options(self):
+        pass
+
+    def parse_all_options(self, mode, kargs):
+        sniffopt = {}
+        sendopt = {}
+        for k in kargs.keys():            
+            if k in self.sniff_options_list:
+                sniffopt[k] = kargs[k]
+            if k in self.send_options_list:
+                sendopt[k] = kargs[k]
+            if k in self.sniff_options_list+self.send_options_list:
+                del(kargs[k])
+        if mode != 2 or kargs:
+            if mode == 1:
+                self.optam0 = kargs
+            elif mode == 2 and kargs:
+                k = self.optam0.copy()
+                k.update(kargs)
+                self.parse_options(**k)
+                kargs = k 
+            omode = self.__dict__.get("mode",0)
+            self.__dict__["mode"] = mode
+            self.parse_options(**kargs)
+            self.__dict__["mode"] = omode
+        return sendopt,sniffopt
 
     def is_request(self, req):
         return 1
@@ -4928,7 +4985,7 @@ class AnsweringMachine:
         return req
 
     def send_reply(self, reply):
-        send(reply, verbose=0, iface=self.iface)
+        send(reply, **self.optsend)
 
     def print_reply(self, req, reply):
         print "%s ==> %s" % (req.summary(),reply.summary())
@@ -4942,23 +4999,22 @@ class AnsweringMachine:
             self.print_reply(pkt, reply)
 
     def run(self, *args, **kargs):
-        a = self.def_args + args
-        ka = self.def_kargs.copy()
-        ka.update(kargs)
-        self.iface = ka.get("iface",None)
-        
+        optsend,optsniff = self.parse_all_options(2,kargs)
+        self.optsend=self.defoptsend.copy()
+        self.optsend.update(optsend)
+        self.optsniff=self.defoptsniff.copy()
+        self.optsniff.update(optsniff)
+
         try:
-            sniff(*a, **ka)
+            sniff(**self.optsniff)
         except KeyboardInterrupt:
             print "Interrupted by user"
-            pass
         
 
 class BOOTP_am(AnsweringMachine):
     function_name = "bootpd"
     filter = "udp and port 68 and port 67"
-    def __init__(self, ipset=Net("192.168.1.128/25"),gw="192.168.1.1", *args,**kargs):
-        AnsweringMachine.__init__(self, *args, **kargs)
+    def parse_options(self, ipset=Net("192.168.1.128/25"),gw="192.168.1.1"):
         if type(ipset) is str:
             ipset = Net(ipset)
         if isinstance(ipset,Gen):
@@ -4971,7 +5027,6 @@ class BOOTP_am(AnsweringMachine):
         self.leases = {}
 
     def is_request(self, req):
-        print repr(req)
         if not req.haslayer(BOOTP):
             return 0
         reqb = req.getlayer(BOOTP)
@@ -4981,7 +5036,6 @@ class BOOTP_am(AnsweringMachine):
 
     def print_reply(self, req, reply):
         print "Reply %s to %s" % (reply.getlayer(IP).dst,reply.dst)
-
 
     def make_reply(self, req):        
         mac = req.src
@@ -5025,6 +5079,14 @@ class DNS_am(AnsweringMachine):
     function_name="dns_spoof"
     filter = "udp port 53"
     the_ip = "1.2.3.5"
+
+    def parse_options(self, joker="192.168.1.1", match=None):
+        if match is None:
+            self.match = {}
+        else:
+            self.match = match
+        self.joker=joker
+
     def is_request(self, req):
         return req.haslayer(DNS) and req.getlayer(DNS).qr == 0
     
@@ -5032,8 +5094,9 @@ class DNS_am(AnsweringMachine):
         ip = req.getlayer(IP)
         dns = req.getlayer(DNS)
         resp = IP(dst=ip.src, src=ip.dst)/UDP(dport=ip.sport,sport=ip.dport)
+        rdata = self.match.get(dns.qd.qname, self.joker)
         resp /= DNS(id=dns.id, qr=1, qd=dns.qd,
-                    an=DNSRR(rrname=dns.qd.qname, ttl=10, rdata=self.the_ip))
+                    an=DNSRR(rrname=dns.qd.qname, ttl=10, rdata=rdata))
         return resp
 
 
