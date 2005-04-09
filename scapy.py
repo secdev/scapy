@@ -21,6 +21,14 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.72  2005/04/09 22:25:23  pbi
+# - fix route.route() to handle extended IP sets (ex. 192.168.*.1-5)
+# - generalised statistics in packet lists
+# - added Dot11PacketList()
+# - added some DHCP options
+# - fixes in DHCP options building
+# - modified unwep() to decrypt a WEP packet if it was not already done
+#
 # Revision 0.9.17.71  2005/04/06 10:49:11  pbi
 # - forgotten debug msg in Net()
 #
@@ -688,7 +696,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.71 2005/04/06 10:49:11 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.72 2005/04/09 22:25:23 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1191,7 +1199,17 @@ class Route:
         
 
     def route(self,dst):
+        # Transform "192.168.*.1-5" to one IP of the set
         dst = dst.split("/")[0]
+        dst = dst.replace("*","0") 
+        while 1:
+            l = dst.find("-")
+            if l < 0:
+                break
+            m = (dst[l:]+".").find(".")
+            dst = dst[:l]+dst[l+m:]
+
+            
         try:
             dst=inet_aton(dst)
         except socket.error:
@@ -1526,7 +1544,10 @@ class Net(Gen):
 
 class PacketList:
     res = []
-    def __init__(self, res, name="PacketList"):
+    def __init__(self, res, name="PacketList", stats=None):
+        if stats is None:
+            stats = [ TCP,UDP,ICMP ]
+        self.stats = stats
         self.res = res
         self.listname = name
     def _elt2pkt(self, elt):
@@ -1536,7 +1557,7 @@ class PacketList:
     def _elt2show(self, elt):
         return self._elt2sum(elt)
     def __repr__(self):
-        stats={TCP:0,UDP:0,ICMP:0}
+        stats=dict.fromkeys(self.stats,0)
         other = 0
         for r in self.res:
             f = 0
@@ -1574,14 +1595,20 @@ class PacketList:
     def __add__(self, other):
         return self.__class__(self.res+other.res,
                               name="%s+%s"%(self.listname,other.listname))
-    def summary(self, prn=None):
+    def summary(self, prn=None, filter=None):
         for r in self.res:
+            if filter is not None:
+                if not filter(r):
+                    continue
             if prn is None:
                 print self._elt2sum(r)
             else:
                 print prn(r)
-    def nsummary(self,prn=None):
+    def nsummary(self,prn=None, filter=None):
         for i in range(len(self.res)):
+            if filter is not None:
+                if not filter(self.res[i]):
+                    continue
             if prn is None:
                 print "%04i %s" % (i,self._elt2sum(self.res[i]))
             else:
@@ -1661,12 +1688,27 @@ class PacketList:
         return g
         
 
+class Dot11PacketList(PacketList):
+    def __init__(self, res, name="Dot11List", stats=None):
+        if stats is None:
+            stats = [Dot11WEP, Dot11Beacon, UDP, ICMP, TCP]
+
+        PacketList.__init__(self, filter(lambda x: isinstance(x,Dot11),res),
+                            name,stats)
+    def toEthernet(self):
+        data = filter(lambda x : x.type == 2, self.res)
+        r2 = []
+        for p in data:
+            q = p.copy()
+            q.unwep()
+            r2.append(Ether()/q.payload.payload.payload) #Dot11/LLC/SNAP/IP
+        return PacketList(r2,name="Ether from %s"%self.listname)
         
         
 
 class SndRcvAns(PacketList):
-    def __init__(self, res, name="Results"):
-        PacketList.__init__(self, res, name)
+    def __init__(self, res, name="Results", stats=None):
+        PacketList.__init__(self, res, name, stats)
     def _elt2pkt(self, elt):
         return elt[1]
     def _elt2sum(self, elt):
@@ -1674,8 +1716,8 @@ class SndRcvAns(PacketList):
 
 
 class ARPingResult(SndRcvAns):
-    def __init__(self, res, name="ARPing"):
-        PacketList.__init__(self, res, name)
+    def __init__(self, res, name="ARPing", stats=None):
+        PacketList.__init__(self, res, name, stats)
 
     def display(self):
         for s,r in self.res:
@@ -1685,8 +1727,8 @@ class ARPingResult(SndRcvAns):
 
 
 class TracerouteResult(SndRcvAns):
-    def __init__(self, res, name="Traceroute"):
-        PacketList.__init__(self, res, name)
+    def __init__(self, res, name="Traceroute", stats=None):
+        PacketList.__init__(self, res, name, stats)
         self.graphdef = None
         self.graphASN = 0
         self.hloc = None
@@ -4044,6 +4086,7 @@ DHCPOptions = {
     7: IPField("log_server","0.0.0.0"),
     8: IPField("cookie_server","0.0.0.0"),
     9: IPField("lpr_server","0.0.0.0"),
+    12: "hostname",
     14: "dump_path",
     15: "domain",
     17: "root_disk_path",
@@ -4064,9 +4107,12 @@ DHCPOptions = {
     45: IPField("NetBIOS_dist_server","0.0.0.0"),
     51: IntField("lease_time", 43200),
     54: IPField("server_id","0.0.0.0"),
+    55: "param_req_list",
     57: ShortField("max_dhcp_size", 1500),
     58: IntField("renewal_time", 21600),
     59: IntField("rebinding_time", 37800),
+    60: "vendor_class_id",
+    
     
     64: "NISplus_domain",
     65: IPField("NISplus_server","0.0.0.0"),
@@ -4171,9 +4217,14 @@ class DHCPOptionsField(StrField):
 
 		if isinstance(name, int):
 		    onum, oval = name, val
-		elif DHCPRevOptions.has_key(name) and DHCPRevOptions[name][1] is not None:
-		    onum, f = DHCPRevOptions[name]
-		    oval = f.addfield(pkt,"",f.i2m(pkt,f.any2i(pkt,val)))
+		elif DHCPRevOptions.has_key(name):
+                    onum, f = DHCPRevOptions[name]
+                    if  f is None:
+                        oval = val
+                    else:
+#		         oval = f.addfield(pkt,"",f.i2m(pkt,f.any2i(pkt,val)))
+                        oval = f.addfield(pkt,"",f.any2i(pkt,val))
+                        
 		else:
 		    warning("Unknown field option %s" % name)
 		    continue
@@ -4218,13 +4269,18 @@ class Dot11(Packet):
             return Dot11WEP
         else:
             return Packet.guess_payload_class(self)
-    def unwep(self):
+    def unwep(self, warn=1):
         if self.FCfield & 0x40 == 0:
-            warning("No WEP to remove")
+            if warn:
+                warning("No WEP to remove")
             return
         if  isinstance(self.payload.payload, NoPayload):
-            warning("Dot11 must be already decrypted. Check conf.wepkey.")
-            return
+            if conf.wepkey:
+                self.payload.decrypt()
+            if isinstance(self.payload.payload, NoPayload):
+                if warn:
+                    warning("Dot11 can't be decrypted. Check conf.wepkey.")
+                return
         self.FCfield &= ~0x40
         self.payload=self.payload.payload
 
