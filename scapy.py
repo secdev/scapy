@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.73  2005/04/15 15:56:08  pbi
+# - fixed ARP.answers()' return value
+# - made TracerouteResult.graph() use both ASN information source
+#
 # Revision 0.9.17.72  2005/04/09 22:25:23  pbi
 # - fix route.route() to handle extended IP sets (ex. 192.168.*.1-5)
 # - generalised statistics in packet lists
@@ -696,7 +700,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.72 2005/04/09 22:25:23 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.73 2005/04/15 15:56:08 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1902,13 +1906,22 @@ class TracerouteResult(SndRcvAns):
             return ASNlist
                 
 
-        if ASN == 1:
-            ASNlist = getASNlist_cymru(map(lambda x:x.split(":")[0],ips))
-        elif ASN == 2:
-            ASNlist = getASNlist_radb(map(lambda x:x.split(":")[0],ips))
+        ASN_query_list = dict.fromkeys(map(lambda x:x.split(":")[0],ips)).keys()
+        if ASN in [1,2]:
+            ASNlist = getASNlist_cymru(ASN_query_list)
+        elif ASN == 3:
+            ASNlist = getASNlist_radb(ASN_query_list)
         else:
             ASNlist = []
-    
+            
+
+        if ASN == 1:
+            ASN_ans_list = map(lambda x:x[0], ASNlist)
+            ASN_remain_list = filter(lambda x: x not in ASN_ans_list, ASN_query_list)
+            if ASN_remain_list:
+                ASNlist += getASNlist_radb(ASN_remain_list)
+        
+            
     
         ASNs = {}
         ASDs = {}
@@ -3635,6 +3648,7 @@ class ARP(Packet):
                  (other.op == self.who_has) and
                  (self.psrc == other.pdst) ):
                 return 1
+        return 0
     def extract_padding(self, s):
         return "",s
     def mysummary(self):
