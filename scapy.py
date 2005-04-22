@@ -21,6 +21,15 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.74  2005/04/22 13:30:10  pbi
+# - fixed dhcp_request()
+# - changed make_table semantic : take one lambda instead of 3
+# - fixed import_hexcap()
+# - fixed StrLenField
+# - changed traceroute() and arping() to also return unanswered packets
+# - ls() now sorts its output alphabetically
+# - LaTeX color theme for straight copy/paste into your doc.
+#
 # Revision 0.9.17.73  2005/04/15 15:56:08  pbi
 # - fixed ARP.answers()' return value
 # - made TracerouteResult.graph() use both ASN information source
@@ -700,7 +709,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.73 2005/04/15 15:56:08 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.74 2005/04/22 13:30:10 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1305,8 +1314,12 @@ def get_if(iff,cmd):
     s.close()
     return ifreq
 
+
+def get_if_raw_hwaddr(iff):
+    return struct.unpack("16xh6s8x",get_if(iff,SIOCGIFHWADDR))
+
 def get_if_hwaddr(iff):
-    addrfamily, mac = struct.unpack("16xh6s8x",get_if(iff,SIOCGIFHWADDR))
+    addrfamily, mac = get_if_raw_hwaddr(iff)
     if addrfamily in [ARPHDR_ETHER,ARPHDR_LOOPBACK]:
         return str2mac(mac)
     else:
@@ -1742,9 +1755,9 @@ class TracerouteResult(SndRcvAns):
         self.show()
     def show(self):
 
-        return self.make_table(lambda x: x[0].sprintf("%IP.dst%:{TCP:tcp%TCP.dport%}{UDP:udp%UDP.dport%}{ICMP:ICMP}"),
-                               lambda x: x[0].ttl,
-                               lambda x: x[1].sprintf("%-15s,IP.src% {TCP:%TCP.flags%}{ICMP:%ir,ICMP.type%}"))
+        return self.make_table(lambda (s,r): (s.sprintf("%IP.dst%:{TCP:tcp%TCP.dport%}{UDP:udp%UDP.dport%}{ICMP:ICMP}"),
+                                              s.ttl,
+                                              r.sprintf("%-15s,IP.src% {TCP:%TCP.flags%}{ICMP:%ir,ICMP.type%}")))
 
 
     def make_world_trace(self):
@@ -2360,7 +2373,9 @@ class StrLenField(StrField):
     def getfield(self, pkt, s):
         l = getattr(pkt, self.fld)
         # add the shift from the length field
-        l += pkt.fields_desc[pkt.fields_desc.index(self.fld)].shift
+        f = pkt.fields_desc[pkt.fields_desc.index(self.fld)]
+        if isinstance(f, FieldLenField):
+            l += f.shift
         return s[l:], self.m2i(pkt,s[:l])
 
 class FieldLenField(Field):
@@ -3892,7 +3907,7 @@ class IPerror(IP):
                  (self.src == other.src) and
                  ( ((conf.checkIPID == 0)
                     or (self.id == other.id)
-                    or (self.id == socket.htons(other.id) and conf.checkIPID == 1))) and
+                    or (conf.checkIPID == 1 and self.id == socket.htons(other.id)))) and
                  (self.proto == other.proto) ):
             return 0
         return self.payload.answers(other.payload)
@@ -5907,9 +5922,11 @@ def import_hexcap():
     try:
         while 1:
             l = raw_input()
-            l = l[l.find("   ")+3:]
-            l = l[:l.find("   ")]
-            l = "".join(l.split())
+            l = l.strip()
+            l = l[l.find("  "):]
+            l = l.strip()
+            l = l[:40]
+            l = l.replace(" ","")
             p += l
     except EOFError:
         pass
@@ -6541,7 +6558,7 @@ traceroute(target, [maxttl=30], [dport=80], [sport=80]) -> None
 
     a = TracerouteResult(a.res)
     a.display()
-    return a
+    return a,b
 
 
 
@@ -6553,7 +6570,7 @@ arping(net, iface=conf.iface) -> None"""
                     filter="arp and arp[7] = 2", timeout=2, iface_hint=net, **kargs)
     ans = ARPingResult(ans.res)
     ans.display()
-    return ans
+    return ans,unans
 
 def dyndns_add(nameserver, name, rdata, type="A", ttl=10):
     """Send a DNS add message to a nameserver for "name" to have a new "rdata"
@@ -6611,10 +6628,14 @@ def ikescan(ip):
                                       exch_type=2)/ISAKMP_payload_SA(prop=ISAKMP_payload_Proposal()))
 
 
-def dhcp_request(**kargs):
+def dhcp_request(iface=None,**kargs):
     if conf.checkIPaddr != 0:
         warning("conf.checkIPaddr is not 0, I may not be able to match the answer")
-    return srp1(Ether(dst="ff:ff:ff:ff:ff:ff")/IP(src="0.0.0.0",dst="255.255.255.255")/UDP(sport=68,dport=67)/BOOTP()/DHCP(options=[("message-type","discover"),"end"]),**kargs)
+    if iface is None:
+        iface = conf.iface
+    fam,hw = get_if_raw_hwaddr(iface)
+    return srp1(Ether(dst="ff:ff:ff:ff:ff:ff")/IP(src="0.0.0.0",dst="255.255.255.255")/UDP(sport=68,dport=67)
+                 /BOOTP(chaddr=hw)/DHCP(options=[("message-type","discover"),"end"]),iface=iface,**kargs)
 
 
 #####################
@@ -6643,15 +6664,13 @@ report_ports(target, ports) -> string"""
     return rep
 
 
-def __make_table(yfmtfunc, fmtfunc, endline, list, fx, fy, fz, sortx=None, sorty=None):
+def __make_table(yfmtfunc, fmtfunc, endline, list, fxyz, sortx=None, sorty=None):
     vx = {}
     vy = {}
     vz = {}
     l = 0
     for e in list:
-        xx = str(fx(e))
-        yy = str(fy(e))
-        zz = str(fz(e))
+        xx,yy,zz = map(str, fxyz(e))
         l = max(len(yy),l)
         vx[xx] = max(vx.get(xx,0), len(xx), len(zz))
         vy[yy] = None
@@ -6722,12 +6741,11 @@ def lsc(cmd=None):
 def ls(obj=None):
     """List  available layers, or infos on a given layer"""
     if obj is None:
-        for i in __builtins__:
-            obj = __builtins__[i]
-            if not type(obj) is types.ClassType:
-                continue
-            if issubclass(obj, Packet):
-                print "%-10s : %s" %(i,obj.name)
+        objlst = filter(lambda (n,o): type(o) is types.ClassType and issubclass(o,Packet),
+                        __builtins__.items())
+        objlst.sort(lambda x,y:cmp(x[0],y[0]))
+        for n,o in objlst:
+            print "%-10s : %s" %(n,o.name)
     else:
         if type(obj) is types.ClassType and issubclass(obj, Packet):
             for f in obj.fields_desc:
@@ -7350,6 +7368,22 @@ class RastaTheme(ColorTheme):
     packetlist_name = Color.red+Color.bold
     packetlist_proto = Color.yellow+Color.bold
     packetlist_value = Color.green+Color.bold
+
+
+class LatexTheme(ColorTheme):
+    normal = ""
+#    prompt = r"}\textcolor{blue}{\bf "
+    prompt = ""
+    punct = "}{"
+    not_printable = r"}\textcolor{grey}{"
+    layer_name = r"}\textcolor{red}{\bf "
+    field_name = r"}\textcolor{blue}{"
+    field_value = r"}\textcolor{purple}{"
+    emph_field_name = r"}\textcolor{blue}{\underline{" #ul
+    emph_field_value = r"}\textcolor{purple}{\underline{" #ul
+    packetlist_name = r"}\textcolor{red}{\bf "
+    packetlist_proto = r"}\textcolor{blue}{"
+    packetlist_value = r"}\textcolor{purple}{"
 
 
 class ColorPrompt:
