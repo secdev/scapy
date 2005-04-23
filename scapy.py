@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.76  2005/04/23 11:27:51  pbi
+# - Renamed SndRcvAns into SndRcvList
+#
 # Revision 0.9.17.75  2005/04/23 11:26:12  pbi
 # - added color display in srloop()
 #
@@ -712,7 +715,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.75 2005/04/23 11:26:12 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.76 2005/04/23 11:27:51 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1726,7 +1729,7 @@ class Dot11PacketList(PacketList):
         
         
 
-class SndRcvAns(PacketList):
+class SndRcvList(PacketList):
     def __init__(self, res, name="Results", stats=None):
         PacketList.__init__(self, res, name, stats)
     def _elt2pkt(self, elt):
@@ -1735,7 +1738,7 @@ class SndRcvAns(PacketList):
         return "%s ==> %s" % (elt[0].summary(),elt[1].summary()) 
 
 
-class ARPingResult(SndRcvAns):
+class ARPingResult(SndRcvList):
     def __init__(self, res, name="ARPing", stats=None):
         PacketList.__init__(self, res, name, stats)
 
@@ -1746,7 +1749,7 @@ class ARPingResult(SndRcvAns):
 
 
 
-class TracerouteResult(SndRcvAns):
+class TracerouteResult(SndRcvList):
     def __init__(self, res, name="Traceroute", stats=None):
         PacketList.__init__(self, res, name, stats)
         self.graphdef = None
@@ -5476,7 +5479,7 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0,retry=0):
         verbose = conf.verb
     debug.recv = PacketList([],"Unanswered")
     debug.sent = PacketList([],"Sent")
-    debug.match = SndRcvAns([])
+    debug.match = SndRcvList([])
     nbrecv=0
     ans = []
     # do it here to fix random fields, so that parent and child have the same
@@ -5602,10 +5605,10 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0,retry=0):
         
     if conf.debug_match:
         debug.sent=PacketList(remain[:],"Sent")
-        debug.match=SndRcvAns(ans[:])
+        debug.match=SndRcvList(ans[:])
     if verbose:
         print "\nReceived %i packets, got %i answers, remaining %i packets" % (nbrecv+len(ans), len(ans), notans)
-    return SndRcvAns(ans),PacketList(remain,"Unanswered"),debug.recv
+    return SndRcvList(ans),PacketList(remain,"Unanswered"),debug.recv
 
 
 def __gen_send(s, x, inter=0, loop=0, verbose=None, *args, **kargs):
