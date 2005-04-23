@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.75  2005/04/23 11:26:12  pbi
+# - added color display in srloop()
+#
 # Revision 0.9.17.74  2005/04/22 13:30:10  pbi
 # - fixed dhcp_request()
 # - changed make_table semantic : take one lambda instead of 3
@@ -709,7 +712,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.74 2005/04/22 13:30:10 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.75 2005/04/23 11:26:12 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -5678,28 +5681,37 @@ def srp1(*args,**kargs):
 def __sr_loop(srfunc, pkts, prn=lambda x:x[1].summary(), prnfail=lambda x:x.summary(), inter=1, timeout=0, count=None, verbose=0,  *args, **kargs):
     n = 0
     r = 0
+    parity = 0
     if timeout == 0:
         timeout = min(2*inter, 5)
     try:
         while 1:
+            parity ^= 1
+            col = [conf.color_theme.even,conf.color_theme.odd][parity]
             if count is not None:
                 if count == 0:
                     break
                 count -= 1
             start = time.time()
-            print "\rsend...\r",
+            print "\r%ssend...\r" % Color.normal,
             res = srfunc(pkts, timeout=timeout, verbose=0, chainCC=1, *args, **kargs)
             n += len(res[0])+len(res[1])
             r += len(res[0])
             if prn and len(res[0]) > 0:
                 msg = "RECV %i:" % len(res[0])
-                print  "\r%s" % msg,
+                print  "\r%s%s%s%s%s" % (Color.normal,
+                                         conf.color_theme.success,
+                                         msg,
+                                         conf.color_theme.normal,col),
                 for p in res[0]:
                     print prn(p)
                     print " "*len(msg),
             if prnfail and len(res[1]) > 0:
                 msg = "fail %i:" % len(res[1])
-                print "\r%s" % msg,
+                print "\r%s%s%s%s%s" % (Color.normal,
+                                        conf.color_theme.fail,
+                                        msg,
+                                        conf.color_theme.normal,col),
                 for p in res[1]:
                     print prnfail(p)
                     print " "*len(msg),
@@ -5710,7 +5722,8 @@ def __sr_loop(srfunc, pkts, prn=lambda x:x[1].summary(), prnfail=lambda x:x.summ
                 time.sleep(inter+start-end)
     except KeyboardInterrupt:
         pass
-    print "\nSent %i packets, received %i packets. %3.1f%% hits." % (n,r,100.0*r/n)
+ 
+    print "%s\nSent %i packets, received %i packets. %3.1f%% hits." % (Color.normal,n,r,100.0*r/n)
 
 def srloop(pkts, *args, **kargs):
     """Send a packet at layer 3 in loop and print the answer each time
@@ -7324,6 +7337,10 @@ class ColorTheme:
     packetlist_name = ""
     packetlist_proto = ""
     packetlist_value = ""
+    fail = ""
+    success = ""
+    odd = ""
+    even = ""
 
 class BlackAndWhite(ColorTheme):
     pass
@@ -7341,6 +7358,10 @@ class DefaultTheme(ColorTheme):
     packetlist_name = Color.red+Color.bold
     packetlist_proto = Color.blue
     packetlist_value = Color.purple
+    fail = Color.red+Color.bold
+    success = Color.blue+Color.bold
+    even = Color.black+Color.bold
+    odd = Color.black
     
 class BrightTheme(ColorTheme):
     normal = Color.normal
@@ -7353,6 +7374,10 @@ class BrightTheme(ColorTheme):
     packetlist_name = Color.red+Color.bold
     packetlist_proto = Color.yellow+Color.bold
     packetlist_value = Color.purple+Color.bold
+    fail = Color.red+Color.bold
+    success = Color.blue+Color.bold
+    even = Color.black+Color.bold
+    odd = Color.black
 
 
 class RastaTheme(ColorTheme):
@@ -7368,6 +7393,10 @@ class RastaTheme(ColorTheme):
     packetlist_name = Color.red+Color.bold
     packetlist_proto = Color.yellow+Color.bold
     packetlist_value = Color.green+Color.bold
+    fail = Color.red
+    success = Color.red+Color.bold
+    even = Color.yellow
+    odd = Color.green
 
 
 class LatexTheme(ColorTheme):
@@ -7384,6 +7413,10 @@ class LatexTheme(ColorTheme):
     packetlist_name = r"}\textcolor{red}{\bf "
     packetlist_proto = r"}\textcolor{blue}{"
     packetlist_value = r"}\textcolor{purple}{"
+    fail = r"}\textcolor{red}{\bf "
+    success = r"}\textcolor{blue}{\bf "
+    even = r"}{\bf "
+    odd = "}{"
 
 
 class ColorPrompt:
