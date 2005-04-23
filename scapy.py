@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.77  2005/04/23 13:36:15  pbi
+# - added threshold for warnings
+#
 # Revision 0.9.17.76  2005/04/23 11:27:51  pbi
 # - Renamed SndRcvAns into SndRcvList
 #
@@ -715,7 +718,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.76 2005/04/23 11:27:51 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.77 2005/04/23 13:36:15 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1035,7 +1038,30 @@ def checksum(pkt):
     s += s >> 16
     return  ~s & 0xffff
 
+
+warning_table = {}
+
 def warning(x):
+    wt = conf.warning_threshold
+    if wt > 0:
+        stk = traceback.extract_stack(limit=1)
+        caller = stk[0][1]
+        tm,nb = warning_table.get(caller, (0,0))
+        ltm = time.time()
+        if ltm-tm > wt:
+            tm = ltm
+            nb = 0
+        else:
+            if nb < 2:
+                nb += 1
+                if nb == 2:
+                    x = "more "+x
+            else:
+                return
+        warning_table[caller] = (tm,nb)
+            
+        
+    print 
     print "WARNING:",x
 
 
@@ -7475,6 +7501,7 @@ padding  : includes padding in desassembled packets
 except_filter : BPF filter for packets to ignore
 debug_match : when 1, store received packet that are not matched into debug.recv
 route    : holds the Scapy routing table and provides methods to manipulate it
+warning_threshold : how much time between warnings from the same place
 """
     session = ""  
     stealth = "not implemented"
@@ -7503,6 +7530,7 @@ route    : holds the Scapy routing table and provides methods to manipulate it
     wepkey = ""
     debug_dissector = 0
     color_theme = DefaultTheme
+    warning_threshold = 5
         
 
 conf=Conf()
