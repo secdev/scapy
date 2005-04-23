@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.80  2005/04/23 13:43:16  pbi
+# - Early IrDA support (Pierre Lalet)
+#
 # Revision 0.9.17.79  2005/04/23 13:42:34  pbi
 # - fixed SebekV1 and SebekV2 (Pierre Lalet)
 #
@@ -724,7 +727,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.79 2005/04/23 13:42:34 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.80 2005/04/23 13:43:16 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -5043,6 +5046,31 @@ class NetBIOS_DS(Packet):
 #        ]
 #
 
+# IR
+
+class IrLAPHead(Packet):
+    name = "IrDA Link Access Protocol Header"
+    fields_desc = [ XBitField("Address", 0x7f, 7),
+                    BitEnumField("Type", 1, 1, {"Response":0,
+                                                "Command":1})]
+
+class IrLAPCommand(Packet):
+    name = "IrDA Link Access Protocol Command"
+    fields_desc = [ XByteField("Control", 0),
+                    XByteField("Format identifier", 0),
+                    XIntField("Source address", 0),
+                    XIntField("Destination address", 0xffffffff),
+                    XByteField("Discovery flags", 0x1),
+                    ByteEnumField("Slot number", 255, {"final":255}),
+                    XByteField("Version", 0)]
+
+
+class IrLMP(Packet):
+    name = "IrDA Link Management Protocol"
+    fields_desc = [ XShortField("Service hints", 0),
+                    XByteField("Character set", 0),
+                    StrField("Device name", "") ]
+
 
 
 #################
@@ -5138,6 +5166,9 @@ layer_bonds = [ ( Dot3,   LLC,      { } ),
                 ( SebekHead, SebekV1,        { "version" : 1 } ),
                 ( SebekHead, SebekV2,        { "version" : 2 } ),
                 ( SebekHead, SebekV2Sock,    { "version" : 2, "type" : 2 } ),
+                ( CookedLinux,  IrLAPHead,   { "proto" : 0x0017 } ),
+                ( IrLAPHead, IrLAPCommand,   { "Type" : 1} ),
+                ( IrLAPCommand, IrLMP,       {} ),
                 ]
 
 for l in layer_bonds:
@@ -5184,7 +5215,9 @@ LLTypes = { ARPHDR_ETHER : Ether,
             801 : Dot11,
             802 : PrismHeader,
             105 : Dot11,
-            113 : CookedLinux
+            113 : CookedLinux,
+            144 : CookedLinux, # called LINUX_IRDA, similar to CookedLinux
+            783 : IrLAPHead
             }
 
 LLNumTypes = { Ether : ARPHDR_ETHER,
@@ -5194,6 +5227,8 @@ LLNumTypes = { Ether : ARPHDR_ETHER,
                PrismHeader : 802,
                Dot11 : 105,
                CookedLinux : 113,
+               CookedLinux : 144,
+               IrLAPHead : 783
             }
 
 L3Types = { ETH_P_IP : IP,
