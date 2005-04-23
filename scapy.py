@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.81  2005/04/23 13:55:32  pbi
+# - Some Sebek layers fixes (Pierre Lalet)
+#
 # Revision 0.9.17.80  2005/04/23 13:43:16  pbi
 # - Early IrDA support (Pierre Lalet)
 #
@@ -727,7 +730,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.80 2005/04/23 13:43:16 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.81 2005/04/23 13:55:32 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -4968,15 +4971,17 @@ class SebekV2Sock(Packet):
                     IntField("inode", 0),
                     StrFixedLenField("command", "", 12),
                     IntField("data_length", 15),
-                    IntField("dip", 0),
+                    IPField("dip", "127.0.0.1"),
                     ShortField("dport", 0),
-                    IntField("sip", 0),
+                    IPField("sip", "127.0.0.1"),
                     ShortField("sport", 0),
-                    ShortEnumField("call", 0, {"connect":3, "listen":4,
+                    ShortEnumField("call", 0, { "bind":2,
+                                                "connect":3, "listen":4,
                                                "accept":5, "sendmsg":16,
                                                "recvmsg":17, "sendto":11,
                                                "recvfrom":12}),
-                    ByteField("proto", 0) ]
+                    ByteEnumField("proto", 0, {0:"IP",1:"ICMP",6:"TCP",
+                                               17:"UDP",47:"GRE"}) ]
 
 
 class MGCP(Packet):
@@ -5059,7 +5064,7 @@ class IrLAPCommand(Packet):
     fields_desc = [ XByteField("Control", 0),
                     XByteField("Format identifier", 0),
                     XIntField("Source address", 0),
-                    XIntField("Destination address", 0xffffffff),
+                    XIntField("Destination address", 0xffffffffL),
                     XByteField("Discovery flags", 0x1),
                     ByteEnumField("Slot number", 255, {"final":255}),
                     XByteField("Version", 0)]
@@ -5163,9 +5168,12 @@ layer_bonds = [ ( Dot3,   LLC,      { } ),
                 ( TCP,      Skinny,          { "sport": 2000 } ),
                 ( UDP,      SebekHead,       { "sport" : 1101 } ),
                 ( UDP,      SebekHead,       { "dport" : 1101 } ),
+                ( UDP,      SebekHead,       { "sport" : 1101,
+                                               "dport" : 1101 } ),
                 ( SebekHead, SebekV1,        { "version" : 1 } ),
+                ( SebekHead, SebekV2Sock,    { "version" : 2,
+                                               "type" : 2 } ),
                 ( SebekHead, SebekV2,        { "version" : 2 } ),
-                ( SebekHead, SebekV2Sock,    { "version" : 2, "type" : 2 } ),
                 ( CookedLinux,  IrLAPHead,   { "proto" : 0x0017 } ),
                 ( IrLAPHead, IrLAPCommand,   { "Type" : 1} ),
                 ( IrLAPCommand, IrLMP,       {} ),
