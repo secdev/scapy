@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.79  2005/04/23 13:42:34  pbi
+# - fixed SebekV1 and SebekV2 (Pierre Lalet)
+#
 # Revision 0.9.17.78  2005/04/23 13:41:33  pbi
 # - fixed BitField (Pierre Lalet)
 #
@@ -721,7 +724,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.78 2005/04/23 13:41:33 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.79 2005/04/23 13:42:34 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -4939,7 +4942,7 @@ class SebekV1(Packet):
                     IntField("uid", 0),
                     IntField("fd", 0),
                     StrFixedLenField("command", "", 12),
-                    FieldLenField("data_length", None, "data"),
+                    FieldLenField("data_length", None, "data",fmt="I"),
                     StrLenField("data", "", "data_length") ]
 
 class SebekV2(Packet):
@@ -4950,7 +4953,7 @@ class SebekV2(Packet):
                     IntField("fd", 0),
                     IntField("inode", 0),
                     StrFixedLenField("command", "", 12),
-                    FieldLenField("data_length", None, "data"),
+                    FieldLenField("data_length", None, "data",fmt="I"),
                     StrLenField("data", "", "data_length") ]
 
 class SebekV2Sock(Packet):
