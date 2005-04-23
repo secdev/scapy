@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.82  2005/04/23 15:29:21  pbi
+# - fixed sndrcv() when given an empty set of packets
+#
 # Revision 0.9.17.81  2005/04/23 13:55:32  pbi
 # - Some Sebek layers fixes (Pierre Lalet)
 #
@@ -730,7 +733,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.81 2005/04/23 13:55:32 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.82 2005/04/23 15:29:21 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -5669,7 +5672,7 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0,retry=0):
                 arp_cache.update(ac)
                 os.waitpid(pid,0)
     
-        remain = reduce(list.__add__, hsent.values())
+        remain = reduce(list.__add__, hsent.values(), [])
         if autostop and len(remain) > 0 and len(remain) != len(tobesent):
             retry = autostop
             
