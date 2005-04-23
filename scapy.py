@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.78  2005/04/23 13:41:33  pbi
+# - fixed BitField (Pierre Lalet)
+#
 # Revision 0.9.17.77  2005/04/23 13:36:15  pbi
 # - added threshold for warnings
 #
@@ -718,7 +721,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.77 2005/04/23 13:36:15 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.78 2005/04/23 13:41:33 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2559,7 +2562,7 @@ class BitField(Field):
             b |= long(bytes[c]) << (nb_bytes-c-1)*8
 
         # get rid of high order bits
-        b &= (1L << (nb_bytes*8-bn+1)) - 1
+        b &= (1L << (nb_bytes*8-bn)) - 1
 
         # remove low order bits
         b = b >> (nb_bytes*8 - self.size - bn)
