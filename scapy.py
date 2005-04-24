@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.83  2005/04/24 10:34:57  pbi
+# - fixed fragment() (Peter Hardy)
+#
 # Revision 0.9.17.82  2005/04/23 15:29:21  pbi
 # - fixed sndrcv() when given an empty set of packets
 #
@@ -733,7 +736,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.82 2005/04/23 15:29:21 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.83 2005/04/24 10:34:57 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -5197,11 +5200,11 @@ def fragment(pkt, fragsize=1480):
     pkt.flags = "MF"
     lst = []
     for p in pkt:
-        q = p.copy()
-        del(q.payload)
         s = str(p.payload)
         nb = (len(s)+fragsize-1)/fragsize
         for i in range(nb):            
+            q = p.copy()
+            del(q.payload)
             r = Raw(load=s[i*fragsize:(i+1)*fragsize])
             r.overload_fields = p.payload.overload_fields.copy()
             if i == nb-1:
