@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.84  2005/04/24 14:57:45  pbi
+# - added a usable geolocation database from GeoIP.
+#
 # Revision 0.9.17.83  2005/04/24 10:34:57  pbi
 # - fixed fragment() (Peter Hardy)
 #
@@ -736,7 +739,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.83 2005/04/24 10:34:57 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.84 2005/04/24 14:57:45 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1810,7 +1813,7 @@ class TracerouteResult(SndRcvList):
                                               r.sprintf("%-15s,IP.src% {TCP:%TCP.flags%}{ICMP:%ir,ICMP.type%}")))
 
 
-    def make_world_trace(self):
+    def world_trace(self):
         ips = {}
         rt = {}
         ports_done = {}
@@ -1832,7 +1835,6 @@ class TracerouteResult(SndRcvList):
 
         trt = {}
         for trace_id in rt:
-            print "#####",trace_id
             trace = rt[trace_id]
             loctrace = []
             for i in range(max(trace.keys())):
@@ -1840,7 +1842,6 @@ class TracerouteResult(SndRcvList):
                 if ip is None:
                     continue
                 loc = locate_ip(ip)
-                print i,ip,loc
                 if loc is None:
                     continue
 #                loctrace.append((ip,loc)) # no labels yet
@@ -1848,9 +1849,7 @@ class TracerouteResult(SndRcvList):
             if loctrace:
                 trt[trace_id] = loctrace
 
-        print trt
         tr = map(lambda x: Gnuplot.Data(x,with="lines"), trt.values())
-        print tr
         g = Gnuplot.Gnuplot()
         world = Gnuplot.File(conf.gnuplot_world,with="lines")
         g.plot(world,*tr)
@@ -6092,72 +6091,57 @@ class KnowledgeBase:
 ## IP location database ##
 ##########################
 
-class LocationKnowledgeBase(KnowledgeBase):
-    def __init__(self, filenames):
-        KnowledgeBase.__init__(self, filenames)
-
-
+class IPCountryKnowledgeBase(KnowledgeBase):
+    """
+How to generate the base :
+db = []
+for l in open("GeoIPCountryWhois.csv").readlines():
+    s,e,c = l.split(",")[2:5]
+    db.append((int(s[1:-1]),int(e[1:-1]),c[1:-1]))
+cPickle.dump(gzip.open("xxx","w"),db)
+"""
     def lazy_init(self):
-        def parse_coords(coords):
-            c = int(coords.pop())
-            mc = coords.pop()
-            if mc[-1] in ["n","s","e","w"]:
-                c += int(mc[:-1])/60.0
-            else:
-                c += int(mc)/60.0
-            while mc[-1] not in ["n","s","e","w"]:
-                mc = coords.pop()
-            if mc[-1] in ["s","w"]:
-                c = -c
-            return c,coords
+        self.base = load_object(self.filename)
 
+
+class CountryLocKnowledgeBase(KnowledgeBase):
+    def lazy_init(self):
+        f=open(self.filename)
+        self.base = {}
+        while 1:
+            l = f.readline()
+            if not l:
+                break
+            l = l.strip().split(",")
+            if len(l) != 3:
+                continue
+            c,lat,long = l
             
-        try:
-            hf=open(self.filename[0])
-            nf=open(self.filename[1])
-        except IOError:
-            warning("Can't open base [%s] or [%s]" % self.filename)
-            return
-        try:
-            hloc = {}
-            for l in hf.readlines():
-                l = l.strip().lower()
-                l = l.split()
-                l.reverse()
-                ip = l.pop()
-                l.pop()
-                lat,l = parse_coords(l)
-                lng,l = parse_coords(l)
-                hloc[ip] = (lng,lat)
-                
-            nloc = {}
-            for l in nf.readlines():
-                l.strip()
-                l = l.split("#")[0]
-                l = l.split()
-                l.reverse()
-                ip = l.pop()
-                lat,l = parse_coords(l)
-                lng,l = parse_coords(l)
-                hloc[ip] = (lng,lat)
-                nloc[ip] = (lng,lat)
-            self.base = (hloc,nloc)
-        except SystemExit:
-            warning("Can't parse database")
-            self.base = None
+            self.base[c] = (float(long),float(lat))
+        f.close()
+            
+        
 
 
 def locate_ip(ip):
-    bases = location_kdb.get_base()
-    if bases is None:
-        return
-    hloc,nloc = bases
-    if ip in hloc:
-        return hloc[ip]
+    ip=map(int,ip.split("."))
+    ip = ip[3]+(ip[2]<<8L)+(ip[1]<<16L)+(ip[0]<<24L)
 
-    for k in nloc:
-        if ip.startswith(k):
-            return nloc[k]
+    cloc = country_loc_kdb.get_base()
+    db = IP_country_kdb.get_base()
+
+    d=0
+    f=len(db)-1
+    while (f-d) > 1:
+        guess = (d+f)/2
+        if ip > db[guess][0]:
+            d = guess
+        else:
+            f = guess
+    s,e,c = db[guess]
+    if  s <= ip and ip <= e:
+        return cloc.get(c,None)
+
 
     
 
@@ -7576,8 +7560,8 @@ warning_threshold : how much time between warnings from the same place
     p0f_base ="/etc/p0f.fp"
     queso_base ="/etc/queso.conf"
     nmap_base ="/usr/share/nmap/nmap-os-fingerprints"
-    host_locations = "hosts.cache"
-    network_locations = "networks.cache"
+    IPCountry_base = "GeoIPCountry4Scapy.gz"
+    countryLoc_base = "countryLoc.csv"
     gnuplot_world = "world.dat"
     except_filter = ""
     debug_match = 0
@@ -7593,4 +7577,5 @@ conf=Conf()
 p0f_kdb = p0fKnowledgeBase(conf.p0f_base)
 queso_kdb = QuesoKnowledgeBase(conf.queso_base)
 nmap_kdb = NmapKnowledgeBase(conf.nmap_base)
-location_kdb = LocationKnowledgeBase((conf.host_locations,conf.network_locations))
+IP_country_kdb = IPCountryKnowledgeBase(conf.IPCountry_base)
+country_loc_kdb = CountryLocKnowledgeBase(conf.countryLoc_base)
