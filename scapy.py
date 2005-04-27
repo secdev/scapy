@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.86  2005/04/27 21:14:24  pbi
+# - small code cleaning
+#
 # Revision 0.9.17.85  2005/04/27 13:53:32  pbi
 # - early BSD port with libdnet and libpcap wrappers
 #
@@ -742,7 +745,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.85 2005/04/27 13:53:32 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.86 2005/04/27 21:14:24 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1032,7 +1035,6 @@ MTU = 1600
 ## Tools ##
 ###########
 
-
 def sane(x):
     r=""
     for i in x:
@@ -1059,8 +1061,6 @@ def linehexdump(x):
         print "%02X" % ord(x[i]),
     print " "+sane(x)
 
-
-
 def checksum(pkt):
     pkt=str(pkt)
     s=0
@@ -1071,7 +1071,6 @@ def checksum(pkt):
     s = (s >> 16) + (s & 0xffff)
     s += s >> 16
     return  ~s & 0xffff
-
 
 warning_table = {}
 
@@ -1098,7 +1097,6 @@ def warning(x):
     print 
     print "WARNING:",x
 
-
 def mac2str(mac):
     return "".join(map(lambda x: chr(int(x,16)), mac.split(":")))
 
@@ -1107,6 +1105,15 @@ def str2mac(s):
 
 def strxor(x,y):
     return "".join(map(lambda x,y:chr(ord(x)^ord(y)),x,y))
+
+def atol(x):
+    try:
+        ip = inet_aton(x)
+    except socket.error:
+        ip = inet_aton(socket.gethostbyname(x))
+    return struct.unpack("I", ip)[0]
+def ltoa(x):
+    return socket.inet_ntoa(struct.pack("I", x))
 
 
 def do_graph(graph,type="svg",target="| display"):
@@ -1178,7 +1185,6 @@ def load_object(fname):
     return cPickle.load(gzip.open(fname))
 
 
-
 #################
 ## Debug class ##
 #################
@@ -1187,7 +1193,6 @@ class debug:
     recv=[]
     sent=[]
     match=[]
-
 
 
 ####################
@@ -1206,21 +1211,9 @@ class IPTools:
         return self.ottl()-self.ttl-1 
 
 
-
-
 ##############################
 ## Routing/Interfaces stuff ##
 ##############################
-
-
-def atol(x):
-    try:
-        ip = inet_aton(x)
-    except socket.error:
-        ip = inet_aton(socket.gethostbyname(x))
-    return struct.unpack("I", ip)[0]
-def ltoa(x):
-    return socket.inet_ntoa(struct.pack("I", x))
 
 class Route:
     def __init__(self):
@@ -1311,55 +1304,13 @@ class Route:
 
 
 if DNET and PCAP:
-#    interface_list = None
-#    route_handle = None
-#    def read_interfaces():
-#        def fixup_addr ((ifaddr, netmask, broadaddr, dstaddr)):
-#            addr = dnet.addr(ifaddr)
-#            if netmask is not None:
-#                addr.apply_netmask(dnet.addr(netmask))
-#            return ( ifaddr, addr )
-#	interfaces = { }
-#        for (ifname, descr, addrs, ifindex) in pcap.findalldevs():
-#            if ifname is not 'any':
-#                addrs = map(fixup_addr, addrs)
-#                interfaces[ifname] = (ifname, descr, addrs, ifindex)
-#        return interfaces
-#    def choose_route(dst):
-#        global interface_list, route_handle
-#        if interface_list is None: interface_list = read_interfaces()
-#        if route_handle is None: route_handle = dnet.route()
-#        dstaddr = dnet.addr(dst)
-#        try:
-#            gw = route_handle.get(dstaddr)
-#        except:
-#            # no route found; try to send directly (no gateway)
-#            gw = None
-#        if not gw: gw = dstaddr
-#        # go through the addresses assigned to each interface, looking for
-#        # one which matches the gateway (or destination)
-#        for ( ifname, descr, ifaddrs, ifindex ) in interface_list.values():
-#            for (addrstr, ifaddr) in ifaddrs:
-#                if gw in ifaddr:
-#                    return ( ifname, addrstr, str(gw) )
-#        return ( None, None, str(gw) )
-#
+
     def get_if_raw_hwaddr(iff):
         if iff == "lo0":
             return (772, '\x00'*6)
         l = dnet.intf().get(iff)
         l = l["link_addr"]
         return l.type,l.data
-
-#    def get_if_hwaddr(iff):
-#        global interface_list
-#        if interface_list is None: interface_list = read_interfaces()
-#        if not interface_list.has_key(iff):
-#            raise Exception("No interface named '%s'" % (iff,))
-#        for (addrstr, addr) in interface_list[iff][2]:
-#            if addr.type == dnet.ADDR_TYPE_ETH:
-#                return addrstr
-#        raise Exception("Interface '%s' has no ether address" % (iff,))
     def get_if_addr(ifname):
         i = dnet.intf()
         return socket.inet_ntoa(i.get(ifname)["addr"].data)
@@ -1400,8 +1351,6 @@ if DNET and PCAP:
         f.close()
         return routes
             
-        
-    
 else:
 
     def read_routes():
@@ -1478,16 +1427,12 @@ else:
                 return i
         return "lo"
             
-
         
 def get_if(iff,cmd):
     s=socket.socket()
     ifreq = ioctl(s, cmd, struct.pack("16s16x",iff))
     s.close()
     return ifreq
-
-
-
 
 def get_if_index(iff):
     return int(struct.unpack("I",get_if(iff, SIOCGIFINDEX)[16:20])[0])
@@ -1548,53 +1493,6 @@ else:
         return None
     
 
-
-############
-## Protos ##
-############
-
-# Not used. Here only in case I need it in the future.
-
-class ConstInstance(int):
-    def __new__(cls, name, key, value):
-        return int.__new__(cls,value)
-    def __init__(self, name, key, value):
-        int.__init__(self, value)
-        self.__value = value
-        self.__name = name
-        self.__key = key
-        self.__repr = name+"."+key
-    def __repr__(self):
-        return self.__repr
-    def __eq__(self, other):
-        return self.__repr == other.__repr__()
-    def __hash__(self):
-        return self.__repr.__hash__()
-
-
-class ProtoEnumMetaClass:
-    def __init__(self, name, bases, dict):
-        self.__name__ = name
-        self.__bases__= bases
-        self.__dict = dict
-        try:
-            self.__consts = dict["consts"]
-        except KeyError:
-            self.__consts = {}
-        for x,y in self.__consts.items():
-            if type(y) is int:
-                self.__consts[x] = ConstInstance(name, x, y)
-    def __getattr__(self, attr):
-        print "get", attr
-        try:
-            return self.__consts[attr]
-        except KeyError:
-            raise AttributeError, attr
-        
-        
-ConstEnum = ProtoEnumMetaClass("ConstEnum", (), {"consts":{}})
-
-
 ####################
 ## Random numbers ##
 ####################
@@ -1628,7 +1526,6 @@ class RandInt(RandNum):
         # and 2147483647+1 is longint. (random module limitation)
         RandNum.__init__(self, 0, 2147483646)
 
-
 class RandString(RandField):
     def __init__(self, size, chars="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"):
         self.chars = chars
@@ -1642,7 +1539,6 @@ class RandString(RandField):
         return getattr(self.randstr(), attr)
 
 
-
 ################
 ## Generators ##
 ################
@@ -1651,7 +1547,6 @@ class Gen:
     def __iter__(self):
         return iter([])
     
-
 class SetGen(Gen):
     def __init__(self, set):
         if type(set) is list:
@@ -1678,7 +1573,6 @@ class SetGen(Gen):
     def __repr__(self):
         return "<SetGen %s>" % self.set.__repr__()
 
-
 class Net(Gen):
     """Generate a list of IPs from a network address or a name"""
     name = "ip"
@@ -1690,8 +1584,6 @@ class Net(Gen):
         if not self.ipaddress.match(net):
             tmp[0]=socket.gethostbyname(tmp[0])
         netmask = int(tmp[1])
-
-            
 
         def parse_digit(a,netmask):
             netmask = min(8,max(netmask,0))
