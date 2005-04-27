@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.85  2005/04/27 13:53:32  pbi
+# - early BSD port with libdnet and libpcap wrappers
+#
 # Revision 0.9.17.84  2005/04/24 14:57:45  pbi
 # - added a usable geolocation database from GeoIP.
 #
@@ -739,7 +742,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.84 2005/04/24 14:57:45 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.85 2005/04/27 13:53:32 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -905,16 +908,25 @@ try:
     import Gnuplot
     GNUPLOT=1
 except ImportError:
+    print "WARNING: did not find gnuplot lib. Won't be able to plot"
     GNUPLOT=0
 
-PCAP=0
-DNET=0
+
+LINUX=sys.platform.startswith("linux")
+
+
+if LINUX:
+    DNET=PCAP=0
+else:
+    DNET=PCAP=1
+    
 
 if PCAP:
     try:
         import pcap
         PCAP = 1
     except ImportError:
+        print "WARNING: did not find pcap module. Fallback to linux primitives"
         PCAP = 0
 
 if DNET:
@@ -922,6 +934,7 @@ if DNET:
         import dnet
         DNET = 1
     except ImportError:
+        print "WARNING: did not find dnet module. Fallback to linux primitives"
         DNET = 0
 
 try:
@@ -1243,7 +1256,7 @@ class Route:
                 nhop = thenet
             dev,ifaddr,x = self.route(nhop)
         else:
-            ifreq = ioctl(s, SIOCGIFADDR,struct.pack("16s16x",dev))
+            ifreq = ioctl(self.s, SIOCGIFADDR,struct.pack("16s16x",dev))
             ifaddr = socket.inet_ntoa(ifreq[20:24])
         return (atol(thenet),(1L<<msk)-1, gw, dev, ifaddr)
 
@@ -1296,39 +1309,145 @@ class Route:
         return pathes[-1][1] 
             
 
-def read_routes():
-    f=open("/proc/net/route","r")
-    routes = []
-    s=socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    ifreq = ioctl(s, SIOCGIFADDR,struct.pack("16s16x","lo"))
-    addrfamily = struct.unpack("h",ifreq[16:18])[0]
-    if addrfamily == socket.AF_INET:
-        ifreq2 = ioctl(s, SIOCGIFNETMASK,struct.pack("16s16x","lo"))
-        msk = struct.unpack("I",ifreq2[20:24])[0]
-        dst = struct.unpack("I",ifreq[20:24])[0] & msk
-        ifaddr = socket.inet_ntoa(ifreq[20:24])
-        routes.append((dst, msk, "0.0.0.0", "lo", ifaddr))
-    else:
-        warning("Interface lo: unkownn address family (%i)"% addrfamily)
 
-    for l in f.readlines()[1:]:
-        iff,dst,gw,flags,x,x,x,msk,x,x,x = l.split()
-        if int(flags,16) & RTF_UP == 0:
-            continue
-        ifreq = ioctl(s, SIOCGIFADDR,struct.pack("16s16x",iff))
+if DNET and PCAP:
+#    interface_list = None
+#    route_handle = None
+#    def read_interfaces():
+#        def fixup_addr ((ifaddr, netmask, broadaddr, dstaddr)):
+#            addr = dnet.addr(ifaddr)
+#            if netmask is not None:
+#                addr.apply_netmask(dnet.addr(netmask))
+#            return ( ifaddr, addr )
+#	interfaces = { }
+#        for (ifname, descr, addrs, ifindex) in pcap.findalldevs():
+#            if ifname is not 'any':
+#                addrs = map(fixup_addr, addrs)
+#                interfaces[ifname] = (ifname, descr, addrs, ifindex)
+#        return interfaces
+#    def choose_route(dst):
+#        global interface_list, route_handle
+#        if interface_list is None: interface_list = read_interfaces()
+#        if route_handle is None: route_handle = dnet.route()
+#        dstaddr = dnet.addr(dst)
+#        try:
+#            gw = route_handle.get(dstaddr)
+#        except:
+#            # no route found; try to send directly (no gateway)
+#            gw = None
+#        if not gw: gw = dstaddr
+#        # go through the addresses assigned to each interface, looking for
+#        # one which matches the gateway (or destination)
+#        for ( ifname, descr, ifaddrs, ifindex ) in interface_list.values():
+#            for (addrstr, ifaddr) in ifaddrs:
+#                if gw in ifaddr:
+#                    return ( ifname, addrstr, str(gw) )
+#        return ( None, None, str(gw) )
+#
+    def get_if_raw_hwaddr(iff):
+        if iff == "lo0":
+            return (772, '\x00'*6)
+        l = dnet.intf().get(iff)
+        l = l["link_addr"]
+        return l.type,l.data
+
+#    def get_if_hwaddr(iff):
+#        global interface_list
+#        if interface_list is None: interface_list = read_interfaces()
+#        if not interface_list.has_key(iff):
+#            raise Exception("No interface named '%s'" % (iff,))
+#        for (addrstr, addr) in interface_list[iff][2]:
+#            if addr.type == dnet.ADDR_TYPE_ETH:
+#                return addrstr
+#        raise Exception("Interface '%s' has no ether address" % (iff,))
+    def get_if_addr(ifname):
+        i = dnet.intf()
+        return socket.inet_ntoa(i.get(ifname)["addr"].data)
+    def read_routes():
+        f=os.popen("netstat -rn")
+        ok = 0
+        routes = []
+        for l in f.readlines():
+            if not l:
+                break
+            l = l.strip()
+            if l == "Internet:":
+                ok = 1
+                continue
+            if ok == 0:
+                continue
+            if ok == 1:
+                ok += 1
+                continue
+            if not l:
+                break
+            dest,gw,fl,ref,use,netif = l.split()[:6]
+            if dest == "default":
+                dest = 0L
+                netmask = 0L
+            else:
+                if "/" in dest:
+                    dest,netmask = dest.split("/")
+                    netmask = (1L << int(netmask))-1
+                else:
+                    netmask = (1L << ((dest.count(".")+1)*8))-1
+                dest += ".0"*(3-dest.count("."))
+                dest, = struct.unpack("I",inet_aton(dest))
+            if not "G" in fl:
+                gw = '0.0.0.0'
+            ifaddr = get_if_addr(netif)
+            routes.append((dest,netmask,gw,netif,ifaddr))
+        f.close()
+        return routes
+            
+        
+    
+else:
+
+    def read_routes():
+        f=open("/proc/net/route","r")
+        routes = []
+        s=socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        ifreq = ioctl(s, SIOCGIFADDR,struct.pack("16s16x","lo"))
         addrfamily = struct.unpack("h",ifreq[16:18])[0]
         if addrfamily == socket.AF_INET:
+            ifreq2 = ioctl(s, SIOCGIFNETMASK,struct.pack("16s16x","lo"))
+            msk = struct.unpack("I",ifreq2[20:24])[0]
+            dst = struct.unpack("I",ifreq[20:24])[0] & msk
             ifaddr = socket.inet_ntoa(ifreq[20:24])
+            routes.append((dst, msk, "0.0.0.0", "lo", ifaddr))
         else:
-            warning("Interface %s: unkownn address family (%i)"%(iff, addrfamily))
-            continue
-        routes.append((long(dst,16),
-                      long(msk,16),
-                      socket.inet_ntoa(struct.pack("I",long(gw,16))),
-                      iff, ifaddr))
+            warning("Interface lo: unkownn address family (%i)"% addrfamily)
     
-    f.close()
-    return routes
+        for l in f.readlines()[1:]:
+            iff,dst,gw,flags,x,x,x,msk,x,x,x = l.split()
+            if int(flags,16) & RTF_UP == 0:
+                continue
+            ifreq = ioctl(s, SIOCGIFADDR,struct.pack("16s16x",iff))
+            addrfamily = struct.unpack("h",ifreq[16:18])[0]
+            if addrfamily == socket.AF_INET:
+                ifaddr = socket.inet_ntoa(ifreq[20:24])
+            else:
+                warning("Interface %s: unkownn address family (%i)"%(iff, addrfamily))
+                continue
+            routes.append((long(dst,16),
+                          long(msk,16),
+                          socket.inet_ntoa(struct.pack("I",long(gw,16))),
+                          iff, ifaddr))
+        
+        f.close()
+        return routes
+
+    def get_if_raw_hwaddr(iff):
+        return struct.unpack("16xh6s8x",get_if(iff,SIOCGIFHWADDR))
+    
+def get_if_hwaddr(iff):
+    addrfamily, mac = get_if_raw_hwaddr(iff)
+    if addrfamily in [ARPHDR_ETHER,ARPHDR_LOOPBACK]:
+        return str2mac(mac)
+    else:
+        raise Exception("Unsupported address family (%i)"%addrfamily)
+    
 
 
         
@@ -1368,15 +1487,6 @@ def get_if(iff,cmd):
     return ifreq
 
 
-def get_if_raw_hwaddr(iff):
-    return struct.unpack("16xh6s8x",get_if(iff,SIOCGIFHWADDR))
-
-def get_if_hwaddr(iff):
-    addrfamily, mac = get_if_raw_hwaddr(iff)
-    if addrfamily in [ARPHDR_ETHER,ARPHDR_LOOPBACK]:
-        return str2mac(mac)
-    else:
-        raise Exception("Unsupported address family (%i)"%addrfamily)
 
 
 def get_if_index(iff):
@@ -1627,7 +1737,8 @@ class PacketList:
     def _elt2show(self, elt):
         return self._elt2sum(elt)
     def __repr__(self):
-        stats=dict.fromkeys(self.stats,0)
+#        stats=dict.fromkeys(self.stats,0) ## needs python >= 2.3  :(
+        stats = dict(map(lambda x: (x,0), self.stats))
         other = 0
         for r in self.res:
             f = 0
@@ -5452,15 +5563,57 @@ class L2ListenSocket(SuperSocket):
 
 
 
-if DNET and PCAP:
-    # XXX: works only for Ethernet
-    class L3dnetSocket(SuperSocket):
-        def __init__(self, type = None, filter=None, promisc=None, iface=None):
-            self.iflist = {}
-            self.ins = pcap.pcapObject()
-            if iface is None:
-                iface = "any"
-            self.ins.open_live(iface, 1600, 0, 100)
+# XXX: works only for Ethernet
+class L3dnetSocket(SuperSocket):
+    def __init__(self, type = None, filter=None, promisc=None, iface=None):
+        self.iflist = {}
+        self.ins = pcap.pcapObject()
+        if iface is None:
+            iface = "any"
+        self.ins.open_live(iface, 1600, 0, 100)
+        if conf.except_filter:
+            if filter:
+                filter = "(%s) and not (%s)" % (filter, conf.except_filter)
+            else:
+                filter = "not (%s)" % conf.except_filter
+        if filter:
+            self.ins.setfilter(filter, 0, 0)
+    def send(self, x):
+        if hasattr(x,"dst"):
+            iff,a,gw = conf.route.route(x.dst)
+        else:
+            iff = conf.iface
+        ifs = self.iflist.get(iff)
+        if ifs is None:
+            self.iflist[iff] = ifs = dnet.eth(iff)
+        ifs.send(str(Ether()/x))
+    def recv(self,x):
+        ll = self.ins.datalink()
+        if LLTypes.has_key(ll):
+            cls = LLTypes[ll]
+        else:
+            warning("Unable to guess type (interface=%s protocol=%#x family=%i). Using Ethernet" % (sa_ll[0],sa_ll[1],sa_ll[3]))
+            cls = Ether
+
+        pkt = self.ins.next()[1]
+        try:
+            pkt = cls(pkt)
+        except:
+            pkt = Raw(pkt)
+        return pkt.payload
+    def close(self):
+        if hasattr(self, "ins"):
+            del(self.ins)
+        if hasattr(self, "outs"):
+            del(self.outs)
+
+class L2dnetSocket(SuperSocket):
+    def __init__(self, iface = None, type = ETH_P_ALL, filter=None):
+        if iface is None:
+            iface = conf.iface
+        self.ins = pcap.pcapObject()
+        self.ins.open_live(iface, 1600, 0, 100)
+        if type == ETH_P_ALL: # Do not apply any filter if Ethernet type is given
             if conf.except_filter:
                 if filter:
                     filter = "(%s) and not (%s)" % (filter, conf.except_filter)
@@ -5468,79 +5621,61 @@ if DNET and PCAP:
                     filter = "not (%s)" % conf.except_filter
             if filter:
                 self.ins.setfilter(filter, 0, 0)
-        def send(self, x):
-            if hasattr(x,"dst"):
-                iff,a,gw = conf.route.route(x.dst)
-            else:
-                iff = conf.iface
-            ifs = self.iflist.get(iff)
-            if ifs is None:
-                self.iflist[iff] = ifs = dnet.eth(iff)
-            ifs.send(str(Ether()/x))
-        def recv(self,x):
-            return Ether(self.ins.next()[1][2:]).payload
-        def close(self):
-            if hasattr(self, "ins"):
-                del(self.ins)
-            if hasattr(self, "outs"):
-                del(self.outs)
+        self.outs = dnet.eth(iface)
+    def recv(self,x):
+        ll = self.ins.datalink()
+        if LLTypes.has_key(ll):
+            cls = LLTypes[ll]
+        else:
+            warning("Unable to guess type (interface=%s protocol=%#x family=%i). Using Ethernet" % (sa_ll[0],sa_ll[1],sa_ll[3]))
+            cls = Ether
 
-    class L2dnetSocket(SuperSocket):
-        def __init__(self, iface = None, type = ETH_P_ALL, filter=None):
-            if iface is None:
-                iface = conf.iface
-            self.ins = pcap.pcapObject()
-            self.ins.open_live(iface, 1600, 0, 100)
-            if type == ETH_P_ALL: # Do not apply any filter if Ethernet type is given
-                if conf.except_filter:
-                    if filter:
-                        filter = "(%s) and not (%s)" % (filter, conf.except_filter)
-                    else:
-                        filter = "not (%s)" % conf.except_filter
-                if filter:
-                    self.ins.setfilter(filter, 0, 0)
-            self.outs = dnet.eth(iface)
-        def recv(self,x):
-            return Ether(self.ins.next()[1])
-        def close(self):
-            if hasattr(self, "ins"):
-                del(self.ins)
-            if hasattr(self, "outs"):
-                del(self.outs)
-        
-    
-    
+        pkt = self.ins.next()[1]
+        try:
+            pkt = cls(pkt)
+        except:
+            pkt = Raw(pkt)
+        return pkt
 
 
-if PCAP:
-    class L2pcapListenSocket(SuperSocket):
-        def __init__(self, iface = None, type = ETH_P_ALL, promisc=None, filter=None):
-            self.type = type
-            self.outs = None
-            self.ins = pcap.pcapObject()
-            if iface is None:
-                iface = "any"
-            if promisc is None:
-                promisc = conf.sniff_promisc
-            self.promisc = promisc
-            self.ins.open_live(iface, 1600, self.promisc, 100)
-            if type == ETH_P_ALL: # Do not apply any filter if Ethernet type is given
-                if conf.except_filter:
-                    if filter:
-                        filter = "(%s) and not (%s)" % (filter, conf.except_filter)
-                    else:
-                        filter = "not (%s)" % conf.except_filter
-                if filter:
-                    self.ins.setfilter(filter, 0, 0)
-
-        def close(self):
+    def close(self):
+        if hasattr(self, "ins"):
             del(self.ins)
+        if hasattr(self, "outs"):
+            del(self.outs)
     
-        def recv(self, x):
-            return Ether(self.ins.next()[1][2:])
-        
-        def send(self, x):
-            raise Exception("Can't send anything with L2pcapListenSocket")
+    
+    
+
+
+class L2pcapListenSocket(SuperSocket):
+    def __init__(self, iface = None, type = ETH_P_ALL, promisc=None, filter=None):
+        self.type = type
+        self.outs = None
+        self.ins = pcap.pcapObject()
+        if iface is None:
+            iface = conf.iface
+        if promisc is None:
+            promisc = conf.sniff_promisc
+        self.promisc = promisc
+        self.ins.open_live(iface, 1600, self.promisc, 100)
+        if type == ETH_P_ALL: # Do not apply any filter if Ethernet type is given
+            if conf.except_filter:
+                if filter:
+                    filter = "(%s) and not (%s)" % (filter, conf.except_filter)
+                else:
+                    filter = "not (%s)" % conf.except_filter
+            if filter:
+                self.ins.setfilter(filter, 0, 0)
+
+    def close(self):
+        del(self.ins)
+
+    def recv(self, x):
+        return Ether(self.ins.next()[1])
+    
+    def send(self, x):
+        raise Exception("Can't send anything with L2pcapListenSocket")
     
 
 
@@ -7573,6 +7708,13 @@ warning_threshold : how much time between warnings from the same place
         
 
 conf=Conf()
+
+if PCAP:
+    conf.L2listen=L2pcapListenSocket
+    if DNET:
+        conf.L3socket=L3dnetSocket
+        conf.L2socket=L2dnetSocket
+
 
 p0f_kdb = p0fKnowledgeBase(conf.p0f_base)
 queso_kdb = QuesoKnowledgeBase(conf.queso_base)
