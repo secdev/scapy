@@ -21,6 +21,12 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.87  2005/04/29 22:37:39  pbi
+# - added L2 recognition for L2pcapListenSocket
+# - workarround for a bug in libpcap/wrapper?. .next() sometimes returns None
+# - added consistant get_if_addr() and get_if_raw_addr()
+# - added ifadd(), ifdel() and ifchange() methods to Route class
+#
 # Revision 0.9.17.86  2005/04/27 21:14:24  pbi
 # - small code cleaning
 #
@@ -745,7 +751,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.86 2005/04/27 21:14:24 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.87 2005/04/29 22:37:39 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1224,12 +1230,13 @@ class Route:
         self.routes = read_routes()
 
     def __repr__(self):
-        rt = "Network         Netmask         Gateway         Iface\n"
+        rt = "Network         Netmask         Gateway         Iface           Output IP\n"
         for net,msk,gw,iface,addr in self.routes:
-            rt += "%-15s %-15s %-15s %s\n" % (ltoa(net),
+            rt += "%-15s %-15s %-15s %-15s %-15s\n" % (ltoa(net),
                                               ltoa(msk),
                                               gw,
-                                              iface)
+                                              iface,
+                                              addr)
         return rt
 
     def make_route(self, host=None, net=None, gw=None, dev=None):
@@ -1249,8 +1256,7 @@ class Route:
                 nhop = thenet
             dev,ifaddr,x = self.route(nhop)
         else:
-            ifreq = ioctl(self.s, SIOCGIFADDR,struct.pack("16s16x",dev))
-            ifaddr = socket.inet_ntoa(ifreq[20:24])
+            ifaddr = get_if_addr(dev)
         return (atol(thenet),(1L<<msk)-1, gw, dev, ifaddr)
 
     def add(self, *args, **kargs):
@@ -1268,7 +1274,37 @@ class Route:
         except ValueError:
             warning("no matching route found")
              
+    def ifchange(self, iff, addr):
+        the_addr,the_msk = (addr.split("/")+["32"])[:2]
+        the_msk = (1L << int(the_msk))-1
+        the_rawaddr, = struct.unpack("I",inet_aton(the_addr))
+        the_net = the_rawaddr & the_msk
         
+        
+        for i in range(len(self.routes)):
+            net,msk,gw,iface,addr = self.routes[i]
+            if iface != iff:
+                continue
+            if gw == '0.0.0.0':
+                self.routes[i] = (the_net,the_msk,gw,iface,the_addr)
+            else:
+                self.routes[i] = (net,msk,gw,iface,the_addr)
+                
+
+    def ifdel(self, iff):
+        new_routes=[]
+        for rt in self.routes:
+            if rt[3] != iff:
+                new_routes.append(rt)
+        self.routes=new_routes
+        
+    def ifadd(self, iff, addr):
+        the_addr,the_msk = (addr.split("/")+["32"])[:2]
+        the_msk = (1L << int(the_msk))-1
+        the_rawaddr, = struct.unpack("I",inet_aton(the_addr))
+        the_net = the_rawaddr & the_msk
+        self.routes.append((the_net,the_msk,'0.0.0.0',iff,the_addr))
+
 
     def route(self,dst):
         # Transform "192.168.*.1-5" to one IP of the set
@@ -1286,7 +1322,7 @@ class Route:
             dst=inet_aton(dst)
         except socket.error:
             dst=inet_aton(socket.gethostbyname(dst))
-        dst=struct.unpack("I",dst)[0]
+        dst,=struct.unpack("I",dst)
         pathes=[]
         for d,m,gw,i,a in self.routes:
             aa, = struct.unpack("I",inet_aton(a))
@@ -1311,9 +1347,24 @@ if DNET and PCAP:
         l = dnet.intf().get(iff)
         l = l["link_addr"]
         return l.type,l.data
-    def get_if_addr(ifname):
+    def get_if_raw_addr(ifname):
         i = dnet.intf()
-        return socket.inet_ntoa(i.get(ifname)["addr"].data)
+        return i.get(ifname)["addr"].data
+    
+    def new_read_routes():
+
+        rtlst = []
+        def addrt(rt,lst):
+            dst,gw = rt
+            lst.append(rt)
+
+        
+
+
+        r = dnet.route()
+        print r.loop(addrt, rtlst)
+        return rtlst
+
     def read_routes():
         f=os.popen("netstat -rn")
         ok = 0
@@ -1350,6 +1401,23 @@ if DNET and PCAP:
             routes.append((dest,netmask,gw,netif,ifaddr))
         f.close()
         return routes
+
+    def read_interfaces():
+        i = dnet.intf()
+        ifflist = {}
+        def addif(iff,lst):
+            if not iff.has_key("addr"):
+                return
+            if not iff.has_key("link_addr"):
+                return
+            rawip = iff["addr"].data
+            ip = socket.inet_ntoa(rawip)
+            rawll = iff["link_addr"].data
+            ll = str2mac(rawll)
+            lst[iff["name"]] = (rawll,ll,rawip,ip)
+        i.loop(addif, ifflist)
+        return ifflist
+            
             
 else:
 
@@ -1389,6 +1457,14 @@ else:
 
     def get_if_raw_hwaddr(iff):
         return struct.unpack("16xh6s8x",get_if(iff,SIOCGIFHWADDR))
+
+    def get_if_raw_addr(iff):
+        s=socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        ifreq = ioctl(s, SIOCGIFADDR, struct.pack("16s16x",iff))
+        return ifreq[20:24]
+    
+def get_if_addr(iff):
+    return socket.inet_ntoa(get_if_raw_addr(iff))
     
 def get_if_hwaddr(iff):
     addrfamily, mac = get_if_raw_hwaddr(iff)
@@ -5461,7 +5537,7 @@ class L3dnetSocket(SuperSocket):
         self.iflist = {}
         self.ins = pcap.pcapObject()
         if iface is None:
-            iface = "any"
+            iface = conf.iface
         self.ins.open_live(iface, 1600, 0, 100)
         if conf.except_filter:
             if filter:
@@ -5487,7 +5563,10 @@ class L3dnetSocket(SuperSocket):
             warning("Unable to guess type (interface=%s protocol=%#x family=%i). Using Ethernet" % (sa_ll[0],sa_ll[1],sa_ll[3]))
             cls = Ether
 
-        pkt = self.ins.next()[1]
+        pkt = None
+        while pkt is None:  ## This fix a probable bug in libpcap/wrapper, that returns None while there is no read timeout
+            pkt = self.ins.next()[1]
+
         try:
             pkt = cls(pkt)
         except:
@@ -5522,7 +5601,9 @@ class L2dnetSocket(SuperSocket):
             warning("Unable to guess type (interface=%s protocol=%#x family=%i). Using Ethernet" % (sa_ll[0],sa_ll[1],sa_ll[3]))
             cls = Ether
 
-        pkt = self.ins.next()[1]
+        pkt = None
+        while pkt is None:  ## This fix a probable bug in libpcap/wrapper, that returns None while there is no read timeout
+            pkt = self.ins.next()[1]
         try:
             pkt = cls(pkt)
         except:
@@ -5561,7 +5642,21 @@ class L2pcapListenSocket(SuperSocket):
                 self.ins.setfilter(filter, 0, 0)
 
     def close(self):
-        del(self.ins)
+        ll = self.ins.datalink()
+        if LLTypes.has_key(ll):
+            cls = LLTypes[ll]
+        else:
+            warning("Unable to guess type (interface=%s protocol=%#x family=%i). Using Ethernet" % (sa_ll[0],sa_ll[1],sa_ll[3]))
+            cls = Ether
+
+        pkt = None
+        while pkt is None:  ## This fix a probable bug in libpcap/wrapper, that returns None while there is no read timeout
+            pkt = self.ins.next()[1]
+        try:
+            pkt = cls(pkt)
+        except:
+            pkt = Raw(pkt)
+        return pkt
 
     def recv(self, x):
         return Ether(self.ins.next()[1])
