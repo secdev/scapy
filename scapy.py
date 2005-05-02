@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.88  2005/05/03 00:10:12  pbi
+# - made Padding not be seen as a payload
+#
 # Revision 0.9.17.87  2005/04/29 22:37:39  pbi
 # - added L2 recognition for L2pcapListenSocket
 # - workarround for a bug in libpcap/wrapper?. .next() sometimes returns None
@@ -751,7 +754,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.87 2005/04/29 22:37:39 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.88 2005/05/03 00:10:12 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -3206,14 +3209,17 @@ class Packet(Gen):
         p=""
         for f in self.fields_desc:
             p = f.addfield(self, p, self.__getattr__(f))
-        pkt = p+str(self.payload)
+        pkt = p+self.payload.build(internal=1)
         return pkt
     
     def post_build(self, pkt):
         return pkt
 
-    def build(self):
-        return self.post_build(self.do_build())
+    def build(self,internal=0):
+        p = self.post_build(self.do_build())
+        if not internal and self.haslayer(Padding):
+            p += self.getlayer(Padding).load
+        return p
 
     def extract_padding(self, s):
         return s,None
@@ -3535,6 +3541,8 @@ class NoPayload(Packet,object):
         return ""
     def __str__(self):
         return ""
+    def build(self, internal=0):
+        return ""
     def __getattr__(self, attr):
         if attr in self.__dict__:
             return self.__dict__[attr]
@@ -3588,6 +3596,11 @@ class Raw(Packet):
         
 class Padding(Raw):
     name = "Padding"
+    def build(self, internal=0):
+        if internal:
+            return ""
+        else:
+            return Raw.build(self)
 
 class Ether(Packet):
     name = "Ethernet"
