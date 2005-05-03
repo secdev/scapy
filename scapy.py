@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.89  2005/05/03 19:18:22  pbi
+# - DNET/PCAP stuff reordering
+#
 # Revision 0.9.17.88  2005/05/03 00:10:12  pbi
 # - made Padding not be seen as a payload
 #
@@ -754,7 +757,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.88 2005/05/03 00:10:12 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.89 2005/05/03 19:18:22 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1342,8 +1345,7 @@ class Route:
             
 
 
-if DNET and PCAP:
-
+if DNET:
     def get_if_raw_hwaddr(iff):
         if iff == "lo0":
             return (772, '\x00'*6)
@@ -1353,7 +1355,81 @@ if DNET and PCAP:
     def get_if_raw_addr(ifname):
         i = dnet.intf()
         return i.get(ifname)["addr"].data
+else:
+    def get_if_raw_hwaddr(iff):
+        return struct.unpack("16xh6s8x",get_if(iff,SIOCGIFHWADDR))
+
+    def get_if_raw_addr(iff):
+        s=socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        ifreq = ioctl(s, SIOCGIFADDR, struct.pack("16s16x",iff))
+        return ifreq[20:24]
+
+
+
+if PCAP:
+    def get_if_list():
+        # remove 'any' interface
+        return map(lambda x:x[0],filter(lambda x:x[1] is None,pcap.findalldevs()))
+    def get_working_if():
+        try:
+            return pcap.lookupdev()
+        except pcap.pcapc.EXCEPTION:
+            return 'lo'
+
+    def attach_filter(s, filter):
+        warning("attach_filter() should not be called in PCAP mode")
+    def set_promisc(s,iff,val=1):
+        warning("set_promisc() should not be called in DNET/PCAP mode")
     
+else:
+    def get_if_list():
+        f=open("/proc/net/dev","r")
+        lst = []
+        f.readline()
+        f.readline()
+        for l in f:
+            lst.append(l.split(":")[0].strip())
+        return lst
+    def get_working_if():
+        for i in get_if_list():
+            if i == 'lo':                
+                continue
+            ifflags = struct.unpack("16xH14x",get_if(i,SIOCGIFFLAGS))[0]
+            if ifflags & IFF_UP:
+                return i
+        return "lo"
+    def attach_filter(s, filter):
+        # XXX We generate the filter on the interface conf.iface 
+        # because tcpdump open the "any" interface and ppp interfaces
+        # in cooked mode. As we use them in raw mode, the filter will not
+        # work... one solution could be to use "any" interface and translate
+        # the filter from cooked mode to raw mode
+        # mode
+        f = os.popen("tcpdump -i %s -ddd -s 1600 '%s'" % (conf.iface,filter))
+        lines = f.readlines()
+        if f.close():
+            raise Exception("Filter parse error")
+        nb = int(lines[0])
+        bpf = ""
+        for l in lines[1:]:
+            bpf += struct.pack("HBBI",*map(long,l.split()))
+    
+        # XXX. Argl! We need to give the kernel a pointer on the BPF,
+        # python object header seems to be 20 bytes
+        bpfh = struct.pack("HI", nb, id(bpf)+20)  
+        s.setsockopt(SOL_SOCKET, SO_ATTACH_FILTER, bpfh)
+
+    def set_promisc(s,iff,val=1):
+        mreq = struct.pack("IHH8s", get_if_index(iff), PACKET_MR_PROMISC, 0, "")
+        if val:
+            cmd = PACKET_ADD_MEMBERSHIP
+        else:
+            cmd = PACKET_DROP_MEMBERSHIP
+        s.setsockopt(SOL_PACKET, cmd, mreq)
+
+
+if not LINUX:
+
     def new_read_routes():
 
         rtlst = []
@@ -1361,28 +1437,22 @@ if DNET and PCAP:
             dst,gw = rt
             lst.append(rt)
 
-        
-
-
         r = dnet.route()
         print r.loop(addrt, rtlst)
         return rtlst
 
     def read_routes():
-        f=os.popen("netstat -rn")
+        f=os.popen("netstat -rn") # -f inet
         ok = 0
         routes = []
         for l in f.readlines():
             if not l:
                 break
             l = l.strip()
-            if l == "Internet:":
+            if l.find("Destination") >= 0:
                 ok = 1
                 continue
             if ok == 0:
-                continue
-            if ok == 1:
-                ok += 1
                 continue
             if not l:
                 break
@@ -1420,7 +1490,7 @@ if DNET and PCAP:
             lst[iff["name"]] = (rawll,ll,rawip,ip)
         i.loop(addif, ifflist)
         return ifflist
-            
+
             
 else:
 
@@ -1458,13 +1528,17 @@ else:
         f.close()
         return routes
 
-    def get_if_raw_hwaddr(iff):
-        return struct.unpack("16xh6s8x",get_if(iff,SIOCGIFHWADDR))
+    def get_if(iff,cmd):
+        s=socket.socket()
+        ifreq = ioctl(s, cmd, struct.pack("16s16x",iff))
+        s.close()
+        return ifreq
 
-    def get_if_raw_addr(iff):
-        s=socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        ifreq = ioctl(s, SIOCGIFADDR, struct.pack("16s16x",iff))
-        return ifreq[20:24]
+
+    def get_if_index(iff):
+        return int(struct.unpack("I",get_if(iff, SIOCGIFINDEX)[16:20])[0])
+
+
     
 def get_if_addr(iff):
     return socket.inet_ntoa(get_if_raw_addr(iff))
@@ -1475,54 +1549,7 @@ def get_if_hwaddr(iff):
         return str2mac(mac)
     else:
         raise Exception("Unsupported address family (%i)"%addrfamily)
-    
 
-
-        
-if PCAP:
-    def get_if_list():
-        # remove 'any' interface
-        return map(lambda x:x[0],filter(lambda x:x[1] is None,pcap.findalldevs()))
-    def get_working_if():
-        try:
-            return pcap.lookupdev()
-        except pcap.pcapc.EXCEPTION:
-            return 'lo'
-else:
-    def get_if_list():
-        f=open("/proc/net/dev","r")
-        lst = []
-        f.readline()
-        f.readline()
-        for l in f:
-            lst.append(l.split(":")[0].strip())
-        return lst
-    def get_working_if():
-        for i in get_if_list():
-            if i == 'lo':                
-                continue
-            ifflags = struct.unpack("16xH14x",get_if(i,SIOCGIFFLAGS))[0]
-            if ifflags & IFF_UP:
-                return i
-        return "lo"
-            
-        
-def get_if(iff,cmd):
-    s=socket.socket()
-    ifreq = ioctl(s, cmd, struct.pack("16s16x",iff))
-    s.close()
-    return ifreq
-
-def get_if_index(iff):
-    return int(struct.unpack("I",get_if(iff, SIOCGIFINDEX)[16:20])[0])
-    
-def set_promisc(s,iff,val=1):
-    mreq = struct.pack("IHH8s", get_if_index(iff), PACKET_MR_PROMISC, 0, "")
-    if val:
-        cmd = PACKET_ADD_MEMBERSHIP
-    else:
-        cmd = PACKET_DROP_MEMBERSHIP
-    s.setsockopt(SOL_PACKET, cmd, mreq)
 
 
 #####################
@@ -6167,31 +6194,6 @@ def import_hexcap():
     return p2
         
 
-###############
-## BPF stuff ##
-###############
-
-
-def attach_filter(s, filter):
-    # XXX We generate the filter on the interface conf.iface 
-    # because tcpdump open the "any" interface and ppp interfaces
-    # in cooked mode. As we use them in raw mode, the filter will not
-    # work... one solution could be to use "any" interface and translate
-    # the filter from cooked mode to raw mode
-    # mode
-    f = os.popen("tcpdump -i %s -ddd -s 1600 '%s'" % (conf.iface,filter))
-    lines = f.readlines()
-    if f.close():
-        raise Exception("Filter parse error")
-    nb = int(lines[0])
-    bpf = ""
-    for l in lines[1:]:
-        bpf += struct.pack("HBBI",*map(long,l.split()))
-
-    # XXX. Argl! We need to give the kernel a pointer on the BPF,
-    # python object header seems to be 20 bytes
-    bpfh = struct.pack("HI", nb, id(bpf)+20)  
-    s.setsockopt(SOL_SOCKET, SO_ATTACH_FILTER, bpfh)
 
 
 #####################
