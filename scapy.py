@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.91  2005/05/18 16:59:01  pbi
+# - added BIOCIMMEDIATE option to fix BSD's BPF/pcap/select() behaviour issues
+# - made PCAP/DNET the default mode, even for Linux (it seems quicker)
+#
 # Revision 0.9.17.90  2005/05/18 16:57:07  pbi
 # - purge ARP cache when changing IP address of an interface
 # - fixed loopback interface detection get_if_raw_hwaddr() for dnet
@@ -764,7 +768,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.90 2005/05/18 16:57:07 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.91 2005/05/18 16:59:01 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -936,9 +940,8 @@ except ImportError:
 
 LINUX=sys.platform.startswith("linux")
 
-
 if LINUX:
-    DNET=PCAP=0
+    DNET=PCAP=1
 else:
     DNET=PCAP=1
     
@@ -1043,6 +1046,9 @@ SOL_SOCKET = 1
 # From net/route.h
 RTF_UP = 0x0001  # Route usable
 
+# From BSD net/bpf.h
+#BIOCIMMEDIATE=0x80044270
+BIOCIMMEDIATE=-2147204496
 
 MTU = 1600
 
@@ -5588,6 +5594,11 @@ class L3dnetSocket(SuperSocket):
         if iface is None:
             iface = conf.iface
         self.ins.open_live(iface, 1600, 0, 100)
+        self.ins.setnonblock(1)
+        try:
+            ioctl(self.ins.fileno(),BIOCIMMEDIATE,struct.pack("I",1))
+        except:
+            pass
         if conf.except_filter:
             if filter:
                 filter = "(%s) and not (%s)" % (filter, conf.except_filter)
@@ -5633,6 +5644,11 @@ class L2dnetSocket(SuperSocket):
             iface = conf.iface
         self.ins = pcap.pcapObject()
         self.ins.open_live(iface, 1600, 0, 100)
+        self.ins.setnonblock(1)
+        try:
+            ioctl(self.ins.fileno(),BIOCIMMEDIATE,struct.pack("I",1))
+        except:
+            pass
         if type == ETH_P_ALL: # Do not apply any filter if Ethernet type is given
             if conf.except_filter:
                 if filter:
@@ -5681,6 +5697,11 @@ class L2pcapListenSocket(SuperSocket):
             promisc = conf.sniff_promisc
         self.promisc = promisc
         self.ins.open_live(iface, 1600, self.promisc, 100)
+        self.ins.setnonblock(1)
+        try:
+            ioctl(self.ins.fileno(),BIOCIMMEDIATE,struct.pack("I",1))
+        except:
+            pass
         if type == ETH_P_ALL: # Do not apply any filter if Ethernet type is given
             if conf.except_filter:
                 if filter:
