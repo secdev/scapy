@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.92  2005/05/18 16:59:32  pbi
+# - some voip_play() stuff
+#
 # Revision 0.9.17.91  2005/05/18 16:59:01  pbi
 # - added BIOCIMMEDIATE option to fix BSD's BPF/pcap/select() behaviour issues
 # - made PCAP/DNET the default mode, even for Linux (it seems quicker)
@@ -768,7 +771,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.91 2005/05/18 16:59:01 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.92 2005/05/18 16:59:32 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -7342,21 +7345,79 @@ def merge(x,y):
 #    return  "".join(map(str.__add__, x, y))
 
 
-def voip_play(s1,**kargs):
+def voip_play(s1,list=None,**kargs):
     FIFO="/tmp/conv1.%i.%%i" % os.getpid()
     FIFO1=FIFO % 1
     FIFO2=FIFO % 2
     
     os.mkfifo(FIFO1)
     os.mkfifo(FIFO2)
-    os.system("soxmix -t .ul %s -t .ul %s -t ossdsp /dev/dsp &" % (FIFO1,FIFO2))
+    try:
+        os.system("soxmix -t .ul %s -t .ul %s -t ossdsp /dev/dsp &" % (FIFO1,FIFO2))
+        
+        c1=open(FIFO1,"w", 4096)
+        c2=open(FIFO2,"w", 4096)
+        fcntl.fcntl(c1.fileno(),fcntl.F_SETFL, os.O_NONBLOCK)
+        fcntl.fcntl(c2.fileno(),fcntl.F_SETFL, os.O_NONBLOCK)
     
-    c1=open(FIFO1,"w", 4096)
-    c2=open(FIFO2,"w", 4096)
-    fcntl.fcntl(c1.fileno(),fcntl.F_SETFL, os.O_NONBLOCK)
-    fcntl.fcntl(c2.fileno(),fcntl.F_SETFL, os.O_NONBLOCK)
+    #    dsp,rd = os.popen2("sox -t .ul -c 2 - -t ossdsp /dev/dsp")
+        def play(pkt,last=[]):
+            if not pkt:
+                return 
+            if not pkt.haslayer(UDP):
+                return 
+            ip=pkt.getlayer(IP)
+            if s1 in [ip.src, ip.dst]:
+                if not last:
+                    last.append(pkt)
+                    return
+                load=last.pop()
+    #            x1 = load.load[12:]
+                c1.write(load.load[12:])
+                if load.getlayer(IP).src == ip.src:
+    #                x2 = ""
+                    c2.write("\x00"*len(load.load[12:]))
+                    last.append(pkt)
+                else:
+    #                x2 = pkt.load[:12]
+                    c2.write(pkt.load[12:])
+    #            dsp.write(merge(x1,x2))
+    
+        if list is None:
+            sniff(store=0, prn=play, **kargs)
+        else:
+            for p in list:
+                play(p)
+    finally:
+        os.unlink(FIFO1)
+        os.unlink(FIFO2)
 
-#    dsp,rd = os.popen2("sox -t .ul -c 2 - -t ossdsp /dev/dsp")
+
+
+def voip_play1(s1,list=None,**kargs):
+
+    
+    dsp,rd = os.popen2("sox -t .ul - -t ossdsp /dev/dsp")
+    def play(pkt):
+        if not pkt:
+            return 
+        if not pkt.haslayer(UDP):
+            return 
+        ip=pkt.getlayer(IP)
+        if s1 in [ip.src, ip.dst]:
+            dsp.write(pkt.getlayer(Raw).load[12:])
+    try:
+        if list is None:
+            sniff(store=0, prn=play, **kargs)
+        else:
+            for p in list:
+                play(p)
+    finally:
+        dsp.close()
+        rd.close()
+
+def voip_play2(s1,**kargs):
+    dsp,rd = os.popen2("sox -t .ul -c 2 - -t ossdsp /dev/dsp")
     def play(pkt,last=[]):
         if not pkt:
             return 
@@ -7368,20 +7429,36 @@ def voip_play(s1,**kargs):
                 last.append(pkt)
                 return
             load=last.pop()
-#            x1 = load.load[12:]
-            c1.write(load.load[12:])
+            x1 = load.load[12:]
+#            c1.write(load.load[12:])
             if load.getlayer(IP).src == ip.src:
-#                x2 = ""
-                c2.write("\x00"*len(load.load[12:]))
+                x2 = ""
+#                c2.write("\x00"*len(load.load[12:]))
                 last.append(pkt)
             else:
-#                x2 = pkt.load[:12]
-                c2.write(pkt.load[12:])
-#            dsp.write(merge(x1,x2))
+                x2 = pkt.load[:12]
+#                c2.write(pkt.load[12:])
+            dsp.write(merge(x1,x2))
             
     sniff(store=0, prn=play, **kargs)
-    os.unlink(FIFO1)
-    os.unlink(FIFO2)
+
+def voip_play3(lst=None,**kargs):
+    dsp,rd = os.popen2("sox -t .ul - -t ossdsp /dev/dsp")
+    try:
+        def play(pkt, dsp=dsp):
+            if pkt and pkt.haslayer(UDP) and pkt.haslayer(Raw):
+                dsp.write(pkt.getlayer(Raw).load[12:])
+        if lst is None:
+            sniff(store=0, prn=play, **kargs)
+        else:
+            for p in lst:
+                play(p)
+    finally:
+        try:
+            dsp.close()
+            rd.close()
+        except:
+            pass
 
 
 def IPID_count(lst, funcID=lambda x:x[1].id, funcpres=lambda x:x[1].summary()):
