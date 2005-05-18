@@ -21,6 +21,13 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.90  2005/05/18 16:57:07  pbi
+# - purge ARP cache when changing IP address of an interface
+# - fixed loopback interface detection get_if_raw_hwaddr() for dnet
+# - changed a bit Dot11PacketList behaviour
+# - fixed build() overload by EAP class
+# - fixed close()/recv() mix up in L2pcapListenSocket
+#
 # Revision 0.9.17.89  2005/05/03 19:18:22  pbi
 # - DNET/PCAP stuff reordering
 #
@@ -757,7 +764,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.89 2005/05/03 19:18:22 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.90 2005/05/18 16:57:07 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1295,6 +1302,9 @@ class Route:
                 self.routes[i] = (the_net,the_msk,gw,iface,the_addr)
             else:
                 self.routes[i] = (net,msk,gw,iface,the_addr)
+        for i in arp_cache.keys():
+            del(arp_cache[i])
+        
                 
 
     def ifdel(self, iff):
@@ -1347,7 +1357,7 @@ class Route:
 
 if DNET:
     def get_if_raw_hwaddr(iff):
-        if iff == "lo0":
+        if iff[:2] == "lo":
             return (772, '\x00'*6)
         l = dnet.intf().get(iff)
         l = l["link_addr"]
@@ -1872,10 +1882,9 @@ class Dot11PacketList(PacketList):
         if stats is None:
             stats = [Dot11WEP, Dot11Beacon, UDP, ICMP, TCP]
 
-        PacketList.__init__(self, filter(lambda x: isinstance(x,Dot11),res),
-                            name,stats)
+        PacketList.__init__(self, res, name, stats)
     def toEthernet(self):
-        data = filter(lambda x : x.type == 2, self.res)
+        data = map(lambda x:x.getlayer(Dot11), filter(lambda x : x.haslayer(Dot11) and x.type == 2, self.res))
         r2 = []
         for p in data:
             q = p.copy()
@@ -3792,7 +3801,7 @@ class EAP(Packet):
             elif other.code == self.RESPONSE:
                 return 1
         return 0            
-    def build(self):
+    def build(self,internal=0):
         l = self.len
         if self.code in [EAP.SUCCESS, EAP.FAILURE]:
             if l is None:
@@ -5682,6 +5691,9 @@ class L2pcapListenSocket(SuperSocket):
                 self.ins.setfilter(filter, 0, 0)
 
     def close(self):
+        del(self.ins)
+        
+    def recv(self, x):
         ll = self.ins.datalink()
         if LLTypes.has_key(ll):
             cls = LLTypes[ll]
@@ -5698,9 +5710,6 @@ class L2pcapListenSocket(SuperSocket):
             pkt = Raw(pkt)
         return pkt
 
-    def recv(self, x):
-        return Ether(self.ins.next()[1])
-    
     def send(self, x):
         raise Exception("Can't send anything with L2pcapListenSocket")
     
