@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.94  2005/05/25 15:01:24  pbi
+# - fixed/cleaned ISAKMP
+#
 # Revision 0.9.17.93  2005/05/25 15:00:34  pbi
 # - fixed Packet.remove_underlayer() args
 # - fixed FieldLenField
@@ -776,7 +779,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.93 2005/05/25 15:00:34 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.94 2005/05/25 15:01:24 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -4802,11 +4805,11 @@ class ISAKMP_payload_Transform(ISAKMP_class):
         ByteEnumField("next_payload",None,ISAKMP_payload_type),
         ByteField("res",0),
 #        ShortField("len",None),
-        FieldLenField("len",None,"load","H",shift=-8),
+        FieldLenField("length",None,"transforms","H",shift=-8),
         ByteField("num",None),
         ByteEnumField("id",1,{1:"KEY_IKE"}),
         ShortField("res2",0),
-        ISAKMPTransformSetField("transforms",None,"len")
+        ISAKMPTransformSetField("transforms",None,"length")
 #        XIntField("enc",0x80010005L),
 #        XIntField("hash",0x80020002L),
 #        XIntField("auth",0x80030001L),
@@ -4824,12 +4827,12 @@ class ISAKMP_payload_Proposal(ISAKMP_class):
     fields_desc = [
         ByteEnumField("next_payload",None,ISAKMP_payload_type),
         ByteField("res",0),
-        FieldLenField("len",None,"trans","H",shift=-8),
+        FieldLenField("length",None,"trans","H",shift=-8),
         ByteField("proposal",1),
         ByteEnumField("proto",1,{1:"ISAKMP"}),
         ByteField("SPIsize",0),
         ByteField("trans_nb",None),
-        PacketField("trans",Raw(),ISAKMP_payload_Transform),
+        PacketLenField("trans",Raw(),ISAKMP_payload_Transform,"length"),
         ]
 
 
@@ -4860,7 +4863,7 @@ class ISAKMP_payload_VendorID(ISAKMP_class):
     fields_desc = [
         ByteEnumField("next_payload",None,ISAKMP_payload_type),
         ByteField("res",0),
-        FieldLenField("length",None,"load","H",shift=-4),
+        FieldLenField("length",None,"vendorID","H",shift=-4),
         StrLenField("vendorID","","length"),
         ]
 
@@ -4870,10 +4873,10 @@ class ISAKMP_payload_SA(ISAKMP_class):
     fields_desc = [
         ByteEnumField("next_payload",None,ISAKMP_payload_type),
         ByteField("res",0),
-        FieldLenField("len",None,"prop","H",shift=-12),
+        FieldLenField("length",None,"prop","H",shift=-12),
         IntEnumField("DOI",1,{1:"IPSEC"}),
         IntEnumField("situation",1,{1:"identity"}),
-        PacketLenField("prop",Raw(),ISAKMP_payload_Proposal,"len"),
+        PacketLenField("prop",Raw(),ISAKMP_payload_Proposal,"length"),
         ]
 
 class ISAKMP_payload_Nonce(ISAKMP_class):
