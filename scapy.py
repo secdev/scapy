@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.95  2005/05/25 15:05:03  pbi
+# - fixed pcap supersockets warnings
+#
 # Revision 0.9.17.94  2005/05/25 15:01:24  pbi
 # - fixed/cleaned ISAKMP
 #
@@ -779,7 +782,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.94 2005/05/25 15:01:24 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.95 2005/05/25 15:05:03 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -5609,6 +5612,7 @@ class L3dnetSocket(SuperSocket):
         self.ins = pcap.pcapObject()
         if iface is None:
             iface = conf.iface
+        self.iface = iface
         self.ins.open_live(iface, 1600, 0, 100)
         self.ins.setnonblock(1)
         try:
@@ -5636,7 +5640,7 @@ class L3dnetSocket(SuperSocket):
         if LLTypes.has_key(ll):
             cls = LLTypes[ll]
         else:
-            warning("Unable to guess type (interface=%s protocol=%#x family=%i). Using Ethernet" % (sa_ll[0],sa_ll[1],sa_ll[3]))
+            warning("Unable to guess datalink type (interface=%s linktype=%i). Using Ethernet" % (self.iface, ll))
             cls = Ether
 
         pkt = None
@@ -5658,6 +5662,7 @@ class L2dnetSocket(SuperSocket):
     def __init__(self, iface = None, type = ETH_P_ALL, filter=None):
         if iface is None:
             iface = conf.iface
+        self.iface = iface
         self.ins = pcap.pcapObject()
         self.ins.open_live(iface, 1600, 0, 100)
         self.ins.setnonblock(1)
@@ -5679,7 +5684,7 @@ class L2dnetSocket(SuperSocket):
         if LLTypes.has_key(ll):
             cls = LLTypes[ll]
         else:
-            warning("Unable to guess type (interface=%s protocol=%#x family=%i). Using Ethernet" % (sa_ll[0],sa_ll[1],sa_ll[3]))
+            warning("Unable to guess datalink type (interface=%s linktype=%i). Using Ethernet" % (self.iface, ll))
             cls = Ether
 
         pkt = None
@@ -5707,6 +5712,7 @@ class L2pcapListenSocket(SuperSocket):
         self.type = type
         self.outs = None
         self.ins = pcap.pcapObject()
+        self.iface = iface
         if iface is None:
             iface = conf.iface
         if promisc is None:
@@ -5735,7 +5741,7 @@ class L2pcapListenSocket(SuperSocket):
         if LLTypes.has_key(ll):
             cls = LLTypes[ll]
         else:
-            warning("Unable to guess type (interface=%s protocol=%#x family=%i). Using Ethernet" % (sa_ll[0],sa_ll[1],sa_ll[3]))
+            warning("Unable to guess datalink type (interface=%s linktype=%i). Using Ethernet" % (self.iface, ll))
             cls = Ether
 
         pkt = None
