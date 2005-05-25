@@ -21,6 +21,11 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.93  2005/05/25 15:00:34  pbi
+# - fixed Packet.remove_underlayer() args
+# - fixed FieldLenField
+# - added Atheros Prism Header linktype
+#
 # Revision 0.9.17.92  2005/05/18 16:59:32  pbi
 # - some voip_play() stuff
 #
@@ -771,7 +776,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.92 2005/05/18 16:59:32 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.93 2005/05/25 15:00:34 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2561,12 +2566,16 @@ class FieldLenField(Field):
         self.shift = shift
     def i2m(self, pkt, x):
         if x is None:
-            x = len(getattr(pkt, self.fld))-self.shift
+            f = pkt.fields_desc[pkt.fields_desc.index(self.fld)]
+            v = f.i2m(pkt,getattr(pkt, self.fld))
+            x = len(v)-self.shift
         return x
-    def i2h(self, pkt, x):
-        if x is None:
-            x = len(getattr(pkt, self.fld))+self.shift
-        return x
+#    def i2h(self, pkt, x):
+#        if x is None:
+#            f = pkt.fields_desc[pkt.fields_desc.index(self.fld)]
+#            v = f.i2m(pkt,getattr(pkt, self.fld))
+#            x = len(v)+self.shift
+#        return x
 
 ISAKMPTransformTypes = { "Encryption":    (1, { "DES-CBS"  : 1,
                                                 "3DES-CBC" : 5, }),
@@ -3146,7 +3155,7 @@ class Packet(Gen):
         self.overloaded_fields = {}
     def add_underlayer(self, underlayer):
         self.underlayer = underlayer
-    def remove_underlayer(self, underlayer):
+    def remove_underlayer(self,other):
         self.underlayer = None
     def copy(self):
         clone = self.__class__()
@@ -3578,7 +3587,7 @@ class NoPayload(Packet,object):
         pass
     def add_underlayer(self,underlayer):
         pass
-    def remove_underlayer(self):
+    def remove_underlayer(self,other):
         pass
     def copy(self):
         return self
@@ -5366,6 +5375,7 @@ LLTypes = { ARPHDR_ETHER : Ether,
             802 : PrismHeader,
             105 : Dot11,
             113 : CookedLinux,
+            119 : PrismHeader, # for atheros
             144 : CookedLinux, # called LINUX_IRDA, similar to CookedLinux
             783 : IrLAPHead
             }
