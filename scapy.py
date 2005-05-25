@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.96  2005/05/25 15:15:10  pbi
+# - ability to give a WEP key as an argument to unwep()
+#
 # Revision 0.9.17.95  2005/05/25 15:05:03  pbi
 # - fixed pcap supersockets warnings
 #
@@ -782,7 +785,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.95 2005/05/25 15:05:03 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.96 2005/05/25 15:15:10 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -4499,14 +4502,14 @@ class Dot11(Packet):
             return Dot11WEP
         else:
             return Packet.guess_payload_class(self)
-    def unwep(self, warn=1):
+    def unwep(self, key=None, warn=1):
         if self.FCfield & 0x40 == 0:
             if warn:
                 warning("No WEP to remove")
             return
         if  isinstance(self.payload.payload, NoPayload):
-            if conf.wepkey:
-                self.payload.decrypt()
+            if key or conf.wepkey:
+                self.payload.decrypt(key)
             if isinstance(self.payload.payload, NoPayload):
                 if warn:
                     warning("Dot11 can't be decrypted. Check conf.wepkey.")
@@ -4606,9 +4609,11 @@ class Dot11WEP(Packet):
     def post_dissect(self, s):
         self.decrypt()
 
-    def decrypt(self):
-        if conf.wepkey:
-            c = ARC4.new(self.iv+conf.wepkey)
+    def decrypt(self,key=None):
+        if key is None:
+            key = conf.wepkey
+        if key:
+            c = ARC4.new(self.iv+key)
             self.add_payload(LLC(c.decrypt(self.wepdata[:-4])))
                     
 
