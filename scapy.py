@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.97  2005/05/27 19:53:04  pbi
+# - added WEP ciphering to Dot11WEP
+#
 # Revision 0.9.17.96  2005/05/25 15:15:10  pbi
 # - ability to give a WEP key as an argument to unwep()
 #
@@ -785,7 +788,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.96 2005/05/25 15:15:10 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.97 2005/05/27 19:53:04 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2494,6 +2497,9 @@ class XLongField(LongField):
 
 
 class StrField(Field):
+    def __init__(self, name, default, fmt="H", remain=0):
+        Field.__init__(self,name,default,fmt)
+        self.remain = remain
     def i2m(self, pkt, x):
         if x is None:
             x = ""
@@ -2501,7 +2507,10 @@ class StrField(Field):
     def addfield(self, pkt, s, val):
         return s+self.i2m(pkt, val)
     def getfield(self, pkt, s):
-        return "",self.m2i(pkt, s)
+        if self.remain == 0:
+            return "",self.m2i(pkt, s)
+        else:
+            return s[-self.remain:],self.m2i(pkt, s[:-self.remain])
 
 class PacketField(StrField):
     def __init__(self, name, default, cls):
@@ -4603,18 +4612,37 @@ class Dot11WEP(Packet):
     name = "802.11 WEP packet"
     fields_desc = [ StrFixedLenField("iv", "", 3),
                     ByteField("key", 0),
-                    StrField("wepdata",""),
+                    StrField("wepdata",None,remain=4),
                     IntField("icv",0) ]
 
     def post_dissect(self, s):
+#        self.icv, = struct.unpack("!I",self.wepdata[-4:])
+#        self.wepdata = self.wepdata[:-4]
         self.decrypt()
+
+    def do_build(self):
+        p=""
+        for f in self.fields_desc:
+            p = f.addfield(self, p, self.__getattr__(f))
+        if self.wepdata is None:
+            p = p+self.payload.build(internal=1)
+        return p
+
+    def post_build(self,p):
+        if self.wepdata is None:
+            key = conf.wepkey
+            if key:
+                c = ARC4.new(self.iv+key)
+                p = p[:4]+c.encrypt(p[8:])+p[4:8]
+        return p
+            
 
     def decrypt(self,key=None):
         if key is None:
             key = conf.wepkey
         if key:
             c = ARC4.new(self.iv+key)
-            self.add_payload(LLC(c.decrypt(self.wepdata[:-4])))
+            self.add_payload(LLC(c.decrypt(self.wepdata)))
                     
 
 
