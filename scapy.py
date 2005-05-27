@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.98  2005/05/27 23:05:35  pbi
+# -fixed a smlal bug in graphic traceroute
+#
 # Revision 0.9.17.97  2005/05/27 19:53:04  pbi
 # - added WEP ciphering to Dot11WEP
 #
@@ -788,7 +791,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.97 2005/05/27 19:53:04 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.98 2005/05/27 23:05:35 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2043,6 +2046,7 @@ class TracerouteResult(SndRcvList):
         # Fill holes with unk%i nodes
         unk = 0
         blackholes = []
+        bhip = {}
         for rtk in rt:
             trace = rt[rtk]
             k = trace.keys()
@@ -2060,6 +2064,7 @@ class TracerouteResult(SndRcvList):
                 else:
                     bh = '%s,proto %i' % (rtk[1],rtk[2]) 
                 ips[bh] = None
+                bhip[rtk[1]] = bh
                 bh = '"%s"' % bh
                 trace[max(k)+1] = bh
                 blackholes.append(bh)
@@ -2135,7 +2140,12 @@ class TracerouteResult(SndRcvList):
             if asn is None:
                 continue
             iplist = ASNs.get(asn,[])
-            iplist.append(ip)
+            if ip in bhip:
+                if ip in ports:
+                    iplist.append(ip)
+                iplist.append(bhip[ip])
+            else:
+                iplist.append(ip)
             ASNs[asn] = iplist
             ASDs[asn] = desc
     
