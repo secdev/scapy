@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.99  2005/05/28 14:28:40  pbi
+# - WEP support and ICV computation
+#
 # Revision 0.9.17.98  2005/05/27 23:05:35  pbi
 # -fixed a smlal bug in graphic traceroute
 #
@@ -791,7 +794,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.98 2005/05/27 23:05:35 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.99 2005/05/28 14:28:40 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1108,6 +1111,21 @@ def linehexdump(x):
     for i in range(l):
         print "%02X" % ord(x[i]),
     print " "+sane(x)
+
+CRCPOLY_LE=0xedb88320L
+def crc32(crc, x):
+    for c in x:
+        crc ^= ord(c)
+        for i in range(8):
+            if crc & 1:
+                crc
+                y = CRCPOLY_LE
+            else:
+                y = 0
+            crc >>= 1
+            crc  ^= y
+    return crc
+
 
 def checksum(pkt):
     pkt=str(pkt)
@@ -4623,7 +4641,7 @@ class Dot11WEP(Packet):
     fields_desc = [ StrFixedLenField("iv", "", 3),
                     ByteField("key", 0),
                     StrField("wepdata",None,remain=4),
-                    IntField("icv",0) ]
+                    IntField("icv",None) ]
 
     def post_dissect(self, s):
 #        self.icv, = struct.unpack("!I",self.wepdata[-4:])
@@ -4642,8 +4660,16 @@ class Dot11WEP(Packet):
         if self.wepdata is None:
             key = conf.wepkey
             if key:
+                pl = p[8:]
+                if self.icv is None:
+                    pl += struct.pack("<I",crc32(0xffffffffL,pl)^0xffffffffL)
+                    icv = ""
+                else:
+                    icv = p[4:8]
                 c = ARC4.new(self.iv+key)
-                p = p[:4]+c.encrypt(p[8:])+p[4:8]
+                p = p[:4]+c.encrypt(pl)+icv
+            else:
+                warning("No WEP key set (conf.wepkey).. strange results expected..")
         return p
             
 
