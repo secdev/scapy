@@ -21,8 +21,11 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.101  2005/05/30 17:21:48  pbi
+# - Fixes for 0.9.17.100
+#
 # Revision 0.9.17.100  2005/05/30 17:08:41  pbi
-# - added NetBIOS, SMB & Co support (Sébastien Chenevot & Sylvain Sarméjeanne)
+# - added NetBIOS, SMB & Co support (Sebastien Chenevot & Sylvain Sarmejeanne)
 #
 # Revision 0.9.17.99  2005/05/28 14:28:40  pbi
 # - WEP support and ICV computation
@@ -797,7 +800,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.100 2005/05/30 17:08:41 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.101 2005/05/30 17:21:48 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -5394,7 +5397,7 @@ class NBNSQueryResponseNegative(Packet):
                    IPField("NB_ADDRESS", "127.0.0.1")]
     
 # Node Status Response
-class NBzNSNodeStatusResponse(Packet):
+class NBNSNodeStatusResponse(Packet):
     name="NBNS Node Status Response"
     fields_desc = [ShortField("NAME_TRN_ID",0), 
                    ShortField("FLAGS", 0x8500),
