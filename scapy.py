@@ -21,6 +21,12 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.102  2005/06/07 09:54:51  pbi
+# - added LEShortEnumField
+# - added L2CAP layer
+# - added Bluetooth supersocket
+# - added srbt() and srbt1()
+#
 # Revision 0.9.17.101  2005/05/30 17:21:48  pbi
 # - Fixes for 0.9.17.100
 #
@@ -800,7 +806,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.101 2005/05/30 17:21:48 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.102 2005/06/07 09:54:51 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2816,6 +2822,10 @@ class BitEnumField(BitField,EnumField):
 class ShortEnumField(EnumField):
     def __init__(self, name, default, enum):
         EnumField.__init__(self, name, default, enum, "H")
+
+class LEShortEnumField(EnumField):
+    def __init__(self, name, default, enum):
+        EnumField.__init__(self, name, default, enum, "@H")
 
 class ByteEnumField(EnumField):
     def __init__(self, name, default, enum):
@@ -5251,6 +5261,101 @@ class GPRS(Packet):
         ]
 
 
+class L2CAP(Packet):
+    name = "L2CAP"
+    fields_desc = [
+        ByteEnumField("code",8,{1:"rej",2:"conn_req",3:"conn_resp",
+                                4:"conf_req",5:"conf_resp",6:"disconn_req",
+                                7:"disconn_resp",8:"echo_req",9:"echo_resp",
+                                10:"info_req",11:"info_resp"}),
+        ByteField("id",0),
+        LEShortField("len",None) ]
+    def post_build(self, p):
+        if self.len is None:
+            l = len(p)-4
+            p = p[:2]+chr(l&0xff)+chr((l>>8)&0xff)+p[4:]
+        return p
+    def answers(self, other):
+        if other.id == self.id:
+            if self.code == 1:
+                return 1
+            if other.code in [2,4,6,8,10] and self.code == other.code+1:
+                if other.code == 8:
+                    return 1
+                return self.payload.answers(other.payload)
+        return 0
+
+class L2CAP_ConnReq(Packet):
+    name = "L2CAP Conn Req"
+    fields_desc = [ LEShortField("psm",0),
+                    LEShortField("scid",0),
+                    ]
+
+class L2CAP_ConnResp(Packet):
+    name = "L2CAP Conn Resp"
+    fields_desc = [ LEShortField("dcid",0),
+                    LEShortField("scid",0),
+                    LEShortEnumField("result",0,["no_info","authen_pend","author_pend"]),
+                    LEShortEnumField("status",0,["success","pend","bad_psm",
+                                               "cr_sec_block","cr_no_mem"]),
+                    ]
+    def answers(self, other):
+        return self.scid == other.scid
+
+class L2CAP_CmdRej(Packet):
+    name = "L2CAP Command Rej"
+    fields_desc = [ LEShortField("reason",0),
+                    ]
+    
+
+class L2CAP_ConfReq(Packet):
+    name = "L2CAP Conf Req"
+    fields_desc = [ LEShortField("dcid",0),
+                    LEShortField("flags",0),
+                    ]
+
+class L2CAP_ConfResp(Packet):
+    name = "L2CAP Conf Resp"
+    fields_desc = [ LEShortField("scid",0),
+                    LEShortField("flags",0),
+                    LEShortEnumField("result",0,["success","unaccept","reject","unknown"]),
+                    ]
+    def answers(self, other):
+        return self.scid == other.scid
+
+
+class L2CAP_DisconnReq(Packet):
+    name = "L2CAP Disconn Req"
+    fields_desc = [ LEShortField("dcid",0),
+                    LEShortField("scid",0), ]
+
+class L2CAP_DisconnResp(Packet):
+    name = "L2CAP Disconn Resp"
+    fields_desc = [ LEShortField("dcid",0),
+                    LEShortField("scid",0), ]
+    def answers(self, other):
+        return self.scid == other.scid
+
+    
+
+class L2CAP_InfoReq(Packet):
+    name = "L2CAP Info Req"
+    fields_desc = [ LEShortEnumField("type",0,{1:"CL_MTU",2:"FEAT_MASK"}),
+                    StrField("data","")
+                    ]
+
+
+class L2CAP_InfoResp(Packet):
+    name = "L2CAP Info Resp"
+    fields_desc = [ LEShortField("type",0),
+                    LEShortEnumField("result",0,["success","not_supp"]),
+                    StrField("data",""), ]
+    def answers(self, other):
+        return self.type == other.type
+
+
+
+
 class NetBIOS_DS(Packet):
     name = "NetBIOS datagram service"
     fields_desc = [
@@ -5941,7 +6046,17 @@ layer_bonds = [ ( Dot3,   LLC,      { } ),
                 (NBTSession, SMBNegociate_Protocol_Response_No_Security,{"ExtendedSecurity":0,"EncryptionKeyLength":8 }),
                 (NBTSession, SMBNegociate_Protocol_Response_No_Security_No_Key,{"ExtendedSecurity":0,"EncryptionKeyLength":0 }),
                 (NBTSession, SMBSession_Setup_AndX_Request,{}),
-                (NBTSession, SMBSession_Setup_AndX_Response,{})
+                (NBTSession, SMBSession_Setup_AndX_Response,{}),
+
+                (L2CAP, L2CAP_CmdRej, {"code":1}),
+                (L2CAP, L2CAP_ConnReq, {"code":2}),
+                (L2CAP, L2CAP_ConnResp, {"code":3}),
+                (L2CAP, L2CAP_ConfReq, {"code":4}),
+                (L2CAP, L2CAP_ConfResp, {"code":5}),
+                (L2CAP, L2CAP_DisconnReq, {"code":6}),
+                (L2CAP, L2CAP_DisconnResp, {"code":7}),
+                (L2CAP, L2CAP_InfoReq, {"code":10}),
+                (L2CAP, L2CAP_InfoResp, {"code":11}),
 
                 ]
 
@@ -6364,6 +6479,22 @@ class L2pcapListenSocket(SuperSocket):
 
     def send(self, x):
         raise Exception("Can't send anything with L2pcapListenSocket")
+
+
+class SimpleSocket(SuperSocket):
+    def __init__(self, sock):
+        self.ins = sock
+
+class BluetoothSocket(SuperSocket):
+    def __init__(self, peer):
+        s = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_RAW,
+                          socket.BTPROTO_L2CAP)
+        s.connect((peer,0))
+        
+        self.ins = self.outs = s
+
+    def recv(self, x):
+        return L2CAP(self.ins.recv(x))
     
 
 
@@ -6642,6 +6773,22 @@ srloop(pkts, [prn], [inter], [count], ...) --> None"""
     __sr_loop(srp, pkts, *args, **kargs)
 
            
+## Bluetooth
+
+
+def srbt(peer, pkts, inter=0.1, *args, **kargs):
+    s = conf.BTsocket(peer=peer)
+    a,b,c=sndrcv(s,pkts,inter=inter,*args,**kargs)
+    s.close()
+    return a,b
+
+def srbt1(peer, pkts, *args, **kargs):
+    a,b = srbt(peer, pkts, *args, **kargs)
+    if len(a) > 0:
+        return a[0][1]
+        
+    
+
 
 
 #############################
@@ -8427,6 +8574,7 @@ warning_threshold : how much time between warnings from the same place
     L3socket = L3PacketSocket
     L2socket = L2Socket
     L2listen = L2ListenSocket
+    BTsocket = BluetoothSocket
     histfile = os.path.join(os.environ["HOME"], ".scapy_history")
     padding = 1
     p0f_base ="/etc/p0f.fp"
