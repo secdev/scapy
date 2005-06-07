@@ -21,6 +21,11 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.103  2005/06/07 10:18:27  pbi
+# - added a try/catch for get_if_hw_addr
+# - fixed the netstat parsing for OpenBSD
+# - changed Dot11WEP's key ID field from "key" to "keyid"
+#
 # Revision 0.9.17.102  2005/06/07 09:54:51  pbi
 # - added LEShortEnumField
 # - added L2CAP layer
@@ -806,7 +811,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.102 2005/06/07 09:54:51 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.103 2005/06/07 10:18:27 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -977,6 +982,7 @@ except ImportError:
 
 
 LINUX=sys.platform.startswith("linux")
+OPENBSD=sys.platform.startswith("openbsd")
 
 if LINUX:
     DNET=PCAP=0
@@ -1418,8 +1424,11 @@ if DNET:
     def get_if_raw_hwaddr(iff):
         if iff[:2] == "lo":
             return (772, '\x00'*6)
-        l = dnet.intf().get(iff)
-        l = l["link_addr"]
+        try:
+            l = dnet.intf().get(iff)
+            l = l["link_addr"]
+        except:
+            raise Exception("Error in attempting to get hw address for interface [%s]" % iff)
         return l.type,l.data
     def get_if_raw_addr(ifname):
         i = dnet.intf()
@@ -1525,7 +1534,10 @@ if not LINUX:
                 continue
             if not l:
                 break
-            dest,gw,fl,ref,use,netif = l.split()[:6]
+            if OPENBSD:
+                dest,gw,fl,ref,use,mtu,netif = l.split()[:7]
+            else:
+                dest,gw,fl,ref,use,netif = l.split()[:6]
             if dest == "default":
                 dest = 0L
                 netmask = 0L
@@ -4655,7 +4667,7 @@ class Dot11Deauth(Packet):
 class Dot11WEP(Packet):
     name = "802.11 WEP packet"
     fields_desc = [ StrFixedLenField("iv", "", 3),
-                    ByteField("key", 0),
+                    ByteField("keyid", 0),
                     StrField("wepdata",None,remain=4),
                     IntField("icv",None) ]
 
