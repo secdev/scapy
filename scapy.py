@@ -21,6 +21,11 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.104  2005/07/20 16:22:51  pbi
+# - modified Packet.guess_payload_class() semantic : added the payload as parameter
+# - fixed TCP.answers() to take in account length of payload
+# - added timeout arg to arping()
+#
 # Revision 0.9.17.103  2005/06/07 10:18:27  pbi
 # - added a try/catch for get_if_hw_addr
 # - fixed the netstat parsing for OpenBSD
@@ -811,7 +816,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.103 2005/06/07 10:18:27 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.104 2005/07/20 16:22:51 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -3371,7 +3376,7 @@ class Packet(Gen):
             self.add_payload(Padding(pad))
     def do_dissect_payload(self, s):
         if s:
-            cls = self.guess_payload_class()
+            cls = self.guess_payload_class(s)
             try:
                 p = cls(s)
             except:
@@ -3385,7 +3390,7 @@ class Packet(Gen):
     def dissect(self, s):
         return self.do_dissect(s)
 
-    def guess_payload_class(self):
+    def guess_payload_class(self, payload):
         for t in self.aliastypes:
             for fval, cls in t.payload_guess:
                 ok = 1
@@ -4025,7 +4030,7 @@ class TCP(Packet):
                     BitField("dataofs", None, 4),
                     BitField("reserved", 0, 4),
                     FlagsField("flags", 0x2, 8, "FSRPAUEC"),
-                    ShortField("window", 0),
+                    ShortField("window", 8192),
                     XShortField("chksum", None),
                     ShortField("urgptr", 0),
                     TCPOptionsField("options", {}) ]
@@ -4058,7 +4063,7 @@ class TCP(Packet):
             if not ((self.sport == other.dport) and
                     (self.dport == other.sport)):
                 return 0
-        if (abs(other.seq-self.ack) > 2):
+        if (abs(other.seq-self.ack) > 2+len(other.payload)):
             return 0
         return 1
     def mysummary(self):
@@ -4152,7 +4157,7 @@ class ICMP(Packet):
             return 1
         return 0
 
-    def guess_payload_class(self):
+    def guess_payload_class(self, payload):
         if self.type in [3,4,5,11,12]:
             return IPerror
         else:
@@ -4324,11 +4329,11 @@ class BOOTP(Packet):
                     Field("sname","","64s"),
                     Field("file","","128s"),
                     StrField("options","") ]
-    def guess_payload_class(self):
+    def guess_payload_class(self, payload):
 	if self.options[:len(dhcpmagic)] == dhcpmagic:
 	    return DHCP
 	else:
-            return Packet.guess_payload_class(self)
+            return Packet.guess_payload_class(self, payload)
     def extract_padding(self,s):
 	if self.options[:len(dhcpmagic)] == dhcpmagic:
 	    # set BOOTP options to DHCP magic cookie and make rest a payload of DHCP options
@@ -4562,11 +4567,11 @@ class Dot11(Packet):
                     ]
     def mysummary(self):
         return self.sprintf("802.11 %Dot11.type% %Dot11.subtype% %Dot11.addr1%")
-    def guess_payload_class(self):
+    def guess_payload_class(self, payload):
         if self.FCfield & 0x40:
             return Dot11WEP
         else:
-            return Packet.guess_payload_class(self)
+            return Packet.guess_payload_class(self, payload)
     def unwep(self, key=None, warn=1):
         if self.FCfield & 0x40 == 0:
             if warn:
@@ -4862,7 +4867,7 @@ ISAKMP_exchange_type = ["None","base","identity prot.",
 
 
 class ISAKMP_class(Packet):
-    def guess_payload_class(self):
+    def guess_payload_class(self, payload):
         np = self.next_payload
         if np == 0:
             return Padding
@@ -7601,11 +7606,11 @@ traceroute(target, [maxttl=30], [dport=80], [sport=80]) -> None
 
 
 
-def arping(net, **kargs):
+def arping(net, timeout=2, **kargs):
     """Send ARP who-has requests to determine which hosts are up
 arping(net, iface=conf.iface) -> None"""
     ans,unans = srp(Ether(dst="ff:ff:ff:ff:ff:ff")/ARP(pdst=net),
-                    filter="arp and arp[7] = 2", timeout=2, iface_hint=net, **kargs)
+                    filter="arp and arp[7] = 2", timeout=timeout, iface_hint=net, **kargs)
     ans = ARPingResult(ans.res)
     ans.display()
     return ans,unans
