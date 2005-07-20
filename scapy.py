@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.105  2005/07/20 16:24:06  pbi
+# - small fix nmap database class
+#
 # Revision 0.9.17.104  2005/07/20 16:22:51  pbi
 # - modified Packet.guess_payload_class() semantic : added the payload as parameter
 # - fixed TCP.answers() to take in account length of payload
@@ -816,7 +819,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.104 2005/07/20 16:22:51 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.105 2005/07/20 16:24:06 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -7384,7 +7387,7 @@ class NmapKnowledgeBase(KnowledgeBase):
                 self.base.append((name,sig))
         except:
             self.base = None
-            warning("Can't read nmap database [%s](new nmap version ?)" % base.filename)
+            warning("Can't read nmap database [%s](new nmap version ?)" % self.filename)
         f.close()
         
 def TCPflags2str(f):
