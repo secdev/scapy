@@ -21,6 +21,11 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.107  2005/08/05 14:04:03  pbi
+# - added 'filter' parameter to PacketList.padding()
+# - added PacketList.nzpadding() method
+# - added 'lfilter' parameter to sniff()
+#
 # Revision 0.9.17.106  2005/08/05 14:02:19  pbi
 # - removed scapy module reloading to prepare interactive mode
 # - tweaked interact() function, now fully functionnal
@@ -823,7 +828,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.106 2005/08/05 14:02:19 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.107 2005/08/05 14:04:03 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1788,12 +1793,25 @@ class PacketList:
             if p.haslayer(Raw):
                 hexdump(p.getlayer(Raw).load)
 
-    def padding(self):
+    def padding(self, filter=None):
         for i in range(len(self.res)):
             p = self._elt2pkt(self.res[i])
             if p.haslayer(Padding):
-                print "%04i %s %s" % (i,p.sprintf("%.time%"),self._elt2sum(self.res[i]))
-                hexdump(p.getlayer(Padding).load)
+                if not filter or filter(p):
+                    print "%04i %s %s" % (i,p.sprintf("%.time%"),self._elt2sum(self.res[i]))
+                    hexdump(p.getlayer(Padding).load)
+
+    def nzpadding(self, filter=None):
+        for i in range(len(self.res)):
+            p = self._elt2pkt(self.res[i])
+            if p.haslayer(Padding):
+                pad = p.getlayer(Padding).load
+                if pad == "\x00"*len(pad):
+                    continue
+                if not filter or filter(p):
+                    print "%04i %s %s" % (i,p.sprintf("%.time%"),self._elt2sum(self.res[i]))
+                    hexdump(p.getlayer(Padding).load)
+        
 
     def conversations(self, getsrc=None, getdst=None,**kargs):
         if getsrc is None:
@@ -7415,15 +7433,18 @@ def nmap_sig2txt(sig):
 ###################
 
 
-def sniff(count=0, store=1, offline=None, prn = None, *arg, **karg):
+def sniff(count=0, store=1, offline=None, prn = None, lfilter=None, *arg, **karg):
     """Sniff packets
-sniff([count=0,] [prn=None,] [store=1,] [offline=None,] + L2ListenSocket args) -> list of packets
+sniff([count=0,] [prn=None,] [store=1,] [offline=None,] [lfilter=None,] + L2ListenSocket args) -> list of packets
 
   count: number of packets to capture. 0 means infinity
   store: wether to store sniffed packets or discard them
     prn: function to apply to each packet. If something is returned,
          it is displayed. Ex:
-         prn = lambda x: x.summary()
+         ex: prn = lambda x: x.summary()
+lfilter: python function applied to each packet to determine
+         if further action may be done
+         ex: lfilter = lambda x: x.haslayer(Padding)
 offline: pcap file to read packets from, instead of sniffing them
     """
     c = 0
@@ -7436,6 +7457,8 @@ offline: pcap file to read packets from, instead of sniffing them
     while 1:
         try:
             p = s.recv(MTU)
+            if lfilter and not lfilter(p):
+                continue
             if store:
                 lst.append(p)
             c += 1
