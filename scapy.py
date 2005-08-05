@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.108  2005/08/05 14:12:48  pbi
+# - fix: IP fragmentation offset needs to be 0 for payload to be decoded
+#   (actually fixed in 0.9.17.106)
+#
 # Revision 0.9.17.107  2005/08/05 14:04:03  pbi
 # - added 'filter' parameter to PacketList.padding()
 # - added PacketList.nzpadding() method
@@ -828,7 +832,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.107 2005/08/05 14:04:03 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.108 2005/08/05 14:12:48 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -5885,14 +5889,14 @@ layer_bonds = [ ( Dot3,   LLC,      { } ),
                 ( SNAP,   ARP,      { "code" : 0x0806 } ),
                 ( SNAP,   IP,       { "code" : 0x0800 } ),
                 ( SNAP,   EAPOL,    { "code" : 0x888e } ),
-                ( IPerror,IPerror,  { "frag" : 0, "proto" : socket.IPPROTO_IP } ),
+                ( IPerror,IPerror,  { "frag" : 0, "proto" : socket.IPPROTO_IP   } ),
                 ( IPerror,ICMPerror,{ "frag" : 0, "proto" : socket.IPPROTO_ICMP } ),
-                ( IPerror,TCPerror, { "frag" : 0, "proto" : socket.IPPROTO_TCP } ),
-                ( IPerror,UDPerror, { "frag" : 0, "proto" : socket.IPPROTO_UDP } ),
-                ( IP,     IP,       { "frag" : 0, "proto" : socket.IPPROTO_IP } ),
+                ( IPerror,TCPerror, { "frag" : 0, "proto" : socket.IPPROTO_TCP  } ),
+                ( IPerror,UDPerror, { "frag" : 0, "proto" : socket.IPPROTO_UDP  } ),
+                ( IP,     IP,       { "frag" : 0, "proto" : socket.IPPROTO_IP   } ),
                 ( IP,     ICMP,     { "frag" : 0, "proto" : socket.IPPROTO_ICMP } ),
-                ( IP,     TCP,      { "frag" : 0, "proto" : socket.IPPROTO_TCP } ),
-                ( IP,     UDP,      { "frag" : 0, "proto" : socket.IPPROTO_UDP } ),
+                ( IP,     TCP,      { "frag" : 0, "proto" : socket.IPPROTO_TCP  } ),
+                ( IP,     UDP,      { "frag" : 0, "proto" : socket.IPPROTO_UDP  } ),
                 ( UDP,    MGCP,     { "dport" : 2727 } ),
                 ( UDP,    MGCP,     { "sport" : 2727 } ),
                 ( UDP,    DNS,      { "dport" : 53 } ),
