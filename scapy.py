@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.106  2005/08/05 14:02:19  pbi
+# - removed scapy module reloading to prepare interactive mode
+# - tweaked interact() function, now fully functionnal
+#
 # Revision 0.9.17.105  2005/07/20 16:24:06  pbi
 # - small fix nmap database class
 #
@@ -819,7 +823,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.105 2005/07/20 16:24:06 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.106 2005/08/05 14:02:19 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -840,135 +844,6 @@ def usage():
 ##
 ##########[XXX]#=--
 
-################
-##### Main #####
-################
-
-
-if __name__ == "__main__":
-    import code,sys,cPickle,types,os,imp
-
-    scapy_module = sys.argv[0][sys.argv[0].rfind("/")+1:]
-    if not scapy_module:
-        scapy_module = "scapy"
-    else:
-        if scapy_module.endswith(".py"):
-            scapy_module = scapy_module[:-3]
-
-    scapy=imp.load_module("scapy",*imp.find_module(scapy_module))
-    
-    __builtins__.__dict__.update(scapy.__dict__)
-
-    import rlcompleter,readline
-    import re
-
-    class ScapyCompleter(rlcompleter.Completer):
-        def global_matches(self, text):
-            matches = []
-            n = len(text)
-            for list in [dir(__builtins__), session.keys()]:
-                for word in list:
-                    if word[:n] == text and word != "__builtins__":
-                        matches.append(word)
-            return matches
-    
-
-        def attr_matches(self, text):
-            m = re.match(r"(\w+(\.\w+)*)\.(\w*)", text)
-            if not m:
-                return
-            expr, attr = m.group(1, 3)
-            try:
-                object = eval(expr)
-            except:
-                object = eval(expr, session)
-            if isinstance(object, scapy.Packet):
-                words = filter(lambda x: x[0]!="_",dir(object))
-                words += map(str, object.fields_desc)
-            else:
-                words = dir(object)
-                if hasattr( object,"__class__" ):
-                    words = words + rlcompleter.get_class_members(object.__class__)
-            matches = []
-            n = len(attr)
-            for word in words:
-                if word[:n] == attr and word != "__builtins__":
-                    matches.append("%s.%s" % (expr, word))
-            return matches
-
-    readline.set_completer(ScapyCompleter().complete)
-    readline.parse_and_bind("C-o: operate-and-get-next")
-    readline.parse_and_bind("tab: complete")
-    
-    
-    
-    session=None
-    session_name=""
-
-    opts=getopt.getopt(sys.argv[1:], "hs:")
-    iface = None
-    try:
-        for opt, parm in opts[0]:
-	    if opt == "-h":
-	        usage()
-            elif opt == "-s":
-                session_name = parm
-        
-	if len(opts[1]) > 0:
-	    raise getopt.GetoptError("Too many parameters : [%s]" % string.join(opts[1]),None)
-
-
-    except getopt.error, msg:
-        print "ERROR:", msg
-        sys.exit(1)
-
-
-    if session_name:
-        try:
-            os.stat(session_name)
-        except OSError:
-            print "New session [%s]" % session_name
-        else:
-            try:
-                try:
-                    session = cPickle.load(gzip.open(session_name))
-                except IOError:
-                    session = cPickle.load(open(session_name))
-                print "Using session [%s]" % session_name
-            except EOFError:
-                print "Error opening session [%s]" % session_name
-            except AttributeError:
-                print "Error opening session [%s]. Attribute missing" %  session_name
-
-        if session:
-            if "conf" in session:
-                scapy.conf.configure(session["conf"])
-                session["conf"] = scapy.conf
-        else:
-            scapy.conf.session = session_name
-            session={"conf":scapy.conf}
-            
-    else:
-        session={"conf": scapy.conf}
-
-    __builtins__.__dict__["scapy_session"] = session
-
-    if scapy.conf.histfile:
-        try:
-            readline.read_history_file(scapy.conf.histfile)
-        except IOError:
-            pass
-
-    sys.ps1 = scapy.ColorPrompt()
-    code.interact(banner = "%sWelcome to Scapy (%s)"% (scapy.conf.color_theme.normal,VERSION), local=session)
-
-    if scapy.conf.session:
-        save_session(scapy.conf.session, session)
-
-    if scapy.conf.histfile:
-        readline.write_history_file(scapy.conf.histfile)
-    
-    sys.exit()
 
 ##################
 ##### Module #####
@@ -5992,14 +5867,14 @@ layer_bonds = [ ( Dot3,   LLC,      { } ),
                 ( SNAP,   ARP,      { "code" : 0x0806 } ),
                 ( SNAP,   IP,       { "code" : 0x0800 } ),
                 ( SNAP,   EAPOL,    { "code" : 0x888e } ),
-                ( IPerror,IPerror,  { "proto" : socket.IPPROTO_IP } ),
-                ( IPerror,ICMPerror,{ "proto" : socket.IPPROTO_ICMP } ),
-                ( IPerror,TCPerror, { "proto" : socket.IPPROTO_TCP } ),
-                ( IPerror,UDPerror, { "proto" : socket.IPPROTO_UDP } ),
-                ( IP,     IP,       { "proto" : socket.IPPROTO_IP } ),
-                ( IP,     ICMP,     { "proto" : socket.IPPROTO_ICMP } ),
-                ( IP,     TCP,      { "proto" : socket.IPPROTO_TCP } ),
-                ( IP,     UDP,      { "proto" : socket.IPPROTO_UDP } ),
+                ( IPerror,IPerror,  { "frag" : 0, "proto" : socket.IPPROTO_IP } ),
+                ( IPerror,ICMPerror,{ "frag" : 0, "proto" : socket.IPPROTO_ICMP } ),
+                ( IPerror,TCPerror, { "frag" : 0, "proto" : socket.IPPROTO_TCP } ),
+                ( IPerror,UDPerror, { "frag" : 0, "proto" : socket.IPPROTO_UDP } ),
+                ( IP,     IP,       { "frag" : 0, "proto" : socket.IPPROTO_IP } ),
+                ( IP,     ICMP,     { "frag" : 0, "proto" : socket.IPPROTO_ICMP } ),
+                ( IP,     TCP,      { "frag" : 0, "proto" : socket.IPPROTO_TCP } ),
+                ( IP,     UDP,      { "frag" : 0, "proto" : socket.IPPROTO_UDP } ),
                 ( UDP,    MGCP,     { "dport" : 2727 } ),
                 ( UDP,    MGCP,     { "sport" : 2727 } ),
                 ( UDP,    DNS,      { "dport" : 53 } ),
@@ -8626,3 +8501,153 @@ queso_kdb = QuesoKnowledgeBase(conf.queso_base)
 nmap_kdb = NmapKnowledgeBase(conf.nmap_base)
 IP_country_kdb = IPCountryKnowledgeBase(conf.IPCountry_base)
 country_loc_kdb = CountryLocKnowledgeBase(conf.countryLoc_base)
+
+
+
+################
+##### Main #####
+################
+
+
+
+def interact(mydict=None,argv=None,mybanner=None):
+    import code,sys,cPickle,types,os,imp,getopt
+
+    the_banner = "%sWelcome to Scapy (%s)"
+    if mybanner is not None:
+        the_banner += "\n"
+        the_banner += mybanner
+
+    if argv is None:
+        argv = sys.argv
+
+#    scapy_module = argv[0][argv[0].rfind("/")+1:]
+#    if not scapy_module:
+#        scapy_module = "scapy"
+#    else:
+#        if scapy_module.endswith(".py"):
+#            scapy_module = scapy_module[:-3]
+#
+#    scapy=imp.load_module("scapy",*imp.find_module(scapy_module))
+    
+    
+    import __builtin__
+#    __builtin__.__dict__.update(scapy.__dict__)
+    __builtin__.__dict__.update(globals())
+    if mydict is not None:
+        __builtin__.__dict__.update(mydict)
+
+    import rlcompleter,readline
+    import re
+
+    class ScapyCompleter(rlcompleter.Completer):
+        def global_matches(self, text):
+            matches = []
+            n = len(text)
+            for lst in [dir(__builtin__), session.keys()]:
+                for word in lst:
+                    if word[:n] == text and word != "__builtins__":
+                        matches.append(word)
+            return matches
+    
+
+        def attr_matches(self, text):
+            m = re.match(r"(\w+(\.\w+)*)\.(\w*)", text)
+            if not m:
+                return
+            expr, attr = m.group(1, 3)
+            try:
+                object = eval(expr)
+            except:
+                object = eval(expr, session)
+            if isinstance(object, Packet):
+                words = filter(lambda x: x[0]!="_",dir(object))
+                words += map(str, object.fields_desc)
+            else:
+                words = dir(object)
+                if hasattr( object,"__class__" ):
+                    words = words + rlcompleter.get_class_members(object.__class__)
+            matches = []
+            n = len(attr)
+            for word in words:
+                if word[:n] == attr and word != "__builtins__":
+                    matches.append("%s.%s" % (expr, word))
+            return matches
+
+    readline.set_completer(ScapyCompleter().complete)
+    readline.parse_and_bind("C-o: operate-and-get-next")
+    readline.parse_and_bind("tab: complete")
+    
+    
+    
+    session=None
+    session_name=""
+
+    opts=getopt.getopt(argv[1:], "hs:")
+    iface = None
+    try:
+        for opt, parm in opts[0]:
+	    if opt == "-h":
+	        usage()
+            elif opt == "-s":
+                session_name = parm
+        
+	if len(opts[1]) > 0:
+	    raise getopt.GetoptError("Too many parameters : [%s]" % string.join(opts[1]),None)
+
+
+    except getopt.error, msg:
+        print "ERROR:", msg
+        sys.exit(1)
+
+
+    if session_name:
+        try:
+            os.stat(session_name)
+        except OSError:
+            print "New session [%s]" % session_name
+        else:
+            try:
+                try:
+                    session = cPickle.load(gzip.open(session_name))
+                except IOError:
+                    session = cPickle.load(open(session_name))
+                print "Using session [%s]" % session_name
+            except EOFError:
+                print "Error opening session [%s]" % session_name
+            except AttributeError:
+                print "Error opening session [%s]. Attribute missing" %  session_name
+
+        if session:
+            if "conf" in session:
+                conf.configure(session["conf"])
+                session["conf"] = conf
+        else:
+            conf.session = session_name
+            session={"conf":conf}
+            
+    else:
+        session={"conf": conf}
+
+    __builtin__.__dict__["scapy_session"] = session
+
+
+    if conf.histfile:
+        try:
+            readline.read_history_file(conf.histfile)
+        except IOError:
+            pass
+
+    sys.ps1 = ColorPrompt()
+    code.interact(banner = the_banner% (conf.color_theme.normal,VERSION), local=session)
+
+    if conf.session:
+        save_session(conf.session, session)
+
+    if conf.histfile:
+        readline.write_history_file(conf.histfile)
+    
+    sys.exit()
+
+if __name__ == "__main__":
+    interact()
