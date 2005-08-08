@@ -21,6 +21,11 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.109  2005/08/08 13:57:16  pbi
+# - replaced use of __builtins__ by globals()
+# - promiscuous mode is now default mode
+# - added HTML color theme
+#
 # Revision 0.9.17.108  2005/08/05 14:12:48  pbi
 # - fix: IP fragmentation offset needs to be 0 for payload to be decoded
 #   (actually fixed in 0.9.17.106)
@@ -832,7 +837,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.108 2005/08/05 14:12:48 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.109 2005/08/08 13:57:16 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1118,7 +1123,7 @@ def save_session(fname, session=None, pickleProto=-1):
 
     for k in to_be_saved.keys():
         if type(to_be_saved[k]) in [types.ClassType, types.ModuleType]:
-             print "[%s] (%s) can't be saved. Deleted." % (k, type(to_be_saved[k]))
+             print "[%s] (%s) can't be saved." % (k, type(to_be_saved[k]))
              del(to_be_saved[k])
 
     try:
@@ -7689,8 +7694,7 @@ def lsc(cmd=None):
 def ls(obj=None):
     """List  available layers, or infos on a given layer"""
     if obj is None:
-        objlst = filter(lambda (n,o): type(o) is types.ClassType and issubclass(o,Packet),
-                        __builtins__.items())
+        objlst = filter(lambda (n,o): type(o) is types.ClassType and issubclass(o,Packet),globals().items())
         objlst.sort(lambda x,y:cmp(x[0],y[0]))
         for n,o in objlst:
             print "%-10s : %s" %(n,o.name)
@@ -8350,6 +8354,9 @@ class ColorTheme:
     success = ""
     odd = ""
     even = ""
+    opening = ""
+    active = ""
+    closed = ""
 
 class BlackAndWhite(ColorTheme):
     pass
@@ -8371,6 +8378,9 @@ class DefaultTheme(ColorTheme):
     success = Color.blue+Color.bold
     even = Color.black+Color.bold
     odd = Color.black
+    opening = Color.yellow
+    active = Color.black
+    closed = Color.grey
     
 class BrightTheme(ColorTheme):
     normal = Color.normal
@@ -8426,6 +8436,25 @@ class LatexTheme(ColorTheme):
     success = r"}\textcolor{blue}{\bf "
     even = r"}{\bf "
     odd = "}{"
+
+class HTMLTheme(ColorTheme):
+    normal = ""
+#    prompt = r"</span><span class=prompt>"
+    prompt = ""
+    punct = "</span><span>"
+    not_printable = r"</span><span class=not_printable>"
+    layer_name = r"</span><span class=layer_name>"
+    field_name = r"</span><span class=field_name>"
+    field_value = r"</span><span class=field_value>"
+    emph_field_name = r"</span><span class=emph_field_name>"
+    emph_field_value = r"</span><span class=emph_field_value>"
+    packetlist_name = r"</span><span class=packetlist_name>"
+    packetlist_proto = r"</span><span class=packetlist_proto>"
+    packetlist_value = r"</span><span class=packetlist_value>"
+    fail = r"</span><span class=fail>"
+    success = r"</span><span class=success>"
+    even = r"</span><span class=even>"
+    odd = "</span><span class=odd>"
 
 
 class ColorPrompt:
@@ -8491,8 +8520,8 @@ warning_threshold : how much time between warnings from the same place
     checkIPaddr = 1
     verb = 2
     prompt = ">>> "
-    promisc = "not implemented"
-    sniff_promisc = 0
+    promisc = 1
+    sniff_promisc = 1
     L3socket = L3PacketSocket
     L2socket = L2Socket
     L2listen = L2ListenSocket
