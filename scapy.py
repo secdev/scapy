@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.0.1  2005/08/09 18:30:10  pbi
+# Release 1.0.0
+#
 # Revision 1.0  2005/08/09 18:26:09  pbi
 # 1.0 release
 #
@@ -843,7 +846,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0 2005/08/09 18:26:09 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.0.1 2005/08/09 18:30:10 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
