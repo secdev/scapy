@@ -3,7 +3,7 @@
 #############################################################################
 ##                                                                         ##
 ## scapy.py --- Interactive packet manipulation tool                       ##
-##              see http://www.secdev.org/projects/scapy.html              ##
+##              see http://www.secdev.org/projects/scapy/                  ##
 ##              for more informations                                      ##
 ##                                                                         ##
 ## Copyright (C) 2003  Philippe Biondi <phil@secdev.org>                   ##
@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 0.9.17.110  2005/08/09 18:19:17  pbi
+# - nothing
+#
 # Revision 0.9.17.109  2005/08/08 13:57:16  pbi
 # - replaced use of __builtins__ by globals()
 # - promiscuous mode is now default mode
@@ -837,7 +840,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 0.9.17.109 2005/08/08 13:57:16 pbi Exp $"
+RCSID="$Id: scapy.py,v 0.9.17.110 2005/08/09 18:19:17 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
