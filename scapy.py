@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.0.2  2005/08/09 21:40:57  pbi
+# - added ChangeDefaultValues metaclass to easily make a variant of a protocol
+#
 # Revision 1.0.0.1  2005/08/09 18:30:10  pbi
 # Release 1.0.0
 #
@@ -846,7 +849,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.0.1 2005/08/09 18:30:10 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.0.2 2005/08/09 21:40:57 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -873,7 +876,7 @@ def usage():
 ##################
 
 import socket, sys, getopt, string, struct, time, random, os, traceback
-import cPickle, types, gzip, base64, re
+import cPickle, copy, types, gzip, base64, re
 from select import select
 from fcntl import ioctl
 import fcntl
@@ -1636,7 +1639,7 @@ class RandString(RandField):
 ## Generators ##
 ################
 
-class Gen:
+class Gen(object):
     def __iter__(self):
         return iter([])
     
@@ -2222,7 +2225,7 @@ class Field:
         return s+struct.pack(self.fmt, self.i2m(pkt,val))
     def getfield(self, pkt, s):
         return  s[self.sz:], self.m2i(pkt, struct.unpack(self.fmt, s[:self.sz])[0])
-    def copy(self, x):
+    def do_copy(self, x):
         if hasattr(x, "copy"):
             return x.copy()
         elif type(x) is list:
@@ -2235,6 +2238,9 @@ class Field:
         return hash(self.name)
     def __repr__(self):
         return self.name
+    def copy(self):
+        return copy.deepcopy(self)
+        
 
 
 class Emph:
@@ -3154,7 +3160,7 @@ class Packet(Gen):
         clone = self.__class__()
         clone.fields = self.fields.copy()
         for k in clone.fields:
-            clone.fields[k]=self.fieldtype[k].copy(clone.fields[k])
+            clone.fields[k]=self.fieldtype[k].do_copy(clone.fields[k])
         clone.default_fields = self.default_fields.copy()
         clone.overloaded_fields = self.overloaded_fields.copy()
         clone.overload_fields = self.overload_fields.copy()
@@ -3629,7 +3635,27 @@ class NoPayload(Packet,object):
 ####################
     
     
-    
+class ChangeDefaultValues(type):
+    def __new__(cls, name, bases, dct):
+        default = dct["new_default_values"]
+        fields = None
+        for b in bases:
+            if hasattr(b,"fields_desc"):
+                fields = b.fields_desc[:]
+                break
+        if fields is None:
+            raise Exception("No fields_desc in superclasses")
+
+        del(dct["new_default_values"])
+        new_fields = []
+        for f in fields:
+            if f in default:
+                f = f.copy()
+                f.default = default[f]
+            new_fields.append(f)
+        dct["fields_desc"] = new_fields
+        return super(ChangeDefaultValues, cls).__new__(cls, name, bases, dct)
+
             
 class Raw(Packet):
     name = "Raw"
