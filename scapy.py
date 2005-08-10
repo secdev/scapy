@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.0.3  2005/08/10 14:41:21  pbi
+# - fixed regression introduced by previous patch : Gen and Packet are not
+#   classes anymore but types.
+#
 # Revision 1.0.0.2  2005/08/09 21:40:57  pbi
 # - added ChangeDefaultValues metaclass to easily make a variant of a protocol
 #
@@ -849,7 +853,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.0.2 2005/08/09 21:40:57 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.0.3 2005/08/10 14:41:21 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1134,7 +1138,7 @@ def save_session(fname, session=None, pickleProto=-1):
         del(to_be_saved["__builtins__"])
 
     for k in to_be_saved.keys():
-        if type(to_be_saved[k]) in [types.ClassType, types.ModuleType]:
+        if type(to_be_saved[k]) in [types.TypeType, types.ClassType, types.ModuleType]:
              print "[%s] (%s) can't be saved." % (k, type(to_be_saved[k]))
              del(to_be_saved[k])
 
@@ -7729,12 +7733,12 @@ def lsc(cmd=None):
 def ls(obj=None):
     """List  available layers, or infos on a given layer"""
     if obj is None:
-        objlst = filter(lambda (n,o): type(o) is types.ClassType and issubclass(o,Packet),globals().items())
+        objlst = filter(lambda (n,o): type(o) is types.TypeType and issubclass(o,Packet),globals().items())
         objlst.sort(lambda x,y:cmp(x[0],y[0]))
         for n,o in objlst:
             print "%-10s : %s" %(n,o.name)
     else:
-        if type(obj) is types.ClassType and issubclass(obj, Packet):
+        if type(obj) is types.TypeType and issubclass(obj, Packet):
             for f in obj.fields_desc:
                 print "%-10s : %-20s = (%s)" % (f.name, f.__class__.__name__,  repr(f.default))
         elif isinstance(obj, Packet):
