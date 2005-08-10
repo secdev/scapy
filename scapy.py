@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.0.4  2005/08/10 14:48:06  pbi
+# - Better netstat parsing for OpenBSD (P. Lalet)
+#
 # Revision 1.0.0.3  2005/08/10 14:41:21  pbi
 # - fixed regression introduced by previous patch : Gen and Packet are not
 #   classes anymore but types.
@@ -853,7 +856,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.0.3 2005/08/10 14:41:21 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.0.4 2005/08/10 14:48:06 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1435,6 +1438,7 @@ if not LINUX:
     def read_routes():
         f=os.popen("netstat -rn") # -f inet
         ok = 0
+        mtu = False
         routes = []
         for l in f.readlines():
             if not l:
@@ -1442,12 +1446,14 @@ if not LINUX:
             l = l.strip()
             if l.find("Destination") >= 0:
                 ok = 1
+                if l.find("Mtu"):
+                    mtu = True
                 continue
             if ok == 0:
                 continue
             if not l:
                 break
-            if OPENBSD:
+            if mtu:
                 dest,gw,fl,ref,use,mtu,netif = l.split()[:7]
             else:
                 dest,gw,fl,ref,use,netif = l.split()[:6]
