@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.0.7  2005/08/10 20:01:56  pbi
+# - changed Ether.mysummary() (P. Lalet)
+# - Update of Sebek protocols (P. Lalet)
+#
 # Revision 1.0.0.6  2005/08/10 19:53:19  pbi
 # - fix problem in declaraion of answering machine functions
 #
@@ -864,7 +868,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.0.6 2005/08/10 19:53:19 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.0.7 2005/08/10 20:01:56 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -3763,7 +3767,7 @@ class Ether(Packet):
                 return self.payload.answers(other.payload)
         return 0
     def mysummary(self):
-        return "%s > %s (%04x)" % (self.src, self.dst, self.type)
+        return self.sprintf("%Ether.src% > %Ether.dst% (%Ether.type)")
 
 class PPPoE(Packet):
     name = "PPP over Ethernet"
@@ -5215,9 +5219,11 @@ class SebekHead(Packet):
                     IntField("counter", 0),
                     IntField("time_sec", 0),
                     IntField("time_usec", 0) ]
+    def mysummary(self):
+        return self.sprintf("Sebek Header v%SebekHead.version% %SebekHead.type%")
 
-# we need this because Sebek headers differ between v1 and v2, and
-# between v2 type socket and v2 others
+# we need this because Sebek headers differ between v1 and v3, and
+# between v3 type socket and v3 others
 
 class SebekV1(Packet):
     name = "Sebek v1"
@@ -5227,9 +5233,14 @@ class SebekV1(Packet):
                     StrFixedLenField("command", "", 12),
                     FieldLenField("data_length", None, "data",fmt="I"),
                     StrLenField("data", "", "data_length") ]
+    def mysummary(self):
+        if isinstance(self.underlayer, SebekHead):
+            return self.underlayer.sprintf("Sebek v1 %SebekHead.type% (%SebekV1.command%)")
+        else:
+            return self.sprintf("Sebek v1 (%SebekV1.command%)")
 
-class SebekV2(Packet):
-    name = "Sebek v2"
+class SebekV3(Packet):
+    name = "Sebek v3"
     fields_desc = [ IntField("parent_pid", 0),
                     IntField("pid", 0),
                     IntField("uid", 0),
@@ -5238,8 +5249,20 @@ class SebekV2(Packet):
                     StrFixedLenField("command", "", 12),
                     FieldLenField("data_length", None, "data",fmt="I"),
                     StrLenField("data", "", "data_length") ]
+    def mysummary(self):
+        if isinstance(self.underlayer, SebekHead):
+            return self.underlayer.sprintf("Sebek v%SebekHead.version% %SebekHead.type% (%SebekV3.command%)")
+        else:
+            return self.sprintf("Sebek v3 (%SebekV3.command%)")
 
-class SebekV2Sock(Packet):
+class SebekV2(SebekV3):
+    def mysummary(self):
+        if isinstance(self.underlayer, SebekHead):
+            return self.underlayer.sprintf("Sebek v%SebekHead.version% %SebekHead.type% (%SebekV2.command%)")
+        else:
+            return self.sprintf("Sebek v2 (%SebekV2.command%)")
+
+class SebekV3Sock(Packet):
     name = "Sebek v2 socket"
     fields_desc = [ IntField("parent_pid", 0),
                     IntField("pid", 0),
@@ -5257,9 +5280,19 @@ class SebekV2Sock(Packet):
                                                "accept":5, "sendmsg":16,
                                                "recvmsg":17, "sendto":11,
                                                "recvfrom":12}),
-                    ByteEnumField("proto", 0, {0:"IP",1:"ICMP",6:"TCP",
-                                               17:"UDP",47:"GRE"}) ]
+                    ByteEnumField("proto", 0, IP_PROTOS) ]
+    def mysummary(self):
+        if isinstance(self.underlayer, SebekHead):
+            return self.underlayer.sprintf("Sebek v%SebekHead.version% %SebekHead.type% (%SebekV3Sock.command%)")
+        else:
+            return self.sprintf("Sebek v3 socket (%SebekV3Sock.command%)")
 
+class SebekV2Sock(SebekV3Sock):
+    def mysummary(self):
+        if isinstance(self.underlayer, SebekHead):
+            return self.underlayer.sprintf("Sebek v%SebekHead.version% %SebekHead.type% (%SebekV2Sock.command%)")
+        else:
+            return self.sprintf("Sebek v2 socket (%SebekV2Sock.command%)")
 
 class MGCP(Packet):
     name = "MGCP"
@@ -6059,6 +6092,9 @@ layer_bonds = [ ( Dot3,   LLC,      { } ),
                 ( SebekHead, SebekV2Sock,    { "version" : 2,
                                                "type" : 2 } ),
                 ( SebekHead, SebekV2,        { "version" : 2 } ),
+                ( SebekHead, SebekV3Sock,    { "version" : 3,
+                                               "type" : 2 } ),
+                ( SebekHead, SebekV3,        { "version" : 3 } ),
                 ( CookedLinux,  IrLAPHead,   { "proto" : 0x0017 } ),
                 ( IrLAPHead, IrLAPCommand,   { "Type" : 1} ),
                 ( IrLAPCommand, IrLMP,       {} ),
