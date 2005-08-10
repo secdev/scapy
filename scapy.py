@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.0.8  2005/08/10 20:05:45  pbi
+# - added MobileIP protocol (rfc3344 and friends) (B. Andersson)
+#
 # Revision 1.0.0.7  2005/08/10 20:01:56  pbi
 # - changed Ether.mysummary() (P. Lalet)
 # - Update of Sebek protocols (P. Lalet)
@@ -868,7 +871,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.0.7 2005/08/10 20:01:56 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.0.8 2005/08/10 20:05:45 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -5994,7 +5997,34 @@ class SMBSession_Setup_AndX_Response(Packet):
                  LEShortField("ByteCount2",5),
                  StrNullField("Service","IPC"),
                  StrNullField("NativeFileSystem","")]
-    
+
+class MobileIP(Packet):
+    name = "Mobile IP (RFC3344)"
+    fields_desc = [ ByteEnumField("type", 1, {1:"RRQ", 3:"RRP"}) ]
+
+class MobileIPRRQ(Packet):
+    name = "Mobile IP Registration Request (RFC3344)"
+    fields_desc = [ XByteField("flags", 0),
+                    ShortField("lifetime", 180),
+                    IPField("homeaddr", "0.0.0.0"),
+                    IPField("haaddr", "0.0.0.0"),
+                    IPField("coaddr", "0.0.0.0"),
+                    Field("id", "", "64s") ]
+
+class MobileIPRRP(Packet):
+    name = "Mobile IP Registration Reply (RFC3344)"
+    fields_desc = [ ByteField("code", 0),
+                    ShortField("lifetime", 180),
+                    IPField("homeaddr", "0.0.0.0"),
+                    IPField("haaddr", "0.0.0.0"),
+                    Field("id", "", "64s") ]
+
+class MobileIPTunnelData(Packet):
+    name = "Mobile IP Tunnel Data Message (RFC3519)"
+    fields_desc = [ ByteField("nexthdr", 4),
+                    ShortField("res", 0) ]
+
+
 
 #################
 ## Bind layers ##
@@ -6128,6 +6158,12 @@ layer_bonds = [ ( Dot3,   LLC,      { } ),
                 (L2CAP, L2CAP_DisconnResp, {"code":7}),
                 (L2CAP, L2CAP_InfoReq, {"code":10}),
                 (L2CAP, L2CAP_InfoResp, {"code":11}),
+                ( UDP,      MobileIP,    { "sport" : 434 } ),
+                ( UDP,      MobileIP,    { "dport" : 434 } ),
+                ( MobileIP, MobileIPRRQ, { "type"  : 1 } ),
+                ( MobileIP, MobileIPRRP, { "type"  : 3 } ),
+                ( MobileIP, MobileIPTunnelData, { "type" : 4 } ),
+                ( MobileIPTunnelData, IP, { "nexthdr" : 4 } ),
 
                 ]
 
