@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.0.6  2005/08/10 19:53:19  pbi
+# - fix problem in declaraion of answering machine functions
+#
 # Revision 1.0.0.5  2005/08/10 15:43:03  pbi
 # - added resolution of numbers from /etc/ethertypes, /etc/protocols and
 #   /etc/services (P. Lalet)
@@ -861,7 +864,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.0.5 2005/08/10 15:43:03 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.0.6 2005/08/10 19:53:19 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -8132,7 +8135,7 @@ class ARP_am(AnsweringMachine):
 AM_classes = [ BOOTP_am, DHCP_am, DNS_am, WiFi_am, ARP_am]
 
 for am in AM_classes:
-    locals()[am.function_name] = lambda *args,**kargs: am(*args,**kargs).run()
+    locals()[am.function_name] = lambda am=am,*args,**kargs: am(*args,**kargs).run()
 del(am)
 
 
