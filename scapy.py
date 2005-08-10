@@ -21,6 +21,11 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.0.5  2005/08/10 15:43:03  pbi
+# - added resolution of numbers from /etc/ethertypes, /etc/protocols and
+#   /etc/services (P. Lalet)
+# - tweaked some mysummary() accordingly
+#
 # Revision 1.0.0.4  2005/08/10 14:48:06  pbi
 # - Better netstat parsing for OpenBSD (P. Lalet)
 #
@@ -856,7 +861,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.0.4 2005/08/10 14:48:06 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.0.5 2005/08/10 15:43:03 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1012,7 +1017,64 @@ BIOCIMMEDIATE=-2147204496
 
 MTU = 1600
 
-    
+ 
+# file parsing to get some values :
+spaces = re.compile("[ \t]+|\n")
+
+IP_PROTOS={}
+try:
+    f=open("/etc/protocols")
+    for l in f:
+        try:
+            if l[0] in ["#","\n"]:
+                continue
+            lt = tuple(re.split(spaces, l))
+            if len(lt) < 3:
+                continue
+            IP_PROTOS.update({lt[2]:int(lt[1])})
+        except:
+            print "WARNING: Couldn't parse one line from protocols file (" + l + ")"
+    f.close()
+except IOError:
+    print "WARNING: Can't open protocols file"
+
+ETHER_TYPES={}
+try:
+    f=open("/etc/ethertypes")
+    for l in f:
+        try:
+            if l[0] in ["#","\n"]:
+                continue
+            lt = tuple(re.split(spaces, l))
+            if len(lt) < 2:
+                continue
+            ETHER_TYPES.update({lt[0]:int(lt[1], 16)})
+        except:
+            print "WARNING: Couldn't parse one line from ethertypes file (" + l + ")"
+    f.close()
+except IOError:
+    print "WARNING: Can't open ethertypes file"
+ 
+TCP_SERVICES={}
+UDP_SERVICES={}
+try:
+    f=open("/etc/services")
+    for l in f:
+        try:
+            if l[0] in ["#","\n"]:
+                continue
+            lt = tuple(re.split(spaces, l))
+            if len(lt) < 2:
+                continue
+            if lt[1].endswith("/tcp"):
+                TCP_SERVICES.update({lt[0]:int(lt[1].split('/')[0])})
+            elif lt[1].endswith("/udp"):
+                UDP_SERVICES.update({lt[0]:int(lt[1].split('/')[0])})
+        except:
+            print "WARNING: Couldn't parse one line from protocols file (" + l + ")"
+    f.close()
+except IOError:
+    print "WARNING: Can't open services file"
 
 
 
@@ -3689,7 +3751,7 @@ class Ether(Packet):
     name = "Ethernet"
     fields_desc = [ DestMACField("dst"),
                     SourceMACField("src"),
-                    XShortField("type", 0x0000) ]
+                    ShortEnumField("type", 0x0000, ETHER_TYPES) ]
     def hashret(self):
         return struct.pack("H",self.type)+self.payload.hashret()
     def answers(self, other):
@@ -3752,14 +3814,14 @@ class CookedLinux(Packet):
                     XShortField("lladdrtype",512),
                     ShortField("lladdrlen",0),
                     StrFixedLenField("src","",8),
-                    XShortField("proto",0x800) ]
+                    ShortEnumField("proto",0x800,ETHER_TYPES) ]
                     
                                    
 
 class SNAP(Packet):
     name = "SNAP"
     fields_desc = [ X3BytesField("OUI",0x000000),
-                    XShortField("code", 0x000) ]
+                    ShortEnumField("code", 0x000, ETHER_TYPES) ]
 
 
 class Dot1Q(Packet):
@@ -3768,7 +3830,7 @@ class Dot1Q(Packet):
     fields_desc =  [ BitField("prio", 0, 3),
                      BitField("id", 0, 1),
                      BitField("vlan", 1, 12),
-                     XShortField("type", 0x0000) ]
+                     ShortEnumField("type", 0x0000, ETHER_TYPES) ]
     def answers(self, other):
         if isinstance(other,Dot1Q):
             if ( (self.type == other.type) and
@@ -3777,7 +3839,11 @@ class Dot1Q(Packet):
         else:
             return self.payload.answers(other)
         return 0
-
+    def mysummary(self):
+        if isinstance(self.underlayer, Ether):
+            return self.underlayer.sprintf("802.1q %Ether.src% > %Ether.dst% (%Dot1Q.type%) vlan %Dot1Q.vlan%")
+        else:
+            return self.sprintf("802.1q (%Dot1Q.type%) vlan %Dot1Q.vlan%")
 
 
 class STP(Packet):
@@ -3871,7 +3937,7 @@ class EAP(Packet):
 class ARP(Packet):
     name = "ARP"
     fields_desc = [ XShortField("hwtype", 0x0001),
-                    XShortField("ptype",  0x0800),
+                    ShortEnumField("ptype",  0x0800, ETHER_TYPES),
                     ByteField("hwlen", 6),
                     ByteField("plen", 4),
                     ShortEnumField("op", 1, {"who-has":1, "is-at":2, "RARP-req":3, "RARP-rep":4, "Dyn-RARP-req":5, "Dyn-RAR-rep":6, "Dyn-RARP-err":7, "InARP-req":8, "InARP-rep":9}),
@@ -3909,7 +3975,7 @@ class IP(Packet, IPTools):
                     FlagsField("flags", 0, 3, ["MF","DF","evil"]),
                     BitField("frag", 0, 13),
                     ByteField("ttl", 64),
-                    ByteEnumField("proto", 0, {0:"IP",1:"ICMP",6:"TCP",17:"UDP",47:"GRE"}),
+                    ByteEnumField("proto", 0, IP_PROTOS),
                     XShortField("chksum", None),
                     #IPField("src", "127.0.0.1"),
                     Emph(SourceIPField("src","dst")),
@@ -3967,14 +4033,14 @@ class IP(Packet, IPTools):
                 return 0
             return self.payload.answers(other.payload)
     def mysummary(self):
-        return "%s > %s (%i)" % (self.src,self.dst, self.proto)
+        return self.sprintf("%IP.src% > %IP.dst% %IP.proto%")
                  
     
 
 class TCP(Packet):
     name = "TCP"
-    fields_desc = [ ShortField("sport", 20),
-                    ShortField("dport", 80),
+    fields_desc = [ ShortEnumField("sport", 20, TCP_SERVICES),
+                    ShortEnumField("dport", 80, TCP_SERVICES),
                     IntField("seq", 0),
                     IntField("ack", 0),
                     BitField("dataofs", None, 4),
@@ -4024,8 +4090,8 @@ class TCP(Packet):
 
 class UDP(Packet):
     name = "UDP"
-    fields_desc = [ ShortField("sport", 53),
-                    ShortField("dport", 53),
+    fields_desc = [ ShortEnumField("sport", 53, UDP_SERVICES),
+                    ShortEnumField("dport", 53, UDP_SERVICES),
                     ShortField("len", None),
                     XShortField("chksum", None), ]
     def post_build(self, p):
@@ -4063,10 +4129,9 @@ class UDP(Packet):
 	return self.payload.answers(other.payload)
     def mysummary(self):
         if isinstance(self.underlayer, IP):
-            return "UDP %s:%i > %s:%i" % (self.underlayer.src, self.sport,
-                                    self.underlayer.dst, self.dport)
+            return self.underlayer.sprintf("UDP %IP.src%:%UDP.sport% > %IP.dst%:%UDP.dport%")
         else:
-            return "UDP %i > %i" % (self.sport, self.dport)
+            return self.sprintf("UDP %UDP.sport% > %UDP.dport%")
     
 
 icmptypes = { 0 : "echo-reply",
