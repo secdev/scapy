@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.0.9  2005/08/10 22:18:25  pbi
+# - moved code to build answering machines' functions into a metaclass
+#
 # Revision 1.0.0.8  2005/08/10 20:05:45  pbi
 # - added MobileIP protocol (rfc3344 and friends) (B. Andersson)
 #
@@ -871,7 +874,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.0.8 2005/08/10 20:05:45 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.0.9 2005/08/10 22:18:25 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -7909,8 +7912,17 @@ user_commands = [ sr, sr1, srp, srp1, srloop, srploop, sniff, p0f, arpcachepoiso
 ## Answering machines ##
 ########################
 
-class AnsweringMachine:
-    function_name = "Template"
+class ReferenceAM(type):
+    def __new__(cls, name, bases, dct):
+        o = super(ReferenceAM, cls).__new__(cls, name, bases, dct)
+        if o.function_name:
+            globals()[o.function_name] = lambda o=o,*args,**kargs: o(*args,**kargs).run()
+        return o
+
+
+class AnsweringMachine(object):
+    __metaclass__ = ReferenceAM
+    function_name = ""
     filter = None
     sniff_options = { "store":0 }
     sniff_options_list = [ "store", "iface", "count", "promisc", "filter", "type", "prn" ]
@@ -8200,15 +8212,6 @@ class ARP_am(AnsweringMachine):
 
     def sniff(self):
         sniff(iface=self.iface, **self.optsniff)
-
-
-
-
-AM_classes = [ BOOTP_am, DHCP_am, DNS_am, WiFi_am, ARP_am]
-
-for am in AM_classes:
-    locals()[am.function_name] = lambda am=am,*args,**kargs: am(*args,**kargs).run()
-del(am)
 
 
 
