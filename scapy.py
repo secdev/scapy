@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.0.10  2005/08/15 09:18:56  pbi
+# - fixed Ether.summary() (P. Lalet)
+#
 # Revision 1.0.0.9  2005/08/10 22:18:25  pbi
 # - moved code to build answering machines' functions into a metaclass
 #
@@ -874,7 +877,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.0.9 2005/08/10 22:18:25 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.0.10 2005/08/15 09:18:56 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -3773,7 +3776,7 @@ class Ether(Packet):
                 return self.payload.answers(other.payload)
         return 0
     def mysummary(self):
-        return self.sprintf("%Ether.src% > %Ether.dst% (%Ether.type)")
+        return self.sprintf("%Ether.src% > %Ether.dst% (%Ether.type%)")
 
 class PPPoE(Packet):
     name = "PPP over Ethernet"
