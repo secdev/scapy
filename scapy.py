@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.0.11  2005/08/15 09:27:45  pbi
+# - added NTP.mysummary()
+#
 # Revision 1.0.0.10  2005/08/15 09:18:56  pbi
 # - fixed Ether.summary() (P. Lalet)
 #
@@ -877,7 +880,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.0.10 2005/08/15 09:18:56 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.0.11 2005/08/15 09:27:45 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -4811,6 +4814,8 @@ class NTP(Packet):
          TimeStampField('recv', 0, 64),
          TimeStampField('sent', -1, 64) 
          ]
+    def mysummary(self):
+        return self.sprintf("NTP v%ir,NTP.version%, %NTP.mode%")
 
 
 
