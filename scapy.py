@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.0.14  2005/08/16 16:58:59  pbi
+# - don't return outgoing packets in L2Socket and L3PacketSocket
+# - L2Socket and L3PacketSocket don't catch the exception if conf.dissector=1
+#
 # Revision 1.0.0.13  2005/08/16 16:56:09  pbi
 # - enhanced Packet.summary() code
 #
@@ -886,7 +890,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.0.13 2005/08/16 16:56:09 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.0.14 2005/08/16 16:58:59 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -6327,8 +6331,10 @@ class L3PacketSocket(SuperSocket):
                 set_promisc(self.ins, i, 0)
         SuperSocket.close(self)
     def recv(self, x):
-        pkt, sa_ll = self.ins.recvfrom(x)
-        # XXX: if sa_ll[2] == socket.PACKET_OUTGOING : skip
+        while 1:
+            pkt, sa_ll = self.ins.recvfrom(x)
+            if sa_ll[2] != socket.PACKET_OUTGOING:
+                break
         if LLTypes.has_key(sa_ll[3]):
             cls = LLTypes[sa_ll[3]]
             lvl = 2
@@ -6343,6 +6349,8 @@ class L3PacketSocket(SuperSocket):
         try:
             pkt = cls(pkt)
         except:
+            if conf.debug_dissector:
+                raise
             pkt = Raw(pkt)
         if lvl == 2:
             pkt = pkt.payload
@@ -6387,12 +6395,18 @@ class L2Socket(SuperSocket):
         else:
             warning("Unable to guess type (interface=%s protocol=%#x family=%i). Using Ethernet" % (sa_ll[0],sa_ll[1],sa_ll[3]))
             self.LL = Ether
+            
     def recv(self, x):
-        p = self.ins.recv(x)
+        while 1:
+            pkt, sa_ll = self.ins.recvfrom(x)
+            if sa_ll[2] != socket.PACKET_OUTGOING:
+                break
         try:
-            q = self.LL(p)
+            q = self.LL(pkt)
         except:
-            q = Raw(p)
+            if conf.debug_dissector:
+                raise
+            q = Raw(pkt)
         return q
 
 
@@ -6451,7 +6465,6 @@ class L2ListenSocket(SuperSocket):
 
 
 
-# XXX: works only for Ethernet
 class L3dnetSocket(SuperSocket):
     def __init__(self, type = None, filter=None, promisc=None, iface=None):
         self.iflist = {}
