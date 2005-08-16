@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.0.15  2005/08/16 17:00:35  pbi
+# - fixed socket creation/attach filter race condition for L2Socket and L3PacketSocket.
+#   No more packets shoud go through the filter.
+#
 # Revision 1.0.0.14  2005/08/16 16:58:59  pbi
 # - don't return outgoing packets in L2Socket and L3PacketSocket
 # - L2Socket and L3PacketSocket don't catch the exception if conf.dissector=1
@@ -890,7 +894,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.0.14 2005/08/16 16:58:59 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.0.15 2005/08/16 17:00:35 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -6300,7 +6304,7 @@ class L3PacketSocket(SuperSocket):
     def __init__(self, type = ETH_P_ALL, filter=None, promisc=None, iface=None):
         self.type = type
         self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))
-        self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 2**30)
+        self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 0)
         if conf.except_filter:
             if filter:
                 filter = "(%s) and not (%s)" % (filter, conf.except_filter)
@@ -6308,7 +6312,9 @@ class L3PacketSocket(SuperSocket):
                 filter = "not (%s)" % conf.except_filter
         if filter is not None:
             attach_filter(self.ins, filter)
+        self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 2**30)
         self.outs = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))
+        self.outs.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 2**30)
         if promisc is None:
             promisc = conf.promisc
         self.promisc = promisc
@@ -6377,6 +6383,7 @@ class L2Socket(SuperSocket):
         if iface is None:
             iface = conf.iface
         self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))
+        self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 0)
         if type == ETH_P_ALL: # Do not apply any filter if Ethernet type is given
             if conf.except_filter:
                 if filter:
@@ -6386,7 +6393,9 @@ class L2Socket(SuperSocket):
             if filter is not None:
                 attach_filter(self.ins, filter)
         self.ins.bind((iface, type))
+        self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 2**30)
         self.outs = self.ins
+        self.outs.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 2**30)
         sa_ll = self.outs.getsockname()
         if LLTypes.has_key(sa_ll[3]):
             self.LL = LLTypes[sa_ll[3]]
@@ -6415,6 +6424,7 @@ class L2ListenSocket(SuperSocket):
         self.type = type
         self.outs = None
         self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))
+        self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 0)
         if iface is not None:
             self.ins.bind((iface, type))
         if type == ETH_P_ALL: # Do not apply any filter if Ethernet type is given
@@ -6438,6 +6448,7 @@ class L2ListenSocket(SuperSocket):
         if self.promisc:
             for i in self.iff:
                 set_promisc(self.ins, i)
+        self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 2**30)
     def close(self):
         if self.promisc:
             for i in self.iff:
