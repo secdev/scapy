@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.0.12  2005/08/16 16:53:31  pbi
+# - keep tcp/udp ports numeric in traceroute result
+#
 # Revision 1.0.0.11  2005/08/15 09:27:45  pbi
 # - added NTP.mysummary()
 #
@@ -880,7 +883,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.0.11 2005/08/15 09:27:45 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.0.12 2005/08/16 16:53:31 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2010,7 +2013,7 @@ class TracerouteResult(SndRcvList):
         self.show()
     def show(self):
 
-        return self.make_table(lambda (s,r): (s.sprintf("%IP.dst%:{TCP:tcp%TCP.dport%}{UDP:udp%UDP.dport%}{ICMP:ICMP}"),
+        return self.make_table(lambda (s,r): (s.sprintf("%IP.dst%:{TCP:tcp%ir,TCP.dport%}{UDP:udp%ir,UDP.dport%}{ICMP:ICMP}"),
                                               s.ttl,
                                               r.sprintf("%-15s,IP.src% {TCP:%TCP.flags%}{ICMP:%ir,ICMP.type%}")))
 
@@ -2056,10 +2059,6 @@ class TracerouteResult(SndRcvList):
         world = Gnuplot.File(conf.gnuplot_world,with="lines")
         g.plot(world,*tr)
         return g
-        
-        
-        
-
 
     def make_graph(self,ASN):
         self.graphASN = ASN
