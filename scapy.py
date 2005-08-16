@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.0.13  2005/08/16 16:56:09  pbi
+# - enhanced Packet.summary() code
+#
 # Revision 1.0.0.12  2005/08/16 16:53:31  pbi
 # - keep tcp/udp ports numeric in traceroute result
 #
@@ -883,7 +886,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.0.12 2005/08/16 16:53:31 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.0.13 2005/08/16 16:56:09 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -3625,22 +3628,24 @@ A side effect is that, to obtain "{" and "}" characters, you must use
 
     def mysummary(self):
         return ""
-    def summaryback(self, smallname=0):
+
+    def summary(self, intern=0):
+        found,s = self.payload.summary(intern=1)
+        if s:
+            s = " / "+s
         ret = ""
-        if not smallname:
+        if not found:
             ret = self.mysummary()
         if ret:
-            smallname = 1
+            found = 1
         else:
             ret = self.__class__.__name__
-        if self.underlayer is not None:
-            ret = "%s / %s" % (self.underlayer.summaryback(smallname),ret)
-        return ret
-    def summary(self, onlyname=0):
-        if isinstance(self.payload, NoPayload):
-            return self.summaryback()
+        ret = "%s%s" % (ret,s)
+        if intern:
+            return found,ret
         else:
-            return self.payload.summary()
+            return ret
+    
     def lastlayer(self,layer=None):
         return self.payload.lastlayer(self)
 
@@ -3714,8 +3719,8 @@ class NoPayload(Packet,object):
             return "??"
         else:
             raise Exception("Format not found [%s]"%fmt)
-    def summary(self):
-        return self.summaryback()
+    def summary(self, intern=0):
+        return 0,""
     def lastlayer(self,layer):
         return layer
     
