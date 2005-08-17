@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.0.16  2005/08/17 12:54:47  pbi
+# - fix regression introduced in 1.0.0.4 (netstat parsing)
+#
 # Revision 1.0.0.15  2005/08/16 17:00:35  pbi
 # - fixed socket creation/attach filter race condition for L2Socket and L3PacketSocket.
 #   No more packets shoud go through the filter.
@@ -894,7 +897,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.0.15 2005/08/16 17:00:35 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.0.16 2005/08/17 12:54:47 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1541,7 +1544,7 @@ if not LINUX:
             l = l.strip()
             if l.find("Destination") >= 0:
                 ok = 1
-                if l.find("Mtu"):
+                if l.find("Mtu") >= 0:
                     mtu = True
                 continue
             if ok == 0:
