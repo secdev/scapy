@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.0.17  2005/08/17 18:11:13  pbi
+# - fixed crc32() computation for big endian systems
+#
 # Revision 1.0.0.16  2005/08/17 12:54:47  pbi
 # - fix regression introduced in 1.0.0.4 (netstat parsing)
 #
@@ -897,7 +900,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.0.16 2005/08/17 12:54:47 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.0.17 2005/08/17 18:11:13 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -940,6 +943,8 @@ except ImportError:
 
 LINUX=sys.platform.startswith("linux")
 OPENBSD=sys.platform.startswith("openbsd")
+BIG_ENDIAN= struct.pack("H",1) == "\x00\x01"
+
 
 if LINUX:
     DNET=PCAP=0
@@ -1144,14 +1149,18 @@ def linehexdump(x):
         print "%02X" % ord(x[i]),
     print " "+sane(x)
 
-CRCPOLY_LE=0xedb88320L
+if BIG_ENDIAN:
+    CRCPOLY=0x04c11db7L
+else:
+    CRCPOLY=0xedb88320L
+
 def crc32(crc, x):
     for c in x:
         crc ^= ord(c)
         for i in range(8):
             if crc & 1:
                 crc
-                y = CRCPOLY_LE
+                y = CRCPOLY
             else:
                 y = 0
             crc >>= 1
