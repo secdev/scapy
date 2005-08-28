@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.0.20  2005/08/28 18:01:12  pbi
+# - 802.11 tweaks
+#
 # Revision 1.0.0.19  2005/08/28 18:00:14  pbi
 # - added Packet.decode_payload_as()
 #
@@ -906,7 +909,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.0.19 2005/08/28 18:00:14 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.0.20 2005/08/28 18:01:12 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -4639,7 +4642,7 @@ class Dot11(Packet):
                     Dot11Addr4MACField("addr4", ETHER_ANY) 
                     ]
     def mysummary(self):
-        return self.sprintf("802.11 %Dot11.type% %Dot11.subtype% %Dot11.addr1%")
+        return self.sprintf("802.11 %Dot11.type% %Dot11.subtype% %Dot11.addr1% %Dot11.addr2%")
     def guess_payload_class(self, payload):
         if self.FCfield & 0x40:
             return Dot11WEP
@@ -4686,7 +4689,8 @@ class Dot11Beacon(Packet):
 
 class Dot11Elt(Packet):
     name = "802.11 Information Element"
-    fields_desc = [ ByteEnumField("ID", 0, {0:"SSID", 1:"Rates", 2: "FHset", 3:"DSset", 4:"CFset", 5:"TIM", 6:"IBSSset", 16:"challenge"}),
+    fields_desc = [ ByteEnumField("ID", 0, {0:"SSID", 1:"Rates", 2: "FHset", 3:"DSset", 4:"CFset", 5:"TIM", 6:"IBSSset", 16:"challenge",
+                                            42:"ERPinfo", 47:"ERPinfo",50:"ESRates",221:"vendor",68:"reserved"}),
                     FieldLenField("len", None, "info", "B"),
                     StrLenField("info", "", "len") ]
     def sum(self):
