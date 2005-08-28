@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.0.18  2005/08/28 17:51:05  pbi
+# - Added XShortEnumField()
+#
 # Revision 1.0.0.17  2005/08/17 18:11:13  pbi
 # - fixed crc32() computation for big endian systems
 #
@@ -900,7 +903,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.0.17 2005/08/17 18:11:13 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.0.18 2005/08/28 17:51:05 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2889,6 +2892,11 @@ class LEIntEnumField(EnumField):
     def __init__(self, name, default, enum):
         EnumField.__init__(self, name, default, enum, "@I")
 
+class XShortEnumField(ShortEnumField):
+    def i2repr(self, pkt, x):
+        return self.i2s.get(x, hex(x))            
+
+
 
 class FlagsField(BitField):
     def __init__(self, name, default, size, names):
@@ -3794,7 +3802,7 @@ class Ether(Packet):
     name = "Ethernet"
     fields_desc = [ DestMACField("dst"),
                     SourceMACField("src"),
-                    ShortEnumField("type", 0x0000, ETHER_TYPES) ]
+                    XShortEnumField("type", 0x0000, ETHER_TYPES) ]
     def hashret(self):
         return struct.pack("H",self.type)+self.payload.hashret()
     def answers(self, other):
@@ -3857,14 +3865,14 @@ class CookedLinux(Packet):
                     XShortField("lladdrtype",512),
                     ShortField("lladdrlen",0),
                     StrFixedLenField("src","",8),
-                    ShortEnumField("proto",0x800,ETHER_TYPES) ]
+                    XShortEnumField("proto",0x800,ETHER_TYPES) ]
                     
                                    
 
 class SNAP(Packet):
     name = "SNAP"
     fields_desc = [ X3BytesField("OUI",0x000000),
-                    ShortEnumField("code", 0x000, ETHER_TYPES) ]
+                    XShortEnumField("code", 0x000, ETHER_TYPES) ]
 
 
 class Dot1Q(Packet):
@@ -3873,7 +3881,7 @@ class Dot1Q(Packet):
     fields_desc =  [ BitField("prio", 0, 3),
                      BitField("id", 0, 1),
                      BitField("vlan", 1, 12),
-                     ShortEnumField("type", 0x0000, ETHER_TYPES) ]
+                     XShortEnumField("type", 0x0000, ETHER_TYPES) ]
     def answers(self, other):
         if isinstance(other,Dot1Q):
             if ( (self.type == other.type) and
@@ -3980,7 +3988,7 @@ class EAP(Packet):
 class ARP(Packet):
     name = "ARP"
     fields_desc = [ XShortField("hwtype", 0x0001),
-                    ShortEnumField("ptype",  0x0800, ETHER_TYPES),
+                    XShortEnumField("ptype",  0x0800, ETHER_TYPES),
                     ByteField("hwlen", 6),
                     ByteField("plen", 4),
                     ShortEnumField("op", 1, {"who-has":1, "is-at":2, "RARP-req":3, "RARP-rep":4, "Dyn-RARP-req":5, "Dyn-RAR-rep":6, "Dyn-RARP-err":7, "InARP-req":8, "InARP-rep":9}),
