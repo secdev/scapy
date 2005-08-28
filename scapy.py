@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.0.19  2005/08/28 18:00:14  pbi
+# - added Packet.decode_payload_as()
+#
 # Revision 1.0.0.18  2005/08/28 17:51:05  pbi
 # - Added XShortEnumField()
 #
@@ -903,7 +906,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.0.18 2005/08/28 17:51:05 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.0.19 2005/08/28 18:00:14 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -3676,6 +3679,10 @@ A side effect is that, to obtain "{" and "}" characters, you must use
     
     def lastlayer(self,layer=None):
         return self.payload.lastlayer(self)
+
+    def decode_payload_as(self,cls):
+        s = str(self.payload)
+        self.payload = cls(s)
 
     def libnet(self):
         print "libnet_build_%s(" % self.__class__.name.lower()
