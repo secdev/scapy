@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.0.21  2005/09/06 17:05:19  pbi
+# - new logging/warning facility using the logging module
+#
 # Revision 1.0.0.20  2005/08/28 18:01:12  pbi
 # - 802.11 tweaks
 #
@@ -909,7 +912,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.0.20 2005/08/28 18:01:12 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.0.21 2005/09/06 17:05:19 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -931,11 +934,54 @@ def usage():
 ##########[XXX]#=--
 
 
+#############################
+##### Logging subsystem #####
+#############################
+
+import logging,traceback,time
+
+class ScapyFreqFilter(logging.Filter):
+    def __init__(self):
+        logging.Filter.__init__(self)
+        self.warning_table = {}
+    def filter(self, record):        
+        wt = conf.warning_threshold
+        if wt > 0:
+            stk = traceback.extract_stack(limit=1)
+            caller = stk[0][1]
+            tm,nb = self.warning_table.get(caller, (0,0))
+            ltm = time.time()
+            if ltm-tm > wt:
+                tm = ltm
+                nb = 0
+            else:
+                if nb < 2:
+                    nb += 1
+                    if nb == 2:
+                        record.msg = "more "+record.msg
+                else:
+                    return 0
+            self.warning_table[caller] = (tm,nb)
+        return 1    
+
+log_scapy = logging.getLogger("scapy")
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
+log_scapy.addHandler(console_handler)
+log_runtime = logging.getLogger("scapy.runtime")          # logs at runtime
+log_runtime.addFilter(ScapyFreqFilter())
+log_interactive = logging.getLogger("scapy.interactive")  # logs in interactive functions
+log_loading = logging.getLogger("scapy.loading")          # logs when loading scapy
+
+if __name__ == "__main__":
+    log_scapy.setLevel(1)
+
+
 ##################
 ##### Module #####
 ##################
 
-import socket, sys, getopt, string, struct, time, random, os, traceback
+import socket, sys, getopt, string, struct, random, os
 import cPickle, copy, types, gzip, base64, re
 from select import select
 from fcntl import ioctl
@@ -946,7 +992,7 @@ try:
     import Gnuplot
     GNUPLOT=1
 except ImportError:
-    print "WARNING: did not find gnuplot lib. Won't be able to plot"
+    log_loading.info("did not find gnuplot lib. Won't be able to plot")
     GNUPLOT=0
 
 
@@ -966,7 +1012,7 @@ if PCAP:
         import pcap
         PCAP = 1
     except ImportError:
-        print "WARNING: did not find pcap module. Fallback to linux primitives"
+        log_loading.info("did not find pcap module. Fallback to linux primitives")
         PCAP = 0
 
 if DNET:
@@ -974,14 +1020,13 @@ if DNET:
         import dnet
         DNET = 1
     except ImportError:
-        print "WARNING: did not find dnet module. Fallback to linux primitives"
+        log_loading.info("did not find dnet module. Fallback to linux primitives")
         DNET = 0
 
 try:
     from Crypto.Cipher import ARC4
 except ImportError:
-    # warning()
-    print "WARNING: Can't find Crypto python lib. Won't be able to decrypt WEP"
+    log_loading.info("Can't find Crypto python lib. Won't be able to decrypt WEP")
 
 
 # Workarround bug 643005 : https://sourceforge.net/tracker/?func=detail&atid=105470&aid=643005&group_id=5470
@@ -1083,10 +1128,10 @@ try:
                 continue
             IP_PROTOS.update({lt[2]:int(lt[1])})
         except:
-            print "WARNING: Couldn't parse one line from protocols file (" + l + ")"
+            log_loading.info("Couldn't parse one line from protocols file (" + l + ")")
     f.close()
 except IOError:
-    print "WARNING: Can't open protocols file"
+    log_loading.info("Can't open protocols file")
 
 ETHER_TYPES={}
 try:
@@ -1100,10 +1145,10 @@ try:
                 continue
             ETHER_TYPES.update({lt[0]:int(lt[1], 16)})
         except:
-            print "WARNING: Couldn't parse one line from ethertypes file (" + l + ")"
+            log_loading.info("Couldn't parse one line from ethertypes file (" + l + ")")
     f.close()
-except IOError:
-    print "WARNING: Can't open ethertypes file"
+except IOError,msg:
+    log_loading.info("Can't open ethertypes file")
  
 TCP_SERVICES={}
 UDP_SERVICES={}
@@ -1121,10 +1166,10 @@ try:
             elif lt[1].endswith("/udp"):
                 UDP_SERVICES.update({lt[0]:int(lt[1].split('/')[0])})
         except:
-            print "WARNING: Couldn't parse one line from protocols file (" + l + ")"
+            log_loading.warning("Couldn't parse one line from protocols file (" + l + ")")
     f.close()
 except IOError:
-    print "WARNING: Can't open services file"
+    log_loading.info("Can't open services file")
 
 
 
@@ -1188,30 +1233,8 @@ def checksum(pkt):
     s += s >> 16
     return  ~s & 0xffff
 
-warning_table = {}
-
 def warning(x):
-    wt = conf.warning_threshold
-    if wt > 0:
-        stk = traceback.extract_stack(limit=1)
-        caller = stk[0][1]
-        tm,nb = warning_table.get(caller, (0,0))
-        ltm = time.time()
-        if ltm-tm > wt:
-            tm = ltm
-            nb = 0
-        else:
-            if nb < 2:
-                nb += 1
-                if nb == 2:
-                    x = "more "+x
-            else:
-                return
-        warning_table[caller] = (tm,nb)
-            
-        
-    print 
-    print "WARNING:",x
+    log_runtime.warning(x)
 
 def mac2str(mac):
     return "".join(map(lambda x: chr(int(x,16)), mac.split(":")))
@@ -1258,7 +1281,7 @@ def save_session(fname, session=None, pickleProto=-1):
 
     for k in to_be_saved.keys():
         if type(to_be_saved[k]) in [types.TypeType, types.ClassType, types.ModuleType]:
-             print "[%s] (%s) can't be saved." % (k, type(to_be_saved[k]))
+             log_interactive.error("[%s] (%s) can't be saved." % (k, type(to_be_saved[k])))
              del(to_be_saved[k])
 
     try:
@@ -3428,7 +3451,7 @@ class Packet(Gen):
                 p = cls(s)
             except:
                 if conf.debug_dissector:
-                    print "Warning: %s dissector failed" % cls.name
+                    log_runtime.error("%s dissector failed" % cls.name)
                     raise
                 else:
                     p = Raw(s)
@@ -4064,7 +4087,7 @@ class IP(Packet, IPTools):
             try:
                 s.sendto(str(p), (p.dst,0))
             except socket.error, msg:
-                print msg
+                log_runtime.error(msg)
             if slp:
                 time.sleep(slp)
     def hashret(self):
@@ -6327,7 +6350,7 @@ class L3RawSocket(SuperSocket):
         try:
             self.outs.sendto(str(x),(x.dst,0))
         except socket.error,msg:
-            print msg
+            log_runtime.error(msg)
         
 
 
@@ -6741,16 +6764,15 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0,retry=0):
             except KeyboardInterrupt:
                 pass
             except:
-                print "--- Error in child %i" % os.getpid()
-                traceback.print_exc()
-                print "--- End of error in child %i" % os.getpid()
+                log_runtime.exception("--- Error in child %i" % os.getpid())
+                log_runtime.info("--- Error in child %i" % os.getpid())
                 sys.exit()
             else:
                 cPickle.dump(arp_cache, wrpipe)
                 wrpipe.close()
             sys.exit()
         elif pid < 0:
-            print "fork error"
+            log_runtime.error("fork error")
         else:
             wrpipe.close()
             finished = 0
@@ -8821,8 +8843,10 @@ country_loc_kdb = CountryLocKnowledgeBase(conf.countryLoc_base)
 
 
 
-def interact(mydict=None,argv=None,mybanner=None):
-    import code,sys,cPickle,types,os,imp,getopt
+def interact(mydict=None,argv=None,mybanner=None,loglevel=1):
+    import code,sys,cPickle,types,os,imp,getopt,logging
+
+    logging.getLogger("scapy").setLevel(loglevel)
 
     the_banner = "%sWelcome to Scapy (%s)"
     if mybanner is not None:
@@ -8908,7 +8932,7 @@ def interact(mydict=None,argv=None,mybanner=None):
 
 
     except getopt.error, msg:
-        print "ERROR:", msg
+        log_loading.error(msg)
         sys.exit(1)
 
 
@@ -8916,18 +8940,18 @@ def interact(mydict=None,argv=None,mybanner=None):
         try:
             os.stat(session_name)
         except OSError:
-            print "New session [%s]" % session_name
+            log_loading.info("New session [%s]" % session_name)
         else:
             try:
                 try:
                     session = cPickle.load(gzip.open(session_name))
                 except IOError:
                     session = cPickle.load(open(session_name))
-                print "Using session [%s]" % session_name
+                log_loading.info("Using session [%s]" % session_name)
             except EOFError:
-                print "Error opening session [%s]" % session_name
+                log_loading.error("Error opening session [%s]" % session_name)
             except AttributeError:
-                print "Error opening session [%s]. Attribute missing" %  session_name
+                log_loading.eror("Error opening session [%s]. Attribute missing" %  session_name)
 
         if session:
             if "conf" in session:
