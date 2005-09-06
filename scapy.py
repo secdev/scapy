@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.0.22  2005/09/06 17:08:47  pbi
+# - made AnsweringMachine() callable instead of using the run() method
+#
 # Revision 1.0.0.21  2005/09/06 17:05:19  pbi
 # - new logging/warning facility using the logging module
 #
@@ -912,7 +915,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.0.21 2005/09/06 17:05:19 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.0.22 2005/09/06 17:08:47 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -8005,7 +8008,7 @@ class ReferenceAM(type):
     def __new__(cls, name, bases, dct):
         o = super(ReferenceAM, cls).__new__(cls, name, bases, dct)
         if o.function_name:
-            globals()[o.function_name] = lambda o=o,*args,**kargs: o(*args,**kargs).run()
+            globals()[o.function_name] = lambda o=o,*args,**kargs: o(*args,**kargs)()
         return o
 
 
@@ -8096,6 +8099,10 @@ class AnsweringMachine(object):
             self.print_reply(pkt, reply)
 
     def run(self, *args, **kargs):
+        log_interactive.warning("run() method deprecated. The intance is now callable")
+        self(*args,**kargs)
+
+    def __call__(self, *args, **kargs):
         optsend,optsniff = self.parse_all_options(2,kargs)
         self.optsend=self.defoptsend.copy()
         self.optsend.update(optsend)
