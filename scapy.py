@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.0.23  2005/09/08 05:29:23  pbi
+# - added conf.debug_dissecto checks where it was missing in SuperSockets
+# - Slice pcap object only once we know its not None ! (N. Peterson)
+#
 # Revision 1.0.0.22  2005/09/06 17:08:47  pbi
 # - made AnsweringMachine() callable instead of using the run() method
 #
@@ -915,7 +919,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.0.22 2005/09/06 17:08:47 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.0.23 2005/09/08 05:29:23 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -6525,6 +6529,8 @@ class L2ListenSocket(SuperSocket):
         try:
             pkt = cls(pkt)
         except:
+            if conf.debug_dissector:
+                raise
             pkt = Raw(pkt)
         return pkt
     
@@ -6572,11 +6578,14 @@ class L3dnetSocket(SuperSocket):
 
         pkt = None
         while pkt is None:  ## This fix a probable bug in libpcap/wrapper, that returns None while there is no read timeout
-            pkt = self.ins.next()[1]
+            pkt = self.ins.next()
+        pkt = pkt[1]
 
         try:
             pkt = cls(pkt)
         except:
+            if conf.debug_dissector:
+                raise
             pkt = Raw(pkt)
         return pkt.payload
     def close(self):
@@ -6616,10 +6625,14 @@ class L2dnetSocket(SuperSocket):
 
         pkt = None
         while pkt is None:  ## This fix a probable bug in libpcap/wrapper, that returns None while there is no read timeout
-            pkt = self.ins.next()[1]
+            pkt = self.ins.next()
+        pkt = pkt[1]
+        
         try:
             pkt = cls(pkt)
         except:
+            if conf.debug_dissector:
+                raise
             pkt = Raw(pkt)
         return pkt
 
@@ -6673,10 +6686,14 @@ class L2pcapListenSocket(SuperSocket):
 
         pkt = None
         while pkt is None:  ## This fix a probable bug in libpcap/wrapper, that returns None while there is no read timeout
-            pkt = self.ins.next()[1]
+            pkt = self.ins.next()
+        pkt = pkt[1]
+        
         try:
             pkt = cls(pkt)
         except:
+            if conf.debug_dissector:
+                raise
             pkt = Raw(pkt)
         return pkt
 
@@ -8958,7 +8975,7 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=1):
             except EOFError:
                 log_loading.error("Error opening session [%s]" % session_name)
             except AttributeError:
-                log_loading.eror("Error opening session [%s]. Attribute missing" %  session_name)
+                log_loading.error("Error opening session [%s]. Attribute missing" %  session_name)
 
         if session:
             if "conf" in session:
