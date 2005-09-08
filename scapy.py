@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.0.24  2005/09/08 14:13:36  pbi
+# - added RandIP()
+#
 # Revision 1.0.0.23  2005/09/08 05:29:23  pbi
 # - added conf.debug_dissecto checks where it was missing in SuperSockets
 # - Slice pcap object only once we know its not None ! (N. Peterson)
@@ -919,7 +922,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.0.23 2005/09/08 05:29:23 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.0.24 2005/09/08 14:13:36 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1790,6 +1793,14 @@ class RandString(RandField):
     def __getattr__(self, attr):
         return getattr(self.randstr(), attr)
 
+class RandIP(RandString):
+    def __init__(self, iptemplate):
+        self.ip = Net(iptemplate)
+    def randstr(self):
+        return self.ip.choice()
+        
+
+
 
 ################
 ## Generators ##
@@ -1858,6 +1869,12 @@ class Net(Gen):
                 for b in xrange(*self.parsed[1]):
                     for a in xrange(*self.parsed[0]):
                         yield "%i.%i.%i.%i" % (a,b,c,d)
+    def choice(self):
+        ip = []
+        for v in self.parsed:
+            ip.append(str(random.randint(v[0],v[1]-1)))
+        return ".".join(ip) 
+                          
     def __repr__(self):
         return "<Net %s>" % self.repr
 
