@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.0.28  2005/09/12 16:14:41  pbi
+# - new hexdump() which displays offsets
+#
 # Revision 1.0.0.27  2005/09/12 14:56:31  pbi
 # - new summary() and mysummary() semantic (backward compatible!) to enable more than one class to be expanded.
 #   The higher gives its dependances along with its own summary
@@ -934,7 +937,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.0.27 2005/09/12 14:56:31 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.0.28 2005/09/12 16:14:41 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1212,11 +1215,19 @@ def sane(x):
 def hexdump(x):
     x=str(x)
     l = len(x)
-    for i in range(l):
-        print "%02X" % ord(x[i]),
-        if (i % 16 == 15):
-            print " "+sane(x[i-15:i+1])
-    if ((l%16) != 0): print "   "*(16-(l%16))+" "+sane(x[l-(l%16):])
+    i = 0
+    while i < l:
+        print "%04x  " % i,
+        for j in range(16):
+            if i+j < l:
+                print "%02X" % ord(x[i+j]),
+            else:
+                print "  ",
+            if j%16 == 7:
+                print "",
+        print " ",
+        print sane(x[i:i+16])
+        i += 16
 
 def linehexdump(x):
     x = str(x)
