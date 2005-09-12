@@ -21,6 +21,11 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.0.25  2005/09/12 13:25:22  pbi
+# - added post_dissection() method, called at the end of the dissection, when the packet is ready
+# - added default_payload_class() called when layer bonds are not sufficient
+# - improved/fixed conf.debug_dissector() which failed when guess_payload_class() returned None
+#
 # Revision 1.0.0.24  2005/09/08 14:13:36  pbi
 # - added RandIP()
 #
@@ -922,7 +927,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.0.24 2005/09/08 14:13:36 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.0.25 2005/09/12 13:25:22 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -3288,7 +3293,7 @@ class Packet(Gen):
     payload_guess = []
     initialized = 0
 
-    def __init__(self, pkt="", **fields):
+    def __init__(self, _pkt="", _internal=0, **fields):
         self.time  = time.time()
         self.aliastypes = [ self.__class__ ] + self.aliastypes
         self.default_fields = {}
@@ -3300,11 +3305,21 @@ class Packet(Gen):
             self.default_fields[f] = f.default
             self.fieldtype[f] = f
         self.initialized = 1
-        if pkt:
-            self.dissect(pkt)
+        if _pkt:
+            self.dissect(_pkt)
+            if not _internal:
+                self.dissection_done(self)
         for f in fields.keys():
             self.fields[f] = self.fieldtype[f].any2i(self,fields[f])
-
+            
+    def dissection_done(self,pkt):
+        self.post_dissection(pkt)
+        self.payload.dissection_done(pkt)
+        
+    def post_dissection(self, pkt):
+        pass
+        
+        
     def add_payload(self, payload):
         if payload is None:
             return
@@ -3472,13 +3487,15 @@ class Packet(Gen):
         if s:
             cls = self.guess_payload_class(s)
             try:
-                p = cls(s)
+                p = cls(s, _internal=1)
             except:
-                if conf.debug_dissector:
+                if conf.debug_dissector and isinstance(cls,Packet):
                     log_runtime.error("%s dissector failed" % cls.name)
                     raise
                 else:
-                    p = Raw(s)
+                    if conf.debug_dissector:
+                        log_runtime.warning("%s.guess_payload_class() returned [%s]" % (self.__class__.__name__,repr(cls)))
+                    p = Raw(s, _internal=1)
             self.add_payload(p)
 
     def dissect(self, s):
@@ -3494,7 +3511,10 @@ class Packet(Gen):
                         break
                 if ok:
                     return cls
-        return None
+        return self.default_payload_class(payload)
+    
+    def default_payload_class(self, payload):
+        return Raw
 
     def hide_defaults(self):
         for k in self.fields.keys():
@@ -3760,6 +3780,8 @@ class NoPayload(Packet,object):
         return singl
     def __init__(self, *args, **kargs):
         pass
+    def dissection_done(self,pkt):
+        return
     def add_payload(self, payload):
         raise Exception("Can't add payload to NoPayload instance")
     def remove_payload(self):
