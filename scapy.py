@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.0.26  2005/09/12 14:03:10  pbi
+# - added ip.dst in ICMP summary()
+#
 # Revision 1.0.0.25  2005/09/12 13:25:22  pbi
 # - added post_dissection() method, called at the end of the dissection, when the packet is ready
 # - added default_payload_class() called when layer bonds are not sufficient
@@ -927,7 +930,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.0.25 2005/09/12 13:25:22 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.0.26 2005/09/12 14:03:10 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -4309,7 +4312,7 @@ class ICMP(Packet):
             return None
     def mysummary(self):
         if isinstance(self.underlayer, IP):
-            return self.underlayer.sprintf("ICMP %IP.src% %ICMP.type% %ICMP.code%")
+            return self.underlayer.sprintf("ICMP %IP.src% > %IP.dst% %ICMP.type% %ICMP.code%")
         else:
             return self.sprintf("ICMP %ICMP.type% %ICMP.code%")
     
