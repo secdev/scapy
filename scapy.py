@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.0.27  2005/09/12 14:56:31  pbi
+# - new summary() and mysummary() semantic (backward compatible!) to enable more than one class to be expanded.
+#   The higher gives its dependances along with its own summary
+#
 # Revision 1.0.0.26  2005/09/12 14:03:10  pbi
 # - added ip.dst in ICMP summary()
 #
@@ -930,7 +934,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.0.26 2005/09/12 14:03:10 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.0.27 2005/09/12 14:56:31 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -3734,19 +3738,22 @@ A side effect is that, to obtain "{" and "}" characters, you must use
         return ""
 
     def summary(self, intern=0):
-        found,s = self.payload.summary(intern=1)
+        found,s,needed = self.payload.summary(intern=1)
         if s:
             s = " / "+s
         ret = ""
-        if not found:
+        if not found or self.__class__ in needed:
             ret = self.mysummary()
-        if ret:
+            if type(ret) is tuple:
+                ret,n = ret
+                needed += n
+        if ret or needed:
             found = 1
-        else:
+        if not ret:
             ret = self.__class__.__name__
         ret = "%s%s" % (ret,s)
         if intern:
-            return found,ret
+            return found,ret,needed
         else:
             return ret
     
@@ -3830,7 +3837,7 @@ class NoPayload(Packet,object):
         else:
             raise Exception("Format not found [%s]"%fmt)
     def summary(self, intern=0):
-        return 0,""
+        return 0,"",[]
     def lastlayer(self,layer):
         return layer
     
