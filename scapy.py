@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.0.30  2005/09/13 16:03:47  pbi
+# - added Dot11Elt.mysummary() for SSID displaying
+# - fixed Enum*.i2repr()
+#
 # Revision 1.0.0.29  2005/09/13 16:02:35  pbi
 # - fix build of packets with more than one padding
 #
@@ -940,7 +944,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.0.29 2005/09/13 16:02:35 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.0.30 2005/09/13 16:03:47 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2939,7 +2943,7 @@ class EnumField(Field):
             x = self.s2i[x]
         return x
     def i2repr(self, pkt, x):
-        return self.i2s.get(x, x)            
+        return self.i2s.get(x, repr(x))
 
 
 class BitEnumField(BitField,EnumField):
@@ -4790,8 +4794,11 @@ class Dot11Elt(Packet):
                                             42:"ERPinfo", 47:"ERPinfo",50:"ESRates",221:"vendor",68:"reserved"}),
                     FieldLenField("len", None, "info", "B"),
                     StrLenField("info", "", "len") ]
-    def sum(self):
-        return self.sprintf("Info %Dot11Elt.ID%")
+    def mysummary(self):
+        if self.ID == 0:
+            return self.sprintf("SSID=%s"%self.info),[Dot11]
+        else:
+            return ""
 
 class Dot11ATIM(Packet):
     name = "802.11 ATIM"
