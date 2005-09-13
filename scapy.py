@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.0.29  2005/09/13 16:02:35  pbi
+# - fix build of packets with more than one padding
+#
 # Revision 1.0.0.28  2005/09/12 16:14:41  pbi
 # - new hexdump() which displays offsets
 #
@@ -937,7 +940,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.0.28 2005/09/12 16:14:41 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.0.29 2005/09/13 16:02:35 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -3477,8 +3480,12 @@ class Packet(Gen):
 
     def build(self,internal=0):
         p = self.post_build(self.do_build())
-        if not internal and self.haslayer(Padding):
-            p += self.getlayer(Padding).load
+        if not internal:
+            pkt = self
+            while pkt.haslayer(Padding):
+                pkt = pkt.getlayer(Padding)
+                p += pkt.load
+                pkt = pkt.payload
         return p
 
     def extract_padding(self, s):
