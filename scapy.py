@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.0.34  2005/09/24 14:30:15  pbi
+# - ability to change the BPF filter in traceroute()
+#
 # Revision 1.0.0.33  2005/09/24 14:29:30  pbi
 # - completed PrismHeader layer
 #
@@ -958,7 +961,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.0.33 2005/09/24 14:29:30 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.0.34 2005/09/24 14:30:15 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -7940,13 +7943,15 @@ arpcachepoison(target, victim, [interval=60]) -> None
     except KeyboardInterrupt:
         pass
 
-def traceroute(target, dport=80, minttl=1, maxttl=30, sport=RandShort(), l4 = None, timeout=2, **kargs):
+def traceroute(target, dport=80, minttl=1, maxttl=30, sport=RandShort(), l4 = None, filter=None, timeout=2, **kargs):
     """Instant TCP traceroute
 traceroute(target, [maxttl=30], [dport=80], [sport=80]) -> None
 """
+    if filter is None:
+        filter="(icmp and icmp[0]=11) or (tcp and (tcp[13] & 0x16 > 0x10))"
     if l4 is None:
         a,b = sr(IP(dst=target, id=RandShort(), ttl=(minttl,maxttl))/TCP(seq=RandInt(),sport=sport, dport=dport),
-                 timeout=timeout, filter="(icmp and icmp[0]=11) or (tcp and (tcp[13] & 0x16 > 0x10))", **kargs)
+                 timeout=timeout, filter=filter, **kargs)
     else:
         a,b = sr(IP(dst=target, id=RandShort(), ttl=(minttl,maxttl))/l4,
                  timeout=timeout, **kargs)
