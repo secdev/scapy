@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.0.32  2005/09/24 14:27:27  pbi
+# - deprecated "packet.haslayer(l)" by "l in Packet"
+# - deprecated "Packet.getlayer(l)" by "Packet[l]"
+#
 # Revision 1.0.0.31  2005/09/24 14:25:01  pbi
 # - better error message if gnuplot wrapper is missing
 # - fixed subclass test in dissection error treatment
@@ -951,7 +955,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.0.31 2005/09/24 14:25:01 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.0.32 2005/09/24 14:27:27 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -3629,10 +3633,29 @@ class Packet(Gen):
         if self.__class__.__name__ == cls:
             return 1
         return self.payload.haslayer_str(cls)
-    def getlayer(self, cls):
+    def getlayer(self, cls, nb=1):
         if self.__class__ == cls:
-            return self
-        return self.payload.getlayer(cls)
+            if nb == 1:
+                return self
+            else:
+                nb -=1
+        return self.payload.getlayer(cls,nb)
+
+    def __getitem__(self, cls):
+        if type(cls) is slice:
+            if cls.stop:
+                ret = self.getlayer(cls.start, cls.stop)
+            else:
+                ret = self.getlayer(cls.start)
+            if ret is None and cls.step is not None:
+                ret = cls.step
+            return ret
+        else:
+            return self.getlayer(cls)
+        
+    def __contains__(self, cls):
+        return self.haslayer(cls)
+        
     
 
     def display(self,*args,**kargs):  # Deprecated. Use show()
@@ -3856,7 +3879,7 @@ class NoPayload(Packet,object):
         return 0
     def haslayer_str(self, cls):
         return 0
-    def getlayer(self, cls):
+    def getlayer(self, cls, nb=1):
         return None
     def show(self, lvl=0):
         pass
