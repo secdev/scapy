@@ -21,6 +21,13 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.0.31  2005/09/24 14:25:01  pbi
+# - better error message if gnuplot wrapper is missing
+# - fixed subclass test in dissection error treatment
+# - fixed Dot11Elt summary
+# - fixed __sr_loop() to prevent stats calc if no packet have been received
+# - fixed sniff() to break loop at the end of reading a file (offline optoin)
+#
 # Revision 1.0.0.30  2005/09/13 16:03:47  pbi
 # - added Dot11Elt.mysummary() for SSID displaying
 # - fixed Enum*.i2repr()
@@ -944,7 +951,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.0.30 2005/09/13 16:03:47 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.0.31 2005/09/24 14:25:01 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1024,7 +1031,7 @@ try:
     import Gnuplot
     GNUPLOT=1
 except ImportError:
-    log_loading.info("did not find gnuplot lib. Won't be able to plot")
+    log_loading.info("did not find python gnuplot wrapper . Won't be able to plot")
     GNUPLOT=0
 
 
@@ -3518,7 +3525,7 @@ class Packet(Gen):
             try:
                 p = cls(s, _internal=1)
             except:
-                if conf.debug_dissector and isinstance(cls,Packet):
+                if conf.debug_dissector and issubclass(cls,Packet):
                     log_runtime.error("%s dissector failed" % cls.name)
                     raise
                 else:
@@ -4796,7 +4803,7 @@ class Dot11Elt(Packet):
                     StrLenField("info", "", "len") ]
     def mysummary(self):
         if self.ID == 0:
-            return self.sprintf("SSID=%s"%self.info),[Dot11]
+            return "SSID=%s"%repr(self.info),[Dot11]
         else:
             return ""
 
@@ -7053,7 +7060,8 @@ def __sr_loop(srfunc, pkts, prn=lambda x:x[1].summary(), prnfail=lambda x:x.summ
     except KeyboardInterrupt:
         pass
  
-    print "%s\nSent %i packets, received %i packets. %3.1f%% hits." % (Color.normal,n,r,100.0*r/n)
+    if n>0:
+        print "%s\nSent %i packets, received %i packets. %3.1f%% hits." % (Color.normal,n,r,100.0*r/n)
 
 def srloop(pkts, *args, **kargs):
     """Send a packet at layer 3 in loop and print the answer each time
@@ -7837,6 +7845,8 @@ offline: pcap file to read packets from, instead of sniffing them
     while 1:
         try:
             p = s.recv(MTU)
+            if p is None:
+                break
             if lfilter and not lfilter(p):
                 continue
             if store:
