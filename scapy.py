@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.0.36  2005/09/24 14:37:51  pbi
+# - added a "padding" option to TracerouteResult.graph() to show routers that pad
+#
 # Revision 1.0.0.35  2005/09/24 14:32:40  pbi
 # - added Packet.psdump() and Packet.pdfdump()
 # - added PacketList.psdump() and PacketList.pdfdump()
@@ -965,7 +968,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.0.35 2005/09/24 14:32:40 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.0.36 2005/09/24 14:37:51 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2183,6 +2186,7 @@ class TracerouteResult(SndRcvList):
         PacketList.__init__(self, res, name, stats)
         self.graphdef = None
         self.graphASN = 0
+        self.padding = 0
         self.hloc = None
         self.nloc = None
 
@@ -2237,8 +2241,9 @@ class TracerouteResult(SndRcvList):
         g.plot(world,*tr)
         return g
 
-    def make_graph(self,ASN):
+    def make_graph(self,ASN,padding):
         self.graphASN = ASN
+        self.graphpadding = padding
         ips = {}
         rt = {}
         ports = {}
@@ -2421,9 +2426,17 @@ class TracerouteResult(SndRcvList):
         s += "\n#Blackholes\n"
         for bh in blackholes:
             s += '\t%s [shape=octagon,color=black,fillcolor=red,style=filled];\n' % bh
-    
-            
-    
+
+        if padding:
+            s += "\n#Padding\n"
+            pad={}
+            for snd,rcv in self.res:
+                if rcv.src not in ports and rcv.haslayer(Padding):
+                    p = rcv.getlayer(Padding).load
+                    if p != "\x00"*len(p):
+                        pad[rcv.src]=None
+            for rcv in pad:
+                s += '\t"%s" [shape=triangle,color=black,fillcolor=red,style=filled];\n' % rcv
     
     
             
@@ -2443,14 +2456,16 @@ class TracerouteResult(SndRcvList):
         s += "}\n";
         self.graphdef = s
     
-    def graph(self, ASN=1, **kargs):
+    def graph(self, ASN=1, padding=0, **kargs):
         """x.graph(ASN=1, other args):
     ASN=0 : no clustering
     ASN=1 : use whois.cymru.net AS clustering
     ASN=2 : use whois.ra.net AS clustering
     other args are passed to do_graph()"""
-        if self.graphdef is None or self.graphASN != ASN:
-            self.make_graph(ASN)
+        if (self.graphdef is None or
+            self.graphASN != ASN or
+            self.graphpadding != padding):
+            self.make_graph(ASN,padding)
 
         do_graph(self.graphdef, **kargs)
 
