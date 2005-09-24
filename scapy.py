@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.0.35  2005/09/24 14:32:40  pbi
+# - added Packet.psdump() and Packet.pdfdump()
+# - added PacketList.psdump() and PacketList.pdfdump()
+#
 # Revision 1.0.0.34  2005/09/24 14:30:15  pbi
 # - ability to change the BPF filter in traceroute()
 #
@@ -961,7 +965,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.0.34 2005/09/24 14:30:15 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.0.35 2005/09/24 14:32:40 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1043,6 +1047,13 @@ try:
 except ImportError:
     log_loading.info("did not find python gnuplot wrapper . Won't be able to plot")
     GNUPLOT=0
+
+try:
+    import pyx
+    PYX=1
+except ImportError:
+    log_loading.info("Can't import PyX. Won't be able to use psdump() or pdfdump()")
+    PYX=0
 
 
 LINUX=sys.platform.startswith("linux")
@@ -2089,6 +2100,46 @@ class PacketList:
         g.plot(Gnuplot.Data(d,**kargs))
         return g
         
+    def _dump_document(self):
+        d = pyx.document.document()
+        l = len(self.res)
+        for i in range(len(self.res)):
+            elt = self.res[i]
+            c = self._elt2pkt(elt).canvas_dump()
+            cbb = c.bbox()
+            c.text(cbb.left(),cbb.top()+1,r"\font\cmssfont=cmss12\cmssfont{Frame %i/%i}" % (i,l),[pyx.text.size.LARGE])
+            if conf.verb >= 2:
+                os.write(1,".")
+            d.append(pyx.document.page(c, paperformat=pyx.document.paperformat.A4,
+                                       margin=1*pyx.unit.t_cm,
+                                       fittosize=1))
+        return d
+                     
+                 
+
+    def psdump(self, filename = None):
+        d = self._dump_document()
+        if filename is None:
+            filename = "/tmp/scapy.psd.%i" % os.getpid()
+            d.writePSfile(filename)
+            os.system("gv %s.ps &" % filename)
+        else:
+            d.writePSfile(filename)
+        print
+        
+    def pdfdump(self, filename = None):
+        d = self._dump_document()
+        if filename is None:
+            filename = "/tmp/scapy.psd.%i" % os.getpid()
+            d.writePDFfile(filename)
+            os.system("acroread %s.pdf &" % filename)
+        else:
+            d.writePDFfile(filename)
+        print
+
+
+        
+
 
 class Dot11PacketList(PacketList):
     def __init__(self, res, name="Dot11List", stats=None):
@@ -3509,6 +3560,209 @@ class Packet(Gen):
                 pkt = pkt.payload
         return p
 
+    def do_build_ps(self):
+        p=""
+        pl = []
+        q=""
+        for f in self.fields_desc:
+            p = f.addfield(self, p, self.__getattr__(f) )
+            if type(p) is str:
+                r = p[len(q):]
+                q = p
+            else:
+                r = ""
+            pl.append( (f, f.i2repr(self,self.__getattr__(f)), r) )
+            
+        pkt,lst = self.payload.build_ps(internal=1)
+        p += pkt
+        lst.append( (self, pl) )
+        
+        return p,lst
+    
+    def build_ps(self,internal=0):
+        p,lst = self.do_build_ps()
+#        if not internal:
+#            pkt = self
+#            while pkt.haslayer(Padding):
+#                pkt = pkt.getlayer(Padding)
+#                lst.append( (pkt, [ ("loakjkjd", pkt.load, pkt.load) ] ) )
+#                p += pkt.load
+#                pkt = pkt.payload
+        return p,lst
+
+
+    def psdump(self, filename=None):
+        canvas = self.canvas_dump()
+        if filename is None:
+            fname = "/tmp/scapy.%i"%os.getpid()
+            canvas.writeEPSfile(fname)
+            os.system("gv '%s.eps' &" % fname)
+        else:
+            canvas.writeEPSfile(filename)
+
+    def pdfdump(self, filename=None):
+        canvas = self.canvas_dump()
+        if filename is None:
+            fname = "/tmp/scapy.%i"%os.getpid()
+            canvas.writePDFfile(fname)
+            os.system("acroread '%s.pdf' &" % fname)
+        else:
+            canvas.writePDFfile(filename)
+
+        
+    def canvas_dump(self):
+        canvas = pyx.canvas.canvas()
+        p,t = self.__class__(str(self)).build_ps()
+        YTXT=len(t)
+        for n,l in t:
+            YTXT += len(l)
+        YTXT = float(YTXT)
+        YDUMP=YTXT
+
+        XSTART = 1
+        XDSTART = 10
+        y = 0.0
+        yd = 0.0
+        xd = 0 
+        XMUL= 0.55
+        YMUL = 0.4
+
+        def makecol(*lstcol):
+            while 1:
+                for i in range(len(lstcol)):
+                    for j in range(len(lstcol)):
+                        for k in range(len(lstcol)):
+                            if i != j or j != k or k != i:
+                                yield  pyx.color.rgb(lstcol[(i+j+k)%len(lstcol)],lstcol[(j+2*k)%len(lstcol)],lstcol[(2*k+i)%len(lstcol)])
+    
+#        backcolor=makecol(0.376, 0.729, 0.525, 1.0)
+        backcolor=makecol(0.6, 0.8, 1.0)
+        forecolor=makecol(0.2, 0.5, 0.8)
+        
+        
+        def hexstr(x):
+            s = []
+            for c in x:
+                s.append("%02x" % ord(c))
+            return " ".join(s)
+
+        def escape(x):
+            return sane(x).translate(string.maketrans(r"\&%$#_^","......."))
+                
+        def make_dump_txt(x,y,txt):
+            return pyx.text.text(XDSTART+x*XMUL, (YDUMP-y)*YMUL, r"\tt{%s}"%hexstr(txt), [pyx.text.size.Large])
+
+        def make_box(o):
+            return pyx.box.rect(o.left(), o.bottom(), o.width(), o.height(), relcenter=(0.5,0.5))
+
+        def make_frame(lst):
+            if len(lst) == 1:
+                b = lst[0].bbox()
+                b.enlarge(pyx.unit.u_pt)
+                return b.path()
+            else:
+                fb = lst[0].bbox()
+                fb.enlarge(pyx.unit.u_pt)
+                lb = lst[-1].bbox()
+                lb.enlarge(pyx.unit.u_pt)
+                if len(lst) == 2 and fb.left() > lb.right():
+                    return pyx.path.path(pyx.path.moveto(fb.right(), fb.top()),
+                                         pyx.path.lineto(fb.left(), fb.top()),
+                                         pyx.path.lineto(fb.left(), fb.bottom()),
+                                         pyx.path.lineto(fb.right(), fb.bottom()),
+                                         pyx.path.moveto(lb.left(), lb.top()),
+                                         pyx.path.lineto(lb.right(), lb.top()),
+                                         pyx.path.lineto(lb.right(), lb.bottom()),
+                                         pyx.path.lineto(lb.left(), lb.bottom()))
+                else:
+                    # XXX
+                    gb = lst[1].bbox()
+                    if gb != lb:
+                        gb.enlarge(pyx.unit.u_pt)
+                    kb = lst[-2].bbox()
+                    if kb != gb and kb != lb:
+                        kb.enlarge(pyx.unit.u_pt)
+                    return pyx.path.path(pyx.path.moveto(fb.left(), fb.top()),
+                                         pyx.path.lineto(fb.right(), fb.top()),
+                                         pyx.path.lineto(fb.right(), kb.bottom()),
+                                         pyx.path.lineto(lb.right(), kb.bottom()),
+                                         pyx.path.lineto(lb.right(), lb.bottom()),
+                                         pyx.path.lineto(lb.left(), lb.bottom()),
+                                         pyx.path.lineto(lb.left(), gb.top()),
+                                         pyx.path.lineto(fb.left(), gb.top()),
+                                         pyx.path.closepath(),)
+                                         
+
+        def make_dump(s, shift=0, y=0, col=None, bkcol=None, larg=16):
+            c = pyx.canvas.canvas()
+            tlist = []
+            while s:
+                dmp,s = s[:larg-shift],s[larg-shift:]
+                txt = make_dump_txt(shift, y, dmp)
+                tlist.append(txt)
+                shift += len(dmp)
+                if shift >= 16:
+                    shift = 0
+                    y += 1
+            if col is None:
+                col = pyx.color.rgb.red
+            if bkcol is None:
+                col = pyx.color.rgb.white
+            c.stroke(make_frame(tlist),[col,pyx.deco.filled([bkcol]),pyx.style.linewidth.Thick])
+            for txt in tlist:
+                c.insert(txt)
+            return c, tlist[-1].bbox(), shift, y
+                            
+
+        last_shift,last_y=0,0
+        while t:
+            bkcol = backcolor.next()
+            proto,fields = t.pop()
+            y += 0.5
+            pt = pyx.text.text(XSTART, (YTXT-y)*YMUL, r"\font\cmssfont=cmss10\cmssfont{%s}" % proto.name, [ pyx.text.size.Large])
+            y += 1
+            ptbb=pt.bbox()
+            ptbb.enlarge(pyx.unit.u_pt*2)
+            canvas.stroke(ptbb.path(),[pyx.color.rgb.black, pyx.deco.filled([bkcol])])
+            canvas.insert(pt)
+            for fname, fval, fdump in fields:
+                col = forecolor.next()
+                ft = pyx.text.text(XSTART, (YTXT-y)*YMUL, r"\font\cmssfont=cmss10\cmssfont{%s}" % escape(fname.name))
+                if fval is not None:
+                    if len(fval) > 18:
+                        fval = fval[:18]+"[...]"
+                else:
+                    fval=""
+                vt = pyx.text.text(XSTART+3, (YTXT-y)*YMUL, r"\font\cmssfont=cmss10\cmssfont{%s}" % escape(fval))
+                y += 1.0
+                if fdump:
+                    dt,target,last_shift,last_y = make_dump(fdump, last_shift, last_y, col, bkcol)
+
+                    dtb = dt.bbox()
+                    dtb=target
+                    vtb = vt.bbox()
+                    bxvt = make_box(vtb)
+                    bxdt = make_box(dtb)
+                    dtb.enlarge(pyx.unit.u_pt)
+                    try:
+                        if yd < 0:
+                            cnx = pyx.connector.curve(bxvt,bxdt,absangle1=0, absangle2=-90)
+                        else:
+                            cnx = pyx.connector.curve(bxvt,bxdt,absangle1=0, absangle2=90)
+                    except:
+                        pass
+                    else:
+                        canvas.stroke(cnx,[pyx.style.linewidth.thin,pyx.deco.earrow.small,col])
+                        
+                    canvas.insert(dt)
+                
+                canvas.insert(ft)
+                canvas.insert(vt)
+                
+        return canvas
+
+
+
     def extract_padding(self, s):
         return s,None
 
@@ -3866,6 +4120,8 @@ class NoPayload(Packet,object):
         return ""
     def build(self, internal=0):
         return ""
+    def build_ps(self, internal=0):
+        return "",[]
     def __getattr__(self, attr):
         if attr in self.__dict__:
             return self.__dict__[attr]
