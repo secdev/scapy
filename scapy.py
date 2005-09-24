@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.0.33  2005/09/24 14:29:30  pbi
+# - completed PrismHeader layer
+#
 # Revision 1.0.0.32  2005/09/24 14:27:27  pbi
 # - deprecated "packet.haslayer(l)" by "l in Packet"
 # - deprecated "Packet.getlayer(l)" by "Packet[l]"
@@ -955,7 +958,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.0.32 2005/09/24 14:27:27 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.0.33 2005/09/24 14:29:30 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -4927,18 +4930,53 @@ class Dot11WEP(Packet):
 
 
 class PrismHeader(Packet):
-    name = "Prism header"
     """ iwpriv wlan0 monitor 3 """
+    name = "Prism header"
     fields_desc = [ LEIntField("msgcode",68),
                     LEIntField("len",144),
                     StrFixedLenField("dev","",16),
-                    StrFixedLenField("truc","",68),
+                    LEIntField("hosttime_did",0),
+                  LEShortField("hosttime_status",0),
+                  LEShortField("hosttime_len",0),
+                    LEIntField("hosttime",0),
+                    LEIntField("mactime_did",0),
+                  LEShortField("mactime_status",0),
+                  LEShortField("mactime_len",0),
+                    LEIntField("mactime",0),
+                    LEIntField("channel_did",0),
+                  LEShortField("channel_status",0),
+                  LEShortField("channel_len",0),
+                    LEIntField("channel",0),
+                    LEIntField("rssi_did",0),
+                  LEShortField("rssi_status",0),
+                  LEShortField("rssi_len",0),
+                    LEIntField("rssi",0),
+                    LEIntField("sq_did",0),
+                  LEShortField("sq_status",0),
+                  LEShortField("sq_len",0),
+                    LEIntField("sq",0),
+                    LEIntField("signal_did",0),
+                  LEShortField("signal_status",0),
+                  LEShortField("signal_len",0),
                     LEIntField("signal",0),
-                    LEIntField("toto1",0),
-                    LEIntField("toto2",0),
+                    LEIntField("noise_did",0),
+                  LEShortField("noise_status",0),
+                  LEShortField("noise_len",0),
                     LEIntField("noise",0),
-                    StrFixedLenField("tit","",36)                    
+                    LEIntField("rate_did",0),
+                  LEShortField("rate_status",0),
+                  LEShortField("rate_len",0),
+                    LEIntField("rate",0),
+                    LEIntField("istx_did",0),
+                  LEShortField("istx_status",0),
+                  LEShortField("istx_len",0),
+                    LEIntField("istx",0),
+                    LEIntField("frmlen_did",0),
+                  LEShortField("frmlen_status",0),
+                  LEShortField("frmlen_len",0),
+                    LEIntField("frmlen",0),
                     ]
+
 
 
 class HSRP(Packet):
