@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.0.41  2005/10/05 11:14:57  pbi
+# - modified Packet.__iter__ to also evaluate random defaults fields
+#
 # Revision 1.0.0.40  2005/10/05 11:11:56  pbi
 # - filtered more characters for LaTeX in ps/pdf dump
 # - removed character that has magically appeared in DHCP_am
@@ -985,7 +988,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.0.40 2005/10/05 11:11:56 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.0.41 2005/10/05 11:14:57 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -3907,7 +3910,9 @@ class Packet(Gen):
                         yield pkt
                     else:
                         yield pkt/payl
-        return loop(map(lambda x:str(x), self.fields.keys()), {})
+        todo = map(lambda (x,y):x, filter(lambda (x,y):isinstance(y,RandField), self.default_fields.items()))
+        todo += self.fields.keys()
+        return loop(map(lambda x:str(x), todo), {})
 
     def send(self, s, slp=0):
         for p in self:
