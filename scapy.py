@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.0.37  2005/10/05 11:01:20  pbi
+# - more tests in DHCP_am.make_reply() to handle garbage in
+#
 # Revision 1.0.0.36  2005/09/24 14:37:51  pbi
 # - added a "padding" option to TracerouteResult.graph() to show routers that pad
 #
@@ -968,7 +971,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.0.36 2005/09/24 14:37:51 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.0.37 2005/10/05 11:01:20 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -8615,7 +8618,12 @@ class DHCP_am(BOOTP_am):
         dhcprespmap={"\x01":"\x02","\x03":"\x05"}
         resp = BOOTP_am.make_reply(self, req)
         opt = req.getlayer(BOOTP).options
-        resp.getlayer(BOOTP).options = opt[:6]+dhcprespmap[opt[6]]+opt[7:]
+        o = opt[:6]
+        if len(opt) > 6:
+            o += dhcprespmap.get(opt[6],opt[6])
+        if len(opt) > 7:
+            o += opt[7:]
+        resp.getlayer(BOOTP).options = o
 
 
 
