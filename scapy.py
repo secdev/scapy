@@ -21,6 +21,11 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.0.42  2005/10/05 11:28:14  pbi
+# - added RandMAC()
+# - added early support for fuzzing
+# - added fuzz()
+#
 # Revision 1.0.0.41  2005/10/05 11:14:57  pbi
 # - modified Packet.__iter__ to also evaluate random defaults fields
 #
@@ -988,7 +993,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.0.41 2005/10/05 11:14:57 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.0.42 2005/10/05 11:28:14 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1899,7 +1904,25 @@ class RandIP(RandString):
         self.ip = Net(iptemplate)
     def randstr(self):
         return self.ip.choice()
+
+class RandMAC(RandString):
+    def __init__(self, template="*"):
+        template += ":*:*:*:*:*"
+        template = template.split(":")
+        self.mac = ()
+        for i in range(6):
+            if template[i] == "*":
+                v = RandByte()
+            elif "-" in template[i]:
+                x,y = template[i].split("-")
+                v = RandNum(int(x,16), int(y,16))
+            else:
+                v = int(template[i],16)
+            self.mac += (v,)
         
+    def randstr(self):
+        return "%02x:%02x:%02x:%02x:%02x:%02x" % self.mac
+    
 
 
 
@@ -2562,6 +2585,9 @@ class Field:
         return self.name
     def copy(self):
         return copy.deepcopy(self)
+    def randval(self):
+        return {"B":RandByte,"H":RandShort,"I":RandInt, "Q":RandLong}[self.fmt[-1]]()
+
         
 
 
@@ -2586,6 +2612,8 @@ class MACField(Field):
         return x
     def i2repr(self, pkt, x):
         return self.i2h(pkt, x)
+    def randval(self):
+        return RandMAC()
 
 class DestMACField(MACField):
     def __init__(self, name):
@@ -2708,6 +2736,8 @@ class IPField(Field):
         return self.h2i(pkt,x)
     def i2repr(self, pkt, x):
         return self.i2h(pkt, x)
+    def randval(self):
+        return RandIP()
 
 class SourceIPField(IPField):
     def __init__(self, name, dstname):
@@ -2810,6 +2840,8 @@ class StrField(Field):
             return "",self.m2i(pkt, s)
         else:
             return s[-self.remain:],self.m2i(pkt, s[:-self.remain])
+    def randval(self):
+        return RandBin(RandNum(0,1200))
 
 class PacketField(StrField):
     def __init__(self, name, default, cls):
@@ -2848,6 +2880,8 @@ class StrFixedLenField(StrField):
         return s[self.length:], self.m2i(pkt,s[:self.length])
     def addfield(self, pkt, s, val):
         return s+struct.pack("%is"%self.length,self.i2m(pkt, val))
+    def randval(self):
+        return RandBin(self.length)
 
 class NetBIOSNameField(StrFixedLenField):
     def __init__(self, name, default, length=31):
@@ -2963,6 +2997,8 @@ class StrNullField(StrField):
             #XXX \x00 not found
             return "",s
         return s[l+1:],self.m2i(pkt, s[:l])
+    def randval(self):
+        return RandTermString(RandNum(0,1200),"\x00")
 
 class StrStopField(StrField):
     def __init__(self, name, default, stop, additionnal=0):
@@ -2976,6 +3012,8 @@ class StrStopField(StrField):
 #            raise Exception,"StrStopField: stop value [%s] not found" %stop
         l += len(self.stop)+self.additionnal
         return s[l:],s[:l]
+    def randval(self):
+        return RandTermString(RandNum(0,1200),self.stop)
 
 class LenField(Field):
     def i2m(self, pkt, x):
@@ -3041,6 +3079,8 @@ class BitField(Field):
             return (s,bn),b
         else:
             return s,b
+    def randval(self):
+        return RandNum(0,2**self.size-1)
 
 class XBitField(BitField):
     def i2repr(self, pkt, x):
@@ -3149,6 +3189,8 @@ class IPoptionsField(StrField):
             warning("bad ihl (%i). Assuming ihl=5"%pkt.ihl)
             opsz = 0
         return s[opsz:],s[:opsz]
+    def randval(self):
+        return RandBin(RandNum(0,39))
 
 
 TCPOptions = (
@@ -3225,6 +3267,8 @@ class TCPOptionsField(StrField):
                     continue
             opt += chr(onum)+chr(2+len(oval))+oval
         return opt+"\x00"*(3-((len(opt)+3)%4))
+    def randval(self):
+        return [] # XXX
     
 
 class DNSStrField(StrField):
@@ -8793,6 +8837,21 @@ class ARP_am(AnsweringMachine):
 
     def sniff(self):
         sniff(iface=self.iface, **self.optsniff)
+
+
+#############
+## Fuzzing ##
+#############
+
+
+def fuzz(p):
+    p = q = p.copy()
+    while not isinstance(q, NoPayload):
+        for f in q.fields_desc:
+            if f.default is not None:
+                q.default_fields[f] = f.randval()
+        q = q.payload
+    return p
 
 
 
