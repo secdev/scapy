@@ -21,6 +21,13 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.0.38  2005/10/05 11:06:51  pbi
+# - overloaded RandFields repr() to give the class name
+# - added RandLong()
+# - added RandBin() to be RandString() for all chars
+# - added RandTermString()
+# - added RandIP default template to be "0/0"
+#
 # Revision 1.0.0.37  2005/10/05 11:01:20  pbi
 # - more tests in DHCP_am.make_reply() to handle garbage in
 #
@@ -971,7 +978,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.0.37 2005/10/05 11:01:20 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.0.38 2005/10/05 11:06:51 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1817,7 +1824,8 @@ else:
 ####################
 
 class RandField:
-    pass
+    def __repr__(self):
+        return "<%s>" % self.__class__.__name__
 
 class RandNum(RandField):
     min = 0
@@ -1845,6 +1853,11 @@ class RandInt(RandNum):
         # and 2147483647+1 is longint. (random module limitation)
         RandNum.__init__(self, 0, 2147483646)
 
+class RandLong(RandNum):
+    def __init__(self):
+        RandNum.__init__(self, 0, 2L**64-1)
+
+
 class RandString(RandField):
     def __init__(self, size, chars="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"):
         self.chars = chars
@@ -1857,8 +1870,22 @@ class RandString(RandField):
     def __getattr__(self, attr):
         return getattr(self.randstr(), attr)
 
+class RandBin(RandString):
+    def __init__(self, size):
+        RandString.__init__(self, size, "".join(map(chr,range(256))))
+
+
+class RandTermString(RandString):
+    def __init__(self, size, term):
+        RandString.__init__(self, size, "".join(map(chr,range(1,256))))
+        self.term = term
+    def randstr(self):
+        return RandString.randstr(self)+self.term
+    
+    
+
 class RandIP(RandString):
-    def __init__(self, iptemplate):
+    def __init__(self, iptemplate="0/0"):
         self.ip = Net(iptemplate)
     def randstr(self):
         return self.ip.choice()
