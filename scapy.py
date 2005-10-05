@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.0.40  2005/10/05 11:11:56  pbi
+# - filtered more characters for LaTeX in ps/pdf dump
+# - removed character that has magically appeared in DHCP_am
+#
 # Revision 1.0.0.39  2005/10/05 11:08:32  pbi
 # - fixed StrFixedLenField.addfield()
 #
@@ -981,7 +985,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.0.39 2005/10/05 11:08:32 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.0.40 2005/10/05 11:11:56 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -3695,7 +3699,7 @@ class Packet(Gen):
             return " ".join(s)
 
         def escape(x):
-            return sane(x).translate(string.maketrans(r"\&%$#_^","......."))
+            return sane(x).translate(string.maketrans(r"\&%$#_^{}","........."))
                 
         def make_dump_txt(x,y,txt):
             return pyx.text.text(XDSTART+x*XMUL, (YDUMP-y)*YMUL, r"\tt{%s}"%hexstr(txt), [pyx.text.size.Large])
@@ -8640,7 +8644,7 @@ class DHCP_am(BOOTP_am):
     function_name="dhcpd"
     def is_request(self, req):
         if not BOOTP_am.is_request(self, req):
-            return 02
+            return 0
         if req.getlayer(BOOTP).options[:4] != "'c\x82Sc":
             return 0
         return 1
