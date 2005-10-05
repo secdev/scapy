@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.0.43  2005/10/05 11:51:33  pbi
+# - added nofilter option to supersockets to handle ethertype filtering for non-linux stuff
+#   and for ARP resolution to bypass conf.except_filter
+#
 # Revision 1.0.0.42  2005/10/05 11:28:14  pbi
 # - added RandMAC()
 # - added early support for fuzzing
@@ -993,7 +997,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.0.42 2005/10/05 11:28:14 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.0.43 2005/10/05 11:51:33 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1826,7 +1830,8 @@ else:
                   type=ETH_P_ARP,
                   iface = iff,
                   timeout=2,
-                  verbose=0)
+                  verbose=0,
+                  nofilter=1)
         if res is not None:
             mac = res.payload.hwsrc
             arp_cache[ip] = (mac,time.time())
@@ -6864,17 +6869,18 @@ class L3RawSocket(SuperSocket):
 
 
 class L3PacketSocket(SuperSocket):
-    def __init__(self, type = ETH_P_ALL, filter=None, promisc=None, iface=None):
+    def __init__(self, type = ETH_P_ALL, filter=None, promisc=None, iface=None, nofilter=0):
         self.type = type
         self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))
         self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 0)
-        if conf.except_filter:
-            if filter:
-                filter = "(%s) and not (%s)" % (filter, conf.except_filter)
-            else:
-                filter = "not (%s)" % conf.except_filter
-        if filter is not None:
-            attach_filter(self.ins, filter)
+        if not nofilter:
+            if conf.except_filter:
+                if filter:
+                    filter = "(%s) and not (%s)" % (filter, conf.except_filter)
+                else:
+                    filter = "not (%s)" % conf.except_filter
+            if filter is not None:
+                attach_filter(self.ins, filter)
         self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 2**30)
         self.outs = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))
         self.outs.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 2**30)
@@ -6942,12 +6948,12 @@ class L3PacketSocket(SuperSocket):
 
 
 class L2Socket(SuperSocket):
-    def __init__(self, iface = None, type = ETH_P_ALL, filter=None):
+    def __init__(self, iface = None, type = ETH_P_ALL, filter=None, nofilter=0):
         if iface is None:
             iface = conf.iface
         self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))
         self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 0)
-        if type == ETH_P_ALL: # Do not apply any filter if Ethernet type is given
+        if not nofilter: 
             if conf.except_filter:
                 if filter:
                     filter = "(%s) and not (%s)" % (filter, conf.except_filter)
@@ -6983,14 +6989,14 @@ class L2Socket(SuperSocket):
 
 
 class L2ListenSocket(SuperSocket):
-    def __init__(self, iface = None, type = ETH_P_ALL, promisc=None, filter=None):
+    def __init__(self, iface = None, type = ETH_P_ALL, promisc=None, filter=None, nofilter=0):
         self.type = type
         self.outs = None
         self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))
         self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 0)
         if iface is not None:
             self.ins.bind((iface, type))
-        if type == ETH_P_ALL: # Do not apply any filter if Ethernet type is given
+        if not nofilter:
             if conf.except_filter:
                 if filter:
                     filter = "(%s) and not (%s)" % (filter, conf.except_filter)
@@ -7042,7 +7048,7 @@ class L2ListenSocket(SuperSocket):
 
 
 class L3dnetSocket(SuperSocket):
-    def __init__(self, type = None, filter=None, promisc=None, iface=None):
+    def __init__(self, type = ETH_P_ALL, filter=None, promisc=None, iface=None, nofilter=0):
         self.iflist = {}
         self.ins = pcap.pcapObject()
         if iface is None:
@@ -7054,11 +7060,22 @@ class L3dnetSocket(SuperSocket):
             ioctl(self.ins.fileno(),BIOCIMMEDIATE,struct.pack("I",1))
         except:
             pass
-        if conf.except_filter:
-            if filter:
-                filter = "(%s) and not (%s)" % (filter, conf.except_filter)
+        if nofilter:
+            if type != ETH_P_ALL:  # PF_PACKET stuff. Need to emulate this for pcap
+                filter = "ether proto %i" % type
             else:
-                filter = "not (%s)" % conf.except_filter
+                filter = None
+        else:
+            if conf.except_filter:
+                if filter:
+                    filter = "(%s) and not (%s)" % (filter, conf.except_filter)
+                else:
+                    filter = "not (%s)" % conf.except_filter
+            if type != ETH_P_ALL:  # PF_PACKET stuff. Need to emulate this for pcap
+                if filter:
+                    filter = "(ether proto %i) and (%s)" % (type,filter)
+                else:
+                    filter = "ether proto %i" % type
         if filter:
             self.ins.setfilter(filter, 0, 0)
     def send(self, x):
@@ -7097,7 +7114,7 @@ class L3dnetSocket(SuperSocket):
             del(self.outs)
 
 class L2dnetSocket(SuperSocket):
-    def __init__(self, iface = None, type = ETH_P_ALL, filter=None):
+    def __init__(self, iface = None, type = ETH_P_ALL, filter=None, nofilter=0):
         if iface is None:
             iface = conf.iface
         self.iface = iface
@@ -7108,14 +7125,24 @@ class L2dnetSocket(SuperSocket):
             ioctl(self.ins.fileno(),BIOCIMMEDIATE,struct.pack("I",1))
         except:
             pass
-        if type == ETH_P_ALL: # Do not apply any filter if Ethernet type is given
+        if nofilter:
+            if type != ETH_P_ALL:  # PF_PACKET stuff. Need to emulate this for pcap
+                filter = "ether proto %i" % type
+            else:
+                filter = None
+        else:
             if conf.except_filter:
                 if filter:
                     filter = "(%s) and not (%s)" % (filter, conf.except_filter)
                 else:
                     filter = "not (%s)" % conf.except_filter
-            if filter:
-                self.ins.setfilter(filter, 0, 0)
+            if type != ETH_P_ALL:  # PF_PACKET stuff. Need to emulate this for pcap
+                if filter:
+                    filter = "(ether proto %i) and (%s)" % (type,filter)
+                else:
+                    filter = "ether proto %i" % type
+        if filter:
+            self.ins.setfilter(filter, 0, 0)
         self.outs = dnet.eth(iface)
     def recv(self,x):
         ll = self.ins.datalink()
@@ -7407,11 +7434,11 @@ def sr(x,filter=None, iface=None, *args,**kargs):
     s.close()
     return a,b
 
-def sr1(x,filter=None,iface=None, *args,**kargs):
+def sr1(x,filter=None,iface=None, nofilter=0, *args,**kargs):
     """Send packets at layer 3 and return only the first answer"""
     if not kargs.has_key("timeout"):
         kargs["timeout"] = -1
-    s=conf.L3socket(filter=filter, iface=iface)
+    s=conf.L3socket(filter=filter, nofilter=nofilter, iface=iface)
     a,b,c=sndrcv(s,x,*args,**kargs)
     s.close()
     if len(a) > 0:
@@ -7419,13 +7446,13 @@ def sr1(x,filter=None,iface=None, *args,**kargs):
     else:
         return None
 
-def srp(x,iface=None, iface_hint=None, filter=None,type=ETH_P_ALL, *args,**kargs):
+def srp(x,iface=None, iface_hint=None, filter=None, nofilter=0, type=ETH_P_ALL, *args,**kargs):
     """Send and receive packets at layer 2"""
     if not kargs.has_key("timeout"):
         kargs["timeout"] = -1
     if iface is None and iface_hint is not None:
         iface = conf.route.route(iface_hint)[0]
-    a,b,c=sndrcv(conf.L2socket(iface=iface, filter=filter, type=type),x,*args,**kargs)
+    a,b,c=sndrcv(conf.L2socket(iface=iface, filter=filter, nofilter=nofilter, type=type),x,*args,**kargs)
     return a,b
 
 def srp1(*args,**kargs):
