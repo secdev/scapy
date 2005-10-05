@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.0.39  2005/10/05 11:08:32  pbi
+# - fixed StrFixedLenField.addfield()
+#
 # Revision 1.0.0.38  2005/10/05 11:06:51  pbi
 # - overloaded RandFields repr() to give the class name
 # - added RandLong()
@@ -978,7 +981,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.0.38 2005/10/05 11:06:51 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.0.39 2005/10/05 11:08:32 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2837,7 +2840,7 @@ class StrFixedLenField(StrField):
     def getfield(self, pkt, s):
         return s[self.length:], self.m2i(pkt,s[:self.length])
     def addfield(self, pkt, s, val):
-        return s+struct.pack("%ss"%self.length,self.i2m(pkt, val))
+        return s+struct.pack("%is"%self.length,self.i2m(pkt, val))
 
 class NetBIOSNameField(StrFixedLenField):
     def __init__(self, name, default, length=31):
