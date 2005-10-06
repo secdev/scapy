@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.0.44  2005/10/06 11:44:48  pbi
+# - worked arround (I hope) all FreeBSD/MacOS/pcap issues (look at pcap_get_selectable_fd() note of pcap8 manpage).
+#   Thus no more active waits or unseen packets. Still problems to interrupt a capture with ^C on some FreeBSD kernels :(
+#
 # Revision 1.0.0.43  2005/10/05 11:51:33  pbi
 # - added nofilter option to supersockets to handle ethertype filtering for non-linux stuff
 #   and for ARP resolution to bypass conf.except_filter
@@ -997,7 +1001,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.0.43 2005/10/05 11:51:33 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.0.44 2005/10/06 11:44:48 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1090,6 +1094,8 @@ except ImportError:
 
 LINUX=sys.platform.startswith("linux")
 OPENBSD=sys.platform.startswith("openbsd")
+FREEBSD=sys.platform.startswith("freebsd")
+DARWIN=sys.platform.startswith("darwin")
 BIG_ENDIAN= struct.pack("H",1) == "\x00\x01"
 
 
@@ -7055,7 +7061,6 @@ class L3dnetSocket(SuperSocket):
             iface = conf.iface
         self.iface = iface
         self.ins.open_live(iface, 1600, 0, 100)
-        self.ins.setnonblock(1)
         try:
             ioctl(self.ins.fileno(),BIOCIMMEDIATE,struct.pack("I",1))
         except:
@@ -7087,7 +7092,7 @@ class L3dnetSocket(SuperSocket):
         if ifs is None:
             self.iflist[iff] = ifs = dnet.eth(iff)
         ifs.send(str(Ether()/x))
-    def recv(self,x):
+    def recv(self,x=MTU):
         ll = self.ins.datalink()
         if LLTypes.has_key(ll):
             cls = LLTypes[ll]
@@ -7095,10 +7100,9 @@ class L3dnetSocket(SuperSocket):
             warning("Unable to guess datalink type (interface=%s linktype=%i). Using Ethernet" % (self.iface, ll))
             cls = Ether
 
-        pkt = None
-        while pkt is None:  ## This fix a probable bug in libpcap/wrapper, that returns None while there is no read timeout
-            pkt = self.ins.next()
-        pkt = pkt[1]
+        pkt = self.ins.next()[1]
+        if pkt is None:
+            return
 
         try:
             pkt = cls(pkt)
@@ -7107,6 +7111,13 @@ class L3dnetSocket(SuperSocket):
                 raise
             pkt = Raw(pkt)
         return pkt.payload
+
+    def nonblock_recv(self):
+        self.ins.setnonblock(1)
+        p = self.recv()
+        self.ins.setnonblock(0)
+        return p
+
     def close(self):
         if hasattr(self, "ins"):
             del(self.ins)
@@ -7120,7 +7131,6 @@ class L2dnetSocket(SuperSocket):
         self.iface = iface
         self.ins = pcap.pcapObject()
         self.ins.open_live(iface, 1600, 0, 100)
-        self.ins.setnonblock(1)
         try:
             ioctl(self.ins.fileno(),BIOCIMMEDIATE,struct.pack("I",1))
         except:
@@ -7152,10 +7162,9 @@ class L2dnetSocket(SuperSocket):
             warning("Unable to guess datalink type (interface=%s linktype=%i). Using Ethernet" % (self.iface, ll))
             cls = Ether
 
-        pkt = None
-        while pkt is None:  ## This fix a probable bug in libpcap/wrapper, that returns None while there is no read timeout
-            pkt = self.ins.next()
-        pkt = pkt[1]
+        pkt = self.ins.next()[1]
+        if pkt is None:
+            return
         
         try:
             pkt = cls(pkt)
@@ -7165,6 +7174,11 @@ class L2dnetSocket(SuperSocket):
             pkt = Raw(pkt)
         return pkt
 
+    def nonblock_recv(self):
+        self.ins.setnonblock(1)
+        p = self.recv(MTU)
+        self.ins.setnonblock(0)
+        return p
 
     def close(self):
         if hasattr(self, "ins"):
@@ -7188,7 +7202,6 @@ class L2pcapListenSocket(SuperSocket):
             promisc = conf.sniff_promisc
         self.promisc = promisc
         self.ins.open_live(iface, 1600, self.promisc, 100)
-        self.ins.setnonblock(1)
         try:
             ioctl(self.ins.fileno(),BIOCIMMEDIATE,struct.pack("I",1))
         except:
@@ -7214,9 +7227,8 @@ class L2pcapListenSocket(SuperSocket):
             cls = Ether
 
         pkt = None
-        while pkt is None:  ## This fix a probable bug in libpcap/wrapper, that returns None while there is no read timeout
-            pkt = self.ins.next()
-        pkt = pkt[1]
+        while pkt is None:
+            pkt = self.ins.next()[1]
         
         try:
             pkt = cls(pkt)
@@ -7324,20 +7336,32 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0,retry=0):
             log_runtime.error("fork error")
         else:
             wrpipe.close()
-            finished = 0
-            remaintime = timeout
+            stoptime = 0
+            remaintime = None
             inmask = [rdpipe,pks]
             try:
                 while 1:
-                    start = time.time()
-                    inp, out, err = select(inmask,[],[], remaintime)
-                    if len(inp) == 0:
-                        break
+                    if stoptime:
+                        remaintime = stoptime-time.time()
+                        if remaintime <= 0:
+                            break
+                    r = None
+                    if FREEBSD or DARWIN:
+                        inp, out, err = select(inmask,[],[], 0.05)
+                        if len(inp) == 0 or pks in inp:
+                            r = pks.nonblock_recv()
+                    else:
+                        inp, out, err = select(inmask,[],[], remaintime)
+                        if len(inp) == 0:
+                            break
+                        if pks in inp:
+                            r = pks.recv(MTU)
                     if rdpipe in inp:
-                        finished = 1
+                        if timeout:
+                            stoptime = time.time()+timeout
                         del(inmask[inmask.index(rdpipe)])
+                    if r is None:
                         continue
-                    r = pks.recv(MTU)
                     ok = 0
                     h = r.hashret()
                     if h in hsent:
@@ -7359,11 +7383,6 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0,retry=0):
                         nbrecv += 1
                         if conf.debug_match:
                             debug.recv.append(r)
-                    if finished and remaintime:
-                        end = time.time()
-                        remaintime -= end-start
-                        if remaintime < 0:
-                            break
             except KeyboardInterrupt:
                 if chainCC:
                     raise KeyboardInterrupt
