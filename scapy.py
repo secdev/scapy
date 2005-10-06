@@ -21,6 +21,13 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.0.46  2005/10/06 12:44:51  pbi
+# - added route.get_if_bcast() to get interface's broadcast address (F. Raynal)
+# - added a check in getmacbyip() to give a broadcast MAC for a broadcast IP
+# - added sndrcv() (thus sr*() family)  "multi" parameter to accept many answers
+#   from one stimulus. (If stimulus uses a broadcast dst address, you'll need
+#   to set conf.checkIPaddr=0)
+#
 # Revision 1.0.0.45  2005/10/06 12:03:46  pbi
 # - changed sys.exit() into os._exit() in sndrcv() to prevent children to flush files buffers
 #   that would be written a second time by the parent (SJ Murdoch)
@@ -1005,7 +1012,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.0.45 2005/10/06 12:03:46 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.0.46 2005/10/06 12:44:51 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1583,7 +1590,12 @@ class Route:
         pathes.sort()
         return pathes[-1][1] 
             
-
+    def get_if_bcast(self, iff):
+        for net, msk, gw, iface, addr in self.routes:
+            if (iff == iface and net != 0L):
+                bcast = atol(addr)|(~msk&0xffffffffL); # FIXME: check error in atol()
+                return ltoa(bcast);
+        warning("No broadcast address found for iface %s\n" % iff);
 
 if DNET:
     def get_if_raw_hwaddr(iff):
@@ -1826,7 +1838,7 @@ if 0 and DNET: ## XXX Can't use this because it does not resolve IPs not in cach
 else:
     def getmacbyip(ip):
         iff,a,gw = conf.route.route(ip)
-        if iff == "lo":
+        if ( (iff == "lo") or (ip == conf.route.get_if_bcast(iff)) ):
             return "ff:ff:ff:ff:ff:ff"
         if gw != "0.0.0.0":
             ip = gw
@@ -7270,7 +7282,7 @@ class BluetoothSocket(SuperSocket):
 
 
 
-def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0,retry=0):
+def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0, retry=0, multi=0):
     if not isinstance(pkt, Gen):
         pkt = SetGen(pkt)
         
@@ -7302,7 +7314,6 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0,retry=0):
     while retry >= 0:
         found=0
     
-        
         if timeout < 0:
             timeout = None
             
@@ -7375,11 +7386,16 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0,retry=0):
                                 ans.append((hlst[i],r))
                                 if verbose > 1:
                                     os.write(1, "*")
-                                ok = 1
-                                notans -= 1
-                                del(hlst[i])
+                                ok = 1                                
+                                if not multi:
+                                    del(hlst[i])
+                                    notans -= 1;
+                                else:
+                                    if not hasattr(hlst[i], '_answered'):
+                                        notans -= 1;
+                                    hlst[i]._answered = 1;
                                 break
-                    if notans == 0:
+                    if notans == 0 and not multi:
                         break
                     if not ok:
                         if verbose > 1:
@@ -7400,6 +7416,9 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0,retry=0):
                 os.waitpid(pid,0)
     
         remain = reduce(list.__add__, hsent.values(), [])
+        if multi:
+            remain = filter(lambda p: not hasattr(p, '_answered'), remain);
+            
         if autostop and len(remain) > 0 and len(remain) != len(tobesent):
             retry = autostop
             
@@ -7411,6 +7430,13 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0,retry=0):
     if conf.debug_match:
         debug.sent=PacketList(remain[:],"Sent")
         debug.match=SndRcvList(ans[:])
+
+    #clean the ans list to delete the field _answered
+    if (multi):
+        for s,r in ans:
+            if hasattr(s, '_answered'):
+                del(s._answered)
+    
     if verbose:
         print "\nReceived %i packets, got %i answers, remaining %i packets" % (nbrecv+len(ans), len(ans), notans)
     return SndRcvList(ans),PacketList(remain,"Unanswered"),debug.recv
