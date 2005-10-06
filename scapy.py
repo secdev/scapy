@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.0.45  2005/10/06 12:03:46  pbi
+# - changed sys.exit() into os._exit() in sndrcv() to prevent children to flush files buffers
+#   that would be written a second time by the parent (SJ Murdoch)
+#
 # Revision 1.0.0.44  2005/10/06 11:44:48  pbi
 # - worked arround (I hope) all FreeBSD/MacOS/pcap issues (look at pcap_get_selectable_fd() note of pcap8 manpage).
 #   Thus no more active waits or unseen packets. Still problems to interrupt a capture with ^C on some FreeBSD kernels :(
@@ -1001,7 +1005,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.0.44 2005/10/06 11:44:48 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.0.45 2005/10/06 12:03:46 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -7327,11 +7331,11 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0,retry=0):
             except:
                 log_runtime.exception("--- Error in child %i" % os.getpid())
                 log_runtime.info("--- Error in child %i" % os.getpid())
-                sys.exit()
+                os._exit(0)
             else:
                 cPickle.dump(arp_cache, wrpipe)
                 wrpipe.close()
-            sys.exit()
+            os._exit(0)
         elif pid < 0:
             log_runtime.error("fork error")
         else:
