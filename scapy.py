@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.0.47  2005/10/06 12:57:25  pbi
+# - fixed MAC addresses calculation when IP is a Gen() instance (G. Valadon)
+#
 # Revision 1.0.0.46  2005/10/06 12:44:51  pbi
 # - added route.get_if_bcast() to get interface's broadcast address (F. Raynal)
 # - added a check in getmacbyip() to give a broadcast MAC for a broadcast IP
@@ -1012,7 +1015,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.0.46 2005/10/06 12:44:51 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.0.47 2005/10/06 12:57:25 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2653,15 +2656,12 @@ class DestMACField(MACField):
             elif isinstance(pkt.payload, ARP):
                 dstip = pkt.payload.pdst
             if isinstance(dstip, Gen):
-                warning("Dest mac not calculated if more than 1 dest IP (%s)"%repr(dstip))
-                return None
-            x = "ff:ff:ff:ff:ff:ff"
+                dstip = dstip.__iter__().next()
             if dstip is not None:
-                m=getmacbyip(dstip)
-                if m:
-                    x = m
-                else:
-                    warning("Mac address for %s not found\n"%dstip)
+                x=getmacbyip(dstip)
+                if x is None:
+                    x = "ff:ff:ff:ff:ff:ff"
+                    warning("Mac address to reach %s not found\n"%dstip)
         return MACField.i2h(self, pkt, x)
     def i2m(self, pkt, x):
         return MACField.i2m(self, pkt, self.i2h(pkt, x))
@@ -2677,14 +2677,12 @@ class SourceMACField(MACField):
             elif isinstance(pkt.payload, ARP):
                 dstip = pkt.payload.pdst
             if isinstance(dstip, Gen):
-                warning("Source mac not calculated if more than 1 dest IP (%s)"%repr(dstip))
-                return None
-            x = "00:00:00:00:00:00"
+                dstip = dstip.__iter__().next()
             if dstip is not None:
                 iff,a,gw = conf.route.route(dstip)
-                m = get_if_hwaddr(iff)
-                if m:
-                    x = m
+                x = get_if_hwaddr(iff)
+                if x is None:
+                    x = "00:00:00:00:00:00"
         return MACField.i2h(self, pkt, x)
     def i2m(self, pkt, x):
         return MACField.i2m(self, pkt, self.i2h(pkt, x))
@@ -2696,14 +2694,12 @@ class ARPSourceMACField(MACField):
         if x is None:
             dstip = pkt.pdst
             if isinstance(dstip, Gen):
-                warning("Source mac not calculated if more than 1 dest IP (%s)"%repr(dstip))
-                return None
-            x = "00:00:00:00:00:00"
+                dstip = dstip.__iter__().next()
             if dstip is not None:
                 iff,a,gw = conf.route.route(dstip)
-                m = get_if_hwaddr(iff)
-                if m:
-                    x = m
+                x = get_if_hwaddr(iff)
+                if x is None:
+                    x = "00:00:00:00:00:00"
         return MACField.i2h(self, pkt, x)
     def i2m(self, pkt, x):
         return MACField.i2m(self, pkt, self.i2h(pkt, x))
