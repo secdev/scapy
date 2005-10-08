@@ -21,6 +21,11 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.0.51  2005/10/08 20:52:45  pbi
+# - added StreamSocket supersocket to emulate a datagram socket on a stream
+#   socket that supports MSG_PEEK and whose base layer class knows its own size
+#   and put the remaining in Padding()
+#
 # Revision 1.0.0.50  2005/10/08 12:46:56  pbi
 # - remove useless routes in netstat -rn output (P. Lalet)
 #
@@ -1024,7 +1029,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.0.50 2005/10/08 12:46:56 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.0.51 2005/10/08 20:52:45 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -7282,7 +7287,28 @@ class L2pcapListenSocket(SuperSocket):
 class SimpleSocket(SuperSocket):
     def __init__(self, sock):
         self.ins = sock
+        self.outs = sock
 
+
+class StreamSocket(SimpleSocket):
+    def __init__(self, sock, basecls=Raw):
+        SimpleSocket.__init__(self, sock)
+        self.basecls = basecls
+        
+    def recv(self, x=MTU):
+        pkt = self.ins.recv(x, socket.MSG_PEEK)
+        x = len(pkt)
+        pkt = self.basecls(pkt)
+        pad = pkt[Padding]
+        if pad is not None and pad.underlayer is not None:
+            del(pad.underlayer.payload)
+        while pad is not None and not isinstance(pad, NoPayload):
+            x -= len(pad.load)
+            pad = pad.payload
+        self.ins.recv(x)
+        return pkt
+        
+        
 class BluetoothSocket(SuperSocket):
     def __init__(self, peer):
         s = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_RAW,
