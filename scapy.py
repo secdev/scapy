@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.0.49  2005/10/08 12:41:23  pbi
+# - fixed netmask calculations (P. Lalet)
+#
 # Revision 1.0.0.48  2005/10/08 11:21:28  pbi
 # - use color for packet numbering in nsummary() et al.
 #
@@ -1018,7 +1021,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.0.48 2005/10/08 11:21:28 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.0.49 2005/10/08 12:41:23 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1377,6 +1380,8 @@ def atol(x):
 def ltoa(x):
     return socket.inet_ntoa(struct.pack("I", x))
 
+def itom(x):
+    return socket.ntohl((0xffffffff00000000L>>x)&0xffffffffL)
 
 def do_graph(graph,type="svg",target="| display"):
     """do_graph(graph, type="svg",target="| display"):
@@ -1513,7 +1518,7 @@ class Route:
             dev,ifaddr,x = self.route(nhop)
         else:
             ifaddr = get_if_addr(dev)
-        return (atol(thenet),(1L<<msk)-1, gw, dev, ifaddr)
+        return (atol(thenet), itom(msk), gw, dev, ifaddr)
 
     def add(self, *args, **kargs):
         """Ex:
@@ -1532,7 +1537,7 @@ class Route:
              
     def ifchange(self, iff, addr):
         the_addr,the_msk = (addr.split("/")+["32"])[:2]
-        the_msk = (1L << int(the_msk))-1
+        the_msk = itom(int(the_msk))
         the_rawaddr, = struct.unpack("I",inet_aton(the_addr))
         the_net = the_rawaddr & the_msk
         
@@ -1559,7 +1564,7 @@ class Route:
         
     def ifadd(self, iff, addr):
         the_addr,the_msk = (addr.split("/")+["32"])[:2]
-        the_msk = (1L << int(the_msk))-1
+        the_msk = itom(int(the_msk))
         the_rawaddr, = struct.unpack("I",inet_aton(the_addr))
         the_net = the_rawaddr & the_msk
         self.routes.append((the_net,the_msk,'0.0.0.0',iff,the_addr))
@@ -1730,9 +1735,9 @@ if not LINUX:
             else:
                 if "/" in dest:
                     dest,netmask = dest.split("/")
-                    netmask = (1L << int(netmask))-1
+                    netmask = itom(int(netmask))
                 else:
-                    netmask = (1L << ((dest.count(".")+1)*8))-1
+                    netmask = itom((dest.count(".") + 1) * 8)
                 dest += ".0"*(3-dest.count("."))
                 dest, = struct.unpack("I",inet_aton(dest))
             if not "G" in fl:
