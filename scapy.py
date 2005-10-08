@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.0.48  2005/10/08 11:21:28  pbi
+# - use color for packet numbering in nsummary() et al.
+#
 # Revision 1.0.0.47  2005/10/06 12:57:25  pbi
 # - fixed MAC addresses calculation when IP is a Gen() instance (G. Valadon)
 #
@@ -1015,7 +1018,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.0.47 2005/10/06 12:57:25 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.0.48 2005/10/08 11:21:28 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2105,10 +2108,13 @@ class PacketList:
             if filter is not None:
                 if not filter(self.res[i]):
                     continue
+            print "%s%04i%s" % (conf.color_theme.id,
+                                i,
+                                conf.color_theme.normal),
             if prn is None:
-                print "%04i %s" % (i,self._elt2sum(self.res[i]))
+                print self._elt2sum(self.res[i])
             else:
-                print "%04i %s" % (i,prn(self.res[i]))
+                print prn(self.res[i])
     def display(self): # Deprecated. Use show()
         self.show()
     def show(self):
@@ -2137,7 +2143,10 @@ class PacketList:
     def hexraw(self):
         for i in range(len(self.res)):
             p = self._elt2pkt(self.res[i])
-            print "%04i %s %s" % (i,p.sprintf("%.time%"),self._elt2sum(self.res[i]))
+            print "%s%04i%s %s %s" % (conf.color_theme.id,
+                                      i,
+                                      conf.color_theme.normal,
+                                      p.sprintf("%.time%"),self._elt2sum(self.res[i]))
             if p.haslayer(Raw):
                 hexdump(p.getlayer(Raw).load)
 
@@ -2146,7 +2155,10 @@ class PacketList:
             p = self._elt2pkt(self.res[i])
             if p.haslayer(Padding):
                 if not filter or filter(p):
-                    print "%04i %s %s" % (i,p.sprintf("%.time%"),self._elt2sum(self.res[i]))
+                    print "%s%04i%s %s %s" % (conf.color_theme.id,
+                                              i,
+                                              conf.color_theme.normal,
+                                              p.sprintf("%.time%"),self._elt2sum(self.res[i]))
                     hexdump(p.getlayer(Padding).load)
 
     def nzpadding(self, filter=None):
@@ -2157,7 +2169,10 @@ class PacketList:
                 if pad == "\x00"*len(pad):
                     continue
                 if not filter or filter(p):
-                    print "%04i %s %s" % (i,p.sprintf("%.time%"),self._elt2sum(self.res[i]))
+                    print "%s%04i%s %s %s" % (conf.color_theme.id,
+                                              i,
+                                              conf.color_theme.normal,
+                                              p.sprintf("%.time%"),self._elt2sum(self.res[i]))
                     hexdump(p.getlayer(Padding).load)
         
 
@@ -9241,6 +9256,7 @@ class ColorTheme:
     normal = ""
     prompt = ""
     punct = ""
+    id = ""
     not_printable = ""
     layer_name = ""
     field_name = ""
@@ -9265,6 +9281,7 @@ class DefaultTheme(ColorTheme):
     normal = Color.normal
     prompt = Color.blue+Color.bold
     punct = Color.normal
+    id = Color.blue+Color.bold
     not_printable = Color.grey
     layer_name = Color.red+Color.bold
     field_name = Color.blue
@@ -9285,6 +9302,7 @@ class DefaultTheme(ColorTheme):
 class BrightTheme(ColorTheme):
     normal = Color.normal
     punct = Color.normal
+    id = Color.yellow+Color.bold
     layer_name = Color.red+Color.bold
     field_name = Color.yellow+Color.bold
     field_value = Color.purple+Color.bold
@@ -9303,6 +9321,7 @@ class RastaTheme(ColorTheme):
     normal = Color.green+Color.bold
     prompt = Color.yellow+Color.bold
     punct = Color.red
+    id = Color.green+Color.bold
     not_printable = Color.green
     layer_name = Color.red+Color.bold
     field_name = Color.yellow+Color.bold
