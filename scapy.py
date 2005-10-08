@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.0.50  2005/10/08 12:46:56  pbi
+# - remove useless routes in netstat -rn output (P. Lalet)
+#
 # Revision 1.0.0.49  2005/10/08 12:41:23  pbi
 # - fixed netmask calculations (P. Lalet)
 #
@@ -1021,7 +1024,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.0.49 2005/10/08 12:41:23 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.0.50 2005/10/08 12:46:56 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1729,6 +1732,8 @@ if not LINUX:
                 dest,gw,fl,ref,use,mtu,netif = l.split()[:7]
             else:
                 dest,gw,fl,ref,use,netif = l.split()[:6]
+            if fl.find("Lc") >= 0:
+                continue                
             if dest == "default":
                 dest = 0L
                 netmask = 0L
