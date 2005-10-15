@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.0.52  2005/10/15 13:17:18  pbi
+# - AutoTime() and IntAutoTime() classes that give a field a time dependant value
+# - PacketList.timeskew_graph() should work on SndRcvList()
+#
 # Revision 1.0.0.51  2005/10/08 20:52:45  pbi
 # - added StreamSocket supersocket to emulate a datagram socket on a stream
 #   socket that supports MSG_PEEK and whose base layer class knows its own size
@@ -1029,7 +1033,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.0.51 2005/10/08 20:52:45 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.0.52 2005/10/15 13:17:18 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1972,6 +1976,25 @@ class RandMAC(RandString):
         return "%02x:%02x:%02x:%02x:%02x:%02x" % self.mac
     
 
+# Automatic timestamp
+
+class AutoTime(RandField):
+    def __init__(self, base=None):
+        if base == None:
+            self.diff = 0
+        else:
+            self.diff = time.time()-base
+    def current_val(self):
+        return time.time()-self.diff
+    def __getattr__(self, attr):
+        return getattr(self.current_val(), attr)
+        
+            
+class IntAutoTime(AutoTime):
+    def current_val(self):
+        return int(AutoTime.current_val(self))
+    
+    
 
 
 ################
@@ -2214,13 +2237,17 @@ class PacketList:
         do_graph(gr, **kargs)
         
     def timeskew_graph(self, ip, **kargs):
-        b = filter(lambda x:x.haslayer(IP) and x.getlayer(IP).src == ip and x.haslayer(TCP), self.res)
+        res = map(lambda x: self._elt2pkt(x), self.res)
+        b = filter(lambda x:x.haslayer(IP) and x.getlayer(IP).src == ip and x.haslayer(TCP), res)
         c = []
         for p in b:
             opts = p.getlayer(TCP).options
             for o in opts:
                 if o[0] == "Timestamp":
                     c.append((p.time,o[1][0]))
+        if not c:
+            warning("No timestamps found in packet list")
+            return
         d = map(lambda (x,y): (x%2000,((x-c[0][0])-((y-c[0][1])/1000.0))),c)
         g = Gnuplot.Gnuplot()
         g.plot(Gnuplot.Data(d,**kargs))
