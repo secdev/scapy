@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.0.53  2005/10/17 16:03:36  pbi
+# - uniformized to "lfilter" the paramter name for lambda expressions used as filters
+# - removed a superfluous line in crc32()
+#
 # Revision 1.0.0.52  2005/10/15 13:17:18  pbi
 # - AutoTime() and IntAutoTime() classes that give a field a time dependant value
 # - PacketList.timeskew_graph() should work on SndRcvList()
@@ -1033,7 +1037,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.0.52 2005/10/15 13:17:18 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.0.53 2005/10/17 16:03:36 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1351,7 +1355,6 @@ def crc32(crc, x):
         crc ^= ord(c)
         for i in range(8):
             if crc & 1:
-                crc
                 y = CRCPOLY
             else:
                 y = 0
@@ -2132,19 +2135,19 @@ class PacketList:
     def __add__(self, other):
         return self.__class__(self.res+other.res,
                               name="%s+%s"%(self.listname,other.listname))
-    def summary(self, prn=None, filter=None):
+    def summary(self, prn=None, lfilter=None):
         for r in self.res:
-            if filter is not None:
-                if not filter(r):
+            if lfilter is not None:
+                if not lfilter(r):
                     continue
             if prn is None:
                 print self._elt2sum(r)
             else:
                 print prn(r)
-    def nsummary(self,prn=None, filter=None):
+    def nsummary(self,prn=None, lfilter=None):
         for i in range(len(self.res)):
-            if filter is not None:
-                if not filter(self.res[i]):
+            if lfilter is not None:
+                if not lfilter(self.res[i]):
                     continue
             print "%s%04i%s" % (conf.color_theme.id,
                                 i,
@@ -2155,9 +2158,8 @@ class PacketList:
                 print prn(self.res[i])
     def display(self): # Deprecated. Use show()
         self.show()
-    def show(self):
-        for i in range(len(self.res)):
-            print "%04i %s" % (i,self._elt2show(self.res[i]))
+    def show(self, *args, **kargs):
+        return self.nsummary(*args, **kargs)
     
     def filter(self, func):
         return self.__class__(filter(func,self.res),
@@ -2169,18 +2171,23 @@ class PacketList:
     def make_tex_table(self, *args, **kargs):
         return make_tex_table(self.res, *args, **kargs)
 
-    def plot(self, f, **kargs):
+    def plot(self, f, lfilter=None,**kargs):
         g=Gnuplot.Gnuplot()
-        g.plot(Gnuplot.Data(map(f,self.res), **kargs))
+        l = map(f,self.res)
+        if lfilter is not None:
+            l = filter(lfilter, l)
+        g.plot(Gnuplot.Data(l, **kargs))
         return g
 
     def hexdump(self):
         for p in self:
             hexdump(self._elt2pkt(p))
 
-    def hexraw(self):
+    def hexraw(self, lfilter=None):
         for i in range(len(self.res)):
             p = self._elt2pkt(self.res[i])
+            if lfilter is not None and not lfilter(p):
+                continue
             print "%s%04i%s %s %s" % (conf.color_theme.id,
                                       i,
                                       conf.color_theme.normal,
@@ -2188,25 +2195,25 @@ class PacketList:
             if p.haslayer(Raw):
                 hexdump(p.getlayer(Raw).load)
 
-    def padding(self, filter=None):
+    def padding(self, lfilter=None):
         for i in range(len(self.res)):
             p = self._elt2pkt(self.res[i])
             if p.haslayer(Padding):
-                if not filter or filter(p):
+                if lfilter is None or lfilter(p):
                     print "%s%04i%s %s %s" % (conf.color_theme.id,
                                               i,
                                               conf.color_theme.normal,
                                               p.sprintf("%.time%"),self._elt2sum(self.res[i]))
                     hexdump(p.getlayer(Padding).load)
 
-    def nzpadding(self, filter=None):
+    def nzpadding(self, lfilter=None):
         for i in range(len(self.res)):
             p = self._elt2pkt(self.res[i])
             if p.haslayer(Padding):
                 pad = p.getlayer(Padding).load
                 if pad == "\x00"*len(pad):
                     continue
-                if not filter or filter(p):
+                if lfilter is None or lfilter(p):
                     print "%s%04i%s %s %s" % (conf.color_theme.id,
                                               i,
                                               conf.color_theme.normal,
