@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.0.60  2005/10/23 18:20:30  pbi
+# - PacketList.sr() return ( (matched couples), (unmatched packets) ) from the packet list
+#
 # Revision 1.0.0.59  2005/10/23 17:15:34  pbi
 # - added layer_shift option to every p{s|df}dump() method to explode hexa dump by layers
 #
@@ -1057,7 +1060,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.0.59 2005/10/23 17:15:34 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.0.60 2005/10/23 18:20:30 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2317,6 +2320,35 @@ class PacketList:
         else:
             d.writePDFfile(filename)
         print
+
+    def sr(self,multi=0):
+        """sr([multi=1]) -> (SndRcvList, PacketList)
+        match packets in the list and return ( (matched couples), (unmatched packets) )"""
+        remain = self.res[:]
+        sr = []
+        i = 0
+        while i < len(remain):
+            s = remain[i]
+            j = i
+            while j < len(remain)-1:
+                j += 1
+                r = remain[j]
+                if r.answers(s):
+                    sr.append((s,r))
+                    if multi:
+                        remain[i]._answered=1
+                        remain[j]._answered=2
+                        continue
+                    del(remain[j])
+                    del(remain[i])
+                    i -= 1
+                    break
+            i += 1
+            print i, len(remain)
+        if multi:
+            remain = filter(lambda x:not hasattr(x,"_answered"), remain)
+        return SndRcvList(sr),PacketList(remain)
+        
 
 
         
