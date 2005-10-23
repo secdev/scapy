@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.0.57  2005/10/23 17:07:59  pbi
+# - split bind_layers() into bind_top_down() and bind_bottom_up()
+#
 # Revision 1.0.0.56  2005/10/23 16:57:26  pbi
 # - fixed dissection errors exception management when conf.debug_dissector is true
 #
@@ -1048,7 +1051,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.0.56 2005/10/23 16:57:26 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.0.57 2005/10/23 17:07:59 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -6728,15 +6731,20 @@ class MobileIPTunnelData(Packet):
 #################
 ## Bind layers ##
 #################
+
+
+def bind_bottom_up(lower, upper, fval):
+    lower.payload_guess = lower.payload_guess[:]
+    lower.payload_guess.append((fval, upper))
     
 
-def bind_layers(lower, upper, fval):
-    lower.payload_guess = lower.payload_guess[:]
+def bind_top_down(lower, upper, fval):
     upper.overload_fields = upper.overload_fields.copy()
-    lower.payload_guess.append((fval, upper))
     upper.overload_fields[lower] = fval
     
-    
+def bind_layers(lower, upper, fval):
+    bind_top_down(lower, upper, fval)
+    bind_bottom_up(lower, upper, fval)
 
 layer_bonds = [ ( Dot3,   LLC,      { } ),
                 ( GPRS,   IP,       { } ),
