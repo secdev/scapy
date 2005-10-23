@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.0.58  2005/10/23 17:09:29  pbi
+# - return a loopback route when no default route is present. XXX: linux specific!
+#
 # Revision 1.0.0.57  2005/10/23 17:07:59  pbi
 # - split bind_layers() into bind_top_down() and bind_bottom_up()
 #
@@ -1051,7 +1054,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.0.57 2005/10/23 17:07:59 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.0.58 2005/10/23 17:09:29 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1624,7 +1627,8 @@ class Route:
             if (dst & m) == (d & m):
                 pathes.append((m,(i,a,gw)))
         if not pathes:
-            raise Exception("no route found")
+            warning("No route found (no default route?)")
+            return "lo","0.0.0.0","0.0.0.0" #XXX linux specific!
         # Choose the more specific route (greatest netmask).
         # XXX: we don't care about metrics
         pathes.sort()
