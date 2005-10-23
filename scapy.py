@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.0.55  2005/10/23 16:56:00  pbi
+# - made MACField's default value to be "00:00:00:00:00:00"
+# - fixed DestMACField's default value to be "ff:ff:ff:ff:ff:ff"
+#
 # Revision 1.0.0.54  2005/10/23 16:54:00  pbi
 # - fixed Field.randval() to work with string formats and modifiers
 # - fixed fuzz() not to overload default value if field's proposed randval is None
@@ -1041,7 +1045,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.0.54 2005/10/23 16:54:00 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.0.55 2005/10/23 16:56:00 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2712,6 +2716,8 @@ class MACField(Field):
     def __init__(self, name, default):
         Field.__init__(self, name, default, "6s")
     def i2m(self, pkt, x):
+        if x is None:
+            x="00:00:00:00:00:00"
         return mac2str(x)
     def m2i(self, pkt, x):
         return str2mac(x)
@@ -2739,8 +2745,9 @@ class DestMACField(MACField):
             if dstip is not None:
                 x=getmacbyip(dstip)
                 if x is None:
-                    x = "ff:ff:ff:ff:ff:ff"
                     warning("Mac address to reach %s not found\n"%dstip)
+            if x is None:
+                x = "ff:ff:ff:ff:ff:ff"
         return MACField.i2h(self, pkt, x)
     def i2m(self, pkt, x):
         return MACField.i2m(self, pkt, self.i2h(pkt, x))
