@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.0.54  2005/10/23 16:54:00  pbi
+# - fixed Field.randval() to work with string formats and modifiers
+# - fixed fuzz() not to overload default value if field's proposed randval is None
+#
 # Revision 1.0.0.53  2005/10/17 16:03:36  pbi
 # - uniformized to "lfilter" the paramter name for lambda expressions used as filters
 # - removed a superfluous line in crc32()
@@ -1037,7 +1041,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.0.53 2005/10/17 16:03:36 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.0.54 2005/10/23 16:54:00 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2680,7 +2684,18 @@ class Field:
     def copy(self):
         return copy.deepcopy(self)
     def randval(self):
-        return {"B":RandByte,"H":RandShort,"I":RandInt, "Q":RandLong}[self.fmt[-1]]()
+        fmtt = self.fmt[-1]
+        if fmtt in "BHIQ":
+            return {"B":RandByte,"H":RandShort,"I":RandInt, "Q":RandLong}[fmtt]()
+        elif fmtt == "s":
+            if self.fmt[0] in "0123456789":
+                l = int(self.fmt[:-1])
+            else:
+                l = int(self.fmt[1:-1])
+            return RandBin(l)
+        else:
+            warning("no random class for [%s] (fmt=%s)." % (self.name, self.fmt))
+            
 
         
 
@@ -9006,7 +9021,9 @@ def fuzz(p):
     while not isinstance(q, NoPayload):
         for f in q.fields_desc:
             if f.default is not None:
-                q.default_fields[f] = f.randval()
+                rnd = f.randval()
+                if rnd is not None:
+                    q.default_fields[f] = rnd
         q = q.payload
     return p
 
