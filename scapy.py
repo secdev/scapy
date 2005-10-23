@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.0.59  2005/10/23 17:15:34  pbi
+# - added layer_shift option to every p{s|df}dump() method to explode hexa dump by layers
+#
 # Revision 1.0.0.58  2005/10/23 17:09:29  pbi
 # - return a loopback route when no default route is present. XXX: linux specific!
 #
@@ -1054,7 +1057,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.0.58 2005/10/23 17:09:29 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.0.59 2005/10/23 17:15:34 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2278,12 +2281,12 @@ class PacketList:
         g.plot(Gnuplot.Data(d,**kargs))
         return g
         
-    def _dump_document(self):
+    def _dump_document(self, **kargs):
         d = pyx.document.document()
         l = len(self.res)
         for i in range(len(self.res)):
             elt = self.res[i]
-            c = self._elt2pkt(elt).canvas_dump()
+            c = self._elt2pkt(elt).canvas_dump(**kargs)
             cbb = c.bbox()
             c.text(cbb.left(),cbb.top()+1,r"\font\cmssfont=cmss12\cmssfont{Frame %i/%i}" % (i,l),[pyx.text.size.LARGE])
             if conf.verb >= 2:
@@ -2295,8 +2298,8 @@ class PacketList:
                      
                  
 
-    def psdump(self, filename = None):
-        d = self._dump_document()
+    def psdump(self, filename = None, **kargs):
+        d = self._dump_document(**kargs)
         if filename is None:
             filename = "/tmp/scapy.psd.%i" % os.getpid()
             d.writePSfile(filename)
@@ -2305,8 +2308,8 @@ class PacketList:
             d.writePSfile(filename)
         print
         
-    def pdfdump(self, filename = None):
-        d = self._dump_document()
+    def pdfdump(self, filename = None, **kargs):
+        d = self._dump_document(**kargs)
         if filename is None:
             filename = "/tmp/scapy.psd.%i" % os.getpid()
             d.writePDFfile(filename)
@@ -3809,8 +3812,8 @@ class Packet(Gen):
         return p,lst
 
 
-    def psdump(self, filename=None):
-        canvas = self.canvas_dump()
+    def psdump(self, filename=None, **kargs):
+        canvas = self.canvas_dump(**kargs)
         if filename is None:
             fname = "/tmp/scapy.%i"%os.getpid()
             canvas.writeEPSfile(fname)
@@ -3818,8 +3821,8 @@ class Packet(Gen):
         else:
             canvas.writeEPSfile(filename)
 
-    def pdfdump(self, filename=None):
-        canvas = self.canvas_dump()
+    def pdfdump(self, filename=None, **kargs):
+        canvas = self.canvas_dump(**kargs)
         if filename is None:
             fname = "/tmp/scapy.%i"%os.getpid()
             canvas.writePDFfile(fname)
@@ -3828,7 +3831,7 @@ class Packet(Gen):
             canvas.writePDFfile(filename)
 
         
-    def canvas_dump(self):
+    def canvas_dump(self, layer_shift=0):
         canvas = pyx.canvas.canvas()
         p,t = self.__class__(str(self)).build_ps()
         YTXT=len(t)
@@ -3932,7 +3935,7 @@ class Packet(Gen):
             return c, tlist[-1].bbox(), shift, y
                             
 
-        last_shift,last_y=0,0
+        last_shift,last_y=0,0.0
         while t:
             bkcol = backcolor.next()
             proto,fields = t.pop()
@@ -3976,7 +3979,8 @@ class Packet(Gen):
                 
                 canvas.insert(ft)
                 canvas.insert(vt)
-                
+            last_y += layer_shift
+    
         return canvas
 
 
