@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.0.56  2005/10/23 16:57:26  pbi
+# - fixed dissection errors exception management when conf.debug_dissector is true
+#
 # Revision 1.0.0.55  2005/10/23 16:56:00  pbi
 # - made MACField's default value to be "00:00:00:00:00:00"
 # - fixed DestMACField's default value to be "ff:ff:ff:ff:ff:ff"
@@ -1045,7 +1048,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.0.55 2005/10/23 16:56:00 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.0.56 2005/10/23 16:57:26 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -3997,13 +4000,14 @@ class Packet(Gen):
             try:
                 p = cls(s, _internal=1)
             except:
-                if conf.debug_dissector and issubclass(cls,Packet):
-                    log_runtime.error("%s dissector failed" % cls.name)
-                    raise
-                else:
-                    if conf.debug_dissector:
-                        log_runtime.warning("%s.guess_payload_class() returned [%s]" % (self.__class__.__name__,repr(cls)))
-                    p = Raw(s, _internal=1)
+                if conf.debug_dissector:
+                    if type(cls) is type and issubclass(cls,Packet):
+                        log_runtime.error("%s dissector failed" % cls.name)
+                    else:
+                        log_runtime.error("%s.guess_payload_class() returned [%s]" % (self.__class__.__name__,repr(cls)))
+                    if cls is not None:
+                        raise
+                p = Raw(s, _internal=1)
             self.add_payload(p)
 
     def dissect(self, s):
