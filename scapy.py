@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.1.1  2005/10/25 07:49:35  pbi
+# Release 1.0.1
+#
 # Revision 1.0.0.61  2005/10/25 07:48:48  pbi
 # - added rebuild option to Packet.p{s|df}dump() to dump a packet as-is
 #
@@ -1063,7 +1066,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.0.61 2005/10/25 07:48:48 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.1.1 2005/10/25 07:49:35 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
