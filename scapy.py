@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.0.61  2005/10/25 07:48:48  pbi
+# - added rebuild option to Packet.p{s|df}dump() to dump a packet as-is
+#
 # Revision 1.0.0.60  2005/10/23 18:20:30  pbi
 # - PacketList.sr() return ( (matched couples), (unmatched packets) ) from the packet list
 #
@@ -1060,7 +1063,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.0.60 2005/10/23 18:20:30 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.0.61 2005/10/25 07:48:48 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -3863,9 +3866,12 @@ class Packet(Gen):
             canvas.writePDFfile(filename)
 
         
-    def canvas_dump(self, layer_shift=0):
+    def canvas_dump(self, layer_shift=0, rebuild=1):
         canvas = pyx.canvas.canvas()
-        p,t = self.__class__(str(self)).build_ps()
+        if rebuild:
+            p,t = self.__class__(str(self)).build_ps()
+        else:
+            p,t = self.build_ps()
         YTXT=len(t)
         for n,l in t:
             YTXT += len(l)
