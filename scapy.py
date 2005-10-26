@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.1.2  2005/10/26 16:15:06  pbi
+# - added CharEnumField()
+# - declared s2i and i2s in EnumField before calling superclass' contructor
+#
 # Revision 1.0.1.1  2005/10/25 07:49:35  pbi
 # Release 1.0.1
 #
@@ -1066,7 +1070,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.1.1 2005/10/25 07:49:35 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.1.2 2005/10/26 16:15:06 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -3249,9 +3253,9 @@ class XBitField(BitField):
 
 class EnumField(Field):
     def __init__(self, name, default, enum, fmt = "H"):
-        Field.__init__(self, name, default, fmt)
         i2s = self.i2s = {}
         s2i = self.s2i = {}
+        Field.__init__(self, name, default, fmt)
         if type(enum) is list:
             keys = xrange(len(enum))
         else:
@@ -3268,6 +3272,16 @@ class EnumField(Field):
     def i2repr(self, pkt, x):
         return self.i2s.get(x, repr(x))
 
+class CharEnumField(EnumField):
+    def __init__(self, name, default, enum, fmt = "1s"):
+        EnumField.__init__(self, name, default, enum, fmt)
+        k = self.i2s.keys()
+        if k and len(k[0]) != 1:
+            self.i2s,self.s2i = self.s2i,self.i2s
+    def any2i(self, pkt, x):
+        if len(x) != 1:
+            x = self.s2i[x]
+        return x
 
 class BitEnumField(BitField,EnumField):
     def __init__(self, name, default, size, enum):
