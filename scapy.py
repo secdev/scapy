@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.1.3  2005/10/27 14:59:11  pbi
+# - Changed color themes handling. Now LatexTheme and HTMLTheme are not ugly hacks anymore.
+#
 # Revision 1.0.1.2  2005/10/26 16:15:06  pbi
 # - added CharEnumField()
 # - declared s2i and i2s in EnumField before calling superclass' contructor
@@ -1070,7 +1073,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.1.2 2005/10/26 16:15:06 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.1.3 2005/10/27 14:59:11 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1349,7 +1352,7 @@ def sane(x):
     for i in x:
         j = ord(i)
         if (j < 32) or (j >= 127):
-            r=r+conf.color_theme.not_printable+"."+conf.color_theme.normal
+            r=r+conf.color_theme.not_printable(".")
         else:
             r=r+i
     return r
@@ -2143,24 +2146,19 @@ class PacketList:
             if not f:
                 other += 1
         s = ""
+        ct = conf.color_theme
         for p in stats:
-            s += " %s%s%s:%s%i%s" % (conf.color_theme.packetlist_proto,
-                                     p.name,
-                                     conf.color_theme.punct,
-                                     conf.color_theme.packetlist_value,
-                                     stats[p],
-                                     conf.color_theme.punct)
-        s += " %sOther%s:%s%i%s" % (conf.color_theme.packetlist_proto,conf.color_theme.punct,
-                                    conf.color_theme.packetlist_value,
-                                    other,
-                                    conf.color_theme.punct)
-        return "%s<%s%s%s:%s>%s" % (conf.color_theme.punct,
-                                    conf.color_theme.packetlist_name,
-                                    self.listname,
-                                    conf.color_theme.punct,
-                                    s,
-                                    conf.color_theme.normal,
-                                    )
+            s += " %s%s%s" % (ct.packetlist_proto(p.name),
+                              ct.punct(":"),
+                              ct.packetlist_value(stats[p]))
+        s += " %s%s%s" % (ct.packetlist_proto("Other"),
+                          ct.punct(":"),
+                          ct.packetlist_value(other))
+        return "%s%s%s%s%s" % (ct.punct("<"),
+                               ct.packetlist_name(self.listname),
+                               ct.punct(":"),
+                               s,
+                               ct.punct(">"))
     def __getattr__(self, attr):
         return getattr(self.res, attr)
     def __getslice__(self, *args, **kargs):
@@ -2183,9 +2181,7 @@ class PacketList:
             if lfilter is not None:
                 if not lfilter(self.res[i]):
                     continue
-            print "%s%04i%s" % (conf.color_theme.id,
-                                i,
-                                conf.color_theme.normal),
+            print conf.color_theme.id(i,"%04i"),
             if prn is None:
                 print self._elt2sum(self.res[i])
             else:
@@ -2222,10 +2218,9 @@ class PacketList:
             p = self._elt2pkt(self.res[i])
             if lfilter is not None and not lfilter(p):
                 continue
-            print "%s%04i%s %s %s" % (conf.color_theme.id,
-                                      i,
-                                      conf.color_theme.normal,
-                                      p.sprintf("%.time%"),self._elt2sum(self.res[i]))
+            print "%s %s %s" % (conf.color_theme.id(i,"%04i"),
+                                p.sprintf("%.time%"),
+                                self._elt2sum(self.res[i]))
             if p.haslayer(Raw):
                 hexdump(p.getlayer(Raw).load)
 
@@ -2234,10 +2229,9 @@ class PacketList:
             p = self._elt2pkt(self.res[i])
             if p.haslayer(Padding):
                 if lfilter is None or lfilter(p):
-                    print "%s%04i%s %s %s" % (conf.color_theme.id,
-                                              i,
-                                              conf.color_theme.normal,
-                                              p.sprintf("%.time%"),self._elt2sum(self.res[i]))
+                    print "%s %s %s" % (conf.color_theme.id(i,"%04i"),
+                                        p.sprintf("%.time%"),
+                                        self._elt2sum(self.res[i]))
                     hexdump(p.getlayer(Padding).load)
 
     def nzpadding(self, lfilter=None):
@@ -2248,10 +2242,9 @@ class PacketList:
                 if pad == "\x00"*len(pad):
                     continue
                 if lfilter is None or lfilter(p):
-                    print "%s%04i%s %s %s" % (conf.color_theme.id,
-                                              i,
-                                              conf.color_theme.normal,
-                                              p.sprintf("%.time%"),self._elt2sum(self.res[i]))
+                    print "%s %s %s" % (conf.color_theme.id(i,"%04i"),
+                                        p.sprintf("%.time%"),
+                                        self._elt2sum(self.res[i]))
                     hexdump(p.getlayer(Padding).load)
         
 
@@ -3770,6 +3763,7 @@ class Packet(Gen):
             
     def __repr__(self):
         s = ""
+        ct = conf.color_theme
         for f in self.fields_desc:
             if f in self.fields:
                 val = f.i2repr(self, self.fields[f])
@@ -3778,22 +3772,22 @@ class Packet(Gen):
             else:
                 continue
             if isinstance(f, Emph):
-                ncol = conf.color_theme.emph_field_name
-                vcol = conf.color_theme.emph_field_value
+                ncol = ct.emph_field_name
+                vcol = ct.emph_field_value
             else:
-                ncol = conf.color_theme.field_name
-                vcol = conf.color_theme.field_value
+                ncol = ct.field_name
+                vcol = ct.field_value
 
                 
-            s += " %s%s%s=%s%s%s" % (ncol, f.name, conf.color_theme.punct,
-                                     vcol, val, conf.color_theme.punct)
-        return "%s<%s%s%s%s |%s%s>%s"% (conf.color_theme.punct,
-                                        conf.color_theme.layer_name,
-                                        self.__class__.__name__,
-                                        conf.color_theme.punct,
-                                        s, repr(self.payload),
-                                        conf.color_theme.punct,
-                                        conf.color_theme.normal)
+            s += " %s%s%s" % (ncol(f.name),
+                              ct.punct("="),
+                              vcol(val))
+        return "%s%s %s %s%s%s"% (ct.punct("<"),
+                                  ct.layer_name(self.__class__.__name__),
+                                  s,
+                                  ct.punct("|"),
+                                  repr(self.payload),
+                                  ct.punct(">"))
     def __str__(self):
         return self.__iter__().next().build()
     def __div__(self, other):
@@ -4201,25 +4195,20 @@ class Packet(Gen):
     def display(self,*args,**kargs):  # Deprecated. Use show()
         self.show(*args,**kargs)
     def show(self, lvl=0):
-        print "%s---[ %s%s%s ]---%s" % (conf.color_theme.punct,
-                                    conf.color_theme.layer_name,
-                                    self.name,
-                                    conf.color_theme.punct,
-                                    conf.color_theme.normal)
+        ct = conf.color_theme
+        print "%s %s %s" % (ct.punct("###["),
+                            ct.layer_name(self.name),
+                            ct.punct("]###"))
         for f in self.fields_desc:
             if isinstance(f, Emph):
-                ncol = conf.color_theme.emph_field_name
-                vcol = conf.color_theme.emph_field_value
+                ncol = ct.emph_field_name
+                vcol = ct.emph_field_value
             else:
-                ncol = conf.color_theme.field_name
-                vcol = conf.color_theme.field_value
-            print "%s%s%-10s%s= %s%s%s" % ("   "*lvl,
-                                           ncol,
-                                           f.name,
-                                           conf.color_theme.punct,
-                                           vcol,
-                                           f.i2repr(self,self.__getattr__(f)),
-                                           conf.color_theme.normal)
+                ncol = ct.field_name
+                vcol = ct.field_value
+            print "  %-10s%s %s" % (ncol(f.name),
+                                    ct.punct("="),
+                                    vcol(f.i2repr(self,self.__getattr__(f))))
         self.payload.display(lvl+1)
 
     def show2(self):
@@ -7693,39 +7682,34 @@ def srp1(*args,**kargs):
 def __sr_loop(srfunc, pkts, prn=lambda x:x[1].summary(), prnfail=lambda x:x.summary(), inter=1, timeout=0, count=None, verbose=0,  *args, **kargs):
     n = 0
     r = 0
+    ct = conf.color_theme
     parity = 0
     if timeout == 0:
         timeout = min(2*inter, 5)
     try:
         while 1:
             parity ^= 1
-            col = [conf.color_theme.even,conf.color_theme.odd][parity]
+            col = [ct.even,ct.odd][parity]
             if count is not None:
                 if count == 0:
                     break
                 count -= 1
             start = time.time()
-            print "\r%ssend...\r" % Color.normal,
+            print "\rsend...\r",
             res = srfunc(pkts, timeout=timeout, verbose=0, chainCC=1, *args, **kargs)
             n += len(res[0])+len(res[1])
             r += len(res[0])
             if prn and len(res[0]) > 0:
                 msg = "RECV %i:" % len(res[0])
-                print  "\r%s%s%s%s%s" % (Color.normal,
-                                         conf.color_theme.success,
-                                         msg,
-                                         conf.color_theme.normal,col),
+                print  "\r"+ct.success(msg),
                 for p in res[0]:
-                    print prn(p)
+                    print col(prn(p))
                     print " "*len(msg),
             if prnfail and len(res[1]) > 0:
                 msg = "fail %i:" % len(res[1])
-                print "\r%s%s%s%s%s" % (Color.normal,
-                                        conf.color_theme.fail,
-                                        msg,
-                                        conf.color_theme.normal,col),
+                print "\r"+ct.fail(msg),
                 for p in res[1]:
-                    print prnfail(p)
+                    print col(prnfail(p))
                     print " "*len(msg),
             if not (prn or prnfail):
                 print "recv:%i  fail:%i" % tuple(map(len, res[:2]))
@@ -9422,137 +9406,167 @@ class Color:
         
 
 class ColorTheme:
-    normal = ""
-    prompt = ""
-    punct = ""
-    id = ""
-    not_printable = ""
-    layer_name = ""
-    field_name = ""
-    field_value = ""
-    emph_field_name = ""
-    emph_field_value = ""
-    packetlist_name = ""
-    packetlist_proto = ""
-    packetlist_value = ""
-    fail = ""
-    success = ""
-    odd = ""
-    even = ""
-    opening = ""
-    active = ""
-    closed = ""
-
-class BlackAndWhite(ColorTheme):
     pass
 
-class DefaultTheme(ColorTheme):
-    normal = Color.normal
-    prompt = Color.blue+Color.bold
-    punct = Color.normal
-    id = Color.blue+Color.bold
-    not_printable = Color.grey
-    layer_name = Color.red+Color.bold
-    field_name = Color.blue
-    field_value = Color.purple
-    emph_field_name = Color.blue+Color.uline+Color.bold
-    emph_field_value = Color.purple+Color.uline+Color.bold
-    packetlist_name = Color.red+Color.bold
-    packetlist_proto = Color.blue
-    packetlist_value = Color.purple
-    fail = Color.red+Color.bold
-    success = Color.blue+Color.bold
-    even = Color.black+Color.bold
-    odd = Color.black
-    opening = Color.yellow
-    active = Color.black
-    closed = Color.grey
+
+class AnsiColorTheme(ColorTheme):
+    def __getattr__(self, attr):
+        s = "style_%s" % attr 
+        if s in self.__class__.__dict__:
+            before = getattr(self, s)
+            after = self.style_normal
+        else:
+            before = after = ""
+
+        def do_style(val, fmt=None, before=before, after=after):
+            if fmt is None:
+                if type(val) is not str:
+                    val = str(val)
+            else:
+                val = fmt % val
+            return before+val+after
+        return do_style
+        
+        
+    style_normal = ""
+    style_prompt = ""
+    style_punct = ""
+    style_id = ""
+    style_not_printable = ""
+    style_layer_name = ""
+    style_field_name = ""
+    style_field_value = ""
+    style_emph_field_name = ""
+    style_emph_field_value = ""
+    style_packetlist_name = ""
+    style_packetlist_proto = ""
+    style_packetlist_value = ""
+    style_fail = ""
+    style_success = ""
+    style_odd = ""
+    style_even = ""
+    style_opening = ""
+    style_active = ""
+    style_closed = ""
+
+class BlackAndWhite(AnsiColorTheme):
+    pass
+
+class DefaultTheme(AnsiColorTheme):
+    style_normal = Color.normal
+    style_prompt = Color.blue+Color.bold
+    style_punct = Color.normal
+    style_id = Color.blue+Color.bold
+    style_not_printable = Color.grey
+    style_layer_name = Color.red+Color.bold
+    style_field_name = Color.blue
+    style_field_value = Color.purple
+    style_emph_field_name = Color.blue+Color.uline+Color.bold
+    style_emph_field_value = Color.purple+Color.uline+Color.bold
+    style_packetlist_name = Color.red+Color.bold
+    style_packetlist_proto = Color.blue
+    style_packetlist_value = Color.purple
+    style_fail = Color.red+Color.bold
+    style_success = Color.blue+Color.bold
+    style_even = Color.black+Color.bold
+    style_odd = Color.black
+    style_opening = Color.yellow
+    style_active = Color.black
+    style_closed = Color.grey
     
-class BrightTheme(ColorTheme):
-    normal = Color.normal
-    punct = Color.normal
-    id = Color.yellow+Color.bold
-    layer_name = Color.red+Color.bold
-    field_name = Color.yellow+Color.bold
-    field_value = Color.purple+Color.bold
-    emph_field_name = Color.yellow+Color.bold
-    emph_field_value = Color.green+Color.bold
-    packetlist_name = Color.red+Color.bold
-    packetlist_proto = Color.yellow+Color.bold
-    packetlist_value = Color.purple+Color.bold
-    fail = Color.red+Color.bold
-    success = Color.blue+Color.bold
-    even = Color.black+Color.bold
-    odd = Color.black
+class BrightTheme(AnsiColorTheme):
+    style_normal = Color.normal
+    style_punct = Color.normal
+    style_id = Color.yellow+Color.bold
+    style_layer_name = Color.red+Color.bold
+    style_field_name = Color.yellow+Color.bold
+    style_field_value = Color.purple+Color.bold
+    style_emph_field_name = Color.yellow+Color.bold
+    style_emph_field_value = Color.green+Color.bold
+    style_packetlist_name = Color.red+Color.bold
+    style_packetlist_proto = Color.yellow+Color.bold
+    style_packetlist_value = Color.purple+Color.bold
+    style_fail = Color.red+Color.bold
+    style_success = Color.blue+Color.bold
+    style_even = Color.black+Color.bold
+    style_odd = Color.black
 
 
-class RastaTheme(ColorTheme):
-    normal = Color.green+Color.bold
-    prompt = Color.yellow+Color.bold
-    punct = Color.red
-    id = Color.green+Color.bold
-    not_printable = Color.green
-    layer_name = Color.red+Color.bold
-    field_name = Color.yellow+Color.bold
-    field_value = Color.green+Color.bold
-    emph_field_name = Color.green
-    emph_field_value = Color.green
-    packetlist_name = Color.red+Color.bold
-    packetlist_proto = Color.yellow+Color.bold
-    packetlist_value = Color.green+Color.bold
-    fail = Color.red
-    success = Color.red+Color.bold
-    even = Color.yellow
-    odd = Color.green
+class RastaTheme(AnsiColorTheme):
+    style_normal = Color.green+Color.bold
+    style_prompt = Color.yellow+Color.bold
+    style_punct = Color.red
+    style_id = Color.green+Color.bold
+    style_not_printable = Color.green
+    style_layer_name = Color.red+Color.bold
+    style_field_name = Color.yellow+Color.bold
+    style_field_value = Color.green+Color.bold
+    style_emph_field_name = Color.green
+    style_emph_field_value = Color.green
+    style_packetlist_name = Color.red+Color.bold
+    style_packetlist_proto = Color.yellow+Color.bold
+    style_packetlist_value = Color.green+Color.bold
+    style_fail = Color.red
+    style_success = Color.red+Color.bold
+    style_even = Color.yellow
+    style_odd = Color.green
 
 
-class LatexTheme(ColorTheme):
-    normal = ""
-#    prompt = r"}\textcolor{blue}{\bf "
-    prompt = ""
-    punct = "}{"
-    not_printable = r"}\textcolor{grey}{"
-    layer_name = r"}\textcolor{red}{\bf "
-    field_name = r"}\textcolor{blue}{"
-    field_value = r"}\textcolor{purple}{"
-    emph_field_name = r"}\textcolor{blue}{\underline{" #ul
-    emph_field_value = r"}\textcolor{purple}{\underline{" #ul
-    packetlist_name = r"}\textcolor{red}{\bf "
-    packetlist_proto = r"}\textcolor{blue}{"
-    packetlist_value = r"}\textcolor{purple}{"
-    fail = r"}\textcolor{red}{\bf "
-    success = r"}\textcolor{blue}{\bf "
-    even = r"}{\bf "
-    odd = "}{"
+class FormatTheme(ColorTheme):
+    def __getattr__(self, attr):
+        col = self.__class__.__dict__.get("style_%s" % attr, "%s")
+        def do_style(val, fmt=None, col=col):
+            if fmt is None:
+                if type(val) is not str:
+                    val = str(val)
+            else:
+                val = fmt % val
+            return col % val
+        return do_style
+        
 
-class HTMLTheme(ColorTheme):
-    normal = ""
-#    prompt = r"</span><span class=prompt>"
-    prompt = ""
-    punct = "</span><span>"
-    not_printable = r"</span><span class=not_printable>"
-    layer_name = r"</span><span class=layer_name>"
-    field_name = r"</span><span class=field_name>"
-    field_value = r"</span><span class=field_value>"
-    emph_field_name = r"</span><span class=emph_field_name>"
-    emph_field_value = r"</span><span class=emph_field_value>"
-    packetlist_name = r"</span><span class=packetlist_name>"
-    packetlist_proto = r"</span><span class=packetlist_proto>"
-    packetlist_value = r"</span><span class=packetlist_value>"
-    fail = r"</span><span class=fail>"
-    success = r"</span><span class=success>"
-    even = r"</span><span class=even>"
-    odd = "</span><span class=odd>"
+class LatexTheme(FormatTheme):
+    style_prompt = r"\textcolor{blue}{%s}"
+    style_not_printable = r"\textcolor{grey}{%s}"
+    style_layer_name = r"\textcolor{red}{%s}"
+    style_field_name = r"\textcolor{blue}{%s}"
+    style_field_value = r"\textcolor{purple}{%s}"
+    style_emph_field_name = r"\textcolor{blue}{\underline{%s}}" #ul
+    style_emph_field_value = r"\textcolor{purple}{\underline{%s}}" #ul
+    style_packetlist_name = r"\textcolor{red}{\bf %s}"
+    style_packetlist_proto = r"\textcolor{blue}{%s}"
+    style_packetlist_value = r"\textcolor{purple}{%s}"
+    style_fail = r"\textcolor{red}{\bf %s}"
+    style_success = r"\textcolor{blue}{\bf %s}"
+#    style_even = r"}{\bf "
+#    style_odd = ""
+
+class HTMLTheme(FormatTheme):
+    style_prompt = "<span class=prompt>%s</span>"
+    style_not_printable = "<span class=not_printable>%s</span>"
+    style_layer_name = "<span class=layer_name>%s</span>"
+    style_field_name = "<span class=field_name>%s</span>"
+    style_field_value = "<span class=field_value>%s</span>"
+    style_emph_field_name = "<span class=emph_field_name>%s</span>"
+    style_emph_field_value = "<span class=emph_field_value>%s</span>"
+    style_packetlist_name = "<span class=packetlist_name>%s</span>"
+    style_packetlist_proto = "<span class=packetlist_proto>%s</span>"
+    style_packetlist_value = "<span class=packetlist_value>%s</span>"
+    style_fail = "<span class=fail>%s</span>"
+    style_success = "<span class=success>%s</span>"
+    style_even = "<span class=even>%s</span>"
+    style_odd = "<span class=odd>%s</span>"
 
 
 class ColorPrompt:
     __prompt = ">>> "
     def __str__(self):
-        ## ^A and ^B delimit invisible caracters for readline to count right
-        return "\001%s%s\002%s\001%s\002" % (conf.color_theme.normal,  #reset attributes
-                                             conf.color_theme.prompt,
-                                             conf.prompt,
-                                             conf.color_theme.normal)
+        ct = conf.color_theme
+        if isinstance(ct, AnsiColorTheme):
+            ## ^A and ^B delimit invisible caracters for readline to count right
+            return "\001%s\002" % ct.prompt("\002"+conf.prompt+"\001")
+        else:
+            return ct.prompt(conf.prompt)
 
 ############
 ## Config ##
@@ -9627,7 +9641,7 @@ warning_threshold : how much time between warnings from the same place
     route = Route()
     wepkey = ""
     debug_dissector = 0
-    color_theme = DefaultTheme
+    color_theme = DefaultTheme()
     warning_threshold = 5
         
 
@@ -9659,7 +9673,7 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=1):
 
     logging.getLogger("scapy").setLevel(loglevel)
 
-    the_banner = "%sWelcome to Scapy (%s)"
+    the_banner = "Welcome to Scapy (%s)"
     if mybanner is not None:
         the_banner += "\n"
         the_banner += mybanner
@@ -9785,7 +9799,7 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=1):
             pass
 
     sys.ps1 = ColorPrompt()
-    code.interact(banner = the_banner% (conf.color_theme.normal,VERSION), local=session)
+    code.interact(banner = the_banner % (VERSION), local=session)
 
     if conf.session:
         save_session(conf.session, session)
