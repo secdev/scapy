@@ -21,6 +21,11 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.1.4  2005/10/27 15:12:32  pbi
+# - created VolatileValue class to handle volatile values like RandomField
+# - redesigned inheritence of random fields arround VolatileValue
+# - added DelayedEval() volatile value
+#
 # Revision 1.0.1.3  2005/10/27 14:59:11  pbi
 # - Changed color themes handling. Now LatexTheme and HTMLTheme are not ugly hacks anymore.
 #
@@ -1073,7 +1078,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.1.3 2005/10/27 14:59:11 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.1.4 2005/10/27 15:12:32 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1930,9 +1935,18 @@ else:
 ## Random numbers ##
 ####################
 
-class RandField:
+class VolatileValue:
     def __repr__(self):
         return "<%s>" % self.__class__.__name__
+    def __getattr__(self, attr):
+        return getattr(self._fix(),attr)
+    def _fix(self):
+        return None
+
+
+class RandField(VolatileValue):
+    pass
+
 
 class RandNum(RandField):
     min = 0
@@ -1940,11 +1954,9 @@ class RandNum(RandField):
     def __init__(self, min, max):
         self.min = min
         self.max = max
-    def randint(self):
+    def _fix(self):
         # XXX: replace with sth that guarantee unicity
         return random.randint(self.min, self.max)
-    def __getattr__(self, attr):
-        return getattr(self.randint(), attr)
 
 class RandByte(RandNum):
     def __init__(self):
@@ -1969,13 +1981,11 @@ class RandString(RandField):
     def __init__(self, size, chars="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"):
         self.chars = chars
         self.size = size
-    def randstr(self):
+    def _fix(self):
         s = ""
         for i in range(self.size):
             s += random.choice(self.chars)
         return s
-    def __getattr__(self, attr):
-        return getattr(self.randstr(), attr)
 
 class RandBin(RandString):
     def __init__(self, size):
@@ -1986,15 +1996,15 @@ class RandTermString(RandString):
     def __init__(self, size, term):
         RandString.__init__(self, size, "".join(map(chr,range(1,256))))
         self.term = term
-    def randstr(self):
-        return RandString.randstr(self)+self.term
+    def _fix(self):
+        return RandString._fix(self)+self.term
     
     
 
 class RandIP(RandString):
     def __init__(self, iptemplate="0/0"):
         self.ip = Net(iptemplate)
-    def randstr(self):
+    def _fix(self):
         return self.ip.choice()
 
 class RandMAC(RandString):
@@ -2011,30 +2021,35 @@ class RandMAC(RandString):
             else:
                 v = int(template[i],16)
             self.mac += (v,)
-        
-    def randstr(self):
+    def _fix(self):
         return "%02x:%02x:%02x:%02x:%02x:%02x" % self.mac
     
 
 # Automatic timestamp
 
-class AutoTime(RandField):
+class AutoTime(VolatileValue):
     def __init__(self, base=None):
         if base == None:
             self.diff = 0
         else:
             self.diff = time.time()-base
-    def current_val(self):
+    def _fix(self):
         return time.time()-self.diff
-    def __getattr__(self, attr):
-        return getattr(self.current_val(), attr)
-        
             
 class IntAutoTime(AutoTime):
-    def current_val(self):
+    def _fix(self):
         return int(AutoTime.current_val(self))
-    
-    
+
+
+
+class DelayedEval(VolatileValue):
+    """ Exemple of usage: DelayedEval("time.time()") """
+    def __init__(self, expr):
+        self.expr = expr
+    def _fix(self):
+        return eval(self.expr)
+
+
 
 
 ################
@@ -4118,8 +4133,8 @@ class Packet(Gen):
                 for payl in payloads:
                     done2=done.copy()
                     for k in done2:
-                        if isinstance(done2[k], RandField):
-                            done2[k] = done2[k]*1
+                        if isinstance(done2[k], VolatileValue):
+                            done2[k] = done2[k]._fix()
                     pkt = self.__class__(**done2)
                     pkt.underlayer = self.underlayer
                     pkt.overload_fields = self.overload_fields.copy()
@@ -4127,7 +4142,7 @@ class Packet(Gen):
                         yield pkt
                     else:
                         yield pkt/payl
-        todo = map(lambda (x,y):x, filter(lambda (x,y):isinstance(y,RandField), self.default_fields.items()))
+        todo = map(lambda (x,y):x, filter(lambda (x,y):isinstance(y,VolatileValue), self.default_fields.items()))
         todo += self.fields.keys()
         return loop(map(lambda x:str(x), todo), {})
 
