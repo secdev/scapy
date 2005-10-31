@@ -21,6 +21,12 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.1.5  2005/10/31 12:29:09  pbi
+# - added ConditionalField to wrap a field and apply a condition to its presense
+# - added NewDefaultValues metaclass to create new Packet classes from old ones
+#   with new default default values
+# - added GRE protocol from rfc2784. (need more work for rfc1701)
+#
 # Revision 1.0.1.4  2005/10/27 15:12:32  pbi
 # - created VolatileValue class to handle volatile values like RandomField
 # - redesigned inheritence of random fields arround VolatileValue
@@ -1078,7 +1084,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.1.4 2005/10/27 15:12:32 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.1.5 2005/10/31 12:29:09 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2775,6 +2781,33 @@ class Emph:
         return getattr(self.fld,attr)
 
 
+class ConditionalField:
+    def __init__(self, fld, fldlst, cond):
+        self.fld = fld
+        self.fldlst = fldlst
+        self.cond = cond
+    def _evalcond(self,pkt):
+        if type(self.fldlst) is list or type(self.fldlst) is tuple:
+            res = map(lambda x,pkt=pkt:getattr(pkt,x), self.fldlst)
+        else:
+            res = getattr(pkt, self.fldlst)
+        return self.cond(res)
+        
+    def getfield(self, pkt, s):
+        if self._evalcond(pkt):
+            return self.fld.getfield(pkt,s)
+        else:
+            return s,None
+        
+    def addfield(self, pkt, s, val):
+        if self._evalcond(pkt):
+            return self.fld.addfield(pkt,s,val)
+        else:
+            return s
+    def __getattr__(self, attr):
+        return getattr(self.fld,attr)
+        
+
 class MACField(Field):
     def __init__(self, name, default):
         Field.__init__(self, name, default, "6s")
@@ -4466,6 +4499,27 @@ class ChangeDefaultValues(type):
         dct["fields_desc"] = new_fields
         return super(ChangeDefaultValues, cls).__new__(cls, name, bases, dct)
 
+# Metaclass
+class NewDefaultValues(type):
+    def __new__(cls, name, bases, dct):
+        fields = None
+        for b in bases:
+            if hasattr(b,"fields_desc"):
+                fields = b.fields_desc[:]
+                break
+        if fields is None:
+            raise Exception("No fields_desc in superclasses")
+
+        new_fields = []
+        for f in fields:
+            if f in dct:
+                f = f.copy()
+                f.default = dct[f]
+                del(dct[f])
+            new_fields.append(f)
+        dct["fields_desc"] = new_fields
+        return super(NewDefaultValues, cls).__new__(cls, name, bases, dct)
+
             
 class Raw(Packet):
     name = "Raw"
@@ -5576,6 +5630,21 @@ class NTP(Packet):
         return self.sprintf("NTP v%ir,NTP.version%, %NTP.mode%")
 
 
+class GRE(Packet):
+    name = "GRE"
+    fields_desc = [ BitField("chksumpresent",0,1),
+                    BitField("reserved0",0,12),
+                    BitField("version",0,3),
+                    XShortEnumField("proto", 0x0000, ETHER_TYPES),
+                    ConditionalField(XShortField("chksum",None),"chksumpresent",lambda x:x==1),
+                    ConditionalField(XShortField("reserved1",None),"chksumpresent",lambda x:x==1),
+                    ]
+    def post_build(self, p):
+        if self.chksumpresent and self.chksum is None:
+            c = checksum(p)
+            p = p[:4]+chr((c>>8)&0xff)+chr(c&0xff)+p[6:]
+        return p
+            
 
 class Radius(Packet):
     name = "Radius"
@@ -6835,6 +6904,12 @@ layer_bonds = [ ( Dot3,   LLC,      { } ),
                 ( CookedLinux,  EAPOL,    { "proto" : 0x888e } ),
                 ( CookedLinux,  PPPoED,   { "proto" : 0x8863 } ),
                 ( CookedLinux,  PPPoE,    { "proto" : 0x8864 } ),
+                ( GRE,    LLC,      { "proto" : 0x007a } ),
+                ( GRE,    Dot1Q,    { "proto" : 0x8100 } ),
+                ( GRE,    Ether,    { "proto" : 0x0001 } ),
+                ( GRE,    ARP,      { "proto" : 0x0806 } ),
+                ( GRE,    IP,       { "proto" : 0x0800 } ),
+                ( GRE,    EAPOL,    { "proto" : 0x888e } ),
                 ( PPPoE,  PPP,      { "code" : 0x00 } ),
                 ( EAPOL,  EAP,      { "type" : EAPOL.EAP_PACKET } ),
                 ( LLC,    STP,      { "dsap" : 0x42 , "ssap" : 0x42 } ),
@@ -6852,6 +6927,7 @@ layer_bonds = [ ( Dot3,   LLC,      { } ),
                 ( IP,     ICMP,     { "frag" : 0, "proto" : socket.IPPROTO_ICMP } ),
                 ( IP,     TCP,      { "frag" : 0, "proto" : socket.IPPROTO_TCP  } ),
                 ( IP,     UDP,      { "frag" : 0, "proto" : socket.IPPROTO_UDP  } ),
+                ( IP,     GRE,      { "frag" : 0, "proto" : socket.IPPROTO_GRE  } ),
                 ( UDP,    MGCP,     { "dport" : 2727 } ),
                 ( UDP,    MGCP,     { "sport" : 2727 } ),
                 ( UDP,    DNS,      { "dport" : 53 } ),
