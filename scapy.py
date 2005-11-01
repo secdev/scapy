@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.1.6  2005/11/01 12:22:02  pbi
+# - added hint_iface parameter to sendp()
+# - used hint_iface in arpcachepoison()
+#
 # Revision 1.0.1.5  2005/10/31 12:29:09  pbi
 # - added ConditionalField to wrap a field and apply a condition to its presense
 # - added NewDefaultValues metaclass to create new Packet classes from old ones
@@ -1084,7 +1088,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.1.5 2005/10/31 12:29:09 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.1.6 2005/11/01 12:22:02 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -7727,10 +7731,12 @@ def send(x, inter=0, loop=0, verbose=None, *args, **kargs):
 send(packets, [inter=0], [loop=0], [verbose=conf.verb]) -> None"""
     __gen_send(conf.L3socket(*args, **kargs), x, inter=inter, loop=loop, verbose=verbose)
 
-def sendp(x, inter=0, loop=0, verbose=None, *args, **kargs):
+def sendp(x, inter=0, loop=0, iface=None, iface_hint=None, verbose=None, *args, **kargs):
     """Send packets at layer 2
 send(packets, [inter=0], [loop=0], [verbose=conf.verb]) -> None"""
-    __gen_send(conf.L2socket(*args, **kargs), x, inter=inter, loop=loop, verbose=verbose)
+    if iface is None and iface_hint is not None:
+        iface = conf.route.route(iface_hint)[0]
+    __gen_send(conf.L2socket(iface=iface, *args, **kargs), x, inter=inter, loop=loop, verbose=verbose)
     
 def sr(x,filter=None, iface=None, *args,**kargs):
     """Send and receive packets at layer 3"""
@@ -8622,7 +8628,7 @@ arpcachepoison(target, victim, [interval=60]) -> None
     p = Ether(dst=tmac)/ARP(op="who-has", psrc=victim, pdst=target)
     try:
         while 1:
-            sendp(p)
+            sendp(p, iface_hint=target)
             if conf.verb > 1:
                 os.write(1,".")
             time.sleep(interval)
