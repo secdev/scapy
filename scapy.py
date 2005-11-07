@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.1.9  2005/11/07 13:35:12  pbi
+# - changed Dot11.summary() to show src > dst
+# - added Dot11.answers()
+#
 # Revision 1.0.1.8  2005/11/07 13:33:43  pbi
 # - added DNS.answsers()
 #
@@ -1095,7 +1099,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.1.8 2005/11/07 13:33:43 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.1.9 2005/11/07 13:35:12 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -5398,12 +5402,28 @@ class Dot11(Packet):
                     Dot11Addr4MACField("addr4", ETHER_ANY) 
                     ]
     def mysummary(self):
-        return self.sprintf("802.11 %Dot11.type% %Dot11.subtype% %Dot11.addr1% %Dot11.addr2%")
+        return self.sprintf("802.11 %Dot11.type% %Dot11.subtype% %Dot11.addr2% > %Dot11.addr1%")
     def guess_payload_class(self, payload):
         if self.FCfield & 0x40:
             return Dot11WEP
         else:
             return Packet.guess_payload_class(self, payload)
+    def answers(self, other):
+        if isinstance(other,Dot11):
+            if self.type == 0: # mangement
+                if self.addr3 != other.addr3:
+                    return0
+                if (other.subtype,self.subtype) in [(0,1),(2,3),(4,5)]:
+                    return 1
+                if self.subtype == other.subtype == 11: # auth
+                    return self.payload.answers(other.payload)
+            elif self.type == 1: # control
+                return 0
+            elif self.type == 2: # data
+                return self.payload.answers(other.payload)
+            elif self.type == 3: # reserved
+                return 0
+        return 0
     def unwep(self, key=None, warn=1):
         if self.FCfield & 0x40 == 0:
             if warn:
