@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.1.13  2005/11/07 14:00:54  pbi
+# - fixed Dot11Auth.seqnum to be little endian
+# - added Dot11Auth.answers()
+#
 # Revision 1.0.1.12  2005/11/07 13:39:31  pbi
 # - fixed some stuff in the LaTeX color theme
 #
@@ -1109,7 +1113,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.1.12 2005/11/07 13:39:31 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.1.13 2005/11/07 14:00:54 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -5526,8 +5530,12 @@ class Dot11ProbeResp(Packet):
 class Dot11Auth(Packet):
     name = "802.11 Authentication"
     fields_desc = [ ShortEnumField("algo", 0, ["open", "sharedkey"]),
-                    ShortField("seqnum", 0),
+                    LEShortField("seqnum", 0),
                     ShortEnumField("status", 0, status_code) ]
+    def answers(self, other):
+        if self.seqnum == other.seqnum+1:
+            return 1
+        return 0
 
 class Dot11Deauth(Packet):
     name = "802.11 Deauthentication"
