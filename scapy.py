@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.1.7  2005/11/07 13:33:19  pbi
+# - added SignedIntField() and LESignedIntField
+# - converted PrismHeader's "signal" field to signed
+#
 # Revision 1.0.1.6  2005/11/01 12:22:02  pbi
 # - added hint_iface parameter to sendp()
 # - used hint_iface in arpcachepoison()
@@ -1088,7 +1092,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.1.6 2005/11/01 12:22:02 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.1.7 2005/11/07 13:33:19 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -3012,9 +3016,17 @@ class IntField(Field):
     def __init__(self, name, default):
         Field.__init__(self, name, default, "I")
 
+class SignedIntField(Field):
+    def __init__(self, name, default):
+        Field.__init__(self, name, default, "i")
+
 class LEIntField(Field):
     def __init__(self, name, default):
         Field.__init__(self, name, default, "@I")
+
+class LESignedIntField(Field):
+    def __init__(self, name, default):
+        Field.__init__(self, name, default, "@i")
 
 class XIntField(IntField):
     def i2repr(self, pkt, x):
@@ -5559,7 +5571,7 @@ class PrismHeader(Packet):
                     LEIntField("signal_did",0),
                   LEShortField("signal_status",0),
                   LEShortField("signal_len",0),
-                    LEIntField("signal",0),
+              LESignedIntField("signal",0),
                     LEIntField("noise_did",0),
                   LEShortField("noise_status",0),
                   LEShortField("noise_len",0),
