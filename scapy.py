@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.1.8  2005/11/07 13:33:43  pbi
+# - added DNS.answsers()
+#
 # Revision 1.0.1.7  2005/11/07 13:33:19  pbi
 # - added SignedIntField() and LESignedIntField
 # - converted PrismHeader's "signal" field to signed
@@ -1092,7 +1095,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.1.7 2005/11/07 13:33:19 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.1.8 2005/11/07 13:33:43 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -5092,6 +5095,12 @@ class DNS(Packet):
                     DNSRRField("an", "ancount"),
                     DNSRRField("ns", "nscount"),
                     DNSRRField("ar", "arcount",0) ]
+    def answers(self, other):
+        return (isinstance(other, DNS)
+                and self.id == other.id
+                and self.qr == 1
+                and other.qr == 0)
+        
     def mysummary(self):
         type = ["Qry","Ans"][self.qr]
         name = ""
