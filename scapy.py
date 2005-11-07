@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.1.12  2005/11/07 13:39:31  pbi
+# - fixed some stuff in the LaTeX color theme
+#
 # Revision 1.0.1.11  2005/11/07 13:38:36  pbi
 # - added timeout parameter to fragleak()
 # - created fragleak2()
@@ -1106,7 +1109,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.1.11 2005/11/07 13:38:36 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.1.12 2005/11/07 13:39:31 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -9685,8 +9688,8 @@ class FormatTheme(ColorTheme):
 
 class LatexTheme(FormatTheme):
     style_prompt = r"\textcolor{blue}{%s}"
-    style_not_printable = r"\textcolor{grey}{%s}"
-    style_layer_name = r"\textcolor{red}{%s}"
+    style_not_printable = r"\textcolor{gray}{%s}"
+    style_layer_name = r"\textcolor{red}{\bf %s}"
     style_field_name = r"\textcolor{blue}{%s}"
     style_field_value = r"\textcolor{purple}{%s}"
     style_emph_field_name = r"\textcolor{blue}{\underline{%s}}" #ul
