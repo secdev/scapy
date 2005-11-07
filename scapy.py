@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.1.10  2005/11/07 13:37:20  pbi
+# - fixed LLC/SNAP binding to overload LLC.ctrl with 3
+#
 # Revision 1.0.1.9  2005/11/07 13:35:12  pbi
 # - changed Dot11.summary() to show src > dst
 # - added Dot11.answers()
@@ -1099,7 +1102,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.1.9 2005/11/07 13:35:12 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.1.10 2005/11/07 13:37:20 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -6957,8 +6960,8 @@ layer_bonds = [ ( Dot3,   LLC,      { } ),
                 ( GRE,    EAPOL,    { "proto" : 0x888e } ),
                 ( PPPoE,  PPP,      { "code" : 0x00 } ),
                 ( EAPOL,  EAP,      { "type" : EAPOL.EAP_PACKET } ),
-                ( LLC,    STP,      { "dsap" : 0x42 , "ssap" : 0x42 } ),
-                ( LLC,    SNAP,     { "dsap" : 0xAA , "ssap" : 0xAA } ),
+                ( LLC,    STP,      { "dsap" : 0x42 , "ssap" : 0x42, "ctrl":3 } ),
+                ( LLC,    SNAP,     { "dsap" : 0xAA , "ssap" : 0xAA, "ctrl":3 } ),
                 ( SNAP,   Dot1Q,    { "code" : 0x8100 } ),
                 ( SNAP,   Ether,    { "code" : 0x0001 } ),
                 ( SNAP,   ARP,      { "code" : 0x0806 } ),
