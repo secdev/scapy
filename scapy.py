@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.2.1  2005/11/07 14:04:39  pbi
+# release 1.0.2
+#
 # Revision 1.0.1.13  2005/11/07 14:00:54  pbi
 # - fixed Dot11Auth.seqnum to be little endian
 # - added Dot11Auth.answers()
@@ -1113,7 +1116,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.1.13 2005/11/07 14:00:54 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.2.1 2005/11/07 14:04:39 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
