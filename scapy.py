@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.2.2  2005/11/09 18:26:57  pbi
+# - fixed itom() to return positive values even for big endian platforms
+# - fixed RandIP default __init__ parameter to be 0.0.0.0/0 instead of 0/0
+#
 # Revision 1.0.2.1  2005/11/07 14:04:39  pbi
 # release 1.0.2
 #
@@ -1116,7 +1120,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.2.1 2005/11/07 14:04:39 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.2.2 2005/11/09 18:26:57 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1475,7 +1479,7 @@ def ltoa(x):
     return socket.inet_ntoa(struct.pack("I", x))
 
 def itom(x):
-    return socket.ntohl((0xffffffff00000000L>>x)&0xffffffffL)
+    return socket.ntohl((0xffffffff00000000L>>x)&0xffffffffL)&0xffffffffL
 
 def do_graph(graph,type="svg",target="| display"):
     """do_graph(graph, type="svg",target="| display"):
@@ -2040,7 +2044,7 @@ class RandTermString(RandString):
     
 
 class RandIP(RandString):
-    def __init__(self, iptemplate="0/0"):
+    def __init__(self, iptemplate="0.0.0.0/0"):
         self.ip = Net(iptemplate)
     def _fix(self):
         return self.ip.choice()
