@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.2.3  2005/11/09 19:56:42  pbi
+# - added a ColorTheme.__repr__() to fix objects that used it, like conf object!
+#
 # Revision 1.0.2.2  2005/11/09 18:26:57  pbi
 # - fixed itom() to return positive values even for big endian platforms
 # - fixed RandIP default __init__ parameter to be 0.0.0.0/0 instead of 0/0
@@ -1120,7 +1123,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.2.2 2005/11/09 18:26:57 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.2.3 2005/11/09 19:56:42 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -9582,7 +9585,8 @@ class Color:
         
 
 class ColorTheme:
-    pass
+    def __repr__(self):
+        return "<%s>" % self.__class__.__name__
 
 
 class AnsiColorTheme(ColorTheme):
