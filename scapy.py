@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.2.6  2005/11/15 04:55:11  pbi
+# - added Packet.command() to go from a packet instance to the Scapy command to generate it
+#
 # Revision 1.0.2.5  2005/11/15 03:04:51  pbi
 # - write history in an atexit registered function
 #
@@ -1129,7 +1132,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.2.5 2005/11/15 03:04:51 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.2.6 2005/11/15 04:55:11 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -4470,6 +4473,19 @@ A side effect is that, to obtain "{" and "}" characters, you must use
                 val = '"%s"' % str(val)
             print "\t%s, \t\t/* %s */" % (val,f.name)
         print ");"
+    def command(self):
+        f = []
+        for fn,fv in self.fields.items():
+            if isinstance(fv, Packet):
+                fv = fv.command()
+            else:
+                fv = repr(fv)
+            f.append("%s=%s" % (fn, fv))
+        c = "%s(%s)" % (self.__class__.__name__, ", ".join(f))
+        pc = self.payload.command()
+        if pc:
+            c += "/"+pc
+        return c                    
                        
     
         
@@ -4535,6 +4551,8 @@ class NoPayload(Packet,object):
         return 0,"",[]
     def lastlayer(self,layer):
         return layer
+    def command(self):
+        return ""
     
 
 ####################
