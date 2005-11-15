@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.2.5  2005/11/15 03:04:51  pbi
+# - write history in an atexit registered function
+#
 # Revision 1.0.2.4  2005/11/15 02:58:44  pbi
 # - fixed Enum fields for them to work with lists of values
 #
@@ -1126,7 +1129,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.2.4 2005/11/15 02:58:44 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.2.5 2005/11/15 03:04:51 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -9860,6 +9863,9 @@ country_loc_kdb = CountryLocKnowledgeBase(conf.countryLoc_base)
 ##### Main #####
 ################
 
+def scapy_write_history_file(readline):
+    if conf.histfile:
+        readline.write_history_file(conf.histfile)
 
 
 def interact(mydict=None,argv=None,mybanner=None,loglevel=1):
@@ -9891,7 +9897,7 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=1):
     if mydict is not None:
         __builtin__.__dict__.update(mydict)
 
-    import rlcompleter,readline
+    import rlcompleter,readline,atexit
     import re
 
     class ScapyCompleter(rlcompleter.Completer):
@@ -9992,14 +9998,12 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=1):
         except IOError:
             pass
 
+    atexit.register(scapy_write_history_file,readline)
     sys.ps1 = ColorPrompt()
     code.interact(banner = the_banner % (VERSION), local=session)
 
     if conf.session:
         save_session(conf.session, session)
-
-    if conf.histfile:
-        readline.write_history_file(conf.histfile)
     
     sys.exit()
 
