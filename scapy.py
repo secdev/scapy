@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.2.4  2005/11/15 02:58:44  pbi
+# - fixed Enum fields for them to work with lists of values
+#
 # Revision 1.0.2.3  2005/11/09 19:56:42  pbi
 # - added a ColorTheme.__repr__() to fix objects that used it, like conf object!
 #
@@ -1123,7 +1126,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.2.3 2005/11/09 19:56:42 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.2.4 2005/11/15 02:58:44 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -3353,12 +3356,23 @@ class EnumField(Field):
         for k in keys:
             i2s[k] = enum[k]
             s2i[enum[k]] = k
-    def any2i(self, pkt, x):
+    def any2i_one(self, pkt, x):
         if type(x) is str:
             x = self.s2i[x]
         return x
-    def i2repr(self, pkt, x):
+    def i2repr_one(self, pkt, x):
         return self.i2s.get(x, repr(x))
+    
+    def any2i(self, pkt, x):
+        if type(x) is list:
+            return map(lambda z,pkt=pkt:self.any2i_one(pkt,z), x)
+        else:
+            return self.any2i_one(pkt,x)        
+    def i2repr(self, pkt, x):
+        if type(x) is list:
+            return map(lambda z,pkt=pkt:self.i2repr_one(pkt,z), x)
+        else:
+            return self.i2repr_one(pkt,x)
 
 class CharEnumField(EnumField):
     def __init__(self, name, default, enum, fmt = "1s"):
@@ -3366,7 +3380,7 @@ class CharEnumField(EnumField):
         k = self.i2s.keys()
         if k and len(k[0]) != 1:
             self.i2s,self.s2i = self.s2i,self.i2s
-    def any2i(self, pkt, x):
+    def any2i_one(self, pkt, x):
         if len(x) != 1:
             x = self.s2i[x]
         return x
@@ -3401,7 +3415,7 @@ class LEIntEnumField(EnumField):
         EnumField.__init__(self, name, default, enum, "@I")
 
 class XShortEnumField(ShortEnumField):
-    def i2repr(self, pkt, x):
+    def i2repr_one(self, pkt, x):
         return self.i2s.get(x, hex(x))            
 
 
