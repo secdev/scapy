@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.2.8  2005/11/17 11:05:56  pbi
+# - changed Packet.sprintf() format string specificator to accept only the
+#   field name and take the currend layer
+#
 # Revision 1.0.2.7  2005/11/17 10:24:53  pbi
 # - added onlyasc parameter to linehexdump()
 # - added onlyasc parameter to fragleak() and fragleak2()
@@ -1136,7 +1140,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.2.7 2005/11/17 10:24:53 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.2.8 2005/11/17 11:05:56 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -4404,7 +4408,11 @@ A side effect is that, to obtain "{" and "}" characters, you must use
                     f,clsfld = fclsfld
                 else:
                     raise Exception
-                cls,fld = clsfld.split(".")
+                if "." in clsfld:
+                    cls,fld = clsfld.split(".")
+                else:
+                    cls = self.__class__.__name__
+                    fld = clsfld
                 num = 1
                 if ":" in cls:
                     cls,num = cls.split(":")
