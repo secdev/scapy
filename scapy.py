@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.2.7  2005/11/17 10:24:53  pbi
+# - added onlyasc parameter to linehexdump()
+# - added onlyasc parameter to fragleak() and fragleak2()
+#
 # Revision 1.0.2.6  2005/11/15 04:55:11  pbi
 # - added Packet.command() to go from a packet instance to the Scapy command to generate it
 #
@@ -1132,7 +1136,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.2.6 2005/11/15 04:55:11 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.2.7 2005/11/17 10:24:53 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1433,12 +1437,14 @@ def hexdump(x):
         print sane(x[i:i+16])
         i += 16
 
-def linehexdump(x):
+def linehexdump(x, onlyasc=0):
     x = str(x)
     l = len(x)
-    for i in range(l):
-        print "%02X" % ord(x[i]),
-    print " "+sane(x)
+    if not onlyasc:
+        for i in range(l):
+            print "%02X" % ord(x[i]),
+        print "",
+    print sane(x)
 
 if BIG_ENDIAN:
     CRCPOLY=0x04c11db7L
@@ -9453,7 +9459,7 @@ def tethereal(*args,**kargs):
 
 
 
-def fragleak(target,sport=123, dport=123, timeout=0.2):
+def fragleak(target,sport=123, dport=123, timeout=0.2, onlyasc=0):
     load = "XXXXYYYYYYYYYY"
 #    getmacbyip(target)
 #    pkt = IP(dst=target, id=RandShort(), options="\x22"*40)/UDP()/load
@@ -9495,7 +9501,7 @@ def fragleak(target,sport=123, dport=123, timeout=0.2):
                 leak = ans.getlayer(Padding).load
                 if leak not in found:
                     found[leak]=None
-                    linehexdump(leak)
+                    linehexdump(leak, onlyasc=onlyasc)
             except KeyboardInterrupt:
                 if intr:
                     raise KeyboardInterrupt
@@ -9503,17 +9509,20 @@ def fragleak(target,sport=123, dport=123, timeout=0.2):
     except KeyboardInterrupt:
         pass
 
-def fragleak2(target):
+def fragleak2(target, timeout=0.4, onlyasc=0):
     found={}
-    while 1:
-        p = sr1(IP(dst=target, options="\x00"*40, proto=200)/"XXXXYYYYYYYYYYYY",timeout=1,verbose=0)
-        if not p:
-            continue
-        if Padding in p:
-            leak  = p[Padding].load
-            if leak not in found:
-                found[leak]=None
-                linehexdump(leak)
+    try:
+        while 1:
+            p = sr1(IP(dst=target, options="\x00"*40, proto=200)/"XXXXYYYYYYYYYYYY",timeout=timeout,verbose=0)
+            if not p:
+                continue
+            if Padding in p:
+                leak  = p[Padding].load
+                if leak not in found:
+                    found[leak]=None
+                    linehexdump(leak,onlyasc=onlyasc)
+    except:
+        pass
     
 
 
