@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.2.9  2005/11/19 08:39:09  pbi
+# - handle API change between pylibpcap 0.4 and 0.5
+#
 # Revision 1.0.2.8  2005/11/17 11:05:56  pbi
 # - changed Packet.sprintf() format string specificator to accept only the
 #   field name and take the currend layer
@@ -1140,7 +1143,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.2.8 2005/11/17 11:05:56 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.2.9 2005/11/19 08:39:09 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -7475,7 +7478,9 @@ class L3dnetSocket(SuperSocket):
             warning("Unable to guess datalink type (interface=%s linktype=%i). Using Ethernet" % (self.iface, ll))
             cls = Ether
 
-        pkt = self.ins.next()[1]
+        pkt = self.ins.next()
+        if pkt is not None:
+            pkt = pkt[1]
         if pkt is None:
             return
 
@@ -7537,7 +7542,9 @@ class L2dnetSocket(SuperSocket):
             warning("Unable to guess datalink type (interface=%s linktype=%i). Using Ethernet" % (self.iface, ll))
             cls = Ether
 
-        pkt = self.ins.next()[1]
+        pkt = self.ins.next()
+        if pkt is not None:
+            pkt = pkt[1]        
         if pkt is None:
             return
         
@@ -7603,7 +7610,9 @@ class L2pcapListenSocket(SuperSocket):
 
         pkt = None
         while pkt is None:
-            pkt = self.ins.next()[1]
+            pkt = self.ins.next()
+            if pkt is not None:
+                pkt = pkt[1]
         
         try:
             pkt = cls(pkt)
