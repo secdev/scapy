@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.2.10  2005/11/20 16:23:01  pbi
+# - improved a bit error handling of import dnet/pcap
+# - made INFO messages for missing files a bit more clear
+#
 # Revision 1.0.2.9  2005/11/19 08:39:09  pbi
 # - handle API change between pylibpcap 0.4 and 0.5
 #
@@ -1143,7 +1147,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.2.9 2005/11/19 08:39:09 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.2.10 2005/11/20 16:23:01 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1252,16 +1256,30 @@ if PCAP:
         import pcap
         PCAP = 1
     except ImportError:
-        log_loading.info("did not find pcap module. Fallback to linux primitives")
-        PCAP = 0
+        if LINUX:
+            log_loading.warning("did not find pcap module. Fallback to linux primitives")
+            PCAP = 0
+        else:
+            if __name__ == "__main__":
+                log_loading.error("did not find pcap module")
+                raise SystemExit
+            else:
+                raise
 
 if DNET:
     try:
         import dnet
         DNET = 1
     except ImportError:
-        log_loading.info("did not find dnet module. Fallback to linux primitives")
-        DNET = 0
+        if LINUX:
+            log_loading.warning("did not find dnet module. Fallback to linux primitives")
+            DNET = 0
+        else:
+            if __name__ == "__main__":
+                log_loading.error("did not find dnet module")
+                raise SystemExit
+            else:
+                raise
 
 try:
     from Crypto.Cipher import ARC4
@@ -1371,7 +1389,7 @@ try:
             log_loading.info("Couldn't parse one line from protocols file (" + l + ")")
     f.close()
 except IOError:
-    log_loading.info("Can't open protocols file")
+    log_loading.info("Can't open /etc/protocols file")
 
 ETHER_TYPES={}
 try:
@@ -1388,7 +1406,7 @@ try:
             log_loading.info("Couldn't parse one line from ethertypes file (" + l + ")")
     f.close()
 except IOError,msg:
-    log_loading.info("Can't open ethertypes file")
+    log_loading.info("Can't open /etc/ethertypes file")
  
 TCP_SERVICES={}
 UDP_SERVICES={}
@@ -1406,10 +1424,10 @@ try:
             elif lt[1].endswith("/udp"):
                 UDP_SERVICES.update({lt[0]:int(lt[1].split('/')[0])})
         except:
-            log_loading.warning("Couldn't parse one line from protocols file (" + l + ")")
+            log_loading.warning("Couldn't parse one line from /etc/services file (" + l + ")")
     f.close()
 except IOError:
-    log_loading.info("Can't open services file")
+    log_loading.info("Can't open /etc/services file")
 
 
 
