@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.2.13  2005/11/27 00:09:30  pbi
+# - added code to run interactive sessions automatically
+#
 # Revision 1.0.2.12  2005/11/26 11:33:55  pbi
 # - catch exceptions in ColorPrompt from bad color theme to avoid
 #   program termination
@@ -1154,7 +1157,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.2.12 2005/11/26 11:33:55 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.2.13 2005/11/27 00:09:30 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1223,7 +1226,7 @@ if __name__ == "__main__":
 ##### Module #####
 ##################
 
-import socket, sys, getopt, string, struct, random, os
+import socket, sys, getopt, string, struct, random, os, code
 import cPickle, copy, types, gzip, base64, re
 from select import select
 from fcntl import ioctl
@@ -9944,6 +9947,71 @@ queso_kdb = QuesoKnowledgeBase(conf.queso_base)
 nmap_kdb = NmapKnowledgeBase(conf.nmap_base)
 IP_country_kdb = IPCountryKnowledgeBase(conf.IPCountry_base)
 country_loc_kdb = CountryLocKnowledgeBase(conf.countryLoc_base)
+
+
+#########################
+##### Autorun stuff #####
+#########################
+
+
+class ScapyAutorunInterpreter(code.InteractiveInterpreter):
+    def __init__(self, *args, **kargs):
+        code.InteractiveInterpreter.__init__(self, *args, **kargs)
+        self.error = 0
+    def showsyntaxerror(self, *args, **kargs):
+        self.error = 1
+        return code.InteractiveInterpreter.showsyntaxerror(self, *args, **kargs)
+    def showtraceback(self, *args, **kargs):
+        self.error = 1
+        return code.InteractiveInterpreter.showtraceback(self, *args, **kargs)
+
+
+def autorun_commands(cmds,verb=0):
+    sv = conf.verb
+    try:
+        conf.verb = verb
+        interp = ScapyAutorunInterpreter(globals())
+        cmd = ""
+        for l in cmds.splitlines():
+            sys.stderr.write(str(sys.__dict__.get("ps1",ColorPrompt())))
+            print l
+            cmd += "\n"+l
+            if interp.runsource(cmd):
+                sys.stderr.write(sys.__dict__.get("ps2","... "))
+                continue
+            if interp.error:
+                return 0
+            cmd = ""
+    finally:
+        conf.verb = sv
+    return _
+
+def autorun_get_interactive_session(cmds):
+    class StringWriter:
+        def __init__(self):
+            self.s = ""
+        def write(self, x):
+            self.s += x
+            
+    sw = StringWriter()
+    sstdout,sstderr = sys.stdout,sys.stderr
+    try:
+        sys.stdout = sys.stderr = sw
+        res = autorun_commands(cmds)
+    finally:
+        sys.stdout,sys.stderr = sstdout,sstderr
+    return sw.s,res
+
+def autorun_get_html_interactive_session(cmds):
+    ct = conf.color_theme
+    try:
+        conf.color_theme = HTMLTheme2()
+        s,res = autorun_get_interactive_session(cmds)
+    finally:
+        conf.color_theme = ct
+    s = s.replace("<","&lt;").replace(">","&gt;").replace("#[#","<").replace("#]#",">")
+    return s,res
+
 
 
 
