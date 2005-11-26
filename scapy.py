@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.2.12  2005/11/26 11:33:55  pbi
+# - catch exceptions in ColorPrompt from bad color theme to avoid
+#   program termination
+#
 # Revision 1.0.2.11  2005/11/26 11:10:44  pbi
 # - added class HTMLTheme2 with trigram instead of '<' and '>' to easily convert others into &lt; and &gt;
 #
@@ -1150,7 +1154,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.2.11 2005/11/26 11:10:44 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.2.12 2005/11/26 11:33:55 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -9839,12 +9843,15 @@ class HTMLTheme2(HTMLTheme):
 class ColorPrompt:
     __prompt = ">>> "
     def __str__(self):
-        ct = conf.color_theme
-        if isinstance(ct, AnsiColorTheme):
-            ## ^A and ^B delimit invisible caracters for readline to count right
-            return "\001%s\002" % ct.prompt("\002"+conf.prompt+"\001")
-        else:
-            return ct.prompt(conf.prompt)
+        try:
+            ct = conf.color_theme
+            if isinstance(ct, AnsiColorTheme):
+                ## ^A and ^B delimit invisible caracters for readline to count right
+                return "\001%s\002" % ct.prompt("\002"+conf.prompt+"\001")
+            else:
+                return ct.prompt(conf.prompt)
+        except:
+            return self.__prompt
 
 ############
 ## Config ##
