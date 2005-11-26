@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.2.11  2005/11/26 11:10:44  pbi
+# - added class HTMLTheme2 with trigram instead of '<' and '>' to easily convert others into &lt; and &gt;
+#
 # Revision 1.0.2.10  2005/11/20 16:23:01  pbi
 # - improved a bit error handling of import dnet/pcap
 # - made INFO messages for missing files a bit more clear
@@ -1147,7 +1150,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.2.10 2005/11/20 16:23:01 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.2.11 2005/11/26 11:10:44 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -9815,6 +9818,22 @@ class HTMLTheme(FormatTheme):
     style_success = "<span class=success>%s</span>"
     style_even = "<span class=even>%s</span>"
     style_odd = "<span class=odd>%s</span>"
+
+class HTMLTheme2(HTMLTheme):
+    style_prompt = "#[#span class=prompt#]#%s#[#/span#]#"
+    style_not_printable = "#[#span class=not_printable#]#%s#[#/span#]#"
+    style_layer_name = "#[#span class=layer_name#]#%s#[#/span#]#"
+    style_field_name = "#[#span class=field_name#]#%s#[#/span#]#"
+    style_field_value = "#[#span class=field_value#]#%s#[#/span#]#"
+    style_emph_field_name = "#[#span class=emph_field_name#]#%s#[#/span#]#"
+    style_emph_field_value = "#[#span class=emph_field_value#]#%s#[#/span#]#"
+    style_packetlist_name = "#[#span class=packetlist_name#]#%s#[#/span#]#"
+    style_packetlist_proto = "#[#span class=packetlist_proto#]#%s#[#/span#]#"
+    style_packetlist_value = "#[#span class=packetlist_value#]#%s#[#/span#]#"
+    style_fail = "#[#span class=fail#]#%s#[#/span#]#"
+    style_success = "#[#span class=success#]#%s#[#/span#]#"
+    style_even = "#[#span class=even#]#%s#[#/span#]#"
+    style_odd = "#[#span class=odd#]#%s#[#/span#]#"
 
 
 class ColorPrompt:
