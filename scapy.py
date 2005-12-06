@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.2.14  2005/12/06 16:41:30  pbi
+# - added conf.check_TCPerror_seqack (default 0) to relax ICMP error matching for TCP
+#   packets (some broken PIX play with sequence numbers and forget to tidy them up)
+#
 # Revision 1.0.2.13  2005/11/27 00:09:30  pbi
 # - added code to run interactive sessions automatically
 #
@@ -1157,7 +1161,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.2.13 2005/11/27 00:09:30 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.2.14 2005/12/06 16:41:30 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -5132,12 +5136,13 @@ class TCPerror(TCP):
             if not ((self.sport == other.sport) and
                     (self.dport == other.dport)):
                 return 0
-        if self.seq is not None:
-            if self.seq != other.seq:
-                return 0
-        if self.ack is not None:
-            if self.ack != other.ack:
-                return 0
+        if conf.check_TCPerror_seqack:
+            if self.seq is not None:
+                if self.seq != other.seq:
+                    return 0
+            if self.ack is not None:
+                if self.ack != other.ack:
+                    return 0
         return 1
     def mysummary(self):
         return Packet.mysummary(self)
@@ -9890,6 +9895,7 @@ checkIPID: if 0, doesn't check that IPID matches between IP sent and ICMP IP cit
            if 1, checks that they either are equal or byte swapped equals (bug in some IP stacks)
            if 2, strictly checks that they are equals
 checkIPsrc: if 1, checks IP src in IP and ICMP IP citation match (bug in some NAT stacks)
+check_TCPerror_seqack: if 1, also check that TCP seq and ack match the ones in ICMP citation
 iff      : selects the default output interface for srp() and sendp(). default:"eth0")
 verb     : level of verbosity, from 0 (almost mute) to 3 (verbose)
 promisc  : default mode for listening socket (to get answers if you spoof on a lan)
@@ -9908,6 +9914,7 @@ warning_threshold : how much time between warnings from the same place
     checkIPID = 1
     checkIPsrc = 1
     checkIPaddr = 1
+    check_TCPerror_seqack = 0
     verb = 2
     prompt = ">>> "
     promisc = 1
