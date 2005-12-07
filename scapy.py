@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.2.15  2005/12/07 17:44:11  pbi
+# - fixed socket filter pushing for x86_64 arch. (W. Robinet)
+#
 # Revision 1.0.2.14  2005/12/06 16:41:30  pbi
 # - added conf.check_TCPerror_seqack (default 0) to relax ICMP error matching for TCP
 #   packets (some broken PIX play with sequence numbers and forget to tidy them up)
@@ -1161,7 +1164,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.2.14 2005/12/06 16:41:30 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.2.15 2005/12/07 17:44:11 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1257,6 +1260,7 @@ OPENBSD=sys.platform.startswith("openbsd")
 FREEBSD=sys.platform.startswith("freebsd")
 DARWIN=sys.platform.startswith("darwin")
 BIG_ENDIAN= struct.pack("H",1) == "\x00\x01"
+X86_64 = (os.uname()[4] == 'x86_64')
 
 
 if LINUX:
@@ -1837,8 +1841,11 @@ else:
             bpf += struct.pack("HBBI",*map(long,l.split()))
     
         # XXX. Argl! We need to give the kernel a pointer on the BPF,
-        # python object header seems to be 20 bytes
-        bpfh = struct.pack("HI", nb, id(bpf)+20)  
+        # python object header seems to be 20 bytes. 36 bytes for x86 64bits arch.
+        if X86_64:
+            bpfh = struct.pack("HI", nb, id(bpf)+36)
+        else:
+            bpfh = struct.pack("HI", nb, id(bpf)+20)  
         s.setsockopt(SOL_SOCKET, SO_ATTACH_FILTER, bpfh)
 
     def set_promisc(s,iff,val=1):
