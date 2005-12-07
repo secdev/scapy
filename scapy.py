@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.2.16  2005/12/07 18:02:26  pbi
+# - added fallbacks if tcpdump can't be run and libpcap is not used
+#
 # Revision 1.0.2.15  2005/12/07 17:44:11  pbi
 # - fixed socket filter pushing for x86_64 arch. (W. Robinet)
 #
@@ -1164,7 +1167,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.2.15 2005/12/07 17:44:11 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.2.16 2005/12/07 18:02:26 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1298,6 +1301,16 @@ if DNET:
                 raise SystemExit
             else:
                 raise
+
+if not PCAP:
+    f = os.popen("tcpdump -V 2> /dev/null")
+    if f.close() >> 8 == 0x7f:
+        log_loading.warning("Failed to execute tcpdump. Check it is installed and in the PATH")
+        TCPDUMP=0
+    else:
+        TCPDUMP=1
+        
+    
 
 try:
     from Crypto.Cipher import ARC4
@@ -1831,7 +1844,13 @@ else:
         # work... one solution could be to use "any" interface and translate
         # the filter from cooked mode to raw mode
         # mode
-        f = os.popen("tcpdump -i %s -ddd -s 1600 '%s'" % (conf.iface,filter))
+        if not TCPDUMP:
+            return
+        try:
+            f = os.popen("tcpdump -i %s -ddd -s 1600 '%s'" % (conf.iface,filter))
+        except OSError,msg:
+            log_interactive.warning("Failed to execute tcpdump: (%s)")
+            return
         lines = f.readlines()
         if f.close():
             raise Exception("Filter parse error")
