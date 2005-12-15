@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.2.17  2005/12/15 15:13:58  pbi
+# - IPv6 migration step 1: integrate some IPv6 routing stuff for IPv6 fork to work
+#   as an add-on
+#
 # Revision 1.0.2.16  2005/12/07 18:02:26  pbi
 # - added fallbacks if tcpdump can't be run and libpcap is not used
 #
@@ -1167,7 +1171,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.2.16 2005/12/07 18:02:26 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.2.17 2005/12/15 15:13:58 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1329,6 +1333,9 @@ except socket.error:
             return socket.inet_aton(x)
 else:
     inet_aton = socket.inet_aton
+
+inet_ntop = socket.inet_ntop
+inet_nton = socket.inet_pton
 
 
 
@@ -2546,7 +2553,6 @@ class TracerouteResult(SndRcvList):
     def display(self): # Deprecated. Use show()
         self.show()
     def show(self):
-
         return self.make_table(lambda (s,r): (s.sprintf("%IP.dst%:{TCP:tcp%ir,TCP.dport%}{UDP:udp%ir,UDP.dport%}{ICMP:ICMP}"),
                                               s.ttl,
                                               r.sprintf("%-15s,IP.src% {TCP:%TCP.flags%}{ICMP:%ir,ICMP.type%}")))
@@ -2951,18 +2957,22 @@ class DestMACField(MACField):
     def i2h(self, pkt, x):
         if x is None:
             dstip = None
-            if isinstance(pkt.payload, IP):
+            if isinstance(pkt.payload, IPv6):
+                dstip = pkt.payload.dst            
+            elif isinstance(pkt.payload, IP):
                 dstip = pkt.payload.dst
             elif isinstance(pkt.payload, ARP):
                 dstip = pkt.payload.pdst
             if isinstance(dstip, Gen):
                 dstip = dstip.__iter__().next()
             if dstip is not None:
-                x=getmacbyip(dstip)
-                if x is None:
-                    warning("Mac address to reach %s not found\n"%dstip)
+                if isinstance(pkt.payload, IPv6):
+                    x = getmacbyip6(dstip)
+                else:    
+                    x = getmacbyip(dstip)
             if x is None:
                 x = "ff:ff:ff:ff:ff:ff"
+                warning("Mac address to reach %s not found\n"%dstip)
         return MACField.i2h(self, pkt, x)
     def i2m(self, pkt, x):
         return MACField.i2m(self, pkt, self.i2h(pkt, x))
@@ -2973,14 +2983,19 @@ class SourceMACField(MACField):
     def i2h(self, pkt, x):
         if x is None:
             dstip = None
-            if isinstance(pkt.payload, IP):
+            if isinstance(pkt.payload, IPv6):
+                dstip = pkt.payload.dst
+            elif isinstance(pkt.payload, IP):
                 dstip = pkt.payload.dst
             elif isinstance(pkt.payload, ARP):
                 dstip = pkt.payload.pdst
             if isinstance(dstip, Gen):
                 dstip = dstip.__iter__().next()
             if dstip is not None:
-                iff,a,gw = conf.route.route(dstip)
+                if isinstance(pkt.payload, IPv6):
+                    iff,a,nh = conf.route6.route(dstip)
+                else:
+                    iff,a,gw = conf.route.route(dstip)
                 x = get_if_hwaddr(iff)
                 if x is None:
                     x = "00:00:00:00:00:00"
@@ -3745,13 +3760,23 @@ class DNSQRField(DNSRRField):
 
 class RDataField(StrLenField):
     def m2i(self, pkt, s):
+        family = None
         if pkt.type == 1:
-            s = socket.inet_ntoa(s)
+	    family = socket.AF_INET
+	elif pkt.type == 28:
+	    family = socket.AF_INET6
+	elif pkt.type == 12:
+            s = DNSgetstr(s, 0)[0]
+	if family is not None:    
+	    s = inet_ntop(family, s)
         return s
     def i2m(self, pkt, s):
         if pkt.type == 1:
             if s:
                 s = inet_aton(s)
+        elif pkt.type == 28:		
+            if s:
+                s = inet_pton(socket.AF_INET6, s)
         elif pkt.type in [2,3,4,5]:
             s = "".join(map(lambda x: chr(len(x))+x, s.split(".")))
             if ord(s[-1]):
@@ -5012,7 +5037,10 @@ class TCP(Packet):
                                      self.underlayer.proto,
                                      len(p))
                 ck=checksum(psdhdr+p)
-                p=p[:16]+chr(ck >> 8)+chr(ck & 0xff)+p[18:]
+                p = p[:16]+struct.pack("!H", ck)+p[18:]
+            elif isinstance(self.underlayer, IPv6) or isinstance(self.underlayer, _IPv6OptionHeader):
+                ck = in6_chksum(socket.IPPROTO_TCP, self.underlayer, p)
+                p = p[:16]+struct.pack("!H", ck)+p[18:]
             else:
                 warning("No IP underlayer to compute checksum. Leaving null.")
         return p
@@ -5034,6 +5062,8 @@ class TCP(Packet):
     def mysummary(self):
         if isinstance(self.underlayer, IP):
             return self.underlayer.sprintf("TCP %IP.src%:%TCP.sport% > %IP.dst%:%TCP.dport% %TCP.flags%")
+        elif isinstance(self.underlayer, IPv6):
+            return self.underlayer.sprintf("TCP %IPv6.src%:%TCP.sport% > %IPv6.dst%:%TCP.dport% %TCP.flags%")
         else:
             return self.sprintf("TCP %TCP.sport% > %TCP.dport% %TCP.flags%")
 
@@ -5056,7 +5086,10 @@ class UDP(Packet):
                                      self.underlayer.proto,
                                      len(p))
                 ck=checksum(psdhdr+p)
-                p=p[:6]+chr(ck >> 8)+chr(ck & 0xff)+p[8:]
+                p = p[:6]+struct.pack("!H", ck)+p[8:]
+            elif isinstance(self.underlayer, IPv6) or isinstance(self.underlayer, _IPv6OptionHeader):
+                ck = in6_chksum(socket.IPPROTO_UDP, self.underlayer, p)
+                p = p[:6]+struct.pack("!H", ck)+p[8:]
             else:
                 warning("No IP underlayer to compute checksum. Leaving null.")
         return p
@@ -5079,9 +5112,10 @@ class UDP(Packet):
     def mysummary(self):
         if isinstance(self.underlayer, IP):
             return self.underlayer.sprintf("UDP %IP.src%:%UDP.sport% > %IP.dst%:%UDP.dport%")
+        elif isinstance(self.underlayer, IPv6):
+            return self.underlayer.sprintf("UDP %IPv6.src%:%UDP.sport% > %IPv6.dst%:%UDP.dport%")
         else:
-            return self.sprintf("UDP %UDP.sport% > %UDP.dport%")
-    
+            return self.sprintf("UDP %UDP.sport% > %UDP.dport%")    
 
 icmptypes = { 0 : "echo-reply",
               3 : "dest-unreach",
@@ -5208,6 +5242,15 @@ class ICMPerror(ICMP):
     def mysummary(self):
         return Packet.mysummary(self)
 
+class IPv6(Packet):
+    name = "IPv6 not implemented here. See http://namabiiru.hongo.wide.ad.jp/scapy6"
+    def __init__(self, *args, **kargs):
+        log_interactive.error(self.name)
+    def __repr__(self):
+        return "<IPv6: ERROR not implemented>"
+
+def IPv6_instance(x):
+    return isinstance(x, IPv6)
                 
 class PPP(Packet):
     name = "PPP Link Layer"
@@ -7375,7 +7418,9 @@ class L3PacketSocket(SuperSocket):
         return pkt
     
     def send(self, x):
-        if hasattr(x,"dst"):
+        if isinstance(x, IPv6):
+            iff,a,gw = conf.route6.route(x.dst)
+        elif hasattr(x,"dst"):
             iff,a,gw = conf.route.route(x.dst)
         else:
             iff = conf.iface
@@ -7521,7 +7566,9 @@ class L3dnetSocket(SuperSocket):
         if filter:
             self.ins.setfilter(filter, 0, 0)
     def send(self, x):
-        if hasattr(x,"dst"):
+        if isinstance(x, IPv6):
+            iff,a,gw = conf.route6.route(x.dst)
+        elif hasattr(x,"dst"):
             iff,a,gw = conf.route.route(x.dst)
         else:
             iff = conf.iface
@@ -9552,7 +9599,7 @@ def fragleak(target,sport=123, dport=123, timeout=0.2, onlyasc=0):
                 if not sin:
                     continue
                 ans=s.recv(1600)
-                if not isinstance(ans, IP):
+                if not isinstance(ans, IP): #TODO: IPv6
                     continue
                 if not isinstance(ans.payload, ICMP):
                     continue
