@@ -21,6 +21,13 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.2.18  2005/12/17 11:27:05  pbi
+# - Changed ColorTheme class be usable
+# - Added NoTheme class
+# - added autorun_get_text_interactive_session()
+# - added autorun_get_ansi_interactive_session()
+# - added autorun_get_latex_interactive_session() (miss some special chars filtering)
+#
 # Revision 1.0.2.17  2005/12/15 15:13:58  pbi
 # - IPv6 migration step 1: integrate some IPv6 routing stuff for IPv6 fork to work
 #   as an add-on
@@ -1171,7 +1178,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.2.17 2005/12/15 15:13:58 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.2.18 2005/12/17 11:27:05 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -9754,6 +9761,12 @@ class Color:
 class ColorTheme:
     def __repr__(self):
         return "<%s>" % self.__class__.__name__
+    def __getattr__(self, attr):
+        return lambda x:x
+        
+
+class NoTheme(ColorTheme):
+    pass
 
 
 class AnsiColorTheme(ColorTheme):
@@ -10082,6 +10095,24 @@ def autorun_get_interactive_session(cmds):
         sys.stdout,sys.stderr = sstdout,sstderr
     return sw.s,res
 
+def autorun_get_text_interactive_session(cmds):
+    ct = conf.color_theme
+    try:
+        conf.color_theme = NoTheme()
+        s,res = autorun_get_interactive_session(cmds)
+    finally:
+        conf.color_theme = ct
+    return s,res
+
+def autorun_get_ansi_interactive_session(cmds):
+    ct = conf.color_theme
+    try:
+        conf.color_theme = DefaultTheme()
+        s,res = autorun_get_interactive_session(cmds)
+    finally:
+        conf.color_theme = ct
+    return s,res
+
 def autorun_get_html_interactive_session(cmds):
     ct = conf.color_theme
     try:
@@ -10092,7 +10123,14 @@ def autorun_get_html_interactive_session(cmds):
     s = s.replace("<","&lt;").replace(">","&gt;").replace("#[#","<").replace("#]#",">")
     return s,res
 
-
+def autorun_get_latex_interactive_session(cmds):
+    ct = conf.color_theme
+    try:
+        conf.color_theme = LatexTheme()
+        s,res = autorun_get_interactive_session(cmds)
+    finally:
+        conf.color_theme = ct
+    return s,res
 
 
 ################
