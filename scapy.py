@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.2.19  2005/12/18 22:46:35  pbi
+# - fixed uninitialized _ in autorun_commands()
+#
 # Revision 1.0.2.18  2005/12/17 11:27:05  pbi
 # - Changed ColorTheme class be usable
 # - Added NoTheme class
@@ -1178,7 +1181,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.2.18 2005/12/17 11:27:05 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.2.19 2005/12/18 22:46:35 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -10061,6 +10064,7 @@ class ScapyAutorunInterpreter(code.InteractiveInterpreter):
 
 def autorun_commands(cmds,verb=0):
     sv = conf.verb
+    _ = None
     try:
         conf.verb = verb
         interp = ScapyAutorunInterpreter(globals())
