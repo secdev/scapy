@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.2.20  2005/12/19 12:43:52  pbi
+# - added FieldListField to create arrays of fields whose number is given in a FieldLenField
+#
 # Revision 1.0.2.19  2005/12/18 22:46:35  pbi
 # - fixed uninitialized _ in autorun_commands()
 #
@@ -1181,7 +1184,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.2.19 2005/12/18 22:46:35 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.2.20 2005/12/19 12:43:52 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -3267,6 +3270,34 @@ class StrLenField(StrField):
             l += f.shift
         return s[l:], self.m2i(pkt,s[:l])
 
+class FieldListField(Field):
+    islist=1
+    def __init__(self, name, default, cls, fld):
+        self.name = name
+        self.default = default
+        self.cls = cls
+        self.fld = fld
+    def i2m(self, pkt, val):
+        if val is None:
+            val = []
+        return val
+    def addfield(self, pkt, s, val):
+        val = self.i2m(pkt, val)
+        for v in val:
+            s = self.cls.addfield(pkt, s, v)
+        return s
+    def getfield(self, pkt, s):
+        l = getattr(pkt, self.fld)        
+        # add the shift from the length field
+        f = pkt.fields_desc[pkt.fields_desc.index(self.fld)]
+        if isinstance(f, FieldLenField):
+            l += f.shift
+        val = []
+        for i in range(l):
+            s,v = self.cls.getfield(pkt, s)
+            val.append(v)
+        return s, val
+
 class FieldLenField(Field):
     def __init__(self, name, default, fld, fmt = "H", shift=0):
         Field.__init__(self, name, default, fmt)
@@ -3276,7 +3307,11 @@ class FieldLenField(Field):
         if x is None:
             f = pkt.fields_desc[pkt.fields_desc.index(self.fld)]
             v = f.i2m(pkt,getattr(pkt, self.fld))
-            x = len(v)-self.shift
+            if v is None:
+                l = 0
+            else:
+                l = len(v)
+            x = l-self.shift
         return x
 #    def i2h(self, pkt, x):
 #        if x is None:
