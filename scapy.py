@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.2.22  2005/12/21 23:00:16  pbi
+# - fixed bug introduced by fix 1.0.2.19 on _
+#
 # Revision 1.0.2.21  2005/12/21 22:58:45  pbi
 # - added Packet.get_field() to get a field instance from its name
 # - modified some fields to use Packet.get_field() instead of a complex operation
@@ -1188,7 +1191,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.2.21 2005/12/21 22:58:45 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.2.22 2005/12/21 23:00:16 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -10105,7 +10108,6 @@ class ScapyAutorunInterpreter(code.InteractiveInterpreter):
 
 def autorun_commands(cmds,verb=0):
     sv = conf.verb
-    _ = None
     try:
         conf.verb = verb
         interp = ScapyAutorunInterpreter(globals())
@@ -10122,7 +10124,10 @@ def autorun_commands(cmds,verb=0):
             cmd = ""
     finally:
         conf.verb = sv
-    return _
+    try:
+        return _
+    except NameError:
+        return
 
 def autorun_get_interactive_session(cmds):
     class StringWriter:
