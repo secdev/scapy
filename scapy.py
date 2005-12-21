@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.2.21  2005/12/21 22:58:45  pbi
+# - added Packet.get_field() to get a field instance from its name
+# - modified some fields to use Packet.get_field() instead of a complex operation
+#
 # Revision 1.0.2.20  2005/12/19 12:43:52  pbi
 # - added FieldListField to create arrays of fields whose number is given in a FieldLenField
 #
@@ -1184,7 +1188,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.2.20 2005/12/19 12:43:52 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.2.21 2005/12/21 22:58:45 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -3226,7 +3230,7 @@ class PacketLenField(PacketField):
         self.fld = fld
     def getfield(self, pkt, s):
         l = getattr(pkt, self.fld)
-        l += pkt.fields_desc[pkt.fields_desc.index(self.fld)].shift        
+        l += pkt.get_field(self.fld).shift
         i = self.m2i(pkt, s[:l])
         return s[l:],i
 
@@ -3265,7 +3269,7 @@ class StrLenField(StrField):
     def getfield(self, pkt, s):
         l = getattr(pkt, self.fld)
         # add the shift from the length field
-        f = pkt.fields_desc[pkt.fields_desc.index(self.fld)]
+        f = pkt.get_field(self.fld)
         if isinstance(f, FieldLenField):
             l += f.shift
         return s[l:], self.m2i(pkt,s[:l])
@@ -3289,7 +3293,7 @@ class FieldListField(Field):
     def getfield(self, pkt, s):
         l = getattr(pkt, self.fld)        
         # add the shift from the length field
-        f = pkt.fields_desc[pkt.fields_desc.index(self.fld)]
+        f = pkt.get_field(self.fld)
         if isinstance(f, FieldLenField):
             l += f.shift
         val = []
@@ -3305,7 +3309,7 @@ class FieldLenField(Field):
         self.shift = shift
     def i2m(self, pkt, x):
         if x is None:
-            f = pkt.fields_desc[pkt.fields_desc.index(self.fld)]
+            f = pkt.get_field(self.fld)
             v = f.i2m(pkt,getattr(pkt, self.fld))
             if v is None:
                 l = 0
@@ -3375,7 +3379,7 @@ class ISAKMPTransformSetField(StrLenField):
         return lst
     def getfield(self, pkt, s):
         l = getattr(pkt, self.fld)
-        l += pkt.fields_desc[pkt.fields_desc.index(self.fld)].shift
+        l += pkt.get_field(self.fld).shift
         i = self.m2i(pkt, s[:l])
       
         return s[l:],i
@@ -3933,7 +3937,9 @@ class Packet(Gen):
         
     def post_dissection(self, pkt):
         pass
-        
+
+    def get_field(self, fld):
+        return self.fields_desc[self.fields_desc.index(fld)]
         
     def add_payload(self, payload):
         if payload is None:
