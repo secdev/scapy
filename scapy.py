@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.2.25  2005/12/23 00:11:09  pbi
+# - have scapy work if Python IPv6 support is not compiled in socketmodule
+#
 # Revision 1.0.2.24  2005/12/23 00:08:50  pbi
 # - aliased socket.inet_ntoa into local namespace for consistency with other ?to?
 #
@@ -1197,7 +1200,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.2.24 2005/12/23 00:08:50 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.2.25 2005/12/23 00:11:09 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1361,8 +1364,11 @@ else:
     inet_aton = socket.inet_aton
 
 inet_ntoa = socket.inet_ntoa
-inet_ntop = socket.inet_ntop
-inet_nton = socket.inet_pton
+try:
+    inet_ntop = socket.inet_ntop
+    inet_nton = socket.inet_pton
+except AttributeError:
+    log_loading.info("inet_ntop/pton functions not found. Python IPv6 support not present")
 
 
 
