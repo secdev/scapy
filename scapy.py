@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.2.23  2005/12/22 17:58:08  pbi
+# - fixed and enhanced autorun_commands()
+#
 # Revision 1.0.2.22  2005/12/21 23:00:16  pbi
 # - fixed bug introduced by fix 1.0.2.19 on _
 #
@@ -1191,7 +1194,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.2.22 2005/12/21 23:00:16 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.2.23 2005/12/22 17:58:08 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -10112,16 +10115,25 @@ def autorun_commands(cmds,verb=0):
         conf.verb = verb
         interp = ScapyAutorunInterpreter(globals())
         cmd = ""
-        for l in cmds.splitlines():
-            sys.stderr.write(str(sys.__dict__.get("ps1",ColorPrompt())))
+        cmds = cmds.splitlines()
+        cmds.append("") # ensure we finish multiline commands
+        cmds.reverse()
+        while 1:
+            if cmd:
+                sys.stderr.write(sys.__dict__.get("ps2","... "))
+            else:
+                sys.stderr.write(str(sys.__dict__.get("ps1",ColorPrompt())))
+                
+            l = cmds.pop()
             print l
             cmd += "\n"+l
             if interp.runsource(cmd):
-                sys.stderr.write(sys.__dict__.get("ps2","... "))
                 continue
             if interp.error:
                 return 0
             cmd = ""
+            if len(cmds) <= 1:
+                break
     finally:
         conf.verb = sv
     try:
