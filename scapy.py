@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.2.24  2005/12/23 00:08:50  pbi
+# - aliased socket.inet_ntoa into local namespace for consistency with other ?to?
+#
 # Revision 1.0.2.23  2005/12/22 17:58:08  pbi
 # - fixed and enhanced autorun_commands()
 #
@@ -1194,7 +1197,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.2.23 2005/12/22 17:58:08 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.2.24 2005/12/23 00:08:50 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1357,6 +1360,7 @@ except socket.error:
 else:
     inet_aton = socket.inet_aton
 
+inet_ntoa = socket.inet_ntoa
 inet_ntop = socket.inet_ntop
 inet_nton = socket.inet_pton
 
@@ -1580,7 +1584,7 @@ def atol(x):
         ip = inet_aton(socket.gethostbyname(x))
     return struct.unpack("I", ip)[0]
 def ltoa(x):
-    return socket.inet_ntoa(struct.pack("I", x))
+    return inet_ntoa(struct.pack("I", x))
 
 def itom(x):
     return socket.ntohl((0xffffffff00000000L>>x)&0xffffffffL)&0xffffffffL
@@ -1970,7 +1974,7 @@ if not LINUX:
             if not iff.has_key("link_addr"):
                 return
             rawip = iff["addr"].data
-            ip = socket.inet_ntoa(rawip)
+            ip = inet_ntoa(rawip)
             rawll = iff["link_addr"].data
             ll = str2mac(rawll)
             lst[iff["name"]] = (rawll,ll,rawip,ip)
@@ -1990,7 +1994,7 @@ else:
             ifreq2 = ioctl(s, SIOCGIFNETMASK,struct.pack("16s16x","lo"))
             msk = struct.unpack("I",ifreq2[20:24])[0]
             dst = struct.unpack("I",ifreq[20:24])[0] & msk
-            ifaddr = socket.inet_ntoa(ifreq[20:24])
+            ifaddr = inet_ntoa(ifreq[20:24])
             routes.append((dst, msk, "0.0.0.0", "lo", ifaddr))
         else:
             warning("Interface lo: unkownn address family (%i)"% addrfamily)
@@ -2002,13 +2006,13 @@ else:
             ifreq = ioctl(s, SIOCGIFADDR,struct.pack("16s16x",iff))
             addrfamily = struct.unpack("h",ifreq[16:18])[0]
             if addrfamily == socket.AF_INET:
-                ifaddr = socket.inet_ntoa(ifreq[20:24])
+                ifaddr = inet_ntoa(ifreq[20:24])
             else:
                 warning("Interface %s: unkownn address family (%i)"%(iff, addrfamily))
                 continue
             routes.append((long(dst,16),
                           long(msk,16),
-                          socket.inet_ntoa(struct.pack("I",long(gw,16))),
+                          inet_ntoa(struct.pack("I",long(gw,16))),
                           iff, ifaddr))
         
         f.close()
@@ -2027,7 +2031,7 @@ else:
 
     
 def get_if_addr(iff):
-    return socket.inet_ntoa(get_if_raw_addr(iff))
+    return inet_ntoa(get_if_raw_addr(iff))
     
 def get_if_hwaddr(iff):
     addrfamily, mac = get_if_raw_hwaddr(iff)
@@ -3091,7 +3095,7 @@ class IPField(Field):
     def i2m(self, pkt, x):
         return inet_aton(x)
     def m2i(self, pkt, x):
-        return socket.inet_ntoa(x)
+        return inet_ntoa(x)
     def any2i(self, pkt, x):
 #        if type(x) is str and len(x) == 4:
 #            x = self.m2i(pkt, x)
