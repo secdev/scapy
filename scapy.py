@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.2.26  2005/12/23 00:51:51  pbi
+# - strengthened DNS disassembly
+#
 # Revision 1.0.2.25  2005/12/23 00:11:09  pbi
 # - have scapy work if Python IPv6 support is not compiled in socketmodule
 #
@@ -1200,7 +1203,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.2.25 2005/12/23 00:11:09 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.2.26 2005/12/23 00:51:51 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -3749,6 +3752,7 @@ class DNSRRCountField(ShortField):
 def DNSgetstr(s,p):
     name = ""
     q = 0
+    jpath = [p]
     while 1:
         if p >= len(s):
             warning("DNS RR prematured end (ofs=%i, len=%i)"%(p,len(s)))
@@ -3758,7 +3762,14 @@ def DNSgetstr(s,p):
         if l & 0xc0:
             if not q:
                 q = p+1
+            if p >= len(s):
+                warning("DNS incomplete jump token at (ofs=%i)" % p)
+                break
             p = ((l & 0x3f) << 8) + ord(s[p]) - 12
+            if p in jpath:
+                warning("DNS decompression loop detected")
+                break
+            jpath.append(p)
             continue
         elif l > 0:
             name += s[p:p+l]+"."
@@ -3799,6 +3810,9 @@ class DNSRRField(StrField):
             p = 0
         ret = None
         c = getattr(pkt, self.countfld)
+        if c > len(s):
+            warning("wrong value: DNS.%s=%i" % (self.countfld,c))
+            return s,""
         while c:
             c -= 1
             name,p = DNSgetstr(s,p)
