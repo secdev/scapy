@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.2.27  2006/01/04 15:04:17  pbi
+# - added missing try/except arround dissection in rdpcap()
+#
 # Revision 1.0.2.26  2005/12/23 00:51:51  pbi
 # - strengthened DNS disassembly
 #
@@ -1203,7 +1206,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.2.26 2005/12/23 00:51:51 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.2.27 2006/01/04 15:04:17 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -8214,8 +8217,14 @@ def rdpcap(filename, count=-1):
         if len(hdr) < 16:
             break
         sec,usec,caplen,olen = struct.unpack(endian+"IIII", hdr )
-        p = LLcls(f.read(caplen))
-        p.time = sec+0.000001*usec
+        s = f.read(caplen)
+        try:
+            p = LLcls(s)
+            p.time = sec+0.000001*usec
+        except:
+            if conf.debug_dissector:
+                raise
+            p = Raw(s)
         res.append(p)
     f.close()
     filename = filename[filename.rfind("/")+1:]
