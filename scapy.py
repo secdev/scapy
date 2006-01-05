@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.2.28  2006/01/05 17:49:17  pbi
+# - re-added indentation in Packet.show(). Can be tweaked with "indent" parameter
+#
 # Revision 1.0.2.27  2006/01/04 15:04:17  pbi
 # - added missing try/except arround dissection in rdpcap()
 #
@@ -1206,7 +1209,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.2.27 2006/01/04 15:04:17 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.2.28 2006/01/05 17:49:17 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -4489,7 +4492,7 @@ class Packet(Gen):
 
     def display(self,*args,**kargs):  # Deprecated. Use show()
         self.show(*args,**kargs)
-    def show(self, lvl=0):
+    def show(self, indent=3, lvl=0):
         ct = conf.color_theme
         print "%s %s %s" % (ct.punct("###["),
                             ct.layer_name(self.name),
@@ -4501,10 +4504,11 @@ class Packet(Gen):
             else:
                 ncol = ct.field_name
                 vcol = ct.field_value
-            print "  %-10s%s %s" % (ncol(f.name),
-                                    ct.punct("="),
-                                    vcol(f.i2repr(self,self.__getattr__(f))))
-        self.payload.display(lvl+1)
+            print "  %s%-10s%s %s" % (" "*indent*lvl,
+                                      ncol(f.name),
+                                      ct.punct("="),
+                                      vcol(f.i2repr(self,self.__getattr__(f))))
+        self.payload.display(indent=indent,lvl=lvl+1)
 
     def show2(self):
         self.__class__(str(self)).show()
@@ -4724,7 +4728,7 @@ class NoPayload(Packet,object):
         return 0
     def getlayer(self, cls, nb=1):
         return None
-    def show(self, lvl=0):
+    def show(self, indent=3, lvl=0):
         pass
     def sprintf(self, fmt, relax):
         if relax:
