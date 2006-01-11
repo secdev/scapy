@@ -21,6 +21,13 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.2.29  2006/01/11 17:00:01  pbi
+# - added Solaris support (wit help from S. Despret)
+# - added Solaris missing IPPROTO_GRE
+# - changed read_routes() to work with Solaris netstat
+# - fixed read_route() local variable collision (mtu became mtu_present)
+# - changed variable fl to flg
+#
 # Revision 1.0.2.28  2006/01/05 17:49:17  pbi
 # - re-added indentation in Packet.show(). Can be tweaked with "indent" parameter
 #
@@ -1209,7 +1216,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.2.28 2006/01/05 17:49:17 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.2.29 2006/01/11 17:00:01 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1306,6 +1313,7 @@ FREEBSD=sys.platform.startswith("freebsd")
 DARWIN=sys.platform.startswith("darwin")
 BIG_ENDIAN= struct.pack("H",1) == "\x00\x01"
 X86_64 = (os.uname()[4] == 'x86_64')
+SOLARIS=sys.platform.startswith("sunos")
 
 
 if LINUX:
@@ -1378,6 +1386,11 @@ try:
     inet_nton = socket.inet_pton
 except AttributeError:
     log_loading.info("inet_ntop/pton functions not found. Python IPv6 support not present")
+
+
+if SOLARIS:
+    # GRE is missing on Solaris
+    socket.IPPROTO_GRE = 47
 
 
 
@@ -1939,7 +1952,10 @@ if not LINUX:
         return rtlst
 
     def read_routes():
-        f=os.popen("netstat -rn") # -f inet
+        if SOLARIS:
+            f=os.popen("netstat -rvn") # -f inet
+        else:
+            f=os.popen("netstat -rn") # -f inet
         ok = 0
         mtu = False
         routes = []
@@ -1947,33 +1963,40 @@ if not LINUX:
             if not l:
                 break
             l = l.strip()
+            if l.find("----") >= 0: # a separation line
+                continue
             if l.find("Destination") >= 0:
                 ok = 1
                 if l.find("Mtu") >= 0:
-                    mtu = True
+                    mtu_present = True
                 continue
             if ok == 0:
                 continue
             if not l:
                 break
-            if mtu:
-                dest,gw,fl,ref,use,mtu,netif = l.split()[:7]
+            if SOLARIS:
+                dest,mask,gw,netif,mxfrg,rtt,ref,flg = l.split()[:8]
             else:
-                dest,gw,fl,ref,use,netif = l.split()[:6]
-            if fl.find("Lc") >= 0:
+                if mtu_present:
+                    dest,gw,flg,ref,use,mtu,netif = l.split()[:7]
+                else:
+                    dest,gw,flg,ref,use,netif = l.split()[:6]
+            if flg.find("Lc") >= 0:
                 continue                
             if dest == "default":
                 dest = 0L
                 netmask = 0L
             else:
-                if "/" in dest:
+                if SOLARIS:
+                    netmask, = struct.unpack("I",inet_aton(mask))
+                elif "/" in dest:
                     dest,netmask = dest.split("/")
                     netmask = itom(int(netmask))
                 else:
                     netmask = itom((dest.count(".") + 1) * 8)
                 dest += ".0"*(3-dest.count("."))
                 dest, = struct.unpack("I",inet_aton(dest))
-            if not "G" in fl:
+            if not "G" in flg:
                 gw = '0.0.0.0'
             ifaddr = get_if_addr(netif)
             routes.append((dest,netmask,gw,netif,ifaddr))
