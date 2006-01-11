@@ -21,6 +21,14 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.2.30  2006/01/11 17:45:45  pbi
+# - fixed endianness problems in PcapReader()
+# - fixed PcapReader.read_all()
+# - added missing try/except to PcapReader.read_packet()
+# - removed PcapReader.read_PacketList() (read_all() already returns a PacketList)
+# - removed debug "print" from PcapWriter()
+# - added endianness parameter in PcapWriter()
+#
 # Revision 1.0.2.29  2006/01/11 17:00:01  pbi
 # - added Solaris support (wit help from S. Despret)
 # - added Solaris missing IPPROTO_GRE
@@ -1216,7 +1224,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.2.29 2006/01/11 17:00:01 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.2.30 2006/01/11 17:45:45 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -8196,67 +8204,11 @@ def srbt1(peer, pkts, *args, **kargs):
 ## pcap capture file stuff ##
 #############################
 
-def wrpcap(filename, pkt):
-    f=open(filename,"w")
-    if isinstance(pkt,Packet):
-        linktype = LLNumTypes.get(pkt.__class__,1)
-    else:
-        linktype = LLNumTypes.get(pkt[0].__class__,1)
-        
-    f.write(struct.pack("IHHIIII",
-                        0xa1b2c3d4L,
-                        2, 4,
-                        0,
-                        0,
-                        MTU,
-                        linktype))
-    for p in pkt:
-        s = str(p)
-        l = len(s)
-        sec = int(p.time)
-        usec = int((p.time-sec)*1000000)
-        f.write(struct.pack("IIII", sec, usec, l, l))
-        f.write(s)
-    f.close()
+def wrpcap(filename, pkt, *args, **kargs):
+    PcapWriter(filename, *args, **kargs).write(pkt)
 
 def rdpcap(filename, count=-1):
-    res=[]
-    f=open(filename)
-    magic = f.read(4)
-    if struct.unpack("<I",magic) == (0xa1b2c3d4L,):
-       endian = "<"
-    elif struct.unpack(">I",magic) == (0xa1b2c3d4L,):
-       endian = ">"
-    else:
-        warning("Not a pcap capture file (bad magic)")
-        return []
-    hdr = f.read(20)
-    if len(hdr)<20:
-        warning("Invalid pcap file")
-        return res
-    vermaj,vermin,tz,sig,snaplen,linktype = struct.unpack(endian+"HHIIII",hdr)
-    LLcls = LLTypes.get(linktype, Raw)
-    if LLcls == Raw:
-        warning("LL type %i unknown. Using Raw packets"%linktype)
-    while count != 0:
-        count -= 1
-        hdr = f.read(16)
-        if len(hdr) < 16:
-            break
-        sec,usec,caplen,olen = struct.unpack(endian+"IIII", hdr )
-        s = f.read(caplen)
-        try:
-            p = LLcls(s)
-            p.time = sec+0.000001*usec
-        except:
-            if conf.debug_dissector:
-                raise
-            p = Raw(s)
-        res.append(p)
-    f.close()
-    filename = filename[filename.rfind("/")+1:]
-    return PacketList(res,filename)
-
+    return PcapReader(filename).read_all(count=count)
 
 class PcapReader:
     """A stateful pcap reader
@@ -8269,12 +8221,17 @@ class PcapReader:
     def __init__(self, filename):
         self.filename = filename
         self.f = open(filename,"r")
-        hdr = self.f.read(24)
-        if len(hdr)<24:
-            raise RuntimeWarning, "Invalid pcap file"
-        magic,vermaj,vermin,tz,sig,snaplen,linktype = struct.unpack("IHHIIII",hdr)
-        if magic != 0xa1b2c3d4L:
+        magic = self.f.read(4)
+        if magic == "\xa1\xb2\xc3\xd4": #big endian
+            self.endian = ">"
+        elif  magic == "\xd4\xc3\xb2\xa1": #little endian
+            self.endian = "<"
+        else:
             raise RuntimeWarning, "Not a pcap capture file (bad magic)"
+        hdr = self.f.read(20)
+        if len(hdr)<20:
+            raise RuntimeWarning, "Invalid pcap file (too short)"
+        vermaj,vermin,tz,sig,snaplen,linktype = struct.unpack(self.endian+"HHIIII",hdr)
         self.LLcls = LLTypes.get(linktype, Raw)
         if self.LLcls == Raw:
             warning("PcapReader: LL type unknown. Using Raw packets")
@@ -8303,8 +8260,14 @@ class PcapReader:
         hdr = self.f.read(16)
         if len(hdr) < 16:
             return None
-        sec,usec,caplen,olen = struct.unpack("IIII", hdr)
-        p = self.LLcls(self.f.read(caplen))
+        sec,usec,caplen,olen = struct.unpack(self.endian+"IIII", hdr)
+        s = self.f.read(caplen)
+        try:
+            p = self.LLcls(s)
+        except:
+            if conf.debug_dissector:
+                raise
+            p = Raw(s)
         p.time = sec+0.000001*usec
         return p
 	
@@ -8320,19 +8283,17 @@ class PcapReader:
             callback(p)
             p = self.read_packet()
 
-    def read_all(self):
+    def read_all(self,count=-1):
         """return a list of all packets in the pcap file
         """
         res=[]
-        p = self.read_packet()
-        while p != None:
+        while count != 0:
+            count -= 1
+            p = self.read_packet()
+            if p is None:
+                break
             res.append(p)
-        return(p)
-
-    def read_PacketList(self):
-        """return a PacketList() of all packets in the pcap file
-        """
-        return PacketList(self.read_all(), self.filename)
+        return PacketList(res,name = os.path.basename(self.filename))
 
     def recv(self, size):
         """ Emulate a socket
@@ -8347,10 +8308,12 @@ class PcapWriter:
     This routine is based entirely on scapy.wrpcap(), but adds capability
     of writing one packet at a time in a streaming manner.
     """
-    def __init__(self, filename, linktype=None):
+    def __init__(self, filename, linktype=None, endianness=""):
         self.linktype = linktype
         self.header_done = 0
         self.f = open(filename,"w")
+        self.endian = endianness
+
 
     def write(self, pkt):
         """accepts a either a single packet or a list of packets
@@ -8360,29 +8323,25 @@ class PcapWriter:
         if self.header_done == 0:
             if self.linktype == None:
                 if isinstance(pkt,Packet):
-                    print "x",pkt.__class__
                     linktype = LLNumTypes.get(pkt.__class__,1)
                 else:
-                    print "xx",pkt[0].__class__
                     linktype = LLNumTypes.get(pkt[0].__class__,1)
 
-            print linktype
-            self.f.write(struct.pack("IHHIIII", 0xa1b2c3d4L,
+            self.f.write(struct.pack(self.endian+"IHHIIII", 0xa1b2c3d4L,
                                      2, 4, 0, 0, MTU, linktype))
             self.header_done = 1
 
-        print "yo"
         for p in pkt:
-            self.write_packet(p)
+            self._write_packet(p)
 
-    def write_packet(self, packet):
+    def _write_packet(self, packet):
         """writes a single packet to the pcap file
         """
         s = str(packet)
         l = len(s)
         sec = int(packet.time)
         usec = int((packet.time-sec)*1000000)
-        self.f.write(struct.pack("IIII", sec, usec, l, l))
+        self.f.write(struct.pack(self.endian+"IIII", sec, usec, l, l))
         self.f.write(s)
 
     def __del__(self):
