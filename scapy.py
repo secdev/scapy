@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.2.31  2006/01/12 11:02:51  pbi
+# - fixed 1.0.2.29 collision fix (s/mtu/mtu_present/)
+#
 # Revision 1.0.2.30  2006/01/11 17:45:45  pbi
 # - fixed endianness problems in PcapReader()
 # - fixed PcapReader.read_all()
@@ -1224,7 +1227,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.2.30 2006/01/11 17:45:45 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.2.31 2006/01/12 11:02:51 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1965,7 +1968,7 @@ if not LINUX:
         else:
             f=os.popen("netstat -rn") # -f inet
         ok = 0
-        mtu = False
+        mtu_present = False
         routes = []
         for l in f.readlines():
             if not l:
