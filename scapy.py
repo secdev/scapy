@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.2.32  2006/01/14 16:54:29  pbi
+# - added missing _IPv6optionHearder dummy class
+# - removed useless IPv6_instace() function
+#
 # Revision 1.0.2.31  2006/01/12 11:02:51  pbi
 # - fixed 1.0.2.29 collision fix (s/mtu/mtu_present/)
 #
@@ -1227,7 +1231,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.2.31 2006/01/12 11:02:51 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.2.32 2006/01/14 16:54:29 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -5370,9 +5374,13 @@ class IPv6(Packet):
         log_interactive.error(self.name)
     def __repr__(self):
         return "<IPv6: ERROR not implemented>"
-
-def IPv6_instance(x):
-    return isinstance(x, IPv6)
+    
+class _IPv6OptionHeader(Packet):
+    name = "IPv6 not implemented here. See http://namabiiru.hongo.wide.ad.jp/scapy6"
+    def __init__(self, *args, **kargs):
+        log_interactive.error(self.name)
+    def __repr__(self):
+        return "<IPv6: ERROR not implemented>"
                 
 class PPP(Packet):
     name = "PPP Link Layer"
