@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.2.34  2006/01/15 13:15:57  pbi
+# -added information-request and information-response to ICMP types (J. Bowie)
+#
 # Revision 1.0.2.33  2006/01/15 13:15:16  pbi
 # - fixed NetBIOSNameField incorrect length calculation (J. Bowie)
 #
@@ -1234,7 +1237,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.2.33 2006/01/15 13:15:16 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.2.34 2006/01/15 13:15:57 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -5257,6 +5260,8 @@ icmptypes = { 0 : "echo-reply",
               12 : "parameter-problem",
               13 : "timestamp-request",
               14 : "timestamp-reply",
+              15 : "information-request",
+              16 : "information-response",
               17 : "address-mask-request",
               18 : "address-mask-reply" }
 
@@ -5278,7 +5283,7 @@ class ICMP(Packet):
     def answers(self, other):
         if not isinstance(other,ICMP):
             return 0
-        if ( (other.type,self.type) in [(8,0),(13,14),(17,18)] and
+        if ( (other.type,self.type) in [(8,0),(13,14),(15,16),(17,18)] and
              self.id == other.id and
              self.seq == other.seq ):
             return 1
