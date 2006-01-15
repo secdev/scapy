@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.2.33  2006/01/15 13:15:16  pbi
+# - fixed NetBIOSNameField incorrect length calculation (J. Bowie)
+#
 # Revision 1.0.2.32  2006/01/14 16:54:29  pbi
 # - added missing _IPv6optionHearder dummy class
 # - removed useless IPv6_instace() function
@@ -1231,7 +1234,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.2.32 2006/01/14 16:54:29 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.2.33 2006/01/15 13:15:16 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -3316,8 +3319,8 @@ class NetBIOSNameField(StrFixedLenField):
     def i2m(self, pkt, x):
         if x is None:
             x = ""
-        x += " "*(self.length/2-1)
-        x = x[:(self.length/2-1)]
+        x += " "*(self.length/2)
+        x = x[:(self.length/2)]
         x = "".join(map(lambda x: chr(0x41+(ord(x)>>4))+chr(0x41+(ord(x)&0xf)), x))
         x = " "+x
         return x
