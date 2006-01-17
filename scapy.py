@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.2.35  2006/01/17 18:02:42  pbi
+# - finished Packet.canvas_dup() escape() function. Every char is correctly translated into TeX
+#
 # Revision 1.0.2.34  2006/01/15 13:15:57  pbi
 # -added information-request and information-response to ICMP types (J. Bowie)
 #
@@ -1237,7 +1240,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.2.34 2006/01/15 13:15:57 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.2.35 2006/01/17 18:02:42 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -4258,8 +4261,28 @@ class Packet(Gen):
                 s.append("%02x" % ord(c))
             return " ".join(s)
 
+        TEX_TR = {
+            "{":"{\\tt\\char123}",
+            "}":"{\\tt\\char125}",
+            "\\":"{\\tt\\char92}",
+            "^":"\\^{}",
+            "$":"\\$",
+            "#":"\\#",
+            "~":"\\~",
+            "_":"\\_",
+            "&":"\\&",
+            "%":"\\%",
+            "|":"{\\tt\\char124}",
+            "~":"{\\tt\\char126}",
+            "<":"{\\tt\\char60}",
+            ">":"{\\tt\\char62}",
+            }
+            
         def escape(x):
-            return sane(x).translate(string.maketrans(r"\&%$#_^{}","........."))
+            s = ""
+            for c in x:
+                s += TEX_TR.get(c,c)
+            return s
                 
         def make_dump_txt(x,y,txt):
             return pyx.text.text(XDSTART+x*XMUL, (YDUMP-y)*YMUL, r"\tt{%s}"%hexstr(txt), [pyx.text.size.Large])
