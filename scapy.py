@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.2.37  2006/01/28 13:14:25  pbi
+# - tweaked ls() for add-on classes to appear in the listing
+#
 # Revision 1.0.2.36  2006/01/28 13:02:15  pbi
 # - replaced remaining occurences of use of display() [deprecated, use show()]
 # - removed URL from dummy IPv6 classes names
@@ -1244,7 +1247,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.2.36 2006/01/28 13:02:15 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.2.37 2006/01/28 13:14:25 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -9188,7 +9191,8 @@ def lsc(cmd=None):
 def ls(obj=None):
     """List  available layers, or infos on a given layer"""
     if obj is None:
-        objlst = filter(lambda (n,o): type(o) is types.TypeType and issubclass(o,Packet),globals().items())
+        import __builtin__
+        objlst = filter(lambda (n,o): type(o) is types.TypeType and issubclass(o,Packet), __builtin__.__dict__.items())
         objlst.sort(lambda x,y:cmp(x[0],y[0]))
         for n,o in objlst:
             print "%-10s : %s" %(n,o.name)
