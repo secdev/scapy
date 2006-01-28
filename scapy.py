@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.2.36  2006/01/28 13:02:15  pbi
+# - replaced remaining occurences of use of display() [deprecated, use show()]
+# - removed URL from dummy IPv6 classes names
+#
 # Revision 1.0.2.35  2006/01/17 18:02:42  pbi
 # - finished Packet.canvas_dup() escape() function. Every char is correctly translated into TeX
 #
@@ -1240,7 +1244,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.2.35 2006/01/17 18:02:42 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.2.36 2006/01/28 13:02:15 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2623,7 +2627,7 @@ class ARPingResult(SndRcvList):
     def __init__(self, res, name="ARPing", stats=None):
         PacketList.__init__(self, res, name, stats)
 
-    def display(self):
+    def show(self):
         for s,r in self.res:
             print r.sprintf("%Ether.src% %ARP.psrc%")
 
@@ -2639,8 +2643,6 @@ class TracerouteResult(SndRcvList):
         self.hloc = None
         self.nloc = None
 
-    def display(self): # Deprecated. Use show()
-        self.show()
     def show(self):
         return self.make_table(lambda (s,r): (s.sprintf("%IP.dst%:{TCP:tcp%ir,TCP.dport%}{UDP:udp%ir,UDP.dport%}{ICMP:ICMP}"),
                                               s.ttl,
@@ -4575,7 +4577,7 @@ class Packet(Gen):
                                       ncol(f.name),
                                       ct.punct("="),
                                       vcol(f.i2repr(self,self.__getattr__(f))))
-        self.payload.display(indent=indent,lvl=lvl+1)
+        self.payload.show(indent=indent,lvl=lvl+1)
 
     def show2(self):
         self.__class__(str(self)).show()
@@ -5400,14 +5402,16 @@ class ICMPerror(ICMP):
         return Packet.mysummary(self)
 
 class IPv6(Packet):
-    name = "IPv6 not implemented here. See http://namabiiru.hongo.wide.ad.jp/scapy6"
+    """See http://namabiiru.hongo.wide.ad.jp/scapy6"""
+    name = "IPv6 not implemented here." 
     def __init__(self, *args, **kargs):
         log_interactive.error(self.name)
     def __repr__(self):
         return "<IPv6: ERROR not implemented>"
     
 class _IPv6OptionHeader(Packet):
-    name = "IPv6 not implemented here. See http://namabiiru.hongo.wide.ad.jp/scapy6"
+    """See http://namabiiru.hongo.wide.ad.jp/scapy6"""
+    name = "IPv6 not implemented here."
     def __init__(self, *args, **kargs):
         log_interactive.error(self.name)
     def __repr__(self):
