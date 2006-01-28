@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.3.1  2006/01/28 14:32:55  pbi
+# Release 1.0.3
+#
 # Revision 1.0.2.37  2006/01/28 13:14:25  pbi
 # - tweaked ls() for add-on classes to appear in the listing
 #
@@ -1247,7 +1250,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.2.37 2006/01/28 13:14:25 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.3.1 2006/01/28 14:32:55 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
