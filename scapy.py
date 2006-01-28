@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.3.3  2006/01/29 00:06:48  pbi
+# - added shortcut to PacketList to extract a given protocol with []. ex : lst[ICMP]
+#
 # Revision 1.0.3.2  2006/01/28 23:52:21  pbi
 # - removed useless (and racy) __del__() methods from PcapReader and PcapWriter
 #
@@ -1253,7 +1256,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.3.2 2006/01/28 23:52:21 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.3.3 2006/01/29 00:06:48 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2410,6 +2413,14 @@ class PacketList:
                                ct.punct(">"))
     def __getattr__(self, attr):
         return getattr(self.res, attr)
+    def __getitem__(self, item):
+        if type(item) is type and issubclass(item,Packet):
+            return self.__class__(filter(lambda x: item in self._elt2pkt(x),self.res),
+                                  name="%s from %s"%(item.__name__,self.listname))
+        if type(item) is slice:
+            return self.__class__(self.res.__getitem__(item),
+                                  name = "mod %s" % self.listname)
+        return self.res.__getitem__(item)
     def __getslice__(self, *args, **kargs):
         return self.__class__(self.res.__getslice__(*args, **kargs),
                               name="mod %s"%self.listname)
