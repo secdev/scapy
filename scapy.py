@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.3.2  2006/01/28 23:52:21  pbi
+# - removed useless (and racy) __del__() methods from PcapReader and PcapWriter
+#
 # Revision 1.0.3.1  2006/01/28 14:32:55  pbi
 # Release 1.0.3
 #
@@ -1250,7 +1253,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.3.1 2006/01/28 14:32:55 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.3.2 2006/01/28 23:52:21 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -8288,9 +8291,6 @@ class PcapReader:
         if self.LLcls == Raw:
             warning("PcapReader: LL type unknown. Using Raw packets")
 
-    def __del__(self):
-        self.f.close()
-
     def __iter__(self):
         return self
 
@@ -8395,10 +8395,6 @@ class PcapWriter:
         usec = int((packet.time-sec)*1000000)
         self.f.write(struct.pack(self.endian+"IIII", sec, usec, l, l))
         self.f.write(s)
-
-    def __del__(self):
-        self.f.close()
-
 
 
 def import_hexcap():
