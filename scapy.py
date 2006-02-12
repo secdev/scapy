@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.3.4  2006/02/12 01:06:52  pbi
+# - initialize payload's underlayer before payload's dissection
+#
 # Revision 1.0.3.3  2006/01/29 00:06:48  pbi
 # - added shortcut to PacketList to extract a given protocol with []. ex : lst[ICMP]
 #
@@ -1256,7 +1259,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.3.3 2006/01/29 00:06:48 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.3.4 2006/02/12 01:06:52 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -4017,7 +4020,7 @@ class Packet(Gen):
     payload_guess = []
     initialized = 0
 
-    def __init__(self, _pkt="", _internal=0, **fields):
+    def __init__(self, _pkt="", _internal=0, _underlayer=None, **fields):
         self.time  = time.time()
         self.aliastypes = [ self.__class__ ] + self.aliastypes
         self.default_fields = {}
@@ -4028,6 +4031,7 @@ class Packet(Gen):
         for f in self.fields_desc:
             self.default_fields[f] = f.default
             self.fieldtype[f] = f
+        self.underlayer = _underlayer
         self.initialized = 1
         if _pkt:
             self.dissect(_pkt)
@@ -4445,7 +4449,7 @@ class Packet(Gen):
         if s:
             cls = self.guess_payload_class(s)
             try:
-                p = cls(s, _internal=1)
+                p = cls(s, _internal=1, _underlayer=self)
             except:
                 if conf.debug_dissector:
                     if type(cls) is type and issubclass(cls,Packet):
@@ -4454,7 +4458,7 @@ class Packet(Gen):
                         log_runtime.error("%s.guess_payload_class() returned [%s]" % (self.__class__.__name__,repr(cls)))
                     if cls is not None:
                         raise
-                p = Raw(s, _internal=1)
+                p = Raw(s, _internal=1, _underlayer=self)
             self.add_payload(p)
 
     def dissect(self, s):
