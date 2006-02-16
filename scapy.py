@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.3.7  2006/02/16 15:37:44  pbi
+# - fixed conf.BTsocket assignment BluetoothSocket BluetoothL2CAPSocket
+#
 # Revision 1.0.3.6  2006/02/16 15:11:13  pbi
 # - added docstrings to many methods of Packet
 #
@@ -1267,7 +1270,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.3.6 2006/02/16 15:11:13 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.3.7 2006/02/16 15:37:44 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -10234,7 +10237,7 @@ warning_threshold : how much time between warnings from the same place
     L3socket = L3PacketSocket
     L2socket = L2Socket
     L2listen = L2ListenSocket
-    BTsocket = BluetoothSocket
+    BTsocket = BluetoothL2CAPSocket
     histfile = os.path.join(os.environ["HOME"], ".scapy_history")
     padding = 1
     p0f_base ="/etc/p0f.fp"
