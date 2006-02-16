@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.3.8  2006/02/16 15:45:51  pbi
+# - added docstrings to sr*(), wrpcap(), rdpcap()
+#
 # Revision 1.0.3.7  2006/02/16 15:37:44  pbi
 # - fixed conf.BTsocket assignment BluetoothSocket BluetoothL2CAPSocket
 #
@@ -1270,7 +1273,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.3.7 2006/02/16 15:37:44 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.3.8 2006/02/16 15:45:51 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -8255,7 +8258,17 @@ send(packets, [inter=0], [loop=0], [verbose=conf.verb]) -> None"""
     __gen_send(conf.L2socket(iface=iface, *args, **kargs), x, inter=inter, loop=loop, verbose=verbose)
     
 def sr(x,filter=None, iface=None, *args,**kargs):
-    """Send and receive packets at layer 3"""
+    """Send and receive packets at layer 3
+nofilter: put 1 to avoid use of bpf filters
+retry:    if positive, how many times to resend unanswered packets
+          if negative, how many times to retry when no more packets are answered
+timeout:  how much time to wait after the last packet has been sent
+verbose:  set verbosity level
+multi:    whether to accept multiple answers for the same stimulus
+filter:   provide a BPF filter
+iface:    listen answers only on the given interface"""
+    if not kargs.has_key("timeout"):
+    
     if not kargs.has_key("timeout"):
         kargs["timeout"] = -1
     s = conf.L3socket(filter=filter, iface=iface)
@@ -8264,7 +8277,15 @@ def sr(x,filter=None, iface=None, *args,**kargs):
     return a,b
 
 def sr1(x,filter=None,iface=None, nofilter=0, *args,**kargs):
-    """Send packets at layer 3 and return only the first answer"""
+    """Send packets at layer 3 and return only the first answer
+nofilter: put 1 to avoid use of bpf filters
+retry:    if positive, how many times to resend unanswered packets
+          if negative, how many times to retry when no more packets are answered
+timeout:  how much time to wait after the last packet has been sent
+verbose:  set verbosity level
+multi:    whether to accept multiple answers for the same stimulus
+filter:   provide a BPF filter
+iface:    listen answers only on the given interface"""
     if not kargs.has_key("timeout"):
         kargs["timeout"] = -1
     s=conf.L3socket(filter=filter, nofilter=nofilter, iface=iface)
@@ -8276,7 +8297,17 @@ def sr1(x,filter=None,iface=None, nofilter=0, *args,**kargs):
         return None
 
 def srp(x,iface=None, iface_hint=None, filter=None, nofilter=0, type=ETH_P_ALL, *args,**kargs):
-    """Send and receive packets at layer 2"""
+    """Send and receive packets at layer 2
+nofilter: put 1 to avoid use of bpf filters
+retry:    if positive, how many times to resend unanswered packets
+          if negative, how many times to retry when no more packets are answered
+timeout:  how much time to wait after the last packet has been sent
+verbose:  set verbosity level
+multi:    whether to accept multiple answers for the same stimulus
+filter:   provide a BPF filter
+iface:    work only on the given interface"""
+    if not kargs.has_key("timeout"):
+    
     if not kargs.has_key("timeout"):
         kargs["timeout"] = -1
     if iface is None and iface_hint is not None:
@@ -8285,7 +8316,17 @@ def srp(x,iface=None, iface_hint=None, filter=None, nofilter=0, type=ETH_P_ALL, 
     return a,b
 
 def srp1(*args,**kargs):
-    """Send and receive packets at layer 2 and return only the first answer"""
+    """Send and receive packets at layer 2 and return only the first answer
+nofilter: put 1 to avoid use of bpf filters
+retry:    if positive, how many times to resend unanswered packets
+          if negative, how many times to retry when no more packets are answered
+timeout:  how much time to wait after the last packet has been sent
+verbose:  set verbosity level
+multi:    whether to accept multiple answers for the same stimulus
+filter:   provide a BPF filter
+iface:    work only on the given interface"""
+    if not kargs.has_key("timeout"):
+
     a,b=srp(*args,**kargs)
     if len(a) > 0:
         return a[0][1]
@@ -8369,9 +8410,14 @@ def srbt1(peer, pkts, *args, **kargs):
 #############################
 
 def wrpcap(filename, pkt, *args, **kargs):
+    """Write a list of packets to a pcap file
+linktype: force linktype value
+endianness: "<" or ">", force endianness"""
     PcapWriter(filename, *args, **kargs).write(pkt)
 
 def rdpcap(filename, count=-1):
+    """Read a pcap file and return a packet list
+count: read only <count> packets"""
     return PcapReader(filename).read_all(count=count)
 
 class PcapReader:
@@ -9056,6 +9102,7 @@ lfilter: python function applied to each packet to determine
          if further action may be done
          ex: lfilter = lambda x: x.haslayer(Padding)
 offline: pcap file to read packets from, instead of sniffing them
+L2socket: use the provided L2socket
     """
     c = 0
 
