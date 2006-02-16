@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.3.6  2006/02/16 15:11:13  pbi
+# - added docstrings to many methods of Packet
+#
 # Revision 1.0.3.5  2006/02/16 14:09:07  pbi
 # - added BluetoothHCIsocket
 # - added L2socket to sniff
@@ -1264,7 +1267,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.3.5 2006/02/16 14:09:07 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.3.6 2006/02/16 15:11:13 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -4046,13 +4049,16 @@ class Packet(Gen):
             self.fields[f] = self.fieldtype[f].any2i(self,fields[f])
             
     def dissection_done(self,pkt):
+        """DEV: will be called after a dissection is completed"""
         self.post_dissection(pkt)
         self.payload.dissection_done(pkt)
         
     def post_dissection(self, pkt):
+        """DEV: is called right after the dissection of the current layer"""
         pass
 
     def get_field(self, fld):
+        """DEV: returns the field instance from the name of the field"""
         return self.fields_desc[self.fields_desc.index(fld)]
         
     def add_payload(self, payload):
@@ -4081,6 +4087,7 @@ class Packet(Gen):
     def remove_underlayer(self,other):
         self.underlayer = None
     def copy(self):
+        """return a deep copy of the instance"""
         clone = self.__class__()
         clone.fields = self.fields.copy()
         for k in clone.fields:
@@ -4191,6 +4198,7 @@ class Packet(Gen):
         return pkt
     
     def post_build(self, pkt):
+        """DEV: called right after the current layer is build"""
         return pkt
 
     def build(self,internal=0):
@@ -4235,6 +4243,7 @@ class Packet(Gen):
 
 
     def psdump(self, filename=None, **kargs):
+        """create an EPS file describing a packet. If filename is not provided a temporary file is created and gs is called"""
         canvas = self.canvas_dump(**kargs)
         if filename is None:
             fname = "/tmp/scapy.%i"%os.getpid()
@@ -4244,6 +4253,7 @@ class Packet(Gen):
             canvas.writeEPSfile(filename)
 
     def pdfdump(self, filename=None, **kargs):
+        """create a PDF file describing a packet. If filename is not provided a temporary file is created and xpdf is called"""
         canvas = self.canvas_dump(**kargs)
         if filename is None:
             fname = "/tmp/scapy.%i"%os.getpid()
@@ -4431,6 +4441,7 @@ class Packet(Gen):
 
 
     def extract_padding(self, s):
+        """DEV: to be overloaded to extract current layer's padding. Return a couple of strings (actual layer, padding)"""
         return s,None
 
     def post_dissect(self, s):
@@ -4470,6 +4481,7 @@ class Packet(Gen):
         return self.do_dissect(s)
 
     def guess_payload_class(self, payload):
+        """DEV: guess the next payload class from layer bonds. Can be overloaded to use a different mechanism"""
         for t in self.aliastypes:
             for fval, cls in t.payload_guess:
                 ok = 1
@@ -4482,9 +4494,11 @@ class Packet(Gen):
         return self.default_payload_class(payload)
     
     def default_payload_class(self, payload):
+        """DEV: return the default payload class if nothing has been found by the guess_payload_class() method"""
         return Raw
 
     def hide_defaults(self):
+        """Remove fields' values that are the same as default values"""
         for k in self.fields.keys():
             if self.default_fields.has_key(k):
                 if self.default_fields[k] == self.fields[k]:
@@ -4528,12 +4542,14 @@ class Packet(Gen):
         return loop(map(lambda x:str(x), todo), {})
 
     def send(self, s, slp=0):
+        """deprecated"""
         for p in self:
             s.send(str(p))
             if slp:
                 time.sleep(slp)
 
     def __gt__(self, other):
+        """True if other is an answer from self (self ==> other)"""
         if isinstance(other, Packet):
             return other < self
         elif type(other) is str:
@@ -4541,6 +4557,7 @@ class Packet(Gen):
         else:
             raise TypeError((self, other))
     def __lt__(self, other):
+        """True if self is an answer from other (self <== other)"""
         if isinstance(other, Packet):
             return self.answers(other)
         elif type(other) is str:
@@ -4549,21 +4566,26 @@ class Packet(Gen):
             raise TypeError((self, other))
         
     def hashret(self):
+        """DEV: return a string that has the same value for a request and its answer"""
         return self.payload.hashret()
     def answers(self, other):
+        """DEV: true if self is an answer from other"""
         if other.__class__ == self.__class__:
             return self.payload.answers(other.payload)
         return 0
 
     def haslayer(self, cls):
+        """true if self has a layer that is an instance of cls. Superseded by "cls in self" syntax"""
         if self.__class__ == cls:
             return 1
         return self.payload.haslayer(cls)
     def haslayer_str(self, cls):
+        """true if self has a layer that whose class name is  cls"""
         if self.__class__.__name__ == cls:
             return 1
         return self.payload.haslayer_str(cls)
     def getlayer(self, cls, nb=1):
+        """Return the nb^th layer that is an instance of cls"""
         if self.__class__ == cls:
             if nb == 1:
                 return self
@@ -4584,13 +4606,16 @@ class Packet(Gen):
             return self.getlayer(cls)
         
     def __contains__(self, cls):
+        """"cls in self" returns true if self has a layer which is an instance of cls"""
         return self.haslayer(cls)
         
     
 
     def display(self,*args,**kargs):  # Deprecated. Use show()
+        """Deprecated. Use show() method"""
         self.show(*args,**kargs)
     def show(self, indent=3, lvl=0):
+        """Print a hierarchical view of the packet. "indent" gives the size of indentation for each layer"""
         ct = conf.color_theme
         print "%s %s %s" % (ct.punct("###["),
                             ct.layer_name(self.name),
@@ -4609,6 +4634,7 @@ class Packet(Gen):
         self.payload.show(indent=indent,lvl=lvl+1)
 
     def show2(self):
+        """Print a hierarchical view of an assembled version of the packet, so that automatic fields are calculated (checksums, etc.)"""
         self.__class__(str(self)).show()
 
     def sprintf(self, fmt, relax=1):
@@ -4717,6 +4743,10 @@ A side effect is that, to obtain "{" and "}" characters, you must use
         return s
 
     def mysummary(self):
+        """DEV: can be overloaded to return a string that summarizes the layer.
+           Only one mysummary() is used in a whole packet summary: the one of the upper layer,
+           except if a mysummary() also returns (as a couple) a list of layers whose
+           mysummary() must be called if they are present."""
         return ""
 
     def summary(self, intern=0):
@@ -4740,13 +4770,16 @@ A side effect is that, to obtain "{" and "}" characters, you must use
             return ret
     
     def lastlayer(self,layer=None):
+        """Returns the uppest layer of the packet"""
         return self.payload.lastlayer(self)
 
     def decode_payload_as(self,cls):
+        """Reassemble the payload and decode it using another packet class"""
         s = str(self.payload)
         self.payload = cls(s)
 
     def libnet(self):
+        """Not ready yet. Should give the necessary C code that interfaces with libnet to recreate the packet"""
         print "libnet_build_%s(" % self.__class__.name.lower()
         det = self.__class__(str(self))
         for f in self.fields_desc:
@@ -4760,6 +4793,7 @@ A side effect is that, to obtain "{" and "}" characters, you must use
             print "\t%s, \t\t/* %s */" % (val,f.name)
         print ");"
     def command(self):
+        """Return a string representing the command you have to type to obtain the same packet"""
         f = []
         for fn,fv in self.fields.items():
             if isinstance(fv, Packet):
