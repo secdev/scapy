@@ -21,6 +21,11 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.3.5  2006/02/16 14:09:07  pbi
+# - added BluetoothHCIsocket
+# - added L2socket to sniff
+# - added HCI_Hdr, L2CAP_Hdr layers, moved L2CAP to L2CAP_HdrCmd
+#
 # Revision 1.0.3.4  2006/02/12 01:06:52  pbi
 # - initialize payload's underlayer before payload's dissection
 #
@@ -1259,7 +1264,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.3.4 2006/02/12 01:06:52 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.3.5 2006/02/16 14:09:07 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -6586,8 +6591,40 @@ class GPRS(Packet):
         ]
 
 
-class L2CAP(Packet):
-    name = "L2CAP"
+class HCI_Hdr(Packet):
+    name = "HCI header"
+    fields_desc = [ ByteEnumField("type",2,{1:"command",2:"ACLdata",3:"SCOdata",4:"event",5:"vendor"}),]
+
+    def mysummary(self):
+        return self.sprintf("HCI %type%")
+
+class HCI_ACL_Hdr(Packet):
+    name = "HCI ACL header"
+    fields_desc = [ ByteField("handle",0), # Actually, handle is 12 bits and flags is 4.
+                    ByteField("flags",0),  # I wait to write a LEBitField
+                    LEShortField("len",None), ]
+    def post_build(self, p):
+        if self.len is None:
+            l = len(p)-4
+            p = p[:2]+chr(l&0xff)+chr((l>>8)&0xff)+p[4:]
+        return p
+                    
+
+class L2CAP_Hdr(Packet):
+    name = "L2CAP header"
+    fields_desc = [ LEShortField("len",None),
+                    LEShortEnumField("cid",0,{1:"control"}),]
+    
+    def post_build(self, p):
+        if self.len is None:
+            l = len(p)-4
+            p = p[:2]+chr(l&0xff)+chr((l>>8)&0xff)+p[4:]
+        return p
+                    
+                
+
+class L2CAP_CmdHdr(Packet):
+    name = "L2CAP command header"
     fields_desc = [
         ByteEnumField("code",8,{1:"rej",2:"conn_req",3:"conn_resp",
                                 4:"conf_req",5:"conf_resp",6:"disconn_req",
@@ -6612,7 +6649,7 @@ class L2CAP(Packet):
 
 class L2CAP_ConnReq(Packet):
     name = "L2CAP Conn Req"
-    fields_desc = [ LEShortField("psm",0),
+    fields_desc = [ LEShortEnumField("psm",0,{1:"SDP",3:"RFCOMM",5:"telephony control"}),
                     LEShortField("scid",0),
                     ]
 
@@ -7415,15 +7452,19 @@ layer_bonds = [ ( Dot3,   LLC,      { } ),
                 (NBTSession, SMBSession_Setup_AndX_Request,{}),
                 (NBTSession, SMBSession_Setup_AndX_Response,{}),
 
-                (L2CAP, L2CAP_CmdRej, {"code":1}),
-                (L2CAP, L2CAP_ConnReq, {"code":2}),
-                (L2CAP, L2CAP_ConnResp, {"code":3}),
-                (L2CAP, L2CAP_ConfReq, {"code":4}),
-                (L2CAP, L2CAP_ConfResp, {"code":5}),
-                (L2CAP, L2CAP_DisconnReq, {"code":6}),
-                (L2CAP, L2CAP_DisconnResp, {"code":7}),
-                (L2CAP, L2CAP_InfoReq, {"code":10}),
-                (L2CAP, L2CAP_InfoResp, {"code":11}),
+                (HCI_Hdr,      HCI_ACL_Hdr,    {"type":2}),
+                (HCI_Hdr,      Raw,    {}),
+                (HCI_ACL_Hdr,  L2CAP_Hdr, {}),
+                (L2CAP_Hdr,    L2CAP_CmdHdr, {"cid":1}),
+                (L2CAP_CmdHdr, L2CAP_CmdRej, {"code":1}),
+                (L2CAP_CmdHdr, L2CAP_ConnReq, {"code":2}),
+                (L2CAP_CmdHdr, L2CAP_ConnResp, {"code":3}),
+                (L2CAP_CmdHdr, L2CAP_ConfReq, {"code":4}),
+                (L2CAP_CmdHdr, L2CAP_ConfResp, {"code":5}),
+                (L2CAP_CmdHdr, L2CAP_DisconnReq, {"code":6}),
+                (L2CAP_CmdHdr, L2CAP_DisconnResp, {"code":7}),
+                (L2CAP_CmdHdr, L2CAP_InfoReq, {"code":10}),
+                (L2CAP_CmdHdr, L2CAP_InfoResp, {"code":11}),
                 ( UDP,      MobileIP,    { "sport" : 434 } ),
                 ( UDP,      MobileIP,    { "dport" : 434 } ),
                 ( MobileIP, MobileIPRRQ, { "type"  : 1 } ),
@@ -7480,7 +7521,8 @@ LLTypes = { ARPHDR_ETHER : Ether,
             113 : CookedLinux,
             119 : PrismHeader, # for atheros
             144 : CookedLinux, # called LINUX_IRDA, similar to CookedLinux
-            783 : IrLAPHead
+            783 : IrLAPHead,
+            0xB1E70073L : HCI_Hdr, # I invented this one
             }
 
 LLNumTypes = { Ether : ARPHDR_ETHER,
@@ -7529,7 +7571,7 @@ class SuperSocket:
 
 
 class L3RawSocket(SuperSocket):
-    def __init__(self, type = ETH_P_IP, filter=None, iface=None, promisc=None):
+    def __init__(self, type = ETH_P_IP, filter=None, iface=None, promisc=None, nofilter=0):
         self.outs = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_RAW)
         self.outs.setsockopt(socket.SOL_IP, socket.IP_HDRINCL, 1)
         self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))
@@ -7946,7 +7988,7 @@ class StreamSocket(SimpleSocket):
         return pkt
         
         
-class BluetoothSocket(SuperSocket):
+class BluetoothL2CAPSocket(SuperSocket):
     def __init__(self, peer):
         s = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_RAW,
                           socket.BTPROTO_L2CAP)
@@ -7955,7 +7997,22 @@ class BluetoothSocket(SuperSocket):
         self.ins = self.outs = s
 
     def recv(self, x):
-        return L2CAP(self.ins.recv(x))
+        return L2CAP_HdrCmd(self.ins.recv(x))
+    
+
+class BluetoothHCISocket(SuperSocket):
+    def __init__(self, iface=0x10000, type=None):
+        s = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_RAW, socket.BTPROTO_HCI)
+        s.setsockopt(socket.SOL_HCI, socket.HCI_DATA_DIR,1)
+        s.setsockopt(socket.SOL_HCI, socket.HCI_TIME_STAMP,1)
+        s.setsockopt(socket.SOL_HCI, socket.HCI_FILTER, struct.pack("IIIh2x", 0xffffffffL,0xffffffffL,0xffffffffL,0)) #type mask, event mask, event mask, opcode
+        s.bind((iface,))
+        self.ins = self.outs = s
+#        s.connect((peer,0))
+        
+
+    def recv(self, x):
+        return HCI_Hdr(self.ins.recv(x))
     
 
 
@@ -8304,7 +8361,7 @@ class PcapReader:
         vermaj,vermin,tz,sig,snaplen,linktype = struct.unpack(self.endian+"HHIIII",hdr)
         self.LLcls = LLTypes.get(linktype, Raw)
         if self.LLcls == Raw:
-            warning("PcapReader: LL type unknown. Using Raw packets")
+            warning("PcapReader: unkonwon LL type [%i]/[%#x]. Using Raw packets" % (linktype,linktype))
 
     def __iter__(self):
         return self
@@ -8949,7 +9006,7 @@ def nmap_sig2txt(sig):
 ###################
 
 
-def sniff(count=0, store=1, offline=None, prn = None, lfilter=None, *arg, **karg):
+def sniff(count=0, store=1, offline=None, prn = None, lfilter=None, L2socket=None, *arg, **karg):
     """Sniff packets
 sniff([count=0,] [prn=None,] [store=1,] [offline=None,] [lfilter=None,] + L2ListenSocket args) -> list of packets
 
@@ -8966,7 +9023,9 @@ offline: pcap file to read packets from, instead of sniffing them
     c = 0
 
     if offline is None:
-        s = conf.L2listen(type=ETH_P_ALL, *arg, **karg)
+        if L2socket is None:
+            L2socket = conf.L2listen
+        s = L2socket(type=ETH_P_ALL, *arg, **karg)
     else:
         s = PcapReader(offline)
     lst = []
