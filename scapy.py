@@ -21,6 +21,11 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.3.11  2006/02/17 16:29:38  pbi
+# - improved show() to use an exploded view for fields which hold packets
+# - added show_indent flag to Packet() that can be overloaded to 0 for layers that are followed by peers
+#   and for whom indentation in show() is not desired
+#
 # Revision 1.0.3.10  2006/02/17 11:14:16  pbi
 # - changed conversation parameter to group getsrc/getdst into getsrcdst
 #
@@ -1279,7 +1284,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.3.10 2006/02/17 11:14:16 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.3.11 2006/02/17 16:29:38 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -4069,6 +4074,7 @@ class Packet(Gen):
 
     payload_guess = []
     initialized = 0
+    show_indent=1
 
     def __init__(self, _pkt="", _internal=0, _underlayer=None, **fields):
         self.time  = time.time()
@@ -4656,12 +4662,13 @@ class Packet(Gen):
     def display(self,*args,**kargs):  # Deprecated. Use show()
         """Deprecated. Use show() method"""
         self.show(*args,**kargs)
-    def show(self, indent=3, lvl=0):
+    def show(self, indent=3, lvl="", label_lvl=""):
         """Print a hierarchical view of the packet. "indent" gives the size of indentation for each layer"""
         ct = conf.color_theme
-        print "%s %s %s" % (ct.punct("###["),
-                            ct.layer_name(self.name),
-                            ct.punct("]###"))
+        print "%s%s %s %s" % (label_lvl,
+                              ct.punct("###["),
+                              ct.layer_name(self.name),
+                              ct.punct("]###"))
         for f in self.fields_desc:
             if isinstance(f, Emph):
                 ncol = ct.emph_field_name
@@ -4669,12 +4676,18 @@ class Packet(Gen):
             else:
                 ncol = ct.field_name
                 vcol = ct.field_value
-            print "  %s%-10s%s %s" % (" "*indent*lvl,
-                                      ncol(f.name),
-                                      ct.punct("="),
-                                      vcol(f.i2repr(self,self.__getattr__(f))))
-        self.payload.show(indent=indent,lvl=lvl+1)
-
+            fvalue = self.__getattr__(f)
+            if isinstance(fvalue, Packet):
+                print "%s  \\%-10s\\" % (label_lvl+lvl,
+                                     ncol(f.name))
+                
+                self.__getattr__(f).show(indent=indent, label_lvl=label_lvl+lvl+(" "*indent)+"|")
+            else:
+                print "%s  %-10s%s %s" % (label_lvl+lvl,
+                                          ncol(f.name),
+                                          ct.punct("="),
+                                          vcol(f.i2repr(self,fvalue)))
+        self.payload.show(indent=indent, lvl=lvl+(" "*indent*self.show_indent), label_lvl=label_lvl)
     def show2(self):
         """Print a hierarchical view of an assembled version of the packet, so that automatic fields are calculated (checksums, etc.)"""
         self.__class__(str(self)).show()
@@ -4902,7 +4915,7 @@ class NoPayload(Packet,object):
         return 0
     def getlayer(self, cls, nb=1):
         return None
-    def show(self, indent=3, lvl=0):
+    def show(self, indent=3, lvl="", label_lvl=""):
         pass
     def sprintf(self, fmt, relax):
         if relax:
@@ -5578,6 +5591,7 @@ dnsclasses =  {1: 'IN',  2: 'CS',  3: 'CH',  4: 'HS',  255: 'ANY'}
 
 class DNSQR(Packet):
     name = "DNS Question Record"
+    show_indent=0
     fields_desc = [ DNSStrField("qname",""),
                     ShortEnumField("qtype", 1, dnsqtypes),
                     ShortEnumField("qclass", 1, dnsclasses) ]
@@ -5586,6 +5600,7 @@ class DNSQR(Packet):
 
 class DNSRR(Packet):
     name = "DNS Resource Record"
+    show_indent=0
     fields_desc = [ DNSStrField("rrname",""),
                     ShortEnumField("type", 1, dnstypes),
                     ShortEnumField("rclass", 1, dnsclasses),
