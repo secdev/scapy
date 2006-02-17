@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.3.9  2006/02/17 10:57:53  pbi
+# - added docstrings for PacketList
+#
 # Revision 1.0.3.8  2006/02/16 15:45:51  pbi
 # - added docstrings to sr*(), wrpcap(), rdpcap()
 #
@@ -1273,7 +1276,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.3.8 2006/02/16 15:45:51 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.3.9 2006/02/17 10:57:53 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2390,6 +2393,9 @@ class Net(Gen):
 class PacketList:
     res = []
     def __init__(self, res, name="PacketList", stats=None):
+        """create a packet list from a list of packets
+           res: the list of packets
+           stats: a list of classes that will appear in the stats (defaults to [TCP,UDP,ICMP])"""
         if stats is None:
             stats = [ TCP,UDP,ICMP ]
         self.stats = stats
@@ -2445,6 +2451,9 @@ class PacketList:
         return self.__class__(self.res+other.res,
                               name="%s+%s"%(self.listname,other.listname))
     def summary(self, prn=None, lfilter=None):
+        """print a summary of each packet
+prn:     function to apply to each packet instead of lambda x:x.summary()
+lfilter: truth function to apply to each packet to decide whether it will be displayed"""
         for r in self.res:
             if lfilter is not None:
                 if not lfilter(r):
@@ -2454,6 +2463,9 @@ class PacketList:
             else:
                 print prn(r)
     def nsummary(self,prn=None, lfilter=None):
+        """print a summary of each packet with the packet's number
+prn:     function to apply to each packet instead of lambda x:x.summary()
+lfilter: truth function to apply to each packet to decide whether it will be displayed"""
         for i in range(len(self.res)):
             if lfilter is not None:
                 if not lfilter(self.res[i]):
@@ -2464,21 +2476,30 @@ class PacketList:
             else:
                 print prn(self.res[i])
     def display(self): # Deprecated. Use show()
+        """deprecated. is show()"""
         self.show()
     def show(self, *args, **kargs):
+        """Best way to display the packet list. Defaults to nsummary() method"""
         return self.nsummary(*args, **kargs)
     
     def filter(self, func):
+        """Return a packet list filtered by a truth function"""
         return self.__class__(filter(func,self.res),
                               name="filtered %s"%self.listname)
     def make_table(self, *args, **kargs):
+        """print a table using a function that returs for each packet its head column value, head row value and displayed value
+        ex: p.make_table(lambda x:(x[IP].dst, x[TCP].dport, x[TCP].sprintf("%flags%")) """
         return make_table(self.res, *args, **kargs)
     def make_lined_table(self, *args, **kargs):
+        """ same as make_table, but print a table with lines"""
         return make_lined_table(self.res, *args, **kargs)
     def make_tex_table(self, *args, **kargs):
+        """ same as make_table, but print a table with LaTeX syntax"""
         return make_tex_table(self.res, *args, **kargs)
 
     def plot(self, f, lfilter=None,**kargs):
+        """apply a function to each packet to get a value that will be plotted with GnuPlot. A gnuplot object is returned
+        lfilter: a truth function that decides whether a packet must be ploted"""
         g=Gnuplot.Gnuplot()
         l = map(f,self.res)
         if lfilter is not None:
@@ -2487,10 +2508,13 @@ class PacketList:
         return g
 
     def hexdump(self):
+        """Print an hexadecimal dump of each packet in the list"""
         for p in self:
             hexdump(self._elt2pkt(p))
 
     def hexraw(self, lfilter=None):
+        """same as nsummary(), except that if a packet has a Raw layer, it will be hexdumped
+        lfilter: a truth function that decides whether a packet must be displayed"""
         for i in range(len(self.res)):
             p = self._elt2pkt(self.res[i])
             if lfilter is not None and not lfilter(p):
@@ -2502,6 +2526,7 @@ class PacketList:
                 hexdump(p.getlayer(Raw).load)
 
     def padding(self, lfilter=None):
+        """same as hexraw(), for Padding layer"""
         for i in range(len(self.res)):
             p = self._elt2pkt(self.res[i])
             if p.haslayer(Padding):
@@ -2512,6 +2537,7 @@ class PacketList:
                     hexdump(p.getlayer(Padding).load)
 
     def nzpadding(self, lfilter=None):
+        """same as padding() but only non null padding"""
         for i in range(len(self.res)):
             p = self._elt2pkt(self.res[i])
             if p.haslayer(Padding):
@@ -2542,12 +2568,11 @@ class PacketList:
         gr = 'digraph "conv" {\n'
         for s,d in conv:
             gr += '\t "%s" -> "%s"\n' % (s,d)
-        gr += "}\n"
-
-        
+        gr += "}\n"        
         do_graph(gr, **kargs)
         
     def timeskew_graph(self, ip, **kargs):
+        """try to graph the timeskew between the timestamps and real time for a given ip"""
         res = map(lambda x: self._elt2pkt(x), self.res)
         b = filter(lambda x:x.haslayer(IP) and x.getlayer(IP).src == ip and x.haslayer(TCP), res)
         c = []
@@ -2582,6 +2607,8 @@ class PacketList:
                  
 
     def psdump(self, filename = None, **kargs):
+        """create a multipage poscript file with a psdump of every packet
+        filename: name of the file to write to. If empty, a temporary file is used and gv is called"""
         d = self._dump_document(**kargs)
         if filename is None:
             filename = "/tmp/scapy.psd.%i" % os.getpid()
@@ -2592,6 +2619,8 @@ class PacketList:
         print
         
     def pdfdump(self, filename = None, **kargs):
+        """create a PDF file with a psdump of every packet
+        filename: name of the file to write to. If empty, a temporary file is used and acroread is called"""
         d = self._dump_document(**kargs)
         if filename is None:
             filename = "/tmp/scapy.psd.%i" % os.getpid()
@@ -8268,8 +8297,6 @@ multi:    whether to accept multiple answers for the same stimulus
 filter:   provide a BPF filter
 iface:    listen answers only on the given interface"""
     if not kargs.has_key("timeout"):
-    
-    if not kargs.has_key("timeout"):
         kargs["timeout"] = -1
     s = conf.L3socket(filter=filter, iface=iface)
     a,b,c=sndrcv(s,x,*args,**kargs)
@@ -8307,8 +8334,6 @@ multi:    whether to accept multiple answers for the same stimulus
 filter:   provide a BPF filter
 iface:    work only on the given interface"""
     if not kargs.has_key("timeout"):
-    
-    if not kargs.has_key("timeout"):
         kargs["timeout"] = -1
     if iface is None and iface_hint is not None:
         iface = conf.route.route(iface_hint)[0]
@@ -8326,7 +8351,7 @@ multi:    whether to accept multiple answers for the same stimulus
 filter:   provide a BPF filter
 iface:    work only on the given interface"""
     if not kargs.has_key("timeout"):
-
+        kargs["timeout"] = -1
     a,b=srp(*args,**kargs)
     if len(a) > 0:
         return a[0][1]
