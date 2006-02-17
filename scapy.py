@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.3.10  2006/02/17 11:14:16  pbi
+# - changed conversation parameter to group getsrc/getdst into getsrcdst
+#
 # Revision 1.0.3.9  2006/02/17 10:57:53  pbi
 # - added docstrings for PacketList
 #
@@ -1276,7 +1279,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.3.9 2006/02/17 10:57:53 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.3.10 2006/02/17 11:14:16 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2551,16 +2554,20 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
                     hexdump(p.getlayer(Padding).load)
         
 
-    def conversations(self, getsrc=None, getdst=None,**kargs):
-        if getsrc is None:
-            getsrc = lambda x:x.getlayer(IP).src
-        if getdst is None:
-            getdst = lambda x:x.getlayer(IP).dst
+    def conversations(self, getsrcdst=None,**kargs):
+        """Graph a conversations between sources and destinations and display it
+        (using graphviz and imagemagick)
+        getsrcdst: a function that takes an element of the list and return the source and dest
+                   by defaults, return source and destination IP
+        type: output type (svg, ps, gif, jpg, etc.), passed to dot's "-T" option
+        target: filename or redirect. Defaults pipe to Imagemagick's display program"""
+        if getsrcdst is None:
+            getsrcdst = lambda x:(x[IP].src, x[IP].dst)
         conv = {}
         for p in self.res:
             p = self._elt2pkt(p)
             try:
-                c = (getsrc(p),getdst(p))
+                c = getsrcdst(p)
             except:
                 #XXX warning()
                 continue
