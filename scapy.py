@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.3.13  2006/02/19 14:06:28  pbi
+# - fixed show()'s indentation
+#
 # Revision 1.0.3.12  2006/02/19 13:49:18  pbi
 # - many docstrings corrections
 #
@@ -1287,7 +1290,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.3.12 2006/02/19 13:49:18 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.3.13 2006/02/19 14:06:28 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -4685,7 +4688,7 @@ class Packet(Gen):
                 print "%s  \\%-10s\\" % (label_lvl+lvl,
                                      ncol(f.name))
                 
-                self.__getattr__(f).show(indent=indent, label_lvl=label_lvl+lvl+(" "*indent)+"|")
+                self.__getattr__(f).show(indent=indent, label_lvl=label_lvl+lvl+"   |")
             else:
                 print "%s  %-10s%s %s" % (label_lvl+lvl,
                                           ncol(f.name),
