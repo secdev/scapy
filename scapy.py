@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.3.12  2006/02/19 13:49:18  pbi
+# - many docstrings corrections
+#
 # Revision 1.0.3.11  2006/02/17 16:29:38  pbi
 # - improved show() to use an exploded view for fields which hold packets
 # - added show_indent flag to Packet() that can be overloaded to 0 for layers that are followed by peers
@@ -1284,7 +1287,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.3.11 2006/02/17 16:29:38 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.3.12 2006/02/19 13:49:18 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2459,7 +2462,7 @@ class PacketList:
         return self.__class__(self.res+other.res,
                               name="%s+%s"%(self.listname,other.listname))
     def summary(self, prn=None, lfilter=None):
-        """print a summary of each packet
+        """prints a summary of each packet
 prn:     function to apply to each packet instead of lambda x:x.summary()
 lfilter: truth function to apply to each packet to decide whether it will be displayed"""
         for r in self.res:
@@ -2471,7 +2474,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
             else:
                 print prn(r)
     def nsummary(self,prn=None, lfilter=None):
-        """print a summary of each packet with the packet's number
+        """prints a summary of each packet with the packet's number
 prn:     function to apply to each packet instead of lambda x:x.summary()
 lfilter: truth function to apply to each packet to decide whether it will be displayed"""
         for i in range(len(self.res)):
@@ -2491,22 +2494,22 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
         return self.nsummary(*args, **kargs)
     
     def filter(self, func):
-        """Return a packet list filtered by a truth function"""
+        """Returns a packet list filtered by a truth function"""
         return self.__class__(filter(func,self.res),
                               name="filtered %s"%self.listname)
     def make_table(self, *args, **kargs):
-        """print a table using a function that returs for each packet its head column value, head row value and displayed value
+        """Prints a table using a function that returs for each packet its head column value, head row value and displayed value
         ex: p.make_table(lambda x:(x[IP].dst, x[TCP].dport, x[TCP].sprintf("%flags%")) """
         return make_table(self.res, *args, **kargs)
     def make_lined_table(self, *args, **kargs):
-        """ same as make_table, but print a table with lines"""
+        """Same as make_table, but print a table with lines"""
         return make_lined_table(self.res, *args, **kargs)
     def make_tex_table(self, *args, **kargs):
-        """ same as make_table, but print a table with LaTeX syntax"""
+        """Same as make_table, but print a table with LaTeX syntax"""
         return make_tex_table(self.res, *args, **kargs)
 
     def plot(self, f, lfilter=None,**kargs):
-        """apply a function to each packet to get a value that will be plotted with GnuPlot. A gnuplot object is returned
+        """Applies a function to each packet to get a value that will be plotted with GnuPlot. A gnuplot object is returned
         lfilter: a truth function that decides whether a packet must be ploted"""
         g=Gnuplot.Gnuplot()
         l = map(f,self.res)
@@ -2516,12 +2519,12 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
         return g
 
     def hexdump(self):
-        """Print an hexadecimal dump of each packet in the list"""
+        """Prints an hexadecimal dump of each packet in the list"""
         for p in self:
             hexdump(self._elt2pkt(p))
 
     def hexraw(self, lfilter=None):
-        """same as nsummary(), except that if a packet has a Raw layer, it will be hexdumped
+        """Same as nsummary(), except that if a packet has a Raw layer, it will be hexdumped
         lfilter: a truth function that decides whether a packet must be displayed"""
         for i in range(len(self.res)):
             p = self._elt2pkt(self.res[i])
@@ -2534,7 +2537,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
                 hexdump(p.getlayer(Raw).load)
 
     def padding(self, lfilter=None):
-        """same as hexraw(), for Padding layer"""
+        """Same as hexraw(), for Padding layer"""
         for i in range(len(self.res)):
             p = self._elt2pkt(self.res[i])
             if p.haslayer(Padding):
@@ -2545,7 +2548,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
                     hexdump(p.getlayer(Padding).load)
 
     def nzpadding(self, lfilter=None):
-        """same as padding() but only non null padding"""
+        """Same as padding() but only non null padding"""
         for i in range(len(self.res)):
             p = self._elt2pkt(self.res[i])
             if p.haslayer(Padding):
@@ -2560,7 +2563,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
         
 
     def conversations(self, getsrcdst=None,**kargs):
-        """Graph a conversations between sources and destinations and display it
+        """Graphes a conversations between sources and destinations and display it
         (using graphviz and imagemagick)
         getsrcdst: a function that takes an element of the list and return the source and dest
                    by defaults, return source and destination IP
@@ -2584,7 +2587,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
         do_graph(gr, **kargs)
         
     def timeskew_graph(self, ip, **kargs):
-        """try to graph the timeskew between the timestamps and real time for a given ip"""
+        """Tries to graph the timeskew between the timestamps and real time for a given ip"""
         res = map(lambda x: self._elt2pkt(x), self.res)
         b = filter(lambda x:x.haslayer(IP) and x.getlayer(IP).src == ip and x.haslayer(TCP), res)
         c = []
@@ -2619,7 +2622,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
                  
 
     def psdump(self, filename = None, **kargs):
-        """create a multipage poscript file with a psdump of every packet
+        """Creates a multipage poscript file with a psdump of every packet
         filename: name of the file to write to. If empty, a temporary file is used and gv is called"""
         d = self._dump_document(**kargs)
         if filename is None:
@@ -2631,7 +2634,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
         print
         
     def pdfdump(self, filename = None, **kargs):
-        """create a PDF file with a psdump of every packet
+        """Creates a PDF file with a psdump of every packet
         filename: name of the file to write to. If empty, a temporary file is used and acroread is called"""
         d = self._dump_document(**kargs)
         if filename is None:
@@ -2644,7 +2647,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
 
     def sr(self,multi=0):
         """sr([multi=1]) -> (SndRcvList, PacketList)
-        match packets in the list and return ( (matched couples), (unmatched packets) )"""
+        Matches packets in the list and return ( (matched couples), (unmatched packets) )"""
         remain = self.res[:]
         sr = []
         i = 0
@@ -4135,7 +4138,7 @@ class Packet(Gen):
     def remove_underlayer(self,other):
         self.underlayer = None
     def copy(self):
-        """return a deep copy of the instance"""
+        """Returns a deep copy of the instance."""
         clone = self.__class__()
         clone.fields = self.fields.copy()
         for k in clone.fields:
@@ -4246,7 +4249,7 @@ class Packet(Gen):
         return pkt
     
     def post_build(self, pkt):
-        """DEV: called right after the current layer is build"""
+        """DEV: called right after the current layer is build."""
         return pkt
 
     def build(self,internal=0):
@@ -4291,7 +4294,7 @@ class Packet(Gen):
 
 
     def psdump(self, filename=None, **kargs):
-        """create an EPS file describing a packet. If filename is not provided a temporary file is created and gs is called"""
+        """Creates an EPS file describing a packet. If filename is not provided a temporary file is created and gs is called."""
         canvas = self.canvas_dump(**kargs)
         if filename is None:
             fname = "/tmp/scapy.%i"%os.getpid()
@@ -4301,7 +4304,7 @@ class Packet(Gen):
             canvas.writeEPSfile(filename)
 
     def pdfdump(self, filename=None, **kargs):
-        """create a PDF file describing a packet. If filename is not provided a temporary file is created and xpdf is called"""
+        """Creates a PDF file describing a packet. If filename is not provided a temporary file is created and xpdf is called."""
         canvas = self.canvas_dump(**kargs)
         if filename is None:
             fname = "/tmp/scapy.%i"%os.getpid()
@@ -4493,6 +4496,7 @@ class Packet(Gen):
         return s,None
 
     def post_dissect(self, s):
+        """DEV: is called right after the current layer has been dissected"""
         return s
 
     def do_dissect(self, s):
@@ -4529,7 +4533,7 @@ class Packet(Gen):
         return self.do_dissect(s)
 
     def guess_payload_class(self, payload):
-        """DEV: guess the next payload class from layer bonds. Can be overloaded to use a different mechanism"""
+        """DEV: Guesses the next payload class from layer bonds. Can be overloaded to use a different mechanism."""
         for t in self.aliastypes:
             for fval, cls in t.payload_guess:
                 ok = 1
@@ -4542,11 +4546,11 @@ class Packet(Gen):
         return self.default_payload_class(payload)
     
     def default_payload_class(self, payload):
-        """DEV: return the default payload class if nothing has been found by the guess_payload_class() method"""
+        """DEV: Returns the default payload class if nothing has been found by the guess_payload_class() method."""
         return Raw
 
     def hide_defaults(self):
-        """Remove fields' values that are the same as default values"""
+        """Removes fields' values that are the same as default values."""
         for k in self.fields.keys():
             if self.default_fields.has_key(k):
                 if self.default_fields[k] == self.fields[k]:
@@ -4597,7 +4601,7 @@ class Packet(Gen):
                 time.sleep(slp)
 
     def __gt__(self, other):
-        """True if other is an answer from self (self ==> other)"""
+        """True if other is an answer from self (self ==> other)."""
         if isinstance(other, Packet):
             return other < self
         elif type(other) is str:
@@ -4605,7 +4609,7 @@ class Packet(Gen):
         else:
             raise TypeError((self, other))
     def __lt__(self, other):
-        """True if self is an answer from other (self <== other)"""
+        """True if self is an answer from other (other ==> self)."""
         if isinstance(other, Packet):
             return self.answers(other)
         elif type(other) is str:
@@ -4614,7 +4618,7 @@ class Packet(Gen):
             raise TypeError((self, other))
         
     def hashret(self):
-        """DEV: return a string that has the same value for a request and its answer"""
+        """DEV: returns a string that has the same value for a request and its answer."""
         return self.payload.hashret()
     def answers(self, other):
         """DEV: true if self is an answer from other"""
@@ -4623,17 +4627,17 @@ class Packet(Gen):
         return 0
 
     def haslayer(self, cls):
-        """true if self has a layer that is an instance of cls. Superseded by "cls in self" syntax"""
+        """true if self has a layer that is an instance of cls. Superseded by "cls in self" syntax."""
         if self.__class__ == cls:
             return 1
         return self.payload.haslayer(cls)
     def haslayer_str(self, cls):
-        """true if self has a layer that whose class name is  cls"""
+        """true if self has a layer that whose class name is cls."""
         if self.__class__.__name__ == cls:
             return 1
         return self.payload.haslayer_str(cls)
     def getlayer(self, cls, nb=1):
-        """Return the nb^th layer that is an instance of cls"""
+        """Return the nb^th layer that is an instance of cls."""
         if self.__class__ == cls:
             if nb == 1:
                 return self
@@ -4654,16 +4658,16 @@ class Packet(Gen):
             return self.getlayer(cls)
         
     def __contains__(self, cls):
-        """"cls in self" returns true if self has a layer which is an instance of cls"""
+        """"cls in self" returns true if self has a layer which is an instance of cls."""
         return self.haslayer(cls)
         
     
 
     def display(self,*args,**kargs):  # Deprecated. Use show()
-        """Deprecated. Use show() method"""
+        """Deprecated. Use show() method."""
         self.show(*args,**kargs)
     def show(self, indent=3, lvl="", label_lvl=""):
-        """Print a hierarchical view of the packet. "indent" gives the size of indentation for each layer"""
+        """Prints a hierarchical view of the packet. "indent" gives the size of indentation for each layer."""
         ct = conf.color_theme
         print "%s%s %s %s" % (label_lvl,
                               ct.punct("###["),
@@ -4689,7 +4693,7 @@ class Packet(Gen):
                                           vcol(f.i2repr(self,fvalue)))
         self.payload.show(indent=indent, lvl=lvl+(" "*indent*self.show_indent), label_lvl=label_lvl)
     def show2(self):
-        """Print a hierarchical view of an assembled version of the packet, so that automatic fields are calculated (checksums, etc.)"""
+        """Prints a hierarchical view of an assembled version of the packet, so that automatic fields are calculated (checksums, etc.)"""
         self.__class__(str(self)).show()
 
     def sprintf(self, fmt, relax=1):
@@ -4805,6 +4809,7 @@ A side effect is that, to obtain "{" and "}" characters, you must use
         return ""
 
     def summary(self, intern=0):
+        """Prints a one line summary of a packet."""
         found,s,needed = self.payload.summary(intern=1)
         if s:
             s = " / "+s
@@ -4829,7 +4834,7 @@ A side effect is that, to obtain "{" and "}" characters, you must use
         return self.payload.lastlayer(self)
 
     def decode_payload_as(self,cls):
-        """Reassemble the payload and decode it using another packet class"""
+        """Reassembles the payload and decode it using another packet class"""
         s = str(self.payload)
         self.payload = cls(s)
 
@@ -4848,7 +4853,7 @@ A side effect is that, to obtain "{" and "}" characters, you must use
             print "\t%s, \t\t/* %s */" % (val,f.name)
         print ");"
     def command(self):
-        """Return a string representing the command you have to type to obtain the same packet"""
+        """Returns a string representing the command you have to type to obtain the same packet"""
         f = []
         for fn,fv in self.fields.items():
             if isinstance(fv, Packet):
