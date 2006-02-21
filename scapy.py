@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.3.14  2006/02/21 12:21:44  pbi
+# - removed hard dependancy on libreadline. Now works even if no libreadline is installed
+#
 # Revision 1.0.3.13  2006/02/19 14:06:28  pbi
 # - fixed show()'s indentation
 #
@@ -1290,7 +1293,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.3.13 2006/02/19 14:06:28 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.3.14 2006/02/21 12:21:44 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -10514,47 +10517,52 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=1):
     if mydict is not None:
         __builtin__.__dict__.update(mydict)
 
-    import rlcompleter,readline,atexit
-    import re
 
-    class ScapyCompleter(rlcompleter.Completer):
-        def global_matches(self, text):
-            matches = []
-            n = len(text)
-            for lst in [dir(__builtin__), session.keys()]:
-                for word in lst:
-                    if word[:n] == text and word != "__builtins__":
-                        matches.append(word)
-            return matches
+    import re, atexit
+    try:
+        import rlcompleter,readline
+    except ImportError:
+        log_loading.info("Can't load Python libreadline or completer")
+        READLINE=0
+    else:
+        READLINE=1
+        class ScapyCompleter(rlcompleter.Completer):
+            def global_matches(self, text):
+                matches = []
+                n = len(text)
+                for lst in [dir(__builtin__), session.keys()]:
+                    for word in lst:
+                        if word[:n] == text and word != "__builtins__":
+                            matches.append(word)
+                return matches
+        
     
-
-        def attr_matches(self, text):
-            m = re.match(r"(\w+(\.\w+)*)\.(\w*)", text)
-            if not m:
-                return
-            expr, attr = m.group(1, 3)
-            try:
-                object = eval(expr)
-            except:
-                object = eval(expr, session)
-            if isinstance(object, Packet):
-                words = filter(lambda x: x[0]!="_",dir(object))
-                words += map(str, object.fields_desc)
-            else:
-                words = dir(object)
-                if hasattr( object,"__class__" ):
-                    words = words + rlcompleter.get_class_members(object.__class__)
-            matches = []
-            n = len(attr)
-            for word in words:
-                if word[:n] == attr and word != "__builtins__":
-                    matches.append("%s.%s" % (expr, word))
-            return matches
-
-    readline.set_completer(ScapyCompleter().complete)
-    readline.parse_and_bind("C-o: operate-and-get-next")
-    readline.parse_and_bind("tab: complete")
+            def attr_matches(self, text):
+                m = re.match(r"(\w+(\.\w+)*)\.(\w*)", text)
+                if not m:
+                    return
+                expr, attr = m.group(1, 3)
+                try:
+                    object = eval(expr)
+                except:
+                    object = eval(expr, session)
+                if isinstance(object, Packet):
+                    words = filter(lambda x: x[0]!="_",dir(object))
+                    words += map(str, object.fields_desc)
+                else:
+                    words = dir(object)
+                    if hasattr( object,"__class__" ):
+                        words = words + rlcompleter.get_class_members(object.__class__)
+                matches = []
+                n = len(attr)
+                for word in words:
+                    if word[:n] == attr and word != "__builtins__":
+                        matches.append("%s.%s" % (expr, word))
+                return matches
     
+        readline.set_completer(ScapyCompleter().complete)
+        readline.parse_and_bind("C-o: operate-and-get-next")
+        readline.parse_and_bind("tab: complete")
     
     
     session=None
@@ -10609,13 +10617,14 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=1):
     __builtin__.__dict__["scapy_session"] = session
 
 
-    if conf.histfile:
-        try:
-            readline.read_history_file(conf.histfile)
-        except IOError:
-            pass
-
-    atexit.register(scapy_write_history_file,readline)
+    if READLINE:
+        if conf.histfile:
+            try:
+                readline.read_history_file(conf.histfile)
+            except IOError:
+                pass
+        atexit.register(scapy_write_history_file,readline)
+    
     sys.ps1 = ColorPrompt()
     code.interact(banner = the_banner % (VERSION), local=session)
 
