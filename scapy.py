@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.3.16  2006/02/22 11:19:26  pbi
+# - added afterglow clone attempt (http://sourceforge.net/projects/afterglow)
+#
 # Revision 1.0.3.15  2006/02/22 11:14:39  pbi
 # - added prog parameter to do_graph()
 #
@@ -1299,7 +1302,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.3.15 2006/02/22 11:14:39 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.3.16 2006/02/22 11:19:26 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2599,6 +2602,87 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
             gr += '\t "%s" -> "%s"\n' % (s,d)
         gr += "}\n"        
         do_graph(gr, **kargs)
+
+    def afterglow(self, src=None, event=None, dst=None, **kargs):
+        """Experimental clone attempt of http://sourceforge.net/projects/afterglow
+        each datum is reduced as src -> event -> dst and the data are graphed"""
+        if src is None:
+            src = lambda x: x[IP].src
+        if event is None:
+            event = lambda x: x[IP].dst
+        if dst is None:
+            dst = lambda x: x[TCP].dport
+        sl = {}
+        el = {}
+        dl = {}
+        for i in self.res:
+            try:
+                s,e,d = src(i),event(i),dst(i)
+                if s in sl:
+                    n,l = sl[s]
+                    n += 1
+                    if e not in l:
+                        l.append(e)
+                    sl[s] = (n,l)
+                else:
+                    sl[s] = (1,[e])
+                if e in el:
+                    n,l = el[e]
+                    n+=1
+                    if d not in l:
+                        l.append(d)
+                    el[e] = (n,l)
+                else:
+                    el[e] = (1,[d])
+                dl[d] = dl.get(d,0)+1
+            except:
+                continue
+
+        import math
+        def normalize(n):
+            return 2+math.log(n)/4.0
+
+        def minmax(x):
+            m,M = min(x),max(x)
+            if m == M:
+                m = 0
+            if M == 0:
+                M = 1
+            return m,M
+
+        mins,maxs = minmax(map(lambda (x,y): x, sl.values()))
+        mine,maxe = minmax(map(lambda (x,y): x, el.values()))
+        mind,maxd = minmax(dl.values())
+    
+        gr = 'digraph "afterglow" {\n\tedge [len=2.5];\n'
+
+        gr += "# src nodes\n"
+        for s in sl:
+            n,l = sl[s]; n = 1+float(n-mins)/(maxs-mins)
+            gr += '"src.%s" [label = "%s", shape=box, fillcolor="#FF0000", style=filled, fixedsize=1, height=%.2f,width=%.2f];\n' % (`s`,`s`,n,n)
+        gr += "# event nodes\n"
+        for e in el:
+            n,l = el[e]; n = n = 1+float(n-mine)/(maxe-mine)
+            gr += '"evt.%s" [label = "%s", shape=circle, fillcolor="#00FFFF", style=filled, fixedsize=1, height=%.2f, width=%.2f];\n' % (`e`,`e`,n,n)
+        for d in dl:
+            n = dl[d]; n = n = 1+float(n-mind)/(maxd-mind)
+            gr += '"dst.%s" [label = "%s", shape=triangle, fillcolor="#0000ff", style=filled, fixedsize=1, height=%.2f, width=%.2f];\n' % (`d`,`d`,n,n)
+
+        gr += "###\n"
+        for s in sl:
+            n,l = sl[s]
+            for e in l:
+                gr += ' "src.%s" -> "evt.%s";\n' % (`s`,`e`) 
+        for e in el:
+            n,l = el[e]
+            for d in l:
+                gr += ' "evt.%s" -> "dst.%s";\n' % (`e`,`d`) 
+            
+        gr += "}"
+        open("/tmp/aze","w").write(gr)
+        do_graph(gr, **kargs)
+        
+
         
     def timeskew_graph(self, ip, **kargs):
         """Tries to graph the timeskew between the timestamps and real time for a given ip"""
