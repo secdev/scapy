@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.3.17  2006/02/22 11:33:34  pbi
+# - added config.prog to reference external program pathes
+#
 # Revision 1.0.3.16  2006/02/22 11:19:26  pbi
 # - added afterglow clone attempt (http://sourceforge.net/projects/afterglow)
 #
@@ -1302,7 +1305,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.3.16 2006/02/22 11:19:26 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.3.17 2006/02/22 11:33:34 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1703,12 +1706,16 @@ def ltoa(x):
 def itom(x):
     return socket.ntohl((0xffffffff00000000L>>x)&0xffffffffL)&0xffffffffL
 
-def do_graph(graph,prog="dot",type="svg",target="| display"):
-    """do_graph(graph, prog="dot", type="svg",target="| display"):
+def do_graph(graph,prog=None,type="svg",target=None):
+    """do_graph(graph, prog=conf.prog.dot, type="svg",target="| conf.prog.display"):
     graph: GraphViz graph description
     type: output type (svg, ps, gif, jpg, etc.), passed to dot's "-T" option
     target: filename or redirect. Defaults pipe to Imagemagick's display program
     prog: which graphviz program to use"""
+    if prog is None:
+        prog = conf.prog.dot
+    if target is None:
+        target = "| %s" % conf.prog.display
     w,r = os.popen2("%s -T %s %s" % (prog,type,target))
     w.write(graph)
     w.close()
@@ -1996,7 +2003,7 @@ else:
         if not TCPDUMP:
             return
         try:
-            f = os.popen("tcpdump -i %s -ddd -s 1600 '%s'" % (conf.iface,filter))
+            f = os.popen("%s -i %s -ddd -s 1600 '%s'" % (conf.prog.tcpdump,conf.iface,filter))
         except OSError,msg:
             log_interactive.warning("Failed to execute tcpdump: (%s)")
             return
@@ -2721,24 +2728,26 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
 
     def psdump(self, filename = None, **kargs):
         """Creates a multipage poscript file with a psdump of every packet
-        filename: name of the file to write to. If empty, a temporary file is used and gv is called"""
+        filename: name of the file to write to. If empty, a temporary file is used and
+                  conf.prog.psreader is called"""
         d = self._dump_document(**kargs)
         if filename is None:
             filename = "/tmp/scapy.psd.%i" % os.getpid()
             d.writePSfile(filename)
-            os.system("gv %s.ps &" % filename)
+            os.system("%s %s.ps &" % (conf.prog.psreader,filename))
         else:
             d.writePSfile(filename)
         print
         
     def pdfdump(self, filename = None, **kargs):
         """Creates a PDF file with a psdump of every packet
-        filename: name of the file to write to. If empty, a temporary file is used and acroread is called"""
+        filename: name of the file to write to. If empty, a temporary file is used and
+                  conf.prog.pdfreader is called"""
         d = self._dump_document(**kargs)
         if filename is None:
             filename = "/tmp/scapy.psd.%i" % os.getpid()
             d.writePDFfile(filename)
-            os.system("acroread %s.pdf &" % filename)
+            os.system("%s %s.pdf &" % (conf.prog.pdfreader,filename))
         else:
             d.writePDFfile(filename)
         print
@@ -4400,7 +4409,7 @@ class Packet(Gen):
         if filename is None:
             fname = "/tmp/scapy.%i"%os.getpid()
             canvas.writeEPSfile(fname)
-            os.system("gv '%s.eps' &" % fname)
+            os.system("%s '%s.eps' &" % (conf.prog.psreader,fname))
         else:
             canvas.writeEPSfile(filename)
 
@@ -4410,7 +4419,7 @@ class Packet(Gen):
         if filename is None:
             fname = "/tmp/scapy.%i"%os.getpid()
             canvas.writePDFfile(fname)
-            os.system("acroread '%s.pdf' &" % fname)
+            os.system("%s '%s.pdf' &" % (conf.prog.pdfreader,fname))
         else:
             canvas.writePDFfile(filename)
 
@@ -10399,6 +10408,12 @@ class ConfClass:
         self.__dict__ = {}
 
     
+class ProgPath(ConfClass):
+    pdfreader = "acroread"
+    psreader = "gv"
+    dot = "dot"
+    display = "display"
+    tcpdump = "tcpdump"
     
 
 
@@ -10453,6 +10468,7 @@ warning_threshold : how much time between warnings from the same place
     debug_dissector = 0
     color_theme = DefaultTheme()
     warning_threshold = 5
+    prog = ProgPath()
         
 
 conf=Conf()
