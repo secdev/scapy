@@ -21,6 +21,12 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.3.15  2006/02/22 11:14:39  pbi
+# - added prog parameter to do_graph()
+#
+# Revision 1.0.3.15  2006/02/21 12:45:00  pbi
+# - added prog paramter to do_graph()
+#
 # Revision 1.0.3.14  2006/02/21 12:21:44  pbi
 # - removed hard dependancy on libreadline. Now works even if no libreadline is installed
 #
@@ -1293,7 +1299,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.3.14 2006/02/21 12:21:44 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.3.15 2006/02/22 11:14:39 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1694,12 +1700,13 @@ def ltoa(x):
 def itom(x):
     return socket.ntohl((0xffffffff00000000L>>x)&0xffffffffL)&0xffffffffL
 
-def do_graph(graph,type="svg",target="| display"):
-    """do_graph(graph, type="svg",target="| display"):
+def do_graph(graph,prog="dot",type="svg",target="| display"):
+    """do_graph(graph, prog="dot", type="svg",target="| display"):
     graph: GraphViz graph description
     type: output type (svg, ps, gif, jpg, etc.), passed to dot's "-T" option
-    target: filename or redirect. Defaults pipe to Imagemagick's display program"""
-    w,r = os.popen2("dot -T %s %s" % (type,target))
+    target: filename or redirect. Defaults pipe to Imagemagick's display program
+    prog: which graphviz program to use"""
+    w,r = os.popen2("%s -T %s %s" % (prog,type,target))
     w.write(graph)
     w.close()
 
@@ -2574,7 +2581,8 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
         getsrcdst: a function that takes an element of the list and return the source and dest
                    by defaults, return source and destination IP
         type: output type (svg, ps, gif, jpg, etc.), passed to dot's "-T" option
-        target: filename or redirect. Defaults pipe to Imagemagick's display program"""
+        target: filename or redirect. Defaults pipe to Imagemagick's display program
+        prog: which graphviz program to use"""
         if getsrcdst is None:
             getsrcdst = lambda x:(x[IP].src, x[IP].dst)
         conv = {}
@@ -2995,10 +3003,13 @@ class TracerouteResult(SndRcvList):
     
     def graph(self, ASN=1, padding=0, **kargs):
         """x.graph(ASN=1, other args):
-    ASN=0 : no clustering
-    ASN=1 : use whois.cymru.net AS clustering
-    ASN=2 : use whois.ra.net AS clustering
-    other args are passed to do_graph()"""
+        ASN=0 : no clustering
+        ASN=1 : use whois.cymru.net AS clustering
+        ASN=2 : use whois.ra.net AS clustering
+        graph: GraphViz graph description
+        type: output type (svg, ps, gif, jpg, etc.), passed to dot's "-T" option
+        target: filename or redirect. Defaults pipe to Imagemagick's display program
+        prog: which graphviz program to use"""
         if (self.graphdef is None or
             self.graphASN != ASN or
             self.graphpadding != padding):
