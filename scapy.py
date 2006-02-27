@@ -21,6 +21,11 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.3.18  2006/02/27 15:08:25  pbi
+# - factorised tex_escape() function from ps/pdfdump()
+# - added LatexTheme2 for autorun_get_latex_interactive_session()
+# - escape stuff in autorun_get_latex_interactive_session()
+#
 # Revision 1.0.3.17  2006/02/22 11:33:34  pbi
 # - added config.prog to reference external program pathes
 #
@@ -1305,7 +1310,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.3.17 2006/02/22 11:33:34 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.3.18 2006/02/27 15:08:25 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1719,6 +1724,31 @@ def do_graph(graph,prog=None,type="svg",target=None):
     w,r = os.popen2("%s -T %s %s" % (prog,type,target))
     w.write(graph)
     w.close()
+
+_TEX_TR = {
+    "{":"{\\tt\\char123}",
+    "}":"{\\tt\\char125}",
+    "\\":"{\\tt\\char92}",
+    "^":"\\^{}",
+    "$":"\\$",
+    "#":"\\#",
+    "~":"\\~",
+    "_":"\\_",
+    "&":"\\&",
+    "%":"\\%",
+    "|":"{\\tt\\char124}",
+    "~":"{\\tt\\char126}",
+    "<":"{\\tt\\char60}",
+    ">":"{\\tt\\char62}",
+    }
+    
+def tex_escape(x):
+    s = ""
+    for c in x:
+        s += _TEX_TR.get(c,c)
+    return s
+
+
 
 
 ##############################
@@ -2576,7 +2606,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
             p = self._elt2pkt(self.res[i])
             if p.haslayer(Padding):
                 pad = p.getlayer(Padding).load
-                if pad == "\x00"*len(pad):
+                if pad == pad[0]*len(pad):
                     continue
                 if lfilter is None or lfilter(p):
                     print "%s %s %s" % (conf.color_theme.id(i,"%04i"),
@@ -2612,13 +2642,14 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
 
     def afterglow(self, src=None, event=None, dst=None, **kargs):
         """Experimental clone attempt of http://sourceforge.net/projects/afterglow
-        each datum is reduced as src -> event -> dst and the data are graphed"""
+        each datum is reduced as src -> event -> dst and the data are graphed.
+        by default we have IP.src -> IP.dport -> IP.dst"""
         if src is None:
             src = lambda x: x[IP].src
         if event is None:
-            event = lambda x: x[IP].dst
+            event = lambda x: x[IP].dport
         if dst is None:
-            dst = lambda x: x[TCP].dport
+            dst = lambda x: x[IP].dst
         sl = {}
         el = {}
         dl = {}
@@ -4463,28 +4494,6 @@ class Packet(Gen):
                 s.append("%02x" % ord(c))
             return " ".join(s)
 
-        TEX_TR = {
-            "{":"{\\tt\\char123}",
-            "}":"{\\tt\\char125}",
-            "\\":"{\\tt\\char92}",
-            "^":"\\^{}",
-            "$":"\\$",
-            "#":"\\#",
-            "~":"\\~",
-            "_":"\\_",
-            "&":"\\&",
-            "%":"\\%",
-            "|":"{\\tt\\char124}",
-            "~":"{\\tt\\char126}",
-            "<":"{\\tt\\char60}",
-            ">":"{\\tt\\char62}",
-            }
-            
-        def escape(x):
-            s = ""
-            for c in x:
-                s += TEX_TR.get(c,c)
-            return s
                 
         def make_dump_txt(x,y,txt):
             return pyx.text.text(XDSTART+x*XMUL, (YDUMP-y)*YMUL, r"\tt{%s}"%hexstr(txt), [pyx.text.size.Large])
@@ -4564,13 +4573,13 @@ class Packet(Gen):
             canvas.insert(pt)
             for fname, fval, fdump in fields:
                 col = forecolor.next()
-                ft = pyx.text.text(XSTART, (YTXT-y)*YMUL, r"\font\cmssfont=cmss10\cmssfont{%s}" % escape(fname.name))
+                ft = pyx.text.text(XSTART, (YTXT-y)*YMUL, r"\font\cmssfont=cmss10\cmssfont{%s}" % tex_escape(fname.name))
                 if fval is not None:
                     if len(fval) > 18:
                         fval = fval[:18]+"[...]"
                 else:
                     fval=""
-                vt = pyx.text.text(XSTART+3, (YTXT-y)*YMUL, r"\font\cmssfont=cmss10\cmssfont{%s}" % escape(fval))
+                vt = pyx.text.text(XSTART+3, (YTXT-y)*YMUL, r"\font\cmssfont=cmss10\cmssfont{%s}" % tex_escape(fval))
                 y += 1.0
                 if fdump:
                     dt,target,last_shift,last_y = make_dump(fdump, last_shift, last_y, col, bkcol)
@@ -10339,6 +10348,22 @@ class LatexTheme(FormatTheme):
 #    style_even = r"}{\bf "
 #    style_odd = ""
 
+class LatexTheme2(FormatTheme):
+    style_prompt = r"@`@textcolor@[@blue@]@@[@%s@]@"
+    style_not_printable = r"@`@textcolor@[@gray@]@@[@%s@]@"
+    style_layer_name = r"@`@textcolor@[@red@]@@[@@`@bf %s@]@"
+    style_field_name = r"@`@textcolor@[@blue@]@@[@%s@]@"
+    style_field_value = r"@`@textcolor@[@purple@]@@[@%s@]@"
+    style_emph_field_name = r"@`@textcolor@[@blue@]@@[@@`@underline@[@%s@]@@]@" 
+    style_emph_field_value = r"@`@textcolor@[@purple@]@@[@@`@underline@[@%s@]@@]@" 
+    style_packetlist_name = r"@`@textcolor@[@red@]@@[@@`@bf %s@]@"
+    style_packetlist_proto = r"@`@textcolor@[@blue@]@@[@%s@]@"
+    style_packetlist_value = r"@`@textcolor@[@purple@]@@[@%s@]@"
+    style_fail = r"@`@textcolor@[@red@]@@[@@`@bf %s@]@"
+    style_success = r"@`@textcolor@[@blue@]@@[@@`@bf %s@]@"
+#    style_even = r"}{\bf "
+#    style_odd = ""
+
 class HTMLTheme(FormatTheme):
     style_prompt = "<span class=prompt>%s</span>"
     style_not_printable = "<span class=not_printable>%s</span>"
@@ -10577,16 +10602,19 @@ def autorun_get_html_interactive_session(cmds):
         s,res = autorun_get_interactive_session(cmds)
     finally:
         conf.color_theme = ct
+    
     s = s.replace("<","&lt;").replace(">","&gt;").replace("#[#","<").replace("#]#",">")
     return s,res
 
 def autorun_get_latex_interactive_session(cmds):
     ct = conf.color_theme
     try:
-        conf.color_theme = LatexTheme()
+        conf.color_theme = LatexTheme2()
         s,res = autorun_get_interactive_session(cmds)
     finally:
         conf.color_theme = ct
+    s = tex_escape(s)
+    s = s.replace("@[@","{").replace("@]@","}").replace("@`@","\\")
     return s,res
 
 
