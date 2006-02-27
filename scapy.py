@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.3.19  2006/02/27 15:13:36  pbi
+# - Fixed Dot11Beacon's fields' endianness (G. Lukas)
+#
 # Revision 1.0.3.18  2006/02/27 15:08:25  pbi
 # - factorised tex_escape() function from ps/pdfdump()
 # - added LatexTheme2 for autorun_get_latex_interactive_session()
@@ -1310,7 +1313,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.3.18 2006/02/27 15:08:25 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.3.19 2006/02/27 15:13:36 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -3855,6 +3858,25 @@ class XShortEnumField(ShortEnumField):
     def i2repr_one(self, pkt, x):
         return self.i2s.get(x, hex(x))            
 
+# Little endian long field
+class LELongField(Field):
+    def __init__(self, name, default):
+        Field.__init__(self, name, default, "@Q")
+
+# Little endian fixed length field
+class LEFieldLenField(Field):
+    def __init__(self, name, default, fld, fmt = "@H", shift=0):
+        Field.__init__(self, name, default, fmt)
+        self.fld = fld
+        self.shift = shift
+    def i2m(self, pkt, x):
+        if x is None:
+            x = len(getattr(pkt, self.fld))-self.shift
+        return x
+    def i2h(self, pkt, x):
+        if x is None:
+            x = len(getattr(pkt, self.fld))+self.shift
+        return x
 
 
 class FlagsField(BitField):
@@ -6045,8 +6067,8 @@ status_code = {0:"success", 1:"failure", 10:"cannot-support-all-cap",
 
 class Dot11Beacon(Packet):
     name = "802.11 Beacon"
-    fields_desc = [ LongField("timestamp", 0),
-                    ShortField("beacon_interval", 0x6400),
+    fields_desc = [ LELongField("timestamp", 0),
+                    LEShortField("beacon_interval", 0x6400),
                     FlagsField("cap", 0, 16, capability_list) ]
     
 
@@ -7151,26 +7173,6 @@ class NBTSession(Packet):
                   BitField("RESERVED",0x00,7),
                   BitField("LENGTH",0,17)]
 
-
-# Little endian long field
-class LELongField(Field):
-    def __init__(self, name, default):
-        Field.__init__(self, name, default, "@Q")
-
-# Little endian fixed length field
-class LEFieldLenField(Field):
-    def __init__(self, name, default, fld, fmt = "@H", shift=0):
-        Field.__init__(self, name, default, fmt)
-        self.fld = fld
-        self.shift = shift
-    def i2m(self, pkt, x):
-        if x is None:
-            x = len(getattr(pkt, self.fld))-self.shift
-        return x
-    def i2h(self, pkt, x):
-        if x is None:
-            x = len(getattr(pkt, self.fld))+self.shift
-        return x
 
 # SMB NetLogon Response Header
 class SMBNetlogon_Protocol_Response_Header(Packet):
