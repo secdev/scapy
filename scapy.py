@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.3.20  2006/02/27 18:03:46  pbi
+# - added get_trace() method to TraceouteResult() to extract traceroute data
+#
 # Revision 1.0.3.19  2006/02/27 15:13:36  pbi
 # - Fixed Dot11Beacon's fields' endianness (G. Lukas)
 #
@@ -1313,7 +1316,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.3.19 2006/02/27 15:13:36 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.3.20 2006/02/27 18:03:46 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2870,6 +2873,25 @@ class TracerouteResult(SndRcvList):
                                               s.ttl,
                                               r.sprintf("%-15s,IP.src% {TCP:%TCP.flags%}{ICMP:%ir,ICMP.type%}")))
 
+
+    def get_trace(self):
+        trace = {}
+        for s,r in self.res:
+            if IP not in s:
+                continue
+            d = s[IP].dst
+            if d not in trace:
+                trace[d] = {}
+            trace[d][s[IP].ttl] = r[IP].src, ICMP not in r
+        for k in trace.values():
+            m = filter(lambda x:k[x][1], k.keys())
+            if not m:
+                continue
+            m = min(m)
+            for l in k.keys():
+                if l > m:
+                    del(k[l])
+        return trace
 
     def world_trace(self):
         ips = {}
