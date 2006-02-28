@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.3.21  2006/02/28 18:04:10  pbi
+# - added TracerouteResult.trace3D() to have a 3D traceroute visualization with VPython
+#
 # Revision 1.0.3.20  2006/02/27 18:03:46  pbi
 # - added get_trace() method to TraceouteResult() to extract traceroute data
 #
@@ -1316,7 +1319,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.3.20 2006/02/27 18:03:46 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.3.21 2006/02/28 18:04:10 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2892,6 +2895,95 @@ class TracerouteResult(SndRcvList):
                 if l > m:
                     del(k[l])
         return trace
+
+    def trace3D(self):
+        trace = self.get_trace()
+        import visual
+
+        class IPsphere(visual.sphere):
+            def __init__(self, ip, **kargs):
+                visual.sphere.__init__(self, **kargs)
+                self.ip=ip
+                self.label=visual.label(text=self.ip, pos=self.pos, space=self.radius, xoffset=10, yoffset=20, visible=0)
+            def action(self):
+                self.label.visible ^= 1
+
+        visual.scene = visual.display()
+        visual.scene.exit_on_close(0)
+        start = visual.box()
+        rings={}
+        tr3d = {}
+        for i in trace:
+            tr = trace[i]
+            tr3d[i] = []
+            ttl = tr.keys()
+            for t in range(1,max(ttl)+1):
+                if t not in rings:
+                    rings[t] = []
+                if t in tr:
+                    if tr[t] not in rings[t]:
+                        rings[t].append(tr[t])
+                    tr3d[i].append(rings[t].index(tr[t]))
+                else:
+                    rings[t].append(("unk",-1))
+                    tr3d[i].append(len(rings[t])-1)
+        print tr3d
+        for t in rings:
+            r = rings[t]
+            l = len(r)
+            for i in range(l):
+                if r[i][1] == -1:
+                    col = (0.75,0.75,0.75)
+                elif r[i][1]:
+                    col = visual.color.green
+                else:
+                    col = visual.color.blue
+                
+                s = IPsphere(pos=((l-1)*visual.cos(2*i*visual.pi/l),(l-1)*visual.sin(2*i*visual.pi/l),2*t),
+                             ip = r[i][0],
+                             color = col)
+                for trlst in tr3d.values():
+                    if t <= len(trlst):
+                        if trlst[t-1] == i:
+                            trlst[t-1] = s
+        for trlst in tr3d.values():
+#            col = forecol.next()
+            col = (1,0,0)
+            start = (0,0,0)
+            for ip in trlst:
+                visual.cylinder(pos=start,axis=ip.pos-start,color=col,radius=0.2)
+                start = ip.pos
+                
+          
+            
+        
+        movcenter=None
+        while 1:
+            if visual.scene.kb.keys:
+                k = visual.scene.kb.getkey()
+                print k
+                if k == "esc":
+                    break
+            if visual.scene.mouse.events:
+                ev = visual.scene.mouse.getevent()
+                if ev.press == "left":
+                    if ev.pick:
+                        if hasattr(ev.pick, "action"):
+                            ev.pick.action()
+                elif ev.drag == "left":
+                    movcenter = ev.pos
+                elif ev.drop == "left":
+                    movcenter = None
+            if movcenter:
+                visual.scene.center -= visual.scene.mouse.pos-movcenter
+                movcenter = visual.scene.mouse.pos
+                
+                
+            
+        
+        
+        
+        
 
     def world_trace(self):
         ips = {}
