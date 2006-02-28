@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.3.23  2006/02/28 18:24:27  pbi
+# - removed makecol() from TracerouteResult.graph()
+#
 # Revision 1.0.3.22  2006/02/28 18:23:46  pbi
 # - turned makecol() TracerouteResult.graph()' internal function into colgen() generator tool
 #
@@ -1322,7 +1325,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.3.22 2006/02/28 18:23:46 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.3.23 2006/02/28 18:24:27 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -3184,14 +3187,6 @@ class TracerouteResult(SndRcvList):
             ASNs[asn] = iplist
             ASDs[asn] = desc
     
-        def makecol(lstcol):
-            b = []
-            for i in range(len(lstcol)):
-                for j in range(len(lstcol)):
-                    for k in range(len(lstcol)):
-                        if i != j or j != k or k != i:
-                            b.append('"#%s%s%s"' % (lstcol[(i+j)%len(lstcol)],lstcol[(j+k)%len(lstcol)],lstcol[(k+i)%len(lstcol)]))
-            return b
     
         backcolorlist=colgen("60","86","ba","ff")
         forecolorlist=colgen("a0","70","40","20")
