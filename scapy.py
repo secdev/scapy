@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.3.24  2006/02/28 18:33:32  pbi
+# - added a "trans" parameter to colgen to handle automatic specific conversions into color object
+# - used colgen() in Packet.canvas_dump()
+#
 # Revision 1.0.3.23  2006/02/28 18:24:27  pbi
 # - removed makecol() from TracerouteResult.graph()
 #
@@ -1325,7 +1329,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.3.23 2006/02/28 18:24:27 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.3.24 2006/02/28 18:33:32 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1763,16 +1767,18 @@ def tex_escape(x):
         s += _TEX_TR.get(c,c)
     return s
 
-def colgen(*lstcol):
-    "Returns a generator that mixes provided quantities forever"
+def colgen(*lstcol,**kargs):
+    """Returns a generator that mixes provided quantities forever
+    trans: a function to convert the three arguments into a color. lambda x,y,z:(x,y,z) by default"""
     if len(lstcol) < 2:
         lstcol *= 2
+    trans = kargs.get("trans", lambda x,y,z: (x,y,z))
     while 1:
         for i in range(len(lstcol)):
             for j in range(len(lstcol)):
                 for k in range(len(lstcol)):
                     if i != j or j != k or k != i:
-                        yield (lstcol[(i+j)%len(lstcol)],lstcol[(j+k)%len(lstcol)],lstcol[(k+i)%len(lstcol)])
+                        yield trans(lstcol[(i+j)%len(lstcol)],lstcol[(j+k)%len(lstcol)],lstcol[(k+i)%len(lstcol)])
 
 
 
@@ -4615,18 +4621,10 @@ class Packet(Gen):
         xd = 0 
         XMUL= 0.55
         YMUL = 0.4
-
-        def makecol(*lstcol):
-            while 1:
-                for i in range(len(lstcol)):
-                    for j in range(len(lstcol)):
-                        for k in range(len(lstcol)):
-                            if i != j or j != k or k != i:
-                                yield  pyx.color.rgb(lstcol[(i+j+k)%len(lstcol)],lstcol[(j+2*k)%len(lstcol)],lstcol[(2*k+i)%len(lstcol)])
     
+        backcolor=colgen(0.6, 0.8, 1.0, trans=pyx.color.rgb)
+        forecolor=colgen(0.2, 0.5, 0.8, trans=pyx.color.rgb)
 #        backcolor=makecol(0.376, 0.729, 0.525, 1.0)
-        backcolor=makecol(0.6, 0.8, 1.0)
-        forecolor=makecol(0.2, 0.5, 0.8)
         
         
         def hexstr(x):
