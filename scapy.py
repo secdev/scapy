@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.3.22  2006/02/28 18:23:46  pbi
+# - turned makecol() TracerouteResult.graph()' internal function into colgen() generator tool
+#
 # Revision 1.0.3.21  2006/02/28 18:04:10  pbi
 # - added TracerouteResult.trace3D() to have a 3D traceroute visualization with VPython
 #
@@ -1319,7 +1322,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.3.21 2006/02/28 18:04:10 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.3.22 2006/02/28 18:23:46 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1757,6 +1760,16 @@ def tex_escape(x):
         s += _TEX_TR.get(c,c)
     return s
 
+def colgen(*lstcol):
+    "Returns a generator that mixes provided quantities forever"
+    if len(lstcol) < 2:
+        lstcol *= 2
+    while 1:
+        for i in range(len(lstcol)):
+            for j in range(len(lstcol)):
+                for k in range(len(lstcol)):
+                    if i != j or j != k or k != i:
+                        yield (lstcol[(i+j)%len(lstcol)],lstcol[(j+k)%len(lstcol)],lstcol[(k+i)%len(lstcol)])
 
 
 
@@ -3180,10 +3193,8 @@ class TracerouteResult(SndRcvList):
                             b.append('"#%s%s%s"' % (lstcol[(i+j)%len(lstcol)],lstcol[(j+k)%len(lstcol)],lstcol[(k+i)%len(lstcol)]))
             return b
     
-        backcolorlist=makecol(["60","86","ba","ff"])
-        forecolorlist=makecol(["a0","70","40","20"])
-        clustcol = 0
-        edgecol = 0
+        backcolorlist=colgen("60","86","ba","ff")
+        forecolorlist=colgen("a0","70","40","20")
     
         s = "digraph trace {\n"
     
@@ -3192,9 +3203,9 @@ class TracerouteResult(SndRcvList):
         s += "\n#ASN clustering\n"
         for asn in ASNs:
             s += '\tsubgraph cluster_%s {\n' % asn
-            s += '\t\tcolor=%s;' % backcolorlist[clustcol%(len(backcolorlist))]
-            s += '\t\tnode [fillcolor=%s,style=filled];' % backcolorlist[clustcol%(len(backcolorlist))]
-            clustcol += 1
+            col = backcolorlist.next()
+            s += '\t\tcolor="#%s%s%s";' % col
+            s += '\t\tnode [fillcolor="#%s%s%s",style=filled];' % col
             s += '\t\tfontsize = 10;'
             s += '\t\tlabel = "%s\\n[%s]"\n' % (asn,ASDs[asn])
             for ip in ASNs[asn]:
@@ -3231,8 +3242,7 @@ class TracerouteResult(SndRcvList):
     
         for rtk in rt:
             s += "#---[%s\n" % `rtk`
-            s += '\t\tedge [color=%s];\n' % forecolorlist[edgecol%(len(forecolorlist))]
-            edgecol += 1
+            s += '\t\tedge [color="#%s%s%s"];\n' % forecolorlist.next()
             trace = rt[rtk]
             k = trace.keys()
             for n in range(min(k), max(k)):
