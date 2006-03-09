@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.3.25  2006/03/09 22:15:38  pbi
+# - added Ctrl-Click to TracerouteResult.trace3D() to scan an IP
+#
 # Revision 1.0.3.24  2006/02/28 18:33:32  pbi
 # - added a "trans" parameter to colgen to handle automatic specific conversions into color object
 # - used colgen() in Packet.canvas_dump()
@@ -1329,7 +1332,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.3.24 2006/02/28 18:33:32 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.3.25 2006/03/09 22:15:38 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2926,7 +2929,16 @@ class TracerouteResult(SndRcvList):
             def __init__(self, ip, **kargs):
                 visual.sphere.__init__(self, **kargs)
                 self.ip=ip
-                self.label=visual.label(text=self.ip, pos=self.pos, space=self.radius, xoffset=10, yoffset=20, visible=0)
+                self.label=None
+                self.setlabel(self.ip)
+            def setlabel(self, txt,visible=None):
+                if self.label is not None:
+                    if visible is None:
+                        visible = self.label.visible
+                    self.label.visible = 0
+                elif visible is None:
+                    visible=0
+                self.label=visual.label(text=txt, pos=self.pos, space=self.radius, xoffset=10, yoffset=20, visible=visible)
             def action(self):
                 self.label.visible ^= 1
 
@@ -2968,9 +2980,9 @@ class TracerouteResult(SndRcvList):
                     if t <= len(trlst):
                         if trlst[t-1] == i:
                             trlst[t-1] = s
+        forecol = colgen(0.625, 0.4375, 0.25, 0.125)
         for trlst in tr3d.values():
-#            col = forecol.next()
-            col = (1,0,0)
+            col = forecol.next()
             start = (0,0,0)
             for ip in trlst:
                 visual.cylinder(pos=start,axis=ip.pos-start,color=col,radius=0.2)
@@ -2989,9 +3001,25 @@ class TracerouteResult(SndRcvList):
             if visual.scene.mouse.events:
                 ev = visual.scene.mouse.getevent()
                 if ev.press == "left":
-                    if ev.pick:
-                        if hasattr(ev.pick, "action"):
-                            ev.pick.action()
+                    o = ev.pick
+                    if o:
+                        if ev.ctrl:
+                            if o.ip == "unk":
+                                continue
+                            savcolor = o.color
+                            o.color = (1,0,0)
+                            a,b=sr(IP(dst=o.ip)/TCP(dport=[21,22,23,25,80,443]),timeout=2)
+                            o.color = savcolor
+                            if len(a) == 0:
+                                txt = "%s:\nno results" % o.ip
+                            else:
+                                txt = "%s:\n" % o.ip
+                                for s,r in a:
+                                    txt += r.sprintf("{TCP:%IP.src%:%TCP.sport% %TCP.flags%}{TCPerror:%IPerror.dst%:%TCPerror.dport% %IP.src% %ir,ICMP.type%}\n")
+                            o.setlabel(txt, visible=1)
+                        else:
+                            if hasattr(o, "action"):
+                                o.action()
                 elif ev.drag == "left":
                     movcenter = ev.pos
                 elif ev.drop == "left":
