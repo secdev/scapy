@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.3.26  2006/03/09 22:25:00  pbi
+# - removed bad loop in L3PacketSocket and L2Socket when discarding outgoing packets (W. McVey)
+#
 # Revision 1.0.3.25  2006/03/09 22:15:38  pbi
 # - added Ctrl-Click to TracerouteResult.trace3D() to scan an IP
 #
@@ -1332,7 +1335,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.3.25 2006/03/09 22:15:38 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.3.26 2006/03/09 22:25:00 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -7985,10 +7988,9 @@ class L3PacketSocket(SuperSocket):
                 set_promisc(self.ins, i, 0)
         SuperSocket.close(self)
     def recv(self, x):
-        while 1:
-            pkt, sa_ll = self.ins.recvfrom(x)
-            if sa_ll[2] != socket.PACKET_OUTGOING:
-                break
+        pkt, sa_ll = self.ins.recvfrom(x)
+        if sa_ll[2] == socket.PACKET_OUTGOING:
+            return None
         if LLTypes.has_key(sa_ll[3]):
             cls = LLTypes[sa_ll[3]]
             lvl = 2
@@ -8056,10 +8058,9 @@ class L2Socket(SuperSocket):
             self.LL = Ether
             
     def recv(self, x):
-        while 1:
-            pkt, sa_ll = self.ins.recvfrom(x)
-            if sa_ll[2] != socket.PACKET_OUTGOING:
-                break
+        pkt, sa_ll = self.ins.recvfrom(x)
+        if sa_ll[2] == socket.PACKET_OUTGOING:
+            return None
         try:
             q = self.LL(pkt)
         except:
