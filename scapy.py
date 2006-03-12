@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.3.27  2006/03/12 17:56:14  pbi
+# - improved Packet.getlayer(), Packet.haslayer() and Packet.haslayer_str()
+#   to look into PacketFields.
+#
 # Revision 1.0.3.26  2006/03/09 22:25:00  pbi
 # - removed bad loop in L3PacketSocket and L2Socket when discarding outgoing packets (W. McVey)
 #
@@ -1335,7 +1339,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.3.26 2006/03/09 22:25:00 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.3.27 2006/03/12 17:56:14 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -4919,20 +4923,40 @@ class Packet(Gen):
         """true if self has a layer that is an instance of cls. Superseded by "cls in self" syntax."""
         if self.__class__ == cls:
             return 1
+        for f in self.fields_desc:
+            fvalue = self.__getattr__(f)
+            if isinstance(fvalue, Packet):
+                ret = fvalue.haslayer(cls)
+                if ret:
+                    return ret
         return self.payload.haslayer(cls)
     def haslayer_str(self, cls):
         """true if self has a layer that whose class name is cls."""
         if self.__class__.__name__ == cls:
             return 1
+        for f in self.fields_desc:
+            fvalue = self.__getattr__(f)
+            if isinstance(fvalue, Packet):
+                ret = fvalue.haslayer_str(cls)
+                if ret:
+                    return ret
         return self.payload.haslayer_str(cls)
-    def getlayer(self, cls, nb=1):
+    def getlayer(self, cls, nb=1, _track=None):
         """Return the nb^th layer that is an instance of cls."""
         if self.__class__ == cls:
             if nb == 1:
                 return self
             else:
                 nb -=1
-        return self.payload.getlayer(cls,nb)
+        for f in self.fields_desc:
+            fvalue = self.__getattr__(f)
+            if isinstance(fvalue, Packet):
+                track=[]
+                ret = fvalue.getlayer(cls, nb, _track=track)
+                if ret is not None:
+                    return ret
+                nb = track[0]
+        return self.payload.getlayer(cls,nb,_track=_track)
 
     def __getitem__(self, cls):
         if type(cls) is slice:
@@ -5207,7 +5231,9 @@ class NoPayload(Packet,object):
         return 0
     def haslayer_str(self, cls):
         return 0
-    def getlayer(self, cls, nb=1):
+    def getlayer(self, cls, nb=1, _track=None):
+        if _track is not None:
+            _track.append(nb)
         return None
     def show(self, indent=3, lvl="", label_lvl=""):
         pass
