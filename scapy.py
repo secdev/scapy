@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.3.28  2006/03/12 18:00:42  pbi
+# - made Packet.getlayer() and Packet.haslayer() also work with class names
+# - got rid of Packet.haslayer_str()
+#
 # Revision 1.0.3.27  2006/03/12 17:56:14  pbi
 # - improved Packet.getlayer(), Packet.haslayer() and Packet.haslayer_str()
 #   to look into PacketFields.
@@ -1339,7 +1343,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.3.27 2006/03/12 17:56:14 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.3.28 2006/03/12 18:00:42 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -4921,7 +4925,7 @@ class Packet(Gen):
 
     def haslayer(self, cls):
         """true if self has a layer that is an instance of cls. Superseded by "cls in self" syntax."""
-        if self.__class__ == cls:
+        if self.__class__ == cls or self.__class__.__name__ == cls:
             return 1
         for f in self.fields_desc:
             fvalue = self.__getattr__(f)
@@ -4930,20 +4934,9 @@ class Packet(Gen):
                 if ret:
                     return ret
         return self.payload.haslayer(cls)
-    def haslayer_str(self, cls):
-        """true if self has a layer that whose class name is cls."""
-        if self.__class__.__name__ == cls:
-            return 1
-        for f in self.fields_desc:
-            fvalue = self.__getattr__(f)
-            if isinstance(fvalue, Packet):
-                ret = fvalue.haslayer_str(cls)
-                if ret:
-                    return ret
-        return self.payload.haslayer_str(cls)
     def getlayer(self, cls, nb=1, _track=None):
         """Return the nb^th layer that is an instance of cls."""
-        if self.__class__ == cls:
+        if self.__class__ == cls or self.__class__.name == cls:
             if nb == 1:
                 return self
             else:
@@ -5051,7 +5044,7 @@ A side effect is that, to obtain "{" and "}" characters, you must use
             if cond[0] == "!":
                 res = True
                 cond = cond[1:]
-            if self.haslayer_str(cond):
+            if self.haslayer(cond):
                 res = not res
             if not res:
                 format = ""
@@ -5228,8 +5221,6 @@ class NoPayload(Packet,object):
     def answers(self, other):
         return isinstance(other, NoPayload) or isinstance(other, Padding)
     def haslayer(self, cls):
-        return 0
-    def haslayer_str(self, cls):
         return 0
     def getlayer(self, cls, nb=1, _track=None):
         if _track is not None:
