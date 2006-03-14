@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.3.29  2006/03/14 15:12:59  pbi
+# - removed forgotten print in Packet.trace3D()
+#
 # Revision 1.0.3.28  2006/03/12 18:00:42  pbi
 # - made Packet.getlayer() and Packet.haslayer() also work with class names
 # - got rid of Packet.haslayer_str()
@@ -1343,7 +1346,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.3.28 2006/03/12 18:00:42 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.3.29 2006/03/14 15:12:59 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2972,7 +2975,6 @@ class TracerouteResult(SndRcvList):
                 else:
                     rings[t].append(("unk",-1))
                     tr3d[i].append(len(rings[t])-1)
-        print tr3d
         for t in rings:
             r = rings[t]
             l = len(r)
@@ -2998,15 +3000,11 @@ class TracerouteResult(SndRcvList):
             for ip in trlst:
                 visual.cylinder(pos=start,axis=ip.pos-start,color=col,radius=0.2)
                 start = ip.pos
-                
-          
-            
         
         movcenter=None
         while 1:
             if visual.scene.kb.keys:
                 k = visual.scene.kb.getkey()
-                print k
                 if k == "esc":
                     break
             if visual.scene.mouse.events:
@@ -3040,12 +3038,6 @@ class TracerouteResult(SndRcvList):
                 movcenter = visual.scene.mouse.pos
                 
                 
-            
-        
-        
-        
-        
-
     def world_trace(self):
         ips = {}
         rt = {}
@@ -4402,7 +4394,7 @@ class Packet(Gen):
 
     underlayer = None
 
-    payload_guess = []
+payload_guess = []
     initialized = 0
     show_indent=1
 
