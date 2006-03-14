@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.3.31  2006/03/14 17:48:30  pbi
+# - removed deprecated Packet.send()
+#
 # Revision 1.0.3.30  2006/03/14 17:46:03  pbi
 # - fix indentation quirk
 #
@@ -1349,7 +1352,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.3.30 2006/03/14 17:46:03 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.3.31 2006/03/14 17:48:30 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -4884,13 +4887,6 @@ class Packet(Gen):
         todo = map(lambda (x,y):x, filter(lambda (x,y):isinstance(y,VolatileValue), self.default_fields.items()))
         todo += self.fields.keys()
         return loop(map(lambda x:str(x), todo), {})
-
-    def send(self, s, slp=0):
-        """deprecated"""
-        for p in self:
-            s.send(str(p))
-            if slp:
-                time.sleep(slp)
 
     def __gt__(self, other):
         """True if other is an answer from self (self ==> other)."""
