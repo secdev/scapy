@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.3.32  2006/03/14 18:35:41  pbi
+# - added a timeout parameter to sniff()
+#
 # Revision 1.0.3.31  2006/03/14 17:48:30  pbi
 # - removed deprecated Packet.send()
 #
@@ -1352,7 +1355,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.3.31 2006/03/14 17:48:30 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.3.32 2006/03/14 18:35:41 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -9416,7 +9419,7 @@ def nmap_sig2txt(sig):
 ###################
 
 
-def sniff(count=0, store=1, offline=None, prn = None, lfilter=None, L2socket=None, *arg, **karg):
+def sniff(count=0, store=1, offline=None, prn = None, lfilter=None, L2socket=None, timeout=None, *arg, **karg):
     """Sniff packets
 sniff([count=0,] [prn=None,] [store=1,] [offline=None,] [lfilter=None,] + L2ListenSocket args) -> list of packets
 
@@ -9429,6 +9432,7 @@ lfilter: python function applied to each packet to determine
          if further action may be done
          ex: lfilter = lambda x: x.haslayer(Padding)
 offline: pcap file to read packets from, instead of sniffing them
+timeout: stop sniffing after a given time (default: None)
 L2socket: use the provided L2socket
     """
     c = 0
@@ -9439,23 +9443,33 @@ L2socket: use the provided L2socket
         s = L2socket(type=ETH_P_ALL, *arg, **karg)
     else:
         s = PcapReader(offline)
+
     lst = []
+    if timeout is not None:
+        stoptime = time.time()+timeout
+    remain = None
     while 1:
         try:
-            p = s.recv(MTU)
-            if p is None:
-                break
-            if lfilter and not lfilter(p):
-                continue
-            if store:
-                lst.append(p)
-            c += 1
-            if prn:
-                r = prn(p)
-                if r is not None:
-                    print r
-            if count > 0 and c >= count:
-                break
+            if timeout is not None:
+                remain = stoptime-time.time()
+                if remain <= 0:
+                    break
+            sel = select([s],[],[],remain)
+            if s in sel[0]:
+                p = s.recv(MTU)
+                if p is None:
+                    break
+                if lfilter and not lfilter(p):
+                    continue
+                if store:
+                    lst.append(p)
+                c += 1
+                if prn:
+                    r = prn(p)
+                    if r is not None:
+                        print r
+                if count > 0 and c >= count:
+                    break
         except KeyboardInterrupt:
             break
     return PacketList(lst,"Sniffed")
