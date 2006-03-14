@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.3.30  2006/03/14 17:46:03  pbi
+# - fix indentation quirk
+#
 # Revision 1.0.3.29  2006/03/14 15:12:59  pbi
 # - removed forgotten print in Packet.trace3D()
 #
@@ -1346,7 +1349,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.3.29 2006/03/14 15:12:59 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.3.30 2006/03/14 17:46:03 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -4394,7 +4397,7 @@ class Packet(Gen):
 
     underlayer = None
 
-payload_guess = []
+    payload_guess = []
     initialized = 0
     show_indent=1
 
