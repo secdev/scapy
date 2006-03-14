@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.3.33  2006/03/14 19:05:05  pbi
+# - added equality tests between two packets.
+#
 # Revision 1.0.3.32  2006/03/14 18:35:41  pbi
 # - added a timeout parameter to sniff()
 #
@@ -1355,7 +1358,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.3.32 2006/03/14 18:35:41 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.3.33 2006/03/14 19:05:05 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -4907,7 +4910,20 @@ class Packet(Gen):
             return 1
         else:
             raise TypeError((self, other))
-        
+
+    def __eq__(self, other):
+        if not isinstance(other, self.__class__):
+            return False
+        for f in self.fields_desc:
+            if f not in other.fields_desc:
+                return False
+            if getattr(self, f.name) != getattr(other, f.name):
+                return False
+        return self.payload == other.payload
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def hashret(self):
         """DEV: returns a string that has the same value for a request and its answer."""
         return self.payload.hashret()
@@ -5210,6 +5226,10 @@ class NoPayload(Packet,object):
         pass
     def __iter__(self):
         return iter([])
+    def __eq__(self, other):
+        if isinstance(other, NoPayload):
+            return True
+        return False
     def hashret(self):
         return ""
     def answers(self, other):
