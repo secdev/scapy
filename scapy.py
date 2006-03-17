@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.1  2006/03/17 12:48:28  pbi
+# Release 1.0.4
+#
 # Revision 1.0.3.34  2006/03/17 12:48:02  pbi
 # - added docstring for TracerouteResult.trace3D()
 #
@@ -1361,7 +1364,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.3.34 2006/03/17 12:48:02 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.1 2006/03/17 12:48:28 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
