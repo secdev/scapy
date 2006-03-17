@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.3.34  2006/03/17 12:48:02  pbi
+# - added docstring for TracerouteResult.trace3D()
+#
 # Revision 1.0.3.33  2006/03/14 19:05:05  pbi
 # - added equality tests between two packets.
 #
@@ -1358,7 +1361,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.3.33 2006/03/14 19:05:05 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.3.34 2006/03/17 12:48:02 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2948,6 +2951,12 @@ class TracerouteResult(SndRcvList):
         return trace
 
     def trace3D(self):
+        """Give a 3D representation of the traceroute.
+        right button: rotate the scene
+        middle button: zoom
+        left button: move the scene
+        left button on a ball: toggle IP displaying
+        ctrl-left button on a ball: scan ports 21,22,23,25,80 and 443 and display the result"""
         trace = self.get_trace()
         import visual
 
