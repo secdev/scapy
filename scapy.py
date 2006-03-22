@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.3  2006/03/22 12:59:35  pbi
+# - use binary mode to open files (Windows needs that...)
+#
 # Revision 1.0.4.2  2006/03/22 12:42:46  pbi
 # - replicated packet creation time when unrolling an implicit packet
 #
@@ -1367,7 +1370,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.2 2006/03/22 12:42:46 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.3 2006/03/22 12:59:35 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1843,27 +1846,25 @@ def save_session(fname, session=None, pickleProto=-1):
         os.rename(fname, fname+".bak")
     except OSError:
         pass
-    f=gzip.open(fname,"w")
+    f=gzip.open(fname,"wb")
     cPickle.dump(to_be_saved, f, pickleProto)
     f.close()
-        
-        
-    
 
 def load_session(fname):
     try:
-        s = cPickle.load(gzip.open(fname))
+        s = cPickle.load(gzip.open(fname,"rb"))
     except IOError:
-        s = cPickle.load(open(fname))
+        s = cPickle.load(open(fname,"rb"))
     scapy_session.clear()
     scapy_session.update(s)
 
 def update_session(fname):
     try:
-        s = cPickle.load(gzip.open(fname))
+        s = cPickle.load(gzip.open(fname,"rb"))
     except IOError:
-        s = cPickle.load(open(fname))
+        s = cPickle.load(open(fname,"rb"))
     scapy_session.update(s)
+
 
 def export_object(obj):
     print base64.encodestring(gzip.zlib.compress(cPickle.dumps(obj,2),9))
@@ -1872,11 +1873,13 @@ def import_object(obj=None):
     if obj is None:
         obj = sys.stdin.read()
     return cPickle.loads(gzip.zlib.decompress(base64.decodestring(obj.strip())))
+
+
 def save_object(fname, obj):
-    cPickle.dump(obj,gzip.open(fname,"w"))
+    cPickle.dump(obj,gzip.open(fname,"wb"))
 
 def load_object(fname):
-    return cPickle.load(gzip.open(fname))
+    return cPickle.load(gzip.open(fname,"rb"))
 
 
 #################
@@ -8796,7 +8799,7 @@ class PcapReader:
 
     def __init__(self, filename):
         self.filename = filename
-        self.f = open(filename,"r")
+        self.f = open(filename,"rb")
         magic = self.f.read(4)
         if magic == "\xa1\xb2\xc3\xd4": #big endian
             self.endian = ">"
@@ -8884,7 +8887,7 @@ class PcapWriter:
     def __init__(self, filename, linktype=None, endianness=""):
         self.linktype = linktype
         self.header_done = 0
-        self.f = open(filename,"w")
+        self.f = open(filename,"wb")
         self.endian = endianness
 
 
@@ -10939,9 +10942,9 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=1):
         else:
             try:
                 try:
-                    session = cPickle.load(gzip.open(session_name))
+                    session = cPickle.load(gzip.open(session_name,"rb"))
                 except IOError:
-                    session = cPickle.load(open(session_name))
+                    session = cPickle.load(open(session_name,"rb"))
                 log_loading.info("Using session [%s]" % session_name)
             except EOFError:
                 log_loading.error("Error opening session [%s]" % session_name)
