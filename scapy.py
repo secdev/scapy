@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.2  2006/03/22 12:42:46  pbi
+# - replicated packet creation time when unrolling an implicit packet
+#
 # Revision 1.0.4.1  2006/03/17 12:48:28  pbi
 # Release 1.0.4
 #
@@ -1364,7 +1367,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.1 2006/03/17 12:48:28 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.2 2006/03/22 12:42:46 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -4896,6 +4899,7 @@ class Packet(Gen):
                         if isinstance(done2[k], VolatileValue):
                             done2[k] = done2[k]._fix()
                     pkt = self.__class__(**done2)
+                    pkt.time = self.time
                     pkt.underlayer = self.underlayer
                     pkt.overload_fields = self.overload_fields.copy()
                     if payl is None:
