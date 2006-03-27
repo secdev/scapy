@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.4  2006/03/27 13:32:50  pbi
+# - added missing fileno() to PcapReader and PcapWriter
+#
 # Revision 1.0.4.3  2006/03/22 12:59:35  pbi
 # - use binary mode to open files (Windows needs that...)
 #
@@ -1370,7 +1373,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.3 2006/03/22 12:59:35 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.4 2006/03/27 13:32:50 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -8875,6 +8878,9 @@ class PcapReader:
         """ Emulate a socket
         """
         return self.read_packet()
+
+    def fileno(self):
+        return self.f.fileno()
         
 
 
@@ -8890,6 +8896,8 @@ class PcapWriter:
         self.f = open(filename,"wb")
         self.endian = endianness
 
+    def fileno(self):
+        return self.f.fileno()
 
     def write(self, pkt):
         """accepts a either a single packet or a list of packets
