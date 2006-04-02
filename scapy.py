@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.6  2006/04/02 14:49:28  pbi
+# - modified getlayer() to accept "LAYER.field" parameters to enable format strings' %
+#   operator to work : "dst=%(IP.dst)s dport=%(TCP.dport)04i" % pkt
+#
 # Revision 1.0.4.5  2006/04/02 13:12:10  pbi
 # - added __mul__() and __rmul__() operators to handle multiplication with an int
 #
@@ -1376,7 +1380,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.5 2006/04/02 13:12:10 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.6 2006/04/02 14:49:28 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -4979,9 +4983,16 @@ class Packet(Gen):
         return self.payload.haslayer(cls)
     def getlayer(self, cls, nb=1, _track=None):
         """Return the nb^th layer that is an instance of cls."""
-        if self.__class__ == cls or self.__class__.name == cls:
+        if type(cls) is str and "." in cls:
+            ccls,fld = cls.split(".",1)
+        else:
+            ccls,fld = cls,None
+        if self.__class__ == cls or self.__class__.name == ccls:
             if nb == 1:
-                return self
+                if fld is None:
+                    return self
+                else:
+                    return getattr(self, fld)
             else:
                 nb -=1
         for f in self.fields_desc:
