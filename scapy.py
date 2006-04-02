@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.5  2006/04/02 13:12:10  pbi
+# - added __mul__() and __rmul__() operators to handle multiplication with an int
+#
 # Revision 1.0.4.4  2006/03/27 13:32:50  pbi
 # - added missing fileno() to PcapReader and PcapWriter
 #
@@ -1373,7 +1376,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.4 2006/03/27 13:32:50 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.5 2006/04/02 13:12:10 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -4591,6 +4594,14 @@ class Packet(Gen):
             return Raw(load=other)/self
         else:
             raise TypeError
+    def __mul__(self, other):
+        if type(other) is int:
+            return  [self]*other
+        else:
+            raise TypeError
+    def __rmul__(self,other):
+        return self.__mul__(other)
+               
     def __len__(self):
         return len(self.__str__())
     def do_build(self):
