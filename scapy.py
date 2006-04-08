@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.7  2006/04/08 16:05:24  pbi
+# - added PacketListField whose length come from another fiekd
+# - changed Packet.haslayer(), Packet.getlayer() and Packet.show() to handle PacketListField
+#
 # Revision 1.0.4.6  2006/04/02 14:49:28  pbi
 # - modified getlayer() to accept "LAYER.field" parameters to enable format strings' %
 #   operator to work : "dst=%(IP.dst)s dport=%(TCP.dport)04i" % pkt
@@ -1380,7 +1384,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.6 2006/04/02 14:49:28 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.7 2006/04/08 16:05:24 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -3730,6 +3734,27 @@ class PacketLenField(PacketField):
         return s[l:],i
 
 
+class PacketListField(PacketLenField):
+    islist = 1
+    def getfield(self, pkt, s):
+        l = getattr(pkt, self.fld)
+        l += pkt.get_field(self.fld).shift
+        lst = []
+        remain = s
+        while l>0 and len(remain)>0:
+            l -= 1
+            p = self.m2i(pkt,remain)
+            if Padding in p:
+                pad = p[Padding]
+                remain = pad.load
+                del(pad.underlayer.payload)
+            else:
+                remain = ""
+            lst.append(p)
+        return remain,lst
+    def addfield(self, pkt, s, val):
+        return s+reduce(str.__add__, map(str, val),"")
+
 
 class StrFixedLenField(StrField):
     def __init__(self, name, default, length):
@@ -3805,7 +3830,10 @@ class FieldLenField(Field):
     def i2m(self, pkt, x):
         if x is None:
             f = pkt.get_field(self.fld)
-            v = f.i2m(pkt,getattr(pkt, self.fld))
+            if f.islist:
+                v = getattr(pkt, self.fld)
+            else:
+                v = f.i2m(pkt,getattr(pkt, self.fld))
             if v is None:
                 l = 0
             else:
@@ -4975,11 +5003,12 @@ class Packet(Gen):
         if self.__class__ == cls or self.__class__.__name__ == cls:
             return 1
         for f in self.fields_desc:
-            fvalue = self.__getattr__(f)
-            if isinstance(fvalue, Packet):
-                ret = fvalue.haslayer(cls)
-                if ret:
-                    return ret
+            fvalue_gen = SetGen(self.__getattr__(f))
+            for fvalue in fvalue_gen:
+                if isinstance(fvalue, Packet):
+                    ret = fvalue.haslayer(cls)
+                    if ret:
+                        return ret
         return self.payload.haslayer(cls)
     def getlayer(self, cls, nb=1, _track=None):
         """Return the nb^th layer that is an instance of cls."""
@@ -4996,13 +5025,14 @@ class Packet(Gen):
             else:
                 nb -=1
         for f in self.fields_desc:
-            fvalue = self.__getattr__(f)
-            if isinstance(fvalue, Packet):
-                track=[]
-                ret = fvalue.getlayer(cls, nb, _track=track)
-                if ret is not None:
-                    return ret
-                nb = track[0]
+            fvalue_gen = SetGen(self.__getattr__(f))
+            for fvalue in fvalue_gen:
+                if isinstance(fvalue, Packet):
+                    track=[]
+                    ret = fvalue.getlayer(cls, nb, _track=track)
+                    if ret is not None:
+                        return ret
+                    nb = track[0]
         return self.payload.getlayer(cls,nb,_track=_track)
 
     def __getitem__(self, cls):
@@ -5041,11 +5071,11 @@ class Packet(Gen):
                 ncol = ct.field_name
                 vcol = ct.field_value
             fvalue = self.__getattr__(f)
-            if isinstance(fvalue, Packet):
-                print "%s  \\%-10s\\" % (label_lvl+lvl,
-                                     ncol(f.name))
-                
-                self.__getattr__(f).show(indent=indent, label_lvl=label_lvl+lvl+"   |")
+            if isinstance(fvalue, Packet) or isinstance(f, PacketListField):
+                print "%s  \\%-10s\\" % (label_lvl+lvl, ncol(f.name))
+                fvalue_gen = SetGen(self.__getattr__(f))
+                for fvalue in fvalue_gen:
+                    fvalue.show(indent=indent, label_lvl=label_lvl+lvl+"   |")
             else:
                 print "%s  %-10s%s %s" % (label_lvl+lvl,
                                           ncol(f.name),
