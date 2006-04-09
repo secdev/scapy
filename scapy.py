@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.8  2006/04/09 05:40:19  pbi
+# - added PacketListField.do_copy()
+# - modified fuzz() to handle PacketListField
+#
 # Revision 1.0.4.7  2006/04/08 16:05:24  pbi
 # - added PacketListField whose length come from another fiekd
 # - changed Packet.haslayer(), Packet.getlayer() and Packet.show() to handle PacketListField
@@ -1384,7 +1388,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.7 2006/04/08 16:05:24 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.8 2006/04/09 05:40:19 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -3736,6 +3740,9 @@ class PacketLenField(PacketField):
 
 class PacketListField(PacketLenField):
     islist = 1
+    def do_copy(self, x):
+        return map(lambda p:p.copy(), x)
+        
     def getfield(self, pkt, s):
         l = getattr(pkt, self.fld)
         l += pkt.get_field(self.fld).shift
@@ -10135,11 +10142,17 @@ class ARP_am(AnsweringMachine):
 #############
 
 
-def fuzz(p):
-    p = q = p.copy()
+def fuzz(p, _inplace=0):
+    if not _inplace:
+        p = p.copy()
+    q = p
     while not isinstance(q, NoPayload):
         for f in q.fields_desc:
-            if f.default is not None:
+            if isinstance(f, PacketListField):
+                for r in getattr(q, f.name):
+                    print "fuzzing", repr(r)
+                    fuzz(r, _inplace=1)
+            elif f.default is not None:
                 rnd = f.randval()
                 if rnd is not None:
                     q.default_fields[f] = rnd
