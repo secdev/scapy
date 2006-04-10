@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.9  2006/04/10 05:31:11  pbi
+# - use None value to specify timeout must be calculated in __sr_loop()
+#
 # Revision 1.0.4.8  2006/04/09 05:40:19  pbi
 # - added PacketListField.do_copy()
 # - modified fuzz() to handle PacketListField
@@ -1388,7 +1391,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.8 2006/04/09 05:40:19 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.9 2006/04/10 05:31:11 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -8764,12 +8767,12 @@ iface:    work only on the given interface"""
     else:
         return None
 
-def __sr_loop(srfunc, pkts, prn=lambda x:x[1].summary(), prnfail=lambda x:x.summary(), inter=1, timeout=0, count=None, verbose=0,  *args, **kargs):
+def __sr_loop(srfunc, pkts, prn=lambda x:x[1].summary(), prnfail=lambda x:x.summary(), inter=1, timeout=None, count=None, verbose=0,  *args, **kargs):
     n = 0
     r = 0
     ct = conf.color_theme
     parity = 0
-    if timeout == 0:
+    if timeout is None:
         timeout = min(2*inter, 5)
     try:
         while 1:
