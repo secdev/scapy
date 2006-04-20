@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.11  2006/04/20 13:07:15  pbi
+# - enhanced LaTeXTheme2: used \bfseries and added colors to styles fail, success and even
+#
 # Revision 1.0.4.10  2006/04/20 09:13:49  pbi
 # - fixed SetGen to better test int couples for intervals
 #
@@ -1394,7 +1397,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.10 2006/04/20 09:13:49 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.11 2006/04/20 13:07:15 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -10639,18 +10642,18 @@ class LatexTheme(FormatTheme):
 class LatexTheme2(FormatTheme):
     style_prompt = r"@`@textcolor@[@blue@]@@[@%s@]@"
     style_not_printable = r"@`@textcolor@[@gray@]@@[@%s@]@"
-    style_layer_name = r"@`@textcolor@[@red@]@@[@@`@bf %s@]@"
+    style_layer_name = r"@`@textcolor@[@red@]@@[@@`@bfseries@[@@]@%s@]@"
     style_field_name = r"@`@textcolor@[@blue@]@@[@%s@]@"
     style_field_value = r"@`@textcolor@[@purple@]@@[@%s@]@"
     style_emph_field_name = r"@`@textcolor@[@blue@]@@[@@`@underline@[@%s@]@@]@" 
     style_emph_field_value = r"@`@textcolor@[@purple@]@@[@@`@underline@[@%s@]@@]@" 
-    style_packetlist_name = r"@`@textcolor@[@red@]@@[@@`@bf %s@]@"
+    style_packetlist_name = r"@`@textcolor@[@red@]@@[@@`@bfseries@[@@]@%s@]@"
     style_packetlist_proto = r"@`@textcolor@[@blue@]@@[@%s@]@"
     style_packetlist_value = r"@`@textcolor@[@purple@]@@[@%s@]@"
-    style_fail = r"@`@textcolor@[@red@]@@[@@`@bf %s@]@"
-    style_success = r"@`@textcolor@[@blue@]@@[@@`@bf %s@]@"
-#    style_even = r"}{\bf "
-#    style_odd = ""
+    style_fail = r"@`@textcolor@[@red@]@@[@@`@bfseries@[@@]@%s@]@"
+    style_success = r"@`@textcolor@[@blue@]@@[@@`@bfserices@[@@]@%s@]@"
+    style_even = r"@`@textcolor@[@gray@]@@[@@`@bfseries@[@@]@%s@]@"
+#    style_odd = r"@`@textcolor@[@black@]@@[@@`@bfseries@[@@]@%s@]@"
 
 class HTMLTheme(FormatTheme):
     style_prompt = "<span class=prompt>%s</span>"
