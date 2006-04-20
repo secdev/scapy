@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.12  2006/04/20 13:10:13  pbi
+# - fixed a bug with alias_type in Packet.guess_payload_class() when a field exists only
+#   in the alias class
+#
 # Revision 1.0.4.11  2006/04/20 13:07:15  pbi
 # - enhanced LaTeXTheme2: used \bfseries and added colors to styles fail, success and even
 #
@@ -1397,7 +1401,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.11 2006/04/20 13:07:15 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.12 2006/04/20 13:10:13 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -4919,7 +4923,7 @@ class Packet(Gen):
             for fval, cls in t.payload_guess:
                 ok = 1
                 for k in fval.keys():
-                    if fval[k] != getattr(self,k):
+                    if not hasattr(self, k) or fval[k] != getattr(self,k):
                         ok = 0
                         break
                 if ok:
