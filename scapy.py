@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.10  2006/04/20 09:13:49  pbi
+# - fixed SetGen to better test int couples for intervals
+#
 # Revision 1.0.4.9  2006/04/10 05:31:11  pbi
 # - use None value to specify timeout must be calculated in __sr_loop()
 #
@@ -1391,7 +1394,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.9 2006/04/10 05:31:11 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.10 2006/04/20 09:13:49 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2486,7 +2489,7 @@ class SetGen(Gen):
         return element
     def __iter__(self):
         for i in self.set:
-            if (type(i) is tuple) and (len(i) == 2):
+            if (type(i) is tuple) and (len(i) == 2) and type(i[0]) is int and type(i[1]) is int:
                 if  (i[0] <= i[1]):
                     j=i[0]
                     while j <= i[1]:
