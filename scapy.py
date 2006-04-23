@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.13  2006/04/23 21:12:08  pbi
+# - big p0f update (P. Lalet)
+#
 # Revision 1.0.4.12  2006/04/20 13:10:13  pbi
 # - fixed a bug with alias_type in Packet.guess_payload_class() when a field exists only
 #   in the alias class
@@ -1401,7 +1404,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.12 2006/04/20 13:10:13 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.13 2006/04/23 21:12:08 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -4173,15 +4176,19 @@ class IPoptionsField(StrField):
 
 
 TCPOptions = (
-              { 2 : ("MSS","!H"),
+              { 0 : ("EOL",None),
+                1 : ("NOP",None),
+                2 : ("MSS","!H"),
                 3 : ("WScale","!B"),
-                4 : ["SAckOK",None],
-                5 : ["SAck","!II"],
-                8 : ["Timestamp","!II"],
-                14 : ["AltChkSum","!BH"],
-                15 : ["AltChkSumOpt",None]
+                4 : ("SAckOK",None),
+                5 : ("SAck","!II"),
+                8 : ("Timestamp","!II"),
+                14 : ("AltChkSum","!BH"),
+                15 : ("AltChkSumOpt",None)
                 },
-              { "MSS":2,
+              { "EOL":0,
+                "NOP":1,
+                "MSS":2,
                 "WScale":3,
                 "SAckOK":4,
                 "SAck":5,
@@ -4203,6 +4210,8 @@ class TCPOptionsField(StrField):
         while x:
             onum = ord(x[0])
             if onum == 0:
+                opt.append(("EOL",None))
+                x=x[1:]
                 break
             if onum == 1:
                 opt.append(("NOP",None))
@@ -4228,6 +4237,9 @@ class TCPOptionsField(StrField):
             if type(oname) is str:
                 if oname == "NOP":
                     opt += "\x01"
+                    continue
+                elif oname == "EOL":
+                    opt += "\x00"
                     continue
                 elif TCPOptions[1].has_key(oname):
                     onum = TCPOptions[1][oname]
@@ -9112,25 +9124,25 @@ def locate_ip(ip):
 ## p0f stuff ##
 ###############
 
-# File format:
+# File format (according to p0f.fp) :
 #
-# wwww:ttt:mmm:D:W:S:N:I:OS Description
+# wwww:ttt:D:ss:OOO...:QQ:OS:Details
 #
-# wwww - window size
-# ttt  - time to live
-# mmm  - maximum segment size
-# D    - don't fragment flag  (0=unset, 1=set) 
-# W    - window scaling (-1=not present, other=value)
-# S    - sackOK flag (0=unset, 1=set)
-# N    - nop flag (0=unset, 1=set)
-# I    - packet size (-1 = irrevelant)
+# wwww    - window size
+# ttt     - initial TTL
+# D       - don't fragment bit  (0=unset, 1=set) 
+# ss      - overall SYN packet size
+# OOO     - option value and order specification
+# QQ      - quirks list
+# OS      - OS genre
+# details - OS description
 
 
 
 class p0fKnowledgeBase(KnowledgeBase):
     def __init__(self, filename):
         KnowledgeBase.__init__(self, filename)
-        self.ttl_range=[255]
+        #self.ttl_range=[255]
     def lazy_init(self):
         try:
             f=open(self.filename)
@@ -9143,13 +9155,13 @@ class p0fKnowledgeBase(KnowledgeBase):
                 if l[0] in ["#","\n"]:
                     continue
                 l = tuple(l.split(":"))
-                if len(l) < 9:
+                if len(l) < 8:
                     continue
-                li = map(int,l[:8])
-                if li[1] not in self.ttl_range:
-                    self.ttl_range.append(li[1])
-                    self.ttl_range.sort()
-                self.base.append((li,":".join(l[8:])[:-1]))
+                li = map(int,l[1:4])
+                #if li[0] not in self.ttl_range:
+                #    self.ttl_range.append(li[0])
+                #    self.ttl_range.sort()
+                self.base.append((l[0], li[0], li[1], li[2], l[4], l[5], l[6], l[7][:-1]))
         except:
             warning("Can't parse p0f database (new p0f version ?)")
             self.base = None
@@ -9167,38 +9179,125 @@ def packet2p0f(pkt):
         raise TypeError("Not a TCP/IP packet")
     if pkt.payload.flags & 0x13 != 0x02: #S,!A,!F
         raise TypeError("Not a syn packet")
-
-    if "MSS" in pkt.payload.options:
-        mss = pkt.payload.options["MSS"]
-    else:
-        mss = -1
-    if "WScale" in pkt.payload.options:
-        wscale = pkt.payload.options["WScale"]
-    else:
-        wscale = -1
-    t = p0f_kdb.ttl_range[:]
-    t += [pkt.ttl]
-    t.sort()
-    ttl=t[t.index(pkt.ttl)+1]
-        
-    return (pkt.payload.window,
-            ttl,
-            mss,
-            pkt.flags & 0x2 != 0,
-            wscale,
-            "SAckOK" in pkt.payload.options,
-            "NOP" in pkt.payload.options,
-            pkt.len)
-
-def p0f_dist(x,y):
-    d = 0
-    for i in range(len(x)):
-        if x[i] != y[i]:
-            d += 1
-    if x[-1] == -1 ^ y[-1] == -1: # packet len was irrelevant
-        d -= 1
-    return d
     
+    #t = p0f_kdb.ttl_range[:]
+    #t += [pkt.ttl]
+    #t.sort()
+    #ttl=t[t.index(pkt.ttl)+1]
+    ttl = pkt.ttl
+
+    df = (pkt.flags & 2) / 2
+    ss = len(pkt)
+    # from p0f/config.h : PACKET_BIG = 100
+    if ss > 100:
+        ss = 0
+
+    ooo = ""
+    mss = -1
+    qqT = False
+    qqP = False
+    #qqBroken = False
+    ilen = (pkt[TCP].dataofs << 2) - 20 # from p0f.c
+    for option in pkt.payload.options:
+        ilen -= 1
+        if option[0] == "MSS":
+            ooo += "M" + str(option[1]) + ","
+            mss = option[1]
+            # FIXME: qqBroken
+            ilen -= 3
+        elif option[0] == "WScale":
+            ooo += "W" + str(option[1]) + ","
+            # FIXME: qqBroken
+            ilen -= 2
+        elif option[0] == "Timestamp":
+            if option[1][0] == 0:
+                ooo += "T0,"
+            else:
+                ooo += "T,"
+            if option[1][1] != 0:
+                qqT = True
+            ilen -= 9
+        elif option[0] == "SAckOK":
+            ooo += "S,"
+            ilen -= 1
+        elif option[0] == "NOP":
+            ooo += "N,"
+        elif option[0] == "EOL":
+            ooo += "E,"
+            if ilen > 0:
+                qqP = True
+        else:
+            ooo += "?,"
+            # FIXME: ilen
+    ooo = ooo[:-1]
+    if ooo == "": ooo = "."
+
+    win = pkt.payload.window
+    if mss != -1:
+        if win % mss == 0:
+            win = "S" + str(win/mss)
+        elif win % (mss + 40) == 0:
+            win = "T" + str(win/(mss+40))
+        win = str(win)
+
+    qq = ""
+
+    if qqP:
+        qq += "P"
+    if pkt[IP].id == 0:
+        qq += "Z"
+    if pkt[IP].options != '':
+        qq += "I"
+    if pkt[TCP].urgptr != 0:
+        qq += "U"
+    if pkt[TCP].reserved != 0:
+        qq += "X"
+    if pkt[TCP].ack != 0:
+        qq += "A"
+    if qqT:
+        qq += "T"
+    if pkt[TCP].flags & 40 != 0:
+        # U or P
+        qq += "F"
+    if not isinstance(pkt[TCP].payload, NoPayload):
+        qq += "D"
+    # FIXME : "!" - broken options segment
+
+    if qq == "":
+        qq = "."
+
+    return (win,
+            ttl,
+            df,
+            ss,
+            ooo,
+            qq)
+
+def p0f_correl(x,y):
+    d = 0
+    # wwww can be "*" or "%nn"
+    d += (x[0] == y[0] or y[0] == "*" or (y[0][0] == "%" and x[0].isdigit() and (int(x[0]) % int(y[0][1:])) == 0))
+    # ttl
+    d += (y[1] >= x[1] and y[1] - x[1] < 32)
+    for i in [2, 3, 5]:
+        d += (x[i] == y[i])
+    xopt = x[4].split(",")
+    yopt = y[4].split(",")
+    if len(xopt) == len(yopt):
+        same = True
+        for i in range(len(xopt)):
+            if not (xopt[i] == yopt[i] or
+                    (len(yopt[i]) == 2 and len(xopt[i]) > 1 and
+                     yopt[i][1] == "*" and xopt[i][0] == yopt[i][0]) or
+                    (len(yopt[i]) > 2 and len(xopt[i]) > 1 and
+                     yopt[i][1] == "%" and xopt[i][0] == yopt[i][0] and
+                     int(xopt[i][1:]) % int(yopt[i][2:]) == 0)):
+                same = False
+                break
+        if same:
+            d += len(xopt)
+    return d
+
 
 def p0f(pkt):
     """Passive OS fingerprinting: which OS emitted this TCP SYN ?
@@ -9210,25 +9309,40 @@ p0f(packet) -> accuracy, [list of guesses]
         return []
     s = len(pb[0][0])
     r = []
-    min = s+1
     sig = packet2p0f(pkt)
-    for b,name in pb:
-        d = p0f_dist(sig,b)
-        if d < min:
-            r = []
-            min = d
-        if d == min:
-            r.append(name)
-    accurracy = ( 1.0-(1.0*min)/s )
-    return accurracy,r
+    max = len(sig[4].split(",")) + 5
+    for b in pb:
+        d = p0f_correl(sig,b)
+        if d == max:
+            r.append((b[6], b[7], b[1] - pkt[IP].ttl))
+    return r
             
 
 def prnp0f(pkt):
     try:
-        print p0f(pkt)
+        r = p0f(pkt)
+    except:
+        return
+    if r == []:
+        r = ("UNKNOWN", "[" + ":".join(map(str, packet2p0f(pkt))) + ":?:?]", None)
+    else:
+        r = r[0]
+    uptime = None
+    try:
+        uptime = pkt2uptime(pkt)
     except:
         pass
-    
+    if uptime == 0:
+        uptime = None
+    res = pkt.sprintf("%IP.src%:%TCP.sport% - " + r[0] + " " + r[1])
+    if uptime is not None:
+        res += pkt.sprintf(" (up: " + str(uptime/3600) + " hrs)\n  -> %IP.dst%:%TCP.dport%")
+    else:
+        res += pkt.sprintf("\n  -> %IP.dst%:%TCP.dport%")
+    if r[2] is not None:
+        res += " (distance " + str(r[2]) + ")"
+    print res
+
 
 def pkt2uptime(pkt, HZ=100):
     """Calculate the date the machine which emitted the packet booted using TCP timestamp
@@ -9239,12 +9353,14 @@ pkt2uptime(pkt, [HZ=100])"""
         raise TypeError("Not a TCP packet")
     if not isinstance(pkt, TCP):
         return pkt2uptime(pkt.payload)
-    if "Timestamp" not in pkt.options:
-        raise TypeError("No timestamp option")
-    t = pkt.options["Timestamp"][0]
-    t = pkt.time-t*1.0/HZ
-    return time.ctime(t)
-    
+    for opt in pkt.options:
+        if opt[0] == "Timestamp":
+            #t = pkt.time - opt[1][0] * 1.0/HZ
+            #return time.ctime(t)
+            t = opt[1][0] / HZ
+            return t
+    raise TypeError("No timestamp option")
+
 
 
 #################
@@ -10775,7 +10891,7 @@ warning_threshold : how much time between warnings from the same place
     BTsocket = BluetoothL2CAPSocket
     histfile = os.path.join(os.environ["HOME"], ".scapy_history")
     padding = 1
-    p0f_base ="/etc/p0f.fp"
+    p0f_base ="/etc/p0f/p0f.fp"
     queso_base ="/etc/queso.conf"
     nmap_base ="/usr/share/nmap/nmap-os-fingerprints"
     IPCountry_base = "GeoIPCountry4Scapy.gz"
