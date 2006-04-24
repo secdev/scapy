@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.15  2006/04/24 12:27:35  pbi
+# - added NetFlow v1 protocol layer (M. Geli)
+#
 # Revision 1.0.4.14  2006/04/24 11:08:53  pbi
 # - big ISAKMPAttributeTypes update (W. McVey)
 # - changed ISAKMPTransformSetField to dissectTLV attributes (W. McVey)
@@ -1410,7 +1413,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.14 2006/04/24 11:08:53 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.15 2006/04/24 12:27:35 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -7899,6 +7902,39 @@ class MobileIPTunnelData(Packet):
                     ShortField("res", 0) ]
 
 
+# Cisco Netflow Protocol version 1
+class NetflowHeader(Packet):
+    name = "Netflow Header"
+    fields_desc = [ ShortField("version", 1) ]
+    
+class NetflowHeaderV1(Packet):
+    name = "Netflow Header V1"
+    fields_desc = [ ShortField("count", 0),
+                    IntField("sysUptime", 0),
+                    IntField("unixSecs", 0),
+                    IntField("unixNanoSeconds", 0) ]
+
+
+class NetflowRecordV1(Packet):
+    name = "Netflow Record"
+    fields_desc = [ IPField("ipsrc", "0.0.0.0"),
+                    IPField("ipdst", "0.0.0.0"),
+                    IPField("nexthop", "0.0.0.0"),
+                    ShortField("inputIfIndex", 0),
+                    ShortField("outpuIfIndex", 0),
+                    IntField("dpkts", 0),
+                    IntField("dbytes", 0),
+                    IntField("starttime", 0),
+                    IntField("endtime", 0),
+                    ShortField("srcport", 0),
+                    ShortField("dstport", 0),
+                    ShortField("padding", 0),
+                    ByteField("proto", 0),
+                    ByteField("tos", 0),
+                    IntField("padding1", 0),
+                    IntField("padding2", 0) ]
+
+
 
 #################
 ## Bind layers ##
@@ -8054,6 +8090,9 @@ layer_bonds = [ ( Dot3,   LLC,      { } ),
                 ( MobileIP, MobileIPRRP, { "type"  : 3 } ),
                 ( MobileIP, MobileIPTunnelData, { "type" : 4 } ),
                 ( MobileIPTunnelData, IP, { "nexthdr" : 4 } ),
+
+                ( NetflowHeader, NetflowHeaderV1, { "version" : 1 } ),
+                ( NetflowHeaderV1, NetflowRecordV1, {} ),
 
                 ]
 
