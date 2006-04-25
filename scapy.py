@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.16  2006/04/25 15:23:49  pbi
+# - added internal _iterpacket parameter to SetGen to prevent iteration over Packet instances
+# - bugfix: prevented iteration over Packet instances in Packet.getlayer/haslayer/show()
+#
 # Revision 1.0.4.15  2006/04/24 12:27:35  pbi
 # - added NetFlow v1 protocol layer (M. Geli)
 #
@@ -1413,7 +1417,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.15 2006/04/24 12:27:35 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.16 2006/04/25 15:23:49 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2497,7 +2501,8 @@ class Gen(object):
         return iter([])
     
 class SetGen(Gen):
-    def __init__(self, set):
+    def __init__(self, set, _iterpacket=1):
+        self._iterpacket=_iterpacket
         if type(set) is list:
             self.set = set
         elif isinstance(set, PacketList):
@@ -2514,7 +2519,7 @@ class SetGen(Gen):
                     while j <= i[1]:
                         yield j
                         j += 1
-            elif isinstance(i, Gen):
+            elif isinstance(i, Gen) and (self._iterpacket or not isinstance(i,Packet)):
                 for j in i:
                     yield j
             else:
@@ -5119,7 +5124,7 @@ class Packet(Gen):
         if self.__class__ == cls or self.__class__.__name__ == cls:
             return 1
         for f in self.fields_desc:
-            fvalue_gen = SetGen(self.__getattr__(f))
+            fvalue_gen = SetGen(self.__getattr__(f),_iterpacket=0)
             for fvalue in fvalue_gen:
                 if isinstance(fvalue, Packet):
                     ret = fvalue.haslayer(cls)
@@ -5141,7 +5146,7 @@ class Packet(Gen):
             else:
                 nb -=1
         for f in self.fields_desc:
-            fvalue_gen = SetGen(self.__getattr__(f))
+            fvalue_gen = SetGen(self.__getattr__(f),_iterpacket=0)
             for fvalue in fvalue_gen:
                 if isinstance(fvalue, Packet):
                     track=[]
@@ -5189,7 +5194,7 @@ class Packet(Gen):
             fvalue = self.__getattr__(f)
             if isinstance(fvalue, Packet) or isinstance(f, PacketListField):
                 print "%s  \\%-10s\\" % (label_lvl+lvl, ncol(f.name))
-                fvalue_gen = SetGen(self.__getattr__(f))
+                fvalue_gen = SetGen(self.__getattr__(f),_iterpacket=0)
                 for fvalue in fvalue_gen:
                     fvalue.show(indent=indent, label_lvl=label_lvl+lvl+"   |")
             else:
