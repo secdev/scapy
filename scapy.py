@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.19  2006/04/26 14:55:18  pbi
+# - fixed (again) filter attaching on linux/amd64 (W. Robinet)
+#
 # Revision 1.0.4.18  2006/04/26 12:55:29  pbi
 # - fixed Dot11WEP default icv value
 #
@@ -1427,7 +1430,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.18 2006/04/26 12:55:29 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.19 2006/04/26 14:55:18 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2177,7 +2180,7 @@ else:
         # XXX. Argl! We need to give the kernel a pointer on the BPF,
         # python object header seems to be 20 bytes. 36 bytes for x86 64bits arch.
         if X86_64:
-            bpfh = struct.pack("HI", nb, id(bpf)+36)
+            bpfh = struct.pack("HL", nb, id(bpf)+36)
         else:
             bpfh = struct.pack("HI", nb, id(bpf)+20)  
         s.setsockopt(SOL_SOCKET, SO_ATTACH_FILTER, bpfh)
