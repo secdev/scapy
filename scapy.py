@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.18  2006/04/26 12:55:29  pbi
+# - fixed Dot11WEP default icv value
+#
 # Revision 1.0.4.17  2006/04/26 12:55:01  pbi
 # - ATTENTION: API change: Packet.post_build() now takes current
 #   assembled layer and assembled payload separately. Thus the
@@ -1424,7 +1427,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.17 2006/04/26 12:55:01 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.18 2006/04/26 12:55:29 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -6529,7 +6532,7 @@ class Dot11Deauth(Packet):
 
 class Dot11WEP(Packet):
     name = "802.11 WEP packet"
-    fields_desc = [ StrFixedLenField("iv", "", 3),
+    fields_desc = [ StrFixedLenField("iv", "\0\0\0", 3),
                     ByteField("keyid", 0),
                     StrField("wepdata",None,remain=4),
                     IntField("icv",None) ]
