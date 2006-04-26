@@ -21,6 +21,13 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.17  2006/04/26 12:55:01  pbi
+# - ATTENTION: API change: Packet.post_build() now takes current
+#   assembled layer and assembled payload separately. Thus the
+#   new prototype: post_build(self, pkt payload) -> pkt. post_build()
+#   is in charge to join current layer and payload.
+#   Old API will work for a small transition time.
+#
 # Revision 1.0.4.16  2006/04/25 15:23:49  pbi
 # - added internal _iterpacket parameter to SetGen to prevent iteration over Packet instances
 # - bugfix: prevented iteration over Packet instances in Packet.getlayer/haslayer/show()
@@ -1417,7 +1424,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.16 2006/04/25 15:23:49 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.17 2006/04/26 12:55:01 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -4761,15 +4768,19 @@ class Packet(Gen):
         p=""
         for f in self.fields_desc:
             p = f.addfield(self, p, self.__getattr__(f))
-        pkt = p+self.payload.build(internal=1)
-        return pkt
+        return p, self.payload.build(internal=1)
     
-    def post_build(self, pkt):
+    def post_build(self, pkt, pay):
         """DEV: called right after the current layer is build."""
-        return pkt
+        return pkt+pay
 
     def build(self,internal=0):
-        p = self.post_build(self.do_build())
+        pkt,pay=self.do_build()
+        try:
+            p = self.post_build(pkt,pay)
+        except TypeError:
+            log_runtime.error("API changed! post_build() now takes 2 arguments. Compatibility is only assured for a short transition time")
+            p = self.post_build(pkt+pay)
         if not internal:
             pkt = self
             while pkt.haslayer(Padding):
@@ -5539,7 +5550,8 @@ class PPPoE(Packet):
                     XShortField("sessionid", 0x0),
                     ShortField("len", None) ]
 
-    def post_build(self,p):
+    def post_build(self, p, pay):
+        p += pay
         if self.len is None:
             l = len(p)-6
             p = p[:4]+struct.pack("!H", l)+p[6:]
@@ -5750,18 +5762,18 @@ class IP(Packet, IPTools):
                     Emph(SourceIPField("src","dst")),
                     Emph(IPField("dst", "127.0.0.1")),
                     IPoptionsField("options", "") ]
-    def post_build(self, p):
+    def post_build(self, p, pay):
         ihl = self.ihl
         if ihl is None:
-            ihl = 5+((len(self.options)+3)/4)
+            ihl = len(p)/4
             p = chr((self.version<<4) | ihl&0x0f)+p[1:]
         if self.len is None:
-            l = len(p)
+            l = len(p)+len(pay)
             p = p[:2]+struct.pack("!H", l)+p[4:]
         if self.chksum is None:
-            ck = checksum(p[:ihl*4])
+            ck = checksum(p)
             p = p[:10]+chr(ck>>8)+chr(ck&0xff)+p[12:]
-        return p
+        return p+pay
 
     def extract_padding(self, s):
         l = self.len - (self.ihl << 2)
@@ -5819,7 +5831,8 @@ class TCP(Packet):
                     XShortField("chksum", None),
                     ShortField("urgptr", 0),
                     TCPOptionsField("options", {}) ]
-    def post_build(self, p):
+    def post_build(self, p, pay):
+        p += pay
         dataofs = self.dataofs
         if dataofs is None:
             dataofs = 5+((len(self.fieldtype["options"].i2m(self,self.options))+3)/4)
@@ -5868,7 +5881,8 @@ class UDP(Packet):
                     ShortEnumField("dport", 53, UDP_SERVICES),
                     ShortField("len", None),
                     XShortField("chksum", None), ]
-    def post_build(self, p):
+    def post_build(self, p, pay):
+        p += pay
         l = self.len
         if l is None:
             l = len(p)
@@ -5935,7 +5949,8 @@ class ICMP(Packet):
                     XShortField("chksum", None),
                     XShortField("id",0),
                     XShortField("seq",0) ]
-    def post_build(self, p):
+    def post_build(self, p, pay):
+        p += pay
         if self.chksum is None:
             ck = checksum(p)
             p = p[:2]+chr(ck>>8)+chr(ck&0xff)+p[4:]
@@ -6528,22 +6543,22 @@ class Dot11WEP(Packet):
         p=""
         for f in self.fields_desc:
             p = f.addfield(self, p, self.__getattr__(f))
+        pay = None
         if self.wepdata is None:
-            p = p+self.payload.build(internal=1)
-        return p
+            pay = self.payload.build(internal=1)
+        return p,pay
 
-    def post_build(self,p):
+    def post_build(self, p, pay):
         if self.wepdata is None:
             key = conf.wepkey
             if key:
-                pl = p[8:]
                 if self.icv is None:
-                    pl += struct.pack("<I",crc32(0xffffffffL,pl)^0xffffffffL)
+                    pay += struct.pack("<I",crc32(0xffffffffL,pay)^0xffffffffL)
                     icv = ""
                 else:
                     icv = p[4:8]
                 c = ARC4.new(self.iv+key)
-                p = p[:4]+c.encrypt(pl)+icv
+                p = p[:4]+c.encrypt(pay)+icv
             else:
                 warning("No WEP key set (conf.wepkey).. strange results expected..")
         return p
@@ -6671,7 +6686,8 @@ class GRE(Packet):
                     ConditionalField(XShortField("chksum",None),"chksumpresent",lambda x:x==1),
                     ConditionalField(XShortField("reserved1",None),"chksumpresent",lambda x:x==1),
                     ]
-    def post_build(self, p):
+    def post_build(self, p, pay):
+        p += pay
         if self.chksumpresent and self.chksum is None:
             c = checksum(p)
             p = p[:4]+chr((c>>8)&0xff)+chr(c&0xff)+p[6:]
@@ -6720,7 +6736,8 @@ class Radius(Packet):
                     ByteField("id", 0),
                     ShortField("len", None),
                     StrFixedLenField("authenticator","",16) ]
-    def post_build(self, p):
+    def post_build(self, p, pay):
+        p += pay
         l = self.len
         if l is None:
             l = len(p)
@@ -6791,7 +6808,8 @@ class ISAKMP(ISAKMP_class): # rfc2408
             if other.init_cookie == self.init_cookie:
                 return 1
         return 0
-    def post_build(self, p):
+    def post_build(self, p, pay):
+        p += pay
         if self.length is None:
             p = p[:24]+struct.pack("!I",len(p))+p[28:]
         return p
@@ -7214,7 +7232,8 @@ class HCI_ACL_Hdr(Packet):
     fields_desc = [ ByteField("handle",0), # Actually, handle is 12 bits and flags is 4.
                     ByteField("flags",0),  # I wait to write a LEBitField
                     LEShortField("len",None), ]
-    def post_build(self, p):
+    def post_build(self, p, pay):
+        p += pay
         if self.len is None:
             l = len(p)-4
             p = p[:2]+chr(l&0xff)+chr((l>>8)&0xff)+p[4:]
@@ -7226,7 +7245,8 @@ class L2CAP_Hdr(Packet):
     fields_desc = [ LEShortField("len",None),
                     LEShortEnumField("cid",0,{1:"control"}),]
     
-    def post_build(self, p):
+    def post_build(self, p, pay):
+        p += pay
         if self.len is None:
             l = len(p)-4
             p = p[:2]+chr(l&0xff)+chr((l>>8)&0xff)+p[4:]
@@ -7243,7 +7263,8 @@ class L2CAP_CmdHdr(Packet):
                                 10:"info_req",11:"info_resp"}),
         ByteField("id",0),
         LEShortField("len",None) ]
-    def post_build(self, p):
+    def post_build(self, p, pay):
+        p += pay
         if self.len is None:
             l = len(p)-4
             p = p[:2]+chr(l&0xff)+chr((l>>8)&0xff)+p[4:]
@@ -7342,7 +7363,8 @@ class NetBIOS_DS(Packet):
         NetBIOSNameField("srcname",""),
         NetBIOSNameField("dstname",""),
         ]
-    def post_build(self, p):
+    def post_build(self, p, pay):
+        p += pay
         if self.len is None:
             l = len(p)-14
             p = p[:10]+struct.pack("!H", l)+p[12:]
