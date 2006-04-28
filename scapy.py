@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.20  2006/04/28 21:53:24  pbi
+# - fixed some problems with Packet.haslayer()/getlayer() for empty and list fields
+# - reduced Packet.haslayer()/getlayer() speed overhead to the same level as older versions
+#
 # Revision 1.0.4.19  2006/04/26 14:55:18  pbi
 # - fixed (again) filter attaching on linux/amd64 (W. Robinet)
 #
@@ -1430,7 +1434,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.19 2006/04/26 14:55:18 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.20 2006/04/28 21:53:24 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -3400,6 +3404,7 @@ class TracerouteResult(SndRcvList):
 
 class Field:
     islist=0
+    holds_packets=0
     def __init__(self, name, default, fmt="H"):
         self.name = name
         if fmt[0] in "@=<>!":
@@ -3754,6 +3759,7 @@ class StrField(Field):
         return RandBin(RandNum(0,1200))
 
 class PacketField(StrField):
+    holds_packets=1
     def __init__(self, name, default, cls):
         StrField.__init__(self, name, default)
         self.cls = cls
@@ -3771,6 +3777,7 @@ class PacketField(StrField):
         return remain,i
     
 class PacketLenField(PacketField):
+    holds_packets=1
     def __init__(self, name, default, cls, fld):
         PacketField.__init__(self, name, default, cls)
         self.fld = fld
@@ -3783,6 +3790,7 @@ class PacketLenField(PacketField):
 
 class PacketListField(PacketLenField):
     islist = 1
+    holds_packets=1
     def do_copy(self, x):
         return map(lambda p:p.copy(), x)
         
@@ -4388,6 +4396,7 @@ class DNSStrField(StrField):
 
 
 class DNSRRCountField(ShortField):
+    holds_packets=1
     def __init__(self, name, default, rr):
         ShortField.__init__(self, name, default)
         self.rr = rr
@@ -4439,6 +4448,7 @@ def DNSgetstr(s,p):
         
 
 class DNSRRField(StrField):
+    holds_packets=1
     def __init__(self, name, countfld, passon=1):
         StrField.__init__(self, name, None)
         self.countfld = countfld
@@ -4485,6 +4495,7 @@ class DNSRRField(StrField):
             
             
 class DNSQRField(DNSRRField):
+    holds_packets=1
     def decodeRR(self, name, s, p):
         ret = s[p:p+4]
         p += 4
@@ -4607,10 +4618,13 @@ class Packet(Gen):
         self.overloaded_fields = {}
         self.fields={}
         self.fieldtype={}
+        self.packetfields=[]
         self.__dict__["payload"] = NoPayload()
         for f in self.fields_desc:
             self.default_fields[f] = f.default
             self.fieldtype[f] = f
+            if f.holds_packets:
+                self.packetfields.append(f)
         self.underlayer = _underlayer
         self.initialized = 1
         if _pkt:
@@ -5140,8 +5154,12 @@ class Packet(Gen):
         """true if self has a layer that is an instance of cls. Superseded by "cls in self" syntax."""
         if self.__class__ == cls or self.__class__.__name__ == cls:
             return 1
-        for f in self.fields_desc:
-            fvalue_gen = SetGen(self.__getattr__(f),_iterpacket=0)
+        for f in self.packetfields:
+            fvalue_gen = self.__getattr__(f)
+            if fvalue_gen is None:
+                continue
+            if not f.islist:
+                fvalue_gen = SetGen(fvalue_gen,_iterpacket=0)
             for fvalue in fvalue_gen:
                 if isinstance(fvalue, Packet):
                     ret = fvalue.haslayer(cls)
@@ -5162,8 +5180,12 @@ class Packet(Gen):
                     return getattr(self, fld)
             else:
                 nb -=1
-        for f in self.fields_desc:
-            fvalue_gen = SetGen(self.__getattr__(f),_iterpacket=0)
+        for f in self.packetfields:
+            fvalue_gen = self.__getattr__(f)
+            if fvalue_gen is None:
+                continue
+            if not f.islist:
+                fvalue_gen = SetGen(fvalue_gen,_iterpacket=0)
             for fvalue in fvalue_gen:
                 if isinstance(fvalue, Packet):
                     track=[]
