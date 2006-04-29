@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.23  2006/04/29 13:31:18  pbi
+# - removed forgotten debug prints..
+#
 # Revision 1.0.4.22  2006/04/29 13:20:30  pbi
 # - fixed ISAKMPTransformSetField
 # - fixed ISAKMP_payload_Transform length calculation
@@ -1444,7 +1447,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.22 2006/04/29 13:20:30 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.23 2006/04/29 13:31:18 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -4036,11 +4039,9 @@ class ISAKMPTransformSetField(StrLenField):
 		# are looking at is allowed to have a TLV format and issue a 
 		# warning if we're given an TLV on a basic attribute.
 		value_len, = struct.unpack("!H", m[2:4])
-                print "len=",value_len
                 if value_len+4 > len(m):
                     warning("Bad length for ISAKMP tranform type=%#6x" % trans_type)
                 value = m[4:4+value_len]
-                print "value=",repr(value)
 		value = reduce(lambda x,y: (x<<8L)|y, struct.unpack("!%s" % ("B"*len(value),), value),0)
 	    else:
                 trans_type &= 0x7fff
