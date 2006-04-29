@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.22  2006/04/29 13:20:30  pbi
+# - fixed ISAKMPTransformSetField
+# - fixed ISAKMP_payload_Transform length calculation
+#
 # Revision 1.0.4.21  2006/04/29 12:48:13  pbi
 # - WARNING: Field API changed. parameter shift must be now provided to the
 #   length-varying field and not to the length field.
@@ -1440,7 +1444,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.21 2006/04/29 12:48:13 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.22 2006/04/29 13:20:30 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -3997,11 +4001,17 @@ class ISAKMPTransformSetField(StrLenField):
     def type2num(self, (typ,val)):
         type_val,enc_dict,tlv = ISAKMPTransformTypes.get(typ, (typ,{},0))
         val = enc_dict.get(val, val)
-        if tlv:
-            return struct.pack("!HHI",type_val, 4, val)
+        s = ""
+        if tlv and (val & ~0xffff):
+            n = 0
+            while val:
+                s = chr(val&0xff)+s
+                val >>= 8
+                n += 1
+            val = n
         else:
             type_val |= 0x8000
-            return struct.pack("!HH",type_val, val)
+        return struct.pack("!HH",type_val, val)+s
     def num2type(self, typ, enc):
         val = ISAKMPTransformNum.get(typ,(typ,{}))
         enc = val[1].get(enc,enc)
@@ -4018,7 +4028,7 @@ class ISAKMPTransformSetField(StrLenField):
 	# worst case that should result in broken attributes (which would
 	# be expected). (wam)
         lst = []
-        while len(m) > 4:
+        while len(m) >= 4:
             trans_type, = struct.unpack("!H", m[:2])
             is_tlv = not (trans_type & 0x8000)
 	    if is_tlv:
@@ -4026,10 +4036,12 @@ class ISAKMPTransformSetField(StrLenField):
 		# are looking at is allowed to have a TLV format and issue a 
 		# warning if we're given an TLV on a basic attribute.
 		value_len, = struct.unpack("!H", m[2:4])
+                print "len=",value_len
                 if value_len+4 > len(m):
                     warning("Bad length for ISAKMP tranform type=%#6x" % trans_type)
-                value = m[4:value_len]
-		value = reduce(lambda x,y: (x<<8)|y, struct.unpack("!%s" % ("B"*len(value),), value),0)
+                value = m[4:4+value_len]
+                print "value=",repr(value)
+		value = reduce(lambda x,y: (x<<8L)|y, struct.unpack("!%s" % ("B"*len(value),), value),0)
 	    else:
                 trans_type &= 0x7fff
 		value_len=0
@@ -6859,6 +6871,13 @@ class ISAKMP_payload_Transform(ISAKMP_class):
 #        XIntField("durationh",0x000c0004L),
 #        XIntField("durationl",0x00007080L),
         ]
+    def post_build(self, p, pay):
+        if self.length is None:
+            l = len(p)
+            p = p[:2]+chr((l>>8)&0xff)+chr(l&0xff)+p[4:]
+        p += pay
+        return p
+            
 
 
         
