@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.24  2006/04/29 13:52:35  pbi
+# - added next_payload value overloading for ISAKMP layers
+#
 # Revision 1.0.4.23  2006/04/29 13:31:18  pbi
 # - removed forgotten debug prints..
 #
@@ -1447,7 +1450,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.23 2006/04/29 13:31:18 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.24 2006/04/29 13:52:35 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -6818,7 +6821,7 @@ class ISAKMP_class(Packet):
     def guess_payload_class(self, payload):
         np = self.next_payload
         if np == 0:
-            return Padding
+            return Raw
         elif np < len(ISAKMP_payload_type):
             pt = ISAKMP_payload_type[np]
             return globals().get("ISAKMP_payload_%s" % pt, ISAKMP_payload)
@@ -6987,6 +6990,16 @@ class ISAKMP_payload_Hash(ISAKMP_class):
         ]
 
 
+
+ISAKMP_payload_type_overload = {}
+for i in range(len(ISAKMP_payload_type)):
+    name = "ISAKMP_payload_%s" % ISAKMP_payload_type[i]
+    if name in globals():
+        ISAKMP_payload_type_overload[globals()[name]] = {"next_payload":i}
+
+del(i)
+del(name)
+ISAKMP_class.overload_fields = ISAKMP_payload_type_overload.copy()
 
 
         
