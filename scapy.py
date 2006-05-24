@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.25  2006/05/24 20:49:44  pbi
+# - removed h2i() methods from Field API
+#
 # Revision 1.0.4.24  2006/04/29 13:52:35  pbi
 # - added next_payload value overloading for ISAKMP layers
 #
@@ -1450,7 +1453,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.24 2006/04/29 13:52:35 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.25 2006/05/24 20:49:44 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -3432,8 +3435,6 @@ class Field:
 
     def i2len(self, pkt, x):
         return self.sz
-    def h2i(self, pkt, x):
-        return x
     def i2h(self, pkt, x):
         return x
     def m2i(self, pkt, x):
@@ -3642,7 +3643,7 @@ class Dot11Addr4MACField(Dot11AddrMACField):
 class IPField(Field):
     def __init__(self, name, default):
         Field.__init__(self, name, default, "4s")
-    def h2i(self, pkt, x):
+    def any2i(self, pkt, x):
         if type(x) is str:
             try:
                 inet_aton(x)
@@ -3655,10 +3656,6 @@ class IPField(Field):
         return inet_aton(x)
     def m2i(self, pkt, x):
         return inet_ntoa(x)
-    def any2i(self, pkt, x):
-#        if type(x) is str and len(x) == 4:
-#            x = self.m2i(pkt, x)
-        return self.h2i(pkt,x)
     def i2repr(self, pkt, x):
         return self.i2h(pkt, x)
     def randval(self):
