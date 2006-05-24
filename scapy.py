@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.26  2006/05/24 20:50:47  pbi
+# - enhanced prettiness of DNSRRCountField
+#
 # Revision 1.0.4.25  2006/05/24 20:49:44  pbi
 # - removed h2i() methods from Field API
 #
@@ -1453,7 +1456,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.25 2006/05/24 20:49:44 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.26 2006/05/24 20:50:47 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -4408,19 +4411,22 @@ class DNSRRCountField(ShortField):
     def __init__(self, name, default, rr):
         ShortField.__init__(self, name, default)
         self.rr = rr
+    def _countRR(self, pkt):
+        x = getattr(pkt,self.rr)
+        i = 0
+        while isinstance(x, DNSRR) or isinstance(x, DNSQR):
+            x = x.payload
+            i += 1
+        return i
+        
     def i2m(self, pkt, x):
         if x is None:
-            x = getattr(pkt,self.rr)
-            i = 0
-            while isinstance(x, DNSRR) or isinstance(x, DNSQR):
-                x = x.payload
-                i += 1
-            x = i
+            x = self._countRR(pkt)
         return x
     def i2h(self, pkt, x):
-        return self.i2m(pkt, x)
-
-
+        if x is None:
+            x = self._countRR(pkt)
+        return x
     
 
 def DNSgetstr(s,p):
