@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.27  2006/05/24 21:15:22  pbi
+# - enhanced Packet.__getattr__ prettiness
+#
 # Revision 1.0.4.26  2006/05/24 20:50:47  pbi
 # - enhanced prettiness of DNSRRCountField
 #
@@ -1456,7 +1459,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.26 2006/05/24 20:50:47 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.27 2006/05/24 21:15:22 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -4706,10 +4709,9 @@ class Packet(Gen):
                 i2h = lambda x,y: y
             else:
                 i2h = fld.i2h
-            for f in ["fields", "overloaded_fields", "default_fields"]:
-                fields = self.__dict__[f]
-                if fields.has_key(attr):
-                    return i2h(self, fields[attr] )
+            for f in self.fields, self.overloaded_fields, self.default_fields:
+                if f.has_key(attr):
+                    return i2h(self, f[attr])
             return getattr(self.payload, attr)
         raise AttributeError(attr)
 
