@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.30  2006/05/25 18:00:40  pbi
+# - added split_layers(), split_top_down() and split_bottom_up() to undo the
+#   effects of bind_layers(), bind_top_down() and bind_bottom_up()
+#
 # Revision 1.0.4.29  2006/05/25 10:25:32  pbi
 # - added missing SPI field for ISAKMP_payload_Proposal
 #
@@ -1466,7 +1470,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.29 2006/05/25 10:25:32 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.30 2006/05/25 18:00:40 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -8053,6 +8057,29 @@ def bind_top_down(lower, upper, fval):
 def bind_layers(lower, upper, fval):
     bind_top_down(lower, upper, fval)
     bind_bottom_up(lower, upper, fval)
+
+def split_bottom_up(lower, upper, fval):
+    def do_filter((f,u),upper=upper,fval=fval):
+        if u != upper:
+            return True
+        for k in fval:
+            if k not in f or f[k] != fval[k]:
+                return True
+        return False
+    lower.payload_guess = filter(do_filter, lower.payload_guess)
+        
+def split_top_down(lower, upper, fval):
+    if lower in upper.overload_fields:
+        ofval = upper.overload_fields[lower]
+        for k in fval:
+            if k not in ofval or ofval[k] != fval[k]:
+                return
+        upper.overload_fields = upper.overload_fields.copy()
+        del(upper.overload_fields[lower])
+
+def split_layers(lower, upper, fval):
+    split_bottom_up(lower, upper, fval)
+    split_top_down(lower, upper, fval)
 
 layer_bonds = [ ( Dot3,   LLC,      { } ),
                 ( GPRS,   IP,       { } ),
