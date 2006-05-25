@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.28  2006/05/25 09:23:16  pbi
+# - almost reversed Field.h2i() removal patch (1.0.4.25) (changed my mind :))
+# - had Field.any2i() use Field.h2i()
+#
 # Revision 1.0.4.27  2006/05/24 21:15:22  pbi
 # - enhanced Packet.__getattr__ prettiness
 #
@@ -1459,7 +1463,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.27 2006/05/24 21:15:22 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.28 2006/05/25 09:23:16 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -3441,6 +3445,8 @@ class Field:
 
     def i2len(self, pkt, x):
         return self.sz
+    def h2i(self, pkt, x):
+        return x
     def i2h(self, pkt, x):
         return x
     def m2i(self, pkt, x):
@@ -3450,7 +3456,7 @@ class Field:
             x = 0
         return x
     def any2i(self, pkt, x):
-        return x
+        return self.h2i(pkt, x)
     def i2repr(self, pkt, x):
 	if x is None:
 	    x = 0
@@ -3649,7 +3655,7 @@ class Dot11Addr4MACField(Dot11AddrMACField):
 class IPField(Field):
     def __init__(self, name, default):
         Field.__init__(self, name, default, "4s")
-    def any2i(self, pkt, x):
+    def h2i(self, pkt, x):
         if type(x) is str:
             try:
                 inet_aton(x)
@@ -3662,6 +3668,8 @@ class IPField(Field):
         return inet_aton(x)
     def m2i(self, pkt, x):
         return inet_ntoa(x)
+    def any2i(self, pkt, x):
+        return self.h2i(pkt,x)
     def i2repr(self, pkt, x):
         return self.i2h(pkt, x)
     def randval(self):
