@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.29  2006/05/25 10:25:32  pbi
+# - added missing SPI field for ISAKMP_payload_Proposal
+#
 # Revision 1.0.4.28  2006/05/25 09:23:16  pbi
 # - almost reversed Field.h2i() removal patch (1.0.4.25) (changed my mind :))
 # - had Field.any2i() use Field.h2i()
@@ -1463,7 +1466,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.28 2006/05/25 09:23:16 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.29 2006/05/25 10:25:32 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -6907,8 +6910,9 @@ class ISAKMP_payload_Proposal(ISAKMP_class):
         FieldLenField("length",None,"trans","H"),
         ByteField("proposal",1),
         ByteEnumField("proto",1,{1:"ISAKMP"}),
-        ByteField("SPIsize",0),
+        FieldLenField("SPIsize",None,"SPI","B"),
         ByteField("trans_nb",None),
+        StrLenField("SPI","","SPIsize"),
         PacketLenField("trans",Raw(),ISAKMP_payload_Transform,"length",shift=8),
         ]
 
