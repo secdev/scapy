@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.31  2006/05/27 23:04:41  pbi
+# - fixed possible loop in TCP options
+#
 # Revision 1.0.4.30  2006/05/25 18:00:40  pbi
 # - added split_layers(), split_top_down() and split_bottom_up() to undo the
 #   effects of bind_layers(), bind_top_down() and bind_bottom_up()
@@ -1470,7 +1473,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.30 2006/05/25 18:00:40 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.31 2006/05/27 23:04:41 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -4357,6 +4360,9 @@ class TCPOptionsField(StrField):
                 x=x[1:]
                 continue
             olen = ord(x[1])
+            if olen < 2:
+                warning("Malformed TCP option (announced lenght is %i)" % olen)
+                olen = 2
             oval = x[2:olen]
             if TCPOptions[0].has_key(onum):
                 oname, ofmt = TCPOptions[0][onum]
