@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.33  2006/06/23 17:33:38  pbi
+# - arping() function can update ARP cache if parameter cache=1 (D. Schuster, ticket #2)
+#
 # Revision 1.0.4.32  2006/06/23 16:27:44  pbi
 # - fixed: overloaded volatile fields were not fixed for sending
 #
@@ -1476,7 +1479,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.32 2006/06/23 16:27:44 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.33 2006/06/23 17:33:38 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -10003,12 +10006,18 @@ traceroute(target, [maxttl=30], [dport=80], [sport=80]) -> None
 
 
 
-def arping(net, timeout=2, **kargs):
+def arping(net, timeout=2, cache=0,  **kargs):
     """Send ARP who-has requests to determine which hosts are up
-arping(net, iface=conf.iface) -> None"""
+arping(net, cache=0, iface=conf.iface) -> None
+Set cache=True if you want arping to modify internal ARP-Cache"""
     ans,unans = srp(Ether(dst="ff:ff:ff:ff:ff:ff")/ARP(pdst=net),
                     filter="arp and arp[7] = 2", timeout=timeout, iface_hint=net, **kargs)
     ans = ARPingResult(ans.res)
+
+    if cache and ans is not None:
+        for pair in ans:
+            arp_cache[pair[1].psrc] = (pair[1].hwsrc, time.time())
+        
     ans.display()
     return ans,unans
 
