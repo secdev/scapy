@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.34  2006/06/23 17:35:43  pbi
+# - improved error message details for get_if_hwaddr()
+#
 # Revision 1.0.4.33  2006/06/23 17:33:38  pbi
 # - arping() function can update ARP cache if parameter cache=1 (D. Schuster, ticket #2)
 #
@@ -1479,7 +1482,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.33 2006/06/23 17:33:38 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.34 2006/06/23 17:35:43 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2381,7 +2384,7 @@ def get_if_hwaddr(iff):
     if addrfamily in [ARPHDR_ETHER,ARPHDR_LOOPBACK]:
         return str2mac(mac)
     else:
-        raise Exception("Unsupported address family (%i)"%addrfamily)
+        raise Exception("Unsupported address family (%i) for interface [%s]" % (addrfamily,iff))
 
 
 
