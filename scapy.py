@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.32  2006/06/23 16:27:44  pbi
+# - fixed: overloaded volatile fields were not fixed for sending
+#
 # Revision 1.0.4.31  2006/05/27 23:04:41  pbi
 # - fixed possible loop in TCP options
 #
@@ -1473,7 +1476,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.31 2006/05/27 23:04:41 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.32 2006/06/23 16:27:44 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -5145,6 +5148,7 @@ class Packet(Gen):
                     else:
                         yield pkt/payl
         todo = map(lambda (x,y):x, filter(lambda (x,y):isinstance(y,VolatileValue), self.default_fields.items()))
+        todo += map(lambda (x,y):x, filter(lambda (x,y):isinstance(y,VolatileValue), self.overloaded_fields.items()))
         todo += self.fields.keys()
         return loop(map(lambda x:str(x), todo), {})
 
