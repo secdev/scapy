@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.38  2006/07/11 22:37:36  pbi
+# - fixed endianness of some 802.11 fields (L. Butti, ticket #3)
+#
 # Revision 1.0.4.37  2006/07/11 22:36:06  pbi
 # - removed SC field from 802.11 control frames (L. Butti, ticket #4)
 #
@@ -1492,7 +1495,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.37 2006/07/11 22:36:06 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.38 2006/07/11 22:37:36 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -6563,7 +6566,7 @@ status_code = {0:"success", 1:"failure", 10:"cannot-support-all-cap",
 class Dot11Beacon(Packet):
     name = "802.11 Beacon"
     fields_desc = [ LELongField("timestamp", 0),
-                    LEShortField("beacon_interval", 0x6400),
+                    LEShortField("beacon_interval", 0x0064),
                     FlagsField("cap", 0, 16, capability_list) ]
     
 
@@ -6584,25 +6587,25 @@ class Dot11ATIM(Packet):
 
 class Dot11Disas(Packet):
     name = "802.11 Disassociation"
-    fields_desc = [ ShortEnumField("reason", 1, reason_code) ]
+    fields_desc = [ LEShortEnumField("reason", 1, reason_code) ]
 
 class Dot11AssoReq(Packet):
     name = "802.11 Association Request"
     fields_desc = [ FlagsField("cap", 0, 16, capability_list),
-                    ShortField("listen_interval", 0xc800) ]
+                    LEShortField("listen_interval", 0x00c8) ]
 
 
 class Dot11AssoResp(Packet):
     name = "802.11 Association Response"
     fields_desc = [ FlagsField("cap", 0, 16, capability_list),
-                    ShortField("status", 0),
-                    ShortField("AID", 0) ]
+                    LEShortField("status", 0),
+                    LEShortField("AID", 0) ]
 
 class Dot11ReassoReq(Packet):
     name = "802.11 Reassociation Request"
     fields_desc = [ FlagsField("cap", 0, 16, capability_list),
                     MACField("current_AP", ETHER_ANY),
-                    ShortField("listen_interval", 0xc800) ]
+                    LEShortField("listen_interval", 0x00c8) ]
 
 
 class Dot11ReassoResp(Dot11AssoResp):
@@ -6613,15 +6616,15 @@ class Dot11ProbeReq(Packet):
     
 class Dot11ProbeResp(Packet):
     name = "802.11 Probe Response"
-    fields_desc = [ LongField("timestamp", 0),
-                    ShortField("beacon_interval", 0x6400),
+    fields_desc = [ LELongField("timestamp", 0),
+                    LEShortField("beacon_interval", 0x0064),
                     FlagsField("cap", 0, 16, capability_list) ]
     
 class Dot11Auth(Packet):
     name = "802.11 Authentication"
-    fields_desc = [ ShortEnumField("algo", 0, ["open", "sharedkey"]),
+    fields_desc = [ LEShortEnumField("algo", 0, ["open", "sharedkey"]),
                     LEShortField("seqnum", 0),
-                    ShortEnumField("status", 0, status_code) ]
+                    LEShortEnumField("status", 0, status_code) ]
     def answers(self, other):
         if self.seqnum == other.seqnum+1:
             return 1
@@ -6629,7 +6632,7 @@ class Dot11Auth(Packet):
 
 class Dot11Deauth(Packet):
     name = "802.11 Deauthentication"
-    fields_desc = [ ShortEnumField("reason", 1, reason_code) ]
+    fields_desc = [ LEShortEnumField("reason", 1, reason_code) ]
 
 
 
