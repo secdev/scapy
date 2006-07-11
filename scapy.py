@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.35  2006/07/11 21:57:37  pbi
+# - fix typo
+#
 # Revision 1.0.4.34  2006/06/23 17:35:43  pbi
 # - improved error message details for get_if_hwaddr()
 #
@@ -1482,7 +1485,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.34 2006/06/23 17:35:43 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.35 2006/07/11 21:57:37 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -4370,7 +4373,7 @@ class TCPOptionsField(StrField):
                 continue
             olen = ord(x[1])
             if olen < 2:
-                warning("Malformed TCP option (announced lenght is %i)" % olen)
+                warning("Malformed TCP option (announced length is %i)" % olen)
                 olen = 2
             oval = x[2:olen]
             if TCPOptions[0].has_key(onum):
