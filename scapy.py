@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.36  2006/07/11 22:10:01  pbi
+# - fixed TCPOptionsField to support SAck option (P. Lindholm, ticket #3)
+# - strengthened TCPOptionsField against bad options
+#
 # Revision 1.0.4.35  2006/07/11 21:57:37  pbi
 # - fix typo
 #
@@ -1485,7 +1489,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.35 2006/07/11 21:57:37 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.36 2006/07/11 22:10:01 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -4335,7 +4339,7 @@ TCPOptions = (
                 2 : ("MSS","!H"),
                 3 : ("WScale","!B"),
                 4 : ("SAckOK",None),
-                5 : ("SAck","!II"),
+                5 : ("SAck","!"),
                 8 : ("Timestamp","!II"),
                 14 : ("AltChkSum","!BH"),
                 15 : ("AltChkSumOpt",None)
@@ -4378,7 +4382,9 @@ class TCPOptionsField(StrField):
             oval = x[2:olen]
             if TCPOptions[0].has_key(onum):
                 oname, ofmt = TCPOptions[0][onum]
-                if ofmt:
+                if onum == 5: #SAck
+                    ofmt += "%iI" % (len(oval)/4)
+                if ofmt and struct.calcsize(ofmt) == len(oval):
                     oval = struct.unpack(ofmt, oval)
                     if len(oval) == 1:
                         oval = oval[0]
@@ -4401,6 +4407,8 @@ class TCPOptionsField(StrField):
                 elif TCPOptions[1].has_key(oname):
                     onum = TCPOptions[1][oname]
                     ofmt = TCPOptions[0][onum][1]
+                    if onum == 5: #SAck
+                        ofmt += "%iI" % len(oval)
                     if ofmt is not None:
                         if type(oval) is not tuple:
                             oval = (oval,)
