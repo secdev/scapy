@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.37  2006/07/11 22:36:06  pbi
+# - removed SC field from 802.11 control frames (L. Butti, ticket #4)
+#
 # Revision 1.0.4.36  2006/07/11 22:10:01  pbi
 # - fixed TCPOptionsField to support SAck option (P. Lindholm, ticket #3)
 # - strengthened TCPOptionsField against bad options
@@ -1489,7 +1492,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.36 2006/07/11 22:10:01 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.37 2006/07/11 22:36:06 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -4650,6 +4653,23 @@ class FloatField(BitField):
         b = sec+frac
         return s,b    
 
+class Dot11SCField(LEShortField):
+    def is_applicable(self, pkt):
+        if pkt.type == 1: # control frame
+            return 0 
+        else:
+            return 1
+    def addfield(self, pkt, s, val):
+        if self.is_applicable(pkt):
+            return LEShortField.addfield(self, pkt, s, val)
+        else:
+            return s
+    def getfield(self, pkt, s):
+        if self.is_applicable(pkt):
+            return LEShortField.getfield(self, pkt, s)
+        else:
+            return s,None
+
 ###########################
 ## Packet abstract class ##
 ###########################
@@ -6482,7 +6502,7 @@ class Dot11(Packet):
                     MACField("addr1", ETHER_ANY),
                     Dot11Addr2MACField("addr2", ETHER_ANY),
                     Dot11Addr3MACField("addr3", ETHER_ANY),
-                    LEShortField("SC", 0),
+                    Dot11SCField("SC", 0),
                     Dot11Addr4MACField("addr4", ETHER_ANY) 
                     ]
     def mysummary(self):
