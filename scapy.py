@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.39  2006/07/11 22:40:37  pbi
+# - fixed Dot11.answers() behaviour for management frames (L. Butti, ticket #5)
+#
 # Revision 1.0.4.38  2006/07/11 22:37:36  pbi
 # - fixed endianness of some 802.11 fields (L. Butti, ticket #3)
 #
@@ -1495,7 +1498,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.38 2006/07/11 22:37:36 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.39 2006/07/11 22:40:37 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -6517,9 +6520,9 @@ class Dot11(Packet):
             return Packet.guess_payload_class(self, payload)
     def answers(self, other):
         if isinstance(other,Dot11):
-            if self.type == 0: # mangement
-                if self.addr3 != other.addr3:
-                    return0
+            if self.type == 0: # management
+                if self.addr1 != other.addr2: # check resp DA w/ req SA
+                    return 0
                 if (other.subtype,self.subtype) in [(0,1),(2,3),(4,5)]:
                     return 1
                 if self.subtype == other.subtype == 11: # auth
