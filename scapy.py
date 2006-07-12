@@ -21,6 +21,11 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.40  2006/07/12 13:23:19  pbi
+# - Added a Ether/802.3 dispatcher for "Ethernet" linktype
+# - 802.1q use LLC payload if type < 1500
+# - enhanced Dot3.mysummary()
+#
 # Revision 1.0.4.39  2006/07/11 22:40:37  pbi
 # - fixed Dot11.answers() behaviour for management frames (L. Butti, ticket #5)
 #
@@ -1498,7 +1503,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.39 2006/07/11 22:40:37 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.40 2006/07/12 13:23:19 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -5690,7 +5695,7 @@ class Dot3(Packet):
             return self.payload.answers(other.payload)
         return 0
     def mysummary(self):
-        return "%s > %s" % (self.src, self.dst)
+        return "802.3 %s > %s" % (self.src, self.dst)
 
 
 class LLC(Packet):
@@ -5732,6 +5737,14 @@ class Dot1Q(Packet):
         else:
             return self.payload.answers(other)
         return 0
+    def default_payload_class(self, pay):
+        if self.type < 1500:
+            return LLC
+        return Raw
+    def extract_padding(self,s):
+        if self.type < 1500:
+            return s[:self.type],s[self.type:]
+        return s,None
     def mysummary(self):
         if isinstance(self.underlayer, Ether):
             return self.underlayer.sprintf("802.1q %Ether.src% > %Ether.dst% (%Dot1Q.type%) vlan %Dot1Q.vlan%")
@@ -8310,11 +8323,15 @@ def fragment(pkt, fragsize=1480):
 ## Super sockets ##
 ###################
 
+def Ether_Dot3_Dispatcher(pkt, **kargs):
+    if len(pkt) >= 14 and struct.unpack("!H", pkt[12:14])[0] < 1500:
+        return Dot3(pkt, **kargs)
+    return Ether(pkt, **kargs)
 
 # According to libdnet
-LLTypes = { ARPHDR_ETHER : Ether,
-            ARPHDR_METRICOM : Ether,
-            ARPHDR_LOOPBACK : Ether,
+LLTypes = { ARPHDR_ETHER : Ether_Dot3_Dispatcher,
+            ARPHDR_METRICOM : Ether_Dot3_Dispatcher,
+            ARPHDR_LOOPBACK : Ether_Dot3_Dispatcher,
             12 : IP,
 	    101 : IP,
             801 : Dot11,
