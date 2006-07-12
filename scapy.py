@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.43  2006/07/12 16:07:11  pbi
+# - fixed docstring of Packet.post_dissection()
+#
 # Revision 1.0.4.42  2006/07/12 13:36:01  pbi
 # - added Packet.from_hexcap() class method
 #
@@ -1509,7 +1512,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.42 2006/07/12 13:36:01 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.43 2006/07/12 16:07:11 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -4740,7 +4743,7 @@ class Packet(Gen):
         self.payload.dissection_done(pkt)
         
     def post_dissection(self, pkt):
-        """DEV: is called right after the dissection of the current layer"""
+        """DEV: is called after the dissection of the whole packet"""
         pass
 
     def get_field(self, fld):
