@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.42  2006/07/12 13:36:01  pbi
+# - added Packet.from_hexcap() class method
+#
 # Revision 1.0.4.41  2006/07/12 13:35:37  pbi
 # - added a Packet.pre_dissect() hook
 #
@@ -1506,7 +1509,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.41 2006/07/12 13:35:37 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.42 2006/07/12 13:36:01 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -4702,6 +4705,11 @@ class Packet(Gen):
     payload_guess = []
     initialized = 0
     show_indent=1
+
+    def from_hexcap(cls):
+        return cls(import_hexcap())
+    from_hexcap = classmethod(from_hexcap)
+    
 
     def __init__(self, _pkt="", _internal=0, _underlayer=None, **fields):
         self.time  = time.time()
