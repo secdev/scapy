@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.41  2006/07/12 13:35:37  pbi
+# - added a Packet.pre_dissect() hook
+#
 # Revision 1.0.4.40  2006/07/12 13:23:19  pbi
 # - Added a Ether/802.3 dispatcher for "Ethernet" linktype
 # - 802.1q use LLC payload if type < 1500
@@ -1503,7 +1506,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.40 2006/07/12 13:23:19 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.41 2006/07/12 13:35:37 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -5104,7 +5107,12 @@ class Packet(Gen):
         """DEV: is called right after the current layer has been dissected"""
         return s
 
+    def pre_dissect(self, s):
+        """DEV: is called right before the current layer is dissected"""
+        return s
+
     def do_dissect(self, s):
+        s = self.pre_dissect(s)
         flist = self.fields_desc[:]
         flist.reverse()
         while s and flist:
