@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.44  2006/07/13 09:52:57  pbi
+# - Fixed 3BytesField assembling (N. Bareil, ticket #6)
+#
 # Revision 1.0.4.43  2006/07/12 16:07:11  pbi
 # - fixed docstring of Packet.post_dissection()
 #
@@ -1512,7 +1515,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.43 2006/07/12 16:07:11 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.44 2006/07/13 09:52:57 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -3762,9 +3765,9 @@ class XByteField(ByteField):
 
 class X3BytesField(XByteField):
     def __init__(self, name, default):
-        Field.__init__(self, name, default, "I")
+        Field.__init__(self, name, default, "!I")
     def addfield(self, pkt, s, val):
-        return s+struct.pack(self.fmt, self.i2m(pkt,val))[:3]
+        return s+struct.pack(self.fmt, self.i2m(pkt,val))[1:4]
     def getfield(self, pkt, s):
         return  s[3:], self.m2i(pkt, struct.unpack(self.fmt, "\x00"+s[:3])[0])
 
