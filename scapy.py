@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.52  2006/07/17 17:28:20  pbi
+# - improved MACField.i2m()
+#
 # Revision 1.0.4.51  2006/07/17 17:27:40  pbi
 # - changed Packet.__iter__() to clone unrolled packets without transforming fields values through i2h() and h2i()
 #
@@ -1539,7 +1542,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.51 2006/07/17 17:27:40 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.52 2006/07/17 17:28:20 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -3613,7 +3616,7 @@ class MACField(Field):
         Field.__init__(self, name, default, "6s")
     def i2m(self, pkt, x):
         if x is None:
-            x="00:00:00:00:00:00"
+            return "\0\0\0\0\0\0"
         return mac2str(x)
     def m2i(self, pkt, x):
         return str2mac(x)
