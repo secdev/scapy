@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.53  2006/07/17 17:35:48  pbi
+# - replaced getattr() by Packet.getfieldval() in FieldLenField.i2m()
+#
 # Revision 1.0.4.52  2006/07/17 17:28:20  pbi
 # - improved MACField.i2m()
 #
@@ -1542,7 +1545,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.52 2006/07/17 17:28:20 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.53 2006/07/17 17:35:48 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -4001,14 +4004,8 @@ class FieldLenField(Field):
     def i2m(self, pkt, x):
         if x is None:
             f = pkt.get_field(self.fld)
-            x = f.i2len(pkt,getattr(pkt, self.fld))
+            x = f.i2len(pkt,pkt.getfieldval(self.fld))
         return x
-#    def i2h(self, pkt, x):
-#        if x is None:
-#            f = pkt.fields_desc[pkt.fields_desc.index(self.fld)]
-#            v = f.i2m(pkt,getattr(pkt, self.fld))
-#            x = len(v)+self.shift
-#        return x
 
 # see http://www.iana.org/assignments/ipsec-registry for details
 ISAKMPAttributeTypes= { "Encryption":    (1, { "DES-CBS"  : 1,
