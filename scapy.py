@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.45  2006/07/17 13:37:19  pbi
+# - fixed Ether_Dot3_Dispatcher() to make it work with no arguments
+#
 # Revision 1.0.4.44  2006/07/13 09:52:57  pbi
 # - Fixed 3BytesField assembling (N. Bareil, ticket #6)
 #
@@ -1515,7 +1518,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.44 2006/07/13 09:52:57 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.45 2006/07/17 13:37:19 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -8345,8 +8348,8 @@ def fragment(pkt, fragsize=1480):
 ## Super sockets ##
 ###################
 
-def Ether_Dot3_Dispatcher(pkt, **kargs):
-    if len(pkt) >= 14 and struct.unpack("!H", pkt[12:14])[0] < 1500:
+def Ether_Dot3_Dispatcher(pkt=None, **kargs):
+    if pkt is str and len(pkt) >= 14 and struct.unpack("!H", pkt[12:14])[0] < 1500:
         return Dot3(pkt, **kargs)
     return Ether(pkt, **kargs)
 
