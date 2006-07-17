@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.49  2006/07/17 14:00:53  pbi
+# - fixed little endian fields for big endian machines (replaced @ by <)
+#
 # Revision 1.0.4.48  2006/07/17 13:43:04  pbi
 # - simplified PacketListField.addfield()
 #
@@ -1528,7 +1531,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.48 2006/07/17 13:43:04 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.49 2006/07/17 14:00:53 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -3791,7 +3794,7 @@ class ShortField(Field):
 
 class LEShortField(Field):
     def __init__(self, name, default):
-        Field.__init__(self, name, default, "@H")
+        Field.__init__(self, name, default, "<H")
 
 class XShortField(ShortField):
     def i2repr(self, pkt, x):
@@ -3810,11 +3813,11 @@ class SignedIntField(Field):
 
 class LEIntField(Field):
     def __init__(self, name, default):
-        Field.__init__(self, name, default, "@I")
+        Field.__init__(self, name, default, "<I")
 
 class LESignedIntField(Field):
     def __init__(self, name, default):
-        Field.__init__(self, name, default, "@i")
+        Field.__init__(self, name, default, "<i")
 
 class XIntField(IntField):
     def i2repr(self, pkt, x):
@@ -4294,7 +4297,7 @@ class ShortEnumField(EnumField):
 
 class LEShortEnumField(EnumField):
     def __init__(self, name, default, enum):
-        EnumField.__init__(self, name, default, enum, "@H")
+        EnumField.__init__(self, name, default, enum, "<H")
 
 class ByteEnumField(EnumField):
     def __init__(self, name, default, enum):
@@ -4306,7 +4309,7 @@ class IntEnumField(EnumField):
 
 class LEIntEnumField(EnumField):
     def __init__(self, name, default, enum):
-        EnumField.__init__(self, name, default, enum, "@I")
+        EnumField.__init__(self, name, default, enum, "<I")
 
 class XShortEnumField(ShortEnumField):
     def i2repr_one(self, pkt, x):
@@ -4315,11 +4318,11 @@ class XShortEnumField(ShortEnumField):
 # Little endian long field
 class LELongField(Field):
     def __init__(self, name, default):
-        Field.__init__(self, name, default, "@Q")
+        Field.__init__(self, name, default, "<Q")
 
 # Little endian fixed length field
 class LEFieldLenField(FieldLenField):
-    def __init__(self, name, default, fld, fmt = "@H"):
+    def __init__(self, name, default, fld, fmt = "<H"):
         FieldLenField.__init__(self, name, default, fld=fld, fmt=fmt)
 
 
