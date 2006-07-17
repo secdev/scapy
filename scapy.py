@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.51  2006/07/17 17:27:40  pbi
+# - changed Packet.__iter__() to clone unrolled packets without transforming fields values through i2h() and h2i()
+#
 # Revision 1.0.4.50  2006/07/17 15:18:06  pbi
 # - added Packet.getfieldval() and NoPayload.getfieldval() to return the internal value of a field
 # - changed Packet.__getattr__() to use Packet.getfieldval()
@@ -1536,7 +1539,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.50 2006/07/17 15:18:06 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.51 2006/07/17 17:27:40 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -5212,7 +5215,7 @@ class Packet(Gen):
         def loop(todo, done, self=self):
             if todo:
                 eltname = todo.pop()
-                elt = self.__getattr__(eltname)
+                elt = self.getfieldval(eltname)
                 if not isinstance(elt, Gen):
                     if self.fieldtype[eltname].islist:
                         elt = SetGen([elt])
@@ -5232,7 +5235,8 @@ class Packet(Gen):
                     for k in done2:
                         if isinstance(done2[k], VolatileValue):
                             done2[k] = done2[k]._fix()
-                    pkt = self.__class__(**done2)
+                    pkt = self.__class__()
+                    pkt.fields = done2
                     pkt.time = self.time
                     pkt.underlayer = self.underlayer
                     pkt.overload_fields = self.overload_fields.copy()
