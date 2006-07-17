@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.48  2006/07/17 13:43:04  pbi
+# - simplified PacketListField.addfield()
+#
 # Revision 1.0.4.47  2006/07/17 13:42:09  pbi
 # - simplified Dot11SCField.is_applicable()
 #
@@ -1525,7 +1528,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.47 2006/07/17 13:42:09 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.48 2006/07/17 13:43:04 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -3904,7 +3907,7 @@ class PacketListField(PacketLenField):
             lst.append(p)
         return remain,lst
     def addfield(self, pkt, s, val):
-        return s+reduce(str.__add__, map(str, val),"")
+        return s+"".join(map(str, val))
 
 
 class StrFixedLenField(StrField):
