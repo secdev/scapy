@@ -21,6 +21,11 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.50  2006/07/17 15:18:06  pbi
+# - added Packet.getfieldval() and NoPayload.getfieldval() to return the internal value of a field
+# - changed Packet.__getattr__() to use Packet.getfieldval()
+# - changed do_build, do_build_ps, guess_payload_class, __eq__, haslayer, getlayer to use Packet.getfieldval()
+#
 # Revision 1.0.4.49  2006/07/17 14:00:53  pbi
 # - fixed little endian fields for big endian machines (replaced @ by <)
 #
@@ -1531,7 +1536,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.49 2006/07/17 14:00:53 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.50 2006/07/17 15:18:06 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -4804,17 +4809,20 @@ class Packet(Gen):
         clone.__dict__["payload"] = self.payload.copy()
         clone.payload.add_underlayer(clone)
         return clone
+
+    def getfieldval(self, attr):
+        for f in self.fields, self.overloaded_fields, self.default_fields:
+            if f.has_key(attr):
+                return f[attr]
+        return self.payload.getfieldval(attr)
+    
     def __getattr__(self, attr):
         if self.initialized:
-            fld = self.fieldtype.get(attr)
-            if fld is None:
-                i2h = lambda x,y: y
-            else:
-                i2h = fld.i2h
-            for f in self.fields, self.overloaded_fields, self.default_fields:
-                if f.has_key(attr):
-                    return i2h(self, f[attr])
-            return getattr(self.payload, attr)
+            v = self.getfieldval(attr)
+            fld = self.fieldtype.get(attr,None)
+            if fld is not None:
+                return fld.i2h(self, v)
+            return v
         raise AttributeError(attr)
 
     def __setattr__(self, attr, val):
@@ -4907,7 +4915,7 @@ class Packet(Gen):
     def do_build(self):
         p=""
         for f in self.fields_desc:
-            p = f.addfield(self, p, self.__getattr__(f))
+            p = f.addfield(self, p, self.getfieldval(f))
         return p, self.payload.build(internal=1)
     
     def post_build(self, pkt, pay):
@@ -4934,13 +4942,13 @@ class Packet(Gen):
         pl = []
         q=""
         for f in self.fields_desc:
-            p = f.addfield(self, p, self.__getattr__(f) )
+            p = f.addfield(self, p, self.getfieldval(f) )
             if type(p) is str:
                 r = p[len(q):]
                 q = p
             else:
                 r = ""
-            pl.append( (f, f.i2repr(self,self.__getattr__(f)), r) )
+            pl.append( (f, f.i2repr(self,self.getfieldval(f)), r) )
             
         pkt,lst = self.payload.build_ps(internal=1)
         p += pkt
@@ -5180,7 +5188,7 @@ class Packet(Gen):
             for fval, cls in t.payload_guess:
                 ok = 1
                 for k in fval.keys():
-                    if not hasattr(self, k) or fval[k] != getattr(self,k):
+                    if not hasattr(self, k) or fval[k] != self.getfieldval(k):
                         ok = 0
                         break
                 if ok:
@@ -5260,7 +5268,7 @@ class Packet(Gen):
         for f in self.fields_desc:
             if f not in other.fields_desc:
                 return False
-            if getattr(self, f.name) != getattr(other, f.name):
+            if self.getfieldval(f.name) != other.getfieldval(f.name):
                 return False
         return self.payload == other.payload
 
@@ -5281,7 +5289,7 @@ class Packet(Gen):
         if self.__class__ == cls or self.__class__.__name__ == cls:
             return 1
         for f in self.packetfields:
-            fvalue_gen = self.__getattr__(f)
+            fvalue_gen = self.getfieldval(f)
             if fvalue_gen is None:
                 continue
             if not f.islist:
@@ -5303,11 +5311,11 @@ class Packet(Gen):
                 if fld is None:
                     return self
                 else:
-                    return getattr(self, fld)
+                    return self.getfieldval(fld)
             else:
                 nb -=1
         for f in self.packetfields:
-            fvalue_gen = self.__getattr__(f)
+            fvalue_gen = self.getfieldval(f)
             if fvalue_gen is None:
                 continue
             if not f.islist:
@@ -5577,6 +5585,8 @@ class NoPayload(Packet,object):
         return ""
     def build_ps(self, internal=0):
         return "",[]
+    def getfieldval(self, attr):
+        raise AttributeError(attr)
     def __getattr__(self, attr):
         if attr in self.__dict__:
             return self.__dict__[attr]
