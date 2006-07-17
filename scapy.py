@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.46  2006/07/17 13:40:55  pbi
+# - added __nonzero__() methods to Packet and Payload for the first to be true and the second
+#   to be false without assembling the packet
+#
 # Revision 1.0.4.45  2006/07/17 13:37:19  pbi
 # - fixed Ether_Dot3_Dispatcher() to make it work with no arguments
 #
@@ -1518,7 +1522,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.45 2006/07/17 13:37:19 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.46 2006/07/17 13:40:55 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -4889,7 +4893,9 @@ class Packet(Gen):
             raise TypeError
     def __rmul__(self,other):
         return self.__mul__(other)
-               
+    
+    def __nonzero__(self):
+        return True
     def __len__(self):
         return len(self.__str__())
     def do_build(self):
@@ -5559,6 +5565,8 @@ class NoPayload(Packet,object):
         return ""
     def __str__(self):
         return ""
+    def __nonzero__(self):
+        return False
     def build(self, internal=0):
         return ""
     def build_ps(self, internal=0):
