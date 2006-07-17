@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.47  2006/07/17 13:42:09  pbi
+# - simplified Dot11SCField.is_applicable()
+#
 # Revision 1.0.4.46  2006/07/17 13:40:55  pbi
 # - added __nonzero__() methods to Packet and Payload for the first to be true and the second
 #   to be false without assembling the packet
@@ -1522,7 +1525,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.46 2006/07/17 13:40:55 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.47 2006/07/17 13:42:09 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -4685,10 +4688,7 @@ class FloatField(BitField):
 
 class Dot11SCField(LEShortField):
     def is_applicable(self, pkt):
-        if pkt.type == 1: # control frame
-            return 0 
-        else:
-            return 1
+        return pkt.type != 1 # control frame
     def addfield(self, pkt, s, val):
         if self.is_applicable(pkt):
             return LEShortField.addfield(self, pkt, s, val)
