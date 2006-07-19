@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.54  2006/07/19 17:13:25  pbi
+# - forced _ special variable initisalization to None in autorun_commands()
+#
 # Revision 1.0.4.53  2006/07/17 17:35:48  pbi
 # - replaced getattr() by Packet.getfieldval() in FieldLenField.i2m()
 #
@@ -1545,7 +1548,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.53 2006/07/17 17:35:48 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.54 2006/07/19 17:13:25 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -11318,6 +11321,7 @@ class ScapyAutorunInterpreter(code.InteractiveInterpreter):
 
 def autorun_commands(cmds,verb=0):
     sv = conf.verb
+    import __builtin__
     try:
         conf.verb = verb
         interp = ScapyAutorunInterpreter(globals())
@@ -11325,6 +11329,7 @@ def autorun_commands(cmds,verb=0):
         cmds = cmds.splitlines()
         cmds.append("") # ensure we finish multiline commands
         cmds.reverse()
+        __builtin__.__dict__["_"] = None
         while 1:
             if cmd:
                 sys.stderr.write(sys.__dict__.get("ps2","... "))
@@ -11343,10 +11348,7 @@ def autorun_commands(cmds,verb=0):
                 break
     finally:
         conf.verb = sv
-    try:
-        return _
-    except NameError:
-        return
+    return _
 
 def autorun_get_interactive_session(cmds):
     class StringWriter:
