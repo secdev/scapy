@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.55  2006/07/19 17:23:30  pbi
+# - fix: ls() look for Packet subclasses in both globals() and __builtin__
+#
 # Revision 1.0.4.54  2006/07/19 17:13:25  pbi
 # - forced _ special variable initisalization to None in autorun_commands()
 #
@@ -1548,7 +1551,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.54 2006/07/19 17:13:25 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.55 2006/07/19 17:23:30 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -10304,7 +10307,9 @@ def ls(obj=None):
     """List  available layers, or infos on a given layer"""
     if obj is None:
         import __builtin__
-        objlst = filter(lambda (n,o): type(o) is types.TypeType and issubclass(o,Packet), __builtin__.__dict__.items())
+        all = __builtin__.__dict__.copy()
+        all.update(globals())
+        objlst = filter(lambda (n,o): type(o) is types.TypeType and issubclass(o,Packet), all.items())
         objlst.sort(lambda x,y:cmp(x[0],y[0]))
         for n,o in objlst:
             print "%-10s : %s" %(n,o.name)
