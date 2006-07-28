@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.57  2006/07/28 21:57:19  pbi
+# - fixed get_if_hwaddr() exception catching in SourceMACField and ARPSourceMACField
+#
 # Revision 1.0.4.56  2006/07/28 17:24:39  pbi
 # - fixed typo in inet_pton
 #
@@ -1554,7 +1557,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.56 2006/07/28 17:24:39 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.57 2006/07/28 21:57:19 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -3686,7 +3689,10 @@ class SourceMACField(MACField):
                     iff,a,nh = conf.route6.route(dstip)
                 else:
                     iff,a,gw = conf.route.route(dstip)
-                x = get_if_hwaddr(iff)
+                try:
+                    x = get_if_hwaddr(iff)
+                except:
+                    pass
                 if x is None:
                     x = "00:00:00:00:00:00"
         return MACField.i2h(self, pkt, x)
@@ -3703,7 +3709,10 @@ class ARPSourceMACField(MACField):
                 dstip = dstip.__iter__().next()
             if dstip is not None:
                 iff,a,gw = conf.route.route(dstip)
-                x = get_if_hwaddr(iff)
+                try:
+                    x = get_if_hwaddr(iff)
+                except:
+                    pass
                 if x is None:
                     x = "00:00:00:00:00:00"
         return MACField.i2h(self, pkt, x)
