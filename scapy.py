@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.56  2006/07/28 17:24:39  pbi
+# - fixed typo in inet_pton
+#
 # Revision 1.0.4.55  2006/07/19 17:23:30  pbi
 # - fix: ls() look for Packet subclasses in both globals() and __builtin__
 #
@@ -1551,7 +1554,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.55 2006/07/19 17:23:30 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.56 2006/07/28 17:24:39 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1718,7 +1721,7 @@ else:
 inet_ntoa = socket.inet_ntoa
 try:
     inet_ntop = socket.inet_ntop
-    inet_nton = socket.inet_pton
+    inet_pton = socket.inet_pton
 except AttributeError:
     log_loading.info("inet_ntop/pton functions not found. Python IPv6 support not present")
 
