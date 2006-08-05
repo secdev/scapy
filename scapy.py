@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.58  2006/08/05 15:37:31  pbi
+# - fix: moved call to superclass' constructor in EnumField's constructor
+#
 # Revision 1.0.4.57  2006/07/28 21:57:19  pbi
 # - fixed get_if_hwaddr() exception catching in SourceMACField and ARPSourceMACField
 #
@@ -1557,7 +1560,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.57 2006/07/28 21:57:19 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.58 2006/08/05 15:37:31 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -4269,7 +4272,6 @@ class EnumField(Field):
     def __init__(self, name, default, enum, fmt = "H"):
         i2s = self.i2s = {}
         s2i = self.s2i = {}
-        Field.__init__(self, name, default, fmt)
         if type(enum) is list:
             keys = xrange(len(enum))
         else:
@@ -4279,6 +4281,7 @@ class EnumField(Field):
         for k in keys:
             i2s[k] = enum[k]
             s2i[enum[k]] = k
+        Field.__init__(self, name, default, fmt)
     def any2i_one(self, pkt, x):
         if type(x) is str:
             x = self.s2i[x]
