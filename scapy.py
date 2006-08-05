@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.59  2006/08/05 15:38:50  pbi
+# - added ActionField(): a wrapper to put arround a field that will trigger the call of a method
+#   each time a value is manually set into a field
+#
 # Revision 1.0.4.58  2006/08/05 15:37:31  pbi
 # - fix: moved call to superclass' constructor in EnumField's constructor
 #
@@ -1560,7 +1564,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.58 2006/08/05 15:37:31 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.59 2006/08/05 15:38:50 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -3600,6 +3604,17 @@ class Emph:
         self.fld = fld
     def __getattr__(self, attr):
         return getattr(self.fld,attr)
+
+class ActionField:
+    def __init__(self, fld, action_method, **kargs):
+        self._fld = fld
+        self._action_method = action_method
+        self._privdata = kargs
+    def any2i(self, pkt, val):
+        getattr(pkt, self._action_method)(val, self._fld, **self._privdata)
+        return getattr(self._fld, "any2i")(pkt, val)
+    def __getattr__(self, attr):
+        return getattr(self._fld,attr)
 
 
 class ConditionalField:
