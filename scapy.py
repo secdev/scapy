@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.61  2006/08/11 12:11:10  pbi
+# - added docstring to route.delt()
+#
 # Revision 1.0.4.60  2006/08/11 12:10:41  pbi
 # - fixed /proc/net/route parsing to handle reject routes
 #
@@ -1567,7 +1570,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.60 2006/08/11 12:10:41 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.61 2006/08/11 12:11:10 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2156,6 +2159,7 @@ class Route:
 
         
     def delt(self,  *args, **kargs):
+        """delt(host|net, gw|dev)"""
         route = self.make_route(*args,**kargs)
         try:
             i=self.routes.index(route)
