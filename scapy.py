@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.62  2006/08/11 12:12:51  pbi
+# - fixed reinstantiation of a PacketList as parameter to another PacketList
+#
 # Revision 1.0.4.61  2006/08/11 12:11:10  pbi
 # - added docstring to route.delt()
 #
@@ -1570,7 +1573,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.61 2006/08/11 12:11:10 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.62 2006/08/11 12:12:51 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2741,6 +2744,8 @@ class PacketList:
         if stats is None:
             stats = [ TCP,UDP,ICMP ]
         self.stats = stats
+        if isinstance(res, PacketList):
+            res = res.res
         self.res = res
         self.listname = name
     def _elt2pkt(self, elt):
