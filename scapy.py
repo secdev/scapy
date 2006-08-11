@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.60  2006/08/11 12:10:41  pbi
+# - fixed /proc/net/route parsing to handle reject routes
+#
 # Revision 1.0.4.59  2006/08/05 15:38:50  pbi
 # - added ActionField(): a wrapper to put arround a field that will trigger the call of a method
 #   each time a value is manually set into a field
@@ -1564,7 +1567,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.59 2006/08/05 15:38:50 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.60 2006/08/11 12:10:41 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1804,6 +1807,7 @@ SOL_SOCKET = 1
 
 # From net/route.h
 RTF_UP = 0x0001  # Route usable
+RTF_REJECT = 0x0200
 
 # From BSD net/bpf.h
 #BIOCIMMEDIATE=0x80044270
@@ -2429,7 +2433,10 @@ else:
     
         for l in f.readlines()[1:]:
             iff,dst,gw,flags,x,x,x,msk,x,x,x = l.split()
-            if int(flags,16) & RTF_UP == 0:
+            flags = int(flags,16)
+            if flags & RTF_UP == 0:
+                continue
+            if flags & RTF_REJECT:
                 continue
             ifreq = ioctl(s, SIOCGIFADDR,struct.pack("16s16x",iff))
             addrfamily = struct.unpack("h",ifreq[16:18])[0]
