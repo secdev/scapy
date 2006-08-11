@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.63  2006/08/11 12:13:45  pbi
+# - fixed lambda filtering in PacketList.plot()
+#
 # Revision 1.0.4.62  2006/08/11 12:12:51  pbi
 # - fixed reinstantiation of a PacketList as parameter to another PacketList
 #
@@ -1573,7 +1576,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.62 2006/08/11 12:12:51 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.63 2006/08/11 12:13:45 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2848,9 +2851,10 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
         """Applies a function to each packet to get a value that will be plotted with GnuPlot. A gnuplot object is returned
         lfilter: a truth function that decides whether a packet must be ploted"""
         g=Gnuplot.Gnuplot()
-        l = map(f,self.res)
+        l = self.res
         if lfilter is not None:
             l = filter(lfilter, l)
+        l = map(f,l)
         g.plot(Gnuplot.Data(l, **kargs))
         return g
 
