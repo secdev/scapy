@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.64  2006/08/11 12:24:31  pbi
+# - patched getmacbyip() to handle IP multicast and return the right MAC multicast
+#
 # Revision 1.0.4.63  2006/08/11 12:13:45  pbi
 # - fixed lambda filtering in PacketList.plot()
 #
@@ -1576,7 +1579,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.63 2006/08/11 12:13:45 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.64 2006/08/11 12:24:31 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2499,6 +2502,9 @@ arp_cache={}
 if 0 and DNET: ## XXX Can't use this because it does not resolve IPs not in cache
     dnet_arp_object = dnet.arp()
     def getmacbyip(ip):
+	tmp = map(ord, inet_aton(ip))
+	if (tmp[0] & 0xf0) == 0xe0: # mcast @
+	    return "01:00:5e:%.2x:%.2x:%.2x" % (tmp[1]&0x7f,tmp[2],tmp[3])
         iff,a,gw = conf.route.route(ip)
         if iff == "lo":
             return "ff:ff:ff:ff:ff:ff"
@@ -2511,6 +2517,9 @@ if 0 and DNET: ## XXX Can't use this because it does not resolve IPs not in cach
             return res.ntoa()
 else:
     def getmacbyip(ip):
+	tmp = map(ord, inet_aton(ip))
+	if (tmp[0] & 0xf0) == 0xe0: # mcast @
+	    return "01:00:5e:%.2x:%.2x:%.2x" % (tmp[1]&0x7f,tmp[2],tmp[3])
         iff,a,gw = conf.route.route(ip)
         if ( (iff == "lo") or (ip == conf.route.get_if_bcast(iff)) ):
             return "ff:ff:ff:ff:ff:ff"
