@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.71  2006/08/27 14:16:47  pbi
+# - fixed possible failures in DNS.summary()
+#
 # Revision 1.0.4.70  2006/08/27 14:11:38  pbi
 # - improved L3PacketSocket to build the list of interfaces only when needed (promisc=1)
 #
@@ -1598,7 +1601,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.70 2006/08/27 14:11:38 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.71 2006/08/27 14:16:47 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -6382,11 +6385,11 @@ class DNS(Packet):
         name = ""
         if self.qr:
             type = "Ans"
-            if self.ancount > 0:
+            if self.ancount > 0 and isinstance(self.an, DNSRR):
                 name = ' "%s"' % self.an.rdata
         else:
             type = "Qry"
-            if self.qdcount > 0:
+            if self.qdcount > 0 and isinstance(self.qd, DNSQR):
                 name = ' "%s"' % self.qd.qname
         return 'DNS %s%s ' % (type, name)
 
