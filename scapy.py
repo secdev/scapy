@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.67  2006/08/27 13:58:48  pbi
+# - added diffplot() to PacketList to plot a function of couples (l[i],l[i+delay])
+#
 # Revision 1.0.4.66  2006/08/27 12:52:13  pbi
 # - added prototype to psdump() and pdfdump() docstring
 #
@@ -1585,7 +1588,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.66 2006/08/27 12:52:13 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.67 2006/08/27 13:58:48 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2872,6 +2875,18 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
         l = map(f,l)
         g.plot(Gnuplot.Data(l, **kargs))
         return g
+
+    def diffplot(self, f, delay=1, lfilter=None, **kargs):
+        """diffplot(f, delay=1, lfilter=None)
+        Applies a function to couples (l[i],l[i+delay])"""
+        g = Gnuplot.Gnuplot()
+        l = self.res
+        if lfilter is not None:
+            l = filter(lfilter, l)
+        l = map(f,l[:-delay],l[delay:])
+        g.plot(Gnuplot.Data(l, **kargs))
+        return g
+        
 
     def hexdump(self):
         """Prints an hexadecimal dump of each packet in the list"""
