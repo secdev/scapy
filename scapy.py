@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.70  2006/08/27 14:11:38  pbi
+# - improved L3PacketSocket to build the list of interfaces only when needed (promisc=1)
+#
 # Revision 1.0.4.69  2006/08/27 14:10:05  pbi
 # - added gz parameter to PcapWriter (and thus wrpcap()) to gzip captures
 # - added abilty to read gzipped pcap files in PcapReader (and thus rdpcap())
@@ -1595,7 +1598,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.69 2006/08/27 14:10:05 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.70 2006/08/27 14:11:38 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -8571,14 +8574,14 @@ class L3PacketSocket(SuperSocket):
         if promisc is None:
             promisc = conf.promisc
         self.promisc = promisc
-        if iface is None:
-            self.iff = get_if_list()
-        else:
-            if iface.__class__ is list:
-                self.iff = iface
-            else:
-                self.iff = [iface]
         if self.promisc:
+            if iface is None:
+                self.iff = get_if_list()
+            else:
+                if iface.__class__ is list:
+                    self.iff = iface
+                else:
+                    self.iff = [iface]
             for i in self.iff:
                 set_promisc(self.ins, i)
     def close(self):
