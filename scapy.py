@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.68  2006/08/27 13:59:20  pbi
+# - changed Net representation for it to work with Packet.command()
+#
 # Revision 1.0.4.67  2006/08/27 13:58:48  pbi
 # - added diffplot() to PacketList to plot a function of couples (l[i],l[i+delay])
 #
@@ -1588,7 +1591,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.67 2006/08/27 13:58:48 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.68 2006/08/27 13:59:20 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2749,7 +2752,7 @@ class Net(Gen):
         return ".".join(ip) 
                           
     def __repr__(self):
-        return "<Net %s>" % self.repr
+        return "Net(%r)" % self.repr
 
 
 #############
