@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.69  2006/08/27 14:10:05  pbi
+# - added gz parameter to PcapWriter (and thus wrpcap()) to gzip captures
+# - added abilty to read gzipped pcap files in PcapReader (and thus rdpcap())
+#
 # Revision 1.0.4.68  2006/08/27 13:59:20  pbi
 # - changed Net representation for it to work with Packet.command()
 #
@@ -1591,7 +1595,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.68 2006/08/27 13:59:20 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.69 2006/08/27 14:10:05 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -9335,6 +9339,7 @@ def srbt1(peer, pkts, *args, **kargs):
 
 def wrpcap(filename, pkt, *args, **kargs):
     """Write a list of packets to a pcap file
+gz: set to 1 to save a gzipped capture
 linktype: force linktype value
 endianness: "<" or ">", force endianness"""
     PcapWriter(filename, *args, **kargs).write(pkt)
@@ -9354,8 +9359,12 @@ class PcapReader:
 
     def __init__(self, filename):
         self.filename = filename
-        self.f = open(filename,"rb")
-        magic = self.f.read(4)
+        try:
+            self.f = gzip.open(filename,"rb")
+            magic = self.f.read(4)
+        except IOError:
+            self.f = open(filename,"rb")
+            magic = self.f.read(4)
         if magic == "\xa1\xb2\xc3\xd4": #big endian
             self.endian = ">"
         elif  magic == "\xd4\xc3\xb2\xa1": #little endian
@@ -9442,10 +9451,13 @@ class PcapWriter:
     This routine is based entirely on scapy.wrpcap(), but adds capability
     of writing one packet at a time in a streaming manner.
     """
-    def __init__(self, filename, linktype=None, endianness=""):
+    def __init__(self, filename, linktype=None, gz=0, endianness=""):
         self.linktype = linktype
         self.header_done = 0
-        self.f = open(filename,"wb")
+        if gz:
+            self.f = gzip.open(filename,"wb")
+        else:
+            self.f = open(filename,"wb")
         self.endian = endianness
 
     def fileno(self):
