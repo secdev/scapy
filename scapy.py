@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.74  2006/08/27 17:36:08  pbi
+# - tweaked make_*_table() to add horizontal separation lines
+#
 # Revision 1.0.4.73  2006/08/27 16:11:06  pbi
 # - added multiplot to plot many series from the same packet list. The function must returns
 #   a couple whose first element is the label of a serie and the second is the data to plot.
@@ -1609,7 +1612,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.73 2006/08/27 16:11:06 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.74 2006/08/27 17:36:08 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -10358,10 +10361,12 @@ report_ports(target, ports) -> string"""
     return rep
 
 
-def __make_table(yfmtfunc, fmtfunc, endline, list, fxyz, sortx=None, sorty=None):
-    vx = {}
-    vy = {}
+def __make_table(yfmtfunc, fmtfunc, endline, list, fxyz, sortx=None, sorty=None, seplinefunc=None):
+    vx = {} 
+    vy = {} 
     vz = {}
+    vxf = {}
+    vyf = {}
     l = 0
     for e in list:
         xx,yy,zz = map(str, fxyz(e))
@@ -10393,26 +10398,37 @@ def __make_table(yfmtfunc, fmtfunc, endline, list, fxyz, sortx=None, sorty=None)
             except:
                 vyk.sort()
 
+
+    if seplinefunc:
+        sepline = seplinefunc(l, map(lambda x:vx[x],vxk))
+        print sepline
+
     fmt = yfmtfunc(l)
     print fmt % "",
     for x in vxk:
-        vx[x] = fmtfunc(vx[x])
-        print vx[x] % x,
+        vxf[x] = fmtfunc(vx[x])
+        print vxf[x] % x,
     print endline
+    if seplinefunc:
+        print sepline
     for y in vyk:
         print fmt % y,
         for x in vxk:
-            print vx[x] % vz.get((x,y), "-"),
+            print vxf[x] % vz.get((x,y), "-"),
         print endline
+    if seplinefunc:
+        print sepline
 
 def make_table(*args, **kargs):
     __make_table(lambda l:"%%-%is" % l, lambda l:"%%-%is" % l, "", *args, **kargs)
     
 def make_lined_table(*args, **kargs):
-    __make_table(lambda l:"%%-%is |" % l, lambda l:"%%-%is |" % l, "", *args, **kargs)
+    __make_table(lambda l:"%%-%is |" % l, lambda l:"%%-%is |" % l, "",
+                 seplinefunc=lambda a,x:"+".join(map(lambda y:"-"*(y+2), [a-1]+x+[-2])),
+                 *args, **kargs)
 
 def make_tex_table(*args, **kargs):
-    __make_table(lambda l: "%s", lambda l: "& %s", "\\\\", *args, **kargs)
+    __make_table(lambda l: "%s", lambda l: "& %s", "\\\\", seplinefunc=lambda a,x:"\\hline", *args, **kargs)
     
 
 ######################
