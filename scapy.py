@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.73  2006/08/27 16:11:06  pbi
+# - added multiplot to plot many series from the same packet list. The function must returns
+#   a couple whose first element is the label of a serie and the second is the data to plot.
+#
 # Revision 1.0.4.72  2006/08/27 15:13:36  pbi
 # - WARNING: API change. crc32() is now the zlib function.
 #   crc32(0xffffffffL, s) --> ~crc32(z)&0xffffffffL
@@ -1605,7 +1609,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.72 2006/08/27 15:13:36 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.73 2006/08/27 16:11:06 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2892,6 +2896,27 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
             l = filter(lfilter, l)
         l = map(f,l[:-delay],l[delay:])
         g.plot(Gnuplot.Data(l, **kargs))
+        return g
+
+    def multiplot(self, f, lfilter=None, **kargs):
+        """Uses a function that returns a label and a value for this label, then plots all the values label by label"""
+        g=Gnuplot.Gnuplot()
+        l = self.res
+        if lfilter is not None:
+            l = filter(lfilter, l)
+
+        d={}
+        for e in l:
+            k,v = f(e)
+            if k in d:
+                d[k].append(v)
+            else:
+                d[k] = [v]
+        data=[]
+        for k in d:
+            data.append(Gnuplot.Data(d[k], title=k, **kargs))
+
+        g.plot(*data)
         return g
         
 
