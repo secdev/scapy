@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.66  2006/08/27 12:52:13  pbi
+# - added prototype to psdump() and pdfdump() docstring
+#
 # Revision 1.0.4.65  2006/08/27 12:47:32  pbi
 # - have srloop() and srploop() return results of all probes
 #
@@ -1582,7 +1585,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.65 2006/08/27 12:47:32 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.66 2006/08/27 12:52:13 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -5040,7 +5043,8 @@ class Packet(Gen):
 
 
     def psdump(self, filename=None, **kargs):
-        """Creates an EPS file describing a packet. If filename is not provided a temporary file is created and gs is called."""
+        """psdump(filename=None, layer_shift=0, rebuild=1)
+Creates an EPS file describing a packet. If filename is not provided a temporary file is created and gs is called."""
         canvas = self.canvas_dump(**kargs)
         if filename is None:
             fname = "/tmp/scapy.%i"%os.getpid()
@@ -5050,7 +5054,8 @@ class Packet(Gen):
             canvas.writeEPSfile(filename)
 
     def pdfdump(self, filename=None, **kargs):
-        """Creates a PDF file describing a packet. If filename is not provided a temporary file is created and xpdf is called."""
+        """pdfdump(filename=None, layer_shift=0, rebuild=1)
+        Creates a PDF file describing a packet. If filename is not provided a temporary file is created and xpdf is called."""
         canvas = self.canvas_dump(**kargs)
         if filename is None:
             fname = "/tmp/scapy.%i"%os.getpid()
