@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.65  2006/08/27 12:47:32  pbi
+# - have srloop() and srploop() return results of all probes
+#
 # Revision 1.0.4.64  2006/08/11 12:24:31  pbi
 # - patched getmacbyip() to handle IP multicast and return the right MAC multicast
 #
@@ -1579,7 +1582,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.64 2006/08/11 12:24:31 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.65 2006/08/27 12:47:32 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -9224,11 +9227,13 @@ iface:    work only on the given interface"""
     else:
         return None
 
-def __sr_loop(srfunc, pkts, prn=lambda x:x[1].summary(), prnfail=lambda x:x.summary(), inter=1, timeout=None, count=None, verbose=0,  *args, **kargs):
+def __sr_loop(srfunc, pkts, prn=lambda x:x[1].summary(), prnfail=lambda x:x.summary(), inter=1, timeout=None, count=None, verbose=0, store=1, *args, **kargs):
     n = 0
     r = 0
     ct = conf.color_theme
     parity = 0
+    ans=[]
+    unans=[]
     if timeout is None:
         timeout = min(2*inter, 5)
     try:
@@ -9258,6 +9263,9 @@ def __sr_loop(srfunc, pkts, prn=lambda x:x[1].summary(), prnfail=lambda x:x.summ
                     print " "*len(msg),
             if not (prn or prnfail):
                 print "recv:%i  fail:%i" % tuple(map(len, res[:2]))
+            if store:
+                ans += res[0]
+                unans += res[1]
             end=time.time()
             if end-start < inter:
                 time.sleep(inter+start-end)
@@ -9267,15 +9275,17 @@ def __sr_loop(srfunc, pkts, prn=lambda x:x[1].summary(), prnfail=lambda x:x.summ
     if n>0:
         print "%s\nSent %i packets, received %i packets. %3.1f%% hits." % (Color.normal,n,r,100.0*r/n)
 
+    return SndRcvList(ans),PacketList(unans)
+
 def srloop(pkts, *args, **kargs):
     """Send a packet at layer 3 in loop and print the answer each time
 srloop(pkts, [prn], [inter], [count], ...) --> None"""
-    __sr_loop(sr, pkts, *args, **kargs)
+    return __sr_loop(sr, pkts, *args, **kargs)
 
 def srploop(pkts, *args, **kargs):
     """Send a packet at layer 2 in loop and print the answer each time
 srloop(pkts, [prn], [inter], [count], ...) --> None"""
-    __sr_loop(srp, pkts, *args, **kargs)
+    return __sr_loop(srp, pkts, *args, **kargs)
 
            
 ## Bluetooth
