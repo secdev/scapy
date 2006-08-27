@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.72  2006/08/27 15:13:36  pbi
+# - WARNING: API change. crc32() is now the zlib function.
+#   crc32(0xffffffffL, s) --> ~crc32(z)&0xffffffffL
+#
 # Revision 1.0.4.71  2006/08/27 14:16:47  pbi
 # - fixed possible failures in DNS.summary()
 #
@@ -1601,7 +1605,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.71 2006/08/27 14:16:47 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.72 2006/08/27 15:13:36 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1671,7 +1675,7 @@ if __name__ == "__main__":
 ##################
 
 import socket, sys, getopt, string, struct, random, os, code
-import cPickle, copy, types, gzip, base64, re
+import cPickle, copy, types, gzip, base64, re, zlib
 from select import select
 from fcntl import ioctl
 import fcntl
@@ -1955,17 +1959,7 @@ if BIG_ENDIAN:
 else:
     CRCPOLY=0xedb88320L
 
-def crc32(crc, x):
-    for c in x:
-        crc ^= ord(c)
-        for i in range(8):
-            if crc & 1:
-                y = CRCPOLY
-            else:
-                y = 0
-            crc >>= 1
-            crc  ^= y
-    return crc
+crc32 = zlib.crc32
 
 
 def checksum(pkt):
@@ -6832,7 +6826,7 @@ class Dot11WEP(Packet):
             key = conf.wepkey
             if key:
                 if self.icv is None:
-                    pay += struct.pack("<I",crc32(0xffffffffL,pay)^0xffffffffL)
+                    pay += struct.pack("<I",crc32(pay))
                     icv = ""
                 else:
                     icv = p[4:8]
