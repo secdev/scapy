@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.79  2006/09/11 15:22:50  pbi
+# - renamed PacketList.hexdump() to PacketList.rawhexdump()
+# - added PacketList.hexdump() to print and hexdump of all packets topped by a summary of the dumped packet
+#
 # Revision 1.0.4.78  2006/09/11 15:22:03  pbi
 # - added MutateBytes() volatile to randomly alter bytes in a string
 # - added MutateBits() volatile class to do random bitflips on a string
@@ -1627,7 +1631,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.78 2006/09/11 15:22:03 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.79 2006/09/11 15:22:50 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2975,7 +2979,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
         return g
         
 
-    def hexdump(self):
+    def rawhexdump(self):
         """Prints an hexadecimal dump of each packet in the list"""
         for p in self:
             hexdump(self._elt2pkt(p))
@@ -2992,6 +2996,18 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
                                 self._elt2sum(self.res[i]))
             if p.haslayer(Raw):
                 hexdump(p.getlayer(Raw).load)
+
+    def hexdump(self, lfilter=None):
+        """Same as nsummary(), except that packets are also hexdumped
+        lfilter: a truth function that decides whether a packet must be displayed"""
+        for i in range(len(self.res)):
+            p = self._elt2pkt(self.res[i])
+            if lfilter is not None and not lfilter(p):
+                continue
+            print "%s %s %s" % (conf.color_theme.id(i,"%04i"),
+                                p.sprintf("%.time%"),
+                                self._elt2sum(self.res[i]))
+            hexdump(p)
 
     def padding(self, lfilter=None):
         """Same as hexraw(), for Padding layer"""
