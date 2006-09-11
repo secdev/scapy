@@ -21,6 +21,11 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.76  2006/09/11 12:53:52  pbi
+# - Use random.randrange() instead of random.randint() for RandNum()
+# - RandInt() now reaches 2**32-1
+# - added RandSInt() and RandSLong() for signed values
+#
 # Revision 1.0.4.75  2006/09/11 12:51:10  pbi
 # - Entries in arp_cache are now permanent if they have 0 or None instead of timeout
 #
@@ -1615,7 +1620,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.75 2006/09/11 12:51:10 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.76 2006/09/11 12:53:52 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2595,25 +2600,31 @@ class RandNum(RandField):
         self.max = max
     def _fix(self):
         # XXX: replace with sth that guarantee unicity
-        return random.randint(self.min, self.max)
+        return random.randrange(self.min, self.max)
 
 class RandByte(RandNum):
     def __init__(self):
-        RandNum.__init__(self, 0, 255)
+        RandNum.__init__(self, 0, 2L**8)
 
 class RandShort(RandNum):
     def __init__(self):
-        RandNum.__init__(self, 0, 65535)
+        RandNum.__init__(self, 0, 2L**16)
 
 class RandInt(RandNum):
     def __init__(self):
-        # Well, 2147483647 won't be reached because max+1 must be int
-        # and 2147483647+1 is longint. (random module limitation)
-        RandNum.__init__(self, 0, 2147483646)
+        RandNum.__init__(self, 0, 2L**32)
+
+class RandSInt(RandNum):
+    def __init__(self):
+        RandNum.__init__(self, -2L**31, 2L**31)
 
 class RandLong(RandNum):
     def __init__(self):
-        RandNum.__init__(self, 0, 2L**64-1)
+        RandNum.__init__(self, 0, 2L**64)
+
+class RandSLong(RandNum):
+    def __init__(self):
+        RandNum.__init__(self, -2L**63, 2L**63)
 
 
 class RandString(RandField):
