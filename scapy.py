@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.82  2006/09/11 15:36:35  pbi
+# - added conf.autofragment paramter (default to 1)
+# - added auto IP fragmentation code into L3PacketSocket() to handle "Message Too Long" exceptions
+#
 # Revision 1.0.4.81  2006/09/11 15:35:29  pbi
 # - changed sane() to sane_color() and added sane() that does not use color themes
 # - added hexstr() that returns a one line hexdump string from a string
@@ -1639,7 +1643,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.81 2006/09/11 15:35:29 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.82 2006/09/11 15:36:35 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -8751,9 +8755,18 @@ class L3PacketSocket(SuperSocket):
         sn = self.outs.getsockname()
         if sn[3] == ARPHDR_PPP:
             sdto = (iff, ETH_P_IP)
+            ll = lambda x:x
         elif LLTypes.has_key(sn[3]):
-            x = LLTypes[sn[3]]()/x
-        self.outs.sendto(str(x), sdto)
+            ll = lambda x:LLTypes[sn[3]]()/x
+        try:
+            self.outs.sendto(str(ll(x)), sdto)
+        except socket.error,msg:
+            if conf.auto_fragment and msg[0] == 90:
+                for p in fragment(x):
+                    self.outs.sendto(str(ll(p)), sdto)
+            else:
+                raise
+                    
 
 
 
@@ -11527,6 +11540,7 @@ warning_threshold : how much time between warnings from the same place
     debug_match = 0
     route = Route()
     wepkey = ""
+    auto_fragment = 1
     debug_dissector = 0
     color_theme = DefaultTheme()
     warning_threshold = 5
