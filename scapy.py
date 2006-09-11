@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.83  2006/09/11 15:50:32  pbi
+# - fixed some glurks is_promisc()
+# - added promiscping() function (A. Brodin)
+#
 # Revision 1.0.4.82  2006/09/11 15:36:35  pbi
 # - added conf.autofragment paramter (default to 1)
 # - added auto IP fragmentation code into L3PacketSocket() to handle "Message Too Long" exceptions
@@ -1643,7 +1647,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.82 2006/09/11 15:36:35 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.83 2006/09/11 15:50:32 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -10423,12 +10427,18 @@ def is_promisc(ip, fake_bcast="ff:ff:00:00:00:00",**kargs):
     """Try to guess if target is in Promisc mode. The target is provided by its ip."""
 
     responses = srp1(Ether(dst=fake_bcast) / ARP(op="who-has", pdst=ip),type=ETH_P_ARP, iface_hint=ip, timeout=1, verbose=0,**kargs)
-    print responses
 
-    if responses is None:
-        return False
-    return True
+    return responses is not None
 
+def promiscping(net, timeout=2, fake_bcast="ff:ff:ff:ff:ff:fe", **kargs):
+    """Send ARP who-has requests to determine which hosts are in promiscuous mode
+    promiscping(net, iface=conf.iface)"""
+    ans,unans = srp(Ether(dst=fake_bcast)/ARP(pdst=net),
+                    filter="arp and arp[7] = 2", timeout=timeout, iface_hint=net, **kargs)
+    ans = ARPingResult(ans.res, name="PROMISCPing")
+
+    ans.display()
+    return ans,unans
 
 def ikescan(ip):
     return sr(IP(dst=ip)/UDP()/ISAKMP(init_cookie=RandString(8),
@@ -10587,7 +10597,7 @@ def ls(obj=None):
     
 
 
-user_commands = [ sr, sr1, srp, srp1, srloop, srploop, sniff, p0f, arpcachepoison, send, sendp, traceroute, arping, ls, lsc, queso, nmap_fp, report_ports, dyndns_add, dyndns_del, is_promisc ]
+user_commands = [ sr, sr1, srp, srp1, srloop, srploop, sniff, p0f, arpcachepoison, send, sendp, traceroute, arping, ls, lsc, queso, nmap_fp, report_ports, dyndns_add, dyndns_del, is_promisc, promiscping ]
 
 
 ########################
