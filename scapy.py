@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.77  2006/09/11 15:20:47  pbi
+# - added IncrementalValue() volatile class for sequence number fields
+#
 # Revision 1.0.4.76  2006/09/11 12:53:52  pbi
 # - Use random.randrange() instead of random.randint() for RandNum()
 # - RandInt() now reaches 2**32-1
@@ -1620,7 +1623,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.76 2006/09/11 12:53:52 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.77 2006/09/11 15:20:47 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2699,6 +2702,15 @@ class DelayedEval(VolatileValue):
     def _fix(self):
         return eval(self.expr)
 
+
+class IncrementalValue(VolatileValue):
+    def __init__(self, start=0, step=1):
+        self.val = start
+        self.step = step
+    def _fix(self):
+        v = self.val
+        self.val += self.step
+        return v
 
 
 
