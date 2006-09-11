@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.80  2006/09/11 15:23:40  pbi
+# - fixed ISAKMPTransformSetField() to manage fields that should not use TLV encoding but need it
+# - changed N and D ISAKMP payload types to more explicit identifiers: Notification and Delete
+#
 # Revision 1.0.4.79  2006/09/11 15:22:50  pbi
 # - renamed PacketList.hexdump() to PacketList.rawhexdump()
 # - added PacketList.hexdump() to print and hexdump of all packets topped by a summary of the dumped packet
@@ -1631,7 +1635,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.79 2006/09/11 15:22:50 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.80 2006/09/11 15:23:40 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -4284,7 +4288,9 @@ class ISAKMPTransformSetField(StrLenField):
         type_val,enc_dict,tlv = ISAKMPTransformTypes.get(typ, (typ,{},0))
         val = enc_dict.get(val, val)
         s = ""
-        if tlv and (val & ~0xffff):
+        if (val & ~0xffff):
+            if not tlv:
+                warning("%r should not be TLV but is too big => using TLV encoding" % typ)
             n = 0
             while val:
                 s = chr(val&0xff)+s
@@ -7141,7 +7147,7 @@ class RIPEntry(Packet):
 
 
 ISAKMP_payload_type = ["None","SA","Proposal","Transform","KE","ID","CERT","CR","Hash",
-                       "SIG","Nonce","N","D","VendorID"]
+                       "SIG","Nonce","Notification","Delete","VendorID"]
 
 ISAKMP_exchange_type = ["None","base","identity prot.",
                         "auth only", "aggressive", "info"]
