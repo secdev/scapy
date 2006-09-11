@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.75  2006/09/11 12:51:10  pbi
+# - Entries in arp_cache are now permanent if they have 0 or None instead of timeout
+#
 # Revision 1.0.4.74  2006/08/27 17:36:08  pbi
 # - tweaked make_*_table() to add horizontal separation lines
 #
@@ -1612,7 +1615,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.74 2006/08/27 17:36:08 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.75 2006/09/11 12:51:10 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2551,7 +2554,7 @@ else:
     
         if arp_cache.has_key(ip):
             mac, timeout = arp_cache[ip]
-            if timeout and (time.time()-timeout < ARPTIMEOUT):
+            if not timeout or (time.time()-timeout < ARPTIMEOUT):
                 return mac
         
         res = srp1(Ether(dst=ETHER_BROADCAST)/ARP(op="who-has", pdst=ip),
