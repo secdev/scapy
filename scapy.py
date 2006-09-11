@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.78  2006/09/11 15:22:03  pbi
+# - added MutateBytes() volatile to randomly alter bytes in a string
+# - added MutateBits() volatile class to do random bitflips on a string
+#
 # Revision 1.0.4.77  2006/09/11 15:20:47  pbi
 # - added IncrementalValue() volatile class for sequence number fields
 #
@@ -1623,7 +1627,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.77 2006/09/11 15:20:47 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.78 2006/09/11 15:22:03 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1693,7 +1697,7 @@ if __name__ == "__main__":
 ##################
 
 import socket, sys, getopt, string, struct, random, os, code
-import cPickle, copy, types, gzip, base64, re, zlib
+import cPickle, copy, types, gzip, base64, re, zlib, array
 from select import select
 from fcntl import ioctl
 import fcntl
@@ -2711,6 +2715,28 @@ class IncrementalValue(VolatileValue):
         v = self.val
         self.val += self.step
         return v
+
+class MutateBytes(VolatileValue):
+    def __init__(self, s, p=0.01):
+        self.s = array.array("B",s)
+        self.l = len(self.s)
+        self.p = int(1+(p*self.l))
+    def _fix(self):
+        r = self.s[:]
+        for i in random.sample(xrange(self.l), self.p):
+            r[i] = random.randint(0,255)
+        return r.tostring()
+
+class MutateBits(VolatileValue):
+    def __init__(self, s, p=0.01):
+        self.s = array.array("B",s)
+        self.l = len(self.s)*8
+        self.p = int(1+(p*self.l))
+    def _fix(self):
+        r = self.s[:]
+        for i in random.sample(xrange(self.l), self.p):
+            r[i/8] ^= 1 << (i%8)
+        return r.tostring()
 
 
 
