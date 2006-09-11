@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.81  2006/09/11 15:35:29  pbi
+# - changed sane() to sane_color() and added sane() that does not use color themes
+# - added hexstr() that returns a one line hexdump string from a string
+#
 # Revision 1.0.4.80  2006/09/11 15:23:40  pbi
 # - fixed ISAKMPTransformSetField() to manage fields that should not use TLV encoding but need it
 # - changed N and D ISAKMP payload types to more explicit identifiers: Notification and Delete
@@ -1635,7 +1639,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.80 2006/09/11 15:23:40 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.81 2006/09/11 15:35:29 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1948,12 +1952,22 @@ except IOError:
 ## Tools ##
 ###########
 
-def sane(x):
+def sane_color(x):
     r=""
     for i in x:
         j = ord(i)
         if (j < 32) or (j >= 127):
             r=r+conf.color_theme.not_printable(".")
+        else:
+            r=r+i
+    return r
+
+def sane(x):
+    r=""
+    for i in x:
+        j = ord(i)
+        if (j < 32) or (j >= 127):
+            r=r+"."
         else:
             r=r+i
     return r
@@ -1972,18 +1986,27 @@ def hexdump(x):
             if j%16 == 7:
                 print "",
         print " ",
-        print sane(x[i:i+16])
+        print sane_color(x[i:i+16])
         i += 16
 
-def linehexdump(x, onlyasc=0):
+def linehexdump(x, onlyasc=0, onlyhex=0):
     x = str(x)
     l = len(x)
     if not onlyasc:
         for i in range(l):
             print "%02X" % ord(x[i]),
         print "",
-    print sane(x)
+    if not onlyhex:
+        print sane_color(x)
 
+def hexstr(x, onlyasc=0, onlyhex=0):
+    s = []
+    if not onlyasc:
+        s.append(" ".join(map(lambda x:"%02x"%ord(x), x)))
+    if not onlyhex:
+        s.append(sane(x)) 
+    return "  ".join(s)
+    
 if BIG_ENDIAN:
     CRCPOLY=0x04c11db7L
 else:
