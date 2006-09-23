@@ -21,6 +21,11 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.86  2006/09/23 19:36:30  pbi
+# - moved payload building from Packet.do_build() to Packet.build()
+# - added post build transform logic so that transformation functions can be applied
+#   to a freshly assembled layer
+#
 # Revision 1.0.4.85  2006/09/23 06:54:37  pbi
 # - modified MutatedBytes/MutatedBits way of working
 # - renamed them CorruptedBytes/CorruptedBits
@@ -1655,7 +1660,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.85 2006/09/23 06:54:37 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.86 2006/09/23 19:36:30 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -4979,7 +4984,7 @@ class Packet(Gen):
     from_hexcap = classmethod(from_hexcap)
     
 
-    def __init__(self, _pkt="", _internal=0, _underlayer=None, **fields):
+    def __init__(self, _pkt="", post_transform=None, _internal=0, _underlayer=None, **fields):
         self.time  = time.time()
         self.aliastypes = [ self.__class__ ] + self.aliastypes
         self.default_fields = {}
@@ -5001,6 +5006,12 @@ class Packet(Gen):
                 self.dissection_done(self)
         for f in fields.keys():
             self.fields[f] = self.fieldtype[f].any2i(self,fields[f])
+        if type(post_transform) is list:
+            self.post_transforms = post_transform
+        elif post_transform is None:
+            self.post_transforms = []
+        else:
+            self.post_transforms = [post_transform]
             
     def dissection_done(self,pkt):
         """DEV: will be called after a dissection is completed"""
@@ -5050,6 +5061,7 @@ class Packet(Gen):
         clone.overloaded_fields = self.overloaded_fields.copy()
         clone.overload_fields = self.overload_fields.copy()
         clone.underlayer=self.underlayer
+        clone.post_transforms=self.post_transforms[:]
         clone.__dict__["payload"] = self.payload.copy()
         clone.payload.add_underlayer(clone)
         return clone
@@ -5160,14 +5172,17 @@ class Packet(Gen):
         p=""
         for f in self.fields_desc:
             p = f.addfield(self, p, self.getfieldval(f))
-        return p, self.payload.build(internal=1)
+        return p
     
     def post_build(self, pkt, pay):
         """DEV: called right after the current layer is build."""
         return pkt+pay
 
     def build(self,internal=0):
-        pkt,pay=self.do_build()
+        pkt = self.do_build()
+        for t in self.post_transforms:
+            pkt = t(pkt)
+        pay = self.payload.build(internal=1)
         try:
             p = self.post_build(pkt,pay)
         except TypeError:
@@ -5483,6 +5498,7 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
                     pkt.time = self.time
                     pkt.underlayer = self.underlayer
                     pkt.overload_fields = self.overload_fields.copy()
+                    pkt.post_transforms = self.post_transforms
                     if payl is None:
                         yield pkt
                     else:
