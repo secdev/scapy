@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.84  2006/09/23 06:52:46  pbi
+# - improved import_hexcap() to handle more hexdump outputs
+#
 # Revision 1.0.4.83  2006/09/11 15:50:32  pbi
 # - fixed some glurks is_promisc()
 # - added promiscping() function (A. Brodin)
@@ -1647,7 +1650,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.83 2006/09/11 15:50:32 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.84 2006/09/23 06:52:46 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -9634,20 +9637,22 @@ class PcapWriter:
         self.f.write(struct.pack(self.endian+"IIII", sec, usec, l, l))
         self.f.write(s)
 
+re_extract_hexcap = re.compile("^(0x[0-9a-fA-F]{2,}[ :\t]|(0x)?[0-9a-fA-F]{2,}:|(0x)?[0-9a-fA-F]{3,}[: \t]|) *(([0-9a-fA-F]{2} {,2}){,16})")
 
 def import_hexcap():
     p = ""
     try:
         while 1:
-            l = raw_input()
-            l = l.strip()
-            l = l[l.find("  "):]
-            l = l.strip()
-            l = l[:40]
-            l = l.replace(" ","")
-            p += l
+            l = raw_input().strip()
+            try:
+                p += re_extract_hexcap.match(l).groups()[3]
+            except:
+                warning("Parsing error during hexcap")
+                continue
     except EOFError:
         pass
+    
+    p = p.replace(" ","")
     p2=""
     for i in range(len(p)/2):
         p2 += chr(int(p[2*i:2*i+2],16))
