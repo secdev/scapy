@@ -21,6 +21,11 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.85  2006/09/23 06:54:37  pbi
+# - modified MutatedBytes/MutatedBits way of working
+# - renamed them CorruptedBytes/CorruptedBits
+# - added corrupt_bytes() and corrupt_bits() functions
+#
 # Revision 1.0.4.84  2006/09/23 06:52:46  pbi
 # - improved import_hexcap() to handle more hexdump outputs
 #
@@ -1650,7 +1655,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.84 2006/09/23 06:52:46 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.85 2006/09/23 06:54:37 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2758,27 +2763,34 @@ class IncrementalValue(VolatileValue):
         self.val += self.step
         return v
 
-class MutateBytes(VolatileValue):
-    def __init__(self, s, p=0.01):
-        self.s = array.array("B",s)
-        self.l = len(self.s)
-        self.p = int(1+(p*self.l))
-    def _fix(self):
-        r = self.s[:]
-        for i in random.sample(xrange(self.l), self.p):
-            r[i] = random.randint(0,255)
-        return r.tostring()
+def corrupt_bytes(s, p=0.01):
+    s = array.array("B",str(s))
+    l = len(s)
+    p = max(1,int(l*p))
+    for i in random.sample(xrange(l), p):
+        s[i] = random.randint(0,255)
+    return s.tostring()
 
-class MutateBits(VolatileValue):
+def corrupt_bits(s, p=0.01):
+    s = array.array("B",str(s))
+    l = len(s)
+    p = max(1,int(l*8*p))
+    for i in random.sample(xrange(l), p):
+        s[i/8] ^= 1 << (i%8)
+    return s.tostring()
+
+    
+class CorruptedBytes(VolatileValue):
     def __init__(self, s, p=0.01):
-        self.s = array.array("B",s)
-        self.l = len(self.s)*8
-        self.p = int(1+(p*self.l))
+        self.s = s
+        self.p = p
     def _fix(self):
-        r = self.s[:]
-        for i in random.sample(xrange(self.l), self.p):
-            r[i/8] ^= 1 << (i%8)
-        return r.tostring()
+        return corrupt_bytes(self.s, self.p)
+
+class CorruptedBits(CorruptedBytes):
+    def _fix(self):
+        return corrupt_bits(self.s, self.p)
+
 
 
 
