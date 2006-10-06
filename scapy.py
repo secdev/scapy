@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.90  2006/10/06 12:24:11  pbi
+# - Packet.name is now automatically set to the class name if not specified
+#
 # Revision 1.0.4.89  2006/10/06 12:22:47  pbi
 # - fixed StrFixedLenField.i2len() to return field actual length instead of fixed length that
 #   is already known
@@ -1670,7 +1673,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.89 2006/10/06 12:22:47 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.90 2006/10/06 12:24:11 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -4974,7 +4977,7 @@ class Dot11SCField(LEShortField):
 
 
 class Packet(Gen):
-    name="abstract packet"
+    name=None
 
     fields_desc = []
 
@@ -4994,6 +4997,8 @@ class Packet(Gen):
 
     def __init__(self, _pkt="", post_transform=None, _internal=0, _underlayer=None, **fields):
         self.time  = time.time()
+        if self.name is None:
+            self.name = self.__class__.__name__
         self.aliastypes = [ self.__class__ ] + self.aliastypes
         self.default_fields = {}
         self.overloaded_fields = {}
