@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.98  2006/10/06 16:31:41  pbi
+# - added additionnal DHCP Options (ticket #11)
+#
 # Revision 1.0.4.97  2006/10/06 15:34:38  pbi
 # - fixed DHCPtypes value (ticket #10)
 # - added new DHCPtypes values
@@ -1697,7 +1700,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.97 2006/10/06 15:34:38 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.98 2006/10/06 16:31:41 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -6740,6 +6743,7 @@ DHCPOptions = {
     43: "vendor_specific",
     44: IPField("NetBIOS_server","0.0.0.0"),
     45: IPField("NetBIOS_dist_server","0.0.0.0"),
+    50: IPField("requested_addr","0.0.0.0"),
     51: IntField("lease_time", 43200),
     54: IPField("server_id","0.0.0.0"),
     55: "param_req_list",
@@ -6747,7 +6751,7 @@ DHCPOptions = {
     58: IntField("renewal_time", 21600),
     59: IntField("rebinding_time", 37800),
     60: "vendor_class_id",
-    
+    61: "client_id",
     
     64: "NISplus_domain",
     65: IPField("NISplus_server","0.0.0.0"),
@@ -6759,6 +6763,7 @@ DHCPOptions = {
     74: IPField("IRC_server","0.0.0.0"),
     75: IPField("StreetTalk_server","0.0.0.0"),
     76: "StreetTalk_Dir_Assistance",
+    82: "relay_agent_Information",
     53: ByteEnumField("message-type", 1, DHCPTypes),
     #		    55: DHCPRequestListField("request-list"),
     255: "end"
