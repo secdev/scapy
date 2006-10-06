@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.100  2006/10/06 16:59:24  pbi
+# - removed all <tab> inconsistencies (ticket #17)
+#
 # Revision 1.0.4.99  2006/10/06 16:33:08  pbi
 # - fixed typo in ISAKMPAttributeTypes (ticket #13)
 #
@@ -1703,7 +1706,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.99 2006/10/06 16:33:08 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.100 2006/10/06 16:59:24 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2245,9 +2248,9 @@ class IPTools:
     def whois(self):
         os.system("whois %s" % self.src)
     def ottl(self):
-	t = [32,64,128,255]+[self.ttl]
-	t.sort()
-	return t[t.index(self.ttl)+1]
+        t = [32,64,128,255]+[self.ttl]
+        t.sort()
+        return t[t.index(self.ttl)+1]
     def hops(self):
         return self.ottl()-self.ttl-1 
 
@@ -2636,9 +2639,9 @@ arp_cache={}
 if 0 and DNET: ## XXX Can't use this because it does not resolve IPs not in cache
     dnet_arp_object = dnet.arp()
     def getmacbyip(ip):
-	tmp = map(ord, inet_aton(ip))
-	if (tmp[0] & 0xf0) == 0xe0: # mcast @
-	    return "01:00:5e:%.2x:%.2x:%.2x" % (tmp[1]&0x7f,tmp[2],tmp[3])
+        tmp = map(ord, inet_aton(ip))
+        if (tmp[0] & 0xf0) == 0xe0: # mcast @
+            return "01:00:5e:%.2x:%.2x:%.2x" % (tmp[1]&0x7f,tmp[2],tmp[3])
         iff,a,gw = conf.route.route(ip)
         if iff == "lo":
             return "ff:ff:ff:ff:ff:ff"
@@ -2651,9 +2654,9 @@ if 0 and DNET: ## XXX Can't use this because it does not resolve IPs not in cach
             return res.ntoa()
 else:
     def getmacbyip(ip):
-	tmp = map(ord, inet_aton(ip))
-	if (tmp[0] & 0xf0) == 0xe0: # mcast @
-	    return "01:00:5e:%.2x:%.2x:%.2x" % (tmp[1]&0x7f,tmp[2],tmp[3])
+        tmp = map(ord, inet_aton(ip))
+        if (tmp[0] & 0xf0) == 0xe0: # mcast @
+            return "01:00:5e:%.2x:%.2x:%.2x" % (tmp[1]&0x7f,tmp[2],tmp[3])
         iff,a,gw = conf.route.route(ip)
         if ( (iff == "lo") or (ip == conf.route.get_if_bcast(iff)) ):
             return "ff:ff:ff:ff:ff:ff"
@@ -3811,8 +3814,8 @@ class Field:
     def any2i(self, pkt, x):
         return self.h2i(pkt, x)
     def i2repr(self, pkt, x):
-	if x is None:
-	    x = 0
+        if x is None:
+            x = 0
         return repr(self.i2h(pkt,x))
     def addfield(self, pkt, s, val):
         return s+struct.pack(self.fmt, self.i2m(pkt,val))
@@ -4077,8 +4080,8 @@ class ByteField(Field):
         
 class XByteField(ByteField):
     def i2repr(self, pkt, x):
-	if x is None:
-	    x = 0
+        if x is None:
+            x = 0
         return hex(self.i2h(pkt, x))
 
 class X3BytesField(XByteField):
@@ -4100,8 +4103,8 @@ class LEShortField(Field):
 
 class XShortField(ShortField):
     def i2repr(self, pkt, x):
-	if x is None:
-	    x = 0
+        if x is None:
+            x = 0
         return hex(self.i2h(pkt, x))
 
 
@@ -4123,8 +4126,8 @@ class LESignedIntField(Field):
 
 class XIntField(IntField):
     def i2repr(self, pkt, x):
-	if x is None:
-	    x = 0
+        if x is None:
+            x = 0
         return hex(self.i2h(pkt, x))
 
 
@@ -4134,8 +4137,8 @@ class LongField(Field):
 
 class XLongField(LongField):
     def i2repr(self, pkt, x):
-	if x is None:
-	    x = 0
+        if x is None:
+            x = 0
         return hex(self.i2h(pkt, x))
 
 
@@ -4403,38 +4406,38 @@ class ISAKMPTransformSetField(StrLenField):
         i = map(self.type2num, i)
         return "".join(i)
     def m2i(self, pkt, m):
-	# I try to ensure that we don't read off the end of our packet based
-	# on bad length fields we're provided in the packet. There are still
-	# conditions where struct.unpack() may not get enough packet data, but
-	# worst case that should result in broken attributes (which would
-	# be expected). (wam)
+        # I try to ensure that we don't read off the end of our packet based
+        # on bad length fields we're provided in the packet. There are still
+        # conditions where struct.unpack() may not get enough packet data, but
+        # worst case that should result in broken attributes (which would
+        # be expected). (wam)
         lst = []
         while len(m) >= 4:
             trans_type, = struct.unpack("!H", m[:2])
             is_tlv = not (trans_type & 0x8000)
-	    if is_tlv:
-	    	# We should probably check to make sure the attribute type we
-		# are looking at is allowed to have a TLV format and issue a 
-		# warning if we're given an TLV on a basic attribute.
-		value_len, = struct.unpack("!H", m[2:4])
+            if is_tlv:
+                # We should probably check to make sure the attribute type we
+                # are looking at is allowed to have a TLV format and issue a 
+                # warning if we're given an TLV on a basic attribute.
+                value_len, = struct.unpack("!H", m[2:4])
                 if value_len+4 > len(m):
                     warning("Bad length for ISAKMP tranform type=%#6x" % trans_type)
                 value = m[4:4+value_len]
-		value = reduce(lambda x,y: (x<<8L)|y, struct.unpack("!%s" % ("B"*len(value),), value),0)
-	    else:
+                value = reduce(lambda x,y: (x<<8L)|y, struct.unpack("!%s" % ("B"*len(value),), value),0)
+            else:
                 trans_type &= 0x7fff
-		value_len=0
-		value, = struct.unpack("!H", m[2:4])
-	    m=m[4+value_len:]
-	    lst.append(self.num2type(trans_type, value))
+                value_len=0
+                value, = struct.unpack("!H", m[2:4])
+            m=m[4+value_len:]
+            lst.append(self.num2type(trans_type, value))
         if len(m) > 0:
             warning("Extra bytes after ISAKMP transform dissection [%r]" % m)
-	return lst
+        return lst
     def getfield(self, pkt, s):
-	l = getattr(pkt, self.fld)
-	l -= self.shift
-	i = self.m2i(pkt, s[:l])
-	return s[l:],i
+        l = getattr(pkt, self.fld)
+        l -= self.shift
+        i = self.m2i(pkt, s[:l])
+        return s[l:],i
 
 class StrNullField(StrField):
     def addfield(self, pkt, s, val):
@@ -4905,19 +4908,19 @@ class RDataField(StrLenField):
     def m2i(self, pkt, s):
         family = None
         if pkt.type == 1:
-	    family = socket.AF_INET
-	elif pkt.type == 28:
-	    family = socket.AF_INET6
-	elif pkt.type == 12:
+            family = socket.AF_INET
+        elif pkt.type == 28:
+            family = socket.AF_INET6
+        elif pkt.type == 12:
             s = DNSgetstr(s, 0)[0]
-	if family is not None:    
-	    s = inet_ntop(family, s)
+        if family is not None:    
+            s = inet_ntop(family, s)
         return s
     def i2m(self, pkt, s):
         if pkt.type == 1:
             if s:
                 s = inet_aton(s)
-        elif pkt.type == 28:		
+        elif pkt.type == 28:
             if s:
                 s = inet_pton(socket.AF_INET6, s)
         elif pkt.type in [2,3,4,5]:
@@ -6415,7 +6418,7 @@ class UDP(Packet):
             if not ((self.sport == other.dport) and
                     (self.dport == other.sport)):
                 return 0
-	return self.payload.answers(other.payload)
+        return self.payload.answers(other.payload)
     def mysummary(self):
         if isinstance(self.underlayer, IP):
             return self.underlayer.sprintf("UDP %IP.src%:%UDP.sport% > %IP.dst%:%UDP.dport%")
@@ -6662,24 +6665,24 @@ class BOOTP(Packet):
                     Field("file","","128s"),
                     StrField("options","") ]
     def guess_payload_class(self, payload):
-	if self.options[:len(dhcpmagic)] == dhcpmagic:
-	    return DHCP
-	else:
+        if self.options[:len(dhcpmagic)] == dhcpmagic:
+            return DHCP
+        else:
             return Packet.guess_payload_class(self, payload)
     def extract_padding(self,s):
-	if self.options[:len(dhcpmagic)] == dhcpmagic:
-	    # set BOOTP options to DHCP magic cookie and make rest a payload of DHCP options
-	    payload = self.options[len(dhcpmagic):]
-	    self.options = self.options[:len(dhcpmagic)]
-	    return payload, None
-	else:
-	    return "", None
+        if self.options[:len(dhcpmagic)] == dhcpmagic:
+            # set BOOTP options to DHCP magic cookie and make rest a payload of DHCP options
+            payload = self.options[len(dhcpmagic):]
+            self.options = self.options[:len(dhcpmagic)]
+            return payload, None
+        else:
+            return "", None
     def hashret(self):
-	return struct.pack("L", self.xid)
+        return struct.pack("L", self.xid)
     def answers(self, other):
-    	if not isinstance(other, BOOTP):
-	    return 0
-	return self.xid == other.xid
+        if not isinstance(other, BOOTP):
+            return 0
+        return self.xid == other.xid
 
 
 
@@ -6688,33 +6691,20 @@ class BOOTP(Packet):
 #
 
 DHCPTypes = {
-		1: "discover",
-		2: "offer",
+                1: "discover",
+                2: "offer",
                 3: "request",
-		4: "decline",
-		5: "ack",
-		6: "nak",
-		7: "release",
-		8: "inform",
+                4: "decline",
+                5: "ack",
+                6: "nak",
+                7: "release",
+                8: "inform",
                 9: "force_renew",
                 10:"lease_query",
                 11:"lease_unassigned",
                 12:"lease_unknown",
                 13:"lease_active",
-		}
-#
-#DHCPOptions = (
-#		{
-#		    1: ("subnet-mask", DHCP_IP),
-#		    3: ("routers", DHCP_IPLIST),
-#		    53: ("message-type", DHCP_MESSAGE_TYPE),
-#		    55: ("request-list", DHCP_REQUEST_LIST
-#		    },
-#		{
-#		    "subnet-mask": (1, DHCP_IP)
-#		    "routers": (3, DHCP_IPLIST)
-#		    "message-type": (53, DHCP_TYPE)
-#		    } )
+                }
 
 DHCPOptions = {
     0: "pad",
@@ -6768,7 +6758,7 @@ DHCPOptions = {
     76: "StreetTalk_Dir_Assistance",
     82: "relay_agent_Information",
     53: ByteEnumField("message-type", 1, DHCPTypes),
-    #		    55: DHCPRequestListField("request-list"),
+    #             55: DHCPRequestListField("request-list"),
     255: "end"
     }
 
@@ -6786,15 +6776,6 @@ del(v)
 del(k)
     
     
-
-#
-#{
-#		    "pad": (0, None),
-#		    "subnet-mask": (1, IPField("subnet-mask", "0.0.0.0")),
-##		    "routers": (3, IPListField("routers")),
-#		    "message-type": (53, ByteEnumField("message-type", 1, DHCPTypes)),
-#		    "end": (255, None)
-#		    } )
 
 
 
@@ -6815,14 +6796,11 @@ class DHCPOptionsField(StrField):
         return "[%s]" % (" ".join(s))
         
     def getfield(self, pkt, s):
-	#print "getfield s=%s %d" % (s, len(s))
-	return "", self.m2i(pkt, s)
+        return "", self.m2i(pkt, s)
     def m2i(self, pkt, x):
-	#print "m2i x=%s len=%d" % (x, len(x))
-	opt = []
-	while x:
-	    o = ord(x[0])
-	    #print "o=%d x=%s len=%d" % (o, x, len(x))
+        opt = []
+        while x:
+            o = ord(x[0])
             if o == 255:
                 opt.append("end")
                 x = x[1:]
@@ -6831,64 +6809,64 @@ class DHCPOptionsField(StrField):
                 opt.append("pad")
                 x = x[1:]
                 continue
-	    if DHCPOptions.has_key(o):
-		f = DHCPOptions[o]
+            if DHCPOptions.has_key(o):
+                f = DHCPOptions[o]
 
-		if isinstance(f, str):
+                if isinstance(f, str):
                     olen = ord(x[1])
                     opt.append( (f,x[2:olen+2]) )
-		    x = x[olen+2:]
-		else:
-		    olen = ord(x[1])
-		    left, val = f.getfield(pkt,x[2:olen+2])
+                    x = x[olen+2:]
+                else:
+                    olen = ord(x[1])
+                    left, val = f.getfield(pkt,x[2:olen+2])
 #                    val = f.m2i(pkt,val)
-#		    if left:
-#			print "m2i data left left=%s" % left
-		    opt.append((f.name, val))
-		    x = x[olen+2:]
-	    else:
-		olen = ord(x[1])
-		opt.append((o, x[2:olen+2]))
-		x = x[olen+2:]
-	return opt
+#                    if left:
+#                        print "m2i data left left=%s" % left
+                    opt.append((f.name, val))
+                    x = x[olen+2:]
+            else:
+                olen = ord(x[1])
+                opt.append((o, x[2:olen+2]))
+                x = x[olen+2:]
+        return opt
     def i2m(self, pkt, x):
-	#print "i2m x=%s" % x
-	s = ""
-	for o in x:
-	    if type(o) is tuple and len(o) == 2:
-		name, val = o
+        #print "i2m x=%s" % x
+        s = ""
+        for o in x:
+            if type(o) is tuple and len(o) == 2:
+                name, val = o
 
-		if isinstance(name, int):
-		    onum, oval = name, val
-		elif DHCPRevOptions.has_key(name):
+                if isinstance(name, int):
+                    onum, oval = name, val
+                elif DHCPRevOptions.has_key(name):
                     onum, f = DHCPRevOptions[name]
                     if  f is None:
                         oval = val
                     else:
-#		         oval = f.addfield(pkt,"",f.i2m(pkt,f.any2i(pkt,val)))
+#                        oval = f.addfield(pkt,"",f.i2m(pkt,f.any2i(pkt,val)))
                         oval = f.addfield(pkt,"",f.any2i(pkt,val))
                         
-		else:
-		    warning("Unknown field option %s" % name)
-		    continue
+                else:
+                    warning("Unknown field option %s" % name)
+                    continue
 
-		s += chr(onum)
-		s += chr(len(oval))
-		s += oval
-		
-	    elif (type(o) is str and DHCPRevOptions.has_key(o) and 
+                s += chr(onum)
+                s += chr(len(oval))
+                s += oval
+
+            elif (type(o) is str and DHCPRevOptions.has_key(o) and 
                   DHCPRevOptions[o][1] == None):
-		s += chr(DHCPRevOptions[o][0])
+                s += chr(DHCPRevOptions[o][0])
             elif type(o) is int:
                 s += chr(o)
-	    else:
-		warning("Malformed option %s" % o)
-	return s
+            else:
+                warning("Malformed option %s" % o)
+        return s
 
 
 class DHCP(Packet):
     name = "DHCP options"
-    fields_desc = [ DHCPOptionsField("options","") ]	
+    fields_desc = [ DHCPOptionsField("options","") ]
 
 
 class Dot11(Packet):
@@ -8027,7 +8005,7 @@ class NBNSNodeStatusResponse(Packet):
                    ShortField("ARCOUNT",0),
                    NetBIOSNameField("RR_NAME","windows"),
                    ShortEnumField("SUFFIX",0x4141,{0x4141:"workstation",0x4141+0x03:"messenger service",0x4141+0x200:"file server service",0x4141+0x10b:"domain master browser",0x4141+0x10c:"domain controller", 0x4141+0x10e:"browser election service"}),
-                   ByteField("NULL",0),		 
+                   ByteField("NULL",0),
                    ShortEnumField("RR_TYPE",0x21, {0x20:"NB",0x21:"NBSTAT"}),
                    ShortEnumField("RR_CLASS",1,{1:"INTERNET"}),
                    IntField("TTL",0),
@@ -8710,7 +8688,7 @@ LLTypes = { ARPHDR_ETHER : Ether_Dot3_Dispatcher,
             ARPHDR_METRICOM : Ether_Dot3_Dispatcher,
             ARPHDR_LOOPBACK : Ether_Dot3_Dispatcher,
             12 : IP,
-	    101 : IP,
+            101 : IP,
             801 : Dot11,
             802 : PrismHeader,
             105 : Dot11,
@@ -9648,7 +9626,7 @@ class PcapReader:
             p = Raw(s)
         p.time = sec+0.000001*usec
         return p
-	
+
     def dispatch(self, callback):
         """call the specified callback routine for each packet read
         
@@ -11869,13 +11847,13 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=1):
     iface = None
     try:
         for opt, parm in opts[0]:
-	    if opt == "-h":
-	        usage()
+            if opt == "-h":
+                usage()
             elif opt == "-s":
                 session_name = parm
         
-	if len(opts[1]) > 0:
-	    raise getopt.GetoptError("Too many parameters : [%s]" % string.join(opts[1]),None)
+        if len(opts[1]) > 0:
+            raise getopt.GetoptError("Too many parameters : [%s]" % string.join(opts[1]),None)
 
 
     except getopt.error, msg:
