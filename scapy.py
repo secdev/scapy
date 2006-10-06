@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.94  2006/10/06 14:02:24  pbi
+# - now import Set object to have it on hand
+#
 # Revision 1.0.4.93  2006/10/06 14:01:55  pbi
 # - moved field initialization from default valies from Packet.__init__()
 #   to Packet.init_fields()
@@ -1684,7 +1687,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.93 2006/10/06 14:01:55 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.94 2006/10/06 14:02:24 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1755,6 +1758,7 @@ if __name__ == "__main__":
 
 import socket, sys, getopt, string, struct, random, os, code
 import cPickle, copy, types, gzip, base64, re, zlib, array
+from sets import Set
 from select import select
 from fcntl import ioctl
 import fcntl
