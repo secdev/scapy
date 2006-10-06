@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.102  2006/10/06 17:17:08  pbi
+# - added my_globals parameter to autorun_commands() and all autorun_get_*() (ticket #15)
+#
 # Revision 1.0.4.101  2006/10/06 17:09:10  pbi
 # - used get_it() in get_if_raw_addr()
 # - made interfaces with no IP return 0.0.0.0 (ticket #16)
@@ -1710,7 +1713,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.101 2006/10/06 17:09:10 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.102 2006/10/06 17:17:08 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -11670,12 +11673,14 @@ class ScapyAutorunInterpreter(code.InteractiveInterpreter):
         return code.InteractiveInterpreter.showtraceback(self, *args, **kargs)
 
 
-def autorun_commands(cmds,verb=0):
+def autorun_commands(cmds,my_globals=None,verb=0):
     sv = conf.verb
     import __builtin__
     try:
+        if my_globals is None:
+            my_globals = globals()
         conf.verb = verb
-        interp = ScapyAutorunInterpreter(globals())
+        interp = ScapyAutorunInterpreter(my_globals)
         cmd = ""
         cmds = cmds.splitlines()
         cmds.append("") # ensure we finish multiline commands
@@ -11701,7 +11706,7 @@ def autorun_commands(cmds,verb=0):
         conf.verb = sv
     return _
 
-def autorun_get_interactive_session(cmds):
+def autorun_get_interactive_session(cmds, **kargs):
     class StringWriter:
         def __init__(self):
             self.s = ""
@@ -11712,45 +11717,45 @@ def autorun_get_interactive_session(cmds):
     sstdout,sstderr = sys.stdout,sys.stderr
     try:
         sys.stdout = sys.stderr = sw
-        res = autorun_commands(cmds)
+        res = autorun_commands(cmds, **kargs)
     finally:
         sys.stdout,sys.stderr = sstdout,sstderr
     return sw.s,res
 
-def autorun_get_text_interactive_session(cmds):
+def autorun_get_text_interactive_session(cmds, **kargs):
     ct = conf.color_theme
     try:
         conf.color_theme = NoTheme()
-        s,res = autorun_get_interactive_session(cmds)
+        s,res = autorun_get_interactive_session(cmds, **kargs)
     finally:
         conf.color_theme = ct
     return s,res
 
-def autorun_get_ansi_interactive_session(cmds):
+def autorun_get_ansi_interactive_session(cmds, **kargs):
     ct = conf.color_theme
     try:
         conf.color_theme = DefaultTheme()
-        s,res = autorun_get_interactive_session(cmds)
+        s,res = autorun_get_interactive_session(cmds, **kargs)
     finally:
         conf.color_theme = ct
     return s,res
 
-def autorun_get_html_interactive_session(cmds):
+def autorun_get_html_interactive_session(cmds, **kargs):
     ct = conf.color_theme
     try:
         conf.color_theme = HTMLTheme2()
-        s,res = autorun_get_interactive_session(cmds)
+        s,res = autorun_get_interactive_session(cmds, **kargs)
     finally:
         conf.color_theme = ct
     
     s = s.replace("<","&lt;").replace(">","&gt;").replace("#[#","<").replace("#]#",">")
     return s,res
 
-def autorun_get_latex_interactive_session(cmds):
+def autorun_get_latex_interactive_session(cmds, **kargs):
     ct = conf.color_theme
     try:
         conf.color_theme = LatexTheme2()
-        s,res = autorun_get_interactive_session(cmds)
+        s,res = autorun_get_interactive_session(cmds, **kargs)
     finally:
         conf.color_theme = ct
     s = tex_escape(s)
