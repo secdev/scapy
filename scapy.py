@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.96  2006/10/06 14:53:59  pbi
+# - fixed WEP building (broken since 1.0.4.86)
+#
 # Revision 1.0.4.95  2006/10/06 14:53:19  pbi
 # - moved payload building call into a hookable method outside Packet.do_build()
 #
@@ -1690,7 +1693,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.95 2006/10/06 14:53:19 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.96 2006/10/06 14:53:59 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -7024,14 +7027,10 @@ class Dot11WEP(Packet):
 #        self.wepdata = self.wepdata[:-4]
         self.decrypt()
 
-    def do_build(self):
-        p=""
-        for f in self.fields_desc:
-            p = f.addfield(self, p, self.__getattr__(f))
-        pay = None
+    def build_payload(self):
         if self.wepdata is None:
-            pay = self.payload.build(internal=1)
-        return p,pay
+            return Packet.build_payload(self)
+        return ""
 
     def post_build(self, p, pay):
         if self.wepdata is None:
