@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.103  2006/10/06 17:33:53  pbi
+# - added doc strings to Field class (ticket #14)
+#
 # Revision 1.0.4.102  2006/10/06 17:17:08  pbi
 # - added my_globals parameter to autorun_commands() and all autorun_get_*() (ticket #15)
 #
@@ -1713,7 +1716,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.102 2006/10/06 17:17:08 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.103 2006/10/06 17:33:53 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -3795,6 +3798,9 @@ class TracerouteResult(SndRcvList):
 ############
 
 class Field:
+    """For more informations on how this work, please refer to
+       http://www.secdev.org/projects/scapy/files/scapydoc.pdf
+       chapter ``Adding a New Field''"""
     islist=0
     holds_packets=0
     def __init__(self, name, default, fmt="H"):
@@ -3807,26 +3813,35 @@ class Field:
         self.sz = struct.calcsize(self.fmt)
 
     def i2len(self, pkt, x):
+        """Convert internal value to a length usable by a FieldLenField"""
         return self.sz
     def h2i(self, pkt, x):
+        """Convert human value to internal value"""
         return x
     def i2h(self, pkt, x):
+        """Convert internal value to human value"""
         return x
     def m2i(self, pkt, x):
+        """Convert machine value to internal value"""
         return x
     def i2m(self, pkt, x):
+        """Convert internal value to machine value"""
         if x is None:
             x = 0
         return x
     def any2i(self, pkt, x):
+        """Try to understand the most input values possible and make an internal value from them"""
         return self.h2i(pkt, x)
     def i2repr(self, pkt, x):
+        """Convert internal value to a nice representation"""
         if x is None:
             x = 0
         return repr(self.i2h(pkt,x))
     def addfield(self, pkt, s, val):
+        """Add an internal value  to a string"""
         return s+struct.pack(self.fmt, self.i2m(pkt,val))
     def getfield(self, pkt, s):
+        """Extract an internal value from a string"""
         return  s[self.sz:], self.m2i(pkt, struct.unpack(self.fmt, s[:self.sz])[0])
     def do_copy(self, x):
         if hasattr(x, "copy"):
@@ -3844,6 +3859,7 @@ class Field:
     def copy(self):
         return copy.deepcopy(self)
     def randval(self):
+        """Return a volatile object whose value is both random and suitable for this field"""
         fmtt = self.fmt[-1]
         if fmtt in "BHIQ":
             return {"B":RandByte,"H":RandShort,"I":RandInt, "Q":RandLong}[fmtt]()
@@ -3857,7 +3873,6 @@ class Field:
             warning("no random class for [%s] (fmt=%s)." % (self.name, self.fmt))
             
 
-        
 
 
 class Emph:
