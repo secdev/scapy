@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.88  2006/10/06 12:20:50  pbi
+# - replaced type(x) is type by more correct isinstance(x, type)
+#
 # Revision 1.0.4.87  2006/10/06 12:15:24  pbi
 # - fix corrupt_bits() probability computation
 #
@@ -1663,7 +1666,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.87 2006/10/06 12:15:24 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.88 2006/10/06 12:20:50 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2933,7 +2936,7 @@ class PacketList:
     def __getattr__(self, attr):
         return getattr(self.res, attr)
     def __getitem__(self, item):
-        if type(item) is type and issubclass(item,Packet):
+        if isinstance(item,type) and issubclass(item,Packet):
             return self.__class__(filter(lambda x: item in self._elt2pkt(x),self.res),
                                   name="%s from %s"%(item.__name__,self.listname))
         if type(item) is slice:
@@ -5434,7 +5437,7 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
                 p = cls(s, _internal=1, _underlayer=self)
             except:
                 if conf.debug_dissector:
-                    if type(cls) is type and issubclass(cls,Packet):
+                    if isinstance(cls,type) and issubclass(cls,Packet):
                         log_runtime.error("%s dissector failed" % cls.name)
                     else:
                         log_runtime.error("%s.guess_payload_class() returned [%s]" % (self.__class__.__name__,repr(cls)))
@@ -10610,12 +10613,12 @@ def ls(obj=None):
         import __builtin__
         all = __builtin__.__dict__.copy()
         all.update(globals())
-        objlst = filter(lambda (n,o): type(o) is types.TypeType and issubclass(o,Packet), all.items())
+        objlst = filter(lambda (n,o): isinstance(o,type) and issubclass(o,Packet), all.items())
         objlst.sort(lambda x,y:cmp(x[0],y[0]))
         for n,o in objlst:
             print "%-10s : %s" %(n,o.name)
     else:
-        if type(obj) is types.TypeType and issubclass(obj, Packet):
+        if isinstance(obj, type) and issubclass(obj, Packet):
             for f in obj.fields_desc:
                 print "%-10s : %-20s = (%s)" % (f.name, f.__class__.__name__,  repr(f.default))
         elif isinstance(obj, Packet):
