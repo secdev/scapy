@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.87  2006/10/06 12:15:24  pbi
+# - fix corrupt_bits() probability computation
+#
 # Revision 1.0.4.86  2006/09/23 19:36:30  pbi
 # - moved payload building from Packet.do_build() to Packet.build()
 # - added post build transform logic so that transformation functions can be applied
@@ -1660,7 +1663,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.86 2006/09/23 19:36:30 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.87 2006/10/06 12:15:24 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2778,8 +2781,8 @@ def corrupt_bytes(s, p=0.01):
 
 def corrupt_bits(s, p=0.01):
     s = array.array("B",str(s))
-    l = len(s)
-    p = max(1,int(l*8*p))
+    l = len(s)*8
+    p = max(1,int(l*p))
     for i in random.sample(xrange(l), p):
         s[i/8] ^= 1 << (i%8)
     return s.tostring()
