@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.97  2006/10/06 15:34:38  pbi
+# - fixed DHCPtypes value (ticket #10)
+# - added new DHCPtypes values
+#
 # Revision 1.0.4.96  2006/10/06 14:53:59  pbi
 # - fixed WEP building (broken since 1.0.4.86)
 #
@@ -1693,7 +1697,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.96 2006/10/06 14:53:59 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.97 2006/10/06 15:34:38 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -6680,11 +6684,17 @@ class BOOTP(Packet):
 DHCPTypes = {
 		1: "discover",
 		2: "offer",
-		3: "decline",
-		4: "ack",
-		5: "nak",
-		6: "release",
-		7: "inform"
+                3: "request",
+		4: "decline",
+		5: "ack",
+		6: "nak",
+		7: "release",
+		8: "inform",
+                9: "force_renew",
+                10:"lease_query",
+                11:"lease_unassigned",
+                12:"lease_unknown",
+                13:"lease_active",
 		}
 #
 #DHCPOptions = (
