@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.101  2006/10/06 17:09:10  pbi
+# - used get_it() in get_if_raw_addr()
+# - made interfaces with no IP return 0.0.0.0 (ticket #16)
+#
 # Revision 1.0.4.100  2006/10/06 16:59:24  pbi
 # - removed all <tab> inconsistencies (ticket #17)
 #
@@ -1706,7 +1710,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.100 2006/10/06 16:59:24 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.101 2006/10/06 17:09:10 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2405,10 +2409,10 @@ else:
         return struct.unpack("16xh6s8x",get_if(iff,SIOCGIFHWADDR))
 
     def get_if_raw_addr(iff):
-        s=socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        ifreq = ioctl(s, SIOCGIFADDR, struct.pack("16s16x",iff))
-        return ifreq[20:24]
-
+        try:
+            return get_if(iff, SIOCGIFADDR)[20:24]
+        except IOError:
+            return "\0\0\0\0"
 
 
 if PCAP:
