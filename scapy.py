@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.99  2006/10/06 16:33:08  pbi
+# - fixed typo in ISAKMPAttributeTypes (ticket #13)
+#
 # Revision 1.0.4.98  2006/10/06 16:31:41  pbi
 # - added additionnal DHCP Options (ticket #11)
 #
@@ -1700,7 +1703,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.98 2006/10/06 16:31:41 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.99 2006/10/06 16:33:08 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -4291,7 +4294,7 @@ class FieldLenField(Field):
         return x
 
 # see http://www.iana.org/assignments/ipsec-registry for details
-ISAKMPAttributeTypes= { "Encryption":    (1, { "DES-CBS"  : 1,
+ISAKMPAttributeTypes= { "Encryption":    (1, { "DES-CBC"  : 1,
                                                 "IDEA-CBC" : 2,
                                                 "Blowfish-CBC" : 3,
                                                 "RC5-R16-B64-CBC" : 4,
