@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.89  2006/10/06 12:22:47  pbi
+# - fixed StrFixedLenField.i2len() to return field actual length instead of fixed length that
+#   is already known
+#
 # Revision 1.0.4.88  2006/10/06 12:20:50  pbi
 # - replaced type(x) is type by more correct isinstance(x, type)
 #
@@ -1666,7 +1670,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.88 2006/10/06 12:20:50 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.89 2006/10/06 12:22:47 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -4181,8 +4185,6 @@ class StrFixedLenField(StrField):
     def __init__(self, name, default, length, shift=0):
         StrField.__init__(self, name, default, shift=shift)
         self.length = length
-    def i2len(self, pkt, s):
-        return self.length+self.shift
     def getfield(self, pkt, s):
         return s[self.length:], self.m2i(pkt,s[:self.length])
     def addfield(self, pkt, s, val):
