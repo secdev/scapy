@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.92  2006/10/06 14:00:31  pbi
+# - WARNING: internal API change. Packet.do_dissect() now only dissects current layer.
+#   Pre/post_dissect hooks and payload dissection are called from Packet.dissect().
+#
 # Revision 1.0.4.91  2006/10/06 12:24:56  pbi
 # - added fragmentation informations in IP.summary()
 #
@@ -1676,7 +1680,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.91 2006/10/06 12:24:56 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.92 2006/10/06 14:00:31 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -5426,20 +5430,15 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
         return s
 
     def do_dissect(self, s):
-        s = self.pre_dissect(s)
         flist = self.fields_desc[:]
         flist.reverse()
         while s and flist:
             f = flist.pop()
             s,fval = f.getfield(self, s)
             self.fields[f] = fval
-
-        s = self.post_dissect(s)
             
-        payl,pad = self.extract_padding(s)
-        self.do_dissect_payload(payl)
-        if pad and conf.padding:
-            self.add_payload(Padding(pad))
+        return s
+
     def do_dissect_payload(self, s):
         if s:
             cls = self.guess_payload_class(s)
@@ -5457,7 +5456,17 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
             self.add_payload(p)
 
     def dissect(self, s):
-        return self.do_dissect(s)
+        s = self.pre_dissect(s)
+
+        s = self.do_dissect(s)
+
+        s = self.post_dissect(s)
+            
+        payl,pad = self.extract_padding(s)
+        self.do_dissect_payload(payl)
+        if pad and conf.padding:
+            self.add_payload(Padding(pad))
+
 
     def guess_payload_class(self, payload):
         """DEV: Guesses the next payload class from layer bonds. Can be overloaded to use a different mechanism."""
