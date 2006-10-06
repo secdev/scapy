@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.93  2006/10/06 14:01:55  pbi
+# - moved field initialization from default valies from Packet.__init__()
+#   to Packet.init_fields()
+#
 # Revision 1.0.4.92  2006/10/06 14:00:31  pbi
 # - WARNING: internal API change. Packet.do_dissect() now only dissects current layer.
 #   Pre/post_dissect hooks and payload dissection are called from Packet.dissect().
@@ -1680,7 +1684,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.92 2006/10/06 14:00:31 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.93 2006/10/06 14:01:55 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -5013,11 +5017,7 @@ class Packet(Gen):
         self.fieldtype={}
         self.packetfields=[]
         self.__dict__["payload"] = NoPayload()
-        for f in self.fields_desc:
-            self.default_fields[f] = f.default
-            self.fieldtype[f] = f
-            if f.holds_packets:
-                self.packetfields.append(f)
+        self.init_fields()
         self.underlayer = _underlayer
         self.initialized = 1
         if _pkt:
@@ -5032,6 +5032,16 @@ class Packet(Gen):
             self.post_transforms = []
         else:
             self.post_transforms = [post_transform]
+
+    def init_fields(self):
+        self.do_init_fields(self.fields_desc)
+
+    def do_init_fields(self, flist):
+        for f in flist:
+            self.default_fields[f] = f.default
+            self.fieldtype[f] = f
+            if f.holds_packets:
+                self.packetfields.append(f)
             
     def dissection_done(self,pkt):
         """DEV: will be called after a dissection is completed"""
