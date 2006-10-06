@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.91  2006/10/06 12:24:56  pbi
+# - added fragmentation informations in IP.summary()
+#
 # Revision 1.0.4.90  2006/10/06 12:24:11  pbi
 # - Packet.name is now automatically set to the class name if not specified
 #
@@ -1673,7 +1676,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.90 2006/10/06 12:24:11 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.91 2006/10/06 12:24:56 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -6264,7 +6267,10 @@ class IP(Packet, IPTools):
                 return 0
             return self.payload.answers(other.payload)
     def mysummary(self):
-        return self.sprintf("%IP.src% > %IP.dst% %IP.proto%")
+        s = self.sprintf("%IP.src% > %IP.dst% %IP.proto%")
+        if self.frag:
+            s += " frag:%i" % self.frag
+        return s
                  
     
 
