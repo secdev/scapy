@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.95  2006/10/06 14:53:19  pbi
+# - moved payload building call into a hookable method outside Packet.do_build()
+#
 # Revision 1.0.4.94  2006/10/06 14:02:24  pbi
 # - now import Set object to have it on hand
 #
@@ -1687,7 +1690,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.94 2006/10/06 14:02:24 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.95 2006/10/06 14:53:19 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -5212,11 +5215,14 @@ class Packet(Gen):
         """DEV: called right after the current layer is build."""
         return pkt+pay
 
+    def build_payload(self):
+        return self.payload.build(internal=1)
+
     def build(self,internal=0):
         pkt = self.do_build()
         for t in self.post_transforms:
             pkt = t(pkt)
-        pay = self.payload.build(internal=1)
+        pay = self.build_payload()
         try:
             p = self.post_build(pkt,pay)
         except TypeError:
