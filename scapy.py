@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.106  2006/10/17 16:50:19  pbi
+# - fixed ScapyFreqFilter (ticket #19)
+#
 # Revision 1.0.4.105  2006/10/17 16:12:03  pbi
 # - added 'count' parameter to send()/sendp() and __gen_send() to send the same set of
 #   packets a given number of times
@@ -1724,7 +1727,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.105 2006/10/17 16:12:03 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.106 2006/10/17 16:50:19 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1759,8 +1762,12 @@ class ScapyFreqFilter(logging.Filter):
     def filter(self, record):        
         wt = conf.warning_threshold
         if wt > 0:
-            stk = traceback.extract_stack(limit=1)
-            caller = stk[0][1]
+            stk = traceback.extract_stack()
+            caller=None
+            for f,l,n,c in stk:
+                if n == 'warning':
+                    break
+                caller = l
             tm,nb = self.warning_table.get(caller, (0,0))
             ltm = time.time()
             if ltm-tm > wt:
