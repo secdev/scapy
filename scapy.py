@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.105  2006/10/17 16:12:03  pbi
+# - added 'count' parameter to send()/sendp() and __gen_send() to send the same set of
+#   packets a given number of times
+#
 # Revision 1.0.4.104  2006/10/17 16:06:26  pbi
 # - added alternative 'n' parameter to corrupt_bits() and corrupt_bytes()
 #   to specify how much bits/bytes to corrupt, instead of working with percentages
@@ -1720,7 +1724,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.104 2006/10/17 16:06:26 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.105 2006/10/17 16:12:03 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -9393,39 +9397,43 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0, retry=0, m
     return SndRcvList(ans),PacketList(remain,"Unanswered"),debug.recv
 
 
-def __gen_send(s, x, inter=0, loop=0, verbose=None, *args, **kargs):
+def __gen_send(s, x, inter=0, loop=0, count=None, verbose=None, *args, **kargs):
     if not isinstance(x, Gen):
         x = SetGen(x)
     if verbose is None:
         verbose = conf.verb
     n = 0
+    if count is not None:
+        loop = -count
+    elif not loop:
+        loop=-1
     try:
-        while 1:
+        while loop:
             for p in x:
                 s.send(p)
                 n += 1
                 if verbose:
                     os.write(1,".")
                 time.sleep(inter)
-            if not loop:
-                break
+            if loop < 0:
+                loop += 1
     except KeyboardInterrupt:
         pass
     s.close()
     if verbose:
         print "\nSent %i packets." % n
 
-def send(x, inter=0, loop=0, verbose=None, *args, **kargs):
+def send(x, inter=0, loop=0, count=None, verbose=None, *args, **kargs):
     """Send packets at layer 3
 send(packets, [inter=0], [loop=0], [verbose=conf.verb]) -> None"""
-    __gen_send(conf.L3socket(*args, **kargs), x, inter=inter, loop=loop, verbose=verbose)
+    __gen_send(conf.L3socket(*args, **kargs), x, inter=inter, loop=loop, count=count,verbose=verbose)
 
-def sendp(x, inter=0, loop=0, iface=None, iface_hint=None, verbose=None, *args, **kargs):
+def sendp(x, inter=0, loop=0, iface=None, iface_hint=None, count=None, verbose=None, *args, **kargs):
     """Send packets at layer 2
 send(packets, [inter=0], [loop=0], [verbose=conf.verb]) -> None"""
     if iface is None and iface_hint is not None:
         iface = conf.route.route(iface_hint)[0]
-    __gen_send(conf.L2socket(iface=iface, *args, **kargs), x, inter=inter, loop=loop, verbose=verbose)
+    __gen_send(conf.L2socket(iface=iface, *args, **kargs), x, inter=inter, loop=loop, count=count, verbose=verbose)
     
 def sr(x,filter=None, iface=None, *args,**kargs):
     """Send and receive packets at layer 3
