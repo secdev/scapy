@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.4.104  2006/10/17 16:06:26  pbi
+# - added alternative 'n' parameter to corrupt_bits() and corrupt_bytes()
+#   to specify how much bits/bytes to corrupt, instead of working with percentages
+#
 # Revision 1.0.4.103  2006/10/06 17:33:53  pbi
 # - added doc strings to Field class (ticket #14)
 #
@@ -1716,7 +1720,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.103 2006/10/06 17:33:53 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.4.104 2006/10/17 16:06:26 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2825,33 +2829,36 @@ class IncrementalValue(VolatileValue):
         self.val += self.step
         return v
 
-def corrupt_bytes(s, p=0.01):
+def corrupt_bytes(s, p=0.01, n=None):
     s = array.array("B",str(s))
     l = len(s)
-    p = max(1,int(l*p))
-    for i in random.sample(xrange(l), p):
+    if n is None:
+        n = max(1,int(l*p))
+    for i in random.sample(xrange(l), n):
         s[i] = random.randint(0,255)
     return s.tostring()
 
-def corrupt_bits(s, p=0.01):
+def corrupt_bits(s, p=0.01, n=None):
     s = array.array("B",str(s))
     l = len(s)*8
-    p = max(1,int(l*p))
-    for i in random.sample(xrange(l), p):
+    if n is None:
+        n = max(1,int(l*p))
+    for i in random.sample(xrange(l), n):
         s[i/8] ^= 1 << (i%8)
     return s.tostring()
 
     
 class CorruptedBytes(VolatileValue):
-    def __init__(self, s, p=0.01):
+    def __init__(self, s, p=0.01, n=None):
         self.s = s
         self.p = p
+        self.n = n
     def _fix(self):
-        return corrupt_bytes(self.s, self.p)
+        return corrupt_bytes(self.s, self.p, self.n)
 
 class CorruptedBits(CorruptedBytes):
     def _fix(self):
-        return corrupt_bits(self.s, self.p)
+        return corrupt_bits(self.s, self.p, self.n)
 
 
 
