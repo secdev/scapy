@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.5.1  2006/10/19 15:56:43  pbi
+# Release 1.0.5
+#
 # Revision 1.0.4.106  2006/10/17 16:50:19  pbi
 # - fixed ScapyFreqFilter (ticket #19)
 #
@@ -1727,7 +1730,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.4.106 2006/10/17 16:50:19 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.5.1 2006/10/19 15:56:43 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
