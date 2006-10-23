@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.5.3  2006/10/23 11:55:57  pbi
+# - removed references to class name into Ether.mysummary()
+#
 # Revision 1.0.5.2  2006/10/23 11:11:28  pbi
 # - added restart parameter to IncrementalValue to provide a value after which to restart
 #
@@ -1733,7 +1736,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.5.2 2006/10/23 11:11:28 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.5.3 2006/10/23 11:55:57 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -6080,7 +6083,7 @@ class Ether(Packet):
                 return self.payload.answers(other.payload)
         return 0
     def mysummary(self):
-        return self.sprintf("%Ether.src% > %Ether.dst% (%Ether.type%)")
+        return self.sprintf("%src% > %dst% (%type%)")
 
 class PPPoE(Packet):
     name = "PPP over Ethernet"
