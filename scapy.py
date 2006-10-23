@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.5.4  2006/10/23 12:08:21  pbi
+# - replaced PacketListField equality test in Packet.show() by a more generic
+#   islist=1 and holds_packets=1
+#
 # Revision 1.0.5.3  2006/10/23 11:55:57  pbi
 # - removed references to class name into Ether.mysummary()
 #
@@ -1736,7 +1740,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.5.3 2006/10/23 11:55:57 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.5.4 2006/10/23 12:08:21 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -5742,7 +5746,7 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
                 ncol = ct.field_name
                 vcol = ct.field_value
             fvalue = self.__getattr__(f)
-            if isinstance(fvalue, Packet) or isinstance(f, PacketListField):
+            if isinstance(fvalue, Packet) or (f.islist and f.holds_packets):
                 print "%s  \\%-10s\\" % (label_lvl+lvl, ncol(f.name))
                 fvalue_gen = SetGen(self.__getattr__(f),_iterpacket=0)
                 for fvalue in fvalue_gen:
