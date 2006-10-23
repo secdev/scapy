@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.5.2  2006/10/23 11:11:28  pbi
+# - added restart parameter to IncrementalValue to provide a value after which to restart
+#
 # Revision 1.0.5.1  2006/10/19 15:56:43  pbi
 # Release 1.0.5
 #
@@ -1730,7 +1733,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.5.1 2006/10/19 15:56:43 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.5.2 2006/10/23 11:11:28 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2835,12 +2838,16 @@ class DelayedEval(VolatileValue):
 
 
 class IncrementalValue(VolatileValue):
-    def __init__(self, start=0, step=1):
-        self.val = start
+    def __init__(self, start=0, step=1, restart=0):
+        self.start = self.val = start
         self.step = step
+        self.restart = restart
     def _fix(self):
         v = self.val
-        self.val += self.step
+        if self.val == self.restart :
+            self.val = self.start
+        else:
+            self.val += self.step
         return v
 
 def corrupt_bytes(s, p=0.01, n=None):
