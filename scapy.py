@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.5.5  2006/10/25 13:52:31  pbi
+# - PacketList() constructor's list parameter is now optionnal
+#
 # Revision 1.0.5.4  2006/10/23 12:08:21  pbi
 # - replaced PacketListField equality test in Packet.show() by a more generic
 #   islist=1 and holds_packets=1
@@ -1740,7 +1743,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.5.4 2006/10/23 12:08:21 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.5.5 2006/10/25 13:52:31 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2975,13 +2978,15 @@ class Net(Gen):
 
 class PacketList:
     res = []
-    def __init__(self, res, name="PacketList", stats=None):
+    def __init__(self, res=None, name="PacketList", stats=None):
         """create a packet list from a list of packets
            res: the list of packets
            stats: a list of classes that will appear in the stats (defaults to [TCP,UDP,ICMP])"""
         if stats is None:
             stats = [ TCP,UDP,ICMP ]
         self.stats = stats
+        if res is None:
+            res = []
         if isinstance(res, PacketList):
             res = res.res
         self.res = res
