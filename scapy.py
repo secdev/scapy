@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.5.6  2006/11/09 07:18:46  pbi
+# - new split/bind_layer() semantic : bind_layer(IP, UDP, frag=0, proto=17)
+#   Still compatible with old one.
+#
 # Revision 1.0.5.5  2006/10/25 13:52:31  pbi
 # - PacketList() constructor's list parameter is now optionnal
 #
@@ -1743,7 +1747,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.5.5 2006/10/25 13:52:31 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.5.6 2006/11/09 07:18:46 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -8528,20 +8532,28 @@ class NetflowRecordV1(Packet):
 #################
 
 
-def bind_bottom_up(lower, upper, fval):
+def bind_bottom_up(lower, upper, __fval=None, **fval):
+    if __fval is not None:
+        fval.update(__fval)
     lower.payload_guess = lower.payload_guess[:]
     lower.payload_guess.append((fval, upper))
     
 
-def bind_top_down(lower, upper, fval):
+def bind_top_down(lower, upper, __fval=None, **fval):
+    if __fval is not None:
+        fval.update(__fval)
     upper.overload_fields = upper.overload_fields.copy()
     upper.overload_fields[lower] = fval
     
-def bind_layers(lower, upper, fval):
-    bind_top_down(lower, upper, fval)
-    bind_bottom_up(lower, upper, fval)
+def bind_layers(lower, upper, __fval=None, **fval):
+    if __fval is not None:
+        fval.update(__fval)
+    bind_top_down(lower, upper, **fval)
+    bind_bottom_up(lower, upper, **fval)
 
-def split_bottom_up(lower, upper, fval):
+def split_bottom_up(lower, upper, __fval=None, **fval):
+    if __fval is not None:
+        fval.update(__fval)
     def do_filter((f,u),upper=upper,fval=fval):
         if u != upper:
             return True
@@ -8551,7 +8563,9 @@ def split_bottom_up(lower, upper, fval):
         return False
     lower.payload_guess = filter(do_filter, lower.payload_guess)
         
-def split_top_down(lower, upper, fval):
+def split_top_down(lower, upper, __fval=None, **fval):
+    if __fval is not None:
+        fval.update(__fval)
     if lower in upper.overload_fields:
         ofval = upper.overload_fields[lower]
         for k in fval:
@@ -8560,9 +8574,11 @@ def split_top_down(lower, upper, fval):
         upper.overload_fields = upper.overload_fields.copy()
         del(upper.overload_fields[lower])
 
-def split_layers(lower, upper, fval):
-    split_bottom_up(lower, upper, fval)
-    split_top_down(lower, upper, fval)
+def split_layers(lower, upper, __fval=None, **fval):
+    if __fval is not None:
+        fval.update(__fval)
+    split_bottom_up(lower, upper, **fval)
+    split_top_down(lower, upper, **fval)
 
 layer_bonds = [ ( Dot3,   LLC,      { } ),
                 ( GPRS,   IP,       { } ),
