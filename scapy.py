@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.5.7  2006/11/09 12:35:54  pbi
+# - fixed EAP
+#
 # Revision 1.0.5.6  2006/11/09 07:18:46  pbi
 # - new split/bind_layer() semantic : bind_layer(IP, UDP, frag=0, proto=17)
 #   Still compatible with old one.
@@ -1747,7 +1750,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.5.6 2006/11/09 07:18:46 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.5.7 2006/11/09 12:35:54 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -6239,8 +6242,10 @@ class EAP(Packet):
     name = "EAP"
     fields_desc = [ ByteEnumField("code", 4, {1:"REQUEST",2:"RESPONSE",3:"SUCCESS",4:"FAILURE"}),
                     ByteField("id", 0),
-                    ByteEnumField("type",0, {1:"ID",4:"MD5"}),
-                    ByteField("len",None)]
+                    ShortField("len",None),
+                    ConditionalField(ByteEnumField("type",0, {1:"ID",4:"MD5"}), "code", lambda x:x not in [EAP.SUCCESS, EAP.FAILURE])
+
+                                     ]
     
     REQUEST = 1
     RESPONSE = 2
@@ -6258,25 +6263,13 @@ class EAP(Packet):
                     return 1
             elif other.code == self.RESPONSE:
                 return 1
-        return 0            
-    def build(self,internal=0):
-        l = self.len
-        if self.code in [EAP.SUCCESS, EAP.FAILURE]:
-            if l is None:
-                l = 4
-            return struct.pack("!BBH",
-                               self.code,
-                               self.id,
-                               l)+str(self.payload)
-        else:
-            payl = str(self.payload)
-            if l is None:
-                l = 5+len(payl)
-            return struct.pack("!BBHB",
-                               self.code,
-                               self.id,
-                               l,
-                               self.type)+payl
+        return 0
+    
+    def post_build(self, p, pay):
+        if self.len is None:
+            l = len(p)+len(pay)
+            p = p[:2]+chr((l>>8)&0xff)+chr(l&0xff)+p[4:]
+        return p+pay
              
 
 class ARP(Packet):
