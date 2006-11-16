@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.5.9  2006/11/16 17:33:33  pbi
+# - added wireshark() function to lauch wireshark on a packet list
+#
 # Revision 1.0.5.8  2006/11/16 17:05:27  pbi
 # - added ISAKMP flags decoding
 # - do not try to decode payload if ISAKMP says payload is encrypted
@@ -1754,7 +1757,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.5.8 2006/11/16 17:05:27 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.5.9 2006/11/16 17:33:33 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -1833,6 +1836,8 @@ from sets import Set
 from select import select
 from fcntl import ioctl
 import fcntl
+import warnings
+warnings.filterwarnings("ignore","tempnam",RuntimeWarning, __name__)
 
 
 try:
@@ -9814,6 +9819,11 @@ def import_hexcap():
     return p2
         
 
+
+def wireshark(pktlist):
+    f = os.tempnam("scapy")
+    wrpcap(f, pktlist)
+    os.spawnlp(os.P_NOWAIT, "wireshark", "wireshark", "-r", f)
 
 
 #####################
