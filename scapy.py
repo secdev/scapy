@@ -21,6 +21,10 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.5.8  2006/11/16 17:05:27  pbi
+# - added ISAKMP flags decoding
+# - do not try to decode payload if ISAKMP says payload is encrypted
+#
 # Revision 1.0.5.7  2006/11/09 12:35:54  pbi
 # - fixed EAP
 #
@@ -1750,7 +1754,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.5.7 2006/11/09 12:35:54 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.5.8 2006/11/16 17:05:27 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -7337,10 +7341,15 @@ class ISAKMP(ISAKMP_class): # rfc2408
         ByteEnumField("next_payload",0,ISAKMP_payload_type),
         XByteField("version",0x10),
         ByteEnumField("exch_type",0,ISAKMP_exchange_type),
-        ByteField("flags",0), # XXX use a Flag field
+        FlagsField("flags",0, 8, ["encryption","commit","auth_only","res3","res4","res5","res6","res7"]), # XXX use a Flag field
         IntField("id",0),
         IntField("length",None)
         ]
+
+    def guess_payload_class(self, payload):
+        if self.flags & 1:
+            return Raw
+        return ISAKMP_class.guess_payload_class(self, payload)
 
     def answers(self, other):
         if isinstance(other, ISAKMP):
