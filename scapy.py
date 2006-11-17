@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.5.11  2006/11/17 14:23:28  pbi
+# - argl. Forgot a print.
+#
 # Revision 1.0.5.10  2006/11/16 22:16:30  pbi
 # - have L3PacketSocket work when sending packets on tun interfaces
 #
@@ -1760,7 +1763,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.5.10 2006/11/16 22:16:30 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.5.11 2006/11/17 14:23:28 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -8923,7 +8926,6 @@ class L3PacketSocket(SuperSocket):
         ll = lambda x:x
         if sn[3] in (ARPHDR_PPP,ARPHDR_TUN):
             sdto = (iff, ETH_P_IP)
-        print ETH_P_IP, sdto
         if LLTypes.has_key(sn[3]):
             ll = lambda x:LLTypes[sn[3]]()/x
         try:
