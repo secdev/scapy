@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.5.12  2006/11/20 13:36:28  pbi
+# - fixed bug in IncrementalValue()
+#
 # Revision 1.0.5.11  2006/11/17 14:23:28  pbi
 # - argl. Forgot a print.
 #
@@ -1763,7 +1766,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.5.11 2006/11/17 14:23:28 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.5.12 2006/11/20 13:36:28 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2871,7 +2874,7 @@ class DelayedEval(VolatileValue):
 
 
 class IncrementalValue(VolatileValue):
-    def __init__(self, start=0, step=1, restart=0):
+    def __init__(self, start=0, step=1, restart=-1):
         self.start = self.val = start
         self.step = step
         self.restart = restart
