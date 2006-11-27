@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.5.13  2006/11/27 09:19:47  pbi
+# - fixed bug in Ether_Dot3_Dispatcher() (P. Lalet)
+#
 # Revision 1.0.5.12  2006/11/20 13:36:28  pbi
 # - fixed bug in IncrementalValue()
 #
@@ -1766,7 +1769,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.5.12 2006/11/20 13:36:28 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.5.13 2006/11/27 09:19:47 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -8774,7 +8777,7 @@ def fragment(pkt, fragsize=1480):
 ###################
 
 def Ether_Dot3_Dispatcher(pkt=None, **kargs):
-    if pkt is str and len(pkt) >= 14 and struct.unpack("!H", pkt[12:14])[0] < 1500:
+    if type(pkt) is str and len(pkt) >= 14 and struct.unpack("!H", pkt[12:14])[0] < 1500:
         return Dot3(pkt, **kargs)
     return Ether(pkt, **kargs)
 
