@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.5.14  2006/11/28 14:08:55  pbi
+# - fixed 802.3 decoded as Ethernet if length is 1500
+#
 # Revision 1.0.5.13  2006/11/27 09:19:47  pbi
 # - fixed bug in Ether_Dot3_Dispatcher() (P. Lalet)
 #
@@ -1769,7 +1772,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.5.13 2006/11/27 09:19:47 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.5.14 2006/11/28 14:08:55 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -6202,11 +6205,11 @@ class Dot1Q(Packet):
             return self.payload.answers(other)
         return 0
     def default_payload_class(self, pay):
-        if self.type < 1500:
+        if self.type <= 1500:
             return LLC
         return Raw
     def extract_padding(self,s):
-        if self.type < 1500:
+        if self.type <= 1500:
             return s[:self.type],s[self.type:]
         return s,None
     def mysummary(self):
@@ -8777,7 +8780,7 @@ def fragment(pkt, fragsize=1480):
 ###################
 
 def Ether_Dot3_Dispatcher(pkt=None, **kargs):
-    if type(pkt) is str and len(pkt) >= 14 and struct.unpack("!H", pkt[12:14])[0] < 1500:
+    if type(pkt) is str and len(pkt) >= 14 and struct.unpack("!H", pkt[12:14])[0] <= 1500:
         return Dot3(pkt, **kargs)
     return Ether(pkt, **kargs)
 
