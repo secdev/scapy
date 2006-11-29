@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.5.16  2006/11/29 09:20:05  pbi
+# - added RandNumGamma(), RandNumGauss() and RandNumExpo() to change a bit from linear distributions
+#
 # Revision 1.0.5.15  2006/11/29 08:57:33  pbi
 # - added RandChoice() volatile value
 #
@@ -1775,7 +1778,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.5.15 2006/11/29 08:57:33 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.5.16 2006/11/29 09:20:05 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2783,6 +2786,26 @@ class RandNum(RandField):
     def _fix(self):
         # XXX: replace with sth that guarantee unicity
         return random.randrange(self.min, self.max)
+
+class RandNumGamma(RandField):
+    def __init__(self, alpha, beta):
+        self.alpha = alpha
+        self.beta = beta
+    def _fix(self):
+        return int(round(random.gammavariate(self.alpha, self.beta)))
+
+class RandNumGauss(RandField):
+    def __init__(self, mu, sigma):
+        self.mu = mu
+        self.sigma = sigma
+    def _fix(self):
+        return int(round(random.gauss(self.mu, self.sigma)))
+
+class RandNumExpo(RandField):
+    def __init__(self, lambd):
+        self.lambd = lambd
+    def _fix(self):
+        return int(round(random.expovariate(self.lambd)))
 
 class RandByte(RandNum):
     def __init__(self):
