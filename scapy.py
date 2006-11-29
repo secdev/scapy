@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.5.15  2006/11/29 08:57:33  pbi
+# - added RandChoice() volatile value
+#
 # Revision 1.0.5.14  2006/11/28 14:08:55  pbi
 # - fixed 802.3 decoded as Ethernet if length is 1500
 #
@@ -1772,7 +1775,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.5.14 2006/11/28 14:08:55 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.5.15 2006/11/29 08:57:33 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2805,7 +2808,12 @@ class RandSLong(RandNum):
     def __init__(self):
         RandNum.__init__(self, -2L**63, 2L**63)
 
-
+class RandChoice(RandField):
+    def __init__(self, *args):
+        self._choice = args
+    def _fix(self):
+        return random.choice(self._choice)
+    
 class RandString(RandField):
     def __init__(self, size, chars="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"):
         self.chars = chars
