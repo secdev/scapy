@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.5.17  2006/11/29 09:28:10  pbi
+# - added RandOID()
+#
 # Revision 1.0.5.16  2006/11/29 09:20:05  pbi
 # - added RandNumGamma(), RandNumGauss() and RandNumExpo() to change a bit from linear distributions
 #
@@ -1778,7 +1781,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.5.16 2006/11/29 09:20:05 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.5.17 2006/11/29 09:28:10 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -2883,6 +2886,14 @@ class RandMAC(RandString):
             self.mac += (v,)
     def _fix(self):
         return "%02x:%02x:%02x:%02x:%02x:%02x" % self.mac
+    
+
+class RandOID(RandString):
+    def __init__(self, depth=RandNumExpo(0.1), idnum=RandNumExpo(0.01)):
+        self.depth = depth
+        self.idnum = idnum
+    def _fix(self):
+        return ".".join(map(str, [self.idnum for i in xrange(1+self.depth)]))
     
 
 # Automatic timestamp
