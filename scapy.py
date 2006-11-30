@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.5.18  2006/11/30 07:29:38  pbi
+# - removed forgotten print in PacketList.sr()
+#
 # Revision 1.0.5.17  2006/11/29 09:28:10  pbi
 # - added RandOID()
 #
@@ -1781,7 +1784,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.5.17 2006/11/29 09:28:10 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.5.18 2006/11/30 07:29:38 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -3452,7 +3455,6 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
                     i -= 1
                     break
             i += 1
-            print i, len(remain)
         if multi:
             remain = filter(lambda x:not hasattr(x,"_answered"), remain)
         return SndRcvList(sr),PacketList(remain)
