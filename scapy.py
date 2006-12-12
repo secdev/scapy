@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.5.20  2006/12/12 15:33:25  pbi
+# - changed default conf.checkIPID value to 0
+#
 # Revision 1.0.5.19  2006/12/12 15:32:59  pbi
 # - added ESNinfo tag to Dot11Elt()
 #
@@ -1787,7 +1790,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.5.19 2006/12/12 15:32:59 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.5.20 2006/12/12 15:33:25 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -11759,7 +11762,7 @@ warning_threshold : how much time between warnings from the same place
     session = ""  
     stealth = "not implemented"
     iface = get_working_if()
-    checkIPID = 1
+    checkIPID = 0
     checkIPsrc = 1
     checkIPaddr = 1
     check_TCPerror_seqack = 0
