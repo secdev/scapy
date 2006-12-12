@@ -21,6 +21,9 @@
 
 #
 # $Log: scapy.py,v $
+# Revision 1.0.5.19  2006/12/12 15:32:59  pbi
+# - added ESNinfo tag to Dot11Elt()
+#
 # Revision 1.0.5.18  2006/11/30 07:29:38  pbi
 # - removed forgotten print in PacketList.sr()
 #
@@ -1784,7 +1787,7 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.5.18 2006/11/30 07:29:38 pbi Exp $"
+RCSID="$Id: scapy.py,v 1.0.5.19 2006/12/12 15:32:59 pbi Exp $"
 
 VERSION = RCSID.split()[2]+"beta"
 
@@ -7076,7 +7079,7 @@ class Dot11Beacon(Packet):
 class Dot11Elt(Packet):
     name = "802.11 Information Element"
     fields_desc = [ ByteEnumField("ID", 0, {0:"SSID", 1:"Rates", 2: "FHset", 3:"DSset", 4:"CFset", 5:"TIM", 6:"IBSSset", 16:"challenge",
-                                            42:"ERPinfo", 47:"ERPinfo",50:"ESRates",221:"vendor",68:"reserved"}),
+                                            42:"ERPinfo", 47:"ERPinfo", 48:"RSNinfo", 50:"ESRates",221:"vendor",68:"reserved"}),
                     FieldLenField("len", None, "info", "B"),
                     StrLenField("info", "", "len") ]
     def mysummary(self):
