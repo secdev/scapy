@@ -22,7 +22,7 @@
 
 from __future__ import generators
 
-BASE_VERSION = "1.0.5.20"
+BASE_VERSION = "1.0.6.1"
 
 HG_NODE  = "$Node$"
 REVISION = "$Revision$"
