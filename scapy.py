@@ -22,10 +22,12 @@
 
 from __future__ import generators
 
-RCSID="$Id: scapy.py,v 1.0.5.20 2006/12/12 15:33:25 pbi Exp $"
+BASE_VERSION = "1.0.5.20"
 
-VERSION = RCSID.split()[2]+"beta"
+HG_NODE  = "$Node$"
+REVISION = "$Revision$"
 
+VERSION = "v%s / %s" % (BASE_VERSION, (REVISION+"--")[11:23])
 
 def usage():
     print "Usage: scapy.py [-s sessionfile]"
