@@ -10156,7 +10156,16 @@ def autorun_get_latex_interactive_session(cmds, **kargs):
 
 def scapy_write_history_file(readline):
     if conf.histfile:
-        readline.write_history_file(conf.histfile)
+        try:
+            readline.write_history_file(conf.histfile)
+        except IOError,e:
+            try:
+                warning("Could not write history to [%s]\n\t (%s)" % (conf.histfile,e))
+                tmp = os.tempnam("","scapy")
+                readline.write_history_file(tmp)
+                warning("Wrote history to [%s]" % tmp)
+            except:
+                warning("Cound not write history to [%s]. Discarded" % tmp)
 
 
 def interact(mydict=None,argv=None,mybanner=None,loglevel=1):
