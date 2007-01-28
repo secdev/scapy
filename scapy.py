@@ -392,6 +392,10 @@ def linehexdump(x, onlyasc=0, onlyhex=0):
     if not onlyhex:
         print sane_color(x)
 
+def chexdump(x):
+    x=str(x)
+    print ", ".join(map(lambda x: "%#04x"%ord(x), x))
+    
 def hexstr(x, onlyasc=0, onlyhex=0):
     s = []
     if not onlyasc:
