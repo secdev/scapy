@@ -3627,11 +3627,9 @@ class Packet(Gen):
             log_runtime.error("API changed! post_build() now takes 2 arguments. Compatibility is only assured for a short transition time")
             p = self.post_build(pkt+pay)
         if not internal:
-            pkt = self
-            while pkt.haslayer(Padding):
-                pkt = pkt.getlayer(Padding)
-                p += pkt.load
-                pkt = pkt.payload
+            pad = self.payload.getlayer(Padding) 
+            if pad: 
+                p += pad.build()
         return p
 
     def do_build_ps(self):
