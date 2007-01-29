@@ -1156,7 +1156,7 @@ class AutoTime(VolatileValue):
             
 class IntAutoTime(AutoTime):
     def _fix(self):
-        return int(AutoTime.current_val(self))
+        return int(time.time()-self.diff)
 
 
 
