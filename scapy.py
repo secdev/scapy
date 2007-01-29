@@ -3917,6 +3917,212 @@ class Dot11SCField(LEShortField):
         else:
             return s,None
 
+#####################
+#### ASN1 Fields ####
+#####################
+
+class ASN1F_badsequence(Exception):
+    pass
+
+class ASN1F_element:
+    pass
+
+class ASN1F_field(ASN1F_element):
+    holds_packets=0
+    islist=0
+
+    ASN1_tag = ASN1_Class_UNIVERSAL.ANY
+    
+    def __init__(self, name, default):
+        self.name = name
+        self.default = default
+
+    def i2repr(self, pkt, x):
+        if x is None:
+            x = 0
+        return repr(x)
+    def i2h(self, pkt, x):
+        if x is None:
+            x = 0
+        return x
+    def any2i(self, pkt, x):
+        return x
+    def m2i(self, pkt, x):
+        return self.ASN1_tag.get_codec(pkt.ASN1_codec).safedec(x)
+    def i2m(self, pkt, x):
+        if x is None:
+            x = 0
+        if isinstance(x, ASN1_Object):
+            if ( self.ASN1_tag == ASN1_Class_UNIVERSAL.ANY
+                 or x.tag == ASN1_Class_UNIVERSAL.RAW
+                 or x.tag == ASN1_Class_UNIVERSAL.ERROR
+                 or self.ASN1_tag == x.tag ):
+                return x.enc(pkt.ASN1_codec)
+            else:
+                raise ASN1_Error("Encoding Error: got %r instead of an %r for field [%s]" % (x, self.ASN1_tag, self.name))
+        return self.ASN1_tag.get_codec(pkt.ASN1_codec).enc(x)
+
+    def do_copy(self, x):
+        if hasattr(x, "copy"):
+            return x.copy()
+        elif type(x) is list:
+            return x[:]
+        else:
+            return x
+
+    def build(self, pkt):
+        return self.i2m(pkt, getattr(pkt, self.name))
+
+    def set_val(self, pkt, val):
+        setattr(pkt, self.name, val)
+    
+    def dissect(self, pkt, s):
+        v,s = self.m2i(pkt, s)
+        self.set_val(pkt, v)
+        return s
+
+    def get_fields_list(self):
+        return [self]
+
+    def __hash__(self):
+        return hash(self.name)
+    def __str__(self):
+        return self.name
+    def __eq__(self, other):
+        return self.name == other
+    def __repr__(self):
+        return self.name
+    def randval(self):
+        return RandInt()
+
+
+class ASN1F_INTEGER(ASN1F_field):
+    ASN1_tag= ASN1_Class_UNIVERSAL.INTEGER
+    def randval(self):
+        return RandNum(-2**64, 2**64)
+
+class ASN1F_enum_INTEGER(ASN1F_INTEGER):
+    def __init__(self, name, default, enum):
+        ASN1F_INTEGER.__init__(self, name, default)
+        self.enum = enum
+
+class ASN1F_STRING(ASN1F_field):
+    ASN1_tag = ASN1_Class_UNIVERSAL.STRING
+    def randval(self):
+        return RandString(RandNum(0, 1000))
+
+class ASN1F_OID(ASN1F_field):
+    ASN1_tag = ASN1_Class_UNIVERSAL.OID
+    def randval(self):
+        return RandOID()
+
+class ASN1F_SEQUENCE(ASN1F_field):
+    ASN1_tag = ASN1_Class_UNIVERSAL.SEQUENCE
+    def __init__(self, *seq, **kargs):
+        if "ASN1_tag" in kargs:
+            self.ASN1_tag = kargs["ASN1_tag"]
+        self.seq = seq
+    def __repr__(self):
+        return "<%s%r>" % (self.__class__.__name__,self.seq,)
+    def get_fields_list(self):
+        return reduce(lambda x,y: x+y.get_fields_list(), self.seq, [])
+    def build(self, pkt):
+        s = reduce(lambda x,y: x+y.build(pkt), self.seq, "")
+        return self.i2m(pkt, s)
+    def dissect(self, pkt, s):
+        codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
+        try:
+            i,s,remain = codec.check_type_get_len(s)
+            for obj in self.seq:
+                s = obj.dissect(pkt,s)
+            if s:
+                warning("Too many bytes to decode sequence: [%r]" % s) # XXX not reversible!
+            return remain
+        except ASN1_Error,e:
+            raise ASN1F_badsequence(e)
+
+class ASN1F_SEQUENCE_OF(ASN1F_SEQUENCE):
+    holds_packets = 1
+    islist = 1
+    def __init__(self, name, default, asn1pkt, ASN1_tag=0x30):
+        self.asn1pkt = asn1pkt
+        self.tag = chr(ASN1_tag)
+        self.name = name
+        self.default = default
+    def get_fields_list(self):
+        return [self]
+    def build(self, pkt):
+        s = "".join(map(str, getattr(pkt, self.name)))
+        return self.i2m(pkt, s)
+    def dissect(self, pkt, s):
+        codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
+        i,s1,remain = codec.check_type_get_len(s)
+        lst = []
+        while s1:
+            try:
+                p = self.asn1pkt(s1)
+            except ASN1F_badsequence:
+                lst.append(Raw(s1))
+                break
+            lst.append(p)
+            if Raw in p:
+                s1 = p[Raw].load
+                del(p[Raw].underlayer.payload)
+            else:
+                break
+        self.set_val(pkt, lst)
+        return remain
+    def randval(self):
+        return fuzz(self.asn1pkt())
+
+class ASN1F_PACKET(ASN1F_field):
+    holds_packets = 1
+    def __init__(self, name, default, cls):
+        ASN1_field.__init__(self, name, default)
+        self.cls = cls
+    def i2m(self, pkt, x):
+        if x is None:
+            x = ""
+        return str(x)
+    def extract_packet(self, cls, x):
+        try:
+            c = cls(x)
+        except ASN1F_badsequence:
+            c = Raw(x)
+        cpad = c[Padding]
+        x = ""
+        if cpad is not None:
+            x = cpad.load
+            del(cpad.underlayer.payload)
+        return c,x
+    def m2i(self, pkt, x):
+        return self.extract_packet(self.cls, x)
+
+
+class ASN1F_CHOICE(ASN1F_PACKET):
+    ASN1_tag = ASN1_Class_UNIVERSAL.NONE
+    def __init__(self, name, default, *args):
+        self.name=name
+        self.choice = {}
+        for p in args:
+            self.choice[p.ASN1_root.ASN1_tag] = p
+#        self.context=context
+        self.default=default
+    def m2i(self, pkt, x):
+        if len(x) == 0:
+            return Raw(),""
+            raise ASN1_Error("ASN1F_CHOICE: got empty string")
+        if ord(x[0]) not in self.choice:
+            return Raw(x),"" # XXX return RawASN1 packet ? Raise error 
+            raise ASN1_Error("Decoding Error: choice [%i] not found in %r" % (ord(x[0]), self.choice.keys()))
+
+        z = ASN1F_PACKET.extract_packet(self, self.choice[ord(x[0])], x)
+        return z
+    def randval(self):
+        return RandChoice(*map(lambda x:fuzz(x()), self.choice.values()))
+            
+    
+
 ###########################
 ## Packet abstract class ##
 ###########################
