@@ -1421,6 +1421,9 @@ class ASN1_force(ASN1_Object):
             return self.val.enc(codec)
         return self.val
 
+class ASN1_BADTAG(ASN1_force):
+    pass
+
 class ASN1_INTEGER(ASN1_Object):
     tag = ASN1_Class_UNIVERSAL.INTEGER
 
@@ -1608,7 +1611,8 @@ class BERcodec_Object:
         try:
             return cls.do_dec(s, context, safe)
         except BER_BadTag_Decoding_Error,e:
-            return BERcodec_Object.dec(e.remaining, context, safe)
+            o,remain = BERcodec_Object.dec(e.remaining, context, safe)
+            return ASN1_BADTAG(o),remain
         except BER_Decoding_Error, e:
             return ASN1_DECODING_ERROR(s, exc=e),""
         except ASN1_Error, e:
