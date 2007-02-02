@@ -1414,11 +1414,12 @@ class ASN1_DECODING_ERROR(ASN1_Object):
             return self.val.enc(codec)
         return self.val
 
-class ASN1_raw(ASN1_Object):
+class ASN1_force(ASN1_Object):
     tag = ASN1_Class_UNIVERSAL.RAW
     def enc(self, codec):
+        if isinstance(self.val, ASN1_Object):
+            return self.val.enc(codec)
         return self.val
-
 
 class ASN1_INTEGER(ASN1_Object):
     tag = ASN1_Class_UNIVERSAL.INTEGER
