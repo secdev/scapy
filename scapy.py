@@ -7063,6 +7063,66 @@ def fragment(pkt, fragsize=1480):
             lst.append(q)
     return lst
 
+def defrag(plist):
+    """defrag(plist) -> ([not fragmented], [defragmented],
+                  [ [bad fragments], [bad fragments], ... ])"""
+    frags = {}
+    nofrag = PacketList()
+    for p in plist:
+        ip = p[IP]
+        if IP not in p:
+            nofrag.append(p)
+            continue
+        if ip.frag == 0 and ip.flags & 1 == 0:
+            nofrag.append(p)
+            continue
+        uniq = (ip.id,ip.src,ip.dst,ip.proto)
+        if uniq in frags:
+            frags[uniq].append(p)
+        else:
+            frags[uniq] = PacketList([p])
+    defrag = PacketList()
+    missfrag = []
+    for lst in frags.itervalues():
+        lst.sort(lambda x,y:cmp(x.frag, y.frag))
+        p = lst[0]
+        if p.frag > 0:
+            missfrag.append(lst)
+            continue
+        p = p.copy()
+        ip = p[IP]
+        if ip.len is None or ip.ihl is None:
+            clen = len(ip.payload)
+        else:
+            clen = ip.len - (ip.ihl<<2)
+        txt = Raw()
+        for q in lst[1:]:
+            if clen != q.frag<<3:
+                if clen > q.frag<<3:
+                    warning("Fragment overlap (%i > %i) %r || %r ||  %r" % (clen, q.frag<<3, p,txt,q))
+                missfrag.append(lst)
+                txt = None
+                break
+            if q[IP].len is None or q[IP].ihl is None:
+                clen += len(q[IP].payload)
+            else:
+                clen += q[IP].len - (q[IP].ihl<<2)
+            txt.add_payload(q[IP].payload.copy())
+            
+        if txt is None:
+            continue
+
+        ip.flags &= ~1 # !MF
+        del(ip.chksum)
+        del(ip.len)
+        p = p/txt
+        defrag.append(p)
+    return nofrag,defrag,missfrag
+            
+            
+        
+    
+
 
 ###################
 ## Super sockets ##
