@@ -7043,20 +7043,22 @@ del(l)
 
 def fragment(pkt, fragsize=1480):
     fragsize = (fragsize+7)/8*8
-    pkt = pkt.copy()
-    pkt.flags = "MF"
     lst = []
     for p in pkt:
-        s = str(p.payload)
+        s = str(p[IP].payload)
         nb = (len(s)+fragsize-1)/fragsize
         for i in range(nb):            
             q = p.copy()
-            del(q.payload)
-            r = Raw(load=s[i*fragsize:(i+1)*fragsize])
-            r.overload_fields = p.payload.overload_fields.copy()
+            del(q[IP].payload)
+            del(q[IP].chksum)
+            del(q[IP].len)
             if i == nb-1:
-                q.flags=0
-            q.frag = i*fragsize/8
+                q[IP].flags &= ~1
+            else:
+                q[IP].flags |= 1 
+            q[IP].frag = i*fragsize/8
+            r = Raw(load=s[i*fragsize:(i+1)*fragsize])
+            r.overload_fields = p[IP].payload.overload_fields.copy()
             q.add_payload(r)
             lst.append(q)
     return lst
