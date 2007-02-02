@@ -4009,7 +4009,34 @@ class ASN1F_INTEGER(ASN1F_field):
 class ASN1F_enum_INTEGER(ASN1F_INTEGER):
     def __init__(self, name, default, enum):
         ASN1F_INTEGER.__init__(self, name, default)
-        self.enum = enum
+        i2s = self.i2s = {}
+        s2i = self.s2i = {}
+        if type(enum) is list:
+            keys = xrange(len(enum))
+        else:
+            keys = enum.keys()
+        if filter(lambda x: type(x) is str, keys):
+            i2s,s2i = s2i,i2s
+        for k in keys:
+            i2s[k] = enum[k]
+            s2i[enum[k]] = k
+    def any2i_one(self, pkt, x):
+        if type(x) is str:
+            x = self.s2i[x]
+        return x
+    def i2repr_one(self, pkt, x):
+        return self.i2s.get(x, repr(x))
+    
+    def any2i(self, pkt, x):
+        if type(x) is list:
+            return map(lambda z,pkt=pkt:self.any2i_one(pkt,z), x)
+        else:
+            return self.any2i_one(pkt,x)        
+    def i2repr(self, pkt, x):
+        if type(x) is list:
+            return map(lambda z,pkt=pkt:self.i2repr_one(pkt,z), x)
+        else:
+            return self.i2repr_one(pkt,x)
 
 class ASN1F_STRING(ASN1F_field):
     ASN1_tag = ASN1_Class_UNIVERSAL.STRING
