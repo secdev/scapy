@@ -392,6 +392,10 @@ def linehexdump(x, onlyasc=0, onlyhex=0):
     if not onlyhex:
         print sane_color(x)
 
+def chexdump(x):
+    x=str(x)
+    print ", ".join(map(lambda x: "%#04x"%ord(x), x))
+    
 def hexstr(x, onlyasc=0, onlyhex=0):
     s = []
     if not onlyasc:
@@ -1190,7 +1194,7 @@ class AutoTime(VolatileValue):
             
 class IntAutoTime(AutoTime):
     def _fix(self):
-        return int(AutoTime.current_val(self))
+        return int(time.time()-self.diff)
 
 
 
@@ -4395,11 +4399,9 @@ class Packet(Gen):
             log_runtime.error("API changed! post_build() now takes 2 arguments. Compatibility is only assured for a short transition time")
             p = self.post_build(pkt+pay)
         if not internal:
-            pkt = self
-            while pkt.haslayer(Padding):
-                pkt = pkt.getlayer(Padding)
-                p += pkt.load
-                pkt = pkt.payload
+            pad = self.payload.getlayer(Padding) 
+            if pad: 
+                p += pad.build()
         return p
 
     def do_build_ps(self):
@@ -7929,11 +7931,12 @@ layer_bonds = [ ( Dot3,   LLC,      { } ),
                 ( SNAP,   ARP,      { "code" : 0x0806 } ),
                 ( SNAP,   IP,       { "code" : 0x0800 } ),
                 ( SNAP,   EAPOL,    { "code" : 0x888e } ),
-                ( IPerror,IPerror,  { "frag" : 0, "proto" : socket.IPPROTO_IP   } ),
+                ( SNAP,   STP,      { "code" : 0x010b } ),
+                ( IPerror,IPerror,  { "frag" : 0, "proto" : socket.IPPROTO_IPIP } ),
                 ( IPerror,ICMPerror,{ "frag" : 0, "proto" : socket.IPPROTO_ICMP } ),
                 ( IPerror,TCPerror, { "frag" : 0, "proto" : socket.IPPROTO_TCP  } ),
                 ( IPerror,UDPerror, { "frag" : 0, "proto" : socket.IPPROTO_UDP  } ),
-                ( IP,     IP,       { "frag" : 0, "proto" : socket.IPPROTO_IP   } ),
+                ( IP,     IP,       { "frag" : 0, "proto" : socket.IPPROTO_IPIP } ),
                 ( IP,     ICMP,     { "frag" : 0, "proto" : socket.IPPROTO_ICMP } ),
                 ( IP,     TCP,      { "frag" : 0, "proto" : socket.IPPROTO_TCP  } ),
                 ( IP,     UDP,      { "frag" : 0, "proto" : socket.IPPROTO_UDP  } ),
@@ -8047,23 +8050,85 @@ del(l)
 
 def fragment(pkt, fragsize=1480):
     fragsize = (fragsize+7)/8*8
-    pkt = pkt.copy()
-    pkt.flags = "MF"
     lst = []
     for p in pkt:
-        s = str(p.payload)
+        s = str(p[IP].payload)
         nb = (len(s)+fragsize-1)/fragsize
         for i in range(nb):            
             q = p.copy()
-            del(q.payload)
-            r = Raw(load=s[i*fragsize:(i+1)*fragsize])
-            r.overload_fields = p.payload.overload_fields.copy()
+            del(q[IP].payload)
+            del(q[IP].chksum)
+            del(q[IP].len)
             if i == nb-1:
-                q.flags=0
-            q.frag = i*fragsize/8
+                q[IP].flags &= ~1
+            else:
+                q[IP].flags |= 1 
+            q[IP].frag = i*fragsize/8
+            r = Raw(load=s[i*fragsize:(i+1)*fragsize])
+            r.overload_fields = p[IP].payload.overload_fields.copy()
             q.add_payload(r)
             lst.append(q)
     return lst
+
+def defrag(plist):
+    """defrag(plist) -> ([not fragmented], [defragmented],
+                  [ [bad fragments], [bad fragments], ... ])"""
+    frags = {}
+    nofrag = PacketList()
+    for p in plist:
+        ip = p[IP]
+        if IP not in p:
+            nofrag.append(p)
+            continue
+        if ip.frag == 0 and ip.flags & 1 == 0:
+            nofrag.append(p)
+            continue
+        uniq = (ip.id,ip.src,ip.dst,ip.proto)
+        if uniq in frags:
+            frags[uniq].append(p)
+        else:
+            frags[uniq] = PacketList([p])
+    defrag = PacketList()
+    missfrag = []
+    for lst in frags.itervalues():
+        lst.sort(lambda x,y:cmp(x.frag, y.frag))
+        p = lst[0]
+        if p.frag > 0:
+            missfrag.append(lst)
+            continue
+        p = p.copy()
+        ip = p[IP]
+        if ip.len is None or ip.ihl is None:
+            clen = len(ip.payload)
+        else:
+            clen = ip.len - (ip.ihl<<2)
+        txt = Raw()
+        for q in lst[1:]:
+            if clen != q.frag<<3:
+                if clen > q.frag<<3:
+                    warning("Fragment overlap (%i > %i) %r || %r ||  %r" % (clen, q.frag<<3, p,txt,q))
+                missfrag.append(lst)
+                txt = None
+                break
+            if q[IP].len is None or q[IP].ihl is None:
+                clen += len(q[IP].payload)
+            else:
+                clen += q[IP].len - (q[IP].ihl<<2)
+            txt.add_payload(q[IP].payload.copy())
+            
+        if txt is None:
+            continue
+
+        ip.flags &= ~1 # !MF
+        del(ip.chksum)
+        del(ip.len)
+        p = p/txt
+        defrag.append(p)
+    return nofrag,defrag,missfrag
+            
+            
+        
+    
 
 
 ###################
