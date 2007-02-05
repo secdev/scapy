@@ -7081,7 +7081,7 @@ def defrag(plist):
             frags[uniq].append(p)
         else:
             frags[uniq] = PacketList([p])
-    defrag = PacketList()
+    defrag = []
     missfrag = []
     for lst in frags.itervalues():
         lst.sort(lambda x,y:cmp(x.frag, y.frag))
@@ -7117,7 +7117,10 @@ def defrag(plist):
         del(ip.len)
         p = p/txt
         defrag.append(p)
-    return nofrag,defrag,missfrag
+    defrag2=PacketList()
+    for p in defrag:
+        defrag2.append(p.__class__(str(p)))
+    return nofrag,defrag2,missfrag
             
             
         
