@@ -24,8 +24,8 @@ from __future__ import generators
 
 BASE_VERSION = "1.0.6.1"
 
-HG_NODE  = "$Node$"
-REVISION = "$Revision$"
+HG_NODE  = "$Node: d2f7e80d3a138b0567cdce73e8832c558916d45b $"
+REVISION = "$Revision: d2f7e80d3a13 $"
 
 VERSION = "v%s / %s" % (BASE_VERSION, (REVISION+"--")[11:23])
 
@@ -1179,7 +1179,27 @@ class RandOID(RandString):
         self.idnum = idnum
     def _fix(self):
         return ".".join(map(str, [self.idnum for i in xrange(1+self.depth)]))
-    
+
+
+class RandASN1Object(RandField):
+    def __init__(self, objlist=None):
+        if objlist is None:
+            objlist = map(lambda x:x._asn1_obj,
+                          filter(lambda x:hasattr(x,"_asn1_obj"), ASN1_Class_UNIVERSAL.__rdict__.values()))
+        self.objlist = objlist
+        self.chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+    def _fix(self, n=0):
+        o = random.choice(self.objlist)
+        if issubclass(o, ASN1_INTEGER):
+            return o(int(random.gauss(0,1000)))
+        elif issubclass(o, ASN1_STRING):
+            z = int(random.expovariate(0.05)+1)
+            return o("".join([random.choice(self.chars) for i in range(z)]))
+        elif issubclass(o, ASN1_SEQUENCE) and (n < 10):
+            z = int(random.expovariate(0.08)+1)
+            return o(map(lambda x:x._fix(n+1), [self.__class__(objlist=self.objlist)]*z))
+        return ASN1_INTEGER(int(random.gauss(0,1000)))
+
 
 # Automatic timestamp
 
