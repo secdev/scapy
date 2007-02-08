@@ -50,6 +50,9 @@ def usage():
 ##### Logging subsystem #####
 #############################
 
+class Scapy_Exception(Exception):
+    pass
+
 import logging,traceback,time
 
 class ScapyFreqFilter(logging.Filter):
@@ -651,7 +654,7 @@ class Route:
             thenet,msk = net.split("/")
             msk = int(msk)
         else:
-            raise Exception("make_route: Incorrect parameters. You should specify a host or a net")
+            raise Scapy_Exception("make_route: Incorrect parameters. You should specify a host or a net")
         if gw is None:
             gw="0.0.0.0"
         if dev is None:
@@ -762,7 +765,7 @@ if DNET:
             l = dnet.intf().get(iff)
             l = l["link_addr"]
         except:
-            raise Exception("Error in attempting to get hw address for interface [%s]" % iff)
+            raise Scapy_Exception("Error in attempting to get hw address for interface [%s]" % iff)
         return l.type,l.data
     def get_if_raw_addr(ifname):
         i = dnet.intf()
@@ -826,7 +829,7 @@ else:
             return
         lines = f.readlines()
         if f.close():
-            raise Exception("Filter parse error")
+            raise Scapy_Exception("Filter parse error")
         nb = int(lines[0])
         bpf = ""
         for l in lines[1:]:
@@ -990,7 +993,7 @@ def get_if_hwaddr(iff):
     if addrfamily in [ARPHDR_ETHER,ARPHDR_LOOPBACK]:
         return str2mac(mac)
     else:
-        raise Exception("Unsupported address family (%i) for interface [%s]" % (addrfamily,iff))
+        raise Scapy_Exception("Unsupported address family (%i) for interface [%s]" % (addrfamily,iff))
 
 
 
@@ -3421,7 +3424,7 @@ class StrStopField(StrField):
         l = s.find(self.stop)
         if l < 0:
             return "",s
-#            raise Exception,"StrStopField: stop value [%s] not found" %stop
+#            raise Scapy_Exception,"StrStopField: stop value [%s] not found" %stop
         l += len(self.stop)+self.additionnal
         return s[l:],s[:l]
     def randval(self):
@@ -3745,7 +3748,7 @@ class DNSStrField(StrField):
             if not l:
                 break
             if l & 0xc0:
-                raise Exception("DNS message can't be compressed at this point!")
+                raise Scapy_Exception("DNS message can't be compressed at this point!")
             else:
                 n += s[:l]+"."
                 s = s[l:]
@@ -4932,7 +4935,7 @@ A side effect is that, to obtain "{" and "}" characters, you must use
             cond = fmt[i+1:i+j+1]
             k = cond.find(":")
             if k < 0:
-                raise Exception("Bad condition in format string: [%s] (read sprintf doc!)"%cond)
+                raise Scapy_Exception("Bad condition in format string: [%s] (read sprintf doc!)"%cond)
             cond,format = cond[:k],cond[k+1:]
             res = False
             if cond[0] == "!":
@@ -4964,7 +4967,7 @@ A side effect is that, to obtain "{" and "}" characters, you must use
                 elif len(fclsfld) == 2:
                     f,clsfld = fclsfld
                 else:
-                    raise Exception
+                    raise Scapy_Exception
                 if "." in clsfld:
                     cls,fld = clsfld.split(".")
                 else:
@@ -4976,7 +4979,7 @@ A side effect is that, to obtain "{" and "}" characters, you must use
                     num = int(num)
                 fmt = fmt[i+1:]
             except:
-                raise Exception("Bad format string [%%%s%s]" % (fmt[:25], fmt[25:] and "..."))
+                raise Scapy_Exception("Bad format string [%%%s%s]" % (fmt[:25], fmt[25:] and "..."))
             else:
                 if fld == "time":
                     val = time.strftime("%H:%M:%S.%%06i", time.localtime(self.time)) % int((self.time-int(self.time))*1000000)
@@ -5093,7 +5096,7 @@ class NoPayload(Packet,object):
     def dissection_done(self,pkt):
         return
     def add_payload(self, payload):
-        raise Exception("Can't add payload to NoPayload instance")
+        raise Scapy_Exception("Can't add payload to NoPayload instance")
     def remove_payload(self):
         pass
     def add_underlayer(self,underlayer):
@@ -5145,7 +5148,7 @@ class NoPayload(Packet,object):
         if relax:
             return "??"
         else:
-            raise Exception("Format not found [%s]"%fmt)
+            raise Scapy_Exception("Format not found [%s]"%fmt)
     def summary(self, intern=0):
         return 0,"",[]
     def lastlayer(self,layer):
@@ -5168,7 +5171,7 @@ class ChangeDefaultValues(type):
                 fields = b.fields_desc[:]
                 break
         if fields is None:
-            raise Exception("No fields_desc in superclasses")
+            raise Scapy_Exception("No fields_desc in superclasses")
 
         del(dct["new_default_values"])
         new_fields = []
@@ -5189,7 +5192,7 @@ class NewDefaultValues(type):
                 fields = b.fields_desc[:]
                 break
         if fields is None:
-            raise Exception("No fields_desc in superclasses")
+            raise Scapy_Exception("No fields_desc in superclasses")
 
         new_fields = []
         for f in fields:
@@ -8110,6 +8113,17 @@ def fragment(pkt, fragsize=1480):
             lst.append(q)
     return lst
 
+def overlap_frag(p, overlap, fragsize=8, overlap_fragsize=None):
+    if overlap_fragsize is None:
+        overlap_fragsize = fragsize
+    q = p.copy()
+    del(q[IP].payload)
+    q[IP].add_payload(overlap)
+
+    qfrag = fragment(q, overlap_fragsize)
+    qfrag[-1][IP].flags |= 1
+    return qfrag+fragment(p, fragsize)
+
 def defrag(plist):
     """defrag(plist) -> ([not fragmented], [defragmented],
                   [ [bad fragments], [bad fragments], ... ])"""
@@ -8443,7 +8457,7 @@ class L2ListenSocket(SuperSocket):
         return pkt
     
     def send(self, x):
-        raise Exception("Can't send anything with L2ListenSocket")
+        raise Scapy_Exception("Can't send anything with L2ListenSocket")
 
 
 
@@ -8641,7 +8655,7 @@ class L2pcapListenSocket(SuperSocket):
         return pkt
 
     def send(self, x):
-        raise Exception("Can't send anything with L2pcapListenSocket")
+        raise Scapy_Exception("Can't send anything with L2pcapListenSocket")
 
 
 class SimpleSocket(SuperSocket):
