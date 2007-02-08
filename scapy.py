@@ -24,8 +24,8 @@ from __future__ import generators
 
 BASE_VERSION = "1.0.6.1"
 
-HG_NODE  = "$Node$"
-REVISION = "$Revision$"
+HG_NODE  = "$Node: 5dd72961315511e6887500d8e2c52c474c600ab9 $"
+REVISION = "$Revision: 5dd729613155 $"
 
 VERSION = "v%s / %s" % (BASE_VERSION, (REVISION+"--")[11:23])
 
@@ -7065,6 +7065,17 @@ def fragment(pkt, fragsize=1480):
             q.add_payload(r)
             lst.append(q)
     return lst
+
+def overlap_frag(p, overlap, fragsize=8, overlap_fragsize=None):
+    if overlap_fragsize is None:
+        overlap_fragsize = fragsize
+    q = p.copy()
+    del(q[IP].payload)
+    q[IP].add_payload(overlap)
+
+    qfrag = fragment(q, overlap_fragsize)
+    qfrag[-1][IP].flags |= 1
+    return qfrag+fragment(p, fragsize)
 
 def defrag(plist):
     """defrag(plist) -> ([not fragmented], [defragmented],
