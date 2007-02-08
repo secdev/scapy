@@ -1174,11 +1174,31 @@ class RandMAC(RandString):
     
 
 class RandOID(RandString):
-    def __init__(self, depth=RandNumExpo(0.1), idnum=RandNumExpo(0.01)):
+    def __init__(self, fmt=None, depth=RandNumExpo(0.1), idnum=RandNumExpo(0.01)):
+        if fmt is not None:
+            fmt = fmt.split(".")
+            for i in range(len(fmt)):
+                if "-" in fmt[i]:
+                    fmt[i] = tuple(map(int, fmt[i].split("-")))
+        self.fmt = fmt
         self.depth = depth
         self.idnum = idnum
     def _fix(self):
-        return ".".join(map(str, [self.idnum for i in xrange(1+self.depth)]))
+        if self.fmt is None:
+            return ".".join(map(str, [self.idnum for i in xrange(1+self.depth)]))
+        else:
+            oid = []
+            for i in self.fmt:
+                if i == "*":
+                    oid.append(str(self.idnum))
+                elif i == "**":
+                    oid += map(str, [self.idnum for i in xrange(1+self.depth)])
+                elif type(i) is tuple:
+                    oid.append(str(random.randrange(*i)))
+                else:
+                    oid.append(i)
+            return ".".join(oid)
+            
 
 
 class RandASN1Object(RandField):
