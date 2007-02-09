@@ -1579,13 +1579,14 @@ def BER_len_dec(s):
             ll |= ord(c)
         return ll,s[l+1:]
         
-def BER_num_enc(l):
+def BER_num_enc(l, size=0):
         x=[]
-        while l:
+        while l or size>0:
             x.insert(0, l & 0x7f)
             if len(x) > 1:
                 x[0] |= 0x80
             l >>= 7
+            size -= 1
         return "".join([chr(k) for k in x])
 def BER_num_dec(s):
         x = 0
