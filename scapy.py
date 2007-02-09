@@ -1718,6 +1718,10 @@ class BERcodec_BOOLEAN(BERcodec_INTEGER):
 
 class BERcodec_NULL(BERcodec_INTEGER):
     tag = ASN1_Class_UNIVERSAL.NULL
+    @classmethod
+    def enc(cls, i):
+        if i == 0:
+            return chr(cls.tag)+"\0"
 
 class BERcodec_STRING(BERcodec_Object):
     tag = ASN1_Class_UNIVERSAL.STRING
