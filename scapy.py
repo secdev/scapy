@@ -1178,6 +1178,7 @@ class RandMAC(RandString):
 
 class RandOID(RandString):
     def __init__(self, fmt=None, depth=RandNumExpo(0.1), idnum=RandNumExpo(0.01)):
+        self.ori_fmt = fmt
         if fmt is not None:
             fmt = fmt.split(".")
             for i in range(len(fmt)):
@@ -1186,6 +1187,11 @@ class RandOID(RandString):
         self.fmt = fmt
         self.depth = depth
         self.idnum = idnum
+    def __repr__(self):
+        if self.ori_fmt is None:
+            return "<%s>" % self.__class__.__name__
+        else:
+            return "<%s [%s]>" % (self.__class__.__name__, self.ori_fmt)
     def _fix(self):
         if self.fmt is None:
             return ".".join(map(str, [self.idnum for i in xrange(1+self.depth)]))
