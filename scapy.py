@@ -1555,13 +1555,14 @@ class BER_Decoding_Error(ASN1_Decoding_Error):
 class BER_BadTag_Decoding_Error(BER_Decoding_Error, ASN1_BadTag_Decoding_Error):
     pass
 
-def BER_len_enc(l):
-        if l <= 127:
+def BER_len_enc(l, size=0):
+        if l <= 127 and size==0:
             return chr(l)
         s = ""
-        while l:
+        while l or size>0:
             s = chr(l&0xff)+s
             l >>= 8L
+            size -= 1
         if len(s) > 127:
             raise BER_Exception("BER_len_enc: Length too long (%i) to be encoded [%r]" % (len(s),s))
         return chr(len(s)|0x80)+s
