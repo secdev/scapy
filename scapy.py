@@ -1884,6 +1884,36 @@ class Net(Gen):
     def __repr__(self):
         return "Net(%r)" % self.repr
 
+class OID(Gen):
+    name = "OID"
+    def __init__(self, oid):
+        self.oid = oid        
+        self.cmpt = []
+        fmt = []        
+        for i in oid.split("."):
+            if "-" in i:
+                fmt.append("%i")
+                self.cmpt.append(tuple(map(int, i.split("-"))))
+            else:
+                fmt.append(i)
+        self.fmt = ".".join(fmt)
+    def __repr__(self):
+        return "OID(%r)" % self.oid
+    def __iter__(self):        
+        ii = [k[0] for k in self.cmpt]
+        while 1:
+            yield self.fmt % tuple(ii)
+            i = 0
+            while 1:
+                if i >= len(ii):
+                    raise StopIteration
+                if ii[i] < self.cmpt[i][1]:
+                    ii[i]+=1
+                    break
+                else:
+                    ii[i] = self.cmpt[i][0]
+                i += 1
+ 
 
 #############
 ## Results ##
