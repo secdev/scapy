@@ -465,31 +465,43 @@ def hexdiff(x,y, gran=2):
     if j < len(y):
         diff.append((+1,y[j:]))
 
+    colorize = { 0: lambda x:x,
+                -1: conf.color_theme.left,
+                 1: conf.color_theme.right }
     i = j = 0
     for s,h in diff:
         
         l = len(h)
         u = -(j%16)
         while u < l:
+            line = ""
             if s <= 0:
-                print "%04x" % (i+u),
+                line += "%04x " % (i+u)
             else:
-                print "    ",
+                line += "     "
             if s >= 0:
-                print "%04x  " % (j+u),
+                line += "%04x   " % (j+u)
             else:
-                print "      ",
-                
+                line += "       "
+            ch = ""
             for v in range(16):
                 if 0 <= u+v < l:
-                    print "%02X" % ord(h[u+v]),
+                    c = h[u+v]
+                    line += "%02X " % ord(c)
+                    if 32 <= ord(c) < 127:
+                        ch += colorize[s](c)
+                    else:
+                        ch += conf.color_theme.not_printable(".")
                 else:
-                    print "  ",
+                    line += "   "
+                    ch += " "
                 if v%16 == 7:
-                    print "",
-            print " ",
-            print sane_color((" "*16+h)[u+16:u+32])
+                    line += " "
+            line += "  "
+            line = colorize[s](line)
+            line += ch
             u += 16
+            print line
         if s <= 0:
             i += l
         if s >= 0:
