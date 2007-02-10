@@ -469,7 +469,7 @@ def hexdiff(x,y, gran=2):
     for s,h in diff:
         
         l = len(h)
-        u = 0
+        u = -(j%16)
         while u < l:
             if s <= 0:
                 print "%04x" % (i+u),
@@ -481,14 +481,14 @@ def hexdiff(x,y, gran=2):
                 print "      ",
                 
             for v in range(16):
-                if u+v < l:
+                if 0 <= u+v < l:
                     print "%02X" % ord(h[u+v]),
                 else:
                     print "  ",
                 if v%16 == 7:
                     print "",
             print " ",
-            print sane_color(h[u:u+16])
+            print sane_color((" "*16+h)[u+16:u+32])
             u += 16
         if s <= 0:
             i += l
