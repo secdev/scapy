@@ -9956,6 +9956,8 @@ class AnsiColorTheme(ColorTheme):
     style_opening = ""
     style_active = ""
     style_closed = ""
+    style_left = ""
+    style_right = ""
 
 class BlackAndWhite(AnsiColorTheme):
     pass
@@ -9981,6 +9983,8 @@ class DefaultTheme(AnsiColorTheme):
     style_opening = Color.yellow
     style_active = Color.black
     style_closed = Color.grey
+    style_left = Color.blue
+    style_right = Color.red
     
 class BrightTheme(AnsiColorTheme):
     style_normal = Color.normal
@@ -9998,6 +10002,8 @@ class BrightTheme(AnsiColorTheme):
     style_success = Color.blue+Color.bold
     style_even = Color.black+Color.bold
     style_odd = Color.black
+    style_left = Color.cyan
+    style_right = Color.purple
 
 
 class RastaTheme(AnsiColorTheme):
@@ -10018,6 +10024,8 @@ class RastaTheme(AnsiColorTheme):
     style_success = Color.red+Color.bold
     style_even = Color.yellow
     style_odd = Color.green
+    style_left = Color.green
+    style_right = Color.yellow
 
 
 class FormatTheme(ColorTheme):
@@ -10046,6 +10054,8 @@ class LatexTheme(FormatTheme):
     style_packetlist_value = r"\textcolor{purple}{%s}"
     style_fail = r"\textcolor{red}{\bf %s}"
     style_success = r"\textcolor{blue}{\bf %s}"
+    style_left = r"\textcolor{blue}{%s}"
+    style_right = r"\textcolor{red}{%s}"
 #    style_even = r"}{\bf "
 #    style_odd = ""
 
@@ -10064,6 +10074,8 @@ class LatexTheme2(FormatTheme):
     style_success = r"@`@textcolor@[@blue@]@@[@@`@bfserices@[@@]@%s@]@"
     style_even = r"@`@textcolor@[@gray@]@@[@@`@bfseries@[@@]@%s@]@"
 #    style_odd = r"@`@textcolor@[@black@]@@[@@`@bfseries@[@@]@%s@]@"
+    style_left = r"@`@textcolor@[@blue@]@@[@%s@]@"
+    style_right = r"@`@textcolor@[@red@]@@[@%s@]@"
 
 class HTMLTheme(FormatTheme):
     style_prompt = "<span class=prompt>%s</span>"
@@ -10080,6 +10092,8 @@ class HTMLTheme(FormatTheme):
     style_success = "<span class=success>%s</span>"
     style_even = "<span class=even>%s</span>"
     style_odd = "<span class=odd>%s</span>"
+    style_left = "<span class=left>%s</span>"
+    style_right = "<span class=right>%s</span>"
 
 class HTMLTheme2(HTMLTheme):
     style_prompt = "#[#span class=prompt#]#%s#[#/span#]#"
@@ -10096,6 +10110,8 @@ class HTMLTheme2(HTMLTheme):
     style_success = "#[#span class=success#]#%s#[#/span#]#"
     style_even = "#[#span class=even#]#%s#[#/span#]#"
     style_odd = "#[#span class=odd#]#%s#[#/span#]#"
+    style_left = "#[#span class=left#]#%s#[#/span#]#"
+    style_right = "#[#span class=right#]#%s#[#/span#]#"
 
 
 class ColorPrompt:
