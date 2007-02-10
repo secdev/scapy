@@ -434,11 +434,11 @@ def hexdiff(x,y, gran=2):
             i += 1; j+= 1
             continue
         k = l = -1
-        if i+gran < len(x):
+        if i+gran < len(x) or j+gran >= len(y):
             k = y[jj:j+gran].find(x[i:i+gran])
         if k != -1:
             j = jj+k
-        if j+gran < len(y):
+        if j+gran < len(y) or i+gran >= len(x):
             l = x[ii:i+gran].find(y[j:j+gran])
         if l != -1:
             i = ii+l
