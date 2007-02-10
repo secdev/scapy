@@ -10036,7 +10036,7 @@ class RastaTheme(AnsiColorTheme):
     style_success = Color.red+Color.bold
     style_even = Color.yellow
     style_odd = Color.green
-    style_left = Color.green
+    style_left = Color.red
     style_right = Color.yellow
 
 
