@@ -9931,6 +9931,8 @@ class NoTheme(ColorTheme):
 
 class AnsiColorTheme(ColorTheme):
     def __getattr__(self, attr):
+        if attr.startswith("__"):
+            raise AttributeError(attr)
         s = "style_%s" % attr 
         if s in self.__class__.__dict__:
             before = getattr(self, s)
@@ -10042,6 +10044,8 @@ class RastaTheme(AnsiColorTheme):
 
 class FormatTheme(ColorTheme):
     def __getattr__(self, attr):
+        if attr.startswith("__"):
+            raise AttributeError(attr)
         col = self.__class__.__dict__.get("style_%s" % attr, "%s")
         def do_style(val, fmt=None, col=col):
             if fmt is None:
