@@ -24,8 +24,8 @@ from __future__ import generators
 
 BASE_VERSION = "1.0.6.1"
 
-HG_NODE  = "$Node: 5dd72961315511e6887500d8e2c52c474c600ab9 $"
-REVISION = "$Revision: 5dd729613155 $"
+HG_NODE  = "$Node$"
+REVISION = "$Revision$"
 
 VERSION = "v%s / %s" % (BASE_VERSION, (REVISION+"--")[11:23])
 
@@ -406,7 +406,96 @@ def hexstr(x, onlyasc=0, onlyhex=0):
     if not onlyhex:
         s.append(sane(x)) 
     return "  ".join(s)
-    
+
+
+def hexdiff(x,y, gran=2):
+    """hexdiff(before, after, gran=2)
+    gran: granularity in bytes for similarity matching. Must be >= 1"""
+    x=str(x)
+    y=str(y)
+    if gran <= 0:
+        gran = 1
+
+    i=j=0
+    ii=jj=-1
+
+    diff = []
+    cdiff = ""
+    while i < len(x) and j < len(y):
+        if x[i] == y[j] and ii == jj == -1:
+            cdiff += x[i]
+            i+=1; j+=1
+            continue
+        if ii == jj == -1:
+            if cdiff:
+                diff.append((0,cdiff))
+                cdiff = ""
+            ii = i; jj = j
+            i += 1; j+= 1
+            continue
+        k = l = -1
+        if i+gran < len(x):
+            k = y[jj:j+gran].find(x[i:i+gran])
+        if k != -1:
+            j = jj+k
+        if j+gran < len(y):
+            l = x[ii:i+gran].find(y[j:j+gran])
+        if l != -1:
+            i = ii+l
+            
+        if k != -1 or l != -1:
+            if i != ii:
+                diff.append((-1, x[ii:i]))
+            if j != jj:
+                diff.append((+1, y[jj:j]))
+            ii = jj = -1
+        else:
+            i += 1
+            j += 1
+
+    if cdiff:
+        diff.append((0,cdiff))
+
+    if ii>=0:
+        i=ii
+    if i < len(x):
+        diff.append((-1,x[i:]))
+    if jj>=0:
+        j=jj
+    if j < len(y):
+        diff.append((+1,y[j:]))
+
+    i = j = 0
+    for s,h in diff:
+        
+        l = len(h)
+        u = 0
+        while u < l:
+            if s <= 0:
+                print "%04x" % (i+u),
+            else:
+                print "    ",
+            if s >= 0:
+                print "%04x  " % (j+u),
+            else:
+                print "      ",
+                
+            for v in range(16):
+                if u+v < l:
+                    print "%02X" % ord(h[u+v]),
+                else:
+                    print "  ",
+                if v%16 == 7:
+                    print "",
+            print " ",
+            print sane_color(h[u:u+16])
+            u += 16
+        if s <= 0:
+            i += l
+        if s >= 0:
+            j += l
+
+
 if BIG_ENDIAN:
     CRCPOLY=0x04c11db7L
 else:
