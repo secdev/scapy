@@ -3611,10 +3611,15 @@ class Packet(Gen):
                 return f[attr]
         return self.payload.getfieldval(attr)
     
+    def getfield_and_val(self, attr):
+        for f in self.fields, self.overloaded_fields, self.default_fields:
+            if f.has_key(attr):
+                return self.fieldtype.get(attr),f[attr]
+        return self.payload.getfield_and_val(attr)
+    
     def __getattr__(self, attr):
         if self.initialized:
-            v = self.getfieldval(attr)
-            fld = self.fieldtype.get(attr,None)
+            fld,v = self.getfield_and_val(attr)
             if fld is not None:
                 return fld.i2h(self, v)
             return v
@@ -4394,6 +4399,8 @@ class NoPayload(Packet,object):
     def build_ps(self, internal=0):
         return "",[]
     def getfieldval(self, attr):
+        raise AttributeError(attr)
+    def getfield_and_val(self, attr):
         raise AttributeError(attr)
     def __getattr__(self, attr):
         if attr in self.__dict__:
