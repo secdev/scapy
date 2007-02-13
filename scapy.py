@@ -368,6 +368,16 @@ def sane(x):
             r=r+i
     return r
 
+def lhex(x):
+    if type(x) is int:
+        return hex(x)
+    elif type(x) is tuple:
+        return "(%s)" % ", ".join(map(lhex, x))
+    elif type(x) is list:
+        return "[%s]" % ", ".join(map(lhex, x))
+    else:
+        return x
+
 def hexdump(x):
     x=str(x)
     l = len(x)
@@ -2568,7 +2578,7 @@ class XByteField(ByteField):
     def i2repr(self, pkt, x):
         if x is None:
             x = 0
-        return hex(self.i2h(pkt, x))
+        return lhex(self.i2h(pkt, x))
 
 class X3BytesField(XByteField):
     def __init__(self, name, default):
@@ -2591,7 +2601,7 @@ class XShortField(ShortField):
     def i2repr(self, pkt, x):
         if x is None:
             x = 0
-        return hex(self.i2h(pkt, x))
+        return lhex(self.i2h(pkt, x))
 
 
 class IntField(Field):
@@ -2614,7 +2624,7 @@ class XIntField(IntField):
     def i2repr(self, pkt, x):
         if x is None:
             x = 0
-        return hex(self.i2h(pkt, x))
+        return lhex(self.i2h(pkt, x))
 
 
 class LongField(Field):
@@ -2625,7 +2635,7 @@ class XLongField(LongField):
     def i2repr(self, pkt, x):
         if x is None:
             x = 0
-        return hex(self.i2h(pkt, x))
+        return lhex(self.i2h(pkt, x))
 
 
 class StrField(Field):
@@ -3021,7 +3031,7 @@ class BitField(Field):
 
 class XBitField(BitField):
     def i2repr(self, pkt, x):
-        return hex(self.i2h(pkt,x))
+        return lhex(self.i2h(pkt,x))
 
 
 class EnumField(Field):
@@ -3098,7 +3108,7 @@ class LEIntEnumField(EnumField):
 
 class XShortEnumField(ShortEnumField):
     def i2repr_one(self, pkt, x):
-        return self.i2s.get(x, hex(x))            
+        return self.i2s.get(x, lhex(x))            
 
 # Little endian long field
 class LELongField(Field):
