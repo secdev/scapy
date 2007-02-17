@@ -418,8 +418,8 @@ def hexstr(x, onlyasc=0, onlyhex=0):
     return "  ".join(s)
 
 
-def hexdiff(x,y, gran=2):
-    """hexdiff(before, after, gran=2)
+def hexdiff(x,y, gran=5):
+    """hexdiff(before, after, gran=5)
     gran: granularity in bytes for similarity matching. Must be >= 1"""
     x=str(x)
     y=str(y)
