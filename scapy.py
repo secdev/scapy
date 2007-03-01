@@ -24,8 +24,8 @@ from __future__ import generators
 
 BASE_VERSION = "1.0.6.1"
 
-HG_NODE  = "$Node$"
-REVISION = "$Revision$"
+HG_NODE  = "$Node: 0197845b4ed7048798163a4f00c4b5a37025a49e $"
+REVISION = "$Revision: 0197845b4ed7 $"
 
 VERSION = "v%s / %s" % (BASE_VERSION, (REVISION+"--")[11:23])
 
@@ -4831,11 +4831,15 @@ class TCP(Packet):
             p = p[:12]+chr((dataofs << 4) | ord(p[12])&0x0f)+p[13:]
         if self.chksum is None:
             if isinstance(self.underlayer, IP):
+                if self.underlayer.len is not None:
+                    ln = self.underlayer.len-20
+                else:
+                    ln = len(p)
                 psdhdr = struct.pack("!4s4sHH",
                                      inet_aton(self.underlayer.src),
                                      inet_aton(self.underlayer.dst),
                                      self.underlayer.proto,
-                                     len(p))
+                                     ln)
                 ck=checksum(psdhdr+p)
                 p = p[:16]+struct.pack("!H", ck)+p[18:]
             elif isinstance(self.underlayer, IPv6) or isinstance(self.underlayer, _IPv6OptionHeader):
@@ -4881,11 +4885,15 @@ class UDP(Packet):
             p = p[:4]+struct.pack("!H",l)+p[6:]
         if self.chksum is None:
             if isinstance(self.underlayer, IP):
+                if self.underlayer.len is not None:
+                    ln = self.underlayer.len-20
+                else:
+                    ln = len(p)
                 psdhdr = struct.pack("!4s4sHH",
                                      inet_aton(self.underlayer.src),
                                      inet_aton(self.underlayer.dst),
                                      self.underlayer.proto,
-                                     len(p))
+                                     ln)
                 ck=checksum(psdhdr+p)
                 p = p[:6]+struct.pack("!H", ck)+p[8:]
             elif isinstance(self.underlayer, IPv6) or isinstance(self.underlayer, _IPv6OptionHeader):
