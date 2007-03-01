@@ -368,6 +368,16 @@ def sane(x):
             r=r+i
     return r
 
+def lhex(x):
+    if type(x) is int:
+        return hex(x)
+    elif type(x) is tuple:
+        return "(%s)" % ", ".join(map(lhex, x))
+    elif type(x) is list:
+        return "[%s]" % ", ".join(map(lhex, x))
+    else:
+        return x
+
 def hexdump(x):
     x=str(x)
     l = len(x)
@@ -406,7 +416,108 @@ def hexstr(x, onlyasc=0, onlyhex=0):
     if not onlyhex:
         s.append(sane(x)) 
     return "  ".join(s)
-    
+
+
+def hexdiff(x,y, gran=5):
+    """hexdiff(before, after, gran=5)
+    gran: granularity in bytes for similarity matching. Must be >= 1"""
+    x=str(x)
+    y=str(y)
+    if gran <= 0:
+        gran = 1
+
+    i=j=0
+    ii=jj=-1
+
+    diff = []
+    cdiff = ""
+    while i < len(x) and j < len(y):
+        if x[i] == y[j] and ii == jj == -1:
+            cdiff += x[i]
+            i+=1; j+=1
+            continue
+        if ii == jj == -1:
+            if cdiff:
+                diff.append((0,cdiff))
+                cdiff = ""
+            ii = i; jj = j
+            i += 1; j+= 1
+            continue
+        k = l = -1
+        if i+gran < len(x) or j+gran >= len(y):
+            k = y[jj:j+gran].find(x[i:i+gran])
+        if k != -1:
+            j = jj+k
+        if j+gran < len(y) or i+gran >= len(x):
+            l = x[ii:i+gran].find(y[j:j+gran])
+        if l != -1:
+            i = ii+l
+            
+        if k != -1 or l != -1:
+            if i != ii:
+                diff.append((-1, x[ii:i]))
+            if j != jj:
+                diff.append((+1, y[jj:j]))
+            ii = jj = -1
+        else:
+            i += 1
+            j += 1
+
+    if cdiff:
+        diff.append((0,cdiff))
+
+    if ii>=0:
+        i=ii
+    if i < len(x):
+        diff.append((-1,x[i:]))
+    if jj>=0:
+        j=jj
+    if j < len(y):
+        diff.append((+1,y[j:]))
+
+    colorize = { 0: lambda x:x,
+                -1: conf.color_theme.left,
+                 1: conf.color_theme.right }
+    i = j = 0
+    for s,h in diff:
+        
+        l = len(h)
+        u = -(j%16)
+        while u < l:
+            line = ""
+            if s <= 0:
+                line += "%04x " % (i+u)
+            else:
+                line += "     "
+            if s >= 0:
+                line += "%04x   " % (j+u)
+            else:
+                line += "       "
+            ch = ""
+            for v in range(16):
+                if 0 <= u+v < l:
+                    c = h[u+v]
+                    line += "%02X " % ord(c)
+                    if 32 <= ord(c) < 127:
+                        ch += colorize[s](c)
+                    else:
+                        ch += conf.color_theme.not_printable(".")
+                else:
+                    line += "   "
+                    ch += " "
+                if v%16 == 7:
+                    line += " "
+            line += "  "
+            line = colorize[s](line)
+            line += ch
+            u += 16
+            print line
+        if s <= 0:
+            i += l
+        if s >= 0:
+            j += l
+
+
 if BIG_ENDIAN:
     CRCPOLY=0x04c11db7L
 else:
@@ -3088,7 +3199,7 @@ class XByteField(ByteField):
     def i2repr(self, pkt, x):
         if x is None:
             x = 0
-        return hex(self.i2h(pkt, x))
+        return lhex(self.i2h(pkt, x))
 
 class X3BytesField(XByteField):
     def __init__(self, name, default):
@@ -3111,7 +3222,7 @@ class XShortField(ShortField):
     def i2repr(self, pkt, x):
         if x is None:
             x = 0
-        return hex(self.i2h(pkt, x))
+        return lhex(self.i2h(pkt, x))
 
 
 class IntField(Field):
@@ -3134,7 +3245,7 @@ class XIntField(IntField):
     def i2repr(self, pkt, x):
         if x is None:
             x = 0
-        return hex(self.i2h(pkt, x))
+        return lhex(self.i2h(pkt, x))
 
 
 class LongField(Field):
@@ -3145,7 +3256,7 @@ class XLongField(LongField):
     def i2repr(self, pkt, x):
         if x is None:
             x = 0
-        return hex(self.i2h(pkt, x))
+        return lhex(self.i2h(pkt, x))
 
 
 class StrField(Field):
@@ -3541,7 +3652,7 @@ class BitField(Field):
 
 class XBitField(BitField):
     def i2repr(self, pkt, x):
-        return hex(self.i2h(pkt,x))
+        return lhex(self.i2h(pkt,x))
 
 
 class EnumField(Field):
@@ -3618,7 +3729,7 @@ class LEIntEnumField(EnumField):
 
 class XShortEnumField(ShortEnumField):
     def i2repr_one(self, pkt, x):
-        return self.i2s.get(x, hex(x))            
+        return self.i2s.get(x, lhex(x))            
 
 # Little endian long field
 class LELongField(Field):
@@ -4364,10 +4475,15 @@ class Packet(Gen):
                 return f[attr]
         return self.payload.getfieldval(attr)
     
+    def getfield_and_val(self, attr):
+        for f in self.fields, self.overloaded_fields, self.default_fields:
+            if f.has_key(attr):
+                return self.fieldtype.get(attr),f[attr]
+        return self.payload.getfield_and_val(attr)
+    
     def __getattr__(self, attr):
         if self.initialized:
-            v = self.getfieldval(attr)
-            fld = self.fieldtype.get(attr,None)
+            fld,v = self.getfield_and_val(attr)
             if fld is not None:
                 return fld.i2h(self, v)
             return v
@@ -5159,6 +5275,8 @@ class NoPayload(Packet,object):
         return "",[]
     def getfieldval(self, attr):
         raise AttributeError(attr)
+    def getfield_and_val(self, attr):
+        raise AttributeError(attr)
     def __getattr__(self, attr):
         if attr in self.__dict__:
             return self.__dict__[attr]
@@ -5578,11 +5696,15 @@ class TCP(Packet):
             p = p[:12]+chr((dataofs << 4) | ord(p[12])&0x0f)+p[13:]
         if self.chksum is None:
             if isinstance(self.underlayer, IP):
+                if self.underlayer.len is not None:
+                    ln = self.underlayer.len-20
+                else:
+                    ln = len(p)
                 psdhdr = struct.pack("!4s4sHH",
                                      inet_aton(self.underlayer.src),
                                      inet_aton(self.underlayer.dst),
                                      self.underlayer.proto,
-                                     len(p))
+                                     ln)
                 ck=checksum(psdhdr+p)
                 p = p[:16]+struct.pack("!H", ck)+p[18:]
             elif isinstance(self.underlayer, IPv6) or isinstance(self.underlayer, _IPv6OptionHeader):
@@ -5628,11 +5750,15 @@ class UDP(Packet):
             p = p[:4]+struct.pack("!H",l)+p[6:]
         if self.chksum is None:
             if isinstance(self.underlayer, IP):
+                if self.underlayer.len is not None:
+                    ln = self.underlayer.len-20
+                else:
+                    ln = len(p)
                 psdhdr = struct.pack("!4s4sHH",
                                      inet_aton(self.underlayer.src),
                                      inet_aton(self.underlayer.dst),
                                      self.underlayer.proto,
-                                     len(p))
+                                     ln)
                 ck=checksum(psdhdr+p)
                 p = p[:6]+struct.pack("!H", ck)+p[8:]
             elif isinstance(self.underlayer, IPv6) or isinstance(self.underlayer, _IPv6OptionHeader):
@@ -10919,6 +11045,8 @@ class NoTheme(ColorTheme):
 
 class AnsiColorTheme(ColorTheme):
     def __getattr__(self, attr):
+        if attr.startswith("__"):
+            raise AttributeError(attr)
         s = "style_%s" % attr 
         if s in self.__class__.__dict__:
             before = getattr(self, s)
@@ -10956,6 +11084,8 @@ class AnsiColorTheme(ColorTheme):
     style_opening = ""
     style_active = ""
     style_closed = ""
+    style_left = ""
+    style_right = ""
 
 class BlackAndWhite(AnsiColorTheme):
     pass
@@ -10981,6 +11111,8 @@ class DefaultTheme(AnsiColorTheme):
     style_opening = Color.yellow
     style_active = Color.black
     style_closed = Color.grey
+    style_left = Color.blue
+    style_right = Color.red
     
 class BrightTheme(AnsiColorTheme):
     style_normal = Color.normal
@@ -10998,6 +11130,8 @@ class BrightTheme(AnsiColorTheme):
     style_success = Color.blue+Color.bold
     style_even = Color.black+Color.bold
     style_odd = Color.black
+    style_left = Color.cyan
+    style_right = Color.purple
 
 
 class RastaTheme(AnsiColorTheme):
@@ -11018,10 +11152,14 @@ class RastaTheme(AnsiColorTheme):
     style_success = Color.red+Color.bold
     style_even = Color.yellow
     style_odd = Color.green
+    style_left = Color.red
+    style_right = Color.yellow
 
 
 class FormatTheme(ColorTheme):
     def __getattr__(self, attr):
+        if attr.startswith("__"):
+            raise AttributeError(attr)
         col = self.__class__.__dict__.get("style_%s" % attr, "%s")
         def do_style(val, fmt=None, col=col):
             if fmt is None:
@@ -11046,6 +11184,8 @@ class LatexTheme(FormatTheme):
     style_packetlist_value = r"\textcolor{purple}{%s}"
     style_fail = r"\textcolor{red}{\bf %s}"
     style_success = r"\textcolor{blue}{\bf %s}"
+    style_left = r"\textcolor{blue}{%s}"
+    style_right = r"\textcolor{red}{%s}"
 #    style_even = r"}{\bf "
 #    style_odd = ""
 
@@ -11064,6 +11204,8 @@ class LatexTheme2(FormatTheme):
     style_success = r"@`@textcolor@[@blue@]@@[@@`@bfserices@[@@]@%s@]@"
     style_even = r"@`@textcolor@[@gray@]@@[@@`@bfseries@[@@]@%s@]@"
 #    style_odd = r"@`@textcolor@[@black@]@@[@@`@bfseries@[@@]@%s@]@"
+    style_left = r"@`@textcolor@[@blue@]@@[@%s@]@"
+    style_right = r"@`@textcolor@[@red@]@@[@%s@]@"
 
 class HTMLTheme(FormatTheme):
     style_prompt = "<span class=prompt>%s</span>"
@@ -11080,6 +11222,8 @@ class HTMLTheme(FormatTheme):
     style_success = "<span class=success>%s</span>"
     style_even = "<span class=even>%s</span>"
     style_odd = "<span class=odd>%s</span>"
+    style_left = "<span class=left>%s</span>"
+    style_right = "<span class=right>%s</span>"
 
 class HTMLTheme2(HTMLTheme):
     style_prompt = "#[#span class=prompt#]#%s#[#/span#]#"
@@ -11096,6 +11240,8 @@ class HTMLTheme2(HTMLTheme):
     style_success = "#[#span class=success#]#%s#[#/span#]#"
     style_even = "#[#span class=even#]#%s#[#/span#]#"
     style_odd = "#[#span class=odd#]#%s#[#/span#]#"
+    style_left = "#[#span class=left#]#%s#[#/span#]#"
+    style_right = "#[#span class=right#]#%s#[#/span#]#"
 
 
 class ColorPrompt:
