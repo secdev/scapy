@@ -2941,10 +2941,12 @@ class Field:
     def do_copy(self, x):
         if hasattr(x, "copy"):
             return x.copy()
-        elif type(x) is list:
-            return x[:]
-        else:
-            return x
+        if type(x) is list:
+            x = x[:]
+            for i in xrange(len(x)):
+                if isinstance(x[i], Packet):
+                    x[i] = x[i].copy()
+        return x
     def __eq__(self, other):
         return self.name == other
     def __hash__(self):
@@ -4170,10 +4172,12 @@ class ASN1F_field(ASN1F_element):
     def do_copy(self, x):
         if hasattr(x, "copy"):
             return x.copy()
-        elif type(x) is list:
-            return x[:]
-        else:
-            return x
+        if type(x) is list:
+            x = x[:]
+            for i in xrange(len(x)):
+                if isinstance(x[i], Packet):
+                    x[i] = x[i].copy()
+        return x
 
     def build(self, pkt):
         return self.i2m(pkt, getattr(pkt, self.name))
