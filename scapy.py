@@ -8181,6 +8181,34 @@ def sndrcvflood(pks, pkt, prn=lambda (s,r):r.summary(), chainCC=0, store=1, uniq
             raise
     return received
 
+def srflood(x,filter=None, iface=None, nofilter=None, *args,**kargs):
+    """Flood and receive packets at layer 3
+prn:      function applied to packets received. Ret val is printed if not None
+store:    if 1 (default), store answers and return them
+unique:   only consider packets whose print 
+nofilter: put 1 to avoid use of bpf filters
+filter:   provide a BPF filter
+iface:    listen answers only on the given interface"""
+    s = conf.L3socket(filter=filter, iface=iface, nofilter=nofilter)
+    r=sndrcvflood(s,x,*args,**kargs)
+    s.close()
+    return r
+
+def srpflood(x,filter=None, iface=None, iface_hint=None, nofilter=None, *args,**kargs):
+    """Flood and receive packets at layer 2
+prn:      function applied to packets received. Ret val is printed if not None
+store:    if 1 (default), store answers and return them
+unique:   only consider packets whose print 
+nofilter: put 1 to avoid use of bpf filters
+filter:   provide a BPF filter
+iface:    listen answers only on the given interface"""
+    if iface is None and iface_hint is not None:
+        iface = conf.route.route(iface_hint)[0]    
+    s = conf.L2socket(filter=filter, iface=iface, nofilter=nofilter)
+    r=sndrcvflood(s,x,*args,**kargs)
+    s.close()
+    return r
+
            
 ## Bluetooth
 
