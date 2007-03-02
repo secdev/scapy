@@ -7995,7 +7995,7 @@ send(packets, [inter=0], [loop=0], [verbose=conf.verb]) -> None"""
         iface = conf.route.route(iface_hint)[0]
     __gen_send(conf.L2socket(iface=iface, *args, **kargs), x, inter=inter, loop=loop, count=count, verbose=verbose)
     
-def sr(x,filter=None, iface=None, *args,**kargs):
+def sr(x,filter=None, iface=None, nofilter=0, *args,**kargs):
     """Send and receive packets at layer 3
 nofilter: put 1 to avoid use of bpf filters
 retry:    if positive, how many times to resend unanswered packets
@@ -8007,7 +8007,7 @@ filter:   provide a BPF filter
 iface:    listen answers only on the given interface"""
     if not kargs.has_key("timeout"):
         kargs["timeout"] = -1
-    s = conf.L3socket(filter=filter, iface=iface)
+    s = conf.L3socket(filter=filter, iface=iface, nofilter=nofilter)
     a,b,c=sndrcv(s,x,*args,**kargs)
     s.close()
     return a,b
