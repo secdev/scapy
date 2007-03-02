@@ -8127,6 +8127,60 @@ def srploop(pkts, *args, **kargs):
 srloop(pkts, [prn], [inter], [count], ...) --> None"""
     return __sr_loop(srp, pkts, *args, **kargs)
 
+
+def sndrcvflood(pks, pkt, prn=lambda (s,r):r.summary(), chainCC=0, store=1, unique=0):
+    if not isinstance(pkt, Gen):
+        pkt = SetGen(pkt)
+    tobesent = [p for p in pkt]
+    received = SndRcvList()
+    seen = {}
+
+    hsent={}
+    for i in tobesent:
+        h = i.hashret()
+        if h in hsent:
+            hsent[h].append(i)
+        else:
+            hsent[h] = [i]
+
+    def send_in_loop(tobesent):
+        while 1:
+            for p in tobesent:
+                yield p
+
+    packets_to_send = send_in_loop(tobesent)
+
+    ssock = rsock = pks.fileno()
+
+    try:
+        while 1:
+            readyr,readys,_ = select([rsock],[ssock],[])
+            if ssock in readys:
+                pks.send(packets_to_send.next())
+                
+            if rsock in readyr:
+                p = pks.recv(MTU)
+                if p is None:
+                    continue
+                h = p.hashret()
+                if h in hsent:
+                    hlst = hsent[h]
+                    for i in hlst:
+                        if p.answers(i):
+                            res = prn((i,p))
+                            if unique:
+                                if res in seen:
+                                    continue
+                                seen[res] = None
+                            if res is not None:
+                                print res
+                            if store:
+                                received.append((i,p))
+    except KeyboardInterrupt:
+        if chainCC:
+            raise
+    return received
+
            
 ## Bluetooth
 
