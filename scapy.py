@@ -3979,6 +3979,8 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
             cls = self.guess_payload_class(s)
             try:
                 p = cls(s, _internal=1, _underlayer=self)
+            except KeyboardInterrupt:
+                raise
             except:
                 if conf.debug_dissector:
                     if isinstance(cls,type) and issubclass(cls,Packet):
@@ -7406,6 +7408,8 @@ class L3PacketSocket(SuperSocket):
 
         try:
             pkt = cls(pkt)
+        except KeyboardInterrupt:
+            raise
         except:
             if conf.debug_dissector:
                 raise
@@ -7474,6 +7478,8 @@ class L2Socket(SuperSocket):
             return None
         try:
             q = self.LL(pkt)
+        except KeyboardInterrupt:
+            raise
         except:
             if conf.debug_dissector:
                 raise
@@ -7529,6 +7535,8 @@ class L2ListenSocket(SuperSocket):
 
         try:
             pkt = cls(pkt)
+        except KeyboardInterrupt:
+            raise
         except:
             if conf.debug_dissector:
                 raise
@@ -7597,6 +7605,8 @@ class L3dnetSocket(SuperSocket):
 
         try:
             pkt = cls(pkt)
+        except KeyboardInterrupt:
+            raise
         except:
             if conf.debug_dissector:
                 raise
@@ -7661,6 +7671,8 @@ class L2dnetSocket(SuperSocket):
         
         try:
             pkt = cls(pkt)
+        except KeyboardInterrupt:
+            raise
         except:
             if conf.debug_dissector:
                 raise
@@ -7727,6 +7739,8 @@ class L2pcapListenSocket(SuperSocket):
         
         try:
             pkt = cls(pkt)
+        except KeyboardInterrupt:
+            raise
         except:
             if conf.debug_dissector:
                 raise
@@ -7920,7 +7934,7 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0, retry=0, m
                             debug.recv.append(r)
             except KeyboardInterrupt:
                 if chainCC:
-                    raise KeyboardInterrupt
+                    raise
     
             try:
                 ac = cPickle.load(rdpipe)
@@ -8299,6 +8313,8 @@ class PcapReader:
         s = self.f.read(caplen)
         try:
             p = self.LLcls(s)
+        except KeyboardInterrupt:
+            raise
         except:
             if conf.debug_dissector:
                 raise
@@ -9901,7 +9917,7 @@ def fragleak(target,sport=123, dport=123, timeout=0.2, onlyasc=0):
                     linehexdump(leak, onlyasc=onlyasc)
             except KeyboardInterrupt:
                 if intr:
-                    raise KeyboardInterrupt
+                    raise
                 intr=1
     except KeyboardInterrupt:
         pass
