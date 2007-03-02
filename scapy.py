@@ -1823,7 +1823,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
 
 
 class Dot11PacketList(PacketList):
-    def __init__(self, res, name="Dot11List", stats=None):
+    def __init__(self, res=None, name="Dot11List", stats=None):
         if stats is None:
             stats = [Dot11WEP, Dot11Beacon, UDP, ICMP, TCP]
 
@@ -1840,7 +1840,7 @@ class Dot11PacketList(PacketList):
         
 
 class SndRcvList(PacketList):
-    def __init__(self, res, name="Results", stats=None):
+    def __init__(self, res=None, name="Results", stats=None):
         PacketList.__init__(self, res, name, stats)
     def _elt2pkt(self, elt):
         return elt[1]
@@ -1849,7 +1849,7 @@ class SndRcvList(PacketList):
 
 
 class ARPingResult(SndRcvList):
-    def __init__(self, res, name="ARPing", stats=None):
+    def __init__(self, res=None, name="ARPing", stats=None):
         PacketList.__init__(self, res, name, stats)
 
     def show(self):
@@ -1860,7 +1860,7 @@ class ARPingResult(SndRcvList):
 
 
 class TracerouteResult(SndRcvList):
-    def __init__(self, res, name="Traceroute", stats=None):
+    def __init__(self, res=None, name="Traceroute", stats=None):
         PacketList.__init__(self, res, name, stats)
         self.graphdef = None
         self.graphASN = 0
