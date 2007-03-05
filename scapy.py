@@ -2444,7 +2444,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
 
 
 class Dot11PacketList(PacketList):
-    def __init__(self, res, name="Dot11List", stats=None):
+    def __init__(self, res=None, name="Dot11List", stats=None):
         if stats is None:
             stats = [Dot11WEP, Dot11Beacon, UDP, ICMP, TCP]
 
@@ -2461,7 +2461,7 @@ class Dot11PacketList(PacketList):
         
 
 class SndRcvList(PacketList):
-    def __init__(self, res, name="Results", stats=None):
+    def __init__(self, res=None, name="Results", stats=None):
         PacketList.__init__(self, res, name, stats)
     def _elt2pkt(self, elt):
         return elt[1]
@@ -2470,7 +2470,7 @@ class SndRcvList(PacketList):
 
 
 class ARPingResult(SndRcvList):
-    def __init__(self, res, name="ARPing", stats=None):
+    def __init__(self, res=None, name="ARPing", stats=None):
         PacketList.__init__(self, res, name, stats)
 
     def show(self):
@@ -2481,7 +2481,7 @@ class ARPingResult(SndRcvList):
 
 
 class TracerouteResult(SndRcvList):
-    def __init__(self, res, name="Traceroute", stats=None):
+    def __init__(self, res=None, name="Traceroute", stats=None):
         PacketList.__init__(self, res, name, stats)
         self.graphdef = None
         self.graphASN = 0
@@ -4841,6 +4841,8 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
             cls = self.guess_payload_class(s)
             try:
                 p = cls(s, _internal=1, _underlayer=self)
+            except KeyboardInterrupt:
+                raise
             except:
                 if conf.debug_dissector:
                     if isinstance(cls,type) and issubclass(cls,Packet):
@@ -8503,6 +8505,8 @@ class L3PacketSocket(SuperSocket):
 
         try:
             pkt = cls(pkt)
+        except KeyboardInterrupt:
+            raise
         except:
             if conf.debug_dissector:
                 raise
@@ -8571,6 +8575,8 @@ class L2Socket(SuperSocket):
             return None
         try:
             q = self.LL(pkt)
+        except KeyboardInterrupt:
+            raise
         except:
             if conf.debug_dissector:
                 raise
@@ -8626,6 +8632,8 @@ class L2ListenSocket(SuperSocket):
 
         try:
             pkt = cls(pkt)
+        except KeyboardInterrupt:
+            raise
         except:
             if conf.debug_dissector:
                 raise
@@ -8694,6 +8702,8 @@ class L3dnetSocket(SuperSocket):
 
         try:
             pkt = cls(pkt)
+        except KeyboardInterrupt:
+            raise
         except:
             if conf.debug_dissector:
                 raise
@@ -8758,6 +8768,8 @@ class L2dnetSocket(SuperSocket):
         
         try:
             pkt = cls(pkt)
+        except KeyboardInterrupt:
+            raise
         except:
             if conf.debug_dissector:
                 raise
@@ -8824,6 +8836,8 @@ class L2pcapListenSocket(SuperSocket):
         
         try:
             pkt = cls(pkt)
+        except KeyboardInterrupt:
+            raise
         except:
             if conf.debug_dissector:
                 raise
@@ -9017,7 +9031,7 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0, retry=0, m
                             debug.recv.append(r)
             except KeyboardInterrupt:
                 if chainCC:
-                    raise KeyboardInterrupt
+                    raise
     
             try:
                 ac = cPickle.load(rdpipe)
@@ -9092,7 +9106,7 @@ send(packets, [inter=0], [loop=0], [verbose=conf.verb]) -> None"""
         iface = conf.route.route(iface_hint)[0]
     __gen_send(conf.L2socket(iface=iface, *args, **kargs), x, inter=inter, loop=loop, count=count, verbose=verbose)
     
-def sr(x,filter=None, iface=None, *args,**kargs):
+def sr(x,filter=None, iface=None, nofilter=0, *args,**kargs):
     """Send and receive packets at layer 3
 nofilter: put 1 to avoid use of bpf filters
 retry:    if positive, how many times to resend unanswered packets
@@ -9104,7 +9118,7 @@ filter:   provide a BPF filter
 iface:    listen answers only on the given interface"""
     if not kargs.has_key("timeout"):
         kargs["timeout"] = -1
-    s = conf.L3socket(filter=filter, iface=iface)
+    s = conf.L3socket(filter=filter, iface=iface, nofilter=nofilter)
     a,b,c=sndrcv(s,x,*args,**kargs)
     s.close()
     return a,b
@@ -9224,6 +9238,88 @@ def srploop(pkts, *args, **kargs):
 srloop(pkts, [prn], [inter], [count], ...) --> None"""
     return __sr_loop(srp, pkts, *args, **kargs)
 
+
+def sndrcvflood(pks, pkt, prn=lambda (s,r):r.summary(), chainCC=0, store=1, unique=0):
+    if not isinstance(pkt, Gen):
+        pkt = SetGen(pkt)
+    tobesent = [p for p in pkt]
+    received = SndRcvList()
+    seen = {}
+
+    hsent={}
+    for i in tobesent:
+        h = i.hashret()
+        if h in hsent:
+            hsent[h].append(i)
+        else:
+            hsent[h] = [i]
+
+    def send_in_loop(tobesent):
+        while 1:
+            for p in tobesent:
+                yield p
+
+    packets_to_send = send_in_loop(tobesent)
+
+    ssock = rsock = pks.fileno()
+
+    try:
+        while 1:
+            readyr,readys,_ = select([rsock],[ssock],[])
+            if ssock in readys:
+                pks.send(packets_to_send.next())
+                
+            if rsock in readyr:
+                p = pks.recv(MTU)
+                if p is None:
+                    continue
+                h = p.hashret()
+                if h in hsent:
+                    hlst = hsent[h]
+                    for i in hlst:
+                        if p.answers(i):
+                            res = prn((i,p))
+                            if unique:
+                                if res in seen:
+                                    continue
+                                seen[res] = None
+                            if res is not None:
+                                print res
+                            if store:
+                                received.append((i,p))
+    except KeyboardInterrupt:
+        if chainCC:
+            raise
+    return received
+
+def srflood(x,filter=None, iface=None, nofilter=None, *args,**kargs):
+    """Flood and receive packets at layer 3
+prn:      function applied to packets received. Ret val is printed if not None
+store:    if 1 (default), store answers and return them
+unique:   only consider packets whose print 
+nofilter: put 1 to avoid use of bpf filters
+filter:   provide a BPF filter
+iface:    listen answers only on the given interface"""
+    s = conf.L3socket(filter=filter, iface=iface, nofilter=nofilter)
+    r=sndrcvflood(s,x,*args,**kargs)
+    s.close()
+    return r
+
+def srpflood(x,filter=None, iface=None, iface_hint=None, nofilter=None, *args,**kargs):
+    """Flood and receive packets at layer 2
+prn:      function applied to packets received. Ret val is printed if not None
+store:    if 1 (default), store answers and return them
+unique:   only consider packets whose print 
+nofilter: put 1 to avoid use of bpf filters
+filter:   provide a BPF filter
+iface:    listen answers only on the given interface"""
+    if iface is None and iface_hint is not None:
+        iface = conf.route.route(iface_hint)[0]    
+    s = conf.L2socket(filter=filter, iface=iface, nofilter=nofilter)
+    r=sndrcvflood(s,x,*args,**kargs)
+    s.close()
+    return r
+
            
 ## Bluetooth
 
@@ -9314,6 +9410,8 @@ class PcapReader:
         s = self.f.read(caplen)
         try:
             p = self.LLcls(s)
+        except KeyboardInterrupt:
+            raise
         except:
             if conf.debug_dissector:
                 raise
@@ -10916,7 +11014,7 @@ def fragleak(target,sport=123, dport=123, timeout=0.2, onlyasc=0):
                     linehexdump(leak, onlyasc=onlyasc)
             except KeyboardInterrupt:
                 if intr:
-                    raise KeyboardInterrupt
+                    raise
                 intr=1
     except KeyboardInterrupt:
         pass
