@@ -24,8 +24,8 @@ from __future__ import generators
 
 BASE_VERSION = "1.0.6.1"
 
-HG_NODE  = "$Node: d2f7e80d3a138b0567cdce73e8832c558916d45b $"
-REVISION = "$Revision: d2f7e80d3a13 $"
+HG_NODE  = "$Node$"
+REVISION = "$Revision$"
 
 VERSION = "v%s / %s" % (BASE_VERSION, (REVISION+"--")[11:23])
 
@@ -4288,7 +4288,11 @@ class ASN1F_SEQUENCE_OF(ASN1F_SEQUENCE):
     def get_fields_list(self):
         return [self]
     def build(self, pkt):
-        s = "".join(map(str, getattr(pkt, self.name)))
+        val = getattr(pkt, self.name)
+        if isinstance(val, ASN1_Object) and val.tag == ASN1_Class_UNIVERSAL.RAW:
+            s = val
+        else:
+            s = "".join(map(str, val ))
         return self.i2m(pkt, s)
     def dissect(self, pkt, s):
         codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
