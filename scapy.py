@@ -5050,7 +5050,7 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
                 ncol = ct.field_name
                 vcol = ct.field_value
             fvalue = self.__getattr__(f)
-            if isinstance(fvalue, Packet) or (f.islist and f.holds_packets):
+            if isinstance(fvalue, Packet) or (f.islist and f.holds_packets and type(fvalue) is list):
                 print "%s  \\%-10s\\" % (label_lvl+lvl, ncol(f.name))
                 fvalue_gen = SetGen(self.__getattr__(f),_iterpacket=0)
                 for fvalue in fvalue_gen:
