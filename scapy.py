@@ -9870,6 +9870,9 @@ last=None
 def tethereal(*args,**kargs):
     sniff(prn=lambda x: x.display(),*args,**kargs)
 
+def etherleak(target, **kargs):
+    return srpflood(Ether()/ARP(pdst=target), prn=lambda (s,r): Padding in r and hexstr(r[Padding].load),
+                    filter="arp", **kargs)
 
 
 def fragleak(target,sport=123, dport=123, timeout=0.2, onlyasc=0):
