@@ -24,8 +24,8 @@ from __future__ import generators
 
 BASE_VERSION = "1.0.6.1"
 
-HG_NODE  = "$Node$"
-REVISION = "$Revision$"
+HG_NODE  = "$Node: 55af9ac3c8c2d295fa65f732de5d60984c12383c $"
+REVISION = "$Revision: 55af9ac3c8c2 $"
 
 VERSION = "v%s / %s" % (BASE_VERSION, (REVISION+"--")[11:23])
 
@@ -1560,6 +1560,8 @@ class ASN1_Object:
         return self.tag.get_codec(codec).enc(self.val)
     def __repr__(self):
         return "<%s[%r]>" % (self.__dict__.get("name", self.__class__.__name__), self.val)
+    def __str__(self):
+        return self.enc(conf.ASN1_default_codec)
     def strshow(self, lvl=0):
         return ("  "*lvl)+repr(self)+"\n"
     def show(self, lvl=0):
@@ -11415,6 +11417,7 @@ except_filter : BPF filter for packets to ignore
 debug_match : when 1, store received packet that are not matched into debug.recv
 route    : holds the Scapy routing table and provides methods to manipulate it
 warning_threshold : how much time between warnings from the same place
+ASN1_default_codec: Codec used by default for ASN1 objects
 """
     session = ""  
     stealth = "not implemented"
@@ -11447,7 +11450,9 @@ warning_threshold : how much time between warnings from the same place
     debug_dissector = 0
     color_theme = DefaultTheme()
     warning_threshold = 5
+    ASN1_default_codec = ASN1_Codecs.BER
     prog = ProgPath()
+
         
 
 conf=Conf()
