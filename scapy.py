@@ -24,8 +24,8 @@ from __future__ import generators
 
 BASE_VERSION = "1.0.6.1"
 
-HG_NODE  = "$Node: 0197845b4ed7048798163a4f00c4b5a37025a49e $"
-REVISION = "$Revision: 0197845b4ed7 $"
+HG_NODE  = "$Node$"
+REVISION = "$Revision$"
 
 VERSION = "v%s / %s" % (BASE_VERSION, (REVISION+"--")[11:23])
 
@@ -8431,6 +8431,15 @@ def wireshark(pktlist):
     wrpcap(f, pktlist)
     os.spawnlp(os.P_NOWAIT, "wireshark", "wireshark", "-r", f)
 
+def hexedit(x):
+    x = str(x)
+    f = os.tempnam("scapy")
+    open(f,"w").write(x)
+    os.spawnlp(os.P_WAIT, conf.prog.hexedit, conf.prog.hexedit, f)
+    x = open(f).read()
+    os.unlink(f)
+    return x
+
 
 #####################
 ## knowledge bases ##
@@ -10295,6 +10304,7 @@ class ProgPath(ConfClass):
     dot = "dot"
     display = "display"
     tcpdump = "tcpdump"
+    hexedit = "hexedit"
     
 
 
