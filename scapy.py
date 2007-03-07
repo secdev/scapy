@@ -8429,7 +8429,7 @@ def import_hexcap():
 def wireshark(pktlist):
     f = os.tempnam("scapy")
     wrpcap(f, pktlist)
-    os.spawnlp(os.P_NOWAIT, "wireshark", "wireshark", "-r", f)
+    os.spawnlp(os.P_NOWAIT, conf.prog.wireshark, conf.prog.wireshark, "-r", f)
 
 def hexedit(x):
     x = str(x)
@@ -10305,6 +10305,7 @@ class ProgPath(ConfClass):
     display = "display"
     tcpdump = "tcpdump"
     hexedit = "hexedit"
+    wireshark = "wireshark"
     
 
 
