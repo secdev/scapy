@@ -1540,6 +1540,7 @@ class ASN1_Class_UNIVERSAL(ASN1_Class):
     UNIVERSAL_STRING = 28
     CHAR_STRING = 29
     BMP_STRING = 30
+    COUNTER32 = 0x41
     TIME_TICKS = 0x43
 
 class ASN1_Object_metaclass(type):
@@ -1626,6 +1627,9 @@ class ASN1_BOOLEAN(ASN1_INTEGER):
     
 class ASN1_NULL(ASN1_INTEGER):
     tag = ASN1_Class_UNIVERSAL.NULL
+
+class ASN1_COUNTER32(ASN1_INTEGER):
+    tag = ASN1_Class_UNIVERSAL.COUNTER32
     
 class ASN1_SEQUENCE(ASN1_Object):
     tag = ASN1_Class_UNIVERSAL.SEQUENCE
@@ -1875,6 +1879,9 @@ class BERcodec_UTC_TIME(BERcodec_STRING):
 
 class BERcodec_TIME_TICKS(BERcodec_INTEGER):
     tag = ASN1_Class_UNIVERSAL.TIME_TICKS
+
+class BERcodec_COUNTER32(BERcodec_INTEGER):
+    tag = ASN1_Class_UNIVERSAL.COUNTER32
 
 class BERcodec_SEQUENCE(BERcodec_Object):
     tag = ASN1_Class_UNIVERSAL.SEQUENCE
