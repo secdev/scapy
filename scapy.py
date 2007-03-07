@@ -24,8 +24,8 @@ from __future__ import generators
 
 BASE_VERSION = "1.0.6.1"
 
-HG_NODE  = "$Node: 55af9ac3c8c2d295fa65f732de5d60984c12383c $"
-REVISION = "$Revision: 55af9ac3c8c2 $"
+HG_NODE  = "$Node$"
+REVISION = "$Revision$"
 
 VERSION = "v%s / %s" % (BASE_VERSION, (REVISION+"--")[11:23])
 
@@ -1540,6 +1540,7 @@ class ASN1_Class_UNIVERSAL(ASN1_Class):
     UNIVERSAL_STRING = 28
     CHAR_STRING = 29
     BMP_STRING = 30
+    TIME_TICKS = 0x43
 
 class ASN1_Object_metaclass(type):
     def __new__(cls, name, bases, dct):
@@ -1616,6 +1617,9 @@ class ASN1_VIDEOTEX_STRING(ASN1_STRING):
 
 class ASN1_UTC_TIME(ASN1_STRING):
     tag = ASN1_Class_UNIVERSAL.UTC_TIME
+
+class ASN1_TIME_TICKS(ASN1_STRING):
+    tag = ASN1_Class_UNIVERSAL.TIME_TICKS
 
 class ASN1_BOOLEAN(ASN1_INTEGER):
     tag = ASN1_Class_UNIVERSAL.BOOLEAN
@@ -1869,6 +1873,8 @@ class BERcodec_IA5_STRING(BERcodec_STRING):
 class BERcodec_UTC_TIME(BERcodec_STRING):
     tag = ASN1_Class_UNIVERSAL.UTC_TIME
 
+class BERcodec_TIME_TICKS(BERcodec_INTEGER):
+    tag = ASN1_Class_UNIVERSAL.TIME_TICKS
 
 class BERcodec_SEQUENCE(BERcodec_Object):
     tag = ASN1_Class_UNIVERSAL.SEQUENCE
