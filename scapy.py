@@ -10308,7 +10308,7 @@ class ProgPath(ConfClass):
     dot = "dot"
     display = "display"
     tcpdump = "tcpdump"
-    hexedit = "hexedit"
+    hexedit = "hexer"
     wireshark = "wireshark"
     
 
