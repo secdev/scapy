@@ -1897,16 +1897,22 @@ class BERcodec_SEQUENCE(BERcodec_Object):
     def do_dec(cls, s, context=None, safe=False):
         if context is None:
             context = cls.tag.context
-        l,s,t = cls.check_type_check_len(s)
+        l,st = cls.check_type_get_len(s) # we may have len(s) < l
+        s,t = st[:l],st[l:]
         obj = []
         while s:
             try:
                 o,s = BERcodec_Object.dec(s, context, safe)
             except BER_Decoding_Error, err:
+                print "enrichi %r <- %r  %r" % (err.remaining,t,s), obj
                 err.remaining += t
+                if err.decoded is not None:
+                    obj.append(err.decoded)
                 err.decoded = obj
-                raise
+                raise 
             obj.append(o)
+        if len(st) < l:
+            raise BER_Decoding_Error("Not enough bytes to decode sequence", decoded=obj)
         return cls.asn1_object(obj),t
 
 class BERcodec_SET(BERcodec_SEQUENCE):
