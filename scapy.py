@@ -7232,6 +7232,8 @@ def defrag(plist):
             missfrag.append(lst)
             continue
         p = p.copy()
+        if Padding in p:
+            del(p[Padding].underlayer.payload)
         ip = p[IP]
         if ip.len is None or ip.ihl is None:
             clen = len(ip.payload)
@@ -7249,6 +7251,8 @@ def defrag(plist):
                 clen += len(q[IP].payload)
             else:
                 clen += q[IP].len - (q[IP].ihl<<2)
+            if Padding in q:
+                del(q[Padding].underlayer.payload)
             txt.add_payload(q[IP].payload.copy())
             
         if txt is None:
