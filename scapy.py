@@ -1760,7 +1760,10 @@ class BERcodec_Object:
         if not s2:
             raise BER_Decoding_Error("%s: No bytes while expecting a length" %
                                      cls.__name__, remaining=s)
-        l,s3 = BER_len_dec(s2)
+        return BER_len_dec(s2)
+    @classmethod
+    def check_type_check_len(cls, s):
+        l,s3 = cls.check_type_get_len(s)
         if len(s3) < l:
             raise BER_Decoding_Error("%s: Got %i bytes while expecting %i" %
                                      (cls.__name__, len(s3), l), remaining=s)
@@ -1831,7 +1834,7 @@ class BERcodec_INTEGER(BERcodec_Object):
         return "".join(map(chr, s))
     @classmethod
     def do_dec(cls, s, context=None, safe=False):
-        l,s,t = cls.check_type_get_len(s)
+        l,s,t = cls.check_type_check_len(s)
         x = 0L
         if s:
             if ord(s[0])&0x80: # negative int
@@ -1859,7 +1862,7 @@ class BERcodec_STRING(BERcodec_Object):
         return chr(cls.tag)+BER_len_enc(len(s))+s
     @classmethod
     def do_dec(cls, s, context=None, safe=False):
-        l,s,t = cls.check_type_get_len(s)
+        l,s,t = cls.check_type_check_len(s)
         return cls.tag.asn1_object(s),t
 
 class BERcodec_BIT_STRING(BERcodec_STRING):
@@ -1894,16 +1897,22 @@ class BERcodec_SEQUENCE(BERcodec_Object):
     def do_dec(cls, s, context=None, safe=False):
         if context is None:
             context = cls.tag.context
-        l,s,t = cls.check_type_get_len(s)
+        l,st = cls.check_type_get_len(s) # we may have len(s) < l
+        s,t = st[:l],st[l:]
         obj = []
         while s:
             try:
                 o,s = BERcodec_Object.dec(s, context, safe)
             except BER_Decoding_Error, err:
+                print "enrichi %r <- %r  %r" % (err.remaining,t,s), obj
                 err.remaining += t
+                if err.decoded is not None:
+                    obj.append(err.decoded)
                 err.decoded = obj
-                raise
+                raise 
             obj.append(o)
+        if len(st) < l:
+            raise BER_Decoding_Error("Not enough bytes to decode sequence", decoded=obj)
         return cls.asn1_object(obj),t
 
 class BERcodec_SET(BERcodec_SEQUENCE):
@@ -1919,11 +1928,11 @@ class BERcodec_OID(BERcodec_Object):
         if len(lst) >= 2:
             lst[1] += 40*lst[0]
             del(lst[0])
-        s = "".join([BER_num_enc(k) for k in lst])
+        s = "".join([BER_num_enc(k,1) for k in lst])
         return chr(cls.tag)+BER_len_enc(len(s))+s
     @classmethod
     def do_dec(cls, s, context=None, safe=False):
-        l,s,t = cls.check_type_get_len(s)
+        l,s,t = cls.check_type_check_len(s)
         lst = []
         while s:
             l,s = BER_num_dec(s)
@@ -4283,7 +4292,7 @@ class ASN1F_SEQUENCE(ASN1F_field):
     def dissect(self, pkt, s):
         codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
         try:
-            i,s,remain = codec.check_type_get_len(s)
+            i,s,remain = codec.check_type_check_len(s)
             for obj in self.seq:
                 s = obj.dissect(pkt,s)
             if s:
@@ -4311,7 +4320,7 @@ class ASN1F_SEQUENCE_OF(ASN1F_SEQUENCE):
         return self.i2m(pkt, s)
     def dissect(self, pkt, s):
         codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
-        i,s1,remain = codec.check_type_get_len(s)
+        i,s1,remain = codec.check_type_check_len(s)
         lst = []
         while s1:
             try:
