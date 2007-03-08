@@ -1915,7 +1915,7 @@ class BERcodec_OID(BERcodec_Object):
 
     @classmethod
     def enc(cls, oid):
-        lst = [int(x) for x in oid.split(".")]
+        lst = [int(x) for x in oid.strip(".").split(".")]
         if len(lst) >= 2:
             lst[1] += 40*lst[0]
             del(lst[0])
