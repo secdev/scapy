@@ -598,6 +598,11 @@ def tex_escape(x):
         s += _TEX_TR.get(c,c)
     return s
 
+def fixname(x):
+    if x and x[0] in "0123456789":
+        x = "_"+x
+    return x.translate("________________________________________________0123456789_______ABCDEFGHIJKLMNOPQRSTUVWXYZ______abcdefghijklmnopqrstuvwxyz_____________________________________________________________________________________________________________________________________")
+
 def colgen(*lstcol,**kargs):
     """Returns a generator that mixes provided quantities forever
     trans: a function to convert the three arguments into a color. lambda x,y,z:(x,y,z) by default"""
