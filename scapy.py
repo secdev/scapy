@@ -598,6 +598,11 @@ def tex_escape(x):
         s += _TEX_TR.get(c,c)
     return s
 
+def fixname(x):
+    if x and x[0] in "0123456789":
+        x = "_"+x
+    return x.translate("________________________________________________0123456789_______ABCDEFGHIJKLMNOPQRSTUVWXYZ______abcdefghijklmnopqrstuvwxyz_____________________________________________________________________________________________________________________________________")
+
 def colgen(*lstcol,**kargs):
     """Returns a generator that mixes provided quantities forever
     trans: a function to convert the three arguments into a color. lambda x,y,z:(x,y,z) by default"""
@@ -649,6 +654,76 @@ class Enum_metaclass(type):
         return self._rdict__.get(attr, val)
     def __repr__(self):
         return "<%s>" % self.__dict__.get("name", self.__name__)
+
+
+###############################
+## Direct Access dictionnary ##
+###############################
+
+class DADict_Exception(Scapy_Exception):
+    pass
+
+class DADict:
+    def __init__(self, _name="DADict", **kargs):
+        self._name=_name
+        self.__dict__.update(kargs)
+    def __contains__(self, val):
+        return val in self.__dict__
+    def __getitem__(self, attr):
+        return getattr(self, attr)
+    def __setitem__(self, attr, val):        
+        return setattr(self, fixname(attr), val)
+    def __iter__(self):
+        return iter(map(lambda (x,y):y,filter(lambda (x,y):x[0]!="_", self.__dict__.items())))
+    def _show(self):
+        for k in self.__dict__.keys():
+            if k[0] != "_":
+                print "%10s = %r" % (k,getattr(self,k))
+    def __repr__(self):
+        return "<%s/ %s>" % (self._name," ".join(filter(lambda x:x[0]!="_",self.__dict__.keys())))
+
+    def _branch(self, br, uniq=0):
+        if uniq and br._name in self:
+            raise DADict_Exception("DADict: [%s] already branched in [%s]" % (br._name, self._name))
+        self[br._name] = br
+
+    def _my_find(self, *args, **kargs):
+        if args and self._name not in args:
+            return False
+        for k in kargs:
+            if k not in self or self[k] != kargs[k]:
+                return False
+        return True
+    
+    def _find(self, *args, **kargs):
+         return self._recurs_find((), *args, **kargs)
+    def _recurs_find(self, path, *args, **kargs):
+        if self in path:
+            return None
+        if self._my_find(*args, **kargs):
+            return self
+        for o in self:
+            if isinstance(o, DADict):
+                p = o._recurs_find(path+(self,), *args, **kargs)
+                if p is not None:
+                    return p
+        return None
+    def _find_all(self, *args, **kargs):
+        return self._recurs_find_all((), *args, **kargs)
+    def _recurs_find_all(self, path, *args, **kargs):
+        r = []
+        if self in path:
+            return r
+        if self._my_find(*args, **kargs):
+            r.append(self)
+        for o in self:
+            if isinstance(o, DADict):
+                p = o._recurs_find_all(path+(self,), *args, **kargs)
+                r += p
+        return r
+    def keys(self):
+        return filter(lambda x:x[0]!="_", self.__dict__.keys())
+        
 
 
 ##############################
@@ -8353,6 +8428,8 @@ def defrag(plist):
             missfrag.append(lst)
             continue
         p = p.copy()
+        if Padding in p:
+            del(p[Padding].underlayer.payload)
         ip = p[IP]
         if ip.len is None or ip.ihl is None:
             clen = len(ip.payload)
@@ -8370,6 +8447,8 @@ def defrag(plist):
                 clen += len(q[IP].payload)
             else:
                 clen += q[IP].len - (q[IP].ihl<<2)
+            if Padding in q:
+                del(q[Padding].underlayer.payload)
             txt.add_payload(q[IP].payload.copy())
             
         if txt is None:
@@ -9550,7 +9629,16 @@ def import_hexcap():
 def wireshark(pktlist):
     f = os.tempnam("scapy")
     wrpcap(f, pktlist)
-    os.spawnlp(os.P_NOWAIT, "wireshark", "wireshark", "-r", f)
+    os.spawnlp(os.P_NOWAIT, conf.prog.wireshark, conf.prog.wireshark, "-r", f)
+
+def hexedit(x):
+    x = str(x)
+    f = os.tempnam("scapy")
+    open(f,"w").write(x)
+    os.spawnlp(os.P_WAIT, conf.prog.hexedit, conf.prog.hexedit, f)
+    x = open(f).read()
+    os.unlink(f)
+    return x
 
 
 #####################
@@ -11416,6 +11504,8 @@ class ProgPath(ConfClass):
     dot = "dot"
     display = "display"
     tcpdump = "tcpdump"
+    hexedit = "hexer"
+    wireshark = "wireshark"
     
 
 
