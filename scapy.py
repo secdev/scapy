@@ -3570,6 +3570,14 @@ class Dot11SCField(LEShortField):
 
 
 class NewDefaultValues(type):
+    """NewDefaultValues metaclass. Example usage:
+    class MyPacket(Packet):
+        fields_desc = [ StrField("my_field", "my default value"),  ]
+        
+    class MyPacket_variant(MyPacket):
+        __metaclass__ = NewDefaultValues
+        my_field = "my new default value"
+    """    
     def __new__(cls, name, bases, dct):
         fields = None
         for b in bases:
