@@ -104,6 +104,7 @@ import socket, sys, getopt, string, struct, random, os, code
 import cPickle, copy, types, gzip, base64, re, zlib, array
 from sets import Set
 from select import select
+from glob import glob
 from fcntl import ioctl
 import fcntl
 import warnings
@@ -2016,6 +2017,121 @@ class BERcodec_OID(BERcodec_Object):
             lst.insert(0,lst[0]/40)
             lst[1] %= 40
         return cls.asn1_object(".".join([str(k) for k in lst])), t
+
+
+#################
+## MIB parsing ##
+#################
+
+
+class MIBDict(DADict):
+    def _findroot(self, x):
+        if x.startswith("."):
+            x = x[1:]
+        if not x.endswith("."):
+            x += "."
+        max=0
+        root="."
+        for k in self.keys():
+            if x.startswith(self[k]+"."):
+                if max < len(self[k]):
+                    max = len(self[k])
+                    root = k
+        return root, x[max:-1]
+    def _oidname(self, x):
+        root,remainder = self._findroot(x)
+        return root+remainder
+    def _make_graph(self, other_keys=[]):
+        nodes = [(k,self[k]) for k in self.keys()]
+        oids = [self[k] for k in self.keys()]
+        for k in other_keys:
+            if k not in oids:
+                nodes.append(self.oidname(k),k)
+        s = 'digraph "mib" {\n'
+        for k,o in nodes:
+            s += '\t"%s" [ label="%s"  ];\n' % (o,k)
+        s += "\n"
+        for k,o in nodes:
+            parent,remainder = self._findroot(o[:-1])
+            remainder = remainder[1:]+o[-1]
+            if parent != ".":
+                parent = self[parent]
+            s += '\t"%s" -> "%s" [label="%s"];\n' % (parent, o,remainder)
+        s += "}\n"
+        return s
+
+_mib_re_integer = re.compile("^[0-9]+$")
+_mib_re_both = re.compile("^([a-zA-Z_][a-zA-Z0-9_-]*)\(([0-9]+)\)$")
+_mib_re_oiddecl = re.compile("$\s*([a-zA-Z0-9_-]+)\s+OBJECT[^:]+::=\s*\{([^\}]+)\}",re.M)
+
+def mib_register(ident, value, the_mib, unresolved):
+    if ident in the_mib or ident in unresolved:
+        return ident in the_mib
+    resval = []
+    not_resolved = 0
+    for v in value:
+        if _mib_re_integer.match(v):
+            resval.append(v)
+        else:
+            v = fixname(v)
+            if v not in the_mib:
+                not_resolved = 1
+            if v in the_mib:
+                v = the_mib[v]
+            elif v in unresolved:
+                v = unresolved[v]
+            if type(v) is list:
+                resval += v
+            else:
+                resval.append(v)
+    if not_resolved:
+        unresolved[ident] = resval
+        return False
+    else:
+        the_mib[ident] = resval
+        keys = unresolved.keys()
+        i = 0
+        while i < len(keys):
+            k = keys[i]
+            if mib_register(k,unresolved[k], the_mib, {}):
+                del(unresolved[k])
+                del(keys[i])
+                i = 0
+            else:
+                i += 1
+                    
+        return True
+
+
+def load_mib(filenames):
+    the_mib = {}
+    unresolved = {}
+    for k in conf.mib.keys():
+        mib_register(k, conf.mib[k].split("."), the_mib, unresolved)
+
+
+    if type(filenames) is str:
+        filenames = [filenames]
+    for fnames in filenames:
+        for fname in glob(fnames):
+            f = open(fname)
+            for m in _mib_re_oiddecl.finditer(f.read()):
+                ident,oid = m.groups()
+                ident=fixname(ident)
+                oid = oid.split()
+                for i in range(len(oid)):
+                    m = _mib_re_both.match(oid[i])
+                    if m:
+                        oid[i] = m.groups()[1]
+                mib_register(ident, oid, the_mib, unresolved)
+
+    newmib = MIBDict(_name="MIB")
+    for k,o in the_mib.iteritems():
+        newmib[k]=".".join(o)
+    for k,o in unresolved.iteritems():
+        newmib[k]=".".join(o)
+
+    conf.mib=newmib
 
 
 
@@ -11530,6 +11646,7 @@ debug_match : when 1, store received packet that are not matched into debug.recv
 route    : holds the Scapy routing table and provides methods to manipulate it
 warning_threshold : how much time between warnings from the same place
 ASN1_default_codec: Codec used by default for ASN1 objects
+mib      : holds MIB direct access dictionnary
 """
     session = ""  
     stealth = "not implemented"
@@ -11563,6 +11680,7 @@ ASN1_default_codec: Codec used by default for ASN1 objects
     color_theme = DefaultTheme()
     warning_threshold = 5
     ASN1_default_codec = ASN1_Codecs.BER
+    mib = MIBDict(_name="MIB", iso="1")
     prog = ProgPath()
 
         
