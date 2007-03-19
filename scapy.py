@@ -4521,28 +4521,6 @@ class NoPayload(Packet,object):
 ## packet classes ##
 ####################
     
-    
-class ChangeDefaultValues(type):
-    def __new__(cls, name, bases, dct):
-        default = dct["new_default_values"]
-        fields = None
-        for b in bases:
-            if hasattr(b,"fields_desc"):
-                fields = b.fields_desc[:]
-                break
-        if fields is None:
-            raise Scapy_Exception("No fields_desc in superclasses")
-
-        del(dct["new_default_values"])
-        new_fields = []
-        for f in fields:
-            if f in default:
-                f = f.copy()
-                f.default = default[f]
-            new_fields.append(f)
-        dct["fields_desc"] = new_fields
-        return super(ChangeDefaultValues, cls).__new__(cls, name, bases, dct)
-
 # Metaclass
 class NewDefaultValues(type):
     def __new__(cls, name, bases, dct):
