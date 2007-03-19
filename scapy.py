@@ -34,18 +34,6 @@ def usage():
     sys.exit(0)
 
 
-##########[XXX]#=--
-##
-#   Next things to do :
-#
-#  - fields to manage variable length hw addr (ARP, BOOTP, etc.)
-#  - improve pcap capture file support
-#  - better self-doc
-#
-##
-##########[XXX]#=--
-
-
 #############################
 ##### Logging subsystem #####
 #############################
