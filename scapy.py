@@ -611,6 +611,10 @@ def colgen(*lstcol,**kargs):
                     if i != j or j != k or k != i:
                         yield trans(lstcol[(i+j)%len(lstcol)],lstcol[(j+k)%len(lstcol)],lstcol[(k+i)%len(lstcol)])
 
+def incremental_label(label="tag%05i", start=0):
+    while True:
+        yield label % start
+        start += 1
 
 
 ##############################
