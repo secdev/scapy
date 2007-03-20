@@ -2056,38 +2056,43 @@ class TracerouteResult(SndRcvList):
         ports = {}
         ports_done = {}
         for s,r in self.res:
+            r = r[IP] or r[IPv6] or r
+            s = s[IP] or s[IPv6] or s
             ips[r.src] = None
-            if s.haslayer(TCP) or s.haslayer(UDP):
-                trace_id = (s.src,s.dst,s.proto,s.dport)
-            elif s.haslayer(ICMP):
-                trace_id = (s.src,s.dst,s.proto,s.type)
+            if TCP in s:
+                trace_id = (s.src,s.dst,6,s.dport)
+            elif UDP in s:
+                trace_id = (s.src,s.dst,17,s.dport)
+            elif ICMP in s:
+                trace_id = (s.src,s.dst,1,s.type)
             else:
                 trace_id = (s.src,s.dst,s.proto,0)
             trace = rt.get(trace_id,{})
-            if not r.haslayer(ICMP) or r.type != 11:
-                if ports_done.has_key(trace_id):
+            ttl = IPv6 in s and s.hlim or s.ttl
+            if ICMP not in r or r.type != 11:
+                if trace_id in ports_done:
                     continue
                 ports_done[trace_id] = None
                 p = ports.get(r.src,[])
-                if r.haslayer(TCP):
+                if TCP in r:
                     p.append(r.sprintf("<T%ir,TCP.sport%> %TCP.sport%: %TCP.flags%"))
-                    trace[s.ttl] = r.sprintf('"%IP.src%":T%ir,TCP.sport%')
-                elif r.haslayer(UDP):
+                    trace[ttl] = r.sprintf('"%src%":T%ir,TCP.sport%')
+                elif UDP in r:
                     p.append(r.sprintf("<U%ir,UDP.sport%> %UDP.sport%"))
-                    trace[s.ttl] = r.sprintf('"%IP.src%":U%ir,UDP.sport%')
-                elif r.haslayer(ICMP):
+                    trace[ttl] = r.sprintf('"%src%":U%ir,UDP.sport%')
+                elif ICMP in r:
                     p.append(r.sprintf("<I%ir,ICMP.type%> ICMP %ICMP.type%"))
-                    trace[s.ttl] = r.sprintf('"%IP.src%":I%ir,ICMP.type%')
+                    trace[ttl] = r.sprintf('"%src%":I%ir,ICMP.type%')
                 else:
-                    p.append(r.sprintf("<P%ir,IP.proto> IP %IP.proto%"))
-                    trace[s.ttl] = r.sprintf('"%IP.src%":P%ir,IP.proto%')                    
+                    p.append(r.sprintf("{IP:<P%ir,proto%> IP %proto%}{IPv6:<P%ir,nh%> IPv6 %nh%}"))
+                    trace[ttl] = r.sprintf('"%src%":{IP:P%ir,proto%}{IPv6::P%ir,nh%}')
                 ports[r.src] = p
             else:
-                trace[s.ttl] = r.sprintf('"%IP.src%"')
+                trace[ttl] = r.sprintf('"%src%"')
             rt[trace_id] = trace
     
         # Fill holes with unk%i nodes
-        unk = 0
+        unknown_label = incremental_label("unk%i")
         blackholes = []
         bhip = {}
         for rtk in rt:
@@ -2095,8 +2100,7 @@ class TracerouteResult(SndRcvList):
             k = trace.keys()
             for n in range(min(k), max(k)):
                 if not trace.has_key(n):
-                    trace[n] = "unk%i" % unk
-                    unk += 1
+                    trace[n] = unknown_label.next()
             if not ports_done.has_key(rtk):
                 if rtk[2] == 1: #ICMP
                     bh = "%s %i" % (rtk[1],rtk[3])
