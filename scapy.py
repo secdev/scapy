@@ -2391,8 +2391,10 @@ class Field:
         return self.name == other
     def __hash__(self):
         return hash(self.name)
-    def __repr__(self):
+    def __str__(self):
         return self.name
+    def __repr__(self):
+        return "<Field %s>" % self.name
     def copy(self):
         return copy.deepcopy(self)
     def randval(self):
