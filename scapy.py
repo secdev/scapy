@@ -10623,7 +10623,7 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=1):
                     object = eval(expr)
                 except:
                     object = eval(expr, session)
-                if isinstance(object, Packet):
+                if isinstance(object, Packet) or isinstance(object, Packet_metaclass):
                     words = filter(lambda x: x[0]!="_",dir(object))
                     words += map(str, object.fields_desc)
                 else:
