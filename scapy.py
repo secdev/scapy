@@ -3568,8 +3568,13 @@ class Dot11SCField(LEShortField):
 ## Packet abstract class ##
 ###########################
 
+class Packet_metaclass(type):
+    def __getattr__(self, attr):
+        for k in self.fields_desc:
+            if k.name == attr:
+                return k
 
-class NewDefaultValues(type):
+class NewDefaultValues(Packet_metaclass):
     """NewDefaultValues metaclass. Example usage:
     class MyPacket(Packet):
         fields_desc = [ StrField("my_field", "my default value"),  ]
@@ -3598,6 +3603,7 @@ class NewDefaultValues(type):
         return super(NewDefaultValues, cls).__new__(cls, name, bases, dct)
 
 class Packet(Gen):
+    __metaclass__ = Packet_metaclass
     name=None
 
     fields_desc = []
