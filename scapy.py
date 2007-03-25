@@ -307,7 +307,7 @@ try:
             log_loading.info("Couldn't parse one line from ethertypes file (" + l + ")")
     f.close()
 except IOError,msg:
-    log_loading.info("Can't open /etc/ethertypes file")
+    pass
  
 TCP_SERVICES={}
 UDP_SERVICES={}
