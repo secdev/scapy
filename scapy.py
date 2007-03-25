@@ -198,6 +198,80 @@ if SOLARIS:
     # GRE is missing on Solaris
     socket.IPPROTO_GRE = 47
 
+###############################
+## Direct Access dictionnary ##
+###############################
+
+def fixname(x):
+    if x and x[0] in "0123456789":
+        x = "_"+x
+    return x.translate("________________________________________________0123456789_______ABCDEFGHIJKLMNOPQRSTUVWXYZ______abcdefghijklmnopqrstuvwxyz_____________________________________________________________________________________________________________________________________")
+
+
+class DADict_Exception(Scapy_Exception):
+    pass
+
+class DADict:
+    def __init__(self, _name="DADict", **kargs):
+        self._name=_name
+        self.__dict__.update(kargs)
+    def __contains__(self, val):
+        return val in self.__dict__
+    def __getitem__(self, attr):
+        return getattr(self, attr)
+    def __setitem__(self, attr, val):        
+        return setattr(self, fixname(attr), val)
+    def __iter__(self):
+        return iter(map(lambda (x,y):y,filter(lambda (x,y):x[0]!="_", self.__dict__.items())))
+    def _show(self):
+        for k in self.__dict__.keys():
+            if k[0] != "_":
+                print "%10s = %r" % (k,getattr(self,k))
+    def __repr__(self):
+        return "<%s/ %s>" % (self._name," ".join(filter(lambda x:x[0]!="_",self.__dict__.keys())))
+
+    def _branch(self, br, uniq=0):
+        if uniq and br._name in self:
+            raise DADict_Exception("DADict: [%s] already branched in [%s]" % (br._name, self._name))
+        self[br._name] = br
+
+    def _my_find(self, *args, **kargs):
+        if args and self._name not in args:
+            return False
+        for k in kargs:
+            if k not in self or self[k] != kargs[k]:
+                return False
+        return True
+    
+    def _find(self, *args, **kargs):
+         return self._recurs_find((), *args, **kargs)
+    def _recurs_find(self, path, *args, **kargs):
+        if self in path:
+            return None
+        if self._my_find(*args, **kargs):
+            return self
+        for o in self:
+            if isinstance(o, DADict):
+                p = o._recurs_find(path+(self,), *args, **kargs)
+                if p is not None:
+                    return p
+        return None
+    def _find_all(self, *args, **kargs):
+        return self._recurs_find_all((), *args, **kargs)
+    def _recurs_find_all(self, path, *args, **kargs):
+        r = []
+        if self in path:
+            return r
+        if self._my_find(*args, **kargs):
+            r.append(self)
+        for o in self:
+            if isinstance(o, DADict):
+                p = o._recurs_find_all(path+(self,), *args, **kargs)
+                r += p
+        return r
+    def keys(self):
+        return filter(lambda x:x[0]!="_", self.__dict__.keys())
+        
 
 
 ############
@@ -273,63 +347,76 @@ MTU = 1600
 
  
 # file parsing to get some values :
-spaces = re.compile("[ \t]+|\n")
 
-IP_PROTOS={}
-try:
-    f=open("/etc/protocols")
-    for l in f:
-        try:
-            if l[0] in ["#","\n"]:
-                continue
-            lt = tuple(re.split(spaces, l))
-            if len(lt) < 3:
-                continue
-            IP_PROTOS.update({lt[2]:int(lt[1])})
-        except:
-            log_loading.info("Couldn't parse one line from protocols file (" + l + ")")
-    f.close()
-except IOError:
-    log_loading.info("Can't open /etc/protocols file")
+def load_protocols(filename):
+    spaces = re.compile("[ \t]+|\n")
+    dct = DADict(_name=filename)
+    try:
+        for l in open(filename):
+            try:
+                if l[0] in ["#","\n"]:
+                    continue
+                lt = tuple(re.split(spaces, l))
+                if len(lt) < 3:
+                    continue
+                dct[lt[2]] = int(lt[1])
+            except Exception,e:
+                log_loading.info("Couldn't parse one line from /etc/protocols file [%r] (%s)" % (l,e))
+        f.close()
+    except IOError:
+        log_loading.info("Can't open /etc/protocols file")
+    return dct
 
-ETHER_TYPES={}
-try:
-    f=open("/etc/ethertypes")
-    for l in f:
-        try:
-            if l[0] in ["#","\n"]:
-                continue
-            lt = tuple(re.split(spaces, l))
-            if len(lt) < 2:
-                continue
-            ETHER_TYPES.update({lt[0]:int(lt[1], 16)})
-        except:
-            log_loading.info("Couldn't parse one line from ethertypes file (" + l + ")")
-    f.close()
-except IOError,msg:
-    pass
- 
-TCP_SERVICES={}
-UDP_SERVICES={}
-try:
-    f=open("/etc/services")
-    for l in f:
-        try:
-            if l[0] in ["#","\n"]:
-                continue
-            lt = tuple(re.split(spaces, l))
-            if len(lt) < 2:
-                continue
-            if lt[1].endswith("/tcp"):
-                TCP_SERVICES.update({lt[0]:int(lt[1].split('/')[0])})
-            elif lt[1].endswith("/udp"):
-                UDP_SERVICES.update({lt[0]:int(lt[1].split('/')[0])})
-        except:
-            log_loading.warning("Couldn't parse one line from /etc/services file (" + l + ")")
-    f.close()
-except IOError:
-    log_loading.info("Can't open /etc/services file")
+IP_PROTOS=load_protocols("/etc/protocols")
 
+def load_ethertypes(filename):
+    spaces = re.compile("[ \t]+|\n")
+    dct = DADict(_name=filename)
+    try:
+        f=open(filename)
+        for l in f:
+            try:
+                if l[0] in ["#","\n"]:
+                    continue
+                lt = tuple(re.split(spaces, l))
+                if len(lt) < 2:
+                    continue
+                dct[lt[0]] = int(lt[1], 16)
+            except Exception,e:
+                log_loading.info("Couldn't parse one line from /etc/ethertypes file [%r] (%s)" % (l,e))
+        f.close()
+    except IOError,msg:
+        pass
+    return dct
+
+ETHER_TYPES=load_ethertypes("/etc/ethertypes")
+
+def load_services(filename):
+    spaces = re.compile("[ \t]+|\n")
+    tdct=DADict(_name="%s-tcp"%filename)
+    udct=DADict(_name="%s-udp"%filename)
+    try:
+        f=open(filename)
+        for l in f:
+            try:
+                if l[0] in ["#","\n"]:
+                    continue
+                lt = tuple(re.split(spaces, l))
+                if len(lt) < 2:
+                    continue
+                if lt[1].endswith("/tcp"):
+                    tdct[lt[0]] = int(lt[1].split('/')[0])
+                elif lt[1].endswith("/udp"):
+                    udct[lt[0]] = int(lt[1].split('/')[0])
+            except Exception,e:
+                log_loading.warning("Couldn't parse one line from /etc/services file [%r] (%s)" % (l,e))
+        f.close()
+    except IOError:
+        log_loading.info("Can't open /etc/services file")
+    return tdct,udct
+
+
+TCP_SERVICES,UDP_SERVICES=load_services("/etc/services")
 
 
 ###########
@@ -586,11 +673,6 @@ def tex_escape(x):
         s += _TEX_TR.get(c,c)
     return s
 
-def fixname(x):
-    if x and x[0] in "0123456789":
-        x = "_"+x
-    return x.translate("________________________________________________0123456789_______ABCDEFGHIJKLMNOPQRSTUVWXYZ______abcdefghijklmnopqrstuvwxyz_____________________________________________________________________________________________________________________________________")
-
 def colgen(*lstcol,**kargs):
     """Returns a generator that mixes provided quantities forever
     trans: a function to convert the three arguments into a color. lambda x,y,z:(x,y,z) by default"""
@@ -606,74 +688,6 @@ def colgen(*lstcol,**kargs):
 
 
 
-###############################
-## Direct Access dictionnary ##
-###############################
-
-class DADict_Exception(Scapy_Exception):
-    pass
-
-class DADict:
-    def __init__(self, _name="DADict", **kargs):
-        self._name=_name
-        self.__dict__.update(kargs)
-    def __contains__(self, val):
-        return val in self.__dict__
-    def __getitem__(self, attr):
-        return getattr(self, attr)
-    def __setitem__(self, attr, val):        
-        return setattr(self, fixname(attr), val)
-    def __iter__(self):
-        return iter(map(lambda (x,y):y,filter(lambda (x,y):x[0]!="_", self.__dict__.items())))
-    def _show(self):
-        for k in self.__dict__.keys():
-            if k[0] != "_":
-                print "%10s = %r" % (k,getattr(self,k))
-    def __repr__(self):
-        return "<%s/ %s>" % (self._name," ".join(filter(lambda x:x[0]!="_",self.__dict__.keys())))
-
-    def _branch(self, br, uniq=0):
-        if uniq and br._name in self:
-            raise DADict_Exception("DADict: [%s] already branched in [%s]" % (br._name, self._name))
-        self[br._name] = br
-
-    def _my_find(self, *args, **kargs):
-        if args and self._name not in args:
-            return False
-        for k in kargs:
-            if k not in self or self[k] != kargs[k]:
-                return False
-        return True
-    
-    def _find(self, *args, **kargs):
-         return self._recurs_find((), *args, **kargs)
-    def _recurs_find(self, path, *args, **kargs):
-        if self in path:
-            return None
-        if self._my_find(*args, **kargs):
-            return self
-        for o in self:
-            if isinstance(o, DADict):
-                p = o._recurs_find(path+(self,), *args, **kargs)
-                if p is not None:
-                    return p
-        return None
-    def _find_all(self, *args, **kargs):
-        return self._recurs_find_all((), *args, **kargs)
-    def _recurs_find_all(self, path, *args, **kargs):
-        r = []
-        if self in path:
-            return r
-        if self._my_find(*args, **kargs):
-            r.append(self)
-        for o in self:
-            if isinstance(o, DADict):
-                p = o._recurs_find_all(path+(self,), *args, **kargs)
-                r += p
-        return r
-    def keys(self):
-        return filter(lambda x:x[0]!="_", self.__dict__.keys())
-        
 
 
 ##############################
@@ -10447,6 +10461,11 @@ noenum   : holds list of enum fields for which conversion to string should not b
     warning_threshold = 5
     prog = ProgPath()
     noenum = NoEnum()
+    ethertypes = ETHER_TYPES
+    protocols = IP_PROTOS
+    services_tcp = TCP_SERVICES
+    services_udp = UDP_SERVICES
+    
         
 
 conf=Conf()
