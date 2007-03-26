@@ -3132,9 +3132,9 @@ class EnumField(Field):
             x = self.s2i[x]
         return x
     def i2repr_one(self, pkt, x):
-        if self in conf.noenum:
-            return x
-        return self.i2s.get(x, repr(x))
+        if self in conf.resolve and x in self.i2s:
+            return self.i2s[x]
+        return repr(x)
     
     def any2i(self, pkt, x):
         if type(x) is list:
@@ -3189,9 +3189,9 @@ class LEIntEnumField(EnumField):
 
 class XShortEnumField(ShortEnumField):
     def i2repr_one(self, pkt, x):
-        if self in conf.noenum:
-            return x
-        return self.i2s.get(x, lhex(x))            
+        if self in conf.resolve and x in self.i2s:
+            return self.i2s[x]
+        return lhex(x)
 
 # Little endian long field
 class LELongField(Field):
@@ -10385,15 +10385,13 @@ class ProgPath(ConfClass):
     hexedit = "hexer"
     wireshark = "wireshark"
     
-class NoEnum:
+class Resolve:
     def __init__(self):
         self.fields = {}
     def add(self, *flds):
         for fld in flds:
             if isinstance(fld, EnumField):
                 self.fields[fld]=None
-            else:
-                warning("%r is not an enum field" % fld)
     def remove(self, *flds):
         for fld in flds:
             if fld in self.fields:
@@ -10401,7 +10399,7 @@ class NoEnum:
     def __contains__(self, elt):
         return elt in self.fields
     def __repr__(self):
-        return "<No enum on [%s]>" %  " ".join(str(x) for x in self.fields)
+        return "<Resolve [%s]>" %  " ".join(str(x) for x in self.fields)
     
         
 
@@ -10426,7 +10424,7 @@ except_filter : BPF filter for packets to ignore
 debug_match : when 1, store received packet that are not matched into debug.recv
 route    : holds the Scapy routing table and provides methods to manipulate it
 warning_threshold : how much time between warnings from the same place
-noenum   : holds list of enum fields for which conversion to string should not be done
+resolve   : holds list of fields for which conversion to string should be done
 """
     session = ""  
     stealth = "not implemented"
@@ -10460,7 +10458,7 @@ noenum   : holds list of enum fields for which conversion to string should not b
     color_theme = DefaultTheme()
     warning_threshold = 5
     prog = ProgPath()
-    noenum = NoEnum()
+    resolve = Resolve()
     ethertypes = ETHER_TYPES
     protocols = IP_PROTOS
     services_tcp = TCP_SERVICES
