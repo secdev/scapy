@@ -2612,6 +2612,12 @@ class IPField(Field):
         elif type(x) is list:
             x = map(Net, x)
         return x
+    def resolve(self, x):
+        if self in conf.resolve:
+            ret = socket.gethostbyaddr(x)[0]
+            if ret:
+                return ret
+        return x
     def i2m(self, pkt, x):
         return inet_aton(x)
     def m2i(self, pkt, x):
@@ -2619,7 +2625,7 @@ class IPField(Field):
     def any2i(self, pkt, x):
         return self.h2i(pkt,x)
     def i2repr(self, pkt, x):
-        return self.i2h(pkt, x)
+        return self.resolve(self.i2h(pkt, x))
     def randval(self):
         return RandIP()
 
