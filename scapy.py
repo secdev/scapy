@@ -10372,9 +10372,6 @@ class ConfClass:
             if i[0] != "_":
                 s += "%-10s = %s\n" % (i, repr(getattr(self, i)))
         return s[:-1]
-    def reset(self):
-        self.__dict__ = {}
-
     
 class ProgPath(ConfClass):
     pdfreader = "acroread"
