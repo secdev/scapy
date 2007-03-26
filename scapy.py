@@ -10387,8 +10387,7 @@ class Resolve:
         self.fields = {}
     def add(self, *flds):
         for fld in flds:
-            if isinstance(fld, EnumField):
-                self.fields[fld]=None
+            self.fields[fld]=None
     def remove(self, *flds):
         for fld in flds:
             if fld in self.fields:
