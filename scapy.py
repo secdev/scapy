@@ -417,8 +417,46 @@ def load_services(filename):
         log_loading.info("Can't open /etc/services file")
     return tdct,udct
 
-
 TCP_SERVICES,UDP_SERVICES=load_services("/etc/services")
+
+class ManufDA(DADict):
+    def fixname(self, val):
+        return val
+    def _get_manuf_couple(self, mac):
+        oui = ":".join(mac.split(":")[:3]).upper()
+        return self.__dict__.get(oui,(mac,mac))
+    def _get_manuf(self, mac):
+        return self._get_manuf_couple(mac)[1]
+    def _get_short_manuf(self, mac):
+        return self._get_manuf_couple(mac)[0]
+        
+        
+
+def load_manuf(filename):
+    try:
+        manufdb=ManufDA(_name=filename)
+        for l in open(filename):
+            try:
+                l = l.strip()
+                if not l or l.startswith("#"):
+                    continue
+                oui,shrt=l.split()[:2]
+                i = l.find("#")
+                if i < 0:
+                    lng=shrt
+                else:
+                    lng = l[i+2:]
+                manufdb[oui] = shrt,lng
+            except Exception,e:
+                log_loadding.warning("Couldn't parse one line from [%s] [%r] (%s)" % (filename, l, e))
+    except IOError:
+        #log_loading.warning("Couldn't open [%s] file" % filename)
+        pass
+    return manufdb
+    
+MANUFDB = load_manuf("/usr/share/wireshark/wireshark/manuf")
+
+
 
 
 ###########
@@ -10467,6 +10505,7 @@ resolve   : holds list of fields for which conversion to string should be done
     protocols = IP_PROTOS
     services_tcp = TCP_SERVICES
     services_udp = UDP_SERVICES
+    manufdb = MANUFDB
     
         
 
