@@ -204,7 +204,7 @@ if SOLARIS:
 
 def fixname(x):
     if x and x[0] in "0123456789":
-        x = "_"+x
+        x = "n_"+x
     return x.translate("________________________________________________0123456789_______ABCDEFGHIJKLMNOPQRSTUVWXYZ______abcdefghijklmnopqrstuvwxyz_____________________________________________________________________________________________________________________________________")
 
 
@@ -215,12 +215,14 @@ class DADict:
     def __init__(self, _name="DADict", **kargs):
         self._name=_name
         self.__dict__.update(kargs)
+    def fixname(self,val):
+        return fixname(val)
     def __contains__(self, val):
         return val in self.__dict__
     def __getitem__(self, attr):
         return getattr(self, attr)
     def __setitem__(self, attr, val):        
-        return setattr(self, fixname(attr), val)
+        return setattr(self, self.fixname(attr), val)
     def __iter__(self):
         return iter(map(lambda (x,y):y,filter(lambda (x,y):x[0]!="_", self.__dict__.items())))
     def _show(self):
