@@ -1862,16 +1862,21 @@ class ARPingResult(SndRcvList):
 
 
 class AS_resolver:
-    def __init__(self, server="riswhois.ripe.net", port=43, options="-k -M -1\n"):
-        self.server = server
+    server = None
+    options = "-k" 
+    def __init__(self, server=None, port=43, options=None):
+        if server is not None:
+            self.server = server
         self.port = port
-        self.options = options
+        if options is not None:
+            self.options = options
         
     def _start(self):
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.s.connect((self.server,self.port))
-        self.s.recv(8192)        
-        self.s.send(self.options)
+        self.s.recv(8192)
+        if self.options:
+            self.s.send(self.options+"\n")
         self.s.recv(8192)
     def _stop(self):
         self.s.close()
@@ -1900,10 +1905,19 @@ class AS_resolver:
         self._stop()
         return ret
 
+class AS_resolver_riswhois(AS_resolver):
+    server = "riswhois.ripe.net"
+    options = "-k -M -1"
+
+
+class AS_resolver_radb(AS_resolver):
+    server = "whois.ra.net"
+    options = "-k -M"
+    
+
 class AS_resolver_cymru(AS_resolver):
-    def __init__(self, server="whois.cymru.com", options="", port=43):
-        self.server = server
-        self.port = port
+    server = "whois.cymru.com"
+    options = None
     def resolve(self, *ips):
         ASNlist = []
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -2110,7 +2124,9 @@ class TracerouteResult(SndRcvList):
         g.plot(world,*tr)
         return g
 
-    def make_graph(self,ASres=AS_resolver(),padding=0):
+    def make_graph(self,ASres=None,padding=0):
+        if ASres is None:
+            ASres = conf.AS_resolver
         self.graphASres = ASres
         self.graphpadding = padding
         ips = {}
@@ -2260,8 +2276,8 @@ class TracerouteResult(SndRcvList):
         s += "}\n";
         self.graphdef = s
     
-    def graph(self, ASres=AS_resolver(), padding=0, **kargs):
-        """x.graph(ASres=AS_resolver(), other args):
+    def graph(self, ASres=None, padding=0, **kargs):
+        """x.graph(ASres=conf.AS_resolver, other args):
         ASres=None          : no AS resolver => no clustering
         ASres=AS_resolver() : default whois AS resolver (riswhois.ripe.net)
         ASres=AS_resolver_cymru(): use whois.cymru.com whois database
@@ -2269,6 +2285,8 @@ class TracerouteResult(SndRcvList):
         type: output type (svg, ps, gif, jpg, etc.), passed to dot's "-T" option
         target: filename or redirect. Defaults pipe to Imagemagick's display program
         prog: which graphviz program to use"""
+        if ASres is None:
+            ASres = conf.AS_resolver
         if (self.graphdef is None or
             self.graphASres != ASres or
             self.graphpadding != padding):
@@ -10345,6 +10363,7 @@ except_filter : BPF filter for packets to ignore
 debug_match : when 1, store received packet that are not matched into debug.recv
 route    : holds the Scapy routing table and provides methods to manipulate it
 warning_threshold : how much time between warnings from the same place
+AS_resolver: choose the AS resolver class to use
 """
     session = ""  
     stealth = "not implemented"
@@ -10378,6 +10397,7 @@ warning_threshold : how much time between warnings from the same place
     color_theme = DefaultTheme()
     warning_threshold = 5
     prog = ProgPath()
+    AS_resolver = AS_resolver_riswhois()  # works for IPv4 and IPv6
         
 
 conf=Conf()
