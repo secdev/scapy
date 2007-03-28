@@ -3178,7 +3178,7 @@ class EnumField(Field):
             x = self.s2i[x]
         return x
     def i2repr_one(self, pkt, x):
-        if self in conf.resolve and x in self.i2s:
+        if self not in conf.noenum and x in self.i2s:
             return self.i2s[x]
         return repr(x)
     
@@ -3235,7 +3235,7 @@ class LEIntEnumField(EnumField):
 
 class XShortEnumField(ShortEnumField):
     def i2repr_one(self, pkt, x):
-        if self in conf.resolve and x in self.i2s:
+        if self not in conf.noenum and x in self.i2s:
             return self.i2s[x]
         return lhex(x)
 
@@ -10466,7 +10466,8 @@ except_filter : BPF filter for packets to ignore
 debug_match : when 1, store received packet that are not matched into debug.recv
 route    : holds the Scapy routing table and provides methods to manipulate it
 warning_threshold : how much time between warnings from the same place
-resolve   : holds list of fields for which conversion to string should be done
+resolve   : holds list of fields for which resolution should be done
+noenum    : holds list of enum fields for which conversion to string should NOT be done
 """
     session = ""  
     stealth = "not implemented"
@@ -10501,6 +10502,7 @@ resolve   : holds list of fields for which conversion to string should be done
     warning_threshold = 5
     prog = ProgPath()
     resolve = Resolve()
+    noenum = Resolve()
     ethertypes = ETHER_TYPES
     protocols = IP_PROTOS
     services_tcp = TCP_SERVICES
