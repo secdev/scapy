@@ -438,6 +438,12 @@ class ManufDA(DADict):
         return self._get_manuf_couple(mac)[1]
     def _get_short_manuf(self, mac):
         return self._get_manuf_couple(mac)[0]
+    def _resolve_MAC(self, mac):
+        oui = ":".join(mac.split(":")[:3]).upper()
+        if oui in self:
+            return ":".join([self[oui][0]]+ mac.split(":")[3:])
+        return mac
+        
         
         
 
@@ -2590,7 +2596,10 @@ class MACField(Field):
             x = self.m2i(pkt, x)
         return x
     def i2repr(self, pkt, x):
-        return self.i2h(pkt, x)
+        x = self.i2h(pkt, x)
+        if self in conf.resolve:
+            x = conf.manufdb._resolve_MAC(x)
+        return x
     def randval(self):
         return RandMAC()
 
