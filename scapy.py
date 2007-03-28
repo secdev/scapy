@@ -1944,7 +1944,23 @@ class AS_resolver_cymru(AS_resolver):
             asn = int(asn)
             ASNlist.append((ip,asn,desc))
         return ASNlist
-        
+
+class AS_resolver_multi(AS_resolver):
+    resolvers_list = ( AS_resolver_cymru(),AS_resolver_riswhois(),AS_resolver_radb() )
+    def __init__(self, *reslist):
+        if reslist:
+            self.resolvers_list = reslist
+    def resolve(self, *ips):
+        todo = ips
+        ret = []
+        for ASres in self.resolvers_list:
+            res = ASres.resolve(*todo)
+            resolved = [ ip for ip,asn,desc in res ]
+            todo = [ ip for ip in todo if ip not in resolved ]
+            ret += res
+        return ret
+    
+    
 
 class TracerouteResult(SndRcvList):
     def __init__(self, res=None, name="Traceroute", stats=None):
@@ -10404,7 +10420,7 @@ AS_resolver: choose the AS resolver class to use
     color_theme = DefaultTheme()
     warning_threshold = 5
     prog = ProgPath()
-    AS_resolver = AS_resolver_riswhois()  # works for IPv4 and IPv6
+    AS_resolver = AS_resolver_multi() 
         
 
 conf=Conf()
