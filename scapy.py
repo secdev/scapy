@@ -1936,6 +1936,8 @@ class AS_resolver_cymru(AS_resolver):
             r += l
         s.close()
         for l in r.splitlines()[1:]:
+            if "|" not in l:
+                continue
             asn,ip,desc = map(str.strip, l.split("|"))
             if asn == "NA":
                 continue
