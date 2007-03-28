@@ -2654,9 +2654,13 @@ class IPField(Field):
         return x
     def resolve(self, x):
         if self in conf.resolve:
-            ret = socket.gethostbyaddr(x)[0]
-            if ret:
-                return ret
+            try:
+                ret = socket.gethostbyaddr(x)[0]
+            except socket.herror:
+                pass
+            else:
+                if ret:
+                    return ret
         return x
     def i2m(self, pkt, x):
         return inet_aton(x)
