@@ -1874,10 +1874,9 @@ class AS_resolver:
     def _start(self):
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.s.connect((self.server,self.port))
-        self.s.recv(8192)
         if self.options:
             self.s.send(self.options+"\n")
-        self.s.recv(8192)
+            self.s.recv(8192)
     def _stop(self):
         self.s.close()
         
@@ -1896,12 +1895,18 @@ class AS_resolver:
 
     def _resolve_one(self, ip):
         self.s.send("%s\n" % ip)
-        x = self.s.recv(8192)
+        x = ""
+        while not ("%" in x  or "source" in x):
+            x += self.s.recv(8192)
         asn, desc = self._parse_whois(x)
         return ip,asn,desc
     def resolve(self, *ips):
         self._start()
-        ret = [self._resolve_one(ip) for ip in ips]
+        ret = []
+        for ip in ips:
+            ip,asn,desc = self._resolve_one(ip)
+            if asn is not None:
+                ret.append((ip,asn,desc))
         self._stop()
         return ret
 
