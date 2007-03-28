@@ -735,6 +735,10 @@ def colgen(*lstcol,**kargs):
                     if i != j or j != k or k != i:
                         yield trans(lstcol[(i+j)%len(lstcol)],lstcol[(j+k)%len(lstcol)],lstcol[(k+i)%len(lstcol)])
 
+def incremental_label(label="tag%05i", start=0):
+    while True:
+        yield label % start
+        start += 1
 
 
 
@@ -1983,13 +1987,112 @@ class ARPingResult(SndRcvList):
             print r.sprintf("%Ether.src% %ARP.psrc%")
 
 
+class AS_resolver:
+    server = None
+    options = "-k" 
+    def __init__(self, server=None, port=43, options=None):
+        if server is not None:
+            self.server = server
+        self.port = port
+        if options is not None:
+            self.options = options
+        
+    def _start(self):
+        self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.s.connect((self.server,self.port))
+        if self.options:
+            self.s.send(self.options+"\n")
+            self.s.recv(8192)
+    def _stop(self):
+        self.s.close()
+        
+    def _parse_whois(self, txt):
+        asn,desc = None,""
+        for l in txt.splitlines():
+            if not asn and l.startswith("origin:"):
+                asn = l[7:].strip()
+            if l.startswith("descr:"):
+                if desc:
+                    desc += r"\n"
+                desc += l[6:].strip()
+            if asn is not None and desc:
+                break
+        return asn,desc.strip()
 
+    def _resolve_one(self, ip):
+        self.s.send("%s\n" % ip)
+        x = ""
+        while not ("%" in x  or "source" in x):
+            x += self.s.recv(8192)
+        asn, desc = self._parse_whois(x)
+        return ip,asn,desc
+    def resolve(self, *ips):
+        self._start()
+        ret = []
+        for ip in ips:
+            ip,asn,desc = self._resolve_one(ip)
+            if asn is not None:
+                ret.append((ip,asn,desc))
+        self._stop()
+        return ret
+
+class AS_resolver_riswhois(AS_resolver):
+    server = "riswhois.ripe.net"
+    options = "-k -M -1"
+
+
+class AS_resolver_radb(AS_resolver):
+    server = "whois.ra.net"
+    options = "-k -M"
+    
+
+class AS_resolver_cymru(AS_resolver):
+    server = "whois.cymru.com"
+    options = None
+    def resolve(self, *ips):
+        ASNlist = []
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.connect((self.server,self.port))
+        s.send("begin\r\n"+"\r\n".join(ips)+"\r\nend\r\n")
+        r = ""
+        while 1:
+            l = s.recv(8192)
+            if l == "":
+                break
+            r += l
+        s.close()
+        for l in r.splitlines()[1:]:
+            if "|" not in l:
+                continue
+            asn,ip,desc = map(str.strip, l.split("|"))
+            if asn == "NA":
+                continue
+            asn = int(asn)
+            ASNlist.append((ip,asn,desc))
+        return ASNlist
+
+class AS_resolver_multi(AS_resolver):
+    resolvers_list = ( AS_resolver_cymru(),AS_resolver_riswhois(),AS_resolver_radb() )
+    def __init__(self, *reslist):
+        if reslist:
+            self.resolvers_list = reslist
+    def resolve(self, *ips):
+        todo = ips
+        ret = []
+        for ASres in self.resolvers_list:
+            res = ASres.resolve(*todo)
+            resolved = [ ip for ip,asn,desc in res ]
+            todo = [ ip for ip in todo if ip not in resolved ]
+            ret += res
+        return ret
+    
+    
 
 class TracerouteResult(SndRcvList):
     def __init__(self, res=None, name="Traceroute", stats=None):
         PacketList.__init__(self, res, name, stats)
         self.graphdef = None
-        self.graphASN = 0
+        self.graphASres = 0
         self.padding = 0
         self.hloc = None
         self.nloc = None
@@ -2170,46 +2273,53 @@ class TracerouteResult(SndRcvList):
         g.plot(world,*tr)
         return g
 
-    def make_graph(self,ASN,padding):
-        self.graphASN = ASN
+    def make_graph(self,ASres=None,padding=0):
+        if ASres is None:
+            ASres = conf.AS_resolver
+        self.graphASres = ASres
         self.graphpadding = padding
         ips = {}
         rt = {}
         ports = {}
         ports_done = {}
         for s,r in self.res:
+            r = r[IP] or r[IPv6] or r
+            s = s[IP] or s[IPv6] or s
             ips[r.src] = None
-            if s.haslayer(TCP) or s.haslayer(UDP):
-                trace_id = (s.src,s.dst,s.proto,s.dport)
-            elif s.haslayer(ICMP):
-                trace_id = (s.src,s.dst,s.proto,s.type)
+            if TCP in s:
+                trace_id = (s.src,s.dst,6,s.dport)
+            elif UDP in s:
+                trace_id = (s.src,s.dst,17,s.dport)
+            elif ICMP in s:
+                trace_id = (s.src,s.dst,1,s.type)
             else:
                 trace_id = (s.src,s.dst,s.proto,0)
             trace = rt.get(trace_id,{})
-            if not r.haslayer(ICMP) or r.type != 11:
-                if ports_done.has_key(trace_id):
+            ttl = IPv6 in s and s.hlim or s.ttl
+            if not (ICMP in r and r[ICMP].type == 11) and not (IPv6 in r and ICMPv6TimeExceeded in r):
+                if trace_id in ports_done:
                     continue
                 ports_done[trace_id] = None
                 p = ports.get(r.src,[])
-                if r.haslayer(TCP):
-                    p.append(r.sprintf("<T%ir,TCP.sport%> %TCP.sport%: %TCP.flags%"))
-                    trace[s.ttl] = r.sprintf('"%IP.src%":T%ir,TCP.sport%')
-                elif r.haslayer(UDP):
+                if TCP in r:
+                    p.append(r.sprintf("<T%ir,TCP.sport%> %TCP.sport% %TCP.flags%"))
+                    trace[ttl] = r.sprintf('"%r,src%":T%ir,TCP.sport%')
+                elif UDP in r:
                     p.append(r.sprintf("<U%ir,UDP.sport%> %UDP.sport%"))
-                    trace[s.ttl] = r.sprintf('"%IP.src%":U%ir,UDP.sport%')
-                elif r.haslayer(ICMP):
+                    trace[ttl] = r.sprintf('"%r,src%":U%ir,UDP.sport%')
+                elif ICMP in r:
                     p.append(r.sprintf("<I%ir,ICMP.type%> ICMP %ICMP.type%"))
-                    trace[s.ttl] = r.sprintf('"%IP.src%":I%ir,ICMP.type%')
+                    trace[ttl] = r.sprintf('"%r,src%":I%ir,ICMP.type%')
                 else:
-                    p.append(r.sprintf("<P%ir,IP.proto> IP %IP.proto%"))
-                    trace[s.ttl] = r.sprintf('"%IP.src%":P%ir,IP.proto%')                    
+                    p.append(r.sprintf("{IP:<P%ir,proto%> IP %proto%}{IPv6:<P%ir,nh%> IPv6 %nh%}"))
+                    trace[ttl] = r.sprintf('"%r,src%":{IP:P%ir,proto%}{IPv6:P%ir,nh%}')
                 ports[r.src] = p
             else:
-                trace[s.ttl] = r.sprintf('"%IP.src%"')
+                trace[ttl] = r.sprintf('"%r,src%"')
             rt[trace_id] = trace
     
         # Fill holes with unk%i nodes
-        unk = 0
+        unknown_label = incremental_label("unk%i")
         blackholes = []
         bhip = {}
         for rtk in rt:
@@ -2217,17 +2327,16 @@ class TracerouteResult(SndRcvList):
             k = trace.keys()
             for n in range(min(k), max(k)):
                 if not trace.has_key(n):
-                    trace[n] = "unk%i" % unk
-                    unk += 1
+                    trace[n] = unknown_label.next()
             if not ports_done.has_key(rtk):
                 if rtk[2] == 1: #ICMP
-                    bh = "%s %i" % (rtk[1],rtk[3])
+                    bh = "%s %i/icmp" % (rtk[1],rtk[3])
                 elif rtk[2] == 6: #TCP
-                    bh = "%s:%i/tcp" % (rtk[1],rtk[3])
+                    bh = "%s %i/tcp" % (rtk[1],rtk[3])
                 elif rtk[2] == 17: #UDP                    
-                    bh = '%s:%i/udp' % (rtk[1],rtk[3])
+                    bh = '%s %i/udp' % (rtk[1],rtk[3])
                 else:
-                    bh = '%s,proto %i' % (rtk[1],rtk[2]) 
+                    bh = '%s %i/proto' % (rtk[1],rtk[2]) 
                 ips[bh] = None
                 bhip[rtk[1]] = bh
                 bh = '"%s"' % bh
@@ -2235,69 +2344,11 @@ class TracerouteResult(SndRcvList):
                 blackholes.append(bh)
     
         # Find AS numbers
-    
-    
-        def getASNlist_radb(list):
-            
-            def parseWhois(x):
-                asn,desc = None,""
-                for l in x.splitlines():
-                    if not asn and l.startswith("origin:"):
-                        asn = l[7:].strip()
-                    if l.startswith("descr:"):
-                        if desc:
-                            desc += r"\n"
-                        desc += l[6:].strip()
-                    if asn is not None and desc:
-                        break
-                return asn,desc.strip()
-
+        ASN_query_list = dict.fromkeys(map(lambda x:x.rsplit(" ",1)[0],ips)).keys()
+        if ASres is None:            
             ASNlist = []
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.connect(("whois.ra.net",43))
-            for ip in list:
-                s.send("-k %s\n" % ip)
-                asn,desc = parseWhois(s.recv(8192))
-                ASNlist.append((ip,asn,desc))
-            return ASNlist
-        
-        def getASNlist_cymru(list):
-            ASNlist = []
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.connect(("whois.cymru.com",43))
-            s.send("begin\r\n"+"\r\n".join(list)+"\r\nend\r\n")
-            r = ""
-            while 1:
-                l = s.recv(8192)
-                if l == "":
-                    break
-                r += l
-            s.close()
-            for l in r.splitlines()[1:]:
-                asn,ip,desc = map(str.strip, l.split("|"))
-                if asn == "NA":
-                    continue
-                asn = int(asn)
-                ASNlist.append((ip,asn,desc))
-            return ASNlist
-                
-
-        ASN_query_list = dict.fromkeys(map(lambda x:x.split(":")[0],ips)).keys()
-        if ASN in [1,2]:
-            ASNlist = getASNlist_cymru(ASN_query_list)
-        elif ASN == 3:
-            ASNlist = getASNlist_radb(ASN_query_list)
         else:
-            ASNlist = []
-            
-
-        if ASN == 1:
-            ASN_ans_list = map(lambda x:x[0], ASNlist)
-            ASN_remain_list = filter(lambda x: x not in ASN_ans_list, ASN_query_list)
-            if ASN_remain_list:
-                ASNlist += getASNlist_radb(ASN_remain_list)
-        
-            
+            ASNlist = ASres.resolve(*ASN_query_list)            
     
         ASNs = {}
         ASDs = {}
@@ -2374,19 +2425,21 @@ class TracerouteResult(SndRcvList):
         s += "}\n";
         self.graphdef = s
     
-    def graph(self, ASN=1, padding=0, **kargs):
-        """x.graph(ASN=1, other args):
-        ASN=0 : no clustering
-        ASN=1 : use whois.cymru.net AS clustering
-        ASN=2 : use whois.ra.net AS clustering
-        graph: GraphViz graph description
+    def graph(self, ASres=None, padding=0, **kargs):
+        """x.graph(ASres=conf.AS_resolver, other args):
+        ASres=None          : no AS resolver => no clustering
+        ASres=AS_resolver() : default whois AS resolver (riswhois.ripe.net)
+        ASres=AS_resolver_cymru(): use whois.cymru.com whois database
+        ASres=AS_resolver(server="whois.ra.net")
         type: output type (svg, ps, gif, jpg, etc.), passed to dot's "-T" option
         target: filename or redirect. Defaults pipe to Imagemagick's display program
         prog: which graphviz program to use"""
+        if ASres is None:
+            ASres = conf.AS_resolver
         if (self.graphdef is None or
-            self.graphASN != ASN or
+            self.graphASres != ASres or
             self.graphpadding != padding):
-            self.make_graph(ASN,padding)
+            self.make_graph(ASres,padding)
 
         do_graph(self.graphdef, **kargs)
 
@@ -10481,6 +10534,7 @@ route    : holds the Scapy routing table and provides methods to manipulate it
 warning_threshold : how much time between warnings from the same place
 resolve   : holds list of fields for which resolution should be done
 noenum    : holds list of enum fields for which conversion to string should NOT be done
+AS_resolver: choose the AS resolver class to use
 """
     session = ""  
     stealth = "not implemented"
@@ -10521,7 +10575,7 @@ noenum    : holds list of enum fields for which conversion to string should NOT 
     services_tcp = TCP_SERVICES
     services_udp = UDP_SERVICES
     manufdb = MANUFDB
-    
+    AS_resolver = AS_resolver_multi() 
         
 
 conf=Conf()
