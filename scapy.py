@@ -372,7 +372,7 @@ def load_protocols(filename):
                     continue
                 dct[lt[2]] = int(lt[1])
             except Exception,e:
-                log_loading.info("Couldn't parse one line from /etc/protocols file [%r] (%s)" % (l,e))
+                log_loading.info("Couldn't parse file [%s]: line [%r] (%s)" % (filename,l,e))
         f.close()
     except IOError:
         log_loading.info("Can't open /etc/protocols file")
@@ -394,7 +394,7 @@ def load_ethertypes(filename):
                     continue
                 dct[lt[0]] = int(lt[1], 16)
             except Exception,e:
-                log_loading.info("Couldn't parse one line from /etc/ethertypes file [%r] (%s)" % (l,e))
+                log_loading.info("Couldn't parse file [%s]: line [%r] (%s)" % (filename,l,e))
         f.close()
     except IOError,msg:
         pass
@@ -420,7 +420,7 @@ def load_services(filename):
                 elif lt[1].endswith("/udp"):
                     udct[lt[0]] = int(lt[1].split('/')[0])
             except Exception,e:
-                log_loading.warning("Couldn't parse one line from /etc/services file [%r] (%s)" % (l,e))
+                log_loading.warning("Couldn't file [%s]: line [%r] (%s)" % (filename,l,e))
         f.close()
     except IOError:
         log_loading.info("Can't open /etc/services file")
