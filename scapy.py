@@ -21,6 +21,7 @@
 
 
 from __future__ import generators
+import os
 
 BASE_VERSION = "1.0.6.1"
 
@@ -29,8 +30,16 @@ REVISION = "$Revision$"
 
 VERSION = "v%s / %s" % (BASE_VERSION, (REVISION+"--")[11:23])
 
+DEFAULT_CONFIG_FILE = os.path.join(os.environ["HOME"], ".scapy_startup.py")
+
+try:
+    os.stat(DEFAULT_CONFIG_FILE)
+except OSError:
+    DEFAULT_CONFIG_FILE = None
+
 def usage():
-    print "Usage: scapy.py [-s sessionfile]"
+    print """Usage: scapy.py [-s sessionfile] [-c new_startup_file] [-C]
+    -C: do not read startup file"""
     sys.exit(0)
 
 
@@ -88,7 +97,7 @@ if __name__ == "__main__":
 ##### Module #####
 ##################
 
-import socket, sys, getopt, string, struct, random, os, code
+import socket, sys, getopt, string, struct, random, code
 import cPickle, copy, types, gzip, base64, re, zlib, array
 from sets import Set
 from select import select
@@ -10735,25 +10744,33 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=1):
     
     session=None
     session_name=""
+    CONFIG_FILE = DEFAULT_CONFIG_FILE
 
-    opts=getopt.getopt(argv[1:], "hs:")
     iface = None
     try:
+        opts=getopt.getopt(argv[1:], "hs:Cc:")
         for opt, parm in opts[0]:
             if opt == "-h":
                 usage()
             elif opt == "-s":
                 session_name = parm
+            elif opt == "-c":
+                CONFIG_FILE = parm
+            elif opt == "-C":
+                CONFIG_FILE = None
         
         if len(opts[1]) > 0:
             raise getopt.GetoptError("Too many parameters : [%s]" % string.join(opts[1]),None)
 
 
-    except getopt.error, msg:
+    except getopt.GetoptError, msg:
         log_loading.error(msg)
         sys.exit(1)
 
 
+    if CONFIG_FILE:
+        read_config_file(CONFIG_FILE)
+        
     if session_name:
         try:
             os.stat(session_name)
@@ -10801,5 +10818,17 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=1):
     
     sys.exit()
 
+
+def read_config_file(configfile):
+    try:
+        execfile(configfile)
+    except IOError,e:
+        log_loading.warning("Cannot read config file [%s] [%s]" % (configfile,e))
+    except Exception,e:
+        log_loading.exception("Error during evaluation of config file [%s]" % configfile)
+        
+
 if __name__ == "__main__":
     interact()
+else:
+    read_config_file(DEFAULT_CONFIG_FILE)
