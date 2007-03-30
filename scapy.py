@@ -21,6 +21,7 @@
 
 
 from __future__ import generators
+import os
 
 BASE_VERSION = "1.0.6.1"
 
@@ -29,21 +30,17 @@ REVISION = "$Revision$"
 
 VERSION = "v%s / %s" % (BASE_VERSION, (REVISION+"--")[11:23])
 
+DEFAULT_CONFIG_FILE = os.path.join(os.environ["HOME"], ".scapy_startup.py")
+
+try:
+    os.stat(DEFAULT_CONFIG_FILE)
+except OSError:
+    DEFAULT_CONFIG_FILE = None
+
 def usage():
-    print "Usage: scapy.py [-s sessionfile]"
+    print """Usage: scapy.py [-s sessionfile] [-c new_startup_file] [-C]
+    -C: do not read startup file"""
     sys.exit(0)
-
-
-##########[XXX]#=--
-##
-#   Next things to do :
-#
-#  - fields to manage variable length hw addr (ARP, BOOTP, etc.)
-#  - improve pcap capture file support
-#  - better self-doc
-#
-##
-##########[XXX]#=--
 
 
 #############################
@@ -100,7 +97,7 @@ if __name__ == "__main__":
 ##### Module #####
 ##################
 
-import socket, sys, getopt, string, struct, random, os, code
+import socket, sys, getopt, string, struct, random, code
 import cPickle, copy, types, gzip, base64, re, zlib, array
 from sets import Set
 from select import select
@@ -211,6 +208,82 @@ if SOLARIS:
     # GRE is missing on Solaris
     socket.IPPROTO_GRE = 47
 
+###############################
+## Direct Access dictionnary ##
+###############################
+
+def fixname(x):
+    if x and x[0] in "0123456789":
+        x = "n_"+x
+    return x.translate("________________________________________________0123456789_______ABCDEFGHIJKLMNOPQRSTUVWXYZ______abcdefghijklmnopqrstuvwxyz_____________________________________________________________________________________________________________________________________")
+
+
+class DADict_Exception(Scapy_Exception):
+    pass
+
+class DADict:
+    def __init__(self, _name="DADict", **kargs):
+        self._name=_name
+        self.__dict__.update(kargs)
+    def fixname(self,val):
+        return fixname(val)
+    def __contains__(self, val):
+        return val in self.__dict__
+    def __getitem__(self, attr):
+        return getattr(self, attr)
+    def __setitem__(self, attr, val):        
+        return setattr(self, self.fixname(attr), val)
+    def __iter__(self):
+        return iter(map(lambda (x,y):y,filter(lambda (x,y):x[0]!="_", self.__dict__.items())))
+    def _show(self):
+        for k in self.__dict__.keys():
+            if k[0] != "_":
+                print "%10s = %r" % (k,getattr(self,k))
+    def __repr__(self):
+        return "<%s/ %s>" % (self._name," ".join(filter(lambda x:x[0]!="_",self.__dict__.keys())))
+
+    def _branch(self, br, uniq=0):
+        if uniq and br._name in self:
+            raise DADict_Exception("DADict: [%s] already branched in [%s]" % (br._name, self._name))
+        self[br._name] = br
+
+    def _my_find(self, *args, **kargs):
+        if args and self._name not in args:
+            return False
+        for k in kargs:
+            if k not in self or self[k] != kargs[k]:
+                return False
+        return True
+    
+    def _find(self, *args, **kargs):
+         return self._recurs_find((), *args, **kargs)
+    def _recurs_find(self, path, *args, **kargs):
+        if self in path:
+            return None
+        if self._my_find(*args, **kargs):
+            return self
+        for o in self:
+            if isinstance(o, DADict):
+                p = o._recurs_find(path+(self,), *args, **kargs)
+                if p is not None:
+                    return p
+        return None
+    def _find_all(self, *args, **kargs):
+        return self._recurs_find_all((), *args, **kargs)
+    def _recurs_find_all(self, path, *args, **kargs):
+        r = []
+        if self in path:
+            return r
+        if self._my_find(*args, **kargs):
+            r.append(self)
+        for o in self:
+            if isinstance(o, DADict):
+                p = o._recurs_find_all(path+(self,), *args, **kargs)
+                r += p
+        return r
+    def keys(self):
+        return filter(lambda x:x[0]!="_", self.__dict__.keys())
+        
 
 
 ############
@@ -286,62 +359,119 @@ MTU = 1600
 
  
 # file parsing to get some values :
-spaces = re.compile("[ \t]+|\n")
 
-IP_PROTOS={}
-try:
-    f=open("/etc/protocols")
-    for l in f:
-        try:
-            if l[0] in ["#","\n"]:
-                continue
-            lt = tuple(re.split(spaces, l))
-            if len(lt) < 3:
-                continue
-            IP_PROTOS.update({lt[2]:int(lt[1])})
-        except:
-            log_loading.info("Couldn't parse one line from protocols file (" + l + ")")
-    f.close()
-except IOError:
-    log_loading.info("Can't open /etc/protocols file")
+def load_protocols(filename):
+    spaces = re.compile("[ \t]+|\n")
+    dct = DADict(_name=filename)
+    try:
+        for l in open(filename):
+            try:
+                if l[0] in ["#","\n"]:
+                    continue
+                lt = tuple(re.split(spaces, l))
+                if len(lt) < 3:
+                    continue
+                dct[lt[2]] = int(lt[1])
+            except Exception,e:
+                log_loading.info("Couldn't parse file [%s]: line [%r] (%s)" % (filename,l,e))
+        f.close()
+    except IOError:
+        log_loading.info("Can't open /etc/protocols file")
+    return dct
 
-ETHER_TYPES={}
-try:
-    f=open("/etc/ethertypes")
-    for l in f:
-        try:
-            if l[0] in ["#","\n"]:
-                continue
-            lt = tuple(re.split(spaces, l))
-            if len(lt) < 2:
-                continue
-            ETHER_TYPES.update({lt[0]:int(lt[1], 16)})
-        except:
-            log_loading.info("Couldn't parse one line from ethertypes file (" + l + ")")
-    f.close()
-except IOError,msg:
-    log_loading.info("Can't open /etc/ethertypes file")
- 
-TCP_SERVICES={}
-UDP_SERVICES={}
-try:
-    f=open("/etc/services")
-    for l in f:
-        try:
-            if l[0] in ["#","\n"]:
-                continue
-            lt = tuple(re.split(spaces, l))
-            if len(lt) < 2:
-                continue
-            if lt[1].endswith("/tcp"):
-                TCP_SERVICES.update({lt[0]:int(lt[1].split('/')[0])})
-            elif lt[1].endswith("/udp"):
-                UDP_SERVICES.update({lt[0]:int(lt[1].split('/')[0])})
-        except:
-            log_loading.warning("Couldn't parse one line from /etc/services file (" + l + ")")
-    f.close()
-except IOError:
-    log_loading.info("Can't open /etc/services file")
+IP_PROTOS=load_protocols("/etc/protocols")
+
+def load_ethertypes(filename):
+    spaces = re.compile("[ \t]+|\n")
+    dct = DADict(_name=filename)
+    try:
+        f=open(filename)
+        for l in f:
+            try:
+                if l[0] in ["#","\n"]:
+                    continue
+                lt = tuple(re.split(spaces, l))
+                if len(lt) < 2:
+                    continue
+                dct[lt[0]] = int(lt[1], 16)
+            except Exception,e:
+                log_loading.info("Couldn't parse file [%s]: line [%r] (%s)" % (filename,l,e))
+        f.close()
+    except IOError,msg:
+        pass
+    return dct
+
+ETHER_TYPES=load_ethertypes("/etc/ethertypes")
+
+def load_services(filename):
+    spaces = re.compile("[ \t]+|\n")
+    tdct=DADict(_name="%s-tcp"%filename)
+    udct=DADict(_name="%s-udp"%filename)
+    try:
+        f=open(filename)
+        for l in f:
+            try:
+                if l[0] in ["#","\n"]:
+                    continue
+                lt = tuple(re.split(spaces, l))
+                if len(lt) < 2:
+                    continue
+                if lt[1].endswith("/tcp"):
+                    tdct[lt[0]] = int(lt[1].split('/')[0])
+                elif lt[1].endswith("/udp"):
+                    udct[lt[0]] = int(lt[1].split('/')[0])
+            except Exception,e:
+                log_loading.warning("Couldn't file [%s]: line [%r] (%s)" % (filename,l,e))
+        f.close()
+    except IOError:
+        log_loading.info("Can't open /etc/services file")
+    return tdct,udct
+
+TCP_SERVICES,UDP_SERVICES=load_services("/etc/services")
+
+class ManufDA(DADict):
+    def fixname(self, val):
+        return val
+    def _get_manuf_couple(self, mac):
+        oui = ":".join(mac.split(":")[:3]).upper()
+        return self.__dict__.get(oui,(mac,mac))
+    def _get_manuf(self, mac):
+        return self._get_manuf_couple(mac)[1]
+    def _get_short_manuf(self, mac):
+        return self._get_manuf_couple(mac)[0]
+    def _resolve_MAC(self, mac):
+        oui = ":".join(mac.split(":")[:3]).upper()
+        if oui in self:
+            return ":".join([self[oui][0]]+ mac.split(":")[3:])
+        return mac
+        
+        
+        
+
+def load_manuf(filename):
+    try:
+        manufdb=ManufDA(_name=filename)
+        for l in open(filename):
+            try:
+                l = l.strip()
+                if not l or l.startswith("#"):
+                    continue
+                oui,shrt=l.split()[:2]
+                i = l.find("#")
+                if i < 0:
+                    lng=shrt
+                else:
+                    lng = l[i+2:]
+                manufdb[oui] = shrt,lng
+            except Exception,e:
+                log_loadding.warning("Couldn't parse one line from [%s] [%r] (%s)" % (filename, l, e))
+    except IOError:
+        #log_loading.warning("Couldn't open [%s] file" % filename)
+        pass
+    return manufdb
+    
+MANUFDB = load_manuf("/usr/share/wireshark/wireshark/manuf")
+
 
 
 
@@ -599,11 +729,6 @@ def tex_escape(x):
         s += _TEX_TR.get(c,c)
     return s
 
-def fixname(x):
-    if x and x[0] in "0123456789":
-        x = "_"+x
-    return x.translate("________________________________________________0123456789_______ABCDEFGHIJKLMNOPQRSTUVWXYZ______abcdefghijklmnopqrstuvwxyz_____________________________________________________________________________________________________________________________________")
-
 def colgen(*lstcol,**kargs):
     """Returns a generator that mixes provided quantities forever
     trans: a function to convert the three arguments into a color. lambda x,y,z:(x,y,z) by default"""
@@ -617,6 +742,10 @@ def colgen(*lstcol,**kargs):
                     if i != j or j != k or k != i:
                         yield trans(lstcol[(i+j)%len(lstcol)],lstcol[(j+k)%len(lstcol)],lstcol[(k+i)%len(lstcol)])
 
+def incremental_label(label="tag%05i", start=0):
+    while True:
+        yield label % start
+        start += 1
 
 #########################
 #### Enum management ####
@@ -657,74 +786,6 @@ class Enum_metaclass(type):
         return "<%s>" % self.__dict__.get("name", self.__name__)
 
 
-###############################
-## Direct Access dictionnary ##
-###############################
-
-class DADict_Exception(Scapy_Exception):
-    pass
-
-class DADict:
-    def __init__(self, _name="DADict", **kargs):
-        self._name=_name
-        self.__dict__.update(kargs)
-    def __contains__(self, val):
-        return val in self.__dict__
-    def __getitem__(self, attr):
-        return getattr(self, attr)
-    def __setitem__(self, attr, val):        
-        return setattr(self, fixname(attr), val)
-    def __iter__(self):
-        return iter(map(lambda (x,y):y,filter(lambda (x,y):x[0]!="_", self.__dict__.items())))
-    def _show(self):
-        for k in self.__dict__.keys():
-            if k[0] != "_":
-                print "%10s = %r" % (k,getattr(self,k))
-    def __repr__(self):
-        return "<%s/ %s>" % (self._name," ".join(filter(lambda x:x[0]!="_",self.__dict__.keys())))
-
-    def _branch(self, br, uniq=0):
-        if uniq and br._name in self:
-            raise DADict_Exception("DADict: [%s] already branched in [%s]" % (br._name, self._name))
-        self[br._name] = br
-
-    def _my_find(self, *args, **kargs):
-        if args and self._name not in args:
-            return False
-        for k in kargs:
-            if k not in self or self[k] != kargs[k]:
-                return False
-        return True
-    
-    def _find(self, *args, **kargs):
-         return self._recurs_find((), *args, **kargs)
-    def _recurs_find(self, path, *args, **kargs):
-        if self in path:
-            return None
-        if self._my_find(*args, **kargs):
-            return self
-        for o in self:
-            if isinstance(o, DADict):
-                p = o._recurs_find(path+(self,), *args, **kargs)
-                if p is not None:
-                    return p
-        return None
-    def _find_all(self, *args, **kargs):
-        return self._recurs_find_all((), *args, **kargs)
-    def _recurs_find_all(self, path, *args, **kargs):
-        r = []
-        if self in path:
-            return r
-        if self._my_find(*args, **kargs):
-            r.append(self)
-        for o in self:
-            if isinstance(o, DADict):
-                p = o._recurs_find_all(path+(self,), *args, **kargs)
-                r += p
-        return r
-    def keys(self):
-        return filter(lambda x:x[0]!="_", self.__dict__.keys())
-        
 
 
 ##############################
@@ -2706,13 +2767,112 @@ class ARPingResult(SndRcvList):
             print r.sprintf("%Ether.src% %ARP.psrc%")
 
 
+class AS_resolver:
+    server = None
+    options = "-k" 
+    def __init__(self, server=None, port=43, options=None):
+        if server is not None:
+            self.server = server
+        self.port = port
+        if options is not None:
+            self.options = options
+        
+    def _start(self):
+        self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.s.connect((self.server,self.port))
+        if self.options:
+            self.s.send(self.options+"\n")
+            self.s.recv(8192)
+    def _stop(self):
+        self.s.close()
+        
+    def _parse_whois(self, txt):
+        asn,desc = None,""
+        for l in txt.splitlines():
+            if not asn and l.startswith("origin:"):
+                asn = l[7:].strip()
+            if l.startswith("descr:"):
+                if desc:
+                    desc += r"\n"
+                desc += l[6:].strip()
+            if asn is not None and desc:
+                break
+        return asn,desc.strip()
 
+    def _resolve_one(self, ip):
+        self.s.send("%s\n" % ip)
+        x = ""
+        while not ("%" in x  or "source" in x):
+            x += self.s.recv(8192)
+        asn, desc = self._parse_whois(x)
+        return ip,asn,desc
+    def resolve(self, *ips):
+        self._start()
+        ret = []
+        for ip in ips:
+            ip,asn,desc = self._resolve_one(ip)
+            if asn is not None:
+                ret.append((ip,asn,desc))
+        self._stop()
+        return ret
+
+class AS_resolver_riswhois(AS_resolver):
+    server = "riswhois.ripe.net"
+    options = "-k -M -1"
+
+
+class AS_resolver_radb(AS_resolver):
+    server = "whois.ra.net"
+    options = "-k -M"
+    
+
+class AS_resolver_cymru(AS_resolver):
+    server = "whois.cymru.com"
+    options = None
+    def resolve(self, *ips):
+        ASNlist = []
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.connect((self.server,self.port))
+        s.send("begin\r\n"+"\r\n".join(ips)+"\r\nend\r\n")
+        r = ""
+        while 1:
+            l = s.recv(8192)
+            if l == "":
+                break
+            r += l
+        s.close()
+        for l in r.splitlines()[1:]:
+            if "|" not in l:
+                continue
+            asn,ip,desc = map(str.strip, l.split("|"))
+            if asn == "NA":
+                continue
+            asn = int(asn)
+            ASNlist.append((ip,asn,desc))
+        return ASNlist
+
+class AS_resolver_multi(AS_resolver):
+    resolvers_list = ( AS_resolver_cymru(),AS_resolver_riswhois(),AS_resolver_radb() )
+    def __init__(self, *reslist):
+        if reslist:
+            self.resolvers_list = reslist
+    def resolve(self, *ips):
+        todo = ips
+        ret = []
+        for ASres in self.resolvers_list:
+            res = ASres.resolve(*todo)
+            resolved = [ ip for ip,asn,desc in res ]
+            todo = [ ip for ip in todo if ip not in resolved ]
+            ret += res
+        return ret
+    
+    
 
 class TracerouteResult(SndRcvList):
     def __init__(self, res=None, name="Traceroute", stats=None):
         PacketList.__init__(self, res, name, stats)
         self.graphdef = None
-        self.graphASN = 0
+        self.graphASres = 0
         self.padding = 0
         self.hloc = None
         self.nloc = None
@@ -2893,46 +3053,53 @@ class TracerouteResult(SndRcvList):
         g.plot(world,*tr)
         return g
 
-    def make_graph(self,ASN,padding):
-        self.graphASN = ASN
+    def make_graph(self,ASres=None,padding=0):
+        if ASres is None:
+            ASres = conf.AS_resolver
+        self.graphASres = ASres
         self.graphpadding = padding
         ips = {}
         rt = {}
         ports = {}
         ports_done = {}
         for s,r in self.res:
+            r = r[IP] or r[IPv6] or r
+            s = s[IP] or s[IPv6] or s
             ips[r.src] = None
-            if s.haslayer(TCP) or s.haslayer(UDP):
-                trace_id = (s.src,s.dst,s.proto,s.dport)
-            elif s.haslayer(ICMP):
-                trace_id = (s.src,s.dst,s.proto,s.type)
+            if TCP in s:
+                trace_id = (s.src,s.dst,6,s.dport)
+            elif UDP in s:
+                trace_id = (s.src,s.dst,17,s.dport)
+            elif ICMP in s:
+                trace_id = (s.src,s.dst,1,s.type)
             else:
                 trace_id = (s.src,s.dst,s.proto,0)
             trace = rt.get(trace_id,{})
-            if not r.haslayer(ICMP) or r.type != 11:
-                if ports_done.has_key(trace_id):
+            ttl = IPv6 in s and s.hlim or s.ttl
+            if not (ICMP in r and r[ICMP].type == 11) and not (IPv6 in r and ICMPv6TimeExceeded in r):
+                if trace_id in ports_done:
                     continue
                 ports_done[trace_id] = None
                 p = ports.get(r.src,[])
-                if r.haslayer(TCP):
-                    p.append(r.sprintf("<T%ir,TCP.sport%> %TCP.sport%: %TCP.flags%"))
-                    trace[s.ttl] = r.sprintf('"%IP.src%":T%ir,TCP.sport%')
-                elif r.haslayer(UDP):
+                if TCP in r:
+                    p.append(r.sprintf("<T%ir,TCP.sport%> %TCP.sport% %TCP.flags%"))
+                    trace[ttl] = r.sprintf('"%r,src%":T%ir,TCP.sport%')
+                elif UDP in r:
                     p.append(r.sprintf("<U%ir,UDP.sport%> %UDP.sport%"))
-                    trace[s.ttl] = r.sprintf('"%IP.src%":U%ir,UDP.sport%')
-                elif r.haslayer(ICMP):
+                    trace[ttl] = r.sprintf('"%r,src%":U%ir,UDP.sport%')
+                elif ICMP in r:
                     p.append(r.sprintf("<I%ir,ICMP.type%> ICMP %ICMP.type%"))
-                    trace[s.ttl] = r.sprintf('"%IP.src%":I%ir,ICMP.type%')
+                    trace[ttl] = r.sprintf('"%r,src%":I%ir,ICMP.type%')
                 else:
-                    p.append(r.sprintf("<P%ir,IP.proto> IP %IP.proto%"))
-                    trace[s.ttl] = r.sprintf('"%IP.src%":P%ir,IP.proto%')                    
+                    p.append(r.sprintf("{IP:<P%ir,proto%> IP %proto%}{IPv6:<P%ir,nh%> IPv6 %nh%}"))
+                    trace[ttl] = r.sprintf('"%r,src%":{IP:P%ir,proto%}{IPv6:P%ir,nh%}')
                 ports[r.src] = p
             else:
-                trace[s.ttl] = r.sprintf('"%IP.src%"')
+                trace[ttl] = r.sprintf('"%r,src%"')
             rt[trace_id] = trace
     
         # Fill holes with unk%i nodes
-        unk = 0
+        unknown_label = incremental_label("unk%i")
         blackholes = []
         bhip = {}
         for rtk in rt:
@@ -2940,17 +3107,16 @@ class TracerouteResult(SndRcvList):
             k = trace.keys()
             for n in range(min(k), max(k)):
                 if not trace.has_key(n):
-                    trace[n] = "unk%i" % unk
-                    unk += 1
+                    trace[n] = unknown_label.next()
             if not ports_done.has_key(rtk):
                 if rtk[2] == 1: #ICMP
-                    bh = "%s %i" % (rtk[1],rtk[3])
+                    bh = "%s %i/icmp" % (rtk[1],rtk[3])
                 elif rtk[2] == 6: #TCP
-                    bh = "%s:%i/tcp" % (rtk[1],rtk[3])
+                    bh = "%s %i/tcp" % (rtk[1],rtk[3])
                 elif rtk[2] == 17: #UDP                    
-                    bh = '%s:%i/udp' % (rtk[1],rtk[3])
+                    bh = '%s %i/udp' % (rtk[1],rtk[3])
                 else:
-                    bh = '%s,proto %i' % (rtk[1],rtk[2]) 
+                    bh = '%s %i/proto' % (rtk[1],rtk[2]) 
                 ips[bh] = None
                 bhip[rtk[1]] = bh
                 bh = '"%s"' % bh
@@ -2958,69 +3124,11 @@ class TracerouteResult(SndRcvList):
                 blackholes.append(bh)
     
         # Find AS numbers
-    
-    
-        def getASNlist_radb(list):
-            
-            def parseWhois(x):
-                asn,desc = None,""
-                for l in x.splitlines():
-                    if not asn and l.startswith("origin:"):
-                        asn = l[7:].strip()
-                    if l.startswith("descr:"):
-                        if desc:
-                            desc += r"\n"
-                        desc += l[6:].strip()
-                    if asn is not None and desc:
-                        break
-                return asn,desc.strip()
-
+        ASN_query_list = dict.fromkeys(map(lambda x:x.rsplit(" ",1)[0],ips)).keys()
+        if ASres is None:            
             ASNlist = []
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.connect(("whois.ra.net",43))
-            for ip in list:
-                s.send("-k %s\n" % ip)
-                asn,desc = parseWhois(s.recv(8192))
-                ASNlist.append((ip,asn,desc))
-            return ASNlist
-        
-        def getASNlist_cymru(list):
-            ASNlist = []
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.connect(("whois.cymru.com",43))
-            s.send("begin\r\n"+"\r\n".join(list)+"\r\nend\r\n")
-            r = ""
-            while 1:
-                l = s.recv(8192)
-                if l == "":
-                    break
-                r += l
-            s.close()
-            for l in r.splitlines()[1:]:
-                asn,ip,desc = map(str.strip, l.split("|"))
-                if asn == "NA":
-                    continue
-                asn = int(asn)
-                ASNlist.append((ip,asn,desc))
-            return ASNlist
-                
-
-        ASN_query_list = dict.fromkeys(map(lambda x:x.split(":")[0],ips)).keys()
-        if ASN in [1,2]:
-            ASNlist = getASNlist_cymru(ASN_query_list)
-        elif ASN == 3:
-            ASNlist = getASNlist_radb(ASN_query_list)
         else:
-            ASNlist = []
-            
-
-        if ASN == 1:
-            ASN_ans_list = map(lambda x:x[0], ASNlist)
-            ASN_remain_list = filter(lambda x: x not in ASN_ans_list, ASN_query_list)
-            if ASN_remain_list:
-                ASNlist += getASNlist_radb(ASN_remain_list)
-        
-            
+            ASNlist = ASres.resolve(*ASN_query_list)            
     
         ASNs = {}
         ASDs = {}
@@ -3097,19 +3205,21 @@ class TracerouteResult(SndRcvList):
         s += "}\n";
         self.graphdef = s
     
-    def graph(self, ASN=1, padding=0, **kargs):
-        """x.graph(ASN=1, other args):
-        ASN=0 : no clustering
-        ASN=1 : use whois.cymru.net AS clustering
-        ASN=2 : use whois.ra.net AS clustering
-        graph: GraphViz graph description
+    def graph(self, ASres=None, padding=0, **kargs):
+        """x.graph(ASres=conf.AS_resolver, other args):
+        ASres=None          : no AS resolver => no clustering
+        ASres=AS_resolver() : default whois AS resolver (riswhois.ripe.net)
+        ASres=AS_resolver_cymru(): use whois.cymru.com whois database
+        ASres=AS_resolver(server="whois.ra.net")
         type: output type (svg, ps, gif, jpg, etc.), passed to dot's "-T" option
         target: filename or redirect. Defaults pipe to Imagemagick's display program
         prog: which graphviz program to use"""
+        if ASres is None:
+            ASres = conf.AS_resolver
         if (self.graphdef is None or
-            self.graphASN != ASN or
+            self.graphASres != ASres or
             self.graphpadding != padding):
-            self.make_graph(ASN,padding)
+            self.make_graph(ASres,padding)
 
         do_graph(self.graphdef, **kargs)
 
@@ -3179,8 +3289,10 @@ class Field:
         return self.name == other
     def __hash__(self):
         return hash(self.name)
-    def __repr__(self):
+    def __str__(self):
         return self.name
+    def __repr__(self):
+        return "<Field %s>" % self.name
     def copy(self):
         return copy.deepcopy(self)
     def randval(self):
@@ -3260,7 +3372,10 @@ class MACField(Field):
             x = self.m2i(pkt, x)
         return x
     def i2repr(self, pkt, x):
-        return self.i2h(pkt, x)
+        x = self.i2h(pkt, x)
+        if self in conf.resolve:
+            x = conf.manufdb._resolve_MAC(x)
+        return x
     def randval(self):
         return RandMAC()
 
@@ -3384,6 +3499,16 @@ class IPField(Field):
         elif type(x) is list:
             x = map(Net, x)
         return x
+    def resolve(self, x):
+        if self in conf.resolve:
+            try:
+                ret = socket.gethostbyaddr(x)[0]
+            except socket.herror:
+                pass
+            else:
+                if ret:
+                    return ret
+        return x
     def i2m(self, pkt, x):
         return inet_aton(x)
     def m2i(self, pkt, x):
@@ -3391,7 +3516,7 @@ class IPField(Field):
     def any2i(self, pkt, x):
         return self.h2i(pkt,x)
     def i2repr(self, pkt, x):
-        return self.i2h(pkt, x)
+        return self.resolve(self.i2h(pkt, x))
     def randval(self):
         return RandIP()
 
@@ -3904,7 +4029,9 @@ class EnumField(Field):
             x = self.s2i[x]
         return x
     def i2repr_one(self, pkt, x):
-        return self.i2s.get(x, repr(x))
+        if self not in conf.noenum and x in self.i2s:
+            return self.i2s[x]
+        return repr(x)
     
     def any2i(self, pkt, x):
         if type(x) is list:
@@ -3959,7 +4086,9 @@ class LEIntEnumField(EnumField):
 
 class XShortEnumField(ShortEnumField):
     def i2repr_one(self, pkt, x):
-        return self.i2s.get(x, lhex(x))            
+        if self not in conf.noenum and x in self.i2s:
+            return self.i2s[x]
+        return lhex(x)
 
 # Little endian long field
 class LELongField(Field):
@@ -4595,8 +4724,42 @@ class ASN1F_CHOICE(ASN1F_PACKET):
 ## Packet abstract class ##
 ###########################
 
+class Packet_metaclass(type):
+    def __getattr__(self, attr):
+        for k in self.fields_desc:
+            if k.name == attr:
+                return k
+
+class NewDefaultValues(Packet_metaclass):
+    """NewDefaultValues metaclass. Example usage:
+    class MyPacket(Packet):
+        fields_desc = [ StrField("my_field", "my default value"),  ]
+        
+    class MyPacket_variant(MyPacket):
+        __metaclass__ = NewDefaultValues
+        my_field = "my new default value"
+    """    
+    def __new__(cls, name, bases, dct):
+        fields = None
+        for b in bases:
+            if hasattr(b,"fields_desc"):
+                fields = b.fields_desc[:]
+                break
+        if fields is None:
+            raise Scapy_Exception("No fields_desc in superclasses")
+
+        new_fields = []
+        for f in fields:
+            if f in dct:
+                f = f.copy()
+                f.default = dct[f]
+                del(dct[f])
+            new_fields.append(f)
+        dct["fields_desc"] = new_fields
+        return super(NewDefaultValues, cls).__new__(cls, name, bases, dct)
 
 class Packet(Gen):
+    __metaclass__ = Packet_metaclass
     name=None
 
     fields_desc = []
@@ -5279,10 +5442,10 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
             else:
                 ncol = ct.field_name
                 vcol = ct.field_value
-            fvalue = self.__getattr__(f)
+            fvalue = self.getfieldval(f)
             if isinstance(fvalue, Packet) or (f.islist and f.holds_packets and type(fvalue) is list):
                 print "%s  \\%-10s\\" % (label_lvl+lvl, ncol(f.name))
-                fvalue_gen = SetGen(self.__getattr__(f),_iterpacket=0)
+                fvalue_gen = SetGen(fvalue,_iterpacket=0)
                 for fvalue in fvalue_gen:
                     fvalue.show(indent=indent, label_lvl=label_lvl+lvl+"   |")
             else:
@@ -5559,49 +5722,6 @@ class NoPayload(Packet,object):
 ## packet classes ##
 ####################
     
-    
-class ChangeDefaultValues(type):
-    def __new__(cls, name, bases, dct):
-        default = dct["new_default_values"]
-        fields = None
-        for b in bases:
-            if hasattr(b,"fields_desc"):
-                fields = b.fields_desc[:]
-                break
-        if fields is None:
-            raise Scapy_Exception("No fields_desc in superclasses")
-
-        del(dct["new_default_values"])
-        new_fields = []
-        for f in fields:
-            if f in default:
-                f = f.copy()
-                f.default = default[f]
-            new_fields.append(f)
-        dct["fields_desc"] = new_fields
-        return super(ChangeDefaultValues, cls).__new__(cls, name, bases, dct)
-
-# Metaclass
-class NewDefaultValues(type):
-    def __new__(cls, name, bases, dct):
-        fields = None
-        for b in bases:
-            if hasattr(b,"fields_desc"):
-                fields = b.fields_desc[:]
-                break
-        if fields is None:
-            raise Scapy_Exception("No fields_desc in superclasses")
-
-        new_fields = []
-        for f in fields:
-            if f in dct:
-                f = f.copy()
-                f.default = dct[f]
-                del(dct[f])
-            new_fields.append(f)
-        dct["fields_desc"] = new_fields
-        return super(NewDefaultValues, cls).__new__(cls, name, bases, dct)
-
             
 class Raw(Packet):
     name = "Raw"
@@ -11623,9 +11743,6 @@ class ConfClass:
             if i[0] != "_":
                 s += "%-10s = %s\n" % (i, repr(getattr(self, i)))
         return s[:-1]
-    def reset(self):
-        self.__dict__ = {}
-
     
 class ProgPath(ConfClass):
     pdfreader = "acroread"
@@ -11636,6 +11753,22 @@ class ProgPath(ConfClass):
     hexedit = "hexer"
     wireshark = "wireshark"
     
+class Resolve:
+    def __init__(self):
+        self.fields = {}
+    def add(self, *flds):
+        for fld in flds:
+            self.fields[fld]=None
+    def remove(self, *flds):
+        for fld in flds:
+            if fld in self.fields:
+                del(self.fields[fld])
+    def __contains__(self, elt):
+        return elt in self.fields
+    def __repr__(self):
+        return "<Resolve [%s]>" %  " ".join(str(x) for x in self.fields)
+    
+        
 
 
 class Conf(ConfClass):
@@ -11660,6 +11793,9 @@ route    : holds the Scapy routing table and provides methods to manipulate it
 warning_threshold : how much time between warnings from the same place
 ASN1_default_codec: Codec used by default for ASN1 objects
 mib      : holds MIB direct access dictionnary
+resolve   : holds list of fields for which resolution should be done
+noenum    : holds list of enum fields for which conversion to string should NOT be done
+AS_resolver: choose the AS resolver class to use
 """
     session = ""  
     stealth = "not implemented"
@@ -11695,7 +11831,14 @@ mib      : holds MIB direct access dictionnary
     ASN1_default_codec = ASN1_Codecs.BER
     mib = MIBDict(_name="MIB")
     prog = ProgPath()
-
+    resolve = Resolve()
+    noenum = Resolve()
+    ethertypes = ETHER_TYPES
+    protocols = IP_PROTOS
+    services_tcp = TCP_SERVICES
+    services_udp = UDP_SERVICES
+    manufdb = MANUFDB
+    AS_resolver = AS_resolver_multi() 
         
 
 conf=Conf()
@@ -11897,7 +12040,7 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=1):
                     object = eval(expr)
                 except:
                     object = eval(expr, session)
-                if isinstance(object, Packet):
+                if isinstance(object, Packet) or isinstance(object, Packet_metaclass):
                     words = filter(lambda x: x[0]!="_",dir(object))
                     words += map(str, object.fields_desc)
                 else:
@@ -11918,25 +12061,33 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=1):
     
     session=None
     session_name=""
+    CONFIG_FILE = DEFAULT_CONFIG_FILE
 
-    opts=getopt.getopt(argv[1:], "hs:")
     iface = None
     try:
+        opts=getopt.getopt(argv[1:], "hs:Cc:")
         for opt, parm in opts[0]:
             if opt == "-h":
                 usage()
             elif opt == "-s":
                 session_name = parm
+            elif opt == "-c":
+                CONFIG_FILE = parm
+            elif opt == "-C":
+                CONFIG_FILE = None
         
         if len(opts[1]) > 0:
             raise getopt.GetoptError("Too many parameters : [%s]" % string.join(opts[1]),None)
 
 
-    except getopt.error, msg:
+    except getopt.GetoptError, msg:
         log_loading.error(msg)
         sys.exit(1)
 
 
+    if CONFIG_FILE:
+        read_config_file(CONFIG_FILE)
+        
     if session_name:
         try:
             os.stat(session_name)
@@ -11984,5 +12135,17 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=1):
     
     sys.exit()
 
+
+def read_config_file(configfile):
+    try:
+        execfile(configfile)
+    except IOError,e:
+        log_loading.warning("Cannot read config file [%s] [%s]" % (configfile,e))
+    except Exception,e:
+        log_loading.exception("Error during evaluation of config file [%s]" % configfile)
+        
+
 if __name__ == "__main__":
     interact()
+else:
+    read_config_file(DEFAULT_CONFIG_FILE)
