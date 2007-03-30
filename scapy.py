@@ -1776,7 +1776,7 @@ def BER_len_dec(s):
             ll |= ord(c)
         return ll,s[l+1:]
         
-def BER_num_enc(l, size=0):
+def BER_num_enc(l, size=1):
         x=[]
         while l or size>0:
             x.insert(0, l & 0x7f)
