@@ -1720,6 +1720,8 @@ class ASN1_SET(ASN1_SEQUENCE):
     
 class ASN1_OID(ASN1_Object):
     tag = ASN1_Class_UNIVERSAL.OID
+    def __repr__(self):
+        return "<%s[%r]>" % (self.__dict__.get("name", self.__class__.__name__), conf.mib._oidname(self.val))
     
 
 
@@ -2104,11 +2106,10 @@ def mib_register(ident, value, the_mib, unresolved):
 
 
 def load_mib(filenames):
-    the_mib = {}
+    the_mib = {'iso': ['1']}
     unresolved = {}
     for k in conf.mib.keys():
         mib_register(k, conf.mib[k].split("."), the_mib, unresolved)
-
 
     if type(filenames) is str:
         filenames = [filenames]
@@ -11680,7 +11681,7 @@ mib      : holds MIB direct access dictionnary
     color_theme = DefaultTheme()
     warning_threshold = 5
     ASN1_default_codec = ASN1_Codecs.BER
-    mib = MIBDict(_name="MIB", iso="1")
+    mib = MIBDict(_name="MIB")
     prog = ProgPath()
 
         
