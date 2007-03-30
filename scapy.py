@@ -4427,10 +4427,10 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
             else:
                 ncol = ct.field_name
                 vcol = ct.field_value
-            fvalue = self.__getattr__(f)
+            fvalue = self.getfieldval(f)
             if isinstance(fvalue, Packet) or (f.islist and f.holds_packets):
                 print "%s  \\%-10s\\" % (label_lvl+lvl, ncol(f.name))
-                fvalue_gen = SetGen(self.__getattr__(f),_iterpacket=0)
+                fvalue_gen = SetGen(fvalue,_iterpacket=0)
                 for fvalue in fvalue_gen:
                     fvalue.show(indent=indent, label_lvl=label_lvl+lvl+"   |")
             else:
