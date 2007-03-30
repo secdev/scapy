@@ -2004,7 +2004,7 @@ class BERcodec_OID(BERcodec_Object):
         if len(lst) >= 2:
             lst[1] += 40*lst[0]
             del(lst[0])
-        s = "".join([BER_num_enc(k,1) for k in lst])
+        s = "".join([BER_num_enc(k) for k in lst])
         return chr(cls.tag)+BER_len_enc(len(s))+s
     @classmethod
     def do_dec(cls, s, context=None, safe=False):
