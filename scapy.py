@@ -2025,6 +2025,9 @@ class BERcodec_OID(BERcodec_Object):
 ## MIB parsing ##
 #################
 
+_mib_re_integer = re.compile("^[0-9]+$")
+_mib_re_both = re.compile("^([a-zA-Z_][a-zA-Z0-9_-]*)\(([0-9]+)\)$")
+_mib_re_oiddecl = re.compile("$\s*([a-zA-Z0-9_-]+)\s+OBJECT[^:]+::=\s*\{([^\}]+)\}",re.M)
 
 class MIBDict(DADict):
     def _findroot(self, x):
@@ -2043,6 +2046,15 @@ class MIBDict(DADict):
     def _oidname(self, x):
         root,remainder = self._findroot(x)
         return root+remainder
+    def _oid(self, x):
+        xl = x.strip(".").split(".")
+        p = len(xl)-1
+        while p >= 0 and _mib_re_integer.match(xl[p]):
+            p -= 1
+        if p != 0 or xl[p] not in self:
+            return x
+        xl[p] = self[xl[p]] 
+        return ".".join(xl[p:])
     def _make_graph(self, other_keys=[]):
         nodes = [(k,self[k]) for k in self.keys()]
         oids = [self[k] for k in self.keys()]
@@ -2062,9 +2074,6 @@ class MIBDict(DADict):
         s += "}\n"
         return s
 
-_mib_re_integer = re.compile("^[0-9]+$")
-_mib_re_both = re.compile("^([a-zA-Z_][a-zA-Z0-9_-]*)\(([0-9]+)\)$")
-_mib_re_oiddecl = re.compile("$\s*([a-zA-Z0-9_-]+)\s+OBJECT[^:]+::=\s*\{([^\}]+)\}",re.M)
 
 def mib_register(ident, value, the_mib, unresolved):
     if ident in the_mib or ident in unresolved:
