@@ -1720,6 +1720,9 @@ class ASN1_SET(ASN1_SEQUENCE):
     
 class ASN1_OID(ASN1_Object):
     tag = ASN1_Class_UNIVERSAL.OID
+    def __init__(self, val):
+        val = conf.mib._oid(val)
+        ASN1_Object.__init__(self, val)
     def __repr__(self):
         return "<%s[%r]>" % (self.__dict__.get("name", self.__class__.__name__), conf.mib._oidname(self.val))
     
