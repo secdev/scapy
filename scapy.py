@@ -2470,6 +2470,10 @@ class Field:
             self.fmt = "!"+fmt
         self.default = self.any2i(None,default)
         self.sz = struct.calcsize(self.fmt)
+        self.owners = []
+
+    def register_owner(self, cls):
+        self.owners.append(cls)
 
     def i2len(self, pkt, x):
         """Convert internal value to a length usable by a FieldLenField"""
@@ -2510,7 +2514,7 @@ class Field:
         else:
             return x
     def __repr__(self):
-        return "<Field %s>" % self.name
+        return "<Field (%s).%s>" % (",".join(x.__name__ for x in self.owners),self.name)
     def copy(self):
         return copy.deepcopy(self)
     def randval(self):
@@ -3704,6 +3708,11 @@ class Dot11SCField(LEShortField):
 ###########################
 
 class Packet_metaclass(type):
+    def __new__(cls, name, bases, dct):
+        newcls = super(Packet_metaclass, cls).__new__(cls, name, bases, dct)
+        for f in newcls.fields_desc:
+            f.register_owner(newcls)
+        return newcls
     def __getattr__(self, attr):
         for k in self.fields_desc:
             if k.name == attr:
