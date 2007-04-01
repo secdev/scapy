@@ -3966,7 +3966,7 @@ class Packet(Gen):
     def do_build(self):
         p=""
         for f in self.fields_desc:
-            p = f.addfield(self, p, self.getfieldval(f))
+            p = f.addfield(self, p, self.getfieldval(f.name))
         return p
     
     def post_build(self, pkt, pay):
