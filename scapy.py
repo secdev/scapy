@@ -2950,8 +2950,7 @@ class StrLenField(StrField):
 class FieldListField(Field):
     islist=1
     def __init__(self, name, default, cls, fld, shift=0):
-        self.name = name
-        self.default = default
+        Field.__init__(self, name, default)
         self.cls = cls
         self.fld = fld
         self.shift=shift
@@ -3717,6 +3716,7 @@ class Packet_metaclass(type):
         for k in self.fields_desc:
             if k.name == attr:
                 return k
+        raise AttributeError(attr)
 
 class NewDefaultValues(Packet_metaclass):
     """NewDefaultValues metaclass. Example usage:
@@ -3731,17 +3731,17 @@ class NewDefaultValues(Packet_metaclass):
         fields = None
         for b in bases:
             if hasattr(b,"fields_desc"):
-                fields = b.fields_desc[:]
+                fields = b.fields_desc
                 break
         if fields is None:
             raise Scapy_Exception("No fields_desc in superclasses")
 
         new_fields = []
         for f in fields:
-            if f in dct:
+            if f.name in dct:
                 f = f.copy()
-                f.default = dct[f]
-                del(dct[f])
+                f.default = dct[f.name]
+                del(dct[f.name])
             new_fields.append(f)
         dct["fields_desc"] = new_fields
         return super(NewDefaultValues, cls).__new__(cls, name, bases, dct)
@@ -3914,7 +3914,7 @@ class Packet(Gen):
             if f.name in self.fields:
                 val = f.i2repr(self, self.fields[f.name])
             elif f.name in self.overloaded_fields:
-                val =  f.i2repr(self, self.overloaded_fields[f])
+                val =  f.i2repr(self, self.overloaded_fields[f.name])
             else:
                 continue
             if isinstance(f, Emph):
@@ -6044,17 +6044,6 @@ class ISAKMP_payload_Proposal(ISAKMP_class):
         StrLenField("SPI","","SPIsize"),
         PacketLenField("trans",Raw(),ISAKMP_payload_Transform,"length",shift=8),
         ]
-
-
-class ISAKMP_payload_metaclass(type):
-    def __new__(cls, name, bases, dct):
-        f = dct["fields_desc"]
-        f = [ ByteEnumField("next_payload",None,ISAKMP_payload_type),
-              ByteField("res",0),
-              ShortField("length",None),
-              ] + f
-        dct["fields_desc"] = f
-        return super(ISAKMP_payload_metaclass, cls).__new__(cls, name, bases, dct)
 
 
 class ISAKMP_payload(ISAKMP_class):
@@ -9920,7 +9909,7 @@ def fuzz(p, _inplace=0):
             elif f.default is not None:
                 rnd = f.randval()
                 if rnd is not None:
-                    q.default_fields[f] = rnd
+                    q.default_fields[f.name] = rnd
         q = q.payload
     return p
 
@@ -10791,7 +10780,7 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=1):
                     object = eval(expr, session)
                 if isinstance(object, Packet) or isinstance(object, Packet_metaclass):
                     words = filter(lambda x: x[0]!="_",dir(object))
-                    words += map(str, object.fields_desc)
+                    words += [x.name for x in object.fields_desc]
                 else:
                     words = dir(object)
                     if hasattr( object,"__class__" ):
