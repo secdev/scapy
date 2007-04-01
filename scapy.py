@@ -4433,7 +4433,7 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
             fvalue = self.getfieldval(f.name)
             if isinstance(fvalue, Packet) or (f.islist and f.holds_packets):
                 print "%s  \\%-10s\\" % (label_lvl+lvl, ncol(f.name))
-                fvalue_gen = SetGen(self.getfieldval(f.name),_iterpacket=0)
+                fvalue_gen = SetGen(fvalue,_iterpacket=0)
                 for fvalue in fvalue_gen:
                     fvalue.show(indent=indent, label_lvl=label_lvl+lvl+"   |")
             else:
