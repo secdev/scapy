@@ -10356,6 +10356,22 @@ def dhcp_request(iface=None,**kargs):
     return srp1(Ether(dst="ff:ff:ff:ff:ff:ff")/IP(src="0.0.0.0",dst="255.255.255.255")/UDP(sport=68,dport=67)
                  /BOOTP(chaddr=hw)/DHCP(options=[("message-type","discover"),"end"]),iface=iface,**kargs)
 
+def snmpwalk(dst, oid="1", community="public"):
+    try:
+        while 1:
+            r = sr1(IP(dst=dst)/UDP(sport=RandShort())/SNMP(community=community, PDU=SNMPnext(varbindlist=[SNMPvarbind(oid=oid)])),timeout=2, chainCC=1, verbose=0, retry=2)
+            if ICMP in r:
+                print repr(r)
+                break
+            if r is None:
+                print "No answers"
+                break
+            print "%-40s: %r" % (r[SNMPvarbind].oid.val,r[SNMPvarbind].value)
+            oid = r[SNMPvarbind].oid
+            
+    except KeyboardInterrupt:
+        pass
+
 
 #####################
 ## Reporting stuff ##
