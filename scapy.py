@@ -3244,6 +3244,10 @@ class Field:
             self.fmt = "!"+fmt
         self.default = self.any2i(None,default)
         self.sz = struct.calcsize(self.fmt)
+        self.owners = []
+
+    def register_owner(self, cls):
+        self.owners.append(cls)
 
     def i2len(self, pkt, x):
         """Convert internal value to a length usable by a FieldLenField"""
@@ -3285,14 +3289,8 @@ class Field:
                 if isinstance(x[i], Packet):
                     x[i] = x[i].copy()
         return x
-    def __eq__(self, other):
-        return self.name == other
-    def __hash__(self):
-        return hash(self.name)
-    def __str__(self):
-        return self.name
     def __repr__(self):
-        return "<Field %s>" % self.name
+        return "<Field (%s).%s>" % (",".join(x.__name__ for x in self.owners),self.name)
     def copy(self):
         return copy.deepcopy(self)
     def randval(self):
@@ -3728,8 +3726,7 @@ class StrLenField(StrField):
 class FieldListField(Field):
     islist=1
     def __init__(self, name, default, cls, fld, shift=0):
-        self.name = name
-        self.default = default
+        Field.__init__(self, name, default)
         self.cls = cls
         self.fld = fld
         self.shift=shift
@@ -4410,12 +4407,12 @@ class RDLenField(Field):
         Field.__init__(self, name, None, "H")
     def i2m(self, pkt, x):
         if x is None:
-            rdataf = pkt.fieldtype["rdata"]
+            rdataf = pkt.get_field("rdata")
             x = len(rdataf.i2m(pkt, pkt.rdata))
         return x
     def i2h(self, pkt, x):
         if x is None:
-            rdataf = pkt.fieldtype["rdata"]
+            rdataf = pkt.get_field("rdata")
             x = len(rdataf.i2m(pkt, pkt.rdata))
         return x
     
@@ -4725,10 +4722,16 @@ class ASN1F_CHOICE(ASN1F_PACKET):
 ###########################
 
 class Packet_metaclass(type):
+    def __new__(cls, name, bases, dct):
+        newcls = super(Packet_metaclass, cls).__new__(cls, name, bases, dct)
+        for f in newcls.fields_desc:
+            f.register_owner(newcls)
+        return newcls
     def __getattr__(self, attr):
         for k in self.fields_desc:
             if k.name == attr:
                 return k
+        raise AttributeError(attr)
 
 class NewDefaultValues(Packet_metaclass):
     """NewDefaultValues metaclass. Example usage:
@@ -4743,17 +4746,17 @@ class NewDefaultValues(Packet_metaclass):
         fields = None
         for b in bases:
             if hasattr(b,"fields_desc"):
-                fields = b.fields_desc[:]
+                fields = b.fields_desc
                 break
         if fields is None:
             raise Scapy_Exception("No fields_desc in superclasses")
 
         new_fields = []
         for f in fields:
-            if f in dct:
+            if f.name in dct:
                 f = f.copy()
-                f.default = dct[f]
-                del(dct[f])
+                f.default = dct[f.name]
+                del(dct[f.name])
             new_fields.append(f)
         dct["fields_desc"] = new_fields
         return super(NewDefaultValues, cls).__new__(cls, name, bases, dct)
@@ -4797,7 +4800,7 @@ class Packet(Gen):
             if not _internal:
                 self.dissection_done(self)
         for f in fields.keys():
-            self.fields[f] = self.fieldtype[f].any2i(self,fields[f])
+            self.fields[f] = self.get_field(f).any2i(self,fields[f])
         if type(post_transform) is list:
             self.post_transforms = post_transform
         elif post_transform is None:
@@ -4810,8 +4813,8 @@ class Packet(Gen):
 
     def do_init_fields(self, flist):
         for f in flist:
-            self.default_fields[f] = f.default
-            self.fieldtype[f] = f
+            self.default_fields[f.name] = f.default
+            self.fieldtype[f.name] = f
             if f.holds_packets:
                 self.packetfields.append(f)
             
@@ -4826,7 +4829,7 @@ class Packet(Gen):
 
     def get_field(self, fld):
         """DEV: returns the field instance from the name of the field"""
-        return self.fields_desc[self.fields_desc.index(fld)]
+        return self.fieldtype[fld]
         
     def add_payload(self, payload):
         if payload is None:
@@ -4858,7 +4861,7 @@ class Packet(Gen):
         clone = self.__class__()
         clone.fields = self.fields.copy()
         for k in clone.fields:
-            clone.fields[k]=self.fieldtype[k].do_copy(clone.fields[k])
+            clone.fields[k]=self.get_field(k).do_copy(clone.fields[k])
         clone.default_fields = self.default_fields.copy()
         clone.overloaded_fields = self.overloaded_fields.copy()
         clone.overload_fields = self.overload_fields.copy()
@@ -4877,7 +4880,7 @@ class Packet(Gen):
     def getfield_and_val(self, attr):
         for f in self.fields, self.overloaded_fields, self.default_fields:
             if f.has_key(attr):
-                return self.fieldtype.get(attr),f[attr]
+                return self.get_field(attr),f[attr]
         return self.payload.getfield_and_val(attr)
     
     def __getattr__(self, attr):
@@ -4891,7 +4894,7 @@ class Packet(Gen):
     def __setattr__(self, attr, val):
         if self.initialized:
             if self.default_fields.has_key(attr):
-                fld = self.fieldtype.get(attr)
+                fld = self.get_field(attr)
                 if fld is None:
                     any2i = lambda x,y: y
                 else:
@@ -4923,10 +4926,10 @@ class Packet(Gen):
         s = ""
         ct = conf.color_theme
         for f in self.fields_desc:
-            if f in self.fields:
-                val = f.i2repr(self, self.fields[f])
-            elif f in self.overloaded_fields:
-                val =  f.i2repr(self, self.overloaded_fields[f])
+            if f.name in self.fields:
+                val = f.i2repr(self, self.fields[f.name])
+            elif f.name in self.overloaded_fields:
+                val =  f.i2repr(self, self.overloaded_fields[f.name])
             else:
                 continue
             if isinstance(f, Emph):
@@ -4978,7 +4981,7 @@ class Packet(Gen):
     def do_build(self):
         p=""
         for f in self.fields_desc:
-            p = f.addfield(self, p, self.getfieldval(f))
+            p = f.addfield(self, p, self.getfieldval(f.name))
         return p
     
     def post_build(self, pkt, pay):
@@ -5009,13 +5012,13 @@ class Packet(Gen):
         pl = []
         q=""
         for f in self.fields_desc:
-            p = f.addfield(self, p, self.getfieldval(f) )
+            p = f.addfield(self, p, self.getfieldval(f.name) )
             if type(p) is str:
                 r = p[len(q):]
                 q = p
             else:
                 r = ""
-            pl.append( (f, f.i2repr(self,self.getfieldval(f)), r) )
+            pl.append( (f, f.i2repr(self,self.getfieldval(f.name)), r) )
             
         pkt,lst = self.payload.build_ps(internal=1)
         p += pkt
@@ -5223,7 +5226,7 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
         while s and flist:
             f = flist.pop()
             s,fval = f.getfield(self, s)
-            self.fields[f] = fval
+            self.fields[f.name] = fval
             
         return s
 
@@ -5290,7 +5293,7 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
                 eltname = todo.pop()
                 elt = self.getfieldval(eltname)
                 if not isinstance(elt, Gen):
-                    if self.fieldtype[eltname].islist:
+                    if self.get_field(eltname).islist:
                         elt = SetGen([elt])
                     else:
                         elt = SetGen(elt)
@@ -5367,7 +5370,7 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
         if self.__class__ == cls or self.__class__.__name__ == cls:
             return 1
         for f in self.packetfields:
-            fvalue_gen = self.getfieldval(f)
+            fvalue_gen = self.getfieldval(f.name)
             if fvalue_gen is None:
                 continue
             if not f.islist:
@@ -5393,7 +5396,7 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
             else:
                 nb -=1
         for f in self.packetfields:
-            fvalue_gen = self.getfieldval(f)
+            fvalue_gen = self.getfieldval(f.name)
             if fvalue_gen is None:
                 continue
             if not f.islist:
@@ -5442,7 +5445,7 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
             else:
                 ncol = ct.field_name
                 vcol = ct.field_value
-            fvalue = self.getfieldval(f)
+            fvalue = self.getfieldval(f.name)
             if isinstance(fvalue, Packet) or (f.islist and f.holds_packets and type(fvalue) is list):
                 print "%s  \\%-10s\\" % (label_lvl+lvl, ncol(f.name))
                 fvalue_gen = SetGen(fvalue,_iterpacket=0)
@@ -5605,7 +5608,7 @@ A side effect is that, to obtain "{" and "}" characters, you must use
         print "libnet_build_%s(" % self.__class__.name.lower()
         det = self.__class__(str(self))
         for f in self.fields_desc:
-            val = getattr(det, f.name)
+            val = det.getfieldval(f.name)
             if val is None:
                 val = 0
             elif type(val) is int:
@@ -6050,7 +6053,7 @@ class TCP(Packet):
         p += pay
         dataofs = self.dataofs
         if dataofs is None:
-            dataofs = 5+((len(self.fieldtype["options"].i2m(self,self.options))+3)/4)
+            dataofs = 5+((len(self.get_field("options").i2m(self,self.options))+3)/4)
             p = p[:12]+chr((dataofs << 4) | ord(p[12])&0x0f)+p[13:]
         if self.chksum is None:
             if isinstance(self.underlayer, IP):
@@ -7067,17 +7070,6 @@ class ISAKMP_payload_Proposal(ISAKMP_class):
         StrLenField("SPI","","SPIsize"),
         PacketLenField("trans",Raw(),ISAKMP_payload_Transform,"length",shift=8),
         ]
-
-
-class ISAKMP_payload_metaclass(type):
-    def __new__(cls, name, bases, dct):
-        f = dct["fields_desc"]
-        f = [ ByteEnumField("next_payload",None,ISAKMP_payload_type),
-              ByteField("res",0),
-              ShortField("length",None),
-              ] + f
-        dct["fields_desc"] = f
-        return super(ISAKMP_payload_metaclass, cls).__new__(cls, name, bases, dct)
 
 
 class ISAKMP_payload(ISAKMP_class):
@@ -11167,7 +11159,7 @@ def fuzz(p, _inplace=0):
             elif f.default is not None:
                 rnd = f.randval()
                 if rnd is not None:
-                    q.default_fields[f] = rnd
+                    q.default_fields[f.name] = rnd
         q = q.payload
     return p
 
@@ -12042,7 +12034,7 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=1):
                     object = eval(expr, session)
                 if isinstance(object, Packet) or isinstance(object, Packet_metaclass):
                     words = filter(lambda x: x[0]!="_",dir(object))
-                    words += map(str, object.fields_desc)
+                    words += [x.name for x in object.fields_desc]
                 else:
                     words = dir(object)
                     if hasattr( object,"__class__" ):
