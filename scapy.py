@@ -1568,6 +1568,10 @@ class ASN1_Object:
         return ("  "*lvl)+repr(self)+"\n"
     def show(self, lvl=0):
         print self.strshow(lvl)
+    def __eq__(self, other):
+        return self.val == other
+    def __cmp__(self, other):
+        return cmp(self.val, other)
 
 class ASN1_DECODING_ERROR(ASN1_Object):
     tag = ASN1_Class_UNIVERSAL.ERROR
