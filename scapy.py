@@ -8085,6 +8085,7 @@ class SNMP(ASN1_Packet):
     def answers(self, other):
         return ( isinstance(self.PDU, SNMPresponse)    and
                  ( isinstance(other.PDU, SNMPget) or
+                   isinstance(other.PDU, SNMPnext) or
                    isinstance(other.PDU, SNMPset)    ) and
                  self.PDU.id == other.PDU.id )
 
