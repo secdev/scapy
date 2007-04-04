@@ -4955,7 +4955,7 @@ class IP(Packet, IPTools):
         ihl = self.ihl
         if ihl is None:
             ihl = len(p)/4
-            p = chr((self.version<<4) | ihl&0x0f)+p[1:]
+            p = chr(((self.version&0xf)<<4) | ihl&0x0f)+p[1:]
         if self.len is None:
             l = len(p)+len(pay)
             p = p[:2]+struct.pack("!H", l)+p[4:]
