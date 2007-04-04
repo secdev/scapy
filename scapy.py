@@ -2092,6 +2092,8 @@ class BERcodec_OID(BERcodec_Object):
 _mib_re_integer = re.compile("^[0-9]+$")
 _mib_re_both = re.compile("^([a-zA-Z_][a-zA-Z0-9_-]*)\(([0-9]+)\)$")
 _mib_re_oiddecl = re.compile("$\s*([a-zA-Z0-9_-]+)\s+OBJECT[^:]+::=\s*\{([^\}]+)\}",re.M)
+_mib_re_strings = re.compile('"[^"]*"')
+_mib_re_comments = re.compile('--.*(\r|\n)')
 
 class MIBDict(DADict):
     def _findroot(self, x):
@@ -2189,7 +2191,9 @@ def load_mib(filenames):
     for fnames in filenames:
         for fname in glob(fnames):
             f = open(fname)
-            for m in _mib_re_oiddecl.finditer(f.read()):
+            text = f.read()
+            cleantext = " ".join(_mib_re_strings.split(" ".join(_mib_re_comments.split(text))))
+            for m in _mib_re_oiddecl.finditer(cleantext):
                 ident,oid = m.groups()
                 ident=fixname(ident)
                 oid = oid.split()
