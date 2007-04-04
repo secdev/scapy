@@ -3324,6 +3324,11 @@ class Emph:
         self.fld = fld
     def __getattr__(self, attr):
         return getattr(self.fld,attr)
+    def __hash__(self):
+        return hash(self.fld)
+    def __eq__(self, other):
+        return self.fld == other
+    
 
 class ActionField:
     def __init__(self, fld, action_method, **kargs):
