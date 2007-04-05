@@ -25,8 +25,8 @@ import os
 
 BASE_VERSION = "1.1.0"
 
-HG_NODE  = "$Node$"
-REVISION = "$Revision$"
+HG_NODE  = "$Node: 7a5202fb09f48214c40c70ec0f69f357739e7a59 $"
+REVISION = "$Revision: 7a5202fb09f4 $"
 
 VERSION = "v%s / %s" % (BASE_VERSION, (REVISION+"--")[11:23])
 
@@ -175,6 +175,7 @@ if not PCAP:
         TCPDUMP=0
     else:
         TCPDUMP=1
+    del(f)
         
     
 
@@ -374,7 +375,6 @@ def load_protocols(filename):
                 dct[lt[2]] = int(lt[1])
             except Exception,e:
                 log_loading.info("Couldn't parse file [%s]: line [%r] (%s)" % (filename,l,e))
-        f.close()
     except IOError:
         log_loading.info("Can't open /etc/protocols file")
     return dct
