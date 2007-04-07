@@ -10600,39 +10600,44 @@ arpcachepoison(target, victim, [interval=60]) -> None
     except KeyboardInterrupt:
         pass
 
-def traceroute(target, dport=80, minttl=1, maxttl=30, sport=RandShort(), l4 = None, filter=None, timeout=2, **kargs):
+def traceroute(target, dport=80, minttl=1, maxttl=30, sport=RandShort(), l4 = None, filter=None, timeout=2, verbose=None, **kargs):
     """Instant TCP traceroute
-traceroute(target, [maxttl=30], [dport=80], [sport=80]) -> None
+traceroute(target, [maxttl=30,] [dport=80,] [sport=80,] [verbose=conf.verb]) -> None
 """
+    if verbose is None:
+        verbose = conf.verb
     if filter is None:
         filter="(icmp and icmp[0]=11) or (tcp and (tcp[13] & 0x16 > 0x10))"
     if l4 is None:
         a,b = sr(IP(dst=target, id=RandShort(), ttl=(minttl,maxttl))/TCP(seq=RandInt(),sport=sport, dport=dport),
-                 timeout=timeout, filter=filter, **kargs)
+                 timeout=timeout, filter=filter, verbose=verbose, **kargs)
     else:
         a,b = sr(IP(dst=target, id=RandShort(), ttl=(minttl,maxttl))/l4,
-                 timeout=timeout, **kargs)
+                 verbose=verbose, timeout=timeout, **kargs)
 
     a = TracerouteResult(a.res)
-    a.display()
+    if verbose:
+        a.show()
     return a,b
 
 
 
 
-def arping(net, timeout=2, cache=0,  **kargs):
+def arping(net, timeout=2, cache=0, verbose=None, **kargs):
     """Send ARP who-has requests to determine which hosts are up
-arping(net, cache=0, iface=conf.iface) -> None
+arping(net, [cache=0,] [iface=conf.iface,] [verbose=conf.verb]) -> None
 Set cache=True if you want arping to modify internal ARP-Cache"""
-    ans,unans = srp(Ether(dst="ff:ff:ff:ff:ff:ff")/ARP(pdst=net),
+    if verbose is None:
+        verbose = conf.verb
+    ans,unans = srp(Ether(dst="ff:ff:ff:ff:ff:ff")/ARP(pdst=net), verbose=verbose,
                     filter="arp and arp[7] = 2", timeout=timeout, iface_hint=net, **kargs)
     ans = ARPingResult(ans.res)
 
     if cache and ans is not None:
         for pair in ans:
             arp_cache[pair[1].psrc] = (pair[1].hwsrc, time.time())
-        
-    ans.display()
+    if verbose:
+        ans.show()
     return ans,unans
 
 def dyndns_add(nameserver, name, rdata, type="A", ttl=10):
