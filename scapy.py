@@ -235,13 +235,13 @@ class DADict:
     def __setitem__(self, attr, val):        
         return setattr(self, self.fixname(attr), val)
     def __iter__(self):
-        return iter(map(lambda (x,y):y,filter(lambda (x,y):x[0]!="_", self.__dict__.items())))
+        return iter(map(lambda (x,y):y,filter(lambda (x,y):x and x[0]!="_", self.__dict__.items())))
     def _show(self):
         for k in self.__dict__.keys():
-            if k[0] != "_":
+            if k and k[0] != "_":
                 print "%10s = %r" % (k,getattr(self,k))
     def __repr__(self):
-        return "<%s/ %s>" % (self._name," ".join(filter(lambda x:x[0]!="_",self.__dict__.keys())))
+        return "<%s/ %s>" % (self._name," ".join(filter(lambda x:x and x[0]!="_",self.__dict__.keys())))
 
     def _branch(self, br, uniq=0):
         if uniq and br._name in self:
@@ -283,7 +283,7 @@ class DADict:
                 r += p
         return r
     def keys(self):
-        return filter(lambda x:x[0]!="_", self.__dict__.keys())
+        return filter(lambda x:x and x[0]!="_", self.__dict__.keys())
         
 
 
@@ -367,12 +367,16 @@ def load_protocols(filename):
     try:
         for l in open(filename):
             try:
-                if l[0] in ["#","\n"]:
+                shrp = l.find("#")
+                if  shrp >= 0:
+                    l = l[:shrp]
+                l = l.strip()
+                if not l:
                     continue
                 lt = tuple(re.split(spaces, l))
-                if len(lt) < 3:
+                if len(lt) < 2 or not lt[0]:
                     continue
-                dct[lt[2]] = int(lt[1])
+                dct[lt[0]] = int(lt[1])
             except Exception,e:
                 log_loading.info("Couldn't parse file [%s]: line [%r] (%s)" % (filename,l,e))
     except IOError:
@@ -388,10 +392,14 @@ def load_ethertypes(filename):
         f=open(filename)
         for l in f:
             try:
-                if l[0] in ["#","\n"]:
+                shrp = l.find("#")
+                if  shrp >= 0:
+                    l = l[:shrp]
+                l = l.strip()
+                if not l:
                     continue
                 lt = tuple(re.split(spaces, l))
-                if len(lt) < 2:
+                if len(lt) < 2 or not lt[0]:
                     continue
                 dct[lt[0]] = int(lt[1], 16)
             except Exception,e:
@@ -411,10 +419,14 @@ def load_services(filename):
         f=open(filename)
         for l in f:
             try:
-                if l[0] in ["#","\n"]:
+                shrp = l.find("#")
+                if  shrp >= 0:
+                    l = l[:shrp]
+                l = l.strip()
+                if not l:
                     continue
                 lt = tuple(re.split(spaces, l))
-                if len(lt) < 2:
+                if len(lt) < 2 or not lt[0]:
                     continue
                 if lt[1].endswith("/tcp"):
                     tdct[lt[0]] = int(lt[1].split('/')[0])
