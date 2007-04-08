@@ -25,8 +25,8 @@ import os
 
 BASE_VERSION = "1.1.0"
 
-HG_NODE  = "$Node: 7a5202fb09f48214c40c70ec0f69f357739e7a59 $"
-REVISION = "$Revision: 7a5202fb09f4 $"
+HG_NODE  = "$Node$"
+REVISION = "$Revision$"
 
 VERSION = "v%s / %s" % (BASE_VERSION, (REVISION+"--")[11:23])
 
