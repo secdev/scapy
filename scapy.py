@@ -12190,4 +12190,5 @@ def read_config_file(configfile):
 if __name__ == "__main__":
     interact()
 else:
-    read_config_file(DEFAULT_CONFIG_FILE)
+    if DEFAULT_CONFIG_FILE:
+        read_config_file(DEFAULT_CONFIG_FILE)
