@@ -11926,6 +11926,11 @@ AS_resolver: choose the AS resolver class to use
 
 conf=Conf()
 
+betteriface = conf.route.route("0.0.0.0", verbose=0)[0]
+if betteriface != "lo": #XXX linux specific...
+    conf.iface = betteriface
+del(betteriface)
+
 if PCAP:
     conf.L2listen=L2pcapListenSocket
     if DNET:
