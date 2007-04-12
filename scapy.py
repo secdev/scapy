@@ -5592,7 +5592,7 @@ class Dot11(Packet):
     def answers(self, other):
         if isinstance(other,Dot11):
             if self.type == 0: # management
-                if self.addr1 != other.addr2: # check resp DA w/ req SA
+                if self.addr1.lower() != other.addr2.lower(): # check resp DA w/ req SA
                     return 0
                 if (other.subtype,self.subtype) in [(0,1),(2,3),(4,5)]:
                     return 1
@@ -5799,6 +5799,11 @@ class PrismHeader(Packet):
                   LEShortField("frmlen_len",0),
                     LEIntField("frmlen",0),
                     ]
+    def answers(self, other):
+        if isinstance(other, PrismHeader):
+            return self.payload.answers(other.payload)
+        else:
+            return self.payload.answers(other)
 
 
 
