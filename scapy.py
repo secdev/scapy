@@ -561,104 +561,114 @@ def hexstr(x, onlyasc=0, onlyhex=0):
     return "  ".join(s)
 
 
-def hexdiff(x,y, gran=5):
-    """hexdiff(before, after, gran=5)
-    gran: granularity in bytes for similarity matching. Must be >= 1"""
-    x=str(x)
-    y=str(y)
-    if gran <= 0:
-        gran = 1
+def hexdiff(x,y):
+    x=str(x)[::-1]
+    y=str(y)[::-1]
+    SUBST=1
+    INSERT=1
+    d={}
+    d[-1,-1] = 0,(-1,-1)
+    for j in range(len(y)):
+        d[-1,j] = d[-1,j-1][0]+INSERT, (-1,j-1)
+    for i in range(len(x)):
+        d[i,-1] = d[i-1,-1][0]+INSERT, (i-1,-1)
 
-    i=j=0
-    ii=jj=-1
+    for j in range(len(y)):
+        for i in range(len(x)):
+            d[i,j] = min( ( d[i-1,j-1][0]+SUBST*(x[i] != y[j]), (i-1,j-1) ),
+                          ( d[i-1,j][0]+INSERT, (i-1,j) ),
+                          ( d[i,j-1][0]+INSERT, (i,j-1) ) )
+                          
 
-    diff = []
-    cdiff = ""
-    while i < len(x) and j < len(y):
-        if x[i] == y[j] and ii == jj == -1:
-            cdiff += x[i]
-            i+=1; j+=1
-            continue
-        if ii == jj == -1:
-            if cdiff:
-                diff.append((0,cdiff))
-                cdiff = ""
-            ii = i; jj = j
-            i += 1; j+= 1
-            continue
-        k = l = -1
-        if i+gran < len(x) or j+gran >= len(y):
-            k = y[jj:j+gran].find(x[i:i+gran])
-        if k != -1:
-            j = jj+k
-        if j+gran < len(y) or i+gran >= len(x):
-            l = x[ii:i+gran].find(y[j:j+gran])
-        if l != -1:
-            i = ii+l
-            
-        if k != -1 or l != -1:
-            if i != ii:
-                diff.append((-1, x[ii:i]))
-            if j != jj:
-                diff.append((+1, y[jj:j]))
-            ii = jj = -1
-        else:
-            i += 1
-            j += 1
+    backtrackx = []
+    backtracky = []
+    i=len(x)-1
+    j=len(y)-1
+    while not (i == j == -1):
+        i2,j2 = d[i,j][1]
+        backtrackx.append(x[i2+1:i+1])
+        backtracky.append(y[j2+1:j+1])
+        i,j = i2,j2
 
-    if cdiff:
-        diff.append((0,cdiff))
+        
 
-    if ii>=0:
-        i=ii
-    if i < len(x):
-        diff.append((-1,x[i:]))
-    if jj>=0:
-        j=jj
-    if j < len(y):
-        diff.append((+1,y[j:]))
-
+    x = y = i = 0
     colorize = { 0: lambda x:x,
                 -1: conf.color_theme.left,
                  1: conf.color_theme.right }
-    i = j = 0
-    for s,h in diff:
+    
+    dox=1
+    doy=0
+    l = len(backtrackx)
+    while i < l:
+        separate=0
+        linex = backtrackx[i:i+16]
+        liney = backtracky[i:i+16]
+        xx = sum(len(k) for k in linex)
+        yy = sum(len(k) for k in liney)
+        if dox and not xx:
+            dox = 0
+            doy = 1
+        if dox and linex == liney:
+            doy=1
+            
+        if dox:
+            xd = y
+            j = 0
+            while not linex[j]:
+                j += 1
+                xd -= 1
+            print colorize[doy-dox]("%04x" % xd),
+            x += xx
+            line=linex
+        else:
+            print "    ",
+        if doy:
+            yd = y
+            j = 0
+            while not liney[j]:
+                j += 1
+                yd -= 1
+            print colorize[doy-dox]("%04x" % yd),
+            y += yy
+            line=liney
+        else:
+            print "    ",
+            
+        print " ",
         
-        l = len(h)
-        u = -(j%16)
-        while u < l:
-            line = ""
-            if s <= 0:
-                line += "%04x " % (i+u)
-            else:
-                line += "     "
-            if s >= 0:
-                line += "%04x   " % (j+u)
-            else:
-                line += "       "
-            ch = ""
-            for v in range(16):
-                if 0 <= u+v < l:
-                    c = h[u+v]
-                    line += "%02X " % ord(c)
-                    if 32 <= ord(c) < 127:
-                        ch += colorize[s](c)
+        cl = ""
+        for j in range(16):
+            if i+j < l:
+                if line[j]:
+                    col = colorize[(linex[j]!=liney[j])*(doy-dox)]
+                    print col("%02X" % ord(line[j])),
+                    if linex[j]==liney[j]:
+                        cl += sane_color(line[j])
                     else:
-                        ch += conf.color_theme.not_printable(".")
+                        cl += col(sane(line[j]))
                 else:
-                    line += "   "
-                    ch += " "
-                if v%16 == 7:
-                    line += " "
-            line += "  "
-            line = colorize[s](line)
-            line += ch
-            u += 16
-            print line
-        if s <= 0:
-            i += l
-        if s >= 0:
-            j += l
+                    print "  ",
+                    cl += " "
+            else:
+                print "  ",
+            if j == 7:
+                print "",
+
+
+        print " ",cl
+
+        if doy or not yy:
+            doy=0
+            dox=1
+            i += 16
+        else:
+            if yy:
+                dox=0
+                doy=1
+            else:
+                i += 16
+    
 
 
 if BIG_ENDIAN:
@@ -11620,8 +11630,8 @@ class DefaultTheme(AnsiColorTheme):
     style_opening = Color.yellow
     style_active = Color.black
     style_closed = Color.grey
-    style_left = Color.blue
-    style_right = Color.red
+    style_left = Color.blue+Color.invert
+    style_right = Color.red+Color.invert
     
 class BrightTheme(AnsiColorTheme):
     style_normal = Color.normal
@@ -11639,12 +11649,12 @@ class BrightTheme(AnsiColorTheme):
     style_success = Color.blue+Color.bold
     style_even = Color.black+Color.bold
     style_odd = Color.black
-    style_left = Color.cyan
-    style_right = Color.purple
+    style_left = Color.cyan+Color.invert
+    style_right = Color.purple+Color.invert
 
 
 class RastaTheme(AnsiColorTheme):
-    style_normal = Color.green+Color.bold
+    style_normal = Color.normal+Color.green+Color.bold
     style_prompt = Color.yellow+Color.bold
     style_punct = Color.red
     style_id = Color.green+Color.bold
@@ -11661,8 +11671,8 @@ class RastaTheme(AnsiColorTheme):
     style_success = Color.red+Color.bold
     style_even = Color.yellow
     style_odd = Color.green
-    style_left = Color.red
-    style_right = Color.yellow
+    style_left = Color.yellow+Color.invert
+    style_right = Color.red+Color.invert
 
 
 class FormatTheme(ColorTheme):
