@@ -3355,16 +3355,11 @@ class ActionField:
 
 
 class ConditionalField:
-    def __init__(self, fld, fldlst, cond):
+    def __init__(self, fld, cond):
         self.fld = fld
-        self.fldlst = fldlst
         self.cond = cond
     def _evalcond(self,pkt):
-        if type(self.fldlst) is list or type(self.fldlst) is tuple:
-            res = map(lambda x,pkt=pkt:getattr(pkt,x), self.fldlst)
-        else:
-            res = getattr(pkt, self.fldlst)
-        return self.cond(res)
+        return self.cond(pkt)
         
     def getfield(self, pkt, s):
         if self._evalcond(pkt):
@@ -5926,7 +5921,7 @@ class EAP(Packet):
     fields_desc = [ ByteEnumField("code", 4, {1:"REQUEST",2:"RESPONSE",3:"SUCCESS",4:"FAILURE"}),
                     ByteField("id", 0),
                     ShortField("len",None),
-                    ConditionalField(ByteEnumField("type",0, {1:"ID",4:"MD5"}), "code", lambda x:x not in [EAP.SUCCESS, EAP.FAILURE])
+                    ConditionalField(ByteEnumField("type",0, {1:"ID",4:"MD5"}), lambda pkt:pkt.code not in [EAP.SUCCESS, EAP.FAILURE])
 
                                      ]
     
@@ -6918,8 +6913,8 @@ class GRE(Packet):
                     BitField("reserved0",0,12),
                     BitField("version",0,3),
                     XShortEnumField("proto", 0x0000, ETHER_TYPES),
-                    ConditionalField(XShortField("chksum",None),"chksumpresent",lambda x:x==1),
-                    ConditionalField(XShortField("reserved1",None),"chksumpresent",lambda x:x==1),
+                    ConditionalField(XShortField("chksum",None),lambda pkt:pkt.chksumpresent==1),
+                    ConditionalField(XShortField("reserved1",None),lambda pkt:pkt.chksumpresent==1),
                     ]
     def post_build(self, p, pay):
         p += pay
