@@ -23,7 +23,7 @@
 from __future__ import generators
 import os
 
-BASE_VERSION = "1.0.6.1"
+BASE_VERSION = "1.1.1"
 
 HG_NODE  = "$Node$"
 REVISION = "$Revision$"
@@ -101,6 +101,7 @@ import socket, sys, getopt, string, struct, random, code
 import cPickle, copy, types, gzip, base64, re, zlib, array
 from sets import Set
 from select import select
+from glob import glob
 from fcntl import ioctl
 import fcntl
 import warnings
@@ -174,6 +175,7 @@ if not PCAP:
         TCPDUMP=0
     else:
         TCPDUMP=1
+    del(f)
         
     
 
@@ -233,13 +235,13 @@ class DADict:
     def __setitem__(self, attr, val):        
         return setattr(self, self.fixname(attr), val)
     def __iter__(self):
-        return iter(map(lambda (x,y):y,filter(lambda (x,y):x[0]!="_", self.__dict__.items())))
+        return iter(map(lambda (x,y):y,filter(lambda (x,y):x and x[0]!="_", self.__dict__.items())))
     def _show(self):
         for k in self.__dict__.keys():
-            if k[0] != "_":
+            if k and k[0] != "_":
                 print "%10s = %r" % (k,getattr(self,k))
     def __repr__(self):
-        return "<%s/ %s>" % (self._name," ".join(filter(lambda x:x[0]!="_",self.__dict__.keys())))
+        return "<%s/ %s>" % (self._name," ".join(filter(lambda x:x and x[0]!="_",self.__dict__.keys())))
 
     def _branch(self, br, uniq=0):
         if uniq and br._name in self:
@@ -281,7 +283,7 @@ class DADict:
                 r += p
         return r
     def keys(self):
-        return filter(lambda x:x[0]!="_", self.__dict__.keys())
+        return filter(lambda x:x and x[0]!="_", self.__dict__.keys())
         
 
 
@@ -365,15 +367,18 @@ def load_protocols(filename):
     try:
         for l in open(filename):
             try:
-                if l[0] in ["#","\n"]:
+                shrp = l.find("#")
+                if  shrp >= 0:
+                    l = l[:shrp]
+                l = l.strip()
+                if not l:
                     continue
                 lt = tuple(re.split(spaces, l))
-                if len(lt) < 3:
+                if len(lt) < 2 or not lt[0]:
                     continue
-                dct[lt[2]] = int(lt[1])
+                dct[lt[0]] = int(lt[1])
             except Exception,e:
                 log_loading.info("Couldn't parse file [%s]: line [%r] (%s)" % (filename,l,e))
-        f.close()
     except IOError:
         log_loading.info("Can't open /etc/protocols file")
     return dct
@@ -387,10 +392,14 @@ def load_ethertypes(filename):
         f=open(filename)
         for l in f:
             try:
-                if l[0] in ["#","\n"]:
+                shrp = l.find("#")
+                if  shrp >= 0:
+                    l = l[:shrp]
+                l = l.strip()
+                if not l:
                     continue
                 lt = tuple(re.split(spaces, l))
-                if len(lt) < 2:
+                if len(lt) < 2 or not lt[0]:
                     continue
                 dct[lt[0]] = int(lt[1], 16)
             except Exception,e:
@@ -410,10 +419,14 @@ def load_services(filename):
         f=open(filename)
         for l in f:
             try:
-                if l[0] in ["#","\n"]:
+                shrp = l.find("#")
+                if  shrp >= 0:
+                    l = l[:shrp]
+                l = l.strip()
+                if not l:
                     continue
                 lt = tuple(re.split(spaces, l))
-                if len(lt) < 2:
+                if len(lt) < 2 or not lt[0]:
                     continue
                 if lt[1].endswith("/tcp"):
                     tdct[lt[0]] = int(lt[1].split('/')[0])
@@ -745,6 +758,44 @@ def incremental_label(label="tag%05i", start=0):
     while True:
         yield label % start
         start += 1
+
+#########################
+#### Enum management ####
+#########################
+
+class EnumElement:
+    def __init__(self, key, value):
+        self._key = key
+        self._value = value
+    def __repr__(self):
+        return "<%s %s[%r]>" % (self.__dict__.get("_name", self.__class__.__name__), self._key, self._value)
+    def __getattr__(self, attr):
+        return getattr(self._value, attr)
+    def __str__(self):
+        return self._key
+    def __eq__(self, other):
+        return self._value == int(other)
+
+
+class Enum_metaclass(type):
+    element_class = EnumElement
+    def __new__(cls, name, bases, dct):
+        rdict={}
+        for k,v in dct.iteritems():
+            if type(v) is int:
+                v = cls.element_class(k,v)
+                dct[k] = v
+                rdict[v] = k
+        dct["__rdict__"] = rdict
+        return super(Enum_metaclass, cls).__new__(cls, name, bases, dct)
+    def __getitem__(self, attr):
+        return self.__rdict__[attr]
+    def __contains__(self, val):
+        return val in self.__rdict__
+    def get(self, attr, val=None):
+        return self._rdict__.get(attr, val)
+    def __repr__(self):
+        return "<%s>" % self.__dict__.get("name", self.__name__)
 
 
 
@@ -1386,12 +1437,58 @@ class RandMAC(RandString):
     
 
 class RandOID(RandString):
-    def __init__(self, depth=RandNumExpo(0.1), idnum=RandNumExpo(0.01)):
+    def __init__(self, fmt=None, depth=RandNumExpo(0.1), idnum=RandNumExpo(0.01)):
+        self.ori_fmt = fmt
+        if fmt is not None:
+            fmt = fmt.split(".")
+            for i in range(len(fmt)):
+                if "-" in fmt[i]:
+                    fmt[i] = tuple(map(int, fmt[i].split("-")))
+        self.fmt = fmt
         self.depth = depth
         self.idnum = idnum
+    def __repr__(self):
+        if self.ori_fmt is None:
+            return "<%s>" % self.__class__.__name__
+        else:
+            return "<%s [%s]>" % (self.__class__.__name__, self.ori_fmt)
     def _fix(self):
-        return ".".join(map(str, [self.idnum for i in xrange(1+self.depth)]))
-    
+        if self.fmt is None:
+            return ".".join(map(str, [self.idnum for i in xrange(1+self.depth)]))
+        else:
+            oid = []
+            for i in self.fmt:
+                if i == "*":
+                    oid.append(str(self.idnum))
+                elif i == "**":
+                    oid += map(str, [self.idnum for i in xrange(1+self.depth)])
+                elif type(i) is tuple:
+                    oid.append(str(random.randrange(*i)))
+                else:
+                    oid.append(i)
+            return ".".join(oid)
+            
+
+
+class RandASN1Object(RandField):
+    def __init__(self, objlist=None):
+        if objlist is None:
+            objlist = map(lambda x:x._asn1_obj,
+                          filter(lambda x:hasattr(x,"_asn1_obj"), ASN1_Class_UNIVERSAL.__rdict__.values()))
+        self.objlist = objlist
+        self.chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+    def _fix(self, n=0):
+        o = random.choice(self.objlist)
+        if issubclass(o, ASN1_INTEGER):
+            return o(int(random.gauss(0,1000)))
+        elif issubclass(o, ASN1_STRING):
+            z = int(random.expovariate(0.05)+1)
+            return o("".join([random.choice(self.chars) for i in range(z)]))
+        elif issubclass(o, ASN1_SEQUENCE) and (n < 10):
+            z = int(random.expovariate(0.08)+1)
+            return o(map(lambda x:x._fix(n+1), [self.__class__(objlist=self.objlist)]*z))
+        return ASN1_INTEGER(int(random.gauss(0,1000)))
+
 
 # Automatic timestamp
 
@@ -1462,6 +1559,673 @@ class CorruptedBits(CorruptedBytes):
     def _fix(self):
         return corrupt_bits(self.s, self.p, self.n)
 
+##############
+#### ASN1 ####
+##############
+
+class ASN1_Error(Exception):
+    pass
+
+class ASN1_Encoding_Error(ASN1_Error):
+    pass
+
+class ASN1_Decoding_Error(ASN1_Error):
+    pass
+
+class ASN1_BadTag_Decoding_Error(ASN1_Decoding_Error):
+    pass
+
+
+
+class ASN1Codec(EnumElement):
+    def register_stem(cls, stem):
+        cls._stem = stem
+    def dec(cls, s, context=None):
+        return cls._stem.dec(s, context=context)
+    def safedec(cls, s, context=None):
+        return cls._stem.safedec(s, context=context)
+    def get_stem(cls):
+        return cls.stem
+    
+
+class ASN1_Codecs_metaclass(Enum_metaclass):
+    element_class = ASN1Codec
+
+class ASN1_Codecs:
+    __metaclass__ = ASN1_Codecs_metaclass
+    BER = 1
+    DER = 2
+    PER = 3
+    CER = 4
+    LWER = 5
+    BACnet = 6
+    OER = 7
+    SER = 8
+    XER = 9
+
+class ASN1Tag(EnumElement):
+    def __init__(self, key, value, context=None, codec=None):
+        EnumElement.__init__(self, key, value)
+        self._context = context
+        if codec == None:
+            codec = {}
+        self._codec = codec
+    def clone(self): # /!\ not a real deep copy. self.codec is shared
+        return self.__class__(self._key, self._value, self._context, self._codec)
+    def register_asn1_object(self, asn1obj):
+        self._asn1_obj = asn1obj
+    def asn1_object(self, val):
+        if hasattr(self,"_asn1_obj"):
+            return self._asn1_obj(val)
+        raise ASN1_Error("%r does not have any assigned ASN1 object" % self)
+    def register(self, codecnum, codec):
+        self._codec[codecnum] = codec
+    def get_codec(self, codec):
+        try:
+            c = self._codec[codec]
+        except KeyError,msg:
+            raise ASN1_Error("Codec %r not found for tag %r" % (codec, self))
+        return c
+
+class ASN1_Class_metaclass(Enum_metaclass):
+    element_class = ASN1Tag
+    def __new__(cls, name, bases, dct): # XXX factorise a bit with Enum_metaclass.__new__()
+        for b in bases:
+            for k,v in b.__dict__.iteritems():
+                if k not in dct and isinstance(v,ASN1Tag):
+                    dct[k] = v.clone()
+
+        rdict = {}
+        for k,v in dct.iteritems():
+            if type(v) is int:
+                v = ASN1Tag(k,v) 
+                dct[k] = v
+                rdict[v] = v
+            elif isinstance(v, ASN1Tag):
+                rdict[v] = v
+        dct["__rdict__"] = rdict
+
+        cls = type.__new__(cls, name, bases, dct)
+        for v in cls.__dict__.values():
+            if isinstance(v, ASN1Tag): 
+                v.context = cls # overwrite ASN1Tag contexts, even cloned ones
+        return cls
+            
+
+class ASN1_Class:
+    __metaclass__ = ASN1_Class_metaclass
+
+class ASN1_Class_UNIVERSAL(ASN1_Class):
+    name = "UNIVERSAL"
+    ERROR = -3
+    RAW = -2
+    NONE = -1
+    ANY = 0
+    BOOLEAN = 1
+    INTEGER = 2
+    BIT_STRING = 3
+    STRING = 4
+    NULL = 5
+    OID = 6
+    OBJECT_DESCRIPTOR = 7
+    EXTERNAL = 8
+    REAL = 9
+    ENUMERATED = 10
+    EMBEDDED_PDF = 11
+    UTF8_STRING = 12
+    RELATIVE_OID = 13
+    SEQUENCE = 0x30#XXX 16 ??
+    SET = 17
+    NUMERIC_STRING = 18
+    PRINTABLE_STRING = 19
+    T61_STRING = 20
+    VIDEOTEX_STRING = 21
+    IA5_STRING = 22
+    UTC_TIME = 23
+    GENERALIZED_TIME = 24
+    GRAPHIC_STRING = 25
+    ISO646_STRING = 26
+    GENERAL_STRING = 27
+    UNIVERSAL_STRING = 28
+    CHAR_STRING = 29
+    BMP_STRING = 30
+    COUNTER32 = 0x41
+    TIME_TICKS = 0x43
+
+class ASN1_Object_metaclass(type):
+    def __new__(cls, name, bases, dct):
+        c = super(ASN1_Object_metaclass, cls).__new__(cls, name, bases, dct)
+        try:
+            c.tag.register_asn1_object(c)
+        except:
+            warning("Error registering %r for %r" % (c.tag, c.codec))
+        return c
+
+
+class ASN1_Object:
+    __metaclass__ = ASN1_Object_metaclass
+    tag = ASN1_Class_UNIVERSAL.ANY
+    def __init__(self, val):
+        self.val = val
+    def enc(self, codec):
+        return self.tag.get_codec(codec).enc(self.val)
+    def __repr__(self):
+        return "<%s[%r]>" % (self.__dict__.get("name", self.__class__.__name__), self.val)
+    def __str__(self):
+        return self.enc(conf.ASN1_default_codec)
+    def strshow(self, lvl=0):
+        return ("  "*lvl)+repr(self)+"\n"
+    def show(self, lvl=0):
+        print self.strshow(lvl)
+    def __eq__(self, other):
+        return self.val == other
+    def __cmp__(self, other):
+        return cmp(self.val, other)
+
+class ASN1_DECODING_ERROR(ASN1_Object):
+    tag = ASN1_Class_UNIVERSAL.ERROR
+    def __init__(self, val, exc=None):
+        ASN1_Object.__init__(self, val)
+        self.exc = exc
+    def __repr__(self):
+        return "<%s[%r]{{%s}}>" % (self.__dict__.get("name", self.__class__.__name__),
+                                   self.val, self.exc.args[0])
+    def enc(self, codec):
+        if isinstance(self.val, ASN1_Object):
+            return self.val.enc(codec)
+        return self.val
+
+class ASN1_force(ASN1_Object):
+    tag = ASN1_Class_UNIVERSAL.RAW
+    def enc(self, codec):
+        if isinstance(self.val, ASN1_Object):
+            return self.val.enc(codec)
+        return self.val
+
+class ASN1_BADTAG(ASN1_force):
+    pass
+
+class ASN1_INTEGER(ASN1_Object):
+    tag = ASN1_Class_UNIVERSAL.INTEGER
+
+class ASN1_STRING(ASN1_Object):
+    tag = ASN1_Class_UNIVERSAL.STRING
+
+class ASN1_BIT_STRING(ASN1_STRING):
+    tag = ASN1_Class_UNIVERSAL.BIT_STRING
+
+class ASN1_PRINTABLE_STRING(ASN1_STRING):
+    tag = ASN1_Class_UNIVERSAL.PRINTABLE_STRING
+
+class ASN1_T61_STRING(ASN1_STRING):
+    tag = ASN1_Class_UNIVERSAL.T61_STRING
+
+class ASN1_IA5_STRING(ASN1_STRING):
+    tag = ASN1_Class_UNIVERSAL.IA5_STRING
+
+class ASN1_NUMERIC_STRING(ASN1_STRING):
+    tag = ASN1_Class_UNIVERSAL.NUMERIC_STRING
+
+class ASN1_VIDEOTEX_STRING(ASN1_STRING):
+    tag = ASN1_Class_UNIVERSAL.VIDEOTEX_STRING
+
+class ASN1_UTC_TIME(ASN1_STRING):
+    tag = ASN1_Class_UNIVERSAL.UTC_TIME
+
+class ASN1_TIME_TICKS(ASN1_INTEGER):
+    tag = ASN1_Class_UNIVERSAL.TIME_TICKS
+
+class ASN1_BOOLEAN(ASN1_INTEGER):
+    tag = ASN1_Class_UNIVERSAL.BOOLEAN
+    
+class ASN1_NULL(ASN1_INTEGER):
+    tag = ASN1_Class_UNIVERSAL.NULL
+
+class ASN1_COUNTER32(ASN1_INTEGER):
+    tag = ASN1_Class_UNIVERSAL.COUNTER32
+    
+class ASN1_SEQUENCE(ASN1_Object):
+    tag = ASN1_Class_UNIVERSAL.SEQUENCE
+    def strshow(self, lvl=0):
+        s = ("  "*lvl)+("# %s:" % self.__class__.__name__)+"\n"
+        for o in self.val:
+            s += o.strshow(lvl=lvl+1)
+        return s
+    
+class ASN1_SET(ASN1_SEQUENCE):
+    tag = ASN1_Class_UNIVERSAL.SET
+    
+class ASN1_OID(ASN1_Object):
+    tag = ASN1_Class_UNIVERSAL.OID
+    def __init__(self, val):
+        val = conf.mib._oid(val)
+        ASN1_Object.__init__(self, val)
+    def __repr__(self):
+        return "<%s[%r]>" % (self.__dict__.get("name", self.__class__.__name__), conf.mib._oidname(self.val))
+    
+
+
+##################
+## BER encoding ##
+##################
+
+
+
+#####[ BER tools ]#####
+
+
+class BER_Exception(Exception):
+    pass
+
+class BER_Decoding_Error(ASN1_Decoding_Error):
+    def __init__(self, msg, decoded=None, remaining=None):
+        Exception.__init__(self, msg)
+        self.remaining = remaining
+        self.decoded = decoded
+    def __str__(self):
+        s = Exception.__str__(self)
+        if isinstance(self.decoded, BERcodec_Object):
+            s+="\n### Already decoded ###\n%s" % self.decoded.strshow()
+        else:
+            s+="\n### Already decoded ###\n%r" % self.decoded
+        s+="\n### Remaining ###\n%r" % self.remaining
+        return s
+
+class BER_BadTag_Decoding_Error(BER_Decoding_Error, ASN1_BadTag_Decoding_Error):
+    pass
+
+def BER_len_enc(l, size=0):
+        if l <= 127 and size==0:
+            return chr(l)
+        s = ""
+        while l or size>0:
+            s = chr(l&0xff)+s
+            l >>= 8L
+            size -= 1
+        if len(s) > 127:
+            raise BER_Exception("BER_len_enc: Length too long (%i) to be encoded [%r]" % (len(s),s))
+        return chr(len(s)|0x80)+s
+def BER_len_dec(s):
+        l = ord(s[0])
+        if not l & 0x80:
+            return l,s[1:]
+        l &= 0x7f
+        if len(s) <= l:
+            raise BER_Decoding_Error("BER_len_dec: Got %i bytes while expecting %i" % (len(s)-1, l),remaining=s)
+        ll = 0L
+        for c in s[1:l+1]:
+            ll <<= 8L
+            ll |= ord(c)
+        return ll,s[l+1:]
+        
+def BER_num_enc(l, size=1):
+        x=[]
+        while l or size>0:
+            x.insert(0, l & 0x7f)
+            if len(x) > 1:
+                x[0] |= 0x80
+            l >>= 7
+            size -= 1
+        return "".join([chr(k) for k in x])
+def BER_num_dec(s):
+        x = 0
+        for i in range(len(s)):
+            c = ord(s[i])
+            x <<= 7
+            x |= c&0x7f
+            if not c&0x80:
+                break
+        if c&0x80:
+            raise BER_Decoding_Error("BER_num_dec: unfinished number description", remaining=s)
+        return x, s[i+1:]
+
+#####[ BER classes ]#####
+
+class BERcodec_metaclass(type):
+    def __new__(cls, name, bases, dct):
+        c = super(BERcodec_metaclass, cls).__new__(cls, name, bases, dct)
+        try:
+            c.tag.register(c.codec, c)
+        except:
+            warning("Error registering %r for %r" % (c.tag, c.codec))
+        return c
+
+
+class BERcodec_Object:
+    __metaclass__ = BERcodec_metaclass
+    codec = ASN1_Codecs.BER
+    tag = ASN1_Class_UNIVERSAL.ANY
+
+    @classmethod
+    def asn1_object(cls, val):
+        return cls.tag.asn1_object(val)
+
+    @classmethod
+    def check_string(cls, s):
+        if not s:
+            raise BER_Decoding_Error("%s: Got empty object while expecting tag %r" %
+                                     (cls.__name__,cls.tag), remaining=s)        
+    @classmethod
+    def check_type(cls, s):
+        cls.check_string(s)
+        if cls.tag != ord(s[0]):
+            raise BER_BadTag_Decoding_Error("%s: Got tag [%i/%#x] while expecting %r" %
+                                            (cls.__name__, ord(s[0]), ord(s[0]),cls.tag), remaining=s)
+        return s[1:]
+    @classmethod
+    def check_type_get_len(cls, s):
+        s2 = cls.check_type(s)
+        if not s2:
+            raise BER_Decoding_Error("%s: No bytes while expecting a length" %
+                                     cls.__name__, remaining=s)
+        return BER_len_dec(s2)
+    @classmethod
+    def check_type_check_len(cls, s):
+        l,s3 = cls.check_type_get_len(s)
+        if len(s3) < l:
+            raise BER_Decoding_Error("%s: Got %i bytes while expecting %i" %
+                                     (cls.__name__, len(s3), l), remaining=s)
+        return l,s3[:l],s3[l:]
+
+    @classmethod
+    def do_dec(cls, s, context=None, safe=False):
+        if context is None:
+            context = cls.tag.context
+        cls.check_string(s)
+        p = ord(s[0])
+        if p not in context:
+            t = s
+            if len(t) > 18:
+                t = t[:15]+"..."
+            raise BER_Decoding_Error("Unknown prefix [%02x] for [%r]" % (p,t), remaining=s)
+        codec = context[p].get_codec(ASN1_Codecs.BER)
+        return codec.dec(s,context,safe)
+
+    @classmethod
+    def dec(cls, s, context=None, safe=False):
+        if not safe:
+            return cls.do_dec(s, context, safe)
+        try:
+            return cls.do_dec(s, context, safe)
+        except BER_BadTag_Decoding_Error,e:
+            o,remain = BERcodec_Object.dec(e.remaining, context, safe)
+            return ASN1_BADTAG(o),remain
+        except BER_Decoding_Error, e:
+            return ASN1_DECODING_ERROR(s, exc=e),""
+        except ASN1_Error, e:
+            return ASN1_DECODING_ERROR(s, exc=e),""
+
+    @classmethod
+    def safedec(cls, s, context=None):
+        return cls.dec(s, context, safe=True)
+
+
+    @classmethod
+    def enc(cls, s):
+        if type(s) is str:
+            return BERcodec_STRING.enc(s)
+        else:
+            return BERcodec_INTEGER.enc(int(s))
+
+            
+
+ASN1_Codecs.BER.register_stem(BERcodec_Object)
+
+
+class BERcodec_INTEGER(BERcodec_Object):
+    tag = ASN1_Class_UNIVERSAL.INTEGER
+    @classmethod
+    def enc(cls, i):
+        s = []
+        while 1:
+            s.append(i&0xff)
+            if -127 <= i < 0:
+                break
+            if 128 <= i <= 255:
+                s.append(0)
+            i >>= 8
+            if not i:
+                break
+        s.append(len(s))
+        s.append(cls.tag)
+        s.reverse()
+        return "".join(map(chr, s))
+    @classmethod
+    def do_dec(cls, s, context=None, safe=False):
+        l,s,t = cls.check_type_check_len(s)
+        x = 0L
+        if s:
+            if ord(s[0])&0x80: # negative int
+                x = -1L
+            for c in s:
+                x <<= 8
+                x |= ord(c)
+        return cls.asn1_object(x),t
+    
+
+class BERcodec_BOOLEAN(BERcodec_INTEGER):
+    tag = ASN1_Class_UNIVERSAL.BOOLEAN
+
+class BERcodec_NULL(BERcodec_INTEGER):
+    tag = ASN1_Class_UNIVERSAL.NULL
+    @classmethod
+    def enc(cls, i):
+        if i == 0:
+            return chr(cls.tag)+"\0"
+
+class BERcodec_STRING(BERcodec_Object):
+    tag = ASN1_Class_UNIVERSAL.STRING
+    @classmethod
+    def enc(cls,s):
+        return chr(cls.tag)+BER_len_enc(len(s))+s
+    @classmethod
+    def do_dec(cls, s, context=None, safe=False):
+        l,s,t = cls.check_type_check_len(s)
+        return cls.tag.asn1_object(s),t
+
+class BERcodec_BIT_STRING(BERcodec_STRING):
+    tag = ASN1_Class_UNIVERSAL.BIT_STRING
+
+class BERcodec_PRINTABLE_STRING(BERcodec_STRING):
+    tag = ASN1_Class_UNIVERSAL.PRINTABLE_STRING
+
+class BERcodec_T61_STRING (BERcodec_STRING):
+    tag = ASN1_Class_UNIVERSAL.T61_STRING
+
+class BERcodec_IA5_STRING(BERcodec_STRING):
+    tag = ASN1_Class_UNIVERSAL.IA5_STRING
+
+class BERcodec_UTC_TIME(BERcodec_STRING):
+    tag = ASN1_Class_UNIVERSAL.UTC_TIME
+
+class BERcodec_TIME_TICKS(BERcodec_INTEGER):
+    tag = ASN1_Class_UNIVERSAL.TIME_TICKS
+
+class BERcodec_COUNTER32(BERcodec_INTEGER):
+    tag = ASN1_Class_UNIVERSAL.COUNTER32
+
+class BERcodec_SEQUENCE(BERcodec_Object):
+    tag = ASN1_Class_UNIVERSAL.SEQUENCE
+    @classmethod
+    def enc(cls, l):
+        if type(l) is not str:
+            l = "".join(map(lambda x: x.enc(cls.codec), l))
+        return chr(cls.tag)+BER_len_enc(len(l))+l
+    @classmethod
+    def do_dec(cls, s, context=None, safe=False):
+        if context is None:
+            context = cls.tag.context
+        l,st = cls.check_type_get_len(s) # we may have len(s) < l
+        s,t = st[:l],st[l:]
+        obj = []
+        while s:
+            try:
+                o,s = BERcodec_Object.dec(s, context, safe)
+            except BER_Decoding_Error, err:
+                print "enrichi %r <- %r  %r" % (err.remaining,t,s), obj
+                err.remaining += t
+                if err.decoded is not None:
+                    obj.append(err.decoded)
+                err.decoded = obj
+                raise 
+            obj.append(o)
+        if len(st) < l:
+            raise BER_Decoding_Error("Not enough bytes to decode sequence", decoded=obj)
+        return cls.asn1_object(obj),t
+
+class BERcodec_SET(BERcodec_SEQUENCE):
+    tag = ASN1_Class_UNIVERSAL.SET
+
+
+class BERcodec_OID(BERcodec_Object):
+    tag = ASN1_Class_UNIVERSAL.OID
+
+    @classmethod
+    def enc(cls, oid):
+        lst = [int(x) for x in oid.strip(".").split(".")]
+        if len(lst) >= 2:
+            lst[1] += 40*lst[0]
+            del(lst[0])
+        s = "".join([BER_num_enc(k) for k in lst])
+        return chr(cls.tag)+BER_len_enc(len(s))+s
+    @classmethod
+    def do_dec(cls, s, context=None, safe=False):
+        l,s,t = cls.check_type_check_len(s)
+        lst = []
+        while s:
+            l,s = BER_num_dec(s)
+            lst.append(l)
+        if (len(lst) > 0):
+            lst.insert(0,lst[0]/40)
+            lst[1] %= 40
+        return cls.asn1_object(".".join([str(k) for k in lst])), t
+
+
+#################
+## MIB parsing ##
+#################
+
+_mib_re_integer = re.compile("^[0-9]+$")
+_mib_re_both = re.compile("^([a-zA-Z_][a-zA-Z0-9_-]*)\(([0-9]+)\)$")
+_mib_re_oiddecl = re.compile("$\s*([a-zA-Z0-9_-]+)\s+OBJECT[^:]+::=\s*\{([^\}]+)\}",re.M)
+_mib_re_strings = re.compile('"[^"]*"')
+_mib_re_comments = re.compile('--.*(\r|\n)')
+
+class MIBDict(DADict):
+    def _findroot(self, x):
+        if x.startswith("."):
+            x = x[1:]
+        if not x.endswith("."):
+            x += "."
+        max=0
+        root="."
+        for k in self.keys():
+            if x.startswith(self[k]+"."):
+                if max < len(self[k]):
+                    max = len(self[k])
+                    root = k
+        return root, x[max:-1]
+    def _oidname(self, x):
+        root,remainder = self._findroot(x)
+        return root+remainder
+    def _oid(self, x):
+        xl = x.strip(".").split(".")
+        p = len(xl)-1
+        while p >= 0 and _mib_re_integer.match(xl[p]):
+            p -= 1
+        if p != 0 or xl[p] not in self:
+            return x
+        xl[p] = self[xl[p]] 
+        return ".".join(xl[p:])
+    def _make_graph(self, other_keys=[]):
+        nodes = [(k,self[k]) for k in self.keys()]
+        oids = [self[k] for k in self.keys()]
+        for k in other_keys:
+            if k not in oids:
+                nodes.append(self.oidname(k),k)
+        s = 'digraph "mib" {\n'
+        for k,o in nodes:
+            s += '\t"%s" [ label="%s"  ];\n' % (o,k)
+        s += "\n"
+        for k,o in nodes:
+            parent,remainder = self._findroot(o[:-1])
+            remainder = remainder[1:]+o[-1]
+            if parent != ".":
+                parent = self[parent]
+            s += '\t"%s" -> "%s" [label="%s"];\n' % (parent, o,remainder)
+        s += "}\n"
+        return s
+
+
+def mib_register(ident, value, the_mib, unresolved):
+    if ident in the_mib or ident in unresolved:
+        return ident in the_mib
+    resval = []
+    not_resolved = 0
+    for v in value:
+        if _mib_re_integer.match(v):
+            resval.append(v)
+        else:
+            v = fixname(v)
+            if v not in the_mib:
+                not_resolved = 1
+            if v in the_mib:
+                v = the_mib[v]
+            elif v in unresolved:
+                v = unresolved[v]
+            if type(v) is list:
+                resval += v
+            else:
+                resval.append(v)
+    if not_resolved:
+        unresolved[ident] = resval
+        return False
+    else:
+        the_mib[ident] = resval
+        keys = unresolved.keys()
+        i = 0
+        while i < len(keys):
+            k = keys[i]
+            if mib_register(k,unresolved[k], the_mib, {}):
+                del(unresolved[k])
+                del(keys[i])
+                i = 0
+            else:
+                i += 1
+                    
+        return True
+
+
+def load_mib(filenames):
+    the_mib = {'iso': ['1']}
+    unresolved = {}
+    for k in conf.mib.keys():
+        mib_register(k, conf.mib[k].split("."), the_mib, unresolved)
+
+    if type(filenames) is str:
+        filenames = [filenames]
+    for fnames in filenames:
+        for fname in glob(fnames):
+            f = open(fname)
+            text = f.read()
+            cleantext = " ".join(_mib_re_strings.split(" ".join(_mib_re_comments.split(text))))
+            for m in _mib_re_oiddecl.finditer(cleantext):
+                ident,oid = m.groups()
+                ident=fixname(ident)
+                oid = oid.split()
+                for i in range(len(oid)):
+                    m = _mib_re_both.match(oid[i])
+                    if m:
+                        oid[i] = m.groups()[1]
+                mib_register(ident, oid, the_mib, unresolved)
+
+    newmib = MIBDict(_name="MIB")
+    for k,o in the_mib.iteritems():
+        newmib[k]=".".join(o)
+    for k,o in unresolved.iteritems():
+        newmib[k]=".".join(o)
+
+    conf.mib=newmib
 
 
 
@@ -1542,6 +2306,36 @@ class Net(Gen):
     def __repr__(self):
         return "Net(%r)" % self.repr
 
+class OID(Gen):
+    name = "OID"
+    def __init__(self, oid):
+        self.oid = oid        
+        self.cmpt = []
+        fmt = []        
+        for i in oid.split("."):
+            if "-" in i:
+                fmt.append("%i")
+                self.cmpt.append(tuple(map(int, i.split("-"))))
+            else:
+                fmt.append(i)
+        self.fmt = ".".join(fmt)
+    def __repr__(self):
+        return "OID(%r)" % self.oid
+    def __iter__(self):        
+        ii = [k[0] for k in self.cmpt]
+        while 1:
+            yield self.fmt % tuple(ii)
+            i = 0
+            while 1:
+                if i >= len(ii):
+                    raise StopIteration
+                if ii[i] < self.cmpt[i][1]:
+                    ii[i]+=1
+                    break
+                else:
+                    ii[i] = self.cmpt[i][0]
+                i += 1
+ 
 
 #############
 ## Results ##
@@ -2509,10 +3303,12 @@ class Field:
     def do_copy(self, x):
         if hasattr(x, "copy"):
             return x.copy()
-        elif type(x) is list:
-            return x[:]
-        else:
-            return x
+        if type(x) is list:
+            x = x[:]
+            for i in xrange(len(x)):
+                if isinstance(x[i], Packet):
+                    x[i] = x[i].copy()
+        return x
     def __repr__(self):
         return "<Field (%s).%s>" % (",".join(x.__name__ for x in self.owners),self.name)
     def copy(self):
@@ -2540,6 +3336,11 @@ class Emph:
         self.fld = fld
     def __getattr__(self, attr):
         return getattr(self.fld,attr)
+    def __hash__(self):
+        return hash(self.fld)
+    def __eq__(self, other):
+        return self.fld == other
+    
 
 class ActionField:
     def __init__(self, fld, action_method, **kargs):
@@ -2950,8 +3751,7 @@ class StrLenField(StrField):
 class FieldListField(Field):
     islist=1
     def __init__(self, name, default, cls, fld, shift=0):
-        self.name = name
-        self.default = default
+        Field.__init__(self, name, default)
         self.cls = cls
         self.fld = fld
         self.shift=shift
@@ -3703,6 +4503,245 @@ class Dot11SCField(LEShortField):
         else:
             return s,None
 
+#####################
+#### ASN1 Fields ####
+#####################
+
+class ASN1F_badsequence(Exception):
+    pass
+
+class ASN1F_element:
+    pass
+
+class ASN1F_field(ASN1F_element):
+    holds_packets=0
+    islist=0
+
+    ASN1_tag = ASN1_Class_UNIVERSAL.ANY
+    
+    def __init__(self, name, default):
+        self.name = name
+        self.default = default
+
+    def i2repr(self, pkt, x):
+        if x is None:
+            x = 0
+        return repr(x)
+    def i2h(self, pkt, x):
+        if x is None:
+            x = 0
+        return x
+    def any2i(self, pkt, x):
+        return x
+    def m2i(self, pkt, x):
+        return self.ASN1_tag.get_codec(pkt.ASN1_codec).safedec(x)
+    def i2m(self, pkt, x):
+        if x is None:
+            x = 0
+        if isinstance(x, ASN1_Object):
+            if ( self.ASN1_tag == ASN1_Class_UNIVERSAL.ANY
+                 or x.tag == ASN1_Class_UNIVERSAL.RAW
+                 or x.tag == ASN1_Class_UNIVERSAL.ERROR
+                 or self.ASN1_tag == x.tag ):
+                return x.enc(pkt.ASN1_codec)
+            else:
+                raise ASN1_Error("Encoding Error: got %r instead of an %r for field [%s]" % (x, self.ASN1_tag, self.name))
+        return self.ASN1_tag.get_codec(pkt.ASN1_codec).enc(x)
+
+    def do_copy(self, x):
+        if hasattr(x, "copy"):
+            return x.copy()
+        if type(x) is list:
+            x = x[:]
+            for i in xrange(len(x)):
+                if isinstance(x[i], Packet):
+                    x[i] = x[i].copy()
+        return x
+
+    def build(self, pkt):
+        return self.i2m(pkt, getattr(pkt, self.name))
+
+    def set_val(self, pkt, val):
+        setattr(pkt, self.name, val)
+    
+    def dissect(self, pkt, s):
+        v,s = self.m2i(pkt, s)
+        self.set_val(pkt, v)
+        return s
+
+    def get_fields_list(self):
+        return [self]
+
+    def __hash__(self):
+        return hash(self.name)
+    def __str__(self):
+        return self.name
+    def __eq__(self, other):
+        return self.name == other
+    def __repr__(self):
+        return self.name
+    def randval(self):
+        return RandInt()
+
+
+class ASN1F_INTEGER(ASN1F_field):
+    ASN1_tag= ASN1_Class_UNIVERSAL.INTEGER
+    def randval(self):
+        return RandNum(-2**64, 2**64)
+
+class ASN1F_enum_INTEGER(ASN1F_INTEGER):
+    def __init__(self, name, default, enum):
+        ASN1F_INTEGER.__init__(self, name, default)
+        i2s = self.i2s = {}
+        s2i = self.s2i = {}
+        if type(enum) is list:
+            keys = xrange(len(enum))
+        else:
+            keys = enum.keys()
+        if filter(lambda x: type(x) is str, keys):
+            i2s,s2i = s2i,i2s
+        for k in keys:
+            i2s[k] = enum[k]
+            s2i[enum[k]] = k
+    def any2i_one(self, pkt, x):
+        if type(x) is str:
+            x = self.s2i[x]
+        return x
+    def i2repr_one(self, pkt, x):
+        return self.i2s.get(x, repr(x))
+    
+    def any2i(self, pkt, x):
+        if type(x) is list:
+            return map(lambda z,pkt=pkt:self.any2i_one(pkt,z), x)
+        else:
+            return self.any2i_one(pkt,x)        
+    def i2repr(self, pkt, x):
+        if type(x) is list:
+            return map(lambda z,pkt=pkt:self.i2repr_one(pkt,z), x)
+        else:
+            return self.i2repr_one(pkt,x)
+
+class ASN1F_STRING(ASN1F_field):
+    ASN1_tag = ASN1_Class_UNIVERSAL.STRING
+    def randval(self):
+        return RandString(RandNum(0, 1000))
+
+class ASN1F_OID(ASN1F_field):
+    ASN1_tag = ASN1_Class_UNIVERSAL.OID
+    def randval(self):
+        return RandOID()
+
+class ASN1F_SEQUENCE(ASN1F_field):
+    ASN1_tag = ASN1_Class_UNIVERSAL.SEQUENCE
+    def __init__(self, *seq, **kargs):
+        if "ASN1_tag" in kargs:
+            self.ASN1_tag = kargs["ASN1_tag"]
+        self.seq = seq
+    def __repr__(self):
+        return "<%s%r>" % (self.__class__.__name__,self.seq,)
+    def get_fields_list(self):
+        return reduce(lambda x,y: x+y.get_fields_list(), self.seq, [])
+    def build(self, pkt):
+        s = reduce(lambda x,y: x+y.build(pkt), self.seq, "")
+        return self.i2m(pkt, s)
+    def dissect(self, pkt, s):
+        codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
+        try:
+            i,s,remain = codec.check_type_check_len(s)
+            for obj in self.seq:
+                s = obj.dissect(pkt,s)
+            if s:
+                warning("Too many bytes to decode sequence: [%r]" % s) # XXX not reversible!
+            return remain
+        except ASN1_Error,e:
+            raise ASN1F_badsequence(e)
+
+class ASN1F_SEQUENCE_OF(ASN1F_SEQUENCE):
+    holds_packets = 1
+    islist = 1
+    def __init__(self, name, default, asn1pkt, ASN1_tag=0x30):
+        self.asn1pkt = asn1pkt
+        self.tag = chr(ASN1_tag)
+        self.name = name
+        self.default = default
+    def get_fields_list(self):
+        return [self]
+    def build(self, pkt):
+        val = getattr(pkt, self.name)
+        if isinstance(val, ASN1_Object) and val.tag == ASN1_Class_UNIVERSAL.RAW:
+            s = val
+        else:
+            s = "".join(map(str, val ))
+        return self.i2m(pkt, s)
+    def dissect(self, pkt, s):
+        codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
+        i,s1,remain = codec.check_type_check_len(s)
+        lst = []
+        while s1:
+            try:
+                p = self.asn1pkt(s1)
+            except ASN1F_badsequence:
+                lst.append(Raw(s1))
+                break
+            lst.append(p)
+            if Raw in p:
+                s1 = p[Raw].load
+                del(p[Raw].underlayer.payload)
+            else:
+                break
+        self.set_val(pkt, lst)
+        return remain
+    def randval(self):
+        return fuzz(self.asn1pkt())
+
+class ASN1F_PACKET(ASN1F_field):
+    holds_packets = 1
+    def __init__(self, name, default, cls):
+        ASN1_field.__init__(self, name, default)
+        self.cls = cls
+    def i2m(self, pkt, x):
+        if x is None:
+            x = ""
+        return str(x)
+    def extract_packet(self, cls, x):
+        try:
+            c = cls(x)
+        except ASN1F_badsequence:
+            c = Raw(x)
+        cpad = c[Padding]
+        x = ""
+        if cpad is not None:
+            x = cpad.load
+            del(cpad.underlayer.payload)
+        return c,x
+    def m2i(self, pkt, x):
+        return self.extract_packet(self.cls, x)
+
+
+class ASN1F_CHOICE(ASN1F_PACKET):
+    ASN1_tag = ASN1_Class_UNIVERSAL.NONE
+    def __init__(self, name, default, *args):
+        self.name=name
+        self.choice = {}
+        for p in args:
+            self.choice[p.ASN1_root.ASN1_tag] = p
+#        self.context=context
+        self.default=default
+    def m2i(self, pkt, x):
+        if len(x) == 0:
+            return Raw(),""
+            raise ASN1_Error("ASN1F_CHOICE: got empty string")
+        if ord(x[0]) not in self.choice:
+            return Raw(x),"" # XXX return RawASN1 packet ? Raise error 
+            raise ASN1_Error("Decoding Error: choice [%i] not found in %r" % (ord(x[0]), self.choice.keys()))
+
+        z = ASN1F_PACKET.extract_packet(self, self.choice[ord(x[0])], x)
+        return z
+    def randval(self):
+        return RandChoice(*map(lambda x:fuzz(x()), self.choice.values()))
+            
+    
+
 ###########################
 ## Packet abstract class ##
 ###########################
@@ -3717,6 +4756,7 @@ class Packet_metaclass(type):
         for k in self.fields_desc:
             if k.name == attr:
                 return k
+        raise AttributeError(attr)
 
 class NewDefaultValues(Packet_metaclass):
     """NewDefaultValues metaclass. Example usage:
@@ -3731,17 +4771,17 @@ class NewDefaultValues(Packet_metaclass):
         fields = None
         for b in bases:
             if hasattr(b,"fields_desc"):
-                fields = b.fields_desc[:]
+                fields = b.fields_desc
                 break
         if fields is None:
             raise Scapy_Exception("No fields_desc in superclasses")
 
         new_fields = []
         for f in fields:
-            if f in dct:
+            if f.name in dct:
                 f = f.copy()
-                f.default = dct[f]
-                del(dct[f])
+                f.default = dct[f.name]
+                del(dct[f.name])
             new_fields.append(f)
         dct["fields_desc"] = new_fields
         return super(NewDefaultValues, cls).__new__(cls, name, bases, dct)
@@ -3914,7 +4954,7 @@ class Packet(Gen):
             if f.name in self.fields:
                 val = f.i2repr(self, self.fields[f.name])
             elif f.name in self.overloaded_fields:
-                val =  f.i2repr(self, self.overloaded_fields[f])
+                val =  f.i2repr(self, self.overloaded_fields[f.name])
             else:
                 continue
             if isinstance(f, Emph):
@@ -4431,7 +5471,7 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
                 ncol = ct.field_name
                 vcol = ct.field_value
             fvalue = self.getfieldval(f.name)
-            if isinstance(fvalue, Packet) or (f.islist and f.holds_packets):
+            if isinstance(fvalue, Packet) or (f.islist and f.holds_packets and type(fvalue) is list):
                 print "%s  \\%-10s\\" % (label_lvl+lvl, ncol(f.name))
                 fvalue_gen = SetGen(fvalue,_iterpacket=0)
                 for fvalue in fvalue_gen:
@@ -4616,8 +5656,19 @@ A side effect is that, to obtain "{" and "}" characters, you must use
         if pc:
             c += "/"+pc
         return c                    
-                       
-    
+
+
+class ASN1_Packet(Packet):
+    ASN1_root = None
+    ASN1_codec = None    
+    def init_fields(self):
+        flist = self.ASN1_root.get_fields_list()
+        self.do_init_fields(flist)
+        self.fields_desc = flist    
+    def do_build(self):
+        return self.ASN1_root.build(self)    
+    def do_dissect(self, x):
+        return self.ASN1_root.dissect(self, x)
         
 
 class NoPayload(Packet,object):
@@ -4955,7 +6006,7 @@ class IP(Packet, IPTools):
         ihl = self.ihl
         if ihl is None:
             ihl = len(p)/4
-            p = chr((self.version<<4) | ihl&0x0f)+p[1:]
+            p = chr(((self.version&0xf)<<4) | ihl&0x0f)+p[1:]
         if self.len is None:
             l = len(p)+len(pay)
             p = p[:2]+struct.pack("!H", l)+p[4:]
@@ -6049,17 +7100,6 @@ class ISAKMP_payload_Proposal(ISAKMP_class):
         StrLenField("SPI","","SPIsize"),
         PacketLenField("trans",Raw(),ISAKMP_payload_Transform,"length",shift=8),
         ]
-
-
-class ISAKMP_payload_metaclass(type):
-    def __new__(cls, name, bases, dct):
-        f = dct["fields_desc"]
-        f = [ ByteEnumField("next_payload",None,ISAKMP_payload_type),
-              ByteField("res",0),
-              ShortField("length",None),
-              ] + f
-        dct["fields_desc"] = f
-        return super(ISAKMP_payload_metaclass, cls).__new__(cls, name, bases, dct)
 
 
 class ISAKMP_payload(ISAKMP_class):
@@ -7169,6 +8209,229 @@ class NetflowRecordV1(Packet):
                     IntField("padding2", 0) ]
 
 
+##########
+## SNMP ##
+##########
+
+######[ ASN1 class ]######
+
+class ASN1_Class_SNMP(ASN1_Class_UNIVERSAL):
+    name="SNMP"
+    PDU_GET = 0xa0
+    PDU_NEXT = 0xa1
+    PDU_RESPONSE = 0xa2
+    PDU_SET = 0xa3
+    PDU_TRAPv1 = 0xa4
+    PDU_BULK = 0xa5
+    PDU_INFORM = 0xa6
+    PDU_TRAPv2 = 0xa7
+
+
+class ASN1_SNMP_PDU_GET(ASN1_SEQUENCE):
+    tag = ASN1_Class_SNMP.PDU_GET
+
+class ASN1_SNMP_PDU_NEXT(ASN1_SEQUENCE):
+    tag = ASN1_Class_SNMP.PDU_NEXT
+
+class ASN1_SNMP_PDU_RESPONSE(ASN1_SEQUENCE):
+    tag = ASN1_Class_SNMP.PDU_RESPONSE
+
+class ASN1_SNMP_PDU_SET(ASN1_SEQUENCE):
+    tag = ASN1_Class_SNMP.PDU_SET
+
+class ASN1_SNMP_PDU_TRAPv1(ASN1_SEQUENCE):
+    tag = ASN1_Class_SNMP.PDU_TRAPv1
+
+class ASN1_SNMP_PDU_BULK(ASN1_SEQUENCE):
+    tag = ASN1_Class_SNMP.PDU_BULK
+
+class ASN1_SNMP_PDU_INFORM(ASN1_SEQUENCE):
+    tag = ASN1_Class_SNMP.PDU_INFORM
+
+class ASN1_SNMP_PDU_TRAPv2(ASN1_SEQUENCE):
+    tag = ASN1_Class_SNMP.PDU_TRAPv2
+
+
+######[ BER codecs ]#######
+
+class BERcodec_SNMP_PDU_GET(BERcodec_SEQUENCE):
+    tag = ASN1_Class_SNMP.PDU_GET
+
+class BERcodec_SNMP_PDU_NEXT(BERcodec_SEQUENCE):
+    tag = ASN1_Class_SNMP.PDU_NEXT
+
+class BERcodec_SNMP_PDU_RESPONSE(BERcodec_SEQUENCE):
+    tag = ASN1_Class_SNMP.PDU_RESPONSE
+
+class BERcodec_SNMP_PDU_SET(BERcodec_SEQUENCE):
+    tag = ASN1_Class_SNMP.PDU_SET
+
+class BERcodec_SNMP_PDU_TRAPv1(BERcodec_SEQUENCE):
+    tag = ASN1_Class_SNMP.PDU_TRAPv1
+
+class BERcodec_SNMP_PDU_BULK(BERcodec_SEQUENCE):
+    tag = ASN1_Class_SNMP.PDU_BULK
+
+class BERcodec_SNMP_PDU_INFORM(BERcodec_SEQUENCE):
+    tag = ASN1_Class_SNMP.PDU_INFORM
+
+class BERcodec_SNMP_PDU_TRAPv2(BERcodec_SEQUENCE):
+    tag = ASN1_Class_SNMP.PDU_TRAPv2
+
+
+
+######[ ASN1 fields ]######
+
+class ASN1F_SNMP_PDU_GET(ASN1F_SEQUENCE):
+    ASN1_tag = ASN1_Class_SNMP.PDU_GET
+
+class ASN1F_SNMP_PDU_NEXT(ASN1F_SEQUENCE):
+    ASN1_tag = ASN1_Class_SNMP.PDU_NEXT
+
+class ASN1F_SNMP_PDU_RESPONSE(ASN1F_SEQUENCE):
+    ASN1_tag = ASN1_Class_SNMP.PDU_RESPONSE
+
+class ASN1F_SNMP_PDU_SET(ASN1F_SEQUENCE):
+    ASN1_tag = ASN1_Class_SNMP.PDU_SET
+
+class ASN1F_SNMP_PDU_TRAPv1(ASN1F_SEQUENCE):
+    ASN1_tag = ASN1_Class_SNMP.PDU_TRAPv1
+
+class ASN1F_SNMP_PDU_BULK(ASN1F_SEQUENCE):
+    ASN1_tag = ASN1_Class_SNMP.PDU_BULK
+
+class ASN1F_SNMP_PDU_INFORM(ASN1F_SEQUENCE):
+    ASN1_tag = ASN1_Class_SNMP.PDU_INFORM
+
+class ASN1F_SNMP_PDU_TRAPv2(ASN1F_SEQUENCE):
+    ASN1_tag = ASN1_Class_SNMP.PDU_TRAPv2
+
+
+
+######[ SNMP Packet ]######
+
+SNMP_error = { 0: "no_error",
+               1: "too_big",
+               2: "no_such_name",
+               3: "bad_value",
+               4: "read_only",
+               5: "generic_error",
+               6: "no_access",
+               7: "wrong_type",
+               8: "wrong_length",
+               9: "wrong_encoding",
+              10: "wrong_value",
+              11: "no_creation",
+              12: "inconsistent_value",
+              13: "ressource_unavailable",
+              14: "commit_failed",
+              15: "undo_failed",
+              16: "authorization_error",
+              17: "not_writable",
+              18: "inconsistent_name",
+               }
+
+SNMP_trap_types = { 0: "cold_start",
+                    1: "warm_start",
+                    2: "link_down",
+                    3: "link_up",
+                    4: "auth_failure",
+                    5: "egp_neigh_loss",
+                    6: "enterprise_specific",
+                    }
+
+class SNMPvarbind(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE( ASN1F_OID("oid","1.3"),
+                                ASN1F_field("value",ASN1_NULL(0))
+                                )
+
+
+class SNMPget(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SNMP_PDU_GET( ASN1F_INTEGER("id",0),
+                                    ASN1F_enum_INTEGER("error",0, SNMP_error),
+                                    ASN1F_INTEGER("error_index",0),
+                                    ASN1F_SEQUENCE_OF("varbindlist", [], SNMPvarbind)
+                                    )
+
+class SNMPnext(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SNMP_PDU_NEXT( ASN1F_INTEGER("id",0),
+                                     ASN1F_enum_INTEGER("error",0, SNMP_error),
+                                     ASN1F_INTEGER("error_index",0),
+                                     ASN1F_SEQUENCE_OF("varbindlist", [], SNMPvarbind)
+                                     )
+
+class SNMPresponse(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SNMP_PDU_RESPONSE( ASN1F_INTEGER("id",0),
+                                         ASN1F_enum_INTEGER("error",0, SNMP_error),
+                                         ASN1F_INTEGER("error_index",0),
+                                         ASN1F_SEQUENCE_OF("varbindlist", [], SNMPvarbind)
+                                         )
+
+class SNMPset(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SNMP_PDU_SET( ASN1F_INTEGER("id",0),
+                                    ASN1F_enum_INTEGER("error",0, SNMP_error),
+                                    ASN1F_INTEGER("error_index",0),
+                                    ASN1F_SEQUENCE_OF("varbindlist", [], SNMPvarbind)
+                                    )
+    
+class SNMPtrapv1(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SNMP_PDU_TRAPv1( ASN1F_INTEGER("id",0),
+                                       ASN1F_OID("enterprise", "1.3"),
+                                       ASN1F_STRING("agent_addr",""),
+                                       ASN1F_enum_INTEGER("generic_trap", 0, SNMP_trap_types),
+                                       ASN1F_INTEGER("specific_trap", 0),
+                                       ASN1F_INTEGER("time_stamp", IntAutoTime()),
+                                       ASN1F_SEQUENCE_OF("varbindlist", [], SNMPvarbind)
+                                       )
+
+class SNMPbulk(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SNMP_PDU_BULK( ASN1F_INTEGER("id",0),
+                                     ASN1F_INTEGER("non_repeaters",0),
+                                     ASN1F_INTEGER("max_repetitions",0),
+                                     ASN1F_SEQUENCE_OF("varbindlist", [], SNMPvarbind)
+                                     )
+    
+class SNMPinform(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SNMP_PDU_INFORM( ASN1F_INTEGER("id",0),
+                                       ASN1F_enum_INTEGER("error",0, SNMP_error),
+                                       ASN1F_INTEGER("error_index",0),
+                                       ASN1F_SEQUENCE_OF("varbindlist", [], SNMPvarbind)
+                                       )
+    
+class SNMPtrapv2(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SNMP_PDU_TRAPv2( ASN1F_INTEGER("id",0),
+                                       ASN1F_enum_INTEGER("error",0, SNMP_error),
+                                       ASN1F_INTEGER("error_index",0),
+                                       ASN1F_SEQUENCE_OF("varbindlist", [], SNMPvarbind)
+                                       )
+    
+
+class SNMP(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_enum_INTEGER("version", 1, {0:"v1", 1:"v2c", 2:"v2", 3:"v3"}),
+        ASN1F_STRING("community","public"),
+        ASN1F_CHOICE("PDU", SNMPget(),
+                     SNMPget, SNMPnext, SNMPresponse, SNMPset,
+                     SNMPtrapv1, SNMPbulk, SNMPinform, SNMPtrapv2)
+        )
+    def answers(self, other):
+        return ( isinstance(self.PDU, SNMPresponse)    and
+                 ( isinstance(other.PDU, SNMPget) or
+                   isinstance(other.PDU, SNMPnext) or
+                   isinstance(other.PDU, SNMPset)    ) and
+                 self.PDU.id == other.PDU.id )
+
+
 
 #################
 ## Bind layers ##
@@ -7270,6 +8533,8 @@ layer_bonds = [ ( Dot3,   LLC,      { } ),
                 ( IP,     TCP,      { "frag" : 0, "proto" : socket.IPPROTO_TCP  } ),
                 ( IP,     UDP,      { "frag" : 0, "proto" : socket.IPPROTO_UDP  } ),
                 ( IP,     GRE,      { "frag" : 0, "proto" : socket.IPPROTO_GRE  } ),
+                ( UDP,    SNMP,     { "sport" : 161 } ),
+                ( UDP,    SNMP,     { "dport" : 161 } ),
                 ( UDP,    MGCP,     { "dport" : 2727 } ),
                 ( UDP,    MGCP,     { "sport" : 2727 } ),
                 ( UDP,    DNS,      { "dport" : 53 } ),
@@ -9340,39 +10605,44 @@ arpcachepoison(target, victim, [interval=60]) -> None
     except KeyboardInterrupt:
         pass
 
-def traceroute(target, dport=80, minttl=1, maxttl=30, sport=RandShort(), l4 = None, filter=None, timeout=2, **kargs):
+def traceroute(target, dport=80, minttl=1, maxttl=30, sport=RandShort(), l4 = None, filter=None, timeout=2, verbose=None, **kargs):
     """Instant TCP traceroute
-traceroute(target, [maxttl=30], [dport=80], [sport=80]) -> None
+traceroute(target, [maxttl=30,] [dport=80,] [sport=80,] [verbose=conf.verb]) -> None
 """
+    if verbose is None:
+        verbose = conf.verb
     if filter is None:
         filter="(icmp and icmp[0]=11) or (tcp and (tcp[13] & 0x16 > 0x10))"
     if l4 is None:
         a,b = sr(IP(dst=target, id=RandShort(), ttl=(minttl,maxttl))/TCP(seq=RandInt(),sport=sport, dport=dport),
-                 timeout=timeout, filter=filter, **kargs)
+                 timeout=timeout, filter=filter, verbose=verbose, **kargs)
     else:
         a,b = sr(IP(dst=target, id=RandShort(), ttl=(minttl,maxttl))/l4,
-                 timeout=timeout, **kargs)
+                 verbose=verbose, timeout=timeout, **kargs)
 
     a = TracerouteResult(a.res)
-    a.display()
+    if verbose:
+        a.show()
     return a,b
 
 
 
 
-def arping(net, timeout=2, cache=0,  **kargs):
+def arping(net, timeout=2, cache=0, verbose=None, **kargs):
     """Send ARP who-has requests to determine which hosts are up
-arping(net, cache=0, iface=conf.iface) -> None
+arping(net, [cache=0,] [iface=conf.iface,] [verbose=conf.verb]) -> None
 Set cache=True if you want arping to modify internal ARP-Cache"""
-    ans,unans = srp(Ether(dst="ff:ff:ff:ff:ff:ff")/ARP(pdst=net),
+    if verbose is None:
+        verbose = conf.verb
+    ans,unans = srp(Ether(dst="ff:ff:ff:ff:ff:ff")/ARP(pdst=net), verbose=verbose,
                     filter="arp and arp[7] = 2", timeout=timeout, iface_hint=net, **kargs)
     ans = ARPingResult(ans.res)
 
     if cache and ans is not None:
         for pair in ans:
             arp_cache[pair[1].psrc] = (pair[1].hwsrc, time.time())
-        
-    ans.display()
+    if verbose:
+        ans.show()
     return ans,unans
 
 def dyndns_add(nameserver, name, rdata, type="A", ttl=10):
@@ -9445,6 +10715,22 @@ def dhcp_request(iface=None,**kargs):
     fam,hw = get_if_raw_hwaddr(iface)
     return srp1(Ether(dst="ff:ff:ff:ff:ff:ff")/IP(src="0.0.0.0",dst="255.255.255.255")/UDP(sport=68,dport=67)
                  /BOOTP(chaddr=hw)/DHCP(options=[("message-type","discover"),"end"]),iface=iface,**kargs)
+
+def snmpwalk(dst, oid="1", community="public"):
+    try:
+        while 1:
+            r = sr1(IP(dst=dst)/UDP(sport=RandShort())/SNMP(community=community, PDU=SNMPnext(varbindlist=[SNMPvarbind(oid=oid)])),timeout=2, chainCC=1, verbose=0, retry=2)
+            if ICMP in r:
+                print repr(r)
+                break
+            if r is None:
+                print "No answers"
+                break
+            print "%-40s: %r" % (r[SNMPvarbind].oid.val,r[SNMPvarbind].value)
+            oid = r[SNMPvarbind].oid
+            
+    except KeyboardInterrupt:
+        pass
 
 
 #####################
@@ -9925,7 +11211,7 @@ def fuzz(p, _inplace=0):
             elif f.default is not None:
                 rnd = f.randval()
                 if rnd is not None:
-                    q.default_fields[f] = rnd
+                    q.default_fields[f.name] = rnd
         q = q.payload
     return p
 
@@ -10086,6 +11372,9 @@ last=None
 def tethereal(*args,**kargs):
     sniff(prn=lambda x: x.display(),*args,**kargs)
 
+def etherleak(target, **kargs):
+    return srpflood(Ether()/ARP(pdst=target), prn=lambda (s,r): Padding in r and hexstr(r[Padding].load),
+                    filter="arp", **kargs)
 
 
 def fragleak(target,sport=123, dport=123, timeout=0.2, onlyasc=0):
@@ -10549,6 +11838,8 @@ except_filter : BPF filter for packets to ignore
 debug_match : when 1, store received packet that are not matched into debug.recv
 route    : holds the Scapy routing table and provides methods to manipulate it
 warning_threshold : how much time between warnings from the same place
+ASN1_default_codec: Codec used by default for ASN1 objects
+mib      : holds MIB direct access dictionnary
 resolve   : holds list of fields for which resolution should be done
 noenum    : holds list of enum fields for which conversion to string should NOT be done
 AS_resolver: choose the AS resolver class to use
@@ -10584,6 +11875,8 @@ AS_resolver: choose the AS resolver class to use
     debug_dissector = 0
     color_theme = DefaultTheme()
     warning_threshold = 5
+    ASN1_default_codec = ASN1_Codecs.BER
+    mib = MIBDict(_name="MIB")
     prog = ProgPath()
     resolve = Resolve()
     noenum = Resolve()
@@ -10796,7 +12089,7 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=1):
                     object = eval(expr, session)
                 if isinstance(object, Packet) or isinstance(object, Packet_metaclass):
                     words = filter(lambda x: x[0]!="_",dir(object))
-                    words += map(str, object.fields_desc)
+                    words += [x.name for x in object.fields_desc]
                 else:
                     words = dir(object)
                     if hasattr( object,"__class__" ):
@@ -10902,4 +12195,5 @@ def read_config_file(configfile):
 if __name__ == "__main__":
     interact()
 else:
-    read_config_file(DEFAULT_CONFIG_FILE)
+    if DEFAULT_CONFIG_FILE:
+        read_config_file(DEFAULT_CONFIG_FILE)
