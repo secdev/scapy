@@ -978,7 +978,9 @@ class Route:
         self.routes.append((the_net,the_msk,'0.0.0.0',iff,the_addr))
 
 
-    def route(self,dst):
+    def route(self,dst,verbose=None):
+        if verbose is None:
+            verbose=conf.verb
         # Transform "192.168.*.1-5" to one IP of the set
         dst = dst.split("/")[0]
         dst = dst.replace("*","0") 
@@ -1003,7 +1005,8 @@ class Route:
             if (dst & m) == (d & m):
                 pathes.append((m,(i,a,gw)))
         if not pathes:
-            warning("No route found (no default route?)")
+            if verbose:
+                warning("No route found (no default route?)")
             return "lo","0.0.0.0","0.0.0.0" #XXX linux specific!
         # Choose the more specific route (greatest netmask).
         # XXX: we don't care about metrics
