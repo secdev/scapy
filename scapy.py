@@ -9475,6 +9475,43 @@ send(packets, [inter=0], [loop=0], [verbose=conf.verb]) -> None"""
     if iface is None and iface_hint is not None:
         iface = conf.route.route(iface_hint)[0]
     __gen_send(conf.L2socket(iface=iface, *args, **kargs), x, inter=inter, loop=loop, count=count, verbose=verbose)
+
+def sendpfast(x, pps=None, mbps=None, realtime=None, loop=0, iface=None):
+    """Send packets at layer 2 using tcpreplay for performance
+    pps:  packets per second
+    mpbs: MBits per second
+    realtime: use packet's timestamp, bending time with realtime value
+    loop: number of times to process the packet list
+    iface: output interface """
+    if iface is None:
+        iface = conf.iface
+    options = ["--intf1=%s" % iface ]
+    if pps is not None:
+        options.append("--pps=%i" % pps)
+    elif mbps is not None:
+        options.append("--mbps=%i" % mbps)
+    elif realtime is not None:
+        options.append("--multiplier=%i" % realtime)
+    else:
+        options.append("--topspeed")
+
+    if loop:
+        options.append("--loop=%i" % loop)
+
+    f = os.tempnam("scapy")
+    options.append(f)
+    wrpcap(f, x)
+    try:
+        try:
+            os.spawnlp(os.P_WAIT, conf.prog.tcpreplay, conf.prog.tcpreplay, *options)
+        except KeyboardInterrupt:
+            log_interactive.info("Interrupted by user")
+    finally:
+        os.unlink(f)
+
+        
+
+        
     
 def sr(x,filter=None, iface=None, nofilter=0, *args,**kargs):
     """Send and receive packets at layer 3
@@ -11792,6 +11829,7 @@ class ProgPath(ConfClass):
     dot = "dot"
     display = "display"
     tcpdump = "tcpdump"
+    tcpreplay = "tcpreplay"
     hexedit = "hexer"
     wireshark = "wireshark"
     
