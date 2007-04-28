@@ -1221,13 +1221,17 @@ else:
                 continue
             if flags & RTF_REJECT:
                 continue
-            ifreq = ioctl(s, SIOCGIFADDR,struct.pack("16s16x",iff))
-            addrfamily = struct.unpack("h",ifreq[16:18])[0]
-            if addrfamily == socket.AF_INET:
-                ifaddr = inet_ntoa(ifreq[20:24])
+            try:
+                ifreq = ioctl(s, SIOCGIFADDR,struct.pack("16s16x",iff))
+            except IOError: # interface is present in routing tables but does not have any assigned IP
+                ifaddr="0.0.0.0"
             else:
-                warning("Interface %s: unkown address family (%i)"%(iff, addrfamily))
-                continue
+                addrfamily = struct.unpack("h",ifreq[16:18])[0]
+                if addrfamily == socket.AF_INET:
+                    ifaddr = inet_ntoa(ifreq[20:24])
+                else:
+                    warning("Interface %s: unkown address family (%i)"%(iff, addrfamily))
+                    continue
             routes.append((long(dst,16),
                           long(msk,16),
                           inet_ntoa(struct.pack("I",long(gw,16))),
