@@ -1212,7 +1212,7 @@ else:
             ifaddr = inet_ntoa(ifreq[20:24])
             routes.append((dst, msk, "0.0.0.0", "lo", ifaddr))
         else:
-            warning("Interface lo: unkownn address family (%i)"% addrfamily)
+            warning("Interface lo: unkown address family (%i)"% addrfamily)
     
         for l in f.readlines()[1:]:
             iff,dst,gw,flags,x,x,x,msk,x,x,x = l.split()
@@ -1226,7 +1226,7 @@ else:
             if addrfamily == socket.AF_INET:
                 ifaddr = inet_ntoa(ifreq[20:24])
             else:
-                warning("Interface %s: unkownn address family (%i)"%(iff, addrfamily))
+                warning("Interface %s: unkown address family (%i)"%(iff, addrfamily))
                 continue
             routes.append((long(dst,16),
                           long(msk,16),
