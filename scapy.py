@@ -3522,7 +3522,7 @@ class IPField(Field):
             except socket.error:
                 x = Net(x)
         elif type(x) is list:
-            x = map(Net, x)
+            x = [self.h2i(pkt, n) for n in x] 
         return x
     def resolve(self, x):
         if self in conf.resolve:
