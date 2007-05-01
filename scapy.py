@@ -6521,7 +6521,7 @@ for k,v in DHCPOptions.iteritems():
         n = v
         v = None
     else:
-        n = str(v)
+        n = v.name
     DHCPRevOptions[n] = (k,v)
 del(n)
 del(v)
