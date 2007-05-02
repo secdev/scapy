@@ -2019,6 +2019,8 @@ class BERcodec_NULL(BERcodec_INTEGER):
     def enc(cls, i):
         if i == 0:
             return chr(cls.tag)+"\0"
+        else:
+            return super(cls,cls).enc(i)
 
 class BERcodec_STRING(BERcodec_Object):
     tag = ASN1_Class_UNIVERSAL.STRING
