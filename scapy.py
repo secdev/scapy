@@ -4805,6 +4805,7 @@ class Packet(Gen):
     payload_guess = []
     initialized = 0
     show_indent=1
+    explicit = 0
 
     def from_hexcap(cls):
         return cls(import_hexcap())
@@ -4896,6 +4897,7 @@ class Packet(Gen):
         clone.overloaded_fields = self.overloaded_fields.copy()
         clone.overload_fields = self.overload_fields.copy()
         clone.underlayer=self.underlayer
+        clone.explicit=self.explicit
         clone.post_transforms=self.post_transforms[:]
         clone.__dict__["payload"] = self.payload.copy()
         clone.payload.add_underlayer(clone)
@@ -4980,7 +4982,7 @@ class Packet(Gen):
                                   repr(self.payload),
                                   ct.punct(">"))
     def __str__(self):
-        return self.__iter__().next().build()
+        return self.build()
     def __div__(self, other):
         if isinstance(other, Packet):
             cloneA = self.copy()
@@ -5022,6 +5024,8 @@ class Packet(Gen):
         return self.payload.build(internal=1)
 
     def build(self,internal=0):
+        if not self.explicit:
+            self = self.__iter__().next()
         pkt = self.do_build()
         for t in self.post_transforms:
             pkt = t(pkt)
@@ -5342,20 +5346,25 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
                         if isinstance(done2[k], VolatileValue):
                             done2[k] = done2[k]._fix()
                     pkt = self.__class__()
+                    pkt.explicit = 1
                     pkt.fields = done2
                     pkt.time = self.time
                     pkt.underlayer = self.underlayer
                     pkt.overload_fields = self.overload_fields.copy()
                     pkt.post_transforms = self.post_transforms
-                    if payl is None:
-                        yield pkt
-                    else:
-                        yield pkt/payl
+                    if payl is not None:
+                        pkt.add_payload(payl)
+                    yield pkt
 
-        todo = [ k for (k,v) in itertools.chain(self.default_fields.iteritems(),
-                                                self.overloaded_fields.iteritems())
-                 if isinstance(v, VolatileValue) ] + self.fields.keys()
-        return loop(todo, {})
+        if self.explicit:
+            todo = []
+            done = self.fields
+        else:
+            todo = [ k for (k,v) in itertools.chain(self.default_fields.iteritems(),
+                                                    self.overloaded_fields.iteritems())
+                     if isinstance(v, VolatileValue) ] + self.fields.keys()
+            done = {}
+        return loop(todo, done)
 
     def __gt__(self, other):
         """True if other is an answer from self (self ==> other)."""
