@@ -3531,7 +3531,7 @@ class IPField(Field):
         if self in conf.resolve:
             try:
                 ret = socket.gethostbyaddr(x)[0]
-            except socket.herror:
+            except:
                 pass
             else:
                 if ret:
