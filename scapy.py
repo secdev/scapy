@@ -103,6 +103,7 @@ from sets import Set
 from select import select
 from glob import glob
 from fcntl import ioctl
+import itertools
 import fcntl
 import warnings
 warnings.filterwarnings("ignore","tempnam",RuntimeWarning, __name__)
@@ -5350,10 +5351,11 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
                         yield pkt
                     else:
                         yield pkt/payl
-        todo = map(lambda (x,y):x, filter(lambda (x,y):isinstance(y,VolatileValue), self.default_fields.items()))
-        todo += map(lambda (x,y):x, filter(lambda (x,y):isinstance(y,VolatileValue), self.overloaded_fields.items()))
-        todo += self.fields.keys()
-        return loop(map(lambda x:str(x), todo), {})
+
+        todo = [ k for (k,v) in itertools.chain(self.default_fields.iteritems(),
+                                                self.overloaded_fields.iteritems())
+                 if isinstance(v, VolatileValue) ] + self.fields.keys()
+        return loop(todo, {})
 
     def __gt__(self, other):
         """True if other is an answer from self (self ==> other)."""
