@@ -671,15 +671,13 @@ crc32 = zlib.crc32
 
 
 def checksum(pkt):
-    pkt=str(pkt)
-    s=0
     if len(pkt) % 2 == 1:
         pkt += "\0"
-    for i in range(len(pkt)/2):
-        s = s +  (struct.unpack("!H",pkt[2*i:2*i+2])[0])
+    s = sum(array.array("H", pkt))
     s = (s >> 16) + (s & 0xffff)
     s += s >> 16
-    return  ~s & 0xffff
+    s = ~s
+    return (((s>>8)&0xff)|s<<8) & 0xffff
 
 def warning(x):
     log_runtime.warning(x)
