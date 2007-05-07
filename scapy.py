@@ -894,8 +894,13 @@ class Route:
     def __init__(self):
         self.resync()
         self.s=socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.cache = {}
+
+    def invalidate_cache(self):
+        self.cache = {}
 
     def resync(self):
+        self.invalidate_cache()
         self.routes = read_routes()
 
     def __repr__(self):
@@ -932,11 +937,13 @@ class Route:
         """Ex:
         add(net="192.168.1.0/24",gw="1.2.3.4")
         """
+        self.invalidate_cache()
         self.routes.append(self.make_route(*args,**kargs))
 
         
     def delt(self,  *args, **kargs):
         """delt(host|net, gw|dev)"""
+        self.invalidate_cache()
         route = self.make_route(*args,**kargs)
         try:
             i=self.routes.index(route)
@@ -945,6 +952,7 @@ class Route:
             warning("no matching route found")
              
     def ifchange(self, iff, addr):
+        self.invalidate_cache()
         the_addr,the_msk = (addr.split("/")+["32"])[:2]
         the_msk = itom(int(the_msk))
         the_rawaddr, = struct.unpack("I",inet_aton(the_addr))
@@ -965,6 +973,7 @@ class Route:
                 
 
     def ifdel(self, iff):
+        self.invalidate_cache()
         new_routes=[]
         for rt in self.routes:
             if rt[3] != iff:
@@ -972,6 +981,7 @@ class Route:
         self.routes=new_routes
         
     def ifadd(self, iff, addr):
+        self.invalidate_cache()
         the_addr,the_msk = (addr.split("/")+["32"])[:2]
         the_msk = itom(int(the_msk))
         the_rawaddr, = struct.unpack("I",inet_aton(the_addr))
@@ -979,11 +989,13 @@ class Route:
         self.routes.append((the_net,the_msk,'0.0.0.0',iff,the_addr))
 
 
-    def route(self,dst,verbose=None):
+    def route(self,dest,verbose=None):
+        if dest in self.cache:
+            return self.cache[dest]
         if verbose is None:
             verbose=conf.verb
         # Transform "192.168.*.1-5" to one IP of the set
-        dst = dst.split("/")[0]
+        dst = dest.split("/")[0]
         dst = dst.replace("*","0") 
         while 1:
             l = dst.find("-")
@@ -1012,7 +1024,9 @@ class Route:
         # Choose the more specific route (greatest netmask).
         # XXX: we don't care about metrics
         pathes.sort()
-        return pathes[-1][1] 
+        ret = pathes[-1][1]
+        self.cache[dest] = ret
+        return ret
             
     def get_if_bcast(self, iff):
         for net, msk, gw, iface, addr in self.routes:
