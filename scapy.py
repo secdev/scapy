@@ -4918,15 +4918,21 @@ class Packet(Gen):
         return clone
 
     def getfieldval(self, attr):
-        for f in self.fields, self.overloaded_fields, self.default_fields:
-            if f.has_key(attr):
-                return f[attr]
+        if attr in self.fields:
+            return self.fields[attr]
+        if attr in self.overloaded_fields:
+            return self.overloaded_fields[attr]
+        if attr in self.default_fields:
+            return self.default_fields[attr]
         return self.payload.getfieldval(attr)
     
     def getfield_and_val(self, attr):
-        for f in self.fields, self.overloaded_fields, self.default_fields:
-            if f.has_key(attr):
-                return self.get_field(attr),f[attr]
+        if attr in self.fields:
+            return self.get_field(attr),self.fields[attr]
+        if attr in self.overloaded_fields:
+            return self.get_field(attr),self.overloaded_fields[attr]
+        if attr in self.default_fields:
+            return self.get_field(attr),self.default_fields[attr]
         return self.payload.getfield_and_val(attr)
     
     def __getattr__(self, attr):
