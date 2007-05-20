@@ -5894,6 +5894,20 @@ class Dot1Q(Packet):
         else:
             return self.sprintf("802.1q (%Dot1Q.type%) vlan %Dot1Q.vlan%")
 
+            
+
+
+class RadioTap(Packet):
+    name = "RadioTap dummy"
+    fields_desc = [ ByteField('version', 0),
+                    ByteField('pad', 0),
+                    FieldLenField('len', None, 'notdecoded', '@H'),
+                    FlagsField('present', None, -32, ['TSFT','Flags','Rate','Channel','FHSS','dBm_AntSignal',
+                                                     'dBm_AntNoise','Lock_Quality','TX_Attenuation','dB_TX_Attenuation',
+                                                      'dBm_TX_Power', 'Antenna', 'dB_AntSignal', 'dB_AntNoise',
+                                                     'b14', 'b15','b16','b17','b18','b19','b20','b21','b22','b23',
+                                                     'b24','b25','b26','b27','b28','b29','b30','Ext']),
+                    StrLenField('notdecoded', "", 'len', shift=8) ]
 
 class STP(Packet):
     name = "Spanning Tree Protocol"
@@ -8507,6 +8521,7 @@ def split_layers(lower, upper, __fval=None, **fval):
 layer_bonds = [ ( Dot3,   LLC,      { } ),
                 ( GPRS,   IP,       { } ),
                 ( PrismHeader, Dot11, { }),
+                ( RadioTap,    Dot11, { }),
                 ( Dot11,  LLC,      { "type" : 2 } ),
                 ( PPP,    IP,       { "proto" : 0x0021 } ),
                 ( Ether,  LLC,      { "type" : 0x007a } ),
@@ -8776,9 +8791,11 @@ LLTypes = { ARPHDR_ETHER : Ether_Dot3_Dispatcher,
             101 : IP,
             801 : Dot11,
             802 : PrismHeader,
+            803 : RadioTap,
             105 : Dot11,
             113 : CookedLinux,
             119 : PrismHeader, # for atheros
+            127 : RadioTap,
             144 : CookedLinux, # called LINUX_IRDA, similar to CookedLinux
             783 : IrLAPHead,
             0xB1E70073L : HCI_Hdr, # I invented this one
@@ -8789,6 +8806,8 @@ LLNumTypes = { Ether : ARPHDR_ETHER,
                IP  : 101,
                Dot11  : 801,
                PrismHeader : 802,
+               RadioTap    : 803,
+               RadioTap    : 127,
                Dot11 : 105,
                CookedLinux : 113,
                CookedLinux : 144,
