@@ -3979,7 +3979,15 @@ class BCDFloatField(Field):
 class BitField(Field):
     def __init__(self, name, default, size):
         Field.__init__(self, name, default)
-        self.size = size
+        self.rev = size < 0 
+        self.size = abs(size)
+    def reverse(self, val):
+        if self.size == 16:
+            val = socket.ntohs(val)
+        elif self.size == 32:
+            val = socket.ntohl(val)
+        return val
+        
     def addfield(self, pkt, s, val):
         if val is None:
             val = 0
@@ -3988,6 +3996,8 @@ class BitField(Field):
         else:
             bitsdone = 0
             v = 0
+        if self.rev:
+            val = self.reverse(val)
         v <<= self.size
         v |= val & ((1L<<self.size) - 1)
         bitsdone += self.size
@@ -4020,6 +4030,9 @@ class BitField(Field):
 
         # remove low order bits
         b = b >> (nb_bytes*8 - self.size - bn)
+
+        if self.rev:
+            b = self.reverse(b)
 
         bn += self.size
         s = s[bn/8:]
@@ -4084,7 +4097,8 @@ class CharEnumField(EnumField):
 class BitEnumField(BitField,EnumField):
     def __init__(self, name, default, size, enum):
         EnumField.__init__(self, name, default, enum)
-        self.size = size
+        self.rev = size < 0
+        self.size = abs(size)
     def any2i(self, pkt, x):
         return EnumField.any2i(self, pkt, x)
     def i2repr(self, pkt, x):
