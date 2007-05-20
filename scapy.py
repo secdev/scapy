@@ -1349,6 +1349,8 @@ class VolatileValue:
     def __repr__(self):
         return "<%s>" % self.__class__.__name__
     def __getattr__(self, attr):
+        if attr == "__setstate__":
+            raise AttributeError(attr)
         return getattr(self._fix(),attr)
     def _fix(self):
         return None
