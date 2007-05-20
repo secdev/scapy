@@ -4950,6 +4950,7 @@ class Packet(Gen):
                 else:
                     any2i = fld.any2i
                 self.fields[attr] = any2i(self, val)
+                self.explicit=0
             elif attr == "payload":
                 self.remove_payload()
                 self.add_payload(val)
@@ -4961,6 +4962,7 @@ class Packet(Gen):
         if self.initialized:
             if self.fields.has_key(attr):
                 del(self.fields[attr])
+                self.explicit=0 # in case a default value must be explicited
                 return
             elif self.default_fields.has_key(attr):
                 return
