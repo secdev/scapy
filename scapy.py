@@ -773,6 +773,7 @@ def incremental_label(label="tag%05i", start=0):
 #########################
 
 class EnumElement:
+    _value=None
     def __init__(self, key, value):
         self._key = key
         self._value = value
@@ -3377,6 +3378,7 @@ class Emph:
     
 
 class ActionField:
+    _fld = None
     def __init__(self, fld, action_method, **kargs):
         self._fld = fld
         self._action_method = action_method
@@ -3389,6 +3391,7 @@ class ActionField:
 
 
 class ConditionalField:
+    fld = None
     def __init__(self, fld, cond):
         self.fld = fld
         self.cond = cond
