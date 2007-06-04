@@ -669,16 +669,9 @@ def hexdiff(x,y):
                 doy=1
             else:
                 i += 16
+
     
-
-
-if BIG_ENDIAN:
-    CRCPOLY=0x04c11db7L
-else:
-    CRCPOLY=0xedb88320L
-
 crc32 = zlib.crc32
-
 
 def checksum(pkt):
     if len(pkt) % 2 == 1:
