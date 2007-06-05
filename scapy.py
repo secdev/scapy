@@ -5091,7 +5091,11 @@ class Packet(Gen):
             pad = self.payload.getlayer(Padding) 
             if pad: 
                 p += pad.build()
+            p = self.build_done(p)
         return p
+
+    def build_done(self, p):
+        return self.payload.build_done(p)
 
     def do_build_ps(self):
         p=""
@@ -5766,7 +5770,9 @@ class NoPayload(Packet,object):
     def __nonzero__(self):
         return False
     def build(self, internal=0):
-        return ""
+        return ""    
+    def build_done(self, p):
+        return p
     def build_ps(self, internal=0):
         return "",[]
     def getfieldval(self, attr):
