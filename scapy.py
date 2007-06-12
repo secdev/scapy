@@ -4851,9 +4851,9 @@ class Packet(Gen):
     show_indent=1
     explicit = 0
 
+    @classmethod
     def from_hexcap(cls):
         return cls(import_hexcap())
-    from_hexcap = classmethod(from_hexcap)
 
     @classmethod
     def upper_bonds(self):
