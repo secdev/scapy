@@ -8305,6 +8305,87 @@ class NetflowRecordV1(Packet):
                     IntField("padding2", 0) ]
 
 
+class TFTP_RRQ(Packet):
+    name = "TFTP Read Request"
+    fields_desc = [ ShortField("op", 1),
+                    StrNullField("filename", ""),
+                    StrNullField("mode", "octet") ]
+    def answers(self, other):
+        return 0
+        
+
+class TFTP_WRQ(Packet):
+    name = "TFTP Write Request"
+    fields_desc = [ ShortField("op", 2),
+                    StrNullField("filename", ""),
+                    StrNullField("mode", "octet") ]
+    def answers(self, other):
+        return 0
+
+class TFTP_DATA(Packet):
+    name = "TFTP Data"
+    fields_desc = [ ShortField("op", 3),
+                    ShortField("block", 0),
+                    StrField("data", "") ]
+    def answers(self, other):
+        return  self.block == 1 and isinstance(other, TFTP_RRQ)
+
+class TFTP_Option(Packet):
+    fields_desc = [ StrNullField("name",""),
+                    StrNullField("value","") ]
+    def extract_padding(self, pkt):
+        return "",pkt
+
+class TFTP_Options(Packet):
+    fields_desc = [ PacketListField("options", [], TFTP_Option, None, -1) ]
+
+    
+class TFTP_ACK(Packet):
+    name = "TFTP Ack"
+    fields_desc = [ ShortField("op", 4),
+                    ShortField("block", 0) ]
+    def answers(self, other):
+        if isinstance(other, TFTP_DATA):
+            return self.block == other.block
+        elif isinstance(other, TFTP_RRQ) or isinstance(other, TFTP_WRQ) or isintance(other, TFTP_OACK):
+            return self.block == 0
+        return 0
+
+TFTP_Error_Codes = {  0: "Not defined",
+                      1: "File not found",
+                      2: "Access violation",
+                      3: "Disk full or allocation exceeded",
+                      4: "Illegal TFTP operation",
+                      5: "Unknown transfer ID",
+                      6: "File already exists",
+                      7: "No such user",
+                      8: "Terminate transfer due to option negotiation",
+                      }
+    
+class TFTP_Error(Packet):
+    name = "TFTP Error"
+    fields_desc = [ ShortField("op", 5),
+                    ShortEnumField("errorcode", 0, TFTP_Error_Codes),
+                    StrNullField("errormsg", "")]
+    def answers(self, other):
+        return (isinstance(other, TFTP_DATA) or
+                isinstance(other, TFTP_RRQ) or
+                isinstance(other, TFTP_WRQ) or 
+                isinstance(other, TFTP_ACK))
+
+
+class TFTP_OACK(Packet):
+    name = "TFTP Option Ack"
+    fields_desc = [ ShortField("op", 6),
+                    ShortField("block", 0) ]
+
+
+
+def TFTP_dispatcher(pkt, **args):
+    return {"\x01":TFTP_RRQ,"\x02":TFTP_WRQ,"\x03":TFTP_DATA,
+            "\x04":TFTP_ACK,"\x05":TFTP_Error,"\x06":TFTP_OACK}.get((pkt+"xx")[1],Raw)(pkt, **args)
+
+
 ##########
 ## SNMP ##
 ##########
@@ -8722,6 +8803,17 @@ bind_layers( MobileIPTunnelData, IP,           nexthdr=4)
 bind_layers( NetflowHeader,   NetflowHeaderV1, version=1)
 bind_layers( NetflowHeaderV1, NetflowRecordV1, )
                 
+bind_top_down(UDP, TFTP_RRQ, dport=69)
+bind_top_down(UDP, TFTP_WRQ, dport=69)
+bind_top_down(UDP, TFTP_DATA, dport=69)
+bind_top_down(UDP, TFTP_ACK, dport=69)
+bind_top_down(UDP, TFTP_OACK, dport=69)
+bind_top_down(UDP, TFTP_Error, dport=69)
+bind_bottom_up(UDP, TFTP_dispatcher, dport=69)
+bind_bottom_up(UDP, TFTP_dispatcher, sport=69)
+bind_layers(TFTP_RRQ, TFTP_Options)
+bind_layers(TFTP_WRQ, TFTP_Options)
+
 
 ###################
 ## Fragmentation ##
