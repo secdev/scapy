@@ -8573,155 +8573,145 @@ def split_layers(lower, upper, __fval=None, **fval):
     split_bottom_up(lower, upper, **fval)
     split_top_down(lower, upper, **fval)
 
-layer_bonds = [ ( Dot3,   LLC,      { } ),
-                ( GPRS,   IP,       { } ),
-                ( PrismHeader, Dot11, { }),
-                ( RadioTap,    Dot11, { }),
-                ( Dot11,  LLC,      { "type" : 2 } ),
-                ( PPP,    IP,       { "proto" : 0x0021 } ),
-                ( Ether,  LLC,      { "type" : 0x007a } ),
-                ( Ether,  Dot1Q,    { "type" : 0x8100 } ),
-                ( Ether,  Ether,    { "type" : 0x0001 } ),
-                ( Ether,  ARP,      { "type" : 0x0806 } ),
-                ( Ether,  IP,       { "type" : 0x0800 } ),
-                ( Ether,  EAPOL,    { "type" : 0x888e } ),
-                ( Ether,  EAPOL,    { "type" : 0x888e, "dst" : "01:80:c2:00:00:03" } ),
-                ( Ether,  PPPoED,   { "type" : 0x8863 } ),
-                ( Ether,  PPPoE,    { "type" : 0x8864 } ),
-                ( CookedLinux,  LLC,      { "proto" : 0x007a } ),
-                ( CookedLinux,  Dot1Q,    { "proto" : 0x8100 } ),
-                ( CookedLinux,  Ether,    { "proto" : 0x0001 } ),
-                ( CookedLinux,  ARP,      { "proto" : 0x0806 } ),
-                ( CookedLinux,  IP,       { "proto" : 0x0800 } ),
-                ( CookedLinux,  EAPOL,    { "proto" : 0x888e } ),
-                ( CookedLinux,  PPPoED,   { "proto" : 0x8863 } ),
-                ( CookedLinux,  PPPoE,    { "proto" : 0x8864 } ),
-                ( GRE,    LLC,      { "proto" : 0x007a } ),
-                ( GRE,    Dot1Q,    { "proto" : 0x8100 } ),
-                ( GRE,    Ether,    { "proto" : 0x0001 } ),
-                ( GRE,    ARP,      { "proto" : 0x0806 } ),
-                ( GRE,    IP,       { "proto" : 0x0800 } ),
-                ( GRE,    EAPOL,    { "proto" : 0x888e } ),
-                ( PPPoE,  PPP,      { "code" : 0x00 } ),
-                ( EAPOL,  EAP,      { "type" : EAPOL.EAP_PACKET } ),
-                ( LLC,    STP,      { "dsap" : 0x42 , "ssap" : 0x42, "ctrl":3 } ),
-                ( LLC,    SNAP,     { "dsap" : 0xAA , "ssap" : 0xAA, "ctrl":3 } ),
-                ( SNAP,   Dot1Q,    { "code" : 0x8100 } ),
-                ( SNAP,   Ether,    { "code" : 0x0001 } ),
-                ( SNAP,   ARP,      { "code" : 0x0806 } ),
-                ( SNAP,   IP,       { "code" : 0x0800 } ),
-                ( SNAP,   EAPOL,    { "code" : 0x888e } ),
-                ( SNAP,   STP,      { "code" : 0x010b } ),
-                ( IPerror,IPerror,  { "frag" : 0, "proto" : socket.IPPROTO_IPIP } ),
-                ( IPerror,ICMPerror,{ "frag" : 0, "proto" : socket.IPPROTO_ICMP } ),
-                ( IPerror,TCPerror, { "frag" : 0, "proto" : socket.IPPROTO_TCP  } ),
-                ( IPerror,UDPerror, { "frag" : 0, "proto" : socket.IPPROTO_UDP  } ),
-                ( IP,     IP,       { "frag" : 0, "proto" : socket.IPPROTO_IPIP } ),
-                ( IP,     ICMP,     { "frag" : 0, "proto" : socket.IPPROTO_ICMP } ),
-                ( IP,     TCP,      { "frag" : 0, "proto" : socket.IPPROTO_TCP  } ),
-                ( IP,     UDP,      { "frag" : 0, "proto" : socket.IPPROTO_UDP  } ),
-                ( IP,     GRE,      { "frag" : 0, "proto" : socket.IPPROTO_GRE  } ),
-                ( UDP,    SNMP,     { "sport" : 161 } ),
-                ( UDP,    SNMP,     { "dport" : 161 } ),
-                ( UDP,    MGCP,     { "dport" : 2727 } ),
-                ( UDP,    MGCP,     { "sport" : 2727 } ),
-                ( UDP,    DNS,      { "dport" : 53 } ),
-                ( UDP,    DNS,      { "sport" : 53 } ),
-                ( UDP,    ISAKMP,   { "sport" : 500, "dport" : 500 } ),
-                ( UDP,    HSRP,     { "sport" : 1985, "dport" : 1985} ),
-                ( UDP,    NTP,      { "sport" : 123, "dport" : 123 } ),
-                ( UDP,    BOOTP,    { "sport" : 68, "dport" : 67 } ),
-                ( UDP,    BOOTP,    { "sport" : 67, "dport" : 68 } ),
-                ( BOOTP,  DHCP,     { "options" : dhcpmagic } ),
-                ( UDP,    RIP,      { "sport" : 520 } ),
-                ( UDP,    RIP,      { "dport" : 520 } ),
-                ( RIP,    RIPEntry, { } ),
-                ( RIPEntry,RIPEntry,{ } ),
-                ( Dot11, Dot11AssoReq,    { "type" : 0, "subtype" : 0 } ),
-                ( Dot11, Dot11AssoResp,   { "type" : 0, "subtype" : 1 } ),
-                ( Dot11, Dot11ReassoReq,  { "type" : 0, "subtype" : 2 } ),
-                ( Dot11, Dot11ReassoResp, { "type" : 0, "subtype" : 3 } ),
-                ( Dot11, Dot11ProbeReq,   { "type" : 0, "subtype" : 4 } ),
-                ( Dot11, Dot11ProbeResp,  { "type" : 0, "subtype" : 5 } ),
-                ( Dot11, Dot11Beacon,     { "type" : 0, "subtype" : 8 } ),
-                ( Dot11, Dot11ATIM ,      { "type" : 0, "subtype" : 9 } ),
-                ( Dot11, Dot11Disas ,     { "type" : 0, "subtype" : 10 } ),
-                ( Dot11, Dot11Auth,       { "type" : 0, "subtype" : 11 } ),
-                ( Dot11, Dot11Deauth,     { "type" : 0, "subtype" : 12 } ),
-                ( Dot11Beacon, Dot11Elt,     {} ),
-                ( Dot11AssoReq, Dot11Elt,    {} ),
-                ( Dot11AssoResp, Dot11Elt,   {} ),
-                ( Dot11ReassoReq, Dot11Elt,  {} ),
-                ( Dot11ReassoResp, Dot11Elt, {} ),
-                ( Dot11ProbeReq, Dot11Elt,   {} ),
-                ( Dot11ProbeResp, Dot11Elt,  {} ),
-                ( Dot11Auth, Dot11Elt,       {} ),
-                ( Dot11Elt, Dot11Elt,        {} ),
-                ( TCP,      Skinny,          { "dport": 2000 } ),
-                ( TCP,      Skinny,          { "sport": 2000 } ),
-                ( UDP,      SebekHead,       { "sport" : 1101 } ),
-                ( UDP,      SebekHead,       { "dport" : 1101 } ),
-                ( UDP,      SebekHead,       { "sport" : 1101,
-                                               "dport" : 1101 } ),
-                ( SebekHead, SebekV1,        { "version" : 1 } ),
-                ( SebekHead, SebekV2Sock,    { "version" : 2,
-                                               "type" : 2 } ),
-                ( SebekHead, SebekV2,        { "version" : 2 } ),
-                ( SebekHead, SebekV3Sock,    { "version" : 3,
-                                               "type" : 2 } ),
-                ( SebekHead, SebekV3,        { "version" : 3 } ),
-                ( CookedLinux,  IrLAPHead,   { "proto" : 0x0017 } ),
-                ( IrLAPHead, IrLAPCommand,   { "Type" : 1} ),
-                ( IrLAPCommand, IrLMP,       {} ),
-                (UDP, NBNSQueryRequest, {"dport" : 137 }),
-                (UDP, NBNSRequest, {"dport" : 137 }),
-                (UDP, NBNSQueryResponse, {"sport" : 137}),
-                (UDP, NBNSQueryResponseNegative, {"sport" : 137}),
-                (UDP, NBNSNodeStatusResponse, {"sport" : 137}),
-                (NBNSNodeStatusResponse, NBNSNodeStatusResponseService, {}),
-                (NBNSNodeStatusResponse, NBNSNodeStatusResponseService, {}),
-                (NBNSNodeStatusResponseService, NBNSNodeStatusResponseService, {}),
-                (NBNSNodeStatusResponseService, NBNSNodeStatusResponseEnd, {}),
-                (UDP, NBNSWackResponse, {"sport" : 137}),
-                (UDP,NBTDatagram,{ "dport":138}),
-                (TCP,NBTSession,{"dport":139}),
-                (NBTSession, SMBNegociate_Protocol_Request_Header,{}),
-                (SMBNegociate_Protocol_Request_Header,SMBNegociate_Protocol_Request_Tail,{}),
-                (SMBNegociate_Protocol_Request_Tail,SMBNegociate_Protocol_Request_Tail,{}),
-                (NBTSession, SMBNegociate_Protocol_Response_Advanced_Security,{"ExtendedSecurity":1}),
-                (NBTSession, SMBNegociate_Protocol_Response_No_Security,{"ExtendedSecurity":0,"EncryptionKeyLength":8 }),
-                (NBTSession, SMBNegociate_Protocol_Response_No_Security_No_Key,{"ExtendedSecurity":0,"EncryptionKeyLength":0 }),
-                (NBTSession, SMBSession_Setup_AndX_Request,{}),
-                (NBTSession, SMBSession_Setup_AndX_Response,{}),
 
-                (HCI_Hdr,      HCI_ACL_Hdr,    {"type":2}),
-                (HCI_Hdr,      Raw,    {}),
-                (HCI_ACL_Hdr,  L2CAP_Hdr, {}),
-                (L2CAP_Hdr,    L2CAP_CmdHdr, {"cid":1}),
-                (L2CAP_CmdHdr, L2CAP_CmdRej, {"code":1}),
-                (L2CAP_CmdHdr, L2CAP_ConnReq, {"code":2}),
-                (L2CAP_CmdHdr, L2CAP_ConnResp, {"code":3}),
-                (L2CAP_CmdHdr, L2CAP_ConfReq, {"code":4}),
-                (L2CAP_CmdHdr, L2CAP_ConfResp, {"code":5}),
-                (L2CAP_CmdHdr, L2CAP_DisconnReq, {"code":6}),
-                (L2CAP_CmdHdr, L2CAP_DisconnResp, {"code":7}),
-                (L2CAP_CmdHdr, L2CAP_InfoReq, {"code":10}),
-                (L2CAP_CmdHdr, L2CAP_InfoResp, {"code":11}),
-                ( UDP,      MobileIP,    { "sport" : 434 } ),
-                ( UDP,      MobileIP,    { "dport" : 434 } ),
-                ( MobileIP, MobileIPRRQ, { "type"  : 1 } ),
-                ( MobileIP, MobileIPRRP, { "type"  : 3 } ),
-                ( MobileIP, MobileIPTunnelData, { "type" : 4 } ),
-                ( MobileIPTunnelData, IP, { "nexthdr" : 4 } ),
-
-                ( NetflowHeader, NetflowHeaderV1, { "version" : 1 } ),
-                ( NetflowHeaderV1, NetflowRecordV1, {} ),
-
-                ]
-
-for l in layer_bonds:
-    bind_layers(*l)
-del(l)
+bind_layers( Dot3,          LLC,           )
+bind_layers( GPRS,          IP,            )
+bind_layers( PrismHeader,   Dot11,         )
+bind_layers( RadioTap,      Dot11,         )
+bind_layers( Dot11,         LLC,           type=2)
+bind_layers( PPP,           IP,            proto=33)
+bind_layers( Ether,         LLC,           type=122)
+bind_layers( Ether,         Dot1Q,         type=33024)
+bind_layers( Ether,         Ether,         type=1)
+bind_layers( Ether,         ARP,           type=2054)
+bind_layers( Ether,         IP,            type=2048)
+bind_layers( Ether,         EAPOL,         type=34958)
+bind_layers( Ether,         EAPOL,         dst='01:80:c2:00:00:03', type=34958)
+bind_layers( Ether,         PPPoED,        type=34915)
+bind_layers( Ether,         PPPoE,         type=34916)
+bind_layers( CookedLinux,   LLC,           proto=122)
+bind_layers( CookedLinux,   Dot1Q,         proto=33024)
+bind_layers( CookedLinux,   Ether,         proto=1)
+bind_layers( CookedLinux,   ARP,           proto=2054)
+bind_layers( CookedLinux,   IP,            proto=2048)
+bind_layers( CookedLinux,   EAPOL,         proto=34958)
+bind_layers( CookedLinux,   PPPoED,        proto=34915)
+bind_layers( CookedLinux,   PPPoE,         proto=34916)
+bind_layers( GRE,           LLC,           proto=122)
+bind_layers( GRE,           Dot1Q,         proto=33024)
+bind_layers( GRE,           Ether,         proto=1)
+bind_layers( GRE,           ARP,           proto=2054)
+bind_layers( GRE,           IP,            proto=2048)
+bind_layers( GRE,           EAPOL,         proto=34958)
+bind_layers( PPPoE,         PPP,           code=0)
+bind_layers( EAPOL,         EAP,           type=0)
+bind_layers( LLC,           STP,           dsap=66, ssap=66, ctrl=3)
+bind_layers( LLC,           SNAP,          dsap=170, ssap=170, ctrl=3)
+bind_layers( SNAP,          Dot1Q,         code=33024)
+bind_layers( SNAP,          Ether,         code=1)
+bind_layers( SNAP,          ARP,           code=2054)
+bind_layers( SNAP,          IP,            code=2048)
+bind_layers( SNAP,          EAPOL,         code=34958)
+bind_layers( SNAP,          STP,           code=267)
+bind_layers( IPerror,       IPerror,       frag=0, proto=4)
+bind_layers( IPerror,       ICMPerror,     frag=0, proto=1)
+bind_layers( IPerror,       TCPerror,      frag=0, proto=6)
+bind_layers( IPerror,       UDPerror,      frag=0, proto=17)
+bind_layers( IP,            IP,            frag=0, proto=4)
+bind_layers( IP,            ICMP,          frag=0, proto=1)
+bind_layers( IP,            TCP,           frag=0, proto=6)
+bind_layers( IP,            UDP,           frag=0, proto=17)
+bind_layers( IP,            GRE,           frag=0, proto=47)
+bind_layers( UDP,           SNMP,          sport=161)
+bind_layers( UDP,           SNMP,          dport=161)
+bind_layers( UDP,           MGCP,          dport=2727)
+bind_layers( UDP,           MGCP,          sport=2727)
+bind_layers( UDP,           DNS,           dport=53)
+bind_layers( UDP,           DNS,           sport=53)
+bind_layers( UDP,           ISAKMP,        dport=500, sport=500)
+bind_layers( UDP,           HSRP,          dport=1985, sport=1985)
+bind_layers( UDP,           NTP,           dport=123, sport=123)
+bind_layers( UDP,           BOOTP,         dport=67, sport=68)
+bind_layers( UDP,           BOOTP,         dport=68, sport=67)
+bind_layers( BOOTP,         DHCP,          options='c\x82Sc')
+bind_layers( UDP,           RIP,           sport=520)
+bind_layers( UDP,           RIP,           dport=520)
+bind_layers( RIP,           RIPEntry,      )
+bind_layers( RIPEntry,      RIPEntry,      )
+bind_layers( Dot11,         Dot11AssoReq,    subtype=0, type=0)
+bind_layers( Dot11,         Dot11AssoResp,   subtype=1, type=0)
+bind_layers( Dot11,         Dot11ReassoReq,  subtype=2, type=0)
+bind_layers( Dot11,         Dot11ReassoResp, subtype=3, type=0)
+bind_layers( Dot11,         Dot11ProbeReq,   subtype=4, type=0)
+bind_layers( Dot11,         Dot11ProbeResp,  subtype=5, type=0)
+bind_layers( Dot11,         Dot11Beacon,     subtype=8, type=0)
+bind_layers( Dot11,         Dot11ATIM,       subtype=9, type=0)
+bind_layers( Dot11,         Dot11Disas,      subtype=10, type=0)
+bind_layers( Dot11,         Dot11Auth,       subtype=11, type=0)
+bind_layers( Dot11,         Dot11Deauth,     subtype=12, type=0)
+bind_layers( Dot11Beacon,     Dot11Elt,    )
+bind_layers( Dot11AssoReq,    Dot11Elt,    )
+bind_layers( Dot11AssoResp,   Dot11Elt,    )
+bind_layers( Dot11ReassoReq,  Dot11Elt,    )
+bind_layers( Dot11ReassoResp, Dot11Elt,    )
+bind_layers( Dot11ProbeReq,   Dot11Elt,    )
+bind_layers( Dot11ProbeResp,  Dot11Elt,    )
+bind_layers( Dot11Auth,       Dot11Elt,    )
+bind_layers( Dot11Elt,        Dot11Elt,    )
+bind_layers( TCP,           Skinny,        dport=2000)
+bind_layers( TCP,           Skinny,        sport=2000)
+bind_layers( UDP,           SebekHead,     sport=1101)
+bind_layers( UDP,           SebekHead,     dport=1101)
+bind_layers( UDP,           SebekHead,     dport=1101, sport=1101)
+bind_layers( SebekHead,     SebekV1,       version=1)
+bind_layers( SebekHead,     SebekV2Sock,   version=2, type=2)
+bind_layers( SebekHead,     SebekV2,       version=2)
+bind_layers( SebekHead,     SebekV3Sock,   version=3, type=2)
+bind_layers( SebekHead,     SebekV3,       version=3)
+bind_layers( CookedLinux,   IrLAPHead,     proto=23)
+bind_layers( IrLAPHead,     IrLAPCommand,  Type=1)
+bind_layers( IrLAPCommand,  IrLMP,         )
+bind_layers( UDP,           NBNSQueryRequest,  dport=137)
+bind_layers( UDP,           NBNSRequest,       dport=137)
+bind_layers( UDP,           NBNSQueryResponse, sport=137)
+bind_layers( UDP,           NBNSQueryResponseNegative, sport=137)
+bind_layers( UDP,           NBNSNodeStatusResponse,    sport=137)
+bind_layers( NBNSNodeStatusResponse,        NBNSNodeStatusResponseService, )
+bind_layers( NBNSNodeStatusResponse,        NBNSNodeStatusResponseService, )
+bind_layers( NBNSNodeStatusResponseService, NBNSNodeStatusResponseService, )
+bind_layers( NBNSNodeStatusResponseService, NBNSNodeStatusResponseEnd, )
+bind_layers( UDP,           NBNSWackResponse, sport=137)
+bind_layers( UDP,           NBTDatagram,      dport=138)
+bind_layers( TCP,           NBTSession,       dport=139)
+bind_layers( NBTSession,                           SMBNegociate_Protocol_Request_Header, )
+bind_layers( SMBNegociate_Protocol_Request_Header, SMBNegociate_Protocol_Request_Tail, )
+bind_layers( SMBNegociate_Protocol_Request_Tail,   SMBNegociate_Protocol_Request_Tail, )
+bind_layers( NBTSession,    SMBNegociate_Protocol_Response_Advanced_Security,  ExtendedSecurity=1)
+bind_layers( NBTSession,    SMBNegociate_Protocol_Response_No_Security,        ExtendedSecurity=0, EncryptionKeyLength=8)
+bind_layers( NBTSession,    SMBNegociate_Protocol_Response_No_Security_No_Key, ExtendedSecurity=0, EncryptionKeyLength=0)
+bind_layers( NBTSession,    SMBSession_Setup_AndX_Request, )
+bind_layers( NBTSession,    SMBSession_Setup_AndX_Response, )
+bind_layers( HCI_Hdr,       HCI_ACL_Hdr,   type=2)
+bind_layers( HCI_Hdr,       Raw,           )
+bind_layers( HCI_ACL_Hdr,   L2CAP_Hdr,     )
+bind_layers( L2CAP_Hdr,     L2CAP_CmdHdr,      cid=1)
+bind_layers( L2CAP_CmdHdr,  L2CAP_CmdRej,      code=1)
+bind_layers( L2CAP_CmdHdr,  L2CAP_ConnReq,     code=2)
+bind_layers( L2CAP_CmdHdr,  L2CAP_ConnResp,    code=3)
+bind_layers( L2CAP_CmdHdr,  L2CAP_ConfReq,     code=4)
+bind_layers( L2CAP_CmdHdr,  L2CAP_ConfResp,    code=5)
+bind_layers( L2CAP_CmdHdr,  L2CAP_DisconnReq,  code=6)
+bind_layers( L2CAP_CmdHdr,  L2CAP_DisconnResp, code=7)
+bind_layers( L2CAP_CmdHdr,  L2CAP_InfoReq,     code=10)
+bind_layers( L2CAP_CmdHdr,  L2CAP_InfoResp,    code=11)
+bind_layers( UDP,           MobileIP,           sport=434)
+bind_layers( UDP,           MobileIP,           dport=434)
+bind_layers( MobileIP,      MobileIPRRQ,        type=1)
+bind_layers( MobileIP,      MobileIPRRP,        type=3)
+bind_layers( MobileIP,      MobileIPTunnelData, type=4)
+bind_layers( MobileIPTunnelData, IP,           nexthdr=4)
+bind_layers( NetflowHeader,   NetflowHeaderV1, version=1)
+bind_layers( NetflowHeaderV1, NetflowRecordV1, )
                 
 
 ###################
