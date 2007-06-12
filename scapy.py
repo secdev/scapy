@@ -4854,7 +4854,16 @@ class Packet(Gen):
     def from_hexcap(cls):
         return cls(import_hexcap())
     from_hexcap = classmethod(from_hexcap)
-    
+
+    @classmethod
+    def upper_bonds(self):
+        for fval,upper in self.payload_guess:
+            print "%-20s  %s" % (upper.__name__, ", ".join("%-12s" % ("%s=%r"%i) for i in fval.iteritems()))
+
+    @classmethod
+    def lower_bonds(self):
+        for lower,fval in self.overload_fields.iteritems():
+            print "%-20s  %s" % (lower.__name__, ", ".join("%-12s" % ("%s=%r"%i) for i in fval.iteritems()))
 
     def __init__(self, _pkt="", post_transform=None, _internal=0, _underlayer=None, **fields):
         self.time  = time.time()
