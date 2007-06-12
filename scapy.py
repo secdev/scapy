@@ -6257,16 +6257,12 @@ class UDP(Packet):
         l = self.len - 8
         return s[:l],s[l:]
     def hashret(self):
-        if conf.checkIPsrc:
-            return struct.pack("H",self.sport ^ self.dport)+self.payload.hashret()
-        else:
-            return self.payload.hashret()
+        return self.payload.hashret()
     def answers(self, other):
         if not isinstance(other, UDP):
             return 0
         if conf.checkIPsrc:
-            if not ((self.sport == other.dport) and
-                    (self.dport == other.sport)):
+            if self.dport != other.sport:
                 return 0
         return self.payload.answers(other.payload)
     def mysummary(self):
