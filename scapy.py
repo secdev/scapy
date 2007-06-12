@@ -3729,11 +3729,15 @@ class PacketListField(PacketLenField):
     def do_copy(self, x):
         return map(lambda p:p.copy(), x)
     def getfield(self, pkt, s):
-        l = getattr(pkt, self.fld)
-        l -= self.shift
+        if self.fld is None:
+            l = self.shift
+        else:
+            l = getattr(pkt, self.fld)
+            l -= self.shift
         lst = []
         remain = s
-        while l>0 and len(remain)>0:
+        while l!=0 and len(remain)>0:
+            print l
             l -= 1
             p = self.m2i(pkt,remain)
             if Padding in p:
