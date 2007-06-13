@@ -3717,8 +3717,13 @@ class PacketLenField(PacketField):
         PacketField.__init__(self, name, default, cls, shift=shift)
         self.fld = fld
     def getfield(self, pkt, s):
-        l = getattr(pkt, self.fld)
-        l -= self.shift
+        if self.fld is None:
+            l = self.shift
+            if l == 0:
+                l = None
+        else:
+            l = getattr(pkt, self.fld)
+            l -= self.shift
         i = self.m2i(pkt, s[:l])
         return s[l:],i
 
@@ -3731,6 +3736,8 @@ class PacketListField(PacketLenField):
     def getfield(self, pkt, s):
         if self.fld is None:
             l = self.shift
+            if l == 0:
+                l = -1
         else:
             l = getattr(pkt, self.fld)
             l -= self.shift
@@ -3783,8 +3790,13 @@ class StrLenField(StrField):
         StrField.__init__(self, name, default, shift=shift)
         self.fld = fld
     def getfield(self, pkt, s):
-        l = getattr(pkt, self.fld)
-        l -= self.shift
+        if self.fld is None:
+            l = self.shift
+            if l == 0:
+                l = None
+        else:
+            l = getattr(pkt, self.fld)
+            l -= self.shift
         return s[l:], self.m2i(pkt,s[:l])
 
 class FieldListField(Field):
@@ -3809,12 +3821,16 @@ class FieldListField(Field):
             s = self.cls.addfield(pkt, s, v)
         return s
     def getfield(self, pkt, s):
-        l = getattr(pkt, self.fld)        
-        # add the shift from the length field
-        f = pkt.get_field(self.fld)
-        l -= self.shift
+        if self.fld is None:
+            l = self.shift
+            if l == 0:
+                l = -1
+        else:
+            l = getattr(pkt, self.fld)        
+            l -= self.shift
         val = []
-        for i in range(l):
+        while s and l != 0:
+            l -= 1
             s,v = self.cls.getfield(pkt, s)
             val.append(v)
         return s, val
