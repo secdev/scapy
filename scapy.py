@@ -3744,7 +3744,6 @@ class PacketListField(PacketLenField):
         lst = []
         remain = s
         while l!=0 and len(remain)>0:
-            print l
             l -= 1
             p = self.m2i(pkt,remain)
             if Padding in p:
@@ -8353,7 +8352,7 @@ class TFTP_Option(Packet):
         return "",pkt
 
 class TFTP_Options(Packet):
-    fields_desc = [ PacketListField("options", [], TFTP_Option, None, -1) ]
+    fields_desc = [ PacketListField("options", [], TFTP_Option, fld=None, shift=0) ]
 
     
 class TFTP_ACK(Packet):
