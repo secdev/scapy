@@ -709,12 +709,12 @@ def atol(x):
         ip = inet_aton(x)
     except socket.error:
         ip = inet_aton(socket.gethostbyname(x))
-    return struct.unpack("I", ip)[0]
+    return struct.unpack("!I", ip)[0]
 def ltoa(x):
-    return inet_ntoa(struct.pack("I", x))
+    return inet_ntoa(struct.pack("!I", x))
 
 def itom(x):
-    return socket.ntohl((0xffffffff00000000L>>x)&0xffffffffL)&0xffffffffL
+    return (0xffffffff00000000L>>x)&0xffffffffL
 
 def do_graph(graph,prog=None,type="svg",target=None):
     """do_graph(graph, prog=conf.prog.dot, type="svg",target="| conf.prog.display"):
@@ -1234,8 +1234,8 @@ else:
         addrfamily = struct.unpack("h",ifreq[16:18])[0]
         if addrfamily == socket.AF_INET:
             ifreq2 = ioctl(s, SIOCGIFNETMASK,struct.pack("16s16x","lo"))
-            msk = struct.unpack("I",ifreq2[20:24])[0]
-            dst = struct.unpack("I",ifreq[20:24])[0] & msk
+            msk = socket.ntohl(struct.unpack("I",ifreq2[20:24])[0])
+            dst = socket.ntohl(struct.unpack("I",ifreq[20:24])[0]) & msk
             ifaddr = inet_ntoa(ifreq[20:24])
             routes.append((dst, msk, "0.0.0.0", "lo", ifaddr))
         else:
@@ -1259,10 +1259,10 @@ else:
                 else:
                     warning("Interface %s: unkown address family (%i)"%(iff, addrfamily))
                     continue
-            routes.append((long(dst,16),
-                          long(msk,16),
-                          inet_ntoa(struct.pack("I",long(gw,16))),
-                          iff, ifaddr))
+            routes.append((socket.htonl(long(dst,16)),
+                           socket.htonl(long(msk,16)),
+                           inet_ntoa(struct.pack("I",long(gw,16))),
+                           iff, ifaddr))
         
         f.close()
         return routes
