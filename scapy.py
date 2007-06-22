@@ -11235,16 +11235,24 @@ class BOOTP_am(AnsweringMachine):
     function_name = "bootpd"
     filter = "udp and port 68 and port 67"
     send_function = staticmethod(sendp)
-    def parse_options(self, ipset=Net("192.168.1.128/25"),gw="192.168.1.1"):
-        if type(ipset) is str:
-            ipset = Net(ipset)
-        if isinstance(ipset,Gen):
-            ipset = [k for k in ipset]
-            ipset.reverse()
-        if len(ipset) == 1:
-            ipset, = ipset
-        self.ipset = ipset
+    def parse_options(self, pool=Net("192.168.1.128/25"), network="192.168.1.0/24",gw="192.168.1.1",
+                      renewal_time=60, lease_time=1800):
+        if type(pool) is str:
+            poom = Net(pool)
+        netw,msk = (network.split("/")+["32"])[:2]
+        msk = itom(int(msk))
+        self.netmask = ltoa(msk)
+        self.network = ltoa(atol(netw)&msk)
+        self.broadcast = ltoa( atol(self.network) | (0xffffffff&~msk) )
         self.gw = gw
+        if isinstance(pool,Gen):
+            pool = [k for k in pool if k not in [gw, self.network, self.broadcast]]
+            pool.reverse()
+        if len(pool) == 1:
+            pool, = pool
+        self.pool = pool
+        self.lease_time = lease_time
+        self.renewal_time = renewal_time
         self.leases = {}
 
     def is_request(self, req):
@@ -11260,43 +11268,42 @@ class BOOTP_am(AnsweringMachine):
 
     def make_reply(self, req):        
         mac = req.src
-        if type(self.ipset) is list:
+        if type(self.pool) is list:
             if not self.leases.has_key(mac):
-                self.leases[mac] = self.ipset.pop()
+                self.leases[mac] = self.pool.pop()
             ip = self.leases[mac]
         else:
-            ip = self.ipset
+            ip = self.pool
             
         repb = req.getlayer(BOOTP).copy()
-        repb.options = ""
         repb.op="BOOTREPLY"
         repb.yiaddr = ip
         repb.siaddr = self.gw
         repb.ciaddr = self.gw
         repb.giaddr = self.gw
+        del(repb.payload)
         rep=Ether(dst=mac)/IP(dst=ip)/UDP(sport=req.dport,dport=req.sport)/repb
         return rep
 
 
 class DHCP_am(BOOTP_am):
     function_name="dhcpd"
-    def is_request(self, req):
-        if not BOOTP_am.is_request(self, req):
-            return 0
-        if req.getlayer(BOOTP).options[:4] != "'c\x82Sc":
-            return 0
-        return 1
     def make_reply(self, req):
-        dhcprespmap={"\x01":"\x02","\x03":"\x05"}
         resp = BOOTP_am.make_reply(self, req)
-        opt = req.getlayer(BOOTP).options
-        o = opt[:6]
-        if len(opt) > 6:
-            o += dhcprespmap.get(opt[6],opt[6])
-        if len(opt) > 7:
-            o += opt[7:]
-        resp.getlayer(BOOTP).options = o
-
+        if DHCP in req:
+            dhcp_options = [(op[0],{1:2,3:5}.get(op[1],op[1]))
+                            for op in req[DHCP].options
+                            if type(op) is tuple  and op[0] == "message-type"]
+            dhcp_options += [("router", self.gw),
+                             ("name_server", self.gw),
+                             ("broadcast_address", self.broadcast),
+                             ("subnet_mask", self.netmask),
+                             ("renewal_time", self.renewal_time),
+                             ("lease_time", self.lease_time),
+                             ]
+            resp /= DHCP(options=dhcp_options)
+        return resp
+    
 
 
 class DNS_am(AnsweringMachine):
