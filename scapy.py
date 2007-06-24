@@ -11236,6 +11236,55 @@ class Automaton:
     def send(self, pkt):
         self.send_sock.send(pkt)
 
+
+class TFTP_read(Automaton):
+
+    def parse_args(self, filename, server, port=69, **kargs):
+        Automaton.parse_args(self, **kargs)
+        self.filename = filename
+        self.server = server
+        self.port = port
+    
+    def state__BEGIN(self):
+        self.blocksize=512
+        self.my_tid = 69 # RandShort()._fix()
+        self.server_tid = None
+        self.send(IP(dst=self.server)/UDP(sport=self.my_tid, dport=self.port)/TFTP_RRQ(filename=self.filename, mode="octet"))
+        self.awaiting = 1
+        self.res = ""
+    def cond__BEGIN(self):
+        return "RECEIVING"
+    
+    def state__RECEIVING(self):
+        pass
+    def timeout__RECEIVING__1000(self):
+        return "BEGIN"
+    def recv__RECEIVING(self, pkt):
+        if IP in pkt and pkt[IP].src == self.server and UDP in pkt and pkt[UDP].dport == self.my_tid:
+            if self.awaiting == 1:
+                self.server_tid = pkt[UDP].sport
+            if pkt[UDP].sport != self.server_tid:
+                return
+            if TFTP_Error in pkt:
+                return "ERROR"
+                
+            if TFTP_DATA in pkt and pkt[TFTP_DATA].block == self.awaiting:
+                self.send(IP(dst=self.server)/UDP(sport=self.my_tid, dport=self.server_tid)/TFTP_ACK(block=self.awaiting))
+                self.awaiting += 1
+                received = pkt[TFTP_DATA].data
+                self.res += received
+                if len(received) == self.blocksize:
+                    return "RECEIVING"
+                return "END"
+
+    def state__ERROR(self):
+        pass
+
+    def state__END(self):
+        return self.res
+
+
+
 ########################
 ## Answering machines ##
 ########################
