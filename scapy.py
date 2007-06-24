@@ -11113,6 +11113,129 @@ def ls(obj=None):
 user_commands = [ sr, sr1, srp, srp1, srloop, srploop, sniff, p0f, arpcachepoison, send, sendp, traceroute, arping, ls, lsc, queso, nmap_fp, report_ports, dyndns_add, dyndns_del, is_promisc, promiscping ]
 
 
+##############
+## Automata ##
+##############
+
+
+class Automaton:
+    """states are defined by state__<state> methods. They are called when entering into this state.
+    Being in a state, first all the cond__<state>[__...] methods are evaluated. The first return value being not None
+    will be considered as the next state. Else recv__<state>[__...] conditions will be evaluated for each received
+    packets and each timeout__<state>__<timeout>[__...] conditions will be evaluated when their timeout expires."""
+
+    
+    def __init__(self, *args, **kargs):
+        self.init_states()
+        self.parse_args(*args, **kargs)
+
+    
+
+    def init_states(self):
+        self.state="BEGIN"
+        self.states={}
+        self.recvcond={}
+        self.cond={}
+        self.timeout={}
+        for k,v in self.get_members().iteritems():
+            if k.startswith("state__"):
+                kk = k.split("__")[1]
+                self.states[kk] = v
+                self.recvcond[kk]=[]
+                self.cond[kk]=[]
+                self.timeout[kk]=[]
+        for k,v in self.get_members().iteritems():
+            if k.startswith("recv__"):
+                kk = k.split("__")[1]
+                self.recvcond[kk].append(v)
+            elif k.startswith("cond__"):
+                kk = k.split("__")[1]
+                self.cond[kk].append(v)
+            elif k.startswith("timeout__"):
+                kk,to = k.split("__")[1:3]
+                self.timeout[kk].append((float(to)/100,v))
+        for v in self.timeout.itervalues():
+            v.sort(lambda (t1,f1),(t2,f2): cmp(t1,t2))
+            v.append((None, None))
+
+    def get_members(self):
+        members = {}
+        classes = [self.__class__]
+        while classes:
+            c = classes.pop()
+            classes += list(c.__bases__)
+            for k,v in c.__dict__.iteritems():
+                if k not in members:
+                    members[k] = v
+        return members
+        
+
+    class NewState(Exception):
+        pass
+    class Stuck(Exception):
+        pass
+
+    def parse_args(self, debug=0, **kargs):
+        self.debug=debug
+
+    def run(self):
+        self.state="BEGIN"
+        self.send_sock = l = conf.L3socket()
+        while 1:
+            try:
+                if self.debug:
+                    print >>sys.stderr, "## state=[%s]" % self.state
+
+                # Entering a new state. First, call new state function
+                res = self.states[self.state](self)
+                if self.state == "END":
+                    return res
+                if ( len(self.cond[self.state]) == 0
+                     and len(self.recvcond[self.state]) == 0
+                     and len(self.timeout[self.state]) == 1 ):
+                    raise self.Stuck("stuck in [%s]: %s" % (self.state,self.res))
+                
+                # Then check immediate conditions
+                for cond in self.cond[self.state]:
+                    newstate = cond(self)
+                    if newstate is not None:
+                        raise self.NewState(newstate)
+
+                # Finally listen and pay attention to timeouts
+                expirations = iter(self.timeout[self.state])
+                next_timeout,timeout_func = expirations.next()
+                t0 = time.time()
+                
+                while 1:
+                    t = time.time()-t0
+                    if next_timeout is None:
+                        remain = None
+                    else:
+                        if next_timeout <= t:
+                            newstate = timeout_func(self)
+                            if newstate:
+                                raise self.NewState(newstate)
+                            next_timeout,timeout_func = expirations.next()
+                        remain = next_timeout-t
+    
+                    r,_,_ = select([l],[],[],remain)
+                    if l in r:
+                        pkt = l.recv(MTU)
+                        if pkt is not None:
+                            if self.debug >= 3:
+                                print >>sys.stderr, pkt.summary()
+                            for rcvcond in self.recvcond[self.state]:
+                                newstate = rcvcond(self,pkt)
+                                if newstate is not None:
+                                    raise self.NewState(newstate)
+            except self.NewState,s:
+                if self.debug >= 2:
+                    print >>sys.stderr, "switching from [%s] to [%s]" % (self.state,s)
+                self.state = str(s)
+                
+    def send(self, pkt):
+        self.send_sock.send(pkt)
+
 ########################
 ## Answering machines ##
 ########################
