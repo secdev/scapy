@@ -477,7 +477,7 @@ def load_manuf(filename):
                     lng = l[i+2:]
                 manufdb[oui] = shrt,lng
             except Exception,e:
-                log_loadding.warning("Couldn't parse one line from [%s] [%r] (%s)" % (filename, l, e))
+                log_loading.warning("Couldn't parse one line from [%s] [%r] (%s)" % (filename, l, e))
     except IOError:
         #log_loading.warning("Couldn't open [%s] file" % filename)
         pass
