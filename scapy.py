@@ -11177,6 +11177,20 @@ class Automaton:
     def parse_args(self, debug=0, **kargs):
         self.debug=debug
 
+    def run_condition(self, cond, *args, **kargs):
+        newstate = cond(self,*args, **kargs)
+        if newstate is not None:
+            if self.debug >= 2:
+                print >>sys.stderr, "Condition [%s] taken to state [%s]" % (cond.func_name, newstate)
+            for action in self.actions[cond.condname]:
+                if self.debug >= 2:
+                    print >>sys.stderr, "   + Running action [%s]" % action.func_name
+                action(self)
+            raise self.NewState(newstate)
+        elif self.debug >= 2:
+            print >>sys.stderr,"Condition [%s] not taken" % cond.func_name
+            
+
     def run(self):
         self.state="BEGIN"
         self.send_sock = l = conf.L3socket()
@@ -11196,11 +11210,7 @@ class Automaton:
                 
                 # Then check immediate conditions
                 for cond in self.cond[self.state]:
-                    newstate = cond(self)
-                    if newstate is not None:
-                        for action in self.actions[cond.condname]:
-                            action(self)
-                        raise self.NewState(newstate)
+                    self.run_condition(cond)
 
                 # Finally listen and pay attention to timeouts
                 expirations = iter(self.timeout[self.state])
@@ -11213,11 +11223,7 @@ class Automaton:
                         remain = None
                     else:
                         if next_timeout <= t:
-                            newstate = timeout_func(self)
-                            if newstate:
-                                for action in self.actions[timeout_func.condname]:
-                                    action(self)
-                                raise self.NewState(newstate)
+                            self.run_condition(timeout_func)
                             next_timeout,timeout_func = expirations.next()
                         remain = next_timeout-t
     
@@ -11228,11 +11234,7 @@ class Automaton:
                             if self.debug >= 3:
                                 print >>sys.stderr, pkt.summary()
                             for rcvcond in self.recvcond[self.state]:
-                                newstate = rcvcond(self,pkt)
-                                if newstate is not None:
-                                    for action in self.actions[rcvcond.condname]:
-                                        action(self)
-                                    raise self.NewState(newstate)
+                                self.run_condition(rcvcond, pkt)
             except self.NewState,s:
                 if self.debug >= 2:
                     print >>sys.stderr, "switching from [%s] to [%s]" % (self.state,s)
