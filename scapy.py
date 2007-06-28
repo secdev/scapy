@@ -11181,14 +11181,14 @@ class Automaton:
         newstate = cond(self,*args, **kargs)
         if newstate is not None:
             if self.debug >= 2:
-                print >>sys.stderr, "Condition [%s] taken to state [%s]" % (cond.func_name, newstate)
+                print >>sys.stderr, "%s [%s] taken to state [%s]" % (cond.type, cond.func_name, newstate)
             for action in self.actions[cond.condname]:
                 if self.debug >= 2:
                     print >>sys.stderr, "   + Running action [%s]" % action.func_name
                 action(self)
             raise self.NewState(newstate)
         elif self.debug >= 2:
-            print >>sys.stderr,"Condition [%s] not taken" % cond.func_name
+            print >>sys.stderr,"%s [%s] not taken" % (cond.type, cond.func_name)
             
 
     def run(self):
@@ -11272,11 +11272,11 @@ class Automaton:
         
 
 class ATMTdeco:
-    STATE = 0
-    ACTION = 1
-    CONDITION = 2
-    RECV = 3
-    TIMEOUT = 4
+    STATE = "State"
+    ACTION = "Action"
+    CONDITION = "Condition"
+    RECV = "Receive condition"
+    TIMEOUT = "Timeout condition"
     @staticmethod
     def state(state):
         def deco(f,state=state):
