@@ -11408,6 +11408,82 @@ class TFTP_read(Automaton):
         return self.res
 
 
+class TFTP_write(Automaton):
+    def parse_args(self, filename, data, server, dport=69,**kargs):
+        Automaton.parse_args(self, **kargs)
+        self.filename = filename
+        self.server = server
+        self.dport = dport
+        self.blocksize = 512
+        self.data = [ data[i*self.blocksize:(i+1)*self.blocksize]
+                      for i in range( (len(data)+self.blocksize-1)/self.blocksize ) ]
+
+    BEGIN = "BEGIN"
+    WAIT_ACK = "WAIT_ACK"
+    BEFORE_SENDING = "BEFORE_SENDING"
+    BLOCK_SENT = "BLOCK_SENT"
+    ERROR = "ERROR"
+    END = "END"
+    
+
+    @ATMTdeco.state(BEGIN)
+    def state_BEGIN(self):
+        self.my_tid = RandShort()._fix()
+        bind_bottom_up(UDP, TFTP_dispatcher, dport=self.my_tid)
+        self.server_tid = None
+        self.current_ack = None
+        self.res = ""
+
+    @ATMTdeco.condition(BEGIN, name="on_begin")
+    def on_begin(self):
+        return self.WAIT_ACK
+    @ATMTdeco.action("on_begin")
+    def send_wrq(self):
+        self.send(IP(dst=self.server)/UDP(sport=self.my_tid, dport=self.dport)/TFTP_WRQ(filename=self.filename))
+        self.awaiting = 0
+
+    @ATMTdeco.state(WAIT_ACK)
+    def state_WAIT_ACK(self):
+        pass
+
+    @ATMTdeco.condition(WAIT_ACK)
+    def no_more_data(self):
+        if not self.data:
+            return self.END
+        
+    @ATMTdeco.receive_condition(WAIT_ACK,name="wait_ack")
+    def wait_ack(self,pkt):
+        if IP in pkt and pkt[IP].src == self.server and UDP in pkt and pkt[UDP].dport == self.my_tid:
+            if self.awaiting == 0:
+                self.server_tid = pkt[UDP].sport
+            if pkt[UDP].sport == self.server_tid:
+                if TFTP_Error in pkt:
+                    return self.ERROR
+                if TFTP_ACK in pkt:
+                    if pkt[TFTP_ACK].block == self.awaiting:
+                        return self.WAIT_ACK
+    @ATMTdeco.action("wait_ack")
+    def got_ack(self):
+        self.awaiting += 1
+        self.send(IP(dst=self.server)/UDP(sport=self.my_tid, dport=self.server_tid)/TFTP_DATA(block=self.awaiting,
+                                                                                              data=self.data.pop(0)))
+    
+    @ATMTdeco.state(END)
+    def state_END(self):
+        split_bottom_up(UDP, TFTP_dispatcher, dport=self.my_tid)
+
+    @ATMTdeco.state(ERROR)
+    def state_ERROR(self):
+        split_bottom_up(UDP, TFTP_dispatcher, dport=self.my_tid)
+
+        
+        
+        
+        
+    
+    
+
+
 
 ########################
 ## Answering machines ##
