@@ -11241,6 +11241,34 @@ class Automaton:
     def send(self, pkt):
         self.send_sock.send(pkt)
 
+
+    def graph(self, **kargs):
+        s = 'digraph "%s" {\n fontsize=6;\n'  % self.__class__.__name__
+        
+                        
+        for c,k,v in [("green",k,v) for k,v in self.cond.items()]+[("red",k,v) for k,v in self.recvcond.items()]:
+            for f in v:
+                for n in f.func_code.co_names+f.func_code.co_consts:
+                    if n in self.states:
+                        l = f.func_name
+                        for x in self.actions[f.condname]:
+                            l += "\\l>[%s]" % x.func_name
+                        s += '\t"%s" -> "%s" [label="%s", color=%s];\n' % (k,n,l,c)
+        for k,v in self.timeout.iteritems():
+            for t,f in v:
+                if f is None:
+                    continue
+                for n in f.func_code.co_names+f.func_code.co_consts:
+                    if n in self.states:
+                        l = "%s/%.1fs" % (f.func_name,t)                        
+                        for x in self.actions[f.condname]:
+                            l += "\\l>[%s]" % x.func_name
+                        s += '\t"%s" -> "%s" [label="%s",color=blue];\n' % (k,n,l)
+        s += "}\n"
+        do_graph(s, **kargs)
+        
+        
+
 class ATMTdeco:
     STATE = 0
     ACTION = 1
