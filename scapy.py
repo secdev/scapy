@@ -967,7 +967,7 @@ class Route:
         self.invalidate_cache()
         the_addr,the_msk = (addr.split("/")+["32"])[:2]
         the_msk = itom(int(the_msk))
-        the_rawaddr, = struct.unpack("I",inet_aton(the_addr))
+        the_rawaddr = atol(the_addr)
         the_net = the_rawaddr & the_msk
         
         
@@ -996,7 +996,7 @@ class Route:
         self.invalidate_cache()
         the_addr,the_msk = (addr.split("/")+["32"])[:2]
         the_msk = itom(int(the_msk))
-        the_rawaddr, = struct.unpack("I",inet_aton(the_addr))
+        the_rawaddr = atol(the_addr)
         the_net = the_rawaddr & the_msk
         self.routes.append((the_net,the_msk,'0.0.0.0',iff,the_addr))
 
@@ -1017,14 +1017,10 @@ class Route:
             dst = dst[:l]+dst[l+m:]
 
             
-        try:
-            dst=inet_aton(dst)
-        except socket.error:
-            dst=inet_aton(socket.gethostbyname(dst))
-        dst,=struct.unpack("I",dst)
+        dst = atol(dst)
         pathes=[]
         for d,m,gw,i,a in self.routes:
-            aa, = struct.unpack("I",inet_aton(a))
+            aa = atol(a)
             if aa == dst:
                 pathes.append((0xffffffffL,("lo",a,"0.0.0.0")))
             if (dst & m) == (d & m):
@@ -1192,14 +1188,14 @@ if not LINUX:
                 netmask = 0L
             else:
                 if SOLARIS:
-                    netmask, = struct.unpack("I",inet_aton(mask))
+                    netmask = atol(mask)
                 elif "/" in dest:
                     dest,netmask = dest.split("/")
                     netmask = itom(int(netmask))
                 else:
                     netmask = itom((dest.count(".") + 1) * 8)
                 dest += ".0"*(3-dest.count("."))
-                dest, = struct.unpack("I",inet_aton(dest))
+                dest = atol(dest)
             if not "G" in flg:
                 gw = '0.0.0.0'
             ifaddr = get_if_addr(netif)
@@ -1259,8 +1255,8 @@ else:
                 else:
                     warning("Interface %s: unkown address family (%i)"%(iff, addrfamily))
                     continue
-            routes.append((socket.htonl(long(dst,16)),
-                           socket.htonl(long(msk,16)),
+            routes.append((socket.htonl(long(dst,16))&0xffffffffL,
+                           socket.htonl(long(msk,16))&0xffffffffL,
                            inet_ntoa(struct.pack("I",long(gw,16))),
                            iff, ifaddr))
         
@@ -11017,7 +11013,7 @@ def __make_table(yfmtfunc, fmtfunc, endline, list, fxyz, sortx=None, sorty=None,
             vxk.sort(lambda x,y:int(x)-int(y))
         except:
             try:
-                vxk.sort(lambda x,y: cmp(struct.unpack("I", inet_aton(x))[0],struct.unpack("I", inet_aton(y))[0]))
+                vxk.sort(lambda x,y: cmp(atol(x),atol(y)))
             except:
                 vxk.sort()
     if sorty:
@@ -11027,7 +11023,7 @@ def __make_table(yfmtfunc, fmtfunc, endline, list, fxyz, sortx=None, sorty=None,
             vyk.sort(lambda x,y:int(x)-int(y))
         except:
             try:
-                vyk.sort(lambda x,y: cmp(struct.unpack("I", inet_aton(x))[0],struct.unpack("I", inet_aton(y))[0]))
+                vyk.sort(lambda x,y: cmp(atol(x),atol(y)))
             except:
                 vyk.sort()
 
