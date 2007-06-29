@@ -8373,7 +8373,7 @@ TFTP_Error_Codes = {  0: "Not defined",
                       8: "Terminate transfer due to option negotiation",
                       }
     
-class TFTP_Error(Packet):
+class TFTP_ERROR(Packet):
     name = "TFTP Error"
     fields_desc = [ ShortField("op", 5),
                     ShortEnumField("errorcode", 0, TFTP_Error_Codes),
@@ -8394,7 +8394,7 @@ class TFTP_OACK(Packet):
 
 def TFTP_dispatcher(pkt, **args):
     return {"\x01":TFTP_RRQ,"\x02":TFTP_WRQ,"\x03":TFTP_DATA,
-            "\x04":TFTP_ACK,"\x05":TFTP_Error,"\x06":TFTP_OACK}.get((pkt+"xx")[1],Raw)(pkt, **args)
+            "\x04":TFTP_ACK,"\x05":TFTP_ERROR,"\x06":TFTP_OACK}.get((pkt+"xx")[1],Raw)(pkt, **args)
 
 
 ##########
@@ -8819,7 +8819,7 @@ bind_top_down(UDP, TFTP_WRQ, dport=69)
 bind_top_down(UDP, TFTP_DATA, dport=69)
 bind_top_down(UDP, TFTP_ACK, dport=69)
 bind_top_down(UDP, TFTP_OACK, dport=69)
-bind_top_down(UDP, TFTP_Error, dport=69)
+bind_top_down(UDP, TFTP_ERROR, dport=69)
 bind_bottom_up(UDP, TFTP_dispatcher, dport=69)
 bind_bottom_up(UDP, TFTP_dispatcher, sport=69)
 bind_layers(TFTP_RRQ, TFTP_Options)
