@@ -8316,30 +8316,38 @@ class NetflowRecordV1(Packet):
                     IntField("padding2", 0) ]
 
 
+TFTP_operations = { 1:"RRQ",2:"WRQ",3:"DATA",4:"ACK",5:"ERROR",6:"OACK" }
+
 class TFTP_RRQ(Packet):
     name = "TFTP Read Request"
-    fields_desc = [ ShortField("op", 1),
+    fields_desc = [ ShortEnumField("op", 1, TFTP_operations),
                     StrNullField("filename", ""),
                     StrNullField("mode", "octet") ]
     def answers(self, other):
         return 0
+    def mysummary(self):
+        return self.sprintf("%op% %filename%"),[UDP]
         
 
 class TFTP_WRQ(Packet):
     name = "TFTP Write Request"
-    fields_desc = [ ShortField("op", 2),
+    fields_desc = [ ShortEnumField("op", 2, TFTP_operations),
                     StrNullField("filename", ""),
                     StrNullField("mode", "octet") ]
     def answers(self, other):
         return 0
+    def mysummary(self):
+        return self.sprintf("%op% %filename%"),[UDP]
 
 class TFTP_DATA(Packet):
     name = "TFTP Data"
-    fields_desc = [ ShortField("op", 3),
+    fields_desc = [ ShortEnumField("op", 3, TFTP_operations),
                     ShortField("block", 0),
                     StrField("data", "") ]
     def answers(self, other):
         return  self.block == 1 and isinstance(other, TFTP_RRQ)
+    def mysummary(self):
+        return self.sprintf("%op% %block%"),[UDP]
 
 class TFTP_Option(Packet):
     fields_desc = [ StrNullField("name",""),
@@ -8353,7 +8361,7 @@ class TFTP_Options(Packet):
     
 class TFTP_ACK(Packet):
     name = "TFTP Ack"
-    fields_desc = [ ShortField("op", 4),
+    fields_desc = [ ShortEnumField("op", 4, TFTP_operations),
                     ShortField("block", 0) ]
     def answers(self, other):
         if isinstance(other, TFTP_DATA):
@@ -8361,6 +8369,8 @@ class TFTP_ACK(Packet):
         elif isinstance(other, TFTP_RRQ) or isinstance(other, TFTP_WRQ) or isintance(other, TFTP_OACK):
             return self.block == 0
         return 0
+    def mysummary(self):
+        return self.sprintf("%op% %block%"),[UDP]
 
 TFTP_Error_Codes = {  0: "Not defined",
                       1: "File not found",
@@ -8375,7 +8385,7 @@ TFTP_Error_Codes = {  0: "Not defined",
     
 class TFTP_ERROR(Packet):
     name = "TFTP Error"
-    fields_desc = [ ShortField("op", 5),
+    fields_desc = [ ShortEnumField("op", 5, TFTP_operations),
                     ShortEnumField("errorcode", 0, TFTP_Error_Codes),
                     StrNullField("errormsg", "")]
     def answers(self, other):
@@ -8383,13 +8393,16 @@ class TFTP_ERROR(Packet):
                 isinstance(other, TFTP_RRQ) or
                 isinstance(other, TFTP_WRQ) or 
                 isinstance(other, TFTP_ACK))
+    def mysummary(self):
+        return self.sprintf("%op% %errorcode%: %errormsg%"),[UDP]
 
 
 class TFTP_OACK(Packet):
     name = "TFTP Option Ack"
-    fields_desc = [ ShortField("op", 6),
+    fields_desc = [ ShortEnumField("op", 6, TFTP_operations),
                     ShortField("block", 0) ]
-
+    def mysummary(self):
+        return self.sprintf("%op% %block%"),[UDP]
 
 
 def TFTP_dispatcher(pkt, **args):
@@ -8824,6 +8837,7 @@ bind_bottom_up(UDP, TFTP_dispatcher, dport=69)
 bind_bottom_up(UDP, TFTP_dispatcher, sport=69)
 bind_layers(TFTP_RRQ, TFTP_Options)
 bind_layers(TFTP_WRQ, TFTP_Options)
+bind_layers(TFTP_OACK, TFTP_Options)
 
 
 ###################
