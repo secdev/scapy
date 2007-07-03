@@ -8316,30 +8316,41 @@ class NetflowRecordV1(Packet):
                     IntField("padding2", 0) ]
 
 
+TFTP_operations = { 1:"RRQ",2:"WRQ",3:"DATA",4:"ACK",5:"ERROR",6:"OACK" }
+
+
+class TFTP(Packet):
+    name = "TFTP opcode"
+    fields_desc = [ ShortEnumField("op", 1, TFTP_operations), ]
+    
+
+
 class TFTP_RRQ(Packet):
     name = "TFTP Read Request"
-    fields_desc = [ ShortField("op", 1),
-                    StrNullField("filename", ""),
+    fields_desc = [ StrNullField("filename", ""),
                     StrNullField("mode", "octet") ]
     def answers(self, other):
         return 0
+    def mysummary(self):
+        return self.sprintf("RRQ %filename%"),[UDP]
         
 
 class TFTP_WRQ(Packet):
     name = "TFTP Write Request"
-    fields_desc = [ ShortField("op", 2),
-                    StrNullField("filename", ""),
+    fields_desc = [ StrNullField("filename", ""),
                     StrNullField("mode", "octet") ]
     def answers(self, other):
         return 0
+    def mysummary(self):
+        return self.sprintf("WRQ %filename%"),[UDP]
 
 class TFTP_DATA(Packet):
     name = "TFTP Data"
-    fields_desc = [ ShortField("op", 3),
-                    ShortField("block", 0),
-                    StrField("data", "") ]
+    fields_desc = [ ShortField("block", 0) ]
     def answers(self, other):
         return  self.block == 1 and isinstance(other, TFTP_RRQ)
+    def mysummary(self):
+        return self.sprintf("DATA %block%"),[UDP]
 
 class TFTP_Option(Packet):
     fields_desc = [ StrNullField("name",""),
@@ -8353,14 +8364,15 @@ class TFTP_Options(Packet):
     
 class TFTP_ACK(Packet):
     name = "TFTP Ack"
-    fields_desc = [ ShortField("op", 4),
-                    ShortField("block", 0) ]
+    fields_desc = [ ShortField("block", 0) ]
     def answers(self, other):
         if isinstance(other, TFTP_DATA):
             return self.block == other.block
         elif isinstance(other, TFTP_RRQ) or isinstance(other, TFTP_WRQ) or isintance(other, TFTP_OACK):
             return self.block == 0
         return 0
+    def mysummary(self):
+        return self.sprintf("ACK %block%"),[UDP]
 
 TFTP_Error_Codes = {  0: "Not defined",
                       1: "File not found",
@@ -8373,28 +8385,24 @@ TFTP_Error_Codes = {  0: "Not defined",
                       8: "Terminate transfer due to option negotiation",
                       }
     
-class TFTP_Error(Packet):
+class TFTP_ERROR(Packet):
     name = "TFTP Error"
-    fields_desc = [ ShortField("op", 5),
-                    ShortEnumField("errorcode", 0, TFTP_Error_Codes),
+    fields_desc = [ ShortEnumField("errorcode", 0, TFTP_Error_Codes),
                     StrNullField("errormsg", "")]
     def answers(self, other):
         return (isinstance(other, TFTP_DATA) or
                 isinstance(other, TFTP_RRQ) or
                 isinstance(other, TFTP_WRQ) or 
                 isinstance(other, TFTP_ACK))
+    def mysummary(self):
+        return self.sprintf("ERROR %errorcode%: %errormsg%"),[UDP]
 
 
 class TFTP_OACK(Packet):
     name = "TFTP Option Ack"
-    fields_desc = [ ShortField("op", 6),
-                    ShortField("block", 0) ]
-
-
-
-def TFTP_dispatcher(pkt, **args):
-    return {"\x01":TFTP_RRQ,"\x02":TFTP_WRQ,"\x03":TFTP_DATA,
-            "\x04":TFTP_ACK,"\x05":TFTP_Error,"\x06":TFTP_OACK}.get((pkt+"xx")[1],Raw)(pkt, **args)
+    fields_desc = [ ShortField("block", 0) ]
+    def mysummary(self):
+        return self.sprintf("OACK %block%"),[UDP]
 
 
 ##########
@@ -8813,17 +8821,17 @@ bind_layers( MobileIP,      MobileIPTunnelData, type=4)
 bind_layers( MobileIPTunnelData, IP,           nexthdr=4)
 bind_layers( NetflowHeader,   NetflowHeaderV1, version=1)
 bind_layers( NetflowHeaderV1, NetflowRecordV1, )
-                
-bind_top_down(UDP, TFTP_RRQ, dport=69)
-bind_top_down(UDP, TFTP_WRQ, dport=69)
-bind_top_down(UDP, TFTP_DATA, dport=69)
-bind_top_down(UDP, TFTP_ACK, dport=69)
-bind_top_down(UDP, TFTP_OACK, dport=69)
-bind_top_down(UDP, TFTP_Error, dport=69)
-bind_bottom_up(UDP, TFTP_dispatcher, dport=69)
-bind_bottom_up(UDP, TFTP_dispatcher, sport=69)
+
+bind_layers(UDP, TFTP, dport=69)
+bind_layers(TFTP, TFTP_RRQ, op=1)
+bind_layers(TFTP, TFTP_WRQ, op=2)
+bind_layers(TFTP, TFTP_DATA, op=3)
+bind_layers(TFTP, TFTP_ACK, op=4)
+bind_layers(TFTP, TFTP_ERROR, op=5)
+bind_layers(TFTP, TFTP_OACK, op=6)
 bind_layers(TFTP_RRQ, TFTP_Options)
 bind_layers(TFTP_WRQ, TFTP_Options)
+bind_layers(TFTP_OACK, TFTP_Options)
 
 
 ###################
@@ -11338,9 +11346,9 @@ class TFTP_read(Automaton):
     def state_BEGIN(self):
         self.blocksize=512
         self.my_tid = RandShort()._fix()
-        bind_bottom_up(UDP, TFTP_dispatcher, dport=self.my_tid)
+        bind_bottom_up(UDP, TFTP, dport=self.my_tid)
         self.server_tid = None
-        self.send(IP(dst=self.server)/UDP(sport=self.my_tid, dport=self.port)/TFTP_RRQ(filename=self.filename, mode="octet"))
+        self.send(IP(dst=self.server)/UDP(sport=self.my_tid, dport=self.port)/TFTP()/TFTP_RRQ(filename=self.filename, mode="octet"))
         self.awaiting = 1
         self.current_ack = None
         self.res = ""
@@ -11378,15 +11386,15 @@ class TFTP_read(Automaton):
 
     @ATMTdeco.condition(RECEIVED)
     def received_error(self):
-        if TFTP_Error in self.pkt:
+        if TFTP_ERROR in self.pkt:
             return self.ERROR
 
     @ATMTdeco.condition(RECEIVED, name="received_data")
     def received_ok(self):
         if TFTP_DATA in self.pkt and self.pkt[TFTP_DATA].block == self.awaiting:
-            self.current_ack=IP(dst=self.server)/UDP(sport=self.my_tid, dport=self.server_tid)/TFTP_ACK(block=self.awaiting)
+            self.current_ack=IP(dst=self.server)/UDP(sport=self.my_tid, dport=self.server_tid)/TFTP()/TFTP_ACK(block=self.awaiting)
             self.awaiting += 1
-            received = self.pkt[TFTP_DATA].data
+            received = self.pkt[Raw].load
             self.res += received
             if len(received) == self.blocksize:
                 return self.RECEIVING
@@ -11404,7 +11412,7 @@ class TFTP_read(Automaton):
 
     @ATMTdeco.state(END)
     def state_END(self):
-        split_bottom_up(UDP, TFTP_dispatcher, dport=self.my_tid)
+        split_bottom_up(UDP, TFTP, dport=self.my_tid)
         return self.res
 
 
@@ -11429,7 +11437,7 @@ class TFTP_write(Automaton):
     @ATMTdeco.state(BEGIN)
     def state_BEGIN(self):
         self.my_tid = RandShort()._fix()
-        bind_bottom_up(UDP, TFTP_dispatcher, dport=self.my_tid)
+        bind_bottom_up(UDP, TFTP, dport=self.my_tid)
         self.server_tid = None
         self.current_ack = None
         self.res = ""
@@ -11439,7 +11447,7 @@ class TFTP_write(Automaton):
         return self.WAIT_ACK
     @ATMTdeco.action("on_begin")
     def send_wrq(self):
-        self.send(IP(dst=self.server)/UDP(sport=self.my_tid, dport=self.dport)/TFTP_WRQ(filename=self.filename))
+        self.send(IP(dst=self.server)/UDP(sport=self.my_tid, dport=self.dport)/TFTP()/TFTP_WRQ(filename=self.filename))
         self.awaiting = 0
 
     @ATMTdeco.state(WAIT_ACK)
@@ -11457,7 +11465,7 @@ class TFTP_write(Automaton):
             if self.awaiting == 0:
                 self.server_tid = pkt[UDP].sport
             if pkt[UDP].sport == self.server_tid:
-                if TFTP_Error in pkt:
+                if TFTP_ERROR in pkt:
                     return self.ERROR
                 if TFTP_ACK in pkt:
                     if pkt[TFTP_ACK].block == self.awaiting:
@@ -11465,16 +11473,16 @@ class TFTP_write(Automaton):
     @ATMTdeco.action("wait_ack")
     def got_ack(self):
         self.awaiting += 1
-        self.send(IP(dst=self.server)/UDP(sport=self.my_tid, dport=self.server_tid)/TFTP_DATA(block=self.awaiting,
-                                                                                              data=self.data.pop(0)))
+        self.send( IP(dst=self.server)/UDP(sport=self.my_tid, dport=self.server_tid)
+                   /TFTP()/TFTP_DATA(block=self.awaiting)/self.data.pop(0) )
     
     @ATMTdeco.state(END)
     def state_END(self):
-        split_bottom_up(UDP, TFTP_dispatcher, dport=self.my_tid)
+        split_bottom_up(UDP, TFTP, dport=self.my_tid)
 
     @ATMTdeco.state(ERROR)
     def state_ERROR(self):
-        split_bottom_up(UDP, TFTP_dispatcher, dport=self.my_tid)
+        split_bottom_up(UDP, TFTP, dport=self.my_tid)
 
         
         
