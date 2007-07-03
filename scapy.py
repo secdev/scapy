@@ -8318,36 +8318,39 @@ class NetflowRecordV1(Packet):
 
 TFTP_operations = { 1:"RRQ",2:"WRQ",3:"DATA",4:"ACK",5:"ERROR",6:"OACK" }
 
+
+class TFTP(Packet):
+    name = "TFTP opcode"
+    fields_desc = [ ShortEnumField("op", 1, TFTP_operations), ]
+    
+
+
 class TFTP_RRQ(Packet):
     name = "TFTP Read Request"
-    fields_desc = [ ShortEnumField("op", 1, TFTP_operations),
-                    StrNullField("filename", ""),
+    fields_desc = [ StrNullField("filename", ""),
                     StrNullField("mode", "octet") ]
     def answers(self, other):
         return 0
     def mysummary(self):
-        return self.sprintf("%op% %filename%"),[UDP]
+        return self.sprintf("RRQ %filename%"),[UDP]
         
 
 class TFTP_WRQ(Packet):
     name = "TFTP Write Request"
-    fields_desc = [ ShortEnumField("op", 2, TFTP_operations),
-                    StrNullField("filename", ""),
+    fields_desc = [ StrNullField("filename", ""),
                     StrNullField("mode", "octet") ]
     def answers(self, other):
         return 0
     def mysummary(self):
-        return self.sprintf("%op% %filename%"),[UDP]
+        return self.sprintf("WRQ %filename%"),[UDP]
 
 class TFTP_DATA(Packet):
     name = "TFTP Data"
-    fields_desc = [ ShortEnumField("op", 3, TFTP_operations),
-                    ShortField("block", 0),
-                    StrField("data", "") ]
+    fields_desc = [ ShortField("block", 0) ]
     def answers(self, other):
         return  self.block == 1 and isinstance(other, TFTP_RRQ)
     def mysummary(self):
-        return self.sprintf("%op% %block%"),[UDP]
+        return self.sprintf("DATA %block%"),[UDP]
 
 class TFTP_Option(Packet):
     fields_desc = [ StrNullField("name",""),
@@ -8361,8 +8364,7 @@ class TFTP_Options(Packet):
     
 class TFTP_ACK(Packet):
     name = "TFTP Ack"
-    fields_desc = [ ShortEnumField("op", 4, TFTP_operations),
-                    ShortField("block", 0) ]
+    fields_desc = [ ShortField("block", 0) ]
     def answers(self, other):
         if isinstance(other, TFTP_DATA):
             return self.block == other.block
@@ -8370,7 +8372,7 @@ class TFTP_ACK(Packet):
             return self.block == 0
         return 0
     def mysummary(self):
-        return self.sprintf("%op% %block%"),[UDP]
+        return self.sprintf("ACK %block%"),[UDP]
 
 TFTP_Error_Codes = {  0: "Not defined",
                       1: "File not found",
@@ -8385,8 +8387,7 @@ TFTP_Error_Codes = {  0: "Not defined",
     
 class TFTP_ERROR(Packet):
     name = "TFTP Error"
-    fields_desc = [ ShortEnumField("op", 5, TFTP_operations),
-                    ShortEnumField("errorcode", 0, TFTP_Error_Codes),
+    fields_desc = [ ShortEnumField("errorcode", 0, TFTP_Error_Codes),
                     StrNullField("errormsg", "")]
     def answers(self, other):
         return (isinstance(other, TFTP_DATA) or
@@ -8394,20 +8395,14 @@ class TFTP_ERROR(Packet):
                 isinstance(other, TFTP_WRQ) or 
                 isinstance(other, TFTP_ACK))
     def mysummary(self):
-        return self.sprintf("%op% %errorcode%: %errormsg%"),[UDP]
+        return self.sprintf("ERROR %errorcode%: %errormsg%"),[UDP]
 
 
 class TFTP_OACK(Packet):
     name = "TFTP Option Ack"
-    fields_desc = [ ShortEnumField("op", 6, TFTP_operations),
-                    ShortField("block", 0) ]
+    fields_desc = [ ShortField("block", 0) ]
     def mysummary(self):
-        return self.sprintf("%op% %block%"),[UDP]
-
-
-def TFTP_dispatcher(pkt, **args):
-    return {"\x01":TFTP_RRQ,"\x02":TFTP_WRQ,"\x03":TFTP_DATA,
-            "\x04":TFTP_ACK,"\x05":TFTP_ERROR,"\x06":TFTP_OACK}.get((pkt+"xx")[1],Raw)(pkt, **args)
+        return self.sprintf("OACK %block%"),[UDP]
 
 
 ##########
@@ -8826,15 +8821,14 @@ bind_layers( MobileIP,      MobileIPTunnelData, type=4)
 bind_layers( MobileIPTunnelData, IP,           nexthdr=4)
 bind_layers( NetflowHeader,   NetflowHeaderV1, version=1)
 bind_layers( NetflowHeaderV1, NetflowRecordV1, )
-                
-bind_top_down(UDP, TFTP_RRQ, dport=69)
-bind_top_down(UDP, TFTP_WRQ, dport=69)
-bind_top_down(UDP, TFTP_DATA, dport=69)
-bind_top_down(UDP, TFTP_ACK, dport=69)
-bind_top_down(UDP, TFTP_OACK, dport=69)
-bind_top_down(UDP, TFTP_ERROR, dport=69)
-bind_bottom_up(UDP, TFTP_dispatcher, dport=69)
-bind_bottom_up(UDP, TFTP_dispatcher, sport=69)
+
+bind_layers(UDP, TFTP, dport=69)
+bind_layers(TFTP, TFTP_RRQ, op=1)
+bind_layers(TFTP, TFTP_WRQ, op=2)
+bind_layers(TFTP, TFTP_DATA, op=3)
+bind_layers(TFTP, TFTP_ACK, op=4)
+bind_layers(TFTP, TFTP_ERROR, op=5)
+bind_layers(TFTP, TFTP_OACK, op=6)
 bind_layers(TFTP_RRQ, TFTP_Options)
 bind_layers(TFTP_WRQ, TFTP_Options)
 bind_layers(TFTP_OACK, TFTP_Options)
