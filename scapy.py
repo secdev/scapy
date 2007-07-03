@@ -8400,9 +8400,7 @@ class TFTP_ERROR(Packet):
 
 class TFTP_OACK(Packet):
     name = "TFTP Option Ack"
-    fields_desc = [ ShortField("block", 0) ]
-    def mysummary(self):
-        return self.sprintf("OACK %block%"),[UDP]
+    fields_desc = [  ]
 
 
 ##########
