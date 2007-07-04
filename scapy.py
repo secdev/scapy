@@ -8934,6 +8934,87 @@ def defrag(plist):
         defrag2.append(p.__class__(str(p)))
     return nofrag,defrag2,missfrag
             
+def defragment(plist):
+    """defrag(plist) -> plist defragmented as much as possible """
+    frags = {}
+    final = []
+
+    pos = 0
+    for p in plist:
+        p._defrag_pos = pos
+        pos += 1
+        if IP in p:
+            ip = p[IP]
+            if ip.frag != 0 or ip.flags & 1:
+                ip = p[IP]
+                uniq = (ip.id,ip.src,ip.dst,ip.proto)
+                if uniq in frags:
+                    frags[uniq].append(p)
+                else:
+                    frags[uniq] = [p]
+                continue
+        final.append(p)
+
+    defrag = []
+    missfrag = []
+    for lst in frags.itervalues():
+        lst.sort(lambda x,y:cmp(x.frag, y.frag))
+        p = lst[0]
+        if p.frag > 0:
+            missfrag += lst
+            continue
+        p = p.copy()
+        if Padding in p:
+            del(p[Padding].underlayer.payload)
+        ip = p[IP]
+        if ip.len is None or ip.ihl is None:
+            clen = len(ip.payload)
+        else:
+            clen = ip.len - (ip.ihl<<2)
+        txt = Raw()
+        for q in lst[1:]:
+            if clen != q.frag<<3:
+                if clen > q.frag<<3:
+                    warning("Fragment overlap (%i > %i) %r || %r ||  %r" % (clen, q.frag<<3, p,txt,q))
+                missfrag += lst
+                txt = None
+                break
+            if q[IP].len is None or q[IP].ihl is None:
+                clen += len(q[IP].payload)
+            else:
+                clen += q[IP].len - (q[IP].ihl<<2)
+            if Padding in q:
+                del(q[Padding].underlayer.payload)
+            txt.add_payload(q[IP].payload.copy())
+            
+        if txt is None:
+            continue
+
+        ip.flags &= ~1 # !MF
+        del(ip.chksum)
+        del(ip.len)
+        p = p/txt
+        p._defrag_pos = lst[-1]._defrag_pos
+        defrag.append(p)
+    defrag2=[]
+    for p in defrag:
+        q = p.__class__(str(p))
+        q._defrag_pos = p._defrag_pos
+        defrag2.append(q)
+    final += defrag2
+    final += missfrag
+    final.sort(lambda x,y: cmp(x._defrag_pos, y._defrag_pos))
+    for p in final:
+        del(p._defrag_pos)
+
+    if hasattr(plist, "listname"):
+        name = "Defragmented %s" % plist.listname
+    else:
+        name = "Defragmented"
+        
+    
+    return PacketList(final, name=name)
+            
             
         
     
