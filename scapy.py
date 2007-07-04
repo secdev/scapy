@@ -8401,6 +8401,8 @@ class TFTP_ERROR(Packet):
 class TFTP_OACK(Packet):
     name = "TFTP Option Ack"
     fields_desc = [  ]
+    def answers(self, other):
+        return isinstance(other, TFTP_WRQ) or isinstance(other, TFTP_RRQ)
 
 
 ##########
