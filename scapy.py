@@ -8368,7 +8368,7 @@ class TFTP_ACK(Packet):
     def answers(self, other):
         if isinstance(other, TFTP_DATA):
             return self.block == other.block
-        elif isinstance(other, TFTP_RRQ) or isinstance(other, TFTP_WRQ) or isintance(other, TFTP_OACK):
+        elif isinstance(other, TFTP_RRQ) or isinstance(other, TFTP_WRQ) or isinstance(other, TFTP_OACK):
             return self.block == 0
         return 0
     def mysummary(self):
