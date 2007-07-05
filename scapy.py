@@ -5741,8 +5741,11 @@ A side effect is that, to obtain "{" and "}" characters, you must use
         """Returns a string representing the command you have to type to obtain the same packet"""
         f = []
         for fn,fv in self.fields.items():
+            fld = self.get_field(fn)
             if isinstance(fv, Packet):
                 fv = fv.command()
+            elif fld.islist and fld.holds_packets and type(fv) is list:
+                fv = "[%s]" % ",".join( map(Packet.command, fv))
             else:
                 fv = repr(fv)
             f.append("%s=%s" % (fn, fv))
