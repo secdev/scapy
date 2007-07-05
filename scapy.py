@@ -4035,8 +4035,7 @@ class BitField(Field):
         return val
         
     def addfield(self, pkt, s, val):
-        if val is None:
-            val = 0
+        val = self.i2m(pkt, val)
         if type(s) is tuple:
             s,bitsdone,v = s
         else:
@@ -4083,6 +4082,7 @@ class BitField(Field):
         bn += self.size
         s = s[bn/8:]
         bn = bn%8
+        b = self.m2i(pkt, b)
         if bn:
             return (s,bn),b
         else:
