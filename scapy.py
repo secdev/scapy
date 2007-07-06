@@ -2018,10 +2018,11 @@ class BERcodec_INTEGER(BERcodec_Object):
             i >>= 8
             if not i:
                 break
-        s.append(len(s))
-        s.append(cls.tag)
+        s = map(chr, s)
+        s.append(BER_len_enc(len(s)))
+        s.append(chr(cls.tag))
         s.reverse()
-        return "".join(map(chr, s))
+        return "".join(s)
     @classmethod
     def do_dec(cls, s, context=None, safe=False):
         l,s,t = cls.check_type_check_len(s)
