@@ -2172,13 +2172,13 @@ class MIBDict(DADict):
             return x
         xl[p] = self[xl[p]] 
         return ".".join(xl[p:])
-    def _make_graph(self, other_keys=[]):
+    def _make_graph(self, other_keys=[], **kargs):
         nodes = [(k,self[k]) for k in self.keys()]
         oids = [self[k] for k in self.keys()]
         for k in other_keys:
             if k not in oids:
                 nodes.append(self.oidname(k),k)
-        s = 'digraph "mib" {\n'
+        s = 'digraph "mib" {\n\trankdir=LR;\n\n'
         for k,o in nodes:
             s += '\t"%s" [ label="%s"  ];\n' % (o,k)
         s += "\n"
@@ -2189,7 +2189,7 @@ class MIBDict(DADict):
                 parent = self[parent]
             s += '\t"%s" -> "%s" [label="%s"];\n' % (parent, o,remainder)
         s += "}\n"
-        return s
+        do_graph(s, **kargs)
 
 
 def mib_register(ident, value, the_mib, unresolved):
