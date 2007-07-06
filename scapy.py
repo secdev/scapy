@@ -5635,7 +5635,7 @@ A side effect is that, to obtain "{" and "}" characters, you must use
             i = fmt.index("%")
             s += fmt[:i]
             fmt = fmt[i+1:]
-            if fmt[0] in escape:
+            if fmt and fmt[0] in escape:
                 s += escape[fmt[0]]
                 fmt = fmt[1:]
                 continue
