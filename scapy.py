@@ -8357,7 +8357,7 @@ class TFTP_DATA(Packet):
         return self.sprintf("DATA %block%"),[UDP]
 
 class TFTP_Option(Packet):
-    fields_desc = [ StrNullField("name",""),
+    fields_desc = [ StrNullField("oname",""),
                     StrNullField("value","") ]
     def extract_padding(self, pkt):
         return "",pkt
