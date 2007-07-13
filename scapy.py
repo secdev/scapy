@@ -1707,7 +1707,7 @@ class ASN1_Class_UNIVERSAL(ASN1_Class):
     UTF8_STRING = 12
     RELATIVE_OID = 13
     SEQUENCE = 0x30#XXX 16 ??
-    SET = 17
+    SET = 0x31 #XXX 17 ??
     NUMERIC_STRING = 18
     PRINTABLE_STRING = 19
     T61_STRING = 20
@@ -2018,10 +2018,11 @@ class BERcodec_INTEGER(BERcodec_Object):
             i >>= 8
             if not i:
                 break
-        s.append(len(s))
-        s.append(cls.tag)
+        s = map(chr, s)
+        s.append(BER_len_enc(len(s)))
+        s.append(chr(cls.tag))
         s.reverse()
-        return "".join(map(chr, s))
+        return "".join(s)
     @classmethod
     def do_dec(cls, s, context=None, safe=False):
         l,s,t = cls.check_type_check_len(s)
@@ -2171,13 +2172,13 @@ class MIBDict(DADict):
             return x
         xl[p] = self[xl[p]] 
         return ".".join(xl[p:])
-    def _make_graph(self, other_keys=[]):
+    def _make_graph(self, other_keys=[], **kargs):
         nodes = [(k,self[k]) for k in self.keys()]
         oids = [self[k] for k in self.keys()]
         for k in other_keys:
             if k not in oids:
                 nodes.append(self.oidname(k),k)
-        s = 'digraph "mib" {\n'
+        s = 'digraph "mib" {\n\trankdir=LR;\n\n'
         for k,o in nodes:
             s += '\t"%s" [ label="%s"  ];\n' % (o,k)
         s += "\n"
@@ -2188,7 +2189,7 @@ class MIBDict(DADict):
                 parent = self[parent]
             s += '\t"%s" -> "%s" [label="%s"];\n' % (parent, o,remainder)
         s += "}\n"
-        return s
+        do_graph(s, **kargs)
 
 
 def mib_register(ident, value, the_mib, unresolved):
@@ -8408,7 +8409,7 @@ class TFTP_DATA(Packet):
         return self.sprintf("DATA %block%"),[UDP]
 
 class TFTP_Option(Packet):
-    fields_desc = [ StrNullField("name",""),
+    fields_desc = [ StrNullField("oname",""),
                     StrNullField("value","") ]
     def extract_padding(self, pkt):
         return "",pkt
