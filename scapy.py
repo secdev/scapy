@@ -3752,6 +3752,11 @@ class PacketListField(PacketField):
         if fld is not None:
             self.count_from = lambda pkt,fld=fld,shift=shift: getattr(pkt,fld)-shift
 
+    def any2i(self, pkt, x):
+        if type(x) is not list:
+            return [x]
+        else:
+            return x
     def i2count(self, pkt, val):
         if type(val) is list:
             return len(val)
@@ -3852,6 +3857,11 @@ class FieldListField(Field):
         if val is None:
             val = []
         return val
+    def any2i(self, pkt, x):
+        if type(x) is not list:
+            return [x]
+        else:
+            return x
     def addfield(self, pkt, s, val):
         val = self.i2m(pkt, val)
         for v in val:
