@@ -3796,14 +3796,22 @@ class PacketListField(PacketField):
 
 
 class StrFixedLenField(StrField):
-    def __init__(self, name, default, length, shift=0):
+    def __init__(self, name, default, length=None, length_from=None, shift=0):
         StrField.__init__(self, name, default, shift=shift)
-        self.length = length
+        self.length_from  = length_from
+        if length is not None:
+            self.length_from = lambda pkt,length=length: length
     def getfield(self, pkt, s):
-        return s[self.length:], self.m2i(pkt,s[:self.length])
+        l = self.length_from(pkt)
+        return s[l:], self.m2i(pkt,s[:l])
     def addfield(self, pkt, s, val):
-        return s+struct.pack("%is"%self.length,self.i2m(pkt, val))
+        l = self.length_from(pkt)
+        return s+struct.pack("%is"%l,self.i2m(pkt, val))
     def randval(self):
+        try:
+            l = self.length_from(None)
+        except:
+            l = RandNum(0,200)
         return RandBin(self.length)
 
 class NetBIOSNameField(StrFixedLenField):
