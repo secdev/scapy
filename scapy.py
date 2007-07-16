@@ -3417,6 +3417,23 @@ class ConditionalField:
         return getattr(self.fld,attr)
         
 
+class PadField:
+    """Add bytes after the proxified field so that it ends at the specified
+       alignment from its begining"""
+    _fld = None
+    def __init__(self, fld, align, padwith=None):
+        self._fld = fld
+        self._align = align
+        self._padwith = padwith or ""
+
+    def addfield(self, pkt, s, val):
+        return (self._fld.addfield(pkt, s, val)
+                +struct.pack("%is" % (-len(val)%self._align), self._padwith))
+    
+    def __getattr__(self, attr):
+        return getattr(self._fld,attr)
+        
+
 class MACField(Field):
     def __init__(self, name, default):
         Field.__init__(self, name, default, "6s")
