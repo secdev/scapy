@@ -3889,7 +3889,7 @@ class FieldListField(Field):
         return s+ret, val
 
 class FieldLenField(Field):
-    def __init__(self, name, default,  length_of=None, fmt = "H", count_of=None, adjust=lambda x:x, fld=None):
+    def __init__(self, name, default,  length_of=None, fmt = "H", count_of=None, adjust=lambda pkt,x:x, fld=None):
         Field.__init__(self, name, default, fmt)
         self.length_of=length_of
         self.count_of=count_of
@@ -3905,7 +3905,7 @@ class FieldLenField(Field):
             else:
                 fld,fval = pkt.getfield_and_val(self.count_of)
                 f = fld.i2count(pkt, fval)
-            x = self.adjust(f)
+            x = self.adjust(pkt,f)
         return x
 
 # see http://www.iana.org/assignments/ipsec-registry for details
@@ -4246,7 +4246,7 @@ class LELongField(Field):
 
 # Little endian fixed length field
 class LEFieldLenField(FieldLenField):
-    def __init__(self, name, default,  length_of=None, fmt = "<H", count_of=None, adjust=lambda x:x, fld=None):
+    def __init__(self, name, default,  length_of=None, fmt = "<H", count_of=None, adjust=lambda pkt,x:x, fld=None):
         FieldLenField.__init__(self, name, default, length_of=length_of, fmt=fmt, fld=fld, adjust=adjust)
 
 
@@ -6046,7 +6046,7 @@ class RadioTap(Packet):
     name = "RadioTap dummy"
     fields_desc = [ ByteField('version', 0),
                     ByteField('pad', 0),
-                    FieldLenField('len', None, 'notdecoded', '@H', adjust=lambda x:x+8),
+                    FieldLenField('len', None, 'notdecoded', '@H', adjust=lambda pkt,x:x+8),
                     FlagsField('present', None, -32, ['TSFT','Flags','Rate','Channel','FHSS','dBm_AntSignal',
                                                      'dBm_AntNoise','Lock_Quality','TX_Attenuation','dB_TX_Attenuation',
                                                       'dBm_TX_Power', 'Antenna', 'dB_AntSignal', 'dB_AntNoise',
@@ -7265,7 +7265,7 @@ class ISAKMP_payload_Proposal(ISAKMP_class):
     fields_desc = [
         ByteEnumField("next_payload",None,ISAKMP_payload_type),
         ByteField("res",0),
-        FieldLenField("length",None,"trans","H", adjust=lambda x:x+8),
+        FieldLenField("length",None,"trans","H", adjust=lambda pkt,x:x+8),
         ByteField("proposal",1),
         ByteEnumField("proto",1,{1:"ISAKMP"}),
         FieldLenField("SPIsize",None,"SPI","B"),
@@ -7280,7 +7280,7 @@ class ISAKMP_payload(ISAKMP_class):
     fields_desc = [
         ByteEnumField("next_payload",None,ISAKMP_payload_type),
         ByteField("res",0),
-        FieldLenField("length",None,"load","H", adjust=lambda x:x+4),
+        FieldLenField("length",None,"load","H", adjust=lambda pkt,x:x+4),
         StrLenField("load","",length_from=lambda x:x.length-4),
         ]
 
@@ -7291,7 +7291,7 @@ class ISAKMP_payload_VendorID(ISAKMP_class):
     fields_desc = [
         ByteEnumField("next_payload",None,ISAKMP_payload_type),
         ByteField("res",0),
-        FieldLenField("length",None,"vendorID","H", adjust=lambda x:x+4),
+        FieldLenField("length",None,"vendorID","H", adjust=lambda pkt,x:x+4),
         StrLenField("vendorID","",length_from=lambda x:x.length-4),
         ]
 
@@ -7301,7 +7301,7 @@ class ISAKMP_payload_SA(ISAKMP_class):
     fields_desc = [
         ByteEnumField("next_payload",None,ISAKMP_payload_type),
         ByteField("res",0),
-        FieldLenField("length",None,"prop","H", adjust=lambda x:x+12),
+        FieldLenField("length",None,"prop","H", adjust=lambda pkt,x:x+12),
         IntEnumField("DOI",1,{1:"IPSEC"}),
         IntEnumField("situation",1,{1:"identity"}),
         PacketLenField("prop",Raw(),ISAKMP_payload_Proposal,length_from=lambda x:x.length-12),
@@ -7313,7 +7313,7 @@ class ISAKMP_payload_Nonce(ISAKMP_class):
     fields_desc = [
         ByteEnumField("next_payload",None,ISAKMP_payload_type),
         ByteField("res",0),
-        FieldLenField("length",None,"load","H", adjust=lambda x:x+4),
+        FieldLenField("length",None,"load","H", adjust=lambda pkt,x:x+4),
         StrLenField("load","",length_from=lambda x:x.length-4),
         ]
 
@@ -7323,7 +7323,7 @@ class ISAKMP_payload_KE(ISAKMP_class):
     fields_desc = [
         ByteEnumField("next_payload",None,ISAKMP_payload_type),
         ByteField("res",0),
-        FieldLenField("length",None,"load","H", adjust=lambda x:x+4),
+        FieldLenField("length",None,"load","H", adjust=lambda pkt,x:x+4),
         StrLenField("load","",length_from=lambda x:x.length-4),
         ]
 
@@ -7333,7 +7333,7 @@ class ISAKMP_payload_ID(ISAKMP_class):
     fields_desc = [
         ByteEnumField("next_payload",None,ISAKMP_payload_type),
         ByteField("res",0),
-        FieldLenField("length",None,"load","H",adjust=lambda x:x+8),
+        FieldLenField("length",None,"load","H",adjust=lambda pkt,x:x+8),
         ByteEnumField("IDtype",1,{1:"IPv4_addr", 11:"Key"}),
         ByteEnumField("ProtoID",0,{0:"Unused"}),
         ShortEnumField("Port",0,{0:"Unused"}),
@@ -7349,7 +7349,7 @@ class ISAKMP_payload_Hash(ISAKMP_class):
     fields_desc = [
         ByteEnumField("next_payload",None,ISAKMP_payload_type),
         ByteField("res",0),
-        FieldLenField("length",None,"load","H",adjust=lambda x:x+4),
+        FieldLenField("length",None,"load","H",adjust=lambda pkt,x:x+4),
         StrLenField("load","",length_from=lambda x:x.length-4),
         ]
 
@@ -8150,7 +8150,7 @@ class SMBNegociate_Protocol_Response_Advanced_Security(Packet):
                    LEIntField("ServerTimeLow",0x1C4EF94),
                    LEShortField("ServerTimeZone",0x3c),
                    ByteField("EncryptionKeyLength",0),
-                   LEFieldLenField("ByteCount", None, "SecurityBlob", adjust=lambda x:x-16),
+                   LEFieldLenField("ByteCount", None, "SecurityBlob", adjust=lambda pkt,x:x-16),
                    BitField("GUID",0,128),
                    StrLenField("SecurityBlob", "", length_from=lambda x:x.ByteCount+16)]
 
