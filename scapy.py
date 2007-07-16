@@ -4178,6 +4178,17 @@ class BitField(Field):
     def randval(self):
         return RandNum(0,2**self.size-1)
 
+
+class BitFieldLenField(BitField):
+    def __init__(self, name, default, size, length_of=None, count_of=None, adjust=lambda pkt,x:x):
+        BitField.__init__(self, name, default, size)
+        self.length_of=length_of
+        self.count_of=count_of
+        self.adjust=adjust
+    def i2m(self, pkt, x):
+        return FieldLenField.i2m.im_func(self, pkt, x)
+
+
 class XBitField(BitField):
     def i2repr(self, pkt, x):
         return lhex(self.i2h(pkt,x))
