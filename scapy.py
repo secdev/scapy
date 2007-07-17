@@ -716,17 +716,28 @@ def ltoa(x):
 def itom(x):
     return (0xffffffff00000000L>>x)&0xffffffffL
 
-def do_graph(graph,prog=None,type="svg",target=None):
-    """do_graph(graph, prog=conf.prog.dot, type="svg",target="| conf.prog.display"):
+def do_graph(graph,prog=None,format="svg",target=None, type=None,string=None,options=None):
+    """do_graph(graph, prog=conf.prog.dot, format="svg",
+         target="| conf.prog.display", options=None, [string=1]):
+    string: if not None, simply return the graph string
     graph: GraphViz graph description
-    type: output type (svg, ps, gif, jpg, etc.), passed to dot's "-T" option
+    format: output type (svg, ps, gif, jpg, etc.), passed to dot's "-T" option
     target: filename or redirect. Defaults pipe to Imagemagick's display program
-    prog: which graphviz program to use"""
+    prog: which graphviz program to use
+    options: options to be passed to prog"""
+        
+
+    if string:
+        return graph
+    if type is not None:
+        format=type
     if prog is None:
         prog = conf.prog.dot
     if target is None:
         target = "| %s" % conf.prog.display
-    w,r = os.popen2("%s -T %s %s" % (prog,type,target))
+    if format is not None:
+        format = "-T %s" % format
+    w,r = os.popen2("%s %s %s %s" % (prog,options or "", format or "", target))
     w.write(graph)
     w.close()
 
@@ -2609,7 +2620,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
         for s,d in conv:
             gr += '\t "%s" -> "%s"\n' % (s,d)
         gr += "}\n"        
-        do_graph(gr, **kargs)
+        return do_graph(gr, **kargs)
 
     def afterglow(self, src=None, event=None, dst=None, **kargs):
         """Experimental clone attempt of http://sourceforge.net/projects/afterglow
@@ -2689,7 +2700,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
             
         gr += "}"
         open("/tmp/aze","w").write(gr)
-        do_graph(gr, **kargs)
+        return do_graph(gr, **kargs)
         
 
         
@@ -3275,7 +3286,7 @@ class TracerouteResult(SndRcvList):
             self.graphpadding != padding):
             self.make_graph(ASres,padding)
 
-        do_graph(self.graphdef, **kargs)
+        return do_graph(self.graphdef, **kargs)
 
 
         
@@ -11286,7 +11297,7 @@ class Automaton:
                             l += "\\l>[%s]" % x.func_name
                         s += '\t"%s" -> "%s" [label="%s",color=blue];\n' % (k,n,l)
         s += "}\n"
-        do_graph(s, **kargs)
+        return do_graph(s, **kargs)
         
         
 
