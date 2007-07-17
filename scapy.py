@@ -11270,7 +11270,7 @@ class Automaton:
 
 
     def graph(self, **kargs):
-        s = 'digraph "%s" {\n fontsize=6;\n'  % self.__class__.__name__
+        s = 'digraph "%s" {\n'  % self.__class__.__name__
 
         for st in self.initial:
             s += '\t"%s" [ style=filled, fillcolor=green shape=box];\n' % st
