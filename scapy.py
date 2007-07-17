@@ -11137,28 +11137,34 @@ class Automaton:
         self.cond={}
         self.timeout={}
         self.actions={}
+        self.initial=[]
+        self.final=[]
         decorated = dict((k,v) for (k,v) in self.get_members().iteritems()
-                         if type(v) is types.FunctionType and hasattr(v, "type"))
+                         if type(v) is types.FunctionType and hasattr(v, "atmt_type"))
         
         for m in decorated.itervalues():
-            if m.type == ATMTdeco.STATE:
-                s = m.state
+            if m.atmt_type == ATMTdeco.STATE:
+                s = m.atmt_state
                 self.states[s] = m
                 self.recvcond[s]=[]
                 self.cond[s]=[]
                 self.timeout[s]=[]
-            elif m.type in [ATMTdeco.CONDITION, ATMTdeco.RECV, ATMTdeco.TIMEOUT]:
-                self.actions[m.condname] = []
+                if m.atmt_final:
+                    self.final.append(s)
+                if m.atmt_initial:
+                    self.initial.append(s)
+            elif m.atmt_type in [ATMTdeco.CONDITION, ATMTdeco.RECV, ATMTdeco.TIMEOUT]:
+                self.actions[m.atmt_condname] = []
     
         for m in decorated.itervalues():
-            if m.type == ATMTdeco.CONDITION:
-                self.cond[m.state].append(m)
-            elif m.type == ATMTdeco.RECV:
-                self.recvcond[m.state].append(m)
-            elif m.type == ATMTdeco.TIMEOUT:
-                self.timeout[m.state].append((m.timeout, m))
-            elif m.type == ATMTdeco.ACTION:
-                self.actions[m.condname].append(m)
+            if m.atmt_type == ATMTdeco.CONDITION:
+                self.cond[m.atmt_state].append(m)
+            elif m.atmt_type == ATMTdeco.RECV:
+                self.recvcond[m.atmt_state].append(m)
+            elif m.atmt_type == ATMTdeco.TIMEOUT:
+                self.timeout[m.atmt_state].append((m.atmt_timeout, m))
+            elif m.atmt_type == ATMTdeco.ACTION:
+                self.actions[m.atmt_condname].append(m)
             
 
         for v in self.timeout.itervalues():
@@ -11189,18 +11195,18 @@ class Automaton:
         newstate = cond(self,*args, **kargs)
         if newstate is not None:
             if self.debug >= 2:
-                print >>sys.stderr, "%s [%s] taken to state [%s]" % (cond.type, cond.func_name, newstate)
-            for action in self.actions[cond.condname]:
+                print >>sys.stderr, "%s [%s] taken to state [%s]" % (cond.atmt_type, cond.atmt_condname, newstate)
+            for action in self.actions[cond.atmt_condname]:
                 if self.debug >= 2:
                     print >>sys.stderr, "   + Running action [%s]" % action.func_name
                 action(self)
             raise self.NewState(newstate)
         elif self.debug >= 2:
-            print >>sys.stderr,"%s [%s] not taken" % (cond.type, cond.func_name)
+            print >>sys.stderr,"%s [%s] not taken" % (cond.atmt_type, cond.atmt_condname)
             
 
     def run(self):
-        self.state="BEGIN"
+        self.state=self.initial[0]
         self.send_sock = l = conf.L3socket()
         while 1:
             try:
@@ -11209,7 +11215,7 @@ class Automaton:
 
                 # Entering a new state. First, call new state function
                 res = self.states[self.state](self)
-                if self.state == "END":
+                if self.state in self.final:
                     return res
                 if ( len(self.cond[self.state]) == 0
                      and len(self.recvcond[self.state]) == 0
@@ -11254,24 +11260,29 @@ class Automaton:
 
     def graph(self, **kargs):
         s = 'digraph "%s" {\n fontsize=6;\n'  % self.__class__.__name__
-        
+
+        for st in self.initial:
+            s += '\t"%s" [ style=filled, fillcolor=green shape=box];\n' % st
+                        
+        for st in self.final:
+            s += '\t"%s" [ style=filled, fillcolor=red, shape=octagon ];\n' % st
                         
         for c,k,v in [("green",k,v) for k,v in self.cond.items()]+[("red",k,v) for k,v in self.recvcond.items()]:
             for f in v:
-                for n in f.func_code.co_names+f.func_code.co_consts:
+                for n in f.atmt_origfunc.func_code.co_names+f.atmt_origfunc.func_code.co_consts:
                     if n in self.states:
-                        l = f.func_name
-                        for x in self.actions[f.condname]:
+                        l = f.atmt_condname
+                        for x in self.actions[f.atmt_condname]:
                             l += "\\l>[%s]" % x.func_name
                         s += '\t"%s" -> "%s" [label="%s", color=%s];\n' % (k,n,l,c)
         for k,v in self.timeout.iteritems():
             for t,f in v:
                 if f is None:
                     continue
-                for n in f.func_code.co_names+f.func_code.co_consts:
+                for n in f.atmt_origfunc.func_code.co_names+f.atmt_origfunc.func_code.co_consts:
                     if n in self.states:
-                        l = "%s/%.1fs" % (f.func_name,t)                        
-                        for x in self.actions[f.condname]:
+                        l = "%s/%.1fs" % (f.atmt_condname,t)                        
+                        for x in self.actions[f.atmt_condname]:
                             l += "\\l>[%s]" % x.func_name
                         s += '\t"%s" -> "%s" [label="%s",color=blue];\n' % (k,n,l)
         s += "}\n"
@@ -11285,64 +11296,91 @@ class ATMTdeco:
     CONDITION = "Condition"
     RECV = "Receive condition"
     TIMEOUT = "Timeout condition"
+    
     @staticmethod
-    def state(state):
-        def deco(f,state=state):
-            f.type = ATMTdeco.STATE
-            f.state = state
+    def state(initial=0,final=0):
+        def deco(f,initial=initial, final=final):
+            f.atmt_type = ATMTdeco.STATE
+            f.atmt_state = f.func_name
+            f.atmt_initial = initial
+            f.atmt_final = final
             return f
         return deco
     @staticmethod
-    def action(condname):
-        def deco(f,condname=condname):
-            f.type = ATMTdeco.ACTION
-            f.condname = condname
+    def action(cond):
+        def deco(f,cond=cond):
+            f.atmt_type = ATMTdeco.ACTION
+            f.atmt_condname = cond.atmt_condname
             return f
         return deco
     @staticmethod
-    def condition(state, name=None):
-        def deco(f, state=state, name=name):
-            f.type = ATMTdeco.CONDITION
-            f.state = state
-            f.condname = name
-            return f
+    def condition(state):
+        def deco(f, state=state):
+            def ret(*args, **kargs):
+                r = f(*args, **kargs)
+                if type(r) is types.MethodType:
+                    r = r.im_func.func_name
+                return r
+            ret.atmt_type = ATMTdeco.CONDITION
+            ret.atmt_state = state.func_name
+            ret.atmt_condname = f.func_name
+            ret.atmt_origfunc = f
+            return ret
         return deco
     @staticmethod
-    def receive_condition(state, name=None):
-        def deco(f, state=state, name=name):
-            f.type = ATMTdeco.RECV
-            f.state = state
-            f.condname = name
-            return f
+    def receive_condition(state):
+        def deco(f, state=state):
+            def ret(*args, **kargs):
+                r = f(*args, **kargs)
+                if type(r) is types.MethodType:
+                    r = r.im_func.func_name
+                return r
+            ret.atmt_type = ATMTdeco.RECV
+            ret.atmt_state = state.func_name
+            ret.atmt_condname = f.func_name
+            ret.atmt_origfunc = f
+            return ret
         return deco
     @staticmethod
     def timeout(state, timeout, name=None):
         def deco(f, state=state, timeout=timeout,name=name):
-            f.type = ATMTdeco.TIMEOUT
-            f.state = state
-            f.timeout = timeout
-            f.condname = name
+            def ret(*args, **kargs):
+                r = f(*args, **kargs)
+                if type(r) is types.MethodType:
+                    r = r.im_func.func_name
+                return r
+            ret.atmt_type = ATMTdeco.TIMEOUT
+            ret.atmt_state = state.func_name
+            ret.atmt_timeout = timeout
+            ret.atmt_condname = f.func_name
+            ret.atmt_origfunc = f
+            return ret
+        return deco
+    @staticmethod
+    def final():
+        def deco(f):
+            f.atmt_final=1
             return f
         return deco
+    @staticmethod
+    def initial():
+        def deco(f):
+            f.atmt_final=1
+            return f
+        return deco
+              
 
     
 
 class TFTP_read(Automaton):
-
-    BEGIN="BEGIN"
-    RECEIVING="RECEIVING"
-    RECEIVED="RECEIVED"
-    ERROR="ERROR"
-    END="END"
-    
-
     def parse_args(self, filename, server, port=69, **kargs):
         Automaton.parse_args(self, **kargs)
         self.filename = filename
         self.server = server
         self.port = port
 
-    @ATMTdeco.state(BEGIN)
+    # BEGIN
+    @ATMTdeco.state(initial=1)
     def state_BEGIN(self):
         self.blocksize=512
         self.my_tid = RandShort()._fix()
@@ -11352,44 +11390,39 @@ class TFTP_read(Automaton):
         self.awaiting = 1
         self.current_ack = None
         self.res = ""
-
-    @ATMTdeco.condition(BEGIN)
+    @ATMTdeco.condition(state_BEGIN)
     def on_begin(self):
-        return self.RECEIVING
-    
-    @ATMTdeco.state(RECEIVING)
+        return self.state_RECEIVING
+
+    # RECEIVING
+    @ATMTdeco.state()
     def state_RECEIVING(self):
         pass
-
-    @ATMTdeco.timeout(RECEIVING, 3, name="timeout_receiving")
-    def recv_timeout_ack(self):
-        return self.RECEIVING
-
-    @ATMTdeco.action("timeout_receiving")
-    def action_timeout(self):
-        if self.current_ack is not None:
-            self.send(self.current_ack)
-
-
-    @ATMTdeco.receive_condition(RECEIVING)
-    def recv__RECEIVING(self, pkt):
+    @ATMTdeco.receive_condition(state_RECEIVING)
+    def receiving(self, pkt):
         if IP in pkt and pkt[IP].src == self.server and UDP in pkt and pkt[UDP].dport == self.my_tid:
             if self.awaiting == 1:
                 self.server_tid = pkt[UDP].sport
             if pkt[UDP].sport == self.server_tid:
                 self.pkt = pkt
-                return "RECEIVED"
+                return self.state_RECEIVED
+    @ATMTdeco.timeout(state_RECEIVING, 3)
+    def recv_timeout_ack(self):
+        return self.state_RECEIVING
+    @ATMTdeco.action(recv_timeout_ack)
+    def action_timeout(self):
+        if self.current_ack is not None:
+            self.send(self.current_ack)
 
-    @ATMTdeco.state(RECEIVED)
+    # RECEIVED
+    @ATMTdeco.state()
     def state_RECEIVED(self):
         pass
-
-    @ATMTdeco.condition(RECEIVED)
+    @ATMTdeco.condition(state_RECEIVED)
     def received_error(self):
         if TFTP_ERROR in self.pkt:
-            return self.ERROR
-
-    @ATMTdeco.condition(RECEIVED, name="received_data")
+            return self.state_ERROR
+    @ATMTdeco.condition(state_RECEIVED)
     def received_ok(self):
         if TFTP_DATA in self.pkt and self.pkt[TFTP_DATA].block == self.awaiting:
             self.current_ack=IP(dst=self.server)/UDP(sport=self.my_tid, dport=self.server_tid)/TFTP()/TFTP_ACK(block=self.awaiting)
@@ -11397,23 +11430,25 @@ class TFTP_read(Automaton):
             received = self.pkt[Raw].load
             self.res += received
             if len(received) == self.blocksize:
-                return self.RECEIVING
-            return self.END
+                return self.state_RECEIVING
+            return self.state_END
 
-    @ATMTdeco.action("received_data")
+    @ATMTdeco.action(received_ok)
     def received_data(self):
         self.send(self.current_ack)
-        
 
-
-    @ATMTdeco.state(ERROR)
+    # ERROR
+    @ATMTdeco.state(final=1)
     def state_ERROR(self):
         pass
-
-    @ATMTdeco.state(END)
+    
+    #END
+    @ATMTdeco.state(final=1)
     def state_END(self):
         split_bottom_up(UDP, TFTP, dport=self.my_tid)
         return self.res
+
+
 
 
 class TFTP_write(Automaton):
@@ -11424,64 +11459,60 @@ class TFTP_write(Automaton):
         self.dport = dport
         self.blocksize = 512
         self.data = [ data[i*self.blocksize:(i+1)*self.blocksize]
-                      for i in range( (len(data)+self.blocksize-1)/self.blocksize ) ]
+                      for i in range( (len(data)+self.blocksize-1)/self.blocksize ) ] #XXX: fails if len(data)%bsize=0
 
-    BEGIN = "BEGIN"
-    WAIT_ACK = "WAIT_ACK"
-    BEFORE_SENDING = "BEFORE_SENDING"
-    BLOCK_SENT = "BLOCK_SENT"
-    ERROR = "ERROR"
-    END = "END"
-    
 
-    @ATMTdeco.state(BEGIN)
+    # BEGIN
+    @ATMTdeco.state(initial=1)
     def state_BEGIN(self):
         self.my_tid = RandShort()._fix()
         bind_bottom_up(UDP, TFTP, dport=self.my_tid)
         self.server_tid = None
         self.current_ack = None
         self.res = ""
-
-    @ATMTdeco.condition(BEGIN, name="on_begin")
+    @ATMTdeco.condition(state_BEGIN)
     def on_begin(self):
-        return self.WAIT_ACK
-    @ATMTdeco.action("on_begin")
+        return self.state_WAIT_ACK
+    @ATMTdeco.action(on_begin)
     def send_wrq(self):
         self.send(IP(dst=self.server)/UDP(sport=self.my_tid, dport=self.dport)/TFTP()/TFTP_WRQ(filename=self.filename))
         self.awaiting = 0
 
-    @ATMTdeco.state(WAIT_ACK)
+    # WAIT_ACK
+    @ATMTdeco.state()
     def state_WAIT_ACK(self):
         pass
-
-    @ATMTdeco.condition(WAIT_ACK)
+    @ATMTdeco.condition(state_WAIT_ACK)
     def no_more_data(self):
         if not self.data:
-            return self.END
-        
-    @ATMTdeco.receive_condition(WAIT_ACK,name="wait_ack")
+            return self.state_END
+    @ATMTdeco.receive_condition(state_WAIT_ACK)
     def wait_ack(self,pkt):
         if IP in pkt and pkt[IP].src == self.server and UDP in pkt and pkt[UDP].dport == self.my_tid:
             if self.awaiting == 0:
                 self.server_tid = pkt[UDP].sport
             if pkt[UDP].sport == self.server_tid:
                 if TFTP_ERROR in pkt:
-                    return self.ERROR
+                    self.errormsg = pkt[TFTP_ERROR].sprintf("TFTP ERROR %ir,errorcode%: %errormsg%")
+                    return self.state_ERROR
                 if TFTP_ACK in pkt:
                     if pkt[TFTP_ACK].block == self.awaiting:
-                        return self.WAIT_ACK
-    @ATMTdeco.action("wait_ack")
+                        return self.state_WAIT_ACK
+    @ATMTdeco.action(wait_ack)
     def got_ack(self):
         self.awaiting += 1
         self.send( IP(dst=self.server)/UDP(sport=self.my_tid, dport=self.server_tid)
                    /TFTP()/TFTP_DATA(block=self.awaiting)/self.data.pop(0) )
-    
-    @ATMTdeco.state(END)
-    def state_END(self):
-        split_bottom_up(UDP, TFTP, dport=self.my_tid)
 
-    @ATMTdeco.state(ERROR)
+    # ERROR
+    @ATMTdeco.state(final = 1)
     def state_ERROR(self):
+        split_bottom_up(UDP, TFTP, dport=self.my_tid)
+        raise Exception(self.errormsg)
+
+    # END
+    @ATMTdeco.state(final=1)
+    def state_END(self):
         split_bottom_up(UDP, TFTP, dport=self.my_tid)
 
         
