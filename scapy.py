@@ -11406,7 +11406,9 @@ class Automaton:
     class NewState(Exception):
         pass
     class Stuck(Exception):
-        pass
+        def __init__(self, msg, result=None):
+            Exception.__init__(self, msg)
+            self.result = result
 
     def parse_args(self, debug=0, **kargs):
         self.debug=debug
@@ -11440,7 +11442,7 @@ class Automaton:
                 if ( len(self.cond[self.state]) == 0
                      and len(self.recvcond[self.state]) == 0
                      and len(self.timeout[self.state]) == 1 ):
-                    raise self.Stuck("stuck in [%s]: %s" % (self.state,self.res))
+                    raise self.Stuck("stuck in [%s]" % self.state,result=res)
                 
                 # Then check immediate conditions
                 for cond in self.cond[self.state]:
