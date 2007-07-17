@@ -1718,7 +1718,7 @@ class ASN1_Class_UNIVERSAL(ASN1_Class):
     UTF8_STRING = 12
     RELATIVE_OID = 13
     SEQUENCE = 0x30#XXX 16 ??
-    SET = 17
+    SET = 0x31 #XXX 17 ??
     NUMERIC_STRING = 18
     PRINTABLE_STRING = 19
     T61_STRING = 20
@@ -2029,10 +2029,11 @@ class BERcodec_INTEGER(BERcodec_Object):
             i >>= 8
             if not i:
                 break
-        s.append(len(s))
-        s.append(cls.tag)
+        s = map(chr, s)
+        s.append(BER_len_enc(len(s)))
+        s.append(chr(cls.tag))
         s.reverse()
-        return "".join(map(chr, s))
+        return "".join(s)
     @classmethod
     def do_dec(cls, s, context=None, safe=False):
         l,s,t = cls.check_type_check_len(s)
@@ -2182,13 +2183,13 @@ class MIBDict(DADict):
             return x
         xl[p] = self[xl[p]] 
         return ".".join(xl[p:])
-    def _make_graph(self, other_keys=[]):
+    def _make_graph(self, other_keys=[], **kargs):
         nodes = [(k,self[k]) for k in self.keys()]
         oids = [self[k] for k in self.keys()]
         for k in other_keys:
             if k not in oids:
                 nodes.append(self.oidname(k),k)
-        s = 'digraph "mib" {\n'
+        s = 'digraph "mib" {\n\trankdir=LR;\n\n'
         for k,o in nodes:
             s += '\t"%s" [ label="%s"  ];\n' % (o,k)
         s += "\n"
@@ -2199,7 +2200,7 @@ class MIBDict(DADict):
                 parent = self[parent]
             s += '\t"%s" -> "%s" [label="%s"];\n' % (parent, o,remainder)
         s += "}\n"
-        return s
+        do_graph(s, **kargs)
 
 
 def mib_register(ident, value, the_mib, unresolved):
@@ -3317,6 +3318,10 @@ class Field:
     def i2len(self, pkt, x):
         """Convert internal value to a length usable by a FieldLenField"""
         return self.sz
+    def i2count(self, pkt, x):
+        """Convert internal value to a number of elements usable by a FieldLenField.
+        Always 1 except for list fields"""
+        return 1
     def h2i(self, pkt, x):
         """Convert human value to internal value"""
         return x
@@ -3421,6 +3426,23 @@ class ConditionalField:
             return s
     def __getattr__(self, attr):
         return getattr(self.fld,attr)
+        
+
+class PadField:
+    """Add bytes after the proxified field so that it ends at the specified
+       alignment from its begining"""
+    _fld = None
+    def __init__(self, fld, align, padwith=None):
+        self._fld = fld
+        self._align = align
+        self._padwith = padwith or ""
+
+    def addfield(self, pkt, s, val):
+        return (self._fld.addfield(pkt, s, val)
+                +struct.pack("%is" % (-len(val)%self._align), self._padwith))
+    
+    def __getattr__(self, attr):
+        return getattr(self._fld,attr)
         
 
 class MACField(Field):
@@ -3678,12 +3700,23 @@ class XLongField(LongField):
             x = 0
         return lhex(self.i2h(pkt, x))
 
+def FIELD_LENGTH_MANAGEMENT_DEPRECATION(x):
+    try:
+        for tb in traceback.extract_stack()+[("??",-1,None,"")]:
+            f,l,_,line = tb
+            if line.startswith("fields_desc"):
+                break
+    except:
+        f,l="??",-1
+    log_loading.warning("Deprecated use of %s (%s l. %i). See http://trac.secdev.org/scapy/wiki/LengthFields" % (x,f,l))
 
 class StrField(Field):
     def __init__(self, name, default, fmt="H", remain=0, shift=0):
         Field.__init__(self,name,default,fmt)
-        self.remain = remain
+        self.remain = remain        
         self.shift = shift
+        if shift != 0:
+            FIELD_LENGTH_MANAGEMENT_DEPRECATION(self.__class__.__name__)
     def i2len(self, pkt, i):
         return len(i)+self.shift
     def i2m(self, pkt, x):
@@ -3720,38 +3753,63 @@ class PacketField(StrField):
     
 class PacketLenField(PacketField):
     holds_packets=1
-    def __init__(self, name, default, cls, fld, shift=0):
+    def __init__(self, name, default, cls, fld=None, length_from=None, shift=0):
         PacketField.__init__(self, name, default, cls, shift=shift)
-        self.fld = fld
+        self.length_from = length_from
+        if fld is not None or shift != 0:
+            FIELD_LENGTH_MANAGEMENT_DEPRECATION(self.__class__.__name__)
+            self.count_from = lambda pkt,fld=fld,shift=shift: getattr(pkt,fld)-shift
     def getfield(self, pkt, s):
-        if self.fld is None:
-            l = self.shift
-            if l == 0:
-                l = None
-        else:
-            l = getattr(pkt, self.fld)
-            l -= self.shift
+        l = self.length_from(pkt)
         i = self.m2i(pkt, s[:l])
         return s[l:],i
 
 
-class PacketListField(PacketLenField):
+class PacketListField(PacketField):
     islist = 1
     holds_packets=1
+    def __init__(self, name, default, cls, fld=None, count_from=None, length_from=None, shift=0):
+        if default is None:
+            default = []  # Create a new list for each instance
+        PacketField.__init__(self, name, default, cls, shift=shift)
+        self.count_from = count_from
+        self.length_from = length_from
+
+        if fld is not None or shift != 0:
+            FIELD_LENGTH_MANAGEMENT_DEPRECATION(self.__class__.__name__)
+        if fld is not None:
+            self.count_from = lambda pkt,fld=fld,shift=shift: getattr(pkt,fld)-shift
+
+    def any2i(self, pkt, x):
+        if type(x) is not list:
+            return [x]
+        else:
+            return x
+    def i2count(self, pkt, val):
+        if type(val) is list:
+            return len(val)
+        return 1
+    def i2len(self, pkt, val):
+        return sum( len(p) for p in val )
     def do_copy(self, x):
         return map(lambda p:p.copy(), x)
     def getfield(self, pkt, s):
-        if self.fld is None:
-            l = self.shift
-            if l == 0:
-                l = -1
-        else:
-            l = getattr(pkt, self.fld)
-            l -= self.shift
+        c = l = None
+        if self.length_from is not None:
+            l = self.length_from(pkt)
+        elif self.count_from is not None:
+            c = self.count_from(pkt)
+            
         lst = []
+        ret = ""
         remain = s
-        while l!=0 and len(remain)>0:
-            l -= 1
+        if l is not None:
+            remain,ret = s[:l],s[l:]
+        while remain:
+            if c is not None:
+                if c <= 0:
+                    break
+                c -= 1
             p = self.m2i(pkt,remain)
             if Padding in p:
                 pad = p[Padding]
@@ -3760,20 +3818,28 @@ class PacketListField(PacketLenField):
             else:
                 remain = ""
             lst.append(p)
-        return remain,lst
+        return remain+ret,lst
     def addfield(self, pkt, s, val):
         return s+"".join(map(str, val))
 
 
 class StrFixedLenField(StrField):
-    def __init__(self, name, default, length, shift=0):
+    def __init__(self, name, default, length=None, length_from=None, shift=0):
         StrField.__init__(self, name, default, shift=shift)
-        self.length = length
+        self.length_from  = length_from
+        if length is not None:
+            self.length_from = lambda pkt,length=length: length
     def getfield(self, pkt, s):
-        return s[self.length:], self.m2i(pkt,s[:self.length])
+        l = self.length_from(pkt)
+        return s[l:], self.m2i(pkt,s[:l])
     def addfield(self, pkt, s, val):
-        return s+struct.pack("%is"%self.length,self.i2m(pkt, val))
+        l = self.length_from(pkt)
+        return s+struct.pack("%is"%l,self.i2m(pkt, val))
     def randval(self):
+        try:
+            l = self.length_from(None)
+        except:
+            l = RandNum(0,200)
         return RandBin(self.length)
 
 class NetBIOSNameField(StrFixedLenField):
@@ -3792,63 +3858,90 @@ class NetBIOSNameField(StrFixedLenField):
         return "".join(map(lambda x,y: chr((((ord(x)-1)&0xf)<<4)+((ord(y)-1)&0xf)), x[::2],x[1::2]))
 
 class StrLenField(StrField):
-    def __init__(self, name, default, fld, shift=0):
+    def __init__(self, name, default, fld=None, length_from=None, shift=0):
         StrField.__init__(self, name, default, shift=shift)
-        self.fld = fld
+        self.length_from = length_from
+        if fld is not None or shift != 0:
+            FIELD_LENGTH_MANAGEMENT_DEPRECATION(self.__class__.__name__)
+            self.length_from = lambda pkt,fld=fld,shift=shift: getattr(pkt,fld)-shift
     def getfield(self, pkt, s):
-        if self.fld is None:
-            l = self.shift
-            if l == 0:
-                l = None
-        else:
-            l = getattr(pkt, self.fld)
-            l -= self.shift
+        l = self.length_from(pkt)
         return s[l:], self.m2i(pkt,s[:l])
 
 class FieldListField(Field):
     islist=1
-    def __init__(self, name, default, cls, fld, shift=0):
+    def __init__(self, name, default, field, fld=None, shift=0, length_from=None, count_from=None):
+        if default is None:
+            default = []  # Create a new list for each instance
         Field.__init__(self, name, default)
-        self.cls = cls
-        self.fld = fld
-        self.shift=shift
+        self.count_from = count_from
+        self.length_from = length_from
+        self.field = field
+        if fld is not None or shift != 0:
+            FIELD_LENGTH_MANAGEMENT_DEPRECATION(self.__class__.__name__)
+            self.count_from = lambda pkt,fld=fld,shift=shift: getattr(pkt,fld)-shift
+            
+            
+    def i2count(self, pkt, val):
+        if type(val) is list:
+            return len(val)
+        return 1
     def i2len(self, pkt, val):
-        if val is None:
-            return self.shift
-        else:
-            return len(val)+self.shift
+        return sum( self.field.i2len(pkt,v) for v in val )
+    
     def i2m(self, pkt, val):
         if val is None:
             val = []
         return val
+    def any2i(self, pkt, x):
+        if type(x) is not list:
+            return [x]
+        else:
+            return x
     def addfield(self, pkt, s, val):
         val = self.i2m(pkt, val)
         for v in val:
-            s = self.cls.addfield(pkt, s, v)
+            s = self.field.addfield(pkt, s, v)
         return s
     def getfield(self, pkt, s):
-        if self.fld is None:
-            l = self.shift
-            if l == 0:
-                l = -1
-        else:
-            l = getattr(pkt, self.fld)        
-            l -= self.shift
+        c = l = None
+        if self.length_from is not None:
+            l = self.length_from(pkt)
+        elif self.count_from is not None:
+            c = self.count_from(pkt)
+
         val = []
-        while s and l != 0:
-            l -= 1
-            s,v = self.cls.getfield(pkt, s)
+        ret=""
+        if l is not None:
+            s,ret = s[:l],s[l:]
+            
+        while s:
+            if c is not None:
+                if c <= 0:
+                    break
+                c -= 1
+            s,v = self.field.getfield(pkt, s)
             val.append(v)
-        return s, val
+        return s+ret, val
 
 class FieldLenField(Field):
-    def __init__(self, name, default, fld, fmt = "H"):
+    def __init__(self, name, default,  length_of=None, fmt = "H", count_of=None, adjust=lambda pkt,x:x, fld=None):
         Field.__init__(self, name, default, fmt)
-        self.fld = fld
+        self.length_of=length_of
+        self.count_of=count_of
+        self.adjust=adjust
+        if fld is not None:
+            FIELD_LENGTH_MANAGEMENT_DEPRECATION(self.__class__.__name__)
+            self.length_of = fld
     def i2m(self, pkt, x):
         if x is None:
-            f = pkt.get_field(self.fld)
-            x = f.i2len(pkt,pkt.getfieldval(self.fld))
+            if self.length_of is not None:
+                fld,fval = pkt.getfield_and_val(self.length_of)
+                f = fld.i2len(pkt, fval)
+            else:
+                fld,fval = pkt.getfield_and_val(self.count_of)
+                f = fld.i2count(pkt, fval)
+            x = self.adjust(pkt,f)
         return x
 
 # see http://www.iana.org/assignments/ipsec-registry for details
@@ -3988,11 +4081,6 @@ class ISAKMPTransformSetField(StrLenField):
         if len(m) > 0:
             warning("Extra bytes after ISAKMP transform dissection [%r]" % m)
         return lst
-    def getfield(self, pkt, s):
-        l = getattr(pkt, self.fld)
-        l -= self.shift
-        i = self.m2i(pkt, s[:l])
-        return s[l:],i
 
 class StrNullField(StrField):
     def addfield(self, pkt, s, val):
@@ -4046,8 +4134,7 @@ class BitField(Field):
         return val
         
     def addfield(self, pkt, s, val):
-        if val is None:
-            val = 0
+        val = self.i2m(pkt, val)
         if type(s) is tuple:
             s,bitsdone,v = s
         else:
@@ -4094,6 +4181,7 @@ class BitField(Field):
         bn += self.size
         s = s[bn/8:]
         bn = bn%8
+        b = self.m2i(pkt, b)
         if bn:
             return (s,bn),b
         else:
@@ -4194,8 +4282,8 @@ class LELongField(Field):
 
 # Little endian fixed length field
 class LEFieldLenField(FieldLenField):
-    def __init__(self, name, default, fld, fmt = "<H"):
-        FieldLenField.__init__(self, name, default, fld=fld, fmt=fmt)
+    def __init__(self, name, default,  length_of=None, fmt = "<H", count_of=None, adjust=lambda pkt,x:x, fld=None):
+        FieldLenField.__init__(self, name, default, length_of=length_of, fmt=fmt, fld=fld, adjust=adjust)
 
 
 class FlagsField(BitField):
@@ -5646,7 +5734,7 @@ A side effect is that, to obtain "{" and "}" characters, you must use
             i = fmt.index("%")
             s += fmt[:i]
             fmt = fmt[i+1:]
-            if fmt[0] in escape:
+            if fmt and fmt[0] in escape:
                 s += escape[fmt[0]]
                 fmt = fmt[1:]
                 continue
@@ -5752,8 +5840,11 @@ A side effect is that, to obtain "{" and "}" characters, you must use
         """Returns a string representing the command you have to type to obtain the same packet"""
         f = []
         for fn,fv in self.fields.items():
+            fld = self.get_field(fn)
             if isinstance(fv, Packet):
                 fv = fv.command()
+            elif fld.islist and fld.holds_packets and type(fv) is list:
+                fv = "[%s]" % ",".join( map(Packet.command, fv))
             else:
                 fv = repr(fv)
             f.append("%s=%s" % (fn, fv))
@@ -5991,13 +6082,13 @@ class RadioTap(Packet):
     name = "RadioTap dummy"
     fields_desc = [ ByteField('version', 0),
                     ByteField('pad', 0),
-                    FieldLenField('len', None, 'notdecoded', '@H'),
+                    FieldLenField('len', None, 'notdecoded', '@H', adjust=lambda pkt,x:x+8),
                     FlagsField('present', None, -32, ['TSFT','Flags','Rate','Channel','FHSS','dBm_AntSignal',
                                                      'dBm_AntNoise','Lock_Quality','TX_Attenuation','dB_TX_Attenuation',
                                                       'dBm_TX_Power', 'Antenna', 'dB_AntSignal', 'dB_AntNoise',
                                                      'b14', 'b15','b16','b17','b18','b19','b20','b21','b22','b23',
                                                      'b24','b25','b26','b27','b28','b29','b30','Ext']),
-                    StrLenField('notdecoded', "", 'len', shift=8) ]
+                    StrLenField('notdecoded', "", length_from= lambda pkt:pkt.len-8) ]
 
 class STP(Packet):
     name = "Spanning Tree Protocol"
@@ -6510,7 +6601,7 @@ class DNSRR(Packet):
                     ShortEnumField("rclass", 1, dnsclasses),
                     IntField("ttl", 0),
                     RDLenField("rdlen"),
-                    RDataField("rdata", "", "rdlen") ]
+                    RDataField("rdata", "", length_from=lambda pkt:pkt.rdlen) ]
 
 dhcpmagic="c\x82Sc"
 
@@ -6818,7 +6909,7 @@ class Dot11Elt(Packet):
     fields_desc = [ ByteEnumField("ID", 0, {0:"SSID", 1:"Rates", 2: "FHset", 3:"DSset", 4:"CFset", 5:"TIM", 6:"IBSSset", 16:"challenge",
                                             42:"ERPinfo", 47:"ERPinfo", 48:"RSNinfo", 50:"ESRates",221:"vendor",68:"reserved"}),
                     FieldLenField("len", None, "info", "B"),
-                    StrLenField("info", "", "len") ]
+                    StrLenField("info", "", length_from=lambda x:x.len) ]
     def mysummary(self):
         if self.ID == 0:
             return "SSID=%s"%repr(self.info),[Dot11]
@@ -7185,7 +7276,7 @@ class ISAKMP_payload_Transform(ISAKMP_class):
         ByteField("num",None),
         ByteEnumField("id",1,{1:"KEY_IKE"}),
         ShortField("res2",0),
-        ISAKMPTransformSetField("transforms",None,"length",shift=8)
+        ISAKMPTransformSetField("transforms",None,length_from=lambda x:x.length-8)
 #        XIntField("enc",0x80010005L),
 #        XIntField("hash",0x80020002L),
 #        XIntField("auth",0x80030001L),
@@ -7210,13 +7301,13 @@ class ISAKMP_payload_Proposal(ISAKMP_class):
     fields_desc = [
         ByteEnumField("next_payload",None,ISAKMP_payload_type),
         ByteField("res",0),
-        FieldLenField("length",None,"trans","H"),
+        FieldLenField("length",None,"trans","H", adjust=lambda pkt,x:x+8),
         ByteField("proposal",1),
         ByteEnumField("proto",1,{1:"ISAKMP"}),
         FieldLenField("SPIsize",None,"SPI","B"),
         ByteField("trans_nb",None),
-        StrLenField("SPI","","SPIsize"),
-        PacketLenField("trans",Raw(),ISAKMP_payload_Transform,"length",shift=8),
+        StrLenField("SPI","",length_from=lambda x:x.SPIsize),
+        PacketLenField("trans",Raw(),ISAKMP_payload_Transform,length_from=lambda x:x.length-8),
         ]
 
 
@@ -7225,8 +7316,8 @@ class ISAKMP_payload(ISAKMP_class):
     fields_desc = [
         ByteEnumField("next_payload",None,ISAKMP_payload_type),
         ByteField("res",0),
-        FieldLenField("length",None,"load","H"),
-        StrLenField("load","","length",shift=4),
+        FieldLenField("length",None,"load","H", adjust=lambda pkt,x:x+4),
+        StrLenField("load","",length_from=lambda x:x.length-4),
         ]
 
 
@@ -7236,8 +7327,8 @@ class ISAKMP_payload_VendorID(ISAKMP_class):
     fields_desc = [
         ByteEnumField("next_payload",None,ISAKMP_payload_type),
         ByteField("res",0),
-        FieldLenField("length",None,"vendorID","H"),
-        StrLenField("vendorID","","length",shift=4),
+        FieldLenField("length",None,"vendorID","H", adjust=lambda pkt,x:x+4),
+        StrLenField("vendorID","",length_from=lambda x:x.length-4),
         ]
 
 class ISAKMP_payload_SA(ISAKMP_class):
@@ -7246,10 +7337,10 @@ class ISAKMP_payload_SA(ISAKMP_class):
     fields_desc = [
         ByteEnumField("next_payload",None,ISAKMP_payload_type),
         ByteField("res",0),
-        FieldLenField("length",None,"prop","H"),
+        FieldLenField("length",None,"prop","H", adjust=lambda pkt,x:x+12),
         IntEnumField("DOI",1,{1:"IPSEC"}),
         IntEnumField("situation",1,{1:"identity"}),
-        PacketLenField("prop",Raw(),ISAKMP_payload_Proposal,"length",shift=12),
+        PacketLenField("prop",Raw(),ISAKMP_payload_Proposal,length_from=lambda x:x.length-12),
         ]
 
 class ISAKMP_payload_Nonce(ISAKMP_class):
@@ -7258,8 +7349,8 @@ class ISAKMP_payload_Nonce(ISAKMP_class):
     fields_desc = [
         ByteEnumField("next_payload",None,ISAKMP_payload_type),
         ByteField("res",0),
-        FieldLenField("length",None,"load","H"),
-        StrLenField("load","","length",shift=4),
+        FieldLenField("length",None,"load","H", adjust=lambda pkt,x:x+4),
+        StrLenField("load","",length_from=lambda x:x.length-4),
         ]
 
 class ISAKMP_payload_KE(ISAKMP_class):
@@ -7268,8 +7359,8 @@ class ISAKMP_payload_KE(ISAKMP_class):
     fields_desc = [
         ByteEnumField("next_payload",None,ISAKMP_payload_type),
         ByteField("res",0),
-        FieldLenField("length",None,"load","H"),
-        StrLenField("load","","length",shift=4),
+        FieldLenField("length",None,"load","H", adjust=lambda pkt,x:x+4),
+        StrLenField("load","",length_from=lambda x:x.length-4),
         ]
 
 class ISAKMP_payload_ID(ISAKMP_class):
@@ -7278,12 +7369,12 @@ class ISAKMP_payload_ID(ISAKMP_class):
     fields_desc = [
         ByteEnumField("next_payload",None,ISAKMP_payload_type),
         ByteField("res",0),
-        FieldLenField("length",None,"load","H"),
+        FieldLenField("length",None,"load","H",adjust=lambda pkt,x:x+8),
         ByteEnumField("IDtype",1,{1:"IPv4_addr", 11:"Key"}),
         ByteEnumField("ProtoID",0,{0:"Unused"}),
         ShortEnumField("Port",0,{0:"Unused"}),
 #        IPField("IdentData","127.0.0.1"),
-        StrLenField("load","","length",shift=8),
+        StrLenField("load","",length_from=lambda x:x.length-8),
         ]
 
 
@@ -7294,8 +7385,8 @@ class ISAKMP_payload_Hash(ISAKMP_class):
     fields_desc = [
         ByteEnumField("next_payload",None,ISAKMP_payload_type),
         ByteField("res",0),
-        FieldLenField("length",None,"load","H"),
-        StrLenField("load","","length",shift=4),
+        FieldLenField("length",None,"load","H",adjust=lambda pkt,x:x+4),
+        StrLenField("load","",length_from=lambda x:x.length-4),
         ]
 
 
@@ -7488,7 +7579,7 @@ class SebekV1(Packet):
                     IntField("fd", 0),
                     StrFixedLenField("command", "", 12),
                     FieldLenField("data_length", None, "data",fmt="I"),
-                    StrLenField("data", "", "data_length") ]
+                    StrLenField("data", "", length_from=lambda x:x.data_length) ]
     def mysummary(self):
         if isinstance(self.underlayer, SebekHead):
             return self.underlayer.sprintf("Sebek v1 %SebekHead.type% (%SebekV1.command%)")
@@ -7504,7 +7595,7 @@ class SebekV3(Packet):
                     IntField("inode", 0),
                     StrFixedLenField("command", "", 12),
                     FieldLenField("data_length", None, "data",fmt="I"),
-                    StrLenField("data", "", "data_length") ]
+                    StrLenField("data", "", length_from=lambda x:x.data_length) ]
     def mysummary(self):
         if isinstance(self.underlayer, SebekHead):
             return self.underlayer.sprintf("Sebek v%SebekHead.version% %SebekHead.type% (%SebekV3.command%)")
@@ -8095,9 +8186,9 @@ class SMBNegociate_Protocol_Response_Advanced_Security(Packet):
                    LEIntField("ServerTimeLow",0x1C4EF94),
                    LEShortField("ServerTimeZone",0x3c),
                    ByteField("EncryptionKeyLength",0),
-                   LEFieldLenField("ByteCount", None, "SecurityBlob"),
+                   LEFieldLenField("ByteCount", None, "SecurityBlob", adjust=lambda pkt,x:x-16),
                    BitField("GUID",0,128),
-                   StrLenField("SecurityBlob", "", "ByteCount",shift=-16)]
+                   StrLenField("SecurityBlob", "", length_from=lambda x:x.ByteCount+16)]
 
 # SMBNegociate Protocol Response No Security
 # When using no security, with EncryptionKeyLength=8, you must have an EncryptionKey before the DomainName
@@ -8216,7 +8307,7 @@ class SMBSession_Setup_AndX_Request(Packet):
                  BitField("CompBulk",0,2),
                  BitField("Reserved5",0,5),
                  LEShortField("ByteCount",35),
-                 StrLenField("ANSIPassword", "Pass","ANSIPasswordLength"),
+                 StrLenField("ANSIPassword", "Pass",length_from=lambda x:x.ANSIPasswordLength),
                  StrNullField("Account","GUEST"),
                  StrNullField("PrimaryDomain",  ""),
                  StrNullField("NativeOS","Windows 4.0"),
@@ -8364,13 +8455,13 @@ class TFTP_DATA(Packet):
         return self.sprintf("DATA %block%"),[UDP]
 
 class TFTP_Option(Packet):
-    fields_desc = [ StrNullField("name",""),
+    fields_desc = [ StrNullField("oname",""),
                     StrNullField("value","") ]
     def extract_padding(self, pkt):
         return "",pkt
 
 class TFTP_Options(Packet):
-    fields_desc = [ PacketListField("options", [], TFTP_Option, fld=None, shift=0) ]
+    fields_desc = [ PacketListField("options", [], TFTP_Option, length_from=lambda x:None) ]
 
     
 class TFTP_ACK(Packet):
@@ -8379,7 +8470,7 @@ class TFTP_ACK(Packet):
     def answers(self, other):
         if isinstance(other, TFTP_DATA):
             return self.block == other.block
-        elif isinstance(other, TFTP_RRQ) or isinstance(other, TFTP_WRQ) or isintance(other, TFTP_OACK):
+        elif isinstance(other, TFTP_RRQ) or isinstance(other, TFTP_WRQ) or isinstance(other, TFTP_OACK):
             return self.block == 0
         return 0
     def mysummary(self):
@@ -8411,9 +8502,9 @@ class TFTP_ERROR(Packet):
 
 class TFTP_OACK(Packet):
     name = "TFTP Option Ack"
-    fields_desc = [ ShortField("block", 0) ]
-    def mysummary(self):
-        return self.sprintf("OACK %block%"),[UDP]
+    fields_desc = [  ]
+    def answers(self, other):
+        return isinstance(other, TFTP_WRQ) or isinstance(other, TFTP_RRQ)
 
 
 ##########
@@ -8944,6 +9035,87 @@ def defrag(plist):
     for p in defrag:
         defrag2.append(p.__class__(str(p)))
     return nofrag,defrag2,missfrag
+            
+def defragment(plist):
+    """defrag(plist) -> plist defragmented as much as possible """
+    frags = {}
+    final = []
+
+    pos = 0
+    for p in plist:
+        p._defrag_pos = pos
+        pos += 1
+        if IP in p:
+            ip = p[IP]
+            if ip.frag != 0 or ip.flags & 1:
+                ip = p[IP]
+                uniq = (ip.id,ip.src,ip.dst,ip.proto)
+                if uniq in frags:
+                    frags[uniq].append(p)
+                else:
+                    frags[uniq] = [p]
+                continue
+        final.append(p)
+
+    defrag = []
+    missfrag = []
+    for lst in frags.itervalues():
+        lst.sort(lambda x,y:cmp(x.frag, y.frag))
+        p = lst[0]
+        if p.frag > 0:
+            missfrag += lst
+            continue
+        p = p.copy()
+        if Padding in p:
+            del(p[Padding].underlayer.payload)
+        ip = p[IP]
+        if ip.len is None or ip.ihl is None:
+            clen = len(ip.payload)
+        else:
+            clen = ip.len - (ip.ihl<<2)
+        txt = Raw()
+        for q in lst[1:]:
+            if clen != q.frag<<3:
+                if clen > q.frag<<3:
+                    warning("Fragment overlap (%i > %i) %r || %r ||  %r" % (clen, q.frag<<3, p,txt,q))
+                missfrag += lst
+                txt = None
+                break
+            if q[IP].len is None or q[IP].ihl is None:
+                clen += len(q[IP].payload)
+            else:
+                clen += q[IP].len - (q[IP].ihl<<2)
+            if Padding in q:
+                del(q[Padding].underlayer.payload)
+            txt.add_payload(q[IP].payload.copy())
+            
+        if txt is None:
+            continue
+
+        ip.flags &= ~1 # !MF
+        del(ip.chksum)
+        del(ip.len)
+        p = p/txt
+        p._defrag_pos = lst[-1]._defrag_pos
+        defrag.append(p)
+    defrag2=[]
+    for p in defrag:
+        q = p.__class__(str(p))
+        q._defrag_pos = p._defrag_pos
+        defrag2.append(q)
+    final += defrag2
+    final += missfrag
+    final.sort(lambda x,y: cmp(x._defrag_pos, y._defrag_pos))
+    for p in final:
+        del(p._defrag_pos)
+
+    if hasattr(plist, "listname"):
+        name = "Defragmented %s" % plist.listname
+    else:
+        name = "Defragmented"
+        
+    
+    return PacketList(final, name=name)
             
             
         
