@@ -11356,10 +11356,13 @@ class Automaton:
     
     def __init__(self, *args, **kargs):
         self.init_states()
+        self.debug_level=0
         self.parse_args(*args, **kargs)
 
-    
-
+    def debug(self, lvl, msg):
+        if self.debug_level >= lvl:
+            log_interactive.debug(msg)
+            
     def init_states(self):
         self.state="BEGIN"
         self.states={}
@@ -11421,29 +11424,27 @@ class Automaton:
             self.result = result
 
     def parse_args(self, debug=0, **kargs):
-        self.debug=debug
+        self.debug_level=debug
 
     def run_condition(self, cond, *args, **kargs):
         newstate = cond(self,*args, **kargs)
         if newstate is not None:
-            if self.debug >= 2:
-                print >>sys.stderr, "%s [%s] taken to state [%s]" % (cond.atmt_type, cond.atmt_condname, newstate)
+            self.debug(2, "%s [%s] taken to state [%s]" % (cond.atmt_type, cond.atmt_condname, newstate))
             for action in self.actions[cond.atmt_condname]:
-                if self.debug >= 2:
-                    print >>sys.stderr, "   + Running action [%s]" % action.func_name
+                self.debug(2, "   + Running action [%s]" % action.func_name)
                 action(self)
             raise self.NewState(newstate)
-        elif self.debug >= 2:
-            print >>sys.stderr,"%s [%s] not taken" % (cond.atmt_type, cond.atmt_condname)
+        else:
+            self.debug(2, "%s [%s] not taken" % (cond.atmt_type, cond.atmt_condname))
             
 
     def run(self):
         self.state=self.initial[0]
-        self.send_sock = l = conf.L3socket()
+        self.send_sock = conf.L3socket()
+        l = conf.L2listen()
         while 1:
             try:
-                if self.debug:
-                    print >>sys.stderr, "## state=[%s]" % self.state
+                self.debug(1, "## state=[%s]" % self.state)
 
                 # Entering a new state. First, call new state function
                 res = self.states[self.state](self)
@@ -11477,13 +11478,11 @@ class Automaton:
                     if l in r:
                         pkt = l.recv(MTU)
                         if pkt is not None:
-                            if self.debug >= 3:
-                                print >>sys.stderr, pkt.summary()
+                            self.debug(3, "RECV: %s" % pkt.summary())
                             for rcvcond in self.recvcond[self.state]:
                                 self.run_condition(rcvcond, pkt)
             except self.NewState,s:
-                if self.debug >= 2:
-                    print >>sys.stderr, "switching from [%s] to [%s]" % (self.state,s)
+                self.debug(2, "switching from [%s] to [%s]" % (self.state,s))
                 self.state = str(s)
                 
     def send(self, pkt):
