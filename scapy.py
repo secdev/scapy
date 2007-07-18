@@ -3674,6 +3674,8 @@ class IntField(Field):
 class SignedIntField(Field):
     def __init__(self, name, default):
         Field.__init__(self, name, default, "i")
+    def randval(self):
+        return RandSInt()
 
 class LEIntField(Field):
     def __init__(self, name, default):
@@ -3682,6 +3684,8 @@ class LEIntField(Field):
 class LESignedIntField(Field):
     def __init__(self, name, default):
         Field.__init__(self, name, default, "<i")
+    def randval(self):
+        return RandSInt()
 
 class XIntField(IntField):
     def i2repr(self, pkt, x):
@@ -4275,6 +4279,12 @@ class ByteEnumField(EnumField):
 class IntEnumField(EnumField):
     def __init__(self, name, default, enum):
         EnumField.__init__(self, name, default, enum, "I")
+
+class SignedIntEnumField(EnumField):
+    def __init__(self, name, default, enum):
+        EnumField.__init__(self, name, default, enum, "i")
+    def randval(self):
+        return RandSInt()
 
 class LEIntEnumField(EnumField):
     def __init__(self, name, default, enum):
