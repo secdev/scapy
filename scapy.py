@@ -11426,6 +11426,9 @@ class Automaton:
     def parse_args(self, debug=0, **kargs):
         self.debug_level=debug
 
+    def master_filter(self, pkt):
+        return True
+
     def run_condition(self, cond, *args, **kargs):
         newstate = cond(self,*args, **kargs)
         if newstate is not None:
@@ -11478,9 +11481,13 @@ class Automaton:
                     if l in r:
                         pkt = l.recv(MTU)
                         if pkt is not None:
-                            self.debug(3, "RECV: %s" % pkt.summary())
-                            for rcvcond in self.recvcond[self.state]:
-                                self.run_condition(rcvcond, pkt)
+                            if self.master_filter(pkt):
+                                self.debug(3, "RECVD: %s" % pkt.summary())
+                                for rcvcond in self.recvcond[self.state]:
+                                    self.run_condition(rcvcond, pkt)
+                            else:
+                                self.debug(4, "FILTR: %s" % pkt.summary())
+
             except self.NewState,s:
                 self.debug(2, "switching from [%s] to [%s]" % (self.state,s))
                 self.state = str(s)
