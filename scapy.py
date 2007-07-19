@@ -11473,7 +11473,7 @@ class Automaton:
                 # If still there and no conditions left, we are stuck!
                 if ( len(self.recv_conditions[self.state]) == 0
                      and len(self.timeout[self.state]) == 1 ):
-                    raise self.Stuck("stuck in [%s]" % self.state,result=res)
+                    raise self.Stuck("stuck in [%s]" % self.state,result=state_output)
 
                 # Finally listen and pay attention to timeouts
                 expirations = iter(self.timeout[self.state])
