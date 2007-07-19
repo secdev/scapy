@@ -11370,9 +11370,9 @@ class Automaton:
         self.cond={}
         self.timeout={}
         self.actions={}
-        self.initial=[]
-        self.final=[]
-        self.error=[]
+        self.initial_states=[]
+        self.final_states=[]
+        self.error_states=[]
         decorated = dict((k,v) for (k,v) in self.get_members().iteritems()
                          if type(v) is types.FunctionType and hasattr(v, "atmt_type"))
         
@@ -11384,11 +11384,11 @@ class Automaton:
                 self.cond[s]=[]
                 self.timeout[s]=[]
                 if m.atmt_final:
-                    self.final.append(s)
+                    self.final_states.append(s)
                 if m.atmt_initial:
-                    self.initial.append(s)
+                    self.initial_states.append(s)
                 if m.atmt_error:
-                    self.error.append(s)
+                    self.error_states.append(s)
             elif m.atmt_type in [ATMT.CONDITION, ATMT.RECV, ATMT.TIMEOUT]:
                 self.actions[m.atmt_condname] = []
     
@@ -11447,7 +11447,7 @@ class Automaton:
             
 
     def run(self):
-        self.state=self.initial[0]
+        self.state=self.initial_states[0]
         self.send_sock = conf.L3socket()
         l = conf.L2listen()
         while 1:
@@ -11456,9 +11456,9 @@ class Automaton:
 
                 # Entering a new state. First, call new state function
                 state_output = self.states[self.state](self)
-                if self.state in self.error:
+                if self.state in self.error_states:
                     raise self.ErrorState("Reached %s: [%r]" % (self.state, state_output), result=state_output)
-                if self.state in self.final:
+                if self.state in self.final_states:
                     return state_output
 
                 if state_output is None:
@@ -11512,12 +11512,12 @@ class Automaton:
     def graph(self, **kargs):
         s = 'digraph "%s" {\n'  % self.__class__.__name__
 
-        for st in self.initial:
+        for st in self.initial_states:
             s += '\t"%s" [ style=filled, fillcolor=blue shape=box];\n' % st
                         
-        for st in self.final:
+        for st in self.final_states:
             s += '\t"%s" [ style=filled, fillcolor=green, shape=octagon ];\n' % st
-        for st in self.error:
+        for st in self.error_states:
             s += '\t"%s" [ style=filled, fillcolor=red, shape=octagon ];\n' % st
                         
         for c,k,v in [("green",k,v) for k,v in self.cond.items()]+[("red",k,v) for k,v in self.recvcond.items()]:
