@@ -11600,20 +11600,6 @@ class ATMT:
             ret.atmt_origfunc = f
             return ret
         return deco
-    @staticmethod
-    def final():
-        def deco(f):
-            f.atmt_final=1
-            return f
-        return deco
-    @staticmethod
-    def initial():
-        def deco(f):
-            f.atmt_final=1
-            return f
-        return deco
-              
-
     
 
 class TFTP_read(Automaton):
