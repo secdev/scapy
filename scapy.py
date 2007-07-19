@@ -11450,13 +11450,18 @@ class Automaton:
                 self.debug(1, "## state=[%s]" % self.state)
 
                 # Entering a new state. First, call new state function
-                res = self.states[self.state](self)
+                state_output = self.states[self.state](self)
                 if self.state in self.final:
-                    return res
+                    return state_output
+
+                if state_output is None:
+                    state_output = ()
+                elif type(state_output) is not list:
+                    state_output = state_output,
                 
                 # Then check immediate conditions
                 for cond in self.cond[self.state]:
-                    self.run_condition(cond)
+                    self.run_condition(cond, *state_output)
 
                 # If still there and no conditions left, we are stuck!
                 if ( len(self.recvcond[self.state]) == 0
@@ -11474,7 +11479,7 @@ class Automaton:
                         remain = None
                     else:
                         if next_timeout <= t:
-                            self.run_condition(timeout_func)
+                            self.run_condition(timeout_func, *state_output)
                             next_timeout,timeout_func = expirations.next()
                         remain = next_timeout-t
     
@@ -11485,7 +11490,7 @@ class Automaton:
                             if self.master_filter(pkt):
                                 self.debug(3, "RECVD: %s" % pkt.summary())
                                 for rcvcond in self.recvcond[self.state]:
-                                    self.run_condition(rcvcond, pkt)
+                                    self.run_condition(rcvcond, pkt, *state_output)
                             else:
                                 self.debug(4, "FILTR: %s" % pkt.summary())
 
