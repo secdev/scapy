@@ -11453,14 +11453,15 @@ class Automaton:
                 res = self.states[self.state](self)
                 if self.state in self.final:
                     return res
-                if ( len(self.cond[self.state]) == 0
-                     and len(self.recvcond[self.state]) == 0
-                     and len(self.timeout[self.state]) == 1 ):
-                    raise self.Stuck("stuck in [%s]" % self.state,result=res)
                 
                 # Then check immediate conditions
                 for cond in self.cond[self.state]:
                     self.run_condition(cond)
+
+                # If still there and no conditions left, we are stuck!
+                if ( len(self.recvcond[self.state]) == 0
+                     and len(self.timeout[self.state]) == 1 ):
+                    raise self.Stuck("stuck in [%s]" % self.state,result=res)
 
                 # Finally listen and pay attention to timeouts
                 expirations = iter(self.timeout[self.state])
