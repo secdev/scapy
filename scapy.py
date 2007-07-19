@@ -3438,8 +3438,8 @@ class PadField:
         self._padwith = padwith or ""
 
     def addfield(self, pkt, s, val):
-        return (self._fld.addfield(pkt, s, val)
-                +struct.pack("%is" % (-len(val)%self._align), self._padwith))
+        sval = self._fld.addfield(pkt, "", val)
+        return s+sval+struct.pack("%is" % (-len(sval)%self._align), self._padwith)
     
     def __getattr__(self, attr):
         return getattr(self._fld,attr)
