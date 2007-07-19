@@ -11366,8 +11366,8 @@ class Automaton:
     def init_states(self):
         self.state="BEGIN"
         self.states={}
-        self.recvcond={}
-        self.cond={}
+        self.recv_conditions={}
+        self.conditions={}
         self.timeout={}
         self.actions={}
         self.initial_states=[]
@@ -11380,8 +11380,8 @@ class Automaton:
             if m.atmt_type == ATMT.STATE:
                 s = m.atmt_state
                 self.states[s] = m
-                self.recvcond[s]=[]
-                self.cond[s]=[]
+                self.recv_conditions[s]=[]
+                self.conditions[s]=[]
                 self.timeout[s]=[]
                 if m.atmt_final:
                     self.final_states.append(s)
@@ -11394,9 +11394,9 @@ class Automaton:
     
         for m in decorated.itervalues():
             if m.atmt_type == ATMT.CONDITION:
-                self.cond[m.atmt_state].append(m)
+                self.conditions[m.atmt_state].append(m)
             elif m.atmt_type == ATMT.RECV:
-                self.recvcond[m.atmt_state].append(m)
+                self.recv_conditions[m.atmt_state].append(m)
             elif m.atmt_type == ATMT.TIMEOUT:
                 self.timeout[m.atmt_state].append((m.atmt_timeout, m))
             elif m.atmt_type == ATMT.ACTION:
@@ -11467,11 +11467,11 @@ class Automaton:
                     state_output = state_output,
                 
                 # Then check immediate conditions
-                for cond in self.cond[self.state]:
+                for cond in self.conditions[self.state]:
                     self.run_condition(cond, *state_output)
 
                 # If still there and no conditions left, we are stuck!
-                if ( len(self.recvcond[self.state]) == 0
+                if ( len(self.recv_conditions[self.state]) == 0
                      and len(self.timeout[self.state]) == 1 ):
                     raise self.Stuck("stuck in [%s]" % self.state,result=res)
 
@@ -11496,7 +11496,7 @@ class Automaton:
                         if pkt is not None:
                             if self.master_filter(pkt):
                                 self.debug(3, "RECVD: %s" % pkt.summary())
-                                for rcvcond in self.recvcond[self.state]:
+                                for rcvcond in self.recv_conditions[self.state]:
                                     self.run_condition(rcvcond, pkt, *state_output)
                             else:
                                 self.debug(4, "FILTR: %s" % pkt.summary())
@@ -11520,7 +11520,7 @@ class Automaton:
         for st in self.error_states:
             s += '\t"%s" [ style=filled, fillcolor=red, shape=octagon ];\n' % st
                         
-        for c,k,v in [("green",k,v) for k,v in self.cond.items()]+[("red",k,v) for k,v in self.recvcond.items()]:
+        for c,k,v in [("green",k,v) for k,v in self.conditions.items()]+[("red",k,v) for k,v in self.recv_conditions.items()]:
             for f in v:
                 for n in f.atmt_origfunc.func_code.co_names+f.atmt_origfunc.func_code.co_consts:
                     if n in self.states:
