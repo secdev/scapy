@@ -11372,6 +11372,7 @@ class Automaton:
         self.actions={}
         self.initial=[]
         self.final=[]
+        self.error=[]
         decorated = dict((k,v) for (k,v) in self.get_members().iteritems()
                          if type(v) is types.FunctionType and hasattr(v, "atmt_type"))
         
@@ -11386,6 +11387,8 @@ class Automaton:
                     self.final.append(s)
                 if m.atmt_initial:
                     self.initial.append(s)
+                if m.atmt_error:
+                    self.error.append(s)
             elif m.atmt_type in [ATMT.CONDITION, ATMT.RECV, ATMT.TIMEOUT]:
                 self.actions[m.atmt_condname] = []
     
@@ -11418,10 +11421,12 @@ class Automaton:
 
     class NewState(Exception):
         pass
-    class Stuck(Exception):
+    class ErrorState(Exception):
         def __init__(self, msg, result=None):
             Exception.__init__(self, msg)
             self.result = result
+    class Stuck(ErrorState):
+        pass
 
     def parse_args(self, debug=0, **kargs):
         self.debug_level=debug
@@ -11451,6 +11456,8 @@ class Automaton:
 
                 # Entering a new state. First, call new state function
                 state_output = self.states[self.state](self)
+                if self.state in self.error:
+                    raise self.ErrorState("Reached %s: [%r]" % (self.state, state_output), result=state_output)
                 if self.state in self.final:
                     return state_output
 
@@ -11506,9 +11513,11 @@ class Automaton:
         s = 'digraph "%s" {\n'  % self.__class__.__name__
 
         for st in self.initial:
-            s += '\t"%s" [ style=filled, fillcolor=green shape=box];\n' % st
+            s += '\t"%s" [ style=filled, fillcolor=blue shape=box];\n' % st
                         
         for st in self.final:
+            s += '\t"%s" [ style=filled, fillcolor=green, shape=octagon ];\n' % st
+        for st in self.error:
             s += '\t"%s" [ style=filled, fillcolor=red, shape=octagon ];\n' % st
                         
         for c,k,v in [("green",k,v) for k,v in self.cond.items()]+[("red",k,v) for k,v in self.recvcond.items()]:
@@ -11542,12 +11551,13 @@ class ATMT:
     TIMEOUT = "Timeout condition"
     
     @staticmethod
-    def state(initial=0,final=0):
+    def state(initial=0,final=0,error=0):
         def deco(f,initial=initial, final=final):
             f.atmt_type = ATMT.STATE
             f.atmt_state = f.func_name
             f.atmt_initial = initial
             f.atmt_final = final
+            f.atmt_error = error
             return f
         return deco
     @staticmethod
@@ -11668,7 +11678,7 @@ class TFTP_read(Automaton):
         self.send(self.current_ack)
 
     # ERROR
-    @ATMT.state(final=1)
+    @ATMT.state(error=1)
     def state_ERROR(self):
         pass
     
@@ -11735,10 +11745,10 @@ class TFTP_write(Automaton):
                    /TFTP()/TFTP_DATA(block=self.awaiting)/self.data.pop(0) )
 
     # ERROR
-    @ATMT.state(final=1)
+    @ATMT.state(error=1)
     def state_ERROR(self):
         split_bottom_up(UDP, TFTP, dport=self.my_tid)
-        raise Exception(self.errormsg)
+        return self.errormsg
 
     # END
     @ATMT.state(final=1)
