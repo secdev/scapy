@@ -11419,14 +11419,6 @@ class Automaton:
         return members
         
 
-    class NewStateRequested(Exception):
-        def __init__(self, state, args=(), kargs=None):
-            Exception.__init__(self, "Request state [%s]" % state)
-            self.state = state
-            self.args = args
-            if kargs is None:
-                kargs = {}
-            self.kargs = kargs
 
     class ErrorState(Exception):
         def __init__(self, msg, result=None):
@@ -11441,19 +11433,14 @@ class Automaton:
     def master_filter(self, pkt):
         return True
 
-    def go_to_state(self, newstate, *args, **kargs):
-        if type(newstate) is types.MethodType or type(newstate) in types.FunctionType:
-            newstate = newstate.atmt_state
-        raise self.NewStateRequested(newstate, args, kargs)
-    
     def run_condition(self, cond, *args, **kargs):
         try:
             cond(self,*args, **kargs)
-        except self.NewStateRequested, newstate:
-            self.debug(2, "%s [%s] taken to state [%s]" % (cond.atmt_type, cond.atmt_condname, newstate.state))
+        except ATMT.NewStateRequested, state_req:
+            self.debug(2, "%s [%s] taken to state [%s]" % (cond.atmt_type, cond.atmt_condname, state_req.state))
             for action in self.actions[cond.atmt_condname]:
                 self.debug(2, "   + Running action [%s]" % action.func_name)
-                action(self, *newstate.args, **newstate.kargs)
+                action(self, *state_req.action_args, **state_req.action_kargs)
             raise
         else:
             self.debug(2, "%s [%s] not taken" % (cond.atmt_type, cond.atmt_condname))
@@ -11461,6 +11448,7 @@ class Automaton:
 
     def run(self):
         self.state=self.initial_states[0]
+        self.state_req = self.states[self.state](self)
         self.state_args = ()
         self.state_kargs = {}
         self.send_sock = conf.L3socket()
@@ -11470,7 +11458,7 @@ class Automaton:
                 self.debug(1, "## state=[%s]" % self.state)
 
                 # Entering a new state. First, call new state function
-                state_output = self.states[self.state](self, *self.state_args, **self.state_kargs)
+                state_output = self.states[self.state](self, *self.state_req.args, **self.state_req.kargs).run(self)
                 if self.state in self.error_states:
                     raise self.ErrorState("Reached %s: [%r]" % (self.state, state_output), result=state_output)
                 if self.state in self.final_states:
@@ -11516,11 +11504,10 @@ class Automaton:
                             else:
                                 self.debug(4, "FILTR: %s" % pkt.summary())
 
-            except self.NewStateRequested,ns:
-                self.debug(2, "switching from [%s] to [%s]" % (self.state,ns.state))
-                self.state = ns.state
-                self.state_args = ns.args
-                self.state_kargs = ns.kargs
+            except ATMT.NewStateRequested,state_req:
+                self.debug(2, "switching from [%s] to [%s]" % (self.state,state_req.state))
+                self.state = state_req.state
+                self.state_req = state_req
                 
     def send(self, pkt):
         self.send_sock.send(pkt)
@@ -11566,16 +11553,35 @@ class ATMT:
     CONDITION = "Condition"
     RECV = "Receive condition"
     TIMEOUT = "Timeout condition"
-    
+
+    class NewStateRequested(Exception):
+        def __init__(self, state_func, *args, **kargs):
+            self.func = state_func
+            self.state = state_func.func_name
+            Exception.__init__(self, "Request state [%s]" % self.state)
+            self.args = args
+            self.kargs = kargs
+            self.action_parameters() # init action parameters
+        def action_parameters(self, *args, **kargs):
+            self.action_args = args
+            self.action_kargs = kargs
+            return self
+        def run(self, automaton):
+            return self.func(automaton, *self.args, **self.kargs)
+
     @staticmethod
     def state(initial=0,final=0,error=0):
         def deco(f,initial=initial, final=final):
-            f.atmt_type = ATMT.STATE
-            f.atmt_state = f.func_name
-            f.atmt_initial = initial
-            f.atmt_final = final
-            f.atmt_error = error
-            return f
+            def state_wrapper(self, *args, **kargs):
+                return ATMT.NewStateRequested(f, *args, **kargs)
+
+            state_wrapper.func_name = "%s_wrapper" % f.func_name
+            state_wrapper.atmt_type = ATMT.STATE
+            state_wrapper.atmt_state = f.func_name
+            state_wrapper.atmt_initial = initial
+            state_wrapper.atmt_final = final
+            state_wrapper.atmt_error = error
+            return state_wrapper
         return deco
     @staticmethod
     def action(cond):
@@ -11588,7 +11594,7 @@ class ATMT:
     def condition(state):
         def deco(f, state=state):
             f.atmt_type = ATMT.CONDITION
-            f.atmt_state = state.func_name
+            f.atmt_state = state.atmt_state
             f.atmt_condname = f.func_name
             return f
         return deco
@@ -11596,7 +11602,7 @@ class ATMT:
     def receive_condition(state):
         def deco(f, state=state):
             f.atmt_type = ATMT.RECV
-            f.atmt_state = state.func_name
+            f.atmt_state = state.atmt_state
             f.atmt_condname = f.func_name
             return f
         return deco
@@ -11604,7 +11610,7 @@ class ATMT:
     def timeout(state, timeout, name=None):
         def deco(f, state=state, timeout=timeout,name=name):
             f.atmt_type = ATMT.TIMEOUT
-            f.atmt_state = state.func_name
+            f.atmt_state = state.atmt_state
             f.atmt_timeout = timeout
             f.atmt_condname = f.func_name
             return f
@@ -11631,7 +11637,7 @@ class TFTP_read(Automaton):
         self.res = ""
     @ATMT.condition(state_BEGIN)
     def on_begin(self):
-        self.go_to_state(self.state_RECEIVING)
+        raise self.state_RECEIVING()
 
     # RECEIVING
     @ATMT.state()
@@ -11644,10 +11650,10 @@ class TFTP_read(Automaton):
                 self.server_tid = pkt[UDP].sport
             if pkt[UDP].sport == self.server_tid:
                 self.pkt = pkt
-                self.go_to_state(self.state_RECEIVED)
+                raise self.state_RECEIVED()
     @ATMT.timeout(state_RECEIVING, 3)
     def recv_timeout_ack(self):
-        self.go_to_state(self.state_RECEIVING)
+        raise self.state_RECEIVING()
     @ATMT.action(recv_timeout_ack)
     def action_timeout(self):
         if self.current_ack is not None:
@@ -11660,7 +11666,7 @@ class TFTP_read(Automaton):
     @ATMT.condition(state_RECEIVED)
     def received_error(self):
         if TFTP_ERROR in self.pkt:
-            self.go_to_state(self.state_ERROR)
+            raise self.state_ERROR()
     @ATMT.condition(state_RECEIVED)
     def received_ok(self):
         if TFTP_DATA in self.pkt and self.pkt[TFTP_DATA].block == self.awaiting:
@@ -11669,8 +11675,8 @@ class TFTP_read(Automaton):
             received = self.pkt[Raw].load
             self.res += received
             if len(received) == self.blocksize:
-                self.go_to_state(self.state_RECEIVING)
-            self.go_to_state(self.state_END)
+                raise self.state_RECEIVING()
+            raise self.state_END()
 
     @ATMT.action(received_ok)
     def received_data(self):
@@ -11711,7 +11717,7 @@ class TFTP_write(Automaton):
         self.res = ""
     @ATMT.condition(state_BEGIN)
     def on_begin(self):
-        self.go_to_state(self.state_WAIT_ACK)
+        raise self.state_WAIT_ACK()
     @ATMT.action(on_begin)
     def send_wrq(self):
         self.send(IP(dst=self.server)/UDP(sport=self.my_tid, dport=self.dport)/TFTP()/TFTP_WRQ(filename=self.filename))
@@ -11724,7 +11730,7 @@ class TFTP_write(Automaton):
     @ATMT.condition(state_WAIT_ACK)
     def no_more_data(self):
         if not self.data:
-            self.go_to_state(self.state_END)
+            raise self.state_END()
     @ATMT.receive_condition(state_WAIT_ACK)
     def wait_ack(self,pkt):
         if IP in pkt and pkt[IP].src == self.server and UDP in pkt and pkt[UDP].dport == self.my_tid:
@@ -11733,10 +11739,10 @@ class TFTP_write(Automaton):
             if pkt[UDP].sport == self.server_tid:
                 if TFTP_ERROR in pkt:
                     self.errormsg = pkt[TFTP_ERROR].sprintf("TFTP ERROR %ir,errorcode%: %errormsg%")
-                    self.go_to_state(self.state_ERROR)
+                    raise self.state_ERROR()
                 if TFTP_ACK in pkt:
                     if pkt[TFTP_ACK].block == self.awaiting:
-                        self.go_to_state(self.state_WAIT_ACK)
+                        raise self.state_WAIT_ACK()
     @ATMT.action(wait_ack)
     def got_ack(self):
         self.awaiting += 1
