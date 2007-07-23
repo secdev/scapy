@@ -11425,8 +11425,11 @@ class Automaton:
     class Stuck(ErrorState):
         pass
 
-    def parse_args(self, debug=0, **kargs):
+    def parse_args(self, debug=0, store=1, **kargs):
         self.debug_level=debug
+        self.socket_kargs = kargs
+        self.store_packets = store
+        
 
     def master_filter(self, pkt):
         return True
@@ -11436,6 +11439,8 @@ class Automaton:
             cond(self,*args, **kargs)
         except ATMT.NewStateRequested, state_req:
             self.debug(2, "%s [%s] taken to state [%s]" % (cond.atmt_type, cond.atmt_condname, state_req.state))
+            if cond.atmt_type == ATMT.RECV:
+                self.packets.append(args[0])
             for action in self.actions[cond.atmt_condname]:
                 self.debug(2, "   + Running action [%s]" % action.func_name)
                 action(self, *state_req.action_args, **state_req.action_kargs)
@@ -11447,7 +11452,8 @@ class Automaton:
     def run(self):
         self.state=self.initial_states[0](self)
         self.send_sock = conf.L3socket()
-        l = conf.L2listen()
+        l = conf.L2listen(**self.socket_kargs)
+        self.packets = PacketList(name="session[%s]"%self.__class__.__name__)
         while 1:
             try:
                 self.debug(1, "## state=[%s]" % self.state)
@@ -11504,6 +11510,7 @@ class Automaton:
                 self.state = state_req
                 
     def send(self, pkt):
+        self.packets.append(pkt)
         self.send_sock.send(pkt)
 
 
