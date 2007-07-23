@@ -11527,7 +11527,13 @@ class Automaton:
                 se += '\t"%s" [ style=filled, fillcolor=red, shape=octagon ];\n' % st.atmt_state
         s += se
 
-        for c,k,v in [("green",k,v) for k,v in self.conditions.items()]+[("red",k,v) for k,v in self.recv_conditions.items()]:
+        for st in self.states.values():
+            for n in st.atmt_origfunc.func_code.co_names+st.atmt_origfunc.func_code.co_consts:
+                if n in self.states:
+                    s += '\t"%s" -> "%s" [ color=green ];\n' % (st.atmt_state,n)
+            
+
+        for c,k,v in [("purple",k,v) for k,v in self.conditions.items()]+[("red",k,v) for k,v in self.recv_conditions.items()]:
             for f in v:
                 for n in f.func_code.co_names+f.func_code.co_consts:
                     if n in self.states:
@@ -11593,6 +11599,7 @@ class ATMT:
             state_wrapper.atmt_initial = initial
             state_wrapper.atmt_final = final
             state_wrapper.atmt_error = error
+            state_wrapper.atmt_origfunc = f
             return state_wrapper
         return deco
     @staticmethod
