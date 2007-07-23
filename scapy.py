@@ -11400,6 +11400,10 @@ class Automaton:
         for v in self.timeout.itervalues():
             v.sort(lambda (t1,f1),(t2,f2): cmp(t1,t2))
             v.append((None, None))
+        for v in itertools.chain(self.conditions.itervalues(),
+                                 self.recv_conditions.itervalues(),
+                                 self.actions.itervalues()):
+            v.sort(lambda c1,c2: cmp(c1.atmt_prio,c2.atmt_prio))
 
     def get_members(self):
         members = {}
@@ -11585,26 +11589,29 @@ class ATMT:
             return state_wrapper
         return deco
     @staticmethod
-    def action(cond):
+    def action(cond, prio=0):
         def deco(f,cond=cond):
             f.atmt_type = ATMT.ACTION
             f.atmt_condname = cond.atmt_condname
+            f.atmt_prio = prio
             return f
         return deco
     @staticmethod
-    def condition(state):
+    def condition(state, prio=0):
         def deco(f, state=state):
             f.atmt_type = ATMT.CONDITION
             f.atmt_state = state.atmt_state
             f.atmt_condname = f.func_name
+            f.atmt_prio = prio
             return f
         return deco
     @staticmethod
-    def receive_condition(state):
+    def receive_condition(state, prio=0):
         def deco(f, state=state):
             f.atmt_type = ATMT.RECV
             f.atmt_state = state.atmt_state
             f.atmt_condname = f.func_name
+            f.atmt_prio = prio
             return f
         return deco
     @staticmethod
