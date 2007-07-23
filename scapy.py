@@ -11364,15 +11364,13 @@ class Automaton:
             log_interactive.debug(msg)
             
     def init_states(self):
-        self.state="BEGIN"
         self.states={}
+        self.state = None
         self.recv_conditions={}
         self.conditions={}
         self.timeout={}
         self.actions={}
         self.initial_states=[]
-        self.final_states=[]
-        self.error_states=[]
         decorated = dict((k,v) for (k,v) in self.get_members().iteritems()
                          if type(v) is types.FunctionType and hasattr(v, "atmt_type"))
         
@@ -11383,12 +11381,8 @@ class Automaton:
                 self.recv_conditions[s]=[]
                 self.conditions[s]=[]
                 self.timeout[s]=[]
-                if m.atmt_final:
-                    self.final_states.append(s)
                 if m.atmt_initial:
-                    self.initial_states.append(s)
-                if m.atmt_error:
-                    self.error_states.append(s)
+                    self.initial_states.append(m)
             elif m.atmt_type in [ATMT.CONDITION, ATMT.RECV, ATMT.TIMEOUT]:
                 self.actions[m.atmt_condname] = []
     
@@ -11447,10 +11441,7 @@ class Automaton:
             
 
     def run(self):
-        self.state=self.initial_states[0]
-        self.state_req = self.states[self.state](self)
-        self.state_args = ()
-        self.state_kargs = {}
+        self.state=self.initial_states[0](self)
         self.send_sock = conf.L3socket()
         l = conf.L2listen()
         while 1:
@@ -11458,10 +11449,10 @@ class Automaton:
                 self.debug(1, "## state=[%s]" % self.state)
 
                 # Entering a new state. First, call new state function
-                state_output = self.states[self.state](self, *self.state_req.args, **self.state_req.kargs).run(self)
-                if self.state in self.error_states:
-                    raise self.ErrorState("Reached %s: [%r]" % (self.state, state_output), result=state_output)
-                if self.state in self.final_states:
+                state_output = self.state.run()
+                if self.state.error:
+                    raise self.ErrorState("Reached %s: [%r]" % (self.state.state, state_output), result=state_output)
+                if self.state.final:
                     return state_output
 
                 if state_output is None:
@@ -11470,16 +11461,16 @@ class Automaton:
                     state_output = state_output,
                 
                 # Then check immediate conditions
-                for cond in self.conditions[self.state]:
+                for cond in self.conditions[self.state.state]:
                     self.run_condition(cond, *state_output)
 
                 # If still there and no conditions left, we are stuck!
-                if ( len(self.recv_conditions[self.state]) == 0
-                     and len(self.timeout[self.state]) == 1 ):
-                    raise self.Stuck("stuck in [%s]" % self.state,result=state_output)
+                if ( len(self.recv_conditions[self.state.state]) == 0
+                     and len(self.timeout[self.state.state]) == 1 ):
+                    raise self.Stuck("stuck in [%s]" % self.state.state,result=state_output)
 
                 # Finally listen and pay attention to timeouts
-                expirations = iter(self.timeout[self.state])
+                expirations = iter(self.timeout[self.state.state])
                 next_timeout,timeout_func = expirations.next()
                 t0 = time.time()
                 
@@ -11499,15 +11490,14 @@ class Automaton:
                         if pkt is not None:
                             if self.master_filter(pkt):
                                 self.debug(3, "RECVD: %s" % pkt.summary())
-                                for rcvcond in self.recv_conditions[self.state]:
+                                for rcvcond in self.recv_conditions[self.state.state]:
                                     self.run_condition(rcvcond, pkt, *state_output)
                             else:
                                 self.debug(4, "FILTR: %s" % pkt.summary())
 
             except ATMT.NewStateRequested,state_req:
-                self.debug(2, "switching from [%s] to [%s]" % (self.state,state_req.state))
-                self.state = state_req.state
-                self.state_req = state_req
+                self.debug(2, "switching from [%s] to [%s]" % (self.state.state,state_req.state))
+                self.state = state_req
                 
     def send(self, pkt):
         self.send_sock.send(pkt)
@@ -11515,15 +11505,17 @@ class Automaton:
 
     def graph(self, **kargs):
         s = 'digraph "%s" {\n'  % self.__class__.__name__
+        
+        se = "" # Keep initial nodes at the begining for better rendering
+        for st in self.states.itervalues():
+            if st.atmt_initial:
+                se = ('\t"%s" [ style=filled, fillcolor=blue, shape=box, root=true];\n' % st.atmt_state)+se
+            elif st.atmt_final:
+                se += '\t"%s" [ style=filled, fillcolor=green, shape=octagon ];\n' % st.atmt_state
+            elif st.atmt_error:
+                se += '\t"%s" [ style=filled, fillcolor=red, shape=octagon ];\n' % st.atmt_state
+        s += se
 
-        for st in self.initial_states:
-            s += '\t"%s" [ style=filled, fillcolor=blue shape=box];\n' % st
-                        
-        for st in self.final_states:
-            s += '\t"%s" [ style=filled, fillcolor=green, shape=octagon ];\n' % st
-        for st in self.error_states:
-            s += '\t"%s" [ style=filled, fillcolor=red, shape=octagon ];\n' % st
-                        
         for c,k,v in [("green",k,v) for k,v in self.conditions.items()]+[("red",k,v) for k,v in self.recv_conditions.items()]:
             for f in v:
                 for n in f.func_code.co_names+f.func_code.co_consts:
@@ -11555,10 +11547,14 @@ class ATMT:
     TIMEOUT = "Timeout condition"
 
     class NewStateRequested(Exception):
-        def __init__(self, state_func, *args, **kargs):
+        def __init__(self, state_func, automaton, *args, **kargs):
             self.func = state_func
-            self.state = state_func.func_name
+            self.state = state_func.atmt_state
+            self.initial = state_func.atmt_initial
+            self.error = state_func.atmt_error
+            self.final = state_func.atmt_final
             Exception.__init__(self, "Request state [%s]" % self.state)
+            self.automaton = automaton
             self.args = args
             self.kargs = kargs
             self.action_parameters() # init action parameters
@@ -11566,14 +11562,19 @@ class ATMT:
             self.action_args = args
             self.action_kargs = kargs
             return self
-        def run(self, automaton):
-            return self.func(automaton, *self.args, **self.kargs)
+        def run(self):
+            return self.func(self.automaton, *self.args, **self.kargs)
 
     @staticmethod
     def state(initial=0,final=0,error=0):
         def deco(f,initial=initial, final=final):
+            f.atmt_type = ATMT.STATE
+            f.atmt_state = f.func_name
+            f.atmt_initial = initial
+            f.atmt_final = final
+            f.atmt_error = error
             def state_wrapper(self, *args, **kargs):
-                return ATMT.NewStateRequested(f, *args, **kargs)
+                return ATMT.NewStateRequested(f, self, *args, **kargs)
 
             state_wrapper.func_name = "%s_wrapper" % f.func_name
             state_wrapper.atmt_type = ATMT.STATE
