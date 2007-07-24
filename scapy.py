@@ -11510,8 +11510,9 @@ class Automaton:
                 self.state = state_req
                 
     def send(self, pkt):
-        self.packets.append(pkt)
         self.send_sock.send(pkt)
+        self.debug(3,"SEND : %s" % pkt.summary())
+        self.packets.append(pkt.copy())
 
 
     def graph(self, **kargs):
