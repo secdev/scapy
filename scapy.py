@@ -11456,7 +11456,7 @@ class Automaton:
         self.packets = PacketList(name="session[%s]"%self.__class__.__name__)
         while 1:
             try:
-                self.debug(1, "## state=[%s]" % self.state)
+                self.debug(1, "## state=[%s]" % self.state.state)
 
                 # Entering a new state. First, call new state function
                 state_output = self.state.run()
