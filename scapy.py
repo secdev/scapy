@@ -11508,10 +11508,14 @@ class Automaton:
             except ATMT.NewStateRequested,state_req:
                 self.debug(2, "switching from [%s] to [%s]" % (self.state.state,state_req.state))
                 self.state = state_req
-                
-    def send(self, pkt):
+
+
+    def my_send(self, pkt):
         self.send_sock.send(pkt)
-        self.debug(3,"SEND : %s" % pkt.summary())
+
+    def send(self, pkt):
+        self.my_send(pkt)
+        self.debug(3,"SENT : %s" % pkt.summary())
         self.packets.append(pkt.copy())
 
 
