@@ -11357,6 +11357,8 @@ class Automaton:
     def __init__(self, *args, **kargs):
         self.init_states()
         self.debug_level=0
+        self.init_args=args
+        self.init_kargs=kargs
         self.parse_args(*args, **kargs)
 
     def debug(self, lvl, msg):
@@ -11449,7 +11451,14 @@ class Automaton:
             self.debug(2, "%s [%s] not taken" % (cond.atmt_type, cond.atmt_condname))
             
 
-    def run(self):
+    def run(self, *args, **kargs):
+        # Update default parameters
+        a = args+self.init_args[len(args):]
+        k = self.init_kargs
+        k.update(kargs)
+        self.parse_args(*a,**k)
+
+        # Start the automaton
         self.state=self.initial_states[0](self)
         self.send_sock = conf.L3socket()
         l = conf.L2listen(**self.socket_kargs)
