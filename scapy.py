@@ -11396,16 +11396,18 @@ class Automaton:
             elif m.atmt_type == ATMT.TIMEOUT:
                 self.timeout[m.atmt_state].append((m.atmt_timeout, m))
             elif m.atmt_type == ATMT.ACTION:
-                self.actions[m.atmt_condname].append(m)
+                for c in m.atmt_cond:
+                    self.actions[c].append(m)
             
 
         for v in self.timeout.itervalues():
             v.sort(lambda (t1,f1),(t2,f2): cmp(t1,t2))
             v.append((None, None))
         for v in itertools.chain(self.conditions.itervalues(),
-                                 self.recv_conditions.itervalues(),
-                                 self.actions.itervalues()):
+                                 self.recv_conditions.itervalues()):
             v.sort(lambda c1,c2: cmp(c1.atmt_prio,c2.atmt_prio))
+        for condname,actlst in self.actions.iteritems():
+            actlst.sort(lambda c1,c2: cmp(c1.atmt_cond[condname], c2.atmt_cond[condname]))
 
     def get_members(self):
         members = {}
@@ -11619,9 +11621,10 @@ class ATMT:
     @staticmethod
     def action(cond, prio=0):
         def deco(f,cond=cond):
+            if not hasattr(f,"atmt_type"):
+                f.atmt_cond = {}
             f.atmt_type = ATMT.ACTION
-            f.atmt_condname = cond.atmt_condname
-            f.atmt_prio = prio
+            f.atmt_cond[cond.atmt_condname] = prio
             return f
         return deco
     @staticmethod
