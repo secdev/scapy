@@ -11519,7 +11519,9 @@ class Automaton:
             except ATMT.NewStateRequested,state_req:
                 self.debug(2, "switching from [%s] to [%s]" % (self.state.state,state_req.state))
                 self.state = state_req
-
+            except KeyboardInterrupt:
+                self.debug(1,"Interrupted by user")
+                break
 
     def my_send(self, pkt):
         self.send_sock.send(pkt)
