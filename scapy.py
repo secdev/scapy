@@ -11351,6 +11351,89 @@ user_commands = [ sr, sr1, srp, srp1, srloop, srploop, sniff, p0f, arpcachepoiso
 ## Automata ##
 ##############
 
+class ATMT:
+    STATE = "State"
+    ACTION = "Action"
+    CONDITION = "Condition"
+    RECV = "Receive condition"
+    TIMEOUT = "Timeout condition"
+
+    class NewStateRequested(Exception):
+        def __init__(self, state_func, automaton, *args, **kargs):
+            self.func = state_func
+            self.state = state_func.atmt_state
+            self.initial = state_func.atmt_initial
+            self.error = state_func.atmt_error
+            self.final = state_func.atmt_final
+            Exception.__init__(self, "Request state [%s]" % self.state)
+            self.automaton = automaton
+            self.args = args
+            self.kargs = kargs
+            self.action_parameters() # init action parameters
+        def action_parameters(self, *args, **kargs):
+            self.action_args = args
+            self.action_kargs = kargs
+            return self
+        def run(self):
+            return self.func(self.automaton, *self.args, **self.kargs)
+
+    @staticmethod
+    def state(initial=0,final=0,error=0):
+        def deco(f,initial=initial, final=final):
+            f.atmt_type = ATMT.STATE
+            f.atmt_state = f.func_name
+            f.atmt_initial = initial
+            f.atmt_final = final
+            f.atmt_error = error
+            def state_wrapper(self, *args, **kargs):
+                return ATMT.NewStateRequested(f, self, *args, **kargs)
+
+            state_wrapper.func_name = "%s_wrapper" % f.func_name
+            state_wrapper.atmt_type = ATMT.STATE
+            state_wrapper.atmt_state = f.func_name
+            state_wrapper.atmt_initial = initial
+            state_wrapper.atmt_final = final
+            state_wrapper.atmt_error = error
+            state_wrapper.atmt_origfunc = f
+            return state_wrapper
+        return deco
+    @staticmethod
+    def action(cond, prio=0):
+        def deco(f,cond=cond):
+            if not hasattr(f,"atmt_type"):
+                f.atmt_cond = {}
+            f.atmt_type = ATMT.ACTION
+            f.atmt_cond[cond.atmt_condname] = prio
+            return f
+        return deco
+    @staticmethod
+    def condition(state, prio=0):
+        def deco(f, state=state):
+            f.atmt_type = ATMT.CONDITION
+            f.atmt_state = state.atmt_state
+            f.atmt_condname = f.func_name
+            f.atmt_prio = prio
+            return f
+        return deco
+    @staticmethod
+    def receive_condition(state, prio=0):
+        def deco(f, state=state):
+            f.atmt_type = ATMT.RECV
+            f.atmt_state = state.atmt_state
+            f.atmt_condname = f.func_name
+            f.atmt_prio = prio
+            return f
+        return deco
+    @staticmethod
+    def timeout(state, timeout, name=None):
+        def deco(f, state=state, timeout=timeout,name=name):
+            f.atmt_type = ATMT.TIMEOUT
+            f.atmt_state = state.atmt_state
+            f.atmt_timeout = timeout
+            f.atmt_condname = f.func_name
+            return f
+        return deco
+
 
 class Automaton:
     
@@ -11574,88 +11657,6 @@ class Automaton:
         
         
 
-class ATMT:
-    STATE = "State"
-    ACTION = "Action"
-    CONDITION = "Condition"
-    RECV = "Receive condition"
-    TIMEOUT = "Timeout condition"
-
-    class NewStateRequested(Exception):
-        def __init__(self, state_func, automaton, *args, **kargs):
-            self.func = state_func
-            self.state = state_func.atmt_state
-            self.initial = state_func.atmt_initial
-            self.error = state_func.atmt_error
-            self.final = state_func.atmt_final
-            Exception.__init__(self, "Request state [%s]" % self.state)
-            self.automaton = automaton
-            self.args = args
-            self.kargs = kargs
-            self.action_parameters() # init action parameters
-        def action_parameters(self, *args, **kargs):
-            self.action_args = args
-            self.action_kargs = kargs
-            return self
-        def run(self):
-            return self.func(self.automaton, *self.args, **self.kargs)
-
-    @staticmethod
-    def state(initial=0,final=0,error=0):
-        def deco(f,initial=initial, final=final):
-            f.atmt_type = ATMT.STATE
-            f.atmt_state = f.func_name
-            f.atmt_initial = initial
-            f.atmt_final = final
-            f.atmt_error = error
-            def state_wrapper(self, *args, **kargs):
-                return ATMT.NewStateRequested(f, self, *args, **kargs)
-
-            state_wrapper.func_name = "%s_wrapper" % f.func_name
-            state_wrapper.atmt_type = ATMT.STATE
-            state_wrapper.atmt_state = f.func_name
-            state_wrapper.atmt_initial = initial
-            state_wrapper.atmt_final = final
-            state_wrapper.atmt_error = error
-            state_wrapper.atmt_origfunc = f
-            return state_wrapper
-        return deco
-    @staticmethod
-    def action(cond, prio=0):
-        def deco(f,cond=cond):
-            if not hasattr(f,"atmt_type"):
-                f.atmt_cond = {}
-            f.atmt_type = ATMT.ACTION
-            f.atmt_cond[cond.atmt_condname] = prio
-            return f
-        return deco
-    @staticmethod
-    def condition(state, prio=0):
-        def deco(f, state=state):
-            f.atmt_type = ATMT.CONDITION
-            f.atmt_state = state.atmt_state
-            f.atmt_condname = f.func_name
-            f.atmt_prio = prio
-            return f
-        return deco
-    @staticmethod
-    def receive_condition(state, prio=0):
-        def deco(f, state=state):
-            f.atmt_type = ATMT.RECV
-            f.atmt_state = state.atmt_state
-            f.atmt_condname = f.func_name
-            f.atmt_prio = prio
-            return f
-        return deco
-    @staticmethod
-    def timeout(state, timeout, name=None):
-        def deco(f, state=state, timeout=timeout,name=name):
-            f.atmt_type = ATMT.TIMEOUT
-            f.atmt_state = state.atmt_state
-            f.atmt_timeout = timeout
-            f.atmt_condname = f.func_name
-            return f
-        return deco
     
 
 class TFTP_read(Automaton):
