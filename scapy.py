@@ -11835,13 +11835,77 @@ class TFTP_write(Automaton):
     def END(self):
         split_bottom_up(UDP, TFTP, dport=self.my_tid)
 
-        
-        
-        
-        
-    
-    
 
+class TFTP_WRQ_server(Automaton):
+
+    def parse_args(self, ip=None, sport=None, *args, **kargs):
+        Automaton.parse_args(self, *args, **kargs)
+        self.ip = ip
+        self.sport = sport
+
+    def master_filter(self, pkt):
+        return TFTP in pkt and (not self.ip or pkt[IP].dst == self.ip)
+
+    @ATMT.state(initial=1)
+    def BEGIN(self):
+        self.blksize=512
+        self.blk=0
+        self.filedata=""
+        self.my_tid = self.sport or random.randint(10000,65500)
+        bind_bottom_up(UDP, TFTP, dport=self.my_tid)
+
+    @ATMT.receive_condition(BEGIN)
+    def receive_WRQ(self,pkt):
+        if TFTP_WRQ in pkt:
+            raise self.WAIT_DATA().action_parameters(pkt)
+        
+    @ATMT.action(receive_WRQ)
+    def ack_WRQ(self, pkt):
+        ip = pkt[IP]
+        self.ip = ip.dst
+        self.dst = ip.src
+        self.filename = pkt[TFTP_WRQ].filename
+        options = pkt[TFTP_Options]
+        self.l3 = IP(src=ip.dst, dst=ip.src)/UDP(sport=self.my_tid, dport=pkt.sport)/TFTP()
+        if options is None:
+            self.last_packet = self.l3/TFTP_ACK(block=0)
+            self.send(self.last_packet)
+        else:
+            opt = [x for x in options.options if x.oname == "BLKSIZE"]
+            if opt:
+                self.blksize = int(opt[0].value)
+                self.debug(2,"Negotiated new blksize at %i" % self.blksize)
+            self.last_packet = self.l3/TFTP_OACK()/TFTP_Options(options=opt)
+            self.send(self.last_packet)
+
+    @ATMT.state()
+    def WAIT_DATA(self):
+        self.blk += 1
+
+    @ATMT.receive_condition(WAIT_DATA)
+    def receive_data(self, pkt):
+        if TFTP_DATA in pkt:
+            data = pkt[TFTP_DATA]
+            if data.block == self.blk:
+                raise self.DATA(data)
+
+    @ATMT.action(receive_data)
+    def ack_data(self):
+        self.last_packet = self.l3/TFTP_ACK(block = self.blk)
+        self.send(self.last_packet)
+
+    @ATMT.state()
+    def DATA(self, data):
+        self.filedata += data.load
+        if len(data.load) < self.blksize:
+            raise self.END()
+        raise self.WAIT_DATA()
+
+    @ATMT.state(final=1)
+    def END(self):
+        return self.filename,self.filedata
+        split_bottom_up(UDP, TFTP, dport=self.my_tid)
+        
 
 
 ########################
