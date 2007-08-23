@@ -1165,6 +1165,8 @@ if not LINUX:
     def read_routes():
         if SOLARIS:
             f=os.popen("netstat -rvn") # -f inet
+        elif FREEBSD:
+            f=os.popen("netstat -rnW") # -W to handle long interface names
         else:
             f=os.popen("netstat -rn") # -f inet
         ok = 0
