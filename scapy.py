@@ -3846,7 +3846,7 @@ class StrFixedLenField(StrField):
             l = self.length_from(None)
         except:
             l = RandNum(0,200)
-        return RandBin(self.length)
+        return RandBin(l)
 
 class NetBIOSNameField(StrFixedLenField):
     def __init__(self, name, default, length=31, shift=0):
