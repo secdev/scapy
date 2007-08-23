@@ -9691,7 +9691,7 @@ class BluetoothL2CAPSocket(SuperSocket):
         self.ins = self.outs = s
 
     def recv(self, x):
-        return L2CAP_HdrCmd(self.ins.recv(x))
+        return L2CAP_CmdHdr(self.ins.recv(x))
     
 
 class BluetoothHCISocket(SuperSocket):
