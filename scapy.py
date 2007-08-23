@@ -4230,7 +4230,7 @@ class EnumField(Field):
             x = self.s2i[x]
         return x
     def i2repr_one(self, pkt, x):
-        if self not in conf.noenum and x in self.i2s:
+        if self not in conf.noenum and not isinstance(x,VolatileValue) and x in self.i2s:
             return self.i2s[x]
         return repr(x)
     
@@ -4294,7 +4294,7 @@ class LEIntEnumField(EnumField):
 
 class XShortEnumField(ShortEnumField):
     def i2repr_one(self, pkt, x):
-        if self not in conf.noenum and x in self.i2s:
+        if self not in conf.noenum and not isinstance(x,VolatileValue) and x in self.i2s:
             return self.i2s[x]
         return lhex(x)
 
