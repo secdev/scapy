@@ -6125,7 +6125,7 @@ class STP(Packet):
                     ShortField("bridgeid", 0),
                     MACField("bridgemac", ETHER_ANY),
                     ShortField("portid", 0),
-                    ShortField("age", 1),
+                    BCDFloatField("age", 1),
                     BCDFloatField("maxage", 20),
                     BCDFloatField("hellotime", 2),
                     BCDFloatField("fwddelay", 15) ]
