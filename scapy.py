@@ -4454,7 +4454,7 @@ class TCPOptionsField(StrField):
 
 class DNSStrField(StrField):
     def i2m(self, pkt, x):
-        x = x.split(".")
+        x = [k[:63] for k in x.split(".")] # Truncate chunks that cannont be encoded (more than 63 bytes..)
         x = map(lambda y: chr(len(y))+y, x)
         x = "".join(x)
         if x[-1] != "\x00":
