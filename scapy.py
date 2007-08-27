@@ -11912,6 +11912,87 @@ class TFTP_WRQ_server(Automaton):
         split_bottom_up(UDP, TFTP, dport=self.my_tid)
         
 
+class TFTP_RRQ_server(Automaton):
+    def parse_args(self, store=None, joker=None, ip=None, sport=None, serve_one=False, **kargs):
+        Automaton.parse_args(self,**kargs)
+        if store is None:
+            store = {}
+        self.store = store
+        self.joker = joker
+        self.ip = ip
+        self.sport = sport
+        self.serve_one = serve_one
+        self.my_tid = self.sport or random.randint(10000,65500)
+        bind_bottom_up(UDP, TFTP, dport=self.my_tid)
+        
+    def master_filter(self, pkt):
+        return TFTP in pkt and (not self.ip or pkt[IP].dst == self.ip)
+
+    @ATMT.state(initial=1)
+    def WAIT_RRQ(self):
+        self.blksize=512
+        self.blk=0
+
+    @ATMT.receive_condition(WAIT_RRQ)
+    def receive_rrq(self, pkt):
+        if TFTP_RRQ in pkt:
+            raise self.RECEIVED_RRQ(pkt)
+
+
+    @ATMT.state()
+    def RECEIVED_RRQ(self, pkt):
+        ip = pkt[IP]
+        self.l3 = IP(src=ip.dst, dst=ip.src)/UDP(sport=self.my_tid, dport=ip.sport)/TFTP()
+        self.filename = pkt[TFTP_RRQ].filename
+        self.blk=1
+        self.data = self.store.get(self.filename, self.joker)
+
+    @ATMT.condition(RECEIVED_RRQ)
+    def file_in_store(self):
+        if self.data is not None:
+            self.blknb = len(self.data)/self.blksize+1
+            raise self.SEND_FILE()
+
+    @ATMT.condition(RECEIVED_RRQ)
+    def file_not_found(self):
+        if self.data is None:
+            raise self.WAIT_RRQ()
+    @ATMT.action(file_not_found)
+    def send_error(self):
+        self.send(self.l3/TFTP_ERROR(errorcode=1, errormsg=TFTP_Error_Codes[1]))
+
+    @ATMT.state()
+    def SEND_FILE(self):
+        self.send(self.l3/TFTP_DATA(block=self.blk)/self.data[(self.blk-1)*self.blksize:self.blk*self.blksize])
+        
+    @ATMT.timeout(SEND_FILE, 113)
+    def timeout_waiting_ack(self):
+        raise self.SEND_FILE()
+            
+    @ATMT.receive_condition(SEND_FILE)
+    def received_ack(self, pkt):
+        if TFTP_ACK in pkt and pkt[TFTP_ACK].block == self.blk:
+            raise self.RECEIVED_ACK()
+    @ATMT.state()
+    def RECEIVED_ACK(self):
+        self.blk += 1
+
+    @ATMT.condition(RECEIVED_ACK)
+    def no_more_data(self):
+        if self.blk > self.blknb:
+            if self.serve_one:
+                raise self.END()
+            raise self.WAIT_RRQ()
+    @ATMT.condition(RECEIVED_ACK, prio=2)
+    def data_remaining(self):
+        raise self.SEND_FILE()
+
+    @ATMT.state(final=1)
+    def END(self):
+        split_bottom_up(UDP, TFTP, dport=self.my_tid)
+    
+
+        
 
 ########################
 ## Answering machines ##
