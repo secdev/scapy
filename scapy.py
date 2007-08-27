@@ -11427,8 +11427,8 @@ class ATMT:
             return f
         return deco
     @staticmethod
-    def timeout(state, timeout, name=None):
-        def deco(f, state=state, timeout=timeout,name=name):
+    def timeout(state, timeout):
+        def deco(f, state=state, timeout=timeout):
             f.atmt_type = ATMT.TIMEOUT
             f.atmt_state = state.atmt_state
             f.atmt_timeout = timeout
