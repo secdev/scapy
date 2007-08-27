@@ -11735,7 +11735,10 @@ class TFTP_read(Automaton):
     # RECEIVED
     @ATMT.state()
     def RECEIVING(self, pkt):
-        recvd = pkt[Raw].load
+        if Raw in pkt:
+            recvd = pkt[Raw].load
+        else:
+            recvd = ""
         self.res += recvd
         self.awaiting += 1
         if len(recvd) == self.blocksize:
