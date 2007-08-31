@@ -10338,12 +10338,12 @@ class PcapWriter:
         if self.header_done == 0:
             if self.linktype == None:
                 if isinstance(pkt,Packet):
-                    linktype = LLNumTypes.get(pkt.__class__,1)
+                    self.linktype = LLNumTypes.get(pkt.__class__,1)
                 else:
-                    linktype = LLNumTypes.get(pkt[0].__class__,1)
+                    self.linktype = LLNumTypes.get(pkt[0].__class__,1)
 
             self.f.write(struct.pack(self.endian+"IHHIIII", 0xa1b2c3d4L,
-                                     2, 4, 0, 0, MTU, linktype))
+                                     2, 4, 0, 0, MTU, self.linktype))
             self.header_done = 1
 
         for p in pkt:
