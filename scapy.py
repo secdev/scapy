@@ -9217,6 +9217,15 @@ L3Types = { ETH_P_IP : IP,
             }
 
 
+def flush_fd(fd):
+    if type(fd) is not int:
+        fd = fd.fileno()
+    while 1:
+        r,w,e = select([fd],[],[],0)
+        if r:
+            os.read(fd,MTU)
+        else:
+            break
 
 class SuperSocket:
     closed=0
@@ -9265,6 +9274,7 @@ class L3PacketSocket(SuperSocket):
         self.type = type
         self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))
         self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 0)
+        flush_fd(self.ins)
         if not nofilter:
             if conf.except_filter:
                 if filter:
@@ -9357,6 +9367,7 @@ class L2Socket(SuperSocket):
             iface = conf.iface
         self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))
         self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 0)
+        flush_fd(self.ins)
         if not nofilter: 
             if conf.except_filter:
                 if filter:
@@ -9399,6 +9410,7 @@ class L2ListenSocket(SuperSocket):
         self.outs = None
         self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))
         self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 0)
+        flush_fd(self.ins)
         if iface is not None:
             self.ins.bind((iface, type))
         if not nofilter:
