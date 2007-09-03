@@ -1311,7 +1311,7 @@ arp_cache={}
 
 if 0 and DNET: ## XXX Can't use this because it does not resolve IPs not in cache
     dnet_arp_object = dnet.arp()
-    def getmacbyip(ip):
+    def getmacbyip(ip, chainCC=0):
         tmp = map(ord, inet_aton(ip))
         if (tmp[0] & 0xf0) == 0xe0: # mcast @
             return "01:00:5e:%.2x:%.2x:%.2x" % (tmp[1]&0x7f,tmp[2],tmp[3])
@@ -1326,7 +1326,7 @@ if 0 and DNET: ## XXX Can't use this because it does not resolve IPs not in cach
         else:
             return res.ntoa()
 else:
-    def getmacbyip(ip):
+    def getmacbyip(ip, chainCC=0):
         tmp = map(ord, inet_aton(ip))
         if (tmp[0] & 0xf0) == 0xe0: # mcast @
             return "01:00:5e:%.2x:%.2x:%.2x" % (tmp[1]&0x7f,tmp[2],tmp[3])
@@ -1342,11 +1342,12 @@ else:
                 return mac
         
         res = srp1(Ether(dst=ETHER_BROADCAST)/ARP(op="who-has", pdst=ip),
-                  type=ETH_P_ARP,
-                  iface = iff,
-                  timeout=2,
-                  verbose=0,
-                  nofilter=1)
+                   type=ETH_P_ARP,
+                   iface = iff,
+                   timeout=2,
+                   verbose=0,
+                   chainCC=chainCC,
+                   nofilter=1)
         if res is not None:
             mac = res.payload.hwsrc
             arp_cache[ip] = (mac,time.time())
@@ -3484,9 +3485,9 @@ class DestMACField(MACField):
                 dstip = dstip.__iter__().next()
             if dstip is not None:
                 if isinstance(pkt.payload, IPv6):
-                    x = getmacbyip6(dstip)
+                    x = getmacbyip6(dstip, chainCC=1)
                 else:    
-                    x = getmacbyip(dstip)
+                    x = getmacbyip(dstip, chainCC=1)
             if x is None:
                 x = "ff:ff:ff:ff:ff:ff"
                 warning("Mac address to reach %s not found\n"%dstip)
