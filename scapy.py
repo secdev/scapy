@@ -4329,6 +4329,8 @@ class FlagsField(BitField):
             x = y
         return x
     def i2repr(self, pkt, x):
+        if type(x) is list or type(x) is tuple:
+            return repr(x)
         if self.multi:
             r = []
         else:
