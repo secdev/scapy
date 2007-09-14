@@ -23,12 +23,7 @@
 from __future__ import generators
 import os
 
-BASE_VERSION = "1.1.1"
-
-HG_NODE  = "$Node$"
-REVISION = "$Revision$"
-
-VERSION = "v%s / %s" % (BASE_VERSION, (REVISION+"--")[11:23])
+VERSION = "1.2.0"
 
 DEFAULT_CONFIG_FILE = os.path.join(os.environ["HOME"], ".scapy_startup.py")
 
