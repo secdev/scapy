@@ -312,6 +312,7 @@ SIOCGIFFLAGS   = 0x8913          # get flags
 SIOCSIFFLAGS   = 0x8914          # set flags               
 SIOCGIFINDEX   = 0x8933          # name -> if_index mapping
 SIOCGIFCOUNT   = 0x8938          # get number of devices
+SIOCGSTAMP     = 0x8906          # get packet timestamp (as a timeval)
 
 
 # From if.h
@@ -1281,6 +1282,10 @@ else:
     def get_if_index(iff):
         return int(struct.unpack("I",get_if(iff, SIOCGIFINDEX)[16:20])[0])
 
+    def get_last_packet_timestamp(sock):
+        ts = ioctl(sock, SIOCGSTAMP, "12345678")
+        s,us = struct.unpack("II",ts)
+        return s+us/1000000.0
 
     
 def get_if_addr(iff):
@@ -9373,6 +9378,9 @@ class L3PacketSocket(SuperSocket):
             pkt = Raw(pkt)
         if lvl == 2:
             pkt = pkt.payload
+            
+        if pkt is not None:
+            pkt.time = get_last_packet_timestamp(self.ins)
         return pkt
     
     def send(self, x):
@@ -9445,6 +9453,7 @@ class L2Socket(SuperSocket):
             if conf.debug_dissector:
                 raise
             q = Raw(pkt)
+        q.time = get_last_packet_timestamp(self.ins)
         return q
 
 
@@ -9503,6 +9512,7 @@ class L2ListenSocket(SuperSocket):
             if conf.debug_dissector:
                 raise
             pkt = Raw(pkt)
+        pkt.time = get_last_packet_timestamp(self.ins)
         return pkt
     
     def send(self, x):
@@ -9563,7 +9573,7 @@ class L3dnetSocket(SuperSocket):
 
         pkt = self.ins.next()
         if pkt is not None:
-            pkt = pkt[1]
+            l,pkt,ts = pkt
         if pkt is None:
             return
 
@@ -9575,6 +9585,7 @@ class L3dnetSocket(SuperSocket):
             if conf.debug_dissector:
                 raise
             pkt = Raw(pkt)
+        pkt.time = ts
         return pkt.payload
 
     def nonblock_recv(self):
@@ -9629,7 +9640,7 @@ class L2dnetSocket(SuperSocket):
 
         pkt = self.ins.next()
         if pkt is not None:
-            pkt = pkt[1]        
+            l,pkt,ts = pkt
         if pkt is None:
             return
         
@@ -9641,6 +9652,7 @@ class L2dnetSocket(SuperSocket):
             if conf.debug_dissector:
                 raise
             pkt = Raw(pkt)
+        pkt.time = ts
         return pkt
 
     def nonblock_recv(self):
@@ -9699,7 +9711,7 @@ class L2pcapListenSocket(SuperSocket):
         while pkt is None:
             pkt = self.ins.next()
             if pkt is not None:
-                pkt = pkt[1]
+                l,pkt,ts = pkt
         
         try:
             pkt = cls(pkt)
@@ -9709,6 +9721,7 @@ class L2pcapListenSocket(SuperSocket):
             if conf.debug_dissector:
                 raise
             pkt = Raw(pkt)
+        pkt.time = ts
         return pkt
 
     def send(self, x):
