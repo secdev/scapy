@@ -11998,7 +11998,7 @@ class TFTP_RRQ_server(Automaton):
     def SEND_FILE(self):
         self.send(self.l3/TFTP_DATA(block=self.blk)/self.data[(self.blk-1)*self.blksize:self.blk*self.blksize])
         
-    @ATMT.timeout(SEND_FILE, 113)
+    @ATMT.timeout(SEND_FILE, 3)
     def timeout_waiting_ack(self):
         raise self.SEND_FILE()
             
