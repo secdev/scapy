@@ -11866,7 +11866,7 @@ class TFTP_WRQ_server(Automaton):
     @ATMT.state(initial=1)
     def BEGIN(self):
         self.blksize=512
-        self.blk=0
+        self.blk=1
         self.filedata=""
         self.my_tid = self.sport or random.randint(10000,65500)
         bind_bottom_up(UDP, TFTP, dport=self.my_tid)
@@ -11897,8 +11897,13 @@ class TFTP_WRQ_server(Automaton):
 
     @ATMT.state()
     def WAIT_DATA(self):
-        self.blk += 1
+        pass
 
+    @ATMT.timeout(WAIT_DATA, 1)
+    def resend_ack(self):
+        self.send(self.last_packet)
+        raise self.WAIT_DATA()
+        
     @ATMT.receive_condition(WAIT_DATA)
     def receive_data(self, pkt):
         if TFTP_DATA in pkt:
@@ -11916,6 +11921,7 @@ class TFTP_WRQ_server(Automaton):
         self.filedata += data.load
         if len(data.load) < self.blksize:
             raise self.END()
+        self.blk += 1
         raise self.WAIT_DATA()
 
     @ATMT.state(final=1)
