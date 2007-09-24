@@ -11964,6 +11964,7 @@ class TFTP_RRQ_server(Automaton):
     @ATMT.state()
     def RECEIVED_RRQ(self, pkt):
         ip = pkt[IP]
+        options = pkt[TFTP_Options]
         self.l3 = IP(src=ip.dst, dst=ip.src)/UDP(sport=self.my_tid, dport=ip.sport)/TFTP()
         self.filename = pkt[TFTP_RRQ].filename
         self.blk=1
@@ -11979,6 +11980,17 @@ class TFTP_RRQ_server(Automaton):
                     pass
         if self.data is None:
             self.data = self.joker
+
+        if options:
+            opt = [x for x in options.options if x.oname.upper() == "BLKSIZE"]
+            if opt:
+                self.blksize = int(opt[0].value)
+                self.debug(2,"Negotiated new blksize at %i" % self.blksize)
+            self.last_packet = self.l3/TFTP_OACK()/TFTP_Options(options=opt)
+            self.send(self.last_packet)
+                
+
+            
 
     @ATMT.condition(RECEIVED_RRQ)
     def file_in_store(self):
