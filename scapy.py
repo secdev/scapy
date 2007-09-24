@@ -11931,10 +11931,14 @@ class TFTP_WRQ_server(Automaton):
         
 
 class TFTP_RRQ_server(Automaton):
-    def parse_args(self, store=None, joker=None, ip=None, sport=None, serve_one=False, **kargs):
+    def parse_args(self, store=None, joker=None, dir=None, ip=None, sport=None, serve_one=False, **kargs):
         Automaton.parse_args(self,**kargs)
         if store is None:
             store = {}
+        if dir is not None:
+            self.dir = os.path.join(os.path.abspath(dir),"")
+        else:
+            self.dir = None
         self.store = store
         self.joker = joker
         self.ip = ip
@@ -11963,7 +11967,18 @@ class TFTP_RRQ_server(Automaton):
         self.l3 = IP(src=ip.dst, dst=ip.src)/UDP(sport=self.my_tid, dport=ip.sport)/TFTP()
         self.filename = pkt[TFTP_RRQ].filename
         self.blk=1
-        self.data = self.store.get(self.filename, self.joker)
+        self.data = None
+        if self.filename in self.store:
+            self.data = self.store[self.filename]
+        elif self.dir is not None:
+            fn = os.path.abspath(os.path.join(self.dir, self.filename))
+            if fn.startswith(self.dir): # Check we're still in the server's directory
+                try:
+                    self.data=open(fn).read()
+                except IOError:
+                    pass
+        if self.data is None:
+            self.data = self.joker
 
     @ATMT.condition(RECEIVED_RRQ)
     def file_in_store(self):
