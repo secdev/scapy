@@ -11640,12 +11640,13 @@ class Automaton:
                 
                 while 1:
                     t = time.time()-t0
-                    if next_timeout is None:
-                        remain = None
-                    else:
+                    if next_timeout is not None:
                         if next_timeout <= t:
                             self.run_condition(timeout_func, *state_output)
                             next_timeout,timeout_func = expirations.next()
+                    if next_timeout is None:
+                        remain = None
+                    else:
                         remain = next_timeout-t
     
                     r,_,_ = select([l],[],[],remain)
