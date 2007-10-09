@@ -6867,7 +6867,9 @@ class Dot11(Packet):
     def mysummary(self):
         return self.sprintf("802.11 %Dot11.type% %Dot11.subtype% %Dot11.addr2% > %Dot11.addr1%")
     def guess_payload_class(self, payload):
-        if self.FCfield & 0x40:
+        if self.type == 0x02 and (self.subtype >= 0x08 and self.subtype <=0xF and self.subtype != 0xD):
+            return Dot11QoS
+	elif self.FCfield & 0x40:
             return Dot11WEP
         else:
             return Packet.guess_payload_class(self, payload)
@@ -6903,6 +6905,20 @@ class Dot11(Packet):
         self.payload=self.payload.payload
 
 
+class Dot11QoS(Packet):
+    name = "802.11 QoS"
+    fields_desc = [ BitField("TID",None,4),
+                    BitField("EOSP",None,1),
+                    BitField("Ack Policy",None,2),
+                    BitField("Reserved",None,1),
+                    ByteField("TXOP",None) ]
+    def guess_payload_class(self, payload):
+        if isinstance(self.underlayer, Dot11):
+            if self.underlayer.FCfield & 0x40:
+                return Dot11WEP
+        return Packet.guess_payload_class(self, payload)
+
+
 capability_list = [ "res8", "res9", "short-slot", "res11",
                     "res12", "DSSS-OFDM", "res14", "res15",
                    "ESS", "IBSS", "CFP", "CFP-req",
@@ -6929,7 +6945,7 @@ class Dot11Beacon(Packet):
 class Dot11Elt(Packet):
     name = "802.11 Information Element"
     fields_desc = [ ByteEnumField("ID", 0, {0:"SSID", 1:"Rates", 2: "FHset", 3:"DSset", 4:"CFset", 5:"TIM", 6:"IBSSset", 16:"challenge",
-                                            42:"ERPinfo", 47:"ERPinfo", 48:"RSNinfo", 50:"ESRates",221:"vendor",68:"reserved"}),
+                                            42:"ERPinfo", 46:"QoS Capability", 47:"ERPinfo", 48:"RSNinfo", 50:"ESRates",221:"vendor",68:"reserved"}),
                     FieldLenField("len", None, "info", "B"),
                     StrLenField("info", "", length_from=lambda x:x.len) ]
     def mysummary(self):
@@ -8838,6 +8854,7 @@ bind_layers( GPRS,          IP,            )
 bind_layers( PrismHeader,   Dot11,         )
 bind_layers( RadioTap,      Dot11,         )
 bind_layers( Dot11,         LLC,           type=2)
+bind_layers( Dot11QoS,      LLC,           )
 bind_layers( PPP,           IP,            proto=33)
 bind_layers( Ether,         LLC,           type=122)
 bind_layers( Ether,         Dot1Q,         type=33024)
