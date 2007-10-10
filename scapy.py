@@ -9800,7 +9800,7 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0, retry=0, m
     nbrecv=0
     ans = []
     # do it here to fix random fields, so that parent and child have the same
-    tobesent = [p for p in pkt]
+    all_stimuli = tobesent = [p for p in pkt]
     notans = len(tobesent)
 
     hsent={}
@@ -9850,7 +9850,9 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0, retry=0, m
                 log_runtime.info("--- Error in child %i" % os.getpid())
                 os._exit(0)
             else:
-                cPickle.dump(arp_cache, wrpipe)
+                os.setpgrp() # Chance process group to avoid ctrl-C
+                sent_times = [p.sent_time for p in all_stimuli]
+                cPickle.dump( (arp_cache,sent_times), wrpipe )
                 wrpipe.close()
             os._exit(0)
         elif pid < 0:
@@ -9914,11 +9916,13 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0, retry=0, m
                     raise
     
             try:
-                ac = cPickle.load(rdpipe)
+                ac,sent_times = cPickle.load(rdpipe)
             except EOFError:
                 warning("Child died unexpectedly. Packets may have not been sent")
             else:
                 arp_cache.update(ac)
+                for p,t in zip(all_stimuli, sent_times):
+                    p.sent_time = t
                 os.waitpid(pid,0)
     
         remain = reduce(list.__add__, hsent.values(), [])
