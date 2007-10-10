@@ -5040,6 +5040,7 @@ class Packet(Gen):
 
     def __init__(self, _pkt="", post_transform=None, _internal=0, _underlayer=None, **fields):
         self.time  = time.time()
+        self.sent_time = 0
         if self.name is None:
             self.name = self.__class__.__name__
         self.aliastypes = [ self.__class__ ] + self.aliastypes
@@ -9270,7 +9271,9 @@ class SuperSocket:
         self.outs = self.ins
         self.promisc=None
     def send(self, x):
-        return self.outs.send(str(x))
+        sx = str(x)
+        x.sent_time = time.time()
+        return self.outs.send(sx)
     def recv(self, x):
         return Raw(self.ins.recv(x))
     def fileno(self):
@@ -9299,7 +9302,9 @@ class L3RawSocket(SuperSocket):
         return Ether(self.ins.recv(x)).payload
     def send(self, x):
         try:
-            self.outs.sendto(str(x),(x.dst,0))
+            sx = str(x)
+            x.sent_time = time.time()
+            self.outs.sendto(sx,(x.dst,0))
         except socket.error,msg:
             log_runtime.error(msg)
         
@@ -9386,8 +9391,11 @@ class L3PacketSocket(SuperSocket):
         if LLTypes.has_key(sn[3]):
             ll = lambda x:LLTypes[sn[3]]()/x
         try:
-            self.outs.sendto(str(ll(x)), sdto)
+            sx = str(ll(x))
+            x.sent_time = time.time()
+            self.outs.sendto(sx, sdto)
         except socket.error,msg:
+            x.sent_time = time.time()  # bad approximation
             if conf.auto_fragment and msg[0] == 90:
                 for p in fragment(x):
                     self.outs.sendto(str(ll(p)), sdto)
@@ -9542,7 +9550,9 @@ class L3dnetSocket(SuperSocket):
         ifs = self.iflist.get(iff)
         if ifs is None:
             self.iflist[iff] = ifs = dnet.eth(iff)
-        ifs.send(str(Ether()/x))
+        sx = str(Ether()/x)
+        x.sent_time = time.time()
+        ifs.send(sx)
     def recv(self,x=MTU):
         ll = self.ins.datalink()
         if LLTypes.has_key(ll):
