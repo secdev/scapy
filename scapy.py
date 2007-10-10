@@ -1443,27 +1443,27 @@ class RandNumExpo(RandField):
 
 class RandByte(RandNum):
     def __init__(self):
-        RandNum.__init__(self, 0, 2L**8)
+        RandNum.__init__(self, 0, 2L**8-1)
 
 class RandShort(RandNum):
     def __init__(self):
-        RandNum.__init__(self, 0, 2L**16)
+        RandNum.__init__(self, 0, 2L**16-1)
 
 class RandInt(RandNum):
     def __init__(self):
-        RandNum.__init__(self, 0, 2L**32)
+        RandNum.__init__(self, 0, 2L**32-1)
 
 class RandSInt(RandNum):
     def __init__(self):
-        RandNum.__init__(self, -2L**31, 2L**31)
+        RandNum.__init__(self, -2L**31, 2L**31-1)
 
 class RandLong(RandNum):
     def __init__(self):
-        RandNum.__init__(self, 0, 2L**64)
+        RandNum.__init__(self, 0, 2L**64-1)
 
 class RandSLong(RandNum):
     def __init__(self):
-        RandNum.__init__(self, -2L**63, 2L**63)
+        RandNum.__init__(self, -2L**63, 2L**63-1)
 
 class RandChoice(RandField):
     def __init__(self, *args):
@@ -4814,7 +4814,7 @@ class ASN1F_field(ASN1F_element):
 class ASN1F_INTEGER(ASN1F_field):
     ASN1_tag= ASN1_Class_UNIVERSAL.INTEGER
     def randval(self):
-        return RandNum(-2**64, 2**64)
+        return RandNum(-2**64, 2**64-1)
 
 class ASN1F_enum_INTEGER(ASN1F_INTEGER):
     def __init__(self, name, default, enum):
