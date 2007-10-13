@@ -1340,7 +1340,7 @@ else:
             mac, timeout = arp_cache[ip]
             if not timeout or (time.time()-timeout < ARPTIMEOUT):
                 return mac
-        
+
         res = srp1(Ether(dst=ETHER_BROADCAST)/ARP(op="who-has", pdst=ip),
                    type=ETH_P_ARP,
                    iface = iff,
@@ -9826,105 +9826,113 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0, retry=0, m
         rdpipe,wrpipe = os.pipe()
         rdpipe=os.fdopen(rdpipe)
         wrpipe=os.fdopen(wrpipe,"w")
-    
-        pid = os.fork()
-        if pid == 0:
-            sys.stdin.close()
-            rdpipe.close()
-            try:
-                i = 0
-                if verbose:
-                    print "Begin emission:"
-                for p in tobesent:
-                    pks.send(p)
-                    i += 1
-                    time.sleep(inter)
-                if verbose:
-                    print "Finished to send %i packets." % i
-            except SystemExit:
-                pass
-            except KeyboardInterrupt:
-                pass
-            except:
-                log_runtime.exception("--- Error in child %i" % os.getpid())
-                log_runtime.info("--- Error in child %i" % os.getpid())
-                os._exit(0)
+
+        pid=1
+        try:
+            pid = os.fork()
+            if pid == 0:
+                try:
+                    sys.stdin.close()
+                    rdpipe.close()
+                    try:
+                        i = 0
+                        if verbose:
+                            print "Begin emission:"
+                        for p in tobesent:
+                            pks.send(p)
+                            i += 1
+                            time.sleep(inter)
+                        if verbose:
+                            print "Finished to send %i packets." % i
+                    except SystemExit:
+                        pass
+                    except KeyboardInterrupt:
+                        pass
+                    except:
+                        log_runtime.exception("--- Error in child %i" % os.getpid())
+                        log_runtime.info("--- Error in child %i" % os.getpid())
+                finally:
+                    try:
+                        os.setpgrp() # Chance process group to avoid ctrl-C
+                        sent_times = [p.sent_time for p in all_stimuli if p.sent_time]
+                        cPickle.dump( (arp_cache,sent_times), wrpipe )
+                        wrpipe.close()
+                    except:
+                        pass
+            elif pid < 0:
+                log_runtime.error("fork error")
             else:
-                os.setpgrp() # Chance process group to avoid ctrl-C
-                sent_times = [p.sent_time for p in all_stimuli]
-                cPickle.dump( (arp_cache,sent_times), wrpipe )
                 wrpipe.close()
-            os._exit(0)
-        elif pid < 0:
-            log_runtime.error("fork error")
-        else:
-            wrpipe.close()
-            stoptime = 0
-            remaintime = None
-            inmask = [rdpipe,pks]
-            try:
-                while 1:
-                    if stoptime:
-                        remaintime = stoptime-time.time()
-                        if remaintime <= 0:
-                            break
-                    r = None
-                    if FREEBSD or DARWIN:
-                        inp, out, err = select(inmask,[],[], 0.05)
-                        if len(inp) == 0 or pks in inp:
-                            r = pks.nonblock_recv()
-                    else:
-                        inp, out, err = select(inmask,[],[], remaintime)
-                        if len(inp) == 0:
-                            break
-                        if pks in inp:
-                            r = pks.recv(MTU)
-                    if rdpipe in inp:
-                        if timeout:
-                            stoptime = time.time()+timeout
-                        del(inmask[inmask.index(rdpipe)])
-                    if r is None:
-                        continue
-                    ok = 0
-                    h = r.hashret()
-                    if h in hsent:
-                        hlst = hsent[h]
-                        for i in range(len(hlst)):
-                            if r.answers(hlst[i]):
-                                ans.append((hlst[i],r))
-                                if verbose > 1:
-                                    os.write(1, "*")
-                                ok = 1                                
-                                if not multi:
-                                    del(hlst[i])
-                                    notans -= 1;
-                                else:
-                                    if not hasattr(hlst[i], '_answered'):
-                                        notans -= 1;
-                                    hlst[i]._answered = 1;
+                stoptime = 0
+                remaintime = None
+                inmask = [rdpipe,pks]
+                try:
+                    try:
+                        while 1:
+                            if stoptime:
+                                remaintime = stoptime-time.time()
+                                if remaintime <= 0:
+                                    break
+                            r = None
+                            if FREEBSD or DARWIN:
+                                inp, out, err = select(inmask,[],[], 0.05)
+                                if len(inp) == 0 or pks in inp:
+                                    r = pks.nonblock_recv()
+                            else:
+                                inp, out, err = select(inmask,[],[], remaintime)
+                                if len(inp) == 0:
+                                    break
+                                if pks in inp:
+                                    r = pks.recv(MTU)
+                            if rdpipe in inp:
+                                if timeout:
+                                    stoptime = time.time()+timeout
+                                del(inmask[inmask.index(rdpipe)])
+                            if r is None:
+                                continue
+                            ok = 0
+                            h = r.hashret()
+                            if h in hsent:
+                                hlst = hsent[h]
+                                for i in range(len(hlst)):
+                                    if r.answers(hlst[i]):
+                                        ans.append((hlst[i],r))
+                                        if verbose > 1:
+                                            os.write(1, "*")
+                                        ok = 1                                
+                                        if not multi:
+                                            del(hlst[i])
+                                            notans -= 1;
+                                        else:
+                                            if not hasattr(hlst[i], '_answered'):
+                                                notans -= 1;
+                                            hlst[i]._answered = 1;
+                                        break
+                            if notans == 0 and not multi:
                                 break
-                    if notans == 0 and not multi:
-                        break
-                    if not ok:
-                        if verbose > 1:
-                            os.write(1, ".")
-                        nbrecv += 1
-                        if conf.debug_match:
-                            debug.recv.append(r)
-            except KeyboardInterrupt:
-                if chainCC:
-                    raise
-    
-            try:
-                ac,sent_times = cPickle.load(rdpipe)
-            except EOFError:
-                warning("Child died unexpectedly. Packets may have not been sent")
-            else:
-                arp_cache.update(ac)
-                for p,t in zip(all_stimuli, sent_times):
-                    p.sent_time = t
-                os.waitpid(pid,0)
-    
+                            if not ok:
+                                if verbose > 1:
+                                    os.write(1, ".")
+                                nbrecv += 1
+                                if conf.debug_match:
+                                    debug.recv.append(r)
+                    except KeyboardInterrupt:
+                        if chainCC:
+                            raise
+                finally:
+                    try:
+                        ac,sent_times = cPickle.load(rdpipe)
+                    except EOFError:
+                        warning("Child died unexpectedly. Packets may have not been sent %i"%os.getpid())
+                    else:
+                        arp_cache.update(ac)
+                        for p,t in zip(all_stimuli, sent_times):
+                            p.sent_time = t
+                    os.waitpid(pid,0)
+        finally:
+            if pid == 0:
+                os._exit(0)
+
         remain = reduce(list.__add__, hsent.values(), [])
         if multi:
             remain = filter(lambda p: not hasattr(p, '_answered'), remain);
