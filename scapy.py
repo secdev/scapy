@@ -23,7 +23,7 @@
 from __future__ import generators
 import os
 
-VERSION = "1.2.0"
+VERSION = "1.2.0.1"
 
 DEFAULT_CONFIG_FILE = os.path.join(os.environ["HOME"], ".scapy_startup.py")
 
@@ -6910,7 +6910,9 @@ class Dot11(Packet):
     def mysummary(self):
         return self.sprintf("802.11 %Dot11.type% %Dot11.subtype% %Dot11.addr2% > %Dot11.addr1%")
     def guess_payload_class(self, payload):
-        if self.FCfield & 0x40:
+        if self.type == 0x02 and (self.subtype >= 0x08 and self.subtype <=0xF and self.subtype != 0xD):
+            return Dot11QoS
+	elif self.FCfield & 0x40:
             return Dot11WEP
         else:
             return Packet.guess_payload_class(self, payload)
@@ -6946,6 +6948,20 @@ class Dot11(Packet):
         self.payload=self.payload.payload
 
 
+class Dot11QoS(Packet):
+    name = "802.11 QoS"
+    fields_desc = [ BitField("TID",None,4),
+                    BitField("EOSP",None,1),
+                    BitField("Ack Policy",None,2),
+                    BitField("Reserved",None,1),
+                    ByteField("TXOP",None) ]
+    def guess_payload_class(self, payload):
+        if isinstance(self.underlayer, Dot11):
+            if self.underlayer.FCfield & 0x40:
+                return Dot11WEP
+        return Packet.guess_payload_class(self, payload)
+
+
 capability_list = [ "res8", "res9", "short-slot", "res11",
                     "res12", "DSSS-OFDM", "res14", "res15",
                    "ESS", "IBSS", "CFP", "CFP-req",
@@ -6972,7 +6988,7 @@ class Dot11Beacon(Packet):
 class Dot11Elt(Packet):
     name = "802.11 Information Element"
     fields_desc = [ ByteEnumField("ID", 0, {0:"SSID", 1:"Rates", 2: "FHset", 3:"DSset", 4:"CFset", 5:"TIM", 6:"IBSSset", 16:"challenge",
-                                            42:"ERPinfo", 47:"ERPinfo", 48:"RSNinfo", 50:"ESRates",221:"vendor",68:"reserved"}),
+                                            42:"ERPinfo", 46:"QoS Capability", 47:"ERPinfo", 48:"RSNinfo", 50:"ESRates",221:"vendor",68:"reserved"}),
                     FieldLenField("len", None, "info", "B"),
                     StrLenField("info", "", length_from=lambda x:x.len) ]
     def mysummary(self):
@@ -8881,6 +8897,7 @@ bind_layers( GPRS,          IP,            )
 bind_layers( PrismHeader,   Dot11,         )
 bind_layers( RadioTap,      Dot11,         )
 bind_layers( Dot11,         LLC,           type=2)
+bind_layers( Dot11QoS,      LLC,           )
 bind_layers( PPP,           IP,            proto=33)
 bind_layers( Ether,         LLC,           type=122)
 bind_layers( Ether,         Dot1Q,         type=33024)
@@ -11712,12 +11729,13 @@ class Automaton:
                 
                 while 1:
                     t = time.time()-t0
-                    if next_timeout is None:
-                        remain = None
-                    else:
+                    if next_timeout is not None:
                         if next_timeout <= t:
                             self.run_condition(timeout_func, *state_output)
                             next_timeout,timeout_func = expirations.next()
+                    if next_timeout is None:
+                        remain = None
+                    else:
                         remain = next_timeout-t
     
                     r,_,_ = select([l],[],[],remain)
@@ -11937,7 +11955,7 @@ class TFTP_WRQ_server(Automaton):
     @ATMT.state(initial=1)
     def BEGIN(self):
         self.blksize=512
-        self.blk=0
+        self.blk=1
         self.filedata=""
         self.my_tid = self.sport or random.randint(10000,65500)
         bind_bottom_up(UDP, TFTP, dport=self.my_tid)
@@ -11959,7 +11977,7 @@ class TFTP_WRQ_server(Automaton):
             self.last_packet = self.l3/TFTP_ACK(block=0)
             self.send(self.last_packet)
         else:
-            opt = [x for x in options.options if x.oname == "BLKSIZE"]
+            opt = [x for x in options.options if x.oname.upper() == "BLKSIZE"]
             if opt:
                 self.blksize = int(opt[0].value)
                 self.debug(2,"Negotiated new blksize at %i" % self.blksize)
@@ -11968,8 +11986,13 @@ class TFTP_WRQ_server(Automaton):
 
     @ATMT.state()
     def WAIT_DATA(self):
-        self.blk += 1
+        pass
 
+    @ATMT.timeout(WAIT_DATA, 1)
+    def resend_ack(self):
+        self.send(self.last_packet)
+        raise self.WAIT_DATA()
+        
     @ATMT.receive_condition(WAIT_DATA)
     def receive_data(self, pkt):
         if TFTP_DATA in pkt:
@@ -11987,6 +12010,7 @@ class TFTP_WRQ_server(Automaton):
         self.filedata += data.load
         if len(data.load) < self.blksize:
             raise self.END()
+        self.blk += 1
         raise self.WAIT_DATA()
 
     @ATMT.state(final=1)
@@ -11996,10 +12020,14 @@ class TFTP_WRQ_server(Automaton):
         
 
 class TFTP_RRQ_server(Automaton):
-    def parse_args(self, store=None, joker=None, ip=None, sport=None, serve_one=False, **kargs):
+    def parse_args(self, store=None, joker=None, dir=None, ip=None, sport=None, serve_one=False, **kargs):
         Automaton.parse_args(self,**kargs)
         if store is None:
             store = {}
+        if dir is not None:
+            self.dir = os.path.join(os.path.abspath(dir),"")
+        else:
+            self.dir = None
         self.store = store
         self.joker = joker
         self.ip = ip
@@ -12025,10 +12053,33 @@ class TFTP_RRQ_server(Automaton):
     @ATMT.state()
     def RECEIVED_RRQ(self, pkt):
         ip = pkt[IP]
+        options = pkt[TFTP_Options]
         self.l3 = IP(src=ip.dst, dst=ip.src)/UDP(sport=self.my_tid, dport=ip.sport)/TFTP()
         self.filename = pkt[TFTP_RRQ].filename
         self.blk=1
-        self.data = self.store.get(self.filename, self.joker)
+        self.data = None
+        if self.filename in self.store:
+            self.data = self.store[self.filename]
+        elif self.dir is not None:
+            fn = os.path.abspath(os.path.join(self.dir, self.filename))
+            if fn.startswith(self.dir): # Check we're still in the server's directory
+                try:
+                    self.data=open(fn).read()
+                except IOError:
+                    pass
+        if self.data is None:
+            self.data = self.joker
+
+        if options:
+            opt = [x for x in options.options if x.oname.upper() == "BLKSIZE"]
+            if opt:
+                self.blksize = int(opt[0].value)
+                self.debug(2,"Negotiated new blksize at %i" % self.blksize)
+            self.last_packet = self.l3/TFTP_OACK()/TFTP_Options(options=opt)
+            self.send(self.last_packet)
+                
+
+            
 
     @ATMT.condition(RECEIVED_RRQ)
     def file_in_store(self):
@@ -12048,7 +12099,7 @@ class TFTP_RRQ_server(Automaton):
     def SEND_FILE(self):
         self.send(self.l3/TFTP_DATA(block=self.blk)/self.data[(self.blk-1)*self.blksize:self.blk*self.blksize])
         
-    @ATMT.timeout(SEND_FILE, 113)
+    @ATMT.timeout(SEND_FILE, 3)
     def timeout_waiting_ack(self):
         raise self.SEND_FILE()
             
