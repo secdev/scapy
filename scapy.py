@@ -879,6 +879,27 @@ def load_object(fname):
     return cPickle.load(gzip.open(fname,"rb"))
 
 
+######################
+## Extension system ##
+######################
+
+
+def load_extension(filename):
+    import imp
+    paths = conf.extensions_paths
+    if type(paths) is not list:
+        paths = [paths]
+    try:
+        extf = imp.find_module(filename, paths)
+    except ImportError:
+        log_runtime.error("Module [%s] not found. Check conf.extensions_paths ?" % filename)
+        return
+    ext = imp.load_module(filename, *extf)
+    import __builtin__
+    __builtin__.__dict__.update(ext.__dict__)
+    
+
+
 #################
 ## Debug class ##
 #################
@@ -13101,6 +13122,7 @@ mib      : holds MIB direct access dictionnary
 resolve   : holds list of fields for which resolution should be done
 noenum    : holds list of enum fields for which conversion to string should NOT be done
 AS_resolver: choose the AS resolver class to use
+extensions_paths: path or list of paths where extensions are to be looked for
 """
     session = ""  
     stealth = "not implemented"
@@ -13143,7 +13165,8 @@ AS_resolver: choose the AS resolver class to use
     services_tcp = TCP_SERVICES
     services_udp = UDP_SERVICES
     manufdb = MANUFDB
-    AS_resolver = AS_resolver_multi() 
+    AS_resolver = AS_resolver_multi()
+    extensions_paths = "."
         
 
 conf=Conf()
