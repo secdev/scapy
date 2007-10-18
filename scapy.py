@@ -1488,6 +1488,8 @@ class RandSLong(RandNum):
 
 class RandChoice(RandField):
     def __init__(self, *args):
+        if not args:
+            raise TypeError("RandChoice needs at least one choice")
         self._choice = args
     def _fix(self):
         return random.choice(self._choice)
