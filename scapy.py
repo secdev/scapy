@@ -6831,15 +6831,18 @@ class DHCPOptionsField(StrField):
     def i2repr(self,pkt,x):
         s = []
         for v in x:
-            if type(v) is tuple and len(v) == 2:
+            if type(v) is tuple and len(v) in [2,3]:
                 if  DHCPRevOptions.has_key(v[0]) and isinstance(DHCPRevOptions[v[0]][1],Field):
                     f = DHCPRevOptions[v[0]][1]
                     vv = f.i2repr(pkt,v[1])
                 else:
                     vv = repr(v[1])
-                s.append("%s=%s" % (v[0],vv))
+                r = "%s=%s" % (v[0],vv)
+                if len(v) > 2:
+                    r += " (garbage=%r)" % v[2]
+                s.append(r)
             else:
-                s.append(str(v))
+                s.append(sane(v))
         return "[%s]" % (" ".join(s))
         
     def getfield(self, pkt, s):
@@ -6856,7 +6859,10 @@ class DHCPOptionsField(StrField):
                 opt.append("pad")
                 x = x[1:]
                 continue
-            if DHCPOptions.has_key(o):
+            if len(x) < 2 or len(x) < ord(x[1])+2:
+                opt.append(x)
+                break
+            elif DHCPOptions.has_key(o):
                 f = DHCPOptions[o]
 
                 if isinstance(f, str):
@@ -6865,11 +6871,16 @@ class DHCPOptionsField(StrField):
                     x = x[olen+2:]
                 else:
                     olen = ord(x[1])
-                    left, val = f.getfield(pkt,x[2:olen+2])
-#                    val = f.m2i(pkt,val)
-#                    if left:
-#                        print "m2i data left left=%s" % left
-                    opt.append((f.name, val))
+                    try:
+                        left, val = f.getfield(pkt,x[2:olen+2])
+                    except:
+                        opt.append(x)
+                        break
+                    if left:
+                        otuple = (f.name, val, left)
+                    else:
+                        otuple = (f.name, val)
+                    opt.append(otuple)
                     x = x[olen+2:]
             else:
                 olen = ord(x[1])
@@ -6877,11 +6888,12 @@ class DHCPOptionsField(StrField):
                 x = x[olen+2:]
         return opt
     def i2m(self, pkt, x):
-        #print "i2m x=%s" % x
+        if type(x) is str:
+            return x
         s = ""
         for o in x:
-            if type(o) is tuple and len(o) == 2:
-                name, val = o
+            if type(o) is tuple and len(o) in [2,3]:
+                name, val = o[:2]
 
                 if isinstance(name, int):
                     onum, oval = name, val
@@ -6890,12 +6902,12 @@ class DHCPOptionsField(StrField):
                     if  f is None:
                         oval = val
                     else:
-#                        oval = f.addfield(pkt,"",f.i2m(pkt,f.any2i(pkt,val)))
                         oval = f.addfield(pkt,"",f.any2i(pkt,val))
-                        
                 else:
                     warning("Unknown field option %s" % name)
                     continue
+                if len(o) > 2:
+                    oval += o[2]
 
                 s += chr(onum)
                 s += chr(len(oval))
@@ -6905,7 +6917,9 @@ class DHCPOptionsField(StrField):
                   DHCPRevOptions[o][1] == None):
                 s += chr(DHCPRevOptions[o][0])
             elif type(o) is int:
-                s += chr(o)
+                s += chr(o)+"\0"
+            elif type(o) is str:
+                s += o
             else:
                 warning("Malformed option %s" % o)
         return s
