@@ -1595,6 +1595,27 @@ class RandASN1Object(RandField):
             return o(map(lambda x:x._fix(n+1), [self.__class__(objlist=self.objlist)]*z))
         return ASN1_INTEGER(int(random.gauss(0,1000)))
 
+class RandDHCPOptions(RandField):
+    def __init__(self, size=None, rndstr=None):
+        if size is None:
+            size = RandNumExpo(0.05)
+        self.size = size
+        if rndstr is None:
+            rndstr = RandBin(RandNum(0,255))
+        self.rndstr=rndstr
+        self._opts = DHCPOptions.values()
+        self._opts.remove("pad")
+        self._opts.remove("end")
+    def _fix(self):
+        op = []
+        for k in range(self.size):
+            o = random.choice(self._opts)
+            if type(o) is str:
+                op.append((o,self.rndstr*1))
+            else:
+                op.append((o.name, o.randval()._fix()))
+        return op
+            
 
 # Automatic timestamp
 
