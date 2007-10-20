@@ -2507,7 +2507,7 @@ class PacketList:
                 other += 1
         s = ""
         ct = conf.color_theme
-        for p in stats:
+        for p in self.stats:
             s += " %s%s%s" % (ct.packetlist_proto(p.name),
                               ct.punct(":"),
                               ct.packetlist_value(stats[p]))
