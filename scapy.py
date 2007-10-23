@@ -12309,9 +12309,10 @@ class BOOTP_am(AnsweringMachine):
     filter = "udp and port 68 and port 67"
     send_function = staticmethod(sendp)
     def parse_options(self, pool=Net("192.168.1.128/25"), network="192.168.1.0/24",gw="192.168.1.1",
-                      renewal_time=60, lease_time=1800):
+                      domain="localnet", renewal_time=60, lease_time=1800):
         if type(pool) is str:
             poom = Net(pool)
+        self.domain = domain
         netw,msk = (network.split("/")+["32"])[:2]
         msk = itom(int(msk))
         self.netmask = ltoa(msk)
@@ -12367,12 +12368,15 @@ class DHCP_am(BOOTP_am):
             dhcp_options = [(op[0],{1:2,3:5}.get(op[1],op[1]))
                             for op in req[DHCP].options
                             if type(op) is tuple  and op[0] == "message-type"]
-            dhcp_options += [("router", self.gw),
+            dhcp_options += [("server_id",self.gw),
+                             ("domain", self.domain),
+                             ("router", self.gw),
                              ("name_server", self.gw),
                              ("broadcast_address", self.broadcast),
                              ("subnet_mask", self.netmask),
                              ("renewal_time", self.renewal_time),
-                             ("lease_time", self.lease_time),
+                             ("lease_time", self.lease_time), 
+                             "end"
                              ]
             resp /= DHCP(options=dhcp_options)
         return resp
