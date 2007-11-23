@@ -2192,7 +2192,6 @@ class BERcodec_SEQUENCE(BERcodec_Object):
             try:
                 o,s = BERcodec_Object.dec(s, context, safe)
             except BER_Decoding_Error, err:
-                print "enrichi %r <- %r  %r" % (err.remaining,t,s), obj
                 err.remaining += t
                 if err.decoded is not None:
                     obj.append(err.decoded)
