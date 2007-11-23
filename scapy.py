@@ -889,14 +889,30 @@ def load_extension(filename):
     paths = conf.extensions_paths
     if type(paths) is not list:
         paths = [paths]
+
+    name = os.path.realpath(os.path.expanduser(filename))
+    thepath = os.path.dirname(name)
+    thename = os.path.basename(name)
+    if thename.endswith(".py"):
+        thename = thename[:-3]
+
+    paths.insert(0, thepath)
     try:
-        extf = imp.find_module(filename, paths)
-    except ImportError:
-        log_runtime.error("Module [%s] not found. Check conf.extensions_paths ?" % filename)
-        return
-    ext = imp.load_module(filename, *extf)
-    import __builtin__
-    __builtin__.__dict__.update(ext.__dict__)
+        cwd = os.getcwd()
+        os.chdir(thepath)
+        syspath = sys.path[:]
+        sys.path += paths
+        try:
+            extf = imp.find_module(thename, paths)
+        except ImportError:
+            log_runtime.error("Module [%s] not found. Check conf.extensions_paths ?" % filename)
+        else:
+            ext = imp.load_module(thename, *extf)
+            import __builtin__
+            __builtin__.__dict__.update(ext.__dict__)
+    finally:
+        sys.path=syspath
+        os.chdir(cwd)
     
 
 
