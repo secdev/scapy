@@ -13250,6 +13250,8 @@ country_loc_kdb = CountryLocKnowledgeBase(conf.countryLoc_base)
 ##### Autorun stuff #####
 #########################
 
+class StopAutorun(Scapy_Exception):
+    pass
 
 class ScapyAutorunInterpreter(code.InteractiveInterpreter):
     def __init__(self, *args, **kargs):
@@ -13260,6 +13262,9 @@ class ScapyAutorunInterpreter(code.InteractiveInterpreter):
         return code.InteractiveInterpreter.showsyntaxerror(self, *args, **kargs)
     def showtraceback(self, *args, **kargs):
         self.error = 1
+        exc_type, exc_value, exc_tb = sys.exc_info()
+        if isinstance(exc_value, StopAutorun):
+            raise exc_value
         return code.InteractiveInterpreter.showtraceback(self, *args, **kargs)
 
 
