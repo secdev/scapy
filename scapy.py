@@ -13267,31 +13267,34 @@ def autorun_commands(cmds,my_globals=None,verb=0):
     sv = conf.verb
     import __builtin__
     try:
-        if my_globals is None:
-            my_globals = globals()
-        conf.verb = verb
-        interp = ScapyAutorunInterpreter(my_globals)
-        cmd = ""
-        cmds = cmds.splitlines()
-        cmds.append("") # ensure we finish multiline commands
-        cmds.reverse()
-        __builtin__.__dict__["_"] = None
-        while 1:
-            if cmd:
-                sys.stderr.write(sys.__dict__.get("ps2","... "))
-            else:
-                sys.stderr.write(str(sys.__dict__.get("ps1",ColorPrompt())))
-                
-            l = cmds.pop()
-            print l
-            cmd += "\n"+l
-            if interp.runsource(cmd):
-                continue
-            if interp.error:
-                return 0
+        try:
+            if my_globals is None:
+                my_globals = globals()
+            conf.verb = verb
+            interp = ScapyAutorunInterpreter(my_globals)
             cmd = ""
-            if len(cmds) <= 1:
-                break
+            cmds = cmds.splitlines()
+            cmds.append("") # ensure we finish multiline commands
+            cmds.reverse()
+            __builtin__.__dict__["_"] = None
+            while 1:
+                if cmd:
+                    sys.stderr.write(sys.__dict__.get("ps2","... "))
+                else:
+                    sys.stderr.write(str(sys.__dict__.get("ps1",ColorPrompt())))
+                    
+                l = cmds.pop()
+                print l
+                cmd += "\n"+l
+                if interp.runsource(cmd):
+                    continue
+                if interp.error:
+                    return 0
+                cmd = ""
+                if len(cmds) <= 1:
+                    break
+        except SystemExit:
+            pass
     finally:
         conf.verb = sv
     return _
