@@ -5623,6 +5623,18 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
                     del(self.fields[k])
         self.payload.hide_defaults()
             
+    def clone_with(self, payload=None, **kargs):
+        pkt = self.__class__()
+        pkt.explicit = 1
+        pkt.fields = kargs
+        pkt.time = self.time
+        pkt.underlayer = self.underlayer
+        pkt.overload_fields = self.overload_fields.copy()
+        pkt.post_transforms = self.post_transforms
+        if payload is not None:
+            pkt.add_payload(payload)
+        return pkt
+        
 
     def __iter__(self):
         def loop(todo, done, self=self):
@@ -5648,15 +5660,7 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
                     for k in done2:
                         if isinstance(done2[k], VolatileValue):
                             done2[k] = done2[k]._fix()
-                    pkt = self.__class__()
-                    pkt.explicit = 1
-                    pkt.fields = done2
-                    pkt.time = self.time
-                    pkt.underlayer = self.underlayer
-                    pkt.overload_fields = self.overload_fields.copy()
-                    pkt.post_transforms = self.post_transforms
-                    if payl is not None:
-                        pkt.add_payload(payl)
+                    pkt = self.clone_with(payload=payl, **done2)
                     yield pkt
 
         if self.explicit:
