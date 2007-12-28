@@ -13255,7 +13255,7 @@ country_loc_kdb = CountryLocKnowledgeBase(conf.countryLoc_base)
 #########################
 
 class StopAutorun(Scapy_Exception):
-    pass
+    code_run = ""
 
 class ScapyAutorunInterpreter(code.InteractiveInterpreter):
     def __init__(self, *args, **kargs):
@@ -13318,8 +13318,12 @@ def autorun_get_interactive_session(cmds, **kargs):
     sw = StringWriter()
     sstdout,sstderr = sys.stdout,sys.stderr
     try:
-        sys.stdout = sys.stderr = sw
-        res = autorun_commands(cmds, **kargs)
+        try:
+            sys.stdout = sys.stderr = sw
+            res = autorun_commands(cmds, **kargs)
+        except StopAutorun,e:
+            e.code_run = sw.s
+            raise
     finally:
         sys.stdout,sys.stderr = sstdout,sstderr
     return sw.s,res
@@ -13344,25 +13348,32 @@ def autorun_get_ansi_interactive_session(cmds, **kargs):
 
 def autorun_get_html_interactive_session(cmds, **kargs):
     ct = conf.color_theme
+    to_html = lambda s: s.replace("<","&lt;").replace(">","&gt;").replace("#[#","<").replace("#]#",">")
     try:
-        conf.color_theme = HTMLTheme2()
-        s,res = autorun_get_interactive_session(cmds, **kargs)
+        try:
+            conf.color_theme = HTMLTheme2()
+            s,res = autorun_get_interactive_session(cmds, **kargs)
+        except StopAutorun,e:
+            e.code_run = to_html(e.code_run)
+            raise
     finally:
         conf.color_theme = ct
     
-    s = s.replace("<","&lt;").replace(">","&gt;").replace("#[#","<").replace("#]#",">")
-    return s,res
+    return to_html(s),res
 
 def autorun_get_latex_interactive_session(cmds, **kargs):
     ct = conf.color_theme
+    to_latex = lambda s: tex_escape(s).replace("@[@","{").replace("@]@","}").replace("@`@","\\")
     try:
-        conf.color_theme = LatexTheme2()
-        s,res = autorun_get_interactive_session(cmds, **kargs)
+        try:
+            conf.color_theme = LatexTheme2()
+            s,res = autorun_get_interactive_session(cmds, **kargs)
+        except StopAutorun,e:
+            e.code_run = to_latex(e.code_run)
+            raise
     finally:
         conf.color_theme = ct
-    s = tex_escape(s)
-    s = s.replace("@[@","{").replace("@]@","}").replace("@`@","\\")
-    return s,res
+    return to_latex(s),res
 
 
 ################
