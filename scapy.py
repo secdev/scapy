@@ -10087,7 +10087,7 @@ send(packets, [inter=0], [loop=0], [verbose=conf.verb]) -> None"""
 
 def sendp(x, inter=0, loop=0, iface=None, iface_hint=None, count=None, verbose=None, *args, **kargs):
     """Send packets at layer 2
-send(packets, [inter=0], [loop=0], [verbose=conf.verb]) -> None"""
+sendp(packets, [inter=0], [loop=0], [verbose=conf.verb]) -> None"""
     if iface is None and iface_hint is not None:
         iface = conf.route.route(iface_hint)[0]
     __gen_send(conf.L2socket(iface=iface, *args, **kargs), x, inter=inter, loop=loop, count=count, verbose=verbose)
