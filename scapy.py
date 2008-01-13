@@ -11289,13 +11289,18 @@ traceroute(target, [maxttl=30,] [dport=80,] [sport=80,] [verbose=conf.verb]) -> 
     if verbose is None:
         verbose = conf.verb
     if filter is None:
-        filter="(icmp and icmp[0]=11) or (tcp and (tcp[13] & 0x16 > 0x10))"
+        # we only consider ICMP error packets and TCP packets with at
+        # least the ACK flag set *and* either the SYN or the RST flag
+        # set
+        filter="(icmp and (icmp[0]=3 or icmp[0]=4 or icmp[0]=5 or icmp[0]=11 or icmp[0]=12)) or (tcp and (tcp[13] & 0x16 > 0x10))"
     if l4 is None:
         a,b = sr(IP(dst=target, id=RandShort(), ttl=(minttl,maxttl))/TCP(seq=RandInt(),sport=sport, dport=dport),
                  timeout=timeout, filter=filter, verbose=verbose, **kargs)
     else:
+        # this should always work
+        filter="ip"
         a,b = sr(IP(dst=target, id=RandShort(), ttl=(minttl,maxttl))/l4,
-                 verbose=verbose, timeout=timeout, **kargs)
+                 timeout=timeout, filter=filter, verbose=verbose, **kargs)
 
     a = TracerouteResult(a.res)
     if verbose:
