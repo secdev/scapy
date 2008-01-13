@@ -4764,6 +4764,27 @@ class TimeStampField(BitField):
         t <<= 32
         return BitField.addfield(self,pkt,s, t)
 
+class ICMPTimeStampField(IntField):
+    re_hmsm = re.compile("([0-2]?[0-9])[Hh:](([0-5]?[0-9])([Mm:]([0-5]?[0-9])([sS:.]([0-9]{0,3}))?)?)?$")
+    def i2repr(self, pkt, val):
+        sec, milli = divmod(val, 1000)
+        min, sec = divmod(sec, 60)
+        hour, min = divmod(min, 60)
+        b = "%d:%d:%d.%d" %(hour, min, sec, int(milli))
+        return b
+    def any2i(self, pkt, val):
+        if type(val) is str:
+            hmsms = self.re_hmsm.match(val)
+            if hmsms:
+                h,_,m,_,s,_,ms = hmsms = hmsms.groups()
+                ms = int(((ms or "")+"000")[:3])
+                val = ((int(h)*60+int(m or 0))*60+int(s or 0))*1000+ms
+            else:
+                val = 0
+        elif val is None:
+            val = int((time.time()%(24*60*60))*1000)
+        return val
+
 class FloatField(BitField):
     def getfield(self, pkt, s):
         s,b = BitField.getfield(self, pkt, s)
@@ -6535,8 +6556,16 @@ class ICMP(Packet):
     fields_desc = [ ByteEnumField("type",8, icmptypes),
                     ByteField("code",0),
                     XShortField("chksum", None),
-                    XShortField("id",0),
-                    XShortField("seq",0) ]
+                    ConditionalField(XShortField("id",0),  lambda pkt:pkt.type in [0,8,13,14,15,16]),
+                    ConditionalField(XShortField("seq",0), lambda pkt:pkt.type in [0,8,13,14,15,16]),
+                    ConditionalField(ICMPTimeStampField("ts_ori", None), lambda pkt:pkt.type in [13,14]),
+                    ConditionalField(ICMPTimeStampField("ts_rx", None), lambda pkt:pkt.type in [13,14]),
+                    ConditionalField(ICMPTimeStampField("ts_tx", None), lambda pkt:pkt.type in [13,14]),
+                    ConditionalField(IPField("gw","0.0.0.0"),  lambda pkt:pkt.type==5),
+                    ConditionalField(ByteField("ptr",0),   lambda pkt:pkt.type==12),
+                    ConditionalField(X3BytesField("reserved",0), lambda pkt:pkt.type==12),
+                    ConditionalField(IntField("unused",0), lambda pkt:pkt.type not in [0,5,8,12,13,14,15,16]),
+                    ]
     def post_build(self, p, pay):
         p += pay
         if self.chksum is None:
