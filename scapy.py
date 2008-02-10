@@ -9444,6 +9444,8 @@ class L3PacketSocket(SuperSocket):
         self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))
         self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 0)
         flush_fd(self.ins)
+        if iface:
+            self.ins.bind((iface, type))
         if not nofilter:
             if conf.except_filter:
                 if filter:
