@@ -1118,7 +1118,7 @@ if PCAP:
     def get_working_if():
         try:
             return pcap.lookupdev()
-        except pcap.pcapc.EXCEPTION:
+        except Exception:
             return 'lo'
 
     def attach_filter(s, filter):
