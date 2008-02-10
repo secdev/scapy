@@ -10230,10 +10230,12 @@ iface:    work only on the given interface"""
     else:
         return None
 
-def __sr_loop(srfunc, pkts, prn=lambda x:x[1].summary(), prnfail=lambda x:x.summary(), inter=1, timeout=None, count=None, verbose=0, store=1, *args, **kargs):
+def __sr_loop(srfunc, pkts, prn=lambda x:x[1].summary(), prnfail=lambda x:x.summary(), inter=1, timeout=None, count=None, verbose=None, store=1, *args, **kargs):
     n = 0
     r = 0
     ct = conf.color_theme
+    if verbose is None:
+        verbose = conf.verb
     parity = 0
     ans=[]
     unans=[]
@@ -10252,19 +10254,19 @@ def __sr_loop(srfunc, pkts, prn=lambda x:x[1].summary(), prnfail=lambda x:x.summ
             res = srfunc(pkts, timeout=timeout, verbose=0, chainCC=1, *args, **kargs)
             n += len(res[0])+len(res[1])
             r += len(res[0])
-            if prn and len(res[0]) > 0:
+            if verbose > 1 and prn and len(res[0]) > 0:
                 msg = "RECV %i:" % len(res[0])
                 print  "\r"+ct.success(msg),
                 for p in res[0]:
                     print col(prn(p))
                     print " "*len(msg),
-            if prnfail and len(res[1]) > 0:
+            if verbose > 1 and prnfail and len(res[1]) > 0:
                 msg = "fail %i:" % len(res[1])
                 print "\r"+ct.fail(msg),
                 for p in res[1]:
                     print col(prnfail(p))
                     print " "*len(msg),
-            if not (prn or prnfail):
+            if verbose > 1 and not (prn or prnfail):
                 print "recv:%i  fail:%i" % tuple(map(len, res[:2]))
             if store:
                 ans += res[0]
@@ -10275,7 +10277,7 @@ def __sr_loop(srfunc, pkts, prn=lambda x:x[1].summary(), prnfail=lambda x:x.summ
     except KeyboardInterrupt:
         pass
  
-    if n>0:
+    if verbose and n>0:
         print "%s\nSent %i packets, received %i packets. %3.1f%% hits." % (Color.normal,n,r,100.0*r/n)
 
     return SndRcvList(ans),PacketList(unans)
