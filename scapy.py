@@ -10280,8 +10280,7 @@ def __sr_loop(srfunc, pkts, prn=lambda x:x[1].summary(), prnfail=lambda x:x.summ
         pass
  
     if verbose and n>0:
-        print "%s\nSent %i packets, received %i packets. %3.1f%% hits." % (Color.normal,n,r,100.0*r/n)
-
+        print ct.normal("\nSent %i packets, received %i packets. %3.1f%% hits." % (n,r,100.0*r/n))
     return SndRcvList(ans),PacketList(unans)
 
 def srloop(pkts, *args, **kargs):
