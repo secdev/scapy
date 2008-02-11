@@ -10217,7 +10217,9 @@ iface:    work only on the given interface"""
         kargs["timeout"] = -1
     if iface is None and iface_hint is not None:
         iface = conf.route.route(iface_hint)[0]
-    a,b,c=sndrcv(conf.L2socket(iface=iface, filter=filter, nofilter=nofilter, type=type),x,*args,**kargs)
+    s = conf.L2socket(iface=iface, filter=filter, nofilter=nofilter, type=type)
+    a,b,c=sndrcv(s ,x,*args,**kargs)
+    s.close()
     return a,b
 
 def srp1(*args,**kargs):
@@ -11272,6 +11274,7 @@ L2socket: use the provided L2socket
                     break
         except KeyboardInterrupt:
             break
+    s.close()
     return PacketList(lst,"Sniffed")
 
 
