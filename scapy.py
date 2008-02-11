@@ -3803,6 +3803,15 @@ class XLongField(LongField):
             x = 0
         return lhex(self.i2h(pkt, x))
 
+class IEEEFloatField(Field):
+    def __init__(self, name, default):
+        Field.__init__(self, name, default, "f")
+
+class IEEEDoubleField(Field):
+    def __init__(self, name, default):
+        Field.__init__(self, name, default, "d")
+
+
 def FIELD_LENGTH_MANAGEMENT_DEPRECATION(x):
     try:
         for tb in traceback.extract_stack()+[("??",-1,None,"")]:
