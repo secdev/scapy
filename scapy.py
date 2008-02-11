@@ -5280,6 +5280,8 @@ class Packet(Gen):
         s = ""
         ct = conf.color_theme
         for f in self.fields_desc:
+            if isinstance(f, ConditionalField) and not f._evalcond(self):
+                continue
             if f.name in self.fields:
                 val = f.i2repr(self, self.fields[f.name])
             elif f.name in self.overloaded_fields:
@@ -5809,6 +5811,8 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
                               ct.layer_name(self.name),
                               ct.punct("]###"))
         for f in self.fields_desc:
+            if isinstance(f, ConditionalField) and not f._evalcond(self):
+                continue
             if isinstance(f, Emph):
                 ncol = ct.emph_field_name
                 vcol = ct.emph_field_value
