@@ -4767,11 +4767,13 @@ class TimeStampField(BitField):
 class ICMPTimeStampField(IntField):
     re_hmsm = re.compile("([0-2]?[0-9])[Hh:](([0-5]?[0-9])([Mm:]([0-5]?[0-9])([sS:.]([0-9]{0,3}))?)?)?$")
     def i2repr(self, pkt, val):
-        sec, milli = divmod(val, 1000)
-        min, sec = divmod(sec, 60)
-        hour, min = divmod(min, 60)
-        b = "%d:%d:%d.%d" %(hour, min, sec, int(milli))
-        return b
+        if val is None:
+            return "--"
+        else:
+            sec, milli = divmod(val, 1000)
+            min, sec = divmod(sec, 60)
+            hour, min = divmod(min, 60)
+            return "%d:%d:%d.%d" %(hour, min, sec, int(milli))
     def any2i(self, pkt, val):
         if type(val) is str:
             hmsms = self.re_hmsm.match(val)
