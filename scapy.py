@@ -5252,33 +5252,49 @@ class Packet(Gen):
             return v
         raise AttributeError(attr)
 
+    def setfieldval(self, attr, val):
+        if self.default_fields.has_key(attr):
+            fld = self.get_field(attr)
+            if fld is None:
+                any2i = lambda x,y: y
+            else:
+                any2i = fld.any2i
+            self.fields[attr] = any2i(self, val)
+            self.explicit=0
+        elif attr == "payload":
+            self.remove_payload()
+            self.add_payload(val)
+        else:
+            self.payload.setfieldval(attr,val)
+
     def __setattr__(self, attr, val):
         if self.initialized:
-            if self.default_fields.has_key(attr):
-                fld = self.get_field(attr)
-                if fld is None:
-                    any2i = lambda x,y: y
-                else:
-                    any2i = fld.any2i
-                self.fields[attr] = any2i(self, val)
-                self.explicit=0
-            elif attr == "payload":
-                self.remove_payload()
-                self.add_payload(val)
+            try:
+                self.setfieldval(attr,val)
+            except AttributeError:
+                pass
             else:
-                self.__dict__[attr] = val
+                return
+        self.__dict__[attr] = val
+
+    def delfieldval(self, attr):
+        if self.fields.has_key(attr):
+            del(self.fields[attr])
+            self.explicit=0 # in case a default value must be explicited
+        elif self.default_fields.has_key(attr):
+            pass
+        elif attr == "payload":
+            self.remove_payload()
         else:
-            self.__dict__[attr] = val
+            self.payload.delfieldval(attr)
+
     def __delattr__(self, attr):
         if self.initialized:
-            if self.fields.has_key(attr):
-                del(self.fields[attr])
-                self.explicit=0 # in case a default value must be explicited
-                return
-            elif self.default_fields.has_key(attr):
-                return
-            elif attr == "payload":
-                self.remove_payload()
+            try:
+                self.delfieldval(attr)
+            except AttributeError:
+                pass
+            else:
                 return
         if self.__dict__.has_key(attr):
             del(self.__dict__[attr])
@@ -6068,6 +6084,10 @@ class NoPayload(Packet,object):
     def getfieldval(self, attr):
         raise AttributeError(attr)
     def getfield_and_val(self, attr):
+        raise AttributeError(attr)
+    def setfieldval(self, attr, val):
+        raise AttributeError(attr)
+    def delfieldval(self, attr):
         raise AttributeError(attr)
     def __getattr__(self, attr):
         if attr in self.__dict__:
