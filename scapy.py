@@ -6882,6 +6882,74 @@ class PPP(Packet):
     fields_desc = [ ShortEnumField("proto", 0x0021, _PPP_proto) ]
 
 
+
+### PPP IPCP stuff (RFC 1332)
+
+# As stated in RFC 1332, IPCP uses the same packet exchange mecanisms as LCP.
+# LCP Codes 1 to 7 are used.
+
+_PPP_ipcptypes = { 1:"Configure-Request",
+                   2:"Configure-Ack",
+                   3:"Configure-Nak",
+                   4:"Configure-Reject",
+                   5:"Terminate-Req",
+                   6:"Terminate-Ack",
+                   7:"Code-Reject"}
+
+# guess payload class associated with each type
+_PPP_ipcptypescl = { 1:"IPCPConfReq",
+                     2:"IPCPConfAck", 
+                     3:"IPCPConfNak",
+                     4:"IPCPConfRej",
+                     5:"IPCPTermReq",
+                     6:"IPCPTermAck",
+                     7:"IPCPCodeRej"}
+
+# All IPCP options are defined below (names and associated classes) 
+_PPP_ipcpopttypes = {     1:"IP-Addresses (Deprecated)",
+                          2:"IP-Compression-Protocol",
+                          3:"IP-Address",
+                          4:"Mobile-IPv4", # not implemented, present for completeness
+                          129:"Primary-DNS-Address",
+                          130:"Primary-NBNS-Address",
+                          131:"Secondary-DNS-Address",
+                          132:"Secondary-NBNS-Address"}
+
+_PPP_ipcpoptcls = {   1:"IPCPOptIPAddresses",
+                      2:"IPCPOptIPCompProto",
+                      3:"IPCPOptIPAddress",
+                      129:"IPCPOptDNS1",
+                      130:"IPCPOptNBNS1",
+                      131:"IPCPOptDNS2",
+                      132:"IPCPOptNBNS2"}
+
+# Among IPCP Options, the Compression Protocol ones can be instantiated
+# through different specific classes, associated with a particular protocol
+# (the format of this classes for these protocols are differents)
+_PPP_ipcpoptcompcls = {0x002d:"IPCPOptCompProtoVJ",
+                       0x0061:"IPCPOptCompProtoIPH",
+                       0x0003:"IPCPOptCompProtoROHC"}
+
+_PPP_ipcpoptcomptypes = {0x002d:"Van Jacobson Compressed TCP/IP",
+                         0x0061:"IP Header Compression",
+                         0x0003:"Robust Header Compression (ROHC)"}
+
+class PPP_IPCP_Option(Packet):
+    name = "IPCP Option"
+    fields_desc = [ ByteEnumField("type" , None , _PPP_ipcpopttypes),
+                    FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p,x:x+2),
+                    StrLenField("data", "", length_from=lambda p:p.len-2) ]
+    def extract_padding(self, pay):
+        return "",pay
+
+class PPP_IPCP(Packet):
+    fields_desc = [ ByteEnumField("code" , 1, _PPP_ipcptypes),
+		    XByteField("id", 0 ),
+                    FieldLenField("len" , None, fmt="H", length_of="options", adjust=lambda p,x:x+4 ),
+                    PacketListField("options", [],  PPP_IPCP_Option, length_from=lambda p:p.len-4,) ]
+
+
+
 class DNS(Packet):
     name = "DNS"
     fields_desc = [ ShortField("id",0),
@@ -9194,6 +9262,7 @@ bind_layers( RadioTap,      Dot11,         )
 bind_layers( Dot11,         LLC,           type=2)
 bind_layers( Dot11QoS,      LLC,           )
 bind_layers( PPP,           IP,            proto=33)
+bind_layers( PPP,           PPP_IPCP,      proto=0x8021)
 bind_layers( Ether,         LLC,           type=122)
 bind_layers( Ether,         Dot1Q,         type=33024)
 bind_layers( Ether,         Ether,         type=1)
