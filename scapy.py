@@ -6934,13 +6934,79 @@ _PPP_ipcpoptcomptypes = {0x002d:"Van Jacobson Compressed TCP/IP",
                          0x0061:"IP Header Compression",
                          0x0003:"Robust Header Compression (ROHC)"}
 
+
+class PPP_IPCP_Option_metaclass(Packet_metaclass):
+    _known_options={}
+    def __call__(self, _pkt=None, *args, **kargs):
+        cls = self
+        if _pkt:
+            t = ord(_pkt[0])
+            cls = self._known_options.get(t,self)
+        i = cls.__new__(cls, cls.__name__, cls.__bases__, cls.__dict__)
+        i.__init__(_pkt=_pkt, *args, **kargs)
+        return i
+
+    def _register(self, cls):
+        self._known_options[cls.fields_desc[0].default] = cls
+
+
 class PPP_IPCP_Option(Packet):
-    name = "IPCP Option"
+    __metaclass__=PPP_IPCP_Option_metaclass
+    name = "PPP IPCP Option"
     fields_desc = [ ByteEnumField("type" , None , _PPP_ipcpopttypes),
                     FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p,x:x+2),
                     StrLenField("data", "", length_from=lambda p:p.len-2) ]
     def extract_padding(self, pay):
         return "",pay
+
+class PPP_IPCP_Specific_Option_metaclass(PPP_IPCP_Option_metaclass):
+    def __new__(cls, name, bases, dct):
+        newcls = super(PPP_IPCP_Specific_Option_metaclass, cls).__new__(cls, name, bases, dct)
+        PPP_IPCP_Option._register(newcls)
+        
+
+class PPP_IPCP_Option_IPAddress(PPP_IPCP_Option):
+    __metaclass__=PPP_IPCP_Specific_Option_metaclass
+    name = "PPP IPCP Option: IP Address"
+    fields_desc = [ ByteEnumField("type" , 3 , _PPP_ipcpopttypes),
+                    FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p,x:x+6),
+                    IPField("data","0.0.0.0"),
+                    ConditionalField(StrLenField("garbage","", length_from=lambda pkt:pkt.len-6), lambda p:p.len!=6) ]
+
+class PPP_IPCP_Option_DNS1(PPP_IPCP_Option):
+    __metaclass__=PPP_IPCP_Specific_Option_metaclass
+    name = "PPP IPCP Option: DNS1 Address"
+    fields_desc = [ ByteEnumField("type" , 129 , _PPP_ipcpopttypes),
+                    FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p,x:x+6),
+                    IPField("data","0.0.0.0"),
+                    ConditionalField(StrLenField("garbage","", length_from=lambda pkt:pkt.len-6), lambda p:p.len!=6) ]
+
+class PPP_IPCP_Option_DNS2(PPP_IPCP_Option):
+    __metaclass__=PPP_IPCP_Specific_Option_metaclass
+    name = "PPP IPCP Option: DNS2 Address"
+    fields_desc = [ ByteEnumField("type" , 131 , _PPP_ipcpopttypes),
+                    FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p,x:x+6),
+                    IPField("data","0.0.0.0"),
+                    ConditionalField(StrLenField("garbage","", length_from=lambda pkt:pkt.len-6), lambda p:p.len!=6) ]
+
+class PPP_IPCP_Option_NBNS1(PPP_IPCP_Option):
+    __metaclass__=PPP_IPCP_Specific_Option_metaclass
+    name = "PPP IPCP Option: NBNS1 Address"
+    fields_desc = [ ByteEnumField("type" , 130 , _PPP_ipcpopttypes),
+                    FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p,x:x+6),
+                    IPField("data","0.0.0.0"),
+                    ConditionalField(StrLenField("garbage","", length_from=lambda pkt:pkt.len-6), lambda p:p.len!=6) ]
+
+class PPP_IPCP_Option_NBNS2(PPP_IPCP_Option):
+    __metaclass__=PPP_IPCP_Specific_Option_metaclass
+    name = "PPP IPCP Option: NBNS2 Address"
+    fields_desc = [ ByteEnumField("type" , 132 , _PPP_ipcpopttypes),
+                    FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p,x:x+6),
+                    IPField("data","0.0.0.0"),
+                    ConditionalField(StrLenField("garbage","", length_from=lambda pkt:pkt.len-6), lambda p:p.len!=6) ]
+
+
+
 
 class PPP_IPCP(Packet):
     fields_desc = [ ByteEnumField("code" , 1, _PPP_ipcptypes),
