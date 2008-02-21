@@ -6726,6 +6726,22 @@ class _IPv6OptionHeader(Packet):
         return "<IPv6: ERROR not implemented>"
 
 
+class L2TP(Packet):
+    fields_desc = [ ShortEnumField("pkt_type",2,{2:"data"}),
+                    ShortField("len", None),
+                    ShortField("tunnel_id", 0),
+                    ShortField("session_id", 0),
+                    ShortField("ns", 0),
+                    ShortField("nr", 0),
+                    ShortField("offset", 0) ]
+
+    def post_build(self, pkt, pay):
+        if self.len is None:
+            l = len(pkt)+len(pay)
+            pkt = pkt[:2]+struct.pack("!H", l)+pkt[4:]
+        return pkt+pay
+
+
 _PPP_proto = { 0x0001: "Padding Protocol",
                0x0003: "ROHC small-CID [RFC3095]",
                0x0005: "ROHC large-CID [RFC3095]",
