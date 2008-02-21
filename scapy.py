@@ -897,6 +897,7 @@ def load_extension(filename):
         thename = thename[:-3]
 
     paths.insert(0, thepath)
+    cwd=syspath=None
     try:
         cwd = os.getcwd()
         os.chdir(thepath)
@@ -911,8 +912,10 @@ def load_extension(filename):
             import __builtin__
             __builtin__.__dict__.update(ext.__dict__)
     finally:
-        sys.path=syspath
-        os.chdir(cwd)
+        if syspath:
+            sys.path=syspath
+        if cwd:
+            os.chdir(cwd)
     
 
 
