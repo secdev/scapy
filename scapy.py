@@ -9384,6 +9384,7 @@ def Ether_Dot3_Dispatcher(pkt=None, **kargs):
 LLTypes = { ARPHDR_ETHER : Ether_Dot3_Dispatcher,
             ARPHDR_METRICOM : Ether_Dot3_Dispatcher,
             ARPHDR_LOOPBACK : Ether_Dot3_Dispatcher,
+            9: PPP,
             12 : IP,
             101 : IP,
             801 : Dot11,
@@ -9399,6 +9400,7 @@ LLTypes = { ARPHDR_ETHER : Ether_Dot3_Dispatcher,
             }
 
 LLNumTypes = { Ether : ARPHDR_ETHER,
+               PPP: 9,
                IP  : 12,
                IP  : 101,
                Dot11  : 801,
