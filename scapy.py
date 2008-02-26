@@ -4834,13 +4834,28 @@ class ASN1F_badsequence(Exception):
 class ASN1F_element:
     pass
 
+class ASN1F_optionnal(ASN1F_element):
+    def __init__(self, field):
+        self._field=field
+    def __getattr__(self, attr):
+        return getattr(self._field,attr)
+    def dissect(self,pkt,s):
+        try:
+            return self._field.dissect(pkt,s)
+        except ASN1F_badsequence:
+            self._field.set_val(pkt,None)
+            return s
+
 class ASN1F_field(ASN1F_element):
     holds_packets=0
     islist=0
 
     ASN1_tag = ASN1_Class_UNIVERSAL.ANY
+    context=ASN1_Class_UNIVERSAL
     
-    def __init__(self, name, default):
+    def __init__(self, name, default, context=None):
+        if context is not None:
+            self.context = context
         self.name = name
         self.default = default
 
@@ -4855,7 +4870,7 @@ class ASN1F_field(ASN1F_element):
     def any2i(self, pkt, x):
         return x
     def m2i(self, pkt, x):
-        return self.ASN1_tag.get_codec(pkt.ASN1_codec).safedec(x)
+        return self.ASN1_tag.get_codec(pkt.ASN1_codec).safedec(x, context=self.context)
     def i2m(self, pkt, x):
         if x is None:
             x = 0
@@ -4910,6 +4925,9 @@ class ASN1F_INTEGER(ASN1F_field):
     def randval(self):
         return RandNum(-2**64, 2**64-1)
 
+class ASN1F_NULL(ASN1F_INTEGER):
+    ASN1_tag= ASN1_Class_UNIVERSAL.NULL
+
 class ASN1F_enum_INTEGER(ASN1F_INTEGER):
     def __init__(self, name, default, enum):
         ASN1F_INTEGER.__init__(self, name, default)
@@ -4947,6 +4965,15 @@ class ASN1F_STRING(ASN1F_field):
     def randval(self):
         return RandString(RandNum(0, 1000))
 
+class ASN1F_PRINTABLE_STRING(ASN1F_STRING):
+    ASN1_tag = ASN1_Class_UNIVERSAL.PRINTABLE_STRING
+
+class ASN1F_BIT_STRING(ASN1F_STRING):
+    ASN1_tag = ASN1_Class_UNIVERSAL.BIT_STRING
+
+class ASN1F_UTC_TIME(ASN1F_STRING):
+    ASN1_tag = ASN1_Class_UNIVERSAL.UTC_TIME
+
 class ASN1F_OID(ASN1F_field):
     ASN1_tag = ASN1_Class_UNIVERSAL.OID
     def randval(self):
@@ -4960,6 +4987,9 @@ class ASN1F_SEQUENCE(ASN1F_field):
         self.seq = seq
     def __repr__(self):
         return "<%s%r>" % (self.__class__.__name__,self.seq,)
+#    def set_val(self, pkt, val):
+#        for f in self.seq:
+#            f.set_val(pkt,val)
     def get_fields_list(self):
         return reduce(lambda x,y: x+y.get_fields_list(), self.seq, [])
     def build(self, pkt):
@@ -4976,6 +5006,9 @@ class ASN1F_SEQUENCE(ASN1F_field):
             return remain
         except ASN1_Error,e:
             raise ASN1F_badsequence(e)
+
+class ASN1F_SET(ASN1F_SEQUENCE):
+    ASN1_tag = ASN1_Class_UNIVERSAL.SET
 
 class ASN1F_SEQUENCE_OF(ASN1F_SEQUENCE):
     holds_packets = 1
@@ -5001,7 +5034,7 @@ class ASN1F_SEQUENCE_OF(ASN1F_SEQUENCE):
         while s1:
             try:
                 p = self.asn1pkt(s1)
-            except ASN1F_badsequence:
+            except ASN1F_badsequence,e:
                 lst.append(Raw(s1))
                 break
             lst.append(p)
