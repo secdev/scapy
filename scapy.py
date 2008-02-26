@@ -10853,39 +10853,63 @@ class PcapReader:
 
 
 class PcapWriter:
-    """A pcap writer with more control than wrpcap()
-    
-    This routine is based entirely on scapy.wrpcap(), but adds capability
-    of writing one packet at a time in a streaming manner.
-    """
-    def __init__(self, filename, linktype=None, gz=0, endianness=""):
+    """A stream PCAP writer with more control than wrpcap()"""
+    def __init__(self, filename, linktype=None, gz=False, endianness="", append=False, sync=False):
+        """
+        linktype: force linktype to a given value. If None, linktype is taken
+                  from the first writter packet
+        gz: compress the capture on the fly
+        endianness: force an endianness (little:"<", big:">"). Default is native
+        append: append packets to the capture file instead of truncating it
+        sync: do not bufferize writes to the capture file
+        """
+        
         self.linktype = linktype
-        self.header_done = 0
-        if gz:
-            self.f = gzip.open(filename,"wb")
-        else:
-            self.f = open(filename,"wb")
+        self.header_present = 0
+        self.append=append
+        self.gz = gz
         self.endian = endianness
+        self.filename=filename
+        self.sync=sync
+        bufsz=4096
+        if sync:
+            bufsz=0
+
+        self.f = [open,gzip.open][gz](filename,append and "ab" or "wb", gz and 9 or bufsz)
+        
+            
 
     def fileno(self):
         return self.f.fileno()
+
+    def _write_header(self, pkt):
+        self.header_present=1
+
+        if self.linktype == None:
+            if type(pkt) is list or type(pkt) is tuple:
+                pkt = pkt[0]
+            self.linktype = LLNumTypes.get(pkt.__class__,1)
+
+        if self.append:
+            # Even if prone to race conditions, this seems to be
+            # safest way to tell whether the header is already present
+            # because we have to handle compressed streams that
+            # are not as flexible as basic files
+            g = [open,gzip.open][self.gz](self.filename,"rb")
+            if g.read(16):
+                return
+            
+        self.f.write(struct.pack(self.endian+"IHHIIII", 0xa1b2c3d4L,
+                                 2, 4, 0, 0, MTU, self.linktype))
+        self.f.flush()
+    
 
     def write(self, pkt):
         """accepts a either a single packet or a list of packets
         to be written to the dumpfile
         """
-        
-        if self.header_done == 0:
-            if self.linktype == None:
-                if isinstance(pkt,Packet):
-                    self.linktype = LLNumTypes.get(pkt.__class__,1)
-                else:
-                    self.linktype = LLNumTypes.get(pkt[0].__class__,1)
-
-            self.f.write(struct.pack(self.endian+"IHHIIII", 0xa1b2c3d4L,
-                                     2, 4, 0, 0, MTU, self.linktype))
-            self.header_done = 1
-
+        if not self.header_present:
+            self._write_header(pkt)
         for p in pkt:
             self._write_packet(p)
 
@@ -10898,6 +10922,14 @@ class PcapWriter:
         usec = int((packet.time-sec)*1000000)
         self.f.write(struct.pack(self.endian+"IIII", sec, usec, l, l))
         self.f.write(s)
+        if self.gz and self.sync:
+            self.f.flush()
+
+    def flush(self):
+        return self.f.flush()
+    def close(self):
+        return self.f.close()
+                
 
 re_extract_hexcap = re.compile("^(0x[0-9a-fA-F]{2,}[ :\t]|(0x)?[0-9a-fA-F]{2,}:|(0x)?[0-9a-fA-F]{3,}[: \t]|) *(([0-9a-fA-F]{2} {,2}){,16})")
 
