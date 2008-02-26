@@ -13809,6 +13809,7 @@ def scapy_write_history_file(readline):
 
 
 def interact(mydict=None,argv=None,mybanner=None,loglevel=1):
+    global session
     import code,sys,cPickle,types,os,imp,getopt,logging
 
     logging.getLogger("scapy").setLevel(loglevel)
@@ -13831,13 +13832,15 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=1):
 #    scapy=imp.load_module("scapy",*imp.find_module(scapy_module))
     
     
-    import __builtin__
 #    __builtin__.__dict__.update(scapy.__dict__)
+    import __builtin__
     __builtin__.__dict__.update(globals())
+    globkeys = globals().keys()
+    globkeys.append("scapy_session")
     if mydict is not None:
         __builtin__.__dict__.update(mydict)
-
-
+        globkeys += mydict.keys()
+    
     import re, atexit
     try:
         import rlcompleter,readline
@@ -13958,9 +13961,13 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=1):
 
     if conf.session:
         save_session(conf.session, session)
-    
-    sys.exit()
 
+
+    for k in globkeys:
+        try:
+            del(__builtin__.__dict__[k])
+        except:
+            pass
 
 def read_config_file(configfile):
     try:
