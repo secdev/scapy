@@ -4845,6 +4845,9 @@ class ASN1F_optionnal(ASN1F_element):
         except ASN1F_badsequence:
             self._field.set_val(pkt,None)
             return s
+        except BER_Decoding_Error:
+            self._field.set_val(pkt,None)
+            return s
 
 class ASN1F_field(ASN1F_element):
     holds_packets=0
@@ -4987,9 +4990,9 @@ class ASN1F_SEQUENCE(ASN1F_field):
         self.seq = seq
     def __repr__(self):
         return "<%s%r>" % (self.__class__.__name__,self.seq,)
-#    def set_val(self, pkt, val):
-#        for f in self.seq:
-#            f.set_val(pkt,val)
+    def set_val(self, pkt, val):
+        for f in self.seq:
+            f.set_val(pkt,val)
     def get_fields_list(self):
         return reduce(lambda x,y: x+y.get_fields_list(), self.seq, [])
     def build(self, pkt):
@@ -5018,6 +5021,10 @@ class ASN1F_SEQUENCE_OF(ASN1F_SEQUENCE):
         self.tag = chr(ASN1_tag)
         self.name = name
         self.default = default
+    def i2m(self, pkt, i):
+        if i is None:
+            return []
+        return i
     def get_fields_list(self):
         return [self]
     def build(self, pkt):
@@ -5027,6 +5034,10 @@ class ASN1F_SEQUENCE_OF(ASN1F_SEQUENCE):
         else:
             s = "".join(map(str, val ))
         return self.i2m(pkt, s)
+    def set_val(self, pkt, val):
+        if val is None:
+            val = []
+        ASN1F_field.set_val(self, pkt, val)
     def dissect(self, pkt, s):
         codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
         i,s1,remain = codec.check_type_check_len(s)
@@ -5047,6 +5058,8 @@ class ASN1F_SEQUENCE_OF(ASN1F_SEQUENCE):
         return remain
     def randval(self):
         return fuzz(self.asn1pkt())
+    def __repr__(self):
+        return "<%s %s>" % (self.__class__.__name__,self.name)
 
 class ASN1F_PACKET(ASN1F_field):
     holds_packets = 1
