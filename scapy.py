@@ -4848,6 +4848,10 @@ class ASN1F_optionnal(ASN1F_element):
         except BER_Decoding_Error:
             self._field.set_val(pkt,None)
             return s
+    def build(self, pkt):
+        if self._field.is_empty(pkt):
+            return ""
+        return self._field.build(pkt)
 
 class ASN1F_field(ASN1F_element):
     holds_packets=0
@@ -4867,8 +4871,6 @@ class ASN1F_field(ASN1F_element):
             x = 0
         return repr(x)
     def i2h(self, pkt, x):
-        if x is None:
-            x = 0
         return x
     def any2i(self, pkt, x):
         return x
@@ -4902,6 +4904,8 @@ class ASN1F_field(ASN1F_element):
 
     def set_val(self, pkt, val):
         setattr(pkt, self.name, val)
+    def is_empty(self, pkt):
+        return getattr(pkt,self.name) is None
     
     def dissect(self, pkt, s):
         v,s = self.m2i(pkt, s)
@@ -4993,6 +4997,11 @@ class ASN1F_SEQUENCE(ASN1F_field):
     def set_val(self, pkt, val):
         for f in self.seq:
             f.set_val(pkt,val)
+    def is_empty(self, pkt):
+        for f in self.seq:
+            if not f.is_empty(pkt):
+                return False
+        return True
     def get_fields_list(self):
         return reduce(lambda x,y: x+y.get_fields_list(), self.seq, [])
     def build(self, pkt):
@@ -5021,22 +5030,26 @@ class ASN1F_SEQUENCE_OF(ASN1F_SEQUENCE):
         self.tag = chr(ASN1_tag)
         self.name = name
         self.default = default
-    def i2m(self, pkt, i):
+    def i2repr(self, pkt, i):
         if i is None:
             return []
         return i
     def get_fields_list(self):
         return [self]
+    def set_val(self, pkt, val):
+        ASN1F_field.set_val(self, pkt, val)
+    def is_empty(self, pkt):
+        return ASN1F_field.is_empty(self, pkt)
     def build(self, pkt):
         val = getattr(pkt, self.name)
         if isinstance(val, ASN1_Object) and val.tag == ASN1_Class_UNIVERSAL.RAW:
             s = val
+        elif val is None:
+            s = ""
         else:
             s = "".join(map(str, val ))
         return self.i2m(pkt, s)
     def set_val(self, pkt, val):
-        if val is None:
-            val = []
         ASN1F_field.set_val(self, pkt, val)
     def dissect(self, pkt, s):
         codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
