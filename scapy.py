@@ -1652,6 +1652,12 @@ class IntAutoTime(AutoTime):
         return int(time.time()-self.diff)
 
 
+class ZuluTime(AutoTime):
+    def __init__(self, diff=None):
+        self.diff=diff
+    def _fix(self):
+        return time.strftime("%y%m%d%H%M%SZ",time.gmtime(time.time()+self.diff))
+
 
 class DelayedEval(VolatileValue):
     """ Exemple of usage: DelayedEval("time.time()") """
