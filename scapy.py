@@ -6957,8 +6957,23 @@ _PPP_proto = { 0x0001: "Padding Protocol",
                0xc283: "Proprietary Authentication Protocol [Tackabury]",
                0xc481: "Proprietary Node ID Authentication Protocol [KEN]"}
 
-                
+
+class HDLC(Packet):
+    fields_desc = [ XByteField("address",0xff),
+                    XByteField("control",0x03)  ]
+
+class PPP_metaclass(Packet_metaclass):
+    def __call__(self, _pkt=None, *args, **kargs):
+        cls = self
+        if _pkt and _pkt[0] == '\xff':
+            cls = HDLC
+        i = cls.__new__(cls, cls.__name__, cls.__bases__, cls.__dict__)
+        i.__init__(_pkt=_pkt, *args, **kargs)
+        return i
+    
+
 class PPP(Packet):
+    __metaclass__ = PPP_metaclass
     name = "PPP Link Layer"
     fields_desc = [ ShortEnumField("proto", 0x0021, _PPP_proto) ]
 
@@ -9525,6 +9540,7 @@ bind_layers( RadioTap,      Dot11,         )
 bind_layers( Dot11,         LLC,           type=2)
 bind_layers( Dot11QoS,      LLC,           )
 bind_layers( L2TP,          PPP,           )
+bind_layers( HDLC,          PPP,           )
 bind_layers( PPP,           IP,            proto=33)
 bind_layers( PPP,           PPP_IPCP,      proto=0x8021)
 bind_layers( PPP,           PPP_ECP,       proto=0x8053)
