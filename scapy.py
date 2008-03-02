@@ -6962,29 +6962,36 @@ class PPP(Packet):
     name = "PPP Link Layer"
     fields_desc = [ ShortEnumField("proto", 0x0021, _PPP_proto) ]
 
-
-
-### PPP IPCP stuff (RFC 1332)
-
-# As stated in RFC 1332, IPCP uses the same packet exchange mecanisms as LCP.
-# LCP Codes 1 to 7 are used.
-
-_PPP_ipcptypes = { 1:"Configure-Request",
+_PPP_conftypes = { 1:"Configure-Request",
                    2:"Configure-Ack",
                    3:"Configure-Nak",
                    4:"Configure-Reject",
-                   5:"Terminate-Req",
+                   5:"Terminate-Request",
                    6:"Terminate-Ack",
-                   7:"Code-Reject"}
+                   7:"Code-Reject",
+                   8:"Protocol-Reject",
+                   9:"Echo-Request",
+                   10:"Echo-Reply",
+                   11:"Discard-Request",
+                   14:"Reset-Request",
+                   15:"Reset-Ack",
+                   }
 
-# guess payload class associated with each type
-_PPP_ipcptypescl = { 1:"IPCPConfReq",
-                     2:"IPCPConfAck", 
-                     3:"IPCPConfNak",
-                     4:"IPCPConfRej",
-                     5:"IPCPTermReq",
-                     6:"IPCPTermAck",
-                     7:"IPCPCodeRej"}
+class PPP_Option_metaclass(Packet_metaclass):
+    _known_options={}
+    def __call__(self, _pkt=None, *args, **kargs):
+        cls = self
+        if _pkt:
+            t = ord(_pkt[0])
+            cls = self._known_options.get(t,self)
+        i = cls.__new__(cls, cls.__name__, cls.__bases__, cls.__dict__)
+        i.__init__(_pkt=_pkt, *args, **kargs)
+        return i
+    def _register(self, cls):
+        self._known_options[cls.fields_desc[0].default] = cls
+
+
+### PPP IPCP stuff (RFC 1332)
 
 # All IPCP options are defined below (names and associated classes) 
 _PPP_ipcpopttypes = {     1:"IP-Addresses (Deprecated)",
@@ -6996,39 +7003,10 @@ _PPP_ipcpopttypes = {     1:"IP-Addresses (Deprecated)",
                           131:"Secondary-DNS-Address",
                           132:"Secondary-NBNS-Address"}
 
-_PPP_ipcpoptcls = {   1:"IPCPOptIPAddresses",
-                      2:"IPCPOptIPCompProto",
-                      3:"IPCPOptIPAddress",
-                      129:"IPCPOptDNS1",
-                      130:"IPCPOptNBNS1",
-                      131:"IPCPOptDNS2",
-                      132:"IPCPOptNBNS2"}
-
-# Among IPCP Options, the Compression Protocol ones can be instantiated
-# through different specific classes, associated with a particular protocol
-# (the format of this classes for these protocols are differents)
-_PPP_ipcpoptcompcls = {0x002d:"IPCPOptCompProtoVJ",
-                       0x0061:"IPCPOptCompProtoIPH",
-                       0x0003:"IPCPOptCompProtoROHC"}
-
-_PPP_ipcpoptcomptypes = {0x002d:"Van Jacobson Compressed TCP/IP",
-                         0x0061:"IP Header Compression",
-                         0x0003:"Robust Header Compression (ROHC)"}
 
 
-class PPP_IPCP_Option_metaclass(Packet_metaclass):
+class PPP_IPCP_Option_metaclass(PPP_Option_metaclass):
     _known_options={}
-    def __call__(self, _pkt=None, *args, **kargs):
-        cls = self
-        if _pkt:
-            t = ord(_pkt[0])
-            cls = self._known_options.get(t,self)
-        i = cls.__new__(cls, cls.__name__, cls.__bases__, cls.__dict__)
-        i.__init__(_pkt=_pkt, *args, **kargs)
-        return i
-
-    def _register(self, cls):
-        self._known_options[cls.fields_desc[0].default] = cls
 
 
 class PPP_IPCP_Option(Packet):
@@ -7036,7 +7014,7 @@ class PPP_IPCP_Option(Packet):
     name = "PPP IPCP Option"
     fields_desc = [ ByteEnumField("type" , None , _PPP_ipcpopttypes),
                     FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p,x:x+2),
-                    StrLenField("data", "", length_from=lambda p:p.len-2) ]
+                    StrLenField("data", "", length_from=lambda p:max(0,p.len-2)) ]
     def extract_padding(self, pay):
         return "",pay
 
@@ -7090,10 +7068,53 @@ class PPP_IPCP_Option_NBNS2(PPP_IPCP_Option):
 
 
 class PPP_IPCP(Packet):
-    fields_desc = [ ByteEnumField("code" , 1, _PPP_ipcptypes),
+    fields_desc = [ ByteEnumField("code" , 1, _PPP_conftypes),
 		    XByteField("id", 0 ),
                     FieldLenField("len" , None, fmt="H", length_of="options", adjust=lambda p,x:x+4 ),
                     PacketListField("options", [],  PPP_IPCP_Option, length_from=lambda p:p.len-4,) ]
+
+
+### ECP
+
+_PPP_ecpopttypes = { 0:"OUI",
+                     1:"DESE", }
+
+class PPP_ECP_Option_metaclass(PPP_Option_metaclass):
+    _known_options={}
+
+
+
+class PPP_ECP_Option(Packet):
+    __metaclass__=PPP_ECP_Option_metaclass
+    name = "PPP ECP Option"
+    fields_desc = [ ByteEnumField("type" , None , _PPP_ecpopttypes),
+                    FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p,x:x+2),
+                    StrLenField("data", "", length_from=lambda p:max(0,p.len-2)) ]
+    def extract_padding(self, pay):
+        return "",pay
+
+class PPP_ECP_Specific_Option_metaclass(PPP_ECP_Option_metaclass):
+    def __new__(cls, name, bases, dct):
+        newcls = super(PPP_ECP_Specific_Option_metaclass, cls).__new__(cls, name, bases, dct)
+        PPP_ECP_Option._register(newcls)
+        
+
+class PPP_ECP_Option_OUI(PPP_ECP_Option):
+    __metaclass__=PPP_ECP_Specific_Option_metaclass
+    fields_desc = [ ByteEnumField("type" , 0 , _PPP_ecpopttypes),
+                    FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p,x:x+2),
+                    StrFixedLenField("oui","",3),
+                    ByteField("subtype",0),
+                    StrLenField("data", "", length_from=lambda p:p.len-6) ]
+                    
+
+
+class PPP_ECP(Packet):
+    fields_desc = [ ByteEnumField("code" , 1, _PPP_conftypes),
+		    XByteField("id", 0 ),
+                    FieldLenField("len" , None, fmt="H", length_of="options", adjust=lambda p,x:x+4 ),
+                    PacketListField("options", [],  PPP_ECP_Option, length_from=lambda p:p.len-4,) ]
+
 
 
 
