@@ -13063,7 +13063,7 @@ iwconfig wlan0 mode managed
     function_name = "airpwn"
     filter = None
     
-    def parse_options(iffrom, ifto, replace, pattern="", ignorepattern=""):
+    def parse_options(self, iffrom, ifto, replace, pattern="", ignorepattern=""):
         self.iffrom = iffrom
         self.ifto = ifto
         ptrn = re.compile(pattern)
