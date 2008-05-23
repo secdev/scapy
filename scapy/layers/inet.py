@@ -4,8 +4,8 @@ from select import select
 from scapy.layers.l2 import *
 from scapy.fields import *
 from scapy.volatile import *
-from config import conf
-from sendrecv import sr,sr1
+from scapy.config import conf
+from scapy.sendrecv import sr,sr1
 
 
 

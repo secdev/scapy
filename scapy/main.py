@@ -106,7 +106,7 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=1):
     import __builtin__
     scapy_builtins = {}
     for m in [ "ansmachine","arch","automaton","autorun","config","dadict","data","error","fields","main",
-               "mib","packet","plist","route","sendrecv","supersocket","themes","utils","volatile","asn1","asn1f" ]:
+               "mib","packet","plist","route","sendrecv","supersocket","themes","utils","volatile","asn1","asn1fields","asn1packet" ]:
         mod = __import__("scapy."+m,globals(),locals(),".")
         scapy_builtins.update(mod.__dict__)
     for m in ["l2","inet","dot11","dhcp","dns","ip6","isakmp","l2tp","mgcp","netbios","ntp","ppp","radius","rip",
