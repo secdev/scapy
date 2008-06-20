@@ -13,7 +13,7 @@ class ConfClass:
     def __repr__(self):
         return str(self)
     def __str__(self):
-        s="Version    = %s\n" % VERSION
+        s=""
         keys = self.__class__.__dict__.copy()
         keys.update(self.__dict__)
         keys = keys.keys()
@@ -120,6 +120,7 @@ noenum    : holds list of enum fields for which conversion to string should NOT 
 AS_resolver: choose the AS resolver class to use
 extensions_paths: path or list of paths where extensions are to be looked for
 """
+    version = "2.0.0.1 alpha"
     session = ""  
     stealth = "not implemented"
     iface = get_working_if()

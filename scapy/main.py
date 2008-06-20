@@ -2,8 +2,6 @@
 from __future__ import generators
 import os,sys
 
-VERSION = "1.2.0.2"
-
 DEFAULT_CONFIG_FILE = os.path.join(os.environ["HOME"], ".scapy_startup.py")
 
 try:
@@ -237,7 +235,7 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=1):
         atexit.register(scapy_write_history_file,readline)
     
     sys.ps1 = ColorPrompt()
-    code.interact(banner = the_banner % (VERSION), local=session)
+    code.interact(banner = the_banner % (conf.version), local=session)
 
     if conf.session:
         save_session(conf.session, session)
