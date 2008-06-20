@@ -91,6 +91,15 @@ class Num2Layer:
         return "\n".join(y for x,y in lst)
             
 
+class LayersList(list):
+    def __repr__(self):
+        s=[]
+        for l in self:
+            s.append("%-20s: %s" % (l.__name__,l.name))
+        return "\n".join(s)
+    def register(self, layer):
+        self.append(layer)
+        
 
 
 class Conf(ConfClass):
@@ -124,6 +133,7 @@ extensions_paths: path or list of paths where extensions are to be looked for
     session = ""  
     stealth = "not implemented"
     iface = get_working_if()
+    layers = LayersList()
     checkIPID = 0
     checkIPsrc = 1
     checkIPaddr = 1

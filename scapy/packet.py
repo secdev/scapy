@@ -1,5 +1,6 @@
 import re,time,itertools,os,random,socket
 from fields import *
+from config import conf
 
 
 ################
@@ -118,6 +119,7 @@ class Packet_metaclass(type):
         newcls = super(Packet_metaclass, cls).__new__(cls, name, bases, dct)
         for f in newcls.fields_desc:
             f.register_owner(newcls)
+        conf.layers.register(newcls)
         return newcls
     def __getattr__(self, attr):
         for k in self.fields_desc:
