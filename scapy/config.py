@@ -149,12 +149,6 @@ extensions_paths: path or list of paths where extensions are to be looked for
     L2listen = None
     histfile = os.path.join(os.environ["HOME"], ".scapy_history")
     padding = 1
-    p0f_base ="/etc/p0f/p0f.fp"
-    queso_base ="/etc/queso.conf"
-    nmap_base ="/usr/share/nmap/nmap-os-fingerprints"
-    IPCountry_base = "GeoIPCountry4Scapy.gz"
-    countryLoc_base = "countryLoc.csv"
-    gnuplot_world = "world.dat"
     except_filter = ""
     debug_match = 0
     wepkey = ""

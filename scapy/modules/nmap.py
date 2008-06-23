@@ -1,6 +1,9 @@
 from scapy.data import KnowledgeBase
 from scapy.config import conf
 
+conf.nmap_base ="/usr/share/nmap/nmap-os-fingerprints"
+
+
 ######################
 ## nmap OS fp stuff ##
 ######################

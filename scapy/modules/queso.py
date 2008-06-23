@@ -1,6 +1,9 @@
 from scapy.data import KnowledgeBase
 from scapy.config import conf
 
+conf.queso_base ="/etc/queso.conf"
+
+
 #################
 ## Queso stuff ##
 #################

@@ -1,6 +1,9 @@
 from scapy.data import KnowledgeBase
 from scapy.config import conf
 
+conf.p0f_base ="/etc/p0f/p0f.fp"
+
+
 ###############
 ## p0f stuff ##
 ###############
