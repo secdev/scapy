@@ -1,3 +1,8 @@
+
+from scapy.fields import *
+from scapy.packet import *
+from scapy.layers.inet import IP
+
 class GPRS(Packet):
     name = "GPRSdummy"
     fields_desc = [

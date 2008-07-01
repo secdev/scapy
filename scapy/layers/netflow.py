@@ -1,3 +1,6 @@
+from scapy.fields import *
+from scapy.packet import *
+
 # Cisco Netflow Protocol version 1
 class NetflowHeader(Packet):
     name = "Netflow Header"

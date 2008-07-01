@@ -3,6 +3,7 @@ from select import select
 
 from scapy.layers.l2 import *
 from scapy.fields import *
+from scapy.packet import *
 from scapy.volatile import *
 from scapy.config import conf
 from scapy.sendrecv import sr,sr1

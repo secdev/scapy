@@ -3,8 +3,7 @@ import socket,struct
 from scapy.config import conf
 from scapy.packet import *
 from scapy.fields import *
-#from scapy.supersocket import SuperSocket
-#from scapy.layers.l2 import CookedLinux
+from scapy.supersocket import SuperSocket
 
 
 class HCI_Hdr(Packet):
