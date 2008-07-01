@@ -1,7 +1,7 @@
 import re
 from glob import glob
-from dadict import DADict
-from config import conf
+from scapy.dadict import DADict
+from scapy.config import conf
 
 #################
 ## MIB parsing ##

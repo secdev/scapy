@@ -1,7 +1,7 @@
 import random
-from error import Scapy_Exception
-from volatile import RandField
-from utils import Enum_metaclass, EnumElement
+from scapy.error import Scapy_Exception
+from scapy.volatile import RandField
+from scapy.utils import Enum_metaclass, EnumElement
 
 class RandASN1Object(RandField):
     def __init__(self, objlist=None):

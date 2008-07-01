@@ -1,5 +1,5 @@
-from asn1 import *
-from ber import *
+from asn1.asn1 import *
+from asn1.ber import *
 from volatile import *
 
 #####################
