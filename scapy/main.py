@@ -102,15 +102,7 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=1):
     
 #    __builtin__.__dict__.update(scapy.__dict__)
     import __builtin__
-    scapy_builtins = {}
-    for m in [ "ansmachine","arch","automaton","autorun","config","dadict","data","error","fields","main",
-               "mib","packet","plist","route","sendrecv","supersocket","themes","utils","volatile","asn1","asn1fields","asn1packet" ]:
-        mod = __import__(m,globals(),locals(),".")
-        scapy_builtins.update(mod.__dict__)
-    for m in ["l2","inet","dot11","dhcp","dns","ip6","isakmp","l2tp","mgcp","netbios","ntp","ppp","radius","rip",
-              "skinny","smb","rtp","tftp","snmp","x509" ]: # "ir","bluetooth","hsrp","gprs"
-        mod = __import__("layers."+m,globals(),locals(),".")
-        scapy_builtins.update(mod.__dict__)
+    scapy_builtins = __import__("all",globals(),locals(),".").__dict__
     __builtin__.__dict__.update(scapy_builtins)
     globkeys = scapy_builtins.keys()
     globkeys.append("scapy_session")
