@@ -3,7 +3,7 @@ from select import select
 from packet import Raw
 from data import *
 from config import conf
-from arch import PCAP,DNET
+from arch import PCAP,DNET,get_if_list,set_promisc,get_last_packet_timestamp,attach_filter
 
 def flush_fd(fd):
     if type(fd) is not int:

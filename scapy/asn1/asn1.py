@@ -1,5 +1,6 @@
 import random
-from scapy.error import Scapy_Exception
+from scapy.config import conf
+from scapy.error import Scapy_Exception,warning
 from scapy.volatile import RandField
 from scapy.utils import Enum_metaclass, EnumElement
 

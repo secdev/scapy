@@ -1,4 +1,6 @@
 import random,time
+from base_classes import Net
+from utils import corrupt_bits,corrupt_bytes
 
 ####################
 ## Random numbers ##

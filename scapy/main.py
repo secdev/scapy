@@ -79,7 +79,7 @@ def scapy_write_history_file(readline):
 
 def interact(mydict=None,argv=None,mybanner=None,loglevel=1):
     global session
-    import code,sys,cPickle,types,os,imp,getopt,logging,re
+    import code,sys,cPickle,os,imp,getopt,logging,re
 
     logging.getLogger("scapy").setLevel(loglevel)
 
@@ -112,7 +112,7 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=1):
         __builtin__.__dict__.update(mydict)
         globkeys += mydict.keys()
     
-    import re, atexit
+    import atexit
     try:
         import rlcompleter,readline
     except ImportError:

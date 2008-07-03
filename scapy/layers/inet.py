@@ -817,3 +817,5 @@ def fragleak2(target, timeout=0.4, onlyasc=0):
         pass
     
 
+conf.stats_classic_protocols += [TCP,UDP,ICMP]
+conf.stats_dot11_protocols += [TCP,UDP,ICMP]

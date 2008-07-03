@@ -1,5 +1,7 @@
 from scapy.data import KnowledgeBase
 from scapy.config import conf
+from scapy.layers.inet import IP,TCP
+#from 
 
 conf.queso_base ="/etc/queso.conf"
 

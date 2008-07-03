@@ -467,3 +467,4 @@ iwconfig wlan0 mode managed
 
             
         
+conf.stats_dot11_protocols += [Dot11WEP, Dot11Beacon, ]

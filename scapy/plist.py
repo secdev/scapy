@@ -3,6 +3,18 @@ from config import conf
 from error import warning
 from base_classes import BasePacket,BasePacketList
 
+from utils import incremental_label,colgen,do_graph,hexdump,make_table,make_lined_table,make_tex_table
+from packet import Padding,Raw
+from sendrecv import sr
+from layers.inet import IP,TCP,UDP,ICMP
+from layers.l2 import Ether
+from layers.dot11 import Dot11
+from layers.ip6 import IPv6 #,ICMPv6TimeExceeded
+
+import arch
+if arch.GNUPLOT:
+    Gnuplot=arch.Gnuplot
+
 #############
 ## Results ##
 #############
@@ -14,7 +26,7 @@ class PacketList(BasePacketList):
            res: the list of packets
            stats: a list of classes that will appear in the stats (defaults to [TCP,UDP,ICMP])"""
         if stats is None:
-            stats = [ TCP,UDP,ICMP ]
+            stats = conf.stats_classic_protocols
         self.stats = stats
         if res is None:
             res = []
@@ -344,6 +356,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
         return g
         
     def _dump_document(self, **kargs):
+        import pyx
         d = pyx.document.document()
         l = len(self.res)
         for i in range(len(self.res)):
@@ -421,7 +434,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
 class Dot11PacketList(PacketList):
     def __init__(self, res=None, name="Dot11List", stats=None):
         if stats is None:
-            stats = [Dot11WEP, Dot11Beacon, UDP, ICMP, TCP]
+            stats = conf.stats_dot11_protocols
 
         PacketList.__init__(self, res, name, stats)
     def toEthernet(self):
@@ -698,6 +711,7 @@ class TracerouteResult(SndRcvList):
                 
                 
     def world_trace(self):
+        from modules.geo import locate_ip
         ips = {}
         rt = {}
         ports_done = {}

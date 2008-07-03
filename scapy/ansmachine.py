@@ -2,7 +2,9 @@
 ## Answering machines ##
 ########################
 
-from sendrecv import send,sendp
+from sendrecv import send,sendp,sniff
+from config import conf
+from error import log_interactive
 
 class ReferenceAM(type):
     def __new__(cls, name, bases, dct):

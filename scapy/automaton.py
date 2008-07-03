@@ -1,6 +1,10 @@
 import types,itertools,time
 from select import select
 from config import conf
+from utils import do_graph
+from error import log_interactive
+from plist import PacketList
+from data import MTU
 
 ##############
 ## Automata ##

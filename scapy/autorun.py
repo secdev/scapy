@@ -1,4 +1,6 @@
 import code,sys
+from config import conf
+from themes import *
 from error import Scapy_Exception
 
 #########################

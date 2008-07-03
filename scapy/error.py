@@ -13,6 +13,7 @@ class ScapyFreqFilter(logging.Filter):
         logging.Filter.__init__(self)
         self.warning_table = {}
     def filter(self, record):        
+        from config import conf
         wt = conf.warning_threshold
         if wt > 0:
             stk = traceback.extract_stack()

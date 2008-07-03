@@ -3,14 +3,20 @@ import os
 ## Testing stuff ##
 ###################
 
+from fcntl import fcntl
+from scapy.sendrecv import sniff
+from scapy.packet import Raw
+from scapy.layers.inet import IP,UDP
+from scapy.layers.rtp import RTP
 
 
-def merge(x,y):
+def merge(x,y,sample_size=2):
     if len(x) > len(y):
         y += "\x00"*(len(x)-len(y))
     elif len(x) < len(y):
         x += "\x00"*(len(y)-len(x))
     m = ""
+    ss=sample_size
     for i in range(len(x)/ss):
         m += x[ss*i:ss*(i+1)]+y[ss*i:ss*(i+1)]
     return  m

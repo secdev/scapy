@@ -1,8 +1,11 @@
 import os,sys,socket,types
+from config import conf
 import random
 import gzip,zlib,cPickle
 import re,struct,array
 from arch import *
+from error import log_runtime
+
 
 ###########
 ## Tools ##

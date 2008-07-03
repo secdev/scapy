@@ -1,4 +1,5 @@
-    
+from config import conf
+
 ##################
 ## Color themes ##
 ##################
