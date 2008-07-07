@@ -49,8 +49,3 @@ log_loading = logging.getLogger("scapy.loading")          # logs when loading sc
 def warning(x):
     log_runtime.warning(x)
 
-
-if __name__ == "__main__":
-    log_scapy.setLevel(1)
-
-
