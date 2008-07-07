@@ -227,8 +227,6 @@ class ASN1F_SEQUENCE_OF(ASN1F_SEQUENCE):
         else:
             s = "".join(map(str, val ))
         return self.i2m(pkt, s)
-    def set_val(self, pkt, val):
-        ASN1F_field.set_val(self, pkt, val)
     def dissect(self, pkt, s):
         codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
         i,s1,remain = codec.check_type_check_len(s)
