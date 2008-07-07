@@ -31,7 +31,7 @@ def autorun_commands(cmds,my_globals=None,verb=0):
     try:
         try:
             if my_globals is None:
-                my_globals = globals()
+                my_globals = __import__("scapy.all").all.__dict__
             conf.verb = verb
             interp = ScapyAutorunInterpreter(my_globals)
             cmd = ""
