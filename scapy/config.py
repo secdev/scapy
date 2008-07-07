@@ -174,6 +174,7 @@ extensions_paths: path or list of paths where extensions are to be looked for
     manufdb = load_manuf("/usr/share/wireshark/wireshark/manuf")
     stats_classic_protocols = []
     stats_dot11_protocols = []
+    arp_cache = {}
 
 conf=Conf()
 

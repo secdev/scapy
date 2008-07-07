@@ -2,6 +2,7 @@
 import sys,os,struct,socket,time
 from fcntl import ioctl
 from data import *
+from config import conf
 
 try:
     import Gnuplot
@@ -371,8 +372,6 @@ def get_if_hwaddr(iff):
 
 ARPTIMEOUT=120
 
-# XXX Fill arp_cache with /etc/ether and arp cache
-arp_cache={}
 
 if 0 and DNET: ## XXX Can't use this because it does not resolve IPs not in cache
     dnet_arp_object = dnet.arp()
@@ -401,8 +400,8 @@ else:
         if gw != "0.0.0.0":
             ip = gw
     
-        if arp_cache.has_key(ip):
-            mac, timeout = arp_cache[ip]
+        if conf.arp_cache.has_key(ip):
+            mac, timeout = conf.arp_cache[ip]
             if not timeout or (time.time()-timeout < ARPTIMEOUT):
                 return mac
 
@@ -415,7 +414,7 @@ else:
                    nofilter=1)
         if res is not None:
             mac = res.payload.hwsrc
-            arp_cache[ip] = (mac,time.time())
+            conf.arp_cache[ip] = (mac,time.time())
             return mac
         return None
     
