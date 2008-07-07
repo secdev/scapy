@@ -2,6 +2,7 @@ import socket
 from arch import read_routes
 from utils import atol
 from config import conf
+from error import warning
 
 ##############################
 ## Routing/Interfaces stuff ##

@@ -1,6 +1,7 @@
 
 from __future__ import generators
 import os,sys
+from error import *
 
 DEFAULT_CONFIG_FILE = os.path.join(os.environ["HOME"], ".scapy_startup.py")
 

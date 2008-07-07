@@ -1,5 +1,6 @@
 import os,socket
 from config import conf
+from error import warning
 from base_classes import BasePacket,BasePacketList
 
 #############
