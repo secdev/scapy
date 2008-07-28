@@ -230,11 +230,9 @@ class SourceIPField(IPField):
             if isinstance(dst,Gen):
                 r = map(conf.route.route, dst)
                 r.sort()
-                if r[0] == r[-1]:
-                    x=r[0][1]
-                else:
+                if r[0] != r[-1]:
                     warning("More than one possible route for %s"%repr(dst))
-                    return None
+                iff,x,gw = r[0]
             else:
                 iff,x,gw = conf.route.route(dst)
         return IPField.i2h(self, pkt, x)
