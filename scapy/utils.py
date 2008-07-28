@@ -720,28 +720,6 @@ def make_lined_table(*args, **kargs):
 
 def make_tex_table(*args, **kargs):
     __make_table(lambda l: "%s", lambda l: "& %s", "\\\\", seplinefunc=lambda a,x:"\\hline", *args, **kargs)
-    
-
-######################
-## Online doc stuff ##
-######################
-
-
-def lsc(cmd=None):
-    """List user commands"""
-    if cmd is None:
-        for c in user_commands:
-            doc = "No doc. available"
-            if c.__doc__:
-                doc = c.__doc__.split("\n")[0]
-            
-            print "%-16s : %s" % (c.__name__, doc)
-    else:
-        print cmd.__doc__
-
-
-#XXX user_commands = [ sr, sr1, srp, srp1, srloop, srploop, sniff, p0f, arpcachepoison, send, sendp, traceroute, arping, ls, lsc, queso, nmap_fp, report_ports, dyndns_add, dyndns_del, is_promisc, promiscping ]
-
 
 
 def tethereal(*args,**kargs):
