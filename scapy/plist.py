@@ -2,6 +2,7 @@ import os,socket
 from config import conf
 from error import warning
 from base_classes import BasePacket,BasePacketList
+from packet import Padding,Raw
 
 from utils import incremental_label,colgen,do_graph,hexdump,make_table,make_lined_table,make_tex_table
 
@@ -235,7 +236,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
         target: filename or redirect. Defaults pipe to Imagemagick's display program
         prog: which graphviz program to use"""
         if getsrcdst is None:
-            getsrcdst = lambda x:(x[IP].src, x[IP].dst)
+            getsrcdst = lambda x:(x['IP'].src, x['IP'].dst)
         conv = {}
         for p in self.res:
             p = self._elt2pkt(p)
@@ -256,11 +257,11 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
         each datum is reduced as src -> event -> dst and the data are graphed.
         by default we have IP.src -> IP.dport -> IP.dst"""
         if src is None:
-            src = lambda x: x[IP].src
+            src = lambda x: x['IP'].src
         if event is None:
-            event = lambda x: x[IP].dport
+            event = lambda x: x['IP'].dport
         if dst is None:
-            dst = lambda x: x[IP].dst
+            dst = lambda x: x['IP'].dst
         sl = {}
         el = {}
         dl = {}
@@ -330,27 +331,8 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
         gr += "}"
         open("/tmp/aze","w").write(gr)
         return do_graph(gr, **kargs)
-        
 
-        
-    def timeskew_graph(self, ip, **kargs):
-        """Tries to graph the timeskew between the timestamps and real time for a given ip"""
-        res = map(lambda x: self._elt2pkt(x), self.res)
-        b = filter(lambda x:x.haslayer(IP) and x.getlayer(IP).src == ip and x.haslayer(TCP), res)
-        c = []
-        for p in b:
-            opts = p.getlayer(TCP).options
-            for o in opts:
-                if o[0] == "Timestamp":
-                    c.append((p.time,o[1][0]))
-        if not c:
-            warning("No timestamps found in packet list")
-            return
-        d = map(lambda (x,y): (x%2000,((x-c[0][0])-((y-c[0][1])/1000.0))),c)
-        g = Gnuplot.Gnuplot()
-        g.plot(Gnuplot.Data(d,**kargs))
-        return g
-        
+
     def _dump_document(self, **kargs):
         import pyx
         d = pyx.document.document()
@@ -437,7 +419,4 @@ class SndRcvList(PacketList):
     
 
         
-# Theses import must come in last to avoid problems with cyclic dependencies
-from packet import Padding,Raw
-from layers.inet import IP,TCP
                                                                                
