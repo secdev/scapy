@@ -472,8 +472,8 @@ class PacketField(StrField):
     def getfield(self, pkt, s):
         i = self.m2i(pkt, s)
         remain = ""
-        if i.haslayer(packet.Padding):
-            r = i.getlayer(packet.Padding)
+        if 'Padding' in i:
+            r = i['Padding']
             del(r.underlayer.payload)
             remain = r.load
         return remain,i
@@ -538,8 +538,8 @@ class PacketListField(PacketField):
                     break
                 c -= 1
             p = self.m2i(pkt,remain)
-            if packet.Padding in p:
-                pad = p[packet.Padding]
+            if 'Padding' in p:
+                pad = p['Padding']
                 remain = pad.load
                 del(pad.underlayer.payload)
             else:
@@ -940,6 +940,3 @@ class FloatField(BitField):
         frac /= 65536.0
         b = sec+frac
         return s,b    
-
-# This import must come in last to avoid problems with cyclic dependencies
-import packet
