@@ -4,6 +4,7 @@ from scapy.packet import *
 from scapy.fields import *
 from scapy.ansmachine import *
 from scapy.layers.inet import UDP
+from scapy.base_classes import Net
 
 dhcpmagic="c\x82Sc"
 

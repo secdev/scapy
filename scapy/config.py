@@ -2,6 +2,7 @@ import os
 from arch import *
 from data import *
 from themes import *
+import base_classes
 
 ############
 ## Config ##
@@ -69,11 +70,11 @@ class Num2Layer:
         self.layer2num[layer] = num
 
     def __getitem__(self, item):
-        if isinstance(item, Packet_metaclass):
+        if isinstance(item, base_classes.Packet_metaclass):
             return self.layer2num[item]
         return self.num2layer[item]
     def __contains__(self, item):
-        if isinstance(item, Packet_metaclass):
+        if isinstance(item, base_classes.Packet_metaclass):
             return item in self.layer2num
         return item in self.num2layer
     def get(self, item, default=None):

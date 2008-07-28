@@ -1,11 +1,12 @@
 import os,socket
 from config import conf
+from base_classes import BasePacket,BasePacketList
 
 #############
 ## Results ##
 #############
 
-class PacketList:
+class PacketList(BasePacketList):
     res = []
     def __init__(self, res=None, name="PacketList", stats=None):
         """create a packet list from a list of packets
@@ -56,7 +57,7 @@ class PacketList:
     def __getattr__(self, attr):
         return getattr(self.res, attr)
     def __getitem__(self, item):
-        if isinstance(item,type) and issubclass(item,Packet):
+        if isinstance(item,type) and issubclass(item,BasePacket):
             return self.__class__(filter(lambda x: item in self._elt2pkt(x),self.res),
                                   name="%s from %s"%(item.__name__,self.listname))
         if type(item) is slice:

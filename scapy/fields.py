@@ -1,6 +1,7 @@
 import struct,copy,socket
 from data import *
 from utils import *
+from base_classes import BasePacket
 
 ############
 ## Fields ##
@@ -66,7 +67,7 @@ class Field:
         if type(x) is list:
             x = x[:]
             for i in xrange(len(x)):
-                if isinstance(x[i], Packet):
+                if isinstance(x[i], BasePacket):
                     x[i] = x[i].copy()
         return x
     def __repr__(self):
@@ -468,8 +469,8 @@ class PacketField(StrField):
     def getfield(self, pkt, s):
         i = self.m2i(pkt, s)
         remain = ""
-        if i.haslayer(Padding):
-            r = i.getlayer(Padding)
+        if i.haslayer(packet.Padding):
+            r = i.getlayer(packet.Padding)
             del(r.underlayer.payload)
             remain = r.load
         return remain,i
@@ -534,8 +535,8 @@ class PacketListField(PacketField):
                     break
                 c -= 1
             p = self.m2i(pkt,remain)
-            if Padding in p:
-                pad = p[Padding]
+            if packet.Padding in p:
+                pad = p[packet.Padding]
                 remain = pad.load
                 del(pad.underlayer.payload)
             else:
@@ -937,3 +938,5 @@ class FloatField(BitField):
         b = sec+frac
         return s,b    
 
+# This import must come in last to avoid problems with cyclic dependencies
+import packet
