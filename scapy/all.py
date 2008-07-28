@@ -18,6 +18,7 @@ from route import *
 from sendrecv import *
 from supersocket import *
 from volatile import *
+from as_resolvers import *
 
 from ansmachine import *
 from automaton import *
