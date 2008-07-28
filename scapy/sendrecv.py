@@ -6,6 +6,7 @@ from config import conf
 from packet import Gen
 from utils import warning
 import plist
+from error import log_runtime,log_interactive
 
 #################
 ## Debug class ##

@@ -3,6 +3,8 @@ from scapy.config import conf
 from scapy.packet import *
 from scapy.ansmachine import *
 from scapy.plist import SndRcvList
+from scapy.fields import *
+from scapy.sendrecv import srp,srp1
 
 class Ether_or_Dot3_metaclass(Packet_metaclass):
     def __call__(self, _pkt=None, *args, **kargs):

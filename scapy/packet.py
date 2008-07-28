@@ -1,7 +1,8 @@
 import re,time,itertools,os,random,socket
-from fields import *
+from fields import StrField,ConditionalField,Emph
 from config import conf
-from base_classes import BasePacket,Gen,SetGen,Packet_metaclass
+from base_classes import BasePacket,Gen,SetGen,Packet_metaclass,NewDefaultValues
+from volatile import VolatileValue
 
 
 class Packet(BasePacket):

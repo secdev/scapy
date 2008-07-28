@@ -1,6 +1,6 @@
 import struct,copy,socket
 from config import conf
-from volatile import VolatileValue
+from volatile import *
 from data import *
 from utils import *
 from base_classes import BasePacket,Gen,Net

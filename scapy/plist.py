@@ -10,8 +10,6 @@ if arch.GNUPLOT:
     Gnuplot=arch.Gnuplot
 
 
-import sendrecv 
-
 
 #############
 ## Results ##
