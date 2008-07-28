@@ -270,4 +270,4 @@ class ASN1_OID(ASN1_Object):
     
 
 
-ASN1_default_codec = ASN1_Codecs.BER
+conf.ASN1_default_codec = ASN1_Codecs.BER
