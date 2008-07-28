@@ -289,7 +289,7 @@ arpcachepoison(target, victim, [interval=60]) -> None
 
 class ARPingResult(SndRcvList):
     def __init__(self, res=None, name="ARPing", stats=None):
-        PacketList.__init__(self, res, name, stats)
+        SndRcvList.__init__(self, res, name, stats)
 
     def show(self):
         for s,r in self.res:
