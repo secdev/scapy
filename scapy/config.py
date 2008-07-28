@@ -157,7 +157,7 @@ extensions_paths: path or list of paths where extensions are to be looked for
     except_filter = ""
     debug_match = 0
     wepkey = ""
-    route = None # Filed by arch
+    route = None # Filed by route.py
     auto_fragment = 1
     debug_dissector = 0
     color_theme = themes.DefaultTheme()
