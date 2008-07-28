@@ -23,6 +23,7 @@ except ImportError:
 LINUX=sys.platform.startswith("linux")
 OPENBSD=sys.platform.startswith("openbsd")
 FREEBSD=sys.platform.startswith("freebsd")
+NETBSD = sys.platform.startswith("netbsd")
 DARWIN=sys.platform.startswith("darwin")
 BIG_ENDIAN= struct.pack("H",1) == "\x00\x01"
 X86_64 = (os.uname()[4] == 'x86_64')
@@ -32,6 +33,12 @@ if LINUX:
     DNET=PCAP=0
 else:
     DNET=PCAP=1
+
+if OPENBSD or FREEBSD or NETBSD or DARWIN:
+    LOOPBACK_NAME="lo0"
+else:
+    LOOPBACK_NAME="lo"
+
     
 
 if PCAP:
@@ -118,7 +125,7 @@ def str2mac(s):
 
 if DNET:
     def get_if_raw_hwaddr(iff):
-        if iff[:2] == "lo":
+        if iff[:2] == LOOPBACK_NAME:
             return (772, '\x00'*6)
         try:
             l = dnet.intf().get(iff)
@@ -148,7 +155,7 @@ if PCAP:
         try:
             return pcap.lookupdev()
         except Exception:
-            return 'lo'
+            return LOOPBACK_NAME
 
     def attach_filter(s, filter):
         warning("attach_filter() should not be called in PCAP mode")
@@ -166,12 +173,12 @@ else:
         return lst
     def get_working_if():
         for i in get_if_list():
-            if i == 'lo':                
+            if i == LOOPBACK_NAME:                
                 continue
             ifflags = struct.unpack("16xH14x",get_if(i,SIOCGIFFLAGS))[0]
             if ifflags & IFF_UP:
                 return i
-        return "lo"
+        return LOOPBACK_NAME
     def attach_filter(s, filter):
         # XXX We generate the filter on the interface conf.iface 
         # because tcpdump open the "any" interface and ppp interfaces
@@ -306,14 +313,14 @@ else:
         f=open("/proc/net/route","r")
         routes = []
         s=socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        ifreq = ioctl(s, SIOCGIFADDR,struct.pack("16s16x","lo"))
+        ifreq = ioctl(s, SIOCGIFADDR,struct.pack("16s16x",LOOPBACK_NAME))
         addrfamily = struct.unpack("h",ifreq[16:18])[0]
         if addrfamily == socket.AF_INET:
-            ifreq2 = ioctl(s, SIOCGIFNETMASK,struct.pack("16s16x","lo"))
+            ifreq2 = ioctl(s, SIOCGIFNETMASK,struct.pack("16s16x",LOOPBACK_NAME))
             msk = socket.ntohl(struct.unpack("I",ifreq2[20:24])[0])
             dst = socket.ntohl(struct.unpack("I",ifreq[20:24])[0]) & msk
             ifaddr = inet_ntoa(ifreq[20:24])
-            routes.append((dst, msk, "0.0.0.0", "lo", ifaddr))
+            routes.append((dst, msk, "0.0.0.0", LOOPBACK_NAME, ifaddr))
         else:
             warning("Interface lo: unkown address family (%i)"% addrfamily)
     

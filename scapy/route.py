@@ -1,5 +1,5 @@
 import socket
-from arch import read_routes,get_if_addr
+from arch import read_routes,get_if_addr,LOOPBACK_NAME
 from utils import atol,ltoa,itom
 from config import conf
 from error import Scapy_Exception,warning
@@ -127,13 +127,13 @@ class Route:
         for d,m,gw,i,a in self.routes:
             aa = atol(a)
             if aa == dst:
-                pathes.append((0xffffffffL,("lo",a,"0.0.0.0")))
+                pathes.append((0xffffffffL,(LOOPBACK_NAME,a,"0.0.0.0")))
             if (dst & m) == (d & m):
                 pathes.append((m,(i,a,gw)))
         if not pathes:
             if verbose:
                 warning("No route found (no default route?)")
-            return "lo","0.0.0.0","0.0.0.0" #XXX linux specific!
+            return LOOPBACK_NAME,"0.0.0.0","0.0.0.0" #XXX linux specific!
         # Choose the more specific route (greatest netmask).
         # XXX: we don't care about metrics
         pathes.sort()
@@ -152,6 +152,6 @@ conf.route=Route()
 
 #XXX use "with"
 _betteriface = conf.route.route("0.0.0.0", verbose=0)[0]
-if _betteriface != "lo": #XXX linux specific...
+if _betteriface != LOOPBACK_NAME:
     conf.iface = _betteriface
 del(_betteriface)
