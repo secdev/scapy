@@ -4,8 +4,8 @@ from data import *
 from arch import *
 from config import conf
 from packet import Gen
-from plist import PacketList,SndRcvList
 from utils import warning
+import plist
 
 #################
 ## Debug class ##
@@ -30,9 +30,9 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0, retry=0, m
         
     if verbose is None:
         verbose = conf.verb
-    debug.recv = PacketList([],"Unanswered")
-    debug.sent = PacketList([],"Sent")
-    debug.match = SndRcvList([])
+    debug.recv = plist.PacketList([],"Unanswered")
+    debug.sent = plist.PacketList([],"Sent")
+    debug.match = plist.SndRcvList([])
     nbrecv=0
     ans = []
     # do it here to fix random fields, so that parent and child have the same
@@ -182,8 +182,8 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0, retry=0, m
         retry -= 1
         
     if conf.debug_match:
-        debug.sent=PacketList(remain[:],"Sent")
-        debug.match=SndRcvList(ans[:])
+        debug.sent=plist.PacketList(remain[:],"Sent")
+        debug.match=plist.SndRcvList(ans[:])
 
     #clean the ans list to delete the field _answered
     if (multi):
@@ -193,7 +193,7 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0, retry=0, m
     
     if verbose:
         print "\nReceived %i packets, got %i answers, remaining %i packets" % (nbrecv+len(ans), len(ans), notans)
-    return SndRcvList(ans),PacketList(remain,"Unanswered"),debug.recv
+    return plist.SndRcvList(ans),plist.PacketList(remain,"Unanswered"),debug.recv
 
 
 def __gen_send(s, x, inter=0, loop=0, count=None, verbose=None, *args, **kargs):
@@ -394,7 +394,7 @@ def __sr_loop(srfunc, pkts, prn=lambda x:x[1].summary(), prnfail=lambda x:x.summ
  
     if verbose and n>0:
         print ct.normal("\nSent %i packets, received %i packets. %3.1f%% hits." % (n,r,100.0*r/n))
-    return SndRcvList(ans),PacketList(unans)
+    return plist.SndRcvList(ans),plist.PacketList(unans)
 
 def srloop(pkts, *args, **kargs):
     """Send a packet at layer 3 in loop and print the answer each time
@@ -411,7 +411,7 @@ def sndrcvflood(pks, pkt, prn=lambda (s,r):r.summary(), chainCC=0, store=1, uniq
     if not isinstance(pkt, Gen):
         pkt = SetGen(pkt)
     tobesent = [p for p in pkt]
-    received = SndRcvList()
+    received = plist.SndRcvList()
     seen = {}
 
     hsent={}
@@ -545,6 +545,6 @@ L2socket: use the provided L2socket
         except KeyboardInterrupt:
             break
     s.close()
-    return PacketList(lst,"Sniffed")
+    return plist.PacketList(lst,"Sniffed")
 
 

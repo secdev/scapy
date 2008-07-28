@@ -5,7 +5,6 @@ from base_classes import BasePacket,BasePacketList
 
 from utils import incremental_label,colgen,do_graph,hexdump,make_table,make_lined_table,make_tex_table
 from packet import Padding,Raw
-from sendrecv import sr
 from layers.inet import IP,TCP,UDP,ICMP
 from layers.l2 import Ether
 from layers.dot11 import Dot11
@@ -14,6 +13,10 @@ from layers.ip6 import IPv6 #,ICMPv6TimeExceeded
 import arch
 if arch.GNUPLOT:
     Gnuplot=arch.Gnuplot
+
+
+import sendrecv 
+
 
 #############
 ## Results ##
@@ -689,7 +692,7 @@ class TracerouteResult(SndRcvList):
                                 continue
                             savcolor = o.color
                             o.color = (1,0,0)
-                            a,b=sr(IP(dst=o.ip)/TCP(dport=[21,22,23,25,80,443]),timeout=2)
+                            a,b=sendrecv.sr(IP(dst=o.ip)/TCP(dport=[21,22,23,25,80,443]),timeout=2)
                             o.color = savcolor
                             if len(a) == 0:
                                 txt = "%s:\nno results" % o.ip
