@@ -2,6 +2,7 @@ import struct
 from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.inet import UDP,TCP
+from scapy.layers.l2 import SourceMACField
 
 class NetBIOS_DS(Packet):
     name = "NetBIOS datagram service"

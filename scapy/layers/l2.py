@@ -6,6 +6,87 @@ from scapy.plist import SndRcvList
 from scapy.fields import *
 from scapy.sendrecv import srp,srp1
 
+### Fields
+
+class DestMACField(MACField):
+    def __init__(self, name):
+        MACField.__init__(self, name, None)
+    def i2h(self, pkt, x):
+        if x is None:
+            dstip = None
+            if isinstance(pkt.payload, IPv6):
+                dstip = pkt.payload.dst            
+            elif isinstance(pkt.payload, IP):
+                dstip = pkt.payload.dst
+            elif isinstance(pkt.payload, ARP):
+                dstip = pkt.payload.pdst
+            if isinstance(dstip, Gen):
+                dstip = dstip.__iter__().next()
+            if dstip is not None:
+                if isinstance(pkt.payload, IPv6):
+                    x = getmacbyip6(dstip, chainCC=1)
+                else:    
+                    x = getmacbyip(dstip, chainCC=1)
+            if x is None:
+                x = "ff:ff:ff:ff:ff:ff"
+                warning("Mac address to reach %s not found\n"%dstip)
+        return MACField.i2h(self, pkt, x)
+    def i2m(self, pkt, x):
+        return MACField.i2m(self, pkt, self.i2h(pkt, x))
+        
+class SourceMACField(MACField):
+    def __init__(self, name):
+        MACField.__init__(self, name, None)
+    def i2h(self, pkt, x):
+        if x is None:
+            dstip = None
+            if isinstance(pkt.payload, IPv6):
+                dstip = pkt.payload.dst
+            elif isinstance(pkt.payload, IP):
+                dstip = pkt.payload.dst
+            elif isinstance(pkt.payload, ARP):
+                dstip = pkt.payload.pdst
+            if isinstance(dstip, Gen):
+                dstip = dstip.__iter__().next()
+            if dstip is not None:
+                if isinstance(pkt.payload, IPv6):
+                    iff,a,nh = conf.route6.route(dstip)
+                else:
+                    iff,a,gw = conf.route.route(dstip)
+                try:
+                    x = get_if_hwaddr(iff)
+                except:
+                    pass
+                if x is None:
+                    x = "00:00:00:00:00:00"
+        return MACField.i2h(self, pkt, x)
+    def i2m(self, pkt, x):
+        return MACField.i2m(self, pkt, self.i2h(pkt, x))
+        
+class ARPSourceMACField(MACField):
+    def __init__(self, name):
+        MACField.__init__(self, name, None)
+    def i2h(self, pkt, x):
+        if x is None:
+            dstip = pkt.pdst
+            if isinstance(dstip, Gen):
+                dstip = dstip.__iter__().next()
+            if dstip is not None:
+                iff,a,gw = conf.route.route(dstip)
+                try:
+                    x = get_if_hwaddr(iff)
+                except:
+                    pass
+                if x is None:
+                    x = "00:00:00:00:00:00"
+        return MACField.i2h(self, pkt, x)
+    def i2m(self, pkt, x):
+        return MACField.i2m(self, pkt, self.i2h(pkt, x))
+
+
+
+### Layers
+
 class Ether_or_Dot3_metaclass(Packet_metaclass):
     def __call__(self, _pkt=None, *args, **kargs):
         cls = self
