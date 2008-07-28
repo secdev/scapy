@@ -2,6 +2,7 @@ import os,struct,time
 from scapy.config import conf
 from scapy.packet import *
 from scapy.ansmachine import *
+from scapy.plist import SndRcvList
 
 class Ether_or_Dot3_metaclass(Packet_metaclass):
     def __call__(self, _pkt=None, *args, **kargs):
@@ -282,6 +283,16 @@ arpcachepoison(target, victim, [interval=60]) -> None
             time.sleep(interval)
     except KeyboardInterrupt:
         pass
+
+
+class ARPingResult(SndRcvList):
+    def __init__(self, res=None, name="ARPing", stats=None):
+        PacketList.__init__(self, res, name, stats)
+
+    def show(self):
+        for s,r in self.res:
+            print r.sprintf("%Ether.src% %ARP.psrc%")
+
 
 
 def arping(net, timeout=2, cache=0, verbose=None, **kargs):

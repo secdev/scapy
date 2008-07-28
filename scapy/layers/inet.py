@@ -7,7 +7,9 @@ from scapy.packet import *
 from scapy.volatile import *
 from scapy.config import conf
 from scapy.sendrecv import sr,sr1
+from scapy.plist import PacketList,SndRcvList
 
+import scapy.as_resolvers
 
 
 ####################
@@ -685,6 +687,367 @@ def defragment(plist):
             
             
         
+
+
+
+class TracerouteResult(SndRcvList):
+    def __init__(self, res=None, name="Traceroute", stats=None):
+        PacketList.__init__(self, res, name, stats)
+        self.graphdef = None
+        self.graphASres = 0
+        self.padding = 0
+        self.hloc = None
+        self.nloc = None
+
+    def show(self):
+        return self.make_table(lambda (s,r): (s.sprintf("%IP.dst%:{TCP:tcp%ir,TCP.dport%}{UDP:udp%ir,UDP.dport%}{ICMP:ICMP}"),
+                                              s.ttl,
+                                              r.sprintf("%-15s,IP.src% {TCP:%TCP.flags%}{ICMP:%ir,ICMP.type%}")))
+
+
+    def get_trace(self):
+        trace = {}
+        for s,r in self.res:
+            if IP not in s:
+                continue
+            d = s[IP].dst
+            if d not in trace:
+                trace[d] = {}
+            trace[d][s[IP].ttl] = r[IP].src, ICMP not in r
+        for k in trace.values():
+            m = filter(lambda x:k[x][1], k.keys())
+            if not m:
+                continue
+            m = min(m)
+            for l in k.keys():
+                if l > m:
+                    del(k[l])
+        return trace
+
+    def trace3D(self):
+        """Give a 3D representation of the traceroute.
+        right button: rotate the scene
+        middle button: zoom
+        left button: move the scene
+        left button on a ball: toggle IP displaying
+        ctrl-left button on a ball: scan ports 21,22,23,25,80 and 443 and display the result"""
+        trace = self.get_trace()
+        import visual
+
+        class IPsphere(visual.sphere):
+            def __init__(self, ip, **kargs):
+                visual.sphere.__init__(self, **kargs)
+                self.ip=ip
+                self.label=None
+                self.setlabel(self.ip)
+            def setlabel(self, txt,visible=None):
+                if self.label is not None:
+                    if visible is None:
+                        visible = self.label.visible
+                    self.label.visible = 0
+                elif visible is None:
+                    visible=0
+                self.label=visual.label(text=txt, pos=self.pos, space=self.radius, xoffset=10, yoffset=20, visible=visible)
+            def action(self):
+                self.label.visible ^= 1
+
+        visual.scene = visual.display()
+        visual.scene.exit_on_close(0)
+        start = visual.box()
+        rings={}
+        tr3d = {}
+        for i in trace:
+            tr = trace[i]
+            tr3d[i] = []
+            ttl = tr.keys()
+            for t in range(1,max(ttl)+1):
+                if t not in rings:
+                    rings[t] = []
+                if t in tr:
+                    if tr[t] not in rings[t]:
+                        rings[t].append(tr[t])
+                    tr3d[i].append(rings[t].index(tr[t]))
+                else:
+                    rings[t].append(("unk",-1))
+                    tr3d[i].append(len(rings[t])-1)
+        for t in rings:
+            r = rings[t]
+            l = len(r)
+            for i in range(l):
+                if r[i][1] == -1:
+                    col = (0.75,0.75,0.75)
+                elif r[i][1]:
+                    col = visual.color.green
+                else:
+                    col = visual.color.blue
+                
+                s = IPsphere(pos=((l-1)*visual.cos(2*i*visual.pi/l),(l-1)*visual.sin(2*i*visual.pi/l),2*t),
+                             ip = r[i][0],
+                             color = col)
+                for trlst in tr3d.values():
+                    if t <= len(trlst):
+                        if trlst[t-1] == i:
+                            trlst[t-1] = s
+        forecol = colgen(0.625, 0.4375, 0.25, 0.125)
+        for trlst in tr3d.values():
+            col = forecol.next()
+            start = (0,0,0)
+            for ip in trlst:
+                visual.cylinder(pos=start,axis=ip.pos-start,color=col,radius=0.2)
+                start = ip.pos
+        
+        movcenter=None
+        while 1:
+            if visual.scene.kb.keys:
+                k = visual.scene.kb.getkey()
+                if k == "esc":
+                    break
+            if visual.scene.mouse.events:
+                ev = visual.scene.mouse.getevent()
+                if ev.press == "left":
+                    o = ev.pick
+                    if o:
+                        if ev.ctrl:
+                            if o.ip == "unk":
+                                continue
+                            savcolor = o.color
+                            o.color = (1,0,0)
+                            a,b=sendrecv.sr(IP(dst=o.ip)/TCP(dport=[21,22,23,25,80,443]),timeout=2)
+                            o.color = savcolor
+                            if len(a) == 0:
+                                txt = "%s:\nno results" % o.ip
+                            else:
+                                txt = "%s:\n" % o.ip
+                                for s,r in a:
+                                    txt += r.sprintf("{TCP:%IP.src%:%TCP.sport% %TCP.flags%}{TCPerror:%IPerror.dst%:%TCPerror.dport% %IP.src% %ir,ICMP.type%}\n")
+                            o.setlabel(txt, visible=1)
+                        else:
+                            if hasattr(o, "action"):
+                                o.action()
+                elif ev.drag == "left":
+                    movcenter = ev.pos
+                elif ev.drop == "left":
+                    movcenter = None
+            if movcenter:
+                visual.scene.center -= visual.scene.mouse.pos-movcenter
+                movcenter = visual.scene.mouse.pos
+                
+                
+    def world_trace(self):
+        from modules.geo import locate_ip
+        ips = {}
+        rt = {}
+        ports_done = {}
+        for s,r in self.res:
+            ips[r.src] = None
+            if s.haslayer(TCP) or s.haslayer(UDP):
+                trace_id = (s.src,s.dst,s.proto,s.dport)
+            elif s.haslayer(ICMP):
+                trace_id = (s.src,s.dst,s.proto,s.type)
+            else:
+                trace_id = (s.src,s.dst,s.proto,0)
+            trace = rt.get(trace_id,{})
+            if not r.haslayer(ICMP) or r.type != 11:
+                if ports_done.has_key(trace_id):
+                    continue
+                ports_done[trace_id] = None
+            trace[s.ttl] = r.src
+            rt[trace_id] = trace
+
+        trt = {}
+        for trace_id in rt:
+            trace = rt[trace_id]
+            loctrace = []
+            for i in range(max(trace.keys())):
+                ip = trace.get(i,None)
+                if ip is None:
+                    continue
+                loc = locate_ip(ip)
+                if loc is None:
+                    continue
+#                loctrace.append((ip,loc)) # no labels yet
+                loctrace.append(loc)
+            if loctrace:
+                trt[trace_id] = loctrace
+
+        tr = map(lambda x: Gnuplot.Data(x,with="lines"), trt.values())
+        g = Gnuplot.Gnuplot()
+        world = Gnuplot.File(conf.gnuplot_world,with="lines")
+        g.plot(world,*tr)
+        return g
+
+    def make_graph(self,ASres=None,padding=0):
+        if ASres is None:
+            ASres = conf.AS_resolver
+        self.graphASres = ASres
+        self.graphpadding = padding
+        ips = {}
+        rt = {}
+        ports = {}
+        ports_done = {}
+        for s,r in self.res:
+            r = r[IP] or r[IPv6] or r
+            s = s[IP] or s[IPv6] or s
+            ips[r.src] = None
+            if TCP in s:
+                trace_id = (s.src,s.dst,6,s.dport)
+            elif UDP in s:
+                trace_id = (s.src,s.dst,17,s.dport)
+            elif ICMP in s:
+                trace_id = (s.src,s.dst,1,s.type)
+            else:
+                trace_id = (s.src,s.dst,s.proto,0)
+            trace = rt.get(trace_id,{})
+            ttl = IPv6 in s and s.hlim or s.ttl
+            if not (ICMP in r and r[ICMP].type == 11) and not (IPv6 in r and ICMPv6TimeExceeded in r):
+                if trace_id in ports_done:
+                    continue
+                ports_done[trace_id] = None
+                p = ports.get(r.src,[])
+                if TCP in r:
+                    p.append(r.sprintf("<T%ir,TCP.sport%> %TCP.sport% %TCP.flags%"))
+                    trace[ttl] = r.sprintf('"%r,src%":T%ir,TCP.sport%')
+                elif UDP in r:
+                    p.append(r.sprintf("<U%ir,UDP.sport%> %UDP.sport%"))
+                    trace[ttl] = r.sprintf('"%r,src%":U%ir,UDP.sport%')
+                elif ICMP in r:
+                    p.append(r.sprintf("<I%ir,ICMP.type%> ICMP %ICMP.type%"))
+                    trace[ttl] = r.sprintf('"%r,src%":I%ir,ICMP.type%')
+                else:
+                    p.append(r.sprintf("{IP:<P%ir,proto%> IP %proto%}{IPv6:<P%ir,nh%> IPv6 %nh%}"))
+                    trace[ttl] = r.sprintf('"%r,src%":{IP:P%ir,proto%}{IPv6:P%ir,nh%}')
+                ports[r.src] = p
+            else:
+                trace[ttl] = r.sprintf('"%r,src%"')
+            rt[trace_id] = trace
+    
+        # Fill holes with unk%i nodes
+        unknown_label = incremental_label("unk%i")
+        blackholes = []
+        bhip = {}
+        for rtk in rt:
+            trace = rt[rtk]
+            k = trace.keys()
+            for n in range(min(k), max(k)):
+                if not trace.has_key(n):
+                    trace[n] = unknown_label.next()
+            if not ports_done.has_key(rtk):
+                if rtk[2] == 1: #ICMP
+                    bh = "%s %i/icmp" % (rtk[1],rtk[3])
+                elif rtk[2] == 6: #TCP
+                    bh = "%s %i/tcp" % (rtk[1],rtk[3])
+                elif rtk[2] == 17: #UDP                    
+                    bh = '%s %i/udp' % (rtk[1],rtk[3])
+                else:
+                    bh = '%s %i/proto' % (rtk[1],rtk[2]) 
+                ips[bh] = None
+                bhip[rtk[1]] = bh
+                bh = '"%s"' % bh
+                trace[max(k)+1] = bh
+                blackholes.append(bh)
+    
+        # Find AS numbers
+        ASN_query_list = dict.fromkeys(map(lambda x:x.rsplit(" ",1)[0],ips)).keys()
+        if ASres is None:            
+            ASNlist = []
+        else:
+            ASNlist = ASres.resolve(*ASN_query_list)            
+    
+        ASNs = {}
+        ASDs = {}
+        for ip,asn,desc, in ASNlist:
+            if asn is None:
+                continue
+            iplist = ASNs.get(asn,[])
+            if ip in bhip:
+                if ip in ports:
+                    iplist.append(ip)
+                iplist.append(bhip[ip])
+            else:
+                iplist.append(ip)
+            ASNs[asn] = iplist
+            ASDs[asn] = desc
+    
+    
+        backcolorlist=colgen("60","86","ba","ff")
+        forecolorlist=colgen("a0","70","40","20")
+    
+        s = "digraph trace {\n"
+    
+        s += "\n\tnode [shape=ellipse,color=black,style=solid];\n\n"
+    
+        s += "\n#ASN clustering\n"
+        for asn in ASNs:
+            s += '\tsubgraph cluster_%s {\n' % asn
+            col = backcolorlist.next()
+            s += '\t\tcolor="#%s%s%s";' % col
+            s += '\t\tnode [fillcolor="#%s%s%s",style=filled];' % col
+            s += '\t\tfontsize = 10;'
+            s += '\t\tlabel = "%s\\n[%s]"\n' % (asn,ASDs[asn])
+            for ip in ASNs[asn]:
+    
+                s += '\t\t"%s";\n'%ip
+            s += "\t}\n"
+    
+    
+    
+    
+        s += "#endpoints\n"
+        for p in ports:
+            s += '\t"%s" [shape=record,color=black,fillcolor=green,style=filled,label="%s|%s"];\n' % (p,p,"|".join(ports[p]))
+    
+        s += "\n#Blackholes\n"
+        for bh in blackholes:
+            s += '\t%s [shape=octagon,color=black,fillcolor=red,style=filled];\n' % bh
+
+        if padding:
+            s += "\n#Padding\n"
+            pad={}
+            for snd,rcv in self.res:
+                if rcv.src not in ports and rcv.haslayer(Padding):
+                    p = rcv.getlayer(Padding).load
+                    if p != "\x00"*len(p):
+                        pad[rcv.src]=None
+            for rcv in pad:
+                s += '\t"%s" [shape=triangle,color=black,fillcolor=red,style=filled];\n' % rcv
+    
+    
+            
+        s += "\n\tnode [shape=ellipse,color=black,style=solid];\n\n"
+    
+    
+        for rtk in rt:
+            s += "#---[%s\n" % `rtk`
+            s += '\t\tedge [color="#%s%s%s"];\n' % forecolorlist.next()
+            trace = rt[rtk]
+            k = trace.keys()
+            for n in range(min(k), max(k)):
+                s += '\t%s ->\n' % trace[n]
+            s += '\t%s;\n' % trace[max(k)]
+    
+        s += "}\n";
+        self.graphdef = s
+    
+    def graph(self, ASres=None, padding=0, **kargs):
+        """x.graph(ASres=conf.AS_resolver, other args):
+        ASres=None          : no AS resolver => no clustering
+        ASres=AS_resolver() : default whois AS resolver (riswhois.ripe.net)
+        ASres=AS_resolver_cymru(): use whois.cymru.com whois database
+        ASres=AS_resolver(server="whois.ra.net")
+        type: output type (svg, ps, gif, jpg, etc.), passed to dot's "-T" option
+        target: filename or redirect. Defaults pipe to Imagemagick's display program
+        prog: which graphviz program to use"""
+        if ASres is None:
+            ASres = conf.AS_resolver
+        if (self.graphdef is None or
+            self.graphASres != ASres or
+            self.graphpadding != padding):
+            self.make_graph(ASres,padding)
+
+        return do_graph(self.graphdef, **kargs)
+
+
+
     
 def traceroute(target, dport=80, minttl=1, maxttl=30, sport=RandShort(), l4 = None, filter=None, timeout=2, verbose=None, **kargs):
     """Instant TCP traceroute

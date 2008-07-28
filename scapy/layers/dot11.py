@@ -2,6 +2,7 @@ import re,struct
 
 from scapy.packet import *
 from scapy.fields import *
+from scapy.plist import PacketList
 from scapy.layers.l2 import *
 
 class PrismHeader(Packet):
@@ -468,3 +469,24 @@ iwconfig wlan0 mode managed
             
         
 conf.stats_dot11_protocols += [Dot11WEP, Dot11Beacon, ]
+
+
+        
+
+
+class Dot11PacketList(PacketList):
+    def __init__(self, res=None, name="Dot11List", stats=None):
+        if stats is None:
+            stats = conf.stats_dot11_protocols
+
+        PacketList.__init__(self, res, name, stats)
+    def toEthernet(self):
+        data = map(lambda x:x.getlayer(Dot11), filter(lambda x : x.haslayer(Dot11) and x.type == 2, self.res))
+        r2 = []
+        for p in data:
+            q = p.copy()
+            q.unwep()
+            r2.append(Ether()/q.payload.payload.payload) #Dot11/LLC/SNAP/IP
+        return PacketList(r2,name="Ether from %s"%self.listname)
+        
+        
