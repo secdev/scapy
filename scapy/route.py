@@ -1,3 +1,8 @@
+## This file is part of Scapy
+## See http://www.secdev.org/projects/scapy for more informations
+## Copyright (C) Philippe Biondi <phil@secdev.org>
+## This program is published under a GPLv2 license
+
 import socket
 from arch import read_routes,get_if_addr,LOOPBACK_NAME
 from utils import atol,ltoa,itom

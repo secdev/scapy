@@ -1,26 +1,8 @@
-#! /usr/bin/env python
+## This file is part of Scapy
+## See http://www.secdev.org/projects/scapy for more informations
+## Copyright (C) Philippe Biondi <phil@secdev.org>
+## This program is published under a GPLv2 license
 
-#############################################################################
-##                                                                         ##
-## UTscapy.py --- Unit Tests with scapy                                    ##
-##                see http://www.secdev.org/projects/UTscapy/              ##
-##                for more informations                                    ##
-##                                                                         ##
-## Copyright (C) 2005  Philippe Biondi <phil@secdev.org>                   ##
-##                                                                         ##
-## This program is free software; you can redistribute it and/or modify it ##
-## under the terms of the GNU General Public License version 2 as          ##
-## published by the Free Software Foundation.                              ##
-##                                                                         ##
-## This program is distributed in the hope that it will be useful, but     ##
-## WITHOUT ANY WARRANTY; without even the implied warranty of              ##
-## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU        ##
-## General Public License for more details.                                ##
-##                                                                         ##
-#############################################################################
-
-
-# $Id: UTscapy.py,v 1.25 2007/01/28 11:55:03 pbi Exp $
 
 import sys,getopt,imp
 import bz2, base64, os, os.path, time, imp, traceback, zlib, sha
