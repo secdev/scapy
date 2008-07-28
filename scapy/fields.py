@@ -181,39 +181,6 @@ class MACField(Field):
         return RandMAC()
 
 
-class Dot11AddrMACField(MACField):
-    def is_applicable(self, pkt):
-        return 1
-    def addfield(self, pkt, s, val):
-        if self.is_applicable(pkt):
-            return MACField.addfield(self, pkt, s, val)
-        else:
-            return s        
-    def getfield(self, pkt, s):
-        if self.is_applicable(pkt):
-            return MACField.getfield(self, pkt, s)
-        else:
-            return s,None
-
-class Dot11Addr2MACField(Dot11AddrMACField):
-    def is_applicable(self, pkt):
-        if pkt.type == 1:
-            return pkt.subtype in [ 0xb, 0xa, 0xe, 0xf] # RTS, PS-Poll, CF-End, CF-End+CF-Ack
-        return 1
-
-class Dot11Addr3MACField(Dot11AddrMACField):
-    def is_applicable(self, pkt):
-        if pkt.type in [0,2]:
-            return 1
-        return 0
-
-class Dot11Addr4MACField(Dot11AddrMACField):
-    def is_applicable(self, pkt):
-        if pkt.type == 2:
-            if pkt.FCfield & 0x3 == 0x3: # To-DS and From-DS are set
-                return 1
-        return 0
-    
 class IPField(Field):
     def __init__(self, name, default):
         Field.__init__(self, name, default, "4s")
