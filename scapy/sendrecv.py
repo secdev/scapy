@@ -92,7 +92,7 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0, retry=0, m
                     try:
                         os.setpgrp() # Chance process group to avoid ctrl-C
                         sent_times = [p.sent_time for p in all_stimuli if p.sent_time]
-                        cPickle.dump( (conf.arp_cache,sent_times), wrpipe )
+                        cPickle.dump( (conf.netcache,sent_times), wrpipe )
                         wrpipe.close()
                     except:
                         pass
@@ -158,11 +158,11 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0, retry=0, m
                             raise
                 finally:
                     try:
-                        ac,sent_times = cPickle.load(rdpipe)
+                        nc,sent_times = cPickle.load(rdpipe)
                     except EOFError:
                         warning("Child died unexpectedly. Packets may have not been sent %i"%os.getpid())
                     else:
-                        conf.arp_cache.update(ac)
+                        conf.netcache.update(nc)
                         for p,t in zip(all_stimuli, sent_times):
                             p.sent_time = t
                     os.waitpid(pid,0)

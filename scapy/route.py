@@ -85,8 +85,7 @@ class Route:
                 self.routes[i] = (the_net,the_msk,gw,iface,the_addr)
             else:
                 self.routes[i] = (net,msk,gw,iface,the_addr)
-        for i in conf.arp_cache.keys():
-            del(conf.arp_cache[i])
+        conf.netcache.flush()
         
                 
 

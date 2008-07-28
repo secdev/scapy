@@ -6,7 +6,7 @@ from scapy.fields import *
 from scapy.packet import *
 from scapy.volatile import *
 from scapy.config import conf
-from scapy.sendrecv import sr,sr1
+from scapy.sendrecv import sr,sr1,srp1
 from scapy.plist import PacketList,SndRcvList
 
 import scapy.as_resolvers
@@ -502,6 +502,9 @@ conf.l2types.register_num2layer(12, IP)
 
 conf.l3types.register(ETH_P_IP, IP)
 conf.l3types.register_num2layer(ETH_P_ALL, IP)
+
+
+conf.neighbor.register_l3(Ether, IP, lambda l2,l3: getmacbyip(l3.dst))
 
 
 ###################

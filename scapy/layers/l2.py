@@ -6,6 +6,61 @@ from scapy.plist import SndRcvList
 from scapy.fields import *
 from scapy.sendrecv import srp,srp1
 
+
+
+
+#################
+## Tools       ##
+#################
+
+
+class Neighbor:
+    def __init__(self):
+        self.resolvers = {}
+
+    def register_l3(self, l2, l3, resolve_method):
+        self.resolvers[l2,l3]=resolve_method
+
+    def resolve(self, l2inst, l3inst):
+        return self.resolvers[l2inst.__class__,l3inst.__class__](l2inst,l3inst)
+
+    def __repr__(self):
+        return "\n".join("%-15s -> %-15s" % (l2.__name__, l3.__name__) for l2,l3 in self.resolvers)
+
+conf.neighbor = Neighbor()
+
+conf.netcache.new_cache("arp_cache", 120) # cache entries expire after 120s
+
+
+def getmacbyip(ip, chainCC=0):
+    tmp = map(ord, inet_aton(ip))
+    if (tmp[0] & 0xf0) == 0xe0: # mcast @
+        return "01:00:5e:%.2x:%.2x:%.2x" % (tmp[1]&0x7f,tmp[2],tmp[3])
+    iff,a,gw = config.conf.route.route(ip)
+    if ( (iff == "lo") or (ip == config.conf.route.get_if_bcast(iff)) ):
+        return "ff:ff:ff:ff:ff:ff"
+    if gw != "0.0.0.0":
+        ip = gw
+
+    mac = config.conf.netcache.arp_cache.get(ip)
+    if mac:
+        return mac
+
+    res = srp1(Ether(dst=ETHER_BROADCAST)/ARP(op="who-has", pdst=ip),
+               type=ETH_P_ARP,
+               iface = iff,
+               timeout=2,
+               verbose=0,
+               chainCC=chainCC,
+               nofilter=1)
+    if res is not None:
+        mac = res.payload.hwsrc
+        config.conf.netcache.arp_cache[ip] = mac
+        return mac
+    return None
+
+
+
 ### Fields
 
 class DestMACField(MACField):
@@ -13,23 +68,10 @@ class DestMACField(MACField):
         MACField.__init__(self, name, None)
     def i2h(self, pkt, x):
         if x is None:
-            dstip = None
-            if isinstance(pkt.payload, IPv6):
-                dstip = pkt.payload.dst            
-            elif isinstance(pkt.payload, IP):
-                dstip = pkt.payload.dst
-            elif isinstance(pkt.payload, ARP):
-                dstip = pkt.payload.pdst
-            if isinstance(dstip, Gen):
-                dstip = dstip.__iter__().next()
-            if dstip is not None:
-                if isinstance(pkt.payload, IPv6):
-                    x = getmacbyip6(dstip, chainCC=1)
-                else:    
-                    x = getmacbyip(dstip, chainCC=1)
+            x = conf.neighbor.resolve(pkt,pkt.payload)
             if x is None:
                 x = "ff:ff:ff:ff:ff:ff"
-                warning("Mac address to reach %s not found\n"%dstip)
+                warning("Mac address to reach destination not found")
         return MACField.i2h(self, pkt, x)
     def i2m(self, pkt, x):
         return MACField.i2m(self, pkt, self.i2h(pkt, x))
@@ -48,6 +90,7 @@ class SourceMACField(MACField):
                 dstip = pkt.payload.pdst
             if isinstance(dstip, Gen):
                 dstip = dstip.__iter__().next()
+
             if dstip is not None:
                 if isinstance(pkt.payload, IPv6):
                     iff,a,nh = conf.route6.route(dstip)
@@ -296,7 +339,7 @@ class ARP(Packet):
         else:
             return "ARP %ARP.op% %ARP.psrc% > %ARP.pdst%"
                  
-
+conf.neighbor.register_l3(Ether, ARP, lambda l2,l3: getmacbyip(l3.pdst))
 
 class GRE(Packet):
     name = "GRE"
@@ -351,6 +394,13 @@ conf.l2types.register(113, CookedLinux)
 conf.l2types.register(144, CookedLinux)  # called LINUX_IRDA, similar to CookedLinux
 
 conf.l3types.register(ETH_P_ARP, ARP)
+
+
+
+
+### Technics
+
+
 
 def arpcachepoison(target, victim, interval=60):
     """Poison target's cache with (your MAC,victim's IP) couple

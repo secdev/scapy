@@ -1,4 +1,4 @@
-import os
+import os,time
 from data import *
 import base_classes
 import arch,themes
@@ -104,6 +104,65 @@ class LayersList(list):
         return "\n".join(s)
     def register(self, layer):
         self.append(layer)
+
+
+class CacheInstance(dict):
+    def __init__(self, name="noname", timeout=None):
+        self.timeout = timeout
+        self.name = name
+        self._timetable = {}
+    def __getitem__(self, item):
+        val = dict.__getitem__(self,item)
+        if self.timeout is not None:
+            t = self._timetable[item]
+            if time.time()-t > self.timeout:
+                raise KeyError(item)
+        return val
+    def get(self, item, default=None):
+        try:
+            return self[item]
+        except KeyError:
+            return default
+    def __setitem__(self, item, v):
+        self._timetable[item] = time.time()
+        dict.__setitem__(self, item,v)
+    def __repr__(self):
+        if self.timeout is None:
+            n = len(self)
+        else:
+            n = 0
+            t0 = time.time()
+            for t,v in self.itervalues():
+                if t0-t <= self.timeout:
+                    n += 1
+        return "%s: %i valid items. Timeout=%rs" % (self.name, n, self.timeout)
+            
+
+
+class NetCache:
+    def __init__(self):
+        self._caches_list = []
+
+
+    def add_cache(self, cache):
+        self._caches_list.append(cache)
+        setattr(self,cache.name,cache)
+    def new_cache(self, name, timeout=None):
+        c = CacheInstance(name=name, timeout=timeout)
+        self.add_cache(c)
+    def __delattr__(self, attr):
+        raise AttributeError("Cannot delete attributes")
+    def update(self, other):
+        for co in other._caches_list:
+            if hasattr(self, co.name):
+                getattr(self,co.name).update(co)
+            else:
+                self.add_cache(co.copy())
+    def flush(self):
+        for c in self._caches_list:
+            c.flush()
+    def __repr__(self):
+        return "\n".join(repr(c) for c in self._caches_list)
         
 
 
@@ -173,7 +232,8 @@ extensions_paths: path or list of paths where extensions are to be looked for
     manufdb = load_manuf("/usr/share/wireshark/wireshark/manuf")
     stats_classic_protocols = []
     stats_dot11_protocols = []
-    arp_cache = {}
+    netcache = NetCache()
+    
 
 conf=Conf()
 
