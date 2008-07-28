@@ -220,7 +220,9 @@ class SourceIPField(IPField):
         self.dstname = dstname
     def i2m(self, pkt, x):
         if x is None:
-            iff,x,gw = conf.route.route(getattr(pkt,self.dstname))
+            iff,x,gw = pkt.route()
+            if x is None:
+                x = "0.0.0.0"
         return IPField.i2m(self, pkt, x)
     def i2h(self, pkt, x):
         if x is None:

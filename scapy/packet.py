@@ -723,7 +723,9 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
     def __contains__(self, cls):
         """"cls in self" returns true if self has a layer which is an instance of cls."""
         return self.haslayer(cls)
-        
+
+    def route(self):
+        return (None,None,None)
     
 
     def display(self,*args,**kargs):  # Deprecated. Use show()

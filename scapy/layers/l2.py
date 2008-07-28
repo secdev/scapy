@@ -5,6 +5,7 @@ from scapy.ansmachine import *
 from scapy.plist import SndRcvList
 from scapy.fields import *
 from scapy.sendrecv import srp,srp1
+from scapy.arch import get_if_hwaddr
 
 
 
@@ -81,27 +82,14 @@ class SourceMACField(MACField):
         MACField.__init__(self, name, None)
     def i2h(self, pkt, x):
         if x is None:
-            dstip = None
-            if isinstance(pkt.payload, IPv6):
-                dstip = pkt.payload.dst
-            elif isinstance(pkt.payload, IP):
-                dstip = pkt.payload.dst
-            elif isinstance(pkt.payload, ARP):
-                dstip = pkt.payload.pdst
-            if isinstance(dstip, Gen):
-                dstip = dstip.__iter__().next()
-
-            if dstip is not None:
-                if isinstance(pkt.payload, IPv6):
-                    iff,a,nh = conf.route6.route(dstip)
-                else:
-                    iff,a,gw = conf.route.route(dstip)
+            iff,a,gw = pkt.payload.route()
+            if iff:
                 try:
                     x = get_if_hwaddr(iff)
                 except:
                     pass
-                if x is None:
-                    x = "00:00:00:00:00:00"
+            if x is None:
+                x = "00:00:00:00:00:00"
         return MACField.i2h(self, pkt, x)
     def i2m(self, pkt, x):
         return MACField.i2m(self, pkt, self.i2h(pkt, x))
@@ -111,17 +99,14 @@ class ARPSourceMACField(MACField):
         MACField.__init__(self, name, None)
     def i2h(self, pkt, x):
         if x is None:
-            dstip = pkt.pdst
-            if isinstance(dstip, Gen):
-                dstip = dstip.__iter__().next()
-            if dstip is not None:
-                iff,a,gw = conf.route.route(dstip)
+            iff,a,gw = pkt.route()
+            if iff:
                 try:
                     x = get_if_hwaddr(iff)
                 except:
                     pass
-                if x is None:
-                    x = "00:00:00:00:00:00"
+            if x is None:
+                x = "00:00:00:00:00:00"
         return MACField.i2h(self, pkt, x)
     def i2m(self, pkt, x):
         return MACField.i2m(self, pkt, self.i2h(pkt, x))
@@ -329,6 +314,11 @@ class ARP(Packet):
                  (self.psrc == other.pdst) ):
                 return 1
         return 0
+    def route(self):
+        dst = self.pdst
+        if isinstance(dst,Gen):
+            dst = iter(dst).next()
+        return conf.route.route(dst)
     def extract_padding(self, s):
         return "",s
     def mysummary(self):

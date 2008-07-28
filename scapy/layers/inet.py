@@ -201,6 +201,11 @@ class IP(Packet, IPTools):
                 log_runtime.error(msg)
             if slp:
                 time.sleep(slp)
+    def route(self):
+        dst = self.dst
+        if isinstance(dst,Gen):
+            dst = iter(dst).next()
+        return conf.route.route(dst)
     def hashret(self):
         if ( (self.proto == socket.IPPROTO_ICMP)
              and (isinstance(self.payload, ICMP))

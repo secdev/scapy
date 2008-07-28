@@ -132,11 +132,8 @@ class L3PacketSocket(SuperSocket):
         return pkt
     
     def send(self, x):
-        if isinstance(x, IPv6):
-            iff,a,gw = conf.route6.route(x.dst)
-        elif hasattr(x,"dst"):
-            iff,a,gw = conf.route.route(x.dst)
-        else:
+        iff,a,gw  = x.route()
+        if iff is None:
             iff = conf.iface
         sdto = (iff, self.type)
         self.outs.bind(sdto)
@@ -299,11 +296,8 @@ class L3dnetSocket(SuperSocket):
         if filter:
             self.ins.setfilter(filter, 0, 0)
     def send(self, x):
-        if isinstance(x, IPv6):
-            iff,a,gw = conf.route6.route(x.dst)
-        elif hasattr(x,"dst"):
-            iff,a,gw = conf.route.route(x.dst)
-        else:
+        iff,a,gw  = x.route()
+        if iff is None:
             iff = conf.iface
         ifs = self.iflist.get(iff)
         if ifs is None:
