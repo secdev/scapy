@@ -2,7 +2,8 @@
 import sys,os,struct,socket,time
 from fcntl import ioctl
 from data import *
-from config import conf
+
+import config
 
 try:
     import Gnuplot
@@ -177,7 +178,7 @@ else:
         if not TCPDUMP:
             return
         try:
-            f = os.popen("%s -i %s -ddd -s 1600 '%s'" % (conf.prog.tcpdump,conf.iface,filter))
+            f = os.popen("%s -i %s -ddd -s 1600 '%s'" % (config.conf.prog.tcpdump,config.conf.iface,filter))
         except OSError,msg:
             log_interactive.warning("Failed to execute tcpdump: (%s)")
             return
@@ -379,7 +380,7 @@ if 0 and DNET: ## XXX Can't use this because it does not resolve IPs not in cach
         tmp = map(ord, inet_aton(ip))
         if (tmp[0] & 0xf0) == 0xe0: # mcast @
             return "01:00:5e:%.2x:%.2x:%.2x" % (tmp[1]&0x7f,tmp[2],tmp[3])
-        iff,a,gw = conf.route.route(ip)
+        iff,a,gw = config.conf.route.route(ip)
         if iff == "lo":
             return "ff:ff:ff:ff:ff:ff"
         if gw != "0.0.0.0":
@@ -394,14 +395,14 @@ else:
         tmp = map(ord, inet_aton(ip))
         if (tmp[0] & 0xf0) == 0xe0: # mcast @
             return "01:00:5e:%.2x:%.2x:%.2x" % (tmp[1]&0x7f,tmp[2],tmp[3])
-        iff,a,gw = conf.route.route(ip)
-        if ( (iff == "lo") or (ip == conf.route.get_if_bcast(iff)) ):
+        iff,a,gw = config.conf.route.route(ip)
+        if ( (iff == "lo") or (ip == config.conf.route.get_if_bcast(iff)) ):
             return "ff:ff:ff:ff:ff:ff"
         if gw != "0.0.0.0":
             ip = gw
     
-        if conf.arp_cache.has_key(ip):
-            mac, timeout = conf.arp_cache[ip]
+        if config.conf.arp_cache.has_key(ip):
+            mac, timeout = config.conf.arp_cache[ip]
             if not timeout or (time.time()-timeout < ARPTIMEOUT):
                 return mac
 
@@ -414,7 +415,7 @@ else:
                    nofilter=1)
         if res is not None:
             mac = res.payload.hwsrc
-            conf.arp_cache[ip] = (mac,time.time())
+            config.conf.arp_cache[ip] = (mac,time.time())
             return mac
         return None
     

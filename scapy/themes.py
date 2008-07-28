@@ -1,4 +1,4 @@
-from config import conf
+import config
 
 ##################
 ## Color themes ##
@@ -237,12 +237,12 @@ class ColorPrompt:
     __prompt = ">>> "
     def __str__(self):
         try:
-            ct = conf.color_theme
+            ct = config.conf.color_theme
             if isinstance(ct, AnsiColorTheme):
                 ## ^A and ^B delimit invisible caracters for readline to count right
-                return "\001%s\002" % ct.prompt("\002"+conf.prompt+"\001")
+                return "\001%s\002" % ct.prompt("\002"+config.conf.prompt+"\001")
             else:
-                return ct.prompt(conf.prompt)
+                return ct.prompt(config.conf.prompt)
         except:
             return self.__prompt
 

@@ -3,7 +3,7 @@ from config import conf
 from volatile import VolatileValue
 from data import *
 from utils import *
-from base_classes import BasePacket
+from base_classes import BasePacket,Gen,Net
 
 
 ############

@@ -1,8 +1,7 @@
 import os
-from arch import *
 from data import *
-from themes import *
 import base_classes
+import arch,themes
 
 ############
 ## Config ##
@@ -138,7 +137,7 @@ extensions_paths: path or list of paths where extensions are to be looked for
     version = "2.0.0.1 alpha"
     session = ""  
     stealth = "not implemented"
-    iface = get_working_if()
+    iface = arch.get_working_if()
     layers = LayersList()
     checkIPID = 0
     checkIPsrc = 1
@@ -161,7 +160,7 @@ extensions_paths: path or list of paths where extensions are to be looked for
     route = None # Filed by arch
     auto_fragment = 1
     debug_dissector = 0
-    color_theme = DefaultTheme()
+    color_theme = themes.DefaultTheme()
     warning_threshold = 5
     prog = ProgPath()
     resolve = Resolve()
