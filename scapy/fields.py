@@ -324,26 +324,13 @@ class IEEEDoubleField(Field):
     def __init__(self, name, default):
         Field.__init__(self, name, default, "d")
 
-import traceback
-def FIELD_LENGTH_MANAGEMENT_DEPRECATION(x):
-    try:
-        for tb in traceback.extract_stack()+[("??",-1,None,"")]:
-            f,l,_,line = tb
-            if line.startswith("fields_desc"):
-                break
-    except:
-        f,l="??",-1
-    log_loading.warning("Deprecated use of %s (%s l. %i). See http://trac.secdev.org/scapy/wiki/LengthFields" % (x,f,l))
 
 class StrField(Field):
-    def __init__(self, name, default, fmt="H", remain=0, shift=0):
+    def __init__(self, name, default, fmt="H", remain=0):
         Field.__init__(self,name,default,fmt)
         self.remain = remain        
-        self.shift = shift
-        if shift != 0:
-            FIELD_LENGTH_MANAGEMENT_DEPRECATION(self.__class__.__name__)
     def i2len(self, pkt, i):
-        return len(i)+self.shift
+        return len(i)
     def i2m(self, pkt, x):
         if x is None:
             x = ""
@@ -360,8 +347,8 @@ class StrField(Field):
 
 class PacketField(StrField):
     holds_packets=1
-    def __init__(self, name, default, cls, remain=0, shift=0):
-        StrField.__init__(self, name, default, remain=remain, shift=shift)
+    def __init__(self, name, default, cls, remain=0):
+        StrField.__init__(self, name, default, remain=remain)
         self.cls = cls
     def i2m(self, pkt, i):
         return str(i)
@@ -378,12 +365,9 @@ class PacketField(StrField):
     
 class PacketLenField(PacketField):
     holds_packets=1
-    def __init__(self, name, default, cls, fld=None, length_from=None, shift=0):
-        PacketField.__init__(self, name, default, cls, shift=shift)
+    def __init__(self, name, default, cls, length_from=None):
+        PacketField.__init__(self, name, default, cls)
         self.length_from = length_from
-        if fld is not None or shift != 0:
-            FIELD_LENGTH_MANAGEMENT_DEPRECATION(self.__class__.__name__)
-            self.count_from = lambda pkt,fld=fld,shift=shift: getattr(pkt,fld)-shift
     def getfield(self, pkt, s):
         l = self.length_from(pkt)
         i = self.m2i(pkt, s[:l])
@@ -393,17 +377,13 @@ class PacketLenField(PacketField):
 class PacketListField(PacketField):
     islist = 1
     holds_packets=1
-    def __init__(self, name, default, cls, fld=None, count_from=None, length_from=None, shift=0):
+    def __init__(self, name, default, cls, count_from=None, length_from=None):
         if default is None:
             default = []  # Create a new list for each instance
-        PacketField.__init__(self, name, default, cls, shift=shift)
+        PacketField.__init__(self, name, default, cls)
         self.count_from = count_from
         self.length_from = length_from
 
-        if fld is not None or shift != 0:
-            FIELD_LENGTH_MANAGEMENT_DEPRECATION(self.__class__.__name__)
-        if fld is not None:
-            self.count_from = lambda pkt,fld=fld,shift=shift: getattr(pkt,fld)-shift
 
     def any2i(self, pkt, x):
         if type(x) is not list:
@@ -449,8 +429,8 @@ class PacketListField(PacketField):
 
 
 class StrFixedLenField(StrField):
-    def __init__(self, name, default, length=None, length_from=None, shift=0):
-        StrField.__init__(self, name, default, shift=shift)
+    def __init__(self, name, default, length=None, length_from=None):
+        StrField.__init__(self, name, default)
         self.length_from  = length_from
         if length is not None:
             self.length_from = lambda pkt,length=length: length
@@ -468,8 +448,8 @@ class StrFixedLenField(StrField):
         return RandBin(l)
 
 class NetBIOSNameField(StrFixedLenField):
-    def __init__(self, name, default, length=31, shift=0):
-        StrFixedLenField.__init__(self, name, default, length, shift=shift)
+    def __init__(self, name, default, length=31):
+        StrFixedLenField.__init__(self, name, default, length)
     def i2m(self, pkt, x):
         l = self.length_from(pkt)/2
         if x is None:
@@ -484,29 +464,22 @@ class NetBIOSNameField(StrFixedLenField):
         return "".join(map(lambda x,y: chr((((ord(x)-1)&0xf)<<4)+((ord(y)-1)&0xf)), x[::2],x[1::2]))
 
 class StrLenField(StrField):
-    def __init__(self, name, default, fld=None, length_from=None, shift=0):
-        StrField.__init__(self, name, default, shift=shift)
+    def __init__(self, name, default, fld=None, length_from=None):
+        StrField.__init__(self, name, default)
         self.length_from = length_from
-        if fld is not None or shift != 0:
-            FIELD_LENGTH_MANAGEMENT_DEPRECATION(self.__class__.__name__)
-            self.length_from = lambda pkt,fld=fld,shift=shift: getattr(pkt,fld)-shift
     def getfield(self, pkt, s):
         l = self.length_from(pkt)
         return s[l:], self.m2i(pkt,s[:l])
 
 class FieldListField(Field):
     islist=1
-    def __init__(self, name, default, field, fld=None, shift=0, length_from=None, count_from=None):
+    def __init__(self, name, default, field, length_from=None, count_from=None):
         if default is None:
             default = []  # Create a new list for each instance
         Field.__init__(self, name, default)
         self.count_from = count_from
         self.length_from = length_from
-        self.field = field
-        if fld is not None or shift != 0:
-            FIELD_LENGTH_MANAGEMENT_DEPRECATION(self.__class__.__name__)
-            self.count_from = lambda pkt,fld=fld,shift=shift: getattr(pkt,fld)-shift
-            
+        self.field = field            
             
     def i2count(self, pkt, val):
         if type(val) is list:

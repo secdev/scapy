@@ -285,11 +285,7 @@ class Packet(BasePacket):
         for t in self.post_transforms:
             pkt = t(pkt)
         pay = self.build_payload()
-        try:
-            p = self.post_build(pkt,pay)
-        except TypeError:
-            log_runtime.error("API changed! post_build() now takes 2 arguments. Compatibility is only assured for a short transition time")
-            p = self.post_build(pkt+pay)
+        p = self.post_build(pkt,pay)
         if not internal:
             pad = self.payload.getlayer(Padding) 
             if pad: 
