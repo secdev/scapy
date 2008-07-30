@@ -904,9 +904,9 @@ class TracerouteResult(SndRcvList):
             if loctrace:
                 trt[trace_id] = loctrace
 
-        tr = map(lambda x: Gnuplot.Data(x,with="lines"), trt.values())
+        tr = map(lambda x: Gnuplot.Data(x,with_="lines"), trt.values())
         g = Gnuplot.Gnuplot()
-        world = Gnuplot.File(conf.gnuplot_world,with="lines")
+        world = Gnuplot.File(conf.gnuplot_world,with_="lines")
         g.plot(world,*tr)
         return g
 
