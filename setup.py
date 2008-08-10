@@ -40,6 +40,8 @@ setup(
     version = '2.0.0.2',    
     packages=['scapy','scapy/layers','scapy/asn1','scapy/tools','scapy/modules'],
     scripts = ['bin/scapy','bin/UTscapy'],
+    data_files = [('share/man/man1', ["doc/scapy.1.gz"])],
+
     # Metadata
     author = 'Philippe BIONDI',
     author_email = 'phil(at)secdev.org',
