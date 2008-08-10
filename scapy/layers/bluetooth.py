@@ -183,13 +183,17 @@ class BluetoothHCISocket(SuperSocket):
 ## Bluetooth
 
 
+@conf.commands.register
 def srbt(peer, pkts, inter=0.1, *args, **kargs):
+    """send and receive using a bluetooth socket"""
     s = conf.BTsocket(peer=peer)
     a,b,c=sndrcv(s,pkts,inter=inter,*args,**kargs)
     s.close()
     return a,b
 
+@conf.commands.register
 def srbt1(peer, pkts, *args, **kargs):
+    """send and receive 1 packet using a bluetooth socket"""
     a,b = srbt(peer, pkts, *args, **kargs)
     if len(a) > 0:
         return a[0][1]

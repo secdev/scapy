@@ -255,6 +255,9 @@ class DNSRR(Packet):
 
 bind_layers( UDP,           DNS,           dport=53)
 bind_layers( UDP,           DNS,           sport=53)
+
+
+@conf.commands.register
 def dyndns_add(nameserver, name, rdata, type="A", ttl=10):
     """Send a DNS add message to a nameserver for "name" to have a new "rdata"
 dyndns_add(nameserver, name, rdata, type="A", ttl=10) -> result code (0=ok)
@@ -276,6 +279,7 @@ RFC2136
     
     
 
+@conf.commands.register
 def dyndns_del(nameserver, name, type="ALL", ttl=10):
     """Send a DNS delete message to a nameserver for "name"
 dyndns_del(nameserver, name, type="ANY", ttl=10) -> result code (0=ok)

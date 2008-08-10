@@ -46,8 +46,9 @@ class CountryLocKnowledgeBase(KnowledgeBase):
             
         
 
-
+@conf.commands.register
 def locate_ip(ip):
+    """Get geographic coordinates from IP using geoip database"""
     ip=map(int,ip.split("."))
     ip = ip[3]+(ip[2]<<8L)+(ip[1]<<16L)+(ip[0]<<24L)
 

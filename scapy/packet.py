@@ -1059,7 +1059,9 @@ def bind_top_down(lower, upper, __fval=None, **fval):
     upper.overload_fields = upper.overload_fields.copy()
     upper.overload_fields[lower] = fval
     
+@conf.commands.register
 def bind_layers(lower, upper, __fval=None, **fval):
+    """Bind 2 layers on some specific fields' values"""
     if __fval is not None:
         fval.update(__fval)
     bind_top_down(lower, upper, **fval)
@@ -1088,13 +1090,16 @@ def split_top_down(lower, upper, __fval=None, **fval):
         upper.overload_fields = upper.overload_fields.copy()
         del(upper.overload_fields[lower])
 
+@conf.commands.register
 def split_layers(lower, upper, __fval=None, **fval):
+    """Split 2 layers previously bound"""
     if __fval is not None:
         fval.update(__fval)
     split_bottom_up(lower, upper, **fval)
     split_top_down(lower, upper, **fval)
 
 
+@conf.commands.register
 def ls(obj=None):
     """List  available layers, or infos on a given layer"""
     if obj is None:
@@ -1126,8 +1131,9 @@ def ls(obj=None):
 ## Fuzzing ##
 #############
 
-
+@conf.commands.register
 def fuzz(p, _inplace=0):
+    """Transform a layer into a fuzzy layer by replacing some default values by random objects"""
     if not _inplace:
         p = p.copy()
     q = p

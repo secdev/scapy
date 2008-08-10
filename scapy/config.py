@@ -111,6 +111,22 @@ class LayersList(list):
     def register(self, layer):
         self.append(layer)
 
+class CommandsList(list):
+    def __repr__(self):
+        s=[]
+        for l in sorted(self,key=lambda x:x.__name__):
+            if l.__doc__:
+                doc = l.__doc__.split("\n")[0]
+            else:
+                doc = "--"
+            s.append("%-20s: %s" % (l.__name__,doc))
+        return "\n".join(s)
+    def register(self, cmd):
+        self.append(cmd)
+        return cmd # return cmd so that method can be used as a decorator
+
+def lsc():
+    print repr(conf.commands)
 
 class CacheInstance(dict):
     def __init__(self, name="noname", timeout=None):
@@ -211,6 +227,7 @@ extensions_paths: path or list of paths where extensions are to be looked for
     stealth = "not implemented"
     iface = arch.get_working_if()
     layers = LayersList()
+    commands = CommandsList()
     logLevel = LogLevel()
     checkIPID = 0
     checkIPsrc = 1

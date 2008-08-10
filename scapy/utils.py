@@ -46,6 +46,7 @@ def lhex(x):
     else:
         return x
 
+@conf.commands.register
 def hexdump(x):
     x=str(x)
     l = len(x)
@@ -63,6 +64,7 @@ def hexdump(x):
         print sane_color(x[i:i+16])
         i += 16
 
+@conf.commands.register
 def linehexdump(x, onlyasc=0, onlyhex=0):
     x = str(x)
     l = len(x)
@@ -86,7 +88,9 @@ def hexstr(x, onlyasc=0, onlyhex=0):
     return "  ".join(s)
 
 
+@conf.commands.register
 def hexdiff(x,y):
+    """Show differences between 2 binary strings"""
     x=str(x)[::-1]
     y=str(y)[::-1]
     SUBST=1
@@ -406,7 +410,9 @@ def save_object(fname, obj):
 def load_object(fname):
     return cPickle.load(gzip.open(fname,"rb"))
 
+@conf.commands.register
 def corrupt_bytes(s, p=0.01, n=None):
+    """Corrupt a given percentage or number of bytes from a string"""
     s = array.array("B",str(s))
     l = len(s)
     if n is None:
@@ -415,7 +421,9 @@ def corrupt_bytes(s, p=0.01, n=None):
         s[i] = random.randint(0,255)
     return s.tostring()
 
+@conf.commands.register
 def corrupt_bits(s, p=0.01, n=None):
+    """Flip a given percentage or number of bits from a string"""
     s = array.array("B",str(s))
     l = len(s)*8
     if n is None:
@@ -431,6 +439,7 @@ def corrupt_bits(s, p=0.01, n=None):
 ## pcap capture file stuff ##
 #############################
 
+@conf.commands.register
 def wrpcap(filename, pkt, *args, **kargs):
     """Write a list of packets to a pcap file
 gz: set to 1 to save a gzipped capture
@@ -438,6 +447,7 @@ linktype: force linktype value
 endianness: "<" or ">", force endianness"""
     PcapWriter(filename, *args, **kargs).write(pkt)
 
+@conf.commands.register
 def rdpcap(filename, count=-1):
     """Read a pcap file and return a packet list
 count: read only <count> packets"""
@@ -643,11 +653,14 @@ def import_hexcap():
         
 
 
+@conf.commands.register
 def wireshark(pktlist):
+    """Run wireshark on a list of packets"""
     f = os.tempnam("scapy")
     wrpcap(f, pktlist)
     os.spawnlp(os.P_NOWAIT, conf.prog.wireshark, conf.prog.wireshark, "-r", f)
 
+@conf.commands.register
 def hexedit(x):
     x = str(x)
     f = os.tempnam("scapy")

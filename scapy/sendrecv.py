@@ -227,12 +227,14 @@ def __gen_send(s, x, inter=0, loop=0, count=None, verbose=None, *args, **kargs):
     s.close()
     if verbose:
         print "\nSent %i packets." % n
-
+        
+@conf.commands.register
 def send(x, inter=0, loop=0, count=None, verbose=None, *args, **kargs):
     """Send packets at layer 3
 send(packets, [inter=0], [loop=0], [verbose=conf.verb]) -> None"""
     __gen_send(conf.L3socket(*args, **kargs), x, inter=inter, loop=loop, count=count,verbose=verbose)
 
+@conf.commands.register
 def sendp(x, inter=0, loop=0, iface=None, iface_hint=None, count=None, verbose=None, *args, **kargs):
     """Send packets at layer 2
 sendp(packets, [inter=0], [loop=0], [verbose=conf.verb]) -> None"""
@@ -240,6 +242,7 @@ sendp(packets, [inter=0], [loop=0], [verbose=conf.verb]) -> None"""
         iface = conf.route.route(iface_hint)[0]
     __gen_send(conf.L2socket(iface=iface, *args, **kargs), x, inter=inter, loop=loop, count=count, verbose=verbose)
 
+@conf.commands.register
 def sendpfast(x, pps=None, mbps=None, realtime=None, loop=0, iface=None):
     """Send packets at layer 2 using tcpreplay for performance
     pps:  packets per second
@@ -277,6 +280,7 @@ def sendpfast(x, pps=None, mbps=None, realtime=None, loop=0, iface=None):
 
         
     
+@conf.commands.register
 def sr(x,filter=None, iface=None, nofilter=0, *args,**kargs):
     """Send and receive packets at layer 3
 nofilter: put 1 to avoid use of bpf filters
@@ -294,6 +298,7 @@ iface:    listen answers only on the given interface"""
     s.close()
     return a,b
 
+@conf.commands.register
 def sr1(x,filter=None,iface=None, nofilter=0, *args,**kargs):
     """Send packets at layer 3 and return only the first answer
 nofilter: put 1 to avoid use of bpf filters
@@ -314,6 +319,7 @@ iface:    listen answers only on the given interface"""
     else:
         return None
 
+@conf.commands.register
 def srp(x,iface=None, iface_hint=None, filter=None, nofilter=0, type=ETH_P_ALL, *args,**kargs):
     """Send and receive packets at layer 2
 nofilter: put 1 to avoid use of bpf filters
@@ -333,6 +339,7 @@ iface:    work only on the given interface"""
     s.close()
     return a,b
 
+@conf.commands.register
 def srp1(*args,**kargs):
     """Send and receive packets at layer 2 and return only the first answer
 nofilter: put 1 to avoid use of bpf filters
@@ -402,11 +409,13 @@ def __sr_loop(srfunc, pkts, prn=lambda x:x[1].summary(), prnfail=lambda x:x.summ
         print ct.normal("\nSent %i packets, received %i packets. %3.1f%% hits." % (n,r,100.0*r/n))
     return plist.SndRcvList(ans),plist.PacketList(unans)
 
+@conf.commands.register
 def srloop(pkts, *args, **kargs):
     """Send a packet at layer 3 in loop and print the answer each time
 srloop(pkts, [prn], [inter], [count], ...) --> None"""
     return __sr_loop(sr, pkts, *args, **kargs)
 
+@conf.commands.register
 def srploop(pkts, *args, **kargs):
     """Send a packet at layer 2 in loop and print the answer each time
 srloop(pkts, [prn], [inter], [count], ...) --> None"""
@@ -466,6 +475,7 @@ def sndrcvflood(pks, pkt, prn=lambda (s,r):r.summary(), chainCC=0, store=1, uniq
             raise
     return received
 
+@conf.commands.register
 def srflood(x,filter=None, iface=None, nofilter=None, *args,**kargs):
     """Flood and receive packets at layer 3
 prn:      function applied to packets received. Ret val is printed if not None
@@ -479,6 +489,7 @@ iface:    listen answers only on the given interface"""
     s.close()
     return r
 
+@conf.commands.register
 def srpflood(x,filter=None, iface=None, iface_hint=None, nofilter=None, *args,**kargs):
     """Flood and receive packets at layer 2
 prn:      function applied to packets received. Ret val is printed if not None
@@ -497,6 +508,7 @@ iface:    listen answers only on the given interface"""
            
 
 
+@conf.commands.register
 def sniff(count=0, store=1, offline=None, prn = None, lfilter=None, L2socket=None, timeout=None, *arg, **karg):
     """Sniff packets
 sniff([count=0,] [prn=None,] [store=1,] [offline=None,] [lfilter=None,] + L2ListenSocket args) -> list of packets

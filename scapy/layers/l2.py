@@ -38,7 +38,9 @@ conf.neighbor = Neighbor()
 conf.netcache.new_cache("arp_cache", 120) # cache entries expire after 120s
 
 
+@conf.commands.register
 def getmacbyip(ip, chainCC=0):
+    """Return MAC address corresponding to a given IP address"""
     tmp = map(ord, inet_aton(ip))
     if (tmp[0] & 0xf0) == 0xe0: # mcast @
         return "01:00:5e:%.2x:%.2x:%.2x" % (tmp[1]&0x7f,tmp[2],tmp[3])
@@ -397,6 +399,7 @@ conf.l3types.register(ETH_P_ARP, ARP)
 
 
 
+@conf.commands.register
 def arpcachepoison(target, victim, interval=60):
     """Poison target's cache with (your MAC,victim's IP) couple
 arpcachepoison(target, victim, [interval=60]) -> None
@@ -423,6 +426,7 @@ class ARPingResult(SndRcvList):
 
 
 
+@conf.commands.register
 def arping(net, timeout=2, cache=0, verbose=None, **kargs):
     """Send ARP who-has requests to determine which hosts are up
 arping(net, [cache=0,] [iface=conf.iface,] [verbose=conf.verb]) -> None
@@ -440,6 +444,7 @@ Set cache=True if you want arping to modify internal ARP-Cache"""
         ans.show()
     return ans,unans
 
+@conf.commands.register
 def is_promisc(ip, fake_bcast="ff:ff:00:00:00:00",**kargs):
     """Try to guess if target is in Promisc mode. The target is provided by its ip."""
 
@@ -447,6 +452,7 @@ def is_promisc(ip, fake_bcast="ff:ff:00:00:00:00",**kargs):
 
     return responses is not None
 
+@conf.commands.register
 def promiscping(net, timeout=2, fake_bcast="ff:ff:ff:ff:ff:fe", **kargs):
     """Send ARP who-has requests to determine which hosts are in promiscuous mode
     promiscping(net, iface=conf.iface)"""
@@ -492,7 +498,9 @@ class ARP_am(AnsweringMachine):
     def sniff(self):
         sniff(iface=self.iface, **self.optsniff)
 
+@conf.commands.register
 def etherleak(target, **kargs):
+    """Exploit Etherleak flaw"""
     return srpflood(Ether()/ARP(pdst=target), prn=lambda (s,r): Padding in r and hexstr(r[Padding].load),
                     filter="arp", **kargs)
 

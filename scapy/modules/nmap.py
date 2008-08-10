@@ -110,7 +110,6 @@ def nmap_match_one_sig(seen, ref):
         return 1.0*c/len(seen.keys())
         
         
-
 def nmap_sig(target, oport=80, cport=81, ucport=1):
     res = {}
 
@@ -168,6 +167,7 @@ def nmap_search(sigs):
     return guess
     
     
+@conf.commands.register
 def nmap_fp(target, oport=80, cport=81):
     """nmap fingerprinting
 nmap_fp(target, [oport=80,] [cport=81,]) -> list of best guesses with accuracy
@@ -176,6 +176,7 @@ nmap_fp(target, [oport=80,] [cport=81,]) -> list of best guesses with accuracy
     return nmap_search(sigs)
         
 
+@conf.commands.register
 def nmap_sig2txt(sig):
     torder = ["TSeq","T1","T2","T3","T4","T5","T6","T7","PU"]
     korder = ["Class", "gcd", "SI", "IPID", "TS",

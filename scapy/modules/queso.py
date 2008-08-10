@@ -100,6 +100,7 @@ def queso_search(sig):
     return ret
         
 
+@conf.commands.register
 def queso(*args,**kargs):
     """Queso OS fingerprinting
 queso(target, dport=80, timeout=3)"""

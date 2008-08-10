@@ -190,6 +190,7 @@ def p0f_correl(x,y):
     return d
 
 
+@conf.commands.register
 def p0f(pkt):
     """Passive OS fingerprinting: which OS emitted this TCP SYN ?
 p0f(packet) -> accuracy, [list of guesses]
@@ -234,7 +235,7 @@ def prnp0f(pkt):
         res += " (distance " + str(r[2]) + ")"
     print res
 
-
+@conf.commands.register
 def pkt2uptime(pkt, HZ=100):
     """Calculate the date the machine which emitted the packet booted using TCP timestamp
 pkt2uptime(pkt, [HZ=100])"""

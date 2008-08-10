@@ -521,7 +521,9 @@ conf.neighbor.register_l3(Ether, IP, lambda l2,l3: getmacbyip(l3.dst))
 ## Fragmentation ##
 ###################
 
+@conf.commands.register
 def fragment(pkt, fragsize=1480):
+    """Fragment a big IP datagram"""
     fragsize = (fragsize+7)/8*8
     lst = []
     for p in pkt:
@@ -554,6 +556,7 @@ def overlap_frag(p, overlap, fragsize=8, overlap_fragsize=None):
     qfrag[-1][IP].flags |= 1
     return qfrag+fragment(p, fragsize)
 
+@conf.commands.register
 def defrag(plist):
     """defrag(plist) -> ([not fragmented], [defragmented],
                   [ [bad fragments], [bad fragments], ... ])"""
@@ -617,6 +620,7 @@ def defrag(plist):
         defrag2.append(p.__class__(str(p)))
     return nofrag,defrag2,missfrag
             
+@conf.commands.register
 def defragment(plist):
     """defrag(plist) -> plist defragmented as much as possible """
     frags = {}
