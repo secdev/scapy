@@ -3,30 +3,18 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
-from l2 import *
-from inet import *
-from dhcp import *
-from dns import *
-from dot11 import *
-from gprs import *
-from hsrp import *
-from ip6 import *
-from ir import *
-from isakmp import *
-from l2tp import *
-from mgcp import *
-from mobileip import *
-from netbios import *
-from netflow import *
-from ntp import *
-from ppp import *
-from radius import *
-from rip import *
-from rtp import *
-from sebek import *
-from skinny import *
-from smb import *
-from snmp import *
-from tftp import *
-from x509 import *
-from bluetooth import *
+from scapy.config import conf
+from scapy.error import log_loading
+
+def _import_star(m):
+    mod = __import__(m, globals(), locals())
+    for k,v in mod.__dict__.iteritems():
+        globals()[k] = v
+
+for l in conf.load_layers:
+    log_loading.debug("Loading layer %s" % l)
+    _import_star(l)
+
+
+
+
