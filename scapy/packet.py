@@ -1098,13 +1098,13 @@ def split_layers(lower, upper, __fval=None, **fval):
 def ls(obj=None):
     """List  available layers, or infos on a given layer"""
     if obj is None:
+        
         import __builtin__
         all = __builtin__.__dict__.copy()
         all.update(globals())
-        objlst = filter(lambda (n,o): isinstance(o,type) and issubclass(o,Packet), all.items())
-        objlst.sort(lambda x,y:cmp(x[0],y[0]))
-        for n,o in objlst:
-            print "%-10s : %s" %(n,o.name)
+        objlst = sorted(conf.layers, key=lambda x:x.__name__)
+        for o in objlst:
+            print "%-10s : %s" %(o.__name__,o.name)
     else:
         if isinstance(obj, type) and issubclass(obj, Packet):
             for f in obj.fields_desc:
