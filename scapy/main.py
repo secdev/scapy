@@ -81,11 +81,13 @@ def scapy_write_history_file(readline):
                 warning("Cound not write history to [%s]. Discarded" % tmp)
 
 
-def interact(mydict=None,argv=None,mybanner=None,loglevel=1):
+def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
     global session
     import code,sys,cPickle,os,imp,getopt,logging,re
+    from config import conf
 
-    logging.getLogger("scapy").setLevel(loglevel)
+    if loglevel is not None:
+        conf.logLevel=loglevel
 
     the_banner = "Welcome to Scapy (%s)"
     if mybanner is not None:
@@ -147,9 +149,10 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=1):
     STARTUP_FILE = DEFAULT_STARTUP_FILE
     PRESTART_FILE = DEFAULT_PRESTART_FILE
 
+
     iface = None
     try:
-        opts=getopt.getopt(argv[1:], "hs:Cc:Pp:")
+        opts=getopt.getopt(argv[1:], "hs:Cc:Pp:d")
         for opt, parm in opts[0]:
             if opt == "-h":
                 _usage()
@@ -163,6 +166,8 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=1):
                 PRESTART_FILE = parm
             elif opt == "-P":
                 PRESTART_FILE = None
+            elif opt == "-d":
+                conf.logLevel = max(1,conf.logLevel-10)
         
         if len(opts[1]) > 0:
             raise getopt.GetoptError("Too many parameters : [%s]" % " ".join(opts[1]))
@@ -172,8 +177,6 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=1):
         log_loading.error(msg)
         sys.exit(1)
 
-
-    from config import conf
     if PRESTART_FILE:
         _read_config_file(PRESTART_FILE)
 

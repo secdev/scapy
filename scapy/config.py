@@ -7,12 +7,13 @@ import os,time
 from data import *
 import base_classes
 import arch,themes
+from error import log_scapy
 
 ############
 ## Config ##
 ############
 
-class ConfClass:
+class ConfClass(object):
     def configure(self, cnf):
         self.__dict__ = cnf.__dict__.copy()
     def __repr__(self):
@@ -170,6 +171,13 @@ class NetCache:
         return "\n".join(repr(c) for c in self._caches_list)
         
 
+class LogLevel(object):
+    def __get__(self, obj, otype):
+        return obj._logLevel
+    def __set__(self,obj,val):
+        log_scapy.setLevel(val)
+        obj._logLevel = val
+        
 
 class Conf(ConfClass):
     """This object contains the configuration of scapy.
@@ -203,6 +211,7 @@ extensions_paths: path or list of paths where extensions are to be looked for
     stealth = "not implemented"
     iface = arch.get_working_if()
     layers = LayersList()
+    logLevel = LogLevel()
     checkIPID = 0
     checkIPsrc = 1
     checkIPaddr = 1
@@ -244,5 +253,6 @@ extensions_paths: path or list of paths where extensions are to be looked for
     
 
 conf=Conf()
+conf.logLevel=30 # 30=Warning
 
 
