@@ -37,7 +37,7 @@ archive_util.ARCHIVE_FORMATS["ezip"] = (make_ezipfile,[],'Executable ZIP file')
 
 setup(
     name = 'Scapy',
-    version = '2.0.0.2',    
+    version = '2.0.0.3',    
     packages=['scapy','scapy/layers','scapy/asn1','scapy/tools','scapy/modules'],
     scripts = ['bin/scapy','bin/UTscapy'],
     data_files = [('share/man/man1', ["doc/scapy.1.gz"])],
