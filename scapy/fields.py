@@ -334,6 +334,8 @@ class StrField(Field):
     def i2m(self, pkt, x):
         if x is None:
             x = ""
+        elif type(x) is not str:
+            x=str(x)
         return x
     def addfield(self, pkt, s, val):
         return s+self.i2m(pkt, val)
