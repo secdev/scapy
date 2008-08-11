@@ -3,7 +3,7 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
-import cPickle,os,sys,time
+import cPickle,os,sys,time,subprocess
 from select import select
 from data import *
 from arch import *
@@ -252,27 +252,28 @@ def sendpfast(x, pps=None, mbps=None, realtime=None, loop=0, iface=None):
     iface: output interface """
     if iface is None:
         iface = conf.iface
-    options = ["--intf1=%s" % iface ]
+    argv = [conf.prog.tcpreplay, "--intf1=%s" % iface ]
     if pps is not None:
-        options.append("--pps=%i" % pps)
+        argv.append("--pps=%i" % pps)
     elif mbps is not None:
-        options.append("--mbps=%i" % mbps)
+        argv.append("--mbps=%i" % mbps)
     elif realtime is not None:
-        options.append("--multiplier=%i" % realtime)
+        argv.append("--multiplier=%i" % realtime)
     else:
-        options.append("--topspeed")
+        argv.append("--topspeed")
 
     if loop:
-        options.append("--loop=%i" % loop)
+        argv.append("--loop=%i" % loop)
 
     f = os.tempnam("scapy")
-    options.append(f)
+    argv.append(f)
     wrpcap(f, x)
     try:
-        try:
-            os.spawnlp(os.P_WAIT, conf.prog.tcpreplay, conf.prog.tcpreplay, *options)
-        except KeyboardInterrupt:
-            log_interactive.info("Interrupted by user")
+        subprocess.check_call(argv)
+    except KeyboardInterrupt:
+        log_interactive.info("Interrupted by user")
+    except Exception,e:
+        log_interactive.error(e)
     finally:
         os.unlink(f)
 
