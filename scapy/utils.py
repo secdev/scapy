@@ -548,6 +548,9 @@ class PcapReader:
 
     def fileno(self):
         return self.f.fileno()
+
+    def close(self):
+        return self.f.close()
         
 
 
