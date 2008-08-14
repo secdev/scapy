@@ -67,8 +67,8 @@ class NTP(Packet):
          BitField('stratum', 2, 8),
          BitField('poll', 0xa, 8),          ### XXX : it's a signed int
          BitField('precision', 0, 8),       ### XXX : it's a signed int
-         FloatField('delay', 0, 32),
-         FloatField('dispersion', 0, 32),
+         FixedPointField('delay', 0, size=32, frac_bits=16),
+         FixedPointField('dispersion', 0, size=32, frac_bits=16),
          IPField('id', "127.0.0.1"),
          TimeStampField('ref', 0, 64),
          TimeStampField('orig', -1, 64),  # -1 means current time

@@ -803,13 +803,22 @@ class FlagsField(BitField):
             
 
 
-class FloatField(BitField):
-    def getfield(self, pkt, s):
-        s,b = BitField.getfield(self, pkt, s)
-        
-        # fraction point between bits 15 and 16.
-        sec = b >> 16
-        frac = b & (1L << (32+1)) - 1
-        frac /= 65536.0
-        b = sec+frac
-        return s,b    
+class FixedPointField(BitField):
+    def __init__(self, name, default, size, frac_bits=16):
+        self.frac_bits = frac_bits
+        BitField.__init__(self, name, default, size)
+
+    def any2i(self, pkt, val):
+        if val is None:
+            return val
+        ival = int(val)
+        fract = int( (val-ival) * 2**self.frac_bits )
+        return (ival << self.frac_bits) | fract
+
+    def i2h(self, pkt, val):
+        int_part = val >> self.frac_bits
+        frac_part = val & (1L << self.frac_bits) - 1
+        frac_part /= 2.0**self.frac_bits
+        return int_part+frac_part
+    def i2repr(self, pkt, val):
+        return self.i2h(pkt, val)
