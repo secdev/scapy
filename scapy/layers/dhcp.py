@@ -151,15 +151,13 @@ class DHCPOptionsField(StrField):
     def i2repr(self,pkt,x):
         s = []
         for v in x:
-            if type(v) is tuple and len(v) in [2,3]:
+            if type(v) is tuple and len(v) >= 2:
                 if  DHCPRevOptions.has_key(v[0]) and isinstance(DHCPRevOptions[v[0]][1],Field):
                     f = DHCPRevOptions[v[0]][1]
-                    vv = f.i2repr(pkt,v[1])
+                    vv = ",".join(f.i2repr(pkt,val) for val in v[1:])
                 else:
-                    vv = repr(v[1])
+                    vv = ",".join(repr(val) for val in v[1:])
                 r = "%s=%s" % (v[0],vv)
-                if len(v) > 2:
-                    r += " (garbage=%r)" % v[2]
                 s.append(r)
             else:
                 s.append(sane(v))
@@ -191,15 +189,17 @@ class DHCPOptionsField(StrField):
                     x = x[olen+2:]
                 else:
                     olen = ord(x[1])
+                    lval = [f.name]
                     try:
-                        left, val = f.getfield(pkt,x[2:olen+2])
+                        left = x[2:olen+2]
+                        while left:
+                            left, val = f.getfield(pkt,left)
+                            lval.append(val)
                     except:
                         opt.append(x)
                         break
-                    if left:
-                        otuple = (f.name, val, left)
                     else:
-                        otuple = (f.name, val)
+                        otuple = tuple(lval)
                     opt.append(otuple)
                     x = x[olen+2:]
             else:
@@ -212,22 +212,20 @@ class DHCPOptionsField(StrField):
             return x
         s = ""
         for o in x:
-            if type(o) is tuple and len(o) in [2,3]:
-                name, val = o[:2]
+            if type(o) is tuple and len(o) >= 2:
+                name = o[0]
+                lval = o[1:]
 
                 if isinstance(name, int):
-                    onum, oval = name, val
+                    onum, oval = name, "".join(lval)
                 elif DHCPRevOptions.has_key(name):
                     onum, f = DHCPRevOptions[name]
-                    if  f is None:
-                        oval = val
-                    else:
-                        oval = f.addfield(pkt,"",f.any2i(pkt,val))
+                    if  f is not None:
+                        lval = [f.addfield(pkt,"",f.any2i(pkt,val)) for val in lval]
+                    oval = "".join(lval)
                 else:
                     warning("Unknown field option %s" % name)
                     continue
-                if len(o) > 2:
-                    oval += o[2]
 
                 s += chr(onum)
                 s += chr(len(oval))
