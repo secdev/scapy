@@ -10,6 +10,7 @@ import gzip,zlib,cPickle
 import re,struct,array
 from arch import *
 from error import log_runtime
+from base_classes import BasePacketList
 
 
 ###########
@@ -453,13 +454,10 @@ def rdpcap(filename, count=-1):
 count: read only <count> packets"""
     return PcapReader(filename).read_all(count=count)
 
-class PcapReader:
-    """A stateful pcap reader
-    
-    Based entirely on scapy.rdpcap(), this class allows for packets
-    to be dispatched without having to be loaded into memory all at
-    once
-    """
+
+
+class RawPcapReader:
+    """A stateful pcap reader. Each packet is returned as a string"""
 
     def __init__(self, filename):
         self.filename = filename
@@ -479,17 +477,16 @@ class PcapReader:
         if len(hdr)<20:
             raise RuntimeWarning, "Invalid pcap file (too short)"
         vermaj,vermin,tz,sig,snaplen,linktype = struct.unpack(self.endian+"HHIIII",hdr)
-        self.LLcls = conf.l2types.get(linktype, Raw)
-        if self.LLcls == Raw:
-            warning("PcapReader: unkonwon LL type [%i]/[%#x]. Using Raw packets" % (linktype,linktype))
+
+        self.linktype = linktype
+
+
 
     def __iter__(self):
         return self
 
     def next(self):
-        """impliment the iterator protocol on a set of packets in a
-        pcap file
-        """
+        """impliment the iterator protocol on a set of packets in a pcap file"""
         pkt = self.read_packet()
         if pkt == None:
             raise StopIteration
@@ -504,18 +501,10 @@ class PcapReader:
         hdr = self.f.read(16)
         if len(hdr) < 16:
             return None
-        sec,usec,caplen,olen = struct.unpack(self.endian+"IIII", hdr)
+        sec,usec,caplen,wirelen = struct.unpack(self.endian+"IIII", hdr)
         s = self.f.read(caplen)
-        try:
-            p = self.LLcls(s)
-        except KeyboardInterrupt:
-            raise
-        except:
-            if conf.debug_dissector:
-                raise
-            p = Raw(s)
-        p.time = sec+0.000001*usec
-        return p
+        return s,(sec,usec,wirelen) # caplen = len(s)
+
 
     def dispatch(self, callback):
         """call the specified callback routine for each packet read
@@ -524,10 +513,8 @@ class PcapReader:
         that allows for easy launching of packet processing in a 
         thread.
         """
-        p = self.read_packet()
-        while p != None:
+        for p in self:
             callback(p)
-            p = self.read_packet()
 
     def read_all(self,count=-1):
         """return a list of all packets in the pcap file
@@ -539,22 +526,54 @@ class PcapReader:
             if p is None:
                 break
             res.append(p)
-        return PacketList(res,name = os.path.basename(self.filename))
+        return res
 
     def recv(self, size):
         """ Emulate a socket
         """
-        return self.read_packet()
+        return self.read_packet()[0]
 
     def fileno(self):
         return self.f.fileno()
 
     def close(self):
         return self.f.close()
+
+    
+
+class PcapReader(RawPcapReader):
+    def __init__(self, filename):
+        RawPcapReader.__init__(self, filename)
+        try:
+            self.LLcls = conf.l2types[self.linktype]
+        except KeyError:
+            warning("PcapReader: unknown LL type [%i]/[%#x]. Using Raw packets" % (self.linktype,self.linktype))
+            self.LLcls = Raw
+    def read_packet(self):
+        rp = RawPcapReader.read_packet(self)
+        if rp is None:
+            return None
+        s,(sec,usec,wirelen) = rp
+        
+        try:
+            p = self.LLcls(s)
+        except KeyboardInterrupt:
+            raise
+        except:
+            if conf.debug_dissector:
+                raise
+            p = Raw(s)
+        p.time = sec+0.000001*usec
+        return p
+    def read_all(self,count=-1):
+        res = RawPcapReader.read_all(self, count)
+        return PacketList(res,name = os.path.basename(self.filename))
+    def recv(self, size):
+        return self.read_packet()
         
 
 
-class PcapWriter:
+class RawPcapWriter:
     """A stream PCAP writer with more control than wrpcap()"""
     def __init__(self, filename, linktype=None, gz=False, endianness="", append=False, sync=False):
         """
@@ -579,18 +598,11 @@ class PcapWriter:
 
         self.f = [open,gzip.open][gz](filename,append and "ab" or "wb", gz and 9 or bufsz)
         
-            
-
     def fileno(self):
         return self.f.fileno()
 
     def _write_header(self, pkt):
         self.header_present=1
-
-        if self.linktype == None:
-            if type(pkt) is list or type(pkt) is tuple:
-                pkt = pkt[0]
-            self.linktype = conf.l2types.get(pkt.__class__,1)
 
         if self.append:
             # Even if prone to race conditions, this seems to be
@@ -612,18 +624,28 @@ class PcapWriter:
         """
         if not self.header_present:
             self._write_header(pkt)
-        for p in pkt:
-            self._write_packet(p)
+        if type(pkt) is str:
+            self._write_packet(pkt)
+        else:
+            for p in pkt:
+                self._write_packet(p)
 
-    def _write_packet(self, packet):
+    def _write_packet(self, packet, sec=None, usec=None, caplen=None, wirelen=None):
         """writes a single packet to the pcap file
         """
-        s = str(packet)
-        l = len(s)
-        sec = int(packet.time)
-        usec = int((packet.time-sec)*1000000)
-        self.f.write(struct.pack(self.endian+"IIII", sec, usec, l, l))
-        self.f.write(s)
+        if caplen is None:
+            caplen = len(packet)
+        if wirelen is None:
+            wirelen = caplen
+        if sec is None or usec is None:
+            t=time.time()
+            it = int(t)
+            if sec is None:
+                sec = it
+            if usec is None:
+                usec = int((t-it)*1000000)
+        self.f.write(struct.pack(self.endian+"IIII", sec, usec, caplen, wirelen))
+        self.f.write(packet)
         if self.gz and self.sync:
             self.f.flush()
 
@@ -632,6 +654,25 @@ class PcapWriter:
     def close(self):
         return self.f.close()
                 
+class PcapWriter(RawPcapWriter):
+    def _write_header(self, pkt):
+        if self.linktype == None:
+            if type(pkt) is list or type(pkt) is tuple or isinstance(pkt,BasePacketList):
+                pkt = pkt[0]
+            try:
+                self.linktype = conf.l2types[pkt.__class__]
+            except KeyError:
+                warning("PcapWriter: unknown LL type for %s. Using type 1 (Ethernet)" % pkt.__class__.__name__)
+                self.linktype = 1
+        RawPcapWriter._write_header(self, pkt)
+
+    def _write_packet(self, packet):        
+        sec = int(packet.time)
+        usec = int((packet.time-sec)*1000000)
+        s = str(packet)
+        caplen = len(s)
+        RawPcapWriter._write_packet(self, s, sec, usec, caplen, caplen)
+
 
 re_extract_hexcap = re.compile("^(0x[0-9a-fA-F]{2,}[ :\t]|(0x)?[0-9a-fA-F]{2,}:|(0x)?[0-9a-fA-F]{3,}[: \t]|) *(([0-9a-fA-F]{2} {,2}){,16})")
 
