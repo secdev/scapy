@@ -489,6 +489,8 @@ class StreamSocket(SimpleSocket):
     def recv(self, x=MTU):
         pkt = self.ins.recv(x, socket.MSG_PEEK)
         x = len(pkt)
+        if x == 0:
+            raise socket.error((100,"Underlying stream socket tore down"))
         pkt = self.basecls(pkt)
         pad = pkt[Padding]
         if pad is not None and pad.underlayer is not None:
