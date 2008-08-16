@@ -179,12 +179,11 @@ class SNMPset(ASN1_Packet):
     
 class SNMPtrapv1(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_SNMP_PDU_TRAPv1( ASN1F_INTEGER("id",0),
-                                       ASN1F_OID("enterprise", "1.3"),
-                                       ASN1F_STRING("agent_addr",""),
+    ASN1_root = ASN1F_SNMP_PDU_TRAPv1( ASN1F_OID("enterprise", "1.3"),
+                                       ASN1F_IPADDRESS("agent_addr","0.0.0.0"),
                                        ASN1F_enum_INTEGER("generic_trap", 0, SNMP_trap_types),
                                        ASN1F_INTEGER("specific_trap", 0),
-                                       ASN1F_INTEGER("time_stamp", IntAutoTime()),
+                                       ASN1F_TIME_TICKS("time_stamp", IntAutoTime()),
                                        ASN1F_SEQUENCE_OF("varbindlist", [], SNMPvarbind)
                                        )
 
@@ -231,6 +230,9 @@ class SNMP(ASN1_Packet):
 
 bind_layers( UDP,           SNMP,          sport=161)
 bind_layers( UDP,           SNMP,          dport=161)
+bind_layers( UDP,           SNMP,          sport=162) 
+bind_layers( UDP,           SNMP,          dport=162) 
+
 def snmpwalk(dst, oid="1", community="public"):
     try:
         while 1:

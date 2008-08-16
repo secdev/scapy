@@ -4,7 +4,7 @@
 ## This program is published under a GPLv2 license
 
 from scapy.error import warning
-from asn1 import ASN1_Decoding_Error,ASN1_BadTag_Decoding_Error,ASN1_Codecs,ASN1_Class_UNIVERSAL,ASN1_Error,ASN1_DECODING_ERROR,ASN1_BADTAG
+from asn1 import ASN1_Decoding_Error,ASN1_Encoding_Error,ASN1_BadTag_Decoding_Error,ASN1_Codecs,ASN1_Class_UNIVERSAL,ASN1_Error,ASN1_DECODING_ERROR,ASN1_BADTAG
 
 ##################
 ## BER encoding ##
@@ -17,6 +17,20 @@ from asn1 import ASN1_Decoding_Error,ASN1_BadTag_Decoding_Error,ASN1_Codecs,ASN1
 
 class BER_Exception(Exception):
     pass
+
+class BER_Encoding_Error(ASN1_Encoding_Error):
+    def __init__(self, msg, encoded=None, remaining=None):
+        Exception.__init__(self, msg)
+        self.remaining = remaining
+        self.encoded = encoded
+    def __str__(self):
+        s = Exception.__str__(self)
+        if isinstance(self.encoded, BERcodec_Object):
+            s+="\n### Already encoded ###\n%s" % self.encoded.strshow()
+        else:
+            s+="\n### Already encoded ###\n%r" % self.encoded
+        s+="\n### Remaining ###\n%r" % self.remaining
+        return s
 
 class BER_Decoding_Error(ASN1_Decoding_Error):
     def __init__(self, msg, decoded=None, remaining=None):
@@ -238,6 +252,26 @@ class BERcodec_T61_STRING (BERcodec_STRING):
 
 class BERcodec_IA5_STRING(BERcodec_STRING):
     tag = ASN1_Class_UNIVERSAL.IA5_STRING
+
+class BERcodec_IPADDRESS(BERcodec_STRING):
+    tag = ASN1_Class_UNIVERSAL.IPADDRESS
+    
+    @classmethod
+    def enc(cls, ipaddr_ascii):
+        try:
+            s = inet_aton(ipaddr_ascii)
+        except Exception:
+            raise BER_Encoding_Error("IPv4 address could not be encoded") 
+        return chr(cls.tag)+BER_len_enc(len(s))+s
+    
+    @classmethod
+    def do_dec(cls, s, context=None, safe=False):
+        l,s,t = cls.check_type_check_len(s)
+        try:
+            ipaddr_ascii = inet_ntoa(s)
+        except Exception:
+            raise BER_Decoding_Error("IP address could not be decoded", decoded=obj)
+        return cls.asn1_object(ipaddr_ascii), t
 
 class BERcodec_UTC_TIME(BERcodec_STRING):
     tag = ASN1_Class_UNIVERSAL.UTC_TIME
