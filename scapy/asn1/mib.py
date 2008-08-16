@@ -63,6 +63,8 @@ class MIBDict(DADict):
             s += '\t"%s" -> "%s" [label="%s"];\n' % (parent, o,remainder)
         s += "}\n"
         do_graph(s, **kargs)
+    def __len__(self):
+        return len(self.keys())
 
 
 def mib_register(ident, value, the_mib, unresolved):
