@@ -28,7 +28,9 @@ class Neighbor:
         self.resolvers[l2,l3]=resolve_method
 
     def resolve(self, l2inst, l3inst):
-        return self.resolvers[l2inst.__class__,l3inst.__class__](l2inst,l3inst)
+        k = l2inst.__class__,l3inst.__class__
+        if k in self.resolvers:
+            return self.resolvers[k](l2inst,l3inst)
 
     def __repr__(self):
         return "\n".join("%-15s -> %-15s" % (l2.__name__, l3.__name__) for l2,l3 in self.resolvers)
@@ -79,7 +81,7 @@ class DestMACField(MACField):
             x = conf.neighbor.resolve(pkt,pkt.payload)
             if x is None:
                 x = "ff:ff:ff:ff:ff:ff"
-                warning("Mac address to reach destination not found")
+                warning("Mac address to reach destination not found. Using broadcast.")
         return MACField.i2h(self, pkt, x)
     def i2m(self, pkt, x):
         return MACField.i2m(self, pkt, self.i2h(pkt, x))
@@ -221,7 +223,7 @@ class Dot1Q(Packet):
             return self.sprintf("802.1q (%Dot1Q.type%) vlan %Dot1Q.vlan%")
 
             
-
+conf.neighbor.register_l3(Ether, Dot1Q, lambda l2,l3: conf.neighbor.resolve(l2,l3.payload))
 
 class STP(Packet):
     name = "Spanning Tree Protocol"
