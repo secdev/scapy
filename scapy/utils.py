@@ -548,7 +548,8 @@ class PcapReader(RawPcapReader):
             self.LLcls = conf.l2types[self.linktype]
         except KeyError:
             warning("PcapReader: unknown LL type [%i]/[%#x]. Using Raw packets" % (self.linktype,self.linktype))
-            self.LLcls = Raw
+            import packet
+            self.LLcls = packet.Raw
     def read_packet(self):
         rp = RawPcapReader.read_packet(self)
         if rp is None:
@@ -567,7 +568,8 @@ class PcapReader(RawPcapReader):
         return p
     def read_all(self,count=-1):
         res = RawPcapReader.read_all(self, count)
-        return PacketList(res,name = os.path.basename(self.filename))
+        import plist
+        return plist.PacketList(res,name = os.path.basename(self.filename))
     def recv(self, size):
         return self.read_packet()
         
