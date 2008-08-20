@@ -515,6 +515,7 @@ conf.l3types.register_num2layer(ETH_P_ALL, IP)
 
 
 conf.neighbor.register_l3(Ether, IP, lambda l2,l3: getmacbyip(l3.dst))
+conf.neighbor.register_l3(Dot3, IP, lambda l2,l3: getmacbyip(l3.dst))
 
 
 ###################

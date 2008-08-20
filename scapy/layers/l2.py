@@ -155,7 +155,7 @@ class Ether(Packet):
 class Dot3(Packet):
     __metaclass__ = Ether_or_Dot3_metaclass
     name = "802.3"
-    fields_desc = [ MACField("dst", ETHER_BROADCAST),
+    fields_desc = [ DestMACField("dst"),
                     MACField("src", ETHER_ANY),
                     LenField("len", None, "H") ]
     def extract_padding(self,s):
@@ -175,6 +175,9 @@ class LLC(Packet):
                     XByteField("ssap", 0x00),
                     ByteField("ctrl", 0) ]
 
+conf.neighbor.register_l3(Ether, LLC, lambda l2,l3: conf.neighbor.resolve(l2,l3.payload))
+conf.neighbor.register_l3(Dot3, LLC, lambda l2,l3: conf.neighbor.resolve(l2,l3.payload))
+
 
 class CookedLinux(Packet):
     name = "cooked linux"
@@ -191,6 +194,8 @@ class SNAP(Packet):
     name = "SNAP"
     fields_desc = [ X3BytesField("OUI",0x000000),
                     XShortEnumField("code", 0x000, ETHER_TYPES) ]
+
+conf.neighbor.register_l3(Dot3, SNAP, lambda l2,l3: conf.neighbor.resolve(l2,l3.payload))
 
 
 class Dot1Q(Packet):
