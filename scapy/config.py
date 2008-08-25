@@ -6,7 +6,7 @@
 import os,time
 from data import *
 import base_classes
-import arch,themes
+import themes
 from error import log_scapy
 
 ############
@@ -225,7 +225,7 @@ extensions_paths: path or list of paths where extensions are to be looked for
     version = "2.0.0.5 beta"
     session = ""  
     stealth = "not implemented"
-    iface = arch.get_working_if()
+    iface = "none"
     layers = LayersList()
     commands = CommandsList()
     logLevel = LogLevel()

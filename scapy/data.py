@@ -25,57 +25,8 @@ ARPHDR_PPP = 512
 ARPHDR_LOOPBACK = 772
 ARPHDR_TUN = 65534
 
-# From bits/ioctls.h
-SIOCGIFHWADDR  = 0x8927          # Get hardware address    
-SIOCGIFADDR    = 0x8915          # get PA address          
-SIOCGIFNETMASK = 0x891b          # get network PA mask     
-SIOCGIFNAME    = 0x8910          # get iface name          
-SIOCSIFLINK    = 0x8911          # set iface channel       
-SIOCGIFCONF    = 0x8912          # get iface list          
-SIOCGIFFLAGS   = 0x8913          # get flags               
-SIOCSIFFLAGS   = 0x8914          # set flags               
-SIOCGIFINDEX   = 0x8933          # name -> if_index mapping
-SIOCGIFCOUNT   = 0x8938          # get number of devices
-SIOCGSTAMP     = 0x8906          # get packet timestamp (as a timeval)
 
 
-# From if.h
-IFF_UP = 0x1               # Interface is up.
-IFF_BROADCAST = 0x2        # Broadcast address valid.
-IFF_DEBUG = 0x4            # Turn on debugging.
-IFF_LOOPBACK = 0x8         # Is a loopback net.
-IFF_POINTOPOINT = 0x10     # Interface is point-to-point link.
-IFF_NOTRAILERS = 0x20      # Avoid use of trailers.
-IFF_RUNNING = 0x40         # Resources allocated.
-IFF_NOARP = 0x80           # No address resolution protocol.
-IFF_PROMISC = 0x100        # Receive all packets.
-
-
-
-# From netpacket/packet.h
-PACKET_ADD_MEMBERSHIP  = 1
-PACKET_DROP_MEMBERSHIP = 2
-PACKET_RECV_OUTPUT     = 3
-PACKET_RX_RING         = 5
-PACKET_STATISTICS      = 6
-PACKET_MR_MULTICAST    = 0
-PACKET_MR_PROMISC      = 1
-PACKET_MR_ALLMULTI     = 2
-
-
-# From bits/socket.h
-SOL_PACKET = 263
-# From asm/socket.h
-SO_ATTACH_FILTER = 26
-SOL_SOCKET = 1
-
-# From net/route.h
-RTF_UP = 0x0001  # Route usable
-RTF_REJECT = 0x0200
-
-# From BSD net/bpf.h
-#BIOCIMMEDIATE=0x80044270
-BIOCIMMEDIATE=-2147204496
 
 MTU = 1600
 

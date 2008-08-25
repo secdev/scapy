@@ -8,7 +8,12 @@ from select import select
 from packet import Raw
 from data import *
 from config import conf
-from arch import PCAP,DNET,get_if_list,set_promisc,get_last_packet_timestamp,attach_filter
+import arch
+
+# From BSD net/bpf.h
+#BIOCIMMEDIATE=0x80044270
+BIOCIMMEDIATE=-2147204496
+
 
 def flush_fd(fd):
     if type(fd) is not int:
@@ -81,7 +86,7 @@ class L3PacketSocket(SuperSocket):
                 else:
                     filter = "not (%s)" % conf.except_filter
             if filter is not None:
-                attach_filter(self.ins, filter)
+                arch.attach_filter(self.ins, filter)
         self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 2**30)
         self.outs = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))
         self.outs.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 2**30)
@@ -90,21 +95,21 @@ class L3PacketSocket(SuperSocket):
         self.promisc = promisc
         if self.promisc:
             if iface is None:
-                self.iff = get_if_list()
+                self.iff = arch.get_if_list()
             else:
                 if iface.__class__ is list:
                     self.iff = iface
                 else:
                     self.iff = [iface]
             for i in self.iff:
-                set_promisc(self.ins, i)
+                arch.set_promisc(self.ins, i)
     def close(self):
         if self.closed:
             return
         self.closed=1
         if self.promisc:
             for i in self.iff:
-                set_promisc(self.ins, i, 0)
+                arch.set_promisc(self.ins, i, 0)
         SuperSocket.close(self)
     def recv(self, x):
         pkt, sa_ll = self.ins.recvfrom(x)
@@ -133,7 +138,7 @@ class L3PacketSocket(SuperSocket):
             pkt = pkt.payload
             
         if pkt is not None:
-            pkt.time = get_last_packet_timestamp(self.ins)
+            pkt.time = arch.get_last_packet_timestamp(self.ins)
         return pkt
     
     def send(self, x):
@@ -177,7 +182,7 @@ class L2Socket(SuperSocket):
                 else:
                     filter = "not (%s)" % conf.except_filter
             if filter is not None:
-                attach_filter(self.ins, filter)
+                arch.attach_filter(self.ins, filter)
         self.ins.bind((iface, type))
         self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 2**30)
         self.outs = self.ins
@@ -223,12 +228,12 @@ class L2ListenSocket(SuperSocket):
                 else:
                     filter = "not (%s)" % conf.except_filter
             if filter is not None:
-                attach_filter(self.ins, filter)
+                arch.attach_filter(self.ins, filter)
         if promisc is None:
             promisc = conf.sniff_promisc
         self.promisc = promisc
         if iface is None:
-            self.iff = get_if_list()
+            self.iff = arch.get_if_list()
         else:
             if iface.__class__ is list:
                 self.iff = iface
@@ -236,12 +241,12 @@ class L2ListenSocket(SuperSocket):
                 self.iff = [iface]
         if self.promisc:
             for i in self.iff:
-                set_promisc(self.ins, i)
+                arch.set_promisc(self.ins, i)
         self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 2**30)
     def close(self):
         if self.promisc:
             for i in self.iff:
-                set_promisc(self.ins, i, 0)
+                arch.set_promisc(self.ins, i, 0)
         SuperSocket.close(self)
 
     def recv(self, x):
@@ -506,9 +511,9 @@ conf.L3socket = L3PacketSocket
 conf.L2socket = L2Socket
 conf.L2listen = L2ListenSocket
 
-if PCAP:
+if arch.PCAP:
     conf.L2listen=L2pcapListenSocket
-    if DNET:
+    if arch.DNET:
         conf.L3socket=L3dnetSocket
         conf.L2socket=L2dnetSocket
 

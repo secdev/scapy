@@ -8,7 +8,6 @@ from config import conf
 import random
 import gzip,zlib,cPickle
 import re,struct,array
-from arch import *
 from error import log_runtime
 from base_classes import BasePacketList
 
@@ -202,7 +201,7 @@ def hexdiff(x,y):
     
 crc32 = zlib.crc32
 
-if BIG_ENDIAN:
+if struct.pack("H",1) == "\x00\x01": # big endian
     def checksum(pkt):
         if len(pkt) % 2 == 1:
             pkt += "\0"
@@ -232,6 +231,26 @@ def str2mac(s):
 
 def strxor(x,y):
     return "".join(map(lambda x,y:chr(ord(x)^ord(y)),x,y))
+
+# Workarround bug 643005 : https://sourceforge.net/tracker/?func=detail&atid=105470&aid=643005&group_id=5470
+try:
+    socket.inet_aton("255.255.255.255")
+except socket.error:
+    def inet_aton(x):
+        if x == "255.255.255.255":
+            return "\xff"*4
+        else:
+            return socket.inet_aton(x)
+else:
+    inet_aton = socket.inet_aton
+
+inet_ntoa = socket.inet_ntoa
+try:
+    inet_ntop = socket.inet_ntop
+    inet_pton = socket.inet_pton
+except AttributeError:
+    log_loading.info("inet_ntop/pton functions not found. Python IPv6 support not present")
+
 
 def atol(x):
     try:
