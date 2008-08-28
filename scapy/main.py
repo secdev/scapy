@@ -11,7 +11,7 @@ import __builtin__
     
 
 def _probe_config_file(cf):
-    cf_path = os.path.join(os.environ["HOME"], cf)
+    cf_path = os.path.join(os.environ.get("HOME",""), cf)
     try:
         os.stat(cf_path)
     except OSError:
