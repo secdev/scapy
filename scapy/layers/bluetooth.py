@@ -155,6 +155,7 @@ bind_layers( L2CAP_CmdHdr,  L2CAP_InfoReq,     code=10)
 bind_layers( L2CAP_CmdHdr,  L2CAP_InfoResp,    code=11)
         
 class BluetoothL2CAPSocket(SuperSocket):
+    desc = "read/write packets on a connected L2CAP socket"
     def __init__(self, peer):
         s = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_RAW,
                           socket.BTPROTO_L2CAP)
@@ -167,6 +168,7 @@ class BluetoothL2CAPSocket(SuperSocket):
     
 
 class BluetoothHCISocket(SuperSocket):
+    desc = "read/write on a BlueTooth HCI socket"
     def __init__(self, iface=0x10000, type=None):
         s = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_RAW, socket.BTPROTO_HCI)
         s.setsockopt(socket.SOL_HCI, socket.HCI_DATA_DIR,1)

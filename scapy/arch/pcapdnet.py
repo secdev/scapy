@@ -71,6 +71,7 @@ if conf.use_pcap:
     
     
         class L2pcapListenSocket(SuperSocket):
+            desc = "read packets at layer 2 using libpcap"
             def __init__(self, iface = None, type = ETH_P_ALL, promisc=None, filter=None):
                 self.type = type
                 self.outs = None
@@ -158,6 +159,7 @@ if conf.use_dnet:
     
 if conf.use_pcap and conf.use_dnet:
     class L3dnetSocket(SuperSocket):
+        desc = "read/write packets at layer 3 using libdnet and libpcap"
         def __init__(self, type = ETH_P_ALL, filter=None, promisc=None, iface=None, nofilter=0):
             self.iflist = {}
             if iface is None:
@@ -234,6 +236,7 @@ if conf.use_pcap and conf.use_dnet:
                 del(self.outs)
     
     class L2dnetSocket(SuperSocket):
+        desc = "read/write packets at layer 2 using libdnet and libpcap"
         def __init__(self, iface = None, type = ETH_P_ALL, filter=None, nofilter=0):
             if iface is None:
                 iface = conf.iface

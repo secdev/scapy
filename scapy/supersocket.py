@@ -9,8 +9,17 @@ from packet import Raw
 from config import conf
 from data import *
 
+class _SuperSocket_metaclass(type):
+    def __repr__(self):
+        if self.desc is not None:
+            return "<%s: %s>" % (self.__name__,self.desc)
+        else:
+            return "<%s>" % self.__name__
+
 
 class SuperSocket:
+    __metaclass__ = _SuperSocket_metaclass
+    desc = None
     closed=0
     def __init__(self, family=socket.AF_INET,type=socket.SOCK_STREAM, proto=0):
         self.ins = socket.socket(family, type, proto)
@@ -38,8 +47,8 @@ class SuperSocket:
     def bind_out(self, addr):
         self.outs.bind(addr)
 
-
 class L3RawSocket(SuperSocket):
+    desc = "Layer 3 using Raw sockets (PF_INET/SOCK_RAW)"
     def __init__(self, type = ETH_P_IP, filter=None, iface=None, promisc=None, nofilter=0):
         self.outs = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_RAW)
         self.outs.setsockopt(socket.SOL_IP, socket.IP_HDRINCL, 1)
@@ -55,12 +64,14 @@ class L3RawSocket(SuperSocket):
             log_runtime.error(msg)
 
 class SimpleSocket(SuperSocket):
+    desc = "wrapper arround a classic socket"
     def __init__(self, sock):
         self.ins = sock
         self.outs = sock
 
 
 class StreamSocket(SimpleSocket):
+    desc = "transforms a stream socket into a layer 2"
     def __init__(self, sock, basecls=Raw):
         SimpleSocket.__init__(self, sock)
         self.basecls = basecls
