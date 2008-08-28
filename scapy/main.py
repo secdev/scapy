@@ -85,7 +85,7 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
     global session
     import code,sys,cPickle,os,imp,getopt,logging,re
     from config import conf
-
+    conf.interactive = True
     if loglevel is not None:
         conf.logLevel=loglevel
 

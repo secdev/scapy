@@ -7,6 +7,7 @@
 import sys,os,struct,socket,time
 from fcntl import ioctl
 from scapy.error import *
+import scapy.config
 
 try:
     import Gnuplot
@@ -71,11 +72,13 @@ X86_64 = (os.uname()[4] == 'x86_64')
 
 if LINUX:
     from linux import *
+    if scapy.config.conf.use_pcap or scapy.config.conf.use_dnet:
+        from pcapdnet import *
 elif OPENBSD or FREEBSD or NETBSD or DARWIN:
     from bsd import *
 elif SOLARIS:
     from solaris import *
     
+if scapy.config.conf.iface is None:
+    scapy.config.conf.iface = LOOPBACK_NAME
 
-import scapy.config
-scapy.config.conf.iface = get_working_if()

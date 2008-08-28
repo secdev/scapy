@@ -8,6 +8,10 @@ from __future__ import with_statement
 import sys,os,struct,socket,time
 from fcntl import ioctl
 import scapy.utils
+from scapy.config import conf
+from scapy.data import *
+from scapy.supersocket import SuperSocket
+
 
 
 # From bits/ioctls.h
@@ -56,7 +60,6 @@ RTF_REJECT = 0x0200
 
 
 
-DNET=PCAP=0
 LOOPBACK_NAME="lo"
 
 with os.popen("tcpdump -V 2> /dev/null") as f:
@@ -192,4 +195,225 @@ def get_last_packet_timestamp(sock):
 
 
 
+def _flush_fd(fd):
+    if type(fd) is not int:
+        fd = fd.fileno()
+    while 1:
+        r,w,e = select([fd],[],[],0)
+        if r:
+            os.read(fd,MTU)
+        else:
+            break
 
+
+
+
+
+class L3PacketSocket(SuperSocket):
+    def __init__(self, type = ETH_P_ALL, filter=None, promisc=None, iface=None, nofilter=0):
+        self.type = type
+        self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))
+        self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 0)
+        _flush_fd(self.ins)
+        if iface:
+            self.ins.bind((iface, type))
+        if not nofilter:
+            if conf.except_filter:
+                if filter:
+                    filter = "(%s) and not (%s)" % (filter, conf.except_filter)
+                else:
+                    filter = "not (%s)" % conf.except_filter
+            if filter is not None:
+                arch.attach_filter(self.ins, filter)
+        self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 2**30)
+        self.outs = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))
+        self.outs.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 2**30)
+        if promisc is None:
+            promisc = conf.promisc
+        self.promisc = promisc
+        if self.promisc:
+            if iface is None:
+                self.iff = arch.get_if_list()
+            else:
+                if iface.__class__ is list:
+                    self.iff = iface
+                else:
+                    self.iff = [iface]
+            for i in self.iff:
+                arch.set_promisc(self.ins, i)
+    def close(self):
+        if self.closed:
+            return
+        self.closed=1
+        if self.promisc:
+            for i in self.iff:
+                arch.set_promisc(self.ins, i, 0)
+        SuperSocket.close(self)
+    def recv(self, x):
+        pkt, sa_ll = self.ins.recvfrom(x)
+        if sa_ll[2] == socket.PACKET_OUTGOING:
+            return None
+        if sa_ll[3] in conf.l2types:
+            cls = conf.l2types[sa_ll[3]]
+            lvl = 2
+        elif sa_ll[1] in conf.l3types:
+            cls = conf.l3types[sa_ll[1]]
+            lvl = 3
+        else:
+            warning("Unable to guess type (interface=%s protocol=%#x family=%i). Using Ethernet" % (sa_ll[0],sa_ll[1],sa_ll[3]))
+            cls = Ether
+            lvl = 2
+
+        try:
+            pkt = cls(pkt)
+        except KeyboardInterrupt:
+            raise
+        except:
+            if conf.debug_dissector:
+                raise
+            pkt = Raw(pkt)
+        if lvl == 2:
+            pkt = pkt.payload
+            
+        if pkt is not None:
+            pkt.time = arch.get_last_packet_timestamp(self.ins)
+        return pkt
+    
+    def send(self, x):
+        iff,a,gw  = x.route()
+        if iff is None:
+            iff = conf.iface
+        sdto = (iff, self.type)
+        self.outs.bind(sdto)
+        sn = self.outs.getsockname()
+        ll = lambda x:x
+        if sn[3] in (ARPHDR_PPP,ARPHDR_TUN):
+            sdto = (iff, ETH_P_IP)
+        if sn[3] in conf.l2types:
+            ll = lambda x:conf.l2types[sn[3]]()/x
+        try:
+            sx = str(ll(x))
+            x.sent_time = time.time()
+            self.outs.sendto(sx, sdto)
+        except socket.error,msg:
+            x.sent_time = time.time()  # bad approximation
+            if conf.auto_fragment and msg[0] == 90:
+                for p in fragment(x):
+                    self.outs.sendto(str(ll(p)), sdto)
+            else:
+                raise
+                    
+
+
+
+class L2Socket(SuperSocket):
+    def __init__(self, iface = None, type = ETH_P_ALL, filter=None, nofilter=0):
+        if iface is None:
+            iface = conf.iface
+        self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))
+        self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 0)
+        _flush_fd(self.ins)
+        if not nofilter: 
+            if conf.except_filter:
+                if filter:
+                    filter = "(%s) and not (%s)" % (filter, conf.except_filter)
+                else:
+                    filter = "not (%s)" % conf.except_filter
+            if filter is not None:
+                arch.attach_filter(self.ins, filter)
+        self.ins.bind((iface, type))
+        self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 2**30)
+        self.outs = self.ins
+        self.outs.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 2**30)
+        sa_ll = self.outs.getsockname()
+        if sa_ll[3] in conf.l2types:
+            self.LL = conf.l2types[sa_ll[3]]
+        elif sa_ll[1] in conf.l3types:
+            self.LL = conf.l3types[sa_ll[1]]
+        else:
+            warning("Unable to guess type (interface=%s protocol=%#x family=%i). Using Ethernet" % (sa_ll[0],sa_ll[1],sa_ll[3]))
+            self.LL = Ether
+            
+    def recv(self, x):
+        pkt, sa_ll = self.ins.recvfrom(x)
+        if sa_ll[2] == socket.PACKET_OUTGOING:
+            return None
+        try:
+            q = self.LL(pkt)
+        except KeyboardInterrupt:
+            raise
+        except:
+            if conf.debug_dissector:
+                raise
+            q = Raw(pkt)
+        q.time = get_last_packet_timestamp(self.ins)
+        return q
+
+
+class L2ListenSocket(SuperSocket):
+    def __init__(self, iface = None, type = ETH_P_ALL, promisc=None, filter=None, nofilter=0):
+        self.type = type
+        self.outs = None
+        self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))
+        self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 0)
+        _flush_fd(self.ins)
+        if iface is not None:
+            self.ins.bind((iface, type))
+        if not nofilter:
+            if conf.except_filter:
+                if filter:
+                    filter = "(%s) and not (%s)" % (filter, conf.except_filter)
+                else:
+                    filter = "not (%s)" % conf.except_filter
+            if filter is not None:
+                arch.attach_filter(self.ins, filter)
+        if promisc is None:
+            promisc = conf.sniff_promisc
+        self.promisc = promisc
+        if iface is None:
+            self.iff = arch.get_if_list()
+        else:
+            if iface.__class__ is list:
+                self.iff = iface
+            else:
+                self.iff = [iface]
+        if self.promisc:
+            for i in self.iff:
+                arch.set_promisc(self.ins, i)
+        self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 2**30)
+    def close(self):
+        if self.promisc:
+            for i in self.iff:
+                arch.set_promisc(self.ins, i, 0)
+        SuperSocket.close(self)
+
+    def recv(self, x):
+        pkt, sa_ll = self.ins.recvfrom(x)
+        if sa_ll[3] in conf.l2types :
+            cls = conf.l2types[sa_ll[3]]
+        elif sa_ll[1] in conf.l3types:
+            cls = conf.l3types[sa_ll[1]]
+        else:
+            warning("Unable to guess type (interface=%s protocol=%#x family=%i). Using Ethernet" % (sa_ll[0],sa_ll[1],sa_ll[3]))
+            cls = Ether
+
+        try:
+            pkt = cls(pkt)
+        except KeyboardInterrupt:
+            raise
+        except:
+            if conf.debug_dissector:
+                raise
+            pkt = Raw(pkt)
+        pkt.time = get_last_packet_timestamp(self.ins)
+        return pkt
+    
+    def send(self, x):
+        raise Scapy_Exception("Can't send anything with L2ListenSocket")
+
+
+conf.L3socket = L3PacketSocket
+conf.L2socket = L2Socket
+conf.L2listen = L2ListenSocket
+
+conf.iface = get_working_if()

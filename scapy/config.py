@@ -223,9 +223,10 @@ AS_resolver: choose the AS resolver class to use
 extensions_paths: path or list of paths where extensions are to be looked for
 """
     version = "2.0.0.5 beta"
-    session = ""  
+    session = ""
+    interactive = False
     stealth = "not implemented"
-    iface = "none"
+    iface = None
     layers = LayersList()
     commands = CommandsList()
     logLevel = LogLevel()
@@ -255,6 +256,8 @@ extensions_paths: path or list of paths where extensions are to be looked for
     prog = ProgPath()
     resolve = Resolve()
     noenum = Resolve()
+    use_pcap = False
+    use_dnet = False
     ethertypes = ETHER_TYPES
     protocols = IP_PROTOS
     services_tcp = TCP_SERVICES
