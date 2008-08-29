@@ -6,6 +6,7 @@
 
 from __future__ import with_statement
 import sys,os,struct,socket,time
+from select import select
 from fcntl import ioctl
 import scapy.utils
 from scapy.config import conf

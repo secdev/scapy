@@ -81,7 +81,7 @@ if conf.use_pcap:
                 if promisc is None:
                     promisc = conf.sniff_promisc
                 self.promisc = promisc
-                self.ins = arch.open_pcap(iface, 1600, self.promisc, 100)
+                self.ins = open_pcap(iface, 1600, self.promisc, 100)
                 try:
                     ioctl(self.ins.fileno(),BIOCIMMEDIATE,struct.pack("I",1))
                 except:
@@ -165,7 +165,7 @@ if conf.use_pcap and conf.use_dnet:
             if iface is None:
                 iface = conf.iface
             self.iface = iface
-            self.ins = arch.open_pcap(iface, 1600, 0, 100)
+            self.ins = open_pcap(iface, 1600, 0, 100)
             try:
                 ioctl(self.ins.fileno(),BIOCIMMEDIATE,struct.pack("I",1))
             except:
@@ -241,7 +241,7 @@ if conf.use_pcap and conf.use_dnet:
             if iface is None:
                 iface = conf.iface
             self.iface = iface
-            self.ins = arch.open_pcap(iface, 1600, 0, 100)
+            self.ins = open_pcap(iface, 1600, 0, 100)
             try:
                 ioctl(self.ins.fileno(),BIOCIMMEDIATE,struct.pack("I",1))
             except:
