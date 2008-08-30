@@ -10,6 +10,7 @@ from scapy.fields import *
 from scapy.ansmachine import *
 from scapy.layers.inet import UDP
 from scapy.base_classes import Net
+from scapy.volatile import RandField
 
 dhcpmagic="c\x82Sc"
 
@@ -144,6 +145,27 @@ del(k)
     
     
 
+
+class RandDHCPOptions(RandField):
+    def __init__(self, size=None, rndstr=None):
+        if size is None:
+            size = RandNumExpo(0.05)
+        self.size = size
+        if rndstr is None:
+            rndstr = RandBin(RandNum(0,255))
+        self.rndstr=rndstr
+        self._opts = DHCPOptions.values()
+        self._opts.remove("pad")
+        self._opts.remove("end")
+    def _fix(self):
+        op = []
+        for k in range(self.size):
+            o = random.choice(self._opts)
+            if type(o) is str:
+                op.append((o,self.rndstr*1))
+            else:
+                op.append((o.name, o.randval()._fix()))
+        return op
 
 
 class DHCPOptionsField(StrField):
