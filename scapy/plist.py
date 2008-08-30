@@ -3,13 +3,12 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
-import os,socket
+import os
 from config import conf
-from error import warning
 from base_classes import BasePacket,BasePacketList
 from packet import Padding
 
-from utils import incremental_label,colgen,do_graph,hexdump,make_table,make_lined_table,make_tex_table
+from utils import do_graph,hexdump,make_table,make_lined_table,make_tex_table
 
 import arch
 if arch.GNUPLOT:

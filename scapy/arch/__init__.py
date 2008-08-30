@@ -4,8 +4,7 @@
 ## This program is published under a GPLv2 license
 
 
-import sys,os,struct,socket,time
-from fcntl import ioctl
+import sys,os,socket
 from scapy.error import *
 import scapy.config
 

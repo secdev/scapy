@@ -5,7 +5,7 @@
 
 
 import sys,getopt,imp
-import bz2, base64, os, os.path, time, imp, traceback, zlib, sha
+import bz2, base64, os.path, time, traceback, zlib, sha
 
 
 #### Import tool ####

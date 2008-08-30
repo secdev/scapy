@@ -1,7 +1,6 @@
 #! /usr/bin/env python
 
 import getopt
-import gzip,struct
 
 def usage():
     print >>sys.stderr,"""Usage: check_asdis -i <pcap_file> [-o <wrong_packets.pcap>]
@@ -46,7 +45,7 @@ def main(argv):
     
     
 
-    from scapy.config import conf,Num2Layer
+    from scapy.config import conf
     from scapy.utils import RawPcapReader,RawPcapWriter,hexdiff
     from scapy.layers import all
 

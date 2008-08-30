@@ -3,11 +3,18 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
-import re,time,itertools,os,random,socket
-from fields import StrField,ConditionalField,Emph
+import time,itertools,os
+from fields import StrField,ConditionalField,Emph,PacketListField
 from config import conf
 from base_classes import BasePacket,Gen,SetGen,Packet_metaclass,NewDefaultValues
 from volatile import VolatileValue
+from utils import import_hexcap,tex_escape,colgen
+from error import Scapy_Exception,log_runtime
+
+try:
+    import pyx
+except ImportError:
+    pass
 
 
 class Packet(BasePacket):
