@@ -453,10 +453,10 @@ class RawPcapReader:
         elif  magic == "\xd4\xc3\xb2\xa1": #little endian
             self.endian = "<"
         else:
-            raise RuntimeWarning, "Not a pcap capture file (bad magic)"
+            raise Scapy_Exception("Not a pcap capture file (bad magic)")
         hdr = self.f.read(20)
         if len(hdr)<20:
-            raise RuntimeWarning, "Invalid pcap file (too short)"
+            raise Scapy_Exception("Invalid pcap file (too short)")
         vermaj,vermin,tz,sig,snaplen,linktype = struct.unpack(self.endian+"HHIIII",hdr)
 
         self.linktype = linktype
