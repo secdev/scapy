@@ -121,7 +121,7 @@ if conf.use_pcap:
                 except:
                     if conf.debug_dissector:
                         raise
-                    pkt = Raw(pkt)
+                    pkt = conf.raw_layer(pkt)
                 pkt.time = ts
                 return pkt
         
@@ -233,7 +233,7 @@ if conf.use_pcap and conf.use_dnet:
             except:
                 if conf.debug_dissector:
                     raise
-                pkt = Raw(pkt)
+                pkt = conf.raw_layer(pkt)
             pkt.time = ts
             return pkt.payload
     
@@ -300,7 +300,7 @@ if conf.use_pcap and conf.use_dnet:
             except:
                 if conf.debug_dissector:
                     raise
-                pkt = Raw(pkt)
+                pkt = conf.raw_layer(pkt)
             pkt.time = ts
             return pkt
     

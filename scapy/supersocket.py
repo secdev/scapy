@@ -5,7 +5,6 @@
 
 import socket,time,os,struct
 from select import select
-from packet import Raw
 from config import conf
 from data import *
 
@@ -30,7 +29,7 @@ class SuperSocket:
         x.sent_time = time.time()
         return self.outs.send(sx)
     def recv(self, x):
-        return Raw(self.ins.recv(x))
+        return conf.raw_layer(self.ins.recv(x))
     def fileno(self):
         return self.ins.fileno()
     def close(self):
@@ -72,7 +71,9 @@ class SimpleSocket(SuperSocket):
 
 class StreamSocket(SimpleSocket):
     desc = "transforms a stream socket into a layer 2"
-    def __init__(self, sock, basecls=Raw):
+    def __init__(self, sock, basecls=None):
+        if basecls is None:
+            basecls = conf.raw_layer
         SimpleSocket.__init__(self, sock)
         self.basecls = basecls
         

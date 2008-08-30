@@ -105,7 +105,7 @@ class Packet(BasePacket):
                         self.overloaded_fields = payload.overload_fields[t]
                         break
             elif type(payload) is str:
-                self.__dict__["payload"] = Raw(load=payload)
+                self.__dict__["payload"] = conf.raw_layer(load=payload)
             else:
                 raise TypeError("payload must be either 'Packet' or 'str', not [%s]" % repr(payload))
     def remove_payload(self):
@@ -245,12 +245,12 @@ class Packet(BasePacket):
             cloneA.add_payload(cloneB)
             return cloneA
         elif type(other) is str:
-            return self/Raw(load=other)
+            return self/conf.raw_layer(load=other)
         else:
             return other.__rdiv__(self)
     def __rdiv__(self, other):
         if type(other) is str:
-            return Raw(load=other)/self
+            return conf.raw_layer(load=other)/self
         else:
             raise TypeError
     def __mul__(self, other):
@@ -534,7 +534,7 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
                         log_runtime.error("%s.guess_payload_class() returned [%s]" % (self.__class__.__name__,repr(cls)))
                     if cls is not None:
                         raise
-                p = Raw(s, _internal=1, _underlayer=self)
+                p = conf.raw_layer(s, _internal=1, _underlayer=self)
             self.add_payload(p)
 
     def dissect(self, s):
@@ -565,7 +565,7 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
     
     def default_payload_class(self, payload):
         """DEV: Returns the default payload class if nothing has been found by the guess_payload_class() method."""
-        return Raw
+        return conf.raw_layer
 
     def hide_defaults(self):
         """Removes fields' values that are the same as default values."""
@@ -1040,6 +1040,10 @@ class Padding(Raw):
             return ""
         else:
             return Raw.build(self)
+
+conf.raw_layer = Raw
+if conf.default_l2 is None:
+    conf.default_l2 = Raw
 
 #################
 ## Bind layers ##

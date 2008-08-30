@@ -273,7 +273,7 @@ class L3PacketSocket(SuperSocket):
         except:
             if conf.debug_dissector:
                 raise
-            pkt = Raw(pkt)
+            pkt = conf.raw_layer(pkt)
         if lvl == 2:
             pkt = pkt.payload
             
@@ -348,7 +348,7 @@ class L2Socket(SuperSocket):
         except:
             if conf.debug_dissector:
                 raise
-            q = Raw(pkt)
+            q = conf.raw_layer(pkt)
         q.time = get_last_packet_timestamp(self.ins)
         return q
 
@@ -408,7 +408,7 @@ class L2ListenSocket(SuperSocket):
         except:
             if conf.debug_dissector:
                 raise
-            pkt = Raw(pkt)
+            pkt = conf.raw_layer(pkt)
         pkt.time = get_last_packet_timestamp(self.ins)
         return pkt
     

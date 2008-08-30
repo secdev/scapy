@@ -567,8 +567,7 @@ class PcapReader(RawPcapReader):
             self.LLcls = conf.l2types[self.linktype]
         except KeyError:
             warning("PcapReader: unknown LL type [%i]/[%#x]. Using Raw packets" % (self.linktype,self.linktype))
-            import packet
-            self.LLcls = packet.Raw
+            self.LLcls = conf.raw_layer
     def read_packet(self):
         rp = RawPcapReader.read_packet(self)
         if rp is None:
@@ -582,7 +581,7 @@ class PcapReader(RawPcapReader):
         except:
             if conf.debug_dissector:
                 raise
-            p = Raw(s)
+            p = conf.raw_layer(s)
         p.time = sec+0.000001*usec
         return p
     def read_all(self,count=-1):

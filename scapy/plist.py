@@ -7,7 +7,7 @@ import os,socket
 from config import conf
 from error import warning
 from base_classes import BasePacket,BasePacketList
-from packet import Padding,Raw
+from packet import Padding
 
 from utils import incremental_label,colgen,do_graph,hexdump,make_table,make_lined_table,make_tex_table
 
@@ -191,8 +191,8 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
             print "%s %s %s" % (conf.color_theme.id(i,"%04i"),
                                 p.sprintf("%.time%"),
                                 self._elt2sum(self.res[i]))
-            if p.haslayer(Raw):
-                hexdump(p.getlayer(Raw).load)
+            if p.haslayer(conf.raw_layer):
+                hexdump(p.getlayer(conf.raw_layer).load)
 
     def hexdump(self, lfilter=None):
         """Same as nsummary(), except that packets are also hexdumped

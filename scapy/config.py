@@ -238,6 +238,8 @@ extensions_paths: path or list of paths where extensions are to be looked for
     prompt = ">>> "
     promisc = 1
     sniff_promisc = 1
+    raw_layer = None
+    default_l2 = None
     l2types = Num2Layer()
     l3types = Num2Layer()
     L3socket = None
