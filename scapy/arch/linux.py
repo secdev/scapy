@@ -262,8 +262,8 @@ class L3PacketSocket(SuperSocket):
             cls = conf.l3types[sa_ll[1]]
             lvl = 3
         else:
-            warning("Unable to guess type (interface=%s protocol=%#x family=%i). Using Ethernet" % (sa_ll[0],sa_ll[1],sa_ll[3]))
-            cls = Ether
+            cls = conf.default_l2
+            warning("Unable to guess type (interface=%s protocol=%#x family=%i). Using %s" % (sa_ll[0],sa_ll[1],sa_ll[3],cls.name))
             lvl = 2
 
         try:
@@ -334,8 +334,8 @@ class L2Socket(SuperSocket):
         elif sa_ll[1] in conf.l3types:
             self.LL = conf.l3types[sa_ll[1]]
         else:
-            warning("Unable to guess type (interface=%s protocol=%#x family=%i). Using Ethernet" % (sa_ll[0],sa_ll[1],sa_ll[3]))
-            self.LL = Ether
+            self.LL = conf.default_l2
+            warning("Unable to guess type (interface=%s protocol=%#x family=%i). Using %s" % (sa_ll[0],sa_ll[1],sa_ll[3],self.LL.name))
             
     def recv(self, x):
         pkt, sa_ll = self.ins.recvfrom(x)
@@ -398,8 +398,8 @@ class L2ListenSocket(SuperSocket):
         elif sa_ll[1] in conf.l3types:
             cls = conf.l3types[sa_ll[1]]
         else:
-            warning("Unable to guess type (interface=%s protocol=%#x family=%i). Using Ethernet" % (sa_ll[0],sa_ll[1],sa_ll[3]))
-            cls = Ether
+            cls = conf.default_l2
+            warning("Unable to guess type (interface=%s protocol=%#x family=%i). Using %s" % (sa_ll[0],sa_ll[1],sa_ll[3],cls.name))
 
         try:
             pkt = cls(pkt)

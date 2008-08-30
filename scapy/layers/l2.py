@@ -46,13 +46,13 @@ def getmacbyip(ip, chainCC=0):
     tmp = map(ord, inet_aton(ip))
     if (tmp[0] & 0xf0) == 0xe0: # mcast @
         return "01:00:5e:%.2x:%.2x:%.2x" % (tmp[1]&0x7f,tmp[2],tmp[3])
-    iff,a,gw = config.conf.route.route(ip)
-    if ( (iff == "lo") or (ip == config.conf.route.get_if_bcast(iff)) ):
+    iff,a,gw = conf.route.route(ip)
+    if ( (iff == "lo") or (ip == conf.route.get_if_bcast(iff)) ):
         return "ff:ff:ff:ff:ff:ff"
     if gw != "0.0.0.0":
         ip = gw
 
-    mac = config.conf.netcache.arp_cache.get(ip)
+    mac = conf.netcache.arp_cache.get(ip)
     if mac:
         return mac
 
@@ -65,7 +65,7 @@ def getmacbyip(ip, chainCC=0):
                nofilter=1)
     if res is not None:
         mac = res.payload.hwsrc
-        config.conf.netcache.arp_cache[ip] = mac
+        conf.netcache.arp_cache[ip] = mac
         return mac
     return None
 

@@ -3,6 +3,8 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
+import time,struct
+from fcntl import ioctl
 from scapy.data import *
 from scapy.config import conf
 from scapy.supersocket import SuperSocket
@@ -103,8 +105,8 @@ if conf.use_pcap:
                 if ll in conf.l2types:
                     cls = conf.l2types[ll]
                 else:
-                    warning("Unable to guess datalink type (interface=%s linktype=%i). Using Ethernet" % (self.iface, ll))
-                    cls = Ether
+                    cls = conf.default_l2
+                    warning("Unable to guess datalink type (interface=%s linktype=%i). Using %s" % (self.iface, ll, cls.name))
         
                 pkt = None
                 while pkt is None:
@@ -154,7 +156,6 @@ if conf.use_dnet:
         def get_if_raw_addr(ifname):
             i = dnet.intf()
             return i.get(ifname)["addr"].data
-        
     
     
 if conf.use_pcap and conf.use_dnet:
@@ -162,6 +163,7 @@ if conf.use_pcap and conf.use_dnet:
         desc = "read/write packets at layer 3 using libdnet and libpcap"
         def __init__(self, type = ETH_P_ALL, filter=None, promisc=None, iface=None, nofilter=0):
             self.iflist = {}
+            self.intf = dnet.intf()
             if iface is None:
                 iface = conf.iface
             self.iface = iface
@@ -192,10 +194,22 @@ if conf.use_pcap and conf.use_dnet:
             iff,a,gw  = x.route()
             if iff is None:
                 iff = conf.iface
-            ifs = self.iflist.get(iff)
+            ifs,cls = self.iflist.get(iff,(None,None))
             if ifs is None:
-                self.iflist[iff] = ifs = dnet.eth(iff)
-            sx = str(Ether()/x)
+                iftype = self.intf.get(iff)["type"]
+                if iftype == dnet.INTF_TYPE_ETH:
+                    try:
+                        cls = conf.l2types[1]
+                    except KeyError:
+                        warning("Unable to find Ethernet class. Using nothing")
+                    ifs = dnet.eth(iff)
+                else:
+                    ifs = dnet.ip()
+                self.iflist[iff] = ifs,cls
+            if cls is None:
+                sx = str(x)
+            else:
+                sx = str(cls()/x)
             x.sent_time = time.time()
             ifs.send(sx)
         def recv(self,x=MTU):
@@ -203,8 +217,8 @@ if conf.use_pcap and conf.use_dnet:
             if ll in conf.l2types:
                 cls = conf.l2types[ll]
             else:
-                warning("Unable to guess datalink type (interface=%s linktype=%i). Using Ethernet" % (self.iface, ll))
-                cls = Ether
+                cls = conf.default_l2
+                warning("Unable to guess datalink type (interface=%s linktype=%i). Using %s" % (self.iface, ll, cls.name))
     
             pkt = self.ins.next()
             if pkt is not None:
@@ -270,8 +284,8 @@ if conf.use_pcap and conf.use_dnet:
             if ll in conf.l2types:
                 cls = conf.l2types[ll]
             else:
-                warning("Unable to guess datalink type (interface=%s linktype=%i). Using Ethernet" % (self.iface, ll))
-                cls = Ether
+                cls = conf.default_l2
+                warning("Unable to guess datalink type (interface=%s linktype=%i). Using %s" % (self.iface, ll, cls.name))
     
             pkt = self.ins.next()
             if pkt is not None:
