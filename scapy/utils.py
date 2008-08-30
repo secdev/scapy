@@ -4,11 +4,15 @@
 ## This program is published under a GPLv2 license
 
 import os,sys,socket,types
-from config import conf
-from data import MTU
 import random,time
 import gzip,zlib,cPickle
 import re,struct,array
+
+import warnings
+warnings.filterwarnings("ignore","tempnam",RuntimeWarning, __name__)
+
+from config import conf
+from data import MTU
 from error import log_runtime,log_loading,log_interactive
 from base_classes import BasePacketList
 
@@ -16,6 +20,12 @@ from base_classes import BasePacketList
 ###########
 ## Tools ##
 ###########
+
+def get_temp_file(keep=False):
+    f = os.tempnam("","scapy")
+    if not keep:
+        conf.temp_files.append(f)
+    return f
 
 def sane_color(x):
     r=""
@@ -682,14 +692,14 @@ def import_hexcap():
 @conf.commands.register
 def wireshark(pktlist):
     """Run wireshark on a list of packets"""
-    f = os.tempnam("scapy")
+    f = get_temp_file()
     wrpcap(f, pktlist)
     os.spawnlp(os.P_NOWAIT, conf.prog.wireshark, conf.prog.wireshark, "-r", f)
 
 @conf.commands.register
 def hexedit(x):
     x = str(x)
-    f = os.tempnam("scapy")
+    f = get_temp_file()
     open(f,"w").write(x)
     os.spawnlp(os.P_WAIT, conf.prog.hexedit, conf.prog.hexedit, f)
     x = open(f).read()

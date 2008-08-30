@@ -6,8 +6,9 @@
 
 from __future__ import generators
 import os,sys
-from error import *
 import __builtin__
+from error import *
+import utils
     
 
 def _probe_config_file(cf):
@@ -72,7 +73,7 @@ def save_session(fname=None, session=None, pickleProto=-1):
     if fname is None:
         fname = conf.session
         if not fname:
-            conf.session = fname = os.tempnam("","scapy")
+            conf.session = fname = utils.get_temp_file(keep=True)
             log_interactive.info("Use [%s] as session file" % fname)
     if session is None:
         session = __builtin__.__dict__["scapy_session"]
@@ -121,6 +122,13 @@ def update_session(fname=None):
 ##### Main #####
 ################
 
+def scapy_delete_temp_files():
+    for f in conf.temp_files:
+        try:
+            os.unlink(f)
+        except:
+            pass
+
 def scapy_write_history_file(readline):
     if conf.histfile:
         try:
@@ -128,7 +136,7 @@ def scapy_write_history_file(readline):
         except IOError,e:
             try:
                 warning("Could not write history to [%s]\n\t (%s)" % (conf.histfile,e))
-                tmp = os.tempnam("","scapy")
+                tmp = utils.get_temp_file(keep=True)
                 readline.write_history_file(tmp)
                 warning("Wrote history to [%s]" % tmp)
             except:
@@ -286,6 +294,7 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
                 pass
         atexit.register(scapy_write_history_file,readline)
     
+    atexit.register(scapy_delete_temp_files)
     sys.ps1 = ColorPrompt()
     code.interact(banner = the_banner % (conf.version), local=session)
 
