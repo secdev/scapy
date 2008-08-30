@@ -566,4 +566,8 @@ L2socket: use the provided L2socket
     s.close()
     return plist.PacketList(lst,"Sniffed")
 
+@conf.commands.register
+def tshark(*args,**kargs):
+    """Sniff packets and print them calling pkt.show(), a bit like text wireshark"""
+    sniff(prn=lambda x: x.display(),*args,**kargs)
 
