@@ -12,20 +12,20 @@ try:
     import Gnuplot
     GNUPLOT=1
 except ImportError:
-    log_loading.info("did not find python gnuplot wrapper . Won't be able to plot")
+    log_loading.info("Can't import python gnuplot wrapper . Won't be able to plot.")
     GNUPLOT=0
 
 try:
     import pyx
     PYX=1
 except ImportError:
-    log_loading.info("Can't import PyX. Won't be able to use psdump() or pdfdump()")
+    log_loading.info("Can't import PyX. Won't be able to use psdump() or pdfdump().")
     PYX=0
 
 try:
     from Crypto.Cipher import ARC4
 except ImportError:
-    log_loading.info("Can't find Crypto python lib. Won't be able to decrypt WEP")
+    log_loading.info("Can't import python Crypto lib. Won't be able to decrypt WEP.")
 
 
 
