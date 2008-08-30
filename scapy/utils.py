@@ -372,48 +372,9 @@ class Enum_metaclass(type):
 
 
 
-
-##############################
-## Session saving/restoring ##
-##############################
-
-
-def save_session(fname, session=None, pickleProto=-1):
-    if session is None:
-        session = scapy_session
-
-    to_be_saved = session.copy()
-        
-    if to_be_saved.has_key("__builtins__"):
-        del(to_be_saved["__builtins__"])
-
-    for k in to_be_saved.keys():
-        if type(to_be_saved[k]) in [types.TypeType, types.ClassType, types.ModuleType]:
-             log_interactive.error("[%s] (%s) can't be saved." % (k, type(to_be_saved[k])))
-             del(to_be_saved[k])
-
-    try:
-        os.rename(fname, fname+".bak")
-    except OSError:
-        pass
-    f=gzip.open(fname,"wb")
-    cPickle.dump(to_be_saved, f, pickleProto)
-    f.close()
-
-def load_session(fname):
-    try:
-        s = cPickle.load(gzip.open(fname,"rb"))
-    except IOError:
-        s = cPickle.load(open(fname,"rb"))
-    scapy_session.clear()
-    scapy_session.update(s)
-
-def update_session(fname):
-    try:
-        s = cPickle.load(gzip.open(fname,"rb"))
-    except IOError:
-        s = cPickle.load(open(fname,"rb"))
-    scapy_session.update(s)
+###################
+## Object saving ##
+###################
 
 
 def export_object(obj):
