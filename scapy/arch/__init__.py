@@ -22,13 +22,6 @@ except ImportError:
     log_loading.info("Can't import PyX. Won't be able to use psdump() or pdfdump().")
     PYX=0
 
-try:
-    from Crypto.Cipher import ARC4
-except ImportError:
-    log_loading.info("Can't import python Crypto lib. Won't be able to decrypt WEP.")
-
-
-
 
 def str2mac(s):
     return ("%02x:"*6)[:-1] % tuple(map(ord, s)) 

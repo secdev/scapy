@@ -12,6 +12,7 @@ import scapy.utils
 from scapy.config import conf
 from scapy.data import *
 from scapy.supersocket import SuperSocket
+import scapy.arch
 
 
 
@@ -108,7 +109,7 @@ def attach_filter(s, filter):
     if not TCPDUMP:
         return
     try:
-        f = os.popen("%s -i %s -ddd -s 1600 '%s'" % (config.conf.prog.tcpdump,config.conf.iface,filter))
+        f = os.popen("%s -i %s -ddd -s 1600 '%s'" % (conf.prog.tcpdump,conf.iface,filter))
     except OSError,msg:
         log_interactive.warning("Failed to execute tcpdump: (%s)")
         return
@@ -122,7 +123,7 @@ def attach_filter(s, filter):
 
     # XXX. Argl! We need to give the kernel a pointer on the BPF,
     # python object header seems to be 20 bytes. 36 bytes for x86 64bits arch.
-    if X86_64:
+    if scapy.arch.X86_64:
         bpfh = struct.pack("HL", nb, id(bpf)+36)
     else:
         bpfh = struct.pack("HI", nb, id(bpf)+20)  

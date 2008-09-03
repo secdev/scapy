@@ -10,6 +10,13 @@ from scapy.fields import *
 from scapy.plist import PacketList
 from scapy.layers.l2 import *
 
+
+try:
+    from Crypto.Cipher import ARC4
+except ImportError:
+    log_loading.info("Can't import python Crypto lib. Won't be able to decrypt WEP.")
+
+
 ### Fields
 
 class Dot11AddrMACField(MACField):
