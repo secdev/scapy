@@ -19,7 +19,7 @@ class MobileIPRRQ(Packet):
                     IPField("homeaddr", "0.0.0.0"),
                     IPField("haaddr", "0.0.0.0"),
                     IPField("coaddr", "0.0.0.0"),
-                    Field("id", "", "64s") ]
+                    LongField("id", 0), ]
 
 class MobileIPRRP(Packet):
     name = "Mobile IP Registration Reply (RFC3344)"
@@ -27,7 +27,7 @@ class MobileIPRRP(Packet):
                     ShortField("lifetime", 180),
                     IPField("homeaddr", "0.0.0.0"),
                     IPField("haaddr", "0.0.0.0"),
-                    Field("id", "", "64s") ]
+                    LongField("id", 0), ]
 
 class MobileIPTunnelData(Packet):
     name = "Mobile IP Tunnel Data Message (RFC3519)"
