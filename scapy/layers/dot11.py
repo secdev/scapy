@@ -113,7 +113,7 @@ class RadioTap(Packet):
     name = "RadioTap dummy"
     fields_desc = [ ByteField('version', 0),
                     ByteField('pad', 0),
-                    FieldLenField('len', None, 'notdecoded', '@H', adjust=lambda pkt,x:x+8),
+                    FieldLenField('len', None, 'notdecoded', '<H', adjust=lambda pkt,x:x+8),
                     FlagsField('present', None, -32, ['TSFT','Flags','Rate','Channel','FHSS','dBm_AntSignal',
                                                      'dBm_AntNoise','Lock_Quality','TX_Attenuation','dB_TX_Attenuation',
                                                       'dBm_TX_Power', 'Antenna', 'dB_AntSignal', 'dB_AntNoise',
