@@ -153,17 +153,53 @@ class CacheInstance(dict):
     def update(self, other):
         dict.update(self, other)
         self._timetable.update(other._timetable)
-    def __repr__(self):
+    def iteritems(self):
         if self.timeout is None:
-            n = len(self)
-        else:
-            n = 0
-            t0 = time.time()
-            for k,v in self.iteritems():
-                t = self._timetable[k]
-                if t0-t <= self.timeout:
-                    n += 1
-        return "%s: %i valid items. Timeout=%rs" % (self.name, n, self.timeout)
+            return dict.iteritems(self)
+        t0=time.time()
+        return ((k,v) for (k,v) in dict.iteritems(self) if t0-self._timetable[k] < self.timeout) 
+    def iterkeys(self):
+        if self.timeout is None:
+            return dict.iterkeys(self)
+        t0=time.time()
+        return (k for k in dict.iterkeys(self) if t0-self._timetable[k] < self.timeout)
+    def __iter__(self):
+        return self.iterkeys()
+    def itervalues(self):
+        if self.timeout is None:
+            return dict.itervalues(self)
+        t0=time.time()
+        return (v for (k,v) in dict.iteritems(self) if t0-self._timetable[k] < self.timeout)
+    def items(self):
+        if self.timeout is None:
+            return dict.items(self)
+        t0=time.time()
+        return [(k,v) for (k,v) in dict.iteritems(self) if t0-self._timetable[k] < self.timeout]
+    def keys(self):
+        if self.timeout is None:
+            return dict.keys(self)
+        t0=time.time()
+        return [k for k in dict.iterkeys(self) if t0-self._timetable[k] < self.timeout]
+    def values(self):
+        if self.timeout is None:
+            return dict.values(self)
+        t0=time.time()
+        return [v for (k,v) in dict.iteritems(self) if t0-self._timetable[k] < self.timeout]
+    def __len__(self):
+        if self.timeout is None:
+            return dict.__len__(self)
+        return len(self.keys())
+    def summary(self):
+        return "%s: %i valid items. Timeout=%rs" % (self.name, len(self), self.timeout)
+    def __repr__(self):
+        s = []
+        if self:
+            mk = max(len(k) for k in self.iterkeys())
+            fmt = "%%-%is %%s" % (mk+1)
+            for item in self.iteritems():
+                s.append(fmt % item)
+        return "\n".join(s)
+            
             
 
 
@@ -190,7 +226,7 @@ class NetCache:
         for c in self._caches_list:
             c.flush()
     def __repr__(self):
-        return "\n".join(repr(c) for c in self._caches_list)
+        return "\n".join(c.summary() for c in self._caches_list)
         
 
 class LogLevel(object):
