@@ -141,6 +141,8 @@ class CacheInstance(dict):
                 raise KeyError(item)
         return val
     def get(self, item, default=None):
+        # overloading this method is needed to force the dict to go through
+        # the timetable check
         try:
             return self[item]
         except KeyError:
@@ -148,13 +150,17 @@ class CacheInstance(dict):
     def __setitem__(self, item, v):
         self._timetable[item] = time.time()
         dict.__setitem__(self, item,v)
+    def update(self, other):
+        dict.update(self, other)
+        self._timetable.update(other._timetable)
     def __repr__(self):
         if self.timeout is None:
             n = len(self)
         else:
             n = 0
             t0 = time.time()
-            for t,v in self.itervalues():
+            for k,v in self.iteritems():
+                t = self._timetable[k]
                 if t0-t <= self.timeout:
                     n += 1
         return "%s: %i valid items. Timeout=%rs" % (self.name, n, self.timeout)
