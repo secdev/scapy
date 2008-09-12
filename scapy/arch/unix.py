@@ -6,6 +6,7 @@
 
 import sys,os,struct,socket,time
 from fcntl import ioctl
+from scapy.error import warning
 import scapy.config
 import scapy.utils
 import scapy.arch
@@ -33,6 +34,7 @@ def read_routes():
     ok = 0
     mtu_present = False
     routes = []
+    pending_if = []
     for l in f.readlines():
         if not l:
             break
@@ -49,7 +51,12 @@ def read_routes():
         if not l:
             break
         if scapy.arch.SOLARIS:
-            dest,mask,gw,netif,mxfrg,rtt,ref,flg = l.split()[:8]
+            lspl = l.split()
+            if len(lspl) == 10:
+                dest,mask,gw,netif,mxfrg,rtt,ref,flg = lspl[:8]
+            else: # missing interface
+                dest,mask,gw,mxfrg,rtt,ref,flg = lspl[:7]
+                netif=None
         else:
             if mtu_present:
                 dest,gw,flg,ref,use,mtu,netif = l.split()[:7]
@@ -72,9 +79,30 @@ def read_routes():
             dest = scapy.utils.atol(dest)
         if not "G" in flg:
             gw = '0.0.0.0'
-        ifaddr = scapy.arch.get_if_addr(netif)
-        routes.append((dest,netmask,gw,netif,ifaddr))
+        if netif is not None:
+            ifaddr = scapy.arch.get_if_addr(netif)
+            routes.append((dest,netmask,gw,netif,ifaddr))
+        else:
+            pending_if.append((dest,netmask,gw))
     f.close()
+
+    # On Solaris, netstat does not provide output interfaces for some routes
+    # We need to parse completely the routing table to route their gw and
+    # know their output interface
+    for dest,netmask,gw in pending_if:
+        gw_l = scapy.utils.atol(gw)
+        max_rtmask,gw_if,gw_if_addr, = 0,None,None
+        for rtdst,rtmask,_,rtif,rtaddr in routes[:]:
+            if gw_l & rtmask == rtdst:
+                if rtmask >= max_rtmask:
+                    max_rtmask = rtmask
+                    gw_if = rtif
+                    gw_if_addr = rtaddr
+        if gw_if:
+            routes.append((dest,netmask,gw,gw_if,gw_if_addr))
+        else:
+            warning("Did not find output interface to reach gateway %s" % gw)
+            
     return routes
 
 
