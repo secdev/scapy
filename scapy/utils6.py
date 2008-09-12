@@ -12,6 +12,63 @@ from data import *
 from utils import *
 
 
+def construct_source_candidate_set(addr, plen, laddr):
+    """
+    Given all addresses assigned to a specific interface ('laddr' parameter),
+    this function returns the "candidate set" associated with 'addr/plen'.
+    
+    Basically, the function filters all interface addresses to keep only those
+    that have the same scope as provided prefix.
+    
+    This is on this list of addresses that the source selection mechanism 
+    will then be performed to select the best source address associated
+    with some specific destination that uses this prefix.
+    """
+
+    cset = []
+    if in6_isgladdr(addr):
+	cset = filter(lambda x: x[1] == IPV6_ADDR_GLOBAL, laddr)
+    elif in6_islladdr(addr):
+	cset = filter(lambda x: x[1] == IPV6_ADDR_LINKLOCAL, laddr)
+    elif in6_issladdr(addr):
+	cset = filter(lambda x: x[1] == IPV6_ADDR_SITELOCAL, laddr)
+    elif in6_ismaddr(addr):
+	if in6_ismnladdr(addr):
+	    cset = [('::1', 16, LOOPBACK_NAME)]
+	elif in6_ismgladdr(addr):
+	    cset = filter(lambda x: x[1] == IPV6_ADDR_GLOBAL, laddr)
+	elif in6_ismlladdr(addr):
+	    cset = filter(lambda x: x[1] == IPV6_ADDR_LINKLOCAL, laddr)
+	elif in6_ismsladdr(addr):
+	    cset = filter(lambda x: x[1] == IPV6_ADDR_SITELOCAL, laddr)
+    elif addr == '::' and plen == 0:
+	cset = filter(lambda x: x[1] == IPV6_ADDR_GLOBAL, laddr)
+    cset = map(lambda x: x[0], cset)
+    return cset            
+
+def get_source_addr_from_candidate_set(dst, candidate_set):
+    """
+    This function implement a limited version of source address selection
+    algorithm defined in section 5 of RFC 3484. The format is very different
+    from that described in the document because it operates on a set 
+    of candidate source address for some specific route.
+    
+    Rationale behind the implementation is to be able to make the right 
+    choice for a 6to4 destination when both a 6to4 address and a IPv6 native
+    address are available for that interface.
+    """
+    
+    if len(candidate_set) == 0:
+	# Should not happen
+	return None
+    
+    if in6_isaddr6to4(dst):
+	tmp = filter(lambda x: in6_isaddr6to4(x), candidate_set)
+	if len(tmp) != 0:
+	    return tmp[0]
+
+    return candidate_set[0]
+
 
 def find_ifaddr2(addr, plen, laddr):
     dstAddrType = in6_getAddrType(addr)
