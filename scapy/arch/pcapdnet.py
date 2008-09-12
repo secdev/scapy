@@ -151,7 +151,7 @@ if conf.use_dnet:
             raise
     else:
         def get_if_raw_hwaddr(iff):
-            if iff[:2] == scapy.arch.LOOPBACK_NAME:
+            if iff == scapy.arch.LOOPBACK_NAME:
                 return (772, '\x00'*6)
             try:
                 l = dnet.intf().get(iff)
