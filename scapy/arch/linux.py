@@ -9,6 +9,7 @@ import sys,os,struct,socket,time
 from select import select
 from fcntl import ioctl
 import scapy.utils
+import scapy.utils6
 from scapy.config import conf
 from scapy.data import *
 from scapy.supersocket import SuperSocket
@@ -203,7 +204,7 @@ def in6_getifaddr():
         # addr, index, plen, scope, flags, ifname
         tmp = i.split()
         addr = struct.unpack('4s4s4s4s4s4s4s4s', tmp[0])
-        addr = in6_ptop(':'.join(addr))
+        addr = scapy.utils6.in6_ptop(':'.join(addr))
         ret.append((addr, int(tmp[3], 16), tmp[5])) # (addr, scope, iface)
     return ret
 
@@ -226,7 +227,7 @@ def read_routes6():
     def proc2r(p):
         ret = struct.unpack('4s4s4s4s4s4s4s4s', p)
         ret = ':'.join(ret)
-        return in6_ptop(ret)
+        return scapy.utils6.in6_ptop(ret)
     
     lifaddr = in6_getifaddr() 
     for l in f.readlines():

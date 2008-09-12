@@ -9,6 +9,7 @@ from fcntl import ioctl
 from scapy.error import warning
 import scapy.config
 import scapy.utils
+import scapy.utils6
 import scapy.arch
 
 scapy.config.conf.use_pcap = 1
@@ -131,9 +132,9 @@ def in6_getifaddr():
                 continue
 
             xx = str(a).split('/')[0]
-            addr = in6_ptop(xx)
+            addr = scapy.utils6.in6_ptop(xx)
 
-            scope = in6_getscope(addr)
+            scope = scapy.utils6.in6_getscope(addr)
 
             ret.append((xx, scope, ifname))
     return ret
