@@ -17,6 +17,7 @@ ETHER_BROADCAST = "\xff"*6
 ETH_P_ALL = 3
 ETH_P_IP = 0x800
 ETH_P_ARP = 0x806
+ETH_P_IPV6 = 0x86dd
 
 # From net/if_arp.h
 ARPHDR_ETHER = 1
@@ -24,6 +25,21 @@ ARPHDR_METRICOM = 23
 ARPHDR_PPP = 512
 ARPHDR_LOOPBACK = 772
 ARPHDR_TUN = 65534
+
+
+# From net/ipv6.h on Linux (+ Additions)
+IPV6_ADDR_UNICAST     = 0x01
+IPV6_ADDR_MULTICAST   = 0x02
+IPV6_ADDR_CAST_MASK   = 0x0F
+IPV6_ADDR_LOOPBACK    = 0x10
+IPV6_ADDR_GLOBAL      = 0x00
+IPV6_ADDR_LINKLOCAL   = 0x20
+IPV6_ADDR_SITELOCAL   = 0x40     # deprecated since Sept. 2004 by RFC 3879
+IPV6_ADDR_SCOPE_MASK  = 0xF0
+#IPV6_ADDR_COMPATv4   = 0x80     # deprecated; i.e. ::/96
+#IPV6_ADDR_MAPPED     = 0x1000   # i.e.; ::ffff:0.0.0.0/96
+IPV6_ADDR_6TO4        = 0x0100   # Added to have more specific info (should be 0x0101 ?)
+IPV6_ADDR_UNSPECIFIED = 0x10000
 
 
 

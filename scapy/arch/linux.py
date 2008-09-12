@@ -180,6 +180,85 @@ def read_routes():
     f.close()
     return routes
 
+############
+### IPv6 ###
+############
+
+def in6_getifaddr():
+    """
+    Returns a list of 3-tuples of the form (addr, scope, iface) where
+    'addr' is the address of scope 'scope' associated to the interface
+    'ifcace'.
+
+    This is the list of all addresses of all interfaces available on
+    the system.
+    """
+    ret = []
+    try:
+        f = open("/proc/net/if_inet6","r")
+    except IOError, err:    
+        return ret
+    l = f.readlines()
+    for i in l:
+        # addr, index, plen, scope, flags, ifname
+        tmp = i.split()
+        addr = struct.unpack('4s4s4s4s4s4s4s4s', tmp[0])
+        addr = in6_ptop(':'.join(addr))
+        ret.append((addr, int(tmp[3], 16), tmp[5])) # (addr, scope, iface)
+    return ret
+
+def read_routes6():
+    try:
+        f = open("/proc/net/ipv6_route","r")
+    except IOError, err:
+        return []
+    # 1. destination network
+    # 2. destination prefix length
+    # 3. source network displayed
+    # 4. source prefix length
+    # 5. next hop
+    # 6. metric
+    # 7. reference counter (?!?)
+    # 8. use counter (?!?)
+    # 9. flags
+    # 10. device name
+    routes = []
+    def proc2r(p):
+        ret = struct.unpack('4s4s4s4s4s4s4s4s', p)
+        ret = ':'.join(ret)
+        return in6_ptop(ret)
+    
+    lifaddr = in6_getifaddr() 
+    for l in f.readlines():
+        d,dp,s,sp,nh,m,rc,us,fl,dev = l.split()
+        fl = int(fl, 16)
+
+        if fl & RTF_UP == 0:
+            continue
+        if fl & RTF_REJECT:
+            continue
+
+        d = proc2r(d) ; dp = int(dp, 16)
+        s = proc2r(s) ; sp = int(sp, 16)
+        nh = proc2r(nh)
+
+        cset = [] # candidate set (possible source addresses)
+        if dev == LOOPBACK_NAME:
+            if d == '::':
+                continue
+            cset = ['::1']
+        else:
+            devaddrs = filter(lambda x: x[2] == dev, lifaddr)
+            cset = construct_source_candidate_set(d, dp, devaddrs)
+        
+        if len(cset) != 0:
+            routes.append((d, dp, nh, dev, cset))
+    f.close()
+    return routes   
+
+
+
+
 def get_if(iff,cmd):
     s=socket.socket()
     ifreq = ioctl(s, cmd, struct.pack("16s16x",iff))

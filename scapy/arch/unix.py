@@ -105,6 +105,89 @@ def read_routes():
             
     return routes
 
+############
+### IPv6 ###
+############
+
+def in6_getifaddr():
+    """
+    Returns a list of 3-tuples of the form (addr, scope, iface) where
+    'addr' is the address of scope 'scope' associated to the interface
+    'ifcace'.
+
+    This is the list of all addresses of all interfaces available on
+    the system.
+    """
+
+    ret = []
+    i = dnet.intf()
+    for int in i:
+        ifname = int['name']
+        v6 = []
+        if int.has_key('alias_addrs'):
+            v6 = int['alias_addrs']
+        for a in v6:
+            if a.type != dnet.ADDR_TYPE_IP6:
+                continue
+
+            xx = str(a).split('/')[0]
+            addr = in6_ptop(xx)
+
+            scope = in6_getscope(addr)
+
+            ret.append((xx, scope, ifname))
+    return ret
+
+def read_routes6():
+    f = os.popen("netstat -rn -f inet6")
+    ok = -1
+    routes = []
+    lifaddr = in6_getifaddr()
+    for l in f.readlines():
+        if not l:
+            break
+        l = l.strip()
+        if ok < 0:
+            ok = l.find('Destination')
+            continue
+        # gv 12/12/06: under debugging      
+        if NETBSD or OPENBSD:
+            d,nh,fl,_,_,_,dev = l.split()[:7]
+        else:       # FREEBSD or DARWIN 
+            d,nh,fl,dev = l.split()[:4]
+        if filter(lambda x: x[2] == dev, lifaddr) == []:
+            continue
+        if 'L' in fl: # drop MAC addresses
+            continue
+
+        if 'link' in nh:
+            nh = '::'
+
+        cset = [] # candidate set (possible source addresses)
+        dp = 128
+        if d == 'default':
+            d = '::'
+            dp = 0
+        if '/' in d:
+            d,dp = d.split("/")
+            dp = int(dp)
+        if '%' in d:
+            d,dev = d.split('%')
+        if '%' in nh:
+            nh,dev = nh.split('%')
+        if scapy.arch.LOOPBACK_NAME in dev:
+            cset = ['::1']
+            nh = '::'
+        else:
+            devaddrs = filter(lambda x: x[2] == dev, lifaddr)
+            cset = construct_source_candidate_set(d, dp, devaddrs)
+
+        if len(cset) != 0:
+            routes.append((d, dp, nh, dev, cset))
+
+    f.close()
+    return routes
+
 
             
 
