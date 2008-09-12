@@ -60,8 +60,6 @@ class Field:
         return self.h2i(pkt, x)
     def i2repr(self, pkt, x):
         """Convert internal value to a nice representation"""
-        if x is None:
-            x = 0
         return repr(self.i2h(pkt,x))
     def addfield(self, pkt, s, val):
         """Add an internal value  to a string"""

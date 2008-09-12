@@ -50,8 +50,6 @@ class ASN1F_field(ASN1F_element):
         self.default = default
 
     def i2repr(self, pkt, x):
-        if x is None:
-            x = 0
         return repr(x)
     def i2h(self, pkt, x):
         return x
