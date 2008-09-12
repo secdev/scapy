@@ -46,7 +46,7 @@ def get_cls(name, fallback_cls):
 ## Neighbor cache stuff ##
 ##########################
 
-NEIGHTIMEOUT=120
+conf.netcache.new_cache("in6_neighbor", 120)
 
 def neighsol(addr, src, iface, timeout=1, chainCC=0):
     """
@@ -70,123 +70,6 @@ def neighsol(addr, src, iface, timeout=1, chainCC=0):
 
     return res
 
-class neighborCache:
-
-    # TODO : add some method to modify default value for timeout
-    # TODO : See what we can do for updating the neighbor cache
-    #        when receiving a packet.
-
-    # Note: internally, our neighbor cache is scapy's arp_cache. This allows us
-    #       to have it updated when returning from sr() (a fork is done where a
-    #       fork is done and the updated cache returned at the end.
-    
-    def __init__(self):
-        self.neighcache = {}
-
-    def flush(self, statictoo=True):
-        self.neighcache = {}
-        
-    def __repr__(self):
-        res = [("Peer", "Link layer address", "State")]
-        for addr in self.neighcache.keys():
-            try:
-                inet_pton(socket.AF_INET6, addr)
-            except:
-                continue
-            cur_entry = self.neighcache[addr]
-            status = "REACHABLE"
-            last_contact = cur_entry[1]
-            if last_contact == 0:
-                status = "STATIC"
-            elif ((time.time() - last_contact) < NEIGHTIMEOUT):
-                status = "REACHABLE"
-            else:
-                status = "STALE"
-            res.append((addr, cur_entry[0], status))
-
-        colwidth = map(lambda x: max(map(lambda y: len(y), x)), apply(zip, res))
-        fmt = "  ".join(map(lambda x: "%%-%ds"%x, colwidth))
-        res = "\n".join(map(lambda x: fmt % x, res))
-        return res
-
-    def addNeighbor(self, ip6, mac, static=False):
-        """
-        Add a neighbor to the cache. If optional parameter 'static' is not 
-        set to True (the default), the entry will expire in 2 minutes. If 
-        'static' is set to True, the entry in the neighbor cache is made 
-        static. This is practical in those cases :
-
-        - peer's address is not advertised to be on-link
-        - peer doed not answer to NS
-        - you don't want to make queries to keep time or be stealthy, ...
-        """
-        t = 0
-        if not static:
-            t = time.time()
-        self.neighcache[ip6] = (mac, t)
-
-    def makeStatic(self, ip6):
-        """
-        make the entry static in Scapy6 internal neighbor cache for 
-        'ip6' neighbor.
-        """
-        if self.neighcache.has_key(ip6):
-            mac = self.neighcache[ip6][0]
-            self.neighcache[ip6] = (mac, 0)
-        else:
-            warning("Unable to make neighbor cache entry for %s static. It does not exist." % ip6)
-
-    def removeStatic(self, ip6):
-        """
-        remove the static status for 'ip6' entry in Scapy6 internal 
-        neighbor cache.
-        """
-        if self.neighcache.has_key(ip6):
-            mac = self.neighcache[ip6][0]
-            self.neighcache[ip6] = (mac, time.time())
-        else:
-            warning("Unable to make neighbor cache entry for %s static. It does not exist." % ip6)
-
-    def get(self, ip6, chainCC=0):
-        """
-        Returns the link layer address to use for IPv6 traffic to 'ip6' address. 
-        If searched IPv6 address is multicast, then, ethernet address is computed.
-        If that's not the case, Scapy6 routing table is used to find next hop for
-        provided address. If one is found, cache is searched. If a valid (REACHABLE 
-        or STATIC) entry exist, content is returned. Else, resolution is performed
-        by sending a Neighbor Solicitation. 
-
-        In all cases, if lookup fails, None is returned.
-        """
-
-        if in6_ismaddr(ip6): # Multicast 
-            mac = in6_getnsmac(inet_pton(socket.AF_INET6, ip6))
-            return mac
-    
-        iff,a,nh = conf.route6.route(ip6, dev=conf.iface6)
-
-        if iff == LOOPBACK_NAME:
-            return "ff:ff:ff:ff:ff:ff"
-
-        if nh != '::': 
-            ip6 = nh # Found next hop
-
-        if self.neighcache.has_key(ip6): # search the cache
-            mac, timeout = self.neighcache[ip6]
-            if timeout and (time.time()-timeout < NEIGHTIMEOUT):
-                return mac
-
-        res = neighsol(ip6, a, iff, chainCC=chainCC)
-
-        if res is not None:
-            mac = res.src
-            self.neighcache[ip6] = (mac,time.time())
-            return mac
-
-        return None
-
-ip6_neigh_cache = neighborCache()
-
 def getmacbyip6(ip6, chainCC=0):
     """
     Returns the mac address to be used for provided 'ip6' peer. 
@@ -196,7 +79,31 @@ def getmacbyip6(ip6, chainCC=0):
     (chainCC parameter value ends up being passed to sending function
      used to perform the resolution, if needed)
     """
-    return ip6_neigh_cache.get(ip6, chainCC=chainCC)
+
+    if in6_ismaddr(ip6): # Multicast 
+        mac = in6_getnsmac(inet_pton(socket.AF_INET6, ip6))
+        return mac
+
+    iff,a,nh = conf.route6.route(ip6, dev=conf.iface6)
+
+    if iff == LOOPBACK_NAME:
+        return "ff:ff:ff:ff:ff:ff"
+
+    if nh != '::': 
+        ip6 = nh # Found next hop
+
+    mac = conf.netcache.in6_neighbor.get(ip6)
+    if mac:
+        return mac
+
+    res = neighsol(ip6, a, iff, chainCC=chainCC)
+
+    if res is not None:
+        mac = res.src
+        conf.netcache.in6_neighbor[ip6] = mac
+        return mac
+
+    return None
 
 
 #############################################################################
