@@ -1,16 +1,16 @@
 #! /usr/bin/env python
 #############################################################################
 ##                                                                         ##
-## scapy6.py --- IPv6 support for Scapy                                    ##
-##               see http://namabiiru.hongo.wide.ad.jp/scapy6/             ##
-##               for more informations                                     ##
+## inet6.py --- IPv6 support for Scapy                                     ##
+##              see http://natisbad.org/IPv6/                              ##
+##              for more informations                                      ##
 ##                                                                         ##
 ## Copyright (C) 2005  Guillaume Valadon <guedou@hongo.wide.ad.jp>         ##
 ##                     Arnaud Ebalard <arnaud.ebalard@eads.net>            ##
 ##                                                                         ##
 ## This program is free software; you can redistribute it and/or modify it ##
 ## under the terms of the GNU General Public License version 2 as          ##
-## published by the Free Software Foundation; version 2.                   ##
+## published by the Free Software Foundation.                              ##
 ##                                                                         ##
 ## This program is distributed in the hope that it will be useful, but     ##
 ## WITHOUT ANY WARRANTY; without even the implied warranty of              ##
@@ -19,8 +19,18 @@
 ##                                                                         ##
 #############################################################################
 
-from scapy import *
-import __builtin__
+
+from scapy.layers.l2 import *
+from scapy.layers.inet import *
+from scapy.layers.dns import *
+from scapy.fields import *
+from scapy.packet import *
+from scapy.volatile import *
+from scapy.config import conf
+from scapy.sendrecv import sr,sr1,srp1
+from scapy.as_resolvers import AS_resolver_riswhois
+from scapy.supersocket import SuperSocket,L3RawSocket
+from scapy.arch import *
 
 
 #############################################################################
@@ -28,7 +38,7 @@ import __builtin__
 #############################################################################
 
 def get_cls(name, fallback_cls):
-    return __builtin__.__dict__.get(name, fallback_cls)
+    return globals().get(name, fallback_cls)
 
 
 #############################################################################
@@ -42,10 +52,6 @@ NETBSD = sys.platform.startswith("netbsd")
 DARWIN=sys.platform.startswith("darwin")
 WINDOWS = sys.platform.startswith("win")
 
-if OPENBSD or FREEBSD or NETBSD or DARWIN:
-        loname = "lo0"
-else:
-        loname = "lo"
 
 # From net/ipv6.h on Linux (+ Additions)
 IPV6_ADDR_UNICAST     = 0x01
@@ -90,7 +96,7 @@ def construct_source_candidate_set(addr, plen, laddr):
         cset = filter(lambda x: x[1] == IPV6_ADDR_SITELOCAL, laddr)
     elif in6_ismaddr(addr):
         if in6_ismnladdr(addr):
-            cset = [('::1', 16, loname)]
+            cset = [('::1', 16, LOOPBACK_NAME)]
         elif in6_ismgladdr(addr):
             cset = filter(lambda x: x[1] == IPV6_ADDR_GLOBAL, laddr)
         elif in6_ismlladdr(addr):
@@ -321,7 +327,7 @@ class Route6:
                 
         if not pathes:
             warning("No route found for IPv6 destination %s (no default route?)" % dst)
-            return (loname, "::", "::") # XXX Linux specific
+            return (LOOPBACK_NAME, "::", "::") # XXX Linux specific
 
         pathes.sort()
         pathes.reverse()
@@ -341,7 +347,7 @@ class Route6:
         #  - dst is unicast global. Check if it is 6to4 and we have a source 
         #    6to4 address in those available
         #  - dst is link local (unicast or multicast) and multiple output
-        #    interfaces are available. Take main one (conf.iface)
+        #    interfaces are available. Take main one (conf.iface6)
         #  - if none of the previous or ambiguity persists, be lazy and keep
         #    first one
         #  XXX TODO : in a _near_ future, include metric in the game
@@ -354,7 +360,7 @@ class Route6:
                 tmp = filter(lambda x: in6_isaddr6to4(x[1][1]), res)
             elif in6_ismaddr(dst) or in6_islladdr(dst):
                 # TODO : I'm sure we are not covering all addresses. Check that
-                tmp = filter(lambda x: x[1][0] == conf.iface, res)
+                tmp = filter(lambda x: x[1][0] == conf.iface6, res)
 
             if tmp:
                 res = tmp
@@ -441,7 +447,7 @@ if LINUX:
             nh = proc2r(nh)
 
             cset = [] # candidate set (possible source addresses)
-            if dev == loname:
+            if dev == LOOPBACK_NAME:
                 if d == '::':
                     continue
                 cset = ['::1']
@@ -468,7 +474,7 @@ elif WINDOWS:
         # Just some dummy values for now
         xx = "::1"
         scope = 128
-        ifname = loname
+        ifname = LOOPBACK_NAME
         ret.append(xx, scope, ifname)
         return ret
 
@@ -478,7 +484,7 @@ elif WINDOWS:
         d = '::'
         dp = 0
         nh = '::'
-        dev = loname
+        dev = LOOPBACK_NAME
         cset = ['::1']
         routes.append((d, dp, nh, dev, cset))
         return routes
@@ -550,7 +556,7 @@ else:
                 d,dev = d.split('%')
             if '%' in nh:
                 nh,dev = nh.split('%')
-            if loname in dev:
+            if LOOPBACK_NAME in dev:
                 cset = ['::1']
                 nh = '::'
             else:
@@ -603,7 +609,7 @@ class neighborCache:
     #       fork is done and the updated cache returned at the end.
     
     def __init__(self):
-        self.neighcache = arp_cache
+        self.neighcache = {}
 
     def flush(self, statictoo=True):
         self.neighcache = {}
@@ -685,9 +691,9 @@ class neighborCache:
             mac = in6_getnsmac(inet_pton(socket.AF_INET6, ip6))
             return mac
     
-        iff,a,nh = conf.route6.route(ip6, dev=conf.iface)
+        iff,a,nh = conf.route6.route(ip6, dev=conf.iface6)
 
-        if iff == loname:
+        if iff == LOOPBACK_NAME:
             return "ff:ff:ff:ff:ff:ff"
 
         if nh != '::': 
@@ -1024,7 +1030,7 @@ def in6_getLocalUniquePrefix():
     j = int((tod - i)*(2**32))
     tod = struct.pack("!II", i,j)
     # TODO: Add some check regarding system address gathering
-    rawmac = get_if_raw_hwaddr(conf.iface)[1]
+    rawmac = get_if_raw_hwaddr(conf.iface6)[1]
     mac = ":".join(map(lambda x: "%.02x" % ord(x), list(rawmac)))
     # construct modified EUI-64 ID
     eui64 = inet_pton(socket.AF_INET6, '::' + in6_mactoifaceid(mac))[8:] 
@@ -1564,6 +1570,13 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
                     ByteField("hlim", 64),
                     SourceIP6Field("src", "dst"), # dst is for src @ selection
                     IP6Field("dst", "::1") ]
+
+    def route(self):
+        dst = self.dst
+        if isinstance(dst,Gen):
+            dst = iter(dst).next()
+        return conf.route6.route(dst)
+
     def mysummary(self):
         return "%s > %s (%i)" % (self.src,self.dst, self.nh)
 
@@ -1673,8 +1686,9 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
                 return False
             return self.payload.answers(other.payload)
 
-import scapy 
-scapy.IPv6 = IPv6
+
+conf.neighbor.register_l3(Ether, IPv6, lambda l2,l3: getmacbyip6(l3.dst))
+
 
 class IPerror6(IPv6):
     name = "IPv6 in ICMPv6"
@@ -1832,8 +1846,6 @@ def in6_chksum(nh, u, p):
 class _IPv6ExtHdr(_IPv6GuessPayload, Packet):
     name = 'Abstract IPV6 Option Header'
     aliastypes = [IPv6, IPerror6] # TODO ...
-
-scapy._IPv6OptionHeader = _IPv6ExtHdr
 
 
 #################### IPv6 options for Extension Headers #####################
@@ -4695,7 +4707,7 @@ class DHCPv6_am(AnsweringMachine):
     def usage(self):
         msg = """
 dhcp6d( dns="2001:500::1035", domain="localdomain, local", duid=None)
-        iface=conf.iface, advpref=255, sntpservers=None, 
+        iface=conf.iface6, advpref=255, sntpservers=None, 
         sipdomains=None, sipservers=None, 
         nisdomain=None, nisservers=None, 
         nispdomain=None, nispservers=None,
@@ -4709,7 +4721,7 @@ dhcp6d( dns="2001:500::1035", domain="localdomain, local", duid=None)
             answering machine. 
   
    iface : the interface to listen/reply on if you do not want to use 
-           conf.iface.
+           conf.iface6.
 
    advpref : Value in [0,255] given to Advertise preference field.
              By default, 255 is used. Be aware that this specific
@@ -4763,7 +4775,7 @@ dhcp6d( dns="2001:500::1035", domain="localdomain, local", duid=None)
                       sntpservers=None, sipdomains=None, sipservers=None, 
                       nisdomain=None, nisservers=None, nispdomain=None,
                       nispservers=None, bcmcsservers=None, bcmcsdomains=None,
-                      iface=conf.iface, debug=0, advpref=255):
+                      iface=None, debug=0, advpref=255):
         def norm_list(val, param_name):
             if val is None:
                 return None
@@ -4777,6 +4789,9 @@ dhcp6d( dns="2001:500::1035", domain="localdomain, local", duid=None)
                 self.usage()
                 return -1
 
+        if iface is None:
+            iface = conf.iface6
+        
         self.debug = debug
 
         # Dictionary of provided DHCPv6 options, keyed by option type
@@ -5930,9 +5945,8 @@ class _IPv6inIP(SuperSocket):
 #############################################################################
 #############################################################################
 
-L3Types[ETH_P_IPV6] =  IPv6
-LLTypes[31] = IPv6
-LLNumTypes[IPv6] = 31
+conf.l3types.register(ETH_P_IPV6, IPv6)
+conf.l2types.register(31, IPv6)
 
 bind_layers(Ether,     IPv6,     type = 0x86dd )
 bind_layers(IPerror6,  TCPerror, nh = socket.IPPROTO_TCP )
@@ -5948,7 +5962,7 @@ bind_layers(IPv6,      IPv6,     nh = socket.IPPROTO_IPV6 )
 
 def get_working_if6():
     """
-    try to guess the best interface for conf.iface by looking for the 
+    try to guess the best interface for conf.iface6 by looking for the 
     one used by default route if any.
     """
     res = conf.route6.route("::/0")
@@ -5958,7 +5972,7 @@ def get_working_if6():
     return get_working_if()
 
 conf.route6 = Route6()
-conf.iface = get_working_if6()
+conf.iface6 = get_working_if6()
 
 if __name__ == '__main__':
     interact(mydict=globals(), mybanner="IPv6 enabled")

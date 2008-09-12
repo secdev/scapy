@@ -277,7 +277,7 @@ class TCP(Packet):
                                      ln)
                 ck=checksum(psdhdr+p)
                 p = p[:16]+struct.pack("!H", ck)+p[18:]
-            elif isinstance(self.underlayer, IPv6) or isinstance(self.underlayer, _IPv6OptionHeader):
+            elif isinstance(self.underlayer, inet6.IPv6) or isinstance(self.underlayer, inet6._IPv6ExtHdr):
                 ck = in6_chksum(socket.IPPROTO_TCP, self.underlayer, p)
                 p = p[:16]+struct.pack("!H", ck)+p[18:]
             else:
@@ -301,7 +301,7 @@ class TCP(Packet):
     def mysummary(self):
         if isinstance(self.underlayer, IP):
             return self.underlayer.sprintf("TCP %IP.src%:%TCP.sport% > %IP.dst%:%TCP.dport% %TCP.flags%")
-        elif isinstance(self.underlayer, IPv6):
+        elif isinstance(self.underlayer, inet6.IPv6):
             return self.underlayer.sprintf("TCP %IPv6.src%:%TCP.sport% > %IPv6.dst%:%TCP.dport% %TCP.flags%")
         else:
             return self.sprintf("TCP %TCP.sport% > %TCP.dport% %TCP.flags%")
@@ -331,7 +331,7 @@ class UDP(Packet):
                                      ln)
                 ck=checksum(psdhdr+p)
                 p = p[:6]+struct.pack("!H", ck)+p[8:]
-            elif isinstance(self.underlayer, IPv6) or isinstance(self.underlayer, _IPv6OptionHeader):
+            elif isinstance(self.underlayer, inet6.IPv6) or isinstance(self.underlayer, inet6._IPv6ExtHdr):
                 ck = in6_chksum(socket.IPPROTO_UDP, self.underlayer, p)
                 p = p[:6]+struct.pack("!H", ck)+p[8:]
             else:
@@ -352,7 +352,7 @@ class UDP(Packet):
     def mysummary(self):
         if isinstance(self.underlayer, IP):
             return self.underlayer.sprintf("UDP %IP.src%:%UDP.sport% > %IP.dst%:%UDP.dport%")
-        elif isinstance(self.underlayer, IPv6):
+        elif isinstance(self.underlayer, inet6.IPv6):
             return self.underlayer.sprintf("UDP %IPv6.src%:%UDP.sport% > %IPv6.dst%:%UDP.dport%")
         else:
             return self.sprintf("UDP %UDP.sport% > %UDP.dport%")    
@@ -925,8 +925,8 @@ class TracerouteResult(SndRcvList):
         ports = {}
         ports_done = {}
         for s,r in self.res:
-            r = r[IP] or r[IPv6] or r
-            s = s[IP] or s[IPv6] or s
+            r = r[IP] or r[inet6.IPv6] or r
+            s = s[IP] or s[inet6.IPv6] or s
             ips[r.src] = None
             if TCP in s:
                 trace_id = (s.src,s.dst,6,s.dport)
@@ -937,8 +937,8 @@ class TracerouteResult(SndRcvList):
             else:
                 trace_id = (s.src,s.dst,s.proto,0)
             trace = rt.get(trace_id,{})
-            ttl = IPv6 in s and s.hlim or s.ttl
-            if not (ICMP in r and r[ICMP].type == 11) and not (IPv6 in r and ICMPv6TimeExceeded in r):
+            ttl = inet6.IPv6 in s and s.hlim or s.ttl
+            if not (ICMP in r and r[ICMP].type == 11) and not (inet6.IPv6 in r and ICMPv6TimeExceeded in r):
                 if trace_id in ports_done:
                     continue
                 ports_done[trace_id] = None
@@ -1221,3 +1221,5 @@ def fragleak2(target, timeout=0.4, onlyasc=0):
 
 conf.stats_classic_protocols += [TCP,UDP,ICMP]
 conf.stats_dot11_protocols += [TCP,UDP,ICMP]
+
+from scapy.layers import inet6
