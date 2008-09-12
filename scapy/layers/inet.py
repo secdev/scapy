@@ -6,6 +6,7 @@
 import os,time,struct,re,socket,new
 from select import select
 
+from scapy.utils import checksum
 from scapy.layers.l2 import *
 from scapy.fields import *
 from scapy.packet import *
@@ -278,7 +279,7 @@ class TCP(Packet):
                 ck=checksum(psdhdr+p)
                 p = p[:16]+struct.pack("!H", ck)+p[18:]
             elif isinstance(self.underlayer, inet6.IPv6) or isinstance(self.underlayer, inet6._IPv6ExtHdr):
-                ck = in6_chksum(socket.IPPROTO_TCP, self.underlayer, p)
+                ck = inet6.in6_chksum(socket.IPPROTO_TCP, self.underlayer, p)
                 p = p[:16]+struct.pack("!H", ck)+p[18:]
             else:
                 warning("No IP underlayer to compute checksum. Leaving null.")
@@ -332,7 +333,7 @@ class UDP(Packet):
                 ck=checksum(psdhdr+p)
                 p = p[:6]+struct.pack("!H", ck)+p[8:]
             elif isinstance(self.underlayer, inet6.IPv6) or isinstance(self.underlayer, inet6._IPv6ExtHdr):
-                ck = in6_chksum(socket.IPPROTO_UDP, self.underlayer, p)
+                ck = inet6.in6_chksum(socket.IPPROTO_UDP, self.underlayer, p)
                 p = p[:6]+struct.pack("!H", ck)+p[8:]
             else:
                 warning("No IP underlayer to compute checksum. Leaving null.")
