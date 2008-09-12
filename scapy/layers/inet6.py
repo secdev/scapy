@@ -43,9 +43,9 @@ DARWIN=sys.platform.startswith("darwin")
 WINDOWS = sys.platform.startswith("win")
 
 if OPENBSD or FREEBSD or NETBSD or DARWIN:
-	loname = "lo0"
+        loname = "lo0"
 else:
-	loname = "lo"
+        loname = "lo"
 
 # From net/ipv6.h on Linux (+ Additions)
 IPV6_ADDR_UNICAST     = 0x01
@@ -83,22 +83,22 @@ def construct_source_candidate_set(addr, plen, laddr):
 
     cset = []
     if in6_isgladdr(addr):
-	cset = filter(lambda x: x[1] == IPV6_ADDR_GLOBAL, laddr)
+        cset = filter(lambda x: x[1] == IPV6_ADDR_GLOBAL, laddr)
     elif in6_islladdr(addr):
-	cset = filter(lambda x: x[1] == IPV6_ADDR_LINKLOCAL, laddr)
+        cset = filter(lambda x: x[1] == IPV6_ADDR_LINKLOCAL, laddr)
     elif in6_issladdr(addr):
-	cset = filter(lambda x: x[1] == IPV6_ADDR_SITELOCAL, laddr)
+        cset = filter(lambda x: x[1] == IPV6_ADDR_SITELOCAL, laddr)
     elif in6_ismaddr(addr):
-	if in6_ismnladdr(addr):
-	    cset = [('::1', 16, loname)]
-	elif in6_ismgladdr(addr):
-	    cset = filter(lambda x: x[1] == IPV6_ADDR_GLOBAL, laddr)
-	elif in6_ismlladdr(addr):
-	    cset = filter(lambda x: x[1] == IPV6_ADDR_LINKLOCAL, laddr)
-	elif in6_ismsladdr(addr):
-	    cset = filter(lambda x: x[1] == IPV6_ADDR_SITELOCAL, laddr)
+        if in6_ismnladdr(addr):
+            cset = [('::1', 16, loname)]
+        elif in6_ismgladdr(addr):
+            cset = filter(lambda x: x[1] == IPV6_ADDR_GLOBAL, laddr)
+        elif in6_ismlladdr(addr):
+            cset = filter(lambda x: x[1] == IPV6_ADDR_LINKLOCAL, laddr)
+        elif in6_ismsladdr(addr):
+            cset = filter(lambda x: x[1] == IPV6_ADDR_SITELOCAL, laddr)
     elif addr == '::' and plen == 0:
-	cset = filter(lambda x: x[1] == IPV6_ADDR_GLOBAL, laddr)
+        cset = filter(lambda x: x[1] == IPV6_ADDR_GLOBAL, laddr)
     cset = map(lambda x: x[0], cset)
     return cset            
 
@@ -115,13 +115,13 @@ def get_source_addr_from_candidate_set(dst, candidate_set):
     """
     
     if len(candidate_set) == 0:
-	# Should not happen
-	return None
+        # Should not happen
+        return None
     
     if in6_isaddr6to4(dst):
-	tmp = filter(lambda x: in6_isaddr6to4(x), candidate_set)
-	if len(tmp) != 0:
-	    return tmp[0]
+        tmp = filter(lambda x: in6_isaddr6to4(x), candidate_set)
+        if len(tmp) != 0:
+            return tmp[0]
 
     return candidate_set[0]
 
@@ -142,15 +142,15 @@ class Route6:
         # TODO : At the moment, resync will drop existing Teredo routes
         #        if any. Change that ...
         self.invalidate_cache()
-	self.routes = read_routes6()
-	if self.routes == []:
-	     log_loading.info("No IPv6 support in kernel")
+        self.routes = read_routes6()
+        if self.routes == []:
+             log_loading.info("No IPv6 support in kernel")
         
     def __repr__(self):
         rtlst = [('Destination', 'Next Hop', "iface", "src candidates")]
 
         for net,msk,gw,iface,cset in self.routes:
-	    rtlst.append(('%s/%i'% (net,msk), gw, iface, ", ".join(cset)))
+            rtlst.append(('%s/%i'% (net,msk), gw, iface, ", ".join(cset)))
 
         colwidth = map(lambda x: max(map(lambda y: len(y), x)), apply(zip, rtlst))
         fmt = "  ".join(map(lambda x: "%%-%ds"%x, colwidth))
@@ -392,43 +392,43 @@ if LINUX:
         the system.
         """
         ret = []
-	try:
-	    f = open("/proc/net/if_inet6","r")
-	except IOError, err:    
-	    return ret
-	l = f.readlines()
-	for i in l:
-	    # addr, index, plen, scope, flags, ifname
-	    tmp = i.split()
-	    addr = struct.unpack('4s4s4s4s4s4s4s4s', tmp[0])
-	    addr = in6_ptop(':'.join(addr))
-	    ret.append((addr, int(tmp[3], 16), tmp[5])) # (addr, scope, iface)
-       	return ret
+        try:
+            f = open("/proc/net/if_inet6","r")
+        except IOError, err:    
+            return ret
+        l = f.readlines()
+        for i in l:
+            # addr, index, plen, scope, flags, ifname
+            tmp = i.split()
+            addr = struct.unpack('4s4s4s4s4s4s4s4s', tmp[0])
+            addr = in6_ptop(':'.join(addr))
+            ret.append((addr, int(tmp[3], 16), tmp[5])) # (addr, scope, iface)
+        return ret
 
     def read_routes6():
-	try:
-	    f = open("/proc/net/ipv6_route","r")
-	except IOError, err:
-	    return []
-	# 1. destination network
-	# 2. destination prefix length
-	# 3. source network displayed
-	# 4. source prefix length
+        try:
+            f = open("/proc/net/ipv6_route","r")
+        except IOError, err:
+            return []
+        # 1. destination network
+        # 2. destination prefix length
+        # 3. source network displayed
+        # 4. source prefix length
         # 5. next hop
-	# 6. metric
-	# 7. reference counter (?!?)
-	# 8. use counter (?!?)
-	# 9. flags
-	# 10. device name
+        # 6. metric
+        # 7. reference counter (?!?)
+        # 8. use counter (?!?)
+        # 9. flags
+        # 10. device name
         routes = []
-	def proc2r(p):
-   	    ret = struct.unpack('4s4s4s4s4s4s4s4s', p)
-	    ret = ':'.join(ret)
-	    return in6_ptop(ret)
+        def proc2r(p):
+            ret = struct.unpack('4s4s4s4s4s4s4s4s', p)
+            ret = ':'.join(ret)
+            return in6_ptop(ret)
         
-	lifaddr = in6_getifaddr() 
+        lifaddr = in6_getifaddr() 
         for l in f.readlines():
-	    d,dp,s,sp,nh,m,rc,us,fl,dev = l.split()
+            d,dp,s,sp,nh,m,rc,us,fl,dev = l.split()
             fl = int(fl, 16)
 
             if fl & RTF_UP == 0:
@@ -436,23 +436,23 @@ if LINUX:
             if fl & RTF_REJECT:
                 continue
 
-	    d = proc2r(d) ; dp = int(dp, 16)
-	    s = proc2r(s) ; sp = int(sp, 16)
-	    nh = proc2r(nh)
+            d = proc2r(d) ; dp = int(dp, 16)
+            s = proc2r(s) ; sp = int(sp, 16)
+            nh = proc2r(nh)
 
             cset = [] # candidate set (possible source addresses)
-	    if dev == loname:
-		if d == '::':
-		    continue
-		cset = ['::1']
-	    else:
+            if dev == loname:
+                if d == '::':
+                    continue
+                cset = ['::1']
+            else:
                 devaddrs = filter(lambda x: x[2] == dev, lifaddr)
-		cset = construct_source_candidate_set(d, dp, devaddrs)
-	    
+                cset = construct_source_candidate_set(d, dp, devaddrs)
+            
             if len(cset) != 0:
-		routes.append((d, dp, nh, dev, cset))
-	f.close()
-	return routes	
+                routes.append((d, dp, nh, dev, cset))
+        f.close()
+        return routes   
 
 elif WINDOWS:
     def in6_getifaddr():
@@ -495,22 +495,22 @@ else:
         """
 
         ret = []
-	i = dnet.intf()
+        i = dnet.intf()
         for int in i:
-	    ifname = int['name']
+            ifname = int['name']
             v6 = []
-	    if int.has_key('alias_addrs'):
-		v6 = int['alias_addrs']
-	    for a in v6:
-		if a.type != dnet.ADDR_TYPE_IP6:
-		    continue
+            if int.has_key('alias_addrs'):
+                v6 = int['alias_addrs']
+            for a in v6:
+                if a.type != dnet.ADDR_TYPE_IP6:
+                    continue
 
-		xx = str(a).split('/')[0]
-		addr = in6_ptop(xx)
+                xx = str(a).split('/')[0]
+                addr = in6_ptop(xx)
 
-		scope = in6_getscope(addr)
+                scope = in6_getscope(addr)
 
-		ret.append((xx, scope, ifname))
+                ret.append((xx, scope, ifname))
         return ret
 
     def read_routes6():
@@ -525,40 +525,40 @@ else:
             if ok < 0:
                 ok = l.find('Destination')
                 continue
-            # gv 12/12/06: under debugging	
-	    if NETBSD or OPENBSD:
-	        d,nh,fl,_,_,_,dev = l.split()[:7]
-	    else:	# FREEBSD or DARWIN 
+            # gv 12/12/06: under debugging      
+            if NETBSD or OPENBSD:
+                d,nh,fl,_,_,_,dev = l.split()[:7]
+            else:       # FREEBSD or DARWIN 
                 d,nh,fl,dev = l.split()[:4]
-	    if filter(lambda x: x[2] == dev, lifaddr) == []:
-	        continue
+            if filter(lambda x: x[2] == dev, lifaddr) == []:
+                continue
             if 'L' in fl: # drop MAC addresses
                 continue
 
             if 'link' in nh:
-	     	nh = '::'
+                nh = '::'
 
-	    cset = [] # candidate set (possible source addresses)
-	    dp = 128
-	    if d == 'default':
-		d = '::'
-		dp = 0
-	    if '/' in d:
-		d,dp = d.split("/")
-		dp = int(dp)
-	    if '%' in d:
-		d,dev = d.split('%')
-	    if '%' in nh:
-		nh,dev = nh.split('%')
-	    if loname in dev:
-		cset = ['::1']
-		nh = '::'
+            cset = [] # candidate set (possible source addresses)
+            dp = 128
+            if d == 'default':
+                d = '::'
+                dp = 0
+            if '/' in d:
+                d,dp = d.split("/")
+                dp = int(dp)
+            if '%' in d:
+                d,dev = d.split('%')
+            if '%' in nh:
+                nh,dev = nh.split('%')
+            if loname in dev:
+                cset = ['::1']
+                nh = '::'
             else:
-		devaddrs = filter(lambda x: x[2] == dev, lifaddr)
-		cset = construct_source_candidate_set(d, dp, devaddrs)
+                devaddrs = filter(lambda x: x[2] == dev, lifaddr)
+                cset = construct_source_candidate_set(d, dp, devaddrs)
 
             if len(cset) != 0:
-		routes.append((d, dp, nh, dev, cset))
+                routes.append((d, dp, nh, dev, cset))
 
         f.close()
         return routes
@@ -740,13 +740,13 @@ class Net6(Gen): # syntax ex. fec0::/126
             tmp[0]=socket.getaddrinfo(tmp[0], None, socket.AF_INET6)[0][-1][0]
 
         netmask = int(tmp[1])
-	self.net = inet_pton(socket.AF_INET6, tmp[0])
+        self.net = inet_pton(socket.AF_INET6, tmp[0])
         self.mask = in6_cidr2mask(netmask)
-	self.plen = netmask
+        self.plen = netmask
 
     def __iter__(self):
         def m8(i):
-	    if i % 8 == 0:
+            if i % 8 == 0:
                 return i
         tuple = filter(lambda x: m8(x), xrange(8, 129))
 
@@ -760,18 +760,18 @@ class Net6(Gen): # syntax ex. fec0::/126
         self.parsed = map(lambda x,y: parse_digit(x,y), tmp, map(lambda x,nm=self.plen: x-nm, tuple))
 
         def rec(n, l): 
-	    if n and  n % 2 == 0:
-		sep = ':'
-	    else:	
+            if n and  n % 2 == 0:
+                sep = ':'
+            else:       
                 sep = ''
             if n == 16:
-		return l
+                return l
             else:
-	        ll = []
-		for i in xrange(*self.parsed[n]):
-		    for y in l:
-		        ll += [y+sep+'%.2x'%i]
-		return rec(n+1, ll)
+                ll = []
+                for i in xrange(*self.parsed[n]):
+                    for y in l:
+                        ll += [y+sep+'%.2x'%i]
+                return rec(n+1, ll)
 
         return iter(rec(0, ['']))
 
@@ -817,37 +817,37 @@ def find_ifaddr2(addr, plen, laddr):
     dstAddrType = in6_getAddrType(addr)
     
     if dstAddrType == IPV6_ADDR_UNSPECIFIED: # Shouldn't happen as dst addr
-	return None
+        return None
 
     if dstAddrType == IPV6_ADDR_LOOPBACK: 
-	return None
+        return None
 
     tmp = [[]] + map(lambda (x,y,z): (in6_getAddrType(x), x, y, z), laddr)
     def filterSameScope(l, t):
-	if (t[0] & dstAddrType & IPV6_ADDR_SCOPE_MASK) == 0:
-	    l.append(t)
-	return l
+        if (t[0] & dstAddrType & IPV6_ADDR_SCOPE_MASK) == 0:
+            l.append(t)
+        return l
     sameScope = reduce(filterSameScope, tmp)
     
     l =  len(sameScope) 
     if l == 1:  # Only one address for our scope
-	return sameScope[0][1]
+        return sameScope[0][1]
 
     elif l > 1: # Muliple addresses for our scope
-	stfAddr = filter(lambda x: x[0] & IPV6_ADDR_6TO4, sameScope)
-	nativeAddr = filter(lambda x: not (x[0] & IPV6_ADDR_6TO4), sameScope)
+        stfAddr = filter(lambda x: x[0] & IPV6_ADDR_6TO4, sameScope)
+        nativeAddr = filter(lambda x: not (x[0] & IPV6_ADDR_6TO4), sameScope)
 
-	if not (dstAddrType & IPV6_ADDR_6TO4): # destination is not 6to4
-	   if len(nativeAddr) != 0:
-	       return nativeAddr[0][1]
-	   return stfAddr[0][1]
+        if not (dstAddrType & IPV6_ADDR_6TO4): # destination is not 6to4
+           if len(nativeAddr) != 0:
+               return nativeAddr[0][1]
+           return stfAddr[0][1]
 
-	else:  # Destination is 6to4, try to use source 6to4 addr if any
-	    if len(stfAddr) != 0:
-		return stfAddr[0][1]
-	    return nativeAddr[0][1]
+        else:  # Destination is 6to4, try to use source 6to4 addr if any
+            if len(stfAddr) != 0:
+                return stfAddr[0][1]
+            return nativeAddr[0][1]
     else:
-	return None
+        return None
 
 
 def in6_mactoifaceid(mac, ulbit=None):
@@ -1170,15 +1170,15 @@ def in6_isanycast(x): # RFC 2526
     if in6_iseui64(x):
         s = '::fdff:ffff:ffff:ff80'
         x = in6_and(x, inet_pton(socket.AF_INET6, '::ffff:ffff:ffff:ff80'))
-	x = in6_and(x, inet_pton(socket.AF_INET6, s)) 
+        x = in6_and(x, inet_pton(socket.AF_INET6, s)) 
         return x == inet_pton(socket.AF_INET6, s)
     else:
-	# not EUI-64 
-	#|              n bits             |    121-n bits    |   7 bits   |
-	#+---------------------------------+------------------+------------+
-	#|           subnet prefix         | 1111111...111111 | anycast ID |
-	#+---------------------------------+------------------+------------+
-	#                                  |   interface identifier field  |
+        # not EUI-64 
+        #|              n bits             |    121-n bits    |   7 bits   |
+        #+---------------------------------+------------------+------------+
+        #|           subnet prefix         | 1111111...111111 | anycast ID |
+        #+---------------------------------+------------------+------------+
+        #                                  |   interface identifier field  |
         warning('in6_isanycast(): TODO not EUI-64')
         return 0
 
@@ -1188,7 +1188,7 @@ def _in6_bitops(a1, a2, operator=0):
     fop = [ lambda x,y: x | y,
             lambda x,y: x & y,
             lambda x,y: x ^ y
-	  ]  
+          ]  
     ret = map(fop[operator%len(fop)], a1, a2)
     t = ''.join(map(lambda x: struct.pack('I', x), ret))
     return t
@@ -1383,17 +1383,17 @@ def in6_getscope(addr):
     Returns the scope of the address.
     """
     if in6_isgladdr(addr):
-	scope = IPV6_ADDR_GLOBAL
+        scope = IPV6_ADDR_GLOBAL
     elif in6_islladdr(addr):
-	scope = IPV6_ADDR_LINKLOCAL
+        scope = IPV6_ADDR_LINKLOCAL
     elif in6_issladdr(addr):
-	scope = IPV6_ADDR_SITELOCAL
+        scope = IPV6_ADDR_SITELOCAL
     elif in6_ismaddr(addr):
-	scope = IPV6_ADDR_MULTICAST
+        scope = IPV6_ADDR_MULTICAST
     elif addr == '::1':
-	scope = IPV6_ADDR_LOOPBACK
+        scope = IPV6_ADDR_LOOPBACK
     else:
-	scope = -1
+        scope = -1
     return scope
 
 #############################################################################
@@ -1408,7 +1408,7 @@ class IP6Field(Field):
     def h2i(self, pkt, x):
         if type(x) is str:
             try:
-		x = in6_ptop(x)
+                x = in6_ptop(x)
             except socket.error:
                 x = Net6(x)
         elif type(x) is list:
@@ -1422,15 +1422,15 @@ class IP6Field(Field):
         return self.h2i(pkt,x)
     def i2repr(self, pkt, x):
         if x is None:
-	    return self.i2h(pkt,x)
-	elif not isinstance(x, Net6) and not type(x) is list:
-	    if in6_isaddrTeredo(x):   # print Teredo info
-		server, flag, maddr, mport = teredoAddrExtractInfo(x)     
-		return "%s [Teredo srv: %s cli: %s:%s]" % (self.i2h(pkt, x), server, maddr,mport)
-	    elif in6_isaddr6to4(x):   # print encapsulated address
+            return self.i2h(pkt,x)
+        elif not isinstance(x, Net6) and not type(x) is list:
+            if in6_isaddrTeredo(x):   # print Teredo info
+                server, flag, maddr, mport = teredoAddrExtractInfo(x)     
+                return "%s [Teredo srv: %s cli: %s:%s]" % (self.i2h(pkt, x), server, maddr,mport)
+            elif in6_isaddr6to4(x):   # print encapsulated address
                 vaddr = in6_6to4ExtractAddr(x)
-		return "%s [6to4 GW: %s]" % (self.i2h(pkt, x), vaddr)
-	return self.i2h(pkt, x)       # No specific information to return
+                return "%s [6to4 GW: %s]" % (self.i2h(pkt, x), vaddr)
+        return self.i2h(pkt, x)       # No specific information to return
 
 class SourceIP6Field(IP6Field):
     def __init__(self, name, dstname):
@@ -1453,7 +1453,7 @@ class SourceIP6Field(IP6Field):
                     warning("More than one possible route for %s"%repr(dst))
                     return None
             else:
-		iff,x,nh = conf.route6.route(dst)
+                iff,x,nh = conf.route6.route(dst)
         return IP6Field.i2h(self, pkt, x)
 
 ipv6nh = { 0:"Hop-by-Hop Option Header",
@@ -1479,7 +1479,7 @@ ipv6nhcls = {  0: "IPv6ExtHdrHopByHop",
                44: "IPv6ExtHdrFragment",
               #50: "IPv6ExtHrESP",
               #51: "IPv6ExtHdrAH",
-	       58: "ICMPv6Unknown", 
+               58: "ICMPv6Unknown", 
                59: "Raw",
                60: "IPv6ExtHdrDestOpt" }
 
@@ -1523,7 +1523,7 @@ class IP6ListField(StrField):
         return remain+ret,lst
 
     def i2m(self, pkt, x):
-	s = ''
+        s = ''
         for y in x:
             try:
                 y = inet_pton(socket.AF_INET6, y)
@@ -1531,17 +1531,17 @@ class IP6ListField(StrField):
                 y = socket.getaddrinfo(y, None, socket.AF_INET6)[0][-1][0]
                 y = inet_pton(socket.AF_INET6, y)
             s += y
-	return s
+        return s
 
     def i2repr(self,pkt,x):
         s = []
-	if x == None:
-	    return "[]"
-	for y in x:
-	    s.append('%s' % y)
+        if x == None:
+            return "[]"
+        for y in x:
+            s.append('%s' % y)
         return "[ %s ]" % (", ".join(s))
-	
-class _IPv6GuessPayload:	
+        
+class _IPv6GuessPayload:        
     name = "Dummy class that implements guess_payload_class() for IPv6"
     def default_payload_class(self,p):
         if self.nh == 58 and len(p) > 2:
@@ -1551,15 +1551,15 @@ class _IPv6GuessPayload:
             return get_cls(icmp6typescls.get(t,"Raw"), "Raw")
         elif self.nh == 135 and len(p) > 3:
             return _mip6_mhtype2cls.get(ord(p[2]), MIP6MH_Generic)
-	else:
-	    return get_cls(ipv6nhcls.get(self.nh,"Raw"), "Raw")
+        else:
+            return get_cls(ipv6nhcls.get(self.nh,"Raw"), "Raw")
 
 class IPv6(_IPv6GuessPayload, Packet, IPTools):
     name = "IPv6"
     fields_desc = [ BitField("version" , 6 , 4),
                     BitField("tc", 0, 8), #TODO: IPv6, ByteField ?
-		    BitField("fl", 0, 20),
-		    ShortField("plen", None),
+                    BitField("fl", 0, 20),
+                    ShortField("plen", None),
                     ByteEnumField("nh", 59, ipv6nh),
                     ByteField("hlim", 64),
                     SourceIP6Field("src", "dst"), # dst is for src @ selection
@@ -1568,7 +1568,7 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
         return "%s > %s (%i)" % (self.src,self.dst, self.nh)
 
     def post_build(self, p, pay):
-	p += pay
+        p += pay
         if self.plen is None:
             l = len(p) - 40
             p = p[:4]+struct.pack("!H", l)+p[6:]
@@ -1585,25 +1585,25 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
             elif (self.payload.type in [133,134,135,136,144,145]):
                 return struct.pack("B", self.nh)+self.payload.hashret()
 
-	nh = self.nh
-	sd = self.dst
-	ss = self.src
+        nh = self.nh
+        sd = self.dst
+        ss = self.src
         if self.nh == 43 and isinstance(self.payload, IPv6ExtHdrRouting):
-	    # With routing header, the destination is the last 
-	    # address of the IPv6 list if segleft > 0 
-	    nh = self.payload.nh
-	    try:
-	    	sd = self.addresses[-1]
-	    except IndexError:
-	    	sd = '::1'
-	    # TODO: big bug with ICMPv6 error messages as the destination of IPerror6
-	    #       could be anything from the original list ...
-	    if 1:
-		sd = inet_pton(socket.AF_INET6, sd)
-		for a in self.addresses:
-		    a = inet_pton(socket.AF_INET6, a)
-		    sd = strxor(sd, a)
-		sd = inet_ntop(socket.AF_INET6, sd)
+            # With routing header, the destination is the last 
+            # address of the IPv6 list if segleft > 0 
+            nh = self.payload.nh
+            try:
+                sd = self.addresses[-1]
+            except IndexError:
+                sd = '::1'
+            # TODO: big bug with ICMPv6 error messages as the destination of IPerror6
+            #       could be anything from the original list ...
+            if 1:
+                sd = inet_pton(socket.AF_INET6, sd)
+                for a in self.addresses:
+                    a = inet_pton(socket.AF_INET6, a)
+                    sd = strxor(sd, a)
+                sd = inet_ntop(socket.AF_INET6, sd)
 
         if self.nh == 44 and isinstance(self.payload, IPv6ExtHdrFragment):
             nh = self.payload.nh 
@@ -1635,7 +1635,7 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
             sd = inet_pton(socket.AF_INET6, self.dst)
             os = inet_pton(socket.AF_INET6, other.src)
             od = inet_pton(socket.AF_INET6, other.dst)
-	    # request was sent to a multicast address (other.dst)
+            # request was sent to a multicast address (other.dst)
             # Check reply destination addr matches request source addr (i.e 
             # sd == os) except when reply is multicasted too
             # XXX test mcast scope matching ?
@@ -1681,13 +1681,13 @@ class IPerror6(IPv6):
     def answers(self, other):
         if not isinstance(other, IPv6):
             return False
-	sd = inet_pton(socket.AF_INET6, self.dst)
-	ss = inet_pton(socket.AF_INET6, self.src)
-	od = inet_pton(socket.AF_INET6, other.dst)
-	os = inet_pton(socket.AF_INET6, other.src)
+        sd = inet_pton(socket.AF_INET6, self.dst)
+        ss = inet_pton(socket.AF_INET6, self.src)
+        od = inet_pton(socket.AF_INET6, other.dst)
+        os = inet_pton(socket.AF_INET6, other.src)
 
-	# Make sure that the ICMPv6 error is related to the packet scapy sent
-	if isinstance(self.underlayer, _ICMPv6) and self.underlayer.type < 128:
+        # Make sure that the ICMPv6 error is related to the packet scapy sent
+        if isinstance(self.underlayer, _ICMPv6) and self.underlayer.type < 128:
             
             # find upper layer for self (possible citation)
             selfup = self.payload
@@ -1702,7 +1702,7 @@ class IPerror6(IPv6):
                     request_has_rh = True
                 otherup = otherup.payload
 
-	    if ((ss == os and sd == od) or      # <- Basic case 
+            if ((ss == os and sd == od) or      # <- Basic case 
                 (ss == os and request_has_rh)): # <- Request has a RH : 
                                                 #    don't check dst address
             
@@ -1764,7 +1764,7 @@ class PseudoIPv6(Packet): # IPv6 Pseudo-header for checksum computation
     name = "Pseudo IPv6 Header"
     fields_desc = [ IP6Field("src", "::"),
                     IP6Field("dst", "::"),
-		    ShortField("uplen", None),
+                    ShortField("uplen", None),
                     BitField("zero", 0, 24),
                     ByteField("nh", 0) ]  
 
@@ -1796,26 +1796,26 @@ def in6_chksum(nh, u, p):
     hahdr = 0
     final_dest_addr_found = 0
     while u != None and not isinstance(u, IPv6):
-	if (isinstance(u, IPv6ExtHdrRouting) and
-	    u.segleft != 0 and len(u.addresses) != 0 and
+        if (isinstance(u, IPv6ExtHdrRouting) and
+            u.segleft != 0 and len(u.addresses) != 0 and
             final_dest_addr_found == 0):
-	    rthdr = u.addresses[-1]
+            rthdr = u.addresses[-1]
             final_dest_addr_found = 1
-	elif (isinstance(u, IPv6ExtHdrDestOpt) and (len(u.options) == 1) and
+        elif (isinstance(u, IPv6ExtHdrDestOpt) and (len(u.options) == 1) and
              isinstance(u.options[0], HAO)):
              hahdr  = u.options[0].hoa
-	u = u.underlayer
+        u = u.underlayer
     if u is None:  
-	warning("No IPv6 underlayer to compute checksum. Leaving null.")
-	return 0
-    if hahdr:	
-	ph6.src = hahdr
+        warning("No IPv6 underlayer to compute checksum. Leaving null.")
+        return 0
+    if hahdr:   
+        ph6.src = hahdr
     else:
         ph6.src = u.src
     if rthdr:
-	ph6.dst = rthdr
+        ph6.dst = rthdr
     else:
-	ph6.dst = u.dst
+        ph6.dst = u.dst
     ph6.uplen = len(p)
     ph6s = str(ph6)
     return checksum(ph6s+p)
@@ -2052,7 +2052,7 @@ class IPv6ExtHdrHopByHop(_IPv6ExtHdr):
                     FieldLenField("len", None, length_of="options", fmt="B",
                                   adjust = lambda pkt,x: (x+2+7)/8 - 1), 
                     _PhantomAutoPadField("autopad", 1), # autopad activated by default
-		    _HopByHopOptionsField("options", [], HBHOptUnknown, 2,
+                    _HopByHopOptionsField("options", [], HBHOptUnknown, 2,
                                           length_from = lambda pkt: (8*(pkt.len+1))-2) ]
     overload_fields = {IPv6: { "nh": 0 }}
 
@@ -2065,7 +2065,7 @@ class IPv6ExtHdrDestOpt(_IPv6ExtHdr):
                     FieldLenField("len", None, length_of="options", fmt="B",
                                   adjust = lambda pkt,x: (x+2+7)/8 - 1), 
                     _PhantomAutoPadField("autopad", 1), # autopad activated by default
-		    _HopByHopOptionsField("options", [], HBHOptUnknown, 2,
+                    _HopByHopOptionsField("options", [], HBHOptUnknown, 2,
                                           length_from = lambda pkt: (8*(pkt.len+1))-2) ]
     overload_fields = {IPv6: { "nh": 60 }}
 
@@ -2080,7 +2080,7 @@ class IPv6ExtHdrRouting(_IPv6ExtHdr):
                     ByteField("type", 0),
                     ByteField("segleft", None),
                     BitField("reserved", 0, 32), # There is meaning in this field ...
-		    IP6ListField("addresses", [],
+                    IP6ListField("addresses", [],
                                  length_from = lambda pkt: 8*pkt.len)]
     overload_fields = {IPv6: { "nh": 43 }}
 
@@ -2091,14 +2091,14 @@ class IPv6ExtHdrRouting(_IPv6ExtHdr):
 
 ########################### Fragmentation Header ############################
 
-class IPv6ExtHdrFragment(_IPv6ExtHdr):		  
+class IPv6ExtHdrFragment(_IPv6ExtHdr):            
     name = "IPv6 Extension Header - Fragmentation header"
     fields_desc = [ ByteEnumField("nh", 59, ipv6nh),
                     BitField("res1", 0, 8),
-		    BitField("offset", 0, 13),
-		    BitField("res2", 0, 2),
-		    BitField("m", 0, 1),
-		    IntField("id", None) ]
+                    BitField("offset", 0, 13),
+                    BitField("res2", 0, 2),
+                    BitField("m", 0, 1),
+                    IntField("id", None) ]
     overload_fields = {IPv6: { "nh": 44 }}
 
 
@@ -2307,45 +2307,45 @@ icmp6typescls = {    1: "ICMPv6DestUnreach",
                    141: "ICMPv6ND_INDSol",
                    142: "ICMPv6ND_INDAdv",
                   #143: Do Me - RFC 3810
-		   144: "ICMPv6HAADRequest", 
-		   145: "ICMPv6HAADReply",
-		   146: "ICMPv6MPSol",
-		   147: "ICMPv6MPAdv",
+                   144: "ICMPv6HAADRequest", 
+                   145: "ICMPv6HAADReply",
+                   146: "ICMPv6MPSol",
+                   147: "ICMPv6MPAdv",
                   #148: Do Me - SEND related - RFC 3971
                   #149: Do Me - SEND related - RFC 3971
                    151: "ICMPv6MRD_Advertisement",
                    152: "ICMPv6MRD_Solicitation",
                    153: "ICMPv6MRD_Termination",
-		   }
+                   }
 
 icmp6types = { 1 : "Destination unreachable",  
                2 : "Packet too big", 
-	       3 : "Time exceeded",
+               3 : "Time exceeded",
                4 : "Parameter problem",
              100 : "Private Experimentation",
              101 : "Private Experimentation",
              128 : "Echo Request",
              129 : "Echo Reply",
              130 : "MLD Query",
-	     131 : "MLD Report",
-	     132 : "MLD Done",
-	     133 : "Router Solicitation",
-	     134 : "Router Advertisement",
-	     135 : "Neighbor Solicitation",
-	     136 : "Neighbor Advertisement",
-	     137 : "Redirect Message",
-	     138 : "Router Renumbering",
-	     139 : "ICMP Node Information Query", 	 
-	     140 : "ICMP Node Information Response", 	 
-	     141 : "Inverse Neighbor Discovery Solicitation Message",
-	     142 : "Inverse Neighbor Discovery Advertisement Message",
-	     143 : "Version 2 Multicast Listener Report",
-	     144 : "Home Agent Address Discovery Request Message",
-	     145 : "Home Agent Address Discovery Reply Message",
-	     146 : "Mobile Prefix Solicitation",
-	     147 : "Mobile Prefix Advertisement",
-	     148 : "Certification Path Solicitation",
-	     149 : "Certification Path Advertisement",
+             131 : "MLD Report",
+             132 : "MLD Done",
+             133 : "Router Solicitation",
+             134 : "Router Advertisement",
+             135 : "Neighbor Solicitation",
+             136 : "Neighbor Advertisement",
+             137 : "Redirect Message",
+             138 : "Router Renumbering",
+             139 : "ICMP Node Information Query",        
+             140 : "ICMP Node Information Response",     
+             141 : "Inverse Neighbor Discovery Solicitation Message",
+             142 : "Inverse Neighbor Discovery Advertisement Message",
+             143 : "Version 2 Multicast Listener Report",
+             144 : "Home Agent Address Discovery Request Message",
+             145 : "Home Agent Address Discovery Reply Message",
+             146 : "Mobile Prefix Solicitation",
+             147 : "Mobile Prefix Advertisement",
+             148 : "Certification Path Solicitation",
+             149 : "Certification Path Advertisement",
              151 : "Multicast Router Advertisement",
              152 : "Multicast Router Solicitation",
              153 : "Multicast Router Termination",
@@ -2357,31 +2357,31 @@ class _ICMPv6(Packet):
     name = "ICMPv6 dummy class"
     overload_fields = {IPv6: {"nh": 58}}
     def post_build(self, p, pay):
-	p += pay
+        p += pay
         if self.cksum == None: 
-	    chksum = in6_chksum(58, self.underlayer, p)
-	    p = p[:2]+struct.pack("!H", chksum)+p[4:]
-	return p
+            chksum = in6_chksum(58, self.underlayer, p)
+            p = p[:2]+struct.pack("!H", chksum)+p[4:]
+        return p
 
     def hashret(self):
         return self.payload.hashret()
 
     def answers(self, other):
         # isinstance(self.underlayer, _IPv6ExtHdr) may introduce a bug ...
-	if (isinstance(self.underlayer, IPerror6) or
+        if (isinstance(self.underlayer, IPerror6) or
             isinstance(self.underlayer, _IPv6ExtHdr) and
             isinstance(other, _ICMPv6)):
-	    if not ((self.type == other.type) and
-		    (self.code == other.code)):
-		return 0
-	    return 1
-	return 0
+            if not ((self.type == other.type) and
+                    (self.code == other.code)):
+                return 0
+            return 1
+        return 0
 
 
 class _ICMPv6Error(_ICMPv6):
     name = "ICMPv6 errors dummy class"
     def guess_payload_class(self,p):
-	return IPerror6
+        return IPerror6
 
 class ICMPv6Unknown(_ICMPv6):
     name = "Scapy6 ICMPv6 fallback class"
@@ -2644,7 +2644,7 @@ class ICMPv6NDOptSrcLLAddr(_ICMPv6NDGuessPayload, Packet):
     fields_desc = [ ByteField("type", 1),
                     ByteField("len", 1),
                     MACField("lladdr", ETHER_ANY) ]
-    def mysummary(self):			
+    def mysummary(self):                        
         return self.sprintf("%name% %lladdr%")
 
 class ICMPv6NDOptDstLLAddr(ICMPv6NDOptSrcLLAddr):
@@ -2665,7 +2665,7 @@ class ICMPv6NDOptPrefixInfo(_ICMPv6NDGuessPayload, Packet):
                     XIntField("preferredlifetime",0xffffffffL),
                     XIntField("res2",0x00000000),
                     IP6Field("prefix","::") ]
-    def mysummary(self):			
+    def mysummary(self):                        
         return self.sprintf("%name% %prefix%")
 
 # TODO: We should also limit the size of included packet to something
@@ -2732,24 +2732,24 @@ class ICMPv6NDOptAdvInterval(_ICMPv6NDGuessPayload, Packet):
                     ByteField("len",1),
                     ShortField("res", 0),
                     IntField("advint", 0) ]
-    def mysummary(self):			
+    def mysummary(self):                        
         return self.sprintf("%name% %advint% milliseconds")
 
-class ICMPv6NDOptHAInfo(_ICMPv6NDGuessPayload, Packet):	
+class ICMPv6NDOptHAInfo(_ICMPv6NDGuessPayload, Packet): 
     name = "ICMPv6 Neighbor Discovery - Home Agent Information"
     fields_desc = [ ByteField("type",8),
                     ByteField("len",1),
                     ShortField("res", 0),
                     ShortField("pref", 0),
                     ShortField("lifetime", 1)]
-    def mysummary(self):			
+    def mysummary(self):                        
         return self.sprintf("%name% %pref% %lifetime% seconds")
 
 # type 9  : See ICMPv6NDOptSrcAddrList class below in IND (RFC 3122) support
 
 # type 10 : See ICMPv6NDOptTgtAddrList class below in IND (RFC 3122) support
 
-class ICMPv6NDOptIPAddr(_ICMPv6NDGuessPayload, Packet):	 # RFC 4068
+class ICMPv6NDOptIPAddr(_ICMPv6NDGuessPayload, Packet):  # RFC 4068
     name = "ICMPv6 Neighbor Discovery - IP Address Option (FH for MIPv6)"
     fields_desc = [ ByteField("type",17),
                     ByteField("len", 3),
@@ -2778,14 +2778,14 @@ _rfc4068_lla_optcode = {0: "Wildcard requesting resolution for all nearby AP",
                         6: "No preifx info available for AP identified by the LLA",
                         7: "No fast handovers support for AP identified by the LLA" }
 
-class ICMPv6NDOptLLA(_ICMPv6NDGuessPayload, Packet):	 # RFC 4068
+class ICMPv6NDOptLLA(_ICMPv6NDGuessPayload, Packet):     # RFC 4068
     name = "ICMPv6 Neighbor Discovery - Link-Layer Address (LLA) Option (FH for MIPv6)"
     fields_desc = [ ByteField("type", 19),
                     ByteField("len", 1),
                     ByteEnumField("optcode", 0, _rfc4068_lla_optcode),
                     MACField("lla", ETHER_ANY) ] # We only support ethernet
 
-class ICMPv6NDOptMAP(_ICMPv6NDGuessPayload, Packet):	 # RFC 4140
+class ICMPv6NDOptMAP(_ICMPv6NDGuessPayload, Packet):     # RFC 4140
     name = "ICMPv6 Neighbor Discovery - MAP Option"
     fields_desc = [ ByteField("type", 23),
                     ByteField("len", 3),
@@ -2920,7 +2920,7 @@ class ICMPv6ND_NA(ICMPv6ND_NS):
     O    = 1
 
     def answers(self, other):
-	return isinstance(other, ICMPv6ND_NS) and self.tgt == other.tgt
+        return isinstance(other, ICMPv6ND_NS) and self.tgt == other.tgt
 
 # associated possible options : target link-layer option, Redirected header
 class ICMPv6ND_Redirect(_ICMPv6NDGuessPayload, _ICMPv6, Packet):
@@ -3268,7 +3268,7 @@ class NIQueryCodeField(ByteEnumField):
 _niquery_code = {0: "IPv6 Query", 1: "Name Query", 2: "IPv4 Query"}
 
 #_niquery_flags = {  2: "All unicast addresses", 4: "IPv4 addresses",
-#  		     8: "Link-local addresses", 16: "Site-local addresses", 
+#                    8: "Link-local addresses", 16: "Site-local addresses", 
 #                   32: "Global addresses" }
 
 # "This NI type has no defined flags and never has a Data Field". Used
@@ -3279,9 +3279,9 @@ class ICMPv6NIQueryNOOP(_ICMPv6NIHashret, _ICMPv6):
                     NIQueryCodeField("code", None, _niquery_code),
                     XShortField("cksum", None),
                     ShortEnumField("qtype", 0, icmp6_niqtypes),
-		    BitField("unused", 0, 10),
+                    BitField("unused", 0, 10),
                     FlagsField("flags", 0, 6, "TACLSG"), 
-		    NonceField("nonce", None),
+                    NonceField("nonce", None),
                     NIQueryDataField("data", None) ]
 
 class ICMPv6NIQueryName(ICMPv6NIQueryNOOP): 
@@ -3446,9 +3446,9 @@ class ICMPv6NIReplyNOOP(_ICMPv6NIAnswers, _ICMPv6NIHashret, _ICMPv6):
                     ByteEnumField("code", 0, _nireply_code),
                     XShortField("cksum", None),
                     ShortEnumField("qtype", 0, icmp6_niqtypes),
-		    BitField("unused", 0, 10),
+                    BitField("unused", 0, 10),
                     FlagsField("flags", 0, 6, "TACLSG"), 
-		    NonceField("nonce", None),
+                    NonceField("nonce", None),
                     NIReplyDataField("data", None)]
 
 class ICMPv6NIReplyName(ICMPv6NIReplyNOOP): 
@@ -3511,24 +3511,24 @@ All_DHCP_Relay_Agents_and_Servers = "ff02::1:2"
 All_DHCP_Servers = "ff05::1:3"  # Site-Local scope : deprecated by 3879
 
 dhcp6opts = { 1: "CLIENTID",  
-	      2: "SERVERID",
-	      3: "IA_NA",
-	      4: "IA_TA",
-	      5: "IAADDR",
-	      6: "ORO",
-	      7: "PREFERENCE",
-	      8: "ELAPSED_TIME",
-	      9: "RELAY_MSG",
-	     11: "AUTH",
-	     12: "UNICAST",
-	     13: "STATUS_CODE",
-	     14: "RAPID_COMMIT",
-	     15: "USER_CLASS",
-	     16: "VENDOR_CLASS",
-	     17: "VENDOR_OPTS",
-	     18: "INTERFACE_ID",
-	     19: "RECONF_MSG",
-	     20: "RECONF_ACCEPT",
+              2: "SERVERID",
+              3: "IA_NA",
+              4: "IA_TA",
+              5: "IAADDR",
+              6: "ORO",
+              7: "PREFERENCE",
+              8: "ELAPSED_TIME",
+              9: "RELAY_MSG",
+             11: "AUTH",
+             12: "UNICAST",
+             13: "STATUS_CODE",
+             14: "RAPID_COMMIT",
+             15: "USER_CLASS",
+             16: "VENDOR_CLASS",
+             17: "VENDOR_OPTS",
+             18: "INTERFACE_ID",
+             19: "RECONF_MSG",
+             20: "RECONF_ACCEPT",
              21: "SIP Servers Domain Name List",     #RFC3319
              22: "SIP Servers IPv6 Address List",    #RFC3319
              23: "DNS Recursive Name Server Option", #RFC3646
@@ -3727,8 +3727,8 @@ class _DHCP6OptGuessPayload(Packet):
 class DHCP6OptUnknown(_DHCP6OptGuessPayload): # A generic DHCPv6 Option
     name = "Unknown DHCPv6 OPtion"
     fields_desc = [ ShortEnumField("optcode", 0, dhcp6opts), 
-		    FieldLenField("optlen", None, length_of="data", fmt="!H"),
-		    StrLenField("data", "",
+                    FieldLenField("optlen", None, length_of="data", fmt="!H"),
+                    StrLenField("data", "",
                                 length_from = lambda pkt: pkt.optlen)]
 
 class _DUIDField(PacketField):
@@ -3755,7 +3755,7 @@ class _DUIDField(PacketField):
 class DHCP6OptClientId(_DHCP6OptGuessPayload):     # RFC sect 22.2
     name = "DHCP6 Client Identifier Option"
     fields_desc = [ ShortEnumField("optcode", 1, dhcp6opts), 
-		    FieldLenField("optlen", None, length_of="duid", fmt="!H"),
+                    FieldLenField("optlen", None, length_of="duid", fmt="!H"),
                     _DUIDField("duid", "",
                                length_from = lambda pkt: pkt.optlen) ]
 
@@ -3771,13 +3771,13 @@ class DHCP6OptServerId(DHCP6OptClientId):     # RFC sect 22.3
 class DHCP6OptIAAddress(_DHCP6OptGuessPayload):    # RFC sect 22.6
     name = "DHCP6 IA Address Option (IA_TA or IA_NA suboption)"
     fields_desc = [ ShortEnumField("optcode", 5, dhcp6opts), 
-		    FieldLenField("optlen", None, length_of="iaaddropts",
+                    FieldLenField("optlen", None, length_of="iaaddropts",
                                   fmt="!H", adjust = lambda pkt,x: x+24),
-		    IP6Field("addr", "::"),
-		    IntField("preflft", 0),
-		    IntField("validlft", 0),
-		    XIntField("iaid", None),
-		    StrLenField("iaaddropts", "",
+                    IP6Field("addr", "::"),
+                    IntField("preflft", 0),
+                    IntField("validlft", 0),
+                    XIntField("iaid", None),
+                    StrLenField("iaaddropts", "",
                                 length_from  = lambda pkt: pkt.optlen - 24) ]
     def guess_payload_class(self, payload):
         return Padding
@@ -3806,12 +3806,12 @@ class _IANAOptField(PacketListField):
 class DHCP6OptIA_NA(_DHCP6OptGuessPayload):         # RFC sect 22.4
     name = "DHCP6 Identity Association for Non-temporary Addresses Option"
     fields_desc = [ ShortEnumField("optcode", 3, dhcp6opts), 
-		    FieldLenField("optlen", None, length_of="ianaopts",
+                    FieldLenField("optlen", None, length_of="ianaopts",
                                   fmt="!H", adjust = lambda pkt,x: x+12),
-		    XIntField("iaid", None),
-		    IntField("T1", None),
-		    IntField("T2", None),
-		    _IANAOptField("ianaopts", [], DHCP6OptIAAddress,
+                    XIntField("iaid", None),
+                    IntField("T1", None),
+                    IntField("T2", None),
+                    _IANAOptField("ianaopts", [], DHCP6OptIAAddress,
                                   length_from = lambda pkt: pkt.optlen-12) ]
 
 class _IATAOptField(_IANAOptField):
@@ -3820,10 +3820,10 @@ class _IATAOptField(_IANAOptField):
 class DHCP6OptIA_TA(_DHCP6OptGuessPayload):         # RFC sect 22.5
     name = "DHCP6 Identity Association for Temporary Addresses Option"
     fields_desc = [ ShortEnumField("optcode", 4, dhcp6opts), 
-		    FieldLenField("optlen", None, length_of="iataopts",
+                    FieldLenField("optlen", None, length_of="iataopts",
                                   fmt="!H", adjust = lambda pkt,x: x+4),
-		    XIntField("iaid", None),
-		    _IATAOptField("iataopts", [], DHCP6OptIAAddress,
+                    XIntField("iaid", None),
+                    _IATAOptField("iataopts", [], DHCP6OptIAAddress,
                                   length_from = lambda pkt: pkt.optlen-4) ]
 
 
@@ -3869,8 +3869,8 @@ class _OptReqListField(StrLenField):
 class DHCP6OptOptReq(_DHCP6OptGuessPayload):       # RFC sect 22.7
     name = "DHCP6 Option Request Option"
     fields_desc = [ ShortEnumField("optcode", 6, dhcp6opts),
-		    FieldLenField("optlen", None, length_of="reqopts", fmt="!H"),
-		    _OptReqListField("reqopts", [23, 24],
+                    FieldLenField("optlen", None, length_of="reqopts", fmt="!H"),
+                    _OptReqListField("reqopts", [23, 24],
                                      length_from = lambda pkt: pkt.optlen) ]
 
 
@@ -3881,8 +3881,8 @@ class DHCP6OptOptReq(_DHCP6OptGuessPayload):       # RFC sect 22.7
 class DHCP6OptPref(_DHCP6OptGuessPayload):       # RFC sect 22.8
     name = "DHCP6 Preference Option"
     fields_desc = [ ShortEnumField("optcode", 7, dhcp6opts), 
-		    ShortField("optlen", 1 ),
-		    ByteField("prefval",255) ]
+                    ShortField("optlen", 1 ),
+                    ByteField("prefval",255) ]
 
 
 #### DHCPv6 Elapsed Time Option #####################################
@@ -3896,8 +3896,8 @@ class _ElapsedTimeField(ShortField):
 class DHCP6OptElapsedTime(_DHCP6OptGuessPayload):# RFC sect 22.9
     name = "DHCP6 Elapsed Time Option"
     fields_desc = [ ShortEnumField("optcode", 8, dhcp6opts), 
-		    ShortField("optlen", 2),
-		    _ElapsedTimeField("elapsedtime", 0) ]
+                    ShortField("optlen", 2),
+                    _ElapsedTimeField("elapsedtime", 0) ]
 
 
 #### DHCPv6 Relay Message Option ####################################
@@ -3906,7 +3906,7 @@ class DHCP6OptElapsedTime(_DHCP6OptGuessPayload):# RFC sect 22.9
 class DHCP6OptRelayMsg(_DHCP6OptGuessPayload):# RFC sect 22.10
     name = "DHCP6 Relay Message Option"
     fields_desc = [ ShortEnumField("optcode", 9, dhcp6opts), 
-		    ShortField("optlen", None ) ]
+                    ShortField("optlen", None ) ]
     def post_build(self, p, pay):
         if self.optlen is None:
             l = len(pay) 
@@ -3953,7 +3953,7 @@ class DHCP6OptRelayMsg(_DHCP6OptGuessPayload):# RFC sect 22.10
 class DHCP6OptAuth(_DHCP6OptGuessPayload):    # RFC sect 22.11
     name = "DHCP6 Option - Authentication"
     fields_desc = [ ShortEnumField("optcode", 11, dhcp6opts), 
-		    FieldLenField("optlen", None, length_of="authinfo",
+                    FieldLenField("optlen", None, length_of="authinfo",
                                   adjust = lambda pkt,x: x+11),
                     ByteField("proto", 3), # TODO : XXX
                     ByteField("alg", 1), # TODO : XXX
@@ -3976,27 +3976,27 @@ class _SrvAddrField(IP6Field):
 class DHCP6OptServerUnicast(_DHCP6OptGuessPayload):# RFC sect 22.12
     name = "DHCP6 Server Unicast Option"
     fields_desc = [ ShortEnumField("optcode", 12, dhcp6opts), 
-		    ShortField("optlen", 16 ),
+                    ShortField("optlen", 16 ),
                     _SrvAddrField("srvaddr",None) ]
 
 
 #### DHCPv6 Status Code Option ######################################
 
 dhcp6statuscodes = { 0:"Success",      # sect 24.4
-		     1:"UnspecFail",
-		     2:"NoAddrsAvail",
-		     3:"NoBinding",
-		     4:"NotOnLink",
-		     5:"UseMulticast",
+                     1:"UnspecFail",
+                     2:"NoAddrsAvail",
+                     3:"NoBinding",
+                     4:"NotOnLink",
+                     5:"UseMulticast",
                      6:"NoPrefixAvail"} # From RFC3633
 
 class DHCP6OptStatusCode(_DHCP6OptGuessPayload):# RFC sect 22.13
     name = "DHCP6 Status Code Option"
     fields_desc = [ ShortEnumField("optcode", 13, dhcp6opts), 
-		    FieldLenField("optlen", None, length_of="statusmsg",
+                    FieldLenField("optlen", None, length_of="statusmsg",
                                   fmt="!H", adjust = lambda pkt,x:x+2),
-		    ShortEnumField("statuscode",None,dhcp6statuscodes),
-		    StrLenField("statusmsg", "",
+                    ShortEnumField("statuscode",None,dhcp6statuscodes),
+                    StrLenField("statusmsg", "",
                                 length_from = lambda pkt: pkt.optlen-2) ]
 
 
@@ -4005,7 +4005,7 @@ class DHCP6OptStatusCode(_DHCP6OptGuessPayload):# RFC sect 22.13
 class DHCP6OptRapidCommit(_DHCP6OptGuessPayload):   # RFC sect 22.14
     name = "DHCP6 Rapid Commit Option"
     fields_desc = [ ShortEnumField("optcode", 14, dhcp6opts),
-		    ShortField("optlen", 0)]
+                    ShortField("optlen", 0)]
 
 
 #### DHCPv6 User Class Option #######################################
@@ -4043,9 +4043,9 @@ class USER_CLASS_DATA(Packet):
 class DHCP6OptUserClass(_DHCP6OptGuessPayload):# RFC sect 22.15
     name = "DHCP6 User Class Option"
     fields_desc = [ ShortEnumField("optcode", 15, dhcp6opts), 
-		    FieldLenField("optlen", None, fmt="!H",
+                    FieldLenField("optlen", None, fmt="!H",
                                   length_of="userclassdata"),
-		    _UserClassDataField("userclassdata", [], USER_CLASS_DATA,
+                    _UserClassDataField("userclassdata", [], USER_CLASS_DATA,
                                         length_from = lambda pkt: pkt.optlen) ]
 
 
@@ -4060,10 +4060,10 @@ class VENDOR_CLASS_DATA(USER_CLASS_DATA):
 class DHCP6OptVendorClass(_DHCP6OptGuessPayload):# RFC sect 22.16
     name = "DHCP6 Vendor Class Option"
     fields_desc = [ ShortEnumField("optcode", 16, dhcp6opts), 
-		    FieldLenField("optlen", None, length_of="vcdata", fmt="!H",
+                    FieldLenField("optlen", None, length_of="vcdata", fmt="!H",
                                   adjust = lambda pkt,x: x+4),
-		    IntEnumField("enterprisenum",None , iana_enterprise_num ),
-		    _VendorClassDataField("vcdata", [], VENDOR_CLASS_DATA,
+                    IntEnumField("enterprisenum",None , iana_enterprise_num ),
+                    _VendorClassDataField("vcdata", [], VENDOR_CLASS_DATA,
                                           length_from = lambda pkt: pkt.optlen-4) ]
 
 #### DHCPv6 Vendor-Specific Information Option ######################
@@ -4081,10 +4081,10 @@ class VENDOR_SPECIFIC_OPTION(_DHCP6OptGuessPayload):
 class DHCP6OptVendorSpecificInfo(_DHCP6OptGuessPayload):# RFC sect 22.17
     name = "DHCP6 Vendor-specific Information Option"
     fields_desc = [ ShortEnumField("optcode", 17, dhcp6opts), 
-		    FieldLenField("optlen", None, length_of="vso", fmt="!H",
+                    FieldLenField("optlen", None, length_of="vso", fmt="!H",
                                   adjust = lambda pkt,x: x+4),
-		    IntEnumField("enterprisenum",None , iana_enterprise_num),
-		    _VendorClassDataField("vso", [], VENDOR_SPECIFIC_OPTION,
+                    IntEnumField("enterprisenum",None , iana_enterprise_num),
+                    _VendorClassDataField("vso", [], VENDOR_SPECIFIC_OPTION,
                                           length_from = lambda pkt: pkt.optlen-4) ]
 
 #### DHCPv6 Interface-ID Option #####################################
@@ -4108,9 +4108,9 @@ class DHCP6OptIfaceId(_DHCP6OptGuessPayload):# RFC sect 22.18
 class DHCP6OptReconfMsg(_DHCP6OptGuessPayload):       # RFC sect 22.19
     name = "DHCP6 Reconfigure Message Option"
     fields_desc = [ ShortEnumField("optcode", 19, dhcp6opts), 
-		    ShortField("optlen", 1 ),
-		    ByteEnumField("msgtype", 11, {  5:"Renew Message", 
-						   11:"Information Request"}) ]
+                    ShortField("optlen", 1 ),
+                    ByteEnumField("msgtype", 11, {  5:"Renew Message", 
+                                                   11:"Information Request"}) ]
 
 
 #### DHCPv6 Reconfigure Accept Option ###############################
@@ -4125,7 +4125,7 @@ class DHCP6OptReconfMsg(_DHCP6OptGuessPayload):       # RFC sect 22.19
 class DHCP6OptReconfAccept(_DHCP6OptGuessPayload):   # RFC sect 22.20
     name = "DHCP6 Reconfigure Accept Option"
     fields_desc = [ ShortEnumField("optcode", 20, dhcp6opts),
-		    ShortField("optlen", 0)]
+                    ShortField("optlen", 0)]
 
 # As required in Sect 8. of RFC 3315, Domain Names must be encoded as 
 # described in section 3.1 of RFC 1035
@@ -4162,28 +4162,28 @@ class DomainNameListField(StrLenField):
 class DHCP6OptSIPDomains(_DHCP6OptGuessPayload):       #RFC3319
     name = "DHCP6 Option - SIP Servers Domain Name List"
     fields_desc = [ ShortEnumField("optcode", 21, dhcp6opts),
-		    FieldLenField("optlen", None, length_of="sipdomains"),
+                    FieldLenField("optlen", None, length_of="sipdomains"),
                     DomainNameListField("sipdomains", [],
                                         length_from = lambda pkt: pkt.optlen) ]
 
 class DHCP6OptSIPServers(_DHCP6OptGuessPayload):          #RFC3319
     name = "DHCP6 Option - SIP Servers IPv6 Address List"
     fields_desc = [ ShortEnumField("optcode", 22, dhcp6opts),
-		    FieldLenField("optlen", None, length_of="sipservers"),
+                    FieldLenField("optlen", None, length_of="sipservers"),
                     IP6ListField("sipservers", [], 
                                  length_from = lambda pkt: pkt.optlen) ]
 
 class DHCP6OptDNSServers(_DHCP6OptGuessPayload):          #RFC3646
     name = "DHCP6 Option - DNS Recursive Name Server"
     fields_desc = [ ShortEnumField("optcode", 23, dhcp6opts),
-		    FieldLenField("optlen", None, length_of="dnsservers"),
+                    FieldLenField("optlen", None, length_of="dnsservers"),
                     IP6ListField("dnsservers", [],
                                  length_from = lambda pkt: pkt.optlen) ]
 
 class DHCP6OptDNSDomains(_DHCP6OptGuessPayload): #RFC3646
     name = "DHCP6 Option - Domain Search List option"
     fields_desc = [ ShortEnumField("optcode", 24, dhcp6opts),
-		    FieldLenField("optlen", None, length_of="dnsdomains"),
+                    FieldLenField("optlen", None, length_of="dnsdomains"),
                     DomainNameListField("dnsdomains", [],
                                         length_from = lambda pkt: pkt.optlen) ]
 
@@ -4192,7 +4192,7 @@ class DHCP6OptDNSDomains(_DHCP6OptGuessPayload): #RFC3646
 class DHCP6OptIAPrefix(_DHCP6OptGuessPayload):                    #RFC3633
     name = "DHCP6 Option - IA_PD Prefix option"
     fields_desc = [ ShortEnumField("optcode", 26, dhcp6opts),
- 		    FieldLenField("optlen", None, length_of="iaprefopts",
+                    FieldLenField("optlen", None, length_of="iaprefopts",
                                   adjust = lambda pkt,x: x+26),
                     IntField("preflft", 0),
                     IntField("validlft", 0),
@@ -4204,7 +4204,7 @@ class DHCP6OptIAPrefix(_DHCP6OptGuessPayload):                    #RFC3633
 class DHCP6OptIA_PD(_DHCP6OptGuessPayload):                       #RFC3633
     name = "DHCP6 Option - Identity Association for Prefix Delegation"
     fields_desc = [ ShortEnumField("optcode", 25, dhcp6opts),
-		    FieldLenField("optlen", None, length_of="iapdopt",
+                    FieldLenField("optlen", None, length_of="iapdopt",
                                   adjust = lambda pkt,x: x+12),
                     IntField("iaid", 0),
                     IntField("T1", 0),
@@ -4310,9 +4310,9 @@ class DHCP6OptGeoConf(_DHCP6OptGuessPayload):               #RFC-ietf-geopriv-dh
 class DHCP6OptRemoteID(_DHCP6OptGuessPayload):                   #RFC4649
     name = "DHCP6 Option - Relay Agent Remote-ID"
     fields_desc = [ ShortEnumField("optcode", 37, dhcp6opts),
-		    FieldLenField("optlen", None, length_of="remoteid",
+                    FieldLenField("optlen", None, length_of="remoteid",
                                   adjust = lambda pkt,x: x+4),
-		    IntEnumField("enterprisenum", None, iana_enterprise_num),
+                    IntEnumField("enterprisenum", None, iana_enterprise_num),
                     StrLenField("remoteid", "",
                                 length_from = lambda pkt: pkt.optlen-4) ]
 
@@ -4320,7 +4320,7 @@ class DHCP6OptRemoteID(_DHCP6OptGuessPayload):                   #RFC4649
 class DHCP6OptSubscriberID(_DHCP6OptGuessPayload):               #RFC4580
     name = "DHCP6 Option - Subscriber ID"
     fields_desc = [ ShortEnumField("optcode", 38, dhcp6opts),
-		    FieldLenField("optlen", None, length_of="subscriberid"),
+                    FieldLenField("optlen", None, length_of="subscriberid"),
                     StrLenField("subscriberid", "",
                                 length_from = lambda pkt: pkt.optlen) ]
 
@@ -4339,8 +4339,8 @@ class DHCP6OptClientFQDN(_DHCP6OptGuessPayload):                 #RFC4704
 class DHCP6OptRelayAgentERO(_DHCP6OptGuessPayload):       # RFC4994
     name = "DHCP6 Option - RelayRequest Option"
     fields_desc = [ ShortEnumField("optcode", 43, dhcp6opts),
-		    FieldLenField("optlen", None, length_of="reqopts", fmt="!H"),
-		    _OptReqListField("reqopts", [23, 24],
+                    FieldLenField("optlen", None, length_of="reqopts", fmt="!H"),
+                    _OptReqListField("reqopts", [23, 24],
                                      length_from = lambda pkt: pkt.optlen) ]
 
 #####################################################################
@@ -5312,7 +5312,7 @@ class MIP6OptAltCoA(_MIP6OptAlign, Packet):
                     IP6Field("acoa", "::") ]
     x = 8 ; y = 6 # alignment requirement: 8n+6
 
-class MIP6OptNonceIndices(_MIP6OptAlign, Packet):		  
+class MIP6OptNonceIndices(_MIP6OptAlign, Packet):                 
     name = 'MIPv6 Option - Nonce Indices'
     fields_desc = [ ByteEnumField('otype', 4, _mobopttypes),
                     ByteField('olen', 16),
@@ -5320,7 +5320,7 @@ class MIP6OptNonceIndices(_MIP6OptAlign, Packet):
                     ShortField('coni', 0) ]
     x = 2 ; y = 0 # alignment requirement: 2n
 
-class MIP6OptBindingAuthData(_MIP6OptAlign, Packet):		  
+class MIP6OptBindingAuthData(_MIP6OptAlign, Packet):              
     name = 'MIPv6 Option - Binding Authorization Data'
     fields_desc = [ ByteEnumField('otype', 5, _mobopttypes),
                     ByteField('olen', 16),
@@ -5809,9 +5809,9 @@ class TracerouteResult6(TracerouteResult):
         return self.make_table(lambda (s,r): (s.sprintf("%-42s,IPv6.dst%:{TCP:tcp%TCP.dport%}{UDP:udp%UDP.dport%}{ICMPv6EchoRequest:IER}"), # TODO: ICMPv6 !
                                               s.hlim,
                                               r.sprintf("%-42s,IPv6.src% {TCP:%TCP.flags%}"+
-					                "{ICMPv6DestUnreach:%ir,type%}{ICMPv6PacketTooBig:%ir,type%}"+
-							"{ICMPv6TimeExceeded:%ir,type%}{ICMPv6ParamProblem:%ir,type%}"+
-							"{ICMPv6EchoReply:%ir,type%}")))
+                                                        "{ICMPv6DestUnreach:%ir,type%}{ICMPv6PacketTooBig:%ir,type%}"+
+                                                        "{ICMPv6TimeExceeded:%ir,type%}{ICMPv6ParamProblem:%ir,type%}"+
+                                                        "{ICMPv6EchoReply:%ir,type%}")))
 
     def get_trace(self):
         trace = {}
@@ -5876,7 +5876,7 @@ def traceroute6(target, dport=80, minttl=1, maxttl=30, sport=RandShort(),
 class L3RawSocket6(L3RawSocket):
     def __init__(self, type = ETH_P_IPV6, filter=None, iface=None, promisc=None, nofilter=0):
         L3RawSocket.__init__(self, type, filter, iface, promisc)
-	# NOTE: if fragmentation is needed, it will be done by the kernel (RFC 2292)
+        # NOTE: if fragmentation is needed, it will be done by the kernel (RFC 2292)
         self.outs = socket.socket(socket.AF_INET6, socket.SOCK_RAW, socket.IPPROTO_RAW)
         self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))
 
