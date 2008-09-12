@@ -27,8 +27,8 @@ class ConfClass(object):
         for i in keys:
             if i[0] != "_":
                 r = repr(getattr(self, i))
-                r = r.replace("\n"," ")
-                wlen = 78-max(len(i),10)
+                r = " ".join(r.split())
+                wlen = 76-max(len(i),10)
                 if len(r) > wlen:
                     r = r[:wlen-3]+"..."
                 s += "%-10s = %s\n" % (i, r)
