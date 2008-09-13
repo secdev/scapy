@@ -152,7 +152,7 @@ def read_routes6():
             ok = l.find('Destination')
             continue
         # gv 12/12/06: under debugging      
-        if NETBSD or OPENBSD:
+        if scapy.arch.NETBSD or scapy.arch.OPENBSD:
             d,nh,fl,_,_,_,dev = l.split()[:7]
         else:       # FREEBSD or DARWIN 
             d,nh,fl,dev = l.split()[:4]
