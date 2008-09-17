@@ -64,14 +64,15 @@ class VolatileValue:
 class RandField(VolatileValue):
     pass
 
-
 class RandNum(RandField):
     min = 0
     max = 0
     def __init__(self, min, max):
-        self.seq = randseq(min,max)
+        self.min = min
+        self.max = max
     def _fix(self):
-        return self.seq.next()
+        # XXX: replace with sth that guarantee unicity
+        return random.randrange(self.min, self.max+1)
 
 class RandNumGamma(RandField):
     def __init__(self, alpha, beta):
@@ -88,34 +89,41 @@ class RandNumGauss(RandField):
         return int(round(random.gauss(self.mu, self.sigma)))
 
 class RandNumExpo(RandField):
-    def __init__(self, lambd):
+    def __init__(self, lambd, base=0):
         self.lambd = lambd
+        self.base = base
     def _fix(self):
-        return int(round(random.expovariate(self.lambd)))
+        return self.base+int(round(random.expovariate(self.lambd)))
 
-class RandByte(RandNum):
-    def __init__(self):
-        RandNum.__init__(self, 0, 2L**8-1)
+class RandSeq(RandNum):
+    def __init__(self, min, max):
+        self.seq = randseq(min,max)
+    def _fix(self):
+        return self.seq.next()
 
-class RandShort(RandNum):
+class RandByte(RandSeq):
     def __init__(self):
-        RandNum.__init__(self, 0, 2L**16-1)
+        RandSeq.__init__(self, 0, 2L**8-1)
 
-class RandInt(RandNum):
+class RandShort(RandSeq):
     def __init__(self):
-        RandNum.__init__(self, 0, 2L**32-1)
+        RandSeq.__init__(self, 0, 2L**16-1)
 
-class RandSInt(RandNum):
+class RandInt(RandSeq):
     def __init__(self):
-        RandNum.__init__(self, -2L**31, 2L**31-1)
+        RandSeq.__init__(self, 0, 2L**32-1)
 
-class RandLong(RandNum):
+class RandSInt(RandSeq):
     def __init__(self):
-        RandNum.__init__(self, 0, 2L**64-1)
+        RandSeq.__init__(self, -2L**31, 2L**31-1)
 
-class RandSLong(RandNum):
+class RandLong(RandSeq):
     def __init__(self):
-        RandNum.__init__(self, -2L**63, 2L**63-1)
+        RandSeq.__init__(self, 0, 2L**64-1)
+
+class RandSLong(RandSeq):
+    def __init__(self):
+        RandSeq.__init__(self, -2L**63, 2L**63-1)
 
 class RandChoice(RandField):
     def __init__(self, *args):
@@ -165,7 +173,7 @@ class RandMAC(RandString):
                 v = RandByte()
             elif "-" in template[i]:
                 x,y = template[i].split("-")
-                v = RandNum(int(x,16), int(y,16))
+                v = RandSeq(int(x,16), int(y,16))
             else:
                 v = int(template[i],16)
             self.mac += (v,)
@@ -205,7 +213,165 @@ class RandOID(RandString):
                     oid.append(i)
             return ".".join(oid)
             
+
+from pprint import pprint
+        
+class RandRegExp(RandField):
+    def __init__(self, regexp, lambda_=0.3,):
+        self._regexp = regexp
+        self._lambda = lambda_
+
+    @staticmethod
+    def choice_expand(s): #XXX does not support special sets like (ex ':alnum:')
+        m = ""
+        invert = s and s[0] == "^"
+        while True:
+            p = s.find("-")
+            if p < 0:
+                break
+            if p == 0 or p == len(s)-1:
+                m = "-"
+                if p:
+                    s = s[:-1]
+                else:
+                    s = s[1:]
+            else:
+                c1 = s[p-1]
+                c2 = s[p+1]
+                rng = "".join(map(chr, range(ord(c1),ord(c2)+1)))
+                s = s[:p-1]+rng+s[p+1:]
+        res = m+s
+        if invert:
+            res = "".join([chr(x) for x in xrange(256) if chr(x) not in res])
+        return res
+
+    @staticmethod
+    def stack_fix(lst, index):
+        r = ""
+        mul = 1
+        for e in lst:
+            if type(e) is list:
+                if mul != 1:
+                    mul = mul-1
+                    r += RandRegExp.stack_fix(e[1:]*mul, index)
+                # only the last iteration should be kept for back reference
+                f = RandRegExp.stack_fix(e[1:], index)
+                for i,idx in enumerate(index):
+                    if e is idx:
+                        index[i] = f
+                r += f
+                mul = 1
+            elif type(e) is tuple:
+                kind,val = e
+                if kind == "cite":
+                    r += index[val-1]
+                elif kind == "repeat":
+                    mul = val
+
+                elif kind == "choice":
+                    if mul == 1:
+                        c = random.choice(val)
+                        r += RandRegExp.stack_fix(c[1:], index)
+                    else:
+                        r += RandRegExp.stack_fix([e]*mul, index)
+                        mul = 1
+            else:
+                if mul != 1:
+                    r += RandRegExp.stack_fix([e]*mul, index)
+                    mul = 1
+                else:
+                    r += str(e)
+        return r
+
+    def _fix(self):
+        stack = [None]
+        index = []
+        current = stack
+        i = 0
+        ln = len(self._regexp)
+        interp = True
+        while i < ln:
+            c = self._regexp[i]
+            i+=1
             
+            if c == '(':
+                current = [current]
+                current[0].append(current)
+            elif c == '|':
+                p = current[0]
+                ch = p[-1]
+                if type(ch) is not tuple:
+                    ch = ("choice",[current])
+                    p[-1] = ch
+                else:
+                    ch[1].append(current)
+                current = [p]
+            elif c == ')':
+                ch = current[0][-1]
+                if type(ch) is tuple:
+                    ch[1].append(current)
+                index.append(current)
+                current = current[0]
+            elif c == '[' or c == '{':
+                current = [current]
+                current[0].append(current)
+                interp = False
+            elif c == ']':
+                current = current[0]
+                choice = RandRegExp.choice_expand("".join(current.pop()[1:]))
+                current.append(RandChoice(*list(choice)))
+                interp = True
+            elif c == '}':
+                current = current[0]
+                num = "".join(current.pop()[1:])
+                e = current.pop()
+                if "," not in num:
+                    n = int(num)
+                    current.append([current]+[e]*n)
+                else:
+                    num_min,num_max = num.split(",")
+                    if not num_min:
+                        num_min = "0"
+                    if num_max:
+                        n = RandNum(int(num_min),int(num_max))
+                    else:
+                        n = RandNumExpo(self._lambda,base=int(num_min))
+                    current.append(("repeat",n))
+                    current.append(e)
+                interp = True
+            elif c == '\\':
+                c = self._regexp[i]
+                if c == "s":
+                    c = RandChoice(" ","\t")
+                elif c in "0123456789":
+                    c = ("cite",ord(c)-0x30)
+                current.append(c)
+                i += 1
+            elif not interp:
+                current.append(c)
+            elif c == '+':
+                e = current.pop()
+                current.append([current]+[e]*(int(random.expovariate(self._lambda))+1))
+            elif c == '*':
+                e = current.pop()
+                current.append([current]+[e]*int(random.expovariate(self._lambda)))
+            elif c == '?':
+                if random.randint(0,1):
+                    current.pop()
+            elif c == '.':
+                current.append(RandChoice(*[chr(x) for x in xrange(256)]))
+            elif c == '$' or c == '^':
+                pass
+            else:
+                current.append(c)
+
+        return RandRegExp.stack_fix(stack[1:], index)
+    def __repr__(self):
+        return "<%s [%r]>" % (self.__class__.__name__, self._regexp)
+                
+                
+        
+        
 
 # Automatic timestamp
 
