@@ -12,7 +12,7 @@ from data import *
 from utils import *
 
 
-def construct_source_candidate_set(addr, plen, laddr):
+def construct_source_candidate_set(addr, plen, laddr, loname):
     """
     Given all addresses assigned to a specific interface ('laddr' parameter),
     this function returns the "candidate set" associated with 'addr/plen'.
@@ -34,7 +34,7 @@ def construct_source_candidate_set(addr, plen, laddr):
 	cset = filter(lambda x: x[1] == IPV6_ADDR_SITELOCAL, laddr)
     elif in6_ismaddr(addr):
 	if in6_ismnladdr(addr):
-	    cset = [('::1', 16, LOOPBACK_NAME)]
+	    cset = [('::1', 16, loname)]
 	elif in6_ismgladdr(addr):
 	    cset = filter(lambda x: x[1] == IPV6_ADDR_GLOBAL, laddr)
 	elif in6_ismlladdr(addr):

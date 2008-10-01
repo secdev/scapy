@@ -181,7 +181,7 @@ def read_routes6():
             nh = '::'
         else:
             devaddrs = filter(lambda x: x[2] == dev, lifaddr)
-            cset = construct_source_candidate_set(d, dp, devaddrs)
+            cset = construct_source_candidate_set(d, dp, devaddrs, scapy.arch.LOOPBACK_NAME)
 
         if len(cset) != 0:
             routes.append((d, dp, nh, dev, cset))
