@@ -14,6 +14,7 @@ from scapy.config import conf
 from scapy.data import *
 from scapy.supersocket import SuperSocket
 import scapy.arch
+from scapy.error import warning
 
 
 
