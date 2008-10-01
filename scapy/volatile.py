@@ -11,43 +11,53 @@ from utils import corrupt_bits,corrupt_bytes
 ## Random numbers ##
 ####################
 
-def randseq(inf, sup, seed=None, forever=1, renewkeys=0):
+
+class RandomSequence:
     """iterate through a sequence in random order.
        When all the values have been drawn, if forever=1, the drawing is done again.
        If renewkeys=0, the draw will be in the same order, guaranteeing that the same
        number will be drawn in not less than the number of integers of the sequence"""
-    rnd = random.Random(seed)
-    sbox_size = 256
+    def __init__(self, inf, sup, seed=None, forever=1, renewkeys=0):
+        self.forever = forever
+        self.renewkeys = renewkeys
+        self.inf = inf
+        self.rnd = random.Random(seed)
+        self.sbox_size = 256
 
-    top = sup-inf+1
+        self.top = sup-inf+1
     
-    n=0
-    while (1<<n) < top:
-        n += 1
+        n=0
+        while (1<<n) < self.top:
+            n += 1
+        self.n =n
 
-    fs = min(3,(n+1)/2)
-    fsmask = 2**fs-1
-    rounds = max(n,3)
-    turns = 0
+        self.fs = min(3,(n+1)/2)
+        self.fsmask = 2**self.fs-1
+        self.rounds = max(self.n,3)
+        self.turns = 0
+        self.i = 0
 
-    while 1:
-        if turns == 0 or renewkeys:
-            sbox = [rnd.randint(0,fsmask) for k in xrange(sbox_size)]
-        turns += 1
-        i = 0
-        while i < 2**n:
-            ct = i
-            i += 1
-            for k in range(rounds): # Unbalanced Feistel Network
-                lsb = ct & fsmask
-                ct >>= fs
-                lsb ^= sbox[ct%sbox_size]
-                ct |= lsb << (n-fs)
-            
-            if ct < top:
-                yield inf+ct
-        if not forever:
-            break
+    def __iter__(self):
+        return self
+    def next(self):
+        while True:
+            if self.turns == 0 or (self.i == 0 and self.renewkeys):
+                self.sbox = [self.rnd.randint(0,self.fsmask) for k in xrange(self.sbox_size)]
+            self.turns += 1
+            while self.i < 2**self.n:
+                ct = self.i
+                self.i += 1
+                for k in range(self.rounds): # Unbalanced Feistel Network
+                    lsb = ct & self.fsmask
+                    ct >>= self.fs
+                    lsb ^= self.sbox[ct%self.sbox_size]
+                    ct |= lsb << (self.n-self.fs)
+                
+                if ct < self.top:
+                    return self.inf+ct
+            self.i = 0
+            if not self.forever:
+                raise StopIteration
 
 
 class VolatileValue:
@@ -97,7 +107,7 @@ class RandNumExpo(RandField):
 
 class RandSeq(RandNum):
     def __init__(self, min, max):
-        self.seq = randseq(min,max)
+        self.seq = RandomSequence(min,max)
     def _fix(self):
         return self.seq.next()
 
