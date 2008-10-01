@@ -6,6 +6,8 @@
 from asn1.asn1 import *
 from asn1.ber import *
 from volatile import *
+from base_classes import BasePacket
+
 
 #####################
 #### ASN1 Fields ####
@@ -76,7 +78,7 @@ class ASN1F_field(ASN1F_element):
         if type(x) is list:
             x = x[:]
             for i in xrange(len(x)):
-                if isinstance(x[i], Packet):
+                if isinstance(x[i], BasePacket):
                     x[i] = x[i].copy()
         return x
 
