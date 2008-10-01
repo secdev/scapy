@@ -852,7 +852,7 @@ class TracerouteResult(SndRcvList):
                                 continue
                             savcolor = o.color
                             o.color = (1,0,0)
-                            a,b=sendrecv.sr(IP(dst=o.ip)/TCP(dport=[21,22,23,25,80,443]),timeout=2)
+                            a,b=sr(IP(dst=o.ip)/TCP(dport=[21,22,23,25,80,443]),timeout=2)
                             o.color = savcolor
                             if len(a) == 0:
                                 txt = "%s:\nno results" % o.ip
