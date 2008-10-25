@@ -8,7 +8,8 @@ import struct
 from scapy.packet import *
 from scapy.fields import *
 from scapy.ansmachine import *
-from scapy.layers.inet import UDP
+from scapy.layers.inet import UDP,IP
+from scapy.layers.l2 import Ether
 from scapy.base_classes import Net
 from scapy.volatile import RandField
 
