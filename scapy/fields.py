@@ -434,6 +434,10 @@ class StrFixedLenField(StrField):
         self.length_from  = length_from
         if length is not None:
             self.length_from = lambda pkt,length=length: length
+    def i2repr(self, pkt, v):
+        if type(v) is str:
+            v = v.rstrip("\0")
+        return repr(v)
     def getfield(self, pkt, s):
         l = self.length_from(pkt)
         return s[l:], self.m2i(pkt,s[:l])
