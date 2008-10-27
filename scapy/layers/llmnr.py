@@ -32,7 +32,7 @@ class LLMNRQuery(Packet):
                     DNSRRField("ar", "arcount",0)]
     overload_fields = {UDP: {"sport": 5355, "dport": 5355 }}
     def hashret(self):
-        return struct.pack("!H", id)
+        return struct.pack("!H", self.id)
 
 class LLMNRResponse(LLMNRQuery):
     name = "Link Local Multicast Node Resolution - Response"
