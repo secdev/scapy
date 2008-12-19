@@ -7,6 +7,7 @@ import time,struct
 from fcntl import ioctl
 from scapy.data import *
 from scapy.config import conf
+from scapy.utils import warning
 from scapy.supersocket import SuperSocket
 import scapy.arch
 
