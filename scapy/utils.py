@@ -410,7 +410,7 @@ def corrupt_bytes(s, p=0.01, n=None):
     if n is None:
         n = max(1,int(l*p))
     for i in random.sample(xrange(l), n):
-        s[i] = random.randint(0,255)
+        s[i] = (s[i]+random.randint(1,255))%256
     return s.tostring()
 
 @conf.commands.register
