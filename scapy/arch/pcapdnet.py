@@ -148,6 +148,9 @@ if conf.use_dnet:
             def get_if_raw_addr(iff):
                 "dummy"
                 return "\0\0\0\0"
+            def get_if_list():
+                "dummy"
+                return []
         else:
             raise
     else:
@@ -163,6 +166,8 @@ if conf.use_dnet:
         def get_if_raw_addr(ifname):
             i = dnet.intf()
             return i.get(ifname)["addr"].data
+        def get_if_list():
+            return [i.get("name", None) for i in dnet.intf()]
     
     
 if conf.use_pcap and conf.use_dnet:
