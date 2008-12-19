@@ -270,7 +270,7 @@ def atol(x):
         ip = inet_aton(socket.gethostbyname(x))
     return struct.unpack("!I", ip)[0]
 def ltoa(x):
-    return inet_ntoa(struct.pack("!I", x))
+    return inet_ntoa(struct.pack("!I", x&0xffffffff))
 
 def itom(x):
     return (0xffffffff00000000L>>x)&0xffffffffL
