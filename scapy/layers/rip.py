@@ -10,9 +10,9 @@ from scapy.layers.inet import UDP
 class RIP(Packet):
     name = "RIP header"
     fields_desc = [
-        ByteEnumField("command",1,{1:"req",2:"resp",3:"traceOn",4:"traceOff",5:"sun",
-                                   6:"trigReq",7:"trigResp",8:"trigAck",9:"updateReq",
-                                   10:"updateResp",11:"updateAck"}),
+        ByteEnumField("cmd",1,{1:"req",2:"resp",3:"traceOn",4:"traceOff",5:"sun",
+                               6:"trigReq",7:"trigResp",8:"trigAck",9:"updateReq",
+                               10:"updateResp",11:"updateAck"}),
         ByteField("version",1),
         ShortField("null",0),
         ]
