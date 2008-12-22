@@ -5,13 +5,12 @@
 
 import os,time,struct,re,socket,new
 from select import select
-
 from scapy.utils import checksum
 from scapy.layers.l2 import *
+from scapy.config import conf
 from scapy.fields import *
 from scapy.packet import *
 from scapy.volatile import *
-from scapy.config import conf
 from scapy.sendrecv import sr,sr1,srp1
 from scapy.plist import PacketList,SndRcvList
 
@@ -278,7 +277,7 @@ class TCP(Packet):
                                      ln)
                 ck=checksum(psdhdr+p)
                 p = p[:16]+struct.pack("!H", ck)+p[18:]
-            elif isinstance(self.underlayer, inet6.IPv6) or isinstance(self.underlayer, inet6._IPv6ExtHdr):
+            elif conf.ipv6_enabled and isinstance(self.underlayer, inet6.IPv6) or isinstance(self.underlayer, inet6._IPv6ExtHdr):
                 ck = inet6.in6_chksum(socket.IPPROTO_TCP, self.underlayer, p)
                 p = p[:16]+struct.pack("!H", ck)+p[18:]
             else:
@@ -302,7 +301,7 @@ class TCP(Packet):
     def mysummary(self):
         if isinstance(self.underlayer, IP):
             return self.underlayer.sprintf("TCP %IP.src%:%TCP.sport% > %IP.dst%:%TCP.dport% %TCP.flags%")
-        elif isinstance(self.underlayer, inet6.IPv6):
+        elif conf.ipv6_enabled and isinstance(self.underlayer, inet6.IPv6):
             return self.underlayer.sprintf("TCP %IPv6.src%:%TCP.sport% > %IPv6.dst%:%TCP.dport% %TCP.flags%")
         else:
             return self.sprintf("TCP %TCP.sport% > %TCP.dport% %TCP.flags%")
@@ -926,8 +925,8 @@ class TracerouteResult(SndRcvList):
         ports = {}
         ports_done = {}
         for s,r in self.res:
-            r = r[IP] or r[inet6.IPv6] or r
-            s = s[IP] or s[inet6.IPv6] or s
+            r = r[IP] or (conf.ipv6_enabled and r[inet6.IPv6]) or r
+            s = s[IP] or (conf.ipv6_enabled and s[inet6.IPv6]) or s
             ips[r.src] = None
             if TCP in s:
                 trace_id = (s.src,s.dst,6,s.dport)
@@ -938,8 +937,8 @@ class TracerouteResult(SndRcvList):
             else:
                 trace_id = (s.src,s.dst,s.proto,0)
             trace = rt.get(trace_id,{})
-            ttl = inet6.IPv6 in s and s.hlim or s.ttl
-            if not (ICMP in r and r[ICMP].type == 11) and not (inet6.IPv6 in r and ICMPv6TimeExceeded in r):
+            ttl = conf.ipv6_enabled and inet6.IPv6 in s and s.hlim or s.ttl
+            if not (ICMP in r and r[ICMP].type == 11) and not (conf.use_inet6 and inet6.IPv6 in r and ICMPv6TimeExceeded in r):
                 if trace_id in ports_done:
                     continue
                 ports_done[trace_id] = None
@@ -1223,4 +1222,5 @@ def fragleak2(target, timeout=0.4, onlyasc=0):
 conf.stats_classic_protocols += [TCP,UDP,ICMP]
 conf.stats_dot11_protocols += [TCP,UDP,ICMP]
 
-from scapy.layers import inet6
+if conf.ipv6_enabled:
+    from scapy.layers import inet6

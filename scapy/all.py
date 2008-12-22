@@ -20,8 +20,9 @@ from asn1packet import *
 
 from utils import *
 from route import *
-from utils6 import *
-from route6 import *
+if conf.ipv6_enabled:
+    from utils6 import *
+    from route6 import *
 from sendrecv import *
 from supersocket import *
 from volatile import *

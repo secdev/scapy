@@ -20,12 +20,16 @@
 #############################################################################
 
 
+import socket
+if not socket.has_ipv6:
+    raise socket.error("can't use AF_INET6, IPv6 is disabled")
+
+from scapy.config import conf
 from scapy.layers.l2 import *
 from scapy.layers.inet import *
 from scapy.fields import *
 from scapy.packet import *
 from scapy.volatile import *
-from scapy.config import conf
 from scapy.sendrecv import sr,sr1,srp1
 from scapy.as_resolvers import AS_resolver_riswhois
 from scapy.supersocket import SuperSocket,L3RawSocket

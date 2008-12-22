@@ -6,7 +6,8 @@
 from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.inet import IP
-from scapy.layers.inet6 import IPv6
+if conf.ipv6_enabled:
+    from scapy.layers.inet6 import IPv6
 from scapy.config import conf
 
 class PFLog(Packet):
@@ -48,6 +49,7 @@ class PFLog(Packet):
         return self.sprintf("%PFLog.addrfamily% %PFLog.action% on %PFLog.iface% by rule %PFLog.rulenumber%")
 
 bind_layers(PFLog, IP, addrfamily=socket.AF_INET)
-bind_layers(PFLog, IPv6, addrfamily=socket.AF_INET6)
+if conf.ipv6_enabled:
+    bind_layers(PFLog, IPv6, addrfamily=socket.AF_INET6)
 
 conf.l2types.register(117, PFLog)

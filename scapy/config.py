@@ -3,7 +3,7 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
-import os,time
+import os,time,socket
 from data import *
 import base_classes
 import themes
@@ -303,6 +303,7 @@ extensions_paths: path or list of paths where extensions are to be looked for
     noenum = Resolve()
     use_pcap = False
     use_dnet = False
+    ipv6_enabled = socket.has_ipv6
     ethertypes = ETHER_TYPES
     protocols = IP_PROTOS
     services_tcp = TCP_SERVICES
@@ -316,6 +317,13 @@ extensions_paths: path or list of paths where extensions are to be looked for
     load_layers = ["l2", "inet", "dhcp", "dns", "dot11", "gprs", "hsrp", "inet6", "ir", "isakmp", "l2tp",
                    "mgcp", "mobileip", "netbios", "netflow", "ntp", "ppp", "radius", "rip", "rtp",
                    "sebek", "skinny", "smb", "snmp", "tftp", "x509", "bluetooth", "dhcp6", "llmnr" ]
+    
+
+if not Conf.ipv6_enabled:
+    log_scapy.warning("IPv6 support disabled in Python. Cannot load scapy IPv6 layers.")
+    for m in ["inet6","dhcp6"]:
+        if m in Conf.load_layers:
+            Conf.load_layers.remove(m)
     
 
 conf=Conf()
