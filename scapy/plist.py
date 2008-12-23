@@ -104,7 +104,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
             if lfilter is not None:
                 if not lfilter(self.res[i]):
                     continue
-            print conf.color_theme.id(i,"%04i"),
+            print conf.color_theme.id(i,fmt="%04i"),
             if prn is None:
                 print self._elt2sum(self.res[i])
             else:
@@ -187,7 +187,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
             p = self._elt2pkt(self.res[i])
             if lfilter is not None and not lfilter(p):
                 continue
-            print "%s %s %s" % (conf.color_theme.id(i,"%04i"),
+            print "%s %s %s" % (conf.color_theme.id(i,fmt="%04i"),
                                 p.sprintf("%.time%"),
                                 self._elt2sum(self.res[i]))
             if p.haslayer(conf.raw_layer):
@@ -200,7 +200,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
             p = self._elt2pkt(self.res[i])
             if lfilter is not None and not lfilter(p):
                 continue
-            print "%s %s %s" % (conf.color_theme.id(i,"%04i"),
+            print "%s %s %s" % (conf.color_theme.id(i,fmt="%04i"),
                                 p.sprintf("%.time%"),
                                 self._elt2sum(self.res[i]))
             hexdump(p)
@@ -211,7 +211,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
             p = self._elt2pkt(self.res[i])
             if p.haslayer(Padding):
                 if lfilter is None or lfilter(p):
-                    print "%s %s %s" % (conf.color_theme.id(i,"%04i"),
+                    print "%s %s %s" % (conf.color_theme.id(i,fmt="%04i"),
                                         p.sprintf("%.time%"),
                                         self._elt2sum(self.res[i]))
                     hexdump(p.getlayer(Padding).load)
@@ -225,7 +225,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
                 if pad == pad[0]*len(pad):
                     continue
                 if lfilter is None or lfilter(p):
-                    print "%s %s %s" % (conf.color_theme.id(i,"%04i"),
+                    print "%s %s %s" % (conf.color_theme.id(i,fmt="%04i"),
                                         p.sprintf("%.time%"),
                                         self._elt2sum(self.res[i]))
                     hexdump(p.getlayer(Padding).load)

@@ -26,11 +26,21 @@ class Color:
     invert = "\033[7m"
         
 
+def create_styler(fmt=None, before="", after="", fmt2="%s"):
+    def do_style(val, fmt=fmt, before=before, after=after, fmt2=fmt2):
+        if fmt is None:
+            if type(val) is not str:
+                val = str(val)
+        else:
+            val = fmt % val
+        return fmt2 % (before+val+after)
+    return do_style
+
 class ColorTheme:
     def __repr__(self):
         return "<%s>" % self.__class__.__name__
     def __getattr__(self, attr):
-        return lambda x:x
+        return create_styler()
         
 
 class NoTheme(ColorTheme):
@@ -48,14 +58,7 @@ class AnsiColorTheme(ColorTheme):
         else:
             before = after = ""
 
-        def do_style(val, fmt=None, before=before, after=after):
-            if fmt is None:
-                if type(val) is not str:
-                    val = str(val)
-            else:
-                val = fmt % val
-            return before+val+after
-        return do_style
+        return create_styler(before=before, after=after)
         
         
     style_normal = ""
@@ -174,20 +177,13 @@ class ColorOnBlackTheme(AnsiColorTheme):
     style_left = Color.cyan+Color.bold
     style_right = Color.red+Color.bold
 
+
 class FormatTheme(ColorTheme):
     def __getattr__(self, attr):
         if attr.startswith("__"):
             raise AttributeError(attr)
-        col = self.__class__.__dict__.get("style_%s" % attr, "%s")
-        def do_style(val, fmt=None, col=col):
-            if fmt is None:
-                if type(val) is not str:
-                    val = str(val)
-            else:
-                val = fmt % val
-            return col % val
-        return do_style
-        
+        colfmt = self.__class__.__dict__.get("style_%s" % attr, "%s")
+        return create_styler(fmt2 = colfmt)       
 
 class LatexTheme(FormatTheme):
     style_prompt = r"\textcolor{blue}{%s}"
