@@ -309,7 +309,7 @@ extensions_paths: path or list of paths where extensions are to be looked for
     services_tcp = TCP_SERVICES
     services_udp = UDP_SERVICES
     extensions_paths = "."
-    manufdb = load_manuf("/usr/share/wireshark/wireshark/manuf")
+    manufdb = load_manuf("/usr/share/wireshark/manuf")
     stats_classic_protocols = []
     stats_dot11_protocols = []
     temp_files = []
