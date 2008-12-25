@@ -718,16 +718,30 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
 
     def __getitem__(self, cls):
         if type(cls) is slice:
+            lname = cls.start
             if cls.stop:
                 ret = self.getlayer(cls.start, cls.stop)
             else:
                 ret = self.getlayer(cls.start)
             if ret is None and cls.step is not None:
                 ret = cls.step
-            return ret
         else:
-            return self.getlayer(cls)
-        
+            lname=cls
+            ret = self.getlayer(cls)
+        if ret is None:
+            if type(lname) is Packet_metaclass:
+                lname = lname.__name__
+            elif type(lname) is not str:
+                lname = repr(lname)
+            raise IndexError("Layer [%s] not found" % lname)
+        return ret
+
+    def __delitem__(self, cls):
+        del(self[cls].underlayer.payload)
+
+    def __setitem__(self, cls, val):
+        self[cls].underlayer.payload = val
+    
     def __contains__(self, cls):
         """"cls in self" returns true if self has a layer which is an instance of cls."""
         return self.haslayer(cls)
