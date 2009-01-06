@@ -16,7 +16,6 @@ def import_module(name):
     name = os.path.basename(name)
     if name.endswith(".py"):
         name = name[:-3]
-    name += ".all"
     f,path,desc = imp.find_module(name,[thepath])
     
     try:
@@ -500,6 +499,7 @@ def usage():
 #### MAIN ####
 
 def main(argv):
+    import __builtin__
 
     # Parse arguments
     
@@ -572,7 +572,7 @@ def main(argv):
         for m in MODULES:
             try:
                 mod = import_module(m)
-                __builtins__.__dict__.update(mod.__dict__)
+                __builtin__.__dict__.update(mod.__dict__)
             except ImportError,e:
                 raise getopt.GetoptError("cannot import [%s]: %s" % (m,e))
                 
