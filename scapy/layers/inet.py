@@ -925,7 +925,7 @@ class TracerouteResult(SndRcvList):
                 trace_id = (s.src,s.dst,s.proto,0)
             trace = rt.get(trace_id,{})
             ttl = conf.ipv6_enabled and inet6.IPv6 in s and s.hlim or s.ttl
-            if not (ICMP in r and r[ICMP].type == 11) and not (conf.use_inet6 and inet6.IPv6 in r and ICMPv6TimeExceeded in r):
+            if not (ICMP in r and r[ICMP].type == 11) and not (conf.ipv6_enabled and inet6.IPv6 in r and ICMPv6TimeExceeded in r):
                 if trace_id in ports_done:
                     continue
                 ports_done[trace_id] = None
