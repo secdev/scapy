@@ -12,7 +12,7 @@ Simple example
 A layer is a subclass of the ``Packet`` class. All the logic behind layer manipulation 
 is hold by the ``Packet`` class and will be inherited. 
 A simple layer is compounded by a list of fields that will be either concatenated 
-when assembling the layer or dissected one by one when desassembling a string. 
+when assembling the layer or dissected one by one when disassembling a string. 
 The list of fields is held in an attribute named ``fields_desc``. Each field is an instance 
 of a field class:: 
 
@@ -695,7 +695,7 @@ automatically according to what comes next.
 
 If we use  these classes with nothing else, we  will have trouble when
 dissecting the  packets as nothing  binds Foo layer with  the multiple
-``Bar*`` even when we explicitely build the packet through the call to
+``Bar*`` even when we explicitly build the packet through the call to
 ``show2()``::
 
     >>> p = Foo()/Bar1(val=1337)
@@ -723,7 +723,7 @@ behavior,  we must look  at how  the layers  are assembled.   When two
 independent packets instances ``Foo()`` and ``Bar1(val=1337)`` are
 compounded with the '/' operator, it results in a new packet where the
 two previous instances are cloned  (i.e.  are now two distinct objects
-structurally differents, but holding the same values)::
+structurally different, but holding the same values)::
 
     def __div__(self, other):
         if isinstance(other, Packet):
@@ -739,7 +739,7 @@ hand    side.    This    is    performed   through    the   call    to
 ``add_payload()``. Finally, the new packet is returned.
 
 Note: we can observe that if  other isn't a ``Packet`` but a string,
-the ``Raw``  class is instantied to  form the payload.  Like in this
+the ``Raw``  class is instantiated to  form the payload.  Like in this
 example::
 
     >>> IP()/"AAAA"
@@ -773,7 +773,7 @@ For  now,   when  the   value  of  this   field  will   be  requested,
 
 The fields are dispatched between three dictionaries:
 
-- ``fields``: fields whose the value have been explicitely set, like
+- ``fields``: fields whose the value have been explicitly set, like
   ``pdst`` in TCP (``pdst='42'``)
 - ``overloaded_fields``: overloaded fields
 - ``default_fields``: all the fields with their default value (these fields 
@@ -952,7 +952,7 @@ Special
     
     PadField(fld, align, padwith=None)  
            # Add bytes after the proxified field so that it ends at
-           # the specified alignment from its begining
+           # the specified alignment from its beginning
 
 TCP/IP
 ------
