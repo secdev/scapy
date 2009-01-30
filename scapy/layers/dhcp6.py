@@ -1146,7 +1146,7 @@ class DHCP6_InfoRequest(DHCP6):
 class DHCP6_RelayForward(_DHCP6GuessPayload,Packet):
     name = "DHCPv6 Relay Forward Message (Relay Agent/Server Message)"
     fields_desc = [ ByteEnumField("msgtype", 12, dhcp6types),
-                    ShortField("hopcount", None),
+                    ByteField("hopcount", None),
                     IP6Field("linkaddr", "::"),
                     IP6Field("peeraddr", "::") ]
     def hashret(self): # we filter on peer address field
