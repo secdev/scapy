@@ -2351,7 +2351,7 @@ class MIP6OptBindingAuthData(_MIP6OptAlign, Packet):
 class MIP6OptMobNetPrefix(_MIP6OptAlign, Packet): # NEMO - RFC 3963 
     name = 'NEMO Option - Mobile Network Prefix'
     fields_desc = [ ByteEnumField("otype", 6, _mobopttypes),
-                    ByteField("olen", 16),
+                    ByteField("olen", 18),
                     ByteField("reserved", 0),
                     ByteField("plen", 64),
                     IP6Field("prefix", "::") ]
