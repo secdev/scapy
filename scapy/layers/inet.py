@@ -379,15 +379,17 @@ class ICMP(Packet):
     fields_desc = [ ByteEnumField("type",8, icmptypes),
                     ByteField("code",0),
                     XShortField("chksum", None),
-                    ConditionalField(XShortField("id",0),  lambda pkt:pkt.type in [0,8,13,14,15,16]),
-                    ConditionalField(XShortField("seq",0), lambda pkt:pkt.type in [0,8,13,14,15,16]),
+                    ConditionalField(XShortField("id",0),  lambda pkt:pkt.type in [0,8,13,14,15,16,17,18]),
+                    ConditionalField(XShortField("seq",0), lambda pkt:pkt.type in [0,8,13,14,15,16,17,18]),
                     ConditionalField(ICMPTimeStampField("ts_ori", None), lambda pkt:pkt.type in [13,14]),
                     ConditionalField(ICMPTimeStampField("ts_rx", None), lambda pkt:pkt.type in [13,14]),
                     ConditionalField(ICMPTimeStampField("ts_tx", None), lambda pkt:pkt.type in [13,14]),
                     ConditionalField(IPField("gw","0.0.0.0"),  lambda pkt:pkt.type==5),
                     ConditionalField(ByteField("ptr",0),   lambda pkt:pkt.type==12),
                     ConditionalField(X3BytesField("reserved",0), lambda pkt:pkt.type==12),
-                    ConditionalField(IntField("unused",0), lambda pkt:pkt.type not in [0,5,8,12,13,14,15,16]),
+                    ConditionalField(IPField("addr_mask","0.0.0.0"), lambda pkt:pkt.type in [17,18]),
+                    ConditionalField(IntField("unused",0), lambda pkt:pkt.type not in [0,5,8,12,13,14,15,16,17,18]),
+                    
                     ]
     def post_build(self, p, pay):
         p += pay
