@@ -34,6 +34,7 @@ def read_routes():
         f=os.popen("netstat -rn") # -f inet
     ok = 0
     mtu_present = False
+    prio_present = False
     routes = []
     pending_if = []
     for l in f.readlines():
@@ -42,12 +43,11 @@ def read_routes():
         l = l.strip()
         if l.find("----") >= 0: # a separation line
             continue
-        if l.find("Destination") >= 0:
-            ok = 1
-            if l.find("Mtu") >= 0:
-                mtu_present = True
-            continue
-        if ok == 0:
+        if not ok:
+            if l.find("Destination") >= 0:
+                ok = 1
+                mtu_present = l.find("Mtu") >= 0
+                prio_present = l.find("Prio") >= 0
             continue
         if not l:
             break
@@ -59,10 +59,9 @@ def read_routes():
                 dest,mask,gw,mxfrg,rtt,ref,flg = lspl[:7]
                 netif=None
         else:
-            if mtu_present:
-                dest,gw,flg,ref,use,mtu,netif = l.split()[:7]
-            else:
-                dest,gw,flg,ref,use,netif = l.split()[:6]
+            rt = l.split()
+            dest,gw,flg = rt[:3]
+            netif = rt[5+mtu_present+prio_present]
         if flg.find("Lc") >= 0:
             continue                
         if dest == "default":
@@ -141,19 +140,26 @@ def in6_getifaddr():
 
 def read_routes6():
     f = os.popen("netstat -rn -f inet6")
-    ok = -1
+    ok = False
+    mtu_present = False
+    prio_present = False
     routes = []
     lifaddr = in6_getifaddr()
     for l in f.readlines():
         if not l:
             break
         l = l.strip()
-        if ok < 0:
-            ok = l.find('Destination')
+        if not ok:
+            if l.find("Destination") >= 0:
+                ok = 1
+                mtu_present = l.find("Mtu") >= 0
+                prio_present = l.find("Prio") >= 0
             continue
         # gv 12/12/06: under debugging      
         if scapy.arch.NETBSD or scapy.arch.OPENBSD:
-            d,nh,fl,_,_,_,dev = l.split()[:7]
+            lspl = l.split()
+            d,nh,fl = lspl[:3]
+            dev = lspl[5+mtu_present+prio_present]
         else:       # FREEBSD or DARWIN 
             d,nh,fl,dev = l.split()[:4]
         if filter(lambda x: x[2] == dev, lifaddr) == []:
