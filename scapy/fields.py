@@ -770,12 +770,12 @@ class LEFieldLenField(FieldLenField):
 
 class FlagsField(BitField):
     def __init__(self, name, default, size, names):
-        BitField.__init__(self, name, default, size)
         self.multi = type(names) is list
         if self.multi:
             self.names = map(lambda x:[x], names)
         else:
             self.names = names
+        BitField.__init__(self, name, default, size)
     def any2i(self, pkt, x):
         if type(x) is str:
             if self.multi:
