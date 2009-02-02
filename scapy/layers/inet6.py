@@ -2726,7 +2726,7 @@ class MIP6MH_BU(_MobilityHeader):
                     ByteField("res", None),
                     XShortField("cksum", None),
                     XShortField("seq", None), # TODO: ShortNonceField
-                    FlagsField("flags", 49, 6, "AHLKMR"),
+                    FlagsField("flags", "KHA", 6, "RMKLHA"),
                     XBitField("reserved", 0, 10),
                     LifetimeField("mhtime", 3), # unit == 4 seconds
                     _PhantomAutoPadField("autopad", 1), # autopad activated by default
@@ -2750,7 +2750,7 @@ class MIP6MH_BA(_MobilityHeader):
                     ByteField("res", None),
                     XShortField("cksum", None),
                     ByteEnumField("status", 0, bastatus),
-                    FlagsField("flags", 2, 2, "KR"),
+                    FlagsField("flags", "K", 2, "RK"),
                     XBitField("res2", None, 6),
                     XShortField("seq", None), # TODO: ShortNonceField
                     XShortField("mhtime", 0), # unit == 4 seconds
