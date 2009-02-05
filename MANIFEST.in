@@ -1,3 +1,4 @@
 include MANIFEST.in
 include run_scapy
-include doc/*
+recursive-include doc *
+recursive-include test *
