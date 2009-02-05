@@ -275,7 +275,7 @@ class ASN1F_PACKET(ASN1F_field):
             c = cls(x)
         except ASN1F_badsequence:
             c = packet.Raw(x)
-        cpad = c[packet.Padding]
+        cpad = c.getlayer(packet.Padding)
         x = ""
         if cpad is not None:
             x = cpad.load
