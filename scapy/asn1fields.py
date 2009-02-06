@@ -115,6 +115,11 @@ class ASN1F_INTEGER(ASN1F_field):
     def randval(self):
         return RandNum(-2**64, 2**64-1)
 
+class ASN1F_BOOLEAN(ASN1F_field):
+    ASN1_tag= ASN1_Class_UNIVERSAL.BOOLEAN
+    def randval(self):
+        return RandChoice(True,False)
+
 class ASN1F_NULL(ASN1F_INTEGER):
     ASN1_tag= ASN1_Class_UNIVERSAL.NULL
 
