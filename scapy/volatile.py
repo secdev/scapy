@@ -144,9 +144,11 @@ class RandChoice(RandField):
         return random.choice(self._choice)
     
 class RandString(RandField):
-    def __init__(self, size, chars="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"):
-        self.chars = chars
+    def __init__(self, size=None, chars="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"):
+        if size is None:
+            size = RandNumExpo(0.01)
         self.size = size
+        self.chars = chars
     def _fix(self):
         s = ""
         for i in range(self.size):
@@ -154,7 +156,7 @@ class RandString(RandField):
         return s
 
 class RandBin(RandString):
-    def __init__(self, size):
+    def __init__(self, size=None):
         RandString.__init__(self, size, "".join(map(chr,range(256))))
 
 
