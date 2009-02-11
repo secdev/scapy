@@ -333,7 +333,6 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
                 gr += ' "evt.%s" -> "dst.%s";\n' % (`e`,`d`) 
             
         gr += "}"
-        open("/tmp/aze","w").write(gr)
         return do_graph(gr, **kargs)
 
 
