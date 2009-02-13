@@ -3,8 +3,9 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
-import time,struct
-from fcntl import ioctl
+import time,struct,sys
+if not sys.platform.startswith("win"):
+    from fcntl import ioctl
 from scapy.data import *
 from scapy.config import conf
 from scapy.utils import warning

@@ -45,8 +45,9 @@ FREEBSD=sys.platform.startswith("freebsd")
 NETBSD = sys.platform.startswith("netbsd")
 DARWIN=sys.platform.startswith("darwin")
 SOLARIS=sys.platform.startswith("sunos")
+WINDOWS=sys.platform.startswith("win32")
 
-X86_64 = (os.uname()[4] == 'x86_64')
+X86_64 = not WINDOWS and (os.uname()[4] == 'x86_64')
 
 
 # Next step is to import following architecture specific functions:
@@ -70,7 +71,9 @@ elif OPENBSD or FREEBSD or NETBSD or DARWIN:
     from bsd import *
 elif SOLARIS:
     from solaris import *
-    
+elif WINDOWS:
+    from windows import *
+
 if scapy.config.conf.iface is None:
     scapy.config.conf.iface = LOOPBACK_NAME
 

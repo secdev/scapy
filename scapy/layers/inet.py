@@ -828,7 +828,7 @@ class TracerouteResult(SndRcvList):
         while 1:
             if visual.scene.kb.keys:
                 k = visual.scene.kb.getkey()
-                if k == "esc":
+                if k == "esc" or k == "q":
                     break
             if visual.scene.mouse.events:
                 ev = visual.scene.mouse.getevent()
