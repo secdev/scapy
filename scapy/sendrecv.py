@@ -9,7 +9,7 @@ from data import *
 from arch import *
 from config import conf
 from packet import Gen
-from utils import warning
+from utils import warning,get_temp_file
 import plist
 from error import log_runtime,log_interactive
 
@@ -265,7 +265,7 @@ def sendpfast(x, pps=None, mbps=None, realtime=None, loop=0, iface=None):
     if loop:
         argv.append("--loop=%i" % loop)
 
-    f = os.tempnam("scapy")
+    f = get_temp_file()
     argv.append(f)
     wrpcap(f, x)
     try:

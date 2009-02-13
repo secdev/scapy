@@ -8,7 +8,7 @@ from config import conf
 from base_classes import BasePacket,BasePacketList
 from packet import Padding
 
-from utils import do_graph,hexdump,make_table,make_lined_table,make_tex_table
+from utils import do_graph,hexdump,make_table,make_lined_table,make_tex_table,get_temp_file
 
 import arch
 if arch.GNUPLOT:
@@ -360,7 +360,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
                   conf.prog.psreader is called"""
         d = self._dump_document(**kargs)
         if filename is None:
-            filename = "/tmp/scapy.psd.%i" % os.getpid()
+            filename = get_temp_file(autoext=".ps")
             d.writePSfile(filename)
             os.system("%s %s.ps &" % (conf.prog.psreader,filename))
         else:
@@ -373,7 +373,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
                   conf.prog.pdfreader is called"""
         d = self._dump_document(**kargs)
         if filename is None:
-            filename = "/tmp/scapy.psd.%i" % os.getpid()
+            filename = get_temp_file(autoext=".pdf")
             d.writePDFfile(filename)
             os.system("%s %s.pdf &" % (conf.prog.pdfreader,filename))
         else:

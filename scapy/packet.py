@@ -8,7 +8,7 @@ from fields import StrField,ConditionalField,Emph,PacketListField
 from config import conf
 from base_classes import BasePacket,Gen,SetGen,Packet_metaclass,NewDefaultValues
 from volatile import VolatileValue
-from utils import import_hexcap,tex_escape,colgen
+from utils import import_hexcap,tex_escape,colgen,get_temp_file
 from error import Scapy_Exception,log_runtime
 
 try:
@@ -339,7 +339,7 @@ class Packet(BasePacket):
 Creates an EPS file describing a packet. If filename is not provided a temporary file is created and gs is called."""
         canvas = self.canvas_dump(**kargs)
         if filename is None:
-            fname = "/tmp/scapy.%i"%os.getpid()
+            fname = get_temp_file(autoext=".eps")
             canvas.writeEPSfile(fname)
             os.system("%s '%s.eps' &" % (conf.prog.psreader,fname))
         else:
@@ -350,7 +350,7 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
         Creates a PDF file describing a packet. If filename is not provided a temporary file is created and xpdf is called."""
         canvas = self.canvas_dump(**kargs)
         if filename is None:
-            fname = "/tmp/scapy.%i"%os.getpid()
+            fname = get_temp_file(autoext=".pdf")
             canvas.writePDFfile(fname)
             os.system("%s '%s.pdf' &" % (conf.prog.pdfreader,fname))
         else:

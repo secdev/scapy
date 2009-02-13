@@ -13,6 +13,7 @@ from scapy.sendrecv import sniff
 from scapy.packet import Raw
 from scapy.layers.inet import IP,UDP
 from scapy.layers.rtp import RTP
+from scapy.utils import get_temp_file
 
 
 def merge(x,y,sample_size=2):
@@ -29,7 +30,7 @@ def merge(x,y,sample_size=2):
 
 
 def voip_play(s1,list=None,**kargs):
-    FIFO="/tmp/conv1.%i.%%i" % os.getpid()
+    FIFO=get_temp_file()
     FIFO1=FIFO % 1
     FIFO2=FIFO % 2
     

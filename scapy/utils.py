@@ -21,10 +21,10 @@ from base_classes import BasePacketList
 ## Tools ##
 ###########
 
-def get_temp_file(keep=False):
+def get_temp_file(keep=False, autoext=""):
     f = os.tempnam("","scapy")
     if not keep:
-        conf.temp_files.append(f)
+        conf.temp_files.append(f+autoext)
     return f
 
 def sane_color(x):
