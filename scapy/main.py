@@ -12,7 +12,7 @@ import utils
     
 
 def _probe_config_file(cf):
-    cf_path = os.path.join(os.environ.get("HOME",""), cf)
+    cf_path = os.path.join(os.path.expanduser("~"), cf)
     try:
         os.stat(cf_path)
     except OSError:
