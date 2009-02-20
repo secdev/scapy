@@ -336,6 +336,103 @@ If there is a limited rate of answers, you can specify a time interval to wait b
     Received 100 packets, got 3 answers, remaining 9 packets
     (<Results: UDP:0 TCP:3 ICMP:0 Other:0>, <Unanswered: UDP:0 TCP:9 ICMP:0 Other:0>)
 
+
+SYN Scans
+---------
+
+.. index::
+   single: SYN Scan
+
+Classic SYN Scan can be initialized by executing the following command from Scapy's prompt::
+
+    >>> sr1(IP(dst="72.14.207.99")/TCP(dport=80,flags="S"))
+
+The above will send a single SYN packet to Google's port 80 and will quit after receving a single response::
+
+    Begin emission:
+    .Finished to send 1 packets.
+    *
+    Received 2 packets, got 1 answers, remaining 0 packets
+    <IP  version=4L ihl=5L tos=0x20 len=44 id=33529 flags= frag=0L ttl=244
+    proto=TCP chksum=0x6a34 src=72.14.207.99 dst=192.168.1.100 options=// |
+    <TCP  sport=www dport=ftp-data seq=2487238601L ack=1 dataofs=6L reserved=0L
+    flags=SA window=8190 chksum=0xcdc7 urgptr=0 options=[('MSS', 536)] |
+    <Padding  load='V\xf7' |>>>
+
+From the above output, we can see Google returned “SA” or SYN-ACK flags indicating an open port.
+
+Use either notations to scan ports 400 through 443 on the system:
+
+    >>> sr(IP(dst="192.168.1.1")/TCP(sport=666,dport=(440,443),flags="S"))
+
+or
+
+    >>> sr(IP(dst="192.168.1.1")/TCP(sport=RandShort(),dport=[440,441,442,443],flags="S"))
+
+In order to quickly review responses simply request a summary of collected packets::
+
+    >>> ans,unans = _
+    >>> ans.summary()
+    IP / TCP 192.168.1.100:ftp-data > 192.168.1.1:440 S ======> IP / TCP 192.168.1.1:440 > 192.168.1.100:ftp-data RA / Padding
+    IP / TCP 192.168.1.100:ftp-data > 192.168.1.1:441 S ======> IP / TCP 192.168.1.1:441 > 192.168.1.100:ftp-data RA / Padding
+    IP / TCP 192.168.1.100:ftp-data > 192.168.1.1:442 S ======> IP / TCP 192.168.1.1:442 > 192.168.1.100:ftp-data RA / Padding
+    IP / TCP 192.168.1.100:ftp-data > 192.168.1.1:https S ======> IP / TCP 192.168.1.1:https > 192.168.1.100:ftp-data SA / Padding
+
+The above will display stimulus/response pairs for answered probes. We can display only the information we are interested in by using a simple loop:
+
+    >>> ans.summary( lambda(s,r): r.sprintf("%TCP.sport% \t %TCP.flags%") )
+    440      RA
+    441      RA
+    442      RA
+    https    SA
+
+Even better, a table can be built using the ``make_table()`` function to display information about multiple targets::
+
+    >>> ans,unans = sr(IP(dst=["192.168.1.1","yahoo.com","slashdot.org"])/TCP(dport=[22,80,443],flags="S"))
+    Begin emission:
+    .......*.**.......Finished to send 9 packets.
+    **.*.*..*..................
+    Received 362 packets, got 8 answers, remaining 1 packets
+    >>> ans.make_table(
+    ...    lambda(s,r): (s.dst, s.dport,
+    ...    r.sprintf("{TCP:%TCP.flags%}{ICMP:%IP.src% - %ICMP.type%}")))
+        66.35.250.150                192.168.1.1 216.109.112.135 
+    22  66.35.250.150 - dest-unreach RA          -               
+    80  SA                           RA          SA              
+    443 SA                           SA          SA              
+
+The above example will even print the ICMP error type if the ICMP packet was received as a response instead of expected TCP.
+
+For larger scans, we could be interested in displaying only certain responses. The example below will only display packets with the “SA” flag set::
+
+    >>> ans.nsummary(lfilter = lambda (s,r): r.sprintf("%TCP.flags%") ====== "SA")
+    0003 IP / TCP 192.168.1.100:ftp_data > 192.168.1.1:https S ======> IP / TCP 192.168.1.1:https > 192.168.1.100:ftp_data SA
+
+In case we want to do some expert analysis of responses, we can use the following command to indicate which ports are open::
+
+    >>> ans.summary(lfilter = lambda (s,r): r.sprintf("%TCP.flags%") ====== "SA",prn=lambda(s,r):r.sprintf("%TCP.sport% is open"))
+    https is open
+
+Again, for larger scans we can build a table of open ports::
+
+    >>> ans.filter(lambda (s,r):TCP in r and r[TCP].flags&2).make_table(lambda (s,r): 
+    ...             (s.dst, s.dport, "X"))
+        66.35.250.150 192.168.1.1 216.109.112.135 
+    80  X             -           X               
+    443 X             X           X
+
+If all of the above methods were not enough, Scapy includes a report_ports() function which not only automates the SYN scan, but also produces a LaTeX output with collected results::
+
+    >>> report_ports("192.168.1.1",(440,443))
+    Begin emission:
+    ...*.**Finished to send 4 packets.
+    *
+    Received 8 packets, got 4 answers, remaining 0 packets
+    '\\begin{tabular}{|r|l|l|}\n\\hline\nhttps & open & SA \\\\\n\\hline\n440
+     & closed & TCP RA \\\\\n441 & closed & TCP RA \\\\\n442 & closed & 
+    TCP RA \\\\\n\\hline\n\\hline\n\\end{tabular}\n'
+
+
 TCP traceroute
 --------------
 
@@ -503,6 +600,24 @@ We can easily capture some packets or even clone tcpdump or tethereal. If no int
     ---[ Padding ]---
                 load      = '\n_\x00\x0b'
 
+For even more control over displayed information we can use the ``sprintf()`` function::
+
+    >>> pkts = sniff(prn=lambda x:x.sprintf("{IP:%IP.src% -> %IP.dst%\n}{Raw:%Raw.load%\n}"))
+    192.168.1.100 -> 64.233.167.99
+    
+    64.233.167.99 -> 192.168.1.100
+    
+    192.168.1.100 -> 64.233.167.99
+    
+    192.168.1.100 -> 64.233.167.99
+    'GET / HTTP/1.1\r\nHost: 64.233.167.99\r\nUser-Agent: Mozilla/5.0 
+    (X11; U; Linux i686; en-US; rv:1.8.1.8) Gecko/20071022 Ubuntu/7.10 (gutsy)
+    Firefox/2.0.0.8\r\nAccept: text/xml,application/xml,application/xhtml+xml,
+    text/html;q=0.9,text/plain;q=0.8,image/png,*/*;q=0.5\r\nAccept-Language:
+    en-us,en;q=0.5\r\nAccept-Encoding: gzip,deflate\r\nAccept-Charset:
+    ISO-8859-1,utf-8;q=0.7,*;q=0.7\r\nKeep-Alive: 300\r\nConnection:
+    keep-alive\r\nCache-Control: max-age=0\r\n\r\n'
+    
 We can sniff and do passive OS fingerprinting::
 
     >>> p
@@ -578,6 +693,143 @@ Here is an example of a (h)ping-like functionnality : you always send the same s
     fail 3: IP / TCP 192.168.8.14:20 > 192.168.11.96:80 S
             IP / TCP 192.168.8.14:20 > 192.168.11.98:80 S
             IP / TCP 192.168.8.14:20 > 192.168.11.97:80 S
+
+
+Importing and Exporting Data
+----------------------------
+PCAP
+^^^^
+
+It is often useful to save capture packets to pcap file for use at later time or with different applications::
+
+    >>> wrpcap("temp.cap",pkts)
+
+To restore previously saved pcap file:
+
+    >>> pkts = rdpcap("temp.cap")
+
+or
+
+    >>> pkts = sniff(offline="temp.cap")
+
+Hexdump
+^^^^^^^
+
+Scapy allows you to export recorded packets in various hex formats.
+
+Use ``hexdump()`` to display one or more packets using classic hexdump format::
+
+    >>> hexdump(pkt)
+    0000   00 50 56 FC CE 50 00 0C  29 2B 53 19 08 00 45 00   .PV..P..)+S...E.
+    0010   00 54 00 00 40 00 40 01  5A 7C C0 A8 19 82 04 02   .T..@.@.Z|......
+    0020   02 01 08 00 9C 90 5A 61  00 01 E6 DA 70 49 B6 E5   ......Za....pI..
+    0030   08 00 08 09 0A 0B 0C 0D  0E 0F 10 11 12 13 14 15   ................
+    0040   16 17 18 19 1A 1B 1C 1D  1E 1F 20 21 22 23 24 25   .......... !"#$%
+    0050   26 27 28 29 2A 2B 2C 2D  2E 2F 30 31 32 33 34 35   &'()*+,-./012345
+    0060   36 37                                              67
+
+Hexdump above can be reimported back into Scapy using ``import_hexcap()``::
+
+    >>> pkt_hex = Ether(import_hexcap())
+    0000   00 50 56 FC CE 50 00 0C  29 2B 53 19 08 00 45 00   .PV..P..)+S...E.
+    0010   00 54 00 00 40 00 40 01  5A 7C C0 A8 19 82 04 02   .T..@.@.Z|......
+    0020   02 01 08 00 9C 90 5A 61  00 01 E6 DA 70 49 B6 E5   ......Za....pI..
+    0030   08 00 08 09 0A 0B 0C 0D  0E 0F 10 11 12 13 14 15   ................
+    0040   16 17 18 19 1A 1B 1C 1D  1E 1F 20 21 22 23 24 25   .......... !"#$%
+    0050   26 27 28 29 2A 2B 2C 2D  2E 2F 30 31 32 33 34 35   &'()*+,-./012345
+    0060   36 37                                              67
+    >>> pkt_hex
+    <Ether  dst=00:50:56:fc:ce:50 src=00:0c:29:2b:53:19 type=0x800 |<IP  version=4L 
+    ihl=5L tos=0x0 len=84 id=0 flags=DF frag=0L ttl=64 proto=icmp chksum=0x5a7c 
+    src=192.168.25.130 dst=4.2.2.1 options='' |<ICMP  type=echo-request code=0 
+    chksum=0x9c90 id=0x5a61 seq=0x1 |<Raw  load='\xe6\xdapI\xb6\xe5\x08\x00\x08\t\n
+    \x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e
+    \x1f !"#$%&\'()*+,-./01234567' |>>>>
+
+Hex string
+^^^^^^^^^^
+
+You can also convert entire packet into a hex string using the ``str()`` function::
+
+    >>> pkts = sniff(count = 1)
+    >>> pkt = pkts[0]
+    >>> pkt
+    <Ether  dst=00:50:56:fc:ce:50 src=00:0c:29:2b:53:19 type=0x800 |<IP  version=4L 
+    ihl=5L tos=0x0 len=84 id=0 flags=DF frag=0L ttl=64 proto=icmp chksum=0x5a7c 
+    src=192.168.25.130 dst=4.2.2.1 options='' |<ICMP  type=echo-request code=0 
+    chksum=0x9c90 id=0x5a61 seq=0x1 |<Raw  load='\xe6\xdapI\xb6\xe5\x08\x00\x08\t\n
+    \x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e
+    \x1f !"#$%&\'()*+,-./01234567' |>>>>
+    >>> pkt_str = str(pkt)
+    >>> pkt_str
+    '\x00PV\xfc\xceP\x00\x0c)+S\x19\x08\x00E\x00\x00T\x00\x00@\x00@\x01Z|\xc0\xa8
+    \x19\x82\x04\x02\x02\x01\x08\x00\x9c\x90Za\x00\x01\xe6\xdapI\xb6\xe5\x08\x00
+    \x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b
+    \x1c\x1d\x1e\x1f !"#$%&\'()*+,-./01234567'
+
+We can reimport the produced hex string by selecting the appropriate starting layer (e.g. ``Ether()``).
+
+    >>> new_pkt = Ether(pkt_str)
+    >>> new_pkt
+    <Ether  dst=00:50:56:fc:ce:50 src=00:0c:29:2b:53:19 type=0x800 |<IP  version=4L 
+    ihl=5L tos=0x0 len=84 id=0 flags=DF frag=0L ttl=64 proto=icmp chksum=0x5a7c 
+    src=192.168.25.130 dst=4.2.2.1 options='' |<ICMP  type=echo-request code=0 
+    chksum=0x9c90 id=0x5a61 seq=0x1 |<Raw  load='\xe6\xdapI\xb6\xe5\x08\x00\x08\t\n
+    \x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e
+    \x1f !"#$%&\'()*+,-./01234567' |>>>>
+
+Base64
+^^^^^^
+
+Using the ``export_object()`` function, Scapy can export a base64 encoded Python data structure representing a packet::
+
+    >>> pkt
+    <Ether  dst=00:50:56:fc:ce:50 src=00:0c:29:2b:53:19 type=0x800 |<IP  version=4L 
+    ihl=5L tos=0x0 len=84 id=0 flags=DF frag=0L ttl=64 proto=icmp chksum=0x5a7c 
+    src=192.168.25.130 dst=4.2.2.1 options='' |<ICMP  type=echo-request code=0 
+    chksum=0x9c90 id=0x5a61 seq=0x1 |<Raw  load='\xe6\xdapI\xb6\xe5\x08\x00\x08\t\n
+    \x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f 
+    !"#$%&\'()*+,-./01234567' |>>>>
+    >>> export_object(pkt)
+    eNplVwd4FNcRPt2dTqdTQ0JUUYwN+CgS0gkJONFEs5WxFDB+CdiI8+pupVl0d7uzRUiYtcEGG4ST
+    OD1OnB6nN6c4cXrvwQmk2U5xA9tgO70XMm+1rA78qdzbfTP/lDfzz7tD4WwmU1C0YiaT2Gqjaiao
+    bMlhCrsUSYrYoKbmcxZFXSpPiohlZikm6ltb063ZdGpNOjWQ7mhPt62hChHJWTbFvb0O/u1MD2bT
+    WZXXVCmi9pihUqI3FHdEQslriiVfWFTVT9VYpog6Q7fsjG0qRWtQNwsW1fRTrUg4xZxq5pUx1aS6
+    ...
+
+The output above can be reimported back into Skype using ``import_object()``::
+
+    >>> new_pkt = import_object()
+    eNplVwd4FNcRPt2dTqdTQ0JUUYwN+CgS0gkJONFEs5WxFDB+CdiI8+pupVl0d7uzRUiYtcEGG4ST
+    OD1OnB6nN6c4cXrvwQmk2U5xA9tgO70XMm+1rA78qdzbfTP/lDfzz7tD4WwmU1C0YiaT2Gqjaiao
+    bMlhCrsUSYrYoKbmcxZFXSpPiohlZikm6ltb063ZdGpNOjWQ7mhPt62hChHJWTbFvb0O/u1MD2bT
+    WZXXVCmi9pihUqI3FHdEQslriiVfWFTVT9VYpog6Q7fsjG0qRWtQNwsW1fRTrUg4xZxq5pUx1aS6
+    ...
+    >>> new_pkt
+    <Ether  dst=00:50:56:fc:ce:50 src=00:0c:29:2b:53:19 type=0x800 |<IP  version=4L 
+    ihl=5L tos=0x0 len=84 id=0 flags=DF frag=0L ttl=64 proto=icmp chksum=0x5a7c 
+    src=192.168.25.130 dst=4.2.2.1 options='' |<ICMP  type=echo-request code=0 
+    chksum=0x9c90 id=0x5a61 seq=0x1 |<Raw  load='\xe6\xdapI\xb6\xe5\x08\x00\x08\t\n
+    \x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f 
+    !"#$%&\'()*+,-./01234567' |>>>>
+
+Sessions
+^^^^^^^^
+
+At last Scapy is capable of saving all session variables using the ``save_session()`` function:
+
+>>> dir()
+['__builtins__', 'conf', 'new_pkt', 'pkt', 'pkt_export', 'pkt_hex', 'pkt_str', 'pkts']
+>>> save_session("session.scapy")
+
+Next time you start Scapy you can load the previous saved session using the ``load_session()`` command::
+
+    >>> dir()
+    ['__builtins__', 'conf']
+    >>> load_session("session.scapy")
+    >>> dir()
+    ['__builtins__', 'conf', 'new_pkt', 'pkt', 'pkt_export', 'pkt_hex', 'pkt_str', 'pkts']
+
 
 Making tables
 -------------
@@ -805,6 +1057,97 @@ you can have a kind of FakeAP::
 Simple one-liners
 =================
 
+
+ACK Scan
+--------
+
+Using Scapy's powerful packet crafting facilities we can quick replicate classic TCP Scans.
+For example, the following string will be sent to simulate an ACK Scan::
+
+    >>> ans,unans = sr(IP(dst="www.slashdot.org")/TCP(dport=[80,666],flags="A"))
+
+We can find unfiltered ports in answered packets::
+
+    >>> for s,r in ans:
+    ...     if s[TCP].dport == r[TCP].sport:
+    ...        print str(s[TCP].dport) + " is unfiltered"
+
+Similarly, filtered ports can be found with unanswered packets::
+
+    >>> for s in unans:     
+    ...     print str(s[TCP].dport) + " is filtered"
+
+
+Xmas Scan
+---------
+
+Xmas Scan can be launced using the following command:
+
+>>> ans,unans = sr(IP(dst="192.168.1.1")/TCP(dport=666,flags="FPU") )
+
+Checking RST responses will reveal closed ports on the target. 
+
+IP Scan
+-------
+
+A lower level IP Scan can be used to enumerate supported protocols::
+
+    >>> ans,unans=sr(IP(dst="192.168.1.1",proto=(0,255))/"SCAPY",retry=2)
+
+
+ARP Ping
+--------
+
+The fastest way to discover hosts on a local ethernet network is to use the ARP Ping method::
+
+    >>> ans,unans=srp(Ether(dst="ff:ff:ff:ff:ff:ff")/ARP(pdst="192.168.1.0/24"),timeout=2)
+
+Answers can be reviewed with the following command::
+
+    >>> ans.summary(lambda (s,r): r.sprintf("%Ether.src% %ARP.psrc%") )
+
+Scapy also includes a built-in arping() function which performs similar to the above two commands:
+
+    >>> arping("192.168.1.*")
+
+
+ICMP Ping
+---------
+
+Classical ICMP Ping can be emulated using the following command::
+
+    >>> ans,unans=sr(IP(dst="192.168.1.1-254")/ICMP())
+
+Information on live hosts can be collected with the following request::
+
+    >>> ans.summary(lambda (s,r): r.sprintf("%IP.src% is alive") )
+
+
+TCP Ping
+--------
+
+In cases where ICMP echo requests are blocked, we can still use various TCP Pings such as TCP SYN Ping below::
+
+    >>> ans,unans=sr( IP(dst="192.168.1.*")/TCP(dport=80,flags="S") )
+
+Any response to our probes will indicate a live host. We can collect results with the following command::
+
+    >>> ans.summary( lambda(s,r) : r.sprintf("%IP.src% is alive") )
+
+
+UDP Ping
+--------
+
+If all else fails there is always UDP Ping which will produce ICMP Port unreachable errors from live hosts. Here you can pick any port which is most likely to be closed, such as port 0::
+
+    >>> ans,unans=sr( IP(dst="192.168.*.1-10")/UDP(dport=0) )
+
+Once again, results can be collected with this command:
+
+    >>> ans.summary( lambda(s,r) : r.sprintf("%IP.src% is alive") )
+
+
+
 Classical attacks
 -----------------
 
@@ -872,9 +1215,32 @@ Visualizing the results in a list::
 
     res.nsummary(prn=lambda (s,r): r.src, lfilter=lambda (s,r): r.haslayer(ISAKMP) ) 
     
-    
+  
+
+Advanced traceroute
+-------------------
+
+TCP SYN traceroute
+^^^^^^^^^^^^^^^^^^
+
+::
+
+    >>> ans,unans=sr(IP(dst="4.2.2.1",ttl=(1,10))/TCP(dport=53,flags="S"))
+
+Results would be::
+
+    >>> ans.summary( lambda(s,r) : r.sprintf("%IP.src%\t{ICMP:%ICMP.type%}\t{TCP:%TCP.flags%}"))
+    192.168.1.1     time-exceeded
+    68.86.90.162    time-exceeded
+    4.79.43.134     time-exceeded
+    4.79.43.133     time-exceeded
+    4.68.18.126     time-exceeded
+    4.68.123.38     time-exceeded
+    4.2.2.1         SA
+
+
 UDP traceroute
---------------
+^^^^^^^^^^^^^^
 
 Tracerouting an UDP application like we do with TCP is not 
 reliable, because there's no handshake. We need to give an applicative payload (DNS, ISAKMP, 
@@ -887,6 +1253,26 @@ We can visualize the results as a list of routers::
 
     res.make_table(lambda (s,r): (s.dst, s.ttl, r.src)) 
 
+
+DNS traceroute
+^^^^^^^^^^^^^^
+
+We can perform a DNS traceroute by specifying a complete packet in ``l4`` parameter of ``traceroute()`` function::
+
+    >>> ans,unans=traceroute("4.2.2.1",l4=UDP(sport=RandShort())/DNS(qd=DNSQR(qname="thesprawl.org")))
+    Begin emission:
+    ..*....******...******.***...****Finished to send 30 packets.
+    *****...***...............................
+    Received 75 packets, got 28 answers, remaining 2 packets
+       4.2.2.1:udp53      
+    1  192.168.1.1     11 
+    4  68.86.90.162    11 
+    5  4.79.43.134     11 
+    6  4.79.43.133     11 
+    7  4.68.18.62      11 
+    8  4.68.123.6      11 
+    9  4.2.2.1            
+    ...
 
 
 Etherleaking 
@@ -918,6 +1304,20 @@ make a packet jump to another VLAN::
  
     >>> sendp(Ether()/Dot1Q(vlan=2)/Dot1Q(vlan=7)/IP(dst=target)/ICMP()) 
 
+
+Wireless sniffing
+-----------------
+
+The following command will display information similar to most wireless sniffers::
+
+>>> sniff(iface="ath0",prn=lambda x:x.sprintf("{Dot11Beacon:%Dot11.addr3%\t%Dot11Beacon.info%\t%PrismHeader.channel%\tDot11Beacon.cap%}"))
+
+The above command will produce output similar to the one below::
+
+    00:00:00:01:02:03 netgear      6L   ESS+privacy+PBCC
+    11:22:33:44:55:66 wireless_100 6L   short-slot+ESS+privacy
+    44:55:66:00:11:22 linksys      6L   short-slot+ESS+privacy
+    12:34:56:78:90:12 NETGEAR      6L   short-slot+ESS+privacy+short-preamble
 
 
 Recipes 
@@ -992,6 +1392,7 @@ See also
 http://en.wikipedia.org/wiki/Rogue_DHCP
 
 
+
 Firewalking 
 -----------
 
@@ -1008,6 +1409,23 @@ only his own NIC’s IP are reachable with this TTL::
 
     >>> ans, unans = sr(IP(dst="172.16.5/24", ttl=15)/TCP()) 
     >>> for i in unans: print i.dst
+
+
+TCP Timestamp Filtering
+------------------------
+
+Problem
+^^^^^^^
+
+Many firewalls include a rule to drop TCP packets that do not have TCP Timestamp option set which is a common occurrence in popular port scanners.
+
+Solution
+^^^^^^^^
+
+To allow Scapy to reach target destination additional options must be used::
+
+    >>> sr1(IP(dst="72.14.207.99")/TCP(dport=80,flags="S",options=[('Timestamp',(0,0))]))
+
 
 
 Viewing packets with Wireshark
@@ -1040,6 +1458,63 @@ Please remember that Wireshark works with Layer 2 packets (usually called "frame
 
 You can tell Scapy where to find the Wireshark executable by changing the ``conf.prog.wireshark`` configuration setting.
 
+
+
+OS Fingerprinting
+-----------------
+
+ISN
+^^^
+
+Scapy can be used to analyze ISN (Initial Sequence Number) increments to possibly discover vulnerable systems. First we will collect target responses by sending a number of SYN probes in a loop::
+
+    >>> ans,unans=srloop(IP(dst="192.168.1.1")/TCP(dport=80,flags="S"))
+
+Once we obtain a reasonable number of responses we can start analyzing collected data with something like this:
+
+    >>> temp = 0
+    >>> for s,r in ans:
+    ...    temp = r[TCP].seq - temp
+    ...    print str(r[TCP].seq) + "\t+" + str(temp)
+    ... 
+    4278709328      +4275758673
+    4279655607      +3896934
+    4280642461      +4276745527
+    4281648240      +4902713
+    4282645099      +4277742386
+    4283643696      +5901310
+
+nmap_fp
+^^^^^^^
+
+If you have nmap installed you can use it's active os fingerprinting database with Scapy. First make sure that version 1 of signature database is located in the path specified by::
+
+    >>> conf.nmap_base
+
+Scapy includes a built-in ``nmap_fp()`` function which implements same probes as in Nmap's OS Detection engine::
+
+    >>> nmap_fp("192.168.1.1",oport=443,cport=1)
+    Begin emission:
+    .****..**Finished to send 8 packets.
+    *................................................
+    Received 58 packets, got 7 answers, remaining 1 packets
+    (1.0, ['Linux 2.4.0 - 2.5.20', 'Linux 2.4.19 w/grsecurity patch', 
+    'Linux 2.4.20 - 2.4.22 w/grsecurity.org patch', 'Linux 2.4.22-ck2 (x86)
+    w/grsecurity.org and HZ=1000 patches', 'Linux 2.4.7 - 2.6.11'])
+
+p0f
+^^^
+
+If you have p0f installed on your system, you can use it to guess OS name and version right from Scapy (only SYN database is used). First make sure that p0f database exists in the path specified by::
+
+    >>> conf.p0f_base
+
+For example to guess OS from a single captured packet:
+
+    >>> sniff(prn=prnp0f)
+    192.168.1.100:54716 - Linux 2.6 (newer, 1) (up: 24 hrs)
+      -> 74.125.19.104:www (distance 0)
+    <Sniffed: TCP:339 UDP:2 ICMP:0 Other:156>
 
 
 
