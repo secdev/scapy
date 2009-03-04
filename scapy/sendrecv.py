@@ -12,6 +12,7 @@ from packet import Gen
 from utils import warning,get_temp_file
 import plist
 from error import log_runtime,log_interactive
+from base_classes import SetGen
 
 #################
 ## Debug class ##
