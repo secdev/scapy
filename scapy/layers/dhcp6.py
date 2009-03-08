@@ -282,7 +282,6 @@ class DHCP6OptClientId(_DHCP6OptGuessPayload):     # RFC sect 22.2
 
 class DHCP6OptServerId(DHCP6OptClientId):     # RFC sect 22.3
     name = "DHCP6 Server Identifier Option"
-    __metaclass__ = NewDefaultValues
     optcode = 2
 
 # Should be encapsulated in the option field of IA_NA or IA_TA options
@@ -941,7 +940,6 @@ class DHCP6(_DHCP6OptGuessPayload):
 
 class DHCP6_Solicit(DHCP6):
     name = "DHCPv6 Solicit Message"
-    __metaclass__ = NewDefaultValues
     msgtype = 1
     overload_fields = { UDP: {"sport": 546, "dport": 547} }
 
@@ -955,7 +953,6 @@ class DHCP6_Solicit(DHCP6):
 
 class DHCP6_Advertise(DHCP6):
     name = "DHCPv6 Advertise Message"
-    __metaclass__ = NewDefaultValues
     msgtype = 2
     overload_fields = { UDP: {"sport": 547, "dport": 546} }
     
@@ -983,7 +980,6 @@ class DHCP6_Advertise(DHCP6):
 
 class DHCP6_Request(DHCP6):
     name = "DHCPv6 Request Message"
-    __metaclass__ = NewDefaultValues
     msgtype = 3
 
 #####################################################################
@@ -996,7 +992,6 @@ class DHCP6_Request(DHCP6):
 
 class DHCP6_Confirm(DHCP6):
     name = "DHCPv6 Confirm Message"
-    __metaclass__ = NewDefaultValues
     msgtype = 4
     
 #####################################################################
@@ -1018,7 +1013,6 @@ class DHCP6_Confirm(DHCP6):
 
 class DHCP6_Renew(DHCP6):
     name = "DHCPv6 Renew Message"
-    __metaclass__ = NewDefaultValues
     msgtype = 5
     
 #####################################################################
@@ -1029,7 +1023,6 @@ class DHCP6_Renew(DHCP6):
 
 class DHCP6_Rebind(DHCP6):
     name = "DHCPv6 Rebind Message"
-    __metaclass__ = NewDefaultValues
     msgtype = 6
     
 #####################################################################
@@ -1057,7 +1050,6 @@ class DHCP6_Rebind(DHCP6):
 
 class DHCP6_Reply(DHCP6):
     name = "DHCPv6 Reply Message"
-    __metaclass__ = NewDefaultValues
     msgtype = 7
     
     def answers(self, other):
@@ -1072,7 +1064,6 @@ class DHCP6_Reply(DHCP6):
 
 class DHCP6_Release(DHCP6):
     name = "DHCPv6 Release Message"
-    __metaclass__ = NewDefaultValues
     msgtype = 8
     
 #####################################################################
@@ -1087,7 +1078,6 @@ class DHCP6_Release(DHCP6):
 
 class DHCP6_Decline(DHCP6):
     name = "DHCPv6 Decline Message"
-    __metaclass__ = NewDefaultValues
     msgtype = 9
     
 #####################################################################
@@ -1105,7 +1095,6 @@ class DHCP6_Decline(DHCP6):
 
 class DHCP6_Reconf(DHCP6):
     name = "DHCPv6 Reconfigure Message"
-    __metaclass__ = NewDefaultValues
     msgtype = 10
     overload_fields = { UDP: { "sport": 547, "dport": 546 } }
 
@@ -1124,7 +1113,6 @@ class DHCP6_Reconf(DHCP6):
 
 class DHCP6_InfoRequest(DHCP6):
     name = "DHCPv6 Information Request Message"    
-    __metaclass__ = NewDefaultValues
     msgtype = 11 
     
     def hashret(self): 
@@ -1172,7 +1160,6 @@ class DHCP6_RelayForward(_DHCP6GuessPayload,Packet):
 
 class DHCP6_RelayReply(DHCP6_RelayForward):
     name = "DHCPv6 Relay Reply Message (Relay Agent/Server Message)"
-    __metaclass__= NewDefaultValues
     msgtype = 13
     def hashret(self): # We filter on peer address field.
         return inet_pton(socket.AF_INET6, self.peeraddr)

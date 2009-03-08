@@ -188,11 +188,10 @@ assert( _ == "FOO\x01\x02\x03\x04" )
 
 ############
 ############
-+ Tests on NewDefaultValues metaclass
++ Tests on default value changes mechanism
 
 = Creation of an IPv3 class from IP class with different default values
 class IPv3(IP):
-    __metaclass__ = NewDefaultValues
     version = 3
     ttl = 32
 

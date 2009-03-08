@@ -161,31 +161,25 @@ class Packet_metaclass(type):
         raise AttributeError(attr)
 
 class NewDefaultValues(Packet_metaclass):
-    """NewDefaultValues metaclass. Example usage:
-    class MyPacket(Packet):
-        fields_desc = [ StrField("my_field", "my default value"),  ]
-        
-    class MyPacket_variant(MyPacket):
+    """NewDefaultValues is deprecated (not needed anymore)
+    
+    remove this:
         __metaclass__ = NewDefaultValues
-        my_field = "my new default value"
+    and it should still work.
     """    
     def __new__(cls, name, bases, dct):
-        fields = None
-        for b in bases:
-            if hasattr(b,"fields_desc"):
-                fields = b.fields_desc
-                break
-        if fields is None:
-            raise error.Scapy_Exception("No fields_desc in superclasses")
-
-        new_fields = []
-        for f in fields:
-            if f.name in dct:
-                f = f.copy()
-                f.default = dct[f.name]
-                del(dct[f.name])
-            new_fields.append(f)
-        dct["fields_desc"] = new_fields
+        from error import log_loading
+        import traceback
+        try:
+            for tb in traceback.extract_stack()+[("??",-1,None,"")]:
+                f,l,_,line = tb
+                if line.startswith("class"):
+                    break
+        except:
+            f,l="??",-1
+            raise
+        log_loading.warning("Deprecated use of NewDefaultValues  (%s l. %i)." % (f,l))
+        
         return super(NewDefaultValues, cls).__new__(cls, name, bases, dct)
 
 class BasePacket(Gen):
