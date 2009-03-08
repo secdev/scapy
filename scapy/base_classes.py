@@ -150,15 +150,26 @@ class Packet_metaclass(type):
             dct["fields_desc"] = final_fld
 
         newcls = super(Packet_metaclass, cls).__new__(cls, name, bases, dct)
+        if hasattr(newcls,"register_variant"):
+            newcls.register_variant()
         for f in newcls.fields_desc:                
             f.register_owner(newcls)
         config.conf.layers.register(newcls)
         return newcls
+
     def __getattr__(self, attr):
         for k in self.fields_desc:
             if k.name == attr:
                 return k
         raise AttributeError(attr)
+
+    def __call__(cls, *args, **kargs):
+        if "dispatch_hook" in cls.__dict__:
+            cls =  cls.dispatch_hook(*args, **kargs)
+        i = cls.__new__(cls, cls.__name__, cls.__bases__, cls.__dict__)
+        i.__init__(*args, **kargs)
+        return i
+
 
 class NewDefaultValues(Packet_metaclass):
     """NewDefaultValues is deprecated (not needed anymore)
