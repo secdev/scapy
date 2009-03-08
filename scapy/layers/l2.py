@@ -4,6 +4,7 @@
 ## This program is published under a GPLv2 license
 
 import os,struct,time
+from scapy.base_classes import Net
 from scapy.config import conf
 from scapy.packet import *
 from scapy.ansmachine import *
@@ -43,6 +44,8 @@ conf.netcache.new_cache("arp_cache", 120) # cache entries expire after 120s
 @conf.commands.register
 def getmacbyip(ip, chainCC=0):
     """Return MAC address corresponding to a given IP address"""
+    if isinstance(ip,Net):
+        ip = iter(ip).next()
     tmp = map(ord, inet_aton(ip))
     if (tmp[0] & 0xf0) == 0xe0: # mcast @
         return "01:00:5e:%.2x:%.2x:%.2x" % (tmp[1]&0x7f,tmp[2],tmp[3])
