@@ -666,7 +666,7 @@ class PcapWriter(RawPcapWriter):
         RawPcapWriter._write_packet(self, s, sec, usec, caplen, caplen)
 
 
-re_extract_hexcap = re.compile("^(0x[0-9a-fA-F]{2,}[ :\t]|(0x)?[0-9a-fA-F]{2,}:|(0x)?[0-9a-fA-F]{3,}[: \t]|) *(([0-9a-fA-F]{2} {,2}){,16})")
+re_extract_hexcap = re.compile("^((0x)?[0-9a-fA-F]{2,}[ :\t]{,3}|) *(([0-9a-fA-F]{2} {,2}){,16})")
 
 def import_hexcap():
     p = ""
@@ -674,7 +674,7 @@ def import_hexcap():
         while 1:
             l = raw_input().strip()
             try:
-                p += re_extract_hexcap.match(l).groups()[3]
+                p += re_extract_hexcap.match(l).groups()[2]
             except:
                 warning("Parsing error during hexcap")
                 continue
@@ -682,10 +682,7 @@ def import_hexcap():
         pass
     
     p = p.replace(" ","")
-    p2=""
-    for i in range(len(p)/2):
-        p2 += chr(int(p[2*i:2*i+2],16))
-    return p2
+    return p.decode("hex")
         
 
 
