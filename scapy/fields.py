@@ -1,4 +1,4 @@
-## This file is part of Scapy
+# This file is part of Scapy
 ## See http://www.secdev.org/projects/scapy for more informations
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
@@ -370,7 +370,12 @@ class PacketLenField(PacketField):
         self.length_from = length_from
     def getfield(self, pkt, s):
         l = self.length_from(pkt)
-        i = self.m2i(pkt, s[:l])
+        try:
+            i = self.m2i(pkt, s[:l])
+        except Exception:
+            if conf.debug_dissector:
+                raise
+            i = conf.raw_layer(load=s[:l])
         return s[l:],i
 
 
@@ -415,13 +420,20 @@ class PacketListField(PacketField):
                 if c <= 0:
                     break
                 c -= 1
-            p = self.m2i(pkt,remain)
-            if 'Padding' in p:
-                pad = p['Padding']
-                remain = pad.load
-                del(pad.underlayer.payload)
-            else:
+            try:
+                p = self.m2i(pkt,remain)
+            except Exception:
+                if conf.debug_dissector:
+                    raise
+                p = conf.raw_layer(load=remain)
                 remain = ""
+            else:
+                if 'Padding' in p:
+                    pad = p['Padding']
+                    remain = pad.load
+                    del(pad.underlayer.payload)
+                else:
+                    remain = ""
             lst.append(p)
         return remain+ret,lst
     def addfield(self, pkt, s, val):
