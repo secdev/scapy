@@ -959,12 +959,12 @@ A side effect is that, to obtain "{" and "}" characters, you must use
             c += "/"+pc
         return c                    
 
-class NoPayload(Packet,object):
+class NoPayload(Packet):
     def __new__(cls, *args, **kargs):
         singl = cls.__dict__.get("__singl__")
         if singl is None:
-            cls.__singl__ = singl = object.__new__(cls)
-            Packet.__init__(singl, *args, **kargs)
+            cls.__singl__ = singl = Packet.__new__(cls)
+            Packet.__init__(singl)
         return singl
     def __init__(self, *args, **kargs):
         pass
