@@ -263,13 +263,14 @@ class PPP_IPCP_Specific_Option_metaclass(PPP_IPCP_Option_metaclass):
     def __new__(cls, name, bases, dct):
         newcls = super(PPP_IPCP_Specific_Option_metaclass, cls).__new__(cls, name, bases, dct)
         PPP_IPCP_Option._register(newcls)
+        return newcls
         
 
 class PPP_IPCP_Option_IPAddress(PPP_IPCP_Option):
     __metaclass__=PPP_IPCP_Specific_Option_metaclass
     name = "PPP IPCP Option: IP Address"
     fields_desc = [ ByteEnumField("type" , 3 , _PPP_ipcpopttypes),
-                    FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p,x:x+6),
+                    FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p,x:x+2),
                     IPField("data","0.0.0.0"),
                     ConditionalField(StrLenField("garbage","", length_from=lambda pkt:pkt.len-6), lambda p:p.len!=6) ]
 
@@ -277,7 +278,7 @@ class PPP_IPCP_Option_DNS1(PPP_IPCP_Option):
     __metaclass__=PPP_IPCP_Specific_Option_metaclass
     name = "PPP IPCP Option: DNS1 Address"
     fields_desc = [ ByteEnumField("type" , 129 , _PPP_ipcpopttypes),
-                    FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p,x:x+6),
+                    FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p,x:x+2),
                     IPField("data","0.0.0.0"),
                     ConditionalField(StrLenField("garbage","", length_from=lambda pkt:pkt.len-6), lambda p:p.len!=6) ]
 
@@ -285,7 +286,7 @@ class PPP_IPCP_Option_DNS2(PPP_IPCP_Option):
     __metaclass__=PPP_IPCP_Specific_Option_metaclass
     name = "PPP IPCP Option: DNS2 Address"
     fields_desc = [ ByteEnumField("type" , 131 , _PPP_ipcpopttypes),
-                    FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p,x:x+6),
+                    FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p,x:x+2),
                     IPField("data","0.0.0.0"),
                     ConditionalField(StrLenField("garbage","", length_from=lambda pkt:pkt.len-6), lambda p:p.len!=6) ]
 
@@ -293,7 +294,7 @@ class PPP_IPCP_Option_NBNS1(PPP_IPCP_Option):
     __metaclass__=PPP_IPCP_Specific_Option_metaclass
     name = "PPP IPCP Option: NBNS1 Address"
     fields_desc = [ ByteEnumField("type" , 130 , _PPP_ipcpopttypes),
-                    FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p,x:x+6),
+                    FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p,x:x+2),
                     IPField("data","0.0.0.0"),
                     ConditionalField(StrLenField("garbage","", length_from=lambda pkt:pkt.len-6), lambda p:p.len!=6) ]
 
@@ -301,7 +302,7 @@ class PPP_IPCP_Option_NBNS2(PPP_IPCP_Option):
     __metaclass__=PPP_IPCP_Specific_Option_metaclass
     name = "PPP IPCP Option: NBNS2 Address"
     fields_desc = [ ByteEnumField("type" , 132 , _PPP_ipcpopttypes),
-                    FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p,x:x+6),
+                    FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p,x:x+2),
                     IPField("data","0.0.0.0"),
                     ConditionalField(StrLenField("garbage","", length_from=lambda pkt:pkt.len-6), lambda p:p.len!=6) ]
 
@@ -338,12 +339,13 @@ class PPP_ECP_Specific_Option_metaclass(PPP_ECP_Option_metaclass):
     def __new__(cls, name, bases, dct):
         newcls = super(PPP_ECP_Specific_Option_metaclass, cls).__new__(cls, name, bases, dct)
         PPP_ECP_Option._register(newcls)
+        return newcls
         
 
 class PPP_ECP_Option_OUI(PPP_ECP_Option):
     __metaclass__=PPP_ECP_Specific_Option_metaclass
     fields_desc = [ ByteEnumField("type" , 0 , _PPP_ecpopttypes),
-                    FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p,x:x+2),
+                    FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p,x:x+6),
                     StrFixedLenField("oui","",3),
                     ByteField("subtype",0),
                     StrLenField("data", "", length_from=lambda p:p.len-6) ]
@@ -356,12 +358,14 @@ class PPP_ECP(Packet):
                     FieldLenField("len" , None, fmt="H", length_of="options", adjust=lambda p,x:x+4 ),
                     PacketListField("options", [],  PPP_ECP_Option, length_from=lambda p:p.len-4,) ]
 
-bind_layers( Ether,         PPPoED,        type=34915)
-bind_layers( Ether,         PPPoE,         type=34916)
-bind_layers( CookedLinux,   PPPoED,        proto=34915)
-bind_layers( CookedLinux,   PPPoE,         proto=34916)
+bind_layers( Ether,         PPPoED,        type=0x8863)
+bind_layers( Ether,         PPPoE,         type=0x8864)
+bind_layers( CookedLinux,   PPPoED,        proto=0x8863)
+bind_layers( CookedLinux,   PPPoE,         proto=0x8864)
 bind_layers( PPPoE,         PPP,           code=0)
 bind_layers( HDLC,          PPP,           )
 bind_layers( PPP,           IP,            proto=33)
 bind_layers( PPP,           PPP_IPCP,      proto=0x8021)
 bind_layers( PPP,           PPP_ECP,       proto=0x8053)
+bind_layers( Ether,         PPP_IPCP,      type=0x8021)
+bind_layers( Ether,         PPP_ECP,       type=0x8053)
