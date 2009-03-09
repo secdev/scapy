@@ -188,20 +188,14 @@ class HDLC(Packet):
     fields_desc = [ XByteField("address",0xff),
                     XByteField("control",0x03)  ]
 
-class PPP_metaclass(Packet_metaclass):
-    def __call__(self, _pkt=None, *args, **kargs):
-        cls = self
-        if _pkt and _pkt[0] == '\xff':
-            cls = HDLC
-        i = cls.__new__(cls, cls.__name__, cls.__bases__, cls.__dict__)
-        i.__init__(_pkt=_pkt, *args, **kargs)
-        return i
-    
-
 class PPP(Packet):
-    __metaclass__ = PPP_metaclass
     name = "PPP Link Layer"
     fields_desc = [ ShortEnumField("proto", 0x0021, _PPP_proto) ]
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        if _pkt and _pkt[0] == '\xff':
+            cls = HDLC
+        return cls
 
 _PPP_conftypes = { 1:"Configure-Request",
                    2:"Configure-Ack",
@@ -218,19 +212,6 @@ _PPP_conftypes = { 1:"Configure-Request",
                    15:"Reset-Ack",
                    }
 
-class PPP_Option_metaclass(Packet_metaclass):
-    _known_options={}
-    def __call__(self, _pkt=None, *args, **kargs):
-        cls = self
-        if _pkt:
-            t = ord(_pkt[0])
-            cls = self._known_options.get(t,self)
-        i = cls.__new__(cls, cls.__name__, cls.__bases__, cls.__dict__)
-        i.__init__(_pkt=_pkt, *args, **kargs)
-        return i
-    def _register(self, cls):
-        self._known_options[cls.fields_desc[0].default] = cls
-
 
 ### PPP IPCP stuff (RFC 1332)
 
@@ -245,13 +226,7 @@ _PPP_ipcpopttypes = {     1:"IP-Addresses (Deprecated)",
                           132:"Secondary-NBNS-Address"}
 
 
-
-class PPP_IPCP_Option_metaclass(PPP_Option_metaclass):
-    _known_options={}
-
-
 class PPP_IPCP_Option(Packet):
-    __metaclass__=PPP_IPCP_Option_metaclass
     name = "PPP IPCP Option"
     fields_desc = [ ByteEnumField("type" , None , _PPP_ipcpopttypes),
                     FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p,x:x+2),
@@ -259,15 +234,19 @@ class PPP_IPCP_Option(Packet):
     def extract_padding(self, pay):
         return "",pay
 
-class PPP_IPCP_Specific_Option_metaclass(PPP_IPCP_Option_metaclass):
-    def __new__(cls, name, bases, dct):
-        newcls = super(PPP_IPCP_Specific_Option_metaclass, cls).__new__(cls, name, bases, dct)
-        PPP_IPCP_Option._register(newcls)
-        return newcls
-        
+    registered_options = {}
+    @classmethod
+    def register_variant(cls):
+        cls.registered_options[cls.type.default] = cls
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        if _pkt:
+            o = ord(_pkt[0])
+            return cls.registered_options.get(o, cls)
+        return cls
+
 
 class PPP_IPCP_Option_IPAddress(PPP_IPCP_Option):
-    __metaclass__=PPP_IPCP_Specific_Option_metaclass
     name = "PPP IPCP Option: IP Address"
     fields_desc = [ ByteEnumField("type" , 3 , _PPP_ipcpopttypes),
                     FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p,x:x+2),
@@ -275,7 +254,6 @@ class PPP_IPCP_Option_IPAddress(PPP_IPCP_Option):
                     ConditionalField(StrLenField("garbage","", length_from=lambda pkt:pkt.len-6), lambda p:p.len!=6) ]
 
 class PPP_IPCP_Option_DNS1(PPP_IPCP_Option):
-    __metaclass__=PPP_IPCP_Specific_Option_metaclass
     name = "PPP IPCP Option: DNS1 Address"
     fields_desc = [ ByteEnumField("type" , 129 , _PPP_ipcpopttypes),
                     FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p,x:x+2),
@@ -283,7 +261,6 @@ class PPP_IPCP_Option_DNS1(PPP_IPCP_Option):
                     ConditionalField(StrLenField("garbage","", length_from=lambda pkt:pkt.len-6), lambda p:p.len!=6) ]
 
 class PPP_IPCP_Option_DNS2(PPP_IPCP_Option):
-    __metaclass__=PPP_IPCP_Specific_Option_metaclass
     name = "PPP IPCP Option: DNS2 Address"
     fields_desc = [ ByteEnumField("type" , 131 , _PPP_ipcpopttypes),
                     FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p,x:x+2),
@@ -291,7 +268,6 @@ class PPP_IPCP_Option_DNS2(PPP_IPCP_Option):
                     ConditionalField(StrLenField("garbage","", length_from=lambda pkt:pkt.len-6), lambda p:p.len!=6) ]
 
 class PPP_IPCP_Option_NBNS1(PPP_IPCP_Option):
-    __metaclass__=PPP_IPCP_Specific_Option_metaclass
     name = "PPP IPCP Option: NBNS1 Address"
     fields_desc = [ ByteEnumField("type" , 130 , _PPP_ipcpopttypes),
                     FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p,x:x+2),
@@ -299,14 +275,11 @@ class PPP_IPCP_Option_NBNS1(PPP_IPCP_Option):
                     ConditionalField(StrLenField("garbage","", length_from=lambda pkt:pkt.len-6), lambda p:p.len!=6) ]
 
 class PPP_IPCP_Option_NBNS2(PPP_IPCP_Option):
-    __metaclass__=PPP_IPCP_Specific_Option_metaclass
     name = "PPP IPCP Option: NBNS2 Address"
     fields_desc = [ ByteEnumField("type" , 132 , _PPP_ipcpopttypes),
                     FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p,x:x+2),
                     IPField("data","0.0.0.0"),
                     ConditionalField(StrLenField("garbage","", length_from=lambda pkt:pkt.len-6), lambda p:p.len!=6) ]
-
-
 
 
 class PPP_IPCP(Packet):
@@ -321,13 +294,7 @@ class PPP_IPCP(Packet):
 _PPP_ecpopttypes = { 0:"OUI",
                      1:"DESE", }
 
-class PPP_ECP_Option_metaclass(PPP_Option_metaclass):
-    _known_options={}
-
-
-
 class PPP_ECP_Option(Packet):
-    __metaclass__=PPP_ECP_Option_metaclass
     name = "PPP ECP Option"
     fields_desc = [ ByteEnumField("type" , None , _PPP_ecpopttypes),
                     FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p,x:x+2),
@@ -335,15 +302,18 @@ class PPP_ECP_Option(Packet):
     def extract_padding(self, pay):
         return "",pay
 
-class PPP_ECP_Specific_Option_metaclass(PPP_ECP_Option_metaclass):
-    def __new__(cls, name, bases, dct):
-        newcls = super(PPP_ECP_Specific_Option_metaclass, cls).__new__(cls, name, bases, dct)
-        PPP_ECP_Option._register(newcls)
-        return newcls
-        
+    registered_options = {}
+    @classmethod
+    def register_variant(cls):
+        cls.registered_options[cls.type.default] = cls
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        if _pkt:
+            o = ord(_pkt[0])
+            return cls.registered_options.get(o, cls)
+        return cls
 
 class PPP_ECP_Option_OUI(PPP_ECP_Option):
-    __metaclass__=PPP_ECP_Specific_Option_metaclass
     fields_desc = [ ByteEnumField("type" , 0 , _PPP_ecpopttypes),
                     FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p,x:x+6),
                     StrFixedLenField("oui","",3),
