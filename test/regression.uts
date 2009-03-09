@@ -942,6 +942,69 @@ assert(q[IPOption_Security].transmission_control_code == "XYZ")
 assert(q[TCP].flags == 2)
 
 
++ Test PPP
+
+= PPP/HDLC
+~ ppp hdlc
+HDLC()/PPP()/PPP_IPCP()
+str(_)
+s=_
+assert(s == '\xff\x03\x80!\x01\x00\x00\x04')
+PPP(s)
+p=_
+assert(HDLC in p)
+assert(p[HDLC].control==3)
+assert(p[PPP].proto==0x8021)
+PPP(s[2:])
+q=_
+assert(HDLC not in q)
+assert(q[PPP].proto==0x8021)
+
+
+= PPP IPCP
+~ ppp ipcp
+PPP('\x80!\x01\x01\x00\x10\x03\x06\xc0\xa8\x01\x01\x02\x06\x00-\x0f\x01')
+p=_
+assert(p[PPP_IPCP].code == 1)
+assert(p[PPP_IPCP_Option_IPAddress].data=="192.168.1.1")
+assert(p[PPP_IPCP_Option].data == '\x00-\x0f\x01')
+p=PPP()/PPP_IPCP(options=[PPP_IPCP_Option_DNS1(data="1.2.3.4"),PPP_IPCP_Option_DNS2(data="5.6.7.8"),PPP_IPCP_Option_NBNS2(data="9.10.11.12")])
+str(p)
+assert(_ == '\x80!\x01\x00\x00\x16\x81\x06\x01\x02\x03\x04\x83\x06\x05\x06\x07\x08\x84\x06\t\n\x0b\x0c')
+PPP(_)
+q=_
+assert(str(p) == str(q))
+assert(PPP(str(q))==q)
+PPP()/PPP_IPCP(options=[PPP_IPCP_Option_DNS1(data="1.2.3.4"),PPP_IPCP_Option_DNS2(data="5.6.7.8"),PPP_IPCP_Option(type=123,data="ABCDEFG"),PPP_IPCP_Option_NBNS2(data="9.10.11.12")])
+p=_
+str(p)
+assert(_ == '\x80!\x01\x00\x00\x1f\x81\x06\x01\x02\x03\x04\x83\x06\x05\x06\x07\x08{\tABCDEFG\x84\x06\t\n\x0b\x0c')
+PPP(_)
+q=_
+assert( q[PPP_IPCP_Option].type == 123 )
+assert( q[PPP_IPCP_Option].data == 'ABCDEFG' )
+assert( q[PPP_IPCP_Option_NBNS2].data == '9.10.11.12' )
+
+
+= PPP ECP
+~ ppp ecp
+
+PPP()/PPP_ECP(options=[PPP_ECP_Option_OUI(oui="XYZ")])
+p=_
+str(p)
+assert(_ == '\x80S\x01\x00\x00\n\x00\x06XYZ\x00')
+PPP(_)
+q=_
+assert( str(p)==str(q) )
+PPP()/PPP_ECP(options=[PPP_ECP_Option_OUI(oui="XYZ"),PPP_ECP_Option(type=1,data="ABCDEFG")])
+p=_
+str(p)
+assert(_ == '\x80S\x01\x00\x00\x13\x00\x06XYZ\x00\x01\tABCDEFG')
+PPP(_)
+q=_
+assert( str(p) == str(q) )
+assert( q[PPP_ECP_Option].data == "ABCDEFG" )
+
 
 # Scapy6 Regression Test Campaign 
 
