@@ -34,18 +34,160 @@ class IPTools:
         return self.ottl()-self.ttl-1 
 
 
+_ip_options_names = { 0: "end_of_list",
+                      1: "nop",
+                      2: "security",
+                      3: "loose_source_route",
+                      4: "timestamp",
+                      5: "extended_security",
+                      6: "commercial_security",
+                      7: "record_route",
+                      8: "stream_id",
+                      9: "strict_source_route",
+                      10: "experimental_measurement",
+                      11: "mtu_probe",
+                      12: "mtu_reply",
+                      13: "flow_control",
+                      14: "access_control",
+                      15: "encode",
+                      16: "imi_traffic_descriptor",
+                      17: "extended_IP",
+                      18: "traceroute",
+                      19: "address_extension",
+                      20: "router_alert",
+                      21: "selective_directed_broadcast_mode",
+                      23: "dynamic_packet_state",
+                      24: "upstream_multicast_packet",
+                      25: "quick_start",
+                      30: "rfc4727_experiment", 
+                      }
+                      
 
-class IPoptionsField(StrField):
-    def i2m(self, pkt, x):
-        return x+"\x00"*(3-((len(x)+3)%4))
-    def getfield(self, pkt, s):
-        opsz = (pkt.ihl-5)*4
-        if opsz < 0:
-            warning("bad ihl (%i). Assuming ihl=5"%pkt.ihl)
-            opsz = 0
-        return s[opsz:],s[:opsz]
-    def randval(self):
-        return RandBin(RandNum(0,39))
+class _IPOption_HDR(Packet):
+    fields_desc = [ BitField("copy_flag",0, 1),
+                    BitEnumField("optclass",0,2,{0:"control",2:"debug"}),
+                    BitEnumField("option",0,5, _ip_options_names) ]
+    
+class IPOption(Packet):
+    fields_desc = [ _IPOption_HDR,
+                    FieldLenField("length", None, fmt="B",  # Only option 0 and 1 have no length and value
+                                  length_of="value", adjust=lambda pkt,l:l+2),
+                    StrLenField("value", "",length_from=lambda pkt:pkt.length-2) ]
+    
+    def extract_padding(self, p):
+        return "",p
+
+    registered_ip_options = {}
+    @classmethod
+    def register_variant(cls):
+        cls.registered_ip_options[cls.option.default] = cls
+    @classmethod
+    def dispatch_hook(cls, pkt=None, *args, **kargs):
+        if pkt:
+            opt = ord(pkt[0])&0x1f
+            if opt in cls.registered_ip_options:
+                return cls.registered_ip_options[opt]
+        return cls
+
+class IPOption_EOL(IPOption):
+    option = 0
+    fields_desc = [ _IPOption_HDR ]
+    
+
+class IPOption_NOP(IPOption):
+    option=1
+    fields_desc = [ _IPOption_HDR ]
+
+class IPOption_Security(IPOption):
+    copy_flag = 1
+    option = 2
+    fields_desc = [ _IPOption_HDR,
+                    ByteField("length", 11),
+                    ShortField("security",0),
+                    ShortField("compartment",0),
+                    ShortField("handling_restrictions",0),
+                    StrFixedLenField("transmission_control_code","xxx",3),
+                    ]
+    
+class IPOption_LSRR(IPOption):
+    name = "IP Option Loose Source and Record Route"
+    copy_flag = 1
+    option = 3
+    fields_desc = [ _IPOption_HDR,
+                    FieldLenField("length", None, fmt="B",
+                                  length_of="routers", adjust=lambda pkt,l:l+3),
+                    ByteField("pointer",4), # 4 is first IP
+                    FieldListField("routers",[],IPField("","0.0.0.0"), 
+                                   length_from=lambda pkt:pkt.length-3)
+                    ]
+    def get_current_router(self):
+        return self.routers[self.pointer/4-1]
+
+class IPOption_RR(IPOption_LSRR):
+    name = "IP Option Record Route"
+    option = 7
+
+class IPOption_SSRR(IPOption_LSRR):
+    name = "IP Option Strict Source and Record Route"
+    option = 9
+
+class IPOption_Stream_Id(IPOption):
+    name = "IP Option Stream ID"
+    option = 8
+    fields_desc = [ _IPOption_HDR,
+                    ByteField("length", 4),
+                    ShortField("security",0), ]
+                    
+class IPOption_MTU_Probe(IPOption):
+    name = "IP Option MTU Probe"
+    option = 11
+    fields_desc = [ _IPOption_HDR,
+                    ByteField("length", 4),
+                    ShortField("mtu",0), ]
+
+class IPOption_MTU_Reply(IPOption_MTU_Probe):
+    name = "IP Option MTU Reply"
+    option = 12
+
+class IPOption_Traceroute(IPOption):
+    copy_flag = 1
+    option = 18
+    fields_desc = [ _IPOption_HDR,
+                    ByteField("length", 12),
+                    ShortField("id",0),
+                    ShortField("outbound_hops",0),
+                    ShortField("return_hops",0),
+                    IPField("originator_ip","0.0.0.0") ]
+
+class IPOption_Address_Extension(IPOption):
+    name = "IP Option Address Extension"
+    copy_flag = 1
+    option = 19
+    fields_desc = [ _IPOption_HDR,
+                    ByteField("length", 10),
+                    IPField("src_ext","0.0.0.0"),
+                    IPField("dst_ext","0.0.0.0") ]
+
+class IPOption_Router_Alert(IPOption):
+    name = "IP Option Router Alert"
+    copy_flag = 1
+    option = 20
+    fields_desc = [ _IPOption_HDR,
+                    ByteField("length", 4),
+                    ShortEnumField("alert",0, {0:"router_shall_examine_packet"}), ]
+
+
+class IPOption_SDBM(IPOption):
+    name = "IP Option Selective Directed Broadcast Mode"
+    copy_flag = 1
+    option = 21
+    fields_desc = [ _IPOption_HDR,
+                    FieldLenField("length", None, fmt="B",
+                                  length_of="addresses", adjust=lambda pkt,l:l+2),
+                    FieldListField("addresses",[],IPField("","0.0.0.0"), 
+                                   length_from=lambda pkt:pkt.length-2)
+                    ]
+    
 
 
 TCPOptions = (
@@ -181,9 +323,10 @@ class IP(Packet, IPTools):
                     #IPField("src", "127.0.0.1"),
                     Emph(SourceIPField("src","dst")),
                     Emph(IPField("dst", "127.0.0.1")),
-                    IPoptionsField("options", "") ]
+                    PacketListField("options", [], IPOption, length_from=lambda p:p.ihl*4-20) ]
     def post_build(self, p, pay):
         ihl = self.ihl
+        p += "\0"*((-len(p))%4) # pad IP options if needed
         if ihl is None:
             ihl = len(p)/4
             p = chr(((self.version&0xf)<<4) | ihl&0x0f)+p[1:]
