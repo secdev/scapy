@@ -127,20 +127,8 @@ class ARPSourceMACField(MACField):
 
 ### Layers
 
-class Ether_or_Dot3_metaclass(Packet_metaclass):
-    def __call__(self, _pkt=None, *args, **kargs):
-        cls = self
-        if _pkt and len(_pkt) >= 14:
-            if struct.unpack("!H", _pkt[12:14])[0] <= 1500:
-                cls = Dot3
-            else:
-                cls = Ether
-        i = cls.__new__(cls, cls.__name__, cls.__bases__, cls.__dict__)
-        i.__init__(_pkt=_pkt, *args, **kargs)
-        return i
 
 class Ether(Packet):
-    __metaclass__ = Ether_or_Dot3_metaclass
     name = "Ethernet"
     fields_desc = [ DestMACField("dst"),
                     SourceMACField("src"),
@@ -154,9 +142,15 @@ class Ether(Packet):
         return 0
     def mysummary(self):
         return self.sprintf("%src% > %dst% (%type%)")
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        if _pkt and len(_pkt) >= 14:
+            if struct.unpack("!H", _pkt[12:14])[0] <= 1500:
+                return Dot3
+        return cls
+
 
 class Dot3(Packet):
-    __metaclass__ = Ether_or_Dot3_metaclass
     name = "802.3"
     fields_desc = [ DestMACField("dst"),
                     MACField("src", ETHER_ANY),
@@ -170,6 +164,12 @@ class Dot3(Packet):
         return 0
     def mysummary(self):
         return "802.3 %s > %s" % (self.src, self.dst)
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        if _pkt and len(_pkt) >= 14:
+            if struct.unpack("!H", _pkt[12:14])[0] > 1500:
+                return Ether
+        return cls
 
 
 class LLC(Packet):
