@@ -769,6 +769,36 @@ class XShortEnumField(ShortEnumField):
             return self.i2s[x]
         return lhex(x)
 
+class MultiEnumField(EnumField):
+    def __init__(self, name, default, enum, depends_on, fmt = "H"):
+        
+        self.depends_on = depends_on
+        self.i2s_multi = enum
+        self.s2i_multi = {}
+        self.s2i_all = {}
+        for m in enum:
+            self.s2i_multi[m] = s2i = {}
+            for k,v in enum[m].iteritems():
+                s2i[v] = k
+                self.s2i_all[v] = k
+        Field.__init__(self, name, default, fmt)
+    def any2i_one(self, pkt, x):
+        if type (x) is str:
+            v = self.depends_on(pkt)
+            if v in self.s2i_multi:
+                s2i = self.s2i_multi[v]
+                if x in s2i:
+                    return s2i[x]
+            return self.s2i_all[x]
+        return x
+    def i2repr_one(self, pkt, x):
+        v = self.depends_on(pkt)
+        if v in self.i2s_multi:
+            return self.i2s_multi[v].get(x,x)
+        return x
+
+
+
 # Little endian long field
 class LELongField(Field):
     def __init__(self, name, default):
