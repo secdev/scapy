@@ -896,7 +896,53 @@ a=ATMT6()
 a.run()
 assert( _ == 'Mercury' )
  
-    
+
++ Test IP options
+
+= IP options individual assembly
+~ IP options
+str(IPOption())
+assert(_ == '\x00\x02')
+str(IPOption_NOP())
+assert(_ == '\x01')
+str(IPOption_EOL())
+assert(_ == '\x00')
+str(IPOption_LSRR(routers=["1.2.3.4","5.6.7.8"]))
+assert(_ == '\x83\x0b\x04\x01\x02\x03\x04\x05\x06\x07\x08')
+
+= IP options individual dissection
+~ IP options
+IPOption("\x00")
+assert(_.option == 0 and isinstance(_, IPOption_EOL))
+IPOption("\x01")
+assert(_.option == 1 and isinstance(_, IPOption_NOP))
+lsrr='\x83\x0b\x04\x01\x02\x03\x04\x05\x06\x07\x08'
+p=IPOption_LSRR(lsrr)
+p
+q=IPOption(lsrr)
+q
+assert(p == q)
+
+= IP assembly and dissection with options
+~ IP options
+IP(src="9.10.11.12",dst="13.14.15.16",options=IPOption_SDBM(addresses=["1.2.3.4","5.6.7.8"]))/TCP()
+str(_)
+assert(_ == 'H\x00\x004\x00\x01\x00\x00@\x06\xa2q\t\n\x0b\x0c\r\x0e\x0f\x10\x95\n\x01\x02\x03\x04\x05\x06\x07\x08\x00\x00\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00_K\x00\x00')
+q=IP(_)
+q
+assert( isinstance(q.options[0],IPOption_SDBM) )
+assert( q[IPOption_SDBM].addresses[1] == "5.6.7.8" )
+IP(src="9.10.11.12", dst="13.14.15.16", options=[IPOption_NOP(),IPOption_LSRR(routers=["1.2.3.4","5.6.7.8"]),IPOption_Security(transmission_control_code="XYZ")])/TCP()
+str(_)
+assert(_ == 'K\x00\x00@\x00\x01\x00\x00@\x06\xf3\x83\t\n\x0b\x0c\r\x0e\x0f\x10\x01\x83\x0b\x04\x01\x02\x03\x04\x05\x06\x07\x08\x82\x0b\x00\x00\x00\x00\x00\x00XYZ\x00\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00_K\x00\x00')
+IP(_)
+q=_
+assert(q[IPOption_LSRR].get_current_router() == "1.2.3.4")
+assert(q[IPOption_Security].transmission_control_code == "XYZ")
+assert(q[TCP].flags == 2)
+
+
+
 # Scapy6 Regression Test Campaign 
 
 
