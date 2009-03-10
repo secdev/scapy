@@ -409,6 +409,40 @@ class RandSingNum(RandSingularity):
         self._choice = list(sing)
         
 
+class RandSingByte(RandSingNum):
+    def __init__(self):
+        RandSingNum.__init__(self, 0, 2L**8-1)
+
+class RandSingSByte(RandSingNum):
+    def __init__(self):
+        RandSingNum.__init__(self, -2L**7, 2L**7-1)
+
+class RandSingShort(RandSingNum):
+    def __init__(self):
+        RandSingNum.__init__(self, 0, 2L**16-1)
+
+class RandSingSShort(RandSingNum):
+    def __init__(self):
+        RandSingNum.__init__(self, -2L**15, 2L**15-1)
+
+class RandSingInt(RandSingNum):
+    def __init__(self):
+        RandSingNum.__init__(self, 0, 2L**32-1)
+
+class RandSingSInt(RandSingNum):
+    def __init__(self):
+        RandSingNum.__init__(self, -2L**31, 2L**31-1)
+
+class RandSingLong(RandSingNum):
+    def __init__(self):
+        RandSingNum.__init__(self, 0, 2L**64-1)
+
+class RandSingSLong(RandSingNum):
+    def __init__(self):
+        RandSingNum.__init__(self, -2L**63, 2L**63-1)
+
+
+
 # Automatic timestamp
 
 class AutoTime(VolatileValue):
