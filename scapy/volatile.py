@@ -449,7 +449,68 @@ class RandSingSLong(RandSingNum):
     def __init__(self):
         RandSingNum.__init__(self, -2L**63, 2L**63-1)
 
+class RandSingString(RandSingularity):
+    def __init__(self):
+        self._choice = [ "",
+                         "%x",
+                         "%%",
+                         "%s",
+                         "%i",
+                         "%n",
+                         "%x%x%x%x%x%x%x%x%x",
+                         "%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s",
+                         "%",
+                         "%%%",
+                         "A"*4096,
+                         "\x00"*4096,
+                         "\xff"*4096,
+                         "\x7f"*4096,
+                         "\x80"*4096,
+                         " "*4096,
+                         "\\"*4096,
+                         "("*4096,
+                         "../"*1024,
+                         "/"*1024,
+                         "${HOME}"*512,
+                         " or 1=1 --",
+                         "' or 1=1 --",
+                         '" or 1=1 --',
+                         " or 1=1; #",
+                         "' or 1=1; #",
+                         '" or 1=1; #',
+                         ";reboot;",
+                         "$(reboot)",
+                         "`reboot`",
+                         "index.php%00",
+                         "\x00",
+                         "%00",
+                         "\\",
+                         "../../../../../../../../../../../../../../../../../etc/passwd",
+                         "%2e%2e%2f" * 20 + "etc/passwd",
+                         "%252e%252e%252f" * 20 + "boot.ini",
+                         "..%c0%af" * 20 + "etc/passwd",
+                         "..%c0%af" * 20 + "boot.ini",
+                         "//etc/passwd",
+                         r"..\..\..\..\..\..\..\..\..\..\..\..\..\..\..\..\..\boot.ini",
+                         "AUX:",
+                         "CLOCK$",
+                         "COM:",
+                         "CON:",
+                         "LPT:",
+                         "LST:",
+                         "NUL:",
+                         "CON:",
+                         r"C:\CON\CON",
+                         r"C:\boot.ini",
+                         r"\\myserver\share",
+                         "foo.exe:",
+                         "foo.exe\\", ]
+                             
 
+
+
+
+                             
 
 # Automatic timestamp
 
