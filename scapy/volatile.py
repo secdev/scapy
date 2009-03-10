@@ -3,7 +3,7 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
-import random,time
+import random,time,math
 from base_classes import Net
 from utils import corrupt_bits,corrupt_bytes
 
@@ -380,9 +380,33 @@ class RandRegExp(RandField):
         return RandRegExp.stack_fix(stack[1:], index)
     def __repr__(self):
         return "<%s [%r]>" % (self.__class__.__name__, self._regexp)
+
+class RandSingularity(RandChoice):
+    pass
                 
-                
+class RandSingNum(RandSingularity):
+    @staticmethod
+    def make_power_of_two(end):
+        sign = 1
+        if end == 0: 
+            end = 1
+        if end < 0:
+            end = -end
+            sign = -1
+        end_n = int(math.log(end)/math.log(2))+1
+        return set([sign*2**i for i in range(end_n)])            
         
+    def __init__(self, mn, mx):
+        sing = set([0, mn, mx, int((mn+mx)/2)])
+        sing |= self.make_power_of_two(mn)
+        sing |= self.make_power_of_two(mx)
+        for i in sing.copy():
+            sing.add(i+1)
+            sing.add(i-1)
+        for i in sing.copy():
+            if not mn <= i <= mx:
+                sing.remove(i)
+        self._choice = list(sing)
         
 
 # Automatic timestamp
