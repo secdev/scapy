@@ -507,10 +507,19 @@ class RandSingString(RandSingularity):
                          "foo.exe\\", ]
                              
 
-
-
-
-                             
+class RandPool(RandField):
+    def __init__(self, *args):
+        """Each parameter is a volatile object or a couple (volatile object, weight)"""
+        pool = []
+        for p in args:
+            w = 1
+            if type(p) is tuple:
+                p,w = p
+            pool += [p]*w
+        self._pool = pool
+    def _fix(self):
+        r = random.choice(self._pool)
+        return r._fix()
 
 # Automatic timestamp
 
