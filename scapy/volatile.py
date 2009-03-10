@@ -115,9 +115,17 @@ class RandByte(RandSeq):
     def __init__(self):
         RandSeq.__init__(self, 0, 2L**8-1)
 
+class RandSByte(RandSeq):
+    def __init__(self):
+        RandSeq.__init__(self, -2L**7, 2L**7-1)
+
 class RandShort(RandSeq):
     def __init__(self):
         RandSeq.__init__(self, 0, 2L**16-1)
+
+class RandSShort(RandSeq):
+    def __init__(self):
+        RandSeq.__init__(self, -2L**15, 2L**15-1)
 
 class RandInt(RandSeq):
     def __init__(self):
