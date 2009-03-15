@@ -541,7 +541,7 @@ Running this example gives the following result::
 
 This simple automaton can be described with the following graph:
 
-
+.. image:: graphics/ATMT_HelloWorld.*
 
 The graph can be automatically drawn from the code with::
 
@@ -582,6 +582,8 @@ Real example
 ------------
 
 Here is a real example take from Scapy. It implements a TFTP client that can issue read requests.
+
+.. image:: graphics/ATMT_TFTP_read.*
 
 ::
 
@@ -784,5 +786,5 @@ Two methods are hooks to be overloaded.
 
 The ``parse_args()`` method is called with arguments given at ``__init__()`` and ``run()``. Use that to parametrize the behaviour of your automaton.
 
-The ``master_filter()` method is called each time a packet is sniffed and decides if it is interesting for the automaton. When working on a specific protocol, this is where you will ensure the packet belongs to the connection you are being part of, so that you do not need to make all the sanity checks in each transition.
+The ``master_filter()`` method is called each time a packet is sniffed and decides if it is interesting for the automaton. When working on a specific protocol, this is where you will ensure the packet belongs to the connection you are being part of, so that you do not need to make all the sanity checks in each transition.
 
