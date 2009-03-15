@@ -689,7 +689,7 @@ States are methods decorated by the result of the ``ATMT.state`` function. It ca
             pass
     
         @ATMT.state()
-        def SOME_STATE(self)
+        def SOME_STATE(self):
             pass
     
         @ATMT.state(final=1)
@@ -782,9 +782,9 @@ The two possible outputs are::
 Methods to overload
 ^^^^^^^^^^^^^^^^^^^
 
-Two methods are hooks to be overloaded.
+Two methods are hooks to be overloaded:
 
-The ``parse_args()`` method is called with arguments given at ``__init__()`` and ``run()``. Use that to parametrize the behaviour of your automaton.
+* The ``parse_args()`` method is called with arguments given at ``__init__()`` and ``run()``. Use that to parametrize the behaviour of your automaton.
 
-The ``master_filter()`` method is called each time a packet is sniffed and decides if it is interesting for the automaton. When working on a specific protocol, this is where you will ensure the packet belongs to the connection you are being part of, so that you do not need to make all the sanity checks in each transition.
+* The ``master_filter()`` method is called each time a packet is sniffed and decides if it is interesting for the automaton. When working on a specific protocol, this is where you will ensure the packet belongs to the connection you are being part of, so that you do not need to make all the sanity checks in each transition.
 
