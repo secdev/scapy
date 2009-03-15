@@ -933,7 +933,86 @@ Lists and lengths
     PacketLenField    # used e.g. in ISAKMP_payload_Proposal
     PacketListField
 
-The FieldListField and LengthFields articles on the Wiki have more info on this topic.
+
+Variable length fields
+^^^^^^^^^^^^^^^^^^^^^^
+
+This is about how fields that have a variable length can be handled with Scapy. These fields usually know their length from another field. Let's call them varfield and lenfield. The idea is to make each field reference the other so that when a packet is dissected, varfield can know its length from lenfield when a packet is assembled, you don't have to fill lenfield, that will deduce its value directly from varfield value.
+
+Problems arise whe you realize that the relation between lenfield and varfield is not always straightforward. Sometimes, lenfield indicates a length in bytes, sometimes a number of objects. Sometimes the length includes the header part, so that you must substract the fixed header length to deduce the varfield length. Sometimes the length is not counted in bytes but in 16bits words. Sometimes the same lenfield is used by two different varfields. Sometimes the same varfield is referenced by two lenfields, one in bytes one in 16bits words.
+
+ 
+The length field
+~~~~~~~~~~~~~~~~
+
+First, a lenfield is declared using ``FieldLenField`` (or a derivate). If its value is None when assembling a packet, its value will be deduced from the varfield that was referenced. The reference is done using either the ``length_of`` parameter or the ``count_of`` parameter. The ``count_of`` parameter has a meaning only when varfield is a field that holds a list (``PacketListField`` or ``FieldListField``). The value will be the name of the varfield, as a string. According to which parameter is used the ``i2len()`` or ``i2count()`` method will be called on the varfield value. The returned value will the be adjusted by the function provided in the adjust parameter. adjust will be applied on 2 arguments: the packet instance and the value returned by ``i2len()`` or ``i2count()``. By default, adjust does nothing::
+
+    adjust=lambda pkt,x: x
+
+For instance, if ``the_varfield`` is a list
+
+::
+
+    FieldLenField("the_lenfield", None, count_of="the_varfield")
+
+or if the length is in 16bits words::
+
+    FieldLenField("the_lenfield", None, length_of="the_varfield", adjust=lambda pkt,x:(x+1)/2)
+
+The variable length field
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A varfield can be: ``StrLenField``, ``PacketLenField``, ``PacketListField``, ``FieldListField``, ...
+
+For the two firsts, whe a packet is being dissected, their lengths are deduced from a lenfield already dissected. The link is done using the ``length_from`` parameter, which takes a function that, applied to the partly dissected packet, returns the length in bytes to take for the field. For instance::
+
+    StrLenField("the_varfield", "the_default_value", length_from = lambda pkt: pkt.the_lenfield)
+
+or
+
+::
+
+    StrLenField("the_varfield", "the_default_value", length_from = lambda pkt: pkt.the_lenfield-12)
+
+For the ``PacketListField`` and ``FieldListField`` and their derivatives, they work as above when they need a length. If they need a number of elements, the length_from parameter must be ignored and the count_from parameter must be used instead. For instance::
+
+    FieldListField("the_varfield", ["1.2.3.4"], IPField("", "0.0.0.0"), count_from = lambda pkt: pkt.the_lenfield)
+
+Examples
+^^^^^^^^
+
+::
+
+    class TestSLF(Packet):
+        fields_desc=[ FieldLenField("len", None, length_of="data"),
+                      StrLenField("data", "", length_from=lambda pkt:pkt.len) ]
+    
+    class TestPLF(Packet):
+        fields_desc=[ FieldLenField("len", None, count_of="plist"),
+                      PacketListField("plist", None, IP, count_from=lambda pkt:pkt.len) ]
+    
+    class TestFLF(Packet):
+        fields_desc=[ 
+           FieldLenField("the_lenfield", None, count_of="the_varfield"), 
+           FieldListField("the_varfield", ["1.2.3.4"], IPField("", "0.0.0.0"), 
+                           count_from = lambda pkt: pkt.the_lenfield) ]
+
+    class TestPkt(Packet):
+        fields_desc = [ ByteField("f1",65),
+                        ShortField("f2",0x4244) ]
+        def extract_padding(self, p):
+            return "", p
+    
+    class TestPLF2(Packet):
+        fields_desc = [ FieldLenField("len1", None, count_of="plist",fmt="H", adjust=lambda pkt,x:x+2),
+                        FieldLenField("len2", None, length_of="plist",fmt="I", adjust=lambda pkt,x:(x+1)/2),
+                        PacketListField("plist", None, TestPkt, length_from=lambda x:(x.len2*2)/3*3) ]
+
+Test the ``FieldListField`` class::
+    
+    >>> TestFLF("\x00\x02ABCDEFGHIJKL")
+    <TestFLF  the_lenfield=2 the_varfield=['65.66.67.68', '69.70.71.72'] |<Raw  load='IJKL' |>>
+
 
 Special
 -------
