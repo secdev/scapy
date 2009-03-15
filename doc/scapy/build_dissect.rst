@@ -72,7 +72,7 @@ organized.
     >>> p.summary()
     'IP / TCP 127.0.0.1:ftp-data > 127.0.0.1:www S / Raw'
 
-We are interested in 2 "inside" fields of the class Packet:
+We are interested in 2 "inside" fields of the class ``Packet``:
 
 * ``p.underlayer``
 * ``p.payload``
@@ -312,7 +312,7 @@ dissected. ``self`` points to the current layer.
    dissected as "``Raw``" data (which is some kind of default layer type)
 
 
-For a given layer, everything is quite straightforward.
+For a given layer, everything is quite straightforward:
 
 - ``pre_dissect()`` is called to prepare the layer.
 - ``do_dissect()`` perform the real dissection of the layer.
@@ -407,13 +407,13 @@ Sometimes,  guessing the payload  class is  not as  straightforward as
 defining a single  port. For instance, it can depends on  a value of a
 given byte in the current layer. The 2 needed methods are:
 
-  - ``guess_payload_class()`` which must return  the guessed class for the
-    payload (next layer). By default, it uses links between classes
-    that have been put in place by ``bind_layers()``.
+- ``guess_payload_class()`` which must return  the guessed class for the
+  payload (next layer). By default, it uses links between classes
+  that have been put in place by ``bind_layers()``.
 
-  - ``default_payload_class()``  which returns  the  default value.   This
-    method  defined in the  class ``Packet``  returns ``Raw``,  but it  can be
-    overloaded.
+- ``default_payload_class()``  which returns  the  default value.   This
+  method  defined in the  class ``Packet``  returns ``Raw``,  but it  can be
+  overloaded.
 
 For  instance, decoding  802.11  changes depending  on  whether it  is
 ciphered or not::
@@ -427,12 +427,12 @@ ciphered or not::
 
 Several comments are needed here:
 
- - this  cannot be  done  using  ``bind_layers()``  because the  tests  are
-   supposed to be "``field==value``", but it is more complicated here as we
-   test a single bit in the value of a field.
+- this  cannot be  done  using  ``bind_layers()``  because the  tests  are
+  supposed to be "``field==value``", but it is more complicated here as we
+  test a single bit in the value of a field.
   
- - if the  test fails, no assumption is  made, and we plug  back to the
-   default guessing mechanisms calling ``Packet.guess_payload_class()``
+- if the  test fails, no assumption is  made, and we plug  back to the
+  default guessing mechanisms calling ``Packet.guess_payload_class()``
 
 Most of  the time,  defining a method  ``guess_payload_class()`` is  not a
 necessity as the same result can be obtained from ``bind_layers()``.
@@ -468,8 +468,8 @@ default method ``Packet.guess_payload_class()``.  This method runs through
 each  element  of  the   list  payload_guess,  each  element  being  a
 tuple:
 
-  - the 1st value is a field to test (``'dport': 2000``)
-  - the 2nd value is the guessed class if it matches (``Skinny``)
+- the 1st value is a field to test (``'dport': 2000``)
+- the 2nd value is the guessed class if it matches (``Skinny``)
 
 So, the  default ``guess_payload_class()`` tries all element  in the list,
 until  one   matches.  If  no   element  are  found,  it   then  calls
@@ -511,7 +511,7 @@ appended altogether.
     0010 7F 00 00 01 00 14 00 50 00 00 00 00 00 00 00 00 .......P........ 
     0020 50 02 20 00 91 7C 00 00 P. ..|.. 
 
-Calling str() builds the packet:
+Calling ``str()` builds the packet:
   - non instanced fields are set to their default value
   - lengths are updated automatically
   - checksums are computed
@@ -906,6 +906,7 @@ e.g.::
 Strings
 -------
 
+::
 
     StrField(name, default, fmt="H", remain=0, shift=0)
     StrLenField(name, default, fld=None, length_from=None, shift=0):

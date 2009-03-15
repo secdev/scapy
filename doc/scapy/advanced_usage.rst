@@ -115,7 +115,7 @@ Encoding and decoding are done using class methods provided by the codec. For ex
     >>> BERcodec_Object.dec('\x03\x03egg')
     (<ASN1_BIT_STRING['egg']>, '')
 
-ASN.1 objects are encoded using their ``.enc()`` method. This method must be called with the codec we want to use. All codecs are referenced in the ASN1_Codecs object. str() can also be used. In this case, the default codec (``conf.ASN1_default_codec``) will be used.
+ASN.1 objects are encoded using their ``.enc()`` method. This method must be called with the codec we want to use. All codecs are referenced in the ASN1_Codecs object. ``str()`` can also be used. In this case, the default codec (``conf.ASN1_default_codec``) will be used.
 
 ::
 
@@ -493,7 +493,7 @@ It is even possible to graph it::
 Automata
 ========
 
-Scapy enables to create esaily network automata. Scapy does not stick to a specific model like Moore or Mealy automata. It provides a flexible way for you to choose you way to go.
+Scapy enables to create easily network automata. Scapy does not stick to a specific model like Moore or Mealy automata. It provides a flexible way for you to choose you way to go.
 
 An automaton in Scapy is deterministic. It has different states. A start state and some end and error states. There are transitions from one state to another. Transitions can be transitions on a specific condition, transitions on the reception of a specific packet or transitions on a timeout. When a transition is taken, one or more actions can be run. An action can be bound to many transitions. Parameters can be passed from states to transitions and from transitions to states and actions.
 
@@ -502,7 +502,7 @@ From a programmer's point of view, states, transitions and actions are methods f
 First example
 -------------
 
-Let's begin with a simple example. I take the convention to write states with capitals, but anything valid with python syntax would work as well.
+Let's begin with a simple example. I take the convention to write states with capitals, but anything valid with Python syntax would work as well.
 
 ::
 
@@ -526,9 +526,11 @@ Let's begin with a simple example. I take the convention to write states with ca
 
 In this example, we can see 3 decorators:
 
-    * ATMT.state that is used to indicate that a method is a state, and that can have initial, final and error optional arguments set to non-zero for special states.
-    * ATMT.condition that indicate a method to be run when the automaton state reaches the indicated state. The argument is the name of the method representing that state
-    * ATMT.action binds a method to a transition and is run when the transition is taken. 
+* ``ATMT.state`` that is used to indicate that a method is a state, and that can
+  have initial, final and error optional arguments set to non-zero for special states.
+* ``ATMT.condition`` that indicate a method to be run when the automaton state 
+  reaches the indicated state. The argument is the name of the method representing that state
+* ``ATMT.action` binds a method to a transition and is run when the transition is taken. 
 
 Running this example gives the following result::
 
@@ -704,7 +706,7 @@ States are methods decorated by the result of the ``ATMT.state`` function. It ca
 Decorators for transitions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Transitions are methods decorated by the result of one of ``ATMT.condition``, ``ATMT.receive_condition``, ``ATMT.timeout``. They all take as argument the state method they are related to. ATMT.timeout also have a mandatory ``timeout`` parameter to provide the timeout value in seconds. ``ATMT.condition`` and ``ATMT.receive_condition`` have an optional ``prio`` parameter so that the order in which conditions are evaluated can be forced. Default priority is 0. Transitions with the same priority level are called in an undetermined order.
+Transitions are methods decorated by the result of one of ``ATMT.condition``, ``ATMT.receive_condition``, ``ATMT.timeout``. They all take as argument the state method they are related to. ``ATMT.timeout`` also have a mandatory ``timeout`` parameter to provide the timeout value in seconds. ``ATMT.condition`` and ``ATMT.receive_condition`` have an optional ``prio`` parameter so that the order in which conditions are evaluated can be forced. Default priority is 0. Transitions with the same priority level are called in an undetermined order.
 
 When the automaton switches to a given state, the state's method is executed. Then transitions methods are called at specific moments until one triggers a new state (something like ``raise self.MY_NEW_STATE()``). First, right after the state's method returns, the ``ATMT.condition`` decorated methods are run by growing prio. Then each time a packet is received and accepted by the master filter all ``ATMT.receive_condition`` decorated hods are called by growing prio. When a timeout is reached since the time we entered into the current space, the corresponding ``ATMT.timeout`` decorated method is called.
 
