@@ -204,6 +204,8 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0, retry=0, m
 
 
 def __gen_send(s, x, inter=0, loop=0, count=None, verbose=None, *args, **kargs):
+    if type(x) is str:
+        x = Raw(load=x)
     if not isinstance(x, Gen):
         x = SetGen(x)
     if verbose is None:
