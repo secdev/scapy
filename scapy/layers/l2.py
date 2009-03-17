@@ -432,7 +432,7 @@ class ARPingResult(SndRcvList):
 
     def show(self):
         for s,r in self.res:
-            print r.sprintf("%Ether.src% %ARP.psrc%")
+            print r.sprintf("%19s,Ether.src% %ARP.psrc%")
 
 
 
