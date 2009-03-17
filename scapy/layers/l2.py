@@ -340,11 +340,11 @@ class ARP(Packet):
         return "",s
     def mysummary(self):
         if self.op == self.is_at:
-            return "ARP is at %s says %s" % (self.hwsrc, self.psrc)
+            return self.sprintf("ARP is at %hwsrc% says %psrc%")
         elif self.op == self.who_has:
-            return "ARP who has %s says %s" % (self.pdst, self.psrc)
+            return self.sprintf("ARP who has %pdst% says %psrc%")
         else:
-            return "ARP %ARP.op% %ARP.psrc% > %ARP.pdst%"
+            return self.sprintf("ARP %op% %psrc% > %pdst%")
                  
 conf.neighbor.register_l3(Ether, ARP, lambda l2,l3: getmacbyip(l3.pdst))
 
