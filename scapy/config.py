@@ -3,7 +3,7 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
-import os,time,socket
+import os,time,socket,sys
 from data import *
 import base_classes
 import themes
@@ -33,6 +33,23 @@ class ConfClass(object):
                     r = r[:wlen-3]+"..."
                 s += "%-10s = %s\n" % (i, r)
         return s[:-1]
+
+class Interceptor(object):
+    def __init__(self, name, default, hook, args=None, kargs=None):
+        self.name = name
+        self.intname = "_intercepted_%s" % name
+        self.default=default
+        self.hook = hook
+        self.args = args if args is not None else []
+        self.kargs = kargs if kargs is not None else {}
+    def __get__(self, obj, typ=None):
+        if not hasattr(obj, self.intname):
+            setattr(obj, self.intname, self.default)
+        return getattr(obj, self.intname)
+    def __set__(self, obj, val):
+        setattr(obj, self.intname, val)
+        self.hook(self.name, val, *self.args, **self.kargs)
+
     
 class ProgPath(ConfClass):
     pdfreader = "acroread"
@@ -237,6 +254,22 @@ class LogLevel(object):
         obj._logLevel = val
         
 
+
+def _prompt_changer(attr,val):
+    prompt = config.conf.prompt
+    try:
+        ct = val
+        if isinstance(ct, AnsiColorTheme) and ct.prompt(""):
+            ## ^A and ^B delimit invisible caracters for readline to count right.
+            ## And we need ct.prompt() to do change something or else ^A and ^B will be
+            ## displayed
+             prompt = "\001%s\002" % ct.prompt("\002"+prompt+"\001")
+        else:
+            prompt = ct.prompt(prompt)
+    except:
+        pass
+    sys.ps1 = prompt
+
 class Conf(ConfClass):
     """This object contains the configuration of scapy.
 session  : filename where the session will be saved
@@ -269,6 +302,7 @@ extensions_paths: path or list of paths where extensions are to be looked for
     interactive = False
     stealth = "not implemented"
     iface = None
+    readfunc = None
     layers = LayersList()
     commands = CommandsList()
     logLevel = LogLevel()
@@ -296,7 +330,7 @@ extensions_paths: path or list of paths where extensions are to be looked for
     route6 = None # Filed by route6.py
     auto_fragment = 1
     debug_dissector = 0
-    color_theme = themes.DefaultTheme()
+    color_theme = Interceptor("color_theme", themes.NoTheme(), _prompt_changer)
     warning_threshold = 5
     prog = ProgPath()
     resolve = Resolve()
@@ -328,5 +362,4 @@ if not Conf.ipv6_enabled:
 
 conf=Conf()
 conf.logLevel=30 # 30=Warning
-
 
