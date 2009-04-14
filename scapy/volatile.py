@@ -3,7 +3,7 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
-import random,time
+import random,time,math
 from base_classes import Net
 from utils import corrupt_bits,corrupt_bytes
 
@@ -75,13 +75,13 @@ class RandField(VolatileValue):
     pass
 
 class RandNum(RandField):
+    """Instances evaluate to random integers in selected range"""
     min = 0
     max = 0
     def __init__(self, min, max):
         self.min = min
         self.max = max
     def _fix(self):
-        # XXX: replace with sth that guarantee unicity
         return random.randrange(self.min, self.max+1)
 
 class RandNumGamma(RandField):
@@ -105,35 +105,76 @@ class RandNumExpo(RandField):
     def _fix(self):
         return self.base+int(round(random.expovariate(self.lambd)))
 
-class RandSeq(RandNum):
+class RandDraw(RandNum):
+    """Instances evaluate to integer sampling without replacement from the given interval"""
     def __init__(self, min, max):
         self.seq = RandomSequence(min,max)
     def _fix(self):
         return self.seq.next()
 
-class RandByte(RandSeq):
+class RandByte(RandNum):
     def __init__(self):
-        RandSeq.__init__(self, 0, 2L**8-1)
+        RandNum.__init__(self, 0, 2L**8-1)
 
-class RandShort(RandSeq):
+class RandSByte(RandNum):
     def __init__(self):
-        RandSeq.__init__(self, 0, 2L**16-1)
+        RandNum.__init__(self, -2L**7, 2L**7-1)
 
-class RandInt(RandSeq):
+class RandShort(RandNum):
     def __init__(self):
-        RandSeq.__init__(self, 0, 2L**32-1)
+        RandNum.__init__(self, 0, 2L**16-1)
 
-class RandSInt(RandSeq):
+class RandSShort(RandNum):
     def __init__(self):
-        RandSeq.__init__(self, -2L**31, 2L**31-1)
+        RandNum.__init__(self, -2L**15, 2L**15-1)
 
-class RandLong(RandSeq):
+class RandInt(RandNum):
     def __init__(self):
-        RandSeq.__init__(self, 0, 2L**64-1)
+        RandNum.__init__(self, 0, 2L**32-1)
 
-class RandSLong(RandSeq):
+class RandSInt(RandNum):
     def __init__(self):
-        RandSeq.__init__(self, -2L**63, 2L**63-1)
+        RandNum.__init__(self, -2L**31, 2L**31-1)
+
+class RandLong(RandNum):
+    def __init__(self):
+        RandNum.__init__(self, 0, 2L**64-1)
+
+class RandSLong(RandNum):
+    def __init__(self):
+        RandNum.__init__(self, -2L**63, 2L**63-1)
+
+class RandDrawByte(RandDraw):
+    def __init__(self):
+        RandDraw.__init__(self, 0, 2L**8-1)
+
+class RandDrawSByte(RandDraw):
+    def __init__(self):
+        RandDraw.__init__(self, -2L**7, 2L**7-1)
+
+class RandDrawShort(RandDraw):
+    def __init__(self):
+        RandDraw.__init__(self, 0, 2L**16-1)
+
+class RandDrawSShort(RandDraw):
+    def __init__(self):
+        RandDraw.__init__(self, -2L**15, 2L**15-1)
+
+class RandDrawInt(RandDraw):
+    def __init__(self):
+        RandDraw.__init__(self, 0, 2L**32-1)
+
+class RandDrawSInt(RandDraw):
+    def __init__(self):
+        RandDraw.__init__(self, -2L**31, 2L**31-1)
+
+class RandDrawLong(RandDraw):
+    def __init__(self):
+        RandDraw.__init__(self, 0, 2L**64-1)
+
+class RandDrawSLong(RandDraw):
+    def __init__(self):
+        RandDraw.__init__(self, -2L**63, 2L**63-1)
 
 class RandChoice(RandField):
     def __init__(self, *args):
@@ -144,9 +185,11 @@ class RandChoice(RandField):
         return random.choice(self._choice)
     
 class RandString(RandField):
-    def __init__(self, size, chars="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"):
-        self.chars = chars
+    def __init__(self, size=None, chars="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"):
+        if size is None:
+            size = RandNumExpo(0.01)
         self.size = size
+        self.chars = chars
     def _fix(self):
         s = ""
         for i in range(self.size):
@@ -154,7 +197,7 @@ class RandString(RandField):
         return s
 
 class RandBin(RandString):
-    def __init__(self, size):
+    def __init__(self, size=None):
         RandString.__init__(self, size, "".join(map(chr,range(256))))
 
 
@@ -378,10 +421,138 @@ class RandRegExp(RandField):
         return RandRegExp.stack_fix(stack[1:], index)
     def __repr__(self):
         return "<%s [%r]>" % (self.__class__.__name__, self._regexp)
+
+class RandSingularity(RandChoice):
+    pass
                 
-                
+class RandSingNum(RandSingularity):
+    @staticmethod
+    def make_power_of_two(end):
+        sign = 1
+        if end == 0: 
+            end = 1
+        if end < 0:
+            end = -end
+            sign = -1
+        end_n = int(math.log(end)/math.log(2))+1
+        return set([sign*2**i for i in range(end_n)])            
         
+    def __init__(self, mn, mx):
+        sing = set([0, mn, mx, int((mn+mx)/2)])
+        sing |= self.make_power_of_two(mn)
+        sing |= self.make_power_of_two(mx)
+        for i in sing.copy():
+            sing.add(i+1)
+            sing.add(i-1)
+        for i in sing.copy():
+            if not mn <= i <= mx:
+                sing.remove(i)
+        self._choice = list(sing)
         
+
+class RandSingByte(RandSingNum):
+    def __init__(self):
+        RandSingNum.__init__(self, 0, 2L**8-1)
+
+class RandSingSByte(RandSingNum):
+    def __init__(self):
+        RandSingNum.__init__(self, -2L**7, 2L**7-1)
+
+class RandSingShort(RandSingNum):
+    def __init__(self):
+        RandSingNum.__init__(self, 0, 2L**16-1)
+
+class RandSingSShort(RandSingNum):
+    def __init__(self):
+        RandSingNum.__init__(self, -2L**15, 2L**15-1)
+
+class RandSingInt(RandSingNum):
+    def __init__(self):
+        RandSingNum.__init__(self, 0, 2L**32-1)
+
+class RandSingSInt(RandSingNum):
+    def __init__(self):
+        RandSingNum.__init__(self, -2L**31, 2L**31-1)
+
+class RandSingLong(RandSingNum):
+    def __init__(self):
+        RandSingNum.__init__(self, 0, 2L**64-1)
+
+class RandSingSLong(RandSingNum):
+    def __init__(self):
+        RandSingNum.__init__(self, -2L**63, 2L**63-1)
+
+class RandSingString(RandSingularity):
+    def __init__(self):
+        self._choice = [ "",
+                         "%x",
+                         "%%",
+                         "%s",
+                         "%i",
+                         "%n",
+                         "%x%x%x%x%x%x%x%x%x",
+                         "%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s",
+                         "%",
+                         "%%%",
+                         "A"*4096,
+                         "\x00"*4096,
+                         "\xff"*4096,
+                         "\x7f"*4096,
+                         "\x80"*4096,
+                         " "*4096,
+                         "\\"*4096,
+                         "("*4096,
+                         "../"*1024,
+                         "/"*1024,
+                         "${HOME}"*512,
+                         " or 1=1 --",
+                         "' or 1=1 --",
+                         '" or 1=1 --',
+                         " or 1=1; #",
+                         "' or 1=1; #",
+                         '" or 1=1; #',
+                         ";reboot;",
+                         "$(reboot)",
+                         "`reboot`",
+                         "index.php%00",
+                         "\x00",
+                         "%00",
+                         "\\",
+                         "../../../../../../../../../../../../../../../../../etc/passwd",
+                         "%2e%2e%2f" * 20 + "etc/passwd",
+                         "%252e%252e%252f" * 20 + "boot.ini",
+                         "..%c0%af" * 20 + "etc/passwd",
+                         "..%c0%af" * 20 + "boot.ini",
+                         "//etc/passwd",
+                         r"..\..\..\..\..\..\..\..\..\..\..\..\..\..\..\..\..\boot.ini",
+                         "AUX:",
+                         "CLOCK$",
+                         "COM:",
+                         "CON:",
+                         "LPT:",
+                         "LST:",
+                         "NUL:",
+                         "CON:",
+                         r"C:\CON\CON",
+                         r"C:\boot.ini",
+                         r"\\myserver\share",
+                         "foo.exe:",
+                         "foo.exe\\", ]
+                             
+
+class RandPool(RandField):
+    def __init__(self, *args):
+        """Each parameter is a volatile object or a couple (volatile object, weight)"""
+        pool = []
+        for p in args:
+            w = 1
+            if type(p) is tuple:
+                p,w = p
+            pool += [p]*w
+        self._pool = pool
+    def _fix(self):
+        r = random.choice(self._pool)
+        return r._fix()
 
 # Automatic timestamp
 
