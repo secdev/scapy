@@ -75,13 +75,13 @@ class RandField(VolatileValue):
     pass
 
 class RandNum(RandField):
+    """Instances evaluate to random integers in selected range"""
     min = 0
     max = 0
     def __init__(self, min, max):
         self.min = min
         self.max = max
     def _fix(self):
-        # XXX: replace with sth that guarantee unicity
         return random.randrange(self.min, self.max+1)
 
 class RandNumGamma(RandField):
@@ -105,43 +105,76 @@ class RandNumExpo(RandField):
     def _fix(self):
         return self.base+int(round(random.expovariate(self.lambd)))
 
-class RandSeq(RandNum):
+class RandDraw(RandNum):
+    """Instances evaluate to integer sampling without replacement from the given interval"""
     def __init__(self, min, max):
         self.seq = RandomSequence(min,max)
     def _fix(self):
         return self.seq.next()
 
-class RandByte(RandSeq):
+class RandByte(RandNum):
     def __init__(self):
-        RandSeq.__init__(self, 0, 2L**8-1)
+        RandNum.__init__(self, 0, 2L**8-1)
 
-class RandSByte(RandSeq):
+class RandSByte(RandNum):
     def __init__(self):
-        RandSeq.__init__(self, -2L**7, 2L**7-1)
+        RandNum.__init__(self, -2L**7, 2L**7-1)
 
-class RandShort(RandSeq):
+class RandShort(RandNum):
     def __init__(self):
-        RandSeq.__init__(self, 0, 2L**16-1)
+        RandNum.__init__(self, 0, 2L**16-1)
 
-class RandSShort(RandSeq):
+class RandSShort(RandNum):
     def __init__(self):
-        RandSeq.__init__(self, -2L**15, 2L**15-1)
+        RandNum.__init__(self, -2L**15, 2L**15-1)
 
-class RandInt(RandSeq):
+class RandInt(RandNum):
     def __init__(self):
-        RandSeq.__init__(self, 0, 2L**32-1)
+        RandNum.__init__(self, 0, 2L**32-1)
 
-class RandSInt(RandSeq):
+class RandSInt(RandNum):
     def __init__(self):
-        RandSeq.__init__(self, -2L**31, 2L**31-1)
+        RandNum.__init__(self, -2L**31, 2L**31-1)
 
-class RandLong(RandSeq):
+class RandLong(RandNum):
     def __init__(self):
-        RandSeq.__init__(self, 0, 2L**64-1)
+        RandNum.__init__(self, 0, 2L**64-1)
 
-class RandSLong(RandSeq):
+class RandSLong(RandNum):
     def __init__(self):
-        RandSeq.__init__(self, -2L**63, 2L**63-1)
+        RandNum.__init__(self, -2L**63, 2L**63-1)
+
+class RandDrawByte(RandDraw):
+    def __init__(self):
+        RandDraw.__init__(self, 0, 2L**8-1)
+
+class RandDrawSByte(RandDraw):
+    def __init__(self):
+        RandDraw.__init__(self, -2L**7, 2L**7-1)
+
+class RandDrawShort(RandDraw):
+    def __init__(self):
+        RandDraw.__init__(self, 0, 2L**16-1)
+
+class RandDrawSShort(RandDraw):
+    def __init__(self):
+        RandDraw.__init__(self, -2L**15, 2L**15-1)
+
+class RandDrawInt(RandDraw):
+    def __init__(self):
+        RandDraw.__init__(self, 0, 2L**32-1)
+
+class RandDrawSInt(RandDraw):
+    def __init__(self):
+        RandDraw.__init__(self, -2L**31, 2L**31-1)
+
+class RandDrawLong(RandDraw):
+    def __init__(self):
+        RandDraw.__init__(self, 0, 2L**64-1)
+
+class RandDrawSLong(RandDraw):
+    def __init__(self):
+        RandDraw.__init__(self, -2L**63, 2L**63-1)
 
 class RandChoice(RandField):
     def __init__(self, *args):
