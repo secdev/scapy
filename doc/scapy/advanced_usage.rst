@@ -530,7 +530,7 @@ In this example, we can see 3 decorators:
   have initial, final and error optional arguments set to non-zero for special states.
 * ``ATMT.condition`` that indicate a method to be run when the automaton state 
   reaches the indicated state. The argument is the name of the method representing that state
-* ``ATMT.action` binds a method to a transition and is run when the transition is taken. 
+* ``ATMT.action`` binds a method to a transition and is run when the transition is taken. 
 
 Running this example gives the following result::
 
