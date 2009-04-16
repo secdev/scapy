@@ -26,7 +26,7 @@ of a field class::
 In this example, our layer has three fields. The first one is an 2 byte integer 
 field named ``mickey`` and whose default value is 5. The second one is a 1 byte 
 integer field named ``minnie`` and whose default value is 3. The difference between 
-a vanilla ``ByteField`` and a ``XByteField` is only the fact that the prefered human 
+a vanilla ``ByteField`` and a ``XByteField`` is only the fact that the prefered human 
 representation of the field’s value is in hexadecimal. The last field is a 4 byte 
 integer field named ``donald``. It is different from a vanilla ``IntField`` by the fact 
 that some of the possible values of the field have litterate representations. For 
@@ -511,7 +511,7 @@ appended altogether.
     0010 7F 00 00 01 00 14 00 50 00 00 00 00 00 00 00 00 .......P........ 
     0020 50 02 20 00 91 7C 00 00 P. ..|.. 
 
-Calling ``str()` builds the packet:
+Calling ``str()`` builds the packet:
   - non instanced fields are set to their default value
   - lengths are updated automatically
   - checksums are computed
