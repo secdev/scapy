@@ -387,7 +387,35 @@ class IP(Packet, IPTools):
             s += " frag:%i" % self.frag
         return s
                  
-    
+    def fragment(self, fragsize=1480):
+        """Fragment IP datagrams"""
+        fragsize = (fragsize+7)/8*8
+        lst = []
+        fnb = 0
+        fl = self
+        while fl.underlayer is not None:
+            fnb += 1
+            fl = fl.underlayer
+        
+        for p in fl:
+            s = str(p[fnb].payload)
+            nb = (len(s)+fragsize-1)/fragsize
+            for i in range(nb):            
+                q = p.copy()
+                del(q[fnb].payload)
+                del(q[fnb].chksum)
+                del(q[fnb].len)
+                if i == nb-1:
+                    q[IP].flags &= ~1
+                else:
+                    q[IP].flags |= 1 
+                q[IP].frag = i*fragsize/8
+                r = Raw(load=s[i*fragsize:(i+1)*fragsize])
+                r.overload_fields = p[IP].payload.overload_fields.copy()
+                q.add_payload(r)
+                lst.append(q)
+        return lst
+
 
 class TCP(Packet):
     name = "TCP"
