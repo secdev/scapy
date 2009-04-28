@@ -382,7 +382,7 @@ class L3PacketSocket(SuperSocket):
         except socket.error,msg:
             x.sent_time = time.time()  # bad approximation
             if conf.auto_fragment and msg[0] == 90:
-                for p in fragment(x):
+                for p in x.fragment():
                     self.outs.sendto(str(ll(p)), sdto)
             else:
                 raise
