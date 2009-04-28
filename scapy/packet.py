@@ -689,11 +689,14 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
         return self.payload.haslayer(cls)
     def getlayer(self, cls, nb=1, _track=None):
         """Return the nb^th layer that is an instance of cls."""
+        if type(cls) is int:
+            nb = cls+1
+            cls = None
         if type(cls) is str and "." in cls:
             ccls,fld = cls.split(".",1)
         else:
             ccls,fld = cls,None
-        if self.__class__ == cls or self.__class__.name == ccls:
+        if cls is None or self.__class__ == cls or self.__class__.name == ccls:
             if nb == 1:
                 if fld is None:
                     return self
