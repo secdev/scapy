@@ -757,6 +757,9 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
 
     def route(self):
         return (None,None,None)
+
+    def fragment(self, *args, **kargs):
+        return self.payload.fragment(*args, **kargs)
     
 
     def display(self,*args,**kargs):  # Deprecated. Use show()
@@ -1034,6 +1037,8 @@ class NoPayload(Packet):
         if _track is not None:
             _track.append(nb)
         return None
+    def fragment(self, *args, **kargs):
+        raise Scapy_Exception("cannot fragment this packet")        
     def show(self, indent=3, lvl="", label_lvl=""):
         pass
     def sprintf(self, fmt, relax):
