@@ -716,6 +716,12 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
                     nb = track[0]
         return self.payload.getlayer(cls,nb,_track=_track)
 
+    def firstlayer(self):
+        q = self
+        while q.underlayer is not None:
+            q = q.underlayer
+        return q
+
     def __getitem__(self, cls):
         if type(cls) is slice:
             lname = cls.start
