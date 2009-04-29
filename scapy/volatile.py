@@ -12,7 +12,7 @@ from utils import corrupt_bits,corrupt_bytes
 ####################
 
 
-class RandomSequence:
+class RandomEnumeration:
     """iterate through a sequence in random order.
        When all the values have been drawn, if forever=1, the drawing is done again.
        If renewkeys=0, the draw will be in the same order, guaranteeing that the same
@@ -105,10 +105,10 @@ class RandNumExpo(RandField):
     def _fix(self):
         return self.base+int(round(random.expovariate(self.lambd)))
 
-class RandDraw(RandNum):
+class RandEnum(RandNum):
     """Instances evaluate to integer sampling without replacement from the given interval"""
     def __init__(self, min, max):
-        self.seq = RandomSequence(min,max)
+        self.seq = RandomEnumeration(min,max)
     def _fix(self):
         return self.seq.next()
 
@@ -144,37 +144,37 @@ class RandSLong(RandNum):
     def __init__(self):
         RandNum.__init__(self, -2L**63, 2L**63-1)
 
-class RandDrawByte(RandDraw):
+class RandEnumByte(RandEnum):
     def __init__(self):
-        RandDraw.__init__(self, 0, 2L**8-1)
+        RandEnum.__init__(self, 0, 2L**8-1)
 
-class RandDrawSByte(RandDraw):
+class RandEnumSByte(RandEnum):
     def __init__(self):
-        RandDraw.__init__(self, -2L**7, 2L**7-1)
+        RandEnum.__init__(self, -2L**7, 2L**7-1)
 
-class RandDrawShort(RandDraw):
+class RandEnumShort(RandEnum):
     def __init__(self):
-        RandDraw.__init__(self, 0, 2L**16-1)
+        RandEnum.__init__(self, 0, 2L**16-1)
 
-class RandDrawSShort(RandDraw):
+class RandEnumSShort(RandEnum):
     def __init__(self):
-        RandDraw.__init__(self, -2L**15, 2L**15-1)
+        RandEnum.__init__(self, -2L**15, 2L**15-1)
 
-class RandDrawInt(RandDraw):
+class RandEnumInt(RandEnum):
     def __init__(self):
-        RandDraw.__init__(self, 0, 2L**32-1)
+        RandEnum.__init__(self, 0, 2L**32-1)
 
-class RandDrawSInt(RandDraw):
+class RandEnumSInt(RandEnum):
     def __init__(self):
-        RandDraw.__init__(self, -2L**31, 2L**31-1)
+        RandEnum.__init__(self, -2L**31, 2L**31-1)
 
-class RandDrawLong(RandDraw):
+class RandEnumLong(RandEnum):
     def __init__(self):
-        RandDraw.__init__(self, 0, 2L**64-1)
+        RandEnum.__init__(self, 0, 2L**64-1)
 
-class RandDrawSLong(RandDraw):
+class RandEnumSLong(RandEnum):
     def __init__(self):
-        RandDraw.__init__(self, -2L**63, 2L**63-1)
+        RandEnum.__init__(self, -2L**63, 2L**63-1)
 
 class RandChoice(RandField):
     def __init__(self, *args):
