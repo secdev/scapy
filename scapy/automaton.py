@@ -276,7 +276,26 @@ class Automaton:
 
 
     ## Utility classes and exceptions
-    class _IO_wrapper:
+    class _IO_fdwrapper:
+        def __init__(self,rd,wr):
+            if rd is not None and type(rd) is not int:
+                rd = rd.fileno()
+            if wr is not None and type(wr) is not int:
+                wr = wr.fileno()
+            self.rd = rd
+            self.wr = wr
+        def fileno(self):
+            return self.rd
+        def read(self, n):
+            return os.read(self.rd, n)
+        def write(self, msg):
+            return os.write(self.wr,msg)
+        def recv(self, n):
+            return self.read(n)        
+        def send(self, msg):
+            return self.write(msg)
+
+    class _IO_mixer:
         def __init__(self,rd,wr):
             self.rd = rd
             self.wr = wr
@@ -316,7 +335,7 @@ class Automaton:
             
 
     ## Internals
-    def __init__(self, *args, **kargs):
+    def __init__(self, external_fd={}, *args, **kargs):
         self.running = thread.allocate_lock()
         self.threadid = None
         self.breakpointed = None
@@ -332,12 +351,25 @@ class Automaton:
         self.ioin = {}
         self.ioout = {}
         for n in self.ionames:
-            self.ioin[n] = ioin = ObjectPipe()
-            self.ioout[n] = ioout = ObjectPipe()
+            extfd = external_fd.get(n)
+            if type(extfd) is not tuple:
+                extfd = (extfd,None)
+            ioin,ioout = extfd                
+            if ioin is None:
+                ioin = ObjectPipe()
+            elif type(ioin) is int:
+                ioin = self._IO_fdwrapper(ioin,None)
+            if ioout is None:
+                ioout = ObjectPipe()
+            elif type(ioout) is int:
+                ioin = self._IO_fdwrapper(None,ioout)
+
+            self.ioin[n] = ioin
+            self.ioout[n] = ioout 
             ioin.ioname = n
             ioout.ioname = n
-            setattr(self.io, n, self._IO_wrapper(ioout,ioin))
-            setattr(self.oi, n, self._IO_wrapper(ioin,ioout))
+            setattr(self.io, n, self._IO_mixer(ioout,ioin))
+            setattr(self.oi, n, self._IO_mixer(ioin,ioout))
         
         self.parse_args(*args, **kargs)
 

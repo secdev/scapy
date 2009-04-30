@@ -929,7 +929,34 @@ assert( _ == "Saturn" )
 
 = Automaton test io event from external fd
 ~ automaton
-pass
+class ATMT8(Automaton):
+    @ATMT.state(initial=1)
+    def BEGIN(self):
+        self.res = "U"
+    @ATMT.ioevent(BEGIN, name="extfd")
+    def tr1(self, fd):
+        self.res += fd.read(2)
+        raise self.NEXT_STATE()
+    @ATMT.state()
+    def NEXT_STATE(self):
+        pass
+    @ATMT.ioevent(NEXT_STATE, name="extfd")
+    def tr2(self, fd):
+        self.res += fd.read(2)
+        raise self.END()
+    @ATMT.state(final=1)
+    def END(self):
+        self.res += "s"
+        return self.res
+
+r,w = os.pipe()
+
+a=ATMT8(external_fd={"extfd":r})
+a.run(wait=False)
+os.write(w,"ra")
+os.write(w,"nu")
+a.run()
+assert( _ == "Uranus" )
  
 
 + Test IP options
