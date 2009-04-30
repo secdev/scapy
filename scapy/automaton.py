@@ -141,6 +141,7 @@ class _ATMT_Command:
     NEXT = "NEXT"
     STOP = "STOP"
     END = "END"
+    EXCEPTION = "EXCEPTION"
     SINGLESTEP = "SINGLESTEP"
     INTERCEPT = "INTERCEPT"
     ACCEPT = "ACCEPT"
@@ -395,33 +396,38 @@ class Automaton:
         singlestep = True
         self.debug(3, "Starting control thread [tid=%i]" % self.threadid)
         stop = False
-        while not stop:
-            c = self.cmdin.recv()
-            self.debug(5, "Received command %s" % c.type)
-            if c.type == _ATMT_Command.RUN:
-                singlestep = False
-            elif c.type == _ATMT_Command.NEXT:
-                singlestep = True
-            elif c.type == _ATMT_Command.STOP:
-                break
-            while True:
-                try:
-                    state = self.do_next()
-                except KeyboardInterrupt:
-                    self.debug(1,"Interrupted by user")
-                    stop=True
+        try:
+            while not stop:
+                c = self.cmdin.recv()
+                self.debug(5, "Received command %s" % c.type)
+                if c.type == _ATMT_Command.RUN:
+                    singlestep = False
+                elif c.type == _ATMT_Command.NEXT:
+                    singlestep = True
+                elif c.type == _ATMT_Command.STOP:
                     break
-                except self.CommandMessage:
-                    break
-                except StopIteration,e:
-                    c = Message(type=_ATMT_Command.END, result=e.args[0])
-                    self.cmdout.send(c)
-                    stop=True
-                    break
-                if singlestep:
-                    c = Message(type=_ATMT_Command.SINGLESTEP,state=state)
-                    self.cmdout.send(c)
-                    break
+                while True:
+                    try:
+                        state = self.do_next()
+                    except KeyboardInterrupt:
+                        self.debug(1,"Interrupted by user")
+                        stop=True
+                        break
+                    except self.CommandMessage:
+                        break
+                    except StopIteration,e:
+                        c = Message(type=_ATMT_Command.END, result=e.args[0])
+                        self.cmdout.send(c)
+                        stop=True
+                        break
+                    if singlestep:
+                        c = Message(type=_ATMT_Command.SINGLESTEP,state=state)
+                        self.cmdout.send(c)
+                        break
+        except Exception,e:
+            self.debug(3, "Transfering exception [%s] from tid=%i"% (e,self.threadid))
+            m = Message(type = _ATMT_Command.EXCEPTION, exception=e)
+            self.cmdout.send(m)        
         self.debug(3, "Stopping control thread (tid=%i)"%self.threadid)
         self.threadid = None
     
@@ -522,6 +528,8 @@ class Automaton:
                 return c.pkt
             elif c.type == _ATMT_Command.SINGLESTEP:
                 return c.state
+            elif c.type == _ATMT_Command.EXCEPTION:
+                raise c.exception
 
     def next(self):
         return self.run(resume = Message(type=_ATMT_Command.NEXT))
