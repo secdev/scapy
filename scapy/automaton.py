@@ -395,9 +395,8 @@ class Automaton:
     def do_control(self):
         singlestep = True
         self.debug(3, "Starting control thread [tid=%i]" % self.threadid)
-        stop = False
         try:
-            while not stop:
+            while True:
                 c = self.cmdin.recv()
                 self.debug(5, "Received command %s" % c.type)
                 if c.type == _ATMT_Command.RUN:
@@ -409,21 +408,15 @@ class Automaton:
                 while True:
                     try:
                         state = self.do_next()
-                    except KeyboardInterrupt:
-                        self.debug(1,"Interrupted by user")
-                        stop=True
-                        break
                     except self.CommandMessage:
-                        break
-                    except StopIteration,e:
-                        c = Message(type=_ATMT_Command.END, result=e.args[0])
-                        self.cmdout.send(c)
-                        stop=True
                         break
                     if singlestep:
                         c = Message(type=_ATMT_Command.SINGLESTEP,state=state)
                         self.cmdout.send(c)
                         break
+        except StopIteration,e:
+            c = Message(type=_ATMT_Command.END, result=e.args[0])
+            self.cmdout.send(c)
         except Exception,e:
             self.debug(3, "Transfering exception [%s] from tid=%i"% (e,self.threadid))
             m = Message(type = _ATMT_Command.EXCEPTION, exception=e)
