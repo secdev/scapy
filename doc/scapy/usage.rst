@@ -797,7 +797,7 @@ Using the ``export_object()`` function, Scapy can export a base64 encoded Python
     WZXXVCmi9pihUqI3FHdEQslriiVfWFTVT9VYpog6Q7fsjG0qRWtQNwsW1fRTrUg4xZxq5pUx1aS6
     ...
 
-The output above can be reimported back into Skype using ``import_object()``::
+The output above can be reimported back into Scapy using ``import_object()``::
 
     >>> new_pkt = import_object()
     eNplVwd4FNcRPt2dTqdTQ0JUUYwN+CgS0gkJONFEs5WxFDB+CdiI8+pupVl0d7uzRUiYtcEGG4ST
