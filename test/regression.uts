@@ -895,6 +895,41 @@ class ATMT6(Automaton):
 a=ATMT6()
 a.run()
 assert( _ == 'Mercury' )
+
+= Automaton test io event
+~ automaton
+
+class ATMT7(Automaton):
+    @ATMT.state(initial=1)
+    def BEGIN(self):
+        self.res = "S"
+    @ATMT.ioevent(BEGIN, name="tst")
+    def tr1(self, fd):
+        self.res += fd.recv()
+        raise self.NEXT_STATE()
+    @ATMT.state()
+    def NEXT_STATE(self):
+        self.oi.tst.send("ur")
+    @ATMT.ioevent(NEXT_STATE, name="tst")
+    def tr2(self, fd):
+        self.res += fd.recv()
+        raise self.END()
+    @ATMT.state(final=1)
+    def END(self):
+        self.res += "n"
+        return self.res
+
+a=ATMT7()
+a.run(wait=False)
+a.io.tst.send("at")
+a.io.tst.recv()
+a.io.tst.send(_)
+a.run()
+assert( _ == "Saturn" )
+
+= Automaton test io event from external fd
+~ automaton
+pass
  
 
 + Test IP options
