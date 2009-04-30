@@ -205,6 +205,8 @@ class Automaton:
 
     def __init__(self, *args, **kargs):
         self.running = False
+        self.breakpointed = None
+        self.breakpoints = set()
         self.debug_level=0
         self.init_args=args
         self.init_kargs=kargs
@@ -223,6 +225,11 @@ class Automaton:
             self.result = result
     class Stuck(ErrorState):
         pass
+
+    class Breakpoint(Exception):
+        def __init__(self, msg, breakpoint):
+            Exception.__init__(self, msg)
+            self.breakpoint = breakpoint
 
     def parse_args(self, debug=0, store=1, **kargs):
         self.debug_level=debug
@@ -248,6 +255,18 @@ class Automaton:
             self.debug(2, "%s [%s] not taken" % (cond.atmt_type, cond.atmt_condname))
             
 
+    def add_breakpoints(self, *bps):
+        for bp in bps:
+            if hasattr(bp,"atmt_state"):
+                bp = bp.atmt_state
+            self.breakpoints.add(bp)
+
+    def remove_breakpoints(self, *bps):
+        for bp in bps:
+            if hasattr(bp,"atmt_state"):
+                bp = bp.atmt_state
+            if bp in self.breakpoints:
+                self.breakpoints.remove(pb)
 
     def start(self, *args, **kargs):
         self.running = True
@@ -271,6 +290,11 @@ class Automaton:
             self.debug(1, "## state=[%s]" % self.state.state)
 
             # Entering a new state. First, call new state function
+            if self.state.state in self.breakpoints and self.state.state != self.breakpointed: 
+                self.breakpointed = self.state.state
+                raise self.Breakpoint("breakpoint triggered on state %s" % self.state.state,
+                                      breakpoint = self.state.state)
+            self.breakpointed = None
             state_output = self.state.run()
             if self.state.error:
                 self.running = False
