@@ -346,8 +346,28 @@ class Automaton:
     ## Services
     def debug(self, lvl, msg):
         if self.debug_level >= lvl:
-            log_interactive.debug(msg)
-            
+            log_interactive.debug(msg)            
+
+    def send(self, pkt):
+        if self.state.state in self.interception_points:
+            self.debug(3,"INTERCEPT: packet intercepted: %s" % pkt.summary())
+            cmd = Message(type = _ATMT_Command.INTERCEPT, pkt = pkt)
+            self.cmdout.send(cmd)
+            cmd = self.cmdin.recv()
+            if cmd.type == _ATMT_Command.REJECT:
+                self.debug(3,"INTERCEPT: packet rejected")
+                return
+            elif cmd.type == _ATMT_Command.REPLACE:
+                self.debug(3,"INTERCEPT: packet replaced")
+                pkt = cmd.pkt
+            elif cmd.type == _ATMT_Command.ACCEPT:
+                self.debug(3,"INTERCEPT: packet accepted")
+            else:
+                self.debug(1,"INTERCEPT: unkown verdict: %r" % cmd.type)
+        self.my_send(pkt)
+        self.debug(3,"SENT : %s" % pkt.summary())
+        self.packets.append(pkt.copy())
+
 
     ## Internals
     def __init__(self, external_fd={}, *args, **kargs):
@@ -386,17 +406,18 @@ class Automaton:
             setattr(self.io, n, self._IO_mixer(ioout,ioin))
             setattr(self.oi, n, self._IO_mixer(ioin,ioout))
 
-            
         for stname in self.states:
             setattr(self, stname, 
                     instance_state(getattr(self, stname)))
-        
         
         self.parse_args(*args, **kargs)
 
         self.start()
 
-    def run_condition(self, cond, *args, **kargs):
+    def __iter__(self):
+        return self        
+
+    def _run_condition(self, cond, *args, **kargs):
         try:
             cond(self,*args, **kargs)
         except ATMT.NewStateRequested, state_req:
@@ -410,10 +431,7 @@ class Automaton:
         else:
             self.debug(2, "%s [%s] not taken" % (cond.atmt_type, cond.atmt_condname))
 
-    def __iter__(self):
-        return self        
-
-    def do_control(self, *args, **kargs):
+    def _do_control(self, *args, **kargs):
         with self.running:
             self.threadid = thread.get_ident()
 
@@ -443,7 +461,7 @@ class Automaton:
                         break
                     while True:
                         try:
-                            state = self.do_next()
+                            state = self._do_next()
                         except self.CommandMessage:
                             break
                         if singlestep:
@@ -460,8 +478,7 @@ class Automaton:
             self.debug(3, "Stopping control thread (tid=%i)"%self.threadid)
             self.threadid = None
     
-
-    def do_next(self):
+    def _do_next(self):
         try:
             self.debug(1, "## state=[%s]" % self.state.state)
 
@@ -484,7 +501,7 @@ class Automaton:
             
             # Then check immediate conditions
             for cond in self.conditions[self.state.state]:
-                self.run_condition(cond, *state_output)
+                self._run_condition(cond, *state_output)
 
             # If still there and no conditions left, we are stuck!
             if ( len(self.recv_conditions[self.state.state]) == 0 and
@@ -506,7 +523,7 @@ class Automaton:
                 t = time.time()-t0
                 if next_timeout is not None:
                     if next_timeout <= t:
-                        self.run_condition(timeout_func, *state_output)
+                        self._run_condition(timeout_func, *state_output)
                         next_timeout,timeout_func = expirations.next()
                 if next_timeout is None:
                     remain = None
@@ -524,21 +541,20 @@ class Automaton:
                             if self.master_filter(pkt):
                                 self.debug(3, "RECVD: %s" % pkt.summary())
                                 for rcvcond in self.recv_conditions[self.state.state]:
-                                    self.run_condition(rcvcond, pkt, *state_output)
+                                    self._run_condition(rcvcond, pkt, *state_output)
                             else:
                                 self.debug(4, "FILTR: %s" % pkt.summary())
                     else:
                         self.debug(3, "IOEVENT on %s" % fd.ioname)
                         for ioevt in self.ioevents[self.state.state]:
                             if ioevt.atmt_ioname == fd.ioname:
-                                self.run_condition(ioevt, fd, *state_output)
+                                self._run_condition(ioevt, fd, *state_output)
 
         except ATMT.NewStateRequested,state_req:
             self.debug(2, "switching from [%s] to [%s]" % (self.state.state,state_req.state))
             self.state = state_req
             return state_req
         
-
 
     ## Public API
     def add_interception_points(self, *ipts):
@@ -568,7 +584,7 @@ class Automaton:
                 self.breakpoints.remove(pb)
 
     def start(self, *args, **kargs):
-        thread.start_new_thread(self.do_control, args, kargs)
+        thread.start_new_thread(self._do_control, args, kargs)
         
     def run(self, resume=None, wait=True):
         if resume is None:
@@ -589,6 +605,9 @@ class Automaton:
             elif c.type == _ATMT_Command.EXCEPTION:
                 raise c.exception
 
+    def runbg(self, resume=None, wait=False):
+        self.run(resume, wait)
+
     def next(self):
         return self.run(resume = Message(type=_ATMT_Command.NEXT))
 
@@ -607,28 +626,10 @@ class Automaton:
             rsm.type = _ATMT_Command.REPLACE
             rsm.pkt = pkt
         return self.run(resume=rsm)
+
     def reject_packet(self):
         rsm = Message(type = _ATMT_Command.REJECT)
         return self.run(resume=rsm)
 
     
-    def send(self, pkt):
-        if self.state.state in self.interception_points:
-            self.debug(3,"INTERCEPT: packet intercepted: %s" % pkt.summary())
-            cmd = Message(type = _ATMT_Command.INTERCEPT, pkt = pkt)
-            self.cmdout.send(cmd)
-            cmd = self.cmdin.recv()
-            if cmd.type == _ATMT_Command.REJECT:
-                self.debug(3,"INTERCEPT: packet rejected")
-                return
-            elif cmd.type == _ATMT_Command.REPLACE:
-                self.debug(3,"INTERCEPT: packet replaced")
-                pkt = cmd.pkt
-            elif cmd.type == _ATMT_Command.ACCEPT:
-                self.debug(3,"INTERCEPT: packet accepted")
-            else:
-                self.debug(1,"INTERCEPT: unkown verdict: %r" % cmd.type)
-        self.my_send(pkt)
-        self.debug(3,"SENT : %s" % pkt.summary())
-        self.packets.append(pkt.copy())
 
