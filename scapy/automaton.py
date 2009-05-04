@@ -370,8 +370,8 @@ class Automaton:
                 self.debug(3,"INTERCEPT: packet rejected")
                 return
             elif cmd.type == _ATMT_Command.REPLACE:
-                self.debug(3,"INTERCEPT: packet replaced")
                 pkt = cmd.pkt
+                self.debug(3,"INTERCEPT: packet replaced by: %s" % pkt.summary())
             elif cmd.type == _ATMT_Command.ACCEPT:
                 self.debug(3,"INTERCEPT: packet accepted")
             else:
@@ -431,6 +431,7 @@ class Automaton:
 
     def _run_condition(self, cond, *args, **kargs):
         try:
+            self.debug(5, "Trying %s [%s]" % (cond.atmt_type, cond.atmt_condname))
             cond(self,*args, **kargs)
         except ATMT.NewStateRequested, state_req:
             self.debug(2, "%s [%s] taken to state [%s]" % (cond.atmt_type, cond.atmt_condname, state_req.state))
@@ -439,6 +440,9 @@ class Automaton:
             for action in self.actions[cond.atmt_condname]:
                 self.debug(2, "   + Running action [%s]" % action.func_name)
                 action(self, *state_req.action_args, **state_req.action_kargs)
+            raise
+        except Exception,e:
+            self.debug(2, "%s [%s] raised exception [%s]" % (cond.atmt_type, cond.atmt_condname, e))
             raise
         else:
             self.debug(2, "%s [%s] not taken" % (cond.atmt_type, cond.atmt_condname))
@@ -551,7 +555,9 @@ class Automaton:
 
                 self.debug(5, "Select on %r" % fds)
                 r,_,_ = select(fds,[],[],remain)
+                self.debug(5, "Selected %r" % r)
                 for fd in r:
+                    self.debug(5, "Looking at %r" % fd)
                     if fd == self.cmdin:
                         raise self.CommandMessage()
                     if fd == self.listen_sock:
