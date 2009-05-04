@@ -4,7 +4,7 @@
 ## This program is published under a GPLv2 license
 
 from __future__ import with_statement
-import types,itertools,time,os
+import types,itertools,time,os,sys
 from select import select
 from collections import deque
 import thread
@@ -496,7 +496,7 @@ class Automaton:
                 self.cmdout.send(c)
             except Exception,e:
                 self.debug(3, "Transfering exception [%s] from tid=%i"% (e,self.threadid))
-                m = Message(type = _ATMT_Command.EXCEPTION, exception=e)
+                m = Message(type = _ATMT_Command.EXCEPTION, exception=e, exc_info=sys.exc_info())
                 self.cmdout.send(m)        
             self.debug(3, "Stopping control thread (tid=%i)"%self.threadid)
             self.threadid = None
@@ -627,7 +627,7 @@ class Automaton:
             elif c.type == _ATMT_Command.SINGLESTEP:
                 raise self.Breakpoint("singlestep", state=c.state.state)
             elif c.type == _ATMT_Command.EXCEPTION:
-                raise c.exception
+                raise c.exc_info[0],c.exc_info[1],c.exc_info[2]
 
     def runbg(self, resume=None, wait=False):
         self.run(resume, wait)
