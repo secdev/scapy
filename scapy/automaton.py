@@ -36,6 +36,21 @@ class Message:
                                          for (k,v) in self.__dict__.iteritems()
                                          if not k.startswith("_"))
 
+class instance_state:
+    def __init__(self, instance):
+        self.im_self = instance.im_self
+        self.im_func = instance.im_func
+        self.im_class = instance.im_class
+    def __getattr__(self, attr):
+        return getattr(self.im_func, attr)
+
+    def __call__(self, *args, **kargs):
+        return self.im_func(self.im_self, *args, **kargs)
+    def breaks(self):
+        return self.im_self.add_breakpoints(self.im_func)
+    def intercepts(self):
+        return self.im_self.add_interception_points(self.im_func)
+        
 
 ##############
 ## Automata ##
@@ -370,6 +385,12 @@ class Automaton:
             ioout.ioname = n
             setattr(self.io, n, self._IO_mixer(ioout,ioin))
             setattr(self.oi, n, self._IO_mixer(ioin,ioout))
+
+            
+        for stname in self.states:
+            setattr(self, stname, 
+                    instance_state(getattr(self, stname)))
+        
         
         self.parse_args(*args, **kargs)
 
