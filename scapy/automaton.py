@@ -335,27 +335,25 @@ class Automaton:
 
 
     class AutomatonException(Exception):
-        pass
-
-    class ErrorState(AutomatonException):
-        def __init__(self, msg, result=None):
-            Exception.__init__(self, msg)
-            self.result = result
-    class Stuck(ErrorState):
-        pass
-
-    class AutomatonStopped(AutomatonException):
-        def __init__(self, msg, state=None):
+        def __init__(self, msg, state=None, result=None):
             Exception.__init__(self, msg)
             self.state = state
+            self.result = result
+
+    class ErrorState(AutomatonException):
+        pass
+    class Stuck(AutomatonException):
+        pass
+    class AutomatonStopped(AutomatonException):
+        pass
     
     class Breakpoint(AutomatonStopped):
         pass
     class Singlestep(AutomatonStopped):
         pass
     class InterceptionPoint(AutomatonStopped):
-        def __init__(self, msg, state, packet):
-            Automaton.AutomatonStopped.__init__(self, msg, state)
+        def __init__(self, msg, state=None, result=None, packet=None):
+            Automaton.AutomatonStopped.__init__(self, msg, state=state, result=result)
             self.packet = packet
 
     class CommandMessage(AutomatonException):
@@ -528,7 +526,8 @@ class Automaton:
                 self.breakpointed = None
                 state_output = self.state.run()
                 if self.state.error:
-                    raise self.ErrorState("Reached %s: [%r]" % (self.state.state, state_output), result=state_output)
+                    raise self.ErrorState("Reached %s: [%r]" % (self.state.state, state_output), 
+                                          result=state_output, state=self.state.state)
                 if self.state.final:
                     raise StopIteration(state_output)
     
@@ -545,7 +544,8 @@ class Automaton:
                 if ( len(self.recv_conditions[self.state.state]) == 0 and
                      len(self.ioevents[self.state.state]) == 0 and
                      len(self.timeout[self.state.state]) == 1 ):
-                    raise self.Stuck("stuck in [%s]" % self.state.state,result=state_output)
+                    raise self.Stuck("stuck in [%s]" % self.state.state,
+                                     state=self.state.state, result=state_output)
     
                 # Finally listen and pay attention to timeouts
                 expirations = iter(self.timeout[self.state.state])
@@ -574,7 +574,7 @@ class Automaton:
                     for fd in r:
                         self.debug(5, "Looking at %r" % fd)
                         if fd == self.cmdin:
-                            yield self.CommandMessage()
+                            yield self.CommandMessage("Received command message")
                         elif fd == self.listen_sock:
                             pkt = self.listen_sock.recv(MTU)
                             if pkt is not None:
