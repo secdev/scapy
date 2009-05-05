@@ -351,6 +351,8 @@ class Automaton:
     
     class Breakpoint(AutomatonStopped):
         pass
+    class Singlestep(AutomatonStopped):
+        pass
     class InterceptionPoint(AutomatonStopped):
         def __init__(self, msg, state, packet):
             Automaton.AutomatonStopped.__init__(self, msg, state)
@@ -634,7 +636,7 @@ class Automaton:
             elif c.type == _ATMT_Command.INTERCEPT:
                 raise self.InterceptionPoint("packet intercepted", state=c.state.state, packet=c.pkt)
             elif c.type == _ATMT_Command.SINGLESTEP:
-                raise self.Breakpoint("singlestep state=[%s]"%c.state.state, state=c.state.state)
+                raise self.Singlestep("singlestep state=[%s]"%c.state.state, state=c.state.state)
             elif c.type == _ATMT_Command.BREAKPOINT:
                 raise self.Breakpoint("breakpoint triggered on state [%s]"%c.state.state, state=c.state.state)
             elif c.type == _ATMT_Command.EXCEPTION:
