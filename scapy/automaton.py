@@ -668,7 +668,7 @@ class Automaton:
         self.stop()
         self.start(*args, **kargs)
 
-    def accept_packet(self, pkt=None, wait=True):
+    def accept_packet(self, pkt=None, wait=False):
         rsm = Message()
         if pkt is None:
             rsm.type = _ATMT_Command.ACCEPT
@@ -677,7 +677,7 @@ class Automaton:
             rsm.pkt = pkt
         return self.run(resume=rsm, wait=wait)
 
-    def reject_packet(self, wait=True):
+    def reject_packet(self, wait=False):
         rsm = Message(type = _ATMT_Command.REJECT)
         return self.run(resume=rsm, wait=wait)
 
