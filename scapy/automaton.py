@@ -604,7 +604,7 @@ class Automaton:
         for bp in bps:
             if hasattr(bp,"atmt_state"):
                 bp = bp.atmt_state
-            self.breakpoints.discard(pb)
+            self.breakpoints.discard(bp)
 
     def start(self, *args, **kargs):
         if not self.running.locked():
