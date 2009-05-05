@@ -436,6 +436,9 @@ class Automaton:
     def __iter__(self):
         return self        
 
+    def __del__(self):
+        self.stop()
+
     def _run_condition(self, cond, *args, **kargs):
         try:
             self.debug(5, "Trying %s [%s]" % (cond.atmt_type, cond.atmt_condname))
