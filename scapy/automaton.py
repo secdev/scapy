@@ -302,11 +302,11 @@ class Automaton:
             self.wr = wr
         def fileno(self):
             return self.rd
-        def read(self, n):
+        def read(self, n=65535):
             return os.read(self.rd, n)
         def write(self, msg):
             return os.write(self.wr,msg)
-        def recv(self, n):
+        def recv(self, n=65535):
             return self.read(n)        
         def send(self, msg):
             return self.write(msg)
