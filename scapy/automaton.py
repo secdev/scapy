@@ -370,9 +370,11 @@ class Automaton:
     def send(self, pkt):
         if self.state.state in self.interception_points:
             self.debug(3,"INTERCEPT: packet intercepted: %s" % pkt.summary())
+            self.intercepted_packet = pkt
             cmd = Message(type = _ATMT_Command.INTERCEPT, state=self.state, pkt=pkt)
             self.cmdout.send(cmd)
             cmd = self.cmdin.recv()
+            self.intercepted_packet = None
             if cmd.type == _ATMT_Command.REJECT:
                 self.debug(3,"INTERCEPT: packet rejected")
                 return
@@ -395,6 +397,7 @@ class Automaton:
         self.breakpointed = None
         self.breakpoints = set()
         self.interception_points = set()
+        self.intercepted_packet = None
         self.debug_level=0
         self.init_args=args
         self.init_kargs=kargs
