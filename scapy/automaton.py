@@ -36,7 +36,7 @@ class Message:
                                          for (k,v) in self.__dict__.iteritems()
                                          if not k.startswith("_"))
 
-class instance_state:
+class _instance_state:
     def __init__(self, instance):
         self.im_self = instance.im_self
         self.im_func = instance.im_func
@@ -50,6 +50,10 @@ class instance_state:
         return self.im_self.add_breakpoints(self.im_func)
     def intercepts(self):
         return self.im_self.add_interception_points(self.im_func)
+    def unbreaks(self):
+        return self.im_self.remove_breakpoints(self.im_func)
+    def unintercepts(self):
+        return self.im_self.remove_interception_points(self.im_func)
         
 
 ##############
@@ -420,7 +424,7 @@ class Automaton:
 
         for stname in self.states:
             setattr(self, stname, 
-                    instance_state(getattr(self, stname)))
+                    _instance_state(getattr(self, stname)))
         
         self.parse_args(*args, **kargs)
 
