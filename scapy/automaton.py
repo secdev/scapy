@@ -164,6 +164,7 @@ class _ATMT_Command:
     END = "END"
     EXCEPTION = "EXCEPTION"
     SINGLESTEP = "SINGLESTEP"
+    BREAKPOINT = "BREAKPOINT"
     INTERCEPT = "INTERCEPT"
     ACCEPT = "ACCEPT"
     REPLACE = "REPLACE"
@@ -491,6 +492,10 @@ class Automaton:
                         state = iterator.next()
                         if isinstance(state, self.CommandMessage):
                             break
+                        elif isinstance(state, self.Breakpoint):
+                            c = Message(type=_ATMT_Command.BREAKPOINT,state=state)
+                            self.cmdout.send(c)
+                            break
                         if singlestep:
                             c = Message(type=_ATMT_Command.SINGLESTEP,state=state)
                             self.cmdout.send(c)
@@ -513,7 +518,7 @@ class Automaton:
                 # Entering a new state. First, call new state function
                 if self.state.state in self.breakpoints and self.state.state != self.breakpointed: 
                     self.breakpointed = self.state.state
-                    raise self.Breakpoint("breakpoint triggered on state %s" % self.state.state,
+                    yield self.Breakpoint("breakpoint triggered on state %s" % self.state.state,
                                           state = self.state.state)
                 self.breakpointed = None
                 state_output = self.state.run()
@@ -629,7 +634,9 @@ class Automaton:
             elif c.type == _ATMT_Command.INTERCEPT:
                 raise self.InterceptionPoint("packet intercepted", state=c.state.state, packet=c.pkt)
             elif c.type == _ATMT_Command.SINGLESTEP:
-                raise self.Breakpoint("singlestep", state=c.state.state)
+                raise self.Breakpoint("singlestep state=[%s]"%c.state.state, state=c.state.state)
+            elif c.type == _ATMT_Command.BREAKPOINT:
+                raise self.Breakpoint("breakpoint triggered on state [%s]"%c.state.state, state=c.state.state)
             elif c.type == _ATMT_Command.EXCEPTION:
                 raise c.exc_info[0],c.exc_info[1],c.exc_info[2]
 
