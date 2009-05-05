@@ -340,6 +340,8 @@ class Automaton:
             self.state = state
             self.result = result
 
+    class AutomatonError(AutomatonException):
+        pass
     class ErrorState(AutomatonException):
         pass
     class Stuck(AutomatonException):
@@ -380,7 +382,7 @@ class Automaton:
             elif cmd.type == _ATMT_Command.ACCEPT:
                 self.debug(3,"INTERCEPT: packet accepted")
             else:
-                self.debug(1,"INTERCEPT: unkown verdict: %r" % cmd.type)
+                raise self.AutomatonError("INTERCEPT: unkown verdict: %r" % cmd.type)
         self.my_send(pkt)
         self.debug(3,"SENT : %s" % pkt.summary())
         self.packets.append(pkt.copy())
