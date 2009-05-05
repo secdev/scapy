@@ -689,11 +689,14 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
         return self.payload.haslayer(cls)
     def getlayer(self, cls, nb=1, _track=None):
         """Return the nb^th layer that is an instance of cls."""
+        if type(cls) is int:
+            nb = cls+1
+            cls = None
         if type(cls) is str and "." in cls:
             ccls,fld = cls.split(".",1)
         else:
             ccls,fld = cls,None
-        if self.__class__ == cls or self.__class__.name == ccls:
+        if cls is None or self.__class__ == cls or self.__class__.name == ccls:
             if nb == 1:
                 if fld is None:
                     return self
@@ -715,6 +718,12 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
                         return ret
                     nb = track[0]
         return self.payload.getlayer(cls,nb,_track=_track)
+
+    def firstlayer(self):
+        q = self
+        while q.underlayer is not None:
+            q = q.underlayer
+        return q
 
     def __getitem__(self, cls):
         if type(cls) is slice:
@@ -748,6 +757,9 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
 
     def route(self):
         return (None,None,None)
+
+    def fragment(self, *args, **kargs):
+        return self.payload.fragment(*args, **kargs)
     
 
     def display(self,*args,**kargs):  # Deprecated. Use show()
@@ -1025,6 +1037,8 @@ class NoPayload(Packet):
         if _track is not None:
             _track.append(nb)
         return None
+    def fragment(self, *args, **kargs):
+        raise Scapy_Exception("cannot fragment this packet")        
     def show(self, indent=3, lvl="", label_lvl=""):
         pass
     def sprintf(self, fmt, relax):

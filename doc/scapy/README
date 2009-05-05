@@ -1,0 +1,19 @@
+This folder includes source files (text and graphics) for Scapy's documentation,
+which is automatically built using Sphinx <http://sphinx.pocoo.org/>
+
+The *.rst files are written as reStructuredText and should be quite readable
+in your favourite text editor without any further formatting.
+
+To generate much nicer, searchable HTML docs, install Sphinx, open a command 
+line, change to the directory where this README is placed, and type the
+following command:
+
+  $ make html
+
+To generate a single PDF file (useful for printing) you need a working
+LaTeX installation (e.g. <http://www.tug.org/texlive/>). 
+The following commands produce the file Scapy.pdf (>100 pages):
+
+  $ make latex
+  $ cd _build/latex
+  $ make all-pdf
