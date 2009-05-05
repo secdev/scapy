@@ -392,7 +392,7 @@ class Automaton:
 
     ## Internals
     def __init__(self, external_fd={}, *args, **kargs):
-        self.running = thread.allocate_lock()
+        self.started = thread.allocate_lock()
         self.threadid = None
         self.breakpointed = None
         self.breakpoints = set()
@@ -466,7 +466,7 @@ class Automaton:
 
 
     def _do_control(self, *args, **kargs):
-        with self.running:
+        with self.started:
             self.threadid = thread.get_ident()
 
             # Update default parameters
@@ -626,7 +626,7 @@ class Automaton:
             self.breakpoints.discard(bp)
 
     def start(self, *args, **kargs):
-        if not self.running.locked():
+        if not self.started.locked():
             self._do_start(*args, **kargs)
         
     def run(self, resume=None, wait=True):
@@ -658,7 +658,7 @@ class Automaton:
 
     def stop(self):
         self.cmdin.send(Message(type=_ATMT_Command.STOP))
-        with self.running:
+        with self.started:
             # Flush command pipes
             while True:
                 r,_,_ = select([self.cmdin, self.cmdout],[],[],0)
