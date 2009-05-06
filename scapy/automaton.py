@@ -391,7 +391,8 @@ class Automaton:
 
 
     ## Internals
-    def __init__(self, external_fd={}, *args, **kargs):
+    def __init__(self, *args, **kargs):
+        external_fd = kargs.pop("external_fd",{})
         self.started = thread.allocate_lock()
         self.threadid = None
         self.breakpointed = None
