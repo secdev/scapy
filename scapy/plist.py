@@ -7,6 +7,7 @@ import os
 from config import conf
 from base_classes import BasePacket,BasePacketList
 from packet import Padding
+from collections import defaultdict
 
 from utils import do_graph,hexdump,make_table,make_lined_table,make_tex_table,get_temp_file
 
@@ -406,6 +407,32 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
         if multi:
             remain = filter(lambda x:not hasattr(x,"_answered"), remain)
         return SndRcvList(sr),PacketList(remain)
+
+    def sessions(self, session_extractor=None):
+        if session_extractor is None:
+            def session_extractor(p):
+                if 'Ether' in p:
+                    if 'IP' in p:
+                        if 'TCP' in p:
+                            sess = p.sprintf("TCP %IP.src%:%r,TCP.sport% > %IP.dst%:%r,TCP.dport%")
+                        elif 'UDP' in p:
+                            sess = p.sprintf("UDP %IP.src%:%r,UDP.sport% > %IP.dst%:%r,UDP.dport%")
+                        elif 'ICMP' in p:
+                            sess = p.sprintf("ICMP %IP.src% > %IP.dst% type=%r,ICMP.type% code=%r,ICMP.code% id=%ICMP.id%")
+                        else:
+                            sess = p.sprintf("IP %IP.src% > %IP.dst% proto=%IP.proto%")
+                    elif 'ARP' in p:
+                        sess = p.sprintf("ARP %ARP.psrc% > %ARP.pdst%")
+                    else:
+                        sess = p.sprintf("Ethernet type=%04xr,Ether.type%")
+                return sess
+        sessions = defaultdict(self.__class__)
+        for p in self.res:
+            sess = session_extractor(self._elt2pkt(p))
+            sessions[sess].append(p)
+        return dict(sessions)
+            
+    
         
 
 
