@@ -249,8 +249,6 @@ class ByteField(Field):
         
 class XByteField(ByteField):
     def i2repr(self, pkt, x):
-        if x is None:
-            x = 0
         return lhex(self.i2h(pkt, x))
 
 class X3BytesField(XByteField):
@@ -272,8 +270,6 @@ class LEShortField(Field):
 
 class XShortField(ShortField):
     def i2repr(self, pkt, x):
-        if x is None:
-            x = 0
         return lhex(self.i2h(pkt, x))
 
 
@@ -299,8 +295,6 @@ class LESignedIntField(Field):
 
 class XIntField(IntField):
     def i2repr(self, pkt, x):
-        if x is None:
-            x = 0
         return lhex(self.i2h(pkt, x))
 
 
@@ -310,8 +304,6 @@ class LongField(Field):
 
 class XLongField(LongField):
     def i2repr(self, pkt, x):
-        if x is None:
-            x = 0
         return lhex(self.i2h(pkt, x))
 
 class IEEEFloatField(Field):
