@@ -333,7 +333,7 @@ class L3PacketSocket(SuperSocket):
             for i in self.iff:
                 set_promisc(self.ins, i, 0)
         SuperSocket.close(self)
-    def recv(self, x):
+    def recv(self, x=MTU):
         pkt, sa_ll = self.ins.recvfrom(x)
         if sa_ll[2] == socket.PACKET_OUTGOING:
             return None
@@ -419,7 +419,7 @@ class L2Socket(SuperSocket):
             self.LL = conf.default_l2
             warning("Unable to guess type (interface=%s protocol=%#x family=%i). Using %s" % (sa_ll[0],sa_ll[1],sa_ll[3],self.LL.name))
             
-    def recv(self, x):
+    def recv(self, x=MTU):
         pkt, sa_ll = self.ins.recvfrom(x)
         if sa_ll[2] == socket.PACKET_OUTGOING:
             return None

@@ -44,7 +44,7 @@ IPV6_ADDR_UNSPECIFIED = 0x10000
 
 
 
-MTU = 1600
+MTU = 0x7fff # a.k.a give me all you have
 
  
 # file parsing to get some values :

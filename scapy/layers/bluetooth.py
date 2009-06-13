@@ -9,6 +9,7 @@ from scapy.config import conf
 from scapy.packet import *
 from scapy.fields import *
 from scapy.supersocket import SuperSocket
+from scapy.data import MTU
 
 
 class HCI_Hdr(Packet):
@@ -163,7 +164,7 @@ class BluetoothL2CAPSocket(SuperSocket):
         
         self.ins = self.outs = s
 
-    def recv(self, x):
+    def recv(self, x=MTU):
         return L2CAP_CmdHdr(self.ins.recv(x))
     
 

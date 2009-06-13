@@ -187,7 +187,7 @@ class _ATMT_supersocket(SuperSocket):
         if type(s) is not str:
             s = str(s)
         return self.spa.send(s)
-    def recv(self, n=None):
+    def recv(self, n=MTU):
         r = self.spa.recv(n)
         if self.proto is not None:
             r = self.proto(r)

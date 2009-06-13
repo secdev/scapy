@@ -484,7 +484,7 @@ class RawPcapReader:
         return pkt
 
 
-    def read_packet(self):
+    def read_packet(self, size=MTU):
         """return a single packet read from the file
         
         returns None when no more packets are available
@@ -493,7 +493,7 @@ class RawPcapReader:
         if len(hdr) < 16:
             return None
         sec,usec,caplen,wirelen = struct.unpack(self.endian+"IIII", hdr)
-        s = self.f.read(caplen)
+        s = self.f.read(caplen)[:MTU]
         return s,(sec,usec,wirelen) # caplen = len(s)
 
 
@@ -519,10 +519,10 @@ class RawPcapReader:
             res.append(p)
         return res
 
-    def recv(self, size):
+    def recv(self, size=MTU):
         """ Emulate a socket
         """
-        return self.read_packet()[0]
+        return self.read_packet(size)[0]
 
     def fileno(self):
         return self.f.fileno()
@@ -540,8 +540,8 @@ class PcapReader(RawPcapReader):
         except KeyError:
             warning("PcapReader: unknown LL type [%i]/[%#x]. Using Raw packets" % (self.linktype,self.linktype))
             self.LLcls = conf.raw_layer
-    def read_packet(self):
-        rp = RawPcapReader.read_packet(self)
+    def read_packet(self, size=MTU):
+        rp = RawPcapReader.read_packet(self,size)
         if rp is None:
             return None
         s,(sec,usec,wirelen) = rp
@@ -560,8 +560,8 @@ class PcapReader(RawPcapReader):
         res = RawPcapReader.read_all(self, count)
         import plist
         return plist.PacketList(res,name = os.path.basename(self.filename))
-    def recv(self, size):
-        return self.read_packet()
+    def recv(self, size=MTU):
+        return self.read_packet(size)
         
 
 

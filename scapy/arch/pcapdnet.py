@@ -101,7 +101,7 @@ if conf.use_pcap:
             def close(self):
                 del(self.ins)
                 
-            def recv(self, x):
+            def recv(self, x=MTU):
                 ll = self.ins.datalink()
                 if ll in conf.l2types:
                     cls = conf.l2types[ll]
@@ -291,7 +291,7 @@ if conf.use_pcap and conf.use_dnet:
             if filter:
                 self.ins.setfilter(filter)
             self.outs = dnet.eth(iface)
-        def recv(self,x):
+        def recv(self,x=MTU):
             ll = self.ins.datalink()
             if ll in conf.l2types:
                 cls = conf.l2types[ll]
