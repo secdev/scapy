@@ -411,7 +411,7 @@ class Automaton:
         for n in self.ionames:
             extfd = external_fd.get(n)
             if type(extfd) is not tuple:
-                extfd = (extfd,None)
+                extfd = (extfd,extfd)
             ioin,ioout = extfd                
             if ioin is None:
                 ioin = ObjectPipe()
