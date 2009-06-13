@@ -137,13 +137,14 @@ class ATMT:
             return f
         return deco
     @staticmethod
-    def ioevent(state, name, prio=0):
+    def ioevent(state, name, prio=0, as_supersocket=None):
         def deco(f, state=state):
             f.atmt_type = ATMT.IOEVENT
             f.atmt_state = state.atmt_state
             f.atmt_condname = f.func_name
             f.atmt_ioname = name
             f.atmt_prio = prio
+            f.atmt_as_supersocket = as_supersocket
             return f
         return deco
     @staticmethod
@@ -170,6 +171,36 @@ class _ATMT_Command:
     REPLACE = "REPLACE"
     REJECT = "REJECT"
 
+class _ATMT_supersocket:
+    def __init__(self, name, ioevent, automaton, proto, args, kargs):
+        self.name = name
+        self.ioevent = ioevent
+        self.proto = proto
+        self.spa,self.spb = socket.socketpair(socket.AF_UNIX, socket.SOCK_DGRAM)
+        kargs["external_fd"] = {ioevent:self.spb}
+        self.atmt = automaton(*args, **kargs)
+        self.atmt.runbg()
+    def fileno(self):
+        return self.spa.fileno()
+    def send(self, s):
+        if type(s) is not str:
+            s = str(s)
+        return self.spa.send(s)
+    def recv(self, n=None):
+        r = self.spa.recv(n)
+        if self.proto is not None:
+            r = self.proto(r)
+        return r
+
+
+class _ATMT_to_supersocket:
+    def __init__(self, name, ioevent, automaton):
+        self.name = name
+        self.ioevent = ioevent
+        self.automaton = automaton
+    def __call__(self, proto, *args, **kargs):
+        return _ATMT_supersocket(self.name, self.ioevent, self.automaton, proto, args, kargs)
+
 class Automaton_metaclass(type):
     def __new__(cls, name, bases, dct):
         cls = super(Automaton_metaclass, cls).__new__(cls, name, bases, dct)
@@ -182,6 +213,7 @@ class Automaton_metaclass(type):
         cls.actions={}
         cls.initial_states=[]
         cls.ionames = []
+        cls.iosupersockets = []
 
         members = {}
         classes = [cls]
@@ -216,6 +248,8 @@ class Automaton_metaclass(type):
             elif m.atmt_type == ATMT.IOEVENT:
                 cls.ioevents[m.atmt_state].append(m)
                 cls.ionames.append(m.atmt_ioname)
+                if m.atmt_as_supersocket is not None:
+                    cls.iosupersockets.append(m)
             elif m.atmt_type == ATMT.TIMEOUT:
                 cls.timeout[m.atmt_state].append((m.atmt_timeout, m))
             elif m.atmt_type == ATMT.ACTION:
@@ -233,9 +267,11 @@ class Automaton_metaclass(type):
         for condname,actlst in cls.actions.iteritems():
             actlst.sort(lambda c1,c2: cmp(c1.atmt_cond[condname], c2.atmt_cond[condname]))
 
+        for ioev in cls.iosupersockets:
+            setattr(cls, ioev.atmt_as_supersocket, _ATMT_to_supersocket(ioev.atmt_as_supersocket, ioev.atmt_ioname, cls))
+
         return cls
 
-        
     def graph(self, **kargs):
         s = 'digraph "%s" {\n'  % self.__class__.__name__
         
