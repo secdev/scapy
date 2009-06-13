@@ -429,6 +429,7 @@ class Automaton:
     ## Internals
     def __init__(self, *args, **kargs):
         external_fd = kargs.pop("external_fd",{})
+        self.send_sock_class = kargs.pop("ll", conf.L3socket)
         self.started = thread.allocate_lock()
         self.threadid = None
         self.breakpointed = None
@@ -514,7 +515,7 @@ class Automaton:
     
             # Start the automaton
             self.state=self.initial_states[0](self)
-            self.send_sock = conf.L3socket()
+            self.send_sock = self.send_sock_class()
             self.listen_sock = conf.L2listen(**self.socket_kargs)
             self.packets = PacketList(name="session[%s]"%self.__class__.__name__)
 
