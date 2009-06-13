@@ -13,6 +13,7 @@ from utils import do_graph
 from error import log_interactive
 from plist import PacketList
 from data import MTU
+from supersocket import SuperSocket
 
 class ObjectPipe:
     def __init__(self):
@@ -171,7 +172,7 @@ class _ATMT_Command:
     REPLACE = "REPLACE"
     REJECT = "REJECT"
 
-class _ATMT_supersocket:
+class _ATMT_supersocket(SuperSocket):
     def __init__(self, name, ioevent, automaton, proto, args, kargs):
         self.name = name
         self.ioevent = ioevent
@@ -191,7 +192,16 @@ class _ATMT_supersocket:
         if self.proto is not None:
             r = self.proto(r)
         return r
-
+    def close(self):
+        pass
+    def sr(self, *args, **kargs):
+        return sndrcv(self, *args, **kargs)
+    def sr1(self, *args, **kargs):        
+        a,b = sndrcv(self, *args, **kargs)
+        if len(a) > 0:
+            return a[0][1]
+        else:
+            return None
 
 class _ATMT_to_supersocket:
     def __init__(self, name, ioevent, automaton):

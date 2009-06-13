@@ -40,10 +40,14 @@ class SuperSocket:
                 self.outs.close()
         if self.ins and self.ins.fileno() != -1:
             self.ins.close()
-    def bind_in(self, addr):
-        self.ins.bind(addr)
-    def bind_out(self, addr):
-        self.outs.bind(addr)
+    def sr(self, *args, **kargs):
+        return sndrcv(self, *args, **kargs)
+    def sr1(self, *args, **kargs):        
+        a,b = sndrcv(self, *args, **kargs)
+        if len(a) > 0:
+            return a[0][1]
+        else:
+            return None
 
 class L3RawSocket(SuperSocket):
     desc = "Layer 3 using Raw sockets (PF_INET/SOCK_RAW)"
