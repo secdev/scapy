@@ -451,12 +451,12 @@ class Automaton:
             ioin,ioout = extfd                
             if ioin is None:
                 ioin = ObjectPipe()
-            elif type(ioin) is int:
+            elif type(ioin) is not types.InstanceType:
                 ioin = self._IO_fdwrapper(ioin,None)
             if ioout is None:
                 ioout = ObjectPipe()
-            elif type(ioout) is int:
-                ioin = self._IO_fdwrapper(None,ioout)
+            elif type(ioout) is not types.InstanceType:
+                ioout = self._IO_fdwrapper(None,ioout)
 
             self.ioin[n] = ioin
             self.ioout[n] = ioout 
