@@ -227,7 +227,10 @@ def read_routes():
     ok = 0
     routes = []
     ip = '(\d+\.\d+\.\d+\.\d+)\s+'
-    netstat_line = ip + ip + ip + ip + "(\d+)"
+    # On Vista and Windows 7 the gateway can be IP or 'on-link'.
+    # The exact 'on-link' string depends on the locale.
+    gw_pattern = '([\w\s]+|\d+\.\d+\.\d+\.\d+)\s+'
+    netstat_line = ip + ip + gw_pattern + ip + "(\d+)"
     pattern = re.compile(netstat_line)
     f=os.popen("netstat -rn")
     for l in f.readlines():
@@ -246,6 +249,12 @@ def read_routes():
             
             dest = atol(dest)
             mask = atol(mask)
+            # If the gateway is no IP we assume it's on-link
+            gw_ipmatch = re.search('\d+\.\d+\.\d+\.\d+', gw)
+            if gw_ipmatch:
+                gw = gw_ipmatch.group(0)
+            else:
+                gw = netif
             routes.append((dest,mask,gw, str(intf["name"]), addr))
     f.close()
     return routes
