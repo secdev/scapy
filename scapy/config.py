@@ -256,7 +256,7 @@ class LogLevel(object):
 
 
 def _prompt_changer(attr,val):
-    prompt = config.conf.prompt
+    prompt = conf.prompt
     try:
         ct = val
         if isinstance(ct, AnsiColorTheme) and ct.prompt(""):
