@@ -188,11 +188,10 @@ assert( _ == "FOO\x01\x02\x03\x04" )
 
 ############
 ############
-+ Tests on NewDefaultValues metaclass
++ Tests on default value changes mechanism
 
 = Creation of an IPv3 class from IP class with different default values
 class IPv3(IP):
-    __metaclass__ = NewDefaultValues
     version = 3
     ttl = 32
 
@@ -896,8 +895,238 @@ class ATMT6(Automaton):
 a=ATMT6()
 a.run()
 assert( _ == 'Mercury' )
- 
-    
+
+a.restart()
+a.run()
+assert( _ == 'Mercury' )
+
+= Automaton test io event
+~ automaton
+
+class ATMT7(Automaton):
+    @ATMT.state(initial=1)
+    def BEGIN(self):
+        self.res = "S"
+    @ATMT.ioevent(BEGIN, name="tst")
+    def tr1(self, fd):
+        self.res += fd.recv()
+        raise self.NEXT_STATE()
+    @ATMT.state()
+    def NEXT_STATE(self):
+        self.oi.tst.send("ur")
+    @ATMT.ioevent(NEXT_STATE, name="tst")
+    def tr2(self, fd):
+        self.res += fd.recv()
+        raise self.END()
+    @ATMT.state(final=1)
+    def END(self):
+        self.res += "n"
+        return self.res
+
+a=ATMT7()
+a.run(wait=False)
+a.io.tst.send("at")
+a.io.tst.recv()
+a.io.tst.send(_)
+a.run()
+assert( _ == "Saturn" )
+
+a.restart()
+a.run(wait=False)
+a.io.tst.send("at")
+a.io.tst.recv()
+a.io.tst.send(_)
+a.run()
+assert( _ == "Saturn" )
+
+= Automaton test io event from external fd
+~ automaton
+class ATMT8(Automaton):
+    @ATMT.state(initial=1)
+    def BEGIN(self):
+        self.res = "U"
+    @ATMT.ioevent(BEGIN, name="extfd")
+    def tr1(self, fd):
+        self.res += fd.read(2)
+        raise self.NEXT_STATE()
+    @ATMT.state()
+    def NEXT_STATE(self):
+        pass
+    @ATMT.ioevent(NEXT_STATE, name="extfd")
+    def tr2(self, fd):
+        self.res += fd.read(2)
+        raise self.END()
+    @ATMT.state(final=1)
+    def END(self):
+        self.res += "s"
+        return self.res
+
+r,w = os.pipe()
+
+a=ATMT8(external_fd={"extfd":r})
+a.run(wait=False)
+os.write(w,"ra")
+os.write(w,"nu")
+a.run()
+assert( _ == "Uranus" )
+
+a.restart()
+a.run(wait=False)
+os.write(w,"ra")
+os.write(w,"nu")
+a.run()
+assert( _ == "Uranus" )
+
+= Automaton test interception_points, and restart
+~ automaton
+class ATMT9(Automaton):
+    def my_send(self, x):
+        self.io.loop.send(x)
+    @ATMT.state(initial=1)
+    def BEGIN(self):
+        self.res = "V"
+        self.send(Raw("ENU"))
+    @ATMT.ioevent(BEGIN, name="loop")
+    def received_sth(self, fd):
+        self.res += fd.recv().load
+        raise self.END()
+    @ATMT.state(final=1)
+    def END(self):
+        self.res += "s"
+        return self.res
+
+a=ATMT9(debug=5)
+a.run()
+assert( _ == "VENUs" )
+
+a.restart()
+a.run()
+assert( _ == "VENUs" )
+
+a.restart()
+a.BEGIN.intercepts()
+while True:
+    try:
+        x = a.run()
+    except Automaton.InterceptionPoint,p:
+        a.accept_packet(Raw(p.packet.load.lower()), wait=False)
+    else:
+        break
+
+x
+assert( _ == "Venus" )
+
+
+
++ Test IP options
+
+= IP options individual assembly
+~ IP options
+str(IPOption())
+assert(_ == '\x00\x02')
+str(IPOption_NOP())
+assert(_ == '\x01')
+str(IPOption_EOL())
+assert(_ == '\x00')
+str(IPOption_LSRR(routers=["1.2.3.4","5.6.7.8"]))
+assert(_ == '\x83\x0b\x04\x01\x02\x03\x04\x05\x06\x07\x08')
+
+= IP options individual dissection
+~ IP options
+IPOption("\x00")
+assert(_.option == 0 and isinstance(_, IPOption_EOL))
+IPOption("\x01")
+assert(_.option == 1 and isinstance(_, IPOption_NOP))
+lsrr='\x83\x0b\x04\x01\x02\x03\x04\x05\x06\x07\x08'
+p=IPOption_LSRR(lsrr)
+p
+q=IPOption(lsrr)
+q
+assert(p == q)
+
+= IP assembly and dissection with options
+~ IP options
+IP(src="9.10.11.12",dst="13.14.15.16",options=IPOption_SDBM(addresses=["1.2.3.4","5.6.7.8"]))/TCP()
+str(_)
+assert(_ == 'H\x00\x004\x00\x01\x00\x00@\x06\xa2q\t\n\x0b\x0c\r\x0e\x0f\x10\x95\n\x01\x02\x03\x04\x05\x06\x07\x08\x00\x00\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00_K\x00\x00')
+q=IP(_)
+q
+assert( isinstance(q.options[0],IPOption_SDBM) )
+assert( q[IPOption_SDBM].addresses[1] == "5.6.7.8" )
+IP(src="9.10.11.12", dst="13.14.15.16", options=[IPOption_NOP(),IPOption_LSRR(routers=["1.2.3.4","5.6.7.8"]),IPOption_Security(transmission_control_code="XYZ")])/TCP()
+str(_)
+assert(_ == 'K\x00\x00@\x00\x01\x00\x00@\x06\xf3\x83\t\n\x0b\x0c\r\x0e\x0f\x10\x01\x83\x0b\x04\x01\x02\x03\x04\x05\x06\x07\x08\x82\x0b\x00\x00\x00\x00\x00\x00XYZ\x00\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00_K\x00\x00')
+IP(_)
+q=_
+assert(q[IPOption_LSRR].get_current_router() == "1.2.3.4")
+assert(q[IPOption_Security].transmission_control_code == "XYZ")
+assert(q[TCP].flags == 2)
+
+
++ Test PPP
+
+= PPP/HDLC
+~ ppp hdlc
+HDLC()/PPP()/PPP_IPCP()
+str(_)
+s=_
+assert(s == '\xff\x03\x80!\x01\x00\x00\x04')
+PPP(s)
+p=_
+assert(HDLC in p)
+assert(p[HDLC].control==3)
+assert(p[PPP].proto==0x8021)
+PPP(s[2:])
+q=_
+assert(HDLC not in q)
+assert(q[PPP].proto==0x8021)
+
+
+= PPP IPCP
+~ ppp ipcp
+PPP('\x80!\x01\x01\x00\x10\x03\x06\xc0\xa8\x01\x01\x02\x06\x00-\x0f\x01')
+p=_
+assert(p[PPP_IPCP].code == 1)
+assert(p[PPP_IPCP_Option_IPAddress].data=="192.168.1.1")
+assert(p[PPP_IPCP_Option].data == '\x00-\x0f\x01')
+p=PPP()/PPP_IPCP(options=[PPP_IPCP_Option_DNS1(data="1.2.3.4"),PPP_IPCP_Option_DNS2(data="5.6.7.8"),PPP_IPCP_Option_NBNS2(data="9.10.11.12")])
+str(p)
+assert(_ == '\x80!\x01\x00\x00\x16\x81\x06\x01\x02\x03\x04\x83\x06\x05\x06\x07\x08\x84\x06\t\n\x0b\x0c')
+PPP(_)
+q=_
+assert(str(p) == str(q))
+assert(PPP(str(q))==q)
+PPP()/PPP_IPCP(options=[PPP_IPCP_Option_DNS1(data="1.2.3.4"),PPP_IPCP_Option_DNS2(data="5.6.7.8"),PPP_IPCP_Option(type=123,data="ABCDEFG"),PPP_IPCP_Option_NBNS2(data="9.10.11.12")])
+p=_
+str(p)
+assert(_ == '\x80!\x01\x00\x00\x1f\x81\x06\x01\x02\x03\x04\x83\x06\x05\x06\x07\x08{\tABCDEFG\x84\x06\t\n\x0b\x0c')
+PPP(_)
+q=_
+assert( q[PPP_IPCP_Option].type == 123 )
+assert( q[PPP_IPCP_Option].data == 'ABCDEFG' )
+assert( q[PPP_IPCP_Option_NBNS2].data == '9.10.11.12' )
+
+
+= PPP ECP
+~ ppp ecp
+
+PPP()/PPP_ECP(options=[PPP_ECP_Option_OUI(oui="XYZ")])
+p=_
+str(p)
+assert(_ == '\x80S\x01\x00\x00\n\x00\x06XYZ\x00')
+PPP(_)
+q=_
+assert( str(p)==str(q) )
+PPP()/PPP_ECP(options=[PPP_ECP_Option_OUI(oui="XYZ"),PPP_ECP_Option(type=1,data="ABCDEFG")])
+p=_
+str(p)
+assert(_ == '\x80S\x01\x00\x00\x13\x00\x06XYZ\x00\x01\tABCDEFG')
+PPP(_)
+q=_
+assert( str(p) == str(q) )
+assert( q[PPP_ECP_Option].data == "ABCDEFG" )
+
+
 # Scapy6 Regression Test Campaign 
 
 

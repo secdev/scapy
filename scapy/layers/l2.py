@@ -4,6 +4,7 @@
 ## This program is published under a GPLv2 license
 
 import os,struct,time
+from scapy.base_classes import Net
 from scapy.config import conf
 from scapy.packet import *
 from scapy.ansmachine import *
@@ -43,6 +44,8 @@ conf.netcache.new_cache("arp_cache", 120) # cache entries expire after 120s
 @conf.commands.register
 def getmacbyip(ip, chainCC=0):
     """Return MAC address corresponding to a given IP address"""
+    if isinstance(ip,Net):
+        ip = iter(ip).next()
     tmp = map(ord, inet_aton(ip))
     if (tmp[0] & 0xf0) == 0xe0: # mcast @
         return "01:00:5e:%.2x:%.2x:%.2x" % (tmp[1]&0x7f,tmp[2],tmp[3])
@@ -124,20 +127,8 @@ class ARPSourceMACField(MACField):
 
 ### Layers
 
-class Ether_or_Dot3_metaclass(Packet_metaclass):
-    def __call__(self, _pkt=None, *args, **kargs):
-        cls = self
-        if _pkt and len(_pkt) >= 14:
-            if struct.unpack("!H", _pkt[12:14])[0] <= 1500:
-                cls = Dot3
-            else:
-                cls = Ether
-        i = cls.__new__(cls, cls.__name__, cls.__bases__, cls.__dict__)
-        i.__init__(_pkt=_pkt, *args, **kargs)
-        return i
 
 class Ether(Packet):
-    __metaclass__ = Ether_or_Dot3_metaclass
     name = "Ethernet"
     fields_desc = [ DestMACField("dst"),
                     SourceMACField("src"),
@@ -151,9 +142,15 @@ class Ether(Packet):
         return 0
     def mysummary(self):
         return self.sprintf("%src% > %dst% (%type%)")
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        if _pkt and len(_pkt) >= 14:
+            if struct.unpack("!H", _pkt[12:14])[0] <= 1500:
+                return Dot3
+        return cls
+
 
 class Dot3(Packet):
-    __metaclass__ = Ether_or_Dot3_metaclass
     name = "802.3"
     fields_desc = [ DestMACField("dst"),
                     MACField("src", ETHER_ANY),
@@ -167,6 +164,12 @@ class Dot3(Packet):
         return 0
     def mysummary(self):
         return "802.3 %s > %s" % (self.src, self.dst)
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        if _pkt and len(_pkt) >= 14:
+            if struct.unpack("!H", _pkt[12:14])[0] > 1500:
+                return Ether
+        return cls
 
 
 class LLC(Packet):
@@ -337,11 +340,11 @@ class ARP(Packet):
         return "",s
     def mysummary(self):
         if self.op == self.is_at:
-            return "ARP is at %s says %s" % (self.hwsrc, self.psrc)
+            return self.sprintf("ARP is at %hwsrc% says %psrc%")
         elif self.op == self.who_has:
-            return "ARP who has %s says %s" % (self.pdst, self.psrc)
+            return self.sprintf("ARP who has %pdst% says %psrc%")
         else:
-            return "ARP %ARP.op% %ARP.psrc% > %ARP.pdst%"
+            return self.sprintf("ARP %op% %psrc% > %pdst%")
                  
 conf.neighbor.register_l3(Ether, ARP, lambda l2,l3: getmacbyip(l3.pdst))
 
@@ -429,7 +432,7 @@ class ARPingResult(SndRcvList):
 
     def show(self):
         for s,r in self.res:
-            print r.sprintf("%Ether.src% %ARP.psrc%")
+            print r.sprintf("%19s,Ether.src% %ARP.psrc%")
 
 
 

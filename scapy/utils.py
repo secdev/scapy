@@ -485,7 +485,7 @@ class RawPcapReader:
         return pkt
 
 
-    def read_packet(self):
+    def read_packet(self, size=MTU):
         """return a single packet read from the file
         
         returns None when no more packets are available
@@ -494,7 +494,7 @@ class RawPcapReader:
         if len(hdr) < 16:
             return None
         sec,usec,caplen,wirelen = struct.unpack(self.endian+"IIII", hdr)
-        s = self.f.read(caplen)
+        s = self.f.read(caplen)[:MTU]
         return s,(sec,usec,wirelen) # caplen = len(s)
 
 
@@ -520,10 +520,10 @@ class RawPcapReader:
             res.append(p)
         return res
 
-    def recv(self, size):
+    def recv(self, size=MTU):
         """ Emulate a socket
         """
-        return self.read_packet()[0]
+        return self.read_packet(size)[0]
 
     def fileno(self):
         return self.f.fileno()
@@ -541,8 +541,8 @@ class PcapReader(RawPcapReader):
         except KeyError:
             warning("PcapReader: unknown LL type [%i]/[%#x]. Using Raw packets" % (self.linktype,self.linktype))
             self.LLcls = conf.raw_layer
-    def read_packet(self):
-        rp = RawPcapReader.read_packet(self)
+    def read_packet(self, size=MTU):
+        rp = RawPcapReader.read_packet(self,size)
         if rp is None:
             return None
         s,(sec,usec,wirelen) = rp
@@ -561,8 +561,8 @@ class PcapReader(RawPcapReader):
         res = RawPcapReader.read_all(self, count)
         import plist
         return plist.PacketList(res,name = os.path.basename(self.filename))
-    def recv(self, size):
-        return self.read_packet()
+    def recv(self, size=MTU):
+        return self.read_packet(size)
         
 
 
@@ -667,7 +667,7 @@ class PcapWriter(RawPcapWriter):
         RawPcapWriter._write_packet(self, s, sec, usec, caplen, caplen)
 
 
-re_extract_hexcap = re.compile("^(0x[0-9a-fA-F]{2,}[ :\t]|(0x)?[0-9a-fA-F]{2,}:|(0x)?[0-9a-fA-F]{3,}[: \t]|) *(([0-9a-fA-F]{2} {,2}){,16})")
+re_extract_hexcap = re.compile("^((0x)?[0-9a-fA-F]{2,}[ :\t]{,3}|) *(([0-9a-fA-F]{2} {,2}){,16})")
 
 def import_hexcap():
     p = ""
@@ -675,7 +675,7 @@ def import_hexcap():
         while 1:
             l = raw_input().strip()
             try:
-                p += re_extract_hexcap.match(l).groups()[3]
+                p += re_extract_hexcap.match(l).groups()[2]
             except:
                 warning("Parsing error during hexcap")
                 continue
@@ -683,10 +683,7 @@ def import_hexcap():
         pass
     
     p = p.replace(" ","")
-    p2=""
-    for i in range(len(p)/2):
-        p2 += chr(int(p[2*i:2*i+2],16))
-    return p2
+    return p.decode("hex")
         
 
 

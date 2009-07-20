@@ -9,7 +9,7 @@ import os
 
 
 EZIP_HEADER="""#! /bin/sh
-PYTHONPATH=$0/%s exec python -m scapy
+PYTHONPATH=$0/%s exec python -m scapy.__init__
 """
 
 def make_ezipfile(base_name, base_dir, verbose=0, dry_run=0):

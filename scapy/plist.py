@@ -7,6 +7,7 @@ import os
 from config import conf
 from base_classes import BasePacket,BasePacketList
 from packet import Padding
+from collections import defaultdict
 
 from utils import do_graph,hexdump,make_table,make_lined_table,make_tex_table,get_temp_file
 
@@ -406,6 +407,67 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
         if multi:
             remain = filter(lambda x:not hasattr(x,"_answered"), remain)
         return SndRcvList(sr),PacketList(remain)
+
+    def sessions(self, session_extractor=None):
+        if session_extractor is None:
+            def session_extractor(p):
+                if 'Ether' in p:
+                    if 'IP' in p:
+                        if 'TCP' in p:
+                            sess = p.sprintf("TCP %IP.src%:%r,TCP.sport% > %IP.dst%:%r,TCP.dport%")
+                        elif 'UDP' in p:
+                            sess = p.sprintf("UDP %IP.src%:%r,UDP.sport% > %IP.dst%:%r,UDP.dport%")
+                        elif 'ICMP' in p:
+                            sess = p.sprintf("ICMP %IP.src% > %IP.dst% type=%r,ICMP.type% code=%r,ICMP.code% id=%ICMP.id%")
+                        else:
+                            sess = p.sprintf("IP %IP.src% > %IP.dst% proto=%IP.proto%")
+                    elif 'ARP' in p:
+                        sess = p.sprintf("ARP %ARP.psrc% > %ARP.pdst%")
+                    else:
+                        sess = p.sprintf("Ethernet type=%04xr,Ether.type%")
+                return sess
+        sessions = defaultdict(self.__class__)
+        for p in self.res:
+            sess = session_extractor(self._elt2pkt(p))
+            sessions[sess].append(p)
+        return dict(sessions)
+    
+    def replace(self, *args, **kargs):
+        """
+        lst.replace(<field>,[<oldvalue>,]<newvalue>)
+        lst.replace( (fld,[ov],nv),(fld,[ov,]nv),...)
+          if ov is None, all values are replaced
+        ex:
+          lst.replace( IP.src, "192.168.1.1", "10.0.0.1" )
+          lst.replace( IP.ttl, 64 )
+          lst.replace( (IP.ttl, 64), (TCP.sport, 666, 777), )
+        """
+        delete_checksums = kargs.get("delete_checksums",False)
+        x=PacketList(name="Replaced %s" % self.listname)
+        if type(args[0]) is not tuple:
+            args = (args,)
+        for p in self.res:
+            p = self._elt2pkt(p)
+            copied = False
+            for scheme in args:
+                fld = scheme[0]
+                old = scheme[1] # not used if len(scheme) == 2
+                new = scheme[-1]
+                for o in fld.owners:
+                    if o in p:
+                        if len(scheme) == 2 or p[o].getfieldval(fld.name) == old:
+                            if not copied:
+                                p = p.copy()
+                                if delete_checksums:
+                                    p.delete_checksums()
+                                copied = True
+                            setattr(p[o], fld.name, new)
+            x.append(p)
+        return x
+                
+            
+        
+    
         
 
 

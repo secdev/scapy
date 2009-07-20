@@ -122,43 +122,75 @@ class OID(Gen):
 
 class Packet_metaclass(type):
     def __new__(cls, name, bases, dct):
+        if "fields_desc" in dct: # perform resolution of references to other packets
+            current_fld = dct["fields_desc"]
+            resolved_fld = []
+            for f in current_fld:
+                if isinstance(f, Packet_metaclass): # reference to another fields_desc
+                    for f2 in f.fields_desc:
+                        resolved_fld.append(f2)
+                else:
+                    resolved_fld.append(f)
+        else: # look for a field_desc in parent classes
+            resolved_fld = None
+            for b in bases:
+                if hasattr(b,"fields_desc"):
+                    resolved_fld = b.fields_desc
+                    break
+
+        if resolved_fld: # perform default value replacements
+            final_fld = []
+            for f in resolved_fld:
+                if f.name in dct:
+                    f = f.copy()
+                    f.default = dct[f.name]
+                    del(dct[f.name])
+                final_fld.append(f)
+
+            dct["fields_desc"] = final_fld
+
         newcls = super(Packet_metaclass, cls).__new__(cls, name, bases, dct)
-        for f in newcls.fields_desc:
+        if hasattr(newcls,"register_variant"):
+            newcls.register_variant()
+        for f in newcls.fields_desc:                
             f.register_owner(newcls)
         config.conf.layers.register(newcls)
         return newcls
+
     def __getattr__(self, attr):
         for k in self.fields_desc:
             if k.name == attr:
                 return k
         raise AttributeError(attr)
 
+    def __call__(cls, *args, **kargs):
+        if "dispatch_hook" in cls.__dict__:
+            cls =  cls.dispatch_hook(*args, **kargs)
+        i = cls.__new__(cls, cls.__name__, cls.__bases__, cls.__dict__)
+        i.__init__(*args, **kargs)
+        return i
+
+
 class NewDefaultValues(Packet_metaclass):
-    """NewDefaultValues metaclass. Example usage:
-    class MyPacket(Packet):
-        fields_desc = [ StrField("my_field", "my default value"),  ]
-        
-    class MyPacket_variant(MyPacket):
+    """NewDefaultValues is deprecated (not needed anymore)
+    
+    remove this:
         __metaclass__ = NewDefaultValues
-        my_field = "my new default value"
+    and it should still work.
     """    
     def __new__(cls, name, bases, dct):
-        fields = None
-        for b in bases:
-            if hasattr(b,"fields_desc"):
-                fields = b.fields_desc
-                break
-        if fields is None:
-            raise error.Scapy_Exception("No fields_desc in superclasses")
-
-        new_fields = []
-        for f in fields:
-            if f.name in dct:
-                f = f.copy()
-                f.default = dct[f.name]
-                del(dct[f.name])
-            new_fields.append(f)
-        dct["fields_desc"] = new_fields
+        from error import log_loading
+        import traceback
+        try:
+            for tb in traceback.extract_stack()+[("??",-1,None,"")]:
+                f,l,_,line = tb
+                if line.startswith("class"):
+                    break
+        except:
+            f,l="??",-1
+            raise
+        log_loading.warning("Deprecated (no more needed) use of NewDefaultValues  (%s l. %i)." % (f,l))
+        
         return super(NewDefaultValues, cls).__new__(cls, name, bases, dct)
 
 class BasePacket(Gen):

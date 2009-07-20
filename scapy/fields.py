@@ -1,4 +1,4 @@
-## This file is part of Scapy
+# This file is part of Scapy
 ## See http://www.secdev.org/projects/scapy for more informations
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
@@ -249,8 +249,6 @@ class ByteField(Field):
         
 class XByteField(ByteField):
     def i2repr(self, pkt, x):
-        if x is None:
-            x = 0
         return lhex(self.i2h(pkt, x))
 
 class X3BytesField(XByteField):
@@ -272,8 +270,6 @@ class LEShortField(Field):
 
 class XShortField(ShortField):
     def i2repr(self, pkt, x):
-        if x is None:
-            x = 0
         return lhex(self.i2h(pkt, x))
 
 
@@ -299,8 +295,6 @@ class LESignedIntField(Field):
 
 class XIntField(IntField):
     def i2repr(self, pkt, x):
-        if x is None:
-            x = 0
         return lhex(self.i2h(pkt, x))
 
 
@@ -310,8 +304,6 @@ class LongField(Field):
 
 class XLongField(LongField):
     def i2repr(self, pkt, x):
-        if x is None:
-            x = 0
         return lhex(self.i2h(pkt, x))
 
 class IEEEFloatField(Field):
@@ -370,7 +362,12 @@ class PacketLenField(PacketField):
         self.length_from = length_from
     def getfield(self, pkt, s):
         l = self.length_from(pkt)
-        i = self.m2i(pkt, s[:l])
+        try:
+            i = self.m2i(pkt, s[:l])
+        except Exception:
+            if conf.debug_dissector:
+                raise
+            i = conf.raw_layer(load=s[:l])
         return s[l:],i
 
 
@@ -415,13 +412,20 @@ class PacketListField(PacketField):
                 if c <= 0:
                     break
                 c -= 1
-            p = self.m2i(pkt,remain)
-            if 'Padding' in p:
-                pad = p['Padding']
-                remain = pad.load
-                del(pad.underlayer.payload)
-            else:
+            try:
+                p = self.m2i(pkt,remain)
+            except Exception:
+                if conf.debug_dissector:
+                    raise
+                p = conf.raw_layer(load=remain)
                 remain = ""
+            else:
+                if 'Padding' in p:
+                    pad = p['Padding']
+                    remain = pad.load
+                    del(pad.underlayer.payload)
+                else:
+                    remain = ""
             lst.append(p)
         return remain+ret,lst
     def addfield(self, pkt, s, val):
@@ -756,6 +760,36 @@ class XShortEnumField(ShortEnumField):
         if self not in conf.noenum and not isinstance(x,VolatileValue) and x in self.i2s:
             return self.i2s[x]
         return lhex(x)
+
+class MultiEnumField(EnumField):
+    def __init__(self, name, default, enum, depends_on, fmt = "H"):
+        
+        self.depends_on = depends_on
+        self.i2s_multi = enum
+        self.s2i_multi = {}
+        self.s2i_all = {}
+        for m in enum:
+            self.s2i_multi[m] = s2i = {}
+            for k,v in enum[m].iteritems():
+                s2i[v] = k
+                self.s2i_all[v] = k
+        Field.__init__(self, name, default, fmt)
+    def any2i_one(self, pkt, x):
+        if type (x) is str:
+            v = self.depends_on(pkt)
+            if v in self.s2i_multi:
+                s2i = self.s2i_multi[v]
+                if x in s2i:
+                    return s2i[x]
+            return self.s2i_all[x]
+        return x
+    def i2repr_one(self, pkt, x):
+        v = self.depends_on(pkt)
+        if v in self.i2s_multi:
+            return self.i2s_multi[v].get(x,x)
+        return x
+
+
 
 # Little endian long field
 class LELongField(Field):

@@ -14,6 +14,7 @@ from scapy.packet import *
 from scapy.volatile import *
 from scapy.sendrecv import sr,sr1,srp1
 from scapy.plist import PacketList,SndRcvList
+from scapy.automaton import Automaton,ATMT
 
 import scapy.as_resolvers
 
@@ -34,18 +35,160 @@ class IPTools:
         return self.ottl()-self.ttl-1 
 
 
+_ip_options_names = { 0: "end_of_list",
+                      1: "nop",
+                      2: "security",
+                      3: "loose_source_route",
+                      4: "timestamp",
+                      5: "extended_security",
+                      6: "commercial_security",
+                      7: "record_route",
+                      8: "stream_id",
+                      9: "strict_source_route",
+                      10: "experimental_measurement",
+                      11: "mtu_probe",
+                      12: "mtu_reply",
+                      13: "flow_control",
+                      14: "access_control",
+                      15: "encode",
+                      16: "imi_traffic_descriptor",
+                      17: "extended_IP",
+                      18: "traceroute",
+                      19: "address_extension",
+                      20: "router_alert",
+                      21: "selective_directed_broadcast_mode",
+                      23: "dynamic_packet_state",
+                      24: "upstream_multicast_packet",
+                      25: "quick_start",
+                      30: "rfc4727_experiment", 
+                      }
+                      
 
-class IPoptionsField(StrField):
-    def i2m(self, pkt, x):
-        return x+"\x00"*(3-((len(x)+3)%4))
-    def getfield(self, pkt, s):
-        opsz = (pkt.ihl-5)*4
-        if opsz < 0:
-            warning("bad ihl (%i). Assuming ihl=5"%pkt.ihl)
-            opsz = 0
-        return s[opsz:],s[:opsz]
-    def randval(self):
-        return RandBin(RandNum(0,39))
+class _IPOption_HDR(Packet):
+    fields_desc = [ BitField("copy_flag",0, 1),
+                    BitEnumField("optclass",0,2,{0:"control",2:"debug"}),
+                    BitEnumField("option",0,5, _ip_options_names) ]
+    
+class IPOption(Packet):
+    fields_desc = [ _IPOption_HDR,
+                    FieldLenField("length", None, fmt="B",  # Only option 0 and 1 have no length and value
+                                  length_of="value", adjust=lambda pkt,l:l+2),
+                    StrLenField("value", "",length_from=lambda pkt:pkt.length-2) ]
+    
+    def extract_padding(self, p):
+        return "",p
+
+    registered_ip_options = {}
+    @classmethod
+    def register_variant(cls):
+        cls.registered_ip_options[cls.option.default] = cls
+    @classmethod
+    def dispatch_hook(cls, pkt=None, *args, **kargs):
+        if pkt:
+            opt = ord(pkt[0])&0x1f
+            if opt in cls.registered_ip_options:
+                return cls.registered_ip_options[opt]
+        return cls
+
+class IPOption_EOL(IPOption):
+    option = 0
+    fields_desc = [ _IPOption_HDR ]
+    
+
+class IPOption_NOP(IPOption):
+    option=1
+    fields_desc = [ _IPOption_HDR ]
+
+class IPOption_Security(IPOption):
+    copy_flag = 1
+    option = 2
+    fields_desc = [ _IPOption_HDR,
+                    ByteField("length", 11),
+                    ShortField("security",0),
+                    ShortField("compartment",0),
+                    ShortField("handling_restrictions",0),
+                    StrFixedLenField("transmission_control_code","xxx",3),
+                    ]
+    
+class IPOption_LSRR(IPOption):
+    name = "IP Option Loose Source and Record Route"
+    copy_flag = 1
+    option = 3
+    fields_desc = [ _IPOption_HDR,
+                    FieldLenField("length", None, fmt="B",
+                                  length_of="routers", adjust=lambda pkt,l:l+3),
+                    ByteField("pointer",4), # 4 is first IP
+                    FieldListField("routers",[],IPField("","0.0.0.0"), 
+                                   length_from=lambda pkt:pkt.length-3)
+                    ]
+    def get_current_router(self):
+        return self.routers[self.pointer/4-1]
+
+class IPOption_RR(IPOption_LSRR):
+    name = "IP Option Record Route"
+    option = 7
+
+class IPOption_SSRR(IPOption_LSRR):
+    name = "IP Option Strict Source and Record Route"
+    option = 9
+
+class IPOption_Stream_Id(IPOption):
+    name = "IP Option Stream ID"
+    option = 8
+    fields_desc = [ _IPOption_HDR,
+                    ByteField("length", 4),
+                    ShortField("security",0), ]
+                    
+class IPOption_MTU_Probe(IPOption):
+    name = "IP Option MTU Probe"
+    option = 11
+    fields_desc = [ _IPOption_HDR,
+                    ByteField("length", 4),
+                    ShortField("mtu",0), ]
+
+class IPOption_MTU_Reply(IPOption_MTU_Probe):
+    name = "IP Option MTU Reply"
+    option = 12
+
+class IPOption_Traceroute(IPOption):
+    copy_flag = 1
+    option = 18
+    fields_desc = [ _IPOption_HDR,
+                    ByteField("length", 12),
+                    ShortField("id",0),
+                    ShortField("outbound_hops",0),
+                    ShortField("return_hops",0),
+                    IPField("originator_ip","0.0.0.0") ]
+
+class IPOption_Address_Extension(IPOption):
+    name = "IP Option Address Extension"
+    copy_flag = 1
+    option = 19
+    fields_desc = [ _IPOption_HDR,
+                    ByteField("length", 10),
+                    IPField("src_ext","0.0.0.0"),
+                    IPField("dst_ext","0.0.0.0") ]
+
+class IPOption_Router_Alert(IPOption):
+    name = "IP Option Router Alert"
+    copy_flag = 1
+    option = 20
+    fields_desc = [ _IPOption_HDR,
+                    ByteField("length", 4),
+                    ShortEnumField("alert",0, {0:"router_shall_examine_packet"}), ]
+
+
+class IPOption_SDBM(IPOption):
+    name = "IP Option Selective Directed Broadcast Mode"
+    copy_flag = 1
+    option = 21
+    fields_desc = [ _IPOption_HDR,
+                    FieldLenField("length", None, fmt="B",
+                                  length_of="addresses", adjust=lambda pkt,l:l+2),
+                    FieldListField("addresses",[],IPField("","0.0.0.0"), 
+                                   length_from=lambda pkt:pkt.length-2)
+                    ]
+    
 
 
 TCPOptions = (
@@ -181,9 +324,10 @@ class IP(Packet, IPTools):
                     #IPField("src", "127.0.0.1"),
                     Emph(SourceIPField("src","dst")),
                     Emph(IPField("dst", "127.0.0.1")),
-                    IPoptionsField("options", "") ]
+                    PacketListField("options", [], IPOption, length_from=lambda p:p.ihl*4-20) ]
     def post_build(self, p, pay):
         ihl = self.ihl
+        p += "\0"*((-len(p))%4) # pad IP options if needed
         if ihl is None:
             ihl = len(p)/4
             p = chr(((self.version&0xf)<<4) | ihl&0x0f)+p[1:]
@@ -244,7 +388,35 @@ class IP(Packet, IPTools):
             s += " frag:%i" % self.frag
         return s
                  
-    
+    def fragment(self, fragsize=1480):
+        """Fragment IP datagrams"""
+        fragsize = (fragsize+7)/8*8
+        lst = []
+        fnb = 0
+        fl = self
+        while fl.underlayer is not None:
+            fnb += 1
+            fl = fl.underlayer
+        
+        for p in fl:
+            s = str(p[fnb].payload)
+            nb = (len(s)+fragsize-1)/fragsize
+            for i in range(nb):            
+                q = p.copy()
+                del(q[fnb].payload)
+                del(q[fnb].chksum)
+                del(q[fnb].len)
+                if i == nb-1:
+                    q[IP].flags &= ~1
+                else:
+                    q[IP].flags |= 1 
+                q[IP].frag = i*fragsize/8
+                r = Raw(load=s[i*fragsize:(i+1)*fragsize])
+                r.overload_fields = p[IP].payload.overload_fields.copy()
+                q.add_payload(r)
+                lst.append(q)
+        return lst
+
 
 class TCP(Packet):
     name = "TCP"
@@ -374,10 +546,37 @@ icmptypes = { 0 : "echo-reply",
               17 : "address-mask-request",
               18 : "address-mask-reply" }
 
+icmpcodes = { 3 : { 0  : "network-unreachable",
+                    1  : "host-unreachable",
+                    2  : "protocol-unreachable",
+                    3  : "port-unreachable",
+                    4  : "fragmentation-needed",
+                    5  : "source-route-failed",
+                    6  : "network-unknown",
+                    7  : "host-unknown",
+                    9  : "network-prohibited",
+                    10 : "host-prohibited",
+                    11 : "TOS-network-unreachable",
+                    12 : "TOS-host-unreachable",
+                    13 : "communication-prohibited",
+                    14 : "host-precedence-violation",
+                    15 : "precedence-cutoff", },
+              5 : { 0  : "network-redirect",
+                    1  : "host-redirect",
+                    2  : "TOS-network-redirect",
+                    3  : "TOS-host-redirect", },
+              11 : { 0 : "ttl-zero-during-transit",
+                     1 : "ttl-zero-during-reassembly", },
+              12 : { 0 : "ip-header-bad",
+                     1 : "required-option-missing", }, }
+                         
+                   
+
+
 class ICMP(Packet):
     name = "ICMP"
     fields_desc = [ ByteEnumField("type",8, icmptypes),
-                    ByteField("code",0),
+                    MultiEnumField("code",0, icmpcodes, depends_on=lambda pkt:pkt.type,fmt="B"),
                     XShortField("chksum", None),
                     ConditionalField(XShortField("id",0),  lambda pkt:pkt.type in [0,8,13,14,15,16,17,18]),
                     ConditionalField(XShortField("seq",0), lambda pkt:pkt.type in [0,8,13,14,15,16,17,18]),
@@ -1101,6 +1300,133 @@ traceroute(target, [maxttl=30,] [dport=80,] [sport=80,] [verbose=conf.verb]) -> 
     if verbose:
         a.show()
     return a,b
+
+
+
+#############################
+## Simple TCP client stack ##
+#############################
+
+class TCP_client(Automaton):
+    
+    def parse_args(self, ip, port, *args, **kargs):
+        self.dst = ip
+        self.dport = port
+        self.sport = random.randrange(0,2**16)
+        self.l4 = IP(dst=ip)/TCP(sport=self.sport, dport=self.dport, flags=0,
+                                 seq=random.randrange(0,2**32))
+        self.src = self.l4.src
+        self.swin=self.l4[TCP].window
+        self.dwin=1
+        self.rcvbuf=""
+        bpf = "host %s  and host %s and port %i and port %i" % (self.src,
+                                                                self.dst,
+                                                                self.sport,
+                                                                self.dport)
+
+#        bpf=None
+        Automaton.parse_args(self, filter=bpf, **kargs)
+
+    
+    def master_filter(self, pkt):
+        return (IP in pkt and
+                pkt[IP].src == self.dst and
+                pkt[IP].dst == self.src and
+                TCP in pkt and
+                pkt[TCP].sport == self.dport and
+                pkt[TCP].dport == self.sport and
+                self.l4[TCP].seq >= pkt[TCP].ack and # XXX: seq/ack 2^32 wrap up
+                ((self.l4[TCP].ack == 0) or (self.l4[TCP].ack <= pkt[TCP].seq <= self.l4[TCP].ack+self.swin)) )
+
+
+    @ATMT.state(initial=1)
+    def START(self):
+        pass
+
+    @ATMT.state()
+    def SYN_SENT(self):
+        pass
+    
+    @ATMT.state()
+    def ESTABLISHED(self):
+        pass
+
+    @ATMT.state()
+    def LAST_ACK(self):
+        pass
+
+    @ATMT.state(final=1)
+    def CLOSED(self):
+        pass
+
+    
+    @ATMT.condition(START)
+    def connect(self):
+        raise self.SYN_SENT()
+    @ATMT.action(connect)
+    def send_syn(self):
+        self.l4[TCP].flags = "S"
+        self.send(self.l4)
+        self.l4[TCP].seq += 1
+
+
+    @ATMT.receive_condition(SYN_SENT)
+    def synack_received(self, pkt):
+        if pkt[TCP].flags & 0x3f == 0x12:
+            raise self.ESTABLISHED().action_parameters(pkt)
+    @ATMT.action(synack_received)
+    def send_ack_of_synack(self, pkt):
+        self.l4[TCP].ack = pkt[TCP].seq+1
+        self.l4[TCP].flags = "A"
+        self.send(self.l4)
+
+    @ATMT.receive_condition(ESTABLISHED)
+    def incoming_data_received(self, pkt):
+        if not isinstance(pkt[TCP].payload, NoPayload) and not isinstance(pkt[TCP].payload, Padding):
+            raise self.ESTABLISHED().action_parameters(pkt)
+    @ATMT.action(incoming_data_received)
+    def receive_data(self,pkt):
+        data = str(pkt[TCP].payload)
+        if data and self.l4[TCP].ack == pkt[TCP].seq:
+            self.l4[TCP].ack += len(data)
+            self.l4[TCP].flags = "A"
+            self.send(self.l4)
+            self.rcvbuf += data
+            if pkt[TCP].flags & 8 != 0: #PUSH
+                self.oi.tcp.send(self.rcvbuf)
+                self.rcvbuf = ""
+    
+    @ATMT.ioevent(ESTABLISHED,name="tcp", as_supersocket="tcplink")
+    def outgoing_data_received(self, fd):
+        raise self.ESTABLISHED().action_parameters(fd.recv())
+    @ATMT.action(outgoing_data_received)
+    def send_data(self, d):
+        self.l4[TCP].flags = "PA"
+        self.send(self.l4/d)
+        self.l4[TCP].seq += len(d)
+        
+    
+    @ATMT.receive_condition(ESTABLISHED)
+    def reset_received(self, pkt):
+        if pkt[TCP].flags & 4 != 0:
+            raise self.CLOSED()
+
+    @ATMT.receive_condition(ESTABLISHED)
+    def fin_received(self, pkt):
+        if pkt[TCP].flags & 0x1 == 1:
+            raise self.LAST_ACK().action_parameters(pkt)
+    @ATMT.action(fin_received)
+    def send_finack(self, pkt):
+        self.l4[TCP].flags = "FA"
+        self.l4[TCP].ack = pkt[TCP].seq+1
+        self.send(self.l4)
+        self.l4[TCP].seq += 1
+
+    @ATMT.receive_condition(LAST_ACK)
+    def ack_of_fin_received(self, pkt):
+        if pkt[TCP].flags & 0x3f == 0x10:
+            raise self.CLOSED()
+
 
 
 

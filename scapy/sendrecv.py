@@ -12,6 +12,7 @@ from packet import Gen
 from utils import warning,get_temp_file
 import plist
 from error import log_runtime,log_interactive
+from base_classes import SetGen
 
 #################
 ## Debug class ##
@@ -30,7 +31,7 @@ class debug:
 
 
 
-def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0, retry=0, multi=0):
+def sndrcv(pks, pkt, timeout = None, inter = 0, verbose=None, chainCC=0, retry=0, multi=0):
     if not isinstance(pkt, Gen):
         pkt = SetGen(pkt)
         
@@ -199,10 +200,12 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0, retry=0, m
     
     if verbose:
         print "\nReceived %i packets, got %i answers, remaining %i packets" % (nbrecv+len(ans), len(ans), notans)
-    return plist.SndRcvList(ans),plist.PacketList(remain,"Unanswered"),debug.recv
+    return plist.SndRcvList(ans),plist.PacketList(remain,"Unanswered")
 
 
 def __gen_send(s, x, inter=0, loop=0, count=None, verbose=None, *args, **kargs):
+    if type(x) is str:
+        x = Raw(load=x)
     if not isinstance(x, Gen):
         x = SetGen(x)
     if verbose is None:
@@ -295,7 +298,7 @@ iface:    listen answers only on the given interface"""
     if not kargs.has_key("timeout"):
         kargs["timeout"] = -1
     s = conf.L3socket(filter=filter, iface=iface, nofilter=nofilter)
-    a,b,c=sndrcv(s,x,*args,**kargs)
+    a,b=sndrcv(s,x,*args,**kargs)
     s.close()
     return a,b
 
@@ -313,7 +316,7 @@ iface:    listen answers only on the given interface"""
     if not kargs.has_key("timeout"):
         kargs["timeout"] = -1
     s=conf.L3socket(filter=filter, nofilter=nofilter, iface=iface)
-    a,b,c=sndrcv(s,x,*args,**kargs)
+    a,b=sndrcv(s,x,*args,**kargs)
     s.close()
     if len(a) > 0:
         return a[0][1]
@@ -336,7 +339,7 @@ iface:    work only on the given interface"""
     if iface is None and iface_hint is not None:
         iface = conf.route.route(iface_hint)[0]
     s = conf.L2socket(iface=iface, filter=filter, nofilter=nofilter, type=type)
-    a,b,c=sndrcv(s ,x,*args,**kargs)
+    a,b=sndrcv(s ,x,*args,**kargs)
     s.close()
     return a,b
 

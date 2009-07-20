@@ -36,7 +36,6 @@ class LLMNRQuery(Packet):
 
 class LLMNRResponse(LLMNRQuery):
     name = "Link Local Multicast Node Resolution - Response"
-    __metaclass__ = NewDefaultValues
     qr = 1
     fields_desc = []
 
