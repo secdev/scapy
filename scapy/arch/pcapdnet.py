@@ -37,7 +37,17 @@ if conf.use_pcap:
         BIOCIMMEDIATE=-2147204496
 
         if hasattr(pcap,"pcap"): # python-pypcap
-            open_pcap = pcap.pcap
+            class _PcapWrapper_pypcap:
+                def __init__(self, device, snaplen, promisc, to_ms):
+                    # Normal pypcap module has no timeout parameter,
+                    # only the specially patched "scapy" variant has.                 
+                    if "scapy" in pcap.__version__.lower():
+                        self.pcap = pcap.pcap(device, snaplen, promisc, immediate=1, timeout_ms=to_ms)
+                    else:
+                        self.pcap = pcap.pcap(device, snaplen, promisc, immediate=1)                    
+                def __getattr__(self, attr):
+                    return getattr(self.pcap, attr)
+            open_pcap = lambda *args,**kargs: _PcapWrapper_pypcap(*args,**kargs)
         elif hasattr(pcap,"pcapObject"): # python-libpcap
             class _PcapWrapper_libpcap:
                 def __init__(self, *args, **kargs):
