@@ -441,7 +441,7 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0, retry=0, m
     
     if verbose:
         print "\nReceived %i packets, got %i answers, remaining %i packets" % (nbrecv+len(ans), len(ans), notans)
-    return plist.SndRcvList(ans),plist.PacketList(remain,"Unanswered"),debug.recv
+    return plist.SndRcvList(ans),plist.PacketList(remain,"Unanswered")
 
 
 import scapy.sendrecv
