@@ -173,10 +173,12 @@ if WINDOWS:
     ETHER_TYPES=load_ethertypes("ethertypes")
     IP_PROTOS=load_protocols(os.environ["SystemRoot"]+"\system32\drivers\etc\protocol")
     TCP_SERVICES,UDP_SERVICES=load_services(os.environ["SystemRoot"] + "\system32\drivers\etc\services")
+    MANUFDB = load_manuf(os.environ["ProgramFiles"] + "\\wireshark\\manuf")
 else:
     IP_PROTOS=load_protocols("/etc/protocols")
     ETHER_TYPES=load_ethertypes("/etc/ethertypes")
     TCP_SERVICES,UDP_SERVICES=load_services("/etc/services")
+    MANUFDB = load_manuf("/usr/share/wireshark/wireshark/manuf")
 
 
 
