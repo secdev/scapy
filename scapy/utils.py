@@ -7,6 +7,7 @@ import os,sys,socket,types
 import random,time
 import gzip,zlib,cPickle
 import re,struct,array
+import subprocess
 
 import warnings
 warnings.filterwarnings("ignore","tempnam",RuntimeWarning, __name__)
@@ -692,14 +693,14 @@ def wireshark(pktlist):
     """Run wireshark on a list of packets"""
     f = get_temp_file()
     wrpcap(f, pktlist)
-    os.spawnlp(os.P_NOWAIT, conf.prog.wireshark, conf.prog.wireshark, "-r", f)
+    subprocess.Popen([conf.prog.wireshark, "-r", f])
 
 @conf.commands.register
 def hexedit(x):
     x = str(x)
     f = get_temp_file()
     open(f,"w").write(x)
-    os.spawnlp(os.P_WAIT, conf.prog.hexedit, conf.prog.hexedit, f)
+    subprocess.call([conf.prog.hexedit, f])
     x = open(f).read()
     os.unlink(f)
     return x
