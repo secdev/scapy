@@ -8,6 +8,9 @@ from glob import glob
 from scapy.config import conf,ConfClass
 from scapy.error import Scapy_Exception,log_loading
 from scapy.utils import atol
+from scapy.base_classes import Gen
+import scapy.plist as plist
+from scapy.sendrecv import debug
 
 conf.use_pcap = 1
 conf.use_dnet = 1
