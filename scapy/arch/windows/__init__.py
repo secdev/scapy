@@ -452,3 +452,12 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0, retry=0, m
 
 import scapy.sendrecv
 scapy.sendrecv.sndrcv = sndrcv
+
+def get_if_list():
+    return sorted(ifaces.keys())
+        
+def get_working_if():
+    try:
+        return devname(pcap.lookupdev())
+    except Exception:
+        return 'lo0'
