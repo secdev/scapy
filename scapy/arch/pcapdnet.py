@@ -10,7 +10,9 @@ from scapy.data import *
 from scapy.config import conf
 from scapy.utils import warning
 from scapy.supersocket import SuperSocket
+from scapy.error import Scapy_Exception
 import scapy.arch
+
 
 
 if conf.use_pcap:    
@@ -71,8 +73,10 @@ if conf.use_pcap:
                 def __getattr__(self, attr):
                     return getattr(self.pcap, attr)
             open_pcap = lambda *args,**kargs: _PcapWrapper_pcapy(*args,**kargs)
+
         
-    
+        class PcapTimeoutElapsed(Scapy_Exception):
+            pass
     
         class L2pcapListenSocket(SuperSocket):
             desc = "read packets at layer 2 using libpcap"
@@ -115,6 +119,8 @@ if conf.use_pcap:
                     pkt = self.ins.next()
                     if pkt is not None:
                         ts,pkt = pkt
+                    if scapy.arch.WINDOWS and pkt is None:
+                        raise PcapTimeoutElapsed
                 
                 try:
                     pkt = cls(pkt)
