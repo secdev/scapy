@@ -263,17 +263,24 @@ def read_routes6():
     return []
 
 def getmacbyip(ip, chainCC=0):
+    """Return MAC address corresponding to a given IP address"""
+    if isinstance(ip,Net):
+        ip = iter(ip).next()
+    tmp = map(ord, inet_aton(ip))
+    if (tmp[0] & 0xf0) == 0xe0: # mcast @
+        return "01:00:5e:%.2x:%.2x:%.2x" % (tmp[1]&0x7f,tmp[2],tmp[3])
     iff,a,gw = conf.route.route(ip)
-    if iff == "lo":
+    if ( (iff == LOOPBACK_NAME) or (ip == conf.route.get_if_bcast(iff)) ):
         return "ff:ff:ff:ff:ff:ff"
-    # windows uses local ip instead of 0.0.0.0 to represent locally reachable addresses
+    # Windows uses local IP instead of 0.0.0.0 to represent locally reachable addresses
     ifip = str(pcapdnet.dnet.intf().get(iff)['addr'])
     if gw != ifip.split('/')[0]:
         ip = gw
-    if arp_cache.has_key(ip):
-        mac, timeout = arp_cache[ip]
-        if timeout and (time.time()-timeout < ARPTIMEOUT):
-            return mac
+
+    mac = conf.netcache.arp_cache.get(ip)
+    if mac:
+        return mac
+
     res = srp1(Ether(dst=ETHER_BROADCAST)/ARP(op="who-has", pdst=ip),
                type=ETH_P_ARP,
                iface = iff,
@@ -281,10 +288,9 @@ def getmacbyip(ip, chainCC=0):
                verbose=0,
                chainCC=chainCC,
                nofilter=1)
-
     if res is not None:
         mac = res.payload.hwsrc
-        arp_cache[ip] = (mac,time.time())
+        conf.netcache.arp_cache[ip] = mac
         return mac
     return None
 
