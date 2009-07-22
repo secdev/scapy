@@ -3,10 +3,17 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
+import os
+
 from scapy.data import KnowledgeBase
 from scapy.config import conf
+from scapy.arch import WINDOWS
 
-conf.nmap_base ="/usr/share/nmap/nmap-os-fingerprints"
+
+if WINDOWS:
+    conf.nmap_base=os.environ["ProgramFiles"] + "\\nmap\\nmap-os-fingerprints"
+else:
+    conf.nmap_base ="/usr/share/nmap/nmap-os-fingerprints"
 
 
 ######################
