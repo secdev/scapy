@@ -66,6 +66,13 @@ class VolatileValue:
     def __getattr__(self, attr):
         if attr == "__setstate__":
             raise AttributeError(attr)
+        elif attr == "__cmp__":
+            x = self._fix()
+            def cmp2(y,x=x):
+                if type(x) != type(y):
+                    return -1
+                return x.__cmp__(y)
+            return cmp2
         return getattr(self._fix(),attr)
     def _fix(self):
         return None
