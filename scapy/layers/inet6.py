@@ -206,6 +206,8 @@ class IP6Field(Field):
                 vaddr = in6_6to4ExtractAddr(x)
                 return "%s [6to4 GW: %s]" % (self.i2h(pkt, x), vaddr)
         return self.i2h(pkt, x)       # No specific information to return
+    def randval(self):
+        return RandIP6()
 
 class SourceIP6Field(IP6Field):
     def __init__(self, name, dstname):
