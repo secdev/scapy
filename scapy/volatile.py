@@ -226,7 +226,7 @@ class RandMAC(RandString):
                 v = RandByte()
             elif "-" in template[i]:
                 x,y = template[i].split("-")
-                v = RandSeq(int(x,16), int(y,16))
+                v = RandNum(int(x,16), int(y,16))
             else:
                 v = int(template[i],16)
             self.mac += (v,)
@@ -267,8 +267,6 @@ class RandOID(RandString):
             return ".".join(oid)
             
 
-from pprint import pprint
-        
 class RandRegExp(RandField):
     def __init__(self, regexp, lambda_=0.3,):
         self._regexp = regexp
