@@ -411,6 +411,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
     def sessions(self, session_extractor=None):
         if session_extractor is None:
             def session_extractor(p):
+                sess = "Other"
                 if 'Ether' in p:
                     if 'IP' in p:
                         if 'TCP' in p:
