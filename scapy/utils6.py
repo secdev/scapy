@@ -26,7 +26,7 @@ def construct_source_candidate_set(addr, plen, laddr, loname):
     """
 
     cset = []
-    if in6_isgladdr(addr):
+    if in6_isgladdr(addr) or in6_isuladdr(addr):
 	cset = filter(lambda x: x[1] == IPV6_ADDR_GLOBAL, laddr)
     elif in6_islladdr(addr):
 	cset = filter(lambda x: x[1] == IPV6_ADDR_LINKLOCAL, laddr)
