@@ -161,7 +161,9 @@ class ASN1_Class_UNIVERSAL(ASN1_Class):
     BMP_STRING = 30
     IPADDRESS = 0x40
     COUNTER32 = 0x41
+    GAUGE32 = 0x42
     TIME_TICKS = 0x43
+    SEP = 0x80
 
 class ASN1_Object_metaclass(type):
     def __new__(cls, name, bases, dct):
@@ -246,15 +248,27 @@ class ASN1_IPADDRESS(ASN1_STRING):
 class ASN1_UTC_TIME(ASN1_STRING):
     tag = ASN1_Class_UNIVERSAL.UTC_TIME
 
+class ASN1_GENERALIZED_TIME(ASN1_STRING):
+    tag = ASN1_Class_UNIVERSAL.GENERALIZED_TIME
+
 class ASN1_TIME_TICKS(ASN1_INTEGER):
     tag = ASN1_Class_UNIVERSAL.TIME_TICKS
 
 class ASN1_BOOLEAN(ASN1_INTEGER):
     tag = ASN1_Class_UNIVERSAL.BOOLEAN
+
+class ASN1_ENUMERATED(ASN1_INTEGER):
+    tag = ASN1_Class_UNIVERSAL.ENUMERATED
     
 class ASN1_NULL(ASN1_INTEGER):
     tag = ASN1_Class_UNIVERSAL.NULL
 
+class ASN1_SEP(ASN1_NULL):
+    tag = ASN1_Class_UNIVERSAL.SEP
+
+class ASN1_GAUGE32(ASN1_INTEGER):
+    tag = ASN1_Class_UNIVERSAL.GAUGE32
+    
 class ASN1_COUNTER32(ASN1_INTEGER):
     tag = ASN1_Class_UNIVERSAL.COUNTER32
     
@@ -276,6 +290,8 @@ class ASN1_OID(ASN1_Object):
         ASN1_Object.__init__(self, val)
     def __repr__(self):
         return "<%s[%r]>" % (self.__dict__.get("name", self.__class__.__name__), conf.mib._oidname(self.val))
+    def __oidname__(self):
+        return '%s'%conf.mib._oidname(self.val)
     
 
 
