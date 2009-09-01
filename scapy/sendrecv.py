@@ -203,7 +203,7 @@ def sndrcv(pks, pkt, timeout = None, inter = 0, verbose=None, chainCC=0, retry=0
     return plist.SndRcvList(ans),plist.PacketList(remain,"Unanswered")
 
 
-def __gen_send(s, x, inter=0, loop=0, count=None, verbose=None, *args, **kargs):
+def __gen_send(s, x, inter=0, loop=0, count=None, verbose=None, realtime=None, *args, **kargs):
     if type(x) is str:
         x = Raw(load=x)
     if not isinstance(x, Gen):
@@ -215,9 +215,18 @@ def __gen_send(s, x, inter=0, loop=0, count=None, verbose=None, *args, **kargs):
         loop = -count
     elif not loop:
         loop=-1
+    dt0 = None
     try:
         while loop:
             for p in x:
+                if realtime:
+                    ct = time.time()
+                    if dt0:
+                        st = dt0+p.time-ct
+                        if st > 0:
+                            time.sleep(st)
+                    else:
+                        dt0 = ct-p.time 
                 s.send(p)
                 n += 1
                 if verbose:
@@ -232,18 +241,18 @@ def __gen_send(s, x, inter=0, loop=0, count=None, verbose=None, *args, **kargs):
         print "\nSent %i packets." % n
         
 @conf.commands.register
-def send(x, inter=0, loop=0, count=None, verbose=None, *args, **kargs):
+def send(x, inter=0, loop=0, count=None, verbose=None, realtime=None, *args, **kargs):
     """Send packets at layer 3
 send(packets, [inter=0], [loop=0], [verbose=conf.verb]) -> None"""
-    __gen_send(conf.L3socket(*args, **kargs), x, inter=inter, loop=loop, count=count,verbose=verbose)
+    __gen_send(conf.L3socket(*args, **kargs), x, inter=inter, loop=loop, count=count,verbose=verbose, realtime=realtime)
 
 @conf.commands.register
-def sendp(x, inter=0, loop=0, iface=None, iface_hint=None, count=None, verbose=None, *args, **kargs):
+def sendp(x, inter=0, loop=0, iface=None, iface_hint=None, count=None, verbose=None, realtime=None, *args, **kargs):
     """Send packets at layer 2
 sendp(packets, [inter=0], [loop=0], [verbose=conf.verb]) -> None"""
     if iface is None and iface_hint is not None:
         iface = conf.route.route(iface_hint)[0]
-    __gen_send(conf.L2socket(iface=iface, *args, **kargs), x, inter=inter, loop=loop, count=count, verbose=verbose)
+    __gen_send(conf.L2socket(iface=iface, *args, **kargs), x, inter=inter, loop=loop, count=count, verbose=verbose, realtime=realtime)
 
 @conf.commands.register
 def sendpfast(x, pps=None, mbps=None, realtime=None, loop=0, iface=None):
