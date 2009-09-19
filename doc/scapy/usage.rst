@@ -9,15 +9,17 @@ Scapy's interactive shell is run in a terminal session. Root privileges are need
 send the packets, so we're using ``sudo`` here::
   
     $ sudo scapy
-    Welcome to Scapy (2.0.0.10 beta)
+    Welcome to Scapy (2.0.1-dev)
     >>> 
 
 On Windows, please open a command prompt (``cmd.exe``) and make sure that you have 
 administrator privileges::
 
-    C:\scapy> python scapy.py
-    Welcome to Scapy (1.2.0.2-win)
-    >>> 
+    C:\scapy-win2>run_scapy
+    INFO: No IPv6 support in kernel
+    WARNING: No route found for IPv6 destination :: (no default route?)
+    Welcome to Scapy (2.0.1-dev)
+    >>>
 
 If you do not have all optional packages installed, Scapy will inform you that 
 some features will not be available:: 
