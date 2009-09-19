@@ -468,7 +468,7 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
             for fname, fval, fdump in fields:
                 col = forecolor.next()
                 ft = pyx.text.text(XSTART, (YTXT-y)*YMUL, r"\font\cmssfont=cmss10\cmssfont{%s}" % tex_escape(fname.name))
-                if fval is not None:
+                if isinstance(fval, str):
                     if len(fval) > 18:
                         fval = fval[:18]+"[...]"
                 else:
