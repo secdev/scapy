@@ -17,6 +17,7 @@ from data import MTU
 from error import log_runtime,log_loading,log_interactive
 from base_classes import BasePacketList
 
+WINDOWS=sys.platform.startswith("win32")
 
 ###########
 ## Tools ##
@@ -277,7 +278,7 @@ def ltoa(x):
 def itom(x):
     return (0xffffffff00000000L>>x)&0xffffffffL
 
-def do_graph(graph,prog=None,format="svg",target=None, type=None,string=None,options=None):
+def do_graph(graph,prog=None,format=None,target=None,type=None,string=None,options=None):
     """do_graph(graph, prog=conf.prog.dot, format="svg",
          target="| conf.prog.display", options=None, [string=1]):
     string: if not None, simply return the graph string
@@ -287,20 +288,43 @@ def do_graph(graph,prog=None,format="svg",target=None, type=None,string=None,opt
     prog: which graphviz program to use
     options: options to be passed to prog"""
         
-
+    if format is None:
+        if WINDOWS:
+            format = "png" # use common format to make sure a viewer is installed
+        else:
+            format = "svg"
     if string:
         return graph
     if type is not None:
         format=type
     if prog is None:
         prog = conf.prog.dot
+    start_viewer=False
     if target is None:
-        target = "| %s" % conf.prog.display
+        if WINDOWS:
+            tempfile = os.tempnam("", "scapy") + "." + format
+            target = "> %s" % tempfile
+            start_viewer = True
+        else:
+            target = "| %s" % conf.prog.display
     if format is not None:
         format = "-T %s" % format
     w,r = os.popen2("%s %s %s %s" % (prog,options or "", format or "", target))
     w.write(graph)
     w.close()
+    if start_viewer:
+        # Workaround for file not found error: We wait until tempfile is written.
+        waiting_start = time.time()
+        while not os.path.exists(tempfile):
+            time.sleep(0.1)
+            if time.time() - waiting_start > 3:
+                warning("Temporary file '%s' could not be written. Graphic will not be displayed." % tempfile)
+                break
+        else:  
+            if conf.prog.display == conf.prog._default:
+                os.startfile(tempfile)
+            else:
+                subprocess.Popen([conf.prog.display, tempfile])
 
 _TEX_TR = {
     "{":"{\\tt\\char123}",
