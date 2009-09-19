@@ -164,6 +164,7 @@ Here are the topics involved and some examples that you can use to try if your i
 
   .. code-block:: python 
   
+     >>> load_module("nmap")
      >>> nmap_fp("192.168.0.1")
      Begin emission:
      Finished to send 8 packets.
