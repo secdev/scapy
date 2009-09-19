@@ -352,8 +352,7 @@ Windows
 Scapy is primarily being developed for Unix-like systems and works best on those platforms. But a special port (Scapy-win) exists that allows you to use nearly all of Scapy's features on your Windows machine as well.
 
 .. note::
-
-   At the moment, only Scapy v1.2.x works on Windows. Scapy v2 might be ported in the future.
+   Scapy v2 has finally been ported to Windows. Remeber to use ``from scapy.all import *`` instead of ``from scapy import *``.
 
 .. image:: graphics/scapy-win-screenshot1.png
    :scale: 80
@@ -361,11 +360,11 @@ Scapy is primarily being developed for Unix-like systems and works best on those
 
 You need the following software packages in order to install Scapy on Windows:
 
-  * `Python <http://www.python.org>`_: `python-2.5.2.msi <http://www.python.org/ftp/python/2.5.2/python-2.5.2.msi>`_. I'm using Python 2.5. Scapy-win will work with Python 2.4 as well, but you will need all third-party extensions on this page compiled for v2.4.
-  * `Scapy-win <http://hg.secdev.org/scapy-win>`_: `latest version from the Mercurial repository <http://hg.secdev.org/scapy-win/raw-file/tip/scapy.py>`_. Right click and save to ``C:\Python25\Lib\site-packages\scapy.py``, or adjust to match your Python install directory.
-  * `pywin32 <http://python.net/crew/mhammond/win32/Downloads.html>`_: `pywin32-210.win32-py2.5.exe <http://surfnet.dl.sourceforge.net/sourceforge/pywin32/pywin32-210.win32-py2.5.exe>`_ 
-  * `WinPcap <http://www.winpcap.org/>`_: `WinPcap_4_0_2.exe <http://www.winpcap.org/install/bin/WinPcap_4_0_2.exe>`_. Or if you want to use the ethernet vendor database to resolve MAC addresses, download `Wireshark <http://www.wireshark.org/>`_ which already includes WinPcap.
-  * `pypcap <http://code.google.com/p/pypcap/>`_: `pcap-1.1-scapy.win32-py2.5.exe <http://www.secdev.org/projects/scapy/files/pcap-1.1-scapy.win32-py2.5.exe>`_. This is a *special version for Scapy*, as the original leads to some timing problems. For background info look on the `Wiki <http://trac.secdev.org/scapy/wiki/PypcapScapyWin>`_
+  * `Python <http://www.python.org>`_: `python-2.5.4.msi <http://www.python.org/ftp/python/2.5.4/python-2.5.4.msi>`_. After installation, add ``C:\Python25`` and ``C:\Python25\Scripts`` to your PATH. I'm using Python 2.5. Scapy-win does not work with Python 2.4 or 2.6, because not all third-party extensions on this page are available for them.
+  * `Scapy-win2 <http://hg.secdev.org/scapy-win2>`_: `latest version from the Mercurial repository <http://hg.secdev.org/scapy-win2/archive/tip.zip>`_. Unzip the archive, open a command prompt in that directroy and run "python setup.py install".
+  * `pywin32 <http://python.net/crew/mhammond/win32/Downloads.html>`_: `pywin32-214.win32-py2.5.exe <http://surfnet.dl.sourceforge.net/sourceforge/pywin32/pywin32-214.win32-py2.5.exe>`_ 
+  * `Wireshark <http://www.wireshark.org/>`_: `Wireshark download page <http://www.wireshark.org/download.html>`_.
+  * `pypcap <http://code.google.com/p/pypcap/>`_: `pcap-1.1-scapy-20090720.win32-py25.exe <http://dirk-loss.de/scapy/pcap-1.1-scapy-20090720.win32-py25.exe>`_. This is a *special version for Scapy*, as the original leads to some timing problems. Now works on Vista and Windows 7, too.
   * `libdnet <http://code.google.com/p/libdnet/>`_:  `dnet-1.12.win32-py2.5.exe <http://libdnet.googlecode.com/files/dnet-1.12.win32-py2.5.exe>`_
   * `pyreadline <http://ipython.scipy.org/moin/PyReadline/Intro>`_: `pyreadline-1.5-win32-setup.exe <http://ipython.scipy.org/dist/pyreadline-1.5-win32-setup.exe>`_
 
@@ -373,9 +372,9 @@ Just download the files and run the setup program. Choosing the default installa
 
 For your convenience direct links are given to the versions I used (for Python 2.5). If these links do not work or if you are using a different Python version, just visit the homepage of the respective package and look for a Windows binary. As a last resort, search the web for the filename.
 
-After all packages are installed, open a command prompt (cmd.exe), change to the directory containing scapy.py and run Scapy with ``python scapy.py`` (or just ``scapy.py``). For usage information see the interactive demo and the other documents on Scapy's homepage.
+After all packages are installed, open a command prompt (cmd.exe), change to the directory containing scapy.py and run Scapy with ``run_scapy.bat``. For usage information see the interactive demo and the other documents on Scapy's homepage.
 
-If really nothing seems to work, consider skipping the Windows version and using Scapy from a Linux Live CD -- either in a virtual machine on your Windows host or by booting from CDROM: Scapy is already included in grml and BackTrack for example. While using the Live CD you can easily upgrade to the lastest Scapy version (for Unix) by typing ``cd /tmp && wget scapy.net``.
+If really nothing seems to work, consider skipping the Windows version and using Scapy from a Linux Live CD -- either in a virtual machine on your Windows host or by booting from CDROM: An older version of Scapy is already included in grml and BackTrack for example. While using the Live CD you can easily upgrade to the lastest Scapy version (for Unix) by typing ``cd /tmp && wget scapy.net``.
 
 Optional packages
 ^^^^^^^^^^^^^^^^^
@@ -383,17 +382,17 @@ Optional packages
 Plotting (``plot``)
 
  * `GnuPlot <http://www.gnuplot.info/>`_: `gp420win32.zip <http://downloads.sourceforge.net/gnuplot/gp420win32.zip>`_. Extract the zip file (e.g. to ``c:\gnuplot``) and add the ``gnuplot\bin`` directory to your PATH.
- * `Numeric <http://numpy.scipy.org/>`_: `Numeric-24.2.win32-py2.5.exe <http://biopython.org/DIST/Numeric-24.2.win32-py2.5.exe>`_ . Gnuplot-py needs Numeric.
- * `Gnuplot-py <http://gnuplot-py.sourceforge.net/>`_: `gnuplot-py-1.7.zip <http://mesh.dl.sourceforge.net/sourceforge/gnuplot-py/gnuplot-py-1.7.zip>`_. Extract to temp dir, open command prompt, change to tempdir and type ``python setup.py install``.
+ * `NumPy <http://numpy.scipy.org/>`_: `numpy-1.3.0-win32-superpack-python2.5.exe <http://sourceforge.net/projects/numpy/files/NumPy/1.3.0/numpy-1.3.0-win32-superpack-python2.5.exe/download>`_ . Gnuplot-py 1.8 needs NumPy.
+ * `Gnuplot-py <http://gnuplot-py.sourceforge.net/>`_: `gnuplot-py-1.8.zip <http://downloads.sourceforge.net/project/gnuplot-py/Gnuplot-py/1.8/gnuplot-py-1.8.zip>`_. Extract to temp dir, open command prompt, change to tempdir and type ``python setup.py install``.
 
 2D Graphics (``psdump``, ``pdfdump``)
 
  * `PyX <http://pyx.sourceforge.net/>`_: `PyX-0.10.tar.gz `PyX-0.10.tar.gz <http://mesh.dl.sourceforge.net/sourceforge/pyx/PyX-0.10.tar.gz>`_. Extract to temp dir, open command prompt, change to tempdir and type ``python setup.py install``
- * `MikTeX <http://miktex.org/>`_: `basic-miktex-2.6.2742.exe (52 MB) <http://prdownloads.sourceforge.net/miktex/basic-miktex-2.6.2742.exe?download>`_. PyX needs a LaTeX installation. Choose an installation directory WITHOUT spaces (e.g. ``C:\MikTex2.6`` and add the ``(INSTALLDIR)\miktex\bin`` subdirectory to your PATH.
+ * `MikTeX <http://miktex.org/>`_: `Basic MiKTeX 2.8 Installer <http://miktex.org/2.8/setup>`_. PyX needs a LaTeX installation. Choose an installation directory WITHOUT spaces (e.g. ``C:\MikTex2.8`` and add the ``(INSTALLDIR)\miktex\bin`` subdirectory to your PATH.
 
 Graphs (conversations)
 
- * `Graphviz <http://www.graphviz.org/>`_: `graphviz-2.12.exe <http://www.graphviz.org/pub/graphviz/stable/windows/graphviz-2.12.exe>`_. Add ``(INSTALLDIR)\ATT\Graphviz\bin`` to your PATH.
+ * `Graphviz <http://www.graphviz.org/>`_: `graphviz-2.24.exe <http://www.graphviz.org/pub/graphviz/stable/windows/graphviz-2.24.msi>`_. Add ``(INSTALLDIR)\ATT\Graphviz\bin`` to your PATH.
 
 3D Graphics (trace3d)
 
@@ -405,7 +404,7 @@ WEP decryption
 
 Fingerprinting
 
-  * `Nmap <http://nmap.org>`_. `nmap-4.20-setup.exe <http://download.insecure.org/nmap/dist/nmap-4.20-setup.exe>`_. If you use the default installation directory, Scapy-win should automatically find the fingerprints file.
+  * `Nmap <http://nmap.org>`_. `nmap-4.20-setup.exe <http://download.insecure.org/nmap/dist-old/nmap-4.20-setup.exe>`_. If you use the default installation directory, Scapy-win should automatically find the fingerprints file.
   * Queso: `queso-980922.tar.gz <http://www.packetstormsecurity.org/UNIX/scanners/queso-980922.tar.gz>`_. Extract the tar.gz file (e.g. using `7-Zip <http://www.7-zip.org/>`_) and put ``queso.conf`` into your Scapy directory
 
 
