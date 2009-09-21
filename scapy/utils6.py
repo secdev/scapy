@@ -26,7 +26,7 @@ def construct_source_candidate_set(addr, plen, laddr, loname):
     """
 
     cset = []
-    if in6_isgladdr(addr):
+    if in6_isgladdr(addr) or in6_isuladdr(addr):
 	cset = filter(lambda x: x[1] == IPV6_ADDR_GLOBAL, laddr)
     elif in6_islladdr(addr):
 	cset = filter(lambda x: x[1] == IPV6_ADDR_LINKLOCAL, laddr)
@@ -600,7 +600,7 @@ def in6_isuladdr(str):
     Returns True if provided address in printable format belongs to
     Unique local address space (fc00::/7).
     """
-    return in6_isincluded(str, 'fc::', 7)
+    return in6_isincluded(str, 'fc00::', 7)
 
 # TODO : we should see the status of Unique Local addresses against
 #        global address space.

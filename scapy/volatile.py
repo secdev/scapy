@@ -66,6 +66,13 @@ class VolatileValue:
     def __getattr__(self, attr):
         if attr == "__setstate__":
             raise AttributeError(attr)
+        elif attr == "__cmp__":
+            x = self._fix()
+            def cmp2(y,x=x):
+                if type(x) != type(y):
+                    return -1
+                return x.__cmp__(y)
+            return cmp2
         return getattr(self._fix(),attr)
     def _fix(self):
         return None
@@ -226,13 +233,58 @@ class RandMAC(RandString):
                 v = RandByte()
             elif "-" in template[i]:
                 x,y = template[i].split("-")
-                v = RandSeq(int(x,16), int(y,16))
+                v = RandNum(int(x,16), int(y,16))
             else:
                 v = int(template[i],16)
             self.mac += (v,)
     def _fix(self):
         return "%02x:%02x:%02x:%02x:%02x:%02x" % self.mac
     
+class RandIP6(RandString):
+    def __init__(self, ip6template="**"):
+        self.tmpl = ip6template
+        self.sp = self.tmpl.split(":")
+        for i,v in enumerate(self.sp):
+            if not v or v == "**":
+                continue
+            if "-" in v:
+                a,b = v.split("-")
+            elif v == "*":
+                a=b=""
+            else:
+                a=b=v
+
+            if not a:
+                a = "0"
+            if not b:
+                b = "ffff"
+            if a==b:
+                self.sp[i] = int(a,16)
+            else:
+                self.sp[i] = RandNum(int(a,16), int(b,16))
+        self.variable = "" in self.sp
+        self.multi = self.sp.count("**")
+    def _fix(self):
+        done = 0
+        nbm = self.multi
+        ip = []
+        for i,n in enumerate(self.sp):
+            if n == "**":
+                nbm -= 1
+                remain = 8-(len(self.sp)-i-1)-len(ip)+nbm
+                if "" in self.sp:
+                    remain += 1
+                if nbm or self.variable:
+                    remain = random.randint(0,remain)
+                for j in range(remain):
+                    ip.append("%04x" % random.randint(0,65535))
+            elif not n:
+                ip.append("")
+            else:
+                ip.append("%04x" % n)
+        if len(ip) == 9:
+            ip.remove("")
+        return ":".join(ip)
 
 class RandOID(RandString):
     def __init__(self, fmt=None, depth=RandNumExpo(0.1), idnum=RandNumExpo(0.01)):
@@ -267,8 +319,6 @@ class RandOID(RandString):
             return ".".join(oid)
             
 
-from pprint import pprint
-        
 class RandRegExp(RandField):
     def __init__(self, regexp, lambda_=0.3,):
         self._regexp = regexp
