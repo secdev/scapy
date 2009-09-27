@@ -9,7 +9,7 @@ from data import *
 from arch import *
 from config import conf
 from packet import Gen
-from utils import warning,get_temp_file
+from utils import warning,get_temp_file,PcapReader
 import plist
 from error import log_runtime,log_interactive
 from base_classes import SetGen
