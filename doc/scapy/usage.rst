@@ -1439,7 +1439,7 @@ Viewing packets with Wireshark
 Problem
 ^^^^^^^
 
-You have generated or sniffed some packets with Scapy and want to view them with `Wireshark <http://www.wireshark.com>`_, because of its advanced packet dissection abilities.
+You have generated or sniffed some packets with Scapy and want to view them with `Wireshark <http://www.wireshark.org>`_, because of its advanced packet dissection abilities.
 
 Solution
 ^^^^^^^^
