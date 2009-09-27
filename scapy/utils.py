@@ -661,7 +661,7 @@ class RawPcapWriter:
             if sec is None:
                 sec = it
             if usec is None:
-                usec = int((t-it)*1000000)
+                usec = int(round((t-it)*1000000))
         self.f.write(struct.pack(self.endian+"IIII", sec, usec, caplen, wirelen))
         self.f.write(packet)
         if self.gz and self.sync:
@@ -686,7 +686,7 @@ class PcapWriter(RawPcapWriter):
 
     def _write_packet(self, packet):        
         sec = int(packet.time)
-        usec = int((packet.time-sec)*1000000)
+        usec = int(round((packet.time-sec)*1000000))
         s = str(packet)
         caplen = len(s)
         RawPcapWriter._write_packet(self, s, sec, usec, caplen, caplen)
