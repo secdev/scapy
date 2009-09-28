@@ -251,6 +251,10 @@ class XByteField(ByteField):
     def i2repr(self, pkt, x):
         return lhex(self.i2h(pkt, x))
 
+class OByteField(ByteField):
+    def i2repr(self, pkt, x):
+        return "%03o"%self.i2h(pkt, x)
+
 class X3BytesField(XByteField):
     def __init__(self, name, default):
         Field.__init__(self, name, default, "!I")
