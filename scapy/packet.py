@@ -1067,6 +1067,14 @@ class Raw(Packet):
 #        t = self.load
 #        l = min(len(s), len(t))
 #        return  s[:l] == t[:l]
+    def mysummary(self):
+        cs = conf.raw_summary
+        if cs:
+            if callable(cs):
+                return "Raw %s" % cs(self.load)
+            else:
+                return "Raw %r" % self.load
+        return Packet.mysummary(self)
         
 class Padding(Raw):
     name = "Padding"
