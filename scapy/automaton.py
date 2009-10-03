@@ -4,7 +4,7 @@
 ## This program is published under a GPLv2 license
 
 from __future__ import with_statement
-import types,itertools,time,os,sys
+import types,itertools,time,os,sys,socket
 from select import select
 from collections import deque
 import thread
