@@ -194,14 +194,6 @@ class _ATMT_supersocket(SuperSocket):
         return r
     def close(self):
         pass
-    def sr(self, *args, **kargs):
-        return sndrcv(self, *args, **kargs)
-    def sr1(self, *args, **kargs):        
-        a,b = sndrcv(self, *args, **kargs)
-        if len(a) > 0:
-            return a[0][1]
-        else:
-            return None
 
 class _ATMT_to_supersocket:
     def __init__(self, name, ioevent, automaton):
