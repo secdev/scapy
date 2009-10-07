@@ -937,7 +937,11 @@ A side effect is that, to obtain "{" and "}" characters, you must use
     def decode_payload_as(self,cls):
         """Reassembles the payload and decode it using another packet class"""
         s = str(self.payload)
-        self.payload = cls(s)
+        self.payload = cls(s, _internal=1, _underlayer=self)
+        pp = self
+        while pp.underlayer is not None:
+            pp = pp.underlayer
+        self.payload.dissection_done(pp)
 
     def libnet(self):
         """Not ready yet. Should give the necessary C code that interfaces with libnet to recreate the packet"""
