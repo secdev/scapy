@@ -459,6 +459,19 @@ class StrFixedLenField(StrField):
             l = RandNum(0,200)
         return RandBin(l)
 
+class StrFixedLenEnumField(StrFixedLenField):
+    def __init__(self, name, default, length=None, enum=None, length_from=None):
+        StrFixedLenField.__init__(self, name, default, length=length, length_from=length_from)
+        self.enum = enum
+    def i2repr(self, pkt, v):
+        r = v.rstrip("\0")
+        rr = repr(r)
+        if v in self.enum:
+            rr = "%s (%s)" % (rr, self.enum[v])
+        elif r in self.enum:
+            rr = "%s (%s)" % (rr, self.enum[r])
+        return rr
+
 class NetBIOSNameField(StrFixedLenField):
     def __init__(self, name, default, length=31):
         StrFixedLenField.__init__(self, name, default, length)
