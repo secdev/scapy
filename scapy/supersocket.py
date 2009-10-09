@@ -6,6 +6,7 @@
 import socket,time
 from config import conf
 from data import *
+from sendrecv import sndrcv
 
 class _SuperSocket_metaclass(type):
     def __repr__(self):
