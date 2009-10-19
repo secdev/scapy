@@ -226,11 +226,13 @@ pcapdnet.open_pcap = lambda iface,*args,**kargs: _orig_open_pcap(pcap_name(iface
 def read_routes():
     ok = 0
     routes = []
-    ip = '(\d+\.\d+\.\d+\.\d+)\s+'
-    # On Vista and Windows 7 the gateway can be IP or 'on-link'.
-    # The exact 'on-link' string depends on the locale.
-    gw_pattern = '([\w\s]+|\d+\.\d+\.\d+\.\d+)\s+'
-    netstat_line = ip + ip + gw_pattern + ip + "(\d+)"
+    ip = '(\d+\.\d+\.\d+\.\d+)'
+    # On Vista and Windows 7 the gateway can be IP or 'On-link'.
+    # But the exact 'On-link' string depends on the locale, so we allow any text.
+    gw_pattern = '(.+)'
+    metric_pattern = "(\d+)"
+    delim = "\s+"        # The columns are separated by whitespace
+    netstat_line = delim.join([ip, ip, gw_pattern, ip, metric_pattern])
     pattern = re.compile(netstat_line)
     f=os.popen("netstat -rn")
     for l in f.readlines():
