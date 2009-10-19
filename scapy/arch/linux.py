@@ -30,6 +30,7 @@ SIOCSIFFLAGS   = 0x8914          # set flags
 SIOCGIFINDEX   = 0x8933          # name -> if_index mapping
 SIOCGIFCOUNT   = 0x8938          # get number of devices
 SIOCGSTAMP     = 0x8906          # get packet timestamp (as a timeval)
+SIOCGSTAMPNS   = 0x8907          # get packet timestamp (as a timespec)
 
 # From if.h
 IFF_UP = 0x1               # Interface is up.
@@ -271,11 +272,16 @@ def get_if(iff,cmd):
 def get_if_index(iff):
     return int(struct.unpack("I",get_if(iff, SIOCGIFINDEX)[16:20])[0])
 
-def get_last_packet_timestamp(sock):
-    ts = ioctl(sock, SIOCGSTAMP, "12345678")
-    s,us = struct.unpack("II",ts)
-    return s+us/1000000.0
-
+if os.uname()[4] == 'x86_64':
+    def get_last_packet_timestamp(sock):
+        ts = ioctl(sock, SIOCGSTAMPNS, "1234567890123456")
+        s,us = struct.unpack("QQ",ts)
+        return s+us/1000000.0
+else:
+    def get_last_packet_timestamp(sock):
+        ts = ioctl(sock, SIOCGSTAMP, "12345678")
+        s,us = struct.unpack("II",ts)
+        return s+us/1000000.0
 
 
 def _flush_fd(fd):
