@@ -20,6 +20,9 @@ class RandASN1Object(RandField):
         o = random.choice(self.objlist)
         if issubclass(o, ASN1_INTEGER):
             return o(int(random.gauss(0,1000)))
+        elif issubclass(o, ASN1_IPADDRESS):
+            z = RandIP()._fix()
+            return o(z)
         elif issubclass(o, ASN1_STRING):
             z = int(random.expovariate(0.05)+1)
             return o("".join([random.choice(self.chars) for i in range(z)]))
