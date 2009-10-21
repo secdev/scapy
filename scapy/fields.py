@@ -1,4 +1,4 @@
-# This file is part of Scapy
+## This file is part of Scapy
 ## See http://www.secdev.org/projects/scapy for more informations
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
@@ -458,6 +458,19 @@ class StrFixedLenField(StrField):
         except:
             l = RandNum(0,200)
         return RandBin(l)
+
+class StrFixedLenEnumField(StrFixedLenField):
+    def __init__(self, name, default, length=None, enum=None, length_from=None):
+        StrFixedLenField.__init__(self, name, default, length=length, length_from=length_from)
+        self.enum = enum
+    def i2repr(self, pkt, v):
+        r = v.rstrip("\0")
+        rr = repr(r)
+        if v in self.enum:
+            rr = "%s (%s)" % (rr, self.enum[v])
+        elif r in self.enum:
+            rr = "%s (%s)" % (rr, self.enum[r])
+        return rr
 
 class NetBIOSNameField(StrFixedLenField):
     def __init__(self, name, default, length=31):

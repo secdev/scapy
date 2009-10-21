@@ -271,11 +271,16 @@ def get_if(iff,cmd):
 def get_if_index(iff):
     return int(struct.unpack("I",get_if(iff, SIOCGIFINDEX)[16:20])[0])
 
-def get_last_packet_timestamp(sock):
-    ts = ioctl(sock, SIOCGSTAMP, "12345678")
-    s,us = struct.unpack("II",ts)
-    return s+us/1000000.0
-
+if os.uname()[4] == 'x86_64':
+    def get_last_packet_timestamp(sock):
+        ts = ioctl(sock, SIOCGSTAMP, "1234567890123456")
+        s,us = struct.unpack("QQ",ts)
+        return s+us/1000000.0
+else:
+    def get_last_packet_timestamp(sock):
+        ts = ioctl(sock, SIOCGSTAMP, "12345678")
+        s,us = struct.unpack("II",ts)
+        return s+us/1000000.0
 
 
 def _flush_fd(fd):
