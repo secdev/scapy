@@ -172,7 +172,7 @@ For the moment, we have only generated one packet. Let see how to specify sets o
 
     >>> a=IP(dst="www.slashdot.org/30")
     >>> a
-    <IP dst= |>
+    <IP  dst=Net('www.slashdot.org/30') |>
     >>> [p for p in a]
     [<IP dst=66.35.250.148 |>, <IP dst=66.35.250.149 |>,
      <IP dst=66.35.250.150 |>, <IP dst=66.35.250.151 |>]
@@ -300,7 +300,7 @@ Now, let's try to do some fun things. The sr() function is for sending packets a
 .. index::
    single: DNS, Etherleak
 
-A DNS query (``rd`` = recursion desired). Note the non-null padding coming from my Linksys having the Etherleak flaw::
+A DNS query (``rd`` = recursion desired). The host 192.168.5.1 is my DNS server. Note the non-null padding coming from my Linksys having the Etherleak flaw::
 
     >>> sr1(IP(dst="192.168.5.1")/UDP()/DNS(rd=1,qd=DNSQR(qname="www.slashdot.org")))
     Begin emission:
@@ -407,12 +407,12 @@ The above example will even print the ICMP error type if the ICMP packet was rec
 
 For larger scans, we could be interested in displaying only certain responses. The example below will only display packets with the “SA” flag set::
 
-    >>> ans.nsummary(lfilter = lambda (s,r): r.sprintf("%TCP.flags%") ====== "SA")
+    >>> ans.nsummary(lfilter = lambda (s,r): r.sprintf("%TCP.flags%") == "SA")
     0003 IP / TCP 192.168.1.100:ftp_data > 192.168.1.1:https S ======> IP / TCP 192.168.1.1:https > 192.168.1.100:ftp_data SA
 
 In case we want to do some expert analysis of responses, we can use the following command to indicate which ports are open::
 
-    >>> ans.summary(lfilter = lambda (s,r): r.sprintf("%TCP.flags%") ====== "SA",prn=lambda(s,r):r.sprintf("%TCP.sport% is open"))
+    >>> ans.summary(lfilter = lambda (s,r): r.sprintf("%TCP.flags%") == "SA",prn=lambda(s,r):r.sprintf("%TCP.sport% is open"))
     https is open
 
 Again, for larger scans we can build a table of open ports::
@@ -629,6 +629,7 @@ We can sniff and do passive OS fingerprinting::
      seq=2023566040L ack=0L dataofs=10L reserved=0L flags=SEC window=5840
      chksum=0x570c urgptr=0 options=[('Timestamp', (342940201L, 0L)), ('MSS', 1460),
      ('NOP', ()), ('SAckOK', ''), ('WScale', 0)] |>>>
+    >>> load_module("p0f")
     >>> p0f(p)
     (1.0, ['Linux 2.4.2 - 2.4.14 (1)'])
     >>> a=sniff(prn=prnp0f)

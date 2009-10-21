@@ -200,7 +200,9 @@ $ sudo apt-get install tcpdump graphviz imagemagick python-gnuplot python-crypto
 Fedora
 ------
 
-Here's how to install Scapy on Fedora 9::
+Here's how to install Scapy on Fedora 9:
+
+.. code-block:: text
 
     # yum install mercurial python-devel
     # cd /tmp
@@ -208,7 +210,9 @@ Here's how to install Scapy on Fedora 9::
     # cd scapy
     # python setup.py install
     
-Some optional packages::
+Some optional packages:
+
+.. code-block:: text
 
     # yum install graphviz python-crypto sox PyX gnuplot numpy
     # cd /tmp
@@ -388,7 +392,7 @@ Plotting (``plot``)
 
 2D Graphics (``psdump``, ``pdfdump``)
 
- * `PyX <http://pyx.sourceforge.net/>`_: `PyX-0.10.tar.gz `PyX-0.10.tar.gz <http://mesh.dl.sourceforge.net/sourceforge/pyx/PyX-0.10.tar.gz>`_. Extract to temp dir, open command prompt, change to tempdir and type ``python setup.py install``
+ * `PyX <http://pyx.sourceforge.net/>`_: `PyX-0.10.tar.gz <http://mesh.dl.sourceforge.net/sourceforge/pyx/PyX-0.10.tar.gz>`_. Extract to temp dir, open command prompt, change to tempdir and type ``python setup.py install``
  * `MikTeX <http://miktex.org/>`_: `Basic MiKTeX 2.8 Installer <http://miktex.org/2.8/setup>`_. PyX needs a LaTeX installation. Choose an installation directory WITHOUT spaces (e.g. ``C:\MikTex2.8`` and add the ``(INSTALLDIR)\miktex\bin`` subdirectory to your PATH.
 
 Graphs (conversations)
@@ -405,7 +409,7 @@ WEP decryption
 
 Fingerprinting
 
-  * `Nmap <http://nmap.org>`_. `nmap-4.20-setup.exe <http://download.insecure.org/nmap/dist-old/nmap-4.20-setup.exe>`_. If you use the default installation directory, Scapy-win should automatically find the fingerprints file.
+  * `Nmap <http://nmap.org>`_. `nmap-4.20-setup.exe <http://download.insecure.org/nmap/dist-old/nmap-4.20-setup.exe>`_. If you use the default installation directory, Scapy should automatically find the fingerprints file.
   * Queso: `queso-980922.tar.gz <http://www.packetstormsecurity.org/UNIX/scanners/queso-980922.tar.gz>`_. Extract the tar.gz file (e.g. using `7-Zip <http://www.7-zip.org/>`_) and put ``queso.conf`` into your Scapy directory
 
 
