@@ -15,7 +15,7 @@ send the packets, so we're using ``sudo`` here::
 On Windows, please open a command prompt (``cmd.exe``) and make sure that you have 
 administrator privileges::
 
-    C:\scapy-win2>run_scapy
+    C:\>scapy
     INFO: No IPv6 support in kernel
     WARNING: No route found for IPv6 destination :: (no default route?)
     Welcome to Scapy (2.0.1-dev)

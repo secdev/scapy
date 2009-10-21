@@ -350,10 +350,10 @@ Windows
 
 .. sectionauthor:: Dirk Loss <mail at dirk-loss.de>
 
-Scapy is primarily being developed for Unix-like systems and works best on those platforms. But a special port (Scapy-win) exists that allows you to use nearly all of Scapy's features on your Windows machine as well.
+Scapy is primarily being developed for Unix-like systems and works best on those platforms. But the latest version of Scapy supports Windows out-of-the-box. So you can use nearly all of Scapy's features on your Windows machine as well.
 
 .. note::
-   Scapy v2 has finally been ported to Windows. Remeber to use ``from scapy.all import *`` instead of ``from scapy import *``.
+   If you update from Scapy-win v1.2.0.2 to Scapy v2 remember to use ``from scapy.all import *`` instead of ``from scapy import *``.
 
 .. image:: graphics/scapy-win-screenshot1.png
    :scale: 80
@@ -362,7 +362,7 @@ Scapy is primarily being developed for Unix-like systems and works best on those
 You need the following software packages in order to install Scapy on Windows:
 
   * `Python <http://www.python.org>`_: `python-2.5.4.msi <http://www.python.org/ftp/python/2.5.4/python-2.5.4.msi>`_. After installation, add ``C:\Python25`` and ``C:\Python25\Scripts`` to your PATH. I'm using Python 2.5. Scapy-win does not work with Python 2.4 or 2.6, because not all third-party extensions on this page are available for them.
-  * `Scapy-win2 <http://hg.secdev.org/scapy-win2>`_: `latest version from the Mercurial repository <http://hg.secdev.org/scapy-win2/archive/tip.zip>`_. Unzip the archive, open a command prompt in that directroy and run "python setup.py install".
+  * `Scapy <http://www.secdev.org/projects/scapy/>`_: `latest version from the Mercurial repository <http://scapy.net>`_. Unzip the archive, open a command prompt in that directory and run "python setup.py install".
   * `pywin32 <http://python.net/crew/mhammond/win32/Downloads.html>`_: `pywin32-214.win32-py2.5.exe <http://surfnet.dl.sourceforge.net/sourceforge/pywin32/pywin32-214.win32-py2.5.exe>`_ 
   * `Wireshark <http://www.wireshark.org/>`_: `Wireshark download page <http://www.wireshark.org/download.html>`_. If you get WinPcap installation errors on Windows 7, please run the installation program in "Vista compatibility" mode. You might want to choose "[x] Start WinPcap service 'NPF' at startup", so that non-privileged users can sniff, especially under Vista and Windows 7.
   * `pypcap <http://code.google.com/p/pypcap/>`_: `pcap-1.1-scapy-20090720.win32-py25.exe <http://www.secdev.org/projects/scapy/files/pcap-1.1-scapy-20090720.win32-py2.5.exe>`_. This is a *special version for Scapy*, as the original leads to some timing problems. Now works on Vista and Windows 7, too. Under Vista/Win7 please right-click on the installer and choose "Run as administrator".
@@ -373,9 +373,9 @@ Just download the files and run the setup program. Choosing the default installa
 
 For your convenience direct links are given to the versions I used (for Python 2.5). If these links do not work or if you are using a different Python version, just visit the homepage of the respective package and look for a Windows binary. As a last resort, search the web for the filename.
 
-After all packages are installed, open a command prompt (cmd.exe), change to the directory containing scapy.py and run Scapy with ``run_scapy.bat``. For usage information see the interactive demo and the other documents on Scapy's homepage.
+After all packages are installed, open a command prompt (cmd.exe) and run Scapy by typing ``scapy``. If you have set the PATH correctly, this will find a little batch file in your ``C:\Python25\Scripts`` directory and instruct the Python interpreter to load Scapy.
 
-If really nothing seems to work, consider skipping the Windows version and using Scapy from a Linux Live CD -- either in a virtual machine on your Windows host or by booting from CDROM: An older version of Scapy is already included in grml and BackTrack for example. While using the Live CD you can easily upgrade to the lastest Scapy version (for Unix) by typing ``cd /tmp && wget scapy.net``.
+If really nothing seems to work, consider skipping the Windows version and using Scapy from a Linux Live CD -- either in a virtual machine on your Windows host or by booting from CDROM: An older version of Scapy is already included in grml and BackTrack for example. While using the Live CD you can easily upgrade to the lastest Scapy version by typing ``cd /tmp && wget scapy.net``.
 
 Optional packages
 ^^^^^^^^^^^^^^^^^
