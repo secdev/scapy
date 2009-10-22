@@ -17,6 +17,13 @@ except ImportError:
     pass
 
 
+class RawVal:
+    def __init__(self, val):
+        self.val = val
+    def __str__(self):
+        return self.val
+
+
 class Packet(BasePacket):
     __metaclass__ = Packet_metaclass
     name=None
@@ -275,7 +282,11 @@ class Packet(BasePacket):
     def do_build(self):
         p=""
         for f in self.fields_desc:
-            p = f.addfield(self, p, self.getfieldval(f.name))
+            val = self.getfieldval(f.name)
+            if isinstance(val, RawVal):
+                p += str(val)
+            else:
+                p = f.addfield(self, p, val)
         return p
     
     def post_build(self, pkt, pay):
