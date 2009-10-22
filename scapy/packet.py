@@ -18,10 +18,12 @@ except ImportError:
 
 
 class RawVal:
-    def __init__(self, val):
+    def __init__(self, val=""):
         self.val = val
     def __str__(self):
-        return self.val
+        return str(self.val)
+    def __repr__(self):
+        return "<RawVal [%r]>" % self.val
 
 
 class Packet(BasePacket):
