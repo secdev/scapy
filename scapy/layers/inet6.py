@@ -23,6 +23,9 @@
 import socket
 if not socket.has_ipv6:
     raise socket.error("can't use AF_INET6, IPv6 is disabled")
+if not hasattr(socket, "IPPROTO_IPV6"):
+    # Workaround for http://bugs.python.org/issue6926
+    socket.IPPROTO_IPV6 = 41
 
 from scapy.config import conf
 from scapy.layers.l2 import *
