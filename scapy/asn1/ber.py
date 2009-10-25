@@ -233,7 +233,7 @@ class BERcodec_NULL(BERcodec_INTEGER):
         if i == 0:
             return chr(cls.tag)+"\0"
         else:
-            return super(cls,cls).enc(i)
+            return BERcodec_INTEGER.enc(i)
 
 class BERcodec_SEP(BERcodec_NULL):
     tag = ASN1_Class_UNIVERSAL.SEP
@@ -259,6 +259,12 @@ class BERcodec_T61_STRING (BERcodec_STRING):
 
 class BERcodec_IA5_STRING(BERcodec_STRING):
     tag = ASN1_Class_UNIVERSAL.IA5_STRING
+
+class BERcodec_NUMERIC_STRING(BERcodec_STRING):
+    tag = ASN1_Class_UNIVERSAL.NUMERIC_STRING
+
+class BERcodec_VIDEOTEX_STRING(BERcodec_STRING):
+    tag = ASN1_Class_UNIVERSAL.VIDEOTEX_STRING
 
 class BERcodec_IPADDRESS(BERcodec_STRING):
     tag = ASN1_Class_UNIVERSAL.IPADDRESS
