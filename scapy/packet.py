@@ -226,7 +226,7 @@ class Packet(BasePacket):
                 val =  f.i2repr(self, self.overloaded_fields[f.name])
             else:
                 continue
-            if isinstance(f, Emph):
+            if isinstance(f, Emph) or f in conf.emph:
                 ncol = ct.emph_field_name
                 vcol = ct.emph_field_value
             else:
@@ -775,7 +775,7 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
         for f in self.fields_desc:
             if isinstance(f, ConditionalField) and not f._evalcond(self):
                 continue
-            if isinstance(f, Emph):
+            if isinstance(f, Emph) or f in conf.emph:
                 ncol = ct.emph_field_name
                 vcol = ct.emph_field_value
             else:
