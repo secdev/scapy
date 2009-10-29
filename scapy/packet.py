@@ -909,9 +909,8 @@ A side effect is that, to obtain "{" and "}" characters, you must use
            mysummary() must be called if they are present."""
         return ""
 
-    def summary(self, intern=0):
-        """Prints a one line summary of a packet."""
-        found,s,needed = self.payload.summary(intern=1)
+    def _do_summary(self):
+        found,s,needed = self.payload._do_summary()
         if s:
             s = " / "+s
         ret = ""
@@ -925,10 +924,13 @@ A side effect is that, to obtain "{" and "}" characters, you must use
         if not ret:
             ret = self.__class__.__name__
         ret = "%s%s" % (ret,s)
-        if intern:
-            return found,ret,needed
-        else:
-            return ret
+        return found,ret,needed
+
+    def summary(self, intern=0):
+        """Prints a one line summary of a packet."""
+        found,s,needed = self._do_summary()
+        return s
+
     
     def lastlayer(self,layer=None):
         """Returns the uppest layer of the packet"""
@@ -1050,7 +1052,7 @@ class NoPayload(Packet):
             return "??"
         else:
             raise Scapy_Exception("Format not found [%s]"%fmt)
-    def summary(self, intern=0):
+    def _do_summary(self):
         return 0,"",[]
     def lastlayer(self,layer):
         return layer
