@@ -700,3 +700,22 @@ def in6_getscope(addr):
     else:
         scope = -1
     return scope
+
+def in6_get_common_plen(a, b):
+    """
+    Return common prefix length of IPv6 addresses a and b.
+    """
+    def matching_bits(byte1, byte2):
+        for i in range(8):
+            cur_mask = 0x80 >> i
+            if (byte1 & cur_mask) != (byte2 & cur_mask):
+                return i
+        return 8
+        
+    tmpA = inet_pton(socket.AF_INET6, a)
+    tmpB = inet_pton(socket.AF_INET6, b)
+    for i in range(16):
+        mbits = matching_bits(ord(tmpA[i]), ord(tmpB[i]))
+        if mbits != 8:
+            return 8*i + mbits
+    return 128
