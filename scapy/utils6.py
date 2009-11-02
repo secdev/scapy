@@ -24,6 +24,20 @@ def construct_source_candidate_set(addr, plen, laddr, loname):
     will then be performed to select the best source address associated
     with some specific destination that uses this prefix.
     """
+    def cset_sort(x,y):
+        x_global = 0
+        if in6_isgladdr(x):
+            x_global = 1
+        y_global = 0
+        if in6_isgladdr(y):
+            y_global = 1
+        res = y_global - x_global
+        if res != 0 or y_global != 1:
+            return res
+        # two global addresses: if one is native, it wins.
+        if not in6_isaddr6to4(x):
+            return -1;
+        return -res
 
     cset = []
     if in6_isgladdr(addr) or in6_isuladdr(addr):
@@ -44,6 +58,7 @@ def construct_source_candidate_set(addr, plen, laddr, loname):
     elif addr == '::' and plen == 0:
 	cset = filter(lambda x: x[1] == IPV6_ADDR_GLOBAL, laddr)
     cset = map(lambda x: x[0], cset)
+    cset.sort(cmp=cset_sort) # Sort with global addresses first
     return cset            
 
 def get_source_addr_from_candidate_set(dst, candidate_set):
