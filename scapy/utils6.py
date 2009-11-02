@@ -682,19 +682,27 @@ def in6_isaddrllallservers(str):
     return (inet_pton(socket.AF_INET6, "ff02::2") ==
             inet_pton(socket.AF_INET6, str))
 
-
 def in6_getscope(addr):
     """
     Returns the scope of the address.
     """
-    if in6_isgladdr(addr):
+    if in6_isgladdr(addr) or in6_isuladdr(addr):
         scope = IPV6_ADDR_GLOBAL
     elif in6_islladdr(addr):
         scope = IPV6_ADDR_LINKLOCAL
     elif in6_issladdr(addr):
         scope = IPV6_ADDR_SITELOCAL
     elif in6_ismaddr(addr):
-        scope = IPV6_ADDR_MULTICAST
+        if in6_ismgladdr(addr):
+            scope = IPV6_ADDR_GLOBAL
+        elif in6_ismlladdr(addr):
+            scope = IPV6_ADDR_LINKLOCAL
+        elif in6_ismsladdr(addr):
+            scope = IPV6_ADDR_SITELOCAL
+        elif in6_ismnladdr(addr):
+            scope = IPV6_ADDR_LOOPBACK
+        else:
+            scope = -1
     elif addr == '::1':
         scope = IPV6_ADDR_LOOPBACK
     else:
