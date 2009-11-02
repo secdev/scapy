@@ -67,21 +67,79 @@ def get_source_addr_from_candidate_set(dst, candidate_set):
     algorithm defined in section 5 of RFC 3484. The format is very different
     from that described in the document because it operates on a set 
     of candidate source address for some specific route.
-    
-    Rationale behind the implementation is to be able to make the right 
-    choice for a 6to4 destination when both a 6to4 address and a IPv6 native
-    address are available for that interface.
     """
+
+    def scope_cmp(a, b):
+        """
+        Given two addresses, returns -1, 0 or 1 based on comparison of
+        their scope
+        """
+        scope_mapper = {IPV6_ADDR_GLOBAL: 4,
+                        IPV6_ADDR_SITELOCAL: 3,
+                        IPV6_ADDR_LINKLOCAL: 2,
+                        IPV6_ADDR_LOOPBACK: 1}
+        sa = in6_getscope(a)
+        if sa == -1:
+            sa = IPV6_ADDR_LOOPBACK
+        sb = in6_getscope(b)
+        if sb == -1:
+            sb = IPV6_ADDR_LOOPBACK
+
+        sa = scope_mapper[sa]
+        sb = scope_mapper[sb]
+
+        if sa == sb:
+            return 0
+        if sa > sb:
+            return 1
+        return -1
+
+    def rfc3484_cmp(source_a, source_b):
+        """
+        The function implements a limited version of the rules from Source
+        Address selection algorithm defined section of RFC 3484.
+        """
+
+        # Rule 1: Prefer same address
+        if source_a == dst:
+            return 1
+        if source_b == dst:
+            return 1
+
+        # Rule 2: Prefer appropriate scope
+        tmp = scope_cmp(source_a, source_b)
+        if tmp == -1:
+            if scope_cmp(source_a, dst) == -1:
+                return 1
+            else:
+                return -1
+        elif tmp == 1:
+            if scope_cmp(source_b, dst) == -1:
+                return 1
+            else:
+                return -1
+
+        # Rule 3: cannot be easily implemented
+        # Rule 4: cannot be easily implemented
+        # Rule 5: does not make sense here
+        # Rule 6: cannot be implemented
+        # Rule 7: cannot be implemented
+        
+        # Rule 8: Longest prefix match
+        tmp1 = in6_get_common_plen(source_a, dst)
+        tmp2 = in6_get_common_plen(source_b, dst)
+        if tmp1 > tmp2:
+            return 1
+        elif tmp2 > tmp1:
+            return -1
+        return 0
     
-    if len(candidate_set) == 0:
+    if not candidate_set:
 	# Should not happen
 	return None
-    
-    if in6_isaddr6to4(dst):
-	tmp = filter(lambda x: in6_isaddr6to4(x), candidate_set)
-	if len(tmp) != 0:
-	    return tmp[0]
 
+    candidate_set.sort(cmp=rfc3484_cmp, reverse=True)
+    
     return candidate_set[0]
 
 
