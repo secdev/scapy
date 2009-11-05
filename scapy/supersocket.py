@@ -49,6 +49,8 @@ class SuperSocket:
             return a[0][1]
         else:
             return None
+    def sniff(self, *args, **kargs):
+        return sniff(opened_socket=self, *args, **kargs)
 
 class L3RawSocket(SuperSocket):
     desc = "Layer 3 using Raw sockets (PF_INET/SOCK_RAW)"
