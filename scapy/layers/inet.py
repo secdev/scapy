@@ -1113,8 +1113,8 @@ class TracerouteResult(SndRcvList):
         ports = {}
         ports_done = {}
         for s,r in self.res:
-            r = r[IP] or (conf.ipv6_enabled and r[inet6.IPv6]) or r
-            s = s[IP] or (conf.ipv6_enabled and s[inet6.IPv6]) or s
+            r = r.getlayer(IP) or (conf.ipv6_enabled and r[scapy.layers.inet6.IPv6]) or r
+            s = s.getlayer(IP) or (conf.ipv6_enabled and s[scapy.layers.inet6.IPv6]) or s
             ips[r.src] = None
             if TCP in s:
                 trace_id = (s.src,s.dst,6,s.dport)
