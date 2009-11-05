@@ -522,7 +522,7 @@ iface:    listen answers only on the given interface"""
 
 
 @conf.commands.register
-def sniff(count=0, store=1, offline=None, prn = None, lfilter=None, L2socket=None, timeout=None, *arg, **karg):
+def sniff(count=0, store=1, offline=None, prn = None, lfilter=None, L2socket=None, timeout=None, opened_socket=None, *arg, **karg):
     """Sniff packets
 sniff([count=0,] [prn=None,] [store=1,] [offline=None,] [lfilter=None,] + L2ListenSocket args) -> list of packets
 
@@ -537,15 +537,19 @@ lfilter: python function applied to each packet to determine
 offline: pcap file to read packets from, instead of sniffing them
 timeout: stop sniffing after a given time (default: None)
 L2socket: use the provided L2socket
+opened_socket: provide an object ready to use .recv() on
     """
     c = 0
-
-    if offline is None:
-        if L2socket is None:
-            L2socket = conf.L2listen
-        s = L2socket(type=ETH_P_ALL, *arg, **karg)
+    
+    if opened_socket is not None:
+        s = opened_socket
     else:
-        s = PcapReader(offline)
+        if offline is None:
+            if L2socket is None:
+                L2socket = conf.L2listen
+            s = L2socket(type=ETH_P_ALL, *arg, **karg)
+        else:
+            s = PcapReader(offline)
 
     lst = []
     if timeout is not None:
@@ -575,7 +579,8 @@ L2socket: use the provided L2socket
                     break
         except KeyboardInterrupt:
             break
-    s.close()
+    if opened_socket is None:
+        s.close()
     return plist.PacketList(lst,"Sniffed")
 
 @conf.commands.register
