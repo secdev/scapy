@@ -24,6 +24,20 @@ def construct_source_candidate_set(addr, plen, laddr, loname):
     will then be performed to select the best source address associated
     with some specific destination that uses this prefix.
     """
+    def cset_sort(x,y):
+        x_global = 0
+        if in6_isgladdr(x):
+            x_global = 1
+        y_global = 0
+        if in6_isgladdr(y):
+            y_global = 1
+        res = y_global - x_global
+        if res != 0 or y_global != 1:
+            return res
+        # two global addresses: if one is native, it wins.
+        if not in6_isaddr6to4(x):
+            return -1;
+        return -res
 
     cset = []
     if in6_isgladdr(addr) or in6_isuladdr(addr):
@@ -44,6 +58,7 @@ def construct_source_candidate_set(addr, plen, laddr, loname):
     elif addr == '::' and plen == 0:
 	cset = filter(lambda x: x[1] == IPV6_ADDR_GLOBAL, laddr)
     cset = map(lambda x: x[0], cset)
+    cset.sort(cmp=cset_sort) # Sort with global addresses first
     return cset            
 
 def get_source_addr_from_candidate_set(dst, candidate_set):
@@ -52,21 +67,79 @@ def get_source_addr_from_candidate_set(dst, candidate_set):
     algorithm defined in section 5 of RFC 3484. The format is very different
     from that described in the document because it operates on a set 
     of candidate source address for some specific route.
-    
-    Rationale behind the implementation is to be able to make the right 
-    choice for a 6to4 destination when both a 6to4 address and a IPv6 native
-    address are available for that interface.
     """
+
+    def scope_cmp(a, b):
+        """
+        Given two addresses, returns -1, 0 or 1 based on comparison of
+        their scope
+        """
+        scope_mapper = {IPV6_ADDR_GLOBAL: 4,
+                        IPV6_ADDR_SITELOCAL: 3,
+                        IPV6_ADDR_LINKLOCAL: 2,
+                        IPV6_ADDR_LOOPBACK: 1}
+        sa = in6_getscope(a)
+        if sa == -1:
+            sa = IPV6_ADDR_LOOPBACK
+        sb = in6_getscope(b)
+        if sb == -1:
+            sb = IPV6_ADDR_LOOPBACK
+
+        sa = scope_mapper[sa]
+        sb = scope_mapper[sb]
+
+        if sa == sb:
+            return 0
+        if sa > sb:
+            return 1
+        return -1
+
+    def rfc3484_cmp(source_a, source_b):
+        """
+        The function implements a limited version of the rules from Source
+        Address selection algorithm defined section of RFC 3484.
+        """
+
+        # Rule 1: Prefer same address
+        if source_a == dst:
+            return 1
+        if source_b == dst:
+            return 1
+
+        # Rule 2: Prefer appropriate scope
+        tmp = scope_cmp(source_a, source_b)
+        if tmp == -1:
+            if scope_cmp(source_a, dst) == -1:
+                return 1
+            else:
+                return -1
+        elif tmp == 1:
+            if scope_cmp(source_b, dst) == -1:
+                return 1
+            else:
+                return -1
+
+        # Rule 3: cannot be easily implemented
+        # Rule 4: cannot be easily implemented
+        # Rule 5: does not make sense here
+        # Rule 6: cannot be implemented
+        # Rule 7: cannot be implemented
+        
+        # Rule 8: Longest prefix match
+        tmp1 = in6_get_common_plen(source_a, dst)
+        tmp2 = in6_get_common_plen(source_b, dst)
+        if tmp1 > tmp2:
+            return 1
+        elif tmp2 > tmp1:
+            return -1
+        return 0
     
-    if len(candidate_set) == 0:
+    if not candidate_set:
 	# Should not happen
 	return None
-    
-    if in6_isaddr6to4(dst):
-	tmp = filter(lambda x: in6_isaddr6to4(x), candidate_set)
-	if len(tmp) != 0:
-	    return tmp[0]
 
+    candidate_set.sort(cmp=rfc3484_cmp, reverse=True)
+    
     return candidate_set[0]
 
 
@@ -667,21 +740,48 @@ def in6_isaddrllallservers(str):
     return (inet_pton(socket.AF_INET6, "ff02::2") ==
             inet_pton(socket.AF_INET6, str))
 
-
 def in6_getscope(addr):
     """
     Returns the scope of the address.
     """
-    if in6_isgladdr(addr):
+    if in6_isgladdr(addr) or in6_isuladdr(addr):
         scope = IPV6_ADDR_GLOBAL
     elif in6_islladdr(addr):
         scope = IPV6_ADDR_LINKLOCAL
     elif in6_issladdr(addr):
         scope = IPV6_ADDR_SITELOCAL
     elif in6_ismaddr(addr):
-        scope = IPV6_ADDR_MULTICAST
+        if in6_ismgladdr(addr):
+            scope = IPV6_ADDR_GLOBAL
+        elif in6_ismlladdr(addr):
+            scope = IPV6_ADDR_LINKLOCAL
+        elif in6_ismsladdr(addr):
+            scope = IPV6_ADDR_SITELOCAL
+        elif in6_ismnladdr(addr):
+            scope = IPV6_ADDR_LOOPBACK
+        else:
+            scope = -1
     elif addr == '::1':
         scope = IPV6_ADDR_LOOPBACK
     else:
         scope = -1
     return scope
+
+def in6_get_common_plen(a, b):
+    """
+    Return common prefix length of IPv6 addresses a and b.
+    """
+    def matching_bits(byte1, byte2):
+        for i in range(8):
+            cur_mask = 0x80 >> i
+            if (byte1 & cur_mask) != (byte2 & cur_mask):
+                return i
+        return 8
+        
+    tmpA = inet_pton(socket.AF_INET6, a)
+    tmpB = inet_pton(socket.AF_INET6, b)
+    for i in range(16):
+        mbits = matching_bits(ord(tmpA[i]), ord(tmpB[i]))
+        if mbits != 8:
+            return 8*i + mbits
+    return 128
