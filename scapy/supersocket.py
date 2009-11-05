@@ -6,7 +6,6 @@
 import socket,time
 from config import conf
 from data import *
-from sendrecv import sndrcv
 
 class _SuperSocket_metaclass(type):
     def __repr__(self):
@@ -42,15 +41,15 @@ class SuperSocket:
         if self.ins and self.ins.fileno() != -1:
             self.ins.close()
     def sr(self, *args, **kargs):
-        return sndrcv(self, *args, **kargs)
+        return sendrecv.sndrcv(self, *args, **kargs)
     def sr1(self, *args, **kargs):        
-        a,b = sndrcv(self, *args, **kargs)
+        a,b = sendrecv.sndrcv(self, *args, **kargs)
         if len(a) > 0:
             return a[0][1]
         else:
             return None
     def sniff(self, *args, **kargs):
-        return sniff(opened_socket=self, *args, **kargs)
+        return sendrecv.sniff(opened_socket=self, *args, **kargs)
 
 class L3RawSocket(SuperSocket):
     desc = "Layer 3 using Raw sockets (PF_INET/SOCK_RAW)"
@@ -102,3 +101,5 @@ class StreamSocket(SimpleSocket):
 
 if conf.L3socket is None:
     conf.L3socket = L3RawSocket
+
+import sendrecv
