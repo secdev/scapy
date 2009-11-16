@@ -296,6 +296,9 @@ def getmacbyip(ip, chainCC=0):
         return mac
     return None
 
+import scapy.layers.l2
+scapy.layers.l2.getmacbyip = getmacbyip
+
 try:
     import readline
     console = readline.GetOutputFile()
