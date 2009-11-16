@@ -102,11 +102,11 @@ class NetworkInterface(object):
     def _update_pcapdata(self):
         """Supplement more info from pypcap and the Windows registry"""
         
-        # XXX: We try eth0 - eth9 by bruteforce and match by IP address, 
+        # XXX: We try eth0 - eth29 by bruteforce and match by IP address, 
         # because only the IP is available in both pypcap and dnet.
         # This may not work with unorthodox network configurations and is
         # slow because we have to walk through the Windows registry.
-        for n in range(10):
+        for n in range(30):
             guess = "eth%s" % n
             win_name = pcapdnet.pcap.ex_name(guess)
             if win_name.endswith("}"):
