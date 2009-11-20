@@ -246,7 +246,11 @@ def read_routes():
             gw     = match.group(3)
             netif  = match.group(4)
             metric = match.group(5)
-            intf = pcapdnet.dnet.intf().get_dst(pcapdnet.dnet.addr(type=2, addrtxt=dest))
+            try:
+                intf = pcapdnet.dnet.intf().get_dst(pcapdnet.dnet.addr(type=2, addrtxt=dest))
+            except OSError:
+                log_loading.warning("Building Scapy's routing table: Couldn't get outgoing interface for destination %s" % dest)
+                continue               
             if not intf.has_key("addr"):
                 break
             addr = str(intf["addr"])
