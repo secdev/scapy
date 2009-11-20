@@ -159,7 +159,10 @@ class NetworkInterfaceDict(IterableUserDict):
         for i in pcapdnet.dnet.intf():
             try:
                 # XXX: Only Ethernet for the moment: localhost is not supported by dnet and pcap
-                if i["name"].startswith("eth"):
+                # We only take interfaces that have an IP address, because the IP
+                # is used for the mapping between dnet and pcap interface names
+                # and this significantly improves Scapy's startup performance
+                if i["name"].startswith("eth") and "addr" in i:
                     self.data[i["name"]] = NetworkInterface(i)
             except (KeyError, PcapNameNotFoundError):
                 pass
