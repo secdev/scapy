@@ -3,14 +3,16 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
-import os,re,sys,socket
+import os,re,sys,socket,time
 from glob import glob
 from scapy.config import conf,ConfClass
 from scapy.error import Scapy_Exception,log_loading,log_runtime
-from scapy.utils import atol
-from scapy.base_classes import Gen,Net
+from scapy.utils import atol, inet_aton, inet_ntoa, PcapReader
+from scapy.base_classes import Gen, Net, SetGen
 import scapy.plist as plist
-from scapy.sendrecv import debug
+from scapy.sendrecv import debug, srp1
+from scapy.layers.l2 import Ether, ARP
+from scapy.data import MTU, ETHER_BROADCAST, ETH_P_ARP
 
 conf.use_pcap = 1
 conf.use_dnet = 1
@@ -18,6 +20,7 @@ from scapy.arch import pcapdnet
 from scapy.arch.pcapdnet import *
 
 LOOPBACK_NAME="lo0"
+WINDOWS = True
 
 
 def _where(filename, dirs=[], env="PATH"):
