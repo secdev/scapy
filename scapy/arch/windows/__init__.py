@@ -521,7 +521,7 @@ L2socket: use the provided L2socket
         except KeyboardInterrupt:
             break
     s.close()
-    return PacketList(lst,"Sniffed")
+    return plist.PacketList(lst,"Sniffed")
 
 import scapy.sendrecv
 scapy.sendrecv.sniff = sniff
