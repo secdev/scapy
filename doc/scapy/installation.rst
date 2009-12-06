@@ -44,7 +44,7 @@ Make sure you have Python installed before you go on.
 Latest release
 --------------
 
-Download the `latest version <http://scapy.net>`_ to a temporary directory and install it in the standard `distutils <http://docs.python.org/inst/inst.html>`_ way::
+Download the `latest release <http://scapy.net>`_ to a temporary directory and install it in the standard `distutils <http://docs.python.org/inst/inst.html>`_ way::
 
 $ cd /tmp
 $ wget scapy.net 
@@ -55,8 +55,14 @@ $ sudo python setup.py install
 Alternatively, you can make the zip file executable, move it to a directory in your PATH and run it directly::
 
 $ chmod +x scapy-latest.zip
-$ mv scapy-latest.zip /usr/local/bin/scapy
-$ sudo scapy
+$ sudo ./scapy-latest.zip
+
+.. note::
+
+   To make a zip executable, some bytes have been added before the zip header.
+   Most zip programs handle this, but not all. If your zip program complains
+   about the zip file to be corrupted, either change it, or download a 
+   non-executable zip at http://hg.secdev.org/scapy/archive/tip.zip
  
 Current development version
 ----------------------------

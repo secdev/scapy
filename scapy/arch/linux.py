@@ -376,8 +376,8 @@ class L3PacketSocket(SuperSocket):
         self.outs.bind(sdto)
         sn = self.outs.getsockname()
         ll = lambda x:x
-        if sn[3] in (ARPHDR_PPP,ARPHDR_TUN):
-            sdto = (iff, ETH_P_IP)
+        if type(x) in conf.l3types:
+            sdto = (iff, conf.l3types[type(x)])
         if sn[3] in conf.l2types:
             ll = lambda x:conf.l2types[sn[3]]()/x
         try:

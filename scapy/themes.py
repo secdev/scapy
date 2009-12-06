@@ -3,7 +3,6 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
-import config
 
 ##################
 ## Color themes ##
@@ -271,3 +270,5 @@ class ColorPrompt:
         except:
             return self.__prompt
 
+
+import config
