@@ -6,9 +6,9 @@
 import os,re,sys,socket
 from glob import glob
 from scapy.config import conf,ConfClass
-from scapy.error import Scapy_Exception,log_loading
+from scapy.error import Scapy_Exception,log_loading,log_runtime
 from scapy.utils import atol
-from scapy.base_classes import Gen
+from scapy.base_classes import Gen,Net
 import scapy.plist as plist
 from scapy.sendrecv import debug
 
