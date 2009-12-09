@@ -54,8 +54,8 @@ def win_find_exe(filename, installsubdir=None, env="ProgramFiles"):
 class WinProgPath(ConfClass):
     _default = "<System default>"
     # We try some magic to find the appropriate executables
-    pdfreader = _default 
-    psreader = _default
+    pdfreader = win_find_exe("AcroRd32") 
+    psreader = win_find_exe("gsview32.exe", "Ghostgum/gsview")
     dot = win_find_exe("dot", "ATT/Graphviz/bin")
     tcpdump = win_find_exe("windump")
     tcpreplay = win_find_exe("tcpreplay")
