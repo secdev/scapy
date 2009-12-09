@@ -354,7 +354,7 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
         if filename is None:
             fname = get_temp_file(autoext=".eps")
             canvas.writeEPSfile(fname)
-            os.system("%s '%s.eps' &" % (conf.prog.psreader,fname))
+            subprocess.Popen([conf.prog.psreader, fname+".eps"])
         else:
             canvas.writeEPSfile(filename)
 
@@ -365,7 +365,7 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
         if filename is None:
             fname = get_temp_file(autoext=".pdf")
             canvas.writePDFfile(fname)
-            os.system("%s '%s.pdf' &" % (conf.prog.pdfreader,fname))
+            subprocess.Popen([conf.prog.pdfreader, fname+".pdf"])
         else:
             canvas.writePDFfile(filename)
 

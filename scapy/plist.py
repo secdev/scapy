@@ -3,7 +3,7 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
-import os
+import os,subprocess
 from config import conf
 from base_classes import BasePacket,BasePacketList
 from packet import Padding
@@ -363,7 +363,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
         if filename is None:
             filename = get_temp_file(autoext=".ps")
             d.writePSfile(filename)
-            os.system("%s %s.ps &" % (conf.prog.psreader,filename))
+            subprocess.Popen([conf.prog.psreader, filename+".ps"])
         else:
             d.writePSfile(filename)
         print
@@ -376,7 +376,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
         if filename is None:
             filename = get_temp_file(autoext=".pdf")
             d.writePDFfile(filename)
-            os.system("%s %s.pdf &" % (conf.prog.pdfreader,filename))
+            subprocess.Popen([conf.prog.pdfreader, filename+".pdf"])
         else:
             d.writePDFfile(filename)
         print
