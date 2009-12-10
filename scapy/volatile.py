@@ -42,10 +42,11 @@ class RandomEnumeration:
     def next(self):
         while True:
             if self.turns == 0 or (self.i == 0 and self.renewkeys):
+                self.cnt_key = self.rnd.randint(0,2**self.n-1)
                 self.sbox = [self.rnd.randint(0,self.fsmask) for k in xrange(self.sbox_size)]
             self.turns += 1
             while self.i < 2**self.n:
-                ct = self.i
+                ct = self.i^self.cnt_key
                 self.i += 1
                 for k in range(self.rounds): # Unbalanced Feistel Network
                     lsb = ct & self.fsmask
