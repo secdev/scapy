@@ -3,14 +3,16 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
-import os,re,sys,socket
+import os,re,sys,socket,time
 from glob import glob
 from scapy.config import conf,ConfClass
-from scapy.error import Scapy_Exception,log_loading
-from scapy.utils import atol
-from scapy.base_classes import Gen
+from scapy.error import Scapy_Exception,log_loading,log_runtime
+from scapy.utils import atol, inet_aton, inet_ntoa, PcapReader
+from scapy.base_classes import Gen, Net, SetGen
 import scapy.plist as plist
-from scapy.sendrecv import debug
+from scapy.sendrecv import debug, srp1
+from scapy.layers.l2 import Ether, ARP
+from scapy.data import MTU, ETHER_BROADCAST, ETH_P_ARP
 
 conf.use_pcap = 1
 conf.use_dnet = 1
@@ -18,6 +20,7 @@ from scapy.arch import pcapdnet
 from scapy.arch.pcapdnet import *
 
 LOOPBACK_NAME="lo0"
+WINDOWS = True
 
 
 def _where(filename, dirs=[], env="PATH"):
@@ -51,8 +54,8 @@ def win_find_exe(filename, installsubdir=None, env="ProgramFiles"):
 class WinProgPath(ConfClass):
     _default = "<System default>"
     # We try some magic to find the appropriate executables
-    pdfreader = _default 
-    psreader = _default
+    pdfreader = win_find_exe("AcroRd32") 
+    psreader = win_find_exe("gsview32.exe", "Ghostgum/gsview")
     dot = win_find_exe("dot", "ATT/Graphviz/bin")
     tcpdump = win_find_exe("windump")
     tcpreplay = win_find_exe("tcpreplay")
@@ -102,11 +105,11 @@ class NetworkInterface(object):
     def _update_pcapdata(self):
         """Supplement more info from pypcap and the Windows registry"""
         
-        # XXX: We try eth0 - eth9 by bruteforce and match by IP address, 
+        # XXX: We try eth0 - eth29 by bruteforce and match by IP address, 
         # because only the IP is available in both pypcap and dnet.
         # This may not work with unorthodox network configurations and is
         # slow because we have to walk through the Windows registry.
-        for n in range(10):
+        for n in range(30):
             guess = "eth%s" % n
             win_name = pcapdnet.pcap.ex_name(guess)
             if win_name.endswith("}"):
@@ -159,7 +162,10 @@ class NetworkInterfaceDict(IterableUserDict):
         for i in pcapdnet.dnet.intf():
             try:
                 # XXX: Only Ethernet for the moment: localhost is not supported by dnet and pcap
-                if i["name"].startswith("eth"):
+                # We only take interfaces that have an IP address, because the IP
+                # is used for the mapping between dnet and pcap interface names
+                # and this significantly improves Scapy's startup performance
+                if i["name"].startswith("eth") and "addr" in i:
                     self.data[i["name"]] = NetworkInterface(i)
             except (KeyError, PcapNameNotFoundError):
                 pass
@@ -243,7 +249,11 @@ def read_routes():
             gw     = match.group(3)
             netif  = match.group(4)
             metric = match.group(5)
-            intf = pcapdnet.dnet.intf().get_dst(pcapdnet.dnet.addr(type=2, addrtxt=dest))
+            try:
+                intf = pcapdnet.dnet.intf().get_dst(pcapdnet.dnet.addr(type=2, addrtxt=dest))
+            except OSError:
+                log_loading.warning("Building Scapy's routing table: Couldn't get outgoing interface for destination %s" % dest)
+                continue               
             if not intf.has_key("addr"):
                 break
             addr = str(intf["addr"])
@@ -295,6 +305,9 @@ def getmacbyip(ip, chainCC=0):
         conf.netcache.arp_cache[ip] = mac
         return mac
     return None
+
+import scapy.layers.l2
+scapy.layers.l2.getmacbyip = getmacbyip
 
 try:
     import readline
@@ -511,7 +524,7 @@ L2socket: use the provided L2socket
         except KeyboardInterrupt:
             break
     s.close()
-    return PacketList(lst,"Sniffed")
+    return plist.PacketList(lst,"Sniffed")
 
 import scapy.sendrecv
 scapy.sendrecv.sniff = sniff
