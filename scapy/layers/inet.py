@@ -598,7 +598,9 @@ class ICMP(Packet):
         return p
     
     def hashret(self):
-        return struct.pack("HH",self.id,self.seq)+self.payload.hashret()
+        if self.type in [0,8,13,14,15,16,17,18]:
+            return struct.pack("HH",self.id,self.seq)+self.payload.hashret()
+        return self.payload.hashret()
     def answers(self, other):
         if not isinstance(other,ICMP):
             return 0
