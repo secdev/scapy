@@ -44,7 +44,7 @@ Make sure you have Python installed before you go on.
 Latest release
 --------------
 
-Download the `latest release <http://scapy.net>`_ to a temporary directory and install it in the standard `distutils <http://docs.python.org/inst/inst.html>`_ way::
+Download the `latest version <http://scapy.net>`_ to a temporary directory and install it in the standard `distutils <http://docs.python.org/inst/inst.html>`_ way::
 
 $ cd /tmp
 $ wget scapy.net 
@@ -52,10 +52,19 @@ $ unzip scapy-latest.zip
 $ cd scapy-2.*
 $ sudo python setup.py install
  
-Alternatively, you can make the zip file executable, move it to a directory in your PATH and run it directly::
+Alternatively, you can execute the zip file::
 
 $ chmod +x scapy-latest.zip
 $ sudo ./scapy-latest.zip
+
+or::
+
+$ sudo sh scapy-latest.zip
+
+or::
+
+$ mv scapy-latest.zip /usr/local/bin/scapy
+$ sudo scapy
 
 .. note::
 
@@ -63,6 +72,7 @@ $ sudo ./scapy-latest.zip
    Most zip programs handle this, but not all. If your zip program complains
    about the zip file to be corrupted, either change it, or download a 
    non-executable zip at http://hg.secdev.org/scapy/archive/tip.zip
+
  
 Current development version
 ----------------------------
@@ -372,7 +382,7 @@ Scapy is primarily being developed for Unix-like systems and works best on those
 You need the following software packages in order to install Scapy on Windows:
 
   * `Python <http://www.python.org>`_: `python-2.5.4.msi <http://www.python.org/ftp/python/2.5.4/python-2.5.4.msi>`_. `python-2.6.3.msi <http://www.python.org/ftp/python/2.6.3/python-2.6.3.msi>`_. After installation, add the Python installation directory and its \Scripts subdirectory to your PATH. Depending on your Python version, the defaults would be ``C:\Python25`` and ``C:\Python25\Scripts`` or ``C:\Python26`` and ``C:\Python26\Scripts`` respectively.
-  * `Scapy <http://www.secdev.org/projects/scapy/>`_: `latest version from the Mercurial repository <http://scapy.net>`_. Unzip the archive, open a command prompt in that directory and run "python setup.py install".
+  * `Scapy <http://www.secdev.org/projects/scapy/>`_: `latest development version <http://hg.secdev.org/scapy/archive/tip.zip>`_ from the `Mercurial repository <http://hg.secdev.org/scapy>`_. Unzip the archive, open a command prompt in that directory and run "python setup.py install". 
   * `pywin32 <http://python.net/crew/mhammond/win32/Downloads.html>`_: `pywin32-214.win32-py2.5.exe <http://surfnet.dl.sourceforge.net/sourceforge/pywin32/pywin32-214.win32-py2.5.exe>`_ `pywin32-214.win32-py2.6.exe <http://downloads.sourceforge.net/project/pywin32/pywin32/Build%20214/pywin32-214.win32-py2.6.exe>`_
   * `WinPcap <http://www.winpcap.org/>`_: `WinPcap_4_1_1.exe <http://www.winpcap.org/install/bin/WinPcap_4_1_1.exe>`_. You might want to choose "[x] Automatically start the WinPcap driver at boot time", so that non-privileged users can sniff, especially under Vista and Windows 7. If you want to use the ethernet vendor database to resolve MAC addresses or use the ``wireshark()`` command, download `Wireshark <http://www.wireshark.org/>`_ which already includes WinPcap. 
   * `pypcap <http://code.google.com/p/pypcap/>`_: `pcap-1.1-scapy-20090720.win32-py25.exe <http://www.secdev.org/projects/scapy/files/pcap-1.1-scapy-20090720.win32-py2.5.exe>`_ `pcap-1.1-scapy-20090720.win32-py2.6.exe <http://www.secdev.org/projects/scapy/files/pcap-1.1-scapy-20090720.win32-py2.6.exe>`_. This is a *special version for Scapy*, as the original leads to some timing problems. Now works on Vista and Windows 7, too. Under Vista/Win7 please right-click on the installer and choose "Run as administrator".
