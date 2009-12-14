@@ -66,13 +66,13 @@ RTF_REJECT = 0x0200
 
 LOOPBACK_NAME="lo"
 
-with os.popen("tcpdump -V 2> /dev/null") as f:
-    if f.close() >> 8 == 0x7f:
+with os.popen("tcpdump -V 2> /dev/null") as _f:
+    if _f.close() >> 8 == 0x7f:
         log_loading.warning("Failed to execute tcpdump. Check it is installed and in the PATH")
         TCPDUMP=0
     else:
         TCPDUMP=1
-        
+del(_f)
     
 
 def get_if_raw_hwaddr(iff):
