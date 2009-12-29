@@ -4,7 +4,7 @@
 ## Copyright (C) 6WIND <olivier.matz@6wind.com>
 ## This program is published under a GPLv2 license
 
-import struct, thread
+import struct
 
 from scapy.packet import *
 from scapy.fields import *
