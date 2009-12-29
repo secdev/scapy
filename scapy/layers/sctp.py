@@ -429,11 +429,5 @@ class SCTPChunkShutdownComplete(_SCTPChunkGuessPayload, Packet):
                     ShortField("len", 4),
                     ]
 
-class SCTPTest(Packet):
-    fields_desc = [ FieldLenField("len", None, length_of="params", adjust = lambda pkt,x:x+2),
-                    PacketListField("params", None, SCTPChunkParamIPv4Addr, length_from=lambda pkt:pkt.len-2),
-                    ]
-
-
 bind_layers( IP,           SCTP,          proto=IPPROTO_SCTP)
 
