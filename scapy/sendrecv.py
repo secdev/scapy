@@ -522,7 +522,8 @@ iface:    listen answers only on the given interface"""
 
 
 @conf.commands.register
-def sniff(count=0, store=1, offline=None, prn = None, lfilter=None, L2socket=None, timeout=None, opened_socket=None, *arg, **karg):
+def sniff(count=0, store=1, offline=None, prn = None, lfilter=None, L2socket=None, timeout=None,
+          opened_socket=None, stop_filter=None, *arg, **karg):
     """Sniff packets
 sniff([count=0,] [prn=None,] [store=1,] [offline=None,] [lfilter=None,] + L2ListenSocket args) -> list of packets
 
@@ -538,6 +539,9 @@ offline: pcap file to read packets from, instead of sniffing them
 timeout: stop sniffing after a given time (default: None)
 L2socket: use the provided L2socket
 opened_socket: provide an object ready to use .recv() on
+stop_filter: python function applied to each packet to determine
+             if we have to stop the capture after this packet
+             ex: stop_filter = lambda x: x.haslayer(TCP)
     """
     c = 0
     
@@ -575,6 +579,8 @@ opened_socket: provide an object ready to use .recv() on
                     r = prn(p)
                     if r is not None:
                         print r
+                if stop_filter and stop_filter(p):
+                    break
                 if count > 0 and c >= count:
                     break
         except KeyboardInterrupt:
