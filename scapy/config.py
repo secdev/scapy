@@ -366,7 +366,7 @@ extensions_paths: path or list of paths where extensions are to be looked for
     netcache = NetCache()
     load_layers = ["l2", "inet", "dhcp", "dns", "dot11", "gprs", "hsrp", "inet6", "ir", "isakmp", "l2tp",
                    "mgcp", "mobileip", "netbios", "netflow", "ntp", "ppp", "radius", "rip", "rtp",
-                   "sebek", "skinny", "smb", "snmp", "tftp", "x509", "bluetooth", "dhcp6", "llmnr" ]
+                   "sebek", "skinny", "smb", "snmp", "tftp", "x509", "bluetooth", "dhcp6", "llmnr", "sctp" ]
     
 
 if not Conf.ipv6_enabled:
