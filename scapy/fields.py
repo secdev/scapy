@@ -1,4 +1,4 @@
-# This file is part of Scapy
+## This file is part of Scapy
 ## See http://www.secdev.org/projects/scapy for more informations
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
@@ -154,6 +154,11 @@ class PadField:
         self._align = align
         self._padwith = padwith or ""
 
+    def getfield(self, pkt, s):
+        x = self._fld.getfield(pkt,s)
+        padlen = ((self._align - (len(x[1]) % self._align)) % self._align)
+        return x[0][padlen:], x[1]
+
     def addfield(self, pkt, s, val):
         sval = self._fld.addfield(pkt, "", val)
         return s+sval+struct.pack("%is" % (-len(sval)%self._align), self._padwith)
@@ -249,9 +254,11 @@ class ByteField(Field):
         
 class XByteField(ByteField):
     def i2repr(self, pkt, x):
-        if x is None:
-            x = 0
         return lhex(self.i2h(pkt, x))
+
+class OByteField(ByteField):
+    def i2repr(self, pkt, x):
+        return "%03o"%self.i2h(pkt, x)
 
 class X3BytesField(XByteField):
     def __init__(self, name, default):
@@ -272,8 +279,6 @@ class LEShortField(Field):
 
 class XShortField(ShortField):
     def i2repr(self, pkt, x):
-        if x is None:
-            x = 0
         return lhex(self.i2h(pkt, x))
 
 
@@ -299,8 +304,6 @@ class LESignedIntField(Field):
 
 class XIntField(IntField):
     def i2repr(self, pkt, x):
-        if x is None:
-            x = 0
         return lhex(self.i2h(pkt, x))
 
 
@@ -310,8 +313,6 @@ class LongField(Field):
 
 class XLongField(LongField):
     def i2repr(self, pkt, x):
-        if x is None:
-            x = 0
         return lhex(self.i2h(pkt, x))
 
 class IEEEFloatField(Field):
@@ -462,6 +463,19 @@ class StrFixedLenField(StrField):
         except:
             l = RandNum(0,200)
         return RandBin(l)
+
+class StrFixedLenEnumField(StrFixedLenField):
+    def __init__(self, name, default, length=None, enum=None, length_from=None):
+        StrFixedLenField.__init__(self, name, default, length=length, length_from=length_from)
+        self.enum = enum
+    def i2repr(self, pkt, v):
+        r = v.rstrip("\0")
+        rr = repr(r)
+        if v in self.enum:
+            rr = "%s (%s)" % (rr, self.enum[v])
+        elif r in self.enum:
+            rr = "%s (%s)" % (rr, self.enum[r])
+        return rr
 
 class NetBIOSNameField(StrFixedLenField):
     def __init__(self, name, default, length=31):

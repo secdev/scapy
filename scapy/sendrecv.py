@@ -6,10 +6,10 @@
 import cPickle,os,sys,time,subprocess
 from select import select
 from data import *
-from arch import *
+import arch
 from config import conf
 from packet import Gen
-from utils import warning,get_temp_file
+from utils import warning,get_temp_file,PcapReader
 import plist
 from error import log_runtime,log_interactive
 from base_classes import SetGen
@@ -31,7 +31,7 @@ class debug:
 
 
 
-def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0, retry=0, multi=0):
+def sndrcv(pks, pkt, timeout = None, inter = 0, verbose=None, chainCC=0, retry=0, multi=0):
     if not isinstance(pkt, Gen):
         pkt = SetGen(pkt)
         
@@ -117,7 +117,7 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0, retry=0, m
                                 if remaintime <= 0:
                                     break
                             r = None
-                            if FREEBSD or DARWIN:
+                            if arch.FREEBSD or arch.DARWIN:
                                 inp, out, err = select(inmask,[],[], 0.05)
                                 if len(inp) == 0 or pks in inp:
                                     r = pks.nonblock_recv()
@@ -200,10 +200,10 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0, retry=0, m
     
     if verbose:
         print "\nReceived %i packets, got %i answers, remaining %i packets" % (nbrecv+len(ans), len(ans), notans)
-    return plist.SndRcvList(ans),plist.PacketList(remain,"Unanswered"),debug.recv
+    return plist.SndRcvList(ans),plist.PacketList(remain,"Unanswered")
 
 
-def __gen_send(s, x, inter=0, loop=0, count=None, verbose=None, *args, **kargs):
+def __gen_send(s, x, inter=0, loop=0, count=None, verbose=None, realtime=None, *args, **kargs):
     if type(x) is str:
         x = Raw(load=x)
     if not isinstance(x, Gen):
@@ -215,9 +215,18 @@ def __gen_send(s, x, inter=0, loop=0, count=None, verbose=None, *args, **kargs):
         loop = -count
     elif not loop:
         loop=-1
+    dt0 = None
     try:
         while loop:
             for p in x:
+                if realtime:
+                    ct = time.time()
+                    if dt0:
+                        st = dt0+p.time-ct
+                        if st > 0:
+                            time.sleep(st)
+                    else:
+                        dt0 = ct-p.time 
                 s.send(p)
                 n += 1
                 if verbose:
@@ -232,18 +241,18 @@ def __gen_send(s, x, inter=0, loop=0, count=None, verbose=None, *args, **kargs):
         print "\nSent %i packets." % n
         
 @conf.commands.register
-def send(x, inter=0, loop=0, count=None, verbose=None, *args, **kargs):
+def send(x, inter=0, loop=0, count=None, verbose=None, realtime=None, *args, **kargs):
     """Send packets at layer 3
 send(packets, [inter=0], [loop=0], [verbose=conf.verb]) -> None"""
-    __gen_send(conf.L3socket(*args, **kargs), x, inter=inter, loop=loop, count=count,verbose=verbose)
+    __gen_send(conf.L3socket(*args, **kargs), x, inter=inter, loop=loop, count=count,verbose=verbose, realtime=realtime)
 
 @conf.commands.register
-def sendp(x, inter=0, loop=0, iface=None, iface_hint=None, count=None, verbose=None, *args, **kargs):
+def sendp(x, inter=0, loop=0, iface=None, iface_hint=None, count=None, verbose=None, realtime=None, *args, **kargs):
     """Send packets at layer 2
 sendp(packets, [inter=0], [loop=0], [verbose=conf.verb]) -> None"""
     if iface is None and iface_hint is not None:
         iface = conf.route.route(iface_hint)[0]
-    __gen_send(conf.L2socket(iface=iface, *args, **kargs), x, inter=inter, loop=loop, count=count, verbose=verbose)
+    __gen_send(conf.L2socket(iface=iface, *args, **kargs), x, inter=inter, loop=loop, count=count, verbose=verbose, realtime=realtime)
 
 @conf.commands.register
 def sendpfast(x, pps=None, mbps=None, realtime=None, loop=0, iface=None):
@@ -298,7 +307,7 @@ iface:    listen answers only on the given interface"""
     if not kargs.has_key("timeout"):
         kargs["timeout"] = -1
     s = conf.L3socket(filter=filter, iface=iface, nofilter=nofilter)
-    a,b,c=sndrcv(s,x,*args,**kargs)
+    a,b=sndrcv(s,x,*args,**kargs)
     s.close()
     return a,b
 
@@ -316,7 +325,7 @@ iface:    listen answers only on the given interface"""
     if not kargs.has_key("timeout"):
         kargs["timeout"] = -1
     s=conf.L3socket(filter=filter, nofilter=nofilter, iface=iface)
-    a,b,c=sndrcv(s,x,*args,**kargs)
+    a,b=sndrcv(s,x,*args,**kargs)
     s.close()
     if len(a) > 0:
         return a[0][1]
@@ -339,7 +348,7 @@ iface:    work only on the given interface"""
     if iface is None and iface_hint is not None:
         iface = conf.route.route(iface_hint)[0]
     s = conf.L2socket(iface=iface, filter=filter, nofilter=nofilter, type=type)
-    a,b,c=sndrcv(s ,x,*args,**kargs)
+    a,b=sndrcv(s ,x,*args,**kargs)
     s.close()
     return a,b
 
@@ -513,7 +522,8 @@ iface:    listen answers only on the given interface"""
 
 
 @conf.commands.register
-def sniff(count=0, store=1, offline=None, prn = None, lfilter=None, L2socket=None, timeout=None, *arg, **karg):
+def sniff(count=0, store=1, offline=None, prn = None, lfilter=None, L2socket=None, timeout=None,
+          opened_socket=None, stop_filter=None, *arg, **karg):
     """Sniff packets
 sniff([count=0,] [prn=None,] [store=1,] [offline=None,] [lfilter=None,] + L2ListenSocket args) -> list of packets
 
@@ -528,15 +538,22 @@ lfilter: python function applied to each packet to determine
 offline: pcap file to read packets from, instead of sniffing them
 timeout: stop sniffing after a given time (default: None)
 L2socket: use the provided L2socket
+opened_socket: provide an object ready to use .recv() on
+stop_filter: python function applied to each packet to determine
+             if we have to stop the capture after this packet
+             ex: stop_filter = lambda x: x.haslayer(TCP)
     """
     c = 0
-
-    if offline is None:
-        if L2socket is None:
-            L2socket = conf.L2listen
-        s = L2socket(type=ETH_P_ALL, *arg, **karg)
+    
+    if opened_socket is not None:
+        s = opened_socket
     else:
-        s = PcapReader(offline)
+        if offline is None:
+            if L2socket is None:
+                L2socket = conf.L2listen
+            s = L2socket(type=ETH_P_ALL, *arg, **karg)
+        else:
+            s = PcapReader(offline)
 
     lst = []
     if timeout is not None:
@@ -562,11 +579,14 @@ L2socket: use the provided L2socket
                     r = prn(p)
                     if r is not None:
                         print r
+                if stop_filter and stop_filter(p):
+                    break
                 if count > 0 and c >= count:
                     break
         except KeyboardInterrupt:
             break
-    s.close()
+    if opened_socket is None:
+        s.close()
     return plist.PacketList(lst,"Sniffed")
 
 @conf.commands.register

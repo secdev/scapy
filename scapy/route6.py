@@ -72,7 +72,7 @@ class Route6:
             # replace that unique address by the list of all addresses
             lifaddr = in6_getifaddr()             
             devaddrs = filter(lambda x: x[2] == dev, lifaddr)
-            ifaddr = construct_source_candidate_set(prefix, plen, devaddrs)
+            ifaddr = construct_source_candidate_set(prefix, plen, devaddrs, LOOPBACK_NAME)
 
         return (prefix, plen, gw, dev, ifaddr)
 
@@ -217,8 +217,8 @@ class Route6:
             warning("No route found for IPv6 destination %s (no default route?)" % dst)
             return (LOOPBACK_NAME, "::", "::") # XXX Linux specific
 
-        pathes.sort()
-        pathes.reverse()
+        # Sort with longest prefix first
+        pathes.sort(reverse=True)
 
         best_plen = pathes[0][0]
         pathes = filter(lambda x: x[0] == best_plen, pathes)

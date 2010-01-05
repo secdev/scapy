@@ -3,7 +3,7 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
-import re
+import os,sys,re
 from dadict import DADict
 from error import log_loading
 
@@ -44,7 +44,9 @@ IPV6_ADDR_UNSPECIFIED = 0x10000
 
 
 
-MTU = 1600
+MTU = 0x7fff # a.k.a give me all you have
+
+WINDOWS=sys.platform.startswith("win")
 
  
 # file parsing to get some values :
@@ -68,10 +70,8 @@ def load_protocols(filename):
             except Exception,e:
                 log_loading.info("Couldn't parse file [%s]: line [%r] (%s)" % (filename,l,e))
     except IOError:
-        log_loading.info("Can't open /etc/protocols file")
+        log_loading.info("Can't open %s file" % filename)
     return dct
-
-IP_PROTOS=load_protocols("/etc/protocols")
 
 def load_ethertypes(filename):
     spaces = re.compile("[ \t]+|\n")
@@ -96,8 +96,6 @@ def load_ethertypes(filename):
     except IOError,msg:
         pass
     return dct
-
-ETHER_TYPES=load_ethertypes("/etc/ethertypes")
 
 def load_services(filename):
     spaces = re.compile("[ \t]+|\n")
@@ -127,7 +125,6 @@ def load_services(filename):
         log_loading.info("Can't open /etc/services file")
     return tdct,udct
 
-TCP_SERVICES,UDP_SERVICES=load_services("/etc/services")
 
 class ManufDA(DADict):
     def fixname(self, val):
@@ -171,6 +168,17 @@ def load_manuf(filename):
     return manufdb
     
 
+
+if WINDOWS:
+    ETHER_TYPES=load_ethertypes("ethertypes")
+    IP_PROTOS=load_protocols(os.environ["SystemRoot"]+"\system32\drivers\etc\protocol")
+    TCP_SERVICES,UDP_SERVICES=load_services(os.environ["SystemRoot"] + "\system32\drivers\etc\services")
+    MANUFDB = load_manuf(os.environ["ProgramFiles"] + "\\wireshark\\manuf")
+else:
+    IP_PROTOS=load_protocols("/etc/protocols")
+    ETHER_TYPES=load_ethertypes("/etc/ethertypes")
+    TCP_SERVICES,UDP_SERVICES=load_services("/etc/services")
+    MANUFDB = load_manuf("/usr/share/wireshark/wireshark/manuf")
 
 
 

@@ -12,7 +12,7 @@ from utils import corrupt_bits,corrupt_bytes
 ####################
 
 
-class RandomSequence:
+class RandomEnumeration:
     """iterate through a sequence in random order.
        When all the values have been drawn, if forever=1, the drawing is done again.
        If renewkeys=0, the draw will be in the same order, guaranteeing that the same
@@ -42,10 +42,11 @@ class RandomSequence:
     def next(self):
         while True:
             if self.turns == 0 or (self.i == 0 and self.renewkeys):
+                self.cnt_key = self.rnd.randint(0,2**self.n-1)
                 self.sbox = [self.rnd.randint(0,self.fsmask) for k in xrange(self.sbox_size)]
             self.turns += 1
             while self.i < 2**self.n:
-                ct = self.i
+                ct = self.i^self.cnt_key
                 self.i += 1
                 for k in range(self.rounds): # Unbalanced Feistel Network
                     lsb = ct & self.fsmask
@@ -66,6 +67,13 @@ class VolatileValue:
     def __getattr__(self, attr):
         if attr == "__setstate__":
             raise AttributeError(attr)
+        elif attr == "__cmp__":
+            x = self._fix()
+            def cmp2(y,x=x):
+                if type(x) != type(y):
+                    return -1
+                return x.__cmp__(y)
+            return cmp2
         return getattr(self._fix(),attr)
     def _fix(self):
         return None
@@ -105,10 +113,10 @@ class RandNumExpo(RandField):
     def _fix(self):
         return self.base+int(round(random.expovariate(self.lambd)))
 
-class RandDraw(RandNum):
+class RandEnum(RandNum):
     """Instances evaluate to integer sampling without replacement from the given interval"""
     def __init__(self, min, max):
-        self.seq = RandomSequence(min,max)
+        self.seq = RandomEnumeration(min,max)
     def _fix(self):
         return self.seq.next()
 
@@ -144,37 +152,37 @@ class RandSLong(RandNum):
     def __init__(self):
         RandNum.__init__(self, -2L**63, 2L**63-1)
 
-class RandDrawByte(RandDraw):
+class RandEnumByte(RandEnum):
     def __init__(self):
-        RandDraw.__init__(self, 0, 2L**8-1)
+        RandEnum.__init__(self, 0, 2L**8-1)
 
-class RandDrawSByte(RandDraw):
+class RandEnumSByte(RandEnum):
     def __init__(self):
-        RandDraw.__init__(self, -2L**7, 2L**7-1)
+        RandEnum.__init__(self, -2L**7, 2L**7-1)
 
-class RandDrawShort(RandDraw):
+class RandEnumShort(RandEnum):
     def __init__(self):
-        RandDraw.__init__(self, 0, 2L**16-1)
+        RandEnum.__init__(self, 0, 2L**16-1)
 
-class RandDrawSShort(RandDraw):
+class RandEnumSShort(RandEnum):
     def __init__(self):
-        RandDraw.__init__(self, -2L**15, 2L**15-1)
+        RandEnum.__init__(self, -2L**15, 2L**15-1)
 
-class RandDrawInt(RandDraw):
+class RandEnumInt(RandEnum):
     def __init__(self):
-        RandDraw.__init__(self, 0, 2L**32-1)
+        RandEnum.__init__(self, 0, 2L**32-1)
 
-class RandDrawSInt(RandDraw):
+class RandEnumSInt(RandEnum):
     def __init__(self):
-        RandDraw.__init__(self, -2L**31, 2L**31-1)
+        RandEnum.__init__(self, -2L**31, 2L**31-1)
 
-class RandDrawLong(RandDraw):
+class RandEnumLong(RandEnum):
     def __init__(self):
-        RandDraw.__init__(self, 0, 2L**64-1)
+        RandEnum.__init__(self, 0, 2L**64-1)
 
-class RandDrawSLong(RandDraw):
+class RandEnumSLong(RandEnum):
     def __init__(self):
-        RandDraw.__init__(self, -2L**63, 2L**63-1)
+        RandEnum.__init__(self, -2L**63, 2L**63-1)
 
 class RandChoice(RandField):
     def __init__(self, *args):
@@ -226,13 +234,58 @@ class RandMAC(RandString):
                 v = RandByte()
             elif "-" in template[i]:
                 x,y = template[i].split("-")
-                v = RandSeq(int(x,16), int(y,16))
+                v = RandNum(int(x,16), int(y,16))
             else:
                 v = int(template[i],16)
             self.mac += (v,)
     def _fix(self):
         return "%02x:%02x:%02x:%02x:%02x:%02x" % self.mac
     
+class RandIP6(RandString):
+    def __init__(self, ip6template="**"):
+        self.tmpl = ip6template
+        self.sp = self.tmpl.split(":")
+        for i,v in enumerate(self.sp):
+            if not v or v == "**":
+                continue
+            if "-" in v:
+                a,b = v.split("-")
+            elif v == "*":
+                a=b=""
+            else:
+                a=b=v
+
+            if not a:
+                a = "0"
+            if not b:
+                b = "ffff"
+            if a==b:
+                self.sp[i] = int(a,16)
+            else:
+                self.sp[i] = RandNum(int(a,16), int(b,16))
+        self.variable = "" in self.sp
+        self.multi = self.sp.count("**")
+    def _fix(self):
+        done = 0
+        nbm = self.multi
+        ip = []
+        for i,n in enumerate(self.sp):
+            if n == "**":
+                nbm -= 1
+                remain = 8-(len(self.sp)-i-1)-len(ip)+nbm
+                if "" in self.sp:
+                    remain += 1
+                if nbm or self.variable:
+                    remain = random.randint(0,remain)
+                for j in range(remain):
+                    ip.append("%04x" % random.randint(0,65535))
+            elif not n:
+                ip.append("")
+            else:
+                ip.append("%04x" % n)
+        if len(ip) == 9:
+            ip.remove("")
+        return ":".join(ip)
 
 class RandOID(RandString):
     def __init__(self, fmt=None, depth=RandNumExpo(0.1), idnum=RandNumExpo(0.01)):
@@ -267,8 +320,6 @@ class RandOID(RandString):
             return ".".join(oid)
             
 
-from pprint import pprint
-        
 class RandRegExp(RandField):
     def __init__(self, regexp, lambda_=0.3,):
         self._regexp = regexp

@@ -9,19 +9,21 @@ Scapy's interactive shell is run in a terminal session. Root privileges are need
 send the packets, so we're using ``sudo`` here::
   
     $ sudo scapy
-    Welcome to Scapy (2.0.0.10 beta)
+    Welcome to Scapy (2.0.1-dev)
     >>> 
 
 On Windows, please open a command prompt (``cmd.exe``) and make sure that you have 
 administrator privileges::
 
-    C:\scapy> python scapy.py
-    Welcome to Scapy (1.2.0.2-win)
-    >>> 
+    C:\>scapy
+    INFO: No IPv6 support in kernel
+    WARNING: No route found for IPv6 destination :: (no default route?)
+    Welcome to Scapy (2.0.1-dev)
+    >>>
 
 If you do not have all optional packages installed, Scapy will inform you that 
 some features will not be available:: 
-
+                                 
     INFO: Can't import python gnuplot wrapper . Won't be able to plot.
     INFO: Can't import PyX. Won't be able to use psdump() or pdfdump().
 
@@ -170,7 +172,7 @@ For the moment, we have only generated one packet. Let see how to specify sets o
 
     >>> a=IP(dst="www.slashdot.org/30")
     >>> a
-    <IP dst= |>
+    <IP  dst=Net('www.slashdot.org/30') |>
     >>> [p for p in a]
     [<IP dst=66.35.250.148 |>, <IP dst=66.35.250.149 |>,
      <IP dst=66.35.250.150 |>, <IP dst=66.35.250.151 |>]
@@ -298,7 +300,7 @@ Now, let's try to do some fun things. The sr() function is for sending packets a
 .. index::
    single: DNS, Etherleak
 
-A DNS query (``rd`` = recursion desired). Note the non-null padding coming from my Linksys having the Etherleak flaw::
+A DNS query (``rd`` = recursion desired). The host 192.168.5.1 is my DNS server. Note the non-null padding coming from my Linksys having the Etherleak flaw::
 
     >>> sr1(IP(dst="192.168.5.1")/UDP()/DNS(rd=1,qd=DNSQR(qname="www.slashdot.org")))
     Begin emission:
@@ -405,12 +407,12 @@ The above example will even print the ICMP error type if the ICMP packet was rec
 
 For larger scans, we could be interested in displaying only certain responses. The example below will only display packets with the “SA” flag set::
 
-    >>> ans.nsummary(lfilter = lambda (s,r): r.sprintf("%TCP.flags%") ====== "SA")
+    >>> ans.nsummary(lfilter = lambda (s,r): r.sprintf("%TCP.flags%") == "SA")
     0003 IP / TCP 192.168.1.100:ftp_data > 192.168.1.1:https S ======> IP / TCP 192.168.1.1:https > 192.168.1.100:ftp_data SA
 
 In case we want to do some expert analysis of responses, we can use the following command to indicate which ports are open::
 
-    >>> ans.summary(lfilter = lambda (s,r): r.sprintf("%TCP.flags%") ====== "SA",prn=lambda(s,r):r.sprintf("%TCP.sport% is open"))
+    >>> ans.summary(lfilter = lambda (s,r): r.sprintf("%TCP.flags%") == "SA",prn=lambda(s,r):r.sprintf("%TCP.sport% is open"))
     https is open
 
 Again, for larger scans we can build a table of open ports::
@@ -627,6 +629,7 @@ We can sniff and do passive OS fingerprinting::
      seq=2023566040L ack=0L dataofs=10L reserved=0L flags=SEC window=5840
      chksum=0x570c urgptr=0 options=[('Timestamp', (342940201L, 0L)), ('MSS', 1460),
      ('NOP', ()), ('SAckOK', ''), ('WScale', 0)] |>>>
+    >>> load_module("p0f")
     >>> p0f(p)
     (1.0, ['Linux 2.4.2 - 2.4.14 (1)'])
     >>> a=sniff(prn=prnp0f)
@@ -797,7 +800,7 @@ Using the ``export_object()`` function, Scapy can export a base64 encoded Python
     WZXXVCmi9pihUqI3FHdEQslriiVfWFTVT9VYpog6Q7fsjG0qRWtQNwsW1fRTrUg4xZxq5pUx1aS6
     ...
 
-The output above can be reimported back into Skype using ``import_object()``::
+The output above can be reimported back into Scapy using ``import_object()``::
 
     >>> new_pkt = import_object()
     eNplVwd4FNcRPt2dTqdTQ0JUUYwN+CgS0gkJONFEs5WxFDB+CdiI8+pupVl0d7uzRUiYtcEGG4ST
@@ -1487,11 +1490,15 @@ Once we obtain a reasonable number of responses we can start analyzing collected
 nmap_fp
 ^^^^^^^
 
-If you have nmap installed you can use it's active os fingerprinting database with Scapy. First make sure that version 1 of signature database is located in the path specified by::
+Nmap fingerprinting (the old "1st generation" one that was done by Nmap up to v4.20) is supported in Scapy. In Scapy v2 you have to load an extension module first::
+
+    >>> load_module("nmap")
+
+If you have Nmap installed you can use it's active os fingerprinting database with Scapy. Make sure that version 1 of signature database is located in the path specified by::
 
     >>> conf.nmap_base
 
-Scapy includes a built-in ``nmap_fp()`` function which implements same probes as in Nmap's OS Detection engine::
+Then you can use the ``nmap_fp()`` function which implements same probes as in Nmap's OS Detection engine::
 
     >>> nmap_fp("192.168.1.1",oport=443,cport=1)
     Begin emission:

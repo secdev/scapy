@@ -27,7 +27,7 @@ class SuperSocket:
         sx = str(x)
         x.sent_time = time.time()
         return self.outs.send(sx)
-    def recv(self, x):
+    def recv(self, x=MTU):
         return conf.raw_layer(self.ins.recv(x))
     def fileno(self):
         return self.ins.fileno()
@@ -40,10 +40,16 @@ class SuperSocket:
                 self.outs.close()
         if self.ins and self.ins.fileno() != -1:
             self.ins.close()
-    def bind_in(self, addr):
-        self.ins.bind(addr)
-    def bind_out(self, addr):
-        self.outs.bind(addr)
+    def sr(self, *args, **kargs):
+        return sendrecv.sndrcv(self, *args, **kargs)
+    def sr1(self, *args, **kargs):        
+        a,b = sendrecv.sndrcv(self, *args, **kargs)
+        if len(a) > 0:
+            return a[0][1]
+        else:
+            return None
+    def sniff(self, *args, **kargs):
+        return sendrecv.sniff(opened_socket=self, *args, **kargs)
 
 class L3RawSocket(SuperSocket):
     desc = "Layer 3 using Raw sockets (PF_INET/SOCK_RAW)"
@@ -51,7 +57,7 @@ class L3RawSocket(SuperSocket):
         self.outs = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_RAW)
         self.outs.setsockopt(socket.SOL_IP, socket.IP_HDRINCL, 1)
         self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))
-    def recv(self, x):
+    def recv(self, x=MTU):
         return Ether(self.ins.recv(x)).payload
     def send(self, x):
         try:
@@ -95,3 +101,5 @@ class StreamSocket(SimpleSocket):
 
 if conf.L3socket is None:
     conf.L3socket = L3RawSocket
+
+import sendrecv

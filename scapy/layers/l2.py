@@ -348,22 +348,38 @@ class ARP(Packet):
                  
 conf.neighbor.register_l3(Ether, ARP, lambda l2,l3: getmacbyip(l3.pdst))
 
+class GRErouting(Packet):
+    name = "GRE routing informations"
+    fields_desc = [ ShortField("address_family",0),
+                    ByteField("SRE_offset", 0),
+                    FieldLenField("SRE_len", None, "routing_info", "B"),
+                    StrLenField("routing_info", "", "SRE_len"),
+                    ]
+
+
 class GRE(Packet):
     name = "GRE"
-    fields_desc = [ BitField("chksumpresent",0,1),
-                    BitField("reserved0",0,12),
+    fields_desc = [ BitField("chksum_present",0,1),
+                    BitField("routing_present",0,1),
+                    BitField("key_present",0,1),
+                    BitField("seqnum_present",0,1),
+                    BitField("strict_route_source",0,1),
+                    BitField("recursion control",0,3),
+                    BitField("flags",0,5),
                     BitField("version",0,3),
                     XShortEnumField("proto", 0x0000, ETHER_TYPES),
-                    ConditionalField(XShortField("chksum",None),lambda pkt:pkt.chksumpresent==1),
-                    ConditionalField(XShortField("reserved1",None),lambda pkt:pkt.chksumpresent==1),
+                    ConditionalField(XShortField("chksum",None), lambda pkt:pkt.chksum_present==1 or pkt.routing_present==1),
+                    ConditionalField(XShortField("offset",None), lambda pkt:pkt.chksum_present==1 or pkt.routing_present==1),
+                    ConditionalField(XIntField("key",None), lambda pkt:pkt.key_present==1),
+                    ConditionalField(XIntField("seqence_number",None), lambda pkt:pkt.seqnum_present==1),
                     ]
     def post_build(self, p, pay):
         p += pay
-        if self.chksumpresent and self.chksum is None:
+        if self.chksum_present and self.chksum is None:
             c = checksum(p)
             p = p[:4]+chr((c>>8)&0xff)+chr(c&0xff)+p[6:]
         return p
-            
+
 
 
 
@@ -384,6 +400,9 @@ bind_layers( GRE,           Dot1Q,         proto=33024)
 bind_layers( GRE,           Ether,         proto=1)
 bind_layers( GRE,           ARP,           proto=2054)
 bind_layers( GRE,           EAPOL,         proto=34958)
+bind_layers( GRE,           GRErouting,    { "routing_present" : 1 } )
+bind_layers( GRErouting,    Raw,           { "address_family" : 0, "SRE_len" : 0 })
+bind_layers( GRErouting,    GRErouting,    { } )
 bind_layers( EAPOL,         EAP,           type=0)
 bind_layers( LLC,           STP,           dsap=66, ssap=66, ctrl=3)
 bind_layers( LLC,           SNAP,          dsap=170, ssap=170, ctrl=3)

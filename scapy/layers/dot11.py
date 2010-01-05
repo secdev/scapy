@@ -263,8 +263,8 @@ class Dot11AssoResp(Packet):
 class Dot11ReassoReq(Packet):
     name = "802.11 Reassociation Request"
     fields_desc = [ FlagsField("cap", 0, 16, capability_list),
-                    MACField("current_AP", ETHER_ANY),
-                    LEShortField("listen_interval", 0x00c8) ]
+                    LEShortField("listen_interval", 0x00c8),
+                    MACField("current_AP", ETHER_ANY) ]
 
 
 class Dot11ReassoResp(Dot11AssoResp):

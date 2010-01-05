@@ -112,6 +112,8 @@ class Route:
 
 
     def route(self,dest,verbose=None):
+        if type(dest) is list and dest:
+            dest = dest[0]
         if dest in self.cache:
             return self.cache[dest]
         if verbose is None:

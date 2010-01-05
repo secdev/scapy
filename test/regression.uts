@@ -895,7 +895,128 @@ class ATMT6(Automaton):
 a=ATMT6()
 a.run()
 assert( _ == 'Mercury' )
- 
+
+a.restart()
+a.run()
+assert( _ == 'Mercury' )
+
+= Automaton test io event
+~ automaton
+
+class ATMT7(Automaton):
+    @ATMT.state(initial=1)
+    def BEGIN(self):
+        self.res = "S"
+    @ATMT.ioevent(BEGIN, name="tst")
+    def tr1(self, fd):
+        self.res += fd.recv()
+        raise self.NEXT_STATE()
+    @ATMT.state()
+    def NEXT_STATE(self):
+        self.oi.tst.send("ur")
+    @ATMT.ioevent(NEXT_STATE, name="tst")
+    def tr2(self, fd):
+        self.res += fd.recv()
+        raise self.END()
+    @ATMT.state(final=1)
+    def END(self):
+        self.res += "n"
+        return self.res
+
+a=ATMT7()
+a.run(wait=False)
+a.io.tst.send("at")
+a.io.tst.recv()
+a.io.tst.send(_)
+a.run()
+assert( _ == "Saturn" )
+
+a.restart()
+a.run(wait=False)
+a.io.tst.send("at")
+a.io.tst.recv()
+a.io.tst.send(_)
+a.run()
+assert( _ == "Saturn" )
+
+= Automaton test io event from external fd
+~ automaton
+class ATMT8(Automaton):
+    @ATMT.state(initial=1)
+    def BEGIN(self):
+        self.res = "U"
+    @ATMT.ioevent(BEGIN, name="extfd")
+    def tr1(self, fd):
+        self.res += fd.read(2)
+        raise self.NEXT_STATE()
+    @ATMT.state()
+    def NEXT_STATE(self):
+        pass
+    @ATMT.ioevent(NEXT_STATE, name="extfd")
+    def tr2(self, fd):
+        self.res += fd.read(2)
+        raise self.END()
+    @ATMT.state(final=1)
+    def END(self):
+        self.res += "s"
+        return self.res
+
+r,w = os.pipe()
+
+a=ATMT8(external_fd={"extfd":r})
+a.run(wait=False)
+os.write(w,"ra")
+os.write(w,"nu")
+a.run()
+assert( _ == "Uranus" )
+
+a.restart()
+a.run(wait=False)
+os.write(w,"ra")
+os.write(w,"nu")
+a.run()
+assert( _ == "Uranus" )
+
+= Automaton test interception_points, and restart
+~ automaton
+class ATMT9(Automaton):
+    def my_send(self, x):
+        self.io.loop.send(x)
+    @ATMT.state(initial=1)
+    def BEGIN(self):
+        self.res = "V"
+        self.send(Raw("ENU"))
+    @ATMT.ioevent(BEGIN, name="loop")
+    def received_sth(self, fd):
+        self.res += fd.recv().load
+        raise self.END()
+    @ATMT.state(final=1)
+    def END(self):
+        self.res += "s"
+        return self.res
+
+a=ATMT9(debug=5)
+a.run()
+assert( _ == "VENUs" )
+
+a.restart()
+a.run()
+assert( _ == "VENUs" )
+
+a.restart()
+a.BEGIN.intercepts()
+while True:
+    try:
+        x = a.run()
+    except Automaton.InterceptionPoint,p:
+        a.accept_packet(Raw(p.packet.load.lower()), wait=False)
+    else:
+        break
+
+x
+assert( _ == "Venus" )
+
+
 
 + Test IP options
 

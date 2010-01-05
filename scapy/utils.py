@@ -7,6 +7,7 @@ import os,sys,socket,types
 import random,time
 import gzip,zlib,cPickle
 import re,struct,array
+import subprocess
 
 import warnings
 warnings.filterwarnings("ignore","tempnam",RuntimeWarning, __name__)
@@ -16,6 +17,7 @@ from data import MTU
 from error import log_runtime,log_loading,log_interactive
 from base_classes import BasePacketList
 
+WINDOWS=sys.platform.startswith("win32")
 
 ###########
 ## Tools ##
@@ -260,6 +262,7 @@ try:
     inet_ntop = socket.inet_ntop
     inet_pton = socket.inet_pton
 except AttributeError:
+    from scapy.pton_ntop import *
     log_loading.info("inet_ntop/pton functions not found. Python IPv6 support not present")
 
 
@@ -275,7 +278,7 @@ def ltoa(x):
 def itom(x):
     return (0xffffffff00000000L>>x)&0xffffffffL
 
-def do_graph(graph,prog=None,format="svg",target=None, type=None,string=None,options=None):
+def do_graph(graph,prog=None,format=None,target=None,type=None,string=None,options=None):
     """do_graph(graph, prog=conf.prog.dot, format="svg",
          target="| conf.prog.display", options=None, [string=1]):
     string: if not None, simply return the graph string
@@ -285,20 +288,43 @@ def do_graph(graph,prog=None,format="svg",target=None, type=None,string=None,opt
     prog: which graphviz program to use
     options: options to be passed to prog"""
         
-
+    if format is None:
+        if WINDOWS:
+            format = "png" # use common format to make sure a viewer is installed
+        else:
+            format = "svg"
     if string:
         return graph
     if type is not None:
         format=type
     if prog is None:
         prog = conf.prog.dot
+    start_viewer=False
     if target is None:
-        target = "| %s" % conf.prog.display
+        if WINDOWS:
+            tempfile = os.tempnam("", "scapy") + "." + format
+            target = "> %s" % tempfile
+            start_viewer = True
+        else:
+            target = "| %s" % conf.prog.display
     if format is not None:
         format = "-T %s" % format
     w,r = os.popen2("%s %s %s %s" % (prog,options or "", format or "", target))
     w.write(graph)
     w.close()
+    if start_viewer:
+        # Workaround for file not found error: We wait until tempfile is written.
+        waiting_start = time.time()
+        while not os.path.exists(tempfile):
+            time.sleep(0.1)
+            if time.time() - waiting_start > 3:
+                warning("Temporary file '%s' could not be written. Graphic will not be displayed." % tempfile)
+                break
+        else:  
+            if conf.prog.display == conf.prog._default:
+                os.startfile(tempfile)
+            else:
+                subprocess.Popen([conf.prog.display, tempfile])
 
 _TEX_TR = {
     "{":"{\\tt\\char123}",
@@ -484,7 +510,7 @@ class RawPcapReader:
         return pkt
 
 
-    def read_packet(self):
+    def read_packet(self, size=MTU):
         """return a single packet read from the file
         
         returns None when no more packets are available
@@ -493,7 +519,7 @@ class RawPcapReader:
         if len(hdr) < 16:
             return None
         sec,usec,caplen,wirelen = struct.unpack(self.endian+"IIII", hdr)
-        s = self.f.read(caplen)
+        s = self.f.read(caplen)[:MTU]
         return s,(sec,usec,wirelen) # caplen = len(s)
 
 
@@ -519,10 +545,10 @@ class RawPcapReader:
             res.append(p)
         return res
 
-    def recv(self, size):
+    def recv(self, size=MTU):
         """ Emulate a socket
         """
-        return self.read_packet()[0]
+        return self.read_packet(size)[0]
 
     def fileno(self):
         return self.f.fileno()
@@ -540,8 +566,8 @@ class PcapReader(RawPcapReader):
         except KeyError:
             warning("PcapReader: unknown LL type [%i]/[%#x]. Using Raw packets" % (self.linktype,self.linktype))
             self.LLcls = conf.raw_layer
-    def read_packet(self):
-        rp = RawPcapReader.read_packet(self)
+    def read_packet(self, size=MTU):
+        rp = RawPcapReader.read_packet(self,size)
         if rp is None:
             return None
         s,(sec,usec,wirelen) = rp
@@ -560,8 +586,8 @@ class PcapReader(RawPcapReader):
         res = RawPcapReader.read_all(self, count)
         import plist
         return plist.PacketList(res,name = os.path.basename(self.filename))
-    def recv(self, size):
-        return self.read_packet()
+    def recv(self, size=MTU):
+        return self.read_packet(size)
         
 
 
@@ -635,7 +661,7 @@ class RawPcapWriter:
             if sec is None:
                 sec = it
             if usec is None:
-                usec = int((t-it)*1000000)
+                usec = int(round((t-it)*1000000))
         self.f.write(struct.pack(self.endian+"IIII", sec, usec, caplen, wirelen))
         self.f.write(packet)
         if self.gz and self.sync:
@@ -660,7 +686,7 @@ class PcapWriter(RawPcapWriter):
 
     def _write_packet(self, packet):        
         sec = int(packet.time)
-        usec = int((packet.time-sec)*1000000)
+        usec = int(round((packet.time-sec)*1000000))
         s = str(packet)
         caplen = len(s)
         RawPcapWriter._write_packet(self, s, sec, usec, caplen, caplen)
@@ -691,14 +717,14 @@ def wireshark(pktlist):
     """Run wireshark on a list of packets"""
     f = get_temp_file()
     wrpcap(f, pktlist)
-    os.spawnlp(os.P_NOWAIT, conf.prog.wireshark, conf.prog.wireshark, "-r", f)
+    subprocess.Popen([conf.prog.wireshark, "-r", f])
 
 @conf.commands.register
 def hexedit(x):
     x = str(x)
     f = get_temp_file()
     open(f,"w").write(x)
-    os.spawnlp(os.P_WAIT, conf.prog.hexedit, conf.prog.hexedit, f)
+    subprocess.call([conf.prog.hexedit, f])
     x = open(f).read()
     os.unlink(f)
     return x

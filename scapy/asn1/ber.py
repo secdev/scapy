@@ -223,6 +223,9 @@ class BERcodec_INTEGER(BERcodec_Object):
 class BERcodec_BOOLEAN(BERcodec_INTEGER):
     tag = ASN1_Class_UNIVERSAL.BOOLEAN
 
+class BERcodec_ENUMERATED(BERcodec_INTEGER):
+    tag = ASN1_Class_UNIVERSAL.ENUMERATED
+
 class BERcodec_NULL(BERcodec_INTEGER):
     tag = ASN1_Class_UNIVERSAL.NULL
     @classmethod
@@ -230,7 +233,10 @@ class BERcodec_NULL(BERcodec_INTEGER):
         if i == 0:
             return chr(cls.tag)+"\0"
         else:
-            return super(cls,cls).enc(i)
+            return BERcodec_INTEGER.enc(i)
+
+class BERcodec_SEP(BERcodec_NULL):
+    tag = ASN1_Class_UNIVERSAL.SEP
 
 class BERcodec_STRING(BERcodec_Object):
     tag = ASN1_Class_UNIVERSAL.STRING
@@ -253,6 +259,12 @@ class BERcodec_T61_STRING (BERcodec_STRING):
 
 class BERcodec_IA5_STRING(BERcodec_STRING):
     tag = ASN1_Class_UNIVERSAL.IA5_STRING
+
+class BERcodec_NUMERIC_STRING(BERcodec_STRING):
+    tag = ASN1_Class_UNIVERSAL.NUMERIC_STRING
+
+class BERcodec_VIDEOTEX_STRING(BERcodec_STRING):
+    tag = ASN1_Class_UNIVERSAL.VIDEOTEX_STRING
 
 class BERcodec_IPADDRESS(BERcodec_STRING):
     tag = ASN1_Class_UNIVERSAL.IPADDRESS
@@ -277,8 +289,14 @@ class BERcodec_IPADDRESS(BERcodec_STRING):
 class BERcodec_UTC_TIME(BERcodec_STRING):
     tag = ASN1_Class_UNIVERSAL.UTC_TIME
 
+class BERcodec_GENERALIZED_TIME(BERcodec_STRING):
+    tag = ASN1_Class_UNIVERSAL.GENERALIZED_TIME
+
 class BERcodec_TIME_TICKS(BERcodec_INTEGER):
     tag = ASN1_Class_UNIVERSAL.TIME_TICKS
+
+class BERcodec_GAUGE32(BERcodec_INTEGER):
+    tag = ASN1_Class_UNIVERSAL.GAUGE32
 
 class BERcodec_COUNTER32(BERcodec_INTEGER):
     tag = ASN1_Class_UNIVERSAL.COUNTER32

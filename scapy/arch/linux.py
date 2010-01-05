@@ -66,13 +66,13 @@ RTF_REJECT = 0x0200
 
 LOOPBACK_NAME="lo"
 
-with os.popen("tcpdump -V 2> /dev/null") as f:
-    if f.close() >> 8 == 0x7f:
+with os.popen("tcpdump -V 2> /dev/null") as _f:
+    if _f.close() >> 8 == 0x7f:
         log_loading.warning("Failed to execute tcpdump. Check it is installed and in the PATH")
         TCPDUMP=0
     else:
         TCPDUMP=1
-        
+del(_f)
     
 
 def get_if_raw_hwaddr(iff):
@@ -271,11 +271,16 @@ def get_if(iff,cmd):
 def get_if_index(iff):
     return int(struct.unpack("I",get_if(iff, SIOCGIFINDEX)[16:20])[0])
 
-def get_last_packet_timestamp(sock):
-    ts = ioctl(sock, SIOCGSTAMP, "12345678")
-    s,us = struct.unpack("II",ts)
-    return s+us/1000000.0
-
+if os.uname()[4] == 'x86_64':
+    def get_last_packet_timestamp(sock):
+        ts = ioctl(sock, SIOCGSTAMP, "1234567890123456")
+        s,us = struct.unpack("QQ",ts)
+        return s+us/1000000.0
+else:
+    def get_last_packet_timestamp(sock):
+        ts = ioctl(sock, SIOCGSTAMP, "12345678")
+        s,us = struct.unpack("II",ts)
+        return s+us/1000000.0
 
 
 def _flush_fd(fd):
@@ -333,7 +338,7 @@ class L3PacketSocket(SuperSocket):
             for i in self.iff:
                 set_promisc(self.ins, i, 0)
         SuperSocket.close(self)
-    def recv(self, x):
+    def recv(self, x=MTU):
         pkt, sa_ll = self.ins.recvfrom(x)
         if sa_ll[2] == socket.PACKET_OUTGOING:
             return None
@@ -371,8 +376,8 @@ class L3PacketSocket(SuperSocket):
         self.outs.bind(sdto)
         sn = self.outs.getsockname()
         ll = lambda x:x
-        if sn[3] in (ARPHDR_PPP,ARPHDR_TUN):
-            sdto = (iff, ETH_P_IP)
+        if type(x) in conf.l3types:
+            sdto = (iff, conf.l3types[type(x)])
         if sn[3] in conf.l2types:
             ll = lambda x:conf.l2types[sn[3]]()/x
         try:
@@ -382,7 +387,7 @@ class L3PacketSocket(SuperSocket):
         except socket.error,msg:
             x.sent_time = time.time()  # bad approximation
             if conf.auto_fragment and msg[0] == 90:
-                for p in fragment(x):
+                for p in x.fragment():
                     self.outs.sendto(str(ll(p)), sdto)
             else:
                 raise
@@ -419,7 +424,7 @@ class L2Socket(SuperSocket):
             self.LL = conf.default_l2
             warning("Unable to guess type (interface=%s protocol=%#x family=%i). Using %s" % (sa_ll[0],sa_ll[1],sa_ll[3],self.LL.name))
             
-    def recv(self, x):
+    def recv(self, x=MTU):
         pkt, sa_ll = self.ins.recvfrom(x)
         if sa_ll[2] == socket.PACKET_OUTGOING:
             return None

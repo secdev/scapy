@@ -11,9 +11,9 @@ def _import_star(m):
     for k,v in mod.__dict__.iteritems():
         globals()[k] = v
 
-for l in conf.load_layers:
-    log_loading.debug("Loading layer %s" % l)
-    _import_star(l)
+for _l in conf.load_layers:
+    log_loading.debug("Loading layer %s" % _l)
+    _import_star(_l)
 
 
 

@@ -23,6 +23,9 @@
 import socket
 if not socket.has_ipv6:
     raise socket.error("can't use AF_INET6, IPv6 is disabled")
+if not hasattr(socket, "IPPROTO_IPV6"):
+    # Workaround for http://bugs.python.org/issue6926
+    socket.IPPROTO_IPV6 = 41
 
 from scapy.config import conf
 from scapy.layers.l2 import *
@@ -206,6 +209,8 @@ class IP6Field(Field):
                 vaddr = in6_6to4ExtractAddr(x)
                 return "%s [6to4 GW: %s]" % (self.i2h(pkt, x), vaddr)
         return self.i2h(pkt, x)       # No specific information to return
+    def randval(self):
+        return RandIP6()
 
 class SourceIP6Field(IP6Field):
     def __init__(self, name, dstname):
@@ -2938,6 +2943,7 @@ conf.l3types.register(ETH_P_IPV6, IPv6)
 conf.l2types.register(31, IPv6)
 
 bind_layers(Ether,     IPv6,     type = 0x86dd )
+bind_layers(CookedLinux, IPv6,   proto = 0x86dd )
 bind_layers(IPerror6,  TCPerror, nh = socket.IPPROTO_TCP )
 bind_layers(IPerror6,  UDPerror, nh = socket.IPPROTO_UDP )
 bind_layers(IPv6,      TCP,      nh = socket.IPPROTO_TCP )

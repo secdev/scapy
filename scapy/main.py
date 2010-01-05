@@ -41,7 +41,7 @@ def _usage():
 
 
 from config import conf
-from themes import ColorPrompt
+from themes import DefaultTheme
 
 
 ######################
@@ -295,8 +295,9 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
         atexit.register(scapy_write_history_file,readline)
     
     atexit.register(scapy_delete_temp_files)
-    sys.ps1 = ColorPrompt()
-    code.interact(banner = the_banner % (conf.version), local=session)
+    conf.color_theme = DefaultTheme()
+    code.interact(banner = the_banner % (conf.version), 
+                  local=session, readfunc=conf.readfunc)
 
     if conf.session:
         save_session(conf.session, session)

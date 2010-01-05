@@ -14,6 +14,7 @@ from scapy.packet import *
 from scapy.volatile import *
 from scapy.sendrecv import sr,sr1,srp1
 from scapy.plist import PacketList,SndRcvList
+from scapy.automaton import Automaton,ATMT
 
 import scapy.as_resolvers
 
@@ -387,7 +388,35 @@ class IP(Packet, IPTools):
             s += " frag:%i" % self.frag
         return s
                  
-    
+    def fragment(self, fragsize=1480):
+        """Fragment IP datagrams"""
+        fragsize = (fragsize+7)/8*8
+        lst = []
+        fnb = 0
+        fl = self
+        while fl.underlayer is not None:
+            fnb += 1
+            fl = fl.underlayer
+        
+        for p in fl:
+            s = str(p[fnb].payload)
+            nb = (len(s)+fragsize-1)/fragsize
+            for i in range(nb):            
+                q = p.copy()
+                del(q[fnb].payload)
+                del(q[fnb].chksum)
+                del(q[fnb].len)
+                if i == nb-1:
+                    q[IP].flags &= ~1
+                else:
+                    q[IP].flags |= 1 
+                q[IP].frag = i*fragsize/8
+                r = Raw(load=s[i*fragsize:(i+1)*fragsize])
+                r.overload_fields = p[IP].payload.overload_fields.copy()
+                q.add_payload(r)
+                lst.append(q)
+        return lst
+
 
 class TCP(Packet):
     name = "TCP"
@@ -421,8 +450,8 @@ class TCP(Packet):
                                      ln)
                 ck=checksum(psdhdr+p)
                 p = p[:16]+struct.pack("!H", ck)+p[18:]
-            elif conf.ipv6_enabled and isinstance(self.underlayer, inet6.IPv6) or isinstance(self.underlayer, inet6._IPv6ExtHdr):
-                ck = inet6.in6_chksum(socket.IPPROTO_TCP, self.underlayer, p)
+            elif conf.ipv6_enabled and isinstance(self.underlayer, scapy.layers.inet6.IPv6) or isinstance(self.underlayer, scapy.layers.inet6._IPv6ExtHdr):
+                ck = scapy.layers.inet6.in6_chksum(socket.IPPROTO_TCP, self.underlayer, p)
                 p = p[:16]+struct.pack("!H", ck)+p[18:]
             else:
                 warning("No IP underlayer to compute checksum. Leaving null.")
@@ -445,7 +474,7 @@ class TCP(Packet):
     def mysummary(self):
         if isinstance(self.underlayer, IP):
             return self.underlayer.sprintf("TCP %IP.src%:%TCP.sport% > %IP.dst%:%TCP.dport% %TCP.flags%")
-        elif conf.ipv6_enabled and isinstance(self.underlayer, inet6.IPv6):
+        elif conf.ipv6_enabled and isinstance(self.underlayer, scapy.layers.inet6.IPv6):
             return self.underlayer.sprintf("TCP %IPv6.src%:%TCP.sport% > %IPv6.dst%:%TCP.dport% %TCP.flags%")
         else:
             return self.sprintf("TCP %TCP.sport% > %TCP.dport% %TCP.flags%")
@@ -475,8 +504,8 @@ class UDP(Packet):
                                      ln)
                 ck=checksum(psdhdr+p)
                 p = p[:6]+struct.pack("!H", ck)+p[8:]
-            elif isinstance(self.underlayer, inet6.IPv6) or isinstance(self.underlayer, inet6._IPv6ExtHdr):
-                ck = inet6.in6_chksum(socket.IPPROTO_UDP, self.underlayer, p)
+            elif isinstance(self.underlayer, scapy.layers.inet6.IPv6) or isinstance(self.underlayer, scapy.layers.inet6._IPv6ExtHdr):
+                ck = scapy.layers.inet6.in6_chksum(socket.IPPROTO_UDP, self.underlayer, p)
                 p = p[:6]+struct.pack("!H", ck)+p[8:]
             else:
                 warning("No IP underlayer to compute checksum. Leaving null.")
@@ -496,7 +525,7 @@ class UDP(Packet):
     def mysummary(self):
         if isinstance(self.underlayer, IP):
             return self.underlayer.sprintf("UDP %IP.src%:%UDP.sport% > %IP.dst%:%UDP.dport%")
-        elif isinstance(self.underlayer, inet6.IPv6):
+        elif isinstance(self.underlayer, scapy.layers.inet6.IPv6):
             return self.underlayer.sprintf("UDP %IPv6.src%:%UDP.sport% > %IPv6.dst%:%UDP.dport%")
         else:
             return self.sprintf("UDP %UDP.sport% > %UDP.dport%")    
@@ -569,7 +598,9 @@ class ICMP(Packet):
         return p
     
     def hashret(self):
-        return struct.pack("HH",self.id,self.seq)+self.payload.hashret()
+        if self.type in [0,8,13,14,15,16,17,18]:
+            return struct.pack("HH",self.id,self.seq)+self.payload.hashret()
+        return self.payload.hashret()
     def answers(self, other):
         if not isinstance(other,ICMP):
             return 0
@@ -998,7 +1029,7 @@ class TracerouteResult(SndRcvList):
         while 1:
             if visual.scene.kb.keys:
                 k = visual.scene.kb.getkey()
-                if k == "esc":
+                if k == "esc" or k == "q":
                     break
             if visual.scene.mouse.events:
                 ev = visual.scene.mouse.getevent()
@@ -1084,8 +1115,8 @@ class TracerouteResult(SndRcvList):
         ports = {}
         ports_done = {}
         for s,r in self.res:
-            r = r[IP] or (conf.ipv6_enabled and r[inet6.IPv6]) or r
-            s = s[IP] or (conf.ipv6_enabled and s[inet6.IPv6]) or s
+            r = r.getlayer(IP) or (conf.ipv6_enabled and r[scapy.layers.inet6.IPv6]) or r
+            s = s.getlayer(IP) or (conf.ipv6_enabled and s[scapy.layers.inet6.IPv6]) or s
             ips[r.src] = None
             if TCP in s:
                 trace_id = (s.src,s.dst,6,s.dport)
@@ -1096,8 +1127,8 @@ class TracerouteResult(SndRcvList):
             else:
                 trace_id = (s.src,s.dst,s.proto,0)
             trace = rt.get(trace_id,{})
-            ttl = conf.ipv6_enabled and inet6.IPv6 in s and s.hlim or s.ttl
-            if not (ICMP in r and r[ICMP].type == 11) and not (conf.ipv6_enabled and inet6.IPv6 in r and ICMPv6TimeExceeded in r):
+            ttl = conf.ipv6_enabled and scapy.layers.inet6.IPv6 in s and s.hlim or s.ttl
+            if not (ICMP in r and r[ICMP].type == 11) and not (conf.ipv6_enabled and scapy.layers.inet6.IPv6 in r and ICMPv6TimeExceeded in r):
                 if trace_id in ports_done:
                     continue
                 ports_done[trace_id] = None
@@ -1274,6 +1305,133 @@ traceroute(target, [maxttl=30,] [dport=80,] [sport=80,] [verbose=conf.verb]) -> 
 
 
 
+#############################
+## Simple TCP client stack ##
+#############################
+
+class TCP_client(Automaton):
+    
+    def parse_args(self, ip, port, *args, **kargs):
+        self.dst = ip
+        self.dport = port
+        self.sport = random.randrange(0,2**16)
+        self.l4 = IP(dst=ip)/TCP(sport=self.sport, dport=self.dport, flags=0,
+                                 seq=random.randrange(0,2**32))
+        self.src = self.l4.src
+        self.swin=self.l4[TCP].window
+        self.dwin=1
+        self.rcvbuf=""
+        bpf = "host %s  and host %s and port %i and port %i" % (self.src,
+                                                                self.dst,
+                                                                self.sport,
+                                                                self.dport)
+
+#        bpf=None
+        Automaton.parse_args(self, filter=bpf, **kargs)
+
+    
+    def master_filter(self, pkt):
+        return (IP in pkt and
+                pkt[IP].src == self.dst and
+                pkt[IP].dst == self.src and
+                TCP in pkt and
+                pkt[TCP].sport == self.dport and
+                pkt[TCP].dport == self.sport and
+                self.l4[TCP].seq >= pkt[TCP].ack and # XXX: seq/ack 2^32 wrap up
+                ((self.l4[TCP].ack == 0) or (self.l4[TCP].ack <= pkt[TCP].seq <= self.l4[TCP].ack+self.swin)) )
+
+
+    @ATMT.state(initial=1)
+    def START(self):
+        pass
+
+    @ATMT.state()
+    def SYN_SENT(self):
+        pass
+    
+    @ATMT.state()
+    def ESTABLISHED(self):
+        pass
+
+    @ATMT.state()
+    def LAST_ACK(self):
+        pass
+
+    @ATMT.state(final=1)
+    def CLOSED(self):
+        pass
+
+    
+    @ATMT.condition(START)
+    def connect(self):
+        raise self.SYN_SENT()
+    @ATMT.action(connect)
+    def send_syn(self):
+        self.l4[TCP].flags = "S"
+        self.send(self.l4)
+        self.l4[TCP].seq += 1
+
+
+    @ATMT.receive_condition(SYN_SENT)
+    def synack_received(self, pkt):
+        if pkt[TCP].flags & 0x3f == 0x12:
+            raise self.ESTABLISHED().action_parameters(pkt)
+    @ATMT.action(synack_received)
+    def send_ack_of_synack(self, pkt):
+        self.l4[TCP].ack = pkt[TCP].seq+1
+        self.l4[TCP].flags = "A"
+        self.send(self.l4)
+
+    @ATMT.receive_condition(ESTABLISHED)
+    def incoming_data_received(self, pkt):
+        if not isinstance(pkt[TCP].payload, NoPayload) and not isinstance(pkt[TCP].payload, Padding):
+            raise self.ESTABLISHED().action_parameters(pkt)
+    @ATMT.action(incoming_data_received)
+    def receive_data(self,pkt):
+        data = str(pkt[TCP].payload)
+        if data and self.l4[TCP].ack == pkt[TCP].seq:
+            self.l4[TCP].ack += len(data)
+            self.l4[TCP].flags = "A"
+            self.send(self.l4)
+            self.rcvbuf += data
+            if pkt[TCP].flags & 8 != 0: #PUSH
+                self.oi.tcp.send(self.rcvbuf)
+                self.rcvbuf = ""
+    
+    @ATMT.ioevent(ESTABLISHED,name="tcp", as_supersocket="tcplink")
+    def outgoing_data_received(self, fd):
+        raise self.ESTABLISHED().action_parameters(fd.recv())
+    @ATMT.action(outgoing_data_received)
+    def send_data(self, d):
+        self.l4[TCP].flags = "PA"
+        self.send(self.l4/d)
+        self.l4[TCP].seq += len(d)
+        
+    
+    @ATMT.receive_condition(ESTABLISHED)
+    def reset_received(self, pkt):
+        if pkt[TCP].flags & 4 != 0:
+            raise self.CLOSED()
+
+    @ATMT.receive_condition(ESTABLISHED)
+    def fin_received(self, pkt):
+        if pkt[TCP].flags & 0x1 == 1:
+            raise self.LAST_ACK().action_parameters(pkt)
+    @ATMT.action(fin_received)
+    def send_finack(self, pkt):
+        self.l4[TCP].flags = "FA"
+        self.l4[TCP].ack = pkt[TCP].seq+1
+        self.send(self.l4)
+        self.l4[TCP].seq += 1
+
+    @ATMT.receive_condition(LAST_ACK)
+    def ack_of_fin_received(self, pkt):
+        if pkt[TCP].flags & 0x3f == 0x10:
+            raise self.CLOSED()
+
+
+
+
 #####################
 ## Reporting stuff ##
 #####################
@@ -1382,4 +1540,4 @@ conf.stats_classic_protocols += [TCP,UDP,ICMP]
 conf.stats_dot11_protocols += [TCP,UDP,ICMP]
 
 if conf.ipv6_enabled:
-    from scapy.layers import inet6
+    import scapy.layers.inet6

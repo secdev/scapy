@@ -123,6 +123,9 @@ class ASN1F_BOOLEAN(ASN1F_field):
 class ASN1F_NULL(ASN1F_INTEGER):
     ASN1_tag= ASN1_Class_UNIVERSAL.NULL
 
+class ASN1F_SEP(ASN1F_NULL):
+    ASN1_tag= ASN1_Class_UNIVERSAL.SEP
+
 class ASN1F_enum_INTEGER(ASN1F_INTEGER):
     def __init__(self, name, default, enum):
         ASN1F_INTEGER.__init__(self, name, default)
@@ -155,6 +158,9 @@ class ASN1F_enum_INTEGER(ASN1F_INTEGER):
         else:
             return self.i2repr_one(pkt,x)
 
+class ASN1F_ENUMERATED(ASN1F_enum_INTEGER):
+    ASN1_tag = ASN1_Class_UNIVERSAL.ENUMERATED
+
 class ASN1F_STRING(ASN1F_field):
     ASN1_tag = ASN1_Class_UNIVERSAL.STRING
     def randval(self):
@@ -174,6 +180,9 @@ class ASN1F_TIME_TICKS(ASN1F_INTEGER):
 
 class ASN1F_UTC_TIME(ASN1F_STRING):
     ASN1_tag = ASN1_Class_UNIVERSAL.UTC_TIME
+
+class ASN1F_GENERALIZED_TIME(ASN1F_STRING):
+    ASN1_tag = ASN1_Class_UNIVERSAL.GENERALIZED_TIME
 
 class ASN1F_OID(ASN1F_field):
     ASN1_tag = ASN1_Class_UNIVERSAL.OID

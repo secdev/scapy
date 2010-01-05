@@ -3,7 +3,7 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
-import os,time,socket
+import os,time,socket,sys
 from data import *
 import base_classes
 import themes
@@ -33,6 +33,23 @@ class ConfClass(object):
                     r = r[:wlen-3]+"..."
                 s += "%-10s = %s\n" % (i, r)
         return s[:-1]
+
+class Interceptor(object):
+    def __init__(self, name, default, hook, args=None, kargs=None):
+        self.name = name
+        self.intname = "_intercepted_%s" % name
+        self.default=default
+        self.hook = hook
+        self.args = args if args is not None else []
+        self.kargs = kargs if kargs is not None else {}
+    def __get__(self, obj, typ=None):
+        if not hasattr(obj, self.intname):
+            setattr(obj, self.intname, self.default)
+        return getattr(obj, self.intname)
+    def __set__(self, obj, val):
+        setattr(obj, self.intname, val)
+        self.hook(self.name, val, *self.args, **self.kargs)
+
     
 class ProgPath(ConfClass):
     pdfreader = "acroread"
@@ -43,21 +60,35 @@ class ProgPath(ConfClass):
     tcpreplay = "tcpreplay"
     hexedit = "hexer"
     wireshark = "wireshark"
-    
-class Resolve:
+
+
+class ConfigFieldList:
     def __init__(self):
-        self.fields = {}
+        self.fields = set()
+        self.layers = set()
+    @staticmethod
+    def _is_field(f):
+        return hasattr(f, "owners")
+    def _recalc_layer_list(self):
+        self.layers = set([owner for f in self.fields for owner in f.owners])
     def add(self, *flds):
-        for fld in flds:
-            self.fields[fld]=None
+        self.fields |= set([f for f in flds if self._is_field(f)])
+        self._recalc_layer_list()
     def remove(self, *flds):
-        for fld in flds:
-            if fld in self.fields:
-                del(self.fields[fld])
+        self.fields -= set(flds)
+        self._recalc_layer_list()
     def __contains__(self, elt):
+        if isinstance(elt, base_classes.Packet_metaclass):
+            return elt in self.layers
         return elt in self.fields
     def __repr__(self):
-        return "<Resolve [%s]>" %  " ".join(str(x) for x in self.fields)
+        return "<%s [%s]>" %  (self.__class__.__name__," ".join(str(x) for x in self.fields))
+
+class Emphasize(ConfigFieldList):
+    pass
+
+class Resolve(ConfigFieldList):
+    pass
     
 
 class Num2Layer:
@@ -237,6 +268,22 @@ class LogLevel(object):
         obj._logLevel = val
         
 
+
+def _prompt_changer(attr,val):
+    prompt = conf.prompt
+    try:
+        ct = val
+        if isinstance(ct, AnsiColorTheme) and ct.prompt(""):
+            ## ^A and ^B delimit invisible caracters for readline to count right.
+            ## And we need ct.prompt() to do change something or else ^A and ^B will be
+            ## displayed
+             prompt = "\001%s\002" % ct.prompt("\002"+prompt+"\001")
+        else:
+            prompt = ct.prompt(prompt)
+    except:
+        pass
+    sys.ps1 = prompt
+
 class Conf(ConfClass):
     """This object contains the configuration of scapy.
 session  : filename where the session will be saved
@@ -264,11 +311,12 @@ noenum    : holds list of enum fields for which conversion to string should NOT 
 AS_resolver: choose the AS resolver class to use
 extensions_paths: path or list of paths where extensions are to be looked for
 """
-    version = "2.0.1-dev"
+    version = "2.1.0-dev"
     session = ""
     interactive = False
     stealth = "not implemented"
     iface = None
+    readfunc = None
     layers = LayersList()
     commands = CommandsList()
     logLevel = LogLevel()
@@ -281,6 +329,7 @@ extensions_paths: path or list of paths where extensions are to be looked for
     promisc = 1
     sniff_promisc = 1
     raw_layer = None
+    raw_summary = False
     default_l2 = None
     l2types = Num2Layer()
     l3types = Num2Layer()
@@ -296,11 +345,12 @@ extensions_paths: path or list of paths where extensions are to be looked for
     route6 = None # Filed by route6.py
     auto_fragment = 1
     debug_dissector = 0
-    color_theme = themes.DefaultTheme()
+    color_theme = Interceptor("color_theme", themes.NoTheme(), _prompt_changer)
     warning_threshold = 5
     prog = ProgPath()
     resolve = Resolve()
     noenum = Resolve()
+    emph = Emphasize()
     use_pcap = False
     use_dnet = False
     ipv6_enabled = socket.has_ipv6
@@ -309,14 +359,14 @@ extensions_paths: path or list of paths where extensions are to be looked for
     services_tcp = TCP_SERVICES
     services_udp = UDP_SERVICES
     extensions_paths = "."
-    manufdb = load_manuf("/usr/share/wireshark/manuf")
+    manufdb = MANUFDB
     stats_classic_protocols = []
     stats_dot11_protocols = []
     temp_files = []
     netcache = NetCache()
     load_layers = ["l2", "inet", "dhcp", "dns", "dot11", "gprs", "hsrp", "inet6", "ir", "isakmp", "l2tp",
                    "mgcp", "mobileip", "netbios", "netflow", "ntp", "ppp", "radius", "rip", "rtp",
-                   "sebek", "skinny", "smb", "snmp", "tftp", "x509", "bluetooth", "dhcp6", "llmnr" ]
+                   "sebek", "skinny", "smb", "snmp", "tftp", "x509", "bluetooth", "dhcp6", "llmnr", "sctp", "vrrp" ]
     
 
 if not Conf.ipv6_enabled:
@@ -328,5 +378,4 @@ if not Conf.ipv6_enabled:
 
 conf=Conf()
 conf.logLevel=30 # 30=Warning
-
 

@@ -24,7 +24,7 @@ class AnsweringMachine(object):
     function_name = ""
     filter = None
     sniff_options = { "store":0 }
-    sniff_options_list = [ "store", "iface", "count", "promisc", "filter", "type", "prn" ]
+    sniff_options_list = [ "store", "iface", "count", "promisc", "filter", "type", "prn", "stop_filter" ]
     send_options = { "verbose":0 }
     send_options_list = ["iface", "inter", "loop", "verbose"]
     send_function = staticmethod(send)

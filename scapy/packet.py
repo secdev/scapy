@@ -17,6 +17,15 @@ except ImportError:
     pass
 
 
+class RawVal:
+    def __init__(self, val=""):
+        self.val = val
+    def __str__(self):
+        return str(self.val)
+    def __repr__(self):
+        return "<RawVal [%r]>" % self.val
+
+
 class Packet(BasePacket):
     __metaclass__ = Packet_metaclass
     name=None
@@ -226,7 +235,7 @@ class Packet(BasePacket):
                 val =  f.i2repr(self, self.overloaded_fields[f.name])
             else:
                 continue
-            if isinstance(f, Emph):
+            if isinstance(f, Emph) or f in conf.emph:
                 ncol = ct.emph_field_name
                 vcol = ct.emph_field_value
             else:
@@ -275,7 +284,11 @@ class Packet(BasePacket):
     def do_build(self):
         p=""
         for f in self.fields_desc:
-            p = f.addfield(self, p, self.getfieldval(f.name))
+            val = self.getfieldval(f.name)
+            if isinstance(val, RawVal):
+                p += str(val)
+            else:
+                p = f.addfield(self, p, val)
         return p
     
     def post_build(self, pkt, pay):
@@ -341,7 +354,7 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
         if filename is None:
             fname = get_temp_file(autoext=".eps")
             canvas.writeEPSfile(fname)
-            os.system("%s '%s.eps' &" % (conf.prog.psreader,fname))
+            subprocess.Popen([conf.prog.psreader, fname+".eps"])
         else:
             canvas.writeEPSfile(filename)
 
@@ -352,7 +365,7 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
         if filename is None:
             fname = get_temp_file(autoext=".pdf")
             canvas.writePDFfile(fname)
-            os.system("%s '%s.pdf' &" % (conf.prog.pdfreader,fname))
+            subprocess.Popen([conf.prog.pdfreader, fname+".pdf"])
         else:
             canvas.writePDFfile(filename)
 
@@ -468,7 +481,7 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
             for fname, fval, fdump in fields:
                 col = forecolor.next()
                 ft = pyx.text.text(XSTART, (YTXT-y)*YMUL, r"\font\cmssfont=cmss10\cmssfont{%s}" % tex_escape(fname.name))
-                if fval is not None:
+                if isinstance(fval, str):
                     if len(fval) > 18:
                         fval = fval[:18]+"[...]"
                 else:
@@ -689,11 +702,14 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
         return self.payload.haslayer(cls)
     def getlayer(self, cls, nb=1, _track=None):
         """Return the nb^th layer that is an instance of cls."""
+        if type(cls) is int:
+            nb = cls+1
+            cls = None
         if type(cls) is str and "." in cls:
             ccls,fld = cls.split(".",1)
         else:
             ccls,fld = cls,None
-        if self.__class__ == cls or self.__class__.name == ccls:
+        if cls is None or self.__class__ == cls or self.__class__.name == ccls:
             if nb == 1:
                 if fld is None:
                     return self
@@ -715,6 +731,12 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
                         return ret
                     nb = track[0]
         return self.payload.getlayer(cls,nb,_track=_track)
+
+    def firstlayer(self):
+        q = self
+        while q.underlayer is not None:
+            q = q.underlayer
+        return q
 
     def __getitem__(self, cls):
         if type(cls) is slice:
@@ -748,6 +770,9 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
 
     def route(self):
         return (None,None,None)
+
+    def fragment(self, *args, **kargs):
+        return self.payload.fragment(*args, **kargs)
     
 
     def display(self,*args,**kargs):  # Deprecated. Use show()
@@ -763,7 +788,7 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
         for f in self.fields_desc:
             if isinstance(f, ConditionalField) and not f._evalcond(self):
                 continue
-            if isinstance(f, Emph):
+            if isinstance(f, Emph) or f in conf.emph:
                 ncol = ct.emph_field_name
                 vcol = ct.emph_field_value
             else:
@@ -897,9 +922,8 @@ A side effect is that, to obtain "{" and "}" characters, you must use
            mysummary() must be called if they are present."""
         return ""
 
-    def summary(self, intern=0):
-        """Prints a one line summary of a packet."""
-        found,s,needed = self.payload.summary(intern=1)
+    def _do_summary(self):
+        found,s,needed = self.payload._do_summary()
         if s:
             s = " / "+s
         ret = ""
@@ -912,11 +936,20 @@ A side effect is that, to obtain "{" and "}" characters, you must use
             found = 1
         if not ret:
             ret = self.__class__.__name__
+        if self.__class__ in conf.emph:
+            impf = []
+            for f in self.fields_desc:
+                if f in conf.emph:
+                    impf.append("%s=%s" % (f.name, f.i2repr(self, self.getfieldval(f.name))))
+            ret = "%s [%s]" % (ret," ".join(impf))
         ret = "%s%s" % (ret,s)
-        if intern:
-            return found,ret,needed
-        else:
-            return ret
+        return found,ret,needed
+
+    def summary(self, intern=0):
+        """Prints a one line summary of a packet."""
+        found,s,needed = self._do_summary()
+        return s
+
     
     def lastlayer(self,layer=None):
         """Returns the uppest layer of the packet"""
@@ -925,7 +958,11 @@ A side effect is that, to obtain "{" and "}" characters, you must use
     def decode_payload_as(self,cls):
         """Reassembles the payload and decode it using another packet class"""
         s = str(self.payload)
-        self.payload = cls(s)
+        self.payload = cls(s, _internal=1, _underlayer=self)
+        pp = self
+        while pp.underlayer is not None:
+            pp = pp.underlayer
+        self.payload.dissection_done(pp)
 
     def libnet(self):
         """Not ready yet. Should give the necessary C code that interfaces with libnet to recreate the packet"""
@@ -1025,6 +1062,8 @@ class NoPayload(Packet):
         if _track is not None:
             _track.append(nb)
         return None
+    def fragment(self, *args, **kargs):
+        raise Scapy_Exception("cannot fragment this packet")        
     def show(self, indent=3, lvl="", label_lvl=""):
         pass
     def sprintf(self, fmt, relax):
@@ -1032,7 +1071,7 @@ class NoPayload(Packet):
             return "??"
         else:
             raise Scapy_Exception("Format not found [%s]"%fmt)
-    def summary(self, intern=0):
+    def _do_summary(self):
         return 0,"",[]
     def lastlayer(self,layer):
         return layer
@@ -1053,6 +1092,14 @@ class Raw(Packet):
 #        t = self.load
 #        l = min(len(s), len(t))
 #        return  s[:l] == t[:l]
+    def mysummary(self):
+        cs = conf.raw_summary
+        if cs:
+            if callable(cs):
+                return "Raw %s" % cs(self.load)
+            else:
+                return "Raw %r" % self.load
+        return Packet.mysummary(self)
         
 class Padding(Raw):
     name = "Padding"
