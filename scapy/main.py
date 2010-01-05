@@ -296,8 +296,23 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
     
     atexit.register(scapy_delete_temp_files)
     conf.color_theme = DefaultTheme()
-    code.interact(banner = the_banner % (conf.version), 
-                  local=session, readfunc=conf.readfunc)
+    
+    IPYTHON=False
+    if conf.interactive_shell.lower() == "ipython":
+        try:
+            import IPython
+            IPYTHON=True
+        except ImportError, e:
+            log_loading.warning("IPython not available. Using standard Python shell instead.")
+            IPYTHON=False
+        
+    if IPYTHON:
+        banner = the_banner % (conf.version) + " using IPython %s" % IPython.__version__
+        ipshell = IPython.Shell.IPShellEmbed(banner = banner)
+        ipshell(local_ns=session)
+    else:
+        code.interact(banner = the_banner % (conf.version),
+                      local=session, readfunc=conf.readfunc)
 
     if conf.session:
         save_session(conf.session, session)
