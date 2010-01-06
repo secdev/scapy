@@ -287,6 +287,7 @@ def _prompt_changer(attr,val):
 class Conf(ConfClass):
     """This object contains the configuration of scapy.
 session  : filename where the session will be saved
+interactive_shell : If set to "ipython", use IPython as shell. Default: Python 
 stealth  : if 1, prevents any unwanted packet to go out (ARP, DNS, ...)
 checkIPID: if 0, doesn't check that IPID matches between IP sent and ICMP IP citation received
            if 1, checks that they either are equal or byte swapped equals (bug in some IP stacks)
@@ -314,6 +315,7 @@ extensions_paths: path or list of paths where extensions are to be looked for
     version = "2.1.0-dev"
     session = ""
     interactive = False
+    interactive_shell = ""
     stealth = "not implemented"
     iface = None
     readfunc = None
