@@ -1312,7 +1312,7 @@ traceroute(target, [maxttl=30,] [dport=80,] [sport=80,] [verbose=conf.verb]) -> 
 class TCP_client(Automaton):
     
     def parse_args(self, ip, port, *args, **kargs):
-        self.dst = ip
+        self.dst = iter(Net(ip)).next()
         self.dport = port
         self.sport = random.randrange(0,2**16)
         self.l4 = IP(dst=ip)/TCP(sport=self.sport, dport=self.dport, flags=0,

@@ -1715,8 +1715,12 @@ class Cert(OSSLHelper, _EncryptAndVerify):
             self.notBefore_str = v
         if self.notBefore_str is None:
             raise Exception(error_msg)
-        self.notBefore = time.strptime(self.notBefore_str,
-                                       "%b %d %H:%M:%S %Y %Z")
+        try:
+            self.notBefore = time.strptime(self.notBefore_str,
+                                           "%b %d %H:%M:%S %Y %Z")
+        except:
+            self.notBefore = time.strptime(self.notBefore_str,
+                                           "%b %d %H:%M:%S %Y")
         self.notBefore_str_simple = time.strftime("%x", self.notBefore)
         
         # not after
@@ -1728,8 +1732,12 @@ class Cert(OSSLHelper, _EncryptAndVerify):
             self.notAfter_str = v
         if self.notAfter_str is None:
             raise Exception(error_msg)
-        self.notAfter = time.strptime(self.notAfter_str,
-                                      "%b %d %H:%M:%S %Y %Z")
+        try:
+            self.notAfter = time.strptime(self.notAfter_str,
+                                          "%b %d %H:%M:%S %Y %Z")
+        except:
+            self.notAfter = time.strptime(self.notAfter_str,
+                                          "%b %d %H:%M:%S %Y")            
         self.notAfter_str_simple = time.strftime("%x", self.notAfter)
         
         # subject

@@ -252,6 +252,7 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
         globkeys += mydict.keys()
     
 
+    conf.color_theme = DefaultTheme()
     if STARTUP_FILE:
         _read_config_file(STARTUP_FILE)
         
@@ -295,7 +296,6 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
         atexit.register(scapy_write_history_file,readline)
     
     atexit.register(scapy_delete_temp_files)
-    conf.color_theme = DefaultTheme()
     
     IPYTHON=False
     if conf.interactive_shell.lower() == "ipython":
