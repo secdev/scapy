@@ -801,10 +801,16 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
                 for fvalue in fvalue_gen:
                     fvalue.show(indent=indent, label_lvl=label_lvl+lvl+"   |")
             else:
-                print "%s  %-10s%s %s" % (label_lvl+lvl,
-                                          ncol(f.name),
-                                          ct.punct("="),
-                                          vcol(f.i2repr(self,fvalue)))
+                begn = "%s  %-10s%s " % (label_lvl+lvl,
+                                        ncol(f.name),
+                                        ct.punct("="),)
+                reprval = f.i2repr(self,fvalue)
+                if type(reprval) is str:
+                    reprval = reprval.replace("\n", "\n"+" "*(len(label_lvl)
+                                                              +len(lvl)
+                                                              +len(f.name)
+                                                              +4))
+                print "%s%s" % (begn,vcol(reprval))
         self.payload.show(indent=indent, lvl=lvl+(" "*indent*self.show_indent), label_lvl=label_lvl)
     def show2(self):
         """Prints a hierarchical view of an assembled version of the packet, so that automatic fields are calculated (checksums, etc.)"""
