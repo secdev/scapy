@@ -6,6 +6,7 @@
 import socket,time
 from config import conf
 from data import *
+from scapy.error import warning
 
 class _SuperSocket_metaclass(type):
     def __repr__(self):
@@ -57,8 +58,38 @@ class L3RawSocket(SuperSocket):
         self.outs = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_RAW)
         self.outs.setsockopt(socket.SOL_IP, socket.IP_HDRINCL, 1)
         self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))
+        if iface is not None:
+            self.ins.bind((iface, type))
     def recv(self, x=MTU):
-        return Ether(self.ins.recv(x)).payload
+        pkt, sa_ll = self.ins.recvfrom(x)
+        if sa_ll[2] == socket.PACKET_OUTGOING:
+            return None
+        if sa_ll[3] in conf.l2types:
+            cls = conf.l2types[sa_ll[3]]
+            lvl = 2
+        elif sa_ll[1] in conf.l3types:
+            cls = conf.l3types[sa_ll[1]]
+            lvl = 3
+        else:
+            cls = conf.default_l2
+            warning("Unable to guess type (interface=%s protocol=%#x family=%i). Using %s" % (sa_ll[0],sa_ll[1],sa_ll[3],cls.name))
+            lvl = 3
+
+        try:
+            pkt = cls(pkt)
+        except KeyboardInterrupt:
+            raise
+        except:
+            if conf.debug_dissector:
+                raise
+            pkt = conf.raw_layer(pkt)
+        if lvl == 2:
+            pkt = pkt.payload
+            
+        if pkt is not None:
+            from arch import get_last_packet_timestamp
+            pkt.time = get_last_packet_timestamp(self.ins)
+        return pkt
     def send(self, x):
         try:
             sx = str(x)
