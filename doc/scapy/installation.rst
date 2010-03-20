@@ -411,7 +411,7 @@ Graphs (conversations)
 
 WEP decryption
 
- * `PyCrypto <http://www.dlitz.net/software/pycrypto/>`_: `pycrypto-2.0.1.win32-py2.5.zip <http://www.voidspace.org.uk/cgi-bin/voidspace/downman.py?file=pycrypto-2.0.1.win32-py2.5.zip>`_ `pycrypto-2.0.1.win32-py2.6.exe <http://www.voidspace.org.uk/downloads/pycrypto-2.0.1.win32-py2.6.exe>`_
+ * `PyCrypto <http://www.dlitz.net/software/pycrypto/>`_: `pycrypto-2.1.0.win32-py2.5.zip <http://www.voidspace.org.uk/downloads/pycrypto-2.1.0.win32-py2.5.zip>`_ `pycrypto-2.1.0.win32-py2.6.zip <http://www.voidspace.org.uk/downloads/pycrypto-2.1.0.win32-py2.6.zip>`_
 
 Fingerprinting
 
