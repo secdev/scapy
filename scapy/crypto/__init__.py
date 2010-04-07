@@ -3,4 +3,13 @@
 ## Copyright (C) Arnaud Ebalard <arno@natisbad.org>
 ## This program is published under a GPLv2 license
 
-__all__ = ["cert"]
+
+
+try:
+    import Crypto
+except ImportError:
+    import logging
+    log_loading = logging.getLogger("scapy.loading")
+    log_loading.info("Can't import python Crypto lib. Disabled certificate manipulation tools")
+else:
+    from scapy.crypto.cert import *
