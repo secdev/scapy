@@ -405,12 +405,12 @@ def create_temporary_ca_path(anchor_list, folder):
 
 class OSSLHelper:
     def _apply_ossl_cmd(self, osslcmd, rawdata):
-	r,w=popen2.popen2(osslcmd)
-	w.write(rawdata)
-	w.close()
-	res = r.read()
-	r.close()
-	return res
+        r,w=popen2.popen2(osslcmd)
+        w.write(rawdata)
+        w.close()
+        res = r.read()
+        r.close()
+        return res
 
 class _EncryptAndVerify:
     ### Below are encryption methods
@@ -1183,14 +1183,14 @@ class PubKey(OSSLHelper, _EncryptAndVerify):
                 rawkey = f.read()
                 f.close()
             except:
-    		raise Exception(error_msg)     
+                raise Exception(error_msg)     
         else:
             rawkey = keypath
 
-	if rawkey is None:
-	    raise Exception(error_msg)
+        if rawkey is None:
+            raise Exception(error_msg)
 
-	self.rawkey = rawkey
+        self.rawkey = rawkey
 
         # Let's try to get file format : PEM or DER.
         fmtstr = 'openssl rsa -text -pubin -inform %s -noout '
@@ -1228,15 +1228,15 @@ class PubKey(OSSLHelper, _EncryptAndVerify):
             textkey = r.read()
             r.close()
             res = e.read()
-	    if res == '':
-		self.format = "DER"
+            if res == '':
+                self.format = "DER"
                 self.derkey = rawkey
                 self.textkey = textkey
                 cmd = convertstr % ("DER", "PEM")
                 self.pemkey = self._apply_ossl_cmd(cmd, rawkey)
                 cmd = convertstr % ("DER", "DER")
                 self.derkey = self._apply_ossl_cmd(cmd, rawkey)                
-	    else:
+            else:
                 try: # Perhaps it is a cert
                     c = Cert(keypath)
                 except:
@@ -1343,14 +1343,14 @@ class Key(OSSLHelper, _DecryptAndSignMethods, _EncryptAndVerify):
                 rawkey = f.read()
                 f.close()
             except:
-    		raise Exception(error_msg)     
+                raise Exception(error_msg)     
         else:
             rawkey = keypath
 
-	if rawkey is None:
-	    raise Exception(error_msg)
+        if rawkey is None:
+            raise Exception(error_msg)
 
-	self.rawkey = rawkey
+        self.rawkey = rawkey
 
         # Let's try to get file format : PEM or DER.
         fmtstr = 'openssl rsa -text -inform %s -noout '
@@ -1388,16 +1388,16 @@ class Key(OSSLHelper, _DecryptAndSignMethods, _EncryptAndVerify):
             textkey = r.read()
             r.close()
             res = e.read()
-	    if res == '':
-		self.format = "DER"
+            if res == '':
+                self.format = "DER"
                 self.derkey = rawkey
                 self.textkey = textkey
                 cmd = convertstr % ("DER", "PEM")
                 self.pemkey = self._apply_ossl_cmd(cmd, rawkey)
                 cmd = convertstr % ("DER", "DER")
                 self.derkey = self._apply_ossl_cmd(cmd, rawkey)
-	    else:
-		raise Exception(error_msg)     
+            else:
+                raise Exception(error_msg)     
 
         self.osslcmdbase = 'openssl rsa -inform %s ' % self.format
 
@@ -1534,14 +1534,14 @@ class Cert(OSSLHelper, _EncryptAndVerify):
                 rawcert = f.read()
                 f.close()
             except:
-    		raise Exception(error_msg)     
+                raise Exception(error_msg)     
         else:
             rawcert = certpath
             
-	if rawcert is None:
-	    raise Exception(error_msg)
+        if rawcert is None:
+            raise Exception(error_msg)
 
-	self.rawcert = rawcert
+        self.rawcert = rawcert
 
         # Let's try to get file format : PEM or DER.
         fmtstr = 'openssl x509 -text -inform %s -noout '
@@ -1579,16 +1579,16 @@ class Cert(OSSLHelper, _EncryptAndVerify):
             textcert = r.read()
             r.close()
             res = e.read()
-	    if res == '':
-		self.format = "DER"
+            if res == '':
+                self.format = "DER"
                 self.dercert = rawcert
                 self.textcert = textcert
                 cmd = convertstr % ("DER", "PEM")
                 self.pemcert = self._apply_ossl_cmd(cmd, rawcert)
                 cmd = convertstr % ("DER", "DER")                
                 self.dercert = self._apply_ossl_cmd(cmd, rawcert)
-	    else:
-		raise Exception(error_msg)
+            else:
+                raise Exception(error_msg)
 
         self.osslcmdbase = 'openssl x509 -inform %s ' % self.format
                                                   
@@ -1823,7 +1823,7 @@ class Cert(OSSLHelper, _EncryptAndVerify):
         # X509v3 Key Usage
         self.keyUsage = []
         v = fields_dict["            X509v3 Key Usage:"]
-        if v:	
+        if v:   
             # man 5 x509v3_config
             ku_mapping = {"Digital Signature": "digitalSignature",
                           "Non Repudiation": "nonRepudiation",
@@ -1848,7 +1848,7 @@ class Cert(OSSLHelper, _EncryptAndVerify):
         # X509v3 Extended Key Usage
         self.extKeyUsage = []
         v = fields_dict["            X509v3 Extended Key Usage:"]
-        if v:	
+        if v:   
             # man 5 x509v3_config:
             eku_mapping = {"TLS Web Server Authentication": "serverAuth",
                            "TLS Web Client Authentication": "clientAuth",
@@ -2016,7 +2016,7 @@ class Cert(OSSLHelper, _EncryptAndVerify):
     # return SHA-1 hash of cert embedded public key
     # !! At the moment, the trailing 0 is in the hashed string if any
     def keyHash(self):
-	m = self.modulus_hexdump
+        m = self.modulus_hexdump
         res = []
         i = 0
         l = len(m)
@@ -2230,14 +2230,14 @@ class CRL(OSSLHelper):
                 rawcrl = f.read()
                 f.close()
             except:
-    		raise Exception(error_msg)     
+                raise Exception(error_msg)     
         else:
             rawcrl = crlpath
 
-	if rawcrl is None:
-	    raise Exception(error_msg)
+        if rawcrl is None:
+            raise Exception(error_msg)
 
-	self.rawcrl = rawcrl
+        self.rawcrl = rawcrl
 
         # Let's try to get file format : PEM or DER.
         fmtstr = 'openssl crl -text -inform %s -noout '
@@ -2275,16 +2275,16 @@ class CRL(OSSLHelper):
             textcrl = r.read()
             r.close()
             res = e.read()
-	    if res == '':
-		self.format = "DER"
+            if res == '':
+                self.format = "DER"
                 self.dercrl = rawcrl
                 self.textcrl = textcrl
                 cmd = convertstr % ("DER", "PEM")
                 self.pemcrl = self._apply_ossl_cmd(cmd, rawcrl)
                 cmd = convertstr % ("DER", "DER")
                 self.dercrl = self._apply_ossl_cmd(cmd, rawcrl)
-	    else:
-		raise Exception(error_msg)
+            else:
+                raise Exception(error_msg)
 
         self.osslcmdbase = 'openssl crl -inform %s ' % self.format
 
@@ -2475,4 +2475,3 @@ class CRL(OSSLHelper):
 
 
     
-
