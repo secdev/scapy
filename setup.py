@@ -41,7 +41,7 @@ if os.name == "nt":
 
 setup(
     name = 'scapy',
-    version = '2.1.0-dev',
+    version = '2.1.1',
     packages=['scapy','scapy/arch', 'scapy/arch/windows', 'scapy/layers','scapy/asn1','scapy/tools','scapy/modules', 'scapy/crypto'],
     scripts = SCRIPTS,
     data_files = [('share/man/man1', ["doc/scapy.1.gz"])],

@@ -42,9 +42,9 @@ copyright = '2008, 2009 Philippe Biondi and the Scapy community'
 # other places throughout the built documents.
 #
 # The short X.Y version.
-version = '2.1.0'
+version = '2.1.1'
 # The full version, including alpha/beta/rc tags.
-release = '2.1.0'
+release = '2.1.1'
 
 # There are two options for replacing |today|: either, you set today to some
 # non-false value, then it is used:
