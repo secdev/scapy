@@ -312,7 +312,7 @@ noenum    : holds list of enum fields for which conversion to string should NOT 
 AS_resolver: choose the AS resolver class to use
 extensions_paths: path or list of paths where extensions are to be looked for
 """
-    version = "2.1.1"
+    version = "2.1.1-dev"
     session = ""
     interactive = False
     interactive_shell = ""
