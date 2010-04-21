@@ -281,37 +281,44 @@ class Packet(BasePacket):
         return True
     def __len__(self):
         return len(self.__str__())
-    def do_build(self):
+    def self_build(self, field_pos_list=None):
         p=""
         for f in self.fields_desc:
             val = self.getfieldval(f.name)
             if isinstance(val, RawVal):
-                p += str(val)
+                sval = str(val)
+                p += sval
+                if field_pos_list is not None:
+                    field_pos_list.append( (f.name, sval.encode("string_escape"), len(p), len(sval) ) )
             else:
                 p = f.addfield(self, p, val)
+        return p
+
+    def do_build_payload(self):
+        return self.payload.do_build()
+
+    def do_build(self):
+        if not self.explicit:
+            self = self.__iter__().next()
+        pkt = self.self_build()
+        for t in self.post_transforms:
+            pkt = t(pkt)
+        pay = self.do_build_payload()
+        p = self.post_build(pkt,pay)
+        return p
+    
+    def build_padding(self):
+        return self.payload.build_padding()
+
+    def build(self):
+        p = self.do_build()
+        p += self.build_padding()
+        p = self.build_done(p)
         return p
     
     def post_build(self, pkt, pay):
         """DEV: called right after the current layer is build."""
         return pkt+pay
-
-    def build_payload(self):
-        return self.payload.build(internal=1)
-
-    def build(self,internal=0):
-        if not self.explicit:
-            self = self.__iter__().next()
-        pkt = self.do_build()
-        for t in self.post_transforms:
-            pkt = t(pkt)
-        pay = self.build_payload()
-        p = self.post_build(pkt,pay)
-        if not internal:
-            pad = self.payload.getlayer(Padding) 
-            if pad: 
-                p += pad.build()
-            p = self.build_done(p)
-        return p
 
     def build_done(self, p):
         return self.payload.build_done(p)
@@ -1029,8 +1036,12 @@ class NoPayload(Packet):
         return ""
     def __nonzero__(self):
         return False
-    def build(self, internal=0):
-        return ""    
+    def do_build(self):
+        return ""
+    def build(self):
+        return ""
+    def build_padding(self):
+        return ""
     def build_done(self, p):
         return p
     def build_ps(self, internal=0):
@@ -1109,11 +1120,10 @@ class Raw(Packet):
         
 class Padding(Raw):
     name = "Padding"
-    def build(self, internal=0):
-        if internal:
-            return ""
-        else:
-            return Raw.build(self)
+    def self_build(self):
+        return ""
+    def build_padding(self):
+        return self.load+self.payload.build_padding()
 
 conf.raw_layer = Raw
 if conf.default_l2 is None:

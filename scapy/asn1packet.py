@@ -12,7 +12,7 @@ class ASN1_Packet(Packet):
         flist = self.ASN1_root.get_fields_list()
         self.do_init_fields(flist)
         self.fields_desc = flist    
-    def do_build(self):
+    def self_build(self):
         return self.ASN1_root.build(self)    
     def do_dissect(self, x):
         return self.ASN1_root.dissect(self, x)

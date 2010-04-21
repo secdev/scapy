@@ -125,7 +125,7 @@ assert( _ == "abcdef" )
 str(Raw("ABC")/Padding("abc")/Padding("def"))
 assert( _ == "ABCabcdef" )
 str(Raw("ABC")/Padding("abc")/Raw("DEF")/Padding("def"))
-assert( _ == "ABCabcDEFdef" )
+assert( _ == "ABCDEFabcdef" )
 
 = Padding and length computation
 IP(str(IP()/Padding("abc")))
