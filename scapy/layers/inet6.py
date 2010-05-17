@@ -1487,7 +1487,7 @@ class ICMPv6NDOptRedirectedHdr(_ICMPv6NDGuessPayload, Packet):
     fields_desc = [ ByteField("type",4),
                     FieldLenField("len", None, length_of="pkt", fmt="B",
                                   adjust = lambda pkt,x:(x+4)/8),
-                    XShortField("res",0),
+                    StrFixedLenField("res", "\x00"*6, 6),
                     TruncPktLenField("pkt", "", IPv6, 4,
                                      length_from = lambda pkt: 8*pkt.len-4) ]
 
