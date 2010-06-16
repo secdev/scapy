@@ -3,6 +3,11 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
+"""
+Cisco NetFlow protocol v1
+"""
+
+
 from scapy.fields import *
 from scapy.packet import *
 

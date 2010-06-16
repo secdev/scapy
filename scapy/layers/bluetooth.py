@@ -3,6 +3,10 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
+"""
+Bluetooth layers, sockets and send/receive functions.
+"""
+
 import socket,struct
 
 from scapy.config import conf

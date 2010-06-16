@@ -3,6 +3,9 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
+"""
+Unit testing infrastructure for Scapy
+"""
 
 import sys,getopt,imp
 import bz2, base64, os.path, time, traceback, zlib, sha

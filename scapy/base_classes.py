@@ -3,6 +3,10 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
+"""
+Generators and packet meta classes.
+"""
+
 ###############
 ## Generators ##
 ################

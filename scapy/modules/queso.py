@@ -3,6 +3,10 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
+"""
+Clone of queso OS fingerprinting
+"""
+
 from scapy.data import KnowledgeBase
 from scapy.config import conf
 from scapy.layers.inet import IP,TCP

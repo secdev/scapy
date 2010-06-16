@@ -3,6 +3,10 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
+"""
+Mobile IP.
+"""
+
 from scapy.fields import *
 from scapy.packet import *
 from scapy.layers.inet import IP,UDP

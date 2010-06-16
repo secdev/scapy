@@ -3,6 +3,11 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
+"""
+Resolve Autonomous Systems (AS).
+"""
+
+
 import socket
 from config import conf
 

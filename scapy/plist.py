@@ -3,6 +3,11 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
+"""
+PacketList: holds several packets and allows to do operations on them.
+"""
+
+
 import os,subprocess
 from config import conf
 from base_classes import BasePacket,BasePacketList

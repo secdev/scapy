@@ -3,6 +3,10 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
+"""
+Automata with states, transitions and actions.
+"""
+
 from __future__ import with_statement
 import types,itertools,time,os,sys,socket
 from select import select

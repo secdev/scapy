@@ -3,6 +3,10 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
+"""
+Fields: basic data structures that make up parts of packets.
+"""
+
 import struct,copy,socket
 from config import conf
 from volatile import *

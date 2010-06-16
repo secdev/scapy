@@ -3,6 +3,10 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
+"""
+GeoIP: find out the geographical location of IP addresses
+"""
+
 from scapy.data import KnowledgeBase
 from scapy.config import conf
 

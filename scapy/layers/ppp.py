@@ -3,6 +3,12 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
+"""
+PPP (Point to Point Protocol)
+
+[RFC 1661]
+"""
+
 import struct
 from scapy.packet import *
 from scapy.layers.l2 import *

@@ -3,6 +3,10 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
+"""
+Functions to send and receive packets.
+"""
+
 import cPickle,os,sys,time,subprocess
 from select import select
 from data import *

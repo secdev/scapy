@@ -3,6 +3,10 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
+"""
+Global variables and functions for handling external data sets.
+"""
+
 import os,sys,re
 from dadict import DADict
 from error import log_loading

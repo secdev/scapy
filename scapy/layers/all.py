@@ -3,6 +3,10 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
+"""
+All layers. Configurable with conf.load_layers.
+"""
+
 from scapy.config import conf
 from scapy.error import log_loading
 

@@ -3,11 +3,14 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
+"""
+Convert IPv6 addresses between textual representation and binary.
+
+These functions are missing when python is compiled
+without IPv6 support, on Windows for instance.
+"""
 
 import socket,struct
-
-# These functions are missing when python is compiled
-# without IPv6 support, on Windows for instance
 
 def inet_pton(af, addr):
     """Convert an IP address from text representation into binary form"""

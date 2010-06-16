@@ -3,6 +3,9 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
+"""
+Aggregate top level objects from all Scapy modules.
+"""
 
 from base_classes import *
 from config import *

@@ -3,6 +3,10 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
+"""
+NTP (Network Time Protocol).
+"""
+
 import time
 from scapy.packet import *
 from scapy.fields import *
