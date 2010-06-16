@@ -3,6 +3,10 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
+"""
+Packet sending and receiving with libdnet and libpcap/WinPcap.
+"""
+
 import time,struct,sys
 if not sys.platform.startswith("win"):
     from fcntl import ioctl

@@ -3,6 +3,10 @@
 ## Copyright (C) Arnaud Ebalard <arno@natisbad.org>
 ## This program is published under a GPLv2 license
 
+"""
+Cryptographic certificates.
+"""
+
 import os, sys, math, socket, struct, sha, hmac, string, time
 import random, popen2, tempfile
 from scapy.utils import strxor

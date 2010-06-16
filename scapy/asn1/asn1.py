@@ -3,6 +3,10 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
+"""
+ASN.1 (Abstract Syntax Notation One)
+"""
+
 import random
 from scapy.config import conf
 from scapy.error import Scapy_Exception,warning

@@ -3,6 +3,10 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
+"""
+Customizations needed to support Microsoft Windows.
+"""
+
 import os,re,sys,socket,time
 from glob import glob
 from scapy.config import conf,ConfClass

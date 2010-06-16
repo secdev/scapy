@@ -3,6 +3,10 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
+"""
+X.509 certificates.
+"""
+
 from scapy.asn1packet import *
 from scapy.asn1fields import *
 

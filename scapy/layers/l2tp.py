@@ -3,6 +3,12 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
+"""
+L2TP (Layer 2 Tunneling Protocol) for VPNs.
+
+[RFC 2661]
+"""
+
 import struct
 
 from scapy.packet import *

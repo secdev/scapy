@@ -3,6 +3,10 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
+"""
+Management Information Base (MIB) parsing
+"""
+
 import re
 from glob import glob
 from scapy.dadict import DADict,fixname

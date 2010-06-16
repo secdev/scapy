@@ -3,11 +3,13 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
+"""
+Cisco Skinny protocol.
+"""
+
 from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.inet import TCP
-
-# Cisco Skinny protocol
 
 # shamelessly ripped from Ethereal dissector
 skinny_messages = { 

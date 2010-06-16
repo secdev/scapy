@@ -3,6 +3,10 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
+"""
+Routing and handling of network interfaces.
+"""
+
 import socket
 from arch import read_routes,get_if_addr,LOOPBACK_NAME
 from utils import atol,ltoa,itom

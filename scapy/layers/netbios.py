@@ -3,6 +3,12 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
+"""
+NetBIOS over TCP/IP
+
+[RFC 1001/1002]
+"""
+
 import struct
 from scapy.packet import *
 from scapy.fields import *

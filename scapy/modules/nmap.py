@@ -3,6 +3,10 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
+"""
+Clone of Nmap's first generation OS fingerprinting.
+"""
+
 import os
 
 from scapy.data import KnowledgeBase

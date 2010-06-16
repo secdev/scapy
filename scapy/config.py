@@ -3,6 +3,10 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
+"""
+Implementation for of the configuration object.
+"""
+
 import os,time,socket,sys
 from data import *
 import base_classes

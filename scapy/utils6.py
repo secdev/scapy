@@ -6,6 +6,9 @@
 ## Copyright (C) 2005  Guillaume Valadon <guedou@hongo.wide.ad.jp>
 ##                     Arnaud Ebalard <arnaud.ebalard@eads.net>
 
+"""
+Utility functions for IPv6.
+"""
 
 from config import conf
 from data import *

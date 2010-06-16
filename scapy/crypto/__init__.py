@@ -3,7 +3,9 @@
 ## Copyright (C) Arnaud Ebalard <arno@natisbad.org>
 ## This program is published under a GPLv2 license
 
-
+"""
+Tools for handling with digital certificates.
+"""
 
 try:
     import Crypto

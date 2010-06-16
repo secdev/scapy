@@ -3,6 +3,10 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
+"""
+ISAKMP (Internet Security Association and Key Management Protocol).
+"""
+
 import struct
 from scapy.packet import *
 from scapy.fields import *

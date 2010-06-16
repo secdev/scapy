@@ -6,6 +6,10 @@
 ## Copyright (C) 2005  Guillaume Valadon <guedou@hongo.wide.ad.jp>
 ##                     Arnaud Ebalard <arnaud.ebalard@eads.net>
 
+"""
+DHCPv6: Dynamic Host Configuration Protocol for IPv6. [RFC 3315]
+"""
+
 import socket
 from scapy.packet import *
 from scapy.fields import *

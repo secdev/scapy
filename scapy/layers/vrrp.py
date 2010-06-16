@@ -4,6 +4,10 @@
 ## Copyright (C) 6WIND <olivier.matz@6wind.com>
 ## This program is published under a GPLv2 license
 
+"""
+VRRP (Virtual Router Redundancy Protocol).
+"""
+
 from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.inet import IP

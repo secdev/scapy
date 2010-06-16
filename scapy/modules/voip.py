@@ -3,6 +3,10 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
+"""
+VoIP (Voice over IP) related functions
+"""
+
 import os
 ###################
 ## Testing stuff ##

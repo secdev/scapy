@@ -3,6 +3,10 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
+"""
+Classes and functions for layer 2 protocols.
+"""
+
 import os,struct,time
 from scapy.base_classes import Net
 from scapy.config import conf
