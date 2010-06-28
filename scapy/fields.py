@@ -811,6 +811,15 @@ class MultiEnumField(EnumField):
             return self.i2s_multi[v].get(x,x)
         return x
 
+class BitMultiEnumField(BitField,MultiEnumField):
+    def __init__(self, name, default, size, enum, depends_on):
+        MultiEnumField.__init__(self, name, default, enum)
+        self.rev = size < 0
+        self.size = abs(size)
+    def any2i(self, pkt, x):
+        return MultiEnumField.any2i(self, pkt, x)
+    def i2repr(self, pkt, x):
+        return MultiEnumField.i2repr(self, pkt, x)
 
 
 # Little endian long field
