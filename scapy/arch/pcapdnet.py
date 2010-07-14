@@ -43,11 +43,10 @@ if conf.use_pcap:
         if hasattr(pcap,"pcap"): # python-pypcap
             class _PcapWrapper_pypcap:
                 def __init__(self, device, snaplen, promisc, to_ms):
-                    # Normal pypcap module has no timeout parameter,
-                    # only the specially patched "scapy" variant has.                 
-                    if "scapy" in pcap.__version__.lower():
+                    try:
                         self.pcap = pcap.pcap(device, snaplen, promisc, immediate=1, timeout_ms=to_ms)
-                    else:
+                    except TypeError:
+                        # Older pypcap versions do not support the timeout_ms argument
                         self.pcap = pcap.pcap(device, snaplen, promisc, immediate=1)                    
                 def __getattr__(self, attr):
                     return getattr(self.pcap, attr)
