@@ -282,7 +282,7 @@ class ASN1F_SEQUENCE_OF(ASN1F_SEQUENCE):
 class ASN1F_PACKET(ASN1F_field):
     holds_packets = 1
     def __init__(self, name, default, cls):
-        ASN1_field.__init__(self, name, default)
+        ASN1F_field.__init__(self, name, default)
         self.cls = cls
     def i2m(self, pkt, x):
         if x is None:
