@@ -255,12 +255,13 @@ sendp(packets, [inter=0], [loop=0], [verbose=conf.verb]) -> None"""
     __gen_send(conf.L2socket(iface=iface, *args, **kargs), x, inter=inter, loop=loop, count=count, verbose=verbose, realtime=realtime)
 
 @conf.commands.register
-def sendpfast(x, pps=None, mbps=None, realtime=None, loop=0, iface=None):
+def sendpfast(x, pps=None, mbps=None, realtime=None, loop=0, file_cache=False, iface=None):
     """Send packets at layer 2 using tcpreplay for performance
     pps:  packets per second
     mpbs: MBits per second
     realtime: use packet's timestamp, bending time with realtime value
     loop: number of times to process the packet list
+    file_cache: cache packets in RAM instead of reading from disk at each iteration
     iface: output interface """
     if iface is None:
         iface = conf.iface
@@ -276,6 +277,8 @@ def sendpfast(x, pps=None, mbps=None, realtime=None, loop=0, iface=None):
 
     if loop:
         argv.append("--loop=%i" % loop)
+        if file_cache:
+            argv.append("--enable-file-cache")
 
     f = get_temp_file()
     argv.append(f)
