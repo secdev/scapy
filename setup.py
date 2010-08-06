@@ -25,6 +25,7 @@ def make_ezipfile(base_name, base_dir, verbose=0, dry_run=0):
             break
         f.write(data)
     f.close()
+    os.system("zip -A '%s'" % fname)
     of.close()
     os.unlink(ofname)
     os.chmod(fname,0755)
