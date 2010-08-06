@@ -13,6 +13,9 @@ from scapy.layers.l2 import Ether
 from scapy.base_classes import Net
 from scapy.volatile import RandField
 
+from scapy.arch import get_if_raw_hwaddr
+from scapy.sendrecv import srp1
+
 dhcpmagic="c\x82Sc"
 
 
