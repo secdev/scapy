@@ -11,15 +11,29 @@ from scapy.ansmachine import *
 from scapy.layers.inet import UDP
 
 class DNSStrField(StrField):
+
+    def h2i(self, pkt, x):
+      if x == "":
+        return "."
+      return x
+
     def i2m(self, pkt, x):
-        x = [k[:63] for k in x.split(".")] # Truncate chunks that cannont be encoded (more than 63 bytes..)
+        if x == ".":
+          return "\x00"
+
+        x = [k[:63] for k in x.split(".")] # Truncate chunks that cannot be encoded (more than 63 bytes..)
         x = map(lambda y: chr(len(y))+y, x)
         x = "".join(x)
         if x[-1] != "\x00":
             x += "\x00"
         return x
+
     def getfield(self, pkt, s):
         n = ""
+
+        if ord(s[0]) == 0:
+          return s[1:], "."
+
         while 1:
             l = ord(s[0])
             s = s[1:]
