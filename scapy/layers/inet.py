@@ -200,7 +200,8 @@ TCPOptions = (
                 5 : ("SAck","!"),
                 8 : ("Timestamp","!II"),
                 14 : ("AltChkSum","!BH"),
-                15 : ("AltChkSumOpt",None)
+                15 : ("AltChkSumOpt",None),
+                25 : ("Mood","!p")
                 },
               { "EOL":0,
                 "NOP":1,
@@ -211,6 +212,7 @@ TCPOptions = (
                 "Timestamp":8,
                 "AltChkSum":14,
                 "AltChkSumOpt":15,
+                "Mood":25
                 } )
 
 class TCPOptionsField(StrField):
