@@ -3,6 +3,10 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
+"""
+RIP (Routing Information Protocol).
+"""
+
 from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.inet import UDP

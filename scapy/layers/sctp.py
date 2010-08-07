@@ -4,6 +4,10 @@
 ## Copyright (C) 6WIND <olivier.matz@6wind.com>
 ## This program is published under a GPLv2 license
 
+"""
+SCTP (Stream Control Transmission Protocol).
+"""
+
 import struct
 
 from scapy.packet import *

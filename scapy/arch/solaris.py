@@ -3,6 +3,9 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
+"""
+Customization for the Solaris operation system.
+"""
 
 # IPPROTO_GRE is missing on Solaris
 import socket

@@ -3,6 +3,10 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
+"""
+Fields that hold random numbers.
+"""
+
 import random,time,math
 from base_classes import Net
 from utils import corrupt_bits,corrupt_bytes

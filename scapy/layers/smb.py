@@ -3,6 +3,10 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
+"""
+SMB (Server Message Block), also known as CIFS.
+"""
+
 from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.netbios import NBTSession

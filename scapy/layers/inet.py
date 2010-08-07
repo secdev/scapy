@@ -3,6 +3,10 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
+"""
+IPv4 (Internet Protocol v4).
+"""
+
 import os,time,struct,re,socket,new
 from select import select
 from collections import defaultdict

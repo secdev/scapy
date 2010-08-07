@@ -3,6 +3,10 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
+"""
+Packet holding data in Abstract Syntax Notation (ASN.1).
+"""
+
 from packet import *
 
 class ASN1_Packet(Packet):

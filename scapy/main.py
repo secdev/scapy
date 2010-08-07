@@ -3,6 +3,9 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
+"""
+Main module for interactive startup.
+"""
 
 from __future__ import generators
 import os,sys

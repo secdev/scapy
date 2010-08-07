@@ -3,6 +3,10 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
+"""
+Classes that implement ASN.1 data structures.
+"""
+
 from asn1.asn1 import *
 from asn1.ber import *
 from volatile import *

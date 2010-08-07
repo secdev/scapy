@@ -3,6 +3,10 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
+"""
+Packet class. Binding mechanism. fuzz() method.
+"""
+
 import time,itertools,os
 from fields import StrField,ConditionalField,Emph,PacketListField
 from config import conf

@@ -1,5 +1,9 @@
 #! /usr/bin/env python
 
+"""
+Distutils setup file for Scapy.
+"""
+
 
 from distutils import archive_util
 from distutils import sysconfig

@@ -3,6 +3,10 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
+"""
+Run commands when the Scapy interpreter starts.
+"""
+
 import code,sys
 from config import conf
 from themes import *

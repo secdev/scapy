@@ -3,6 +3,10 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
+"""
+TFTP (Trivial File Transfer Protocol).
+"""
+
 import os,random
 from scapy.packet import *
 from scapy.fields import *

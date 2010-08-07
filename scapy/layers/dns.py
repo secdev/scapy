@@ -3,6 +3,10 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
+"""
+DNS: Domain Name System.
+"""
+
 import socket,struct
 
 from scapy.packet import *

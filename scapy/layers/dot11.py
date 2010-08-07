@@ -3,6 +3,10 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
+"""
+Wireless LAN according to IEEE 802.11.
+"""
+
 import re,struct
 
 from scapy.packet import *

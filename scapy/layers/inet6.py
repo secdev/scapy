@@ -19,6 +19,10 @@
 ##                                                                         ##
 #############################################################################
 
+"""
+IPv6 (Internet Protocol v6).
+"""
+
 
 import socket
 if not socket.has_ipv6:
@@ -1461,9 +1465,9 @@ class TruncPktLenField(PacketLenField):
         l = self.length_from(pkt)
         i = self.m2i(pkt, s[:l])
         return s[l:],i
-    
+
     def m2i(self, pkt, m):
-        s = None 
+        s = None
         try: # It can happen we have sth shorter than 40 bytes
             s = self.cls(m)
         except:
@@ -1474,22 +1478,22 @@ class TruncPktLenField(PacketLenField):
         s = str(x)
         l = len(s)
         r = (l + self.cur_shift) % 8
-        l = l - r 
+        l = l - r
         return s[:l]
 
     def i2len(self, pkt, i):
         return len(self.i2m(pkt, i))
 
-        
+
 # Faire un post_build pour le recalcul de la taille (en multiple de 8 octets)
 class ICMPv6NDOptRedirectedHdr(_ICMPv6NDGuessPayload, Packet):
     name = "ICMPv6 Neighbor Discovery Option - Redirected Header"
     fields_desc = [ ByteField("type",4),
                     FieldLenField("len", None, length_of="pkt", fmt="B",
-                                  adjust = lambda pkt,x:(x+4)/8),
-                    XShortField("res",0),
-                    TruncPktLenField("pkt", "", IPv6, 4,
-                                     length_from = lambda pkt: 8*pkt.len-4) ]
+                                  adjust = lambda pkt,x:(x+8)/8),
+                    StrFixedLenField("res", "\x00"*6, 6),
+                    TruncPktLenField("pkt", "", IPv6, 8,
+                                     length_from = lambda pkt: 8*pkt.len-8) ]
 
 # See which value should be used for default MTU instead of 1280
 class ICMPv6NDOptMTU(_ICMPv6NDGuessPayload, Packet):

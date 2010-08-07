@@ -3,6 +3,9 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
+"""
+GPRS (General Packet Radio Service) for mobile data communication.
+"""
 
 from scapy.fields import *
 from scapy.packet import *
