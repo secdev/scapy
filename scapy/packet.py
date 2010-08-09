@@ -8,6 +8,7 @@ Packet class. Binding mechanism. fuzz() method.
 """
 
 import time,itertools,os
+import copy
 from fields import StrField,ConditionalField,Emph,PacketListField
 from config import conf
 from base_classes import BasePacket,Gen,SetGen,Packet_metaclass,NewDefaultValues
@@ -93,7 +94,7 @@ class Packet(BasePacket):
 
     def do_init_fields(self, flist):
         for f in flist:
-            self.default_fields[f.name] = f.default
+            self.default_fields[f.name] = copy.deepcopy(f.default)
             self.fieldtype[f.name] = f
             if f.holds_packets:
                 self.packetfields.append(f)
