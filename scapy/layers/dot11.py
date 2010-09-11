@@ -125,6 +125,15 @@ class RadioTap(Packet):
                                                      'b24','b25','b26','b27','b28','b29','b30','Ext']),
                     StrLenField('notdecoded', "", length_from= lambda pkt:pkt.len-8) ]
 
+class PPI(Packet):
+    name = "Per-Packet Information header (partial)"
+    fields_desc = [ ByteField("version", 0),
+                    ByteField("flags", 0),
+                    FieldLenField("len", None, fmt="<H", length_of="fields", adjust=lambda pkt,x:x+8),
+                    LEIntField("dlt", 0),
+                    StrLenField("notdecoded", "", length_from = lambda pkt:pkt.len-8)
+                    ]
+
 
 
 class Dot11SCField(LEShortField):
@@ -342,6 +351,7 @@ class Dot11WEP(Packet):
 
 bind_layers( PrismHeader,   Dot11,         )
 bind_layers( RadioTap,      Dot11,         )
+bind_layers( PPI,           Dot11,         dlt=105)
 bind_layers( Dot11,         LLC,           type=2)
 bind_layers( Dot11QoS,      LLC,           )
 bind_layers( Dot11,         Dot11AssoReq,    subtype=0, type=0)
@@ -371,6 +381,7 @@ conf.l2types.register_num2layer(801, Dot11)
 conf.l2types.register(119, PrismHeader)
 conf.l2types.register_num2layer(802, PrismHeader)
 conf.l2types.register(127, RadioTap)
+conf.l2types.register(0xc0, PPI)
 conf.l2types.register_num2layer(803, RadioTap)
 
 
