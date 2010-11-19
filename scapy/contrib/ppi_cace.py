@@ -11,7 +11,8 @@ import struct
 
 from scapy.packet import *
 from scapy.fields import *
-from scapy.all import conf, bind_layers, Ether, Raw
+from scapy.all import conf, bind_layers
+from scapy.layers.l2 import Ether, Raw
 from scapy.layers.dot11 import Dot11
 from ppi import *
 
