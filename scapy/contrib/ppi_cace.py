@@ -6,15 +6,13 @@
 """
 CACE PPI tags 
 """
-import logging
-import struct
-
+import logging,struct
+from scapy.config import conf
 from scapy.packet import *
 from scapy.fields import *
-from scapy.all import conf, bind_layers
-from scapy.layers.l2 import Ether, Raw
+from scapy.layers.l2 import Ether
 from scapy.layers.dot11 import Dot11
-from ppi import *
+from scapy.layers.ppi import *
 
 DOT11COMMON_TAG = 000002
 # more tags here soon

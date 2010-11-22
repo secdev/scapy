@@ -5,12 +5,10 @@
 """
 PPI-GEOLOCATION tags
 """
-import logging
-import struct
-from ppi import PPIGenericFldHdr
-from scapy.packet import Packet
+import logging,struct,time
+from scapy.packet import *
 from scapy.fields import *
-from scapy.all import lhex
+from scapy.layers.ppi import PPIGenericFldHdr
 
 GPS_TAG		= 30002
 VECTOR_TAG	= 30003
@@ -128,8 +126,7 @@ class XLEShortField(LEShortField):
 class GPSTime_Field(LEIntField):
     def i2repr(self, pkt, x):
         x = self.i2h(pkt, x) #this was stored in UTC
-        from time import gmtime, strftime, mktime, localtime
-        t = strftime("%a, %d %b %Y %H:%M:%S UTC", gmtime(x))
+        t = time.strftime("%a, %d %b %Y %H:%M:%S UTC", time.gmtime(x))
         return "%s (%d)" % (t, x)
 
 class HCSIFlagsField(FlagsField):

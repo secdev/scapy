@@ -5,13 +5,11 @@
 """
 PPI (Per-Packet Information).
 """
-import logging
-import struct
-
+import logging,struct
+from scapy.config import conf
 from scapy.packet import *
 from scapy.fields import *
-from scapy.all import conf, bind_layers
-from scapy.layers.l2 import Ether, Raw
+from scapy.layers.l2 import Ether
 from scapy.layers.dot11 import Dot11
 
 # Dictionary to map the TLV type to the class name of a sub-packet
