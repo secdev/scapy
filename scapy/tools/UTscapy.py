@@ -101,6 +101,7 @@ class Format(EnumClass):
     ANSI  = 2
     HTML  = 3
     LATEX = 4
+    XUNIT = 5
 
 
 #### TEST CLASSES ####
@@ -365,6 +366,19 @@ def campaign_to_ANSI(test_campaign):
 
     return output
 
+def campaign_to_xUNIT(test_campaign):
+    output='<?xml version="1.0" encoding="UTF-8" ?>\n<testsuite>\n'
+    for testset in test_campaign:
+        for t in testset:
+            output += ' <testcase classname="%s"\n' % testset.name.encode("string_escape").replace('"',' ')
+            output += '           name="%s"\n' % t.name.encode("string_escape").replace('"',' ')
+            output += '           duration="0">\n' % t
+            if not t.res:
+                output += '<error><![CDATA[%(output)s]]></error>\n' % t
+            output += "</testcase>\n"
+    output += '</testsuite>'
+    return output
+
 
 def campaign_to_HTML(test_campaign, local=0):
     output = """<html>
@@ -588,6 +602,7 @@ def main(argv):
         Format.ANSI: scapy.autorun_get_ansi_interactive_session,
         Format.HTML: scapy.autorun_get_html_interactive_session,
         Format.LATEX: scapy.autorun_get_latex_interactive_session,
+        Format.XUNIT: scapy.autorun_get_text_interactive_session,
         }
 
     # Parse test file
@@ -639,6 +654,8 @@ def main(argv):
         output = campaign_to_HTML(test_campaign, local=LOCAL)
     elif FORMAT == Format.LATEX:
         output = campaign_to_LATEX(test_campaign)
+    elif FORMAT == Format.XUNIT:
+        output = campaign_to_xUNIT(test_campaign)
 
     OUTPUTFILE.write(output)
     OUTPUTFILE.close()
