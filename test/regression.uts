@@ -135,6 +135,13 @@ assert( _.len == 23 and len(_) == 26 )
 IP(str(IP()/Raw("ABC")/Padding("abc")/Padding("def")))
 assert( _.len == 23 and len(_) == 29 )
 
+= PadField test
+~ PadField padding
+
+class TestPad(Packet):
+    fields_desc = [ PadField(StrNullField("st", ""),4), StrField("id", "")]
+
+TestPad() == TestPad(str(TestPad()))
 
 
 ############

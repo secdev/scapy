@@ -158,14 +158,17 @@ class PadField:
         self._align = align
         self._padwith = padwith or ""
 
+    def padlen(self, flen):
+        return -flen%self._align
+
     def getfield(self, pkt, s):
-        x = self._fld.getfield(pkt,s)
-        padlen = ((self._align - (len(x[1]) % self._align)) % self._align)
-        return x[0][padlen:], x[1]
+        remain,val = self._fld.getfield(pkt,s)
+        padlen = self.padlen(len(s)-len(remain))
+        return remain[padlen:], val
 
     def addfield(self, pkt, s, val):
         sval = self._fld.addfield(pkt, "", val)
-        return s+sval+struct.pack("%is" % (-len(sval)%self._align), self._padwith)
+        return s+sval+struct.pack("%is" % (self.padlen(len(sval))), self._padwith)
     
     def __getattr__(self, attr):
         return getattr(self._fld,attr)
