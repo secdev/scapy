@@ -1860,25 +1860,34 @@ a.type == 3 and a.len == 5 and a.prefixlen == 64 and a.L == 0 and a.A == 0 and a
 + ICMPv6NDOptRedirectedHdr Class Test 
 
 = ICMPv6NDOptRedirectedHdr - Basic Instantiation
-str(ICMPv6NDOptRedirectedHdr()) == '\x04\x00\x00\x00'
+~ ICMPv6NDOptRedirectedHdr
+str(ICMPv6NDOptRedirectedHdr()) == '\x04\x01\x00\x00\x00\x00\x00\x00'
 
 = ICMPv6NDOptRedirectedHdr - Instantiation with specific values 
-str(ICMPv6NDOptRedirectedHdr(len=0xff, res=0x1111, pkt="somestringthatisnotanipv6packet")) == '\x04\xff\x11\x11somestringthatisnotanipv6pac'
+~ ICMPv6NDOptRedirectedHdr
+str(ICMPv6NDOptRedirectedHdr(len=0xff, res=0x1111, pkt="somestringthatisnotanipv6packet")) == '\x04\xff4369\x00\x00somestringthatisnotanipv'
 
 = ICMPv6NDOptRedirectedHdr - Instantiation with simple IPv6 packet (no upper layer)
-str(ICMPv6NDOptRedirectedHdr(pkt=IPv6())) == '\x04\x05\x00\x00`\x00\x00\x00\x00\x00;@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+~ ICMPv6NDOptRedirectedHdr
+str(ICMPv6NDOptRedirectedHdr(pkt=IPv6())) == '\x04\x06\x00\x00\x00\x00\x00\x00`\x00\x00\x00\x00\x00;@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01'
 
 = ICMPv6NDOptRedirectedHdr - Basic Dissection
+~ ICMPv6NDOptRedirectedHdr
 a=ICMPv6NDOptRedirectedHdr('\x04\x00\x00\x00')
-a.type == 4 and a.len == 0 and a.res == 0 and a.pkt == ""
+assert(a.type == 4)
+assert(a.len == 0)
+assert(a.res == "\x00\x00")
+assert(a.pkt == "")
 
 = ICMPv6NDOptRedirectedHdr - Disssection with specific values
-a=ICMPv6NDOptRedirectedHdr('\x04\xff\x11\x11somestringthatisnotanipv6pac')
-a.type == 4 and a.len == 255 and a.res == 0x1111 and isinstance(a.pkt, Raw) and a.pkt.load == "somestringthatisnotanipv6pac"
+~ ICMPv6NDOptRedirectedHdr
+a=ICMPv6NDOptRedirectedHdr('\x04\xff\x11\x11\x00\x00\x00\x00somestringthatisnotanipv6pac')
+a.type == 4 and a.len == 255 and a.res == '\x11\x11\x00\x00\x00\x00' and isinstance(a.pkt, Raw) and a.pkt.load == "somestringthatisnotanipv6pac"
 
 = ICMPv6NDOptRedirectedHdr - Dissection with cut IPv6 Header
-a=ICMPv6NDOptRedirectedHdr('\x04\x05\x00\x00`\x00\x00\x00\x00\x00;@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
-a.type == 4 and a.len == 5 and a.res == 0 and isinstance(a.pkt, Raw) and a.pkt.load == '`\x00\x00\x00\x00\x00;@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+~ ICMPv6NDOptRedirectedHdr
+a=ICMPv6NDOptRedirectedHdr('\x04\x06\x00\x00\x00\x00\x00\x00`\x00\x00\x00\x00\x00;@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+a.type == 4 and a.len == 6 and a.res == "\x00\x00\x00\x00\x00\x00" and isinstance(a.pkt, Raw) and a.pkt.load == '`\x00\x00\x00\x00\x00;@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 
 # Add more tests
 
