@@ -29,7 +29,8 @@ class Fixed3_6Field(LEIntField):
     def h2i(self, pkt, x):
         if (x != None):
             if (x <= 0.5e-6):
-                logging.warning("Fixed3_6: Input value too negative: %.7f" % x)
+                if (x != 0): #Dont warn on exact zero.
+                    logging.warning("Fixed3_6: Input value too negative: %.7f" % x)
                 x = 0
             elif (x >= 999.9999995):
                 logging.warning("Fixed3_6: Input value too positive: %.7f" % x)
@@ -272,8 +273,8 @@ class GPS(HCSIPacket):
 # HCSIVector Fields
 VEC_Fields = [HCSIVectorFlagsField("VectorFlags", None),
               HCSIVectorCharacteristicsFlagsField("VectorChars", None),
-              Fixed3_6Field("Rot_X", None),       Fixed3_6Field("Rot_Y", None),
-              Fixed3_6Field("Rot_Z", None),       Fixed6_4Field("Off_R", None),
+              Fixed3_6Field("Pitch", None),       Fixed3_6Field("Roll", None),
+              Fixed3_6Field("Heading", None),       Fixed6_4Field("Off_R", None),
               Fixed6_4Field("Off_F", None),       Fixed6_4Field("Off_U", None),
               Fixed6_4Field("Vel_R", None),       Fixed6_4Field("Vel_F", None),
               Fixed6_4Field("Vel_U", None),       Fixed6_4Field("Vel_T", None),
