@@ -105,19 +105,19 @@ class NSCounter_Field(LEIntField):
             if (x < 0):
                 warning("NSCounter_Field: Internal value too negative: %d" % x)
                 x = 0
-            elif (x > 1e9):
+            elif (x >= 2**32):
                 warning("NSCounter_Field: Internal value too positive: %d" % x)
-                x = 1e9
+                x = 2**32-1
             x = (x / 1e9)
         return x
     def h2i(self, pkt, x): #converts input in seconds into nano-seconds for storage
         if x is not None:
             if (x < 0):
-                warning("NSCounter_Field: Input value too negative: %.5f" % x)
-                x = -180000.0
-            elif (x > 1e9):
-                warning("NSCounter_Field: Input value too positive: %.5f" % x)
-                x = 1e9
+                warning("NSCounter_Field: Input value too negative: %.10f" % x)
+                x = 0
+            elif (x >= (2**32) / 1e9):
+                warning("NSCounter_Field: Input value too positive: %.10f" % x)
+                x = (2**32-1) / 1e9
             x = int(round((x * 1e9)))
         return x
     def i2repr(self,pkt,x):
@@ -125,7 +125,7 @@ class NSCounter_Field(LEIntField):
             y=0
         else:
             y=self.i2h(pkt,x)
-        return "%1.10f"%(y)
+        return "%1.9f"%(y)
 #This belongs in fields.py
 class XLEIntField(LEIntField):
     def i2repr(self, pkt, x):
