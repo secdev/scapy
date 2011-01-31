@@ -17,7 +17,7 @@ ANTENNA_TAG = 30005
 #The FixedX_Y Fields are used to store fixed point numbers in a variety of fields in the GEOLOCATION-TAGS specification
 class Fixed3_6Field(LEIntField):
     def i2h(self, pkt, x):
-        if (x != None):
+        if x is not None:
             if (x < 0):
                 logging.warning("Fixed3_6: Internal value too negative: %d" % x)
                 x = 0
@@ -27,10 +27,9 @@ class Fixed3_6Field(LEIntField):
             x = x * 1e-6
         return x
     def h2i(self, pkt, x):
-        if (x != None):
-            if (x <= 0.5e-6):
-                if (x != 0): #Dont warn on exact zero.
-                    logging.warning("Fixed3_6: Input value too negative: %.7f" % x)
+        if x is not None:
+            if (x <= -0.5e-6):
+                logging.warning("Fixed3_6: Input value too negative: %.7f" % x)
                 x = 0
             elif (x >= 999.9999995):
                 logging.warning("Fixed3_6: Input value too positive: %.7f" % x)
@@ -38,11 +37,14 @@ class Fixed3_6Field(LEIntField):
             x = int(round(x * 1e6))
         return x
     def i2repr(self,pkt,x):
-        y=self.i2h(pkt,x)
+        if x is None:
+            y=0
+        else:
+            y=self.i2h(pkt,x)
         return "%3.6f"%(y)
 class Fixed3_7Field(LEIntField):
     def i2h(self, pkt, x):
-        if (x != None):
+        if x is not None:
             if (x < 0):
                 logging.warning("Fixed3_7: Internal value too negative: %d" % x)
                 x = 0
@@ -52,7 +54,7 @@ class Fixed3_7Field(LEIntField):
             x = (x - 1800000000) * 1e-7
         return x
     def h2i(self, pkt, x):
-        if (x != None):
+        if x is not None:
             if (x <= -180.00000005):
                 logging.warning("Fixed3_7: Input value too negative: %.8f" % x)
                 x = -180.0
@@ -62,12 +64,15 @@ class Fixed3_7Field(LEIntField):
             x = int(round((x + 180.0) * 1e7))
         return x
     def i2repr(self,pkt,x):
-        y=self.i2h(pkt,x)
+        if x is None:
+            y=0
+        else:
+            y=self.i2h(pkt,x)
         return "%3.7f"%(y)
 
 class Fixed6_4Field(LEIntField):
     def i2h(self, pkt, x):
-        if (x != None):
+        if x is not None:
             if (x < 0):
                 logging.warning("Fixed6_4: Internal value too negative: %d" % x)
                 x = 0
@@ -77,7 +82,7 @@ class Fixed6_4Field(LEIntField):
             x = (x - 1800000000) * 1e-4
         return x
     def h2i(self, pkt, x):
-        if (x != None):
+        if x is not None:
             if (x <= -180000.00005):
                 logging.warning("Fixed6_4: Input value too negative: %.5f" % x)
                 x = -180000.0
@@ -87,33 +92,39 @@ class Fixed6_4Field(LEIntField):
             x = int(round((x + 180000.0) * 1e4))
         return x
     def i2repr(self,pkt,x):
-        y=self.i2h(pkt,x)
+        if x is None:
+            y=0
+        else:
+            y=self.i2h(pkt,x)
         return "%6.4f"%(y)
 #The GPS timestamps fractional time counter is stored in a 32-bit unsigned ns counter.
 #The ept field is as well,
 class NSCounter_Field(LEIntField):
     def i2h(self, pkt, x): #converts nano-seconds to seconds for output
-        if (x != None):
+        if x is not None:
             if (x < 0):
                 logging.warning("NSCounter_Field: Internal value too negative: %d" % x)
                 x = 0
             elif (x > 1e9):
                 logging.warning("NSCounter_Field: Internal value too positive: %d" % x)
                 x = 1e9
-            x = (x  / 1e9)
+            x = (x / 1e9)
         return x
     def h2i(self, pkt, x): #converts input in seconds into nano-seconds for storage
-        if (x != None):
-            if (x <0 ):
+        if x is not None:
+            if (x < 0):
                 logging.warning("NSCounter_Field: Input value too negative: %.5f" % x)
                 x = -180000.0
             elif (x > 1e9):
                 logging.warning("NSCounter_Field: Input value too positive: %.5f" % x)
                 x = 1e9
-            x = int(round((x  * 1e9)))
+            x = int(round((x * 1e9)))
         return x
     def i2repr(self,pkt,x):
-        y=self.i2h(pkt,x)
+        if x is None:
+            y=0
+        else:
+            y=self.i2h(pkt,x)
         return "%1.10f"%(y)
 #This belongs in fields.py
 class XLEIntField(LEIntField):
@@ -136,13 +147,13 @@ class HCSIFlagsField(FlagsField):
     every field in self.names.  If the field's value is not None, the corresponding
     flag will be set. """
     def i2m(self, pkt, val):
-        if (val == None):
+        if val is None:
             val = 0
             if (pkt):
                 for i in range(len(self.names)):
                     name = self.names[i][0]
                     value = pkt.getfieldval(name)
-                    if (value != None):
+                    if value is not None:
                         val |= 1 << i
         return val
 
@@ -170,10 +181,10 @@ def FlagsList(myfields):
 _hcsi_gps_flags = FlagsList({0:"No Fix Available", 1:"GPS", 2:"Differential GPS",
                              3:"Pulse Per Second", 4:"Real Time Kinematic",
                              5:"Float Real Time Kinematic", 6:"Estimated (Dead Reckoning)",
-                             7:"Manual Input",8:"Simulation"})
+                             7:"Manual Input", 8:"Simulation"})
 class HCSIGpsFlagsField(FlagsField):
     def __init__(self, name, default):
-        return FlagsField.__init__(self, name, default,-32, _hcsi_gps_flags)
+        return FlagsField.__init__(self, name, default, -32, _hcsi_gps_flags)
 
 _hcsi_vector_flags = FlagsList({0:"ForwardFrame", 1:"RotationsAbsoluteXYZ", 5:"OffsetFromGPS_XYZ"})
 class HCSIVectorFlagsField(FlagsField):
@@ -207,8 +218,8 @@ See GPS_Fields as an example. """
 
 # Conditional test for all HCSI Fields
 def _HCSITest(pkt, ibit, name):
-    if (pkt.present == None):
-        return (pkt.getfieldval(name) != None)
+    if pkt.present is None:
+        return (pkt.getfieldval(name) is not None)
     return pkt.present & ibit
 
 class HCSIPacket(Packet):
@@ -274,7 +285,7 @@ class GPS(HCSIPacket):
 VEC_Fields = [HCSIVectorFlagsField("VectorFlags", None),
               HCSIVectorCharacteristicsFlagsField("VectorChars", None),
               Fixed3_6Field("Pitch", None),       Fixed3_6Field("Roll", None),
-              Fixed3_6Field("Heading", None),       Fixed6_4Field("Off_R", None),
+              Fixed3_6Field("Heading", None),     Fixed6_4Field("Off_R", None),
               Fixed6_4Field("Off_F", None),       Fixed6_4Field("Off_U", None),
               Fixed6_4Field("Vel_R", None),       Fixed6_4Field("Vel_F", None),
               Fixed6_4Field("Vel_U", None),       Fixed6_4Field("Vel_T", None),
