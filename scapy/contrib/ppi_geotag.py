@@ -5,7 +5,7 @@
 """
 PPI-GEOLOCATION tags
 """
-import logging,struct,time
+import struct,time
 from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.ppi import PPIGenericFldHdr
@@ -19,20 +19,20 @@ class Fixed3_6Field(LEIntField):
     def i2h(self, pkt, x):
         if x is not None:
             if (x < 0):
-                logging.warning("Fixed3_6: Internal value too negative: %d" % x)
+                warning("Fixed3_6: Internal value too negative: %d" % x)
                 x = 0
             elif (x > 999999999):
-                logging.warning("Fixed3_6: Internal value too positive: %d" % x)
+                warning("Fixed3_6: Internal value too positive: %d" % x)
                 x = 999999999
             x = x * 1e-6
         return x
     def h2i(self, pkt, x):
         if x is not None:
             if (x <= -0.5e-6):
-                logging.warning("Fixed3_6: Input value too negative: %.7f" % x)
+                warning("Fixed3_6: Input value too negative: %.7f" % x)
                 x = 0
             elif (x >= 999.9999995):
-                logging.warning("Fixed3_6: Input value too positive: %.7f" % x)
+                warning("Fixed3_6: Input value too positive: %.7f" % x)
                 x = 999.999999
             x = int(round(x * 1e6))
         return x
@@ -46,20 +46,20 @@ class Fixed3_7Field(LEIntField):
     def i2h(self, pkt, x):
         if x is not None:
             if (x < 0):
-                logging.warning("Fixed3_7: Internal value too negative: %d" % x)
+                warning("Fixed3_7: Internal value too negative: %d" % x)
                 x = 0
             elif (x > 3600000000):
-                logging.warning("Fixed3_7: Internal value too positive: %d" % x)
+                warning("Fixed3_7: Internal value too positive: %d" % x)
                 x = 3600000000
             x = (x - 1800000000) * 1e-7
         return x
     def h2i(self, pkt, x):
         if x is not None:
             if (x <= -180.00000005):
-                logging.warning("Fixed3_7: Input value too negative: %.8f" % x)
+                warning("Fixed3_7: Input value too negative: %.8f" % x)
                 x = -180.0
             elif (x >= 180.00000005):
-                logging.warning("Fixed3_7: Input value too positive: %.8f" % x)
+                warning("Fixed3_7: Input value too positive: %.8f" % x)
                 x = 180.0
             x = int(round((x + 180.0) * 1e7))
         return x
@@ -74,20 +74,20 @@ class Fixed6_4Field(LEIntField):
     def i2h(self, pkt, x):
         if x is not None:
             if (x < 0):
-                logging.warning("Fixed6_4: Internal value too negative: %d" % x)
+                warning("Fixed6_4: Internal value too negative: %d" % x)
                 x = 0
             elif (x > 3600000000):
-                logging.warning("Fixed6_4: Internal value too positive: %d" % x)
+                warning("Fixed6_4: Internal value too positive: %d" % x)
                 x = 3600000000
             x = (x - 1800000000) * 1e-4
         return x
     def h2i(self, pkt, x):
         if x is not None:
             if (x <= -180000.00005):
-                logging.warning("Fixed6_4: Input value too negative: %.5f" % x)
+                warning("Fixed6_4: Input value too negative: %.5f" % x)
                 x = -180000.0
             elif (x >= 180000.00005):
-                logging.warning("Fixed6_4: Input value too positive: %.5f" % x)
+                warning("Fixed6_4: Input value too positive: %.5f" % x)
                 x = 180000.0
             x = int(round((x + 180000.0) * 1e4))
         return x
@@ -103,20 +103,20 @@ class NSCounter_Field(LEIntField):
     def i2h(self, pkt, x): #converts nano-seconds to seconds for output
         if x is not None:
             if (x < 0):
-                logging.warning("NSCounter_Field: Internal value too negative: %d" % x)
+                warning("NSCounter_Field: Internal value too negative: %d" % x)
                 x = 0
             elif (x > 1e9):
-                logging.warning("NSCounter_Field: Internal value too positive: %d" % x)
+                warning("NSCounter_Field: Internal value too positive: %d" % x)
                 x = 1e9
             x = (x / 1e9)
         return x
     def h2i(self, pkt, x): #converts input in seconds into nano-seconds for storage
         if x is not None:
             if (x < 0):
-                logging.warning("NSCounter_Field: Input value too negative: %.5f" % x)
+                warning("NSCounter_Field: Input value too negative: %.5f" % x)
                 x = -180000.0
             elif (x > 1e9):
-                logging.warning("NSCounter_Field: Input value too positive: %.5f" % x)
+                warning("NSCounter_Field: Input value too positive: %.5f" % x)
                 x = 1e9
             x = int(round((x * 1e9)))
         return x
