@@ -126,13 +126,6 @@ class NSCounter_Field(LEIntField):
         else:
             y=self.i2h(pkt,x)
         return "%1.9f"%(y)
-#This belongs in fields.py
-class XLEIntField(LEIntField):
-    def i2repr(self, pkt, x):
-        return lhex(self.i2h(pkt, x))
-class XLEShortField(LEShortField):
-    def i2repr(self, pkt, x):
-        return lhex(self.i2h(pkt, x))
 
 #This is based off dhcp6.py
 class GPSTime_Field(LEIntField):
