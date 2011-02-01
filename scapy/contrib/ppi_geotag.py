@@ -8,11 +8,11 @@ PPI-GEOLOCATION tags
 import struct,time
 from scapy.packet import *
 from scapy.fields import *
-from scapy.layers.ppi import PPIGenericFldHdr
+from scapy.layers.ppi import PPIGenericFldHdr,addPPIType
 
-GPS_TAG     = 30002
-VECTOR_TAG  = 30003
-ANTENNA_TAG = 30005
+PPI_GPS     = 30002
+PPI_VECTOR  = 30003
+PPI_ANTENNA = 30005
 
 #The FixedX_Y Fields are used to store fixed point numbers in a variety of fields in the GEOLOCATION-TAGS specification
 class Fixed3_6Field(LEIntField):
@@ -274,7 +274,7 @@ for i in range(len(names)):
 
 class GPS(HCSIPacket):
     name = "PPI GPS"
-    fields_desc = [ LEShortField('pfh_type', GPS_TAG), #pfh_type
+    fields_desc = [ LEShortField('pfh_type', PPI_GPS), #pfh_type
                     LEShortField('pfh_length', None), #pfh_len
                     ByteField('geotag_ver', 1), #base_geotag_header.ver
                     ByteField('geotag_pad', 2), #base_geotag_header.pad
@@ -313,7 +313,7 @@ for i in range(len(names)):
 
 class Vector(HCSIPacket):
     name = "PPI Vector"
-    fields_desc = [ LEShortField('pfh_type', VECTOR_TAG), #pfh_type
+    fields_desc = [ LEShortField('pfh_type', PPI_VECTOR), #pfh_type
                     LEShortField('pfh_length', None), #pfh_len
                     ByteField('geotag_ver', 1), #base_geotag_header.ver
                     ByteField('geotag_pad', 2), #base_geotag_header.pad
@@ -350,13 +350,12 @@ for i in range(len(names)):
 
 class Antenna(HCSIPacket):
     name = "PPI Antenna"
-    fields_desc = [ LEShortField('pfh_type', ANTENNA_TAG), #pfh_type
+    fields_desc = [ LEShortField('pfh_type', PPI_ANTENNA), #pfh_type
                     LEShortField('pfh_length', None), #pfh_len
                     ByteField('geotag_ver', 1), #base_geotag_header.ver
                     ByteField('geotag_pad', 2), #base_geotag_header.pad
                     LEShortField('geotag_len', None)] + _hcsi_ant_fields
 
-from ppi import addPPIType
-addPPIType(GPS_TAG, GPS)
-addPPIType(VECTOR_TAG, Vector)
-addPPIType(ANTENNA_TAG,Antenna)
+addPPIType(PPI_GPS, GPS)
+addPPIType(PPI_VECTOR, Vector)
+addPPIType(PPI_ANTENNA,Antenna)

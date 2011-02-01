@@ -4,7 +4,7 @@
 ## This program is published under a GPLv2 license
 
 """
-CACE PPI tags 
+CACE PPI types 
 """
 import logging,struct
 from scapy.config import conf
@@ -14,8 +14,14 @@ from scapy.layers.l2 import Ether
 from scapy.layers.dot11 import Dot11
 from scapy.layers.ppi import *
 
-DOT11COMMON_TAG = 000002
-# more tags here soon
+PPI_DOT11COMMON  = 2
+PPI_DOT11NMAC    = 3
+PPI_DOT11NMACPHY = 4
+PPI_SPECTRUMMAP  = 5
+PPI_PROCESSINFO  = 6
+PPI_CAPTUREINFO  = 7
+PPI_AGGREGATION  = 8
+PPI_DOT3         = 9
 
 # PPI 802.11 Common Field Header Fields
 class dBmByteField(Field):
@@ -58,7 +64,7 @@ _PPIDot11CommonPktFlags = ['FCS','TSFT_ms','FCS_Invalid','PHY_Error','b4','b5','
 # PPI 802.11 Common Field Header
 class Dot11Common(Packet):
     name = "PPI 802.11-Common"
-    fields_desc = [ LEShortField('pfh_type',DOT11COMMON_TAG),
+    fields_desc = [ LEShortField('pfh_type',PPI_DOT11COMMON),
                     LEShortField('pfh_length', 20),
                     PPITSFTField('TSF_Timer', 0),
                     FlagsField('Pkt_Flags',0, -16, _PPIDot11CommonPktFlags),
@@ -72,8 +78,8 @@ class Dot11Common(Packet):
 
     def extract_padding(self, p):
         return "",p
-#Hopefully other CACE defined tags will be added here.
+#Hopefully other CACE defined types will be added here.
 
 #Add the dot11common layer to the PPI array
-addPPIType(DOT11COMMON_TAG, Dot11Common)
+addPPIType(PPI_DOT11COMMON, Dot11Common)
 
