@@ -5,7 +5,7 @@
 """
 PPI-GEOLOCATION tags
 """
-import struct,time
+import struct
 from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.ppi import PPIGenericFldHdr,addPPIType
@@ -127,12 +127,9 @@ class NSCounter_Field(LEIntField):
             y=self.i2h(pkt,x)
         return "%1.9f"%(y)
 
-#This is based off dhcp6.py
-class GPSTime_Field(LEIntField):
-    def i2repr(self, pkt, x):
-        x = self.i2h(pkt, x) #this was stored in UTC
-        t = time.strftime("%a, %d %b %Y %H:%M:%S UTC", time.gmtime(x))
-        return "%s (%d)" % (t, x)
+class GPSTime_Field(UTCTimeField):
+    def __init__(self, name, default):
+        return UTCTimeField.__init__(self, name, default, strf="%a, %d %b %Y %H:%M:%S UTC")
 
 class HCSIFlagsField(FlagsField):
     """ A FlagsField where each bit/flag turns a conditional field on or off.
