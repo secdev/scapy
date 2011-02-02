@@ -215,6 +215,17 @@ def _HCSITest(pkt, ibit, name):
         return (pkt.getfieldval(name) is not None)
     return pkt.present & ibit
 
+# Wrap optional fields in ConditionalField, add HCSIFlagsField
+def _HCSIBuildFields(fields):
+    names = [f.name for f in fields]
+    cond_fields = [ HCSIFlagsField('present', None, -len(names), names)]
+    for i in range(len(names)):
+        ibit = 1 << i
+        seval = "lambda pkt:_HCSITest(pkt,%s,'%s')" % (ibit, names[i])
+        test = eval(seval)
+        cond_fields.append(ConditionalField(fields[i], test))
+    return cond_fields
+
 class HCSIPacket(Packet):
     name = "PPI HCSI"
     fields_desc = [ LEShortField('pfh_type', None),
@@ -254,24 +265,13 @@ GPS_Fields = [HCSIGpsFlagsField("GPSFlags", None), Fixed3_7Field("Latitude", Non
               HCSIDescField("DescString", None),   XLEIntField("AppId", None),
               HCSIAppField("AppData", None),       HCSINullField("Extended", None)]
 
-names = []
-for fld in GPS_Fields:
-    names.append(fld.name)
-
-_hcsi_gps_fields = [ HCSIFlagsField('present',None,-len(names), names)]
-for i in range(len(names)):
-    ibit = 1 << i
-    seval = "lambda pkt:_HCSITest(pkt,%s,'%s')" % (ibit, names[i])
-    test = eval(seval)
-    _hcsi_gps_fields.append(ConditionalField(GPS_Fields[i], test))
-
 class GPS(HCSIPacket):
     name = "PPI GPS"
     fields_desc = [ LEShortField('pfh_type', PPI_GPS), #pfh_type
                     LEShortField('pfh_length', None), #pfh_len
                     ByteField('geotag_ver', 1), #base_geotag_header.ver
                     ByteField('geotag_pad', 2), #base_geotag_header.pad
-                    LEShortField('geotag_len', None)] + _hcsi_gps_fields
+                    LEShortField('geotag_len', None)] + _HCSIBuildFields(GPS_Fields)
 
 
 # HCSIVector Fields
@@ -293,24 +293,13 @@ VEC_Fields = [HCSIVectorFlagsField("VectorFlags", None),
               HCSIDescField("DescString", None),  XLEIntField("AppId", None),
               HCSIAppField("AppData", None),      HCSINullField("Extended", None)]
 
-names = []
-for fld in VEC_Fields:
-    names.append(fld.name)
-
-_hcsi_vec_fields = [ HCSIFlagsField('present',None,-len(names), names)]
-for i in range(len(names)):
-    ibit = 1 << i
-    seval = "lambda pkt:_HCSITest(pkt,%s,'%s')" % (ibit, names[i])
-    test = eval(seval)
-    _hcsi_vec_fields.append(ConditionalField(VEC_Fields[i], test))
-
 class Vector(HCSIPacket):
     name = "PPI Vector"
     fields_desc = [ LEShortField('pfh_type', PPI_VECTOR), #pfh_type
                     LEShortField('pfh_length', None), #pfh_len
                     ByteField('geotag_ver', 1), #base_geotag_header.ver
                     ByteField('geotag_pad', 2), #base_geotag_header.pad
-                    LEShortField('geotag_len', None)] + _hcsi_vec_fields
+                    LEShortField('geotag_len', None)] + _HCSIBuildFields(VEC_Fields)
 
 # HCSIAntenna Fields
 ANT_Fields = [HCSIAntennaFlagsField("AntennaFlags", None), ByteField("Gain", None),
@@ -330,24 +319,13 @@ ANT_Fields = [HCSIAntennaFlagsField("AntennaFlags", None), ByteField("Gain", Non
               HCSIDescField("DescString", None),           XLEIntField("AppId", None),
               HCSIAppField("AppData", None),               HCSINullField("Extended", None)]
 
-names = []
-for fld in ANT_Fields:
-    names.append(fld.name)
-
-_hcsi_ant_fields = [ HCSIFlagsField('present',None,-len(names), names)]
-for i in range(len(names)):
-    ibit = 1 << i
-    seval = "lambda pkt:_HCSITest(pkt,%s,'%s')" % (ibit, names[i])
-    test = eval(seval)
-    _hcsi_ant_fields.append(ConditionalField(ANT_Fields[i], test))
-
 class Antenna(HCSIPacket):
     name = "PPI Antenna"
     fields_desc = [ LEShortField('pfh_type', PPI_ANTENNA), #pfh_type
                     LEShortField('pfh_length', None), #pfh_len
                     ByteField('geotag_ver', 1), #base_geotag_header.ver
                     ByteField('geotag_pad', 2), #base_geotag_header.pad
-                    LEShortField('geotag_len', None)] + _hcsi_ant_fields
+                    LEShortField('geotag_len', None)] + _HCSIBuildFields(ANT_Fields)
 
 addPPIType(PPI_GPS, GPS)
 addPPIType(PPI_VECTOR, Vector)
