@@ -162,7 +162,7 @@ class HCSIAppField(StrFixedLenField):
     def __init__(self, name, default):
         return StrFixedLenField.__init__(self, name, default, length=60)
 
-def FlagsList(myfields):
+def _FlagsList(myfields):
     flags = []
     for i in range(32):
         flags.append("Reserved%02d" % i)
@@ -171,33 +171,21 @@ def FlagsList(myfields):
     return flags
 
 # Define all geolocation-tag flags lists
-_hcsi_gps_flags = FlagsList({0:"No Fix Available", 1:"GPS", 2:"Differential GPS",
-                             3:"Pulse Per Second", 4:"Real Time Kinematic",
-                             5:"Float Real Time Kinematic", 6:"Estimated (Dead Reckoning)",
-                             7:"Manual Input", 8:"Simulation"})
-class HCSIGpsFlagsField(FlagsField):
-    def __init__(self, name, default):
-        return FlagsField.__init__(self, name, default, -32, _hcsi_gps_flags)
+_hcsi_gps_flags = _FlagsList({0:"No Fix Available", 1:"GPS", 2:"Differential GPS",
+                              3:"Pulse Per Second", 4:"Real Time Kinematic",
+                              5:"Float Real Time Kinematic", 6:"Estimated (Dead Reckoning)",
+                              7:"Manual Input", 8:"Simulation"})
 
-_hcsi_vector_flags = FlagsList({0:"ForwardFrame", 1:"RotationsAbsoluteXYZ", 5:"OffsetFromGPS_XYZ"})
-class HCSIVectorFlagsField(FlagsField):
-    def __init__(self, name, default):
-        return FlagsField.__init__(self, name, default, -32, _hcsi_vector_flags)
-_hcsi_vector_char_flags = FlagsList({0:"Antenna", 1:"Direction of Travel",
-                                     2:"Front of Vehicle", 8:"GPS Derived",
-                                     9:"INS Derived", 10:"Compass Derived",
-                                    11:"Accerometer Derived", 12:"Human Derived"})
+_hcsi_vector_flags = _FlagsList({0:"ForwardFrame", 1:"RotationsAbsoluteXYZ", 5:"OffsetFromGPS_XYZ"})
 
-class HCSIVectorCharacteristicsFlagsField(FlagsField):
-    def __init__(self, name, default):
-        return FlagsField.__init__(self, name, default, -32, _hcsi_vector_char_flags)
-_hcsi_antenna_flags = FlagsList({ 1:"Horizontal Polarization",     2:"Vertical Polarization",
-                                  3:"Circular Polarization Left",  4:"Circular Polarization Right",
-                                 16:"Electronically Steerable",   17:"Mechanically Steerable"})
+_hcsi_vector_char_flags = _FlagsList({0:"Antenna", 1:"Direction of Travel",
+                                      2:"Front of Vehicle", 8:"GPS Derived",
+                                      9:"INS Derived", 10:"Compass Derived",
+                                     11:"Accerometer Derived", 12:"Human Derived"})
 
-class HCSIAntennaFlagsField(FlagsField):
-    def __init__(self, name, default):
-        return FlagsField.__init__(self, name, default, -32, _hcsi_antenna_flags)
+_hcsi_antenna_flags = _FlagsList({ 1:"Horizontal Polarization",     2:"Vertical Polarization",
+                                   3:"Circular Polarization Left",  4:"Circular Polarization Right",
+                                  16:"Electronically Steerable",   17:"Mechanically Steerable"})
 
 """ HCSI PPI Fields are similar to RadioTap.  A mask field called "present" specifies if each field
 is present.  All other fields are conditional.  When dissecting a packet, each field is present if
@@ -248,7 +236,8 @@ class HCSIPacket(Packet):
         return "",p
 
 # HCSIGPS Fields
-GPS_Fields = [HCSIGpsFlagsField("GPSFlags", None), Fixed3_7Field("Latitude", None),
+GPS_Fields = [FlagsField("GPSFlags", None, -32, _hcsi_gps_flags),
+              Fixed3_7Field("Latitude", None),
               Fixed3_7Field("Longitude", None),    Fixed6_4Field("Altitude", None),
               Fixed6_4Field("Altitude_g", None),   GPSTime_Field("GPSTime", None),
               NSCounter_Field("FractionalTime", None),  Fixed3_6Field("eph", None),
@@ -275,8 +264,8 @@ class GPS(HCSIPacket):
 
 
 # HCSIVector Fields
-VEC_Fields = [HCSIVectorFlagsField("VectorFlags", None),
-              HCSIVectorCharacteristicsFlagsField("VectorChars", None),
+VEC_Fields = [FlagsField("VectorFlags", None, -32, _hcsi_vector_flags),
+              FlagsField("VectorChars", None, -32, _hcsi_vector_char_flags),
               Fixed3_6Field("Pitch", None),       Fixed3_6Field("Roll", None),
               Fixed3_6Field("Heading", None),     Fixed6_4Field("Off_R", None),
               Fixed6_4Field("Off_F", None),       Fixed6_4Field("Off_U", None),
@@ -302,7 +291,8 @@ class Vector(HCSIPacket):
                     LEShortField('geotag_len', None)] + _HCSIBuildFields(VEC_Fields)
 
 # HCSIAntenna Fields
-ANT_Fields = [HCSIAntennaFlagsField("AntennaFlags", None), ByteField("Gain", None),
+ANT_Fields = [FlagsField("AntennaFlags", None, -32, _hcsi_antenna_flags),
+              ByteField("Gain", None),
               Fixed3_6Field("HorizBw", None),              Fixed3_6Field("VertBw", None),
               Fixed3_6Field("PrecisionGain",None),         XLEShortField("BeamID", None),
               HCSINullField("Reserved06", None),           HCSINullField("Reserved07", None),
