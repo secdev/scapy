@@ -55,11 +55,10 @@ class PPITSFTField(LELongField):
         tout = int((scale * val) + 0.5)
         return tout
 
-_PPIDot11CommonChFlags = ['b0','b1','b2','b3','Turbo','CCK','OFDM','2GHz','5GHz',
-                          'PassiveOnly','Dynamic CCK-OFDM','GSFK','b12','b13','b14','b15']
+_PPIDot11CommonChFlags = ['','','','','Turbo','CCK','OFDM','2GHz','5GHz',
+                          'PassiveOnly','Dynamic CCK-OFDM','GSFK']
 
-_PPIDot11CommonPktFlags = ['FCS','TSFT_ms','FCS_Invalid','PHY_Error','b4','b5','b6','b7',
-                           'b8','b9','b10','b11','b12','b13','b14','b15']
+_PPIDot11CommonPktFlags = ['FCS','TSFT_ms','FCS_Invalid','PHY_Error']
 
 # PPI 802.11 Common Field Header
 class Dot11Common(Packet):
