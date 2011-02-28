@@ -9,6 +9,7 @@ Main module for interactive startup.
 
 from __future__ import generators
 import os,sys
+import glob
 import __builtin__
 from error import *
 import utils
@@ -64,6 +65,35 @@ def load_module(name):
 
 def load_layer(name):
     _load("scapy.layers."+name)
+
+def load_contrib(name):
+    _load("scapy.contrib."+name)
+
+def list_contrib(name=None):
+    if name is None:
+        name="*.py"
+    elif "*" not in name and "?" not in name and not name.endswith(".py"):
+        name += ".py"
+    name = os.path.join(os.path.dirname(__file__), "contrib", name)
+    for f in glob.glob(name):
+        mod = os.path.basename(f)
+        if mod.startswith("__"):
+            continue
+        if mod.endswith(".py"):
+            mod = mod[:-3]
+        desc = { "description":"-", "status":"?", "name":mod }
+        for l in open(f):
+            p = l.find("scapy.contrib.")
+            if p >= 0:
+                p += 14
+                q = l.find("=", p)
+                key = l[p:q].strip()
+                value = l[q+1:].strip()
+                desc[key] = value
+        print "%(name)-20s: %(description)-40s status=%(status)s" % desc
+
+                        
+
 
     
 
