@@ -7,8 +7,8 @@
 Cryptographic certificates.
 """
 
-import os, sys, math, socket, struct, sha, hmac, string, time
-import random, popen2, tempfile
+import os, sys, math, socket, struct, hmac, string, time, random, tempfile
+from subprocess import Popen, PIPE
 from scapy.utils import strxor
 try:
     HAS_HASHLIB=True
@@ -19,6 +19,7 @@ except:
 from Crypto.PublicKey import *
 from Crypto.Cipher import *
 from Crypto.Hash import *
+from Crypto.Util import number
 
 # Maximum allowed size in bytes for a certificate file, to avoid
 # loading huge file when importing a cert
@@ -29,6 +30,11 @@ MAX_CRL_SIZE=10*1024*1024   # some are that big
 #####################################################################
 # Some helpers
 #####################################################################
+
+def popen3(cmd):
+    p = Popen(cmd, shell=False, stdin=PIPE, stdout=PIPE, stderr=PIPE,
+              close_fds=True)
+    return p.stdout, p.stdin, p.stderr
 
 def warning(m):
     print "WARNING: %s" % m
@@ -66,7 +72,7 @@ def pkcs_os2ip(x):
 
     Reverse function is pkcs_i2osp()
     """
-    return RSA.number.bytes_to_long(x) 
+    return number.bytes_to_long(x) 
 
 # IP2OS function defined in RFC 3447 for octet string to integer conversion
 def pkcs_i2osp(x,xLen):
@@ -82,7 +88,7 @@ def pkcs_i2osp(x,xLen):
 
     Reverse function is pkcs_os2ip().
     """
-    z = RSA.number.long_to_bytes(x)
+    z = number.long_to_bytes(x)
     padlen = max(0, xLen-len(z))
     return '\x00'*padlen + z
 
@@ -397,8 +403,8 @@ def create_temporary_ca_path(anchor_list, folder):
     except:
         return None
 
-    r,w=popen2.popen2("c_rehash %s" % folder)
-    r.close(); w.close()
+    r,w,e=popen3(["c_rehash", folder])
+    r.close(); w.close(); e.close()
 
     return l
 
@@ -409,11 +415,12 @@ def create_temporary_ca_path(anchor_list, folder):
 
 class OSSLHelper:
     def _apply_ossl_cmd(self, osslcmd, rawdata):
-        r,w=popen2.popen2(osslcmd)
+        r,w,e=popen3(osslcmd)
         w.write(rawdata)
         w.close()
         res = r.read()
         r.close()
+        e.close()
         return res
 
 class _EncryptAndVerify:
@@ -1149,7 +1156,10 @@ class _DecryptAndSignMethods(OSSLHelper):
             return None
 
 
-
+def openssl_parse_RSA(fmt="PEM"):
+    return popen3(['openssl', 'rsa', '-text', '-pubin', '-inform', fmt, '-noout'])
+def openssl_convert_RSA(infmt="PEM", outfmt="DER"):
+    return ['openssl', 'rsa', '-pubin', '-inform', infmt, '-outform', outfmt]
 
 class PubKey(OSSLHelper, _EncryptAndVerify):
     # Below are the fields we recognize in the -text output of openssl
@@ -1196,9 +1206,6 @@ class PubKey(OSSLHelper, _EncryptAndVerify):
 
         self.rawkey = rawkey
 
-        # Let's try to get file format : PEM or DER.
-        fmtstr = 'openssl rsa -text -pubin -inform %s -noout '
-        convertstr = 'openssl rsa -pubin -inform %s -outform %s 2>/dev/null'
         key_header = "-----BEGIN PUBLIC KEY-----"
         key_footer = "-----END PUBLIC KEY-----"
         l = rawkey.split(key_header, 1)
@@ -1210,7 +1217,7 @@ class PubKey(OSSLHelper, _EncryptAndVerify):
                 rawkey = "%s%s%s\n" % (key_header, tmp, key_footer)
             else:
                 raise Exception(error_msg)
-            r,w,e = popen2.popen3(fmtstr % "PEM")
+            r,w,e = openssl_parse_RSA("PEM")
             w.write(rawkey)
             w.close()
             textkey = r.read()
@@ -1221,12 +1228,12 @@ class PubKey(OSSLHelper, _EncryptAndVerify):
                 self.format = "PEM"
                 self.pemkey = rawkey
                 self.textkey = textkey
-                cmd = convertstr % ("PEM", "DER")
+                cmd = openssl_convert_RSA_cmd("PEM", "DER")
                 self.derkey = self._apply_ossl_cmd(cmd, rawkey)
             else:
                 raise Exception(error_msg)
         else: # not PEM, try DER
-            r,w,e = popen2.popen3(fmtstr % "DER")            
+            r,w,e = openssl_parse_RSA("DER")
             w.write(rawkey)
             w.close()
             textkey = r.read()
@@ -1236,9 +1243,9 @@ class PubKey(OSSLHelper, _EncryptAndVerify):
                 self.format = "DER"
                 self.derkey = rawkey
                 self.textkey = textkey
-                cmd = convertstr % ("DER", "PEM")
+                cmd = openssl_convert_RSA_cmd("DER", "PEM")
                 self.pemkey = self._apply_ossl_cmd(cmd, rawkey)
-                cmd = convertstr % ("DER", "DER")
+                cmd = openssl_convert_RSA_cmd("DER", "DER")
                 self.derkey = self._apply_ossl_cmd(cmd, rawkey)                
             else:
                 try: # Perhaps it is a cert
@@ -1253,7 +1260,7 @@ class PubKey(OSSLHelper, _EncryptAndVerify):
                 # self.textkey
                 # self.keypath
 
-        self.osslcmdbase = 'openssl rsa -pubin -inform %s ' % self.format
+        self.osslcmdbase = ['openssl', 'rsa', '-pubin', '-inform',  self.format]
 
         self.keypath = keypath
 
@@ -1357,8 +1364,8 @@ class Key(OSSLHelper, _DecryptAndSignMethods, _EncryptAndVerify):
         self.rawkey = rawkey
 
         # Let's try to get file format : PEM or DER.
-        fmtstr = 'openssl rsa -text -inform %s -noout '
-        convertstr = 'openssl rsa -inform %s -outform %s 2>/dev/null'
+        fmtstr = 'openssl rsa -text -inform %s -noout'
+        convertstr = 'openssl rsa -inform %s -outform %s'
         key_header = "-----BEGIN RSA PRIVATE KEY-----"
         key_footer = "-----END RSA PRIVATE KEY-----"
         l = rawkey.split(key_header, 1)
@@ -1370,7 +1377,7 @@ class Key(OSSLHelper, _DecryptAndSignMethods, _EncryptAndVerify):
                 rawkey = "%s%s%s\n" % (key_header, tmp, key_footer)
             else:
                 raise Exception(error_msg)
-            r,w,e = popen2.popen3(fmtstr % "PEM")
+            r,w,e = popen3((fmtstr % "PEM").split(" "))
             w.write(rawkey)
             w.close()
             textkey = r.read()
@@ -1381,12 +1388,12 @@ class Key(OSSLHelper, _DecryptAndSignMethods, _EncryptAndVerify):
                 self.format = "PEM"
                 self.pemkey = rawkey
                 self.textkey = textkey
-                cmd = convertstr % ("PEM", "DER")
+                cmd = (convertstr % ("PEM", "DER")).split(" ")
                 self.derkey = self._apply_ossl_cmd(cmd, rawkey)
             else:
                 raise Exception(error_msg)
         else: # not PEM, try DER
-            r,w,e = popen2.popen3(fmtstr % "DER")            
+            r,w,e = popen3((fmtstr % "DER").split(" "))
             w.write(rawkey)
             w.close()
             textkey = r.read()
@@ -1396,16 +1403,16 @@ class Key(OSSLHelper, _DecryptAndSignMethods, _EncryptAndVerify):
                 self.format = "DER"
                 self.derkey = rawkey
                 self.textkey = textkey
-                cmd = convertstr % ("DER", "PEM")
+                cmd = (convertstr % ("DER", "PEM")).split(" ")
                 self.pemkey = self._apply_ossl_cmd(cmd, rawkey)
-                cmd = convertstr % ("DER", "DER")
+                cmd = (convertstr % ("DER", "DER")).split(" ")
                 self.derkey = self._apply_ossl_cmd(cmd, rawkey)
             else:
                 raise Exception(error_msg)     
 
-        self.osslcmdbase = 'openssl rsa -inform %s ' % self.format
+        self.osslcmdbase = ['openssl', 'rsa', '-inform', self.format]
 
-        r,w,e = popen2.popen3('openssl asn1parse -inform DER ')
+        r,w,e = popen3(["openssl", "asn1parse", "-inform", "DER"])
         w.write(self.derkey)
         w.close()
         self.asn1parsekey = r.read()
@@ -1548,8 +1555,8 @@ class Cert(OSSLHelper, _EncryptAndVerify):
         self.rawcert = rawcert
 
         # Let's try to get file format : PEM or DER.
-        fmtstr = 'openssl x509 -text -inform %s -noout '
-        convertstr = 'openssl x509 -inform %s -outform %s '
+        fmtstr = 'openssl x509 -text -inform %s -noout'
+        convertstr = 'openssl x509 -inform %s -outform %s'
         cert_header = "-----BEGIN CERTIFICATE-----"
         cert_footer = "-----END CERTIFICATE-----"
         l = rawcert.split(cert_header, 1)
@@ -1561,7 +1568,7 @@ class Cert(OSSLHelper, _EncryptAndVerify):
                 rawcert = "%s%s%s\n" % (cert_header, tmp, cert_footer)
             else:
                 raise Exception(error_msg)
-            r,w,e = popen2.popen3(fmtstr % "PEM")
+            r,w,e = popen3((fmtstr % "PEM").split(" "))
             w.write(rawcert)
             w.close()
             textcert = r.read()
@@ -1572,12 +1579,12 @@ class Cert(OSSLHelper, _EncryptAndVerify):
                 self.format = "PEM"
                 self.pemcert = rawcert
                 self.textcert = textcert
-                cmd = convertstr % ("PEM", "DER")
+                cmd = (convertstr % ("PEM", "DER")).split(" ")
                 self.dercert = self._apply_ossl_cmd(cmd, rawcert)
             else:
                 raise Exception(error_msg)
         else: # not PEM, try DER
-            r,w,e = popen2.popen3(fmtstr % "DER")            
+            r,w,e = popen3((fmtstr % "DER").split(" "))
             w.write(rawcert)
             w.close()
             textcert = r.read()
@@ -1587,16 +1594,16 @@ class Cert(OSSLHelper, _EncryptAndVerify):
                 self.format = "DER"
                 self.dercert = rawcert
                 self.textcert = textcert
-                cmd = convertstr % ("DER", "PEM")
+                cmd = (convertstr % ("DER", "PEM")).split(" ")
                 self.pemcert = self._apply_ossl_cmd(cmd, rawcert)
-                cmd = convertstr % ("DER", "DER")                
+                cmd = (convertstr % ("DER", "DER")).split(" ")     
                 self.dercert = self._apply_ossl_cmd(cmd, rawcert)
             else:
                 raise Exception(error_msg)
 
-        self.osslcmdbase = 'openssl x509 -inform %s ' % self.format
+        self.osslcmdbase = ['openssl', 'x509', '-inform', self.format]
                                                   
-        r,w,e = popen2.popen3('openssl asn1parse -inform DER ')
+        r,w,e = popen3('openssl asn1parse -inform DER'.split(' '))
         w.write(self.dercert)
         w.close()
         self.asn1parsecert = r.read()
@@ -2108,11 +2115,10 @@ class Cert(OSSLHelper, _EncryptAndVerify):
         As for .verifychain(), a list of untrusted certificates can be
         passed (as a file, this time)
         """
-        u = ""
+        cmd = ["openssl", "verify", "-CAfile", cafile]
         if untrusted_file:
-            u = "-untrusted %s" % untrusted_file
+           cmd += ["-untrusted", untrusted_file]
         try:
-            cmd = "openssl verify -CAfile %s %s " % (cafile, u)
             pemcert = self.output(fmt="PEM")
             cmdres = self._apply_ossl_cmd(cmd, pemcert)
         except:
@@ -2130,11 +2136,10 @@ class Cert(OSSLHelper, _EncryptAndVerify):
         can be passed as a file (concatenation of the certificates in
         PEM format)
         """
-        u = ""
+        cmd = ["openssl", "verify", "-CApath", capath]
         if untrusted_file:
-            u = "-untrusted %s" % untrusted_file
+            cmd += ["-untrusted", untrusted_file]
         try:
-            cmd = "openssl verify -CApath %s %s " % (capath, u)
             pemcert = self.output(fmt="PEM")
             cmdres = self._apply_ossl_cmd(cmd, pemcert)
         except:
@@ -2188,7 +2193,7 @@ def print_chain(l):
     print s
 
 # import popen2
-# a=popen2.Popen3("openssl crl -text -inform DER -noout ", capturestderr=True)
+# a=popen3("openssl crl -text -inform DER -noout ", capturestderr=True)
 # a.tochild.write(open("samples/klasa1.crl").read())
 # a.tochild.close()
 # a.poll()
@@ -2244,8 +2249,8 @@ class CRL(OSSLHelper):
         self.rawcrl = rawcrl
 
         # Let's try to get file format : PEM or DER.
-        fmtstr = 'openssl crl -text -inform %s -noout '
-        convertstr = 'openssl crl -inform %s -outform %s '
+        fmtstr = 'openssl crl -text -inform %s -noout'
+        convertstr = 'openssl crl -inform %s -outform %s'
         crl_header = "-----BEGIN X509 CRL-----"
         crl_footer = "-----END X509 CRL-----"
         l = rawcrl.split(crl_header, 1)
@@ -2257,7 +2262,7 @@ class CRL(OSSLHelper):
                 rawcrl = "%s%s%s\n" % (crl_header, tmp, crl_footer)
             else:
                 raise Exception(error_msg)
-            r,w,e = popen2.popen3(fmtstr % "PEM")
+            r,w,e = popen3((fmtstr % "PEM").split(" "))
             w.write(rawcrl)
             w.close()
             textcrl = r.read()
@@ -2268,12 +2273,12 @@ class CRL(OSSLHelper):
                 self.format = "PEM"
                 self.pemcrl = rawcrl
                 self.textcrl = textcrl
-                cmd = convertstr % ("PEM", "DER")
+                cmd = (convertstr % ("PEM", "DER")).split(" ")
                 self.dercrl = self._apply_ossl_cmd(cmd, rawcrl)
             else:
                 raise Exception(error_msg)
         else: # not PEM, try DER
-            r,w,e = popen2.popen3(fmtstr % "DER")            
+            r,w,e = popen3((fmtstr % "DER").split(' '))
             w.write(rawcrl)
             w.close()
             textcrl = r.read()
@@ -2283,16 +2288,16 @@ class CRL(OSSLHelper):
                 self.format = "DER"
                 self.dercrl = rawcrl
                 self.textcrl = textcrl
-                cmd = convertstr % ("DER", "PEM")
+                cmd = (convertstr % ("DER", "PEM")).split(" ")
                 self.pemcrl = self._apply_ossl_cmd(cmd, rawcrl)
-                cmd = convertstr % ("DER", "DER")
+                cmd = (convertstr % ("DER", "DER")).split(" ")
                 self.dercrl = self._apply_ossl_cmd(cmd, rawcrl)
             else:
                 raise Exception(error_msg)
 
-        self.osslcmdbase = 'openssl crl -inform %s ' % self.format
+        self.osslcmdbase = ['openssl', 'crl', '-inform', self.format]
 
-        r,w,e = popen2.popen3('openssl asn1parse -inform DER ')
+        r,w,e = popen3(('openssl asn1parse -inform DER').split(" "))
         w.write(self.dercrl)
         w.close()
         self.asn1parsecrl = r.read()
@@ -2469,7 +2474,7 @@ class CRL(OSSLHelper):
         if cafile is None:
             return False
         try:
-            cmd = self.osslcmdbase + '-noout -CAfile %s 2>&1' % cafile
+            cmd = self.osslcmdbase + ["-noout", "-CAfile", cafile]
             cmdres = self._apply_ossl_cmd(cmd, self.rawcrl)
         except:
             os.unlink(cafile)
