@@ -1,0 +1,203 @@
+% EIGRP Tests
+* Tests for the Scapy EIGRP layer
+
++ Basic Layer Tests
+* These are just some basic tests
+
+= EIGRP IPv4 Binding
+~ eigrp_ipv4_binding
+p = IP()/EIGRP()
+p[IP].proto == 88
+
+= EIGRP IPv6 Binding
+~ eigrp_ipv6_binding
+p = IPv6()/EIGRP()
+p[IPv6].nh == 88
+
+= EIGRP checksum field
+~ eigrp_chksum_field
+p = IP()/EIGRP(flags=0xa, seq=23, ack=42, asn=100)
+s = p[EIGRP].build()
+struct.unpack("!H", s[2:4])[0] == 64843
+
++ Custom Field Tests
+* Test funciontally of custom made fields
+
+= ShortVersionField nice representation
+f = ShortVersionField("ver", 3072)
+f.i2repr(None, 3072) == "v12.0" and f.i2repr(None, 258) == "v1.2"
+
+= ShortVersionField h2i function
+f = ShortVersionField("ver", 0)
+f.h2i(None, 3073) == f.h2i(None, "v12.1")
+
+= EigrpIPField length with prefix length of 8 bit
+f = EigrpIPField("ipaddr", "192.168.1.0", length=8)
+f.i2len(None, "") == 1
+
+= EigrpIPField length with prefix length of 12 bit
+f = EigrpIPField("ipaddr", "192.168.1.0", length=12)
+f.i2len(None, "") == 2
+
+= EigrpIPField length with prefix length of 24 bit
+f = EigrpIPField("ipaddr", "192.168.1.0", length=24)
+f.i2len(None, "") == 3
+
+= EigrpIPField length with prefix length of 28 bit
+f = EigrpIPField("ipaddr", "192.168.1.0", length=28)
+f.i2len(None, "") == 4
+
+= EigrpIP6Field length with prefix length of 8 bit
+f = EigrpIP6Field("ipaddr", "2000::", length=8)
+f.i2len(None, "") == 2
+
+= EigrpIP6Field length with prefix length of 99 bit
+f = EigrpIP6Field("ipaddr", "2000::", length=99)
+f.i2len(None, "") == 13
+
+= EigrpIP6Field length with prefix length of 128 bit
+f = EigrpIP6Field("ipaddr", "2000::", length=128)
+f.i2len(None, "") == 16
+
+= EIGRPGuessPayloadClass function: Return Parameters TLV
+isinstance(_EIGRPGuessPayloadClass("\x00\x01"), EIGRPParam)
+
+= EIGRPGuessPayloadClass function: Return Authentication Data TLV
+isinstance(_EIGRPGuessPayloadClass("\x00\x02"), EIGRPAuthData)
+
+= EIGRPGuessPayloadClass function: Return Sequence TLV
+isinstance(_EIGRPGuessPayloadClass("\x00\x03"), EIGRPSeq)
+
+= EIGRPGuessPayloadClass function: Return Software Version TLV
+isinstance(_EIGRPGuessPayloadClass("\x00\x04"), EIGRPSwVer)
+
+= EIGRPGuessPayloadClass function: Return Next Multicast Sequence TLV
+isinstance(_EIGRPGuessPayloadClass("\x00\x05"), EIGRPNms)
+
+= EIGRPGuessPayloadClass function: Return Stub Router TLV
+isinstance(_EIGRPGuessPayloadClass("\x00\x06"), EIGRPStub)
+
+= EIGRPGuessPayloadClass function: Return Internal Route TLV
+isinstance(_EIGRPGuessPayloadClass("\x01\x02"), EIGRPIntRoute)
+
+= EIGRPGuessPayloadClass function: Return External Route TLV
+isinstance(_EIGRPGuessPayloadClass("\x01\x03"), EIGRPExtRoute)
+
+= EIGRPGuessPayloadClass function: Return IPv6 Internal Route TLV
+isinstance(_EIGRPGuessPayloadClass("\x04\x02"), EIGRPv6IntRoute)
+
+= EIGRPGuessPayloadClass function: Return IPv6 External Route TLV
+isinstance(_EIGRPGuessPayloadClass("\x04\x03"), EIGRPv6ExtRoute)
+
+= EIGRPGuessPayloadClass function: Return EIGRPGeneric
+isinstance(_EIGRPGuessPayloadClass("\x23\x42"), EIGRPGeneric)
+
++ TLV List
+
+= EIGRP parameters and software version
+p = IP()/EIGRP(tlvlist=[EIGRPParam()/EIGRPSwVer()])
+s = '\x45\x00\x00\x3C\x00\x01\x00\x00\x40\x58\x7C\x67\x7F\x00\x00\x01\x7F\x00\x00\x01\x02\x05\xEE\x6C\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x64\x00\x01\x00\x0C\x01\x00\x01\x00\x00\x00\x00\x0F\x00\x04\x00\x08\x0C\x00\x01\x02'
+str(p) == s
+
+= EIGRP internal route length field
+p = IP()/EIGRP(tlvlist=[EIGRPIntRoute(prefixlen=24, dst="192.168.1.0")])
+struct.unpack("!H", p[EIGRPIntRoute].build()[2:4])[0] == 28
+
+= EIGRP external route length field
+p = IP()/EIGRP(tlvlist=[EIGRPExtRoute(prefixlen=16, dst="10.1.0.0")])
+struct.unpack("!H", p[EIGRPExtRoute].build()[2:4])[0] == 47
+
+= EIGRPv6 internal route length field
+p = IP()/EIGRP(tlvlist=[EIGRPv6IntRoute(prefixlen=64, dst="2000::")])
+struct.unpack("!H", p[EIGRPv6IntRoute].build()[2:4])[0] == 46
+
+= EIGRPv6 external route length field
+p = IP()/EIGRP(tlvlist=[EIGRPv6ExtRoute(prefixlen=99, dst="2000::")])
+struct.unpack("!H", p[EIGRPv6ExtRoute].build()[2:4])[0] == 70
+
++ Stub Flags
+* The receive-only flag is always set, when a router anounces itself as stub router.
+
+= Receive-Only
+p = IP()/EIGRP(tlvlist=[EIGRPStub(flags="receive-only")])
+p[EIGRPStub].flags == 0x0008
+
+= Connected
+p = IP()/EIGRP(tlvlist=[EIGRPStub(flags="connected+receive-only")])
+p[EIGRPStub].flags == 0x0009
+
+= Static
+p = IP()/EIGRP(tlvlist=[EIGRPStub(flags="static+receive-only")])
+p[EIGRPStub].flags == 0x000a
+
+= Summary
+p = IP()/EIGRP(tlvlist=[EIGRPStub(flags="summary+receive-only")])
+p[EIGRPStub].flags == 0x000c
+
+= Connected, Summary
+p = IP()/EIGRP(tlvlist=[EIGRPStub(flags="connected+summary+receive-only")])
+p[EIGRPStub].flags == 0x000d
+
+= Static, Summary
+p = IP()/EIGRP(tlvlist=[EIGRPStub(flags="static+summary+receive-only")])
+p[EIGRPStub].flags == 0x000e
+
+= Redistributed, Connected
+p = IP()/EIGRP(tlvlist=[EIGRPStub(flags="redistributed+connected+receive-only")])
+p[EIGRPStub].flags == 0x0019
+
+= Redistributed, Static
+p = IP()/EIGRP(tlvlist=[EIGRPStub(flags="redistributed+static+receive-only")])
+p[EIGRPStub].flags == 0x001a
+
+= Redistributed, Static, Connected
+p = IP()/EIGRP(tlvlist=[EIGRPStub(flags="redistributed+static+connected+receive-only")])
+p[EIGRPStub].flags == 0x001b
+
+= Redistributed, Summary
+p = IP()/EIGRP(tlvlist=[EIGRPStub(flags="redistributed+summary+receive-only")])
+p[EIGRPStub].flags == 0x001c
+
+= Redistributed, Connected, Summary
+p = IP()/EIGRP(tlvlist=[EIGRPStub(flags="redistributed+connected+summary+receive-only")])
+p[EIGRPStub].flags == 0x001d
+
+= Connected, Redistributed, Static, Summary
+p = IP()/EIGRP(tlvlist=[EIGRPStub(flags="connected+redistributed+static+summary+receive-only")])
+p[EIGRPStub].flags == 0x001f
+
+= Leak-Map
+p = IP()/EIGRP(tlvlist=[EIGRPStub(flags="leak-map+receive-only")])
+p[EIGRPStub].flags == 0x0028
+
+= Connected, Leak-Map
+p = IP()/EIGRP(tlvlist=[EIGRPStub(flags="connected+leak-map+receive-only")])
+p[EIGRPStub].flags == 0x0029
+
++ Routing Updates
+
+= External route flag external
+p = EIGRPExtRoute(flags="external")
+p.flags == 0x1
+
+= External route flag candidate-default route
+p = EIGRPExtRoute(flags="candidate-default")
+p.flags == 0x2
+
+= Multiple internal routing updates
+p = IP()/EIGRP(tlvlist=[EIGRPIntRoute(), EIGRPIntRoute(hopcount=12), EIGRPIntRoute()])
+p[EIGRPIntRoute:2].hopcount == 12
+
+= Multiple external routing updates
+p = IP()/EIGRP(tlvlist=[EIGRPExtRoute(), EIGRPExtRoute(mtu=23), EIGRPExtRoute()])
+p[EIGRPExtRoute:2].mtu == 23
+
++ Authentication Data TLV
+
+= Verify keysize calculation
+p = IP()/EIGRP(tlvlist=[EIGRPAuthData(authdata="\xaa\xbb\xcc")])
+p[EIGRPAuthData].build()[6:8] == "\x00\x03"
+
+= Verify length calculation
+p = IP()/EIGRP(tlvlist=[EIGRPAuthData(authdata="\xaa\xbb\xcc\xdd")])
+p[EIGRPAuthData].build()[2:4] == "\x00\x1c"
