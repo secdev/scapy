@@ -481,7 +481,7 @@ class L2ListenSocket(SuperSocket):
                 set_promisc(self.ins, i, 0)
         SuperSocket.close(self)
 
-    def recv(self, x):
+    def recv(self, x=MTU):
         pkt, sa_ll = self.ins.recvfrom(x)
         if sa_ll[3] in conf.l2types :
             cls = conf.l2types[sa_ll[3]]
