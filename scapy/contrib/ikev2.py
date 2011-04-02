@@ -358,4 +358,5 @@ def ikev2scan(ip):
 
 # conf.debug_dissector = 1
 
-interact(mydict=globals(), mybanner="IKEv2 alpha-level protocol implementation")
+if __name__ == "__main__":
+    interact(mydict=globals(), mybanner="IKEv2 alpha-level protocol implementation")

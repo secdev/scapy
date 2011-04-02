@@ -5,6 +5,7 @@
 # scapy.contrib.description = IGMPv3
 # scapy.contrib.status = loads
 
+from scapy.packet import *
 
 """ Based on the following references
  http://www.iana.org/assignments/igmp-type-numbers

@@ -22,6 +22,10 @@
 ##                                                                         ##
 #############################################################################
 
+from scapy.packet import *
+from scapy.fields import *
+from scapy.layers.inet6 import *
+
 
 #####################################################################
 # Helpers and constants

@@ -4,6 +4,10 @@
 # scapy.contrib.description = WPA EAPOL dissector
 # scapy.contrib.status = loads
 
+from scapy.packet import *
+from scapy.fields import *
+from scapy.layers.l2 import *
+
 class WPA_key(Packet):
     name = "WPA_key"
     fields_desc = [ ByteField("descriptor_type", 1),
