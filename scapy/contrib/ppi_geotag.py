@@ -12,8 +12,8 @@ from scapy.layers.ppi import PPIGenericFldHdr,addPPIType
 
 PPI_GPS     = 30002
 PPI_VECTOR  = 30003
+PPI_SENSOR  = 30004
 PPI_ANTENNA = 30005
-
 #The FixedX_Y Fields are used to store fixed point numbers in a variety of fields in the GEOLOCATION-TAGS specification
 class Fixed3_6Field(LEIntField):
     def i2h(self, pkt, x):
@@ -36,6 +36,13 @@ class Fixed3_6Field(LEIntField):
                 x = 999.999999
             x = int(round(x * 1e6))
         return x
+    def i2m(self, pkt, x):
+        """Convert internal value to machine value"""
+        if x is None:
+            #Try to return zero if undefined
+            x = self.h2i(pkt, 0)
+        return x
+
     def i2repr(self,pkt,x):
         if x is None:
             y=0
@@ -62,6 +69,12 @@ class Fixed3_7Field(LEIntField):
                 warning("Fixed3_7: Input value too positive: %.8f" % x)
                 x = 180.0
             x = int(round((x + 180.0) * 1e7))
+        return x
+    def i2m(self, pkt, x):
+        """Convert internal value to machine value"""
+        if x is None:
+            #Try to return zero if undefined
+            x = self.h2i(pkt, 0)
         return x
     def i2repr(self,pkt,x):
         if x is None:
@@ -90,6 +103,12 @@ class Fixed6_4Field(LEIntField):
                 warning("Fixed6_4: Input value too positive: %.5f" % x)
                 x = 180000.0
             x = int(round((x + 180000.0) * 1e4))
+        return x
+    def i2m(self, pkt, x):
+        """Convert internal value to machine value"""
+        if x is None:
+            #Try to return zero if undefined
+            x = self.h2i(pkt, 0)
         return x
     def i2repr(self,pkt,x):
         if x is None:
@@ -127,9 +146,48 @@ class NSCounter_Field(LEIntField):
             y=self.i2h(pkt,x)
         return "%1.9f"%(y)
 
-class GPSTime_Field(UTCTimeField):
+class GPSTime_Field(LETimeField):
     def __init__(self, name, default):
-        return UTCTimeField.__init__(self, name, default, strf="%a, %d %b %Y %H:%M:%S UTC")
+        return LETimeField.__init__(self, name, default, strf="%a, %d %b %Y %H:%M:%S UTC")
+
+class VectorFlags_Field(XLEIntField):
+    """Represents te VectorFlags field. Handles the RelativeTo:sub-field"""
+    _fwdstr   = "DefinesForward"
+    _resmask  = 0xfffffff8
+    _relmask  = 0x6
+    _relnames = ["RelativeToForward", "RelativeToEarth", "RelativeToCurrent", "RelativeToReserved"]
+    _relvals  = [0x00, 0x02, 0x04, 0x06]
+    def i2repr(self, pkt, x):
+        if x is None:
+            return str(x)
+        r = []
+        if (x & 0x1):
+            r.append(self._fwdstr)
+        i = (x & self._relmask) >> 1
+        r.append(self._relnames[i])
+        i = x & self._resmask
+        if (i):
+            r.append("ReservedBits:%08X" % i)
+        sout = "+".join(r)
+        return sout
+    def any2i(self, pkt, x):
+        if type(x) is str:
+            r = x.split("+")
+            y = 0
+            for value in r:
+                if (value == self._fwdstr):
+                    y |= 0x1
+                elif (value in self._relnames):
+                    i = self._relnames.index(value)
+                    y &= (~self._relmask)
+                    y |= self._relvals[i]
+                else:
+                    logging.warning("Unknown VectorFlags Argument: %s" % value)
+                    pass
+        else:
+            y = x
+        #print "any2i: %s --> %s" % (str(x), str(y))
+        return y
 
 class HCSIFlagsField(FlagsField):
     """ A FlagsField where each bit/flag turns a conditional field on or off.
@@ -173,12 +231,13 @@ _hcsi_gps_flags = _FlagsList({0:"No Fix Available", 1:"GPS", 2:"Differential GPS
                               5:"Float Real Time Kinematic", 6:"Estimated (Dead Reckoning)",
                               7:"Manual Input", 8:"Simulation"})
 
-_hcsi_vector_flags = _FlagsList({0:"ForwardFrame", 1:"RotationsAbsoluteXYZ", 5:"OffsetFromGPS_XYZ"})
+#_hcsi_vector_flags = _FlagsList({0:"ForwardFrame", 1:"RotationsAbsoluteXYZ", 5:"OffsetFromGPS_XYZ"})
+#This has been replaced with the VectorFlags_Field class, in order to handle the RelativeTo:subfield
 
 _hcsi_vector_char_flags = _FlagsList({0:"Antenna", 1:"Direction of Travel",
                                       2:"Front of Vehicle", 8:"GPS Derived",
                                       9:"INS Derived", 10:"Compass Derived",
-                                     11:"Accerometer Derived", 12:"Human Derived"})
+                                     11:"Old_Accerometer Derived", 12:"Human Derived"})
 
 _hcsi_antenna_flags = _FlagsList({ 1:"Horizontal Polarization",     2:"Vertical Polarization",
                                    3:"Circular Polarization Left",  4:"Circular Polarization Right",
@@ -232,7 +291,7 @@ class HCSIPacket(Packet):
     def extract_padding(self, p):
         return "",p
 
-# HCSIGPS Fields
+#GPS Fields
 GPS_Fields = [FlagsField("GPSFlags", None, -32, _hcsi_gps_flags),
               Fixed3_7Field("Latitude", None),
               Fixed3_7Field("Longitude", None),    Fixed6_4Field("Altitude", None),
@@ -255,23 +314,23 @@ class GPS(HCSIPacket):
     name = "PPI GPS"
     fields_desc = [ LEShortField('pfh_type', PPI_GPS), #pfh_type
                     LEShortField('pfh_length', None), #pfh_len
-                    ByteField('geotag_ver', 1), #base_geotag_header.ver
+                    ByteField('geotag_ver', 2), #base_geotag_header.ver
                     ByteField('geotag_pad', 2), #base_geotag_header.pad
                     LEShortField('geotag_len', None)] + _HCSIBuildFields(GPS_Fields)
 
 
-# HCSIVector Fields
-VEC_Fields = [FlagsField("VectorFlags", None, -32, _hcsi_vector_flags),
+#Vector Fields
+VEC_Fields = [VectorFlags_Field("VectorFlags", None),
               FlagsField("VectorChars", None, -32, _hcsi_vector_char_flags),
               Fixed3_6Field("Pitch", None),       Fixed3_6Field("Roll", None),
-              Fixed3_6Field("Heading", None),     Fixed6_4Field("Off_R", None),
-              Fixed6_4Field("Off_F", None),       Fixed6_4Field("Off_U", None),
-              Fixed6_4Field("Vel_R", None),       Fixed6_4Field("Vel_F", None),
-              Fixed6_4Field("Vel_U", None),       Fixed6_4Field("Vel_T", None),
-              Fixed6_4Field("Acc_R", None),       Fixed6_4Field("Acc_F", None),
-              Fixed6_4Field("Acc_U", None),       Fixed6_4Field("Acc_T", None),
+              Fixed3_6Field("Heading", None),     Fixed6_4Field("Off_X", None),
+              Fixed6_4Field("Off_Y", None),       Fixed6_4Field("Off_Z", None),
+              Fixed6_4Field("Old_Vel_R", None),       Fixed6_4Field("Old_Vel_F", None),
+              Fixed6_4Field("Old_Vel_U", None),       Fixed6_4Field("Old_Vel_T", None),
+              Fixed6_4Field("Old_Acc_R", None),       Fixed6_4Field("Old_Acc_F", None),
+              Fixed6_4Field("Old_Acc_U", None),       Fixed6_4Field("Old_Acc_T", None),
               Fixed3_6Field("Err_Rot", None),     Fixed6_4Field("Err_Off", None),
-              Fixed6_4Field("Err_Vel", None),     Fixed6_4Field("Err_Acc", None),
+              Fixed6_4Field("Err_Vel", None),     Fixed6_4Field("Err_Old_Acc", None),
               HCSINullField("Reserved20", None),  HCSINullField("Reserved21", None),
               HCSINullField("Reserved22", None),  HCSINullField("Reserved23", None),
               HCSINullField("Reserved24", None),  HCSINullField("Reserved25", None),
@@ -286,6 +345,49 @@ class Vector(HCSIPacket):
                     ByteField('geotag_ver', 1), #base_geotag_header.ver
                     ByteField('geotag_pad', 2), #base_geotag_header.pad
                     LEShortField('geotag_len', None)] + _HCSIBuildFields(VEC_Fields)
+
+#Sensor Fields
+# http://www.iana.org/assignments/icmp-parameters
+sensor_types= { 1   : "Velocity",
+                2   : "Acceleration",
+                3   : "Jerk",
+                100 : "Rotation",
+                101 : "Magnetic",
+                1000: "Temp",
+                1001: "Barometer",
+                1002: "Humidity",
+                2000: "TDOA-Clock"
+                }
+SENS_Fields = [  LEShortEnumField('SensorType', None, sensor_types),
+                 SignedByteField('ScaleFactor', None),
+                 Fixed6_4Field('Val_X', None),
+                 Fixed6_4Field('Val_Y', None),
+                 Fixed6_4Field('Val_Z', None),
+                 Fixed6_4Field('Val_T', None),
+                 Fixed6_4Field('Val_E', None),
+              HCSINullField("Reserved07", None),  HCSINullField("Reserved08", None),
+              HCSINullField("Reserved09", None),  HCSINullField("Reserved10", None),
+              HCSINullField("Reserved11", None),  HCSINullField("Reserved12", None),
+              HCSINullField("Reserved13", None),  HCSINullField("Reserved14", None),
+              HCSINullField("Reserved15", None),  HCSINullField("Reserved16", None),
+              HCSINullField("Reserved17", None),  HCSINullField("Reserved18", None),
+              HCSINullField("Reserved19", None),  HCSINullField("Reserved20", None),
+              HCSINullField("Reserved21", None),  HCSINullField("Reserved22", None),
+              HCSINullField("Reserved23", None),  HCSINullField("Reserved24", None),
+              HCSINullField("Reserved25", None),  HCSINullField("Reserved26", None),
+              HCSINullField("Reserved27", None),
+              HCSIDescField("DescString", None),  XLEIntField("AppId", None),
+              HCSIAppField("AppData", None),      HCSINullField("Extended", None)]
+
+              
+
+class Sensor(HCSIPacket):
+    name = "PPI Sensor"
+    fields_desc = [ LEShortField('pfh_type', PPI_SENSOR), #pfh_type
+                    LEShortField('pfh_length', None), #pfh_len
+                    ByteField('geotag_ver', 1), #base_geotag_header.ver
+                    ByteField('geotag_pad', 2), #base_geotag_header.pad
+                    LEShortField('geotag_len', None)] + _HCSIBuildFields(SENS_Fields)
 
 # HCSIAntenna Fields
 ANT_Fields = [FlagsField("AntennaFlags", None, -32, _hcsi_antenna_flags),
