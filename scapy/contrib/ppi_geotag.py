@@ -10,6 +10,8 @@ from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.ppi import PPIGenericFldHdr,addPPIType
 
+CURR_GEOTAG_VER = 2 #Major revision of specification
+
 PPI_GPS     = 30002
 PPI_VECTOR  = 30003
 PPI_SENSOR  = 30004
@@ -235,9 +237,9 @@ _hcsi_gps_flags = _FlagsList({0:"No Fix Available", 1:"GPS", 2:"Differential GPS
 #This has been replaced with the VectorFlags_Field class, in order to handle the RelativeTo:subfield
 
 _hcsi_vector_char_flags = _FlagsList({0:"Antenna", 1:"Direction of Travel",
-                                      2:"Front of Vehicle", 8:"GPS Derived",
-                                      9:"INS Derived", 10:"Compass Derived",
-                                     11:"Old_Accerometer Derived", 12:"Human Derived"})
+                                      2:"Front of Vehicle", 3:"Angle of Arrival",
+                                      8:"GPS Derived", 9:"INS Derived", 10:"Compass Derived",
+                                     11:"Acclerometer Derived", 12:"Human Derived"})
 
 _hcsi_antenna_flags = _FlagsList({ 1:"Horizontal Polarization",     2:"Vertical Polarization",
                                    3:"Circular Polarization Left",  4:"Circular Polarization Right",
@@ -274,8 +276,8 @@ class HCSIPacket(Packet):
     name = "PPI HCSI"
     fields_desc = [ LEShortField('pfh_type', None),
                     LEShortField('pfh_length', None),
-                    ByteField('geotag_ver', None),
-                    ByteField('geotag_pad', None),
+                    ByteField('geotag_ver', CURR_GEOTAG_VER),
+                    ByteField('geotag_pad', 0),
                     LEShortField('geotag_len', None)]
     def post_build(self, p, pay):
         if self.pfh_length is None:
@@ -314,8 +316,8 @@ class GPS(HCSIPacket):
     name = "PPI GPS"
     fields_desc = [ LEShortField('pfh_type', PPI_GPS), #pfh_type
                     LEShortField('pfh_length', None), #pfh_len
-                    ByteField('geotag_ver', 2), #base_geotag_header.ver
-                    ByteField('geotag_pad', 2), #base_geotag_header.pad
+                    ByteField('geotag_ver', CURR_GEOTAG_VER), #base_geotag_header.ver
+                    ByteField('geotag_pad', 0), #base_geotag_header.pad
                     LEShortField('geotag_len', None)] + _HCSIBuildFields(GPS_Fields)
 
 
@@ -342,8 +344,8 @@ class Vector(HCSIPacket):
     name = "PPI Vector"
     fields_desc = [ LEShortField('pfh_type', PPI_VECTOR), #pfh_type
                     LEShortField('pfh_length', None), #pfh_len
-                    ByteField('geotag_ver', 1), #base_geotag_header.ver
-                    ByteField('geotag_pad', 2), #base_geotag_header.pad
+                    ByteField('geotag_ver', CURR_GEOTAG_VER), #base_geotag_header.ver
+                    ByteField('geotag_pad', 0), #base_geotag_header.pad
                     LEShortField('geotag_len', None)] + _HCSIBuildFields(VEC_Fields)
 
 #Sensor Fields
@@ -353,10 +355,11 @@ sensor_types= { 1   : "Velocity",
                 3   : "Jerk",
                 100 : "Rotation",
                 101 : "Magnetic",
-                1000: "Temp",
+                1000: "Temperature",
                 1001: "Barometer",
                 1002: "Humidity",
-                2000: "TDOA-Clock"
+                2000: "TDOA_Clock",
+                2001: "Phase"
                 }
 SENS_Fields = [  LEShortEnumField('SensorType', None, sensor_types),
                  SignedByteField('ScaleFactor', None),
@@ -385,8 +388,8 @@ class Sensor(HCSIPacket):
     name = "PPI Sensor"
     fields_desc = [ LEShortField('pfh_type', PPI_SENSOR), #pfh_type
                     LEShortField('pfh_length', None), #pfh_len
-                    ByteField('geotag_ver', 1), #base_geotag_header.ver
-                    ByteField('geotag_pad', 2), #base_geotag_header.pad
+                    ByteField('geotag_ver', CURR_GEOTAG_VER ), #base_geotag_header.ver
+                    ByteField('geotag_pad', 0), #base_geotag_header.pad
                     LEShortField('geotag_len', None)] + _HCSIBuildFields(SENS_Fields)
 
 # HCSIAntenna Fields
@@ -412,10 +415,11 @@ class Antenna(HCSIPacket):
     name = "PPI Antenna"
     fields_desc = [ LEShortField('pfh_type', PPI_ANTENNA), #pfh_type
                     LEShortField('pfh_length', None), #pfh_len
-                    ByteField('geotag_ver', 1), #base_geotag_header.ver
-                    ByteField('geotag_pad', 2), #base_geotag_header.pad
+                    ByteField('geotag_ver', CURR_GEOTAG_VER), #base_geotag_header.ver
+                    ByteField('geotag_pad', 0), #base_geotag_header.pad
                     LEShortField('geotag_len', None)] + _HCSIBuildFields(ANT_Fields)
 
 addPPIType(PPI_GPS, GPS)
 addPPIType(PPI_VECTOR, Vector)
+addPPIType(PPI_SENSOR, Sensor)
 addPPIType(PPI_ANTENNA,Antenna)
