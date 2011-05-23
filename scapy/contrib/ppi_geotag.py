@@ -184,7 +184,7 @@ class VectorFlags_Field(XLEIntField):
                     y &= (~self._relmask)
                     y |= self._relvals[i]
                 else:
-                    logging.warning("Unknown VectorFlags Argument: %s" % value)
+                    #logging.warning("Unknown VectorFlags Argument: %s" % value)
                     pass
         else:
             y = x
@@ -237,7 +237,7 @@ _hcsi_gps_flags = _FlagsList({0:"No Fix Available", 1:"GPS", 2:"Differential GPS
 #This has been replaced with the VectorFlags_Field class, in order to handle the RelativeTo:subfield
 
 _hcsi_vector_char_flags = _FlagsList({0:"Antenna", 1:"Direction of Travel",
-                                      2:"Front of Vehicle", 3:"Angle of Arrival",
+                                      2:"Front of Vehicle", 3:"Angle of Arrival", 4:"Transmitter Position",
                                       8:"GPS Derived", 9:"INS Derived", 10:"Compass Derived",
                                      11:"Acclerometer Derived", 12:"Human Derived"})
 
@@ -327,12 +327,12 @@ VEC_Fields = [VectorFlags_Field("VectorFlags", None),
               Fixed3_6Field("Pitch", None),       Fixed3_6Field("Roll", None),
               Fixed3_6Field("Heading", None),     Fixed6_4Field("Off_X", None),
               Fixed6_4Field("Off_Y", None),       Fixed6_4Field("Off_Z", None),
-              Fixed6_4Field("Old_Vel_R", None),       Fixed6_4Field("Old_Vel_F", None),
-              Fixed6_4Field("Old_Vel_U", None),       Fixed6_4Field("Old_Vel_T", None),
-              Fixed6_4Field("Old_Acc_R", None),       Fixed6_4Field("Old_Acc_F", None),
-              Fixed6_4Field("Old_Acc_U", None),       Fixed6_4Field("Old_Acc_T", None),
+              HCSINullField("Reserved08", None),  HCSINullField("Reserved09", None),
+              HCSINullField("Reserved10", None),  HCSINullField("Reserved11", None),
+              HCSINullField("Reserved12", None),  HCSINullField("Reserved13", None),
+              HCSINullField("Reserved14", None),  HCSINullField("Reserved15", None),
               Fixed3_6Field("Err_Rot", None),     Fixed6_4Field("Err_Off", None),
-              Fixed6_4Field("Err_Vel", None),     Fixed6_4Field("Err_Old_Acc", None),
+              HCSINullField("Reserved18", None),  HCSINullField("Reserved19", None),
               HCSINullField("Reserved20", None),  HCSINullField("Reserved21", None),
               HCSINullField("Reserved22", None),  HCSINullField("Reserved23", None),
               HCSINullField("Reserved24", None),  HCSINullField("Reserved25", None),
