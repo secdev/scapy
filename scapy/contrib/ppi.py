@@ -31,14 +31,32 @@ class PPIGenericFldHdr(Packet):
         return "",p
 
 def _PPIGuessPayloadClass(p, **kargs):
-    """ This function tells the PacketListField, how it should extract the TLVs from the payload """
+    """ This function tells the PacketListField how it should extract the
+        TLVs from the payload.  We pass cls only the length string
+        pfh_len says it needs.  If a payload is returned, that means
+        part of the sting was unused.  This converts to a Raw layer, and
+        the remainder of p is added as Raw's payload.  If there is no
+        payload, the remainder of p is added as out's payload.
+    """
     if len(p) >= 4:
-        t,l = struct.unpack("<HH", p[:4])
-        # Find out if the value t is in the dict _ppi_types.  if not, return the default TLV class
+        t,pfh_len = struct.unpack("<HH", p[:4])
+        # Find out if the value t is in the dict _ppi_types.
+        # If not, return the default TLV class
         cls = getPPIType(t, "default")
+        pfh_len += 4
+        out = cls(p[:pfh_len], **kargs)
+        if (out.payload):
+            out.payload = Raw(out.payload.load)
+            if (len(p) > pfh_len):
+                out.payload.payload = Padding(p[pfh_len:])
+        elif (len(p) > pfh_len):
+            out.payload = Padding(p[pfh_len:])
+        
     else:
-        cls = Raw
-    return cls(p, **kargs)
+        out = Raw(p, **kargs)
+    return out
+
+
 
 
 class PPI(Packet):
