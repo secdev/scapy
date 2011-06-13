@@ -86,7 +86,8 @@ class WrpcapSink(Sink):
    >-|--[pcap]  |->
      +----------+
 """
-    def __init__(self, fname):
+    def __init__(self, fname, name=None):
+        Sink.__init__(self, name=name)
         self.f = PcapWriter(fname)
     def stop(self):
         self.f.flush()
