@@ -3,6 +3,9 @@
 ## <jellch@harris.com>
 ## This program is published under a GPLv2 license
 
+# scapy.contrib.description = PPI CACE
+# scapy.contrib.status = loads
+
 """
 CACE PPI types 
 """
@@ -12,7 +15,7 @@ from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.l2 import Ether
 from scapy.layers.dot11 import Dot11
-from scapy.layers.ppi import *
+from scapy.contrib.ppi import *
 
 PPI_DOT11COMMON  = 2
 PPI_DOT11NMAC    = 3

@@ -2,13 +2,18 @@
 ## See http://www.secdev.org/projects/scapy for more informations
 ## <jellch@harris.com>
 ## This program is published under a GPLv2 license
+
+# scapy.contrib.description = PPI GEOLOCATION
+# scapy.contrib.status = loads
+
+
 """
 PPI-GEOLOCATION tags
 """
 import struct
 from scapy.packet import *
 from scapy.fields import *
-from scapy.layers.ppi import PPIGenericFldHdr,addPPIType
+from scapy.contrib.ppi import PPIGenericFldHdr,addPPIType
 
 CURR_GEOTAG_VER = 2 #Major revision of specification
 
@@ -147,6 +152,40 @@ class NSCounter_Field(LEIntField):
         else:
             y=self.i2h(pkt,x)
         return "%1.9f"%(y)
+
+class UTCTimeField(IntField):
+    def __init__(self, name, default, epoch=time.gmtime(0), strf="%a, %d %b %Y %H:%M:%S +0000"):
+        IntField.__init__(self, name, default)
+        self.epoch = epoch
+        self.delta = time.mktime(epoch) - time.mktime(time.gmtime(0))
+        self.strf = strf
+    def i2repr(self, pkt, x):
+        if x is None:
+            x = 0
+        x = int(x) + self.delta
+        t = time.strftime(self.strf, time.gmtime(x))
+        return "%s (%d)" % (t, x)
+
+class LETimeField(UTCTimeField,LEIntField):
+    def __init__(self, name, default, epoch=time.gmtime(0), strf="%a, %d %b %Y %H:%M:%S +0000"):
+        LEIntField.__init__(self, name, default)
+        self.epoch = epoch
+        self.delta = time.mktime(epoch) - time.mktime(time.gmtime(0))
+        self.strf = strf
+
+class SignedByteField(Field):
+    def __init__(self, name, default):
+        Field.__init__(self, name, default, "b")
+    def randval(self):
+        return RandSByte()
+
+class XLEShortField(LEShortField,XShortField):
+    def i2repr(self, pkt, x):
+        return XShortField.i2repr(self, pkt, x)
+
+class XLEIntField(LEIntField,XIntField):
+    def i2repr(self, pkt, x):
+        return XIntField.i2repr(self, pkt, x)
 
 class GPSTime_Field(LETimeField):
     def __init__(self, name, default):

@@ -2,6 +2,11 @@
 ## See http://www.secdev.org/projects/scapy for more informations
 ## <jellch@harris.com>
 ## This program is published under a GPLv2 license
+
+# scapy.contrib.description = PPI
+# scapy.contrib.status = loads
+
+
 """
 PPI (Per-Packet Information).
 """
