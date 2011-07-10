@@ -30,7 +30,7 @@ class PPIGenericFldHdr(Packet):
     name = "PPI Field Header"
     fields_desc = [ LEShortField('pfh_type', 0),
                     FieldLenField('pfh_length', None, length_of="value", fmt='<H', adjust=lambda p,x:x+4),
-                    StrLenField("value", "", length_from=lambda p:p.length) ]
+                    StrLenField("value", "", length_from=lambda p:p.pfh_length) ]
 
     def extract_padding(self, p):
         return "",p
