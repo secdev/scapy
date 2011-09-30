@@ -42,8 +42,6 @@ class LLMNRQuery(Packet):
 class LLMNRResponse(LLMNRQuery):
     name = "Link Local Multicast Node Resolution - Response"
     qr = 1
-    fields_desc = []
-
     def answers(self, other):
         return (isinstance(other, LLMNRQuery) and
                 self.id == other.id and
