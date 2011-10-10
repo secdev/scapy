@@ -18,7 +18,8 @@
 
 from scapy.packet import *
 from scapy.fields import *
-from scapy.layers.l2 import SNAP
+from scapy.layers.l2 import SNAP,Dot3,LLC
+from scapy.sendrecv import sendp
 
 class DtpGenericTlv(Packet):
     name = "DTP Generic TLV"
