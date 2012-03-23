@@ -77,6 +77,7 @@ class Packet(BasePacket):
         self.init_fields()
         self.underlayer = _underlayer
         self.initialized = 1
+        self.original = _pkt
         if _pkt:
             self.dissect(_pkt)
             if not _internal:
