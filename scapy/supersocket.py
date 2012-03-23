@@ -30,7 +30,8 @@ class SuperSocket:
         self.promisc=None
     def send(self, x):
         sx = str(x)
-        x.sent_time = time.time()
+        if hasattr(x, "sent_time"):
+            x.sent_time = time.time()
         return self.outs.send(sx)
     def recv(self, x=MTU):
         return conf.raw_layer(self.ins.recv(x))

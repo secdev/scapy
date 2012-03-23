@@ -42,6 +42,7 @@ class Packet(BasePacket):
 
     underlayer = None
 
+    sent_time = None
     payload_guess = []
     initialized = 0
     show_indent=1
