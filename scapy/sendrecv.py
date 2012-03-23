@@ -566,8 +566,8 @@ stop_filter: python function applied to each packet to determine
     if timeout is not None:
         stoptime = time.time()+timeout
     remain = None
-    while 1:
-        try:
+    try:
+        while 1:
             if timeout is not None:
                 remain = stoptime-time.time()
                 if remain <= 0:
@@ -590,8 +590,8 @@ stop_filter: python function applied to each packet to determine
                     break
                 if count > 0 and c >= count:
                     break
-        except KeyboardInterrupt:
-            break
+    except KeyboardInterrupt:
+        pass
     if opened_socket is None:
         s.close()
     return plist.PacketList(lst,"Sniffed")
