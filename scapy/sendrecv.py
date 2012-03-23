@@ -596,6 +596,71 @@ stop_filter: python function applied to each packet to determine
         s.close()
     return plist.PacketList(lst,"Sniffed")
 
+
+@conf.commands.register
+def bridge_and_sniff(if1, if2, count=0, store=1, offline=None, prn = None, lfilter=None, L2socket=None, timeout=None,
+                     stop_filter=None, *args, **kargs):
+    """Forward traffic between two interfaces and sniff packets exchanged
+bridge_and_sniff([count=0,] [prn=None,] [store=1,] [offline=None,] [lfilter=None,] + L2Socket args) -> list of packets
+
+  count: number of packets to capture. 0 means infinity
+  store: wether to store sniffed packets or discard them
+    prn: function to apply to each packet. If something is returned,
+         it is displayed. Ex:
+         ex: prn = lambda x: x.summary()
+lfilter: python function applied to each packet to determine
+         if further action may be done
+         ex: lfilter = lambda x: x.haslayer(Padding)
+timeout: stop sniffing after a given time (default: None)
+L2socket: use the provided L2socket
+stop_filter: python function applied to each packet to determine
+             if we have to stop the capture after this packet
+             ex: stop_filter = lambda x: x.haslayer(TCP)
+    """
+    c = 0
+    if L2socket is None:
+        L2socket = conf.L2socket
+    s1 = L2socket(iface=if1)
+    s2 = L2socket(iface=if2)
+    peerof={s1:s2,s2:s1}
+    label={s1:if1, s2:if2}
+    
+    s1.send(Raw("azpeoiazpeoiazpoe"))
+    lst = []
+    if timeout is not None:
+        stoptime = time.time()+timeout
+    remain = None
+    try:
+        while True:
+            if timeout is not None:
+                remain = stoptime-time.time()
+                if remain <= 0:
+                    break
+            ins,outs,errs = select([s1,s2],[],[], remain)
+            for s in ins:
+                p = s.recv()
+                if p is not None:
+                    peerof[s].send(p.original)
+                    if lfilter and not lfilter(p):
+                        continue
+                    if store:
+                        p.sniffed_on = label[s]
+                        lst.append(p)
+                    c += 1
+                    if prn:
+                        r = prn(p)
+                        if r is not None:
+                            print "%s: %s" % (label[s],r)
+                    if stop_filter and stop_filter(p):
+                        break
+                    if count > 0 and c >= count:
+                        break
+    except KeyboardInterrupt:
+        pass
+    finally:
+        return plist.PacketList(lst,"Sniffed")
+
+
 @conf.commands.register
 def tshark(*args,**kargs):
     """Sniff packets and print them calling pkt.show(), a bit like text wireshark"""
