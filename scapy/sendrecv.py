@@ -209,7 +209,7 @@ def sndrcv(pks, pkt, timeout = None, inter = 0, verbose=None, chainCC=0, retry=0
 
 def __gen_send(s, x, inter=0, loop=0, count=None, verbose=None, realtime=None, *args, **kargs):
     if type(x) is str:
-        x = Raw(load=x)
+        x = conf.raw_layer(load=x)
     if not isinstance(x, Gen):
         x = SetGen(x)
     if verbose is None:
