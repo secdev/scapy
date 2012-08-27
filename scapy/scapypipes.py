@@ -99,3 +99,25 @@ class WrpcapSink(Sink):
     def push(self, msg):
         self.f.write(msg)
         
+
+class UDPDrain(Drain):
+    """Apply a function to messages on low and high entry
+     +-------------+
+  >>-|--[payload]--|->>
+     |      X      |
+   >-|----[UDP]----|->
+     +-------------+
+"""
+    def __init__(self, ip="127.0.0.1", port=1234):
+        Drain.__init__(self)
+        self.ip = ip
+        self.port = port
+
+    def push(self, msg):
+        if IP in msg and msg[IP].proto == 17 and UDP in msg:
+            payload = msg[UDP].payload
+            self._high_send(str(payload))
+    def high_push(self, msg):
+        p = IP(dst=self.ip)/UDP(sport=1234,dport=self.port)/msg
+        self._send(p)
+        
