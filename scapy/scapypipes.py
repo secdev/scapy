@@ -77,6 +77,11 @@ class InjectSink(Sink):
         self.s.close()
     def push(self, msg):
         self.s.send(msg)
+
+class Inject3Sink(InjectSink):
+    def start(self):
+        self.s = conf.L3socket(iface=self.iface)
+    
     
 class WrpcapSink(Sink):
     """Packets received on low input are written to PCA file
