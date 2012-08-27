@@ -625,7 +625,6 @@ stop_filter: python function applied to each packet to determine
     peerof={s1:s2,s2:s1}
     label={s1:if1, s2:if2}
     
-    s1.send(Raw("azpeoiazpeoiazpoe"))
     lst = []
     if timeout is not None:
         stoptime = time.time()+timeout
