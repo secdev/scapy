@@ -71,15 +71,18 @@ class PipeEngine:
             for q in p.sources|p.sinks|p.high_sources|p.high_sinks:
                 if q not in l:
                     flatten(q, l)
-        pl = set([])
+        pl = set()
         flatten(pipe, pl)
         return pl
 
     def _add_pipes(self, *pipes):
+        pl = set()
         for p in pipes:
-            pl = self.get_pipe_list(p)
-            for q in pl:
-                self.add_one_pipe(q)
+            pl |= self.get_pipe_list(p)
+        pl -= self.active_pipes
+        for q in pl:
+            self.add_one_pipe(q)
+        return pl
             
 
     def run(self):
@@ -147,7 +150,7 @@ class PipeEngine:
             print "Interrupted by user."
 
     def add(self, *pipes):
-        self._add_pipes(*pipes)
+        pipes = self._add_pipes(*pipes)
         with self.command_lock:
             if self.threadid is not None:
                 for p in pipes:
