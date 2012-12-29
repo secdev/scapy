@@ -353,8 +353,8 @@ class Packet(BasePacket):
         p,lst = self.do_build_ps()
 #        if not internal:
 #            pkt = self
-#            while pkt.haslayer(Padding):
-#                pkt = pkt.getlayer(Padding)
+#            while pkt.haslayer(conf.padding_layer):
+#                pkt = pkt.getlayer(conf.padding_layer)
 #                lst.append( (pkt, [ ("loakjkjd", pkt.load, pkt.load) ] ) )
 #                p += pkt.load
 #                pkt = pkt.payload
@@ -581,7 +581,7 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
         payl,pad = self.extract_padding(s)
         self.do_dissect_payload(payl)
         if pad and conf.padding:
-            self.add_payload(Padding(pad))
+            self.add_payload(conf.padding_layer(pad))
 
 
     def guess_payload_class(self, payload):
@@ -1079,7 +1079,7 @@ class NoPayload(Packet):
     def hashret(self):
         return ""
     def answers(self, other):
-        return isinstance(other, NoPayload) or isinstance(other, Padding)
+        return isinstance(other, NoPayload) or isinstance(other, conf.padding_layer)
     def haslayer(self, cls):
         return 0
     def getlayer(self, cls, nb=1, _track=None):
@@ -1133,6 +1133,7 @@ class Padding(Raw):
         return self.load+self.payload.build_padding()
 
 conf.raw_layer = Raw
+conf.padding_layer = Padding
 if conf.default_l2 is None:
     conf.default_l2 = Raw
 

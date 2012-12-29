@@ -103,7 +103,7 @@ class CDPMsgGeneric(Packet):
 
 
     def guess_payload_class(self, p):
-        return Padding # _CDPGuessPayloadClass
+        return conf.padding_layer # _CDPGuessPayloadClass
 
 class CDPMsgDeviceID(CDPMsgGeneric):
     name = "Device ID"
@@ -122,7 +122,7 @@ class CDPAddrRecord(Packet):
                     StrLenField("addr", None, length_from=lambda x:x.addrlen)]
 
     def guess_payload_class(self, p):
-        return Padding
+        return conf.padding_layer
 
 class CDPAddrRecordIPv4(CDPAddrRecord):
     name = "CDP Address IPv4"

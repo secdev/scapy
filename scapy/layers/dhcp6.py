@@ -303,7 +303,7 @@ class DHCP6OptIAAddress(_DHCP6OptGuessPayload):    # RFC sect 22.6
                     StrLenField("iaaddropts", "",
                                 length_from  = lambda pkt: pkt.optlen - 24) ]
     def guess_payload_class(self, payload):
-        return Padding
+        return conf.padding_layer
 
 class _IANAOptField(PacketListField):
     def i2len(self, pkt, z):
@@ -317,8 +317,8 @@ class _IANAOptField(PacketListField):
         remain, payl = s[:l], s[l:]
         while len(remain)>0:
             p = self.m2i(pkt,remain)
-            if Padding in p:
-                pad = p[Padding]
+            if conf.padding_layer in p:
+                pad = p[conf.padding_layer]
                 remain = pad.load
                 del(pad.underlayer.payload)
             else:
@@ -545,8 +545,8 @@ class _UserClassDataField(PacketListField):
         remain, payl = s[:l], s[l:]
         while len(remain)>0:
             p = self.m2i(pkt,remain)
-            if Padding in p:
-                pad = p[Padding]
+            if conf.padding_layer in p:
+                pad = p[conf.padding_layer]
                 remain = pad.load
                 del(pad.underlayer.payload)
             else:
@@ -561,7 +561,7 @@ class USER_CLASS_DATA(Packet):
                     StrLenField("data", "",
                                 length_from = lambda pkt: pkt.len) ]
     def guess_payload_class(self, payload):
-        return Padding
+        return conf.padding_layer
 
 class DHCP6OptUserClass(_DHCP6OptGuessPayload):# RFC sect 22.15
     name = "DHCP6 User Class Option"
@@ -598,7 +598,7 @@ class VENDOR_SPECIFIC_OPTION(_DHCP6OptGuessPayload):
                     StrLenField("optdata", "",
                                 length_from = lambda pkt: pkt.optlen) ]
     def guess_payload_class(self, payload):
-        return Padding
+        return conf.padding_layer
 
 # The third one that will be used for nothing interesting
 class DHCP6OptVendorSpecificInfo(_DHCP6OptGuessPayload):# RFC sect 22.17

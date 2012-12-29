@@ -178,7 +178,7 @@ sctpchunkparamtypes = {
 class _SCTPChunkGuessPayload:
     def default_payload_class(self,p):
         if len(p) < 4:
-            return Padding
+            return conf.padding_layer
         else:
             t = ord(p[0])
             return globals().get(sctpchunktypescls.get(t, "Raw"), Raw)

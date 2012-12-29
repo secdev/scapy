@@ -793,8 +793,8 @@ def defrag(plist):
             missfrag.append(lst)
             continue
         p = p.copy()
-        if Padding in p:
-            del(p[Padding].underlayer.payload)
+        if conf.padding_layer in p:
+            del(p[conf.padding_layer].underlayer.payload)
         ip = p[IP]
         if ip.len is None or ip.ihl is None:
             clen = len(ip.payload)
@@ -811,8 +811,8 @@ def defrag(plist):
                 clen += len(q[IP].payload)
             else:
                 clen += q[IP].len - (q[IP].ihl<<2)
-            if Padding in q:
-                del(q[Padding].underlayer.payload)
+            if conf.padding_layer in q:
+                del(q[conf.padding_layer].underlayer.payload)
             txt.add_payload(q[IP].payload.copy())
         else:
             ip.flags &= ~1 # !MF
@@ -854,8 +854,8 @@ def defragment(plist):
             missfrag += lst
             continue
         p = p.copy()
-        if Padding in p:
-            del(p[Padding].underlayer.payload)
+        if conf.padding_layer in p:
+            del(p[conf.padding_layer].underlayer.payload)
         ip = p[IP]
         if ip.len is None or ip.ihl is None:
             clen = len(ip.payload)
@@ -872,8 +872,8 @@ def defragment(plist):
                 clen += len(q[IP].payload)
             else:
                 clen += q[IP].len - (q[IP].ihl<<2)
-            if Padding in q:
-                del(q[Padding].underlayer.payload)
+            if conf.padding_layer in q:
+                del(q[conf.padding_layer].underlayer.payload)
             txt.add_payload(q[IP].payload.copy())
         else:
             ip.flags &= ~1 # !MF
@@ -1239,8 +1239,8 @@ class TracerouteResult(SndRcvList):
             s += "\n#Padding\n"
             pad={}
             for snd,rcv in self.res:
-                if rcv.src not in ports and rcv.haslayer(Padding):
-                    p = rcv.getlayer(Padding).load
+                if rcv.src not in ports and rcv.haslayer(conf.padding_layer):
+                    p = rcv.getlayer(conf.padding_layer).load
                     if p != "\x00"*len(p):
                         pad[rcv.src]=None
             for rcv in pad:
@@ -1390,7 +1390,7 @@ class TCP_client(Automaton):
 
     @ATMT.receive_condition(ESTABLISHED)
     def incoming_data_received(self, pkt):
-        if not isinstance(pkt[TCP].payload, NoPayload) and not isinstance(pkt[TCP].payload, Padding):
+        if not isinstance(pkt[TCP].payload, NoPayload) and not isinstance(pkt[TCP].payload, conf.padding_layer):
             raise self.ESTABLISHED().action_parameters(pkt)
     @ATMT.action(incoming_data_received)
     def receive_data(self,pkt):
@@ -1506,7 +1506,7 @@ def fragleak(target,sport=123, dport=123, timeout=0.2, onlyasc=0):
 
 
 #                print repr(ans)
-                if not ans.haslayer(Padding):
+                if not ans.haslayer(conf.padding_layer):
                     continue
 
                 
@@ -1515,7 +1515,7 @@ def fragleak(target,sport=123, dport=123, timeout=0.2, onlyasc=0):
 #                if not isinstance(ans.payload.payload.payload.payload, Raw):
 #                    continue
 #                leak = ans.payload.payload.payload.payload.load[len(load):]
-                leak = ans.getlayer(Padding).load
+                leak = ans.getlayer(conf.padding_layer).load
                 if leak not in found:
                     found[leak]=None
                     linehexdump(leak, onlyasc=onlyasc)
@@ -1533,8 +1533,8 @@ def fragleak2(target, timeout=0.4, onlyasc=0):
             p = sr1(IP(dst=target, options="\x00"*40, proto=200)/"XXXXYYYYYYYYYYYY",timeout=timeout,verbose=0)
             if not p:
                 continue
-            if Padding in p:
-                leak  = p[Padding].load
+            if conf.padding_layer in p:
+                leak  = p[conf.padding_layer].load
                 if leak not in found:
                     found[leak]=None
                     linehexdump(leak,onlyasc=onlyasc)

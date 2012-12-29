@@ -11,7 +11,6 @@ PacketList: holds several packets and allows to do operations on them.
 import os,subprocess
 from config import conf
 from base_classes import BasePacket,BasePacketList
-from packet import Padding
 from collections import defaultdict
 
 from utils import do_graph,hexdump,make_table,make_lined_table,make_tex_table,get_temp_file
@@ -215,26 +214,26 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
         """Same as hexraw(), for Padding layer"""
         for i in range(len(self.res)):
             p = self._elt2pkt(self.res[i])
-            if p.haslayer(Padding):
+            if p.haslayer(conf.padding_layer):
                 if lfilter is None or lfilter(p):
                     print "%s %s %s" % (conf.color_theme.id(i,fmt="%04i"),
                                         p.sprintf("%.time%"),
                                         self._elt2sum(self.res[i]))
-                    hexdump(p.getlayer(Padding).load)
+                    hexdump(p.getlayer(conf.padding_layer).load)
 
     def nzpadding(self, lfilter=None):
         """Same as padding() but only non null padding"""
         for i in range(len(self.res)):
             p = self._elt2pkt(self.res[i])
-            if p.haslayer(Padding):
-                pad = p.getlayer(Padding).load
+            if p.haslayer(conf.padding_layer):
+                pad = p.getlayer(conf.padding_layer).load
                 if pad == pad[0]*len(pad):
                     continue
                 if lfilter is None or lfilter(p):
                     print "%s %s %s" % (conf.color_theme.id(i,fmt="%04i"),
                                         p.sprintf("%.time%"),
                                         self._elt2sum(self.res[i]))
-                    hexdump(p.getlayer(Padding).load)
+                    hexdump(p.getlayer(conf.padding_layer).load)
         
 
     def conversations(self, getsrcdst=None,**kargs):

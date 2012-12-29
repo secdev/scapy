@@ -365,8 +365,8 @@ class PacketField(StrField):
     def getfield(self, pkt, s):
         i = self.m2i(pkt, s)
         remain = ""
-        if 'Padding' in i:
-            r = i['Padding']
+        if conf.padding_layer in i:
+            r = i[conf.padding_layer]
             del(r.underlayer.payload)
             remain = r.load
         return remain,i
@@ -436,8 +436,8 @@ class PacketListField(PacketField):
                 p = conf.raw_layer(load=remain)
                 remain = ""
             else:
-                if 'Padding' in p:
-                    pad = p['Padding']
+                if conf.padding_layer in p:
+                    pad = p[conf.padding_layer]
                     remain = pad.load
                     del(pad.underlayer.payload)
                 else:

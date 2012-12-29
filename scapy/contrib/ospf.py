@@ -121,7 +121,7 @@ class LLS_Generic_TLV(Packet):
                    StrLenField("val", "", length_from=lambda x: x.len)]
 
     def guess_payload_class(self, p):
-        return Padding
+        return conf.padding_layer
 
 
 class LLS_ExtendedOptionsField(FlagsField):

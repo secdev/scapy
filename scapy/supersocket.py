@@ -124,7 +124,7 @@ class StreamSocket(SimpleSocket):
         if x == 0:
             raise socket.error((100,"Underlying stream socket tore down"))
         pkt = self.basecls(pkt)
-        pad = pkt.getlayer(Padding)
+        pad = pkt.getlayer(conf.padding_layer)
         if pad is not None and pad.underlayer is not None:
             del(pad.underlayer.payload)
         while pad is not None and not isinstance(pad, NoPayload):

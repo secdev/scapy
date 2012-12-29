@@ -409,7 +409,7 @@ class SkinnyMessageOpenReceiveChannel(Packet):
                    LEIntField('callid', 0)]
 
     def guess_payload_class(self, p):
-        return Padding
+        return conf.padding_layer
 
 _skinny_receive_channel_status = {
     0x0: 'ok',
@@ -450,7 +450,7 @@ class SkinnyMessageStartMediaTransmission(Packet):
                    LEIntField('callid', 0)]
 
     def guess_payload_class(self, p):
-        return Padding
+        return conf.padding_layer
     
 class SkinnyMessageCloseReceiveChannel(Packet):
     name='close receive channel'

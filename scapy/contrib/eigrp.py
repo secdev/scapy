@@ -180,7 +180,7 @@ class EIGRPGeneric(Packet):
             StrLenField("value", "\x00", length_from=lambda pkt: pkt.len - 4)]
 
     def guess_payload_class(self, p):
-        return Padding
+        return conf.padding_layer
 
 class EIGRPParam(EIGRPGeneric):
     name = "EIGRP Parameters"
@@ -417,8 +417,8 @@ class RepeatedTlvListField(PacketListField):
         remain = s
         while len(remain) > 0:
             p = self.m2i(pkt, remain)
-            if Padding in p:
-                pad = p[Padding]
+            if conf.padding_layer in p:
+                pad = p[conf.padding_layer]
                 remain = pad.load
                 del(pad.underlayer.payload)
             else:

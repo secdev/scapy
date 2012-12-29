@@ -75,7 +75,7 @@ class VTPVlanInfoTlv(Packet):
             ]
 
     def guess_payload_class(self, p):
-        return Padding
+        return conf.padding_layer
 
 class VTPVlanInfo(Packet):
     name = "VTP VLAN Info"
@@ -110,7 +110,7 @@ class VTPVlanInfo(Packet):
         return p
 
     def guess_payload_class(self, p):
-        return Padding
+        return conf.padding_layer
 
 _VTP_Types = {
             1 : 'Summary Advertisement',
