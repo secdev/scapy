@@ -163,7 +163,7 @@ _OSPF_LLSclasses = {1: "LLS_Extended_Options",
 def _LLSGuessPayloadClass(p, **kargs):
     """ Guess the correct LLS class for a given payload """
 
-    cls = Raw
+    cls = conf.raw_layer
     if len(p) >= 4:
         typ = struct.unpack("!H", p[0:2])[0]
         clsname = _OSPF_LLSclasses.get(typ, "LLS_Generic_TLV")
@@ -283,7 +283,7 @@ def _LSAGuessPayloadClass(p, **kargs):
     """ Guess the correct LSA class for a given payload """
     # This is heavily based on scapy-cdp.py by Nicolas Bareil and Arnaud Ebalard
     # XXX: This only works if all payload
-    cls = Raw
+    cls = conf.raw_layer
     if len(p) >= 4:
         typ = struct.unpack("!B", p[3])[0]
         clsname = _OSPF_LSclasses.get(typ, "Raw")
@@ -601,7 +601,7 @@ class OSPFv3_LSA_Hdr(Packet):
 def _OSPFv3_LSAGuessPayloadClass(p, **kargs):
     """ Guess the correct OSPFv3 LSA class for a given payload """
 
-    cls = Raw
+    cls = conf.raw_layer
 
     if len(p) >= 6:
         typ = struct.unpack("!H", p[2:4])[0]

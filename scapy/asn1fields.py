@@ -264,12 +264,12 @@ class ASN1F_SEQUENCE_OF(ASN1F_SEQUENCE):
             try:
                 p = self.asn1pkt(s1)
             except ASN1F_badsequence,e:
-                lst.append(packet.Raw(s1))
+                lst.append(conf.raw_layer(s1))
                 break
             lst.append(p)
-            if packet.Raw in p:
-                s1 = p[packet.Raw].load
-                del(p[packet.Raw].underlayer.payload)
+            if conf.raw_layer in p:
+                s1 = p[conf.raw_layer].load
+                del(p[conf.raw_layer].underlayer.payload)
             else:
                 break
         self.set_val(pkt, lst)
@@ -292,7 +292,7 @@ class ASN1F_PACKET(ASN1F_field):
         try:
             c = cls(x)
         except ASN1F_badsequence:
-            c = packet.Raw(x)
+            c = conf.raw_layer(x)
         cpad = c.getlayer(conf.padding_layer)
         x = ""
         if cpad is not None:
@@ -314,10 +314,10 @@ class ASN1F_CHOICE(ASN1F_PACKET):
         self.default=default
     def m2i(self, pkt, x):
         if len(x) == 0:
-            return packet.Raw(),""
+            return conf.raw_layer(),""
             raise ASN1_Error("ASN1F_CHOICE: got empty string")
         if ord(x[0]) not in self.choice:
-            return packet.Raw(x),"" # XXX return RawASN1 packet ? Raise error 
+            return conf.raw_layer(x),"" # XXX return RawASN1 packet ? Raise error 
             raise ASN1_Error("Decoding Error: choice [%i] not found in %r" % (ord(x[0]), self.choice.keys()))
 
         z = ASN1F_PACKET.extract_packet(self, self.choice[ord(x[0])], x)

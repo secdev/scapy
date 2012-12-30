@@ -51,14 +51,14 @@ def _PPIGuessPayloadClass(p, **kargs):
         pfh_len += 4
         out = cls(p[:pfh_len], **kargs)
         if (out.payload):
-            out.payload = Raw(out.payload.load)
+            out.payload = conf.raw_layer(out.payload.load)
             if (len(p) > pfh_len):
                 out.payload.payload = conf.padding_layer(p[pfh_len:])
         elif (len(p) > pfh_len):
             out.payload = conf.padding_layer(p[pfh_len:])
         
     else:
-        out = Raw(p, **kargs)
+        out = conf.raw_layer(p, **kargs)
     return out
 
 

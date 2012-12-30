@@ -104,7 +104,7 @@ def nmap_udppacket_sig(S,T):
         r["RIPCK"] = S.chksum == T.getlayer(IPerror).chksum and "E" or T.getlayer(IPerror).chksum == 0 and "0" or "F"
         r["UCK"] = S.payload.chksum == T.getlayer(UDPerror).chksum and "E" or T.getlayer(UDPerror).chksum ==0 and "0" or "F"
         r["ULEN"] = "%X" % T.getlayer(UDPerror).len
-        r["DAT"] = T.getlayer(Raw) is None and "E" or S.getlayer(Raw).load == T.getlayer(Raw).load and "E" or "F"
+        r["DAT"] = T.getlayer(conf.raw_layer) is None and "E" or S.getlayer(conf.raw_layer).load == T.getlayer(conf.raw_layer).load and "E" or "F"
     return r
     
 

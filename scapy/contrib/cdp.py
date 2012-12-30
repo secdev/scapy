@@ -87,7 +87,7 @@ _cdp_tlv_types = { 0x0001: "Device ID",
                    0x001a: "Power Available"}
 
 def _CDPGuessPayloadClass(p, **kargs):
-    cls = Raw
+    cls = conf.raw_layer
     if len(p) >= 2:
         t = struct.unpack("!H", p[:2])[0]
         clsname = _cdp_tlv_cls.get(t, "CDPMsgGeneric")
@@ -141,7 +141,7 @@ class CDPAddrRecordIPv6(CDPAddrRecord):
                     IP6Field("addr", "::1")]
 
 def _CDPGuessAddrRecord(p, **kargs):
-    cls = Raw
+    cls = conf.raw_layer
     if len(p) >= 2:
         plen = struct.unpack("B", p[1])[0]
         proto = ''.join(struct.unpack("s" * plen, p[2:plen + 2])[0:plen])

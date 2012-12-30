@@ -430,7 +430,7 @@ class RepeatedTlvListField(PacketListField):
         return s + reduce(str.__add__, map(str, val), "")
 
 def _EIGRPGuessPayloadClass(p, **kargs):
-    cls = Raw
+    cls = conf.raw_layer
     if len(p) >= 2:
         t = struct.unpack("!H", p[:2])[0]
         clsname = _eigrp_tlv_cls.get(t, "EIGRPGeneric")

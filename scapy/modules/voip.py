@@ -14,7 +14,6 @@ import os
 
 from fcntl import fcntl
 from scapy.sendrecv import sniff
-from scapy.packet import Raw
 from scapy.layers.inet import IP,UDP
 from scapy.layers.rtp import RTP
 from scapy.utils import get_temp_file
@@ -93,7 +92,7 @@ def voip_play1(s1,list=None,**kargs):
             return 
         ip=pkt.getlayer(IP)
         if s1 in [ip.src, ip.dst]:
-            dsp.write(pkt.getlayer(Raw).load[12:])
+            dsp.write(pkt.getlayer(conf.raw_layer).load[12:])
     try:
         if list is None:
             sniff(store=0, prn=play, **kargs)
@@ -134,7 +133,7 @@ def voip_play3(lst=None,**kargs):
     dsp,rd = os.popen2("sox -t .ul - -t ossdsp /dev/dsp")
     try:
         def play(pkt, dsp=dsp):
-            if pkt and pkt.haslayer(UDP) and pkt.haslayer(Raw):
+            if pkt and pkt.haslayer(UDP) and pkt.haslayer(conf.raw_layer):
                 dsp.write(pkt.getlayer(RTP).load)
         if lst is None:
             sniff(store=0, prn=play, **kargs)

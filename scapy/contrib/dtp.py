@@ -89,7 +89,7 @@ class DTPNeighbor(DtpGenericTlv):
             ]
 
 def _DTPGuessPayloadClass(p, **kargs):
-    cls = Raw
+    cls = conf.raw_layer
     if len(p) >= 2:
         t = struct.unpack("!H", p[:2])[0]
         clsname = _DTP_TLV_CLS.get(t, "DtpGenericTlv")

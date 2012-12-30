@@ -181,7 +181,7 @@ class _SCTPChunkGuessPayload:
             return conf.padding_layer
         else:
             t = ord(p[0])
-            return globals().get(sctpchunktypescls.get(t, "Raw"), Raw)
+            return globals().get(sctpchunktypescls.get(t, "Raw"), conf.raw_layer)
 
 
 class SCTP(_SCTPChunkGuessPayload, Packet):
@@ -210,12 +210,12 @@ class ChunkParamField(PacketListField):
     islist = 1
     holds_packets=1
     def __init__(self, name, default, count_from=None, length_from=None):
-        PacketListField.__init__(self, name, default, Raw, count_from=count_from, length_from=length_from)
+        PacketListField.__init__(self, name, default, conf.raw_layer, count_from=count_from, length_from=length_from)
     def m2i(self, p, m):
-        cls = Raw
+        cls = conf.raw_layer
         if len(m) >= 4:
             t = ord(m[0]) * 256 + ord(m[1])
-            cls = globals().get(sctpchunkparamtypescls.get(t, "Raw"), Raw)
+            cls = globals().get(sctpchunkparamtypescls.get(t, "Raw"), conf.raw_layer)
         return cls(m)
 
 # dummy class to avoid Raw() after Chunk params

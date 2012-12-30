@@ -165,7 +165,7 @@ class ISAKMP_class(Packet):
     def guess_payload_class(self, payload):
         np = self.next_payload
         if np == 0:
-            return Raw
+            return conf.raw_layer
         elif np < len(ISAKMP_payload_type):
             pt = ISAKMP_payload_type[np]
             return globals().get("ISAKMP_payload_%s" % pt, ISAKMP_payload)
@@ -188,7 +188,7 @@ class ISAKMP(ISAKMP_class): # rfc2408
 
     def guess_payload_class(self, payload):
         if self.flags & 1:
-            return Raw
+            return conf.raw_layer
         return ISAKMP_class.guess_payload_class(self, payload)
 
     def answers(self, other):
@@ -246,7 +246,7 @@ class ISAKMP_payload_Proposal(ISAKMP_class):
         FieldLenField("SPIsize",None,"SPI","B"),
         ByteField("trans_nb",None),
         StrLenField("SPI","",length_from=lambda x:x.SPIsize),
-        PacketLenField("trans",Raw(),ISAKMP_payload_Transform,length_from=lambda x:x.length-8),
+        PacketLenField("trans",conf.raw_layer(),ISAKMP_payload_Transform,length_from=lambda x:x.length-8),
         ]
 
 
@@ -279,7 +279,7 @@ class ISAKMP_payload_SA(ISAKMP_class):
         FieldLenField("length",None,"prop","H", adjust=lambda pkt,x:x+12),
         IntEnumField("DOI",1,{1:"IPSEC"}),
         IntEnumField("situation",1,{1:"identity"}),
-        PacketLenField("prop",Raw(),ISAKMP_payload_Proposal,length_from=lambda x:x.length-12),
+        PacketLenField("prop",conf.raw_layer(),ISAKMP_payload_Proposal,length_from=lambda x:x.length-12),
         ]
 
 class ISAKMP_payload_Nonce(ISAKMP_class):

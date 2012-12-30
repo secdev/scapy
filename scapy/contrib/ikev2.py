@@ -126,7 +126,7 @@ class IKEv2_class(Packet):
         np = self.next_payload
         logging.debug("For IKEv2_class np=%d" % np)
         if np == 0:
-            return Raw
+            return conf.raw_layer
         elif np < len(IKEv2_payload_type):
             pt = IKEv2_payload_type[np]
             logging.debug(globals().get("IKEv2_payload_%s" % pt, IKEv2_payload))
@@ -150,7 +150,7 @@ class IKEv2(IKEv2_class): # rfc4306
 
     def guess_payload_class(self, payload):
         if self.flags & 1:
-            return Raw
+            return conf.raw_layer
         return IKEv2_class.guess_payload_class(self, payload)
 
     def answers(self, other):
@@ -219,7 +219,7 @@ class IKEv2_payload_Proposal(IKEv2_class):
         FieldLenField("SPIsize",None,"SPI","B"),
         ByteField("trans_nb",None),
         StrLenField("SPI","",length_from=lambda x:x.SPIsize),
-        PacketLenField("trans",Raw(),IKEv2_payload_Transform,length_from=lambda x:x.length-8),
+        PacketLenField("trans",conf.raw_layer(),IKEv2_payload_Transform,length_from=lambda x:x.length-8),
         ]
 
 
@@ -260,7 +260,7 @@ class IKEv2_payload_SA(IKEv2_class):
         ByteEnumField("next_payload",None,IKEv2_payload_type),
         ByteField("res",0),
         FieldLenField("length",None,"prop","H", adjust=lambda pkt,x:x+4),
-        PacketLenField("prop",Raw(),IKEv2_payload_Proposal,length_from=lambda x:x.length-4),
+        PacketLenField("prop",conf.raw_layer(),IKEv2_payload_Proposal,length_from=lambda x:x.length-4),
         ]
 
 class IKEv2_payload_Nonce(IKEv2_class):

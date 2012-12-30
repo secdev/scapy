@@ -417,7 +417,7 @@ class IP(Packet, IPTools):
                 else:
                     q[IP].flags |= 1 
                 q[IP].frag = i*fragsize/8
-                r = Raw(load=s[i*fragsize:(i+1)*fragsize])
+                r = conf.raw_layer(load=s[i*fragsize:(i+1)*fragsize])
                 r.overload_fields = p[IP].payload.overload_fields.copy()
                 q.add_payload(r)
                 lst.append(q)
@@ -750,7 +750,7 @@ def fragment(pkt, fragsize=1480):
             else:
                 q[IP].flags |= 1 
             q[IP].frag = i*fragsize/8
-            r = Raw(load=s[i*fragsize:(i+1)*fragsize])
+            r = conf.raw_layer(load=s[i*fragsize:(i+1)*fragsize])
             r.overload_fields = p[IP].payload.overload_fields.copy()
             q.add_payload(r)
             lst.append(q)
@@ -800,7 +800,7 @@ def defrag(plist):
             clen = len(ip.payload)
         else:
             clen = ip.len - (ip.ihl<<2)
-        txt = Raw()
+        txt = conf.raw_layer()
         for q in lst[1:]:
             if clen != q.frag<<3: # Wrong fragmentation offset
                 if clen > q.frag<<3:
@@ -861,7 +861,7 @@ def defragment(plist):
             clen = len(ip.payload)
         else:
             clen = ip.len - (ip.ihl<<2)
-        txt = Raw()
+        txt = conf.raw_layer()
         for q in lst[1:]:
             if clen != q.frag<<3: # Wrong fragmentation offset
                 if clen > q.frag<<3:
@@ -1512,7 +1512,7 @@ def fragleak(target,sport=123, dport=123, timeout=0.2, onlyasc=0):
                 
 #                print repr(ans.payload.payload.payload.payload)
                 
-#                if not isinstance(ans.payload.payload.payload.payload, Raw):
+#                if not isinstance(ans.payload.payload.payload.payload, conf.raw_layer):
 #                    continue
 #                leak = ans.payload.payload.payload.payload.load[len(load):]
                 leak = ans.getlayer(conf.padding_layer).load

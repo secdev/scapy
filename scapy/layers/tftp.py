@@ -183,8 +183,8 @@ class TFTP_read(Automaton):
     # RECEIVED
     @ATMT.state()
     def RECEIVING(self, pkt):
-        if Raw in pkt:
-            recvd = pkt[Raw].load
+        if conf.raw_layer in pkt:
+            recvd = pkt[conf.raw_layer].load
         else:
             recvd = ""
         self.res += recvd

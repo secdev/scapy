@@ -474,7 +474,7 @@ Some specifications of the p0f.fp file are not (yet) implemented."""
                 else:
                     pkt.payload.flags |= RandChoice(8, 32, 40) #P / U / PU
             elif qq == 'D' and db != p0fo_kdb:
-                pkt /= Raw(load=RandString(random.randint(1, 10))) # XXX p0fo.fp
+                pkt /= conf.raw_layer(load=RandString(random.randint(1, 10))) # XXX p0fo.fp
             elif qq == 'Q': pkt.payload.seq = pkt.payload.ack
             #elif qq == '0': pkt.payload.seq = 0
         #if db == p0fr_kdb:

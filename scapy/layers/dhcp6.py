@@ -242,7 +242,7 @@ duid_cls = { 1: "DUID_LLT",
 
 class _DHCP6OptGuessPayload(Packet):
     def guess_payload_class(self, payload):
-        cls = Raw
+        cls = conf.raw_layer
         if len(payload) > 2 :
             opt = struct.unpack("!H", payload[:2])[0]
             cls = get_cls(dhcp6opts_by_code.get(opt, "DHCP6OptUnknown"), DHCP6OptUnknown)
@@ -265,10 +265,10 @@ class _DUIDField(PacketField):
         return str(i)
 
     def m2i(self, pkt, x):
-        cls = Raw 
+        cls = conf.raw_layer
         if len(x) > 4:
             o = struct.unpack("!H", x[:2])[0]
-            cls = get_cls(duid_cls.get(o, Raw), "Raw")
+            cls = get_cls(duid_cls.get(o, conf.raw_layer), conf.raw_layer)
         return cls(x)
 
     def getfield(self, pkt, s):
@@ -898,8 +898,8 @@ class _DHCP6GuessPayload(Packet):
     def guess_payload_class(self, payload):
         if len(payload) > 1 :
             print ord(payload[0])
-            return get_cls(dhcp6opts.get(ord(payload[0]),"DHCP6OptUnknown"), Raw)
-        return Raw
+            return get_cls(dhcp6opts.get(ord(payload[0]),"DHCP6OptUnknown"), conf.raw_layer)
+        return conf.raw_layer
 
 #####################################################################
 ## DHCPv6 messages sent between Clients and Servers (types 1 to 11)
@@ -1189,9 +1189,9 @@ dhcp6_cls_by_type = {  1: "DHCP6_Solicit",
                       13: "DHCP6_RelayReply" }
 
 def _dhcp6_dispatcher(x, *args, **kargs):
-    cls = Raw
+    cls = conf.raw_layer
     if len(x) >= 2:
-        cls = get_cls(dhcp6_cls_by_type.get(ord(x[0]), "Raw"), Raw)
+        cls = get_cls(dhcp6_cls_by_type.get(ord(x[0]), "Raw"), conf.raw_layer)
     return cls(x, *args, **kargs)
 
 bind_bottom_up(UDP, _dhcp6_dispatcher, { "dport": 547 } )

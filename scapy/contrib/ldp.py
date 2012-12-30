@@ -50,7 +50,7 @@ def guess_payload(p):
     if type in LDPTypes:
         return LDPTypes[type]
     else:
-        return Raw
+        return conf.raw_layer
 
 ## Fields ##
 

@@ -146,7 +146,7 @@ class L2CAP_InfoResp(Packet):
 
 
 bind_layers( HCI_Hdr,       HCI_ACL_Hdr,   type=2)
-bind_layers( HCI_Hdr,       Raw,           )
+bind_layers( HCI_Hdr,       conf.raw_layer,           )
 bind_layers( HCI_ACL_Hdr,   L2CAP_Hdr,     )
 bind_layers( L2CAP_Hdr,     L2CAP_CmdHdr,      cid=1)
 bind_layers( L2CAP_CmdHdr,  L2CAP_CmdRej,      code=1)

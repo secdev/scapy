@@ -777,7 +777,7 @@ class _HopByHopOptionsField(PacketListField):
             except:
                 op = self.cls(x)
             opt.append(op)
-            if isinstance(op.payload, Raw):
+            if isinstance(op.payload, conf.raw_layer):
                 x = op.payload.load
                 del(op.payload)
             else:
@@ -939,7 +939,7 @@ def defragment6(pktlist):
     nh = q[IPv6ExtHdrFragment].nh
     q[IPv6ExtHdrFragment].underlayer.nh = nh
     q[IPv6ExtHdrFragment].underlayer.payload = None
-    q /= Raw(load=fragmentable)
+    q /= conf.raw_layer(load=fragmentable)
     
     return IPv6(str(q))
 
@@ -1014,14 +1014,14 @@ def fragment6(pkt, fragSize):
             fragOffset += (innerFragSize / 8)  # compute new one
             if IPv6 in unfragPart:  
                 unfragPart[IPv6].plen = None
-            tempo = unfragPart/fragHeader/Raw(load=tmp)
+            tempo = unfragPart/fragHeader/conf.raw_layer(load=tmp)
             res.append(tempo)
         else:
             fragHeader.offset = fragOffset    # update offSet
             fragHeader.m = 0
             if IPv6 in unfragPart:
                 unfragPart[IPv6].plen = None
-            tempo = unfragPart/fragHeader/Raw(load=remain)
+            tempo = unfragPart/fragHeader/conf.raw_layer(load=remain)
             res.append(tempo)
             break
     return res
@@ -1471,7 +1471,7 @@ class TruncPktLenField(PacketLenField):
         try: # It can happen we have sth shorter than 40 bytes
             s = self.cls(m)
         except:
-            return Raw(m)
+            return conf.raw_layer(m)
         return s
 
     def i2m(self, pkt, x):
@@ -2195,7 +2195,7 @@ class ICMPv6NIReplyUnknown(ICMPv6NIReplyNOOP):
 
 
 def _niquery_guesser(p):
-    cls = Raw
+    cls = conf.raw_layer
     type = ord(p[0])
     if type == 139: # Node Info Query specific stuff
         if len(p) > 6:
@@ -2203,7 +2203,7 @@ def _niquery_guesser(p):
             cls = { 0: ICMPv6NIQueryNOOP,
                     2: ICMPv6NIQueryName,
                     3: ICMPv6NIQueryIPv6,
-                    4: ICMPv6NIQueryIPv4 }.get(qtype, Raw)
+                    4: ICMPv6NIQueryIPv4 }.get(qtype, conf.raw_layer)
     elif type == 140: # Node Info Reply specific stuff
         code = ord(p[1])
         if code == 0:
@@ -2587,7 +2587,7 @@ class _MobilityOptionsField(PacketListField):
             except:
                 op = self.cls(x)
             opt.append(op)
-            if isinstance(op.payload, Raw):
+            if isinstance(op.payload, conf.raw_layer):
                 x = op.payload.load
                 del(op.payload)
             else:
