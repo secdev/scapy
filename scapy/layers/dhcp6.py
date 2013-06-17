@@ -1057,7 +1057,10 @@ class DHCP6_Reply(DHCP6):
     msgtype = 7
     
     def answers(self, other):
-        return (isinstance(other, DHCP6_InfoRequest) and
+
+        types = (DHCP6_InfoRequest, DHCP6_Confirm, DHCP6_Rebind, DHCP6_Decline, DHCP6_Request, DHCP6_Release, DHCP6_Renew)
+
+        return (isinstance(other, types) and
                 self.trid == other.trid)
 
 #####################################################################
