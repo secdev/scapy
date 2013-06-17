@@ -1169,7 +1169,7 @@ class DHCP6_RelayReply(DHCP6_RelayForward):
         return inet_pton(socket.AF_INET6, self.peeraddr)
     def answers(self, other):
         return (isinstance(other, DHCP6_RelayForward) and
-                self.count == other.count and
+                self.hopcount == other.hopcount and
                 self.linkaddr == other.linkaddr and
                 self.peeraddr == other.peeraddr )
 
