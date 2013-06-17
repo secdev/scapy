@@ -1122,9 +1122,6 @@ class DHCP6_InfoRequest(DHCP6):
     name = "DHCPv6 Information Request Message"    
     msgtype = 11 
     
-    def hashret(self): 
-        return struct.pack("!I", self.trid)[1:3]
-
 #####################################################################
 # sent between Relay Agents and Servers 
 #
