@@ -109,7 +109,10 @@ def getmacbyip6(ip6, chainCC=0):
     res = neighsol(ip6, a, iff, chainCC=chainCC)
 
     if res is not None:
-        mac = res.src
+        if ICMPv6NDOptDstLLAddr in res:
+	  mac = res[ICMPv6NDOptDstLLAddr].lladdr
+	else:
+	  mac = res.src
         conf.netcache.in6_neighbor[ip6] = mac
         return mac
 
