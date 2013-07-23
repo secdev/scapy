@@ -233,6 +233,10 @@ class Route6:
             if srcaddr is not None:
                 res.append((p[0], (tmp[0], srcaddr, tmp[2])))
 
+        if res == []:
+            warning("Found a route for IPv6 destination '%s', but no possible source address." % dst)
+            return (LOOPBACK_NAME, "::", "::") # XXX Linux specific
+
         # Symptom  : 2 routes with same weight (our weight is plen)
         # Solution : 
         #  - dst is unicast global. Check if it is 6to4 and we have a source 
