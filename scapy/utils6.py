@@ -535,9 +535,10 @@ def in6_iseui64(x):
 def in6_isanycast(x): # RFC 2526
     if in6_iseui64(x):
         s = '::fdff:ffff:ffff:ff80'
-        x = in6_and(x, inet_pton(socket.AF_INET6, '::ffff:ffff:ffff:ff80'))
-        x = in6_and(x, inet_pton(socket.AF_INET6, s)) 
-        return x == inet_pton(socket.AF_INET6, s)
+        packed_x = inet_pton(socket.AF_INET6, x)
+        packed_s = inet_pton(socket.AF_INET6, s)
+        x_and_s = in6_and(packed_x, packed_s) 
+        return x_and_s == packed_s
     else:
         # not EUI-64 
         #|              n bits             |    121-n bits    |   7 bits   |
