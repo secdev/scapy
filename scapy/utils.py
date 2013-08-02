@@ -560,7 +560,12 @@ class RawPcapReader:
     def close(self):
         return self.f.close()
 
-    
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, tracback):
+        pass
+
 
 class PcapReader(RawPcapReader):
     def __init__(self, filename):
@@ -673,9 +678,16 @@ class RawPcapWriter:
 
     def flush(self):
         return self.f.flush()
+
     def close(self):
         return self.f.close()
-                
+
+    def __enter__(self):
+        return self
+    def __exit__(self, exc_type, exc_value, tracback):
+        self.flush()
+
+
 class PcapWriter(RawPcapWriter):
     def _write_header(self, pkt):
         if self.linktype == None:
