@@ -1207,8 +1207,8 @@ class ICMPv6PacketTooBig(_ICMPv6Error):
 class ICMPv6TimeExceeded(_ICMPv6Error):
     name = "ICMPv6 Time Exceeded"
     fields_desc = [ ByteEnumField("type",3, icmp6types),
-                    ByteField("code",{ 0: "hop limit exceeded in transit",
-                                       1: "fragment reassembly time exceeded"}),
+                    ByteEnumField("code",0, { 0: "hop limit exceeded in transit",
+                                               1: "fragment reassembly time exceeded"}),
                     XShortField("cksum", None),
                     XIntField("unused",0x00000000)]
 
@@ -1262,7 +1262,7 @@ class _ICMPv6ML(_ICMPv6):
                     XShortField("cksum", None),
                     ShortField("mrd", 0),
                     ShortField("reserved", 0),
-                    IP6Field("mladdr",None)]
+                    IP6Field("mladdr","::")]
 
 # general queries are sent to the link-scope all-nodes multicast
 # address ff02::1, with a multicast address field of 0 and a MRD of
