@@ -1741,15 +1741,15 @@ isinstance(a, IPv6) and a.nh == 58 and a.hlim == 255 and isinstance(a.payload, I
 str(ICMPv6ND_NS()) == '\x87\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 
 = ICMPv6ND_NS - Instantiation with specific values
-str(ICMPv6ND_NS(code=0x11, R=1, S=1, O=1, res=1, tgt="ffff::1111")) == '\x87\x11\x00\x00\xe0\x00\x00\x01\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x11\x11'
+str(ICMPv6ND_NS(code=0x11, res=3758096385, tgt="ffff::1111")) == '\x87\x11\x00\x00\xe0\x00\x00\x01\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x11\x11'
 
 = ICMPv6ND_NS - Basic Dissection
 a=ICMPv6ND_NS('\x87\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
-a.code==0 and a.R==0 and a.S==0 and a.O==0 and a.res==0 and a.tgt=="::"
+a.code==0 and a.res==0 and a.tgt=="::"
 
 = ICMPv6ND_NS - Dissection with specific values
 a=ICMPv6ND_NS('\x87\x11\x00\x00\xe0\x00\x00\x01\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x11\x11')
-a.code==0x11 and a.R==1 and a.S==1 and a.O==1 and a.res==1 and a.tgt=="ffff::1111"
+a.code==0x11 and a.res==3758096385 and a.tgt=="ffff::1111"
 
 = ICMPv6ND_NS - IPv6 layer fields overloading
 a=IPv6(str(IPv6()/ICMPv6ND_NS()))

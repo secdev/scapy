@@ -1687,10 +1687,7 @@ class ICMPv6ND_NS(_ICMPv6NDGuessPayload, _ICMPv6, Packet):
     fields_desc = [ ByteEnumField("type",135, icmp6types),
                     ByteField("code",0),
                     XShortField("cksum", None),
-                    BitField("R",0,1),
-                    BitField("S",0,1),
-                    BitField("O",0,1),
-                    XBitField("res",0,29),
+                    IntField("res", 0),
                     IP6Field("tgt","::") ]
     overload_fields = {IPv6: { "nh": 58, "dst": "ff02::1", "hlim": 255 }}
 
@@ -1700,11 +1697,23 @@ class ICMPv6ND_NS(_ICMPv6NDGuessPayload, _ICMPv6, Packet):
     def hashret(self):
         return self.tgt+self.payload.hashret() 
 
-class ICMPv6ND_NA(ICMPv6ND_NS):
+class ICMPv6ND_NA(_ICMPv6NDGuessPayload, _ICMPv6, Packet):
     name = "ICMPv6 Neighbor Discovery - Neighbor Advertisement"
-    type = 136
-    R    = 1
-    O    = 1
+    fields_desc = [ ByteEnumField("type",136, icmp6types),
+                    ByteField("code",0),
+                    XShortField("cksum", None),
+                    BitField("R",1,1),
+                    BitField("S",0,1),
+                    BitField("O",1,1),
+                    XBitField("res",0,29),
+                    IP6Field("tgt","::") ]
+    overload_fields = {IPv6: { "nh": 58, "dst": "ff02::1", "hlim": 255 }}
+
+    def mysummary(self):
+        return self.sprintf("%name% (tgt: %tgt%)")
+
+    def hashret(self):
+        return self.tgt+self.payload.hashret() 
 
     def answers(self, other):
         return isinstance(other, ICMPv6ND_NS) and self.tgt == other.tgt
