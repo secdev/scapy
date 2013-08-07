@@ -44,22 +44,22 @@ def construct_source_candidate_set(addr, plen, laddr, loname):
 
     cset = []
     if in6_isgladdr(addr) or in6_isuladdr(addr):
-	cset = filter(lambda x: x[1] == IPV6_ADDR_GLOBAL, laddr)
+        cset = filter(lambda x: x[1] == IPV6_ADDR_GLOBAL, laddr)
     elif in6_islladdr(addr):
-	cset = filter(lambda x: x[1] == IPV6_ADDR_LINKLOCAL, laddr)
+        cset = filter(lambda x: x[1] == IPV6_ADDR_LINKLOCAL, laddr)
     elif in6_issladdr(addr):
-	cset = filter(lambda x: x[1] == IPV6_ADDR_SITELOCAL, laddr)
+        cset = filter(lambda x: x[1] == IPV6_ADDR_SITELOCAL, laddr)
     elif in6_ismaddr(addr):
-	if in6_ismnladdr(addr):
-	    cset = [('::1', 16, loname)]
-	elif in6_ismgladdr(addr):
-	    cset = filter(lambda x: x[1] == IPV6_ADDR_GLOBAL, laddr)
-	elif in6_ismlladdr(addr):
-	    cset = filter(lambda x: x[1] == IPV6_ADDR_LINKLOCAL, laddr)
-	elif in6_ismsladdr(addr):
-	    cset = filter(lambda x: x[1] == IPV6_ADDR_SITELOCAL, laddr)
+        if in6_ismnladdr(addr):
+            cset = [('::1', 16, loname)]
+        elif in6_ismgladdr(addr):
+            cset = filter(lambda x: x[1] == IPV6_ADDR_GLOBAL, laddr)
+        elif in6_ismlladdr(addr):
+            cset = filter(lambda x: x[1] == IPV6_ADDR_LINKLOCAL, laddr)
+        elif in6_ismsladdr(addr):
+            cset = filter(lambda x: x[1] == IPV6_ADDR_SITELOCAL, laddr)
     elif addr == '::' and plen == 0:
-	cset = filter(lambda x: x[1] == IPV6_ADDR_GLOBAL, laddr)
+        cset = filter(lambda x: x[1] == IPV6_ADDR_GLOBAL, laddr)
     cset = map(lambda x: x[0], cset)
     cset.sort(cmp=cset_sort) # Sort with global addresses first
     return cset            
@@ -138,8 +138,8 @@ def get_source_addr_from_candidate_set(dst, candidate_set):
         return 0
     
     if not candidate_set:
-	# Should not happen
-	return None
+        # Should not happen
+        return None
 
     candidate_set.sort(cmp=rfc3484_cmp, reverse=True)
     
