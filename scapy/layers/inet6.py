@@ -965,9 +965,11 @@ def fragment6(pkt, fragSize):
         #        as single element of a list
         return [pkt]
 
-    # If the payload is bigger than 65535, IPv6().post_build() will throw an exception
+    # If the payload is bigger than 65535, a Jumbo payload must be used, as
+    # an IPv6 packet can't be bigger than 65535 bytes. 
     if len(str(pkt[IPv6ExtHdrFragment])) > 65535:
-      pkt[IPv6].plen = 65535
+      warning("An IPv6 packet can'be bigger than 65535, please use a Jumbo payload.")
+      return []
     
     s = str(pkt) # for instantiation to get upper layer checksum right
 
