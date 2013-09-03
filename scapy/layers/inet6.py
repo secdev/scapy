@@ -960,15 +960,22 @@ def fragment6(pkt, fragSize):
     """
 
     pkt = pkt.copy()
-    s = str(pkt) # for instantiation to get upper layer checksum right
-
-    if len(s) <= fragSize:
-        return [pkt]
 
     if not IPv6ExtHdrFragment in pkt:
         # TODO : automatically add a fragment before upper Layer
         #        at the moment, we do nothing and return initial packet
         #        as single element of a list
+        return [pkt]
+
+    # If the payload is bigger than 65535, a Jumbo payload must be used, as
+    # an IPv6 packet can't be bigger than 65535 bytes. 
+    if len(str(pkt[IPv6ExtHdrFragment])) > 65535:
+      warning("An IPv6 packet can'be bigger than 65535, please use a Jumbo payload.")
+      return []
+    
+    s = str(pkt) # for instantiation to get upper layer checksum right
+
+    if len(s) <= fragSize:
         return [pkt]
 
     # Fragmentable part : fake IPv6 for Fragmentable part length computation
