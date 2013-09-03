@@ -1059,6 +1059,8 @@ you can have a kind of FakeAP::
               Dot11Elt(ID="TIM", info="\x00\x01\x00\x00"),
               iface="mon0", loop=1)
 
+Depending on the driver, the commands needed to get a working frame injection interface may vary. You may also have to replace the first pseudo-layer (in the example ``RadioTap()``) by ``PrismHeader()``, or by a proprietary pseudo-layer, or even to remove it.
+
 
 Simple one-liners
 =================
