@@ -291,6 +291,8 @@ class RandIP6(RandString):
                 ip.append("%04x" % n)
         if len(ip) == 9:
             ip.remove("")
+        if ip[-1] == "":
+          ip[-1] = 0
         return ":".join(ip)
 
 class RandOID(RandString):
