@@ -1043,18 +1043,23 @@ Provided that your wireless card and driver are correctly configured for frame i
 
 ::
 
-    $ ifconfig wlan0 up
-    $ iwpriv wlan0 hostapd 1
-    $ ifconfig wlan0ap up
+    $ iw dev wlan0 interface add mon0 type monitor
+    $ ifconfig mon0 up
 
 you can have a kind of FakeAP::
 
-    >>> sendp(Dot11(addr1="ff:ff:ff:ff:ff:ff",addr2=RandMAC(),addr3=RandMAC())/
-              Dot11Beacon(cap="ESS")/
-              Dot11Elt(ID="SSID",info=RandString(RandNum(1,50)))/
-              Dot11Elt(ID="Rates",info='\x82\x84\x0b\x16')/
-              Dot11Elt(ID="DSset",info="\x03")/
-              Dot11Elt(ID="TIM",info="\x00\x01\x00\x00"),iface="wlan0ap",loop=1) 
+    >>> sendp(RadioTap()/
+              Dot11(addr1="ff:ff:ff:ff:ff:ff",
+                    addr2="00:01:02:03:04:05",
+                    addr3="00:01:02:03:04:05")/
+              Dot11Beacon(cap="ESS", timestamp=1)/
+              Dot11Elt(ID="SSID", info=RandString(RandNum(1,50)))/
+              Dot11Elt(ID="Rates", info='\x82\x84\x0b\x16')/
+              Dot11Elt(ID="DSset", info="\x03")/
+              Dot11Elt(ID="TIM", info="\x00\x01\x00\x00"),
+              iface="mon0", loop=1)
+
+Depending on the driver, the commands needed to get a working frame injection interface may vary. You may also have to replace the first pseudo-layer (in the example ``RadioTap()``) by ``PrismHeader()``, or by a proprietary pseudo-layer, or even to remove it.
 
 
 Simple one-liners
