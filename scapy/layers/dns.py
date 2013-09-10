@@ -59,7 +59,7 @@ class DNSRRCountField(ShortField):
     def _countRR(self, pkt):
         x = getattr(pkt,self.rr)
         i = 0
-        while isinstance(x, DNSRR) or isinstance(x, DNSQR):
+        while isinstance(x, DNSRR) or isinstance(x, DNSQR) or isdnssecRR(x):
             x = x.payload
             i += 1
         return i
@@ -121,9 +121,13 @@ class DNSRRField(StrField):
         type,cls,ttl,rdlen = struct.unpack("!HHIH", ret)
         p += 10
         rr = DNSRR("\x00"+ret+s[p:p+rdlen])
-        if rr.type in [2, 3, 4, 5]:
+        if type in [2, 3, 4, 5]:
             rr.rdata = DNSgetstr(s,p)[0]
-        del(rr.rdlen)
+            del(rr.rdlen)
+        elif type in dnsRRdispatcher.keys():
+            rr = dnsRRdispatcher[type]("\x00"+ret+s[p:p+rdlen])
+	else:
+          del(rr.rdlen)
         
         p += rdlen
         
@@ -206,14 +210,17 @@ class RDLenField(Field):
 
 class DNS(Packet):
     name = "DNS"
-    fields_desc = [ ShortField("id",0),
-                    BitField("qr",0, 1),
+    fields_desc = [ ShortField("id", 0),
+                    BitField("qr", 0, 1),
                     BitEnumField("opcode", 0, 4, {0:"QUERY",1:"IQUERY",2:"STATUS"}),
                     BitField("aa", 0, 1),
                     BitField("tc", 0, 1),
                     BitField("rd", 0, 1),
-                    BitField("ra", 0 ,1),
-                    BitField("z", 0, 3),
+                    BitField("ra", 0, 1),
+                    BitField("z", 0, 1),
+                    # AD and CD bits are defined in RFC 2535
+                    BitField("ad", 0, 1), # Authentic Data
+                    BitField("cd", 0, 1), # Checking Disabled
                     BitEnumField("rcode", 0, 4, {0:"ok", 1:"format-error", 2:"server-failure", 3:"name-error", 4:"not-implemented", 5:"refused"}),
                     DNSRRCountField("qdcount", None, "qd"),
                     DNSRRCountField("ancount", None, "an"),
@@ -245,7 +252,9 @@ class DNS(Packet):
 dnstypes = { 0:"ANY", 255:"ALL",
              1:"A", 2:"NS", 3:"MD", 4:"MD", 5:"CNAME", 6:"SOA", 7: "MB", 8:"MG",
              9:"MR",10:"NULL",11:"WKS",12:"PTR",13:"HINFO",14:"MINFO",15:"MX",16:"TXT",
-             17:"RP",18:"AFSDB",28:"AAAA", 33:"SRV",38:"A6",39:"DNAME"}
+             17:"RP",18:"AFSDB",28:"AAAA", 33:"SRV",38:"A6",39:"DNAME",
+             41:"OPT", 43:"DS", 46:"RRSIG", 47:"NSEC", 48:"DNSKEY",
+	     50: "NSEC3", 51: "NSEC3PARAM", 32769:"DLV" }
 
 dnsqtypes = {251:"IXFR",252:"AXFR",253:"MAILB",254:"MAILA",255:"ALL"}
 dnsqtypes.update(dnstypes)
@@ -260,6 +269,369 @@ class DNSQR(Packet):
                     ShortEnumField("qclass", 1, dnsclasses) ]
                     
                     
+
+# RFC 2671
+
+# 11/2009: http://www.iana.org/assignments/dns-parameters
+# Registry Name: DNS EDNS0 Options 
+# Reference: [RFC5001]
+# Registration Procedures: Specification Required
+# 
+# Registry:
+# Value     Name       Status        Reference
+# --------  ----------  -----------  -----------
+# 0         Reserved                 [RFC2671]
+
+# 1         LLQ         On-hold      [http://files.dns-sd.org/draft-sekar-dns-llq.txt]
+
+# 2         UL          On-hold      [http://files.dns-sd.org/draft-sekar-dns-ul.txt]
+#
+#   Field Name        Field Type       Description
+#   ---------------------------------------------------------------------
+#   OPTION-CODE       u_int16_t        UPDATE-LEASE (2)
+#   OPTION-LENGTH     u_int16_t        sizeof(int32_t)
+#   LEASE             int32_t          desired lease (request) or granted
+#                                      lease (response), in seconds
+
+# 3         NSID        Standard     [RFC5001]
+#
+#    2.3. The NSID Option
+#
+#
+#       The OPTION-CODE for the NSID option is 3.
+#
+#       The OPTION-DATA for the NSID option is an opaque byte string, the
+#       semantics of which are deliberately left outside the protocol.  See
+#       Section 3.1 for discussion.
+
+# 4         Reserved                 [draft-cheshire-edns0-owner-option]
+
+# 5-65535   Unassigned               [RFC2671]
+
+# 11/09 value 5, EDNS PING,  http://tools.ietf.org/html/draft-hubert-ulevitch-edns-ping-01
+#
+#    3.3. The PING option
+#
+#
+#       The OPTION-CODE for the PING option is 5.
+#
+#       The OPTION-DATA for the PING option is an opaque byte string, the
+#       semantics of which are deliberately left outside of this document.
+#
+#       The minimum length of the OPTION-DATA is 4 bytes, the maximum length
+#       is 16 bytes.
+
+class EDNS0TLV(Packet):
+    name = "DNS EDNS0 TLV"
+    fields_desc = [ ShortEnumField("optcode", 0, { 0: "Reserved", 1: "LLQ", 2: "UL", 3: "NSID", 4: "Reserved", 5: "PING" }),
+                    FieldLenField("optlen", None, "optdata", fmt="H"),
+                    StrLenField("optdata", "", length_from=lambda pkt: pkt.optlen) ]
+
+    def extract_padding(self, p):
+	return "", p
+
+class DNSRROPT(Packet):
+    name = "DNS OPT Resource Record"
+    fields_desc = [ DNSStrField("rrname",""),
+                    ShortEnumField("type", 41, dnstypes),
+                    ShortField("rclass", 4096),
+                    ByteField("extrcode", 0),
+                    ByteField("version", 0),
+                    # version 0 means EDNS0
+                    BitEnumField("z", 32768, 16, { 32768: "D0" }),
+                    # D0 means DNSSEC OK from RFC 3225
+                    FieldLenField("rdlen", None, length_of="rdata", fmt="H"),
+                    PacketListField("rdata", [], EDNS0TLV, length_from=lambda pkt: pkt.rdlen) ]
+
+# RFC 4034 - Resource Records for the DNS Security Extensions
+
+# 09/2013 from http://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml
+dnssecalgotypes = { 0:"Reserved", 1:"RSA/MD5", 2:"Diffie-Hellman", 3:"DSA/SHA-1", 
+                    4:"Reserved", 5:"RSA/SHA-1", 6:"DSA-NSEC3-SHA1",
+                    7:"RSASHA1-NSEC3-SHA1", 8:"RSA/SHA-256", 9:"Reserved",
+                   10:"RSA/SHA-512", 11:"Reserved", 12:"GOST R 34.10-2001",
+                   13:"ECDSA Curve P-256 with SHA-256", 14: "ECDSA Curve P-384 with SHA-384",
+                  252:"Reserved for Indirect Keys", 253:"Private algorithms - domain name",
+                  254:"Private algorithms - OID", 255:"Reserved" }
+
+# 09/2013 from http://www.iana.org/assignments/ds-rr-types/ds-rr-types.xhtml
+dnssecdigesttypes = { 0:"Reserved", 1:"SHA-1", 2:"SHA-256", 3:"GOST R 34.11-94",  4:"SHA-384" }
+
+
+class TimeField(IntField):
+
+    def any2i(self, pkt, x):
+        if type(x) == str:
+	    import time, calendar
+	    t = time.strptime(x, "%Y%m%d%H%M%S")
+            return int(calendar.timegm(t))
+        return x
+
+    def i2repr(self, pkt, x):
+	import time
+	x = self.i2h(pkt, x)
+	t = time.strftime("%Y%m%d%H%M%S", time.gmtime(x))
+	return "%s (%d)" % (t ,x) 
+
+
+def bitmap2RRlist(bitmap):
+    """
+    Decode the 'Type Bit Maps' field of the NSEC Resource Record into an 
+    integer list.
+    """
+    # RFC 4034, 4.1.2. The Type Bit Maps Field
+
+    RRlist = []
+
+    while bitmap:
+
+	if len(bitmap) < 2:
+	    warning("bitmap too short (%i)" % len(bitmap))
+	    return
+   
+	window_block = ord(bitmap[0]) # window number
+	offset = 256*window_block # offset of the Ressource Record
+	bitmap_len = ord(bitmap[1]) # length of the bitmap in bytes
+
+	if bitmap_len <= 0 or bitmap_len > 32:
+	    warning("bitmap length is no valid (%i)" % bitmap_len)
+	    return
+
+	tmp_bitmap = bitmap[2:2+bitmap_len]
+
+	# Let's compare each bit of tmp_bitmap and compute the real RR value
+	for b in xrange(len(tmp_bitmap)):
+	    v = 128
+	    for i in xrange(8):
+		if ord(tmp_bitmap[b]) & v:
+		    # each of the RR is encoded as a bit
+		    RRlist += [ offset + b*8 + i ] 
+		v = v >> 1
+	
+	# Next block if any
+	bitmap = bitmap[2+bitmap_len:]
+
+    return RRlist
+
+
+def RRlist2bitmap(lst):
+    """
+    Encode a list of integers representing Resource Records to a bitmap field 
+    used in the NSEC Resource Record.
+    """
+    # RFC 4034, 4.1.2. The Type Bit Maps Field
+
+    import math
+
+    bitmap = ""
+    lst = list(set(lst))
+    lst.sort()
+    
+    lst = filter(lambda x: x <= 65535, lst)
+    lst = map(lambda x: abs(x), lst)
+
+    # number of window blocks
+    max_window_blocks = int(math.ceil(lst[-1] / 256.))
+    min_window_blocks = int(math.floor(lst[0] / 256.))
+    if min_window_blocks == max_window_blocks:
+	max_window_blocks += 1
+
+    for wb in xrange(min_window_blocks, max_window_blocks+1):
+        # First, filter out RR not encoded in the current window block
+        # i.e. keep everything between 256*wb <= 256*(wb+1)
+        rrlist = filter(lambda x: 256*wb <= x and x < 256*(wb+1), lst)
+        rrlist.sort()
+        if rrlist == []:
+            continue
+     
+        # Compute the number of bytes used to store the bitmap
+        if rrlist[-1] == 0: # only one element in the list
+	    bytes = 1
+        else:
+	    max = rrlist[-1] - 256*wb
+	    bytes = int(math.ceil(max / 8)) + 1  # use at least 1 byte
+        if bytes > 32: # Don't encode more than 256 bits / values
+	    bytes = 32
+
+        bitmap += struct.pack("B", wb)
+        bitmap += struct.pack("B", bytes)
+
+        # Generate the bitmap
+        for tmp in xrange(bytes):
+            v = 0
+            # Remove out of range Ressource Records
+            tmp_rrlist = filter(lambda x: 256*wb+8*tmp <= x and x < 256*wb+8*tmp+8, rrlist)
+            if not tmp_rrlist == []:
+                # 1. rescale to fit into 8 bits
+                tmp_rrlist = map(lambda x: (x-256*wb)-(tmp*8), tmp_rrlist)
+                # 2. x gives the bit position ; compute the corresponding value
+                tmp_rrlist = map(lambda x: 2**(7-x) , tmp_rrlist)
+                # 3. sum everything
+                v = reduce(lambda x,y: x+y, tmp_rrlist)
+            bitmap += struct.pack("B", v)
+   
+    return bitmap
+
+
+class RRlistField(StrField):
+    def h2i(self, pkt, x):
+	if type(x) == list:
+	    return RRlist2bitmap(x)
+	return x
+
+    def i2repr(self, pkt, x):
+	x = self.i2h(pkt, x)
+	rrlist = bitmap2RRlist(x)
+	return [ dnstypes.get(rr, rr) for rr in rrlist ]
+
+
+class _DNSRRdummy(Packet):
+    name = "Dummy class that implements post_build() for Ressource Records"
+    def post_build(self, pkt, pay):
+        if not self.rdlen == None:
+            return pkt
+
+        lrrname = len(self.fields_desc[0].i2m("", self.getfieldval("rrname")))
+        l = len(pkt) - lrrname - 10
+        pkt = pkt[:lrrname+8] + struct.pack("!H", l) + pkt[lrrname+8+2:]
+        
+        return pkt
+
+class DNSRRSOA(_DNSRRdummy):
+    name = "DNS SOA Resource Record"
+    fields_desc = [ DNSStrField("rrname",""),
+                    ShortEnumField("type", 6, dnstypes),
+                    ShortEnumField("rclass", 1, dnsclasses),
+                    IntField("ttl", 0),
+                    ShortField("rdlen", None),
+                    DNSStrField("mname", ""),
+                    DNSStrField("rname", ""),
+                    IntField("serial", 0),
+                    IntField("refresh", 0),
+                    IntField("retry", 0),
+                    IntField("expire", 0),
+                    IntField("minimum", 0)
+                  ]
+
+class DNSRRRSIG(_DNSRRdummy):
+    name = "DNS RRSIG Resource Record"
+    fields_desc = [ DNSStrField("rrname",""),
+                    ShortEnumField("type", 46, dnstypes),
+                    ShortEnumField("rclass", 1, dnsclasses),
+                    IntField("ttl", 0),
+                    ShortField("rdlen", None),
+                    ShortEnumField("typecovered", 1, dnstypes),
+                    ByteEnumField("algorithm", 5, dnssecalgotypes),
+                    ByteField("labels", 0),
+                    IntField("originalttl", 0),
+                    TimeField("expiration", 0),
+                    TimeField("inception", 0),
+                    ShortField("keytag", 0),
+                    DNSStrField("signersname", ""),
+                    StrField("signature", "")
+                  ]
+
+
+class DNSRRNSEC(_DNSRRdummy):
+    name = "DNS NSEC Resource Record"
+    fields_desc = [ DNSStrField("rrname",""),
+                    ShortEnumField("type", 47, dnstypes),
+                    ShortEnumField("rclass", 1, dnsclasses),
+                    IntField("ttl", 0),
+                    ShortField("rdlen", None),
+                    DNSStrField("nextname", ""),
+                    RRlistField("typebitmaps", "")
+                  ]
+
+
+class DNSRRDNSKEY(_DNSRRdummy):
+    name = "DNS DNSKEY Resource Record"
+    fields_desc = [ DNSStrField("rrname",""),
+                    ShortEnumField("type", 48, dnstypes),
+                    ShortEnumField("rclass", 1, dnsclasses),
+                    IntField("ttl", 0),
+                    ShortField("rdlen", None),
+                    FlagsField("flags", 256, 16, "S???????Z???????"),
+                    # S: Secure Entry Point
+                    # Z: Zone Key
+                    ByteField("protocol", 3),
+                    ByteEnumField("algorithm", 5, dnssecalgotypes),
+                    StrField("publickey", "")
+                  ]
+
+
+class DNSRRDS(_DNSRRdummy):
+    name = "DNS DS Resource Record"
+    fields_desc = [ DNSStrField("rrname",""),
+                    ShortEnumField("type", 43, dnstypes),
+                    ShortEnumField("rclass", 1, dnsclasses),
+                    IntField("ttl", 0),
+                    ShortField("rdlen", None),
+                    ShortField("keytag", 0),
+                    ByteEnumField("algorithm", 5, dnssecalgotypes),
+                    ByteEnumField("digesttype", 5, dnssecdigesttypes),
+                    StrField("digest", "")
+                  ]
+
+
+# RFC 5074 - DNSSEC Lookaside Validation (DLV)
+class DNSRRDLV(DNSRRDS):
+    name = "DNS DLV Resource Record"
+    def __init__(self, *args, **kargs):
+       DNSRRDS.__init__(self, *args, **kargs)
+       if not kargs.get('type', 0):
+           self.type = 32769
+
+# RFC 5155 - DNS Security (DNSSEC) Hashed Authenticated Denial of Existence
+class DNSRRNSEC3(_DNSRRdummy):
+    name = "DNS NSEC3 Resource Record"
+    fields_desc = [ DNSStrField("rrname",""),
+                    ShortEnumField("type", 50, dnstypes),
+                    ShortEnumField("rclass", 1, dnsclasses),
+                    IntField("ttl", 0),
+                    ShortField("rdlen", None),
+		    ByteField("hashalg", 0), 
+                    BitEnumField("flags", 0, 8, {1:"Opt-Out"}),
+		    ShortField("iterations", 0), 
+		    FieldLenField("saltlength", 0, fmt="!B", length_of="salt"),
+		    StrLenField("salt", "", length_from=lambda x: x.saltlength),
+		    FieldLenField("hashlength", 0, fmt="!B", length_of="nexthashedownername"),
+		    StrLenField("nexthashedownername", "", length_from=lambda x: x.hashlength),
+                    RRlistField("typebitmaps", "")
+		  ]
+
+
+class DNSRRNSEC3PARAM(_DNSRRdummy):
+    name = "DNS NSEC3PARAM Resource Record"
+    fields_desc = [ DNSStrField("rrname",""),
+                    ShortEnumField("type", 51, dnstypes),
+                    ShortEnumField("rclass", 1, dnsclasses),
+                    IntField("ttl", 0),
+                    ShortField("rdlen", None),
+		    ByteField("hashalg", 0), 
+		    ByteField("flags", 0), 
+		    ShortField("iterations", 0), 
+		    FieldLenField("saltlength", 0, fmt="!B", length_of="salt"),
+		    StrLenField("salt", "", length_from=lambda pkt: pkt.saltlength)
+		  ]
+
+
+dnssecclasses = [ DNSRROPT, DNSRRRSIG, DNSRRDLV, DNSRRDNSKEY, DNSRRNSEC, DNSRRDS, DNSRRNSEC3, DNSRRNSEC3PARAM ]
+
+def isdnssecRR(obj):
+    list = [ isinstance (obj, cls) for cls in dnssecclasses ]
+    return reduce(lambda x,y: x or y, list)
+
+dnsRRdispatcher = {     #6: DNSRRSOA,
+                       41: DNSRROPT,        # RFC 1671
+                       43: DNSRRDS,         # RFC 4034
+                       46: DNSRRRSIG,       # RFC 4034
+                       47: DNSRRNSEC,       # RFC 4034
+                       48: DNSRRDNSKEY,     # RFC 4034
+                       50: DNSRRNSEC3,      # RFC 5155
+                       51: DNSRRNSEC3PARAM, # RFC 5155
+                    32769: DNSRRDLV         # RFC 4431
+                   }
 
 class DNSRR(Packet):
     name = "DNS Resource Record"
