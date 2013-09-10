@@ -270,56 +270,7 @@ class DNSQR(Packet):
                     
                     
 
-# RFC 2671
-
-# 11/2009: http://www.iana.org/assignments/dns-parameters
-# Registry Name: DNS EDNS0 Options 
-# Reference: [RFC5001]
-# Registration Procedures: Specification Required
-# 
-# Registry:
-# Value     Name       Status        Reference
-# --------  ----------  -----------  -----------
-# 0         Reserved                 [RFC2671]
-
-# 1         LLQ         On-hold      [http://files.dns-sd.org/draft-sekar-dns-llq.txt]
-
-# 2         UL          On-hold      [http://files.dns-sd.org/draft-sekar-dns-ul.txt]
-#
-#   Field Name        Field Type       Description
-#   ---------------------------------------------------------------------
-#   OPTION-CODE       u_int16_t        UPDATE-LEASE (2)
-#   OPTION-LENGTH     u_int16_t        sizeof(int32_t)
-#   LEASE             int32_t          desired lease (request) or granted
-#                                      lease (response), in seconds
-
-# 3         NSID        Standard     [RFC5001]
-#
-#    2.3. The NSID Option
-#
-#
-#       The OPTION-CODE for the NSID option is 3.
-#
-#       The OPTION-DATA for the NSID option is an opaque byte string, the
-#       semantics of which are deliberately left outside the protocol.  See
-#       Section 3.1 for discussion.
-
-# 4         Reserved                 [draft-cheshire-edns0-owner-option]
-
-# 5-65535   Unassigned               [RFC2671]
-
-# 11/09 value 5, EDNS PING,  http://tools.ietf.org/html/draft-hubert-ulevitch-edns-ping-01
-#
-#    3.3. The PING option
-#
-#
-#       The OPTION-CODE for the PING option is 5.
-#
-#       The OPTION-DATA for the PING option is an opaque byte string, the
-#       semantics of which are deliberately left outside of this document.
-#
-#       The minimum length of the OPTION-DATA is 4 bytes, the maximum length
-#       is 16 bytes.
+# RFC 2671 - Extension Mechanisms for DNS (EDNS0)
 
 class EDNS0TLV(Packet):
     name = "DNS EDNS0 TLV"
