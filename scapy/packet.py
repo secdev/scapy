@@ -47,6 +47,7 @@ class Packet(BasePacket):
     initialized = 0
     show_indent=1
     explicit = 0
+    raw_packet_cache = None
 
     @classmethod
     def from_hexcap(cls):
@@ -144,13 +145,14 @@ class Packet(BasePacket):
         clone = self.__class__()
         clone.fields = self.fields.copy()
         for k in clone.fields:
-            clone.fields[k]=self.get_field(k).do_copy(clone.fields[k])
+            clone.fields[k] = self.get_field(k).do_copy(clone.fields[k])
         clone.default_fields = self.default_fields.copy()
         clone.overloaded_fields = self.overloaded_fields.copy()
         clone.overload_fields = self.overload_fields.copy()
-        clone.underlayer=self.underlayer
-        clone.explicit=self.explicit
-        clone.post_transforms=self.post_transforms[:]
+        clone.underlayer = self.underlayer
+        clone.explicit = self.explicit
+        clone.raw_packet_cache = self.raw_packet_cache
+        clone.post_transforms = self.post_transforms[:]
         clone.__dict__["payload"] = self.payload.copy()
         clone.payload.add_underlayer(clone)
         return clone
@@ -189,7 +191,8 @@ class Packet(BasePacket):
             else:
                 any2i = fld.any2i
             self.fields[attr] = any2i(self, val)
-            self.explicit=0
+            self.explicit = 0
+            self.raw_packet_cache = None
         elif attr == "payload":
             self.remove_payload()
             self.add_payload(val)
@@ -209,7 +212,8 @@ class Packet(BasePacket):
     def delfieldval(self, attr):
         if self.fields.has_key(attr):
             del(self.fields[attr])
-            self.explicit=0 # in case a default value must be explicited
+            self.explicit = 0 # in case a default value must be explicited
+            self.raw_packet_cache = None
         elif self.default_fields.has_key(attr):
             pass
         elif attr == "payload":
@@ -307,7 +311,10 @@ class Packet(BasePacket):
     def do_build(self):
         if not self.explicit:
             self = self.__iter__().next()
-        pkt = self.self_build()
+        if self.raw_packet_cache is None:
+            pkt = self.self_build()
+        else:
+            pkt = self.raw_packet_cache
         for t in self.post_transforms:
             pkt = t(pkt)
         pay = self.do_build_payload()
@@ -546,11 +553,17 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
     def do_dissect(self, s):
         flist = self.fields_desc[:]
         flist.reverse()
+        raw = s
         while s and flist:
             f = flist.pop()
             s,fval = f.getfield(self, s)
             self.fields[f.name] = fval
-            
+        assert(raw.endswith(s))
+        if s:
+            self.raw_packet_cache = raw[:-len(s)]
+        else:
+            self.raw_packet_cache = raw
+        self.explicit = 1
         return s
 
     def do_dissect_payload(self, s):
