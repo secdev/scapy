@@ -89,7 +89,11 @@ def get_if_raw_addr(iff):
 
 
 def get_if_list():
-    f=open("/proc/net/dev","r")
+    try:
+      f=open("/proc/net/dev","r")
+    except IOError:
+        warning("Can't open /proc/net/dev !")
+	return []
     lst = []
     f.readline()
     f.readline()
@@ -145,7 +149,11 @@ def set_promisc(s,iff,val=1):
 
 
 def read_routes():
-    f=open("/proc/net/route","r")
+    try:
+      f=open("/proc/net/route","r")
+    except IOError:
+        warning("Can't open /proc/net/route !")
+	return []
     routes = []
     s=socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     ifreq = ioctl(s, SIOCGIFADDR,struct.pack("16s16x",LOOPBACK_NAME))
