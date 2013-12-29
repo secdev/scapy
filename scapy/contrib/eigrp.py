@@ -168,11 +168,6 @@ class EigrpIP6Field(StrField, IP6Field, EigrpIPField):
     def getfield(self, pkt, s):
         return EigrpIPField.getfield(self, pkt, s)
 
-class ThreeBytesField(X3BytesField, ByteField):
-    def i2repr(self, pkt, x):
-        return ByteField.i2repr(self, pkt, x)
-
-
 class EIGRPGeneric(Packet):
     name = "EIGRP Generic TLV"
     fields_desc = [ XShortField("type", 0x0000),
