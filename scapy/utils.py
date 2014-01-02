@@ -18,7 +18,7 @@ warnings.filterwarnings("ignore","tempnam",RuntimeWarning, __name__)
 
 from config import conf
 from data import MTU
-from error import log_runtime,log_loading,log_interactive
+from error import log_runtime,log_loading,log_interactive, Scapy_Exception
 from base_classes import BasePacketList
 
 WINDOWS=sys.platform.startswith("win32")

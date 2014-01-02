@@ -1,0 +1,60 @@
+# DNS OPT Ressource Record unit tests
+#
+# Type the following command to launch start the tests:
+# $ sudo bash test/run_tests -t test/edns0.uts -F
+
++ Test EDNS0 rdata
+
+= EDNS0TLV(), basic instanciation
+tlv = EDNS0TLV()
+str(tlv) == '\x00\x00\x00\x00'
+
+= EDNS0TLV(), check parameters
+tlv = EDNS0TLV(optcode=42, optlen=12, optdata="edns0tlv")
+str(tlv) == '\x00*\x00\x0cedns0tlv'
+
+= EDNS0TLV(), check computed optlen
+tlv = EDNS0TLV(optdata="edns0tlv")
+str(tlv) == '\x00\x00\x00\x08edns0tlv'
+
+= EDNS0TLV(), dissection
+tlv = EDNS0TLV('\x00*\x00\x08edns0tlv')
+tlv.optcode == 42 and tlv.optlen == 8 and tlv.optdata == "edns0tlv"
+
++ Test OPT RR
+
+= DNSRROPT(), basic instanciation
+opt = DNSRROPT()
+str(opt) == '\x00\x00)\x10\x00\x00\x00\x80\x00\x00\x00'
+
+= DNSRROPT(), check parameters
+opt = DNSRROPT(rrname="rropt", type=42, rclass=123, extrcode=1, version=2, z=3, rdlen=4, rdata=[EDNS0TLV()])
+str(opt) == '\x05rropt\x00\x00*\x00{\x01\x02\x00\x03\x00\x04\x00\x00\x00\x00'
+
+= DNSRROPT() & EDN0TLV(), check parameters
+opt = DNSRROPT(rrname="rropt", type=42, rclass=123, extrcode=1, version=2, z=3, rdlen=4, rdata=[EDNS0TLV(optcode=42, optlen=12, optdata="edns0tlv")])
+str(opt) == '\x05rropt\x00\x00*\x00{\x01\x02\x00\x03\x00\x04\x00*\x00\x0cedns0tlv'
+
+= DNSRROP(), dissection
+opt = DNSRROPT('\x05rropt\x00\x00*\x00{\x01\x02\x00\x03\x00\x0c\x00*\x00\x0cedns0tlv')
+opt.rrname == "rropt." and opt.rdlen == 12 and opt.rdata[0].optcode == 42 and opt.rdata[0].optdata == "edns0tlv"
+
++ Test EDNS-PING
+
+= EDNS-PING - basic instanciation
+tlv = EDNS0TLV(optcode=5, optdata="\x00\x11\x22\x33")
+str(tlv) == '\x00\x05\x00\x04\x00\x11"3'
+
+= EDNS-PING - Live test
+r = sr1(IP(dst="85.17.219.217")/UDP()/DNS(qd=[DNSQR(qtype="A", qname="www.edns-ping.org.")], ar=[DNSRROPT(z=0, rdata=[EDNS0TLV(optcode="PING", optdata="\x00\x11\x22\x33")])]))
+len(r.ar) and r.ar.rdata[0].optcode == 4  # XXX: should be 5
+
++ Test DNS Name Server Identifier (NSID) Option
+
+= NSID- basic instanciation
+tlv = EDNS0TLV(optcode=2, optdata="")
+str(tlv) == '\x00\x02\x00\x00'
+
+= NSID - Live test
+r = sr1(IP(dst="85.17.219.217")/UDP()/DNS(qd=[DNSQR(qtype="A", qname="www.edns-ping.org.")], ar=[DNSRROPT(z=0, rdata=[EDNS0TLV(optcode="NSID")])]))
+r.ar.rdata[0].optcode == 3 and r.ar.rdata[0].optdata == "dns01"
