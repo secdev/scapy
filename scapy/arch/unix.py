@@ -112,34 +112,68 @@ def read_routes():
 ### IPv6 ###
 ############
 
-def in6_getifaddr():
+def _in6_getifaddr(ifname):
+    """
+    Returns a list of IPv6 addresses configured on the interface ifname.
+    """
+
+    # Get the output of ifconfig
+    try:
+        f = os.popen("%s %s" % (conf.prog.ifconfig, ifname))
+    except OSError,msg:
+        log_interactive.warning("Failed to execute ifconfig.")
+        return []
+
+    # Read all lines
+    lines = f.readlines()	
+    ret = []
+
+    # Iterate over lines and extract IPv6 addresses
+    for line in lines:
+        if line.find("inet6") >= 0:
+            addr = line.rstrip().split()[1] # The second element is the IPv6 address
+        else:
+            continue
+        if addr.find('%') >=0: # Remove the interface identifier if present
+            addr = addr.split("%")[0]
+
+        # Check if it is a valid IPv6 address
+        try:
+            socket.inet_pton(socket.AF_INET6, addr)
+        except:
+            continue
+
+        # Get the scope and keep the address
+        scope = scapy.utils6.in6_getscope(addr)
+        ret.append((addr, scope, ifname))
+
+    return ret
+
+def in6_getifaddr():    
     """
     Returns a list of 3-tuples of the form (addr, scope, iface) where
     'addr' is the address of scope 'scope' associated to the interface
-    'ifcace'.
+    'iface'.
 
     This is the list of all addresses of all interfaces available on
     the system.
     """
 
+    # List all network interfaces
+    try:
+	f = os.popen("%s -l" % conf.prog.ifconfig)
+    except OSError,msg:
+	log_interactive.warning("Failed to execute ifconfig.")
+	return []
+
+    # Get the list of network interfaces
+    l = f.readlines()[0].rstrip().split()
     ret = []
-    i = dnet.intf()
-    for int in i:
-        ifname = int['name']
-        v6 = []
-        if int.has_key('alias_addrs'):
-            v6 = int['alias_addrs']
-        for a in v6:
-            if a.type != dnet.ADDR_TYPE_IP6:
-                continue
-
-            xx = str(a).split('/')[0]
-            addr = scapy.utils6.in6_ptop(xx)
-
-            scope = scapy.utils6.in6_getscope(addr)
-
-            ret.append((xx, scope, ifname))
-    return ret
+    for i in l:
+	l = _in6_getifaddr(i)
+	if not l == []:
+	    ret += l
+    return ret	    
 
 def read_routes6():
     f = os.popen("netstat -rn -f inet6")
