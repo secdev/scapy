@@ -167,7 +167,7 @@ def in6_getifaddr():
 	return []
 
     # Get the list of network interfaces
-    l = f.readlines()[0].rstrip().split()
+    l = f.readline().rstrip().split()
     ret = []
     for i in l:
 	l = _in6_getifaddr(i)
