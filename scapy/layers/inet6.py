@@ -338,7 +338,7 @@ class _IPv6GuessPayload:
             if len(p) >= icmp6typesminhdrlen.get(t, sys.maxint): # Other ICMPv6 messages
                 return get_cls(icmp6typescls.get(t,"Raw"), "Raw")
             return Raw
-        elif self.nh == 135 and len(p) > 3: # Mobile IPv6
+        elif self.nh == 135 and len(p) > 3: # Mobile IPv6
             return _mip6_mhtype2cls.get(ord(p[2]), MIP6MH_Generic)
         else:
             return get_cls(ipv6nhcls.get(self.nh,"Raw"), "Raw")
