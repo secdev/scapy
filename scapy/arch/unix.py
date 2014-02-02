@@ -124,17 +124,14 @@ def _in6_getifaddr(ifname):
         log_interactive.warning("Failed to execute ifconfig.")
         return []
 
-    # Read all lines
-    lines = f.readlines()	
-    ret = []
-
     # Iterate over lines and extract IPv6 addresses
-    for line in lines:
-        if line.find("inet6") >= 0:
+    ret = []
+    for line in f.readlines():
+        if "inet6" in line:
             addr = line.rstrip().split()[1] # The second element is the IPv6 address
         else:
             continue
-        if addr.find('%') >=0: # Remove the interface identifier if present
+        if '%' in line: # Remove the interface identifier if present
             addr = addr.split("%")[0]
 
         # Check if it is a valid IPv6 address
@@ -167,12 +164,10 @@ def in6_getifaddr():
 	return []
 
     # Get the list of network interfaces
-    l = f.readline().rstrip().split()
+    splitted_line = f.readline().rstrip().split()
     ret = []
-    for i in l:
-	l = _in6_getifaddr(i)
-	if not l == []:
-	    ret += l
+    for i in splitted_line:
+	ret += _in6_getifaddr(i)
     return ret	    
 
 def read_routes6():
