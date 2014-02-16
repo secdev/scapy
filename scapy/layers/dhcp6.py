@@ -1055,6 +1055,8 @@ class DHCP6_Rebind(DHCP6):
 class DHCP6_Reply(DHCP6):
     name = "DHCPv6 Reply Message"
     msgtype = 7
+
+    overload_fields = { UDP: {"sport": 547, "dport": 546} }
     
     def answers(self, other):
         return (isinstance(other, DHCP6_InfoRequest) and
