@@ -2706,6 +2706,7 @@ class MIP6MH_HoTI(_MobilityHeader):
                     ByteEnumField("mhtype", 1, mhtypes),                    
                     ByteField("res", None),
                     XShortField("cksum", None),                    
+                    StrFixedLenField("reserved", "\x00"*16, 16),
                     StrFixedLenField("cookie", "\x00"*8, 8),
                     _PhantomAutoPadField("autopad", 1), # autopad activated by default
                     _MobilityOptionsField("options", [], MIP6OptUnknown, 16,
