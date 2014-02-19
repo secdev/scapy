@@ -170,6 +170,7 @@ class ASN1_Class_UNIVERSAL(ASN1_Class):
     COUNTER32 = 0x41
     GAUGE32 = 0x42
     TIME_TICKS = 0x43
+    COUNTER64 = 0x46
     SEP = 0x80
 
 class ASN1_Object_metaclass(type):
@@ -278,6 +279,9 @@ class ASN1_GAUGE32(ASN1_INTEGER):
     
 class ASN1_COUNTER32(ASN1_INTEGER):
     tag = ASN1_Class_UNIVERSAL.COUNTER32
+    
+class ASN1_COUNTER64(ASN1_INTEGER):
+    tag = ASN1_Class_UNIVERSAL.COUNTER64
     
 class ASN1_SEQUENCE(ASN1_Object):
     tag = ASN1_Class_UNIVERSAL.SEQUENCE
