@@ -472,7 +472,7 @@ Set cache=True if you want arping to modify internal ARP-Cache"""
 
     if cache and ans is not None:
         for pair in ans:
-            arp_cache[pair[1].psrc] = (pair[1].hwsrc, time.time())
+            conf.netcache.arp_cache[pair[1].psrc] = (pair[1].hwsrc, time.time())
     if verbose:
         ans.show()
     return ans,unans
