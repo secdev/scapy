@@ -987,7 +987,7 @@ class TracerouteResult(SndRcvList):
                 self.label.visible ^= 1
 
         visual.scene = visual.display()
-        visual.scene.exit_on_close(0)
+        visual.scene.exit = True
         start = visual.box()
         rings={}
         tr3d = {}
@@ -1033,6 +1033,7 @@ class TracerouteResult(SndRcvList):
         
         movcenter=None
         while 1:
+            visual.rate(50)
             if visual.scene.kb.keys:
                 k = visual.scene.kb.getkey()
                 if k == "esc" or k == "q":
