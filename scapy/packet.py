@@ -271,11 +271,13 @@ class Packet(BasePacket):
             return self/conf.raw_layer(load=other)
         else:
             return other.__rdiv__(self)
+    __truediv__ = __div__
     def __rdiv__(self, other):
         if type(other) is str:
             return conf.raw_layer(load=other)/self
         else:
             raise TypeError
+    __rtruediv__ = __rdiv__
     def __mul__(self, other):
         if type(other) is int:
             return  [self]*other
