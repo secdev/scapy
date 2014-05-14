@@ -15,6 +15,7 @@ from base_classes import BasePacket,Gen,SetGen,Packet_metaclass,NewDefaultValues
 from volatile import VolatileValue
 from utils import import_hexcap,tex_escape,colgen,get_temp_file
 from error import Scapy_Exception,log_runtime
+import subprocess
 
 try:
     import pyx
