@@ -256,7 +256,7 @@ class CryptAlgo(object):
         else:
             return self.cipher.new(key, self.mode, iv)
 
-    def pad(self, esp, ip_version=4):
+    def pad(self, esp):
         """
         Add the correct amount of padding so that the data to encrypt is
         exactly a multiple of the algorithm's block size.
@@ -270,14 +270,8 @@ class CryptAlgo(object):
         data_len = len(esp.data) + 2
 
         # according to the RFC4303, section 2.4. Padding (for Encryption)
-        # the size of the ESP payload must be a multiple of 32 or 64 bits
-        # on IPv4 or IPv6 respectively.
-        if ip_version == 4:
-            ip_align = 4
-        else:
-            ip_align = 8
-
-        align = _lcm(self.block_size, ip_align)
+        # the size of the ESP payload must be a multiple of 32 bits
+        align = _lcm(self.block_size, 4)
 
         # pad for block size
         esp.padlen = -data_len % align
@@ -290,8 +284,8 @@ class CryptAlgo(object):
         # If the following test fails, it means that this algo does not comply
         # with the RFC
         payload_len = len(esp.iv) + len(esp.data) + len(esp.padding) + 2
-        if payload_len % ip_align != 0:
-            raise ValueError('The size of the ESP data is not aligned to %s bytes after padding.', align)
+        if payload_len % 4 != 0:
+            raise ValueError('The size of the ESP data is not aligned to 32 bits after padding.')
 
         return esp
 
@@ -784,7 +778,7 @@ class SecurityAssociation(object):
         esp.data = payload
         esp.nh = nh
 
-        esp = self.crypt_algo.pad(esp, ip_header.version)
+        esp = self.crypt_algo.pad(esp)
         esp = self.crypt_algo.encrypt(esp, self.crypt_key)
 
         self.auth_algo.sign(esp, self.auth_key)
