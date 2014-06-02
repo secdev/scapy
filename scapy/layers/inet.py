@@ -987,7 +987,7 @@ class TracerouteResult(SndRcvList):
                 self.label.visible ^= 1
 
         visual.scene = visual.display()
-        visual.scene.exit_on_close(0)
+        visual.scene.exit = True
         start = visual.box()
         rings={}
         tr3d = {}
@@ -1033,6 +1033,7 @@ class TracerouteResult(SndRcvList):
         
         movcenter=None
         while 1:
+            visual.rate(50)
             if visual.scene.kb.keys:
                 k = visual.scene.kb.getkey()
                 if k == "esc" or k == "q":
@@ -1134,7 +1135,7 @@ class TracerouteResult(SndRcvList):
                 trace_id = (s.src,s.dst,s.proto,0)
             trace = rt.get(trace_id,{})
             ttl = conf.ipv6_enabled and scapy.layers.inet6.IPv6 in s and s.hlim or s.ttl
-            if not (ICMP in r and r[ICMP].type == 11) and not (conf.ipv6_enabled and scapy.layers.inet6.IPv6 in r and ICMPv6TimeExceeded in r):
+            if not (ICMP in r and r[ICMP].type == 11) and not (conf.ipv6_enabled and scapy.layers.inet6.IPv6 in r and scapy.layers.inet6.ICMPv6TimeExceeded in r):
                 if trace_id in ports_done:
                     continue
                 ports_done[trace_id] = None
