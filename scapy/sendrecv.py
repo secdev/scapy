@@ -219,9 +219,9 @@ def __gen_send(s, x, inter=0, loop=0, count=None, verbose=None, realtime=None, *
         loop = -count
     elif not loop:
         loop=-1
-    dt0 = None
     try:
         while loop:
+            dt0 = None
             for p in x:
                 if realtime:
                     ct = time.time()
