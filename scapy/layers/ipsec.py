@@ -49,7 +49,7 @@ from scapy.fields import ByteEnumField, ByteField, StrField, XIntField, IntField
 
 from scapy.packet import Packet, bind_layers, Raw
 
-from scapy.layers.inet import IP
+from scapy.layers.inet import IP, UDP
 from scapy.layers.inet6 import IPv6, IPv6ExtHdrHopByHop, IPv6ExtHdrDestOpt, \
     IPv6ExtHdrRouting
 
@@ -110,6 +110,7 @@ class ESP(Packet):
 
 bind_layers(IP, ESP, proto=socket.IPPROTO_ESP)
 bind_layers(IPv6, ESP, nh=socket.IPPROTO_ESP)
+bind_layers(UDP, ESP, dport=4500)  # NAT-Traversal encapsulation
 
 #------------------------------------------------------------------------------
 class _ESPPlain(Packet):
@@ -695,7 +696,7 @@ class SecurityAssociation(object):
     SUPPORTED_PROTOS = (IP, IPv6)
 
     def __init__(self, proto, spi, seq_num=1, crypt_algo=None, crypt_key=None,
-                 auth_algo=None, auth_key=None, tunnel_header=None):
+                 auth_algo=None, auth_key=None, tunnel_header=None, nat_t_header=None):
         """
         @param proto: the IPSec proto to use (ESP or AH)
         @param spi: the Security Parameters Index of this SA
@@ -707,6 +708,8 @@ class SecurityAssociation(object):
         @param auth_key: the integrity key
         @param tunnel_header: an instance of a IP(v6) header that will be used
                               to encapsulate the encrypted packets.
+        @param nat_t_header: an instance of a UDP header that will be used
+                             for NAT-Traversal.
         """
 
         if proto not in (ESP, AH, ESP.name, AH.name):
@@ -745,6 +748,13 @@ class SecurityAssociation(object):
             raise TypeError('tunnel_header must be %s or %s' % (IP.name, IPv6.name))
         self.tunnel_header = tunnel_header
 
+        if nat_t_header:
+            if proto is not ESP:
+                raise TypeError('nat_t_header is only allowed with ESP')
+            if not isinstance(nat_t_header, UDP):
+                raise TypeError('nat_t_header must be %s' % UDP.name)
+        self.nat_t_header = nat_t_header
+
     def check_spi(self, pkt):
         if pkt.spi != self.spi:
             raise TypeError('packet spi=0x%x does not match the SA spi=0x%x' %
@@ -781,6 +791,16 @@ class SecurityAssociation(object):
         esp = self.crypt_algo.encrypt(esp, self.crypt_key)
 
         self.auth_algo.sign(esp, self.auth_key)
+
+        if self.nat_t_header:
+            nat_t_header = self.nat_t_header.copy()
+            nat_t_header.chksum = 0
+            del nat_t_header.len
+            if ip_header.version == 4:
+                del ip_header.proto
+            else:
+                del ip_header.nh
+            ip_header /= nat_t_header
 
         if ip_header.version == 4:
             ip_header.len = len(ip_header) + len(esp)
