@@ -111,6 +111,7 @@ class ESP(Packet):
 bind_layers(IP, ESP, proto=socket.IPPROTO_ESP)
 bind_layers(IPv6, ESP, nh=socket.IPPROTO_ESP)
 bind_layers(UDP, ESP, dport=4500)  # NAT-Traversal encapsulation
+bind_layers(UDP, ESP, sport=4500)  # NAT-Traversal encapsulation
 
 #------------------------------------------------------------------------------
 class _ESPPlain(Packet):
@@ -977,4 +978,4 @@ class SecurityAssociation(object):
         elif self.proto is AH and pkt.haslayer(AH):
             return self._decrypt_ah(pkt, verify=verify)
         else:
-            return pkt
+            raise TypeError('%s has no %s layer' % (pkt, self.proto.name))

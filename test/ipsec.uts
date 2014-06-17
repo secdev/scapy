@@ -419,7 +419,7 @@ except IPSecIntegrityError, err:
 + IPv4 / AH
 
 #######################################
-= IPv4 / AH - Transport - AES-XCBC-96
+= IPv4 / AH - Transport - HMAC-SHA1-96
 
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
@@ -428,7 +428,7 @@ p = IP(str(p))
 p
 
 sa = SecurityAssociation(AH, spi=0x222,
-                         auth_algo='AES-XCBC-96', auth_key='sixteenbytes key')
+                         auth_algo='HMAC-SHA1-96', auth_key='sixteenbytes key')
 
 e = sa.encrypt(p)
 e
@@ -453,7 +453,7 @@ d
 assert(d[TCP] == p[TCP])
 
 #######################################
-= IPv4 / AH - Transport - AES-XCBC-96 - altered packet
+= IPv4 / AH - Transport - HMAC-SHA1-96 - altered packet
 
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
@@ -462,7 +462,7 @@ p = IP(str(p))
 p
 
 sa = SecurityAssociation(AH, spi=0x222,
-                         auth_algo='AES-XCBC-96', auth_key='sixteenbytes key')
+                         auth_algo='HMAC-SHA1-96', auth_key='sixteenbytes key')
 
 e = sa.encrypt(p)
 e
