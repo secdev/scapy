@@ -1,0 +1,752 @@
+##############################
+% IPSec layer regression tests
+##############################
+
+###############################################################################
++ IPv4 / ESP
+
+#######################################
+= IPv4 / ESP - Transport - AES-CBC - NULL
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(str(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222,
+                         crypt_algo='AES-CBC', crypt_key='sixteenbytes key',
+                         auth_algo='NULL', auth_key=None)
+
+e = sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert('testdata' not in e[ESP].data)
+
+d = sa.decrypt(e)
+d
+
+* after decryption the original packet payload should be unaltered
+assert(d[TCP] == p[TCP])
+
+#######################################
+= IPv4 / ESP - Transport - NULL - HMAC-SHA1-96
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(str(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222,
+                         crypt_algo='NULL', crypt_key=None,
+                         auth_algo='HMAC-SHA1-96', auth_key='secret key')
+
+e = sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+assert('testdata' in e[ESP].data)
+
+* integrity verification should pass
+d = sa.decrypt(e)
+
+* after decryption the original packet payload should be unaltered
+assert(d[TCP] == p[TCP])
+
+#######################################
+= IPv4 / ESP - Transport - NULL - HMAC-SHA1-96 - altered packet
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(str(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222,
+                         crypt_algo='NULL', crypt_key=None,
+                         auth_algo='HMAC-SHA1-96', auth_key='secret key')
+
+e = sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+assert('testdata' in e[ESP].data)
+
+* simulate the alteration of the packet before decryption
+e[ESP].data = e[ESP].data.replace('\x01', '\x21')
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError, err:
+    err
+
+#######################################
+= IPv4 / ESP - Tunnel - AES-CTR - NULL
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(str(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222,
+                         crypt_algo='AES-CTR', crypt_key='16bytekey+4bytenonce',
+                         auth_algo='NULL', auth_key=None,
+                         tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
+
+e = sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert('testdata' not in e[ESP].data)
+
+d = sa.decrypt(e)
+d
+
+* after decryption original packet should be preserved
+assert(d == p)
+
+#######################################
+= IPv4 / ESP - Tunnel - NULL - SHA2-256-128
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(str(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222,
+                         crypt_algo='NULL', crypt_key=None,
+                         auth_algo='SHA2-256-128', auth_key='secret key',
+                         tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
+
+e = sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should be readable
+assert('testdata' in e[ESP].data)
+
+* integrity verification should pass
+d = sa.decrypt(e)
+
+* after decryption the original packet should be preserved
+assert(d == p)
+
+#######################################
+= IPv4 / ESP - Tunnel - NULL - SHA2-256-128 - altered packet
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(str(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222,
+                         crypt_algo='NULL', crypt_key=None,
+                         auth_algo='SHA2-256-128', auth_key='secret key',
+                         tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
+
+e = sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should be readable
+assert('testdata' in e[ESP].data)
+
+* simulate the alteration of the packet before decryption
+e[ESP].data = e[ESP].data.replace('\x01', '\x21')
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError, err:
+    err
+
+###############################################################################
++ IPv6 / ESP
+
+#######################################
+= IPv6 / ESP - Transport - DES - NULL
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(str(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222,
+                         crypt_algo='DES', crypt_key='8bytekey',
+                         auth_algo='NULL', auth_key=None)
+
+e = sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+assert(e.src == '11::22' and e.dst == '22::11')
+* the encrypted packet should have an ESP layer
+assert(e.nh == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert('testdata' not in e[ESP].data)
+
+d = sa.decrypt(e)
+d
+
+* after decryption the original packet payload should be unaltered
+assert(d[TCP] == p[TCP])
+
+#######################################
+= IPv6 / ESP - Transport - NULL - HMAC-MD5-96
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(str(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222,
+                         crypt_algo='NULL', crypt_key=None,
+                         auth_algo='HMAC-MD5-96', auth_key='secret key')
+
+e = sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+assert(e.src == '11::22' and e.dst == '22::11')
+* the encrypted packet should have an ESP layer
+assert(e.nh == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should be readable
+assert('testdata' in e[ESP].data)
+
+* integrity verification should pass
+d = sa.decrypt(e)
+
+* after decryption the original packet payload should be unaltered
+assert(d[TCP] == p[TCP])
+
+#######################################
+= IPv6 / ESP - Transport - NULL - HMAC-MD5-96 - altered packet
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(str(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222,
+                         crypt_algo='NULL', crypt_key=None,
+                         auth_algo='HMAC-MD5-96', auth_key='secret key')
+
+e = sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+assert(e.src == '11::22' and e.dst == '22::11')
+* the encrypted packet should have an ESP layer
+assert(e.nh == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should be readable
+assert('testdata' in e[ESP].data)
+
+* simulate the alteration of the packet before decryption
+e[ESP].data = e[ESP].data.replace('\x01', '\x21')
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError, err:
+    err
+
+#######################################
+= IPv6 / ESP - Tunnel - 3DES - NULL
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(str(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222,
+                         crypt_algo='AES-CBC', crypt_key='sixteenbytes key',
+                         auth_algo='NULL', auth_key=None,
+                         tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
+
+e = sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == 'aa::bb' and e.dst == 'bb::aa')
+assert(e.nh == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert('testdata' not in e[ESP].data)
+
+d = sa.decrypt(e)
+d
+
+* after decryption original packet should be preserved
+assert(d == p)
+
+#######################################
+= IPv6 / ESP - Tunnel - NULL - SHA2-384-192
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(str(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222,
+                         crypt_algo='NULL', crypt_key=None,
+                         auth_algo='SHA2-384-192', auth_key='secret key',
+                         tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
+
+e = sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == 'aa::bb' and e.dst == 'bb::aa')
+assert(e.nh == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should be readable
+assert('testdata' in e[ESP].data)
+
+* integrity verification should pass
+d = sa.decrypt(e)
+
+* after decryption the original packet should be preserved
+assert(d == p)
+
+#######################################
+= IPv6 / ESP - Tunnel - NULL - SHA2-384-192 - altered packet
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(str(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222,
+                         crypt_algo='NULL', crypt_key=None,
+                         auth_algo='SHA2-384-192', auth_key='secret key',
+                         tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
+
+e = sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == 'aa::bb' and e.dst == 'bb::aa')
+assert(e.nh == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should be readable
+assert('testdata' in e[ESP].data)
+
+* simulate the alteration of the packet before decryption
+e[ESP].data = e[ESP].data.replace('\x01', '\x21')
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError, err:
+    err
+
+###############################################################################
++ IPv4 / AH
+
+#######################################
+= IPv4 / AH - Transport - HMAC-SHA1-96
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(str(p))
+p
+
+sa = SecurityAssociation(AH, spi=0x222,
+                         auth_algo='HMAC-SHA1-96', auth_key='sixteenbytes key')
+
+e = sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
+assert(e.chksum != p.chksum)
+* the encrypted packet should have an AH layer
+assert(e.proto == socket.IPPROTO_AH)
+assert(e.haslayer(AH))
+assert(e.haslayer(TCP))
+assert(e[AH].spi == sa.spi)
+
+* alter mutable fields in the packet
+e.ttl = 2
+
+* integrity verification should pass
+d = sa.decrypt(e)
+d
+
+* after decryption the original packet payload should be unaltered
+assert(d[TCP] == p[TCP])
+
+#######################################
+= IPv4 / AH - Transport - HMAC-SHA1-96 - altered packet
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(str(p))
+p
+
+sa = SecurityAssociation(AH, spi=0x222,
+                         auth_algo='HMAC-SHA1-96', auth_key='sixteenbytes key')
+
+e = sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
+assert(e.chksum != p.chksum)
+* the encrypted packet should have an AH layer
+assert(e.proto == socket.IPPROTO_AH)
+assert(e.haslayer(AH))
+assert(e.haslayer(TCP))
+assert(e[AH].spi == sa.spi)
+
+* simulate the alteration of the packet before decryption
+e[TCP].sport = 5
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError, err:
+    err
+
+#######################################
+= IPv4 / AH - Tunnel - SHA2-256-128
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(str(p))
+p
+
+sa = SecurityAssociation(AH, spi=0x222,
+                         auth_algo='SHA2-256-128', auth_key='secret key',
+                         tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
+
+e = sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_AH)
+assert(e.haslayer(AH))
+assert(e.haslayer(TCP))
+assert(e[AH].spi == sa.spi)
+
+* alter mutable fields in the packet
+e.ttl = 2
+
+* integrity verification should pass
+d = sa.decrypt(e)
+d
+
+* after decryption the original packet should be unaltered
+assert(d == p)
+
+#######################################
+= IPv4 / AH - Tunnel - HMAC-SHA1-96 - altered packet
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(str(p))
+p
+
+sa = SecurityAssociation(AH, spi=0x222,
+                         auth_algo='HMAC-SHA1-96', auth_key='secret key',
+                         tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
+
+e = sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_AH)
+assert(e.haslayer(AH))
+assert(e.haslayer(TCP))
+assert(e[AH].spi == sa.spi)
+
+* simulate the alteration of the packet before verification
+e.dst = '4.4.4.4'
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError, err:
+    err
+
+###############################################################################
++ IPv6 / AH
+
+#######################################
+= IPv6 / AH - Transport - HMAC-SHA1-96
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(str(p))
+p
+
+sa = SecurityAssociation(AH, spi=0x222,
+                         auth_algo='HMAC-SHA1-96', auth_key='secret key')
+
+e = sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+assert(e.src == '11::22' and e.dst == '22::11')
+* the encrypted packet should have an AH layer
+assert(e.nh == socket.IPPROTO_AH)
+assert(e.haslayer(AH))
+assert(e.haslayer(TCP))
+assert(e[AH].spi == sa.spi)
+
+* alter mutable fields in the packet
+e.hlim = 2
+
+* integrity verification should pass
+d = sa.decrypt(e)
+d
+
+* after decryption the original packet payload should be unaltered
+assert(d[TCP] == p[TCP])
+
+#######################################
+= IPv6 / AH - Transport - HMAC-SHA1-96 - altered packet
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(str(p))
+p
+
+sa = SecurityAssociation(AH, spi=0x222,
+                         auth_algo='HMAC-SHA1-96', auth_key='secret key')
+
+e = sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+assert(e.src == '11::22' and e.dst == '22::11')
+* the encrypted packet should have an AH layer
+assert(e.nh == socket.IPPROTO_AH)
+assert(e.haslayer(AH))
+assert(e.haslayer(TCP))
+assert(e[AH].spi == sa.spi)
+
+* simulate the alteration of the packet before verification
+e[TCP].dport = 46
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError, err:
+    err
+
+#######################################
+= IPv6 / AH - Tunnel - HMAC-SHA1-96
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(str(p))
+p
+
+sa = SecurityAssociation(AH, spi=0x222,
+                         auth_algo='HMAC-SHA1-96', auth_key='secret key',
+                         tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
+
+e = sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == 'aa::bb' and e.dst == 'bb::aa')
+assert(e.nh == socket.IPPROTO_AH)
+assert(e.haslayer(AH))
+assert(e.haslayer(TCP))
+assert(e[AH].spi == sa.spi)
+
+* alter mutable fields in the packet
+e.hlim = 2
+
+* integrity verification should pass
+d = sa.decrypt(e)
+d
+
+* after decryption the original packet payload should be unaltered
+assert(d == p)
+
+#######################################
+= IPv6 / AH - Tunnel - HMAC-SHA1-96 - altered packet
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(str(p))
+p
+
+sa = SecurityAssociation(AH, spi=0x222,
+                         auth_algo='HMAC-SHA1-96', auth_key='secret key',
+                         tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
+
+e = sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == 'aa::bb' and e.dst == 'bb::aa')
+assert(e.nh == socket.IPPROTO_AH)
+assert(e.haslayer(AH))
+assert(e.haslayer(TCP))
+assert(e[AH].spi == sa.spi)
+
+* simulate the alteration of the packet before verification
+e.src = 'cc::ee'
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError, err:
+    err
+
+###############################################################################
++ IPv6 + Extensions / AH
+
+#######################################
+= IPv6 + Extensions / AH - Transport
+
+p = IPv6(src='11::22', dst='22::11')
+p /= IPv6ExtHdrHopByHop()
+p /= IPv6ExtHdrDestOpt()
+p /= IPv6ExtHdrRouting()
+p /= IPv6ExtHdrDestOpt()
+p /= IPv6ExtHdrFragment()
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(str(p))
+p
+
+sa = SecurityAssociation(AH, spi=0x222,
+                         auth_algo='HMAC-SHA1-96', auth_key='secret key')
+
+e = sa.encrypt(p)
+e
+
+assert(e.src == '11::22' and e.dst == '22::11')
+* AH header should be inserted between the routing header and the dest options header
+assert(isinstance(e[AH].underlayer, IPv6ExtHdrRouting))
+assert(isinstance(e[AH].payload, IPv6ExtHdrDestOpt))
+
+#######################################
+= IPv6 + Routing Header / AH - Transport
+
+p = IPv6(src='11::22', dst='22::11')
+p /= IPv6ExtHdrHopByHop()
+p /= IPv6ExtHdrRouting(addresses=['aa::bb', 'cc::dd', 'ee::ff'])
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(str(p))
+p
+
+sa = SecurityAssociation(AH, spi=0x222,
+                         auth_algo='HMAC-SHA1-96', auth_key='secret key')
+
+e = sa.encrypt(p)
+e
+
+assert(e.src == '11::22' and e.dst == '22::11')
+* AH header should be inserted between the routing header and TCP
+assert(isinstance(e[AH].underlayer, IPv6ExtHdrRouting))
+assert(isinstance(e[AH].payload, TCP))
+
+* reorder the routing header as the receiver will get it
+final = e[IPv6ExtHdrRouting].addresses.pop()
+e[IPv6ExtHdrRouting].addresses.insert(0, e.dst)
+e.dst = final
+e[IPv6ExtHdrRouting].segleft = 0
+
+* integrity verification should pass
+d = sa.decrypt(e)
+d
