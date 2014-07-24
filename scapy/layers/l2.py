@@ -368,7 +368,7 @@ class GRE(Packet):
                     BitField("key_present",0,1),
                     BitField("seqnum_present",0,1),
                     BitField("strict_route_source",0,1),
-                    BitField("recursion control",0,3),
+                    BitField("recursion_control",0,3),
                     BitField("flags",0,5),
                     BitField("version",0,3),
                     XShortEnumField("proto", 0x0000, ETHER_TYPES),
