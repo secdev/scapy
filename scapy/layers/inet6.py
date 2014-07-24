@@ -1337,7 +1337,7 @@ class ICMPv6MLReport(_ICMPv6ML): # RFC 2710
 class ICMPv6MLDone(_ICMPv6ML): # RFC 2710
     name = "MLD - Multicast Listener Done"
     type = 132
-    overload_fields = {IPv6: { "dst": "ff02::2", "hlim": 1}}
+    overload_fields = {IPv6: { "dst": "ff02::2", "hlim": 1, "nh": 58}}
 
 
 ########## ICMPv6 MRD - Multicast Router Discovery (RFC 4286) ###############
