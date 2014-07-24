@@ -50,6 +50,8 @@ if conf.use_pcap:
                         self.pcap = pcap.pcap(device, snaplen, promisc, immediate=1)                    
                 def __getattr__(self, attr):
                     return getattr(self.pcap, attr)
+                def __del__(self):
+                    warning("__del__: don't know how to close the file descriptor. Bugs ahead ! Please report this bug.")
             open_pcap = lambda *args,**kargs: _PcapWrapper_pypcap(*args,**kargs)
         elif hasattr(pcap,"pcapObject"): # python-libpcap
             class _PcapWrapper_libpcap:
@@ -66,6 +68,9 @@ if conf.use_pcap:
                     return ts,pkt
                 def __getattr__(self, attr):
                     return getattr(self.pcap, attr)
+                def __del__(self):
+                    fd = self.pcap.fileno()
+                    os.close(fd)
             open_pcap = lambda *args,**kargs: _PcapWrapper_libpcap(*args,**kargs)
         elif hasattr(pcap,"open_live"): # python-pcapy
             class _PcapWrapper_pcapy:
@@ -85,6 +90,8 @@ if conf.use_pcap:
                     return 0
                 def __getattr__(self, attr):
                     return getattr(self.pcap, attr)
+                def __del__(self):
+                    warning("__del__: don't know how to close the file descriptor. Bugs ahead ! Please report this bug.")
             open_pcap = lambda *args,**kargs: _PcapWrapper_pcapy(*args,**kargs)
 
         
