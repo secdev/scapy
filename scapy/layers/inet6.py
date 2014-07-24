@@ -1312,7 +1312,7 @@ class ICMPv6MLQuery(_ICMPv6ML): # RFC 2710
     type   = 130
     mrd    = 10000
     mladdr = "::" # 10s for mrd
-    overload_fields = {IPv6: { "dst": "ff02::1", "hlim": 1 }} 
+    overload_fields = {IPv6: { "dst": "ff02::1", "hlim": 1, "nh": 58 }} 
     def hashret(self):
         if self.mladdr != "::":
             return struct.pack("HH",self.mladdr)+self.payload.hashret()
@@ -1325,7 +1325,7 @@ class ICMPv6MLQuery(_ICMPv6ML): # RFC 2710
 class ICMPv6MLReport(_ICMPv6ML): # RFC 2710
     name = "MLD - Multicast Listener Report"
     type = 131
-    overload_fields = {IPv6: {"hlim": 1}}
+    overload_fields = {IPv6: {"hlim": 1, "nh": 58}}
     # implementer le hashret et le answers
     
 # When a node ceases to listen to a multicast address on an interface,
