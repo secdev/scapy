@@ -341,9 +341,18 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
         
     if IPYTHON:
         banner = the_banner % (conf.version) + " using IPython %s" % IPython.__version__
-        args = ['']  # IPython command line args (will be seen as sys.argv)
-        ipshell = IPython.Shell.IPShellEmbed(args, banner = banner)
-        ipshell(local_ns=session)
+
+        # Old way to embed IPython kept for backward compatibility
+        try:
+          args = ['']  # IPython command line args (will be seen as sys.argv)
+          ipshell = IPython.Shell.IPShellEmbed(args, banner = banner)
+          ipshell(local_ns=session)
+        except AttributeError, e:
+          pass
+
+        # In the IPython cookbook, see 'Updating-code-for-use-with-IPython-0.11-and-later'
+        IPython.embed(user_ns=session, banner2=banner)
+
     else:
         code.interact(banner = the_banner % (conf.version),
                       local=session, readfunc=conf.readfunc)
