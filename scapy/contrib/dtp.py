@@ -63,7 +63,7 @@ class DTPDomain(DtpGenericTlv):
     name = "DTP Domain"
     fields_desc = [ ShortField("type", 1),
             FieldLenField("length", None, "domain", adjust=lambda pkt,x:x + 4),
-            StrLenField("domain", "\x00\x00\x00\x00\x00\x00\x00\x00\x00", length_from=lambda pkt:pkt.length - 4)
+            StrLenField("domain", "\x00", length_from=lambda pkt:pkt.length - 4)
             ]
 
 class DTPStatus(DtpGenericTlv):
