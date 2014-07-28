@@ -758,25 +758,19 @@ class DomainNameField(StrLenField):
         return len(self.i2m(pkt, x))
 
     def m2i(self, pkt, x):
-        save = x
         cur = []
-        while x and x[0] != '\x00':
+        while x:
             l = ord(x[0])
             cur.append(x[1:1+l])
             x = x[l+1:]
-        if x[0] != '\x00':
-            print "Found weird domain: '%s'. Keeping %s" % (save, x)
-        return ".".join(cur)
+        ret_str = ".".join(cur)
+        return ret_str
 
     def i2m(self, pkt, x):
-        def conditionalTrailingDot(z):
-            if (z and z[-1] == '\x00'):
-                return z
-            return z+'\x00'
         if not x:
             return ""
         tmp = "".join(map(lambda z: chr(len(z))+z, x.split('.')))
-        return conditionalTrailingDot(tmp)
+        return tmp
 
 class DHCP6OptNISDomain(_DHCP6OptGuessPayload):             #RFC3898
     name = "DHCP6 Option - NIS Domain Name"
