@@ -1053,7 +1053,10 @@ class DHCP6_Reply(DHCP6):
     overload_fields = { UDP: {"sport": 547, "dport": 546} }
     
     def answers(self, other):
-        return (isinstance(other, DHCP6_InfoRequest) and
+
+        types = (DHCP6_InfoRequest, DHCP6_Confirm, DHCP6_Rebind, DHCP6_Decline, DHCP6_Request, DHCP6_Release, DHCP6_Renew)
+
+        return (isinstance(other, types) and
                 self.trid == other.trid)
 
 #####################################################################
@@ -1115,9 +1118,6 @@ class DHCP6_InfoRequest(DHCP6):
     name = "DHCPv6 Information Request Message"    
     msgtype = 11 
     
-    def hashret(self): 
-        return struct.pack("!I", self.trid)[1:3]
-
 #####################################################################
 # sent between Relay Agents and Servers 
 #
@@ -1165,7 +1165,7 @@ class DHCP6_RelayReply(DHCP6_RelayForward):
         return inet_pton(socket.AF_INET6, self.peeraddr)
     def answers(self, other):
         return (isinstance(other, DHCP6_RelayForward) and
-                self.count == other.count and
+                self.hopcount == other.hopcount and
                 self.linkaddr == other.linkaddr and
                 self.peeraddr == other.peeraddr )
 
