@@ -345,6 +345,8 @@ class Packet(BasePacket):
         pl = []
         q=""
         for f in self.fields_desc:
+            if isinstance(f, ConditionalField) and not f._evalcond(self):
+                continue
             p = f.addfield(self, p, self.getfieldval(f.name) )
             if type(p) is str:
                 r = p[len(q):]
