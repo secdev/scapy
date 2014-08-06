@@ -52,6 +52,9 @@ if conf.use_pcap:
                     return getattr(self.pcap, attr)
                 def __del__(self):
                     warning("__del__: don't know how to close the file descriptor. Bugs ahead ! Please report this bug.")
+                def next(self):
+                    ts, pkt = self.pcap.next()
+                    return ts, str(pkt)
             open_pcap = lambda *args,**kargs: _PcapWrapper_pypcap(*args,**kargs)
         elif hasattr(pcap,"pcapObject"): # python-libpcap
             class _PcapWrapper_libpcap:
