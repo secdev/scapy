@@ -693,7 +693,9 @@ class OSPFv3_Inter_Area_Router_LSA(OSPF_BaseLSA):
                    XIntField("seq", 0x80000001),
                    XShortField("chksum", None),
                    ShortField("len", None),
-                   ByteField("reserved", 0),
+                   ByteField("_z1_", 0),
+                   OSPFv3OptionsField(),
+                   ByteField("_z2_", 0),
                    X3BytesField("metric", 1),
                    IPField("router", "2.2.2.2")]
 
