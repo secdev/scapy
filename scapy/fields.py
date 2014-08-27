@@ -829,6 +829,24 @@ class BitMultiEnumField(BitField,MultiEnumField):
         return MultiEnumField.i2repr(self, pkt, x)
 
 
+class ByteEnumKeysField(ByteEnumField):
+    """ByteEnumField that picks valid values when fuzzed. """
+    def randval(self):
+        return RandEnumKeys(self.i2s)
+
+
+class ShortEnumKeysField(ShortEnumField):
+    """ShortEnumField that picks valid values when fuzzed. """
+    def randval(self):
+        return RandEnumKeys(self.i2s)
+
+
+class IntEnumKeysField(IntEnumField):
+    """IntEnumField that picks valid values when fuzzed. """
+    def randval(self):
+        return RandEnumKeys(self.i2s)
+
+
 # Little endian long field
 class LELongField(Field):
     def __init__(self, name, default):
