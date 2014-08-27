@@ -531,9 +531,11 @@ class FieldListField(Field):
         return val
     def any2i(self, pkt, x):
         if type(x) is not list:
-            return [x]
+            return [self.field.any2i(pkt, x)]
         else:
-            return x
+            return map(lambda e, pkt=pkt: self.field.any2i(pkt, e), x)
+    def i2repr(self, pkt, x):
+        return map(lambda e, pkt=pkt: self.field.i2repr(pkt,e), x)
     def addfield(self, pkt, s, val):
         val = self.i2m(pkt, val)
         for v in val:
