@@ -54,7 +54,7 @@ if conf.use_pcap:
                     warning("__del__: don't know how to close the file descriptor. Bugs ahead ! Please report this bug.")
                 def next(self):
                     c = self.pcap.next()
-                    if c is None
+                    if c is None:
                         return
                     ts, pkt = c
                     return ts, str(pkt)
