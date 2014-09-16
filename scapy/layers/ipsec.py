@@ -607,9 +607,6 @@ if AES and XCBCMAC:
                                          key_size=(16,))
 
 #------------------------------------------------------------------------------
-
-
-#------------------------------------------------------------------------------
 def split_for_transport(orig_pkt, transport_proto):
     """
     Split an IP(v6) packet in the correct location to insert an ESP or AH
@@ -621,7 +618,8 @@ def split_for_transport(orig_pkt, transport_proto):
     @return: a tuple (header, nh, payload) where nh is the protocol number of
              payload.
     """
-    header = orig_pkt.copy()
+    # force resolution of default fields to avoid padding errors
+    header = orig_pkt.__class__(str(orig_pkt))
     next_hdr = header.payload
     nh = None
 
