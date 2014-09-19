@@ -111,3 +111,12 @@ str(ds) == str(dlv)
 = DNSRRDS(), check parameters
 t = DNSRRDS('\x03isc\x03org\x00\x00+\x00\x01\x00\x01Q(\x00\x182\\\x05\x01\x98!\x13\xd0\x8bLj\x1d\x9fj\xee\x1e"7\xae\xf6\x9f?\x97Y')
 t.rrname == 'isc.org.' and t.keytag == 12892 and t.algorithm == 5 and t.digesttype == 1 and t.digest == '\x98!\x13\xd0\x8bLj\x1d\x9fj\xee\x1e"7\xae\xf6\x9f?\x97Y'
+
++ Test TXT RR
+
+= DNSRR(type="TXT") instanciation
+t = DNSRR(type="TXT", rdata="test")
+
+= DNSRRR(), check parameters
+t = DNSRR('\x04test\x00\x00\x10\x00\x01\x00\x00\x00\x00\x018\xffScapy is an interactive packet manipulation program that enables you to sniff, mangle, send network packets ; test equipments ; probe and discover networks ; quickly develop new protocols. It can easily handle most classical tasks like scanning, tracerout7ing, probing, unit tests, attacks or network discovery.')
+t.type == 16 and t.rdlen == 312 and t.rdata[:5] == "Scapy" and t.rdata[-10:] == "discovery."
