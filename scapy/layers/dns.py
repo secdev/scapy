@@ -171,26 +171,50 @@ class DNSQRField(DNSRRField):
 class RDataField(StrLenField):
     def m2i(self, pkt, s):
         family = None
-        if pkt.type == 1:
+        if pkt.type == 1: # A
             family = socket.AF_INET
-        elif pkt.type == 28:
-            family = socket.AF_INET6
-        elif pkt.type == 12:
+        elif pkt.type == 12: # PTR
             s = DNSgetstr(s, 0)[0]
+        elif pkt.type == 16: # TXT
+            ret_s = ""
+            tmp_s = s
+            # RDATA contains a list of strings, each are prepended with
+            # a byte containing the size of the following string.
+            while tmp_s:
+                tmp_len = struct.unpack("!B", tmp_s[0])[0] + 1
+                if tmp_len > len(tmp_s):
+                  warning("DNS RR TXT prematured end of character-string (size=%i, remaining bytes=%i)" % (tmp_len, len(tmp_s)))
+                ret_s += tmp_s[1:tmp_len]
+                tmp_s = tmp_s[tmp_len:]
+            s = ret_s
+        elif pkt.type == 28: # AAAA
+            family = socket.AF_INET6
         if family is not None:    
             s = inet_ntop(family, s)
         return s
     def i2m(self, pkt, s):
-        if pkt.type == 1:
+        if pkt.type == 1: # A
             if s:
                 s = inet_aton(s)
-        elif pkt.type == 28:
-            if s:
-                s = inet_pton(socket.AF_INET6, s)
-        elif pkt.type in [2,3,4,5]:
+        elif pkt.type in [2,3,4,5]: # NS, MD, MF, CNAME
             s = "".join(map(lambda x: chr(len(x))+x, s.split(".")))
             if ord(s[-1]):
                 s += "\x00"
+        elif pkt.type == 16: # TXT
+            if s:
+                ret_s = ""
+                # The initial string must be splitted into a list of strings
+                # prepended with theirs sizes.
+                while len(s) >= 255:
+                    ret_s += "\xff" + s[:255]
+                    s = s[255:]
+                # The remaining string is less than 255 bytes long    
+                if len(s):
+                    ret_s += struct.pack("!B", len(s)) + s
+                s = ret_s
+        elif pkt.type == 28: # AAAA
+            if s:
+                s = inet_pton(socket.AF_INET6, s)
         return s
 
 class RDLenField(Field):
@@ -250,7 +274,7 @@ class DNS(Packet):
         return 'DNS %s%s ' % (type, name)
 
 dnstypes = { 0:"ANY", 255:"ALL",
-             1:"A", 2:"NS", 3:"MD", 4:"MD", 5:"CNAME", 6:"SOA", 7: "MB", 8:"MG",
+             1:"A", 2:"NS", 3:"MD", 4:"MF", 5:"CNAME", 6:"SOA", 7: "MB", 8:"MG",
              9:"MR",10:"NULL",11:"WKS",12:"PTR",13:"HINFO",14:"MINFO",15:"MX",16:"TXT",
              17:"RP",18:"AFSDB",28:"AAAA", 33:"SRV",38:"A6",39:"DNAME",
              41:"OPT", 43:"DS", 46:"RRSIG", 47:"NSEC", 48:"DNSKEY",
