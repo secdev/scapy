@@ -223,8 +223,9 @@ class ATT_Read_By_Type_Request(Packet):
 
 class ATT_Read_By_Type_Response(Packet):
     name = "Read By Type Response"
-    fields_desc = [ FieldLenField("len", None, length_of="data", fmt="B"),
-                    StrLenField("data", "", length_from=lambda pkt:pkt.len), ]
+    # fields_desc = [ FieldLenField("len", None, length_of="data", fmt="B"),
+    #                 StrLenField("data", "", length_from=lambda pkt:pkt.len), ]
+    fields_desc = [ StrField("data", "") ]
 
 class ATT_Read_Request(Packet):
     name = "Read Request"
@@ -345,6 +346,38 @@ class HCI_Cmd_Set_Event_Mask(Packet):
 class HCI_Cmd_Read_BD_Addr(Packet):
     name = "Read BD Addr"
 
+
+class HCI_Cmd_LE_Set_Scan_Parameters(Packet):
+    name = "LE Set Scan Parameters"
+    fields_desc = [ ByteEnumField("type", 1, {1:"active"}),
+                    XLEShortField("interval", 16),
+                    XLEShortField("window", 16),
+                    ByteEnumField("atype", 0, {0:"public"}),
+                    ByteEnumField("policy", 0, {0:"all"}), ]
+
+class HCI_Cmd_LE_Set_Scan_Enable(Packet):
+    name = "LE Set Scan Enable"
+    fields_desc = [ ByteField("enable", 1),
+                    ByteField("filter_dups", 1), ]
+
+class HCI_Cmd_LE_Create_Connection(Packet):
+    name = "LE Create Connection"
+    fields_desc = [ LEShortField("interval", 96),
+                    LEShortField("window", 48),
+                    ByteEnumField("filter", 0, {0:"address"}),
+                    ByteEnumField("patype", 0, {0:"public", 1:"random"}),
+                    LEMACField("paddr", None),
+                    ByteEnumField("atype", 0, {0:"public", 1:"random"}),
+                    LEShortField("min_interval", 40),
+                    LEShortField("max_interval", 56),
+                    LEShortField("latency", 0),
+                    LEShortField("timeout", 42),
+                    LEShortField("min_ce", 0),
+                    LEShortField("max_ce", 0), ]
+
+class HCI_Cmd_LE_Read_Buffer_Size(Packet):
+    name = "LE Read Buffer Size"
+
 class HCI_Cmd_LE_Set_Random_Address(Packet):
     name = "LE Set Random Address"
     fields_desc = [ LEMACField("address", None) ]
@@ -368,33 +401,6 @@ class HCI_Cmd_LE_Set_Advertising_Data(Packet):
 class HCI_Cmd_LE_Set_Advertise_Enable(Packet):
     name = "LE Set Advertise Enable"
     fields_desc = [ ByteField("enable", 0) ]
-
-class HCI_Cmd_LE_Set_Scan_Parameters(Packet):
-    name = "LE Set Scan Parameters"
-    fields_desc = [ ByteEnumField("type", 1, {1:"active"}),
-                    XLEShortField("interval", 16),
-                    XLEShortField("window", 16),
-                    ByteEnumField("atype", 0, {0:"public"}),
-                    ByteEnumField("policy", 0, {0:"all"}), ]
-
-class HCI_Cmd_LE_Set_Scan_Enable(Packet):
-    name = "LE Set Scan Enable"
-    fields_desc = [ ByteField("enable", 1),
-                    ByteField("filter_dups", 1), ]
-
-class HCI_Cmd_LE_Create_Connection(Packet):
-    name = "LE Create Connection"
-    fields_desc = [ LEShortField("interval", 96),
-                    LEShortField("window", 48),
-                    ByteEnumField("filter", 0, {0:"address"}),
-                    LEMACField("paddr", None),
-                    ByteEnumField("atype", 0, {0:"public", 1:"random"}),
-                    LEShortField("min_interval", 40),
-                    LEShortField("max_interval", 56),
-                    LEShortField("latency", 0),
-                    LEShortField("timeout", 42),
-                    LEShortField("min_ce", 0),
-                    LEShortField("max_ce", 0), ]
 
 class HCI_Cmd_LE_Long_Term_Key_Request_Negative_Reply(Packet):
     name = "LE Long Term Key Request Negative Reply"
@@ -443,6 +449,10 @@ class HCI_Event_Command_Status(Packet):
                     ByteField("number", 0),
                     XLEShortField("opcode", None), ]
 
+class HCI_Event_Number_Of_Completed_Packets(Packet):
+    name = "Number Of Completed Packets"
+    fields_desc = [ ByteField("number", 0) ]
+
 class HCI_Event_LE_Meta(Packet):
     name = "LE Meta"
     fields_desc = [ ByteEnumField("event", 0, {2:"advertising_report"}) ]
@@ -465,8 +475,8 @@ class HCI_LE_Meta_Advertising_Report(Packet):
                     ByteEnumField("type", 0, {0:"conn_und", 4:"scan_rsp"}),
                     ByteEnumField("atype", 0, {0:"public", 1:"random"}),
                     LEMACField("addr", None),
-                    ByteField("length", 0) ]
-    # TODO data
+                    FieldLenField("len", None, length_of="data", fmt="B"),
+                    StrLenField("data", "", length_from=lambda pkt:pkt.len), ]
 
 class HCI_LE_Meta_Long_Term_Key_Request(Packet):
     name = "Long Term Key Request"
@@ -486,6 +496,7 @@ bind_layers( HCI_Command_Hdr, HCI_Cmd_Set_Event_Filter, opcode=0x0c05)
 bind_layers( HCI_Command_Hdr, HCI_Cmd_Connect_Accept_Timeout, opcode=0x0c16)
 bind_layers( HCI_Command_Hdr, HCI_Cmd_LE_Host_Supported, opcode=0x0c6d)
 bind_layers( HCI_Command_Hdr, HCI_Cmd_Read_BD_Addr, opcode=0x1009)
+bind_layers( HCI_Command_Hdr, HCI_Cmd_LE_Read_Buffer_Size, opcode=0x2002)
 bind_layers( HCI_Command_Hdr, HCI_Cmd_LE_Set_Random_Address, opcode=0x2005)
 bind_layers( HCI_Command_Hdr, HCI_Cmd_LE_Set_Advertising_Parameters, opcode=0x2006)
 bind_layers( HCI_Command_Hdr, HCI_Cmd_LE_Set_Advertising_Data, opcode=0x2008)
@@ -500,6 +511,7 @@ bind_layers( HCI_Event_Hdr, HCI_Event_Disconnection_Complete, code=0x5)
 bind_layers( HCI_Event_Hdr, HCI_Event_Encryption_Change, code=0x8)
 bind_layers( HCI_Event_Hdr, HCI_Event_Command_Complete, code=0xe)
 bind_layers( HCI_Event_Hdr, HCI_Event_Command_Status, code=0xf)
+bind_layers( HCI_Event_Hdr, HCI_Event_Number_Of_Completed_Packets, code=0x13)
 bind_layers( HCI_Event_Hdr, HCI_Event_LE_Meta, code=0x3e)
 
 bind_layers( HCI_Event_Command_Complete, HCI_Cmd_Complete_Read_BD_Addr, opcode=0x1009)
@@ -583,7 +595,7 @@ class sockaddr_hci(Structure):
 
 class BluetoothUserSocket(SuperSocket):
     desc = "read/write H4 over a Bluetooth user channel"
-    def __init__(self, index=0):
+    def __init__(self, adapter=0):
         # s = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_RAW, socket.BTPROTO_HCI)
         # s.bind((0,1))
 
@@ -608,18 +620,28 @@ class BluetoothUserSocket(SuperSocket):
 
         s = socket_c(31, 3, 1) # (AF_BLUETOOTH, SOCK_RAW, HCI_CHANNEL_USER)
         if s < 0:
-            raise Exception("Unable to open AF_BLUETOOTH socket")
+            raise Exception("Unable to open PF_BLUETOOTH socket")
 
         sa = sockaddr_hci()
         sa.sin_family = 31  # AF_BLUETOOTH
-        sa.hci_dev = index  # device index
-        sa.hci_channel = 1  # HCI_USER_CHANNEL
+        sa.hci_dev = adapter # adapter index
+        sa.hci_channel = 1   # HCI_USER_CHANNEL
 
         r = bind(s, sockaddr_hcip(sa), sizeof(sa))
         if r != 0:
             raise Exception("Unable to bind")
 
         self.ins = self.outs = socket.fromfd(s, 31, 3, 1)
+
+    def send_command(self, cmd):
+        opcode = cmd.opcode
+        self.send(cmd)
+        while True:
+            r = self.recv()
+            if r.code == 0xe and r.opcode == opcode:
+                if r.status != 0:
+                    raise Exception("Command %x failed with %x" % (opcode, r.status))
+                return r
 
     def recv(self, x=512):
         return HCI_Hdr(self.ins.recv(x))
