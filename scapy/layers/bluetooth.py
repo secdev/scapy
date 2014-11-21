@@ -66,21 +66,21 @@ class HCI_ACL_Hdr(Packet):
             l = len(p)-4
             p = p[:2]+chr(l&0xff)+chr((l>>8)&0xff)+p[4:]
         return p
-                    
+
 
 class L2CAP_Hdr(Packet):
     name = "L2CAP header"
     fields_desc = [ LEShortField("len",None),
             LEShortEnumField("cid",0,{1:"control", 4:"attribute"}),]
-    
+
     def post_build(self, p, pay):
         p += pay
         if self.len is None:
             l = len(pay)
             p = chr(l&0xff)+chr((l>>8)&0xff)+p[2:]
         return p
-                    
-                
+
+
 
 class L2CAP_CmdHdr(Packet):
     name = "L2CAP command header"
@@ -128,7 +128,7 @@ class L2CAP_CmdRej(Packet):
     name = "L2CAP Command Rej"
     fields_desc = [ LEShortField("reason",0),
                     ]
-    
+
 
 class L2CAP_ConfReq(Packet):
     name = "L2CAP Conf Req"
@@ -158,7 +158,7 @@ class L2CAP_DisconnResp(Packet):
     def answers(self, other):
         return self.scid == other.scid
 
-    
+
 
 class L2CAP_InfoReq(Packet):
     name = "L2CAP Info Req"
@@ -323,7 +323,7 @@ class HCI_Command_Hdr(Packet):
             l = len(p)-3
             p = p[:2]+chr(l&0xff)+p[3:]
         return p
- 
+
 class HCI_Cmd_Reset(Packet):
     name = "Reset"
 
@@ -565,12 +565,12 @@ class BluetoothL2CAPSocket(SuperSocket):
         s = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_RAW,
                           socket.BTPROTO_L2CAP)
         s.connect((peer,0))
-        
+
         self.ins = self.outs = s
 
     def recv(self, x=MTU):
         return L2CAP_CmdHdr(self.ins.recv(x))
-    
+
 
 class BluetoothHCISocket(SuperSocket):
     desc = "read/write on a BlueTooth HCI socket"
@@ -582,7 +582,7 @@ class BluetoothHCISocket(SuperSocket):
         s.bind((iface,))
         self.ins = self.outs = s
 #        s.connect((peer,0))
-        
+
 
     def recv(self, x):
         return HCI_Hdr(self.ins.recv(x))
@@ -593,6 +593,12 @@ class sockaddr_hci(Structure):
         ("hci_dev",         c_ushort),
         ("hci_channel",     c_ushort),
     ]
+
+class BluetoothSocketError(BaseException):
+    pass
+
+class BluetoothCommandError(BaseException):
+    pass
 
 class BluetoothUserSocket(SuperSocket):
     desc = "read/write H4 over a Bluetooth user channel"
@@ -621,7 +627,7 @@ class BluetoothUserSocket(SuperSocket):
 
         s = socket_c(31, 3, 1) # (AF_BLUETOOTH, SOCK_RAW, HCI_CHANNEL_USER)
         if s < 0:
-            raise Exception("Unable to open PF_BLUETOOTH socket")
+            raise BluetoothSocketError("Unable to open PF_BLUETOOTH socket")
 
         sa = sockaddr_hci()
         sa.sin_family = 31  # AF_BLUETOOTH
@@ -630,7 +636,7 @@ class BluetoothUserSocket(SuperSocket):
 
         r = bind(s, sockaddr_hcip(sa), sizeof(sa))
         if r != 0:
-            raise Exception("Unable to bind")
+            raise BluetoothSocketError("Unable to bind")
 
         self.ins = self.outs = socket.fromfd(s, 31, 3, 1)
 
@@ -641,7 +647,7 @@ class BluetoothUserSocket(SuperSocket):
             r = self.recv()
             if r.code == 0xe and r.opcode == opcode:
                 if r.status != 0:
-                    raise Exception("Command %x failed with %x" % (opcode, r.status))
+                    raise BluetoothCommandError("Command %x failed with %x" % (opcode, r.status))
                 return r
 
     def recv(self, x=512):
@@ -672,7 +678,7 @@ def srbt1(peer, pkts, *args, **kargs):
     a,b = srbt(peer, pkts, *args, **kargs)
     if len(a) > 0:
         return a[0][1]
-        
-    
+
+
 
 conf.BTsocket = BluetoothL2CAPSocket
