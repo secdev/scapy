@@ -16,7 +16,7 @@ EZIP_HEADER="""#! /bin/sh
 PYTHONPATH=$0/%s exec python -m scapy.__init__
 """
 
-def make_ezipfile(base_name, base_dir, verbose=0, dry_run=0):
+def make_ezipfile(base_name, base_dir, verbose=0, dry_run=0, **kwargs):
     fname = archive_util.make_zipfile(base_name, base_dir, verbose, dry_run)
     ofname = fname+".old"
     os.rename(fname,ofname)
