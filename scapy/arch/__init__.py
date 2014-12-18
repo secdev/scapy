@@ -82,6 +82,17 @@ if scapy.config.conf.iface is None:
     scapy.config.conf.iface = LOOPBACK_NAME
 
 
+def get_if_addr6(iff):
+    """
+    Returns the main global unicast address associated with provided 
+    interface. If no global address is found, None is returned. 
+    """
+    r = filter(lambda x: x[2] == iff and x[1] == IPV6_ADDR_GLOBAL, in6_getifaddr())
+    if len(r) == 0:
+        return None
+    else:
+        return r[0][0]
+
 def get_if_raw_addr6(iff):
     """
     Returns the main global unicast address associated with provided 

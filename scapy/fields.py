@@ -410,7 +410,10 @@ class PacketListField(PacketField):
     def i2len(self, pkt, val):
         return sum( len(p) for p in val )
     def do_copy(self, x):
-        return map(lambda p:p.copy(), x)
+        if x is None:
+            return None
+        else:
+            return map(lambda p:p.copy(), x)
     def getfield(self, pkt, s):
         c = l = None
         if self.length_from is not None:
@@ -507,16 +510,25 @@ class StrLenField(StrField):
     def getfield(self, pkt, s):
         l = self.length_from(pkt)
         return s[l:], self.m2i(pkt,s[:l])
+    
+class BoundStrLenField(StrLenField):
+    def __init__(self,name, default, minlen= 0, maxlen= 255, fld=None, length_from=None):
+        StrLenField.__init__(self, name, default, fld, length_from)
+        self.minlen= minlen
+        self.maxlen= maxlen
+    
+    def randval(self):
+        return RandBin(RandNum(self.minlen, self.maxlen))
 
 class FieldListField(Field):
     islist=1
     def __init__(self, name, default, field, length_from=None, count_from=None):
         if default is None:
             default = []  # Create a new list for each instance
+        self.field = field
         Field.__init__(self, name, default)
         self.count_from = count_from
         self.length_from = length_from
-        self.field = field            
             
     def i2count(self, pkt, val):
         if type(val) is list:
@@ -898,3 +910,72 @@ class FixedPointField(BitField):
         return int_part+frac_part
     def i2repr(self, pkt, val):
         return self.i2h(pkt, val)
+
+
+# Base class for IPv4 and IPv6 Prefixes inspired by IPField and IP6Field.
+# Machine values are encoded in a multiple of wordbytes bytes.
+class _IPPrefixFieldBase(Field):
+    def __init__(self, name, default, wordbytes, maxbytes, aton, ntoa, length_from):
+        self.wordbytes= wordbytes
+        self.maxbytes= maxbytes
+        self.aton= aton
+        self.ntoa= ntoa
+        Field.__init__(self, name, default, "%is" % self.maxbytes)
+        self.length_from= length_from
+    
+    def _numbytes(self, pfxlen):
+        wbits= self.wordbytes * 8
+        return ((pfxlen + (wbits - 1)) / wbits) * self.wordbytes
+    
+    def h2i(self, pkt, x):
+        [pfx,pfxlen]= x.split('/')
+        self.aton(pfx) # check for validity
+        return (pfx, int(pfxlen))
+
+
+    def i2h(self, pkt, x):
+        (pfx,pfxlen)= x
+        return "%s/%i" % (pfx,pfxlen)
+
+    def i2m(self, pkt, x):
+        (pfx,pfxlen)= x
+        s= self.aton(pfx);
+        return s[:self._numbytes(pfxlen)]
+    
+    def m2i(self, pkt, x):
+        (s,pfxlen)= x
+        
+        if len(s) < self.maxbytes:
+            s= s + ("\0" * (self.maxbytes - len(s)))
+        return (self.ntoa(s), pfxlen)
+    
+    def any2i(self, pkt, x):
+        if x is None:
+            return (self.ntoa("\0"*self.maxbytes), 1)
+        
+        return self.h2i(pkt,x)
+    
+    def i2len(self, pkt, x):
+        (_,pfxlen)= x
+        return pfxlen
+        
+    def addfield(self, pkt, s, val):
+        (_,pfxlen)= val
+        fmt= "!%is" % self._numbytes(pfxlen)
+        return s+struct.pack(fmt, self.i2m(pkt,val))
+    
+    def getfield(self, pkt, s):
+        pfxlen= self.length_from(pkt)
+        numbytes= self._numbytes(pfxlen)
+        fmt= "!%is" % numbytes
+        return s[numbytes:], self.m2i(pkt, (struct.unpack(fmt, s[:numbytes])[0], pfxlen))
+
+
+class IPPrefixField(_IPPrefixFieldBase):
+    def __init__(self, name, default, wordbytes=1, length_from= None):
+        _IPPrefixFieldBase.__init__(self, name, default, wordbytes, 4, inet_aton, inet_ntoa, length_from)
+
+
+class IP6PrefixField(_IPPrefixFieldBase):
+    def __init__(self, name, default, wordbytes= 1, length_from= None):
+        _IPPrefixFieldBase.__init__(self, name, default, wordbytes, 16, lambda a: inet_pton(socket.AF_INET6, a), lambda n: inet_ntop(socket.AF_INET6, n), length_from)

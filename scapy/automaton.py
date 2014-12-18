@@ -8,7 +8,7 @@ Automata with states, transitions and actions.
 """
 
 from __future__ import with_statement
-import types,itertools,time,os,sys,socket
+import types,itertools,time,os,sys,socket,traceback
 from select import select
 from collections import deque
 import thread
@@ -429,13 +429,16 @@ class Automaton:
                 raise self.AutomatonError("INTERCEPT: unkown verdict: %r" % cmd.type)
         self.my_send(pkt)
         self.debug(3,"SENT : %s" % pkt.summary())
-        self.packets.append(pkt.copy())
+        
+        if self.store_packets:
+            self.packets.append(pkt.copy())
 
 
     ## Internals
     def __init__(self, *args, **kargs):
         external_fd = kargs.pop("external_fd",{})
         self.send_sock_class = kargs.pop("ll", conf.L3socket)
+        self.recv_sock_class = kargs.pop("recvsock", conf.L2listen)
         self.started = thread.allocate_lock()
         self.threadid = None
         self.breakpointed = None
@@ -493,7 +496,8 @@ class Automaton:
         except ATMT.NewStateRequested, state_req:
             self.debug(2, "%s [%s] taken to state [%s]" % (cond.atmt_type, cond.atmt_condname, state_req.state))
             if cond.atmt_type == ATMT.RECV:
-                self.packets.append(args[0])
+                if self.store_packets:
+                    self.packets.append(args[0])
             for action in self.actions[cond.atmt_condname]:
                 self.debug(2, "   + Running action [%s]" % action.func_name)
                 action(self, *state_req.action_args, **state_req.action_kargs)
@@ -522,7 +526,7 @@ class Automaton:
             # Start the automaton
             self.state=self.initial_states[0](self)
             self.send_sock = self.send_sock_class()
-            self.listen_sock = conf.L2listen(**self.socket_kargs)
+            self.listen_sock = self.recv_sock_class(**self.socket_kargs)
             self.packets = PacketList(name="session[%s]"%self.__class__.__name__)
 
             singlestep = True
@@ -556,8 +560,9 @@ class Automaton:
                 c = Message(type=_ATMT_Command.END, result=e.args[0])
                 self.cmdout.send(c)
             except Exception,e:
-                self.debug(3, "Transfering exception [%s] from tid=%i"% (e,self.threadid))
-                m = Message(type = _ATMT_Command.EXCEPTION, exception=e, exc_info=sys.exc_info())
+                exc_info= sys.exc_info()
+                self.debug(3, "Transfering exception from tid=%i:\n%s"% (self.threadid, traceback.format_exc(exc_info)))
+                m = Message(type = _ATMT_Command.EXCEPTION, exception=e, exc_info=exc_info)
                 self.cmdout.send(m)        
             self.debug(3, "Stopping control thread (tid=%i)"%self.threadid)
             self.threadid = None
