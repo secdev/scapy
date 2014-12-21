@@ -69,14 +69,11 @@ conf.debug_dissector= True
 ##  ISIS Utilities + Fields                                          ##
 #######################################################################
 
-def _doublechr(shortval):
-    return "%c%c" % (chr((shortval >> 8) & 0x0FF), chr(shortval & 0x0FF))
-
 def isis_area2str(area):
     if len(area) == 0:
         return ""
     
-    return "".join(map(lambda x: _doublechr(int(x,16)) if len(x) == 4 else chr(int(x, 16)), area.split(".")))
+    return "".join(x.decode("hex") for x in area.split("."))
 
 def isis_str2area(s):
     if len(s) == 0:
@@ -87,19 +84,19 @@ def isis_str2area(s):
     return fmt % tuple(map(ord,s))
 
 def isis_sysid2str(sysid):
-    return "".join(map(lambda x: _doublechr(int(x,16)), sysid.split(".")))
+    return "".join(x.decode("hex") for x in sysid.split("."))
 
 def isis_str2sysid(s):
     return ("%02X%02X."*3)[:-1] % tuple(map(ord, s))
 
 def isis_nodeid2str(nodeid):
-    return "%s%s" % (isis_sysid2str(nodeid[:-3]), chr(int(nodeid[-2:], 16)))
+    return "%s%s" % (isis_sysid2str(nodeid[:-3]), nodeid[-2:].decode("hex"))
     
 def isis_str2nodeid(s):
     return "%s.%02X" % (isis_str2sysid(s[:-1]), ord(s[-1]))
 
 def isis_lspid2str(lspid):
-    return "%s%s" % (isis_nodeid2str(lspid[:-3]), chr(int(lspid[-2:], 16)))
+    return "%s%s" % (isis_nodeid2str(lspid[:-3]), lspid[-2:].decode("hex"))
     
 def isis_str2lspid(s):
     return "%s-%02X" % (isis_str2nodeid(s[:-1]), ord(s[-1]))

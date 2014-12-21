@@ -560,9 +560,9 @@ class Automaton:
                 c = Message(type=_ATMT_Command.END, result=e.args[0])
                 self.cmdout.send(c)
             except Exception,e:
-                exc_info= sys.exc_info()
+                exc_info = sys.exc_info()
                 self.debug(3, "Transfering exception from tid=%i:\n%s"% (self.threadid, traceback.format_exc(exc_info)))
-                m = Message(type = _ATMT_Command.EXCEPTION, exception=e, exc_info=exc_info)
+                m = Message(type=_ATMT_Command.EXCEPTION, exception=e, exc_info=exc_info)
                 self.cmdout.send(m)        
             self.debug(3, "Stopping control thread (tid=%i)"%self.threadid)
             self.threadid = None
