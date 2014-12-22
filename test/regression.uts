@@ -3338,11 +3338,11 @@ a = DHCP6OptNISDomain('\x00\x1d\x00\x00')
 a.optcode == 29 and a.optlen == 0 and a.nisdomain == ""
 
 = DHCP6OptNISDomain - Instantiation with one domain name
-str(DHCP6OptNISDomain(nisdomain="toto.example.org")) == '\x00\x1d\x00\x12\x04toto\x07example\x03org\x00'
+str(DHCP6OptNISDomain(nisdomain="toto.example.org")) == '\x00\x1d\x00\x11\x04toto\x07example\x03org'
 
 = DHCP6OptNISDomain - Dissection with one domain name
-a = DHCP6OptNISDomain('\x00\x1d\x00\x12\x04toto\x07example\x03org\x00')
-a.optcode == 29 and a.optlen == 18 and a.nisdomain == "toto.example.org"
+a = DHCP6OptNISDomain('\x00\x1d\x00\x11\x04toto\x07example\x03org\x00')
+a.optcode == 29 and a.optlen == 17 and a.nisdomain == "toto.example.org"
 
 = DHCP6OptNISDomain - Instantiation with one domain with trailing dot
 str(DHCP6OptNISDomain(nisdomain="toto.example.org.")) == '\x00\x1d\x00\x12\x04toto\x07example\x03org\x00'
@@ -3359,11 +3359,11 @@ a = DHCP6OptNISPDomain('\x00\x1e\x00\x00')
 a.optcode == 30 and a.optlen == 0 and a.nispdomain == ""
 
 = DHCP6OptNISPDomain - Instantiation with one domain name
-str(DHCP6OptNISPDomain(nispdomain="toto.example.org")) == '\x00\x1e\x00\x12\x04toto\x07example\x03org\x00'
+str(DHCP6OptNISPDomain(nispdomain="toto.example.org")) == '\x00\x1e\x00\x11\x04toto\x07example\x03org'
 
 = DHCP6OptNISPDomain - Dissection with one domain name
-a = DHCP6OptNISPDomain('\x00\x1e\x00\x12\x04toto\x07example\x03org\x00')
-a.optcode == 30 and a.optlen == 18 and a.nispdomain == "toto.example.org"
+a = DHCP6OptNISPDomain('\x00\x1e\x00\x11\x04toto\x07example\x03org\x00')
+a.optcode == 30 and a.optlen == 17 and a.nispdomain == "toto.example.org"
 
 = DHCP6OptNISPDomain - Instantiation with one domain with trailing dot
 str(DHCP6OptNISPDomain(nispdomain="toto.example.org.")) == '\x00\x1e\x00\x12\x04toto\x07example\x03org\x00'
@@ -3503,11 +3503,11 @@ a.optcode == 39 and a.optlen == 1 and a.res == 0 and a.flags == 0 and a.fqdn == 
 str(DHCP6OptClientFQDN(flags="S")) == "\x00'\x00\x01\x01" and str(DHCP6OptClientFQDN(flags="O")) == "\x00'\x00\x01\x02" and str(DHCP6OptClientFQDN(flags="N")) == "\x00'\x00\x01\x04" and str(DHCP6OptClientFQDN(flags="SON")) == "\x00'\x00\x01\x07" and str(DHCP6OptClientFQDN(flags="ON")) == "\x00'\x00\x01\x06"
 
 = DHCP6OptClientFQDN - Instantiation with one fqdn 
-str(DHCP6OptClientFQDN(fqdn="toto.example.org")) == "\x00'\x00\x13\x00\x04toto\x07example\x03org\x00"
+str(DHCP6OptClientFQDN(fqdn="toto.example.org")) == "\x00'\x00\x12\x00\x04toto\x07example\x03org"
 
 = DHCP6OptClientFQDN - Dissection with one fqdn 
-a = DHCP6OptClientFQDN("\x00'\x00\x13\x00\x04toto\x07example\x03org\x00")
-a.optcode == 39 and a.optlen == 19 and a.res == 0 and a.flags == 0 and a.fqdn == "toto.example.org"
+a = DHCP6OptClientFQDN("\x00'\x00\x12\x00\x04toto\x07example\x03org\x00")
+a.optcode == 39 and a.optlen == 18 and a.res == 0 and a.flags == 0 and a.fqdn == "toto.example.org"
 
 
 #####################################################################
@@ -3661,7 +3661,7 @@ a.msgtype == 7 and a.trid == 0
 
 = DHCP6_Reply - UDP ports overload
 a=UDP()/DHCP6_Reply()
-a.sport == 546 and a.dport == 547
+a.sport == 547 and a.dport == 546
 
 #####################################################################
 + Test DHCP6 Messages - DHCP6_Release
@@ -4212,40 +4212,40 @@ b.answers(a) and not a.answers(b) and c.answers(b) and not b.answers(c) and not 
 + Home Test Init Message
 
 = MIP6MH_HoTI - Build (default values)
-str(IPv6(src="2001:db8::1", dst="2001:db8::2")/MIP6MH_HoTI()) == '`\x00\x00\x00\x00\x0e\x87@ \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02;\x00\x01\x00g\xf5\x00\x00\x00\x00\x00\x00\x00\x00'
+str(IPv6(src="2001:db8::1", dst="2001:db8::2")/MIP6MH_HoTI()) == '`\x00\x00\x00\x00\x10\x87@ \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02;\x01\x01\x00g\xf2\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 
 = MIP6MH_HoTI - Dissection (default values)
-a=IPv6('`\x00\x00\x00\x00\x0e\x87@ \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02;\x00\x01\x00g\xf5\x00\x00\x00\x00\x00\x00\x00\x00')
+a=IPv6('`\x00\x00\x00\x00\x10\x87@ \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02;\x01\x01\x00g\xf2\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
 b = a.payload
-a.nh == 135 and isinstance(b, MIP6MH_HoTI) and b.nh==59 and b.mhtype == 1 and b.len== 0 and b.res == 0 and b.cksum == 0x67f5 and b.cookie == '\x00'*8
+a.nh == 135 and isinstance(b, MIP6MH_HoTI) and b.nh==59 and b.mhtype == 1 and b.len== 1 and b.res == 0 and b.cksum == 0x67f2 and b.cookie == '\x00'*8
 
 
 = MIP6MH_HoTI - Build (specific values)
-str(IPv6(src="2001:db8::1", dst="2001:db8::2")/MIP6MH_HoTI(res=0x77, cksum=0x8899, cookie="\xAA"*8)) == '`\x00\x00\x00\x00\x0e\x87@ \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02;\x00\x01w\x88\x99\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa'
+str(IPv6(src="2001:db8::1", dst="2001:db8::2")/MIP6MH_HoTI(res=0x77, cksum=0x8899, cookie="\xAA"*8)) == '`\x00\x00\x00\x00\x10\x87@ \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02;\x01\x01w\x88\x99\x00\x00\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa'
 
 = MIP6MH_HoTI - Dissection (specific values)
-a=IPv6('`\x00\x00\x00\x00\x0e\x87@ \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02;\x00\x01w\x88\x99\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa')
+a=IPv6('`\x00\x00\x00\x00\x10\x87@ \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02;\x01\x01w\x88\x99\x00\x00\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa')
 b=a.payload
-a.nh == 135 and isinstance(b, MIP6MH_HoTI) and b.nh==59 and b.mhtype == 1 and b.len== 0 and b.res == 0x77 and b.cksum == 0x8899 and b.cookie == '\xAA'*8
+a.nh == 135 and isinstance(b, MIP6MH_HoTI) and b.nh==59 and b.mhtype == 1 and b.len == 1 and b.res == 0x77 and b.cksum == 0x8899 and b.cookie == '\xAA'*8
 
 
 + Care-of Test Init Message
 
 = MIP6MH_CoTI - Build (default values)
-str(IPv6(src="2001:db8::1", dst="2001:db8::2")/MIP6MH_CoTI()) == '`\x00\x00\x00\x00\x0e\x87@ \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02;\x00\x02\x00f\xf5\x00\x00\x00\x00\x00\x00\x00\x00'
+str(IPv6(src="2001:db8::1", dst="2001:db8::2")/MIP6MH_CoTI()) == '`\x00\x00\x00\x00\x10\x87@ \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02;\x01\x02\x00f\xf2\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 
 = MIP6MH_CoTI - Dissection (default values)
-a=IPv6('`\x00\x00\x00\x00\x0e\x87@ \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02;\x00\x02\x00f\xf5\x00\x00\x00\x00\x00\x00\x00\x00')
+a=IPv6('`\x00\x00\x00\x00\x10\x87@ \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02;\x01\x02\x00f\xf2\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
 b = a.payload
-a.nh == 135 and isinstance(b, MIP6MH_CoTI) and b.nh==59 and b.mhtype == 2 and b.len== 0 and b.res == 0 and b.cksum == 0x66f5 and b.cookie == '\x00'*8
+a.nh == 135 and isinstance(b, MIP6MH_CoTI) and b.nh==59 and b.mhtype == 2 and b.len== 1 and b.res == 0 and b.cksum == 0x66f2 and b.cookie == '\x00'*8
 
 = MIP6MH_CoTI - Build (specific values)
-str(IPv6(src="2001:db8::1", dst="2001:db8::2")/MIP6MH_CoTI(res=0x77, cksum=0x8899, cookie="\xAA"*8)) == '`\x00\x00\x00\x00\x0e\x87@ \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02;\x00\x02w\x88\x99\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa'
+str(IPv6(src="2001:db8::1", dst="2001:db8::2")/MIP6MH_CoTI(res=0x77, cksum=0x8899, cookie="\xAA"*8)) == '`\x00\x00\x00\x00\x10\x87@ \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02;\x01\x02w\x88\x99\x00\x00\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa'
 
 = MIP6MH_CoTI - Dissection (specific values)
-a=IPv6('`\x00\x00\x00\x00\x0e\x87@ \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02;\x00\x02w\x88\x99\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa')
+a=IPv6('`\x00\x00\x00\x00\x10\x87@ \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02;\x01\x02w\x88\x99\x00\x00\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa')
 b=a.payload
-a.nh == 135 and isinstance(b, MIP6MH_CoTI) and b.nh==59 and b.mhtype == 2 and b.len== 0 and b.res == 0x77 and b.cksum == 0x8899 and b.cookie == '\xAA'*8
+a.nh == 135 and isinstance(b, MIP6MH_CoTI) and b.nh==59 and b.mhtype == 2 and b.len == 1 and b.res == 0x77 and b.cksum == 0x8899 and b.cookie == '\xAA'*8
 
 
 + Home Test Message
