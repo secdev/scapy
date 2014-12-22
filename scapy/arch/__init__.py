@@ -85,13 +85,14 @@ if scapy.config.conf.iface is None:
 def get_if_addr6(iff):
     """
     Returns the main global unicast address associated with provided 
-    interface. If no global address is found, None is returned. 
+    interface, in human readable form. If no global address is found,
+    None is returned. 
     """
-    r = filter(lambda x: x[2] == iff and x[1] == IPV6_ADDR_GLOBAL, in6_getifaddr())
-    if len(r) == 0:
-        return None
-    else:
-        return r[0][0]
+    for x in in6_getifaddr():
+        if x[2] == iff and x[1] == IPV6_ADDR_GLOBAL:
+            return x[0]
+        
+    return None
 
 def get_if_raw_addr6(iff):
     """
@@ -99,9 +100,8 @@ def get_if_raw_addr6(iff):
     interface, in network format. If no global address is found, None 
     is returned. 
     """
-    r = filter(lambda x: x[2] == iff and x[1] == IPV6_ADDR_GLOBAL, in6_getifaddr())
-    if len(r) == 0:
-        return None
-    else:
-        r = r[0][0] 
-    return inet_pton(socket.AF_INET6, r)
+    ip6= get_if_addr6(iff)
+    if ip6 is not None:
+        return inet_pton(socket.AF_INET6, ip6)
+    
+    return None

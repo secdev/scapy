@@ -585,7 +585,7 @@ class OSPFv3_Inter_Area_Prefix_LSA(OSPF_BaseLSA):
                    FieldLenField("prefixlen", None, length_of="prefix", fmt="B"),
                    OSPFv3PrefixOptionsField(),
                    ShortField("reserved2", 0),
-                   IP6PrefixField("prefix", None, wordbytes=4, length_from=lambda pkt: pkt.prefixlen)]
+                   IP6PrefixField("prefix", "2001:db8:0:42::/64", wordbytes=4, length_from=lambda pkt: pkt.prefixlen)]
 
 
 class OSPFv3_Inter_Area_Router_LSA(OSPF_BaseLSA):
@@ -618,7 +618,7 @@ class OSPFv3_AS_External_LSA(OSPF_BaseLSA):
                    FieldLenField("prefixlen", None, length_of="prefix", fmt="B"),
                    OSPFv3PrefixOptionsField(),
                    ShortEnumField("reflstype", 0, _OSPFv3_LStypes),
-                   IP6PrefixField("prefix", None, wordbytes=4, length_from=lambda pkt: pkt.prefixlen),
+                   IP6PrefixField("prefix", "2001:db8:0:42::/64", wordbytes=4, length_from=lambda pkt: pkt.prefixlen),
                    ConditionalField(IP6Field("fwaddr", "::"), lambda pkt: pkt.flags & 0x02 == 0x02),
                    ConditionalField(IntField("tag", 0), lambda pkt: pkt.flags & 0x01 == 0x01),
                    ConditionalField(IPField("reflsid", 0), lambda pkt: pkt.reflstype != 0)]
@@ -634,7 +634,7 @@ class OSPFv3_Prefix_Item(Packet):
     fields_desc = [FieldLenField("prefixlen", None, length_of="prefix", fmt="B"),
                    OSPFv3PrefixOptionsField(),
                    ShortField("metric", 10),
-                   IP6PrefixField("prefix", None, wordbytes=4, length_from=lambda pkt: pkt.prefixlen)]
+                   IP6PrefixField("prefix", "2001:db8:0:42::/64", wordbytes=4, length_from=lambda pkt: pkt.prefixlen)]
 
     def extract_padding(self, s):
         return "", s

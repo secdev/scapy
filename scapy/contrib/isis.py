@@ -70,9 +70,6 @@ conf.debug_dissector= True
 #######################################################################
 
 def isis_area2str(area):
-    if len(area) == 0:
-        return ""
-    
     return "".join(x.decode("hex") for x in area.split("."))
 
 def isis_str2area(s):

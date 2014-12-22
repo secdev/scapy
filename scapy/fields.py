@@ -928,21 +928,25 @@ class _IPPrefixFieldBase(Field):
         return ((pfxlen + (wbits - 1)) / wbits) * self.wordbytes
     
     def h2i(self, pkt, x):
+        # "fc00:1::1/64" -> ("fc00:1::1", 64)
         [pfx,pfxlen]= x.split('/')
         self.aton(pfx) # check for validity
         return (pfx, int(pfxlen))
 
 
     def i2h(self, pkt, x):
+        # ("fc00:1::1", 64) -> "fc00:1::1/64"
         (pfx,pfxlen)= x
         return "%s/%i" % (pfx,pfxlen)
 
     def i2m(self, pkt, x):
+        # ("fc00:1::1", 64) -> ("\xfc\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01", 64)
         (pfx,pfxlen)= x
         s= self.aton(pfx);
-        return s[:self._numbytes(pfxlen)]
+        return (s[:self._numbytes(pfxlen)], pfxlen)
     
     def m2i(self, pkt, x):
+        # ("\xfc\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01", 64) -> ("fc00:1::1", 64)
         (s,pfxlen)= x
         
         if len(s) < self.maxbytes:
@@ -960,9 +964,9 @@ class _IPPrefixFieldBase(Field):
         return pfxlen
         
     def addfield(self, pkt, s, val):
-        (_,pfxlen)= val
+        (rawpfx,pfxlen)= self.i2m(pkt,val)
         fmt= "!%is" % self._numbytes(pfxlen)
-        return s+struct.pack(fmt, self.i2m(pkt,val))
+        return s+struct.pack(fmt, rawpfx)
     
     def getfield(self, pkt, s):
         pfxlen= self.length_from(pkt)
