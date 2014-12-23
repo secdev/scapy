@@ -296,6 +296,8 @@ class Packet(BasePacket):
     def __len__(self):
         return len(self.__str__())
     def self_build(self, field_pos_list=None):
+        if self.raw_packet_cache is not None:
+            return self.raw_packet_cache
         p=""
         for f in self.fields_desc:
             val = self.getfieldval(f.name)
@@ -314,10 +316,7 @@ class Packet(BasePacket):
     def do_build(self):
         if not self.explicit:
             self = self.__iter__().next()
-        if self.raw_packet_cache is None:
-            pkt = self.self_build()
-        else:
-            pkt = self.raw_packet_cache
+        pkt = self.self_build()
         for t in self.post_transforms:
             pkt = t(pkt)
         pay = self.do_build_payload()
@@ -1148,7 +1147,8 @@ class Padding(Raw):
     def self_build(self):
         return ""
     def build_padding(self):
-        return self.load+self.payload.build_padding()
+        return (self.load if self.raw_packet_cache is None
+                else self.raw_packet_cache) + self.payload.build_padding()
 
 conf.raw_layer = Raw
 conf.padding_layer = Padding

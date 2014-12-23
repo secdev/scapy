@@ -17,6 +17,8 @@ class ASN1_Packet(Packet):
         self.do_init_fields(flist)
         self.fields_desc = flist    
     def self_build(self):
+        if self.raw_packet_cache is not None:
+            return self.raw_packet_cache
         return self.ASN1_root.build(self)    
     def do_dissect(self, x):
         return self.ASN1_root.dissect(self, x)
