@@ -353,7 +353,7 @@ class GTP_U_Header(Packet):
                     BitField("E", 0,1),
                     BitField("S", 0, 1),
                     BitField("PN", 0, 1),
-                    ByteEnumField("type", None, GTPmessageType),
+                    ByteEnumField("gtp_type", None, GTPmessageType),
                     BitField("length", None, 16),
                     XBitField("TEID", 0, 32),
                     ConditionalField(XBitField("seq", 0, 16), lambda pkt:pkt.E==1 or pkt.S==1 or pkt.PN==1),
@@ -363,25 +363,14 @@ class GTP_U_Header(Packet):
 
     def post_build(self, p, pay):
         p += pay
-        warning("Packet length: " + str(len(p)-8))
         if self.length is None:
             l = len(p)-8
-            p = p[:1] + struct.pack("!i",l)+ p[4:]
-        if self.type is None:
-            if isinstance(self.payload, IP):
-                t = 255
-            else:
-                warning("GTP-U Header: Not PDU detected.")
-                t = 255
-            p = p[:1] + struct.pack("!B",t) + p[3:]
+            p = p[:2] + struct.pack("!H", l)+ p[4:]
         return p
 
 class GTPmorethan1500(Packet):
     # 3GPP TS 29.060 V9.1.0 (2009-12)
     name = "GTP More than 1500"
-    # GTP-U protocol is used to transmit T-PDUs between GSN pairs (or between an SGSN and an RNC in UMTS),
-    # encapsulated in G-PDUs. A G-PDU is a packet including a GTP-U header and a T-PDU. The Path Protocol
-    # defines the path and the GTP-U header defines the tunnel. Several tunnels may be multiplexed on a single path.
     fields_desc = [ ByteEnumField("IE_Cause", "Cause", IEType),
                     BitField("IE", 1, 12000),]
 
@@ -395,7 +384,7 @@ bind_layers(GTPHeader, GTPDeletePDPContextRequest, gtp_type = 20)
 bind_layers(GTPHeader, GTPDeletePDPContextResponse, gtp_type = 21)
 # Bind GTP-U
 bind_layers(UDP, GTP_U_Header)
-bind_layers(GTP_U_Header, IP)
+bind_layers(GTP_U_Header, IP, gtp_type = 255)
 
 if __name__ == "__main__":
     interact(mydict=globals(), mybanner="Test GTPv1 add-on v0.1")
