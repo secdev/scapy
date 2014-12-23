@@ -288,7 +288,7 @@ class IE_MSInternationalNumber(Packet):
     def extract_padding(self, pkt):
         return "",pkt
 
-class IE_NotImplemented(Packet):
+class IE_NotImplementedTLV(Packet):
     name = "IE not implemented"
     fields_desc = [ ByteEnumField("ietype", 0, IEType),
                     ShortField("length",  None),
@@ -299,17 +299,23 @@ class IE_NotImplemented(Packet):
 ietypecls = {   1: IE_Cause, 2: IE_IMSI, 3: IE_Routing, 15: IE_SelectionMode, 16: IE_TEIDI,
                17: IE_TEICP, 19: IE_Teardown, 20: IE_NSAPI, 26: IE_ChargingCharacteristics,
                27: IE_TraceReference, 28: IE_TraceType,
-              128: IE_EndUserAddress, 131: IE_AccessPointName, 132: IE_NotImplemented,
-              133: IE_GSNAddress, 134: IE_MSInternationalNumber, 135: IE_NotImplemented,
-              148: IE_NotImplemented, 151: IE_NotImplemented, 152:
-              IE_NotImplemented,
-              153: IE_NotImplemented, 154: IE_NotImplemented }
+              128: IE_EndUserAddress, 131: IE_AccessPointName } 
 
 def IE_Dispatcher(s):
+  """Choose the correct Information Element class."""
+
   if len(s) < 1:
     return Raw(s)
+
+  # Get the IE type
   ietype = ord(s[0])
-  return ietypecls.get(ietype, Raw)(s)
+  cls = ietypecls.get(ietype, Raw)
+
+  # if ietype greater than 128 are TLVs
+  if cls == Raw and ietype & 128 == 128:
+    cls = IE_NotImplementedTLV
+
+  return cls(s)
 
 class GTPEchoResponse(Packet):
     # 3GPP TS 29.060 V9.1.0 (2009-12)
