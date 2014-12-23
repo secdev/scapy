@@ -1,7 +1,12 @@
-## This file is not now part of Scapy 
-## Look iniqua.com for more informations
-## ffranz <ffranz@iniqua.com>
+#! /usr/bin/env python
+
+## Copyright (C) 2014  Guillaume Valadon <guillaume.valadom@ssi.gouv.fr>
+##               2012  ffranz <ffranz@iniqua.com>
+##
 ## This program is published under a GPLv2 license
+
+# scapy.contrib.description = GTP
+# scapy.contrib.status = loads
 
 import time
 import logging
@@ -37,7 +42,15 @@ IEType = {  1 : "Cause",
            28 : "TraceType",
            128: "EndUserAddress",
            131: "AccessPointName",
-           133: "GSNAddress" }
+           132: "ProtocolConfigurationOptions",
+           133: "GSNAddress",
+           134: "MSInternationalNumber",
+           135: "QoS",
+           148: "CommonFlags",
+           151: "RatType",
+           152: "UserLocationInformation",
+           153: "MSTimeZone",
+           154: "IMEI" }
 
 CauseValues = {  0 : "Request IMSI",
                  1 : "Request IMEI",
@@ -143,46 +156,83 @@ class GTPEchoRequest(Packet):
                     ByteField("npdu", 0),
                     ByteField("next_ex", 0),]
 
-class GTPEchoResponse(Packet):
-    # 3GPP TS 29.060 V9.1.0 (2009-12)
-    name = "GTP Echo Response"
-    fields_desc = [ XBitField("seq", 0, 16),
-                    ByteField("npdu", 0),
-                    ByteField("next_ex", 0),
-                    ByteEnumField("IE_Recovery", "Recovery", IEType),
-                    ByteField("res-counter", 24), ]
+class IE_Cause(Packet):
+    name = "Cause"
+    fields_desc = [ ByteEnumField("ietype", 1, IEType),
+                    BitField("Response", None, 1),
+                    BitField("Rejection", None, 1),
+                    BitEnumField("CauseValue", None, 6,  CauseValues), ]
+    def extract_padding(self, pkt):
+        return "",pkt
 
-class GTPCreatePDPContextRequest(Packet):
-    # 3GPP TS 29.060 V9.1.0 (2009-12)
-    name = "GTP Create PDP Context Request"
-    fields_desc = [ XBitField("seq", 0, 16),
-                    ByteField("npdu", 0),
-                    ByteField("next_ex", 0),
-                    # IMSI: Conditional - Subscriber identity of de MS
-                    ByteEnumField("IE_IMSI", "IMSI", IEType),
-                    BitField("IMSI", 0, 64),
-                    # RAI: Optional - Routeing Area Identity
-                    ByteEnumField("IE_RAI", "RAI", IEType),
+
+class IE_IMSI(Packet):
+    name = "IMSI - Subscriber identity of the MS"
+    fields_desc = [ ByteEnumField("ietype", 2, IEType),
+                    StrFixedLenField("IMSI", "", 8) ]
+    def extract_padding(self, pkt):
+        return "",pkt
+
+class IE_Routing(Packet):
+    name = "Routing Area Identity"
+    fields_desc = [ ByteEnumField("ietype", 3, IEType),
                     BitField("MCC", None, 12),
                     # MNC: If only have 2 digits, then third digit (1byte) is 0xf
                     BitField("MNC", None, 12),
                     BitField("LAC", None, 16),
-                    ByteField("RAC", None),
-                    # Selection Mode: Conditional - Indicates the origin of the APN in the message
-                    ByteEnumField("IE_SelectionMode", "SelectionMode", IEType),
-                    # First 6 bits are "1". Use only first 2 bits.
-                    BitEnumField("SelectionMode", "MSorAPN",  8, Selection_Mode),
-                    # TEIDI: Mandatory - Tunnel Endpoint Identifier Data I
-                    ByteEnumField("IE_TEIDI", "TEIDI", IEType),
-                    XBitField("TEIDI", 0, 32),
-                    # TEICP: Conditional - Tunnel Endpoint Identifier Control Plane
-                    ByteEnumField("IE_TEICP", "TEICP", IEType),
-                    XBitField("TEICP", 0, 32),
-                    # NSAPI: Mandatory - identifying a PDP context in a mobility management context specified by TEICP
-                    ByteEnumField("IE_NASPI", "NSAPI", IEType),
+                    ByteField("RAC", None) ]
+    def extract_padding(self, pkt):
+        return "",pkt
+
+class IE_Recovery(Packet):
+    name = "Recovery"
+    fields_desc = [ ByteEnumField("ietype", 14, IEType),
+                    ByteField("res-counter", 24) ]
+    def extract_padding(self, pkt):
+        return "",pkt
+
+class IE_SelectionMode(Packet):
+    # Indicates the origin of the APN in the message
+    name = "Selection Mode"
+    fields_desc = [ ByteEnumField("ietype", 15, IEType),
+                    BitEnumField("SelectionMode", "MSorAPN", 8, Selection_Mode) ]
+    def extract_padding(self, pkt):
+        return "",pkt
+
+class IE_TEIDI(Packet):
+    name = "Tunnel Endpoint Identifier Data"
+    fields_desc = [ ByteEnumField("ietype", 16, IEType),
+                    StrFixedLenField("TEIDI", "", 4) ]
+    def extract_padding(self, pkt):
+        return "",pkt
+
+class IE_TEICP(Packet):
+    name = "Tunnel Endpoint Identifier Control Plane"
+    fields_desc = [ ByteEnumField("ietype", 17, IEType),
+                    StrFixedLenField("TEICP", "", 4) ]
+    def extract_padding(self, pkt):
+        return "",pkt
+
+class IE_Teardown(Packet):
+    name = "Teardown Indicator"
+    fields_desc = [ ByteEnumField("ietype", 19, IEType),
+                    ByteEnumField("indicator", "True", TeardownInd_value) ]
+    def extract_padding(self, pkt):
+        return "",pkt
+
+class IE_NSAPI(Packet):
+    # Identifies a PDP context in a mobility management context specified by TEICP
+    name = "NSAPI"
+    fields_desc = [ ByteEnumField("ietype", 20, IEType),
                     XBitField("SpareNSAPI", 0x0000, 4),
-                    XBitField("NSAPI", 0x0000, 4),
-                    # Charging Characteristics: Conditional - way of informing both the SGSN and GGSN of the rules for 
+                    XBitField("NSAPI", 0x0000, 4) ]
+    def extract_padding(self, pkt):
+        return "",pkt
+
+class IE_ChargingCharacteristics(Packet):
+    # Way of informing both the SGSN and GGSN of the rules for 
+    name = "Charging Characteristics"
+    fields_desc = [ ByteEnumField("ietype", 26, IEType),
                     # producing charging information based on operator configured triggers.
                     #    0000 .... .... .... : spare
                     #    .... 1... .... .... : normal charging
@@ -190,21 +240,36 @@ class GTPCreatePDPContextRequest(Packet):
                     #    .... ..0. .... .... : flat rate charging
                     #    .... ...0 .... .... : hot billing charging
                     #    .... .... 0000 0000 : reserved
-                    ByteEnumField("IE_ChargingChrt", "ChargingChrt", IEType),
                     XBitField("Ch_ChSpare", None, 4),
                     XBitField("normal_charging", None, 1),
                     XBitField("prepaid_charging", None, 1),
                     XBitField("flat_rate_charging", None, 1),
                     XBitField("hot_billing_charging", None, 1),
-                    XBitField("Ch_ChReserved", 0, 8),
-                    # Trace Reference: Optional - Identifies a record or a collection of records for a particular trace.
-                    ByteEnumField("IE_TraceReference", "TraceReference", IEType),
-                    XBitField("Trace_reference", None, 16),
-                    # Trace Type: Optional - Indicate the type of the trace
-                    ByteEnumField("IE_TraceType", "TraceType", IEType),
-                    XBitField("Trace_type", None, 16),
-                    #         End User Address: Conditional - to supply protocol specific information of the external packet 
-                    #         data network accessed by the GGPRS suscribers.
+                    XBitField("Ch_ChReserved", 0, 8) ]
+    def extract_padding(self, pkt):
+        return "",pkt
+
+class IE_TraceReference(Packet):
+    # Identifies a record or a collection of records for a particular trace.
+    name = "Trace Reference"
+    fields_desc = [ ByteEnumField("ietype", 27, IEType),
+                    XBitField("Trace_reference", None, 16) ]
+    def extract_padding(self, pkt):
+        return "",pkt
+
+class IE_TraceType(Packet):
+    # Indicates the type of the trace
+    name = "Trace Type"
+    fields_desc = [ ByteEnumField("ietype", 28, IEType),
+                    XBitField("Trace_type", None, 16) ]
+    def extract_padding(self, pkt):
+        return "",pkt
+
+class IE_EndUserAddress(Packet):
+    # Supply protocol specific information of the external packet 
+    name = "End User Addresss"
+    fields_desc = [ ByteEnumField("ietype", 128, IEType),
+                    #         data network accessed by the GGPRS subscribers.
                     #            - Request
                     #                1    Type (1byte)
                     #                2-3    Length (2bytes) - value 2
@@ -212,22 +277,73 @@ class GTPCreatePDPContextRequest(Packet):
                     #                5    PDP Type Number    
                     #            - Response
                     #                6-n    PDP Address
-                    ByteEnumField("IE_EndUserAddress", "EndUserAddress",  IEType),
                     BitField("EndUserAddressLength", 2, 16),
                     BitField("EndUserAddress", 1111, 4),
                     BitField("PDPTypeOrganization", 1, 4),
-                    XByteField("PDPTypeNumber", None),
-                    # Access Point Name: Conditional - Sent by SGSN or by GGSN as defined in 3GPP TS 23.060
-                    ByteEnumField("IE_AccessPointName", "AccessPointName", IEType),
-                    ByteField("APNLength",  None),
-                        #,    length_from=lambda pkt:len(pkt.APNUrl)),
-                    StrField("APNUrl", "apn.es"),
-                    # Protocol Configuration: 
-                    # GSN Address:
-                    ByteEnumField("IE_GSNAddress1", "GSNAddress", IEType),
-                    LongField("GSNAddressLength", 4),
-                    IPField("IPGSN1", "0.0.0.0"), ]
-                    # GSN Address:
+                    XByteField("PDPTypeNumber", None) ]
+    def extract_padding(self, pkt):
+        return "",pkt
+
+class IE_AccessPointName(Packet):
+    # Sent by SGSN or by GGSN as defined in 3GPP TS 23.060
+    name = "Access Point Name"
+    fields_desc = [ ByteEnumField("ietype", 131, IEType),
+                    ShortField("length",  None),
+                    StrLenField("APN", "apn.es", length_from=lambda x: x.length) ]
+    def extract_padding(self, pkt):
+        return "",pkt
+
+class IE_GSNAddress(Packet):
+    name = "GSN Address"
+    fields_desc = [ ByteEnumField("ietype", 133, IEType),
+                    ShortField("length", 4),
+                    IPField("address", "0.0.0.0") ]
+    def extract_padding(self, pkt):
+        return "",pkt
+
+class IE_NotImplemented(Packet):
+    name = "IE not implemented"
+    fields_desc = [ ByteEnumField("ietype", 0, IEType),
+                    ShortField("length",  None),
+                    StrLenField("data", "", length_from=lambda x: x.length) ]
+    def extract_padding(self, pkt):
+        return "",pkt
+
+ietypecls = {   1: IE_Cause, 2: IE_IMSI, 3: IE_Routing, 15: IE_SelectionMode, 16: IE_TEIDI,
+               17: IE_TEICP, 19: IE_Teardown, 20: IE_NSAPI, 26: IE_ChargingCharacteristics,
+               27: IE_TraceReference, 28: IE_TraceType,
+              128: IE_EndUserAddress, 131: IE_AccessPointName, 132: IE_NotImplemented,
+              133: IE_GSNAddress, 134: IE_NotImplemented, 135: IE_NotImplemented,
+              148: IE_NotImplemented, 151: IE_NotImplemented, 152: IE_NotImplemented,
+              153: IE_NotImplemented, 154: IE_NotImplemented }
+
+def IE_Dispatcher(s):
+  if len(s) < 1:
+    return Raw(s)
+  ietype = ord(s[0])
+  return ietypecls.get(ietype, Raw)(s)
+
+class GTPEchoResponse(Packet):
+    # 3GPP TS 29.060 V9.1.0 (2009-12)
+    name = "GTP Echo Response"
+    fields_desc = [ XBitField("seq", 0, 16),
+                    ByteField("npdu", 0),
+                    ByteField("next_ex", 0),
+                    PacketListField("IE_list", [], IE_Dispatcher) ]
+
+class GTPCreatePDPContextRequest(Packet):
+    # 3GPP TS 29.060 V9.1.0 (2009-12)
+    name = "GTP Create PDP Context Request"
+    fields_desc = [ XBitField("seq", 0, 16),
+                    ByteField("npdu", 0),
+                    ByteField("next_ex", 0),
+                    PacketListField("IE_list", [], IE_Dispatcher) ]
+
+class OLD_GTPCreatePDPContextRequest(Packet):
+    # 3GPP TS 29.060 V9.1.0 (2009-12)
+    name = "GTP Create PDP Context Request"
+    fields_desc = [ XBitField("seq", 0, 16),
+                    PacketListField("IE_list", [], IE_Dispatcher) ]
                 
 
 class GTPErrorIndication(Packet):
@@ -236,13 +352,7 @@ class GTPErrorIndication(Packet):
     fields_desc = [ XBitField("seq", 0, 16),
                     ByteField("npdu", 0),
                     ByteField("next_ex",0),
-                    # TEIDI: Mandatory - Tunnel Endpoint Identifier Data I
-                    ByteEnumField("IE_TEIDI", "TEIDI", IEType),
-                    XBitField("TEIDI", 0, 32),
-                    # GSN Address:
-                    ByteEnumField("IE_GSNAddress1", "GSNAddress", IEType),
-                    BitField("GSNAddressLength", 4, 16),
-                    IPField("IPGSN1", "252.253.254.255"), ]
+                    PacketListField("IE_list", [], IE_Dispatcher) ]
 
 class GTPDeletePDPContextRequest(Packet):
     # 3GPP TS 29.060 V9.1.0 (2009-12)
@@ -250,17 +360,7 @@ class GTPDeletePDPContextRequest(Packet):
     fields_desc = [ XBitField("seq", 0, 16),
                     ByteField("npdu", 0),
                     ByteField("next_ex", 0),
-                    # Teardown Ind: conditional - If this element is set to "1", all PDP Contexts that share the same PDP
-                    #                address or two IP addresses with the PDP context identified by the 
-                    #                NSAPI included in the Delete PDP Context Request Message shall be torn down.
-                    ByteEnumField("IE_TeardownInd",    "TeardownInd",    IEType),
-                    ByteEnumField("TeardownInd",    "True",    TeardownInd_value),
-                    # NSAPI: Mandatory - identifying a PDP context in a mobility management context specified by TEICP
-                    ByteEnumField("IE_NSAPI",    "NSAPI",        IEType),
-                    XBitField("SpareNSAPI",      0x0000,      4),
-                    XBitField("NSAPI",      0x0000,    4), ]
-        # Protocol Configuration Options: Optional - TODO
-        # Private Extensions: Optional - Contains vendor specific information. TODO
+                    PacketListField("IE_list", [], IE_Dispatcher) ]
 
 class GTPDeletePDPContextResponse(Packet):
     # 3GPP TS 29.060 V9.1.0 (2009-12)
@@ -268,15 +368,7 @@ class GTPDeletePDPContextResponse(Packet):
     fields_desc = [ XBitField("seq", 0, 16),
                     ByteField("npdu", 0),
                     ByteField("next_ex",0),
-                    # Cause: Mandatory -
-                    ByteEnumField("IE_Cause", "Cause", IEType),
-                    BitField("Response", None, 1),
-                    BitField("Rejection", None, 1),
-                    BitEnumField("CauseValue", None, 6,  CauseValues), ]
-                    # Protocol Configuration Options: Optional - TODO
-                    # User Location Information: Optional - TODO
-                    # MS Time Zone: Optional - TODO
-                    # Private Extension: Optional - TODO 
+                    PacketListField("IE_list", [], IE_Dispatcher) ]
 
 class GTP_U_Header(Packet):
     # 3GPP TS 29.060 V9.1.0 (2009-12)
@@ -293,14 +385,9 @@ class GTP_U_Header(Packet):
                     ByteEnumField("type", None, GTPmessageType),
                     BitField("length", None, 16),
                     XBitField("TEID", 0, 32),
-                    # Conditional fields: 
-                    #        XBitField("seq", 0, 16), 
-                    ByteField("npdu", 0),
-                    ByteField("next_ex", 0),
-
-            ConditionalField(XBitField("seq",        0,      16), lambda pkt:pkt.S == 1),
-                #       ConditionalField(ByteField("npdu",       0), lambda pkt:pkt.PT == 1),
-                #       ConditionalField(ByteField("next_ex",    0), lambda pkt:pkt.E == 1),
+                    ConditionalField(XBitField("seq", 0, 16), lambda pkt:pkt.E==1 or pkt.S==1 or pkt.PN==1),
+                    ConditionalField(ByteField("npdu", 0), lambda pkt:pkt.E==1 or pkt.S==1 or pkt.PN==1),
+                    ConditionalField(ByteField("next_ex", 0), lambda pkt:pkt.E==1 or pkt.S==1 or pkt.PN==1),
             ]
 
     def post_build(self, p, pay):
@@ -330,12 +417,12 @@ class GTPmorethan1500(Packet):
 
 # Bind GTP-C
 bind_layers(UDP, GTPHeader)
-bind_layers( GTPHeader, GTPEchoRequest)
-bind_layers(GTPHeader, GTPEchoResponse)
-bind_layers(GTPHeader, GTPCreatePDPContextRequest)
-bind_layers(GTPHeader, GTPDeletePDPContextRequest)
-bind_layers(GTPHeader, GTPDeletePDPContextResponse)
-#Bind GTP-U
+bind_layers(GTPHeader, GTPEchoRequest, type = 1)
+bind_layers(GTPHeader, GTPEchoResponse, type = 2)
+bind_layers(GTPHeader, GTPCreatePDPContextRequest, type = 16)
+bind_layers(GTPHeader, GTPDeletePDPContextRequest, type = 20)
+bind_layers(GTPHeader, GTPDeletePDPContextResponse, type = 21)
+# Bind GTP-U
 bind_layers(UDP, GTP_U_Header)
 bind_layers(GTP_U_Header, IP)
 
