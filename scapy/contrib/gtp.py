@@ -59,9 +59,9 @@ CauseValues = {  0 : "Request IMSI",
                  4 : "MS Refuses",
                  5 : "MS is not GPRS Responding",
                128 : "Request accepted",
-               129 : "New PDP type due to network prefernce",
+               129 : "New PDP type due to network preference",
                130 : "New PDP type due to single address bearer only",
-               192 : "Non-exitent",
+               192 : "Non-existent",
                193 : "Invalid message format",
                194 : "IMSI not known",
                195 : "MS is GPRS Detached",
@@ -76,17 +76,17 @@ CauseValues = {  0 : "Request IMSI",
                204 : "System failure",
                205 : "Roaming restriction",
                206 : "P-TMSI Signature mismatch",
-               207 : "GRPS connection suspended",
+               207 : "GPRS connection suspended",
                208 : "Authentication failure",
                209 : "User authentication failed",
                210 : "Context not found",
                211 : "All dynamic PDP addresses are occupied",
                212 : "No memory is available",
-               213 : "Realocation failure",
+               213 : "Reallocation failure",
                214 : "Unknown mandatory extension header",
                215 : "Semantic error in the TFT operation",
                216 : "Syntactic error in TFT operation",
-               217 : "Semantc errors in packet filter(s)",
+               217 : "Semantic errors in packet filter(s)",
                218 : "Syntactic errors in packet filter(s)",
                219 : "Missing or unknown APN",
                220 : "Unknown PDP address or PDP type",
@@ -110,44 +110,22 @@ TeardownInd_value = {  254 : "False",
 class GTPHeader(Packet):
     # 3GPP TS 29.060 V9.1.0 (2009-12)
     name = "GTP Header"
-    fields_desc=[BitField("version", 1, 3),
-                    BitField("PT", 1, 1),
-                    BitField("Reserved", 0, 1),
-                    BitField("E", 0, 1),
-                    BitField("S", 1, 1),
-                    BitField("PN", 0, 1),
-                    ByteEnumField("type", None, GTPmessageType),
-                    BitField("length", None, 16),
-                    XBitField("TEID", 0, 32),]
+    fields_desc=[ BitField("version", 1, 3),
+                  BitField("PT", 1, 1),
+                  BitField("Reserved", 0, 1),
+                  BitField("E", 0, 1),
+                  BitField("S", 1, 1),
+                  BitField("PN", 0, 1),
+                  ByteEnumField("gtp_type", None, GTPmessageType),
+                  ShortField("length", None),
+                  IntField("TEID", 0) ]
 
     def post_build(self, p, pay):
-        p +=pay
-        warning("Packet length: " + str(len(p)-8))
+        p += pay
         if self.length is None:
             l = len(p)-8
-            p = p[:1] + struct.pack("!i",l)+ p[4:]
-        if self.type is None:
-            if isinstance(self.payload, GTPEchoRequest):
-                t = 1
-            elif isinstance(self.payload, GTPEchoResponse):
-                t = 2
-            elif isinstance(self.payload, GTPCreatePDPContextRequest):
-                t = 16
-            elif isinstance(self.payload, GTPDeletePDPContextRequest):
-                t = 20
-            elif isinstance(self.payload, GTPDeletePDPContextResponse):
-                t = 21
-            elif isinstance(self.payload, GTPErrorIndication):
-                t = 26
-            else:
-                warning("GTPHeader: cannot GPT type! Set type 1 (Echo Request).")
-                t = 1
-            p = p[:1] + struct.pack("!B",t) + p[3:]
-        #if self.payload.seq is not None:
-        #    warning("TODO: Set S bit '1' because seq number is present.")
-        #else:
-        #    warning("TODO: Set S bit '0' because seq number is not present.")
-            return p
+            p = p[:2] + struct.pack("!H", l)+ p[4:]
+        return p
 
 class GTPEchoRequest(Packet):
     # 3GPP TS 29.060 V9.1.0 (2009-12)
@@ -339,13 +317,6 @@ class GTPCreatePDPContextRequest(Packet):
                     ByteField("next_ex", 0),
                     PacketListField("IE_list", [], IE_Dispatcher) ]
 
-class OLD_GTPCreatePDPContextRequest(Packet):
-    # 3GPP TS 29.060 V9.1.0 (2009-12)
-    name = "GTP Create PDP Context Request"
-    fields_desc = [ XBitField("seq", 0, 16),
-                    PacketListField("IE_list", [], IE_Dispatcher) ]
-                
-
 class GTPErrorIndication(Packet):
     # 3GPP TS 29.060 V9.1.0 (2009-12)
     name = "GTP Error Indication"
@@ -417,11 +388,11 @@ class GTPmorethan1500(Packet):
 
 # Bind GTP-C
 bind_layers(UDP, GTPHeader)
-bind_layers(GTPHeader, GTPEchoRequest, type = 1)
-bind_layers(GTPHeader, GTPEchoResponse, type = 2)
-bind_layers(GTPHeader, GTPCreatePDPContextRequest, type = 16)
-bind_layers(GTPHeader, GTPDeletePDPContextRequest, type = 20)
-bind_layers(GTPHeader, GTPDeletePDPContextResponse, type = 21)
+bind_layers(GTPHeader, GTPEchoRequest, gtp_type = 1)
+bind_layers(GTPHeader, GTPEchoResponse, gtp_type = 2)
+bind_layers(GTPHeader, GTPCreatePDPContextRequest, gtp_type = 16)
+bind_layers(GTPHeader, GTPDeletePDPContextRequest, gtp_type = 20)
+bind_layers(GTPHeader, GTPDeletePDPContextResponse, gtp_type = 21)
 # Bind GTP-U
 bind_layers(UDP, GTP_U_Header)
 bind_layers(GTP_U_Header, IP)
