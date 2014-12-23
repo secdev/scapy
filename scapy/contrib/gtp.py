@@ -11,9 +11,6 @@
 import time
 import logging
 
-from scapy.packet import *
-from scapy.fields import *
-from scapy.layers.inet import UDP
 from scapy.all import *
 
 # GTP Data types
@@ -404,4 +401,4 @@ bind_layers(UDP, GTP_U_Header)
 bind_layers(GTP_U_Header, IP, gtp_type = 255)
 
 if __name__ == "__main__":
-    interact(mydict=globals(), mybanner="Test GTPv1 add-on v0.1")
+    interact(mydict=globals(), mybanner="GTPv1 add-on")
