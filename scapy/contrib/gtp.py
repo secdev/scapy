@@ -279,6 +279,15 @@ class IE_GSNAddress(Packet):
     def extract_padding(self, pkt):
         return "",pkt
 
+class IE_MSInternationalNumber(Packet):
+    name = "MS International Number"
+    fields_desc = [ ByteEnumField("ietype", 134, IEType),
+                    ShortField("length", None),
+                    FlagsField("flags", 0, 8, ["Extension","","","International Number","","","","ISDN numbering"]),
+                    StrLenField("digits", "33607080910", length_from=lambda x: x.length-1) ]
+    def extract_padding(self, pkt):
+        return "",pkt
+
 class IE_NotImplemented(Packet):
     name = "IE not implemented"
     fields_desc = [ ByteEnumField("ietype", 0, IEType),
@@ -291,8 +300,9 @@ ietypecls = {   1: IE_Cause, 2: IE_IMSI, 3: IE_Routing, 15: IE_SelectionMode, 16
                17: IE_TEICP, 19: IE_Teardown, 20: IE_NSAPI, 26: IE_ChargingCharacteristics,
                27: IE_TraceReference, 28: IE_TraceType,
               128: IE_EndUserAddress, 131: IE_AccessPointName, 132: IE_NotImplemented,
-              133: IE_GSNAddress, 134: IE_NotImplemented, 135: IE_NotImplemented,
-              148: IE_NotImplemented, 151: IE_NotImplemented, 152: IE_NotImplemented,
+              133: IE_GSNAddress, 134: IE_MSInternationalNumber, 135: IE_NotImplemented,
+              148: IE_NotImplemented, 151: IE_NotImplemented, 152:
+              IE_NotImplemented,
               153: IE_NotImplemented, 154: IE_NotImplemented }
 
 def IE_Dispatcher(s):
