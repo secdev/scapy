@@ -299,7 +299,8 @@ class IE_NotImplementedTLV(Packet):
 ietypecls = {   1: IE_Cause, 2: IE_IMSI, 3: IE_Routing, 15: IE_SelectionMode, 16: IE_TEIDI,
                17: IE_TEICP, 19: IE_Teardown, 20: IE_NSAPI, 26: IE_ChargingCharacteristics,
                27: IE_TraceReference, 28: IE_TraceType,
-              128: IE_EndUserAddress, 131: IE_AccessPointName, 133: IE_GSNAddress } 
+              128: IE_EndUserAddress, 131: IE_AccessPointName, 133: IE_GSNAddress,
+              134: IE_MSInternationalNumber } 
 
 def IE_Dispatcher(s):
   """Choose the correct Information Element class."""
