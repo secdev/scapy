@@ -170,7 +170,7 @@ class IE_SelectionMode(Packet):
     # Indicates the origin of the APN in the message
     name = "Selection Mode"
     fields_desc = [ ByteEnumField("ietype", 15, IEType),
-                    BitEnumField("SelectionMode", "MSorAPN", 8, Selection_Mode) ]
+                    BitEnumField("SelectionMode", "MS or APN", 8, Selection_Mode) ]
     def extract_padding(self, pkt):
         return "",pkt
 
