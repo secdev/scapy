@@ -203,7 +203,7 @@ class IE_SelectionMode(Packet):
 class IE_TEIDI(Packet):
     name = "Tunnel Endpoint Identifier Data"
     fields_desc = [ ByteEnumField("ietype", 16, IEType),
-                    StrFixedLenField("TEIDI", "", 4) ]
+                    StrFixedLenField("TEIDI", RandString(4), 4) ]
     def extract_padding(self, pkt):
         return "",pkt
 
@@ -225,8 +225,8 @@ class IE_NSAPI(Packet):
     # Identifies a PDP context in a mobility management context specified by TEICP
     name = "NSAPI"
     fields_desc = [ ByteEnumField("ietype", 20, IEType),
-                    XBitField("SpareNSAPI", 0x0000, 4),
-                    XBitField("NSAPI", 0x0000, 4) ]
+                    XBitField("sparebits", 0x0000, 4),
+                    XBitField("NSAPI", RandNum(0, 15), 4) ]
     def extract_padding(self, pkt):
         return "",pkt
 
@@ -298,7 +298,7 @@ class IE_GSNAddress(Packet):
     name = "GSN Address"
     fields_desc = [ ByteEnumField("ietype", 133, IEType),
                     ShortField("length", 4),
-                    IPField("address", "0.0.0.0") ]
+                    IPField("address", RandIP()) ]
     def extract_padding(self, pkt):
         return "",pkt
 
@@ -374,10 +374,13 @@ class GTPEchoResponse(Packet):
 class GTPCreatePDPContextRequest(Packet):
     # 3GPP TS 29.060 V9.1.0 (2009-12)
     name = "GTP Create PDP Context Request"
-    fields_desc = [ XBitField("seq", 0, 16),
+    fields_desc = [ ShortField("seq", RandShort()),
                     ByteField("npdu", 0),
                     ByteField("next_ex", 0),
-                    PacketListField("IE_list", [], IE_Dispatcher) ]
+                    PacketListField("IE_list", [ IE_TEIDI(), IE_NSAPI(), IE_GSNAddress(),
+                                                 IE_GSNAddress(),
+                                                 IE_NotImplementedTLV(ietype=135, data=RandString()) ],
+                                    IE_Dispatcher) ]
 
 class GTPErrorIndication(Packet):
     # 3GPP TS 29.060 V9.1.0 (2009-12)
