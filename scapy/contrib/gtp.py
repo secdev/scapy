@@ -104,6 +104,34 @@ Selection_Mode = { 11111100: "MS or APN",
 TeardownInd_value = { 254: "False",
                       255: "True" }
  
+class TBCDField(StrFixedLenField):
+
+    def i2h(self, pkt, val):
+        ret = []
+        for i in range(len(val)):
+           byte = ord(val[i])
+           left = byte >> 4
+           right = byte & 0xF
+           if left == 0xF:
+               ret += [ "%d" % right ]
+           else:
+               ret += [ "%d" % right, "%d" % left ]
+        return "".join(ret)
+
+    def i2repr(self, pkt, x):
+        return repr(self.i2h(pkt,x))
+
+    def i2m(self, pkt, val):
+        ret_string = ""
+        for i in range(0, len(val), 2):
+            tmp = val[i:i+2]
+            if len(tmp) == 2:
+              ret_string += chr(int(tmp[1] + tmp[0], 16))
+            else:
+              ret_string += chr(int("F" + tmp[0], 16))
+        return ret_string
+
+
 class GTPHeader(Packet):
     # 3GPP TS 29.060 V9.1.0 (2009-12)
     name = "GTP Header"
@@ -144,7 +172,7 @@ class IE_Cause(Packet):
 class IE_IMSI(Packet):
     name = "IMSI - Subscriber identity of the MS"
     fields_desc = [ ByteEnumField("ietype", 2, IEType),
-                    StrFixedLenField("IMSI", "", 8) ]
+                    TBCDField("imsi", "", 8) ]
     def extract_padding(self, pkt):
         return "",pkt
 
