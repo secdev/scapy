@@ -1,0 +1,10 @@
+# GTP unit tests
+#
+# Type the following command to launch start the tests:
+# $ sudo bash test/run_tests -t scapy/contrib/gtp.uts -F
+
++ GTPv1
+
+= GTPCreatePDPContextRequest(), basic instanciation
+gtp = IP(str(IP()/UDP(sport=2123)/GTPHeader(teid=2807)/GTPCreatePDPContextRequest()))
+str(gtp) == 'E\x00\x00(\x00\x01\x00\x00@\x11|\xc2\x7f\x00\x00\x01\x7f\x00\x00\x01\x08K\x08K\x00\x14\xb4"2\x10\x00\x04\x00\x00\n\xf7\x00\x00\x00\x00'
