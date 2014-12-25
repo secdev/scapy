@@ -104,7 +104,7 @@ Selection_Mode = { 11111100: "MS or APN",
 TeardownInd_value = { 254: "False",
                       255: "True" }
  
-class TBCDField(StrFixedLenField):
+class TBCDByteField(StrFixedLenField):
 
     def i2h(self, pkt, val):
         ret = []
@@ -130,7 +130,6 @@ class TBCDField(StrFixedLenField):
             else:
               ret_string += chr(int("F" + tmp[0], 16))
         return ret_string
-
 
 class GTPHeader(Packet):
     # 3GPP TS 29.060 V9.1.0 (2009-12)
@@ -164,7 +163,7 @@ class IE_Cause(Packet):
     fields_desc = [ ByteEnumField("ietype", 1, IEType),
                     BitField("Response", None, 1),
                     BitField("Rejection", None, 1),
-                    BitEnumField("CauseValue", None, 6,  CauseValues), ]
+                    BitEnumField("CauseValue", None, 6,  CauseValues) ]
     def extract_padding(self, pkt):
         return "",pkt
 
@@ -172,17 +171,18 @@ class IE_Cause(Packet):
 class IE_IMSI(Packet):
     name = "IMSI - Subscriber identity of the MS"
     fields_desc = [ ByteEnumField("ietype", 2, IEType),
-                    TBCDField("imsi", "", 8) ]
+                    TBCDByteField("imsi", "", 8) ]
     def extract_padding(self, pkt):
         return "",pkt
+
 
 class IE_Routing(Packet):
     name = "Routing Area Identity"
     fields_desc = [ ByteEnumField("ietype", 3, IEType),
-                    BitField("MCC", None, 12),
-                    # MNC: If only have 2 digits, then third digit (1byte) is 0xf
-                    BitField("MNC", None, 12),
-                    BitField("LAC", None, 16),
+                    TBCDByteField("MCC", "", 2),
+                    # MNC: if the third digit of MCC is 0xf, then the length of MNC is 1 byte
+                    TBCDByteField("MNC", "", 1),
+                    ShortField("LAC", None),
                     ByteField("RAC", None) ]
     def extract_padding(self, pkt):
         return "",pkt
