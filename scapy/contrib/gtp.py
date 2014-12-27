@@ -203,14 +203,14 @@ class IE_SelectionMode(Packet):
 class IE_TEIDI(Packet):
     name = "Tunnel Endpoint Identifier Data"
     fields_desc = [ ByteEnumField("ietype", 16, IEType),
-                    StrFixedLenField("TEIDI", RandString(4), 4) ]
+                    XIntField("TEIDI", RandInt()) ]
     def extract_padding(self, pkt):
         return "",pkt
 
 class IE_TEICP(Packet):
     name = "Tunnel Endpoint Identifier Control Plane"
     fields_desc = [ ByteEnumField("ietype", 17, IEType),
-                    StrFixedLenField("TEICP", "", 4) ]
+                    XIntField("TEICP", RandInt()) ]
     def extract_padding(self, pkt):
         return "",pkt
 
@@ -379,7 +379,7 @@ class GTPCreatePDPContextRequest(Packet):
                     ByteField("next_ex", 0),
                     PacketListField("IE_list", [ IE_TEIDI(), IE_NSAPI(), IE_GSNAddress(),
                                                  IE_GSNAddress(),
-                                                 IE_NotImplementedTLV(ietype=135, data=RandString()) ],
+                                                 IE_NotImplementedTLV(ietype=135, length=15,data=RandString(15)) ],
                                     IE_Dispatcher) ]
 
 class GTPErrorIndication(Packet):
