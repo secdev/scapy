@@ -329,6 +329,12 @@ class IE_AccessPointName(Packet):
             l = len(p)-3
             p = p[:2] + struct.pack("!B", l)+ p[3:]
         return p
+
+class IE_ProtocolConfigurationOptions(Packet):
+    name = "Protocol Configuration Options"
+    fields_desc = [ ByteEnumField("ietype", 132, IEType),
+            ShortField("length", 4),
+            StrLenField("Protocol Configuration", "", length_from=lambda x: x.length) ]
     def extract_padding(self, pkt):
         return "",pkt
 
@@ -382,7 +388,7 @@ class IE_NotImplementedTLV(Packet):
 ietypecls = {   1: IE_Cause, 2: IE_IMSI, 3: IE_Routing, 14: IE_Recovery, 15: IE_SelectionMode, 16: IE_TEIDI,
                17: IE_TEICP, 19: IE_Teardown, 20: IE_NSAPI, 26: IE_ChargingCharacteristics,
                27: IE_TraceReference, 28: IE_TraceType,
-              128: IE_EndUserAddress, 131: IE_AccessPointName,
+              128: IE_EndUserAddress, 131: IE_AccessPointName, 132: IE_ProtocolConfigurationOptions,
               133: IE_GSNAddress, 134: IE_MSInternationalNumber, 152: IE_UserLocationInformation, 154: IE_IMEI } 
 
 def IE_Dispatcher(s):
