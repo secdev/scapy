@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
-## Copyright (C) 2014  Guillaume Valadon <guillaume.valadom@ssi.gouv.fr>
-##               2012  ffranz <ffranz@iniqua.com>
+## Copyright (C) 2014 Guillaume Valadon <guillaume.valadom@ssi.gouv.fr>
+##               2012 ffranz <ffranz@iniqua.com>
 ##
 ## This program is published under a GPLv2 license
 
@@ -142,7 +142,7 @@ class GTPHeader(Packet):
                   BitField("PN", 0, 1),
                   ByteEnumField("gtp_type", None, GTPmessageType),
                   ShortField("length", None),
-                  IntField("teid", RandInt()) ]
+                  IntField("teid", 0) ]
 
     def post_build(self, p, pay):
         p += pay
@@ -170,7 +170,7 @@ class IE_Cause(Packet):
 class IE_IMSI(Packet):
     name = "IMSI - Subscriber identity of the MS"
     fields_desc = [ ByteEnumField("ietype", 2, IEType),
-                    TBCDByteField("imsi", "", 8) ]
+                    TBCDByteField("imsi", str(RandNum(0, 999999999999999)), 8) ]
     def extract_padding(self, pkt):
         return "",pkt
 
@@ -210,7 +210,7 @@ class IE_TEIDI(Packet):
 class IE_TEICP(Packet):
     name = "Tunnel Endpoint Identifier Control Plane"
     fields_desc = [ ByteEnumField("ietype", 17, IEType),
-                    XIntField("TEICP", RandInt()) ]
+                    XIntField("TEICI", RandInt())]
     def extract_padding(self, pkt):
         return "",pkt
 
@@ -306,7 +306,7 @@ class IE_MSInternationalNumber(Packet):
     name = "MS International Number"
     fields_desc = [ ByteEnumField("ietype", 134, IEType),
                     ShortField("length", None),
-                    FlagsField("flags", 0, 8, ["Extension","","","International Number","","","","ISDN numbering"]),
+                    FlagsField("flags", 0x91, 8, ["Extension","","","International Number","","","","ISDN numbering"]),
                     TBCDByteField("digits", "33607080910", length_from=lambda x: x.length-1) ]
     def extract_padding(self, pkt):
         return "",pkt
@@ -341,11 +341,11 @@ class IE_NotImplementedTLV(Packet):
     def extract_padding(self, pkt):
         return "",pkt
 
-ietypecls = {   1: IE_Cause, 2: IE_IMSI, 3: IE_Routing, 15: IE_SelectionMode, 16: IE_TEIDI,
+ietypecls = {   1: IE_Cause, 2: IE_IMSI, 3: IE_Routing, 14: IE_Recovery, 15: IE_SelectionMode, 16: IE_TEIDI,
                17: IE_TEICP, 19: IE_Teardown, 20: IE_NSAPI, 26: IE_ChargingCharacteristics,
                27: IE_TraceReference, 28: IE_TraceType,
-              128: IE_EndUserAddress, 131: IE_AccessPointName, 133: IE_GSNAddress,
-              134: IE_MSInternationalNumber, 152: IE_UserLocationInformation, 154: IE_IMEI } 
+              128: IE_EndUserAddress, 131: IE_AccessPointName,
+              133: IE_GSNAddress, 134: IE_MSInternationalNumber, 152: IE_UserLocationInformation, 154: IE_IMEI } 
 
 def IE_Dispatcher(s):
   """Choose the correct Information Element class."""
@@ -438,7 +438,6 @@ class GTPmorethan1500(Packet):
     name = "GTP More than 1500"
     fields_desc = [ ByteEnumField("IE_Cause", "Cause", IEType),
                     BitField("IE", 1, 12000),]
-
 
 # Bind GTP-C
 bind_layers(UDP, GTPHeader, dport = 2123)
