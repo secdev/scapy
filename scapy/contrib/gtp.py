@@ -19,9 +19,11 @@ from scapy.all import *
 GTPmessageType = {   1: "echo_request",
                      2: "echo_response",
                     16: "create_pdp_context_req",
+                    17: "create_pdp_context_res",
                     20: "delete_pdp_context_req",
                     21: "delete_pdp_context_res",
                     26: "error_indication",
+                    27: "pdu_notification_req",
                    255: "gtp_u_header" }
 
 IEType = {   1: "Cause",
@@ -316,6 +318,7 @@ class APNStrLenField(StrLenField):
         s = "".join(map(lambda x: chr(len(x))+x, s.split(".")))
         return s
 
+
 class IE_AccessPointName(Packet):
     # Sent by SGSN or by GGSN as defined in 3GPP TS 23.060
     name = "Access Point Name"
@@ -421,6 +424,7 @@ class GTPEchoResponse(Packet):
     def answers(self, other):
         return self.seq == other.seq
 
+
 class GTPCreatePDPContextRequest(Packet):
     # 3GPP TS 29.060 V9.1.0 (2009-12)
     name = "GTP Create PDP Context Request"
@@ -431,6 +435,22 @@ class GTPCreatePDPContextRequest(Packet):
                                                  IE_GSNAddress(),
                                                  IE_NotImplementedTLV(ietype=135, length=15,data=RandString(15)) ],
                                     IE_Dispatcher) ]
+    def hashret(self):
+        return struct.pack("H", self.seq)
+
+class GTPCreatePDPContextResponse(Packet):
+    # 3GPP TS 29.060 V9.1.0 (2009-12)
+    name = "GTP Create PDP Context Response"
+    fields_desc = [ ShortField("seq", RandShort()),
+                    ByteField("npdu", 0),
+                    ByteField("next_ex", 0),
+                    PacketListField("IE_list", [], IE_Dispatcher) ]
+
+    def hashret(self):
+        return struct.pack("H", self.seq)
+
+    def answers(self, other):
+        return self.seq == other.seq
 
 class GTPErrorIndication(Packet):
     # 3GPP TS 29.060 V9.1.0 (2009-12)
@@ -455,6 +475,19 @@ class GTPDeletePDPContextResponse(Packet):
                     ByteField("npdu", 0),
                     ByteField("next_ex",0),
                     PacketListField("IE_list", [], IE_Dispatcher) ]
+
+class GTPPDUNotificationRequest(Packet):
+    # 3GPP TS 29.060 V9.1.0 (2009-12)
+    name = "GTP PDU Notification Request"
+    fields_desc = [ XBitField("seq", 0, 16),
+                    ByteField("npdu", 0),
+                    ByteField("next_ex", 0),
+                    PacketListField("IE_list", [ IE_IMSI(),
+                        IE_TEICP(TEICI=RandInt()),
+                        IE_EndUserAddress(PDPTypeNumber=0x21),
+                        IE_AccessPointName(),
+                        IE_GSNAddress(address="127.0.0.1"),
+                        ], IE_Dispatcher) ]
 
 class GTP_U_Header(Packet):
     # 3GPP TS 29.060 V9.1.0 (2009-12)
@@ -494,8 +527,10 @@ bind_layers(UDP, GTPHeader, dport = 2123)
 bind_layers(GTPHeader, GTPEchoRequest, gtp_type = 1)
 bind_layers(GTPHeader, GTPEchoResponse, gtp_type = 2)
 bind_layers(GTPHeader, GTPCreatePDPContextRequest, gtp_type = 16)
+bind_layers(GTPHeader, GTPCreatePDPContextResponse, gtp_type = 17)
 bind_layers(GTPHeader, GTPDeletePDPContextRequest, gtp_type = 20)
 bind_layers(GTPHeader, GTPDeletePDPContextResponse, gtp_type = 21)
+bind_layers(GTPHeader, GTPPDUNotificationRequest, gtp_type = 27)
 # Bind GTP-U
 bind_layers(UDP, GTP_U_Header)
 bind_layers(GTP_U_Header, IP, gtp_type = 255)
