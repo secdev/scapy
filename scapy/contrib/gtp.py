@@ -1,6 +1,7 @@
 #! /usr/bin/env python
 
 ## Copyright (C) 2014 Guillaume Valadon <guillaume.valadom@ssi.gouv.fr>
+##               2014 Alexis Sultan <alexis.sultan@sfr.fr>
 ##               2012 ffranz <ffranz@iniqua.com>
 ##
 ## This program is published under a GPLv2 license
@@ -296,12 +297,38 @@ class IE_EndUserAddress(Packet):
     def extract_padding(self, pkt):
         return "",pkt
 
+class APNStrLenField(StrLenField):
+    # Inspired by DNSStrField
+    def m2i(self, pkt, s):
+        ret_s = ""
+        tmp_s = s
+        while tmp_s:
+            tmp_len = struct.unpack("!B", tmp_s[0])[0] + 1
+            if tmp_len > len(tmp_s):
+                warning("APN prematured end of character-string (size=%i, remaining bytes=%i)" % (tmp_len, len(tmp_s)))
+            ret_s +=  tmp_s[1:tmp_len] 
+            tmp_s = tmp_s[tmp_len:]
+            if len(tmp_s) :
+                ret_s += "."
+        s = ret_s
+        return s
+    def i2m(self, pkt, s):
+        s = "".join(map(lambda x: chr(len(x))+x, s.split(".")))
+        return s
+
 class IE_AccessPointName(Packet):
     # Sent by SGSN or by GGSN as defined in 3GPP TS 23.060
     name = "Access Point Name"
     fields_desc = [ ByteEnumField("ietype", 131, IEType),
                     ShortField("length",  None),
-                    StrLenField("APN", "apn.es", length_from=lambda x: x.length) ]
+                    APNStrLenField("APN", "nternet", length_from=lambda x: x.length) ]
+    def extract_padding(self, pkt):
+        return "",pkt
+    def post_build(self, p, pay):
+        if self.length is None:
+            l = len(p)-3
+            p = p[:2] + struct.pack("!B", l)+ p[3:]
+        return p
     def extract_padding(self, pkt):
         return "",pkt
 
