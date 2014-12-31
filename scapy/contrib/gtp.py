@@ -151,12 +151,23 @@ class GTPHeader(Packet):
             p = p[:2] + struct.pack("!H", l)+ p[4:]
         return p
 
+    def hashret(self):
+        return struct.pack("B", self.version) + self.payload.hashret()
+
+    def answers(self, other):
+        return (isinstance(other, GTPHeader) and
+                self.version == other.version and
+                self.payload.answers(other.payload))
+
 class GTPEchoRequest(Packet):
     # 3GPP TS 29.060 V9.1.0 (2009-12)
     name = "GTP Echo Request"
     fields_desc = [ XBitField("seq", 0, 16),
                     ByteField("npdu", 0),
                     ByteField("next_ex", 0),]
+
+    def hashret(self):
+        return struct.pack("H", self.seq)
 
 class IE_Cause(Packet):
     name = "Cause"
@@ -370,6 +381,12 @@ class GTPEchoResponse(Packet):
                     ByteField("npdu", 0),
                     ByteField("next_ex", 0),
                     PacketListField("IE_list", [], IE_Dispatcher) ]
+
+    def hashret(self):
+        return struct.pack("H", self.seq)
+
+    def answers(self, other):
+        return self.seq == other.seq
 
 class GTPCreatePDPContextRequest(Packet):
     # 3GPP TS 29.060 V9.1.0 (2009-12)
