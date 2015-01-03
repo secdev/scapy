@@ -634,10 +634,10 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
         pkt.underlayer = self.underlayer
         pkt.overload_fields = self.overload_fields.copy()
         pkt.post_transforms = self.post_transforms
+        pkt.raw_packet_cache = self.raw_packet_cache
         if payload is not None:
             pkt.add_payload(payload)
         return pkt
-        
 
     def __iter__(self):
         def loop(todo, done, self=self):
@@ -666,7 +666,7 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
                     pkt = self.clone_with(payload=payl, **done2)
                     yield pkt
 
-        if self.explicit:
+        if self.explicit or self.raw_packet_cache is not None:
             todo = []
             done = self.fields
         else:

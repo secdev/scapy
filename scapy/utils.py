@@ -646,8 +646,9 @@ class RawPcapWriter:
     
 
     def write(self, pkt):
-        """accepts a either a single packet or a list of packets
-        to be written to the dumpfile
+        """accepts either a single packet or a list of packets to be
+        written to the dumpfile
+
         """
         if not self.header_present:
             self._write_header(pkt)
@@ -700,7 +701,7 @@ class PcapWriter(RawPcapWriter):
                 self.linktype = 1
         RawPcapWriter._write_header(self, pkt)
 
-    def _write_packet(self, packet):        
+    def _write_packet(self, packet):
         sec = int(packet.time)
         usec = int(round((packet.time-sec)*1000000))
         s = str(packet)
