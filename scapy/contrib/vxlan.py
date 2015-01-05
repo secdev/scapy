@@ -1,18 +1,24 @@
-# Virtual eXtensible Local Area Network (VXLAN)
-# https://tools.ietf.org/html/draft-mahalingam-dutt-dcops-vxlan-06
+# RFC 7348 - Virtual eXtensible Local Area Network (VXLAN):
+# A Framework for Overlaying Virtualized Layer 2 Networks over Layer 3 Networks
+# http://tools.ietf.org/html/rfc7348
 
 # scapy.contrib.description = VXLAN
 # scapy.contrib.status = loads
 
-from scapy.packet import *
-from scapy.fields import *
+from scapy.packet import Packet, bind_layers
+from scapy.layers.l2 import Ether
+from scapy.layers.inet import UDP
+from scapy.fields import FlagsField, XByteField
+from scapy.contrib.eigrp import ThreeBytesField
+
+_VXLAN_FLAGS = ['R' for i in range(0, 24)] + ['R', 'R', 'R', 'I', 'R', 'R', 'R', 'R', 'R'] 
+
 
 class VXLAN(Packet):
     name = "VXLAN"
-    fields_desc = [ FlagsField("flags", 0x08, 8, ['R', 'R', 'R', 'I', 'R', 'R', 'R', 'R']),
-                    X3BytesField("reserved1", 0x000000),
-                    ThreeBytesField("vni", 0),
-                    XByteField("reserved2", 0x00)]
+    fields_desc = [FlagsField("flags", 0x08000000, 32, _VXLAN_FLAGS),
+                   ThreeBytesField("vni", 0),
+                   XByteField("reserved", 0x00)]
 
     def mysummary(self):
         return self.sprintf("VXLAN (vni=%VXLAN.vni%)")
