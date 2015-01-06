@@ -694,11 +694,7 @@ s.show(2)
 
 = DNS packet manipulation
 ~ netaccess DNS
-* We have to recalculate IP and UDP length because
-* DNS is not able to reassemble correctly
 dns_ans.show()
-del(dns_ans[IP].len)
-del(dns_ans[UDP].len)
 dns_ans.show2()
 dns_ans[DNS].an.show()
 DNS in IP(str(dns_ans))
