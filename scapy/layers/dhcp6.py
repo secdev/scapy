@@ -256,7 +256,6 @@ class DHCP6OptUnknown(_DHCP6OptGuessPayload): # A generic DHCPv6 Option
                                 length_from = lambda pkt: pkt.optlen)]
 
 class _DUIDField(PacketField):
-    holds_packets=1
     def __init__(self, name, default, length_from=None):
         StrField.__init__(self, name, default)
         self.length_from = length_from

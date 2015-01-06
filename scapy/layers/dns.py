@@ -158,7 +158,6 @@ class DNSRRField(StrField):
             
             
 class DNSQRField(DNSRRField):
-    holds_packets=1
     def decodeRR(self, name, s, p):
         ret = s[p:p+4]
         p += 4
