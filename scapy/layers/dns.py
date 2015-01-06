@@ -52,7 +52,6 @@ class DNSStrField(StrField):
 
 
 class DNSRRCountField(ShortField):
-    holds_packets=1
     def __init__(self, name, default, rr):
         ShortField.__init__(self, name, default)
         self.rr = rr
