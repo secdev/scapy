@@ -145,16 +145,16 @@ class Packet(BasePacket):
     def copy(self):
         """Returns a deep copy of the instance."""
         clone = self.__class__()
-        clone.fields = self.fields.copy()
-        for k in clone.fields:
-            clone.fields[k] = self.get_field(k).do_copy(clone.fields[k])
-        clone.default_fields = self.default_fields.copy()
+        clone.fields = self.copy_fields_dict(self.fields)
+        clone.default_fields = self.copy_fields_dict(self.default_fields)
         clone.overloaded_fields = self.overloaded_fields.copy()
         clone.overload_fields = self.overload_fields.copy()
         clone.underlayer = self.underlayer
         clone.explicit = self.explicit
         clone.raw_packet_cache = self.raw_packet_cache
-        clone.raw_packet_cache_fields = self.clone_raw_packet_cache_fields()
+        clone.raw_packet_cache_fields = self.copy_fields_dict(
+            self.raw_packet_cache_fields
+        )
         clone.post_transforms = self.post_transforms[:]
         clone.__dict__["payload"] = self.payload.copy()
         clone.payload.add_underlayer(clone)
@@ -299,12 +299,13 @@ class Packet(BasePacket):
         return True
     def __len__(self):
         return len(self.__str__())
-    def clone_raw_packet_cache_fields(self):
-        if self.raw_packet_cache_fields is None:
+    def copy_field_value(self, fieldname, value):
+        return self.get_field(fieldname).do_copy(value)
+    def copy_fields_dict(self, fields):
+        if fields is None:
             return None
-        return {fieldname: self.get_field(fieldname).do_copy(value)
-                for fieldname, value in
-                self.raw_packet_cache_fields.iteritems()}
+        return {fname: self.copy_field_value(fname, fval)
+                for fname, fval in fields.iteritems()}
     def self_build(self, field_pos_list=None):
         if self.raw_packet_cache is not None:
             for fname, fval in self.raw_packet_cache_fields.iteritems():
@@ -651,12 +652,15 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
         pkt = self.__class__()
         pkt.explicit = 1
         pkt.fields = kargs
+        pkt.default_fields = self.copy_fields_dict(self.default_fields)
         pkt.time = self.time
         pkt.underlayer = self.underlayer
         pkt.overload_fields = self.overload_fields.copy()
         pkt.post_transforms = self.post_transforms
         pkt.raw_packet_cache = self.raw_packet_cache
-        pkt.raw_packet_cache_fields = self.clone_raw_packet_cache_fields()
+        pkt.raw_packet_cache_fields = self.copy_fields_dict(
+            self.raw_packet_cache_fields
+        )
         if payload is not None:
             pkt.add_payload(payload)
         return pkt
