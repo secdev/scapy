@@ -693,11 +693,21 @@ s.show()
 s.show(2)
 
 = DNS packet manipulation
-~ netaccess DNS
+~ netaccess IP UDP DNS
 dns_ans.show()
 dns_ans.show2()
 dns_ans[DNS].an.show()
-DNS in IP(str(dns_ans))
+dns_ans2 = IP(str(dns_ans))
+DNS in dns_ans2
+assert(str(dns_ans2) == str(dns_ans))
+dns_ans2.qd.qname = "www.secdev.org."
+* We need to recalculate these values
+del(dns_ans2[IP].len)
+del(dns_ans2[IP].chksum)
+del(dns_ans2[UDP].len)
+del(dns_ans2[UDP].chksum)
+assert("\x03www\x06secdev\x03org\x00" in str(dns_ans2))
+assert(DNS in IP(str(dns_ans2)))
 
 = Arping
 ~ netaccess
@@ -1049,13 +1059,15 @@ assert(p == q)
 
 = IP assembly and dissection with options
 ~ IP options
-IP(src="9.10.11.12",dst="13.14.15.16",options=IPOption_SDBM(addresses=["1.2.3.4","5.6.7.8"]))/TCP()
-str(_)
+p = IP(src="9.10.11.12",dst="13.14.15.16",options=IPOption_SDBM(addresses=["1.2.3.4","5.6.7.8"]))/TCP()
+str(p)
 assert(_ == 'H\x00\x004\x00\x01\x00\x00@\x06\xa2q\t\n\x0b\x0c\r\x0e\x0f\x10\x95\n\x01\x02\x03\x04\x05\x06\x07\x08\x00\x00\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00_K\x00\x00')
 q=IP(_)
 q
 assert( isinstance(q.options[0],IPOption_SDBM) )
 assert( q[IPOption_SDBM].addresses[1] == "5.6.7.8" )
+p.options[0].addresses[0] = '5.6.7.8'
+assert( IP(str(p)).options[0].addresses[0] == '5.6.7.8' )
 IP(src="9.10.11.12", dst="13.14.15.16", options=[IPOption_NOP(),IPOption_LSRR(routers=["1.2.3.4","5.6.7.8"]),IPOption_Security(transmission_control_code="XYZ")])/TCP()
 str(_)
 assert(_ == 'K\x00\x00@\x00\x01\x00\x00@\x06\xf3\x83\t\n\x0b\x0c\r\x0e\x0f\x10\x01\x83\x0b\x04\x01\x02\x03\x04\x05\x06\x07\x08\x82\x0b\x00\x00\x00\x00\x00\x00XYZ\x00\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00_K\x00\x00')

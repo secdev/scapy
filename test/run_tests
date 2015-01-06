@@ -2,7 +2,7 @@
 DIR=$(dirname $0)/..
 if [ "$*" == "" ]
 then
-PYTHONPATH=$DIR exec python ${DIR}/scapy/tools/UTscapy.py -t regression.uts -f html -o /tmp/scapy_regression_test_$(date +%Y%M%d-%H%H%S).html
+PYTHONPATH=$DIR exec python ${DIR}/scapy/tools/UTscapy.py -t regression.uts -f html -l -o /tmp/scapy_regression_test_$(date +%Y%M%d-%H%H%S).html
 else
 PYTHONPATH=$DIR exec python ${DIR}/scapy/tools/UTscapy.py "$@"
 fi
