@@ -302,25 +302,12 @@ class Packet(BasePacket):
     def clone_raw_packet_cache_fields(self):
         if self.raw_packet_cache_fields is None:
             return None
-        result = {}
-        for key, (value, islist,
-                  holds_packets) in self.raw_packet_cache_fields.iteritems():
-            if islist:
-                if holds_packets:
-                    result[key] = ([
-                        p.copy() for p in value
-                    ], 1, 1)
-                else:
-                    # XXX Not ideal since elements themselves can be
-                    # mutable
-                    result[key] = (value[:], 1, 0)
-            else:
-                # if holds_packets:
-                result[key] = (value, 0, 0)
-        return result
+        return {fieldname: self.get_field(fieldname).do_copy(value)
+                for fieldname, value in
+                self.raw_packet_cache_fields.iteritems()}
     def self_build(self, field_pos_list=None):
         if self.raw_packet_cache is not None:
-            for fname, (fval, _, _) in self.raw_packet_cache_fields.iteritems():
+            for fname, fval in self.raw_packet_cache_fields.iteritems():
                 if self.getfieldval(fname) != fval:
                     self.raw_packet_cache = None
                     self.raw_packet_cache_fields = None
@@ -593,20 +580,8 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
             s, fval = f.getfield(self, s)
             # We need to track fields with mutable values to discard
             # .raw_packet_cache when needed.
-            # 
-            # The values in f.raw_packet_cache_fields are three
-            # elements tuples (value, f.islist, f.holds_packets)
-            if f.islist:
-                if f.holds_packets:
-                    self.raw_packet_cache_fields[f.name] = ([
-                        p.copy() for p in fval
-                    ], 1, 1)
-                else:
-                    # XXX Not ideal since elements themselves can be
-                    # mutable
-                    self.raw_packet_cache_fields[f.name] = (fval[:], 1, 0)
-            elif f.holds_packets and fval is not None:
-                self.raw_packet_cache_fields[f.name] = (fval.copy(), 0, 1)
+            if f.islist or f.holds_packets:
+                self.raw_packet_cache_fields[f.name] = f.do_copy(fval)
             self.fields[f.name] = fval
         assert(raw.endswith(s))
         if s:
