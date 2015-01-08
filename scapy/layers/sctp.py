@@ -207,8 +207,6 @@ class SCTP(_SCTPChunkGuessPayload, Packet):
 ############## SCTP Chunk variable params
 
 class ChunkParamField(PacketListField):
-    islist = 1
-    holds_packets=1
     def __init__(self, name, default, count_from=None, length_from=None):
         PacketListField.__init__(self, name, default, conf.raw_layer, count_from=count_from, length_from=length_from)
     def m2i(self, p, m):

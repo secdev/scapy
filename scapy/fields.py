@@ -372,7 +372,6 @@ class PacketField(StrField):
         return remain,i
     
 class PacketLenField(PacketField):
-    holds_packets=1
     def __init__(self, name, default, cls, length_from=None):
         PacketField.__init__(self, name, default, cls)
         self.length_from = length_from
@@ -389,7 +388,6 @@ class PacketLenField(PacketField):
 
 class PacketListField(PacketField):
     islist = 1
-    holds_packets=1
     def __init__(self, name, default, cls, count_from=None, length_from=None):
         if default is None:
             default = []  # Create a new list for each instance

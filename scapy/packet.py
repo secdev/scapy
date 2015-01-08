@@ -49,6 +49,7 @@ class Packet(BasePacket):
     show_indent=1
     explicit = 0
     raw_packet_cache = None
+    raw_packet_cache_fields = None
 
     @classmethod
     def from_hexcap(cls):
@@ -144,15 +145,16 @@ class Packet(BasePacket):
     def copy(self):
         """Returns a deep copy of the instance."""
         clone = self.__class__()
-        clone.fields = self.fields.copy()
-        for k in clone.fields:
-            clone.fields[k] = self.get_field(k).do_copy(clone.fields[k])
-        clone.default_fields = self.default_fields.copy()
+        clone.fields = self.copy_fields_dict(self.fields)
+        clone.default_fields = self.copy_fields_dict(self.default_fields)
         clone.overloaded_fields = self.overloaded_fields.copy()
         clone.overload_fields = self.overload_fields.copy()
         clone.underlayer = self.underlayer
         clone.explicit = self.explicit
         clone.raw_packet_cache = self.raw_packet_cache
+        clone.raw_packet_cache_fields = self.copy_fields_dict(
+            self.raw_packet_cache_fields
+        )
         clone.post_transforms = self.post_transforms[:]
         clone.__dict__["payload"] = self.payload.copy()
         clone.payload.add_underlayer(clone)
@@ -194,6 +196,7 @@ class Packet(BasePacket):
             self.fields[attr] = any2i(self, val)
             self.explicit = 0
             self.raw_packet_cache = None
+            self.raw_packet_cache_fields = None
         elif attr == "payload":
             self.remove_payload()
             self.add_payload(val)
@@ -215,6 +218,7 @@ class Packet(BasePacket):
             del(self.fields[attr])
             self.explicit = 0 # in case a default value must be explicited
             self.raw_packet_cache = None
+            self.raw_packet_cache_fields = None
         elif self.default_fields.has_key(attr):
             pass
         elif attr == "payload":
@@ -295,9 +299,22 @@ class Packet(BasePacket):
         return True
     def __len__(self):
         return len(self.__str__())
+    def copy_field_value(self, fieldname, value):
+        return self.get_field(fieldname).do_copy(value)
+    def copy_fields_dict(self, fields):
+        if fields is None:
+            return None
+        return dict([fname, self.copy_field_value(fname, fval)]
+                    for fname, fval in fields.iteritems())
     def self_build(self, field_pos_list=None):
         if self.raw_packet_cache is not None:
-            return self.raw_packet_cache
+            for fname, fval in self.raw_packet_cache_fields.iteritems():
+                if self.getfieldval(fname) != fval:
+                    self.raw_packet_cache = None
+                    self.raw_packet_cache_fields = None
+                    break
+            if self.raw_packet_cache is not None:
+                return self.raw_packet_cache
         p=""
         for f in self.fields_desc:
             val = self.getfieldval(f.name)
@@ -558,9 +575,14 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
         flist = self.fields_desc[:]
         flist.reverse()
         raw = s
+        self.raw_packet_cache_fields = {}
         while s and flist:
             f = flist.pop()
-            s,fval = f.getfield(self, s)
+            s, fval = f.getfield(self, s)
+            # We need to track fields with mutable values to discard
+            # .raw_packet_cache when needed.
+            if f.islist or f.holds_packets:
+                self.raw_packet_cache_fields[f.name] = f.do_copy(fval)
             self.fields[f.name] = fval
         assert(raw.endswith(s))
         if s:
@@ -630,14 +652,18 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
         pkt = self.__class__()
         pkt.explicit = 1
         pkt.fields = kargs
+        pkt.default_fields = self.copy_fields_dict(self.default_fields)
         pkt.time = self.time
         pkt.underlayer = self.underlayer
         pkt.overload_fields = self.overload_fields.copy()
         pkt.post_transforms = self.post_transforms
+        pkt.raw_packet_cache = self.raw_packet_cache
+        pkt.raw_packet_cache_fields = self.copy_fields_dict(
+            self.raw_packet_cache_fields
+        )
         if payload is not None:
             pkt.add_payload(payload)
         return pkt
-        
 
     def __iter__(self):
         def loop(todo, done, self=self):
@@ -666,7 +692,7 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
                     pkt = self.clone_with(payload=payl, **done2)
                     yield pkt
 
-        if self.explicit:
+        if self.explicit or self.raw_packet_cache is not None:
             todo = []
             done = self.fields
         else:
