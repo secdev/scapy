@@ -194,7 +194,7 @@ class RDataField(StrLenField):
         if pkt.type == 1: # A
             if s:
                 s = inet_aton(s)
-        elif pkt.type in [2,3,4,5]: # NS, MD, MF, CNAME
+        elif pkt.type in [2, 3, 4, 5, 12]: # NS, MD, MF, CNAME, PTR
             s = "".join(map(lambda x: chr(len(x))+x, s.split(".")))
             if ord(s[-1]):
                 s += "\x00"
