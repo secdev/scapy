@@ -314,7 +314,6 @@ class L3PacketSocket(SuperSocket):
         self.type = type
         self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))
         self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 0)
-        _flush_fd(self.ins)
         if iface:
             self.ins.bind((iface, type))
         if not nofilter:
@@ -325,6 +324,7 @@ class L3PacketSocket(SuperSocket):
                     filter = "not (%s)" % conf.except_filter
             if filter is not None:
                 attach_filter(self.ins, filter)
+        _flush_fd(self.ins)
         self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 2**30)
         self.outs = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))
         self.outs.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 2**30)
@@ -413,7 +413,6 @@ class L2Socket(SuperSocket):
             iface = conf.iface
         self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))
         self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 0)
-        _flush_fd(self.ins)
         if not nofilter: 
             if conf.except_filter:
                 if filter:
@@ -423,6 +422,7 @@ class L2Socket(SuperSocket):
             if filter is not None:
                 attach_filter(self.ins, filter)
         self.ins.bind((iface, type))
+        _flush_fd(self.ins)
         self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 2**30)
         self.outs = self.ins
         self.outs.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 2**30)
@@ -458,7 +458,6 @@ class L2ListenSocket(SuperSocket):
         self.outs = None
         self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))
         self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 0)
-        _flush_fd(self.ins)
         if iface is not None:
             self.ins.bind((iface, type))
         if not nofilter:
@@ -482,6 +481,7 @@ class L2ListenSocket(SuperSocket):
         if self.promisc:
             for i in self.iff:
                 set_promisc(self.ins, i)
+        _flush_fd(self.ins)
         self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 2**30)
     def close(self):
         if self.promisc:
