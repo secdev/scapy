@@ -138,4 +138,5 @@ class StreamSocket(SimpleSocket):
 if conf.L3socket is None:
     conf.L3socket = L3RawSocket
 
+import arch
 import sendrecv
