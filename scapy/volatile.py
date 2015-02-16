@@ -188,6 +188,17 @@ class RandEnumSLong(RandEnum):
     def __init__(self):
         RandEnum.__init__(self, -2L**63, 2L**63-1)
 
+class RandEnumKeys(RandEnum):
+    """Picks a random value from dict keys list. """
+    def __init__(self, enum):
+        self.enum = []
+        for key in list(enum.keys()):
+            self.enum.append(key)
+        self.seq = RandomEnumeration(0, len(list(enum.keys())) - 1)
+
+    def _fix(self):
+        return self.enum[self.seq.next()]
+
 class RandChoice(RandField):
     def __init__(self, *args):
         if not args:
