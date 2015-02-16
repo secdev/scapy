@@ -1,0 +1,83 @@
+% Tests for OpenFlow v1.3 with Scapy
+
++ Usual OFv1.3 messages
+
+= OFPTHello(), hello without version bitmap
+ofm = OFPTHello()
+str(ofm) == '\x04\x00\x00\x08\x00\x00\x00\x00'
+
+= OFPTEchoRequest(), echo request
+ofm = OFPTEchoRequest()
+str(ofm) == '\x04\x02\x00\x08\x00\x00\x00\x00'
+
+= OFPMatch(), check padding
+ofm = OFPMatch(oxm_fields=OFBEthType(eth_type=0x86dd))
+assert(len(str(ofm))%8 == 0)
+str(ofm) == '\x00\x01\x00\x0a\x80\x00\x0a\x02\x86\xdd\x00\x00\x00\x00\x00\x00'
+
+= OpenFlow(), generic method test with OFPTEchoRequest()
+ofm = OFPTEchoRequest()
+s = str(ofm)
+isinstance(OpenFlow(None,s)(s), OFPTEchoRequest)
+
+= OFPTFlowMod(), check codes and defaults values
+ofm = OFPTFlowMod(cmd='OFPFC_DELETE', out_group='ALL', flags='CHECK_OVERLAP+NO_PKT_COUNTS')
+assert(ofm.cmd == 3)
+assert(ofm.out_port == 0xffffffff)
+assert(ofm.out_group == 0xfffffffc)
+ofm.flags == 10
+
+= OFBIPv6ExtHdrHMID(), check creation of last OXM classes
+assert(hasattr(OFBIPv6ExtHdr(), 'ipv6_ext_hdr_flags'))
+OFBIPv6ExtHdrHMID().field == 39
+
++ Complex OFv1.3 messages
+
+= OFPTFlowMod(), complex flow_mod
+mtc = OFPMatch(oxm_fields=OFBVLANVID(vlan_vid=10))
+ist1 = OFPITApplyActions(actions=[OFPATSetField(field=OFBIPv4Src(ipv4_src='192.168.10.41')),OFPATSetField(field=OFBEthSrc(eth_src='1a:d5:cb:4e:3c:64')),OFPATOutput(port='NORMAL')])
+ist2 = OFPITWriteActions(actions=OFPATOutput(port='CONTROLLER'))
+ofm = OFPTFlowMod(table_id=2, match=mtc, instructions=[ist1,ist2])
+hexdump(ofm)
+s = '\x04\x0e\x00\x90\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x01\x00\x0a\x80\x00\x0c\x02\x00\x0a\x00\x00\x00\x00\x00\x00\x00\x04\x00\x38\x00\x00\x00\x00\x00\x19\x00\x10\x80\x00\x16\x04\xc0\xa8\x0a\x29\x00\x00\x00\x00\x00\x19\x00\x10\x80\x00\x08\x06\x1a\xd5\xcb\x4e\x3c\x64\x00\x00\x00\x00\x00\x10\xff\xff\xff\xfa\xff\xff\x00\x00\x00\x00\x00\x00\x00\x03\x00\x18\x00\x00\x00\x00\x00\x00\x00\x10\xff\xff\xff\xfd\xff\xff\x00\x00\x00\x00\x00\x00'
+str(ofm) == s
+
+= OFPETBadRequest() containing a flow_mod with wrong table_id
+flowmod = OFPTFlowMod(instructions=OFPITGotoTable(table_id=0))
+ofm = OFPETBadRequest(errcode='OFPBRC_BAD_TABLE_ID', data=str(flowmod))
+hexdump(ofm)
+s = '\x04\x01\x00L\x00\x00\x00\x00\x00\x01\x00\t\x04\x0e\x00@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x01\x00\x04\x00\x00\x00\x00\x00\x01\x00\x08\x00\x00\x00\x00'
+str(ofm) == s
+
+= OFPTPacketIn() containing an Ethernet frame
+ofm = OFPTPacketIn(data=Ether()/IP()/ICMP())
+p = OFPTPacketIn(str(ofm))
+dat = p.data
+assert(isinstance(dat, Ether))
+assert(isinstance(dat.payload, IP))
+isinstance(dat.payload.payload, ICMP)
+
++ Layer bindings
+
+= TCP()/OFPMPRequestDesc(), check default sport
+p = TCP()/OFPMPRequestDesc()
+p[TCP].sport == 6653
+
+= TCP()/OFPETHelloFailed(), check default dport
+p = TCP()/OFPETHelloFailed()
+p[TCP].dport == 6653
+
+= TCP()/OFPTHello() dissection, check new TCP.guess_payload_class
+o = TCP()/OFPTHello()
+p = TCP(str(o))
+p[TCP].sport == 6653
+isinstance(p[TCP].payload, OFPTHello)
+
+= complete Ether()/IP()/TCP()/OFPTFeaturesRequest()
+ofm = Ether(src='00:11:22:33:44:55',dst='01:23:45:67:89:ab')/IP(src='10.0.0.7',dst='192.168.0.42')/TCP(sport=6633)/OFPTFeaturesRequest(xid=23)
+s = '\x01#Eg\x89\xab\x00\x11"3DU\x08\x00E\x00\x000\x00\x01\x00\x00@\x06\xaf\xee\n\x00\x00\x07\xc0\xa8\x00*\x19\xe9\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\xa6\xa4\x00\x00\x04\x05\x00\x08\x00\x00\x00\x17'
+assert(str(ofm) == s)
+e = Ether(s)
+e.show2()
+of = OFPTFeaturesRequest(e[TCP].load)
+of.xid == 23
