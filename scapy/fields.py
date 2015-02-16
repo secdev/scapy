@@ -280,6 +280,10 @@ class ShortField(Field):
     def __init__(self, name, default):
         Field.__init__(self, name, default, "H")
 
+class SignedShortField(Field):
+    def __init__(self, name, default):
+        Field.__init__(self, name, default, "h")
+
 class LEShortField(Field):
     def __init__(self, name, default):
         Field.__init__(self, name, default, "<H")
