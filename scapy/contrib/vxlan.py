@@ -8,8 +8,7 @@
 from scapy.packet import Packet, bind_layers
 from scapy.layers.l2 import Ether
 from scapy.layers.inet import UDP
-from scapy.fields import FlagsField, XByteField
-from scapy.contrib.eigrp import ThreeBytesField
+from scapy.fields import FlagsField, XByteField, ThreeBytesField
 
 _VXLAN_FLAGS = ['R' for i in range(0, 24)] + ['R', 'R', 'R', 'I', 'R', 'R', 'R', 'R', 'R'] 
 
