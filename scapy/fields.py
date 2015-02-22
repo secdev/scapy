@@ -275,6 +275,9 @@ class X3BytesField(XByteField):
     def getfield(self, pkt, s):
         return  s[3:], self.m2i(pkt, struct.unpack(self.fmt, "\x00"+s[:3])[0])
 
+class ThreeBytesField(X3BytesField, ByteField):
+    def i2repr(self, pkt, x):
+        return ByteField.i2repr(self, pkt, x)
 
 class ShortField(Field):
     def __init__(self, name, default):

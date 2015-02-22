@@ -1,0 +1,10 @@
+% VXLAN Tests
+* Tests for the Scapy VXLAN layer
+
++ Basic Layer Tests
+
+= Build a VXLAN packet with VNI of 42
+str(UDP(sport=1024, dport=4789, len=None, chksum=None)/VXLAN(flags=0x08000000, vni=42)) == "\x04\x00\x12\xb5\x00\x10\x00\x00\x08\x00\x00\x00\x00\x00\x2a\x00"
+
+= Verify VXLAN Ethernet Binding
+str(VXLAN(vni=23)/Ether(dst="11:11:11:11:11:11", src="11:11:11:11:11:11", type=0x800)) == "\x08\x00\x00\x00\x00\x00\x17\x00\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x08\x00"
