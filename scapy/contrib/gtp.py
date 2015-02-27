@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
-## Copyright (C) 2014 Guillaume Valadon <guillaume.valadom@ssi.gouv.fr>
-##               2014 Alexis Sultan <alexis.sultan@sfr.fr>
+## Copyright (C) 2014 Guillaume Valadon <guillaume.valadon@ssi.gouv.fr>
+##               2014 Alexis Sultan    <alexis.sultan@sfr.com>
 ##               2012 ffranz <ffranz@iniqua.com>
 ##
 ## This program is published under a GPLv2 license
