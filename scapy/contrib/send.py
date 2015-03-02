@@ -8,7 +8,8 @@
 # scapy.contrib.description = SEND
 # scapy.contrib.status = loads
 
-from scapy.all import *
+from scapy.packet import *
+from scapy.fields import *
 from scapy.layers.inet6 import icmp6typescls, _ICMPv6NDGuessPayload
 
 send_icmp6typescls = { 11: "ICMPv6NDOptCGA",
@@ -70,4 +71,5 @@ class ICMPv6NDOptCGA(_ICMPv6NDGuessPayload, Packet):
                     StrLenField("padding", None, length_from = lambda pkt: pkt.padlength) ]
 
 if __name__ == "__main__":
+    from scapy.all import *
     interact(mydict=globals(), mybanner="SEND add-on")
