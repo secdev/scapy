@@ -12,7 +12,9 @@
 import time
 import logging
 
-from scapy.all import *
+from scapy.packet import *
+from scapy.fields import *
+from scapy.layers.inet import IP, UDP
 
 # GTP Data types
 
@@ -524,6 +526,7 @@ class GTPmorethan1500(Packet):
 
 # Bind GTP-C
 bind_layers(UDP, GTPHeader, dport = 2123)
+bind_layers(UDP, GTPHeader, sport = 2123)
 bind_layers(GTPHeader, GTPEchoRequest, gtp_type = 1)
 bind_layers(GTPHeader, GTPEchoResponse, gtp_type = 2)
 bind_layers(GTPHeader, GTPCreatePDPContextRequest, gtp_type = 16)
@@ -531,9 +534,12 @@ bind_layers(GTPHeader, GTPCreatePDPContextResponse, gtp_type = 17)
 bind_layers(GTPHeader, GTPDeletePDPContextRequest, gtp_type = 20)
 bind_layers(GTPHeader, GTPDeletePDPContextResponse, gtp_type = 21)
 bind_layers(GTPHeader, GTPPDUNotificationRequest, gtp_type = 27)
+
 # Bind GTP-U
-bind_layers(UDP, GTP_U_Header)
+bind_layers(UDP, GTP_U_Header, dport = 2152)
+bind_layers(UDP, GTP_U_Header, sport = 2152)
 bind_layers(GTP_U_Header, IP, gtp_type = 255)
 
 if __name__ == "__main__":
+    from scapy.all import *
     interact(mydict=globals(), mybanner="GTPv1 add-on")
