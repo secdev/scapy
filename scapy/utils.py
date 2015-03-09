@@ -704,11 +704,19 @@ class RawPcapWriter:
         written to the dumpfile
 
         """
-        if not self.header_present:
-            self._write_header(pkt)
         if type(pkt) is str:
+            if not self.header_present:
+                self._write_header(pkt)
             self._write_packet(pkt)
         else:
+            pkt = pkt.__iter__()
+            if not self.header_present:
+                try:
+                    p = pkt.next()
+                except StopIteration:
+                    return
+                self._write_header(p)
+                self._write_packet(p)
             for p in pkt:
                 self._write_packet(p)
 
@@ -746,8 +754,6 @@ class RawPcapWriter:
 class PcapWriter(RawPcapWriter):
     def _write_header(self, pkt):
         if self.linktype == None:
-            if type(pkt) is list or type(pkt) is tuple or isinstance(pkt,BasePacketList):
-                pkt = pkt[0]
             try:
                 self.linktype = conf.l2types[pkt.__class__]
             except KeyError:
