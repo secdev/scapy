@@ -499,6 +499,24 @@ def promiscping(net, timeout=2, fake_bcast="ff:ff:ff:ff:ff:fe", **kargs):
 
 
 class ARP_am(AnsweringMachine):
+    """Fake ARP Relay Daemon (farpd)
+
+    example:
+    To respond to an ARP request for 192.168.100 replying on the
+    ingress interface;
+      farpd(IP_addr='192.168.1.100',ARP_addr='00:01:02:03:04:05')
+    To respond on a different interface add the interface parameter
+      farpd(IP_addr='192.168.1.100',ARP_addr='00:01:02:03:04:05',iface='eth0')
+    To respond on ANY arp request on an interface with mac address ARP_addr
+      farpd(ARP_addr='00:01:02:03:04:05',iface='eth1')
+    To respond on ANY arp request with my mac addr on the given interface
+      farpd(iface='eth1')
+
+    Optional Args
+     inter=<n>   Interval in seconds between ARP replies being sent
+    
+    """
+
     function_name="farpd"
     filter = "arp"
     send_function = staticmethod(sendp)
@@ -517,20 +535,26 @@ class ARP_am(AnsweringMachine):
         ether = req.getlayer(Ether)
         arp = req.getlayer(ARP)
         iff,a,gw = conf.route.route(arp.psrc)
-        if self.iface != None:
-            iff = iface
-        ARP_addr = self.ARP_addr
-        IP_addr = arp.pdst
+        if self.iface == None:
+            self.iface = iff
+            self.optsend.update({'iface' : self.iface})
+        if self.ARP_addr == None:
+            try:
+                self.ARP_addr = get_if_hwaddr(self.iface)
+            except:
+                self.ARP_addr = "00:00:00:00:00:00"
+                pass
         resp = Ether(dst=ether.src,
-                     src=ARP_addr)/ARP(op="is-at",
-                                       hwsrc=ARP_addr,
-                                       psrc=IP_addr,
+                     src=self.ARP_addr)/ARP(op="is-at",
+                                       hwsrc=self.ARP_addr,
+                                       psrc=arp.pdst,
                                        hwdst=arp.hwsrc,
-                                       pdst=arp.pdst)
+                                       pdst=arp.psrc)
         return resp
 
-    def sniff(self):
-        sniff(iface=self.iface, **self.optsniff)
+    def print_reply(self, req, reply):
+        print "%s ==> %s on %s" % (req.summary(),reply.summary(),self.iface)
+
 
 @conf.commands.register
 def etherleak(target, **kargs):
