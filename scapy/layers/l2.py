@@ -521,9 +521,8 @@ class ARP_am(AnsweringMachine):
     filter = "arp"
     send_function = staticmethod(sendp)
 
-    def parse_options(self, IP_addr=None, iface=None, ARP_addr=None):
+    def parse_options(self, IP_addr=None, ARP_addr=None):
         self.IP_addr=IP_addr
-        self.iface=iface
         self.ARP_addr=ARP_addr
 
     def is_request(self, req):
@@ -534,26 +533,36 @@ class ARP_am(AnsweringMachine):
     def make_reply(self, req):
         ether = req.getlayer(Ether)
         arp = req.getlayer(ARP)
-        iff,a,gw = conf.route.route(arp.psrc)
-        if self.iface == None:
-            self.iface = iff
-            self.optsend.update({'iface' : self.iface})
-        if self.ARP_addr == None:
+
+        if self.optsend.has_key('iface'):
+            iff = self.optsend.get('iface')
+        else:
+            iff,a,gw = conf.route.route(arp.psrc)
+        self.iff = iff
+        if self.ARP_addr is None:
             try:
-                self.ARP_addr = get_if_hwaddr(self.iface)
+                ARP_addr = get_if_hwaddr(iff)
             except:
-                self.ARP_addr = "00:00:00:00:00:00"
+                ARP_addr = "00:00:00:00:00:00"
                 pass
+        else:
+            ARP_addr = self.ARP_addr
         resp = Ether(dst=ether.src,
-                     src=self.ARP_addr)/ARP(op="is-at",
-                                       hwsrc=self.ARP_addr,
+                     src=ARP_addr)/ARP(op="is-at",
+                                       hwsrc=ARP_addr,
                                        psrc=arp.pdst,
                                        hwdst=arp.hwsrc,
                                        pdst=arp.psrc)
         return resp
 
+    def send_reply(self, reply):
+        if self.optsend.has_key('iface'):
+            self.send_function(reply, **self.optsend)
+        else:
+            self.send_function(reply, iface=self.iff, **self.optsend)
+
     def print_reply(self, req, reply):
-        print "%s ==> %s on %s" % (req.summary(),reply.summary(),self.iface)
+        print "%s ==> %s on %s" % (req.summary(),reply.summary(),self.iff)
 
 
 @conf.commands.register
