@@ -116,7 +116,7 @@ DHCPOptions = {
     51: IntField("lease_time", 43200),
     54: IPField("server_id","0.0.0.0"),
     55: "param_req_list",
-    56: StrField("error_message", ""),
+    56: "error_message",
     57: ShortField("max_dhcp_size", 1500),
     58: IntField("renewal_time", 21600),
     59: IntField("rebinding_time", 37800),
