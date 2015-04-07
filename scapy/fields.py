@@ -874,7 +874,7 @@ class LELongField(Field):
 # Little endian fixed length field
 class LEFieldLenField(FieldLenField):
     def __init__(self, name, default,  length_of=None, fmt = "<H", count_of=None, adjust=lambda pkt,x:x, fld=None):
-        FieldLenField.__init__(self, name, default, length_of=length_of, fmt=fmt, fld=fld, adjust=adjust)
+        FieldLenField.__init__(self, name, default, length_of=length_of, fmt=fmt, count_of=count_of, fld=fld, adjust=adjust)
 
 
 class FlagsField(BitField):
