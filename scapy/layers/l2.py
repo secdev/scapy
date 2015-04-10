@@ -390,6 +390,7 @@ class GRE(Packet):
 
 bind_layers( Dot3,          LLC,           )
 bind_layers( Ether,         LLC,           type=122)
+bind_layers( Ether,         LLC,           type=34928)
 bind_layers( Ether,         Dot1Q,         type=33024)
 bind_layers( Ether,         Ether,         type=1)
 bind_layers( Ether,         ARP,           type=2054)
