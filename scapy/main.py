@@ -196,6 +196,10 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
     if loglevel is not None:
         conf.logLevel=loglevel
 
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
+    log_scapy.addHandler(console_handler)
+
     the_banner = "Welcome to Scapy (%s)"
     if mybanner is not None:
         the_banner += "\n"
