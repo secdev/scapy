@@ -714,6 +714,7 @@ class RawPcapWriter:
                 try:
                     p = pkt.next()
                 except StopIteration:
+                    self._write_header("")
                     return
                 self._write_header(p)
                 self._write_packet(p)
