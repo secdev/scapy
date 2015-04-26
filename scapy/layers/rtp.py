@@ -32,7 +32,7 @@ class RTP(Packet):
                     BitField('extension', 0, 1),
                     BitFieldLenField('numsync', None, 4, count_of='sync'),
                     BitField('marker', 0, 1),
-                    BitEnumField('payload', 0, 7, _rtp_payload_types),
+                    BitEnumField('payload_type', 0, 7, _rtp_payload_types),
                     ShortField('sequence', 0),
                     IntField('timestamp', 0),
                     IntField('sourcesync', 0),
