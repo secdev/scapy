@@ -143,7 +143,8 @@ dhcp6types = {   1:"SOLICIT",
 
 duidtypes = { 1: "Link-layer address plus time", 
               2: "Vendor-assigned unique ID based on Enterprise Number",
-              3: "Link-layer Address" }
+              3: "Link-layer Address",
+              4: "UUID" }
 
 # DUID hardware types - RFC 826 - Extracted from 
 # http://www.iana.org/assignments/arp-parameters on 31/10/06
@@ -232,9 +233,15 @@ class DUID_LL(Packet):  # sect 9.4 RFC 3315
                     XShortEnumField("hwtype", 1, duidhwtypes), 
                     _LLAddrField("lladdr", ETHER_ANY) ]
 
+class DUID_UUID(Packet):  # RFC 6355
+    name = "DUID - Based on UUID"
+    fields_desc = [ ShortEnumField("type", 4, duidtypes),
+                    StrFixedLenField("uuid","", 16) ]
+
 duid_cls = { 1: "DUID_LLT",
              2: "DUID_EN",
-             3: "DUID_LL"}
+             3: "DUID_LL",
+             4: "DUID_UUID"}
 
 #####################################################################
 ###                   DHCPv6 Options classes                      ###
