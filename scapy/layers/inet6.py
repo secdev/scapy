@@ -983,7 +983,7 @@ def fragment6(pkt, fragSize):
     fragPartStr = s[-fragPartLen:]
 
     # Grab Next Header for use in Fragment Header
-    nh = IPv6(tmp[:40]).nh
+    nh = pkt[IPv6ExtHdrFragment].nh
 
     # Keep fragment header
     fragHeader = pkt[IPv6ExtHdrFragment]
