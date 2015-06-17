@@ -30,6 +30,9 @@ if not socket.has_ipv6:
 if not hasattr(socket, "IPPROTO_IPV6"):
     # Workaround for http://bugs.python.org/issue6926
     socket.IPPROTO_IPV6 = 41
+if not hasattr(socket, "IPPROTO_IPIP"):
+    # Workaround for https://bitbucket.org/secdev/scapy/issue/5119
+    socket.IPPROTO_IPIP = 4
 
 from scapy.config import conf
 from scapy.layers.l2 import *
