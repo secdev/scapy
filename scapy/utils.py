@@ -618,7 +618,7 @@ class RawPcapReader:
         return self
 
     def __exit__(self, exc_type, exc_value, tracback):
-        pass
+        self.close()
 
 
 class PcapReader(RawPcapReader):
@@ -750,6 +750,7 @@ class RawPcapWriter:
         return self
     def __exit__(self, exc_type, exc_value, tracback):
         self.flush()
+        self.close()
 
 
 class PcapWriter(RawPcapWriter):
