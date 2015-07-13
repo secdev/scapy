@@ -12,7 +12,7 @@ What is ASN.1?
 
    This is only my view on ASN.1, explained as simply as possible. For more theoretical or academic views, I'm sure you'll find better on the Internet.
 
-ASN.1 is a notation whose goal is to specify formats for data exchange. It is independant of the way data is encoded. Data encoding is specified in Encoding Rules.
+ASN.1 is a notation whose goal is to specify formats for data exchange. It is independent of the way data is encoded. Data encoding is specified in Encoding Rules.
 
 The most used encoding rules are BER (Basic Encoding Rules) and DER (Distinguished Encoding Rules). Both look the same, but the latter is specified to guarantee uniqueness of encoding. This property is quite interesting when speaking about cryptography, hashes and signatures.
 
@@ -739,7 +739,7 @@ When the automaton switches to a given state, the state's method is executed. Th
 Decorator for actions
 ~~~~~~~~~~~~~~~~~~~~~
 
-Actions are methods that are decorated by the return of ``ATMT.action`` function. This function takes the transition method it is bound to as first parameter and an optionnal priority ``prio`` as a second parameter. Default priority is 0. An action method can be decorated many times to be bound to many transitions.
+Actions are methods that are decorated by the return of ``ATMT.action`` function. This function takes the transition method it is bound to as first parameter and an optional priority ``prio`` as a second parameter. Default priority is 0. An action method can be decorated many times to be bound to many transitions.
 
 ::
 

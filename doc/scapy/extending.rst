@@ -22,7 +22,7 @@ This first example take an IP or a name as first parameter, send an ICMP echo re
     if p:
         p.show()
 
-This is a more complex example which does an ARP ping and reports what it found with LaTeX formating::
+This is a more complex example which does an ARP ping and reports what it found with LaTeX formatting::
 
     #! /usr/bin/env python
     # arping2tex : arpings a network and outputs a LaTeX table as a result

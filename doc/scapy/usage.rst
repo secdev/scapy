@@ -152,7 +152,7 @@ str(pkt)                  assemble the packet
 hexdump(pkt)              have an hexadecimal dump 
 ls(pkt)                   have the list of fields values 
 pkt.summary()             for a one-line summary 
-pkt.show()                for a developped view of the packet 
+pkt.show()                for a developed view of the packet 
 pkt.show2()               same as show but on the assembled packet (checksum is calculated, for instance) 
 pkt.sprintf()             fills a format string with fields values of the packet 
 pkt.decode_payload_as()   changes the way the payload is decoded 
@@ -166,7 +166,7 @@ pkt.command()             return a Scapy command that can generate the packet
 Generating sets of packets
 --------------------------
 
-For the moment, we have only generated one packet. Let see how to specify sets of packets as easily. Each field of the whole packet (ever layers) can be a set. This implicidely define a set of packets, generated using a kind of cartesian product between all the fields.
+For the moment, we have only generated one packet. Let see how to specify sets of packets as easily. Each field of the whole packet (ever layers) can be a set. This implicitly define a set of packets, generated using a kind of cartesian product between all the fields.
 
 ::
 
@@ -201,7 +201,7 @@ Command          Effect
 summary()        displays a list of summaries of each packet 
 nsummary()       same as previous, with the packet number 
 conversations()  displays a graph of conversations 
-show()           displays the prefered representation (usually nsummary()) 
+show()           displays the preferred representation (usually nsummary()) 
 filter()         returns a packet list filtered with a lambda function 
 hexdump()        returns a hexdump of all packets 
 hexraw()         returns a hexdump of the Raw layer of all packets 
@@ -243,7 +243,7 @@ Fuzzing
 .. index::
    single: fuzz(), fuzzing
 
-The function fuzz() is able to change any default value that is not to be calculated (like checksums) by an object whose value is random and whose type is adapted to the field. This enables to quicky built fuzzing templates and send them in loop. In the following example, the IP layer is normal, and the UDP and NTP layers are fuzzed. The UDP checksum will be correct, the UDP destination port will be overloaded by NTP to be 123 and the NTP version will be forced to be 4. All the other ports will be randomized::
+The function fuzz() is able to change any default value that is not to be calculated (like checksums) by an object whose value is random and whose type is adapted to the field. This enables to quickly built fuzzing templates and send them in loop. In the following example, the IP layer is normal, and the UDP and NTP layers are fuzzed. The UDP checksum will be correct, the UDP destination port will be overloaded by NTP to be 123 and the NTP version will be forced to be 4. All the other ports will be randomized::
 
     >>> send(IP(dst="target")/fuzz(UDP()/NTP(version=4)),loop=1)
     ................^C
@@ -349,7 +349,7 @@ Classic SYN Scan can be initialized by executing the following command from Scap
 
     >>> sr1(IP(dst="72.14.207.99")/TCP(dport=80,flags="S"))
 
-The above will send a single SYN packet to Google's port 80 and will quit after receving a single response::
+The above will send a single SYN packet to Google's port 80 and will quit after receiving a single response::
 
     Begin emission:
     .Finished to send 1 packets.
@@ -638,7 +638,7 @@ We can sniff and do passive OS fingerprinting::
     (0.875, ['Linux 2.4.2 - 2.4.14 (1)', 'Linux 2.4.10 (1)', 'Windows 98 (?)'])
     (1.0, ['Windows 2000 (9)'])
 
-The number before the OS guess is the accurracy of the guess.
+The number before the OS guess is the accuracy of the guess.
 
 Filters
 -------
@@ -677,7 +677,7 @@ Send and receive in a loop
 .. index::
    single: srloop()
 
-Here is an example of a (h)ping-like functionnality : you always send the same set of packets to see if something change::
+Here is an example of a (h)ping-like functionality : you always send the same set of packets to see if something change::
 
     >>> srloop(IP(dst="www.target.com/30")/TCP())
     RECV 1: Ether / IP / TCP 192.168.11.99:80 > 192.168.8.14:20 SA / Padding
@@ -878,7 +878,7 @@ Routing
 .. index::
    single: Routing, conf.route
 
-Now scapy has its own routing table, so that you can have your packets routed diffrently than the system::
+Now scapy has its own routing table, so that you can have your packets routed differently than the system::
 
     >>> conf.route
     Network         Netmask         Gateway         Iface
@@ -1089,7 +1089,7 @@ Similarly, filtered ports can be found with unanswered packets::
 Xmas Scan
 ---------
 
-Xmas Scan can be launced using the following command::
+Xmas Scan can be launched using the following command::
 
     >>> ans,unans = sr(IP(dst="192.168.1.1")/TCP(dport=666,flags="FPU") )
 
@@ -1356,7 +1356,7 @@ Identifying rogue DHCP servers on your LAN
 Problem
 ^^^^^^^
 
-You suspect that someone has installed an additional, unauthorized DHCP server on your LAN -- either unintentiously or maliciously. 
+You suspect that someone has installed an additional, unauthorized DHCP server on your LAN -- either unintentionally or maliciously. 
 Thus you want to check for any active DHCP servers and identify their IP and MAC addresses.  
 
 Solution
