@@ -259,6 +259,7 @@ ipv6nh = { 0:"Hop-by-Hop Option Header",
           58:"ICMPv6",
           59:"No Next Header",
           60:"Destination Option Header",
+         132:"SCTP",
          135:"Mobility Header"} 
 
 ipv6nhcls = {  0: "IPv6ExtHdrHopByHop",
@@ -271,7 +272,8 @@ ipv6nhcls = {  0: "IPv6ExtHdrHopByHop",
               #51: "IPv6ExtHdrAH",
                58: "ICMPv6Unknown", 
                59: "Raw",
-               60: "IPv6ExtHdrDestOpt" }
+               60: "IPv6ExtHdrDestOpt",
+            }
 
 class IP6ListField(StrField):
     islist = 1
