@@ -272,8 +272,7 @@ ipv6nhcls = {  0: "IPv6ExtHdrHopByHop",
               #51: "IPv6ExtHdrAH",
                58: "ICMPv6Unknown", 
                59: "Raw",
-               60: "IPv6ExtHdrDestOpt",
-            }
+               60: "IPv6ExtHdrDestOpt"}
 
 class IP6ListField(StrField):
     islist = 1
