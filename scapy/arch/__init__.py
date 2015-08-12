@@ -52,6 +52,7 @@ SOLARIS=sys.platform.startswith("sunos")
 WINDOWS=sys.platform.startswith("win32")
 
 X86_64 = not WINDOWS and (os.uname()[4] == 'x86_64')
+ARM_64 = not WINDOWS and (os.uname()[4] == 'aarch64')
 
 
 # Next step is to import following architecture specific functions:

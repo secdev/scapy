@@ -132,7 +132,7 @@ def attach_filter(s, filter):
 
     # XXX. Argl! We need to give the kernel a pointer on the BPF,
     # python object header seems to be 20 bytes. 36 bytes for x86 64bits arch.
-    if scapy.arch.X86_64:
+    if scapy.arch.X86_64 or scapy.arch.ARM_64:
         bpfh = struct.pack("HL", nb, id(bpf)+36)
     else:
         bpfh = struct.pack("HI", nb, id(bpf)+20)  
@@ -282,7 +282,7 @@ def get_if(iff,cmd):
 def get_if_index(iff):
     return int(struct.unpack("I",get_if(iff, SIOCGIFINDEX)[16:20])[0])
 
-if os.uname()[4] == 'x86_64':
+if os.uname()[4] in [ 'x86_64', 'aarch64' ]:
     def get_last_packet_timestamp(sock):
         ts = ioctl(sock, SIOCGSTAMP, "1234567890123456")
         s,us = struct.unpack("QQ",ts)
