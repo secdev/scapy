@@ -259,6 +259,7 @@ ipv6nh = { 0:"Hop-by-Hop Option Header",
           58:"ICMPv6",
           59:"No Next Header",
           60:"Destination Option Header",
+         132:"SCTP",
          135:"Mobility Header"} 
 
 ipv6nhcls = {  0: "IPv6ExtHdrHopByHop",

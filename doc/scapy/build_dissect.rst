@@ -26,10 +26,10 @@ of a field class::
 In this example, our layer has three fields. The first one is an 2 byte integer 
 field named ``mickey`` and whose default value is 5. The second one is a 1 byte 
 integer field named ``minnie`` and whose default value is 3. The difference between 
-a vanilla ``ByteField`` and a ``XByteField`` is only the fact that the prefered human 
+a vanilla ``ByteField`` and a ``XByteField`` is only the fact that the preferred human 
 representation of the field’s value is in hexadecimal. The last field is a 4 byte 
 integer field named ``donald``. It is different from a vanilla ``IntField`` by the fact 
-that some of the possible values of the field have litterate representations. For 
+that some of the possible values of the field have literate representations. For 
 example, if it is worth 3, the value will be displayed as angry. Moreover, if the 
 "cool" value is assigned to this field, it will understand that it has to take the 
 value 2. 
@@ -941,7 +941,7 @@ Variable length fields
 
 This is about how fields that have a variable length can be handled with Scapy. These fields usually know their length from another field. Let's call them varfield and lenfield. The idea is to make each field reference the other so that when a packet is dissected, varfield can know its length from lenfield when a packet is assembled, you don't have to fill lenfield, that will deduce its value directly from varfield value.
 
-Problems arise whe you realize that the relation between lenfield and varfield is not always straightforward. Sometimes, lenfield indicates a length in bytes, sometimes a number of objects. Sometimes the length includes the header part, so that you must substract the fixed header length to deduce the varfield length. Sometimes the length is not counted in bytes but in 16bits words. Sometimes the same lenfield is used by two different varfields. Sometimes the same varfield is referenced by two lenfields, one in bytes one in 16bits words.
+Problems arise when you realize that the relation between lenfield and varfield is not always straightforward. Sometimes, lenfield indicates a length in bytes, sometimes a number of objects. Sometimes the length includes the header part, so that you must subtract the fixed header length to deduce the varfield length. Sometimes the length is not counted in bytes but in 16bits words. Sometimes the same lenfield is used by two different varfields. Sometimes the same varfield is referenced by two lenfields, one in bytes one in 16bits words.
 
  
 The length field
@@ -966,7 +966,7 @@ The variable length field
 
 A varfield can be: ``StrLenField``, ``PacketLenField``, ``PacketListField``, ``FieldListField``, ...
 
-For the two firsts, whe a packet is being dissected, their lengths are deduced from a lenfield already dissected. The link is done using the ``length_from`` parameter, which takes a function that, applied to the partly dissected packet, returns the length in bytes to take for the field. For instance::
+For the two firsts, when a packet is being dissected, their lengths are deduced from a lenfield already dissected. The link is done using the ``length_from`` parameter, which takes a function that, applied to the partly dissected packet, returns the length in bytes to take for the field. For instance::
 
     StrLenField("the_varfield", "the_default_value", length_from = lambda pkt: pkt.the_lenfield)
 

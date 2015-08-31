@@ -12,7 +12,7 @@ The kernel is not aware of what Scapy is doing behind his back. If Scapy sends a
 I can't ping 127.0.0.1. Scapy does not work with 127.0.0.1 or on the loopback interface 
 ---------------------------------------------------------------------------------------
 
-The loopback interface is a very special interface. Packets going through it are not really assembled and dissassembled. The kernel routes the packet to its destination while it is still stored an internal structure. What you see with tcpdump -i lo is only a fake to make you think everything is normal. The kernel is not aware of what Scapy is doing behind his back, so what you see on the loopback interface is also a fake. Except this one did not come from a local structure. Thus the kernel will never receive it.
+The loopback interface is a very special interface. Packets going through it are not really assembled and disassembled. The kernel routes the packet to its destination while it is still stored an internal structure. What you see with tcpdump -i lo is only a fake to make you think everything is normal. The kernel is not aware of what Scapy is doing behind his back, so what you see on the loopback interface is also a fake. Except this one did not come from a local structure. Thus the kernel will never receive it.
 
 In order to speak to local applications, you need to build your packets one layer upper, using a PF_INET/SOCK_RAW socket instead of a PF_PACKET/SOCK_RAW (or its equivalent on other systems that Linux)::
 
@@ -32,7 +32,7 @@ traceroute() does not work. I'm on a ppp link
 
 This is a known bug. See BPF filters do not work. I'm on a ppp link
 
-To work arround this, use ``nofilter=1``::
+To work around this, use ``nofilter=1``::
 
     >>> traceroute("target", nofilter=1)
 

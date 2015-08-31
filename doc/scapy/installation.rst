@@ -11,7 +11,7 @@ Overview
  1. Download and install *Scapy*.
  2. (For non-Linux platforms): Install *libpcap and libdnet* and their Python wrappers.
  3. (Optional): Install *additional software* for special features.
- 4. Run Scapy with root priviledges.
+ 4. Run Scapy with root privileges.
  
 Each of these steps can be done in a different way dependent on your platform and on the version of Scapy you want to use. 
 
@@ -147,7 +147,7 @@ Here are the topics involved and some examples that you can use to try if your i
      >>> p=IP()/ICMP()
      >>> p.pdfdump("test.pdf") 
  
-* Graphs. ``conversations()`` needs `Grapviz <http://www.graphviz.org/>`_ and `ImageMagick <http://www.imagemagick.org/>`_.
+* Graphs. ``conversations()`` needs `Graphviz <http://www.graphviz.org/>`_ and `ImageMagick <http://www.imagemagick.org/>`_.
  
   .. code-block:: python
 
@@ -395,7 +395,7 @@ For your convenience direct links are given to the versions I used (for Python 2
 
 After all packages are installed, open a command prompt (cmd.exe) and run Scapy by typing ``scapy``. If you have set the PATH correctly, this will find a little batch file in your ``C:\Python26\Scripts`` directory and instruct the Python interpreter to load Scapy.
 
-If really nothing seems to work, consider skipping the Windows version and using Scapy from a Linux Live CD -- either in a virtual machine on your Windows host or by booting from CDROM: An older version of Scapy is already included in grml and BackTrack for example. While using the Live CD you can easily upgrade to the lastest Scapy version by typing ``cd /tmp && wget scapy.net``.
+If really nothing seems to work, consider skipping the Windows version and using Scapy from a Linux Live CD -- either in a virtual machine on your Windows host or by booting from CDROM: An older version of Scapy is already included in grml and BackTrack for example. While using the Live CD you can easily upgrade to the latest Scapy version by typing ``cd /tmp && wget scapy.net``.
 
 Optional packages
 ^^^^^^^^^^^^^^^^^

@@ -14,6 +14,7 @@ from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.inet import IP
 from scapy.layers.inet6 import IP6Field
+from scapy.layers.inet6 import IPv6
 
 IPPROTO_SCTP=132
 
@@ -432,4 +433,5 @@ class SCTPChunkShutdownComplete(_SCTPChunkGuessPayload, Packet):
                     ]
 
 bind_layers( IP,           SCTP,          proto=IPPROTO_SCTP)
+bind_layers( IPv6,           SCTP,          nh=IPPROTO_SCTP)
 

@@ -1,0 +1,57 @@
+% IS-IS Tests
+* Tests for the IS-IS layer
+
++ Basic Layer Tests
+
+= Layer Binding
+p = Dot3()/LLC()/ISIS_CommonHdr()/ISIS_P2P_Hello()
+assert(p[LLC].dsap == 0xfe)
+assert(p[LLC].ssap == 0xfe)
+assert(p[LLC].ctrl == 0x03)
+assert(p[ISIS_CommonHdr].nlpid == 0x83)
+assert(p[ISIS_CommonHdr].pdutype == 17)
+assert(p[ISIS_CommonHdr].hdrlen == 20)
+
++ Package Tests
+= LSP
+p = Dot3(dst="09:00:2b:00:00:05",src="00:00:00:aa:00:8c")/LLC()/ISIS_CommonHdr()/ISIS_L2_LSP(
+         lifetime=863, lspid="1720.1600.8016.00-00", seqnum=0x1f0, typeblock="L1+L2", 
+         tlvs=[
+             ISIS_AreaTlv(
+                 areas=[ISIS_AreaEntry(areaid="49.1000")]
+             ),
+             ISIS_ProtocolsSupportedTlv(
+                 nlpids=["IPv4", "IPv6"]
+             ),
+             ISIS_DynamicHostnameTlv(
+                 hostname="BR-HH"
+             ),
+             ISIS_IpInterfaceAddressTlv(
+                 addresses=["172.16.8.16"]
+             ),
+             ISIS_GenericTlv(
+                 type=134,
+                 val="\xac\x10\x08\x10"
+             ),
+             ISIS_ExtendedIpReachabilityTlv(
+                 pfxs=[
+                     ISIS_ExtendedIpPrefix(metric=0, pfx="172.16.8.16/32"),
+                     ISIS_ExtendedIpPrefix(metric=10, pfx="10.1.0.109/30"),
+                     ISIS_ExtendedIpPrefix(metric=10, pfx="10.1.0.181/30")
+                 ]
+             ),
+             ISIS_Ipv6ReachabilityTlv(
+                 pfxs=[
+                     ISIS_Ipv6Prefix(metric=0, pfx="fe10:1::10/128"),
+                     ISIS_Ipv6Prefix(metric=10, pfx="fd1f:1::/64"),
+                     ISIS_Ipv6Prefix(metric=10, pfx="fd1f:1:12::/64")
+                 ]
+             ),
+             ISIS_ExtendedIsReachabilityTlv(
+                 neighbours=[ISIS_ExtendedIsNeighbourEntry(neighbourid="1720.1600.8004.00", metric=10)]
+             )
+         ]
+    )
+p = p.__class__(str(p))
+assert(p[ISIS_L2_LSP].pdulength == 150)
+assert(p[ISIS_L2_LSP].checksum == 0x8701)
