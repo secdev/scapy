@@ -22,9 +22,7 @@ class Gen(object):
 class SetGen(Gen):
     def __init__(self, set, _iterpacket=1):
         self._iterpacket=_iterpacket
-        if type(set) is list:
-            self.set = set
-        elif isinstance(set, BasePacketList):
+        if isinstance(set, (list, BasePacketList)):
             self.set = list(set)
         else:
             self.set = [set]
