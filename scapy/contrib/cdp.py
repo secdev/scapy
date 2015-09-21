@@ -303,9 +303,8 @@ class _CDPChecksum:
 
     def post_build(self, pkt, pay):
         p = pkt + pay
-        ck_p = self._check_len(p)
         if self.cksum is None:
-            cksum = checksum(ck_p)
+            cksum = checksum(self._check_len(p))
             p = p[:2] + struct.pack("!H", cksum) + p[4:]
         return p
 
