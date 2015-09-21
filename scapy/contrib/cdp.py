@@ -288,10 +288,23 @@ class CDPMsg(CDPMsgGeneric):
                     StrLenField("val", "", length_from=lambda x:x.len - 4) ]
 
 class _CDPChecksum:
+    def _check_len(self, pkt):
+        """Check for odd packet length and pad according to Cisco spec.
+        This padding is only used for checksum computation.  The original
+        packet should not be altered."""
+        if len(pkt) % 2:
+            last_chr = pkt[-1]
+            if last_chr <= '\x80':
+                return pkt[:-1] + '\x00' + last_chr
+            else:
+                return pkt[:-1] + '\xff' + chr(ord(last_chr) - 1)
+        else:
+            return pkt
+
     def post_build(self, pkt, pay):
         p = pkt + pay
         if self.cksum is None:
-            cksum = checksum(p)
+            cksum = checksum(self._check_len(p))
             p = p[:2] + struct.pack("!H", cksum) + p[4:]
         return p
 
