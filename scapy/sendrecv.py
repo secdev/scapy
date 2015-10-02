@@ -218,7 +218,8 @@ def __gen_send(s, x, inter=0, loop=0, count=None, verbose=None, realtime=None, *
     if count is not None:
         loop = -count
     elif not loop:
-        loop=-1
+        loop = -1
+    sent_packets = []
     try:
         while loop:
             dt0 = None
@@ -230,8 +231,9 @@ def __gen_send(s, x, inter=0, loop=0, count=None, verbose=None, realtime=None, *
                         if st > 0:
                             time.sleep(st)
                     else:
-                        dt0 = ct-p.time 
+                        dt0 = ct-p.time
                 s.send(p)
+                sent_packets.append(p)
                 n += 1
                 if verbose:
                     os.write(1,".")
@@ -243,12 +245,13 @@ def __gen_send(s, x, inter=0, loop=0, count=None, verbose=None, realtime=None, *
     s.close()
     if verbose:
         print "\nSent %i packets." % n
+    return sent_packets
         
 @conf.commands.register
 def send(x, inter=0, loop=0, count=None, verbose=None, realtime=None, *args, **kargs):
     """Send packets at layer 3
 send(packets, [inter=0], [loop=0], [verbose=conf.verb]) -> None"""
-    __gen_send(conf.L3socket(*args, **kargs), x, inter=inter, loop=loop, count=count,verbose=verbose, realtime=realtime)
+    return __gen_send(conf.L3socket(*args, **kargs), x, inter=inter, loop=loop, count=count,verbose=verbose, realtime=realtime)
 
 @conf.commands.register
 def sendp(x, inter=0, loop=0, iface=None, iface_hint=None, count=None, verbose=None, realtime=None, *args, **kargs):
@@ -256,7 +259,7 @@ def sendp(x, inter=0, loop=0, iface=None, iface_hint=None, count=None, verbose=N
 sendp(packets, [inter=0], [loop=0], [verbose=conf.verb]) -> None"""
     if iface is None and iface_hint is not None:
         iface = conf.route.route(iface_hint)[0]
-    __gen_send(conf.L2socket(iface=iface, *args, **kargs), x, inter=inter, loop=loop, count=count, verbose=verbose, realtime=realtime)
+    return __gen_send(conf.L2socket(iface=iface, *args, **kargs), x, inter=inter, loop=loop, count=count, verbose=verbose, realtime=realtime)
 
 @conf.commands.register
 def sendpfast(x, pps=None, mbps=None, realtime=None, loop=0, file_cache=False, iface=None):
