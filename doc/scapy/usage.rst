@@ -219,7 +219,7 @@ Sending packets
 .. index::
    single: Sending packets, send
    
-Now that we know how to manipulate packets. Let's see how to send them. The send() function will send packets at layer 3. That is to say it will handle routing and layer 2 for you. The sendp() function will work at layer 2. It's up to you to choose the right interface and the right link layer protocol.
+Now that we know how to manipulate packets. Let's see how to send them. The send() function will send packets at layer 3. That is to say it will handle routing and layer 2 for you. The sendp() function will work at layer 2. It's up to you to choose the right interface and the right link layer protocol. send() and sendp() will also return sent packet list if return_packets=True is passed as parameter.
 
 ::
 
@@ -235,6 +235,12 @@ Now that we know how to manipulate packets. Let's see how to send them. The send
     >>> sendp(rdpcap("/tmp/pcapfile")) # tcpreplay
     ...........
     Sent 11 packets.
+    
+    Returns packets sent by send()
+    >>> send(IP(dst='127.0.0.1'), return_packets=True)
+    .
+    Sent 1 packets.
+    <PacketList: TCP:0 UDP:0 ICMP:0 Other:1>
 
 
 Fuzzing
