@@ -126,13 +126,13 @@ def _in6_getifaddr(ifname):
 
     # Iterate over lines and extract IPv6 addresses
     ret = []
-    for line in f.readlines():
+    for line in f:
         if "inet6" in line:
-            addr = line.rstrip().split()[1] # The second element is the IPv6 address
+            addr = line.rstrip().split(None, 2)[1] # The second element is the IPv6 address
         else:
             continue
         if '%' in line: # Remove the interface identifier if present
-            addr = addr.split("%")[0]
+            addr = addr.split("%", 1)[0]
 
         # Check if it is a valid IPv6 address
         try:
