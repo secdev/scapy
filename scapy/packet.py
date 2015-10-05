@@ -337,8 +337,10 @@ class Packet(BasePacket):
         for t in self.post_transforms:
             pkt = t(pkt)
         pay = self.do_build_payload()
-        p = self.post_build(pkt,pay)
-        return p
+        if self.raw_packet_cache is None:
+            return self.post_build(pkt, pay)
+        else:
+            return pkt + pay
     
     def build_padding(self):
         return self.payload.build_padding()
