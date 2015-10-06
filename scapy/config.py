@@ -64,6 +64,7 @@ class ProgPath(ConfClass):
     tcpreplay = "tcpreplay"
     hexedit = "hexer"
     wireshark = "wireshark"
+    ifconfig = "ifconfig"
 
 
 class ConfigFieldList:
