@@ -11,7 +11,9 @@ Cisco NetFlow protocol v1 and v5
 
 from scapy.fields import *
 from scapy.packet import *
+from scapy.data import IP_PROTOS
 import socket
+
 
 class NetflowHeader(Packet):
     name = "Netflow Header"
@@ -88,7 +90,7 @@ class NetflowRecordV5(Packet):
                     ShortField("dstport", 0),
                     ByteField("pad1", 0),
                     FlagsField("tcpFlags", 0x2, 8, "FSRPAUEC"),
-                    ByteField("prot", socket.IPPROTO_TCP),
+                    ByteEnumField("prot", socket.IPPROTO_TCP, IP_PROTOS),
                     ByteField("tos",0),
                     ShortField("src_as", 0),
                     ShortField("dst_as", 0),
