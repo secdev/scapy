@@ -894,13 +894,6 @@ DHCP6PrefVal="" # la valeur de preference a utiliser dans
 #            INFORMATION REQUEST
 # - relay  : RELAY-FORW (toward server)
 
-class _DHCP6GuessPayload(Packet):
-    def guess_payload_class(self, payload):
-        if len(payload) > 1 :
-            print ord(payload[0])
-            return get_cls(dhcp6opts.get(ord(payload[0]),"DHCP6OptUnknown"), conf.raw_layer)
-        return conf.raw_layer
-
 #####################################################################
 ## DHCPv6 messages sent between Clients and Servers (types 1 to 11)
 # Comme specifie en section 15.1 de la RFC 3315, les valeurs de
@@ -1137,7 +1130,7 @@ class DHCP6_InfoRequest(DHCP6):
 # address or other multicast addresses, it sets the Hop Limit field to
 # 32. 
 
-class DHCP6_RelayForward(_DHCP6GuessPayload,Packet):
+class DHCP6_RelayForward(_DHCP6OptGuessPayload,Packet):
     name = "DHCPv6 Relay Forward Message (Relay Agent/Server Message)"
     fields_desc = [ ByteEnumField("msgtype", 12, dhcp6types),
                     ByteField("hopcount", None),
