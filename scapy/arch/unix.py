@@ -20,9 +20,6 @@ scapy.config.conf.use_dnet = 1
 from pcapdnet import *
 
 
-    
-
-
 ##################
 ## Routes stuff ##
 ##################
@@ -49,8 +46,9 @@ def read_routes():
         if not ok:
             if l.find("Destination") >= 0:
                 ok = 1
-                mtu_present = l.find("Mtu") >= 0
-                prio_present = l.find("Prio") >= 0
+                mtu_present = "Mtu" in l
+                prio_present = "Prio" in l
+                refs_present = "Refs" in l
             continue
         if not l:
             break
@@ -64,7 +62,7 @@ def read_routes():
         else:
             rt = l.split()
             dest,gw,flg = rt[:3]
-            netif = rt[5+mtu_present+prio_present]
+            netif = rt[4 + mtu_present + prio_present + refs_present]
         if flg.find("Lc") >= 0:
             continue                
         if dest == "default":
