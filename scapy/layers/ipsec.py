@@ -232,7 +232,8 @@ class CryptAlgo(object):
         @return:    an initialized cipher object for this algo
         """
         if (hasattr(self.cipher, 'MODE_CTR') and self.mode == self.cipher.MODE_CTR
-            or hasattr(self.cipher, 'MODE_GCM') and self.mode == self.cipher.MODE_GCM):
+            or hasattr(self.cipher, 'MODE_GCM') and self.mode == self.cipher.MODE_GCM
+            or hasattr(self.cipher, 'MODE_CCM') and self.mode == self.cipher.MODE_CCM):
             # in counter mode, the "iv" must be incremented for each block
             # it is calculated like this:
             # +---------+------------------+---------+
@@ -251,6 +252,10 @@ class CryptAlgo(object):
             #                              <--------->
             #                               nonce_size
             cipher_key, nonce = key[:-nonce_size], key[-nonce_size:]
+            if (hasattr(self.cipher, 'MODE_GCM') and self.mode == self.cipher.MODE_GCM
+            or  hasattr(self.cipher, 'MODE_CCM') and self.mode == self.cipher.MODE_CCM):
+                return self.cipher.new(cipher_key, self.mode, nonce + iv,
+                                       counter=Counter.new(4 * 8, prefix=nonce + iv))
 
             return self.cipher.new(cipher_key, self.mode,
                                    counter=Counter.new(4 * 8, prefix=nonce + iv))
@@ -363,6 +368,16 @@ if AES:
                                        cipher=AES,
                                        mode=AES.MODE_CTR,
                                        block_size=1,
+                                       iv_size=8,
+                                       key_size=(16 + 4, 24 + 4, 32 + 4))
+    CRYPT_ALGOS['AES-GCM'] = CryptAlgo('AES-GCM',
+                                       cipher=AES,
+                                       mode=AES.MODE_GCM,
+                                       iv_size=8,
+                                       key_size=(16 + 4, 24 + 4, 32 + 4))
+    CRYPT_ALGOS['AES-CCM'] = CryptAlgo('AES-CCM',
+                                       cipher=AES,
+                                       mode=AES.MODE_CCM,
                                        iv_size=8,
                                        key_size=(16 + 4, 24 + 4, 32 + 4))
 if DES:
