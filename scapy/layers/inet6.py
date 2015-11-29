@@ -1444,7 +1444,8 @@ icmp6ndoptscls = { 1: "ICMPv6NDOptSrcLLAddr",
                   23: "ICMPv6NDOptMAP",
                   24: "ICMPv6NDOptRouteInfo",
                   25: "ICMPv6NDOptRDNSS",
-                  26: "ICMPv6NDOptEFA"
+                  26: "ICMPv6NDOptEFA",
+                  31: "ICMPv6NDOptDNSSL"
                   }
 
 class _ICMPv6NDGuessPayload:
@@ -1686,6 +1687,19 @@ class ICMPv6NDOptEFA(_ICMPv6NDGuessPayload, Packet): # RFC 5175 (prev. 5075)
     fields_desc = [ ByteField("type", 26),
                     ByteField("len", 1),
                     BitField("res", 0, 48) ]
+
+from scapy.layers.dhcp6 import DomainNameListField
+class ICMPv6NDOptDNSSL(_ICMPv6NDGuessPayload, Packet): # RFC 6106
+    name = "ICMPv6 Neighbor Discovery Option - DNS Search List Option"
+    fields_desc = [ ByteField("type", 31),
+                    FieldLenField("len", None, count_of="searchlist", fmt="B",
+                                  adjust=lambda pkt, x: 1+ len(pkt.searchlist)),
+                    ShortField("res", None),
+                    IntField("lifetime", 0xffffffff),
+                    DomainNameListField("searchlist", [],
+                                        length_from=lambda pkt: 8*pkt.len -8,
+                                        padded=True)
+                    ]
 
 # End of ICMPv6 Neighbor Discovery Options.
 

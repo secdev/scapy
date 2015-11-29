@@ -662,6 +662,11 @@ class DHCP6OptReconfAccept(_DHCP6OptGuessPayload):   # RFC sect 22.20
 #     Total length of domain should be 255 : we do not enforce it either
 class DomainNameListField(StrLenField):
     islist = 1
+    padded_unit = 8
+
+    def __init__(self, name, default, fld=None, length_from=None, padded=False):
+        self.padded = padded
+        StrLenField.__init__(self, name, default, fld, length_from)
 
     def i2len(self, pkt, x):
         return len(self.i2m(pkt, x))
@@ -669,12 +674,19 @@ class DomainNameListField(StrLenField):
     def m2i(self, pkt, x):
         res = []
         while x:
+            # Get a name until \x00 is reached
             cur = []
             while x and x[0] != '\x00':
                 l = ord(x[0])
                 cur.append(x[1:l+1])
                 x = x[l+1:]
-            res.append(".".join(cur))
+            if self.padded:
+              # Discard following \x00 in padded mode
+              if len(cur):
+                res.append(".".join(cur) + ".")
+            else:
+              # Store the current name
+              res.append(".".join(cur) + ".")
             if x and x[0] == '\x00':
                 x = x[1:]
         return res
@@ -684,9 +696,15 @@ class DomainNameListField(StrLenField):
             if z and z[-1] == '\x00':
                 return z
             return z+'\x00'
-        res = ""
+        # Build the encode names
         tmp = map(lambda y: map((lambda z: chr(len(z))+z), y.split('.')), x)
-        return "".join(map(lambda x: conditionalTrailingDot("".join(x)), tmp))
+        ret_string  = "".join(map(lambda x: conditionalTrailingDot("".join(x)), tmp))
+
+        # In padded mode, add some \x00 bytes
+        if self.padded and not len(ret_string) % self.padded_unit == 0:
+            ret_string += "\x00" * (self.padded_unit - len(ret_string) % self.padded_unit)
+
+        return ret_string
 
 class DHCP6OptSIPDomains(_DHCP6OptGuessPayload):       #RFC3319
     name = "DHCP6 Option - SIP Servers Domain Name List"
