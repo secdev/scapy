@@ -2157,6 +2157,29 @@ a.type==25 and a.len==3 and a.res ==0 and len(a.dns) == 1 and a.dns[0] == "2001:
 a=ICMPv6NDOptRDNSS('\x19\x05\xaa\xee\xff\xff\xff\xff \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02')
 a.type==25 and a.len==5 and a.res == 0xaaee and len(a.dns) == 2 and a.dns[0] == "2001:db8::1" and a.dns[1] == "2001:db8::2"
 
+########### ICMPv6NDOptDNSSL Class (RFC6106) ########################
++ ICMPv6NDOptDNSSL Class Test
+
+= ICMPv6NDOptDNSSL - Basic Instantiation
+str(ICMPv6NDOptDNSSL()) == '\x1f\x01\x00\x00\xff\xff\xff\xff'
+
+= ICMPv6NDOptDNSSL - Instantiation with 1 search domain, as seen in the wild
+str(ICMPv6NDOptDNSSL(lifetime=60, searchlist=["home."])) == '\x1f\x02\x00\x00\x00\x00\x00<\x04home\x00\x00\x00'
+
+= ICMPv6NDOptDNSSL - Basic instantiation with 2 search domains
+str(ICMPv6NDOptDNSSL(searchlist=["home.", "office."])) == '\x1f\x03\x00\x00\xff\xff\xff\xff\x04home\x00\x06office\x00\x00\x00'
+
+= ICMPv6NDOptDNSSL - Basic instantiation with 3 search domains
+str(ICMPv6NDOptDNSSL(searchlist=["home.", "office.", "here.there."])) == '\x1f\x04\x00\x00\xff\xff\xff\xff\x04home\x00\x06office\x00\x04here\x05there\x00\x00\x00\x00\x00\x00\x00'
+
+= ICMPv6NDOptDNSSL - Basic Dissection
+p = ICMPv6NDOptDNSSL('\x1f\x01\x00\x00\xff\xff\xff\xff')
+p.type == 31 and p.len == 1 and p.res == 0 and p.searchlist == []
+
+= ICMPv6NDOptDNSSL - Basic Dissection with specific values
+p = ICMPv6NDOptDNSSL('\x1f\x02\x00\x00\x00\x00\x00<\x04home\x00\x00\x00')
+p.type == 31 and p.len == 2 and p.res == 0 and p.lifetime == 60 and p.searchlist == ["home."]
+
 ########### ICMPv6NDOptEFA Class (RFC5075) ##########################
 + ICMPv6NDOptEFA Class Test
 
@@ -3183,14 +3206,14 @@ str(DHCP6OptSIPDomains(sipdomains=["toto.example.org"])) == '\x00\x15\x00\x12\x0
 
 = DHCP6OptSIPDomains - Dissection with one domain
 a = DHCP6OptSIPDomains('\x00\x15\x00\x12\x04toto\x07example\x03org\x00')
-a.optcode == 21 and a.optlen == 18 and len(a.sipdomains) == 1 and a.sipdomains[0] == "toto.example.org"
+a.optcode == 21 and a.optlen == 18 and len(a.sipdomains) == 1 and a.sipdomains[0] == "toto.example.org."
 
 = DHCP6OptSIPDomains - Instantiation with two domains
 str(DHCP6OptSIPDomains(sipdomains=["toto.example.org", "titi.example.org"])) == '\x00\x15\x00$\x04toto\x07example\x03org\x00\x04titi\x07example\x03org\x00'
 
 = DHCP6OptSIPDomains - Dissection with two domains
 a = DHCP6OptSIPDomains('\x00\x15\x00$\x04toto\x07example\x03org\x00\x04TITI\x07example\x03org\x00')
-a.optcode == 21 and a.optlen == 36 and len(a.sipdomains) == 2 and a.sipdomains[0] == "toto.example.org" and a.sipdomains[1] == "TITI.example.org"
+a.optcode == 21 and a.optlen == 36 and len(a.sipdomains) == 2 and a.sipdomains[0] == "toto.example.org." and a.sipdomains[1] == "TITI.example.org."
 
 = DHCP6OptSIPDomains - Enforcing only one dot at end of domain
 str(DHCP6OptSIPDomains(sipdomains=["toto.example.org."])) == '\x00\x15\x00\x12\x04toto\x07example\x03org\x00'
@@ -3257,18 +3280,18 @@ a = DHCP6OptDNSDomains('\x00\x18\x00\x00')
 a.optcode == 24 and a.optlen == 0 and a.dnsdomains == []
 
 = DHCP6OptDNSDomains - Instantiation with specific values (1 domain) 
-str(DHCP6OptDNSDomains(dnsdomains=["toto.example.com"])) == '\x00\x18\x00\x12\x04toto\x07example\x03com\x00'
+str(DHCP6OptDNSDomains(dnsdomains=["toto.example.com."])) == '\x00\x18\x00\x12\x04toto\x07example\x03com\x00'
 
 = DHCP6OptDNSDomains - Dissection with specific values (1 domain) 
 a = DHCP6OptDNSDomains('\x00\x18\x00\x12\x04toto\x07example\x03com\x00')
-a.optcode == 24 and a.optlen == 18 and len(a.dnsdomains) == 1 and a.dnsdomains[0] == "toto.example.com"
+a.optcode == 24 and a.optlen == 18 and len(a.dnsdomains) == 1 and a.dnsdomains[0] == "toto.example.com."
 
 = DHCP6OptDNSDomains - Instantiation with specific values (2 domains) 
-str(DHCP6OptDNSDomains(dnsdomains=["toto.example.com", "titi.example.com"])) == '\x00\x18\x00$\x04toto\x07example\x03com\x00\x04titi\x07example\x03com\x00'
+str(DHCP6OptDNSDomains(dnsdomains=["toto.example.com.", "titi.example.com."])) == '\x00\x18\x00$\x04toto\x07example\x03com\x00\x04titi\x07example\x03com\x00'
 
 = DHCP6OptDNSDomains - Dissection with specific values (2 domains) 
 a = DHCP6OptDNSDomains('\x00\x18\x00$\x04toto\x07example\x03com\x00\x04titi\x07example\x03com\x00')
-a.optcode == 24 and a.optlen == 36 and len(a.dnsdomains) == 2 and a.dnsdomains[0] == "toto.example.com" and a.dnsdomains[1] == "titi.example.com"
+a.optcode == 24 and a.optlen == 36 and len(a.dnsdomains) == 2 and a.dnsdomains[0] == "toto.example.com." and a.dnsdomains[1] == "titi.example.com."
 
 
 #####################################################################
@@ -3449,18 +3472,18 @@ a = DHCP6OptBCMCSDomains('\x00!\x00\x00')
 a.optcode == 33 and a.optlen == 0 and a.bcmcsdomains == []
 
 = DHCP6OptBCMCSDomains - Instantiation with specific values (1 domain) 
-str(DHCP6OptBCMCSDomains(bcmcsdomains=["toto.example.com"])) == '\x00!\x00\x12\x04toto\x07example\x03com\x00'
+str(DHCP6OptBCMCSDomains(bcmcsdomains=["toto.example.com."])) == '\x00!\x00\x12\x04toto\x07example\x03com\x00'
 
 = DHCP6OptBCMCSDomains - Dissection with specific values (1 domain) 
 a = DHCP6OptBCMCSDomains('\x00!\x00\x12\x04toto\x07example\x03com\x00')
-a.optcode == 33 and a.optlen == 18 and len(a.bcmcsdomains) == 1 and a.bcmcsdomains[0] == "toto.example.com"
+a.optcode == 33 and a.optlen == 18 and len(a.bcmcsdomains) == 1 and a.bcmcsdomains[0] == "toto.example.com."
 
 = DHCP6OptBCMCSDomains - Instantiation with specific values (2 domains) 
-str(DHCP6OptBCMCSDomains(bcmcsdomains=["toto.example.com", "titi.example.com"])) == '\x00!\x00$\x04toto\x07example\x03com\x00\x04titi\x07example\x03com\x00'
+str(DHCP6OptBCMCSDomains(bcmcsdomains=["toto.example.com.", "titi.example.com."])) == '\x00!\x00$\x04toto\x07example\x03com\x00\x04titi\x07example\x03com\x00'
 
 = DHCP6OptBCMCSDomains - Dissection with specific values (2 domains) 
 a = DHCP6OptBCMCSDomains('\x00!\x00$\x04toto\x07example\x03com\x00\x04titi\x07example\x03com\x00')
-a.optcode == 33 and a.optlen == 36 and len(a.bcmcsdomains) == 2 and a.bcmcsdomains[0] == "toto.example.com" and a.bcmcsdomains[1] == "titi.example.com"
+a.optcode == 33 and a.optlen == 36 and len(a.bcmcsdomains) == 2 and a.bcmcsdomains[0] == "toto.example.com." and a.bcmcsdomains[1] == "titi.example.com."
 
 #####################################################################
 + Test DHCP6 Option - Relay Agent Remote-ID
