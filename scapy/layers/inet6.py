@@ -1693,7 +1693,7 @@ class ICMPv6NDOptDNSSL(_ICMPv6NDGuessPayload, Packet): # RFC 6106
     name = "ICMPv6 Neighbor Discovery Option - DNS Search List Option"
     fields_desc = [ ByteField("type", 31),
                     FieldLenField("len", None, count_of="searchlist", fmt="B",
-                                  adjust=lambda pkt, x: 1+ len(pkt.searchlist)),
+                                  adjust=lambda pkt, x: 1+ len(str(pkt.searchlist))/8),
                     ShortField("res", None),
                     IntField("lifetime", 0xffffffff),
                     DomainNameListField("searchlist", [],
