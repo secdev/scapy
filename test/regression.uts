@@ -2170,7 +2170,7 @@ str(ICMPv6NDOptDNSSL(lifetime=60, searchlist=["home."])) == '\x1f\x02\x00\x00\x0
 str(ICMPv6NDOptDNSSL(searchlist=["home.", "office."])) == '\x1f\x03\x00\x00\xff\xff\xff\xff\x04home\x00\x06office\x00\x00\x00'
 
 = ICMPv6NDOptDNSSL - Basic instantiation with 3 search domains
-str(ICMPv6NDOptDNSSL(searchlist=["home.", "office.", "here.there."])) == '\x1f\x04\x00\x00\xff\xff\xff\xff\x04home\x00\x06office\x00\x04here\x05there\x00\x00\x00\x00\x00\x00\x00'
+str(ICMPv6NDOptDNSSL(searchlist=["home.", "office.", "here.there."])) == '\x1f\x05\x00\x00\xff\xff\xff\xff\x04home\x00\x06office\x00\x04here\x05there\x00\x00\x00\x00\x00\x00\x00'
 
 = ICMPv6NDOptDNSSL - Basic Dissection
 p = ICMPv6NDOptDNSSL('\x1f\x01\x00\x00\xff\xff\xff\xff')
