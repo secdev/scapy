@@ -48,7 +48,7 @@ IPV6_ADDR_UNSPECIFIED = 0x10000
 
 
 
-MTU = 0x7fff # a.k.a give me all you have
+MTU = 0xffff # a.k.a give me all you have
 
 WINDOWS=sys.platform.startswith("win")
 
