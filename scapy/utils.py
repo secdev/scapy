@@ -577,7 +577,7 @@ class RawPcapReader:
         if len(hdr) < 16:
             return None
         sec,usec,caplen,wirelen = struct.unpack(self.endian+"IIII", hdr)
-        s = self.f.read(caplen)[:MTU]
+        s = self.f.read(caplen)[:size]
         return s,(sec,usec,wirelen) # caplen = len(s)
 
 
@@ -606,7 +606,7 @@ class RawPcapReader:
     def recv(self, size=MTU):
         """ Emulate a socket
         """
-        return self.read_packet(size)[0]
+        return self.read_packet(size=size)[0]
 
     def fileno(self):
         return self.f.fileno()
@@ -630,7 +630,7 @@ class PcapReader(RawPcapReader):
             warning("PcapReader: unknown LL type [%i]/[%#x]. Using Raw packets" % (self.linktype,self.linktype))
             self.LLcls = conf.raw_layer
     def read_packet(self, size=MTU):
-        rp = RawPcapReader.read_packet(self,size)
+        rp = RawPcapReader.read_packet(self, size=size)
         if rp is None:
             return None
         s,(sec,usec,wirelen) = rp
@@ -650,7 +650,7 @@ class PcapReader(RawPcapReader):
         import plist
         return plist.PacketList(res,name = os.path.basename(self.filename))
     def recv(self, size=MTU):
-        return self.read_packet(size)
+        return self.read_packet(size=size)
         
 
 
