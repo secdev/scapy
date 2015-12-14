@@ -1233,7 +1233,8 @@ class ICMPv6DestUnreach(_ICMPv6Error):
                                               3: "Address unreachable",
                                               4: "Port unreachable" }),
                     XShortField("cksum", None),
-                    XIntField("unused",0x00000000)]
+                    ByteField("length", 0),
+                    X3BytesField("unused",0)]
 
 class ICMPv6PacketTooBig(_ICMPv6Error):
     name = "ICMPv6 Packet Too Big"
@@ -1246,9 +1247,10 @@ class ICMPv6TimeExceeded(_ICMPv6Error):
     name = "ICMPv6 Time Exceeded"
     fields_desc = [ ByteEnumField("type",3, icmp6types),
                     ByteEnumField("code",0, { 0: "hop limit exceeded in transit",
-                                               1: "fragment reassembly time exceeded"}),
+                                              1: "fragment reassembly time exceeded"}),
                     XShortField("cksum", None),
-                    XIntField("unused",0x00000000)]
+                    ByteField("length", 0),
+                    X3BytesField("unused",0)]
 
 # The default pointer value is set to the next header field of 
 # the encapsulated IPv6 packet
