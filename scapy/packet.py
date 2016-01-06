@@ -1249,20 +1249,28 @@ def ls(obj=None):
         import __builtin__
         all = __builtin__.__dict__.copy()
         all.update(globals())
-        objlst = sorted(conf.layers, key=lambda x:x.__name__)
+        objlst = sorted(conf.layers, key=lambda x: x.__name__)
         for o in objlst:
             print "%-10s : %s" %(o.__name__,o.name)
     else:
-        if isinstance(obj, type) and issubclass(obj, Packet):
+        is_pkt = isinstance(obj, Packet)
+        if (isinstance(obj, type) and issubclass(obj, Packet)) or is_pkt:
             for f in obj.fields_desc:
-                print "%-10s : %-20s = (%s)" % (f.name, f.__class__.__name__,  repr(f.default))
-        elif isinstance(obj, Packet):
-            for f in obj.fields_desc:
-                print "%-10s : %-20s = %-15s (%s)" % (f.name, f.__class__.__name__, repr(getattr(obj,f.name)), repr(f.default))
-            if not isinstance(obj.payload, NoPayload):
+                cur_fld = f
+                attrs = []
+                while isinstance(cur_fld, (Emph, ConditionalField)):
+                    attrs.append(cur_fld.__class__.__name__[:4])
+                    cur_fld = cur_fld.fld
+                class_name = "%s (%s)" % (
+                    cur_fld.__class__.__name__,
+                    ", ".join(attrs)) if attrs else cur_fld.__class__.__name__
+                print "%-10s : %-25s =" % (f.name, class_name),
+                if is_pkt:
+                    print "%-15r" % getattr(obj,f.name),
+                print "(%r)" % f.default
+            if is_pkt and not isinstance(obj.payload, NoPayload):
                 print "--"
                 ls(obj.payload)
-                
 
         else:
             print "Not a packet class. Type 'ls()' to list packet classes."
