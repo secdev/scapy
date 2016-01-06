@@ -1264,6 +1264,10 @@ def ls(obj=None):
                 class_name = "%s (%s)" % (
                     cur_fld.__class__.__name__,
                     ", ".join(attrs)) if attrs else cur_fld.__class__.__name__
+                if isinstance(cur_fld, BitField):
+                    class_name += " (%d bit%s)" % (cur_fld.size,
+                                                   "s" if cur_fld.size > 1
+                                                   else "")
                 print "%-10s : %-25s =" % (f.name, class_name),
                 if is_pkt:
                     print "%-15r" % getattr(obj,f.name),
