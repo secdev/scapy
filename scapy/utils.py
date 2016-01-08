@@ -460,7 +460,7 @@ class Enum_metaclass(type):
     def __contains__(self, val):
         return val in self.__rdict__
     def get(self, attr, val=None):
-        return self._rdict__.get(attr, val)
+        return self.__rdict__.get(attr, val)
     def __repr__(self):
         return "<%s>" % self.__dict__.get("name", self.__name__)
 
