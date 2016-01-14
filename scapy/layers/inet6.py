@@ -945,7 +945,7 @@ def defragment6(pktlist):
     q = res[0]
     nh = q[IPv6ExtHdrFragment].nh
     q[IPv6ExtHdrFragment].underlayer.nh = nh
-    q[IPv6ExtHdrFragment].underlayer.payload = None
+    del q[IPv6ExtHdrFragment].underlayer.payload
     q /= conf.raw_layer(load=fragmentable)
     
     return IPv6(str(q))
@@ -991,12 +991,12 @@ def fragment6(pkt, fragSize):
 
     # Keep fragment header
     fragHeader = pkt[IPv6ExtHdrFragment]
-    fragHeader.payload = None # detach payload
+    del fragHeader.payload # detach payload
 
     # Unfragmentable Part
     unfragPartLen = len(s) - fragPartLen - 8
     unfragPart = pkt
-    pkt[IPv6ExtHdrFragment].underlayer.payload = None # detach payload
+    del pkt[IPv6ExtHdrFragment].underlayer.payload # detach payload
 
     # Cut the fragmentable part to fit fragSize. Inner fragments have 
     # a length that is an integer multiple of 8 octets. last Frag MTU

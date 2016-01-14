@@ -16,6 +16,7 @@ import config
 import error
 
 class Gen(object):
+    __slots__ = []
     def __iter__(self):
         return iter([])
     
@@ -175,10 +176,17 @@ class Packet_metaclass(type):
 
             dct["fields_desc"] = final_fld
 
+        if "__slots__" not in dct:
+            dct["__slots__"] = []
         newcls = super(Packet_metaclass, cls).__new__(cls, name, bases, dct)
+        if hasattr(newcls, "aliastypes"):
+            newcls.aliastypes = [newcls] + newcls.aliastypes
+        else:
+            newcls.aliastypes = [newcls]
+
         if hasattr(newcls,"register_variant"):
             newcls.register_variant()
-        for f in newcls.fields_desc:                
+        for f in newcls.fields_desc:
             f.register_owner(newcls)
         config.conf.layers.register(newcls)
         return newcls
@@ -220,7 +228,7 @@ class NewDefaultValues(Packet_metaclass):
         return super(NewDefaultValues, cls).__new__(cls, name, bases, dct)
 
 class BasePacket(Gen):
-    pass
+    __slots__ = []
 
 
 #############################
@@ -229,6 +237,3 @@ class BasePacket(Gen):
 
 class BasePacketList:
     pass
-
-
-

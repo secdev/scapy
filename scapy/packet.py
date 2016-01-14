@@ -33,23 +33,20 @@ class RawVal:
 
 
 class Packet(BasePacket):
+    __slots__ = [
+        "time", "sent_time", "name", "default_fields",
+        "overloaded_fields", "fields", "fieldtype", "packetfields",
+        "initialized", "original", "explicit", "raw_packet_cache",
+        "raw_packet_cache_fields", "_pkt", "post_transforms",
+        # then payload and underlayer
+        "payload", "underlayer",
+    ]
     __metaclass__ = Packet_metaclass
-    name=None
-
+    name = None
     fields_desc = []
-
-    aliastypes = []
     overload_fields = {}
-
-    underlayer = None
-
-    sent_time = None
     payload_guess = []
-    initialized = 0
-    show_indent=1
-    explicit = 0
-    raw_packet_cache = None
-    raw_packet_cache_fields = None
+    show_indent = 1
 
     @classmethod
     def from_hexcap(cls):
@@ -67,20 +64,20 @@ class Packet(BasePacket):
 
     def __init__(self, _pkt="", post_transform=None, _internal=0, _underlayer=None, **fields):
         self.time  = time.time()
-        self.sent_time = 0
-        if self.name is None:
-            self.name = self.__class__.__name__
-        self.aliastypes = [ self.__class__ ] + self.aliastypes
+        self.sent_time = None
         self.default_fields = {}
         self.overloaded_fields = {}
-        self.fields={}
-        self.fieldtype={}
-        self.packetfields=[]
-        self.__dict__["payload"] = NoPayload()
+        self.fields = {}
+        self.fieldtype = {}
+        self.packetfields = []
+        self.payload = NoPayload()
         self.init_fields()
         self.underlayer = _underlayer
         self.initialized = 1
         self.original = _pkt
+        self.explicit = 0
+        self.raw_packet_cache = None
+        self.raw_packet_cache_fields = None
         if _pkt:
             self.dissect(_pkt)
             if not _internal:
@@ -124,19 +121,19 @@ class Packet(BasePacket):
             self.payload.add_payload(payload)
         else:
             if isinstance(payload, Packet):
-                self.__dict__["payload"] = payload
+                self.payload = payload
                 payload.add_underlayer(self)
                 for t in self.aliastypes:
                     if payload.overload_fields.has_key(t):
                         self.overloaded_fields = payload.overload_fields[t]
                         break
             elif type(payload) is str:
-                self.__dict__["payload"] = conf.raw_layer(load=payload)
+                self.payload = conf.raw_layer(load=payload)
             else:
                 raise TypeError("payload must be either 'Packet' or 'str', not [%s]" % repr(payload))
     def remove_payload(self):
         self.payload.remove_underlayer(self)
-        self.__dict__["payload"] = NoPayload()
+        self.payload = NoPayload()
         self.overloaded_fields = {}
     def add_underlayer(self, underlayer):
         self.underlayer = underlayer
@@ -148,7 +145,6 @@ class Packet(BasePacket):
         clone.fields = self.copy_fields_dict(self.fields)
         clone.default_fields = self.copy_fields_dict(self.default_fields)
         clone.overloaded_fields = self.overloaded_fields.copy()
-        clone.overload_fields = self.overload_fields.copy()
         clone.underlayer = self.underlayer
         clone.explicit = self.explicit
         clone.raw_packet_cache = self.raw_packet_cache
@@ -156,7 +152,7 @@ class Packet(BasePacket):
             self.raw_packet_cache_fields
         )
         clone.post_transforms = self.post_transforms[:]
-        clone.__dict__["payload"] = self.payload.copy()
+        clone.payload = self.payload.copy()
         clone.payload.add_underlayer(clone)
         return clone
 
@@ -179,7 +175,7 @@ class Packet(BasePacket):
         return self.payload.getfield_and_val(attr)
     
     def __getattr__(self, attr):
-        if self.initialized:
+        if hasattr(self, "initialized"):
             fld,v = self.getfield_and_val(attr)
             if fld is not None:
                 return fld.i2h(self, v)
@@ -203,15 +199,23 @@ class Packet(BasePacket):
         else:
             self.payload.setfieldval(attr,val)
 
+    def attr_in_slots(self, attr):
+        """Return True iff `attr` belongs to the `__slots__` list of
+        this class or any parent class.
+
+        """
+        return any(attr in cls.__slots__ for cls in self.__class__.__mro__
+                   if hasattr(cls, "__slots__"))
+
     def __setattr__(self, attr, val):
-        if self.initialized:
+        if hasattr(self, "initialized"):
+            if self.attr_in_slots(attr):
+                return object.__setattr__(self, attr, val)
             try:
-                self.setfieldval(attr,val)
+                return self.setfieldval(attr,val)
             except AttributeError:
                 pass
-            else:
-                return
-        self.__dict__[attr] = val
+        return object.__setattr__(self, attr, val)
 
     def delfieldval(self, attr):
         if self.fields.has_key(attr):
@@ -227,17 +231,16 @@ class Packet(BasePacket):
             self.payload.delfieldval(attr)
 
     def __delattr__(self, attr):
-        if self.initialized:
+        if hasattr(self, "initialized"):
+            if attr == "payload":
+                return self.remove_payload()
+            if self.attr_in_slots(attr):
+                return object.__delattr__(self, attr)
             try:
-                self.delfieldval(attr)
+                return self.delfieldval(attr)
             except AttributeError:
                 pass
-            else:
-                return
-        if self.__dict__.has_key(attr):
-            del(self.__dict__[attr])
-        else:
-            raise AttributeError(attr)
+        return object.__delattr__(self, attr)
             
     def __repr__(self):
         s = ""
@@ -657,7 +660,6 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
         pkt.default_fields = self.copy_fields_dict(self.default_fields)
         pkt.time = self.time
         pkt.underlayer = self.underlayer
-        pkt.overload_fields = self.overload_fields.copy()
         pkt.post_transforms = self.post_transforms
         pkt.raw_packet_cache = self.raw_packet_cache
         pkt.raw_packet_cache_fields = self.copy_fields_dict(
@@ -1112,7 +1114,7 @@ class NoPayload(Packet):
         elif attr in self.__class__.__dict__:
             return self.__class__.__dict__[attr]
         else:
-            raise AttributeError, attr
+            raise AttributeError(attr)
     def hide_defaults(self):
         pass
     def __iter__(self):

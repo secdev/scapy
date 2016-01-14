@@ -27,8 +27,9 @@ import scapy.as_resolvers
 ## IP Tools class ##
 ####################
 
-class IPTools:
-    """Add more powers to a class that have a "src" attribute."""
+class IPTools(object):
+    """Add more powers to a class with an "src" attribute."""
+    __slots__ = []
     def whois(self):
         os.system("whois %s" % self.src)
     def ottl(self):
