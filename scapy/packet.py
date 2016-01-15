@@ -9,7 +9,7 @@ Packet class. Binding mechanism. fuzz() method.
 
 import time,itertools,os
 import copy
-from fields import StrField,ConditionalField,Emph,PacketListField
+from fields import StrField,ConditionalField,Emph,PacketListField,BitField
 from config import conf
 from base_classes import BasePacket,Gen,SetGen,Packet_metaclass,NewDefaultValues
 from volatile import VolatileValue
