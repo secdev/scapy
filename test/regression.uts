@@ -218,15 +218,15 @@ assert(_ == '5\x00\x00\x14\x00\x01\x00\x00 \x00\xac\xe7\x7f\x00\x00\x01\x7f\x00\
 ~ field actionfield
 
 class TestAction(Packet):
+    __slots__ = ["_val", "_fld", "_priv1", "_priv2"]
     name = "TestAction"
     fields_desc = [ ActionField(ByteField("tst", 3), "my_action", priv1=1, priv2=2) ]
-    _val = None
-    _fld = None
-    _priv1 = None
-    _priv2 = None
+    def __init__(self, *args, **kargs):
+        self._val, self._fld, self._priv1, self._priv2 = None, None, None, None
+        super(TestAction, self).__init__(*args, **kargs)
     def my_action(self, val, fld, priv1, priv2):
         print "Action (%i)!" %val
-	self._val, self._fld, self._priv1, self._priv2 = val, fld, priv1, priv2
+        self._val, self._fld, self._priv1, self._priv2 = val, fld, priv1, priv2
 
 = Triggering action
 ~ field actionfield
