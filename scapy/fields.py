@@ -489,6 +489,7 @@ class StrFixedLenField(StrField):
         return RandBin(l)
 
 class StrFixedLenEnumField(StrFixedLenField):
+    __slots__ = ["enum"]
     def __init__(self, name, default, length=None, enum=None, length_from=None):
         StrFixedLenField.__init__(self, name, default, length=length, length_from=length_from)
         self.enum = enum
@@ -595,9 +596,9 @@ class FieldLenField(Field):
     __slots__ = ["length_of", "count_of", "adjust"]
     def __init__(self, name, default,  length_of=None, fmt = "H", count_of=None, adjust=lambda pkt,x:x, fld=None):
         Field.__init__(self, name, default, fmt)
-        self.length_of=length_of
-        self.count_of=count_of
-        self.adjust=adjust
+        self.length_of = length_of
+        self.count_of = count_of
+        self.adjust = adjust
         if fld is not None:
             FIELD_LENGTH_MANAGEMENT_DEPRECATION(self.__class__.__name__)
             self.length_of = fld
@@ -628,8 +629,8 @@ class StrStopField(StrField):
     __slots__ = ["stop", "additionnal"]
     def __init__(self, name, default, stop, additionnal=0):
         Field.__init__(self, name, default)
-        self.stop=stop
-        self.additionnal=additionnal
+        self.stop = stop
+        self.additionnal = additionnal
     def getfield(self, pkt, s):
         l = s.find(self.stop)
         if l < 0:
@@ -726,9 +727,9 @@ class BitFieldLenField(BitField):
     __slots__ = ["length_of", "count_of", "adjust"]
     def __init__(self, name, default, size, length_of=None, count_of=None, adjust=lambda pkt,x:x):
         BitField.__init__(self, name, default, size)
-        self.length_of=length_of
-        self.count_of=count_of
-        self.adjust=adjust
+        self.length_of = length_of
+        self.count_of = count_of
+        self.adjust = adjust
     def i2m(self, pkt, x):
         return FieldLenField.i2m.im_func(self, pkt, x)
 
