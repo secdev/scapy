@@ -40,6 +40,7 @@ class Packet(BasePacket):
         "raw_packet_cache_fields", "_pkt", "post_transforms",
         # then payload and underlayer
         "payload", "underlayer",
+        "name",
     ]
     __metaclass__ = Packet_metaclass
     name = None
@@ -65,6 +66,9 @@ class Packet(BasePacket):
     def __init__(self, _pkt="", post_transform=None, _internal=0, _underlayer=None, **fields):
         self.time  = time.time()
         self.sent_time = None
+        self.name = (self.__class__.__name__
+                     if self._name is None else
+                     self._name)
         self.default_fields = {}
         self.overloaded_fields = {}
         self.fields = {}

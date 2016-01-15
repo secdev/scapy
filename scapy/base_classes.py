@@ -178,6 +178,8 @@ class Packet_metaclass(type):
 
         if "__slots__" not in dct:
             dct["__slots__"] = []
+        if "name" in dct:
+            dct["_name"] = dct.pop("name")
         newcls = super(Packet_metaclass, cls).__new__(cls, name, bases, dct)
         if hasattr(newcls, "aliastypes"):
             newcls.aliastypes = [newcls] + newcls.aliastypes
