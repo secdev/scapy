@@ -107,6 +107,7 @@ def isis_str2lspid(s):
 
 
 class _ISIS_IdFieldBase(Field):
+    __slots__ = ["to_str", "to_id", "length"]
     def __init__(self, name, default, length, to_str, to_id):
         self.to_str = to_str
         self.to_id = to_id
@@ -153,9 +154,11 @@ class _ISIS_RandAreaId(_ISIS_RandId):
 
 
 class ISIS_AreaIdField(Field):
+    __slots__ = ["length_from"]
+
     def __init__(self, name, default, length_from):
         Field.__init__(self, name, default)
-        self.length_from= length_from
+        self.length_from = length_from
 
     def i2m(self, pkt, x):
         return isis_area2str(x)

@@ -52,6 +52,8 @@ class EigrpIPField(StrField, IPField):
     EIGRP removes zeros from the host portion of the ip address if the netmask is 8, 16 or 24 bits.
     """
 
+    __slots__ = ["length_from"]
+
     def __init__(self, name, default, length=None, length_from=None):
         StrField.__init__(self, name, default)
         self.length_from  = length_from
@@ -101,13 +103,11 @@ class EigrpIPField(StrField, IPField):
     def i2len(self, pkt, x):
         l = self.length_from(pkt)
         l = self.prefixlen_to_bytelen(l)
-
         return l
 
     def getfield(self, pkt, s):
         l = self.length_from(pkt)
         l = self.prefixlen_to_bytelen(l)
-
         return s[l:], self.m2i(pkt, s[:l])
 
     def randval(self):
@@ -119,6 +119,8 @@ class EigrpIP6Field(StrField, IP6Field):
     external route updates.
 
     """
+
+    __slots__ = ["length_from"]
 
     def __init__(self, name, default, length=None, length_from=None):
         StrField.__init__(self, name, default)
@@ -163,10 +165,14 @@ class EigrpIP6Field(StrField, IP6Field):
         return l
 
     def i2len(self, pkt, x):
-        return EigrpIPField.i2len(self, pkt, x)
+        l = self.length_from(pkt)
+        l = self.prefixlen_to_bytelen(l)
+        return l
 
     def getfield(self, pkt, s):
-        return EigrpIPField.getfield(self, pkt, s)
+        l = self.length_from(pkt)
+        l = self.prefixlen_to_bytelen(l)
+        return s[l:], self.m2i(pkt, s[:l])
 
     def randval(self):
         return IP6Field.randval(self)

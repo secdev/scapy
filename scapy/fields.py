@@ -527,10 +527,11 @@ class StrLenField(StrField):
         return s[l:], self.m2i(pkt,s[:l])
     
 class BoundStrLenField(StrLenField):
+    __slots__ = ["minlen", "maxlen"]
     def __init__(self,name, default, minlen= 0, maxlen= 255, fld=None, length_from=None):
         StrLenField.__init__(self, name, default, fld, length_from)
-        self.minlen= minlen
-        self.maxlen= maxlen
+        self.minlen = minlen
+        self.maxlen = maxlen
     
     def randval(self):
         return RandBin(RandNum(self.minlen, self.maxlen))
@@ -963,13 +964,14 @@ class FixedPointField(BitField):
 # Base class for IPv4 and IPv6 Prefixes inspired by IPField and IP6Field.
 # Machine values are encoded in a multiple of wordbytes bytes.
 class _IPPrefixFieldBase(Field):
+    __slots__ = ["wordbytes", "maxbytes", "aton", "ntoa", "length_from"]
     def __init__(self, name, default, wordbytes, maxbytes, aton, ntoa, length_from):
-        self.wordbytes= wordbytes
-        self.maxbytes= maxbytes
-        self.aton= aton
-        self.ntoa= ntoa
+        self.wordbytes = wordbytes
+        self.maxbytes = maxbytes
+        self.aton = aton
+        self.ntoa = ntoa
         Field.__init__(self, name, default, "%is" % self.maxbytes)
-        self.length_from= length_from
+        self.length_from = length_from
     
     def _numbytes(self, pfxlen):
         wbits= self.wordbytes * 8
