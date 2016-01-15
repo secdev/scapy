@@ -9,13 +9,16 @@ Packet holding data in Abstract Syntax Notation (ASN.1).
 
 from packet import *
 
+class ASN1Packet_metaclass(Packet_metaclass):
+    def __new__(cls, name, bases, dct):
+        if dct["ASN1_root"] is not None:
+            dct["fields_desc"] = dct["ASN1_root"].get_fields_list()
+        return super(ASN1Packet_metaclass, cls).__new__(cls, name, bases, dct)
+
 class ASN1_Packet(Packet):
+    __metaclass__ = ASN1Packet_metaclass
     ASN1_root = None
     ASN1_codec = None    
-    def init_fields(self):
-        flist = self.ASN1_root.get_fields_list()
-        self.do_init_fields(flist)
-        self.fields_desc = flist    
     def self_build(self):
         if self.raw_packet_cache is not None:
             return self.raw_packet_cache

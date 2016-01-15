@@ -189,7 +189,8 @@ class Packet_metaclass(type):
         if hasattr(newcls,"register_variant"):
             newcls.register_variant()
         for f in newcls.fields_desc:
-            f.register_owner(newcls)
+            if hasattr(f, "register_owner"):
+                f.register_owner(newcls)
         config.conf.layers.register(newcls)
         return newcls
 
