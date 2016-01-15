@@ -370,16 +370,18 @@ if AES:
                                        block_size=1,
                                        iv_size=8,
                                        key_size=(16 + 4, 24 + 4, 32 + 4))
-    CRYPT_ALGOS['AES-GCM'] = CryptAlgo('AES-GCM',
-                                       cipher=AES,
-                                       mode=AES.MODE_GCM,
-                                       iv_size=8,
-                                       key_size=(16 + 4, 24 + 4, 32 + 4))
-    CRYPT_ALGOS['AES-CCM'] = CryptAlgo('AES-CCM',
-                                       cipher=AES,
-                                       mode=AES.MODE_CCM,
-                                       iv_size=8,
-                                       key_size=(16 + 4, 24 + 4, 32 + 4))
+    if hasattr(AES, "MODE_GCM"):
+        CRYPT_ALGOS['AES-GCM'] = CryptAlgo('AES-GCM',
+                                           cipher=AES,
+                                           mode=AES.MODE_GCM,
+                                           iv_size=8,
+                                           key_size=(16 + 4, 24 + 4, 32 + 4))
+    if hasattr(AES, "MODE_CCM"):
+        CRYPT_ALGOS['AES-CCM'] = CryptAlgo('AES-CCM',
+                                           cipher=AES,
+                                           mode=AES.MODE_CCM,
+                                           iv_size=8,
+                                           key_size=(16 + 4, 24 + 4, 32 + 4))
 if DES:
     CRYPT_ALGOS['DES'] = CryptAlgo('DES',
                                    cipher=DES,
