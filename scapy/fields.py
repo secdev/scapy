@@ -418,7 +418,7 @@ class PacketListField(PacketField):
         if x is None:
             return None
         else:
-            return map(lambda p:p.copy(), x)
+            return [p if isinstance(p, basestring) else p.copy() for p in x]
     def getfield(self, pkt, s):
         c = l = None
         if self.length_from is not None:
