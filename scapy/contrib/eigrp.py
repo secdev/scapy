@@ -113,7 +113,7 @@ class EigrpIPField(StrField, IPField):
     def randval(self):
         return IPField.randval(self)
 
-class EigrpIP6Field(StrField, IP6Field, EigrpIPField):
+class EigrpIP6Field(StrField, IP6Field):
     """
     This is a special field type for handling ip addresses of destination networks in internal and
     external route updates.
@@ -168,6 +168,8 @@ class EigrpIP6Field(StrField, IP6Field, EigrpIPField):
     def getfield(self, pkt, s):
         return EigrpIPField.getfield(self, pkt, s)
 
+    def randval(self):
+        return IP6Field.randval(self)
 
 class EIGRPGeneric(Packet):
     name = "EIGRP Generic TLV"
