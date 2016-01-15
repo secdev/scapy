@@ -263,6 +263,7 @@ class DHCP6OptUnknown(_DHCP6OptGuessPayload): # A generic DHCPv6 Option
                                 length_from = lambda pkt: pkt.optlen)]
 
 class _DUIDField(PacketField):
+    __slots__ = ["length_from"]
     def __init__(self, name, default, length_from=None):
         StrField.__init__(self, name, default)
         self.length_from = length_from
@@ -661,6 +662,7 @@ class DHCP6OptReconfAccept(_DHCP6OptGuessPayload):   # RFC sect 22.20
 # XXX Label should be at most 63 octets in length : we do not enforce it
 #     Total length of domain should be 255 : we do not enforce it either
 class DomainNameListField(StrLenField):
+    __slots__ = ["padded"]
     islist = 1
     padded_unit = 8
 

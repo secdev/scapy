@@ -223,6 +223,7 @@ class IP6Field(Field):
         return RandIP6()
 
 class SourceIP6Field(IP6Field):
+    __slots__ = ["dstname"]
     def __init__(self, name, dstname):
         IP6Field.__init__(self, name, None)
         self.dstname = dstname
@@ -275,6 +276,7 @@ ipv6nhcls = {  0: "IPv6ExtHdrHopByHop",
                60: "IPv6ExtHdrDestOpt" }
 
 class IP6ListField(StrField):
+    __slots__ = ["count_from", "length_from"]
     islist = 1
     def __init__(self, name, default, count_from=None, length_from=None):
         if default is None:
@@ -745,6 +747,7 @@ _hbhoptcls = { 0x00: Pad1,
 ######################## Hop-by-Hop Extension Header ########################
 
 class _HopByHopOptionsField(PacketListField):
+    __slots__ = ["curpos"]
     def __init__(self, name, default, cls, curpos, count_from=None, length_from=None):
         self.curpos = curpos
         PacketListField.__init__(self, name, default, cls, count_from=count_from, length_from=length_from)
@@ -1500,6 +1503,7 @@ class ICMPv6NDOptPrefixInfo(_ICMPv6NDGuessPayload, Packet):
 # TODO: We should also limit the size of included packet to something
 # like (initiallen - 40 - 2)
 class TruncPktLenField(PacketLenField):
+    __slots__ = ["cur_shift"]
 
     def __init__(self, name, default, cls, cur_shift, length_from=None, shift=0):
         PacketLenField.__init__(self, name, default, cls, length_from=length_from)
@@ -1627,6 +1631,7 @@ class ICMPv6NDOptMAP(_ICMPv6NDGuessPayload, Packet):     # RFC 4140
 
 
 class IP6PrefixField(IP6Field):
+    __slots__ = ["length_from"]
     def __init__(self, name, default):
         IP6Field.__init__(self, name, default)
         self.length_from = lambda pkt: 8*(pkt.len - 1)
@@ -2627,6 +2632,7 @@ class MIP6MH_Generic(_MobilityHeader): # Mainly for decoding of unknown msg
     
 # TODO: make a generic _OptionsField
 class _MobilityOptionsField(PacketListField):
+    __slots__ = ["curpos"]
     def __init__(self, name, default, cls, curpos, count_from=None, length_from=None):
         self.curpos = curpos
         PacketListField.__init__(self, name, default, cls, count_from=count_from, length_from=length_from)
