@@ -319,6 +319,7 @@ def run_campaign(test_campaign, get_interactive_session, verb=2):
     if verb:
         print >>sys.stderr,"Campaign CRC=%(crc)s  SHA=%(sha)s" % test_campaign
         print >>sys.stderr,"PASSED=%i FAILED=%i" % (passed, failed)
+    return failed
 
 
 #### INFO LINES ####
@@ -346,10 +347,11 @@ def campaign_to_TEXT(test_campaign):
     output += "Passed=%(passed)i\nFailed=%(failed)i\n\n%(headcomments)s\n" % test_campaign
     
     for testset in test_campaign:
-        output += "######\n## %(name)s\n######\n%(comments)s\n\n" % testset
-        for t in testset:
-            if t.expand:
-                output += "###(%(num)03i)=[%(result)s] %(name)s\n%(comments)s\n%(output)s\n\n" % t
+        if any(t.expand for t in testset):
+            output += "######\n## %(name)s\n######\n%(comments)s\n\n" % testset
+            for t in testset:
+                if t.expand:
+                    output += "###(%(num)03i)=[%(result)s] %(name)s\n%(comments)s\n%(output)s\n\n" % t
 
     return output
  
@@ -359,10 +361,11 @@ def campaign_to_ANSI(test_campaign):
     output += "Passed=%(passed)i\nFailed=%(failed)i\n\n%(headcomments)s\n" % test_campaign
     
     for testset in test_campaign:
-        output += "######\n## %(name)s\n######\n%(comments)s\n\n" % testset
-        for t in testset:
-            if t.expand:
-                output += "###(%(num)03i)=[%(result)s] %(name)s\n%(comments)s\n%(output)s\n\n" % t
+        if any(t.expand for t in testset):
+            output += "######\n## %(name)s\n######\n%(comments)s\n\n" % testset
+            for t in testset:
+                if t.expand:
+                    output += "###(%(num)03i)=[%(result)s] %(name)s\n%(comments)s\n%(output)s\n\n" % t
 
     return output
 
@@ -635,7 +638,7 @@ def main(argv):
 
     # Run tests
     test_campaign.output_file = OUTPUTFILE
-    run_campaign(test_campaign, autorun_func[FORMAT], verb=VERB)
+    result = run_campaign(test_campaign, autorun_func[FORMAT], verb=VERB)
 
     # Shrink passed
     if ONLYFAILED:
@@ -659,6 +662,7 @@ def main(argv):
 
     OUTPUTFILE.write(output)
     OUTPUTFILE.close()
+    return result
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    exit(main(sys.argv[1:]))
