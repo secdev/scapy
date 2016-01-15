@@ -1108,13 +1108,6 @@ class NoPayload(Packet):
         raise AttributeError(attr)
     def delfieldval(self, attr):
         raise AttributeError(attr)
-    def __getattr__(self, attr):
-        if attr in self.__dict__:
-            return self.__dict__[attr]
-        elif attr in self.__class__.__dict__:
-            return self.__class__.__dict__[attr]
-        else:
-            raise AttributeError(attr)
     def hide_defaults(self):
         pass
     def __iter__(self):
