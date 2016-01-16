@@ -36,7 +36,7 @@ class Packet(BasePacket):
     __slots__ = [
         "time", "sent_time", "name", "default_fields",
         "overloaded_fields", "fields", "fieldtype", "packetfields",
-        "initialized", "original", "explicit", "raw_packet_cache",
+        "original", "explicit", "raw_packet_cache",
         "raw_packet_cache_fields", "_pkt", "post_transforms",
         # then payload and underlayer
         "payload", "underlayer",
@@ -77,7 +77,6 @@ class Packet(BasePacket):
         self.payload = NoPayload()
         self.init_fields()
         self.underlayer = _underlayer
-        self.initialized = 1
         self.original = _pkt
         self.explicit = 0
         self.raw_packet_cache = None
@@ -179,7 +178,7 @@ class Packet(BasePacket):
         return self.payload.getfield_and_val(attr)
     
     def __getattr__(self, attr):
-        if hasattr(self, "initialized"):
+        if isinstance(self, Packet):
             fld,v = self.getfield_and_val(attr)
             if fld is not None:
                 return fld.i2h(self, v)
@@ -212,7 +211,7 @@ class Packet(BasePacket):
                    if hasattr(cls, "__slots__"))
 
     def __setattr__(self, attr, val):
-        if hasattr(self, "initialized"):
+        if isinstance(self, Packet):
             if self.attr_in_slots(attr):
                 return object.__setattr__(self, attr, val)
             try:
@@ -235,7 +234,7 @@ class Packet(BasePacket):
             self.payload.delfieldval(attr)
 
     def __delattr__(self, attr):
-        if hasattr(self, "initialized"):
+        if isinstance(self, Packet):
             if attr == "payload":
                 return self.remove_payload()
             if self.attr_in_slots(attr):
