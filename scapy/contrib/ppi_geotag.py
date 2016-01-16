@@ -167,6 +167,7 @@ class UTCTimeField(IntField):
         return "%s (%d)" % (t, x)
 
 class LETimeField(UTCTimeField,LEIntField):
+    __slots__ = ["epoch", "delta", "strf"]
     def __init__(self, name, default, epoch=time.gmtime(0), strf="%a, %d %b %Y %H:%M:%S +0000"):
         LEIntField.__init__(self, name, default)
         self.epoch = epoch

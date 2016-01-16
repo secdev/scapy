@@ -166,8 +166,8 @@ class IKEv2(IKEv2_class): # rfc4306
        
 
 class IKEv2_Key_Length_Attribute(IntField):
-	# We only support the fixed-length Key Length attribute (the only one currently defined)
-	name="key length"
+	# We only support the fixed-length Key Length attribute (the only
+	# one currently defined)
 	def __init__(self, name):
 		IntField.__init__(self, name, "0x800E0000")
 		
