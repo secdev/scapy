@@ -211,8 +211,6 @@ class Field_metaclass(type):
     def __new__(cls, name, bases, dct):
         if "__slots__" not in dct:
             dct["__slots__"] = []
-        if "__fake_slots__" in dct:
-            dct["__slots__"].extend(dct.pop("__fake_slots__"))
         newcls = super(Field_metaclass, cls).__new__(cls, name, bases, dct)
         return newcls
 
