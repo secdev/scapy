@@ -658,7 +658,7 @@ class ModulePIB(Packet):
             /!\ A wrong slice would produce 'bad' results
     """
     name = "ModulePIB"
-    __slots__ = ["__offset", "__length"]
+    __slots__ = ["_ModulePIB__offset", "_ModulePIB__length"]
     fields_desc=[
         ConditionalField(XByteField("FirmwareMajorVersion", 0x00),
                          lambda pkt:(0x0 == pkt.__offset and 0x1 <= pkt.__offset+pkt.__length)), # The following conditional fiels just check if the current field fits in the data range
