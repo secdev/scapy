@@ -89,8 +89,8 @@ def BER_num_enc(l, size=1):
         return "".join([chr(k) for k in x])
 def BER_num_dec(s):
         x = 0
-        for i in range(len(s)):
-            c = ord(s[i])
+        for i, c in enumerate(s):
+            c = ord(c)
             x <<= 7
             x |= c&0x7f
             if not c&0x80:

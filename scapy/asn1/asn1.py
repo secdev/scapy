@@ -15,10 +15,11 @@ from scapy.utils import Enum_metaclass, EnumElement
 
 class RandASN1Object(RandField):
     def __init__(self, objlist=None):
-        if objlist is None:
-            objlist = map(lambda x:x._asn1_obj,
-                          filter(lambda x:hasattr(x,"_asn1_obj"), ASN1_Class_UNIVERSAL.__rdict__.values()))
-        self.objlist = objlist
+        self.objlist = [
+            x._asn1_obj
+            for x in ASN1_Class_UNIVERSAL.__rdict__.itervalues()
+            if hasattr(x, "_asn1_obj")
+        ] if objlist is None else objlist
         self.chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
     def _fix(self, n=0):
         o = random.choice(self.objlist)
@@ -29,10 +30,11 @@ class RandASN1Object(RandField):
             return o(z)
         elif issubclass(o, ASN1_STRING):
             z = int(random.expovariate(0.05)+1)
-            return o("".join([random.choice(self.chars) for i in range(z)]))
+            return o("".join(random.choice(self.chars) for _ in xrange(z)))
         elif issubclass(o, ASN1_SEQUENCE) and (n < 10):
             z = int(random.expovariate(0.08)+1)
-            return o(map(lambda x:x._fix(n+1), [self.__class__(objlist=self.objlist)]*z))
+            return o([self.__class__(objlist=self.objlist)._fix(n + 1)
+                      for _ in xrange(z)])
         return ASN1_INTEGER(int(random.gauss(0,1000)))
 
 

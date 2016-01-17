@@ -427,7 +427,7 @@ ModuleIDList = {    0x00 : "MAC Soft-Loader Image",
 
 def chksum32(data):
     cksum = 0
-    for i in range(0, len(data), 4):
+    for i in xrange(0, len(data), 4):
         cksum = (cksum ^ struct.unpack('<I', data[i:i+4])[0]) & 0xffffffff   
     return (~cksum) & 0xffffffff
 

@@ -113,7 +113,7 @@ class NetworkInterface(object):
         # because only the IP is available in both pypcap and dnet.
         # This may not work with unorthodox network configurations and is
         # slow because we have to walk through the Windows registry.
-        for n in range(30):
+        for n in xrange(30):
             guess = "eth%s" % n
             win_name = pcapdnet.pcap.ex_name(guess)
             if win_name.endswith("}"):
@@ -410,19 +410,19 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0, retry=0, m
                             h = r.hashret()
                             if h in hsent:
                                 hlst = hsent[h]
-                                for i in range(len(hlst)):
-                                    if r.answers(hlst[i]):
-                                        ans.append((hlst[i],r))
+                                for i, sentpkt in enumerate(hlst):
+                                    if r.answers(sentpkt):
+                                        ans.append((sentpkt, r))
                                         if verbose > 1:
                                             os.write(1, "*")
-                                        ok = 1                                
+                                        ok = 1
                                         if not multi:
-                                            del(hlst[i])
-                                            notans -= 1;
+                                            del hlst[i]
+                                            notans -= 1
                                         else:
-                                            if not hasattr(hlst[i], '_answered'):
-                                                notans -= 1;
-                                            hlst[i]._answered = 1;
+                                            if not hasattr(sentpkt, '_answered'):
+                                                notans -= 1
+                                            sentpkt._answered = 1
                                         break
                             if notans == 0 and not multi:
                                 break

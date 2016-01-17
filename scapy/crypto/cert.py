@@ -216,7 +216,7 @@ def pkcs_emsa_pss_encode(M, emBits, h, mgf, sLen):
     rem = 8*emLen - emBits - 8*l # additionnal bits
     andMask = l*'\x00'
     if rem:
-        j = chr(reduce(lambda x,y: x+y, map(lambda x: 1<<x, range(8-rem))))
+        j = chr(sum(1<<x for x in xrange(8 - rem)))
         andMask += j
         l += 1
     maskedDB = strand(maskedDB[:l], andMask) + maskedDB[l:]
@@ -258,8 +258,7 @@ def pkcs_emsa_pss_verify(M, EM, emBits, h, mgf, sLen):
     rem = 8*emLen - emBits - 8*l # additionnal bits
     andMask = l*'\xff'
     if rem:
-        val = reduce(lambda x,y: x+y, map(lambda x: 1<<x, range(8-rem)))
-        j = chr(~val & 0xff)
+        j = chr(~sum(1 << x for x in xrange(8 - rem)) & 0xff)
         andMask += j
         l += 1
     if strand(maskedDB[:l], andMask) != '\x00'*l:
@@ -270,7 +269,7 @@ def pkcs_emsa_pss_verify(M, EM, emBits, h, mgf, sLen):
     rem = 8*emLen - emBits - 8*l # additionnal bits
     andMask = l*'\x00'
     if rem:
-        j = chr(reduce(lambda x,y: x+y, map(lambda x: 1<<x, range(8-rem))))
+        j = chr(sum(1 << x for x in xrange(8 - rem)))
         andMask += j
         l += 1
     DB = strand(DB[:l], andMask) + DB[l:]
@@ -1281,14 +1280,14 @@ class PubKey(OSSLHelper, _EncryptAndVerify):
 
             newkey = 0
             # skip fields we have already seen, this is the purpose of 'i'
-            for j in range(i, self.possible_fields_count):
+            for j in xrange(i, self.possible_fields_count):
                 f = self.possible_fields[j]
                 if l.startswith(f):
                     fields_dict[k] = cur
                     cur = l[len(f):] + '\n'
                     k = f
                     newkey = 1
-                    i = j+1
+                    i = j + 1
                     break
             if newkey == 1:
                 continue
@@ -1441,14 +1440,14 @@ class Key(OSSLHelper, _DecryptAndSignMethods, _EncryptAndVerify):
 
             newkey = 0
             # skip fields we have already seen, this is the purpose of 'i'
-            for j in range(i, self.possible_fields_count):
+            for j in xrange(i, self.possible_fields_count):
                 f = self.possible_fields[j]
                 if l.startswith(f):
                     fields_dict[k] = cur
                     cur = l[len(f):] + '\n'
                     k = f
                     newkey = 1
-                    i = j+1
+                    i = j + 1
                     break
             if newkey == 1:
                 continue
@@ -1662,14 +1661,14 @@ class Cert(OSSLHelper, _EncryptAndVerify):
 
             newkey = 0
             # skip fields we have already seen, this is the purpose of 'i'
-            for j in range(i, self.possible_fields_count):
+            for j in xrange(i, self.possible_fields_count):
                 f = self.possible_fields[j]
                 if l.startswith(f):
                     fields_dict[k] = cur
                     cur = l[len(f):] + '\n'
                     k = f
                     newkey = 1
-                    i = j+1
+                    i = j + 1
                     break
             if newkey == 1:
                 continue
@@ -2333,14 +2332,14 @@ class CRL(OSSLHelper):
 
             newkey = 0
             # skip fields we have already seen, this is the purpose of 'i'
-            for j in range(i, self.possible_fields_count):
+            for j in xrange(i, self.possible_fields_count):
                 f = self.possible_fields[j]
                 if l.startswith(f):
                     fields_dict[k] = cur
                     cur = l[len(f):] + '\n'
                     k = f
                     newkey = 1
-                    i = j+1
+                    i = j + 1
                     break
             if newkey == 1:
                 continue

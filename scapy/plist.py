@@ -101,19 +101,19 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
                 print self._elt2sum(r)
             else:
                 print prn(r)
-    def nsummary(self,prn=None, lfilter=None):
+    def nsummary(self, prn=None, lfilter=None):
         """prints a summary of each packet with the packet's number
 prn:     function to apply to each packet instead of lambda x:x.summary()
 lfilter: truth function to apply to each packet to decide whether it will be displayed"""
-        for i in range(len(self.res)):
+        for i, res in enumerate(self.res):
             if lfilter is not None:
-                if not lfilter(self.res[i]):
+                if not lfilter(res):
                     continue
             print conf.color_theme.id(i,fmt="%04i"),
             if prn is None:
-                print self._elt2sum(self.res[i])
+                print self._elt2sum(res)
             else:
-                print prn(self.res[i])
+                print prn(res)
     def display(self): # Deprecated. Use show()
         """deprecated. is show()"""
         self.show()
@@ -188,43 +188,43 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
     def hexraw(self, lfilter=None):
         """Same as nsummary(), except that if a packet has a Raw layer, it will be hexdumped
         lfilter: a truth function that decides whether a packet must be displayed"""
-        for i in range(len(self.res)):
-            p = self._elt2pkt(self.res[i])
+        for i, res in enumerate(self.res):
+            p = self._elt2pkt(res)
             if lfilter is not None and not lfilter(p):
                 continue
             print "%s %s %s" % (conf.color_theme.id(i,fmt="%04i"),
                                 p.sprintf("%.time%"),
-                                self._elt2sum(self.res[i]))
+                                self._elt2sum(res))
             if p.haslayer(conf.raw_layer):
                 hexdump(p.getlayer(conf.raw_layer).load)
 
     def hexdump(self, lfilter=None):
         """Same as nsummary(), except that packets are also hexdumped
         lfilter: a truth function that decides whether a packet must be displayed"""
-        for i in range(len(self.res)):
-            p = self._elt2pkt(self.res[i])
+        for i, res in enumerate(self.res):
+            p = self._elt2pkt(res)
             if lfilter is not None and not lfilter(p):
                 continue
             print "%s %s %s" % (conf.color_theme.id(i,fmt="%04i"),
                                 p.sprintf("%.time%"),
-                                self._elt2sum(self.res[i]))
+                                self._elt2sum(res))
             hexdump(p)
 
     def padding(self, lfilter=None):
         """Same as hexraw(), for Padding layer"""
-        for i in range(len(self.res)):
-            p = self._elt2pkt(self.res[i])
+        for i in enumerate(self.res):
+            p = self._elt2pkt(res)
             if p.haslayer(conf.padding_layer):
                 if lfilter is None or lfilter(p):
                     print "%s %s %s" % (conf.color_theme.id(i,fmt="%04i"),
                                         p.sprintf("%.time%"),
-                                        self._elt2sum(self.res[i]))
+                                        self._elt2sum(res))
                     hexdump(p.getlayer(conf.padding_layer).load)
 
     def nzpadding(self, lfilter=None):
         """Same as padding() but only non null padding"""
-        for i in range(len(self.res)):
-            p = self._elt2pkt(self.res[i])
+        for i in enumerate(self.res):
+            p = self._elt2pkt(res)
             if p.haslayer(conf.padding_layer):
                 pad = p.getlayer(conf.padding_layer).load
                 if pad == pad[0]*len(pad):
@@ -232,7 +232,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
                 if lfilter is None or lfilter(p):
                     print "%s %s %s" % (conf.color_theme.id(i,fmt="%04i"),
                                         p.sprintf("%.time%"),
-                                        self._elt2sum(self.res[i]))
+                                        self._elt2sum(res))
                     hexdump(p.getlayer(conf.padding_layer).load)
         
 
@@ -345,8 +345,8 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
         import pyx
         d = pyx.document.document()
         l = len(self.res)
-        for i in range(len(self.res)):
-            elt = self.res[i]
+        for i in enumerate(self.res):
+            elt = res
             c = self._elt2pkt(elt).canvas_dump(**kargs)
             cbb = c.bbox()
             c.text(cbb.left(),cbb.top()+1,r"\font\cmssfont=cmss12\cmssfont{Frame %i/%i}" % (i,l),[pyx.text.size.LARGE])
