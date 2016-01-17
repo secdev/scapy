@@ -202,17 +202,9 @@ class Packet(BasePacket):
         else:
             self.payload.setfieldval(attr,val)
 
-    def attr_in_slots(self, attr):
-        """Return True iff `attr` belongs to the `__slots__` list of
-        this class or any parent class.
-
-        """
-        return any(attr in cls.__slots__ for cls in self.__class__.__mro__
-                   if hasattr(cls, "__slots__"))
-
     def __setattr__(self, attr, val):
         if isinstance(self, Packet):
-            if self.attr_in_slots(attr):
+            if attr in self.__all_slots__:
                 return object.__setattr__(self, attr, val)
             try:
                 return self.setfieldval(attr,val)
@@ -237,7 +229,7 @@ class Packet(BasePacket):
         if isinstance(self, Packet):
             if attr == "payload":
                 return self.remove_payload()
-            if self.attr_in_slots(attr):
+            if attr in self.__all_slots__:
                 return object.__delattr__(self, attr)
             try:
                 return self.delfieldval(attr)
