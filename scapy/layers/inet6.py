@@ -2888,6 +2888,7 @@ class  AS_resolver6(AS_resolver_riswhois):
         return ip,asn,desc        
 
 class TracerouteResult6(TracerouteResult):
+    __slots__ = []
     def show(self):
         return self.make_table(lambda (s,r): (s.sprintf("%-42s,IPv6.dst%:{TCP:tcp%TCP.dport%}{UDP:udp%UDP.dport%}{ICMPv6EchoRequest:IER}"), # TODO: ICMPv6 !
                                               s.hlim,

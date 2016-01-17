@@ -250,5 +250,5 @@ class BasePacket(Gen):
 ## Packet list base classe ##
 #############################
 
-class BasePacketList:
-    pass
+class BasePacketList(object):
+    __slots__ = []

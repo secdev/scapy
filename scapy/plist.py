@@ -26,7 +26,7 @@ if arch.GNUPLOT:
 #############
 
 class PacketList(BasePacketList):
-    res = []
+    __slots__ = ["stats", "res", "listname"]
     def __init__(self, res=None, name="PacketList", stats=None):
         """create a packet list from a list of packets
            res: the list of packets
@@ -47,8 +47,7 @@ class PacketList(BasePacketList):
     def _elt2show(self, elt):
         return self._elt2sum(elt)
     def __repr__(self):
-#        stats=dict.fromkeys(self.stats,0) ## needs python >= 2.3  :(
-        stats = dict(map(lambda x: (x,0), self.stats))
+        stats = dict((x, 0) for x in self.stats)
         other = 0
         for r in self.res:
             f = 0
@@ -477,6 +476,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
 
 
 class SndRcvList(PacketList):
+    __slots__ = []
     def __init__(self, res=None, name="Results", stats=None):
         PacketList.__init__(self, res, name, stats)
     def _elt2pkt(self, elt):

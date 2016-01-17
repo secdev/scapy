@@ -937,6 +937,7 @@ PacketList.timeskew_graph = new.instancemethod(_packetlist_timeskew_graph, None,
 
 ### Create a new packet list
 class TracerouteResult(SndRcvList):
+    __slots__ = ["graphdef", "graphASres", "padding", "hloc", "nloc"]
     def __init__(self, res=None, name="Traceroute", stats=None):
         PacketList.__init__(self, res, name, stats)
         self.graphdef = None
