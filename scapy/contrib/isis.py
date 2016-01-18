@@ -140,7 +140,7 @@ class _ISIS_RandId(RandString):
 
         val = ()
 
-        for _ in range(self.bytecount):
+        for _ in xrange(self.bytecount):
             val += (RandByte(),)
 
         return self.format % val

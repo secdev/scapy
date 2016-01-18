@@ -244,7 +244,7 @@ def p0f_correl(x,y):
     yopt = y[4].split(",")
     if len(xopt) == len(yopt):
         same = True
-        for i in range(len(xopt)):
+        for i in xrange(len(xopt)):
             if not (xopt[i] == yopt[i] or
                     (len(yopt[i]) == 2 and len(xopt[i]) > 1 and
                      yopt[i][1] == "*" and xopt[i][0] == yopt[i][0]) or

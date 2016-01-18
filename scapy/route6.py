@@ -121,8 +121,8 @@ class Route6:
         nmask = in6_cidr2mask(the_plen)
         the_net = inet_ntop(socket.AF_INET6, in6_and(nmask,naddr))
         
-        for i in range(len(self.routes)):
-            net,plen,gw,iface,addr = self.routes[i]
+        for i, route in enumerate(self.routes):
+            net,plen,gw,iface,addr = route
             if iface != iff:
                 continue
             if gw == '::':

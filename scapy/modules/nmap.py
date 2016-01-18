@@ -71,9 +71,9 @@ nmap_kdb = NmapKnowledgeBase(conf.nmap_base)
 def TCPflags2str(f):
     fl="FSRPAUEC"
     s=""
-    for i in range(len(fl)):
+    for fli in fl:
         if f & 1:
-            s = fl[i]+s
+            s = fli + s
         f >>= 1
     return s
 

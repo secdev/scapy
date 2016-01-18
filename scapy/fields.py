@@ -683,7 +683,7 @@ class BitField(Field):
         bytes = struct.unpack('!%dB' % nb_bytes , w)
 
         b = 0L
-        for c in range(nb_bytes):
+        for c in xrange(nb_bytes):
             b |= long(bytes[c]) << (nb_bytes-c-1)*8
 
         # get rid of high order bits
@@ -727,11 +727,11 @@ class EnumField(Field):
         i2s = self.i2s = {}
         s2i = self.s2i = {}
         if type(enum) is list:
-            keys = xrange(len(enum))
+            keys = range(len(enum))
         else:
             keys = enum.keys()
-        if filter(lambda x: type(x) is str, keys):
-            i2s,s2i = s2i,i2s
+        if any(type(x) is str for x in keys):
+            i2s, s2i = s2i, i2s
         for k in keys:
             i2s[k] = enum[k]
             s2i[enum[k]] = k

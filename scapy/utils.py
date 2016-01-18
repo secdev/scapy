@@ -70,7 +70,7 @@ def hexdump(x):
     i = 0
     while i < l:
         print "%04x  " % i,
-        for j in range(16):
+        for j in xrange(16):
             if i+j < l:
                 print "%02X" % ord(x[i+j]),
             else:
@@ -86,7 +86,7 @@ def linehexdump(x, onlyasc=0, onlyhex=0):
     x = str(x)
     l = len(x)
     if not onlyasc:
-        for i in range(l):
+        for i in xrange(l):
             print "%02X" % ord(x[i]),
         print "",
     if not onlyhex:
@@ -114,13 +114,13 @@ def hexdiff(x,y):
     INSERT=1
     d={}
     d[-1,-1] = 0,(-1,-1)
-    for j in range(len(y)):
+    for j in xrange(len(y)):
         d[-1,j] = d[-1,j-1][0]+INSERT, (-1,j-1)
-    for i in range(len(x)):
+    for i in xrange(len(x)):
         d[i,-1] = d[i-1,-1][0]+INSERT, (i-1,-1)
 
-    for j in range(len(y)):
-        for i in range(len(x)):
+    for j in xrange(len(y)):
+        for i in xrange(len(x)):
             d[i,j] = min( ( d[i-1,j-1][0]+SUBST*(x[i] != y[j]), (i-1,j-1) ),
                           ( d[i-1,j][0]+INSERT, (i-1,j) ),
                           ( d[i,j-1][0]+INSERT, (i,j-1) ) )
@@ -184,7 +184,7 @@ def hexdiff(x,y):
         print " ",
         
         cl = ""
-        for j in range(16):
+        for j in xrange(16):
             if i+j < l:
                 if line[j]:
                     col = colorize[(linex[j]!=liney[j])*(doy-dox)]
@@ -414,9 +414,9 @@ def colgen(*lstcol,**kargs):
         lstcol *= 2
     trans = kargs.get("trans", lambda x,y,z: (x,y,z))
     while 1:
-        for i in range(len(lstcol)):
-            for j in range(len(lstcol)):
-                for k in range(len(lstcol)):
+        for i in xrange(len(lstcol)):
+            for j in xrange(len(lstcol)):
+                for k in xrange(len(lstcol)):
                     if i != j or j != k or k != i:
                         yield trans(lstcol[(i+j)%len(lstcol)],lstcol[(j+k)%len(lstcol)],lstcol[(k+i)%len(lstcol)])
 
@@ -508,7 +508,7 @@ def corrupt_bits(s, p=0.01, n=None):
         s[i/8] ^= 1 << (i%8)
     return s.tostring()
 
-    
+
 
 
 #############################

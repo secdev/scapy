@@ -2923,18 +2923,13 @@ class MobileIdHdr(Packet):
              ]
 
     def post_build(self, p, pay):
-        aList = []
-        a = []
-        i = 0
-        for i in range(0, len(self.fields_desc)):
-            aList.append(self.fields_desc[i].name)
-        for i in aList:
-            a.append(getattr(self, i, None))  # this list holds the values of
-# the variables, the INTERESSTING value!
+        # this list holds the values of the variables, the
+        # INTERESTING value!
+        a = [getattr(self, fld.name, None) for fld in self.fields_desc]
         res = adapt(3, 11, a, self.fields_desc)
         if self.lengthMI is None:
             p = p[:1] + struct.pack(">B", res[1]) + p[2:]
-        if res[0] is not 0:
+        if res[0] != 0:
             p = p[:-res[0]]
         print repr(p)
         return p + pay
@@ -3510,20 +3505,11 @@ class BaRangeHdr(Packet):
              ]
 
     def post_build(self, p, pay):
-        aList = []
-        a = []
-        i = 0
-        for i in range(0, len(self.fields_desc)):
-            print "i is %s" % (i,)
-            aList.append(self.fields_desc[i].name)
-            print "aList %s" % (len(aList))
-            print "self.fields_desc %s" % (len(self.fields_desc))
-        for i in aList:
-            a.append(getattr(self, i))
+        a = [getattr(self, fld.name) for fld in self.fields_desc]
         res = adapt(6, 251, a, self.fields_desc)
         if self.lengthBR is None:
             p = p[:1] + struct.pack(">B", res[1]) + p[2:]
-        if res[0] is not 0:
+        if res[0] != 0:
             p = p[:-res[0]]
         return p + pay
 
@@ -3950,17 +3936,11 @@ class GroupChannelDescriptionHdr(Packet):
              ]
 
     def post_build(self, p, pay):
-        aList = []
-        a = []
-        i = 0
-        for i in range(0, len(self.fields_desc)):
-            aList.append(self.fields_desc[i].name)
-        for i in aList:
-            a.append(getattr(self, i))
+        a = [getattr(self, fld.name) for fld in self.fields_desc]
         res = adapt(4, 13, a, self.fields_desc)
         if self.lengthGCD is None:
             p = p[:1] + struct.pack(">B", res[1]) + p[2:]
-        if res[0] is not 0:
+        if res[0] != 0:
             p = p[:-res[0]]
         return p + pay
 
@@ -4006,19 +3986,13 @@ class IaRestOctets(Packet):
              ]
 
     def post_build(self, p, pay):
-        aList = []
-        a = []
-        i = 0
-        for i in range(0, len(self.fields_desc)):
-            aList.append(self.fields_desc[i].name)
-        for i in aList:
-            a.append(getattr(self, i))
+        a = [getattr(self, fld.name) for fld in self.fields_desc]
         res = adapt(1, 12, a, self.fields_desc)
         if self.lengthIRO is None:
             if res[1] < 0: # FIXME better fix
                 res[1] = 0
             p = p[:1] + struct.pack(">B", res[1]) + p[2:]
-        if res[0] is not 0:
+        if res[0] != 0:
             p = p[:-res[0]]
         return p + pay
 
@@ -4179,17 +4153,11 @@ class MobileAllocationHdr(Packet):
              ]
 
     def post_build(self, p, pay):
-        aList = []
-        a = []
-        i = 0
-        for i in range(0, len(self.fields_desc)):
-            aList.append(self.fields_desc[i].name)
-        for i in aList:
-            a.append(getattr(self, i))
+        a = [getattr(self, fld.name) for fld in self.fields_desc]
         res = adapt(3, 10, a, self.fields_desc)
         if self.lengthMA is None:
             p = p[:1] + struct.pack(">B", res[1]) + p[2:]
-        if res[0] is not 0:
+        if res[0] != 0:
             p = p[:-res[0]]
         return p + pay
 
@@ -4243,17 +4211,11 @@ class MultiRateConfigurationHdr(Packet):
              ]
 
     def post_build(self, p, pay):
-        aList = []
-        a = []
-        i = 0
-        for i in range(0, len(self.fields_desc)):
-            aList.append(self.fields_desc[i].name)
-        for i in aList:
-            a.append(getattr(self, i))
+        a = [getattr(self, fld.name) for fld in self.fields_desc]
         res = adapt(4, 8, a, self.fields_desc)
         if self.lengthMRC is None:
             p = p[:1] + struct.pack(">B", res[1]) + p[2:]
-        if res[0] is not 0:
+        if res[0] != 0:
             p = p[:-res[0]]
         return p + pay
 
@@ -4283,15 +4245,9 @@ class MultislotAllocationHdr(Packet):
              ]
 
     def post_build(self, p, pay):
-        aList = []
-        a = []
-        i = 0
-        for i in range(0, len(self.fields_desc)):
-            aList.append(self.fields_desc[i].name)
-        for i in aList:
-            a.append(getattr(self, i))
+        a = [getattr(self, fld.name) for fld in self.fields_desc]
         res = adapt(3, 12, a, self.fields_desc)
-        if res[0] is not 0:
+        if res[0] != 0:
             p = p[:-res[0]]
         if self.lengthMSA is None:
             p = p[:1] + struct.pack(">B", len(p)-2) + p[2:]
@@ -4697,17 +4653,11 @@ class Si4RestOctets(Packet):
              ]
 
     def post_build(self, p, pay):
-        aList = []
-        a = []
-        i = 0
-        for i in range(0, len(self.fields_desc)):
-            aList.append(self.fields_desc[i].name)
-        for i in aList:
-            a.append(getattr(self, i))
+        a = [getattr(self, fld.name) for fld in self.fields_desc]
         res = adapt(1, 11, a, self.fields_desc, 1)
         if self.lengthSI4 is None:
             p = struct.pack(">B", res[1]) + p[1:]
-        if res[0] is not 0:
+        if res[0] != 0:
             p = p[:-res[0]]
         if len(p) is 1:  # length of this packet can be 0, but packet is
             p = ''       # but the IE is manadatory 0_o
@@ -5385,17 +5335,11 @@ class ApduDataHdr(Packet):
              ]
 
     def post_build(self, p, pay):
-        aList = []
-        a = []
-        i = 0
-        for i in range(0, len(self.fields_desc)):
-            aList.append(self.fields_desc[i].name)
-        for i in aList:
-            a.append(getattr(self, i))
+        a = [getattr(self, fld.name) for fld in self.fields_desc]
         res = adapt(2, 251, a, self.fields_desc)
         if self.lengthAD is None:
             p = p[:1] + struct.pack(">B", res[1]) + p[2:]
-        if res[0] is not 0:
+        if res[0] != 0:
             p = p[:-res[0]]
         return p + pay
 
@@ -5748,17 +5692,11 @@ class NetworkNameHdr(Packet):
              ]
 
     def post_build(self, p, pay):
-        aList = []
-        a = []
-        i = 0
-        for i in range(0, len(self.fields_desc)):
-            aList.append(self.fields_desc[i].name)
-        for i in aList:
-            a.append(getattr(self, i))
+        a = [getattr(self, fld.name) for fld in self.fields_desc]
         res = adapt(3, 251, a, self.fields_desc)
         if self.lengthNN is None:
             p = p[:1] + struct.pack(">B", res[1]) + p[2:]
-        if res[0] is not 0:
+        if res[0] != 0:
             p = p[:-res[0]]
         return p + pay
 
@@ -6002,17 +5940,11 @@ class BearerCapabilityHdr(Packet):
                                        lambda pkt: pkt.ext12 == 0)
              ]
 
-# We have a bug here. packet is not working if used in message
+    # We have a bug here. packet is not working if used in message
     def post_build(self, p, pay):
-        aList = []
-        a = []
-        i = 0
-        for i in range(0, len(self.fields_desc)):
-            aList.append(self.fields_desc[i].name)
-        for i in aList:
-            a.append(getattr(self, i))
+        a = [getattr(self, fld.name) for fld in self.fields_desc]
         res = adapt(3, 15, a, self.fields_desc)
-        if res[0] is not 0:
+        if res[0] != 0:
             p = p[:-res[0]]
         # avoids a bug. find better way
         if len(p) is 5:
@@ -6161,17 +6093,11 @@ class CalledPartyBcdNumberHdr(Packet):
              ]
 
     def post_build(self, p, pay):
-        aList = []
-        a = []
-        i = 0
-        for i in range(0, len(self.fields_desc)):
-            aList.append(self.fields_desc[i].name)
-        for i in aList:
-            a.append(getattr(self, i))
+        a = [getattr(self, fld.name) for fld in self.fields_desc]
         res = adapt(3, 43, a, self.fields_desc, 2)
         if self.lengthCPBN is None:
             p = p[:1] + struct.pack(">B", res[1]) + p[2:]
-        if res[0] is not 0:
+        if res[0] != 0:
             p = p[:-res[0]]
         return p + pay
 
@@ -6213,17 +6139,11 @@ class CalledPartySubaddressHdr(Packet):
              ]
 
     def post_build(self, p, pay):
-        aList = []
-        a = []
-        i = 0
-        for i in range(0, len(self.fields_desc)):
-            aList.append(self.fields_desc[i].name)
-        for i in aList:
-            a.append(getattr(self, i))
+        a = [getattr(self, fld.name) for fld in self.fields_desc]
         res = adapt(2, 23,  a, self.fields_desc)
         if self.lengthCPS is None:
             p = p[:1] + struct.pack(">B", res[1]) + p[2:]
-        if res[0] is not 0:
+        if res[0] != 0:
             p = p[:-res[0]]
         return p + pay
 
@@ -6281,15 +6201,9 @@ class CallingPartyBcdNumberHdr(Packet):
              ]
 
     def post_build(self, p, pay):
-        aList = []
-        a = []
-        i = 0
-        for i in range(0, len(self.fields_desc)):
-            aList.append(self.fields_desc[i].name)
-        for i in aList:
-            a.append(getattr(self, i))
+        a = [getattr(self, fld.name) for fld in self.fields_desc]
         res = adapt(4, 14, a, self.fields_desc)
-        if res[0] is not 0:
+        if res[0] != 0:
             p = p[:-res[0]]
         if self.lengthCPBN is None:
             p = p[:1] + struct.pack(">B", len(p)-2) + p[2:]
@@ -6333,17 +6247,11 @@ class CallingPartySubaddressHdr(Packet):
              ]
 
     def post_build(self, p, pay):
-        aList = []
-        a = []
-        i = 0
-        for i in range(0, len(self.fields_desc)):
-            aList.append(self.fields_desc[i].name)
-        for i in aList:
-            a.append(getattr(self, i))
+        a = [getattr(self, fld.name) for fld in self.fields_desc]
         res = adapt(2, 23, a, self.fields_desc)
         if self.lengthCPS is None:
             p = p[:1] + struct.pack(">B", res[1]) + p[2:]
-        if res[0] is not 0:
+        if res[0] != 0:
             p = p[:-res[0]]
         return p + pay
 
@@ -6401,15 +6309,9 @@ class CauseHdr(Packet):
              ]
 
     def post_build(self, p, pay):
-        aList = []
-        a = []
-        i = 0
-        for i in range(0, len(self.fields_desc)):
-            aList.append(self.fields_desc[i].name)
-        for i in aList:
-            a.append(getattr(self, i))
+        a = [getattr(self, fld.name) for fld in self.fields_desc]
         res = adapt(4, 32, a, self.fields_desc)
-        if res[0] is not 0:
+        if res[0] != 0:
             p = p[:-res[0]]
         if self.lengthC is None:
             p = p[:1] + struct.pack(">B", len(p)-2) + p[2:]
@@ -6507,16 +6409,9 @@ class ConnectedNumberHdr(Packet):
              ]
 
     def post_build(self, p, pay):
-        aList = []
-        a = []
-        i = 0
-        sum1 = 0
-        for i in range(0, len(self.fields_desc)):
-            aList.append(self.fields_desc[i].name)
-        for i in aList:
-            a.append(getattr(self, i))
+        a = [getattr(self, fld.name) for fld in self.fields_desc]
         res = adapt(3, 14, a, self.fields_desc)
-        if res[0] is not 0:
+        if res[0] != 0:
             p = p[:-res[0]]
         if self.lengthCN is None:
             p = p[:1] + struct.pack(">B", len(p)-2) + p[2:]
@@ -6561,17 +6456,11 @@ class ConnectedSubaddressHdr(Packet):
              ]
 
     def post_build(self, p, pay):
-        aList = []
-        a = []
-        i = 0
-        for i in range(0, len(self.fields_desc)):
-            aList.append(self.fields_desc[i].name)
-        for i in aList:
-            a.append(getattr(self, i))
+        a = [getattr(self, fld.name) for fld in self.fields_desc]
         res = adapt(2, 23, a, self.fields_desc)
         if self.lengthCS is None:
             p = p[:1] + struct.pack(">B", res[1]) + p[2:]
-        if res[0] is not 0:
+        if res[0] != 0:
             p = p[:-res[0]]
         return p + pay
 
@@ -6837,17 +6726,11 @@ class FacilityHdr(Packet):
              ]
 
     def post_build(self, p, pay):
-        aList = []
-        a = []
-        i = 0
-        for i in range(0, len(self.fields_desc)):
-            aList.append(self.fields_desc[i].name)
-        for i in aList:
-            a.append(getattr(self, i))
+        a = [getattr(self, fld.name) for fld in self.fields_desc]
         res = adapt(2, 251, a, self.fields_desc)
         if self.lengthF is None:
             p = p[:1] + struct.pack(">B", res[1]) + p[2:]
-        if res[0] is not 0:
+        if res[0] != 0:
             p = p[:-res[0]]
         return p + pay
 
@@ -6877,15 +6760,9 @@ class HighLayerCompatibilityHdr(Packet):
              ]
 
     def post_build(self, p, pay):
-        aList = []
-        a = []
-        i = 0
-        for i in range(0, len(self.fields_desc)):
-            aList.append(self.fields_desc[i].name)
-        for i in aList:
-            a.append(getattr(self, i))
+        a = [getattr(self, fld.name) for fld in self.fields_desc]
         res = adapt(2, 5, a, self.fields_desc)
-        if res[0] is not 0:
+        if res[0] != 0:
             p = p[:-res[0]]
         if self.lengthHLC is None:
             p = p[:1] + struct.pack(">B", len(p)-2) + p[2:]
@@ -6933,17 +6810,11 @@ class LowLayerCompatibilityHdr(Packet):
              ]
 
     def post_build(self, p, pay):
-        aList = []
-        a = []
-        i = 0
-        for i in range(0, len(self.fields_desc)):
-            aList.append(self.fields_desc[i].name)
-        for i in aList:
-            a.append(getattr(self, i))
+        a = [getattr(self, fld.name) for fld in self.fields_desc]
         res = adapt(2, 15, a, self.fields_desc)
         if self.lengthLLC is None:
             p = p[:1] + struct.pack(">B", res[1]) + p[2:]
-        if res[0] is not 0:
+        if res[0] != 0:
             p = p[:-res[0]]
         return p + pay
 
@@ -7065,15 +6936,9 @@ class RedirectingPartyBcdNumberHdr(Packet):
              ]
 
     def post_build(self, p, pay):
-        aList = []
-        a = []
-        i = 0
-        for i in range(0, len(self.fields_desc)):
-            aList.append(self.fields_desc[i].name)
-        for i in aList:
-            a.append(getattr(self, i))
+        a = [getattr(self, fld.name) for fld in self.fields_desc]
         res = adapt(3, 19, a, self.fields_desc)
-        if res[0] is not 0:
+        if res[0] != 0:
             p = p[:-res[0]]
         if self.lengthRPBN is None:
             p = p[:1] + struct.pack(">B", len(p)-2) + p[2:]
@@ -7118,17 +6983,11 @@ class RedirectingPartySubaddressHdr(Packet):
              ]
 
     def post_build(self, p, pay):
-        aList = []
-        a = []
-        i = 0
-        for i in range(0, len(self.fields_desc)):
-            aList.append(self.fields_desc[i].name)
-        for i in aList:
-            a.append(getattr(self, i))
+        a = [getattr(self, fld.name) for fld in self.fields_desc]
         res = adapt(2, 23, a, self.fields_desc)
         if self.lengthRPS is None:
             p = p[:1] + struct.pack(">B", res[1]) + p[2:]
-        if res[0] is not 0:
+        if res[0] != 0:
             p = p[:-res[0]]
         return p + pay
 
@@ -7411,17 +7270,11 @@ class SetupContainerHdr(Packet):
              ]
 
     def post_build(self, p, pay):
-        aList = []
-        a = []
-        i = 0
-        for i in range(0, len(self.fields_desc)):
-            aList.append(self.fields_desc[i].name)
-        for i in aList:
-            a.append(getattr(self, i))
+        a = [getattr(self, fld.name) for fld in self.fields_desc]
         res = adapt(2, 251, a, self.fields_desc)
         if self.lengthSC is None:
             p = p[:1] + struct.pack(">B", res[1]) + p[2:]
-        if res[0] is not 0:
+        if res[0] != 0:
             p = p[:-res[0]]
         return p + pay
 
@@ -7697,17 +7550,11 @@ class SsVersionIndicatorHdr(Packet):
              ]
 
     def post_build(self, p, pay):
-        aList = []
-        a = []
-        i = 0
-        for i in range(0, len(self.fields_desc)):
-            aList.append(self.fields_desc[i].name)
-        for i in aList:
-            a.append(getattr(self, i))
+        a = [getattr(self, fld.name) for fld in self.fields_desc]
         res = adapt(2, 251, a, self.fields_desc)
         if self.lengthSVI is None:
             p = p[:1] + struct.pack(">B", res[1]) + p[2:]
-        if res[0] is not 0:
+        if res[0] != 0:
             p = p[:-res[0]]
         return p + pay
 
@@ -7862,17 +7709,11 @@ class UserUserHdr(Packet):
              ]
 
     def post_build(self, p, pay):
-        aList = []
-        a = []
-        i = 0
-        for i in range(0, len(self.fields_desc)):
-            aList.append(self.fields_desc[i].name)
-        for i in aList:
-            a.append(getattr(self, i))
+        a = [getattr(self, fld.name) for fld in self.fields_desc]
         res = adapt(3, 131, a, self.fields_desc)
         if self.lengthUU is None:
             p = p[:1] + struct.pack(">B", res[1]) + p[2:]
-        if res[0] is not 0:
+        if res[0] != 0:
             p = p[:-res[0]]
         return p + pay
 
@@ -8130,17 +7971,11 @@ class ReceiveNpduNumbersList(Packet):
              ]
 
     def post_build(self, p, pay):
-        aList = []
-        a = []
-        i = 0
-        for i in range(0, len(self.fields_desc)):
-            aList.append(self.fields_desc[i].name)
-        for i in aList:
-            a.append(getattr(self, i))
+        a = [getattr(self, fld.name) for fld in self.fields_desc]
         res = adapt(4, 19, a, self.fields_desc)
         if self.lengthRNNL is None:
             p = p[:1] + struct.pack(">B", res[1]) + p[2:]
-        if res[0] is not 0:
+        if res[0] != 0:
             p = p[:-res[0]]
         return p + pay
 
@@ -8396,17 +8231,11 @@ class AccessPointName(Packet):
              ]
 
     def post_build(self, p, pay):
-        aList = []
-        a = []
-        i = 0
-        for i in range(0, len(self.fields_desc)):
-            aList.append(self.fields_desc[i].name)
-        for i in aList:
-            a.append(getattr(self, i))
+        a = [getattr(self, fld.name) for fld in self.fields_desc]
         res = adapt(3, 102, a, self.fields_desc)
         if self.lengthAPN is None:
             p = p[:1] + struct.pack(">B", res[1]) + p[2:]
-        if res[0] is not 0:
+        if res[0] != 0:
             p = p[:-res[0]]
         return p + pay
 
@@ -8769,17 +8598,11 @@ class ProtocolConfigurationOptions(Packet):
              ]
 
     def post_build(self, p, pay):
-        aList = []
-        a = []
-        i = 0
-        for i in range(0, len(self.fields_desc)):
-            aList.append(self.fields_desc[i].name)
-        for i in aList:
-            a.append(getattr(self, i))
+        a = [getattr(self, fld.name) for fld in self.fields_desc]
         res = adapt(2, 253, a, self.fields_desc)
         if self.lengthPCO is None:
             p = p[:1] + struct.pack(">B", res[1]) + p[2:]
-        if res[0] is not 0:
+        if res[0] != 0:
             p = p[:-res[0]]
         return p + pay
 
@@ -8817,17 +8640,11 @@ class PacketDataProtocolAddress(Packet):
              ]
 
     def post_build(self, p, pay):
-        aList = []
-        a = []
-        i = 0
-        for i in range(0, len(self.fields_desc)):
-            aList.append(self.fields_desc[i].name)
-        for i in aList:
-            a.append(getattr(self, i))
+        a = [getattr(self, fld.name) for fld in self.fields_desc]
         res = adapt(4, 20, a, self.fields_desc)
         if self.lengthPDPA is None:
             p = p[:1] + struct.pack(">B", res[1]) + p[2:]
-        if res[0] is not 0:
+        if res[0] != 0:
             p = p[:-res[0]]
         return p + pay
 
@@ -8996,17 +8813,11 @@ class MobileId(Packet):
              ]
 
     def post_build(self, p, pay):
-        aList = []
-        a = []
-        i = 0
-        for i in range(0, len(self.fields_desc)):
-            aList.append(self.fields_desc[i].name)
-        for i in aList:
-            a.append(getattr(self, i))
+        a = [getattr(self, fld.name) for fld in self.fields_desc]
         res = adapt(2, 10, a, self.fields_desc, 1)
         if self.lengthMI is None:
             p = struct.pack(">B", res[1]) + p[1:]
-        if res[0] is not 0:
+        if res[0] != 0:
             p = p[:-res[0]]
         return p + pay
 
@@ -9529,17 +9340,11 @@ class BaRange(Packet):
              ]
 
     def post_build(self, p, pay):
-        aList = []
-        a = []
-        i = 0
-        for i in range(0, len(self.fields_desc)):
-            aList.append(self.fields_desc[i].name)
-        for i in aList:
-            a.append(getattr(self, i))
+        a = [getattr(self, fld.name) for fld in self.fields_desc]
         res = adapt(5, 253, a, self.fields_desc, 1)
         if self.lengthBR is None:
             p = struct.pack(">B", res[1]) + p[1:]
-        if res[0] is not 0:
+        if res[0] != 0:
             p = p[:-res[0]]
         return p + pay
 
@@ -9876,17 +9681,11 @@ class GroupChannelDescription(Packet):
              ]
 
     def post_build(self, p, pay):
-        aList = []
-        a = []
-        i = 0
-        for i in range(0, len(self.fields_desc)):
-            aList.append(self.fields_desc[i].name)
-        for i in aList:
-            a.append(getattr(self, i))
+        a = [getattr(self, fld.name) for fld in self.fields_desc]
         res = adapt(4, 13, a, self.fields_desc, 1)
         if self.lengthGCD is None:
             p = struct.pack(">B", res[1]) + p[1:]
-        if res[0] is not 0:
+        if res[0] != 0:
             p = p[:-res[0]]
         return p + pay
 
@@ -10059,17 +9858,11 @@ class MobileAllocation(Packet):
              ]
 
     def post_build(self, p, pay):
-        aList = []
-        a = []
-        i = 0
-        for i in range(0, len(self.fields_desc)):
-            aList.append(self.fields_desc[i].name)
-        for i in aList:
-            a.append(getattr(self, i))
+        a = [getattr(self, fld.name) for fld in self.fields_desc]
         res = adapt(2, 9, a, self.fields_desc, 1)
         if self.lengthMA is None:
             p = struct.pack(">B", res[1]) + p[1:]
-        if res[0] is not 0:
+        if res[0] != 0:
             p = p[:-res[0]]
         return p + pay
 
@@ -10123,17 +9916,11 @@ class MultiRateConfiguration(Packet):
 
     def post_build(self, p, pay):
         # we set the length
-        aList = []
-        a = []
-        i = 0
-        for i in range(0, len(self.fields_desc)):
-            aList.append(self.fields_desc[i].name)
-        for i in aList:
-            a.append(getattr(self, i))
+        a = [getattr(self, fld.name) for fld in self.fields_desc]
         res = adapt(3, 7, a, self.fields_desc, 1)
         if self.lengthMRC is None:
             p = struct.pack(">B", res[1]) + p[1:]
-        if res[0] is not 0:
+        if res[0] != 0:
             p = p[:-res[0]]
         return p + pay
 
@@ -10161,15 +9948,9 @@ class MultislotAllocation(Packet):
              ]
 
     def post_build(self, p, pay):
-        aList = []
-        a = []
-        i = 0
-        for i in range(0, len(self.fields_desc)):
-            aList.append(self.fields_desc[i].name)
-        for i in aList:
-            a.append(getattr(self, i))
+        a = [getattr(self, fld.name) for fld in self.fields_desc]
         res = adapt(1, 11, a, self.fields_desc, 1)
-        if res[0] is not 0:
+        if res[0] != 0:
             p = p[:-res[0]]
         if self.lengthMSA is None:
             p = struct.pack(">B", len(p)-1) + p[1:]
@@ -10776,17 +10557,11 @@ class ApduData(Packet):
              ]
 
     def post_build(self, p, pay):
-        aList = []
-        a = []
-        i = 0
-        for i in range(0, len(self.fields_desc)):
-            aList.append(self.fields_desc[i].name)
-        for i in aList:
-            a.append(getattr(self, i))
+        a = [getattr(self, fld.name) for fld in self.fields_desc]
         res = adapt(1, 250, a, self.fields_desc, 1)
         if self.lengthAD is None:
             p = struct.pack(">B", res[1]) + p[1:]
-        if res[0] is not 0:
+        if res[0] != 0:
             p = p[:-res[0]]
         return p + pay
 #
@@ -11058,17 +10833,11 @@ class NetworkName(Packet):
              ]
 
     def post_build(self, p, pay):
-        aList = []
-        a = []
-        i = 0
-        for i in range(0, len(self.fields_desc)):
-            aList.append(self.fields_desc[i].name)
-        for i in aList:
-            a.append(getattr(self, i))
+        a = [getattr(self, fld.name) for fld in self.fields_desc]
         res = adapt(2, 250, a, self.fields_desc, 1)
         if self.lengthNN is None:
             p = struct.pack(">B", res[1]) + p[1:]
-        if res[0] is not 0:
+        if res[0] != 0:
             p = p[:-res[0]]
         return p + pay
 
@@ -11282,15 +11051,9 @@ class BearerCapability(Packet):
              ]
 
     def post_build(self, p, pay):
-        aList = []
-        a = []
-        i = 0
-        for i in range(0, len(self.fields_desc)):
-            aList.append(self.fields_desc[i].name)
-        for i in aList:
-            a.append(getattr(self, i))
+        a = [getattr(self, fld.name) for fld in self.fields_desc]
         res = adapt(2, 15, a, self.fields_desc, 1)
-        if res[0] is not 0:
+        if res[0] != 0:
             p = p[:-res[0]]
         if self.lengthBC is None:
             p = struct.pack(">B", len(p)-1) + p[1:]
@@ -11429,17 +11192,11 @@ class CalledPartyBcdNumber(Packet):
              ]
 
     def post_build(self, p, pay):
-        aList = []
-        a = []
-        i = 0
-        for i in range(0, len(self.fields_desc)):
-            aList.append(self.fields_desc[i].name)
-        for i in aList:
-            a.append(getattr(self, i))
+        a = [getattr(self, fld.name) for fld in self.fields_desc]
         res = adapt(2, 42, a, self.fields_desc, 1)
         if self.lengthCPBN is None:
             p = struct.pack(">B", res[1]) + p[1:]
-        if res[0] is not 0:
+        if res[0] != 0:
             p = p[:-res[0]]
         return p + pay
 
@@ -11479,17 +11236,11 @@ class CalledPartySubaddress(Packet):
              ]
 
     def post_build(self, p, pay):
-        aList = []
-        a = []
-        i = 0
-        for i in range(0, len(self.fields_desc)):
-            aList.append(self.fields_desc[i].name)
-        for i in aList:
-            a.append(getattr(self, i))
+        a = [getattr(self, fld.name) for fld in self.fields_desc]
         res = adapt(2, 23, a, self.fields_desc, 1)
         if self.lengthCPS is None:
             p = struct.pack(">B", res[1]) + p[1:]
-        if res[0] is not 0:
+        if res[0] != 0:
             p = p[:-res[0]]
         return p + pay
 
@@ -11545,15 +11296,9 @@ class CallingPartyBcdNumber(Packet):
              ]
 
     def post_build(self, p, pay):
-        aList = []
-        a = []
-        i = 0
-        for i in range(0, len(self.fields_desc)):
-            aList.append(self.fields_desc[i].name)
-        for i in aList:
-            a.append(getattr(self, i))
+        a = [getattr(self, fld.name) for fld in self.fields_desc]
         res = adapt(2, 13, a, self.fields_desc, 1)
-        if res[0] is not 0:
+        if res[0] != 0:
             p = p[:-res[0]]
         if self.lengthCPBN is None:
             p = struct.pack(">B", len(p)-1) + p[1:]
@@ -11595,17 +11340,11 @@ class CallingPartySubaddress(Packet):
              ]
 
     def post_build(self, p, pay):
-        aList = []
-        a = []
-        i = 0
-        for i in range(0, len(self.fields_desc)):
-            aList.append(self.fields_desc[i].name)
-        for i in aList:
-            a.append(getattr(self, i))
+        a = [getattr(self, fld.name) for fld in self.fields_desc]
         res = adapt(1, 22, a, self.fields_desc, 1)
         if self.lengthCPS is None:
             p = struct.pack(">B", res[1]) + p[1:]
-        if res[0] is not 0:
+        if res[0] != 0:
             p = p[:-res[0]]
         return p + pay
 
@@ -11661,15 +11400,9 @@ class Cause(Packet):
              ]
 
     def post_build(self, p, pay):
-        aList = []
-        a = []
-        i = 0
-        for i in range(0, len(self.fields_desc)):
-            aList.append(self.fields_desc[i].name)
-        for i in aList:
-            a.append(getattr(self, i))
+        a = [getattr(self, fld.name) for fld in self.fields_desc]
         res = adapt(3, 31, a, self.fields_desc, 1)
-        if res[0] is not 0:
+        if res[0] != 0:
             p = p[:-res[0]]
         if self.lengthC is None:
             p = struct.pack(">B", len(p)-1) + p[1:]
@@ -11751,15 +11484,9 @@ class ConnectedNumber(Packet):
              ]
 
     def post_build(self, p, pay):
-        aList = []
-        a = []
-        i = 0
-        for i in range(0, len(self.fields_desc)):
-            aList.append(self.fields_desc[i].name)
-        for i in aList:
-            a.append(getattr(self, i))
+        a = [getattr(self, fld.name) for fld in self.fields_desc]
         res = adapt(2, 13, a, self.fields_desc, 1)
-        if res[0] is not 0:
+        if res[0] != 0:
             p = p[:-res[0]]
         if self.lengthCN is None:
             p = struct.pack(">B", len(p)-1) + p[1:]
@@ -11802,17 +11529,11 @@ class ConnectedSubaddress(Packet):
              ]
 
     def post_build(self, p, pay):
-        aList = []
-        a = []
-        i = 0
-        for i in range(0, len(self.fields_desc)):
-            aList.append(self.fields_desc[i].name)
-        for i in aList:
-            a.append(getattr(self, i))
+        a = [getattr(self, fld.name) for fld in self.fields_desc]
         res = adapt(1, 22, a, self.fields_desc, 1)
         if self.lengthCS is None:
             p = struct.pack(">B", res[1]) + p[1:]
-        if res[0] is not 0:
+        if res[0] != 0:
             p = p[:-res[0]]
         return p + pay
 
@@ -12076,17 +11797,11 @@ class Facility(Packet):
              ]
 
     def post_build(self, p, pay):
-        aList = []
-        i = 0
-        for i in range(0, len(self.fields_desc)):
-            aList.append(self.fields_desc[i].name)
-        a = []
-        for i in aList:
-            a.append(getattr(self, i))
+        a = [getattr(self, fld.name) for fld in self.fields_desc]
         res = adapt(7, 250, a, self.fields_desc, 1)
         if self.lengthF is None:
             p = struct.pack(">B", res[1]) + p[1:]
-        if res[0] is not 0:
+        if res[0] != 0:
             p = p[:-res[0]]
         return p + pay
 
@@ -12114,15 +11829,9 @@ class HighLayerCompatibility(Packet):
              ]
 
     def post_build(self, p, pay):
-        aList = []
-        i = 0
-        for i in range(0, len(self.fields_desc)):
-            aList.append(self.fields_desc[i].name)
-        a = []
-        for i in aList:
-            a.append(getattr(self, i))
+        a = [getattr(self, fld.name) for fld in self.fields_desc]
         res = adapt(1, 4, a, self.fields_desc, 1)
-        if res[0] is not 0:
+        if res[0] != 0:
             p = p[:-res[0]]
         if self.lengthHLC is None:
             p = struct.pack(">B", len(p)-1) + p[1:]
@@ -12166,17 +11875,11 @@ class LowLayerCompatibility(Packet):
              ]
 
     def post_build(self, p, pay):
-        aList = []
-        i = 0
-        for i in range(0, len(self.fields_desc)):
-            aList.append(self.fields_desc[i].name)
-        a = []
-        for i in aList:
-            a.append(getattr(self, i))
+        a = [getattr(self, fld.name) for fld in self.fields_desc]
         res = adapt(1, 14, a, self.fields_desc, 1)
         if self.lengthLLC is None:
             p = struct.pack(">B", res[1]) + p[1:]
-        if res[0] is not 0:
+        if res[0] != 0:
             p = p[:-res[0]]
         return p + pay
 
@@ -12288,15 +11991,9 @@ class RedirectingPartyBcdNumber(Packet):
              ]
 
     def post_build(self, p, pay):
-        aList = []
-        i = 0
-        for i in range(0, len(self.fields_desc)):
-            aList.append(self.fields_desc[i].name)
-        a = []
-        for i in aList:
-            a.append(getattr(self, i))
+        a = [getattr(self, fld.name) for fld in self.fields_desc]
         res = adapt(2, 18, a, self.fields_desc, 1)
-        if res[0] is not 0:
+        if res[0] != 0:
             p = p[:-res[0]]
         if self.lengthRPBN is None:
             p = struct.pack(">B", len(p)-1) + p[1:]
@@ -12339,17 +12036,11 @@ class RedirectingPartySubaddress(Packet):
              ]
 
     def post_build(self, p, pay):
-        aList = []
-        i = 0
-        for i in range(0, len(self.fields_desc)):
-            aList.append(self.fields_desc[i].name)
-        a = []
-        for i in aList:
-            a.append(getattr(self, i))
+        a = [getattr(self, fld.name) for fld in self.fields_desc]
         res = adapt(1, 22, a, self.fields_desc, 1)
         if self.lengthRPS is None:
             p = struct.pack(">B", res[1]) + p[1:]
-        if res[0] is not 0:
+        if res[0] != 0:
             p = p[:-res[0]]
         return p + pay
 
@@ -12621,17 +12312,11 @@ class SetupContainer(Packet):
              ]
 
     def post_build(self, p, pay):
-        aList = []
-        i = 0
-        for i in range(0, len(self.fields_desc)):
-            aList.append(self.fields_desc[i].name)
-        a = []
-        for i in aList:
-            a.append(getattr(self, i))
+        a = [getattr(self, fld.name) for fld in self.fields_desc]
         res = adapt(1, 250, a, self.fields_desc, 1)
         if self.lengthSC is None:
             p = struct.pack(">B", res[1]) + p[1:]
-        if res[0] is not 0:
+        if res[0] != 0:
             p = p[:-res[0]]
         return p + pay
 
@@ -12903,17 +12588,11 @@ class SsVersionIndicator(Packet):
              ]
 
     def post_build(self, p, pay):
-        aList = []
-        i = 0
-        for i in range(0, len(self.fields_desc)):
-            aList.append(self.fields_desc[i].name)
-        a = []
-        for i in aList:
-            a.append(getattr(self, i))
+        a = [getattr(self, fld.name) for fld in self.fields_desc]
         res = adapt(1, 250, a, self.fields_desc, 1)
         if self.lengthSVI is None:
             p = struct.pack(">B", res[1]) + p[1:]
-        if res[0] is not 0:
+        if res[0] != 0:
             p = p[:-res[0]]
         return p + pay
 
@@ -13066,17 +12745,11 @@ class UserUser(Packet):
              ]
 
     def post_build(self, p, pay):
-        aList = []
-        i = 0
-        for i in range(0, len(self.fields_desc)):
-            aList.append(self.fields_desc[i].name)
-        a = []
-        for i in aList:
-            a.append(getattr(self, i))
+        a = [getattr(self, fld.name) for fld in self.fields_desc]
         res = adapt(2, 133, a, self.fields_desc, 1)
         if self.lengthUU is None:
             p = struct.pack(">B", res[1]) + p[1:]
-        if res[0] is not 0:
+        if res[0] != 0:
             p = p[:-res[0]]
         return p + pay
 

@@ -141,19 +141,19 @@ def sndrcv(pks, pkt, timeout = None, inter = 0, verbose=None, chainCC=0, retry=0
                             h = r.hashret()
                             if h in hsent:
                                 hlst = hsent[h]
-                                for i in range(len(hlst)):
-                                    if r.answers(hlst[i]):
-                                        ans.append((hlst[i],r))
+                                for i, sentpkt in enumerate(hlst):
+                                    if r.answers(sentpkt):
+                                        ans.append((sentpkt, r))
                                         if verbose > 1:
                                             os.write(1, "*")
-                                        ok = 1                                
+                                        ok = 1
                                         if not multi:
-                                            del(hlst[i])
-                                            notans -= 1;
+                                            del hlst[i]
+                                            notans -= 1
                                         else:
-                                            if not hasattr(hlst[i], '_answered'):
-                                                notans -= 1;
-                                            hlst[i]._answered = 1;
+                                            if not hasattr(sentpkt, '_answered'):
+                                                notans -= 1
+                                            sentpkt._answered = 1
                                         break
                             if notans == 0 and not multi:
                                 break

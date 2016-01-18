@@ -283,9 +283,7 @@ class CryptAlgo(object):
         esp.padlen = -data_len % align
 
         # padding must be an array of bytes starting from 1 to padlen
-        esp.padding = ''
-        for b in range(1, esp.padlen + 1):
-            esp.padding += chr(b)
+        esp.padding = ''.join(chr(b) for b in xrange(1, esp.padlen + 1))
 
         # If the following test fails, it means that this algo does not comply
         # with the RFC
