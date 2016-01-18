@@ -41,6 +41,8 @@ class Packet(BasePacket):
         # then payload and underlayer
         "payload", "underlayer",
         "name",
+        # used for sr()
+        "_answered",
     ]
     __metaclass__ = Packet_metaclass
     name = None

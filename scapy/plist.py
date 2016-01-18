@@ -40,6 +40,8 @@ class PacketList(BasePacketList):
             res = res.res
         self.res = res
         self.listname = name
+    def __len__(self):
+        return len(self.res)
     def _elt2pkt(self, elt):
         return elt
     def _elt2sum(self, elt):
