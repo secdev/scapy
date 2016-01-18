@@ -1,0 +1,23 @@
+% BGP-4 tests
+% 
+% Type the following command to launch start the tests:
+% $ sudo bash test/run_tests -t scapy/contrib/bgp.uts -F
+%
+
++ BGP-4 tests
+= Load BGP-4 library
+load_contrib("bgp")
+
+% BGPv4 basic messages
+= BGP-4 Keep Alive
+
+keep = BGPHeader(len=19,type=4)
+str(keep) == '\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x13\x04'
+
+= Packet chopping
+
+bgp = BGPTraffic(str(keep)+str(keep))
+
+bgp.show()
+
+len(bgp.packets) == 2
