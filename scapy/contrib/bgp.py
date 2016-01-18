@@ -66,24 +66,39 @@ class BGPAuthenticationData(Packet):
     FieldLenField("Algorithm", 0),
     ]
 
-class BGPPathAttribute(Packet):
-	"the attribute of total path"
-	name = "BGP Attribute fields"
-	fields_desc = [
-	FlagsField("flags", 0x40, 8, ["NA0","NA1","NA2","NA3","Extended-Length","Partial","Transitive","Optional"]), #Extened leght may not work
-	ByteEnumField("type", 1, {1:"ORIGIN", 2:"AS_PATH", 3:"NEXT_HOP", 4:"MULTI_EXIT_DISC", 5:"LOCAL_PREF", 6:"ATOMIC_AGGREGATE", 7:"AGGREGATOR"}),
-	ByteField("attr_len", None),
-	StrLenField("value", "", length_from = lambda p: p.attr_len),
-	]
-	def post_build(self, p, pay):
-		if self.attr_len is None:
-			l = len(p) - 3 # 3 is regular length with no additional options
-			p = p[:2] + struct.pack("!B",l)  +p[3:]
-		return p+pay
-	def extract_padding(self, p):
+class BGPAttribute(Packet):
+    "the attribute of total path"
+    name = "BGP Attribute fields"
+    fields_desc = [
+    FlagsField("flags", 0x40, 8, ["NA0","NA1","NA2","NA3","Extended-Length","Partial","Transitive","Optional"]),
+    ByteEnumField("type", 1, {1:"ORIGIN", 
+                              2:"AS_PATH", 
+                              3:"NEXT_HOP", 
+                              4:"MULTI_EXIT_DISC", 
+                              5:"LOCAL_PREF", 
+                              6:"ATOMIC_AGGREGATE", 
+                              7:"AGGREGATOR"}),
+    ConditionalField(ByteField("attr_len", None), cond = lambda p: p.flags & 0x10 == 0),
+    ConditionalField(ShortField("ext_len", None), cond = lambda p: p.flags & 0x10 == 0x10),
+    StrLenField("value", "", length_from = lambda p: p.ext_len if p.attr_len is None else p.attr_len),
+    ]
+    def extract_padding(self, p):
 		"""any thing after this packet is extracted is padding"""
 		return "",p
+	#def post_build(self, p, pay):
+		#if self.attr_len is None:
+			#l = len(p) - 3 # 3 is regular length with no additional options
+			#p = p[:2] + struct.pack("!B",l)  +p[3:]
+		#return p+pay
 
+def Attribute_Dispatcher(s):
+    if len(s) < 2:
+        return Raw(s)
+    _,attr_type = struct.unpack("!BB",s[:2])
+    print ("Attribute: %d" % attr_type)
+    cls = BGPAttribute
+    return cls(s)
+    
 class BGPUpdate(Packet):
 	"""Update the routes WithdrawnRoutes = UnfeasiableRoutes"""
 	name = "BGP Update fields"
@@ -91,7 +106,7 @@ class BGPUpdate(Packet):
 	ShortField("withdrawn_len", None),
 	FieldListField("withdrawn",[], BGPIPField("","0.0.0.0/0"), length_from=lambda p:p.withdrawn_len),
 	ShortField("tp_len", None),
-	PacketListField("total_path", [], BGPPathAttribute, length_from = lambda p: p.tp_len),
+	PacketListField("total_path", [], Attribute_Dispatcher),
 	FieldListField("nlri",[], BGPIPField("","0.0.0.0/0"), length_from=lambda p:p.underlayer.len - 23 - p.tp_len - p.withdrawn_len), # len should be BGPHeader.len
 	]
 	def post_build(self,p,pay):
