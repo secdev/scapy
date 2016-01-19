@@ -521,15 +521,26 @@ def wrpcap(filename, pkt, *args, **kargs):
 gz: set to 1 to save a gzipped capture
 linktype: force linktype value
 endianness: "<" or ">", force endianness"""
-    with PcapWriter(filename, *args, **kargs) as fdesc:
-        fdesc.write(pkt)
+    ## Does not work with Python <= 2.5. Use this implementation as
+    ## soon as we drop support for Python 2.5.
+    # with PcapWriter(filename, *args, **kargs) as fdesc:
+    #     fdesc.write(pkt)
+    fdesc = PcapWriter(filename, *args, **kargs)
+    fdesc.write(pkt)
+    fdesc.close()
 
 @conf.commands.register
 def rdpcap(filename, count=-1):
     """Read a pcap file and return a packet list
 count: read only <count> packets"""
-    with PcapReader(filename) as fdesc:
-        return fdesc.read_all(count=count)
+    ## Does not work with Python <= 2.5. Use this implementation as
+    ## soon as we drop support for Python 2.5.
+    # with PcapReader(filename) as fdesc:
+    #     return fdesc.read_all(count=count)
+    fdesc = PcapReader(filename)
+    result = fdesc.read_all(count=count)
+    fdesc.close()
+    return result
 
 
 
