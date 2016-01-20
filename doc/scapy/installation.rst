@@ -352,7 +352,7 @@ PyX (very large download, will install texlive etc.)
 
 .. code-block:: text
 
- # wget http://www.secdev.org/projects/scapy/files/ethertypes -O /etc/ethertypes
+ # wget http://git.netfilter.org/ebtables/plain/ethertypes -O /etc/ethertypes
 
 python-bz2 (for UTscapy)
 
