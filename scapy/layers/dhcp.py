@@ -168,7 +168,7 @@ class RandDHCPOptions(RandField):
         self._opts.remove("end")
     def _fix(self):
         op = []
-        for k in range(self.size):
+        for k in xrange(self.size):
             o = random.choice(self._opts)
             if type(o) is str:
                 op.append((o,self.rndstr*1))

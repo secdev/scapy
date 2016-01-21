@@ -132,7 +132,7 @@ class AddressTLVField(StrField):
         nbr /= 4
         x=x[6:]
         list=[]
-        for i in range(0,nbr):
+        for i in xrange(0, nbr):
             add = x[4*i:4*i+4]
             list.append(inet_ntoa(add))
         return list

@@ -128,8 +128,8 @@ def load_mib(filenames):
                 ident,oid = gr[0],gr[-1]
                 ident=fixname(ident)
                 oid = oid.split()
-                for i in range(len(oid)):
-                    m = _mib_re_both.match(oid[i])
+                for i, elt in enumerate(oid):
+                    m = _mib_re_both.match(elt)
                     if m:
                         oid[i] = m.groups()[1]
                 mib_register(ident, oid, the_mib, unresolved)

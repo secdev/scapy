@@ -227,8 +227,8 @@ class TFTP_write(Automaton):
     # BEGIN
     @ATMT.state(initial=1)
     def BEGIN(self):
-        self.data = [ self.origdata[i*self.blocksize:(i+1)*self.blocksize]
-                      for i in range( len(self.origdata)/self.blocksize+1) ] 
+        self.data = [self.origdata[i*self.blocksize:(i+1)*self.blocksize]
+                     for i in xrange( len(self.origdata)/self.blocksize+1)]
         self.my_tid = self.sport or RandShort()._fix()
         bind_bottom_up(UDP, TFTP, dport=self.my_tid)
         self.server_tid = None

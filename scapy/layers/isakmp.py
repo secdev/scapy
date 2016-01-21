@@ -331,13 +331,12 @@ class ISAKMP_payload_Hash(ISAKMP_class):
 
 
 ISAKMP_payload_type_overload = {}
-for i in range(len(ISAKMP_payload_type)):
-    name = "ISAKMP_payload_%s" % ISAKMP_payload_type[i]
+for i, payloadname in enumerate(ISAKMP_payload_type):
+    name = "ISAKMP_payload_%s" % payloadname
     if name in globals():
-        ISAKMP_payload_type_overload[globals()[name]] = {"next_payload":i}
+        ISAKMP_payload_type_overload[globals()[name]] = {"next_payload": i}
 
-del(i)
-del(name)
+del i, payloadname, name
 ISAKMP_class.overload_fields = ISAKMP_payload_type_overload.copy()
 
 

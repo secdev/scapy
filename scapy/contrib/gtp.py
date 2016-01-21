@@ -113,8 +113,8 @@ class TBCDByteField(StrFixedLenField):
 
     def i2h(self, pkt, val):
         ret = []
-        for i in range(len(val)):
-           byte = ord(val[i])
+        for v in val:
+           byte = ord(v)
            left = byte >> 4
            right = byte & 0xF
            if left == 0xF:
@@ -128,7 +128,7 @@ class TBCDByteField(StrFixedLenField):
 
     def i2m(self, pkt, val):
         ret_string = ""
-        for i in range(0, len(val), 2):
+        for i in xrange(0, len(val), 2):
             tmp = val[i:i+2]
             if len(tmp) == 2:
               ret_string += chr(int(tmp[1] + tmp[0], 16))

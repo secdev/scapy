@@ -239,8 +239,8 @@ class HCSIFlagsField(FlagsField):
         if val is None:
             val = 0
             if (pkt):
-                for i in range(len(self.names)):
-                    name = self.names[i][0]
+                for i, name in enumerate(self.names):
+                    name = name[0]
                     value = pkt.getfieldval(name)
                     if value is not None:
                         val |= 1 << i
@@ -260,7 +260,7 @@ class HCSIAppField(StrFixedLenField):
 
 def _FlagsList(myfields):
     flags = []
-    for i in range(32):
+    for i in xrange(32):
         flags.append("Reserved%02d" % i)
     for i in myfields.keys():
         flags[i] = myfields[i]
@@ -303,10 +303,10 @@ def _HCSITest(pkt, ibit, name):
 # Wrap optional fields in ConditionalField, add HCSIFlagsField
 def _HCSIBuildFields(fields):
     names = [f.name for f in fields]
-    cond_fields = [ HCSIFlagsField('present', None, -len(names), names)]
-    for i in range(len(names)):
+    cond_fields = [HCSIFlagsField('present', None, -len(names), names)]
+    for i, name in enumerate(names):
         ibit = 1 << i
-        seval = "lambda pkt:_HCSITest(pkt,%s,'%s')" % (ibit, names[i])
+        seval = "lambda pkt:_HCSITest(pkt,%s,'%s')" % (ibit, name)
         test = eval(seval)
         cond_fields.append(ConditionalField(fields[i], test))
     return cond_fields

@@ -86,8 +86,8 @@ class Route:
         the_net = the_rawaddr & the_msk
         
         
-        for i in range(len(self.routes)):
-            net,msk,gw,iface,addr = self.routes[i]
+        for i, route in enumerate(self.routes):
+            net, msk, gw, iface, addr = route
             if iface != iff:
                 continue
             if gw == '0.0.0.0':

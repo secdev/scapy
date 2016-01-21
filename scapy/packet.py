@@ -574,12 +574,11 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
         return s
 
     def do_dissect(self, s):
-        flist = self.fields_desc[:]
-        flist.reverse()
         raw = s
         self.raw_packet_cache_fields = {}
-        while s and flist:
-            f = flist.pop()
+        for f in self.fields_desc:
+            if not s:
+                break
             s, fval = f.getfield(self, s)
             # We need to track fields with mutable values to discard
             # .raw_packet_cache when needed.
@@ -587,10 +586,7 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
                 self.raw_packet_cache_fields[f.name] = f.do_copy(fval)
             self.fields[f.name] = fval
         assert(raw.endswith(s))
-        if s:
-            self.raw_packet_cache = raw[:-len(s)]
-        else:
-            self.raw_packet_cache = raw
+        self.raw_packet_cache = raw[:-len(s)] if s else raw
         self.explicit = 1
         return s
 

@@ -355,7 +355,7 @@ _skinny_message_callinfo_restrictions = ['CallerName'
                                          , 'OriginalCalledName'
                                          , 'OriginalCalledNumber'
                                          , 'LastRedirectName'
-                                         , 'LastRedirectNumber'] + ['Bit%d' % i for i in range(8,15)]
+                                         , 'LastRedirectNumber'] + ['Bit%d' % i for i in xrange(8,15)]
 class SkinnyMessageCallInfo(Packet):
     name='call information'
     fields_desc = [ StrFixedLenField("callername", "Jean Valjean", 40),

@@ -59,7 +59,7 @@ def _load(module):
         __builtin__.__dict__.update(mod.__dict__)
     except Exception,e:
         log_interactive.error(e)
-        
+
 def load_module(name):
     _load("scapy.modules."+name)
 

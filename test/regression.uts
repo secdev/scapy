@@ -1312,7 +1312,7 @@ in6_addrtomac("FE80::" + in6_mactoifaceid("FF:00:00:00:00:00", ulbit=0)) == 'ff:
 ########### RFC 3041 related function ###############################
 = Test in6_getRandomizedIfaceId
 res=True
-for i in range(10):
+for _ in xrange(10):
     s1,s2 = in6_getRandomizedIfaceId('20b:93ff:feeb:2d3')
     inet_pton(socket.AF_INET6, '::'+s1)
     tmp2 = inet_pton(socket.AF_INET6, '::'+s2)

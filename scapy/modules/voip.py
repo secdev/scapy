@@ -26,7 +26,7 @@ def merge(x,y,sample_size=2):
         x += "\x00"*(len(y)-len(x))
     m = ""
     ss=sample_size
-    for i in range(len(x)/ss):
+    for i in xrange(len(x)/ss):
         m += x[ss*i:ss*(i+1)]+y[ss*i:ss*(i+1)]
     return  m
 #    return  "".join(map(str.__add__, x, y))

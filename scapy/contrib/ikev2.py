@@ -337,13 +337,12 @@ class IKEv2_payload_Encrypted(IKEv2_class):
 
 
 IKEv2_payload_type_overload = {}
-for i in range(len(IKEv2_payload_type)):
-    name = "IKEv2_payload_%s" % IKEv2_payload_type[i]
+for i, payloadname in enumerate(IKEv2_payload_type):
+    name = "IKEv2_payload_%s" % payloadname
     if name in globals():
-        IKEv2_payload_type_overload[globals()[name]] = {"next_payload":i}
+        IKEv2_payload_type_overload[globals()[name]] = {"next_payload": i}
 
-del(i)
-del(name)
+del i, payloadname, name
 IKEv2_class.overload_fields = IKEv2_payload_type_overload.copy()
 
 split_layers(UDP, ISAKMP, sport=500)

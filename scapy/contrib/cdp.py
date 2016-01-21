@@ -178,13 +178,13 @@ class CDPMsgPortID(CDPMsgGeneric):
                     StrLenField("iface", "Port 1", length_from=lambda x:x.len - 4) ]
 
 
-_cdp_capabilities = [ "Router",
-                      "TransparentBridge",
-                      "SourceRouteBridge",
-                      "Switch",
-                      "Host",
-                      "IGMPCapable",
-                      "Repeater"] + map(lambda x: "Bit%d" % x, range(25,0,-1))
+_cdp_capabilities = ["Router",
+                     "TransparentBridge",
+                     "SourceRouteBridge",
+                     "Switch",
+                     "Host",
+                     "IGMPCapable",
+                     "Repeater"] + ["Bit%d" % x for x in xrange(25, 0, -1)]
 
 
 class CDPMsgCapabilities(CDPMsgGeneric):

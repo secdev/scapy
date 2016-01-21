@@ -5,27 +5,25 @@ Scapy development
 Project organization
 ====================
 
-Scapy development uses the Mercurial version control system.
-Scapy's reference repository is at http://hg.secdev.org/scapy/. 
+Scapy development uses the Git version control system. Scapy's
+reference repository is at https://github.com/secdev/scapy/.
 
-Project management is done with `Trac <http://trac.secdev.org/scapy>`_. Trac works on Scapy's reference repository.
-It provides a freely editable `Wiki <http://trac.secdev.org/scapy/wiki/>`_ (please contribute!) that can 
-reference tickets, changesets, files from the project. It also provides 
-a ticket management service that is used to avoid forgetting patches or bugs.
-
-Mercurial's distributed way of working enables Philippe to provide two repositories
-where anybody can commit stuff: 
-the Scapy `community repository <http://hg.secdev.org/scapy-com>`_ and the Scapy `Windows port repository <http://hg.secdev.org/scapy-com>`_. 
-
+Project management is done with `Github
+<https://github.com/secdev/scapy/>`_.  It provides a freely editable
+`Wiki <https://github.com/secdev/scapy/wiki/>`_ (please contribute!)
+that can reference tickets, changesets, files from the project. It
+also provides a ticket management service that is used to avoid
+forgetting patches or bugs.
 
 How to contribute
 =================
 
-* Found a bug in Scapy? `Add a ticket <http://trac.secdev.org/scapy/newticket>`_.
+* Found a bug in Scapy? `Add a ticket <https://github.com/secdev/scapy/issues/new>`_.
 * Improve this documentation.
-* Program a new layer and share it on the mailing list. Or add it as an enhancement on the bugtracker. 
-* Contribute new `regression tests <http://trac.secdev.org/scapy/wiki/RegressionTests>`_.
-* Upload packet samples for new protocols on the `packet samples page <http://trac.secdev.org/scapy/wiki/PacketsSamples>`_.
+* Program a new layer and share it on the mailing list, or create a pull request.
+* Contribute new `regression tests <https://github.com/secdev/scapy/wiki/Contrib:-RegressionTests>`_.
+* Upload packet samples for new protocols on the `packet samples page
+  <https://github.com/secdev/scapy/wiki/Contrib:-PacketSamples>`_.
 
 
 Testing with UTScapy

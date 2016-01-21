@@ -412,7 +412,7 @@ class IP(Packet, IPTools):
         for p in fl:
             s = str(p[fnb].payload)
             nb = (len(s)+fragsize-1)/fragsize
-            for i in range(nb):            
+            for i in xrange(nb):            
                 q = p.copy()
                 del(q[fnb].payload)
                 del(q[fnb].chksum)
@@ -750,7 +750,7 @@ def fragment(pkt, fragsize=1480):
     for p in pkt:
         s = str(p[IP].payload)
         nb = (len(s)+fragsize-1)/fragsize
-        for i in range(nb):            
+        for i in xrange(nb):            
             q = p.copy()
             del(q[IP].payload)
             del(q[IP].chksum)
@@ -1005,7 +1005,7 @@ class TracerouteResult(SndRcvList):
             tr = trace[i]
             tr3d[i] = []
             ttl = tr.keys()
-            for t in range(1,max(ttl)+1):
+            for t in xrange(1,max(ttl)+1):
                 if t not in rings:
                     rings[t] = []
                 if t in tr:
@@ -1018,7 +1018,7 @@ class TracerouteResult(SndRcvList):
         for t in rings:
             r = rings[t]
             l = len(r)
-            for i in range(l):
+            for i in xrange(l):
                 if r[i][1] == -1:
                     col = (0.75,0.75,0.75)
                 elif r[i][1]:
@@ -1104,7 +1104,7 @@ class TracerouteResult(SndRcvList):
         for trace_id in rt:
             trace = rt[trace_id]
             loctrace = []
-            for i in range(max(trace.keys())):
+            for i in xrange(max(trace.keys())):
                 ip = trace.get(i,None)
                 if ip is None:
                     continue
@@ -1174,7 +1174,7 @@ class TracerouteResult(SndRcvList):
         for rtk in rt:
             trace = rt[rtk]
             k = trace.keys()
-            for n in range(min(k), max(k)):
+            for n in xrange(min(k), max(k)):
                 if not trace.has_key(n):
                     trace[n] = unknown_label.next()
             if not ports_done.has_key(rtk):
@@ -1267,7 +1267,7 @@ class TracerouteResult(SndRcvList):
             s += '\t\tedge [color="#%s%s%s"];\n' % forecolorlist.next()
             trace = rt[rtk]
             k = trace.keys()
-            for n in range(min(k), max(k)):
+            for n in xrange(min(k), max(k)):
                 s += '\t%s ->\n' % trace[n]
             s += '\t%s;\n' % trace[max(k)]
     

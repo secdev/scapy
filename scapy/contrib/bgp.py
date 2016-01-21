@@ -1,4 +1,4 @@
-#! /usr/bin/env python 
+#! /usr/bin/env python
 
 # http://trac.secdev.org/scapy/ticket/162
 
@@ -71,12 +71,12 @@ class BGPAttribute(Packet):
     name = "BGP Attribute fields"
     fields_desc = [
     FlagsField("flags", 0x40, 8, ["NA0","NA1","NA2","NA3","Extended-Length","Partial","Transitive","Optional"]),
-    ByteEnumField("type", 1, {1:"ORIGIN", 
-                              2:"AS_PATH", 
-                              3:"NEXT_HOP", 
-                              4:"MULTI_EXIT_DISC", 
-                              5:"LOCAL_PREF", 
-                              6:"ATOMIC_AGGREGATE", 
+    ByteEnumField("type", 1, {1:"ORIGIN",
+                              2:"AS_PATH",
+                              3:"NEXT_HOP",
+                              4:"MULTI_EXIT_DISC",
+                              5:"LOCAL_PREF",
+                              6:"ATOMIC_AGGREGATE",
                               7:"AGGREGATOR"}),
     ConditionalField(ByteField("attr_len", None), cond = lambda p: p.flags & 0x10 == 0),
     ConditionalField(ShortField("ext_len", None), cond = lambda p: p.flags & 0x10 == 0x10),
@@ -98,7 +98,7 @@ def Attribute_Dispatcher(s):
     print ("Attribute: %d" % attr_type)
     cls = BGPAttribute
     return cls(s)
-    
+
 class BGPUpdate(Packet):
 	"""Update the routes WithdrawnRoutes = UnfeasiableRoutes"""
 	name = "BGP Update fields"
@@ -144,7 +144,7 @@ class BGPTraffic(Packet):
         PacketArrayField("packets", [],BGPHeader,
                          spkt_len = lambda s: struct.unpack(">H",s[16:18])[0])
     ]
- 
+
 bind_layers( TCP,             BGPTraffic,  dport=179)
 bind_layers( TCP,             BGPTraffic,  sport=179)
 bind_layers( BGPHeader,       BGPOpen,     type=1)
