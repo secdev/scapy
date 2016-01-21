@@ -25,21 +25,18 @@ class SetGen(Gen):
         self._iterpacket=_iterpacket
         if isinstance(set, (list, BasePacketList)):
             self.set = list(set)
+        elif (type(set) is tuple) and (2 <= len(set) <= 3) and \
+             all(type(i) is int for i in set):
+            self.set = [xrange(*set)]
         else:
             self.set = [set]
     def transf(self, element):
         return element
     def __iter__(self):
         for i in self.set:
-            if (type(i) is tuple) and (len(i) == 2) and type(i[0]) is int and type(i[1]) is int:
-                if  (i[0] <= i[1]):
-                    j=i[0]
-                    while j <= i[1]:
-                        yield j
-                        j += 1
-            elif (isinstance(i, Gen) and
-                  (self._iterpacket or not isinstance(i,BasePacket))) or (
-                  isinstance(i, (xrange, types.GeneratorType))):
+            if (isinstance(i, Gen) and
+                (self._iterpacket or not isinstance(i,BasePacket))) or (
+                    isinstance(i, (xrange, types.GeneratorType))):
                 for j in i:
                     yield j
             else:
