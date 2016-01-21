@@ -69,7 +69,7 @@ RTF_REJECT = 0x0200
 
 LOOPBACK_NAME="lo"
 
-with os.popen("tcpdump -V 2> /dev/null") as _f:
+with os.popen("%s -V 2> /dev/null" % conf.prog.tcpdump) as _f:
     if _f.close() >> 8 == 0x7f:
         log_loading.warning("Failed to execute tcpdump. Check it is installed and in the PATH")
         TCPDUMP=0
