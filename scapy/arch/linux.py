@@ -408,7 +408,7 @@ class L3PacketSocket(SuperSocket):
 
 class L2Socket(SuperSocket):
     desc = "read/write packets at layer 2 using Linux PF_PACKET sockets"
-    def __init__(self, iface = None, type = ETH_P_ALL, filter=None, nofilter=0):
+    def __init__(self, iface=None, type=ETH_P_ALL, promisc=None, filter=None, nofilter=0):
         if iface is None:
             iface = conf.iface
         self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))
@@ -421,6 +421,11 @@ class L2Socket(SuperSocket):
                     filter = "not (%s)" % conf.except_filter
             if filter is not None:
                 attach_filter(self.ins, filter)
+        if promisc is None:
+            promisc = conf.sniff_promisc
+        self.promisc = promisc
+        if self.promisc:
+            set_promisc(self.ins, iface)
         self.ins.bind((iface, type))
         _flush_fd(self.ins)
         self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 2**30)
