@@ -4,8 +4,11 @@
 ## This program is published under a GPLv2 license
 
 """
-Sebek: Linux kernel module for data collection on honeypots.
+Sebek: kernel module for data collection on honeypots.
 """
+
+# scapy.contrib.description = Sebek
+# scapy.contrib.status = loads
 
 from scapy.fields import *
 from scapy.packet import *
