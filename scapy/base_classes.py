@@ -14,6 +14,7 @@ Generators and packet meta classes.
 import re,random,socket
 import config
 import error
+import types
 
 class Gen(object):
     def __iter__(self):
@@ -36,7 +37,9 @@ class SetGen(Gen):
                     while j <= i[1]:
                         yield j
                         j += 1
-            elif isinstance(i, Gen) and (self._iterpacket or not isinstance(i,BasePacket)):
+            elif (isinstance(i, Gen) and
+                  (self._iterpacket or not isinstance(i,BasePacket))) or (
+                  isinstance(i, (xrange, types.GeneratorType))):
                 for j in i:
                     yield j
             else:
