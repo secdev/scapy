@@ -20,11 +20,11 @@ def classDispatcher(s,classDict,defClass,index_from=None):
     return Raw(s) if index_from throws an Exception"""
     try:
         index = index_from(s)
-        print "in classDispatcher: index=%d keys=%s" % (index,repr(classDict.keys()))
+        # print "in classDispatcher: index=%d keys=%s" % (index,repr(classDict.keys()))
         cls = classDict[index] if index in classDict.keys() else defClass
     except:
         cls = Raw
-    print repr(cls)
+    # print repr(cls)
     return cls(s)
     
 class BGPHeader(Packet):
