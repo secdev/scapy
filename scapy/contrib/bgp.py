@@ -36,8 +36,10 @@ class BGPHeader(Packet):
 	ByteEnumField("type", 4, {0:"none", 1:"open",2:"update",3:"notification",4:"keep_alive"}),
     ]
     def post_build(self, p, pay):
-	if self.len is None and pay:
-	    l = len(p) + len(pay)
+	if self.len is None:
+            l = len(p)
+            if pay is not None:
+	        l += len(pay)
 	    p = p[:16]+struct.pack("!H", l)+p[18:]
 	return p+pay
 
@@ -83,17 +85,15 @@ class BGPAuthenticationData(Packet):
         FieldLenField("Algorithm", 0),
     ]
 
-flagNames = ["NA0","NA1","NA2","NA3",
-             "Extended-Length","Partial","Transitive","Optional"]
-
 class PadPacket(Packet):
     """A packet that automatically extracts padding"""
     name = "PadPacket"
-    fields_desc = [
-	
-    ]
+    fields_desc = [ ]
     def extract_padding(self, pkt):
 	return "",pkt
+
+flagNames = ["NA0","NA1","NA2","NA3",
+             "Extended-Length","Partial","Transitive","Optional"]
 
 class BGPAttribute(PadPacket):
     "the attribute of total path"
@@ -114,9 +114,6 @@ class BGPAttribute(PadPacket):
         StrLenField("value", "",
                     length_from = lambda p: p.ext_len if p.attr_len is None else p.attr_len),
     ]
-    # def extract_padding(self, p):
-    #     """any thing after this packet is extracted is padding"""
-    #     return "",p
     def post_build(self, p, pay):
         """Handling the length/extended length field and flag"""
 	if self.attr_len is None and self.ext_len is None:
@@ -167,15 +164,18 @@ def Attribute_Dispatcher(s):
                            BGPAttribute,
                            index_from = lambda s: ord(s[1]))
 
-class BGPUpdate(Packet):
+class BGPUpdate(PadPacket):
     """Update the routes WithdrawnRoutes = UnfeasiableRoutes"""
     name = "BGP Update fields"
     fields_desc = [
 	ShortField("withdrawn_len", None),
-	FieldListField("withdrawn",[], BGPIPField("","0.0.0.0/0"), length_from=lambda p:p.withdrawn_len),
+	FieldListField("withdrawn",[], BGPIPField("","0.0.0.0/0"),
+                       length_from=lambda p:p.withdrawn_len),
 	ShortField("tp_len", None),
-	PacketListField("total_path", [], Attribute_Dispatcher),
-	FieldListField("nlri",[], BGPIPField("","0.0.0.0/0"), length_from=lambda p:p.underlayer.len - 23 - p.tp_len - p.withdrawn_len), # len should be BGPHeader.len
+	PacketListField("total_path", [], Attribute_Dispatcher,
+                        length_from=lambda p:p.tp_len),
+	FieldListField("nlri",[], BGPIPField("","0.0.0.0/0")),
+                       #length_from=lambda p:p.underlayer.len - 23 - p.tp_len - p.withdrawn_len), # len should be BGPHeader.len
     ]
     def post_build(self,p,pay):
 	wl = self.withdrawn_len
