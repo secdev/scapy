@@ -7,6 +7,7 @@
 General utility functions.
 """
 
+from __future__ import with_statement
 import os,sys,socket,types
 import random,time
 import gzip,zlib,cPickle
@@ -521,26 +522,15 @@ def wrpcap(filename, pkt, *args, **kargs):
 gz: set to 1 to save a gzipped capture
 linktype: force linktype value
 endianness: "<" or ">", force endianness"""
-    ## Does not work with Python <= 2.5. Use this implementation as
-    ## soon as we drop support for Python 2.5.
-    # with PcapWriter(filename, *args, **kargs) as fdesc:
-    #     fdesc.write(pkt)
-    fdesc = PcapWriter(filename, *args, **kargs)
-    fdesc.write(pkt)
-    fdesc.close()
+    with PcapWriter(filename, *args, **kargs) as fdesc:
+        fdesc.write(pkt)
 
 @conf.commands.register
 def rdpcap(filename, count=-1):
     """Read a pcap file and return a packet list
 count: read only <count> packets"""
-    ## Does not work with Python <= 2.5. Use this implementation as
-    ## soon as we drop support for Python 2.5.
-    # with PcapReader(filename) as fdesc:
-    #     return fdesc.read_all(count=count)
-    fdesc = PcapReader(filename)
-    result = fdesc.read_all(count=count)
-    fdesc.close()
-    return result
+    with PcapReader(filename) as fdesc:
+        return fdesc.read_all(count=count)
 
 
 
