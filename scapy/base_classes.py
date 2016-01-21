@@ -27,7 +27,9 @@ class SetGen(Gen):
             self.set = list(set)
         elif (type(set) is tuple) and (2 <= len(set) <= 3) and \
              all(type(i) is int for i in set):
-            self.set = [xrange(*set)]
+            # We use set[1] + 1 as stop value for xrange to maintain
+            # the behavior of using tuples as field `set`
+            self.set = [xrange(*((set[0], set[1] + 1) + set[2:]))]
         else:
             self.set = [set]
     def transf(self, element):
