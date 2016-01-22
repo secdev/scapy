@@ -7,7 +7,8 @@
 Classes and functions for layer 2 protocols.
 """
 
-import os,struct,time
+import os, struct, time, socket
+
 from scapy.base_classes import Net
 from scapy.config import conf
 from scapy.packet import *
@@ -86,7 +87,10 @@ class DestMACField(MACField):
         MACField.__init__(self, name, None)
     def i2h(self, pkt, x):
         if x is None:
-            x = conf.neighbor.resolve(pkt,pkt.payload)
+            try:
+                x = conf.neighbor.resolve(pkt,pkt.payload)
+            except socket.error:
+                pass
             if x is None:
                 x = "ff:ff:ff:ff:ff:ff"
                 warning("Mac address to reach destination not found. Using broadcast.")
