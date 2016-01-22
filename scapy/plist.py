@@ -136,12 +136,20 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
 
     def plot(self, f, lfilter=None, **kargs):
         """Applies a function to each packet to get a value that will be plotted
-        with matplotlib. A list of matplotlib.lines.Line2D is returned
-        lfilter: a truth function that decides whether a packet must be ploted"""
+        with matplotlib. A list of matplotlib.lines.Line2D is returned.
+
+        lfilter: a truth function that decides whether a packet must be ploted
+        """
+
+        # Get the list of packets
         l = self.res
+
+        # Apply the filter
         if lfilter is not None:
             l = filter(lfilter, l)
-        l = map(f,l)
+
+        # Apply the function f to the packets
+        l = map(f, l)
 
         # Mimic the default gnuplot output
         if kargs == {}:
@@ -156,11 +164,20 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
 
     def diffplot(self, f, delay=1, lfilter=None, **kargs):
         """diffplot(f, delay=1, lfilter=None)
-        Applies a function to couples (l[i],l[i+delay])"""
+        Applies a function to couples (l[i],l[i+delay])
+
+        A list of matplotlib.lines.Line2D is returned.
+        """
+
+        # Get the list of packets
         l = self.res
+
+        # Apply the filter
         if lfilter is not None:
             l = filter(lfilter, l)
-        l = map(f,l[:-delay],l[delay:])
+
+        # Apply the function f to compute the difference
+        l = map(f, l[:-delay],l[delay:])
 
         # Mimic the default gnuplot output
         if kargs == {}:
