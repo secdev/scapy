@@ -264,7 +264,6 @@ class IGMPv3(Packet):
     return retCode
 
 
-bind_layers( IP,        IGMPv3,      frag=0, proto=2, ttl=1, tos=0xc0)
-bind_layers( IGMPv3,    IGMPv3gr,    frag=0, proto=2)
-bind_layers( IGMPv3gr,  IGMPv3gr,    frag=0, proto=2)
-
+bind_layers(IP, IGMPv3, frag=0, proto=2, ttl=1, tos=0xc0)
+bind_layers(IGMPv3, IGMPv3gr)
+bind_layers(IGMPv3gr, IGMPv3gr)
