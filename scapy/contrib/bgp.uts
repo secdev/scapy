@@ -9,15 +9,21 @@
 load_contrib("bgp")
 
 % BGPv4 basic messages
-= BGP-4 Keep Alive
+= BGP-4 Keep Alive, calculate length when no payload
 
-keep = BGPHeader(len=19,type=4)
+keep = BGPHeader(type=4)
 str(keep) == '\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x13\x04'
 
 = Packet chopping
 
-bgp = BGPTraffic(str(keep)+str(keep))
+bgp = BGPTraffic(str(keep)*4)
 
-bgp.show()
+len(bgp.packets) == 4
 
-len(bgp.packets) == 2
+update = BGPHeader(type=2) / BGPUpdate(total_path=[BGPOrigin(),BGPLocalPreference(local_pref=200)],nlri=['0.0.0.0/0'])
+
+update = BGPHeader(str(update))
+
+print update[BGPHeader].len
+update.len == 19 + 2 + 2 + 4 + 7 + 1
+
