@@ -26,7 +26,14 @@ def classDispatcher(s,classDict,defClass,index_from=None):
         cls = Raw
     # print repr(cls)
     return cls(s)
-    
+
+class PadPacket(Packet):
+    """A packet that automatically extracts padding"""
+    name = "PadPacket"
+    fields_desc = [ ]
+    def extract_padding(self, pkt):
+	return "",pkt
+
 class BGPHeader(Packet):
     """The first part of any BGP packet"""
     name = "BGP header"
@@ -43,7 +50,7 @@ class BGPHeader(Packet):
 	    p = p[:16]+struct.pack("!H", l)+p[18:]
 	return p+pay
 
-class BGPOptionalParameter(Packet):
+class BGPOptionalParameter(PadPacket):
     """Format of optional Parameter for BGP Open"""
     name = "BGP Optional Parameters"
     fields_desc = [
@@ -56,9 +63,6 @@ class BGPOptionalParameter(Packet):
 	    l = len(p) - 2 # 2 is length without value
 	    p = p[:1]+struct.pack("!B", l)+p[2:]
 	return p+pay
-    def extract_padding(self, p):
-	"""any thing after this packet is extracted is padding"""
-	return "",p
 
 class BGPOpen(Packet):
     """ Opens a new BGP session"""
@@ -85,18 +89,12 @@ class BGPAuthenticationData(Packet):
         FieldLenField("Algorithm", 0),
     ]
 
-class PadPacket(Packet):
-    """A packet that automatically extracts padding"""
-    name = "PadPacket"
-    fields_desc = [ ]
-    def extract_padding(self, pkt):
-	return "",pkt
 
 flagNames = ["NA0","NA1","NA2","NA3",
              "Extended-Length","Partial","Transitive","Optional"]
 
 class BGPAttribute(PadPacket):
-    "the attribute of total path"
+    """the attribute of total path"""
     name = "BGP Attribute fields"
     fields_desc = [
         FlagsField("flags", 0x40, 8, flagNames),
@@ -134,32 +132,74 @@ class BGPOrigin(BGPAttribute):
     name = "BGPOrigin"
     fields_desc = [
         FlagsField("flags", 0x40, 8, flagNames),
-        ByteField("type", 1),
-        ConditionalField(ByteField("attr_len", None),
-                         cond = lambda p: p.flags & 0x10 == 0),
-        ConditionalField(ShortField("ext_len", None),
-                         cond = lambda p: p.flags & 0x10 == 0x10),
-	ByteField("origin",0),
+        ByteField("type" , 1),
+        ByteField("attr_len", 1),
+        ByteEnumField("origin", 1 , { 0  : "IGP",
+                                      1  : "EGP",
+                                      2  : "INCOMPLETE" }),
+    ]
+ 
+# TODO BGPASPath
+
+class BGPNextHop(BGPAttribute):
+    """The origin attribute for BGP-4"""
+    name = "BGPNextHop"
+    fields_desc = [
+        FlagsField("flags", 0x40, 8, flagNames),
+        ByteField("type", 3),
+        ByteField("attr_len", 4),
+	IPField("next_hop",0),
+    ]
+
+class BGPMultiExitDiscriminator(BGPAttribute):
+    """The multi-exit discriminator attribute for BGP-4"""
+    name = "BGPMultiExitDiscriminator"
+    fields_desc = [
+        FlagsField("flags", 0x00, 8, flagNames), # Non-transitive
+        ByteField("type", 4),
+        ByteField("attr_len", 4),
+	IntField("med",0),
     ]
 
 class BGPLocalPreference(BGPAttribute):
-    """The origin attribute for BGP-4"""
+    """The local preference attribute for BGP-4"""
     name = "BGPLocalPreference"
     fields_desc = [
         FlagsField("flags", 0x40, 8, flagNames),
         ByteField("type", 5),
-        ConditionalField(ByteField("attr_len", None),
-                         cond = lambda p: p.flags & 0x10 == 0),
-        ConditionalField(ShortField("ext_len", None),
-                         cond = lambda p: p.flags & 0x10 == 0x10),
+        ByteField("attr_len", 4),
 	IntField("local_pref",0),
+    ]
+
+class BGPAtomicAggregate(BGPAttribute):
+    """The local preference attribute for BGP-4"""
+    name = "BGPAtomicAggregate"
+    fields_desc = [
+        FlagsField("flags", 0x40, 8, flagNames),
+        ByteField("type", 6),
+        ByteField("attr_len", 3),
+    ]
+
+class BGPAggregator(BGPAttribute):
+    """The local preference attribute for BGP-4"""
+    name = "BGPAggregator"
+    fields_desc = [
+        FlagsField("flags", 0x40, 8, flagNames),
+        ByteField("type", 7),
+        ByteField("attr_len", 4),
+        IPField("aggregator","0.0.0.0")
     ]
 
 def Attribute_Dispatcher(s):
     return classDispatcher(s,
                            {
                                1: BGPOrigin,
+                               # 2: BGPAsPath,
+                               3: BGPNextHop,
+                               4: BGPMultiExitDiscriminator,
                                5: BGPLocalPreference,
+                               6: BGPAtomicAggregate,
+                               7: BGPAggregator,
                            },
                            BGPAttribute,
                            index_from = lambda s: ord(s[1]))

@@ -20,10 +20,29 @@ bgp = BGPTraffic(str(keep)*4)
 
 len(bgp.packets) == 4
 
-update = BGPHeader(type=2) / BGPUpdate(total_path=[BGPOrigin(),BGPLocalPreference(local_pref=200)],nlri=['0.0.0.0/0'])
+= Layering + Origin + LocalPreference
+
+update = BGPHeader(type=2) / BGPUpdate(total_path=[BGPOrigin(origin=0),BGPNextHop(next_hop='192.168.0.1'),BGPLocalPreference(local_pref=200)],nlri=['0.0.0.0/0'])
 
 update = BGPHeader(str(update))
-
+update.total_path[2].local_pref == 200
 print update[BGPHeader].len
-update.len == 19 + 2 + 2 + 4 + 7 + 1
+update.len == 19 + 2 + 2 + 4 + 7 + 7 + 1
+update.show()
+
+keep=BGPHeader(type=4)
+
+traffic=BGPTraffic(str(keep)+str(update)+str(keep))
+traffic.show()
+len(traffic.packets) == 3
+
+= Other Attributes
+
+len(str(BGPAtomicAggregate())) == 3
+BGPAtomicAggregate().show()
+
+aggr = str(BGPAggregator(aggregator="192.168.0.1"))
+agg  = BGPAggregator(aggr)
+agg.show()
+agg.type == 7 and agg.attr_len == 4
 
