@@ -7,9 +7,12 @@
 Customizations needed to support Microsoft Windows.
 """
 
+from __future__ import with_statement
 import os,re,sys,socket,time, itertools
 import subprocess as sp
 from glob import glob
+import tempfile
+
 from scapy.config import conf,ConfClass
 from scapy.error import Scapy_Exception,log_loading,log_runtime
 from scapy.utils import atol, itom, inet_aton, inet_ntoa, PcapReader
@@ -39,6 +42,55 @@ from scapy.arch.pcapdnet import *
 
 LOOPBACK_NAME="lo0"
 WINDOWS = True
+
+def _exec_query_ps(cmd, fields):
+    """Execute a PowerShell query"""
+    ### XXX NOT TESTED AT ALL, WILL NOT WORK
+    ps = sp.Popen([conf.prog.powershell] + cmd +
+                  ['|', 'select %s' % ', '.join(fields), '|', 'fl'],
+                  stdout=sp.PIPE,
+                  universal_newlines=True)
+    while True:
+        line = [ps.stdout.readline().split(':', 1)[1].strip() for _ in fields]
+        if not line[0]:
+            break
+        yield line
+
+def _exec_query_vbs(cmd, fields):
+    """Execute a query using VBS. Currently only Get-WmiObject queries
+    are supported.
+
+    """
+    assert len(cmd) == 2 and cmd[0] == "Get-WmiObject"
+    tmpfile = tempfile.NamedTemporaryFile(suffix=".vbs", delete=False)
+    tmpfile.write("""Set wmi = GetObject("winmgmts:")
+Set lines = wmi.InstancesOf("%s")
+For Each line in lines
+  %s
+Next
+""" % (cmd[1], "\n  ".join("WScript.Echo line.%s" % fld for fld in fields)))
+    tmpfile.close()
+    ps = sp.Popen([conf.prog.cscript, tmpfile.name],
+                  stdout=sp.PIPE,
+                  universal_newlines=True)
+    for _ in xrange(3):
+        # skip 3 first lines
+        ps.stdout.readline()
+    while True:
+        line = [ps.stdout.readline().strip() for _ in fields]
+        if not line[0]:
+            break
+        yield line
+    os.unlink(tmpfile.name)
+
+def exec_query(cmd, fields):
+    """Execute a system query using PowerShell if it is available, and
+    using VBS/cscript as a fallback.
+
+    """
+    if conf.prog.powershell is None:
+        return _exec_query_vbs(cmd, fields)
+    return _exec_query_ps(cmd, fields)
 
 
 def _where(filename, dirs=[], env="PATH"):
@@ -83,6 +135,8 @@ class WinProgPath(ConfClass):
     powershell = win_find_exe("powershell",
                               installsubdir="System32\\WindowsPowerShell",
                               env="SystemRoot")
+    cscript = win_find_exe("cscript", installsubdir="System32",
+                           env="SystemRoot")
 
 conf.prog = WinProgPath()
 
@@ -97,56 +151,26 @@ def is_interface_valid(iface):
 def get_windows_if_list():
     if platform.release()=="post2008Server" or platform.release()=="8":
         # This works only starting from Windows 8/2012 and up. For older Windows another solution is needed
-        ps = sp.Popen([conf.prog.powershell, 'Get-NetAdapter', '|', 'select Name, InterfaceIndex, InterfaceDescription, InterfaceGuid, MacAddress', '|', 'fl'], stdout = sp.PIPE, universal_newlines = True)
+        query = exec_query(['Get-NetAdapter'],
+                           ['Name', 'InterfaceIndex', 'InterfaceDescription',
+                            'InterfaceGuid', 'MacAddress'])
     else:
-        ps = sp.Popen([conf.prog.powershell, 'Get-WmiObject', 'Win32_NetworkAdapter', '|', 'select Name, InterfaceIndex, InterfaceDescription, GUID, MacAddress', '|', 'fl'], stdout = sp.PIPE, universal_newlines = True)
-	#no solution implemented for xp
+        query = exec_query(['Get-WmiObject', 'Win32_NetworkAdapter'],
+                           ['Name', 'InterfaceIndex', 'InterfaceDescription',
+                            'GUID', 'MacAddress'])
+    return [
+        iface for iface in
+        (dict(zip(['name', 'win_index', 'description', 'guid', 'mac'], line))
+         for line in query)
+        if is_interface_valid(iface)
+    ]
 
-    stdout, stdin = ps.communicate()
-    current_interface = None
-    interface_list = []
-    for i in stdout.split('\n'):
-        if not i.strip():
-            continue
-        if i.find(':')<0:
-            continue
-        name, value = [ j.strip() for j in i.split(':',1) ]
-        if name == 'Name':
-            if current_interface and is_interface_valid(current_interface):
-                interface_list.append(current_interface)
-            current_interface = {}
-            current_interface['name'] = value
-        elif name == 'InterfaceIndex':
-            current_interface['win_index'] = int(value)
-        elif name == 'InterfaceDescription':
-            current_interface['description'] = value
-        elif name == 'InterfaceGuid':
-            current_interface['guid'] = value
-        elif name == 'GUID':
-            current_interface['guid'] = value
-        elif name == 'MacAddress':
-            current_interface['mac'] = ':'.join([ j for j in value.split('-')])    
-    if current_interface and is_interface_valid(current_interface):
-        interface_list.append(current_interface)
-
-    return interface_list
 def get_ip_from_name(ifname, v6=False):
-    ps = sp.Popen([conf.prog.powershell, 'Get-WmiObject', 'Win32_NetworkAdapterConfiguration', '|', 'select Description, IPAddress', '|', 'fl'], stdout = sp.PIPE, universal_newlines = True)
-    stdout, stdin = ps.communicate()
-    selected=False
-    for i in stdout.split('\n'):
-        if not i.strip():
-            continue
-        if i.find(':')<0:
-            continue
-        name, value = [ j.strip() for j in i.split(':',1) ]
-        if name=="Description" and value.strip()==ifname.strip():
-            selected=True
-        elif selected:
-            if v6:
-                return value.split(",",1)[1].strip('{}').strip()
-            else:
-                return value.split(",",1)[0].strip('{}').strip()
+    for descr, ipadrr in exec_query(['Get-WmiObject',
+                                     'Win32_NetworkAdapterConfiguration'],
+                                    ['Description', 'IPAddress']):
+        if descr == ifname.strip():
+            return ipaddr.split(",", 1)[v6].strip('{}').strip()
         
 class NetworkInterface(object):
     """A network interface of your local host"""
@@ -285,32 +309,14 @@ get_if_raw_hwaddr = pcapdnet.get_if_raw_hwaddr
 
 def read_routes_7():
     routes=[]
-    ps = sp.Popen([conf.prog.powershell, 'Get-WmiObject', 'win32_IP4RouteTable', '|', 'select Name,Mask,NextHop,InterfaceIndex', '|', 'fl'], stdout = sp.PIPE, universal_newlines = True)
-    stdout, stdin = ps.communicate()
-    dest=None
-    mask=None
-    gw=None
-    ifIndex=None
-    for i in stdout.split('\n'):
-        if not i.strip():
+    for line in exec_query(['Get-WmiObject', 'win32_IP4RouteTable'],
+                           ['Name', 'Mask', 'NextHop', 'InterfaceIndex']):
+        try:
+            iface = devname_from_index(int(line[3]))
+        except ValueError:
             continue
-        if i.find(':')<0:
-            continue
-        name, value = [ j.strip().lower() for j in i.split(':',1) ]
-        if name=="name":
-            dest=atol(value)
-        elif name=="mask":
-            mask=atol(value)
-        elif name=="nexthop":
-            gw=value
-        elif name=="interfaceindex":
-            ifIndex=value
-            try:
-                iface = devname_from_index(int(ifIndex))
-            except ValueError:
-                continue
-            addr = ifaces[iface].ip
-            routes.append((dest, mask, gw, iface, addr))
+        routes.append((atol(line[0]), atol(line[1]), line[2], iface,
+                       ifaces[iface].ip))
     return routes
 
 def read_routes():
@@ -328,6 +334,7 @@ def read_routes():
     return routes
        
 def read_routes_post2008():
+    # XXX TODO: FIX THIS XXX
     routes = []
     if_index = '(\d+)'
     dest = '(\d+\.\d+\.\d+\.\d+)/(\d+)'
