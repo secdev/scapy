@@ -80,6 +80,9 @@ class WinProgPath(ConfClass):
     display = _default
     hexedit = win_find_exe("hexer")
     wireshark = win_find_exe("wireshark", "wireshark")
+    powershell = win_find_exe("powershell",
+                              installsubdir="System32\\WindowsPowerShell",
+                              env="SystemRoot")
 
 conf.prog = WinProgPath()
 
@@ -94,9 +97,9 @@ def is_interface_valid(iface):
 def get_windows_if_list():
     if platform.release()=="post2008Server" or platform.release()=="8":
         # This works only starting from Windows 8/2012 and up. For older Windows another solution is needed
-        ps = sp.Popen(['powershell', 'Get-NetAdapter', '|', 'select Name, InterfaceIndex, InterfaceDescription, InterfaceGuid, MacAddress', '|', 'fl'], stdout = sp.PIPE, universal_newlines = True)
+        ps = sp.Popen([conf.prog.powershell, 'Get-NetAdapter', '|', 'select Name, InterfaceIndex, InterfaceDescription, InterfaceGuid, MacAddress', '|', 'fl'], stdout = sp.PIPE, universal_newlines = True)
     else:
-        ps = sp.Popen(['powershell', 'Get-WmiObject', 'Win32_NetworkAdapter', '|', 'select Name, InterfaceIndex, InterfaceDescription, GUID, MacAddress', '|', 'fl'], stdout = sp.PIPE, universal_newlines = True)
+        ps = sp.Popen([conf.prog.powershell, 'Get-WmiObject', 'Win32_NetworkAdapter', '|', 'select Name, InterfaceIndex, InterfaceDescription, GUID, MacAddress', '|', 'fl'], stdout = sp.PIPE, universal_newlines = True)
 	#no solution implemented for xp
 
     stdout, stdin = ps.communicate()
@@ -128,7 +131,7 @@ def get_windows_if_list():
 
     return interface_list
 def get_ip_from_name(ifname, v6=False):
-    ps = sp.Popen(['powershell', 'Get-WmiObject', 'Win32_NetworkAdapterConfiguration', '|', 'select Description, IPAddress', '|', 'fl'], stdout = sp.PIPE, universal_newlines = True)
+    ps = sp.Popen([conf.prog.powershell, 'Get-WmiObject', 'Win32_NetworkAdapterConfiguration', '|', 'select Description, IPAddress', '|', 'fl'], stdout = sp.PIPE, universal_newlines = True)
     stdout, stdin = ps.communicate()
     selected=False
     for i in stdout.split('\n'):
@@ -282,7 +285,7 @@ get_if_raw_hwaddr = pcapdnet.get_if_raw_hwaddr
 
 def read_routes_7():
     routes=[]
-    ps = sp.Popen(['powershell', 'Get-WmiObject', 'win32_IP4RouteTable', '|', 'select Name,Mask,NextHop,InterfaceIndex', '|', 'fl'], stdout = sp.PIPE, universal_newlines = True)
+    ps = sp.Popen([conf.prog.powershell, 'Get-WmiObject', 'win32_IP4RouteTable', '|', 'select Name,Mask,NextHop,InterfaceIndex', '|', 'fl'], stdout = sp.PIPE, universal_newlines = True)
     stdout, stdin = ps.communicate()
     dest=None
     mask=None
@@ -334,7 +337,7 @@ def read_routes_post2008():
     netstat_line = delim.join([if_index, dest, next_hop, metric_pattern])
     pattern = re.compile(netstat_line)
     # This works only starting from Windows 8/2012 and up. For older Windows another solution is needed
-    ps = sp.Popen(['powershell', 'Get-NetRoute', '-AddressFamily IPV4', '|', 'select ifIndex, DestinationPrefix, NextHop, RouteMetric'], stdout = sp.PIPE, universal_newlines = True)
+    ps = sp.Popen([conf.prog.powershell, 'Get-NetRoute', '-AddressFamily IPV4', '|', 'select ifIndex, DestinationPrefix, NextHop, RouteMetric'], stdout = sp.PIPE, universal_newlines = True)
     stdout, stdin = ps.communicate()
     for l in stdout.split('\n'):
         match = re.search(pattern,l)
