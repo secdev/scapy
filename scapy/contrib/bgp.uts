@@ -46,3 +46,14 @@ agg  = BGPAggregator(aggr)
 agg.show()
 agg.type == 7 and agg.attr_len == 4
 
+== Communities
+
+comm = BGPCommunity("\x40\x08\x08\xff\xff\xff\x01\x32\x10\x00\xc8")
+len(comm.communities) == 2
+comm.show()
+
+comm2 = BGPCommunity(communities = ["NO_EXPORT","12816:200"])
+comm2.show()
+BGPCommunity(str(comm2)).attr_len == 8
+str(comm2) == str(comm)
+

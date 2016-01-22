@@ -45,9 +45,9 @@ Based on the fact that the BGP-4 header has a fixed field format
                 remain=""
         return ret,lst
 
-    #
-    #
-    #
+#
+# -------------------------------------
+#
 class BGPIPField(Field):
     """Represents how bgp dose an ip prefix in (length, prefix)"""
     def mask2iplen(self,mask):
@@ -81,4 +81,39 @@ class BGPIPField(Field):
 	mask = struct.unpack(">B",m[0])[0]
 	ip = "".join( [ m[i + 1] if i < self.mask2iplen(mask) else '\x00' for i in range(4)] )
 	return (mask,inet_ntoa(ip))
-    
+#
+# -------------------------
+#
+class CommunityField(Field):
+    """BGP Community field"""
+    well_known = {
+        "NO_EXPORT" : (0xFFFF, 0xFF01),
+        "NO_ADVERTISE" : (0xFFFF, 0xFF02),
+        "NO_EXPORT_SUBCONFED": (0xFFFF, 0xFF03),
+    }
+    def h2i(self, pkt, h):
+	"""human to internal (hi,lo)"""
+        h = h.upper()
+        if h in self.well_known.keys():
+            return self.well_known[h]
+        m = re.match("(\d+):(\d+)",h)
+	return  int(m.group(1)), int(m.group(2))
+    def i2h( self, pkt, i):
+        for r in self.well_known:
+            if i == self.well_known[r]:
+                return r
+	return "%d:%d" % i
+    def i2repr( self, pkt, i):
+	"""make it look nice"""
+	return self.i2h(pkt,i)
+    def i2len(self, pkt, i):
+	return 4
+    def i2m(self, pkt, i):
+	"""internal to machine"""
+	return struct.pack("!HH",i[0],i[1])
+    def addfield(self, pkt, s, val):
+	return s+self.i2m(pkt, val)
+    def getfield(self, pkt, s):
+	return s[4:], self.m2i(pkt,s[:4])
+    def m2i(self,pkt,m):
+	return struct.unpack("!HH",m)

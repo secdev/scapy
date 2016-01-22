@@ -115,9 +115,9 @@ class BGPAttribute(PadPacket):
     def post_build(self, p, pay):
         """Handling the length/extended length field and flag"""
 	if self.attr_len is None and self.ext_len is None:
-            if self.flags & 0x10 == 0x10:
+            if self.flags & 0x10 == 0x10 or len(p) > 255:
 	        l = len(p) - 4 # 4 is the length when extended-length is set
-	        p = p[:2] + struct.pack("!H",l)  +p[4:]
+	        p = p[0] + struct.pack("!BH",self.flags | 0x10, l)  +p[4:]
             else:
                 l = len(p) - 3 # 3 is regular length with no additional options
 	        p = p[:2] + struct.pack("!B",l)  +p[3:]
@@ -126,8 +126,12 @@ class BGPAttribute(PadPacket):
         elif self.ext_len is not None:
             self.flags = self.flags | 0x10
 	return p+pay
-
-class BGPOrigin(BGPAttribute):
+#
+# Attributes with fixed length are derived from PadPacket
+# While attributes with variable length are derived from BGPAttribute
+# To fill attr_len or ext_len correctly
+#
+class BGPOrigin(PadPacket):
     """The origin attribute for BGP-4"""
     name = "BGPOrigin"
     fields_desc = [
@@ -141,7 +145,7 @@ class BGPOrigin(BGPAttribute):
  
 # TODO BGPASPath
 
-class BGPNextHop(BGPAttribute):
+class BGPNextHop(PadPacket):
     """The origin attribute for BGP-4"""
     name = "BGPNextHop"
     fields_desc = [
@@ -151,7 +155,7 @@ class BGPNextHop(BGPAttribute):
 	IPField("next_hop",0),
     ]
 
-class BGPMultiExitDiscriminator(BGPAttribute):
+class BGPMultiExitDiscriminator(PadPacket):
     """The multi-exit discriminator attribute for BGP-4"""
     name = "BGPMultiExitDiscriminator"
     fields_desc = [
@@ -161,7 +165,7 @@ class BGPMultiExitDiscriminator(BGPAttribute):
 	IntField("med",0),
     ]
 
-class BGPLocalPreference(BGPAttribute):
+class BGPLocalPreference(PadPacket):
     """The local preference attribute for BGP-4"""
     name = "BGPLocalPreference"
     fields_desc = [
@@ -171,7 +175,7 @@ class BGPLocalPreference(BGPAttribute):
 	IntField("local_pref",0),
     ]
 
-class BGPAtomicAggregate(BGPAttribute):
+class BGPAtomicAggregate(PadPacket):
     """The local preference attribute for BGP-4"""
     name = "BGPAtomicAggregate"
     fields_desc = [
@@ -180,7 +184,7 @@ class BGPAtomicAggregate(BGPAttribute):
         ByteField("attr_len", 3),
     ]
 
-class BGPAggregator(BGPAttribute):
+class BGPAggregator(PadPacket):
     """The local preference attribute for BGP-4"""
     name = "BGPAggregator"
     fields_desc = [
@@ -188,6 +192,20 @@ class BGPAggregator(BGPAttribute):
         ByteField("type", 7),
         ByteField("attr_len", 4),
         IPField("aggregator","0.0.0.0")
+    ]
+
+class BGPCommunity(BGPAttribute):
+    """BGP Communities - RFC 1997"""
+    name = "BGPCommunity"
+    fields_desc = [
+        FlagsField("flags", 0x40, 8, flagNames),
+        ByteField("type", 8),
+        ConditionalField(ByteField("attr_len", None),
+                         cond = lambda p: p.flags & 0x10 == 0),
+        ConditionalField(ShortField("ext_len", None),
+                         cond = lambda p: p.flags & 0x10 == 0x10),
+        FieldListField("communities",[],CommunityField("","0:0"),
+                       length_from = lambda p: p.ext_len if p.attr_len is None else p.attr_len)
     ]
 
 def Attribute_Dispatcher(s):
