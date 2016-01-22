@@ -191,22 +191,34 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
         return lines
 
     def multiplot(self, f, lfilter=None, **kargs):
-        """Uses a function that returns a label and a value for this label, then plots all the values label by label"""
+        """Uses a function that returns a label and a value for this label, then
+        plots all the values label by label.
+
+        A list of matplotlib.lines.Line2D is returned.
+        """
+
+        # Get the list of packets
         l = self.res
+
+        # Apply the filter
         if lfilter is not None:
             l = filter(lfilter, l)
 
-        d={}
-        for e in l:
-            k,v = f(e)
-            if k in d:
-                d[k].append(v)
-            else:
-                d[k] = [v]
+        # Apply the function f to the packets
+        d_x = {}
+        d_y = {}
+        for k, v in map(f, l):
+            x,y = v
+            d_x[k] = d_x.get(k, []) + [x]
+            d_y[k] = d_y.get(k, []) + [y]
+
+        # Mimic the default gnuplot output
+        if kargs == {}:
+            kargs = MATPLOTLIB_DEFAULT_PLOT_KARGS
 
         lines = []
-        for k in d:
-            lines += plt.plot(d[k], label=k, **kargs)
+        for k in d_x:
+            lines += plt.plot(d_x[k], d_y[k], label=k, **kargs)
         plt.legend(loc="center right", bbox_to_anchor=(1.5, 0.5))
 
         # Call show() if matplotlib is not inlined
