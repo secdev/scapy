@@ -212,7 +212,7 @@ class BGPAggregator(PadPacket):
         IPField("aggregator","0.0.0.0")
     ]
 
-class BGPCommunity(BGPAttribute):
+class BGPCommunities(BGPAttribute):
     """BGP Communities - RFC 1997"""
     name = "BGPCommunity"
     fields_desc = [
@@ -226,18 +226,20 @@ class BGPCommunity(BGPAttribute):
                        length_from = lambda p: p.ext_len if p.attr_len is None else p.attr_len)
     ]
 
+AttributeDict = {
+    1: BGPOrigin,
+    2: BGPASPath,
+    3: BGPNextHop,
+    4: BGPMultiExitDiscriminator,
+    5: BGPLocalPreference,
+    6: BGPAtomicAggregate,
+    7: BGPAggregator,
+    8: BGPCommunities, 
+}
+
 def Attribute_Dispatcher(s):
     return classDispatcher(s,
-                           {
-                               1: BGPOrigin,
-                               2: BGPASPath,
-                               3: BGPNextHop,
-                               4: BGPMultiExitDiscriminator,
-                               5: BGPLocalPreference,
-                               6: BGPAtomicAggregate,
-                               7: BGPAggregator,
-                               8: BGPCommunity, 
-                           },
+                           AttributeDict,
                            BGPAttribute,
                            index_from = lambda s: ord(s[1]))
 

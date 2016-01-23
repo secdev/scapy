@@ -58,15 +58,15 @@ npath = BGPASPath(str(path))
 npath.show()
 npath.attr_len == 9
 
-== Communities
+= Communities
 
-comm = BGPCommunity("\xc0\x08\x08\xfe\x09\x01\xf4\xfe\x09\x02\x58")
+comm = BGPCommunities("\xc0\x08\x08\xfe\x09\x01\xf4\xfe\x09\x02\x58")
 len(comm.communities) == 2
 comm.show()
 
-comm2 = BGPCommunity(communities = ["65033:500","65033:600"])
+comm2 = BGPCommunities(communities = ["65033:500","65033:600"])
 comm2.show()
-BGPCommunity(str(comm2)).attr_len == 8
+BGPCommunities(str(comm2)).attr_len == 8
 str(comm2) == str(comm)
 
 update = BGPHeader(type=2) / BGPUpdate(total_path=[
@@ -74,7 +74,7 @@ update = BGPHeader(type=2) / BGPUpdate(total_path=[
          BGPASPath(as_path=[BGPASSegment(segment_type=2,segment=['AS65033','AS65033'])]),
          BGPNextHop(next_hop='192.168.0.1'),
          BGPLocalPreference(local_pref=200),
-         BGPCommunity(communities=['65033:500','65033:600'])
+         BGPCommunities(communities=['65033:500','65033:600'])
        ],
        nlri=['10.0.0.0/8'])
 
