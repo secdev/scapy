@@ -27,13 +27,6 @@ def classDispatcher(s,classDict,defClass,index_from=None):
     # print repr(cls)
     return cls(s)
 
-class PadPacket(Packet):
-    """A packet that automatically extracts padding"""
-    name = "PadPacket"
-    fields_desc = [ ]
-    def extract_padding(self, pkt):
-	return "",pkt
-
 class BGPHeader(Packet):
     """The first part of any BGP packet"""
     name = "BGP header"
@@ -110,8 +103,10 @@ class BGPAttribute(PadPacket):
         ConditionalField(ShortField("ext_len", None),
                          cond = lambda p: p.flags & 0x10 == 0x10),
         StrLenField("value", "",
-                    length_from = lambda p: p.ext_len if p.attr_len is None else p.attr_len),
+                    length_from = lambda p: p.attr_length())
     ]
+    def attr_length(self):
+        return self.ext_len if self.attr_len is None else self.attr_len
     def post_build(self, p, pay):
         """Handling the length/extended length field and flag"""
 	if self.attr_len is None and self.ext_len is None:
@@ -145,6 +140,29 @@ class BGPOrigin(PadPacket):
  
 # TODO BGPASPath
 
+class BGPASSegment(PadPacket):
+    """AS SEGMENT"""
+    name="BGPASSegment"
+    fields_desc = [
+	ByteEnumField("segment_type",1,{1:"AS_SET",
+                                        2:"AS_SEQUENCE"}),
+        FieldListField("segment", [], AS4Field("","AS0")),
+    ]
+    
+class BGPASPath(BGPAttribute):
+    """The AS_PATH attribute"""
+    name="BGPASPath"
+    fields_desc = [
+	FlagsField("flags", 0x40, 8, flagNames),
+        ByteField("type", 2),
+        ConditionalField(ByteField("attr_len", None),
+                         cond = lambda p: p.flags & 0x10 == 0),
+        ConditionalField(ShortField("ext_len", None),
+                         cond = lambda p: p.flags & 0x10 == 0x10),
+        PacketListField("as_path", [], BGPASSegment,
+                        length_from = lambda p: p.attr_length())
+    ]
+    
 class BGPNextHop(PadPacket):
     """The origin attribute for BGP-4"""
     name = "BGPNextHop"
@@ -212,7 +230,7 @@ def Attribute_Dispatcher(s):
     return classDispatcher(s,
                            {
                                1: BGPOrigin,
-                               # 2: BGPAsPath,
+                               2: BGPASPath,
                                3: BGPNextHop,
                                4: BGPMultiExitDiscriminator,
                                5: BGPLocalPreference,

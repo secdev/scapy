@@ -57,3 +57,13 @@ comm2.show()
 BGPCommunity(str(comm2)).attr_len == 8
 str(comm2) == str(comm)
 
+= AS_PATH
+
+segm = BGPASSegment(segment_type=2,segment=['AS6813','AS3615:200'])
+
+segm.show()
+
+path = BGPASPath(as_path=[segm])
+npath = BGPASPath(str(path))
+npath.show()
+npath.attr_len == 9
