@@ -22,6 +22,7 @@ from scapy.automaton import Automaton,ATMT
 
 import scapy.as_resolvers
 
+from scapy.arch import plt, MATPLOTLIB_INLINED, MATPLOTLIB_DEFAULT_PLOT_KARGS
 
 ####################
 ## IP Tools class ##
@@ -915,21 +916,49 @@ def defragment(plist):
 ### Add timeskew_graph() method to PacketList
 def _packetlist_timeskew_graph(self, ip, **kargs):
     """Tries to graph the timeskew between the timestamps and real time for a given ip"""
+
+    # Filter TCP segments which source address is 'ip'
     res = map(lambda x: self._elt2pkt(x), self.res)
     b = filter(lambda x:x.haslayer(IP) and x.getlayer(IP).src == ip and x.haslayer(TCP), res)
+
+    # Build a list of tuples (creation_time, replied_timestamp)
     c = []
     for p in b:
         opts = p.getlayer(TCP).options
         for o in opts:
             if o[0] == "Timestamp":
                 c.append((p.time,o[1][0]))
+
+    # Stop if the list is empty
     if not c:
         warning("No timestamps found in packet list")
-        return
-    d = map(lambda (x,y): (x%2000,((x-c[0][0])-((y-c[0][1])/1000.0))),c)
-    g = Gnuplot.Gnuplot()
-    g.plot(Gnuplot.Data(d,**kargs))
-    return g
+        return []
+
+    # Prepare the data that will be plotted
+    first_creation_time = c[0][0]
+    first_replied_timestamp = c[0][1]
+
+    def _wrap_data(ts_tuple, wrap_seconds=2000):
+        """Wrap the list of tuples."""
+
+        ct,rt = ts_tuple # (creation_time, replied_timestamp)
+        X = ct % wrap_seconds
+        Y = ((ct-first_creation_time) - ((rt-first_replied_timestamp)/1000.0))
+
+        return X, Y
+
+    data = map(_wrap_data, c)
+
+    # Mimic the default gnuplot output
+    if kargs == {}:
+        kargs = MATPLOTLIB_DEFAULT_PLOT_KARGS
+    lines = plt.plot(data, **kargs)
+
+    # Call show() if matplotlib is not inlined
+    if not MATPLOTLIB_INLINED:
+        plt.show()
+
+    return lines
 
 PacketList.timeskew_graph = new.instancemethod(_packetlist_timeskew_graph, None, PacketList)
 

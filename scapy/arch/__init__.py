@@ -13,11 +13,20 @@ from scapy.error import *
 import scapy.config
 
 try:
-    import Gnuplot
-    GNUPLOT=1
+    from matplotlib import get_backend as matplotlib_get_backend
+    import matplotlib.pyplot as plt
+    MATPLOTLIB = 1
+    if "inline" in matplotlib_get_backend():
+        MATPLOTLIB_INLINED = 1
+    else:
+        MATPLOTLIB_INLINED = 0
+    MATPLOTLIB_DEFAULT_PLOT_KARGS = { "color": "r", "marker": "+", "ls": "" }
 except ImportError:
-    log_loading.info("Can't import python gnuplot wrapper . Won't be able to plot.")
-    GNUPLOT=0
+    plt = None
+    MATPLOTLIB = 0
+    MATPLOTLIB_INLINED = 0
+    MATPLOTLIB_DEFAULT_PLOT_KARGS = dict()
+    log_loading.info("Can't import matplotlib. Won't be able to plot.")
 
 try:
     import pyx
