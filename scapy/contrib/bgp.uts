@@ -69,13 +69,26 @@ comm2.show()
 BGPCommunities(str(comm2)).attr_len == 8
 str(comm2) == str(comm)
 
+
+= Originator ID
+
+originator = BGPOriginatorId(originator_id="192.162.10.4")
+
+# print "".join(["\\x%02x" % ord(c) for c in str(originator)])
+
+str(originator) == "\x80\x09\x04\xc0\xa2\x0a\x04"
+
+= Putting it all together
+
 update = BGPHeader(type=2) / BGPUpdate(total_path=[
          BGPOrigin(origin=0),
          BGPASPath(as_path=[BGPASSegment(segment_type=2,segment=['AS65033','AS65033'])]),
          BGPNextHop(next_hop='192.168.0.1'),
          BGPLocalPreference(local_pref=200),
-         BGPCommunities(communities=['65033:500','65033:600'])
+         BGPCommunities(communities=['65033:500','65033:600']),
+         BGPOriginatorId(originator_id="10.11.12.13"),
+         BGPClusterList(cluster_id=["10.0.0.1","10.0.1.1"]),
        ],
-       nlri=['10.0.0.0/8'])
+       nlri=['10.0.0.0/8','172.16.0.0/12'])
 
 BGPHeader(str(update)).show()

@@ -226,6 +226,30 @@ class BGPCommunities(BGPAttribute):
                        length_from = lambda p: p.ext_len if p.attr_len is None else p.attr_len)
     ]
 
+class BGPOriginatorId(PadPacket):
+    """The Originator ID (RFC4456) attribute for BGP-4"""
+    name = "BGPOriginatorID"
+    fields_desc = [
+        FlagsField("flags", 0x80, 8, flagNames), # Optional,Non-transitive
+        ByteField("type", 9),
+        ByteField("attr_len", 4),
+	IPField("originator_id","0.0.0.0"),
+    ]
+
+class BGPClusterList(BGPAttribute):
+    """The cluster list (RFC4456) attribute for BGP-4"""
+    name = "BGPClusterList"
+    fields_desc = [
+        FlagsField("flags", 0x80, 8, flagNames), # Optional,Non-transitive
+        ByteField("type", 10),
+        ConditionalField(ByteField("attr_len", None),
+                         cond = lambda p: p.flags & 0x10 == 0),
+        ConditionalField(ShortField("ext_len", None),
+                         cond = lambda p: p.flags & 0x10 == 0x10),
+	FieldListField("cluster_id",[],IPField("","0.0.0.0"),
+                       length_from = lambda p: p.ext_len if p.attr_len is None else p.attr_len)
+    ]
+
 AttributeDict = {
     1: BGPOrigin,
     2: BGPASPath,
@@ -235,6 +259,8 @@ AttributeDict = {
     6: BGPAtomicAggregate,
     7: BGPAggregator,
     8: BGPCommunities, 
+    9: BGPOriginatorId,
+    10: BGPClusterList,
 }
 
 def Attribute_Dispatcher(s):
