@@ -155,14 +155,30 @@ def in6_getifaddr():
     """
 
     # List all network interfaces
-    try:
-	f = os.popen("%s -l" % conf.prog.ifconfig)
-    except OSError,msg:
-	log_interactive.warning("Failed to execute ifconfig.")
-	return []
+    if scapy.arch.OPENBSD:
+        try:
+            f = os.popen("%s" % conf.prog.ifconfig)
+        except OSError,msg:
+	    log_interactive.warning("Failed to execute ifconfig.")
+	    return []
 
-    # Get the list of network interfaces
-    splitted_line = f.readline().rstrip().split()
+        # Get the list of network interfaces
+        splitted_line = []
+        for l in f:
+            if "flags" in l:
+                iface = l.split()[0].rstrip(':')
+                splitted_line.append(iface)
+
+    else: # FreeBSD, NetBSD or Darwin
+        try:
+	    f = os.popen("%s -l" % conf.prog.ifconfig)
+        except OSError,msg:
+	    log_interactive.warning("Failed to execute ifconfig.")
+	    return []
+
+        # Get the list of network interfaces
+        splitted_line = f.readline().rstrip().split()
+
     ret = []
     for i in splitted_line:
 	ret += _in6_getifaddr(i)
