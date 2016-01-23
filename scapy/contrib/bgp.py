@@ -103,16 +103,14 @@ class BGPAttribute(PadPacket):
         ConditionalField(ShortField("ext_len", None),
                          cond = lambda p: p.flags & 0x10 == 0x10),
         StrLenField("value", "",
-                    length_from = lambda p: p.attr_length())
+                    length_from = lambda p: p.ext_len if p.attr_len is None else p.attr_len)
     ]
-    def attr_length(self):
-        return self.ext_len if self.attr_len is None else self.attr_len
     def post_build(self, p, pay):
         """Handling the length/extended length field and flag"""
 	if self.attr_len is None and self.ext_len is None:
-            if self.flags & 0x10 == 0x10 or len(p) > 255:
+            if self.flags & 0x10 == 0x10:
 	        l = len(p) - 4 # 4 is the length when extended-length is set
-	        p = p[0] + struct.pack("!BH",self.flags | 0x10, l)  +p[4:]
+	        p = p[:2] + struct.pack("!H",self.flags | 0x10, l) + p[4:]
             else:
                 l = len(p) - 3 # 3 is regular length with no additional options
 	        p = p[:2] + struct.pack("!B",l)  +p[3:]
@@ -160,7 +158,7 @@ class BGPASPath(BGPAttribute):
         ConditionalField(ShortField("ext_len", None),
                          cond = lambda p: p.flags & 0x10 == 0x10),
         PacketListField("as_path", [], BGPASSegment,
-                        length_from = lambda p: p.attr_length())
+                        length_from = lambda p: p.ext_len if p.attr_len is None else p.attr_len)
     ]
     
 class BGPNextHop(PadPacket):
@@ -216,7 +214,7 @@ class BGPCommunity(BGPAttribute):
     """BGP Communities - RFC 1997"""
     name = "BGPCommunity"
     fields_desc = [
-        FlagsField("flags", 0x40, 8, flagNames),
+        FlagsField("flags", 0xC0, 8, flagNames), # optional transitive
         ByteField("type", 8),
         ConditionalField(ByteField("attr_len", None),
                          cond = lambda p: p.flags & 0x10 == 0),
@@ -236,6 +234,7 @@ def Attribute_Dispatcher(s):
                                5: BGPLocalPreference,
                                6: BGPAtomicAggregate,
                                7: BGPAggregator,
+                               # 8: BGPCommunities, 
                            },
                            BGPAttribute,
                            index_from = lambda s: ord(s[1]))

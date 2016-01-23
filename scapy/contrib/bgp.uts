@@ -24,11 +24,12 @@ len(bgp.packets) == 4
 
 update = BGPHeader(type=2) / BGPUpdate(total_path=[BGPOrigin(origin=0),BGPNextHop(next_hop='192.168.0.1'),BGPLocalPreference(local_pref=200)],nlri=['0.0.0.0/0'])
 
-update = BGPHeader(str(update))
-update.total_path[2].local_pref == 200
-print update[BGPHeader].len
-update.len == 19 + 2 + 2 + 4 + 7 + 7 + 1
-update.show()
+update2 = BGPHeader(str(update))
+update2.show()
+
+update2[BGPHeader].total_path[2].local_pref == 200
+print update2.len
+update2.len == 19 + 2 + 2 + 4 + 7 + 7 + 1
 
 keep=BGPHeader(type=4)
 
@@ -46,17 +47,6 @@ agg  = BGPAggregator(aggr)
 agg.show()
 agg.type == 7 and agg.attr_len == 4
 
-== Communities
-
-comm = BGPCommunity("\x40\x08\x08\xff\xff\xff\x01\x32\x10\x00\xc8")
-len(comm.communities) == 2
-comm.show()
-
-comm2 = BGPCommunity(communities = ["NO_EXPORT","12816:200"])
-comm2.show()
-BGPCommunity(str(comm2)).attr_len == 8
-str(comm2) == str(comm)
-
 = AS_PATH
 
 segm = BGPASSegment(segment_type=2,segment=['AS6813','AS3615:200'])
@@ -67,3 +57,25 @@ path = BGPASPath(as_path=[segm])
 npath = BGPASPath(str(path))
 npath.show()
 npath.attr_len == 9
+
+== Communities
+
+comm = BGPCommunity("\xc0\x08\x08\xfe\x09\x01\xf4\xfe\x09\x02\x58")
+len(comm.communities) == 2
+comm.show()
+
+comm2 = BGPCommunity(communities = ["65033:500","65033:600"])
+comm2.show()
+BGPCommunity(str(comm2)).attr_len == 8
+str(comm2) == str(comm)
+
+update = BGPHeader(type=2) / BGPUpdate(total_path=[
+         BGPOrigin(origin=0),
+         BGPASPath(as_path=[BGPASSegment(segment_type=2,segment=['AS65033','AS65033'])]),
+         BGPNextHop(next_hop='192.168.0.1'),
+         BGPLocalPreference(local_pref=200),
+         BGPCommunity(communities=['65033:500','65033:600'])
+       ],
+       nlri=['10.0.0.0/8'])
+
+BGPHeader(str(update)).show()
