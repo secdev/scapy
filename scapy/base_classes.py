@@ -21,21 +21,21 @@ class Gen(object):
         return iter([])
     
 class SetGen(Gen):
-    def __init__(self, set, _iterpacket=1):
+    def __init__(self, values, _iterpacket=1):
         self._iterpacket=_iterpacket
-        if isinstance(set, (list, BasePacketList)):
-            self.set = list(set)
-        elif (type(set) is tuple) and (2 <= len(set) <= 3) and \
-             all(type(i) is int for i in set):
-            # We use set[1] + 1 as stop value for xrange to maintain
-            # the behavior of using tuples as field `set`
-            self.set = [xrange(*((set[0], set[1] + 1) + set[2:]))]
+        if isinstance(values, (list, BasePacketList)):
+            self.values = list(values)
+        elif (type(values) is tuple) and (2 <= len(values) <= 3) and \
+             all(type(i) is int for i in values):
+            # We use values[1] + 1 as stop value for xrange to maintain
+            # the behavior of using tuples as field `values`
+            self.values = [xrange(*((values[0], values[1] + 1) + values[2:]))]
         else:
-            self.set = [set]
+            self.values = [values]
     def transf(self, element):
         return element
     def __iter__(self):
-        for i in self.set:
+        for i in self.values:
             if (isinstance(i, Gen) and
                 (self._iterpacket or not isinstance(i,BasePacket))) or (
                     isinstance(i, (xrange, types.GeneratorType))):
@@ -44,7 +44,7 @@ class SetGen(Gen):
             else:
                 yield i
     def __repr__(self):
-        return "<SetGen %s>" % self.set.__repr__()
+        return "<SetGen %r>" % self.values
 
 class Net(Gen):
     """Generate a list of IPs from a network address or a name"""
