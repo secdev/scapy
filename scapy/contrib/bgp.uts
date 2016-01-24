@@ -55,9 +55,12 @@ segm.show()
 
 path = BGPASPath(as_path=[segm])
 npath = BGPASPath(str(path))
-npath.show()
-npath.attr_len == 9
+# 2 ases in the path
+npath.as_path[0].segment_len == 2
+# 2 * 4-byte AS + type + count
+npath.attr_len == 10
 
+npath.show()
 = Communities
 
 comm = BGPCommunities("\xc0\x08\x08\xfe\x09\x01\xf4\xfe\x09\x02\x58")

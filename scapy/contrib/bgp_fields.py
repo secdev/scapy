@@ -2,6 +2,12 @@
 # -*- coding: utf-8 -*-
 """BGP-4 disector: fields for implementing MPBGP extensions"""
 
+import socket
+if not socket.has_ipv6:
+    raise socket.error("can't use AF_INET6, IPv6 is disabled")
+
+from scapy  import *
+from scapy.config import conf
 from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.inet6 import IP6Field
@@ -92,6 +98,20 @@ class BGPIPField(Field):
         mask = struct.unpack(">B",m[0])[0]
         ip = "".join( [ m[i + 1] if i < self.mask2iplen(mask) else '\x00' for i in range(4)] )
         return (mask,inet_ntoa(ip))
+#
+# Derive IPv6 prefixes from IPv4Prefixes
+#
+class BGPIPv6Field(BGPIPField):
+    def i2m(self, pkt, i):
+        """internal (ip as bytes, mask as int) to machine"""
+        mask, ip = i
+        ip = inet_pton(socket.AF_INET6, ip)
+        return struct.pack(">B",mask) + ip[:self.mask2iplen(mask)] 
+    def m2i(self,pkt,m):
+        mask = struct.unpack(">B",m[0])[0]
+        ip = "".join( [ m[i + 1] if i < self.mask2iplen(mask) else '\x00' for i in range(16)] )
+        return (mask,inet_ntop(socket.AF_INET6,ip))
+
 #
 # -------------------------
 #

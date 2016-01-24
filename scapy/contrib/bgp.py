@@ -138,7 +138,6 @@ class BGPOrigin(PadPacket):
                                       2  : "INCOMPLETE" }),
     ]
  
-# TODO BGPASPath
 
 class BGPASSegment(PadPacket):
     """AS SEGMENT"""
@@ -146,7 +145,12 @@ class BGPASSegment(PadPacket):
     fields_desc = [
 	ByteEnumField("segment_type",1,{1:"AS_SET",
                                         2:"AS_SEQUENCE"}),
-        FieldListField("segment", [], AS4Field("","AS0")),
+        FieldLenField("segment_len",None,fmt="B",count_of = "segment"),
+        #
+        # TODO the way of defining conf.bgp.use4as to switch between AS4Field and AS2Field here
+        #
+        FieldListField("segment", [], AS4Field("","AS0"),
+                       count_from = lambda p: p.segment_len),
     ]
     
 class BGPASPath(BGPAttribute):
