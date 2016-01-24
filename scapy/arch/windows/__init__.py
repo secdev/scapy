@@ -314,15 +314,15 @@ class NetworkInterfaceDict(UserDict):
                 mac = conf.manufdb._resolve_MAC(mac)
             print "%s  %s  %s  %s" % (str(dev.win_index).ljust(5), str(dev.name).ljust(35), str(dev.ip).ljust(15), mac)
             
-ifaces = NetworkInterfaceDict()
-ifaces.load_from_powershell()
+IFACES = NetworkInterfaceDict()
+IFACES.load_from_powershell()
 
 def pcap_name(devname):
     """Return pypcap device name for given libdnet/Scapy device name"""  
     if type(devname) is NetworkInterface:
         return devname.pcap_name
     try:
-        pcap_name = ifaces.pcap_name(devname)
+        pcap_name = IFACES.pcap_name(devname)
     except ValueError:
         # pcap.pcap() will choose a sensible default for sniffing if iface=None
         pcap_name = None
@@ -330,21 +330,21 @@ def pcap_name(devname):
 
 def devname(pcap_name):
     """Return libdnet/Scapy device name for given pypcap device name"""
-    return ifaces.devname(pcap_name)
+    return IFACES.devname(pcap_name)
 
 def devname_from_index(if_index):
     """Return Windows adapter name for given Windows interface index"""
-    return ifaces.devname_from_index(if_index)
+    return IFACES.devname_from_index(if_index)
     
 def show_interfaces(resolve_mac=True):
     """Print list of available network interfaces"""
-    return ifaces.show(resolve_mac)
+    return IFACES.show(resolve_mac)
 
 _orig_open_pcap = pcapdnet.open_pcap
 pcapdnet.open_pcap = lambda iface,*args,**kargs: _orig_open_pcap(pcap_name(iface),*args,**kargs)
 
 _orig_get_if_raw_hwaddr = pcapdnet.get_if_raw_hwaddr
-pcapdnet.get_if_raw_hwaddr = lambda iface,*args,**kargs: (ARPHDR_ETHER,''.join([ chr(int(i, 16)) for i in ifaces[iface].mac.split(':') ]))
+pcapdnet.get_if_raw_hwaddr = lambda iface,*args,**kargs: (ARPHDR_ETHER,''.join([ chr(int(i, 16)) for i in IFACES[iface].mac.split(':') ]))
 get_if_raw_hwaddr = pcapdnet.get_if_raw_hwaddr
 
 
@@ -357,7 +357,7 @@ def read_routes_7():
         except ValueError:
             continue
         routes.append((atol(line[0]), atol(line[1]), line[2], iface,
-                       ifaces[iface].ip))
+                       IFACES[iface].ip))
     return routes
 
 def read_routes():
@@ -392,7 +392,7 @@ def read_routes_post2008():
         if match:
             try:
                 iface = devname_from_index(int(match.group(1)))
-                addr = ifaces[iface].ip
+                addr = IFACES[iface].ip
             except:
                 continue
             dest = atol(match.group(2))
@@ -630,13 +630,14 @@ import scapy.sendrecv
 scapy.sendrecv.sniff = sniff
 
 def get_working_if():
+    # XXX get the interface associated with default route instead
     try:
-        if 'Ethernet' in ifaces and ifaces['Ethernet'].ip != '0.0.0.0':
+        if 'Ethernet' in IFACES and IFACES['Ethernet'].ip != '0.0.0.0':
             return 'Ethernet'
-        elif 'Wi-Fi' in ifaces and ifaces['Wi-Fi'].ip != '0.0.0.0':
+        elif 'Wi-Fi' in IFACES and IFACES['Wi-Fi'].ip != '0.0.0.0':
             return 'Wi-Fi'
-        elif len(ifaces) > 0:
-            return ifaces[list(ifaces.keys())[0]]
+        elif len(IFACES) > 0:
+            return IFACES[list(IFACES.keys())[0]]
         else:
             return LOOPBACK_NAME
     except:
