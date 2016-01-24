@@ -344,7 +344,9 @@ _orig_open_pcap = pcapdnet.open_pcap
 pcapdnet.open_pcap = lambda iface,*args,**kargs: _orig_open_pcap(pcap_name(iface),*args,**kargs)
 
 _orig_get_if_raw_hwaddr = pcapdnet.get_if_raw_hwaddr
-pcapdnet.get_if_raw_hwaddr = lambda iface,*args,**kargs: (ARPHDR_ETHER,''.join([ chr(int(i, 16)) for i in IFACES[iface].mac.split(':') ]))
+pcapdnet.get_if_raw_hwaddr = lambda iface, *args, **kargs: (
+    ARPHDR_ETHER, IFACES[iface].mac.replace(':', '').decode('hex')
+)
 get_if_raw_hwaddr = pcapdnet.get_if_raw_hwaddr
 
 
