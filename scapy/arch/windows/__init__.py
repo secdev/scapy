@@ -259,10 +259,7 @@ class NetworkInterface(object):
         raise PcapNameNotFoundError
 
     def __repr__(self):
-        return "<%s %s: %s %s %s description=%r>" % (
-            self.__class__.__name__, self.name, self.guid, self.ip,
-            self.mac, self.description,
-        )
+        return "<%s %s %s>" % (self.__class__.__name__, self.name, self.guid)
 
 from UserDict import UserDict
 
@@ -394,15 +391,15 @@ def read_routes_7():
     return routes
 
 def read_routes():
-    routes=[]
+    routes = []
     release = platform.release()
     try:
         if release in ["post2008Server", "8"]:
-            routes=read_routes_post2008()
+            routes = read_routes_post2008()
         elif release == "XP":
-            routes=read_routes_xp()
+            routes = read_routes_xp()
         else:
-            routes=read_routes_7()
+            routes = read_routes_7()
     except Exception as e:    
         log_loading.warning("Error building scapy routing table : %s"%str(e))
     else:
@@ -663,17 +660,12 @@ import scapy.sendrecv
 scapy.sendrecv.sniff = sniff
 
 def get_working_if():
-    # XXX get the interface associated with default route instead
     try:
-        if 'Ethernet' in IFACES and IFACES['Ethernet'].ip != '0.0.0.0':
-            return 'Ethernet'
-        elif 'Wi-Fi' in IFACES and IFACES['Wi-Fi'].ip != '0.0.0.0':
-            return 'Wi-Fi'
-        elif len(IFACES) > 0:
-            return IFACES.itervalues().next()
-        else:
-            return LOOPBACK_NAME
-    except:
+        # return the interface associated with the route with smallest
+        # mask (route by default if it exists)
+        return min(read_routes(), key=lambda x: x[1])[2]
+    except ValueError:
+        # no route
         return LOOPBACK_NAME
 
 conf.iface = get_working_if()
