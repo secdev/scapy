@@ -637,7 +637,7 @@ def get_working_if():
         elif 'Wi-Fi' in IFACES and IFACES['Wi-Fi'].ip != '0.0.0.0':
             return 'Wi-Fi'
         elif len(IFACES) > 0:
-            return IFACES[list(IFACES.keys())[0]]
+            return IFACES.itervalues().next()
         else:
             return LOOPBACK_NAME
     except:
