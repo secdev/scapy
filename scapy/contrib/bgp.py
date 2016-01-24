@@ -306,7 +306,50 @@ class BGPMPReach(BGPAttribute):
                          cond = lambda p: p.flags & 0x10 == 0),
         ConditionalField(ShortField("ext_len", None),
                          cond = lambda p: p.flags & 0x10 == 0x10),
-        PacketField("mp_nlri", None, MPDispatcher)
+        PacketField("mp_reach", None, MPDispatcher)
+    ]
+#
+# -----------------------------
+#
+class MPNLRIUnreach(PadPacket):
+    """Generalised Multi-Protocol BGP reach information"""
+    name="MPNLRIUnreach"
+    fields_desc = [
+        ShortEnumField("AFI",  0, afiNames),
+        ByteEnumField ("SAFI", 0, safiNames),
+        FieldListField("nlri",[],ByteField("",0))	
+    ]
+
+class MPIPv6Unreach(PadPacket):
+    """Generalised Multi-Protocol BGP reach information"""
+    name="MPIPv6Unreach"
+    fields_desc = [
+        ShortEnumField("AFI",  2,  afiNames),
+        ByteEnumField ("SAFI", 1,  safiNames),
+        FieldListField("nlri", [], BGPIPv6Field("","::/0"))	
+    ]
+
+MPUDict = {
+    (2,1): MPIPv6Unreach
+}
+
+def MPUDispatcher(s):
+    return classDispatcher(s,
+                           MPUDict,
+                           MPNLRIUnreach,
+                           index_from = lambda s: struct.unpack("!HB",s[:3]))
+
+class BGPMPUnreach(BGPAttribute):
+    """The cluster list (RFC4456) attribute for BGP-4"""
+    name = "BGPMPUnreach"
+    fields_desc = [
+        FlagsField("flags", 0x80, 8, flagNames), # Optional,Non-transitive
+        ByteField("type", 15),
+        ConditionalField(ByteField("attr_len", None),
+                         cond = lambda p: p.flags & 0x10 == 0),
+        ConditionalField(ShortField("ext_len", None),
+                         cond = lambda p: p.flags & 0x10 == 0x10),
+        PacketField("mp_unreach", None, MPUDispatcher)
     ]
 
 

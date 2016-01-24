@@ -114,5 +114,13 @@ len(str(ipv6)) == 3
 mpreach = MPIPv6Reach(nha=["2001:c1ca::1","fe80::c001:bff:fe7e:0"],nlri=["2001:c1ca::/32","2001:2fb8::/32"])
 MPIPv6Reach(str(mpreach)).show()
 
-mpr = BGPMPReach(mp_nlri=[mpreach])
+mpr = BGPMPReach(mp_reach=[mpreach])
 BGPMPReach(str(mpr)).show()
+
+= Multiprotocol unreach
+
+mpu = MPIPv6Unreach(nlri=["2001:1fe8:c1ca::/48"])
+MPIPv6Unreach(str(mpu)).show()
+
+unr=BGPMPUnreach(mp_unreach=mpu)
+BGPMPUnreach(str(unr)).show()
