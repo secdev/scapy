@@ -138,15 +138,15 @@ class TestCampaign(TestClass):
 class TestSet(TestClass):
     def __init__(self, name):
         self.name = name
-        self.set = []
+        self.tests = []
         self.comments = ""
         self.keywords = []
         self.crc = None
         self.expand = 1
     def add_test(self, test):
-        self.set.append(test)
+        self.tests.append(test)
     def __iter__(self):
-        return self.set.__iter__()
+        return self.tests.__iter__()
 
 class UnitTest(TestClass):
     def __init__(self, name):
@@ -257,8 +257,9 @@ def compute_campaign_digests(test_campaign):
 def filter_tests_on_numbers(test_campaign, num):
     if num:
         for ts in test_campaign:
-            ts.set = filter(lambda t: t.num in num, ts.set)
-        test_campaign.campaign = filter(lambda ts: len(ts.set) > 0, test_campaign.campaign)
+            ts.tests = [t for t in ts.tests if t.num in num]
+        test_campaign.campaign = [ts for ts in test_campaign.campaign
+                                  if ts.tests]
 
 def filter_tests_keep_on_keywords(test_campaign, kw):
     def kw_match(lst, kw):
@@ -269,7 +270,7 @@ def filter_tests_keep_on_keywords(test_campaign, kw):
     
     if kw:
         for ts in test_campaign:
-            ts.set = filter(lambda t: kw_match(t.keywords, kw), ts.set)
+            ts.tests = [t for t in ts.tests if kw_match(t.keywords, kw)]
 
 def filter_tests_remove_on_keywords(test_campaign, kw):
     def kw_match(lst, kw):
@@ -280,11 +281,11 @@ def filter_tests_remove_on_keywords(test_campaign, kw):
     
     if kw:
         for ts in test_campaign:
-            ts.set = filter(lambda t: not kw_match(t.keywords, kw), ts.set)
+            ts.tests = [t for t in ts.tests if not kw_match(t.keywords, kw)]
 
 
 def remove_empty_testsets(test_campaign):
-    test_campaign.campaign = filter(lambda ts: len(ts.set) > 0, test_campaign.campaign)
+    test_campaign.campaign = [ts for ts in test_campaign.campaign if ts.tests]
 
 
 #### RUN CAMPAIGN #####
