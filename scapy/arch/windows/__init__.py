@@ -355,6 +355,33 @@ pcapdnet.get_if_raw_hwaddr = lambda iface, *args, **kargs: (
 get_if_raw_hwaddr = pcapdnet.get_if_raw_hwaddr
 
 
+def read_routes_xp():
+    # The InterfaceIndex in Win32_IP4RouteTable does not match the
+    # InterfaceIndex in Win32_NetworkAdapter under some platforms
+    # (namely Windows XP): let's try an IP association
+    routes = []
+    partial_routes = []
+    # map local IP addresses to interfaces
+    local_addresses = dict((iface.ip, iface)
+                           for iface in IFACES.itervalues())
+    iface_indexes = {}
+    for line in exec_query(['Get-WmiObject', 'Win32_IP4RouteTable'],
+                           ['Name', 'Mask', 'NextHop', 'InterfaceIndex']):
+        if line[2] in local_addresses:
+            iface = local_addresses[line[2]]
+            # This gives us an association InterfaceIndex <-> interface
+            iface_indexes[line[3]] = iface
+            routes.append((atol(line[0]), atol(line[1]), "0.0.0.0", iface,
+                           iface.ip))
+        else:
+            partial_routes.append((atol(line[0]), atol(line[1]), line[2],
+                                   line[3]))
+    for dst, mask, gw, ifidx in partial_routes:
+        if ifidx in iface_indexes:
+            iface = iface_indexes[ifidx]
+            routes.append((dst, mask, gw, iface, iface.ip))
+    return routes
+
 def read_routes_7():
     routes=[]
     for line in exec_query(['Get-WmiObject', 'win32_IP4RouteTable'],
@@ -368,9 +395,12 @@ def read_routes_7():
 
 def read_routes():
     routes=[]
+    release = platform.release()
     try:
-        if platform.release()=="post2008Server" or platform.release()=="8":
+        if release in ["post2008Server", "8"]:
             routes=read_routes_post2008()
+        elif release == "XP":
+            routes=read_routes_xp()
         else:
             routes=read_routes_7()
     except Exception as e:    
