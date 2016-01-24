@@ -23,12 +23,9 @@ class PadPacket(Packet):
     fields_desc = [ ]
     def extract_padding(self, pkt):
 	return "",pkt
-
-
 #
 # Packet array
 #
-
 class PacketArrayField(PacketListField):
     """Quick hack to chop BGPPackets in a TCP PDU into an array of BGP packets
 Based on the fact that the BGP-4 header has a fixed field format
@@ -61,12 +58,14 @@ Based on the fact that the BGP-4 header has a fixed field format
             except:
                 remain=""
         return ret,lst
-
 #
-# -------------------------------------
+# --------- Prefixes in IPv4 and IPv6 -----------
 #
 class BGPIPField(Field):
-    """Represents how bgp dose an ip prefix in (length, prefix)"""
+    """Represents how bgp represents IPv4 prefixes
+internal representation (mask, base)"""
+    af = socket.AF_INET
+    addrlen = 4
     def mask2iplen(self,mask):
         """turn the mask into the length in bytes of the ip field"""
         return (mask + 7) // 8
@@ -87,31 +86,26 @@ class BGPIPField(Field):
     def i2m(self, pkt, i):
         """internal (ip as bytes, mask as int) to machine"""
         mask, ip = i
-        ip = inet_aton( ip )
+        af = self.af
+        ip = inet_pton(af, ip )
         return struct.pack(">B",mask) + ip[:self.mask2iplen(mask)] 
     def addfield(self, pkt, s, val):
         return s+self.i2m(pkt, val)
     def getfield(self, pkt, s):
-        l = self.mask2iplen( struct.unpack(">B",s[0])[0] ) + 1
+        l = self.mask2iplen(ord(s[0])) + 1
         return s[l:], self.m2i(pkt,s[:l])
     def m2i(self,pkt,m):
-        mask = struct.unpack(">B",m[0])[0]
-        ip = "".join( [ m[i + 1] if i < self.mask2iplen(mask) else '\x00' for i in range(4)] )
-        return (mask,inet_ntoa(ip))
+        af = self.af
+        alen = self.addrlen
+        mask = ord(m[0])
+        ip = "".join( [ m[i + 1] if i < self.mask2iplen(mask) else '\x00' for i in range(alen)] )
+        return (mask,inet_ntop(af,ip))
 #
 # Derive IPv6 prefixes from IPv4Prefixes
 #
 class BGPIPv6Field(BGPIPField):
-    def i2m(self, pkt, i):
-        """internal (ip as bytes, mask as int) to machine"""
-        mask, ip = i
-        ip = inet_pton(socket.AF_INET6, ip)
-        return struct.pack(">B",mask) + ip[:self.mask2iplen(mask)] 
-    def m2i(self,pkt,m):
-        mask = struct.unpack(">B",m[0])[0]
-        ip = "".join( [ m[i + 1] if i < self.mask2iplen(mask) else '\x00' for i in range(16)] )
-        return (mask,inet_ntop(socket.AF_INET6,ip))
-
+    af = socket.AF_INET6
+    addrlen = 16
 #
 # -------------------------
 #
