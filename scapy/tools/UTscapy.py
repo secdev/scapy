@@ -576,9 +576,8 @@ def main(argv):
                     try:
                         NUM.append(int(v))
                     except ValueError:
-                        v1,v2 = map(int, v.split("-"))
-                        for vv in xrange(v1, v2 + 1):
-                            NUM.append(vv)
+                        v1, v2 = map(int, v.split("-", 1))
+                        NUM.extend(xrange(v1, v2 + 1))
             elif opt == "-m":
                 MODULES.append(optarg)
             elif opt == "-k":
