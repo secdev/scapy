@@ -754,12 +754,12 @@ class ATMT1(Automaton):
 = Simple automaton Tests
 ~ automaton
 
-a=ATMT1(init="a")
+a=ATMT1(init="a", ll=lambda: None, recvsock=lambda: None)
 a.run()
 assert( _ == 'aabaaababaaabaaababab' )
 a.result
 assert( _ == 'aabaaababaaabaaababab' )
-a=ATMT1(init="b")
+a=ATMT1(init="b", ll=lambda: None, recvsock=lambda: None)
 a.run()
 assert( _ == 'babababababababababababababab' )
 a.result
@@ -769,7 +769,7 @@ assert( _ == 'babababababababababababababab' )
 ~ automaton
 
 try:    
-    ATMT1(init="").run()
+    ATMT1(init="", ll=lambda: None, recvsock=lambda: None).run()
 except Automaton.Stuck:
     True
 else:
@@ -783,14 +783,14 @@ class ATMT2(ATMT1):
     def MAIN(self, s):
         return "c"+ATMT1.MAIN(self, s).run()
 
-a=ATMT2(init="a")
+a=ATMT2(init="a", ll=lambda: None, recvsock=lambda: None)
 a.run()
 assert( _ == 'ccccccacabacccacababacccccacabacccacababab' )
 
 
 a.result
 assert( _ == 'ccccccacabacccacababacccccacabacccacababab' )
-a=ATMT2(init="b")
+a=ATMT2(init="b", ll=lambda: None, recvsock=lambda: None)
 a.run()
 assert( _ == 'cccccbaccbabaccccbaccbabab')
 a.result
@@ -806,12 +806,12 @@ class ATMT3(ATMT2):
             raise self.MAIN(s+"da")
 
 
-a=ATMT3(init="a", debug=2)
+a=ATMT3(init="a", debug=2, ll=lambda: None, recvsock=lambda: None)
 a.run()
 assert( _ == 'cccccacabdacccacabdabda')
 a.result
 assert( _ == 'cccccacabdacccacabdabda')
-a=ATMT3(init="b")
+a=ATMT3(init="b", ll=lambda: None, recvsock=lambda: None)
 a.run()
 assert( _ == 'cccccbdaccbdabdaccccbdaccbdabdab' )
 
@@ -826,12 +826,12 @@ class ATMT4(ATMT3):
     def action_test(self, s):
         self.result = "e"+s+"e"
 
-a=ATMT4(init="a")
+a=ATMT4(init="a", ll=lambda: None, recvsock=lambda: None)
 a.run()
 assert( _ == 'cccccacabdacccacabdabda')
 a.result
 assert( _ == 'ecccccacabdacccacabdabdae')
-a=ATMT4(init="b")
+a=ATMT4(init="b", ll=lambda: None, recvsock=lambda: None)
 a.run()
 assert( _ == 'cccccbdaccbdabdaccccbdaccbdabdab' )
 a.result
@@ -869,7 +869,7 @@ class ATMT5(Automaton):
     def END(self):
         return self.res
 
-a=ATMT5()
+a=ATMT5(ll=lambda: None, recvsock=lambda: None)
 a.run()
 assert( _ == 'Jupiter' )
 
@@ -905,7 +905,7 @@ class ATMT6(Automaton):
     def END(self):
         return self.res
 
-a=ATMT6()
+a=ATMT6(ll=lambda: None, recvsock=lambda: None)
 a.run()
 assert( _ == 'Mercury' )
 
@@ -936,7 +936,7 @@ class ATMT7(Automaton):
         self.res += "n"
         return self.res
 
-a=ATMT7()
+a=ATMT7(ll=lambda: None, recvsock=lambda: None)
 a.run(wait=False)
 a.io.tst.send("at")
 a.io.tst.recv()
@@ -976,7 +976,7 @@ class ATMT8(Automaton):
 
 r,w = os.pipe()
 
-a=ATMT8(external_fd={"extfd":r})
+a=ATMT8(external_fd={"extfd":r}, ll=lambda: None, recvsock=lambda: None)
 a.run(wait=False)
 os.write(w,"ra")
 os.write(w,"nu")
@@ -1008,7 +1008,7 @@ class ATMT9(Automaton):
         self.res += "s"
         return self.res
 
-a=ATMT9(debug=5)
+a=ATMT9(debug=5, ll=lambda: None, recvsock=lambda: None)
 a.run()
 assert( _ == "VENUs" )
 
