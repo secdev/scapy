@@ -56,32 +56,68 @@ def _exec_query_ps(cmd, fields):
             break
         yield line
 
-def _exec_query_vbs(cmd, fields):
-    """Execute a query using VBS. Currently only Get-WmiObject queries
-    are supported.
-
-    """
-    assert len(cmd) == 2 and cmd[0] == "Get-WmiObject"
+def _vbs_exec_code(code):
     tmpfile = tempfile.NamedTemporaryFile(suffix=".vbs", delete=False)
-    tmpfile.write("""Set wmi = GetObject("winmgmts:")
-Set lines = wmi.InstancesOf("%s")
-For Each line in lines
-  %s
-Next
-""" % (cmd[1], "\n  ".join("WScript.Echo line.%s" % fld for fld in fields)))
+    tmpfile.write(code)
     tmpfile.close()
     ps = sp.Popen([conf.prog.cscript, tmpfile.name],
-                  stdout=sp.PIPE,
+                  stdout=sp.PIPE, stderr=open(os.devnull),
                   universal_newlines=True)
     for _ in xrange(3):
         # skip 3 first lines
         ps.stdout.readline()
-    while True:
-        line = [ps.stdout.readline().strip() for _ in fields]
-        if not line[0]:
-            break
+    for line in ps.stdout:
         yield line
     os.unlink(tmpfile.name)
+
+def _vbs_get_iface_guid(devid):
+    try:
+        # devid = str(int(devid) + 1)
+        guid = _vbs_exec_code("""WScript.Echo CreateObject("WScript.Shell").RegRead("HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\NetworkCards\\%s\\ServiceName")
+""" % devid).__iter__().next()
+        if guid.startswith('{') and guid.endswith('}\n'):
+            return guid[:-1]
+    except StopIteration:
+        pass
+
+# Some names differ between VBS and PS
+## None: field will not be returned under VBS
+_VBS_WMI_FIELDS = {
+    "Win32_NetworkAdapter": {
+        "InterfaceIndex": "Index",
+        "InterfaceDescription": "Description",
+        "GUID": "DeviceID",
+    }
+}
+
+_VBS_WMI_OUTPUT = {
+    "Win32_NetworkAdapter": {
+        "DeviceID": _vbs_get_iface_guid,
+    }
+}
+
+def _exec_query_vbs(cmd, fields):
+    """Execute a query using VBS. Currently Get-WmiObject queries are
+    supported.
+
+    """
+    assert len(cmd) == 2 and cmd[0] == "Get-WmiObject"
+    fields = [_VBS_WMI_FIELDS.get(cmd[1], {}).get(fld, fld) for fld in fields]
+    values = _vbs_exec_code("""Set wmi = GetObject("winmgmts:")
+Set lines = wmi.InstancesOf("%s")
+On Error Resume Next
+Err.clear
+For Each line in lines
+  %s
+Next
+""" % (cmd[1], "\n  ".join("WScript.Echo line.%s" % fld for fld in fields
+                           if fld is not None))).__iter__()
+    while True:
+        yield [None if fld is None else
+               _VBS_WMI_OUTPUT.get(cmd[1], {}).get(fld, lambda x: x)(
+                   values.next().strip()
+               )
+               for fld in fields]
 
 def exec_query(cmd, fields):
     """Execute a system query using PowerShell if it is available, and
@@ -132,13 +168,17 @@ class WinProgPath(ConfClass):
     display = _default
     hexedit = win_find_exe("hexer")
     wireshark = win_find_exe("wireshark", "wireshark")
-    powershell = win_find_exe("powershell",
-                              installsubdir="System32\\WindowsPowerShell",
-                              env="SystemRoot")
+    powershell = win_find_exe(
+        "powershell",
+        installsubdir="System32\\WindowsPowerShell\\v1.0",
+        env="SystemRoot"
+    )
     cscript = win_find_exe("cscript", installsubdir="System32",
                            env="SystemRoot")
 
 conf.prog = WinProgPath()
+if conf.prog.powershell == "powershell":
+    conf.prog.powershell = None
 
 class PcapNameNotFoundError(Scapy_Exception):
     pass    
@@ -148,6 +188,7 @@ def is_interface_valid(iface):
     if "guid" in iface and iface["guid"]:
         return True
     return False
+
 def get_windows_if_list():
     if platform.release()=="post2008Server" or platform.release()=="8":
         # This works only starting from Windows 8/2012 and up. For older Windows another solution is needed
@@ -184,7 +225,7 @@ class NetworkInterface(object):
         self.data = data
         if data is not None:
             self.update(data)
-        
+
     def update(self, data):
         """Update info about network interface according to given dnet dictionary"""
         self.name = data["name"]
