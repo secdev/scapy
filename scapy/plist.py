@@ -134,7 +134,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
         """Same as make_table, but print a table with LaTeX syntax"""
         return make_tex_table(self.res, *args, **kargs)
 
-    def plot(self, f, lfilter=None, **kargs):
+    def plot(self, f, lfilter=None, plot_xy=False, **kargs):
         """Applies a function to each packet to get a value that will be plotted
         with matplotlib. A list of matplotlib.lines.Line2D is returned.
 
@@ -142,19 +142,18 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
         """
 
         # Get the list of packets
-        l = self.res
-
-        # Apply the filter
-        if lfilter is not None:
-            l = filter(lfilter, l)
-
-        # Apply the function f to the packets
-        l = map(f, l)
+        if lfilter is None:
+            l = [f(e) for e in self.res]
+        else:
+            l = [f(e) for e in self.res if lfilter(e)]
 
         # Mimic the default gnuplot output
         if kargs == {}:
             kargs = MATPLOTLIB_DEFAULT_PLOT_KARGS
-        lines = plt.plot(l, **kargs)
+        if plot_xy:
+            lines = plt.plot(*zip(*l), **kargs)
+        else:
+            lines = plt.plot(l, **kargs)
 
         # Call show() if matplotlib is not inlined
         if not MATPLOTLIB_INLINED:
@@ -190,7 +189,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
 
         return lines
 
-    def multiplot(self, f, lfilter=None, **kargs):
+    def multiplot(self, f, lfilter=None, plot_xy=False, **kargs):
         """Uses a function that returns a label and a value for this label, then
         plots all the values label by label.
 
@@ -198,27 +197,24 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
         """
 
         # Get the list of packets
-        l = self.res
-
-        # Apply the filter
-        if lfilter is not None:
-            l = filter(lfilter, l)
+        if lfilter is None:
+            l = (f(e) for e in self.res)
+        else:
+            l = (f(e) for e in self.res if lfilter(e))
 
         # Apply the function f to the packets
-        d_x = {}
-        d_y = {}
-        for k, v in map(f, l):
-            x,y = v
-            d_x[k] = d_x.get(k, []) + [x]
-            d_y[k] = d_y.get(k, []) + [y]
+        d = {}
+        for k, v in l:
+            d.setdefault(k, []).append(v)
 
         # Mimic the default gnuplot output
-        if kargs == {}:
+        if not kargs:
             kargs = MATPLOTLIB_DEFAULT_PLOT_KARGS
 
-        lines = []
-        for k in d_x:
-            lines += plt.plot(d_x[k], d_y[k], label=k, **kargs)
+        if plot_xy:
+            lines = [plt.plot(*zip(*pl), label=k, **kargs) for k, pl in d.iteritems()]
+        else:
+            lines = [plt.plot(pl, label=k, **kargs) for k, pl in d.iteritems()]
         plt.legend(loc="center right", bbox_to_anchor=(1.5, 0.5))
 
         # Call show() if matplotlib is not inlined
