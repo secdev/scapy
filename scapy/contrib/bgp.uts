@@ -49,18 +49,16 @@ agg.type == 7 and agg.attr_len == 4
 
 = AS_PATH
 
+# create segment
 segm = BGPASSegment(segment_type=2,segment=['AS6813','AS3615:200'])
-
-segm.show()
-
-path = BGPASPath(as_path=[segm])
-npath = BGPASPath(str(path))
+# Create and fill all counters, lengths. etc.
+path = BGPASPath(str(BGPASPath(as_path=[segm])))
 # 2 ases in the path
-npath.as_path[0].segment_len == 2
+path.as_path[0].segment_len == 2
 # 2 * 4-byte AS + type + count
-npath.attr_len == 10
+path.attr_len == 10
+path.show()
 
-npath.show()
 = Communities
 
 comm = BGPCommunities("\xc0\x08\x08\xfe\x09\x01\xf4\xfe\x09\x02\x58")

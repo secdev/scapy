@@ -143,8 +143,11 @@ class BGPASSegment(PadPacket):
     """AS SEGMENT"""
     name="BGPASSegment"
     fields_desc = [
-	ByteEnumField("segment_type",1,{1:"AS_SET",
-                                        2:"AS_SEQUENCE"}),
+	ByteEnumField("segment_type",2,{1:"AS_SET",
+                                        2:"AS_SEQUENCE",
+                                        # RFC 5065
+                                        3:"AS_CONFED_SEQUENCE",
+                                        4:"AS_CONFED_SET"}),
         FieldLenField("segment_len",None,fmt="B",count_of = "segment"),
         #
         # TODO the way of defining conf.bgp.use4as to switch between AS4Field and AS2Field here
