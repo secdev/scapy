@@ -109,3 +109,10 @@ ipv6.show()
 IPv6Prefix(str(ipv6)).prefix == "2010::/12"
 len(str(ipv6)) == 3
 
+= Multiprotocol reach
+
+mpreach = MPNLRIReach(AFI=2,SAFI=1,nha=[10,0,0,4],nlri=[8,32])
+MPNLRIReach(str(mpreach)).show()
+
+mpr = BGPMPReach(mp_nlri=[mpreach])
+BGPMPReach(str(mpr)).show()

@@ -257,6 +257,44 @@ class BGPClusterList(BGPAttribute):
                        length_from = lambda p: p.ext_len if p.attr_len is None else p.attr_len)
     ]
 
+class MPNLRIReach(PadPacket):
+    """Generalised Multi-Protocol BGP reach information"""
+    name="MPNLRIReach"
+    fields_desc = [
+        ShortField("AFI",0),
+        ByteField("SAFI",0),
+        FieldLenField("nha_len",None,fmt="B",length_of="nha"),
+        FieldListField("nha",[],ByteField("",0),
+                       length_from=lambda p: p.nha_len),
+        ByteField("reserved",0),
+        FieldListField("nlri",[],ByteField("",0))	
+    ]
+
+MPDict = {
+    (2,1): MPNLRIReach
+}
+
+def MPDispatcher(s):
+    print len(s)
+    print "".join(["\\x%02x" % ord (c) for c in s[:3]])
+    return classDispatcher(s,
+                           MPDict,
+                           MPNLRIReach,
+                           index_from = lambda s: struct.unpack("!HB",s[:3]))
+
+class BGPMPReach(BGPAttribute):
+    """The cluster list (RFC4456) attribute for BGP-4"""
+    name = "BGPClusterList"
+    fields_desc = [
+        FlagsField("flags", 0x80, 8, flagNames), # Optional,Non-transitive
+        ByteField("type", 10),
+        ConditionalField(ByteField("attr_len", None),
+                         cond = lambda p: p.flags & 0x10 == 0),
+        ConditionalField(ShortField("ext_len", None),
+                         cond = lambda p: p.flags & 0x10 == 0x10),
+        PacketField("mp_nlri", None, MPDispatcher)
+    ]
+
 AttributeDict = {
     1: BGPOrigin,
     2: BGPASPath,
@@ -268,6 +306,9 @@ AttributeDict = {
     8: BGPCommunities, 
     9: BGPOriginatorId,
     10: BGPClusterList,
+    14: BGPMPReach,
+    # 15: BPGMPUnreach,
+    # 16: BGPExtendedCommunities
 }
 
 def Attribute_Dispatcher(s):
@@ -333,5 +374,5 @@ bind_layers( BGPHeader,       BGPHeader,   type=4)
 
 
 if __name__ == "__main__":
-    interact(mydict=globals(), mybanner="BGP addon .06")
+    interact(mydict=globals(), mybanner="BGP addon .10")
 
