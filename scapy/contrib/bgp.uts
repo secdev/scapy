@@ -111,8 +111,8 @@ len(str(ipv6)) == 3
 
 = Multiprotocol reach
 
-mpreach = MPNLRIReach(AFI=2,SAFI=1,nha=[10,0,0,4],nlri=[8,32])
-MPNLRIReach(str(mpreach)).show()
+mpreach = MPIPv6Reach(nha=["2001:c1ca::1","fe80::c001:bff:fe7e:0"],nlri=["2001:c1ca::/32","2001:2fb8::/32"])
+MPIPv6Reach(str(mpreach)).show()
 
 mpr = BGPMPReach(mp_nlri=[mpreach])
 BGPMPReach(str(mpr)).show()

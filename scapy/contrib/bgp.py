@@ -257,12 +257,15 @@ class BGPClusterList(BGPAttribute):
                        length_from = lambda p: p.ext_len if p.attr_len is None else p.attr_len)
     ]
 
+afiNames = { 1: "IPv4", 2:"IPv6" }
+safiNames = { 1: "Unicast", 2: "Multicast", 128: "MPLS Labeled-VPN"}
+
 class MPNLRIReach(PadPacket):
     """Generalised Multi-Protocol BGP reach information"""
     name="MPNLRIReach"
     fields_desc = [
-        ShortField("AFI",0),
-        ByteField("SAFI",0),
+        ShortEnumField("AFI",  0, afiNames),
+        ByteEnumField ("SAFI", 0, safiNames),
         FieldLenField("nha_len",None,fmt="B",length_of="nha"),
         FieldListField("nha",[],ByteField("",0),
                        length_from=lambda p: p.nha_len),
@@ -270,13 +273,24 @@ class MPNLRIReach(PadPacket):
         FieldListField("nlri",[],ByteField("",0))	
     ]
 
+class MPIPv6Reach(PadPacket):
+    """Generalised Multi-Protocol BGP reach information"""
+    name="MPIPv6Reach"
+    fields_desc = [
+        ShortEnumField("AFI",  2, afiNames),
+        ByteEnumField( "SAFI", 1, safiNames),
+        FieldLenField( "nha_len",None,fmt="B",length_of="nha"),
+        FieldListField("nha",[],IP6Field("","::"),
+                       length_from=lambda p: p.nha_len),
+        ByteField("reserved",0),
+        FieldListField("nlri",[],BGPIPv6Field("","::/0"))	
+    ]
+
 MPDict = {
-    (2,1): MPNLRIReach
+    (2,1): MPIPv6Reach
 }
 
 def MPDispatcher(s):
-    print len(s)
-    print "".join(["\\x%02x" % ord (c) for c in s[:3]])
     return classDispatcher(s,
                            MPDict,
                            MPNLRIReach,
@@ -284,16 +298,17 @@ def MPDispatcher(s):
 
 class BGPMPReach(BGPAttribute):
     """The cluster list (RFC4456) attribute for BGP-4"""
-    name = "BGPClusterList"
+    name = "BGPMPReach"
     fields_desc = [
         FlagsField("flags", 0x80, 8, flagNames), # Optional,Non-transitive
-        ByteField("type", 10),
+        ByteField("type", 14),
         ConditionalField(ByteField("attr_len", None),
                          cond = lambda p: p.flags & 0x10 == 0),
         ConditionalField(ShortField("ext_len", None),
                          cond = lambda p: p.flags & 0x10 == 0x10),
         PacketField("mp_nlri", None, MPDispatcher)
     ]
+
 
 AttributeDict = {
     1: BGPOrigin,
@@ -308,7 +323,7 @@ AttributeDict = {
     10: BGPClusterList,
     14: BGPMPReach,
     # 15: BPGMPUnreach,
-    # 16: BGPExtendedCommunities
+    # 16: BGPExtendedCommunities,
 }
 
 def Attribute_Dispatcher(s):
