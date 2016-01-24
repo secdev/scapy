@@ -231,6 +231,7 @@ class NetworkInterface(object):
         self.name = data["name"]
         self.description = data['description']
         self.win_index = data['win_index']
+        self.guid = data['guid']
         # Other attributes are optional
         self._update_pcapdata()
 
@@ -258,8 +259,10 @@ class NetworkInterface(object):
         raise PcapNameNotFoundError
 
     def __repr__(self):
-        return "<%s: %s %s %s pcap_name=%s description=%s>" % (self.__class__.__name__,
-                     self.name, self.ip, self.mac, repr(self.pcap_name), repr(self.description))
+        return "<%s %s: %s %s %s description=%r>" % (
+            self.__class__.__name__, self.name, self.guid, self.ip,
+            self.mac, self.description,
+        )
 
 from UserDict import UserDict
 
@@ -269,7 +272,7 @@ class NetworkInterfaceDict(UserDict):
         for i in get_windows_if_list():
             try:
                 interface = NetworkInterface(i)
-                self.data[interface.name] = interface
+                self.data[interface.guid] = interface
             except (KeyError, PcapNameNotFoundError):
                 pass
         
@@ -278,30 +281,29 @@ class NetworkInterfaceDict(UserDict):
                                 "You probably won't be able to send packets. "
                                 "Deactivating unneeded interfaces and restarting Scapy might help."
                                 "Check your winpcap and powershell installation, and access rights.")
-    
-    def pcap_name(self, devname):
-        """Return pcap device name for given Windows device name."""
 
-        try:
-            pcap_name = self.data[devname].pcap_name
-        except KeyError:
-            raise ValueError("Unknown network interface %r" % devname)
-        else:
-            return pcap_name
-            
-    def devname(self, pcap_name):
+    def dev_from_name(self, name):
+        """Return the first pcap device name for a given Windows
+        device name.
+
+        """
+        for iface in self.itervalues():
+            if iface.name == name:
+                return iface
+        raise ValueError("Unknown network interface %r" % name)
+
+    def dev_from_pcapname(self, pcap_name):
         """Return Windows device name for given pcap device name."""
-        
-        for devname, iface in self.items():
+        for iface in self.itervalues():
             if iface.pcap_name == pcap_name:
-                return iface.name
+                return iface
         raise ValueError("Unknown pypcap network interface %r" % pcap_name)
-    
-    def devname_from_index(self, if_index):
+
+    def dev_from_index(self, if_index):
         """Return interface name from interface index"""
         for devname, iface in self.items():
-            if iface.win_index == if_index:
-                return iface.name
+            if iface.win_index == str(if_index):
+                return iface
         raise ValueError("Unknown network interface index %r" % if_index)
 
     def show(self, resolve_mac=True):
@@ -317,31 +319,34 @@ class NetworkInterfaceDict(UserDict):
 IFACES = NetworkInterfaceDict()
 IFACES.load_from_powershell()
 
-def pcap_name(devname):
-    """Return pypcap device name for given libdnet/Scapy device name"""  
-    if type(devname) is NetworkInterface:
-        return devname.pcap_name
+def pcapname(dev):
+    """Return pypcap device name for given interface or libdnet/Scapy
+    device name.
+
+    """
+    if type(dev) is NetworkInterface:
+        return dev.pcap_name
     try:
-        pcap_name = IFACES.pcap_name(devname)
+        return IFACES.dev_from_name(dev).pcap_name
     except ValueError:
-        # pcap.pcap() will choose a sensible default for sniffing if iface=None
-        pcap_name = None
-    return pcap_name            
+        # pcap.pcap() will choose a sensible default for sniffing if
+        # iface=None
+        return None
 
-def devname(pcap_name):
+def dev_from_pcapname(pcap_name):
     """Return libdnet/Scapy device name for given pypcap device name"""
-    return IFACES.devname(pcap_name)
+    return IFACES.dev_from_pcapname(pcap_name)
 
-def devname_from_index(if_index):
+def dev_from_index(if_index):
     """Return Windows adapter name for given Windows interface index"""
-    return IFACES.devname_from_index(if_index)
+    return IFACES.dev_from_index(if_index)
     
 def show_interfaces(resolve_mac=True):
     """Print list of available network interfaces"""
     return IFACES.show(resolve_mac)
 
 _orig_open_pcap = pcapdnet.open_pcap
-pcapdnet.open_pcap = lambda iface,*args,**kargs: _orig_open_pcap(pcap_name(iface),*args,**kargs)
+pcapdnet.open_pcap = lambda iface,*args,**kargs: _orig_open_pcap(pcapname(iface),*args,**kargs)
 
 _orig_get_if_raw_hwaddr = pcapdnet.get_if_raw_hwaddr
 pcapdnet.get_if_raw_hwaddr = lambda iface, *args, **kargs: (
@@ -355,11 +360,10 @@ def read_routes_7():
     for line in exec_query(['Get-WmiObject', 'win32_IP4RouteTable'],
                            ['Name', 'Mask', 'NextHop', 'InterfaceIndex']):
         try:
-            iface = devname_from_index(int(line[3]))
+            iface = dev_from_index(line[3])
         except ValueError:
             continue
-        routes.append((atol(line[0]), atol(line[1]), line[2], iface,
-                       IFACES[iface].ip))
+        routes.append((atol(line[0]), atol(line[1]), line[2], iface, iface.ip))
     return routes
 
 def read_routes():
@@ -393,19 +397,16 @@ def read_routes_post2008():
         match = re.search(pattern,l)
         if match:
             try:
-                iface = devname_from_index(int(match.group(1)))
-                addr = IFACES[iface].ip
+                iface = dev_from_index(match.group(1))
             except:
                 continue
-            dest = atol(match.group(2))
-            mask = itom(int(match.group(3)))
-            gw = match.group(4)
             # try:
             #     intf = pcapdnet.dnet.intf().get_dst(pcapdnet.dnet.addr(type=2, addrtxt=dest))
             # except OSError:
             #     log_loading.warning("Building Scapy's routing table: Couldn't get outgoing interface for destination %s" % dest)
             #     continue               
-            routes.append((dest, mask, gw, iface, addr))
+            routes.append((atol(match.group(2)), itom(int(match.group(3))),
+                           match.group(4), iface, iface.ip))
     return routes
 
 def read_routes6():
