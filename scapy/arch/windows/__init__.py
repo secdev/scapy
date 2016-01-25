@@ -45,16 +45,18 @@ WINDOWS = True
 
 def _exec_query_ps(cmd, fields):
     """Execute a PowerShell query"""
-    ### XXX NOT TESTED AT ALL, WILL NOT WORK
     ps = sp.Popen([conf.prog.powershell] + cmd +
                   ['|', 'select %s' % ', '.join(fields), '|', 'fl'],
                   stdout=sp.PIPE,
                   universal_newlines=True)
-    while True:
-        line = [ps.stdout.readline().split(':', 1)[1].strip() for _ in fields]
-        if not line[0]:
-            break
-        yield line
+    l=[]
+    for line in ps.stdout:
+        if not line.strip(): #skip empty lines
+            continue
+        l.append(line.split(':', 1)[1].strip())
+        if len(l) == len(fields):
+            yield l
+            l=[]
 
 def _vbs_exec_code(code):
     tmpfile = tempfile.NamedTemporaryFile(suffix=".vbs", delete=False)
@@ -72,7 +74,7 @@ def _vbs_exec_code(code):
 
 def _vbs_get_iface_guid(devid):
     try:
-        # devid = str(int(devid) + 1)
+        devid = str(int(devid) + 1)
         guid = _vbs_exec_code("""WScript.Echo CreateObject("WScript.Shell").RegRead("HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\NetworkCards\\%s\\ServiceName")
 """ % devid).__iter__().next()
         if guid.startswith('{') and guid.endswith('}\n'):
@@ -347,10 +349,9 @@ pcapdnet.open_pcap = lambda iface,*args,**kargs: _orig_open_pcap(pcapname(iface)
 
 _orig_get_if_raw_hwaddr = pcapdnet.get_if_raw_hwaddr
 pcapdnet.get_if_raw_hwaddr = lambda iface, *args, **kargs: (
-    ARPHDR_ETHER, IFACES[iface].mac.replace(':', '').decode('hex')
+    ARPHDR_ETHER, IFACES.dev_from_pcapname(iface.pcap_name).mac.replace(':', '').decode('hex')
 )
 get_if_raw_hwaddr = pcapdnet.get_if_raw_hwaddr
-
 
 def read_routes_xp():
     # The InterfaceIndex in Win32_IP4RouteTable does not match the
@@ -663,7 +664,7 @@ def get_working_if():
     try:
         # return the interface associated with the route with smallest
         # mask (route by default if it exists)
-        return min(read_routes(), key=lambda x: x[1])[2]
+        return min(read_routes(), key=lambda x: x[1])[3]
     except ValueError:
         # no route
         return LOOPBACK_NAME
