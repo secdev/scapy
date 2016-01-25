@@ -1243,7 +1243,7 @@ def ls(obj=None):
         all.update(globals())
         objlst = sorted(conf.layers, key=lambda x: x.__name__)
         for o in objlst:
-            print "%-10s : %s" %(o.__name__,o.name)
+            print "%-10s : %s" %(o.__name__, o._name)
     else:
         is_pkt = isinstance(obj, Packet)
         if (isinstance(obj, type) and issubclass(obj, Packet)) or is_pkt:
