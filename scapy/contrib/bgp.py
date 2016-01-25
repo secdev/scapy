@@ -20,12 +20,13 @@ def classDispatcher(s,classDict,defClass,index_from=None):
     return Raw(s) if index_from throws an Exception"""
     try:
         index = index_from(s)
-        # print "in classDispatcher: index=%d keys=%s" % (index,repr(classDict.keys()))
-        cls = classDict[index] if index in classDict.keys() else defClass
+        cls = classDict[index] if index in classDict else defClass
     except:
         cls = Raw
-    # print repr(cls)
     return cls(s)
+
+afiNames = { 1: "IPv4", 2:"IPv6" }
+safiNames = { 1: "Unicast", 2: "Multicast", 128: "MPLS Labeled-VPN"}
 
 class BGPHeader(Packet):
     """The first part of any BGP packet"""
@@ -43,37 +44,132 @@ class BGPHeader(Packet):
 	    p = p[:16]+struct.pack("!H", l)+p[18:]
 	return p+pay
 
+#
+# -------------------  BGP Open message and capability negotiation
+#
 class BGPOptionalParameter(PadPacket):
     """Format of optional Parameter for BGP Open"""
     name = "BGP Optional Parameters"
     fields_desc = [
-	ByteField("type", 2),
-	ByteField("len", None),
-	StrLenField("value", "",  length_from = lambda x: x.len),
+        ByteField("type", 2),
+        FieldLenField("len", None,fmt="B",length_of="Value"),
+        StrLenField("value", "",  length_from = lambda x: x.len),
     ]
     def post_build(self,p,pay):
-	if self.len is None:
-	    l = len(p) - 2 # 2 is length without value
-	    p = p[:1]+struct.pack("!B", l)+p[2:]
-	return p+pay
+        if self.len is None:
+            l = len(p) - 2 # 2 is length without value
+            p = p[:1]+struct.pack("!B", l)+p[2:]
+        return p+pay
+
+class Capability(BGPOptionalParameter):
+    name = "MultiProtocol address family support"
+    fields_desc = [
+        ByteField("type", 2),
+        ByteField("len", None),
+        ByteField("capa_type",1),
+        FieldLenField("capa_len",None,fmt="B", length_of="capa_value"),
+        StrLenField("value", "",  length_from = lambda x: x.capa_len),
+    ]
+    def post_build(self,p,pay):
+        if self.len is None:
+            l = len(p) - 2      # length of the packet after 'len'
+            p = p[:1]+struct.pack("!B", l)+p[2:]
+        if self.capa_len is None:
+            cl = len(p) - 4     # length of the packet after 'capa_len'
+            p = p[:3]+chr(cl)+p[4:]
+        return p+pay
+
+class Capability_AFI(Capability):
+    name = "MultiProtocol address family support"
+    fields_desc = [
+        ByteField("type", 2),
+        ByteField("len", None),
+        ByteField("capa_type",1),
+        ByteField("capa_len",None),
+        ShortEnumField("afi",0,afiNames),
+        ByteField("reserved",0),
+        ByteEnumField("safi",0,safiNames)
+    ]
+
+class Capability_RR(BGPOptionalParameter):
+    name = "MultiProtocol route refresh"
+    fields_desc = [
+        ByteField("type", 2),
+        ByteField("len", None),
+        ByteField("capa_type",2),
+        ByteField("capa_len",0),
+    ]
+
+class GracefulAFI(Packet):
+    field_desc = [
+        ShortEnumField("AFI",0,afiNames),
+        ByteEnumField("SAFI",0,safiNames),
+        FlagsField("af_flags",0,8,
+            [
+                "AFF1","AFF2","AFF3","AFF4",
+                "AFF5","AFF6","AFF7","forward"
+            ])
+    ]
+class Capability_Graceful(Capability):
+    name = "MultiProtocol Graceful restart"
+    fields_desc = [
+        ByteField("type", 2),
+        ByteField("len", None),
+        ByteField("capa_type",64),
+        ByteField("capa_len",None),
+        FlagsField("restart_flags",0,4,["RR1", "RR2", "RR3","restart"]),
+        BitField("restart_time",0,12),
+        PacketListField("afi",[],GracefulAFI,
+            length_from = lambda p: p.capa_len-2)
+    ]
+
+class Capability_AS4(Capability):
+    name = "MultiProtocol 4-byte ASN"
+    fields_desc = [
+        ByteField("type", 2),
+        ByteField("len", None),
+        ByteField("capa_type",65),
+        ByteField("capa_len",None),
+        AS4Field("asn","AS0")
+    ]
+
+optParamDict = {
+    (2,1) :  Capability_AFI,
+    (2,2) :  Capability_RR,
+    (2,64) : Capability_Graceful,
+    (2,65) : Capability_AS4,
+}
+
+def getCapability(s):
+    return ord(s[0]), ord(s[2])
+    
+def OptParamDispatcher(s):
+    return classDispatcher(s,
+        optParamDict,
+        BGPOptionalParameter,
+        index_from = lambda s: getCapability(s)
+    )
 
 class BGPOpen(Packet):
     """ Opens a new BGP session"""
     name = "BGP Open Header"
     fields_desc = [
-	ByteField("version", 4),
-	ShortField("AS", 0),
-	ShortField("hold_time", 0),
-	IPField("bgp_id","0.0.0.0"),
-	ByteField("opt_parm_len", None),
-	PacketListField("opt_parm",[], BGPOptionalParameter, length_from=lambda p:p.opt_parm_len),
+        ByteField("version", 4),
+        ShortField("AS", 0),
+        ShortField("hold_time", 0),
+        IPField("bgp_id","0.0.0.0"),
+        ByteField("opt_parm_len", None),
+        PacketListField("opt_parm",[], OptParamDispatcher,
+            length_from=lambda p:p.opt_parm_len),
     ]
     def post_build(self, p, pay):
 	if self.opt_parm_len is None:
 	    l = len(p) - 10 # 10 is regular length with no additional options
 	    p = p[:9] + struct.pack("!B",l)  +p[10:]
 	return p+pay
-
+#
+# -----------------------------------------------------
+#
 class BGPAuthenticationData(Packet):
     name = "BGP Authentication Data"
     fields_desc = [
@@ -82,7 +178,9 @@ class BGPAuthenticationData(Packet):
         FieldLenField("Algorithm", 0),
     ]
 
-
+#
+# ------------------  BGP Attributes
+#
 flagNames = ["NA0","NA1","NA2","NA3",
              "Extended-Length","Partial","Transitive","Optional"]
 
@@ -91,14 +189,6 @@ class BGPAttribute(PadPacket):
     name = "BGP Attribute fields"
     fields_desc = [
         FlagsField("flags", 0x40, 8, flagNames),
-        # ByteEnumField("type", 1, {1:"ORIGIN",
-        #                           2:"AS_PATH",
-        #                           3:"NEXT_HOP",
-        #                           4:"MULTI_EXIT_DISC",
-        #                           5:"LOCAL_PREF",
-        #                           6:"ATOMIC_AGGREGATE",
-        #                           7:"AGGREGATOR",
-        #                           8:"COMMUNITIES"}),
         ByteField("type",1),
         ConditionalField(ByteField("attr_len", None),
                          cond = lambda p: p.flags & 0x10 == 0),
@@ -257,8 +347,6 @@ class BGPClusterList(BGPAttribute):
                        length_from = lambda p: p.ext_len if p.attr_len is None else p.attr_len)
     ]
 
-afiNames = { 1: "IPv4", 2:"IPv6" }
-safiNames = { 1: "Unicast", 2: "Multicast", 128: "MPLS Labeled-VPN"}
 
 class MPNLRIReach(PadPacket):
     """Generalised Multi-Protocol BGP reach information"""
@@ -400,22 +488,133 @@ class BGPUpdate(PadPacket):
 	    p = p[:2+wl]+struct.pack("!H", l)+p[4+wl:]
 	return p+pay
 
+#
+# -------------------- Notifications -------
+#
+class HeaderNotification(PadPacket):
+    name="Header Error Notification"
+    fields_desc = [
+        ByteField("ErrorCode",1),
+        ByteEnumField("SubErrorCode",0,{
+            1 : "Connection Not Synchronized",
+            2 : "Bad Message Length",
+            3 : "Bad Message Type",
+        })]
+
+class OpenNotification(PadPacket):
+    name="Open Error Notification"
+    fields_desc = [
+        ByteField("ErrorCode",2),
+        ByteEnumField("SubErrorCode",0,{
+            1 : "Unsupported Version Number",
+            2 : "Bad Peer AS",
+            3 : "Bad BGP Identifier",
+            4 : "Unsupported Optional Parameter",
+            5 : "[Deprecated]",
+            6 : "Unacceptable Hold Time",
+            7 : "Unsupported Capability",
+        })]
+
+class UpdateNotification(PadPacket):
+    name="Update Notification"
+    fields_desc = [
+        ByteField("ErrorCode",3),
+        ByteEnumField("SubErrorCode",0,{
+            1 : "Malformed Attribute List",
+            2 : "Unrecognized Well-known Attribute",
+            3 : "Missing Well-known Attribute",
+            4 : "Attribute Flags Error",
+            5 : "Attribute Length Error",
+            6 : "Invalid ORIGIN Attribute",
+            7 : "[Deprecated]",
+            8 : "Invalid NEXT_HOP Attribute",
+            9 : "Optional Attribute Error",
+            10 : "Invalid Network Field",
+            11 : "Malformed AS_PATH",
+        })]
+
+class FSMNotification(PadPacket):
+    name="FSM Notification"
+    fields_desc = [
+        ByteField("ErrorCode",5),
+        ByteEnumField("SubErrorCode",0,{
+            1 : "Receive Unexpected Message in OpenSent State",
+            2 : "Receive Unexpected Message in OpenConfirm State",
+            3 : "Receive Unexpected Message in Established State",
+        })]
+
+class CeaseNotification(PadPacket):
+    name="Cease Notification"
+    fields_desc = [
+        ByteField("ErrorCode",6),
+        ByteEnumField("SubErrorCode",0,{
+            1 : "Maximum Number of Prefixes Reached",
+            2 : "Administrative Shutdown",
+            3 : "Peer De-configured",
+            4 : "Administrative Reset",
+            5 : "Connection Rejected",
+            6 : "Other Configuration Change",
+            7 : "Connection Collision Resolution",
+            8 : "Out of Resources",
+        })]
+        
+class RRNotification(PadPacket):
+    """RFC 7313"""
+    name="RR Notification"
+    fields_desc = [
+        ByteField("ErrorCode",6),
+        ByteEnumField("SubErrorCode",0,{
+            1 : "Invalid Message Length",
+        })
+    ]
+
+class DefaultNotification(PadPacket):
+    fields_desc = [
+        ByteEnumField("ErrorCode",0,{
+            1:"Message Header Error",
+            2:"OPEN Message Error",
+            3:"UPDATE Messsage Error",
+            4:"Hold Timer Expired",
+            5:"Finite State Machine Error",
+            6:"Cease",
+            7:"Route Refresh ERROR"}),
+        ByteField("SubErrorCode",0)
+    ]
+    
+notificationDict = {
+    1: HeaderNotification,
+    2: OpenNotification,
+    3: UpdateNotification,
+    5: FSMNotification,
+    6: CeaseNotification,
+    7: RRNotification,
+}
+
+def NotificationDispatcher(s):
+    return classDispatcher(s,
+            notificationDict,
+            DefaultNotification,
+            index_from = lambda s: ord(s[0])
+        )
+
 class BGPNotification(Packet):
     name = "BGP Notification fields"
     fields_desc = [
-        ByteEnumField("ErrorCode",0,{1:"Message Header Error",2:"OPEN Message Error",3:"UPDATE Messsage Error",4:"Hold Timer Expired",5:"Finite State Machine",6:"Cease"}),
-        ByteEnumField("ErrorSubCode",0,{1:"MessageHeader",2:"OPENMessage",3:"UPDATEMessage"}),
-        LongField("Data", 0),
+        PacketField("Notification",None,NotificationDispatcher),
+        FieldListField("Data", [], ByteField("",None)),
     ]
 
-class BGPErrorSubcodes(Packet):
-    name = "BGP Error Subcodes"
-    Fields_desc = [
-        ByteEnumField("MessageHeader",0,{1:"Connection Not Synchronized",2:"Bad Message Length",3:"Bad Messsage Type"}),
-        ByteEnumField("OPENMessage",0,{1:"Unsupported Version Number",2:"Bad Peer AS",3:"Bad BGP Identifier",4:"Unsupported Optional Parameter",5:"Authentication Failure",6:"Unacceptable Hold Time"}),
-        ByteEnumField("UPDATEMessage",0,{1:"Malformed Attribute List",2:"Unrecognized Well-Known Attribute",3:"Missing Well-Known Attribute",4:"Attribute Flags Error",5:"Attribute Length Error",6:"Invalid ORIGIN Attribute",7:"AS Routing Loop",8:"Invalid NEXT_HOP Attribute",9:"Optional Attribute Error",10:"Invalid Network Field",11:"Malformed AS_PATH"}),
-    ]
-
+#class BGPErrorSubcodes(Packet):
+    #name = "BGP Error Subcodes"
+    #Fields_desc = [
+        #ByteEnumField("MessageHeader",0,{1:"Connection Not Synchronized",2:"Bad Message Length",3:"Bad Messsage Type"}),
+        #ByteEnumField("OPENMessage",0,{1:"Unsupported Version Number",2:"Bad Peer AS",3:"Bad BGP Identifier",4:"Unsupported Optional Parameter",5:"Authentication Failure",6:"Unacceptable Hold Time"}),
+        #ByteEnumField("UPDATEMessage",0,{1:"Malformed Attribute List",2:"Unrecognized Well-Known Attribute",3:"Missing Well-Known Attribute",4:"Attribute Flags Error",5:"Attribute Length Error",6:"Invalid ORIGIN Attribute",7:"AS Routing Loop",8:"Invalid NEXT_HOP Attribute",9:"Optional Attribute Error",10:"Invalid Network Field",11:"Malformed AS_PATH"}),
+    #]
+#
+#
+# ---- BGPTraffic
+#
 class BGPTraffic(Packet):
     """BGP Packets"""
     # name="BGPTraffic"
@@ -426,9 +625,10 @@ class BGPTraffic(Packet):
 
 bind_layers( TCP,             BGPTraffic,  dport=179)
 bind_layers( TCP,             BGPTraffic,  sport=179)
-bind_layers( BGPHeader,       BGPOpen,     type=1)
-bind_layers( BGPHeader,       BGPUpdate,   type=2)
-bind_layers( BGPHeader,       BGPHeader,   type=4)
+bind_layers( BGPHeader,       BGPOpen,          type=1)
+bind_layers( BGPHeader,       BGPUpdate,        type=2)
+bind_layers( BGPHeader,       BGPNotification,  type=3)
+#bind_layers( BGPHeader,       BGPHeader,        type=4)
 
 
 if __name__ == "__main__":

@@ -124,3 +124,16 @@ MPIPv6Unreach(str(mpu)).show()
 
 unr=BGPMPUnreach(mp_unreach=mpu)
 BGPMPUnreach(str(unr)).show()
+
+= Capabilities
+
+capa_afi = Capability_AFI(afi=2,safi=1)
+Capability_AFI(str(capa_afi)).show()
+
+capa_graceful = Capability_Graceful(restart_time=90,afi=[])
+Capability_Graceful(str(capa_graceful)).show()
+
+open = BGPOpen(AS=65001,hold_time=90,bgp_id="10.0.0.1",opt_parm = [
+	capa_afi, capa_graceful
+])
+BGPOpen(str(open)).show()
