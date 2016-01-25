@@ -7,7 +7,8 @@
 Packet class. Binding mechanism. fuzz() method.
 """
 
-import time,itertools,os
+import re
+import time,itertools
 import copy
 from fields import StrField,ConditionalField,Emph,PacketListField,BitField
 from config import conf
@@ -1238,16 +1239,24 @@ def split_layers(lower, upper, __fval=None, **fval):
 
 
 @conf.commands.register
-def ls(obj=None):
-    """List  available layers, or infos on a given layer"""
-    if obj is None:
-        
-        import __builtin__
-        all = __builtin__.__dict__.copy()
-        all.update(globals())
-        objlst = sorted(conf.layers, key=lambda x: x.__name__)
-        for o in objlst:
-            print "%-10s : %s" %(o.__name__,o.name)
+def ls(obj=None, case_sensitive=False):
+    """List  available layers, or infos on a given layer class or name"""
+    is_string = isinstance(obj, basestring)
+
+    if obj is None or is_string:
+
+        if obj is None:
+            all_layers = sorted(conf.layers, key=lambda x: x.__name__)
+        else:
+            pattern = re.compile(obj, 0 if case_sensitive else re.I)
+            all_layers = sorted((layer for layer in conf.layers
+                            if (pattern.search(layer.__name__ or '')
+                                or pattern.search(layer.name or ''))),
+                            key=lambda x: x.__name__)
+
+        for layer in all_layers:
+            print "%-10s : %s" % (layer.__name__, layer.name)
+
     else:
         is_pkt = isinstance(obj, Packet)
         if (isinstance(obj, type) and issubclass(obj, Packet)) or is_pkt:
@@ -1273,7 +1282,7 @@ def ls(obj=None):
                 ls(obj.payload)
 
         else:
-            print "Not a packet class. Type 'ls()' to list packet classes."
+            print "Not a packet class or name. Type 'ls()' to list packet classes."
 
 
     
