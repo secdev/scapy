@@ -24,7 +24,7 @@ from scapy.arch import plt, MATPLOTLIB_INLINED, MATPLOTLIB_DEFAULT_PLOT_KARGS
 #############
 
 class PacketList(BasePacketList):
-    res = []
+    __slots__ = ["stats", "res", "listname"]
     def __init__(self, res=None, name="PacketList", stats=None):
         """create a packet list from a list of packets
            res: the list of packets
@@ -38,6 +38,8 @@ class PacketList(BasePacketList):
             res = res.res
         self.res = res
         self.listname = name
+    def __len__(self):
+        return len(self.res)
     def _elt2pkt(self, elt):
         return elt
     def _elt2sum(self, elt):
@@ -45,8 +47,7 @@ class PacketList(BasePacketList):
     def _elt2show(self, elt):
         return self._elt2sum(elt)
     def __repr__(self):
-#        stats=dict.fromkeys(self.stats,0) ## needs python >= 2.3  :(
-        stats = dict(map(lambda x: (x,0), self.stats))
+        stats = dict((x, 0) for x in self.stats)
         other = 0
         for r in self.res:
             f = 0
@@ -60,7 +61,7 @@ class PacketList(BasePacketList):
         s = ""
         ct = conf.color_theme
         for p in self.stats:
-            s += " %s%s%s" % (ct.packetlist_proto(p.name),
+            s += " %s%s%s" % (ct.packetlist_proto(p._name),
                               ct.punct(":"),
                               ct.packetlist_value(stats[p]))
         s += " %s%s%s" % (ct.packetlist_proto("Other"),
@@ -520,6 +521,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
 
 
 class SndRcvList(PacketList):
+    __slots__ = []
     def __init__(self, res=None, name="Results", stats=None):
         PacketList.__init__(self, res, name, stats)
     def _elt2pkt(self, elt):

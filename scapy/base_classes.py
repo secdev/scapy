@@ -17,6 +17,7 @@ import error
 import types
 
 class Gen(object):
+    __slots__ = []
     def __iter__(self):
         return iter([])
     
@@ -177,11 +178,27 @@ class Packet_metaclass(type):
 
             dct["fields_desc"] = final_fld
 
+        if "__slots__" not in dct:
+            dct["__slots__"] = []
+        if "name" in dct:
+            dct["_name"] = dct.pop("name")
         newcls = super(Packet_metaclass, cls).__new__(cls, name, bases, dct)
+        newcls.__all_slots__ = set(
+            attr
+            for cls in newcls.__mro__ if hasattr(cls, "__slots__")
+            for attr in cls.__slots__
+        )
+
+        if hasattr(newcls, "aliastypes"):
+            newcls.aliastypes = [newcls] + newcls.aliastypes
+        else:
+            newcls.aliastypes = [newcls]
+
         if hasattr(newcls,"register_variant"):
             newcls.register_variant()
-        for f in newcls.fields_desc:                
-            f.register_owner(newcls)
+        for f in newcls.fields_desc:
+            if hasattr(f, "register_owner"):
+                f.register_owner(newcls)
         config.conf.layers.register(newcls)
         return newcls
 
@@ -198,6 +215,12 @@ class Packet_metaclass(type):
         i.__init__(*args, **kargs)
         return i
 
+class Field_metaclass(type):
+    def __new__(cls, name, bases, dct):
+        if "__slots__" not in dct:
+            dct["__slots__"] = []
+        newcls = super(Field_metaclass, cls).__new__(cls, name, bases, dct)
+        return newcls
 
 class NewDefaultValues(Packet_metaclass):
     """NewDefaultValues is deprecated (not needed anymore)
@@ -222,15 +245,12 @@ class NewDefaultValues(Packet_metaclass):
         return super(NewDefaultValues, cls).__new__(cls, name, bases, dct)
 
 class BasePacket(Gen):
-    pass
+    __slots__ = []
 
 
 #############################
 ## Packet list base classe ##
 #############################
 
-class BasePacketList:
-    pass
-
-
-
+class BasePacketList(object):
+    __slots__ = []

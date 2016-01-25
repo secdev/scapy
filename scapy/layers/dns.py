@@ -52,6 +52,7 @@ class DNSStrField(StrField):
 
 
 class DNSRRCountField(ShortField):
+    __slots__ = ["rr"]
     def __init__(self, name, default, rr):
         ShortField.__init__(self, name, default)
         self.rr = rr
@@ -106,7 +107,8 @@ def DNSgetstr(s,p):
         
 
 class DNSRRField(StrField):
-    holds_packets=1
+    __slots__ = ["countfld", "passon"]
+    holds_packets = 1
     def __init__(self, name, countfld, passon=1):
         StrField.__init__(self, name, None)
         self.countfld = countfld

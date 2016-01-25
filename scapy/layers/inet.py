@@ -28,8 +28,9 @@ from scapy.arch import plt, MATPLOTLIB_INLINED, MATPLOTLIB_DEFAULT_PLOT_KARGS
 ## IP Tools class ##
 ####################
 
-class IPTools:
-    """Add more powers to a class that have a "src" attribute."""
+class IPTools(object):
+    """Add more powers to a class with an "src" attribute."""
+    __slots__ = []
     def whois(self):
         os.system("whois %s" % self.src)
     def ottl(self):
@@ -965,6 +966,7 @@ PacketList.timeskew_graph = new.instancemethod(_packetlist_timeskew_graph, None,
 
 ### Create a new packet list
 class TracerouteResult(SndRcvList):
+    __slots__ = ["graphdef", "graphASres", "padding", "hloc", "nloc"]
     def __init__(self, res=None, name="Traceroute", stats=None):
         PacketList.__init__(self, res, name, stats)
         self.graphdef = None

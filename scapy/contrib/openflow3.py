@@ -536,6 +536,8 @@ need_prereq = { 14: [12, 0x1000],
 
 class OXMPacketListField(PacketListField):
 
+    __slots__ = ["autocomplete", "index"]
+
     def __init__(self, name, default, cls, length_from=None, autocomplete=prereq_autocomplete):
         PacketListField.__init__(self, name, default, cls, length_from=length_from)
         self.autocomplete = autocomplete
