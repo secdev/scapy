@@ -185,7 +185,7 @@ class ASN1F_enum_INTEGER(ASN1F_INTEGER):
             return self.any2i_one(pkt, x)        
     def i2repr_one(self, pkt, x):
         if x is not None:
-            r = self.i2s.get(x.val)
+            r = self.i2s.get(x)
             if r:
                 return r + " " + repr(x)
         return repr(x)
@@ -393,6 +393,10 @@ class ASN1F_optional(ASN1F_field):
         if self._field.is_empty(pkt):
             return ""
         return self._field.build(pkt)
+    def any2i(self, pkt, x):
+        return self._field.any2i(pkt, x)
+    def i2repr(self, pkt, x):
+        return self._field.i2repr(pkt, x)
 
 class ASN1F_CHOICE(ASN1F_field):
     """
