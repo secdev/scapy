@@ -7,6 +7,7 @@
 Packet class. Binding mechanism. fuzz() method.
 """
 
+import re
 import time,itertools
 import copy
 from fields import StrField,ConditionalField,Emph,PacketListField,BitField
