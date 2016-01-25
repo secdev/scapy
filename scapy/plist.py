@@ -212,9 +212,11 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
             kargs = MATPLOTLIB_DEFAULT_PLOT_KARGS
 
         if plot_xy:
-            lines = [plt.plot(*zip(*pl), label=k, **kargs) for k, pl in d.iteritems()]
+            lines = [plt.plot(*zip(*pl), **dict(kargs, label=k))
+                     for k, pl in d.iteritems()]
         else:
-            lines = [plt.plot(pl, label=k, **kargs) for k, pl in d.iteritems()]
+            lines = [plt.plot(pl, **dict(kargs, label=k))
+                     for k, pl in d.iteritems()]
         plt.legend(loc="center right", bbox_to_anchor=(1.5, 0.5))
 
         # Call show() if matplotlib is not inlined
