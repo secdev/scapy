@@ -6,7 +6,7 @@
 ## This program is published under a GPLv2 license
 
 """
-Basic Encoding Rules (BER) for ASN1.1
+Basic Encoding Rules (BER) for ASN.1
 """
 
 from scapy.error import warning
