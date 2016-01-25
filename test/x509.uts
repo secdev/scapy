@@ -1,18 +1,14 @@
-# load me with
-# python scapy/tools/UTscapy.py -m scapy/layers/x509 -t scapy/layers/x509.uts -F
-#
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Author: Maxence Tury <maxence.tury@ssi.gouv.fr>
-## This program is published under a GPLv2 license
-
-# X509 module - Regression Test Campaign
+# X.509 unit tests
+# 
+# Launch me with:
+# sudo bash test/run_tests -t test/x509.uts -F
 
 ########### Key class ###############################################
 
 + Private RSA & ECDSA keys class tests
 = Key class : Importing DER encoded RSA private key
-x=RSAPrivateKey(open("scapy/layers/x509_uts_rsakey.der").read())
+k='MIIEowIBAAKCAQEAmFdqP+nTEZukS0lLP+yj1gNImsEIf7P2ySTunceYxwkm4VE5QReDbb2L5/HL\nA9pPmIeQLSq/BgO1meOcbOSJ2YVHQ28MQ56+8Crb6n28iycX4hp0H3AxRAjh0edX+q3yilvYJ4W9\n/NnIb/wAZwS0oJif/tTkVF77HybAfJde5Eqbp+bCKIvMWnambh9DRUyjrBBZo5dA1o32zpuFBrJd\nI8dmUpw9gtf0F0Ba8lGZm8Uqc0GyXeXOJUE2u7CiMu3M77BM6ZLLTcow5+bQImkmTL1SGhzwfinM\nE1e6p3Hm//pDjuJvFaY22k05LgLuyqc59vFiB3Toldz8+AbMNjvzAwIDAQABAoIBAH3KeJZL2hhI\n/1GXNMaU/PfDgFkgmYbxMA8JKusnm/SFjxAwBGnGI6UjBXpBgpQs2Nqm3ZseF9u8hmCKvGiCEX2G\nesCo2mSfmSQxD6RBrMTuQ99UXpxzBIscFnM/Zrs8lPBARGzmF2nI3qPxXtex4ABX5o0Cd4NfZlZj\npj96skUoO8+bd3I4OPUFYFFFuv81LoSQ6Hew0a8xtJXtKkDp9h1jTGGUOc189WACNoBLH0MGeVoS\nUfc1++RcC3cypUZ8fNP1OO6GBfv06f5oXES4ZbxGYpa+nCfNwb6V2gWbkvaYm7aFn0KWGNZXS1P3\nOcWv6IWdOmg2CI7MMBLJ0LyWVCECgYEAyMJYw195mvHl8VyxJ3HkxeQaaozWL4qhNQ0Kaw+mzD+j\nYdkbHb3aBYghsgEDZjnyOVblC7I+4smvAZJLWJaf6sZ5HAw3zmj1ibCkXx7deoRc/QVcOikl3dE/\nymO0KGJNiGzJZmxbRS3hTokmVPuxSWW4p5oSiMupFHKa18Uv8DECgYEAwkJ7iTOUL6b4e3lQuHQn\nJbsiQpd+P/bsIPP7kaaHObewfHpfOOtIdtN4asxVFf/PgW5uWmBllqAHZYR14DEYIdL+hdLrdvk5\nnYQ3YfhOnp+haHUPCdEiXrRZuGXjmMA4V0hL3HPF5ZM8H80fLnN8Pgn2rIC7CZQ46y4PnoV1nXMC\ngYBBwCUCF8rkDEWa/ximKo8aoNJmAypC98xEa7j1x3KBgnYoHcrbusok9ajTe7F5UZEbZnItmnsu\nG4/Nm/RBV1OYuNgBb573YzjHl6q93IX9EkzCMXc7NS7JrzaNOopOj6OFAtwTR3m89oHMDu8W9jfi\nKgaIHdXkJ4+AuugrstE4gQKBgFK0d1/8g7SeA+Cdz84YNaqMt5NeaDPXbsTA23QxUBU0rYDxoKTd\nFybv9a6SfA83sCLM31K/A8FTNJL2CDGA9WNBL3fOSs2GYg88AVBGpUJHeDK+0748OcPUSPaG+pVI\nETSn5RRgffq16r0nWYUvSdAn8cuTqw3y+yC1pZS6AU8dAoGBAL5QCi0dTWKN3kf3cXaCAnYiWe4Q\ng2S+SgLE+F1U4Xws2rqAuSvIiuT5i5+Mqk9ZCGdoReVbAovJFoRqe7Fj9yWM+b1awGjL0bOTtnqx\n0iljob6uFyhpl1xgW3a3ICJ/ZYLvkgb4IBEteOwWpp37fX57vzhW8EmUV2UX7ve1uNRI'.decode('base64')
+x=RSAPrivateKey(k)
 
 = Key class : key version
 x.version == ASN1_INTEGER(0L)
@@ -46,10 +42,11 @@ x.coefficient == ASN1_INTEGER(13364209135497709980522851534062695694375984073722
 
 + X509_Cert class tests
 = Cert class : Importing DER encoded X.509 Certificate with RSA public key
-x=X509_Cert(open("scapy/layers/x509_uts_cert.der").read())
+c='MIIFEjCCA/qgAwIBAgIJALRecEPnCQtxMA0GCSqGSIb3DQEBBQUAMIG2MQswCQYDVQQGEwJGUjEO\nMAwGA1UECBMFUGFyaXMxDjAMBgNVBAcTBVBhcmlzMRcwFQYDVQQKEw5NdXNocm9vbSBDb3JwLjEe\nMBwGA1UECxMVTXVzaHJvb20gVlBOIFNlcnZpY2VzMSUwIwYDVQQDExxJS0V2MiBYLjUwOSBUZXN0\nIGNlcnRpZmljYXRlMScwJQYJKoZIhvcNAQkBFhhpa2V2Mi10ZXN0QG11c2hyb29tLmNvcnAwHhcN\nMDYwNzEzMDczODU5WhcNMjYwMzMwMDczODU5WjCBtjELMAkGA1UEBhMCRlIxDjAMBgNVBAgTBVBh\ncmlzMQ4wDAYDVQQHEwVQYXJpczEXMBUGA1UEChMOTXVzaHJvb20gQ29ycC4xHjAcBgNVBAsTFU11\nc2hyb29tIFZQTiBTZXJ2aWNlczElMCMGA1UEAxMcSUtFdjIgWC41MDkgVGVzdCBjZXJ0aWZpY2F0\nZTEnMCUGCSqGSIb3DQEJARYYaWtldjItdGVzdEBtdXNocm9vbS5jb3JwMIIBIjANBgkqhkiG9w0B\nAQEFAAOCAQ8AMIIBCgKCAQEAmFdqP+nTEZukS0lLP+yj1gNImsEIf7P2ySTunceYxwkm4VE5QReD\nbb2L5/HLA9pPmIeQLSq/BgO1meOcbOSJ2YVHQ28MQ56+8Crb6n28iycX4hp0H3AxRAjh0edX+q3y\nilvYJ4W9/NnIb/wAZwS0oJif/tTkVF77HybAfJde5Eqbp+bCKIvMWnambh9DRUyjrBBZo5dA1o32\nzpuFBrJdI8dmUpw9gtf0F0Ba8lGZm8Uqc0GyXeXOJUE2u7CiMu3M77BM6ZLLTcow5+bQImkmTL1S\nGhzwfinME1e6p3Hm//pDjuJvFaY22k05LgLuyqc59vFiB3Toldz8+AbMNjvzAwIDAQABo4IBHzCC\nARswHQYDVR0OBBYEFPPYTt6Q9+Zd0s4zzVxWjG+XFDFLMIHrBgNVHSMEgeMwgeCAFPPYTt6Q9+Zd\n0s4zzVxWjG+XFDFLoYG8pIG5MIG2MQswCQYDVQQGEwJGUjEOMAwGA1UECBMFUGFyaXMxDjAMBgNV\nBAcTBVBhcmlzMRcwFQYDVQQKEw5NdXNocm9vbSBDb3JwLjEeMBwGA1UECxMVTXVzaHJvb20gVlBO\nIFNlcnZpY2VzMSUwIwYDVQQDExxJS0V2MiBYLjUwOSBUZXN0IGNlcnRpZmljYXRlMScwJQYJKoZI\nhvcNAQkBFhhpa2V2Mi10ZXN0QG11c2hyb29tLmNvcnCCCQC0XnBD5wkLcTAMBgNVHRMEBTADAQH/\nMA0GCSqGSIb3DQEBBQUAA4IBAQA2zt0BvXofiVvHMWlftZCstQaawej1SmxrAfDB4NUM24NsG+UZ\nI88XA5XM6QolmfyKnNromMLC1+6CaFxjq3jC/qdS7ifalFLQVo7ik/te0z6Olo0RkBNgyagWPX2L\nR5kHe9RvSDuoPIsbSHMmJA98AZwatbvEhmzMINJNUoHVzhPeHZnIaBgUBg02XULk/ElidO51Rf3g\nh8dR/kgFQSQT687vs1x9TWD00z0Q2bs2UF3Ob3+NYkEGEo5F9RePQm0mY94CT2xs6WpHo060Fo7f\nVpAFktMWx1vpu+wsEbQAhgGqV0fCR2QwKDIbTrPW/p9HJtJDYVjYdAFxr3s7V77y'.decode('base64')
+x=X509_Cert(c)
 
 = Cert class : Rebuild certificate
-str(x) == open("scapy/layers/x509_uts_cert.der").read()
+str(x) == c
 
 = Cert class : Version
 tbs = x.tbsCertificate
@@ -129,10 +126,11 @@ str(X509_Cert(str(X509_Cert()))) == str(X509_Cert())
 
 + X509_CRL class tests
 = CRL class : Importing DER encoded X.509 CRL
-x=X509_CRL(open("scapy/layers/x509_uts_crl.der").read())
+c='MIICHjCCAYcwDQYJKoZIhvcNAQEFBQAwXzELMAkGA1UEBhMCVVMxFzAVBgNVBAoTDlZlcmlTaWdu\nLCBJbmMuMTcwNQYDVQQLEy5DbGFzcyAxIFB1YmxpYyBQcmltYXJ5IENlcnRpZmljYXRpb24gQXV0\naG9yaXR5Fw0wNjExMDIwMDAwMDBaFw0wNzAyMTcyMzU5NTlaMIH2MCECECzSS2LEl6QXzW6jyJx6\nLcgXDTA0MDQwMTE3NTYxNVowIQIQOkXeVssCzdzcTndjIhvU1RcNMDEwNTA4MTkyMjM0WjAhAhBB\nXYg2gRUg1YCDRqhZkngsFw0wMTA3MDYxNjU3MjNaMCECEEc5gf/9hIHxlfnrGMJ8DfEXDTAzMDEw\nOTE4MDYxMlowIQIQcFR+auK62HZ/R6mZEEFeZxcNMDIwOTIzMTcwMDA4WjAhAhB+C13eGPI5ZoKm\nj2UiOCPIFw0wMTA1MDgxOTA4MjFaMCICEQDQVEhgGGfTrTXKLw1KJ5VeFw0wMTEyMTExODI2MjFa\nMA0GCSqGSIb3DQEBBQUAA4GBACLJ9rsdoaU9JMf/sCIRs3AGW8VV3TN2oJgiCGNEac9PRyV3mRKE\n0hmuIJTKLFSaa4HSAzimWpWNKuJhztsZzXUnWSZ8VuHkgHEaSbKqzUlb2g+o/848CvzJrcbeyEBk\nDCYJI5C3nLlQA49LGJ+w4GUPYBwaZ+WFxCX1C8kzglLm'.decode('base64')
+x=X509_CRL(c)
 
 = CRL class : Rebuild crl
-str(x) == open("scapy/layers/x509_uts_crl.der").read()
+str(x) == c
 
 = CRL class : Version
 tbs = x.tbsCertList
