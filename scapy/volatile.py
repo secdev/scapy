@@ -648,6 +648,13 @@ class ZuluTime(AutoTime):
         return time.strftime("%y%m%d%H%M%SZ",time.gmtime(time.time()+self.diff))
 
 
+class GeneralizedTime(AutoTime):
+    def __init__(self, diff=None):
+        self.diff=diff
+    def _fix(self):
+        return time.strftime("%Y%m%d%H%M%SZ",time.gmtime(time.time()+self.diff))
+
+
 class DelayedEval(VolatileValue):
     """ Exemple of usage: DelayedEval("time.time()") """
     def __init__(self, expr):
