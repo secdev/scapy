@@ -256,7 +256,7 @@ class _DHCP6OptGuessPayload(Packet):
         return cls
 
 class DHCP6OptUnknown(_DHCP6OptGuessPayload): # A generic DHCPv6 Option
-    name = "Unknown DHCPv6 OPtion"
+    name = "Unknown DHCPv6 Option"
     fields_desc = [ ShortEnumField("optcode", 0, dhcp6opts), 
                     FieldLenField("optlen", None, length_of="data", fmt="!H"),
                     StrLenField("data", "",
@@ -921,7 +921,7 @@ DHCP6PrefVal="" # la valeur de preference a utiliser dans
 # a chaque emission et doivent matcher dans les reponses faites par
 # les clients
 class DHCP6(_DHCP6OptGuessPayload):
-    name = "DHCPv6 Generic Message)"
+    name = "DHCPv6 Generic Message"
     fields_desc = [ ByteEnumField("msgtype",None,dhcp6types),
                     X3BytesField("trid",0x000000) ]
     overload_fields = { UDP: {"sport": 546, "dport": 547} }
