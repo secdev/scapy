@@ -210,7 +210,12 @@ class Packet_metaclass(type):
 
     def __call__(cls, *args, **kargs):
         if "dispatch_hook" in cls.__dict__:
-            cls =  cls.dispatch_hook(*args, **kargs)
+            try:
+                cls = cls.dispatch_hook(*args, **kargs)
+            except:
+                if conf.debug_dissector:
+                    raise
+                cls = Raw
         i = cls.__new__(cls, cls.__name__, cls.__bases__, cls.__dict__)
         i.__init__(*args, **kargs)
         return i
