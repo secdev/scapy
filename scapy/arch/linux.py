@@ -328,9 +328,7 @@ class L3PacketSocket(SuperSocket):
         self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 2**30)
         self.outs = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))
         self.outs.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 2**30)
-        if promisc is None:
-            promisc = conf.promisc
-        self.promisc = promisc
+        self.promisc = conf.promisc if promisc is None else promisc
         if self.promisc:
             if iface is None:
                 self.iff = get_if_list()
@@ -344,7 +342,7 @@ class L3PacketSocket(SuperSocket):
     def close(self):
         if self.closed:
             return
-        self.closed=1
+        self.closed = 1
         if self.promisc:
             for i in self.iff:
                 set_promisc(self.ins, i, 0)
@@ -408,9 +406,8 @@ class L3PacketSocket(SuperSocket):
 
 class L2Socket(SuperSocket):
     desc = "read/write packets at layer 2 using Linux PF_PACKET sockets"
-    def __init__(self, iface = None, type = ETH_P_ALL, filter=None, nofilter=0):
-        if iface is None:
-            iface = conf.iface
+    def __init__(self, iface=None, type=ETH_P_ALL, promisc=None, filter=None, nofilter=0):
+        self.iface = conf.iface if iface is None else iface
         self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))
         self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 0)
         if not nofilter: 
@@ -421,7 +418,10 @@ class L2Socket(SuperSocket):
                     filter = "not (%s)" % conf.except_filter
             if filter is not None:
                 attach_filter(self.ins, filter)
-        self.ins.bind((iface, type))
+        self.promisc = conf.sniff_promisc if promisc is None else promisc
+        if self.promisc:
+            set_promisc(self.ins, self.iface)
+        self.ins.bind((self.iface, type))
         _flush_fd(self.ins)
         self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 2**30)
         self.outs = self.ins
@@ -434,7 +434,13 @@ class L2Socket(SuperSocket):
         else:
             self.LL = conf.default_l2
             warning("Unable to guess type (interface=%s protocol=%#x family=%i). Using %s" % (sa_ll[0],sa_ll[1],sa_ll[3],self.LL.name))
-            
+    def close(self):
+        if self.closed:
+            return
+        self.closed = 1
+        if self.promisc:
+            set_promisc(self.ins, self.iface, 0)
+        SuperSocket.close(self)
     def recv(self, x=MTU):
         pkt, sa_ll = self.ins.recvfrom(x)
         if sa_ll[2] == socket.PACKET_OUTGOING:
