@@ -2306,8 +2306,8 @@ c = ICMPv6NIQueryIPv6(flags="C")
 l = ICMPv6NIQueryIPv6(flags="L")
 s = ICMPv6NIQueryIPv6(flags="S")
 g = ICMPv6NIQueryIPv6(flags="G")
-all = ICMPv6NIQueryIPv6(flags="TALCLSG")
-t.flags == 1 and a.flags == 2 and c.flags == 4 and l.flags == 8 and s.flags == 16 and g.flags == 32 and all.flags == 63
+allflags = ICMPv6NIQueryIPv6(flags="TALCLSG")
+t.flags == 1 and a.flags == 2 and c.flags == 4 and l.flags == 8 and s.flags == 16 and g.flags == 32 and allflags.flags == 63
 
 
 = ICMPv6NIQuery* - flags handling (Test 2)
@@ -2317,8 +2317,8 @@ c = str(ICMPv6NIQueryNOOP(flags="C", nonce="A"*8))[6:8]
 l = str(ICMPv6NIQueryNOOP(flags="L", nonce="A"*8))[6:8]
 s = str(ICMPv6NIQueryNOOP(flags="S", nonce="A"*8))[6:8]
 g = str(ICMPv6NIQueryNOOP(flags="G", nonce="A"*8))[6:8]
-all = str(ICMPv6NIQueryNOOP(flags="TALCLSG", nonce="A"*8))[6:8]
-t == '\x00\x01' and a == '\x00\x02' and c == '\x00\x04' and l == '\x00\x08' and s == '\x00\x10' and g == '\x00\x20' and all == '\x00\x3F'
+allflags = str(ICMPv6NIQueryNOOP(flags="TALCLSG", nonce="A"*8))[6:8]
+t == '\x00\x01' and a == '\x00\x02' and c == '\x00\x04' and l == '\x00\x08' and s == '\x00\x10' and g == '\x00\x20' and allflags == '\x00\x3F'
 
 
 = ICMPv6NIReply* - flags handling (Test 1)
@@ -2328,8 +2328,8 @@ c = ICMPv6NIReplyIPv6(flags="C")
 l = ICMPv6NIReplyIPv6(flags="L")
 s = ICMPv6NIReplyIPv6(flags="S")
 g = ICMPv6NIReplyIPv6(flags="G")
-all = ICMPv6NIReplyIPv6(flags="TALCLSG")
-t.flags == 1 and a.flags == 2 and c.flags == 4 and l.flags == 8 and s.flags == 16 and g.flags == 32 and all.flags == 63
+allflags = ICMPv6NIReplyIPv6(flags="TALCLSG")
+t.flags == 1 and a.flags == 2 and c.flags == 4 and l.flags == 8 and s.flags == 16 and g.flags == 32 and allflags.flags == 63
 
 
 = ICMPv6NIReply* - flags handling (Test 2)
@@ -2339,8 +2339,8 @@ c = str(ICMPv6NIReplyNOOP(flags="C", nonce="A"*8))[6:8]
 l = str(ICMPv6NIReplyNOOP(flags="L", nonce="A"*8))[6:8]
 s = str(ICMPv6NIReplyNOOP(flags="S", nonce="A"*8))[6:8]
 g = str(ICMPv6NIReplyNOOP(flags="G", nonce="A"*8))[6:8]
-all = str(ICMPv6NIReplyNOOP(flags="TALCLSG", nonce="A"*8))[6:8]
-t == '\x00\x01' and a == '\x00\x02' and c == '\x00\x04' and l == '\x00\x08' and s == '\x00\x10' and g == '\x00\x20' and all == '\x00\x3F'
+allflags = str(ICMPv6NIReplyNOOP(flags="TALCLSG", nonce="A"*8))[6:8]
+t == '\x00\x01' and a == '\x00\x02' and c == '\x00\x04' and l == '\x00\x08' and s == '\x00\x10' and g == '\x00\x20' and allflags == '\x00\x3F'
 
 
 = ICMPv6NIQuery* - Flags Default values
