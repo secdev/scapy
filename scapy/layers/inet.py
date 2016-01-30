@@ -10,6 +10,8 @@ IPv4 (Internet Protocol v4).
 import os,time,struct,re,socket,new
 from select import select
 from collections import defaultdict
+import Gnuplot
+
 from scapy.utils import checksum
 from scapy.layers.l2 import *
 from scapy.config import conf
@@ -1111,7 +1113,8 @@ class TracerouteResult(SndRcvList):
                 
                 
     def world_trace(self):
-        from modules.geo import locate_ip
+        import GeoIP
+        db = GeoIP.open(conf.geoip_city, 0)
         ips = {}
         rt = {}
         ports_done = {}
@@ -1139,8 +1142,11 @@ class TracerouteResult(SndRcvList):
                 ip = trace.get(i,None)
                 if ip is None:
                     continue
-                loc = locate_ip(ip)
+                loc = db.record_by_addr(ip)
                 if loc is None:
+                    continue
+                loc = loc.get('longitude'), loc.get('latitude')
+                if loc == (None, None):
                     continue
 #                loctrace.append((ip,loc)) # no labels yet
                 loctrace.append(loc)
