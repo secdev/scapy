@@ -2306,8 +2306,8 @@ c = ICMPv6NIQueryIPv6(flags="C")
 l = ICMPv6NIQueryIPv6(flags="L")
 s = ICMPv6NIQueryIPv6(flags="S")
 g = ICMPv6NIQueryIPv6(flags="G")
-all = ICMPv6NIQueryIPv6(flags="TALCLSG")
-t.flags == 1 and a.flags == 2 and c.flags == 4 and l.flags == 8 and s.flags == 16 and g.flags == 32 and all.flags == 63
+allflags = ICMPv6NIQueryIPv6(flags="TALCLSG")
+t.flags == 1 and a.flags == 2 and c.flags == 4 and l.flags == 8 and s.flags == 16 and g.flags == 32 and allflags.flags == 63
 
 
 = ICMPv6NIQuery* - flags handling (Test 2)
@@ -2317,8 +2317,8 @@ c = str(ICMPv6NIQueryNOOP(flags="C", nonce="A"*8))[6:8]
 l = str(ICMPv6NIQueryNOOP(flags="L", nonce="A"*8))[6:8]
 s = str(ICMPv6NIQueryNOOP(flags="S", nonce="A"*8))[6:8]
 g = str(ICMPv6NIQueryNOOP(flags="G", nonce="A"*8))[6:8]
-all = str(ICMPv6NIQueryNOOP(flags="TALCLSG", nonce="A"*8))[6:8]
-t == '\x00\x01' and a == '\x00\x02' and c == '\x00\x04' and l == '\x00\x08' and s == '\x00\x10' and g == '\x00\x20' and all == '\x00\x3F'
+allflags = str(ICMPv6NIQueryNOOP(flags="TALCLSG", nonce="A"*8))[6:8]
+t == '\x00\x01' and a == '\x00\x02' and c == '\x00\x04' and l == '\x00\x08' and s == '\x00\x10' and g == '\x00\x20' and allflags == '\x00\x3F'
 
 
 = ICMPv6NIReply* - flags handling (Test 1)
@@ -2328,8 +2328,8 @@ c = ICMPv6NIReplyIPv6(flags="C")
 l = ICMPv6NIReplyIPv6(flags="L")
 s = ICMPv6NIReplyIPv6(flags="S")
 g = ICMPv6NIReplyIPv6(flags="G")
-all = ICMPv6NIReplyIPv6(flags="TALCLSG")
-t.flags == 1 and a.flags == 2 and c.flags == 4 and l.flags == 8 and s.flags == 16 and g.flags == 32 and all.flags == 63
+allflags = ICMPv6NIReplyIPv6(flags="TALCLSG")
+t.flags == 1 and a.flags == 2 and c.flags == 4 and l.flags == 8 and s.flags == 16 and g.flags == 32 and allflags.flags == 63
 
 
 = ICMPv6NIReply* - flags handling (Test 2)
@@ -2339,8 +2339,8 @@ c = str(ICMPv6NIReplyNOOP(flags="C", nonce="A"*8))[6:8]
 l = str(ICMPv6NIReplyNOOP(flags="L", nonce="A"*8))[6:8]
 s = str(ICMPv6NIReplyNOOP(flags="S", nonce="A"*8))[6:8]
 g = str(ICMPv6NIReplyNOOP(flags="G", nonce="A"*8))[6:8]
-all = str(ICMPv6NIReplyNOOP(flags="TALCLSG", nonce="A"*8))[6:8]
-t == '\x00\x01' and a == '\x00\x02' and c == '\x00\x04' and l == '\x00\x08' and s == '\x00\x10' and g == '\x00\x20' and all == '\x00\x3F'
+allflags = str(ICMPv6NIReplyNOOP(flags="TALCLSG", nonce="A"*8))[6:8]
+t == '\x00\x01' and a == '\x00\x02' and c == '\x00\x04' and l == '\x00\x08' and s == '\x00\x10' and g == '\x00\x20' and allflags == '\x00\x3F'
 
 
 = ICMPv6NIQuery* - Flags Default values
@@ -4382,3 +4382,30 @@ str(NetflowHeader()/NetflowHeaderV5(count=1)/NetflowRecordV5(dst="192.168.0.1"))
 
 nf5 = NetflowHeader('\x00\x05\x00\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x7f\x00\x00\x01\x7f\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00<\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x7f\x00\x00\x01\x7f\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00<\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00')
 nf5.version == 5 and nf5[NetflowHeaderV5].count == 2 and isinstance(nf5[NetflowRecordV5].payload, NetflowRecordV5)
+
+
+############
+############
++ pcap / pcapng format support
+
+= Variable creations
+import cStringIO
+pcapfile = cStringIO.StringIO('\xd4\xc3\xb2\xa1\x02\x00\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\x00\x00e\x00\x00\x00\xcf\xc5\xacVo*\n\x00(\x00\x00\x00(\x00\x00\x00E\x00\x00(\x00\x01\x00\x00@\x06|\xcd\x7f\x00\x00\x01\x7f\x00\x00\x01\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\x91|\x00\x00\xcf\xc5\xacV_-\n\x00\x1c\x00\x00\x00\x1c\x00\x00\x00E\x00\x00\x1c\x00\x01\x00\x00@\x11|\xce\x7f\x00\x00\x01\x7f\x00\x00\x01\x005\x005\x00\x08\x01r\xcf\xc5\xacV\xf90\n\x00\x1c\x00\x00\x00\x1c\x00\x00\x00E\x00\x00\x1c\x00\x01\x00\x00@\x01|\xde\x7f\x00\x00\x01\x7f\x00\x00\x01\x08\x00\xf7\xff\x00\x00\x00\x00')
+pcapngfile = cStringIO.StringIO('\n\r\r\n\\\x00\x00\x00M<+\x1a\x01\x00\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff\x01\x00,\x00File created by merging: \nFile1: test.pcap \n\x04\x00\x08\x00mergecap\x00\x00\x00\x00\\\x00\x00\x00\x01\x00\x00\x00\\\x00\x00\x00e\x00\x00\x00\xff\xff\x00\x00\x02\x006\x00Unknown/not available in original file format(libpcap)\x00\x00\t\x00\x01\x00\x06\x00\x00\x00\x00\x00\x00\x00\\\x00\x00\x00\x06\x00\x00\x00H\x00\x00\x00\x00\x00\x00\x00\x8d*\x05\x00/\xfc[\xcd(\x00\x00\x00(\x00\x00\x00E\x00\x00(\x00\x01\x00\x00@\x06|\xcd\x7f\x00\x00\x01\x7f\x00\x00\x01\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\x91|\x00\x00H\x00\x00\x00\x06\x00\x00\x00<\x00\x00\x00\x00\x00\x00\x00\x8d*\x05\x00\x1f\xff[\xcd\x1c\x00\x00\x00\x1c\x00\x00\x00E\x00\x00\x1c\x00\x01\x00\x00@\x11|\xce\x7f\x00\x00\x01\x7f\x00\x00\x01\x005\x005\x00\x08\x01r<\x00\x00\x00\x06\x00\x00\x00<\x00\x00\x00\x00\x00\x00\x00\x8d*\x05\x00\xb9\x02\\\xcd\x1c\x00\x00\x00\x1c\x00\x00\x00E\x00\x00\x1c\x00\x01\x00\x00@\x01|\xde\x7f\x00\x00\x01\x7f\x00\x00\x01\x08\x00\xf7\xff\x00\x00\x00\x00<\x00\x00\x00')
+
+= Read a pcap file
+pktpcap = utils._rdpcap(pcapfile)
+
+= Read a pcapng file
+pktpcapng = utils._rdpcapng(pcapngfile)
+
+= Check both packet lists are the same
+assert list(pktpcap) == list(pktpcapng)
+
+= Check packets from pcap file
+assert all(IP in pkt for pkt in pktpcap)
+assert all(any(proto in pkt for pkt in pktpcap) for proto in [ICMP, UDP, TCP])
+
+= Check packets from pcap file
+assert all(IP in pkt for pkt in pktpcapng)
+assert all(any(proto in pkt for pkt in pktpcapng) for proto in [ICMP, UDP, TCP])
