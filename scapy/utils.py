@@ -527,14 +527,36 @@ endianness: "<" or ">", force endianness"""
 
 @conf.commands.register
 def rdpcap(filename, count=-1):
+    """Read a pcap or pcapng file and return a packet list
+
+count: read only <count> packets
+
+    """
+    try:
+        return _rdpcap(filename, count=count)
+    except Scapy_Exception:
+        pass
+    try:
+        return _rdpcapng(filename, count=count)
+    except Scapy_Exception:
+        raise Scapy_Exception("Not a valid pcap or pcapng file")
+
+
+def _rdpcap(filename, count=-1):
     """Read a pcap file and return a packet list
-count: read only <count> packets"""
+
+count: read only <count> packets
+
+    """
     with PcapReader(filename) as fdesc:
         return fdesc.read_all(count=count)
 
-def rdpcapng(filename, count=-1):
+def _rdpcapng(filename, count=-1):
     """Read a pcapng file and return a packet list
-count: read only <count> packets"""
+
+count: read only <count> packets
+
+    """
     with PcapNgReader(filename) as fdesc:
         return fdesc.read_all(count=count)
 
