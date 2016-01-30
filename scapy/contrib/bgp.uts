@@ -137,3 +137,17 @@ open = BGPOpen(AS=65001,hold_time=90,bgp_id="10.0.0.1",opt_parm = [
 	capa_afi, capa_graceful
 ])
 BGPOpen(str(open)).show()
+
+= BGP Notifications
+
+header_notify = HeaderNotification(SubErrorCode=2)
+header_notify.show()
+header_notify.ErrorCode == 1
+
+#
+# Check the class dispatcher
+# Open Notification for a Bad Peer AS
+#
+open_notify = BGPNotification("\x02\x02") 
+open_notify.show()
+OpenNotification in open_notify
