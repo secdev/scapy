@@ -535,14 +535,8 @@ count: read only <count> packets"""
 def rdpcapng(filename, count=-1):
     """Read a pcapng file and return a packet list
 count: read only <count> packets"""
-    ## Does not work with Python <= 2.5. Use this implementation as
-    ## soon as we drop support for Python 2.5.
-    # with PcapNgReader(filename) as fdesc:
-    #     return fdesc.read_all(count=count)
-    fdesc = PcapNgReader(filename)
-    result = fdesc.read_all(count=count)
-    fdesc.close()
-    return result
+    with PcapNgReader(filename) as fdesc:
+        return fdesc.read_all(count=count)
 
 
 class RawPcapReader:
