@@ -10,18 +10,20 @@ from scapy.fields import *
 from scapy.layers.inet import TCP
 from scapy.contrib.bgp_fields import *
 
-def classDispatcher(s,classDict,defClass,index_from=None):
+def Class_Dispatcher(s,class_dict,def_class,index_from=None):
     """ A generic class dispatcher:
-    s:          packet
-    classDict:  a dictionary of index:packetClass
-    defClass:   a default packet class when index is not found
-    index_from: normally a lambda s: to calculate the index for the classDict
+    s:           packet
+    class_dict:  a dictionary of index:packetClass
+    def_class:   a default packet class when index is not found
+    index_from:  normally a lambda s: to calculate the index for the class_dict
 
-    return Raw(s) if index_from throws an Exception"""
+    return Raw(s) if index_from throws an Exception expect when conf.debug_dissector==1"""
     try:
         index = index_from(s)
-        cls = classDict[index] if index in classDict else defClass
+        cls = class_dict[index] if index in class_dict else def_class
     except:
+        if conf.debug_dissector == 1:
+            raise
         cls = Raw
     return cls(s)
 
@@ -144,7 +146,7 @@ def getCapability(s):
     return ord(s[0]), ord(s[2])
     
 def OptParamDispatcher(s):
-    return classDispatcher(s,
+    return Class_Dispatcher(s,
         optParamDict,
         BGPOptionalParameter,
         index_from = lambda s: getCapability(s)
@@ -379,7 +381,7 @@ MPDict = {
 }
 
 def MPDispatcher(s):
-    return classDispatcher(s,
+    return Class_Dispatcher(s,
                            MPDict,
                            MPNLRIReach,
                            index_from = lambda s: struct.unpack("!HB",s[:3]))
@@ -422,7 +424,7 @@ MPUDict = {
 }
 
 def MPUDispatcher(s):
-    return classDispatcher(s,
+    return Class_Dispatcher(s,
                            MPUDict,
                            MPNLRIUnreach,
                            index_from = lambda s: struct.unpack("!HB",s[:3]))
@@ -458,7 +460,7 @@ AttributeDict = {
 }
 
 def Attribute_Dispatcher(s):
-    return classDispatcher(s,
+    return Class_Dispatcher(s,
                            AttributeDict,
                            BGPAttribute,
                            index_from = lambda s: ord(s[1]))
@@ -591,7 +593,7 @@ notificationDict = {
 }
 
 def NotificationDispatcher(s):
-    return classDispatcher(s,
+    return Class_Dispatcher(s,
             notificationDict,
             DefaultNotification,
             index_from = lambda s: ord(s[0])
