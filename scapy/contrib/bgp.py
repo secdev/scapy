@@ -135,21 +135,21 @@ class Capability_AS4(Capability):
         AS4Field("asn","AS0")
     ]
 
-optParamDict = {
+OPTPARAM_DICT = {
     (2,1) :  Capability_AFI,
     (2,2) :  Capability_RR,
     (2,64) : Capability_Graceful,
     (2,65) : Capability_AS4,
 }
 
-def getCapability(s):
+def get_capability(s):
     return ord(s[0]), ord(s[2])
     
 def OptParamDispatcher(s):
     return Class_Dispatcher(s,
-        optParamDict,
+        OPTPARAM_DICT,
         BGPOptionalParameter,
-        index_from = lambda s: getCapability(s)
+        index_from = lambda s: get_capability(s)
     )
 
 class BGPOpen(Packet):
@@ -376,13 +376,13 @@ class MPIPv6Reach(PadPacket):
         FieldListField("nlri",[],BGPIPv6Field("","::/0"))	
     ]
 
-MPDict = {
+MP_DICT = {
     (2,1): MPIPv6Reach
 }
 
 def MPDispatcher(s):
     return Class_Dispatcher(s,
-                           MPDict,
+                           MP_DICT,
                            MPNLRIReach,
                            index_from = lambda s: struct.unpack("!HB",s[:3]))
 
@@ -419,13 +419,13 @@ class MPIPv6Unreach(PadPacket):
         FieldListField("nlri", [], BGPIPv6Field("","::/0"))	
     ]
 
-MPUDict = {
+MPU_DICT = {
     (2,1): MPIPv6Unreach
 }
 
 def MPUDispatcher(s):
     return Class_Dispatcher(s,
-                           MPUDict,
+                           MPU_DICT,
                            MPNLRIUnreach,
                            index_from = lambda s: struct.unpack("!HB",s[:3]))
 
@@ -443,7 +443,7 @@ class BGPMPUnreach(BGPAttribute):
     ]
 
 
-AttributeDict = {
+ATTRIBUTE_DICT = {
     1: BGPOrigin,
     2: BGPASPath,
     3: BGPNextHop,
@@ -461,7 +461,7 @@ AttributeDict = {
 
 def Attribute_Dispatcher(s):
     return Class_Dispatcher(s,
-                           AttributeDict,
+                           ATTRIBUTE_DICT,
                            BGPAttribute,
                            index_from = lambda s: ord(s[1]))
 
@@ -583,7 +583,7 @@ class DefaultNotification(PadPacket):
         ByteField("SubErrorCode",0)
     ]
     
-notificationDict = {
+NOTIFICATION_DICT = {
     1: HeaderNotification,
     2: OpenNotification,
     3: UpdateNotification,
@@ -594,7 +594,7 @@ notificationDict = {
 
 def NotificationDispatcher(s):
     return Class_Dispatcher(s,
-            notificationDict,
+            NOTIFICATION_DICT,
             DefaultNotification,
             index_from = lambda s: ord(s[0])
         )
@@ -605,14 +605,6 @@ class BGPNotification(Packet):
         PacketField("Notification",None,NotificationDispatcher),
         FieldListField("Data", [], ByteField("",None)),
     ]
-
-#class BGPErrorSubcodes(Packet):
-    #name = "BGP Error Subcodes"
-    #Fields_desc = [
-        #ByteEnumField("MessageHeader",0,{1:"Connection Not Synchronized",2:"Bad Message Length",3:"Bad Messsage Type"}),
-        #ByteEnumField("OPENMessage",0,{1:"Unsupported Version Number",2:"Bad Peer AS",3:"Bad BGP Identifier",4:"Unsupported Optional Parameter",5:"Authentication Failure",6:"Unacceptable Hold Time"}),
-        #ByteEnumField("UPDATEMessage",0,{1:"Malformed Attribute List",2:"Unrecognized Well-Known Attribute",3:"Missing Well-Known Attribute",4:"Attribute Flags Error",5:"Attribute Length Error",6:"Invalid ORIGIN Attribute",7:"AS Routing Loop",8:"Invalid NEXT_HOP Attribute",9:"Optional Attribute Error",10:"Invalid Network Field",11:"Malformed AS_PATH"}),
-    #]
 #
 #
 # ---- BGPTraffic
@@ -630,9 +622,7 @@ bind_layers( TCP,             BGPTraffic,  sport=179)
 bind_layers( BGPHeader,       BGPOpen,          type=1)
 bind_layers( BGPHeader,       BGPUpdate,        type=2)
 bind_layers( BGPHeader,       BGPNotification,  type=3)
-#bind_layers( BGPHeader,       BGPHeader,        type=4)
-
 
 if __name__ == "__main__":
-    interact(mydict=globals(), mybanner="BGP addon .10")
+    interact(mydict=globals(), mybanner="BGP addon .20")
 
