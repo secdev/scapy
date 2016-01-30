@@ -565,18 +565,16 @@ class RawPcapReader:
     """A stateful pcap reader. Each packet is returned as a string"""
 
     def __init__(self, filename):
-        self.filename = filename
-        try:
-            self.f = gzip.open(filename,"rb")
-            magic = self.f.read(4)
-        except IOError:
-            self.f = open(filename,"rb")
-            magic = self.f.read(4)
+        magic = self.open(filename)
         if magic == "\xa1\xb2\xc3\xd4": #big endian
             self.endian = ">"
         elif magic == "\xd4\xc3\xb2\xa1": #little endian
             self.endian = "<"
         else:
+            try:
+                self.f.seek(-4, 1)
+            except:
+                pass
             raise Scapy_Exception(
                 "Not a pcap capture file (bad magic: %r)" % magic
             )
@@ -588,11 +586,28 @@ class RawPcapReader:
         )
         self.linktype = linktype
 
+    def open(self, filename):
+        """Open (if necessary) filename"""
+        if isinstance(filename, basestring):
+            self.filename = filename
+            try:
+                self.f = gzip.open(filename,"rb")
+                return self.f.read(4)
+            except IOError:
+                self.f = open(filename,"rb")
+                return self.f.read(4)
+        else:
+            self.f = filename
+            self.filename = (filename.name
+                             if hasattr(filename, "name") else
+                             "No name")
+            return self.f.read(4)
+
     def __iter__(self):
         return self
 
     def next(self):
-        """impliment the iterator protocol on a set of packets in a pcap file"""
+        """implement the iterator protocol on a set of packets in a pcap file"""
         pkt = self.read_packet()
         if pkt == None:
             raise StopIteration
@@ -691,20 +706,18 @@ class RawPcapNgReader(RawPcapReader):
     """
 
     def __init__(self, filename):
-        self.filename = filename
         # A list of (linktype, snaplen); will be populated by IDBs.
         self.interfaces = []
         self.blocktypes = {
             1: self.read_block_idb,
             6: self.read_block_epb,
         }
-        try:
-            self.f = gzip.open(filename,"rb")
-            magic = self.f.read(4)
-        except IOError:
-            self.f = open(filename,"rb")
-            magic = self.f.read(4)
+        magic = self.open(filename)
         if magic != "\x0a\x0d\x0d\x0a": # PcapNg:
+            try:
+                self.f.seek(-4, 1)
+            except:
+                pass
             raise Scapy_Exception(
                 "Not a pcapng capture file (bad magic: %r)" % magic
             )
