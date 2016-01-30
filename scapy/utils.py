@@ -533,7 +533,7 @@ count: read only <count> packets"""
         return fdesc.read_all(count=count)
 
 def rdpcapng(filename, count=-1):
-    """Read a pcap file and return a packet list
+    """Read a pcapng file and return a packet list
 count: read only <count> packets"""
     ## Does not work with Python <= 2.5. Use this implementation as
     ## soon as we drop support for Python 2.5.
@@ -688,7 +688,7 @@ class RawPcapNgReader(RawPcapReader):
         except IOError:
             self.f = open(filename,"rb")
             magic = self.f.read(4)
-        if magic != "\n\r\r\n": # PcapNg:
+        if magic != "\x0a\x0d\x0d\x0a": # PcapNg:
             raise Scapy_Exception(
                 "Not a pcapng capture file (bad magic: %r)" % magic
             )
