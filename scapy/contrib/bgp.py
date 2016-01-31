@@ -1,7 +1,5 @@
 #! /usr/bin/env python
 
-# http://trac.secdev.org/scapy/ticket/162
-
 # scapy.contrib.description = BGP
 # scapy.contrib.status = loads
 
@@ -27,8 +25,8 @@ def Class_Dispatcher(s,class_dict,def_class,index_from=None):
         cls = Raw
     return cls(s)
 
-afiNames = { 1: "IPv4", 2:"IPv6" }
-safiNames = { 1: "Unicast", 2: "Multicast", 128: "MPLS Labeled-VPN"}
+afi_names = { 1: "IPv4", 2:"IPv6" }
+safi_names = { 1: "Unicast", 2: "Multicast", 128: "MPLS Labeled-VPN"}
 
 class BGPHeader(Packet):
     """The first part of any BGP packet"""
@@ -88,9 +86,9 @@ class Capability_AFI(Capability):
         ByteField("len", None),
         ByteField("capa_type",1),
         ByteField("capa_len",None),
-        ShortEnumField("afi",0,afiNames),
+        ShortEnumField("afi",0,afi_names),
         ByteField("reserved",0),
-        ByteEnumField("safi",0,safiNames)
+        ByteEnumField("safi",0,safi_names)
     ]
 
 class Capability_RR(BGPOptionalParameter):
@@ -104,8 +102,8 @@ class Capability_RR(BGPOptionalParameter):
 
 class GracefulAFI(Packet):
     field_desc = [
-        ShortEnumField("AFI",0,afiNames),
-        ByteEnumField("SAFI",0,safiNames),
+        ShortEnumField("AFI",0,afi_names),
+        ByteEnumField("SAFI",0,safi_names),
         FlagsField("af_flags",0,8,
             [
                 "AFF1","AFF2","AFF3","AFF4",
@@ -135,7 +133,7 @@ class Capability_AS4(Capability):
         AS4Field("asn","AS0")
     ]
 
-OPTPARAM_DICT = {
+optparam_dict = {
     (2,1) :  Capability_AFI,
     (2,2) :  Capability_RR,
     (2,64) : Capability_Graceful,
@@ -147,7 +145,7 @@ def get_capability(s):
     
 def OptParamDispatcher(s):
     return Class_Dispatcher(s,
-        OPTPARAM_DICT,
+        optparam_dict,
         BGPOptionalParameter,
         index_from = lambda s: get_capability(s)
     )
@@ -354,8 +352,8 @@ class MPNLRIReach(PadPacket):
     """Generalised Multi-Protocol BGP reach information"""
     name="MPNLRIReach"
     fields_desc = [
-        ShortEnumField("AFI",  0, afiNames),
-        ByteEnumField ("SAFI", 0, safiNames),
+        ShortEnumField("AFI",  0, afi_names),
+        ByteEnumField ("SAFI", 0, safi_names),
         FieldLenField("nha_len",None,fmt="B",length_of="nha"),
         FieldListField("nha",[],ByteField("",0),
                        length_from=lambda p: p.nha_len),
@@ -367,8 +365,8 @@ class MPIPv6Reach(PadPacket):
     """Generalised Multi-Protocol BGP reach information"""
     name="MPIPv6Reach"
     fields_desc = [
-        ShortEnumField("AFI",  2, afiNames),
-        ByteEnumField( "SAFI", 1, safiNames),
+        ShortEnumField("AFI",  2, afi_names),
+        ByteEnumField( "SAFI", 1, safi_names),
         FieldLenField( "nha_len",None,fmt="B",length_of="nha"),
         FieldListField("nha",[],IP6Field("","::"),
                        length_from=lambda p: p.nha_len),
@@ -376,13 +374,13 @@ class MPIPv6Reach(PadPacket):
         FieldListField("nlri",[],BGPIPv6Field("","::/0"))	
     ]
 
-MP_DICT = {
+mp_dict = {
     (2,1): MPIPv6Reach
 }
 
 def MPDispatcher(s):
     return Class_Dispatcher(s,
-                           MP_DICT,
+                           mp_dict,
                            MPNLRIReach,
                            index_from = lambda s: struct.unpack("!HB",s[:3]))
 
@@ -405,8 +403,8 @@ class MPNLRIUnreach(PadPacket):
     """Generalised Multi-Protocol BGP reach information"""
     name="MPNLRIUnreach"
     fields_desc = [
-        ShortEnumField("AFI",  0, afiNames),
-        ByteEnumField ("SAFI", 0, safiNames),
+        ShortEnumField("AFI",  0, afi_names),
+        ByteEnumField ("SAFI", 0, safi_names),
         FieldListField("nlri",[],ByteField("",0))	
     ]
 
@@ -414,18 +412,18 @@ class MPIPv6Unreach(PadPacket):
     """Generalised Multi-Protocol BGP reach information"""
     name="MPIPv6Unreach"
     fields_desc = [
-        ShortEnumField("AFI",  2,  afiNames),
-        ByteEnumField ("SAFI", 1,  safiNames),
+        ShortEnumField("AFI",  2,  afi_names),
+        ByteEnumField ("SAFI", 1,  safi_names),
         FieldListField("nlri", [], BGPIPv6Field("","::/0"))	
     ]
 
-MPU_DICT = {
+mpu_dict = {
     (2,1): MPIPv6Unreach
 }
 
 def MPUDispatcher(s):
     return Class_Dispatcher(s,
-                           MPU_DICT,
+                           mpu_dict,
                            MPNLRIUnreach,
                            index_from = lambda s: struct.unpack("!HB",s[:3]))
 
@@ -443,7 +441,7 @@ class BGPMPUnreach(BGPAttribute):
     ]
 
 
-ATTRIBUTE_DICT = {
+attribute_dict = {
     1: BGPOrigin,
     2: BGPASPath,
     3: BGPNextHop,
@@ -461,7 +459,7 @@ ATTRIBUTE_DICT = {
 
 def Attribute_Dispatcher(s):
     return Class_Dispatcher(s,
-                           ATTRIBUTE_DICT,
+                           attribute_dict,
                            BGPAttribute,
                            index_from = lambda s: ord(s[1]))
 
@@ -583,7 +581,7 @@ class DefaultNotification(PadPacket):
         ByteField("SubErrorCode",0)
     ]
     
-NOTIFICATION_DICT = {
+notification_dict = {
     1: HeaderNotification,
     2: OpenNotification,
     3: UpdateNotification,
@@ -594,7 +592,7 @@ NOTIFICATION_DICT = {
 
 def NotificationDispatcher(s):
     return Class_Dispatcher(s,
-            NOTIFICATION_DICT,
+            notification_dict,
             DefaultNotification,
             index_from = lambda s: ord(s[0])
         )
