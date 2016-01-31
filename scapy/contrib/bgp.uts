@@ -94,23 +94,6 @@ update = BGPHeader(type=2) / BGPUpdate(total_path=[
 
 BGPHeader(str(update)).show()
 
-= IPv6 Prefix
-
-class IPv6Prefix(Packet):
-      fields_desc = [ BGPIPv6Field("prefix","::0/0") ]
-
-ipv6 = IPv6Prefix(prefix="2001::/16")
-ipv6.show()
-IPv6Prefix(str(ipv6)).prefix == "2001::/16"
-len(str(ipv6)) == 3
-
-ipv6 = IPv6Prefix(prefix="2012::/12")
-ipv6.show()
-IPv6Prefix(str(ipv6)).prefix == "2010::/12"
-len(str(ipv6)) == 3
-
-= Multiprotocol reach
-
 mpreach = MPIPv6Reach(nha=["2001:c1ca::1","fe80::c001:bff:fe7e:0"],nlri=["2001:c1ca::/32","2001:2fb8::/32"])
 MPIPv6Reach(str(mpreach)).show()
 
