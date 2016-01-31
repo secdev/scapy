@@ -34,6 +34,7 @@ Based on the fact that the BGP-4 header has a fixed field format
 @param cls: class of the elements in the array
 @param spkt_len(s): inspect the byte array s and return the length of the first packet in it.
 """
+    spkt_len = None
     def __init__(self, name, default,cls,spkt_len=None):
         assert spkt_len is not None
         PacketListField.__init__(self, name, default, cls)

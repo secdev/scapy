@@ -151,3 +151,7 @@ header_notify.ErrorCode == 1
 open_notify = BGPNotification("\x02\x02") 
 open_notify.show()
 OpenNotification in open_notify
+
+pkt = BGPHeader()/open_notify
+
+BGPHeader(str(pkt)).len == 19+2
