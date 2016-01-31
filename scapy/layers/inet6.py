@@ -223,6 +223,7 @@ class IP6Field(Field):
         return RandIP6()
 
 class SourceIP6Field(IP6Field):
+    __slots__ = ["dstname"]
     def __init__(self, name, dstname):
         IP6Field.__init__(self, name, None)
         self.dstname = dstname
@@ -275,6 +276,7 @@ ipv6nhcls = {  0: "IPv6ExtHdrHopByHop",
                60: "IPv6ExtHdrDestOpt" }
 
 class IP6ListField(StrField):
+    __slots__ = ["count_from", "length_from"]
     islist = 1
     def __init__(self, name, default, count_from=None, length_from=None):
         if default is None:
@@ -745,6 +747,7 @@ _hbhoptcls = { 0x00: Pad1,
 ######################## Hop-by-Hop Extension Header ########################
 
 class _HopByHopOptionsField(PacketListField):
+    __slots__ = ["curpos"]
     def __init__(self, name, default, cls, curpos, count_from=None, length_from=None):
         self.curpos = curpos
         PacketListField.__init__(self, name, default, cls, count_from=count_from, length_from=length_from)
@@ -945,7 +948,7 @@ def defragment6(pktlist):
     q = res[0]
     nh = q[IPv6ExtHdrFragment].nh
     q[IPv6ExtHdrFragment].underlayer.nh = nh
-    q[IPv6ExtHdrFragment].underlayer.payload = None
+    del q[IPv6ExtHdrFragment].underlayer.payload
     q /= conf.raw_layer(load=fragmentable)
     
     return IPv6(str(q))
@@ -991,12 +994,12 @@ def fragment6(pkt, fragSize):
 
     # Keep fragment header
     fragHeader = pkt[IPv6ExtHdrFragment]
-    fragHeader.payload = None # detach payload
+    del fragHeader.payload # detach payload
 
     # Unfragmentable Part
     unfragPartLen = len(s) - fragPartLen - 8
     unfragPart = pkt
-    pkt[IPv6ExtHdrFragment].underlayer.payload = None # detach payload
+    del pkt[IPv6ExtHdrFragment].underlayer.payload # detach payload
 
     # Cut the fragmentable part to fit fragSize. Inner fragments have 
     # a length that is an integer multiple of 8 octets. last Frag MTU
@@ -1500,6 +1503,7 @@ class ICMPv6NDOptPrefixInfo(_ICMPv6NDGuessPayload, Packet):
 # TODO: We should also limit the size of included packet to something
 # like (initiallen - 40 - 2)
 class TruncPktLenField(PacketLenField):
+    __slots__ = ["cur_shift"]
 
     def __init__(self, name, default, cls, cur_shift, length_from=None, shift=0):
         PacketLenField.__init__(self, name, default, cls, length_from=length_from)
@@ -1627,6 +1631,7 @@ class ICMPv6NDOptMAP(_ICMPv6NDGuessPayload, Packet):     # RFC 4140
 
 
 class IP6PrefixField(IP6Field):
+    __slots__ = ["length_from"]
     def __init__(self, name, default):
         IP6Field.__init__(self, name, default)
         self.length_from = lambda pkt: 8*(pkt.len - 1)
@@ -2627,6 +2632,7 @@ class MIP6MH_Generic(_MobilityHeader): # Mainly for decoding of unknown msg
     
 # TODO: make a generic _OptionsField
 class _MobilityOptionsField(PacketListField):
+    __slots__ = ["curpos"]
     def __init__(self, name, default, cls, curpos, count_from=None, length_from=None):
         self.curpos = curpos
         PacketListField.__init__(self, name, default, cls, count_from=count_from, length_from=length_from)
@@ -2882,6 +2888,7 @@ class  AS_resolver6(AS_resolver_riswhois):
         return ip,asn,desc        
 
 class TracerouteResult6(TracerouteResult):
+    __slots__ = []
     def show(self):
         return self.make_table(lambda (s,r): (s.sprintf("%-42s,IPv6.dst%:{TCP:tcp%TCP.dport%}{UDP:udp%UDP.dport%}{ICMPv6EchoRequest:IER}"), # TODO: ICMPv6 !
                                               s.hlim,

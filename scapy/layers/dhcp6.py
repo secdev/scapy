@@ -256,13 +256,14 @@ class _DHCP6OptGuessPayload(Packet):
         return cls
 
 class DHCP6OptUnknown(_DHCP6OptGuessPayload): # A generic DHCPv6 Option
-    name = "Unknown DHCPv6 OPtion"
+    name = "Unknown DHCPv6 Option"
     fields_desc = [ ShortEnumField("optcode", 0, dhcp6opts), 
                     FieldLenField("optlen", None, length_of="data", fmt="!H"),
                     StrLenField("data", "",
                                 length_from = lambda pkt: pkt.optlen)]
 
 class _DUIDField(PacketField):
+    __slots__ = ["length_from"]
     def __init__(self, name, default, length_from=None):
         StrField.__init__(self, name, default)
         self.length_from = length_from
@@ -661,6 +662,7 @@ class DHCP6OptReconfAccept(_DHCP6OptGuessPayload):   # RFC sect 22.20
 # XXX Label should be at most 63 octets in length : we do not enforce it
 #     Total length of domain should be 255 : we do not enforce it either
 class DomainNameListField(StrLenField):
+    __slots__ = ["padded"]
     islist = 1
     padded_unit = 8
 
@@ -919,7 +921,7 @@ DHCP6PrefVal="" # la valeur de preference a utiliser dans
 # a chaque emission et doivent matcher dans les reponses faites par
 # les clients
 class DHCP6(_DHCP6OptGuessPayload):
-    name = "DHCPv6 Generic Message)"
+    name = "DHCPv6 Generic Message"
     fields_desc = [ ByteEnumField("msgtype",None,dhcp6types),
                     X3BytesField("trid",0x000000) ]
     overload_fields = { UDP: {"sport": 546, "dport": 547} }

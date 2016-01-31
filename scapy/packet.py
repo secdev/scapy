@@ -7,7 +7,8 @@
 Packet class. Binding mechanism. fuzz() method.
 """
 
-import time,itertools,os
+import re
+import time,itertools
 import copy
 from fields import StrField,ConditionalField,Emph,PacketListField,BitField
 from config import conf
@@ -33,23 +34,23 @@ class RawVal:
 
 
 class Packet(BasePacket):
+    __slots__ = [
+        "time", "sent_time", "name", "default_fields",
+        "overloaded_fields", "fields", "fieldtype", "packetfields",
+        "original", "explicit", "raw_packet_cache",
+        "raw_packet_cache_fields", "_pkt", "post_transforms",
+        # then payload and underlayer
+        "payload", "underlayer",
+        "name",
+        # used for sr()
+        "_answered",
+    ]
     __metaclass__ = Packet_metaclass
-    name=None
-
+    name = None
     fields_desc = []
-
-    aliastypes = []
     overload_fields = {}
-
-    underlayer = None
-
-    sent_time = None
     payload_guess = []
-    initialized = 0
-    show_indent=1
-    explicit = 0
-    raw_packet_cache = None
-    raw_packet_cache_fields = None
+    show_indent = 1
 
     @classmethod
     def from_hexcap(cls):
@@ -67,20 +68,22 @@ class Packet(BasePacket):
 
     def __init__(self, _pkt="", post_transform=None, _internal=0, _underlayer=None, **fields):
         self.time  = time.time()
-        self.sent_time = 0
-        if self.name is None:
-            self.name = self.__class__.__name__
-        self.aliastypes = [ self.__class__ ] + self.aliastypes
+        self.sent_time = None
+        self.name = (self.__class__.__name__
+                     if self._name is None else
+                     self._name)
         self.default_fields = {}
         self.overloaded_fields = {}
-        self.fields={}
-        self.fieldtype={}
-        self.packetfields=[]
-        self.__dict__["payload"] = NoPayload()
+        self.fields = {}
+        self.fieldtype = {}
+        self.packetfields = []
+        self.payload = NoPayload()
         self.init_fields()
         self.underlayer = _underlayer
-        self.initialized = 1
         self.original = _pkt
+        self.explicit = 0
+        self.raw_packet_cache = None
+        self.raw_packet_cache_fields = None
         if _pkt:
             self.dissect(_pkt)
             if not _internal:
@@ -124,19 +127,19 @@ class Packet(BasePacket):
             self.payload.add_payload(payload)
         else:
             if isinstance(payload, Packet):
-                self.__dict__["payload"] = payload
+                self.payload = payload
                 payload.add_underlayer(self)
                 for t in self.aliastypes:
                     if payload.overload_fields.has_key(t):
                         self.overloaded_fields = payload.overload_fields[t]
                         break
             elif type(payload) is str:
-                self.__dict__["payload"] = conf.raw_layer(load=payload)
+                self.payload = conf.raw_layer(load=payload)
             else:
                 raise TypeError("payload must be either 'Packet' or 'str', not [%s]" % repr(payload))
     def remove_payload(self):
         self.payload.remove_underlayer(self)
-        self.__dict__["payload"] = NoPayload()
+        self.payload = NoPayload()
         self.overloaded_fields = {}
     def add_underlayer(self, underlayer):
         self.underlayer = underlayer
@@ -148,7 +151,6 @@ class Packet(BasePacket):
         clone.fields = self.copy_fields_dict(self.fields)
         clone.default_fields = self.copy_fields_dict(self.default_fields)
         clone.overloaded_fields = self.overloaded_fields.copy()
-        clone.overload_fields = self.overload_fields.copy()
         clone.underlayer = self.underlayer
         clone.explicit = self.explicit
         clone.raw_packet_cache = self.raw_packet_cache
@@ -156,7 +158,7 @@ class Packet(BasePacket):
             self.raw_packet_cache_fields
         )
         clone.post_transforms = self.post_transforms[:]
-        clone.__dict__["payload"] = self.payload.copy()
+        clone.payload = self.payload.copy()
         clone.payload.add_underlayer(clone)
         return clone
 
@@ -179,7 +181,7 @@ class Packet(BasePacket):
         return self.payload.getfield_and_val(attr)
     
     def __getattr__(self, attr):
-        if self.initialized:
+        if isinstance(self, Packet):
             fld,v = self.getfield_and_val(attr)
             if fld is not None:
                 return fld.i2h(self, v)
@@ -204,14 +206,14 @@ class Packet(BasePacket):
             self.payload.setfieldval(attr,val)
 
     def __setattr__(self, attr, val):
-        if self.initialized:
+        if isinstance(self, Packet):
+            if attr in self.__all_slots__:
+                return object.__setattr__(self, attr, val)
             try:
-                self.setfieldval(attr,val)
+                return self.setfieldval(attr,val)
             except AttributeError:
                 pass
-            else:
-                return
-        self.__dict__[attr] = val
+        return object.__setattr__(self, attr, val)
 
     def delfieldval(self, attr):
         if self.fields.has_key(attr):
@@ -227,17 +229,16 @@ class Packet(BasePacket):
             self.payload.delfieldval(attr)
 
     def __delattr__(self, attr):
-        if self.initialized:
+        if isinstance(self, Packet):
+            if attr == "payload":
+                return self.remove_payload()
+            if attr in self.__all_slots__:
+                return object.__delattr__(self, attr)
             try:
-                self.delfieldval(attr)
+                return self.delfieldval(attr)
             except AttributeError:
                 pass
-            else:
-                return
-        if self.__dict__.has_key(attr):
-            del(self.__dict__[attr])
-        else:
-            raise AttributeError(attr)
+        return object.__delattr__(self, attr)
             
     def __repr__(self):
         s = ""
@@ -653,7 +654,6 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
         pkt.default_fields = self.copy_fields_dict(self.default_fields)
         pkt.time = self.time
         pkt.underlayer = self.underlayer
-        pkt.overload_fields = self.overload_fields.copy()
         pkt.post_transforms = self.post_transforms
         pkt.raw_packet_cache = self.raw_packet_cache
         pkt.raw_packet_cache_fields = self.copy_fields_dict(
@@ -1102,13 +1102,6 @@ class NoPayload(Packet):
         raise AttributeError(attr)
     def delfieldval(self, attr):
         raise AttributeError(attr)
-    def __getattr__(self, attr):
-        if attr in self.__dict__:
-            return self.__dict__[attr]
-        elif attr in self.__class__.__dict__:
-            return self.__class__.__dict__[attr]
-        else:
-            raise AttributeError, attr
     def hide_defaults(self):
         pass
     def __iter__(self):
@@ -1238,16 +1231,22 @@ def split_layers(lower, upper, __fval=None, **fval):
 
 
 @conf.commands.register
-def ls(obj=None):
-    """List  available layers, or infos on a given layer"""
-    if obj is None:
-        
-        import __builtin__
-        all = __builtin__.__dict__.copy()
-        all.update(globals())
-        objlst = sorted(conf.layers, key=lambda x: x.__name__)
-        for o in objlst:
-            print "%-10s : %s" %(o.__name__,o.name)
+def ls(obj=None, case_sensitive=False):
+    """List  available layers, or infos on a given layer class or name"""
+    is_string = isinstance(obj, basestring)
+
+    if obj is None or is_string:
+        if obj is None:
+            all_layers = sorted(conf.layers, key=lambda x: x.__name__)
+        else:
+            pattern = re.compile(obj, 0 if case_sensitive else re.I)
+            all_layers = sorted((layer for layer in conf.layers
+                                if (pattern.search(layer.__name__ or '')
+                                    or pattern.search(layer.name or ''))),
+                                key=lambda x: x.__name__)
+        for layer in all_layers:
+            print "%-10s : %s" % (layer.__name__, layer.name)
+
     else:
         is_pkt = isinstance(obj, Packet)
         if (isinstance(obj, type) and issubclass(obj, Packet)) or is_pkt:
@@ -1273,7 +1272,7 @@ def ls(obj=None):
                 ls(obj.payload)
 
         else:
-            print "Not a packet class. Type 'ls()' to list packet classes."
+            print "Not a packet class or name. Type 'ls()' to list packet classes."
 
 
     

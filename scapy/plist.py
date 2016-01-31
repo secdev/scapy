@@ -15,9 +15,7 @@ from collections import defaultdict
 
 from utils import do_graph,hexdump,make_table,make_lined_table,make_tex_table,get_temp_file
 
-import arch
-if arch.GNUPLOT:
-    Gnuplot=arch.Gnuplot
+from scapy.arch import plt, MATPLOTLIB_INLINED, MATPLOTLIB_DEFAULT_PLOT_KARGS
 
 
 
@@ -26,7 +24,7 @@ if arch.GNUPLOT:
 #############
 
 class PacketList(BasePacketList):
-    res = []
+    __slots__ = ["stats", "res", "listname"]
     def __init__(self, res=None, name="PacketList", stats=None):
         """create a packet list from a list of packets
            res: the list of packets
@@ -40,6 +38,8 @@ class PacketList(BasePacketList):
             res = res.res
         self.res = res
         self.listname = name
+    def __len__(self):
+        return len(self.res)
     def _elt2pkt(self, elt):
         return elt
     def _elt2sum(self, elt):
@@ -47,8 +47,7 @@ class PacketList(BasePacketList):
     def _elt2show(self, elt):
         return self._elt2sum(elt)
     def __repr__(self):
-#        stats=dict.fromkeys(self.stats,0) ## needs python >= 2.3  :(
-        stats = dict(map(lambda x: (x,0), self.stats))
+        stats = dict((x, 0) for x in self.stats)
         other = 0
         for r in self.res:
             f = 0
@@ -62,7 +61,7 @@ class PacketList(BasePacketList):
         s = ""
         ct = conf.color_theme
         for p in self.stats:
-            s += " %s%s%s" % (ct.packetlist_proto(p.name),
+            s += " %s%s%s" % (ct.packetlist_proto(p._name),
                               ct.punct(":"),
                               ct.packetlist_value(stats[p]))
         s += " %s%s%s" % (ct.packetlist_proto("Other"),
@@ -136,49 +135,95 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
         """Same as make_table, but print a table with LaTeX syntax"""
         return make_tex_table(self.res, *args, **kargs)
 
-    def plot(self, f, lfilter=None,**kargs):
-        """Applies a function to each packet to get a value that will be plotted with GnuPlot. A gnuplot object is returned
-        lfilter: a truth function that decides whether a packet must be ploted"""
-        g=Gnuplot.Gnuplot()
-        l = self.res
-        if lfilter is not None:
-            l = filter(lfilter, l)
-        l = map(f,l)
-        g.plot(Gnuplot.Data(l, **kargs))
-        return g
+    def plot(self, f, lfilter=None, plot_xy=False, **kargs):
+        """Applies a function to each packet to get a value that will be plotted
+        with matplotlib. A list of matplotlib.lines.Line2D is returned.
+
+        lfilter: a truth function that decides whether a packet must be ploted
+        """
+
+        # Get the list of packets
+        if lfilter is None:
+            l = [f(e) for e in self.res]
+        else:
+            l = [f(e) for e in self.res if lfilter(e)]
+
+        # Mimic the default gnuplot output
+        if kargs == {}:
+            kargs = MATPLOTLIB_DEFAULT_PLOT_KARGS
+        if plot_xy:
+            lines = plt.plot(*zip(*l), **kargs)
+        else:
+            lines = plt.plot(l, **kargs)
+
+        # Call show() if matplotlib is not inlined
+        if not MATPLOTLIB_INLINED:
+            plt.show()
+
+        return lines
 
     def diffplot(self, f, delay=1, lfilter=None, **kargs):
         """diffplot(f, delay=1, lfilter=None)
-        Applies a function to couples (l[i],l[i+delay])"""
-        g = Gnuplot.Gnuplot()
-        l = self.res
-        if lfilter is not None:
-            l = filter(lfilter, l)
-        l = map(f,l[:-delay],l[delay:])
-        g.plot(Gnuplot.Data(l, **kargs))
-        return g
+        Applies a function to couples (l[i],l[i+delay])
 
-    def multiplot(self, f, lfilter=None, **kargs):
-        """Uses a function that returns a label and a value for this label, then plots all the values label by label"""
-        g=Gnuplot.Gnuplot()
-        l = self.res
-        if lfilter is not None:
-            l = filter(lfilter, l)
+        A list of matplotlib.lines.Line2D is returned.
+        """
 
-        d={}
-        for e in l:
-            k,v = f(e)
-            if k in d:
-                d[k].append(v)
-            else:
-                d[k] = [v]
-        data=[]
-        for k in d:
-            data.append(Gnuplot.Data(d[k], title=k, **kargs))
+        # Get the list of packets
+        if lfilter is None:
+            l = [f(self.res[i], self.res[i+1])
+                    for i in xrange(len(self.res) - delay)]
+        else:
+            l = [f(self.res[i], self.res[i+1])
+                    for i in xrange(len(self.res) - delay)
+                        if lfilter(self.res[i])]
 
-        g.plot(*data)
-        return g
-        
+        # Mimic the default gnuplot output
+        if kargs == {}:
+            kargs = MATPLOTLIB_DEFAULT_PLOT_KARGS
+        lines = plt.plot(l, **kargs)
+
+        # Call show() if matplotlib is not inlined
+        if not MATPLOTLIB_INLINED:
+            plt.show()
+
+        return lines
+
+    def multiplot(self, f, lfilter=None, plot_xy=False, **kargs):
+        """Uses a function that returns a label and a value for this label, then
+        plots all the values label by label.
+
+        A list of matplotlib.lines.Line2D is returned.
+        """
+
+        # Get the list of packets
+        if lfilter is None:
+            l = (f(e) for e in self.res)
+        else:
+            l = (f(e) for e in self.res if lfilter(e))
+
+        # Apply the function f to the packets
+        d = {}
+        for k, v in l:
+            d.setdefault(k, []).append(v)
+
+        # Mimic the default gnuplot output
+        if not kargs:
+            kargs = MATPLOTLIB_DEFAULT_PLOT_KARGS
+
+        if plot_xy:
+            lines = [plt.plot(*zip(*pl), **dict(kargs, label=k))
+                     for k, pl in d.iteritems()]
+        else:
+            lines = [plt.plot(pl, **dict(kargs, label=k))
+                     for k, pl in d.iteritems()]
+        plt.legend(loc="center right", bbox_to_anchor=(1.5, 0.5))
+
+        # Call show() if matplotlib is not inlined
+        if not MATPLOTLIB_INLINED:
+            plt.show()
+
+        return lines
 
     def rawhexdump(self):
         """Prints an hexadecimal dump of each packet in the list"""
@@ -477,6 +522,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
 
 
 class SndRcvList(PacketList):
+    __slots__ = []
     def __init__(self, res=None, name="Results", stats=None):
         PacketList.__init__(self, res, name, stats)
     def _elt2pkt(self, elt):

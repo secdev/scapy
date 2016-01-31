@@ -14,35 +14,38 @@ Generators and packet meta classes.
 import re,random,socket
 import config
 import error
+import types
 
 class Gen(object):
+    __slots__ = []
     def __iter__(self):
         return iter([])
     
 class SetGen(Gen):
-    def __init__(self, set, _iterpacket=1):
+    def __init__(self, values, _iterpacket=1):
         self._iterpacket=_iterpacket
-        if isinstance(set, (list, BasePacketList)):
-            self.set = list(set)
+        if isinstance(values, (list, BasePacketList)):
+            self.values = list(values)
+        elif (type(values) is tuple) and (2 <= len(values) <= 3) and \
+             all(type(i) is int for i in values):
+            # We use values[1] + 1 as stop value for xrange to maintain
+            # the behavior of using tuples as field `values`
+            self.values = [xrange(*((values[0], values[1] + 1) + values[2:]))]
         else:
-            self.set = [set]
+            self.values = [values]
     def transf(self, element):
         return element
     def __iter__(self):
-        for i in self.set:
-            if (type(i) is tuple) and (len(i) == 2) and type(i[0]) is int and type(i[1]) is int:
-                if  (i[0] <= i[1]):
-                    j=i[0]
-                    while j <= i[1]:
-                        yield j
-                        j += 1
-            elif isinstance(i, Gen) and (self._iterpacket or not isinstance(i,BasePacket)):
+        for i in self.values:
+            if (isinstance(i, Gen) and
+                (self._iterpacket or not isinstance(i,BasePacket))) or (
+                    isinstance(i, (xrange, types.GeneratorType))):
                 for j in i:
                     yield j
             else:
                 yield i
     def __repr__(self):
-        return "<SetGen %s>" % self.set.__repr__()
+        return "<SetGen %r>" % self.values
 
 class Net(Gen):
     """Generate a list of IPs from a network address or a name"""
@@ -175,11 +178,27 @@ class Packet_metaclass(type):
 
             dct["fields_desc"] = final_fld
 
+        if "__slots__" not in dct:
+            dct["__slots__"] = []
+        if "name" in dct:
+            dct["_name"] = dct.pop("name")
         newcls = super(Packet_metaclass, cls).__new__(cls, name, bases, dct)
+        newcls.__all_slots__ = set(
+            attr
+            for cls in newcls.__mro__ if hasattr(cls, "__slots__")
+            for attr in cls.__slots__
+        )
+
+        if hasattr(newcls, "aliastypes"):
+            newcls.aliastypes = [newcls] + newcls.aliastypes
+        else:
+            newcls.aliastypes = [newcls]
+
         if hasattr(newcls,"register_variant"):
             newcls.register_variant()
-        for f in newcls.fields_desc:                
-            f.register_owner(newcls)
+        for f in newcls.fields_desc:
+            if hasattr(f, "register_owner"):
+                f.register_owner(newcls)
         config.conf.layers.register(newcls)
         return newcls
 
@@ -191,11 +210,22 @@ class Packet_metaclass(type):
 
     def __call__(cls, *args, **kargs):
         if "dispatch_hook" in cls.__dict__:
-            cls =  cls.dispatch_hook(*args, **kargs)
+            try:
+                cls = cls.dispatch_hook(*args, **kargs)
+            except:
+                if conf.debug_dissector:
+                    raise
+                cls = Raw
         i = cls.__new__(cls, cls.__name__, cls.__bases__, cls.__dict__)
         i.__init__(*args, **kargs)
         return i
 
+class Field_metaclass(type):
+    def __new__(cls, name, bases, dct):
+        if "__slots__" not in dct:
+            dct["__slots__"] = []
+        newcls = super(Field_metaclass, cls).__new__(cls, name, bases, dct)
+        return newcls
 
 class NewDefaultValues(Packet_metaclass):
     """NewDefaultValues is deprecated (not needed anymore)
@@ -220,15 +250,12 @@ class NewDefaultValues(Packet_metaclass):
         return super(NewDefaultValues, cls).__new__(cls, name, bases, dct)
 
 class BasePacket(Gen):
-    pass
+    __slots__ = []
 
 
 #############################
 ## Packet list base classe ##
 #############################
 
-class BasePacketList:
-    pass
-
-
-
+class BasePacketList(object):
+    __slots__ = []

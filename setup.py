@@ -56,7 +56,24 @@ setup(
     author_email = 'phil(at)secdev.org',
     description = 'Scapy: interactive packet manipulation tool',
     license = 'GPLv2',
-    url = 'http://www.secdev.org/projects/scapy'
-    # keywords = '',
-    # url = '',
+    url = 'http://www.secdev.org/projects/scapy',
+    download_url='https://github.com/secdev/scapy/tarball/master',
+    keywords=["network"],
+    classifiers=[
+        "Development Status :: 5 - Production/Stable",
+        "Environment :: Console",
+        "Intended Audience :: Developers",
+        "Intended Audience :: Information Technology",
+        "Intended Audience :: Science/Research",
+        "Intended Audience :: System Administrators",
+        "Intended Audience :: Telecommunications Industry",
+        "License :: OSI Approved :: GNU General Public License v2 (GPLv2)",
+        "Programming Language :: Python :: 2",
+        "Programming Language :: Python :: 2.5",
+        "Programming Language :: Python :: 2.6",
+        "Programming Language :: Python :: 2.7",
+        "Topic :: Security",
+        "Topic :: System :: Networking",
+        "Topic :: System :: Networking :: Monitoring",
+    ]
 )
