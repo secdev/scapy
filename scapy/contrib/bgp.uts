@@ -138,3 +138,13 @@ OpenNotification in open_notify
 pkt = BGPHeader()/open_notify
 
 BGPHeader(str(pkt)).len == 19+2
+
+= BGPIPField - BGPIPv6Field
+
+prefix4 = BGPIPField("prefix4",None)
+prefix4.i2m(None,prefix4.h2i(None,"10.20.8.0/24")) == "\x18\x0a\x14\x08"
+prefix4.alen == 4
+
+prefix6 = BGPIPv6Field("prefix",None)
+prefix6.i2h(None,prefix6.m2i(None,"\x20\x20\x02\xca\xc1")) == "2002:cac1::/32"
+prefix6.alen == 16

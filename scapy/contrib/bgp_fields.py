@@ -67,13 +67,16 @@ class BGPIPField(Field):
     """Represents how bgp represents IPv4 prefixes
 internal representation (mask, base)"""
     af = socket.AF_INET
-    addrlen = 4
+    alen = 4
     def mask2iplen(self,mask):
         """turn the mask into the length in bytes of the ip field"""
         return (mask + 7) // 8
     def h2i(self, pkt, h):
         """human x.x.x.x/y to internal"""
-        ip,mask = re.split( '/', h)
+        if h is not None:
+            ip,mask = re.split( '/', h)
+        else:
+            ip,mask =  '0' if self.af == socket.AF_INET else "::",'0'
         return  int(mask), ip
     def i2h( self, pkt, i):
         mask, ip = i
@@ -86,28 +89,25 @@ internal representation (mask, base)"""
         mask, ip = i
         return self.mask2iplen(mask) + 1
     def i2m(self, pkt, i):
-        """internal (ip as bytes, mask as int) to machine"""
         mask, ip = i
-        af = self.af
-        ip = inet_pton(af, ip )
-        return struct.pack(">B",mask) + ip[:self.mask2iplen(mask)] 
+        ipbytes = inet_pton(self.af, ip )
+        return struct.pack(">B",mask) + ipbytes[:self.mask2iplen(mask)] 
     def addfield(self, pkt, s, val):
         return s+self.i2m(pkt, val)
     def getfield(self, pkt, s):
         l = self.mask2iplen(ord(s[0])) + 1
         return s[l:], self.m2i(pkt,s[:l])
     def m2i(self,pkt,m):
-        af = self.af
-        alen = self.addrlen
         mask = ord(m[0])
-        ip = "".join( [ m[i + 1] if i < self.mask2iplen(mask) else '\x00' for i in range(alen)] )
-        return (mask,inet_ntop(af,ip))
+        ip = "".join( [ m[i + 1] if i < self.mask2iplen(mask) else '\x00' for i in range(self.alen)] )
+        return (mask,inet_ntop(self.af,ip))
 #
 # Derive IPv6 prefixes from IPv4Prefixes
 #
 class BGPIPv6Field(BGPIPField):
     af = socket.AF_INET6
-    addrlen = 16
+    alen = 16
+
 #
 # -------------------------
 #
