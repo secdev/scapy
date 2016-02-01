@@ -148,3 +148,19 @@ prefix4.alen == 4
 prefix6 = BGPIPv6Field("prefix",None)
 prefix6.i2h(None,prefix6.m2i(None,"\x20\x20\x02\xca\xc1")) == "2002:cac1::/32"
 prefix6.alen == 16
+
+= Route target fields
+
+rt = RouteTargetField("rt", "rt 6813:100:200")
+rbytes = rt.i2m(None,rt.h2i(None,"rt 6813:100:200"))
+len(rbytes) == 8
+rbytes == "\x02\x02\x1a\x9d\x00\x64\x00\xc8"
+
+rbytes = rt.i2m(None,rt.h2i(None,"rt 6813:200"))
+len(rbytes) == 8
+rbytes == "\x00\x02\x1a\x9d\x00\x00\x00\xc8"
+
+rbytes = rt.i2m(None,rt.h2i(None,"rt 10.11.12.13:200"))
+len(rbytes) == 8
+rbytes == "\x01\x02\x0a\x0b\x0c\x0d\x00\xc8"
+

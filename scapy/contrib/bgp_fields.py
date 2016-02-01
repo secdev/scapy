@@ -190,3 +190,112 @@ Internal representation is short"""
         return struct.pack("!H",i)
     def m2i(self,pkt,m):
         return struct.unpack("!H",m)
+#
+# Route Origin and Route Target extended communities
+# Extended to cope with the Route Distinguisher fields
+#
+class RouteTargetField(Field):
+    """Internal representation of the route target, route origin or route distinguisher:
+subtype:    string
+ash:        int (0 for 16-bit AS)
+asl:        int
+ip:         string (IPv4 address)
+n:          int 
+"""
+    humanRe = r"(r[ot] )?(((AS)?(\d+)(:(\d+))?)|(\d+(\.\d+)+)):(\d+)"
+    def typ(self,ash,asl,ip):
+        if ip is not None: return 1
+        if ash is not None and ash != 0: return 2
+        return 0
+    def subtyp(self,name):
+        return {'rt' : 2, 'ro': 3} [name]
+    
+    def h2i(self,pkt,h):
+        g = re.match(self.humanRe,h)
+        if g is not None:
+            subtyp = g.group(1)
+            if subtyp is None: subtyp = 'rt'
+            if len(subtyp) > 2: subtyp = subtyp[:2]
+            if g.group(5) is None:
+                ash = None
+                asl = None
+                ip  = g.group(2)
+            else:
+                asl = int(g.group(7)) if g.group(7) is not None else int(g.group(5))
+                ash = int(g.group(5)) if g.group(7) is not None else 0
+                ip = None 
+            n = int(g.group(10))
+        return subtyp,ash,asl,ip,n
+        
+    def i2h(self,pkt,i):
+        subt,ash,asl,ip,n = i
+        t = self.typ(ash,asl,ip)
+        if subt is None: subt = ""
+        if len(subt) > 3: subt = subt[:3]
+        if len(subt) == 2: subt += " "
+        if t == 0: return "%s%s%d:%d" % (subt,"AS" if asl + n != 0 else "",asl,n)
+        if t == 1: return "%s%s:%d" % (subt,ip,n)
+        return "%sAS%d:%d:%d" % (subt,ash,asl,n)
+    def i2repr( self, pkt, i):
+        """make it look nice"""
+        return self.i2h(pkt,i)
+    def i2len(self,pkt,i):
+        """This will be always 8 bytes"""
+        return 8
+    def addfield(self, pkt, s, val):
+        return s+self.i2m(pkt, val)
+    def getfield(self, pkt, s):
+        l = self.i2len(pkt,s)
+        return s[l:], self.m2i(pkt,s[:l])
+    def i2m(self,pkt,i):
+        subt,ash,asl,ip,n = i
+        t = self.typ(ash,asl,ip)
+        s = self.subtyp(subt)
+        if t == 0:
+            return struct.pack("!BBHI",t,s,asl,n)
+        elif t == 1:
+            return struct.pack("!BB4sH",t,s,inet_pton(socket.AF_INET,ip),n)
+        else:
+            return struct.pack("!BBHHH",t,s,ash,asl,n)
+    def m2i(self,pkt,m):
+        t,s = struct.unpack("!BB",m[:2])
+        subt = {2:'rt',3:'ro'}[s]
+        ash = 0
+        asl = 0
+        ip  = None
+        n   = 0
+        if t == 0:              # 0, asl (2bytes), ip=None, n (4bytes)
+            asl,n = struct.unpack("!HI",m[2:8])
+        elif t == 1:            # 0, 0, ip (4bytes), n (2bytes)
+            ipn, n = struct.unpack("!4sH",m[2:8])
+            ip = inet_ntop(socket.AF_INET,ipn)
+        elif t == 2:            # ash, asl, None, n (all 2 bytes)
+            ash,asl,n = struct.unpack("!HHH",m[2:8])
+        return subt,ash,asl,ip,n
+    
+class RouteDistinguisherField(RouteTargetField):        
+    humanRe = r"(rd )?(((AS)?(\d+)(:(\d+))?)|(\d+(\.\d+)+)):(\d+)"
+    def i2m(self,pkt,i):
+        subt,ash,asl,ip,n = i
+        t = self.typ(ash,asl,ip)
+        if t == 0:
+            return struct.pack("!HHI", t,asl,n)
+        elif t == 1:
+            return struct.pack("!H4sH",t,inet_pton(AF_INET,ip),n)
+        else:
+            return struct.pack("!HHHH",t,ash,asl,n)
+    def m2i(self,pkt,m):
+        subt = "rd"
+        ash = 0
+        asl = 0
+        ip = None
+        n = 0
+        t = struct.unpack("!H",m[:2])[0]
+        if t == 0:
+            t, asl, n = struct.unpack("!HHI",m[:8])
+        elif t == 1:
+            t, ipn, n = struct.unpack("!H4sH",m[:8])
+            ip = inet_ntop(AF_INET,ipn)
+        elif t == 2:
+            t,ash,asn,n = struct.unpack("!HHHH",m[:8])
+        return subt,ash,asl,ip,n
