@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-
+"""BGP-4 protocol with mulit-protocol support"""
 # scapy.contrib.description = BGP
 # scapy.contrib.status = loads
 
@@ -62,6 +62,7 @@ class BGPOptionalParameter(PadPacket):
         return p+pay
 
 class Capability(BGPOptionalParameter):
+    """Default capability implementation"""
     name = "MultiProtocol address family support"
     fields_desc = [
         ByteField("type", 2),
@@ -79,8 +80,9 @@ class Capability(BGPOptionalParameter):
             p = p[:3]+chr(cl)+p[4:]
         return p+pay
 
-class Capability_AFI(Capability):
-    name = "MultiProtocol address family support"
+class CapabilityAFI(Capability):
+    """Declare AFI support"""
+    name = "AFI"
     fields_desc = [
         ByteField("type", 2),
         ByteField("len", None),
@@ -91,7 +93,8 @@ class Capability_AFI(Capability):
         ByteEnumField("safi", 0, SAFI_NAMES)
     ]
 
-class Capability_RR(BGPOptionalParameter):
+class CapabilityRR(BGPOptionalParameter):
+    """Declare route refresh support"""
     name = "MultiProtocol route refresh"
     fields_desc = [
         ByteField("type", 2),
@@ -101,6 +104,7 @@ class Capability_RR(BGPOptionalParameter):
     ]
 
 class GracefulAFI(Packet):
+    """Declare graceful restart per AFI info"""
     field_desc = [
         ShortEnumField("AFI", 0, AFI_NAMES),
         ByteEnumField("SAFI", 0, SAFI_NAMES),
@@ -112,7 +116,8 @@ class GracefulAFI(Packet):
             ]
         )
     ]
-class Capability_Graceful(Capability):
+class CapabilityGraceful(Capability):
+    """Declare graceful restart"""
     name = "MultiProtocol Graceful restart"
     fields_desc = [
         ByteField("type", 2),
@@ -127,7 +132,8 @@ class Capability_Graceful(Capability):
         )
     ]
 
-class Capability_AS4(Capability):
+class CapabilityAS4(Capability):
+    """Declare 4-byte AS support"""
     name = "MultiProtocol 4-byte ASN"
     fields_desc = [
         ByteField("type", 2),
@@ -138,13 +144,14 @@ class Capability_AS4(Capability):
     ]
 
 _optparam_dict = {
-    (2, 1) :  Capability_AFI,
-    (2, 2) :  Capability_RR,
-    (2, 64) : Capability_Graceful,
-    (2, 65) : Capability_AS4,
+    (2, 1) :  CapabilityAFI,
+    (2, 2) :  CapabilityRR,
+    (2, 64) : CapabilityGraceful,
+    (2, 65) : CapabilityAS4,
 }
 
-def OptParamDispatcher(s):
+def optparam_dispatcher(s):
+    """dispatcher"""
     return _class_dispatcher(
         s,
         _optparam_dict,
@@ -162,7 +169,7 @@ class BGPOpen(Packet):
         IPField("bgp_id", "0.0.0.0"),
         ByteField("opt_parm_len", None),
         PacketListField(
-            "opt_parm", [], OptParamDispatcher,
+            "opt_parm", [], optparam_dispatcher,
             length_from=lambda p: p.opt_parm_len
         ),
     ]
@@ -171,10 +178,11 @@ class BGPOpen(Packet):
             l = len(p) - 10 # 10 is regular length with no additional options
             p = p[:9] + struct.pack("!B", l)  +p[10:]
         return p+pay
-    #
-    # -----------------------------------------------------
-    #
+#
+# -----------------------------------------------------
+#
 class BGPAuthenticationData(Packet):
+    """BGP authentication negotiation"""
     name = "BGP Authentication Data"
     fields_desc = [
         ByteField("AuthenticationCode", 0),
@@ -207,6 +215,7 @@ class BGPAttribute(PadPacket):
             length_from=lambda p: p.attr_length())
     ]
     def attr_length(self):
+        """Handle the calculation of the attribute length"""
         if self.attr_len is not None:
             return self.attr_len
         else:
@@ -246,7 +255,7 @@ class BGPASSegment(PadPacket):
     """AS SEGMENT"""
     name = "BGPASSegment"
     fields_desc = [
-	ByteEnumField("segment_type", 2, {1:"AS_SET",
+        ByteEnumField("segment_type", 2, {1:"AS_SET",
                                           2:"AS_SEQUENCE",
                                           # RFC 5065
                                           3:"AS_CONFED_SEQUENCE",
@@ -265,7 +274,7 @@ class BGPASPath(BGPAttribute):
     """The AS_PATH attribute"""
     name = "BGPASPath"
     fields_desc = [
-	FlagsField("flags", 0x40, 8, BGP_HEADER_FLAGS),
+        FlagsField("flags", 0x40, 8, BGP_HEADER_FLAGS),
         ByteField("type", 2),
         ConditionalField(
             ByteField("attr_len", None),
@@ -285,7 +294,7 @@ class BGPNextHop(PadPacket):
         FlagsField("flags", 0x40, 8, BGP_HEADER_FLAGS),
         ByteField("type", 3),
         ByteField("attr_len", 4),
-	IPField("next_hop", 0),
+        IPField("next_hop", 0),
     ]
 
 class BGPMultiExitDiscriminator(PadPacket):
@@ -295,7 +304,7 @@ class BGPMultiExitDiscriminator(PadPacket):
         FlagsField("flags", 0x00, 8, BGP_HEADER_FLAGS), # Non-transitive
         ByteField("type", 4),
         ByteField("attr_len", 4),
-	IntField("med", 0),
+        IntField("med", 0),
     ]
 
 class BGPLocalPreference(PadPacket):
@@ -305,7 +314,7 @@ class BGPLocalPreference(PadPacket):
         FlagsField("flags", 0x40, 8, BGP_HEADER_FLAGS),
         ByteField("type", 5),
         ByteField("attr_len", 4),
-	IntField("local_pref", 0),
+        IntField("local_pref", 0),
     ]
 
 class BGPAtomicAggregate(PadPacket):
@@ -348,7 +357,7 @@ class BGPOriginatorId(PadPacket):
         FlagsField("flags", 0x80, 8, BGP_HEADER_FLAGS), # Optional, Non-transitive
         ByteField("type", 9),
         ByteField("attr_len", 4),
-	IPField("originator_id", "0.0.0.0"),
+        IPField("originator_id", "0.0.0.0"),
     ]
 
 class BGPClusterList(BGPAttribute):
@@ -361,7 +370,7 @@ class BGPClusterList(BGPAttribute):
                          cond=lambda p: p.flags & 0x10 == 0),
         ConditionalField(ShortField("ext_len", None),
                          cond=lambda p: p.flags & 0x10 == 0x10),
-	FieldListField("cluster_id", [], IPField("", "0.0.0.0"),
+        FieldListField("cluster_id", [], IPField("", "0.0.0.0"),
                        length_from=lambda p: p.attr_length())
     ]
 
@@ -396,7 +405,8 @@ _mp_dict = {
     (2, 1): MPIPv6Reach
 }
 
-def MPDispatcher(s):
+def mp_dispatcher(s):
+    """dispatcher"""
     return _class_dispatcher(
         s,
         _mp_dict,
@@ -414,7 +424,7 @@ class BGPMPReach(BGPAttribute):
                          cond=lambda p: p.flags & 0x10 == 0),
         ConditionalField(ShortField("ext_len", None),
                          cond=lambda p: p.flags & 0x10 == 0x10),
-        PacketField("mp_reach", None, MPDispatcher)
+        PacketField("mp_reach", None, mp_dispatcher)
     ]
     #
     # -----------------------------
@@ -433,7 +443,7 @@ class MPIPv6Unreach(PadPacket):
     name = "MPIPv6Unreach"
     fields_desc = [
         ShortEnumField("AFI", 2, AFI_NAMES),
-        ByteEnumField ("SAFI", 1, SAFI_NAMES),
+        ByteEnumField("SAFI", 1, SAFI_NAMES),
         FieldListField("nlri", [], BGPIPv6Field("", "::/0"))
     ]
 
@@ -441,7 +451,8 @@ _mpu_dict = {
     (2, 1): MPIPv6Unreach
 }
 
-def MPUDispatcher(s):
+def mpu_dispatcher(s):
+    """Dispatcher"""
     return _class_dispatcher(
         s,
         _mpu_dict,
@@ -459,7 +470,7 @@ class BGPMPUnreach(BGPAttribute):
                          cond=lambda p: p.flags & 0x10 == 0),
         ConditionalField(ShortField("ext_len", None),
                          cond=lambda p: p.flags & 0x10 == 0x10),
-        PacketField("mp_unreach", None, MPUDispatcher)
+        PacketField("mp_unreach", None, mpu_dispatcher)
     ]
 
 
@@ -479,7 +490,8 @@ _attribute_dict = {
     # 16: BGPExtendedCommunities,
 }
 
-def Attribute_Dispatcher(s):
+def attribute_dispatcher(s):
+    """Dispatcher"""
     return _class_dispatcher(
         s,
         _attribute_dict,
@@ -491,14 +503,14 @@ class BGPUpdate(PadPacket):
     """Update the routes WithdrawnRoutes = UnfeasiableRoutes"""
     name = "BGP Update fields"
     fields_desc = [
-	ShortField("withdrawn_len", None),
-	FieldListField("withdrawn", [], BGPIPField("", "0.0.0.0/0"),
+        ShortField("withdrawn_len", None),
+        FieldListField("withdrawn", [], BGPIPField("", "0.0.0.0/0"),
                        length_from=lambda p: p.withdrawn_len),
-	ShortField("tp_len", None),
-	PacketListField("total_path", [], Attribute_Dispatcher,
+        ShortField("tp_len", None),
+        PacketListField("total_path", [], attribute_dispatcher,
                         length_from=lambda p: p.tp_len),
-	FieldListField("nlri", [], BGPIPField("", "0.0.0.0/0")),
-        #length_from=lambda p: p.underlayer.len - 23 - p.tp_len - p.withdrawn_len), # len should be BGPHeader.len
+        FieldListField("nlri", [], BGPIPField("", "0.0.0.0/0")),
+        #length_from=lambda p: p.underlayer.len - 23 - p.tp_len - p.withdrawn_len),
     ]
     def post_build(self, p, pay):
         wl = self.withdrawn_len
@@ -516,7 +528,8 @@ class BGPUpdate(PadPacket):
 # -------------------- Notifications -------
 #
 class HeaderNotification(PadPacket):
-    name = "Header Error Notification"
+    """Header Error Notification"""
+    name = "Header Notification"
     fields_desc = [
         ByteField("ErrorCode", 1),
         ByteEnumField("SubErrorCode", 0, {
@@ -526,6 +539,7 @@ class HeaderNotification(PadPacket):
         })]
 
 class OpenNotification(PadPacket):
+    """Open Error Notification"""
     name = "Open Error Notification"
     fields_desc = [
         ByteField("ErrorCode", 2),
@@ -540,6 +554,7 @@ class OpenNotification(PadPacket):
         })]
 
 class UpdateNotification(PadPacket):
+    """Update Notification"""
     name = "Update Notification"
     fields_desc = [
         ByteField("ErrorCode", 3),
@@ -558,6 +573,7 @@ class UpdateNotification(PadPacket):
         })]
 
 class FSMNotification(PadPacket):
+    """FSM Notification"""
     name = "FSM Notification"
     fields_desc = [
         ByteField("ErrorCode", 5),
@@ -568,6 +584,7 @@ class FSMNotification(PadPacket):
         })]
 
 class CeaseNotification(PadPacket):
+    """Cease Notification"""
     name = "Cease Notification"
     fields_desc = [
         ByteField("ErrorCode", 6),
@@ -593,6 +610,7 @@ class RRNotification(PadPacket):
     ]
 
 class DefaultNotification(PadPacket):
+    """Unhandled BGP-4 notifications"""
     fields_desc = [
         ByteEnumField("ErrorCode", 0, {
             1:"Message Header Error",
@@ -605,7 +623,7 @@ class DefaultNotification(PadPacket):
         ByteField("SubErrorCode", 0)
     ]
 
-notification_dict = {
+_notification_dict = {
     1: HeaderNotification,
     2: OpenNotification,
     3: UpdateNotification,
@@ -614,18 +632,20 @@ notification_dict = {
     7: RRNotification,
 }
 
-def NotificationDispatcher(s):
+def notification_dispatcher(s):
+    """Dispatcher"""
     return _class_dispatcher(
         s,
-        notification_dict,
+        _notification_dict,
         DefaultNotification,
         index_from=lambda s: ord(s[0])
     )
 
 class BGPNotification(Packet):
+    """BGP Notification fields"""
     name = "BGP Notification fields"
     fields_desc = [
-        PacketField("Notification", None, NotificationDispatcher),
+        PacketField("Notification", None, notification_dispatcher),
         FieldListField("Data", [], ByteField("", None)),
     ]
     #
