@@ -7,7 +7,7 @@ if not socket.has_ipv6:
     raise socket.error("can't use AF_INET6, IPv6 is disabled")
 
 from scapy  import *
-from scapy.config import conf
+#from scapy.config import conf
 from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.inet6 import IP6Field
@@ -22,7 +22,7 @@ class PadPacket(Packet):
     name = "PadPacket"
     fields_desc = [ ]
     def extract_padding(self, pkt):
-	return "",pkt
+        return "",pkt
 #
 # Packet array
 #
@@ -86,7 +86,7 @@ internal representation (mask, base)"""
         return self.i2h(pkt,i)
     def i2len(self, pkt, i):
         """rely on integer division"""
-        mask, ip = i
+        mask  = i[0]
         return self.mask2iplen(mask) + 1
     def i2m(self, pkt, i):
         mask, ip = i
@@ -119,11 +119,11 @@ class CommunityField(Field):
         "NO_EXPORT_SUBCONFED": (0xFFFF, 0xFF03),
     }
     def h2i(self, pkt, h):
-	"""human to internal (hi,lo)"""
+        """human to internal (hi,lo)"""
         h = h.upper()
         if h in self.well_known.keys():
             return self.well_known[h]
-        m = re.match("(\d+):(\d+)",h)
+        m = re.match(r"(\d+):(\d+)",h)
         return  int(m.group(1)), int(m.group(2))
     def i2h( self, pkt, i):
         for r in self.well_known:
@@ -149,8 +149,8 @@ class AS4Field(Field):
     """4 byte AS numbers
 Internal representation is hi,lo"""
     def h2i(self, pkt, h):
-	"""human to internal (hi,lo)"""
-        m = re.match("(AS)?(\d+)(:(\d+))?",h)
+        """human to internal (hi,lo)"""
+        m = re.match(r"(AS)?(\d+)(:(\d+))?",h)
         return (int(m.group(2)), int(m.group(4))) if m.group(4) is not None else (0, int(m.group(2)))
     def i2h( self, pkt, i):
         hi,lo = i
@@ -178,8 +178,8 @@ class AS2Field(AS4Field):
     """4 byte AS numbers
 Internal representation is short"""
     def h2i(self, pkt, h):
-	"""human to internal as short"""
-        m = re.match("(AS)?(\d+)",h)
+        """human to internal as short"""
+        m = re.match(r"(AS)?(\d+)",h)
         return int(m.group(2))
     def i2h( self, pkt, i):
         return "AS%d" % i
@@ -203,7 +203,7 @@ ip:         string (IPv4 address)
 n:          int 
 """
     humanRe = r"(r[ot] )?(((AS)?(\d+)(:(\d+))?)|(\d+(\.\d+)+)):(\d+)"
-    def typ(self,ash,asl,ip):
+    def typ(self,ash,ip):
         if ip is not None: return 1
         if ash is not None and ash != 0: return 2
         return 0
@@ -229,7 +229,7 @@ n:          int
         
     def i2h(self,pkt,i):
         subt,ash,asl,ip,n = i
-        t = self.typ(ash,asl,ip)
+        t = self.typ(ash,ip)
         if subt is None: subt = ""
         if len(subt) > 3: subt = subt[:3]
         if len(subt) == 2: subt += " "
@@ -249,7 +249,7 @@ n:          int
         return s[l:], self.m2i(pkt,s[:l])
     def i2m(self,pkt,i):
         subt,ash,asl,ip,n = i
-        t = self.typ(ash,asl,ip)
+        t = self.typ(ash,ip)
         s = self.subtyp(subt)
         if t == 0:
             return struct.pack("!BBHI",t,s,asl,n)
@@ -276,12 +276,12 @@ n:          int
 class RouteDistinguisherField(RouteTargetField):        
     humanRe = r"(rd )?(((AS)?(\d+)(:(\d+))?)|(\d+(\.\d+)+)):(\d+)"
     def i2m(self,pkt,i):
-        subt,ash,asl,ip,n = i
-        t = self.typ(ash,asl,ip)
+        _,ash,asl,ip,n = i
+        t = self.typ(ash,ip)
         if t == 0:
             return struct.pack("!HHI", t,asl,n)
         elif t == 1:
-            return struct.pack("!H4sH",t,inet_pton(AF_INET,ip),n)
+            return struct.pack("!H4sH",t,inet_pton(socket.AF_INET,ip),n)
         else:
             return struct.pack("!HHHH",t,ash,asl,n)
     def m2i(self,pkt,m):
@@ -295,7 +295,7 @@ class RouteDistinguisherField(RouteTargetField):
             t, asl, n = struct.unpack("!HHI",m[:8])
         elif t == 1:
             t, ipn, n = struct.unpack("!H4sH",m[:8])
-            ip = inet_ntop(AF_INET,ipn)
+            ip = inet_ntop(socket.AF_INET,ipn)
         elif t == 2:
-            t,ash,asn,n = struct.unpack("!HHHH",m[:8])
+            t,ash,asl,n = struct.unpack("!HHHH",m[:8])
         return subt,ash,asl,ip,n
