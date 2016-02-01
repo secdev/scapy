@@ -40,7 +40,7 @@ True
 """
 
 import socket
-import fractions
+from Crypto.Util.number import GCD as gcd
 
 from scapy.data import IP_PROTOS
 
@@ -162,7 +162,7 @@ def _lcm(a, b):
     if a == 0 or b == 0:
         return 0
     else:
-        return abs(a * b) // fractions.gcd(a, b)
+        return abs(a * b) / gcd(a, b)
 
 class CryptAlgo(object):
     """
