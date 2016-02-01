@@ -37,12 +37,12 @@ class BGPHeader(Packet):
 	ByteEnumField("type", 4, {0:"none", 1:"open",2:"update",3:"notification",4:"keep_alive"}),
     ]
     def post_build(self, p, pay):
-	if self.len is None:
+        if self.len is None:
             l = len(p)
             if pay is not None:
-	        l += len(pay)
-	    p = p[:16]+struct.pack("!H", l)+p[18:]
-	return p+pay
+                l += len(pay)
+                p = p[:16]+struct.pack("!H", l)+p[18:]
+        return p+pay
 
 #
 # -------------------  BGP Open message and capability negotiation
@@ -167,10 +167,10 @@ class BGPOpen(Packet):
         ),
     ]
     def post_build(self, p, pay):
-	if self.opt_parm_len is None:
-	    l = len(p) - 10 # 10 is regular length with no additional options
-	    p = p[:9] + struct.pack("!B",l)  +p[10:]
-	return p+pay
+        if self.opt_parm_len is None:
+            l = len(p) - 10 # 10 is regular length with no additional options
+            p = p[:9] + struct.pack("!B",l)  +p[10:]
+        return p+pay
 #
 # -----------------------------------------------------
 #
@@ -213,18 +213,18 @@ class BGPAttribute(PadPacket):
             return self.ext_len
     def post_build(self, p, pay):
         """Handling the length/extended length field and flag"""
-	if self.attr_len is None and self.ext_len is None:
+        if self.attr_len is None and self.ext_len is None:
             if self.flags & 0x10 == 0x10:
-	        l = len(p) - 4 # 4 is the length when extended-length is set
-	        p = p[:2] + struct.pack("!H",self.flags | 0x10, l) + p[4:]
+                l = len(p) - 4 # 4 is the length when extended-length is set
+                p = p[:2] + struct.pack("!H",self.flags | 0x10, l) + p[4:]
             else:
                 l = len(p) - 3 # 3 is regular length with no additional options
-	        p = p[:2] + struct.pack("!B",l)  +p[3:]
+                p = p[:2] + struct.pack("!B",l)  +p[3:]
         elif self.attr_len is not None:
             self.flags = self.flags & 0xEF
         elif self.ext_len is not None:
             self.flags = self.flags | 0x10
-	return p+pay
+        return p+pay
 #
 # Attributes with fixed length are derived from PadPacket
 # While attributes with variable length are derived from BGPAttribute
@@ -373,11 +373,11 @@ class MPNLRIReach(PadPacket):
     fields_desc = [
         ShortEnumField("AFI",  0, AFI_NAMES),
         ByteEnumField ("SAFI", 0, SAFI_NAMES),
-        FieldLenField("nha_len",None,fmt="B",length_of="nha"),
-        FieldListField("nha",[],ByteField("",0),
+        FieldLenField("nha_len", None, fmt="B",length_of="nha"),
+        FieldListField("nha", [], ByteField("",0),
                        length_from=lambda p: p.nha_len),
-        ByteField("reserved",0),
-        FieldListField("nlri",[],ByteField("",0))	
+        ByteField("reserved", 0),
+        FieldListField("nlri", [], ByteField("",0))	
     ]
 
 class MPIPv6Reach(PadPacket):
@@ -502,16 +502,16 @@ class BGPUpdate(PadPacket):
                        #length_from=lambda p:p.underlayer.len - 23 - p.tp_len - p.withdrawn_len), # len should be BGPHeader.len
     ]
     def post_build(self,p,pay):
-	wl = self.withdrawn_len
-	subpacklen = lambda p: len ( str( p ))
-	subfieldlen = lambda p: BGPIPField("", "0.0.0.0/0").i2len(self,  p )
-	if wl is None:
-	    wl = sum ( map ( subfieldlen , self.withdrawn))
-	    p = p[:0]+struct.pack("!H", wl)+p[2:]
-	if self.tp_len is None:
-	    l = sum ( map ( subpacklen , self.total_path))
-	    p = p[:2+wl]+struct.pack("!H", l)+p[4+wl:]
-	return p+pay
+        wl = self.withdrawn_len
+        subpacklen = lambda p: len ( str( p ))
+        subfieldlen = lambda p: BGPIPField("", "0.0.0.0/0").i2len(self,  p )
+        if wl is None:
+            wl = sum ( map ( subfieldlen , self.withdrawn))
+            p = p[:0]+struct.pack("!H", wl)+p[2:]
+        if self.tp_len is None:
+            l = sum ( map ( subpacklen , self.total_path))
+            p = p[:2+wl]+struct.pack("!H", l)+p[4+wl:]
+        return p+pay
 
 #
 # -------------------- Notifications -------
