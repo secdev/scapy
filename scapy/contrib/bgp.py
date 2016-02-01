@@ -8,7 +8,7 @@ from scapy.fields import *
 from scapy.layers.inet import TCP
 from scapy.contrib.bgp_fields import *
 
-def Class_Dispatcher(s,class_dict,def_class,index_from=None):
+def _class_dispatcher(s,class_dict,def_class,index_from=None):
     """ A generic class dispatcher:
     s:           packet
     class_dict:  a dictionary of index:packetClass
@@ -25,8 +25,8 @@ def Class_Dispatcher(s,class_dict,def_class,index_from=None):
         cls = Raw
     return cls(s)
 
-afi_names = { 1: "IPv4", 2:"IPv6" }
-safi_names = { 1: "Unicast", 2: "Multicast", 128: "MPLS Labeled-VPN"}
+AFI_NAMES = { 1: "IPv4", 2:"IPv6" }
+SAFI_NAMES = { 1: "Unicast", 2: "Multicast", 128: "MPLS Labeled-VPN"}
 
 class BGPHeader(Packet):
     """The first part of any BGP packet"""
@@ -86,9 +86,9 @@ class Capability_AFI(Capability):
         ByteField("len", None),
         ByteField("capa_type",1),
         ByteField("capa_len",None),
-        ShortEnumField("afi",0,afi_names),
+        ShortEnumField("afi",0,AFI_NAMES),
         ByteField("reserved",0),
-        ByteEnumField("safi",0,safi_names)
+        ByteEnumField("safi",0,SAFI_NAMES)
     ]
 
 class Capability_RR(BGPOptionalParameter):
@@ -102,13 +102,15 @@ class Capability_RR(BGPOptionalParameter):
 
 class GracefulAFI(Packet):
     field_desc = [
-        ShortEnumField("AFI",0,afi_names),
-        ByteEnumField("SAFI",0,safi_names),
-        FlagsField("af_flags",0,8,
+        ShortEnumField("AFI",0,AFI_NAMES),
+        ByteEnumField("SAFI",0,SAFI_NAMES),
+        FlagsField(
+            "af_flags",0,8,
             [
                 "AFF1","AFF2","AFF3","AFF4",
                 "AFF5","AFF6","AFF7","forward"
-            ])
+            ]
+        )
     ]
 class Capability_Graceful(Capability):
     name = "MultiProtocol Graceful restart"
@@ -119,8 +121,10 @@ class Capability_Graceful(Capability):
         ByteField("capa_len",None),
         FlagsField("restart_flags",0,4,["RR1", "RR2", "RR3","restart"]),
         BitField("restart_time",0,12),
-        PacketListField("afi",[],GracefulAFI,
-            length_from = lambda p: p.capa_len-2)
+        PacketListField(
+            "afi",[],GracefulAFI,
+            length_from = lambda p: p.capa_len-2
+        )
     ]
 
 class Capability_AS4(Capability):
@@ -133,21 +137,19 @@ class Capability_AS4(Capability):
         AS4Field("asn","AS0")
     ]
 
-optparam_dict = {
+_optparam_dict = {
     (2,1) :  Capability_AFI,
     (2,2) :  Capability_RR,
     (2,64) : Capability_Graceful,
     (2,65) : Capability_AS4,
 }
-
-def get_capability(s):
-    return ord(s[0]), ord(s[2])
     
 def OptParamDispatcher(s):
-    return Class_Dispatcher(s,
-        optparam_dict,
+    return _class_dispatcher(
+        s,
+        _optparam_dict,
         BGPOptionalParameter,
-        index_from = lambda s: get_capability(s)
+        index_from = lambda s: (ord(s[0]), ord(s[2]))
     )
 
 class BGPOpen(Packet):
@@ -159,8 +161,10 @@ class BGPOpen(Packet):
         ShortField("hold_time", 0),
         IPField("bgp_id","0.0.0.0"),
         ByteField("opt_parm_len", None),
-        PacketListField("opt_parm",[], OptParamDispatcher,
-            length_from=lambda p:p.opt_parm_len),
+        PacketListField(
+            "opt_parm",[], OptParamDispatcher,
+            length_from=lambda p:p.opt_parm_len
+        ),
     ]
     def post_build(self, p, pay):
 	if self.opt_parm_len is None:
@@ -181,22 +185,32 @@ class BGPAuthenticationData(Packet):
 #
 # ------------------  BGP Attributes
 #
-flagNames = ["NA0","NA1","NA2","NA3",
-             "Extended-Length","Partial","Transitive","Optional"]
+BGP_HEADER_FLAGS = [
+    "NA0","NA1","NA2","NA3",
+    "Extended-Length","Partial","Transitive","Optional"
+]
 
 class BGPAttribute(PadPacket):
     """the attribute of total path"""
     name = "BGP Attribute fields"
     fields_desc = [
-        FlagsField("flags", 0x40, 8, flagNames),
+        FlagsField("flags", 0x40, 8, BGP_HEADER_FLAGS),
         ByteField("type",1),
-        ConditionalField(ByteField("attr_len", None),
-                         cond = lambda p: p.flags & 0x10 == 0),
-        ConditionalField(ShortField("ext_len", None),
-                         cond = lambda p: p.flags & 0x10 == 0x10),
-        StrLenField("value", "",
-                    length_from = lambda p: p.ext_len if p.attr_len is None else p.attr_len)
+        ConditionalField(
+            ByteField("attr_len", None),
+            cond = lambda p: p.flags & 0x10 == 0),
+        ConditionalField(
+            ShortField("ext_len", None),
+            cond = lambda p: p.flags & 0x10 == 0x10),
+        StrLenField(
+            "value", "",
+            length_from = lambda p: p.attr_length())
     ]
+    def attr_length(self):
+        if self.attr_len is not None :
+            return self.attr_len 
+        else:
+            return self.ext_len
     def post_build(self, p, pay):
         """Handling the length/extended length field and flag"""
 	if self.attr_len is None and self.ext_len is None:
@@ -220,7 +234,7 @@ class BGPOrigin(PadPacket):
     """The origin attribute for BGP-4"""
     name = "BGPOrigin"
     fields_desc = [
-        FlagsField("flags", 0x40, 8, flagNames),
+        FlagsField("flags", 0x40, 8, BGP_HEADER_FLAGS),
         ByteField("type" , 1),
         ByteField("attr_len", 1),
         ByteEnumField("origin", 1 , { 0  : "IGP",
@@ -242,29 +256,34 @@ class BGPASSegment(PadPacket):
         #
         # TODO the way of defining conf.bgp.use4as to switch between AS4Field and AS2Field here
         #
-        FieldListField("segment", [], AS4Field("","AS0"),
-                       count_from = lambda p: p.segment_len),
+        FieldListField(
+            "segment", [], AS4Field("","AS0"),
+            count_from = lambda p: p.segment_len
+        ),
     ]
     
 class BGPASPath(BGPAttribute):
     """The AS_PATH attribute"""
     name="BGPASPath"
     fields_desc = [
-	FlagsField("flags", 0x40, 8, flagNames),
+	FlagsField("flags", 0x40, 8, BGP_HEADER_FLAGS),
         ByteField("type", 2),
-        ConditionalField(ByteField("attr_len", None),
-                         cond = lambda p: p.flags & 0x10 == 0),
-        ConditionalField(ShortField("ext_len", None),
-                         cond = lambda p: p.flags & 0x10 == 0x10),
-        PacketListField("as_path", [], BGPASSegment,
-                        length_from = lambda p: p.ext_len if p.attr_len is None else p.attr_len)
+        ConditionalField(
+            ByteField("attr_len", None),
+            cond = lambda p: p.flags & 0x10 == 0),
+        ConditionalField(
+            ShortField("ext_len", None),
+            cond = lambda p: p.flags & 0x10 == 0x10),
+        PacketListField(
+            "as_path", [], BGPASSegment,
+            length_from = lambda p: p.attr_length())
     ]
     
 class BGPNextHop(PadPacket):
     """The origin attribute for BGP-4"""
     name = "BGPNextHop"
     fields_desc = [
-        FlagsField("flags", 0x40, 8, flagNames),
+        FlagsField("flags", 0x40, 8, BGP_HEADER_FLAGS),
         ByteField("type", 3),
         ByteField("attr_len", 4),
 	IPField("next_hop",0),
@@ -274,7 +293,7 @@ class BGPMultiExitDiscriminator(PadPacket):
     """The multi-exit discriminator attribute for BGP-4"""
     name = "BGPMultiExitDiscriminator"
     fields_desc = [
-        FlagsField("flags", 0x00, 8, flagNames), # Non-transitive
+        FlagsField("flags", 0x00, 8, BGP_HEADER_FLAGS), # Non-transitive
         ByteField("type", 4),
         ByteField("attr_len", 4),
 	IntField("med",0),
@@ -284,7 +303,7 @@ class BGPLocalPreference(PadPacket):
     """The local preference attribute for BGP-4"""
     name = "BGPLocalPreference"
     fields_desc = [
-        FlagsField("flags", 0x40, 8, flagNames),
+        FlagsField("flags", 0x40, 8, BGP_HEADER_FLAGS),
         ByteField("type", 5),
         ByteField("attr_len", 4),
 	IntField("local_pref",0),
@@ -294,7 +313,7 @@ class BGPAtomicAggregate(PadPacket):
     """The local preference attribute for BGP-4"""
     name = "BGPAtomicAggregate"
     fields_desc = [
-        FlagsField("flags", 0x40, 8, flagNames),
+        FlagsField("flags", 0x40, 8, BGP_HEADER_FLAGS),
         ByteField("type", 6),
         ByteField("attr_len", 3),
     ]
@@ -303,7 +322,7 @@ class BGPAggregator(PadPacket):
     """The local preference attribute for BGP-4"""
     name = "BGPAggregator"
     fields_desc = [
-        FlagsField("flags", 0x40, 8, flagNames),
+        FlagsField("flags", 0x40, 8, BGP_HEADER_FLAGS),
         ByteField("type", 7),
         ByteField("attr_len", 4),
         IPField("aggregator","0.0.0.0")
@@ -313,21 +332,21 @@ class BGPCommunities(BGPAttribute):
     """BGP Communities - RFC 1997"""
     name = "BGPCommunity"
     fields_desc = [
-        FlagsField("flags", 0xC0, 8, flagNames), # optional transitive
+        FlagsField("flags", 0xC0, 8, BGP_HEADER_FLAGS), # optional transitive
         ByteField("type", 8),
         ConditionalField(ByteField("attr_len", None),
                          cond = lambda p: p.flags & 0x10 == 0),
         ConditionalField(ShortField("ext_len", None),
                          cond = lambda p: p.flags & 0x10 == 0x10),
         FieldListField("communities",[],CommunityField("","0:0"),
-                       length_from = lambda p: p.ext_len if p.attr_len is None else p.attr_len)
+                       length_from = lambda p: p.attr_length())
     ]
 
 class BGPOriginatorId(PadPacket):
     """The Originator ID (RFC4456) attribute for BGP-4"""
     name = "BGPOriginatorID"
     fields_desc = [
-        FlagsField("flags", 0x80, 8, flagNames), # Optional,Non-transitive
+        FlagsField("flags", 0x80, 8, BGP_HEADER_FLAGS), # Optional,Non-transitive
         ByteField("type", 9),
         ByteField("attr_len", 4),
 	IPField("originator_id","0.0.0.0"),
@@ -337,14 +356,14 @@ class BGPClusterList(BGPAttribute):
     """The cluster list (RFC4456) attribute for BGP-4"""
     name = "BGPClusterList"
     fields_desc = [
-        FlagsField("flags", 0x80, 8, flagNames), # Optional,Non-transitive
+        FlagsField("flags", 0x80, 8, BGP_HEADER_FLAGS), # Optional,Non-transitive
         ByteField("type", 10),
         ConditionalField(ByteField("attr_len", None),
                          cond = lambda p: p.flags & 0x10 == 0),
         ConditionalField(ShortField("ext_len", None),
                          cond = lambda p: p.flags & 0x10 == 0x10),
 	FieldListField("cluster_id",[],IPField("","0.0.0.0"),
-                       length_from = lambda p: p.ext_len if p.attr_len is None else p.attr_len)
+                       length_from = lambda p: p.attr_length())
     ]
 
 
@@ -352,8 +371,8 @@ class MPNLRIReach(PadPacket):
     """Generalised Multi-Protocol BGP reach information"""
     name="MPNLRIReach"
     fields_desc = [
-        ShortEnumField("AFI",  0, afi_names),
-        ByteEnumField ("SAFI", 0, safi_names),
+        ShortEnumField("AFI",  0, AFI_NAMES),
+        ByteEnumField ("SAFI", 0, SAFI_NAMES),
         FieldLenField("nha_len",None,fmt="B",length_of="nha"),
         FieldListField("nha",[],ByteField("",0),
                        length_from=lambda p: p.nha_len),
@@ -365,8 +384,8 @@ class MPIPv6Reach(PadPacket):
     """Generalised Multi-Protocol BGP reach information"""
     name="MPIPv6Reach"
     fields_desc = [
-        ShortEnumField("AFI",  2, afi_names),
-        ByteEnumField( "SAFI", 1, safi_names),
+        ShortEnumField("AFI",  2, AFI_NAMES),
+        ByteEnumField( "SAFI", 1, SAFI_NAMES),
         FieldLenField( "nha_len",None,fmt="B",length_of="nha"),
         FieldListField("nha",[],IP6Field("","::"),
                        length_from=lambda p: p.nha_len),
@@ -374,21 +393,23 @@ class MPIPv6Reach(PadPacket):
         FieldListField("nlri",[],BGPIPv6Field("","::/0"))	
     ]
 
-mp_dict = {
+_mp_dict = {
     (2,1): MPIPv6Reach
 }
 
 def MPDispatcher(s):
-    return Class_Dispatcher(s,
-                           mp_dict,
-                           MPNLRIReach,
-                           index_from = lambda s: struct.unpack("!HB",s[:3]))
+    return _class_dispatcher(
+        s,
+        _mp_dict,
+        MPNLRIReach,
+        index_from = lambda s: struct.unpack("!HB",s[:3])
+    )
 
 class BGPMPReach(BGPAttribute):
     """The cluster list (RFC4456) attribute for BGP-4"""
     name = "BGPMPReach"
     fields_desc = [
-        FlagsField("flags", 0x80, 8, flagNames), # Optional,Non-transitive
+        FlagsField("flags", 0x80, 8, BGP_HEADER_FLAGS), # Optional,Non-transitive
         ByteField("type", 14),
         ConditionalField(ByteField("attr_len", None),
                          cond = lambda p: p.flags & 0x10 == 0),
@@ -403,8 +424,8 @@ class MPNLRIUnreach(PadPacket):
     """Generalised Multi-Protocol BGP reach information"""
     name="MPNLRIUnreach"
     fields_desc = [
-        ShortEnumField("AFI",  0, afi_names),
-        ByteEnumField ("SAFI", 0, safi_names),
+        ShortEnumField("AFI",  0, AFI_NAMES),
+        ByteEnumField ("SAFI", 0, SAFI_NAMES),
         FieldListField("nlri",[],ByteField("",0))	
     ]
 
@@ -412,26 +433,28 @@ class MPIPv6Unreach(PadPacket):
     """Generalised Multi-Protocol BGP reach information"""
     name="MPIPv6Unreach"
     fields_desc = [
-        ShortEnumField("AFI",  2,  afi_names),
-        ByteEnumField ("SAFI", 1,  safi_names),
+        ShortEnumField("AFI",  2,  AFI_NAMES),
+        ByteEnumField ("SAFI", 1,  SAFI_NAMES),
         FieldListField("nlri", [], BGPIPv6Field("","::/0"))	
     ]
 
-mpu_dict = {
+_mpu_dict = {
     (2,1): MPIPv6Unreach
 }
 
 def MPUDispatcher(s):
-    return Class_Dispatcher(s,
-                           mpu_dict,
-                           MPNLRIUnreach,
-                           index_from = lambda s: struct.unpack("!HB",s[:3]))
+    return _class_dispatcher(
+        s,
+        _mpu_dict,
+        MPNLRIUnreach,
+        index_from = lambda s: struct.unpack("!HB",s[:3])
+    )
 
 class BGPMPUnreach(BGPAttribute):
     """The cluster list (RFC4456) attribute for BGP-4"""
     name = "BGPMPUnreach"
     fields_desc = [
-        FlagsField("flags", 0x80, 8, flagNames), # Optional,Non-transitive
+        FlagsField("flags", 0x80, 8, BGP_HEADER_FLAGS), # Optional,Non-transitive
         ByteField("type", 15),
         ConditionalField(ByteField("attr_len", None),
                          cond = lambda p: p.flags & 0x10 == 0),
@@ -441,7 +464,7 @@ class BGPMPUnreach(BGPAttribute):
     ]
 
 
-attribute_dict = {
+_attribute_dict = {
     1: BGPOrigin,
     2: BGPASPath,
     3: BGPNextHop,
@@ -458,10 +481,12 @@ attribute_dict = {
 }
 
 def Attribute_Dispatcher(s):
-    return Class_Dispatcher(s,
-                           attribute_dict,
-                           BGPAttribute,
-                           index_from = lambda s: ord(s[1]))
+    return _class_dispatcher(
+        s,
+        _attribute_dict,
+        BGPAttribute,
+        index_from = lambda s: ord(s[1])
+    )
 
 class BGPUpdate(PadPacket):
     """Update the routes WithdrawnRoutes = UnfeasiableRoutes"""
@@ -591,7 +616,7 @@ notification_dict = {
 }
 
 def NotificationDispatcher(s):
-    return Class_Dispatcher(s,
+    return _class_dispatcher(s,
             notification_dict,
             DefaultNotification,
             index_from = lambda s: ord(s[0])
@@ -611,15 +636,17 @@ class BGPTraffic(Packet):
     """BGP Packets"""
     # name="BGPTraffic"
     fields_desc = [
-        PacketArrayField("packets", [],BGPHeader,
-                         spkt_len = lambda s: struct.unpack(">H",s[16:18])[0])
+        PacketArrayField(
+            "packets", [], BGPHeader,
+            spkt_len = lambda s: struct.unpack(">H",s[16:18])[0]
+        )
     ]
 
-bind_layers( TCP,             BGPTraffic,  dport=179)
-bind_layers( TCP,             BGPTraffic,  sport=179)
-bind_layers( BGPHeader,       BGPOpen,          type=1)
-bind_layers( BGPHeader,       BGPUpdate,        type=2)
-bind_layers( BGPHeader,       BGPNotification,  type=3)
+bind_layers( TCP,       BGPTraffic,       dport=179)
+bind_layers( TCP,       BGPTraffic,       sport=179)
+bind_layers( BGPHeader, BGPOpen,          type=1)
+bind_layers( BGPHeader, BGPUpdate,        type=2)
+bind_layers( BGPHeader, BGPNotification,  type=3)
 
 if __name__ == "__main__":
     interact(mydict=globals(), mybanner="BGP addon .20")
