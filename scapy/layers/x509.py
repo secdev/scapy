@@ -872,6 +872,7 @@ class X509_Cert(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_X509_Cert()
 
+
 ####### TBSCertList & CRL #######
 
 class X509_RevokedCertificate(ASN1_Packet):
