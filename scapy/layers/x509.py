@@ -749,12 +749,6 @@ attrName_specials = [name for name, symbol in attrName_mapping]
 
 class X509_TBSCertificate(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1F_extensions = ASN1F_optional(
-                           ASN1F_SEQUENCE_OF("extensions",
-                                             [X509_Extension()],
-                                             X509_Extension,
-                                             explicit_tag=0xa3))
-    ASN1F_extensions.islist = 1
     ASN1_root = ASN1F_SEQUENCE(
                     ASN1F_optional(
                         ASN1F_enum_INTEGER("version", 0x2, ["v1", "v2", "v3"],
@@ -777,8 +771,11 @@ class X509_TBSCertificate(ASN1_Packet):
                     ASN1F_optional(
                         ASN1F_BIT_STRING("subjectUniqueID", None,
                                          implicit_tag=0x82)),
-                    ASN1F_extensions)
-
+                    ASN1F_optional(
+                           ASN1F_SEQUENCE_OF("extensions",
+                                             [X509_Extension()],
+                                             X509_Extension,
+                                             explicit_tag=0xa3)))
     def get_issuer(self):
         attrs = self.issuer
         attrsDict = {}
@@ -888,11 +885,6 @@ class X509_RevokedCertificate(ASN1_Packet):
 
 class X509_TBSCertList(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1F_crlExtensions = ASN1F_optional(
-                              ASN1F_SEQUENCE_OF("crlExtensions", None,
-                                                X509_Extension,
-                                                explicit_tag=0xa0))
-    ASN1F_crlExtensions.islist = 1
     ASN1_root = ASN1F_SEQUENCE(
                     ASN1F_optional(
                         ASN1F_enum_INTEGER("version", 1, ["v1", "v2"])),
@@ -906,7 +898,10 @@ class X509_TBSCertList(ASN1_Packet):
                     ASN1F_optional(
                         ASN1F_SEQUENCE_OF("revokedCertificates", None,
                                           X509_RevokedCertificate)),
-                    ASN1F_crlExtensions)
+                    ASN1F_optional(
+                              ASN1F_SEQUENCE_OF("crlExtensions", None,
+                                                X509_Extension,
+                                                explicit_tag=0xa0)))
     def get_issuer(self):
         attrs = self.issuer
         attrsDict = {}
