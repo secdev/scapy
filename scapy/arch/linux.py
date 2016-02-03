@@ -108,7 +108,8 @@ def get_working_if():
         if ifflags & IFF_UP:
             return i
     return LOOPBACK_NAME
-def attach_filter(s, filter):
+
+def attach_filter(s, bpf_filter, iface):
     # XXX We generate the filter on the interface conf.iface 
     # because tcpdump open the "any" interface and ppp interfaces
     # in cooked mode. As we use them in raw mode, the filter will not
@@ -118,7 +119,11 @@ def attach_filter(s, filter):
     if not TCPDUMP:
         return
     try:
-        f = os.popen("%s -i %s -ddd -s 1600 '%s'" % (conf.prog.tcpdump,conf.iface,filter))
+        f = os.popen("%s -i %s -ddd -s 1600 '%s'" % (
+            conf.prog.tcpdump,
+            conf.iface if iface is None else iface,
+            bpf_filter,
+        ))
     except OSError,msg:
         log_interactive.warning("Failed to execute tcpdump: (%s)")
         return
@@ -323,7 +328,7 @@ class L3PacketSocket(SuperSocket):
                 else:
                     filter = "not (%s)" % conf.except_filter
             if filter is not None:
-                attach_filter(self.ins, filter)
+                attach_filter(self.ins, filter, iface)
         _flush_fd(self.ins)
         self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 2**30)
         self.outs = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))
@@ -417,7 +422,7 @@ class L2Socket(SuperSocket):
                 else:
                     filter = "not (%s)" % conf.except_filter
             if filter is not None:
-                attach_filter(self.ins, filter)
+                attach_filter(self.ins, filter, iface)
         self.promisc = conf.sniff_promisc if promisc is None else promisc
         if self.promisc:
             set_promisc(self.ins, self.iface)
@@ -473,7 +478,7 @@ class L2ListenSocket(SuperSocket):
                 else:
                     filter = "not (%s)" % conf.except_filter
             if filter is not None:
-                attach_filter(self.ins, filter)
+                attach_filter(self.ins, filter, iface)
         if promisc is None:
             promisc = conf.sniff_promisc
         self.promisc = promisc

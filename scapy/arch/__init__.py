@@ -69,7 +69,7 @@ ARM_64 = not WINDOWS and (os.uname()[4] == 'aarch64')
 # def get_if_raw_addr(iff):
 # def get_if_list():
 # def get_working_if():
-# def attach_filter(s, filter):
+# def attach_filter(s, filter, iface):
 # def set_promisc(s,iff,val=1):
 # def read_routes():
 # def get_if(iff,cmd):
