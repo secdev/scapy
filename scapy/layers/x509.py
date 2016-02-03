@@ -94,7 +94,7 @@ class ECParameters(ASN1_Packet):
     ASN1_root = ASN1F_CHOICE("curve", ASN1_OID("ansip384r1"),
                     ASN1F_OID,      # for named curves
                     ASN1F_NULL,     # for implicit curves
-                    ASN1F_PACKET("curve", None, ECSpecifiedDomain))
+                    ECSpecifiedDomain)
 
 class ECDSAPublicKey(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER

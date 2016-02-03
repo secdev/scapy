@@ -402,11 +402,14 @@ class ASN1F_CHOICE(ASN1F_field):
     Multiple types are allowed: ASN1_Packet, ASN1F_field and ASN1F_PACKET(),
     e.g. you could define ASN1F_CHOICE("qualifier", None,
                                        X509_UserNotice,
-                                       ASN1F_X509_CPSuri,
+                                       ASN1F_X509_CPSuri)
+                       or ASN1F_CHOICE("qualifier", None,
                                        ASN1F_PACKET("index", dflt, X509_Pkt,
                                                     implicit_tag=0x82),
                                        explicit_tag=0xa1)
     Other ASN1F_field instances than ASN1F_PACKET instances must not be used.
+    ASN1F_PACKET instances must not be mixed with other types.
+    self.instantiated_choices signals whether only such instances are present.
     """
     holds_packets = 1
     ASN1_tag = ASN1_Class_UNIVERSAL.ANY
