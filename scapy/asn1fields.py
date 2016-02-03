@@ -492,9 +492,7 @@ class ASN1F_CHOICE(ASN1F_field):
         else:
             s = str(x)
         if self.instantiated_choices:
-            if len(x.aliastypes) != 1:
-                raise ASN1_Error("ASN1F_CHOICE: could not encode object")
-            cls = x.aliastypes[0]
+            cls = type(x)
             if hash(cls) not in x.overload_fields:
                 raise ASN1_Error("ASN1F_CHOICE: could not encode object")
             tags = x.overload_fields[hash(cls)]
