@@ -16,9 +16,307 @@ from scapy.utils import warning
 from scapy.supersocket import SuperSocket
 from scapy.error import Scapy_Exception
 import scapy.arch
+import socket
 
 
+if conf.use_winpcapy:
+  #mostly code from https://github.com/phaethon/scapy translated to python2.X
+  try:
+    from .winpcapy import *
+    def winpcapy_get_if_list():
+      err = create_string_buffer(PCAP_ERRBUF_SIZE)
+      devs = POINTER(pcap_if_t)()
+      ret = []
+      if pcap_findalldevs(byref(devs), err) < 0:
+        return ret
+      try:
+        p = devs
+        while p:
+          ret.append(p.contents.name.decode('ascii'))
+          p = p.contents.next
+        return ret
+      finally:
+        pcap_freealldevs(devs)
 
+  except OSError as e:
+    if conf.interactive:
+      log_loading.error("Unable to import libpcap library: %s" % e)
+      conf.use_winpcapy = False
+    else:
+      raise
+
+  # From BSD net/bpf.h
+  #BIOCIMMEDIATE=0x80044270
+  BIOCIMMEDIATE=-2147204496
+
+  class PcapTimeoutElapsed(Scapy_Exception):
+      pass
+
+  def get_if_raw_hwaddr(iff):
+    err = create_string_buffer(PCAP_ERRBUF_SIZE)
+    devs = POINTER(pcap_if_t)()
+    ret = "\0\0\0\0\0\0"
+    
+    if pcap_findalldevs(byref(devs), err) < 0:
+      return ret
+    try:
+      p = devs
+      while p:
+        if p.contents.name.endswith(iff):
+          a = p.contents.addresses
+          while a:
+            if hasattr(socket, 'AF_LINK') and a.contents.addr.contents.sa_family == socket.AF_LINK:
+              ap = a.contents.addr
+              val = cast(ap, POINTER(sockaddr_dl))
+              ret = str(val.contents.sdl_data[ val.contents.sdl_nlen : val.contents.sdl_nlen + val.contents.sdl_alen ])
+            a = a.contents.next
+          break
+        p = p.contents.next
+      return ret
+    finally:
+      pcap_freealldevs(devs)
+  def get_if_raw_addr(iff):
+    err = create_string_buffer(PCAP_ERRBUF_SIZE)
+    devs = POINTER(pcap_if_t)()
+    ret = "\0\0\0\0"
+
+    if pcap_findalldevs(byref(devs), err) < 0:
+      return ret
+    try:
+      p = devs
+      while p:
+        if p.contents.name.endswith(iff):
+          a = p.contents.addresses
+          while a:
+            if a.contents.addr.contents.sa_family == socket.AF_INET:
+              ap = a.contents.addr
+              val = cast(ap, POINTER(sockaddr_in))
+              #ret = bytes(val.contents.sin_addr[:4])
+              ret = "".join([chr(x) for x in val.contents.sin_addr[:4]])
+            a = a.contents.next
+          break
+        p = p.contents.next
+      return ret
+    finally:
+      pcap_freealldevs(devs)
+  get_if_list = winpcapy_get_if_list
+  def in6_getifaddr():
+    err = create_string_buffer(PCAP_ERRBUF_SIZE)
+    devs = POINTER(pcap_if_t)()
+    ret = []
+    if pcap_findalldevs(byref(devs), err) < 0:
+      return ret
+    try:
+      p = devs
+      ret = []
+      while p:
+        a = p.contents.addresses
+        while a:
+          if a.contents.addr.contents.sa_family == socket.AF_INET6:
+            ap = a.contents.addr
+            val = cast(ap, POINTER(sockaddr_in6))
+            addr = socket.inet_ntop(socket.AF_INET6, str(val.contents.sin6_addr[:]))
+            scope = scapy.utils6.in6_getscope(addr)
+            ret.append((addr, scope, p.contents.name.decode('ascii')))
+          a = a.contents.next
+        p = p.contents.next
+      return ret
+    finally:
+      pcap_freealldevs(devs)
+
+  from ctypes import POINTER, byref, create_string_buffer
+  class _PcapWrapper_pypcap:
+      def __init__(self, device, snaplen, promisc, to_ms):
+          self.errbuf = create_string_buffer(PCAP_ERRBUF_SIZE)
+          self.iface = create_string_buffer(device)
+          self.pcap = pcap_open_live(self.iface, snaplen, promisc, to_ms, self.errbuf)
+          self.header = POINTER(pcap_pkthdr)()
+          self.pkt_data = POINTER(c_ubyte)()
+          self.bpf_program = bpf_program()
+      def next(self):
+          c = pcap_next_ex(self.pcap, byref(self.header), byref(self.pkt_data))
+          if not c > 0:
+              return
+          ts = self.header.contents.ts.tv_sec
+          pkt = "".join([ chr(i) for i in self.pkt_data[:self.header.contents.len] ])
+          #pkt = bytes(self.pkt_data[:self.header.contents.len])
+          return ts, pkt
+      def datalink(self):
+          return pcap_datalink(self.pcap)
+      def fileno(self):
+          if sys.platform.startswith("win"):
+            error("Cannot get selectable PCAP fd on Windows")
+            return 0
+          return pcap_get_selectable_fd(self.pcap) 
+      def setfilter(self, f):
+          filter_exp = create_string_buffer(f)
+          if pcap_compile(self.pcap, byref(self.bpf_program), filter_exp, 0, -1) == -1:
+            error("Could not compile filter expression %s" % f)
+            return False
+          else:
+            if pcap_setfilter(self.pcap, byref(self.bpf_program)) == -1:
+              error("Could not install filter %s" % f)
+              return False
+          return True
+      def setnonblock(self, i):
+          pcap_setnonblock(self.pcap, i, self.errbuf)
+      def send(self, x):
+          pcap_sendpacket(self.pcap, x, len(x))
+      def close(self):
+          pcap_close(self.pcap)
+  open_pcap = lambda *args,**kargs: _PcapWrapper_pypcap(*args,**kargs)
+  class PcapTimeoutElapsed(Scapy_Exception):
+      pass
+
+  class L2pcapListenSocket(SuperSocket):
+      desc = "read packets at layer 2 using libpcap"
+      def __init__(self, iface = None, type = ETH_P_ALL, promisc=None, filter=None):
+          self.type = type
+          self.outs = None
+          self.iface = iface
+          if iface is None:
+              iface = conf.iface
+          if promisc is None:
+              promisc = conf.sniff_promisc
+          self.promisc = promisc
+          self.ins = open_pcap(iface, 1600, self.promisc, 100)
+          try:
+              ioctl(self.ins.fileno(),BIOCIMMEDIATE,struct.pack("I",1))
+          except:
+              pass
+          if type == ETH_P_ALL: # Do not apply any filter if Ethernet type is given
+              if conf.except_filter:
+                  if filter:
+                      filter = "(%s) and not (%s)" % (filter, conf.except_filter)
+                  else:
+                      filter = "not (%s)" % conf.except_filter
+              if filter:
+                  self.ins.setfilter(filter)
+  
+      def close(self):
+          self.ins.close()
+          
+      def recv(self, x=MTU):
+          ll = self.ins.datalink()
+          if ll in conf.l2types:
+              cls = conf.l2types[ll]
+          else:
+              cls = conf.default_l2
+              warning("Unable to guess datalink type (interface=%s linktype=%i). Using %s" % (self.iface, ll, cls.name))
+  
+          pkt = None
+          while pkt is None:
+              pkt = self.ins.next()
+              if pkt is not None:
+                  ts,pkt = pkt
+              if scapy.arch.WINDOWS and pkt is None:
+                  raise PcapTimeoutElapsed
+          try:
+              pkt = cls(pkt)
+          except KeyboardInterrupt:
+              raise
+          except:
+              if conf.debug_dissector:
+                  raise
+              pkt = conf.raw_layer(pkt)
+          pkt.time = ts
+          return pkt
+  
+      def send(self, x):
+          raise Scapy_Exception("Can't send anything with L2pcapListenSocket")
+  
+
+  conf.L2listen = L2pcapListenSocket
+  class L2pcapSocket(SuperSocket):
+      desc = "read/write packets at layer 2 using only libpcap"
+      def __init__(self, iface = None, type = ETH_P_ALL, filter=None, nofilter=0):
+          if iface is None:
+              iface = conf.iface
+          self.iface = iface
+          self.ins = open_pcap(iface, 1600, 0, 100)
+          try:
+              ioctl(self.ins.fileno(),BIOCIMMEDIATE,struct.pack("I",1))
+          except:
+              pass
+          if nofilter:
+              if type != ETH_P_ALL:  # PF_PACKET stuff. Need to emulate this for pcap
+                  filter = "ether proto %i" % type
+              else:
+                  filter = None
+          else:
+              if conf.except_filter:
+                  if filter:
+                      filter = "(%s) and not (%s)" % (filter, conf.except_filter)
+                  else:
+                      filter = "not (%s)" % conf.except_filter
+              if type != ETH_P_ALL:  # PF_PACKET stuff. Need to emulate this for pcap
+                  if filter:
+                      filter = "(ether proto %i) and (%s)" % (type,filter)
+                  else:
+                      filter = "ether proto %i" % type
+          if filter:
+              self.ins.setfilter(filter)
+      def send(self, x):
+          sx = str(x)
+          if hasattr(x, "sent_time"):
+              x.sent_time = time.time()
+          return self.ins.send(sx)
+
+      def recv(self,x=MTU):
+          ll = self.ins.datalink()
+          if ll in conf.l2types:
+              cls = conf.l2types[ll]
+          else:
+              cls = conf.default_l2
+              warning("Unable to guess datalink type (interface=%s linktype=%i). Using %s" % (self.iface, ll, cls.name))
+  
+          pkt = self.ins.next()
+          if pkt is not None:
+              ts,pkt = pkt
+          if pkt is None:
+              return
+          
+          try:
+              pkt = cls(pkt)
+          except KeyboardInterrupt:
+              raise
+          except:
+              if conf.debug_dissector:
+                  raise
+              pkt = conf.raw_layer(pkt)
+          pkt.time = ts
+          return pkt
+  
+      def nonblock_recv(self):
+          self.ins.setnonblock(1)
+          p = self.recv(MTU)
+          self.ins.setnonblock(0)
+          return p
+  
+      def close(self):
+          if hasattr(self, "ins"):
+              self.ins.close()
+          if hasattr(self, "outs"):
+              self.outs.close()
+
+  class L3pcapSocket(L2pcapSocket):
+      #def __init__(self, iface = None, type = ETH_P_ALL, filter=None, nofilter=0):
+      #    L2pcapSocket.__init__(self, iface, type, filter, nofilter)
+      def recv(self, x = MTU):
+          r = L2pcapSocket.recv(self, x) 
+          if r:
+            return r.payload
+          else:
+            return
+      def send(self, x):
+          cls = conf.l2types[1]
+          sx = str(cls()/x)
+          if hasattr(x, "sent_time"):
+              x.sent_time = time.time()
+          return self.ins.send(sx)
+  conf.L2socket=L2pcapSocket
+  conf.L3socket=L3pcapSocket
+    
 if conf.use_pcap:    
 
 
