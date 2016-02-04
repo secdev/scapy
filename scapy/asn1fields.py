@@ -375,8 +375,6 @@ class ASN1F_optional(ASN1F_field):
         self.name = field.name
         self.islist = field.islist
         self.holds_packets = field.holds_packets
-    def __getattr__(self, attr):
-        return ASN1F_field.__getattr__(self._field, attr)
     def m2i(self, pkt, s):
         try:
             return self._field.m2i(pkt, s)
