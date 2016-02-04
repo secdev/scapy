@@ -1,4 +1,4 @@
-# X.509 unit tests
+% Tests for X.509 objects
 # 
 # Launch me with:
 # sudo bash test/run_tests -t test/x509.uts -F

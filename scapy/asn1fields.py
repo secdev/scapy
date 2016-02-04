@@ -400,16 +400,8 @@ class ASN1F_optional(ASN1F_field):
 class ASN1F_CHOICE(ASN1F_field):
     """
     Multiple types are allowed: ASN1_Packet, ASN1F_field and ASN1F_PACKET(),
-    e.g. you could define ASN1F_CHOICE("qualifier", None,
-                                       X509_UserNotice,
-                                       ASN1F_X509_CPSuri)
-                       or ASN1F_CHOICE("qualifier", None,
-                                       ASN1F_PACKET("index", dflt, X509_Pkt,
-                                                    implicit_tag=0x82),
-                                       explicit_tag=0xa1)
+    See layers/x509.py for examples.
     Other ASN1F_field instances than ASN1F_PACKET instances must not be used.
-    ASN1F_PACKET instances must not be mixed with other types.
-    self.instantiated_choices signals whether only such instances are present.
     """
     holds_packets = 1
     ASN1_tag = ASN1_Class_UNIVERSAL.ANY
@@ -428,10 +420,9 @@ class ASN1F_CHOICE(ASN1F_field):
         self.default = default
         self.current_choice = None
         self.choices = {}
-        self.instantiated_choices = True
+        self.pktchoices = {}
         for p in args:
             if hasattr(p, "ASN1_root"):     # should be ASN1_Packet
-                self.instantiated_choices = False
                 if hasattr(p.ASN1_root, "choices"):
                     for k,v in p.ASN1_root.choices.items():
                         self.choices[k] = v         # ASN1F_CHOICE recursion
@@ -439,18 +430,16 @@ class ASN1F_CHOICE(ASN1F_field):
                     self.choices[p.ASN1_root.network_tag] = p
             elif hasattr(p, "ASN1_tag"):
                 if type(p) is type:         # should be ASN1F_field class
-                    self.instantiated_choices = False
                     self.choices[p.ASN1_tag] = p
                 else:                       # should be ASN1F_PACKET instance
                     self.choices[p.network_tag] = p
+                    self.pktchoices[hash(p.cls)] = (p.implicit_tag, p.explicit_tag)
             else:
                 raise ASN1_Error("ASN1F_CHOICE: no tag found for one field")
     def m2i(self, pkt, s):
         """
         First we have to retrieve the appropriate choice.
         Then we extract the field/packet, according to this choice.
-        In case the choice depends on implicit or explicit tags,
-        ASN1F_PACKET instance choices can be defined with the right tags.
         """
         if len(s) == 0:
             raise ASN1_Error("ASN1F_CHOICE: got empty string")
@@ -472,32 +461,16 @@ class ASN1F_CHOICE(ASN1F_field):
                 return choice(self.name, "").m2i(pkt, s)
             else:
                 # choice must be an ASN1F_PACKET instance here
-                c,s = choice.m2i(pkt, s)
-                # dirty hack here: when c is an ASN1_Packet, its __dict__
-                # is controlled so we hide tags inside overload_fields
-                hcls = hash(choice.cls)
-                c.overload_fields[hcls] = {}
-                if hasattr(choice, "implicit_tag"):
-                    c.overload_fields[hcls]["imp"] = choice.implicit_tag
-                else:
-                    c.overload_fields[hcls]["imp"] = None
-                if hasattr(choice, "explicit_tag"):
-                    c.overload_fields[hcls]["exp"] = choice.explicit_tag
-                else:
-                    c.overload_fields[hcls]["exp"] = None
-                return c,s
+                return choice.m2i(pkt, s)
     def i2m(self, pkt, x):
         if x is None:
             s = ""
         else:
             s = str(x)
-        if self.instantiated_choices:
-            cls = type(x)
-            if hash(cls) not in x.overload_fields:
-                raise ASN1_Error("ASN1F_CHOICE: could not encode object")
-            tags = x.overload_fields[hash(cls)]
-            s = BER_tagging_enc(s, implicit_tag=tags["imp"],
-                                explicit_tag=tags["exp"])
+        if hash(type(x)) in self.pktchoices.keys():
+            imp, exp = self.pktchoices[hash(type(x))]
+            s = BER_tagging_enc(s, implicit_tag=imp,
+                                explicit_tag=exp)
         return BER_tagging_enc(s, explicit_tag=self.explicit_tag)
     def randval(self):
         return RandChoice(*map(lambda x:fuzz(x()), self.choice.values()))
