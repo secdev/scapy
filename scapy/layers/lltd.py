@@ -89,11 +89,17 @@ class LLTD(Packet):
         return pkt + pay
 
     def mysummary(self):
-        return self.sprintf('LLTD %tos% - %function%')
+        if isinstance(self.underlayer, Ether):
+            return self.underlayer.sprintf(
+                'LLTD %src% > %dst% %LLTD.tos% - %LLTD.function%'
+            )
+        else:
+            return self.sprintf('LLTD %tos% - %function%')
 
 
 class LLTDHello(Packet):
     name = "LLTD - Hello"
+    show_summary = False
     fields_desc = [
         ShortField("gen_number", 0),
         MACField("current_mapper_address", ETHER_ANY),
@@ -112,11 +118,14 @@ class LLTDDiscover(Packet):
     ]
 
     def mysummary(self):
-        return self.sprintf("%stations_list%"), [LLTD]
+        return (self.sprintf("Stations: %stations_list%")
+                if self.stations_list else "No station", [LLTD])
+
 
 class LLTDAttribute(Packet):
     name = "LLTD Attribute"
     show_indent = False
+    show_summary = False
     # section 2.2.1.1
     fields_desc = [
         ByteEnumField("type", 0, {
@@ -176,6 +185,9 @@ class LLTDAttributeHostID(LLTDAttribute):
         ByteField("len", 6),
         MACField("mac", ETHER_ANY),
     ]
+
+    def mysummary(self):
+        return "ID: %s" % self.mac, [LLTD, LLTDAttributeMachineName]
 
 
 @register_lltd_specific_class(2)
@@ -539,6 +551,10 @@ class LLTDAttributeMachineName(LLTDAttribute):
         FieldLenField("len", None, length_of="hostname", fmt="B"),
         StrLenFieldUtf16("hostname", "", length_from=lambda pkt: pkt.len),
     ]
+
+    def mysummary(self):
+        return (self.sprintf("Hostname: %r" % self.hostname),
+                [LLTD, LLTDAttributeHostID])
 
 
 @register_lltd_specific_class(18)
