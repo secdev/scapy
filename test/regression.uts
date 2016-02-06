@@ -4409,3 +4409,25 @@ assert all(any(proto in pkt for pkt in pktpcap) for proto in [ICMP, UDP, TCP])
 = Check packets from pcap file
 assert all(IP in pkt for pkt in pktpcapng)
 assert all(any(proto in pkt for pkt in pktpcapng) for proto in [ICMP, UDP, TCP])
+
+
+############
+############
++ LLTD protocol
+
+= Simple packet dissection
+pkt = Ether('\xff\xff\xff\xff\xff\xff\x86\x14\xf0\xc7[.\x88\xd9\x01\x00\x00\x01\xff\xff\xff\xff\xff\xff\x86\x14\xf0\xc7[.\x00\x00\xfe\xe9[\xa9\xaf\xc1\x0bS[\xa9\xaf\xc1\x0bS\x01\x06}[G\x8f\xec.\x02\x04p\x00\x00\x00\x03\x04\x00\x00\x00\x06\x07\x04\xac\x19\x88\xe4\t\x02\x00l\n\x08\x00\x00\x00\x00\x00\x0fB@\x0c\x04\x00\x08=`\x0e\x00\x0f\x0eT\x00E\x00S\x00T\x00-\x00A\x00P\x00\x12\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x14\x04\x00\x00\x00\x00\x15\x01\x02\x18\x00\x19\x02\x04\x00\x1a\x00\x00')
+assert pkt.dst == pkt.real_dst
+assert pkt.src == pkt.real_src
+assert pkt.current_mapper_address == pkt.apparent_mapper_address
+assert pkt.mac == '7d:5b:47:8f:ec:2e'
+assert pkt.hostname == "TEST-AP"
+assert isinstance(pkt[LLTDAttributeEOP].payload, NoPayload)
+
+= Packet build / dissection
+pkt = Ether(str(Ether(dst=ETHER_BROADCAST, src=RandMAC()) / LLTD(tos=0, function=0)))
+assert LLTD in pkt
+assert pkt.dst == pkt.real_dst
+assert pkt.src == pkt.real_src
+assert pkt.tos == 0
+assert pkt.function == 0
