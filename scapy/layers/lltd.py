@@ -13,8 +13,8 @@ import struct
 
 from scapy.fields import BitField, FlagsField, ByteField, ByteEnumField, \
     ShortField, IntField, IntEnumField, LongField, MultiEnumField, \
-    FieldLenField, FieldListField, StrLenField, MACField, StrLenFieldUtf16, \
-    ConditionalField
+    FieldLenField, FieldListField, PacketListField, StrLenField, \
+    StrLenFieldUtf16, ConditionalField, MACField
 from scapy.packet import Packet, Padding, bind_layers
 from scapy.layers.l2 import Ether
 from scapy.layers.inet import IPField
@@ -120,6 +120,30 @@ class LLTDDiscover(Packet):
     def mysummary(self):
         return (self.sprintf("Stations: %stations_list%")
                 if self.stations_list else "No station", [LLTD])
+
+
+class LLTDEmiteeDesc(Packet):
+    name = "LLTD - Emitee Desc"
+    fields_desc = [
+        ByteEnumField("type", 0, {0: "Train", 1: "Probe"}),
+        ByteField("pause", 0),
+        MACField("src", None),
+        MACField("dst", ETHER_ANY),
+    ]
+
+
+class LLTDEmit(Packet):
+    name = "LLTD - Emit"
+    fields_desc = [
+        FieldLenField("descs_count", None, count_of="descs_list",
+                      fmt="H"),
+        PacketListField("descs_list", [], LLTDEmiteeDesc,
+                        count_from=lambda pkt: pkt.descs_count),
+    ]
+
+    def mysummary(self):
+        return ", ".join(desc.sprintf("%src% > %dst%")
+                         for desc in self.descs_list), [LLTD]
 
 
 class LLTDAttribute(Packet):
@@ -607,6 +631,7 @@ bind_layers(LLTD, LLTDDiscover, tos=0, function=0)
 bind_layers(LLTD, LLTDDiscover, tos=1, function=0)
 bind_layers(LLTD, LLTDHello, tos=0, function=1)
 bind_layers(LLTD, LLTDHello, tos=1, function=1)
+bind_layers(LLTD, LLTDEmit, tos=0, function=2)
 bind_layers(LLTDHello, LLTDAttribute)
 bind_layers(LLTDAttribute, LLTDAttribute)
 bind_layers(LLTDAttribute, Padding, type=0)
