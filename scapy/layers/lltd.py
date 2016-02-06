@@ -13,7 +13,8 @@ import struct
 
 from scapy.fields import BitField, FlagsField, ByteField, ByteEnumField, \
     ShortField, IntField, IntEnumField, LongField, MultiEnumField, \
-    FieldLenField, StrLenField, MACField, StrLenFieldUtf16, ConditionalField
+    FieldLenField, FieldListField, StrLenField, MACField, StrLenFieldUtf16, \
+    ConditionalField
 from scapy.packet import Packet, Padding, bind_layers
 from scapy.layers.l2 import Ether
 from scapy.layers.inet import IPField
@@ -94,6 +95,18 @@ class LLTDHello(Packet):
         MACField("current_mapper_address", ETHER_ANY),
         MACField("apparent_mapper_address", ETHER_ANY),
     ]
+
+class LLTDDiscover(Packet):
+    name = "LLTD - Discover"
+    fields_desc = [
+        ShortField("gen_number", 0),
+        FieldLenField("stations_count", None, count_of="stations_list",
+                      fmt="H"),
+        FieldListField("stations_list", [], MACField("", ETHER_ANY),
+                       count_from=lambda pkt: pkt.stations_count)
+    ]
+    def mysummary(self):
+        return self.sprintf("%stations_list%"), [LLTD]
 
 class LLTDAttribute(Packet):
     name = "LLTD Attribute"
@@ -551,6 +564,8 @@ class LLTDAttributeSeesList(LLTDAttribute):
     ]
 
 bind_layers(Ether, LLTD, type=0x88d9)
+bind_layers(LLTD, LLTDDiscover, tos=0, function=0)
+bind_layers(LLTD, LLTDDiscover, tos=1, function=0)
 bind_layers(LLTD, LLTDHello, tos=0, function=1)
 bind_layers(LLTD, LLTDHello, tos=1, function=1)
 bind_layers(LLTDHello, LLTDAttribute)
