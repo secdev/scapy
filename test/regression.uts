@@ -22,7 +22,7 @@ lsc()
 
 = Configuration
 ~ conf
-conf.debug_dissect=1
+conf.debug_dissector = 1
 
 ############
 ############
