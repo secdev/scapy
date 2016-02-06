@@ -12,9 +12,9 @@ https://msdn.microsoft.com/en-us/library/cc233983.aspx
 import struct
 
 from scapy.fields import BitField, FlagsField, ByteField, ByteEnumField, \
-    ShortField, IntField, IntEnumField, LongField, MultiEnumField, \
-    FieldLenField, FieldListField, PacketListField, StrLenField, \
-    StrLenFieldUtf16, ConditionalField, MACField
+    ShortField, ShortEnumField, IntField, IntEnumField, LongField, \
+    MultiEnumField, FieldLenField, FieldListField, PacketListField, \
+    StrLenField, StrLenFieldUtf16, ConditionalField, MACField
 from scapy.packet import Packet, Padding, bind_layers
 from scapy.layers.l2 import Ether
 from scapy.layers.inet import IPField
@@ -144,6 +144,41 @@ class LLTDEmit(Packet):
     def mysummary(self):
         return ", ".join(desc.sprintf("%src% > %dst%")
                          for desc in self.descs_list), [LLTD]
+
+
+class LLTDRecveeDesc(Packet):
+    name = "LLTD - Recvee Desc"
+    fields_desc = [
+        ShortEnumField("type", 0, {0: "Probe", 1: "ARP or ICMPv6"}),
+        MACField("real_src", ETHER_ANY),
+        MACField("ether_src", ETHER_ANY),
+        MACField("ether_dst", ETHER_ANY),
+    ]
+
+
+class LLTDQueryResp(Packet):
+    name = "LLTD - Query Response"
+    fields_desc = [
+        FlagsField("flags", 0, 2, "ME"),
+        BitField("descs_count", None, 14),
+        PacketListField("descs_list", [], LLTDRecveeDesc,
+                        count_from=lambda pkt: pkt.descs_count),
+    ]
+
+    def post_build(self, pkt, pay):
+        if self.descs_count is None:
+            # descs_count should be a FieldLenField but has an
+            # unsupported format (14 bits)
+            flags = ord(pkt[0]) & 0xc0
+            count = len(self.descs_list)
+            pkt = chr(flags + (count >> 8)) + chr(count % 256) + pkt[2:]
+        return pkt + pay
+
+    def mysummary(self):
+        return self.sprintf("%d response%s" % (
+            self.descs_count,
+            "s" if self.descs_count > 1 else ""),
+        ), [LLTD]
 
 
 class LLTDAttribute(Packet):
@@ -632,6 +667,9 @@ bind_layers(LLTD, LLTDDiscover, tos=1, function=0)
 bind_layers(LLTD, LLTDHello, tos=0, function=1)
 bind_layers(LLTD, LLTDHello, tos=1, function=1)
 bind_layers(LLTD, LLTDEmit, tos=0, function=2)
+bind_layers(LLTD, LLTDQueryResp, tos=0, function=7)
 bind_layers(LLTDHello, LLTDAttribute)
 bind_layers(LLTDAttribute, LLTDAttribute)
 bind_layers(LLTDAttribute, Padding, type=0)
+bind_layers(LLTDEmiteeDesc, Padding)
+bind_layers(LLTDRecveeDesc, Padding)
