@@ -8,7 +8,7 @@
 = Load BGP-4 library
 load_contrib("bgp")
 
-# BGPv4 basic messages
++ BGPv4 basic messages
 = BGP-4 Keep Alive, calculate length when no payload
 
 keep = BGPHeader(type=4)
@@ -19,6 +19,38 @@ str(keep) == '\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x
 bgp = BGPTraffic(str(keep)*4)
 len(bgp.packets) == 4
 
+= Capabilities
+
+capa_afi = CapabilityAFI(afi=2,safi=1)
+CapabilityAFI(str(capa_afi)).show()
+
+capa_graceful = CapabilityGraceful(restart_time=90,afi=[])
+CapabilityGraceful(str(capa_graceful)).show()
+
+open = BGPOpen(AS=65001,hold_time=90,bgp_id="10.0.0.1",opt_parm = [
+	capa_afi, capa_graceful
+])
+BGPOpen(str(open)).show()
+
+= BGP Notifications
+
+header_notify = HeaderNotification(SubErrorCode=2)
+header_notify.show()
+header_notify.ErrorCode == 1
+
+#
+# Check the class dispatcher
+# Open Notification for a Bad Peer AS
+#
+open_notify = BGPNotification("\x02\x02") 
+open_notify.show()
+OpenNotification in open_notify
+
+pkt = BGPHeader()/open_notify
+
+BGPHeader(str(pkt)).len == 19+2
+
++ BGP-4 attributes
 = Layering + Origin + LocalPreference
 
 update = BGPHeader(type=2) / BGPUpdate(total_path=[BGPOrigin(origin=0),BGPNextHop(next_hop='192.168.0.1'),BGPLocalPreference(local_pref=200)],nlri=['0.0.0.0/0'])
@@ -86,53 +118,24 @@ update = BGPHeader(type=2) / BGPUpdate(total_path=[
          BGPClusterList(cluster_id=["10.0.0.1","10.0.1.1"]),
        ],
        nlri=['10.0.0.0/8','172.16.0.0/12'])
-
 BGPHeader(str(update)).show()
 
-= Multiprotocol reach: IPv6
++ Multiprotocol support
+= Multiprotocol reach
 mpreach = MPIPv6Reach(nha=["2001:c1ca::1","fe80::c001:bff:fe7e:0"],nlri=["2001:c1ca::/32","2001:2fb8::/32"])
 MPIPv6Reach(str(mpreach)).show()
 
 mpr = BGPMPReach(mp_reach=[mpreach])
 BGPMPReach(str(mpr)).show()
 
-= Multiprotocol unreach: IPv6
-
+= Multiprotocol unreach
+>>>>>>> fa4d5659968e3d6f8396cee88146be5ea091e2a7
 mpu = MPIPv6Unreach(nlri=["2001:1fe8:c1ca::/48"])
 MPIPv6Unreach(str(mpu)).show()
 
 unr=BGPMPUnreach(mp_unreach=mpu)
 BGPMPUnreach(str(unr)).show()
 
-= Capabilities
-
-capa_afi = CapabilityAFI(afi=2,safi=1)
-CapabilityAFI(str(capa_afi)).show()
-
-capa_graceful = CapabilityGraceful(restart_time=90,afi=[])
-CapabilityGraceful(str(capa_graceful)).show()
-
-open = BGPOpen(AS=65001,hold_time=90,bgp_id="10.0.0.1",opt_parm = [
-	capa_afi, capa_graceful
-])
-BGPOpen(str(open)).show()
-
-= BGP Notifications
-
-header_notify = HeaderNotification(SubErrorCode=2)
-header_notify.show()
-header_notify.ErrorCode == 1
-#
-# Check the class dispatcher
-# Open Notification for a Bad Peer AS
-#
-open_notify = BGPNotification("\x02\x02") 
-open_notify.show()
-OpenNotification in open_notify
-
-pkt = BGPHeader()/open_notify
-
-BGPHeader(str(pkt)).len == 19+2
 
 = BGPIPField - BGPIPv6Field
 

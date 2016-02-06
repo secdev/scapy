@@ -5,15 +5,15 @@
 import socket
 if not socket.has_ipv6:
     raise socket.error("can't use AF_INET6, IPv6 is disabled")
+from socket import inet_pton, inet_ntop, AF_INET, AF_INET6
 
 from scapy  import *
 #from scapy.config import conf
-from scapy.packet import *
-from scapy.fields import *
+from scapy.packet import Packet
+from scapy.fields import Field, PacketListField
 from scapy.layers.inet6 import IP6Field
-from scapy.layers.inet import TCP
-from scapy.error import log_runtime
-
+import struct
+import re
 #
 # Packet with padding
 #
@@ -27,21 +27,25 @@ class PadPacket(Packet):
 # Packet array
 #
 class PacketArrayField(PacketListField):
-    """Quick hack to chop BGPPackets in a TCP PDU into an array of BGP packets
+    """
+Quick hack to chop BGPPackets in a TCP PDU into an array of BGP packets
 Based on the fact that the BGP-4 header has a fixed field format:
 
-@param name: name of the array
-@param default: default value
-@param cls: class of the elements in the array
-@param spkt_len(s): inspect the byte array s and return the length of the first packet in it.
-"""
-    # spkt_len = None
+@param name:        name of the array
+@param default:     default value
+@param cls:         class of the elements in the array
+@param spkt_len(s): function that inspects the byte array s and
+                    returns the length of the first packet in it."""
     __slots__ = ["spkt_len"]
     def __init__(self, name, default, cls, spkt_len=None):
+        """We need that spkt_len is specified to know how to chop"""
         assert spkt_len is not None
         PacketListField.__init__(self, name, default, cls)
         self.spkt_len = spkt_len
     def getfield(self, pkt, s):
+        """
+Get one PacketField from the array,
+using spkt_len to chop the string"""
         lst = []
         ret = ""
         remain = s
@@ -66,8 +70,10 @@ Based on the fact that the BGP-4 header has a fixed field format:
 #
 class BGPIPField(Field):
     """Represents how bgp represents IPv4 prefixes
-internal representation (mask, base)"""
-    af = socket.AF_INET
+internal representation (mask, base)
+
+Use socket.inet_ntop and _pton to reuse for IPv6 prefixes"""
+    af = AF_INET
     alen = 4
     def mask2iplen(self, mask):
         """turn the mask into the length in bytes of the ip field"""
@@ -77,7 +83,7 @@ internal representation (mask, base)"""
         if h is not None:
             ip, mask = re.split('/', h)
         else:
-            ip, mask = '0' if self.af == socket.AF_INET else "::", '0'
+            ip, mask = '0' if self.af == AF_INET else "::", '0'
         return  int(mask), ip
     def i2h(self, pkt, i):
         mask, ip = i
@@ -107,7 +113,9 @@ internal representation (mask, base)"""
 # Derive IPv6 prefixes from IPv4Prefixes
 #
 class BGPIPv6Field(BGPIPField):
-    af = socket.AF_INET6
+    """IPv6 prefixes only need constant changes
+in the current implementation WRT IPv4 prefixes"""
+    af = AF_INET6
     alen = 16
 
 #
@@ -153,7 +161,9 @@ Internal representation is hi,lo"""
     def h2i(self, pkt, h):
         """human to internal (hi,lo)"""
         m = re.match(r"(AS)?(\d+)(:(\d+))?", h)
-        return (int(m.group(2)), int(m.group(4))) if m.group(4) is not None else (0, int(m.group(2)))
+        if m.group(4) is not None:        
+            return int(m.group(2)), int(m.group(4))
+        return 0, int(m.group(2))
     def i2h(self, pkt, i):
         hi, lo = i
         if hi != 0:
@@ -197,59 +207,72 @@ Internal representation is short"""
 # Extended to cope with the Route Distinguisher fields
 #
 class RouteTargetField(Field):
-    """Internal representation of the route target, route origin or route distinguisher:
+    """Internal representation is shared by
+route target, route origin and route distinguisher
+
 subtype:    string
-ash:        int (0 for 16-bit AS)
-asl:        int
-ip:         string (IPv4 address)
+ash:        int (None for 16-bit AS, or IPv4)
+asl:        int (None for IPv4)
+ip:         string (IPv4 address, None for AS)
 n:          int
 """
     humanRe = r"(r[ot] )?(((AS)?(\d+)(:(\d+))?)|(\d+(\.\d+)+)):(\d+)"
     def typ(self, ash, ip):
-        """type field"""
-        if ip is not None: return 1
-        if ash is not None: return 2
+        """Get the type code (AS2, AS4 or IP)"""
+        if ip is not None:
+            return 1
+        if ash is not None:
+            return 2
         return 0
-    
+
     def subtyp(self, name):
-        """subtype field"""
+        """Subtype code"""
         return {'rt' : 2, 'ro': 3}[name]
 
     def h2i(self, pkt, h):
-        """Human to internal conversion"""
+        """Human to internal representation"""
         g = re.match(self.humanRe, h)
         if g is not None:
             subtyp = g.group(1)
-            if subtyp is None: subtyp = 'rt'
-            if len(subtyp) > 2: subtyp = subtyp[:2]
+            if subtyp is None:
+                subtyp = 'rt'
+            if len(subtyp) > 2:
+                subtyp = subtyp[:2]
+            # Put all possible fields of the organization code to None
+            # and the fill the ones that are applicable
+            ip = None
+            ash = None
+            asl = None
             if g.group(5) is None:
-                ash = None
-                asl = None
                 ip = g.group(2)
+            elif g.group(7) is not None:
+                asl = int(g.group(7))
+                ash = int(g.group(5))
             else:
-                if g.group(7) is not None:
-                    asl = int(g.group(7))
-                    ash = int(g.group(5))
-                else:
-                    asl = int(g.group(5))
-                ip = None
+                asl = int(g.group(5))
             n = int(g.group(10))
         return subtyp, ash, asl, ip, n
 
     def i2h(self, pkt, i):
-        """Internal to human-readable conversion"""
+        """Internal to human"""
         subt, ash, asl, ip, n = i
         t = self.typ(ash, ip)
-        if subt is None: subt = ""
-        if len(subt) > 3: subt = subt[:3]
-        if len(subt) == 2: subt += " "
+        if subt is None:
+            subt = ""
+        if len(subt) > 3:
+            subt = subt[:3]
+        if len(subt) == 2:
+            subt += " "
         if t == 0:
-            return "%s%s%d:%d" % (subt, "AS" if asl + n != 0 else "", asl, n)
+            human = "%d:%d" % (asl, n)
+            if asl + n != 0:
+                human = "AS"+human
         elif t == 1:
-            return "%s%s:%d" % (subt, ip, n)
+            human = "%s:%d" % (ip, n)
         else:
-            return "%sAS%d:%d:%d" % (subt, ash, asl, n)
-        
+            human = "AS%d:%d:%d" % (ash, asl, n)
+        return subt + human
+
     def i2repr(self, pkt, i):
         """make it look nice"""
         return self.i2h(pkt, i)
@@ -265,57 +288,60 @@ n:          int
         l = self.i2len(pkt, s)
         return s[l:], self.m2i(pkt, s[:l])
 
-    def i2m(self, pkt, i):
-        """Internal to machine conversion"""
-        subt, ash, asl, ip, n = i
+    def i2m(self, pkt, internal):
+        """Internal representation to machine"""
+        subt, ash, asl, ip, n = internal
         t = self.typ(ash, ip)
         s = self.subtyp(subt)
         if t == 0:
             return struct.pack("!BBHI", t, s, asl, n)
         elif t == 1:
-            return struct.pack("!BB4sH", t, s, inet_pton(socket.AF_INET, ip), n)
+            return struct.pack("!BB4sH", t, s, inet_pton(AF_INET, ip), n)
         else:
             return struct.pack("!BBHHH", t, s, ash, asl, n)
-    def m2i(self, pkt, m):
-        """Machine to internal conversion"""
-        t, s = struct.unpack("!BB", m[:2])
+    def m2i(self, pkt, machine):
+        """Machine to internal representation"""
+        t, s = struct.unpack("!BB", machine[:2])
         subt = {2:'rt', 3:'ro'}[s]
         ash = None
         asl = None
         ip = None
         n = 0
         if t == 0:              # 0, asl (2bytes), ip=None, n (4bytes)
-            asl, n = struct.unpack("!HI", m[2:8])
+            asl, n = struct.unpack("!HI", machine[2:])
         elif t == 1:            # 0, 0, ip (4bytes), n (2bytes)
-            ipn, n = struct.unpack("!4sH", m[2:8])
-            ip = inet_ntop(socket.AF_INET, ipn)
+            ipn, n = struct.unpack("!4sH", machine[2:])
+            ip = inet_ntop(AF_INET, ipn)
         elif t == 2:            # ash, asl, None, n (all 2 bytes)
-            ash, asl, n = struct.unpack("!HHH", m[2:8])
+            ash, asl, n = struct.unpack("!HHH", machine[2:])
         return subt, ash, asl, ip, n
 
 class RouteDistinguisherField(RouteTargetField):
+    """The route distinguisher has a shared human readable representation
+but the internal representation changes"""
     humanRe = r"(rd )?(((AS)?(\d+)(:(\d+))?)|(\d+(\.\d+)+)):(\d+)"
-    def i2m(self, pkt, i):
-        _, ash, asl, ip, n = i
+    def i2m(self, pkt, internal):
+        _, ash, asl, ip, n = internal
         t = self.typ(ash, ip)
         if t == 0:
             return struct.pack("!HHI", t, asl, n)
         elif t == 1:
-            return struct.pack("!H4sH", t, inet_pton(socket.AF_INET, ip), n)
+            return struct.pack("!H4sH", t, inet_pton(AF_INET, ip), n)
         else:
             return struct.pack("!HHHH", t, ash, asl, n)
-    def m2i(self, pkt, m):
+    def m2i(self, pkt, machine):
+        """Machine to internal conversion"""
         subt = "rd"
         ash = None
         asl = None
         ip = None
         n = 0
-        t = struct.unpack("!H", m[:2])[0]
+        t = struct.unpack("!H", machine[:2])[0]
         if t == 0:
-            t, asl, n = struct.unpack("!HHI", m[:8])
+            t, asl, n = struct.unpack("!HHI", machine)
         elif t == 1:
-            t, ipn, n = struct.unpack("!H4sH", m[:8])
-            ip = inet_ntop(socket.AF_INET, ipn)
+            t, ipn, n = struct.unpack("!H4sH", machine)
+            ip = inet_ntop(AF_INET, ipn)
         elif t == 2:
-            t, ash, asl, n = struct.unpack("!HHHH", m[:8])
+            t, ash, asl, n = struct.unpack("!HHHH", machine)
         return subt, ash, asl, ip, n
