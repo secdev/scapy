@@ -51,6 +51,7 @@ class Packet(BasePacket):
     overload_fields = {}
     payload_guess = []
     show_indent = 1
+    show_summary = True
 
     @classmethod
     def from_hexcap(cls):
@@ -984,9 +985,7 @@ A side effect is that, to obtain "{" and "}" characters, you must use
         return ""
 
     def _do_summary(self):
-        found,s,needed = self.payload._do_summary()
-        if s:
-            s = " / "+s
+        found, s, needed = self.payload._do_summary()
         ret = ""
         if not found or self.__class__ in needed:
             ret = self.mysummary()
@@ -996,14 +995,17 @@ A side effect is that, to obtain "{" and "}" characters, you must use
         if ret or needed:
             found = 1
         if not ret:
-            ret = self.__class__.__name__
+            ret = self.__class__.__name__ if self.show_summary else ""
         if self.__class__ in conf.emph:
             impf = []
             for f in self.fields_desc:
                 if f in conf.emph:
                     impf.append("%s=%s" % (f.name, f.i2repr(self, self.getfieldval(f.name))))
             ret = "%s [%s]" % (ret," ".join(impf))
-        ret = "%s%s" % (ret,s)
+        if ret and s:
+            ret = "%s / %s" % (ret, s)
+        else:
+            ret = "%s%s" % (ret,s)
         return found,ret,needed
 
     def summary(self, intern=0):
