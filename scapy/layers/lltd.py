@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Philippe Biondi <phil@secdev.org>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# This program is published under a GPLv2 license
 
 """LLTD Protocol
 
@@ -21,6 +21,7 @@ from scapy.layers.inet import IPField
 from scapy.layers.inet6 import IP6Field
 from scapy.config import conf
 from scapy.data import ETHER_ANY
+
 
 class LLTD(Packet):
     name = "LLTD"
@@ -74,6 +75,7 @@ class LLTD(Packet):
         ConditionalField(ShortField("seq", 0),
                          lambda pkt: pkt.function not in [0, 8]),
     ]
+
     def post_build(self, pkt, pay):
         if (self.real_dst is None or self.real_src is None) and \
            isinstance(self.underlayer, Ether):
@@ -85,8 +87,10 @@ class LLTD(Packet):
                 pkt = (pkt[:10] + eth.fields_desc[1].i2m(eth, eth.src) +
                        pkt[16:])
         return pkt + pay
+
     def mysummary(self):
         return self.sprintf('LLTD %tos% - %function%')
+
 
 class LLTDHello(Packet):
     name = "LLTD - Hello"
@@ -95,6 +99,7 @@ class LLTDHello(Packet):
         MACField("current_mapper_address", ETHER_ANY),
         MACField("apparent_mapper_address", ETHER_ANY),
     ]
+
 
 class LLTDDiscover(Packet):
     name = "LLTD - Discover"
@@ -105,6 +110,7 @@ class LLTDDiscover(Packet):
         FieldListField("stations_list", [], MACField("", ETHER_ANY),
                        count_from=lambda pkt: pkt.stations_count)
     ]
+
     def mysummary(self):
         return self.sprintf("%stations_list%"), [LLTD]
 
@@ -132,6 +138,7 @@ class LLTDAttribute(Packet):
         FieldLenField("len", None, length_of="value", fmt="B"),
         StrLenField("value", "", length_from=lambda pkt: pkt.len),
     ]
+
     @classmethod
     def dispatch_hook(cls, _pkt=None, *_, **kargs):
         if _pkt:
@@ -144,6 +151,7 @@ class LLTDAttribute(Packet):
 
 SPECIFIC_CLASSES = {}
 
+
 def register_lltd_specific_class(*attr_types):
     def _register(cls):
         for attr_type in attr_types:
@@ -154,10 +162,12 @@ def register_lltd_specific_class(*attr_types):
         return cls
     return _register
 
+
 @register_lltd_specific_class(0)
 class LLTDAttributeEOP(LLTDAttribute):
     name = "LLTD Attribute - End Of Property"
     fields_desc = []
+
 
 @register_lltd_specific_class(1)
 class LLTDAttributeHostID(LLTDAttribute):
@@ -167,12 +177,13 @@ class LLTDAttributeHostID(LLTDAttribute):
         MACField("mac", ETHER_ANY),
     ]
 
+
 @register_lltd_specific_class(2)
 class LLTDAttributeCharacteristics(LLTDAttribute):
     name = "LLTD Attribute - Characteristics"
     fields_desc = [
-        ## According to MS doc, "this field MUST be set to 0x02". But
-        ## according to MS implementation, that's wrong.
+        # According to MS doc, "this field MUST be set to 0x02". But
+        # according to MS implementation, that's wrong.
         # ByteField("len", 2),
         FieldLenField("len", None, length_of="reserved2", fmt="B",
                       adjust=lambda _, x: x + 2),
@@ -180,6 +191,7 @@ class LLTDAttributeCharacteristics(LLTDAttribute):
         BitField("reserved1", 0, 11),
         StrLenField("reserved2", "", length_from=lambda x: x.len - 2)
     ]
+
 
 @register_lltd_specific_class(3)
 class LLTDAttributePhysicalMedium(LLTDAttribute):
@@ -466,6 +478,7 @@ class LLTDAttributePhysicalMedium(LLTDAttribute):
         }),
     ]
 
+
 @register_lltd_specific_class(7)
 class LLTDAttributeIPv4Address(LLTDAttribute):
     name = "LLTD Attribute - IPv4 Address"
@@ -473,6 +486,7 @@ class LLTDAttributeIPv4Address(LLTDAttribute):
         ByteField("len", 4),
         IPField("ipv4", "0.0.0.0"),
     ]
+
 
 @register_lltd_specific_class(8)
 class LLTDAttributeIPv6Address(LLTDAttribute):
@@ -482,6 +496,7 @@ class LLTDAttributeIPv6Address(LLTDAttribute):
         IP6Field("ipv6", "::"),
     ]
 
+
 @register_lltd_specific_class(9)
 class LLTDAttribute80211MaxRate(LLTDAttribute):
     name = "LLTD Attribute - 802.11 Max Rate"
@@ -489,6 +504,7 @@ class LLTDAttribute80211MaxRate(LLTDAttribute):
         ByteField("len", 2),
         ShortField("rate", 0),
     ]
+
 
 @register_lltd_specific_class(10)
 class LLTDAttributePerformanceCounterFrequency(LLTDAttribute):
@@ -498,6 +514,7 @@ class LLTDAttributePerformanceCounterFrequency(LLTDAttribute):
         LongField("freq", 0),
     ]
 
+
 @register_lltd_specific_class(12)
 class LLTDAttributeLinkSpeed(LLTDAttribute):
     name = "LLTD Attribute - Link Speed"
@@ -506,12 +523,14 @@ class LLTDAttributeLinkSpeed(LLTDAttribute):
         IntField("speed", 0),
     ]
 
+
 @register_lltd_specific_class(14, 24, 26)
 class LLTDAttributeLargeTLV(LLTDAttribute):
     name = "LLTD Attribute - Large TLV"
     fields_desc = [
         ByteField("len", 0),
     ]
+
 
 @register_lltd_specific_class(15)
 class LLTDAttributeMachineName(LLTDAttribute):
@@ -521,6 +540,7 @@ class LLTDAttributeMachineName(LLTDAttribute):
         StrLenFieldUtf16("hostname", "", length_from=lambda pkt: pkt.len),
     ]
 
+
 @register_lltd_specific_class(18)
 class LLTDAttributeDeviceUUID(LLTDAttribute):
     name = "LLTD Attribute - Device UUID"
@@ -528,6 +548,7 @@ class LLTDAttributeDeviceUUID(LLTDAttribute):
         FieldLenField("len", None, length_of="value", fmt="B"),
         StrLenField("uuid", "\x00" * 16, length_from=lambda pkt: pkt.len),
     ]
+
 
 @register_lltd_specific_class(20)
 class LLTDAttributeQOSCharacteristics(LLTDAttribute):
@@ -538,6 +559,7 @@ class LLTDAttributeQOSCharacteristics(LLTDAttribute):
         BitField("reserved1", 0, 13),
         ShortField("reserved2", 0),
     ]
+
 
 @register_lltd_specific_class(21)
 class LLTDAttribute80211PhysicalMedium(LLTDAttribute):
@@ -554,6 +576,7 @@ class LLTDAttribute80211PhysicalMedium(LLTDAttribute):
             6: "ERP",
         }),
     ]
+
 
 @register_lltd_specific_class(25)
 class LLTDAttributeSeesList(LLTDAttribute):
