@@ -206,13 +206,17 @@ n:          int
 """
     humanRe = r"(r[ot] )?(((AS)?(\d+)(:(\d+))?)|(\d+(\.\d+)+)):(\d+)"
     def typ(self, ash, ip):
+        """type field"""
         if ip is not None: return 1
-        if ash is not None and ash != 0: return 2
+        if ash is not None: return 2
         return 0
+    
     def subtyp(self, name):
+        """subtype field"""
         return {'rt' : 2, 'ro': 3}[name]
 
     def h2i(self, pkt, h):
+        """Human to internal conversion"""
         g = re.match(self.humanRe, h)
         if g is not None:
             subtyp = g.group(1)
@@ -223,33 +227,46 @@ n:          int
                 asl = None
                 ip = g.group(2)
             else:
-                asl = int(g.group(7)) if g.group(7) is not None else int(g.group(5))
-                ash = int(g.group(5)) if g.group(7) is not None else 0
+                if g.group(7) is not None:
+                    asl = int(g.group(7))
+                    ash = int(g.group(5))
+                else:
+                    asl = int(g.group(5))
                 ip = None
             n = int(g.group(10))
         return subtyp, ash, asl, ip, n
 
     def i2h(self, pkt, i):
+        """Internal to human-readable conversion"""
         subt, ash, asl, ip, n = i
         t = self.typ(ash, ip)
         if subt is None: subt = ""
         if len(subt) > 3: subt = subt[:3]
         if len(subt) == 2: subt += " "
-        if t == 0: return "%s%s%d:%d" % (subt, "AS" if asl + n != 0 else "", asl, n)
-        if t == 1: return "%s%s:%d" % (subt, ip, n)
-        return "%sAS%d:%d:%d" % (subt, ash, asl, n)
+        if t == 0:
+            return "%s%s%d:%d" % (subt, "AS" if asl + n != 0 else "", asl, n)
+        elif t == 1:
+            return "%s%s:%d" % (subt, ip, n)
+        else:
+            return "%sAS%d:%d:%d" % (subt, ash, asl, n)
+        
     def i2repr(self, pkt, i):
         """make it look nice"""
         return self.i2h(pkt, i)
+
     def i2len(self, pkt, i):
         """This will be always 8 bytes"""
         return 8
+
     def addfield(self, pkt, s, val):
         return s+self.i2m(pkt, val)
+
     def getfield(self, pkt, s):
         l = self.i2len(pkt, s)
         return s[l:], self.m2i(pkt, s[:l])
+
     def i2m(self, pkt, i):
+        """Internal to machine conversion"""
         subt, ash, asl, ip, n = i
         t = self.typ(ash, ip)
         s = self.subtyp(subt)
@@ -260,10 +277,11 @@ n:          int
         else:
             return struct.pack("!BBHHH", t, s, ash, asl, n)
     def m2i(self, pkt, m):
+        """Machine to internal conversion"""
         t, s = struct.unpack("!BB", m[:2])
         subt = {2:'rt', 3:'ro'}[s]
-        ash = 0
-        asl = 0
+        ash = None
+        asl = None
         ip = None
         n = 0
         if t == 0:              # 0, asl (2bytes), ip=None, n (4bytes)
@@ -288,8 +306,8 @@ class RouteDistinguisherField(RouteTargetField):
             return struct.pack("!HHHH", t, ash, asl, n)
     def m2i(self, pkt, m):
         subt = "rd"
-        ash = 0
-        asl = 0
+        ash = None
+        asl = None
         ip = None
         n = 0
         t = struct.unpack("!H", m[:2])[0]

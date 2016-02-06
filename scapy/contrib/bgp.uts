@@ -8,7 +8,7 @@
 = Load BGP-4 library
 load_contrib("bgp")
 
-% BGPv4 basic messages
+# BGPv4 basic messages
 = BGP-4 Keep Alive, calculate length when no payload
 
 keep = BGPHeader(type=4)
@@ -17,7 +17,6 @@ str(keep) == '\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x
 = Packet chopping
 
 bgp = BGPTraffic(str(keep)*4)
-
 len(bgp.packets) == 4
 
 = Layering + Origin + LocalPreference
@@ -32,7 +31,6 @@ print update2.len
 update2.len == 19 + 2 + 2 + 4 + 7 + 7 + 1
 
 keep=BGPHeader(type=4)
-
 traffic=BGPTraffic(str(keep)+str(update)+str(keep))
 traffic.show()
 len(traffic.packets) == 3
@@ -70,13 +68,10 @@ comm2.show()
 BGPCommunities(str(comm2)).attr_len == 8
 str(comm2) == str(comm)
 
-
 = Originator ID
 
 originator = BGPOriginatorId(originator_id="192.162.10.4")
-
 # print "".join(["\\x%02x" % ord(c) for c in str(originator)])
-
 str(originator) == "\x80\x09\x04\xc0\xa2\x0a\x04"
 
 = Putting it all together
@@ -94,13 +89,14 @@ update = BGPHeader(type=2) / BGPUpdate(total_path=[
 
 BGPHeader(str(update)).show()
 
+= Multiprotocol reach: IPv6
 mpreach = MPIPv6Reach(nha=["2001:c1ca::1","fe80::c001:bff:fe7e:0"],nlri=["2001:c1ca::/32","2001:2fb8::/32"])
 MPIPv6Reach(str(mpreach)).show()
 
 mpr = BGPMPReach(mp_reach=[mpreach])
 BGPMPReach(str(mpr)).show()
 
-= Multiprotocol unreach
+= Multiprotocol unreach: IPv6
 
 mpu = MPIPv6Unreach(nlri=["2001:1fe8:c1ca::/48"])
 MPIPv6Unreach(str(mpu)).show()
@@ -126,7 +122,6 @@ BGPOpen(str(open)).show()
 header_notify = HeaderNotification(SubErrorCode=2)
 header_notify.show()
 header_notify.ErrorCode == 1
-
 #
 # Check the class dispatcher
 # Open Notification for a Bad Peer AS
