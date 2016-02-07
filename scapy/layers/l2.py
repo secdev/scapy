@@ -103,7 +103,9 @@ class SourceMACField(MACField):
         MACField.__init__(self, name, None)
     def i2h(self, pkt, x):
         if x is None:
-            iff,a,gw = pkt.payload.route()
+            iff, a, gw = pkt.payload.route()
+            if iff is None:
+                iff = conf.iface
             if iff:
                 try:
                     x = get_if_hwaddr(iff)
