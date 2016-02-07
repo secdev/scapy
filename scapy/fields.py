@@ -527,6 +527,12 @@ class StrLenField(StrField):
         l = self.length_from(pkt)
         return s[l:], self.m2i(pkt,s[:l])
     
+class StrLenFieldUtf16(StrLenField):
+    def h2i(self, pkt, x):
+        return x.encode('utf-16')[2:]
+    def i2h(self, pkt, x):
+        return x.decode('utf-16')
+
 class BoundStrLenField(StrLenField):
     __slots__ = ["minlen", "maxlen"]
     def __init__(self,name, default, minlen= 0, maxlen= 255, fld=None, length_from=None):
