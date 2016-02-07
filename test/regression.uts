@@ -22,7 +22,7 @@ lsc()
 
 = Configuration
 ~ conf
-conf.debug_dissect=1
+conf.debug_dissector = True
 
 ############
 ############
@@ -1996,7 +1996,9 @@ a=ICMPv6NDOptSrcAddrList('\t\x05BBBBBB\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x
 a.type == 9 and a.len == 5 and a.res == 'BBBBBB' and len(a.addrlist) == 2 and a.addrlist[0] == "ffff::ffff" and a.addrlist[1] == "1111::1111"
 
 = ICMPv6NDOptSrcAddrList - Dissection with specific values 
+conf.debug_dissector = False
 a=ICMPv6NDOptSrcAddrList('\t\x03BBBBBB\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\x11\x11\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x11\x11')
+conf.debug_dissector = True
 a.type == 9 and a.len == 3 and a.res == 'BBBBBB' and len(a.addrlist) == 1 and a.addrlist[0] == "ffff::ffff" and isinstance(a.payload, Raw) and a.payload.load == '\x11\x11\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x11\x11'
 
 ########### ICMPv6NDOptTgtAddrList Class (RFC 3122) #################
@@ -2021,7 +2023,9 @@ a=ICMPv6NDOptTgtAddrList('\n\x05BBBBBB\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x
 a.type == 10 and a.len == 5 and a.res == 'BBBBBB' and len(a.addrlist) == 2 and a.addrlist[0] == "ffff::ffff" and a.addrlist[1] == "1111::1111"
 
 = ICMPv6NDOptTgtAddrList - Instantiation with specific values 
+conf.debug_dissector = False
 a=ICMPv6NDOptTgtAddrList('\n\x03BBBBBB\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\x11\x11\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x11\x11')
+conf.debug_dissector = True
 a.type == 10 and a.len == 3 and a.res == 'BBBBBB' and len(a.addrlist) == 1 and a.addrlist[0] == "ffff::ffff" and isinstance(a.payload, Raw) and a.payload.load == '\x11\x11\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x11\x11'
 
 
