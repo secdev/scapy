@@ -3,7 +3,7 @@
 # scapy.contrib.description = BGP
 # scapy.contrib.status = loads
 
-from scapy.packet import Packet, bind_layers
+from scapy.packet import Packet, Raw, bind_layers
 from scapy.fields import *
 from scapy.layers.inet import TCP
 from scapy.contrib.bgp_fields import *
@@ -147,7 +147,7 @@ class CapabilityAS4(Capability):
         AS4Field("asn", "AS0")
     ]
 
-_optparam_dict = {
+optparam_dict = {
     (2, 1) :  CapabilityAFI,
     (2, 2) :  CapabilityRR,
     (2, 64) : CapabilityGraceful,
@@ -158,7 +158,7 @@ def optparam_dispatcher(s):
     """dispatcher"""
     return _class_dispatcher(
         s,
-        _optparam_dict,
+        __optparam_dict,
         BGPOptionalParameter,
         index_from=lambda s: (ord(s[0]), ord(s[2]))
     )
