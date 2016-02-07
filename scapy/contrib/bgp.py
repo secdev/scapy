@@ -3,7 +3,7 @@
 # scapy.contrib.description = BGP
 # scapy.contrib.status = loads
 
-from scapy.packet import *
+from scapy.packet import Packet, bind_layers
 from scapy.fields import *
 from scapy.layers.inet import TCP
 from scapy.contrib.bgp_fields import *
@@ -34,7 +34,11 @@ class BGPHeader(Packet):
     fields_desc = [
         XBitField("marker", 0xffffffffffffffffffffffffffffffff, 0x80),
         ShortField("len", None),
-        ByteEnumField("type", 4, {0:"none", 1:"open", 2:"update", 3:"notification", 4:"keep_alive"}),
+        ByteEnumField("type", 4, {0:"none",
+                                  1:"open",
+                                  2:"update",
+                                  3:"notification",
+                                  4:"keep_alive"}),
     ]
     def post_build(self, p, pay):
         if self.len is None:
