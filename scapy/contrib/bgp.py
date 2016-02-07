@@ -158,7 +158,7 @@ def optparam_dispatcher(s):
     """dispatcher"""
     return _class_dispatcher(
         s,
-        __optparam_dict,
+        optparam_dict,
         BGPOptionalParameter,
         index_from=lambda s: (ord(s[0]), ord(s[2]))
     )
