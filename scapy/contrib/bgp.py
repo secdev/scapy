@@ -147,7 +147,7 @@ class CapabilityAS4(Capability):
         AS4Field("asn", "AS0")
     ]
 
-optparam_dict = {
+OPTPARAM_DICT = {
     (2, 1) :  CapabilityAFI,
     (2, 2) :  CapabilityRR,
     (2, 64) : CapabilityGraceful,
@@ -158,7 +158,7 @@ def optparam_dispatcher(s):
     """dispatcher"""
     return _class_dispatcher(
         s,
-        optparam_dict,
+        OPTPARAM_DICT,
         BGPOptionalParameter,
         index_from=lambda s: (ord(s[0]), ord(s[2]))
     )
@@ -405,7 +405,7 @@ class MPIPv6Reach(PadPacket):
         FieldListField("nlri", [], BGPIPv6Field("", "::/0"))
     ]
 
-_mp_dict = {
+MP_DICT = {
     (2, 1): MPIPv6Reach
 }
 
@@ -413,7 +413,7 @@ def mp_dispatcher(s):
     """dispatcher"""
     return _class_dispatcher(
         s,
-        _mp_dict,
+        MP_DICT,
         MPNLRIReach,
         index_from=lambda s: struct.unpack("!HB", s[:3])
     )
@@ -451,7 +451,7 @@ class MPIPv6Unreach(PadPacket):
         FieldListField("nlri", [], BGPIPv6Field("", "::/0"))
     ]
 
-_mpu_dict = {
+MPU_DICT = {
     (2, 1): MPIPv6Unreach
 }
 
@@ -459,7 +459,7 @@ def mpu_dispatcher(s):
     """Dispatcher"""
     return _class_dispatcher(
         s,
-        _mpu_dict,
+        MPU_DICT,
         MPNLRIUnreach,
         index_from=lambda s: struct.unpack("!HB", s[:3])
     )
@@ -478,7 +478,7 @@ class BGPMPUnreach(BGPAttribute):
     ]
 
 
-_attribute_dict = {
+ATTRIBUTE_DICT = {
     1: BGPOrigin,
     2: BGPASPath,
     3: BGPNextHop,
@@ -498,7 +498,7 @@ def attribute_dispatcher(s):
     """Dispatcher"""
     return _class_dispatcher(
         s,
-        _attribute_dict,
+        ATTRIBUTE_DICT,
         BGPAttribute,
         index_from=lambda s: ord(s[1])
     )
@@ -627,7 +627,7 @@ class DefaultNotification(PadPacket):
         ByteField("SubErrorCode", 0)
     ]
 
-_notification_dict = {
+NOTIFICATION_DICT = {
     1: HeaderNotification,
     2: OpenNotification,
     3: UpdateNotification,
@@ -640,7 +640,7 @@ def notification_dispatcher(s):
     """Dispatcher"""
     return _class_dispatcher(
         s,
-        _notification_dict,
+        NOTIFICATION_DICT,
         DefaultNotification,
         index_from=lambda s: ord(s[0])
     )
@@ -673,5 +673,4 @@ bind_layers(BGPHeader, BGPUpdate, type=2)
 bind_layers(BGPHeader, BGPNotification, type=3)
 
 if __name__ == "__main__":
-    interact(mydict=globals(), mybanner="BGP addon .20")
-
+    interact(mydict=globals(), mybanner="BGP addon .30")
