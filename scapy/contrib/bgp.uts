@@ -129,7 +129,6 @@ mpr = BGPMPReach(mp_reach=[mpreach])
 BGPMPReach(str(mpr)).show()
 
 = Multiprotocol unreach
->>>>>>> fa4d5659968e3d6f8396cee88146be5ea091e2a7
 mpu = MPIPv6Unreach(nlri=["2001:1fe8:c1ca::/48"])
 MPIPv6Unreach(str(mpu)).show()
 
