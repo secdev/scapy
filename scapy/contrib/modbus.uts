@@ -1,0 +1,272 @@
+% Modbus layer test campaign
+
++ Syntax check
+= Import the modbus layer
+from scapy.contrib.modbus import *
+
++ Test MBAP
+= MBAP default values
+str(ModbusADURequest()) == '\x00\x00\x00\x00\x00\x01\xff'
+
+= MBAP payload length calculation
+str(ModbusADURequest() / '\x00\x01\x02') == '\x00\x00\x00\x00\x00\x04\xff\x00\x01\x02'
+
+= MBAP Guess Payload ModbusPDU01ReadCoilsRequest (simple case)
+p = ModbusADURequest('\x00\x00\x00\x00\x00\x06\xff\x01\x00\x00\x00\x01')
+p.payload.__class__.__name__ == 'ModbusPDU01ReadCoilsRequest'
+= MBAP Guess Payload ModbusPDU01ReadCoilsResponse
+p = ModbusADUResponse('\x00\x00\x00\x00\x00\x04\xff\x01\x01\x01')
+p.payload.__class__.__name__ == 'ModbusPDU01ReadCoilsResponse'
+= MBAP Guess Payload ModbusPDU01ReadCoilsError
+p = ModbusADUResponse('\x00\x00\x00\x00\x00\x03\xff\x81\x02')
+p.payload.__class__.__name__ == 'ModbusPDU01ReadCoilsError'
+
+= MBAP Guess Payload ModbusPDU2B0EReadDeviceIdentificationRequest (2 level test)
+p = ModbusADURequest('\x00\x00\x00\x00\x00\x04\xff+\x0e\x01\x00')
+p.payload.__class__.__name__ == 'ModbusPDU2B0EReadDeviceIdentificationRequest'
+= MBAP Guess Payload ModbusPDU2B0EReadDeviceIdentificationResponse
+p = ModbusADUResponse('\x00\x00\x00\x00\x00\x1b\xff+\x0e\x01\x83\x00\x00\x03\x00\x08Pymodbus\x01\x02PM\x02\x031.0')
+p.payload.__class__.__name__ == 'ModbusPDU2B0EReadDeviceIdentificationResponse'
+= MBAP Guess Payload ModbusPDU2B0EReadDeviceIdentificationError
+p = ModbusADUResponse('\x00\x00\x00\x00\x00\x03\xff\xab\x01')
+p.payload.__class__.__name__ == 'ModbusPDU2B0EReadDeviceIdentificationError'
+
+= MBAP Guess Payload (Invalid payload)
+p = ModbusADURequest('\x00\x00\x00\x00\x00\x03\xff\xff\xff')
+p.payload.__class__.__name__ == 'ModbusPDU00GenericRequest'
+= MBAP Guess Payload ModbusPDU02ReadDiscreteInputsResponse
+p = ModbusADUResponse('\x00\x00\x00\x00\x00\x04\xff\x80\xff\x00')
+p.payload.__class__.__name__ == 'ModbusPDU00GenericResponse'
+= MBAP Guess Payload ModbusPDU02ReadDiscreteInputsError
+p = ModbusADUResponse('\x00\x00\x00\x00\x00\x04\xff\xff\xff\xff')
+p.payload.__class__.__name__ == 'ModbusPDU00GenericError'
+
+
++ Test layer binding
+= Destination port
+p = TCP()/ModbusADURequest()
+p[TCP].dport == 502
+
+= Source port
+p = TCP()/ModbusADUResponse()
+p[TCP].sport == 502
+
++ Test PDU
+* Note on tests cases: dissection/minimal parameters will not be done for packets that does not perform calculation
+# 0x01/0x81 Read Coils --------------------------------------------------------------
+= ModbusPDU01ReadCoilsRequest
+str(ModbusPDU01ReadCoilsRequest()) == '\x01\x00\x00\x00\x01'
+= ModbusPDU01ReadCoilsRequest minimal parameters
+str(ModbusPDU01ReadCoilsRequest(startAddr=16, quantity=2)) == '\x01\x00\x10\x00\x02'
+= ModbusPDU01ReadCoilsRequest dissection
+p = ModbusPDU01ReadCoilsRequest('\x01\x00\x10\x00\x02')
+p.startAddr == 16 and p.quantity == 2
+
+= ModbusPDU01ReadCoilsResponse
+str(ModbusPDU01ReadCoilsResponse()) == '\x01\x01\x00'
+= ModbusPDU01ReadCoilsResponse minimal parameters
+str(ModbusPDU01ReadCoilsResponse(coilStatus=[0x10]*3)) == '\x01\x03\x10\x10\x10'
+= ModbusPDU01ReadCoilsResponse dissection
+p = ModbusPDU01ReadCoilsResponse('\x01\x03\x10\x10\x10')
+p.coilStatus == [16, 16, 16] and p.byteCount == 3
+
+= ModbusPDU01ReadCoilsError
+str(ModbusPDU01ReadCoilsError() == '\x81\x01')
+= ModbusPDU81ReadCoilsError minimal parameters
+str(ModbusPDU01ReadCoilsError(exceptCode=2)) == '\x81\x02'
+= ModbusPDU81ReadCoilsError dissection
+p = ModbusPDU01ReadCoilsError('\x81\x02')
+p.funcCode == 0x81 and p.exceptCode == 2
+
+# 0x02/0x82 Read Discrete Inputs Registers ------------------------------------------
+= ModbusPDU02ReadDiscreteInputsRequest
+str(ModbusPDU02ReadDiscreteInputsRequest()) == '\x02\x00\x00\x00\x01'
+= ModbusPDU02ReadDiscreteInputsRequest minimal parameters
+str(ModbusPDU02ReadDiscreteInputsRequest(startAddr=8, quantity=128)) == '\x02\x00\x08\x00\x80'
+
+= ModbusPDU02ReadDiscreteInputsResponse
+str(ModbusPDU02ReadDiscreteInputsResponse()) == '\x02\x01\x00'
+= ModbusPDU02ReadDiscreteInputsResponse minimal parameters
+str(ModbusPDU02ReadDiscreteInputsResponse(inputStatus=[0x02, 0x01])) == '\x02\x02\x02\x01'
+= ModbusPDU02ReadDiscreteInputsRequest dissection
+p = ModbusPDU02ReadDiscreteInputsResponse('\x02\x02\x02\x01')
+p.byteCount == 2 and p.inputStatus == [0x02, 0x01]
+
+= ModbusPDU02ReadDiscreteInputsError
+str(ModbusPDU02ReadDiscreteInputsError()) == '\x82\x01'
+
+# 0x03/0x83 Read Holding Registers --------------------------------------------------
+= ModbusPDU03ReadHoldingRegistersRequest
+str(ModbusPDU03ReadHoldingRegistersRequest()) == '\x03\x00\x00\x00\x01'
+= ModbusPDU03ReadHoldingRegistersRequest minimal parameters
+str(ModbusPDU03ReadHoldingRegistersRequest(startAddr=2048, quantity=16)) == '\x03\x08\x00\x00\x10'
+
+= ModbusPDU03ReadHoldingRegistersResponse
+str(ModbusPDU03ReadHoldingRegistersResponse()) == '\x03\x02\x00\x00'
+= ModbusPDU03ReadHoldingRegistersResponse minimal parameters
+1==1
+= ModbusPDU03ReadHoldingRegistersResponse dissection
+p = ModbusPDU03ReadHoldingRegistersResponse('\x03\x06\x02+\x00\x00\x00d')
+p.byteCount == 6 and p.registerVal == [555, 0, 100]
+
+= ModbusPDU03ReadHoldingRegistersError
+str(ModbusPDU03ReadHoldingRegistersError()) == '\x83\x01'
+
+# 0x04/0x84 Read Input Register -----------------------------------------------------
+= ModbusPDU04ReadInputRegistersRequest
+str(ModbusPDU04ReadInputRegistersRequest()) == '\x04\x00\x00\x00\x01'
+
+= ModbusPDU04ReadInputRegistersResponse
+str(ModbusPDU04ReadInputRegistersResponse()) == '\x04\x02\x00\x00'
+= ModbusPDU04ReadInputRegistersResponse minimal parameters
+str(ModbusPDU04ReadInputRegistersResponse(registerVal=[0x01, 0x02])) == '\x04\x04\x00\x01\x00\x02'
+
+= ModbusPDU04ReadInputRegistersError
+str(ModbusPDU04ReadInputRegistersError()) == '\x84\x01'
+
+# 0x05/0x85 Write Single Coil -------------------------------------------------------
+= ModbusPDU05WriteSingleCoilRequest
+str(ModbusPDU05WriteSingleCoilRequest()) == '\x05\x00\x00\x00\x00'
+
+= ModbusPDU05WriteSingleCoilResponse
+str(ModbusPDU05WriteSingleCoilResponse()) == '\x05\x00\x00\x00\x00'
+
+= ModbusPDU05WriteSingleCoilError
+str(ModbusPDU05WriteSingleCoilError()) == '\x85\x01'
+
+# 0x06/0x86 Write Single Register ---------------------------------------------------
+= ModbusPDU06WriteSingleRegisterError
+str(ModbusPDU06WriteSingleRegisterRequest()) == '\x06\x00\x00\x00\x00'
+
+= ModbusPDU06WriteSingleRegisterResponse
+str(ModbusPDU06WriteSingleRegisterResponse()) == '\x06\x00\x00\x00\x00'
+
+= ModbusPDU06WriteSingleRegisterError
+str(ModbusPDU06WriteSingleRegisterError()) == '\x86\x01'
+
+# 0x07/0x87 Read Exception Status (serial line only) --------------------------------
+# 0x08/0x88 Diagnostics (serial line only) ------------------------------------------
+# 0x0b Get Comm Event Counter: serial line only -------------------------------------
+# 0x0c Get Comm Event Log: serial line only -----------------------------------------
+
+# 0x0f/0x8f Write Multiple Coils ----------------------------------------------------
+= ModbusPDU0FWriteMultipleCoilsRequest
+str(ModbusPDU0FWriteMultipleCoilsRequest())
+= ModbusPDU0FWriteMultipleCoilsRequest minimal parameters
+str(ModbusPDU0FWriteMultipleCoilsRequest(outputsValue=[0x01, 0x01])) == '\x0f\x00\x00\x00\x01\x02\x01\x01'
+
+= ModbusPDU0FWriteMultipleCoilsResponse
+str(ModbusPDU0FWriteMultipleCoilsResponse()) == '\x0f\x00\x00\x00\x01'
+
+= ModbusPDU0FWriteMultipleCoilsError
+str(ModbusPDU0FWriteMultipleCoilsError()) == '\x8f\x01'
+
+# 0x10/0x90 Write Multiple Registers ----------------------------------------------------
+= ModbusPDU10WriteMultipleRegistersRequest
+str(ModbusPDU10WriteMultipleRegistersRequest()) == '\x10\x00\x00\x00\x01\x02\x00\x00'
+= ModbusPDU10WriteMultipleRegistersRequest minimal parameters
+str(ModbusPDU10WriteMultipleRegistersRequest(outputsValue=[0x0001, 0x0002])) == '\x10\x00\x00\x00\x02\x04\x00\x01\x00\x02'
+
+= ModbusPDU10WriteMultipleRegistersResponse
+str(ModbusPDU10WriteMultipleRegistersResponse()) == '\x10\x00\x00\x00\x01'
+
+= ModbusPDU10WriteMultipleRegistersError
+str(ModbusPDU10WriteMultipleRegistersError()) == '\x90\x01'
+
+# 0x11/91 Report Server ID: serial line only ----------------------------------------
+
+# 0x14/944 Read File Record ---------------------------------------------------------
+= ModbusPDU14ReadFileRecordRequest len parameters
+str(ModbusPDU14ReadFileRecordRequest()/ModbusReadFileSubRequest()/ModbusReadFileSubRequest()) == '\x14\x0e\x06\x00\x01\x00\x00\x00\x01\x06\x00\x01\x00\x00\x00\x01'
+= ModbusPDU14ReadFileRecordRequest minimal parameters
+str(ModbusPDU14ReadFileRecordRequest()/ModbusReadFileSubRequest(fileNumber=4, recordNumber=1, recordLength=02)/ModbusReadFileSubRequest(fileNumber=3, recordNumber=9, recordLength=2)) == '\x14\x0e\x06\x00\x04\x00\x01\x00\x02\x06\x00\x03\x00\t\x00\x02'
+= ModbusPDU14ReadFileRecordRequest dissection
+p = ModbusPDU14ReadFileRecordRequest('\x14\x0e\x06\x00\x04\x00\x01\x00\x02\x06\x00\x03\x00\t\x00\x02')
+p.payload.__class__.__name__ == 'ModbusReadFileSubRequest' and p.payload.payload.__class__.__name__ == 'ModbusReadFileSubRequest'
+
+= ModbusPDU14ReadFileRecordResponse minimal parameters
+str(ModbusPDU14ReadFileRecordResponse()/ModbusReadFileSubResponse(recData=[0x0dfe, 0x0020])/ModbusReadFileSubResponse(recData=[0x33cd, 0x0040])) == '\x14\x0c\x05\x06\r\xfe\x00 \x05\x063\xcd\x00@'
+= ModbusPDU14ReadFileRecordResponse dissection
+p = ModbusPDU14ReadFileRecordResponse('\x14\x0c\x05\x06\r\xfe\x00 \x05\x063\xcd\x00@')
+p.payload.__class__.__name__ == 'ModbusReadFileSubResponse' and p.payload.payload.__class__.__name__ == 'ModbusReadFileSubResponse'
+
+= ModbusPDU14ReadFileRecordError
+str(ModbusPDU14ReadFileRecordError()) == '\x94\x01'
+
+# 0x15/0x95 Write File Record -------------------------------------------------------
+= ModbusPDU15WriteFileRecordRequest minimal parameters
+str(ModbusPDU15WriteFileRecordRequest()/ModbusWriteFileSubRequest(fileNumber=4, recordNumber=07, recordData=[0x06af, 0x04be, 0x100d])) == '\x15\r\x06\x00\x04\x00\x07\x00\x03\x06\xaf\x04\xbe\x10\r'
+= ModbusPDU15WriteFileRecordRequest dissection
+p = ModbusPDU15WriteFileRecordRequest('\x15\x0d\x06\x00\x04\x00\x07\x00\x03\x06\xaf\x04\xbe\x10\r')
+p.payload.__class__.__name__ == 'ModbusWriteFileSubRequest' and p.payload.recordLength == 3
+
+= ModbusPDU15WriteFileRecordResponse minimal parameters
+str(ModbusPDU15WriteFileRecordResponse()/ModbusWriteFileSubResponse(fileNumber=4, recordNumber=07, recordData=[0x06af, 0x04be, 0x100d])) == '\x15\r\x06\x00\x04\x00\x07\x00\x03\x06\xaf\x04\xbe\x10\r'
+= ModbusPDU15WriteFileRecordResponse dissection
+p = ModbusPDU15WriteFileRecordResponse('\x15\x0d\x06\x00\x04\x00\x07\x00\x03\x06\xaf\x04\xbe\x10\r')
+p.payload.__class__.__name__ == 'ModbusWriteFileSubResponse' and p.payload.recordLength == 3
+
+= ModbusPDU15WriteFileRecordError
+str(ModbusPDU15WriteFileRecordError()) == '\x95\x01'
+
+# 0x16/0x96 Mask Write Register -----------------------------------------------------
+= ModbusPDU16MaskWriteRegisterRequest
+str(ModbusPDU16MaskWriteRegisterRequest()) == '\x16\x00\x00\xff\xff\x00\x00'
+
+= ModbusPDU16MaskWriteRegisterResponse
+str(ModbusPDU16MaskWriteRegisterResponse()) == '\x16\x00\x00\xff\xff\x00\x00'
+
+= ModbusPDU16MaskWriteRegisterError
+str(ModbusPDU16MaskWriteRegisterError()) == '\x96\x01'
+
+# 0x17/0x97 Read/Write Multiple Registers -------------------------------------------
+= ModbusPDU17ReadWriteMultipleRegistersRequest
+str(ModbusPDU17ReadWriteMultipleRegistersRequest()) == '\x17\x00\x00\x00\x01\x00\x00\x00\x01\x02\x00\x00'
+= ModbusPDU17ReadWriteMultipleRegistersRequest minimal parameters
+str(ModbusPDU17ReadWriteMultipleRegistersRequest(writeRegistersValue=[0x0001, 0x0002])) == '\x17\x00\x00\x00\x01\x00\x00\x00\x02\x04\x00\x01\x00\x02'
+= ModbusPDU17ReadWriteMultipleRegistersRequest dissection
+p = ModbusPDU17ReadWriteMultipleRegistersRequest('\x17\x00\x00\x00\x01\x00\x00\x00\x02\x04\x00\x01\x00\x02')
+p.byteCount == 4 and p.writeQuantityRegisters == 2
+
+= ModbusPDU17ReadWriteMultipleRegistersResponse
+str(ModbusPDU17ReadWriteMultipleRegistersResponse()) == '\x17\x02\x00\x00'
+= ModbusPDU17ReadWriteMultipleRegistersResponse minimal parameters
+str(ModbusPDU17ReadWriteMultipleRegistersResponse(registerVal=[1,2,3])) == '\x17\x06\x00\x01\x00\x02\x00\x03'
+= ModbusPDU17ReadWriteMultipleRegistersResponse dissection
+str(ModbusPDU17ReadWriteMultipleRegistersResponse('\x17\x02\x00\x01')) == '\x17\x02\x00\x01'
+
+= ModbusPDU17ReadWriteMultipleRegistersError
+str(ModbusPDU17ReadWriteMultipleRegistersError()) == '\x97\x01'
+
+# 0x18/0x88 Read FIFO Queue ---------------------------------------------------------
+= ModbusPDU18ReadFIFOQueueRequest
+str(ModbusPDU18ReadFIFOQueueRequest()) == '\x18\x00\x00'
+
+= ModbusPDU18ReadFIFOQueueResponse
+= ModbusPDU18ReadFIFOQueueResponse
+str(ModbusPDU18ReadFIFOQueueResponse()) == '\x18\x00\x02\x00\x00'
+= ModbusPDU18ReadFIFOQueueResponse minimal parameters
+str(ModbusPDU18ReadFIFOQueueResponse(FIFOVal=[0x0001, 0x0002, 0x0003])) == '\x18\x00\x08\x00\x03\x00\x01\x00\x02\x00\x03'
+= ModbusPDU18ReadFIFOQueueResponse dissection
+p = ModbusPDU18ReadFIFOQueueResponse('\x18\x00\x08\x00\x03\x00\x01\x00\x02\x00\x03')
+p.byteCount == 8 and p.FIFOCount == 3
+
+= ModbusPDU18ReadFIFOQueueError
+str(ModbusPDU18ReadFIFOQueueError()) == '\x98\x01'
+
+# 0x2b encapsulated Interface Transport ---------------------------------------------
+# 0x2b 0xOD CANopen General Reference (out of the main specification) ---------------
+
+# 0x2b 0xOE Read Device Information -------------------------------------------------
+= ModbusPDU2B0EReadDeviceIdentificationRequest
+str(ModbusPDU2B0EReadDeviceIdentificationRequest()) =='+\x0e\x01\x00'
+
+= ModbusPDU2B0EReadDeviceIdentificationResponse
+str(ModbusPDU2B0EReadDeviceIdentificationResponse()) == '+\x0e\x04\x01\x00\x00\x00'
+= ModbusPDU2B0EReadDeviceIdentificationResponse dissection
+p = ModbusPDU2B0EReadDeviceIdentificationResponse('+\x0e\x01\x83\x00\x00\x03\x00\x08Pymodbus\x01\x02PM\x02\x031.0')
+p.payload.payload.payload.id == 2 and  p.payload.payload.id == 1 and p.payload.id == 0
+
+= ModbusPDU2B0EReadDeviceIdentificationError
+str(ModbusPDU2B0EReadDeviceIdentificationError()) == '\xab\x01'
+
