@@ -1112,8 +1112,31 @@ class TracerouteResult(SndRcvList):
                 
                 
     def world_trace(self, **kargs):
-        import GeoIP
-        db = GeoIP.open(conf.geoip_city, 0)
+        """Display traceroute results on a world map."""
+
+        # Check that the GeoIP module can be imported
+        try:
+            import GeoIP
+        except ImportError:
+            message = "Can't import GeoIP. Won't be able to plot the world."
+            scapy.utils.log_loading.info(message)
+            return list()
+
+        # Check if this is an IPv6 traceroute and load the correct file
+        if isinstance(self, scapy.layers.inet6.TracerouteResult6):
+            geoip_city_filename = conf.geoip_city_ipv6
+        else:
+            geoip_city_filename = conf.geoip_city
+
+        # Check that the GeoIP database can be opened
+        try:
+            db = GeoIP.open(conf.geoip_city, 0)
+        except:
+            message = "Can't open GeoIP database at %s" % conf.geoip_city
+            scapy.utils.log_loading.info(message)
+            return list()
+
+        # Regroup results per trace
         ips = {}
         rt = {}
         ports_done = {}
@@ -1133,6 +1156,7 @@ class TracerouteResult(SndRcvList):
             trace[s.ttl] = r.src
             rt[trace_id] = trace
 
+        # Get the addresses locations
         trt = {}
         for trace_id in rt:
             trace = rt[trace_id]
@@ -1147,33 +1171,28 @@ class TracerouteResult(SndRcvList):
                 loc = loc.get('longitude'), loc.get('latitude')
                 if loc == (None, None):
                     continue
-#                loctrace.append((ip,loc)) # no labels yet
                 loctrace.append(loc)
             if loctrace:
                 trt[trace_id] = loctrace
 
-        # Mimic the default gnuplot output
-        if kargs == {}:
-            kargs = MATPLOTLIB_DEFAULT_PLOT_KARGS
-        lines = [plt.plot(*zip(*tr), **kargs) for tr in trt.itervalues()]
-        with open(conf.gnuplot_world) as fdesc:
-            curline = []
-            for line in fdesc:
-                line = line.strip()
-                if not line:
-                    plt.plot(*zip(*curline), color="r")
-                    curline = []
-                    continue
-                if line.startswith('#'):
-                    continue
-                curline.append(line.split())
-            plt.plot(*zip(*curline))
-            del curline
+        # Load the map renderer
+        from mpl_toolkits.basemap import Basemap
+        bmap = Basemap()
+
+        # Split latitudes and longitudes per traceroute measurement
+        locations = [zip(*tr) for tr in trt.itervalues()]
+
+        # Plot the traceroute measurement as lines in the map
+        lines = [bmap.plot(*bmap(lons, lats)) for lons, lats in locations]
+
+        # Draw countries   
+        bmap.drawcoastlines()
 
         # Call show() if matplotlib is not inlined
         if not MATPLOTLIB_INLINED:
             plt.show()
 
+        # Return the drawn lines
         return lines
 
     def make_graph(self,ASres=None,padding=0):
