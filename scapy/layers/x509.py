@@ -167,7 +167,7 @@ class X509_RDN(ASN1_Packet):
 class X509_OtherName(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_SEQUENCE(
-                    ASN1F_OID("type-id", "0"),
+                    ASN1F_OID("type_id", "0"),
                     ASN1F_CHOICE("value", None,
                         ASN1F_IA5_STRING, ASN1F_ISO646_STRING,
                         ASN1F_BMP_STRING, ASN1F_UTF8_STRING,
@@ -225,11 +225,8 @@ class X509_RegisteredID(ASN1_Packet):
     ASN1_root = ASN1F_OID("registeredID", "")
 
 class X509_GeneralName(ASN1_Packet):
-    dirName = X509_DirectoryName()
-    dirName.overload_fields[hash(X509_DirectoryName)] = {"exp": 0xa4,
-                                                         "imp": None}
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_CHOICE("generalName", dirName,
+    ASN1_root = ASN1F_CHOICE("generalName", X509_DirectoryName(),
                     ASN1F_PACKET("otherName", None, X509_OtherName,
                                  implicit_tag=0xa0),
                     ASN1F_PACKET("rfc822Name", None, X509_RFC822Name,

@@ -367,7 +367,7 @@ class ASN1F_TIME_TICKS(ASN1F_INTEGER):
 #### Complex ASN1 Fields ####
 #############################
 
-class ASN1F_optional(ASN1F_field):
+class ASN1F_optional(ASN1F_element):
     def __init__(self, field, by_default=False):
         field.flexible_tag = False
         self._field = field
@@ -375,6 +375,8 @@ class ASN1F_optional(ASN1F_field):
         self.name = field.name
         self.islist = field.islist
         self.holds_packets = field.holds_packets
+    def __getattr__(self, attr):
+        return getattr(self._field, attr)
     def m2i(self, pkt, s):
         try:
             return self._field.m2i(pkt, s)
