@@ -13,16 +13,10 @@ def _class_dispatcher(s, class_dict, def_class, index_from=None):
     s:           packet
     class_dict:  a dictionary of index:packetClass
     def_class:   a default packet class when index is not found
-    index_from:  normally a lambda s: to calculate the index for the class_dict
+    index_from:  normally a lambda s: to calculate the index for the class_dict"""
 
-    return Raw(s) if index_from throws an Exception expect when conf.debug_dissector==1"""
-    try:
-        index = index_from(s)
-        cls = class_dict[index] if index in class_dict else def_class
-    except:
-        if conf.debug_dissector == 1:
-            raise
-        cls = Raw
+    index = index_from(s)
+    cls = class_dict[index] if index in class_dict else def_class
     return cls(s)
 
 AFI_NAMES = {1: "IPv4", 2:"IPv6"}
@@ -45,7 +39,7 @@ class BGPHeader(Packet):
             l = len(p)
             if pay is not None:
                 l += len(pay)
-                p = p[:16]+struct.pack("!H", l)+p[18:]
+            p = p[:16]+struct.pack("!H", l)+p[18:]
         return p+pay
 
 #
@@ -62,7 +56,7 @@ class BGPOptionalParameter(PadPacket):
     def post_build(self, p, pay):
         if self.len is None:
             l = len(p) - 2 # 2 is length without value
-            p = p[:1]+struct.pack("!B", l)+p[2:]
+            p = p[:1]+chr(l)+p[2:]
         return p+pay
 
 class Capability(BGPOptionalParameter):
@@ -78,7 +72,7 @@ class Capability(BGPOptionalParameter):
     def post_build(self, p, pay):
         if self.len is None:
             l = len(p) - 2      # length of the packet after 'len'
-            p = p[:1]+struct.pack("!B", l)+p[2:]
+            p = p[:1]+chr(l)+p[2:]
         if self.capa_len is None:
             cl = len(p) - 4     # length of the packet after 'capa_len'
             p = p[:3]+chr(cl)+p[4:]
@@ -180,7 +174,7 @@ class BGPOpen(Packet):
     def post_build(self, p, pay):
         if self.opt_parm_len is None:
             l = len(p) - 10 # 10 is regular length with no additional options
-            p = p[:9] + struct.pack("!B", l)  +p[10:]
+            p = p[:9] + chr(l) +p[10:]
         return p+pay
 #
 # -----------------------------------------------------
@@ -229,10 +223,10 @@ class BGPAttribute(PadPacket):
         if self.attr_len is None and self.ext_len is None:
             if self.flags & 0x10 == 0x10:
                 l = len(p) - 4 # 4 is the length when extended-length is set
-                p = p[:2] + struct.pack("!H", self.flags | 0x10, l) + p[4:]
+                p = p[:2] + struct.pack("!H", l) + p[4:]
             else:
                 l = len(p) - 3 # 3 is regular length with no additional options
-                p = p[:2] + struct.pack("!B", l)  +p[3:]
+                p = p[:2] + chr(l) +p[3:]
         elif self.attr_len is not None:
             self.flags = self.flags & 0xEF
         elif self.ext_len is not None:
