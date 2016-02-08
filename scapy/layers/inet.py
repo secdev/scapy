@@ -10,6 +10,7 @@ IPv4 (Internet Protocol v4).
 import os,time,struct,re,socket,new
 from select import select
 from collections import defaultdict
+
 from scapy.utils import checksum
 from scapy.layers.l2 import *
 from scapy.config import conf
@@ -1110,8 +1111,9 @@ class TracerouteResult(SndRcvList):
                 movcenter = visual.scene.mouse.pos
                 
                 
-    def world_trace(self):
-        from modules.geo import locate_ip
+    def world_trace(self, **kargs):
+        import GeoIP
+        db = GeoIP.open(conf.geoip_city, 0)
         ips = {}
         rt = {}
         ports_done = {}
@@ -1139,19 +1141,40 @@ class TracerouteResult(SndRcvList):
                 ip = trace.get(i,None)
                 if ip is None:
                     continue
-                loc = locate_ip(ip)
+                loc = db.record_by_addr(ip)
                 if loc is None:
+                    continue
+                loc = loc.get('longitude'), loc.get('latitude')
+                if loc == (None, None):
                     continue
 #                loctrace.append((ip,loc)) # no labels yet
                 loctrace.append(loc)
             if loctrace:
                 trt[trace_id] = loctrace
 
-        tr = map(lambda x: Gnuplot.Data(x,with_="lines"), trt.values())
-        g = Gnuplot.Gnuplot()
-        world = Gnuplot.File(conf.gnuplot_world,with_="lines")
-        g.plot(world,*tr)
-        return g
+        # Mimic the default gnuplot output
+        if kargs == {}:
+            kargs = MATPLOTLIB_DEFAULT_PLOT_KARGS
+        lines = [plt.plot(*zip(*tr), **kargs) for tr in trt.itervalues()]
+        with open(conf.gnuplot_world) as fdesc:
+            curline = []
+            for line in fdesc:
+                line = line.strip()
+                if not line:
+                    plt.plot(*zip(*curline), color="r")
+                    curline = []
+                    continue
+                if line.startswith('#'):
+                    continue
+                curline.append(line.split())
+            plt.plot(*zip(*curline))
+            del curline
+
+        # Call show() if matplotlib is not inlined
+        if not MATPLOTLIB_INLINED:
+            plt.show()
+
+        return lines
 
     def make_graph(self,ASres=None,padding=0):
         if ASres is None:
