@@ -324,6 +324,7 @@ class ICMPTimeStampField(IntField):
 
 
 class IP(Packet, IPTools):
+    __slots__ = ["_defrag_pos"]
     name = "IP"
     fields_desc = [ BitField("version" , 4 , 4),
                     BitField("ihl", None, 4),

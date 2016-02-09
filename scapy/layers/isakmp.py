@@ -337,7 +337,7 @@ for i, payloadname in enumerate(ISAKMP_payload_type):
         ISAKMP_payload_type_overload[globals()[name]] = {"next_payload": i}
 
 del i, payloadname, name
-ISAKMP_class.overload_fields = ISAKMP_payload_type_overload.copy()
+ISAKMP_class._overload_fields = ISAKMP_payload_type_overload.copy()
 
 
 bind_layers( UDP,           ISAKMP,        dport=500, sport=500)

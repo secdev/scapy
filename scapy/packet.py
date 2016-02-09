@@ -36,7 +36,8 @@ class RawVal:
 class Packet(BasePacket):
     __slots__ = [
         "time", "sent_time", "name", "default_fields",
-        "overloaded_fields", "fields", "fieldtype", "packetfields",
+        "overload_fields", "overloaded_fields", "fields", "fieldtype",
+        "packetfields",
         "original", "explicit", "raw_packet_cache",
         "raw_packet_cache_fields", "_pkt", "post_transforms",
         # then payload and underlayer
@@ -64,7 +65,7 @@ class Packet(BasePacket):
 
     @classmethod
     def lower_bonds(self):
-        for lower,fval in self.overload_fields.iteritems():
+        for lower,fval in self._overload_fields.iteritems():
             print "%-20s  %s" % (lower.__name__, ", ".join("%-12s" % ("%s=%r"%i) for i in fval.iteritems()))
 
     def __init__(self, _pkt="", post_transform=None, _internal=0, _underlayer=None, **fields):
@@ -74,6 +75,7 @@ class Packet(BasePacket):
                      if self._name is None else
                      self._name)
         self.default_fields = {}
+        self.overload_fields = self._overload_fields
         self.overloaded_fields = {}
         self.fields = {}
         self.fieldtype = {}
@@ -1189,8 +1191,8 @@ def bind_bottom_up(lower, upper, __fval=None, **fval):
 def bind_top_down(lower, upper, __fval=None, **fval):
     if __fval is not None:
         fval.update(__fval)
-    upper.overload_fields = upper.overload_fields.copy()
-    upper.overload_fields[lower] = fval
+    upper._overload_fields = upper._overload_fields.copy()
+    upper._overload_fields[lower] = fval
     
 @conf.commands.register
 def bind_layers(lower, upper, __fval=None, **fval):
@@ -1215,13 +1217,13 @@ def split_bottom_up(lower, upper, __fval=None, **fval):
 def split_top_down(lower, upper, __fval=None, **fval):
     if __fval is not None:
         fval.update(__fval)
-    if lower in upper.overload_fields:
-        ofval = upper.overload_fields[lower]
+    if lower in upper._overload_fields:
+        ofval = upper._overload_fields[lower]
         for k in fval:
             if k not in ofval or ofval[k] != fval[k]:
                 return
-        upper.overload_fields = upper.overload_fields.copy()
-        del(upper.overload_fields[lower])
+        upper._overload_fields = upper._overload_fields.copy()
+        del(upper._overload_fields[lower])
 
 @conf.commands.register
 def split_layers(lower, upper, __fval=None, **fval):
