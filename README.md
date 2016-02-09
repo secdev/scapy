@@ -22,6 +22,11 @@ and
 [the quick demo: an interactive session](http://www.secdev.org/projects/scapy/demo.html)
 (some examples may be outdated).
 
+# Contributing #
+
+Want to contribute? Great! Please take a few minutes to
+[read this](CONTRIBUTING.md)!
+
 # License #
 
 Scapy is free software: you can redistribute it and/or modify it under
