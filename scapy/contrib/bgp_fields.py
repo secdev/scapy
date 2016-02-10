@@ -2,13 +2,12 @@
 # -*- coding: utf-8 -*-
 """BGP-4 disector: fields for implementing MPBGP extensions"""
 
-import socket
-if not socket.has_ipv6:
-    raise socket.error("can't use AF_INET6, IPv6 is disabled")
+# import socket
+# if not socket.has_ipv6:
+#     raise socket.error("can't use AF_INET6, IPv6 is disabled")
 from socket import inet_pton, inet_ntop, AF_INET, AF_INET6
 
-from scapy  import *
-#from scapy.config import conf
+#from scapy  import *
 from scapy.packet import Packet
 from scapy.fields import Field, PacketListField
 from scapy.layers.inet6 import IP6Field
@@ -161,9 +160,10 @@ Internal representation is hi,lo"""
     def h2i(self, pkt, h):
         """human to internal (hi,lo)"""
         m = re.match(r"(AS)?(\d+)(:(\d+))?", h)
-        if m.group(4) is not None:        
+        if m.group(4) is not None:
             return int(m.group(2)), int(m.group(4))
-        return 0, int(m.group(2))
+        else:
+            return 0, int(m.group(2))
     def i2h(self, pkt, i):
         hi, lo = i
         if hi != 0:
