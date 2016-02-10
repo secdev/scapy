@@ -25,6 +25,12 @@ from scapy.data import ETHER_ANY
 
 class LLTD(Packet):
     name = "LLTD"
+    answer_hashret = {
+        # (tos, function) tuple mapping (answer -> query), used by
+        # .hashret()
+        (1, 1): (0, 0),
+        (0, 12): (0, 11),
+    }
     fields_desc = [
         ByteField("version", 1),
         ByteEnumField("tos", 0, {
@@ -95,6 +101,38 @@ class LLTD(Packet):
             )
         else:
             return self.sprintf('LLTD %tos% - %function%')
+
+    def hashret(self):
+        tos, function = self.tos, self.function
+        return "%c%c" % self.answer_hashret.get((tos, function),
+                                                (tos, function))
+
+    def answers(self, other):
+        if not isinstance(other, LLTD):
+            return False
+        if self.tos == 0:
+            if self.function == 0 and isinstance(self.payload, LLTDDiscover) \
+               and len(self[LLTDDiscover].stations_list) == 1:
+                # "Topology discovery - Discover" with one MAC address
+                # discovered answers a "Quick discovery - Hello"
+                return other.tos == 1 and \
+                    other.function == 1 and \
+                    LLTDAttributeHostID in other and \
+                    other[LLTDAttributeHostID].mac == \
+                    self[LLTDDiscover].stations_list[0]
+            elif self.function == 12:
+                # "Topology discovery - QueryLargeTlvResp" answers
+                # "Topology discovery - QueryLargeTlv" with same .seq
+                # value
+                return other.tos == 0 and other.function == 11 \
+                    and other.seq == self.seq
+        elif self.tos == 1:
+            if self.function == 1 and isinstance(self.payload, LLTDHello):
+                # "Quick discovery - Hello" answers a "Topology
+                # discovery - Discover"
+                return other.tos == 0 and other.function == 0 and \
+                    other.real_src == self.current_mapper_address
+        return False
 
 
 class LLTDHello(Packet):
