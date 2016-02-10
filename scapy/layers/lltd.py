@@ -10,6 +10,7 @@ https://msdn.microsoft.com/en-us/library/cc233983.aspx
 """
 
 import struct
+from array import array
 
 from scapy.fields import BitField, FlagsField, ByteField, ByteEnumField, \
     ShortField, ShortEnumField, ThreeBytesField, IntField, IntEnumField, \
@@ -21,6 +22,9 @@ from scapy.layers.inet import IPField
 from scapy.layers.inet6 import IP6Field
 from scapy.config import conf
 from scapy.data import ETHER_ANY
+
+# Protocol layers
+##################
 
 
 class LLTD(Packet):
@@ -755,3 +759,64 @@ bind_layers(LLTDAttribute, LLTDAttribute)
 bind_layers(LLTDAttribute, Padding, type=0)
 bind_layers(LLTDEmiteeDesc, Padding)
 bind_layers(LLTDRecveeDesc, Padding)
+
+
+# Utils
+########
+
+class LargeTlvBuilder(object):
+    """An object to build content fetched through LLTDQueryLargeTlv /
+    LLTDQueryLargeTlvResp packets.
+
+    Usable with a PacketList() object:
+    >>> p = LargeTlvBuilder()
+    >>> p.parse(rdpcap('capture_file.cap'))
+
+    Or during a network capture:
+    >>> p = LargeTlvBuilder()
+    >>> sniff(filter="ether proto 0x88d9", prn=p.parse)
+
+    To get the result, use .get_data()
+
+    """
+    def __init__(self):
+        self.types_offsets = {}
+        self.data = {}
+
+    def parse(self, plist):
+        """Update the builder using the provided `plist`. `plist` can
+        be either a Packet() or a PacketList().
+
+        """
+        if not isinstance(plist, PacketList):
+            plist = PacketList(plist)
+        for pkt in plist[LLTD]:
+            if LLTDQueryLargeTlv in pkt:
+                key = "%s:%s:%d" % (pkt.real_dst, pkt.real_src, pkt.seq)
+                self.types_offsets[key] = (pkt[LLTDQueryLargeTlv].type,
+                                           pkt[LLTDQueryLargeTlv].offset)
+            elif LLTDQueryLargeTlvResp in pkt:
+                try:
+                    key = "%s:%s:%d" % (pkt.real_src, pkt.real_dst, pkt.seq)
+                    content, offset = self.types_offsets[key]
+                except KeyError:
+                    continue
+                loc = slice(offset, offset + pkt[LLTDQueryLargeTlvResp].len)
+                key = "%s > %s [%s]" % (
+                    pkt.real_src, pkt.real_dst,
+                    LLTDQueryLargeTlv.fields_desc[0].i2s.get(content, content),
+                )
+                data = self.data.setdefault(key, array("B"))
+                datalen = len(data)
+                if datalen < loc.stop:
+                    data.extend(array("B", "\x00" * (loc.stop - datalen)))
+                data[loc] = array("B", pkt[LLTDQueryLargeTlvResp].value)
+
+    def get_data(self):
+        """Returns a dictionary object, keys are strings "source >
+        destincation [content type]", and values are the content
+        fetched, also as a string.
+
+        """
+        return dict((key, "".join(chr(byte) for byte in data))
+                    for key, data in self.data.iteritems())
