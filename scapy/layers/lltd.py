@@ -17,6 +17,7 @@ from scapy.fields import BitField, FlagsField, ByteField, ByteEnumField, \
     LongField, MultiEnumField, FieldLenField, FieldListField, \
     PacketListField, StrLenField, StrLenFieldUtf16, ConditionalField, MACField
 from scapy.packet import Packet, Padding, bind_layers
+from scapy.plist import PacketList
 from scapy.layers.l2 import Ether
 from scapy.layers.inet import IPField
 from scapy.layers.inet6 import IP6Field
