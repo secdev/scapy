@@ -4436,6 +4436,36 @@ assert pkt.src == pkt.real_src
 assert pkt.tos == 0
 assert pkt.function == 0
 
+= Large TLV
+m1, m2, seq = RandMAC()._fix(), RandMAC()._fix(), 123
+preqbase = Ether(src=m1, dst=m2) / LLTD() / \
+           LLTDQueryLargeTlv(type="Detailed Icon Image")
+prespbase = Ether(src=m2, dst=m1) / LLTD() / \
+            LLTDQueryLargeTlvResp()
+plist = []
+pkt = preqbase.copy()
+pkt.seq = seq
+plist.append(Ether(str(pkt)))
+pkt = prespbase.copy()
+pkt.seq = seq
+pkt.flags = "M"
+pkt.value = "abcd"
+plist.append(Ether(str(pkt)))
+pkt = preqbase.copy()
+pkt.seq = seq + 1
+pkt.offset = 4
+plist.append(Ether(str(pkt)))
+pkt = prespbase.copy()
+pkt.seq = seq + 1
+pkt.value = "efg"
+plist.append(Ether(str(pkt)))
+builder = LargeTlvBuilder()
+builder.parse(plist)
+data = builder.get_data()
+assert len(data) == 1
+assert data.keys()[0].endswith(' [Detailed Icon Image]')
+assert data.values()[0] == 'abcdefg'
+
 
 ############
 ############
