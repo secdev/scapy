@@ -642,17 +642,19 @@ class IntAutoTime(AutoTime):
 
 
 class ZuluTime(AutoTime):
-    def __init__(self, diff=None):
-        self.diff=diff
+    def __init__(self, diff=0):
+        self.diff = diff
     def _fix(self):
-        return time.strftime("%y%m%d%H%M%SZ",time.gmtime(time.time()+self.diff))
+        return time.strftime("%y%m%d%H%M%SZ",
+                             time.gmtime(time.time() + self.diff))
 
 
 class GeneralizedTime(AutoTime):
-    def __init__(self, diff=None):
-        self.diff=diff
+    def __init__(self, diff=0):
+        self.diff = diff
     def _fix(self):
-        return time.strftime("%Y%m%d%H%M%SZ",time.gmtime(time.time()+self.diff))
+        return time.strftime("%Y%m%d%H%M%SZ",
+                             time.gmtime(time.time() + self.diff))
 
 
 class DelayedEval(VolatileValue):
