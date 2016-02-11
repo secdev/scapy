@@ -1,7 +1,5 @@
 #! /usr/bin/env python
 """BGP-4 protocol with mulit-protocol support"""
-# scapy.contrib.description = BGP
-# scapy.contrib.status = loads
 
 from scapy.packet import Packet, Raw, bind_layers
 from scapy.fields import *
@@ -268,6 +266,25 @@ class BGPASSegment(PadPacket):
         ),
     ]
 
+class BGPAS2Segment(PadPacket):
+    """AS SEGMENT"""
+    name = "BGPASSegment"
+    fields_desc = [
+        ByteEnumField("segment_type", 2, {1:"AS_SET",
+                                          2:"AS_SEQUENCE",
+                                          # RFC 5065
+                                          3:"AS_CONFED_SEQUENCE",
+                                          4:"AS_CONFED_SET"}),
+        FieldLenField("segment_len", None, fmt="B", count_of="segment"),
+        #
+        # TODO the way of defining conf.bgp.use4as to switch between AS4Field and AS2Field here
+        #
+        FieldListField(
+            "segment", [], AS2Field("", "AS0"),
+            count_from=lambda p: p.segment_len
+        ),
+    ]
+
 class BGPASPath(BGPAttribute):
     """The AS_PATH attribute"""
     name = "BGPASPath"
@@ -282,6 +299,23 @@ class BGPASPath(BGPAttribute):
             cond=lambda p: p.flags & 0x10 == 0x10),
         PacketListField(
             "as_path", [], BGPASSegment,
+            length_from=lambda p: p.attr_length())
+    ]
+
+class BGPAS2Path(BGPAttribute):
+    """The AS_PATH attribute"""
+    name = "BGPASPath"
+    fields_desc = [
+        FlagsField("flags", 0x40, 8, BGP_HEADER_FLAGS),
+        ByteField("type", 2),
+        ConditionalField(
+            ByteField("attr_len", None),
+            cond=lambda p: p.flags & 0x10 == 0),
+        ConditionalField(
+            ShortField("ext_len", None),
+            cond=lambda p: p.flags & 0x10 == 0x10),
+        PacketListField(
+            "as_path", [], BGPAS2Segment,
             length_from=lambda p: p.attr_length())
     ]
 

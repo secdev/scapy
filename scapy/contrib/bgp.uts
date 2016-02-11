@@ -89,6 +89,14 @@ path.as_path[0].segment_len == 2
 path.attr_len == 10
 path.show()
 
+# 2-byte AS
+
+segm2 = BGPAS2Segment(segment_type=2, segment=['AS6813','AS6813','AS3615'])
+path2 = BGPAS2Path(str(BGPAS2Path(as_path=[segm2])))
+# path2.show()
+path2.as_path[0].segment_len == 3
+path2.attr_len == 8
+
 = Communities
 
 comm = BGPCommunities("\xc0\x08\x08\xfe\x09\x01\xf4\xfe\x09\x02\x58")
