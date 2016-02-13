@@ -36,7 +36,8 @@ class RawVal:
 class Packet(BasePacket):
     __slots__ = [
         "time", "sent_time", "name", "default_fields",
-        "overloaded_fields", "fields", "fieldtype", "packetfields",
+        "overload_fields", "overloaded_fields", "fields", "fieldtype",
+        "packetfields",
         "original", "explicit", "raw_packet_cache",
         "raw_packet_cache_fields", "_pkt", "post_transforms",
         # then payload and underlayer
@@ -51,6 +52,7 @@ class Packet(BasePacket):
     overload_fields = {}
     payload_guess = []
     show_indent = 1
+    show_summary = True
 
     @classmethod
     def from_hexcap(cls):
@@ -63,7 +65,7 @@ class Packet(BasePacket):
 
     @classmethod
     def lower_bonds(self):
-        for lower,fval in self.overload_fields.iteritems():
+        for lower,fval in self._overload_fields.iteritems():
             print "%-20s  %s" % (lower.__name__, ", ".join("%-12s" % ("%s=%r"%i) for i in fval.iteritems()))
 
     def __init__(self, _pkt="", post_transform=None, _internal=0, _underlayer=None, **fields):
@@ -73,6 +75,7 @@ class Packet(BasePacket):
                      if self._name is None else
                      self._name)
         self.default_fields = {}
+        self.overload_fields = self._overload_fields
         self.overloaded_fields = {}
         self.fields = {}
         self.fieldtype = {}
@@ -984,9 +987,7 @@ A side effect is that, to obtain "{" and "}" characters, you must use
         return ""
 
     def _do_summary(self):
-        found,s,needed = self.payload._do_summary()
-        if s:
-            s = " / "+s
+        found, s, needed = self.payload._do_summary()
         ret = ""
         if not found or self.__class__ in needed:
             ret = self.mysummary()
@@ -996,14 +997,17 @@ A side effect is that, to obtain "{" and "}" characters, you must use
         if ret or needed:
             found = 1
         if not ret:
-            ret = self.__class__.__name__
+            ret = self.__class__.__name__ if self.show_summary else ""
         if self.__class__ in conf.emph:
             impf = []
             for f in self.fields_desc:
                 if f in conf.emph:
                     impf.append("%s=%s" % (f.name, f.i2repr(self, self.getfieldval(f.name))))
             ret = "%s [%s]" % (ret," ".join(impf))
-        ret = "%s%s" % (ret,s)
+        if ret and s:
+            ret = "%s / %s" % (ret, s)
+        else:
+            ret = "%s%s" % (ret,s)
         return found,ret,needed
 
     def summary(self, intern=0):
@@ -1187,8 +1191,8 @@ def bind_bottom_up(lower, upper, __fval=None, **fval):
 def bind_top_down(lower, upper, __fval=None, **fval):
     if __fval is not None:
         fval.update(__fval)
-    upper.overload_fields = upper.overload_fields.copy()
-    upper.overload_fields[lower] = fval
+    upper._overload_fields = upper._overload_fields.copy()
+    upper._overload_fields[lower] = fval
     
 @conf.commands.register
 def bind_layers(lower, upper, __fval=None, **fval):
@@ -1213,13 +1217,13 @@ def split_bottom_up(lower, upper, __fval=None, **fval):
 def split_top_down(lower, upper, __fval=None, **fval):
     if __fval is not None:
         fval.update(__fval)
-    if lower in upper.overload_fields:
-        ofval = upper.overload_fields[lower]
+    if lower in upper._overload_fields:
+        ofval = upper._overload_fields[lower]
         for k in fval:
             if k not in ofval or ofval[k] != fval[k]:
                 return
-        upper.overload_fields = upper.overload_fields.copy()
-        del(upper.overload_fields[lower])
+        upper._overload_fields = upper._overload_fields.copy()
+        del(upper._overload_fields[lower])
 
 @conf.commands.register
 def split_layers(lower, upper, __fval=None, **fval):

@@ -180,8 +180,11 @@ class Packet_metaclass(type):
 
         if "__slots__" not in dct:
             dct["__slots__"] = []
-        if "name" in dct:
-            dct["_name"] = dct.pop("name")
+        for attr in ["name", "overload_fields"]:
+            try:
+                dct["_%s" % attr] = dct.pop(attr)
+            except KeyError:
+                pass
         newcls = super(Packet_metaclass, cls).__new__(cls, name, bases, dct)
         newcls.__all_slots__ = set(
             attr

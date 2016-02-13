@@ -20,7 +20,7 @@ try:
         MATPLOTLIB_INLINED = 1
     else:
         MATPLOTLIB_INLINED = 0
-    MATPLOTLIB_DEFAULT_PLOT_KARGS = { "color": "r", "marker": "+", "ls": "" }
+    MATPLOTLIB_DEFAULT_PLOT_KARGS = {"marker": "+"}
 except ImportError:
     plt = None
     MATPLOTLIB = 0

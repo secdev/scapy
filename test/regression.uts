@@ -22,7 +22,7 @@ lsc()
 
 = Configuration
 ~ conf
-conf.debug_dissect=1
+conf.debug_dissector = True
 
 ############
 ############
@@ -1996,7 +1996,9 @@ a=ICMPv6NDOptSrcAddrList('\t\x05BBBBBB\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x
 a.type == 9 and a.len == 5 and a.res == 'BBBBBB' and len(a.addrlist) == 2 and a.addrlist[0] == "ffff::ffff" and a.addrlist[1] == "1111::1111"
 
 = ICMPv6NDOptSrcAddrList - Dissection with specific values 
+conf.debug_dissector = False
 a=ICMPv6NDOptSrcAddrList('\t\x03BBBBBB\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\x11\x11\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x11\x11')
+conf.debug_dissector = True
 a.type == 9 and a.len == 3 and a.res == 'BBBBBB' and len(a.addrlist) == 1 and a.addrlist[0] == "ffff::ffff" and isinstance(a.payload, Raw) and a.payload.load == '\x11\x11\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x11\x11'
 
 ########### ICMPv6NDOptTgtAddrList Class (RFC 3122) #################
@@ -2021,7 +2023,9 @@ a=ICMPv6NDOptTgtAddrList('\n\x05BBBBBB\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x
 a.type == 10 and a.len == 5 and a.res == 'BBBBBB' and len(a.addrlist) == 2 and a.addrlist[0] == "ffff::ffff" and a.addrlist[1] == "1111::1111"
 
 = ICMPv6NDOptTgtAddrList - Instantiation with specific values 
+conf.debug_dissector = False
 a=ICMPv6NDOptTgtAddrList('\n\x03BBBBBB\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\x11\x11\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x11\x11')
+conf.debug_dissector = True
 a.type == 10 and a.len == 3 and a.res == 'BBBBBB' and len(a.addrlist) == 1 and a.addrlist[0] == "ffff::ffff" and isinstance(a.payload, Raw) and a.payload.load == '\x11\x11\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x11\x11'
 
 
@@ -4409,3 +4413,84 @@ assert all(any(proto in pkt for pkt in pktpcap) for proto in [ICMP, UDP, TCP])
 = Check packets from pcap file
 assert all(IP in pkt for pkt in pktpcapng)
 assert all(any(proto in pkt for pkt in pktpcapng) for proto in [ICMP, UDP, TCP])
+
+
+############
+############
++ LLTD protocol
+
+= Simple packet dissection
+pkt = Ether('\xff\xff\xff\xff\xff\xff\x86\x14\xf0\xc7[.\x88\xd9\x01\x00\x00\x01\xff\xff\xff\xff\xff\xff\x86\x14\xf0\xc7[.\x00\x00\xfe\xe9[\xa9\xaf\xc1\x0bS[\xa9\xaf\xc1\x0bS\x01\x06}[G\x8f\xec.\x02\x04p\x00\x00\x00\x03\x04\x00\x00\x00\x06\x07\x04\xac\x19\x88\xe4\t\x02\x00l\n\x08\x00\x00\x00\x00\x00\x0fB@\x0c\x04\x00\x08=`\x0e\x00\x0f\x0eT\x00E\x00S\x00T\x00-\x00A\x00P\x00\x12\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x14\x04\x00\x00\x00\x00\x15\x01\x02\x18\x00\x19\x02\x04\x00\x1a\x00\x00')
+assert pkt.dst == pkt.real_dst
+assert pkt.src == pkt.real_src
+assert pkt.current_mapper_address == pkt.apparent_mapper_address
+assert pkt.mac == '7d:5b:47:8f:ec:2e'
+assert pkt.hostname == "TEST-AP"
+assert isinstance(pkt[LLTDAttributeEOP].payload, NoPayload)
+
+= Packet build / dissection
+pkt = Ether(str(Ether(dst=ETHER_BROADCAST, src=RandMAC()) / LLTD(tos=0, function=0)))
+assert LLTD in pkt
+assert pkt.dst == pkt.real_dst
+assert pkt.src == pkt.real_src
+assert pkt.tos == 0
+assert pkt.function == 0
+
+= Large TLV
+m1, m2, seq = RandMAC()._fix(), RandMAC()._fix(), 123
+preqbase = Ether(src=m1, dst=m2) / LLTD() / \
+           LLTDQueryLargeTlv(type="Detailed Icon Image")
+prespbase = Ether(src=m2, dst=m1) / LLTD() / \
+            LLTDQueryLargeTlvResp()
+plist = []
+pkt = preqbase.copy()
+pkt.seq = seq
+plist.append(Ether(str(pkt)))
+pkt = prespbase.copy()
+pkt.seq = seq
+pkt.flags = "M"
+pkt.value = "abcd"
+plist.append(Ether(str(pkt)))
+pkt = preqbase.copy()
+pkt.seq = seq + 1
+pkt.offset = 4
+plist.append(Ether(str(pkt)))
+pkt = prespbase.copy()
+pkt.seq = seq + 1
+pkt.value = "efg"
+plist.append(Ether(str(pkt)))
+builder = LargeTlvBuilder()
+builder.parse(plist)
+data = builder.get_data()
+assert len(data) == 1
+assert data.keys()[0].endswith(' [Detailed Icon Image]')
+assert data.values()[0] == 'abcdefg'
+
+
+############
+############
++ Test fragment() / defragment() functions
+
+= fragment()
+payloadlen, fragsize = 100, 8
+assert fragsize % 8 == 0
+fragcount = (payloadlen / fragsize) + bool(payloadlen % fragsize)
+* create the packet
+pkt = IP() / ("X" * payloadlen)
+* create the fragments
+frags = fragment(pkt, fragsize)
+* count the fragments
+assert len(frags) == fragcount
+* each fragment except the last one should have MF set
+assert all(p.flags == 1 for p in frags[:-1])
+assert frags[-1].flags == 0
+* each fragment except the last one should have a payload of fragsize bytes
+assert all(len(p.payload) == 8 for p in frags[:-1])
+assert len(frags[-1].payload) == ((payloadlen % fragsize) or fragsize)
+
+= defragment()
+defrags = defragment(frags)
+* we should have one single packet
+assert len(defrags) == 1
+* which should be the same as pkt reconstructed
+assert defrags[0] == IP(str(pkt))
