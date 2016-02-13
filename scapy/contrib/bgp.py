@@ -249,18 +249,23 @@ class BGPOrigin(PadPacket):
                                     2  : "INCOMPLETE"}),
     ]
 
+AS_SEGMENT_TYPES = {
+    1:"AS_SET",
+    2:"AS_SEQUENCE",
+    # RFC 5065
+    3:"AS_CONFED_SEQUENCE",
+    4:"AS_CONFED_SET"
+}
+
 class BGPASSegment(PadPacket):
     """AS SEGMENT"""
     name = "BGPASSegment"
     fields_desc = [
-        ByteEnumField("segment_type", 2, {1:"AS_SET",
-                                          2:"AS_SEQUENCE",
-                                          # RFC 5065
-                                          3:"AS_CONFED_SEQUENCE",
-                                          4:"AS_CONFED_SET"}),
+        ByteEnumField("segment_type", 2, AS_SEGMENT_TYPES),
         FieldLenField("segment_len", None, fmt="B", count_of="segment"),
         #
-        # TODO the way of defining conf.bgp.use4as to switch between AS4Field and AS2Field here
+        # TODO the way of defining conf.bgp.use4as to switch 
+        # between AS4Field and AS2Field here
         #
         FieldListField(
             "segment", [], AS4Field("", "AS0"),
@@ -272,14 +277,11 @@ class BGPAS2Segment(PadPacket):
     """AS SEGMENT"""
     name = "BGPASSegment"
     fields_desc = [
-        ByteEnumField("segment_type", 2, {1:"AS_SET",
-                                          2:"AS_SEQUENCE",
-                                          # RFC 5065
-                                          3:"AS_CONFED_SEQUENCE",
-                                          4:"AS_CONFED_SET"}),
+        ByteEnumField("segment_type", 2, AS_SEGMENT_TYPES),
         FieldLenField("segment_len", None, fmt="B", count_of="segment"),
         #
-        # TODO the way of defining conf.bgp.use4as to switch between AS4Field and AS2Field here
+        # TODO the way of defining conf.bgp.use4as 
+        # to switch between AS4Field and AS2Field here
         #
         FieldListField(
             "segment", [], AS2Field("", "AS0"),
@@ -544,7 +546,6 @@ class BGPUpdate(PadPacket):
         PacketListField("total_path", [], attribute_dispatcher,
                         length_from=lambda p: p.tp_len),
         FieldListField("nlri", [], BGPIPField("", "0.0.0.0/0")),
-        #length_from=lambda p: p.underlayer.len - 23 - p.tp_len - p.withdrawn_len),
     ]
     def post_build(self, p, pay):
         wl = self.withdrawn_len
