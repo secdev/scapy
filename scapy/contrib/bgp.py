@@ -2,7 +2,9 @@
 """BGP-4 protocol with mulit-protocol support"""
 
 from scapy.packet import Packet, Raw, bind_layers
-from scapy.fields import *
+from scapy.fields import BitField, ByteEnumField, ByteField, ConditionalField, \
+    FieldLenField, FieldListField, FlagsField, IPField, IntField, PacketField, \
+    PacketListField, ShortEnumField, ShortField, StrLenField, XBitField
 from scapy.layers.inet import TCP
 from scapy.contrib.bgp_fields import *
 
