@@ -263,7 +263,7 @@ class ASN1_BIT_STRING(ASN1_Object):
     def __init__(self, val, readable=False):
         if readable:
             self.val_readable = val
-            val = "".join(format(ord(x), 'b').zfill(8) for x in val)
+            val = "".join(bin(ord(x))[2:].zfill(8) for x in val)
             self.unused_bits = 0
         else:
             if len(val) % 8 == 0:

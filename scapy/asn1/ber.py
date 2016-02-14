@@ -277,7 +277,7 @@ class BERcodec_BIT_STRING(BERcodec_Object):
             unused_bits = ord(s[0])
             if safe and unused_bits > 7:
                 raise BER_Decoding_Error("BERcodec_BIT_STRING: too many unused_bits advertised", remaining=s)
-            s = "".join(format(ord(x), 'b').zfill(8) for x in s[1:])
+            s = "".join(bin(ord(x))[2:].zfill(8) for x in s[1:])
             if unused_bits > 0:
                 s = s[:-unused_bits]
             return cls.tag.asn1_object(s),t
