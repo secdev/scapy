@@ -21,7 +21,6 @@ from scapy.plist import PacketList
 from scapy.layers.l2 import Ether
 from scapy.layers.inet import IPField
 from scapy.layers.inet6 import IP6Field
-from scapy.config import conf
 from scapy.data import ETHER_ANY
 
 # Protocol layers
@@ -220,8 +219,7 @@ class LLTDQueryResp(Packet):
     def mysummary(self):
         return self.sprintf("%d response%s" % (
             self.descs_count,
-            "s" if self.descs_count > 1 else ""),
-        ), [LLTD]
+            "s" if self.descs_count > 1 else "")), [LLTD]
 
 
 class LLTDQueryLargeTlv(Packet):
