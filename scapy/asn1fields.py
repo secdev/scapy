@@ -35,8 +35,7 @@ class ASN1F_field(ASN1F_element):
     
     def __init__(self, name, default, context=None,
                  implicit_tag=None, explicit_tag=None):
-        if context is not None:
-            self.context = context
+        self.context = context
         self.name = name
         if default is None:
             self.default = None
@@ -371,21 +370,17 @@ class ASN1F_optional(ASN1F_element):
     def __init__(self, field, by_default=False):
         field.flexible_tag = False
         self._field = field
-        self.default = field.default
-        self.name = field.name
-        self.islist = field.islist
-        self.holds_packets = field.holds_packets
     def __getattr__(self, attr):
         return getattr(self._field, attr)
     def m2i(self, pkt, s):
         try:
             return self._field.m2i(pkt, s)
-        except (ASN1_Error, ASN1F_badsequence, BER_Decoding_Error):
+        except (ASN1F_badsequence, BER_Decoding_Error):
             return None, s
     def dissect(self, pkt, s):
         try:
             return self._field.dissect(pkt, s)
-        except (ASN1_Error, ASN1F_badsequence, BER_Decoding_Error):
+        except (ASN1F_badsequence, BER_Decoding_Error):
             self._field.set_val(pkt, None)
             return s
     def build(self, pkt):
