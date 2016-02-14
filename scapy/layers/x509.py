@@ -622,7 +622,7 @@ class ASN1F_EXT_SEQUENCE(ASN1F_SEQUENCE):
             extnID.set_val(pkt, oid)
             s = critical.dissect(pkt, s)
             encapsed = X509_ExtDefault
-            if oid.val in ext_mapping.keys():
+            if oid.val in ext_mapping:
                 encapsed = ext_mapping[oid.val]
             self.seq[2].cls = encapsed
             self.seq[2].cls.ASN1_root.flexible_tag = True
@@ -788,10 +788,10 @@ class X509_TBSCertificate(ASN1_Packet):
         name_str = ""
         attrsDict = self.get_issuer()
         for attrType, attrSymbol in attrName_mapping:
-            if attrType in attrsDict.keys():
+            if attrType in attrsDict:
                 name_str += "/" + attrSymbol + "="
                 name_str += attrsDict[attrType]
-        for attrType in sorted(attrsDict.keys()):
+        for attrType in sorted(attrsDict):
             if attrType not in attrName_specials:
                 name_str += "/" + attrType + "="
                 name_str += attrsDict[attrType]
@@ -807,10 +807,10 @@ class X509_TBSCertificate(ASN1_Packet):
         name_str = ""
         attrsDict = self.get_subject()
         for attrType, attrSymbol in attrName_mapping:
-            if attrType in attrsDict.keys():
+            if attrType in attrsDict:
                 name_str += "/" + attrSymbol + "="
                 name_str += attrsDict[attrType]
-        for attrType in sorted(attrsDict.keys()):
+        for attrType in sorted(attrsDict):
             if attrType not in attrName_specials:
                 name_str += "/" + attrType + "="
                 name_str += attrsDict[attrType]
@@ -915,10 +915,10 @@ class X509_TBSCertList(ASN1_Packet):
         name_str = ""
         attrsDict = self.get_issuer()
         for attrType, attrSymbol in attrName_mapping:
-            if attrType in attrsDict.keys():
+            if attrType in attrsDict:
                 name_str += "/" + attrSymbol + "="
                 name_str += attrsDict[attrType]
-        for attrType in sorted(attrsDict.keys()):
+        for attrType in sorted(attrsDict):
             if attrType not in attrName_specials:
                 name_str += "/" + attrType + "="
                 name_str += attrsDict[attrType]

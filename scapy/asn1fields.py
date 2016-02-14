@@ -256,7 +256,7 @@ class ASN1F_SEQUENCE(ASN1F_field):
         name = "dummy_seq_name"
         default = [field.default for field in seq]
         for kwarg in ["context", "implicit_tag", "explicit_tag"]:
-            if kwarg in kwargs.keys():
+            if kwarg in kwargs:
                 setattr(self, kwarg, kwargs[kwarg])
             else:
                 setattr(self, kwarg, None)
@@ -401,12 +401,12 @@ class ASN1F_CHOICE(ASN1F_field):
     holds_packets = 1
     ASN1_tag = ASN1_Class_UNIVERSAL.ANY
     def __init__(self, name, default, *args, **kwargs):
-        if "implicit_tag" in kwargs.keys():
+        if "implicit_tag" in kwargs:
             err_msg = "ASN1F_CHOICE has been called with an implicit_tag"
             raise ASN1_Error(err_msg)
         self.implicit_tag = None
         for kwarg in ["context", "explicit_tag"]:
-            if kwarg in kwargs.keys():
+            if kwarg in kwargs:
                 setattr(self, kwarg, kwargs[kwarg])
             else:
                 setattr(self, kwarg, None)
@@ -419,7 +419,7 @@ class ASN1F_CHOICE(ASN1F_field):
         for p in args:
             if hasattr(p, "ASN1_root"):     # should be ASN1_Packet
                 if hasattr(p.ASN1_root, "choices"):
-                    for k,v in p.ASN1_root.choices.items():
+                    for k,v in p.ASN1_root.choices.iteritems():
                         self.choices[k] = v         # ASN1F_CHOICE recursion
                 else:
                     self.choices[p.ASN1_root.network_tag] = p
@@ -462,7 +462,7 @@ class ASN1F_CHOICE(ASN1F_field):
             s = ""
         else:
             s = str(x)
-        if hash(type(x)) in self.pktchoices.keys():
+        if hash(type(x)) in self.pktchoices:
             imp, exp = self.pktchoices[hash(type(x))]
             s = BER_tagging_enc(s, implicit_tag=imp,
                                 explicit_tag=exp)
