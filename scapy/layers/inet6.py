@@ -177,7 +177,7 @@ class Net6(Gen): # syntax ex. fec0::/126
         return iter(rec(0, ['']))
 
     def __repr__(self):
-        return "<Net6 %s>" % self.repr
+        return "Net6(%r)" % self.repr
 
 
 
