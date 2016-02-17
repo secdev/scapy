@@ -37,6 +37,10 @@ class ConfClass(object):
                     r = r[:wlen-3]+"..."
                 s += "%-10s = %s\n" % (i, r)
         return s[:-1]
+    def append(self,keyword,val=None):
+        """ create a new keyword in the ConfClass dictionary and link
+it to a value, config dictionary, etc."""
+        self.__dict__[keyword] = val
 
 class Interceptor(object):
     def __init__(self, name, default, hook, args=None, kargs=None):
@@ -381,7 +385,6 @@ extensions_paths: path or list of paths where extensions are to be looked for
                    "radius", "rip", "rtp", "skinny", "smb", "snmp",
                    "tftp", "x509", "bluetooth", "dhcp6", "llmnr",
                    "sctp", "vrrp", "ipsec", "lltd"]
-
 
 if not Conf.ipv6_enabled:
     log_scapy.warning("IPv6 support disabled in Python. Cannot load scapy IPv6 layers.")

@@ -80,9 +80,9 @@ agg.type == 7 and agg.attr_len == 4
 = AS_PATH
 
 # create segment
-segm = BGPASSegment(segment_type=2,segment=['AS6813','AS3615:200'])
+segm = BGPAS4Segment(segment_type=2,segment=['AS6813','AS3615:200'])
 # Create and fill all counters, lengths. etc.
-path = BGPASPath(str(BGPASPath(as_path=[segm])))
+path = BGPAS4Path(str(BGPAS4Path(as_path=[segm])))
 # 2 ases in the path
 path.as_path[0].segment_len == 2
 # 2 * 4-byte AS + type + count
@@ -118,7 +118,7 @@ str(originator) == "\x80\x09\x04\xc0\xa2\x0a\x04"
 
 update = BGPHeader(type=2) / BGPUpdate(total_path=[
          BGPOrigin(origin=0),
-         BGPASPath(as_path=[BGPASSegment(segment_type=2,segment=['AS65033','AS65033'])]),
+         BGPAS4Path(as_path=[BGPAS4Segment(segment=['AS65033','AS65033'])]),
          BGPNextHop(next_hop='192.168.0.1'),
          BGPLocalPreference(local_pref=200),
          BGPCommunities(communities=['65033:500','65033:600']),
@@ -169,3 +169,6 @@ rbytes = rt.i2m(None,rt.h2i(None,"rt 10.11.12.13:200"))
 len(rbytes) == 8
 rbytes == "\x01\x02\x0a\x0b\x0c\x0d\x00\xc8"
 
+= BGP-4 ASPath using conf.contrib.bgp.as_type
+
+segm1 = BGPASSegment(segment=['AS65033','AS65033'])

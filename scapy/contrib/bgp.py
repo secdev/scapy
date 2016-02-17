@@ -7,6 +7,17 @@ from scapy.fields import BitField, ByteEnumField, ByteField, ConditionalField, \
     PacketListField, ShortEnumField, ShortField, StrLenField, XBitField
 from scapy.layers.inet import TCP
 from scapy.contrib.bgp_fields import *
+from scapy.config import conf, ConfClass
+
+#
+# --- Include BGP-4 specific configuration items
+#
+class BGPConf(ConfClass):
+    # change to AS4Field for new BGP-4 captures or
+    # after BGP-4 capability negotiation reveals
+    # AS4N support
+    as_type = AS2Field
+conf.contrib.append("bgp",BGPConf())
 
 def _class_dispatcher(s, class_dict, def_class, index_from=None):
     """ A generic class dispatcher:
@@ -261,6 +272,9 @@ class BGPASSegment(PadPacket):
     """AS SEGMENT"""
     name = "BGPASSegment"
     fields_desc = [
+        #
+        # Default is AS_SEQUENCE
+        #
         ByteEnumField("segment_type", 2, AS_SEGMENT_TYPES),
         FieldLenField("segment_len", None, fmt="B", count_of="segment"),
         #
@@ -268,23 +282,8 @@ class BGPASSegment(PadPacket):
         # between AS4Field and AS2Field here
         #
         FieldListField(
-            "segment", [], AS4Field("", "AS0"),
-            count_from=lambda p: p.segment_len
-        ),
-    ]
-
-class BGPAS2Segment(PadPacket):
-    """AS SEGMENT"""
-    name = "BGPASSegment"
-    fields_desc = [
-        ByteEnumField("segment_type", 2, AS_SEGMENT_TYPES),
-        FieldLenField("segment_len", None, fmt="B", count_of="segment"),
-        #
-        # TODO the way of defining conf.bgp.use4as 
-        # to switch between AS4Field and AS2Field here
-        #
-        FieldListField(
-            "segment", [], AS2Field("", "AS0"),
+            "segment", [], # AS4Field("", "AS0"),
+            conf.contrib.bgp.as_type,
             count_from=lambda p: p.segment_len
         ),
     ]
@@ -304,6 +303,61 @@ class BGPASPath(BGPAttribute):
         PacketListField(
             "as_path", [], BGPASSegment,
             length_from=lambda p: p.attr_length())
+    ]
+
+class BGPAS4Segment(PadPacket):
+    """AS SEGMENT"""
+    name = "BGPASSegment"
+    fields_desc = [
+        #
+        # Default is AS_SEQUENCE
+        #
+        ByteEnumField("segment_type", 2, AS_SEGMENT_TYPES),
+        FieldLenField("segment_len", None, fmt="B", count_of="segment"),
+        #
+        # TODO the way of defining conf.bgp.use4as to switch 
+        # between AS4Field and AS2Field here
+        #
+        FieldListField(
+            "segment", [], AS4Field("", "AS0"),
+            count_from=lambda p: p.segment_len
+        ),
+    ]
+
+class BGPAS4Path(BGPAttribute):
+    """The AS_PATH attribute"""
+    name = "BGPASPath"
+    fields_desc = [
+        FlagsField("flags", 0x40, 8, BGP_HEADER_FLAGS),
+        ByteField("type", 2),
+        ConditionalField(
+            ByteField("attr_len", None),
+            cond=lambda p: p.flags & 0x10 == 0),
+        ConditionalField(
+            ShortField("ext_len", None),
+            cond=lambda p: p.flags & 0x10 == 0x10),
+        PacketListField(
+            "as_path", [], BGPAS4Segment,
+            length_from=lambda p: p.attr_length())
+    ]
+
+class BGPAS2Segment(PadPacket):
+    """AS SEGMENT"""
+    name = "BGPASSegment"
+    fields_desc = [
+        #
+        # Default is AS_SEQUENCE
+        #
+        ByteEnumField("segment_type", 2, AS_SEGMENT_TYPES),
+        FieldLenField("segment_len", None, fmt="B", count_of="segment"),
+        #
+        # TODO the way of defining conf.bgp.use4as 
+        # to switch between AS4Field and AS2Field here
+        #
+        FieldListField(
+            "segment", [], AS2Field("", "AS0"),
+            count_from=lambda p: p.segment_len
+        ),
     ]
 
 class BGPAS2Path(BGPAttribute):
@@ -704,4 +758,4 @@ bind_layers(BGPHeader, BGPUpdate, type=2)
 bind_layers(BGPHeader, BGPNotification, type=3)
 
 if __name__ == "__main__":
-    interact(mydict=globals(), mybanner="BGP addon .30")
+    interact(mydict=globals(), mybanner="BGP addon .31")
