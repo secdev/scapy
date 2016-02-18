@@ -77,26 +77,37 @@ agg  = BGPAggregator(aggr)
 agg.show()
 agg.type == 7 and agg.attr_len == 4
 
-= AS_PATH
+= AS_PATH using conf.contrib.bgp.use_as4n to select 2-byte or 4-byte ASNs
 
+~ conf
+conf.contrib.bgp.use_as4n
 # create segment
-segm = BGPAS4Segment(segment_type=2,segment=['AS6813','AS3615:200'])
+segm = BGPAS4Segment(segment=['AS6813','AS3615:200'])
 # Create and fill all counters, lengths. etc.
-path = BGPAS4Path(str(BGPAS4Path(as_path=[segm])))
+path = BGPASPath(str(BGPASPath(as_path=[segm])))
 # 2 ases in the path
 path.as_path[0].segment_len == 2
+# AS_SEQUENCE by default
+path.as_path[0].segment_type == 2
 # 2 * 4-byte AS + type + count
 path.attr_len == 10
 path.show()
 
 # 2-byte AS
 
-segm2 = BGPAS2Segment(segment_type=2, segment=['AS6813','AS6813','AS3615'])
-path2 = BGPAS2Path(str(BGPAS2Path(as_path=[segm2])))
-# path2.show()
+# First we try to create a segment woth 2-byte AS numbers
+# and since this is only allowed when conf.contrib.bgp.use_as4n is False
+# we won't find the segment_len and the payload will be decoded as Raw
+segm2 = BGPAS2Segment(segment=['AS6813','AS6813','AS3615'])
+path2 = BGPASPath(str(BGPASPath(as_path=[segm2])))
+path2.show()
+"segment_len" not in path2.as_path[0].fields
+# Then we make sure we allow 2-byte AS numbers
+# and everything should work fine.
+conf.contrib.bgp.use_as4n = False
+path2 = BGPASPath(str(BGPASPath(as_path=[segm2])))
+"segment_len" in path2.as_path[0].fields
 path2.as_path[0].segment_len == 3
-path2.attr_len == 8
-
 = Communities
 
 comm = BGPCommunities("\xc0\x08\x08\xfe\x09\x01\xf4\xfe\x09\x02\x58")
@@ -118,7 +129,7 @@ str(originator) == "\x80\x09\x04\xc0\xa2\x0a\x04"
 
 update = BGPHeader(type=2) / BGPUpdate(total_path=[
          BGPOrigin(origin=0),
-         BGPAS4Path(as_path=[BGPAS4Segment(segment=['AS65033','AS65033'])]),
+         BGPASPath(as_path=[BGPAS4Segment(segment=['AS65033','AS65033'])]),
          BGPNextHop(next_hop='192.168.0.1'),
          BGPLocalPreference(local_pref=200),
          BGPCommunities(communities=['65033:500','65033:600']),
@@ -169,6 +180,4 @@ rbytes = rt.i2m(None,rt.h2i(None,"rt 10.11.12.13:200"))
 len(rbytes) == 8
 rbytes == "\x01\x02\x0a\x0b\x0c\x0d\x00\xc8"
 
-= BGP-4 ASPath using conf.contrib.bgp.as_type
 
-segm1 = BGPASSegment(segment=['AS65033','AS65033'])

@@ -16,7 +16,9 @@ class BGPConf(ConfClass):
     # change to AS4Field for new BGP-4 captures or
     # after BGP-4 capability negotiation reveals
     # AS4N support
-    as_type = AS2Field
+    # as_type = AS2Field
+    use_as4n = True
+
 conf.contrib.append("bgp",BGPConf())
 
 def _class_dispatcher(s, class_dict, def_class, index_from=None):
@@ -268,25 +270,41 @@ AS_SEGMENT_TYPES = {
     4:"AS_CONFED_SET"
 }
 
-class BGPASSegment(PadPacket):
-    """AS SEGMENT"""
-    name = "BGPASSegment"
+class BGPAS4Segment(PadPacket):
+    """AS SEGMENT for 4-byte ASNs explicitly"""
+    name = "BGPAS4Segment"
     fields_desc = [
         #
         # Default is AS_SEQUENCE
         #
         ByteEnumField("segment_type", 2, AS_SEGMENT_TYPES),
         FieldLenField("segment_len", None, fmt="B", count_of="segment"),
-        #
-        # TODO the way of defining conf.bgp.use4as to switch 
-        # between AS4Field and AS2Field here
-        #
         FieldListField(
-            "segment", [], # AS4Field("", "AS0"),
-            conf.contrib.bgp.as_type,
+            "segment", [], AS4Field("", "AS0"),
             count_from=lambda p: p.segment_len
         ),
     ]
+
+class BGPAS2Segment(PadPacket):
+    """AS SEGMENT for 2-byte ASNs explicitly"""
+    name = "BGPAS2Segment"
+    fields_desc = [
+        #
+        # Default is AS_SEQUENCE
+        #
+        ByteEnumField("segment_type", 2, AS_SEGMENT_TYPES),
+        FieldLenField("segment_len", None, fmt="B", count_of="segment"),
+        FieldListField(
+            "segment", [], AS2Field("", "AS0"),
+            count_from=lambda p: p.segment_len
+        ),
+    ]
+
+def as_segment_dispatch(s):
+    cls = BGPAS4Segment
+    if not conf.contrib.bgp.use_as4n:
+        cls = BGPAS2Segment
+    return cls(s)
 
 class BGPASPath(BGPAttribute):
     """The AS_PATH attribute"""
@@ -301,79 +319,7 @@ class BGPASPath(BGPAttribute):
             ShortField("ext_len", None),
             cond=lambda p: p.flags & 0x10 == 0x10),
         PacketListField(
-            "as_path", [], BGPASSegment,
-            length_from=lambda p: p.attr_length())
-    ]
-
-class BGPAS4Segment(PadPacket):
-    """AS SEGMENT"""
-    name = "BGPASSegment"
-    fields_desc = [
-        #
-        # Default is AS_SEQUENCE
-        #
-        ByteEnumField("segment_type", 2, AS_SEGMENT_TYPES),
-        FieldLenField("segment_len", None, fmt="B", count_of="segment"),
-        #
-        # TODO the way of defining conf.bgp.use4as to switch 
-        # between AS4Field and AS2Field here
-        #
-        FieldListField(
-            "segment", [], AS4Field("", "AS0"),
-            count_from=lambda p: p.segment_len
-        ),
-    ]
-
-class BGPAS4Path(BGPAttribute):
-    """The AS_PATH attribute"""
-    name = "BGPASPath"
-    fields_desc = [
-        FlagsField("flags", 0x40, 8, BGP_HEADER_FLAGS),
-        ByteField("type", 2),
-        ConditionalField(
-            ByteField("attr_len", None),
-            cond=lambda p: p.flags & 0x10 == 0),
-        ConditionalField(
-            ShortField("ext_len", None),
-            cond=lambda p: p.flags & 0x10 == 0x10),
-        PacketListField(
-            "as_path", [], BGPAS4Segment,
-            length_from=lambda p: p.attr_length())
-    ]
-
-class BGPAS2Segment(PadPacket):
-    """AS SEGMENT"""
-    name = "BGPASSegment"
-    fields_desc = [
-        #
-        # Default is AS_SEQUENCE
-        #
-        ByteEnumField("segment_type", 2, AS_SEGMENT_TYPES),
-        FieldLenField("segment_len", None, fmt="B", count_of="segment"),
-        #
-        # TODO the way of defining conf.bgp.use4as 
-        # to switch between AS4Field and AS2Field here
-        #
-        FieldListField(
-            "segment", [], AS2Field("", "AS0"),
-            count_from=lambda p: p.segment_len
-        ),
-    ]
-
-class BGPAS2Path(BGPAttribute):
-    """The AS_PATH attribute"""
-    name = "BGPASPath"
-    fields_desc = [
-        FlagsField("flags", 0x40, 8, BGP_HEADER_FLAGS),
-        ByteField("type", 2),
-        ConditionalField(
-            ByteField("attr_len", None),
-            cond=lambda p: p.flags & 0x10 == 0),
-        ConditionalField(
-            ShortField("ext_len", None),
-            cond=lambda p: p.flags & 0x10 == 0x10),
-        PacketListField(
-            "as_path", [], BGPAS2Segment,
+            "as_path", [], as_segment_dispatch,
             length_from=lambda p: p.attr_length())
     ]
 
