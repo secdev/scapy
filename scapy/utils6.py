@@ -648,6 +648,16 @@ def in6_isincluded(addr, prefix, plen):
     zero = inet_pton(socket.AF_INET6, prefix)
     return zero == in6_and(temp, pref)
 
+def in6_isllsnmaddr(str):
+    """
+    Return True if provided address is a link-local solicited node
+    multicast address, i.e. belongs to ff02::1:ff00:0/104. False is
+    returned otherwise.
+    """
+    temp = in6_and("\xff"*13+"\x00"*3, inet_pton(socket.AF_INET6, str))
+    temp2 = '\xff\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\xff\x00\x00\x00'
+    return temp == temp2
+
 def in6_isdocaddr(str):
     """
     Returns True if provided address in printable format belongs to
