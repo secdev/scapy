@@ -426,6 +426,22 @@ def incremental_label(label="tag%05i", start=0):
         yield label % start
         start += 1
 
+
+# Python <= 2.5 do not provide bin() built-in function
+try:
+    bin(0)
+except NameError:
+    def _binrepr(val):
+        while val:
+            yield val & 1
+            val >>= 1
+
+    binrepr = lambda val: "".join(reversed([str(bit) for bit in
+                                            _binrepr(val)])) or "0"
+else:
+    binrepr = lambda val: bin(val)[2:]
+
+
 #########################
 #### Enum management ####
 #########################
