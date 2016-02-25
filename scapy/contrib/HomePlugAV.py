@@ -451,7 +451,6 @@ class ReadModuleDataConfirmation(Packet):
                 ]
 
     def post_build(self, p, pay):
-        import binascii
         if self.DataLen is None:
             _len = len(self.ModuleData)
             p = p[:6] + struct.pack('h', _len) + p[8:]
@@ -475,7 +474,6 @@ class WriteModuleDataRequest(Packet):
                 ]
 
     def post_build(self, p, pay):
-        import binascii
         if self.DataLen is None:
             _len = len(self.ModuleData)
             p = p[:2] + struct.pack('h', _len) + p[4:]
