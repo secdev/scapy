@@ -376,12 +376,13 @@ class ASN1F_optional(ASN1F_element):
     def m2i(self, pkt, s):
         try:
             return self._field.m2i(pkt, s)
-        except (ASN1F_badsequence, BER_Decoding_Error):
+        except (ASN1_Error, ASN1F_badsequence, BER_Decoding_Error):
+            # ASN1_Error may be raised by ASN1F_CHOICE
             return None, s
     def dissect(self, pkt, s):
         try:
             return self._field.dissect(pkt, s)
-        except (ASN1F_badsequence, BER_Decoding_Error):
+        except (ASN1_Error, ASN1F_badsequence, BER_Decoding_Error):
             self._field.set_val(pkt, None)
             return s
     def build(self, pkt):
