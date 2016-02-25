@@ -11,9 +11,9 @@ ASN.1 (Abstract Syntax Notation One)
 import random
 from datetime import datetime
 from scapy.config import conf
-from scapy.error import Scapy_Exception,warning
+from scapy.error import Scapy_Exception, warning
 from scapy.volatile import RandField
-from scapy.utils import Enum_metaclass, EnumElement
+from scapy.utils import Enum_metaclass, EnumElement, binrepr
 
 class RandASN1Object(RandField):
     def __init__(self, objlist=None):
@@ -263,7 +263,7 @@ class ASN1_BIT_STRING(ASN1_Object):
     def __init__(self, val, readable=False):
         if readable:
             self.val_readable = val
-            val = "".join(bin(ord(x))[2:].zfill(8) for x in val)
+            val = "".join(binrepr(ord(x)).zfill(8) for x in val)
             self.unused_bits = 0
         else:
             if len(val) % 8 == 0:

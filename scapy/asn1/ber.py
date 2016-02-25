@@ -10,7 +10,7 @@ Basic Encoding Rules (BER) for ASN.1
 """
 
 from scapy.error import warning
-from scapy.utils import inet_aton,inet_ntoa
+from scapy.utils import binrepr,inet_aton,inet_ntoa
 from asn1 import ASN1_Decoding_Error,ASN1_Encoding_Error,ASN1_BadTag_Decoding_Error,ASN1_Codecs,ASN1_Class_UNIVERSAL,ASN1_Error,ASN1_DECODING_ERROR,ASN1_BADTAG
 
 ##################
@@ -277,7 +277,7 @@ class BERcodec_BIT_STRING(BERcodec_Object):
             unused_bits = ord(s[0])
             if safe and unused_bits > 7:
                 raise BER_Decoding_Error("BERcodec_BIT_STRING: too many unused_bits advertised", remaining=s)
-            s = "".join(bin(ord(x))[2:].zfill(8) for x in s[1:])
+            s = "".join(binrepr(ord(x)).zfill(8) for x in s[1:])
             if unused_bits > 0:
                 s = s[:-unused_bits]
             return cls.tag.asn1_object(s),t
