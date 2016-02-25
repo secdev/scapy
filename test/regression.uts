@@ -540,103 +540,6 @@ assert(x.PDU.varbindlist[0].value == "172.31.19.2")
 assert(x.PDU.varbindlist[2].oid == "1.3.6.1.4.1.253.8.64.4.2.1.5.10.14130400")
 assert(x.PDU.varbindlist[2].value == 1)
 
-############
-############
-+ X509 tests
-
-= X509 certificate assembling
-~ X509 ASN1
-c=X509Cert( pubkey='\x00'+str(ASN1_SEQUENCE([ASN1_INTEGER(1),ASN1_INTEGER(2)])), signature="xxxxxx")
-c.show()
-str(c) == str(X509Cert(str(c)))
-
-= Small X509 certificate disassembling
-~ X509 ASN1
-* This cert has neither the version field nor X509v3 extensions
-small="""MIIB+jCCAWMCAgGjMA0GCSqGSIb3DQEBBAUAMEUxCzAJBgNVBAYTAlVTMRgw
-FgYDVQQKEw9HVEUgQ29ycG9yYXRpb24xHDAaBgNVBAMTE0dURSBDeWJlclRy
-dXN0IFJvb3QwHhcNOTYwMjIzMjMwMTAwWhcNMDYwMjIzMjM1OTAwWjBFMQsw
-CQYDVQQGEwJVUzEYMBYGA1UEChMPR1RFIENvcnBvcmF0aW9uMRwwGgYDVQQD
-ExNHVEUgQ3liZXJUcnVzdCBSb290MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCB
-iQKBgQC45k+625h8cXyvRLfTD0bZZOWTwUKOx7pJjTUteueLveUFMVnGsS8K
-DPufpz+iCWaEVh43KRuH6X4MypqfpX/1FZSj1aJGgthoTNE3FQZor734sLPw
-KfWVWgkWYXcKIiXUT0Wqx73llt/51KiOQswkwB6RJ0q1bQaAYznEol44AwID
-AQABMA0GCSqGSIb3DQEBBAUAA4GBABKzdcZfHeFhVYAA1IFLezEPI2PnPfMD
- +fQ2qLvZ46WXTeorKeDWanOB5sCJo9Px4KWlIjeaY8JIILTbcuPI9tl8vrGv
-U9oUtCG41tWW4/5ODFlitppK+ULdjG+BqXH/9ApybW1EDp3zdHSo1TRJ6V6e
-6bR64eVaH4QwnNOfpSXY """.decode("base64")
-c = X509Cert(small)
-c.show()
-assert( str(c) == small )
-assert( c.version == None )
-assert( c.sn == 419 )
-assert( "/".join(rdn.value.val for rdn in c.issuer) == "US/GTE Corporation/GTE CyberTrust Root")
-assert( c.not_after == '060223235900Z' )
-assert( c.x509v3ext == None )
-assert( c.signature == '\x00\x12\xb3u\xc6_\x1d\xe1aU\x80\x00\xd4\x81K{1\x0f#c\xe7=\xf3\x03\xf9\xf46\xa8\xbb\xd9\xe3\xa5\x97M\xea+)\xe0\xd6js\x81\xe6\xc0\x89\xa3\xd3\xf1\xe0\xa5\xa5"7\x9ac\xc2H \xb4\xdbr\xe3\xc8\xf6\xd9|\xbe\xb1\xafS\xda\x14\xb4!\xb8\xd6\xd5\x96\xe3\xfeN\x0cYb\xb6\x9aJ\xf9B\xdd\x8co\x81\xa9q\xff\xf4\nrmmD\x0e\x9d\xf3tt\xa8\xd54I\xe9^\x9e\xe9\xb4z\xe1\xe5Z\x1f\x840\x9c\xd3\x9f\xa5%\xd8' )
-
-
-= Big X509 certificate disassembling
-~ X509 ASN1
-small="""MIIIODCCB6GgAwIBAgIBADANBgkqhkiG9w0BAQUFADCCAR4xCzAJBgNVBAYT
-AkVTMRIwEAYDVQQIEwlCYXJjZWxvbmExEjAQBgNVBAcTCUJhcmNlbG9uYTEu
-MCwGA1UEChMlSVBTIEludGVybmV0IHB1Ymxpc2hpbmcgU2VydmljZXMgcy5s
-LjErMCkGA1UEChQiaXBzQG1haWwuaXBzLmVzIEMuSS5GLiAgQi02MDkyOTQ1
-MjE0MDIGA1UECxMrSVBTIENBIFRpbWVzdGFtcGluZyBDZXJ0aWZpY2F0aW9u
-IEF1dGhvcml0eTE0MDIGA1UEAxMrSVBTIENBIFRpbWVzdGFtcGluZyBDZXJ0
-aWZpY2F0aW9uIEF1dGhvcml0eTEeMBwGCSqGSIb3DQEJARYPaXBzQG1haWwu
-aXBzLmVzMB4XDTAxMTIyOTAxMTAxOFoXDTI1MTIyNzAxMTAxOFowggEeMQsw
-CQYDVQQGEwJFUzESMBAGA1UECBMJQmFyY2Vsb25hMRIwEAYDVQQHEwlCYXJj
-ZWxvbmExLjAsBgNVBAoTJUlQUyBJbnRlcm5ldCBwdWJsaXNoaW5nIFNlcnZp
-Y2VzIHMubC4xKzApBgNVBAoUImlwc0BtYWlsLmlwcy5lcyBDLkkuRi4gIEIt
-NjA5Mjk0NTIxNDAyBgNVBAsTK0lQUyBDQSBUaW1lc3RhbXBpbmcgQ2VydGlm
-aWNhdGlvbiBBdXRob3JpdHkxNDAyBgNVBAMTK0lQUyBDQSBUaW1lc3RhbXBp
-bmcgQ2VydGlmaWNhdGlvbiBBdXRob3JpdHkxHjAcBgkqhkiG9w0BCQEWD2lw
-c0BtYWlsLmlwcy5lczCBnzANBgkqhkiG9w0BAQEFAAOBjQAwgYkCgYEAvLju
-VqWajOY2ycJioGaBjRrVetJznw6EZLqVtJCneK/K/lRhW86yIFcBrkSSQxA4
-Efdo/BdApWgnMjvEp+ZCccWZ73b/K5Uk9UmSGGjKALWkWi9uy9YbLA1UZ2t6
-KaFYq6JaANZbuxjC3/YeE1Z2m6Vo4pjOxgOKNNtMg0GmqaMCAwEAAaOCBIAw
-ggR8MB0GA1UdDgQWBBSL0BBQCYHynQnVDmB4AyKiP8jKZjCCAVAGA1UdIwSC
-AUcwggFDgBSL0BBQCYHynQnVDmB4AyKiP8jKZqGCASakggEiMIIBHjELMAkG
-A1UEBhMCRVMxEjAQBgNVBAgTCUJhcmNlbG9uYTESMBAGA1UEBxMJQmFyY2Vs
-b25hMS4wLAYDVQQKEyVJUFMgSW50ZXJuZXQgcHVibGlzaGluZyBTZXJ2aWNl
-cyBzLmwuMSswKQYDVQQKFCJpcHNAbWFpbC5pcHMuZXMgQy5JLkYuICBCLTYw
-OTI5NDUyMTQwMgYDVQQLEytJUFMgQ0EgVGltZXN0YW1waW5nIENlcnRpZmlj
-YXRpb24gQXV0aG9yaXR5MTQwMgYDVQQDEytJUFMgQ0EgVGltZXN0YW1waW5n
-IENlcnRpZmljYXRpb24gQXV0aG9yaXR5MR4wHAYJKoZIhvcNAQkBFg9pcHNA
-bWFpbC5pcHMuZXOCAQAwDAYDVR0TBAUwAwEB/zAMBgNVHQ8EBQMDB/+AMGsG
-A1UdJQRkMGIGCCsGAQUFBwMBBggrBgEFBQcDAgYIKwYBBQUHAwMGCCsGAQUF
-BwMEBggrBgEFBQcDCAYKKwYBBAGCNwIBFQYKKwYBBAGCNwIBFgYKKwYBBAGC
-NwoDAQYKKwYBBAGCNwoDBDARBglghkgBhvhCAQEEBAMCAAcwGgYDVR0RBBMw
-EYEPaXBzQG1haWwuaXBzLmVzMBoGA1UdEgQTMBGBD2lwc0BtYWlsLmlwcy5l
-czBHBglghkgBhvhCAQ0EOhY4VGltZXN0YW1waW5nIENBIENlcnRpZmljYXRl
-IGlzc3VlZCBieSBodHRwOi8vd3d3Lmlwcy5lcy8wKQYJYIZIAYb4QgECBBwW
-Gmh0dHA6Ly93d3cuaXBzLmVzL2lwczIwMDIvMEAGCWCGSAGG+EIBBAQzFjFo
-dHRwOi8vd3d3Lmlwcy5lcy9pcHMyMDAyL2lwczIwMDJUaW1lc3RhbXBpbmcu
-Y3JsMEUGCWCGSAGG+EIBAwQ4FjZodHRwOi8vd3d3Lmlwcy5lcy9pcHMyMDAy
-L3Jldm9jYXRpb25UaW1lc3RhbXBpbmcuaHRtbD8wQgYJYIZIAYb4QgEHBDUW
-M2h0dHA6Ly93d3cuaXBzLmVzL2lwczIwMDIvcmVuZXdhbFRpbWVzdGFtcGlu
-Zy5odG1sPzBABglghkgBhvhCAQgEMxYxaHR0cDovL3d3dy5pcHMuZXMvaXBz
-MjAwMi9wb2xpY3lUaW1lc3RhbXBpbmcuaHRtbDB/BgNVHR8EeDB2MDegNaAz
-hjFodHRwOi8vd3d3Lmlwcy5lcy9pcHMyMDAyL2lwczIwMDJUaW1lc3RhbXBp
-bmcuY3JsMDugOaA3hjVodHRwOi8vd3d3YmFjay5pcHMuZXMvaXBzMjAwMi9p
-cHMyMDAyVGltZXN0YW1waW5nLmNybDAvBggrBgEFBQcBAQQjMCEwHwYIKwYB
-BQUHMAGGE2h0dHA6Ly9vY3NwLmlwcy5lcy8wDQYJKoZIhvcNAQEFBQADgYEA
-ZbrBzAAalZHK6Ww6vzoeFAh8+4Pua2JR0zORtWB5fgTYXXk36MNbsMRnLWha
-sl8OCvrNPzpFoeo2zyYepxEoxZSPhExTCMWTs/zif/WN87GphV+I3pGW7hdb
-rqXqcGV4LCFkAZXOzkw+UPS2Wctjjba9GNSHSl/c7+lW8AoM6HU= """.decode("base64")
-c = X509Cert(small)
-c.show()
-assert( str(c) == small )
-assert( c.version == 2 )
-assert( c.sn == ASN1_NULL(0) )
-assert( "/".join(rdn.value.val for rdn in c.issuer if isinstance(rdn.value,ASN1_PRINTABLE_STRING)) == "ES/Barcelona/Barcelona/IPS Internet publishing Services s.l./IPS CA Timestamping Certification Authority/IPS CA Timestamping Certification Authority")
-assert( c.not_after == '251227011018Z' )
-assert( len(c.x509v3ext) == 16 )
-assert( c.signature == '\x00e\xba\xc1\xcc\x00\x1a\x95\x91\xca\xe9l:\xbf:\x1e\x14\x08|\xfb\x83\xeekbQ\xd33\x91\xb5`y~\x04\xd8]y7\xe8\xc3[\xb0\xc4g-hZ\xb2_\x0e\n\xfa\xcd?:E\xa1\xea6\xcf&\x1e\xa7\x11(\xc5\x94\x8f\x84LS\x08\xc5\x93\xb3\xfc\xe2\x7f\xf5\x8d\xf3\xb1\xa9\x85_\x88\xde\x91\x96\xee\x17[\xae\xa5\xeapex,!d\x01\x95\xce\xceL>P\xf4\xb6Y\xcbc\x8d\xb6\xbd\x18\xd4\x87J_\xdc\xef\xe9V\xf0\n\x0c\xe8u' )
-
-
-
 
 ############
 ############
@@ -656,7 +559,6 @@ x is not None and ICMP in x and x[ICMP].type == 0
 * is not reachable or down.
 dns_ans = sr1(IP(dst="resolver1.opendns.com")/UDP()/DNS(rd=1,qd=DNSQR(qname="www.slashdot.com")),timeout=5)
 DNS in dns_ans
-
 
 
 ############

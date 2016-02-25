@@ -1,6 +1,7 @@
 ## This file is part of Scapy
 ## See http://www.secdev.org/projects/scapy for more informations
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
+## Modified by Maxence Tury <maxence.tury@ssi.gouv.fr>
 ## This program is published under a GPLv2 license
 
 """
@@ -8,10 +9,11 @@ ASN.1 (Abstract Syntax Notation One)
 """
 
 import random
+from datetime import datetime
 from scapy.config import conf
-from scapy.error import Scapy_Exception,warning
+from scapy.error import Scapy_Exception, warning
 from scapy.volatile import RandField
-from scapy.utils import Enum_metaclass, EnumElement
+from scapy.utils import Enum_metaclass, EnumElement, binrepr
 
 class RandASN1Object(RandField):
     def __init__(self, objlist=None):
@@ -153,27 +155,25 @@ class ASN1_Class_UNIVERSAL(ASN1_Class):
     EMBEDDED_PDF = 11
     UTF8_STRING = 12
     RELATIVE_OID = 13
-    SEQUENCE = 0x30#XXX 16 ??
-    SET = 0x31 #XXX 17 ??
+    SEQUENCE = 16|0x20          # constructed encoding
+    SET = 17|0x20               # constructed encoding
     NUMERIC_STRING = 18
     PRINTABLE_STRING = 19
-    T61_STRING = 20
+    T61_STRING = 20             # aka TELETEX_STRING
     VIDEOTEX_STRING = 21
     IA5_STRING = 22
     UTC_TIME = 23
     GENERALIZED_TIME = 24
     GRAPHIC_STRING = 25
-    ISO646_STRING = 26
+    ISO646_STRING = 26          # aka VISIBLE_STRING
     GENERAL_STRING = 27
     UNIVERSAL_STRING = 28
     CHAR_STRING = 29
     BMP_STRING = 30
-    IPADDRESS = 0x40
-    COUNTER32 = 0x41
-    GAUGE32 = 0x42
-    TIME_TICKS = 0x43
-    COUNTER64 = 0x46
-    SEP = 0x80
+    IPADDRESS = 0|0x40          # application-specific encoding
+    COUNTER32 = 1|0x40          # application-specific encoding
+    TIME_TICKS = 3|0x40         # application-specific encoding
+
 
 class ASN1_Object_metaclass(type):
     def __new__(cls, name, bases, dct):
@@ -183,7 +183,6 @@ class ASN1_Object_metaclass(type):
         except:
             warning("Error registering %r for %r" % (c.tag, c.codec))
         return c
-
 
 class ASN1_Object:
     __metaclass__ = ASN1_Object_metaclass
@@ -204,6 +203,13 @@ class ASN1_Object:
         return self.val == other
     def __cmp__(self, other):
         return cmp(self.val, other)
+
+
+#######################
+####  ASN1 objects ####
+#######################
+
+# on the whole, we order the classes by ASN1_Class_UNIVERSAL tag value
 
 class ASN1_DECODING_ERROR(ASN1_Object):
     tag = ASN1_Class_UNIVERSAL.ERROR
@@ -230,12 +236,78 @@ class ASN1_BADTAG(ASN1_force):
 
 class ASN1_INTEGER(ASN1_Object):
     tag = ASN1_Class_UNIVERSAL.INTEGER
+    def __repr__(self):
+        h = hex(self.val)
+        if h[-1] == "L":
+            h = h[:-1]
+        # cut at 22 because with leading '0x', x509 serials should be < 23
+        if len(h) > 22:
+            h = h[:12] + "..." + h[-10:]
+        r = repr(self.val)
+        if len(r) > 20:
+            r = r[:10] + "..." + r[-10:]
+        return h + " <%s[%s]>" % (self.__dict__.get("name", self.__class__.__name__), r)
+
+class ASN1_BOOLEAN(ASN1_INTEGER):
+    tag = ASN1_Class_UNIVERSAL.BOOLEAN
+    # BER: 0 means False, anything else means True
+    def __repr__(self):
+        return str((not (self.val==0))) + " " + ASN1_Object.__repr__(self)
+    
+class ASN1_BIT_STRING(ASN1_Object):
+    """
+    /!\ ASN1_BIT_STRING values are bit strings like "011101".
+    /!\ A zero-bit padded readable string is provided nonetheless.
+    """
+    tag = ASN1_Class_UNIVERSAL.BIT_STRING
+    def __init__(self, val, readable=False):
+        if readable:
+            self.val_readable = val
+            val = "".join(binrepr(ord(x)).zfill(8) for x in val)
+            self.unused_bits = 0
+        else:
+            if len(val) % 8 == 0:
+                self.unused_bits = 0
+            else:
+                self.unused_bits = 8 - len(val)%8
+            padded_val = val + "0"*self.unused_bits
+            bytes_arr = zip(*[iter(padded_val)]*8)
+            self.val_readable = "".join(chr(int("".join(x),2)) for x in bytes_arr)
+        ASN1_Object.__init__(self, val)
+    def __repr__(self):
+        if len(self.val) <= 16:
+            return "<%s[%r] (%d unused bit%s)>" % (self.__dict__.get("name", self.__class__.__name__), self.val, self.unused_bits, "s" if self.unused_bits>1 else "")
+        else:
+            s = self.val_readable
+            if len(s) > 20:
+                s = s[:10] + "..." + s[-10:]
+            return "<%s[%r] (%d unused bit%s)>" % (self.__dict__.get("name", self.__class__.__name__), s, self.unused_bits, "s" if self.unused_bits>1 else "")
 
 class ASN1_STRING(ASN1_Object):
     tag = ASN1_Class_UNIVERSAL.STRING
 
-class ASN1_BIT_STRING(ASN1_STRING):
-    tag = ASN1_Class_UNIVERSAL.BIT_STRING
+class ASN1_NULL(ASN1_Object):
+    tag = ASN1_Class_UNIVERSAL.NULL
+    def __repr__(self):
+        return ASN1_Object.__repr__(self)
+
+class ASN1_OID(ASN1_Object):
+    tag = ASN1_Class_UNIVERSAL.OID
+    def __init__(self, val):
+        val = conf.mib._oid(val)
+        ASN1_Object.__init__(self, val)
+        self.oidname = conf.mib._oidname(val)
+    def __repr__(self):
+        return "<%s[%r]>" % (self.__dict__.get("name", self.__class__.__name__), self.oidname)
+
+class ASN1_ENUMERATED(ASN1_INTEGER):
+    tag = ASN1_Class_UNIVERSAL.ENUMERATED
+
+class ASN1_UTF8_STRING(ASN1_STRING):
+    tag = ASN1_Class_UNIVERSAL.UTF8_STRING
+
+class ASN1_NUMERIC_STRING(ASN1_STRING):
+    tag = ASN1_Class_UNIVERSAL.NUMERIC_STRING
 
 class ASN1_PRINTABLE_STRING(ASN1_STRING):
     tag = ASN1_Class_UNIVERSAL.PRINTABLE_STRING
@@ -243,48 +315,45 @@ class ASN1_PRINTABLE_STRING(ASN1_STRING):
 class ASN1_T61_STRING(ASN1_STRING):
     tag = ASN1_Class_UNIVERSAL.T61_STRING
 
-class ASN1_IA5_STRING(ASN1_STRING):
-    tag = ASN1_Class_UNIVERSAL.IA5_STRING
-
-class ASN1_NUMERIC_STRING(ASN1_STRING):
-    tag = ASN1_Class_UNIVERSAL.NUMERIC_STRING
-
 class ASN1_VIDEOTEX_STRING(ASN1_STRING):
     tag = ASN1_Class_UNIVERSAL.VIDEOTEX_STRING
 
-class ASN1_IPADDRESS(ASN1_STRING):
-    tag = ASN1_Class_UNIVERSAL.IPADDRESS
+class ASN1_IA5_STRING(ASN1_STRING):
+    tag = ASN1_Class_UNIVERSAL.IA5_STRING
 
 class ASN1_UTC_TIME(ASN1_STRING):
     tag = ASN1_Class_UNIVERSAL.UTC_TIME
+    def __init__(self, val):
+        pretty_time = ""
+        if len(val) == 13 and val[-1] == "Z":
+            dt = datetime.strptime(val[:-1], "%y%m%d%H%M%S")
+            pretty_time = dt.strftime("%b %d %H:%M:%S %Y GMT")
+        self.pretty_time = pretty_time
+        ASN1_STRING.__init__(self, val)
+    def __repr__(self):
+        return self.pretty_time + " " + ASN1_STRING.__repr__(self)
 
 class ASN1_GENERALIZED_TIME(ASN1_STRING):
     tag = ASN1_Class_UNIVERSAL.GENERALIZED_TIME
+    def __init__(self, val):
+        pretty_time = ""
+        if len(val) == 15 and val[-1] == "Z":
+            dt = datetime.strptime(val[:-1], "%Y%m%d%H%M%S")
+            pretty_time = dt.strftime("%b %d %H:%M:%S %Y GMT")
+        self.pretty_time = pretty_time
+        ASN1_STRING.__init__(self, val)
+    def __repr__(self):
+        return self.pretty_time + " " + ASN1_STRING.__repr__(self)
 
-class ASN1_TIME_TICKS(ASN1_INTEGER):
-    tag = ASN1_Class_UNIVERSAL.TIME_TICKS
+class ASN1_ISO646_STRING(ASN1_STRING):
+    tag = ASN1_Class_UNIVERSAL.ISO646_STRING
 
-class ASN1_BOOLEAN(ASN1_INTEGER):
-    tag = ASN1_Class_UNIVERSAL.BOOLEAN
+class ASN1_UNIVERSAL_STRING(ASN1_STRING):
+    tag = ASN1_Class_UNIVERSAL.UNIVERSAL_STRING
 
-class ASN1_ENUMERATED(ASN1_INTEGER):
-    tag = ASN1_Class_UNIVERSAL.ENUMERATED
-    
-class ASN1_NULL(ASN1_INTEGER):
-    tag = ASN1_Class_UNIVERSAL.NULL
+class ASN1_BMP_STRING(ASN1_STRING):
+    tag = ASN1_Class_UNIVERSAL.BMP_STRING
 
-class ASN1_SEP(ASN1_NULL):
-    tag = ASN1_Class_UNIVERSAL.SEP
-
-class ASN1_GAUGE32(ASN1_INTEGER):
-    tag = ASN1_Class_UNIVERSAL.GAUGE32
-    
-class ASN1_COUNTER32(ASN1_INTEGER):
-    tag = ASN1_Class_UNIVERSAL.COUNTER32
-    
-class ASN1_COUNTER64(ASN1_INTEGER):
-    tag = ASN1_Class_UNIVERSAL.COUNTER64
-    
 class ASN1_SEQUENCE(ASN1_Object):
     tag = ASN1_Class_UNIVERSAL.SEQUENCE
     def strshow(self, lvl=0):
@@ -295,17 +364,15 @@ class ASN1_SEQUENCE(ASN1_Object):
     
 class ASN1_SET(ASN1_SEQUENCE):
     tag = ASN1_Class_UNIVERSAL.SET
-    
-class ASN1_OID(ASN1_Object):
-    tag = ASN1_Class_UNIVERSAL.OID
-    def __init__(self, val):
-        val = conf.mib._oid(val)
-        ASN1_Object.__init__(self, val)
-    def __repr__(self):
-        return "<%s[%r]>" % (self.__dict__.get("name", self.__class__.__name__), conf.mib._oidname(self.val))
-    def __oidname__(self):
-        return '%s'%conf.mib._oidname(self.val)
-    
 
+class ASN1_IPADDRESS(ASN1_STRING):
+    tag = ASN1_Class_UNIVERSAL.IPADDRESS
+
+class ASN1_COUNTER32(ASN1_INTEGER):
+    tag = ASN1_Class_UNIVERSAL.COUNTER32
+    
+class ASN1_TIME_TICKS(ASN1_INTEGER):
+    tag = ASN1_Class_UNIVERSAL.TIME_TICKS
+   
 
 conf.ASN1_default_codec = ASN1_Codecs.BER

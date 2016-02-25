@@ -11,9 +11,9 @@
 # scapy.contrib.description = openflow v1.0
 # scapy.contrib.status = loads
 
-import binascii
 import struct
 from scapy.all import *
+from scapy.utils import binrepr
 
 ### If prereq_autocomplete is True then match prerequisites will be
 ### automatically handled. See OFPMatch class.
@@ -129,58 +129,58 @@ class OFPMatch(Packet):
     ### with post_build we create the wildcards field bit by bit
     def post_build(self, p, pay):
         # first 10 bits of an ofp_match are always set to 0
-        l = ["0"*10]
+        l = "0"*10
 
         # when one field has not been declared, it is assumed to be wildcarded
         if self.wildcards1 is None:
-            if self.nw_tos is None: l.append("1")
-            else: l.append("0")
-            if self.dl_vlan_pcp is None: l.append("1")
-            else: l.append("0")
+            if self.nw_tos is None: l+="1"
+            else: l+="0"
+            if self.dl_vlan_pcp is None: l+="1"
+            else: l+="0"
         else:
-            w1 = bin(self.wildcards1)[2:]
-            l.append("0"*(2-len(w1)))
-            l.append(w1)
+            w1 = binrepr(self.wildcards1)
+            l+="0"*(2-len(w1))
+            l+=w1
                     
         # ip masks use 6 bits each
         if self.nw_dst_mask is None:
-            if self.nw_dst is "0": l.append("111111")
+            if self.nw_dst is "0": l+="111111"
             # 0x100000 would be ok too (32-bit IP mask)
-            else: l.append("0"*6)
+            else: l+="0"*6
         else:
-            m1 = bin(self.nw_dst_mask)[2:]
-            l.append("0"*(6-len(m1)))
-            l.append(m1)
+            m1 = binrepr(self.nw_dst_mask)
+            l+="0"*(6-len(m1))
+            l+=m1
         if self.nw_src_mask is None:
-            if self.nw_src is "0": l.append("111111")
-            else: l.append("0"*6)
+            if self.nw_src is "0": l+="111111"
+            else: l+="0"*6
         else:
-            m2 = bin(self.nw_src_mask)[2:]
-            l.append("0"*(6-len(m2)))
-            l.append(m2)
+            m2 = binrepr(self.nw_src_mask)
+            l+="0"*(6-len(m2))
+            l+=m2
 
         # wildcards2 works the same way as wildcards1
         if self.wildcards2 is None:
-            if self.tp_dst is None: l.append("1")
-            else: l.append("0")
-            if self.tp_src is None: l.append("1")
-            else: l.append("0")
-            if self.nw_proto is None: l.append("1")
-            else: l.append("0")
-            if self.dl_type is None: l.append("1")
-            else: l.append("0")
-            if self.dl_dst is None: l.append("1")
-            else: l.append("0")
-            if self.dl_src is None: l.append("1")
-            else: l.append("0")
-            if self.dl_vlan is None: l.append("1")
-            else: l.append("0")
-            if self.in_port is None: l.append("1")
-            else: l.append("0")
+            if self.tp_dst is None: l+="1"
+            else: l+="0"
+            if self.tp_src is None: l+="1"
+            else: l+="0"
+            if self.nw_proto is None: l+="1"
+            else: l+="0"
+            if self.dl_type is None: l+="1"
+            else: l+="0"
+            if self.dl_dst is None: l+="1"
+            else: l+="0"
+            if self.dl_src is None: l+="1"
+            else: l+="0"
+            if self.dl_vlan is None: l+="1"
+            else: l+="0"
+            if self.in_port is None: l+="1"
+            else: l+="0"
         else:
-            w2 = bin(self.wildcards2)[2:]
-            l.append("0"*(8-len(w2)))
-            l.append(w2)
+            w2 = binrepr(self.wildcards2)
+            l+="0"*(8-len(w2))
+            l+=w2
 
         ### In order to write OFPMatch compliant with the specifications,
         ### if prereq_autocomplete has been set to True
@@ -189,21 +189,15 @@ class OFPMatch(Packet):
             if self.dl_type is None:
                 if self.nw_src is not "0" or self.nw_dst is not "0" or self.nw_proto is not None or self.nw_tos is not None:
                     p = p[:22] + struct.pack("!H", 0x0800) + p[24:]
-                    l[-5] = "0"
+                    l = l[:-5] + "0" + l[-4:]
             if self.nw_proto is None:
                 if self.tp_src is not None or self.tp_dst is not None:
                     p = p[:22] + struct.pack("!H", 0x0800) + p[24:]
-                    l[-5] = "0"
+                    l = l[:-5] + "0" + l[-4:]
                     p = p[:25] + struct.pack("!B", 0x06) + p[26:]
-                    l[-6] = "0"
+                    l = l[:-6] + "0" + l[-5:]
 
-        wild = "".join(l)
-        pad = ""
-        i = 0
-        while i < 32 and wild[i:i+4] == "0000":
-                    pad += "0"
-                    i += 4
-        ins = binascii.unhexlify(pad + "%x" % int(wild, 2))
+        ins = "".join(chr(int("".join(x),2)) for x in zip(*[iter(l)]*8))
         p = ins + p[4:]
         return p + pay
 
