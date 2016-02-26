@@ -184,12 +184,10 @@ class Packet(BasePacket):
         return self.payload.getfield_and_val(attr)
     
     def __getattr__(self, attr):
-        if isinstance(self, Packet):
-            fld,v = self.getfield_and_val(attr)
-            if fld is not None:
-                return fld.i2h(self, v)
-            return v
-        raise AttributeError(attr)
+        fld,v = self.getfield_and_val(attr)
+        if fld is not None:
+            return fld.i2h(self, v)
+        return v
 
     def setfieldval(self, attr, val):
         if self.default_fields.has_key(attr):
@@ -209,13 +207,12 @@ class Packet(BasePacket):
             self.payload.setfieldval(attr,val)
 
     def __setattr__(self, attr, val):
-        if isinstance(self, Packet):
-            if attr in self.__all_slots__:
-                return object.__setattr__(self, attr, val)
-            try:
-                return self.setfieldval(attr,val)
-            except AttributeError:
-                pass
+        if attr in self.__all_slots__:
+            return object.__setattr__(self, attr, val)
+        try:
+            return self.setfieldval(attr,val)
+        except AttributeError:
+            pass
         return object.__setattr__(self, attr, val)
 
     def delfieldval(self, attr):
@@ -232,15 +229,14 @@ class Packet(BasePacket):
             self.payload.delfieldval(attr)
 
     def __delattr__(self, attr):
-        if isinstance(self, Packet):
-            if attr == "payload":
-                return self.remove_payload()
-            if attr in self.__all_slots__:
-                return object.__delattr__(self, attr)
-            try:
-                return self.delfieldval(attr)
-            except AttributeError:
-                pass
+        if attr == "payload":
+            return self.remove_payload()
+        if attr in self.__all_slots__:
+            return object.__delattr__(self, attr)
+        try:
+            return self.delfieldval(attr)
+        except AttributeError:
+            pass
         return object.__delattr__(self, attr)
             
     def __repr__(self):
