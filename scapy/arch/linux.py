@@ -67,6 +67,17 @@ SOL_SOCKET = 1
 RTF_UP = 0x0001  # Route usable
 RTF_REJECT = 0x0200
 
+# From if_packet.h
+PACKET_HOST = 0  # To us
+PACKET_BROADCAST = 1  # To all
+PACKET_MULTICAST = 2  # To group
+PACKET_OTHERHOST = 3  # To someone else
+PACKET_OUTGOING = 4  # Outgoing of any type
+PACKET_LOOPBACK = 5  # MC/BRD frame looped back
+PACKET_USER = 6  # To user space
+PACKET_KERNEL = 7  # To kernel space
+PACKET_FASTROUTE = 6  # Fastrouted frame
+# Unused, PACKET_FASTROUTE and PACKET_LOOPBACK are invisible to user space
 
 
 LOOPBACK_NAME="lo"
@@ -512,7 +523,9 @@ class L2ListenSocket(SuperSocket):
             cls = conf.l3types[sa_ll[1]]
         else:
             cls = conf.default_l2
-            warning("Unable to guess type (interface=%s protocol=%#x family=%i). Using %s" % (sa_ll[0],sa_ll[1],sa_ll[3],cls.name))
+            warning("Unable to guess type (interface=%s protocol=%#x "
+                    "family=%i). Using %s" % (sa_ll[0], sa_ll[1], sa_ll[3],
+                                              cls.name))
 
         try:
             pkt = cls(pkt)
@@ -523,6 +536,7 @@ class L2ListenSocket(SuperSocket):
                 raise
             pkt = conf.raw_layer(pkt)
         pkt.time = get_last_packet_timestamp(self.ins)
+        pkt.direction = sa_ll[2]
         return pkt
     
     def send(self, x):

@@ -538,10 +538,12 @@ iface:    listen answers only on the given interface"""
 
 
 @conf.commands.register
-def sniff(count=0, store=1, offline=None, prn = None, lfilter=None, L2socket=None, timeout=None,
-          opened_socket=None, stop_filter=None, *arg, **karg):
+def sniff(count=0, store=1, offline=None, prn=None, lfilter=None,
+          L2socket=None, timeout=None, opened_socket=None,
+          stop_filter=None, iface=None, *arg, **karg):
     """Sniff packets
-sniff([count=0,] [prn=None,] [store=1,] [offline=None,] [lfilter=None,] + L2ListenSocket args) -> list of packets
+sniff([count=0,] [prn=None,] [store=1,] [offline=None,]
+[lfilter=None,] + L2ListenSocket args) -> list of packets
 
   count: number of packets to capture. 0 means infinity
   store: wether to store sniffed packets or discard them
@@ -558,47 +560,58 @@ opened_socket: provide an object ready to use .recv() on
 stop_filter: python function applied to each packet to determine
              if we have to stop the capture after this packet
              ex: stop_filter = lambda x: x.haslayer(TCP)
+iface: interface or list of interfaces (default: None for sniffing on all
+interfaces)
     """
     c = 0
-    
+    label = {}
+    ls = []
     if opened_socket is not None:
-        s = opened_socket
+        ls = [opened_socket]
     else:
         if offline is None:
             if L2socket is None:
                 L2socket = conf.L2listen
-            s = L2socket(type=ETH_P_ALL, *arg, **karg)
+            if type(iface) is list:
+                for i in iface:
+                    s = L2socket(type=ETH_P_ALL, iface=i, *arg, **karg)
+                    label[s] = i
+                    ls.append(s)
+            else:
+                ls = [L2socket(type=ETH_P_ALL, iface=iface, *arg, **karg)]
         else:
-            s = PcapReader(offline)
+            ls = [PcapReader(offline)]
 
     lst = []
     if timeout is not None:
         stoptime = time.time()+timeout
     remain = None
     try:
-        while 1:
+        stop_event = 0
+        while not stop_event:
             if timeout is not None:
                 remain = stoptime-time.time()
                 if remain <= 0:
                     break
-            sel = select([s],[],[],remain)
-            if s in sel[0]:
-                p = s.recv(MTU)
-                if p is None:
-                    continue
-                if lfilter and not lfilter(p):
-                    continue
-                if store:
-                    lst.append(p)
-                c += 1
-                if prn:
-                    r = prn(p)
-                    if r is not None:
-                        print r
-                if stop_filter and stop_filter(p):
-                    break
-                if count > 0 and c >= count:
-                    break
+            sel = select(ls, [], [], remain)
+            for s in sel[0]:
+                p = s.recv()
+                if p is not None:
+                    if lfilter and not lfilter(p):
+                        continue
+                    if s in label:
+                        p.sniffed_on = label[s]
+                    if store:
+                        lst.append(p)
+                    c += 1
+                    if prn:
+                        r = prn(p)
+                        if r is not None:
+                            print r
+                    if stop_filter and stop_filter(p):
+                        stop_event = 1
+                    if count > 0 and c >= count:
+                        stop_event = 1
     except KeyboardInterrupt:
         pass
     if opened_socket is None:
@@ -607,10 +620,12 @@ stop_filter: python function applied to each packet to determine
 
 
 @conf.commands.register
-def bridge_and_sniff(if1, if2, count=0, store=1, offline=None, prn = None, lfilter=None, L2socket=None, timeout=None,
+def bridge_and_sniff(if1, if2, count=0, store=1, offline=None, prn=None, 
+                     lfilter=None, L2socket=None, timeout=None,
                      stop_filter=None, *args, **kargs):
     """Forward traffic between two interfaces and sniff packets exchanged
-bridge_and_sniff([count=0,] [prn=None,] [store=1,] [offline=None,] [lfilter=None,] + L2Socket args) -> list of packets
+bridge_and_sniff([count=0,] [prn=None,] [store=1,] [offline=None,] 
+[lfilter=None,] + L2Socket args) -> list of packets
 
   count: number of packets to capture. 0 means infinity
   store: wether to store sniffed packets or discard them
@@ -639,12 +654,13 @@ stop_filter: python function applied to each packet to determine
         stoptime = time.time()+timeout
     remain = None
     try:
-        while True:
+        stop_event = 0
+        while not stop_event:
             if timeout is not None:
                 remain = stoptime-time.time()
                 if remain <= 0:
                     break
-            ins,outs,errs = select([s1,s2],[],[], remain)
+            ins, outs, errs = select([s1, s2], [], [], remain)
             for s in ins:
                 p = s.recv()
                 if p is not None:
@@ -658,11 +674,11 @@ stop_filter: python function applied to each packet to determine
                     if prn:
                         r = prn(p)
                         if r is not None:
-                            print "%s: %s" % (label[s],r)
+                            print r
                     if stop_filter and stop_filter(p):
-                        break
+                        stop_event = 1
                     if count > 0 and c >= count:
-                        break
+                        stop_event = 1
     except KeyboardInterrupt:
         pass
     finally:
@@ -673,4 +689,5 @@ stop_filter: python function applied to each packet to determine
 def tshark(*args,**kargs):
     """Sniff packets and print them calling pkt.show(), a bit like text wireshark"""
     sniff(prn=lambda x: x.display(),*args,**kargs)
+
 
