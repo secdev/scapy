@@ -548,49 +548,77 @@ def rdpcap(filename, count=-1):
 count: read only <count> packets
 
     """
-    try:
-        return _rdpcap(filename, count=count)
-    except Scapy_Exception:
-        pass
-    try:
-        return _rdpcapng(filename, count=count)
-    except Scapy_Exception:
-        raise Scapy_Exception("Not a valid pcap or pcapng file")
-
-
-def _rdpcap(filename, count=-1):
-    """Read a pcap file and return a packet list
-
-count: read only <count> packets
-
-    """
     with PcapReader(filename) as fdesc:
         return fdesc.read_all(count=count)
 
-def _rdpcapng(filename, count=-1):
-    """Read a pcapng file and return a packet list
 
-count: read only <count> packets
+class PcapReader_metaclass(type):
+    """Metaclass for (Raw)Pcap(Ng)Readers"""
 
-    """
-    with PcapNgReader(filename) as fdesc:
-        return fdesc.read_all(count=count)
+    def __new__(cls, name, bases, dct):
+        """The `alternative` class attribute is declared in the PcapNg
+        variant, and set here to the Pcap variant.
+
+        """
+        newcls = super(PcapReader_metaclass, cls).__new__(cls, name, bases, dct)
+        if 'alternative' in dct:
+            dct['alternative'].alternative = newcls
+        return newcls
+
+    def __call__(cls, filename):
+        """Creates a cls instance, use the `alternative` if that
+        fails.
+
+        """
+        i = cls.__new__(cls, cls.__name__, cls.__bases__, cls.__dict__)
+        filename, fdesc, magic = cls.open(filename)
+        try:
+            i.__init__(filename, fdesc, magic)
+        except Scapy_Exception:
+            if "alternative" in cls.__dict__:
+                cls = cls.__dict__["alternative"]
+                i = cls.__new__(cls, cls.__name__, cls.__bases__, cls.__dict__)
+                try:
+                    i.__init__(filename, fdesc, magic)
+                except Scapy_Exception:
+                    try:
+                        self.f.seek(-4, 1)
+                    except:
+                        pass
+                    raise Scapy_Exception("Not a supported capture file")
+
+        return i
+
+    @staticmethod
+    def open(filename):
+        """Open (if necessary) filename, and read the magic."""
+        if isinstance(filename, basestring):
+            try:
+                fdesc = gzip.open(filename,"rb")
+                magic = fdesc.read(4)
+            except IOError:
+                fdesc = open(filename,"rb")
+                magic = fdesc.read(4)
+        else:
+            fdesc = filename
+            filename = (fdesc.name
+                        if hasattr(fdesc, "name") else
+                        "No name")
+            magic = fdesc.read(4)
+        return filename, fdesc, magic
 
 
 class RawPcapReader:
     """A stateful pcap reader. Each packet is returned as a string"""
-
-    def __init__(self, filename):
-        magic = self.open(filename)
+    __metaclass__ = PcapReader_metaclass
+    def __init__(self, filename, fdesc, magic):
+        self.filename = filename
+        self.f = fdesc
         if magic == "\xa1\xb2\xc3\xd4": #big endian
             self.endian = ">"
         elif magic == "\xd4\xc3\xb2\xa1": #little endian
             self.endian = "<"
         else:
-            try:
-                self.f.seek(-4, 1)
-            except:
-                pass
             raise Scapy_Exception(
                 "Not a pcap capture file (bad magic: %r)" % magic
             )
@@ -601,23 +629,6 @@ class RawPcapReader:
             self.endian + "HHIIII", hdr
         )
         self.linktype = linktype
-
-    def open(self, filename):
-        """Open (if necessary) filename"""
-        if isinstance(filename, basestring):
-            self.filename = filename
-            try:
-                self.f = gzip.open(filename,"rb")
-                return self.f.read(4)
-            except IOError:
-                self.f = open(filename,"rb")
-                return self.f.read(4)
-        else:
-            self.f = filename
-            self.filename = (filename.name
-                             if hasattr(filename, "name") else
-                             "No name")
-            return self.f.read(4)
 
     def __iter__(self):
         return self
@@ -684,8 +695,8 @@ class RawPcapReader:
 
 
 class PcapReader(RawPcapReader):
-    def __init__(self, filename):
-        RawPcapReader.__init__(self, filename)
+    def __init__(self, filename, fdesc, magic):
+        RawPcapReader.__init__(self, filename, fdesc, magic)
         try:
             self.LLcls = conf.l2types[self.linktype]
         except KeyError:
@@ -721,19 +732,18 @@ class RawPcapNgReader(RawPcapReader):
 
     """
 
-    def __init__(self, filename):
+    alternative = RawPcapReader
+
+    def __init__(self, filename, fdesc, magic):
+        self.filename = filename
+        self.f = fdesc
         # A list of (linktype, snaplen); will be populated by IDBs.
         self.interfaces = []
         self.blocktypes = {
             1: self.read_block_idb,
             6: self.read_block_epb,
         }
-        magic = self.open(filename)
         if magic != "\x0a\x0d\x0d\x0a": # PcapNg:
-            try:
-                self.f.seek(-4, 1)
-            except:
-                pass
             raise Scapy_Exception(
                 "Not a pcapng capture file (bad magic: %r)" % magic
             )
@@ -786,8 +796,12 @@ class RawPcapNgReader(RawPcapReader):
 
 
 class PcapNgReader(RawPcapNgReader):
-    def __init__(self, filename):
-        RawPcapNgReader.__init__(self, filename)
+
+    alternative = PcapReader
+
+    def __init__(self, filename, fdesc, magic):
+        RawPcapNgReader.__init__(self, filename, fdesc, magic)
+
     def read_packet(self, size=MTU):
         rp = RawPcapNgReader.read_packet(self, size=size)
         if rp is None:
