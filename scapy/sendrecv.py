@@ -585,7 +585,7 @@ stop_filter: python function applied to each packet to determine
             if s in sel[0]:
                 p = s.recv(MTU)
                 if p is None:
-                    break
+                    continue
                 if lfilter and not lfilter(p):
                     continue
                 if store:
