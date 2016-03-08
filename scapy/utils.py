@@ -839,17 +839,23 @@ class RawPcapWriter:
         
         self.linktype = linktype
         self.header_present = 0
-        self.append=append
+        self.append = append
         self.gz = gz
         self.endian = endianness
-        self.filename=filename
-        self.sync=sync
+        self.sync = sync
         bufsz=4096
         if sync:
-            bufsz=0
+            bufsz = 0
 
-        self.f = [open,gzip.open][gz](filename,append and "ab" or "wb", gz and 9 or bufsz)
-        
+        if isinstance(filename, basestring):
+            self.filename = filename
+            self.f = [open,gzip.open][gz](filename,append and "ab" or "wb", gz and 9 or bufsz)
+        else:
+            self.f = filename
+            self.filename = (filename.name
+                             if hasattr(filename, "name") else
+                             "No name")
+
     def fileno(self):
         return self.f.fileno()
 
