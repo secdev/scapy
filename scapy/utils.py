@@ -914,7 +914,7 @@ class RawPcapWriter:
                 usec = int(round((t-it)*1000000))
         self.f.write(struct.pack(self.endian+"IIII", sec, usec, caplen, wirelen))
         self.f.write(packet)
-        if self.gz and self.sync:
+        if self.sync:
             self.f.flush()
 
     def flush(self):
