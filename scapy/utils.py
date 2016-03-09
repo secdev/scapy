@@ -535,9 +535,18 @@ def corrupt_bits(s, p=0.01, n=None):
 @conf.commands.register
 def wrpcap(filename, pkt, *args, **kargs):
     """Write a list of packets to a pcap file
+
+filename: the name of the file to write packets to, or an open,
+          writable file-like object. The file descriptor will be
+          closed at the end of the call, so do not use an object you
+          do not want to close (e.g., running wrpcap(sys.stdout, [])
+          in interactive mode will crash Scapy).
 gz: set to 1 to save a gzipped capture
 linktype: force linktype value
-endianness: "<" or ">", force endianness"""
+endianness: "<" or ">", force endianness
+sync: do not bufferize writes to the capture file
+
+    """
     with PcapWriter(filename, *args, **kargs) as fdesc:
         fdesc.write(pkt)
 
@@ -829,12 +838,15 @@ class RawPcapWriter:
     """A stream PCAP writer with more control than wrpcap()"""
     def __init__(self, filename, linktype=None, gz=False, endianness="", append=False, sync=False):
         """
-        linktype: force linktype to a given value. If None, linktype is taken
-                  from the first writter packet
-        gz: compress the capture on the fly
-        endianness: force an endianness (little:"<", big:">"). Default is native
-        append: append packets to the capture file instead of truncating it
-        sync: do not bufferize writes to the capture file
+filename: the name of the file to write packets to, or an open,
+          writable file-like object.
+linktype: force linktype to a given value. If None, linktype is taken
+          from the first writter packet
+gz: compress the capture on the fly
+endianness: force an endianness (little:"<", big:">"). Default is native
+append: append packets to the capture file instead of truncating it
+sync: do not bufferize writes to the capture file
+
         """
         
         self.linktype = linktype
@@ -931,6 +943,7 @@ class RawPcapWriter:
 
 
 class PcapWriter(RawPcapWriter):
+    """A stream PCAP writer with more control than wrpcap()"""
     def _write_header(self, pkt):
         if self.linktype == None:
             try:
