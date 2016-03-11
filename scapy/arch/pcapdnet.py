@@ -203,7 +203,7 @@ if conf.use_winpcapy:
           else:
               cls = conf.default_l2
               warning("Unable to guess datalink type (interface=%s linktype=%i). Using %s" % (self.iface, ll, cls.name))
-  
+
           pkt = None
           while pkt is None:
               pkt = self.ins.next()
@@ -438,23 +438,20 @@ if conf.use_pcap:
                     cls = conf.default_l2
                     warning("Unable to guess datalink type (interface=%s linktype=%i). Using %s" % (self.iface, ll, cls.name))
         
-                pkt = None
-                while pkt is None:
-                    pkt = self.ins.next()
-                    if pkt is not None:
-                        ts,pkt = pkt
-                    if scapy.arch.WINDOWS and pkt is None:
+                pkt = self.ins.next()
+                if scapy.arch.WINDOWS and pkt is None:
                         raise PcapTimeoutElapsed
-                
-                try:
-                    pkt = cls(pkt)
-                except KeyboardInterrupt:
-                    raise
-                except:
-                    if conf.debug_dissector:
+                if pkt is not None:
+                    ts,pkt = pkt
+                    try:
+                        pkt = cls(pkt)
+                    except KeyboardInterrupt:
                         raise
-                    pkt = conf.raw_layer(pkt)
-                pkt.time = ts
+                    except:
+                        if conf.debug_dissector:
+                            raise
+                        pkt = conf.raw_layer(pkt)
+                    pkt.time = ts
                 return pkt
         
             def send(self, x):
