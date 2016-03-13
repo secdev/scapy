@@ -4396,3 +4396,14 @@ defrags = defragment(frags)
 assert len(defrags) == 1
 * which should be the same as pkt reconstructed
 assert defrags[0] == IP(str(pkt))
+
+############
+############
++ Test TCP options
+
+= TCP options: UTO - basic build
+str(TCP(options=[("UTO", 0xffff)])) == "\x00\x14\x00\x50\x00\x00\x00\x00\x00\x00\x00\x00\x60\x02\x20\x00\x00\x00\x00\x00\x1c\x04\xff\xff"
+
+= TCP options: UTO - basic dissection
+uto = TCP("\x00\x14\x00\x50\x00\x00\x00\x00\x00\x00\x00\x00\x60\x02\x20\x00\x00\x00\x00\x00\x1c\x04\xff\xff")
+uto[TCP].options[0][0] == "UTO" and uto[TCP].options[0][1] == 0xffff
