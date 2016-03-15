@@ -10,9 +10,10 @@ Packet class. Binding mechanism. fuzz() method.
 import re
 import time,itertools
 import copy
-from fields import StrField,ConditionalField,Emph,PacketListField,BitField
+from fields import StrField, ConditionalField, Emph, PacketListField, BitField, \
+    MultiEnumField, EnumField, FlagsField
 from config import conf
-from base_classes import BasePacket,Gen,SetGen,Packet_metaclass,NewDefaultValues
+from base_classes import BasePacket, Gen, SetGen, Packet_metaclass
 from volatile import VolatileValue
 from utils import import_hexcap,tex_escape,colgen,get_temp_file
 from error import Scapy_Exception,log_runtime
@@ -1231,7 +1232,7 @@ def split_layers(lower, upper, __fval=None, **fval):
 
 
 @conf.commands.register
-def ls(obj=None, case_sensitive=False):
+def ls(obj=None, case_sensitive=False, verbose=False):
     """List  available layers, or infos on a given layer class or name"""
     is_string = isinstance(obj, basestring)
 
@@ -1253,9 +1254,38 @@ def ls(obj=None, case_sensitive=False):
             for f in obj.fields_desc:
                 cur_fld = f
                 attrs = []
+                long_attrs = []
                 while isinstance(cur_fld, (Emph, ConditionalField)):
                     attrs.append(cur_fld.__class__.__name__[:4])
                     cur_fld = cur_fld.fld
+                if verbose and isinstance(cur_fld, EnumField) \
+                   and hasattr(cur_fld, "i2s"):
+                    if len(cur_fld.i2s) < 50:
+                        long_attrs.extend(
+                            "%s: %d" % (strval, numval)
+                            for numval, strval in
+                            sorted(cur_fld.i2s.iteritems())
+                        )
+                elif isinstance(cur_fld, MultiEnumField):
+                    fld_depend = cur_fld.depends_on(obj.__class__
+                                                    if is_pkt else obj)
+                    attrs.append("Depends on %s" % fld_depend.name)
+                    if verbose:
+                        cur_i2s = cur_fld.i2s_multi.get(
+                            cur_fld.depends_on(obj if is_pkt else obj()), {}
+                        )
+                        if len(cur_i2s) < 50:
+                            long_attrs.extend(
+                                "%s: %d" % (strval, numval)
+                                for numval, strval in
+                                sorted(cur_i2s.iteritems())
+                            )
+                elif verbose and isinstance(cur_fld, FlagsField):
+                    names = cur_fld.names
+                    if isinstance(names, basestring):
+                        long_attrs.append(", ".join(names))
+                    else:
+                        long_attrs.append(", ".join(name[0] for name in names))
                 class_name = "%s (%s)" % (
                     cur_fld.__class__.__name__,
                     ", ".join(attrs)) if attrs else cur_fld.__class__.__name__
@@ -1263,10 +1293,12 @@ def ls(obj=None, case_sensitive=False):
                     class_name += " (%d bit%s)" % (cur_fld.size,
                                                    "s" if cur_fld.size > 1
                                                    else "")
-                print "%-10s : %-25s =" % (f.name, class_name),
+                print "%-10s : %-35s =" % (f.name, class_name),
                 if is_pkt:
                     print "%-15r" % getattr(obj,f.name),
                 print "(%r)" % f.default
+                for attr in long_attrs:
+                    print "%-15s%s" % ("", attr)
             if is_pkt and not isinstance(obj.payload, NoPayload):
                 print "--"
                 ls(obj.payload)
