@@ -1274,6 +1274,12 @@ def ls(obj=None, case_sensitive=False, verbose=False):
                             "%s: %d" % (strval, numval)
                             for numval, strval in sorted(cur_i2s.iteritems())
                         )
+                elif verbose and isinstance(cur_fld, FlagsField):
+                    names = cur_fld.names
+                    if isinstance(names, basestring):
+                        long_attrs.append(", ".join(names))
+                    else:
+                        long_attrs.append(", ".join(name[0] for name in names))
                 class_name = "%s (%s)" % (
                     cur_fld.__class__.__name__,
                     ", ".join(attrs)) if attrs else cur_fld.__class__.__name__
