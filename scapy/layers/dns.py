@@ -635,8 +635,8 @@ RFC2136
                                        ns=[DNSRR(rrname=name, type="A",
                                                  ttl=ttl, rdata=rdata)]),
           verbose=0, timeout=5)
-    if r and r.haslayer(DNS):
-        return r.getlayer(DNS).rcode
+    if r and DNS in r:
+        return r[DNS].rcode
     else:
         return -1
     
@@ -657,8 +657,8 @@ RFC2136
                                        ns=[DNSRR(rrname=name, type=type,
                                                  rclass="ANY", ttl=0, rdata="")]),
           verbose=0, timeout=5)
-    if r and r.haslayer(DNS):
-        return r.getlayer(DNS).rcode
+    if r and DNS in r:
+        return r[DNS].rcode
     else:
         return -1
     
@@ -678,8 +678,8 @@ class DNS_am(AnsweringMachine):
         return DNS in req and req[DNS].response == 0
     
     def make_reply(self, req):
-        ip = req.getlayer(IP)
-        dns = req.getlayer(DNS)
+        ip = req[IP]
+        dns = req[DNS]
         resp = IP(dst=ip.src, src=ip.dst)/UDP(dport=ip.sport,sport=ip.dport)
         rdata = self.match.get(dns.qd.qname, self.joker)
         resp /= DNS(id=dns.id, qr=1, qd=dns.qd,
