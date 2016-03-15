@@ -10,9 +10,10 @@ Packet class. Binding mechanism. fuzz() method.
 import re
 import time,itertools
 import copy
-from fields import StrField,ConditionalField,Emph,PacketListField,BitField
+from fields import StrField, ConditionalField, Emph, PacketListField, BitField, \
+    MultiEnumField, EnumField, FlagsField
 from config import conf
-from base_classes import BasePacket,Gen,SetGen,Packet_metaclass,NewDefaultValues
+from base_classes import BasePacket, Gen, SetGen, Packet_metaclass
 from volatile import VolatileValue
 from utils import import_hexcap,tex_escape,colgen,get_temp_file
 from error import Scapy_Exception,log_runtime
