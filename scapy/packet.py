@@ -1259,21 +1259,26 @@ def ls(obj=None, case_sensitive=False, verbose=False):
                     cur_fld = cur_fld.fld
                 if verbose and isinstance(cur_fld, EnumField) \
                    and hasattr(cur_fld, "i2s"):
-                    long_attrs.extend(
-                        "%s: %d" % (strval, numval)
-                        for numval, strval in sorted(cur_fld.i2s.iteritems())
-                    )
+                    if len(cur_fld.i2s) < 50:
+                        long_attrs.extend(
+                            "%s: %d" % (strval, numval)
+                            for numval, strval in
+                            sorted(cur_fld.i2s.iteritems())
+                        )
                 elif isinstance(cur_fld, MultiEnumField):
-                    fld_depend = cur_fld.depends_on(obj.__class__ if is_pkt else obj)
+                    fld_depend = cur_fld.depends_on(obj.__class__
+                                                    if is_pkt else obj)
                     attrs.append("Depends on %s" % fld_depend.name)
                     if verbose:
                         cur_i2s = cur_fld.i2s_multi.get(
                             cur_fld.depends_on(obj if is_pkt else obj()), {}
                         )
-                        long_attrs.extend(
-                            "%s: %d" % (strval, numval)
-                            for numval, strval in sorted(cur_i2s.iteritems())
-                        )
+                        if len(cur_i2s) < 50:
+                            long_attrs.extend(
+                                "%s: %d" % (strval, numval)
+                                for numval, strval in
+                                sorted(cur_i2s.iteritems())
+                            )
                 elif verbose and isinstance(cur_fld, FlagsField):
                     names = cur_fld.names
                     if isinstance(names, basestring):
