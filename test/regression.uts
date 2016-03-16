@@ -557,7 +557,7 @@ x is not None and ICMP in x and x[ICMP].type == 0
 ~ netaccess IP UDP DNS
 * A possible cause of failure could be that the open DNS (resolver1.opendns.com)
 * is not reachable or down.
-dns_ans = sr1(IP(dst="resolver1.opendns.com")/UDP()/DNS(rd=1,qd=DNSQR(qname="www.slashdot.com")),timeout=5)
+dns_ans = sr1(IP(dst="resolver1.opendns.com")/UDP()/DNS(flags="rd", qd=DNSQR(qname="www.slashdot.com")), timeout=5)
 DNS in dns_ans
 
 

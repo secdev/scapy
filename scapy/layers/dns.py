@@ -235,17 +235,16 @@ class RDLenField(Field):
 class DNS(Packet):
     name = "DNS"
     fields_desc = [ ShortField("id", 0),
-                    BitField("qr", 0, 1),
-                    BitEnumField("opcode", 0, 4, {0:"QUERY",1:"IQUERY",2:"STATUS"}),
-                    BitField("aa", 0, 1),
-                    BitField("tc", 0, 1),
-                    BitField("rd", 0, 1),
-                    BitField("ra", 0, 1),
-                    BitField("z", 0, 1),
+                    BitEnumField("response", 0, 1, {0: "Query", 1: "Response"}),
+                    BitEnumField("opcode", 0, 4, {0: "QUERY",1: "IQUERY",2: "STATUS"}),
                     # AD and CD bits are defined in RFC 2535
-                    BitField("ad", 0, 1), # Authentic Data
-                    BitField("cd", 0, 1), # Checking Disabled
-                    BitEnumField("rcode", 0, 4, {0:"ok", 1:"format-error", 2:"server-failure", 3:"name-error", 4:"not-implemented", 5:"refused"}),
+                    FlagsField("flags", 0, 7,
+                               ["cd", "ad", "z", "ra", "rd", "tc", "aa"]),
+                    BitEnumField("rcode", 0, 4, {0: "ok", 1: "format-error",
+                                                 2: "server-failure",
+                                                 3: "name-error",
+                                                 4: "not-implemented",
+                                                 5:"refused"}),
                     DNSRRCountField("qdcount", None, "qd"),
                     DNSRRCountField("ancount", None, "an"),
                     DNSRRCountField("nscount", None, "ns"),
@@ -257,13 +256,13 @@ class DNS(Packet):
     def answers(self, other):
         return (isinstance(other, DNS)
                 and self.id == other.id
-                and self.qr == 1
-                and other.qr == 0)
+                and self.response == 1
+                and other.response == 0)
         
     def mysummary(self):
-        type = ["Qry","Ans"][self.qr]
+        type = ["Qry", "Ans"][self.response]
         name = ""
-        if self.qr:
+        if self.response:
             type = "Ans"
             if self.ancount > 0 and isinstance(self.an, DNSRR):
                 name = ' "%s"' % self.an.rdata
@@ -636,8 +635,8 @@ RFC2136
                                        ns=[DNSRR(rrname=name, type="A",
                                                  ttl=ttl, rdata=rdata)]),
           verbose=0, timeout=5)
-    if r and r.haslayer(DNS):
-        return r.getlayer(DNS).rcode
+    if r and DNS in r:
+        return r[DNS].rcode
     else:
         return -1
     
@@ -658,8 +657,8 @@ RFC2136
                                        ns=[DNSRR(rrname=name, type=type,
                                                  rclass="ANY", ttl=0, rdata="")]),
           verbose=0, timeout=5)
-    if r and r.haslayer(DNS):
-        return r.getlayer(DNS).rcode
+    if r and DNS in r:
+        return r[DNS].rcode
     else:
         return -1
     
@@ -676,11 +675,11 @@ class DNS_am(AnsweringMachine):
         self.joker=joker
 
     def is_request(self, req):
-        return req.haslayer(DNS) and req.getlayer(DNS).qr == 0
+        return DNS in req and req[DNS].response == 0
     
     def make_reply(self, req):
-        ip = req.getlayer(IP)
-        dns = req.getlayer(DNS)
+        ip = req[IP]
+        dns = req[DNS]
         resp = IP(dst=ip.src, src=ip.dst)/UDP(dport=ip.sport,sport=ip.dport)
         rdata = self.match.get(dns.qd.qname, self.joker)
         resp /= DNS(id=dns.id, qr=1, qd=dns.qd,

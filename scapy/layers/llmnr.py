@@ -21,7 +21,7 @@ _LLMNR_IPv4_mcast_addr = "224.0.0.252"
 class LLMNRQuery(Packet):
     name = "Link Local Multicast Node Resolution - Query"
     fields_desc = [ ShortField("id", 0),
-                    BitField("qr", 0, 1),
+                    BitEnumField("response", 0, 1, {0: "Query", 1: "Response"}),
                     BitEnumField("opcode", 0, 4, { 0:"QUERY" }),
                     BitField("c", 0, 1),
                     BitField("tc", 0, 2),
@@ -45,8 +45,8 @@ class LLMNRResponse(LLMNRQuery):
     def answers(self, other):
         return (isinstance(other, LLMNRQuery) and
                 self.id == other.id and
-                self.qr == 1 and
-                other.qr == 0)
+                self.response == 1 and
+                other.response == 0)
 
 def _llmnr_dispatcher(x, *args, **kargs):
     cls = conf.raw_layer
