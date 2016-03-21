@@ -12,6 +12,22 @@ the commit history) as clean as possible.
 Since Scapy can be slow and memory consuming, we try to limit CPU and
 memory usage, particularly in parts of the code often called.
 
+## What to contribute?
+
+You want to spend to time working on Scapy but have no (or little)
+idea what to do? You can look for open issues
+[labeled "contributions wanted"](https://github.com/secdev/scapy/labels/contributions%20wanted).
+
+If you have any ideas of useful contributions that you cannot (or do
+not want to) do yourself, open an issue and use the label
+"contributions wanted".
+
+Once you have chosen a contribution, open an issue to let other people
+know you're working on it (or assign the existing issue to yourself)
+and track your progress. You might want to ask whether you're working
+in an appropriate direction, to avoid the frustration of seeing your
+contribution rejected after a lot of work.
+
 ## Reporting issues
 
 ### Questions
