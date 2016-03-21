@@ -203,7 +203,7 @@ class IPField(Field):
     def __init__(self, name, default):
         Field.__init__(self, name, default, "4s")
     def h2i(self, pkt, x):
-        if type(x) is str:
+        if isinstance(x, basestring):
             try:
                 inet_aton(x)
             except socket.error:
