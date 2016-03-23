@@ -17,6 +17,7 @@ from scapy.packet import *
 from scapy.layers.inet import IP,UDP
 
 import gtp_v1
+import gtp_v2
 
 
 
@@ -31,4 +32,4 @@ bind_layers(gtp_v1.GTP_U_Header, IP, gtp_type = 255)
 
 if __name__ == "__main__":
     from scapy.all import *
-    interact(mydict=globals(), mybanner="GTPv1 add-on")
+    interact(mydict=globals(), mybanner="GTPv1 & GTPv2 add-on")
