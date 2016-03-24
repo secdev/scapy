@@ -13,6 +13,7 @@ from select import select
 from fcntl import ioctl
 import scapy.utils
 import scapy.utils6
+from scapy.packet import Packet, Padding
 from scapy.config import conf
 from scapy.data import *
 from scapy.supersocket import SuperSocket
@@ -394,18 +395,18 @@ class L3PacketSocket(SuperSocket):
             sdto = (iff, conf.l3types[type(x)])
         if sn[3] in conf.l2types:
             ll = lambda x:conf.l2types[sn[3]]()/x
+        sx = str(ll(x))
+        x.sent_time = time.time()
         try:
-            sx = str(ll(x))
-            x.sent_time = time.time()
             self.outs.sendto(sx, sdto)
-        except socket.error,msg:
-            x.sent_time = time.time()  # bad approximation
-            if conf.auto_fragment and msg[0] == 90:
+        except socket.error, msg:
+            if msg[0] == 22 and len(sx) < conf.min_pkt_size:
+                self.outs.send(sx + "\x00" * (conf.min_pkt_size - len(sx)))
+            elif conf.auto_fragment and msg[0] == 90:
                 for p in x.fragment():
                     self.outs.sendto(str(ll(p)), sdto)
             else:
                 raise
-                    
 
 
 
@@ -460,6 +461,17 @@ class L2Socket(SuperSocket):
             q = conf.raw_layer(pkt)
         q.time = get_last_packet_timestamp(self.ins)
         return q
+    def send(self, x):
+        try:
+            return SuperSocket.send(self, x)
+        except socket.error, msg:
+            if msg[0] == 22 and len(x) < conf.min_pkt_size:
+                padding = "\x00" * (conf.min_pkt_size - len(x))
+                if isinstance(x, Packet):
+                    return SuperSocket.send(self, x / Padding(load=padding))
+                else:
+                    return SuperSocket.send(self, str(x) + padding)
+            raise
 
 
 class L2ListenSocket(SuperSocket):
