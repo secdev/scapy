@@ -395,12 +395,11 @@ class L3PacketSocket(SuperSocket):
             sdto = (iff, conf.l3types[type(x)])
         if sn[3] in conf.l2types:
             ll = lambda x:conf.l2types[sn[3]]()/x
+        sx = str(ll(x))
+        x.sent_time = time.time()
         try:
-            sx = str(ll(x))
-            x.sent_time = time.time()
             self.outs.sendto(sx, sdto)
         except socket.error, msg:
-            x.sent_time = time.time()  # bad approximation
             if msg[0] == 22 and len(sx) < conf.min_pkt_size:
                 self.outs.send(sx + "\x00" * (conf.min_pkt_size - len(sx)))
             elif conf.auto_fragment and msg[0] == 90:
