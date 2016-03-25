@@ -565,9 +565,9 @@ interfaces)
     """
     c = 0
     label = {}
-    ls = []
+    sniff_sockets = []
     if opened_socket is not None:
-        ls = [opened_socket]
+        sniff_sockets = [opened_socket]
     else:
         if offline is None:
             if L2socket is None:
@@ -576,24 +576,25 @@ interfaces)
                 for i in iface:
                     s = L2socket(type=ETH_P_ALL, iface=i, *arg, **karg)
                     label[s] = i
-                    ls.append(s)
+                    sniff_sockets.append(s)
             else:
-                ls = [L2socket(type=ETH_P_ALL, iface=iface, *arg, **karg)]
+                sniff_sockets = [L2socket(type=ETH_P_ALL, iface=iface, *arg,
+                                           **karg)]
         else:
-            ls = [PcapReader(offline)]
+            sniff_sockets = [PcapReader(offline)]
 
     lst = []
     if timeout is not None:
         stoptime = time.time()+timeout
     remain = None
     try:
-        stop_event = 0
+        stop_event = False
         while not stop_event:
             if timeout is not None:
                 remain = stoptime-time.time()
                 if remain <= 0:
                     break
-            sel = select(ls, [], [], remain)
+            sel = select(sniff_sockets, [], [], remain)
             for s in sel[0]:
                 p = s.recv()
                 if p is not None:
@@ -609,9 +610,11 @@ interfaces)
                         if r is not None:
                             print r
                     if stop_filter and stop_filter(p):
-                        stop_event = 1
+                        stop_event = True
+                        break
                     if count > 0 and c >= count:
-                        stop_event = 1
+                        stop_event = True
+                        break
     except KeyboardInterrupt:
         pass
     if opened_socket is None:
@@ -654,7 +657,7 @@ stop_filter: python function applied to each packet to determine
         stoptime = time.time()+timeout
     remain = None
     try:
-        stop_event = 0
+        stop_event = False
         while not stop_event:
             if timeout is not None:
                 remain = stoptime-time.time()
@@ -676,9 +679,11 @@ stop_filter: python function applied to each packet to determine
                         if r is not None:
                             print r
                     if stop_filter and stop_filter(p):
-                        stop_event = 1
+                        stop_event = True
+                        break
                     if count > 0 and c >= count:
-                        stop_event = 1
+                        stop_event = True
+                        break
     except KeyboardInterrupt:
         pass
     finally:
