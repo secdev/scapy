@@ -19,6 +19,7 @@ from scapy.data import *
 from scapy.supersocket import SuperSocket
 import scapy.arch
 from scapy.error import warning, Scapy_Exception
+from scapy.arch.common import get_if
 
 
 
@@ -274,15 +275,6 @@ def read_routes6():
             routes.append((d, dp, nh, dev, cset))
     f.close()
     return routes   
-
-
-
-
-def get_if(iff,cmd):
-    s=socket.socket()
-    ifreq = ioctl(s, cmd, struct.pack("16s16x",iff))
-    s.close()
-    return ifreq
 
 
 def get_if_index(iff):
