@@ -1,6 +1,6 @@
 #! /bin/sh
 DIR=$(dirname $0)
-if python --version | grep -q '^Python 2'; then
+if python --version 2>&1 | grep -q '^Python 2'; then
     PYTHON=python
 else
     PYTHON=python2
