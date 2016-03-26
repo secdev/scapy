@@ -346,7 +346,9 @@ extensions_paths: path or list of paths where extensions are to be looked for
     L2socket = None
     L2listen = None
     min_pkt_size = 60
-    histfile = os.path.join(os.path.expanduser("~"), ".scapy_history")
+    histfile = os.getenv('SCAPY_HISTFILE',
+                         os.path.join(os.path.expanduser("~"),
+                                      ".scapy_history"))
     padding = 1
     except_filter = ""
     debug_match = 0
