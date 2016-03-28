@@ -457,7 +457,12 @@ class TCP(Packet):
         if self.chksum is None:
             if isinstance(self.underlayer, IP):
                 if self.underlayer.len is not None:
-                    ln = self.underlayer.len-20
+                    if self.underlayer.ihl is None:
+                        olen = sum(len(x) for x in self.underlayer.options)
+                        ihl = 5 + olen / 4 + (1 if olen % 4 else 0)
+                    else:
+                        ihl = self.underlayer.ihl
+                    ln = self.underlayer.len - 4 * ihl
                 else:
                     ln = len(p)
                 psdhdr = struct.pack("!4s4sHH",
@@ -511,7 +516,12 @@ class UDP(Packet):
         if self.chksum is None:
             if isinstance(self.underlayer, IP):
                 if self.underlayer.len is not None:
-                    ln = self.underlayer.len-20
+                    if self.underlayer.ihl is None:
+                        olen = sum(len(x) for x in self.underlayer.options)
+                        ihl = 5 + olen / 4 + (1 if olen % 4 else 0)
+                    else:
+                        ihl = self.underlayer.ihl
+                    ln = self.underlayer.len - 4 * ihl
                 else:
                     ln = len(p)
                 psdhdr = struct.pack("!4s4sHH",
