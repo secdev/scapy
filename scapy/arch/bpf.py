@@ -267,12 +267,13 @@ def bpf_select(fds_list, timeout=None):
 
     if len(bpf_scks_buffered) != len(fds_list):
         # Call select for sockets with empty buffers
+        if timeout is None and scapy.arch.FREEBSD:
+            timeout = 0.05
         ready_list, _, _ = select(select_fds, [], [], timeout)
         return bpf_scks_buffered + ready_list
 
     else:
         return bpf_scks_buffered
-
 
 
 # BPF sockets
@@ -469,7 +470,11 @@ class L2bpfListenSocket(_L2bpfSocket):
     def bpf_align(self, bh_h, bh_c):
         """Return the index to the end of the current packet"""
 
-        BPF_ALIGNMENT = 4
+        if scapy.arch.FREEBSD:
+            BPF_ALIGNMENT = 8  # sizeof(long)
+        else:
+            BPF_ALIGNMENT = 4  # sizeof(int32_t)
+
         x = bh_h + bh_c
         return ((x)+(BPF_ALIGNMENT-1)) & ~(BPF_ALIGNMENT-1)  # from <net/bpf.h>
 
@@ -482,9 +487,19 @@ class L2bpfListenSocket(_L2bpfSocket):
             return
 
         # Extract useful information from the BPF header
-        bh_caplen = struct.unpack('I', bpf_buffer[8:12])[0]
-        bh_datalen = struct.unpack('I', bpf_buffer[12:16])[0]
-        bh_hdrlen = struct.unpack('H', bpf_buffer[16:18])[0]
+        if scapy.arch.FREEBSD:
+            # struct bpf_xhdr
+            bh_tstamp_offset = 16
+        else:
+            # struct bpf_hdr
+            bh_tstamp_offset = 8
+
+        # Parse the BPF header
+        bh_caplen = struct.unpack('I', bpf_buffer[bh_tstamp_offset:bh_tstamp_offset+4])[0]
+        next_offset = bh_tstamp_offset + 4
+        bh_datalen = struct.unpack('I', bpf_buffer[next_offset:next_offset+4])[0]
+        next_offset += 4
+        bh_hdrlen = struct.unpack('H', bpf_buffer[next_offset:next_offset+2])[0]
         if bh_datalen == 0:
             return
 
