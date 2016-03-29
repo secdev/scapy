@@ -17,6 +17,7 @@ from utils import warning,get_temp_file,PcapReader,wrpcap
 import plist
 from error import log_runtime,log_interactive
 from base_classes import SetGen
+from scapy.arch import BPF
 
 #################
 ## Debug class ##
@@ -121,7 +122,12 @@ def sndrcv(pks, pkt, timeout = None, inter = 0, verbose=None, chainCC=0, retry=0
                                 if remaintime <= 0:
                                     break
                             r = None
-                            if arch.FREEBSD or arch.DARWIN:
+                            if BPF:
+                                from scapy.arch.bpf import bpf_select
+                                inp = bpf_select(inmask)
+                                if pks in inp:
+                                    r = pks.recv()
+                            elif arch.FREEBSD or arch.DARWIN:
                                 inp, out, err = select(inmask,[],[], 0.05)
                                 if len(inp) == 0 or pks in inp:
                                     r = pks.nonblock_recv()
@@ -594,7 +600,11 @@ interfaces)
                 remain = stoptime-time.time()
                 if remain <= 0:
                     break
-            sel = select(sniff_sockets, [], [], remain)
+            if BPF:
+                from scapy.arch.bpf import bpf_select
+                sel = bpf_select(sniff_sockets, remain)
+            else:
+                sel = select(sniff_sockets, [], [], remain)
             for s in sel[0]:
                 p = s.recv()
                 if p is not None:
