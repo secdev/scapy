@@ -483,7 +483,13 @@ def sndrcvflood(pks, pkt, prn=lambda (s,r):r.summary(), chainCC=0, store=1, uniq
 
     try:
         while 1:
-            readyr,readys,_ = select([rsock],[ssock],[])
+            if BPF:
+                from scapy.arch.bpf import bpf_select
+                readyr = bpf_select([rsock])
+                _, readys, _ = select([], [ssock], [])
+            else:
+                readyr, readys, _ = select([rsock], [ssock], [])
+
             if ssock in readys:
                 pks.send(packets_to_send.next())
                 
@@ -602,10 +608,10 @@ interfaces)
                     break
             if BPF:
                 from scapy.arch.bpf import bpf_select
-                sel = bpf_select(sniff_sockets, remain)
+                ins = bpf_select(sniff_sockets, remain)
             else:
-                sel = select(sniff_sockets, [], [], remain)
-            for s in sel[0]:
+                ins, _, _ = select(sniff_sockets, [], [], remain)
+            for s in ins:
                 p = s.recv()
                 if p is not None:
                     if lfilter and not lfilter(p):
@@ -673,7 +679,12 @@ stop_filter: python function applied to each packet to determine
                 remain = stoptime-time.time()
                 if remain <= 0:
                     break
-            ins, outs, errs = select([s1, s2], [], [], remain)
+            if BPF:
+                from scapy.arch.bpf import bpf_select
+                ins = bpf_select([s1, s2], remain)
+            else:
+                ins, _, _ = select([s1, s2], [], [], remain)
+
             for s in ins:
                 p = s.recv()
                 if p is not None:
