@@ -46,6 +46,8 @@ class Packet(BasePacket):
         "name",
         # used for sr()
         "_answered",
+        # used when sniffing
+        "direction", "sniffed_on"
     ]
     __metaclass__ = Packet_metaclass
     name = None
