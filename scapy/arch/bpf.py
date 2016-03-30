@@ -7,6 +7,7 @@ from scapy.error import Scapy_Exception
 from scapy.data import ARPHDR_LOOPBACK, ARPHDR_ETHER
 from scapy.arch.common import get_if
 from scapy.arch.bsd import LOOPBACK_NAME
+from scapy.arch import FREEBSD
 from scapy.packet import Raw
 from scapy.layers.l2 import Ether
 from scapy.layers.inet import IP
@@ -267,7 +268,7 @@ def bpf_select(fds_list, timeout=None):
 
     if len(bpf_scks_buffered) != len(fds_list):
         # Call select for sockets with empty buffers
-        if timeout is None and scapy.arch.FREEBSD:
+        if timeout is None and FREEBSD:
             timeout = 0.05
         ready_list, _, _ = select(select_fds, [], [], timeout)
         return bpf_scks_buffered + ready_list
@@ -470,7 +471,7 @@ class L2bpfListenSocket(_L2bpfSocket):
     def bpf_align(self, bh_h, bh_c):
         """Return the index to the end of the current packet"""
 
-        if scapy.arch.FREEBSD:
+        if FREEBSD:
             BPF_ALIGNMENT = 8  # sizeof(long)
         else:
             BPF_ALIGNMENT = 4  # sizeof(int32_t)
@@ -487,7 +488,7 @@ class L2bpfListenSocket(_L2bpfSocket):
             return
 
         # Extract useful information from the BPF header
-        if scapy.arch.FREEBSD:
+        if FREEBSD:
             # struct bpf_xhdr
             bh_tstamp_offset = 16
         else:
