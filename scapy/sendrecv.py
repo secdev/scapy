@@ -17,7 +17,6 @@ from utils import warning,get_temp_file,PcapReader,wrpcap
 import plist
 from error import log_runtime,log_interactive
 from base_classes import SetGen
-from scapy.arch import BPF
 
 #################
 ## Debug class ##
