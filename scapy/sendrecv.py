@@ -122,7 +122,7 @@ def sndrcv(pks, pkt, timeout = None, inter = 0, verbose=None, chainCC=0, retry=0
                                 if remaintime <= 0:
                                     break
                             r = None
-                            if BPF:
+                            if conf.use_bpf::
                                 from scapy.arch.bpf import bpf_select
                                 inp = bpf_select(inmask)
                                 if pks in inp:
@@ -483,7 +483,7 @@ def sndrcvflood(pks, pkt, prn=lambda (s,r):r.summary(), chainCC=0, store=1, uniq
 
     try:
         while 1:
-            if BPF:
+            if conf.use_bpf:
                 from scapy.arch.bpf import bpf_select
                 readyr = bpf_select([rsock])
                 _, readys, _ = select([], [ssock], [])
@@ -606,7 +606,7 @@ interfaces)
                 remain = stoptime-time.time()
                 if remain <= 0:
                     break
-            if BPF:
+            if conf.use_bpf:
                 from scapy.arch.bpf import bpf_select
                 ins = bpf_select(sniff_sockets, remain)
             else:
@@ -680,7 +680,7 @@ stop_filter: python function applied to each packet to determine
                 remain = stoptime-time.time()
                 if remain <= 0:
                     break
-            if BPF:
+            if conf.use_bpf:
                 from scapy.arch.bpf import bpf_select
                 ins = bpf_select([s1, s2], remain)
             else:
