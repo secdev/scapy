@@ -39,10 +39,9 @@ except ImportError:
 def str2mac(s):
     return ("%02x:"*6)[:-1] % tuple(map(ord, s)) 
 
-    
+
 def get_if_addr(iff):
     return socket.inet_ntoa(get_if_raw_addr(iff))
-
     
 def get_if_hwaddr(iff):
     addrfamily, mac = get_if_raw_hwaddr(iff)
@@ -59,7 +58,7 @@ NETBSD = sys.platform.startswith("netbsd")
 DARWIN = sys.platform.startswith("darwin")
 SOLARIS = sys.platform.startswith("sunos")
 WINDOWS = sys.platform.startswith("win32")
-BPF = DARWIN|FREEBSD|OPENBSD|NETBSD
+BSD = DARWIN or FREEBSD or OPENBSD or NETBSD
 
 X86_64 = not WINDOWS and (os.uname()[4] == 'x86_64')
 ARM_64 = not WINDOWS and (os.uname()[4] == 'aarch64')
@@ -82,14 +81,18 @@ if LINUX:
     from linux import *
     if scapy.config.conf.use_pcap or scapy.config.conf.use_dnet:
         from pcapdnet import *
-elif BPF:
+elif BSD:
     from bsd import LOOPBACK_NAME
-    from unix import read_routes, read_routes6
-    from bpf import *
+    from unix import read_routes, read_routes6, in6_getifaddr
 
-    scapy.config.conf.L2listen = L2bpfListenSocket
-    scapy.config.conf.L2socket = L2bpfSocket
-    scapy.config.conf.L3socket = L3bpfSocket
+    if scapy.config.conf.use_pcap or scapy.config.conf.use_dnet:
+        from pcapdnet import *
+    else:
+        from bpf import *
+        scapy.config.conf.use_bpf = True
+        scapy.config.conf.L2listen = L2bpfListenSocket
+        scapy.config.conf.L2socket = L2bpfSocket
+        scapy.config.conf.L3socket = L3bpfSocket
 elif SOLARIS:
     from solaris import *
 elif WINDOWS:

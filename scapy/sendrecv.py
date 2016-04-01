@@ -634,7 +634,8 @@ interfaces)
     except KeyboardInterrupt:
         pass
     if opened_socket is None:
-        s.close()
+        for s in sniff_sockets:
+            s.close()
     return plist.PacketList(lst,"Sniffed")
 
 

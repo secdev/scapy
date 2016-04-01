@@ -4399,7 +4399,7 @@ assert defrags[0] == IP(str(pkt))
 
 ############
 ############
-+ Test TCP options
++ TCP/IP tests
 
 = TCP options: UTO - basic build
 str(TCP(options=[("UTO", 0xffff)])) == "\x00\x14\x00\x50\x00\x00\x00\x00\x00\x00\x00\x00\x60\x02\x20\x00\x00\x00\x00\x00\x1c\x04\xff\xff"
@@ -4407,3 +4407,76 @@ str(TCP(options=[("UTO", 0xffff)])) == "\x00\x14\x00\x50\x00\x00\x00\x00\x00\x00
 = TCP options: UTO - basic dissection
 uto = TCP("\x00\x14\x00\x50\x00\x00\x00\x00\x00\x00\x00\x00\x60\x02\x20\x00\x00\x00\x00\x00\x1c\x04\xff\xff")
 uto[TCP].options[0][0] == "UTO" and uto[TCP].options[0][1] == 0xffff
+
+= IP, TCP & UDP checksums (these tests highly depend on default values)
+pkt = IP() / TCP()
+bpkt = IP(str(pkt))
+assert bpkt.chksum == 0x7ccd and bpkt.payload.chksum == 0x917c
+
+pkt = IP(len=40) / TCP()
+bpkt = IP(str(pkt))
+assert bpkt.chksum == 0x7ccd and bpkt.payload.chksum == 0x917c
+
+pkt = IP(len=40, ihl=5) / TCP()
+bpkt = IP(str(pkt))
+assert bpkt.chksum == 0x7ccd and bpkt.payload.chksum == 0x917c
+
+pkt = IP() / TCP() / ("A" * 10)
+bpkt = IP(str(pkt))
+assert bpkt.chksum == 0x7cc3 and bpkt.payload.chksum == 0x4b2c
+
+pkt = IP(len=50) / TCP() / ("A" * 10)
+bpkt = IP(str(pkt))
+assert bpkt.chksum == 0x7cc3 and bpkt.payload.chksum == 0x4b2c
+
+pkt = IP(len=50, ihl=5) / TCP() / ("A" * 10)
+bpkt = IP(str(pkt))
+assert bpkt.chksum == 0x7cc3 and bpkt.payload.chksum == 0x4b2c
+
+pkt = IP(options=[IPOption_RR()]) / TCP() / ("A" * 10)
+bpkt = IP(str(pkt))
+assert bpkt.chksum == 0xf0bb and bpkt.payload.chksum == 0x4b2c
+
+pkt = IP(len=54, options=[IPOption_RR()]) / TCP() / ("A" * 10)
+bpkt = IP(str(pkt))
+assert bpkt.chksum == 0xf0bb and bpkt.payload.chksum == 0x4b2c
+
+pkt = IP(len=54, ihl=6, options=[IPOption_RR()]) / TCP() / ("A" * 10)
+bpkt = IP(str(pkt))
+assert bpkt.chksum == 0xf0bb and bpkt.payload.chksum == 0x4b2c
+
+pkt = IP() / UDP()
+bpkt = IP(str(pkt))
+assert bpkt.chksum == 0x7cce and bpkt.payload.chksum == 0x0172
+
+pkt = IP(len=28) / UDP()
+bpkt = IP(str(pkt))
+assert bpkt.chksum == 0x7cce and bpkt.payload.chksum == 0x0172
+
+pkt = IP(len=28, ihl=5) / UDP()
+bpkt = IP(str(pkt))
+assert bpkt.chksum == 0x7cce and bpkt.payload.chksum == 0x0172
+
+pkt = IP() / UDP() / ("A" * 10)
+bpkt = IP(str(pkt))
+assert bpkt.chksum == 0x7cc4 and bpkt.payload.chksum == 0xbb17
+
+pkt = IP(len=38) / UDP() / ("A" * 10)
+bpkt = IP(str(pkt))
+assert bpkt.chksum == 0x7cc4 and bpkt.payload.chksum == 0xbb17
+
+pkt = IP(len=38, ihl=5) / UDP() / ("A" * 10)
+bpkt = IP(str(pkt))
+assert bpkt.chksum == 0x7cc4 and bpkt.payload.chksum == 0xbb17
+
+pkt = IP(options=[IPOption_RR()]) / UDP() / ("A" * 10)
+bpkt = IP(str(pkt))
+assert bpkt.chksum == 0xf0bc and bpkt.payload.chksum == 0xbb17
+
+pkt = IP(len=42, options=[IPOption_RR()]) / UDP() / ("A" * 10)
+bpkt = IP(str(pkt))
+assert bpkt.chksum == 0xf0bc and bpkt.payload.chksum == 0xbb17
+
+pkt = IP(len=42, ihl=6, options=[IPOption_RR()]) / UDP() / ("A" * 10)
+bpkt = IP(str(pkt))
+assert bpkt.chksum == 0xf0bc and bpkt.payload.chksum == 0xbb17
