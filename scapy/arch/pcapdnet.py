@@ -12,7 +12,7 @@ if not sys.platform.startswith("win"):
     from fcntl import ioctl
 from scapy.data import *
 from scapy.config import conf
-from scapy.utils import warning
+from scapy.utils import warning, mac2str
 from scapy.supersocket import SuperSocket
 from scapy.error import Scapy_Exception
 import scapy.arch
@@ -460,12 +460,15 @@ if conf.use_pcap:
     
         conf.L2listen = L2pcapListenSocket
 
-        
-    
 
 if conf.use_dnet:
     try:
-        import dnet
+        try:
+            # First try to import dnet
+            import dnet
+        except ImportError:
+            # Then, try to import dumbnet as dnet
+            import dumbnet as dnet
     except ImportError,e:
         if conf.interactive:
             log_loading.error("Unable to import dnet module: %s" % e)
@@ -483,21 +486,42 @@ if conf.use_dnet:
             raise
     else:
         def get_if_raw_hwaddr(iff):
+            """Return a tuple containing the link type and the raw hardware
+               address corresponding to the interface 'iff'"""
+
             if iff == scapy.arch.LOOPBACK_NAME:
-                return (772, '\x00'*6)
+                return (ARPHDR_LOOPBACK, '\x00'*6)
+
+            # Retrieve interface information
             try:
                 l = dnet.intf().get(iff)
-                l = l["link_addr"]
+                link_addr = l["link_addr"]
             except:
-                raise Scapy_Exception("Error in attempting to get hw address for interface [%s]" % iff)
-            return l.type,l.data
+                msg = "Error in attempting to get hw address for interface"
+                msg += " [%s]" % iff
+                raise Scapy_Exception(msg)
+
+            if hasattr(link_addr, "type"):
+                # Legacy dnet module
+                return link_addr.type, link_addr.data
+
+            else:
+                # dumbnet module
+                mac = mac2str(str(link_addr))
+
+                # Adjust the link type
+                if l["type"] == 6:  # INTF_TYPE_ETH from dnet
+                    return (ARPHDR_ETHER, mac)
+
+                return (l["type"], mac)
+
         def get_if_raw_addr(ifname):
             i = dnet.intf()
             return i.get(ifname)["addr"].data
         def get_if_list():
             return [i.get("name", None) for i in dnet.intf()]
-    
-    
+
+
 if conf.use_pcap and conf.use_dnet:
     class L3dnetSocket(SuperSocket):
         desc = "read/write packets at layer 3 using libdnet and libpcap"
