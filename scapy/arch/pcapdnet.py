@@ -497,9 +497,8 @@ if conf.use_dnet:
                 l = dnet.intf().get(iff)
                 link_addr = l["link_addr"]
             except:
-                msg = "Error in attempting to get hw address for interface"
-                msg += " [%s]" % iff
-                raise Scapy_Exception(msg)
+                raise Scapy_Exception("Error in attempting to get hw address"
+                                      " for interface [%s]" % iff)
 
             if hasattr(link_addr, "type"):
                 # Legacy dnet module
