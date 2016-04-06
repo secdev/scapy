@@ -132,14 +132,11 @@ def get_dev_bpf():
     raise Scapy_Exception("No /dev/bpf handle is available !")
 
 
-def attach_filter(obj, bpf_filter_string):  # GV: move to a method of _L2bpfSocket
-    """Attach a BPF filter to the BPF handle"""
-
-    dev = obj.iface
-    fd = obj.ins
+def attach_filter(fd, iface, bpf_filter_string):  # GV: move to a method of _L2bpfSocket
+    """Attach a BPF filter to the BPF file descriptor"""
 
     # Retrieve the BPF byte code in decimal
-    command = "%s -i %s -ddd -s 1600 '%s'" % (conf.prog.tcpdump, dev, bpf_filter_string)
+    command = "%s -i %s -ddd -s 1600 '%s'" % (conf.prog.tcpdump, iface, bpf_filter_string)
     try:
         f = os.popen(command)
     except OSError, msg:
@@ -208,7 +205,7 @@ def get_working_ifaces():
 
         # Get interface flags
         ifflags = struct.unpack("16xH14x", get_if(ifname, SIOCGIFFLAGS))[0]
-        if ifflags & IFF_UP:
+        if ifflags & 0x1:  # IFF_UP
 
             if "wlt" in ifname:  # Darwin only
                 inf = "en" + ifname[-1]
@@ -241,9 +238,9 @@ def get_working_if():
     return ifaces[0][0]
 
 
-def isBPFSocket(fd):
-    """Return True is fd is a BPF Super Socket"""
-    return isinstance(fd, L2bpfListenSocket) or isinstance(fd, L2bpfListenSocket) or isinstance(fd, L3bpfSocket)
+def isBPFSocket(obj):
+    """Return True is obj is a BPF Super Socket"""
+    return isinstance(obj, L2bpfListenSocket) or isinstance(obj, L2bpfListenSocket) or isinstance(obj, L3bpfSocket)
 
 
 def bpf_select(fds_list, timeout=None):
@@ -347,7 +344,7 @@ class _L2bpfSocket(SuperSocket):
                 else:
                     filter = "not (%s)" % conf.except_filter
             if filter is not None:
-                attach_filter(self, filter)
+                attach_filter(self.ins, self.iface, filter)
 
         # Set the guessed packet class
         self.guessed_cls = self.guess_cls()
@@ -408,7 +405,7 @@ class _L2bpfSocket(SuperSocket):
             warning("Can't set flags on this file descriptor !")
 
     def get_stats(self):
-        """Get received / sent statistics"""
+        """Get received / dropped statistics"""
 
         try:
             ret = fcntl.ioctl(self.ins, BIOCGSTATS, struct.pack("2I", 0, 0))
