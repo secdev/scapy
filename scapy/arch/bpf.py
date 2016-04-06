@@ -205,7 +205,7 @@ def get_working_ifaces():
 
         # Get interface flags
         ifflags = struct.unpack("16xH14x", get_if(ifname, SIOCGIFFLAGS))[0]
-        if ifflags & 0x1:  # IFF_UP
+        if ifflags & 0x1:  # IFF_UP
 
             if "wlt" in ifname:  # Darwin only
                 inf = "en" + ifname[-1]
