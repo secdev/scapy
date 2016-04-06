@@ -181,7 +181,7 @@ def get_if_list():
 
     # Get interfaces
     interfaces = [line[:line.find(':')] for line in fd.readlines()
-                                        if "flags" in line.lower()]
+                                        if ": flags" in line.lower()]
     return interfaces
 
 
@@ -204,11 +204,15 @@ def get_working_ifaces():
             continue
 
         # Get interface flags
-        ifflags = struct.unpack("16xH14x", get_if(ifname, SIOCGIFFLAGS))[0]
-        if ifflags & 0x1:  # IFF_UP
+        try:
+            result = get_if(ifname, SIOCGIFFLAGS)
+        except IOError, msg:
+            warning("ioctl(SIOCGIFFLAGS) failed on %s !" % ifname)
+            continue
 
-            if "wlt" in ifname:  # Darwin only
-                inf = "en" + ifname[-1]
+        # Convert flags
+        ifflags = struct.unpack("16xH14x", result)[0]
+        if ifflags & 0x1:  # IFF_UP
 
             # Get a BPF handle
             fd, _ = get_dev_bpf()
@@ -221,6 +225,9 @@ def get_working_ifaces():
                 interfaces.append((ifname, int(ifname[-1])))
             except IOError, err:
                 pass
+
+            # Close the file descriptor
+            os.close(fd)
 
     # Sort to mimic pcap_findalldevs() order
     interfaces.sort(lambda (ifname_left, ifid_left),
