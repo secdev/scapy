@@ -7,7 +7,7 @@
 ############
 + Addresses manipulation functions
 
-= Get the packet IPv4 address configures on conf.iface
+= Get the packet IPv4 address configured on conf.iface
 
 get_if_raw_addr(conf.iface)
 
@@ -15,6 +15,9 @@ get_if_raw_addr(conf.iface)
 = Get the packed MAC address of conf.iface
 
 get_if_raw_hwaddr(conf.iface)
+
+= Get the packed MAC address of LOOPBACK_NAME
+
 get_if_raw_hwaddr(LOOPBACK_NAME) == (ARPHDR_LOOPBACK, '\x00'*6) 
 
 
