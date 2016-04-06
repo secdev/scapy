@@ -24,6 +24,20 @@ lsc()
 ~ conf
 conf.debug_dissector = True
 
+
+############
+############
++ Scapy functions tests
+
+= Interface related functions
+
+get_if_raw_hwaddr(conf.iface)
+
+get_if_raw_addr(conf.iface).encode("hex")
+
+get_if_list()
+
+
 ############
 ############
 + Basic tests
