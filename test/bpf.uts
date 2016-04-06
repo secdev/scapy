@@ -30,7 +30,7 @@ fd, _ = get_dev_bpf()
 = Attach a BPF filter
 ~ needs_root
 
-attach_filter(fd, conf.iface, "arp and icmp")
+attach_filter(fd, conf.iface, "arp or icmp")
 
 
 = Get network interfaces list
@@ -49,7 +49,7 @@ len(ifworking) and get_working_if() == ifworking[0][0]
 
 
 = Misc functions
-~ needs_root
+~¬ needs_root
 
 isBPFSocket(L2bpfListenSocket()) and isBPFSocket(L2bpfSocket()) and isBPFSocket(L3bpfSocket())
 
@@ -102,6 +102,7 @@ s.close()
 
 
 = L2bpfListenSocket - other methods
+~ needs_root
 
 s = L2bpfListenSocket()
 type(s.fileno()) == int
@@ -114,6 +115,7 @@ s.close()
 
 
 = L2bpfSocket - nonblock_recv()
+~ needs_root
 
 s = L2bpfSocket()
 s.nonblock_recv()
@@ -121,6 +123,7 @@ s.close()
 
 
 = L*bpfSocket - send()        
+~ needs_root
                               
 s = L2bpfSocket()             
 s.send(Ether()/IP(dst="8.8.8.8")/ICMP())
