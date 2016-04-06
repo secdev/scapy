@@ -15,6 +15,7 @@ get_if_raw_addr(conf.iface)
 = Get the packed MAC address of conf.iface
 
 get_if_raw_hwaddr(conf.iface)
+get_if_raw_hwaddr(LOOPBACK_NAME) == (ARPHDR_LOOPBACK, '\x00'*6) 
 
 
 ############
