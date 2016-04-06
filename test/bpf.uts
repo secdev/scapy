@@ -119,4 +119,15 @@ s = L2bpfSocket()
 s.nonblock_recv()
 s.close()
 
-# Note: other recv() & send() methods are tested in regression.uts
+
+= L*bpfSocket - send()        
+                              
+s = L2bpfSocket()             
+s.send(Ether()/IP(dst="8.8.8.8")/ICMP())
+                              
+s = L3bpfSocket()             
+s.send(IP(dst="8.8.8.8")/ICMP())
+                              
+s = L3bpfSocket()             
+s.assigned_interface = LOOPBACK_NAME
+s.send(IP(dst="8.8.8.8")/ICMP())
