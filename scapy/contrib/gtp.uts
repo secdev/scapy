@@ -6,7 +6,8 @@
 + GTPv1
 
 = GTPCreatePDPContextRequest(), basic instantiation
-gtp = IP()/UDP(dport=2123)/gtp_v1.GTPHeader(teid=2807)/gtp_v1.GTPCreatePDPContextRequest()
+gtp = IP()/UDP(dport=2123)/gtp_v1.GTPHeader(teid=2807) / \
+    gtp_v1.GTPCreatePDPContextRequest()
 gtp.dport == 2123 and gtp.teid == 2807 and len(gtp.IE_list) == 5
 
 = GTPV1UpdatePDPContextRequest(), dissect
@@ -116,7 +117,8 @@ ie = gtp.IE_list[6]
 ie.ietype == 26 and ie.normal_charging == 0 and ie.prepaid_charging == 1 and ie.flat_rate_charging == 0
 
 = IE_ChargingCharacteristics(), basic instantiation
-ie = gtp_v1.IE_ChargingCharacteristics(normal_charging=0, prepaid_charging=1, flat_rate_charging=0)
+ie = gtp_v1.IE_ChargingCharacteristics(
+    normal_charging=0, prepaid_charging=1, flat_rate_charging=0)
 ie.ietype == 26 and ie.normal_charging == 0 and ie.prepaid_charging == 1 and ie.flat_rate_charging == 0
 
 = IE_TraceReference(), basic instantiation
@@ -144,7 +146,8 @@ ie = gtp.IE_list[5]
 ie.ietype == 128 and ie.length == 6 and ie.PDPTypeOrganization == 1 and ie.PDPTypeNumber == 0x21 and ie.PDPAddress == '10.42.0.3'
 
 = IE_EndUserAddress(), basic instantiation
-ie = gtp_v1.IE_EndUserAddress(length=6, PDPTypeOrganization=1, PDPTypeNumber=0x21, PDPAddress='10.42.0.3')
+ie = gtp_v1.IE_EndUserAddress(
+    length=6, PDPTypeOrganization=1, PDPTypeNumber=0x21, PDPAddress='10.42.0.3')
 ie.ietype == 128 and ie.length == 6 and ie.PDPTypeOrganization == 1 and ie.PDPTypeNumber == 0x21 and ie.PDPAddress == '10.42.0.3'
 
 = IE_AccessPointName(), dissect
@@ -164,7 +167,8 @@ ie = gtp.IE_list[9]
 ie.ietype == 132 and ie.Protocol_Configuration == '\x80\xc0#\x06\x01\x01\x00\x06\x00\x00\x80!\x10\x01\x01\x00\x10\x81\x06\x00\x00\x00\x00\x83\x06\x00\x00\x00\x00'
 
 = IE_ProtocolConfigurationOptions(), basic instantiation
-ie = gtp_v1.IE_ProtocolConfigurationOptions(length=29, Protocol_Configuration='\x80\xc0#\x06\x01\x01\x00\x06\x00\x00\x80!\x10\x01\x01\x00\x10\x81\x06\x00\x00\x00\x00\x83\x06\x00\x00\x00\x00')
+ie = gtp_v1.IE_ProtocolConfigurationOptions(
+    length=29, Protocol_Configuration='\x80\xc0#\x06\x01\x01\x00\x06\x00\x00\x80!\x10\x01\x01\x00\x10\x81\x06\x00\x00\x00\x00\x83\x06\x00\x00\x00\x00')
 ie.ietype == 132 and ie.Protocol_Configuration == '\x80\xc0#\x06\x01\x01\x00\x06\x00\x00\x80!\x10\x01\x01\x00\x10\x81\x06\x00\x00\x00\x00\x83\x06\x00\x00\x00\x00'
 
 = IE_GSNAddress(), dissect
@@ -194,7 +198,8 @@ ie = gtp.IE_list[5]
 ie.ietype == 135 and ie.allocation_retention_prioiry == 2 and ie.delay_class == 2 and ie.traffic_class == 3
 
 = IE_QoS(), basic instantiation
-ie = gtp_v1.IE_QoS(allocation_retention_prioiry=2, delay_class=2, traffic_class=3)
+ie = gtp_v1.IE_QoS(
+    allocation_retention_prioiry=2, delay_class=2, traffic_class=3)
 ie.ietype == 135 and ie.allocation_retention_prioiry == 2 and ie.delay_class == 2 and ie.traffic_class == 3
 
 = IE_CommonFlags(), dissect
@@ -287,11 +292,13 @@ gtp = IP()/UDP(dport=2123)/gtp_v2.GTPHeader(gtp_type=1)
 gtp.dport == 2123 and gtp.gtp_type == 1
 
 = GTPV2EchoRequest, basic instantiation
-gtp = IP()/UDP(dport=2123)/gtp_v2.GTPHeader(gtp_type="create_session_req")/gtp_v2.GTPV2CreateSessionRequest(teid=2807, seq=12345)
+gtp = IP()/UDP(dport=2123)/gtp_v2.GTPHeader(gtp_type="create_session_req") / \
+    gtp_v2.GTPV2CreateSessionRequest(teid=2807, seq=12345)
 gtp.dport == 2123 and gtp.teid == 2807 and gtp.seq == 12345
 
 = GTPV2CreateSessionRequest, basic instantiation
-gtp = IP()/UDP(dport=2123)/gtp_v2.GTPHeader(gtp_type="create_session_req")/gtp_v2.GTPV2CreateSessionRequest(teid=2807, seq=12345)
+gtp = IP()/UDP(dport=2123)/gtp_v2.GTPHeader(gtp_type="create_session_req") / \
+    gtp_v2.GTPV2CreateSessionRequest(teid=2807, seq=12345)
 gtp.dport == 2123 and gtp.teid == 2807 and gtp.seq == 12345
 
 = GTPV2EchoRequest, dissection
@@ -326,15 +333,18 @@ ie = gtp.IE_list[0]
 ie.Cause == 16
 
 = IE_Cause, basic instantiation
-ie = gtp_v2.IE_Cause(ietype='Cause', length=2, Cause='Request Accepted', PCE=1, BCE=0, CS=0)
+ie = gtp_v2.IE_Cause(
+    ietype='Cause', length=2, Cause='Request Accepted', PCE=1, BCE=0, CS=0)
 ie.ietype == 2 and ie.Cause == 16 and ie.PCE == 1 and ie.BCE == 0 and ie.CS == 0
 
 = IE_Cause, basic instantiation 2
-ie = gtp_v2.IE_Cause(ietype='Cause', length=2, Cause='Request Accepted', PCE=0, BCE=1, CS=0)
+ie = gtp_v2.IE_Cause(
+    ietype='Cause', length=2, Cause='Request Accepted', PCE=0, BCE=1, CS=0)
 ie.ietype == 2 and ie.Cause == 16 and ie.PCE == 0 and ie.BCE == 1 and ie.CS == 0
 
 = IE_Cause, basic instantiation 3
-ie = gtp_v2.IE_Cause(ietype='Cause', length=2, Cause='Request Accepted', PCE=0, BCE=0, CS=1)
+ie = gtp_v2.IE_Cause(
+    ietype='Cause', length=2, Cause='Request Accepted', PCE=0, BCE=0, CS=1)
 ie.ietype == 2 and ie.Cause == 16 and ie.PCE == 0 and ie.BCE == 0 and ie.CS == 1
 
 = IE_RecoveryRestart, dissection
@@ -344,7 +354,8 @@ ie = gtp.IE_list[0]
 ie.ietype == 3 and ie.restart_counter == 13
 
 = IE_RecoveryRestart, basic instantiation
-ie = gtp_v2.IE_RecoveryRestart(ietype='Recovery Restart', length=1, restart_counter=17)
+ie = gtp_v2.IE_RecoveryRestart(
+    ietype='Recovery Restart', length=1, restart_counter=17)
 ie.ietype == 3 and ie.restart_counter == 17
 
 = IE_APN, dissection
@@ -364,7 +375,8 @@ ie = gtp.IE_list[11]
 ie.AMBR_Uplink == 5888 and ie.AMBR_Downlink == 42000
 
 = IE_AMBR, basic instantiation
-ie = gtp_v2.IE_AMBR(ietype='AMBR', length=8, AMBR_Uplink=5888, AMBR_Downlink=42000)
+ie = gtp_v2.IE_AMBR(
+    ietype='AMBR', length=8, AMBR_Uplink=5888, AMBR_Downlink=42000)
 ie.ietype == 72 and ie.AMBR_Uplink == 5888 and ie.AMBR_Downlink == 42000
 
 = IE_EPSBearerID, dissection
@@ -428,7 +440,8 @@ ie = gtp.IE_list[5]
 ie.Protocols[0].address == '10.42.0.3'
 
 = IE_PCO, basic instantiation
-ie = gtp_v2.IE_PCO(ietype='Protocol Configuration Options', length=8, Extension=1, PPP=3, Protocols=[gtp_v2.PCO_DNS_Server_IPv4(type='DNS Server IPv4 Address Request', length=4, address='10.42.0.3')])
+ie = gtp_v2.IE_PCO(ietype='Protocol Configuration Options', length=8, Extension=1, PPP=3, Protocols=[
+                   gtp_v2.PCO_DNS_Server_IPv4(type='DNS Server IPv4 Address Request', length=4, address='10.42.0.3')])
 ie.Extension == 1 and ie.PPP == 3 and ie.Protocols[0].address == '10.42.0.3'
 
 = IE_PAA, dissection
@@ -448,7 +461,8 @@ ie = gtp.IE_list[12].IE_list[2]
 ie.MaxBitRateForUplink == 0 and ie.MaxBitRateForDownlink == 0 and ie.QCI == 7
 
 = IE_Bearer_QoS, basic instantiation
-ie = gtp_v2.IE_Bearer_QoS(ietype='Bearer QoS', length=22, PCI=4, PriorityLevel=5, PVI=6, QCI=7, MaxBitRateForUplink=1, MaxBitRateForDownlink=2, GuaranteedBitRateForUplink=3, GuaranteedBitRateForDownlink=4)
+ie = gtp_v2.IE_Bearer_QoS(ietype='Bearer QoS', length=22, PCI=4, PriorityLevel=5, PVI=6, QCI=7,
+                          MaxBitRateForUplink=1, MaxBitRateForDownlink=2, GuaranteedBitRateForUplink=3, GuaranteedBitRateForDownlink=4)
 ie.ietype == 80 and ie.PCI == 4 and ie.PriorityLevel == 5 and ie.PVI == 6 and ie.QCI == 7 and ie.MaxBitRateForUplink == 1 and ie.MaxBitRateForDownlink == 2 and ie.GuaranteedBitRateForUplink == 3 and ie.GuaranteedBitRateForDownlink == 4
 
 = IE_RAT, dissection
@@ -468,7 +482,8 @@ ie = gtp.IE_list[3]
 ie.MCC == '234' and ie.MNC == '02'
 
 = IE_ServingNetwork, basic instantiation
-ie = gtp_v2.IE_ServingNetwork(ietype='Serving Network', length=3, MCC='234', MNC='02')
+ie = gtp_v2.IE_ServingNetwork(
+    ietype='Serving Network', length=3, MCC='234', MNC='02')
 ie.ietype == 83 and ie.MCC == '234' and ie.MNC == '02'
 
 = IE_ULI, dissection
@@ -478,7 +493,8 @@ ie = gtp.IE_list[2]
 ie.TAI_Present == 1 and ie.ECGI_Present == 1 and ie.TAI.MCC == '234' and ie.TAI.MNC == '02' and ie.TAI.TAC == 12345 and ie.ECGI.MCC == '234' and ie.ECGI.MNC == '02' and ie.ECGI.ECI == 123456
 
 = IE_ULI, basic instantiation
-ie = gtp_v2.IE_ULI(ietype='ULI', length=13, LAI_Present=0, ECGI_Present=1, TAI_Present=1, RAI_Present=0, SAI_Present=0, CGI_Present=0, TAI=gtp_v2.ULI_TAI(MCC='234', MNC='02', TAC=12345), ECGI=gtp_v2.ULI_ECGI(MCC='234', MNC='02', ECI=123456))
+ie = gtp_v2.IE_ULI(ietype='ULI', length=13, LAI_Present=0, ECGI_Present=1, TAI_Present=1, RAI_Present=0, SAI_Present=0,
+                   CGI_Present=0, TAI=gtp_v2.ULI_TAI(MCC='234', MNC='02', TAC=12345), ECGI=gtp_v2.ULI_ECGI(MCC='234', MNC='02', ECI=123456))
 ie.ietype == 86 and ie.LAI_Present == 0 and ie.ECGI_Present == 1 and ie.TAI_Present == 1 and ie.RAI_Present == 0 and ie.SAI_Present == 0 and ie.CGI_Present == 0 and ie.TAI.MCC == '234' and ie.TAI.MNC == '02' and ie.TAI.TAC == 12345 and ie.ECGI.MCC == '234' and ie.ECGI.MNC == '02' and ie.ECGI.ECI == 123456
 
 = IE_FTEID, dissection
@@ -488,18 +504,22 @@ ie = gtp.IE_list[5]
 ie.GRE_Key == 4242 and ie.ipv4 == '127.0.0.2'
 
 = IE_FTEID, basic instantiation
-ie = gtp_v2.IE_FTEID(ietype='F-TEID', length=9, ipv4_present=1, InterfaceType=10, GRE_Key=0x1092, ipv4='127.0.0.2')
+ie = gtp_v2.IE_FTEID(ietype='F-TEID', length=9, ipv4_present=1,
+                     InterfaceType=10, GRE_Key=0x1092, ipv4='127.0.0.2')
 ie.ietype == 87 and ie.ipv4_present == 1 and ie.InterfaceType == 10 and ie.GRE_Key == 0x1092 and ie.ipv4 == '127.0.0.2'
 
 = IE_BearerContext, dissection
 h = "3333333333332222222222228100a384080045b800ed00000000fc1193430a2a00010a2a00027f61084b00d91c47482000cd140339f4d99f66000100080002081132547600004b000800000000000001e24056000d001832f420303932f4200001e2405300030032f4205200010006570009008a000010927f0000025700090187000010927f00000247001a00196161616161616161616161616161616161616161616161616163000100014f000500017f0000034d0004000808000048000800000017000000a4105d002c0049000100e55700090385000010927f00000250001600580700000000000000000000000000000000000000007200020014005311004c"
 gtp = Ether(h.decode('hex'))
 ie = gtp.IE_list[12]
-len(ie.IE_list) == 3 and ie.IE_list[0].ietype == 73 and ie.IE_list[0].EBI == 229 and ie.IE_list[1].ietype == 87 and ie.IE_list[1].ipv4 == '127.0.0.2' and ie.IE_list[2].ietype == 80 and ie.IE_list[2].QCI == 7
+len(ie.IE_list) == 3 and ie.IE_list[0].ietype == 73 and ie.IE_list[0].EBI == 229 and ie.IE_list[
+    1].ietype == 87 and ie.IE_list[1].ipv4 == '127.0.0.2' and ie.IE_list[2].ietype == 80 and ie.IE_list[2].QCI == 7
 
 = IE_BearerContext, basic instantiation
-ie = gtp_v2.IE_BearerContext(ietype='Bearer Context', length=44, IE_list=[gtp_v2.IE_EPSBearerID(ietype='EPS Bearer ID', length=1, EBI=229)])
-ie.ietype == 93 and len(ie.IE_list) == 1 and ie.IE_list[0].ietype == 73 and ie.IE_list[0].EBI == 229
+ie = gtp_v2.IE_BearerContext(ietype='Bearer Context', length=44, IE_list=[
+                             gtp_v2.IE_EPSBearerID(ietype='EPS Bearer ID', length=1, EBI=229)])
+ie.ietype == 93 and len(ie.IE_list) == 1 and ie.IE_list[
+    0].ietype == 73 and ie.IE_list[0].EBI == 229
 
 = IE_ChargingID, dissection
 h = "3333333333332222222222228100838408004580006d00000000f31180d20a2a00010a2a0002084b85930059e49a4823004da0316b4d96ac2c000200020010004c00060011111111111149000100c348000800000061a8000249f07f000100005d001300490001003f0200020010005e00040039004f454a0004007f00000436f73a63"
@@ -518,7 +538,8 @@ ie = gtp.IE_list[18]
 ie.ChargingCharacteristric == 0xa00
 
 = IE_ChargingCharacteristics, basic instantiation
-ie = gtp_v2.IE_ChargingCharacteristics(ietype='Charging Characteristics', length=2, ChargingCharacteristric=0xa00)
+ie = gtp_v2.IE_ChargingCharacteristics(
+    ietype='Charging Characteristics', length=2, ChargingCharacteristric=0xa00)
 ie.ietype == 95 and ie.ChargingCharacteristric == 0xa00
 
 = IE_PDN_type, dissection
@@ -552,7 +573,8 @@ ie = gtp.IE_list[4]
 ie.APN_Restriction == 0
 
 = IE_APN_Restriction, basic instantiation
-ie = gtp_v2.IE_APN_Restriction(ietype='APN Restriction', length=1, APN_Restriction=0)
+ie = gtp_v2.IE_APN_Restriction(
+    ietype='APN Restriction', length=1, APN_Restriction=0)
 ie.ietype == 127 and ie.APN_Restriction == 0
 
 = IE_SelectionMode, dissection
@@ -562,7 +584,8 @@ ie = gtp.IE_list[9]
 ie.SelectionMode == 0
 
 = IE_SelectionMode, basic instantiation
-ie = gtp_v2.IE_SelectionMode(ietype='Selection Mode', length=1, SelectionMode=4)
+ie = gtp_v2.IE_SelectionMode(
+    ietype='Selection Mode', length=1, SelectionMode=4)
 ie.ietype == 128 and ie.SelectionMode == 4
 
 = IE_MMBR, dissection
@@ -572,5 +595,6 @@ ie = gtp.IE_list[18]
 ie.uplink_rate == 5696 and ie.downlink_rate == 21000
 
 = IE_MMBR, basic instantiation
-ie = gtp_v2.IE_MMBR(ietype='Max MBR/APN-AMBR (MMBR)', length=8, uplink_rate=5696, downlink_rate=21000)
+ie = gtp_v2.IE_MMBR(ietype='Max MBR/APN-AMBR (MMBR)',
+                    length=8, uplink_rate=5696, downlink_rate=21000)
 ie.ietype == 161 and ie.uplink_rate == 5696 and ie.downlink_rate == 21000
