@@ -5,6 +5,20 @@
 
 ############
 ############
++ Addresses manipulation functions
+
+= Get the packet IPv4 address configures on conf.iface
+
+get_if_raw_addr(conf.iface)
+
+
+= Get the packed MAC address of conf.iface
+
+get_if_raw_hwaddr(conf.iface)
+
+
+############
+############
 + BPF related functions
 
 = Get a BPF handler
@@ -96,6 +110,7 @@ s = L2bpfListenSocket()
 guessed = s.guess_cls()
 issubclass(guessed, Packet)
 s.close()
+
 
 = L2bpfSocket - nonblock_recv()
 
