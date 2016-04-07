@@ -284,8 +284,10 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
     def conversations(self, getsrcdst=None,**kargs):
         """Graphes a conversations between sources and destinations and display it
         (using graphviz and imagemagick)
-        getsrcdst: a function that takes an element of the list and return the source and dest
-                   by defaults, return IP source and destination from IP or ARP layers
+        getsrcdst: a function that takes an element of the list and
+                   returns the source, the destination and optionally
+                   a label. By default, returns the IP source and
+                   destination from IP and ARP layers
         type: output type (svg, ps, gif, jpg, etc.), passed to dot's "-T" option
         target: filename or redirect. Defaults pipe to Imagemagick's display program
         prog: which graphviz program to use"""
@@ -302,9 +304,16 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
             try:
                 c = getsrcdst(p)
             except:
-                #XXX warning()
+                # No warning here: it's OK that getsrcdst() raises an
+                # exception, since it might be, for example, a
+                # function that expects a specific layer in each
+                # packet. The try/except approach is faster and
+                # considered more Pythonic than adding tests.
                 continue
-            conv[c] = conv.get(c,0)+1
+            if len(c) == 3:
+                conv.setdefault(c[:2], set()).add(c[2])
+            else:
+                conv[c] = conv.get(c, 0) + 1
         gr = 'digraph "conv" {\n'
         for s,d in conv:
             gr += '\t "%s" -> "%s"\n' % (s,d)
