@@ -285,12 +285,17 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
         """Graphes a conversations between sources and destinations and display it
         (using graphviz and imagemagick)
         getsrcdst: a function that takes an element of the list and return the source and dest
-                   by defaults, return source and destination IP
+                   by defaults, return IP source and destination from IP or ARP layers
         type: output type (svg, ps, gif, jpg, etc.), passed to dot's "-T" option
         target: filename or redirect. Defaults pipe to Imagemagick's display program
         prog: which graphviz program to use"""
         if getsrcdst is None:
-            getsrcdst = lambda x:(x['IP'].src, x['IP'].dst)
+            def getsrcdst(pkt):
+                if IP in pkt:
+                    return (pkt[IP].src, pkt[IP].dst)
+                if ARP in pkt:
+                    return (pkt[ARP].psrc, pkt[ARP].pdst)
+                raise TypeError()
         conv = {}
         for p in self.res:
             p = self._elt2pkt(p)
