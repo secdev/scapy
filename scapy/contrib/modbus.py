@@ -569,6 +569,21 @@ class ModbusPDU2B0EReadDeviceIdentificationError(Packet):
                    ByteEnumField("exceptCode", 1, _modbus_exceptions)]
 
 
+class ModbusPDU5ASpecificSchneiderElectricRequest(Packet):
+    name = "Specific Schneider Electric Request"
+    fileds_desc = [XByteField("funcCode", 0x5A), ]
+
+
+class ModbusPDU5ASpecificSchneiderElectricResponse(Packet):
+    name = "Specific Schneider Electric Response"
+    fileds_desc = [XByteField("funcCode", 0x5A), ]
+
+
+class ModbusPDU5ASpecificSchneiderElectricError(Packet):
+    name = "Specific Schneider Electric Error"
+    fileds_desc = [XByteField("funcCode", 0x5A), ]
+
+
 class ModbusObjectId(Packet):
     name = "Object"
     fields_desc = [ByteEnumField("id", 0x00, _read_device_id_object_id),
@@ -595,6 +610,7 @@ _modbus_request_classes = {
     0x16: ModbusPDU16MaskWriteRegisterRequest,
     0x17: ModbusPDU17ReadWriteMultipleRegistersRequest,
     0x18: ModbusPDU18ReadFIFOQueueRequest,
+    0x5A: ModbusPDU5ASpecificSchneiderElectricRequest,
 }
 _modbus_error_classes = {
     0x81: ModbusPDU01ReadCoilsError,
@@ -612,7 +628,8 @@ _modbus_error_classes = {
     0x96: ModbusPDU16MaskWriteRegisterError,
     0x97: ModbusPDU17ReadWriteMultipleRegistersError,
     0x98: ModbusPDU18ReadFIFOQueueError,
-    0xAB: ModbusPDU2B0EReadDeviceIdentificationError
+    0xAB: ModbusPDU2B0EReadDeviceIdentificationError,
+    0xDA: ModbusPDU5ASpecificSchneiderElectricError,
 }
 _modbus_response_classes = {
     0x01: ModbusPDU01ReadCoilsResponse,
@@ -629,7 +646,8 @@ _modbus_response_classes = {
     0x15: ModbusPDU15WriteFileRecordResponse,
     0x16: ModbusPDU16MaskWriteRegisterResponse,
     0x17: ModbusPDU17ReadWriteMultipleRegistersResponse,
-    0x18: ModbusPDU18ReadFIFOQueueResponse
+    0x18: ModbusPDU18ReadFIFOQueueResponse,
+    0x5A: ModbusPDU5ASpecificSchneiderElectricResponse,
 }
 _mei_types_request = {
     0x0E: ModbusPDU2B0EReadDeviceIdentificationRequest,
