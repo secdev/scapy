@@ -315,8 +315,10 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
             else:
                 conv[c] = conv.get(c, 0) + 1
         gr = 'digraph "conv" {\n'
-        for s,d in conv:
-            gr += '\t "%s" -> "%s"\n' % (s,d)
+        for (s, d), l in conv.iteritems():
+            gr += '\t "%s" -> "%s" [label="%s"]\n' % (
+                s, d, ', '.join(str(x) for x in l) if isinstance(l, set) else l
+            )
         gr += "}\n"        
         return do_graph(gr, **kargs)
 
