@@ -136,9 +136,10 @@ class Route:
         dst = atol(dst)
         pathes=[]
         for d,m,gw,i,a in self.routes:
-            aa = atol(a)
-            if aa == dst:
-                pathes.append((0xffffffffL,(LOOPBACK_NAME,a,"0.0.0.0")))
+            if a:
+                aa = atol(a)
+                if aa == dst:
+                    pathes.append((0xffffffffL,(LOOPBACK_NAME,a,"0.0.0.0")))
             if (dst & m) == (d & m):
                 pathes.append((m,(i,a,gw)))
         if not pathes:
