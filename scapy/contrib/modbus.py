@@ -571,17 +571,17 @@ class ModbusPDU2B0EReadDeviceIdentificationError(Packet):
 
 class ModbusPDU5ASpecificSchneiderElectricRequest(Packet):
     name = "Specific Schneider Electric Request"
-    fileds_desc = [XByteField("funcCode", 0x5A), ]
+    fields_desc = [XByteField("funcCode", 0x5A)]
 
 
 class ModbusPDU5ASpecificSchneiderElectricResponse(Packet):
     name = "Specific Schneider Electric Response"
-    fileds_desc = [XByteField("funcCode", 0x5A), ]
+    fields_desc = [XByteField("funcCode", 0x5A)]
 
 
 class ModbusPDU5ASpecificSchneiderElectricError(Packet):
     name = "Specific Schneider Electric Error"
-    fileds_desc = [XByteField("funcCode", 0x5A), ]
+    fields_desc = [XByteField("funcCode", 0xDA)]
 
 
 class ModbusObjectId(Packet):

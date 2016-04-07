@@ -270,3 +270,10 @@ p.payload.payload.payload.id == 2 and  p.payload.payload.id == 1 and p.payload.i
 = ModbusPDU2B0EReadDeviceIdentificationError
 str(ModbusPDU2B0EReadDeviceIdentificationError()) == '\xab\x01'
 
+# 0x5a Specific Schneider Electric --------------------------------------------------
+= ModbusPDU5ASpecificSchneiderElectricRequest
+str(ModbusPDU5ASpecificSchneiderElectricRequest()) == '\x5a'
+= ModbusPDU5ASpecificSchneiderElectricResponse
+str(ModbusPDU5ASpecificSchneiderElectricResponse()) == '\x5a'
+= ModbusPDU5ASpecificSchneiderElectricRequest
+str(ModbusPDU5ASpecificSchneiderElectricError()) == '\xda'
