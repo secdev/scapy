@@ -49,12 +49,12 @@ len(ifworking) and get_working_if() == ifworking[0][0]
 
 
 = Misc functions
-~ needs_root
+~ needs_root
 
 isBPFSocket(L2bpfListenSocket()) and isBPFSocket(L2bpfSocket()) and isBPFSocket(L3bpfSocket())
 
-bpf_select([L2bpfSocket()])
-bpf_select([L2bpfSocket(), sys.stdin.fileno()])
+l = bpf_select([L2bpfSocket()])
+l = bpf_select([L2bpfSocket(), sys.stdin.fileno()])
 
 
 ############
