@@ -31,42 +31,6 @@ _modbus_exceptions = {1: "Illegal Function Code",
                       11: "Gateway Target Device Failed to Respond"}
 
 
-class ModbusPDU00GenericRequest(Packet):
-    name = "Generic Request"
-    fields_desc = [XByteField("funcCode", 0x00),
-                   StrFixedLenField("payload", "", 255)]
-
-    def extract_padding(self, s):
-        return "", None
-
-    def mysummary(self):
-        return self.sprintf("Modbus Request %funcCode%")
-
-
-class ModbusPDU00GenericResponse(Packet):
-    name = "Generic Request"
-    fields_desc = [XByteField("funcCode", 0x00),
-                   StrFixedLenField("payload", "", 255)]
-
-    def extract_padding(self, s):
-        return "", None
-
-    def mysummary(self):
-        return self.sprintf("Modbus Response %funcCode%")
-
-
-class ModbusPDU00GenericError(Packet):
-    name = "Generic Exception"
-    fields_desc = [XByteField("funcCode", 0x80),
-                   ByteEnumField("exceptCode", 1, _modbus_exceptions)]
-
-    def extract_padding(self, s):
-        return "", None
-
-    def my_summary(self):
-        return self.sprintf("Modbus Exception %funcCode%")
-
-
 class ModbusPDU01ReadCoilsRequest(Packet):
     name = "Read Coils Request"
     fields_desc = [XByteField("funcCode", 0x01),
@@ -569,6 +533,95 @@ class ModbusPDU2B0EReadDeviceIdentificationError(Packet):
                    ByteEnumField("exceptCode", 1, _modbus_exceptions)]
 
 
+_reserved_funccode_request = {
+    0x5A: 'Specific Schneider Electric Request',
+        }
+
+_reserved_funccode_response = {
+    0x5A: 'Specific Schneider Electric Response',
+        }
+
+_reserved_funccode_error = {
+    0xDA: 'Specific Schneider Electric Error',
+        }
+
+
+class ModbusPDUReservedFunctionCodeRequest(Packet):
+    name = "Reserved Function Code Request"
+    fields_desc = [ByteEnumField("funcCode", 0x00, _reserved_funccode_request),]
+
+    def extract_padding(self, s):
+        return "", None
+
+    def mysummary(self):
+        return self.sprintf("Modbus Reserved Request %funcCode%")
+
+
+class ModbusPDUReservedFunctionCodeResponse(Packet):
+    name = "Reserved Function Code Response"
+    fields_desc = [ByteEnumField("funcCode", 0x00, _reserved_funccode_response),]
+
+    def extract_padding(self, s):
+        return "", None
+
+    def mysummary(self):
+        return self.sprintf("Modbus Reserved Response %funcCode%")
+
+
+class ModbusPDUReservedFunctionCodeError(Packet):
+    name = "Reserved Function Code Error"
+    fields_desc = [ByteEnumField("funcCode", 0x00, _reserved_funccode_error),]
+
+    def extract_padding(self, s):
+        return "", None
+
+    def mysummary(self):
+        return self.sprintf("Modbus Reserved Error %funcCode%")
+
+
+_userdefined_funccode_request = {
+        }
+
+_userdefined_funccode_response = {
+        }
+
+_userdefined_funccode_error = {
+        }
+
+
+class ModbusPDUUserDefinedFunctionCodeRequest(Packet):
+    name = "User-Defined Function Code Request"
+    fields_desc = [ByteEnumField("funcCode", 0x00, _userdefined_funccode_request),]
+
+    def extract_padding(self, s):
+        return "", None
+
+    def mysummary(self):
+        return self.sprintf("Modbus User-Defined Request %funcCode%")
+
+
+class ModbusPDUUserDefinedFunctionCodeResponse(Packet):
+    name = "User-Defined Function Code Response"
+    fields_desc = [ByteEnumField("funcCode", 0x00, _userdefined_funccode_response),]
+
+    def extract_padding(self, s):
+        return "", None
+
+    def mysummary(self):
+        return self.sprintf("Modbus User-Defined Response %funcCode%")
+
+
+class ModbusPDUUserDefinedFunctionCodeError(Packet):
+    name = "User-Defined Function Code Error"
+    fields_desc = [ByteEnumField("funcCode", 0x00, _userdefined_funccode_error),]
+
+    def extract_padding(self, s):
+        return "", None
+
+    def mysummary(self):
+        return self.sprintf("Modbus User-Defined Error %funcCode%")
+
+
 class ModbusObjectId(Packet):
     name = "Object"
     fields_desc = [ByteEnumField("id", 0x00, _read_device_id_object_id),
@@ -612,7 +665,7 @@ _modbus_error_classes = {
     0x96: ModbusPDU16MaskWriteRegisterError,
     0x97: ModbusPDU17ReadWriteMultipleRegistersError,
     0x98: ModbusPDU18ReadFIFOQueueError,
-    0xAB: ModbusPDU2B0EReadDeviceIdentificationError
+    0xAB: ModbusPDU2B0EReadDeviceIdentificationError,
 }
 _modbus_response_classes = {
     0x01: ModbusPDU01ReadCoilsResponse,
@@ -629,7 +682,7 @@ _modbus_response_classes = {
     0x15: ModbusPDU15WriteFileRecordResponse,
     0x16: ModbusPDU16MaskWriteRegisterResponse,
     0x17: ModbusPDU17ReadWriteMultipleRegistersResponse,
-    0x18: ModbusPDU18ReadFIFOQueueResponse
+    0x18: ModbusPDU18ReadFIFOQueueResponse,
 }
 _mei_types_request = {
     0x0E: ModbusPDU2B0EReadDeviceIdentificationRequest,
@@ -661,7 +714,9 @@ class ModbusADURequest(Packet):
             return _modbus_request_classes[function_code]
         except KeyError:
             pass
-        return ModbusPDU00GenericRequest
+        if function_code in _reserved_funccode_request.keys():
+            return ModbusPDUReservedFunctionCodeRequest
+        return ModbusPDUUserDefinedFunctionCodeRequest
 
     def post_build(self, p, pay):
         if self.len is None:
@@ -694,9 +749,13 @@ class ModbusADUResponse(Packet):
             return _modbus_error_classes[function_code]
         except KeyError:
             pass
-        if function_code < 0x81:
-            return ModbusPDU00GenericResponse
-        return ModbusPDU00GenericError
+        if function_code in _reserved_funccode_response.keys():
+            return ModbusPDUReservedFunctionCodeResponse
+        if function_code in _reserved_funccode_error.keys():
+            return ModbusPDUReservedFunctionCodeError
+        if function_code in _userdefined_funccode_response.keys():
+            return ModbusPDUUserDefinedFunctionCodeResponse
+        return ModbusPDUUserDefinedFunctionCodeError
 
     def post_build(self, p, pay):
         if self.len is None:
@@ -707,4 +766,3 @@ class ModbusADUResponse(Packet):
 
 bind_layers(TCP, ModbusADURequest, dport=502)
 bind_layers(TCP, ModbusADUResponse, sport=502)
-
