@@ -714,7 +714,9 @@ class ModbusADURequest(Packet):
             return _modbus_request_classes[function_code]
         except KeyError:
             pass
-        return ModbusPDU00GenericRequest
+        if function_code in _reserved_funccode_request.keys():
+            return ModbusPDUReservedFunctionCodeRequest
+        return ModbusPDUUserDefinedFunctionCodeRequest
 
     def post_build(self, p, pay):
         if self.len is None:
@@ -747,9 +749,13 @@ class ModbusADUResponse(Packet):
             return _modbus_error_classes[function_code]
         except KeyError:
             pass
-        if function_code < 0x81:
-            return ModbusPDU00GenericResponse
-        return ModbusPDU00GenericError
+        if function_code in _reserved_funccode_response.keys():
+            return ModbusPDUReservedFunctionCodeResponse
+        if function_code in _reserved_funccode_error.keys():
+            return ModbusPDUReservedFunctionCodeError
+        if function_code in _userdefined_funccode_response.keys():
+            return ModbusPDUUserDefinedFunctionCodeResponse
+        return ModbusPDUUserDefinedFunctionCodeError
 
     def post_build(self, p, pay):
         if self.len is None:
