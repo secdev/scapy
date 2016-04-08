@@ -800,3 +800,13 @@ def in6_get_common_plen(a, b):
         if mbits != 8:
             return 8*i + mbits
     return 128
+
+def in6_isvalid(address):
+    """Return True if 'address' is a valid IPv6 address string, False
+       otherwise."""
+
+    try:
+        socket.inet_pton(socket.AF_INET6, address)
+        return True
+    except:
+        return False
