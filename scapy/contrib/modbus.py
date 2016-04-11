@@ -31,42 +31,6 @@ _modbus_exceptions = {1: "Illegal Function Code",
                       11: "Gateway Target Device Failed to Respond"}
 
 
-class ModbusPDU00GenericRequest(Packet):
-    name = "Generic Request"
-    fields_desc = [XByteField("funcCode", 0x00),
-                   StrFixedLenField("payload", "", 255)]
-
-    def extract_padding(self, s):
-        return "", None
-
-    def mysummary(self):
-        return self.sprintf("Modbus Request %funcCode%")
-
-
-class ModbusPDU00GenericResponse(Packet):
-    name = "Generic Request"
-    fields_desc = [XByteField("funcCode", 0x00),
-                   StrFixedLenField("payload", "", 255)]
-
-    def extract_padding(self, s):
-        return "", None
-
-    def mysummary(self):
-        return self.sprintf("Modbus Response %funcCode%")
-
-
-class ModbusPDU00GenericError(Packet):
-    name = "Generic Exception"
-    fields_desc = [XByteField("funcCode", 0x80),
-                   ByteEnumField("exceptCode", 1, _modbus_exceptions)]
-
-    def extract_padding(self, s):
-        return "", None
-
-    def my_summary(self):
-        return self.sprintf("Modbus Exception %funcCode%")
-
-
 class ModbusPDU01ReadCoilsRequest(Packet):
     name = "Read Coils Request"
     fields_desc = [XByteField("funcCode", 0x01),
@@ -569,6 +533,429 @@ class ModbusPDU2B0EReadDeviceIdentificationError(Packet):
                    ByteEnumField("exceptCode", 1, _modbus_exceptions)]
 
 
+_reserved_funccode_request = {
+    0x08: '0x08 Unknown Reserved Request',
+    0x09: '0x09 Unknown Reserved Request',
+    0x0A: '0x0a Unknown Reserved Request',
+    0x0D: '0x0d Unknown Reserved Request',
+    0x0E: '0x0e Unknown Reserved Request',
+    0x29: '0x29 Unknown Reserved Request',
+    0x2A: '0x2a Unknown Reserved Request',
+    0x5A: 'Specific Schneider Electric Request',
+    0x5B: '0x5b Unknown Reserved Request',
+    0x7D: '0x7d Unknown Reserved Request',
+    0x7E: '0x7e Unknown Reserved Request',
+    0x7F: '0x7f Unknown Reserved Request',
+        }
+
+_reserved_funccode_response = {
+    0x08: '0x08 Unknown Reserved Response',
+    0x09: '0x09 Unknown Reserved Response',
+    0x0A: '0x0a Unknown Reserved Response',
+    0x0D: '0x0d Unknown Reserved Response',
+    0x0E: '0x0e Unknown Reserved Response',
+    0x29: '0x29 Unknown Reserved Response',
+    0x2A: '0x2a Unknown Reserved Response',
+    0x5A: 'Specific Schneider Electric Response',
+    0x5B: '0x5b Unknown Reserved Response',
+    0x7D: '0x7d Unknown Reserved Response',
+    0x7E: '0x7e Unknown Reserved Response',
+    0x7F: '0x7f Unknown Reserved Response',
+        }
+
+_reserved_funccode_error = {
+    0x88: '0x88 Unknown Reserved Error',
+    0x89: '0x89 Unknown Reserved Error',
+    0x8A: '0x8a Unknown Reserved Error',
+    0x8D: '0x8d Unknown Reserved Error',
+    0x8E: '0x8e Unknown Reserved Error',
+    0xA9: '0x88 Unknown Reserved Error',
+    0xAA: '0x88 Unknown Reserved Error',
+    0xDA: 'Specific Schneider Electric Error',
+    0xDB: '0xdb Unknown Reserved Error',
+    0xDC: '0xdc Unknown Reserved Error',
+    0xFD: '0xfd Unknown Reserved Error',
+    0xFE: '0xfe Unknown Reserved Error',
+    0xFF: '0xff Unknown Reserved Error',
+        }
+
+
+class ModbusPDUReservedFunctionCodeRequest(Packet):
+    name = "Reserved Function Code Request"
+    fields_desc = [ByteEnumField("funcCode", 0x00, _reserved_funccode_request),]
+
+    def extract_padding(self, s):
+        return "", None
+
+    def mysummary(self):
+        return self.sprintf("Modbus Reserved Request %funcCode%")
+
+
+class ModbusPDUReservedFunctionCodeResponse(Packet):
+    name = "Reserved Function Code Response"
+    fields_desc = [ByteEnumField("funcCode", 0x00, _reserved_funccode_response),]
+
+    def extract_padding(self, s):
+        return "", None
+
+    def mysummary(self):
+        return self.sprintf("Modbus Reserved Response %funcCode%")
+
+
+class ModbusPDUReservedFunctionCodeError(Packet):
+    name = "Reserved Function Code Error"
+    fields_desc = [ByteEnumField("funcCode", 0x00, _reserved_funccode_error),]
+
+    def extract_padding(self, s):
+        return "", None
+
+    def mysummary(self):
+        return self.sprintf("Modbus Reserved Error %funcCode%")
+
+
+_userdefined_funccode_request = {
+    0x12: 'Unknown User-Defined Request',
+    0x13: 'Unknown User-Defined Request',
+    0x19: 'Unknown User-Defined Request',
+    0x1A: 'Unknown User-Defined Request',
+    0x1B: 'Unknown User-Defined Request',
+    0x1C: 'Unknown User-Defined Request',
+    0x1D: 'Unknown User-Defined Request',
+    0x1E: 'Unknown User-Defined Request',
+    0x1F: 'Unknown User-Defined Request',
+    0x20: 'Unknown User-Defined Request',
+    0x21: 'Unknown User-Defined Request',
+    0x22: 'Unknown User-Defined Request',
+    0x23: 'Unknown User-Defined Request',
+    0x24: 'Unknown User-Defined Request',
+    0x25: 'Unknown User-Defined Request',
+    0x26: 'Unknown User-Defined Request',
+    0x27: 'Unknown User-Defined Request',
+    0x28: 'Unknown User-Defined Request',
+    0x2B: 'Unknown User-Defined Request',
+    0x2C: 'Unknown User-Defined Request',
+    0x2D: 'Unknown User-Defined Request',
+    0x2E: 'Unknown User-Defined Request',
+    0x2F: 'Unknown User-Defined Request',
+    0x30: 'Unknown User-Defined Request',
+    0x31: 'Unknown User-Defined Request',
+    0x32: 'Unknown User-Defined Request',
+    0x33: 'Unknown User-Defined Request',
+    0x34: 'Unknown User-Defined Request',
+    0x35: 'Unknown User-Defined Request',
+    0x36: 'Unknown User-Defined Request',
+    0x37: 'Unknown User-Defined Request',
+    0x38: 'Unknown User-Defined Request',
+    0x39: 'Unknown User-Defined Request',
+    0x3A: 'Unknown User-Defined Request',
+    0x39: 'Unknown User-Defined Request',
+    0x3A: 'Unknown User-Defined Request',
+    0x3B: 'Unknown User-Defined Request',
+    0x3C: 'Unknown User-Defined Request',
+    0x3D: 'Unknown User-Defined Request',
+    0x3E: 'Unknown User-Defined Request',
+    0x3F: 'Unknown User-Defined Request',
+    0x40: 'Unknown User-Defined Request',
+    0x41: 'Unknown User-Defined Request',
+    0x42: 'Unknown User-Defined Request',
+    0x43: 'Unknown User-Defined Request',
+    0x44: 'Unknown User-Defined Request',
+    0x45: 'Unknown User-Defined Request',
+    0x46: 'Unknown User-Defined Request',
+    0x47: 'Unknown User-Defined Request',
+    0x48: 'Unknown User-Defined Request',
+    0x49: 'Unknown User-Defined Request',
+    0x4A: 'Unknown User-Defined Request',
+    0x4B: 'Unknown User-Defined Request',
+    0x4C: 'Unknown User-Defined Request',
+    0x4D: 'Unknown User-Defined Request',
+    0x4E: 'Unknown User-Defined Request',
+    0x4F: 'Unknown User-Defined Request',
+    0x50: 'Unknown User-Defined Request',
+    0x51: 'Unknown User-Defined Request',
+    0x52: 'Unknown User-Defined Request',
+    0x53: 'Unknown User-Defined Request',
+    0x54: 'Unknown User-Defined Request',
+    0x55: 'Unknown User-Defined Request',
+    0x56: 'Unknown User-Defined Request',
+    0x57: 'Unknown User-Defined Request',
+    0x58: 'Unknown User-Defined Request',
+    0x59: 'Unknown User-Defined Request',
+    0x5C: 'Unknown User-Defined Request',
+    0x5D: 'Unknown User-Defined Request',
+    0x5E: 'Unknown User-Defined Request',
+    0x5F: 'Unknown User-Defined Request',
+    0x60: 'Unknown User-Defined Request',
+    0x61: 'Unknown User-Defined Request',
+    0x62: 'Unknown User-Defined Request',
+    0x63: 'Unknown User-Defined Request',
+    0x64: 'Unknown User-Defined Request',
+    0x65: 'Unknown User-Defined Request',
+    0x66: 'Unknown User-Defined Request',
+    0x67: 'Unknown User-Defined Request',
+    0x68: 'Unknown User-Defined Request',
+    0x69: 'Unknown User-Defined Request',
+    0x6A: 'Unknown User-Defined Request',
+    0x6B: 'Unknown User-Defined Request',
+    0x6C: 'Unknown User-Defined Request',
+    0x6D: 'Unknown User-Defined Request',
+    0x6E: 'Unknown User-Defined Request',
+    0x6F: 'Unknown User-Defined Request',
+    0x70: 'Unknown User-Defined Request',
+    0x71: 'Unknown User-Defined Request',
+    0x72: 'Unknown User-Defined Request',
+    0x73: 'Unknown User-Defined Request',
+    0x74: 'Unknown User-Defined Request',
+    0x75: 'Unknown User-Defined Request',
+    0x76: 'Unknown User-Defined Request',
+    0x77: 'Unknown User-Defined Request',
+    0x78: 'Unknown User-Defined Request',
+    0x79: 'Unknown User-Defined Request',
+    0x7A: 'Unknown User-Defined Request',
+    0x7B: 'Unknown User-Defined Request',
+    0x7C: 'Unknown User-Defined Request',
+        }
+
+_userdefined_funccode_response = {
+    0x12: 'Unknown User-Defined Response',
+    0x13: 'Unknown User-Defined Response',
+    0x19: 'Unknown User-Defined Response',
+    0x1A: 'Unknown User-Defined Response',
+    0x1B: 'Unknown User-Defined Response',
+    0x1C: 'Unknown User-Defined Response',
+    0x1D: 'Unknown User-Defined Response',
+    0x1E: 'Unknown User-Defined Response',
+    0x1F: 'Unknown User-Defined Response',
+    0x20: 'Unknown User-Defined Response',
+    0x21: 'Unknown User-Defined Response',
+    0x22: 'Unknown User-Defined Response',
+    0x23: 'Unknown User-Defined Response',
+    0x24: 'Unknown User-Defined Response',
+    0x25: 'Unknown User-Defined Response',
+    0x26: 'Unknown User-Defined Response',
+    0x27: 'Unknown User-Defined Response',
+    0x28: 'Unknown User-Defined Response',
+    0x2B: 'Unknown User-Defined Response',
+    0x2C: 'Unknown User-Defined Response',
+    0x2D: 'Unknown User-Defined Response',
+    0x2E: 'Unknown User-Defined Response',
+    0x2F: 'Unknown User-Defined Response',
+    0x30: 'Unknown User-Defined Response',
+    0x31: 'Unknown User-Defined Response',
+    0x32: 'Unknown User-Defined Response',
+    0x33: 'Unknown User-Defined Response',
+    0x34: 'Unknown User-Defined Response',
+    0x35: 'Unknown User-Defined Response',
+    0x36: 'Unknown User-Defined Response',
+    0x37: 'Unknown User-Defined Response',
+    0x38: 'Unknown User-Defined Response',
+    0x39: 'Unknown User-Defined Response',
+    0x3A: 'Unknown User-Defined Response',
+    0x39: 'Unknown User-Defined Response',
+    0x3A: 'Unknown User-Defined Response',
+    0x3B: 'Unknown User-Defined Response',
+    0x3C: 'Unknown User-Defined Response',
+    0x3D: 'Unknown User-Defined Response',
+    0x3E: 'Unknown User-Defined Response',
+    0x3F: 'Unknown User-Defined Response',
+    0x40: 'Unknown User-Defined Response',
+    0x41: 'Unknown User-Defined Response',
+    0x42: 'Unknown User-Defined Response',
+    0x43: 'Unknown User-Defined Response',
+    0x44: 'Unknown User-Defined Response',
+    0x45: 'Unknown User-Defined Response',
+    0x46: 'Unknown User-Defined Response',
+    0x47: 'Unknown User-Defined Response',
+    0x48: 'Unknown User-Defined Response',
+    0x49: 'Unknown User-Defined Response',
+    0x4A: 'Unknown User-Defined Response',
+    0x4B: 'Unknown User-Defined Response',
+    0x4C: 'Unknown User-Defined Response',
+    0x4D: 'Unknown User-Defined Response',
+    0x4E: 'Unknown User-Defined Response',
+    0x4F: 'Unknown User-Defined Response',
+    0x50: 'Unknown User-Defined Response',
+    0x51: 'Unknown User-Defined Response',
+    0x52: 'Unknown User-Defined Response',
+    0x53: 'Unknown User-Defined Response',
+    0x54: 'Unknown User-Defined Response',
+    0x55: 'Unknown User-Defined Response',
+    0x56: 'Unknown User-Defined Response',
+    0x57: 'Unknown User-Defined Response',
+    0x58: 'Unknown User-Defined Response',
+    0x59: 'Unknown User-Defined Response',
+    0x5C: 'Unknown User-Defined Response',
+    0x5D: 'Unknown User-Defined Response',
+    0x5E: 'Unknown User-Defined Response',
+    0x5F: 'Unknown User-Defined Response',
+    0x60: 'Unknown User-Defined Response',
+    0x61: 'Unknown User-Defined Response',
+    0x62: 'Unknown User-Defined Response',
+    0x63: 'Unknown User-Defined Response',
+    0x64: 'Unknown User-Defined Response',
+    0x65: 'Unknown User-Defined Response',
+    0x66: 'Unknown User-Defined Response',
+    0x67: 'Unknown User-Defined Response',
+    0x68: 'Unknown User-Defined Response',
+    0x69: 'Unknown User-Defined Response',
+    0x6A: 'Unknown User-Defined Response',
+    0x6B: 'Unknown User-Defined Response',
+    0x6C: 'Unknown User-Defined Response',
+    0x6D: 'Unknown User-Defined Response',
+    0x6E: 'Unknown User-Defined Response',
+    0x6F: 'Unknown User-Defined Response',
+    0x70: 'Unknown User-Defined Response',
+    0x71: 'Unknown User-Defined Response',
+    0x72: 'Unknown User-Defined Response',
+    0x73: 'Unknown User-Defined Response',
+    0x74: 'Unknown User-Defined Response',
+    0x75: 'Unknown User-Defined Response',
+    0x76: 'Unknown User-Defined Response',
+    0x77: 'Unknown User-Defined Response',
+    0x78: 'Unknown User-Defined Response',
+    0x79: 'Unknown User-Defined Response',
+    0x7A: 'Unknown User-Defined Response',
+    0x7B: 'Unknown User-Defined Response',
+    0x7C: 'Unknown User-Defined Response',
+        }
+
+_userdefined_funccode_error = {
+    0x92: 'Unknown User-Defined Error',
+    0x93: 'Unknown User-Defined Error',
+    0x99: 'Unknown User-Defined Error',
+    0x9A: 'Unknown User-Defined Error',
+    0x9B: 'Unknown User-Defined Error',
+    0x9C: 'Unknown User-Defined Error',
+    0x9D: 'Unknown User-Defined Error',
+    0x9E: 'Unknown User-Defined Error',
+    0x9F: 'Unknown User-Defined Error',
+    0xA0: 'Unknown User-Defined Error',
+    0xA1: 'Unknown User-Defined Error',
+    0xA2: 'Unknown User-Defined Error',
+    0xA3: 'Unknown User-Defined Error',
+    0xA4: 'Unknown User-Defined Error',
+    0xA5: 'Unknown User-Defined Error',
+    0xA6: 'Unknown User-Defined Error',
+    0xA7: 'Unknown User-Defined Error',
+    0xA8: 'Unknown User-Defined Error',
+    0xAB: 'Unknown User-Defined Error',
+    0xAC: 'Unknown User-Defined Error',
+    0xAD: 'Unknown User-Defined Error',
+    0xAE: 'Unknown User-Defined Error',
+    0xAF: 'Unknown User-Defined Error',
+    0xB0: 'Unknown User-Defined Error',
+    0xB1: 'Unknown User-Defined Error',
+    0xB2: 'Unknown User-Defined Error',
+    0xB3: 'Unknown User-Defined Error',
+    0xB4: 'Unknown User-Defined Error',
+    0xB5: 'Unknown User-Defined Error',
+    0xB6: 'Unknown User-Defined Error',
+    0xB7: 'Unknown User-Defined Error',
+    0xB8: 'Unknown User-Defined Error',
+    0xB9: 'Unknown User-Defined Error',
+    0xBA: 'Unknown User-Defined Error',
+    0xB9: 'Unknown User-Defined Error',
+    0xBA: 'Unknown User-Defined Error',
+    0xBB: 'Unknown User-Defined Error',
+    0xBC: 'Unknown User-Defined Error',
+    0xBD: 'Unknown User-Defined Error',
+    0xBE: 'Unknown User-Defined Error',
+    0xBF: 'Unknown User-Defined Error',
+    0xC0: 'Unknown User-Defined Error',
+    0xC1: 'Unknown User-Defined Error',
+    0xC2: 'Unknown User-Defined Error',
+    0xC3: 'Unknown User-Defined Error',
+    0xC4: 'Unknown User-Defined Error',
+    0xC5: 'Unknown User-Defined Error',
+    0xC6: 'Unknown User-Defined Error',
+    0xC7: 'Unknown User-Defined Error',
+    0xC8: 'Unknown User-Defined Error',
+    0xC9: 'Unknown User-Defined Error',
+    0xCA: 'Unknown User-Defined Error',
+    0xCB: 'Unknown User-Defined Error',
+    0xCC: 'Unknown User-Defined Error',
+    0xCD: 'Unknown User-Defined Error',
+    0xCE: 'Unknown User-Defined Error',
+    0xCF: 'Unknown User-Defined Error',
+    0xD0: 'Unknown User-Defined Error',
+    0xD1: 'Unknown User-Defined Error',
+    0xD2: 'Unknown User-Defined Error',
+    0xD3: 'Unknown User-Defined Error',
+    0xD4: 'Unknown User-Defined Error',
+    0xD5: 'Unknown User-Defined Error',
+    0xD6: 'Unknown User-Defined Error',
+    0xD7: 'Unknown User-Defined Error',
+    0xD8: 'Unknown User-Defined Error',
+    0xD9: 'Unknown User-Defined Error',
+    0xDC: 'Unknown User-Defined Error',
+    0xDD: 'Unknown User-Defined Error',
+    0xDE: 'Unknown User-Defined Error',
+    0xDF: 'Unknown User-Defined Error',
+    0xE0: 'Unknown User-Defined Error',
+    0xE1: 'Unknown User-Defined Error',
+    0xE2: 'Unknown User-Defined Error',
+    0xE3: 'Unknown User-Defined Error',
+    0xE4: 'Unknown User-Defined Error',
+    0xE5: 'Unknown User-Defined Error',
+    0xE6: 'Unknown User-Defined Error',
+    0xE7: 'Unknown User-Defined Error',
+    0xE8: 'Unknown User-Defined Error',
+    0xE9: 'Unknown User-Defined Error',
+    0xEA: 'Unknown User-Defined Error',
+    0xEB: 'Unknown User-Defined Error',
+    0xEC: 'Unknown User-Defined Error',
+    0xED: 'Unknown User-Defined Error',
+    0xEE: 'Unknown User-Defined Error',
+    0xEF: 'Unknown User-Defined Error',
+    0xF0: 'Unknown User-Defined Error',
+    0xF1: 'Unknown User-Defined Error',
+    0xF2: 'Unknown User-Defined Error',
+    0xF3: 'Unknown User-Defined Error',
+    0xF4: 'Unknown User-Defined Error',
+    0xF5: 'Unknown User-Defined Error',
+    0xF6: 'Unknown User-Defined Error',
+    0xF7: 'Unknown User-Defined Error',
+    0xF8: 'Unknown User-Defined Error',
+    0xF9: 'Unknown User-Defined Error',
+    0xFA: 'Unknown User-Defined Error',
+    0xFB: 'Unknown User-Defined Error',
+    0xFC: 'Unknown User-Defined Error',
+        }
+
+
+class ModbusPDUUserDefinedFunctionCodeRequest(Packet):
+    name = "User-Defined Function Code Request"
+    fields_desc = [ByteEnumField("funcCode", 0x00, _userdefined_funccode_request),]
+
+    def extract_padding(self, s):
+        return "", None
+
+    def mysummary(self):
+        return self.sprintf("Modbus User-Defined Request %funcCode%")
+
+
+class ModbusPDUUserDefinedFunctionCodeResponse(Packet):
+    name = "User-Defined Function Code Response"
+    fields_desc = [ByteEnumField("funcCode", 0x00, _userdefined_funccode_response),]
+
+    def extract_padding(self, s):
+        return "", None
+
+    def mysummary(self):
+        return self.sprintf("Modbus User-Defined Response %funcCode%")
+
+
+class ModbusPDUUserDefinedFunctionCodeError(Packet):
+    name = "User-Defined Function Code Error"
+    fields_desc = [ByteEnumField("funcCode", 0x00, _userdefined_funccode_error),]
+
+    def extract_padding(self, s):
+        return "", None
+
+    def mysummary(self):
+        return self.sprintf("Modbus User-Defined Error %funcCode%")
+
+
 class ModbusObjectId(Packet):
     name = "Object"
     fields_desc = [ByteEnumField("id", 0x00, _read_device_id_object_id),
@@ -612,7 +999,7 @@ _modbus_error_classes = {
     0x96: ModbusPDU16MaskWriteRegisterError,
     0x97: ModbusPDU17ReadWriteMultipleRegistersError,
     0x98: ModbusPDU18ReadFIFOQueueError,
-    0xAB: ModbusPDU2B0EReadDeviceIdentificationError
+    0xAB: ModbusPDU2B0EReadDeviceIdentificationError,
 }
 _modbus_response_classes = {
     0x01: ModbusPDU01ReadCoilsResponse,
@@ -629,7 +1016,7 @@ _modbus_response_classes = {
     0x15: ModbusPDU15WriteFileRecordResponse,
     0x16: ModbusPDU16MaskWriteRegisterResponse,
     0x17: ModbusPDU17ReadWriteMultipleRegistersResponse,
-    0x18: ModbusPDU18ReadFIFOQueueResponse
+    0x18: ModbusPDU18ReadFIFOQueueResponse,
 }
 _mei_types_request = {
     0x0E: ModbusPDU2B0EReadDeviceIdentificationRequest,
@@ -650,9 +1037,9 @@ class ModbusADURequest(Packet):
 
     def guess_payload_class(self, payload):
         function_code = int(payload[0].encode("hex"), 16)
-        sub_code = int(payload[1].encode("hex"), 16)
 
         if function_code == 0x2B:
+            sub_code = int(payload[1].encode("hex"), 16)
             try:
                 return _mei_types_request[sub_code]
             except KeyError:
@@ -661,7 +1048,9 @@ class ModbusADURequest(Packet):
             return _modbus_request_classes[function_code]
         except KeyError:
             pass
-        return ModbusPDU00GenericRequest
+        if function_code in _reserved_funccode_request.keys():
+            return ModbusPDUReservedFunctionCodeRequest
+        return ModbusPDUUserDefinedFunctionCodeRequest
 
     def post_build(self, p, pay):
         if self.len is None:
@@ -679,9 +1068,9 @@ class ModbusADUResponse(Packet):
 
     def guess_payload_class(self, payload):
         function_code = int(payload[0].encode("hex"), 16)
-        sub_code = int(payload[1].encode("hex"), 16)
 
         if function_code == 0x2B:
+            sub_code = int(payload[1].encode("hex"), 16)
             try:
                 return _mei_types_response[sub_code]
             except KeyError:
@@ -694,9 +1083,13 @@ class ModbusADUResponse(Packet):
             return _modbus_error_classes[function_code]
         except KeyError:
             pass
-        if function_code < 0x81:
-            return ModbusPDU00GenericResponse
-        return ModbusPDU00GenericError
+        if function_code in _reserved_funccode_response.keys():
+            return ModbusPDUReservedFunctionCodeResponse
+        if function_code in _reserved_funccode_error.keys():
+            return ModbusPDUReservedFunctionCodeError
+        if function_code in _userdefined_funccode_response.keys():
+            return ModbusPDUUserDefinedFunctionCodeResponse
+        return ModbusPDUUserDefinedFunctionCodeError
 
     def post_build(self, p, pay):
         if self.len is None:
@@ -707,4 +1100,3 @@ class ModbusADUResponse(Packet):
 
 bind_layers(TCP, ModbusADURequest, dport=502)
 bind_layers(TCP, ModbusADUResponse, sport=502)
-

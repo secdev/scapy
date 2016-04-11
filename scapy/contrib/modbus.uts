@@ -31,16 +31,25 @@ p.payload.__class__.__name__ == 'ModbusPDU2B0EReadDeviceIdentificationResponse'
 p = ModbusADUResponse('\x00\x00\x00\x00\x00\x03\xff\xab\x01')
 p.payload.__class__.__name__ == 'ModbusPDU2B0EReadDeviceIdentificationError'
 
-= MBAP Guess Payload (Invalid payload)
-p = ModbusADURequest('\x00\x00\x00\x00\x00\x03\xff\xff\xff')
-p.payload.__class__.__name__ == 'ModbusPDU00GenericRequest'
-= MBAP Guess Payload ModbusPDU02ReadDiscreteInputsResponse
-p = ModbusADUResponse('\x00\x00\x00\x00\x00\x04\xff\x80\xff\x00')
-p.payload.__class__.__name__ == 'ModbusPDU00GenericResponse'
-= MBAP Guess Payload ModbusPDU02ReadDiscreteInputsError
-p = ModbusADUResponse('\x00\x00\x00\x00\x00\x04\xff\xff\xff\xff')
-p.payload.__class__.__name__ == 'ModbusPDU00GenericError'
+= MBAP Guess Payload Reserved Function Request (Invalid payload)
+p = ModbusADURequest('\x00\x00\x00\x00\x00\x02\xff\x5b')
+p.payload.__class__.__name__ == 'ModbusPDUReservedFunctionCodeRequest'
+= MBAP Guess Payload Reserved Function Response (Invalid payload)
+p = ModbusADUResponse('\x00\x00\x00\x00\x00\x02\xff\x7e')
+p.payload.__class__.__name__ == 'ModbusPDUReservedFunctionCodeResponse'
+= MBAP Guess Payload Reserved Function Error (Invalid payload)
+p = ModbusADUResponse('\x00\x00\x00\x00\x00\x02\xff\x8a')
+p.payload.__class__.__name__ == 'ModbusPDUReservedFunctionCodeError'
 
+= MBAP Guess Payload User-Defined Function Request (Invalid payload)
+p = ModbusADURequest('\x00\x00\x00\x00\x00\x02\xff\x5b')
+p.payload.__class__.__name__ == 'ModbusPDUReservedFunctionCodeRequest'
+= MBAP Guess Payload User-Defined Function Response (Invalid payload)
+p = ModbusADUResponse('\x00\x00\x00\x00\x00\x02\xff\x7e')
+p.payload.__class__.__name__ == 'ModbusPDUReservedFunctionCodeResponse'
+= MBAP Guess Payload User-Defined Function Error (Invalid payload)
+p = ModbusADUResponse('\x00\x00\x00\x00\x00\x02\xff\x8a')
+p.payload.__class__.__name__ == 'ModbusPDUReservedFunctionCodeError'
 
 + Test layer binding
 = Destination port
@@ -269,4 +278,3 @@ p.payload.payload.payload.id == 2 and  p.payload.payload.id == 1 and p.payload.i
 
 = ModbusPDU2B0EReadDeviceIdentificationError
 str(ModbusPDU2B0EReadDeviceIdentificationError()) == '\xab\x01'
-
