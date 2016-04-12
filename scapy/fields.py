@@ -283,6 +283,10 @@ class ThreeBytesField(X3BytesField, ByteField):
     def i2repr(self, pkt, x):
         return ByteField.i2repr(self, pkt, x)
 
+class SignedByteField(Field):
+    def __init__(self, name, default):
+        Field.__init__(self, name, default, "b")
+
 class ShortField(Field):
     def __init__(self, name, default):
         Field.__init__(self, name, default, "H")
