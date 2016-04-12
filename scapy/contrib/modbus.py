@@ -1085,9 +1085,9 @@ class ModbusADUResponse(Packet):
             pass
         if function_code in _reserved_funccode_response.keys():
             return ModbusPDUReservedFunctionCodeResponse
-        if function_code in _reserved_funccode_error.keys():
+        elif function_code in _reserved_funccode_error.keys():
             return ModbusPDUReservedFunctionCodeError
-        if function_code in _userdefined_funccode_response.keys():
+        elif function_code in _userdefined_funccode_response.keys():
             return ModbusPDUUserDefinedFunctionCodeResponse
         return ModbusPDUUserDefinedFunctionCodeError
 
