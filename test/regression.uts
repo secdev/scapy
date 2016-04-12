@@ -2583,7 +2583,6 @@ routes6 = read_routes6()
 # - three routes if there is a network interface
 
 iflist = get_if_list()
-iflist
 if iflist == [scapy.arch.LOOPBACK_NAME]:
     len(routes6) == 1
 elif len(iflist) >= 2:
