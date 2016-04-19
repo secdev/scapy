@@ -380,6 +380,10 @@ class _L2bpfSocket(SuperSocket):
             warning("BIOCGDLT failed: unable to guess type. Using Ethernet !")
             return Ether
 
+        # *BSD loopback interface
+        if OPENBSD and ret == 12:  # DTL_NULL on OpenBSD
+            return Loopback
+
         # Retrieve the corresponding class
         cls = conf.l2types.get(ret, None)
         if cls is None:

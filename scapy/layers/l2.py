@@ -392,6 +392,28 @@ class GRE(Packet):
         return p
 
 
+### *BSD loopback layer
+
+class NEIntEnumField(EnumField):
+    def __init__(self, name, default, enum):
+	EnumField.__init__(self, name, default, enum, "!I")
+
+
+class LoIntEnumField(NEIntEnumField):
+    def m2i(self, pkt, x):
+        # From tcpdump/print-null.c
+        if (x & 0xFFFF0000) != 0:
+            # SWAP_ON() macro
+            x = ((x & 0xFF000000) >> 24) | ((x & 0x00FF0000) >> 8)
+            x |= ((x & 0x0000FF00) << 8) | ((x & 0x000000FF) >> 24)
+        return x
+
+
+class Loopback(Packet):
+    """*BSD loopback layer"""
+
+    name = "Loopback"
+    fields_desc = [ LoIntEnumField("type", 0, ETHER_TYPES) ]
 
 
 bind_layers( Dot3,          LLC,           )
@@ -430,8 +452,8 @@ conf.l2types.register_num2layer(ARPHDR_LOOPBACK, Ether)
 conf.l2types.register_layer2num(ARPHDR_ETHER, Dot3)
 conf.l2types.register(144, CookedLinux)  # called LINUX_IRDA, similar to CookedLinux
 conf.l2types.register(113, CookedLinux)
-
 conf.l3types.register(ETH_P_ARP, ARP)
+conf.l3types.register(DLT_NULL, Loopback)
 
 
 
