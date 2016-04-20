@@ -394,26 +394,23 @@ class GRE(Packet):
 
 ### *BSD loopback layer
 
-class NEIntEnumField(EnumField):
+class LoIntEnumField(EnumField):
     def __init__(self, name, default, enum):
-	EnumField.__init__(self, name, default, enum, "!I")
+        EnumField.__init__(self, name, default, enum, "!I")
 
-
-class LoIntEnumField(NEIntEnumField):
     def m2i(self, pkt, x):
-        # From tcpdump/print-null.c
-        if (x & 0xFFFF0000) != 0:
-            # SWAP_ON() macro
-            x = ((x & 0xFF000000) >> 24) | ((x & 0x00FF0000) >> 8)
-            x |= ((x & 0x0000FF00) << 8) | ((x & 0x000000FF) >> 24)
-        return x
+        return x >> 24
 
+    def i2m(self, pkt, x):
+        return x << 24
+
+LOOPBACK_TYPES = { 0x2: "IPv4", 0x1c: "IPv6" }
 
 class Loopback(Packet):
     """*BSD loopback layer"""
 
     name = "Loopback"
-    fields_desc = [ LoIntEnumField("type", 0, ETHER_TYPES) ]
+    fields_desc = [ LoIntEnumField("type", 0x2, LOOPBACK_TYPES) ]
 
 
 bind_layers( Dot3,          LLC,           )
