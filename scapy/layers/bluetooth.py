@@ -464,6 +464,11 @@ class HCI_Cmd_LE_Set_Scan_Enable(Packet):
     fields_desc = [ ByteField("enable", 1),
                     ByteField("filter_dups", 1), ]
 
+class HCI_Cmd_Disconnect(Packet):
+    name = "Disconnect"
+    fields_desc = [ XLEShortField("handle", 0),
+                    ByteField("reason", 0x13), ]
+
 class HCI_Cmd_LE_Create_Connection(Packet):
     name = "LE Create Connection"
     fields_desc = [ LEShortField("interval", 96),
@@ -613,6 +618,7 @@ bind_layers( HCI_Command_Hdr, HCI_Cmd_LE_Set_Advertising_Data, opcode=0x2008)
 bind_layers( HCI_Command_Hdr, HCI_Cmd_LE_Set_Advertise_Enable, opcode=0x200a)
 bind_layers( HCI_Command_Hdr, HCI_Cmd_LE_Set_Scan_Parameters, opcode=0x200b)
 bind_layers( HCI_Command_Hdr, HCI_Cmd_LE_Set_Scan_Enable, opcode=0x200c)
+bind_layers( HCI_Command_Hdr, HCI_Cmd_Disconnect, opcode=0x406)
 bind_layers( HCI_Command_Hdr, HCI_Cmd_LE_Create_Connection, opcode=0x200d)
 bind_layers( HCI_Command_Hdr, HCI_Cmd_LE_Create_Connection_Cancel, opcode=0x200e)
 bind_layers( HCI_Command_Hdr, HCI_Cmd_LE_Long_Term_Key_Request_Reply, opcode=0x201a)
