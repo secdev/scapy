@@ -247,6 +247,25 @@ class SourceIP6Field(IP6Field):
                 iff,x,nh = conf.route6.route(dst)
         return IP6Field.i2h(self, pkt, x)
 
+class DestIP6Field(IP6Field):
+    __slots__ = ["defaultdst"]
+    def __init__(self, name, default):
+        IP6Field.__init__(self, name, None)
+        self.defaultdst = default
+    def dst_from_pkt(self, pkt):
+        if isinstance(pkt.payload, UDP):
+            if pkt.payload.dport == 5353:
+                return "ff02::fb"
+        return self.defaultdst
+    def i2m(self, pkt, x):
+        if x is None:
+            x = self.dst_from_pkt(pkt)
+        return IP6Field.i2m(self, pkt, x)
+    def i2h(self, pkt, x):
+        if x is None:
+            x = self.dst_from_pkt(pkt)
+        return IP6Field.i2h(self, pkt, x)
+
 ipv6nh = { 0:"Hop-by-Hop Option Header",
            4:"IP",
            6:"TCP",
@@ -358,7 +377,7 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
                     ByteEnumField("nh", 59, ipv6nh),
                     ByteField("hlim", 64),
                     SourceIP6Field("src", "dst"), # dst is for src @ selection
-                    IP6Field("dst", "::1") ]
+                    DestIP6Field("dst", "::1") ]
 
     def route(self):
         dst = self.dst
