@@ -23,11 +23,10 @@ class ConfClass(object):
     def __repr__(self):
         return str(self)
     def __str__(self):
-        s=""
+        s = ""
         keys = self.__class__.__dict__.copy()
         keys.update(self.__dict__)
-        keys = keys.keys()
-        keys.sort()
+        keys = sorted(keys)
         for i in keys:
             if i[0] != "_":
                 r = repr(getattr(self, i))

@@ -125,8 +125,8 @@ class DNSRRField(StrField):
         if type in [2, 3, 4, 5]:
             rr.rdata = DNSgetstr(s,p)[0]
             del(rr.rdlen)
-        elif type in dnsRRdispatcher.keys():
-            rr = dnsRRdispatcher[type]("\x00"+ret+s[p:p+rdlen])
+        elif type in DNSRR_DISPATCHER:
+            rr = DNSRR_DISPATCHER[type]("\x00"+ret+s[p:p+rdlen])
 	else:
           del(rr.rdlen)
         
@@ -591,22 +591,21 @@ class DNSRRNSEC3PARAM(_DNSRRdummy):
 		  ]
 
 
-dnssecclasses = [ DNSRROPT, DNSRRRSIG, DNSRRDLV, DNSRRDNSKEY, DNSRRNSEC, DNSRRDS, DNSRRNSEC3, DNSRRNSEC3PARAM ]
+DNSRR_DISPATCHER = {
+    41: DNSRROPT,        # RFC 1671
+    43: DNSRRDS,         # RFC 4034
+    46: DNSRRRSIG,       # RFC 4034
+    47: DNSRRNSEC,       # RFC 4034
+    48: DNSRRDNSKEY,     # RFC 4034
+    50: DNSRRNSEC3,      # RFC 5155
+    51: DNSRRNSEC3PARAM, # RFC 5155
+    32769: DNSRRDLV,     # RFC 4431
+}
+
+DNSSEC_CLASSES = tuple(DNSRR_DISPATCHER.itervalues())
 
 def isdnssecRR(obj):
-    list = [ isinstance (obj, cls) for cls in dnssecclasses ]
-    return reduce(lambda x,y: x or y, list)
-
-dnsRRdispatcher = {     #6: DNSRRSOA,
-                       41: DNSRROPT,        # RFC 1671
-                       43: DNSRRDS,         # RFC 4034
-                       46: DNSRRRSIG,       # RFC 4034
-                       47: DNSRRNSEC,       # RFC 4034
-                       48: DNSRRDNSKEY,     # RFC 4034
-                       50: DNSRRNSEC3,      # RFC 5155
-                       51: DNSRRNSEC3PARAM, # RFC 5155
-                    32769: DNSRRDLV         # RFC 4431
-                   }
+    return isinstance(obj, DNSSEC_CLASSES)
 
 class DNSRR(Packet):
     name = "DNS Resource Record"

@@ -94,8 +94,8 @@ class Packet(BasePacket):
             self.dissect(_pkt)
             if not _internal:
                 self.dissection_done(self)
-        for f in fields.keys():
-            self.fields[f] = self.get_field(f).any2i(self,fields[f])
+        for f, v in fields.iteritems():
+            self.fields[f] = self.get_field(f).any2i(self, v)
         if type(post_transform) is list:
             self.post_transforms = post_transform
         elif post_transform is None:
@@ -629,8 +629,8 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
         for t in self.aliastypes:
             for fval, cls in t.payload_guess:
                 ok = 1
-                for k in fval.keys():
-                    if not hasattr(self, k) or fval[k] != self.getfieldval(k):
+                for k, v in fval.iteritems():
+                    if not hasattr(self, k) or v != self.getfieldval(k):
                         ok = 0
                         break
                 if ok:
@@ -643,12 +643,12 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
 
     def hide_defaults(self):
         """Removes fields' values that are the same as default values."""
-        for k in self.fields.keys():
-            if self.default_fields.has_key(k):
-                if self.default_fields[k] == self.fields[k]:
-                    del(self.fields[k])
+        for k, v in self.fields.items():  # use .items(): self.fields is modified in the loop
+            if k in self.default_fields:
+                if self.default_fields[k] == v:
+                    del self.fields[k]
         self.payload.hide_defaults()
-            
+
     def clone_with(self, payload=None, **kargs):
         pkt = self.__class__()
         pkt.explicit = 1
@@ -696,9 +696,9 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
             todo = []
             done = self.fields
         else:
-            todo = [ k for (k,v) in itertools.chain(self.default_fields.iteritems(),
-                                                    self.overloaded_fields.iteritems())
-                     if isinstance(v, VolatileValue) ] + self.fields.keys()
+            todo = [k for (k,v) in itertools.chain(self.default_fields.iteritems(),
+                                                   self.overloaded_fields.iteritems())
+                    if isinstance(v, VolatileValue)] + self.fields.keys()
             done = {}
         return loop(todo, done)
 
