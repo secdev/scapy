@@ -617,8 +617,11 @@ class DNSRR(Packet):
                     RDLenField("rdlen"),
                     RDataField("rdata", "", length_from=lambda pkt:pkt.rdlen) ]
 
-bind_layers( UDP,           DNS,           dport=53)
-bind_layers( UDP,           DNS,           sport=53)
+
+bind_layers(UDP, DNS, dport=5353)
+bind_layers(UDP, DNS, sport=5353)
+bind_layers(UDP, DNS, dport=53)
+bind_layers(UDP, DNS, sport=53)
 
 
 @conf.commands.register
