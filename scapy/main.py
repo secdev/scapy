@@ -204,13 +204,13 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
             def global_matches(self, text):
                 matches = []
                 n = len(text)
-                for lst in [dir(__builtin__), session.keys()]:
+                for lst in [dir(__builtin__), session]:
                     for word in lst:
                         if word[:n] == text and word != "__builtins__":
                             matches.append(word)
                 return matches
-        
-    
+
+
             def attr_matches(self, text):
                 m = re.match(r"(\w+(\.\w+)*)\.(\w*)", text)
                 if not m:

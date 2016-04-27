@@ -111,16 +111,16 @@ def nmap_udppacket_sig(S,T):
 
 def nmap_match_one_sig(seen, ref):
     c = 0
-    for k in seen.keys():
-        if ref.has_key(k):
-            if seen[k] in ref[k].split("|"):
+    for k, v in seen.iteritems():
+        if k in ref:
+            if v in ref[k].split("|"):
                 c += 1
     if c == 0 and seen.get("Resp") == "N":
         return 0.7
     else:
-        return 1.0*c/len(seen.keys())
-        
-        
+        return float(c) / len(seen)
+
+
 def nmap_sig(target, oport=80, cport=81, ucport=1):
     res = {}
 
@@ -167,10 +167,10 @@ def nmap_search(sigs):
     guess = 0,[]
     for os,fp in nmap_kdb.get_base():
         c = 0.0
-        for t in sigs.keys():
+        for t, v in sigs.itervalues():
             if t in fp:
-                c += nmap_match_one_sig(sigs[t], fp[t])
-        c /= len(sigs.keys())
+                c += nmap_match_one_sig(v, fp[t])
+        c /= len(sigs)
         if c > guess[0]:
             guess = c,[ os ]
         elif c == guess[0]:
@@ -194,7 +194,7 @@ def nmap_sig2txt(sig):
               "Resp", "DF", "W", "ACK", "Flags", "Ops",
               "TOS", "IPLEN", "RIPTL", "RID", "RIPCK", "UCK", "ULEN", "DAT" ]
     txt=[]
-    for i in sig.keys():
+    for i in sig:
         if i not in torder:
             torder.append(i)
     for t in torder:

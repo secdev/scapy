@@ -553,7 +553,7 @@ class OXMPacketListField(PacketListField):
             for oxm in fix_val:
                 f = 2*oxm.field
                 fix_index = list(self.index)
-                while f in need_prereq.keys():
+                while f in need_prereq:
                 # this loop enables a small recursion
                 # e.g. ipv6_nd<--icmpv6<--ip_proto<--eth_type
                     prereq = need_prereq[f]

@@ -291,7 +291,7 @@ class Automaton_metaclass(type):
                 se += '\t"%s" [ style=filled, fillcolor=red, shape=octagon ];\n' % st.atmt_state
         s += se
 
-        for st in self.states.values():
+        for st in self.states.itervalues():
             for n in st.atmt_origfunc.func_code.co_names+st.atmt_origfunc.func_code.co_consts:
                 if n in self.states:
                     s += '\t"%s" -> "%s" [ color=green ];\n' % (st.atmt_state,n)

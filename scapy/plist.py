@@ -363,16 +363,17 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
             return 2+math.log(n)/4.0
 
         def minmax(x):
-            m,M = min(x),max(x)
+            m, M = reduce(lambda a, b: (min(a[0], b[0]), max(a[1], b[1])),
+                          ((a, a) for a in x))
             if m == M:
                 m = 0
             if M == 0:
                 M = 1
-            return m,M
+            return m, M
 
-        mins,maxs = minmax(map(lambda (x,y): x, sl.values()))
-        mine,maxe = minmax(map(lambda (x,y): x, el.values()))
-        mind,maxd = minmax(dl.values())
+        mins, maxs = minmax(x for x, _ in sl.itervalues())
+        mine, maxe = minmax(x for x, _ in el.itervalues())
+        mind, maxd = minmax(dl.itervalues())
     
         gr = 'digraph "afterglow" {\n\tedge [len=2.5];\n'
 

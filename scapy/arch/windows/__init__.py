@@ -308,7 +308,7 @@ class NetworkInterfaceDict(UserDict):
     def show(self, resolve_mac=True):
         """Print list of available network interfaces in human readable form"""
         print "%s  %s  %s  %s" % ("INDEX".ljust(5), "IFACE".ljust(35), "IP".ljust(15), "MAC")
-        for iface_name in sorted(self.data.keys()):
+        for iface_name in sorted(self.data):
             dev = self.data[iface_name]
             mac = dev.mac
             if resolve_mac:
@@ -568,9 +568,9 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0, retry=0, m
         finally:
             pass
 
-        remain = list(itertools.chain(*[ i for i in hsent.values() ]))
+        remain = list(itertools.chain(*hsent.itervalues()))
         if multi:
-            remain = [ p for p in remain if not hasattr(p, '_answered')]
+            remain = [p for p in remain if not hasattr(p, '_answered')]
             
         if autostop and len(remain) > 0 and len(remain) != len(tobesent):
             retry = autostop

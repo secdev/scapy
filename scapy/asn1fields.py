@@ -169,8 +169,8 @@ class ASN1F_enum_INTEGER(ASN1F_INTEGER):
             keys = xrange(len(enum))
         else:
             keys = enum.keys()
-        if filter(lambda x: type(x) is str, keys):
-            i2s,s2i = s2i,i2s
+        if any(isinstance(x, basestring) for x in keys):
+            i2s, s2i = s2i, i2s
         for k in keys:
             i2s[k] = enum[k]
             s2i[enum[k]] = k
@@ -470,7 +470,7 @@ class ASN1F_CHOICE(ASN1F_field):
                                 explicit_tag=exp)
         return BER_tagging_enc(s, explicit_tag=self.explicit_tag)
     def randval(self):
-        return RandChoice(*map(lambda x:fuzz(x()), self.choice.values()))
+        return RandChoice(*(fuzz(x()) for x in self.choices.itervalues()))
 
 class ASN1F_PACKET(ASN1F_field):
     holds_packets = 1
