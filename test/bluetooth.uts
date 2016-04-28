@@ -1,5 +1,17 @@
 % Scapy Bluetooth layer tests
 
++ HCI Commands
+= LE Create Connection Cancel
+
+expected_cmd_raw_data = "010e2000".decode('hex')
+cmd_raw_data = str(HCI_Hdr() / HCI_Command_Hdr() / HCI_Cmd_LE_Create_Connection_Cancel())
+assert(expected_cmd_raw_data == cmd_raw_data)
+
+= Disconnect
+expected_cmd_raw_data = "01060403341213".decode('hex')
+cmd_raw_data = str(HCI_Hdr() / HCI_Command_Hdr() / HCI_Cmd_Disconnect(handle=0x1234))
+assert(expected_cmd_raw_data == cmd_raw_data)
+
 + Bluetooth LE Advertising / Scan Response Data Parsing
 = Parse EIR_Flags, EIR_CompleteList16BitServiceUUIDs, EIR_CompleteLocalName and EIR_TX_Power_Level
 
