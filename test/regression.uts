@@ -119,7 +119,7 @@ else:
 = equality
 ~ basic
 w=Ether()/IP()/UDP(dport=53)
-x=Ether()/IP(dst="127.0.0.1")/UDP()
+x=Ether()/IP(version=4)/UDP()
 y=Ether()/IP()/UDP(dport=4)
 z=Ether()/IP()/UDP()/NTP()
 t=Ether()/IP()/TCP()
