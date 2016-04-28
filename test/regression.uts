@@ -4379,8 +4379,9 @@ builder = LargeTlvBuilder()
 builder.parse(plist)
 data = builder.get_data()
 assert len(data) == 1
-assert data.keys()[0].endswith(' [Detailed Icon Image]')
-assert data.values()[0] == 'abcdefg'
+key, value = data.popitem()
+assert key.endswith(' [Detailed Icon Image]')
+assert value == 'abcdefg'
 
 
 ############

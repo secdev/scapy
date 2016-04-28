@@ -159,7 +159,7 @@ def pkcs_mgf1(mgfSeed, maskLen, h):
     """
 
     # steps are those of Appendix B.2.1
-    if not _hashFuncParams.has_key(h):
+    if h not in _hashFuncParams:
         warning("pkcs_mgf1: invalid hash (%s) provided")
         return None
     hLen = _hashFuncParams[h][0]
@@ -520,7 +520,7 @@ class _EncryptAndVerify:
         mLen = len(M)
         if h is None:
             h = "sha1"
-        if not _hashFuncParams.has_key(h):
+        if h not in _hashFuncParams:
             warning("Key._rsaes_oaep_encrypt(): unknown hash function %s.", h)
             return None
         hLen = _hashFuncParams[h][0]
@@ -641,7 +641,7 @@ class _EncryptAndVerify:
         # Set default parameters if not provided
         if h is None: # By default, sha1
             h = "sha1"
-        if not _hashFuncParams.has_key(h):
+        if h not in _hashFuncParams:
             warning("Key._rsassa_pss_verify(): unknown hash function "
                     "provided (%s)" % h)
             return False
@@ -889,7 +889,7 @@ class _DecryptAndSignMethods(OSSLHelper):
                                                     # 1.a) is not done
         if h is None:
             h = "sha1"
-        if not _hashFuncParams.has_key(h):
+        if h not in _hashFuncParams:
             warning("Key._rsaes_oaep_decrypt(): unknown hash function %s.", h)
             return None
         hLen = _hashFuncParams[h][0]
@@ -1042,7 +1042,7 @@ class _DecryptAndSignMethods(OSSLHelper):
         # Set default parameters if not provided
         if h is None: # By default, sha1
             h = "sha1"
-        if not _hashFuncParams.has_key(h):
+        if h not in _hashFuncParams:
             warning("Key._rsassa_pss_sign(): unknown hash function "
                     "provided (%s)" % h)
             return None
@@ -1940,7 +1940,7 @@ class Cert(OSSLHelper, _EncryptAndVerify):
         unenc = unenc[pos+1:]
 
         found = None
-        for k in _hashFuncParams.keys():
+        for k in _hashFuncParams:
             if self.sigAlg.startswith(k):
                 found = k
                 break

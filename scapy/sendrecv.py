@@ -8,6 +8,7 @@ Functions to send and receive packets.
 """
 
 import cPickle,os,sys,time,subprocess
+import itertools
 from select import select
 from data import *
 import arch
@@ -180,10 +181,10 @@ def sndrcv(pks, pkt, timeout = None, inter = 0, verbose=None, chainCC=0, retry=0
             if pid == 0:
                 os._exit(0)
 
-        remain = reduce(list.__add__, hsent.values(), [])
+        remain = list(itertools.chain(*hsent.itervalues()))
         if multi:
-            remain = filter(lambda p: not hasattr(p, '_answered'), remain);
-            
+            remain = [p for p in remain if not hasattr(p, '_answered')]
+
         if autostop and len(remain) > 0 and len(remain) != len(tobesent):
             retry = autostop
             
