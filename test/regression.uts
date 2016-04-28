@@ -4495,3 +4495,25 @@ assert bpkt.chksum == 0xf0bc and bpkt.payload.chksum == 0xbb17
 pkt = IP(len=42, ihl=6, options=[IPOption_RR()]) / UDP() / ("A" * 10)
 bpkt = IP(str(pkt))
 assert bpkt.chksum == 0xf0bc and bpkt.payload.chksum == 0xbb17
+
+= Layer binding
+
+* Test DestMACField & DestIPField
+pkt = Ether(str(Ether()/IP()/UDP(dport=5353)/DNS()))
+assert isinstance(pkt, Ether) and pkt.dst == '01:00:5e:00:00:fb'
+pkt = pkt.payload
+assert isinstance(pkt, IP) and pkt.dst == '224.0.0.251'
+pkt = pkt.payload
+assert isinstance(pkt, UDP) and pkt.dport == 5353
+pkt = pkt.payload
+assert isinstance(pkt, DNS) and isinstance(pkt.payload, NoPayload)
+
+* Same with IPv6
+pkt = Ether(str(Ether()/IPv6()/UDP(dport=5353)/DNS()))
+assert isinstance(pkt, Ether) and pkt.dst == '33:33:00:00:00:fb'
+pkt = pkt.payload
+assert isinstance(pkt, IPv6) and pkt.dst == 'ff02::fb'
+pkt = pkt.payload
+assert isinstance(pkt, UDP) and pkt.dport == 5353
+pkt = pkt.payload
+assert isinstance(pkt, DNS) and isinstance(pkt.payload, NoPayload)
