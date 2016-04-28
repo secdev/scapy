@@ -30,8 +30,8 @@ class TimeStampField(FixedPointField):
 
     def any2i(self, pkt, val):
         if type(val) is str:
-            return int(time.mktime(time.strptime(val))) + _NTP_BASETIME + 3600 # XXX
-        return FixedPointField.any2i(self,pkt,val)
+            val = int(time.mktime(time.strptime(val))) + _NTP_BASETIME
+        return FixedPointField.any2i(self, pkt, val)
     
     def i2m(self, pkt, val):
         if val is None:
