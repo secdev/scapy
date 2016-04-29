@@ -7,6 +7,7 @@
 Functions to send and receive packets.
 """
 
+import errno
 import cPickle,os,sys,time,subprocess
 import itertools
 from select import select
@@ -127,7 +128,12 @@ def sndrcv(pks, pkt, timeout = None, inter = 0, verbose=None, chainCC=0, retry=0
                                 if len(inp) == 0 or pks in inp:
                                     r = pks.nonblock_recv()
                             else:
-                                inp, out, err = select(inmask,[],[], remaintime)
+                                inp = []
+                                try:
+                                    inp, out, err = select(inmask,[],[], remaintime)
+                                except IOError, exc:
+                                    if exc.errno != errno.EINTR:
+                                        raise
                                 if len(inp) == 0:
                                     break
                                 if pks in inp:
