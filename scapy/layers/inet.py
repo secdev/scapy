@@ -325,16 +325,11 @@ class ICMPTimeStampField(IntField):
         return val
 
 
-class DestIPField(IPField):
-    __slots__ = ["defaultdst"]
+class DestIPField(IPField, DestField):
+    bindings = {}
     def __init__(self, name, default):
         IPField.__init__(self, name, None)
-        self.defaultdst = default
-    def dst_from_pkt(self, pkt):
-        if isinstance(pkt.payload, UDP):
-            if pkt.payload.dport == 5353:
-                return "224.0.0.251"
-        return self.defaultdst
+        DestField.__init__(self, name, default)
     def i2m(self, pkt, x):
         if x is None:
             x = self.dst_from_pkt(pkt)

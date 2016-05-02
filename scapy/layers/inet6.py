@@ -247,16 +247,11 @@ class SourceIP6Field(IP6Field):
                 iff,x,nh = conf.route6.route(dst)
         return IP6Field.i2h(self, pkt, x)
 
-class DestIP6Field(IP6Field):
-    __slots__ = ["defaultdst"]
+class DestIP6Field(IP6Field, DestField):
+    bindings = {}
     def __init__(self, name, default):
         IP6Field.__init__(self, name, None)
-        self.defaultdst = default
-    def dst_from_pkt(self, pkt):
-        if isinstance(pkt.payload, UDP):
-            if pkt.payload.dport == 5353:
-                return "ff02::fb"
-        return self.defaultdst
+        DestField.__init__(self, name, default)
     def i2m(self, pkt, x):
         if x is None:
             x = self.dst_from_pkt(pkt)
