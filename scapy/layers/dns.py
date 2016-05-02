@@ -12,7 +12,8 @@ import socket,struct
 from scapy.packet import *
 from scapy.fields import *
 from scapy.ansmachine import *
-from scapy.layers.inet import IP, UDP
+from scapy.layers.inet import IP, DestIPField, UDP
+from scapy.layers.inet6 import DestIP6Field
 
 class DNSStrField(StrField):
 
@@ -622,6 +623,8 @@ bind_layers(UDP, DNS, dport=5353)
 bind_layers(UDP, DNS, sport=5353)
 bind_layers(UDP, DNS, dport=53)
 bind_layers(UDP, DNS, sport=53)
+DestIPField.bind_addr(UDP, "224.0.0.251", dport=5353)
+DestIP6Field.bind_addr(UDP, "ff02::fb", dport=5353)
 
 
 @conf.commands.register
