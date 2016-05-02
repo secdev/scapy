@@ -176,6 +176,26 @@ class PadField(object):
         return getattr(self._fld,attr)
         
 
+class DestField(Field):
+    __slots__ = ["defaultdst"]
+    # Each subclass must have its own bindings attribute
+    # bindings = {}
+    def __init__(self, name, default):
+        self.defaultdst = default
+    def dst_from_pkt(self, pkt):
+        for addr, condition in self.bindings.get(pkt.payload.__class__, []):
+            try:
+                if all(pkt.payload.getfieldval(field) == value
+                       for field, value in condition.iteritems()):
+                    return addr
+            except AttributeError:
+                pass
+        return self.defaultdst
+    @classmethod
+    def bind_addr(cls, layer, addr, **condition):
+        cls.bindings.setdefault(layer, []).append((addr, condition))
+
+
 class MACField(Field):
     def __init__(self, name, default):
         Field.__init__(self, name, default, "6s")
