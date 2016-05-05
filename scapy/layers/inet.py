@@ -213,7 +213,8 @@ TCPOptions = (
                 8 : ("Timestamp","!II"),
                 14 : ("AltChkSum","!BH"),
                 15 : ("AltChkSumOpt",None),
-                25 : ("Mood","!p")
+                25 : ("Mood","!p"),
+                28 : ("UTO", "!H")
                 },
               { "EOL":0,
                 "NOP":1,
@@ -224,7 +225,8 @@ TCPOptions = (
                 "Timestamp":8,
                 "AltChkSum":14,
                 "AltChkSumOpt":15,
-                "Mood":25
+                "Mood":25,
+                "UTO":28
                 } )
 
 class TCPOptionsField(StrField):
@@ -455,7 +457,12 @@ class TCP(Packet):
         if self.chksum is None:
             if isinstance(self.underlayer, IP):
                 if self.underlayer.len is not None:
-                    ln = self.underlayer.len-20
+                    if self.underlayer.ihl is None:
+                        olen = sum(len(x) for x in self.underlayer.options)
+                        ihl = 5 + olen / 4 + (1 if olen % 4 else 0)
+                    else:
+                        ihl = self.underlayer.ihl
+                    ln = self.underlayer.len - 4 * ihl
                 else:
                     ln = len(p)
                 psdhdr = struct.pack("!4s4sHH",
@@ -509,7 +516,12 @@ class UDP(Packet):
         if self.chksum is None:
             if isinstance(self.underlayer, IP):
                 if self.underlayer.len is not None:
-                    ln = self.underlayer.len-20
+                    if self.underlayer.ihl is None:
+                        olen = sum(len(x) for x in self.underlayer.options)
+                        ihl = 5 + olen / 4 + (1 if olen % 4 else 0)
+                    else:
+                        ihl = self.underlayer.ihl
+                    ln = self.underlayer.len - 4 * ihl
                 else:
                     ln = len(p)
                 psdhdr = struct.pack("!4s4sHH",
@@ -992,14 +1004,14 @@ class TracerouteResult(SndRcvList):
             if d not in trace:
                 trace[d] = {}
             trace[d][s[IP].ttl] = r[IP].src, ICMP not in r
-        for k in trace.values():
-            m = filter(lambda x:k[x][1], k.keys())
-            if not m:
+        for k in trace.itervalues():
+            try:
+                m = min(x for x, y in k.itervalues() if y[1])
+            except ValueError:
                 continue
-            m = min(m)
-            for l in k.keys():
+            for l in k.keys():  # use .keys(): k is modified in the loop
                 if l > m:
-                    del(k[l])
+                    del k[l]
         return trace
 
     def trace3D(self):
@@ -1037,8 +1049,7 @@ class TracerouteResult(SndRcvList):
         for i in trace:
             tr = trace[i]
             tr3d[i] = []
-            ttl = tr.keys()
-            for t in xrange(1,max(ttl)+1):
+            for t in xrange(1, max(tr) + 1):
                 if t not in rings:
                     rings[t] = []
                 if t in tr:
@@ -1062,12 +1073,12 @@ class TracerouteResult(SndRcvList):
                 s = IPsphere(pos=((l-1)*visual.cos(2*i*visual.pi/l),(l-1)*visual.sin(2*i*visual.pi/l),2*t),
                              ip = r[i][0],
                              color = col)
-                for trlst in tr3d.values():
+                for trlst in tr3d.itervalues():
                     if t <= len(trlst):
                         if trlst[t-1] == i:
                             trlst[t-1] = s
         forecol = colgen(0.625, 0.4375, 0.25, 0.125)
-        for trlst in tr3d.values():
+        for trlst in tr3d.itervalues():
             col = forecol.next()
             start = (0,0,0)
             for ip in trlst:
@@ -1162,7 +1173,7 @@ class TracerouteResult(SndRcvList):
         for trace_id in rt:
             trace = rt[trace_id]
             loctrace = []
-            for i in xrange(max(trace.keys())):
+            for i in xrange(max(trace)):
                 ip = trace.get(i,None)
                 if ip is None:
                     continue
@@ -1247,8 +1258,7 @@ class TracerouteResult(SndRcvList):
         bhip = {}
         for rtk in rt:
             trace = rt[rtk]
-            k = trace.keys()
-            for n in xrange(min(k), max(k)):
+            for n in xrange(min(trace), max(trace)):
                 if not trace.has_key(n):
                     trace[n] = unknown_label.next()
             if not ports_done.has_key(rtk):
@@ -1267,7 +1277,7 @@ class TracerouteResult(SndRcvList):
                 blackholes.append(bh)
     
         # Find AS numbers
-        ASN_query_list = dict.fromkeys(map(lambda x:x.rsplit(" ",1)[0],ips)).keys()
+        ASN_query_list = set(x.rsplit(" ",1)[0] for x in ips)
         if ASres is None:            
             ASNlist = []
         else:
@@ -1340,10 +1350,10 @@ class TracerouteResult(SndRcvList):
             s += "#---[%s\n" % `rtk`
             s += '\t\tedge [color="#%s%s%s"];\n' % forecolorlist.next()
             trace = rt[rtk]
-            k = trace.keys()
-            for n in xrange(min(k), max(k)):
+            maxtrace = max(trace)
+            for n in xrange(min(trace), maxtrace):
                 s += '\t%s ->\n' % trace[n]
-            s += '\t%s;\n' % trace[max(k)]
+            s += '\t%s;\n' % trace[maxtrace]
     
         s += "}\n";
         self.graphdef = s

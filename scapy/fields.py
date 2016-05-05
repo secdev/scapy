@@ -203,7 +203,7 @@ class IPField(Field):
     def __init__(self, name, default):
         Field.__init__(self, name, default, "4s")
     def h2i(self, pkt, x):
-        if type(x) is str:
+        if isinstance(x, basestring):
             try:
                 inet_aton(x)
             except socket.error:
@@ -282,6 +282,10 @@ class X3BytesField(XByteField):
 class ThreeBytesField(X3BytesField, ByteField):
     def i2repr(self, pkt, x):
         return ByteField.i2repr(self, pkt, x)
+
+class SignedByteField(Field):
+    def __init__(self, name, default):
+        Field.__init__(self, name, default, "b")
 
 class ShortField(Field):
     def __init__(self, name, default):

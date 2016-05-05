@@ -312,6 +312,109 @@ class SM_Master_Identification(Packet):
     fields_desc = [ XLEShortField("ediv", 0),
                     StrFixedLenField("rand", '\x00' * 8, 8), ]
 
+
+class EIR_Hdr(Packet):
+    name = "EIR Header"
+    fields_desc = [
+        FieldLenField("len", 0, fmt="B"),
+        ByteEnumField("type", 0, {
+            0x01: "flags",
+            0x02: "incomplete_list_16_bit_svc_uuids",
+            0x03: "complete_list_16_bit_svc_uuids",
+            0x04: "incomplete_list_32_bit_svc_uuids",
+            0x05: "complete_list_32_bit_svc_uuids",
+            0x06: "incomplete_list_128_bit_svc_uuids",
+            0x07: "complete_list_128_bit_svc_uuids",
+            0x08: "shortened_local_name",
+            0x09: "complete_local_name",
+            0x0a: "tx_power_level",
+            0x0d: "class_of_device",
+            0x0e: "simple_pairing_hash",
+            0x0f: "simple_pairing_rand",
+            0x10: "sec_mgr_tk",
+            0x11: "sec_mgr_oob_flags",
+            0x12: "slave_conn_intvl_range",
+            0x17: "pub_target_addr",
+            0x18: "rand_target_addr",
+            0x19: "appearance",
+            0x1a: "adv_intvl",
+            0x1b: "le_addr",
+            0x1c: "le_role",
+            0x14: "list_16_bit_svc_sollication_uuids",
+            0x1f: "list_32_bit_svc_sollication_uuids",
+            0x15: "list_128_bit_svc_sollication_uuids",
+            0x16: "svc_data_16_bit_uuid",
+            0x20: "svc_data_32_bit_uuid",
+            0x21: "svc_data_128_bit_uuid",
+            0x22: "sec_conn_confirm",
+            0x22: "sec_conn_rand",
+            0x24: "uri",
+            0xff: "mfg_specific_data",
+        }),
+    ]
+
+    def mysummary(self):
+        return self.sprintf("EIR %type%")
+
+class EIR_Element(Packet):
+    name = "EIR Element"
+
+    def extract_padding(self, s):
+        # Needed to end each EIR_Element packet and make PacketListField work.
+        return '', s
+
+    @staticmethod
+    def length_from(pkt):
+        # 'type' byte is included in the length, so substract 1:
+        return pkt.underlayer.len - 1
+
+class EIR_Raw(EIR_Element):
+    name = "EIR Raw"
+    fields_desc = [
+        StrLenField("data", "", length_from=EIR_Element.length_from)
+    ]
+
+class EIR_Flags(EIR_Element):
+    name = "Flags"
+    fields_desc = [
+        FlagsField("flags", 0x2, 8,
+                   ["limited_disc_mode", "general_disc_mode",
+                    "br_edr_not_supported", "simul_le_br_edr_ctrl",
+                    "simul_le_br_edr_host"] + 3*["reserved"])
+    ]
+
+class EIR_CompleteList16BitServiceUUIDs(EIR_Element):
+    name = "Complete list of 16-bit service UUIDs"
+    fields_desc = [
+        FieldListField("svc_uuids", None, XLEShortField("uuid", 0),
+                       length_from=EIR_Element.length_from)
+    ]
+
+class EIR_IncompleteList16BitServiceUUIDs(EIR_CompleteList16BitServiceUUIDs):
+    name = "Incomplete list of 16-bit service UUIDs"
+
+class EIR_CompleteLocalName(EIR_Element):
+    name = "Complete Local Name"
+    fields_desc = [
+        StrLenField("local_name", "", length_from=EIR_Element.length_from)
+    ]
+
+class EIR_ShortenedLocalName(EIR_CompleteLocalName):
+    name = "Shortened Local Name"
+
+class EIR_TX_Power_Level(EIR_Element):
+    name = "TX Power Level"
+    fields_desc = [SignedByteField("level", 0)]
+
+class EIR_Manufacturer_Specific_Data(EIR_Element):
+    name = "EIR Manufacturer Specific Data"
+    fields_desc = [
+        XLEShortField("company_id", 0),
+        StrLenField("data", "",
+                    length_from=lambda pkt: EIR_Element.length_from(pkt) - 2)
+    ]
+
+
 class HCI_Command_Hdr(Packet):
     name = "HCI Command header"
     fields_desc = [ XLEShortField("opcode", 0),
@@ -361,6 +464,11 @@ class HCI_Cmd_LE_Set_Scan_Enable(Packet):
     fields_desc = [ ByteField("enable", 1),
                     ByteField("filter_dups", 1), ]
 
+class HCI_Cmd_Disconnect(Packet):
+    name = "Disconnect"
+    fields_desc = [ XLEShortField("handle", 0),
+                    ByteField("reason", 0x13), ]
+
 class HCI_Cmd_LE_Create_Connection(Packet):
     name = "LE Create Connection"
     fields_desc = [ LEShortField("interval", 96),
@@ -375,6 +483,9 @@ class HCI_Cmd_LE_Create_Connection(Packet):
                     LEShortField("timeout", 42),
                     LEShortField("min_ce", 0),
                     LEShortField("max_ce", 0), ]
+
+class HCI_Cmd_LE_Create_Connection_Cancel(Packet):
+    name = "LE Create Connection Cancel"
 
 class HCI_Cmd_LE_Read_Buffer_Size(Packet):
     name = "LE Read Buffer Size"
@@ -477,7 +588,10 @@ class HCI_LE_Meta_Advertising_Report(Packet):
                     ByteEnumField("atype", 0, {0:"public", 1:"random"}),
                     LEMACField("addr", None),
                     FieldLenField("len", None, length_of="data", fmt="B"),
-                    StrLenField("data", "", length_from=lambda pkt:pkt.len), ]
+                    PacketListField("data", [], EIR_Hdr,
+                                    length_from=lambda pkt:pkt.len),
+                    SignedByteField("rssi", 0)]
+
 
 class HCI_LE_Meta_Long_Term_Key_Request(Packet):
     name = "Long Term Key Request"
@@ -504,7 +618,9 @@ bind_layers( HCI_Command_Hdr, HCI_Cmd_LE_Set_Advertising_Data, opcode=0x2008)
 bind_layers( HCI_Command_Hdr, HCI_Cmd_LE_Set_Advertise_Enable, opcode=0x200a)
 bind_layers( HCI_Command_Hdr, HCI_Cmd_LE_Set_Scan_Parameters, opcode=0x200b)
 bind_layers( HCI_Command_Hdr, HCI_Cmd_LE_Set_Scan_Enable, opcode=0x200c)
+bind_layers( HCI_Command_Hdr, HCI_Cmd_Disconnect, opcode=0x406)
 bind_layers( HCI_Command_Hdr, HCI_Cmd_LE_Create_Connection, opcode=0x200d)
+bind_layers( HCI_Command_Hdr, HCI_Cmd_LE_Create_Connection_Cancel, opcode=0x200e)
 bind_layers( HCI_Command_Hdr, HCI_Cmd_LE_Long_Term_Key_Request_Reply, opcode=0x201a)
 bind_layers( HCI_Command_Hdr, HCI_Cmd_LE_Long_Term_Key_Request_Negative_Reply, opcode=0x201b)
 
@@ -520,6 +636,15 @@ bind_layers( HCI_Event_Command_Complete, HCI_Cmd_Complete_Read_BD_Addr, opcode=0
 bind_layers( HCI_Event_LE_Meta, HCI_LE_Meta_Connection_Complete, event=1)
 bind_layers( HCI_Event_LE_Meta, HCI_LE_Meta_Advertising_Report, event=2)
 bind_layers( HCI_Event_LE_Meta, HCI_LE_Meta_Long_Term_Key_Request, event=5)
+
+bind_layers(EIR_Hdr, EIR_Flags, type=0x01)
+bind_layers(EIR_Hdr, EIR_IncompleteList16BitServiceUUIDs, type=0x02)
+bind_layers(EIR_Hdr, EIR_CompleteList16BitServiceUUIDs, type=0x03)
+bind_layers(EIR_Hdr, EIR_ShortenedLocalName, type=0x08)
+bind_layers(EIR_Hdr, EIR_CompleteLocalName, type=0x09)
+bind_layers(EIR_Hdr, EIR_TX_Power_Level, type=0x0a)
+bind_layers(EIR_Hdr, EIR_Manufacturer_Specific_Data, type=0xff)
+bind_layers(EIR_Hdr, EIR_Raw)
 
 bind_layers( HCI_ACL_Hdr,   L2CAP_Hdr,     )
 bind_layers( L2CAP_Hdr,     L2CAP_CmdHdr,      cid=1)

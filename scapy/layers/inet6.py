@@ -705,13 +705,18 @@ class PadN(Packet): # IPv6 Hop-By-Hop Option
 class RouterAlert(Packet): # RFC 2711 - IPv6 Hop-By-Hop Option
     name = "Router Alert"
     fields_desc = [_OTypeField("otype", 0x05, _hbhopts),
-                   ByteField("optlen", 2), 
-                   ShortEnumField("value", None, 
-                                  { 0: "Datagram contains a MLD message", 
+                   ByteField("optlen", 2),
+                   ShortEnumField("value", None,
+                                  { 0: "Datagram contains a MLD message",
                                     1: "Datagram contains RSVP message",
-                                    2: "Datagram contains an Active Network message" }) ]
+                                    2: "Datagram contains an Active Network message",
+                                   68: "NSIS NATFW NSLP",
+                                   69: "MPLS OAM",
+                                65535: "Reserved" })]
     # TODO : Check IANA has not defined new values for value field of RouterAlertOption
-    # TODO : now that we have that option, we should do something in MLD class that need it
+    # TODO : Now that we have that option, we should do something in MLD class that need it
+    # TODO : IANA has defined ranges of values which can't be easily represented here.
+    #        iana.org/assignments/ipv6-routeralert-values/ipv6-routeralert-values.xhtml
     def alignment_delta(self, curpos): # alignment requirement : 2n+0
         x = 2 ; y = 0
         delta = x*((curpos - y + x - 1)/x) + y - curpos 
@@ -1317,8 +1322,8 @@ class _ICMPv6ML(_ICMPv6):
 class ICMPv6MLQuery(_ICMPv6ML): # RFC 2710
     name = "MLD - Multicast Listener Query"
     type   = 130
-    mrd    = 10000
-    mladdr = "::" # 10s for mrd
+    mrd    = 10000 # 10s for mrd
+    mladdr = "::"
     overload_fields = {IPv6: { "dst": "ff02::1", "hlim": 1, "nh": 58 }} 
     def hashret(self):
         if self.mladdr != "::":
@@ -2914,14 +2919,14 @@ class TracerouteResult6(TracerouteResult):
 
             trace[d][s[IPv6].hlim] = r[IPv6].src, t
 
-        for k in trace.values():
-            m = filter(lambda x: k[x][1], k.keys())
-            if not m:
+        for k in trace.itervalues():
+            try:
+                m = min(x for x, y in k.itervalues() if y[1])
+            except ValueError:
                 continue
-            m = min(m)
-            for l in k.keys():
+            for l in k.keys():  # use .keys(): k is modified in the loop
                 if l > m:
-                    del(k[l])
+                    del k[l]
 
         return trace
 

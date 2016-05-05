@@ -10,9 +10,10 @@ Packet class. Binding mechanism. fuzz() method.
 import re
 import time,itertools
 import copy
-from fields import StrField,ConditionalField,Emph,PacketListField,BitField
+from fields import StrField, ConditionalField, Emph, PacketListField, BitField, \
+    MultiEnumField, EnumField, FlagsField
 from config import conf
-from base_classes import BasePacket,Gen,SetGen,Packet_metaclass,NewDefaultValues
+from base_classes import BasePacket, Gen, SetGen, Packet_metaclass
 from volatile import VolatileValue
 from utils import import_hexcap,tex_escape,colgen,get_temp_file
 from error import Scapy_Exception,log_runtime
@@ -45,6 +46,8 @@ class Packet(BasePacket):
         "name",
         # used for sr()
         "_answered",
+        # used when sniffing
+        "direction", "sniffed_on"
     ]
     __metaclass__ = Packet_metaclass
     name = None
@@ -91,8 +94,8 @@ class Packet(BasePacket):
             self.dissect(_pkt)
             if not _internal:
                 self.dissection_done(self)
-        for f in fields.keys():
-            self.fields[f] = self.get_field(f).any2i(self,fields[f])
+        for f, v in fields.iteritems():
+            self.fields[f] = self.get_field(f).any2i(self, v)
         if type(post_transform) is list:
             self.post_transforms = post_transform
         elif post_transform is None:
@@ -626,8 +629,8 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
         for t in self.aliastypes:
             for fval, cls in t.payload_guess:
                 ok = 1
-                for k in fval.keys():
-                    if not hasattr(self, k) or fval[k] != self.getfieldval(k):
+                for k, v in fval.iteritems():
+                    if not hasattr(self, k) or v != self.getfieldval(k):
                         ok = 0
                         break
                 if ok:
@@ -640,12 +643,12 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
 
     def hide_defaults(self):
         """Removes fields' values that are the same as default values."""
-        for k in self.fields.keys():
-            if self.default_fields.has_key(k):
-                if self.default_fields[k] == self.fields[k]:
-                    del(self.fields[k])
+        for k, v in self.fields.items():  # use .items(): self.fields is modified in the loop
+            if k in self.default_fields:
+                if self.default_fields[k] == v:
+                    del self.fields[k]
         self.payload.hide_defaults()
-            
+
     def clone_with(self, payload=None, **kargs):
         pkt = self.__class__()
         pkt.explicit = 1
@@ -693,9 +696,9 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
             todo = []
             done = self.fields
         else:
-            todo = [ k for (k,v) in itertools.chain(self.default_fields.iteritems(),
-                                                    self.overloaded_fields.iteritems())
-                     if isinstance(v, VolatileValue) ] + self.fields.keys()
+            todo = [k for (k,v) in itertools.chain(self.default_fields.iteritems(),
+                                                   self.overloaded_fields.iteritems())
+                    if isinstance(v, VolatileValue)] + self.fields.keys()
             done = {}
         return loop(todo, done)
 
@@ -763,7 +766,7 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
             ccls,fld = cls.split(".",1)
         else:
             ccls,fld = cls,None
-        if cls is None or self.__class__ == cls or self.__class__.name == ccls:
+        if cls is None or self.__class__ == cls or self.__class__.__name__ == ccls:
             if nb == 1:
                 if fld is None:
                     return self
@@ -1231,7 +1234,7 @@ def split_layers(lower, upper, __fval=None, **fval):
 
 
 @conf.commands.register
-def ls(obj=None, case_sensitive=False):
+def ls(obj=None, case_sensitive=False, verbose=False):
     """List  available layers, or infos on a given layer class or name"""
     is_string = isinstance(obj, basestring)
 
@@ -1253,9 +1256,38 @@ def ls(obj=None, case_sensitive=False):
             for f in obj.fields_desc:
                 cur_fld = f
                 attrs = []
+                long_attrs = []
                 while isinstance(cur_fld, (Emph, ConditionalField)):
                     attrs.append(cur_fld.__class__.__name__[:4])
                     cur_fld = cur_fld.fld
+                if verbose and isinstance(cur_fld, EnumField) \
+                   and hasattr(cur_fld, "i2s"):
+                    if len(cur_fld.i2s) < 50:
+                        long_attrs.extend(
+                            "%s: %d" % (strval, numval)
+                            for numval, strval in
+                            sorted(cur_fld.i2s.iteritems())
+                        )
+                elif isinstance(cur_fld, MultiEnumField):
+                    fld_depend = cur_fld.depends_on(obj.__class__
+                                                    if is_pkt else obj)
+                    attrs.append("Depends on %s" % fld_depend.name)
+                    if verbose:
+                        cur_i2s = cur_fld.i2s_multi.get(
+                            cur_fld.depends_on(obj if is_pkt else obj()), {}
+                        )
+                        if len(cur_i2s) < 50:
+                            long_attrs.extend(
+                                "%s: %d" % (strval, numval)
+                                for numval, strval in
+                                sorted(cur_i2s.iteritems())
+                            )
+                elif verbose and isinstance(cur_fld, FlagsField):
+                    names = cur_fld.names
+                    if isinstance(names, basestring):
+                        long_attrs.append(", ".join(names))
+                    else:
+                        long_attrs.append(", ".join(name[0] for name in names))
                 class_name = "%s (%s)" % (
                     cur_fld.__class__.__name__,
                     ", ".join(attrs)) if attrs else cur_fld.__class__.__name__
@@ -1263,10 +1295,12 @@ def ls(obj=None, case_sensitive=False):
                     class_name += " (%d bit%s)" % (cur_fld.size,
                                                    "s" if cur_fld.size > 1
                                                    else "")
-                print "%-10s : %-25s =" % (f.name, class_name),
+                print "%-10s : %-35s =" % (f.name, class_name),
                 if is_pkt:
                     print "%-15r" % getattr(obj,f.name),
                 print "(%r)" % f.default
+                for attr in long_attrs:
+                    print "%-15s%s" % ("", attr)
             if is_pkt and not isinstance(obj.payload, NoPayload):
                 print "--"
                 ls(obj.payload)

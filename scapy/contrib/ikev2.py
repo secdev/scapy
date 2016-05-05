@@ -343,7 +343,7 @@ for i, payloadname in enumerate(IKEv2_payload_type):
         IKEv2_payload_type_overload[globals()[name]] = {"next_payload": i}
 
 del i, payloadname, name
-IKEv2_class.overload_fields = IKEv2_payload_type_overload.copy()
+IKEv2_class._overload_fields = IKEv2_payload_type_overload.copy()
 
 split_layers(UDP, ISAKMP, sport=500)
 split_layers(UDP, ISAKMP, dport=500)

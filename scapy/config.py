@@ -23,11 +23,10 @@ class ConfClass(object):
     def __repr__(self):
         return str(self)
     def __str__(self):
-        s=""
+        s = ""
         keys = self.__class__.__dict__.copy()
         keys.update(self.__dict__)
-        keys = keys.keys()
-        keys.sort()
+        keys = sorted(keys)
         for i in keys:
             if i[0] != "_":
                 r = repr(getattr(self, i))
@@ -345,7 +344,10 @@ extensions_paths: path or list of paths where extensions are to be looked for
     L3socket = None
     L2socket = None
     L2listen = None
-    histfile = os.path.join(os.path.expanduser("~"), ".scapy_history")
+    min_pkt_size = 60
+    histfile = os.getenv('SCAPY_HISTFILE',
+                         os.path.join(os.path.expanduser("~"),
+                                      ".scapy_history"))
     padding = 1
     except_filter = ""
     debug_match = 0
@@ -360,8 +362,8 @@ extensions_paths: path or list of paths where extensions are to be looked for
     resolve = Resolve()
     noenum = Resolve()
     emph = Emphasize()
-    use_pcap = False
-    use_dnet = False
+    use_pcap = os.getenv("SCAPY_USE_PCAPDNET", "").lower().startswith("y")
+    use_dnet = os.getenv("SCAPY_USE_PCAPDNET", "").lower().startswith("y")
     use_winpcapy = False
     ipv6_enabled = socket.has_ipv6
     ethertypes = ETHER_TYPES

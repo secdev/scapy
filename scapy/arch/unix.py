@@ -14,10 +14,7 @@ import scapy.config
 import scapy.utils
 import scapy.utils6
 import scapy.arch
-
-scapy.config.conf.use_pcap = 1
-scapy.config.conf.use_dnet = 1
-from pcapdnet import *
+from scapy.config import conf
 
 
 ##################

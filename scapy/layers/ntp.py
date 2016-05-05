@@ -8,6 +8,7 @@ NTP (Network Time Protocol).
 """
 
 import time
+import datetime
 from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.inet import UDP
@@ -29,9 +30,11 @@ class TimeStampField(FixedPointField):
         return time.strftime("%a, %d %b %Y %H:%M:%S +0000", time.gmtime(val-_NTP_BASETIME))
 
     def any2i(self, pkt, val):
-        if type(val) is str:
-            return int(time.mktime(time.strptime(val))) + _NTP_BASETIME + 3600 # XXX
-        return FixedPointField.any2i(self,pkt,val)
+        if isinstance(val, basestring):
+            val = int(time.mktime(time.strptime(val))) + _NTP_BASETIME
+        elif isinstance(val, datetime.datetime):
+            val = int(val.strftime("%s")) + _NTP_BASETIME
+        return FixedPointField.any2i(self, pkt, val)
     
     def i2m(self, pkt, val):
         if val is None:

@@ -13,11 +13,13 @@ from select import select
 from fcntl import ioctl
 import scapy.utils
 import scapy.utils6
+from scapy.packet import Packet, Padding
 from scapy.config import conf
 from scapy.data import *
 from scapy.supersocket import SuperSocket
 import scapy.arch
 from scapy.error import warning, Scapy_Exception
+from scapy.arch.common import get_if
 
 
 
@@ -65,6 +67,17 @@ SOL_SOCKET = 1
 RTF_UP = 0x0001  # Route usable
 RTF_REJECT = 0x0200
 
+# From if_packet.h
+PACKET_HOST = 0  # To us
+PACKET_BROADCAST = 1  # To all
+PACKET_MULTICAST = 2  # To group
+PACKET_OTHERHOST = 3  # To someone else
+PACKET_OUTGOING = 4  # Outgoing of any type
+PACKET_LOOPBACK = 5  # MC/BRD frame looped back
+PACKET_USER = 6  # To user space
+PACKET_KERNEL = 7  # To kernel space
+PACKET_FASTROUTE = 6  # Fastrouted frame
+# Unused, PACKET_FASTROUTE and PACKET_LOOPBACK are invisible to user space
 
 
 LOOPBACK_NAME="lo"
@@ -275,15 +288,6 @@ def read_routes6():
     return routes   
 
 
-
-
-def get_if(iff,cmd):
-    s=socket.socket()
-    ifreq = ioctl(s, cmd, struct.pack("16s16x",iff))
-    s.close()
-    return ifreq
-
-
 def get_if_index(iff):
     return int(struct.unpack("I",get_if(iff, SIOCGIFINDEX)[16:20])[0])
 
@@ -394,18 +398,18 @@ class L3PacketSocket(SuperSocket):
             sdto = (iff, conf.l3types[type(x)])
         if sn[3] in conf.l2types:
             ll = lambda x:conf.l2types[sn[3]]()/x
+        sx = str(ll(x))
+        x.sent_time = time.time()
         try:
-            sx = str(ll(x))
-            x.sent_time = time.time()
             self.outs.sendto(sx, sdto)
-        except socket.error,msg:
-            x.sent_time = time.time()  # bad approximation
-            if conf.auto_fragment and msg[0] == 90:
+        except socket.error, msg:
+            if msg[0] == 22 and len(sx) < conf.min_pkt_size:
+                self.outs.send(sx + "\x00" * (conf.min_pkt_size - len(sx)))
+            elif conf.auto_fragment and msg[0] == 90:
                 for p in x.fragment():
                     self.outs.sendto(str(ll(p)), sdto)
             else:
                 raise
-                    
 
 
 
@@ -460,6 +464,17 @@ class L2Socket(SuperSocket):
             q = conf.raw_layer(pkt)
         q.time = get_last_packet_timestamp(self.ins)
         return q
+    def send(self, x):
+        try:
+            return SuperSocket.send(self, x)
+        except socket.error, msg:
+            if msg[0] == 22 and len(x) < conf.min_pkt_size:
+                padding = "\x00" * (conf.min_pkt_size - len(x))
+                if isinstance(x, Packet):
+                    return SuperSocket.send(self, x / Padding(load=padding))
+                else:
+                    return SuperSocket.send(self, str(x) + padding)
+            raise
 
 
 class L2ListenSocket(SuperSocket):
@@ -508,7 +523,9 @@ class L2ListenSocket(SuperSocket):
             cls = conf.l3types[sa_ll[1]]
         else:
             cls = conf.default_l2
-            warning("Unable to guess type (interface=%s protocol=%#x family=%i). Using %s" % (sa_ll[0],sa_ll[1],sa_ll[3],cls.name))
+            warning("Unable to guess type (interface=%s protocol=%#x "
+                    "family=%i). Using %s" % (sa_ll[0], sa_ll[1], sa_ll[3],
+                                              cls.name))
 
         try:
             pkt = cls(pkt)
@@ -519,6 +536,7 @@ class L2ListenSocket(SuperSocket):
                 raise
             pkt = conf.raw_layer(pkt)
         pkt.time = get_last_packet_timestamp(self.ins)
+        pkt.direction = sa_ll[2]
         return pkt
     
     def send(self, x):

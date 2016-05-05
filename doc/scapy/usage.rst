@@ -79,7 +79,7 @@ The ``/`` operator has been used as a composition operator between two layers. W
     <IP frag=0 proto=55 |<TCP |>>
 
 
-.. image:: graphics/fieldsmanagement.*
+.. image:: graphics/fieldsmanagement.png
    :scale: 90
 
 Each packet can be build or dissected (note: in Python ``_`` (underscore) is the latest result)::
@@ -520,7 +520,7 @@ Sniffing
 .. index::
    single: sniff()
 
-We can easily capture some packets or even clone tcpdump or tethereal. If no interface is given, sniffing will happen on every interfaces::
+We can easily capture some packets or even clone tcpdump or tshark. Either one interface or a list of interfaces to sniff on can be provided. If no interface is given, sniffing will happen on every interface::
 
     >>>  sniff(filter="icmp and host 66.35.250.151", count=2)
     <Sniffed: UDP:0 TCP:0 ICMP:2 Other:0>
@@ -607,6 +607,11 @@ We can easily capture some packets or even clone tcpdump or tethereal. If no int
              load      = 'B\xf7i\xa9\x00\x04\x149\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !\x22#$%&\'()*+,-./01234567'
     ---[ Padding ]---
                 load      = '\n_\x00\x0b'
+    >>> sniff(iface=["eth1","eth2"], prn=lambda x: x.sniffed_on+": "+x.summary())
+    eth3: Ether / IP / ICMP 192.168.5.21 > 66.35.250.151 echo-request 0 / Raw  
+    eth3: Ether / IP / ICMP 66.35.250.151 > 192.168.5.21 echo-reply 0 / Raw    
+    eth2: Ether / IP / ICMP 192.168.5.22 > 66.35.250.152 echo-request 0 / Raw  
+    eth2: Ether / IP / ICMP 66.35.250.152 > 192.168.5.22 echo-reply 0 / Raw
 
 For even more control over displayed information we can use the ``sprintf()`` function::
 

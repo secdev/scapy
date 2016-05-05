@@ -47,9 +47,9 @@ class IGMPv3gr(Packet):
 
   fields_desc = [ ByteEnumField("rtype", 1, igmpv3grtypes),
                       ByteField("auxdlen",0),
-                  FieldLenField("numsrc", None, "srcaddrs"),
+                  FieldLenField("numsrc", None, count_of="srcaddrs"),
                         IPField("maddr", "0.0.0.0"),
-                 FieldListField("srcaddrs", None, IPField("sa", "0.0.0.0"), "numsrc") ]
+                 FieldListField("srcaddrs", [], IPField("sa", "0.0.0.0"), "numsrc") ]
   #show_indent=0
 #--------------------------------------------------------------------------
   def post_build(self, p, pay):
