@@ -5,6 +5,7 @@ Modified:
     - Added a broadcast method to where a specific target is not needed
       - Allows user to target the whole subnet
     - Switched original opcode for targeted attack to use ARP Reply -vs- ARP Request
+      - "who-has" --> "is-at"
     - Changed default interval from 60 to 3
 
 
