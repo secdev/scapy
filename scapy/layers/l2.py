@@ -457,7 +457,6 @@ def arpcachepoison(gWay, target = None, interval = 3):
             sendp(p, iface_hint=target)
             if conf.verb > 1:
                 os.write(1,".")
-            p.show()
             time.sleep(interval)
     except KeyboardInterrupt:
         pass
