@@ -1,3 +1,14 @@
+## stryngs -- 6 May 2016
+Modified:
+  - def arpcachepoison():
+    - Added opcode argument with default value of 'who-has'
+      - Higher likelihood of success per https://www.defcon.org/images/defcon-15/dc15-presentations/dc-15-d_aguanno.pdf --> Slide 21
+    - Added direction argument for Targeted scenario allowing arp to go both ways
+    - Added iFace argument allowing user to set specific NIC
+       - Useful when arping your own box because otherwise you become ff:ff:ff:ff:ff:ff.....
+
+
+
 ## stryngs -- 4 May 2016
 Modified:
   - def arpcachepoison():
