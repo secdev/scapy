@@ -325,6 +325,21 @@ class ICMPTimeStampField(IntField):
         return val
 
 
+class DestIPField(IPField, DestField):
+    bindings = {}
+    def __init__(self, name, default):
+        IPField.__init__(self, name, None)
+        DestField.__init__(self, name, default)
+    def i2m(self, pkt, x):
+        if x is None:
+            x = self.dst_from_pkt(pkt)
+        return IPField.i2m(self, pkt, x)
+    def i2h(self, pkt, x):
+        if x is None:
+            x = self.dst_from_pkt(pkt)
+        return IPField.i2h(self, pkt, x)
+
+
 class IP(Packet, IPTools):
     __slots__ = ["_defrag_pos"]
     name = "IP"
@@ -340,7 +355,7 @@ class IP(Packet, IPTools):
                     XShortField("chksum", None),
                     #IPField("src", "127.0.0.1"),
                     Emph(SourceIPField("src","dst")),
-                    Emph(IPField("dst", "127.0.0.1")),
+                    Emph(DestIPField("dst", "127.0.0.1")),
                     PacketListField("options", [], IPOption, length_from=lambda p:p.ihl*4-20) ]
     def post_build(self, p, pay):
         ihl = self.ihl

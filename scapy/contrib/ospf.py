@@ -726,6 +726,7 @@ bind_layers(OSPF_Hdr, OSPF_DBDesc, type=2)
 bind_layers(OSPF_Hdr, OSPF_LSReq, type=3)
 bind_layers(OSPF_Hdr, OSPF_LSUpd, type=4)
 bind_layers(OSPF_Hdr, OSPF_LSAck, type=5)
+DestIPField.bind_addr(OSPF_Hdr, "224.0.0.5")
 
 bind_layers(IPv6, OSPFv3_Hdr, nh=89)
 bind_layers(OSPFv3_Hdr, OSPFv3_Hello, type=1)
@@ -733,6 +734,7 @@ bind_layers(OSPFv3_Hdr, OSPFv3_DBDesc, type=2)
 bind_layers(OSPFv3_Hdr, OSPFv3_LSReq, type=3)
 bind_layers(OSPFv3_Hdr, OSPFv3_LSUpd, type=4)
 bind_layers(OSPFv3_Hdr, OSPFv3_LSAck, type=5)
+DestIP6Field.bind_addr(OSPFv3_Hdr, "ff02::5")
 
 
 if __name__ == "__main__":

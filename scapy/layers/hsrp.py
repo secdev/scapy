@@ -34,7 +34,8 @@ HSRP (Hot Standby Router Protocol): proprietary redundancy protocol for Cisco ro
 
 from scapy.fields import *
 from scapy.packet import *
-from scapy.layers.inet import UDP
+from scapy.layers.inet import DestIPField, UDP
+from scapy.layers.inet6 import DestIP6Field
 
 
 class HSRP(Packet):
@@ -77,3 +78,6 @@ class HSRPmd5(Packet):
         return p
 
 bind_layers(UDP, HSRP, dport=1985, sport=1985)
+bind_layers(UDP, HSRP, dport=2029, sport=2029)
+DestIPField.bind_addr(UDP, "224.0.0.2", dport=1985)
+DestIP6Field.bind_addr(UDP, "ff02::66", dport=2029)
