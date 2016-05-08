@@ -21,6 +21,20 @@ from scapy.config import conf
 ## Routes stuff ##
 ##################
 
+def guess_iface_name(netif):
+    """
+    We attempt to guess the name of interfaces that are truncated from the
+    output of ifconfig -l.
+    If there is only one possible candidate matching the interface name then we
+    return it. If there are none or more, then we return None.
+    """
+    f = os.popen('ifconfig -l')
+    ifaces = f.readlines()[0].strip().split(' ')
+    f.close()
+    matches = filter(lambda x: x.startswith(netif), ifaces)
+    if len(matches) == 1:
+        return matches[0]
+    return None
 
 def read_routes():
     if scapy.arch.SOLARIS:
@@ -78,8 +92,20 @@ def read_routes():
         if not "G" in flg:
             gw = '0.0.0.0'
         if netif is not None:
-            ifaddr = scapy.arch.get_if_addr(netif)
-            routes.append((dest,netmask,gw,netif,ifaddr))
+            try:
+                ifaddr = scapy.arch.get_if_addr(netif)
+                routes.append((dest,netmask,gw,netif,ifaddr))
+            except OSError as exc:
+                if exc.message == 'Device not configured':
+                    # This means the interface name is probably truncated by
+                    # netstat -nr. We attempt to guess it's name and if not we
+                    # ignore it.
+                    netif = guess_iface_name(netif)
+                    if netif:
+                        ifaddr = scapy.arch.get_if_addr(netif)
+                        routes.append((dest,netmask,gw,netif,ifaddr))
+                else:
+                    raise
         else:
             pending_if.append((dest,netmask,gw))
     f.close()
