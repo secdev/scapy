@@ -33,7 +33,7 @@ class ASN1F_field(ASN1F_element):
     islist = 0
     ASN1_tag = ASN1_Class_UNIVERSAL.ANY
     context = ASN1_Class_UNIVERSAL
-    
+
     def __init__(self, name, default, context=None,
                  implicit_tag=None, explicit_tag=None):
         self.context = context
@@ -111,7 +111,7 @@ class ASN1F_field(ASN1F_element):
             return c,s
         else:
             return None,s
- 
+
     def build(self, pkt):
         return self.i2m(pkt, getattr(pkt, self.name))
     def dissect(self, pkt, s):
@@ -134,7 +134,7 @@ class ASN1F_field(ASN1F_element):
         return getattr(pkt, self.name) is None
     def get_fields_list(self):
         return [self]
-    
+
     def __hash__(self):
         return hash(self.name)
     def __str__(self):
@@ -182,7 +182,7 @@ class ASN1F_enum_INTEGER(ASN1F_INTEGER):
         if type(x) is list:
             return map(lambda z,pkt=pkt:self.any2i_one(pkt,z), x)
         else:
-            return self.any2i_one(pkt, x)        
+            return self.any2i_one(pkt, x)
     def i2repr_one(self, pkt, x):
         if x is not None:
             r = self.i2s.get(x)
@@ -206,7 +206,7 @@ class ASN1F_BIT_STRING(ASN1F_field):
                              explicit_tag=explicit_tag)
     def randval(self):
         return RandString(RandNum(0, 1000))
-    
+
 class ASN1F_STRING(ASN1F_field):
     ASN1_tag = ASN1_Class_UNIVERSAL.STRING
     def randval(self):
@@ -234,7 +234,7 @@ class ASN1F_T61_STRING(ASN1F_STRING):
 
 class ASN1F_IA5_STRING(ASN1F_STRING):
     ASN1_tag = ASN1_Class_UNIVERSAL.IA5_STRING
-   
+
 class ASN1F_UTC_TIME(ASN1F_STRING):
     ASN1_tag = ASN1_Class_UNIVERSAL.UTC_TIME
 
@@ -246,10 +246,10 @@ class ASN1F_ISO646_STRING(ASN1F_STRING):
 
 class ASN1F_UNIVERSAL_STRING(ASN1F_STRING):
     ASN1_tag = ASN1_Class_UNIVERSAL.UNIVERSAL_STRING
-   
+
 class ASN1F_BMP_STRING(ASN1F_STRING):
     ASN1_tag = ASN1_Class_UNIVERSAL.BMP_STRING
-   
+
 class ASN1F_SEQUENCE(ASN1F_field):
     ASN1_tag = ASN1_Class_UNIVERSAL.SEQUENCE
     holds_packets = 1
@@ -357,7 +357,7 @@ class ASN1F_SET_OF(ASN1F_SEQUENCE_OF):
     ASN1_tag = ASN1_Class_UNIVERSAL.SET
 
 class ASN1F_IPADDRESS(ASN1F_STRING):
-    ASN1_tag = ASN1_Class_UNIVERSAL.IPADDRESS    
+    ASN1_tag = ASN1_Class_UNIVERSAL.IPADDRESS
 
 class ASN1F_TIME_TICKS(ASN1F_INTEGER):
     ASN1_tag = ASN1_Class_UNIVERSAL.TIME_TICKS

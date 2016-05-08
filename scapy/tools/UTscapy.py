@@ -20,7 +20,7 @@ def import_module(name):
     if name.endswith(".py"):
         name = name[:-3]
     f,path,desc = imp.find_module(name,[thepath])
-    
+
     try:
         return imp.load_module(name, f, path, desc)
     finally:
@@ -44,7 +44,7 @@ class File:
             dir += "/"
         open(dir+self.name,"w").write(self.get_local())
 
-        
+
 # Embed a base64 encoded bziped version of js and css files
 # to work if you can't reach Internet.
 class External_Files:
@@ -97,7 +97,7 @@ class EnumClass:
     def from_string(cls,x):
         return cls.__dict__[x.upper()]
     from_string = classmethod(from_string)
-    
+
 class Format(EnumClass):
     TEXT  = 1
     ANSI  = 2
@@ -193,7 +193,7 @@ def parse_campaign_file(campaign_file):
             testset.add_test(test)
         elif l[0] == "*":
             if test is not None:
-                
+
                 test.comments += l[1:]
             elif testset is not None:
                 testset.comments += l[1:]
@@ -230,7 +230,7 @@ def dump_campaign(test_campaign):
             if t.crc:
                 c = "[%(crc)s] " % t
             if c or k:
-                print "    %s%s" % (c,k) 
+                print "    %s%s" % (c,k)
 
 #### COMPUTE CAMPAIGN DIGESTS ####
 
@@ -269,7 +269,7 @@ def filter_tests_keep_on_keywords(test_campaign, kw):
             if k in kw:
                 return True
         return False
-    
+
     if kw:
         for ts in test_campaign:
             ts.tests = [t for t in ts.tests if kw_match(t.keywords, kw)]
@@ -280,7 +280,7 @@ def filter_tests_remove_on_keywords(test_campaign, kw):
             if k not in lst:
                 return False
         return True
-    
+
     if kw:
         for ts in test_campaign:
             ts.tests = [t for t in ts.tests if not kw_match(t.keywords, kw)]
@@ -348,7 +348,7 @@ def campaign_to_TEXT(test_campaign):
     output="%(title)s\n" % test_campaign
     output += "-- "+info_line(test_campaign)+"\n\n"
     output += "Passed=%(passed)i\nFailed=%(failed)i\n\n%(headcomments)s\n" % test_campaign
-    
+
     for testset in test_campaign:
         if any(t.expand for t in testset):
             output += "######\n## %(name)s\n######\n%(comments)s\n\n" % testset
@@ -357,12 +357,12 @@ def campaign_to_TEXT(test_campaign):
                     output += "###(%(num)03i)=[%(result)s] %(name)s\n%(comments)s\n%(output)s\n\n" % t
 
     return output
- 
+
 def campaign_to_ANSI(test_campaign):
     output="%(title)s\n" % test_campaign
     output += "-- "+info_line(test_campaign)+"\n\n"
     output += "Passed=%(passed)i\nFailed=%(failed)i\n\n%(headcomments)s\n" % test_campaign
-    
+
     for testset in test_campaign:
         if any(t.expand for t in testset):
             output += "######\n## %(name)s\n######\n%(comments)s\n\n" % testset
@@ -419,7 +419,7 @@ def campaign_to_HTML(test_campaign, local=0):
         for t in ts:
             output += """<span class=button%(result)s onClick="goto_id('tst%(num)il')">%(num)03i</span>\n""" % t
     output += "\n\n"
-    
+
     for testset in test_campaign:
         output += "<h2>" % testset
         if testset.crc is not None:
@@ -474,7 +474,7 @@ def campaign_to_LATEX(test_campaign):
 
 """ % test_campaign
     output %= info_line(test_campaign)
-    
+
     for testset in test_campaign:
         output += "\\chapter{%(name)s}\n\n%(comments)s\n\n" % testset
         for t in testset:
@@ -496,7 +496,7 @@ def campaign_to_LATEX(test_campaign):
 
 
 #### USAGE ####
-                      
+
 def usage():
     print >>sys.stderr,"""Usage: UTscapy [-m module] [-f {text|ansi|HTML|LaTeX}] [-o output_file] 
                [-t testfile] [-k keywords [-k ...]] [-K keywords [-K ...]]
@@ -525,7 +525,7 @@ def main(argv):
     import __builtin__
 
     # Parse arguments
-    
+
     FORMAT = Format.ANSI
     TESTFILE = sys.stdin
     OUTPUTFILE = sys.stdout
@@ -585,7 +585,7 @@ def main(argv):
             elif opt == "-K":
                 KW_KO.append(optarg.split(","))
 
-        
+
         try:
             from scapy import all as scapy
         except ImportError,e:
@@ -597,7 +597,7 @@ def main(argv):
                 __builtin__.__dict__.update(mod.__dict__)
             except ImportError,e:
                 raise getopt.GetoptError("cannot import [%s]: %s" % (m,e))
-                
+
     except getopt.GetoptError,msg:
         print >>sys.stderr,"ERROR:",msg
         raise SystemExit
@@ -616,7 +616,7 @@ def main(argv):
     # Report parameters
     if PREEXEC:
         test_campaign.preexec = PREEXEC
-    
+
 
     # Compute campaign CRC and SHA
     if CRC:

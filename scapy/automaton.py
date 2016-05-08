@@ -59,7 +59,7 @@ class _instance_state:
         return self.im_self.remove_breakpoints(self.im_func)
     def unintercepts(self):
         return self.im_self.remove_interception_points(self.im_func)
-        
+
 
 ##############
 ## Automata ##
@@ -232,7 +232,7 @@ class Automaton_metaclass(type):
 
         decorated = [v for v in members.itervalues()
                      if type(v) is types.FunctionType and hasattr(v, "atmt_type")]
-        
+
         for m in decorated:
             if m.atmt_type == ATMT.STATE:
                 s = m.atmt_state
@@ -245,7 +245,7 @@ class Automaton_metaclass(type):
                     cls.initial_states.append(m)
             elif m.atmt_type in [ATMT.CONDITION, ATMT.RECV, ATMT.TIMEOUT, ATMT.IOEVENT]:
                 cls.actions[m.atmt_condname] = []
-    
+
         for m in decorated:
             if m.atmt_type == ATMT.CONDITION:
                 cls.conditions[m.atmt_state].append(m)
@@ -261,7 +261,7 @@ class Automaton_metaclass(type):
             elif m.atmt_type == ATMT.ACTION:
                 for c in m.atmt_cond:
                     cls.actions[c].append(m)
-            
+
 
         for v in cls.timeout.itervalues():
             v.sort(lambda (t1,f1),(t2,f2): cmp(t1,t2))
@@ -280,7 +280,7 @@ class Automaton_metaclass(type):
 
     def graph(self, **kargs):
         s = 'digraph "%s" {\n'  % self.__class__.__name__
-        
+
         se = "" # Keep initial nodes at the begining for better rendering
         for st in self.states.itervalues():
             if st.atmt_initial:
@@ -295,7 +295,7 @@ class Automaton_metaclass(type):
             for n in st.atmt_origfunc.func_code.co_names+st.atmt_origfunc.func_code.co_consts:
                 if n in self.states:
                     s += '\t"%s" -> "%s" [ color=green ];\n' % (st.atmt_state,n)
-            
+
 
         for c,k,v in ([("purple",k,v) for k,v in self.conditions.items()]+
                       [("red",k,v) for k,v in self.recv_conditions.items()]+
@@ -313,13 +313,13 @@ class Automaton_metaclass(type):
                     continue
                 for n in f.func_code.co_names+f.func_code.co_consts:
                     if n in self.states:
-                        l = "%s/%.1fs" % (f.atmt_condname,t)                        
+                        l = "%s/%.1fs" % (f.atmt_condname,t)
                         for x in self.actions[f.atmt_condname]:
                             l += "\\l>[%s]" % x.func_name
                         s += '\t"%s" -> "%s" [label="%s",color=blue];\n' % (k,n,l)
         s += "}\n"
         return do_graph(s, **kargs)
-        
+
 
 
 class Automaton:
@@ -329,7 +329,7 @@ class Automaton:
     def parse_args(self, debug=0, store=1, **kargs):
         self.debug_level=debug
         self.socket_kargs = kargs
-        self.store_packets = store        
+        self.store_packets = store
 
     def master_filter(self, pkt):
         return True
@@ -354,7 +354,7 @@ class Automaton:
         def write(self, msg):
             return os.write(self.wr,msg)
         def recv(self, n=65535):
-            return self.read(n)        
+            return self.read(n)
         def send(self, msg):
             return self.write(msg)
 
@@ -369,7 +369,7 @@ class Automaton:
         def recv(self, n=None):
             return self.rd.recv(n)
         def read(self, n=None):
-            return self.rd.recv(n)        
+            return self.rd.recv(n)
         def send(self, msg):
             return self.wr.send(msg)
         def write(self, msg):
@@ -390,7 +390,7 @@ class Automaton:
         pass
     class AutomatonStopped(AutomatonException):
         pass
-    
+
     class Breakpoint(AutomatonStopped):
         pass
     class Singlestep(AutomatonStopped):
@@ -407,7 +407,7 @@ class Automaton:
     ## Services
     def debug(self, lvl, msg):
         if self.debug_level >= lvl:
-            log_interactive.debug(msg)            
+            log_interactive.debug(msg)
 
     def send(self, pkt):
         if self.state.state in self.interception_points:
@@ -429,7 +429,7 @@ class Automaton:
                 raise self.AutomatonError("INTERCEPT: unkown verdict: %r" % cmd.type)
         self.my_send(pkt)
         self.debug(3,"SENT : %s" % pkt.summary())
-        
+
         if self.store_packets:
             self.packets.append(pkt.copy())
 
@@ -458,7 +458,7 @@ class Automaton:
             extfd = external_fd.get(n)
             if type(extfd) is not tuple:
                 extfd = (extfd,extfd)
-            ioin,ioout = extfd                
+            ioin,ioout = extfd
             if ioin is None:
                 ioin = ObjectPipe()
             elif type(ioin) is not types.InstanceType:
@@ -469,22 +469,22 @@ class Automaton:
                 ioout = self._IO_fdwrapper(None,ioout)
 
             self.ioin[n] = ioin
-            self.ioout[n] = ioout 
+            self.ioout[n] = ioout
             ioin.ioname = n
             ioout.ioname = n
             setattr(self.io, n, self._IO_mixer(ioout,ioin))
             setattr(self.oi, n, self._IO_mixer(ioin,ioout))
 
         for stname in self.states:
-            setattr(self, stname, 
+            setattr(self, stname,
                     _instance_state(getattr(self, stname)))
-        
+
         self.parse_args(*args, **kargs)
 
         self.start()
 
     def __iter__(self):
-        return self        
+        return self
 
     def __del__(self):
         self.stop()
@@ -509,7 +509,7 @@ class Automaton:
             self.debug(2, "%s [%s] not taken" % (cond.atmt_type, cond.atmt_condname))
 
     def _do_start(self, *args, **kargs):
-        
+
         thread.start_new_thread(self._do_control, args, kargs)
 
 
@@ -522,7 +522,7 @@ class Automaton:
             k = self.init_kargs.copy()
             k.update(kargs)
             self.parse_args(*a,**k)
-    
+
             # Start the automaton
             self.state=self.initial_states[0](self)
             self.send_sock = self.send_sock_class()
@@ -563,49 +563,49 @@ class Automaton:
                 exc_info = sys.exc_info()
                 self.debug(3, "Transfering exception from tid=%i:\n%s"% (self.threadid, traceback.format_exc(exc_info)))
                 m = Message(type=_ATMT_Command.EXCEPTION, exception=e, exc_info=exc_info)
-                self.cmdout.send(m)        
+                self.cmdout.send(m)
             self.debug(3, "Stopping control thread (tid=%i)"%self.threadid)
             self.threadid = None
-    
+
     def _do_iter(self):
         while True:
             try:
                 self.debug(1, "## state=[%s]" % self.state.state)
-    
+
                 # Entering a new state. First, call new state function
-                if self.state.state in self.breakpoints and self.state.state != self.breakpointed: 
+                if self.state.state in self.breakpoints and self.state.state != self.breakpointed:
                     self.breakpointed = self.state.state
                     yield self.Breakpoint("breakpoint triggered on state %s" % self.state.state,
                                           state = self.state.state)
                 self.breakpointed = None
                 state_output = self.state.run()
                 if self.state.error:
-                    raise self.ErrorState("Reached %s: [%r]" % (self.state.state, state_output), 
+                    raise self.ErrorState("Reached %s: [%r]" % (self.state.state, state_output),
                                           result=state_output, state=self.state.state)
                 if self.state.final:
                     raise StopIteration(state_output)
-    
+
                 if state_output is None:
                     state_output = ()
                 elif type(state_output) is not list:
                     state_output = state_output,
-                
+
                 # Then check immediate conditions
                 for cond in self.conditions[self.state.state]:
                     self._run_condition(cond, *state_output)
-    
+
                 # If still there and no conditions left, we are stuck!
                 if ( len(self.recv_conditions[self.state.state]) == 0 and
                      len(self.ioevents[self.state.state]) == 0 and
                      len(self.timeout[self.state.state]) == 1 ):
                     raise self.Stuck("stuck in [%s]" % self.state.state,
                                      state=self.state.state, result=state_output)
-    
+
                 # Finally listen and pay attention to timeouts
                 expirations = iter(self.timeout[self.state.state])
                 next_timeout,timeout_func = expirations.next()
                 t0 = time.time()
-                
+
                 fds = [self.cmdin]
                 if len(self.recv_conditions[self.state.state]) > 0:
                     fds.append(self.listen_sock)
@@ -621,7 +621,7 @@ class Automaton:
                         remain = None
                     else:
                         remain = next_timeout-t
-    
+
                     self.debug(5, "Select on %r" % fds)
                     r,_,_ = select(fds,[],[],remain)
                     self.debug(5, "Selected %r" % r)
@@ -643,7 +643,7 @@ class Automaton:
                             for ioevt in self.ioevents[self.state.state]:
                                 if ioevt.atmt_ioname == fd.ioname:
                                     self._run_condition(ioevt, fd, *state_output)
-    
+
             except ATMT.NewStateRequested,state_req:
                 self.debug(2, "switching from [%s] to [%s]" % (self.state.state,state_req.state))
                 self.state = state_req
@@ -655,7 +655,7 @@ class Automaton:
             if hasattr(ipt,"atmt_state"):
                 ipt = ipt.atmt_state
             self.interception_points.add(ipt)
-        
+
     def remove_interception_points(self, *ipts):
         for ipt in ipts:
             if hasattr(ipt,"atmt_state"):
@@ -677,7 +677,7 @@ class Automaton:
     def start(self, *args, **kargs):
         if not self.started.locked():
             self._do_start(*args, **kargs)
-        
+
     def run(self, resume=None, wait=True):
         if resume is None:
             resume = Message(type = _ATMT_Command.RUN)
@@ -715,7 +715,7 @@ class Automaton:
                     break
                 for fd in r:
                     fd.recv()
-                
+
     def restart(self, *args, **kargs):
         self.stop()
         self.start(*args, **kargs)
@@ -733,5 +733,5 @@ class Automaton:
         rsm = Message(type = _ATMT_Command.REJECT)
         return self.run(resume=rsm, wait=wait)
 
-    
+
 

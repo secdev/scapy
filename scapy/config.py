@@ -53,7 +53,7 @@ class Interceptor(object):
         setattr(obj, self.intname, val)
         self.hook(self.name, val, *self.args, **self.kargs)
 
-    
+
 class ProgPath(ConfClass):
     pdfreader = "acroread"
     psreader = "gv"
@@ -93,17 +93,17 @@ class Emphasize(ConfigFieldList):
 
 class Resolve(ConfigFieldList):
     pass
-    
+
 
 class Num2Layer:
     def __init__(self):
         self.num2layer = {}
         self.layer2num = {}
-        
+
     def register(self, num, layer):
         self.register_num2layer(num, layer)
         self.register_layer2num(num, layer)
-        
+
     def register_num2layer(self, num, layer):
         self.num2layer[num] = layer
     def register_layer2num(self, num, layer):
@@ -121,7 +121,7 @@ class Num2Layer:
         if item in self:
             return self[item]
         return default
-    
+
     def __repr__(self):
         lst = []
         for num,layer in self.num2layer.iteritems():
@@ -194,7 +194,7 @@ class CacheInstance(dict):
         if self.timeout is None:
             return dict.iteritems(self)
         t0=time.time()
-        return ((k,v) for (k,v) in dict.iteritems(self) if t0-self._timetable[k] < self.timeout) 
+        return ((k,v) for (k,v) in dict.iteritems(self) if t0-self._timetable[k] < self.timeout)
     def iterkeys(self):
         if self.timeout is None:
             return dict.iterkeys(self)
@@ -236,8 +236,8 @@ class CacheInstance(dict):
             for item in self.iteritems():
                 s.append(fmt % item)
         return "\n".join(s)
-            
-            
+
+
 
 
 class NetCache:
@@ -264,7 +264,7 @@ class NetCache:
             c.flush()
     def __repr__(self):
         return "\n".join(c.summary() for c in self._caches_list)
-        
+
 
 class LogLevel(object):
     def __get__(self, obj, otype):
@@ -272,7 +272,7 @@ class LogLevel(object):
     def __set__(self,obj,val):
         log_scapy.setLevel(val)
         obj._logLevel = val
-        
+
 
 
 def _prompt_changer(attr,val):
@@ -390,7 +390,7 @@ if not Conf.ipv6_enabled:
     for m in ["inet6","dhcp6"]:
         if m in Conf.load_layers:
             Conf.load_layers.remove(m)
-    
+
 
 conf=Conf()
 conf.logLevel=30 # 30=Warning

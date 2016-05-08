@@ -1,4 +1,4 @@
-#! /usr/bin/env python 
+#! /usr/bin/env python
 
 # http://trac.secdev.org/scapy/ticket/162
 
@@ -33,7 +33,7 @@ class BGPIPField(Field):
 		"""internal (ip as bytes, mask as int) to machine"""
 		mask, ip = i
 		ip = inet_aton( ip )
-		return struct.pack(">B",mask) + ip[:self.mask2iplen(mask)] 
+		return struct.pack(">B",mask) + ip[:self.mask2iplen(mask)]
 	def addfield(self, pkt, s, val):
 		return s+self.i2m(pkt, val)
 	def getfield(self, pkt, s):

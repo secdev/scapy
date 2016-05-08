@@ -101,7 +101,7 @@ class FecTLVField(StrField):
     def getfield(self, pkt, s):
         l = self.size(s)
         return s[l:],self.m2i(pkt, s[:l])
-        
+
 
 # 3.4.2.1. Generic Label TLV
 
@@ -255,7 +255,7 @@ class CommonSessionTLVField(StrField):
     def getfield(self, pkt, s):
         l = 18
         return s[l:],self.m2i(pkt, s[:l])
-    
+
 
 
 ## Messages ##
@@ -272,7 +272,7 @@ class LDPNotification(Packet):
         if self.len is None:
             l = len(p) - 4
             p = p[:2]+struct.pack("!H", l)+p[4:]
-        return p+pay  
+        return p+pay
     def guess_payload_class(self, p):
         return guess_payload(p)
 
@@ -289,7 +289,7 @@ class LDPHello(Packet):
         if self.len is None:
             l = len(p) - 4
             p = p[:2]+struct.pack("!H", l)+p[4:]
-        return p+pay  
+        return p+pay
     def guess_payload_class(self, p):
         return guess_payload(p)
 
@@ -306,7 +306,7 @@ class LDPInit(Packet):
         if self.len is None:
             l = len(p) - 4
             p = p[:2]+struct.pack("!H", l)+p[4:]
-        return p+pay  
+        return p+pay
     def guess_payload_class(self, p):
         return guess_payload(p)
 
@@ -322,7 +322,7 @@ class LDPKeepAlive(Packet):
         if self.len is None:
             l = len(p) - 4
             p = p[:2]+struct.pack("!H", l)+p[4:]
-        return p+pay  
+        return p+pay
     def guess_payload_class(self, p):
         return guess_payload(p)
 
@@ -377,7 +377,7 @@ class LDPLabelMM(Packet):
         if self.len is None:
             l = len(p) - 4
             p = p[:2]+struct.pack("!H", l)+p[4:]
-        return p+pay  
+        return p+pay
     def guess_payload_class(self, p):
         return guess_payload(p)
 
@@ -394,7 +394,7 @@ class LDPLabelReqM(Packet):
         if self.len is None:
             l = len(p) - 4
             p = p[:2]+struct.pack("!H", l)+p[4:]
-        return p+pay  
+        return p+pay
     def guess_payload_class(self, p):
         return guess_payload(p)
 
@@ -413,7 +413,7 @@ class LDPLabelARM(Packet):
         if self.len is None:
             l = len(p) - 4
             p = p[:2]+struct.pack("!H", l)+p[4:]
-        return p+pay  
+        return p+pay
     def guess_payload_class(self, p):
         return guess_payload(p)
 
@@ -432,7 +432,7 @@ class LDPLabelWM(Packet):
         if self.len is None:
             l = len(p) - 4
             p = p[:2]+struct.pack("!H", l)+p[4:]
-        return p+pay  
+        return p+pay
     def guess_payload_class(self, p):
         return guess_payload(p)
 
@@ -451,7 +451,7 @@ class LDPLabelRelM(Packet):
         if self.len is None:
             l = len(p) - 4
             p = p[:2]+struct.pack("!H", l)+p[4:]
-        return p+pay  
+        return p+pay
     def guess_payload_class(self, p):
         return guess_payload(p)
 

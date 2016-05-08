@@ -51,7 +51,7 @@ class bpf_insn(Structure):
               ("jt",c_ubyte),
               ("jf",c_ubyte),
               ("k",bpf_u_int32)]
-    
+
 class bpf_program(Structure):
     pass
 bpf_program._fields_ = [('bf_len', u_int),
@@ -69,7 +69,7 @@ timeval._fields_ = [('tv_sec', c_long),
 
 ## sockaddr is used by pcap_addr.
 ## For exapmle if sa_family==socket.AF_INET then we need cast
-## with sockaddr_in 
+## with sockaddr_in
 if WIN32:
     class sockaddr(Structure):
         _fields_ = [("sa_family", c_ushort),
@@ -188,16 +188,16 @@ pcap_if._fields_ = [('next', POINTER(pcap_if)),
 
 ##define  PCAP_VERSION_MAJOR   2
 #   Major libpcap dump file version.
-PCAP_VERSION_MAJOR = 2 
+PCAP_VERSION_MAJOR = 2
 ##define  PCAP_VERSION_MINOR   4
 #   Minor libpcap dump file version.
-PCAP_VERSION_MINOR = 4 
+PCAP_VERSION_MINOR = 4
 ##define  PCAP_ERRBUF_SIZE   256
 #   Size to use when allocating the buffer that contains the libpcap errors.
-PCAP_ERRBUF_SIZE = 256 
+PCAP_ERRBUF_SIZE = 256
 ##define  PCAP_IF_LOOPBACK   0x00000001
 #   interface is loopback
-PCAP_IF_LOOPBACK = 1 
+PCAP_IF_LOOPBACK = 1
 ##define  MODE_CAPT   0
 #   Capture mode, to be used when calling pcap_setmode().
 MODE_CAPT = 0
@@ -243,7 +243,7 @@ pcap_addr_t = pcap_addr
 
 ##
 ## Unix-compatible Functions
-## These functions are part of the libpcap library, and therefore work both on Windows and on Linux. 
+## These functions are part of the libpcap library, and therefore work both on Windows and on Linux.
 ##
 
 #typedef void(* pcap_handler )(u_char *user, const struct pcap_pkthdr *pkt_header, const u_char *pkt_data)
@@ -499,7 +499,7 @@ pcap_dump_flush.restype = c_int
 pcap_dump_flush.argtypes = [POINTER(pcap_dumper_t)]
 
 #void pcap_dump_close (pcap_dumper_t *p)
-#   Closes a savefile. 
+#   Closes a savefile.
 pcap_dump_close = _lib.pcap_dump_close
 pcap_dump_close.restype = None
 pcap_dump_close.argtypes = [POINTER(pcap_dumper_t)]
@@ -507,7 +507,7 @@ pcap_dump_close.argtypes = [POINTER(pcap_dumper_t)]
 if not WIN32:
 
     pcap_get_selectable_fd = _lib.pcap_get_selectable_fd
-    pcap_get_selectable_fd.restype = c_int    
+    pcap_get_selectable_fd.restype = c_int
     pcap_get_selectable_fd.argtypes = [POINTER(pcap_t)]
 
 ###########################################
@@ -518,7 +518,7 @@ if not WIN32:
 ###########################################
 if WIN32:
     HANDLE = c_void_p
-    
+
     ##############
     ## Identifiers related to the new source syntax
     ##############
@@ -529,7 +529,7 @@ if WIN32:
     PCAP_SRC_FILE = 2
     PCAP_SRC_IFLOCAL = 3
     PCAP_SRC_IFREMOTE = 4
-    
+
     ##############
     ## Strings related to the new source syntax
     ##############
@@ -538,7 +538,7 @@ if WIN32:
     #String that will be used to determine the type of source in use (file, remote/local interface).
     PCAP_SRC_FILE_STRING="file://"
     PCAP_SRC_IF_STRING="rpcap://"
-    
+
     ##############
     ## Flags defined in the pcap_open() function
     ##############
@@ -556,7 +556,7 @@ if WIN32:
     # define  PCAP_OPENFLAG_MAX_RESPONSIVENESS   16
     #   This flag configures the adapter for maximum responsiveness.
     PCAP_OPENFLAG_MAX_RESPONSIVENESS=16
-    
+
     ##############
     ## Sampling methods defined in the pcap_setsampling() function
     ##############
@@ -569,7 +569,7 @@ if WIN32:
     #define   PCAP_SAMP_FIRST_AFTER_N_MS   2
     # It defines that we have to return 1 packet every N milliseconds.
     PCAP_SAMP_FIRST_AFTER_N_MS=2
-    
+
     ##############
     ## Authentication methods supported by the RPCAP protocol
     ##############
@@ -579,7 +579,7 @@ if WIN32:
     # define  RPCAP_RMTAUTH_PWD   1
     # It defines the username/password authentication.
     RPCAP_RMTAUTH_PWD=1
-    
+
 
     ##############
     ## Remote struct and defines
@@ -590,70 +590,70 @@ if WIN32:
     # define  RPCAP_HOSTLIST_SIZE   1024
     # Maximum lenght of an host name (needed for the RPCAP active mode).
     RPCAP_HOSTLIST_SIZE = 1024
-    
+
     class pcap_send_queue(Structure):
         _fields_=[("maxlen",c_uint),
                   ("len",c_uint),
                   ("buffer",c_char_p)]
-        
+
     ## struct   pcap_rmtauth
     ## This structure keeps the information needed to autheticate the user on a remote machine
     class pcap_rmtauth(Structure):
         _fields_=[("type",c_int),
                   ("username",c_char_p),
                   ("password",c_char_p)]
-    
+
     ## struct   pcap_samp
-    ## This structure defines the information related to sampling    
+    ## This structure defines the information related to sampling
     class pcap_samp(Structure):
         _fields_=[("method",c_int),
                   ("value",c_int)]
 
     #PAirpcapHandle   pcap_get_airpcap_handle (pcap_t *p)
     #   Returns the AirPcap handler associated with an adapter. This handler can be used to change the wireless-related settings of the CACE Technologies AirPcap wireless capture adapters.
-    
+
     #bool pcap_offline_filter (struct bpf_program *prog, const struct pcap_pkthdr *header, const u_char *pkt_data)
     #   Returns if a given filter applies to an offline packet.
     pcap_offline_filter = _lib.pcap_offline_filter
     pcap_offline_filter.restype = c_bool
     pcap_offline_filter.argtypes = [POINTER(bpf_program),POINTER(pcap_pkthdr),POINTER(u_char)]
-    
+
     #int pcap_live_dump (pcap_t *p, char *filename, int maxsize, int maxpacks)
     #   Save a capture to file.
     pcap_live_dump = _lib.pcap_live_dump
     pcap_live_dump.restype = c_int
     pcap_live_dump.argtypes = [POINTER(pcap_t), POINTER(c_char), c_int,c_int]
-    
+
     #int pcap_live_dump_ended (pcap_t *p, int sync)
     #   Return the status of the kernel dump process, i.e. tells if one of the limits defined with pcap_live_dump() has been reached.
     pcap_live_dump_ended = _lib.pcap_live_dump_ended
     pcap_live_dump_ended.restype = c_int
     pcap_live_dump_ended.argtypes = [POINTER(pcap_t), c_int]
-    
+
     #struct pcap_stat *  pcap_stats_ex (pcap_t *p, int *pcap_stat_size)
     #   Return statistics on current capture.
     pcap_stats_ex = _lib.pcap_stats_ex
     pcap_stats_ex.restype = POINTER(pcap_stat)
     pcap_stats_ex.argtypes = [POINTER(pcap_t), POINTER(c_int)]
-    
+
     #int pcap_setbuff (pcap_t *p, int dim)
     #   Set the size of the kernel buffer associated with an adapter.
     pcap_setbuff = _lib.pcap_setbuff
     pcap_setbuff.restype = c_int
     pcap_setbuff.argtypes = [POINTER(pcap_t), c_int]
-    
+
     #int pcap_setmode (pcap_t *p, int mode)
     #   Set the working mode of the interface p to mode.
     pcap_setmode = _lib.pcap_setmode
     pcap_setmode.restype = c_int
     pcap_setmode.argtypes = [POINTER(pcap_t), c_int]
-    
+
     #int pcap_setmintocopy (pcap_t *p, int size)
     #   Set the minumum amount of data received by the kernel in a single call.
     pcap_setmintocopy = _lib.pcap_setmintocopy
     pcap_setmintocopy.restype = c_int
     pcap_setmintocopy.argtype = [POINTER(pcap_t), c_int]
-    
+
     #HANDLE pcap_getevent (pcap_t *p)
     #   Return the handle of the event associated with the interface p.
     pcap_getevent = _lib.pcap_getevent
@@ -665,75 +665,75 @@ if WIN32:
     pcap_sendqueue_alloc = _lib.pcap_sendqueue_alloc
     pcap_sendqueue_alloc.restype = POINTER(pcap_send_queue)
     pcap_sendqueue_alloc.argtypes = [c_uint]
-    
+
     #void pcap_sendqueue_destroy (pcap_send_queue *queue)
     #   Destroy a send queue.
     pcap_sendqueue_destroy = _lib.pcap_sendqueue_destroy
     pcap_sendqueue_destroy.restype = None
     pcap_sendqueue_destroy.argtypes = [POINTER(pcap_send_queue)]
-    
+
     #int pcap_sendqueue_queue (pcap_send_queue *queue, const struct pcap_pkthdr *pkt_header, const u_char *pkt_data)
     #   Add a packet to a send queue.
     pcap_sendqueue_queue = _lib.pcap_sendqueue_queue
     pcap_sendqueue_queue.restype = c_int
     pcap_sendqueue_queue.argtypes = [POINTER(pcap_send_queue), POINTER(pcap_pkthdr), POINTER(u_char)]
-    
+
     #u_int pcap_sendqueue_transmit (pcap_t *p, pcap_send_queue *queue, int sync)
     #   Send a queue of raw packets to the network.
     pcap_sendqueue_transmit = _lib.pcap_sendqueue_transmit
     pcap_sendqueue_transmit.retype = u_int
     pcap_sendqueue_transmit.argtypes = [POINTER(pcap_t), POINTER(pcap_send_queue), c_int]
-    
+
     #int pcap_findalldevs_ex (char *source, struct pcap_rmtauth *auth, pcap_if_t **alldevs, char *errbuf)
     #   Create a list of network devices that can be opened with pcap_open().
     pcap_findalldevs_ex = _lib.pcap_findalldevs_ex
     pcap_findalldevs_ex.retype = c_int
     pcap_findalldevs_ex.argtypes = [STRING, POINTER(pcap_rmtauth), POINTER(POINTER(pcap_if_t)), STRING]
-    
+
     #int pcap_createsrcstr (char *source, int type, const char *host, const char *port, const char *name, char *errbuf)
     #   Accept a set of strings (host name, port, ...), and it returns the complete source string according to the new format (e.g. 'rpcap://1.2.3.4/eth0').
     pcap_createsrcstr = _lib.pcap_createsrcstr
     pcap_createsrcstr.restype = c_int
     pcap_createsrcstr.argtypes = [STRING, c_int, STRING, STRING, STRING, STRING]
-    
+
     #int pcap_parsesrcstr (const char *source, int *type, char *host, char *port, char *name, char *errbuf)
     #   Parse the source string and returns the pieces in which the source can be split.
     pcap_parsesrcstr = _lib.pcap_parsesrcstr
     pcap_parsesrcstr.retype = c_int
     pcap_parsesrcstr.argtypes = [STRING, POINTER(c_int), STRING, STRING, STRING, STRING]
-    
+
     #pcap_t *   pcap_open (const char *source, int snaplen, int flags, int read_timeout, struct pcap_rmtauth *auth, char *errbuf)
     #   Open a generic source in order to capture / send (WinPcap only) traffic.
     pcap_open = _lib.pcap_open
     pcap_open.restype = POINTER(pcap_t)
     pcap_open.argtypes = [STRING, c_int, c_int, c_int, POINTER(pcap_rmtauth), STRING]
-    
+
     #struct pcap_samp *  pcap_setsampling (pcap_t *p)
     #   Define a sampling method for packet capture.
     pcap_setsampling = _lib.pcap_setsampling
     pcap_setsampling.restype = POINTER(pcap_samp)
     pcap_setsampling.argtypes = [POINTER(pcap_t)]
-    
+
     #SOCKET pcap_remoteact_accept (const char *address, const char *port, const char *hostlist, char *connectinghost, struct pcap_rmtauth *auth, char *errbuf)
     #   Block until a network connection is accepted (active mode only).
     pcap_remoteact_accept = _lib.pcap_remoteact_accept
     pcap_remoteact_accept.restype = SOCKET
     pcap_remoteact_accept.argtypes = [STRING, STRING, STRING, STRING, POINTER(pcap_rmtauth), STRING]
-    
+
     #int pcap_remoteact_close (const char *host, char *errbuf)
     #   Drop an active connection (active mode only).
     pcap_remoteact_close = _lib.pcap_remoteact_close
     pcap_remoteact_close.restypes = c_int
     pcap_remoteact_close.argtypes = [STRING, STRING]
-    
+
     #void pcap_remoteact_cleanup ()
     #   Clean the socket that is currently used in waiting active connections.
     pcap_remoteact_cleanup = _lib.pcap_remoteact_cleanup
     pcap_remoteact_cleanup.restypes = None
     pcap_remoteact_cleanup.argtypes = []
-    
+
     #int pcap_remoteact_list (char *hostlist, char sep, int size, char *errbuf)
-    #   Return the hostname of the host that have an active connection with us (active mode only). 
+    #   Return the hostname of the host that have an active connection with us (active mode only).
     pcap_remoteact_list = _lib.pcap_remoteact_list
     pcap_remoteact_list.restype = c_int
     pcap_remoteact_list.argtypes = [STRING, c_char, c_int, STRING]

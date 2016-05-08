@@ -62,7 +62,7 @@ DefaultVendor = "Qualcomm"
 # Qualcomm Vendor Specific Management Message Types;                    #
 # from https://github.com/qca/open-plc-utils/blob/master/mme/qualcomm.h #
 #########################################################################
-# Commented commands are already in HPAVTypeList, the other have to be implemted 
+# Commented commands are already in HPAVTypeList, the other have to be implemted
 QualcommTypeList = {  #0xA000 : "VS_SW_VER",
                     0xA004 : "VS_WR_MEM",
                     #0xA008 : "VS_RD_MEM",
@@ -140,7 +140,7 @@ def FragmentCond(pkt):
 class MACManagementHeader(Packet):
     name = "MACManagementHeader "
     if DefaultVendor == "Qualcomm":
-        HPAVTypeList.update(QualcommTypeList) 
+        HPAVTypeList.update(QualcommTypeList)
     fields_desc=[ ByteEnumField("version",0, HPAVversionList),
                 EnumField("HPtype" , 0xA000, HPAVTypeList, "<H") ]
 
@@ -154,7 +154,7 @@ class GetDeviceVersion(Packet):
                 ByteEnumField("DeviceID",0x20, HPAVDeviceIDList),
                 FieldLenField("VersionLen", None, count_of="DeviceVersion", fmt="B"),
                 StrLenField("DeviceVersion", "NoVersion\x00", length_from = lambda pkt: pkt.VersionLen),
-                StrLenField("DeviceVersion_pad", "\xcc\xcc\xcc\xcc\xcc"+"\x00"*59, length_from = lambda pkt: 64-pkt.VersionLen), 
+                StrLenField("DeviceVersion_pad", "\xcc\xcc\xcc\xcc\xcc"+"\x00"*59, length_from = lambda pkt: 64-pkt.VersionLen),
                 ByteEnumField("Upgradable", 0, {0:"False",1:"True"}) ]
 
 class NetworkInformationRequest(Packet):
@@ -185,7 +185,7 @@ class StationInfoV10(Packet):
     """
     name = "StationInfo"
     fields_desc=[ MACField("StationMAC", "00:00:00:00:00:00"),
-                XByteField("StationTerminalEID", 0x01), 
+                XByteField("StationTerminalEID", 0x01),
                 MACField("firstnodeMAC", "ff:ff:ff:ff:ff:ff"),
                 XByteField("TXaverage", 0x00),
                 XByteField("RXaverage", 0x00) ]
@@ -194,7 +194,7 @@ class StationInfoV10(Packet):
         return "", p
 
 #""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-#   Networks & Stations informations for MAC Management V1.1 
+#   Networks & Stations informations for MAC Management V1.1
 #""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 class NetworkInfoV11(Packet):
     """
@@ -210,7 +210,7 @@ class NetworkInfoV11(Packet):
                     MACField("CCoMACAdress", "00:00:00:00:00:00"),
                     XByteField("CCoTerminalEID", 0x01),
                     X3BytesField("reserved_3", 0x000000) ]
-    
+
     def extract_padding(self, p):
         return "", p
 
@@ -230,7 +230,7 @@ class StationInfoV11(Packet):
                 XByteField("reserved_s3", 0x00),
                 LEShortField("RXaverage", 0x0000),
                 XByteField("reserved_s4", 0x00) ]
-    
+
     def extract_padding(self, p):
         return "", p
 
@@ -280,7 +280,7 @@ class LoopbackRequest(Packet):
 
 class LoopbackConfirmation(Packet):
     name = "LoopbackConfirmation"
-    fields_desc=[ ByteEnumField("Status", 0x0, StatusCodes), 
+    fields_desc=[ ByteEnumField("Status", 0x0, StatusCodes),
                 ByteField("Duration", 0x01),
                 ShortField("LRlength", 0x0000) ]
 
@@ -291,13 +291,13 @@ class LoopbackConfirmation(Packet):
 class SetEncryptionKeyRequest(Packet):
     name = "SetEncryptionKeyRequest"
     fields_desc=[ XByteField("EKS", 0x00),
-                StrFixedLenField("NMK", 
+                StrFixedLenField("NMK",
                                 "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00",
                                 16),
                 XByteField("PayloadEncKeySelect", 0x00),
                 MACField("DestinationMAC", "ff:ff:ff:ff:ff:ff"),
-                StrFixedLenField("DAK", 
-                                "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00", 
+                StrFixedLenField("DAK",
+                                "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00",
                                 16) ]
 
 SetEncKey_Status = {    0x00 : "Success",
@@ -361,17 +361,17 @@ ANCodes = { 0x00 : "'In-home'",
 class SnifferIndicate(Packet):
     # TODO: Some bitfield have been regrouped for the moment => need more work on it
     name = "SnifferIndicate"
-    fields_desc=[ ByteEnumField("SnifferType", 0x0, SnifferTypeCodes), 
+    fields_desc=[ ByteEnumField("SnifferType", 0x0, SnifferTypeCodes),
                   ByteEnumField("Direction", 0x0, DirectionCodes),
                   LELongField("SystemTime", 0x0),
-                  LEIntField("BeaconTime", 0x0), 
+                  LEIntField("BeaconTime", 0x0),
                   XByteField("ShortNetworkID", 0x0),
                   ByteField("SourceTermEqID", 0),
                   ByteField("DestTermEqID", 0),
                   ByteField("LinkID", 0),
                   XByteField("PayloadEncrKeySelect", 0x0f),
                   ByteField("PendingPHYblock", 0),
-                  ByteField("BitLoadingEstim", 0), 
+                  ByteField("BitLoadingEstim", 0),
                   BitField("ToneMapIndex", 0, size=5),
                   BitField("NumberofSymbols", 0, size=2),
                   BitField("PHYblockSize", 0, size=1),
@@ -400,7 +400,7 @@ class SnifferIndicate(Packet):
 class ReadMACMemoryRequest(Packet):
     name = "ReadMACMemoryRequest"
     fields_desc=[ LEIntField("Address" , 0x00000000),
-                  LEIntField("Length", 0x00000400), 
+                  LEIntField("Length", 0x00000400),
                 ]
 
 ReadMACStatus = { 0x00 : "Success",
@@ -428,7 +428,7 @@ ModuleIDList = {    0x00 : "MAC Soft-Loader Image",
 def chksum32(data):
     cksum = 0
     for i in xrange(0, len(data), 4):
-        cksum = (cksum ^ struct.unpack('<I', data[i:i+4])[0]) & 0xffffffff   
+        cksum = (cksum ^ struct.unpack('<I', data[i:i+4])[0]) & 0xffffffff
     return (~cksum) & 0xffffffff
 
 class ReadModuleDataRequest(Packet):
@@ -446,7 +446,7 @@ class ReadModuleDataConfirmation(Packet):
                   XByteField("reserved_2", 0x00),
                   FieldLenField("DataLen", None, count_of="ModuleData", fmt="<H"),
                   LEIntField("Offset", 0x00000000),
-                  LEIntField("checksum", None), 
+                  LEIntField("checksum", None),
                   StrLenField("ModuleData", "\x00", length_from = lambda pkt: pkt.DataLen),
                 ]
 
@@ -495,18 +495,18 @@ class ClassifierPriorityMap(Packet):
                                 "\x00"*16,
                                 16),
                 ]
- 
+
     def extract_padding(self, p):
         return "", p
 
 class ClassifierObj(Packet):
     name = "ClassifierObj"
-    
+
     fields_desc=[ LEIntField("ClassifierPID", 0),
                   LEIntField("IndividualOperand", 0),
                   StrFixedLenField("ClassifierValue",
                                 "\x00"*16,
-                                16), 
+                                16),
                 ]
 
     def extract_padding(self, p):
@@ -515,7 +515,7 @@ class ClassifierObj(Packet):
 class AutoConnection(Packet):
     name = "AutoConnection"
 
-    fields_desc=[ XByteField("Action", 0x00), 
+    fields_desc=[ XByteField("Action", 0x00),
                   XByteField("ClassificationOperand", 0x00),
                   XShortField("NumClassifiers", 0x0000),
                   PacketListField("ClassifierObjs", "", ClassifierObj, length_from=lambda x: 24),
@@ -601,10 +601,10 @@ class ConfigBit(Packet):
                   BitField("DisableNetworkEventTrigger", 0, 1),
                   BitField("rsv1", 0, 6),
                 ]
-                
+
 class ContentionWindowTable(Packet):
     name = "ContentionWindowTable"
-    fields_desc=[ XShortField("element", 0), 
+    fields_desc=[ XShortField("element", 0),
                 ]
 
     def extract_padding(self, p):
@@ -731,7 +731,7 @@ class ModulePIB(Packet):
         ConditionalField(XByteField("NumOfPeerNodes", 0x00),
                          lambda pkt:(0x115 >= pkt.__offset and 0x116 <= pkt.__offset+pkt.__length)),
         ConditionalField(PacketListField("PeerNodes", "", PeerNode, length_from=lambda x: 56),
-                         lambda pkt:(0x116 >= pkt.__offset and 0x11C <= pkt.__offset+pkt.__length)), 
+                         lambda pkt:(0x116 >= pkt.__offset and 0x11C <= pkt.__offset+pkt.__length)),
         ConditionalField(StrFixedLenField("reserved_5",
                                           "\x00"*62,
                                           62),
@@ -827,7 +827,7 @@ class ModulePIB(Packet):
         ConditionalField(LEIntField("NumClassifierPriorityMaps" , 0),
                          lambda pkt:(0x228 >= pkt.__offset and 0x22C <= pkt.__offset+pkt.__length)),
         ConditionalField(LEIntField("NumAutoConnections" , 0),
-                         lambda pkt:(0x22C >= pkt.__offset and 0x230 <= pkt.__offset+pkt.__length)), 
+                         lambda pkt:(0x22C >= pkt.__offset and 0x230 <= pkt.__offset+pkt.__length)),
         ConditionalField(PacketListField("ClassifierPriorityMaps", "", ClassifierPriorityMap, length_from=lambda x: 224),
                          lambda pkt:(0x230 >= pkt.__offset and 0x244 <= pkt.__offset+pkt.__length)),
         ConditionalField(PacketListField("AutoConnections", "", AutoConnection, length_from=lambda x: 1600),
@@ -1079,7 +1079,7 @@ class ModulePIB(Packet):
 # Read MAC Memory
 #####################################################################
 
-StartMACCodes = { 0x00 : "Success" } 
+StartMACCodes = { 0x00 : "Success" }
 
 class StartMACRequest(Packet):
     name = "StartMACRequest"
@@ -1143,15 +1143,15 @@ CBImgTCodes = { 0x00 : "Generic Image",
 class ConfBlock(Packet):
     name = "ConfBlock"
     fields_desc=[ LEIntField("HeaderVersionNum", 0),
-                  LEIntField("ImgAddrNVM", 0), 
+                  LEIntField("ImgAddrNVM", 0),
                   LEIntField("ImgAddrSDRAM", 0),
                   LEIntField("ImgLength", 0),
                   LEIntField("ImgCheckSum", 0),
                   LEIntField("EntryPoint", 0),
                   XByteField("HeaderMinVersion", 0x00),
-                  ByteEnumField("HeaderImgType", 0x00, CBImgTCodes), 
-                  XShortField("HeaderIgnoreMask", 0x0000), 
-                  LEIntField("HeaderModuleID", 0), 
+                  ByteEnumField("HeaderImgType", 0x00, CBImgTCodes),
+                  XShortField("HeaderIgnoreMask", 0x0000),
+                  LEIntField("HeaderModuleID", 0),
                   LEIntField("HeaderModuleSubID", 0),
                   LEIntField("AddrNextHeaderNVM", 0),
                   LEIntField("HeaderChecksum", 0),
@@ -1213,8 +1213,8 @@ bind_layers( HomePlugAV, ReadMACMemoryRequest, { "HPtype" : 0xA008 } )
 bind_layers( HomePlugAV, ReadMACMemoryConfirmation, { "HPtype" : 0xA009 } )
 bind_layers( HomePlugAV, ReadModuleDataRequest, { "HPtype" : 0xA024 } )
 bind_layers( HomePlugAV, ReadModuleDataConfirmation, { "HPtype" : 0xA025 } )
-bind_layers( HomePlugAV, WriteModuleDataRequest, { "HPtype" : 0xA020 } ) 
-bind_layers( HomePlugAV, WriteModuleData2NVMRequest, { "HPtype" : 0xA028 } ) 
+bind_layers( HomePlugAV, WriteModuleDataRequest, { "HPtype" : 0xA020 } )
+bind_layers( HomePlugAV, WriteModuleData2NVMRequest, { "HPtype" : 0xA028 } )
 bind_layers( HomePlugAV, WriteModuleData2NVMConfirmation, { "HPtype" : 0xA029 } )
 bind_layers( HomePlugAV, NetworkInfoConfirmationV10, { "HPtype" : 0xA039, "version" : 0x00 } )
 bind_layers( HomePlugAV, NetworkInfoConfirmationV11, { "HPtype" : 0xA039, "version" : 0x01 } )
@@ -1226,7 +1226,7 @@ bind_layers( HomePlugAV, LoopbackConfirmation, { "HPtype" : 0xA049 } )
 bind_layers( HomePlugAV, SetEncryptionKeyRequest, { "HPtype" : 0xA050 } )
 bind_layers( HomePlugAV, SetEncryptionKeyConfirmation, { "HPtype" : 0xA051 } )
 bind_layers( HomePlugAV, ReadConfBlockRequest, { "HPtype" : 0xA058 } )
-bind_layers( HomePlugAV, ReadConfBlockConfirmation, { "HPtype" : 0xA059 } ) 
+bind_layers( HomePlugAV, ReadConfBlockConfirmation, { "HPtype" : 0xA059 } )
 bind_layers( HomePlugAV, QUAResetFactoryConfirm, { "HPtype" : 0xA07D } )
 bind_layers( HomePlugAV, GetNVMParametersRequest, { "HPtype" : 0xA010 } )
 bind_layers( HomePlugAV, GetNVMParametersConfirmation, { "HPtype" : 0xA011 } )
@@ -1236,4 +1236,4 @@ bind_layers( HomePlugAV, SnifferIndicate,  { "HPtype" : 0xA036 } )
 
 """
     Credit song : "Western Spaguetti - We are terrorists"
-""" 
+"""

@@ -52,7 +52,7 @@ MTU = 0xffff # a.k.a give me all you have
 
 WINDOWS=sys.platform.startswith("win")
 
- 
+
 # file parsing to get some values :
 
 def load_protocols(filename):
@@ -145,9 +145,9 @@ class ManufDA(DADict):
         if oui in self:
             return ":".join([self[oui][0]]+ mac.split(":")[3:])
         return mac
-        
-        
-        
+
+
+
 
 def load_manuf(filename):
     try:
@@ -170,7 +170,7 @@ def load_manuf(filename):
         #log_loading.warning("Couldn't open [%s] file" % filename)
         pass
     return manufdb
-    
+
 
 
 if WINDOWS:
@@ -211,5 +211,5 @@ class KnowledgeBase:
         if self.base is None:
             self.lazy_init()
         return self.base
-    
+
 

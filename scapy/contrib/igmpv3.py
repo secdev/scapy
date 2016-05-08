@@ -13,7 +13,7 @@ from scapy.packet import *
 
 """
 
-#  TODO: Merge IGMPv3 packet Bindlayers correct for 
+#  TODO: Merge IGMPv3 packet Bindlayers correct for
 #        membership source/Group records
 #        ConditionalField parameters for IGMPv3 commented out
 #
@@ -100,21 +100,21 @@ class IGMPv3(Packet):
                     ]
                                           # use float_encode()
 
-    # if type = 0x11 (Membership Query), the next field is group address 
+    # if type = 0x11 (Membership Query), the next field is group address
     #   ConditionalField(IPField("gaddr", "0.0.0.0"), "type", lambda x:x==0x11),
-    # else if type = 0x22 (Membership Report), the next fields are 
+    # else if type = 0x22 (Membership Report), the next fields are
     #         reserved and number of group records
     #ConditionalField(ShortField("rsvd2", 0), "type", lambda x:x==0x22),
     #ConditionalField(ShortField("numgrp", 0), "type", lambda x:x==0x22),
 #                  FieldLenField("numgrp", None, "grprecs")]
-    # else if type = 0x30 (Multicast Router Advertisement), the next fields are 
+    # else if type = 0x30 (Multicast Router Advertisement), the next fields are
     #         query interval and robustness
     #ConditionalField(ShortField("qryIntvl", 0), "type", lambda x:x==0x30),
     #ConditionalField(ShortField("robust", 0), "type", lambda x:x==0x30),
 #  The following are only present for membership queries
        #   ConditionalField(BitField("resv", 0, 4), "type", lambda x:x==0x11),
        #   ConditionalField(BitField("s", 0, 1), "type", lambda x:x==0x11),
-       #   ConditionalField(BitField("qrv", 0, 3), "type", lambda x:x==0x11), 
+       #   ConditionalField(BitField("qrv", 0, 3), "type", lambda x:x==0x11),
        #  ConditionalField(ByteField("qqic",0), "type", lambda x:x==0x11),
     # ConditionalField(FieldLenField("numsrc", None, "srcaddrs"), "type", lambda x:x==0x11),
     # ConditionalField(FieldListField("srcaddrs", None, IPField("sa", "0.0.0.0"), "numsrc"), "type", lambda x:x==0x11),
@@ -194,12 +194,12 @@ class IGMPv3(Packet):
 #               (IP, IGMPv3, { "proto": 2 , "ttl": 1, "tos":0xc0 }),
 #               (IGMPv3, IGMPv3gr, { }) ]
 # The rules are:
-#   1.  the Max Response time is meaningful only in Membership Queries and should be zero 
+#   1.  the Max Response time is meaningful only in Membership Queries and should be zero
 #       otherwise (RFC 2236, section 2.2)
 
     if (self.type != 0x11):         #rule 1
       self.mrtime = 0
-      
+
     if (self.adjust_ip(ip) == True):
       if (self.adjust_ether(ip, ether) == True): return True
     return False
@@ -216,7 +216,7 @@ class IGMPv3(Packet):
     if ip != None and ip.haslayer(IP) and ether != None and ether.haslayer(Ether):
       iplong = atol(ip.dst)
       ether.dst = "01:00:5e:%02x:%02x:%02x" % ( (iplong>>16)&0x7F, (iplong>>8)&0xFF, (iplong)&0xFF )
-      # print "igmpize ip " + ip.dst + " as mac " + ether.dst 
+      # print "igmpize ip " + ip.dst + " as mac " + ether.dst
       return True
     else:
       return False
@@ -239,7 +239,7 @@ class IGMPv3(Packet):
       if (self.type == 0x11):
         if (self.gaddr == "0.0.0.0"):
           ip.dst = "224.0.0.1"                   # IP rule 1
-          retCode = True                     
+          retCode = True
         elif isValidMCAddr(self.gaddr):
           ip.dst = self.gaddr                    # IP rule 3a
           retCode = True

@@ -155,14 +155,14 @@ def win_find_exe(filename, installsubdir=None, env="ProgramFiles"):
         except IOError:
             path = filename
         else:
-            break        
+            break
     return path
 
 
 class WinProgPath(ConfClass):
     _default = "<System default>"
     # We try some magic to find the appropriate executables
-    pdfreader = win_find_exe("AcroRd32") 
+    pdfreader = win_find_exe("AcroRd32")
     psreader = win_find_exe("gsview32.exe", "Ghostgum/gsview")
     dot = win_find_exe("dot", "ATT/Graphviz/bin")
     tcpdump = win_find_exe("windump")
@@ -183,7 +183,7 @@ if conf.prog.powershell == "powershell":
     conf.prog.powershell = None
 
 class PcapNameNotFoundError(Scapy_Exception):
-    pass    
+    pass
 import platform
 
 def is_interface_valid(iface):
@@ -214,10 +214,10 @@ def get_ip_from_name(ifname, v6=False):
                                     ['Description', 'IPAddress']):
         if descr == ifname.strip():
             return ipaddr.split(",", 1)[v6].strip('{}').strip()
-        
+
 class NetworkInterface(object):
     """A network interface of your local host"""
-    
+
     def __init__(self, data=None):
         self.name = None
         self.ip = None
@@ -266,7 +266,7 @@ class NetworkInterface(object):
 from UserDict import UserDict
 
 class NetworkInterfaceDict(UserDict):
-    """Store information about network interfaces and convert between names""" 
+    """Store information about network interfaces and convert between names"""
     def load_from_powershell(self):
         for i in get_windows_if_list():
             try:
@@ -274,7 +274,7 @@ class NetworkInterfaceDict(UserDict):
                 self.data[interface.guid] = interface
             except (KeyError, PcapNameNotFoundError):
                 pass
-        
+
         if len(self.data) == 0:
             log_loading.warning("No match between your pcap and windows network interfaces found. "
                                 "You probably won't be able to send packets. "
@@ -314,7 +314,7 @@ class NetworkInterfaceDict(UserDict):
             if resolve_mac:
                 mac = conf.manufdb._resolve_MAC(mac)
             print "%s  %s  %s  %s" % (str(dev.win_index).ljust(5), str(dev.name).ljust(35), str(dev.ip).ljust(15), mac)
-            
+
 IFACES = NetworkInterfaceDict()
 IFACES.load_from_powershell()
 
@@ -339,7 +339,7 @@ def dev_from_pcapname(pcap_name):
 def dev_from_index(if_index):
     """Return Windows adapter name for given Windows interface index"""
     return IFACES.dev_from_index(if_index)
-    
+
 def show_interfaces(resolve_mac=True):
     """Print list of available network interfaces"""
     return IFACES.show(resolve_mac)
@@ -401,13 +401,13 @@ def read_routes():
             routes = read_routes_xp()
         else:
             routes = read_routes_7()
-    except Exception as e:    
+    except Exception as e:
         log_loading.warning("Error building scapy routing table : %s"%str(e))
     else:
         if not routes:
             log_loading.warning("No default IPv4 routes found. Your Windows release may no be supported and you have to enter your routes manually")
     return routes
-       
+
 def read_routes_post2008():
     # XXX TODO: FIX THIS XXX
     routes = []
@@ -432,7 +432,7 @@ def read_routes_post2008():
             #     intf = pcapdnet.dnet.intf().get_dst(pcapdnet.dnet.addr(type=2, addrtxt=dest))
             # except OSError:
             #     log_loading.warning("Building Scapy's routing table: Couldn't get outgoing interface for destination %s" % dest)
-            #     continue               
+            #     continue
             routes.append((atol(match.group(2)), itom(int(match.group(3))),
                            match.group(4), iface, iface.ip))
     return routes
@@ -448,7 +448,7 @@ if conf.interactive_shell != 'ipython':
             import readline
             console = readline.GetOutputFile()
         except (ImportError, AttributeError):
-            log_loading.info("Could not get readline console. Will not interpret ANSI color codes.") 
+            log_loading.info("Could not get readline console. Will not interpret ANSI color codes.")
         else:
             conf.readfunc = readline.rl.readline
             orig_stdout = sys.stdout
@@ -457,7 +457,7 @@ if conf.interactive_shell != 'ipython':
 def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0, retry=0, multi=0):
     if not isinstance(pkt, Gen):
         pkt = SetGen(pkt)
-        
+
     if verbose is None:
         verbose = conf.verb
     debug.recv = plist.PacketList([],"Unanswered")
@@ -485,7 +485,7 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0, retry=0, m
 
     while retry >= 0:
         found=0
-    
+
         if timeout < 0:
             timeout = None
 
@@ -516,7 +516,7 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0, retry=0, m
                     except:
                         pass
             if WINDOWS or pid > 0:
-                # Timeout starts after last packet is sent (as in Unix version) 
+                # Timeout starts after last packet is sent (as in Unix version)
                 if timeout:
                     stoptime = time.time()+timeout
                 else:
@@ -571,15 +571,15 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0, retry=0, m
         remain = list(itertools.chain(*hsent.itervalues()))
         if multi:
             remain = [p for p in remain if not hasattr(p, '_answered')]
-            
+
         if autostop and len(remain) > 0 and len(remain) != len(tobesent):
             retry = autostop
-            
+
         tobesent = remain
         if len(tobesent) == 0:
             break
         retry -= 1
-        
+
     if conf.debug_match:
         debug.sent=plist.PacketList(remain[:],"Sent")
         debug.match=plist.SndRcvList(ans[:])
@@ -589,7 +589,7 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0, retry=0, m
         for s,r in ans:
             if hasattr(s, '_answered'):
                 del(s._answered)
-    
+
     if verbose:
         print "\nReceived %i packets, got %i answers, remaining %i packets" % (nbrecv+len(ans), len(ans), notans)
     return plist.SndRcvList(ans),plist.PacketList(remain,"Unanswered")

@@ -37,12 +37,12 @@ except ImportError:
 
 
 def str2mac(s):
-    return ("%02x:"*6)[:-1] % tuple(map(ord, s)) 
+    return ("%02x:"*6)[:-1] % tuple(map(ord, s))
 
 
 def get_if_addr(iff):
     return socket.inet_ntoa(get_if_raw_addr(iff))
-    
+
 def get_if_hwaddr(iff):
     addrfamily, mac = get_if_raw_hwaddr(iff)
     if addrfamily in [ARPHDR_ETHER,ARPHDR_LOOPBACK]:
@@ -105,7 +105,7 @@ def get_if_addr6(iff):
     for x in in6_getifaddr():
         if x[2] == iff and x[1] == IPV6_ADDR_GLOBAL:
             return x[0]
-        
+
     return None
 
 def get_if_raw_addr6(iff):
@@ -117,5 +117,5 @@ def get_if_raw_addr6(iff):
     ip6= get_if_addr6(iff)
     if ip6 is not None:
         return inet_pton(socket.AF_INET6, ip6)
-    
+
     return None

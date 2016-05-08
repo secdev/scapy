@@ -5,7 +5,7 @@
 #
 #############################################################
 # Example SPB Frame Creation
-# 
+#
 # Note the outer Dot1Q Ethertype marking (0x88e7)
 #############################################################
 # backboneEther     = Ether(dst='00:bb:00:00:90:00', src='00:bb:00:00:40:00', type=0x8100)

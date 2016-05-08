@@ -61,7 +61,7 @@ def read_routes():
             dest,gw,flg = rt[:3]
             netif = rt[4 + mtu_present + prio_present + refs_present]
         if flg.find("Lc") >= 0:
-            continue                
+            continue
         if dest == "default":
             dest = 0L
             netmask = 0L
@@ -100,7 +100,7 @@ def read_routes():
             routes.append((dest,netmask,gw,gw_if,gw_if_addr))
         else:
             warning("Did not find output interface to reach gateway %s" % gw)
-            
+
     return routes
 
 ############
@@ -141,7 +141,7 @@ def _in6_getifaddr(ifname):
 
     return ret
 
-def in6_getifaddr():    
+def in6_getifaddr():
     """
     Returns a list of 3-tuples of the form (addr, scope, iface) where
     'addr' is the address of scope 'scope' associated to the interface
@@ -179,7 +179,7 @@ def in6_getifaddr():
     ret = []
     for i in splitted_line:
 	ret += _in6_getifaddr(i)
-    return ret	    
+    return ret
 
 def read_routes6():
     f = os.popen("netstat -rn -f inet6")
@@ -198,12 +198,12 @@ def read_routes6():
                 mtu_present = l.find("Mtu") >= 0
                 prio_present = l.find("Prio") >= 0
             continue
-        # gv 12/12/06: under debugging      
+        # gv 12/12/06: under debugging
         if scapy.arch.NETBSD or scapy.arch.OPENBSD:
             lspl = l.split()
             d,nh,fl = lspl[:3]
             dev = lspl[5+mtu_present+prio_present]
-        else:       # FREEBSD or DARWIN 
+        else:       # FREEBSD or DARWIN
             d,nh,fl,dev = l.split()[:4]
         if filter(lambda x: x[2] == dev, lifaddr) == []:
             continue
@@ -239,7 +239,7 @@ def read_routes6():
     return routes
 
 
-            
+
 
 
 

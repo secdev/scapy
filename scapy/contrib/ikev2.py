@@ -23,9 +23,9 @@ IKEv2AttributeTypes= { "Encryption":    (1, { "DES-IV64"  : 1,
                                                 "DES" : 2,
                                                 "3DES" : 3,
                                                 "RC5" : 4,
-                                                "IDEA" : 5, 
-                                                "CAST" : 6, 
-                                                "Blowfish" : 7, 
+                                                "IDEA" : 5,
+                                                "CAST" : 6,
+                                                "Blowfish" : 7,
                                                 "3IDEA" : 8,
                                                 "DES-IV32" : 9,
                                                 "AES-CBC" : 12,
@@ -67,13 +67,13 @@ IKEv2AttributeTypes= { "Encryption":    (1, { "DES-IV64"  : 1,
                                                 "SHA2-512-256": 14,
                                         }, 0),
                          "GroupDesc":     (4, { "768MODPgr"  : 1,
-                                                "1024MODPgr" : 2, 
-                                                "1536MODPgr" : 5, 
-                                                "2048MODPgr" : 14, 
-                                                "3072MODPgr" : 15, 
-                                                "4096MODPgr" : 16, 
-                                                "6144MODPgr" : 17, 
-                                                "8192MODPgr" : 18, 
+                                                "1024MODPgr" : 2,
+                                                "1536MODPgr" : 5,
+                                                "2048MODPgr" : 14,
+                                                "3072MODPgr" : 15,
+                                                "4096MODPgr" : 16,
+                                                "6144MODPgr" : 17,
+                                                "8192MODPgr" : 18,
                                                 "256randECPgr" : 19,
                                                 "384randECPgr" : 20,
                                                 "521randECPgr" : 21,
@@ -87,8 +87,8 @@ IKEv2AttributeTypes= { "Encryption":    (1, { "DES-IV64"  : 1,
                                                  "ESN":   1,  }, 0),
                          }
 
-# the name 'IKEv2TransformTypes' is actually a misnomer (since the table 
-# holds info for all IKEv2 Attribute types, not just transforms, but we'll 
+# the name 'IKEv2TransformTypes' is actually a misnomer (since the table
+# holds info for all IKEv2 Attribute types, not just transforms, but we'll
 # keep it for backwards compatibility... for now at least
 IKEv2TransformTypes = IKEv2AttributeTypes
 
@@ -110,7 +110,7 @@ del(tmp)
 del(val)
 
 # Note: Transform and Proposal can only be used inside the SA payload
-IKEv2_payload_type = ["None", "", "Proposal", "Transform"] 
+IKEv2_payload_type = ["None", "", "Proposal", "Transform"]
 
 IKEv2_payload_type.extend([""] * 29)
 IKEv2_payload_type.extend(["SA","KE","IDi","IDr", "CERT","CERTREQ","AUTH","Nonce","Notify","Delete",
@@ -163,17 +163,17 @@ class IKEv2(IKEv2_class): # rfc4306
         if self.length is None:
             p = p[:24]+struct.pack("!I",len(p))+p[28:]
         return p
-       
+
 
 class IKEv2_Key_Length_Attribute(IntField):
 	# We only support the fixed-length Key Length attribute (the only
 	# one currently defined)
 	def __init__(self, name):
 		IntField.__init__(self, name, "0x800E0000")
-		
+
 	def i2h(self, pkt, x):
 		return IntField.i2h(self, pkt, x & 0xFFFF)
-		
+
 	def h2i(self, pkt, x):
 		return IntField.h2i(self, pkt, struct.pack("!I", 0x800E0000 | int(x, 0)))
 
@@ -185,7 +185,7 @@ class IKEv2_Transform_ID(ShortField):
 		else:
 			map = IKEv2TransformNum[pkt.transform_type][1]
 			return map[x]
-		
+
 	def h2i(self, pkt, x):
 		if pkt == None:
 			return None
@@ -195,7 +195,7 @@ class IKEv2_Transform_ID(ShortField):
 				if map[k] == x:
 					return k
 			return None
-		
+
 class IKEv2_payload_Transform(IKEv2_class):
     name = "IKE Transform"
     fields_desc = [
@@ -207,7 +207,7 @@ class IKEv2_payload_Transform(IKEv2_class):
         IKEv2_Transform_ID("transform_id", 0),
         ConditionalField(IKEv2_Key_Length_Attribute("key_length"), lambda pkt: pkt.length > 8),
     ]
-            
+
 class IKEv2_payload_Proposal(IKEv2_class):
     name = "IKEv2 Proposal"
     fields_desc = [

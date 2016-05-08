@@ -39,7 +39,7 @@ IGMPv2 message format   http://www.faqs.org/rfcs/rfc2236.html
 
   """
   name = "IGMP"
-  
+
   igmptypes = { 0x11 : "Group Membership Query",
                 0x12 : "Version 1 - Membership Report",
                 0x16 : "Version 2 - Membership Report",
@@ -96,12 +96,12 @@ IGMPv2 message format   http://www.faqs.org/rfcs/rfc2236.html
     """
 
 # The rules are:
-#   1.  the Max Response time is meaningful only in Membership Queries and should be zero 
+#   1.  the Max Response time is meaningful only in Membership Queries and should be zero
 #       otherwise (RFC 2236, section 2.2)
 
     if (self.type != 0x11):         #rule 1
       self.mrtime = 0
-      
+
     if (self.adjust_ip(ip) == True):
       if (self.adjust_ether(ip, ether) == True): return True
     return False
@@ -118,7 +118,7 @@ IGMPv2 message format   http://www.faqs.org/rfcs/rfc2236.html
     if ip != None and ip.haslayer(IP) and ether != None and ether.haslayer(Ether):
       iplong = atol(ip.dst)
       ether.dst = "01:00:5e:%02x:%02x:%02x" % ( (iplong>>16)&0x7F, (iplong>>8)&0xFF, (iplong)&0xFF )
-      # print "igmpize ip " + ip.dst + " as mac " + ether.dst 
+      # print "igmpize ip " + ip.dst + " as mac " + ether.dst
       return True
     else:
       return False
@@ -141,7 +141,7 @@ IGMPv2 message format   http://www.faqs.org/rfcs/rfc2236.html
       if (self.type == 0x11):
         if (self.gaddr == "0.0.0.0"):
           ip.dst = "224.0.0.1"                   # IP rule 1
-          retCode = True                     
+          retCode = True
         elif isValidMCAddr(self.gaddr):
           ip.dst = self.gaddr                    # IP rule 3a
           retCode = True

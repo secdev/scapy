@@ -29,7 +29,7 @@ class RandomEnumeration:
         self.sbox_size = 256
 
         self.top = sup-inf+1
-    
+
         n=0
         while (1<<n) < self.top:
             n += 1
@@ -58,7 +58,7 @@ class RandomEnumeration:
                     ct >>= self.fs
                     lsb ^= self.sbox[ct%self.sbox_size]
                     ct |= lsb << (self.n-self.fs)
-                
+
                 if ct < self.top:
                     return self.inf+ct
             self.i = 0
@@ -205,7 +205,7 @@ class RandChoice(RandField):
         self._choice = args
     def _fix(self):
         return random.choice(self._choice)
-    
+
 class RandString(RandField):
     def __init__(self, size=None, chars="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"):
         if size is None:
@@ -229,8 +229,8 @@ class RandTermString(RandString):
         self.term = term
     def _fix(self):
         return RandString._fix(self)+self.term
-    
-    
+
+
 
 class RandIP(RandString):
     def __init__(self, iptemplate="0.0.0.0/0"):
@@ -254,7 +254,7 @@ class RandMAC(RandString):
             self.mac += (v,)
     def _fix(self):
         return "%02x:%02x:%02x:%02x:%02x:%02x" % self.mac
-    
+
 class RandIP6(RandString):
     def __init__(self, ip6template="**"):
         self.tmpl = ip6template
@@ -336,7 +336,7 @@ class RandOID(RandString):
                 else:
                     oid.append(i)
             return ".".join(oid)
-            
+
 
 class RandRegExp(RandField):
     def __init__(self, regexp, lambda_=0.3,):
@@ -415,7 +415,7 @@ class RandRegExp(RandField):
         while i < ln:
             c = self._regexp[i]
             i+=1
-            
+
             if c == '(':
                 current = [current]
                 current[0].append(current)
@@ -493,19 +493,19 @@ class RandRegExp(RandField):
 
 class RandSingularity(RandChoice):
     pass
-                
+
 class RandSingNum(RandSingularity):
     @staticmethod
     def make_power_of_two(end):
         sign = 1
-        if end == 0: 
+        if end == 0:
             end = 1
         if end < 0:
             end = -end
             sign = -1
         end_n = int(math.log(end)/math.log(2))+1
-        return set([sign*2**i for i in xrange(end_n)])            
-        
+        return set([sign*2**i for i in xrange(end_n)])
+
     def __init__(self, mn, mx):
         sing = set([0, mn, mx, int((mn+mx)/2)])
         sing |= self.make_power_of_two(mn)
@@ -517,7 +517,7 @@ class RandSingNum(RandSingularity):
             if not mn <= i <= mx:
                 sing.remove(i)
         self._choice = list(sing)
-        
+
 
 class RandSingByte(RandSingNum):
     def __init__(self):
@@ -607,7 +607,7 @@ class RandSingString(RandSingularity):
                          r"\\myserver\share",
                          "foo.exe:",
                          "foo.exe\\", ]
-                             
+
 
 class RandPool(RandField):
     def __init__(self, *args):
@@ -633,7 +633,7 @@ class AutoTime(VolatileValue):
             self.diff = time.time()-base
     def _fix(self):
         return time.time()-self.diff
-            
+
 class IntAutoTime(AutoTime):
     def _fix(self):
         return int(time.time()-self.diff)

@@ -67,7 +67,7 @@ class ASN1Codec(EnumElement):
         return cls._stem.safedec(s, context=context)
     def get_stem(cls):
         return cls.stem
-    
+
 
 class ASN1_Codecs_metaclass(Enum_metaclass):
     element_class = ASN1Codec
@@ -119,7 +119,7 @@ class ASN1_Class_metaclass(Enum_metaclass):
         rdict = {}
         for k,v in dct.iteritems():
             if type(v) is int:
-                v = ASN1Tag(k,v) 
+                v = ASN1Tag(k,v)
                 dct[k] = v
                 rdict[v] = v
             elif isinstance(v, ASN1Tag):
@@ -128,10 +128,10 @@ class ASN1_Class_metaclass(Enum_metaclass):
 
         cls = type.__new__(cls, name, bases, dct)
         for v in cls.__dict__.values():
-            if isinstance(v, ASN1Tag): 
+            if isinstance(v, ASN1Tag):
                 v.context = cls # overwrite ASN1Tag contexts, even cloned ones
         return cls
-            
+
 
 class ASN1_Class:
     __metaclass__ = ASN1_Class_metaclass
@@ -253,7 +253,7 @@ class ASN1_BOOLEAN(ASN1_INTEGER):
     # BER: 0 means False, anything else means True
     def __repr__(self):
         return str((not (self.val==0))) + " " + ASN1_Object.__repr__(self)
-    
+
 class ASN1_BIT_STRING(ASN1_Object):
     """
     /!\ ASN1_BIT_STRING values are bit strings like "011101".
@@ -361,7 +361,7 @@ class ASN1_SEQUENCE(ASN1_Object):
         for o in self.val:
             s += o.strshow(lvl=lvl+1)
         return s
-    
+
 class ASN1_SET(ASN1_SEQUENCE):
     tag = ASN1_Class_UNIVERSAL.SET
 
@@ -370,9 +370,9 @@ class ASN1_IPADDRESS(ASN1_STRING):
 
 class ASN1_COUNTER32(ASN1_INTEGER):
     tag = ASN1_Class_UNIVERSAL.COUNTER32
-    
+
 class ASN1_TIME_TICKS(ASN1_INTEGER):
     tag = ASN1_Class_UNIVERSAL.TIME_TICKS
-   
+
 
 conf.ASN1_default_codec = ASN1_Codecs.BER

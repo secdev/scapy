@@ -55,7 +55,7 @@ def autorun_commands(cmds,my_globals=None,verb=0):
                     sys.stderr.write(sys.__dict__.get("ps2","... "))
                 else:
                     sys.stderr.write(str(sys.__dict__.get("ps1",ColorPrompt())))
-                    
+
                 l = cmds.pop()
                 print l
                 cmd += "\n"+l
@@ -78,7 +78,7 @@ def autorun_get_interactive_session(cmds, **kargs):
             self.s = ""
         def write(self, x):
             self.s += x
-            
+
     sw = StringWriter()
     sstdout,sstderr = sys.stdout,sys.stderr
     try:
@@ -122,7 +122,7 @@ def autorun_get_html_interactive_session(cmds, **kargs):
             raise
     finally:
         conf.color_theme = ct
-    
+
     return to_html(s),res
 
 def autorun_get_latex_interactive_session(cmds, **kargs):

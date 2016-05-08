@@ -96,13 +96,13 @@ def linehexdump(x, onlyasc=0, onlyhex=0):
 def chexdump(x):
     x=str(x)
     print ", ".join(map(lambda x: "%#04x"%ord(x), x))
-    
+
 def hexstr(x, onlyasc=0, onlyhex=0):
     s = []
     if not onlyasc:
         s.append(" ".join(map(lambda x:"%02x"%ord(x), x)))
     if not onlyhex:
-        s.append(sane(x)) 
+        s.append(sane(x))
     return "  ".join(s)
 
 
@@ -125,7 +125,7 @@ def hexdiff(x,y):
             d[i,j] = min( ( d[i-1,j-1][0]+SUBST*(x[i] != y[j]), (i-1,j-1) ),
                           ( d[i-1,j][0]+INSERT, (i-1,j) ),
                           ( d[i,j-1][0]+INSERT, (i,j-1) ) )
-                          
+
 
     backtrackx = []
     backtracky = []
@@ -137,13 +137,13 @@ def hexdiff(x,y):
         backtracky.append(y[j2+1:j+1])
         i,j = i2,j2
 
-        
+
 
     x = y = i = 0
     colorize = { 0: lambda x:x,
                 -1: conf.color_theme.left,
                  1: conf.color_theme.right }
-    
+
     dox=1
     doy=0
     l = len(backtrackx)
@@ -158,7 +158,7 @@ def hexdiff(x,y):
             doy = 1
         if dox and linex == liney:
             doy=1
-            
+
         if dox:
             xd = y
             j = 0
@@ -181,9 +181,9 @@ def hexdiff(x,y):
             line=liney
         else:
             print "    ",
-            
+
         print " ",
-        
+
         cl = ""
         for j in xrange(16):
             if i+j < l:
@@ -216,7 +216,7 @@ def hexdiff(x,y):
             else:
                 i += 16
 
-    
+
 crc32 = zlib.crc32
 
 if struct.pack("H",1) == "\x00\x01": # big endian
@@ -272,7 +272,7 @@ def fletcher16_checkbytes(binbuf, offset):
         
         For details on the algorithm, see RFC 2328 chapter 12.1.7 and RFC 905 Annex B.
     """
-    
+
     # This is based on the GPLed C implementation in Zebra <http://www.zebra.org/>
     if len(binbuf) < offset:
         raise Exception("Packet too short for checkbytes %d" % len(binbuf))
@@ -299,7 +299,7 @@ def mac2str(mac):
     return "".join(map(lambda x: chr(int(x,16)), mac.split(":")))
 
 def str2mac(s):
-    return ("%02x:"*6)[:-1] % tuple(map(ord, s)) 
+    return ("%02x:"*6)[:-1] % tuple(map(ord, s))
 
 def strxor(x,y):
     return "".join(map(lambda x,y:chr(ord(x)^ord(y)),x,y))
@@ -346,7 +346,7 @@ def do_graph(graph,prog=None,format=None,target=None,type=None,string=None,optio
     target: filename or redirect. Defaults pipe to Imagemagick's display program
     prog: which graphviz program to use
     options: options to be passed to prog"""
-        
+
     if format is None:
         if WINDOWS:
             format = "png" # use common format to make sure a viewer is installed
@@ -379,7 +379,7 @@ def do_graph(graph,prog=None,format=None,target=None,type=None,string=None,optio
             if time.time() - waiting_start > 3:
                 warning("Temporary file '%s' could not be written. Graphic will not be displayed." % tempfile)
                 break
-        else:  
+        else:
             if conf.prog.display == conf.prog._default:
                 os.startfile(tempfile)
             else:
@@ -401,7 +401,7 @@ _TEX_TR = {
     "<":"{\\tt\\char60}",
     ">":"{\\tt\\char62}",
     }
-    
+
 def tex_escape(x):
     s = ""
     for c in x:
@@ -716,7 +716,7 @@ class PcapReader(RawPcapReader):
         if rp is None:
             return None
         s,(sec,usec,wirelen) = rp
-        
+
         try:
             p = self.LLcls(s)
         except KeyboardInterrupt:
@@ -848,7 +848,7 @@ append: append packets to the capture file instead of truncating it
 sync: do not bufferize writes to the capture file
 
         """
-        
+
         self.linktype = linktype
         self.header_present = 0
         self.append = append
@@ -882,11 +882,11 @@ sync: do not bufferize writes to the capture file
             g = [open,gzip.open][self.gz](self.filename,"rb")
             if g.read(16):
                 return
-            
+
         self.f.write(struct.pack(self.endian+"IHHIIII", 0xa1b2c3d4L,
                                  2, 4, 0, 0, MTU, self.linktype))
         self.f.flush()
-    
+
 
     def write(self, pkt):
         """accepts either a single packet or a list of packets to be
@@ -975,10 +975,10 @@ def import_hexcap():
                 continue
     except EOFError:
         pass
-    
+
     p = p.replace(" ","")
     return p.decode("hex")
-        
+
 
 
 @conf.commands.register
@@ -999,8 +999,8 @@ def hexedit(x):
     return x
 
 def __make_table(yfmtfunc, fmtfunc, endline, list, fxyz, sortx=None, sorty=None, seplinefunc=None):
-    vx = {} 
-    vy = {} 
+    vx = {}
+    vy = {}
     vz = {}
     vxf = {}
     vyf = {}
@@ -1058,7 +1058,7 @@ def __make_table(yfmtfunc, fmtfunc, endline, list, fxyz, sortx=None, sorty=None,
 
 def make_table(*args, **kargs):
     __make_table(lambda l:"%%-%is" % l, lambda l:"%%-%is" % l, "", *args, **kargs)
-    
+
 def make_lined_table(*args, **kargs):
     __make_table(lambda l:"%%-%is |" % l, lambda l:"%%-%is |" % l, "",
                  seplinefunc=lambda a,x:"+".join(map(lambda y:"-"*(y+2), [a-1]+x+[-2])),

@@ -35,7 +35,7 @@ class CARP(Packet):
 
 def build_hmac_sha1(pkt, pw = '\0' * 20, ip4l = [], ip6l = []):
     if not pkt.haslayer(CARP):
-        return None 
+        return None
 
     p = pkt[CARP]
     h = hmac.new(pw, digestmod = hashlib.sha1)

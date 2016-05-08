@@ -67,7 +67,7 @@ class Route:
         self.invalidate_cache()
         self.routes.append(self.make_route(*args,**kargs))
 
-        
+
     def delt(self,  *args, **kargs):
         """delt(host|net, gw|dev)"""
         self.invalidate_cache()
@@ -77,15 +77,15 @@ class Route:
             del(self.routes[i])
         except ValueError:
             warning("no matching route found")
-             
+
     def ifchange(self, iff, addr):
         self.invalidate_cache()
         the_addr,the_msk = (addr.split("/")+["32"])[:2]
         the_msk = itom(int(the_msk))
         the_rawaddr = atol(the_addr)
         the_net = the_rawaddr & the_msk
-        
-        
+
+
         for i, route in enumerate(self.routes):
             net, msk, gw, iface, addr = route
             if iface != iff:
@@ -95,8 +95,8 @@ class Route:
             else:
                 self.routes[i] = (net,msk,gw,iface,the_addr)
         conf.netcache.flush()
-        
-                
+
+
 
     def ifdel(self, iff):
         self.invalidate_cache()
@@ -105,7 +105,7 @@ class Route:
             if rt[3] != iff:
                 new_routes.append(rt)
         self.routes=new_routes
-        
+
     def ifadd(self, iff, addr):
         self.invalidate_cache()
         the_addr,the_msk = (addr.split("/")+["32"])[:2]
@@ -124,7 +124,7 @@ class Route:
             verbose=conf.verb
         # Transform "192.168.*.1-5" to one IP of the set
         dst = dest.split("/")[0]
-        dst = dst.replace("*","0") 
+        dst = dst.replace("*","0")
         while 1:
             l = dst.find("-")
             if l < 0:
@@ -132,7 +132,7 @@ class Route:
             m = (dst[l:]+".").find(".")
             dst = dst[:l]+dst[l+m:]
 
-            
+
         dst = atol(dst)
         pathes=[]
         for d,m,gw,i,a in self.routes:
@@ -151,7 +151,7 @@ class Route:
         ret = pathes[-1][1]
         self.cache[dest] = ret
         return ret
-            
+
     def get_if_bcast(self, iff):
         for net, msk, gw, iface, addr in self.routes:
             if (iff == iface and net != 0L):

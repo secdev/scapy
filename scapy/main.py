@@ -13,7 +13,7 @@ import glob
 import __builtin__
 from error import *
 import utils
-    
+
 
 def _probe_config_file(cf):
     cf_path = os.path.join(os.path.expanduser("~"), cf)
@@ -32,7 +32,7 @@ def _read_config_file(cf):
         log_loading.warning("Cannot read config file [%s] [%s]" % (cf,e))
     except Exception,e:
         log_loading.exception("Error during evaluation of config file [%s]" % cf)
-        
+
 
 DEFAULT_PRESTART_FILE = _probe_config_file(".scapy_prestart.py")
 DEFAULT_STARTUP_FILE = _probe_config_file(".scapy_startup.py")
@@ -92,10 +92,10 @@ def list_contrib(name=None):
                 desc[key] = value
         print "%(name)-20s: %(description)-40s status=%(status)s" % desc
 
-                        
 
 
-    
+
+
 
 ##############################
 ## Session saving/restoring ##
@@ -112,7 +112,7 @@ def save_session(fname=None, session=None, pickleProto=-1):
         session = __builtin__.__dict__["scapy_session"]
 
     to_be_saved = session.copy()
-        
+
     if to_be_saved.has_key("__builtins__"):
         del(to_be_saved["__builtins__"])
 
@@ -233,12 +233,12 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
                     if word[:n] == attr and word != "__builtins__":
                         matches.append("%s.%s" % (expr, word))
                 return matches
-    
+
         readline.set_completer(ScapyCompleter().complete)
         readline.parse_and_bind("C-o: operate-and-get-next")
         readline.parse_and_bind("tab: complete")
-    
-    
+
+
     session=None
     session_name=""
     STARTUP_FILE = DEFAULT_STARTUP_FILE
@@ -263,7 +263,7 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
                 PRESTART_FILE = None
             elif opt == "-d":
                 conf.logLevel = max(1,conf.logLevel-10)
-        
+
         if len(opts[1]) > 0:
             raise getopt.GetoptError("Too many parameters : [%s]" % " ".join(opts[1]))
 
@@ -283,12 +283,12 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
     if mydict is not None:
         __builtin__.__dict__.update(mydict)
         globkeys += mydict.keys()
-    
+
 
     conf.color_theme = DefaultTheme()
     if STARTUP_FILE:
         _read_config_file(STARTUP_FILE)
-        
+
     if session_name:
         try:
             os.stat(session_name)
@@ -313,7 +313,7 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
         else:
             conf.session = session_name
             session={"conf":conf}
-            
+
     else:
         session={"conf": conf}
 
@@ -327,9 +327,9 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
             except IOError:
                 pass
         atexit.register(scapy_write_history_file,readline)
-    
+
     atexit.register(scapy_delete_temp_files)
-    
+
     IPYTHON=False
     if conf.interactive_shell.lower() == "ipython":
         try:
@@ -338,7 +338,7 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
         except ImportError, e:
             log_loading.warning("IPython not available. Using standard Python shell instead.")
             IPYTHON=False
-        
+
     if IPYTHON:
         banner = the_banner % (conf.version) + " using IPython %s" % IPython.__version__
 

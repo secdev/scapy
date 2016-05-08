@@ -141,7 +141,7 @@ class OFPMatch(Packet):
             w1 = binrepr(self.wildcards1)
             l+="0"*(2-len(w1))
             l+=w1
-                    
+
         # ip masks use 6 bits each
         if self.nw_dst_mask is None:
             if self.nw_dst is "0": l+="111111"

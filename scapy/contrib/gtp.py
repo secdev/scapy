@@ -108,7 +108,7 @@ Selection_Mode = { 11111100: "MS or APN",
 
 TeardownInd_value = { 254: "False",
                       255: "True" }
- 
+
 class TBCDByteField(StrFixedLenField):
 
     def i2h(self, pkt, val):
@@ -247,7 +247,7 @@ class IE_NSAPI(Packet):
         return "",pkt
 
 class IE_ChargingCharacteristics(Packet):
-    # Way of informing both the SGSN and GGSN of the rules for 
+    # Way of informing both the SGSN and GGSN of the rules for
     name = "Charging Characteristics"
     fields_desc = [ ByteEnumField("ietype", 26, IEType),
                     # producing charging information based on operator configured triggers.
@@ -283,7 +283,7 @@ class IE_TraceType(Packet):
         return "",pkt
 
 class IE_EndUserAddress(Packet):
-    # Supply protocol specific information of the external packet 
+    # Supply protocol specific information of the external packet
     name = "End User Addresss"
     fields_desc = [ ByteEnumField("ietype", 128, IEType),
                     #         data network accessed by the GGPRS subscribers.
@@ -291,7 +291,7 @@ class IE_EndUserAddress(Packet):
                     #                1    Type (1byte)
                     #                2-3    Length (2bytes) - value 2
                     #                4    Spare + PDP Type Organization
-                    #                5    PDP Type Number    
+                    #                5    PDP Type Number
                     #            - Response
                     #                6-n    PDP Address
                     BitField("EndUserAddressLength", 2, 16),
@@ -310,7 +310,7 @@ class APNStrLenField(StrLenField):
             tmp_len = struct.unpack("!B", tmp_s[0])[0] + 1
             if tmp_len > len(tmp_s):
                 warning("APN prematured end of character-string (size=%i, remaining bytes=%i)" % (tmp_len, len(tmp_s)))
-            ret_s +=  tmp_s[1:tmp_len] 
+            ret_s +=  tmp_s[1:tmp_len]
             tmp_s = tmp_s[tmp_len:]
             if len(tmp_s) :
                 ret_s += "."
@@ -394,7 +394,7 @@ ietypecls = {   1: IE_Cause, 2: IE_IMSI, 3: IE_Routing, 14: IE_Recovery, 15: IE_
                17: IE_TEICP, 19: IE_Teardown, 20: IE_NSAPI, 26: IE_ChargingCharacteristics,
                27: IE_TraceReference, 28: IE_TraceType,
               128: IE_EndUserAddress, 131: IE_AccessPointName, 132: IE_ProtocolConfigurationOptions,
-              133: IE_GSNAddress, 134: IE_MSInternationalNumber, 152: IE_UserLocationInformation, 154: IE_IMEI } 
+              133: IE_GSNAddress, 134: IE_MSInternationalNumber, 152: IE_UserLocationInformation, 154: IE_IMEI }
 
 def IE_Dispatcher(s):
   """Choose the correct Information Element class."""
@@ -494,9 +494,9 @@ class GTPPDUNotificationRequest(Packet):
 class GTP_U_Header(Packet):
     # 3GPP TS 29.060 V9.1.0 (2009-12)
     name = "GTP-U Header"
-    # GTP-U protocol is used to transmit T-PDUs between GSN pairs (or between an SGSN and an RNC in UMTS), 
-    # encapsulated in G-PDUs. A G-PDU is a packet including a GTP-U header and a T-PDU. The Path Protocol 
-    # defines the path and the GTP-U header defines the tunnel. Several tunnels may be multiplexed on a single path. 
+    # GTP-U protocol is used to transmit T-PDUs between GSN pairs (or between an SGSN and an RNC in UMTS),
+    # encapsulated in G-PDUs. A G-PDU is a packet including a GTP-U header and a T-PDU. The Path Protocol
+    # defines the path and the GTP-U header defines the tunnel. Several tunnels may be multiplexed on a single path.
     fields_desc = [ BitField("version", 1,3),
                     BitField("PT", 1, 1),
                     BitField("Reserved", 0, 1),
