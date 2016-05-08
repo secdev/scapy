@@ -10,7 +10,7 @@ Clone of queso OS fingerprinting
 from scapy.data import KnowledgeBase
 from scapy.config import conf
 from scapy.layers.inet import IP,TCP
-#from 
+#from
 
 conf.queso_base ="/etc/queso.conf"
 
@@ -62,11 +62,11 @@ class QuesoKnowledgeBase(KnowledgeBase):
             self.base = None
             warning("Can't load queso base [%s]", self.filename)
         f.close()
-            
-        
+
+
 queso_kdb = QuesoKnowledgeBase(conf.queso_base)
 
-    
+
 def queso_sig(target, dport=80, timeout=3):
     p = queso_kdb.get_base()
     ret = []
@@ -88,7 +88,7 @@ def queso_sig(target, dport=80, timeout=3):
             rs += " %x" % r.payload.flags
         ret.append(rs)
     return ret
-            
+
 def queso_search(sig):
     p = queso_kdb.get_base()
     sig.reverse()
@@ -102,7 +102,7 @@ def queso_search(sig):
     except KeyError:
         pass
     return ret
-        
+
 
 @conf.commands.register
 def queso(*args,**kargs):

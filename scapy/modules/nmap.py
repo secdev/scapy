@@ -106,7 +106,7 @@ def nmap_udppacket_sig(S,T):
         r["ULEN"] = "%X" % T.getlayer(UDPerror).len
         r["DAT"] = T.getlayer(conf.raw_layer) is None and "E" or S.getlayer(conf.raw_layer).load == T.getlayer(conf.raw_layer).load and "E" or "F"
     return r
-    
+
 
 
 def nmap_match_one_sig(seen, ref):
@@ -161,7 +161,7 @@ def nmap_probes2sig(tests):
     for k in tests:
         res[k] = nmap_tcppacket_sig(tests[k])
     return res
-        
+
 
 def nmap_search(sigs):
     guess = 0,[]
@@ -176,8 +176,8 @@ def nmap_search(sigs):
         elif c == guess[0]:
             guess[1].append(os)
     return guess
-    
-    
+
+
 @conf.commands.register
 def nmap_fp(target, oport=80, cport=81):
     """nmap fingerprinting
@@ -185,7 +185,7 @@ nmap_fp(target, [oport=80,] [cport=81,]) -> list of best guesses with accuracy
 """
     sigs = nmap_sig(target, oport, cport)
     return nmap_search(sigs)
-        
+
 
 @conf.commands.register
 def nmap_sig2txt(sig):
@@ -209,7 +209,7 @@ def nmap_sig2txt(sig):
             s.append("%s=%s"%(k,v))
         txt.append("%s(%s)" % (t, "%".join(s)))
     return "\n".join(txt)
-            
-        
+
+
 
 

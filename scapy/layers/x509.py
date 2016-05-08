@@ -528,7 +528,7 @@ class X509_AccessDescription(ASN1_Packet):
 
 class X509_ExtAuthInfoAccess(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_SEQUENCE_OF("authorityInfoAccess", 
+    ASN1_root = ASN1F_SEQUENCE_OF("authorityInfoAccess",
                                   [X509_AccessDescription()],
                                   X509_AccessDescription)
 

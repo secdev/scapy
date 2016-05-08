@@ -42,7 +42,7 @@ class Route6:
 	self.routes = read_routes6()
 	if self.routes == []:
 	     log_loading.info("No IPv6 support in kernel")
-        
+
     def __repr__(self):
         rtlst = [('Destination', 'Next Hop', "iface", "src candidates")]
 
@@ -57,7 +57,7 @@ class Route6:
 
 
     # Unlike Scapy's Route.make_route() function, we do not have 'host' and 'net'
-    # parameters. We only have a 'dst' parameter that accepts 'prefix' and 
+    # parameters. We only have a 'dst' parameter that accepts 'prefix' and
     # 'prefix/prefixlen' values.
     # WARNING: Providing a specific device will at the moment not work correctly.
     def make_route(self, dst, gw=None, dev=None):
@@ -73,13 +73,13 @@ class Route6:
         else:
             # TODO: do better than that
             # replace that unique address by the list of all addresses
-            lifaddr = in6_getifaddr()             
+            lifaddr = in6_getifaddr()
             devaddrs = filter(lambda x: x[2] == dev, lifaddr)
             ifaddr = construct_source_candidate_set(prefix, plen, devaddrs, LOOPBACK_NAME)
 
         return (prefix, plen, gw, dev, ifaddr)
 
-    
+
     def add(self, *args, **kargs):
         """Ex:
         add(dst="2001:db8:cafe:f000::/56")
@@ -112,7 +112,7 @@ class Route6:
             i=self.routes.index(l[0])
             self.invalidate_cache()
             del(self.routes[i])
-        
+
     def ifchange(self, iff, addr):
         the_addr, the_plen = (addr.split("/")+["128"])[:2]
         the_plen = int(the_plen)
@@ -120,7 +120,7 @@ class Route6:
         naddr = inet_pton(socket.AF_INET6, the_addr)
         nmask = in6_cidr2mask(the_plen)
         the_net = inet_ntop(socket.AF_INET6, in6_and(nmask,naddr))
-        
+
         for i, route in enumerate(self.routes):
             net,plen,gw,iface,addr = route
             if iface != iff:
@@ -181,14 +181,14 @@ class Route6:
         """
         # Transform "2001:db8:cafe:*::1-5:0/120" to one IPv6 address of the set
         dst = dst.split("/")[0]
-        savedst = dst # In case following inet_pton() fails 
+        savedst = dst # In case following inet_pton() fails
         dst = dst.replace("*","0")
         l = dst.find("-")
         while l >= 0:
             m = (dst[l:]+":").find(":")
             dst = dst[:l]+dst[l+m:]
             l = dst.find("-")
-            
+
         try:
             inet_pton(socket.AF_INET6, dst)
         except socket.error:
@@ -205,7 +205,7 @@ class Route6:
         pathes = []
 
         # TODO : review all kinds of addresses (scope and *cast) to see
-        #        if we are able to cope with everything possible. I'm convinced 
+        #        if we are able to cope with everything possible. I'm convinced
         #        it's not the case.
         # -- arnaud
         for p, plen, gw, iface, cset in self.routes:
@@ -215,7 +215,7 @@ class Route6:
                 pathes.append((plen, (iface, cset, gw)))
             elif (in6_ismlladdr(dst) and in6_islladdr(p) and in6_islladdr(cset[0])):
                 pathes.append((plen, (iface, cset, gw)))
-                
+
         if not pathes:
             warning("No route found for IPv6 destination %s (no default route?)" % dst)
             return (LOOPBACK_NAME, "::", "::") # XXX Linux specific
@@ -238,8 +238,8 @@ class Route6:
             return (LOOPBACK_NAME, "::", "::") # XXX Linux specific
 
         # Symptom  : 2 routes with same weight (our weight is plen)
-        # Solution : 
-        #  - dst is unicast global. Check if it is 6to4 and we have a source 
+        # Solution :
+        #  - dst is unicast global. Check if it is 6to4 and we have a source
         #    6to4 address in those available
         #  - dst is link local (unicast or multicast) and multiple output
         #    interfaces are available. Take main one (conf.iface6)
@@ -259,7 +259,7 @@ class Route6:
 
             if tmp:
                 res = tmp
-                
+
         # Fill the cache (including dev-specific request)
         k = dst
         if dev is not None:

@@ -70,12 +70,12 @@ class Uberlogger_open_data(Packet):
     name  = "Uberlogger open_data"
     fields_desc = [IntField("flags", 0),
                    IntField("mode", 0)]
-                   
+
 class Uberlogger_read_data(Packet):
     name  = "Uberlogger read_data"
     fields_desc = [IntField("fd", 0),
                    IntField("count", 0)]
-                   
+
 class Uberlogger_setuid_data(Packet):
     name  = "Uberlogger setuid_data"
     fields_desc = [IntField("uid", 0)]

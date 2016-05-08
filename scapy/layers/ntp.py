@@ -35,18 +35,18 @@ class TimeStampField(FixedPointField):
         elif isinstance(val, datetime.datetime):
             val = int(val.strftime("%s")) + _NTP_BASETIME
         return FixedPointField.any2i(self, pkt, val)
-    
+
     def i2m(self, pkt, val):
         if val is None:
             val = FixedPointField.any2i(self, pkt, time.time()+_NTP_BASETIME)
         return FixedPointField.i2m(self, pkt, val)
-        
+
 
 
 class NTP(Packet):
     # RFC 1769
     name = "NTP"
-    fields_desc = [ 
+    fields_desc = [
          BitEnumField('leap', 0, 2,
                       { 0: 'nowarning',
                         1: 'longminute',
@@ -71,7 +71,7 @@ class NTP(Packet):
          TimeStampField('ref', 0),
          TimeStampField('orig', None),  # None means current time
          TimeStampField('recv', 0),
-         TimeStampField('sent', None) 
+         TimeStampField('sent', None)
          ]
     def mysummary(self):
         return self.sprintf("NTP v%ir,NTP.version%, %NTP.mode%")

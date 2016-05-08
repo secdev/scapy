@@ -36,23 +36,23 @@ def voip_play(s1,list=None,**kargs):
     FIFO=get_temp_file()
     FIFO1=FIFO % 1
     FIFO2=FIFO % 2
-    
+
     os.mkfifo(FIFO1)
     os.mkfifo(FIFO2)
     try:
         os.system("soxmix -t .ul %s -t .ul %s -t ossdsp /dev/dsp &" % (FIFO1,FIFO2))
-        
+
         c1=open(FIFO1,"w", 4096)
         c2=open(FIFO2,"w", 4096)
         fcntl.fcntl(c1.fileno(),fcntl.F_SETFL, os.O_NONBLOCK)
         fcntl.fcntl(c2.fileno(),fcntl.F_SETFL, os.O_NONBLOCK)
-    
+
     #    dsp,rd = os.popen2("sox -t .ul -c 2 - -t ossdsp /dev/dsp")
         def play(pkt,last=[]):
             if not pkt:
-                return 
+                return
             if not pkt.haslayer(UDP):
-                return 
+                return
             ip=pkt.getlayer(IP)
             if s1 in [ip.src, ip.dst]:
                 if not last:
@@ -69,7 +69,7 @@ def voip_play(s1,list=None,**kargs):
     #                x2 = pkt.load[:12]
                     c2.write(pkt.load[12:])
     #            dsp.write(merge(x1,x2))
-    
+
         if list is None:
             sniff(store=0, prn=play, **kargs)
         else:
@@ -83,13 +83,13 @@ def voip_play(s1,list=None,**kargs):
 
 def voip_play1(s1,list=None,**kargs):
 
-    
+
     dsp,rd = os.popen2("sox -t .ul - -t ossdsp /dev/dsp")
     def play(pkt):
         if not pkt:
-            return 
+            return
         if not pkt.haslayer(UDP):
-            return 
+            return
         ip=pkt.getlayer(IP)
         if s1 in [ip.src, ip.dst]:
             dsp.write(pkt.getlayer(conf.raw_layer).load[12:])
@@ -107,9 +107,9 @@ def voip_play2(s1,**kargs):
     dsp,rd = os.popen2("sox -t .ul -c 2 - -t ossdsp /dev/dsp")
     def play(pkt,last=[]):
         if not pkt:
-            return 
+            return
         if not pkt.haslayer(UDP):
-            return 
+            return
         ip=pkt.getlayer(IP)
         if s1 in [ip.src, ip.dst]:
             if not last:
@@ -126,7 +126,7 @@ def voip_play2(s1,**kargs):
                 x2 = pkt.load[:12]
 #                c2.write(pkt.load[12:])
             dsp.write(merge(x1,x2))
-            
+
     sniff(store=0, prn=play, **kargs)
 
 def voip_play3(lst=None,**kargs):

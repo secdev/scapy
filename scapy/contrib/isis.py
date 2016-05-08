@@ -218,7 +218,7 @@ class ISIS_CircuitTypeField(FlagsField):
 #######################################################################
 ##  ISIS TLVs                                                        ##
 #######################################################################
-_isis_tlv_classes = { 
+_isis_tlv_classes = {
     1: "ISIS_AreaTlv",
     2: "ISIS_IsReachabilityTlv",
     6: "ISIS_IsNeighbourTlv",
@@ -248,7 +248,7 @@ _isis_tlv_names = {
     9: "LSP Entries TLV",
    10: "Authentication TLV",
    12: "Optional Checksum TLV",
-   13: "Purge Originator Identification TLV", 
+   13: "Purge Originator Identification TLV",
    14: "LSP Buffer Size TLV",
    22: "Extended IS-Reachability TLV",
    23: "IS Neighbour Attribute TLV",
@@ -373,14 +373,14 @@ class ISIS_ExtendedIpPrefix(Packet):
         BitField("subtlvindicator", 0, 1),
         BitFieldLenField("pfxlen", None, 6, length_of="pfx"),
         IPPrefixField("pfx", None, wordbytes=1, length_from=lambda x: x.pfxlen),
-        ConditionalField(FieldLenField("subtlvslen", None, length_of=lambda x: x.subtlvs, fmt= "B"), lambda pkt: pkt.subtlvindicator == 1), 
+        ConditionalField(FieldLenField("subtlvslen", None, length_of=lambda x: x.subtlvs, fmt= "B"), lambda pkt: pkt.subtlvindicator == 1),
         ConditionalField(PacketListField("subtlvs", [], _isis_guess_subtlv_cls, length_from=lambda x: x.subtlvslen), lambda pkt: pkt.subtlvindicator == 1)
     ]
 
     def extract_padding(self, s):
         return "", s
 
- 
+
 class ISIS_ExtendedIpReachabilityTlv(ISIS_GenericTlv):
     name = "ISIS Extended IP Reachability TLV"
     fields_desc = [ByteEnumField("type", 135, _isis_tlv_names),
@@ -398,7 +398,7 @@ class ISIS_ExtendedIsNeighbourEntry(Packet):
     def extract_padding(self, s):
         return "", s
 
-    
+
 class ISIS_ExtendedIsReachabilityTlv(ISIS_GenericTlv):
     name = "ISIS Extended IS Reachability TLV"
     fields_desc = [ByteEnumField("type", 22, _isis_tlv_names),
@@ -432,7 +432,7 @@ class ISIS_Ipv6Prefix(Packet):
         BitField("reserved", 0, 5),
         FieldLenField("pfxlen", None, length_of="pfx", fmt="B"),
         IP6PrefixField("pfx", None, wordbytes=1, length_from=lambda x: x.pfxlen),
-        ConditionalField(FieldLenField("subtlvslen", None, length_of=lambda x: x.subtlvs, fmt= "B"), lambda pkt: pkt.subtlvindicator == 1), 
+        ConditionalField(FieldLenField("subtlvslen", None, length_of=lambda x: x.subtlvs, fmt= "B"), lambda pkt: pkt.subtlvindicator == 1),
         ConditionalField(PacketListField("subtlvs", [], _isis_guess_subtlv_cls, length_from=lambda x: x.subtlvslen), lambda pkt: pkt.subtlvindicator == 1)
     ]
 

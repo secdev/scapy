@@ -12,7 +12,7 @@ from scapy.fields import *
 from scapy.layers.inet import TCP
 
 # shamelessly ripped from Ethereal dissector
-skinny_messages = { 
+skinny_messages = {
 # Station -> Callmanager
   0x0000: "KeepAliveMessage",
   0x0001: "RegisterMessage",
@@ -150,7 +150,7 @@ skinny_messages = {
   }
 
 
-        
+
 class Skinny(Packet):
     name="Skinny"
     fields_desc = [ LEIntField("len",0),

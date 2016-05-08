@@ -420,7 +420,7 @@ SENS_Fields = [  LEShortEnumField('SensorType', None, sensor_types),
               HCSIDescField("DescString", None),  XLEIntField("AppId", None),
               HCSIAppField("AppData", None),      HCSINullField("Extended", None)]
 
-              
+
 
 class Sensor(HCSIPacket):
     name = "PPI Sensor"

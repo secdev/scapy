@@ -30,7 +30,7 @@ class Dot11AddrMACField(MACField):
         if self.is_applicable(pkt):
             return MACField.addfield(self, pkt, s, val)
         else:
-            return s        
+            return s
     def getfield(self, pkt, s):
         if self.is_applicable(pkt):
             return MACField.getfield(self, pkt, s)
@@ -55,7 +55,7 @@ class Dot11Addr4MACField(Dot11AddrMACField):
             if pkt.FCfield & 0x3 == 0x3: # To-DS and From-DS are set
                 return 1
         return 0
-    
+
 
 ### Layers
 
@@ -162,7 +162,7 @@ class Dot11(Packet):
                     Dot11Addr2MACField("addr2", ETHER_ANY),
                     Dot11Addr3MACField("addr3", ETHER_ANY),
                     Dot11SCField("SC", 0),
-                    Dot11Addr4MACField("addr4", ETHER_ANY) 
+                    Dot11Addr4MACField("addr4", ETHER_ANY)
                     ]
     def mysummary(self):
         return self.sprintf("802.11 %Dot11.type% %Dot11.subtype% %Dot11.addr2% > %Dot11.addr1%")
@@ -240,7 +240,7 @@ class Dot11Beacon(Packet):
     fields_desc = [ LELongField("timestamp", 0),
                     LEShortField("beacon_interval", 0x0064),
                     FlagsField("cap", 0, 16, capability_list) ]
-    
+
 
 class Dot11Elt(Packet):
     name = "802.11 Information Element"
@@ -285,13 +285,13 @@ class Dot11ReassoResp(Dot11AssoResp):
 
 class Dot11ProbeReq(Packet):
     name = "802.11 Probe Request"
-    
+
 class Dot11ProbeResp(Packet):
     name = "802.11 Probe Response"
     fields_desc = [ LELongField("timestamp", 0),
                     LEShortField("beacon_interval", 0x0064),
                     FlagsField("cap", 0, 16, capability_list) ]
-    
+
 class Dot11Auth(Packet):
     name = "802.11 Authentication"
     fields_desc = [ LEShortEnumField("algo", 0, ["open", "sharedkey"]),
@@ -339,7 +339,7 @@ class Dot11WEP(Packet):
             else:
                 warning("No WEP key set (conf.wepkey).. strange results expected..")
         return p
-            
+
 
     def decrypt(self,key=None):
         if key is None:
@@ -347,7 +347,7 @@ class Dot11WEP(Packet):
         if key:
             c = ARC4.new(self.iv+key)
             self.add_payload(LLC(c.decrypt(self.wepdata)))
-                    
+
 
 bind_layers( PrismHeader,   Dot11,         )
 bind_layers( RadioTap,      Dot11,         )
@@ -404,13 +404,13 @@ iwconfig wlan0 mode managed
 """
     function_name = "airpwn"
     filter = None
-    
+
     def parse_options(self, iffrom, ifto, replace, pattern="", ignorepattern=""):
         self.iffrom = iffrom
         self.ifto = ifto
         ptrn = re.compile(pattern)
         iptrn = re.compile(ignorepattern)
-        
+
     def is_request(self, pkt):
         if not isinstance(pkt,Dot11):
             return 0
@@ -443,7 +443,7 @@ iwconfig wlan0 mode managed
         q.getlayer(TCP).flags="RA"
         q.getlayer(TCP).seq+=len(replace)
         return [p,q]
-    
+
     def print_reply(self):
         print p.sprintf("Sent %IP.src%:%IP.sport% > %IP.dst%:%TCP.dport%")
 
@@ -471,9 +471,9 @@ def get_toDS():
 #        print "iwpriv %s hostapd 1" % ifto
 #        os.system("iwpriv %s hostapd 1" % ifto)
 #        ifto += "ap"
-#        
+#
 #    os.system("iwconfig %s mode monitor" % iffrom)
-#    
+#
 
 def airpwn(iffrom, ifto, replace, pattern="", ignorepattern=""):
     """Before using this, initialize "iffrom" and "ifto" interfaces:
@@ -492,7 +492,7 @@ iwconfig wlan0 channel 11
 iwconfig wlan0 essid dontexist
 iwconfig wlan0 mode managed
 """
-    
+
     ptrn = re.compile(pattern)
     iptrn = re.compile(ignorepattern)
     def do_airpwn(p, ifto=ifto, replace=replace, ptrn=ptrn, iptrn=iptrn):
@@ -525,20 +525,20 @@ iwconfig wlan0 mode managed
         q.ID += 1
         q.getlayer(TCP).flags="RA"
         q.getlayer(TCP).seq+=len(replace)
-        
+
         sendp([p,q], iface=ifto, verbose=0)
-#        print "send",repr(p)        
+#        print "send",repr(p)
 #        print "send",repr(q)
         print p.sprintf("Sent %IP.src%:%IP.sport% > %IP.dst%:%TCP.dport%")
 
     sniff(iface=iffrom,prn=do_airpwn)
 
-            
-        
+
+
 conf.stats_dot11_protocols += [Dot11WEP, Dot11Beacon, ]
 
 
-        
+
 
 
 class Dot11PacketList(PacketList):
@@ -555,5 +555,5 @@ class Dot11PacketList(PacketList):
             q.unwep()
             r2.append(Ether()/q.payload.payload.payload) #Dot11/LLC/SNAP/IP
         return PacketList(r2,name="Ether from %s"%self.listname)
-        
-        
+
+

@@ -13,7 +13,7 @@ from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.inet import *
 
-class RadiusAttribute(Packet): 
+class RadiusAttribute(Packet):
     name = "Radius Attribute"
     fields_desc = [
         ByteEnumField("type",1,{ 1:"User-Name",
@@ -87,7 +87,7 @@ class RadiusAttribute(Packet):
             l = len(p)
             p = p[:2]+struct.pack("!B",l)+p[4:]
         return p
-        
+
     def extract_padding(self, pay):
         return "",pay
 

@@ -112,12 +112,12 @@ class Packet(BasePacket):
             self.fieldtype[f.name] = f
             if f.holds_packets:
                 self.packetfields.append(f)
-            
+
     def dissection_done(self,pkt):
         """DEV: will be called after a dissection is completed"""
         self.post_dissection(pkt)
         self.payload.dissection_done(pkt)
-        
+
     def post_dissection(self, pkt):
         """DEV: is called after the dissection of the whole packet"""
         pass
@@ -125,7 +125,7 @@ class Packet(BasePacket):
     def get_field(self, fld):
         """DEV: returns the field instance from the name of the field"""
         return self.fieldtype[fld]
-        
+
     def add_payload(self, payload):
         if payload is None:
             return
@@ -176,7 +176,7 @@ class Packet(BasePacket):
         if attr in self.default_fields:
             return self.default_fields[attr]
         return self.payload.getfieldval(attr)
-    
+
     def getfield_and_val(self, attr):
         if attr in self.fields:
             return self.get_field(attr),self.fields[attr]
@@ -185,7 +185,7 @@ class Packet(BasePacket):
         if attr in self.default_fields:
             return self.get_field(attr),self.default_fields[attr]
         return self.payload.getfield_and_val(attr)
-    
+
     def __getattr__(self, attr):
         fld,v = self.getfield_and_val(attr)
         if fld is not None:
@@ -241,7 +241,7 @@ class Packet(BasePacket):
         except AttributeError:
             pass
         return object.__delattr__(self, attr)
-            
+
     def __repr__(self):
         s = ""
         ct = conf.color_theme
@@ -261,7 +261,7 @@ class Packet(BasePacket):
                 ncol = ct.field_name
                 vcol = ct.field_value
 
-                
+
             s += " %s%s%s" % (ncol(f.name),
                               ct.punct("="),
                               vcol(val))
@@ -297,7 +297,7 @@ class Packet(BasePacket):
             raise TypeError
     def __rmul__(self,other):
         return self.__mul__(other)
-    
+
     def __nonzero__(self):
         return True
     def __len__(self):
@@ -344,7 +344,7 @@ class Packet(BasePacket):
             return self.post_build(pkt, pay)
         else:
             return pkt + pay
-    
+
     def build_padding(self):
         return self.payload.build_padding()
 
@@ -353,7 +353,7 @@ class Packet(BasePacket):
         p += self.build_padding()
         p = self.build_done(p)
         return p
-    
+
     def post_build(self, pkt, pay):
         """DEV: called right after the current layer is build."""
         return pkt+pay
@@ -375,13 +375,13 @@ class Packet(BasePacket):
             else:
                 r = ""
             pl.append( (f, f.i2repr(self,self.getfieldval(f.name)), r) )
-            
+
         pkt,lst = self.payload.build_ps(internal=1)
         p += pkt
         lst.append( (self, pl) )
-        
+
         return p,lst
-    
+
     def build_ps(self,internal=0):
         p,lst = self.do_build_ps()
 #        if not internal:
@@ -416,7 +416,7 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
         else:
             canvas.writePDFfile(filename)
 
-        
+
     def canvas_dump(self, layer_shift=0, rebuild=1):
         canvas = pyx.canvas.canvas()
         if rebuild:
@@ -433,22 +433,22 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
         XDSTART = 10
         y = 0.0
         yd = 0.0
-        xd = 0 
+        xd = 0
         XMUL= 0.55
         YMUL = 0.4
-    
+
         backcolor=colgen(0.6, 0.8, 1.0, trans=pyx.color.rgb)
         forecolor=colgen(0.2, 0.5, 0.8, trans=pyx.color.rgb)
 #        backcolor=makecol(0.376, 0.729, 0.525, 1.0)
-        
-        
+
+
         def hexstr(x):
             s = []
             for c in x:
                 s.append("%02x" % ord(c))
             return " ".join(s)
 
-                
+
         def make_dump_txt(x,y,txt):
             return pyx.text.text(XDSTART+x*XMUL, (YDUMP-y)*YMUL, r"\tt{%s}"%hexstr(txt), [pyx.text.size.Large])
 
@@ -491,7 +491,7 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
                                          pyx.path.lineto(lb.left(), gb.top()),
                                          pyx.path.lineto(fb.left(), gb.top()),
                                          pyx.path.closepath(),)
-                                         
+
 
         def make_dump(s, shift=0, y=0, col=None, bkcol=None, larg=16):
             c = pyx.canvas.canvas()
@@ -512,7 +512,7 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
             for txt in tlist:
                 c.insert(txt)
             return c, tlist[-1].bbox(), shift, y
-                            
+
 
         last_shift,last_y=0,0.0
         while t:
@@ -553,13 +553,13 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
                         pass
                     else:
                         canvas.stroke(cnx,[pyx.style.linewidth.thin,pyx.deco.earrow.small,col])
-                        
+
                     canvas.insert(dt)
-                
+
                 canvas.insert(ft)
                 canvas.insert(vt)
             last_y += layer_shift
-    
+
         return canvas
 
 
@@ -617,7 +617,7 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
         s = self.do_dissect(s)
 
         s = self.post_dissect(s)
-            
+
         payl,pad = self.extract_padding(s)
         self.do_dissect_payload(payl)
         if pad and conf.padding:
@@ -636,7 +636,7 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
                 if ok:
                     return cls
         return self.default_payload_class(payload)
-    
+
     def default_payload_class(self, payload):
         """DEV: Returns the default payload class if nothing has been found by the guess_payload_class() method."""
         return conf.raw_layer
@@ -820,7 +820,7 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
 
     def __setitem__(self, cls, val):
         self[cls].underlayer.payload = val
-    
+
     def __contains__(self, cls):
         """"cls in self" returns true if self has a layer which is an instance of cls."""
         return self.haslayer(cls)
@@ -830,7 +830,7 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
 
     def fragment(self, *args, **kargs):
         return self.payload.fragment(*args, **kargs)
-    
+
 
     def display(self,*args,**kargs):  # Deprecated. Use show()
         """Deprecated. Use show() method."""
@@ -902,7 +902,7 @@ A side effect is that, to obtain "{" and "}" characters, you must use
                    ")": "}" }
 
 
-        # Evaluate conditions 
+        # Evaluate conditions
         while "{" in fmt:
             i = fmt.rindex("{")
             j = fmt[i+1:].index("}")
@@ -974,7 +974,7 @@ A side effect is that, to obtain "{" and "}" characters, you must use
                     val = self.payload.sprintf("%%%s%%" % sfclsfld, relax)
                     f = "s"
                 s += ("%"+f) % val
-            
+
         s += fmt
         return s
 
@@ -1014,7 +1014,7 @@ A side effect is that, to obtain "{" and "}" characters, you must use
         found,s,needed = self._do_summary()
         return s
 
-    
+
     def lastlayer(self,layer=None):
         """Returns the uppest layer of the packet"""
         return self.payload.lastlayer(self)
@@ -1058,7 +1058,7 @@ A side effect is that, to obtain "{" and "}" characters, you must use
         pc = self.payload.command()
         if pc:
             c += "/"+pc
-        return c                    
+        return c
 
 class NoPayload(Packet):
     def __new__(cls, *args, **kargs):
@@ -1124,7 +1124,7 @@ class NoPayload(Packet):
             _track.append(nb)
         return None
     def fragment(self, *args, **kargs):
-        raise Scapy_Exception("cannot fragment this packet")        
+        raise Scapy_Exception("cannot fragment this packet")
     def show(self, indent=3, lvl="", label_lvl=""):
         pass
     def sprintf(self, fmt, relax):
@@ -1138,12 +1138,12 @@ class NoPayload(Packet):
         return layer
     def command(self):
         return ""
-    
+
 ####################
 ## packet classes ##
 ####################
 
-            
+
 class Raw(Packet):
     name = "Raw"
     fields_desc = [ StrField("load", "") ]
@@ -1161,7 +1161,7 @@ class Raw(Packet):
             else:
                 return "Raw %r" % self.load
         return Packet.mysummary(self)
-        
+
 class Padding(Raw):
     name = "Padding"
     def self_build(self):
@@ -1185,14 +1185,14 @@ def bind_bottom_up(lower, upper, __fval=None, **fval):
         fval.update(__fval)
     lower.payload_guess = lower.payload_guess[:]
     lower.payload_guess.append((fval, upper))
-    
+
 
 def bind_top_down(lower, upper, __fval=None, **fval):
     if __fval is not None:
         fval.update(__fval)
     upper._overload_fields = upper._overload_fields.copy()
     upper._overload_fields[lower] = fval
-    
+
 @conf.commands.register
 def bind_layers(lower, upper, __fval=None, **fval):
     """Bind 2 layers on some specific fields' values"""
@@ -1212,7 +1212,7 @@ def split_bottom_up(lower, upper, __fval=None, **fval):
                 return True
         return False
     lower.payload_guess = filter(do_filter, lower.payload_guess)
-        
+
 def split_top_down(lower, upper, __fval=None, **fval):
     if __fval is not None:
         fval.update(__fval)
@@ -1309,7 +1309,7 @@ def ls(obj=None, case_sensitive=False, verbose=False):
             print "Not a packet class or name. Type 'ls()' to list packet classes."
 
 
-    
+
 #############
 ## Fuzzing ##
 #############

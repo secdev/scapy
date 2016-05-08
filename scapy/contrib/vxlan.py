@@ -10,7 +10,7 @@ from scapy.layers.l2 import Ether
 from scapy.layers.inet import UDP
 from scapy.fields import FlagsField, XByteField, ThreeBytesField
 
-_VXLAN_FLAGS = ['R' for _ in xrange(0, 24)] + ['R', 'R', 'R', 'I', 'R', 'R', 'R', 'R', 'R'] 
+_VXLAN_FLAGS = ['R' for _ in xrange(0, 24)] + ['R', 'R', 'R', 'I', 'R', 'R', 'R', 'R', 'R']
 
 
 class VXLAN(Packet):

@@ -18,12 +18,12 @@ class ASN1Packet_metaclass(Packet_metaclass):
 class ASN1_Packet(Packet):
     __metaclass__ = ASN1Packet_metaclass
     ASN1_root = None
-    ASN1_codec = None    
+    ASN1_codec = None
     def self_build(self):
         if self.raw_packet_cache is not None:
             return self.raw_packet_cache
-        return self.ASN1_root.build(self)    
+        return self.ASN1_root.build(self)
     def do_dissect(self, x):
         return self.ASN1_root.dissect(self, x)
-        
+
 

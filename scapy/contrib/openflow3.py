@@ -228,9 +228,9 @@ ofp_oxm_constr = {  0: ["OFBInPort", "in_port", 4],
                    16: ["OFBUDPDst", "udp_dst", 2],
                    17: ["OFBSCTPSrc", "sctp_src", 2],
                    18: ["OFBSCTPDst", "sctp_dst", 2],
-                   19: ["OFBICMPv4Type", "icmpv4_type", 1],    
-                   20: ["OFBICMPv4Code", "icmpv4_code", 1],    
-                   21: ["OFBARPOP", "arp_op", 2],    
+                   19: ["OFBICMPv4Type", "icmpv4_type", 1],
+                   20: ["OFBICMPv4Code", "icmpv4_code", 1],
+                   21: ["OFBARPOP", "arp_op", 2],
                    22: ["OFBARPSPA", "arp_spa", 4],
                    23: ["OFBARPTPA", "arp_tpa", 4],
                    24: ["OFBARPSHA", "arp_sha", 6],
@@ -507,14 +507,14 @@ need_prereq = { 14: [12, 0x1000],
                 21: [10, 0x86dd],
                 22: [10, 0x0800],
                 24: [10, 0x0800],
-                26: [20, 6],    
-                28: [20, 6],    
-                30: [20, 17],    
-                32: [20, 17],    
-                34: [20, 132],    
-                36: [20, 132],    
-                38: [20, 1],    
-                40: [20, 1],    
+                26: [20, 6],
+                28: [20, 6],
+                30: [20, 17],
+                32: [20, 17],
+                34: [20, 132],
+                36: [20, 132],
+                38: [20, 1],
+                40: [20, 1],
                 42: [10, 0x0806],
                 44: [10, 0x0806],
                 46: [10, 0x0806],
@@ -542,7 +542,7 @@ class OXMPacketListField(PacketListField):
         PacketListField.__init__(self, name, default, cls, length_from=length_from)
         self.autocomplete = autocomplete
         self.index = []
-    
+
     def i2m(self, pkt, val):
             ### this part makes for a faster writing of specs-compliant matches
             ### expect some unwanted behaviour if you try incoherent associations
@@ -2614,7 +2614,7 @@ class OFPMPReplyGroupDesc(_ofp_header):
                     GroupDescPacketListField("group_descs", [], Packet,
                                              length_from=lambda pkt:pkt.len-16) ]
     overload_fields = {TCP: {"dport": 6653}}
-                    
+
 class OFPMPRequestGroupFeatures(_ofp_header):
     name = "OFPMP_REQUEST_GROUP_FEATURES"
     fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
@@ -3009,7 +3009,7 @@ class TableFeaturesPropPacketListField(PacketListField):
     def getfield(self, pkt, s):
         lst = []
         remain = s
-    
+
         while remain and len(remain) >= 4:
             l = TableFeaturesPropPacketListField._get_table_features_prop_length(remain)
             # add padding !
@@ -3072,7 +3072,7 @@ class OFPMPRequestTableFeatures(_ofp_header):
                     FlagsField("flags", 0, 16, ofpmp_request_flags),
                     XIntField("pad1", 0),
                     TableFeaturesPacketListField("table_features", [], Packet,
-                                                 length_from=lambda pkt:pkt.len-16) ] 
+                                                 length_from=lambda pkt:pkt.len-16) ]
     overload_fields = {TCP: {"sport": 6653}}
 
 class OFPMPReplyTableFeatures(_ofp_header):

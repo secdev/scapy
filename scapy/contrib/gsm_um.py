@@ -6341,7 +6341,7 @@ class CongestionLevelHdr(Packet):
     name = "Congestion Level"
     fields_desc = [
              XBitField("ieiCL", None, 4),
-             BitField("notDef", 0x0, 4) 
+             BitField("notDef", 0x0, 4)
              ]
 
 
@@ -11838,7 +11838,7 @@ class HighLayerCompatibility(Packet):
         return p + pay
 #
 # 10.5.4.16.1           Static conditions for the high layer
-# compatibility IE contents 
+# compatibility IE contents
 #
 
 

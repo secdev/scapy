@@ -24,14 +24,14 @@ from scapy.arch.common import get_if
 
 
 # From bits/ioctls.h
-SIOCGIFHWADDR  = 0x8927          # Get hardware address    
-SIOCGIFADDR    = 0x8915          # get PA address          
-SIOCGIFNETMASK = 0x891b          # get network PA mask     
-SIOCGIFNAME    = 0x8910          # get iface name          
-SIOCSIFLINK    = 0x8911          # set iface channel       
-SIOCGIFCONF    = 0x8912          # get iface list          
-SIOCGIFFLAGS   = 0x8913          # get flags               
-SIOCSIFFLAGS   = 0x8914          # set flags               
+SIOCGIFHWADDR  = 0x8927          # Get hardware address
+SIOCGIFADDR    = 0x8915          # get PA address
+SIOCGIFNETMASK = 0x891b          # get network PA mask
+SIOCGIFNAME    = 0x8910          # get iface name
+SIOCSIFLINK    = 0x8911          # set iface channel
+SIOCGIFCONF    = 0x8912          # get iface list
+SIOCGIFFLAGS   = 0x8913          # get flags
+SIOCSIFFLAGS   = 0x8914          # set flags
 SIOCGIFINDEX   = 0x8933          # name -> if_index mapping
 SIOCGIFCOUNT   = 0x8938          # get number of devices
 SIOCGSTAMP     = 0x8906          # get packet timestamp (as a timeval)
@@ -89,7 +89,7 @@ with os.popen("%s -V 2> /dev/null" % conf.prog.tcpdump) as _f:
     else:
         TCPDUMP=1
 del(_f)
-    
+
 
 def get_if_raw_hwaddr(iff):
     return struct.unpack("16xh6s8x",get_if(iff,SIOCGIFHWADDR))
@@ -115,7 +115,7 @@ def get_if_list():
     return lst
 def get_working_if():
     for i in get_if_list():
-        if i == LOOPBACK_NAME:                
+        if i == LOOPBACK_NAME:
             continue
         ifflags = struct.unpack("16xH14x",get_if(i,SIOCGIFFLAGS))[0]
         if ifflags & IFF_UP:
@@ -123,7 +123,7 @@ def get_working_if():
     return LOOPBACK_NAME
 
 def attach_filter(s, bpf_filter, iface):
-    # XXX We generate the filter on the interface conf.iface 
+    # XXX We generate the filter on the interface conf.iface
     # because tcpdump open the "any" interface and ppp interfaces
     # in cooked mode. As we use them in raw mode, the filter will not
     # work... one solution could be to use "any" interface and translate
@@ -153,7 +153,7 @@ def attach_filter(s, bpf_filter, iface):
     if scapy.arch.X86_64 or scapy.arch.ARM_64:
         bpfh = struct.pack("HL", nb, id(bpf)+36)
     else:
-        bpfh = struct.pack("HI", nb, id(bpf)+20)  
+        bpfh = struct.pack("HI", nb, id(bpf)+20)
     s.setsockopt(SOL_SOCKET, SO_ATTACH_FILTER, bpfh)
 
 def set_promisc(s,iff,val=1):
@@ -207,7 +207,7 @@ def read_routes():
                        socket.htonl(long(msk,16))&0xffffffffL,
                        scapy.utils.inet_ntoa(struct.pack("I",long(gw,16))),
                        iff, ifaddr))
-    
+
     f.close()
     return routes
 
@@ -227,7 +227,7 @@ def in6_getifaddr():
     ret = []
     try:
         f = open("/proc/net/if_inet6","r")
-    except IOError, err:    
+    except IOError, err:
         return ret
     l = f.readlines()
     for i in l:
@@ -258,8 +258,8 @@ def read_routes6():
         ret = struct.unpack('4s4s4s4s4s4s4s4s', p)
         ret = ':'.join(ret)
         return scapy.utils6.in6_ptop(ret)
-    
-    lifaddr = in6_getifaddr() 
+
+    lifaddr = in6_getifaddr()
     for l in f.readlines():
         d,dp,s,sp,nh,m,rc,us,fl,dev = l.split()
         fl = int(fl, 16)
@@ -281,11 +281,11 @@ def read_routes6():
         else:
             devaddrs = filter(lambda x: x[2] == dev, lifaddr)
             cset = scapy.utils6.construct_source_candidate_set(d, dp, devaddrs, LOOPBACK_NAME)
-        
+
         if len(cset) != 0:
             routes.append((d, dp, nh, dev, cset))
     f.close()
-    return routes   
+    return routes
 
 
 def get_if_index(iff):
@@ -381,11 +381,11 @@ class L3PacketSocket(SuperSocket):
             pkt = conf.raw_layer(pkt)
         if lvl == 2:
             pkt = pkt.payload
-            
+
         if pkt is not None:
             pkt.time = get_last_packet_timestamp(self.ins)
         return pkt
-    
+
     def send(self, x):
         iff,a,gw  = x.route()
         if iff is None:
@@ -419,7 +419,7 @@ class L2Socket(SuperSocket):
         self.iface = conf.iface if iface is None else iface
         self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))
         self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 0)
-        if not nofilter: 
+        if not nofilter:
             if conf.except_filter:
                 if filter:
                     filter = "(%s) and not (%s)" % (filter, conf.except_filter)
@@ -538,7 +538,7 @@ class L2ListenSocket(SuperSocket):
         pkt.time = get_last_packet_timestamp(self.ins)
         pkt.direction = sa_ll[2]
         return pkt
-    
+
     def send(self, x):
         raise Scapy_Exception("Can't send anything with L2ListenSocket")
 

@@ -28,7 +28,7 @@ conf.p0fo_base ="/etc/p0f/p0fo.fp"
 #
 # wwww    - window size
 # ttt     - initial TTL
-# D       - don't fragment bit  (0=unset, 1=set) 
+# D       - don't fragment bit  (0=unset, 1=set)
 # ss      - overall SYN packet size
 # OOO     - option value and order specification
 # QQ      - quirks list
@@ -97,20 +97,20 @@ def packet2p0f(pkt):
         if isinstance(pkt.payload, TCP):
             break
         pkt = pkt.payload
-    
+
     if not isinstance(pkt, IP) or not isinstance(pkt.payload, TCP):
         raise TypeError("Not a TCP/IP packet")
     #if pkt.payload.flags & 0x7 != 0x02: #S,!F,!R
     #    raise TypeError("Not a SYN or SYN/ACK packet")
-    
+
     db = p0f_selectdb(pkt.payload.flags)
-    
+
     #t = p0f_kdb.ttl_range[:]
     #t += [pkt.ttl]
     #t.sort()
     #ttl=t[t.index(pkt.ttl)+1]
     ttl = pkt.ttl
-    
+
     df = (pkt.flags & 2) / 2
     ss = len(pkt)
     # from p0f/config.h : PACKET_BIG = 100
@@ -125,7 +125,7 @@ def packet2p0f(pkt):
     if db == p0fo_kdb:
         # p0fo.fp: "Packet size MUST be wildcarded."
         ss = '*'
-    
+
     ooo = ""
     mss = -1
     qqT = False
@@ -168,7 +168,7 @@ def packet2p0f(pkt):
             # FIXME: ilen
     ooo = ooo[:-1]
     if ooo == "": ooo = "."
-    
+
     win = pkt.payload.window
     if mss != -1:
         if mss != 0 and win % mss == 0:
@@ -176,9 +176,9 @@ def packet2p0f(pkt):
         elif win % (mss + 40) == 0:
             win = "T" + str(win/(mss+40))
     win = str(win)
-    
+
     qq = ""
-    
+
     if db == p0fr_kdb:
         if pkt.payload.flags & 0x10 == 0x10:
             # p0fr.fp: "A new quirk, 'K', is introduced to denote
@@ -341,13 +341,13 @@ Some specifications of the p0f.fp file are not (yet) implemented."""
         if isinstance(pkt.payload, TCP):
             break
         pkt = pkt.payload
-    
+
     if not isinstance(pkt, IP) or not isinstance(pkt.payload, TCP):
         raise TypeError("Not a TCP/IP packet")
-    
+
     if uptime is None:
         uptime = random.randint(120,100*60*60*24*365)
-    
+
     db = p0f_selectdb(pkt.payload.flags)
     if osgenre:
         pb = db.get_base()
@@ -369,7 +369,7 @@ Some specifications of the p0f.fp file are not (yet) implemented."""
     if not pb:
         raise Scapy_Exception("No match in the p0f database")
     pers = pb[random.randint(0, len(pb) - 1)]
-    
+
     # options (we start with options because of MSS)
     ## TODO: let the options already set if they are valid
     options = []
@@ -434,7 +434,7 @@ Some specifications of the p0f.fp file are not (yet) implemented."""
             else:
                 warning("unhandled TCP option " + opt)
             pkt.payload.options = options
-    
+
     # window size
     if pers[0] == '*':
         pkt.payload.window = RandShort()
@@ -453,7 +453,7 @@ Some specifications of the p0f.fp file are not (yet) implemented."""
         pkt.payload.window = filter(lambda x: x[0] == 'MSS', options)[0][1] * int(pers[0][1:])
     else:
         raise Scapy_Exception('Unhandled window size specification')
-    
+
     # ttl
     pkt.ttl = pers[1]-extrahops
     # DF flag
@@ -484,7 +484,7 @@ Some specifications of the p0f.fp file are not (yet) implemented."""
         pkt.payload.seq = 0
     elif pkt.payload.seq == 0:
         pkt.payload.seq = RandInt()
-    
+
     while pkt.underlayer:
         pkt = pkt.underlayer
     return pkt

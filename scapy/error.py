@@ -20,7 +20,7 @@ class ScapyFreqFilter(logging.Filter):
     def __init__(self):
         logging.Filter.__init__(self)
         self.warning_table = {}
-    def filter(self, record):        
+    def filter(self, record):
         from config import conf
         wt = conf.warning_threshold
         if wt > 0:
@@ -43,7 +43,7 @@ class ScapyFreqFilter(logging.Filter):
                 else:
                     return 0
             self.warning_table[caller] = (tm,nb)
-        return 1    
+        return 1
 
 log_scapy = logging.getLogger("scapy")
 console_handler = logging.StreamHandler()

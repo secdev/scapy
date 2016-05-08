@@ -40,7 +40,7 @@ class debug:
 def sndrcv(pks, pkt, timeout = None, inter = 0, verbose=None, chainCC=0, retry=0, multi=0):
     if not isinstance(pkt, Gen):
         pkt = SetGen(pkt)
-        
+
     if verbose is None:
         verbose = conf.verb
     debug.recv = plist.PacketList([],"Unanswered")
@@ -68,10 +68,10 @@ def sndrcv(pks, pkt, timeout = None, inter = 0, verbose=None, chainCC=0, retry=0
 
     while retry >= 0:
         found=0
-    
+
         if timeout < 0:
             timeout = None
-            
+
         rdpipe,wrpipe = os.pipe()
         rdpipe=os.fdopen(rdpipe)
         wrpipe=os.fdopen(wrpipe,"w")
@@ -193,12 +193,12 @@ def sndrcv(pks, pkt, timeout = None, inter = 0, verbose=None, chainCC=0, retry=0
 
         if autostop and len(remain) > 0 and len(remain) != len(tobesent):
             retry = autostop
-            
+
         tobesent = remain
         if len(tobesent) == 0:
             break
         retry -= 1
-        
+
     if conf.debug_match:
         debug.sent=plist.PacketList(remain[:],"Sent")
         debug.match=plist.SndRcvList(ans[:])
@@ -208,7 +208,7 @@ def sndrcv(pks, pkt, timeout = None, inter = 0, verbose=None, chainCC=0, retry=0
         for s,r in ans:
             if hasattr(s, '_answered'):
                 del(s._answered)
-    
+
     if verbose:
         print "\nReceived %i packets, got %i answers, remaining %i packets" % (nbrecv+len(ans), len(ans), notans)
     return plist.SndRcvList(ans),plist.PacketList(remain,"Unanswered")
@@ -256,7 +256,7 @@ def __gen_send(s, x, inter=0, loop=0, count=None, verbose=None, realtime=None, r
         print "\nSent %i packets." % n
     if return_packets:
         return sent_packets
-        
+
 @conf.commands.register
 def send(x, inter=0, loop=0, count=None, verbose=None, realtime=None, return_packets=False, *args, **kargs):
     """Send packets at layer 3
@@ -312,10 +312,10 @@ def sendpfast(x, pps=None, mbps=None, realtime=None, loop=0, file_cache=False, i
     finally:
         os.unlink(f)
 
-        
 
-        
-    
+
+
+
 @conf.commands.register
 def sr(x,filter=None, iface=None, nofilter=0, *args,**kargs):
     """Send and receive packets at layer 3
@@ -440,7 +440,7 @@ def __sr_loop(srfunc, pkts, prn=lambda x:x[1].summary(), prnfail=lambda x:x.summ
                 time.sleep(inter+start-end)
     except KeyboardInterrupt:
         pass
- 
+
     if verbose and n>0:
         print ct.normal("\nSent %i packets, received %i packets. %3.1f%% hits." % (n,r,100.0*r/n))
     return plist.SndRcvList(ans),plist.PacketList(unans)
@@ -487,7 +487,7 @@ def sndrcvflood(pks, pkt, prn=lambda (s,r):r.summary(), chainCC=0, store=1, uniq
             readyr,readys,_ = select([rsock],[ssock],[])
             if ssock in readys:
                 pks.send(packets_to_send.next())
-                
+
             if rsock in readyr:
                 p = pks.recv(MTU)
                 if p is None:
@@ -535,13 +535,13 @@ nofilter: put 1 to avoid use of bpf filters
 filter:   provide a BPF filter
 iface:    listen answers only on the given interface"""
     if iface is None and iface_hint is not None:
-        iface = conf.route.route(iface_hint)[0]    
+        iface = conf.route.route(iface_hint)[0]
     s = conf.L2socket(filter=filter, iface=iface, nofilter=nofilter)
     r=sndrcvflood(s,x,*args,**kargs)
     s.close()
     return r
 
-           
+
 
 
 @conf.commands.register
@@ -631,7 +631,7 @@ interfaces)
 
 
 @conf.commands.register
-def bridge_and_sniff(if1, if2, count=0, store=1, offline=None, prn=None, 
+def bridge_and_sniff(if1, if2, count=0, store=1, offline=None, prn=None,
                      lfilter=None, L2socket=None, timeout=None,
                      stop_filter=None, *args, **kargs):
     """Forward traffic between two interfaces and sniff packets exchanged
@@ -659,7 +659,7 @@ stop_filter: python function applied to each packet to determine
     s2 = L2socket(iface=if2)
     peerof={s1:s2,s2:s1}
     label={s1:if1, s2:if2}
-    
+
     lst = []
     if timeout is not None:
         stoptime = time.time()+timeout
