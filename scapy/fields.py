@@ -1023,7 +1023,7 @@ class _IPPrefixFieldBase(Field):
     def i2m(self, pkt, x):
         # ("fc00:1::1", 64) -> ("\xfc\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01", 64)
         (pfx,pfxlen)= x
-        s= self.aton(pfx);
+        s= self.aton(pfx)
         return (s[:self._numbytes(pfxlen)], pfxlen)
     
     def m2i(self, pkt, x):

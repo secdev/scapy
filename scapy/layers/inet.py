@@ -1370,7 +1370,7 @@ class TracerouteResult(SndRcvList):
                 s += '\t%s ->\n' % trace[n]
             s += '\t%s;\n' % trace[maxtrace]
     
-        s += "}\n";
+        s += "}\n"
         self.graphdef = s
     
     def graph(self, ASres=None, padding=0, **kargs):
