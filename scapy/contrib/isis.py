@@ -211,8 +211,10 @@ class ISIS_LspIdField(_ISIS_IdFieldBase):
 
 class ISIS_CircuitTypeField(FlagsField):
     def __init__(self, name="circuittype", default=2, size=8,
-                 names=["L1", "L2", "r0", "r1", "r2", "r3", "r4", "r5"]):
+                 names=None):
         FlagsField.__init__(self, name, default, size, names)
+        if names is None:
+            names = ["L1", "L2", "r0", "r1", "r2", "r3", "r4", "r5"]
 
 
 #######################################################################

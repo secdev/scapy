@@ -131,8 +131,10 @@ def exec_query(cmd, fields):
     return _exec_query_ps(cmd, fields)
 
 
-def _where(filename, dirs=[], env="PATH"):
+def _where(filename, dirs=None, env="PATH"):
     """Find file in current dir or system path"""
+    if dirs is None:
+        dirs = []
     if not isinstance(dirs, list):
         dirs = [dirs]
     if glob(filename):
