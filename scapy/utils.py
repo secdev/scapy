@@ -113,8 +113,7 @@ def hexdiff(x,y):
     y=str(y)[::-1]
     SUBST=1
     INSERT=1
-    d={}
-    d[-1,-1] = 0,(-1,-1)
+    d = {(-1, -1): (0, (-1, -1))}
     for j in xrange(len(y)):
         d[-1,j] = d[-1,j-1][0]+INSERT, (-1,j-1)
     for i in xrange(len(x)):
