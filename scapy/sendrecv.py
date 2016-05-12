@@ -619,7 +619,7 @@ interfaces)
                     if stop_filter and stop_filter(p):
                         stop_event = True
                         break
-                    if count > 0 and c >= count:
+                    if 0 < count <= c:
                         stop_event = True
                         break
     except KeyboardInterrupt:
@@ -689,7 +689,7 @@ stop_filter: python function applied to each packet to determine
                     if stop_filter and stop_filter(p):
                         stop_event = True
                         break
-                    if count > 0 and c >= count:
+                    if 0 < count <= c:
                         stop_event = True
                         break
     except KeyboardInterrupt:
