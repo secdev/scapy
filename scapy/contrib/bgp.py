@@ -102,7 +102,7 @@ class BGPAuthenticationData(Packet):
     ]
 
 class BGPPathAttribute(Packet):
-	"the attribute of total path"
+	"""the attribute of total path"""
 	name = "BGP Attribute fields"
 	fields_desc = [
 	FlagsField("flags", 0x40, 8, ["NA0","NA1","NA2","NA3","Extended-Length","Partial","Transitive","Optional"]), #Extened leght may not work
