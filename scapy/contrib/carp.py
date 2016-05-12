@@ -28,7 +28,7 @@ class CARP(Packet):
     ]
 
     def post_build(self, pkt, pay):
-        if self.chksum == None:
+        if self.chksum is None:
             pkt = pkt[:6] + struct.pack("!H", checksum(pkt)) + pkt[8:]
 
         return pkt

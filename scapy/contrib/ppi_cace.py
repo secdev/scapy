@@ -31,7 +31,7 @@ class dBmByteField(Field):
     def __init__(self, name, default):
         Field.__init__(self, name, default, "b")
     def i2repr(self, pkt, val):
-        if (val != None):
+        if (val is not None):
             val = "%4d dBm" % val
         return val
 

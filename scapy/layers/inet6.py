@@ -342,7 +342,7 @@ class IP6ListField(StrField):
 
     def i2repr(self,pkt,x):
         s = []
-        if x == None:
+        if x is None:
             return "[]"
         for y in x:
             s.append('%s' % y)
@@ -612,7 +612,7 @@ def in6_chksum(nh, u, p):
     rthdr = 0
     hahdr = 0
     final_dest_addr_found = 0
-    while u != None and not isinstance(u, IPv6):
+    while u is not None and not isinstance(u, IPv6):
         if (isinstance(u, IPv6ExtHdrRouting) and
             u.segleft != 0 and len(u.addresses) != 0 and
             final_dest_addr_found == 0):
@@ -1211,7 +1211,7 @@ class _ICMPv6(Packet):
     overload_fields = {IPv6: {"nh": 58}}
     def post_build(self, p, pay):
         p += pay
-        if self.cksum == None: 
+        if self.cksum is None:
             chksum = in6_chksum(58, self.underlayer, p)
             p = p[:2]+struct.pack("!H", chksum)+p[4:]
         return p

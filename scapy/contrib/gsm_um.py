@@ -125,7 +125,7 @@ def adapt(min_length, max_length, fields, fields2, location=2):
 
 
 def examples(example=None):
-    if example == None:
+    if example is None:
         print """This command presents some example to introduce scapy
 gsm-um to new users.
 The following parameters can be used:

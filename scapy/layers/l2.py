@@ -535,7 +535,7 @@ class ARP_am(AnsweringMachine):
     def is_request(self, req):
         return (req.haslayer(ARP) and
                 req.getlayer(ARP).op == 1 and
-                (self.IP_addr == None or self.IP_addr == req.getlayer(ARP).pdst))
+                (self.IP_addr is None or self.IP_addr == req.getlayer(ARP).pdst))
     
     def make_reply(self, req):
         ether = req.getlayer(Ether)
