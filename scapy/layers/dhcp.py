@@ -262,8 +262,8 @@ class DHCPOptionsField(StrField):
                 s += chr(len(oval))
                 s += oval
 
-            elif (type(o) is str and DHCPRevOptions.has_key(o) and 
-                  DHCPRevOptions[o][1] == None):
+            elif (type(o) is str and DHCPRevOptions.has_key(o) and
+                          DHCPRevOptions[o][1] is None):
                 s += chr(DHCPRevOptions[o][0])
             elif type(o) is int:
                 s += chr(o)+"\0"

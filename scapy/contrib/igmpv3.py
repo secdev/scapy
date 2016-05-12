@@ -213,7 +213,7 @@ class IGMPv3(Packet):
     """
 # The rules are:
 #   1. send to the group mac address address corresponding to the IP.dst
-    if ip != None and ip.haslayer(IP) and ether != None and ether.haslayer(Ether):
+    if ip is not None and ip.haslayer(IP) and ether is not None and ether.haslayer(Ether):
       iplong = atol(ip.dst)
       ether.dst = "01:00:5e:%02x:%02x:%02x" % ( (iplong>>16)&0x7F, (iplong>>8)&0xFF, (iplong)&0xFF )
       # print "igmpize ip " + ip.dst + " as mac " + ether.dst 
@@ -235,7 +235,7 @@ class IGMPv3(Packet):
     4. ttl = 1 (RFC 2236, section 2)
     5. send the packet with the router alert IP option (RFC 2236, section 2)
     """
-    if ip != None and ip.haslayer(IP):
+    if ip is not None and ip.haslayer(IP):
       if (self.type == 0x11):
         if (self.gaddr == "0.0.0.0"):
           ip.dst = "224.0.0.1"                   # IP rule 1

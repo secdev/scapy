@@ -180,14 +180,14 @@ class IKEv2_Key_Length_Attribute(IntField):
 
 class IKEv2_Transform_ID(ShortField):
 	def i2h(self, pkt, x):
-		if pkt == None:
+		if pkt is None:
 			return None
 		else:
 			map = IKEv2TransformNum[pkt.transform_type][1]
 			return map[x]
 		
 	def h2i(self, pkt, x):
-		if pkt == None:
+		if pkt is None:
 			return None
 		else:
 			map = IKEv2TransformNum[pkt.transform_type][1]

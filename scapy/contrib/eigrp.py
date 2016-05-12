@@ -270,7 +270,7 @@ class ShortVersionField(ShortField):
         elif type(x) is int and x >= 0 and x <= 65535:
             return x
         else:
-            if self.default != None:
+            if self.default is not None:
                 warning("set value to default. Format of %r is invalid" % x)
                 return self.default
             else:

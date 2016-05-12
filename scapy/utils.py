@@ -645,7 +645,7 @@ class RawPcapReader:
     def next(self):
         """implement the iterator protocol on a set of packets in a pcap file"""
         pkt = self.read_packet()
-        if pkt == None:
+        if pkt is None:
             raise StopIteration
         return pkt
 
@@ -945,7 +945,7 @@ sync: do not bufferize writes to the capture file
 class PcapWriter(RawPcapWriter):
     """A stream PCAP writer with more control than wrpcap()"""
     def _write_header(self, pkt):
-        if self.linktype == None:
+        if self.linktype is None:
             try:
                 self.linktype = conf.l2types[pkt.__class__]
             except KeyError:

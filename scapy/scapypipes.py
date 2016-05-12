@@ -68,7 +68,7 @@ class InjectSink(Sink):
 """
     def __init__(self, iface=None, name=None):
         Sink.__init__(self, name=name)
-        if iface == None:
+        if iface is None:
             iface = conf.iface
         self.iface = iface
     def start(self):
