@@ -507,7 +507,7 @@ class RandSingNum(RandSingularity):
         return set([sign*2**i for i in xrange(end_n)])            
         
     def __init__(self, mn, mx):
-        sing = set([0, mn, mx, int((mn+mx)/2)])
+        sing = {0, mn, mx, int((mn + mx) / 2)}
         sing |= self.make_power_of_two(mn)
         sing |= self.make_power_of_two(mx)
         for i in sing.copy():
