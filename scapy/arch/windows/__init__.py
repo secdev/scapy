@@ -650,7 +650,7 @@ L2socket: use the provided L2socket
                 r = prn(p)
                 if r is not None:
                     print r
-            if count > 0 and c >= count:
+            if 0 < count <= c:
                 break
         except KeyboardInterrupt:
             break
