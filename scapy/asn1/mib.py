@@ -50,7 +50,9 @@ class MIBDict(DADict):
             return x
         xl[p] = self[xl[p]] 
         return ".".join(xl[p:])
-    def _make_graph(self, other_keys=[], **kargs):
+    def _make_graph(self, other_keys=None, **kargs):
+        if other_keys is None:
+            other_keys = []
         nodes = [(k, self[k]) for k in self.iterkeys()]
         oids = [self[k] for k in self.iterkeys()]
         for k in other_keys:

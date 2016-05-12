@@ -33,7 +33,11 @@ class CARP(Packet):
 
         return pkt
 
-def build_hmac_sha1(pkt, pw = '\0' * 20, ip4l = [], ip6l = []):
+def build_hmac_sha1(pkt, pw = '\0' * 20, ip4l=None, ip6l=None):
+    if ip4l is None:
+        ip4l = []
+    if ip6l is None:
+        ip6l = []
     if not pkt.haslayer(CARP):
         return None 
 
