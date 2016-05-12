@@ -346,7 +346,7 @@ class GapAckField(Field):
         return "%d:%d"%(struct.unpack(">HH", x))
     def any2i(self, pkt, x):
         if type(x) is tuple and len(x) == 2:
-            return "%d:%d"%(x)
+            return "%d:%d" % x
         return x
 
 class SCTPChunkSACK(_SCTPChunkGuessPayload, Packet):

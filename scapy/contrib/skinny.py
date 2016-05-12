@@ -203,7 +203,7 @@ class SkinnyDateTimeField(StrFixedLenField):
 
     def m2i(self, pkt, s):
         year,month,dow,day,hour,min,sec,milisecond=struct.unpack('<8I', s)
-        return (year, month, day, hour, min, sec)
+        return year, month, day, hour, min, sec
     
     def i2m(self, pkt, val):
         if type(val) is str:

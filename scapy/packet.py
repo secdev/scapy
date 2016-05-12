@@ -816,7 +816,7 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
         return ret
 
     def __delitem__(self, cls):
-        del(self[cls].underlayer.payload)
+        del self[cls].underlayer.payload
 
     def __setitem__(self, cls, val):
         self[cls].underlayer.payload = val
@@ -826,7 +826,7 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
         return self.haslayer(cls)
 
     def route(self):
-        return (None,None,None)
+        return None, None, None
 
     def fragment(self, *args, **kargs):
         return self.payload.fragment(*args, **kargs)

@@ -126,7 +126,7 @@ class StreamSocket(SimpleSocket):
         pkt = self.basecls(pkt)
         pad = pkt.getlayer(conf.padding_layer)
         if pad is not None and pad.underlayer is not None:
-            del(pad.underlayer.payload)
+            del pad.underlayer.payload
         while pad is not None and not isinstance(pad, NoPayload):
             x -= len(pad.load)
             pad = pad.payload

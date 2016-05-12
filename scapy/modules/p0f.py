@@ -227,7 +227,7 @@ def packet2p0f(pkt):
     if qq == "":
         qq = "."
 
-    return (db, (win, ttl, df, ss, ooo, qq))
+    return db, (win, ttl, df, ss, ooo, qq)
 
 def p0f_correl(x,y):
     d = 0

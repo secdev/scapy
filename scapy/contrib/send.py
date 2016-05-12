@@ -43,7 +43,7 @@ class HashField(Field):
 class ICMPv6NDOptNonce(_ICMPv6NDGuessPayload, Packet):
     name = "ICMPv6NDOptNonce"
     fields_desc = [ ByteField("type",14),
-                    FieldLenField("len",None,length_of="data",fmt="B", adjust = lambda pkt,x: (x)/8),
+                    FieldLenField("len", None, length_of="data", fmt="B", adjust = lambda pkt,x: x / 8),
                     StrLenField("nonce","", length_from = lambda pkt: pkt.len*8-2) ]
 
 class ICMPv6NDOptTmstp(_ICMPv6NDGuessPayload, Packet):
@@ -56,7 +56,7 @@ class ICMPv6NDOptTmstp(_ICMPv6NDGuessPayload, Packet):
 class ICMPv6NDOptRsaSig(_ICMPv6NDGuessPayload, Packet):
     name = "ICMPv6NDOptRsaSig"
     fields_desc = [ ByteField("type",12),
-                    FieldLenField("len",None,length_of="data",fmt="B", adjust = lambda pkt,x: (x)/8),
+                    FieldLenField("len", None, length_of="data", fmt="B", adjust = lambda pkt,x: x / 8),
                     ShortField("reserved",0),
                     HashField("key_hash",None),
                     StrLenField("signature_pad", "", length_from = lambda pkt: pkt.len*8-20) ]
@@ -64,7 +64,7 @@ class ICMPv6NDOptRsaSig(_ICMPv6NDGuessPayload, Packet):
 class ICMPv6NDOptCGA(_ICMPv6NDGuessPayload, Packet):
     name = "ICMPv6NDOptCGA"
     fields_desc = [ ByteField("type",11),
-                    FieldLenField("len",None,length_of="data",fmt="B", adjust = lambda pkt,x: (x)/8),
+                    FieldLenField("len", None, length_of="data", fmt="B", adjust = lambda pkt,x: x / 8),
                     ByteField("padlength",0),
                     ByteField("reserved",0),
                     StrLenField("CGA_PARAMS", "", length_from = lambda pkt: pkt.len*8 - pkt.padlength - 4),

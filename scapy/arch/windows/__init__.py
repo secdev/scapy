@@ -587,10 +587,10 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0, retry=0, m
         debug.match=plist.SndRcvList(ans[:])
 
     #clean the ans list to delete the field _answered
-    if (multi):
+    if multi:
         for s,r in ans:
             if hasattr(s, '_answered'):
-                del(s._answered)
+                del s._answered
     
     if verbose:
         print "\nReceived %i packets, got %i answers, remaining %i packets" % (nbrecv+len(ans), len(ans), notans)

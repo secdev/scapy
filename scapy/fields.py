@@ -404,7 +404,7 @@ class PacketField(StrField):
         remain = ""
         if conf.padding_layer in i:
             r = i[conf.padding_layer]
-            del(r.underlayer.payload)
+            del r.underlayer.payload
             remain = r.load
         return remain,i
     
@@ -479,7 +479,7 @@ class PacketListField(PacketField):
                 if conf.padding_layer in p:
                     pad = p[conf.padding_layer]
                     remain = pad.load
-                    del(pad.underlayer.payload)
+                    del pad.underlayer.payload
                 else:
                     remain = ""
             lst.append(p)
@@ -533,7 +533,7 @@ class NetBIOSNameField(StrFixedLenField):
         l = self.length_from(pkt)/2
         if x is None:
             x = ""
-        x += " "*(l)
+        x += " " * l
         x = x[:l]
         x = "".join(map(lambda x: chr(0x41+(ord(x)>>4))+chr(0x41+(ord(x)&0xf)), x))
         x = " "+x
@@ -1012,7 +1012,7 @@ class _IPPrefixFieldBase(Field):
         # "fc00:1::1/64" -> ("fc00:1::1", 64)
         [pfx,pfxlen]= x.split('/')
         self.aton(pfx) # check for validity
-        return (pfx, int(pfxlen))
+        return pfx, int(pfxlen)
 
 
     def i2h(self, pkt, x):
@@ -1024,7 +1024,7 @@ class _IPPrefixFieldBase(Field):
         # ("fc00:1::1", 64) -> ("\xfc\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01", 64)
         (pfx,pfxlen)= x
         s= self.aton(pfx);
-        return (s[:self._numbytes(pfxlen)], pfxlen)
+        return s[:self._numbytes(pfxlen)], pfxlen
     
     def m2i(self, pkt, x):
         # ("\xfc\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01", 64) -> ("fc00:1::1", 64)
@@ -1032,11 +1032,11 @@ class _IPPrefixFieldBase(Field):
         
         if len(s) < self.maxbytes:
             s= s + ("\0" * (self.maxbytes - len(s)))
-        return (self.ntoa(s), pfxlen)
+        return self.ntoa(s), pfxlen
     
     def any2i(self, pkt, x):
         if x is None:
-            return (self.ntoa("\0"*self.maxbytes), 1)
+            return self.ntoa("\0" * self.maxbytes), 1
         
         return self.h2i(pkt,x)
     

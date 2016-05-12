@@ -135,7 +135,7 @@ def FragmentCond(pkt):
         TODO: To complete
     """
     fragTypeTable = [ 0xA038, 0xA039 ]
-    return ((pkt.version == 0x01 )  and ( pkt.HPtype in fragTypeTable ))
+    return (pkt.version == 0x01) and (pkt.HPtype in fragTypeTable)
 
 class MACManagementHeader(Packet):
     name = "MACManagementHeader "
@@ -1196,7 +1196,7 @@ class HomePlugAV(Packet):
                 VendorMME ]
 
     def answers(self, other):
-        return ( isinstance(self, HomePlugAV ) )
+        return isinstance(self, HomePlugAV)
 
 bind_layers( Ether, HomePlugAV, { "type":0x88e1 } )
 

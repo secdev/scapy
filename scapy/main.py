@@ -340,7 +340,7 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
             IPYTHON=False
         
     if IPYTHON:
-        banner = the_banner % (conf.version) + " using IPython %s" % IPython.__version__
+        banner = the_banner % conf.version + " using IPython %s" % IPython.__version__
 
         # Old way to embed IPython kept for backward compatibility
         try:
@@ -354,7 +354,7 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
         IPython.embed(user_ns=session, banner2=banner)
 
     else:
-        code.interact(banner = the_banner % (conf.version),
+        code.interact(banner =the_banner % conf.version,
                       local=session, readfunc=conf.readfunc)
 
     if conf.session:

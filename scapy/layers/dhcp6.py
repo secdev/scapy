@@ -327,7 +327,7 @@ class _IANAOptField(PacketListField):
             if conf.padding_layer in p:
                 pad = p[conf.padding_layer]
                 remain = pad.load
-                del(pad.underlayer.payload)
+                del pad.underlayer.payload
             else:
                 remain = ""
             lst.append(p)
@@ -555,7 +555,7 @@ class _UserClassDataField(PacketListField):
             if conf.padding_layer in p:
                 pad = p[conf.padding_layer]
                 remain = pad.load
-                del(pad.underlayer.payload)
+                del pad.underlayer.payload
             else:
                 remain = ""
             lst.append(p)
@@ -1435,7 +1435,7 @@ dhcp6d( dns="2001:500::1035", domain="localdomain, local", duid=None)
                 return False
             # provided server DUID must match ours
             duid = p[DHCP6OptServerId].duid
-            if (type(duid) != type(self.duid)):
+            if type(duid) != type(self.duid):
                 return False
             if str(duid) != str(self.duid):
                 return False
@@ -1458,7 +1458,7 @@ dhcp6d( dns="2001:500::1035", domain="localdomain, local", duid=None)
             r = Color.red
 
             vendor  = in6_addrtovendor(src)
-            if (vendor and vendor != "UNKNOWN"):
+            if vendor and vendor != "UNKNOWN":
                 vendor = " [" + b + vendor + n + "]"
             else:
                 vendor = ""
@@ -1502,7 +1502,7 @@ dhcp6d( dns="2001:500::1035", domain="localdomain, local", duid=None)
         elif p.msgtype == 11: # Information-Request
             if DHCP6OptServerId in p:
                 duid = p[DHCP6OptServerId].duid
-                if (type(duid) != type(self.duid)):
+                if type(duid) != type(self.duid):
                     return False
                 if str(duid) != str(self.duid):
                     return False
@@ -1533,7 +1533,7 @@ dhcp6d( dns="2001:500::1035", domain="localdomain, local", duid=None)
         reqtype = g + norm(req.getlayer(UDP).payload.name) + n
         reqsrc  = req.getlayer(IPv6).src
         vendor  = in6_addrtovendor(reqsrc)
-        if (vendor and vendor != "UNKNOWN"):
+        if vendor and vendor != "UNKNOWN":
             vendor = " [" + b + vendor + n + "]"
         else:
             vendor = ""

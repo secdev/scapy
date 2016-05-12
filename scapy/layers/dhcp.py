@@ -148,9 +148,9 @@ for k,v in DHCPOptions.iteritems():
     else:
         n = v.name
     DHCPRevOptions[n] = (k,v)
-del(n)
-del(v)
-del(k)
+del n
+del v
+del k
     
     
 
@@ -345,7 +345,7 @@ class BOOTP_am(AnsweringMachine):
         repb.siaddr = self.gw
         repb.ciaddr = self.gw
         repb.giaddr = self.gw
-        del(repb.payload)
+        del repb.payload
         rep=Ether(dst=mac)/IP(dst=ip)/UDP(sport=req.dport,dport=req.sport)/repb
         return rep
 

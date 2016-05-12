@@ -797,7 +797,7 @@ def measurementReport():
 
 
 # len max 20
-class NotificationFacch():
+class NotificationFacch:
     """NOTIFICATION/FACCH Section 9.1.21a"""
     name = "Notification/facch"
     fields_desc = [
@@ -964,7 +964,7 @@ def rrStatus():
 # follow the basic format. Its length is _25_ bits. The
 # order of bit transmission is defined in GSM 04.04.
 # Network to MS
-class SynchronizationChannelInformation():
+class SynchronizationChannelInformation:
     """SYNCHRONIZATION CHANNEL INFORMATION Section 9.1.30"""
     name = "Synchronization Channel Information"
     fields_desc = [
@@ -1213,7 +1213,7 @@ def talkerIndication():
     return packet
 
 
-class UplinkAccess():
+class UplinkAccess:
     """UPLINK ACCESS Section 9.1.45"""
     name = "Uplink Access"
     fields_desc = [
@@ -1232,7 +1232,7 @@ def uplinkBusy():
 
 
 # Network to MS
-class UplinkFree():
+class UplinkFree:
     """UPLINK FREE Section 9.1.47"""
     name = "Uplink Free"
     fields_desc = [

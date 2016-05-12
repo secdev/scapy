@@ -294,9 +294,9 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
         if getsrcdst is None:
             def getsrcdst(pkt):
                 if IP in pkt:
-                    return (pkt[IP].src, pkt[IP].dst)
+                    return pkt[IP].src, pkt[IP].dst
                 if ARP in pkt:
-                    return (pkt[ARP].psrc, pkt[ARP].pdst)
+                    return pkt[ARP].psrc, pkt[ARP].pdst
                 raise TypeError()
         conv = {}
         for p in self.res:

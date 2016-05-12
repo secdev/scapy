@@ -623,7 +623,7 @@ class _ISIS_PduBase(Packet):
         for tlv in self.tlvs:
             if isinstance(tlv, ISIS_ChecksumTlv):
                 checksumPosition += 2
-                return (0, checksumPosition)
+                return 0, checksumPosition
             else:
                 checksumPosition += len(tlv)
 
@@ -691,7 +691,7 @@ class _ISIS_LSP_Base(_ISIS_PduBase):
         if self.checksum is not None:
             return None
 
-        return (12, 24)
+        return 12, 24
 
 
 def _lsp_answers(lsp, other, clsname):

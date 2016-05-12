@@ -424,7 +424,7 @@ class RepeatedTlvListField(PacketListField):
             if conf.padding_layer in p:
                 pad = p[conf.padding_layer]
                 remain = pad.load
-                del(pad.underlayer.payload)
+                del pad.underlayer.payload
             else:
                 remain = ""
             lst.append(p)
