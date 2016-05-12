@@ -43,7 +43,7 @@ class BGPIPField(Field):
 		mask = struct.unpack(">B",m[0])[0]
 		ip = "".join(m[i + 1] if i < self.mask2iplen(mask) else '\x00'
                      for i in xrange(4))
-		return (mask,inet_ntoa(ip))
+		return mask, inet_ntoa(ip)
 
 class BGPHeader(Packet):
 	"""The first part of any BGP packet"""

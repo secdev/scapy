@@ -331,7 +331,7 @@ class BERcodec_OID(BERcodec_Object):
         while s:
             l,s = BER_num_dec(s)
             lst.append(l)
-        if (len(lst) > 0):
+        if len(lst) > 0:
             lst.insert(0,lst[0]/40)
             lst[1] %= 40
         return cls.asn1_object(".".join([str(k) for k in lst])), t

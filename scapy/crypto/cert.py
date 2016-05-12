@@ -2166,7 +2166,7 @@ class Cert(OSSLHelper, _EncryptAndVerify):
                 c.authorityKeyID is not None and
                 self.authorityKeyID == c.authorityKeyID):
                 return self.serial in map(lambda x: x[0], c.revoked_cert_serials)
-            elif (self.issuer == c.issuer):
+            elif self.issuer == c.issuer:
                 return self.serial in map(lambda x: x[0], c.revoked_cert_serials)
         return False
 
@@ -2182,7 +2182,7 @@ def print_chain(l):
     else:
         s += "%s [Self Signed]\n" % c.subject
     i = 1
-    while (llen != -1):
+    while llen != -1:
         c = l[llen]
         s += "%s\_ %s" % (" "*i, c.subject)
         if llen != 0:
@@ -2296,7 +2296,7 @@ class CRL(OSSLHelper):
 
         self.osslcmdbase = ['openssl', 'crl', '-inform', self.format]
 
-        r,w,e = popen3(('openssl asn1parse -inform DER').split(" "))
+        r,w,e = popen3('openssl asn1parse -inform DER'.split(" "))
         w.write(self.dercrl)
         w.close()
         self.asn1parsecrl = r.read()
@@ -2433,7 +2433,7 @@ class CRL(OSSLHelper):
         self.revoked_cert_serials = []
         v = fields_dict["Revoked Certificates:"]
         t = fields_dict["No Revoked Certificates."]
-        if (t is None and v is not None):
+        if t is None and v is not None:
             v = v.split("Serial Number: ")[1:]
             for r in v:
                 s,d = r.split('\n', 1)

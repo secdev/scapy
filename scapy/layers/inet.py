@@ -435,9 +435,9 @@ class IP(Packet, IPTools):
             nb = (len(s)+fragsize-1)/fragsize
             for i in xrange(nb):            
                 q = p.copy()
-                del(q[fnb].payload)
-                del(q[fnb].chksum)
-                del(q[fnb].len)
+                del q[fnb].payload
+                del q[fnb].chksum
+                del q[fnb].len
                 if i == nb-1:
                     q[IP].flags &= ~1
                 else:
@@ -505,7 +505,7 @@ class TCP(Packet):
             if not ((self.sport == other.dport) and
                     (self.dport == other.sport)):
                 return 0
-        if (abs(other.seq-self.ack) > 2+len(other.payload)):
+        if abs(other.seq-self.ack) > 2+len(other.payload):
             return 0
         return 1
     def mysummary(self):
@@ -783,9 +783,9 @@ def fragment(pkt, fragsize=1480):
         nb = (len(s)+fragsize-1)/fragsize
         for i in xrange(nb):            
             q = p.copy()
-            del(q[IP].payload)
-            del(q[IP].chksum)
-            del(q[IP].len)
+            del q[IP].payload
+            del q[IP].chksum
+            del q[IP].len
             if i == nb-1:
                 q[IP].flags &= ~1
             else:
@@ -801,7 +801,7 @@ def overlap_frag(p, overlap, fragsize=8, overlap_fragsize=None):
     if overlap_fragsize is None:
         overlap_fragsize = fragsize
     q = p.copy()
-    del(q[IP].payload)
+    del q[IP].payload
     q[IP].add_payload(overlap)
 
     qfrag = fragment(q, overlap_fragsize)
@@ -835,7 +835,7 @@ def defrag(plist):
             continue
         p = p.copy()
         if conf.padding_layer in p:
-            del(p[conf.padding_layer].underlayer.payload)
+            del p[conf.padding_layer].underlayer.payload
         ip = p[IP]
         if ip.len is None or ip.ihl is None:
             clen = len(ip.payload)
@@ -853,12 +853,12 @@ def defrag(plist):
             else:
                 clen += q[IP].len - (q[IP].ihl<<2)
             if conf.padding_layer in q:
-                del(q[conf.padding_layer].underlayer.payload)
+                del q[conf.padding_layer].underlayer.payload
             txt.add_payload(q[IP].payload.copy())
         else:
             ip.flags &= ~1 # !MF
-            del(ip.chksum)
-            del(ip.len)
+            del ip.chksum
+            del ip.len
             p = p/txt
             defrag.append(p)
     defrag2=PacketList()
@@ -896,7 +896,7 @@ def defragment(plist):
             continue
         p = p.copy()
         if conf.padding_layer in p:
-            del(p[conf.padding_layer].underlayer.payload)
+            del p[conf.padding_layer].underlayer.payload
         ip = p[IP]
         if ip.len is None or ip.ihl is None:
             clen = len(ip.payload)
@@ -914,12 +914,12 @@ def defragment(plist):
             else:
                 clen += q[IP].len - (q[IP].ihl<<2)
             if conf.padding_layer in q:
-                del(q[conf.padding_layer].underlayer.payload)
+                del q[conf.padding_layer].underlayer.payload
             txt.add_payload(q[IP].payload.copy())
         else:
             ip.flags &= ~1 # !MF
-            del(ip.chksum)
-            del(ip.len)
+            del ip.chksum
+            del ip.len
             p = p/txt
             p._defrag_pos = max(x._defrag_pos for x in lst)
             defrag.append(p)
@@ -932,7 +932,7 @@ def defragment(plist):
     final += missfrag
     final.sort(key=lambda x: x._defrag_pos)
     for p in final:
-        del(p._defrag_pos)
+        del p._defrag_pos
 
     if hasattr(plist, "listname"):
         name = "Defragmented %s" % plist.listname

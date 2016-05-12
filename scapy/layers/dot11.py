@@ -430,7 +430,7 @@ iwconfig wlan0 mode managed
         ip = p.getlayer(IP)
         tcp = p.getlayer(TCP)
         pay = str(tcp.payload)
-        del(p.payload.payload.payload)
+        del p.payload.payload.payload
         p.FCfield="from-DS"
         p.addr1,p.addr2 = p.addr2,p.addr1
         p /= IP(src=ip.dst,dst=ip.src)
@@ -512,7 +512,7 @@ iwconfig wlan0 mode managed
         if iptrn.match(pay):
             return
 #        print "match 2"
-        del(p.payload.payload.payload)
+        del p.payload.payload.payload
         p.FCfield="from-DS"
         p.addr1,p.addr2 = p.addr2,p.addr1
         q = p.copy()

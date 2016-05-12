@@ -88,7 +88,7 @@ with os.popen("%s -V 2> /dev/null" % conf.prog.tcpdump) as _f:
         TCPDUMP=0
     else:
         TCPDUMP=1
-del(_f)
+del _f
     
 
 def get_if_raw_hwaddr(iff):

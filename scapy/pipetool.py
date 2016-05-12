@@ -219,7 +219,7 @@ class Pipe(_ConnectorLogic):
     def __init__(self, name=None):
         _ConnectorLogic.__init__(self)
         if name is None:
-            name = "%s" % (self.__class__.__name__)
+            name = "%s" % self.__class__.__name__
         self.name = name
     def _send(self, msg):
         for s in self.sinks:

@@ -133,7 +133,7 @@ class IGMPv3(Packet):
     else:
       exp=0
       value>>=3
-      while(value>31):
+      while value>31:
         exp+=1
         value>>=1
       exp<<=4
@@ -197,11 +197,11 @@ class IGMPv3(Packet):
 #   1.  the Max Response time is meaningful only in Membership Queries and should be zero 
 #       otherwise (RFC 2236, section 2.2)
 
-    if (self.type != 0x11):         #rule 1
+    if self.type != 0x11:         #rule 1
       self.mrtime = 0
       
-    if (self.adjust_ip(ip) == True):
-      if (self.adjust_ether(ip, ether) == True): return True
+    if self.adjust_ip(ip) == True:
+      if self.adjust_ether(ip, ether) == True: return True
     return False
 
 #--------------------------------------------------------------------------
@@ -215,7 +215,7 @@ class IGMPv3(Packet):
 #   1. send to the group mac address address corresponding to the IP.dst
     if ip != None and ip.haslayer(IP) and ether != None and ether.haslayer(Ether):
       iplong = atol(ip.dst)
-      ether.dst = "01:00:5e:%02x:%02x:%02x" % ( (iplong>>16)&0x7F, (iplong>>8)&0xFF, (iplong)&0xFF )
+      ether.dst = "01:00:5e:%02x:%02x:%02x" % ((iplong>>16) & 0x7F, (iplong>>8) & 0xFF, iplong & 0xFF)
       # print "igmpize ip " + ip.dst + " as mac " + ether.dst 
       return True
     else:
@@ -236,8 +236,8 @@ class IGMPv3(Packet):
     5. send the packet with the router alert IP option (RFC 2236, section 2)
     """
     if ip != None and ip.haslayer(IP):
-      if (self.type == 0x11):
-        if (self.gaddr == "0.0.0.0"):
+      if self.type == 0x11:
+        if self.gaddr == "0.0.0.0":
           ip.dst = "224.0.0.1"                   # IP rule 1
           retCode = True                     
         elif isValidMCAddr(self.gaddr):
@@ -246,7 +246,7 @@ class IGMPv3(Packet):
         else:
           print "Warning: Using invalid Group Address"
           retCode = False
-      elif ((self.type == 0x17) and isValidMCAddr(self.gaddr)):
+      elif (self.type == 0x17) and isValidMCAddr(self.gaddr):
           ip.dst = "224.0.0.2"                   # IP rule 2
           retCode = True
       elif ((self.type == 0x12) or (self.type == 0x16)) and (isValidMCAddr(self.gaddr)):

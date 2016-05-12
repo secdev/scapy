@@ -107,7 +107,7 @@ class ASN1F_field(ASN1F_element):
             s = ""
             if cpad is not None:
                 s = cpad.load
-                del(cpad.underlayer.payload)
+                del cpad.underlayer.payload
             return c,s
         else:
             return None,s

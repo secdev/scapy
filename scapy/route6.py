@@ -77,7 +77,7 @@ class Route6:
             devaddrs = filter(lambda x: x[2] == dev, lifaddr)
             ifaddr = construct_source_candidate_set(prefix, plen, devaddrs, LOOPBACK_NAME)
 
-        return (prefix, plen, gw, dev, ifaddr)
+        return prefix, plen, gw, dev, ifaddr
 
     
     def add(self, *args, **kargs):
@@ -213,12 +213,12 @@ class Route6:
                 continue
             if in6_isincluded(dst, p, plen):
                 pathes.append((plen, (iface, cset, gw)))
-            elif (in6_ismlladdr(dst) and in6_islladdr(p) and in6_islladdr(cset[0])):
+            elif in6_ismlladdr(dst) and in6_islladdr(p) and in6_islladdr(cset[0]):
                 pathes.append((plen, (iface, cset, gw)))
                 
         if not pathes:
             warning("No route found for IPv6 destination %s (no default route?)" % dst)
-            return (LOOPBACK_NAME, "::", "::") # XXX Linux specific
+            return LOOPBACK_NAME, "::", "::"  # XXX Linux specific
 
         # Sort with longest prefix first
         pathes.sort(reverse=True)
@@ -235,7 +235,7 @@ class Route6:
 
         if res == []:
             warning("Found a route for IPv6 destination '%s', but no possible source address." % dst)
-            return (LOOPBACK_NAME, "::", "::") # XXX Linux specific
+            return LOOPBACK_NAME, "::", "::"  # XXX Linux specific
 
         # Symptom  : 2 routes with same weight (our weight is plen)
         # Solution : 
@@ -274,5 +274,5 @@ _res = conf.route6.route("::/0")
 if _res:
     iff, gw, addr = _res
     conf.iface6 = iff
-del(_res)
+del _res
 

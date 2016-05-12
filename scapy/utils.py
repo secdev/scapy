@@ -248,7 +248,7 @@ def _fletcher16(charbuf):
 
     c0 %= 255
     c1 %= 255
-    return (c0,c1)
+    return c0, c1
 
 @conf.commands.register
 def fletcher16_checksum(binbuf):
@@ -282,12 +282,12 @@ def fletcher16_checkbytes(binbuf, offset):
 
     x = ((len(binbuf) - offset - 1) * c0 - c1) % 255
 
-    if (x <= 0):
+    if x <= 0:
         x += 255
 
     y = 510 - c0 - x
 
-    if (y > 255):
+    if y > 255:
         y -= 255
     return chr(x) + chr(y)
 

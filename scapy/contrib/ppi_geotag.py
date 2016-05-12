@@ -25,20 +25,20 @@ PPI_ANTENNA = 30005
 class Fixed3_6Field(LEIntField):
     def i2h(self, pkt, x):
         if x is not None:
-            if (x < 0):
+            if x < 0:
                 warning("Fixed3_6: Internal value too negative: %d" % x)
                 x = 0
-            elif (x > 999999999):
+            elif x > 999999999:
                 warning("Fixed3_6: Internal value too positive: %d" % x)
                 x = 999999999
             x = x * 1e-6
         return x
     def h2i(self, pkt, x):
         if x is not None:
-            if (x <= -0.5e-6):
+            if x <= -0.5e-6:
                 warning("Fixed3_6: Input value too negative: %.7f" % x)
                 x = 0
-            elif (x >= 999.9999995):
+            elif x >= 999.9999995:
                 warning("Fixed3_6: Input value too positive: %.7f" % x)
                 x = 999.999999
             x = int(round(x * 1e6))
@@ -55,24 +55,24 @@ class Fixed3_6Field(LEIntField):
             y=0
         else:
             y=self.i2h(pkt,x)
-        return "%3.6f"%(y)
+        return "%3.6f" % y
 class Fixed3_7Field(LEIntField):
     def i2h(self, pkt, x):
         if x is not None:
-            if (x < 0):
+            if x < 0:
                 warning("Fixed3_7: Internal value too negative: %d" % x)
                 x = 0
-            elif (x > 3600000000):
+            elif x > 3600000000:
                 warning("Fixed3_7: Internal value too positive: %d" % x)
                 x = 3600000000
             x = (x - 1800000000) * 1e-7
         return x
     def h2i(self, pkt, x):
         if x is not None:
-            if (x <= -180.00000005):
+            if x <= -180.00000005:
                 warning("Fixed3_7: Input value too negative: %.8f" % x)
                 x = -180.0
-            elif (x >= 180.00000005):
+            elif x >= 180.00000005:
                 warning("Fixed3_7: Input value too positive: %.8f" % x)
                 x = 180.0
             x = int(round((x + 180.0) * 1e7))
@@ -88,25 +88,25 @@ class Fixed3_7Field(LEIntField):
             y=0
         else:
             y=self.i2h(pkt,x)
-        return "%3.7f"%(y)
+        return "%3.7f" % y
 
 class Fixed6_4Field(LEIntField):
     def i2h(self, pkt, x):
         if x is not None:
-            if (x < 0):
+            if x < 0:
                 warning("Fixed6_4: Internal value too negative: %d" % x)
                 x = 0
-            elif (x > 3600000000):
+            elif x > 3600000000:
                 warning("Fixed6_4: Internal value too positive: %d" % x)
                 x = 3600000000
             x = (x - 1800000000) * 1e-4
         return x
     def h2i(self, pkt, x):
         if x is not None:
-            if (x <= -180000.00005):
+            if x <= -180000.00005:
                 warning("Fixed6_4: Input value too negative: %.5f" % x)
                 x = -180000.0
-            elif (x >= 180000.00005):
+            elif x >= 180000.00005:
                 warning("Fixed6_4: Input value too positive: %.5f" % x)
                 x = 180000.0
             x = int(round((x + 180000.0) * 1e4))
@@ -122,26 +122,26 @@ class Fixed6_4Field(LEIntField):
             y=0
         else:
             y=self.i2h(pkt,x)
-        return "%6.4f"%(y)
+        return "%6.4f" % y
 #The GPS timestamps fractional time counter is stored in a 32-bit unsigned ns counter.
 #The ept field is as well,
 class NSCounter_Field(LEIntField):
     def i2h(self, pkt, x): #converts nano-seconds to seconds for output
         if x is not None:
-            if (x < 0):
+            if x < 0:
                 warning("NSCounter_Field: Internal value too negative: %d" % x)
                 x = 0
-            elif (x >= 2**32):
+            elif x >= 2**32:
                 warning("NSCounter_Field: Internal value too positive: %d" % x)
                 x = 2**32-1
             x = (x / 1e9)
         return x
     def h2i(self, pkt, x): #converts input in seconds into nano-seconds for storage
         if x is not None:
-            if (x < 0):
+            if x < 0:
                 warning("NSCounter_Field: Input value too negative: %.10f" % x)
                 x = 0
-            elif (x >= (2**32) / 1e9):
+            elif x >= (2**32) / 1e9:
                 warning("NSCounter_Field: Input value too positive: %.10f" % x)
                 x = (2**32-1) / 1e9
             x = int(round((x * 1e9)))
@@ -151,7 +151,7 @@ class NSCounter_Field(LEIntField):
             y=0
         else:
             y=self.i2h(pkt,x)
-        return "%1.9f"%(y)
+        return "%1.9f" % y
 
 class UTCTimeField(IntField):
     def __init__(self, name, default, epoch=time.gmtime(0), strf="%a, %d %b %Y %H:%M:%S +0000"):
@@ -203,12 +203,12 @@ class VectorFlags_Field(XLEIntField):
         if x is None:
             return str(x)
         r = []
-        if (x & 0x1):
+        if x & 0x1:
             r.append(self._fwdstr)
         i = (x & self._relmask) >> 1
         r.append(self._relnames[i])
         i = x & self._resmask
-        if (i):
+        if i:
             r.append("ReservedBits:%08X" % i)
         sout = "+".join(r)
         return sout
@@ -217,9 +217,9 @@ class VectorFlags_Field(XLEIntField):
             r = x.split("+")
             y = 0
             for value in r:
-                if (value == self._fwdstr):
+                if value == self._fwdstr:
                     y |= 0x1
-                elif (value in self._relnames):
+                elif value in self._relnames:
                     i = self._relnames.index(value)
                     y &= (~self._relmask)
                     y |= self._relvals[i]
@@ -239,7 +239,7 @@ class HCSIFlagsField(FlagsField):
     def i2m(self, pkt, val):
         if val is None:
             val = 0
-            if (pkt):
+            if pkt:
                 for i, name in enumerate(self.names):
                     name = name[0]
                     value = pkt.getfieldval(name)
@@ -296,7 +296,7 @@ See GPS_Fields as an example. """
 # Conditional test for all HCSI Fields
 def _HCSITest(pkt, ibit, name):
     if pkt.present is None:
-        return (pkt.getfieldval(name) is not None)
+        return pkt.getfieldval(name) is not None
     return pkt.present & ibit
 
 # Wrap optional fields in ConditionalField, add HCSIFlagsField

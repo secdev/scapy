@@ -91,10 +91,10 @@ for n in ISAKMPTransformTypes:
     for e in val[1]:
         tmp[val[1][e]] = e
     ISAKMPTransformNum[val[0]] = (n,tmp, val[2])
-del(n)
-del(e)
-del(tmp)
-del(val)
+del n
+del e
+del tmp
+del val
 
 
 class ISAKMPTransformSetField(StrLenField):
@@ -103,7 +103,7 @@ class ISAKMPTransformSetField(StrLenField):
         type_val,enc_dict,tlv = ISAKMPTransformTypes.get(typ, (typ,{},0))
         val = enc_dict.get(val, val)
         s = ""
-        if (val & ~0xffff):
+        if val & ~0xffff:
             if not tlv:
                 warning("%r should not be TLV but is too big => using TLV encoding" % typ)
             n = 0
@@ -118,7 +118,7 @@ class ISAKMPTransformSetField(StrLenField):
     def num2type(self, typ, enc):
         val = ISAKMPTransformNum.get(typ,(typ,{}))
         enc = val[1].get(enc,enc)
-        return (val[0],enc)
+        return val[0], enc
     def i2m(self, pkt, i):
         if i is None:
             return ""

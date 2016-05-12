@@ -191,7 +191,7 @@ def in6_getAddrType(addr):
     addrType = 0
     # _Assignable_ Global Unicast Address space
     # is defined in RFC 3513 as those in 2000::/3
-    if ((struct.unpack("B", naddr[0])[0] & 0xE0) == 0x20):
+    if (struct.unpack("B", naddr[0])[0] & 0xE0) == 0x20:
         addrType = (IPV6_ADDR_UNICAST | IPV6_ADDR_GLOBAL)
         if naddr[:2] == ' \x02': # Mark 6to4 @
             addrType |= IPV6_ADDR_6TO4
@@ -203,7 +203,7 @@ def in6_getAddrType(addr):
             addrType = (IPV6_ADDR_GLOBAL | IPV6_ADDR_MULTICAST)
         else:
             addrType = (IPV6_ADDR_GLOBAL | IPV6_ADDR_MULTICAST)
-    elif ((naddr[0] == '\xfe') and ((int(paddr[2], 16) & 0xC) == 0x8)):
+    elif (naddr[0] == '\xfe') and ((int(paddr[2], 16) & 0xC) == 0x8):
         addrType = (IPV6_ADDR_UNICAST | IPV6_ADDR_LINKLOCAL)
     elif paddr == "::1":
         addrType = IPV6_ADDR_LOOPBACK
@@ -433,7 +433,7 @@ def in6_getRandomizedIfaceId(ifaceid, previous=None):
     s1 = chr(ord(s1[0]) | 0x04) + s1[1:]  
     s1 = inet_ntop(socket.AF_INET6, "\xff"*8 + s1)[20:]
     s2 = inet_ntop(socket.AF_INET6, "\xff"*8 + s2)[20:]    
-    return (s1, s2)
+    return s1, s2
 
 
 _rfc1924map = [ '0','1','2','3','4','5','6','7','8','9','A','B','C','D','E',

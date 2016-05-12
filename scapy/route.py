@@ -58,7 +58,7 @@ class Route:
             dev,ifaddr,x = self.route(nhop)
         else:
             ifaddr = get_if_addr(dev)
-        return (atol(thenet), itom(msk), gw, dev, ifaddr)
+        return atol(thenet), itom(msk), gw, dev, ifaddr
 
     def add(self, *args, **kargs):
         """Ex:
@@ -154,7 +154,7 @@ class Route:
             
     def get_if_bcast(self, iff):
         for net, msk, gw, iface, addr in self.routes:
-            if (iff == iface and net != 0L):
+            if iff == iface and net != 0L:
                 bcast = atol(addr)|(~msk&0xffffffffL); # FIXME: check error in atol()
                 return ltoa(bcast);
         warning("No broadcast address found for iface %s\n" % iff);
@@ -165,4 +165,4 @@ conf.route=Route()
 _betteriface = conf.route.route("0.0.0.0", verbose=0)[0]
 if _betteriface != LOOPBACK_NAME:
     conf.iface = _betteriface
-del(_betteriface)
+del _betteriface

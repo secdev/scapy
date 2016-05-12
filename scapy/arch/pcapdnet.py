@@ -428,7 +428,7 @@ if conf.use_pcap:
                         self.ins.setfilter(filter)
         
             def close(self):
-                del(self.ins)
+                del self.ins
                 
             def recv(self, x=MTU):
                 ll = self.ins.datalink()
@@ -475,7 +475,7 @@ if conf.use_dnet:
             conf.use_dnet = False
             def get_if_raw_hwaddr(iff):
                 "dummy"
-                return (0,"\0\0\0\0\0\0")
+                return 0, "\0\0\0\0\0\0"
             def get_if_raw_addr(iff):
                 "dummy"
                 return "\0\0\0\0"
@@ -490,7 +490,7 @@ if conf.use_dnet:
                address corresponding to the interface 'iff'"""
 
             if iff == scapy.arch.LOOPBACK_NAME:
-                return (ARPHDR_LOOPBACK, '\x00'*6)
+                return ARPHDR_LOOPBACK, '\x00' * 6
 
             # Retrieve interface information
             try:
@@ -510,9 +510,9 @@ if conf.use_dnet:
 
                 # Adjust the link type
                 if l["type"] == 6:  # INTF_TYPE_ETH from dnet
-                    return (ARPHDR_ETHER, mac)
+                    return ARPHDR_ETHER, mac
 
-                return (l["type"], mac)
+                return l["type"], mac
 
         def get_if_raw_addr(ifname):
             i = dnet.intf()
@@ -608,9 +608,9 @@ if conf.use_pcap and conf.use_dnet:
     
         def close(self):
             if hasattr(self, "ins"):
-                del(self.ins)
+                del self.ins
             if hasattr(self, "outs"):
-                del(self.outs)
+                del self.outs
     
     class L2dnetSocket(SuperSocket):
         desc = "read/write packets at layer 2 using libdnet and libpcap"
@@ -675,9 +675,9 @@ if conf.use_pcap and conf.use_dnet:
     
         def close(self):
             if hasattr(self, "ins"):
-                del(self.ins)
+                del self.ins
             if hasattr(self, "outs"):
-                del(self.outs)
+                del self.outs
 
     conf.L3socket=L3dnetSocket
     conf.L2socket=L2dnetSocket

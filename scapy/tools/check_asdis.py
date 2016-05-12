@@ -92,7 +92,7 @@ def main(argv):
     i+=1
     correct = i-differ-failed
     print "%i total packets. %i ok, %i differed, %i failed. %.2f%% correct." % (i, correct, differ,
-                                                                                failed, i and 100.0*(correct)/i)
+                                                                                failed, i and 100.0 * correct / i)
     
         
 if __name__ == "__main__":
