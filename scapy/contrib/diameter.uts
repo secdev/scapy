@@ -1,0 +1,190 @@
+# Run with 'UTscapy -m diameter -t diameter.uts -f text -o out' from /scapy/contrib directory where diameter.py is stored.
+# UTscapy syntax is explained here: http://www.secdev.org/projects/UTscapy/
+
+# author: patrick battistello
+
+% Validation of Diameter layer
+%
+% !! IMPORTANT !! this file works with scapy up to version 2.3.2 (from December 2015) but not with the current version 2.3.2-dev
+
+
+#######################################################################
++ Different ways of building basic AVPs
+#######################################################################
+
+= AVP identified by full name
+a1 = AVP ('High-User-Priority', val=15)
+a1.show()
+str(a1) == '\x00\x00\x02/@\x00\x00\x0c\x00\x00\x00\x0f'
+
+= Same AVP identified by the beggining of the name
+a1b = AVP ('High-U', val=15)
+a1b.show()
+str(a1b) == str(a1)
+
+= Same AVP identified by its code
+a1c = AVP (559, val=15)
+a1c.show()
+str(a1c) == str(a1)
+
+= The Session-Id AVP (with some padding added)
+a2 = AVP ('Session-Id', val='aaa.test.orange.fr;1428128;644587')
+a2.show()
+str(a2) == '\x00\x00\x01\x07@\x00\x00)aaa.test.orange.fr;1428128;644587\x00\x00\x00'
+
+= An enumerated AVP
+a3 = AVP ('Auth-Session-State', val='NO_STATE_MAINTAINED')
+a3.show()
+str(a3) == '\x00\x00\x01\x15@\x00\x00\x0c\x00\x00\x00\x01'
+
+
+#######################################################################
++ AVPs with vendor field
+#######################################################################
+
+= Vendor AVP identified by full name
+a4 = AVP ('Feature-List-ID', val=1)
+a4.show()
+str(a4) == '\x00\x00\x02u\x80\x00\x00\x10\x00\x00(\xaf\x00\x00\x00\x01'
+
+= Same AVP identified by its code and vendor ID
+* This time a list is required as first argument 
+a4c = AVP ( [629, 10415], val=1)
+str(a4c) == str(a4)
+
+
+#######################################################################
++ Altering the AVPs default provided values
+#######################################################################
+
+= Altering the flags of the Origin-Host AVP
+a5 = AVP ('Origin-Host', avpFlags=187, val='aaa.test.orange.fr')
+a5.show()
+str(a5) == '\x00\x00\x01\x08\xbb\x00\x00\x1aaaa.test.orange.fr\x00\x00'
+
+= Altering the length of the Destination-Realm AVP
+a6 = AVP (283, avpLen=33, val='foreign.realm1.fr')
+a6.show()
+str(a6) == '\x00\x00\x01\x1b@\x00\x00!foreign.realm1.fr\x00\x00\x00'
+
+= Altering the vendor of the Public-Identity AVP, and hence the flags ...
+a7 = AVP ( [601, 98765432], val = 'sip:+0123456789@aaa.test.orange.fr')
+a7.show()
+str(a7) == '\x00\x00\x02Y\x80\x00\x00.\x05\xe3\nxsip:+0123456789@aaa.test.orange.fr\x00\x00'
+
+
+#######################################################################
++ Grouped AVPs
+#######################################################################
+
+= The Supported-Features AVP (with vendor)
+a8 = AVP ('Supported-Features')
+a8.val.append(a1)
+a8.val.append(a5)
+a8.show()
+str(a8) == '\x00\x00\x02t\x80\x00\x004\x00\x00(\xaf\x00\x00\x02/@\x00\x00\x0c\x00\x00\x00\x0f\x00\x00\x01\x08\xbb\x00\x00\x1aaaa.test.orange.fr\x00\x00'
+
+= The same AVP created more simply
+a8b = AVP ('Supported-Features', val = [a1, a5])
+str(a8b) == str(a8)
+
+= (re)Building the previous AVP from scratch
+a8c = AVP ('Supported-Features', val = [
+            AVP ('High-User-Priority', val=15),
+            AVP ('Origin-Host', avpFlags=187, val='aaa.test.orange.fr') ])
+str(a8c) == str(a8)
+
+= Another (dummy) grouped AVP
+a9 = AVP (297, val = [a2, a4, a6])
+a9.show()
+str(a9) == '\x00\x00\x01)@\x00\x00`\x00\x00\x01\x07@\x00\x00)aaa.test.orange.fr;1428128;644587\x00\x00\x00\x00\x00\x02u\x80\x00\x00\x10\x00\x00(\xaf\x00\x00\x00\x01\x00\x00\x01\x1b@\x00\x00!foreign.realm1.fr\x00\x00\x00'
+
+= A grouped AVP inside another grouped AVP
+a10 = AVP ('Server-Cap', val = [a1, a9])
+a10.show()
+str(a10) == '\x00\x00\x02[\xc0\x00\x00x\x00\x00(\xaf\x00\x00\x02/@\x00\x00\x0c\x00\x00\x00\x0f\x00\x00\x01)@\x00\x00`\x00\x00\x01\x07@\x00\x00)aaa.test.orange.fr;1428128;644587\x00\x00\x00\x00\x00\x02u\x80\x00\x00\x10\x00\x00(\xaf\x00\x00\x00\x01\x00\x00\x01\x1b@\x00\x00!foreign.realm1.fr\x00\x00\x00'
+
+= A big grouped AVP
+a11 = AVP ('SIP-Auth', val = [a2, a4, a8, a10])
+a11.show()
+str(a11) == '\x00\x00\x01x@\x00\x00\xf0\x00\x00\x01\x07@\x00\x00)aaa.test.orange.fr;1428128;644587\x00\x00\x00\x00\x00\x02u\x80\x00\x00\x10\x00\x00(\xaf\x00\x00\x00\x01\x00\x00\x02t\x80\x00\x004\x00\x00(\xaf\x00\x00\x02/@\x00\x00\x0c\x00\x00\x00\x0f\x00\x00\x01\x08\xbb\x00\x00\x1aaaa.test.orange.fr\x00\x00\x00\x00\x02[\xc0\x00\x00x\x00\x00(\xaf\x00\x00\x02/@\x00\x00\x0c\x00\x00\x00\x0f\x00\x00\x01)@\x00\x00`\x00\x00\x01\x07@\x00\x00)aaa.test.orange.fr;1428128;644587\x00\x00\x00\x00\x00\x02u\x80\x00\x00\x10\x00\x00(\xaf\x00\x00\x00\x01\x00\x00\x01\x1b@\x00\x00!foreign.realm1.fr\x00\x00\x00'
+
+
+#######################################################################
++ Diameter Requests (without AVPs)
+#######################################################################
+
+= A simple request identified by its name
+r1 = DiamReq ('Capabilities-Exchange', drHbHId=1234, drEtEId=5678)
+r1.show()
+str(r1) == '\x01\x00\x00\x14\x80\x00\x01\x01\x00\x00\x00\x00\x00\x00\x04\xd2\x00\x00\x16.'
+
+= The same one identified by its code
+r1b = DiamReq (257, drHbHId=1234, drEtEId=5678)
+str(r1b) == str(r1)
+
+= The same one identified by its abbreviation
+* Only the first 2 abbreviation letters are significant (although 3 are provided in this example)
+r1c = DiamReq ('CER', drHbHId=1234, drEtEId=5678)
+str(r1c) == str(r1)
+
+= Altering the request default fields
+r2 =  DiamReq ('CER', drHbHId=1234, drEtEId=5678, drFlags=179, drAppId=978, drLen=12)
+r2.show()
+str(r2) == '\x01\x00\x00\x0c\xb3\x00\x01\x01\x00\x00\x03\xd2\x00\x00\x04\xd2\x00\x00\x16.'
+
+
+#######################################################################
++ Diameter Answers (without AVPs)
+#######################################################################
+
+= A simple answer identified by its name
+ans1 = DiamAns ('Capabilities-Exchange', drHbHId=1234, drEtEId=5678)
+ans1.show()
+str(ans1) == '\x01\x00\x00\x14\x00\x00\x01\x01\x00\x00\x00\x00\x00\x00\x04\xd2\x00\x00\x16.'
+
+= Same answer identified by its code or abbreviation
+ans1b = DiamAns (257, drHbHId=1234, drEtEId=5678)
+ans1c = DiamAns ('CEA', drHbHId=1234, drEtEId=5678)
+str(ans1b) == str(ans1), str(ans1c) == str(ans1)
+_ == (True, True)
+
+= Altering the answer default fields
+ans2 =  DiamAns ('CEA', drHbHId=1234, drEtEId=5678, drFlags=115, drAppId=1154, drLen=18)
+ans2.show()
+str(ans2) == '\x01\x00\x00\x12s\x00\x01\x01\x00\x00\x04\x82\x00\x00\x04\xd2\x00\x00\x16.'
+
+
+#######################################################################
++ Full Diameter messages
+#######################################################################
+
+= A dummy Multimedia-Auth request (identified by only a portion of its name)
+r3 = DiamReq ('Multimedia-Auth', drHbHId=0x5478, drEtEId=0x1234, avpList = [a11])
+r3.show()
+str(r3) == '\x01\x00\x01\x04\xc0\x00\x01\x1e\x00\x00\x00\x06\x00\x00Tx\x00\x00\x124\x00\x00\x01x@\x00\x00\xf0\x00\x00\x01\x07@\x00\x00)aaa.test.orange.fr;1428128;644587\x00\x00\x00\x00\x00\x02u\x80\x00\x00\x10\x00\x00(\xaf\x00\x00\x00\x01\x00\x00\x02t\x80\x00\x004\x00\x00(\xaf\x00\x00\x02/@\x00\x00\x0c\x00\x00\x00\x0f\x00\x00\x01\x08\xbb\x00\x00\x1aaaa.test.orange.fr\x00\x00\x00\x00\x02[\xc0\x00\x00x\x00\x00(\xaf\x00\x00\x02/@\x00\x00\x0c\x00\x00\x00\x0f\x00\x00\x01)@\x00\x00`\x00\x00\x01\x07@\x00\x00)aaa.test.orange.fr;1428128;644587\x00\x00\x00\x00\x00\x02u\x80\x00\x00\x10\x00\x00(\xaf\x00\x00\x00\x01\x00\x00\x01\x1b@\x00\x00!foreign.realm1.fr\x00\x00\x00'
+
+
+= The same request built from scratch
+r3b = DiamReq ('Multimedia-Auth', drHbHId=0x5478, drEtEId=0x1234,
+                avpList = [
+                  AVP ('SIP-Auth', val = [
+                        AVP ('Session-Id', val='aaa.test.orange.fr;1428128;644587'),
+                        AVP ('Feature-List-ID', val=1),
+                        AVP ('Supported-Features', val = [
+                              AVP ('High-User-Priority', val=15),
+                              AVP ('Origin-Host', avpFlags=187, val='aaa.test.orange.fr')
+                              ]),
+                        AVP ('Server-Cap', val = [
+                              AVP ('High-User-Priority', val=15),
+                              AVP (297, val = [
+                                  AVP ('Session-Id', val='aaa.test.orange.fr;1428128;644587'),
+                                  AVP ('Feature-List-ID', val=1),
+                                  AVP (283, avpLen=33, val='foreign.realm1.fr')
+                                  ])
+                              ])
+                       ])
+                ])
+
+str(r3b) == str(r3)
+
