@@ -239,7 +239,7 @@ class DNS(Packet):
                     BitEnumField("opcode", 0, 4, {0:"QUERY",1:"IQUERY",2:"STATUS"}),
                     BitField("aa", 0, 1),
                     BitField("tc", 0, 1),
-                    BitField("rd", 0, 1),
+                    BitField("rd", 1, 1),
                     BitField("ra", 0, 1),
                     BitField("z", 0, 1),
                     # AD and CD bits are defined in RFC 2535
@@ -288,9 +288,9 @@ dnsclasses =  {1: 'IN',  2: 'CS',  3: 'CH',  4: 'HS',  255: 'ANY'}
 class DNSQR(Packet):
     name = "DNS Question Record"
     show_indent=0
-    fields_desc = [ DNSStrField("qname",""),
-                    ShortEnumField("qtype", 1, dnsqtypes),
-                    ShortEnumField("qclass", 1, dnsclasses) ]
+    fields_desc = [DNSStrField("qname", "www.example.com"),
+                   ShortEnumField("qtype", 1, dnsqtypes),
+                   ShortEnumField("qclass", 1, dnsclasses)]
                     
                     
 
