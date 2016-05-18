@@ -7,6 +7,8 @@
 Common customizations for all Unix-like operating systems other than Linux
 """
 
+from __future__ import with_statement
+
 import sys,os,struct,socket,time
 from fcntl import ioctl
 from scapy.error import warning
@@ -21,17 +23,17 @@ from scapy.config import conf
 ## Routes stuff ##
 ##################
 
-def guess_iface_name(netif):
+def _guess_iface_name(netif):
     """
     We attempt to guess the name of interfaces that are truncated from the
     output of ifconfig -l.
     If there is only one possible candidate matching the interface name then we
-    return it. If there are none or more, then we return None.
+    return it.
+    If there are none or more, then we return None.
     """
-    f = os.popen('ifconfig -l')
-    ifaces = f.readlines()[0].strip().split(' ')
-    f.close()
-    matches = filter(lambda x: x.startswith(netif), ifaces)
+    with os.popen('ifconfig -l') as fdesc:
+        ifaces = fdesc.readline().strip().split(' ')
+    matches = [iface for iface in ifaces if iface.startswith(netif)]
     if len(matches) == 1:
         return matches[0]
     return None
@@ -100,10 +102,12 @@ def read_routes():
                     # This means the interface name is probably truncated by
                     # netstat -nr. We attempt to guess it's name and if not we
                     # ignore it.
-                    netif = guess_iface_name(netif)
-                    if netif:
+                    netif = _guess_iface_name(netif)
+                    if netif is not None:
                         ifaddr = scapy.arch.get_if_addr(netif)
                         routes.append((dest,netmask,gw,netif,ifaddr))
+                    else:
+                        warning("Could not guess partial interface name %s" % netif)
                 else:
                     raise
         else:
