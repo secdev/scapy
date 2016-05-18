@@ -123,7 +123,7 @@ def sndrcv(pks, pkt, timeout = None, inter = 0, verbose=None, chainCC=0, retry=0
                                 if remaintime <= 0:
                                     break
                             r = None
-                            if arch.FREEBSD or arch.DARWIN:
+                            if not (pks.__class__.__name__ == 'StreamSocket') and (arch.FREEBSD or arch.DARWIN):
                                 inp, out, err = select(inmask,[],[], 0.05)
                                 if len(inp) == 0 or pks in inp:
                                     r = pks.nonblock_recv()
