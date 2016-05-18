@@ -913,6 +913,11 @@ sync: do not bufferize writes to the capture file
     def _write_packet(self, packet, sec=None, usec=None, caplen=None, wirelen=None):
         """writes a single packet to the pcap file
         """
+        if isinstance(packet, tuple):
+            for pkt in packet:
+                self._write_packet(pkt, sec=sec, usec=usec, caplen=caplen,
+                                   wirelen=wirelen)
+            return
         if caplen is None:
             caplen = len(packet)
         if wirelen is None:
@@ -945,6 +950,8 @@ sync: do not bufferize writes to the capture file
 class PcapWriter(RawPcapWriter):
     """A stream PCAP writer with more control than wrpcap()"""
     def _write_header(self, pkt):
+        if isinstance(pkt, tuple) and pkt:
+            pkt = pkt[0]
         if self.linktype == None:
             try:
                 self.linktype = conf.l2types[pkt.__class__]
@@ -954,6 +961,10 @@ class PcapWriter(RawPcapWriter):
         RawPcapWriter._write_header(self, pkt)
 
     def _write_packet(self, packet):
+        if isinstance(packet, tuple):
+            for pkt in packet:
+                self._write_packet(pkt)
+            return
         sec = int(packet.time)
         usec = int(round((packet.time-sec)*1000000))
         s = str(packet)
