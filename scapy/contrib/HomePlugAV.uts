@@ -82,24 +82,24 @@ ModulePIB(pkt.ModuleData, pkt.Offset, pkt.DataLen)
 (_.NMK == "z]\xa9\xe2]\xedR\x8b\x85\\\xdf\xe8~\xe9\xb2\x14", _.DAK == "\x1f\xedHu\x85\x16>\x86\x1aKM\xd2\xe91\xfc6")
 _ == (True, True)
 
-= Discovery packet tests in local
-~ netaccess HomePlugAV NetworkInfoConfirmationV10 NetworkInfoConfirmationV11
-pkt = Ether()/HomePlugAV()
-a = srp1(pkt, iface="eth0")
-a
-pkt.version = a.version
-pkt /= NetworkInformationRequest()
-a = srp1(pkt, iface="eth0")
-NetworkInfoConfirmationV10 in a or NetworkInfoConfirmationV11 in a
-_ == True
+#= Discovery packet tests in local
+#~ netaccess HomePlugAV NetworkInfoConfirmationV10 NetworkInfoConfirmationV11
+#pkt = Ether()/HomePlugAV()
+#a = srp1(pkt, iface="eth0")
+#a
+#pkt.version = a.version
+#pkt /= NetworkInformationRequest()
+#a = srp1(pkt, iface="eth0")
+#NetworkInfoConfirmationV10 in a or NetworkInfoConfirmationV11 in a
+#_ == True
 
-= Reading local 0x400st octets of Software Image in Module Data blocks
-~ netaccess HomePlugAV ReadModuleDataRequest
-pkt = Ether()/HomePlugAV()/ReadModuleDataRequest(ModuleID=0x1)
-a = srp1(pkt, iface="eth0")
-a
-len(a.ModuleData) == pkt.Length
-_ == True
+#= Reading local 0x400st octets of Software Image in Module Data blocks
+#~ netaccess HomePlugAV ReadModuleDataRequest
+#pkt = Ether()/HomePlugAV()/ReadModuleDataRequest(ModuleID=0x1)
+#a = srp1(pkt, iface="eth0")
+#a
+#len(a.ModuleData) == pkt.Length
+#_ == True
 
 = Testing length and checksum on a generated Write Module Data Request
 string = "goodchoucroute\x00\x00"
