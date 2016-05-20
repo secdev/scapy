@@ -45,11 +45,11 @@ opt.rrname == "rropt." and opt.rdlen == 12 and opt.rdata[0].optcode == 42 and op
 tlv = EDNS0TLV(optcode=5, optdata="\x00\x11\x22\x33")
 str(tlv) == '\x00\x05\x00\x04\x00\x11"3'
 
-= EDNS-PING - Live test
-~ netaccess
-* NB: 85.17.219.217 and www.edns-ping.org seem down
-r = sr1(IP(dst="85.17.219.217")/UDP()/DNS(qd=[DNSQR(qtype="A", qname="www.edns-ping.org.")], ar=[DNSRROPT(z=0, rdata=[EDNS0TLV(optcode="PING", optdata="\x00\x11\x22\x33")])]), timeout=1)
-len(r.ar) and r.ar.rdata[0].optcode == 4  # XXX: should be 5
+#= EDNS-PING - Live test
+#~ netaccess
+#* NB: 85.17.219.217 and www.edns-ping.org seem down
+#r = sr1(IP(dst="85.17.219.217")/UDP()/DNS(qd=[DNSQR(qtype="A", qname="www.edns-ping.org.")], ar=[DNSRROPT(z=0, rdata=[EDNS0TLV(optcode="PING", optdata="\x00\x11\x22\x33")])]), timeout=1)
+#len(r.ar) and r.ar.rdata[0].optcode == 4  # XXX: should be 5
 
 + Test DNS Name Server Identifier (NSID) Option
 
@@ -59,6 +59,5 @@ str(tlv) == '\x00\x02\x00\x00'
 
 = NSID - Live test
 ~ netaccess
-* NB: 85.17.219.217 and www.edns-ping.org seem down
-r = sr1(IP(dst="85.17.219.217")/UDP()/DNS(qd=[DNSQR(qtype="A", qname="www.edns-ping.org.")], ar=[DNSRROPT(z=0, rdata=[EDNS0TLV(optcode="NSID")])]), timeout=1)
-r.ar.rdata[0].optcode == 3 and r.ar.rdata[0].optdata == "dns01"
+r = sr1(IP(dst="l.root-servers.net")/UDP()/DNS(qd=[DNSQR(qtype="SOA", qname=".")], ar=[DNSRROPT(z=0, rdata=[EDNS0TLV(optcode="NSID")])]), timeout=1)
+len(r.ar) and DNSRROPT in r.ar and len(r.ar[DNSRROPT].rdata) and len([x for x in r.ar[DNSRROPT].rdata if x.optcode == 3])
