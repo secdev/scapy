@@ -31,6 +31,12 @@ matrix:
             - TRAVIS_SUDO=sudo
             - SCAPY_USE_PCAPDNET=true
 
+        - os: osx
+          language: generic
+          env:
+            - TRAVIS_SUDO=sudo
+            - SCAPY_USE_PCAPDNET=true
+
 install: bash .travis/install.sh
 
 script: bash .travis/test.sh
