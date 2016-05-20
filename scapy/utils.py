@@ -440,6 +440,8 @@ except NameError:
 else:
     binrepr = lambda val: bin(val)[2:]
 
+def long_converter(s):
+    return long(s.replace('\n', '').replace(' ', ''), 16)
 
 #########################
 #### Enum management ####

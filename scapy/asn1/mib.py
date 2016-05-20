@@ -567,3 +567,28 @@ for oids_set in x509_oids_sets:
     x509_oids.update(oids_set)
 
 conf.mib = MIBDict(_name="MIB", **x509_oids)
+
+
+#########################
+## Hash mapping helper ##
+#########################
+
+# This dict enables static access to string references to the hash functions
+# of some algorithms from pkcs1_oids and x962Signature_oids.
+
+hash_map = {
+        "1.2.840.113549.1.1.2"  : "md2",
+        "1.2.840.113549.1.1.3"  : "md4",
+        "1.2.840.113549.1.1.4"  : "md5",
+        "1.2.840.113549.1.1.5"  : "sha1",
+        "1.2.840.113549.1.1.11" : "sha256",
+        "1.2.840.113549.1.1.12" : "sha384",
+        "1.2.840.113549.1.1.13" : "sha512",
+        "1.2.840.113549.1.1.14" : "sha224",
+        "1.2.840.10045.4.1"     : "sha1",
+        "1.2.840.10045.4.3.1"   : "sha224",
+        "1.2.840.10045.4.3.2"   : "sha256",
+        "1.2.840.10045.4.3.3"   : "sha384",
+        "1.2.840.10045.4.3.4"   : "sha512"
+        }
+
