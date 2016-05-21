@@ -92,6 +92,7 @@ TCP in a
 a[TCP]
 a[TCP].dport=[80,443]
 a
+assert(a.copy().time == a.time)
 a=3
 
 
