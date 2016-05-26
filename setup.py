@@ -5,10 +5,12 @@ Distutils setup file for Scapy.
 """
 
 
-from distutils import archive_util
-from distutils import sysconfig
-from distutils.core import setup
-from distutils.command.sdist import sdist
+#from distutils import archive_util
+#from distutils import sysconfig
+#from distutils.core import setup
+#from distutils.command.sdist import sdist
+import time
+import sys
 import os
 
 
