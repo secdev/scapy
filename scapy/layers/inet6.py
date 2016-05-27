@@ -360,6 +360,11 @@ class _IPv6GuessPayload:
             return Raw
         elif self.nh == 135 and len(p) > 3: # Mobile IPv6
             return _mip6_mhtype2cls.get(ord(p[2]), MIP6MH_Generic)
+        #FIXME
+        elif self.nh == 43: # Routing header
+            t = ord(p[2])
+            return get_cls(routingtypescls.get(t,"Raw"), "Raw")
+
         else:
             return get_cls(ipv6nhcls.get(self.nh,"Raw"), "Raw")
 
@@ -421,6 +426,15 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
                     sd = strxor(sd, a)
                 sd = inet_ntop(socket.AF_INET6, sd)
 
+        if self.nh == 43 and isinstance(self.payload,
+                                        IPv6ExtHdrSegmentRouting):
+            # With segment routing header (rh = 4), the destination is
+            # the first address of the IPv6 list
+            try:
+                sd = self.addresses[0]
+            except IndexError:
+                sd = self.dst
+
         if self.nh == 44 and isinstance(self.payload, IPv6ExtHdrFragment):
             nh = self.payload.nh 
 
@@ -480,6 +494,10 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
             return self.payload.answers(other.payload.payload) 
         elif other.nh == 43 and isinstance(other.payload, IPv6ExtHdrRouting):
             return self.payload.answers(other.payload.payload) # Buggy if self.payload is a IPv6ExtHdrRouting
+        elif other.nh == 43 and isinstance(other.payload,
+                                           IPv6ExtHdrSegmentRouting):
+            return self.payload.answers(other.payload.payload)  # Buggy if self.payload is a IPv6ExtHdrRouting
+
         elif other.nh == 60 and isinstance(other.payload, IPv6ExtHdrDestOpt):
             return self.payload.payload.answers(other.payload.payload)
         elif self.nh == 60 and isinstance(self.payload, IPv6ExtHdrDestOpt): # BU in reply to BRR, for instance
@@ -891,6 +909,13 @@ class IPv6ExtHdrDestOpt(_IPv6ExtHdr):
 
 ############################# Routing Header ################################
 
+routingtypescls = {  0: "IPv6ExtHdrRouting",
+                     1: "IPv6ExtHdrRouting",  # TODO other routing header
+                     2: "IPv6ExtHdrRouting",  # TODO other routing header
+                     3: "IPv6ExtHdrRouting",  # TODO other Routing header
+                     4: "IPv6ExtHdrSegmentRouting"
+                   };
+
 class IPv6ExtHdrRouting(_IPv6ExtHdr):
     name = "IPv6 Option Header Routing"
     fields_desc = [ ByteEnumField("nh", 59, ipv6nh),
@@ -907,6 +932,36 @@ class IPv6ExtHdrRouting(_IPv6ExtHdr):
         if self.segleft is None:
             pkt = pkt[:3]+struct.pack("B", len(self.addresses))+pkt[4:]
         return _IPv6ExtHdr.post_build(self, pkt, pay)
+
+######################### Segment Routing Header ############################
+
+class IPv6ExtHdrSegmentRouting(_IPv6ExtHdr):
+    name = "IPv6 Option Header Segment Routing"
+    fields_desc = [ ByteEnumField("nh", 59, ipv6nh),
+                    FieldLenField("len", None, count_of="addresses", fmt="B",
+                                  adjust=lambda pkt,x:2*x), # in 8 bytes blocks
+                    ByteField("type", 4),
+                    ByteField("nseg", None),
+                    ByteField("fseg", None),
+                    BitField("clean", 0, 1),
+                    BitField("protected", 0, 1),
+                    BitField("oam", 0, 1),
+                    BitField("alert", 0, 1),
+                    BitField("hmac", 0, 1),
+                    BitField("unused", 0, 11),  # Destined to change
+                    ByteField("reserved", 0),
+                    IP6ListField("addresses", [],
+                                 length_from=lambda pkt: 8*pkt.len)]
+    overload_fields = {IPv6: { "nh": 43 }}
+
+    def post_build(self, pkt, pay):
+        if self.nseg is None:
+            pkt = pkt[:3]+struct.pack("B", len(self.addresses)-1)+pkt[4:]
+        if self.fseg is None:
+            pkt = pkt[:4]+struct.pack("B", len(self.addresses)-1)+pkt[5:]
+
+        return _IPv6ExtHdr.post_build(self, pkt, pay)
+
 
 ########################### Fragmentation Header ############################
 
