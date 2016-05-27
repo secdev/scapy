@@ -836,10 +836,13 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
     def display(self,*args,**kargs):  # Deprecated. Use show()
         """Deprecated. Use show() method."""
         self.show(*args,**kargs)
-    def show(self, indent=3, lvl="", label_lvl=""):
-        """Prints a hierarchical view of the packet. "indent" gives the size of indentation for each layer."""
-        ct = conf.color_theme
-        print "%s%s %s %s" % (label_lvl,
+    def show(self, dump=False, indent=3, lvl="", label_lvl="", first_call=True):
+        """Prints or returns (when "dump" is true) a hierarchical view of the packet. "indent" gives the size of indentation for each layer."""
+        if dump:
+            ct = AnsiColorTheme() # No color for dump output
+        else:
+            ct = conf.color_theme
+        s = "%s%s %s %s \n" % (label_lvl,
                               ct.punct("###["),
                               ct.layer_name(self.name),
                               ct.punct("]###"))
@@ -854,10 +857,10 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
                 vcol = ct.field_value
             fvalue = self.getfieldval(f.name)
             if isinstance(fvalue, Packet) or (f.islist and f.holds_packets and type(fvalue) is list):
-                print "%s  \\%-10s\\" % (label_lvl+lvl, ncol(f.name))
+                s += "%s  \\%-10s\\\n" % (label_lvl+lvl, ncol(f.name))
                 fvalue_gen = SetGen(fvalue,_iterpacket=0)
                 for fvalue in fvalue_gen:
-                    fvalue.show(indent=indent, label_lvl=label_lvl+lvl+"   |")
+                    s += fvalue.show(dump=dump, indent=indent, label_lvl=label_lvl+lvl+"   |", first_call=False)
             else:
                 begn = "%s  %-10s%s " % (label_lvl+lvl,
                                         ncol(f.name),
@@ -868,8 +871,15 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
                                                               +len(lvl)
                                                               +len(f.name)
                                                               +4))
-                print "%s%s" % (begn,vcol(reprval))
-        self.payload.show(indent=indent, lvl=lvl+(" "*indent*self.show_indent), label_lvl=label_lvl)
+                s += "%s%s\n" % (begn,vcol(reprval))
+        if self.payload:
+            s += self.payload.show(dump=dump, indent=indent, lvl=lvl+(" "*indent*self.show_indent), label_lvl=label_lvl, first_call=False)
+
+        if first_call and not dump:
+            print s
+        else:
+            return s
+
     def show2(self):
         """Prints a hierarchical view of an assembled version of the packet, so that automatic fields are calculated (checksums, etc.)"""
         self.__class__(str(self)).show()
