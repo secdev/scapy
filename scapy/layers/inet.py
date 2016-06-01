@@ -995,7 +995,8 @@ PacketList.timeskew_graph = new.instancemethod(_packetlist_timeskew_graph, None,
 
 ### Create a new packet list
 class TracerouteResult(SndRcvList):
-    __slots__ = ["graphdef", "graphASres", "padding", "hloc", "nloc"]
+    __slots__ = ["graphdef", "graphpadding", "graphASres", "padding", "hloc",
+                 "nloc"]
     def __init__(self, res=None, name="Traceroute", stats=None):
         PacketList.__init__(self, res, name, stats)
         self.graphdef = None
@@ -1273,7 +1274,8 @@ class TracerouteResult(SndRcvList):
         bhip = {}
         for rtk in rt:
             trace = rt[rtk]
-            for n in xrange(min(trace), max(trace)):
+            max_trace = max(trace)
+            for n in xrange(min(trace), max_trace):
                 if not trace.has_key(n):
                     trace[n] = unknown_label.next()
             if not ports_done.has_key(rtk):
@@ -1288,7 +1290,7 @@ class TracerouteResult(SndRcvList):
                 ips[bh] = None
                 bhip[rtk[1]] = bh
                 bh = '"%s"' % bh
-                trace[max(k)+1] = bh
+                trace[max_trace + 1] = bh
                 blackholes.append(bh)
     
         # Find AS numbers
