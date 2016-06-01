@@ -9,11 +9,11 @@ PacketList: holds several packets and allows to do operations on them.
 
 
 import os,subprocess
-from config import conf
-from base_classes import BasePacket,BasePacketList
 from collections import defaultdict
 
-from utils import do_graph,hexdump,make_table,make_lined_table,make_tex_table,get_temp_file
+from scapy.config import conf
+from scapy.base_classes import BasePacket,BasePacketList
+from scapy.utils import do_graph,hexdump,make_table,make_lined_table,make_tex_table,get_temp_file
 
 from scapy.arch import plt, MATPLOTLIB_INLINED, MATPLOTLIB_DEFAULT_PLOT_KARGS
 
@@ -293,10 +293,10 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
         prog: which graphviz program to use"""
         if getsrcdst is None:
             def getsrcdst(pkt):
-                if IP in pkt:
-                    return (pkt[IP].src, pkt[IP].dst)
-                if ARP in pkt:
-                    return (pkt[ARP].psrc, pkt[ARP].pdst)
+                if 'IP' in pkt:
+                    return (pkt['IP'].src, pkt['IP'].dst)
+                if 'ARP' in pkt:
+                    return (pkt['ARP'].psrc, pkt['ARP'].pdst)
                 raise TypeError()
         conv = {}
         for p in self.res:
@@ -546,10 +546,3 @@ class SndRcvList(PacketList):
         return elt[1]
     def _elt2sum(self, elt):
         return "%s ==> %s" % (elt[0].summary(),elt[1].summary()) 
-
-
-
-    
-
-        
-                                                                               

@@ -7,15 +7,16 @@
 
 from __future__ import with_statement
 
-import scapy.utils
-from scapy.config import conf
 import os,thread,select
 import subprocess
 import itertools
 import collections
 import time
-from scapy.error import log_interactive,warning
 import Queue
+import scapy.utils
+
+from scapy.error import log_interactive,warning
+from scapy.config import conf
 
 class PipeEngine:
     pipes = {}
@@ -262,6 +263,7 @@ class Source(Pipe):
         Pipe.__init__(self, name=name)
         self.is_exhausted = False
     def _read_message(self):
+        from scapy.automaton import Message
         return Message()
     def deliver(self):
         msg = self._read_message

@@ -8,11 +8,16 @@ Wireless LAN according to IEEE 802.11.
 """
 
 import re,struct
+from zlib import crc32
 
+from scapy.config import conf
+from scapy.data import *
 from scapy.packet import *
 from scapy.fields import *
+from scapy.ansmachine import *
 from scapy.plist import PacketList
 from scapy.layers.l2 import *
+from scapy.layers.inet import IP, TCP
 
 
 try:
@@ -441,11 +446,11 @@ iwconfig wlan0 mode managed
         p /= self.replace
         q.ID += 1
         q.getlayer(TCP).flags="RA"
-        q.getlayer(TCP).seq+=len(replace)
+        q.getlayer(TCP).seq+=len(self.replace)
         return [p,q]
     
     def print_reply(self):
-        print p.sprintf("Sent %IP.src%:%IP.sport% > %IP.dst%:%TCP.dport%")
+        print self.sprintf("Sent %IP.src%:%IP.sport% > %IP.dst%:%TCP.dport%")
 
     def send_reply(self, reply):
         sendp(reply, iface=self.ifto, **self.optsend)

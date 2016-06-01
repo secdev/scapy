@@ -11,11 +11,15 @@ DHCPv6: Dynamic Host Configuration Protocol for IPv6. [RFC 3315]
 """
 
 import socket
+
 from scapy.packet import *
 from scapy.fields import *
+from scapy.data import *
 from scapy.utils6 import *
+from scapy.themes import Color
 from scapy.layers.inet6 import *
 from scapy.ansmachine import AnsweringMachine
+from scapy.sendrecv import *
 
 #############################################################################
 # Helpers                                                                  ##
@@ -656,57 +660,6 @@ class DHCP6OptReconfAccept(_DHCP6OptGuessPayload):   # RFC sect 22.20
     name = "DHCP6 Reconfigure Accept Option"
     fields_desc = [ ShortEnumField("optcode", 20, dhcp6opts),
                     ShortField("optlen", 0)]
-
-# As required in Sect 8. of RFC 3315, Domain Names must be encoded as 
-# described in section 3.1 of RFC 1035
-# XXX Label should be at most 63 octets in length : we do not enforce it
-#     Total length of domain should be 255 : we do not enforce it either
-class DomainNameListField(StrLenField):
-    __slots__ = ["padded"]
-    islist = 1
-    padded_unit = 8
-
-    def __init__(self, name, default, fld=None, length_from=None, padded=False):
-        self.padded = padded
-        StrLenField.__init__(self, name, default, fld, length_from)
-
-    def i2len(self, pkt, x):
-        return len(self.i2m(pkt, x))
-
-    def m2i(self, pkt, x):
-        res = []
-        while x:
-            # Get a name until \x00 is reached
-            cur = []
-            while x and x[0] != '\x00':
-                l = ord(x[0])
-                cur.append(x[1:l+1])
-                x = x[l+1:]
-            if self.padded:
-              # Discard following \x00 in padded mode
-              if len(cur):
-                res.append(".".join(cur) + ".")
-            else:
-              # Store the current name
-              res.append(".".join(cur) + ".")
-            if x and x[0] == '\x00':
-                x = x[1:]
-        return res
-
-    def i2m(self, pkt, x):
-        def conditionalTrailingDot(z):
-            if z and z[-1] == '\x00':
-                return z
-            return z+'\x00'
-        # Build the encode names
-        tmp = map(lambda y: map((lambda z: chr(len(z))+z), y.split('.')), x)
-        ret_string  = "".join(map(lambda x: conditionalTrailingDot("".join(x)), tmp))
-
-        # In padded mode, add some \x00 bytes
-        if self.padded and not len(ret_string) % self.padded_unit == 0:
-            ret_string += "\x00" * (self.padded_unit - len(ret_string) % self.padded_unit)
-
-        return ret_string
 
 class DHCP6OptSIPDomains(_DHCP6OptGuessPayload):       #RFC3319
     name = "DHCP6 Option - SIP Servers Domain Name List"

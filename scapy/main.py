@@ -10,9 +10,13 @@ Main module for interactive startup.
 from __future__ import generators
 import os,sys
 import glob
+import types
+import gzip
+import cPickle
 import __builtin__
-from error import *
-import utils
+
+from scapy.error import *
+from scapy import utils
     
 
 def _probe_config_file(cf):
@@ -44,8 +48,8 @@ def _usage():
     sys.exit(0)
 
 
-from config import conf
-from themes import DefaultTheme
+from scapy.config import conf
+from scapy.themes import DefaultTheme
 
 
 ######################
@@ -178,8 +182,8 @@ def scapy_write_history_file(readline):
 
 def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
     global session
-    import code,sys,cPickle,os,getopt,re
-    from config import conf
+    import code,sys,os,getopt,re
+    from scapy.config import conf
     conf.interactive = True
     if loglevel is not None:
         conf.logLevel=loglevel
@@ -220,6 +224,7 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
                     object = eval(expr)
                 except:
                     object = eval(expr, session)
+                from scapy.packet import Packet, Packet_metaclass
                 if isinstance(object, Packet) or isinstance(object, Packet_metaclass):
                     words = filter(lambda x: x[0]!="_",dir(object))
                     words += [x.name for x in object.fields_desc]

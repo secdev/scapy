@@ -8,6 +8,8 @@
 #######################################
 = IPv4 / ESP - Transport - AES-CBC - NULL
 
+import socket
+
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')

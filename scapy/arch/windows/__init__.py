@@ -19,7 +19,6 @@ from scapy.utils import atol, itom, inet_aton, inet_ntoa, PcapReader
 from scapy.base_classes import Gen, Net, SetGen
 import scapy.plist as plist
 from scapy.sendrecv import debug, srp1
-from scapy.layers.l2 import Ether, ARP
 from scapy.data import MTU, ETHER_BROADCAST, ETH_P_ARP
 
 conf.use_pcap = False
@@ -211,7 +210,7 @@ def get_windows_if_list():
     ]
 
 def get_ip_from_name(ifname, v6=False):
-    for descr, ipadrr in exec_query(['Get-WmiObject',
+    for descr, ipaddr in exec_query(['Get-WmiObject',
                                      'Win32_NetworkAdapterConfiguration'],
                                     ['Description', 'IPAddress']):
         if descr == ifname.strip():

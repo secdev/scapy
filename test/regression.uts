@@ -46,7 +46,7 @@ routes6 = read_routes6()
 
 if len(routes6):
     iflist = get_if_list()
-    if iflist == [scapy.arch.LOOPBACK_NAME]:
+    if iflist == [LOOPBACK_NAME]:
 	len(routes6) == 1
     elif len(iflist) >= 2:
 	len(routes6) >= 3
@@ -358,10 +358,12 @@ a = TestFLF()
 a.lst = [7,65539]
 ls(a)
 str(a)
+import struct
 _ == struct.pack("!BII", 2,7,65539)
 
 = Disassemble
 ~ field
+import struct
 TestFLF("\x00\x11\x12")
 assert(_.len == 0 and Raw in _ and _[Raw].load == "\x11\x12")
 TestFLF(struct.pack("!BIII",3,1234,2345,12345678))
@@ -900,6 +902,8 @@ assert( _ == "Saturn" )
 
 = Automaton test io event from external fd
 ~ automaton
+import os
+
 class ATMT8(Automaton):
     @ATMT.state(initial=1)
     def BEGIN(self):
@@ -1257,6 +1261,8 @@ in6_addrtomac("FE80::" + in6_mactoifaceid("FF:00:00:00:00:00", ulbit=0)) == 'ff:
 
 ########### RFC 3041 related function ###############################
 = Test in6_getRandomizedIfaceId
+import socket
+
 res=True
 for _ in xrange(10):
     s1,s2 = in6_getRandomizedIfaceId('20b:93ff:feeb:2d3')

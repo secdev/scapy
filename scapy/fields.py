@@ -8,11 +8,11 @@ Fields: basic data structures that make up parts of packets.
 """
 
 import struct,copy,socket
-from config import conf
-from volatile import *
-from data import *
-from utils import *
-from base_classes import BasePacket, Gen, Net, Field_metaclass
+from scapy.config import conf
+from scapy.volatile import *
+from scapy.data import *
+from scapy.utils import *
+from scapy.base_classes import BasePacket, Gen, Net, Field_metaclass
 
 
 ############
@@ -630,7 +630,7 @@ class FieldLenField(Field):
         self.count_of = count_of
         self.adjust = adjust
         if fld is not None:
-            FIELD_LENGTH_MANAGEMENT_DEPRECATION(self.__class__.__name__)
+            #FIELD_LENGTH_MANAGEMENT_DEPRECATION(self.__class__.__name__)
             self.length_of = fld
     def i2m(self, pkt, x):
         if x is None:

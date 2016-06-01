@@ -8,10 +8,11 @@ Implementation for of the configuration object.
 """
 
 import os,time,socket,sys
-from data import *
-import base_classes
-import themes
-from error import log_scapy
+
+from scapy.data import *
+from scapy import base_classes
+from scapy import themes
+from scapy.error import log_scapy
 
 ############
 ## Config ##
@@ -279,7 +280,7 @@ def _prompt_changer(attr,val):
     prompt = conf.prompt
     try:
         ct = val
-        if isinstance(ct, AnsiColorTheme) and ct.prompt(""):
+        if isinstance(ct, themes.AnsiColorTheme) and ct.prompt(""):
             ## ^A and ^B delimit invisible caracters for readline to count right.
             ## And we need ct.prompt() to do change something or else ^A and ^B will be
             ## displayed

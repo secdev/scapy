@@ -9,8 +9,10 @@ Operating system specific functionality.
 
 
 import sys,os,socket
+
 from scapy.error import *
 import scapy.config
+from scapy.pton_ntop import inet_pton
 
 try:
     from matplotlib import get_backend as matplotlib_get_backend
@@ -79,19 +81,19 @@ ARM_64 = not WINDOWS and (os.uname()[4] == 'aarch64')
 
 
 if LINUX:
-    from linux import *
+    from scapy.arch.linux import *
     if scapy.config.conf.use_pcap or scapy.config.conf.use_dnet:
-        from pcapdnet import *
+        from scapy.arch.pcapdnet import *
 elif BSD:
-    from bsd import LOOPBACK_NAME
-    from unix import read_routes, read_routes6, in6_getifaddr
+    from scapy.arch.bsd import LOOPBACK_NAME
+    from scapy.arch.unix import read_routes, read_routes6, in6_getifaddr
     scapy.config.conf.use_pcap = True
     scapy.config.conf.use_dnet = True
-    from pcapdnet import *
+    from scapy.arch.pcapdnet import *
 elif SOLARIS:
-    from solaris import *
+    from scapy.arch.solaris import *
 elif WINDOWS:
-    from windows import *
+    from scapy.arch.windows import *
 
 if scapy.config.conf.iface is None:
     scapy.config.conf.iface = LOOPBACK_NAME

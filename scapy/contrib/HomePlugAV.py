@@ -1,4 +1,7 @@
-from scapy.all import *
+from scapy.packet import *
+from scapy.fields import *
+from scapy.layers.l2 import Ether
+
 """
     Copyright (C) HomePlugAV Layer for Scapy by FlUxIuS (Sebastien Dudek)
 """
