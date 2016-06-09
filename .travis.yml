@@ -1,13 +1,42 @@
-sudo: false
-
 language: python
 
-python:
-  - 2.6
-  - 2.7
-  - pypy
+matrix:
+    include:
+        # Run as a regular user
+        - os: linux
+          python: 2.6
 
-install:
-  - pip install pycrypto
+        - os: linux
+          python: 2.7
 
-script: cd test/; for f in *.uts; do ./run_tests -q -F -t $f -K netaccess || exit $?; done; for f in ../scapy/contrib/*.uts ; do ./run_tests -q -F -t $f -K netaccess -P "load_contrib('$(basename ${f/.uts})')" || exit $?; done
+        - os: linux
+          python: pypy
+
+        - os: osx
+          language: generic
+          env:
+            - SCAPY_USE_PCAPDNET=true
+
+        # Run as root
+        - os: linux
+          sudo: required
+          python: 2.7
+          env:
+            - TRAVIS_SUDO=sudo
+
+        - os: linux
+          sudo: required
+          python: 2.7
+          env:
+            - TRAVIS_SUDO=sudo
+            - SCAPY_USE_PCAPDNET=true
+
+        - os: osx
+          language: generic
+          env:
+            - TRAVIS_SUDO=sudo
+            - SCAPY_USE_PCAPDNET=true
+
+install: bash .travis/install.sh
+
+script: bash .travis/test.sh
