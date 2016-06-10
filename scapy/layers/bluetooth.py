@@ -26,6 +26,13 @@ class XLEShortField(LEShortField):
     def i2repr(self, pkt, x):
         return lhex(self.i2h(pkt, x))
 
+class XLELongField(LEShortField):
+    def __init__(self, name, default):
+        Field.__init__(self, name, default, "<Q")
+    def i2repr(self, pkt, x):
+        return lhex(self.i2h(pkt, x))
+
+
 class LEMACField(Field):
     def __init__(self, name, default):
         Field.__init__(self, name, default, "6s")
@@ -216,11 +223,18 @@ class ATT_Find_By_Type_Value_Response(Packet):
     name = "Find By Type Value Response"
     fields_desc = [ StrField("handles", ""), ]
 
+class ATT_Read_By_Type_Request_128bit(Packet):
+    name = "Read By Type Request"
+    fields_desc = [ XLEShortField("start", 0x0001),
+                    XLEShortField("end", 0xffff),
+                    XLELongField("uuid1", None),
+                    XLELongField("uuid2", None)]
+
 class ATT_Read_By_Type_Request(Packet):
     name = "Read By Type Request"
     fields_desc = [ XLEShortField("start", 0x0001),
                     XLEShortField("end", 0xffff),
-                    XLEShortField("uuid", None), ]
+                    XLEShortField("uuid", None)]
 
 class ATT_Read_By_Type_Response(Packet):
     name = "Read By Type Response"
@@ -311,6 +325,19 @@ class SM_Master_Identification(Packet):
     name = "Master Identification"
     fields_desc = [ XLEShortField("ediv", 0),
                     StrFixedLenField("rand", '\x00' * 8, 8), ]
+    
+class SM_Identity_Information(Packet):
+    name = "Identity Information"
+    fields_desc = [ StrFixedLenField("irk", '\x00' * 16, 16), ]
+
+class SM_Identity_Address_Information(Packet):
+    name = "Identity Address Information"
+    fields_desc = [ ByteEnumField("atype", 0, {0:"public"}),
+                    LEMACField("address", None), ]
+    
+class SM_Signing_Information(Packet):
+    name = "Signing Information"
+    fields_desc = [ StrFixedLenField("csrk", '\x00' * 16, 16), ]
 
 
 class EIR_Hdr(Packet):
@@ -514,6 +541,13 @@ class HCI_Cmd_LE_Set_Advertise_Enable(Packet):
     name = "LE Set Advertise Enable"
     fields_desc = [ ByteField("enable", 0) ]
 
+class HCI_Cmd_LE_Start_Encryption_Request(Packet):
+    name = "LE Start Encryption"
+    fields_desc = [ LEShortField("handle", 0),
+                    StrFixedLenField("rand", None, 8),
+                    XLEShortField("ediv", 0),
+                    StrFixedLenField("ltk", '\x00' * 16, 16), ]
+
 class HCI_Cmd_LE_Long_Term_Key_Request_Negative_Reply(Packet):
     name = "LE Long Term Key Request Negative Reply"
     fields_desc = [ LEShortField("handle", 0), ]
@@ -621,6 +655,9 @@ bind_layers( HCI_Command_Hdr, HCI_Cmd_LE_Set_Scan_Enable, opcode=0x200c)
 bind_layers( HCI_Command_Hdr, HCI_Cmd_Disconnect, opcode=0x406)
 bind_layers( HCI_Command_Hdr, HCI_Cmd_LE_Create_Connection, opcode=0x200d)
 bind_layers( HCI_Command_Hdr, HCI_Cmd_LE_Create_Connection_Cancel, opcode=0x200e)
+
+bind_layers( HCI_Command_Hdr, HCI_Cmd_LE_Start_Encryption_Request, opcode=0x2019)
+
 bind_layers( HCI_Command_Hdr, HCI_Cmd_LE_Long_Term_Key_Request_Reply, opcode=0x201a)
 bind_layers( HCI_Command_Hdr, HCI_Cmd_LE_Long_Term_Key_Request_Negative_Reply, opcode=0x201b)
 
@@ -630,7 +667,6 @@ bind_layers( HCI_Event_Hdr, HCI_Event_Command_Complete, code=0xe)
 bind_layers( HCI_Event_Hdr, HCI_Event_Command_Status, code=0xf)
 bind_layers( HCI_Event_Hdr, HCI_Event_Number_Of_Completed_Packets, code=0x13)
 bind_layers( HCI_Event_Hdr, HCI_Event_LE_Meta, code=0x3e)
-
 bind_layers( HCI_Event_Command_Complete, HCI_Cmd_Complete_Read_BD_Addr, opcode=0x1009)
 
 bind_layers( HCI_Event_LE_Meta, HCI_LE_Meta_Connection_Complete, event=1)
@@ -666,6 +702,7 @@ bind_layers( ATT_Hdr,       ATT_Find_Information_Response, opcode=0x5)
 bind_layers( ATT_Hdr,       ATT_Find_By_Type_Value_Request, opcode=0x6)
 bind_layers( ATT_Hdr,       ATT_Find_By_Type_Value_Response, opcode=0x7)
 bind_layers( ATT_Hdr,       ATT_Read_By_Type_Request, opcode=0x8)
+bind_layers( ATT_Hdr,       ATT_Read_By_Type_Request_128bit, opcode=0x8)
 bind_layers( ATT_Hdr,       ATT_Read_By_Type_Response, opcode=0x9)
 bind_layers( ATT_Hdr,       ATT_Read_Request, opcode=0xa)
 bind_layers( ATT_Hdr,       ATT_Read_Response, opcode=0xb)
@@ -683,6 +720,10 @@ bind_layers( SM_Hdr,        SM_Random,         sm_command=4)
 bind_layers( SM_Hdr,        SM_Failed,         sm_command=5)
 bind_layers( SM_Hdr,        SM_Encryption_Information, sm_command=6)
 bind_layers( SM_Hdr,        SM_Master_Identification, sm_command=7)
+bind_layers( SM_Hdr,        SM_Identity_Information, sm_command=8)
+bind_layers( SM_Hdr,        SM_Identity_Address_Information, sm_command=9)
+bind_layers( SM_Hdr,        SM_Signing_Information, sm_command=0x0a)
+
 
 class BluetoothL2CAPSocket(SuperSocket):
     desc = "read/write packets on a connected L2CAP socket"
@@ -770,7 +811,7 @@ class BluetoothUserSocket(SuperSocket):
         self.send(cmd)
         while True:
             r = self.recv()
-            if r.code == 0xe and r.opcode == opcode:
+            if r.type == 0x04 and r.code == 0xe and r.opcode == opcode:
                 if r.status != 0:
                     raise BluetoothCommandError("Command %x failed with %x" % (opcode, r.status))
                 return r
