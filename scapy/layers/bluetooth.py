@@ -747,6 +747,10 @@ class BluetoothUserSocket(SuperSocket):
         bind.argtypes = (c_int, POINTER(sockaddr_hci), c_int)
         bind.restype = c_int
 
+        self.libc_close = libc.close
+        self.libc_close.argtypes = (c_int,)
+        self.libc_close.restype = c_int
+
         ########
         ## actual code
 
@@ -763,7 +767,14 @@ class BluetoothUserSocket(SuperSocket):
         if r != 0:
             raise BluetoothSocketError("Unable to bind")
 
+        self.closed = 0
         self.ins = self.outs = socket.fromfd(s, 31, 3, 1)
+
+    def close(self):
+        if self.closed:
+            return
+        self.closed = 1
+        self.libc_close(self.ins.fileno())
 
     def send_command(self, cmd):
         opcode = cmd.opcode
