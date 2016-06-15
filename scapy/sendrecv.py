@@ -605,24 +605,26 @@ interfaces)
             sel = select(sniff_sockets, [], [], remain)
             for s in sel[0]:
                 p = s.recv()
-                if p is not None:
-                    if lfilter and not lfilter(p):
-                        continue
-                    if s in label:
-                        p.sniffed_on = label[s]
-                    if store:
-                        lst.append(p)
-                    c += 1
-                    if prn:
-                        r = prn(p)
-                        if r is not None:
-                            print r
-                    if stop_filter and stop_filter(p):
-                        stop_event = True
-                        break
-                    if 0 < count <= c:
-                        stop_event = True
-                        break
+                if p is None:
+                    stop_event = True
+                    break
+                if lfilter and not lfilter(p):
+                    continue
+                if s in label:
+                    p.sniffed_on = label[s]
+                if store:
+                    lst.append(p)
+                c += 1
+                if prn:
+                    r = prn(p)
+                    if r is not None:
+                        print r
+                if stop_filter and stop_filter(p):
+                    stop_event = True
+                    break
+                if 0 < count <= c:
+                    stop_event = True
+                    break
     except KeyboardInterrupt:
         pass
     if opened_socket is None:
