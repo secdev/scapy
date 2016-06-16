@@ -214,7 +214,8 @@ TCPOptions = (
                 14 : ("AltChkSum","!BH"),
                 15 : ("AltChkSumOpt",None),
                 25 : ("Mood","!p"),
-                28 : ("UTO", "!H")
+                28 : ("UTO", "!H"),
+                34 : ("TFO", "!II"),
                 },
               { "EOL":0,
                 "NOP":1,
@@ -226,7 +227,8 @@ TCPOptions = (
                 "AltChkSum":14,
                 "AltChkSumOpt":15,
                 "Mood":25,
-                "UTO":28
+                "UTO":28,
+                "TFO":34,
                 } )
 
 class TCPOptionsField(StrField):
