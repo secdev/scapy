@@ -228,7 +228,7 @@ TCPOptions = (
                 "AltChkSumOpt":15,
                 "Mood":25,
                 "UTO":28,
-		"TFO":34,
+                "TFO":34,
                 } )
 
 class TCPOptionsField(StrField):
