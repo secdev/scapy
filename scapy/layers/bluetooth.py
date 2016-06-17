@@ -95,7 +95,8 @@ class L2CAP_CmdHdr(Packet):
         ByteEnumField("code",8,{1:"rej",2:"conn_req",3:"conn_resp",
                                 4:"conf_req",5:"conf_resp",6:"disconn_req",
                                 7:"disconn_resp",8:"echo_req",9:"echo_resp",
-                                10:"info_req",11:"info_resp"}),
+                                10:"info_req",11:"info_resp", 18:"conn_param_update_req",
+                                19:"conn_param_update_resp"}),
         ByteField("id",0),
         LEShortField("len",None) ]
     def post_build(self, p, pay):
@@ -108,7 +109,7 @@ class L2CAP_CmdHdr(Packet):
         if other.id == self.id:
             if self.code == 1:
                 return 1
-            if other.code in [2,4,6,8,10] and self.code == other.code+1:
+            if other.code in [2,4,6,8,10,18] and self.code == other.code+1:
                 if other.code == 8:
                     return 1
                 return self.payload.answers(other.payload)
@@ -181,6 +182,19 @@ class L2CAP_InfoResp(Packet):
                     StrField("data",""), ]
     def answers(self, other):
         return self.type == other.type
+
+    
+class L2CAP_Connection_Parameter_Update_Request(Packet):
+    name = "L2CAP Connection Parameter Update Request"
+    fields_desc = [ LEShortField("min_interval", 0),
+                    LEShortField("max_interval", 0),
+                    LEShortField("slave_latency", 0),
+                    LEShortField("timeout_mult", 0), ]
+
+    
+class L2CAP_Connection_Parameter_Update_Response(Packet):
+    name = "L2CAP Connection Parameter Update Response"
+    fields_desc = [ LEShortField("move_result", 0), ]
 
 
 class ATT_Hdr(Packet):
@@ -510,6 +524,16 @@ class HCI_Cmd_LE_Create_Connection(Packet):
                     LEShortField("timeout", 42),
                     LEShortField("min_ce", 0),
                     LEShortField("max_ce", 0), ]
+    
+class HCI_Cmd_LE_Connection_Update(Packet):
+    name = "LE Connection Update"
+    fields_desc = [ LEShortField("conn_handle", 64),
+                    LEShortField("conn_interval_min", 0),
+                    LEShortField("conn_interval_max", 0),
+                    LEShortField("conn_latency", 0),
+                    LEShortField("timeout", 600),
+                    LEShortField("min_ce_len", 0),
+                    LEShortField("max_ce_len", 0),]
 
 class HCI_Cmd_LE_Create_Connection_Cancel(Packet):
     name = "LE Create Connection Cancel"
@@ -655,6 +679,8 @@ bind_layers( HCI_Command_Hdr, HCI_Cmd_LE_Set_Scan_Enable, opcode=0x200c)
 bind_layers( HCI_Command_Hdr, HCI_Cmd_Disconnect, opcode=0x406)
 bind_layers( HCI_Command_Hdr, HCI_Cmd_LE_Create_Connection, opcode=0x200d)
 bind_layers( HCI_Command_Hdr, HCI_Cmd_LE_Create_Connection_Cancel, opcode=0x200e)
+bind_layers( HCI_Command_Hdr, HCI_Cmd_LE_Connection_Update, opcode=0x2013)
+
 
 bind_layers( HCI_Command_Hdr, HCI_Cmd_LE_Start_Encryption_Request, opcode=0x2019)
 
@@ -684,6 +710,7 @@ bind_layers(EIR_Hdr, EIR_Raw)
 
 bind_layers( HCI_ACL_Hdr,   L2CAP_Hdr,     )
 bind_layers( L2CAP_Hdr,     L2CAP_CmdHdr,      cid=1)
+bind_layers( L2CAP_Hdr,     L2CAP_CmdHdr,      cid=5) #LE L2CAP Signaling Channel
 bind_layers( L2CAP_CmdHdr,  L2CAP_CmdRej,      code=1)
 bind_layers( L2CAP_CmdHdr,  L2CAP_ConnReq,     code=2)
 bind_layers( L2CAP_CmdHdr,  L2CAP_ConnResp,    code=3)
@@ -693,6 +720,8 @@ bind_layers( L2CAP_CmdHdr,  L2CAP_DisconnReq,  code=6)
 bind_layers( L2CAP_CmdHdr,  L2CAP_DisconnResp, code=7)
 bind_layers( L2CAP_CmdHdr,  L2CAP_InfoReq,     code=10)
 bind_layers( L2CAP_CmdHdr,  L2CAP_InfoResp,    code=11)
+bind_layers( L2CAP_CmdHdr,  L2CAP_Connection_Parameter_Update_Request,    code=18)
+bind_layers( L2CAP_CmdHdr,  L2CAP_Connection_Parameter_Update_Response,    code=19)
 bind_layers( L2CAP_Hdr,     ATT_Hdr,           cid=4)
 bind_layers( ATT_Hdr,       ATT_Error_Response, opcode=0x1)
 bind_layers( ATT_Hdr,       ATT_Exchange_MTU_Request, opcode=0x2)
