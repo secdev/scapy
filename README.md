@@ -19,9 +19,9 @@ cache poisoning, VOIP decoding on WEP encrypted channel, ...),
 etc.
 
 See
-[interactive tutorial](http://www.secdev.org/projects/scapy/doc/usage.html#interactive-tutorial)
+[interactive tutorial](http://scapy.readthedocs.io/en/latest/usage.html#interactive-tutorial)
 and
-[the quick demo: an interactive session](http://www.secdev.org/projects/scapy/demo.html)
+[the quick demo: an interactive session](http://scapy.readthedocs.io/en/latest/introduction.html#quick-demo)
 (some examples may be outdated).
 
 # Contributing #

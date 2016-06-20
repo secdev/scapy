@@ -440,6 +440,52 @@ Known bugs
  * Packets cannot be sent to localhost (or local IP addresses on your own host).
  * The ``voip_play()`` functions do not work because they output the sound via ``/dev/dsp`` which is not available on Windows. 
  
- 
 
+Build the documentation offline
+===============================
+The Scapy project's documentation is written using reStructuredText (files \*.rst) and can be built using
+the `Sphinx <http://www.sphinx-doc.org/>`_ python library. The official online version is available
+on `readthedocs <http://scapy.readthedocs.io/>`_.
 
+HTML version
+------------
+The instructions to build the HTML version are: ::
+
+   (activate a virtualenv)
+   pip install sphinx
+   cd doc/scapy
+   make html
+
+You can now open the resulting HTML file ``_build/html/index.html`` in your favorite web browser.
+
+To use the ReadTheDocs' template, you will have to install the corresponding theme with: ::
+
+   pip install sphinx_rtd_theme
+
+and edit the doc/scapy/conf.py file to have: ::
+
+   import sphinx_rtd_theme
+   #html_style = 'default.css'
+   html_theme = "sphinx_rtd_theme"
+   html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
+
+Note: make sure you commented out the ``html_style`` variable.
+
+UML diagram
+-----------
+Using ``pyreverse`` you can build an UML representation of the Scapy source code's object hierarchy. Here is an
+example on how to build the inheritence graph for the Fields objects : ::
+
+   (activate a virtualenv)
+   pip install pylint
+   cd scapy/
+   pyreverse -o png -p fields scapy/fields.py
+
+This will generate a ``classes_fields.png`` picture containing the inheritance hierarchy. Note that you can provide as many
+modules or packages as you want, but the result will quickly get unreadable.
+
+To see the dependencies between the DHCP layer and the ansmachine module, you can run: ::
+
+   pyreverse -o png -p dhcp_ans scapy/ansmachine.py scapy/layers/dhcp.py scapy/packet.py
+
+In this case, Pyreverse will also generate a ``packages_dhcp_ans.png`` showing the link between the different python modules provided.
