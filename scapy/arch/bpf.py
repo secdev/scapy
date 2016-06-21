@@ -7,7 +7,7 @@ from scapy.error import Scapy_Exception
 from scapy.data import ARPHDR_LOOPBACK, ARPHDR_ETHER
 from scapy.arch.common import get_if
 from scapy.arch.bsd import LOOPBACK_NAME
-from scapy.arch import FREEBSD, NETBSD
+from scapy.arch import FREEBSD, NETBSD, OPENBSD
 from scapy.packet import Raw
 from scapy.layers.l2 import Ether
 from scapy.layers.inet import IP
