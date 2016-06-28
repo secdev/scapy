@@ -450,6 +450,16 @@ x962Signature_oids = {
 
 ####### elliptic curves #######
 
+ansiX962Curve_oids = {
+        "prime192v1"                : "1.2.840.10045.3.1.1",
+        "prime192v2"                : "1.2.840.10045.3.1.2",
+        "prime192v3"                : "1.2.840.10045.3.1.3",
+        "prime239v1"                : "1.2.840.10045.3.1.4",
+        "prime239v2"                : "1.2.840.10045.3.1.5",
+        "prime239v3"                : "1.2.840.10045.3.1.6",
+        "prime256v1"                : "1.2.840.10045.3.1.7"
+        }
+
 certicomCurve_oids = {
         "ansit163k1"                : "1.3.132.0.1",
         "ansit163r1"                : "1.3.132.0.2",
@@ -558,6 +568,7 @@ x509_oids_sets = [
                  evPolicy_oids,
                  x962KeyType_oids,
                  x962Signature_oids,
+                 ansiX962Curve_oids,
                  certicomCurve_oids
                  ]
 

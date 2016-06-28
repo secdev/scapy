@@ -1,7 +1,7 @@
 # Cert extension - Regression Test Campaign
 
-# load me with 
-# python scapy/tools/UTscapy.py -t scapy/tls/cert.uts -l -F -C
+# Try me with:
+# bash test/run_tests -t test/cert.uts -F
 
 
 ########### PKCS helpers ###############################################

@@ -3,12 +3,20 @@
 ## Copyright (C) 2016 Pascal Delaunay, Maxence Tury
 ## This program is published under a GPLv2 license
 
+"""
+Implicit elliptic curves.
+"""
+
 # Recommended curve parameters from www.secg.org/SEC2-Ver-1.0.pdf
 # and www.ecc-brainpool.org/download/Domain-parameters.pdf
+#
+# This module may overwrite curves from python-ecdsa.
 
+import math
 from ecdsa.ellipticcurve import CurveFp, Point
 from ecdsa.curves import Curve, curves
-from scapy.utils import long_converter
+from scapy.utils import long_converter, binrepr
+from pkcs1 import pkcs_i2osp, pkcs_os2ip
 
 
 ##############################################################
@@ -19,7 +27,7 @@ def encode_point(point, point_format=0):
     """
     Return a string representation of the Point p, according to point_format.
     """
-    pLen = len(binrepr(point.curve().p()))  #XXX nope
+    pLen = len(binrepr(point.curve().p()))
     x = pkcs_i2osp(point.x(), math.ceil(pLen/8))
     y = pkcs_i2osp(point.y(), math.ceil(pLen/8))
     if point_format == 0:
@@ -33,7 +41,8 @@ def encode_point(point, point_format=0):
 
 def extract_coordinates(g, curve):
     """
-    Return the coordinates x and y regardless of the point format of string g.
+    Return the coordinates x and y as integers,
+    regardless of the point format of string g.
     We need a CurveFp.
     """
     p = curve.p()
@@ -69,9 +78,10 @@ def import_curve(p, a, b, g, r, name="dummyName", oid=(1,3,132,0,999)):
     Arguments may be either octet strings or integers,
     except g which we expect to be an octet string.
     """
-    for arg in [p, a, b, r]:
-        if type(arg) is str:
-            arg = pkcs_os2ip(arg)
+    if type(p) is str: p = pkcs_os2ip(p)
+    if type(a) is str: a = pkcs_os2ip(a)
+    if type(b) is str: b = pkcs_os2ip(b)
+    if type(r) is str: r = pkcs_os2ip(r)
     curve = CurveFp(p, a, b)
     x, y = extract_coordinates(g, curve)
     generator = Point(curve, x, y, r)
@@ -83,6 +93,8 @@ def import_curve(p, a, b, g, r, name="dummyName", oid=(1,3,132,0,999)):
 ##############################################################
 
 #XXX openssl-generated keys with the first 3 curves cannot be imported by ecdsa module ?!
+
+# We always provide _a as a positive integer.
 
 _p          = long_converter("""
               ffffffff ffffffff ffffffff fffffffe ffffac73""")
@@ -101,7 +113,7 @@ SECP160k1   = Curve("SECP160k1", curve, generator,
 
 _p          = long_converter("""
               ffffffff ffffffff ffffffff ffffffff 7fffffff""")
-_a          = -3
+_a          = -3 % _p
 _b          = long_converter("""
               1c97befc 54bd7a8b 65acf89f 81d4d4ad c565fa45""")
 _Gx         = long_converter("""
@@ -117,7 +129,7 @@ SECP160r1   = Curve("SECP160r1", curve, generator,
 
 _p          = long_converter("""
               ffffffff ffffffff ffffffff fffffffe ffffac73""")
-_a          = -3
+_a          = -3 % _p
 _b          = long_converter("""
               b4e134d3 fb59eb8b ab572749 04664d5a f50388ba""")
 _Gx         = long_converter("""
@@ -148,7 +160,7 @@ SECP192k1   = Curve("SECP192k1", curve, generator,
 
 _p          = long_converter("""
               ffffffff ffffffff ffffffff fffffffe ffffffff ffffffff""")
-_a          = -3
+_a          = -3 % _p
 _b          = long_converter("""
               64210519 e59c80e7 0fa7e9ab 72243049 feb8deec c146b9b1""")
 _Gx         = long_converter("""
@@ -160,7 +172,7 @@ _r          = long_converter("""
 curve       = CurveFp(_p, _a, _b)
 generator   = Point(curve, _Gx, _Gy, _r)
 SECP192r1   = Curve("SECP192r1", curve, generator,
-                    (1, 2, 840, 10045, 3, 1, 1, 1), "prime192v1")
+                    (1, 2, 840, 10045, 3, 1, 1), "prime192v1")
 
 _p          = long_converter("""
               ffffffff ffffffff ffffffff ffffffff ffffffff fffffffe
@@ -184,7 +196,7 @@ SECP224k1   = Curve("SECP224k1", curve, generator,
 _p          = long_converter("""
               ffffffff ffffffff ffffffff ffffffff 00000000 00000000
               00000001""")
-_a          = -3
+_a          = -3 % _p
 _b          = long_converter("""
               b4050a85 0c04b3ab f5413256 5044b0b7 d7bfd8ba 270b3943
               2355ffb4""")
@@ -225,7 +237,7 @@ SECP256k1   = Curve("SECP256k1", curve, generator,
 _p          = long_converter("""
               ffffffff 00000001 00000000 00000000 00000000 ffffffff
               ffffffff ffffffff""")
-_a          = -3
+_a          = -3 % _p
 _b          = long_converter("""
               5ac635d8 aa3a93e7 b3ebbd55 769886bc 651d06b0 cc53b0f6
               3bce3c3e 27d2604b""")
@@ -241,12 +253,12 @@ _r          = long_converter("""
 curve       = CurveFp(_p, _a, _b)
 generator   = Point(curve, _Gx, _Gy, _r)
 SECP256r1   = Curve("SECP256r1", curve, generator,
-                    (1, 2, 840, 10045, 3, 1, 1, 7), "prime256v1")
+                    (1, 2, 840, 10045, 3, 1, 7), "prime256v1")
 
 _p          = long_converter("""
               ffffffff ffffffff ffffffff ffffffff ffffffff ffffffff
               ffffffff fffffffe ffffffff 00000000 00000000 ffffffff""")
-_a          = -3
+_a          = -3 % _p
 _b          = long_converter("""
               b3312fa7 e23ee7e4 988e056b e3f82d19 181d9c6e fe814112
               0314088f 5013875a c656398d 8a2ed19d 2a85c8ed d3ec2aef""")
@@ -268,7 +280,7 @@ _p          = long_converter("""
                   01ff ffffffff ffffffff ffffffff ffffffff ffffffff
               ffffffff ffffffff ffffffff ffffffff ffffffff ffffffff
               ffffffff ffffffff ffffffff ffffffff ffffffff""")
-_a          = -3
+_a          = -3 % _p
 _b          = long_converter("""
                   0051 953eb961 8e1c9a1f 929a21a0 b68540ee a2da725b
               99b315f3 b8b48991 8ef109e1 56193951 ec7e937b 1652c0bd
@@ -381,6 +393,9 @@ named_curves = { 15: SECP160k1,
                  27: BRNP384r1,
                  28: BRNP512r1
                  }
+
+for cid, c in named_curves.iteritems():
+    c.curve_id = cid
 
 # replace/fill previous named curves
 import ecdsa.curves

@@ -22,4 +22,3 @@ except ImportError:
     log_loading.info("Can't import python ecdsa lib. Disabled certificate manipulation tools")
 else:
     from scapy.tls.cert import *
-#    from scapy.tls.tls import *

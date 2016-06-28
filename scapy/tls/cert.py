@@ -1,42 +1,29 @@
-
-#############################################################################
-##                                                                         ##
-## cert.py --- X.509 Certificate and CRL module                            ##
-##                                                                         ##
-## Copyright (C) 2008 Arnaud Ebalard   <arnaud.ebalard@eads.net>           ##
-##                                     <arno@natisbad.org>                 ##
-##         2015, 2016 Maxence Tury     <maxence.tury@ssi.gouv.fr>          ##
-##                                                                         ##
-## This program is free software; you can redistribute it and/or modify it ##
-## under the terms of the GNU General Public License version 2 as          ##
-## published by the Free Software Foundation; version 2.                   ##
-##                                                                         ##
-## This program is distributed in the hope that it will be useful, but     ##
-## WITHOUT ANY WARRANTY; without even the implied warranty of              ##
-## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU       ##
-## General Public License for more details.                                ##
-##                                                                         ##
-#############################################################################
+## This file is part of Scapy
+## Copyright (C) 2008 Arnaud Ebalard <arnaud.ebalard@eads.net>
+##                                   <arno@natisbad.org>
+##         2015, 2016 Maxence Tury   <maxence.tury@ssi.gouv.fr>
+## This program is published under a GPLv2 license
 
 """
-This module provides high-level methods for different PKI objects.
-It relies on python-crypto and python-ecdsa.
-
-The classes below are wrappers for the ASN.1 objects defined in x509.py.
-By collecting their attributes, we bypass the ASN.1 structure, hence
-there is no direct method for exporting a new full DER-encoded version
-of a Cert instance after its serial has been modified (for example).
-If you need to modify an import, just use the corresponding ASN1_Packet.
-
-For instance, here is what you could do in order to modify the serial of
-'cert' and then resign it with whatever 'key':
-    f = open('cert.der')
-    c = X509_Cert(f.read())
-    c.tbsCertificate.serialNumber = 0x4B1D
-    k = PrivKey('key.pem')
-    new_x509_cert = k.resignCert(c)
-No need for obnoxious openssl tweaking anymore. :)
+High-level methods for PKI objects (X.509 certificates, CRLs, asymmetric keys).
 """
+
+## This module relies on python-crypto and python-ecdsa.
+## 
+## The classes below are wrappers for the ASN.1 objects defined in x509.py.
+## By collecting their attributes, we bypass the ASN.1 structure, hence
+## there is no direct method for exporting a new full DER-encoded version
+## of a Cert instance after its serial has been modified (for example).
+## If you need to modify an import, just use the corresponding ASN1_Packet.
+## 
+## For instance, here is what you could do in order to modify the serial of
+## 'cert' and then resign it with whatever 'key':
+##     f = open('cert.der')
+##     c = X509_Cert(f.read())
+##     c.tbsCertificate.serialNumber = 0x4B1D
+##     k = PrivKey('key.pem')
+##     new_x509_cert = k.resignCert(c)
+## No need for obnoxious openssl tweaking anymore. :)
 
 import os, time
 import base64
@@ -52,10 +39,12 @@ from tls_crypto.tls_ecurves import import_curve
 from scapy.asn1.mib import *
 #XXX we just need to create conf.mib from mib.py, it might be done better
 from scapy.asn1.asn1 import ASN1_BIT_STRING, ASN1_INTEGER
-from scapy.layers.x509 import RSAPublicKey, X509_SubjectPublicKeyInfo
-from scapy.layers.x509 import RSAPrivateKey, X509_Cert, X509_CRL
-from scapy.layers.x509 import ECDSAPublicKey, ECDSAPrivateKey
-from scapy.layers.x509 import X509_TBSCertificate
+from scapy.layers.x509 import *
+#from scapy.layers.x509 import X509_SubjectPublicKeyInfo
+#from scapy.layers.x509 import RSAPublicKey, RSAPrivateKey
+#from scapy.layers.x509 import ECDSAPublicKey, ECDSAPrivateKey
+#from scapy.layers.x509 import RSAPrivateKey_OpenSSL, ECDSAPrivateKey_OpenSSL
+#from scapy.layers.x509 import X509_TBSCertificate, X509_Cert, X509_CRL
 from scapy.utils import binrepr
 
 import ecdsa
@@ -121,8 +110,9 @@ class _PKIObj(object):
         return self.der
 
 class _PKIObjMaker(type):
-    def __call__(cls, obj_path, obj_max_size, pem_marker):
+    def __call__(cls, obj_path, obj_max_size, pem_marker=None):
         # This enables transparent DER and PEM-encoded data imports.
+        # Note that when importing a PEM file with multiple objects (like ECDSA private keys output by openssl), it will concatenate every object in order to create a 'der' attribute. When converting a 'multi' DER file into a PEM file, though, the PEM attribute will not be valid.
         error_msg = "Unable to import data"
  
  	if obj_path is None:
@@ -145,11 +135,16 @@ class _PKIObjMaker(type):
             if "-----BEGIN" in raw:
                 frmt = "PEM"
                 pem = raw
-                der = PEMtoDER(raw)
+                der_list = multiPEMtoPEMarray(raw)
+                der = ''.join(map(PEMtoDER, der_list))
             else:
                 frmt = "DER"
                 der = raw
-                pem = DERtoPEM(raw, pem_marker)
+                pem = ""
+                if pem_marker is not None:
+                    pem = DERtoPEM(raw, pem_marker)
+                # type identification may be needed for pem_marker
+                # in such case, the pem attribute has to be updated
         except:
             raise Exception(error_msg)
 
@@ -182,28 +177,32 @@ class _PubKeyFactory(_PKIObjMaker):
         # _an X509_SubjectPublicKeyInfo, as processed by openssl;
         # _an RSAPublicKey;
         # _an ECDSAPublicKey.
-        obj = _PKIObjMaker.__call__(cls, key_path, MAX_KEY_SIZE, "PUBLIC KEY")
+        obj = _PKIObjMaker.__call__(cls, key_path, MAX_KEY_SIZE)
         try:
             spki = X509_SubjectPublicKeyInfo(obj.der)
             pubkey = spki.subjectPublicKey
-            if type(pubkey) is RSAPublicKey:
+            if isinstance(pubkey, RSAPublicKey):
                 obj.__class__ = PubKeyRSA
-            else:
-                # type(pubkey) should be ASN1_BIT_STRING
+                obj.updateWith(pubkey)
+            elif isinstance(pubkey, ECDSAPublicKey):
                 obj.__class__ = PubKeyECDSA
+                obj.updateWith(spki)
+            else:
+                raise Exception("Unsupported publicKey type")
+            marker = "PUBLIC KEY"
         except:
             try:
                 pubkey = RSAPublicKey(obj.der)
                 obj.__class__ = PubKeyRSA
+                obj.updateWith(pubkey)
+                marker = "RSA PUBLIC KEY"
             except:
-                try:
-                    pubkey = ECDSAPublicKey(obj.der)
-                    obj.__class__ = PubKeyECDSA
-                except:
-                    raise Exception("Unable to import public key")
-        obj.updateWith(spki)
-        return obj
+                # We cannot import an ECDSA public key without curve knowledge
+                raise Exception("Unable to import public key")
 
+        if obj.frmt == "DER":
+            obj.pem = DERtoPEM(obj.der, marker)
+        return obj
 
 class PubKey(object):
     __metaclass__ = _PubKeyFactory
@@ -219,12 +218,14 @@ class PubKey(object):
                            sigdecode=ecdsa.util.sigdecode_der)
 
 class PubKeyRSA(_PKIObj, PubKey, _EncryptAndVerifyRSA):
-    def updateWith(self, spki):
-        pubkey = spki.subjectPublicKey
+    def updateWith(self, pubkey):
         self.modulus    = pubkey.modulus.val
         self.modulusLen = len(binrepr(pubkey.modulus.val))
         self.pubExp     = pubkey.publicExponent.val
         self.key = RSA.construct((self.modulus, self.pubExp, ))
+    def encrypt(self, msg, t=None, h=None, mgf=None, L=None):
+        # no ECDSA encryption support, hence no ECDSA specific keywords here
+        return _EncryptAndVerifyRSA.encrypt(self, msg, t=t, h=h, mgf=mgf, L=L)
     def verify(self, msg, sig, h=None,
                t=None, mgf=None, sLen=None,
                sigdecode=None):
@@ -250,6 +251,9 @@ class PubKeyECDSA(_PKIObj, PubKey):
                                          p.base.val,
                                          p.order.val)
             self.key = ecdsa.VerifyingKey.from_string(s, c)
+    def encrypt(self, msg, t=None, h=None, mgf=None, L=None):
+        #XXX python-ecdsa does not seem to have an encrypt() function
+        raise Exception("No ECDSA encryption support")
     def verify(self, msg, sig, h=None,
                t=None, mgf=None, sLen=None,
                sigdecode=ecdsa.util.sigdecode_string):
@@ -265,18 +269,45 @@ class PubKeyECDSA(_PKIObj, PubKey):
 
 class _PrivKeyFactory(_PKIObjMaker):
     def __call__(cls, key_path):
-        obj = _PKIObjMaker.__call__(cls, key_path, MAX_KEY_SIZE, "PRIVATE KEY")
-        # /!\ openssl outputs "RSA PRIVATE KEY" and "EC PRIVATE KEY"
+        # key_path may be the path to either:
+        # _an RSAPrivateKey_OpenSSL (as generated by openssl);
+        # _an ECDSAPrivateKey_OpenSSL (as generated by openssl);
+        # _an RSAPrivateKey;
+        # _an ECDSAPrivateKey.
+        obj = _PKIObjMaker.__call__(cls, key_path, MAX_KEY_SIZE)
+        multiPEM = False
         try:
-            privkey = RSAPrivateKey(obj.der)
+            privkey = RSAPrivateKey_OpenSSL(obj.der)
+            privkey = privkey.privateKey
             obj.__class__ = PrivKeyRSA
+            marker = "PRIVATE KEY"
         except:
             try:
-                privkey = ECDSAPrivateKey(obj.der)
+                privkey = ECDSAPrivateKey_OpenSSL(obj.der)
+                privkey = privkey.privateKey
                 obj.__class__ = PrivKeyECDSA
+                marker = "EC PRIVATE KEY"
+                multiPEM = True
             except:
-                raise Exception("Unable to import private key")
+                try:
+                    privkey = RSAPrivateKey(obj.der)
+                    obj.__class__ = PrivKeyRSA
+                    marker = "RSA PRIVATE KEY"
+                except:
+                    try:
+                        privkey = ECDSAPrivateKey(obj.der)
+                        obj.__class__ = PrivKeyECDSA
+                        marker = "EC PRIVATE KEY"
+                    except:
+                        raise Exception("Unable to import private key")
         obj.updateWith(privkey)
+
+        if obj.frmt == "DER":
+            if multiPEM:
+                # this does not restore the EC PARAMETERS header
+                obj.pem = DERtoPEM(str(privkey), marker)
+            else:
+                obj.pem = DERtoPEM(obj.der, marker)
         return obj
 
 class PrivKey(object):
@@ -452,6 +483,10 @@ class Cert(_PKIObj):
         if self.issuer_hash == self.subject_hash:
             return self.isIssuerCert(self)
         return False
+
+    def encrypt(self, msg, t=None, h=None, mgf=None, L=None):
+        # no ECDSA encryption support, hence only RSA specific keywords here
+        return self.pubKey.encrypt(msg, t=t, h=h, mgf=mgf, L=L)
 
     def verify(self, msg, sig, h=None,
                t=None, mgf=None, sLen=None,

@@ -1,25 +1,14 @@
+## This file is part of Scapy
+## Copyright (C) 2008 Arnaud Ebalard <arno@natisbad.org>
+##         2015, 2016 Maxence Tury <maxence.tury@ssi.gouv.fr>
+## This program is published under a GPLv2 license
 
-#############################################################################
-##                                                                         ##
-## pkcs1.py --- PKCS #1 methods as defined in RFC 3447                     ##
-##                                                                         ##
-## Copyright (C) 2008 Arnaud Ebalard   <arnaud.ebalard@eads.net>           ##
-##                                     <arno@natisbad.org>                 ##
-##         2015, 2016 Maxence Tury     <maxence.tury@ssi.gouv.fr>          ##
-##                                                                         ##
-## This program is free software; you can redistribute it and/or modify it ##
-## under the terms of the GNU General Public License version 2 as          ##
-## published by the Free Software Foundation; version 2.                   ##
-##                                                                         ##
-## This program is distributed in the hope that it will be useful, but     ##
-## WITHOUT ANY WARRANTY; without even the implied warranty of              ##
-## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU       ##
-## General Public License for more details.                                ##
-##                                                                         ##
-#############################################################################
+"""
+PKCS #1 methods as defined in RFC 3447.
+"""
 
 import os, popen2, tempfile
-import math, random
+import math, random, struct
 try:
     HAS_HASHLIB=True
     import hashlib
@@ -80,7 +69,7 @@ def pkcs_os2ip(x):
     """
     return int(x.encode("hex"), 16)
 
-# IP2OS function defined in RFC 3447 for octet string to integer conversion
+# I2OSP function defined in RFC 3447 for integer to octet string conversion
 def pkcs_i2osp(x, xLen):
     """
     Converts a long (the first parameter) to the associated byte string
@@ -90,12 +79,26 @@ def pkcs_i2osp(x, xLen):
     Input : x        nonnegative integer to be converted
             xLen     intended length of the resulting octet string
 
-    Output: x        corresponding nonnegative integer
+    Output: x        corresponding octet string
 
     Reverse function is pkcs_os2ip().
     """
+    # The user is responsible for providing an appropriate xLen.
+    #if x >= 256**xLen:
+    #    raise Exception("Integer too large for provided xLen %d" % xLen)
     fmt = "%%0%dx" % (2*xLen)
     return (fmt % x).decode("hex")
+
+def pkcs_ilen(n):
+    """
+    This is a log base 256 which determines the minimum octet string
+    length for unequivocal representation of integer n by pkcs_i2osp.
+    """
+    i = 0
+    while n > 0:
+        n >>= 8
+        i += 1
+    return i
 
 # for every hash function a tuple is provided, giving access to 
 # - hash output length in byte
