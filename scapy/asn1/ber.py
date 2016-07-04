@@ -96,9 +96,11 @@ def BER_num_dec(s, x=0):
             x |= c&0x7f
             if not c&0x80:
                 break
-        if c&0x80:
-            raise BER_Decoding_Error("BER_num_dec: unfinished number description", remaining=s)
-        return x, s[i+1:]
+        else:
+            if c&0x80:
+                raise BER_Decoding_Error("BER_num_dec: unfinished number description", remaining=s)
+            return x, s[i+1:]
+        return x, s[1:]
 
 # The function below provides low-tag and high-tag identifier partial support.
 # Class and primitive/constructed bit decoding is not supported yet.
@@ -412,7 +414,7 @@ class BERcodec_IPADDRESS(BERcodec_STRING):
         try:
             ipaddr_ascii = inet_ntoa(s)
         except Exception:
-            raise BER_Decoding_Error("IP address could not be decoded", decoded=obj)
+            raise BER_Decoding_Error("IP address could not be decoded", remaining=s)
         return cls.asn1_object(ipaddr_ascii), t
 
 class BERcodec_COUNTER32(BERcodec_INTEGER):
