@@ -90,17 +90,17 @@ def BER_num_enc(l, size=1):
             size -= 1
         return "".join([chr(k) for k in x])
 def BER_num_dec(s, x=0):
+        if len(s) == 0:
+            return x, s[1:]
         for i, c in enumerate(s):
             c = ord(c)
             x <<= 7
             x |= c&0x7f
             if not c&0x80:
                 break
-        else:
-            if c&0x80:
-                raise BER_Decoding_Error("BER_num_dec: unfinished number description", remaining=s)
-            return x, s[i+1:]
-        return x, s[1:]
+        if c&0x80:
+            raise BER_Decoding_Error("BER_num_dec: unfinished number description", remaining=s)
+        return x, s[i+1:]
 
 # The function below provides low-tag and high-tag identifier partial support.
 # Class and primitive/constructed bit decoding is not supported yet.
