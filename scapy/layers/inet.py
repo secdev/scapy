@@ -396,6 +396,8 @@ class IP(Packet, IPTools):
              and (self.payload.type in [3,4,5,11,12]) ):
             return self.payload.payload.hashret()
         else:
+            if self.dst == "224.0.0.251":  # mDNS
+                return struct.pack("B", self.proto) + self.payload.hashret()
             if conf.checkIPsrc and conf.checkIPaddr:
                 return strxor(inet_aton(self.src),inet_aton(self.dst))+struct.pack("B",self.proto)+self.payload.hashret()
             else:
@@ -403,8 +405,11 @@ class IP(Packet, IPTools):
     def answers(self, other):
         if not isinstance(other,IP):
             return 0
-        if conf.checkIPaddr and (self.dst != other.src):
-            return 0
+        if conf.checkIPaddr:
+            if other.dst == "224.0.0.251" and self.dst == "224.0.0.251":  # mDNS
+                return self.payload.answers(other.payload)
+            elif (self.dst != other.src):
+                return 0
         if ( (self.proto == socket.IPPROTO_ICMP) and
              (isinstance(self.payload, ICMP)) and
              (self.payload.type in [3,4,5,11,12]) ):
