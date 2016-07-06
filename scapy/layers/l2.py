@@ -262,65 +262,265 @@ class STP(Packet):
                     BCDFloatField("fwddelay", 15) ]
 
 
+
+#
+# EAPOL
+#
+
+#________________________________________________________________________
+#
+# EAPOL protocol version
+# IEEE Std 802.1X-2010 - Section 11.3.1
+#________________________________________________________________________
+#
+
+eapol_versions = {
+    0x1: "802.1X-2001",
+    0x2: "802.1X-2004",
+    0x3: "802.1X-2010",
+}
+
+#________________________________________________________________________
+#
+# EAPOL Packet Types
+# IEEE Std 802.1X-2010 - Table 11.3
+#________________________________________________________________________
+#
+
+eapol_types = {
+    0x0: "EAP-Packet",  # "EAPOL-EAP" in 801.1X-2010
+    0x1: "EAPOL-Start",
+    0x2: "EAPOL-Logoff",
+    0x3: "EAPOL-Key",
+    0x4: "EAPOL-Encapsulated-ASF-Alert",
+    0x5: "EAPOL-MKA",
+    0x6: "EAPOL-Announcement (Generic)",
+    0x7: "EAPOL-Announcement (Specific)",
+    0x8: "EAPOL-Announcement-Req"
+}
+
+
 class EAPOL(Packet):
+
+    """
+    EAPOL - IEEE Std 802.1X-2010
+    """
+
     name = "EAPOL"
-    fields_desc = [ ByteField("version", 1),
-                    ByteEnumField("type", 0, ["EAP_PACKET", "START", "LOGOFF", "KEY", "ASF"]),
-                    LenField("len", None, "H") ]
-    
-    EAP_PACKET= 0
+    fields_desc = [
+        ByteEnumField("version", 1, eapol_versions),
+        ByteEnumField("type", 0, eapol_types),
+        LenField("len", None, "H")
+    ]
+
+    EAP_PACKET = 0
     START = 1
     LOGOFF = 2
     KEY = 3
     ASF = 4
+
     def extract_padding(self, s):
         l = self.len
-        return s[:l],s[l:]
+        return s[:l], s[l:]
+
     def hashret(self):
-        return chr(self.type)+self.payload.hashret()
+        return chr(self.type) + self.payload.hashret()
+
     def answers(self, other):
-        if isinstance(other,EAPOL):
-            if ( (self.type == self.EAP_PACKET) and
-                 (other.type == self.EAP_PACKET) ):
+        if isinstance(other, EAPOL):
+            if ((self.type == self.EAP_PACKET) and
+               (other.type == self.EAP_PACKET)):
                 return self.payload.answers(other.payload)
         return 0
+
     def mysummary(self):
         return self.sprintf("EAPOL %EAPOL.type%")
-             
+
+
+#
+# EAP
+#
+
+
+#________________________________________________________________________
+#
+# EAP methods types
+# http://www.iana.org/assignments/eap-numbers/eap-numbers.xhtml#eap-numbers-4
+#________________________________________________________________________
+#
+
+eap_types = {
+    0:   "Reserved",
+    1:   "Identity",
+    2:   "Notification",
+    3:   "Legacy Nak",
+    4:   "MD5-Challenge",
+    5:   "One-Time Password (OTP)",
+    6:   "Generic Token Card (GTC)",
+    7:   "Allocated - RFC3748",
+    8:   "Allocated - RFC3748",
+    9:   "RSA Public Key Authentication",
+    10:  "DSS Unilateral",
+    11:  "KEA",
+    12:  "KEA-VALIDATE",
+    13:  "EAP-TLS",
+    14:  "Defender Token (AXENT)",
+    15:  "RSA Security SecurID EAP",
+    16:  "Arcot Systems EAP",
+    17:  "EAP-Cisco Wireless",
+    18:  "GSM Subscriber Identity Modules (EAP-SIM)",
+    19:  "SRP-SHA1",
+    20:  "Unassigned",
+    21:  "EAP-TTLS",
+    22:  "Remote Access Service",
+    23:  "EAP-AKA Authentication",
+    24:  "EAP-3Com Wireless",
+    25:  "PEAP",
+    26:  "MS-EAP-Authentication",
+    27:  "Mutual Authentication w/Key Exchange (MAKE)",
+    28:  "CRYPTOCard",
+    29:  "EAP-MSCHAP-V2",
+    30:  "DynamID",
+    31:  "Rob EAP",
+    32:  "Protected One-Time Password",
+    33:  "MS-Authentication-TLV",
+    34:  "SentriNET",
+    35:  "EAP-Actiontec Wireless",
+    36:  "Cogent Systems Biometrics Authentication EAP",
+    37:  "AirFortress EAP",
+    38:  "EAP-HTTP Digest",
+    39:  "SecureSuite EAP",
+    40:  "DeviceConnect EAP",
+    41:  "EAP-SPEKE",
+    42:  "EAP-MOBAC",
+    43:  "EAP-FAST",
+    44:  "ZoneLabs EAP (ZLXEAP)",
+    45:  "EAP-Link",
+    46:  "EAP-PAX",
+    47:  "EAP-PSK",
+    48:  "EAP-SAKE",
+    49:  "EAP-IKEv2",
+    50:  "EAP-AKA",
+    51:  "EAP-GPSK",
+    52:  "EAP-pwd",
+    53:  "EAP-EKE Version 1",
+    54:  "EAP Method Type for PT-EAP",
+    55:  "TEAP",
+    254: "Reserved for the Expanded Type",
+    255: "Experimental",
+}
+
+
+#________________________________________________________________________
+#
+# EAP codes
+# http://www.iana.org/assignments/eap-numbers/eap-numbers.xhtml#eap-numbers-1
+#________________________________________________________________________
+#
+
+eap_codes = {
+    1: "Request",
+    2: "Response",
+    3: "Success",
+    4: "Failure",
+    5: "Initiate",
+    6: "Finish"
+}
+
 
 class EAP(Packet):
-    name = "EAP"
-    fields_desc = [ ByteEnumField("code", 4, {1:"REQUEST",2:"RESPONSE",3:"SUCCESS",4:"FAILURE"}),
-                    ByteField("id", 0),
-                    ShortField("len",None),
-                    ConditionalField(ByteEnumField("type",0, {1:"ID",4:"MD5"}), lambda pkt:pkt.code not in [EAP.SUCCESS, EAP.FAILURE])
 
-                                     ]
-    
+    """
+    RFC 3748 - Extensible Authentication Protocol (EAP)
+    """
+
+    name = "EAP"
+    fields_desc = [
+        ByteEnumField("code", 4, eap_codes),
+        ByteField("id", 0),
+        ShortField("len", None),
+        ConditionalField(ByteEnumField("type", 0, eap_types),
+                         lambda pkt:pkt.code not in [
+                             EAP.SUCCESS, EAP.FAILURE]),
+        ConditionalField(ByteEnumField("desired_auth_type", 0, eap_types),
+                         lambda pkt:pkt.code == EAP.RESPONSE and pkt.type == 3),
+        ConditionalField(
+            StrLenField("identity", '', length_from=lambda pkt: pkt.len - 5),
+                         lambda pkt: pkt.code == EAP.RESPONSE and hasattr(pkt, 'type') and pkt.type == 1)
+    ]
+
+    #________________________________________________________________________
+    #
+    # EAP codes
+    # http://www.iana.org/assignments/eap-numbers/eap-numbers.xhtml#eap-numbers-1
+    #________________________________________________________________________
+    #
+
     REQUEST = 1
     RESPONSE = 2
     SUCCESS = 3
     FAILURE = 4
-    TYPE_ID = 1
-    TYPE_MD5 = 4
+    INITIATE = 5
+    FINISH = 6
+
     def answers(self, other):
-        if isinstance(other,EAP):
+        if isinstance(other, EAP):
             if self.code == self.REQUEST:
                 return 0
             elif self.code == self.RESPONSE:
-                if ( (other.code == self.REQUEST) and
-                     (other.type == self.type) ):
+                if ((other.code == self.REQUEST) and
+                   (other.type == self.type)):
                     return 1
             elif other.code == self.RESPONSE:
                 return 1
         return 0
-    
+
     def post_build(self, p, pay):
         if self.len is None:
-            l = len(p)+len(pay)
-            p = p[:2]+chr((l>>8)&0xff)+chr(l&0xff)+p[4:]
-        return p+pay
-             
+            l = len(p) + len(pay)
+            p = p[:2] + chr((l >> 8) & 0xff) + chr(l & 0xff) + p[4:]
+        return p + pay
+
+
+class EAP_TLS(Packet):
+
+    """
+    RFC 5216 - "The EAP-TLS Authentication Protocol"
+    """
+
+    name = "EAP-TLS"
+    fields_desc = [
+        BitField('L', 0, 1),
+        BitField('M', 0, 1),
+        BitField('S', 0, 1),
+        BitField('reserved', 0, 5),
+        ConditionalField(
+            IntField('tls_message_len', 0), lambda pkt: pkt.L == 1),
+        ConditionalField(
+            StrLenField('tls_data', '', length_from=lambda pkt: pkt.tls_message_len), lambda pkt: pkt.L == 1)
+    ]
+
+
+class EAP_FAST(Packet):
+
+    """
+    RFC 4851 - "The Flexible Authentication via Secure Tunneling
+    Extensible Authentication Protocol Method (EAP-FAST)"
+    """
+
+    name = "EAP-FAST"
+    fields_desc = [
+        BitField('L', 0, 1),
+        BitField('M', 0, 1),
+        BitField('S', 0, 1),
+        BitField('reserved', 0, 2),
+        BitField('version', 0, 3),
+        ConditionalField(IntField('message_len', 0), lambda pkt: pkt.L == 1),
+        ConditionalField(
+            StrLenField('data', '', length_from=lambda pkt: pkt.message_len), lambda pkt: pkt.L == 1)
+    ]
+
+
 
 class ARP(Packet):
     name = "ARP"
@@ -416,6 +616,8 @@ bind_layers( GRE,           GRErouting,    { "routing_present" : 1 } )
 bind_layers( GRErouting,    conf.raw_layer,{ "address_family" : 0, "SRE_len" : 0 })
 bind_layers( GRErouting,    GRErouting,    { } )
 bind_layers( EAPOL,         EAP,           type=0)
+bind_layers(EAP,           EAP_TLS,       type=13)
+bind_layers(EAP,           EAP_FAST,      type=43)
 bind_layers( LLC,           STP,           dsap=66, ssap=66, ctrl=3)
 bind_layers( LLC,           SNAP,          dsap=170, ssap=170, ctrl=3)
 bind_layers( SNAP,          Dot1Q,         code=33024)
