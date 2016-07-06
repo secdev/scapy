@@ -12,6 +12,7 @@ import time,itertools
 import copy
 from fields import StrField, ConditionalField, Emph, PacketListField, BitField, \
     MultiEnumField, EnumField, FlagsField
+from themes import AnsiColorTheme
 from config import conf
 from base_classes import BasePacket, Gen, SetGen, Packet_metaclass
 from volatile import VolatileValue
