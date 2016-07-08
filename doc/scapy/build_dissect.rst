@@ -1104,3 +1104,15 @@ Other protocols
     TimeStampField           # NTP (BitField)
 
 
+Design patterns
+===============
+Some patterns are similar to a lot of protocols and thus can be described the same way in Scapy.
+
+The following parts will present several models and conventions that can be followed when implementing a new protocol.
+
+Field naming convention
+-----------------------
+The goal is to keep the writing of packets fluent and intuitive. The basic instructions are the following :
+
+* Use inverted camel case and common abbreviations (e.g. len, src, dst, dstPort, srcIp).
+* Wherever it is either possible or relevant, prefer using the names from the specifications. This aims to help newcomers to easily forge packets.
