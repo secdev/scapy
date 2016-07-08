@@ -933,6 +933,26 @@ class LEFieldLenField(FieldLenField):
 
 
 class FlagsField(BitField):
+    """ Handle Flag type field
+
+   Make sure all your flags have a label
+
+   Example:
+       >>> from scapy.packet import Packet
+       >>> class FlagsTest(Packet):
+               fields_desc = [FlagsField("flags", 0, 8, ["f0", "f1", "f2", "f3", "f4", "f5", "f6", "f7"])]
+       >>> FlagsTest(flags=9).show2()
+       ###[ FlagsTest ]###
+         flags     = f0+f3
+       >>> FlagsTest(flags=0).show2().strip()
+       ###[ FlagsTest ]###
+         flags     =
+
+   :param name: field's name
+   :param default: default value for the field
+   :param size: number of bits in the field
+   :param names: (list or dict) label for each flag, Least Significant Bit tag's name is written first
+   """
     __slots__ = ["multi", "names"]
     def __init__(self, name, default, size, names):
         self.multi = type(names) is list
