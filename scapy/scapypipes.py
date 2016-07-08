@@ -101,7 +101,7 @@ class WrpcapSink(Sink):
         
 
 class UDPDrain(Drain):
-    """Apply a function to messages on low and high entry
+    """UDP payloads received on high entry are sent over UDP
      +-------------+
   >>-|--[payload]--|->>
      |      X      |
