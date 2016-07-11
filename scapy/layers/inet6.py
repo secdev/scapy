@@ -436,10 +436,10 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
                 nh = self.payload.nh # XXX what if another extension follows ?
                 ss = foundhao.hoa
 
-        if conf.checkIPsrc and conf.checkIPaddr:
+        if conf.checkIPsrc and conf.checkIPaddr and not in6_ismaddr(sd):
             sd = inet_pton(socket.AF_INET6, sd)
             ss = inet_pton(socket.AF_INET6, self.src)
-            return struct.pack("B",nh)+self.payload.hashret()
+            return strxor(sd, ss) + struct.pack("B", nh) + self.payload.hashret()
         else:
             return struct.pack("B", nh)+self.payload.hashret()
 
