@@ -19,6 +19,16 @@ class ASN1P_INTEGER(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_INTEGER("number", 0)
 
+class ASN1P_PRIVSEQ(ASN1_Packet):
+    # This class gets used in x509.uts
+    # It showcases the private high-tag decoding capacities of scapy.
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+            ASN1F_IA5_STRING("str", ""),
+            ASN1F_STRING("int", 0),
+            explicit_tag=0,
+            flexible_tag=True)
+
 
 #######################
 ##### RSA packets #####
@@ -36,7 +46,7 @@ class RSAPublicKey(ASN1_Packet):
                     ASN1F_INTEGER("publicExponent", 3))
 
 class RSAOtherPrimeInfo(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.DER
+    ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_SEQUENCE(
                     ASN1F_INTEGER("prime", 0),
                     ASN1F_INTEGER("exponent", 0),
@@ -610,9 +620,9 @@ class ASN1F_EXT_SEQUENCE(ASN1F_SEQUENCE):
                    explicit_tag=0x04)]
         ASN1F_SEQUENCE.__init__(self, *seq, **kargs)
     def dissect(self, pkt, s):
-        s = BER_tagging_dec(s, implicit_tag=self.implicit_tag,
-                            explicit_tag=self.explicit_tag,
-                            safe=self.flexible_tag)
+        _,s = BER_tagging_dec(s, implicit_tag=self.implicit_tag,
+                              explicit_tag=self.explicit_tag,
+                              safe=self.flexible_tag)
         codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
         i,s,remain = codec.check_type_check_len(s)
         extnID = self.seq[0]

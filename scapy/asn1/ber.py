@@ -89,7 +89,8 @@ def BER_num_enc(l, size=1):
             l >>= 7
             size -= 1
         return "".join([chr(k) for k in x])
-def BER_num_dec(s, x=0):
+def BER_num_dec(s, cls_id=0):
+        x = cls_id
         for i, c in enumerate(s):
             c = ord(c)
             x <<= 7
@@ -100,20 +101,46 @@ def BER_num_dec(s, x=0):
             raise BER_Decoding_Error("BER_num_dec: unfinished number description", remaining=s)
         return x, s[i+1:]
 
-# The function below provides low-tag and high-tag identifier partial support.
-# Class and primitive/constructed bit decoding is not supported yet.
-# For now Scapy considers this information to always be part of the identifier
-# e.g. we need BER_id_dec("\x30") to be 0x30 so that Scapy calls a SEQUENCE,
-# even though the real id is 0x10 once bit 6 (constructed) has been removed.
 def BER_id_dec(s):
+    # This returns the tag ALONG WITH THE PADDED CLASS+CONSTRUCTIVE INFO.
+    # Let's recall that bits 8-7 from the first byte of the tag encode
+    # the class information, while bit 6 means primitive or constructive.
+    # For instance, with low-tag-number '\x81', class would be 0b10
+    # ('context-specific') and tag 0x01, but we return 0x81 as a whole.
+    # For '\xff\x02', class would be 0b11 ('private'), constructed, then
+    # padding, then tag 0x02, but we return (0xff>>5)*128^1 + 0x02*128^0.
+    # Why the 5-bit-shifting? Because it provides an unequivocal encoding
+    # on base 128 (note that 0xff would equal 1*128^1 + 127*128^0...),
+    # as we know that bits 5 to 1 are fixed to 1 anyway.
+    # As long as there is no class differentiation, we have to keep this info
+    # encoded in scapy's tag in order to reuse it for packet building.
+    # Note that tags thus may have to be hard-coded with their extended
+    # information, e.g. a SEQUENCE from asn1.py has a direct tag 0x20|16.
         x = ord(s[0])
         if x & 0x1f != 0x1f:
+            # low-tag-number
             return x,s[1:]
-        return BER_num_dec(s[1:], x&0xe0)
+        else:
+            # high-tag-number
+            return BER_num_dec(s[1:], cls_id=x>>5)
+def BER_id_enc(n):
+        if n < 256:
+            # low-tag-number
+            return chr(n)
+        else:
+            # high-tag-number
+            s = BER_num_enc(n)
+            tag = ord(s[0])             # first byte, as an int
+            tag &= 0x07                 # reset every bit from 8 to 4
+            tag <<= 5                   # move back the info bits on top
+            tag |= 0x1f                 # pad with 1s every bit from 5 to 1
+            return chr(tag) + s[1:]
 
 # The functions below provide implicit and explicit tagging support.
 def BER_tagging_dec(s, hidden_tag=None, implicit_tag=None,
                     explicit_tag=None, safe=False):
+    # We output the 'real_tag' if it is different from the (im|ex)plicit_tag.
+    real_tag = None
     if len(s) > 0:
         err_msg = "BER_tagging_dec: observed tag does not match expected tag"
         if implicit_tag is not None:
@@ -121,20 +148,24 @@ def BER_tagging_dec(s, hidden_tag=None, implicit_tag=None,
             if ber_id != implicit_tag:
                 if not safe:
                     raise BER_Decoding_Error(err_msg, remaining=s)
+                else:
+                    real_tag = ber_id
             s = chr(hidden_tag) + s
         elif explicit_tag is not None:
             ber_id,s = BER_id_dec(s)
             if ber_id != explicit_tag:
                 if not safe:
                     raise BER_Decoding_Error(err_msg, remaining=s)
+                else:
+                    real_tag = ber_id
             l,s = BER_len_dec(s)
-    return s
+    return real_tag, s
 def BER_tagging_enc(s, implicit_tag=None, explicit_tag=None):
     if len(s) > 0:
         if implicit_tag is not None:
-            s = chr(implicit_tag) + s[1:]
+            s = BER_id_enc(implicit_tag) + s[1:]
         elif explicit_tag is not None:
-            s = chr(explicit_tag) + BER_len_enc(len(s)) + s
+            s = BER_id_enc(explicit_tag) + BER_len_enc(len(s)) + s
     return s
 
 #####[ BER classes ]#####
