@@ -32,7 +32,7 @@ class MIBDict(DADict):
             x += "."
         max=0
         root="."
-        for k in self.keys():
+        for k in self.iterkeys():
             if x.startswith(self[k]+"."):
                 if max < len(self[k]):
                     max = len(self[k])
@@ -50,9 +50,11 @@ class MIBDict(DADict):
             return x
         xl[p] = self[xl[p]] 
         return ".".join(xl[p:])
-    def _make_graph(self, other_keys=[], **kargs):
-        nodes = [(k,self[k]) for k in self.keys()]
-        oids = [self[k] for k in self.keys()]
+    def _make_graph(self, other_keys=None, **kargs):
+        if other_keys is None:
+            other_keys = []
+        nodes = [(k, self[k]) for k in self.iterkeys()]
+        oids = [self[k] for k in self.iterkeys()]
         for k in other_keys:
             if k not in oids:
                 nodes.append(self.oidname(k),k)
@@ -114,7 +116,7 @@ def mib_register(ident, value, the_mib, unresolved):
 def load_mib(filenames):
     the_mib = {'iso': ['1']}
     unresolved = {}
-    for k in conf.mib.keys():
+    for k in conf.mib.iterkeys():
         mib_register(k, conf.mib[k].split("."), the_mib, unresolved)
 
     if type(filenames) is str:

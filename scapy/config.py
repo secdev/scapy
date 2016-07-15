@@ -23,11 +23,10 @@ class ConfClass(object):
     def __repr__(self):
         return str(self)
     def __str__(self):
-        s=""
+        s = ""
         keys = self.__class__.__dict__.copy()
         keys.update(self.__dict__)
-        keys = keys.keys()
-        keys.sort()
+        keys = sorted(keys)
         for i in keys:
             if i[0] != "_":
                 r = repr(getattr(self, i))
@@ -363,8 +362,8 @@ extensions_paths: path or list of paths where extensions are to be looked for
     resolve = Resolve()
     noenum = Resolve()
     emph = Emphasize()
-    use_pcap = False
-    use_dnet = False
+    use_pcap = os.getenv("SCAPY_USE_PCAPDNET", "").lower().startswith("y")
+    use_dnet = os.getenv("SCAPY_USE_PCAPDNET", "").lower().startswith("y")
     use_bpf = False
     use_winpcapy = False
     ipv6_enabled = socket.has_ipv6

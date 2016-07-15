@@ -37,6 +37,35 @@ get_if_raw_addr(conf.iface).encode("hex")
 
 get_if_list()
 
+= Test read_routes6() - default output
+
+routes6 = read_routes6()
+# Expected results:
+# - one route if there is only the loopback interface
+# - three routes if there is a network interface
+
+if len(routes6):
+    iflist = get_if_list()
+    if iflist == [scapy.arch.LOOPBACK_NAME]:
+	len(routes6) == 1
+    elif len(iflist) >= 2:
+	len(routes6) >= 3
+    else:
+	False
+else:
+    # IPv6 seems disabled. Force a route to ::1
+    conf.route6.routes.append(("::1", 128, "::", LOOPBACK_NAME, ["::1"]))
+    True
+
+= Test read_routes6() - check mandatory routes
+
+if len(routes6):
+    assert(len(filter(lambda r: r[0] == "::1" and r[-1] == ["::1"], routes6)) >= 1)
+    if iflist >= 2:
+	assert(len(filter(lambda r: r[0] == "fe80::" and r[1] == 64, routes6)) >= 1)
+	len(filter(lambda r: in6_islladdr(r[0]) and r[1] == 128 and r[-1] == ["::1"], routes6)) >= 1
+else:
+    True
 
 ############
 ############
@@ -63,6 +92,7 @@ TCP in a
 a[TCP]
 a[TCP].dport=[80,443]
 a
+assert(a.copy().time == a.time)
 a=3
 
 
@@ -119,7 +149,7 @@ else:
 = equality
 ~ basic
 w=Ether()/IP()/UDP(dport=53)
-x=Ether()/IP(dst="127.0.0.1")/UDP()
+x=Ether()/IP(version=4)/UDP()
 y=Ether()/IP()/UDP(dport=4)
 z=Ether()/IP()/UDP()/NTP()
 t=Ether()/IP()/TCP()
@@ -4379,8 +4409,9 @@ builder = LargeTlvBuilder()
 builder.parse(plist)
 data = builder.get_data()
 assert len(data) == 1
-assert data.keys()[0].endswith(' [Detailed Icon Image]')
-assert data.values()[0] == 'abcdefg'
+key, value = data.popitem()
+assert key.endswith(' [Detailed Icon Image]')
+assert value == 'abcdefg'
 
 
 ############
@@ -4494,3 +4525,475 @@ assert bpkt.chksum == 0xf0bc and bpkt.payload.chksum == 0xbb17
 pkt = IP(len=42, ihl=6, options=[IPOption_RR()]) / UDP() / ("A" * 10)
 bpkt = IP(str(pkt))
 assert bpkt.chksum == 0xf0bc and bpkt.payload.chksum == 0xbb17
+
+= Layer binding
+
+* Test DestMACField & DestIPField
+pkt = Ether(str(Ether()/IP()/UDP(dport=5353)/DNS()))
+assert isinstance(pkt, Ether) and pkt.dst == '01:00:5e:00:00:fb'
+pkt = pkt.payload
+assert isinstance(pkt, IP) and pkt.dst == '224.0.0.251'
+pkt = pkt.payload
+assert isinstance(pkt, UDP) and pkt.dport == 5353
+pkt = pkt.payload
+assert isinstance(pkt, DNS) and isinstance(pkt.payload, NoPayload)
+
+* Same with IPv6
+pkt = Ether(str(Ether()/IPv6()/UDP(dport=5353)/DNS()))
+assert isinstance(pkt, Ether) and pkt.dst == '33:33:00:00:00:fb'
+pkt = pkt.payload
+assert isinstance(pkt, IPv6) and pkt.dst == 'ff02::fb'
+pkt = pkt.payload
+assert isinstance(pkt, UDP) and pkt.dport == 5353
+pkt = pkt.payload
+assert isinstance(pkt, DNS) and isinstance(pkt.payload, NoPayload)
+
++ Mocked read_routes6() calls
+
+= Preliminary definitions
+
+import mock
+import StringIO
+
+def valid_output_read_routes6(routes):
+    """"Return True if 'routes' contains correctly formatted entries, False otherwise"""
+    for destination, plen, next_hop, dev, cset  in routes:
+        if not in6_isvalid(destination) or not type(plen) == int:
+            return False
+        if not in6_isvalid(next_hop) or not type(dev) == str:
+            return False
+        for address in cset:
+            if not in6_isvalid(address):
+                return False
+    return True
+
+def check_mandatory_ipv6_routes(routes6):
+    """Ensure that mandatory IPv6 routes are present"""
+    if len(filter(lambda r: r[0] == "::1" and r[-1] == ["::1"], routes6)) < 1:
+        return False
+    if len(filter(lambda r: r[0] == "fe80::" and r[1] == 64, routes6)) < 1:
+        return False
+    if len(filter(lambda r: in6_islladdr(r[0]) and r[1] == 128 and \
+            r[-1] == ["::1"], routes6)) < 1:
+        return False
+    return True
+
+
+= Mac OS X 10.9.5
+
+@mock.patch("scapy.arch.unix.in6_getifaddr")
+@mock.patch("scapy.arch.unix.os")
+def test_osx_10_9_5(mock_os, mock_in6_getifaddr):
+    """Test read_routes6() on OS X 10.9.5"""
+    # 'netstat -rn -f inet6' output
+    netstat_output = """
+Routing tables
+
+Internet6:
+Destination                             Gateway                         Flags         Netif Expire
+::1                                     ::1                             UHL             lo0
+fe80::%lo0/64                           fe80::1%lo0                     UcI             lo0
+fe80::1%lo0                             link#1                          UHLI            lo0
+fe80::%en0/64                           link#4                          UCI             en0
+fe80::ba26:6cff:fe5f:4eee%en0           b8:26:6c:5f:4e:ee               UHLWIi          en0
+fe80::bae8:56ff:fe45:8ce6%en0           b8:e8:56:45:8c:e6               UHLI            lo0
+ff01::%lo0/32                           ::1                             UmCI            lo0
+ff01::%en0/32                           link#4                          UmCI            en0
+ff02::%lo0/32                           ::1                             UmCI            lo0
+ff02::%en0/32                           link#4                          UmCI            en0
+"""
+    # Mocked file descriptor
+    strio = StringIO.StringIO(netstat_output)
+    mock_os.popen = mock.MagicMock(return_value=strio)
+    # Mocked in6_getifaddr() output
+    mock_in6_getifaddr.return_value = [("::1", IPV6_ADDR_LOOPBACK, "lo0"),
+                                       ("fe80::ba26:6cff:fe5f:4eee", IPV6_ADDR_LINKLOCAL, "en0")]
+    # Test the function
+    from scapy.arch.unix import read_routes6
+    routes = read_routes6()
+    for r in routes:
+        print r
+    assert(len(routes) == 6)
+    assert(check_mandatory_ipv6_routes(routes))
+
+test_osx_10_9_5()
+
+
+= Mac OS X 10.9.5 with global IPv6 connectivity
+@mock.patch("scapy.arch.unix.in6_getifaddr")
+@mock.patch("scapy.arch.unix.os")
+def test_osx_10_9_5_global(mock_os, mock_in6_getifaddr):
+    """Test read_routes6() on OS X 10.9.5 with an IPv6 connectivity"""
+    # 'netstat -rn -f inet6' output
+    netstat_output = """
+Routing tables
+
+Internet6:
+Destination                             Gateway                         Flags         Netif Expire
+default                                 fe80::ba26:8aff:fe5f:4eef%en0   UGc             en0
+::1                                     ::1                             UHL             lo0
+2a01:ab09:7d:1f01::/64                  link#4                          UC              en0
+2a01:ab09:7d:1f01:420:205c:9fab:5be7    b8:e9:55:44:7c:e5               UHL             lo0
+2a01:ab09:7d:1f01:ba26:8aff:fe5f:4eef   b8:26:8a:5f:4e:ef               UHLWI           en0
+2a01:ab09:7d:1f01:bae9:55ff:fe44:7ce5   b8:e9:55:44:7c:e5               UHL             lo0
+fe80::%lo0/64                           fe80::1%lo0                     UcI             lo0
+fe80::1%lo0                             link#1                          UHLI            lo0
+fe80::%en0/64                           link#4                          UCI             en0
+fe80::5664:d9ff:fe79:4e00%en0           54:64:d9:79:4e:0                UHLWI           en0
+fe80::6ead:f8ff:fe74:945a%en0           6c:ad:f8:74:94:5a               UHLWI           en0
+fe80::a2f3:c1ff:fec4:5b50%en0           a0:f3:c1:c4:5b:50               UHLWI           en0
+fe80::ba26:8aff:fe5f:4eef%en0           b8:26:8a:5f:4e:ef               UHLWIir         en0
+fe80::bae9:55ff:fe44:7ce5%en0           b8:e9:55:44:7c:e5               UHLI            lo0
+ff01::%lo0/32                           ::1                             UmCI            lo0
+ff01::%en0/32                           link#4                          UmCI            en0
+ff02::%lo0/32                           ::1                             UmCI            lo
+"""
+    # Mocked file descriptor
+    strio = StringIO.StringIO(netstat_output)
+    mock_os.popen = mock.MagicMock(return_value=strio)
+    # Mocked in6_getifaddr() output
+    mock_in6_getifaddr.return_value = [("::1", IPV6_ADDR_LOOPBACK, "lo0"),
+                                       ("fe80::ba26:6cff:fe5f:4eee", IPV6_ADDR_LINKLOCAL, "en0")]
+    # Test the function
+    from scapy.arch.unix import read_routes6
+    routes = read_routes6()
+    assert(valid_output_read_routes6(routes))
+    for r in routes:
+        print r
+    assert(len(routes) == 11)
+    assert(check_mandatory_ipv6_routes(routes))
+
+test_osx_10_9_5_global()
+
+
+= Mac OS X 10.10.4
+
+@mock.patch("scapy.arch.unix.in6_getifaddr")
+@mock.patch("scapy.arch.unix.os")
+def test_osx_10_10_4(mock_os, mock_in6_getifaddr):
+    """Test read_routes6() on OS X 10.10.4"""
+    # 'netstat -rn -f inet6' output
+    netstat_output = """
+Routing tables
+
+Internet6:
+Destination                             Gateway                         Flags         Netif Expire
+::1                                     ::1                             UHL             lo0
+fe80::%lo0/64                           fe80::1%lo0                     UcI             lo0
+fe80::1%lo0                             link#1                          UHLI            lo0
+fe80::%en0/64                           link#4                          UCI             en0
+fe80::a00:27ff:fe9b:c965%en0            8:0:27:9b:c9:65                 UHLI            lo0
+ff01::%lo0/32                           ::1                             UmCI            lo0
+ff01::%en0/32                           link#4                          UmCI            en0
+ff02::%lo0/32                           ::1                             UmCI            lo0
+ff02::%en0/32                           link#4                          UmCI            en0
+"""
+    # Mocked file descriptor
+    strio = StringIO.StringIO(netstat_output)
+    mock_os.popen = mock.MagicMock(return_value=strio)
+    # Mocked in6_getifaddr() output
+    mock_in6_getifaddr.return_value = [("::1", IPV6_ADDR_LOOPBACK, "lo0"),
+                                       ("fe80::a00:27ff:fe9b:c965", IPV6_ADDR_LINKLOCAL, "en0")]
+    # Test the function
+    from scapy.arch.unix import read_routes6
+    routes = read_routes6()
+    for r in routes:
+        print r
+    assert(len(routes) == 5)
+    assert(check_mandatory_ipv6_routes(routes))
+
+test_osx_10_10_4()
+
+
+= FreeBSD 10.2
+
+@mock.patch("scapy.arch.unix.in6_getifaddr")
+@mock.patch("scapy.arch.unix.os")
+def test_freebsd_10_2(mock_os, mock_in6_getifaddr):
+    """Test read_routes6() on FreeBSD 10.2"""
+    # 'netstat -rn -f inet6' output
+    netstat_output = """
+Routing tables
+
+Internet6:
+Destination                       Gateway                       Flags      Netif Expire
+::/96                             ::1                           UGRS        lo0
+::1                               link#2                        UH          lo0
+::ffff:0.0.0.0/96                 ::1                           UGRS        lo0
+fe80::/10                         ::1                           UGRS        lo0
+fe80::%lo0/64                     link#2                        U           lo0
+fe80::1%lo0                       link#2                        UHS         lo0
+ff01::%lo0/32                     ::1                           U           lo0
+ff02::/16                         ::1                           UGRS        lo0
+ff02::%lo0/32                     ::1                           U           lo0
+"""
+    # Mocked file descriptor
+    strio = StringIO.StringIO(netstat_output)
+    mock_os.popen = mock.MagicMock(return_value=strio)
+    # Mocked in6_getifaddr() output
+    mock_in6_getifaddr.return_value = [("::1", IPV6_ADDR_LOOPBACK, "lo0")]
+    # Test the function
+    from scapy.arch.unix import read_routes6
+    routes = read_routes6()
+    for r in routes:
+        print r
+    assert(len(routes) == 3)
+    assert(check_mandatory_ipv6_routes(routes))
+
+test_freebsd_10_2()
+
+
+= OpenBSD 5.5
+
+@mock.patch("scapy.arch.OPENBSD")
+@mock.patch("scapy.arch.unix.in6_getifaddr")
+@mock.patch("scapy.arch.unix.os")
+def test_openbsd_5_5(mock_os, mock_in6_getifaddr, mock_openbsd):
+    """Test read_routes6() on OpenBSD 5.5"""
+    # 'netstat -rn -f inet6' output
+    netstat_output = """
+Routing tables
+
+Internet6:
+Destination                        Gateway                        Flags   Refs      Use   Mtu  Prio Iface
+::/104                             ::1                            UGRS       0        0     -     8 lo0  
+::/96                              ::1                            UGRS       0        0     -     8 lo0  
+::1                                ::1                            UH        14        0 33144     4 lo0  
+::127.0.0.0/104                    ::1                            UGRS       0        0     -     8 lo0  
+::224.0.0.0/100                    ::1                            UGRS       0        0     -     8 lo0  
+::255.0.0.0/104                    ::1                            UGRS       0        0     -     8 lo0  
+::ffff:0.0.0.0/96                  ::1                            UGRS       0        0     -     8 lo0  
+2002::/24                          ::1                            UGRS       0        0     -     8 lo0  
+2002:7f00::/24                     ::1                            UGRS       0        0     -     8 lo0  
+2002:e000::/20                     ::1                            UGRS       0        0     -     8 lo0  
+2002:ff00::/24                     ::1                            UGRS       0        0     -     8 lo0  
+fe80::/10                          ::1                            UGRS       0        0     -     8 lo0  
+fe80::%em0/64                      link#1                         UC         0        0     -     4 em0  
+fe80::a00:27ff:fe04:59bf%em0       08:00:27:04:59:bf              UHL        0        0     -     4 lo0  
+fe80::%lo0/64                      fe80::1%lo0                    U          0        0     -     4 lo0  
+fe80::1%lo0                        link#3                         UHL        0        0     -     4 lo0  
+fec0::/10                          ::1                            UGRS       0        0     -     8 lo0  
+ff01::/16                          ::1                            UGRS       0        0     -     8 lo0  
+ff01::%em0/32                      link#1                         UC         0        0     -     4 em0  
+ff01::%lo0/32                      fe80::1%lo0                    UC         0        0     -     4 lo0  
+ff02::/16                          ::1                            UGRS       0        0     -     8 lo0  
+ff02::%em0/32                      link#1                         UC         0        0     -     4 em0  
+ff02::%lo0/32                      fe80::1%lo0                    UC         0        0     -     4 lo0 
+"""
+    # Mocked file descriptor
+    strio = StringIO.StringIO(netstat_output)
+    mock_os.popen = mock.MagicMock(return_value=strio)
+    
+    # Mocked in6_getifaddr() output
+    mock_in6_getifaddr.return_value = [("::1", IPV6_ADDR_LOOPBACK, "lo0"),
+                                       ("fe80::a00:27ff:fe04:59bf", IPV6_ADDR_LINKLOCAL, "em0")]
+    # Mocked OpenBSD parsing behavior
+    mock_openbsd = True
+    # Test the function
+    from scapy.arch.unix import read_routes6
+    routes = read_routes6()
+    for r in routes:
+        print r
+    assert(len(routes) == 5)
+    assert(check_mandatory_ipv6_routes(routes))
+
+test_openbsd_5_5()
+
+
+= NetBSD 7.0
+
+@mock.patch("scapy.arch.NETBSD")
+@mock.patch("scapy.arch.unix.in6_getifaddr")
+@mock.patch("scapy.arch.unix.os")
+def test_netbsd_7_0(mock_os, mock_in6_getifaddr, mock_netbsd):
+    """Test read_routes6() on NetBSD 7.0"""
+    # 'netstat -rn -f inet6' output
+    netstat_output = """
+Routing tables
+
+Internet6:
+Destination                        Gateway                        Flags    Refs      Use    Mtu Interface
+::/104                             ::1                            UGRS        -        -      -  lo0
+::/96                              ::1                            UGRS        -        -      -  lo0
+::1                                ::1                            UH          -        -  33648  lo0
+::127.0.0.0/104                    ::1                            UGRS        -        -      -  lo0
+::224.0.0.0/100                    ::1                            UGRS        -        -      -  lo0
+::255.0.0.0/104                    ::1                            UGRS        -        -      -  lo0
+::ffff:0.0.0.0/96                  ::1                            UGRS        -        -      -  lo0
+2001:db8::/32                      ::1                            UGRS        -        -      -  lo0
+2002::/24                          ::1                            UGRS        -        -      -  lo0
+2002:7f00::/24                     ::1                            UGRS        -        -      -  lo0
+2002:e000::/20                     ::1                            UGRS        -        -      -  lo0
+2002:ff00::/24                     ::1                            UGRS        -        -      -  lo0
+fe80::/10                          ::1                            UGRS        -        -      -  lo0
+fe80::%wm0/64                      link#1                         UC          -        -      -  wm0
+fe80::acd1:3989:180e:fde0          08:00:27:a1:64:d8              UHL         -        -      -  lo0
+fe80::%lo0/64                      fe80::1                        U           -        -      -  lo0
+fe80::1                            link#2                         UHL         -        -      -  lo0
+ff01:1::/32                        link#1                         UC          -        -      -  wm0
+ff01:2::/32                        ::1                            UC          -        -      -  lo0
+ff02::%wm0/32                      link#1                         UC          -        -      -  wm0
+ff02::%lo0/32                      ::1                            UC          -        -      -  lo0
+"""
+    # Mocked file descriptor
+    strio = StringIO.StringIO(netstat_output)
+    mock_os.popen = mock.MagicMock(return_value=strio)
+    # Mocked in6_getifaddr() output
+    mock_in6_getifaddr.return_value = [("::1", IPV6_ADDR_LOOPBACK, "lo0"),
+                                       ("fe80::acd1:3989:180e:fde0", IPV6_ADDR_LINKLOCAL, "wm0")]
+    # Test the function
+    from scapy.arch.unix import read_routes6
+    routes = read_routes6()
+    for r in routes:
+        print r
+    assert(len(routes) == 5)
+    assert(check_mandatory_ipv6_routes(routes))
+
+test_netbsd_7_0()
+
+
+############
+############
+
+########### EAPOL Class ######################################
++ EAPOL class test
+
+= EAPOL - Basic Instantiation
+str(EAPOL()) == '\x01\x00\x00\x00'
+
+= EAPOL - Instantiation with specific values
+str(EAPOL(version = 3, type = 5)) == '\x03\x05\x00\x00'
+
+= EAPOL - Dissection (1)
+s = '\x03\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+eapol = EAPOL(s)
+eapol.version == 3
+eapol.type == 1
+eapol.len = 0
+
+= EAPOL - Dissection (2)
+s = '\x03\x00\x00\x05\x01\x01\x00\x05\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+eapol = EAPOL(s)
+eapol.version == 3
+eapol.type == 0
+eapol.len == 5
+
+= EAPOL - Dissection (3)
+s = '\x03\x00\x00\x0e\x02\x01\x00\x0e\x01anonymous\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+eapol = EAPOL(s)
+eapol.version == 3
+eapol.type == 0
+eapol.len == 14
+
+= EAPOL - Dissection (4)
+req = EAPOL('\x03\x00\x00\x05\x01\x01\x00\x05\x01')
+ans = EAPOL('\x03\x00\x00\x0e\x02\x01\x00\x0e\x01anonymous')
+ans.answers(req)
+
+= EAPOL - Dissection (5)
+s = '\x02\x00\x00\x06\x01\x01\x00\x06\r '
+eapol = EAPOL(s)
+eapol.version == 2
+eapol.type == 0
+eapol.len == 6
+eapol.haslayer(EAP_TLS)
+
+= EAPOL - Dissection (6)
+s = '\x03\x00\x00<\x02\x9e\x00<+\x01\x16\x03\x01\x001\x01\x00\x00-\x03\x01dr1\x93ZS\x0en\xad\x1f\xbaH\xbb\xfe6\xe6\xd0\xcb\xec\xd7\xc0\xd7\xb9\xa5\xc9\x0c\xfd\x98o\xa7T \x00\x00\x04\x004\x00\x00\x01\x00\x00\x00'
+eapol = EAPOL(s)
+eapol.version == 3
+eapol.type == 0
+eapol.len == 60
+eapol.haslayer(EAP_FAST)
+
+
+
+########## EAP Class ######################################
++ EAP class test
+
+= EAP - Basic Instantiation
+str(EAP()) == '\x04\x00\x00\x04'
+
+= EAP - Instantiation with specific values
+str(EAP(code = 1, id = 1, len = 5, type = 1)) == '\x01\x01\x00\x05\x01'
+
+= EAP - Dissection (1)
+s = '\x01\x01\x00\x05\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+eap = EAP(s)
+eap.code == 1
+eap.id == 1
+eap.len == 5
+hasattr(eap, "type")
+eap.type == 1
+
+= EAP - Dissection (2)
+s = '\x02\x01\x00\x0e\x01anonymous\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+eap = EAP(s)
+eap.code == 2
+eap.id == 1
+eap.len == 14
+eap.type == 1
+hasattr(eap, 'identity')
+eap.identity == 'anonymous'
+
+= EAP - Dissection (3)
+s = '\x01\x01\x00\x06\r '
+eap = EAP(s)
+eap.code == 1
+eap.id == 1
+eap.len == 6
+eap.type == 13
+eap.haslayer(EAP_TLS)
+eap[EAP_TLS].L == 0
+eap[EAP_TLS].M == 0
+eap[EAP_TLS].S == 1
+
+= EAP - Dissection (4)
+s = '\x02\x01\x00\xd1\r\x00\x16\x03\x01\x00\xc6\x01\x00\x00\xc2\x03\x01UK\x02\xdf\x1e\xde5\xab\xfa[\x15\xef\xbe\xa2\xe4`\xc6g\xb9\xa8\xaa%vAs\xb2\x1cXt\x1c0\xb7\x00\x00P\xc0\x14\xc0\n\x009\x008\x00\x88\x00\x87\xc0\x0f\xc0\x05\x005\x00\x84\xc0\x12\xc0\x08\x00\x16\x00\x13\xc0\r\xc0\x03\x00\n\xc0\x13\xc0\t\x003\x002\x00\x9a\x00\x99\x00E\x00D\xc0\x0e\xc0\x04\x00/\x00\x96\x00A\xc0\x11\xc0\x07\xc0\x0c\xc0\x02\x00\x05\x00\x04\x00\x15\x00\x12\x00\t\x00\xff\x01\x00\x00I\x00\x0b\x00\x04\x03\x00\x01\x02\x00\n\x004\x002\x00\x0e\x00\r\x00\x19\x00\x0b\x00\x0c\x00\x18\x00\t\x00\n\x00\x16\x00\x17\x00\x08\x00\x06\x00\x07\x00\x14\x00\x15\x00\x04\x00\x05\x00\x12\x00\x13\x00\x01\x00\x02\x00\x03\x00\x0f\x00\x10\x00\x11\x00#\x00\x00\x00\x0f\x00\x01\x01'
+eap = EAP(s)
+eap.code == 2
+eap.id == 1
+eap.len == 209
+eap.type == 13
+eap.haslayer(EAP_TLS)
+eap[EAP_TLS].L == 0
+eap[EAP_TLS].M == 0
+eap[EAP_TLS].S == 0
+
+= EAP - Dissection (5)
+s = '\x02\x9e\x00<+\x01\x16\x03\x01\x001\x01\x00\x00-\x03\x01dr1\x93ZS\x0en\xad\x1f\xbaH\xbb\xfe6\xe6\xd0\xcb\xec\xd7\xc0\xd7\xb9\xa5\xc9\x0c\xfd\x98o\xa7T \x00\x00\x04\x004\x00\x00\x01\x00\x00\x00'
+eap = EAP(s)
+eap.code == 2
+eap.id == 158
+eap.len == 60
+eap.type == 43
+eap.haslayer(EAP_FAST)
+eap[EAP_FAST].L == 0
+eap[EAP_FAST].M == 0
+eap[EAP_FAST].S == 0
+eap[EAP_FAST].version == 1
+
+= EAP - Dissection (6)
+s = '\x02\x9f\x01L+\x01\x16\x03\x01\x01\x06\x10\x00\x01\x02\x01\x00Y\xc9\x8a\tcw\t\xdcbU\xfd\x035\xcd\x1a\t\x10f&[(9\xf6\x88W`\xc6\x0f\xb3\x84\x15\x19\xf5\tk\xbd\x8fp&0\xb0\xa4B\x85\x0c<:s\xf2zT\xc3\xbd\x8a\xe4D{m\xe7\x97\xfe>\xda\x14\xb8T1{\xd7H\x9c\xa6\xcb\xe3,u\xdf\xe0\x82\xe5R\x1e<\xe5\x03}\xeb\x98\xe2\xf7\x8d3\xc6\x83\xac"\x8f\xd7\x12\xe5{:"\x84A\xd9\x14\xc2cZF\xd4\t\xab\xdar\xc7\xe0\x0e\x00o\xce\x05g\xdc?\xcc\xf7\xe83\x83E\xb3>\xe8<3-QB\xfd$C/\x1be\xcf\x03\xd6Q4\xbe\\h\xba)<\x99N\x89\xd9\xb1\xfa!\xd7a\xef\xa3\xd3o\xed8Uz\xb5k\xb0`\xfeC\xbc\xb3aS,d\xe6\xdc\x13\xa4A\x1e\x9b\r{\xd6s \xd0cQ\x95y\xc8\x1d\xc3\xd9\x87\xf2=\x81\x96q~\x99E\xc3\x97\xa8px\xe2\xc7\x92\xeb\xff/v\x84\x1e\xfb\x00\x95#\xba\xfb\xd88h\x90K\xa7\xbd9d\xb4\xf2\xf2\x14\x02vtW\xaa\xadY\x14\x03\x01\x00\x01\x01\x16\x03\x01\x000\x97\xc5l\xd6\xef\xffcM\x81\x90Q\x96\xf6\xfeX1\xf7\xfc\x84\xc6\xa0\xf6Z\xcd\xb6\xe1\xd4\xdb\x88\xf9t%Q!\xe7,~#2G-\xdf\x83\xbf\x86Q\xa2$'
+eap = EAP(s)
+eap.code == 2
+eap.id == 159
+eap.len == 332
+eap.type == 43
+eap.haslayer(EAP_FAST)
+eap[EAP_FAST].L == 0
+eap[EAP_FAST].M == 0
+eap[EAP_FAST].S == 0
+eap[EAP_FAST].version == 1
+
+= EAP - Dissection (7)
+s = '\x02\xf1\x00\x06\x03+'
+eap = EAP(s)
+eap.code == 2
+eap.id == 241
+eap.len == 6
+eap.type == 3
+hasattr(eap, 'desired_auth_type')
+eap.desired_auth_type == 43
+
+

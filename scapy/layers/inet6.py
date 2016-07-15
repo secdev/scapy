@@ -247,6 +247,20 @@ class SourceIP6Field(IP6Field):
                 iff,x,nh = conf.route6.route(dst)
         return IP6Field.i2h(self, pkt, x)
 
+class DestIP6Field(IP6Field, DestField):
+    bindings = {}
+    def __init__(self, name, default):
+        IP6Field.__init__(self, name, None)
+        DestField.__init__(self, name, default)
+    def i2m(self, pkt, x):
+        if x is None:
+            x = self.dst_from_pkt(pkt)
+        return IP6Field.i2m(self, pkt, x)
+    def i2h(self, pkt, x):
+        if x is None:
+            x = self.dst_from_pkt(pkt)
+        return IP6Field.i2h(self, pkt, x)
+
 ipv6nh = { 0:"Hop-by-Hop Option Header",
            4:"IP",
            6:"TCP",
@@ -358,7 +372,7 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
                     ByteEnumField("nh", 59, ipv6nh),
                     ByteField("hlim", 64),
                     SourceIP6Field("src", "dst"), # dst is for src @ selection
-                    IP6Field("dst", "::1") ]
+                    DestIP6Field("dst", "::1") ]
 
     def route(self):
         dst = self.dst
@@ -422,10 +436,10 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
                 nh = self.payload.nh # XXX what if another extension follows ?
                 ss = foundhao.hoa
 
-        if conf.checkIPsrc and conf.checkIPaddr:
+        if conf.checkIPsrc and conf.checkIPaddr and not in6_ismaddr(sd):
             sd = inet_pton(socket.AF_INET6, sd)
             ss = inet_pton(socket.AF_INET6, self.src)
-            return struct.pack("B",nh)+self.payload.hashret()
+            return strxor(sd, ss) + struct.pack("B", nh) + self.payload.hashret()
         else:
             return struct.pack("B", nh)+self.payload.hashret()
 
@@ -2919,14 +2933,14 @@ class TracerouteResult6(TracerouteResult):
 
             trace[d][s[IPv6].hlim] = r[IPv6].src, t
 
-        for k in trace.values():
-            m = filter(lambda x: k[x][1], k.keys())
-            if not m:
+        for k in trace.itervalues():
+            try:
+                m = min(x for x, y in k.itervalues() if y[1])
+            except ValueError:
                 continue
-            m = min(m)
-            for l in k.keys():
+            for l in k.keys():  # use .keys(): k is modified in the loop
                 if l > m:
-                    del(k[l])
+                    del k[l]
 
         return trace
 

@@ -12,7 +12,8 @@ import socket,struct
 from scapy.packet import *
 from scapy.fields import *
 from scapy.ansmachine import *
-from scapy.layers.inet import IP, UDP
+from scapy.layers.inet import IP, DestIPField, UDP
+from scapy.layers.inet6 import DestIP6Field
 
 class DNSStrField(StrField):
 
@@ -125,8 +126,8 @@ class DNSRRField(StrField):
         if type in [2, 3, 4, 5]:
             rr.rdata = DNSgetstr(s,p)[0]
             del(rr.rdlen)
-        elif type in dnsRRdispatcher.keys():
-            rr = dnsRRdispatcher[type]("\x00"+ret+s[p:p+rdlen])
+        elif type in DNSRR_DISPATCHER:
+            rr = DNSRR_DISPATCHER[type]("\x00"+ret+s[p:p+rdlen])
 	else:
           del(rr.rdlen)
         
@@ -239,7 +240,7 @@ class DNS(Packet):
                     BitEnumField("opcode", 0, 4, {0:"QUERY",1:"IQUERY",2:"STATUS"}),
                     BitField("aa", 0, 1),
                     BitField("tc", 0, 1),
-                    BitField("rd", 0, 1),
+                    BitField("rd", 1, 1),
                     BitField("ra", 0, 1),
                     BitField("z", 0, 1),
                     # AD and CD bits are defined in RFC 2535
@@ -288,9 +289,9 @@ dnsclasses =  {1: 'IN',  2: 'CS',  3: 'CH',  4: 'HS',  255: 'ANY'}
 class DNSQR(Packet):
     name = "DNS Question Record"
     show_indent=0
-    fields_desc = [ DNSStrField("qname",""),
-                    ShortEnumField("qtype", 1, dnsqtypes),
-                    ShortEnumField("qclass", 1, dnsclasses) ]
+    fields_desc = [DNSStrField("qname", "www.example.com"),
+                   ShortEnumField("qtype", 1, dnsqtypes),
+                   ShortEnumField("qclass", 1, dnsclasses)]
                     
                     
 
@@ -414,7 +415,7 @@ def RRlist2bitmap(lst):
     for wb in xrange(min_window_blocks, max_window_blocks+1):
         # First, filter out RR not encoded in the current window block
         # i.e. keep everything between 256*wb <= 256*(wb+1)
-        rrlist = filter(lambda x: 256*wb <= x and x < 256*(wb+1), lst)
+        rrlist = filter(lambda x: 256 * wb <= x < 256 * (wb + 1), lst)
         rrlist.sort()
         if rrlist == []:
             continue
@@ -435,7 +436,7 @@ def RRlist2bitmap(lst):
         for tmp in xrange(bytes):
             v = 0
             # Remove out of range Ressource Records
-            tmp_rrlist = filter(lambda x: 256*wb+8*tmp <= x and x < 256*wb+8*tmp+8, rrlist)
+            tmp_rrlist = filter(lambda x: 256 * wb + 8 * tmp <= x < 256 * wb + 8 * tmp + 8, rrlist)
             if not tmp_rrlist == []:
                 # 1. rescale to fit into 8 bits
                 tmp_rrlist = map(lambda x: (x-256*wb)-(tmp*8), tmp_rrlist)
@@ -591,22 +592,21 @@ class DNSRRNSEC3PARAM(_DNSRRdummy):
 		  ]
 
 
-dnssecclasses = [ DNSRROPT, DNSRRRSIG, DNSRRDLV, DNSRRDNSKEY, DNSRRNSEC, DNSRRDS, DNSRRNSEC3, DNSRRNSEC3PARAM ]
+DNSRR_DISPATCHER = {
+    41: DNSRROPT,        # RFC 1671
+    43: DNSRRDS,         # RFC 4034
+    46: DNSRRRSIG,       # RFC 4034
+    47: DNSRRNSEC,       # RFC 4034
+    48: DNSRRDNSKEY,     # RFC 4034
+    50: DNSRRNSEC3,      # RFC 5155
+    51: DNSRRNSEC3PARAM, # RFC 5155
+    32769: DNSRRDLV,     # RFC 4431
+}
+
+DNSSEC_CLASSES = tuple(DNSRR_DISPATCHER.itervalues())
 
 def isdnssecRR(obj):
-    list = [ isinstance (obj, cls) for cls in dnssecclasses ]
-    return reduce(lambda x,y: x or y, list)
-
-dnsRRdispatcher = {     #6: DNSRRSOA,
-                       41: DNSRROPT,        # RFC 1671
-                       43: DNSRRDS,         # RFC 4034
-                       46: DNSRRRSIG,       # RFC 4034
-                       47: DNSRRNSEC,       # RFC 4034
-                       48: DNSRRDNSKEY,     # RFC 4034
-                       50: DNSRRNSEC3,      # RFC 5155
-                       51: DNSRRNSEC3PARAM, # RFC 5155
-                    32769: DNSRRDLV         # RFC 4431
-                   }
+    return isinstance(obj, DNSSEC_CLASSES)
 
 class DNSRR(Packet):
     name = "DNS Resource Record"
@@ -618,8 +618,13 @@ class DNSRR(Packet):
                     RDLenField("rdlen"),
                     RDataField("rdata", "", length_from=lambda pkt:pkt.rdlen) ]
 
-bind_layers( UDP,           DNS,           dport=53)
-bind_layers( UDP,           DNS,           sport=53)
+
+bind_layers(UDP, DNS, dport=5353)
+bind_layers(UDP, DNS, sport=5353)
+bind_layers(UDP, DNS, dport=53)
+bind_layers(UDP, DNS, sport=53)
+DestIPField.bind_addr(UDP, "224.0.0.251", dport=5353)
+DestIP6Field.bind_addr(UDP, "ff02::fb", dport=5353)
 
 
 @conf.commands.register

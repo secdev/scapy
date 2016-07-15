@@ -48,7 +48,9 @@ def voip_play(s1,list=None,**kargs):
         fcntl.fcntl(c2.fileno(),fcntl.F_SETFL, os.O_NONBLOCK)
     
     #    dsp,rd = os.popen2("sox -t .ul -c 2 - -t ossdsp /dev/dsp")
-        def play(pkt,last=[]):
+        def play(pkt, last=None):
+            if last is None:
+                last = []
             if not pkt:
                 return 
             if not pkt.haslayer(UDP):
@@ -105,7 +107,9 @@ def voip_play1(s1,list=None,**kargs):
 
 def voip_play2(s1,**kargs):
     dsp,rd = os.popen2("sox -t .ul -c 2 - -t ossdsp /dev/dsp")
-    def play(pkt,last=[]):
+    def play(pkt, last=None):
+        if last is None:
+            last = []
         if not pkt:
             return 
         if not pkt.haslayer(UDP):

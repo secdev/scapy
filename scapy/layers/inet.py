@@ -214,7 +214,8 @@ TCPOptions = (
                 14 : ("AltChkSum","!BH"),
                 15 : ("AltChkSumOpt",None),
                 25 : ("Mood","!p"),
-                28 : ("UTO", "!H")
+                28 : ("UTO", "!H"),
+                34 : ("TFO", "!II"),
                 },
               { "EOL":0,
                 "NOP":1,
@@ -226,7 +227,8 @@ TCPOptions = (
                 "AltChkSum":14,
                 "AltChkSumOpt":15,
                 "Mood":25,
-                "UTO":28
+                "UTO":28,
+                "TFO":34,
                 } )
 
 class TCPOptionsField(StrField):
@@ -325,6 +327,21 @@ class ICMPTimeStampField(IntField):
         return val
 
 
+class DestIPField(IPField, DestField):
+    bindings = {}
+    def __init__(self, name, default):
+        IPField.__init__(self, name, None)
+        DestField.__init__(self, name, default)
+    def i2m(self, pkt, x):
+        if x is None:
+            x = self.dst_from_pkt(pkt)
+        return IPField.i2m(self, pkt, x)
+    def i2h(self, pkt, x):
+        if x is None:
+            x = self.dst_from_pkt(pkt)
+        return IPField.i2h(self, pkt, x)
+
+
 class IP(Packet, IPTools):
     __slots__ = ["_defrag_pos"]
     name = "IP"
@@ -340,7 +357,7 @@ class IP(Packet, IPTools):
                     XShortField("chksum", None),
                     #IPField("src", "127.0.0.1"),
                     Emph(SourceIPField("src","dst")),
-                    Emph(IPField("dst", "127.0.0.1")),
+                    Emph(DestIPField("dst", "127.0.0.1")),
                     PacketListField("options", [], IPOption, length_from=lambda p:p.ihl*4-20) ]
     def post_build(self, p, pay):
         ihl = self.ihl
@@ -379,6 +396,8 @@ class IP(Packet, IPTools):
              and (self.payload.type in [3,4,5,11,12]) ):
             return self.payload.payload.hashret()
         else:
+            if self.dst == "224.0.0.251":  # mDNS
+                return struct.pack("B", self.proto) + self.payload.hashret()
             if conf.checkIPsrc and conf.checkIPaddr:
                 return strxor(inet_aton(self.src),inet_aton(self.dst))+struct.pack("B",self.proto)+self.payload.hashret()
             else:
@@ -386,8 +405,11 @@ class IP(Packet, IPTools):
     def answers(self, other):
         if not isinstance(other,IP):
             return 0
-        if conf.checkIPaddr and (self.dst != other.src):
-            return 0
+        if conf.checkIPaddr:
+            if other.dst == "224.0.0.251" and self.dst == "224.0.0.251":  # mDNS
+                return self.payload.answers(other.payload)
+            elif (self.dst != other.src):
+                return 0
         if ( (self.proto == socket.IPPROTO_ICMP) and
              (isinstance(self.payload, ICMP)) and
              (self.payload.type in [3,4,5,11,12]) ):
@@ -981,7 +1003,8 @@ PacketList.timeskew_graph = new.instancemethod(_packetlist_timeskew_graph, None,
 
 ### Create a new packet list
 class TracerouteResult(SndRcvList):
-    __slots__ = ["graphdef", "graphASres", "padding", "hloc", "nloc"]
+    __slots__ = ["graphdef", "graphpadding", "graphASres", "padding", "hloc",
+                 "nloc"]
     def __init__(self, res=None, name="Traceroute", stats=None):
         PacketList.__init__(self, res, name, stats)
         self.graphdef = None
@@ -1005,14 +1028,14 @@ class TracerouteResult(SndRcvList):
             if d not in trace:
                 trace[d] = {}
             trace[d][s[IP].ttl] = r[IP].src, ICMP not in r
-        for k in trace.values():
-            m = filter(lambda x:k[x][1], k.keys())
-            if not m:
+        for k in trace.itervalues():
+            try:
+                m = min(x for x, y in k.itervalues() if y[1])
+            except ValueError:
                 continue
-            m = min(m)
-            for l in k.keys():
+            for l in k.keys():  # use .keys(): k is modified in the loop
                 if l > m:
-                    del(k[l])
+                    del k[l]
         return trace
 
     def trace3D(self):
@@ -1050,8 +1073,7 @@ class TracerouteResult(SndRcvList):
         for i in trace:
             tr = trace[i]
             tr3d[i] = []
-            ttl = tr.keys()
-            for t in xrange(1,max(ttl)+1):
+            for t in xrange(1, max(tr) + 1):
                 if t not in rings:
                     rings[t] = []
                 if t in tr:
@@ -1075,12 +1097,12 @@ class TracerouteResult(SndRcvList):
                 s = IPsphere(pos=((l-1)*visual.cos(2*i*visual.pi/l),(l-1)*visual.sin(2*i*visual.pi/l),2*t),
                              ip = r[i][0],
                              color = col)
-                for trlst in tr3d.values():
+                for trlst in tr3d.itervalues():
                     if t <= len(trlst):
                         if trlst[t-1] == i:
                             trlst[t-1] = s
         forecol = colgen(0.625, 0.4375, 0.25, 0.125)
-        for trlst in tr3d.values():
+        for trlst in tr3d.itervalues():
             col = forecol.next()
             start = (0,0,0)
             for ip in trlst:
@@ -1175,7 +1197,7 @@ class TracerouteResult(SndRcvList):
         for trace_id in rt:
             trace = rt[trace_id]
             loctrace = []
-            for i in xrange(max(trace.keys())):
+            for i in xrange(max(trace)):
                 ip = trace.get(i,None)
                 if ip is None:
                     continue
@@ -1260,8 +1282,8 @@ class TracerouteResult(SndRcvList):
         bhip = {}
         for rtk in rt:
             trace = rt[rtk]
-            k = trace.keys()
-            for n in xrange(min(k), max(k)):
+            max_trace = max(trace)
+            for n in xrange(min(trace), max_trace):
                 if not trace.has_key(n):
                     trace[n] = unknown_label.next()
             if not ports_done.has_key(rtk):
@@ -1276,11 +1298,11 @@ class TracerouteResult(SndRcvList):
                 ips[bh] = None
                 bhip[rtk[1]] = bh
                 bh = '"%s"' % bh
-                trace[max(k)+1] = bh
+                trace[max_trace + 1] = bh
                 blackholes.append(bh)
     
         # Find AS numbers
-        ASN_query_list = dict.fromkeys(map(lambda x:x.rsplit(" ",1)[0],ips)).keys()
+        ASN_query_list = set(x.rsplit(" ",1)[0] for x in ips)
         if ASres is None:            
             ASNlist = []
         else:
@@ -1353,10 +1375,10 @@ class TracerouteResult(SndRcvList):
             s += "#---[%s\n" % `rtk`
             s += '\t\tedge [color="#%s%s%s"];\n' % forecolorlist.next()
             trace = rt[rtk]
-            k = trace.keys()
-            for n in xrange(min(k), max(k)):
+            maxtrace = max(trace)
+            for n in xrange(min(trace), maxtrace):
                 s += '\t%s ->\n' % trace[n]
-            s += '\t%s;\n' % trace[max(k)]
+            s += '\t%s;\n' % trace[maxtrace]
     
         s += "}\n";
         self.graphdef = s

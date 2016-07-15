@@ -83,5 +83,6 @@ class DADict:
                 r += p
         return r
     def keys(self):
-        return filter(lambda x:x and x[0]!="_", self.__dict__.keys())
-        
+        return list(self.iterkeys())
+    def iterkeys(self):
+        return (x for x in self.__dict__ if x and x[0] != "_")

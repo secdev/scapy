@@ -238,60 +238,36 @@ Some optional packages:
 Mac OS X
 --------
 
-Here's how to install Scapy on Mac OS 10.4 (Tiger) or 10.5 (Leopard).
+On Mac OS X, Scapy does not work natively. You need to install Python bindings
+to use libdnet and libpcap. You can choose to install using either Homebrew or
+MacPorts. They both work fine, yet Homebrew is used to run unit tests with
+`Travis CI <https://travis-ci.org>`_. 
 
-Set up a development environment
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-1. Install X11. 
-   On the Mac OS X DVD, it is located in the "Optional Installs.mpkg" package.
- 
-2. Install SDK.
-   On the Mac OS X DVD, it is located in the "Xcode Tools/Packages" directory.
+Install using Homebrew
+^^^^^^^^^^^^^^^^^^^^^^
 
-3. Install Python 2.5 from Python.org.
-   Using Apple's Python version will lead to some problems.
-   Get it from http://www.python.org/ftp/python/2.5.2/python-2.5.2-macosx.dmg
+1. Update Homebrew::
+
+   $ sudo brew update
+
+2. Install Python bindings::
+
+   $ sudo brew install --with-python libdnet
+   $ sudo brew install https://raw.githubusercontent.com/secdev/scapy/master/.travis/pylibpcap.r
+
 
 Install using MacPorts
 ^^^^^^^^^^^^^^^^^^^^^^
 
-3. Install MacPorts
-   Download the dmg from macports.org and install it.
-     
-4. Update MacPorts::
+1. Update MacPorts::
 
    $ sudo port -d selfupdate
 
-5. Install Scapy::
+2. Install Python bindings::
 
-   $ sudo port install scapy
+   $ sudo port install py-libdnet py-pylibpcap
 
-You can then update to the latest version as shown in the generic installation above. 
-
-Install from original sources
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Install libdnet and its Python wrapper::
-
- $ wget http://libdnet.googlecode.com/files/libdnet-1.12.tgz
- $ tar xfz libdnet-1.12.tgz 
- $ ./configure
- $ make
- $ sudo make install
- $ cd python
- $ python2.5 setup.py install
-
-Install libpcap and its Python wrapper::
-
- $ wget http://dfn.dl.sourceforge.net/sourceforge/pylibpcap/pylibpcap-0.6.2.tar.gz
- $ tar xfz pylibpcap-0.6.2.tar.gz
- $ cd pylibpcap-0.6.2
- $ python2.5 setup.py install
-
-Optionally: Install readline::
-
- $ python `python -c "import pimp; print pimp.__file__"` -i readline
 
 OpenBSD
 -------
@@ -440,6 +416,52 @@ Known bugs
  * Packets cannot be sent to localhost (or local IP addresses on your own host).
  * The ``voip_play()`` functions do not work because they output the sound via ``/dev/dsp`` which is not available on Windows. 
  
- 
 
+Build the documentation offline
+===============================
+The Scapy project's documentation is written using reStructuredText (files \*.rst) and can be built using
+the `Sphinx <http://www.sphinx-doc.org/>`_ python library. The official online version is available
+on `readthedocs <http://scapy.readthedocs.io/>`_.
 
+HTML version
+------------
+The instructions to build the HTML version are: ::
+
+   (activate a virtualenv)
+   pip install sphinx
+   cd doc/scapy
+   make html
+
+You can now open the resulting HTML file ``_build/html/index.html`` in your favorite web browser.
+
+To use the ReadTheDocs' template, you will have to install the corresponding theme with: ::
+
+   pip install sphinx_rtd_theme
+
+and edit the doc/scapy/conf.py file to have: ::
+
+   import sphinx_rtd_theme
+   #html_style = 'default.css'
+   html_theme = "sphinx_rtd_theme"
+   html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
+
+Note: make sure you commented out the ``html_style`` variable.
+
+UML diagram
+-----------
+Using ``pyreverse`` you can build an UML representation of the Scapy source code's object hierarchy. Here is an
+example on how to build the inheritence graph for the Fields objects : ::
+
+   (activate a virtualenv)
+   pip install pylint
+   cd scapy/
+   pyreverse -o png -p fields scapy/fields.py
+
+This will generate a ``classes_fields.png`` picture containing the inheritance hierarchy. Note that you can provide as many
+modules or packages as you want, but the result will quickly get unreadable.
+
+To see the dependencies between the DHCP layer and the ansmachine module, you can run: ::
+
+   pyreverse -o png -p dhcp_ans scapy/ansmachine.py scapy/layers/dhcp.py scapy/packet.py
+
+In this case, Pyreverse will also generate a ``packages_dhcp_ans.png`` showing the link between the different python modules provided.

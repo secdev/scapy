@@ -7,7 +7,9 @@
 Functions to send and receive packets.
 """
 
+import errno
 import cPickle,os,sys,time,subprocess
+import itertools
 from select import select
 from data import *
 import arch
@@ -17,6 +19,7 @@ from utils import warning,get_temp_file,PcapReader,wrpcap
 import plist
 from error import log_runtime,log_interactive
 from base_classes import SetGen
+from supersocket import StreamSocket
 
 #################
 ## Debug class ##
@@ -126,12 +129,17 @@ def sndrcv(pks, pkt, timeout = None, inter = 0, verbose=None, chainCC=0, retry=0
                                 inp = bpf_select(inmask)
                                 if pks in inp:
                                     r = pks.recv()
-                            elif arch.FREEBSD or arch.DARWIN:
+                            elif not isinstance(pks, StreamSocket) and (arch.FREEBSD or arch.DARWIN):
                                 inp, out, err = select(inmask,[],[], 0.05)
                                 if len(inp) == 0 or pks in inp:
                                     r = pks.nonblock_recv()
                             else:
-                                inp, out, err = select(inmask,[],[], remaintime)
+                                inp = []
+                                try:
+                                    inp, out, err = select(inmask,[],[], remaintime)
+                                except IOError, exc:
+                                    if exc.errno != errno.EINTR:
+                                        raise
                                 if len(inp) == 0:
                                     break
                                 if pks in inp:
@@ -185,10 +193,10 @@ def sndrcv(pks, pkt, timeout = None, inter = 0, verbose=None, chainCC=0, retry=0
             if pid == 0:
                 os._exit(0)
 
-        remain = reduce(list.__add__, hsent.values(), [])
+        remain = list(itertools.chain(*hsent.itervalues()))
         if multi:
-            remain = filter(lambda p: not hasattr(p, '_answered'), remain);
-            
+            remain = [p for p in remain if not hasattr(p, '_answered')]
+
         if autostop and len(remain) > 0 and len(remain) != len(tobesent):
             retry = autostop
             
@@ -627,7 +635,7 @@ interfaces)
                     if stop_filter and stop_filter(p):
                         stop_event = True
                         break
-                    if count > 0 and c >= count:
+                    if 0 < count <= c:
                         stop_event = True
                         break
     except KeyboardInterrupt:
@@ -702,7 +710,7 @@ stop_filter: python function applied to each packet to determine
                     if stop_filter and stop_filter(p):
                         stop_event = True
                         break
-                    if count > 0 and c >= count:
+                    if 0 < count <= c:
                         stop_event = True
                         break
     except KeyboardInterrupt:

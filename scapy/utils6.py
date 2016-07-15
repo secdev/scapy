@@ -390,6 +390,7 @@ def in6_getLocalUniquePrefix():
     j = int((tod - i)*(2**32))
     tod = struct.pack("!II", i,j)
     # TODO: Add some check regarding system address gathering
+    from scapy.arch import get_if_raw_hwaddr
     rawmac = get_if_raw_hwaddr(conf.iface6)[1]
     mac = ":".join(map(lambda x: "%.02x" % ord(x), list(rawmac)))
     # construct modified EUI-64 ID
@@ -799,3 +800,13 @@ def in6_get_common_plen(a, b):
         if mbits != 8:
             return 8*i + mbits
     return 128
+
+def in6_isvalid(address):
+    """Return True if 'address' is a valid IPv6 address string, False
+       otherwise."""
+
+    try:
+        socket.inet_pton(socket.AF_INET6, address)
+        return True
+    except:
+        return False
