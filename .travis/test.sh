@@ -7,6 +7,14 @@ fi
 # Run unit tests
 cd test/
 
+if [ "$TRAVIS_OS_NAME" = "osx" ]
+then
+  if [ -z $SCAPY_USE_PCAPDNET ]
+  then
+    $TRAVIS_SUDO ./run_tests -q -F -t bpf.uts $UT_FLAGS || exit $?
+  fi
+fi
+
 for f in *.uts
 do
   $TRAVIS_SUDO ./run_tests -q -F -t $f $UT_FLAGS || exit $?
