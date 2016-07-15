@@ -1,10 +1,10 @@
 # Don't run tests that requires root privileges
 if [ -z $TRAVIS_SUDO ]
 then
-  UT_FLAGS="-K netaccess"
+  UT_FLAGS="-K netaccess -K needs_root"
 fi
 
-# Run unit tests
+# Run unit tests
 cd test/
 
 if [ "$TRAVIS_OS_NAME" = "osx" ]
@@ -17,6 +17,10 @@ fi
 
 for f in *.uts
 do
+  if [ "$f" = "bpf.uts" ] && [ "$TRAVIS_OS_NAME" != "osx" ]
+  then
+    continue
+  fi
   $TRAVIS_SUDO ./run_tests -q -F -t $f $UT_FLAGS || exit $?
 done
 
