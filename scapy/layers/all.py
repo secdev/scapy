@@ -24,6 +24,7 @@ for _l in conf.load_layers:
     except Exception,e:
 	log.warning("can't import layer %s: %s" % (_l,e))
 
+from scapy.layers.tls.cert import *
 
 
 

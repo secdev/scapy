@@ -587,7 +587,7 @@ conf.mib = MIBDict(_name="MIB", **x509_oids)
 # This dict enables static access to string references to the hash functions
 # of some algorithms from pkcs1_oids and x962Signature_oids.
 
-hash_map = {
+hash_by_oid = {
         "1.2.840.113549.1.1.2"  : "md2",
         "1.2.840.113549.1.1.3"  : "md4",
         "1.2.840.113549.1.1.4"  : "md5",

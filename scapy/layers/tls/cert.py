@@ -6,16 +6,17 @@
 
 """
 High-level methods for PKI objects (X.509 certificates, CRLs, asymmetric keys).
+Supports both RSA and ECDSA objects.
 """
 
 ## This module relies on python-crypto and python-ecdsa.
-## 
+##
 ## The classes below are wrappers for the ASN.1 objects defined in x509.py.
 ## By collecting their attributes, we bypass the ASN.1 structure, hence
 ## there is no direct method for exporting a new full DER-encoded version
 ## of a Cert instance after its serial has been modified (for example).
 ## If you need to modify an import, just use the corresponding ASN1_Packet.
-## 
+##
 ## For instance, here is what you could do in order to modify the serial of
 ## 'cert' and then resign it with whatever 'key':
 ##     f = open('cert.der')
@@ -25,29 +26,24 @@ High-level methods for PKI objects (X.509 certificates, CRLs, asymmetric keys).
 ##     new_x509_cert = k.resignCert(c)
 ## No need for obnoxious openssl tweaking anymore. :)
 
-import os, time
-import base64
-
-from Crypto.PublicKey import *
-from Crypto.Cipher import *
-from Crypto.Hash import *
-
-from tls_crypto.pkcs1 import _EncryptAndVerifyRSA, _DecryptAndSignRSA
-from tls_crypto.pkcs1 import pkcs_os2ip, pkcs_i2osp, mapHashFunc
-from tls_crypto.tls_ecurves import import_curve
-
-from scapy.asn1.mib import *
-#XXX we just need to create conf.mib from mib.py, it might be done better
-from scapy.asn1.asn1 import ASN1_BIT_STRING, ASN1_INTEGER
-from scapy.layers.x509 import *
-#from scapy.layers.x509 import X509_SubjectPublicKeyInfo
-#from scapy.layers.x509 import RSAPublicKey, RSAPrivateKey
-#from scapy.layers.x509 import ECDSAPublicKey, ECDSAPrivateKey
-#from scapy.layers.x509 import RSAPrivateKey_OpenSSL, ECDSAPrivateKey_OpenSSL
-#from scapy.layers.x509 import X509_TBSCertificate, X509_Cert, X509_CRL
-from scapy.utils import binrepr
+import base64, os, time
 
 import ecdsa
+from Crypto.PublicKey import RSA
+
+from scapy.layers.tls.crypto.curves import import_curve
+from scapy.layers.tls.crypto.pkcs1 import pkcs_os2ip, pkcs_i2osp, mapHashFunc
+from scapy.layers.tls.crypto.pkcs1 import _EncryptAndVerifyRSA
+from scapy.layers.tls.crypto.pkcs1 import _DecryptAndSignRSA
+
+from scapy.asn1.asn1 import ASN1_BIT_STRING
+from scapy.asn1.mib import hash_by_oid
+from scapy.layers.x509 import X509_SubjectPublicKeyInfo
+from scapy.layers.x509 import RSAPublicKey, RSAPrivateKey
+from scapy.layers.x509 import ECDSAPublicKey, ECDSAPrivateKey
+from scapy.layers.x509 import RSAPrivateKey_OpenSSL, ECDSAPrivateKey_OpenSSL
+from scapy.layers.x509 import X509_Cert, X509_CRL
+from scapy.utils import binrepr
 
 # Maximum allowed size in bytes for a certificate file, to avoid
 # loading huge file when importing a cert
@@ -60,7 +56,10 @@ MAX_CRL_SIZE = 10*1024*1024   # some are that big
 # Some helpers
 #####################################################################
 
-def DERtoPEM(der_string, obj="CERTIFICATE"):
+def der2pem(der_string, obj="UNKNOWN"):
+    """
+    Encode a byte string in PEM format. Header advertizes <obj> type.
+    """
     pem_string = "-----BEGIN %s-----\n" % obj
     base64_string = base64.b64encode(der_string)
     chunks = [base64_string[i:i+64] for i in range(0, len(base64_string), 64)]
@@ -68,21 +67,21 @@ def DERtoPEM(der_string, obj="CERTIFICATE"):
     pem_string += "\n-----END %s-----\n" % obj
     return pem_string
 
-def PEMtoDER(pem_string):
+def pem2der(pem_string):
     """
     Encode every line between the first '-----\n' and the 2nd-to-last '-----'.
     """
     pem_string = pem_string.replace("\r", "")
     first_idx = pem_string.find("-----\n") + 6
     if pem_string.find("-----BEGIN", first_idx) != -1:
-        raise Exception("PEMtoDER() expects only one PEM-encoded object")
+        raise Exception("pem2der() expects only one PEM-encoded object")
     last_idx = pem_string.rfind("-----", 0, pem_string.rfind("-----"))
     base64_string = pem_string[first_idx:last_idx]
     base64_string.replace("\n", "")
     der_string = base64.b64decode(base64_string)
     return der_string
 
-def multiPEMtoPEMarray(s):
+def split_pem(s):
     """
     Split PEM objects. Useful to process concatenated certificates.
     """
@@ -109,15 +108,20 @@ class _PKIObj(object):
     def __str__(self):
         return self.der
 
+
 class _PKIObjMaker(type):
     def __call__(cls, obj_path, obj_max_size, pem_marker=None):
         # This enables transparent DER and PEM-encoded data imports.
-        # Note that when importing a PEM file with multiple objects (like ECDSA private keys output by openssl), it will concatenate every object in order to create a 'der' attribute. When converting a 'multi' DER file into a PEM file, though, the PEM attribute will not be valid.
+        # Note that when importing a PEM file with multiple objects (like ECDSA
+        # private keys output by openssl), it will concatenate every object in
+        # order to create a 'der' attribute. When converting a 'multi' DER file
+        # into a PEM file, though, the PEM attribute will not be valid,
+        # because we do not try to identify the class of each object.
         error_msg = "Unable to import data"
- 
- 	if obj_path is None:
- 	    raise Exception(error_msg)
- 
+
+        if obj_path is None:
+            raise Exception(error_msg)
+
         if (not '\x00' in obj_path) and os.path.isfile(obj_path):
             _size = os.path.getsize(obj_path)
             if _size > obj_max_size:
@@ -127,22 +131,22 @@ class _PKIObjMaker(type):
                 raw = f.read()
                 f.close()
             except:
-        	raise Exception(error_msg)     
+                raise Exception(error_msg)
         else:
             raw = obj_path
- 
+
         try:
             if "-----BEGIN" in raw:
                 frmt = "PEM"
                 pem = raw
-                der_list = multiPEMtoPEMarray(raw)
-                der = ''.join(map(PEMtoDER, der_list))
+                der_list = split_pem(raw)
+                der = ''.join(map(pem2der, der_list))
             else:
                 frmt = "DER"
                 der = raw
                 pem = ""
                 if pem_marker is not None:
-                    pem = DERtoPEM(raw, pem_marker)
+                    pem = der2pem(raw, pem_marker)
                 # type identification may be needed for pem_marker
                 # in such case, the pem attribute has to be updated
         except:
@@ -161,6 +165,11 @@ class _PKIObjMaker(type):
 ###############
 
 class _PubKeyFactory(_PKIObjMaker):
+    """
+    Metaclass for PubKey creation.
+    It casts the appropriate class on the fly, then fills in
+    the appropriate attributes with updateWith() submethod.
+    """
     def __call__(cls, key_path):
 
         # First, we deal with the exceptional RSA KEA call.
@@ -201,23 +210,35 @@ class _PubKeyFactory(_PKIObjMaker):
                 raise Exception("Unable to import public key")
 
         if obj.frmt == "DER":
-            obj.pem = DERtoPEM(obj.der, marker)
+            obj.pem = der2pem(obj.der, marker)
         return obj
 
+
 class PubKey(object):
+    """
+    Parent class for both PubKeyRSA and PubKeyECDSA.
+    Provides a common verifyCert() method.
+    """
     __metaclass__ = _PubKeyFactory
 
     def verifyCert(self, cert):
-        # works with both Cert and X509_Cert types
+        """
+        Verifies either a Cert or an X509_Cert.
+        """
         tbsCert = cert.tbsCertificate
         sigAlg = tbsCert.signature
-        h = hash_map[sigAlg.algorithm.val]
+        h = hash_by_oid[sigAlg.algorithm.val]
         sigVal = str(cert.signatureValue)
         return self.verify(str(tbsCert), sigVal, h=h,
-                           t='pkcs',    #XXX check this
+                           t='pkcs',
                            sigdecode=ecdsa.util.sigdecode_der)
 
+
 class PubKeyRSA(_PKIObj, PubKey, _EncryptAndVerifyRSA):
+    """
+    Wrapper for RSA keys based on _EncryptAndVerifyRSA from crypto/pkcs1.py
+    Use the 'key' attribute to access original object.
+    """
     def updateWith(self, pubkey):
         self.modulus    = pubkey.modulus.val
         self.modulusLen = len(binrepr(pubkey.modulus.val))
@@ -232,27 +253,30 @@ class PubKeyRSA(_PKIObj, PubKey, _EncryptAndVerifyRSA):
         return _EncryptAndVerifyRSA.verify(self, msg, sig, h=h,
                                            t=t, mgf=mgf, sLen=sLen)
 
+
 class PubKeyECDSA(_PKIObj, PubKey):
+    """
+    Wrapper for ECDSA keys based on VerifyingKey from ecdsa library.
+    Use the 'key' attribute to access original object.
+    """
     def updateWith(self, spki):
-        """
-        For now we use from_der() or from_string() methods,
-        which do not offer support for compressed points.
-        This could be changed by using the from_public_point() method.
-        """
+        # For now we use from_der() or from_string() methods,
+        # which do not offer support for compressed points.
+        #XXX Try using the from_public_point() method.
         try:
             self.key = ecdsa.VerifyingKey.from_der(str(spki))
             # from_der() raises an exception on explicit curves
         except:
             s = spki.subjectPublicKey.val_readable[1:]
             p = spki.signatureAlgorithm.parameters
-            c = tls_ecurves.import_curve(p.fieldID.prime.val,
-                                         p.curve.a.val,
-                                         p.curve.b.val,
-                                         p.base.val,
-                                         p.order.val)
+            c = import_curve(p.fieldID.prime.val,
+                             p.curve.a.val,
+                             p.curve.b.val,
+                             p.base.val,
+                             p.order.val)
             self.key = ecdsa.VerifyingKey.from_string(s, c)
     def encrypt(self, msg, t=None, h=None, mgf=None, L=None):
-        #XXX python-ecdsa does not seem to have an encrypt() function
+        # python-ecdsa does not support encryption
         raise Exception("No ECDSA encryption support")
     def verify(self, msg, sig, h=None,
                t=None, mgf=None, sLen=None,
@@ -263,17 +287,25 @@ class PubKeyECDSA(_PKIObj, PubKey):
         except ecdsa.keys.BadSignatureError:
             return False
 
+
 ################
 # Private Keys #
 ################
 
 class _PrivKeyFactory(_PKIObjMaker):
+    """
+    Metaclass for PrivKey creation.
+    It casts the appropriate class on the fly, then fills in
+    the appropriate attributes with updateWith() submethod.
+    """
     def __call__(cls, key_path):
-        # key_path may be the path to either:
-        # _an RSAPrivateKey_OpenSSL (as generated by openssl);
-        # _an ECDSAPrivateKey_OpenSSL (as generated by openssl);
-        # _an RSAPrivateKey;
-        # _an ECDSAPrivateKey.
+        """
+        key_path may be the path to either:
+            _an RSAPrivateKey_OpenSSL (as generated by openssl);
+            _an ECDSAPrivateKey_OpenSSL (as generated by openssl);
+            _an RSAPrivateKey;
+            _an ECDSAPrivateKey.
+        """
         obj = _PKIObjMaker.__call__(cls, key_path, MAX_KEY_SIZE)
         multiPEM = False
         try:
@@ -305,12 +337,17 @@ class _PrivKeyFactory(_PKIObjMaker):
         if obj.frmt == "DER":
             if multiPEM:
                 # this does not restore the EC PARAMETERS header
-                obj.pem = DERtoPEM(str(privkey), marker)
+                obj.pem = der2pem(str(privkey), marker)
             else:
-                obj.pem = DERtoPEM(obj.der, marker)
+                obj.pem = der2pem(obj.der, marker)
         return obj
 
+
 class PrivKey(object):
+    """
+    Parent class for both PrivKeyRSA and PrivKeyECDSA.
+    Provides common signTBSCert() and resignCert() methods.
+    """
     __metaclass__ = _PrivKeyFactory
 
     def signTBSCert(self, tbsCert, h=None):
@@ -329,7 +366,7 @@ class PrivKey(object):
         while sigencode will be passed to ecdsa.keys.SigningKey.sign().
         """
         sigAlg = tbsCert.signature
-        h = h or hash_map[sigAlg.algorithm.val]
+        h = h or hash_by_oid[sigAlg.algorithm.val]
         sigVal = self.sign(str(tbsCert), h=h,
                            t='pkcs',
                            sigencode=ecdsa.util.sigencode_der)
@@ -343,7 +380,12 @@ class PrivKey(object):
         # works with both Cert and X509_Cert types
         return self.signTBSCert(cert.tbsCertificate)
 
+
 class PrivKeyRSA(_PKIObj, PrivKey, _EncryptAndVerifyRSA, _DecryptAndSignRSA):
+    """
+    Wrapper for RSA keys based on _DecryptAndSignRSA from crypto/pkcs1.py
+    Use the 'key' attribute to access original object.
+    """
     def updateWith(self, privkey):
         self.modulus     = privkey.modulus.val
         self.modulusLen  = len(binrepr(privkey.modulus.val))
@@ -367,9 +409,14 @@ class PrivKeyRSA(_PKIObj, PrivKey, _EncryptAndVerifyRSA, _DecryptAndSignRSA):
         return _DecryptAndSignRSA.sign(self, data, h=h,
                                        t=t, mgf=mgf, sLen=sLen)
 
+
 class PrivKeyECDSA(_PKIObj, PrivKey):
+    """
+    Wrapper for ECDSA keys based on SigningKey from ecdsa library.
+    Use the 'key' attribute to access original object.
+    """
     def updateWith(self, privkey):
-        self.privKey     = pkcs_os2ip(privkey.privateKey.val)
+        self.privKey = pkcs_os2ip(privkey.privateKey.val)
         self.key = ecdsa.SigningKey.from_der(str(privkey))
         self.vkey = self.key.get_verifying_key()
     def verify(self, msg, sig, h=None,
@@ -383,13 +430,16 @@ class PrivKeyECDSA(_PKIObj, PrivKey):
         return self.key.sign(data, hashfunc=mapHashFunc(h),
                              k=k, entropy=entropy, sigencode=sigencode)
 
+
 ################
 # Certificates #
 ################
 
 class _CertMaker(_PKIObjMaker):
-    # The metaclass trick was necessary only to the key factory mechanism,
-    # but we reuse it here instead of creating redundant constructors.
+    """
+    Metaclass for Cert creation. It is not necessary as it was for the keys,
+    but we reuse the model instead of creating redundant constructors.
+    """
     def __call__(cls, cert_path):
         obj = _PKIObjMaker.__call__(cls, cert_path,
                                     MAX_CERT_SIZE, "CERTIFICATE")
@@ -401,14 +451,18 @@ class _CertMaker(_PKIObjMaker):
         obj.updateWith(cert)
         return obj
 
+
 class Cert(_PKIObj):
+    """
+    Wrapper for the X509_Cert from layers/x509.py.
+    Use the 'x509Cert' attribute to access original object.
+    """
     __metaclass__ = _CertMaker
 
     def updateWith(self, cert):
         error_msg = "Unable to import certificate"
 
-        # we want to keep access to all fields from the ASN.1 structure
-        self.fullCert = cert
+        self.x509Cert = cert
 
         tbsCert = cert.tbsCertificate
         self.tbsCertificate = tbsCert
@@ -460,7 +514,7 @@ class Cert(_PKIObj):
                     self.extKeyUsage = extn.extnValue.get_extendedKeyUsage()
                 elif extn.extnID.oidname == "authorityKeyIdentifier":
                     self.authorityKeyID = extn.extnValue.keyIdentifier.val
-                
+
         self.signatureValue = str(cert.signatureValue)
         self.signatureLen = len(self.signatureValue)
 
@@ -485,7 +539,7 @@ class Cert(_PKIObj):
         return False
 
     def encrypt(self, msg, t=None, h=None, mgf=None, L=None):
-        # no ECDSA encryption support, hence only RSA specific keywords here
+        # no ECDSA *encryption* support, hence only RSA specific keywords here
         return self.pubKey.encrypt(msg, t=t, h=h, mgf=mgf, L=L)
 
     def verify(self, msg, sig, h=None,
@@ -499,19 +553,19 @@ class Cert(_PKIObj):
         """
         Based on the value of notAfter field, returns the number of
         days the certificate will still be valid. The date used for the
-        comparison is the current and local date, as returned by 
+        comparison is the current and local date, as returned by
         time.localtime(), except if 'now' argument is provided another
         one. 'now' argument can be given as either a time tuple or a string
         representing the date. Accepted format for the string version
         are:
-        
+
          - '%b %d %H:%M:%S %Y %Z' e.g. 'Jan 30 07:38:59 2008 GMT'
          - '%m/%d/%y' e.g. '01/30/08' (less precise)
 
         If the certificate is no more valid at the date considered, then
         a negative value is returned representing the number of days
         since it has expired.
-        
+
         The number of days is returned as a float to deal with the unlikely
         case of certificates that are still just valid.
         """
@@ -540,7 +594,7 @@ class Cert(_PKIObj):
 
         Note that if the Certificate was on hold in a previous CRL and
         is now valid again in a new CRL and bot are in the list, it
-        will be considered revoked: this is because _all_ CRLs are 
+        will be considered revoked: this is because _all_ CRLs are
         checked (not only the freshest) and revocation status is not
         handled.
 
@@ -549,12 +603,12 @@ class Cert(_PKIObj):
         Cert. Otherwise, the issuers are simply compared.
         """
         for c in crl_list:
-            if (self.authorityKeyID is not None and 
+            if (self.authorityKeyID is not None and
                 c.authorityKeyID is not None and
                 self.authorityKeyID == c.authorityKeyID):
                 return self.serial in map(lambda x: x[0],
                                                     c.revoked_cert_serials)
-            elif (self.issuer == c.issuer):
+            elif self.issuer == c.issuer:
                 return self.serial in map(lambda x: x[0],
                                                     c.revoked_cert_serials)
         return False
@@ -579,13 +633,16 @@ class Cert(_PKIObj):
     def __repr__(self):
         return "[X.509 Cert. Subject:%s, Issuer:%s]" % (self.subject_str, self.issuer_str)
 
+
 ################################
 # Certificate Revocation Lists #
 ################################
 
 class _CRLMaker(_PKIObjMaker):
-    # The metaclass trick was necessary only to the key factory mechanism,
-    # but we reuse it here instead of creating redundant constructors.
+    """
+    Metaclass for CRL creation. It is not necessary as it was for the keys,
+    but we reuse the model instead of creating redundant constructors.
+    """
     def __call__(cls, cert_path):
         obj = _PKIObjMaker.__call__(cls, cert_path, MAX_CRL_SIZE, "X509 CRL")
         obj.__class__ = CRL
@@ -596,13 +653,18 @@ class _CRLMaker(_PKIObjMaker):
         obj.updateWith(crl)
         return obj
 
+
 class CRL(_PKIObj):
+    """
+    Wrapper for the X509_CRL from layers/x509.py.
+    Use the 'x509CRL' attribute to access original object.
+    """
     __metaclass__ = _CRLMaker
 
     def updateWith(self, crl):
         error_msg = "Unable to import CRL"
 
-        self.fullCRL = crl
+        self.x509CRL = crl
 
         tbsCertList = crl.tbsCertList
         self.tbsCertList = str(tbsCertList)
@@ -657,7 +719,7 @@ class CRL(_PKIObj):
                     raise Exception(error_msg)
                 revoked.append((serial, date))
         self.revoked_cert_serials = revoked
-        
+
         self.signatureValue = str(crl.signatureValue)
         self.signatureLen = len(self.signatureValue)
 
@@ -681,14 +743,18 @@ class CRL(_PKIObj):
         print "lastUpdate: %s" % self.lastUpdate_str
         print "nextUpdate: %s" % self.nextUpdate_str
 
+
 ######################
 # Certificate chains #
 ######################
 
 class Chain(list):
+    """
+    Basically, an enhanced array of Cert.
+    """
     def __init__(self, certList, cert0=None):
         """
-        Construct a chain of certificates starting with a self-signed 
+        Construct a chain of certificates starting with a self-signed
         certificate (or any certificate submitted by the user)
         and following issuer/subject matching and signature validity.
         If there is exactly one chain to be constructed, it will be,
@@ -759,9 +825,9 @@ class Chain(list):
             ca_certs = f.read()
             f.close()
         except:
-            raise Exception("Could not read from cafile")     
+            raise Exception("Could not read from cafile")
 
-        anchors = [Cert(c) for c in multiPEMtoPEMarray(ca_certs)]
+        anchors = [Cert(c) for c in split_pem(ca_certs)]
 
         untrusted = None
         if untrusted_file:
@@ -770,8 +836,8 @@ class Chain(list):
                 untrusted_certs = f.read()
                 f.close()
             except:
-                raise Exception("Could not read from untrusted_file")     
-            untrusted = [Cert(c) for c in multiPEMtoPEMarray(untrusted_certs)]
+                raise Exception("Could not read from untrusted_file")
+            untrusted = [Cert(c) for c in split_pem(untrusted_certs)]
 
         return self.verifyChain(anchors, untrusted)
 
@@ -788,7 +854,7 @@ class Chain(list):
             for cafile in os.listdir(capath):
                 anchors.append(Cert(open(cafile).read()))
         except:
-            raise Exception("capath provided is not a valid cert path")     
+            raise Exception("capath provided is not a valid cert path")
 
         untrusted = None
         if untrusted_file:
@@ -797,8 +863,8 @@ class Chain(list):
                 untrusted_certs = f.read()
                 f.close()
             except:
-                raise Exception("Could not read from untrusted_file")     
-            untrusted = [Cert(c) for c in multiPEMtoPEMarray(untrusted_certs)]
+                raise Exception("Could not read from untrusted_file")
+            untrusted = [Cert(c) for c in split_pem(untrusted_certs)]
 
         return self.verifyChain(anchors, untrusted)
 
@@ -813,7 +879,7 @@ class Chain(list):
         else:
             s += "%s [Self Signed]\n" % c.subject_str
         idx = 1
-        while (idx <= llen):
+        while idx <= llen:
             c = self[idx]
             s += "%s\_ %s" % (" "*idx*2, c.subject_str)
             if idx != llen:

@@ -21,4 +21,4 @@ except ImportError:
     log_loading = logging.getLogger("scapy.loading")
     log_loading.info("Can't import python ecdsa lib. Disabled certificate manipulation tools")
 else:
-    from scapy.tls.cert import *
+    from scapy.layers.tls.cert import *

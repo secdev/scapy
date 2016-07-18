@@ -43,7 +43,5 @@ from asn1.asn1 import *
 from asn1.ber import *
 from asn1.mib import *
 
-from tls.cert import *
-
 from pipetool import *
 from scapypipes import *

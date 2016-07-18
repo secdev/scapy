@@ -9,14 +9,15 @@ Implicit elliptic curves.
 
 # Recommended curve parameters from www.secg.org/SEC2-Ver-1.0.pdf
 # and www.ecc-brainpool.org/download/Domain-parameters.pdf
-#
-# This module may overwrite curves from python-ecdsa.
+# Note that this module will overwrite curves from python-ecdsa.
 
 import math
 from ecdsa.ellipticcurve import CurveFp, Point
-from ecdsa.curves import Curve, curves
+from ecdsa.curves import Curve
+from ecdsa.numbertheory import square_root_mod_prime
+
 from scapy.utils import long_converter, binrepr
-from pkcs1 import pkcs_i2osp, pkcs_os2ip
+from scapy.layers.tls.crypto.pkcs1 import pkcs_i2osp, pkcs_os2ip
 
 
 ##############################################################
@@ -43,7 +44,7 @@ def extract_coordinates(g, curve):
     """
     Return the coordinates x and y as integers,
     regardless of the point format of string g.
-    We need a CurveFp.
+    Second expected parameter is a CurveFp.
     """
     p = curve.p()
     point_format = g[0]
@@ -61,27 +62,31 @@ def extract_coordinates(g, curve):
         x = pkcs_os2ip(x_bytes) % p
         # perform the y coordinate computation with self.tls_ec
         y_square = (x*x*x + curve.a()*x + curve.b()) % p
-        y = numbertheory.square_root_mod_prime(y_square, p)
+        y = square_root_mod_prime(y_square, p)
         y_parity = ord(point_format) % 2    # \x02 means even, \x03 means odd
         if y % 2 != y_parity:
             y = -y % p
     else:
-        raise Exception("Point starts with %s. This encoding is not recognized." % repr(point_format))
-    if not curve.contains_point(x,y):
+        raise Exception("Point starts with %s. This encoding "
+                        "is not recognized." % repr(point_format))
+    if not curve.contains_point(x, y):
         raise Exception("The point we extracted does not belong on the curve!")
     return x, y
 
-def import_curve(p, a, b, g, r, name="dummyName", oid=(1,3,132,0,999)):
-    #XXX dummy values ok?
+def import_curve(p, a, b, g, r, name="dummyName", oid=(1, 3, 132, 0, 0xff)):
     """
     Create an ecdsa.curves.Curve from the usual parameters.
     Arguments may be either octet strings or integers,
     except g which we expect to be an octet string.
     """
-    if type(p) is str: p = pkcs_os2ip(p)
-    if type(a) is str: a = pkcs_os2ip(a)
-    if type(b) is str: b = pkcs_os2ip(b)
-    if type(r) is str: r = pkcs_os2ip(r)
+    if isinstance(p, str):
+        p = pkcs_os2ip(p)
+    if isinstance(a, str):
+        a = pkcs_os2ip(a)
+    if isinstance(b, str):
+        b = pkcs_os2ip(b)
+    if isinstance(r, str):
+        r = pkcs_os2ip(r)
     curve = CurveFp(p, a, b)
     x, y = extract_coordinates(g, curve)
     generator = Point(curve, x, y, r)
@@ -91,8 +96,6 @@ def import_curve(p, a, b, g, r, name="dummyName", oid=(1,3,132,0,999)):
 ##############################################################
 # Named curves
 ##############################################################
-
-#XXX openssl-generated keys with the first 3 curves cannot be imported by ecdsa module ?!
 
 # We always provide _a as a positive integer.
 
@@ -392,7 +395,7 @@ named_curves = { 15: SECP160k1,
                  26: BRNP256r1,
                  27: BRNP384r1,
                  28: BRNP512r1
-                 }
+               }
 
 for cid, c in named_curves.iteritems():
     c.curve_id = cid
