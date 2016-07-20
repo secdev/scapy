@@ -91,7 +91,7 @@ def BER_num_enc(l, size=1):
         return "".join([chr(k) for k in x])
 def BER_num_dec(s, x=0):
         if len(s) == 0:
-            return x, s[1:]
+            raise BER_Decoding_Error("BER_num_dec: got empty string", remaining=s)
         for i, c in enumerate(s):
             c = ord(c)
             x <<= 7
