@@ -218,7 +218,7 @@ class Packet_metaclass(type):
             except:
                 if config.conf.debug_dissector:
                     raise
-                cls = Raw
+                cls = config.conf.raw_layer
         i = cls.__new__(cls, cls.__name__, cls.__bases__, cls.__dict__)
         i.__init__(*args, **kargs)
         return i
