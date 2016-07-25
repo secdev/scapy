@@ -216,7 +216,7 @@ class Packet_metaclass(type):
             try:
                 cls = cls.dispatch_hook(*args, **kargs)
             except:
-                if conf.debug_dissector:
+                if config.conf.debug_dissector:
                     raise
                 cls = Raw
         i = cls.__new__(cls, cls.__name__, cls.__bases__, cls.__dict__)
