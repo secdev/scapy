@@ -4855,8 +4855,9 @@ test_netbsd_7_0()
 ############
 ############
 
-########### EAPOL Class ######################################
-+ EAPOL class test
+#################################### l2.py ####################################
+################################### EAPOL #####################################
++ EAPOL class tests
 
 = EAPOL - Basic Instantiation
 str(EAPOL()) == '\x01\x00\x00\x00'
@@ -4867,23 +4868,23 @@ str(EAPOL(version = 3, type = 5)) == '\x03\x05\x00\x00'
 = EAPOL - Dissection (1)
 s = '\x03\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 eapol = EAPOL(s)
-eapol.version == 3
-eapol.type == 1
-eapol.len = 0
+assert(eapol.version == 3)
+assert(eapol.type == 1)
+assert(eapol.len == 0)
 
 = EAPOL - Dissection (2)
 s = '\x03\x00\x00\x05\x01\x01\x00\x05\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 eapol = EAPOL(s)
-eapol.version == 3
-eapol.type == 0
-eapol.len == 5
+assert(eapol.version == 3)
+assert(eapol.type == 0)
+assert(eapol.len == 5)
 
 = EAPOL - Dissection (3)
 s = '\x03\x00\x00\x0e\x02\x01\x00\x0e\x01anonymous\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 eapol = EAPOL(s)
-eapol.version == 3
-eapol.type == 0
-eapol.len == 14
+assert(eapol.version == 3)
+assert(eapol.type == 0)
+assert(eapol.len == 14)
 
 = EAPOL - Dissection (4)
 req = EAPOL('\x03\x00\x00\x05\x01\x01\x00\x05\x01')
@@ -4893,23 +4894,23 @@ ans.answers(req)
 = EAPOL - Dissection (5)
 s = '\x02\x00\x00\x06\x01\x01\x00\x06\r '
 eapol = EAPOL(s)
-eapol.version == 2
-eapol.type == 0
-eapol.len == 6
-eapol.haslayer(EAP_TLS)
+assert(eapol.version == 2)
+assert(eapol.type == 0)
+assert(eapol.len == 6)
+assert(eapol.haslayer(EAP_TLS))
 
 = EAPOL - Dissection (6)
 s = '\x03\x00\x00<\x02\x9e\x00<+\x01\x16\x03\x01\x001\x01\x00\x00-\x03\x01dr1\x93ZS\x0en\xad\x1f\xbaH\xbb\xfe6\xe6\xd0\xcb\xec\xd7\xc0\xd7\xb9\xa5\xc9\x0c\xfd\x98o\xa7T \x00\x00\x04\x004\x00\x00\x01\x00\x00\x00'
 eapol = EAPOL(s)
-eapol.version == 3
-eapol.type == 0
-eapol.len == 60
-eapol.haslayer(EAP_FAST)
+assert(eapol.version == 3)
+assert(eapol.type == 0)
+assert(eapol.len == 60)
+assert(eapol.haslayer(EAP_FAST))
 
 
 
-########## EAP Class ######################################
-+ EAP class test
+#################################### EAP ######################################
++ EAP class tests
 
 = EAP - Basic Instantiation
 str(EAP()) == '\x04\x00\x00\x04'
@@ -4920,80 +4921,80 @@ str(EAP(code = 1, id = 1, len = 5, type = 1)) == '\x01\x01\x00\x05\x01'
 = EAP - Dissection (1)
 s = '\x01\x01\x00\x05\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 eap = EAP(s)
-eap.code == 1
-eap.id == 1
-eap.len == 5
-hasattr(eap, "type")
-eap.type == 1
+assert(eap.code == 1)
+assert(eap.id == 1)
+assert(eap.len == 5)
+assert(hasattr(eap, "type"))
+assert(eap.type == 1)
 
 = EAP - Dissection (2)
 s = '\x02\x01\x00\x0e\x01anonymous\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 eap = EAP(s)
-eap.code == 2
-eap.id == 1
-eap.len == 14
-eap.type == 1
-hasattr(eap, 'identity')
-eap.identity == 'anonymous'
+assert(eap.code == 2)
+assert(eap.id == 1)
+assert(eap.len == 14)
+assert(eap.type == 1)
+assert(hasattr(eap, 'identity'))
+assert(eap.identity == 'anonymous')
 
 = EAP - Dissection (3)
 s = '\x01\x01\x00\x06\r '
 eap = EAP(s)
-eap.code == 1
-eap.id == 1
-eap.len == 6
-eap.type == 13
-eap.haslayer(EAP_TLS)
-eap[EAP_TLS].L == 0
-eap[EAP_TLS].M == 0
-eap[EAP_TLS].S == 1
+assert(eap.code == 1)
+assert(eap.id == 1)
+assert(eap.len == 6)
+assert(eap.type == 13)
+assert(eap.haslayer(EAP_TLS))
+assert(eap[EAP_TLS].L == 0)
+assert(eap[EAP_TLS].M == 0)
+assert(eap[EAP_TLS].S == 1)
 
 = EAP - Dissection (4)
 s = '\x02\x01\x00\xd1\r\x00\x16\x03\x01\x00\xc6\x01\x00\x00\xc2\x03\x01UK\x02\xdf\x1e\xde5\xab\xfa[\x15\xef\xbe\xa2\xe4`\xc6g\xb9\xa8\xaa%vAs\xb2\x1cXt\x1c0\xb7\x00\x00P\xc0\x14\xc0\n\x009\x008\x00\x88\x00\x87\xc0\x0f\xc0\x05\x005\x00\x84\xc0\x12\xc0\x08\x00\x16\x00\x13\xc0\r\xc0\x03\x00\n\xc0\x13\xc0\t\x003\x002\x00\x9a\x00\x99\x00E\x00D\xc0\x0e\xc0\x04\x00/\x00\x96\x00A\xc0\x11\xc0\x07\xc0\x0c\xc0\x02\x00\x05\x00\x04\x00\x15\x00\x12\x00\t\x00\xff\x01\x00\x00I\x00\x0b\x00\x04\x03\x00\x01\x02\x00\n\x004\x002\x00\x0e\x00\r\x00\x19\x00\x0b\x00\x0c\x00\x18\x00\t\x00\n\x00\x16\x00\x17\x00\x08\x00\x06\x00\x07\x00\x14\x00\x15\x00\x04\x00\x05\x00\x12\x00\x13\x00\x01\x00\x02\x00\x03\x00\x0f\x00\x10\x00\x11\x00#\x00\x00\x00\x0f\x00\x01\x01'
 eap = EAP(s)
-eap.code == 2
-eap.id == 1
-eap.len == 209
-eap.type == 13
-eap.haslayer(EAP_TLS)
-eap[EAP_TLS].L == 0
-eap[EAP_TLS].M == 0
-eap[EAP_TLS].S == 0
+assert(eap.code == 2)
+assert(eap.id == 1)
+assert(eap.len == 209)
+assert(eap.type == 13)
+assert(eap.haslayer(EAP_TLS))
+assert(eap[EAP_TLS].L == 0)
+assert(eap[EAP_TLS].M == 0)
+assert(eap[EAP_TLS].S == 0)
 
 = EAP - Dissection (5)
 s = '\x02\x9e\x00<+\x01\x16\x03\x01\x001\x01\x00\x00-\x03\x01dr1\x93ZS\x0en\xad\x1f\xbaH\xbb\xfe6\xe6\xd0\xcb\xec\xd7\xc0\xd7\xb9\xa5\xc9\x0c\xfd\x98o\xa7T \x00\x00\x04\x004\x00\x00\x01\x00\x00\x00'
 eap = EAP(s)
-eap.code == 2
-eap.id == 158
-eap.len == 60
-eap.type == 43
-eap.haslayer(EAP_FAST)
-eap[EAP_FAST].L == 0
-eap[EAP_FAST].M == 0
-eap[EAP_FAST].S == 0
-eap[EAP_FAST].version == 1
+assert(eap.code == 2)
+assert(eap.id == 158)
+assert(eap.len == 60)
+assert(eap.type == 43)
+assert(eap.haslayer(EAP_FAST))
+assert(eap[EAP_FAST].L == 0)
+assert(eap[EAP_FAST].M == 0)
+assert(eap[EAP_FAST].S == 0)
+assert(eap[EAP_FAST].version == 1)
 
 = EAP - Dissection (6)
 s = '\x02\x9f\x01L+\x01\x16\x03\x01\x01\x06\x10\x00\x01\x02\x01\x00Y\xc9\x8a\tcw\t\xdcbU\xfd\x035\xcd\x1a\t\x10f&[(9\xf6\x88W`\xc6\x0f\xb3\x84\x15\x19\xf5\tk\xbd\x8fp&0\xb0\xa4B\x85\x0c<:s\xf2zT\xc3\xbd\x8a\xe4D{m\xe7\x97\xfe>\xda\x14\xb8T1{\xd7H\x9c\xa6\xcb\xe3,u\xdf\xe0\x82\xe5R\x1e<\xe5\x03}\xeb\x98\xe2\xf7\x8d3\xc6\x83\xac"\x8f\xd7\x12\xe5{:"\x84A\xd9\x14\xc2cZF\xd4\t\xab\xdar\xc7\xe0\x0e\x00o\xce\x05g\xdc?\xcc\xf7\xe83\x83E\xb3>\xe8<3-QB\xfd$C/\x1be\xcf\x03\xd6Q4\xbe\\h\xba)<\x99N\x89\xd9\xb1\xfa!\xd7a\xef\xa3\xd3o\xed8Uz\xb5k\xb0`\xfeC\xbc\xb3aS,d\xe6\xdc\x13\xa4A\x1e\x9b\r{\xd6s \xd0cQ\x95y\xc8\x1d\xc3\xd9\x87\xf2=\x81\x96q~\x99E\xc3\x97\xa8px\xe2\xc7\x92\xeb\xff/v\x84\x1e\xfb\x00\x95#\xba\xfb\xd88h\x90K\xa7\xbd9d\xb4\xf2\xf2\x14\x02vtW\xaa\xadY\x14\x03\x01\x00\x01\x01\x16\x03\x01\x000\x97\xc5l\xd6\xef\xffcM\x81\x90Q\x96\xf6\xfeX1\xf7\xfc\x84\xc6\xa0\xf6Z\xcd\xb6\xe1\xd4\xdb\x88\xf9t%Q!\xe7,~#2G-\xdf\x83\xbf\x86Q\xa2$'
 eap = EAP(s)
-eap.code == 2
-eap.id == 159
-eap.len == 332
-eap.type == 43
-eap.haslayer(EAP_FAST)
-eap[EAP_FAST].L == 0
-eap[EAP_FAST].M == 0
-eap[EAP_FAST].S == 0
-eap[EAP_FAST].version == 1
+assert(eap.code == 2)
+assert(eap.id == 159)
+assert(eap.len == 332)
+assert(eap.type == 43)
+assert(eap.haslayer(EAP_FAST))
+assert(eap[EAP_FAST].L == 0)
+assert(eap[EAP_FAST].M == 0)
+assert(eap[EAP_FAST].S == 0)
+assert(eap[EAP_FAST].version == 1)
 
 = EAP - Dissection (7)
 s = '\x02\xf1\x00\x06\x03+'
 eap = EAP(s)
-eap.code == 2
-eap.id == 241
-eap.len == 6
-eap.type == 3
-hasattr(eap, 'desired_auth_type')
-eap.desired_auth_type == 43
+assert(eap.code == 2)
+assert(eap.id == 241)
+assert(eap.len == 6)
+assert(eap.type == 3)
+assert(hasattr(eap, 'desired_auth_type'))
+assert(eap.desired_auth_type == 43)
 
 
