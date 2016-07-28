@@ -32,8 +32,10 @@ EXT_VERSION = "v0.9.2"
 class OSPFOptionsField(FlagsField):
 
     def __init__(self, name="options", default=0, size=8,
-                 names=["MT", "E", "MC", "NP", "L", "DC", "O", "DN"]):
+                 names=None):
         FlagsField.__init__(self, name, default, size, names)
+        if names is None:
+            names = ["MT", "E", "MC", "NP", "L", "DC", "O", "DN"]
 
 
 _OSPF_types = {1: "Hello",
@@ -127,8 +129,10 @@ class LLS_Generic_TLV(Packet):
 class LLS_ExtendedOptionsField(FlagsField):
 
     def __init__(self, name="options", default=0, size=32,
-                 names=["LR", "RS"]):
+                 names=None):
         FlagsField.__init__(self, name, default, size, names)
+        if names is None:
+            names = ["LR", "RS"]
 
 
 class LLS_Extended_Options(LLS_Generic_TLV):
@@ -452,8 +456,10 @@ class OSPFv3_Hdr(Packet):
 class OSPFv3OptionsField(FlagsField):
 
     def __init__(self, name="options", default=0, size=24,
-                 names=["V6", "E", "MC", "N", "R", "DC", "AF", "L", "I", "F"]):
+                 names=None):
         FlagsField.__init__(self, name, default, size, names)
+        if names is None:
+            names = ["V6", "E", "MC", "N", "R", "DC", "AF", "L", "I", "F"]
 
 
 class OSPFv3_Hello(Packet):
@@ -567,8 +573,10 @@ class OSPFv3_Network_LSA(OSPF_BaseLSA):
 class OSPFv3PrefixOptionsField(FlagsField):
 
     def __init__(self, name="prefixoptions", default=0, size=8,
-                 names=["NU", "LA", "MC", "P"]):
+                 names=None):
         FlagsField.__init__(self, name, default, size, names)
+        if names is None:
+            names = ["NU", "LA", "MC", "P"]
 
 
 class OSPFv3_Inter_Area_Prefix_LSA(OSPF_BaseLSA):
@@ -726,6 +734,7 @@ bind_layers(OSPF_Hdr, OSPF_DBDesc, type=2)
 bind_layers(OSPF_Hdr, OSPF_LSReq, type=3)
 bind_layers(OSPF_Hdr, OSPF_LSUpd, type=4)
 bind_layers(OSPF_Hdr, OSPF_LSAck, type=5)
+DestIPField.bind_addr(OSPF_Hdr, "224.0.0.5")
 
 bind_layers(IPv6, OSPFv3_Hdr, nh=89)
 bind_layers(OSPFv3_Hdr, OSPFv3_Hello, type=1)
@@ -733,6 +742,7 @@ bind_layers(OSPFv3_Hdr, OSPFv3_DBDesc, type=2)
 bind_layers(OSPFv3_Hdr, OSPFv3_LSReq, type=3)
 bind_layers(OSPFv3_Hdr, OSPFv3_LSUpd, type=4)
 bind_layers(OSPFv3_Hdr, OSPFv3_LSAck, type=5)
+DestIP6Field.bind_addr(OSPFv3_Hdr, "ff02::5")
 
 
 if __name__ == "__main__":

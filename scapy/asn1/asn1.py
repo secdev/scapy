@@ -257,7 +257,8 @@ class ASN1_BOOLEAN(ASN1_INTEGER):
 class ASN1_BIT_STRING(ASN1_Object):
     """
     /!\ ASN1_BIT_STRING values are bit strings like "011101".
-    /!\ A zero-bit padded readable string is provided nonetheless.
+    /!\ A zero-bit padded readable string is provided nonetheless,
+    /!\ which is also output when __str__ is called.
     """
     tag = ASN1_Class_UNIVERSAL.BIT_STRING
     def __init__(self, val, readable=False):
@@ -282,6 +283,8 @@ class ASN1_BIT_STRING(ASN1_Object):
             if len(s) > 20:
                 s = s[:10] + "..." + s[-10:]
             return "<%s[%r] (%d unused bit%s)>" % (self.__dict__.get("name", self.__class__.__name__), s, self.unused_bits, "s" if self.unused_bits>1 else "")
+    def __str__(self):
+        return self.val_readable
 
 class ASN1_STRING(ASN1_Object):
     tag = ASN1_Class_UNIVERSAL.STRING

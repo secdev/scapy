@@ -131,8 +131,10 @@ def exec_query(cmd, fields):
     return _exec_query_ps(cmd, fields)
 
 
-def _where(filename, dirs=[], env="PATH"):
+def _where(filename, dirs=None, env="PATH"):
     """Find file in current dir or system path"""
+    if dirs is None:
+        dirs = []
     if not isinstance(dirs, list):
         dirs = [dirs]
     if glob(filename):
@@ -650,7 +652,7 @@ L2socket: use the provided L2socket
                 r = prn(p)
                 if r is not None:
                     print r
-            if count > 0 and c >= count:
+            if 0 < count <= c:
                 break
         except KeyboardInterrupt:
             break

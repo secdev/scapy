@@ -26,6 +26,54 @@ How to contribute
   <https://github.com/secdev/scapy/wiki/Contrib:-PacketSamples>`_.
 
 
+Improve the documentation
+=========================
+
+The documentation can be improved in several ways by:
+
+* Adding docstrings to the source code.
+* Adding usage examples to the documentation.
+
+Adding Docstrings
+-----------------
+The Scapy source code have few explanations of what a function is doing. A docstring, by adding explanation and
+expected input and output parameters, helps saving time for both the layer developers and the users looking for
+advanced features.
+
+An example of docstring from the ``scapy.fields.FlagsField`` class: ::
+
+  class FlagsField(BitField):
+    """ Handle Flag type field
+
+     Make sure all your flags have a label
+
+     Example:
+         >>> from scapy.packet import Packet
+         >>> class FlagsTest(Packet):
+                 fields_desc = [FlagsField("flags", 0, 8, ["f0", "f1", "f2", "f3", "f4", "f5", "f6", "f7"])]
+         >>> FlagsTest(flags=9).show2()
+         ###[ FlagsTest ]###
+           flags     = f0+f3
+         >>> FlagsTest(flags=0).show2().strip()
+         ###[ FlagsTest ]###
+           flags     =
+
+     :param name: field's name
+     :param default: default value for the field
+     :param size: number of bits in the field
+     :param names: (list or dict) label for each flag, Least Significant Bit tag's name is written first
+     """
+
+It will contain a short oneline description of the class followed by some indications about its usage.
+You can add a usage example if it makes sense using the `doctest <https://docs.python.org/2.7/library/doctest.html>`_ format.
+Finally the classic python signature can be added following the `sphinx documentation  <http://www.sphinx-doc.org/en/stable/domains.html#python-signatures>`_.
+
+This task works in pair with writing non regression unit tests.
+
+Documentation
+-------------
+A way to improve the documentation content is by keeping it up to date with the latest version of Scapy. You can also help by adding usage examples of your own or directly gathered from existing online Scapy presentations.
+
 Testing with UTScapy
 ====================
 

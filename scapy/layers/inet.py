@@ -214,7 +214,8 @@ TCPOptions = (
                 14 : ("AltChkSum","!BH"),
                 15 : ("AltChkSumOpt",None),
                 25 : ("Mood","!p"),
-                28 : ("UTO", "!H")
+                28 : ("UTO", "!H"),
+                34 : ("TFO", "!II"),
                 },
               { "EOL":0,
                 "NOP":1,
@@ -226,7 +227,8 @@ TCPOptions = (
                 "AltChkSum":14,
                 "AltChkSumOpt":15,
                 "Mood":25,
-                "UTO":28
+                "UTO":28,
+                "TFO":34,
                 } )
 
 class TCPOptionsField(StrField):
@@ -325,6 +327,21 @@ class ICMPTimeStampField(IntField):
         return val
 
 
+class DestIPField(IPField, DestField):
+    bindings = {}
+    def __init__(self, name, default):
+        IPField.__init__(self, name, None)
+        DestField.__init__(self, name, default)
+    def i2m(self, pkt, x):
+        if x is None:
+            x = self.dst_from_pkt(pkt)
+        return IPField.i2m(self, pkt, x)
+    def i2h(self, pkt, x):
+        if x is None:
+            x = self.dst_from_pkt(pkt)
+        return IPField.i2h(self, pkt, x)
+
+
 class IP(Packet, IPTools):
     __slots__ = ["_defrag_pos"]
     name = "IP"
@@ -340,7 +357,7 @@ class IP(Packet, IPTools):
                     XShortField("chksum", None),
                     #IPField("src", "127.0.0.1"),
                     Emph(SourceIPField("src","dst")),
-                    Emph(IPField("dst", "127.0.0.1")),
+                    Emph(DestIPField("dst", "127.0.0.1")),
                     PacketListField("options", [], IPOption, length_from=lambda p:p.ihl*4-20) ]
     def post_build(self, p, pay):
         ihl = self.ihl
@@ -379,6 +396,8 @@ class IP(Packet, IPTools):
              and (self.payload.type in [3,4,5,11,12]) ):
             return self.payload.payload.hashret()
         else:
+            if self.dst == "224.0.0.251":  # mDNS
+                return struct.pack("B", self.proto) + self.payload.hashret()
             if conf.checkIPsrc and conf.checkIPaddr:
                 return strxor(inet_aton(self.src),inet_aton(self.dst))+struct.pack("B",self.proto)+self.payload.hashret()
             else:
@@ -386,8 +405,11 @@ class IP(Packet, IPTools):
     def answers(self, other):
         if not isinstance(other,IP):
             return 0
-        if conf.checkIPaddr and (self.dst != other.src):
-            return 0
+        if conf.checkIPaddr:
+            if other.dst == "224.0.0.251" and self.dst == "224.0.0.251":  # mDNS
+                return self.payload.answers(other.payload)
+            elif (self.dst != other.src):
+                return 0
         if ( (self.proto == socket.IPPROTO_ICMP) and
              (isinstance(self.payload, ICMP)) and
              (self.payload.type in [3,4,5,11,12]) ):
@@ -980,7 +1002,8 @@ PacketList.timeskew_graph = new.instancemethod(_packetlist_timeskew_graph, None,
 
 ### Create a new packet list
 class TracerouteResult(SndRcvList):
-    __slots__ = ["graphdef", "graphASres", "padding", "hloc", "nloc"]
+    __slots__ = ["graphdef", "graphpadding", "graphASres", "padding", "hloc",
+                 "nloc"]
     def __init__(self, res=None, name="Traceroute", stats=None):
         PacketList.__init__(self, res, name, stats)
         self.graphdef = None
@@ -1258,7 +1281,8 @@ class TracerouteResult(SndRcvList):
         bhip = {}
         for rtk in rt:
             trace = rt[rtk]
-            for n in xrange(min(trace), max(trace)):
+            max_trace = max(trace)
+            for n in xrange(min(trace), max_trace):
                 if not trace.has_key(n):
                     trace[n] = unknown_label.next()
             if not ports_done.has_key(rtk):
@@ -1273,7 +1297,7 @@ class TracerouteResult(SndRcvList):
                 ips[bh] = None
                 bhip[rtk[1]] = bh
                 bh = '"%s"' % bh
-                trace[max(k)+1] = bh
+                trace[max_trace + 1] = bh
                 blackholes.append(bh)
     
         # Find AS numbers

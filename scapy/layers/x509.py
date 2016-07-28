@@ -10,6 +10,7 @@ X.509 certificates.
 
 from scapy.asn1packet import *
 from scapy.asn1fields import *
+from scapy.fields import PacketField
 
 class ASN1P_OID(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
@@ -18,6 +19,16 @@ class ASN1P_OID(ASN1_Packet):
 class ASN1P_INTEGER(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_INTEGER("number", 0)
+
+class ASN1P_PRIVSEQ(ASN1_Packet):
+    # This class gets used in x509.uts
+    # It showcases the private high-tag decoding capacities of scapy.
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+            ASN1F_IA5_STRING("str", ""),
+            ASN1F_STRING("int", 0),
+            explicit_tag=0,
+            flexible_tag=True)
 
 
 #######################
@@ -36,7 +47,7 @@ class RSAPublicKey(ASN1_Packet):
                     ASN1F_INTEGER("publicExponent", 3))
 
 class RSAOtherPrimeInfo(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.DER
+    ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_SEQUENCE(
                     ASN1F_INTEGER("prime", 0),
                     ASN1F_INTEGER("exponent", 0),
@@ -610,9 +621,9 @@ class ASN1F_EXT_SEQUENCE(ASN1F_SEQUENCE):
                    explicit_tag=0x04)]
         ASN1F_SEQUENCE.__init__(self, *seq, **kargs)
     def dissect(self, pkt, s):
-        s = BER_tagging_dec(s, implicit_tag=self.implicit_tag,
-                            explicit_tag=self.explicit_tag,
-                            safe=self.flexible_tag)
+        _,s = BER_tagging_dec(s, implicit_tag=self.implicit_tag,
+                              explicit_tag=self.explicit_tag,
+                              safe=self.flexible_tag)
         codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
         i,s,remain = codec.check_type_check_len(s)
         extnID = self.seq[0]
@@ -661,6 +672,15 @@ class ASN1F_X509_SubjectPublicKeyInfoRSA(ASN1F_SEQUENCE):
                             RSAPublicKey)]
         ASN1F_SEQUENCE.__init__(self, *seq, **kargs)
 
+class ASN1F_X509_SubjectPublicKeyInfoECDSA(ASN1F_SEQUENCE):
+    def __init__(self, **kargs):
+        seq = [ASN1F_PACKET("signatureAlgorithm",
+                            X509_AlgorithmIdentifier(),
+                            X509_AlgorithmIdentifier),
+               ASN1F_PACKET("subjectPublicKey", ECDSAPublicKey(),
+                            ECDSAPublicKey)]
+        ASN1F_SEQUENCE.__init__(self, *seq, **kargs)
+
 class ASN1F_X509_SubjectPublicKeyInfo(ASN1F_SEQUENCE):
     def __init__(self, **kargs):
         seq = [ASN1F_PACKET("signatureAlgorithm",
@@ -674,7 +694,7 @@ class ASN1F_X509_SubjectPublicKeyInfo(ASN1F_SEQUENCE):
         if "rsa" in keytype.lower():
             return ASN1F_X509_SubjectPublicKeyInfoRSA().m2i(pkt, x)
         elif keytype == "ecPublicKey":
-            return c,s
+            return ASN1F_X509_SubjectPublicKeyInfoECDSA().m2i(pkt, x)
         else:
             raise Exception("could not parse subjectPublicKeyInfo")
     def dissect(self, pkt, s):
@@ -689,13 +709,62 @@ class ASN1F_X509_SubjectPublicKeyInfo(ASN1F_SEQUENCE):
             pkt.default_fields["subjectPublicKey"] = RSAPublicKey()
             return ASN1F_X509_SubjectPublicKeyInfoRSA().build(pkt)
         elif ktype == "ecPublicKey":
-            return ASN1F_SEQUENCE.build(self, pkt)
+            pkt.default_fields["subjectPublicKey"] = ECDSAPublicKey()
+            return ASN1F_X509_SubjectPublicKeyInfoECDSA().build(pkt)
         else:
             raise Exception("could not build subjectPublicKeyInfo")
 
 class X509_SubjectPublicKeyInfo(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_X509_SubjectPublicKeyInfo()
+
+
+###### OpenSSL compatibility wrappers ######
+
+#XXX As ECDSAPrivateKey already uses the structure from RFC 5958,
+# and as we would prefer encapsulated RSA private keys to be parsed,
+# this lazy implementation actually supports RSA encoding only.
+# We'd rather call it RSAPrivateKey_OpenSSL than X509_PrivateKeyInfo.
+class RSAPrivateKey_OpenSSL(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+                    ASN1F_enum_INTEGER("version", 0, ["v1", "v2"]),
+                    ASN1F_PACKET("privateKeyAlgorithm",
+                                 X509_AlgorithmIdentifier(),
+                                 X509_AlgorithmIdentifier),
+                    ASN1F_PACKET("privateKey",
+                                 RSAPrivateKey(),
+                                 RSAPrivateKey,
+                                 explicit_tag=0x04),
+                    ASN1F_optional(
+                        ASN1F_PACKET("parameters", None, ECParameters,
+                                     explicit_tag=0xa0)),
+                    ASN1F_optional(
+                        ASN1F_PACKET("publicKey", None,
+                                     ECDSAPublicKey,
+                                     explicit_tag=0xa1)))
+
+class _PacketFieldRaw(PacketField):
+# We need this hack because ECParameters parsing below must return
+# a Padding payload, and making the ASN1_Packet class have Padding
+# instead of Raw payload would break things...
+    def getfield(self, pkt, s):
+        i = self.m2i(pkt, s)
+        remain = ""
+        if conf.raw_layer in i:
+            r = i[conf.raw_layer]
+            del(r.underlayer.payload)
+            remain = r.load
+        return remain,i
+ 
+class ECDSAPrivateKey_OpenSSL(Packet):
+    name = "ECDSA Params + Private Key"
+    fields_desc = [ _PacketFieldRaw("ecparam",
+                                    ECParameters(),
+                                    ECParameters),
+                    PacketField("privateKey",
+                                ECDSAPrivateKey(),
+                                ECDSAPrivateKey) ]
 
 
 ####### TBSCertificate & Certificate #######

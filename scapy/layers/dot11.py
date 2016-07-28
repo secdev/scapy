@@ -167,7 +167,7 @@ class Dot11(Packet):
     def mysummary(self):
         return self.sprintf("802.11 %Dot11.type% %Dot11.subtype% %Dot11.addr2% > %Dot11.addr1%")
     def guess_payload_class(self, payload):
-        if self.type == 0x02 and (self.subtype >= 0x08 and self.subtype <=0xF and self.subtype != 0xD):
+        if self.type == 0x02 and (0x08 <= self.subtype <= 0xF and self.subtype != 0xD):
             return Dot11QoS
 	elif self.FCfield & 0x40:
             return Dot11WEP
