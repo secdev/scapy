@@ -39,6 +39,7 @@ Example of use:
 True
 """
 
+import os
 import socket
 import struct
 from scapy.error import warning
@@ -151,7 +152,6 @@ try:
     from Crypto.Cipher import CAST
     from Crypto.Cipher import Blowfish
     from Crypto.Util import Counter
-    from Crypto import Random
 except ImportError:
     # no error if pycrypto is not available but encryption won't be supported
     warning("IPsec encryption not supported (pycrypto required).")
@@ -160,7 +160,6 @@ except ImportError:
     DES3 = None
     CAST = None
     Blowfish = None
-    Random = None
 
 try:
     from Crypto.Cipher.AES import MODE_GCM
@@ -240,13 +239,11 @@ class CryptAlgo(object):
 
     def generate_iv(self):
         """
-        Generate a random initialization vector. If pycrypto is not available,
-        return a buffer of the correct length filled with only '\x00'.
+        Generate a random initialization vector.
         """
-        if Random:
-            return Random.get_random_bytes(self.iv_size)
-        else:
-            return chr(0) * self.iv_size
+        # XXX: Handle counter modes with real counters? RFCs allow the use of
+        # XXX: random bytes for counters, so it is not wrong to do it that way
+        return os.urandom(self.iv_size)
 
     def new_cipher(self, key, iv):
         """
