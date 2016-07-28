@@ -17,7 +17,7 @@ fi
 
 for f in *.uts
 do
-  if [ "$f" = "bpf.uts" ] && [ "$TRAVIS_OS_NAME" != "osx" ]
+  if [ "$f" = "bpf.uts" ]
   then
     continue
   fi
