@@ -21,9 +21,13 @@ from scapy.layers.inet import IP, TCP
 
 
 try:
-    from Crypto.Cipher import ARC4
+    from cryptography.hazmat.backends import default_backend
+    from cryptography.hazmat.primitives.ciphers import (
+        Cipher,
+        algorithms,
+    )
 except ImportError:
-    log_loading.info("Can't import python Crypto lib. Won't be able to decrypt WEP.")
+    log_loading.info("Can't import python cryptography lib. Won't be able to decrypt WEP.")
 
 
 ### Fields
@@ -339,8 +343,12 @@ class Dot11WEP(Packet):
                     icv = ""
                 else:
                     icv = p[4:8]
-                c = ARC4.new(self.iv+key)
-                p = p[:4]+c.encrypt(pay)+icv
+                e = Cipher(
+                    algorithms.ARC4(self.iv+key),
+                    None,
+                    default_backend(),
+                ).encryptor()
+                p = p[:4]+e.update(pay)+e.finalize()+icv
             else:
                 warning("No WEP key set (conf.wepkey).. strange results expected..")
         return p
@@ -350,9 +358,13 @@ class Dot11WEP(Packet):
         if key is None:
             key = conf.wepkey
         if key:
-            c = ARC4.new(self.iv+key)
-            self.add_payload(LLC(c.decrypt(self.wepdata)))
-                    
+            d = Cipher(
+                algorithms.ARC4(self.iv+key),
+                None,
+                default_backend(),
+            ).decryptor()
+            self.add_payload(LLC(d.update(self.wepdata)+d.finalize()))
+
 
 bind_layers( PrismHeader,   Dot11,         )
 bind_layers( RadioTap,      Dot11,         )

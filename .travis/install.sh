@@ -7,18 +7,7 @@ then
     PIP_INSTALL_FLAGS="--user"
   fi
 fi
-$SCAPY_SUDO pip install $PIP_INSTALL_FLAGS ecdsa mock
-
-# Pycrypto 2.7a1 isn't available on PyPi
-if [ "$TEST_COMBINED_MODES" = "yes" ]
-then
-  curl -sL https://github.com/dlitz/pycrypto/archive/v2.7a1.tar.gz | tar xz
-  cd pycrypto-2.7a1
-  python setup.py build
-  $SCAPY_SUDO python setup.py install
-else
-  $SCAPY_SUDO pip install $PIP_INSTALL_FLAGS pycrypto
-fi
+$SCAPY_SUDO pip install $PIP_INSTALL_FLAGS cryptography ecdsa mock
 
 # Install coverage
 if [ "$SCAPY_COVERAGE" = "yes" ]

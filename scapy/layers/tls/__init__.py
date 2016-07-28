@@ -8,11 +8,11 @@ Tools for handling TLS sessions and digital certificates.
 """
 
 try:
-    import Crypto
+    import cryptography
 except ImportError:
     import logging
     log_loading = logging.getLogger("scapy.loading")
-    log_loading.info("Can't import python Crypto lib. Disabled certificate manipulation tools")
+    log_loading.info("Can't import python cryptography lib. Disabled certificate manipulation tools")
 
 try:
     import ecdsa
