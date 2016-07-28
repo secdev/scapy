@@ -487,6 +487,16 @@ class HCI_Cmd_LE_Create_Connection(Packet):
 class HCI_Cmd_LE_Create_Connection_Cancel(Packet):
     name = "LE Create Connection Cancel"
 
+class HCI_Cmd_LE_Connection_Update(Packet):
+    name = "LE Connection Update"
+    fields_desc = [ XLEShortField("handle", 0),
+                    XLEShortField("min_interval", 0),
+                    XLEShortField("max_interval", 0),
+                    XLEShortField("latency", 0),
+                    XLEShortField("timeout", 0),
+                    LEShortField("min_ce", 0),
+                    LEShortField("max_ce", 0xffff), ]
+
 class HCI_Cmd_LE_Read_Buffer_Size(Packet):
     name = "LE Read Buffer Size"
 
@@ -581,6 +591,14 @@ class HCI_LE_Meta_Connection_Complete(Packet):
                     LEShortField("supervision", 42),
                     XByteField("clock_latency", 5), ]
 
+class HCI_LE_Meta_Connection_Update_Complete(Packet):
+    name = "Connection Update Complete"
+    fields_desc = [ ByteEnumField("status", 0, {0:"success"}),
+                    LEShortField("handle", 0),
+                    LEShortField("interval", 54),
+                    LEShortField("latency", 0),
+                    LEShortField("timeout", 42), ]
+
 class HCI_LE_Meta_Advertising_Report(Packet):
     name = "Advertising Report"
     fields_desc = [ ByteField("number", 0),
@@ -621,6 +639,7 @@ bind_layers( HCI_Command_Hdr, HCI_Cmd_LE_Set_Scan_Enable, opcode=0x200c)
 bind_layers( HCI_Command_Hdr, HCI_Cmd_Disconnect, opcode=0x406)
 bind_layers( HCI_Command_Hdr, HCI_Cmd_LE_Create_Connection, opcode=0x200d)
 bind_layers( HCI_Command_Hdr, HCI_Cmd_LE_Create_Connection_Cancel, opcode=0x200e)
+bind_layers( HCI_Command_Hdr, HCI_Cmd_LE_Connection_Update, opcode=0x2013)
 bind_layers( HCI_Command_Hdr, HCI_Cmd_LE_Long_Term_Key_Request_Reply, opcode=0x201a)
 bind_layers( HCI_Command_Hdr, HCI_Cmd_LE_Long_Term_Key_Request_Negative_Reply, opcode=0x201b)
 
@@ -635,6 +654,7 @@ bind_layers( HCI_Event_Command_Complete, HCI_Cmd_Complete_Read_BD_Addr, opcode=0
 
 bind_layers( HCI_Event_LE_Meta, HCI_LE_Meta_Connection_Complete, event=1)
 bind_layers( HCI_Event_LE_Meta, HCI_LE_Meta_Advertising_Report, event=2)
+bind_layers( HCI_Event_LE_Meta, HCI_LE_Meta_Connection_Update_Complete, event=3)
 bind_layers( HCI_Event_LE_Meta, HCI_LE_Meta_Long_Term_Key_Request, event=5)
 
 bind_layers(EIR_Hdr, EIR_Flags, type=0x01)
