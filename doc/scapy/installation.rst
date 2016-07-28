@@ -161,7 +161,7 @@ Here are the topics involved and some examples that you can use to try if your i
 .. index::
    single: WEP, unwep()
 
-* WEP decryption. ``unwep()`` needs `PyCrypto <http://www.dlitz.net/software/pycrypto/>`_. Example using a `Weplap test file <http://weplab.sourceforge.net/caps/weplab-64bit-AA-managed.pcap>`_:
+* WEP decryption. ``unwep()`` needs `cryptography <https://cryptography.io>`_. Example using a `Weplap test file <http://weplab.sourceforge.net/caps/weplab-64bit-AA-managed.pcap>`_:
 
   .. code-block:: python
 
@@ -394,7 +394,7 @@ Graphs (conversations)
 
 WEP decryption
 
- * `PyCrypto <http://www.dlitz.net/software/pycrypto/>`_: `pycrypto-2.1.0.win32-py2.5.zip <http://www.voidspace.org.uk/downloads/pycrypto-2.1.0.win32-py2.5.zip>`_ `pycrypto-2.1.0.win32-py2.6.zip <http://www.voidspace.org.uk/downloads/pycrypto-2.1.0.win32-py2.6.zip>`_
+ * `cryptography <https://cryptography.io>`_: `HowTo <https://cryptography.io/en/latest/installation/#on-windows>`_
 
 Fingerprinting
 

@@ -3,7 +3,7 @@ if [ -z $TRAVIS_SUDO ] && [ "$TRAVIS_OS_NAME" = "osx" ]
 then 
   PIP_INSTALL_FLAGS="--user"
 fi
-$TRAVIS_SUDO pip install $PIP_INSTALL_FLAGS pycrypto ecdsa mock
+$TRAVIS_SUDO pip install $PIP_INSTALL_FLAGS cryptography ecdsa mock
 
 # Install pcap & dnet
 if [ ! -z $SCAPY_USE_PCAPDNET ]
