@@ -894,13 +894,13 @@ class MultiEnumField(_MultiEnumField, EnumField):
 class BitMultiEnumField(BitField, _MultiEnumField):
     __slots__ = EnumField.__slots__ + MultiEnumField.__slots__
     def __init__(self, name, default, size, enum, depends_on):
-        MultiEnumField.__init__(self, name, default, enum)
+        _MultiEnumField.__init__(self, name, default, enum, depends_on)
         self.rev = size < 0
         self.size = abs(size)
     def any2i(self, pkt, x):
-        return MultiEnumField.any2i(self, pkt, x)
+        return _MultiEnumField.any2i(self, pkt, x)
     def i2repr(self, pkt, x):
-        return MultiEnumField.i2repr(self, pkt, x)
+        return _MultiEnumField.i2repr(self, pkt, x)
 
 
 class ByteEnumKeysField(ByteEnumField):
