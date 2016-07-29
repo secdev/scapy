@@ -6163,3 +6163,139 @@ p = Ether(str(p))
 assert(p[VXLAN].gpid == 42)
 assert(p[VXLAN].reserved1 is None)
 assert(p[Ether:2].type == 0x800)
+
++ Tests of SSLStreamContext
+
+= Test with recv() calls that return exact packet-length strings
+~ sslstreamsocket
+
+import socket
+class MockSocket(object):
+    def __init__(self):
+        self.l = [ '\x00\x00\x00\x01', '\x00\x00\x00\x02', '\x00\x00\x00\x03' ]
+    def recv(self, x):
+        if len(self.l) == 0:
+            raise socket.error(100, 'EOF')
+        return self.l.pop(0)
+
+class TestPacket(Packet):
+    name = 'TestPacket'
+    fields_desc = [
+        IntField('data', 0)
+    ]
+    def guess_payload_class(self, p):
+        return conf.padding_layer
+
+s = MockSocket()
+ss = SSLStreamSocket(s, basecls=TestPacket)
+
+p = ss.recv()
+assert(p.data == 1)
+p = ss.recv()
+assert(p.data == 2)
+p = ss.recv()
+assert(p.data == 3)
+try:
+    ss.recv()
+    ret = False
+except socket.error:
+    ret = True
+
+assert(ret)
+
+= Test with recv() calls that return twice as much data as the exact packet-length
+~ sslstreamsocket
+
+import socket
+class MockSocket(object):
+    def __init__(self):
+        self.l = [ '\x00\x00\x00\x01\x00\x00\x00\x02', '\x00\x00\x00\x03\x00\x00\x00\x04' ]
+    def recv(self, x):
+        if len(self.l) == 0:
+            raise socket.error(100, 'EOF')
+        return self.l.pop(0)
+
+class TestPacket(Packet):
+    name = 'TestPacket'
+    fields_desc = [
+        IntField('data', 0)
+    ]
+    def guess_payload_class(self, p):
+        return conf.padding_layer
+
+s = MockSocket()
+ss = SSLStreamSocket(s, basecls=TestPacket)
+
+p = ss.recv()
+assert(p.data == 1)
+p = ss.recv()
+assert(p.data == 2)
+p = ss.recv()
+assert(p.data == 3)
+p = ss.recv()
+assert(p.data == 4)
+try:
+    ss.recv()
+    ret = False
+except socket.error:
+    ret = True
+
+assert(ret)
+
+= Test with recv() calls that return not enough data
+~ sslstreamsocket
+
+import socket
+class MockSocket(object):
+    def __init__(self):
+        self.l = [ '\x00\x00', '\x00\x01', '\x00\x00\x00', '\x02', '\x00\x00', '\x00', '\x03' ]
+    def recv(self, x):
+        if len(self.l) == 0:
+            raise socket.error(100, 'EOF')
+        return self.l.pop(0)
+
+class TestPacket(Packet):
+    name = 'TestPacket'
+    fields_desc = [
+        IntField('data', 0)
+    ]
+    def guess_payload_class(self, p):
+        return conf.padding_layer
+
+s = MockSocket()
+ss = SSLStreamSocket(s, basecls=TestPacket)
+
+try:
+    p = ss.recv()
+    ret = False
+except:
+    ret = True
+
+assert(ret)
+p = ss.recv()
+assert(p.data == 1)
+try:
+    p = ss.recv()
+    ret = False
+except:
+    ret = True
+
+assert(ret)
+p = ss.recv()
+assert(p.data == 2)
+try:
+    p = ss.recv()
+    ret = False
+except:
+    ret = True
+
+assert(ret)
+try:
+    p = ss.recv()
+    ret = False
+except:
+    ret = True
+
+assert(ret)
+p = ss.recv()
+assert(p.data == 3)
