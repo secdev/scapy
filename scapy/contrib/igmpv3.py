@@ -36,14 +36,23 @@ class IGMPv3gr(Packet):
   instantiation of class IGMPv3. Within the IGMPv3 instantiation, the numgrp
   element will need to be manipulated to indicate the proper number of
   group records.
+  Example usage:
+
+  Create as many Group Records as needed
+      gr1 = IGMPv3gr()
+      gr2 = IGMPv3gr()
+  Append the GRs to an IGMPv3Report class:
+      report = IGMPv3Report()/gr1/gr2
+  Update the numgrprecs:
+      report.numgrprecs = 2
   """
   name = "IGMPv3gr"
-  igmpv3grtypes = { 1 : "Mode Is Include",
-                    2 : "Mode Is Exclude",
-                    3 : "Change To Include Mode",
-                    4 : "Change To Exclude Mode",
-                    5 : "Allow New Sources",
-                    6 : "Block Old Sources"}
+  igmpv3grtypes = { 1 : "IS_IN",
+                    2 : "IS_EX",
+                    3 : "TO_IN",
+                    4 : "TO_EX",
+                    5 : "ALLOW",
+                    6 : "BLOCK"}
 
   fields_desc = [ ByteEnumField("rtype", 1, igmpv3grtypes),
                       ByteField("auxdlen",0),
@@ -66,6 +75,59 @@ class IGMPv3gr(Packet):
     return self.sprintf("IGMPv3 Group Record %IGMPv3gr.type% %IGMPv3gr.maddr%")
 
 
+class IGMPv3Report(Packet):
+  """IGMP Report Class for v3.
+
+  The IGMP v3 Report header differs significantly from other IGMP messages,
+  therefore an specific class is implemented for it.
+
+  'chksum' is automatically calculated before the packet is sent.
+  """
+  name = "IGMPv3Report"
+  fields_desc = [XByteField("type", 0x22),  # Type 0x22 : "V3 Member Report"
+                 ByteField("resv", 0),
+                 XShortField("chksum", None),
+                 ShortField("resv2", 0),
+                 ShortField("numgrprecs", 0)]  # Update manually GR are added
+
+  def igmpize(self, ip=None, ether=None):  # noqa
+    """Called to explicitely fixup associated IP headers
+    Parameters:
+    self    The instantiation of an IGMP class.
+    ip      The instantiation of the associated IP class.
+    ether   Ether is not required but leaving here to maintain
+            compatibility with the v1 and v2 implementation
+    """
+    ip.dst = "224.0.0.22"  # RFC 3376, 4.2.14
+    # RFC 3376, Section 4. Message Formats
+    ip.proto = 2
+    ip.ttl = 1
+    ip.options = [IPOption_Router_Alert()]
+    ip.tos = 0xc0
+    adjust_ether(ip, ether)
+    iplong = atol(ip.dst)
+    ether.dst = "01:00:5e:%02x:%02x:%02x" % ((iplong >> 16) & 0x7F,
+                                             (iplong >> 8) & 0xFF,
+                                             (iplong) & 0xFF)
+
+  def post_build(self, p, pay):
+    """
+      Called implicitly before a packet is sent to
+      compute and place IGMPv3 checksum.
+    """
+    p += pay
+    return get_cksum(self, p)
+
+  def mysummary(self):
+     """Display a summary of the IGMPv3 Report object."""
+     if isinstance(self.underlayer, IP):
+       return self.underlayer.sprintf("IGMPv3Report: \
+                                       %IP.src% > %IP.dst% \
+                                       %IGMPv3Report.type%")
+     else:
+       return self.sprintf("IGMPv3Report %IGMPv3.type%")
+
+
 class IGMPv3(Packet):
   """IGMP Message Class for v3.
 
@@ -81,7 +143,7 @@ class IGMPv3(Packet):
     c.srcaddrs += ['192.168.10.24']
   At this point, 'c.numsrc' is three (3)
 
-  'chksum' is automagically calculated before the packet is sent.
+  'chksum' is automatically calculated before the packet is sent.
 
   'mrcode' is also the Advertisement Interval field
 
@@ -264,6 +326,6 @@ class IGMPv3(Packet):
     return retCode
 
 
+bind_layers(IP, IGMPv3Report, frag=0, proto=2, ttl=1, tos=0xc0)
 bind_layers(IP, IGMPv3, frag=0, proto=2, ttl=1, tos=0xc0)
-bind_layers(IGMPv3, IGMPv3gr)
-bind_layers(IGMPv3gr, IGMPv3gr)
+bind_layers(IGMPv3, IGMPv3gr, numgrprecs=1)
