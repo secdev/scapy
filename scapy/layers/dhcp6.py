@@ -785,7 +785,7 @@ class DomainNameField(StrLenField):
 
     def m2i(self, pkt, x):
         cur = []
-        while x:
+        while x != '\x00' and len(x) > 0:
             l = ord(x[0])
             cur.append(x[1:1+l])
             x = x[l+1:]
