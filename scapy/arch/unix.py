@@ -9,15 +9,15 @@ Common customizations for all Unix-like operating systems other than Linux
 
 import sys,os,struct,socket,time
 from fcntl import ioctl
-from scapy.error import warning
+import socket
+
+from scapy.error import warning, log_interactive
 import scapy.config
 import scapy.utils
 from scapy.utils6 import in6_getscope, construct_source_candidate_set
 from scapy.utils6 import in6_isvalid, in6_ismlladdr, in6_ismnladdr
 import scapy.arch
 from scapy.config import conf
-
-import socket
 
 
 ##################

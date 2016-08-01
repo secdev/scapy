@@ -1,8 +1,10 @@
-from scapy.contrib.mpls import MPLS
-from scapy.fields import *
-from scapy.layers.inet6 import IP6Field
+import scapy
 from scapy.packet import Packet, bind_layers
+from scapy.fields import *
+from scapy.layers.inet import IP, ICMP
+from scapy.layers.inet6 import IP6Field
 from scapy.utils import warning
+from scapy.contrib.mpls import MPLS
 
 
 class ICMPExtensionObject(Packet):

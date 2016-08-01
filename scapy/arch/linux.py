@@ -11,6 +11,7 @@ from __future__ import with_statement
 import sys,os,struct,socket,time
 from select import select
 from fcntl import ioctl
+
 import scapy.utils
 import scapy.utils6
 from scapy.packet import Packet, Padding
@@ -18,7 +19,7 @@ from scapy.config import conf
 from scapy.data import *
 from scapy.supersocket import SuperSocket
 import scapy.arch
-from scapy.error import warning, Scapy_Exception
+from scapy.error import warning, Scapy_Exception, log_interactive, log_loading
 from scapy.arch.common import get_if
 
 

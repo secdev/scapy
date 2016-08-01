@@ -11,12 +11,14 @@ import os, struct, time, socket
 
 from scapy.base_classes import Net
 from scapy.config import conf
+from scapy.data import *
 from scapy.packet import *
 from scapy.ansmachine import *
 from scapy.plist import SndRcvList
 from scapy.fields import *
-from scapy.sendrecv import srp,srp1
+from scapy.sendrecv import *
 from scapy.arch import get_if_hwaddr
+from scapy.utils import inet_ntoa, inet_aton
 
 
 

@@ -42,7 +42,9 @@
         http://www.cisco.com/en/US/tech/tk389/tk689/technologies_tech_note09186a0080094c52.shtml
 """
 
-from scapy.all import *
+from scapy.packet import *
+from scapy.fields import *
+from scapy.layers.l2 import *
 
 _VTP_VLAN_TYPE = {
             1 : 'Ethernet',
@@ -168,4 +170,5 @@ class VTP(Packet):
 bind_layers(SNAP, VTP, code=0x2003)
 
 if __name__ == '__main__':
+    from scapy.main import interact
     interact(mydict=globals(), mybanner="VTP")

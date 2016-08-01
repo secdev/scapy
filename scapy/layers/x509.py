@@ -8,9 +8,13 @@
 X.509 certificates.
 """
 
+from scapy.asn1.asn1 import *
+from scapy.asn1.ber import *
 from scapy.asn1packet import *
 from scapy.asn1fields import *
+from scapy.packet import Packet
 from scapy.fields import PacketField
+from scapy.volatile import *
 
 class ASN1P_OID(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER

@@ -10,13 +10,14 @@ Bluetooth layers, sockets and send/receive functions.
 
 import socket,struct,array
 from ctypes import *
+from select import select
 
 from scapy.config import conf
 from scapy.packet import *
 from scapy.fields import *
 from scapy.supersocket import SuperSocket
+from scapy.sendrecv import sndrcv
 from scapy.data import MTU
-from select import select
 
 ##########
 # Fields #

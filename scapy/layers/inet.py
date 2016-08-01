@@ -11,7 +11,9 @@ import os,time,struct,re,socket,new
 from select import select
 from collections import defaultdict
 
-from scapy.utils import checksum
+from scapy.utils import checksum,inet_aton,inet_ntoa
+from scapy.base_classes import Gen
+from scapy.data import *
 from scapy.layers.l2 import *
 from scapy.config import conf
 from scapy.fields import *
@@ -20,6 +22,7 @@ from scapy.volatile import *
 from scapy.sendrecv import sr,sr1,srp1
 from scapy.plist import PacketList,SndRcvList
 from scapy.automaton import Automaton,ATMT
+from scapy.error import warning
 
 import scapy.as_resolvers
 

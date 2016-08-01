@@ -94,6 +94,7 @@ def voip_play1(s1,list=None,**kargs):
             return 
         ip=pkt.getlayer(IP)
         if s1 in [ip.src, ip.dst]:
+            from scapy.config import conf
             dsp.write(pkt.getlayer(conf.raw_layer).load[12:])
     try:
         if list is None:
@@ -137,6 +138,7 @@ def voip_play3(lst=None,**kargs):
     dsp,rd = os.popen2("sox -t .ul - -t ossdsp /dev/dsp")
     try:
         def play(pkt, dsp=dsp):
+            from scapy.config import conf
             if pkt and pkt.haslayer(UDP) and pkt.haslayer(conf.raw_layer):
                 dsp.write(pkt.getlayer(RTP).load)
         if lst is None:

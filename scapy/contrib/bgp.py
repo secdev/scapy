@@ -165,5 +165,6 @@ bind_layers( BGPHeader,       BGPHeader,   type=4)
 
 
 if __name__ == "__main__":
+    from scapy.main import interact
     interact(mydict=globals(), mybanner="BGP addon .05")
 

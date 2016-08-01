@@ -9,7 +9,7 @@ Resolve Autonomous Systems (AS).
 
 
 import socket
-from config import conf
+from scapy.config import conf
 
 class AS_resolver:
     server = None

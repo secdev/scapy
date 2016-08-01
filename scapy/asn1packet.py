@@ -7,7 +7,8 @@
 Packet holding data in Abstract Syntax Notation (ASN.1).
 """
 
-from packet import *
+from scapy.base_classes import Packet_metaclass
+from scapy.packet import Packet
 
 class ASN1Packet_metaclass(Packet_metaclass):
     def __new__(cls, name, bases, dct):

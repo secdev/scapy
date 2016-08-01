@@ -12,12 +12,12 @@ import types,itertools,time,os,sys,socket,traceback
 from select import select
 from collections import deque
 import thread
-from config import conf
-from utils import do_graph
-from error import log_interactive
-from plist import PacketList
-from data import MTU
-from supersocket import SuperSocket
+from scapy.config import conf
+from scapy.utils import do_graph
+from scapy.error import log_interactive
+from scapy.plist import PacketList
+from scapy.data import MTU
+from scapy.supersocket import SuperSocket
 
 class ObjectPipe:
     def __init__(self):
