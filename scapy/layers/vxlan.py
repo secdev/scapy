@@ -2,9 +2,6 @@
 # A Framework for Overlaying Virtualized Layer 2 Networks over Layer 3 Networks
 # http://tools.ietf.org/html/rfc7348
 
-# scapy.contrib.description = VXLAN
-# scapy.contrib.status = loads
-
 from scapy.packet import Packet, bind_layers
 from scapy.layers.l2 import Ether
 from scapy.layers.inet import UDP

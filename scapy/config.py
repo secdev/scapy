@@ -383,7 +383,7 @@ extensions_paths: path or list of paths where extensions are to be looked for
                    "mobileip", "netbios", "netflow", "ntp", "ppp",
                    "radius", "rip", "rtp", "skinny", "smb", "snmp",
                    "tftp", "x509", "bluetooth", "dhcp6", "llmnr",
-                   "sctp", "vrrp", "ipsec", "lltd"]
+                   "sctp", "vrrp", "ipsec", "lltd", "vxlan"]
 
 
 if not Conf.ipv6_enabled:
