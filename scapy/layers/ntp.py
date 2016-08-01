@@ -68,12 +68,12 @@ class XStrFixedLenField(StrFixedLenField):
     """
 
     def i2repr(self, pkt, x):
-        output = ''
+        output = ""
         length = len(x)
         len_from_val = self.length_from(pkt)
         max_idx = length if length < len_from_val else len_from_val
         for i in range(0, max_idx):
-            output += x[i].encode('hex')
+            output += x[i].encode("hex")
         return output
 
 
@@ -108,7 +108,7 @@ class TimeStampField(FixedPointField):
 
 def get_cls(name, fallback_cls="Raw"):
     """
-    Returns class named 'name' if it exists, fallback_cls otherwise.
+    Returns class named "name" if it exists, fallback_cls otherwise.
     """
 
     return globals().get(name, fallback_cls)
@@ -129,14 +129,14 @@ _leap_indicator = {
 
 # RFC 5905 / Section 7.3
 _ntp_modes = {
-    0: 'reserved',
-    1: 'symmetric active',
-    2: 'symmetric passive',
-    3: 'client',
-    4: 'server',
-    5: 'broadcast',
-    6: 'NTP control message',
-    7: 'reserved for private use'
+    0: "reserved",
+    1: "symmetric active",
+    2: "symmetric passive",
+    3: "client",
+    4: "server",
+    5: "broadcast",
+    6: "NTP control message",
+    7: "reserved for private use"
 }
 
 
@@ -289,7 +289,7 @@ class NTP(Packet):
 class _NTPAuthenticatorPaddingField(StrField):
     """
     StrField handling the padding that may be found before the
-    'authenticator' field.
+    "authenticator" field.
     """
 
     def getfield(self, pkt, s):
@@ -312,13 +312,13 @@ class NTPAuthenticator(Packet):
 
     name = "Authenticator"
     fields_desc = [
-        _NTPAuthenticatorPaddingField('padding', ''),
-        IntField('key_id', 0),
-        XStrFixedLenField('dgst', '', length_from=lambda x: 16)
+        _NTPAuthenticatorPaddingField("padding", ""),
+        IntField("key_id", 0),
+        XStrFixedLenField("dgst", "", length_from=lambda x: 16)
     ]
 
     def extract_padding(self, s):
-        return '', s
+        return "", s
 
 
 class NTPExtension(Packet):
@@ -362,9 +362,9 @@ class NTPExtension(Packet):
 
     name = "extension"
     fields_desc = [
-        ShortField('type', 0),
-        ShortField('len', 0),
-        PadField(PacketField('value', '', Packet), align=4, padwith='\x00')
+        ShortField("type", 0),
+        ShortField("len", 0),
+        PadField(PacketField("value", "", Packet), align=4, padwith="\x00")
     ]
 
 
@@ -393,7 +393,7 @@ class NTPExtPacketListField(PacketListField):
 
             extensions_len = len(extensions)
             while extensions_len >= 16:
-                ext_len = struct.unpack('!H', extensions[2:4])[0]
+                ext_len = struct.unpack("!H", extensions[2:4])[0]
                 current = extensions[:ext_len]
                 extensions = extensions[ext_len:]
                 current_packet = self.m2i(pkt, current)
@@ -408,7 +408,7 @@ class NTPExtPacketListField(PacketListField):
 
 class NTPExtensions(Packet):
     """
-    Packet handling the NTPv4 extensions and the 'MAC part' of the packet.
+    Packet handling the NTPv4 extensions and the "MAC part" of the packet.
     """
 
     #________________________________________________________________________
@@ -425,8 +425,8 @@ class NTPExtensions(Packet):
 
     name = "NTPv4 extensions"
     fields_desc = [
-        NTPExtPacketListField('extensions', [], Packet),
-        PacketField('mac', NTPAuthenticator(), NTPAuthenticator)
+        NTPExtPacketListField("extensions", [], Packet),
+        PacketField("mac", NTPAuthenticator(), NTPAuthenticator)
     ]
 
 
@@ -493,28 +493,28 @@ class NTPHeader(NTP):
 
     name = "NTPHeader"
     fields_desc = [
-        BitEnumField('leap', 0, 2, _leap_indicator),
-        BitField('version', 4, 3),
-        BitEnumField('mode', 3, 3, _ntp_modes),
-        BitField('stratum', 2, 8),
-        BitField('poll', 0xa, 8),
-        BitField('precision', 0, 8),
-        FixedPointField('delay', 0, size=32, frac_bits=16),
-        FixedPointField('dispersion', 0, size=32, frac_bits=16),
-        ConditionalField(IPField('id', "127.0.0.1"), lambda p: p.stratum > 1),
+        BitEnumField("leap", 0, 2, _leap_indicator),
+        BitField("version", 4, 3),
+        BitEnumField("mode", 3, 3, _ntp_modes),
+        BitField("stratum", 2, 8),
+        BitField("poll", 0xa, 8),
+        BitField("precision", 0, 8),
+        FixedPointField("delay", 0, size=32, frac_bits=16),
+        FixedPointField("dispersion", 0, size=32, frac_bits=16),
+        ConditionalField(IPField("id", "127.0.0.1"), lambda p: p.stratum > 1),
         ConditionalField(
             StrFixedLenEnumField(
-                'ref_id',
-                '',
+                "ref_id",
+                "",
                 length=4,
                 enum=_reference_identifiers
             ),
             lambda p: p.stratum < 2
         ),
-        TimeStampField('ref', 0),
-        TimeStampField('orig', None),
-        TimeStampField('recv', 0),
-        TimeStampField('sent', None),
+        TimeStampField("ref", 0),
+        TimeStampField("orig", None),
+        TimeStampField("recv", 0),
+        TimeStampField("sent", None),
     ]
 
     def guess_payload_class(self, payload):
@@ -665,10 +665,10 @@ class NTPStatusPacket(Packet):
     """
 
     name = "status"
-    fields_desc = [ShortField('status', 0)]
+    fields_desc = [ShortField("status", 0)]
 
     def extract_padding(self, s):
-        return '', s
+        return "", s
 
 
 class NTPSystemStatusPacket(Packet):
@@ -679,14 +679,14 @@ class NTPSystemStatusPacket(Packet):
 
     name = "system status"
     fields_desc = [
-        BitEnumField('leap_indicator', 0, 2, _system_statuses),
-        BitEnumField('clock_source', 0, 6, _clock_sources),
-        BitField('system_event_counter', 0, 4),
-        BitEnumField('system_event_code', 0, 4, _system_event_codes),
+        BitEnumField("leap_indicator", 0, 2, _system_statuses),
+        BitEnumField("clock_source", 0, 6, _clock_sources),
+        BitField("system_event_counter", 0, 4),
+        BitEnumField("system_event_code", 0, 4, _system_event_codes),
     ]
 
     def extract_padding(self, s):
-        return '', s
+        return "", s
 
 
 class NTPPeerStatusPacket(Packet):
@@ -696,18 +696,18 @@ class NTPPeerStatusPacket(Packet):
 
     name = "peer status"
     fields_desc = [
-        BitField('configured', 0, 1),
-        BitField('auth_enabled', 0, 1),
-        BitField('authentic', 0, 1),
-        BitField('reachability', 0, 1),
-        BitField('reserved', 0, 1),
-        BitEnumField('peer_sel', 0, 3, _peer_selection),
-        BitField('peer_event_counter', 0, 4),
-        BitEnumField('peer_event_code', 0, 4, _peer_event_codes),
+        BitField("configured", 0, 1),
+        BitField("auth_enabled", 0, 1),
+        BitField("authentic", 0, 1),
+        BitField("reachability", 0, 1),
+        BitField("reserved", 0, 1),
+        BitEnumField("peer_sel", 0, 3, _peer_selection),
+        BitField("peer_event_counter", 0, 4),
+        BitEnumField("peer_event_code", 0, 4, _peer_event_codes),
     ]
 
     def extract_padding(self, s):
-        return '', s
+        return "", s
 
 
 class NTPClockStatusPacket(Packet):
@@ -717,12 +717,12 @@ class NTPClockStatusPacket(Packet):
 
     name = "clock status"
     fields_desc = [
-        BitEnumField('clock_status', 0, 8, _clock_statuses),
-        BitField('code', 0, 8)
+        BitEnumField("clock_status", 0, 8, _clock_statuses),
+        BitField("code", 0, 8)
     ]
 
     def extract_padding(self, s):
-        return '', s
+        return "", s
 
 
 class NTPErrorStatusPacket(Packet):
@@ -732,12 +732,12 @@ class NTPErrorStatusPacket(Packet):
 
     name = "error status"
     fields_desc = [
-        BitEnumField('error_code', 0, 8, _error_statuses),
-        BitField('reserved', 0, 8)
+        BitEnumField("error_code", 0, 8, _error_statuses),
+        BitField("reserved", 0, 8)
     ]
 
     def extract_padding(self, s):
-        return '', s
+        return "", s
 
 
 class NTPControlStatusField(PacketField):
@@ -756,7 +756,7 @@ class NTPControlStatusField(PacketField):
 
     def m2i(self, pkt, m):
         ret = None
-        association_id = struct.unpack('!H', m[2:4])[0]
+        association_id = struct.unpack("!H", m[2:4])[0]
 
         if pkt.error == 1:
             ret = NTPErrorStatusPacket(m)
@@ -798,7 +798,7 @@ class NTPPeerStatusDataPacket(Packet):
     name = "data / peer status"
     fields_desc = [
         ShortField("association_id", 0),
-        PacketField('peer_status', NTPPeerStatusPacket(), NTPPeerStatusPacket),
+        PacketField("peer_status", NTPPeerStatusPacket(), NTPPeerStatusPacket),
     ]
 
 
@@ -862,23 +862,23 @@ class NTPControl(NTP):
 
     name = "Control message"
     fields_desc = [
-        BitField('zeros', 0, 2),
-        BitField('version', 2, 3),
-        BitField('mode', 6, 3),
-        BitField('response', 0, 1),
-        BitField('error', 0, 1),
-        BitField('more', 0, 1),
-        BitEnumField('op_code', 0, 5, _op_codes),
-        ShortField('sequence', 0),
+        BitField("zeros", 0, 2),
+        BitField("version", 2, 3),
+        BitField("mode", 6, 3),
+        BitField("response", 0, 1),
+        BitField("error", 0, 1),
+        BitField("more", 0, 1),
+        BitEnumField("op_code", 0, 5, _op_codes),
+        ShortField("sequence", 0),
         ConditionalField(NTPControlStatusField(
-            'status_word', '', Packet), lambda p: p.response == 1),
-        ConditionalField(ShortField('status', 0), lambda p: p.response == 0),
-        ShortField('association_id', 0),
-        ShortField('offset', 0),
-        ShortField('count', None),
+            "status_word", "", Packet), lambda p: p.response == 1),
+        ConditionalField(ShortField("status", 0), lambda p: p.response == 0),
+        ShortField("association_id", 0),
+        ShortField("offset", 0),
+        ShortField("count", None),
         NTPControlDataPacketLenField(
-            'data', '', Packet, length_from=lambda p: p.count),
-        PacketField('authenticator', '', NTPAuthenticator),
+            "data", "", Packet, length_from=lambda p: p.count),
+        PacketField("authenticator", "", NTPAuthenticator),
     ]
 
     def post_build(self, p, pay):
@@ -996,11 +996,11 @@ class NTPInfoPeerList(Packet):
     fields_desc = [
         IPField("addr", "0.0.0.0"),
         ShortField("port", 0),
-        ByteEnumField('hmode', 0, _ntp_modes),
-        FlagsField('flags', 0, 8, _peer_flags),
-        IntField('v6_flag', 0),
-        IntField('unused1', 0),
-        IP6Field('addr6', '::')
+        ByteEnumField("hmode", 0, _ntp_modes),
+        FlagsField("flags", 0, 8, _peer_flags),
+        IntField("v6_flag", 0),
+        IntField("unused1", 0),
+        IP6Field("addr6", "::")
     ]
 
 
@@ -1010,22 +1010,22 @@ class NTPInfoPeerSummary(Packet):
     """
     name = "info_peer_summary"
     fields_desc = [
-        IPField('dstaddr', "0.0.0.0"),
-        IPField('srcaddr', "0.0.0.0"),
-        ShortField('srcport', 0),
-        ByteField('stratum', 0),
-        ByteField('hpoll', 0),
-        ByteField('ppoll', 0),
-        ByteField('reach', 0),
-        FlagsField('flags', 0, 8, _peer_flags),
-        ByteField('hmode', _ntp_modes),
-        FixedPointField('delay', 0, size=32, frac_bits=16),
-        TimeStampField('offset', 0),
-        FixedPointField('dispersion', 0, size=32, frac_bits=16),
-        IntField('v6_flag', 0),
-        IntField('unused1', 0),
-        IP6Field('dstaddr6', '::'),
-        IP6Field('srcaddr6', '::')
+        IPField("dstaddr", "0.0.0.0"),
+        IPField("srcaddr", "0.0.0.0"),
+        ShortField("srcport", 0),
+        ByteField("stratum", 0),
+        ByteField("hpoll", 0),
+        ByteField("ppoll", 0),
+        ByteField("reach", 0),
+        FlagsField("flags", 0, 8, _peer_flags),
+        ByteField("hmode", _ntp_modes),
+        FixedPointField("delay", 0, size=32, frac_bits=16),
+        TimeStampField("offset", 0),
+        FixedPointField("dispersion", 0, size=32, frac_bits=16),
+        IntField("v6_flag", 0),
+        IntField("unused1", 0),
+        IP6Field("dstaddr6", "::"),
+        IP6Field("srcaddr6", "::")
     ]
 
 
@@ -1036,69 +1036,69 @@ class NTPInfoPeer(Packet):
 
     name = "info_peer"
     fields_desc = [
-        IPField('dstaddr', "0.0.0.0"),
-        IPField('srcaddr', "0.0.0.0"),
-        ShortField('srcport', 0),
-        FlagsField('flags', 0, 8, _peer_flags),
-        ByteField('leap', 0),
-        ByteEnumField('hmode', 0, _ntp_modes),
-        ByteField('pmode', 0),
-        ByteField('stratum', 0),
-        ByteField('ppoll', 0),
-        ByteField('hpoll', 0),
-        SignedByteField('precision', 0),
-        ByteField('version', 0),
-        ByteField('unused8', 0),
-        ByteField('reach', 0),
-        ByteField('unreach', 0),
-        XByteField('flash', 0),
-        ByteField('ttl', 0),
-        XLEShortField('flash2', 0),
-        ShortField('associd', 0),
-        LEIntField('keyid', 0),
-        IntField('pkeyid', 0),
-        IPField('refid', 0),
-        IntField('timer', 0),
-        FixedPointField('rootdelay', 0, size=32, frac_bits=16),
-        FixedPointField('rootdispersion', 0, size=32, frac_bits=16),
-        TimeStampField('reftime', 0),
-        TimeStampField('org', 0),
-        TimeStampField('rec', 0),
-        TimeStampField('xmt', 0),
+        IPField("dstaddr", "0.0.0.0"),
+        IPField("srcaddr", "0.0.0.0"),
+        ShortField("srcport", 0),
+        FlagsField("flags", 0, 8, _peer_flags),
+        ByteField("leap", 0),
+        ByteEnumField("hmode", 0, _ntp_modes),
+        ByteField("pmode", 0),
+        ByteField("stratum", 0),
+        ByteField("ppoll", 0),
+        ByteField("hpoll", 0),
+        SignedByteField("precision", 0),
+        ByteField("version", 0),
+        ByteField("unused8", 0),
+        ByteField("reach", 0),
+        ByteField("unreach", 0),
+        XByteField("flash", 0),
+        ByteField("ttl", 0),
+        XLEShortField("flash2", 0),
+        ShortField("associd", 0),
+        LEIntField("keyid", 0),
+        IntField("pkeyid", 0),
+        IPField("refid", 0),
+        IntField("timer", 0),
+        FixedPointField("rootdelay", 0, size=32, frac_bits=16),
+        FixedPointField("rootdispersion", 0, size=32, frac_bits=16),
+        TimeStampField("reftime", 0),
+        TimeStampField("org", 0),
+        TimeStampField("rec", 0),
+        TimeStampField("xmt", 0),
         FieldListField(
-            'filtdelay',
+            "filtdelay",
             [0.0 for i in range(0, _NTP_SHIFT)],
-            FixedPointField('', 0, size=32, frac_bits=16),
+            FixedPointField("", 0, size=32, frac_bits=16),
             count_from=lambda p: _NTP_SHIFT
         ),
         FieldListField(
-            'filtoffset',
+            "filtoffset",
             [0.0 for i in range(0, _NTP_SHIFT)],
-            TimeStampField('', 0),
+            TimeStampField("", 0),
             count_from=lambda p: _NTP_SHIFT
         ),
         FieldListField(
-            'order',
+            "order",
             [0 for i in range(0, _NTP_SHIFT)],
-            ByteField('', 0),
+            ByteField("", 0),
             count_from=lambda p: _NTP_SHIFT
         ),
-        FixedPointField('delay', 0, size=32, frac_bits=16),
-        FixedPointField('dispersion', 0, size=32, frac_bits=16),
-        TimeStampField('offset', 0),
-        FixedPointField('selectdisp', 0, size=32, frac_bits=16),
-        IntField('unused1', 0),
-        IntField('unused2', 0),
-        IntField('unused3', 0),
-        IntField('unused4', 0),
-        IntField('unused5', 0),
-        IntField('unused6', 0),
-        IntField('unused7', 0),
-        FixedPointField('estbdelay', 0, size=32, frac_bits=16),
-        IntField('v6_flag', 0),
-        IntField('unused9', 0),
-        IP6Field('dstaddr6', '::'),
-        IP6Field('srcaddr6', '::'),
+        FixedPointField("delay", 0, size=32, frac_bits=16),
+        FixedPointField("dispersion", 0, size=32, frac_bits=16),
+        TimeStampField("offset", 0),
+        FixedPointField("selectdisp", 0, size=32, frac_bits=16),
+        IntField("unused1", 0),
+        IntField("unused2", 0),
+        IntField("unused3", 0),
+        IntField("unused4", 0),
+        IntField("unused5", 0),
+        IntField("unused6", 0),
+        IntField("unused7", 0),
+        FixedPointField("estbdelay", 0, size=32, frac_bits=16),
+        IntField("v6_flag", 0),
+        IntField("unused9", 0),
+        IP6Field("dstaddr6", "::"),
+        IP6Field("srcaddr6", "::"),
     ]
 
 
@@ -1109,34 +1109,34 @@ class NTPInfoPeerStats(Packet):
 
     name = "info_peer_stats"
     fields_desc = [
-        IPField('dstaddr', "0.0.0.0"),
-        IPField('srcaddr', "0.0.0.0"),
-        ShortField('srcport', 0),
-        FlagsField('flags', 0, 16, _peer_flags),
-        IntField('timereset', 0),
-        IntField('timereceived', 0),
-        IntField('timetosend', 0),
-        IntField('timereachable', 0),
-        IntField('sent', 0),
-        IntField('unused1', 0),
-        IntField('processed', 0),
-        IntField('unused2', 0),
-        IntField('badauth', 0),
-        IntField('bogusorg', 0),
-        IntField('oldpkt', 0),
-        IntField('unused3', 0),
-        IntField('unused4', 0),
-        IntField('seldisp', 0),
-        IntField('selbroken', 0),
-        IntField('unused5', 0),
-        ByteField('candidate', 0),
-        ByteField('unused6', 0),
-        ByteField('unused7', 0),
-        ByteField('unused8', 0),
-        IntField('v6_flag', 0),
-        IntField('unused9', 0),
-        IP6Field('dstaddr6', '::'),
-        IP6Field('srcaddr6', '::'),
+        IPField("dstaddr", "0.0.0.0"),
+        IPField("srcaddr", "0.0.0.0"),
+        ShortField("srcport", 0),
+        FlagsField("flags", 0, 16, _peer_flags),
+        IntField("timereset", 0),
+        IntField("timereceived", 0),
+        IntField("timetosend", 0),
+        IntField("timereachable", 0),
+        IntField("sent", 0),
+        IntField("unused1", 0),
+        IntField("processed", 0),
+        IntField("unused2", 0),
+        IntField("badauth", 0),
+        IntField("bogusorg", 0),
+        IntField("oldpkt", 0),
+        IntField("unused3", 0),
+        IntField("unused4", 0),
+        IntField("seldisp", 0),
+        IntField("selbroken", 0),
+        IntField("unused5", 0),
+        ByteField("candidate", 0),
+        ByteField("unused6", 0),
+        ByteField("unused7", 0),
+        ByteField("unused8", 0),
+        IntField("v6_flag", 0),
+        IntField("unused9", 0),
+        IP6Field("dstaddr6", "::"),
+        IP6Field("srcaddr6", "::"),
     ]
 
 
@@ -1147,10 +1147,10 @@ class NTPInfoLoop(Packet):
 
     name = "info_loop"
     fields_desc = [
-        TimeStampField('last_offset', 0),
-        TimeStampField('drift_comp', 0),
-        IntField('compliance', 0),
-        IntField('watchdog_timer', 0)
+        TimeStampField("last_offset", 0),
+        TimeStampField("drift_comp", 0),
+        IntField("compliance", 0),
+        IntField("watchdog_timer", 0)
     ]
 
 
@@ -1162,27 +1162,27 @@ class NTPInfoSys(Packet):
 
     name = "info_sys"
     fields_desc = [
-        IPField('peer', "0.0.0.0"),
-        ByteField('peer_mode', 0),
-        ByteField('leap', 0),
-        ByteField('stratum', 0),
-        ByteField('precision', 0),
-        FixedPointField('rootdelay', 0, size=32, frac_bits=16),
-        FixedPointField('rootdispersion', 0, size=32, frac_bits=16),
-        IPField('refid', 0),
-        TimeStampField('reftime', 0),
-        IntField('poll', 0),
-        FlagsField('flags', 0, 8, _sys_info_flags),
-        ByteField('unused1', 0),
-        ByteField('unused2', 0),
-        ByteField('unused3', 0),
-        FixedPointField('bdelay', 0, size=32, frac_bits=16),
-        FixedPointField('frequency', 0, size=32, frac_bits=16),
-        TimeStampField('authdelay', 0),
-        FixedPointField('stability', 0, size=32, frac_bits=16),
-        IntField('v6_flag', 0),
-        IntField('unused4', 0),
-        IP6Field('peer6', '::')
+        IPField("peer", "0.0.0.0"),
+        ByteField("peer_mode", 0),
+        ByteField("leap", 0),
+        ByteField("stratum", 0),
+        ByteField("precision", 0),
+        FixedPointField("rootdelay", 0, size=32, frac_bits=16),
+        FixedPointField("rootdispersion", 0, size=32, frac_bits=16),
+        IPField("refid", 0),
+        TimeStampField("reftime", 0),
+        IntField("poll", 0),
+        FlagsField("flags", 0, 8, _sys_info_flags),
+        ByteField("unused1", 0),
+        ByteField("unused2", 0),
+        ByteField("unused3", 0),
+        FixedPointField("bdelay", 0, size=32, frac_bits=16),
+        FixedPointField("frequency", 0, size=32, frac_bits=16),
+        TimeStampField("authdelay", 0),
+        FixedPointField("stability", 0, size=32, frac_bits=16),
+        IntField("v6_flag", 0),
+        IntField("unused4", 0),
+        IP6Field("peer6", "::")
     ]
 
 
@@ -1193,17 +1193,17 @@ class NTPInfoSysStats(Packet):
 
     name = "info_sys_stats"
     fields_desc = [
-        IntField('timeup', 0),
-        IntField('timereset', 0),
-        IntField('denied', 0),
-        IntField('oldversionpkt', 0),
-        IntField('newversionpkt', 0),
-        IntField('unknownversion', 0),
-        IntField('badlength', 0),
-        IntField('processed', 0),
-        IntField('badauth', 0),
-        IntField('received', 0),
-        IntField('limitrejected', 0)
+        IntField("timeup", 0),
+        IntField("timereset", 0),
+        IntField("denied", 0),
+        IntField("oldversionpkt", 0),
+        IntField("newversionpkt", 0),
+        IntField("unknownversion", 0),
+        IntField("badlength", 0),
+        IntField("processed", 0),
+        IntField("badauth", 0),
+        IntField("received", 0),
+        IntField("limitrejected", 0)
     ]
 
 
@@ -1214,16 +1214,16 @@ class NTPInfoMemStats(Packet):
 
     name = "info_mem_stats"
     fields_desc = [
-        IntField('timereset', 0),
-        ShortField('totalpeermem', 0),
-        ShortField('freepeermem', 0),
-        IntField('findpeer_calls', 0),
-        IntField('allocations', 0),
-        IntField('demobilizations', 0),
+        IntField("timereset", 0),
+        ShortField("totalpeermem", 0),
+        ShortField("freepeermem", 0),
+        IntField("findpeer_calls", 0),
+        IntField("allocations", 0),
+        IntField("demobilizations", 0),
         FieldListField(
-            'hashcount',
+            "hashcount",
             [0.0 for i in range(0, _NTP_HASH_SIZE)],
-            ByteField('', 0),
+            ByteField("", 0),
             count_from=lambda p: _NTP_HASH_SIZE
         )
     ]
@@ -1236,18 +1236,18 @@ class NTPInfoIOStats(Packet):
 
     name = "info_io_stats"
     fields_desc = [
-        IntField('timereset', 0),
-        ShortField('totalrecvbufs', 0),
-        ShortField('freerecvbufs', 0),
-        ShortField('fullrecvbufs', 0),
-        ShortField('lowwater', 0),
-        IntField('dropped', 0),
-        IntField('ignored', 0),
-        IntField('received', 0),
-        IntField('sent', 0),
-        IntField('notsent', 0),
-        IntField('interrupts', 0),
-        IntField('int_received', 0)
+        IntField("timereset", 0),
+        ShortField("totalrecvbufs", 0),
+        ShortField("freerecvbufs", 0),
+        ShortField("fullrecvbufs", 0),
+        ShortField("lowwater", 0),
+        IntField("dropped", 0),
+        IntField("ignored", 0),
+        IntField("received", 0),
+        IntField("sent", 0),
+        IntField("notsent", 0),
+        IntField("interrupts", 0),
+        IntField("int_received", 0)
     ]
 
 
@@ -1258,10 +1258,10 @@ class NTPInfoTimerStats(Packet):
 
     name = "info_timer_stats"
     fields_desc = [
-        IntField('timereset', 0),
-        IntField('alarms', 0),
-        IntField('overflows', 0),
-        IntField('xmtcalls', 0),
+        IntField("timereset", 0),
+        IntField("alarms", 0),
+        IntField("overflows", 0),
+        IntField("xmtcalls", 0),
     ]
 
 
@@ -1282,15 +1282,15 @@ class NTPConfPeer(Packet):
 
     name = "conf_peer"
     fields_desc = [
-        IPField('peeraddr', "0.0.0.0"),
-        ByteField('hmode', 0),
-        ByteField('version', 0),
-        ByteField('minpoll', 0),
-        ByteField('maxpoll', 0),
-        FlagsField('flags', 0, 8, _conf_peer_flags),
-        ByteField('ttl', 0),
-        ShortField('unused1', 0),
-        IntField('keyid', 0),
+        IPField("peeraddr", "0.0.0.0"),
+        ByteField("hmode", 0),
+        ByteField("version", 0),
+        ByteField("minpoll", 0),
+        ByteField("maxpoll", 0),
+        FlagsField("flags", 0, 8, _conf_peer_flags),
+        ByteField("ttl", 0),
+        ShortField("unused1", 0),
+        IntField("keyid", 0),
         StrFixedLenField("keystr", "", length=128),
         IntField("v6_flag", 0),
         IntField("unused2", 0),
@@ -1305,9 +1305,9 @@ class NTPConfUnpeer(Packet):
 
     name = "conf_unpeer"
     fields_desc = [
-        IPField('peeraddr', '0.0.0.0'),
-        IntField('v6_flag', 0),
-        IP6Field('peeraddr6', '::')
+        IPField("peeraddr", "0.0.0.0"),
+        IntField("v6_flag", 0),
+        IP6Field("peeraddr6", "::")
     ]
 
 
@@ -1336,13 +1336,13 @@ class NTPConfRestrict(Packet):
 
     name = "conf_restrict"
     fields_desc = [
-        IPField('addr', "0.0.0.0"),
-        IPField('mask', '0.0.0.0'),
-        FlagsField('flags', 0, 16, _restrict_flags),
-        ShortField('m_flags', 0),
-        IntField('v6_flag', 0),
-        IP6Field('addr6', '::'),
-        IP6Field('mask6', '::')
+        IPField("addr", "0.0.0.0"),
+        IPField("mask", "0.0.0.0"),
+        FlagsField("flags", 0, 16, _restrict_flags),
+        ShortField("m_flags", 0),
+        IntField("v6_flag", 0),
+        IP6Field("addr6", "::"),
+        IP6Field("mask6", "::")
     ]
 
 
@@ -1353,22 +1353,22 @@ class NTPInfoKernel(Packet):
 
     name = "info_kernel"
     fields_desc = [
-        IntField('offset', 0),
-        IntField('freq', 0),
-        IntField('maxerror', 0),
-        IntField('esterror', 0),
-        ShortField('status', 0),
-        ShortField('shift', 0),
-        IntField('constant', 0),
-        IntField('precision', 0),
-        IntField('tolerance', 0),
-        IntField('ppsfreq', 0),
-        IntField('jitter', 0),
-        IntField('stabil', 0),
-        IntField('jitcnt', 0),
-        IntField('calcnt', 0),
-        IntField('errcnt', 0),
-        IntField('stbcnt', 0),
+        IntField("offset", 0),
+        IntField("freq", 0),
+        IntField("maxerror", 0),
+        IntField("esterror", 0),
+        ShortField("status", 0),
+        ShortField("shift", 0),
+        IntField("constant", 0),
+        IntField("precision", 0),
+        IntField("tolerance", 0),
+        IntField("ppsfreq", 0),
+        IntField("jitter", 0),
+        IntField("stabil", 0),
+        IntField("jitcnt", 0),
+        IntField("calcnt", 0),
+        IntField("errcnt", 0),
+        IntField("stbcnt", 0),
     ]
 
 
@@ -1379,26 +1379,26 @@ class NTPInfoIfStatsIPv4(Packet):
 
     name = "info_if_stats"
     fields_desc = [
-        PadField(IPField('unaddr', "0.0.0.0"), 16, padwith="\x00"),
-        PadField(IPField('unbcast', "0.0.0.0"), 16, padwith="\x00"),
-        PadField(IPField('unmask', "0.0.0.0"), 16, padwith="\x00"),
-        IntField('v6_flag', 0),
-        StrFixedLenField('ifname', '', length=32),
-        IntField('flags', 0),
-        IntField('last_ttl', 0),
-        IntField('num_mcast', 0),
-        IntField('received', 0),
-        IntField('sent', 0),
-        IntField('notsent', 0),
-        IntField('uptime', 0),
-        IntField('scopeid', 0),
-        IntField('ifindex', 0),
-        IntField('ifnum', 0),
-        IntField('peercnt', 0),
-        ShortField('family', 0),
-        ByteField('ignore_packets', 0),
-        ByteField('action', 0),
-        IntField('_filler0', 0)
+        PadField(IPField("unaddr", "0.0.0.0"), 16, padwith="\x00"),
+        PadField(IPField("unbcast", "0.0.0.0"), 16, padwith="\x00"),
+        PadField(IPField("unmask", "0.0.0.0"), 16, padwith="\x00"),
+        IntField("v6_flag", 0),
+        StrFixedLenField("ifname", "", length=32),
+        IntField("flags", 0),
+        IntField("last_ttl", 0),
+        IntField("num_mcast", 0),
+        IntField("received", 0),
+        IntField("sent", 0),
+        IntField("notsent", 0),
+        IntField("uptime", 0),
+        IntField("scopeid", 0),
+        IntField("ifindex", 0),
+        IntField("ifnum", 0),
+        IntField("peercnt", 0),
+        ShortField("family", 0),
+        ByteField("ignore_packets", 0),
+        ByteField("action", 0),
+        IntField("_filler0", 0)
     ]
 
 
@@ -1409,26 +1409,26 @@ class NTPInfoIfStatsIPv6(Packet):
 
     name = "info_if_stats"
     fields_desc = [
-        IP6Field('unaddr', "::"),
-        IP6Field('unbcast', "::"),
-        IP6Field('unmask', "::"),
-        IntField('v6_flag', 0),
-        StrFixedLenField('ifname', '', length=32),
-        IntField('flags', 0),
-        IntField('last_ttl', 0),
-        IntField('num_mcast', 0),
-        IntField('received', 0),
-        IntField('sent', 0),
-        IntField('notsent', 0),
-        IntField('uptime', 0),
-        IntField('scopeid', 0),
-        IntField('ifindex', 0),
-        IntField('ifnum', 0),
-        IntField('peercnt', 0),
-        ShortField('family', 0),
-        ByteField('ignore_packets', 0),
-        ByteField('action', 0),
-        IntField('_filler0', 0)
+        IP6Field("unaddr", "::"),
+        IP6Field("unbcast", "::"),
+        IP6Field("unmask", "::"),
+        IntField("v6_flag", 0),
+        StrFixedLenField("ifname", "", length=32),
+        IntField("flags", 0),
+        IntField("last_ttl", 0),
+        IntField("num_mcast", 0),
+        IntField("received", 0),
+        IntField("sent", 0),
+        IntField("notsent", 0),
+        IntField("uptime", 0),
+        IntField("scopeid", 0),
+        IntField("ifindex", 0),
+        IntField("ifnum", 0),
+        IntField("peercnt", 0),
+        ShortField("family", 0),
+        ByteField("ignore_packets", 0),
+        ByteField("action", 0),
+        IntField("_filler0", 0)
     ]
 
 
@@ -1439,20 +1439,20 @@ class NTPInfoMonitor1(Packet):
 
     name = "InfoMonitor1"
     fields_desc = [
-        IntField('lasttime', 0),
-        IntField('firsttime', 0),
-        IntField('lastdrop', 0),
-        IntField('count', 0),
-        IPField('addr', "0.0.0.0"),
-        IPField('daddr', "0.0.0.0"),
-        IntField('flags', 0),
-        ShortField('port', 0),
-        ByteField('mode', 0),
-        ByteField('version', 0),
-        IntField('v6_flag', 0),
-        IntField('unused1', 0),
-        IP6Field('addr6', "::"),
-        IP6Field('daddr6', "::")
+        IntField("lasttime", 0),
+        IntField("firsttime", 0),
+        IntField("lastdrop", 0),
+        IntField("count", 0),
+        IPField("addr", "0.0.0.0"),
+        IPField("daddr", "0.0.0.0"),
+        IntField("flags", 0),
+        ShortField("port", 0),
+        ByteField("mode", 0),
+        ByteField("version", 0),
+        IntField("v6_flag", 0),
+        IntField("unused1", 0),
+        IP6Field("addr6", "::"),
+        IP6Field("daddr6", "::")
     ]
 
 
@@ -1499,21 +1499,21 @@ class NTPInfoControl(Packet):
 
     name = "info_control"
     fields_desc = [
-        IntField('ctltimereset', 0),
-        IntField('numctlreq', 0),
-        IntField('numctlbadpkts', 0),
-        IntField('numctlresponses', 0),
-        IntField('numctlfrags', 0),
-        IntField('numctlerrors', 0),
-        IntField('numctltooshort', 0),
-        IntField('numctlinputresp', 0),
-        IntField('numctlinputfrag', 0),
-        IntField('numctlinputerr', 0),
-        IntField('numctlbadoffset', 0),
-        IntField('numctlbadversion', 0),
-        IntField('numctldatatooshort', 0),
-        IntField('numctlbadop', 0),
-        IntField('numasyncmsgs', 0),
+        IntField("ctltimereset", 0),
+        IntField("numctlreq", 0),
+        IntField("numctlbadpkts", 0),
+        IntField("numctlresponses", 0),
+        IntField("numctlfrags", 0),
+        IntField("numctlerrors", 0),
+        IntField("numctltooshort", 0),
+        IntField("numctlinputresp", 0),
+        IntField("numctlinputfrag", 0),
+        IntField("numctlinputerr", 0),
+        IntField("numctlbadoffset", 0),
+        IntField("numctlbadversion", 0),
+        IntField("numctldatatooshort", 0),
+        IntField("numctlbadop", 0),
+        IntField("numasyncmsgs", 0),
     ]
 
 
@@ -1524,8 +1524,8 @@ _ntpd_private_errors = {
     2: "unimplemented request code",
     3: "format error (wrong data items, data size, packet size etc.)",
     4: "no data available (e.g. request for details on unknown peer)",
-    5: "I don't know",
-    6: "I don't know",
+    5: "I don\"t know",
+    6: "I don\"t know",
     7: "authentication failure (i.e. permission denied)",
 }
 
@@ -1562,7 +1562,7 @@ class NTPPrivateRespPacketListField(PacketListField):
 
         # info_if_stats
         if pkt.request_code == 44 or pkt.request_code == 45:
-            is_v6 = struct.unpack('!I', s[48:52])[0]
+            is_v6 = struct.unpack("!I", s[48:52])[0]
             ret = NTPInfoIfStatsIPv6(s) if is_v6 else NTPInfoIfStatsIPv4(s)
         else:
             ret = _private_data_objects.get(pkt.request_code, Raw)(s)
@@ -1592,7 +1592,7 @@ class NTPPrivateReqPacket(Packet):
     """
 
     name = "request data"
-    fields_desc = [StrField('req_data', '')]
+    fields_desc = [StrField("req_data", "")]
 
 
 _request_codes = {
@@ -1701,7 +1701,7 @@ class NTPPrivateReqPacketListField(PacketListField):
                 lst.append(current_packet)
                 item_counter += 1
 
-        # If 'auth' bit is set, don't forget the padding bytes
+        # If "auth" bit is set, don"t forget the padding bytes
         if pkt.auth:
             padding_end = len(remain) - _NTP_PRIVATE_REQ_PKT_TAIL_LEN
             current_packet = Raw(remain[:padding_end])
@@ -1723,7 +1723,7 @@ class NTPPrivatePktTail(Packet):
         TimeStampField("tstamp", 0),
         IntField("key_id", 0),
         XStrFixedLenField(
-            'dgst', '', length_from=lambda x: _NTP_AUTH_MD5_DGST_SIZE)
+            "dgst", "", length_from=lambda x: _NTP_AUTH_MD5_DGST_SIZE)
     ]
 
 
@@ -1793,14 +1793,14 @@ class NTPPrivate(NTP):
     #
     # Err:	Must be 0 for a request.  For a response, holds an error
     #      	code relating to the request.  If nonzero, the operation
-    #      	requested wasn't performed.
+    #      	requested wasn"t performed.
     #
     #      	0 - no error
     #      	1 - incompatible implementation number
     #      	2 - unimplemented request code
     #      	3 - format error (wrong data items, data size, packet size etc.)
     #      	4 - no data available (e.g. request for details on unknown peer)
-    #      	5-6 I don't know
+    #      	5-6 I don"t know
     #      	7 - authentication failure (i.e. permission denied)
     #
     # Number of data items: number of data items in packet.  0 to 500
@@ -1843,21 +1843,21 @@ class NTPPrivate(NTP):
 
     name = "Private (mode 7)"
     fields_desc = [
-        BitField('response', 0, 1),
-        BitField('more', 0, 1),
-        BitField('version', 2, 3),
-        BitField('mode', 0, 3),
-        BitField('auth', 0, 1),
-        BitField('seq', 0, 7),
-        ByteEnumField('implementation', 0, _implementations),
-        ByteEnumField('request_code', 0, _request_codes),
-        BitEnumField('err', 0, 4, _ntpd_private_errors),
-        BitField('nb_items', 0, 12),
-        BitField('mbz', 0, 4),
-        BitField('data_item_size', 0, 12),
+        BitField("response", 0, 1),
+        BitField("more", 0, 1),
+        BitField("version", 2, 3),
+        BitField("mode", 0, 3),
+        BitField("auth", 0, 1),
+        BitField("seq", 0, 7),
+        ByteEnumField("implementation", 0, _implementations),
+        ByteEnumField("request_code", 0, _request_codes),
+        BitEnumField("err", 0, 4, _ntpd_private_errors),
+        BitField("nb_items", 0, 12),
+        BitField("mbz", 0, 4),
+        BitField("data_item_size", 0, 12),
         ConditionalField(
             NTPPrivateReqPacketListField(
-                'req_data',
+                "req_data",
                 [],
                 Packet,
                 length_from=lambda p: p.data_item_size,
@@ -1877,7 +1877,7 @@ class NTPPrivate(NTP):
             lambda p: p.response == 1
         ),
         # Responses are not supposed to be authenticated
-        ConditionalField(PacketField('authenticator', '', NTPPrivatePktTail),
+        ConditionalField(PacketField("authenticator", "", NTPPrivatePktTail),
                          lambda p: p.response == 0 and p.auth == 1),
     ]
 
