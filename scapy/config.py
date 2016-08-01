@@ -378,7 +378,7 @@ extensions_paths: path or list of paths where extensions are to be looked for
     temp_files = []
     netcache = NetCache()
     geoip_city = '/usr/share/GeoIP/GeoLiteCity.dat'
-    load_layers = ["l2", "inet", "dhcp", "dns", "dot11", "gprs",
+    load_layers = ["l2", "inet", "dhcp", "dns", "dot11", "gprs", "tls",
                    "hsrp", "inet6", "ir", "isakmp", "l2tp", "mgcp",
                    "mobileip", "netbios", "netflow", "ntp", "ppp",
                    "radius", "rip", "rtp", "skinny", "smb", "snmp",

@@ -60,7 +60,15 @@ from scapy.themes import DefaultTheme
 def _load(module):
     try:
         mod = __import__(module,globals(),locals(),".")
-        __builtin__.__dict__.update(mod.__dict__)
+        if '__all__' in mod.__dict__:
+            # import listed symbols
+            for name in mod.__dict__['__all__']:
+                __builtin__.__dict__[name] = mod.__dict__[name]
+        else:
+            # only import non-private symbols
+            for name, sym in mod.__dict__.iteritems():
+                if name[0] != '_':
+                    __builtin__.__dict__[name] = sym
     except Exception,e:
         log_interactive.error(e)
 
@@ -281,7 +289,9 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
         _read_config_file(PRESTART_FILE)
 
     scapy_builtins = __import__("all",globals(),locals(),".").__dict__
-    __builtin__.__dict__.update(scapy_builtins)
+    for name, sym in scapy_builtins.iteritems():
+        if name [0] != '_':
+            __builtin__.__dict__[name] = sym
     globkeys = scapy_builtins.keys()
     globkeys.append("scapy_session")
     scapy_builtins=None # XXX replace with "with" statement
