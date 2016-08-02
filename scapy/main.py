@@ -79,7 +79,12 @@ def load_layer(name):
     _load("scapy.layers."+name)
 
 def load_contrib(name):
-    _load("scapy.contrib."+name)
+    try:
+        __import__("scapy.contrib." + name)
+        _load("scapy.contrib." + name)
+    except ImportError:
+        # if layer not found in contrib, try in layers
+        load_layer(name)
 
 def list_contrib(name=None):
     if name is None:
