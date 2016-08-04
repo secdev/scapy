@@ -216,7 +216,7 @@ def _ntp_dispatcher(payload):
             mode_mask = 0x07
             mode = first_byte & mode_mask
 
-            cls = get_cls(_ntp_cls_by_mode.get(mode), conf.raw_layer)
+            cls = get_cls(_ntp_cls_by_mode.get(mode))
 
     return cls
 
