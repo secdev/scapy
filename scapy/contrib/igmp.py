@@ -7,7 +7,9 @@
 #  TODO: scapy 2 has function getmacbyip, maybe it can replace igmpize
 #          at least from the MAC layer
 
-from scapy.all import *
+from scapy.packet import *
+from scapy.fields import *
+from scapy.layers.inet import *
 
 #--------------------------------------------------------------------------
 def isValidMCAddr(ip):

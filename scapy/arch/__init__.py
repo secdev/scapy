@@ -9,8 +9,10 @@ Operating system specific functionality.
 
 
 import sys,os,socket
+
 from scapy.error import *
 import scapy.config
+from scapy.pton_ntop import inet_pton
 
 try:
     from matplotlib import get_backend as matplotlib_get_backend
@@ -21,7 +23,8 @@ try:
     else:
         MATPLOTLIB_INLINED = 0
     MATPLOTLIB_DEFAULT_PLOT_KARGS = {"marker": "+"}
-except ImportError:
+# RuntimeError to catch gtk "Cannot open display" error
+except (ImportError, RuntimeError) as e:
     plt = None
     MATPLOTLIB = 0
     MATPLOTLIB_INLINED = 0
@@ -78,25 +81,25 @@ ARM_64 = not WINDOWS and (os.uname()[4] == 'aarch64')
 
 
 if LINUX:
-    from linux import *
+    from scapy.arch.linux import *
     if scapy.config.conf.use_pcap or scapy.config.conf.use_dnet:
-        from pcapdnet import *
+        from scapy.arch.pcapdnet import *
 elif BSD:
-    from bsd import LOOPBACK_NAME
-    from unix import read_routes, read_routes6, in6_getifaddr
+    from scapy.arch.bsd import LOOPBACK_NAME
+    from scapy.arch.unix import read_routes, read_routes6, in6_getifaddr
 
     if scapy.config.conf.use_pcap or scapy.config.conf.use_dnet:
-        from pcapdnet import *
+        from scapy.arch.pcapdnet import *
     else:
-        from bpf import *
+        from scapy.arch.bpf import *
         scapy.config.conf.use_bpf = True
         scapy.config.conf.L2listen = L2bpfListenSocket
         scapy.config.conf.L2socket = L2bpfSocket
         scapy.config.conf.L3socket = L3bpfSocket
 elif SOLARIS:
-    from solaris import *
+    from scapy.arch.solaris import *
 elif WINDOWS:
-    from windows import *
+    from scapy.arch.windows import *
 
 if scapy.config.conf.iface is None:
     scapy.config.conf.iface = LOOPBACK_NAME

@@ -11,7 +11,7 @@ import os,random
 from scapy.packet import *
 from scapy.fields import *
 from scapy.automaton import *
-from scapy.layers.inet import UDP
+from scapy.layers.inet import UDP, IP
 
 
 

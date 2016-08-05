@@ -8,10 +8,10 @@ Routing and handling of network interfaces.
 """
 
 import socket
-from arch import read_routes,get_if_addr,LOOPBACK_NAME
-from utils import atol,ltoa,itom
-from config import conf
-from error import Scapy_Exception,warning
+from scapy.arch import read_routes,get_if_addr,LOOPBACK_NAME
+from scapy.utils import atol,ltoa,itom
+from scapy.config import conf
+from scapy.error import Scapy_Exception,warning
 
 ##############################
 ## Routing/Interfaces stuff ##

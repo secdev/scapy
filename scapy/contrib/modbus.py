@@ -16,7 +16,9 @@
 
 # Copyright (C) 2016 Arthur Gervais, Ken LE PRADO, Sébastien Mainand
 
-from scapy.all import *
+from scapy.packet import *
+from scapy.fields import *
+from scapy.layers.inet import *
 
 # TODO: implement serial specific function codes
 

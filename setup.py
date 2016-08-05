@@ -12,16 +12,17 @@ from distutils.command.sdist import sdist
 import os
 
 
-EZIP_HEADER="""#! /bin/sh
+EZIP_HEADER = """#! /bin/sh
 PYTHONPATH=$0/%s exec python -m scapy.__init__
 """
 
+
 def make_ezipfile(base_name, base_dir, verbose=0, dry_run=0, **kwargs):
     fname = archive_util.make_zipfile(base_name, base_dir, verbose, dry_run)
-    ofname = fname+".old"
-    os.rename(fname,ofname)
-    of=open(ofname)
-    f=open(fname,"w")
+    ofname = fname + ".old"
+    os.rename(fname, ofname)
+    of = open(ofname)
+    f = open(fname, "w")
     f.write(EZIP_HEADER % base_dir)
     while True:
         data = of.read(8192)
@@ -32,31 +33,42 @@ def make_ezipfile(base_name, base_dir, verbose=0, dry_run=0, **kwargs):
     os.system("zip -A '%s'" % fname)
     of.close()
     os.unlink(ofname)
-    os.chmod(fname,0755)
+    os.chmod(fname, 0755)
     return fname
 
 
+archive_util.ARCHIVE_FORMATS["ezip"] = (
+    make_ezipfile, [], 'Executable ZIP file')
 
-archive_util.ARCHIVE_FORMATS["ezip"] = (make_ezipfile,[],'Executable ZIP file')
-
-SCRIPTS = ['bin/scapy','bin/UTscapy']
-# On Windows we also need additional batch files to run the above scripts 
+SCRIPTS = ['bin/scapy', 'bin/UTscapy']
+# On Windows we also need additional batch files to run the above scripts
 if os.name == "nt":
-  SCRIPTS += ['bin/scapy.bat','bin/UTscapy.bat']
+    SCRIPTS += ['bin/scapy.bat', 'bin/UTscapy.bat']
 
 setup(
-    name = 'scapy',
-    version = '2.3.2-dev',
-    packages=['scapy','scapy/arch', 'scapy/arch/windows', 'scapy/layers','scapy/asn1','scapy/tools','scapy/modules', 'scapy/crypto', 'scapy/contrib'],
-    scripts = SCRIPTS,
-    data_files = [('share/man/man1', ["doc/scapy.1.gz"])],
+    name='scapy',
+    version='2.3.2-dev',
+    packages=[
+        'scapy',
+        'scapy/arch',
+        'scapy/arch/windows',
+        'scapy/contrib',
+        'scapy/layers',
+        'scapy/layers/tls',
+        'scapy/layers/tls/crypto',
+        'scapy/modules',
+        'scapy/asn1',
+        'scapy/tools',
+    ],
+    scripts=SCRIPTS,
+    data_files=[('share/man/man1', ["doc/scapy.1.gz"])],
 
     # Metadata
-    author = 'Philippe BIONDI',
-    author_email = 'phil(at)secdev.org',
-    description = 'Scapy: interactive packet manipulation tool',
-    license = 'GPLv2',
-    url = 'http://www.secdev.org/projects/scapy',
+    author='Philippe BIONDI',
+    author_email='phil(at)secdev.org',
+    description='Scapy: interactive packet manipulation tool',
+    license='GPLv2',
+    url='http://www.secdev.org/projects/scapy',
     download_url='https://github.com/secdev/scapy/tarball/master',
     keywords=["network"],
     classifiers=[

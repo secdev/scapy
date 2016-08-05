@@ -13,4 +13,4 @@ socket.IPPROTO_GRE = 47
 
 LOOPBACK_NAME="lo0"
 
-from unix import *
+from scapy.arch.unix import *

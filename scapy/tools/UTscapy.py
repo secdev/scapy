@@ -38,7 +38,7 @@ class File:
     def get_local(self):
         return bz2.decompress(base64.decodestring(self.local))
     def get_URL(self):
-        return URL
+        return self.URL
     def write(self, dir):
         if dir:
             dir += "/"

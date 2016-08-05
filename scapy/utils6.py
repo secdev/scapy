@@ -9,10 +9,14 @@
 """
 Utility functions for IPv6.
 """
+import random
+import socket
+import struct
 
-from config import conf
-from data import *
-from utils import *
+from scapy.config import conf
+from scapy.data import *
+from scapy.utils import *
+from scapy.pton_ntop import *
 
 
 def construct_source_candidate_set(addr, plen, laddr, loname):

@@ -24,7 +24,9 @@ IPv6 (Internet Protocol v6).
 """
 
 
+import random
 import socket
+import sys
 if not socket.has_ipv6:
     raise socket.error("can't use AF_INET6, IPv6 is disabled")
 if not hasattr(socket, "IPPROTO_IPV6"):
@@ -35,8 +37,8 @@ if not hasattr(socket, "IPPROTO_IPIP"):
     socket.IPPROTO_IPIP = 4
 
 from scapy.config import conf
-from scapy.layers.l2 import *
-from scapy.layers.inet import *
+from scapy.base_classes import *
+from scapy.data import *
 from scapy.fields import *
 from scapy.packet import *
 from scapy.volatile import *
@@ -45,6 +47,10 @@ from scapy.as_resolvers import AS_resolver_riswhois
 from scapy.supersocket import SuperSocket,L3RawSocket
 from scapy.arch import *
 from scapy.utils6 import *
+from scapy.layers.l2 import *
+from scapy.layers.inet import *
+from scapy.utils import inet_pton, inet_ntop, strxor
+from scapy.error import warning
 
 
 #############################################################################
@@ -1649,7 +1655,7 @@ class ICMPv6NDOptMAP(_ICMPv6NDGuessPayload, Packet):     # RFC 4140
                     IP6Field("addr", "::") ] 
 
 
-class IP6PrefixField(IP6Field):
+class _IP6PrefixField(IP6Field):
     __slots__ = ["length_from"]
     def __init__(self, name, default):
         IP6Field.__init__(self, name, default)
@@ -1696,7 +1702,7 @@ class ICMPv6NDOptRouteInfo(_ICMPv6NDGuessPayload, Packet): # RFC 4191
                     BitField("prf",0,2),
                     BitField("res2",0,3),
                     IntField("rtlifetime", 0xffffffff),
-                    IP6PrefixField("prefix", None) ]
+                    _IP6PrefixField("prefix", None) ]
   
 class ICMPv6NDOptRDNSS(_ICMPv6NDGuessPayload, Packet): # RFC 5006
     name = "ICMPv6 Neighbor Discovery Option - Recursive DNS Server Option"
@@ -1714,7 +1720,57 @@ class ICMPv6NDOptEFA(_ICMPv6NDGuessPayload, Packet): # RFC 5175 (prev. 5075)
                     ByteField("len", 1),
                     BitField("res", 0, 48) ]
 
-from scapy.layers.dhcp6 import DomainNameListField
+# As required in Sect 8. of RFC 3315, Domain Names must be encoded as
+# described in section 3.1 of RFC 1035
+# XXX Label should be at most 63 octets in length : we do not enforce it
+#     Total length of domain should be 255 : we do not enforce it either
+class DomainNameListField(StrLenField):
+    __slots__ = ["padded"]
+    islist = 1
+    padded_unit = 8
+
+    def __init__(self, name, default, fld=None, length_from=None, padded=False):
+        self.padded = padded
+        StrLenField.__init__(self, name, default, fld, length_from)
+
+    def i2len(self, pkt, x):
+        return len(self.i2m(pkt, x))
+
+    def m2i(self, pkt, x):
+        res = []
+        while x:
+            # Get a name until \x00 is reached
+            cur = []
+            while x and x[0] != '\x00':
+                l = ord(x[0])
+                cur.append(x[1:l+1])
+                x = x[l+1:]
+            if self.padded:
+              # Discard following \x00 in padded mode
+              if len(cur):
+                res.append(".".join(cur) + ".")
+            else:
+              # Store the current name
+              res.append(".".join(cur) + ".")
+            if x and x[0] == '\x00':
+                x = x[1:]
+        return res
+
+    def i2m(self, pkt, x):
+        def conditionalTrailingDot(z):
+            if z and z[-1] == '\x00':
+                return z
+            return z+'\x00'
+        # Build the encode names
+        tmp = map(lambda y: map((lambda z: chr(len(z))+z), y.split('.')), x)
+        ret_string  = "".join(map(lambda x: conditionalTrailingDot("".join(x)), tmp))
+
+        # In padded mode, add some \x00 bytes
+        if self.padded and not len(ret_string) % self.padded_unit == 0:
+            ret_string += "\x00" * (self.padded_unit - len(ret_string) % self.padded_unit)
+
+        return ret_string
+
 class ICMPv6NDOptDNSSL(_ICMPv6NDGuessPayload, Packet): # RFC 6106
     name = "ICMPv6 Neighbor Discovery Option - DNS Search List Option"
     fields_desc = [ ByteField("type", 31),

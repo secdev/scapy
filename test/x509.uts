@@ -1,7 +1,15 @@
 % Tests for X.509 objects
 # 
-# Launch me with:
-# sudo bash test/run_tests -t test/x509.uts -F
+# Try me with:
+# bash test/run_tests -t test/x509.uts -F
+
+########### ASN.1 border case #######################################
+
++ General BER decoding tests
+= Decoding an ASN.1 SEQUENCE with an unknown, high-tag identifier
+s = '\xff\x84\x92\xb9\x86H\x1e0\x1c\x16\x04BNCH\x04\x14\xb7\xca\x01wO\x9b\xbaz\xbb\xb5\x92\x87>T\xb2\xc3g\xc1]\xfb'
+p = ASN1P_PRIVSEQ(s)
+
 
 ########### Key class ###############################################
 
@@ -136,7 +144,7 @@ str(x) == c
 tbs = x.tbsCertList
 tbs.version == None
 
-= CRL class : Signature algorithm (as advertised by TBSCRLificate)
+= CRL class : Signature algorithm (as advertised by TBSCertList)
 assert(type(tbs.signature) is X509_AlgorithmIdentifier)
 tbs.signature.algorithm == ASN1_OID("sha1-with-rsa-signature")
 
@@ -178,6 +186,7 @@ x.signatureAlgorithm.algorithm == ASN1_OID("sha1-with-rsa-signature")
 x.signatureValue == ASN1_BIT_STRING('"\xc9\xf6\xbb\x1d\xa1\xa5=$\xc7\xff\xb0"\x11\xb3p\x06[\xc5U\xdd3v\xa0\x98"\x08cDi\xcfOG%w\x99\x12\x84\xd2\x19\xae \x94\xca,T\x9ak\x81\xd2\x038\xa6Z\x95\x8d*\xe2a\xce\xdb\x19\xcdu\'Y&|V\xe1\xe4\x80q\x1aI\xb2\xaa\xcdI[\xda\x0f\xa8\xff\xce<\n\xfc\xc9\xad\xc6\xde\xc8@d\x0c&\t#\x90\xb7\x9c\xb9P\x03\x8fK\x18\x9f\xb0\xe0e\x0f`\x1c\x1ag\xe5\x85\xc4%\xf5\x0b\xc93\x82R\xe6', readable=True)
 
 = CRL class : Default X509_CRL from scratch
-str(X509_CRL(str(X509_CRL()))) == str(X509_CRL())
+s = str(X509_CRL())
+str(X509_CRL(s)) == s
 
 
