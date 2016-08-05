@@ -309,6 +309,16 @@ class _L2bpfSocket(SuperSocket):
         (self.ins, self.dev_bpf) = get_dev_bpf()
         self.outs = self.ins
 
+        # Configure the BPF filter
+        if not nofilter:
+            if conf.except_filter:
+                if filter:
+                    filter = "(%s) and not (%s)" % (filter, conf.except_filter)
+                else:
+                    filter = "not (%s)" % conf.except_filter
+            if filter is not None:
+                attach_filter(self.ins, self.iface, filter)
+
         # Set the BPF buffer length
         try:
             fcntl.ioctl(self.ins, BIOCSBLEN, struct.pack('I', BPF_BUFFER_LENGTH))
@@ -342,16 +352,6 @@ class _L2bpfSocket(SuperSocket):
         except IOError, err:
             msg = "BIOCSHDRCMPLT failed on /dev/bpf%i" % self.dev_bpf
             raise Scapy_Exception(msg)
-
-        # Configure the BPF filter
-        if not nofilter:
-            if conf.except_filter:
-                if filter:
-                    filter = "(%s) and not (%s)" % (filter, conf.except_filter)
-                else:
-                    filter = "not (%s)" % conf.except_filter
-            if filter is not None:
-                attach_filter(self.ins, self.iface, filter)
 
         # Set the guessed packet class
         self.guessed_cls = self.guess_cls()
