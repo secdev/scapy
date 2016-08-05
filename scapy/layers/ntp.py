@@ -12,7 +12,7 @@ import struct
 import time
 import datetime
 
-from scapy.packet import Packet, bind_layers, Raw
+from scapy.packet import Packet, bind_layers
 from scapy.fields import (BitField, BitEnumField, ByteField, ByteEnumField, \
 XByteField, SignedByteField, FlagsField, ShortField, LEShortField, IntField,\
 LEIntField, FixedPointField, IPField, StrField, StrFixedLenField,\
@@ -106,7 +106,7 @@ class TimeStampField(FixedPointField):
         return FixedPointField.i2m(self, pkt, val)
 
 
-def get_cls(name, fallback_cls="Raw"):
+def get_cls(name, fallback_cls=conf.raw_layer):
     """
     Returns class named "name" if it exists, fallback_cls otherwise.
     """
@@ -205,7 +205,7 @@ def _ntp_dispatcher(payload):
     # By default, calling NTP() will build a NTP packet as defined in RFC 5905
     # (see the code of NTPHeader). Use NTPHeader for extension fields and MAC.
     if payload is None:
-        cls = get_cls("NTPHeader", "Raw")
+        cls = get_cls("NTPHeader")
 
     else:
         length = len(payload)
@@ -216,7 +216,7 @@ def _ntp_dispatcher(payload):
             mode_mask = 0x07
             mode = first_byte & mode_mask
 
-            cls = get_cls(_ntp_cls_by_mode.get(mode, "Raw"), conf.raw_layer)
+            cls = get_cls(_ntp_cls_by_mode.get(mode))
 
     return cls
 
@@ -379,7 +379,7 @@ class NTPExtPacketListField(PacketListField):
         if len(m) >= 16:
             ret = NTPExtension(m)
         else:
-            ret = Raw(m)
+            ret = conf.raw_layer(m)
         return ret
 
     def getfield(self, pkt, s):
@@ -394,6 +394,9 @@ class NTPExtPacketListField(PacketListField):
             extensions_len = len(extensions)
             while extensions_len >= 16:
                 ext_len = struct.unpack("!H", extensions[2:4])[0]
+                ext_len = min(ext_len, extensions_len)
+                if ext_len < 1:
+                    ext_len = extensions_len
                 current = extensions[:ext_len]
                 extensions = extensions[ext_len:]
                 current_packet = self.m2i(pkt, current)
@@ -817,9 +820,9 @@ class NTPControlDataPacketLenField(PacketLenField):
                 # Data contains association ID and peer status
                 ret = NTPPeerStatusDataPacket(m)
             else:
-                ret = Raw(m)
+                ret = conf.raw_layer(m)
         else:
-            ret = Raw(m)
+            ret = conf.raw_layer(m)
 
         return ret
 
@@ -1565,7 +1568,7 @@ class NTPPrivateRespPacketListField(PacketListField):
             is_v6 = struct.unpack("!I", s[48:52])[0]
             ret = NTPInfoIfStatsIPv6(s) if is_v6 else NTPInfoIfStatsIPv4(s)
         else:
-            ret = _private_data_objects.get(pkt.request_code, Raw)(s)
+            ret = _private_data_objects.get(pkt.request_code, conf.raw_layer)(s)
 
         return ret
 
@@ -1701,10 +1704,10 @@ class NTPPrivateReqPacketListField(PacketListField):
                 lst.append(current_packet)
                 item_counter += 1
 
-        # If "auth" bit is set, don"t forget the padding bytes
+        # If "auth" bit is set, don't forget the padding bytes
         if pkt.auth:
             padding_end = len(remain) - _NTP_PRIVATE_REQ_PKT_TAIL_LEN
-            current_packet = Raw(remain[:padding_end])
+            current_packet = conf.raw_layer(remain[:padding_end])
             lst.append(current_packet)
             remain = remain[padding_end:]
 
