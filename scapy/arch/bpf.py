@@ -158,7 +158,7 @@ def attach_filter(fd, iface, bpf_filter_string):  # GV: move to a method of _L2b
         values = [int(v) for v in lines[i].split()]
         bip[i].code = c_ushort(values[0])
         bip[i].jt = c_ubyte(values[1])
-        bip[i].j = c_ubyte(values[2])
+        bip[i].jf = c_ubyte(values[2])
         bip[i].k = c_uint(values[3])
 
     # Create the BPF program and assign it to the interface
