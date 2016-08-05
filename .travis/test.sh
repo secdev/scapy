@@ -1,3 +1,6 @@
+# Dump Scapy config
+python -c "from scapy.all import *; print conf"
+
 # Don't run tests that requires root privileges
 if [ -z $TRAVIS_SUDO ]
 then
