@@ -132,7 +132,7 @@ def get_dev_bpf():
     raise Scapy_Exception("No /dev/bpf handle is available !")
 
 
-def attach_filter(fd, iface, bpf_filter_string):  # GV: move to a method of _L2bpfSocket
+def attach_filter(fd, iface, bpf_filter_string):
     """Attach a BPF filter to the BPF file descriptor"""
 
     # Retrieve the BPF byte code in decimal
@@ -199,7 +199,7 @@ def get_working_ifaces():
     interfaces = []
     for ifname in get_if_list():
 
-        # Unlike pcap_findalldevs(), we do not care of loopback interfaces.  # GV: why ?!?
+        # Unlike pcap_findalldevs(), we do not care of loopback interfaces.
         if ifname == LOOPBACK_NAME:
             continue
 
@@ -241,7 +241,7 @@ def get_working_if():
     ifaces = get_working_ifaces()
     if not ifaces:
         # A better interface will be selected later using the routing table
-        return LOOPBACK_NAME  # GV why ?!?
+        return LOOPBACK_NAME
     return ifaces[0][0]
 
 
@@ -586,7 +586,6 @@ class L3bpfSocket(L2bpfSocket):
             iff = conf.iface
 
         # Assign the network interface to the BPF handle
-        # GV: use a generic method for ioctl calls ?
         if self.assigned_interface != iff:
             try:
                 fcntl.ioctl(self.outs, BIOCSETIF, struct.pack("16s16x", iff))
