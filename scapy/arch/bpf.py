@@ -270,9 +270,9 @@ def bpf_select(fds_list, timeout=None):
         # Regular file descriptors or empty BPF buffer
         select_fds.append(tmp_fd)
 
-    if len(bpf_scks_buffered) != len(fds_list):
+    if len(select_fds):
         # Call select for sockets with empty buffers
-        if timeout is None and FREEBSD:
+        if timeout is None:
             timeout = 0.05
         ready_list, _, _ = select(select_fds, [], [], timeout)
         return bpf_scks_buffered + ready_list
