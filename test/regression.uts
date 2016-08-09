@@ -4554,6 +4554,62 @@ assert isinstance(pkt, UDP) and pkt.dport == 5353
 pkt = pkt.payload
 assert isinstance(pkt, DNS) and isinstance(pkt.payload, NoPayload)
 
++ Mocked read_routes() calls
+
+= Truncated netstat -rn output on OS X
+
+import mock
+import StringIO
+
+@mock.patch("scapy.arch.get_if_addr")
+@mock.patch("scapy.arch.unix.os")
+def test_osx_netstat_truncated(mock_os, mock_get_if_addr):
+    """Test read_routes() on OS X 10.? with a long interface name"""
+    # netstat & ifconfig outputs from https://github.com/secdev/scapy/pull/119
+    netstat_output = """
+Routing tables
+
+Internet:
+Destination        Gateway            Flags        Refs      Use   Netif Expire
+default            192.168.1.1        UGSc          460        0     en1
+default            link#11            UCSI            1        0 bridge1
+127                127.0.0.1          UCS             1        0     lo0
+127.0.0.1          127.0.0.1          UH             10  2012351     lo0
+"""
+    ifconfig_output = "lo0 en1 bridge10\n"
+    # Mocked file descriptors
+    def se_popen(command):
+        """Perform specific side effects"""
+        if command == "netstat -rn":
+	    return StringIO.StringIO(netstat_output)
+        elif command == "ifconfig -l":
+	    ret = StringIO.StringIO(ifconfig_output)
+	    def unit():
+		return ret
+	    ret.__call__ = unit
+	    ret.__enter__ = unit
+	    ret.__exit__ = lambda x,y,z: None
+	    return ret
+	raise Exception("Command not mocked: %s" % command)
+    mock_os.popen.side_effect = se_popen
+    # Mocked get_if_addr() behavior
+    def se_get_if_addr(iface):
+        """Perform specific side effects"""
+        if iface == "bridge1":
+	    oserror_exc = OSError()
+	    oserror_exc.message = "Device not configured"
+	    raise oserror_exc
+	return "1.2.3.4"
+    mock_get_if_addr.side_effect = se_get_if_addr
+    # Test the function
+    from scapy.arch.unix import read_routes
+    routes = read_routes()
+    assert(len(routes) == 4)
+    assert([r for r in routes if r[3] == "bridge10"])
+
+
+test_osx_netstat_truncated()
+
 + Mocked read_routes6() calls
 
 = Preliminary definitions

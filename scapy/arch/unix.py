@@ -34,12 +34,13 @@ def _guess_iface_name(netif):
     return it.
     If there are none or more, then we return None.
     """
-    with os.popen('ifconfig -l') as fdesc:
+    with os.popen('%s -l' % conf.prog.ifconfig) as fdesc:
         ifaces = fdesc.readline().strip().split(' ')
     matches = [iface for iface in ifaces if iface.startswith(netif)]
     if len(matches) == 1:
         return matches[0]
     return None
+
 
 def read_routes():
     if scapy.arch.SOLARIS:
@@ -105,12 +106,12 @@ def read_routes():
                     # This means the interface name is probably truncated by
                     # netstat -nr. We attempt to guess it's name and if not we
                     # ignore it.
-                    netif = _guess_iface_name(netif)
-                    if netif is not None:
-                        ifaddr = scapy.arch.get_if_addr(netif)
-                        routes.append((dest,netmask,gw,netif,ifaddr))
+                    guessed_netif = _guess_iface_name(netif)
+                    if guessed_netif is not None:
+                        ifaddr = scapy.arch.get_if_addr(guessed_netif)
+                        routes.append((dest, netmask, gw, guessed_netif, ifaddr))
                     else:
-                        warning("Could not guess partial interface name %s" % netif)
+                        warning("Could not guess partial interface name: %s" % netif)
                 else:
                     raise
         else:
