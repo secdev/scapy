@@ -17,8 +17,6 @@ from scapy.fields import *
 from scapy.layers.inet import IP, UDP
 from scapy.layers.inet6 import IP6Field
 
-#import gtp_v2
-
 # GTP Data types
 
 RATType = {
@@ -113,7 +111,8 @@ CauseValues = {0: "Request IMSI",
                220: "Unknown PDP address or PDP type",
                221: "PDP context without TFT already activated",
                222: "APN access denied : no subscription",
-               223: "APN Restriction type incompatibility with currently active PDP Contexts",
+               223: "APN Restriction type incompatibility with currently active\
+                       PDP Contexts",
                224: "MS MBMS Capabilities Insufficient",
                225: "Invalid Correlation : ID",
                226: "MBMS Bearer Context Superseded",
@@ -222,9 +221,6 @@ class IE_Base(Packet):
 class IE_Cause(IE_Base):
     name = "Cause"
     fields_desc = [ByteEnumField("ietype", 1, IEType),
-                   #BitField("Response", None, 1),
-                   #BitField("Rejection", None, 1),
-                   # BitEnumField("CauseValue", None, 6,  CauseValues) ]
                    ByteEnumField("CauseValue", None, CauseValues)]
 
 
@@ -261,7 +257,8 @@ class IE_SelectionMode(IE_Base):
     # Indicates the origin of the APN in the message
     name = "Selection Mode"
     fields_desc = [ByteEnumField("ietype", 15, IEType),
-                   BitEnumField("SelectionMode", "MS or APN", 8, Selection_Mode)]
+                   BitEnumField("SelectionMode", "MS or APN",
+                                8, Selection_Mode)]
 
 
 class IE_TEIDI(IE_Base):
@@ -295,7 +292,8 @@ class IE_ChargingCharacteristics(IE_Base):
     # Way of informing both the SGSN and GGSN of the rules for
     name = "Charging Characteristics"
     fields_desc = [ByteEnumField("ietype", 26, IEType),
-                   # producing charging information based on operator configured triggers.
+                   # producing charging information based on operator
+                   # configured triggers.
                    #    0000 .... .... .... : spare
                    #    .... 1... .... .... : normal charging
                    #    .... .0.. .... .... : prepaid charging
@@ -360,7 +358,9 @@ class APNStrLenField(StrLenField):
             tmp_len = struct.unpack("!B", tmp_s[0])[0] + 1
             if tmp_len > len(tmp_s):
                 warning(
-                    "APN prematured end of character-string (size=%i, remaining bytes=%i)" % (tmp_len, len(tmp_s)))
+                    """APN prematured end of character-string
+                            (size=%i, remaining bytes=%i)""" % (tmp_len,
+                                                                len(tmp_s)))
             ret_s += tmp_s[1:tmp_len]
             tmp_s = tmp_s[tmp_len:]
             if len(tmp_s):
@@ -378,7 +378,8 @@ class IE_AccessPointName(IE_Base):
     name = "Access Point Name"
     fields_desc = [ByteEnumField("ietype", 131, IEType),
                    ShortField("length",  None),
-                   APNStrLenField("APN", "nternet", length_from=lambda x: x.length)]
+                   APNStrLenField("APN", "nternet",
+                                  length_from=lambda x: x.length)]
 
     def post_build(self, p, pay):
         if self.length is None:
@@ -391,7 +392,8 @@ class IE_ProtocolConfigurationOptions(IE_Base):
     name = "Protocol Configuration Options"
     fields_desc = [ByteEnumField("ietype", 132, IEType),
                    ShortField("length", 4),
-                   StrLenField("Protocol_Configuration", "", length_from=lambda x: x.length)]
+                   StrLenField("Protocol_Configuration", "",
+                               length_from=lambda x: x.length)]
 
 
 class IE_GSNAddress(IE_Base):
@@ -406,8 +408,13 @@ class IE_MSInternationalNumber(IE_Base):
     fields_desc = [ByteEnumField("ietype", 134, IEType),
                    ShortField("length", None),
                    FlagsField("flags", 0x91, 8, [
-                              "Extension", "", "", "International Number", "", "", "", "ISDN numbering"]),
-                   TBCDByteField("digits", "33607080910", length_from=lambda x: x.length-1)]
+                              "Extension", "", "",
+                              "International Number",
+                              "", "", "",
+                              "ISDN numbering"]),
+                   TBCDByteField(
+                       "digits", "33607080910",
+                       length_from=lambda x: x.length-1)]
 
 
 class QoS_Profile(IE_Base):
@@ -481,12 +488,15 @@ class IE_QoS(IE_Base):
                                     lambda pkt: pkt.length > 8),
                    ConditionalField(XBitField("transfer_delay", 0x00000, 6),
                                     lambda pkt: pkt.length > 9),
-                   ConditionalField(XBitField("traffic_handling_prio", 0x000, 2),
+                   ConditionalField(XBitField("traffic_handling_prio",
+                                              0x000,
+                                              2),
                                     lambda pkt: pkt.length > 9),
 
                    ConditionalField(ByteField("guaranteed_bit_rate_up", None),
                                     lambda pkt: pkt.length > 10),
-                   ConditionalField(ByteField("guaranteed_bit_rate_down", None),
+                   ConditionalField(ByteField("guaranteed_bit_rate_down",
+                                              None),
                                     lambda pkt: pkt.length > 11),
 
                    ConditionalField(XBitField("spare", 0x000, 3),
@@ -498,19 +508,23 @@ class IE_QoS(IE_Base):
 
                    ConditionalField(ByteField("max_bitrate_down_ext", None),
                                     lambda pkt: pkt.length > 13),
-                   ConditionalField(ByteField("guaranteed_bitrate_down_ext", None),
+                   ConditionalField(ByteField("guaranteed_bitrate_down_ext",
+                                              None),
                                     lambda pkt: pkt.length > 14),
                    ConditionalField(ByteField("max_bitrate_up_ext", None),
                                     lambda pkt: pkt.length > 15),
-                   ConditionalField(ByteField("guaranteed_bitrate_up_ext", None),
+                   ConditionalField(ByteField("guaranteed_bitrate_up_ext",
+                                              None),
                                     lambda pkt: pkt.length > 16),
                    ConditionalField(ByteField("max_bitrate_down_ext2", None),
                                     lambda pkt: pkt.length > 17),
-                   ConditionalField(ByteField("guaranteed_bitrate_down_ext2", None),
+                   ConditionalField(ByteField("guaranteed_bitrate_down_ext2",
+                                              None),
                                     lambda pkt: pkt.length > 18),
                    ConditionalField(ByteField("max_bitrate_up_ext2", None),
                                     lambda pkt: pkt.length > 19),
-                   ConditionalField(ByteField("guaranteed_bitrate_up_ext2", None),
+                   ConditionalField(ByteField("guaranteed_bitrate_up_ext2",
+                                              None),
                                     lambda pkt: pkt.length > 20)]
 
 
@@ -620,7 +634,8 @@ class IE_CharginGatewayAddress(IE_Base):
     name = "Chargin Gateway Address"
     fields_desc = [ByteEnumField("ietype", 251, IEType),
                    ShortField("length", 4),
-                   ConditionalField(IPField("ipv4_address", "127.0.0.1"), lambda
+                   ConditionalField(IPField("ipv4_address", "127.0.0.1"),
+                                    lambda
                                     pkt: pkt.length == 4),
                    ConditionalField(IP6Field("ipv6_address", "::1"), lambda
                                     pkt: pkt.length == 16)]
@@ -631,7 +646,8 @@ class IE_PrivateExtension(IE_Base):
     fields_desc = [ByteEnumField("ietype", 255, IEType),
                    ShortField("length", 1),
                    ByteField("extension identifier", 0),
-                   StrLenField("extention_value", "", length_from=lambda x: x.length)]
+                   StrLenField("extention_value", "",
+                               length_from=lambda x: x.length)]
 
 
 class IE_NotImplementedTLV(IE_Base):
@@ -712,11 +728,16 @@ class GTPCreatePDPContextRequest(Packet):
     fields_desc = [ShortField("seq", RandShort()),
                    ByteField("npdu", 0),
                    ByteField("next_ex", 0),
-                   PacketListField("IE_list", [IE_TEIDI(),
-                                               IE_NSAPI(),
-                                               IE_GSNAddress(),
-                                               IE_GSNAddress(),
-                                               IE_NotImplementedTLV(ietype=135, length=15, data=RandString(15))],
+                   PacketListField("IE_list",
+                                   [IE_TEIDI(),
+                                    IE_NSAPI(),
+                                    IE_GSNAddress(),
+                                    IE_GSNAddress(),
+                                    IE_NotImplementedTLV(
+                                        ietype=135,
+                                        length=15,
+                                        data=RandString(15))
+                                    ],
                                    IE_Dispatcher)]
 
     def hashret(self):
@@ -827,8 +848,10 @@ class GTPPDUNotificationRequest(Packet):
 class GTP_U_Header(Packet):
     # 3GPP TS 29.060 V9.1.0 (2009-12)
     name = "GTP-U Header"
-    # GTP-U protocol is used to transmit T-PDUs between GSN pairs (or between an SGSN and an RNC in UMTS),
-    # encapsulated in G-PDUs. A G-PDU is a packet including a GTP-U header and a T-PDU. The Path Protocol
+    # GTP-U protocol is used to transmit T-PDUs between GSN pairs (or between
+    # an SGSN and an RNC in UMTS), encapsulated in G-PDUs.
+    # A G-PDU is a packet including a GTP-U header and a T-PDU.
+    # The Path Protocol
     # defines the path and the GTP-U header defines the tunnel. Several
     # tunnels may be multiplexed on a single path.
     fields_desc = [BitField("version", 1, 3),
@@ -841,11 +864,14 @@ class GTP_U_Header(Packet):
                    BitField("length", None, 16),
                    XBitField("TEID", 0, 32),
                    ConditionalField(
-                       XBitField("seq", 0, 16), lambda pkt: pkt.E == 1 or pkt.S == 1 or pkt.PN == 1),
+                       XBitField("seq", 0, 16),
+                       lambda pkt: pkt.E == 1 or pkt.S == 1 or pkt.PN == 1),
                    ConditionalField(
-                       ByteField("npdu", 0), lambda pkt: pkt.E == 1 or pkt.S == 1 or pkt.PN == 1),
+                       ByteField("npdu", 0),
+                       lambda pkt: pkt.E == 1 or pkt.S == 1 or pkt.PN == 1),
                    ConditionalField(
-                       ByteField("next_ex", 0), lambda pkt: pkt.E == 1 or pkt.S == 1 or pkt.PN == 1),
+                       ByteField("next_ex", 0),
+                       lambda pkt: pkt.E == 1 or pkt.S == 1 or pkt.PN == 1),
                    ]
 
     def post_build(self, p, pay):

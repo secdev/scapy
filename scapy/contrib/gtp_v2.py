@@ -229,7 +229,8 @@ class IE_ULI(gtp_v1.IE_Base):
         PacketField("RAI", 0, ULI_RAI), lambda pkt: bool(pkt.RAI_Present)),
         ConditionalField(
         PacketField("TAI", 0, ULI_TAI), lambda pkt: bool(pkt.TAI_Present)),
-        ConditionalField(PacketField("ECGI", 0, ULI_ECGI), lambda pkt: bool(pkt.ECGI_Present))]
+        ConditionalField(PacketField("ECGI", 0, ULI_ECGI),
+                         lambda pkt: bool(pkt.ECGI_Present))]
 
 
 class IE_FTEID(gtp_v1.IE_Base):
@@ -244,7 +245,8 @@ class IE_FTEID(gtp_v1.IE_Base):
                    XIntField("GRE_Key", 0),
                    ConditionalField(
         IPField("ipv4", RandIP()), lambda pkt: pkt.ipv4_present),
-        ConditionalField(XBitField("ipv6", "2001::", 128), lambda pkt: pkt.ipv6_present)]
+        ConditionalField(XBitField("ipv6", "2001::", 128),
+                         lambda pkt: pkt.ipv6_present)]
 
 
 class IE_BearerContext(gtp_v1.IE_Base):
@@ -270,7 +272,8 @@ class IE_IMSI(gtp_v1.IE_Base):
                    ShortField("length",  None),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
-                   gtp_v1.TBCDByteField("IMSI", "33607080910", length_from=lambda x: x.length)]
+                   gtp_v1.TBCDByteField("IMSI", "33607080910",
+                                        length_from=lambda x: x.length)]
 
 
 class IE_Cause(gtp_v1.IE_Base):
@@ -307,7 +310,8 @@ class IE_APN(gtp_v1.IE_Base):
                    ShortField("length",  None),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
-                   gtp_v1.APNStrLenField("APN", "nternet", length_from=lambda x: x.length)]
+                   gtp_v1.APNStrLenField("APN", "nternet",
+                                         length_from=lambda x: x.length)]
 
 
 class IE_AMBR(gtp_v1.IE_Base):
@@ -326,7 +330,8 @@ class IE_MSISDN(gtp_v1.IE_Base):
                    ShortField("length",  None),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
-                   gtp_v1.TBCDByteField("digits", "33607080910", length_from=lambda x: x.length)]
+                   gtp_v1.TBCDByteField("digits", "33123456789",
+                                        length_from=lambda x: x.length)]
 
 
 class IE_Indication(gtp_v1.IE_Base):
@@ -492,7 +497,9 @@ class PCO_P_CSCF_IPv6_Address_Request(Packet):
     name = "PCO PCO-P CSCF IPv6 Address Request"
     fields_desc = [ShortEnumField("type", None, PCO_PROTOCOL_TYPES),
                    ByteField("length", 0),
-                   ConditionalField(XBitField("address", "2001:db8:0:42::", 128), lambda pkt: pkt.length)]
+                   ConditionalField(XBitField("address",
+                                              "2001:db8:0:42::", 128),
+                                    lambda pkt: pkt.length)]
 
     def extract_padding(self, pkt):
         return "", pkt
@@ -502,7 +509,9 @@ class PCO_DNS_Server_IPv6(Packet):
     name = "PCO DNS Server IPv6 Address Request"
     fields_desc = [ShortEnumField("type", None, PCO_PROTOCOL_TYPES),
                    ByteField("length", 0),
-                   ConditionalField(XBitField("address", "2001:db8:0:42::", 128), lambda pkt: pkt.length)]
+                   ConditionalField(XBitField("address",
+                                              "2001:db8:0:42::", 128),
+                                    lambda pkt: pkt.length)]
 
     def extract_padding(self, pkt):
         return "", pkt
@@ -523,7 +532,8 @@ class PCO_PPP(Packet):
     fields_desc = [ByteField("Code", 0),
                    ByteField("Identifier", 0),
                    ShortField("length", 0),
-                   PacketListField("Options", None, PCO_option_dispatcher, length_from=len_options)]
+                   PacketListField("Options", None, PCO_option_dispatcher,
+                                   length_from=len_options)]
 
     def extract_padding(self, pkt):
         return "", pkt
@@ -533,7 +543,8 @@ class PCO_IP_Allocation_via_NAS(Packet):
     name = "PCO IP Address allocation via NAS Signaling"
     fields_desc = [ShortEnumField("type", None, PCO_PROTOCOL_TYPES),
                    ByteField("length", 0),
-                   PacketListField("Options", None, PCO_option_dispatcher, length_from=len_options)]
+                   PacketListField("Options", None, PCO_option_dispatcher,
+                                   length_from=len_options)]
 
     def extract_padding(self, pkt):
         return "", pkt
@@ -543,7 +554,8 @@ class PCO_P_CSCF_IPv4_Address_Request(Packet):
     name = "PCO PCO-P CSCF IPv4 Address Request"
     fields_desc = [ShortEnumField("type", None, PCO_PROTOCOL_TYPES),
                    ByteField("length", 0),
-                   ConditionalField(IPField("address", RandIP()), lambda pkt: pkt.length)]
+                   ConditionalField(IPField("address", RandIP()),
+                                    lambda pkt: pkt.length)]
 
     def extract_padding(self, pkt):
         return "", pkt
@@ -553,7 +565,8 @@ class PCO_DNS_Server_IPv4(Packet):
     name = "PCO DNS Server IPv4 Address Request"
     fields_desc = [ShortEnumField("type", None, PCO_PROTOCOL_TYPES),
                    ByteField("length", 0),
-                   ConditionalField(IPField("address", RandIP()), lambda pkt: pkt.length)]
+                   ConditionalField(IPField("address", RandIP()),
+                                    lambda pkt: pkt.length)]
 
     def extract_padding(self, pkt):
         return "", pkt
@@ -563,7 +576,8 @@ class PCO_IPv4_Link_MTU_Request(Packet):
     name = "PCO IPv4 Link MTU Request"
     fields_desc = [ShortEnumField("type", None, PCO_PROTOCOL_TYPES),
                    ByteField("length", 0),
-                   ConditionalField(ShortField("MTU_size", 1500), lambda pkt: pkt.length)]
+                   ConditionalField(ShortField("MTU_size", 1500),
+                                    lambda pkt: pkt.length)]
 
     def extract_padding(self, pkt):
         return "", pkt
@@ -586,9 +600,17 @@ class PCO_PPP_Auth(Packet):
                    ShortField("length", 0),
                    ByteField("PeerID_length", 0),
                    ConditionalField(StrFixedLenField(
-                       "PeerID", "", length_from=lambda pkt: pkt.PeerID_length), lambda pkt: pkt.PeerID_length),
+                       "PeerID",
+                       "",
+                       length_from=lambda pkt: pkt.PeerID_length),
+                       lambda pkt: pkt.PeerID_length),
                    ByteField("Password_length", 0),
-                   ConditionalField(StrFixedLenField("Password", "", length_from=lambda pkt: pkt.Password_length), lambda pkt: pkt.Password_length)]
+                   ConditionalField(
+                       StrFixedLenField(
+                           "Password",
+                           "",
+                           length_from=lambda pkt: pkt.Password_length)
+                       lambda pkt: pkt.Password_length)]
 
     def extract_padding(self, pkt):
         return "", pkt
@@ -611,8 +633,13 @@ class PCO_PPP_Challenge(Packet):
                    ShortField("length", 0),
                    ByteField("value_size", 0),
                    ConditionalField(StrFixedLenField(
-                       "value", "", length_from=lambda pkt: pkt.value_size), lambda pkt: pkt.value_size),
-                   ConditionalField(StrFixedLenField("name", "", length_from=lambda pkt: pkt.length-pkt.value_size-5), lambda pkt: pkt.length)]
+                       "value", "",
+                       length_from=lambda pkt: pkt.value_size),
+                       lambda pkt: pkt.value_size),
+                   ConditionalField(StrFixedLenField(
+                       "name", "",
+                       length_from=lambda pkt: pkt.length-pkt.value_size-5),
+                       lambda pkt: pkt.length)]
 
     def extract_padding(self, pkt):
         return "", pkt
@@ -673,9 +700,11 @@ class IE_PAA(gtp_v1.IE_Base):
                    BitField("SPARE", 0, 5),
                    BitEnumField("PDN_type", None, 3, PDN_TYPES),
                    ConditionalField(
-                       ByteField("ipv6_prefix_length", 8), lambda pkt: pkt.PDN_type in (2, 3)),
+                       ByteField("ipv6_prefix_length", 8),
+                       lambda pkt: pkt.PDN_type in (2, 3)),
                    ConditionalField(
-                       XBitField("ipv6", "2001:db8:0:42::", 128), lambda pkt: pkt.PDN_type in (2, 3)),
+                       XBitField("ipv6", "2001:db8:0:42::", 128),
+                       lambda pkt: pkt.PDN_type in (2, 3)),
                    ConditionalField(
                        IPField("ipv4", 0), lambda pkt: pkt.PDN_type in (1, 3)),
                    ]
