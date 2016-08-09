@@ -1063,7 +1063,6 @@ str(p)
 assert(_ == '\x80!\x01\x00\x00\x1f\x81\x06\x01\x02\x03\x04\x83\x06\x05\x06\x07\x08{\tABCDEFG\x84\x06\t\n\x0b\x0c')
 PPP(_)
 q=_
-assert( q[PPP_IPCP].options[2].type == 123 )
 assert( q[PPP_IPCP_Option:3].type == 123 )
 assert( q[PPP_IPCP_Option:3].data == 'ABCDEFG' )
 assert( q[PPP_IPCP_Option_NBNS2].data == '9.10.11.12' )
