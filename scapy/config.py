@@ -318,6 +318,7 @@ resolve   : holds list of fields for which resolution should be done
 noenum    : holds list of enum fields for which conversion to string should NOT be done
 AS_resolver: choose the AS resolver class to use
 extensions_paths: path or list of paths where extensions are to be looked for
+contribs: a dict which can be used by contrib layers to store local configuration
 """
     version = "2.3.2-dev"
     session = ""
@@ -384,6 +385,7 @@ extensions_paths: path or list of paths where extensions are to be looked for
                    "radius", "rip", "rtp", "skinny", "smb", "snmp",
                    "tftp", "x509", "bluetooth", "dhcp6", "llmnr",
                    "sctp", "vrrp", "ipsec", "lltd", "vxlan"]
+    contribs = dict()
 
 
 if not Conf.ipv6_enabled:
