@@ -152,7 +152,7 @@ try:
     )
 except ImportError:
     log_loading.info("Can't import python cryptography lib. "
-                     "Disabled IPSec encryption/authentication.")
+                     "Disabled IPsec encryption/authentication.")
     algorithms = None
     Cipher = None
     modes = None
