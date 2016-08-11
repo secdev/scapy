@@ -29,7 +29,9 @@ Supports both RSA and ECDSA objects.
 import base64, os, time
 
 import ecdsa
-from Crypto.PublicKey import RSA
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives import hashes
 
 from scapy.layers.tls.crypto.curves import import_curve
 from scapy.layers.tls.crypto.pkcs1 import pkcs_os2ip, pkcs_i2osp, mapHashFunc
@@ -243,7 +245,10 @@ class PubKeyRSA(_PKIObj, PubKey, _EncryptAndVerifyRSA):
         self.modulus    = pubkey.modulus.val
         self.modulusLen = len(binrepr(pubkey.modulus.val))
         self.pubExp     = pubkey.publicExponent.val
-        self.key = RSA.construct((self.modulus, self.pubExp, ))
+        self.key = rsa.RSAPublicNumbers(
+            n=self.modulus,
+            e=self.pubExp
+        ).public_key(default_backend())
     def encrypt(self, msg, t=None, h=None, mgf=None, L=None):
         # no ECDSA encryption support, hence no ECDSA specific keywords here
         return _EncryptAndVerifyRSA.encrypt(self, msg, t=t, h=h, mgf=mgf, L=L)
@@ -396,7 +401,11 @@ class PrivKeyRSA(_PKIObj, PrivKey, _EncryptAndVerifyRSA, _DecryptAndSignRSA):
         self.exponent1   = privkey.exponent1.val
         self.exponent2   = privkey.exponent2.val
         self.coefficient = privkey.coefficient.val
-        self.key = RSA.construct((self.modulus, self.pubExp, self.privExp))
+        self.key = rsa.RSAPrivateNumbers(
+            p=self.prime1, q=self.prime2, d=self.privExp, dmp1=self.exponent1,
+            dmq1=self.exponent2, iqmp=self.coefficient,
+            public_numbers=rsa.RSAPublicNumbers(n=self.modulus, e=self.pubExp),
+        ).private_key(default_backend())
     def verify(self, msg, sig, h=None,
                t=None, mgf=None, sLen=None,
                sigdecode=None):
