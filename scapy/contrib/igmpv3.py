@@ -54,10 +54,10 @@ class IGMPv3gr(Packet):
                     5 : "ALLOW_NEW_SOURCES",
                     6 : "BLOCK_OLD_SOURCES"}
 
-  fields_desc = [ ByteEnumField("rtype", 1, igmpv3grtypes),
-                      ByteField("auxdlen",0),
-                  FieldLenField("numsrc", None, count_of="srcaddrs"),
-                        IPField("maddr", "0.0.0.0"),
+  fields_desc = [ByteEnumField("rtype", 1, igmpv3grtypes),
+                 ByteField("auxdlen",0),
+                 FieldLenField("numsrc", None, count_of="srcaddrs"),
+                 IPField("maddr", "0.0.0.0"),
                  FieldListField("srcaddrs", [], IPField("sa", "0.0.0.0"), "numsrc") ]
   #show_indent=0
 #--------------------------------------------------------------------------
@@ -154,29 +154,26 @@ class IGMPv3(Packet):
                   0x31 : "Multicast Router Solicitation",
                   0x32 : "Multicast Router Termination"}
 
-  fields_desc = [ ByteEnumField("type", 0x11, igmpv3types),
-                      ByteField("mrcode",0),
-                    XShortField("chksum", None),
-                    IPField("gaddr", "0.0.0.0")
-                    ]
-                                          # use float_encode()
-
+  fields_desc = [ByteEnumField("type", 0x11, igmpv3types),
+                 ByteField("mrcode",0),
+                 XShortField("chksum", None),
+                 IPField("gaddr", "0.0.0.0")]    # use float_encode()
     # if type = 0x11 (Membership Query), the next field is group address 
     #   ConditionalField(IPField("gaddr", "0.0.0.0"), "type", lambda x:x==0x11),
     # else if type = 0x22 (Membership Report), the next fields are 
     #         reserved and number of group records
     #ConditionalField(ShortField("rsvd2", 0), "type", lambda x:x==0x22),
     #ConditionalField(ShortField("numgrp", 0), "type", lambda x:x==0x22),
-#                  FieldLenField("numgrp", None, "grprecs")]
+    #                  FieldLenField("numgrp", None, "grprecs")]
     # else if type = 0x30 (Multicast Router Advertisement), the next fields are 
     #         query interval and robustness
     #ConditionalField(ShortField("qryIntvl", 0), "type", lambda x:x==0x30),
     #ConditionalField(ShortField("robust", 0), "type", lambda x:x==0x30),
-#  The following are only present for membership queries
-       #   ConditionalField(BitField("resv", 0, 4), "type", lambda x:x==0x11),
-       #   ConditionalField(BitField("s", 0, 1), "type", lambda x:x==0x11),
-       #   ConditionalField(BitField("qrv", 0, 3), "type", lambda x:x==0x11), 
-       #  ConditionalField(ByteField("qqic",0), "type", lambda x:x==0x11),
+    #  The following are only present for membership queries
+    #   ConditionalField(BitField("resv", 0, 4), "type", lambda x:x==0x11),
+    #   ConditionalField(BitField("s", 0, 1), "type", lambda x:x==0x11),
+    #   ConditionalField(BitField("qrv", 0, 3), "type", lambda x:x==0x11), 
+    #  ConditionalField(ByteField("qqic",0), "type", lambda x:x==0x11),
     # ConditionalField(FieldLenField("numsrc", None, "srcaddrs"), "type", lambda x:x==0x11),
     # ConditionalField(FieldListField("srcaddrs", None, IPField("sa", "0.0.0.0"), "numsrc"), "type", lambda x:x==0x11),
 
