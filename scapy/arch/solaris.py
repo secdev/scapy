@@ -21,6 +21,7 @@ from scapy.error import warning,Scapy_Exception,log_loading
 import scapy.data
 import scapy.plist as plist
 import scapy.sendrecv
+import scapy.layers.l2
 from scapy.utils import *
 
 
@@ -46,6 +47,7 @@ X86_64 = ( platform.architecture()[0] == '64bit')
 # correct data.py value
 scapy.data.ETH_P_ALL = 0
 scapy.sendrecv.ETH_P_ALL = 0
+scapy.layers.l2.ETH_P_ALL = 0
 from scapy.data import *
 
 def load_ethertypes(filename):
@@ -723,7 +725,6 @@ if conf.use_pcap:
             s.close()
         return plist.PacketList(lst,"Sniffed")
     
-    scapy.sendrecv.sniff = sniff
 
 try:
     import dnet
@@ -747,6 +748,8 @@ if conf.use_pcap and conf.use_dnet:
     class L3dnetSocket(SuperSocket):
         desc = "read/write packets at layer 3 using libdnet and libpcap"
         def __init__(self, type = ETH_P_ALL, filter=None, promisc=None, iface=None, nofilter=0):
+            if type == 3:
+                type = ETH_P_ALL
             self.iflist = {}
             self.intf = dnet.intf()
             if iface is None:
@@ -863,6 +866,8 @@ if conf.use_pcap and conf.use_dnet:
     class L2dnetSocket(SuperSocket):
         desc = "read/write packets at layer 2 using libdnet and libpcap"
         def __init__(self, iface = None, type = ETH_P_ALL, filter=None, nofilter=0):
+            if type == 3:
+                type = ETH_P_ALL
             if iface is None:
                 iface = conf.iface
             self.iface = iface
@@ -1017,7 +1022,10 @@ if conf.use_pcap and conf.use_dnet:
                     log_runtime.error("fork error")
                 else:
                     wrpipe.close()
-                    stoptime = 0
+                    if timeout:
+                        stoptime = time.time()+timeout
+                    else:
+                        stoptime = 0
                     remaintime = None
                     inmask = [rdpipe,pks]
                     try:
@@ -1031,15 +1039,8 @@ if conf.use_pcap and conf.use_dnet:
                                 if scapy.arch.FREEBSD:
                                     r = pks.nonblock_recv()
                                 else:
-                                    inp, out, err = select(inmask,[],[], remaintime)
-                                    if len(inp) == 0:
-                                        break
-                                    if pks in inp:
-                                        r = pks.recv(MTU)
-                                    if rdpipe in inp:
-                                        if timeout:
-                                            stoptime = time.time()+timeout
-                                        del(inmask[inmask.index(rdpipe)])
+                                    warning("sndrcv shouldn't be here")
+                                    break
                                 if r is None:
                                     continue
                                 ok = 0
@@ -1110,9 +1111,6 @@ if conf.use_pcap and conf.use_dnet:
         if verbose:
             print "\nReceived %i packets, got %i answers, remaining %i packets" % (nbrecv+len(ans), len(ans), notans)
         return plist.SndRcvList(ans),plist.PacketList(remain,"Unanswered")
-    
-    scapy.sendrecv.sndrcv = sndrcv
-
 
 if conf.use_dlpi:
     
@@ -1203,7 +1201,10 @@ if conf.use_dlpi:
                 self.iflist[iff] = ifs,cls
             sx = str(cls()/x)
             x.sent_time = time.time()
-            addr = ifs.get_physaddr(dlpi.CURR_PHYS_ADDR)
+            try: 
+                addr = self.outs.get_physaddr(dlpi.CURR_PHYS_ADDR)
+            except:
+                addr = ""
             ifs.send(addr,sx)
         
         def recv(self,x=MTU):
@@ -1272,7 +1273,10 @@ if conf.use_dlpi:
         def send(self, x):
             sx = str(x)
             x.sent_time = time.time()
-            addr = self.outs.get_physaddr(dlpi.CURR_PHYS_ADDR)
+            try: 
+                addr = self.outs.get_physaddr(dlpi.CURR_PHYS_ADDR)
+            except:
+                addr = ""
             self.outs.send(addr,sx)
         
         def fileno(self):
@@ -1314,6 +1318,8 @@ def analyze_sa_ll(sa_ll):
 class L3PacketSocket(SuperSocket):
     desc = "read/write packets at layer 3 using Solaris PF_PACKET sockets"
     def __init__(self, type = ETH_P_ALL, filter=None, promisc=None, iface=None, nofilter=0):
+        if type == 3:
+            type = ETH_P_ALL
         self.type = type
         # Solaris has bug and it desn't need socket.htons(type)
         # try socket.htons(type) firstly
@@ -1395,7 +1401,12 @@ class L3PacketSocket(SuperSocket):
         if iff is None:
             iff = conf.iface
         sdto = (iff, self.type)
-        self.outs.bind(sdto)
+        # When bind second time, Solaris will report error, just ingore it
+        try:
+            self.outs.bind(sdto)
+        except socket.error,msg:
+            pass
+        
         # Solaris must bind to a interface when recv, dont's support 'any' interface like Linux
         # So assume recv will use same interface as send
         try:
@@ -1433,6 +1444,8 @@ class L3PacketSocket(SuperSocket):
 class L2PacketSocket(SuperSocket):
     desc = "read/write packets at layer 2 using Solaris PF_PACKET sockets"
     def __init__(self, iface = None, type = ETH_P_ALL, filter=None, nofilter=0):
+        if type == 3:
+            type = ETH_P_ALL
         if iface is None:
             iface = conf.iface
         try :
@@ -1487,6 +1500,8 @@ class L2PacketSocket(SuperSocket):
 class L2PacketListenSocket(SuperSocket):
     desc = "read packets at layer 2 using Solaris PF_PACKET sockets"
     def __init__(self, iface = None, type = ETH_P_ALL, promisc=None, filter=None, nofilter=0):
+        if type == 3:
+            type = ETH_P_ALL
         self.type = type
         self.outs = None
         try :
@@ -1572,6 +1587,8 @@ elif conf.use_pcap and conf.use_dnet:
     conf.L3socket=L3dnetSocket
     conf.L2socket=L2dnetSocket
     conf.L2listen = L2pcapListenSocket
+    scapy.sendrecv.sndrcv = sndrcv
+    scapy.sendrecv.sniff = sniff
 elif conf.use_dlpi:
     conf.L3socket=L3DlpiSocket
     conf.L2socket=L2DlpiSocket
