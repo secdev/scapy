@@ -3,3 +3,4 @@ include run_scapy
 recursive-include bin *
 recursive-include doc *
 recursive-include test *
+include scapy/VERSION
