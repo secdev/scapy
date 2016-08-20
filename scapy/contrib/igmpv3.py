@@ -49,12 +49,12 @@ class IGMPv3gr(Packet):
       report.numgrprecs = 2
   """
   name = "IGMPv3gr"
-  igmpv3grtypes = { 1 : "IS_IN",
-                    2 : "IS_EX",
-                    3 : "TO_IN",
-                    4 : "TO_EX",
-                    5 : "ALLOW",
-                    6 : "BLOCK"}
+  igmpv3grtypes = { 1 : "MODE_IS_INCLUDE",
+                    2 : "MODE_IS_EXCLUDE",
+                    3 : "MODE_TO_INCLUDE",
+                    4 : "MODE_TO_EXCLUDE",
+                    5 : "ALLOW_NEW_SOURCES",
+                    6 : "BLOCK_OLD_SOURCES"}
 
   fields_desc = [ByteEnumField("rtype", 1, igmpv3grtypes),
                  ByteField("auxdlen",0),
@@ -81,7 +81,7 @@ class IGMPv3Report(Packet):
   """IGMP Report Class for v3.
 
   The IGMP v3 Report header differs significantly from other IGMP messages,
-  therefore an specific class is implemented for it.
+  therefore a specific class is implemented for it.
 
   'chksum' is automatically calculated before the packet is sent.
   """
@@ -91,34 +91,33 @@ class IGMPv3Report(Packet):
                  XShortField("chksum", None),
                  ShortField("resv2", 0),
                  ShortField("numgrprecs", 0)]  # Update manually GR are added
-
-  def igmpize(self, ip=None, ether=None):  # noqa
-    """Called to explicitely fixup associated IP headers
-    Parameters:
-    self    The instantiation of an IGMP class.
-    ip      The instantiation of the associated IP class.
-    ether   Ether is not required but leaving here to maintain
-            compatibility with the v1 and v2 implementation
-    """
-    ip.dst = "224.0.0.22"  # RFC 3376, 4.2.14
-    # RFC 3376, Section 4. Message Formats
-    ip.proto = 2
-    ip.ttl = 1
-    ip.options = [IPOption_Router_Alert()]
-    ip.tos = 0xc0
-    adjust_ether(ip, ether)
-    iplong = atol(ip.dst)
-    ether.dst = "01:00:5e:%02x:%02x:%02x" % ((iplong >> 16) & 0x7F,
-                                             (iplong >> 8) & 0xFF,
-                                             (iplong) & 0xFF)
-
+  # Over load the ip fields here to avoid using igmpize
+  ip_dst = "224.0.0.22"
+  iplong = atol(ip_dst)
+  dst_addr = "01:00:5e:%02x:%02x:%02x" % ((iplong >> 16) & 0x7F,
+                                          (iplong >> 8) & 0xFF,
+                                          (iplong) & 0xFF)
+  overload_fields = {
+    IP: {
+      "dst": ip_dst,
+      "proto": 2, "ttl": 1, "tos": 0xc0,
+      "options": [IPOption_Router_Alert()]
+    },
+    Ether: {
+     "dst": dst_addr
+    }
+  }
+ 
   def post_build(self, p, pay):
     """
       Called implicitly before a packet is sent to
       compute and place IGMPv3 checksum.
     """
     p += pay
-    return get_cksum(self, p)
+    if self.chksum is None:
+      ck = checksum(p)
+      p = p[:2] + chr(ck >> 8) + chr(ck & 0xff) + p[4:]
+    return p
 
   def mysummary(self):
      """Display a summary of the IGMPv3 Report object."""
