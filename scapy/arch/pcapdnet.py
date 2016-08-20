@@ -8,16 +8,16 @@ Packet sending and receiving with libdnet and libpcap/WinPcap.
 """
 
 import time,struct,sys
+import socket
 if not sys.platform.startswith("win"):
     from fcntl import ioctl
+
 from scapy.data import *
 from scapy.config import conf
 from scapy.utils import warning, mac2str
 from scapy.supersocket import SuperSocket
-from scapy.error import Scapy_Exception
+from scapy.error import Scapy_Exception, log_loading
 import scapy.arch
-import socket
-
 
 if conf.use_winpcapy:
   #mostly code from https://github.com/phaethon/scapy translated to python2.X
@@ -145,17 +145,17 @@ if conf.use_winpcapy:
           return pcap_datalink(self.pcap)
       def fileno(self):
           if sys.platform.startswith("win"):
-            error("Cannot get selectable PCAP fd on Windows")
+            log_loading.error("Cannot get selectable PCAP fd on Windows")
             return 0
           return pcap_get_selectable_fd(self.pcap) 
       def setfilter(self, f):
           filter_exp = create_string_buffer(f)
           if pcap_compile(self.pcap, byref(self.bpf_program), filter_exp, 0, -1) == -1:
-            error("Could not compile filter expression %s" % f)
+            log_loading.error("Could not compile filter expression %s" % f)
             return False
           else:
             if pcap_setfilter(self.pcap, byref(self.bpf_program)) == -1:
-              error("Could not install filter %s" % f)
+              log_loading.error("Could not install filter %s" % f)
               return False
           return True
       def setnonblock(self, i):

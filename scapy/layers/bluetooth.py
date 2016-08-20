@@ -10,13 +10,15 @@ Bluetooth layers, sockets and send/receive functions.
 
 import socket,struct,array
 from ctypes import *
+from select import select
 
+from scapy.all import *
 from scapy.config import conf
 from scapy.packet import *
 from scapy.fields import *
 from scapy.supersocket import SuperSocket
+from scapy.sendrecv import sndrcv
 from scapy.data import MTU
-from select import select
 
 ##########
 # Fields #
@@ -125,9 +127,8 @@ class L2CAP_ConnResp(Packet):
     name = "L2CAP Conn Resp"
     fields_desc = [ LEShortField("dcid",0),
                     LEShortField("scid",0),
-                    LEShortEnumField("result",0,["no_info","authen_pend","author_pend"]),
-                    LEShortEnumField("status",0,["success","pend","bad_psm",
-                                               "cr_sec_block","cr_no_mem"]),
+                    LEShortEnumField("result",0,["success", "pend", "cr_bad_psm", "cr_sec_block", "cr_no_mem", "reserved","cr_inval_scid", "cr_scid_in_use"]),
+                    LEShortEnumField("status",0,["no_info", "authen_pend", "author_pend", "reserved"]),
                     ]
     def answers(self, other):
         return self.scid == other.scid
@@ -538,6 +539,16 @@ class HCI_Cmd_LE_Connection_Update(Packet):
 class HCI_Cmd_LE_Create_Connection_Cancel(Packet):
     name = "LE Create Connection Cancel"
 
+class HCI_Cmd_LE_Connection_Update(Packet):
+    name = "LE Connection Update"
+    fields_desc = [ XLEShortField("handle", 0),
+                    XLEShortField("min_interval", 0),
+                    XLEShortField("max_interval", 0),
+                    XLEShortField("latency", 0),
+                    XLEShortField("timeout", 0),
+                    LEShortField("min_ce", 0),
+                    LEShortField("max_ce", 0xffff), ]
+
 class HCI_Cmd_LE_Read_Buffer_Size(Packet):
     name = "LE Read Buffer Size"
 
@@ -639,6 +650,14 @@ class HCI_LE_Meta_Connection_Complete(Packet):
                     LEShortField("supervision", 42),
                     XByteField("clock_latency", 5), ]
 
+class HCI_LE_Meta_Connection_Update_Complete(Packet):
+    name = "Connection Update Complete"
+    fields_desc = [ ByteEnumField("status", 0, {0:"success"}),
+                    LEShortField("handle", 0),
+                    LEShortField("interval", 54),
+                    LEShortField("latency", 0),
+                    LEShortField("timeout", 42), ]
+
 class HCI_LE_Meta_Advertising_Report(Packet):
     name = "Advertising Report"
     fields_desc = [ ByteField("number", 0),
@@ -693,10 +712,12 @@ bind_layers( HCI_Event_Hdr, HCI_Event_Command_Complete, code=0xe)
 bind_layers( HCI_Event_Hdr, HCI_Event_Command_Status, code=0xf)
 bind_layers( HCI_Event_Hdr, HCI_Event_Number_Of_Completed_Packets, code=0x13)
 bind_layers( HCI_Event_Hdr, HCI_Event_LE_Meta, code=0x3e)
+
 bind_layers( HCI_Event_Command_Complete, HCI_Cmd_Complete_Read_BD_Addr, opcode=0x1009)
 
 bind_layers( HCI_Event_LE_Meta, HCI_LE_Meta_Connection_Complete, event=1)
 bind_layers( HCI_Event_LE_Meta, HCI_LE_Meta_Advertising_Report, event=2)
+bind_layers( HCI_Event_LE_Meta, HCI_LE_Meta_Connection_Update_Complete, event=3)
 bind_layers( HCI_Event_LE_Meta, HCI_LE_Meta_Long_Term_Key_Request, event=5)
 
 bind_layers(EIR_Hdr, EIR_Flags, type=0x01)

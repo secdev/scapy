@@ -10,15 +10,15 @@ Packet class. Binding mechanism. fuzz() method.
 import re
 import time,itertools
 import copy
-from fields import StrField, ConditionalField, Emph, PacketListField, BitField, \
-    MultiEnumField, EnumField, FlagsField
-from themes import AnsiColorTheme
-from config import conf
-from base_classes import BasePacket, Gen, SetGen, Packet_metaclass
-from volatile import VolatileValue
-from utils import import_hexcap,tex_escape,colgen,get_temp_file
-from error import Scapy_Exception,log_runtime
 import subprocess
+
+from scapy.fields import StrField, ConditionalField, Emph, PacketListField, BitField, \
+    MultiEnumField, EnumField, FlagsField
+from scapy.config import conf
+from scapy.base_classes import BasePacket, Gen, SetGen, Packet_metaclass
+from scapy.volatile import VolatileValue
+from scapy.utils import import_hexcap,tex_escape,colgen,get_temp_file
+from scapy.error import Scapy_Exception,log_runtime
 
 try:
     import pyx
@@ -845,6 +845,7 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
         """
 
         if dump:
+            from scapy.themes import AnsiColorTheme
             ct = AnsiColorTheme() # No color for dump output
         else:
             ct = conf.color_theme

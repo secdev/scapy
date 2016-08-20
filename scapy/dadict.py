@@ -7,7 +7,7 @@
 Direct Access dictionary.
 """
 
-from error import Scapy_Exception
+from scapy.error import Scapy_Exception
 
 ###############################
 ## Direct Access dictionnary ##

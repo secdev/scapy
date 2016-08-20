@@ -8,8 +8,8 @@ Fields that hold random numbers.
 """
 
 import random,time,math
-from base_classes import Net
-from utils import corrupt_bits,corrupt_bytes
+from scapy.base_classes import Net
+from scapy.utils import corrupt_bits,corrupt_bytes
 
 ####################
 ## Random numbers ##

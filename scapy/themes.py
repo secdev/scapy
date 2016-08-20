@@ -264,6 +264,7 @@ class ColorPrompt:
     __prompt = ">>> "
     def __str__(self):
         try:
+            from scapy import config
             ct = config.conf.color_theme
             if isinstance(ct, AnsiColorTheme):
                 ## ^A and ^B delimit invisible caracters for readline to count right
@@ -272,6 +273,3 @@ class ColorPrompt:
                 return ct.prompt(config.conf.prompt)
         except:
             return self.__prompt
-
-
-import config

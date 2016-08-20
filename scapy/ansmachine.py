@@ -11,9 +11,9 @@ Answering machines.
 ## Answering machines ##
 ########################
 
-from sendrecv import send,sendp,sniff
-from config import conf
-from error import log_interactive
+from scapy.sendrecv import send,sendp,sniff
+from scapy.config import conf
+from scapy.error import log_interactive
 
 class ReferenceAM(type):
     def __new__(cls, name, bases, dct):

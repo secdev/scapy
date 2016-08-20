@@ -11,12 +11,14 @@ import os, struct, time, socket
 
 from scapy.base_classes import Net
 from scapy.config import conf
+from scapy.data import *
 from scapy.packet import *
 from scapy.ansmachine import *
 from scapy.plist import SndRcvList
 from scapy.fields import *
-from scapy.sendrecv import srp,srp1
+from scapy.sendrecv import *
 from scapy.arch import get_if_hwaddr
+from scapy.utils import inet_ntoa, inet_aton
 
 
 
@@ -138,6 +140,7 @@ class ARPSourceMACField(MACField):
 
 ### Layers
 
+ETHER_TYPES['802_AD'] = 0x88a8
 
 class Ether(Packet):
     name = "Ethernet"
@@ -592,23 +595,31 @@ class GRE(Packet):
         return p
 
 
+class Dot1AD(Dot1Q):
+    name = '802_1AD'
 
 
 bind_layers( Dot3,          LLC,           )
 bind_layers( Ether,         LLC,           type=122)
 bind_layers( Ether,         LLC,           type=34928)
 bind_layers( Ether,         Dot1Q,         type=33024)
+bind_layers( Ether,         Dot1AD,        type=0x88a8)
+bind_layers( Dot1AD,        Dot1AD,        type=0x88a8)
+bind_layers( Dot1AD,        Dot1Q,         type=0x8100)
+bind_layers( Dot1Q,         Dot1AD,        type=0x88a8)
 bind_layers( Ether,         Ether,         type=1)
 bind_layers( Ether,         ARP,           type=2054)
 bind_layers( Ether,         EAPOL,         type=34958)
 bind_layers( Ether,         EAPOL,         dst='01:80:c2:00:00:03', type=34958)
 bind_layers( CookedLinux,   LLC,           proto=122)
 bind_layers( CookedLinux,   Dot1Q,         proto=33024)
+bind_layers( CookedLinux,   Dot1AD,        type=0x88a8)
 bind_layers( CookedLinux,   Ether,         proto=1)
 bind_layers( CookedLinux,   ARP,           proto=2054)
 bind_layers( CookedLinux,   EAPOL,         proto=34958)
 bind_layers( GRE,           LLC,           proto=122)
 bind_layers( GRE,           Dot1Q,         proto=33024)
+bind_layers( GRE,           Dot1AD,        type=0x88a8)
 bind_layers( GRE,           Ether,         proto=1)
 bind_layers( GRE,           ARP,           proto=2054)
 bind_layers( GRE,           EAPOL,         proto=34958)
@@ -621,6 +632,7 @@ bind_layers(EAP,           EAP_FAST,      type=43)
 bind_layers( LLC,           STP,           dsap=66, ssap=66, ctrl=3)
 bind_layers( LLC,           SNAP,          dsap=170, ssap=170, ctrl=3)
 bind_layers( SNAP,          Dot1Q,         code=33024)
+bind_layers( SNAP,          Dot1AD,        type=0x88a8)
 bind_layers( SNAP,          Ether,         code=1)
 bind_layers( SNAP,          ARP,           code=2054)
 bind_layers( SNAP,          EAPOL,         code=34958)

@@ -6,6 +6,9 @@
 # scapy.contrib.status = loads
 
 from scapy.packet import *
+from scapy.fields import *
+from scapy.layers.inet import *
+from scapy.contrib.igmp import isValidMCAddr
 
 """ Based on the following references
  http://www.iana.org/assignments/igmp-type-numbers
@@ -25,7 +28,6 @@ from scapy.packet import *
 #
 
 #import sys, socket, struct, time
-from scapy.all import *
 print "IGMPv3  is still under development - Nov 2010"
 
 

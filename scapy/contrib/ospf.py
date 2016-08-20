@@ -24,7 +24,10 @@ GNU General Public License for more details.
 """
 
 
-from scapy.all import *
+from scapy.packet import *
+from scapy.fields import *
+from scapy.layers.inet import *
+from scapy.layers.inet6 import *
 
 EXT_VERSION = "v0.9.2"
 
@@ -746,4 +749,5 @@ DestIP6Field.bind_addr(OSPFv3_Hdr, "ff02::5")
 
 
 if __name__ == "__main__":
+    from scapy.main import interact
     interact(mydict=globals(), mybanner="OSPF extension %s" % EXT_VERSION)

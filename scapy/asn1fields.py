@@ -8,12 +8,13 @@
 Classes that implement ASN.1 data structures.
 """
 
-from asn1.asn1 import *
-from asn1.ber import *
-from asn1.mib import *
-from volatile import *
-from base_classes import BasePacket
-from utils import binrepr
+from scapy.asn1.asn1 import *
+from scapy.asn1.ber import *
+from scapy.asn1.mib import *
+from scapy.volatile import *
+from scapy.base_classes import BasePacket
+from scapy.utils import binrepr
+from scapy import packet
 
 class ASN1F_badsequence(Exception):
     pass
@@ -376,7 +377,7 @@ class ASN1F_SEQUENCE_OF(ASN1F_field):
         return self.i2m(pkt, s)
 
     def randval(self):
-        return fuzz(self.asn1pkt())
+        return packet.fuzz(self.asn1pkt())
     def __repr__(self):
         return "<%s %s>" % (self.__class__.__name__, self.name)
 
@@ -496,7 +497,7 @@ class ASN1F_CHOICE(ASN1F_field):
                                 explicit_tag=exp)
         return BER_tagging_enc(s, explicit_tag=self.explicit_tag)
     def randval(self):
-        return RandChoice(*(fuzz(x()) for x in self.choices.itervalues()))
+        return RandChoice(*(packet.fuzz(x()) for x in self.choices.itervalues()))
 
 class ASN1F_PACKET(ASN1F_field):
     holds_packets = 1
@@ -579,7 +580,3 @@ class ASN1F_FLAGS(ASN1F_BIT_STRING):
             pretty_s = ", ".join(self.get_flags(pkt))
             return pretty_s + " " + repr(x)
         return repr(x)
-
-
-# This import must come last to avoid problems with cyclic dependencies
-import packet

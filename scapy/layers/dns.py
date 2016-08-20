@@ -9,9 +9,11 @@ DNS: Domain Name System.
 
 import socket,struct
 
+from scapy.config import conf
 from scapy.packet import *
 from scapy.fields import *
 from scapy.ansmachine import *
+from scapy.sendrecv import sr1
 from scapy.layers.inet import IP, DestIPField, UDP
 from scapy.layers.inet6 import DestIP6Field
 

@@ -19,8 +19,8 @@
 # spb_example = backboneEther/backboneDot1Q/backboneServiceID/customerEther/customerDot1Q/customerIP/customerUDP/"Payload"
 
 from scapy.packet import Packet, bind_layers
-from scapy.layers.l2 import Ether
 from scapy.fields import *
+from scapy.layers.l2 import Ether, Dot1Q
 
 class SPBM(Packet):
     name = "SPBM"
