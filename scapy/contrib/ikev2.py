@@ -169,13 +169,13 @@ class IKEv2_Key_Length_Attribute(IntField):
 	# We only support the fixed-length Key Length attribute (the only
 	# one currently defined)
 	def __init__(self, name):
-		IntField.__init__(self, name, "0x800E0000")
-		
+		IntField.__init__(self, name, 0x800E0000)
+
 	def i2h(self, pkt, x):
 		return IntField.i2h(self, pkt, x & 0xFFFF)
 		
 	def h2i(self, pkt, x):
-		return IntField.h2i(self, pkt, struct.pack("!I", 0x800E0000 | int(x, 0)))
+		return IntField.h2i(self, pkt, x if x !=None else 0 | 0x800E0000)
 
 
 class IKEv2_Transform_ID(ShortField):
@@ -191,7 +191,7 @@ class IKEv2_Transform_ID(ShortField):
 			return None
 		else:
 			map = IKEv2TransformNum[pkt.transform_type][1]
-			for k in keys(map):
+			for k in dict.keys(map):
 				if map[k] == x:
 					return k
 			return None
@@ -289,9 +289,10 @@ class IKEv2_payload_KE(IKEv2_class):
     fields_desc = [
         ByteEnumField("next_payload",None,IKEv2_payload_type),
         ByteField("res",0),
-        FieldLenField("length",None,"load","H", adjust=lambda pkt,x:x+6),
+        FieldLenField("length",None,"load","H", adjust=lambda pkt,x:x+8),
         ShortEnumField("group", 0, IKEv2TransformTypes['GroupDesc'][1]),
-        StrLenField("load","",length_from=lambda x:x.length-6),
+        ShortField("res2", 0),
+	StrLenField("load","",length_from=lambda x:x.length-8),
         ]
 
 class IKEv2_payload_IDi(IKEv2_class):
