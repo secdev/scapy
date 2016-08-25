@@ -182,19 +182,20 @@ class IKEv2_Transform_ID(ShortField):
 	def i2h(self, pkt, x):
 		if pkt == None:
 			return None
+		elif IKEv2TransformNum.has_key(pkt.transform_type) and IKEv2TransformNum[pkt.transform_type][1].has_key(x):
+			return IKEv2TransformNum[pkt.transform_type][1][x]
 		else:
-			map = IKEv2TransformNum[pkt.transform_type][1]
-			return map[x]
+			return x
 		
 	def h2i(self, pkt, x):
 		if pkt == None:
 			return None
-		else:
-			map = IKEv2TransformNum[pkt.transform_type][1]
+		elif IKEv2TransformNum.has_key(pkt.transform_type):
+			map=IKEv2TransformNum[pkt.transform_type][1]
 			for k in dict.keys(map):
 				if map[k] == x:
 					return k
-			return None
+		return x
 		
 class IKEv2_payload_Transform(IKEv2_class):
     name = "IKE Transform"
