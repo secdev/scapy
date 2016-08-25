@@ -268,8 +268,7 @@ class IKEv2(IKEv2_class): # rfc4306
 
 
 class IKEv2_Key_Length_Attribute(IntField):
-	# We only support the fixed-length Key Length attribute (the only
-	# one currently defined)
+	# We only support the fixed-length Key Length attribute (the only one currently defined)
 	def __init__(self, name):
 		IntField.__init__(self, name, 0x800E0000)
 
@@ -278,25 +277,6 @@ class IKEv2_Key_Length_Attribute(IntField):
 		
 	def h2i(self, pkt, x):
 		return IntField.h2i(self, pkt, x if x !=None else 0 | 0x800E0000)
-
-
-class IKEv2_Transform_ID(ShortField):
-	def i2h(self, pkt, x):
-		if pkt == None:
-			return None
-		else:
-			map = IKEv2TransformNum[pkt.transform_type][1]
-			return map[x]
-		
-	def h2i(self, pkt, x):
-		if pkt == None:
-			return None
-		else:
-			map = IKEv2TransformNum[pkt.transform_type][1]
-			for k in dict.keys(map):
-				if map[k] == x:
-					return k
-			return None
 		
 >>>>>>> 06f5fb4... ikev2 contrib fixup
 class IKEv2_payload_Transform(IKEv2_class):
