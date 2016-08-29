@@ -168,11 +168,6 @@ def set_promisc(s,iff,val=1):
 
 
 def read_routes():
-    try:
-        f=open("/proc/net/route","r")
-    except IOError:
-        warning("Can't open /proc/net/route !")
-        return []
 
     link_local = []
 
@@ -187,10 +182,12 @@ def read_routes():
 
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     names = array.array('B', '\0' * 4096)
-    ifreq = ioctl(s.fileno(), SIOCGIFCONF, struct.pack('iL', len(names), names.buffer_info()[0]))
+    ifreq = ioctl(s.fileno(), SIOCGIFCONF, struct.pack('iL', len(names),
+                                                       names.buffer_info()[0]))
     out = struct.unpack('iL', ifreq)[0]
     names = names.tostring()
-    names = [names[i:i+v1].split('\0', 1)[0] for i in range(0, out, name_len)]
+    names = [names[i:i+offset].split('\0', 1)[0]
+                   for i in range(0, out, name_len)]
     for ifname in names:
         ifreq = ioctl(s, SIOCGIFADDR,struct.pack("16s16x",ifname))
         ifaddr = struct.unpack('>I', ifreq[20:24])[0]
@@ -199,14 +196,21 @@ def read_routes():
         if ":" in ifname:
             ifname = ifname[:ifname.index(":")]
 
-        link_local.append((ifaddr & msk, msk, "0.0.0.0", ifname, scapy.utils.ltoa(ifaddr)))
+        link_local.append((ifaddr & msk, msk, "0.0.0.0", ifname,
+                           scapy.utils.ltoa(ifaddr)))
 
     link_local.sort()
     routes = link_local[:]
 
+    try:
+        f=open("/proc/net/route","r")
+    except IOError:
+        warning("Can't open /proc/net/route !")
+        return routes
+
     for l in f.readlines()[1:]:
         iff,dst,gw,flags,x,x,x,msk,x,x,x = l.split()
-        gw = socket.htonl(int(gw, 16))
+        gw = socket.htonl(long(gw, 16))
         if gw == 0:
             continue
         flags = int(flags,16)
@@ -215,6 +219,7 @@ def read_routes():
         if flags & RTF_REJECT:
             continue
 
+        # default value if no interface ip found
         src = "0.0.0.0"
 
         # choose src by interface ip - prefer those in gw subnet
@@ -224,10 +229,9 @@ def read_routes():
                 if gw & lmsk == lnet:
                     break
 
-        routes.append((socket.htonl(long(dst,16))&0xffffffffL,
-                       socket.htonl(long(msk,16))&0xffffffffL,
-                       scapy.utils.ltoa(gw),
-                       iff, scapy.utils.ltoa(ifaddr)))
+        routes.append((socket.htonl(long(dst,16)) & 0xffffffffL,
+                       socket.htonl(long(msk,16)) & 0xffffffffL,
+                       scapy.utils.ltoa(gw), iff, src))
 
     f.close()
     return routes
