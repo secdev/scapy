@@ -177,9 +177,9 @@ def read_routes():
     link_local = []
 
     bits,_ = platform.architecture()
-    if bits == 32:
+    if bits == "32bit":
         offset,name_len=32,32 # 32-bit
-    elif bits == 64:
+    elif bits == "64bit":
         offset,name_len=16,40
     else:
         warning("Unsupported architecure")
