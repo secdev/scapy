@@ -1108,6 +1108,7 @@ class DHCP6_RelayForward(_DHCP6OptGuessPayload,Packet):
                     ByteField("hopcount", None),
                     IP6Field("linkaddr", "::"),
                     IP6Field("peeraddr", "::") ]
+    overload_fields = { UDP: { "sport": 547, "dport": 547 } }
     def hashret(self): # we filter on peer address field
         return inet_pton(socket.AF_INET6, self.peeraddr)
 
