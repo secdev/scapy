@@ -20,7 +20,6 @@ from scapy.error import Scapy_Exception,warning
 class Route:
     def __init__(self):
         self.resync()
-        self.s=socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.cache = {}
 
     def invalidate_cache(self):

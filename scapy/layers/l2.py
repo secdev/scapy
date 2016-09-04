@@ -192,8 +192,10 @@ class LLC(Packet):
                     XByteField("ssap", 0x00),
                     ByteField("ctrl", 0) ]
 
-conf.neighbor.register_l3(Ether, LLC, lambda l2,l3: conf.neighbor.resolve(l2,l3.payload))
-conf.neighbor.register_l3(Dot3, LLC, lambda l2,l3: conf.neighbor.resolve(l2,l3.payload))
+def l2_register_l3(l2, l3):
+    return conf.neighbor.resolve(l2, l3.payload)
+conf.neighbor.register_l3(Ether, LLC, l2_register_l3)
+conf.neighbor.register_l3(Dot3, LLC, l2_register_l3)
 
 
 class CookedLinux(Packet):
@@ -212,7 +214,7 @@ class SNAP(Packet):
     fields_desc = [ X3BytesField("OUI",0x000000),
                     XShortEnumField("code", 0x000, ETHER_TYPES) ]
 
-conf.neighbor.register_l3(Dot3, SNAP, lambda l2,l3: conf.neighbor.resolve(l2,l3.payload))
+conf.neighbor.register_l3(Dot3, SNAP, l2_register_l3)
 
 
 class Dot1Q(Packet):
@@ -245,7 +247,7 @@ class Dot1Q(Packet):
             return self.sprintf("802.1q (%Dot1Q.type%) vlan %Dot1Q.vlan%")
 
             
-conf.neighbor.register_l3(Ether, Dot1Q, lambda l2,l3: conf.neighbor.resolve(l2,l3.payload))
+conf.neighbor.register_l3(Ether, Dot1Q, l2_register_l3)
 
 class STP(Packet):
     name = "Spanning Tree Protocol"
@@ -560,7 +562,9 @@ class ARP(Packet):
         else:
             return self.sprintf("ARP %op% %psrc% > %pdst%")
                  
-conf.neighbor.register_l3(Ether, ARP, lambda l2,l3: getmacbyip(l3.pdst))
+def l2_register_l3_arp(l2, l3):
+    return getmacbyip(l3.pdst)
+conf.neighbor.register_l3(Ether, ARP, l2_register_l3_arp)
 
 class GRErouting(Packet):
     name = "GRE routing informations"

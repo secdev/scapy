@@ -496,7 +496,9 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
             return self.payload.answers(other.payload)
 
 
-conf.neighbor.register_l3(Ether, IPv6, lambda l2,l3: getmacbyip6(l3.dst))
+def inet6_register_l3(l2, l3):
+    return getmacbyip6(l3.dst)
+conf.neighbor.register_l3(Ether, IPv6, inet6_register_l3)
 
 
 class IPerror6(IPv6):
