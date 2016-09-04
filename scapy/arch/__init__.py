@@ -24,7 +24,7 @@ try:
         MATPLOTLIB_INLINED = 0
     MATPLOTLIB_DEFAULT_PLOT_KARGS = {"marker": "+"}
 # RuntimeError to catch gtk "Cannot open display" error
-except (ImportError, RuntimeError) as e:
+except (ImportError, RuntimeError):
     plt = None
     MATPLOTLIB = 0
     MATPLOTLIB_INLINED = 0
