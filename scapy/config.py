@@ -9,6 +9,7 @@ Implementation for of the configuration object.
 
 import os,time,socket,sys
 
+from scapy import VERSION
 from scapy.data import *
 from scapy import base_classes
 from scapy import themes
@@ -319,7 +320,7 @@ noenum    : holds list of enum fields for which conversion to string should NOT 
 AS_resolver: choose the AS resolver class to use
 extensions_paths: path or list of paths where extensions are to be looked for
 """
-    version = "2.3.2-dev"
+    version = VERSION
     session = ""
     interactive = False
     interactive_shell = ""
