@@ -141,6 +141,7 @@ assert(d == p)
 
 #######################################
 = IPv4 / ESP - Tunnel - AES-GCM - NULL
+~ combined_modes
 
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
@@ -175,6 +176,7 @@ assert(d == p)
 
 #######################################
 = IPv4 / ESP - Tunnel - AES-CCM - NULL
+~ combined_modes
 
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
