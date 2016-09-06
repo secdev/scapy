@@ -189,6 +189,18 @@ Here are the topics involved and some examples that you can use to try if your i
  
 * VOIP. ``voip_play()`` needs `SoX <http://sox.sourceforge.net/>`_.
  
+* IPSec Crypto Support. ``SecurityAssociation()`` needs `Pycrypto <https://github.com/dlitz/pycrypto>`_. Combined AEAD modes such as GCM and CCM require pycrypto2.7a1, which is only available from source (no pip or package).
+
+  .. code-block:: text
+  
+    # pycrypto 2.6 install
+    sudo pip install pycrypto
+
+    # pycrypto 2.7a1 install
+    curl -sL https://github.com/dlitz/pycrypto/archive/v2.7a1.tar.gz | tar xz
+    cd pycrypto-2.7a1
+    python setup.py build
+    sudo python setup.py install
 
 Platform-specific instructions
 ==============================
