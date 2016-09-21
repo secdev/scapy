@@ -25,6 +25,7 @@ import struct
 
 from scapy.packet import *
 from scapy.fields import *
+from scapy.layers.inet6 import *
 from scapy.ansmachine import *
 from scapy.layers.inet import IP,UDP
 from scapy.layers.isakmp import ISAKMP
@@ -98,6 +99,19 @@ IKEv2AttributeTypes= { "Encryption":    (1, { "DES-IV64"  : 1,
                          "Extended Sequence Number":       (5, {"No ESN":     0,
                                                  "ESN":   1,  }, 0),
                          }
+
+IKEv2AuthenticationTypes = {
+  0 : "Reserved",
+  1 : "RSA Digital Signature",
+  2 : "Shared Key Message Integrity Code",
+  3 : "DSS Digital Signature",
+  9 : "ECDSA with SHA-256 on the P-256 curve",
+  10 : "ECDSA with SHA-384 on the P-384 curve",
+  11 : "ECDSA with SHA-512 on the P-521 curve",
+  12 : "Generic Secure Password Authentication Method",
+  13 : "NULL Authentication",
+  14 : "Digital Signature"
+}
 
 IKEv2NotifyMessageTypes = {
   1 : "UNSUPPORTED_CRITICAL_PAYLOAD",
@@ -189,8 +203,160 @@ IKEv2CertificateEncodings = {
   13 : "Hash and URL of X.509 bundle"
 }
 
-# the name 'IKEv2TransformTypes' is actually a misnomer (since the table
-# holds info for all IKEv2 Attribute types, not just transforms, but we'll
+IKEv2TrafficSelectorTypes = {
+  7 : "TS_IPV4_ADDR_RANGE",
+  8 : "TS_IPV6_ADDR_RANGE",
+  9 : "TS_FC_ADDR_RANGE"
+}
+
+IPProtocolIDs = {
+  0 : "All protocols",
+  1 : "Internet Control Message Protocol",
+  2 : "Internet Group Management Protocol",
+  3 : "Gateway-to-Gateway Protocol",
+  4 : "IP in IP (encapsulation)",
+  5 : "Internet Stream Protocol",
+  6 : "Transmission Control Protocol",
+  7 : "Core-based trees",
+  8 : "Exterior Gateway Protocol",
+  9 : "Interior Gateway Protocol (any private interior gateway (used by Cisco for their IGRP))",
+  10 : "BBN RCC Monitoring",
+  11 : "Network Voice Protocol",
+  12 : "Xerox PUP",
+  13 : "ARGUS",
+  14 : "EMCON",
+  15 : "Cross Net Debugger",
+  16 : "Chaos",
+  17 : "User Datagram Protocol",
+  18 : "Multiplexing",
+  19 : "DCN Measurement Subsystems",
+  20 : "Host Monitoring Protocol",
+  21 : "Packet Radio Measurement",
+  22 : "XEROX NS IDP",
+  23 : "Trunk-1",
+  24 : "Trunk-2",
+  25 : "Leaf-1",
+  26 : "Leaf-2",
+  27 : "Reliable Datagram Protocol",
+  28 : "Internet Reliable Transaction Protocol",
+  29 : "ISO Transport Protocol Class 4",
+  30 : "Bulk Data Transfer Protocol",
+  31 : "MFE Network Services Protocol",
+  32 : "MERIT Internodal Protocol",
+  33 : "Datagram Congestion Control Protocol",
+  34 : "Third Party Connect Protocol",
+  35 : "Inter-Domain Policy Routing Protocol",
+  36 : "Xpress Transport Protocol",
+  37 : "Datagram Delivery Protocol",
+  38 : "IDPR Control Message Transport Protocol",
+  39 : "TP++ Transport Protocol",
+  40 : "IL Transport Protocol",
+  41 : "IPv6 Encapsulation",
+  42 : "Source Demand Routing Protocol",
+  43 : "Routing Header for IPv6",
+  44 : "Fragment Header for IPv6",
+  45 : "Inter-Domain Routing Protocol",
+  46 : "Resource Reservation Protocol",
+  47 : "Generic Routing Encapsulation",
+  48 : "Mobile Host Routing Protocol",
+  49 : "BNA",
+  50 : "Encapsulating Security Payload",
+  51 : "Authentication Header",
+  52 : "Integrated Net Layer Security Protocol",
+  53 : "SwIPe",
+  54 : "NBMA Address Resolution Protocol",
+  55 : "IP Mobility (Min Encap)",
+  56 : "Transport Layer Security Protocol (using Kryptonet key management)",
+  57 : "Simple Key-Management for Internet Protocol",
+  58 : "ICMP for IPv6",
+  59 : "No Next Header for IPv6",
+  60 : "Destination Options for IPv6",
+  61 : "Any host internal protocol",
+  62 : "CFTP",
+  63 : "Any local network",
+  64 : "SATNET and Backroom EXPAK",
+  65 : "Kryptolan",
+  66 : "MIT Remote Virtual Disk Protocol",
+  67 : "Internet Pluribus Packet Core",
+  68 : "Any distributed file system",
+  69 : "SATNET Monitoring",
+  70 : "VISA Protocol",
+  71 : "Internet Packet Core Utility",
+  72 : "Computer Protocol Network Executive",
+  73 : "Computer Protocol Heart Beat",
+  74 : "Wang Span Network",
+  75 : "Packet Video Protocol",
+  76 : "Backroom SATNET Monitoring",
+  77 : "SUN ND PROTOCOL-Temporary",
+  78 : "WIDEBAND Monitoring",
+  79 : "WIDEBAND EXPAK",
+  80 : "International Organization for Standardization Internet Protocol",
+  81 : "Versatile Message Transaction Protocol",
+  82 : "Secure Versatile Message Transaction Protocol",
+  83 : "VINES",
+  84 : "Internet Protocol Traffic Manager",
+  85 : "NSFNET-IGP",
+  86 : "Dissimilar Gateway Protocol",
+  87 : "TCF",
+  88 : "EIGRP",
+  89 : "Open Shortest Path First",
+  90 : "Sprite RPC Protocol",
+  91 : "Locus Address Resolution Protocol",
+  92 : "Multicast Transport Protocol",
+  93 : "AX.25",
+  94 : "IP-within-IP Encapsulation Protocol",
+  95 : "Mobile Internetworking Control Protocol",
+  96 : "Semaphore Communications Sec. Pro",
+  97 : "Ethernet-within-IP Encapsulation",
+  98 : "Encapsulation Header",
+  99 : "Any private encryption scheme",
+  100 : "GMTP",
+  101 : "Ipsilon Flow Management Protocol",
+  102 : "PNNI over IP",
+  103 : "Protocol Independent Multicast",
+  104 : "IBM's ARIS (Aggregate Route IP Switching) Protocol",
+  105 : "SCPS (Space Communications Protocol Standards)",
+  106 : "QNX",
+  107 : "Active Networks",
+  108 : "IP Payload Compression Protocol",
+  109 : "Sitara Networks Protocol",
+  110 : "Compaq Peer Protocol",
+  111 : "IPX in IP",
+  112 : "Virtual Router Redundancy Protocol, Common Address Redundancy Protocol (not IANA assigned)",
+  113 : "PGM Reliable Transport Protocol",
+  114 : "Any 0-hop protocol",
+  115 : "Layer Two Tunneling Protocol Version 3",
+  116 : "D-II Data Exchange (DDX)",
+  117 : "Interactive Agent Transfer Protocol",
+  118 : "Schedule Transfer Protocol",
+  119 : "SpectraLink Radio Protocol",
+  120 : "Universal Transport Interface Protocol",
+  121 : "Simple Message Protocol",
+  122 : "Simple Multicast Protocol",
+  123 : "Performance Transparency Protocol",
+  124 : "Intermediate System to Intermediate System (IS-IS) Protocol over IPv4",
+  125 : "Flexible Intra-AS Routing Environment",
+  126 : "Combat Radio Transport Protocol",
+  127 : "Combat Radio User Datagram",
+  128 : "Service-Specific Connection-Oriented Protocol in a Multilink and Connectionless Environment",
+  129 : "IPLT",
+  130 : "Secure Packet Shield",
+  131 : "Private IP Encapsulation within IP",
+  132 : "Stream Control Transmission Protocol",
+  133 : "Fibre Channel",
+  134 : "Reservation Protocol (RSVP) End-to-End Ignore",
+  135 : "Mobility Extension Header for IPv6",
+  136 : "Lightweight User Datagram Protocol",
+  137 : "Multiprotocol Label Switching Encapsulated in IP",
+  138 : "MANET Protocols",
+  139 : "Host Identity Protocol",
+  140 : "Site Multihoming by IPv6 Intermediation",
+  141 : "Wrapped Encapsulating Security Payload",
+  142 : "Robust Header Compression",
+}
+
+# the name 'IKEv2TransformTypes' is actually a misnomer (since the table 
+# holds info for all IKEv2 Attribute types, not just transforms, but we'll 
 # keep it for backwards compatibility... for now at least
 IKEv2TransformTypes = IKEv2AttributeTypes
 
@@ -278,7 +444,6 @@ class IKEv2_Key_Length_Attribute(IntField):
 	def h2i(self, pkt, x):
 		return IntField.h2i(self, pkt, x if x !=None else 0 | 0x800E0000)
 		
->>>>>>> 06f5fb4... ikev2 contrib fixup
 class IKEv2_payload_Transform(IKEv2_class):
     name = "IKE Transform"
     fields_desc = [
@@ -316,6 +481,18 @@ class IKEv2_payload(IKEv2_class):
         ]
 
 
+class IKEv2_payload_AUTH(IKEv2_class):
+    name = "IKEv2 Authentication"
+    overload_fields = { IKEv2: { "next_payload":39 }}
+    fields_desc = [
+        ByteEnumField("next_payload",None,IKEv2_payload_type),
+        ByteField("res",0),
+        FieldLenField("length",None,"load","H", adjust=lambda pkt,x:x+8),
+        ByteEnumField("auth_type",None,IKEv2AuthenticationTypes),
+        X3BytesField("res2",0),
+        StrLenField("load","",length_from=lambda x:x.length-8),
+        ]
+
 class IKEv2_payload_VendorID(IKEv2_class):
     name = "IKEv2 Vendor ID"
     overload_fields = { IKEv2: { "next_payload":43 }}
@@ -324,6 +501,53 @@ class IKEv2_payload_VendorID(IKEv2_class):
         ByteField("res",0),
         FieldLenField("length",None,"vendorID","H", adjust=lambda pkt,x:x+4),
         StrLenField("vendorID","",length_from=lambda x:x.length-4),
+        ]
+
+class TrafficSelector(IKEv2_class):
+    name = "IKEv2 Traffic Selector"
+    fields_desc = [
+        ByteEnumField("TS_type",None,IKEv2TrafficSelectorTypes),
+        ByteEnumField("IP_protocol_ID",None,IPProtocolIDs),
+        FieldLenField("length",None,"load","H", adjust=lambda pkt,x:16 if pkt.TS_type==7 else 20 if pkt.TS_type==8 else 16 if pkt.TS_type==9 else x+4),
+	ConditionalField(ShortField("start_port",0),lambda x:x.TS_type in{7,8}),
+        ConditionalField(ShortField("end_port",65535),lambda x:x.TS_type in{7,8}),
+        ConditionalField(IPField("starting_address_v4","192.168.0.1"),lambda x:x.TS_type==7),
+	ConditionalField(IP6Field("starting_address_v6","2001::"),lambda x:x.TS_type==8),
+	ConditionalField(IPField("ending_address_v4","192.168.0.255"),lambda x:x.TS_type==7),
+	ConditionalField(IP6Field("ending_address_v6","2001::"),lambda x:x.TS_type==8),
+	ConditionalField(ByteField("res",0),lambda x:x.TS_type==9),
+        ConditionalField(X3BytesField("starting_address_FC",0),lambda x:x.TS_type==9),
+        ConditionalField(ByteField("res2",0),lambda x:x.TS_type==9),
+        ConditionalField(X3BytesField("ending_address_FC",0),lambda x:x.TS_type==9),
+        ConditionalField(ByteField("starting_R_CTL",0),lambda x:x.TS_type==9),
+        ConditionalField(ByteField("ending_R_CTL",0),lambda x:x.TS_type==9),
+        ConditionalField(ByteField("starting_type",0),lambda x:x.TS_type==9),
+        ConditionalField(ByteField("ending_type",0),lambda x:x.TS_type==9),
+        ConditionalField(PacketField("load", "", Raw),lambda x:x.TS_type not in{7,8,9}),
+        ]
+
+class IKEv2_payload_TSi(IKEv2_class):
+    name = "IKEv2 Traffic Selector - Initiator"
+    overload_fields = { IKEv2: { "next_payload":44 }}
+    fields_desc = [
+        ByteEnumField("next_payload",None,IKEv2_payload_type),
+        ByteField("res",0),
+        FieldLenField("length",None,"traffic_selector","H", adjust=lambda pkt,x:x+8),
+        ByteField("number_of_TSs",0),
+        X3BytesField("res2",0),
+        PacketListField("traffic_selector",None,TrafficSelector,length_from=lambda x:x.length-8,count_from=lambda x:x.number_of_TSs),
+        ]
+
+class IKEv2_payload_TSr(IKEv2_class):
+    name = "IKEv2 Traffic Selector - Responder"
+    overload_fields = { IKEv2: { "next_payload":45 }}
+    fields_desc = [
+        ByteEnumField("next_payload",None,IKEv2_payload_type),
+        ByteField("res",0),
+        FieldLenField("length",None,"traffic_selector","H", adjust=lambda pkt,x:x+8),
+        ByteField("number_of_TSs",0),
+        X3BytesField("res2",0),
+        PacketListField("traffic_selector",None,TrafficSelector,length_from=lambda x:x.length-8,count_from=lambda x:x.number_of_TSs),
         ]
 
 class IKEv2_payload_Delete(IKEv2_class):
