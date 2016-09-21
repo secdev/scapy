@@ -87,6 +87,19 @@ IKEv2AttributeTypes= { "Encryption":    (1, { "DES-IV64"  : 1,
                                                  "ESN":   1,  }, 0),
                          }
 
+IKEv2AuthenticationTypes = {
+  0 : "Reserved",
+  1 : "RSA Digital Signature",
+  2 : "Shared Key Message Integrity Code",
+  3 : "DSS Digital Signature",
+  9 : "ECDSA with SHA-256 on the P-256 curve",
+  10 : "ECDSA with SHA-384 on the P-384 curve",
+  11 : "ECDSA with SHA-512 on the P-521 curve",
+  12 : "Generic Secure Password Authentication Method",
+  13 : "NULL Authentication",
+  14 : "Digital Signature"
+}
+
 IKEv2NotifyMessageTypes = {
   1 : "UNSUPPORTED_CRITICAL_PAYLOAD",
   4 : "INVALID_IKE_SPI",
@@ -303,6 +316,18 @@ class IKEv2_payload(IKEv2_class):
         ]
 
 
+class IKEv2_payload_Auth(IKEv2_class):
+    name = "IKEv2 Authentication"
+    overload_fields = { IKEv2: { "next_payload":39 }}
+    fields_desc = [
+        ByteEnumField("next_payload",None,IKEv2_payload_type),
+        ByteField("res",0),
+        FieldLenField("length",None,"load","H", adjust=lambda pkt,x:x+8),
+        ByteEnumField("auth_type",None,IKEv2AuthenticationTypes),
+        X3BytesField("res2",0),
+        StrLenField("load","",length_from=lambda x:x.length-8),
+        ]
+
 class IKEv2_payload_VendorID(IKEv2_class):
     name = "IKEv2 Vendor ID"
     overload_fields = { IKEv2: { "next_payload":43 }}
@@ -365,7 +390,7 @@ class IKEv2_payload_KE(IKEv2_class):
         ByteField("res",0),
         FieldLenField("length",None,"load","H", adjust=lambda pkt,x:x+8),
         ShortEnumField("group", 0, IKEv2TransformTypes['GroupDesc'][1]),
-        ShortField("res2", 0),
+        FieldLenField("res2",None,"load","H", adjust=lambda pkt,x:x+8),
         StrLenField("load","",length_from=lambda x:x.length-8),
         ]
 
