@@ -316,7 +316,7 @@ class IKEv2_payload(IKEv2_class):
         ]
 
 
-class IKEv2_payload_Auth(IKEv2_class):
+class IKEv2_payload_AUTH(IKEv2_class):
     name = "IKEv2 Authentication"
     overload_fields = { IKEv2: { "next_payload":39 }}
     fields_desc = [
