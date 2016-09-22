@@ -5,13 +5,14 @@
 
 """
 Implicit elliptic curves.
+
+Recommended curve parameters from www.secg.org/SEC2-Ver-1.0.pdf
+and www.ecc-brainpool.org/download/Domain-parameters.pdf
+Note that this module will overwrite curves from python-ecdsa.
 """
 
-# Recommended curve parameters from www.secg.org/SEC2-Ver-1.0.pdf
-# and www.ecc-brainpool.org/download/Domain-parameters.pdf
-# Note that this module will overwrite curves from python-ecdsa.
-
 import math
+
 from ecdsa.ellipticcurve import CurveFp, Point
 from ecdsa.curves import Curve
 from ecdsa.numbertheory import square_root_mod_prime
@@ -20,9 +21,7 @@ from scapy.utils import long_converter, binrepr
 from scapy.layers.tls.crypto.pkcs1 import pkcs_i2osp, pkcs_os2ip
 
 
-##############################################################
-# Some helpers
-##############################################################
+### Helpers
 
 def encode_point(point, point_format=0):
     """
@@ -93,9 +92,7 @@ def import_curve(p, a, b, g, r, name="dummyName", oid=(1, 3, 132, 0, 0xff)):
     return Curve(name, curve, generator, oid)
 
 
-##############################################################
-# Named curves
-##############################################################
+### Named curves
 
 # We always provide _a as a positive integer.
 
@@ -380,7 +377,8 @@ generator   = Point(curve, _Gx, _Gy, _r)
 BRNP512r1   = Curve("BRNP512r1", curve, generator,
                     (1, 3, 36, 3, 3, 2, 8, 1, 1, 13), "brainpoolP512r1")
 
-# we use IANA identifiers below
+
+# IANA identifiers
 named_curves = { 15: SECP160k1,
                  16: SECP160r1,
                  17: SECP160r2,
@@ -400,7 +398,7 @@ named_curves = { 15: SECP160k1,
 for cid, c in named_curves.iteritems():
     c.curve_id = cid
 
-# replace/fill previous named curves
+# We replace/fill the previous named curves.
 import ecdsa.curves
 ecdsa.curves.curves = named_curves.values()
 

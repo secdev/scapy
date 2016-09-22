@@ -7,7 +7,7 @@ then
   UT_FLAGS="-K netaccess"
 fi
 
-# Run unit tests
+# Run unit tests with UTscapy
 cd test/
 
 for f in *.uts
@@ -19,3 +19,7 @@ for f in ../scapy/contrib/*.uts
 do
   $TRAVIS_SUDO ./run_tests -f text -t $f $UT_FLAGS -P "load_contrib('$(basename ${f/.uts})')" || exit $?
 done
+
+# Run unit tests with openssl
+$TRAVIS_SUDO ./run_openssl_tests
+

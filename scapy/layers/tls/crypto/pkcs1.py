@@ -1,16 +1,23 @@
 ## This file is part of Scapy
-## Copyright (C) 2008 Arnaud Ebalard <arno@natisbad.org>
-##         2015, 2016 Maxence Tury <maxence.tury@ssi.gouv.fr>
+## Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
+##                     2015, 2016 Maxence Tury
 ## This program is published under a GPLv2 license
 
 """
 PKCS #1 methods as defined in RFC 3447.
 """
 
-import os, popen2, tempfile
-import math, random, struct
+import math
+import os
+import popen2
+import random
+import struct
+import tempfile
+
 from hashlib import md5, sha1, sha224, sha256, sha384, sha512
 from Crypto.Hash import MD2, MD4
+
+from scapy.utils import randstring, zerofree_randstring, strxor, strand
 
 
 #####################################################################
@@ -19,34 +26,6 @@ from Crypto.Hash import MD2, MD4
 
 def _warning(m):
     print "WARNING: %s" % m
-
-def randstring(l):
-    """
-    Returns a random string of length l (l >= 0)
-    """
-    tmp = map(lambda x: struct.pack("B", random.randrange(0, 256, 1)), [""]*l)
-    return "".join(tmp)
-
-def zerofree_randstring(l):
-    """
-    Returns a random string of length l (l >= 0) without zero in it.
-    """
-    tmp = map(lambda x: struct.pack("B", random.randrange(1, 256, 1)), [""]*l)
-    return "".join(tmp)
-
-def strxor(s1, s2):
-    """
-    Returns the binary XOR of the 2 provided strings s1 and s2. s1 and s2
-    must be of same length.
-    """
-    return "".join(map(lambda x,y:chr(ord(x)^ord(y)), s1, s2))
-
-def strand(s1, s2):
-    """
-    Returns the binary AND of the 2 provided strings s1 and s2. s1 and s2
-    must be of same length.
-    """
-    return "".join(map(lambda x,y:chr(ord(x)&ord(y)), s1, s2))
 
 # OS2IP function defined in RFC 3447 for octet string to integer conversion
 def pkcs_os2ip(x):

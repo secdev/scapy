@@ -598,7 +598,11 @@ class FieldListField(Field):
         else:
             return map(lambda e, pkt=pkt: self.field.any2i(pkt, e), x)
     def i2repr(self, pkt, x):
-        return map(lambda e, pkt=pkt: self.field.i2repr(pkt,e), x)
+        res = []
+        for v in x:
+            r = self.field.i2repr(pkt, v)
+            res.append(r)
+        return "[%s]" % ", ".join(res)
     def addfield(self, pkt, s, val):
         val = self.i2m(pkt, val)
         for v in val:

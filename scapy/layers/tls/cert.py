@@ -7,34 +7,31 @@
 """
 High-level methods for PKI objects (X.509 certificates, CRLs, asymmetric keys).
 Supports both RSA and ECDSA objects.
+
+This module relies on python-crypto and python-ecdsa.
+
+The classes below are wrappers for the ASN.1 objects defined in x509.py.
+By collecting their attributes, we bypass the ASN.1 structure, hence
+there is no direct method for exporting a new full DER-encoded version
+of a Cert instance after its serial has been modified (for example).
+If you need to modify an import, just use the corresponding ASN1_Packet.
+
+For instance, here is what you could do in order to modify the serial of
+'cert' and then resign it with whatever 'key':
+    f = open('cert.der')
+    c = X509_Cert(f.read())
+    c.tbsCertificate.serialNumber = 0x4B1D
+    k = PrivKey('key.pem')
+    new_x509_cert = k.resignCert(c)
+No need for obnoxious openssl tweaking anymore. :)
 """
 
-## This module relies on python-crypto and python-ecdsa.
-##
-## The classes below are wrappers for the ASN.1 objects defined in x509.py.
-## By collecting their attributes, we bypass the ASN.1 structure, hence
-## there is no direct method for exporting a new full DER-encoded version
-## of a Cert instance after its serial has been modified (for example).
-## If you need to modify an import, just use the corresponding ASN1_Packet.
-##
-## For instance, here is what you could do in order to modify the serial of
-## 'cert' and then resign it with whatever 'key':
-##     f = open('cert.der')
-##     c = X509_Cert(f.read())
-##     c.tbsCertificate.serialNumber = 0x4B1D
-##     k = PrivKey('key.pem')
-##     new_x509_cert = k.resignCert(c)
-## No need for obnoxious openssl tweaking anymore. :)
-
-import base64, os, time
+import base64
+import os
+import time
 
 import ecdsa
 from Crypto.PublicKey import RSA
-
-from scapy.layers.tls.crypto.curves import import_curve
-from scapy.layers.tls.crypto.pkcs1 import pkcs_os2ip, pkcs_i2osp, mapHashFunc
-from scapy.layers.tls.crypto.pkcs1 import _EncryptAndVerifyRSA
-from scapy.layers.tls.crypto.pkcs1 import _DecryptAndSignRSA
 
 from scapy.asn1.asn1 import ASN1_BIT_STRING
 from scapy.asn1.mib import hash_by_oid
@@ -44,6 +41,10 @@ from scapy.layers.x509 import ECDSAPublicKey, ECDSAPrivateKey
 from scapy.layers.x509 import RSAPrivateKey_OpenSSL, ECDSAPrivateKey_OpenSSL
 from scapy.layers.x509 import X509_Cert, X509_CRL
 from scapy.utils import binrepr
+from scapy.layers.tls.crypto.curves import import_curve
+from scapy.layers.tls.crypto.pkcs1 import pkcs_os2ip, pkcs_i2osp, mapHashFunc
+from scapy.layers.tls.crypto.pkcs1 import _EncryptAndVerifyRSA
+from scapy.layers.tls.crypto.pkcs1 import _DecryptAndSignRSA
 
 # Maximum allowed size in bytes for a certificate file, to avoid
 # loading huge file when importing a cert

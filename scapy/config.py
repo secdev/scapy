@@ -293,34 +293,66 @@ def _prompt_changer(attr,val):
     sys.ps1 = prompt
 
 class Conf(ConfClass):
-    """This object contains the configuration of scapy.
-session  : filename where the session will be saved
-interactive_shell : If set to "ipython", use IPython as shell. Default: Python 
-stealth  : if 1, prevents any unwanted packet to go out (ARP, DNS, ...)
-checkIPID: if 0, doesn't check that IPID matches between IP sent and ICMP IP citation received
-           if 1, checks that they either are equal or byte swapped equals (bug in some IP stacks)
-           if 2, strictly checks that they are equals
-checkIPsrc: if 1, checks IP src in IP and ICMP IP citation match (bug in some NAT stacks)
-check_TCPerror_seqack: if 1, also check that TCP seq and ack match the ones in ICMP citation
-iff      : selects the default output interface for srp() and sendp(). default:"eth0")
-verb     : level of verbosity, from 0 (almost mute) to 3 (verbose)
-promisc  : default mode for listening socket (to get answers if you spoof on a lan)
-sniff_promisc : default mode for sniff()
-filter   : bpf filter added to every sniffing socket to exclude traffic from analysis
-histfile : history file
-padding  : includes padding in desassembled packets
-except_filter : BPF filter for packets to ignore
-debug_match : when 1, store received packet that are not matched into debug.recv
-route    : holds the Scapy routing table and provides methods to manipulate it
-warning_threshold : how much time between warnings from the same place
-ASN1_default_codec: Codec used by default for ASN1 objects
-mib      : holds MIB direct access dictionnary
-resolve   : holds list of fields for which resolution should be done
-noenum    : holds list of enum fields for which conversion to string should NOT be done
-AS_resolver: choose the AS resolver class to use
-extensions_paths: path or list of paths where extensions are to be looked for
-contribs: a dict which can be used by contrib layers to store local configuration
-"""
+    """
+    This object contains the configuration of scapy.
+    _session
+        Filename where the session will be saved.
+    _interactive_shell
+        If "ipython", use IPython as shell. Default is Python.
+    _stealth
+        If 1, prevent any unwanted packet to go out (ARP, DNS, ...).
+    _checkIPID
+        If 0, don't check that IPID matches between IP sent and ICMP IP
+        citation received. If 1, check that they either are equal or byte
+        swapped equals (bug in some IP stacks). If 2, strictly check that
+        they are equals.
+    _checkIPsrc
+        If 1, check IP src in IP and ICMP IP citation match (bug in some NAT
+        stacks).
+    _check_TCPerror_seqack
+        If 1, also check that TCP seq and ack match the ones in ICMP citation.
+    _iff
+        Select the output interface for srp() and sendp(). Default is "eth0".
+    _verb
+        Level of verbosity, from 0 (almost mute) to 3 (verbose).
+    _promisc
+        Default mode for listening socket (to get answers if you spoof on a
+        lan).
+    _sniff_promisc
+        Default mode for sniff().
+    _filter
+        BPF filter added to every sniffing socket to exclude traffic from
+        analysis.
+    _histfile
+        History file.
+    _padding
+        Include padding in desassembled packets.
+    _except_filter
+        BPF filter for packets to ignore.
+    _debug_match
+        If 1, store received packet that are not matched into debug.recv.
+    _route
+        Holds the Scapy routing table and provides methods to manipulate it.
+    _warning_threshold
+        Set the time threshold between warnings from the same place.
+    _ASN1_default_codec
+        Codec used by default for ASN1 objects.
+    _mib
+        Holds MIB direct access dictionary.
+    _resolve
+        Holds a list of fields for which resolution should be done.
+    _noenum
+        Holds a list of enum fields for which conversion to string should NOT
+        be done.
+    _AS_resolver
+        Choose the AS resolver class to use.
+    _extensions_paths
+        Path or list of paths where extensions are to be looked for.
+    _contribs
+        A dict which can be used by contrib layers to store local configuration.
+    _debug_tls
+        When 1, print some TLS session secrets when they are computed.
+    """
     version = VERSION
     session = ""
     interactive = False
@@ -354,6 +386,7 @@ contribs: a dict which can be used by contrib layers to store local configuratio
     padding = 1
     except_filter = ""
     debug_match = 0
+    debug_tls = 0
     wepkey = ""
     route = None # Filed by route.py
     route6 = None # Filed by route6.py
@@ -380,12 +413,13 @@ contribs: a dict which can be used by contrib layers to store local configuratio
     temp_files = []
     netcache = NetCache()
     geoip_city = '/usr/share/GeoIP/GeoLiteCity.dat'
-    load_layers = ["l2", "inet", "dhcp", "dns", "dot11", "gprs", "tls",
+    load_layers = ["l2", "inet", "dhcp", "dns", "dot11", "gprs",
                    "hsrp", "inet6", "ir", "isakmp", "l2tp", "mgcp",
                    "mobileip", "netbios", "netflow", "ntp", "ppp",
                    "radius", "rip", "rtp", "skinny", "smb", "snmp",
                    "tftp", "x509", "bluetooth", "dhcp6", "llmnr",
                    "sctp", "vrrp", "ipsec", "lltd", "vxlan"]
+    # The TLS layer has its own directory; it must be imported manually.
     contribs = dict()
 
 
