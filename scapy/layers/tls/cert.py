@@ -7,28 +7,28 @@
 """
 High-level methods for PKI objects (X.509 certificates, CRLs, asymmetric keys).
 Supports both RSA and ECDSA objects.
+
+This module relies on python-crypto and python-ecdsa.
+
+The classes below are wrappers for the ASN.1 objects defined in x509.py.
+By collecting their attributes, we bypass the ASN.1 structure, hence
+there is no direct method for exporting a new full DER-encoded version
+of a Cert instance after its serial has been modified (for example).
+If you need to modify an import, just use the corresponding ASN1_Packet.
+
+For instance, here is what you could do in order to modify the serial of
+'cert' and then resign it with whatever 'key':
+    f = open('cert.der')
+    c = X509_Cert(f.read())
+    c.tbsCertificate.serialNumber = 0x4B1D
+    k = PrivKey('key.pem')
+    new_x509_cert = k.resignCert(c)
+No need for obnoxious openssl tweaking anymore. :)
 """
 
-## This module relies on python-crypto and python-ecdsa.
-##
-## The classes below are wrappers for the ASN.1 objects defined in x509.py.
-## By collecting their attributes, we bypass the ASN.1 structure, hence
-## there is no direct method for exporting a new full DER-encoded version
-## of a Cert instance after its serial has been modified (for example).
-## If you need to modify an import, just use the corresponding ASN1_Packet.
-##
-## For instance, here is what you could do in order to modify the serial of
-## 'cert' and then resign it with whatever 'key':
-##     f = open('cert.der')
-##     c = X509_Cert(f.read())
-##     c.tbsCertificate.serialNumber = 0x4B1D
-##     k = PrivKey('key.pem')
-##     new_x509_cert = k.resignCert(c)
-## No need for obnoxious openssl tweaking anymore. :)
-
-import base64, os, time
-
-import ecdsa
+import base64
+import os
+import time
 
 from scapy.config import conf, crypto_validator
 if conf.crypto_valid:
@@ -37,19 +37,19 @@ if conf.crypto_valid:
 else:
     default_backend = rsa = None
 
-from scapy.layers.tls.crypto.curves import import_curve
-from scapy.layers.tls.crypto.pkcs1 import pkcs_os2ip, pkcs_i2osp, mapHashFunc
-from scapy.layers.tls.crypto.pkcs1 import _EncryptAndVerifyRSA
-from scapy.layers.tls.crypto.pkcs1 import _DecryptAndSignRSA
-
+from scapy.config import conf
 from scapy.asn1.asn1 import ASN1_BIT_STRING
 from scapy.asn1.mib import hash_by_oid
+from scapy.error import warning
 from scapy.layers.x509 import X509_SubjectPublicKeyInfo
 from scapy.layers.x509 import RSAPublicKey, RSAPrivateKey
 from scapy.layers.x509 import ECDSAPublicKey, ECDSAPrivateKey
 from scapy.layers.x509 import RSAPrivateKey_OpenSSL, ECDSAPrivateKey_OpenSSL
 from scapy.layers.x509 import X509_Cert, X509_CRL
 from scapy.utils import binrepr
+from scapy.layers.tls.crypto.pkcs1 import pkcs_os2ip, pkcs_i2osp, mapHashFunc
+from scapy.layers.tls.crypto.pkcs1 import _EncryptAndVerifyRSA
+from scapy.layers.tls.crypto.pkcs1 import _DecryptAndSignRSA
 
 # Maximum allowed size in bytes for a certificate file, to avoid
 # loading huge file when importing a cert
@@ -62,10 +62,10 @@ MAX_CRL_SIZE = 10*1024*1024   # some are that big
 # Some helpers
 #####################################################################
 
+@conf.commands.register
 def der2pem(der_string, obj="UNKNOWN"):
-    """
-    Encode a byte string in PEM format. Header advertizes <obj> type.
-    """
+    """Convert DER octet string to PEM format (with optional header)"""
+    # Encode a byte string in PEM format. Header advertizes <obj> type.
     pem_string = "-----BEGIN %s-----\n" % obj
     base64_string = base64.b64encode(der_string)
     chunks = [base64_string[i:i+64] for i in range(0, len(base64_string), 64)]
@@ -73,10 +73,10 @@ def der2pem(der_string, obj="UNKNOWN"):
     pem_string += "\n-----END %s-----\n" % obj
     return pem_string
 
+@conf.commands.register
 def pem2der(pem_string):
-    """
-    Encode every line between the first '-----\n' and the 2nd-to-last '-----'.
-    """
+    """Convert PEM string to DER format"""
+    # Encode all lines between the first '-----\n' and the 2nd-to-last '-----'.
     pem_string = pem_string.replace("\r", "")
     first_idx = pem_string.find("-----\n") + 6
     if pem_string.find("-----BEGIN", first_idx) != -1:
@@ -201,7 +201,10 @@ class _PubKeyFactory(_PKIObjMaker):
                 obj.updateWith(pubkey)
             elif isinstance(pubkey, ECDSAPublicKey):
                 obj.__class__ = PubKeyECDSA
-                obj.updateWith(spki)
+                try:
+                    obj.updateWith(spki)
+                except ImportError:
+                    pass
             else:
                 raise
             marker = "PUBLIC KEY"
@@ -228,16 +231,17 @@ class PubKey(object):
     __metaclass__ = _PubKeyFactory
 
     def verifyCert(self, cert):
-        """
-        Verifies either a Cert or an X509_Cert.
-        """
+        """ Verifies either a Cert or an X509_Cert. """
         tbsCert = cert.tbsCertificate
         sigAlg = tbsCert.signature
         h = hash_by_oid[sigAlg.algorithm.val]
         sigVal = str(cert.signatureValue)
+        sigdec = None
+        if ecdsa_support:
+            sigdec = ecdsa.util.sigdecode_der
         return self.verify(str(tbsCert), sigVal, h=h,
                            t='pkcs',
-                           sigdecode=ecdsa.util.sigdecode_der)
+                           sigdecode=sigdec)
 
 
 class PubKeyRSA(_PKIObj, PubKey, _EncryptAndVerifyRSA):
@@ -263,12 +267,12 @@ class PubKeyRSA(_PKIObj, PubKey, _EncryptAndVerifyRSA):
         return _EncryptAndVerifyRSA.verify(self, msg, sig, h=h,
                                            t=t, mgf=mgf, sLen=sLen)
 
-
 class PubKeyECDSA(_PKIObj, PubKey):
     """
     Wrapper for ECDSA keys based on VerifyingKey from ecdsa library.
     Use the 'key' attribute to access original object.
     """
+    @ecdsa_exception
     def updateWith(self, spki):
         # For now we use from_der() or from_string() methods,
         # which do not offer support for compressed points.
@@ -285,12 +289,16 @@ class PubKeyECDSA(_PKIObj, PubKey):
                              p.base.val,
                              p.order.val)
             self.key = ecdsa.VerifyingKey.from_string(s, c)
+    @ecdsa_exception
     def encrypt(self, msg, t=None, h=None, mgf=None, L=None):
         # python-ecdsa does not support encryption
         raise Exception("No ECDSA encryption support")
+    @ecdsa_exception
     def verify(self, msg, sig, h=None,
                t=None, mgf=None, sLen=None,
-               sigdecode=ecdsa.util.sigdecode_string):
+               sigdecode=None):
+        if sigdecode is None:
+            sigdecode = ecdsa.util.sigdecode_string
         try:
             return self.key.verify(sig, msg, hashfunc=mapHashFunc(h),
                                    sigdecode=sigdecode)
@@ -342,7 +350,10 @@ class _PrivKeyFactory(_PKIObjMaker):
                         marker = "EC PRIVATE KEY"
                     except:
                         raise Exception("Unable to import private key")
-        obj.updateWith(privkey)
+        try:
+            obj.updateWith(privkey)
+        except ImportError:
+            pass
 
         if obj.frmt == "DER":
             if multiPEM:
@@ -377,9 +388,12 @@ class PrivKey(object):
         """
         sigAlg = tbsCert.signature
         h = h or hash_by_oid[sigAlg.algorithm.val]
+        sigenc = None
+        if ECDSA_SUPPORT:
+            sigenc = ecdsa.util.sigencode_der
         sigVal = self.sign(str(tbsCert), h=h,
                            t='pkcs',
-                           sigencode=ecdsa.util.sigencode_der)
+                           sigencode=sigenc)
         c = X509_Cert()
         c.tbsCertificate = tbsCert
         c.signatureAlgorithm = sigAlg
@@ -387,8 +401,22 @@ class PrivKey(object):
         return c
 
     def resignCert(self, cert):
-        # works with both Cert and X509_Cert types
+        """ Rewrite the signature of either a Cert or an X509_Cert. """
         return self.signTBSCert(cert.tbsCertificate)
+
+    def verifyCert(self, cert):
+        """ Verifies either a Cert or an X509_Cert. """
+        tbsCert = cert.tbsCertificate
+        sigAlg = tbsCert.signature
+        h = hash_by_oid[sigAlg.algorithm.val]
+        sigVal = str(cert.signatureValue)
+        if not ecdsa_support:
+            print "No ecdsa support. Signature could not be verified."
+            return False
+        else:
+            return self.verify(str(tbsCert), sigVal, h=h,
+                               t='pkcs',
+                               sigdecode=ecdsa.util.sigdecode_der)
 
 
 class PrivKeyRSA(_PKIObj, PrivKey, _EncryptAndVerifyRSA, _DecryptAndSignRSA):
@@ -430,18 +458,23 @@ class PrivKeyECDSA(_PKIObj, PrivKey):
     Wrapper for ECDSA keys based on SigningKey from ecdsa library.
     Use the 'key' attribute to access original object.
     """
+    @ecdsa_exception
     def updateWith(self, privkey):
         self.privKey = pkcs_os2ip(privkey.privateKey.val)
         self.key = ecdsa.SigningKey.from_der(str(privkey))
         self.vkey = self.key.get_verifying_key()
+    @ecdsa_exception
     def verify(self, msg, sig, h=None,
                t=None, mgf=None, sLen=None,
                sigdecode=None):
         return self.vkey.verify(sig, msg, hashfunc=mapHashFunc(h),
                                 sigdecode=sigdecode)
+    @ecdsa_exception
     def sign(self, data, h=None,
              t=None, mgf=None, sLen=None,
-             k=None, entropy=None, sigencode=ecdsa.util.sigencode_string):
+             k=None, entropy=None, sigencode=None):
+        if sigencode is None:
+            sigencode = ecdsa.util.sigencode_string
         return self.key.sign(data, hashfunc=mapHashFunc(h),
                              k=k, entropy=entropy, sigencode=sigencode)
 
@@ -593,7 +626,7 @@ class Cert(_PKIObj):
                 else:
                     now = time.strptime(now, '%b %d %H:%M:%S %Y %Z')
             except:
-                print "Bad time string provided, will use localtime() instead."
+                warning("Bad time string provided, will use localtime() instead.")
                 now = time.localtime()
 
         now = time.mktime(now)

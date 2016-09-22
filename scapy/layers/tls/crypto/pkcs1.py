@@ -1,6 +1,6 @@
 ## This file is part of Scapy
-## Copyright (C) 2008 Arnaud Ebalard <arno@natisbad.org>
-##         2015, 2016 Maxence Tury <maxence.tury@ssi.gouv.fr>
+## Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
+##                     2015, 2016 Maxence Tury
 ## This program is published under a GPLv2 license
 
 """
@@ -19,41 +19,13 @@ if conf.crypto_valid:
 else:
     InvalidSignature = dafault_backend = hashes = padding = None
 
+from scapy.utils import randstring, zerofree_randstring, strxor, strand
+from scapy.error import warning
+
 
 #####################################################################
 # Some helpers
 #####################################################################
-
-def _warning(m):
-    print "WARNING: %s" % m
-
-def randstring(l):
-    """
-    Returns a random string of length l (l >= 0)
-    """
-    tmp = map(lambda x: struct.pack("B", random.randrange(0, 256, 1)), [""]*l)
-    return "".join(tmp)
-
-def zerofree_randstring(l):
-    """
-    Returns a random string of length l (l >= 0) without zero in it.
-    """
-    tmp = map(lambda x: struct.pack("B", random.randrange(1, 256, 1)), [""]*l)
-    return "".join(tmp)
-
-def strxor(s1, s2):
-    """
-    Returns the binary XOR of the 2 provided strings s1 and s2. s1 and s2
-    must be of same length.
-    """
-    return "".join(map(lambda x,y:chr(ord(x)^ord(y)), s1, s2))
-
-def strand(s1, s2):
-    """
-    Returns the binary AND of the 2 provided strings s1 and s2. s1 and s2
-    must be of same length.
-    """
-    return "".join(map(lambda x,y:chr(ord(x)&ord(y)), s1, s2))
 
 # OS2IP function defined in RFC 3447 for octet string to integer conversion
 def pkcs_os2ip(x):
@@ -179,12 +151,12 @@ def pkcs_mgf1(mgfSeed, maskLen, h):
 
     # steps are those of Appendix B.2.1
     if not _hashFuncParams.has_key(h):
-        _warning("pkcs_mgf1: invalid hash (%s) provided" % h)
+        warning("pkcs_mgf1: invalid hash (%s) provided" % h)
         return None
     hLen = _hashFuncParams[h][0]
     hFunc = _hashFuncParams[h][2]
     if maskLen > 2**32 * hLen:                               # 1)
-        _warning("pkcs_mgf1: maskLen > 2**32 * hLen")
+        warning("pkcs_mgf1: maskLen > 2**32 * hLen")
         return None
     T = ""                                                   # 2)
     maxCounter = math.ceil(float(maskLen) / float(hLen))     # 3)
@@ -222,7 +194,7 @@ def pkcs_emsa_pss_encode(M, emBits, h, mgf, sLen):
     mHash = hFunc(M)
     emLen = int(math.ceil(emBits/8.))
     if emLen < hLen + sLen + 2:                              # 3)
-        _warning("encoding error (emLen < hLen + sLen + 2)")
+        warning("encoding error (emLen < hLen + sLen + 2)")
         return None
     salt = randstring(sLen)                                  # 4)
     MPrime = '\x00'*8 + mHash + salt                         # 5)
@@ -328,7 +300,7 @@ def pkcs_emsa_pkcs1_v1_5_encode(M, emLen, h): # section 9.2 of RFC 3447
     T = hLeadingDigestInfo + H
     tLen = len(T)
     if emLen < tLen + 11:                                    # 3)
-        _warning("pkcs_emsa_pkcs1_v1_5_encode:"
+        warning("pkcs_emsa_pkcs1_v1_5_encode:"
                 "intended encoded message length too short")
         return None
     PS = '\xff'*(emLen - tLen - 3)                           # 4)
@@ -490,7 +462,7 @@ class _EncryptAndVerifyRSA(object):
             )
 
         else:
-            _warning("Key.encrypt(): Unknown encryption type (%s) provided" % t)
+            warning("Key.encrypt(): Unknown encryption type (%s) provided" % t)
             return None
 
     @crypto_validator
@@ -544,7 +516,7 @@ class _EncryptAndVerifyRSA(object):
             pad_inst = padding.PSS(mgf=mgf, salt_length=sLen)
 
         else:
-            _warning("Key.verify(): Unknown signature type (%s) provided" % t)
+            warning("Key.verify(): Unknown signature type (%s) provided" % t)
             return None
 
         try:
@@ -585,7 +557,7 @@ class _DecryptAndSignRSA(object):
         if isinstance(c, int):
             c = long(c)
         if (not isinstance(c, long)) or c > n-1:
-            _warning("Key._rsaep() expects a long between 0 and n-1")
+            warning("Key._rsadp() expects a long between 0 and n-1")
             return None
 
         return self.key.decrypt(c)
@@ -610,7 +582,7 @@ class _DecryptAndSignRSA(object):
         cLen = len(C)
         k = self.modulusLen / 8
         if cLen != k or k < 11:
-            _warning("Key._rsaes_pkcs1_v1_5_decrypt() decryption error "
+            warning("Key._rsaes_pkcs1_v1_5_decrypt() decryption error "
                     "(cLen != k or k < 11)")
             return None
 
@@ -626,24 +598,24 @@ class _DecryptAndSignRSA(object):
         # debugging purposes. --arno
 
         if EM[0] != '\x00':
-            _warning("Key._rsaes_pkcs1_v1_5_decrypt(): decryption error "
+            warning("Key._rsaes_pkcs1_v1_5_decrypt(): decryption error "
                     "(first byte is not 0x00)")
             return None
 
         if EM[1] != '\x02':
-            _warning("Key._rsaes_pkcs1_v1_5_decrypt(): decryption error "
+            warning("Key._rsaes_pkcs1_v1_5_decrypt(): decryption error "
                     "(second byte is not 0x02)")
             return None
 
         tmp = EM[2:].split('\x00', 1)
         if len(tmp) != 2:
-            _warning("Key._rsaes_pkcs1_v1_5_decrypt(): decryption error "
+            warning("Key._rsaes_pkcs1_v1_5_decrypt(): decryption error "
                     "(no 0x00 to separate PS from M)")
             return None
 
         PS, M = tmp
         if len(PS) < 8:
-            _warning("Key._rsaes_pkcs1_v1_5_decrypt(): decryption error "
+            warning("Key._rsaes_pkcs1_v1_5_decrypt(): decryption error "
                     "(PS is less than 8 byte long)")
             return None
 
@@ -680,18 +652,18 @@ class _DecryptAndSignRSA(object):
         if h is None:
             h = "sha1"
         if not _hashFuncParams.has_key(h):
-            _warning("Key._rsaes_oaep_decrypt(): unknown hash function %s." % h)
+            warning("Key._rsaes_oaep_decrypt(): unknown hash function %s." % h)
             return None
         hLen = _hashFuncParams[h][0]
         hFun = _hashFuncParams[h][2]
         k = self.modulusLen / 8
         cLen = len(C)
         if cLen != k:                               # 1.b)
-            _warning("Key._rsaes_oaep_decrypt(): decryption error. "
+            warning("Key._rsaes_oaep_decrypt(): decryption error. "
                     "(cLen != k)")
             return None
         if k < 2*hLen + 2:
-            _warning("Key._rsaes_oaep_decrypt(): decryption error. "
+            warning("Key._rsaes_oaep_decrypt(): decryption error. "
                     "(k < 2*hLen + 2)")
             return None
 
@@ -706,7 +678,7 @@ class _DecryptAndSignRSA(object):
         lHash = hFun(L)
         Y = EM[:1]                                  # 3.b)
         if Y != '\x00':
-            _warning("Key._rsaes_oaep_decrypt(): decryption error. "
+            warning("Key._rsaes_oaep_decrypt(): decryption error. "
                     "(Y is not zero)")
             return None
         maskedSeed = EM[1:1+hLen]
@@ -725,16 +697,16 @@ class _DecryptAndSignRSA(object):
         lHashPrime = DB[:hLen]                      # 3.g)
         tmp = DB[hLen:].split('\x01', 1)
         if len(tmp) != 2:
-            _warning("Key._rsaes_oaep_decrypt(): decryption error. "
+            warning("Key._rsaes_oaep_decrypt(): decryption error. "
                     "(0x01 separator not found)")
             return None
         PS, M = tmp
         if PS != '\x00'*len(PS):
-            _warning("Key._rsaes_oaep_decrypt(): decryption error. "
+            warning("Key._rsaes_oaep_decrypt(): decryption error. "
                     "(invalid padding string)")
             return None
         if lHash != lHashPrime:
-            _warning("Key._rsaes_oaep_decrypt(): decryption error. "
+            warning("Key._rsaes_oaep_decrypt(): decryption error. "
                     "(invalid hash)")
             return None
         return M                                    # 4)
@@ -787,7 +759,7 @@ class _DecryptAndSignRSA(object):
             return self._rsaes_oaep_decrypt(C, h, mgf, L)
 
         else:
-            _warning("Key.decrypt(): Unknown decryption type (%s) provided" % t)
+            warning("Key.decrypt(): Unknown decryption type (%s) provided" % t)
             return None
 
     ### Below are signature related methods.
@@ -833,7 +805,7 @@ class _DecryptAndSignRSA(object):
         if h is None: # By default, sha1
             h = "sha1"
         if not _hashFuncParams.has_key(h):
-            _warning("Key._rsassa_pss_sign(): unknown hash function "
+            warning("Key._rsassa_pss_sign(): unknown hash function "
                     "provided (%s)" % h)
             return None
         if mgf is None: # use mgf1 with underlying hash function
@@ -847,7 +819,7 @@ class _DecryptAndSignRSA(object):
         k = modBits / 8
         EM = pkcs_emsa_pss_encode(M, modBits - 1, h, mgf, sLen)
         if EM is None:
-            _warning("Key._rsassa_pss_sign(): unable to encode")
+            warning("Key._rsassa_pss_sign(): unable to encode")
             return None
 
         # 2) RSA signature
@@ -876,7 +848,7 @@ class _DecryptAndSignRSA(object):
         k = self.modulusLen / 8
         EM = pkcs_emsa_pkcs1_v1_5_encode(M, k, h)
         if EM is None:
-            _warning("Key._rsassa_pkcs1_v1_5_sign(): unable to encode")
+            warning("Key._rsassa_pkcs1_v1_5_sign(): unable to encode")
             return None
 
         # 2) RSA signature
@@ -925,7 +897,7 @@ class _DecryptAndSignRSA(object):
             M = pkcs_os2ip(M)
             n = self.modulus
             if M > n-1:
-                _warning("Message to be signed is too long for key modulus")
+                warning("Message to be signed is too long for key modulus")
                 return None
             s = self._rsasp1(M)
             if s is None:
@@ -941,7 +913,7 @@ class _DecryptAndSignRSA(object):
             return self._rsassa_pss_sign(M, h, mgf, sLen)
 
         else:
-            _warning("Key.sign(): Unknown signature type (%s) provided" % t)
+            warning("Key.sign(): Unknown signature type (%s) provided" % t)
             return None
 
 
