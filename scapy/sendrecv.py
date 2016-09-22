@@ -20,6 +20,9 @@ from scapy import plist
 from scapy.error import log_runtime,log_interactive
 from scapy.base_classes import SetGen
 from scapy.supersocket import StreamSocket
+if conf.route is None:
+    # unused import, only to initialize conf.route
+    import scapy.route
 
 #################
 ## Debug class ##

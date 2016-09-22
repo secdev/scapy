@@ -51,6 +51,9 @@ from scapy.layers.l2 import *
 from scapy.layers.inet import *
 from scapy.utils import inet_pton, inet_ntop, strxor
 from scapy.error import warning
+if conf.route6 is None:
+    # unused import, only to initialize conf.route6
+    import scapy.route6
 
 
 #############################################################################

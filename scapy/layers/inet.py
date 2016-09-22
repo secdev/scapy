@@ -392,6 +392,9 @@ class IP(Packet, IPTools):
         dst = self.dst
         if isinstance(dst,Gen):
             dst = iter(dst).next()
+        if conf.route is None:
+            # unused import, only to initialize conf.route
+            import scapy.route
         return conf.route.route(dst)
     def hashret(self):
         if ( (self.proto == socket.IPPROTO_ICMP)

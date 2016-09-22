@@ -19,6 +19,9 @@ from scapy.fields import *
 from scapy.sendrecv import *
 from scapy.arch import get_if_hwaddr
 from scapy.utils import inet_ntoa, inet_aton
+if conf.route is None:
+    # unused import, only to initialize conf.route
+    import scapy.route
 
 
 
