@@ -12,7 +12,7 @@ import cPickle,os,sys,time,subprocess
 import itertools
 from select import select
 from scapy.data import *
-from scapy.arch import *
+from scapy.arch import FREEBSD,DARWIN
 from scapy.config import conf
 from scapy.packet import Gen
 from scapy.utils import warning,get_temp_file,PcapReader,wrpcap
