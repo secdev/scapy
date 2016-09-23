@@ -515,7 +515,7 @@ class IKEv2_payload_TSi(IKEv2_class):
         FieldLenField("length",None,"traffic_selector","H", adjust=lambda pkt,x:x+8),
         ByteField("number_of_TSs",0),
         X3BytesField("res2",0),
-        PacketListField("traffic_selector",None,TrafficSelector,length_from=lambda x:(x.length*x.number_of_TSs)-8,count_from=lambda x:x.number_of_TSs),
+        PacketListField("traffic_selector",None,TrafficSelector,length_from=lambda x:x.length-8,count_from=lambda x:x.number_of_TSs),
         ]
 
 class IKEv2_payload_TSr(IKEv2_class):
@@ -527,7 +527,7 @@ class IKEv2_payload_TSr(IKEv2_class):
         FieldLenField("length",None,"traffic_selector","H", adjust=lambda pkt,x:x+8),
         ByteField("number_of_TSs",0),
         X3BytesField("res2",0),
-        PacketListField("traffic_selector",None,TrafficSelector,length_from=lambda x:(x.length*x.number_of_TSs)-8,count_from=lambda x:x.number_of_TSs),
+        PacketListField("traffic_selector",None,TrafficSelector,length_from=lambda x:x.length-8,count_from=lambda x:x.number_of_TSs),
         ]
 
 class IKEv2_payload_Delete(IKEv2_class):
