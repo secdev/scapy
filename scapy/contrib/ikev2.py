@@ -198,7 +198,7 @@ IKEv2TrafficSelectorTypes = {
 }
 
 IPProtocolIDs = {
-  0 : "IPv6 Hop-by-Hop Option",
+  0 : "All protocols",
   1 : "Internet Control Message Protocol",
   2 : "Internet Group Management Protocol",
   3 : "Gateway-to-Gateway Protocol",
@@ -492,18 +492,26 @@ class IKEv2_payload_VendorID(IKEv2_class):
         ]
 
 class TrafficSelector(IKEv2_class):
-    name = "IKEv2 Traffic Selector - Core"
+    name = "IKEv2 Traffic Selector"
     fields_desc = [
         ByteEnumField("TS_type",None,IKEv2TrafficSelectorTypes),
         ByteEnumField("IP_protocol_ID",None,IPProtocolIDs),
-        ConditionalField(FieldLenField("selector_length_v4",None,"starting_address_v4","H", adjust=lambda pkt,x:x+4),lambda x:x.TS_type==7),
-		ConditionalField(FieldLenField("selector_length_v6",None,"starting_address_v6","H", adjust=lambda pkt,x:x+4),lambda x:x.TS_type==8),
-        ShortField("start_port",0),
-        ShortField("end_port",65535),
+        FieldLenField("length",None,"load","H", adjust=lambda pkt,x:16 if pkt.TS_type==7 else 20 if pkt.TS_type==8 else 16 if pkt.TS_type==9 else x+4),
+	ConditionalField(ShortField("start_port",0),lambda x:x.TS_type in{7,8}),
+        ConditionalField(ShortField("end_port",65535),lambda x:x.TS_type in{7,8}),
         ConditionalField(IPField("starting_address_v4","192.168.0.1"),lambda x:x.TS_type==7),
-		ConditionalField(IP6Field("starting_address_v6","2001::"),lambda x:x.TS_type==8),
-		ConditionalField(IPField("ending_address_v4","192.168.0.1"),lambda x:x.TS_type==7),
-		ConditionalField(IP6Field("ending_address_v6","2001::"),lambda x:x.TS_type==8),
+	ConditionalField(IP6Field("starting_address_v6","2001::"),lambda x:x.TS_type==8),
+	ConditionalField(IPField("ending_address_v4","192.168.0.255"),lambda x:x.TS_type==7),
+	ConditionalField(IP6Field("ending_address_v6","2001::"),lambda x:x.TS_type==8),
+	ConditionalField(ByteField("res",0),lambda x:x.TS_type==9),
+        ConditionalField(X3BytesField("starting_address_FC",0),lambda x:x.TS_type==9),
+        ConditionalField(ByteField("res2",0),lambda x:x.TS_type==9),
+        ConditionalField(X3BytesField("ending_address_FC",0),lambda x:x.TS_type==9),
+        ConditionalField(ByteField("starting_R_CTL",0),lambda x:x.TS_type==9),
+        ConditionalField(ByteField("ending_R_CTL",0),lambda x:x.TS_type==9),
+        ConditionalField(ByteField("starting_type",0),lambda x:x.TS_type==9),
+        ConditionalField(ByteField("ending_type",0),lambda x:x.TS_type==9),
+        ConditionalField(PacketField("load", "", Raw),lambda x:x.TS_type not in{7,8,9}),
         ]
 
 class IKEv2_payload_TSi(IKEv2_class):
