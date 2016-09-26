@@ -10,7 +10,7 @@ Operating system specific functionality.
 import socket
 
 from scapy.arch.consts import LINUX, OPENBSD, FREEBSD, NETBSD, DARWIN, \
-    SOLARIS, WINDOWS, BSD, X86_64, ARM_64
+    SOLARIS, WINDOWS, BSD, X86_64, ARM_64, LOOPBACK_NAME
 from scapy.error import *
 import scapy.config
 from scapy.pton_ntop import inet_pton
@@ -73,7 +73,6 @@ if LINUX:
     if scapy.config.conf.use_pcap or scapy.config.conf.use_dnet:
         from scapy.arch.pcapdnet import *
 elif BSD:
-    from scapy.arch.bsd import LOOPBACK_NAME
     from scapy.arch.unix import read_routes, read_routes6, in6_getifaddr
     scapy.config.conf.use_pcap = True
     scapy.config.conf.use_dnet = True

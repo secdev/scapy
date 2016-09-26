@@ -22,3 +22,5 @@ else:
     uname = os.uname()
     X86_64 = uname[4] == 'x86_64'
     ARM_64 = uname[4] == 'aarch64'
+
+LOOPBACK_NAME = "lo" if LINUX else "lo0"

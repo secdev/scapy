@@ -11,6 +11,4 @@ Customization for the Solaris operation system.
 import socket
 socket.IPPROTO_GRE = 47
 
-LOOPBACK_NAME="lo0"
-
 from scapy.arch.unix import *
