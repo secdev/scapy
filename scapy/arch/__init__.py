@@ -7,9 +7,10 @@
 Operating system specific functionality.
 """
 
+import socket
 
-import sys,os,socket
-
+from scapy.arch.consts import LINUX, OPENBSD, FREEBSD, NETBSD, DARWIN, \
+    SOLARIS, WINDOWS, BSD, X86_64, ARM_64
 from scapy.error import *
 import scapy.config
 from scapy.pton_ntop import inet_pton
@@ -52,19 +53,6 @@ def get_if_hwaddr(iff):
         return str2mac(mac)
     else:
         raise Scapy_Exception("Unsupported address family (%i) for interface [%s]" % (addrfamily,iff))
-
-
-LINUX = sys.platform.startswith("linux")
-OPENBSD = sys.platform.startswith("openbsd")
-FREEBSD = "freebsd" in sys.platform
-NETBSD = sys.platform.startswith("netbsd")
-DARWIN = sys.platform.startswith("darwin")
-SOLARIS = sys.platform.startswith("sunos")
-WINDOWS = sys.platform.startswith("win32")
-BSD = DARWIN or FREEBSD or OPENBSD or NETBSD
-
-X86_64 = not WINDOWS and (os.uname()[4] == 'x86_64')
-ARM_64 = not WINDOWS and (os.uname()[4] == 'aarch64')
 
 
 # Next step is to import following architecture specific functions:
