@@ -3,7 +3,18 @@ if [ -z $TRAVIS_SUDO ] && [ "$TRAVIS_OS_NAME" = "osx" ]
 then 
   PIP_INSTALL_FLAGS="--user"
 fi
-$TRAVIS_SUDO pip install $PIP_INSTALL_FLAGS pycrypto ecdsa mock
+$TRAVIS_SUDO pip install $PIP_INSTALL_FLAGS ecdsa mock
+
+# Pycrypto 2.7a1 isn't available on PyPi
+if [ "$TEST_COMBINED_MODES" = "yes" ]
+then
+  curl -sL https://github.com/dlitz/pycrypto/archive/v2.7a1.tar.gz | tar xz
+  cd pycrypto-2.7a1
+  python setup.py build
+  $TRAVIS_SUDO python setup.py install
+else
+  $TRAVIS_SUDO pip install $PIP_INSTALL_FLAGS pycrypto
+fi
 
 # Install pcap & dnet
 if [ ! -z $SCAPY_USE_PCAPDNET ]
