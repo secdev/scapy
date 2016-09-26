@@ -18,7 +18,6 @@ from scapy.error import Scapy_Exception,log_loading,log_runtime
 from scapy.utils import atol, itom, inet_aton, inet_ntoa, PcapReader
 from scapy.base_classes import Gen, Net, SetGen
 import scapy.plist as plist
-from scapy.sendrecv import debug, srp1
 from scapy.data import MTU, ETHER_BROADCAST, ETH_P_ARP
 
 conf.use_pcap = False
@@ -461,6 +460,7 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0, retry=0, m
         
     if verbose is None:
         verbose = conf.verb
+    from scapy.sendrecv import debug
     debug.recv = plist.PacketList([],"Unanswered")
     debug.sent = plist.PacketList([],"Sent")
     debug.match = plist.SndRcvList([])
