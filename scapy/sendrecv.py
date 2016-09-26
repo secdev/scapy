@@ -10,7 +10,7 @@ Functions to send and receive packets.
 import errno
 import cPickle,os,sys,time,subprocess
 import itertools
-from select import select
+from select import select,error
 from scapy.data import *
 from scapy import arch
 from scapy.config import conf
@@ -135,6 +135,8 @@ def sndrcv(pks, pkt, timeout = None, inter = 0, verbose=None, chainCC=0, retry=0
                                 inp = []
                                 try:
                                     inp, out, err = select(inmask,[],[], remaintime)
+                                except error as e:
+                                    continue
                                 except IOError, exc:
                                     if exc.errno != errno.EINTR:
                                         raise
