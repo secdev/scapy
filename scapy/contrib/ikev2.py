@@ -26,6 +26,7 @@ import struct
 from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.inet6 import *
+from scapy.layers.x509 import X509_Cert, X509_CRL
 from scapy.ansmachine import *
 from scapy.layers.inet import IP,UDP
 from scapy.layers.isakmp import ISAKMP
@@ -461,13 +462,13 @@ class IKEv2_payload_Proposal(IKEv2_class):
     fields_desc = [
         ByteEnumField("next_payload",None,{0:"last", 2:"Proposal"}),
         ByteField("res",0),
-        FieldLenField("length",None,"trans","H", adjust=lambda pkt,x:x+8),
+        FieldLenField("length",None,"trans","H", adjust=lambda pkt,x:x+8+pkt.SPIsize),
         ByteField("proposal",1),
         ByteEnumField("proto",1,{1:"IKEv2"}),
         FieldLenField("SPIsize",None,"SPI","B"),
         ByteField("trans_nb",None),
-        StrLenField("SPI","",length_from=lambda x:x.SPIsize),
-        PacketLenField("trans",conf.raw_layer(),IKEv2_payload_Transform,length_from=lambda x:x.length-8),
+        StrLenField("SPI","",length_from=lambda pkt:pkt.SPIsize),
+        PacketLenField("trans",conf.raw_layer(),IKEv2_payload_Transform,length_from=lambda pkt:pkt.length-8-pkt.SPIsize),
         ]
 
 
@@ -634,8 +635,6 @@ class IKEv2_payload_IDr(IKEv2_class):
         StrLenField("load","",length_from=lambda x:x.length-8),
         ]
 
-
-
 class IKEv2_payload_Encrypted(IKEv2_class):
     name = "IKEv2 Encrypted and Authenticated"
     overload_fields = { IKEv2: { "next_payload":46 }}
@@ -661,10 +660,12 @@ class IKEv2_payload_CERT(IKEv2_class):
     fields_desc = [
         ByteEnumField("next_payload",None,IKEv2_payload_type),
         ByteField("res",0),
-        FieldLenField("length",None,"cert_data","H",adjust=lambda pkt,x:x+5),
+        FieldLenField("length",None,"cert_data","H",adjust=lambda pkt,x: x+len(pkt.x509Cert)+len(pkt.x509CRL)+5),
         ByteEnumField("cert_type",0,IKEv2CertificateEncodings),
-        StrLenField("cert_data","",length_from=lambda x:x.length-5),
-        ]
+        ConditionalField(StrLenField("cert_data", "", length_from=lambda x:x.length-5),lambda x:x.cert_type not in {4,7}),
+	ConditionalField(PacketLenField("x509Cert", X509_Cert(''), X509_Cert, length_from=lambda x:x.length-5),lambda x:x.cert_type==4),
+	ConditionalField(PacketLenField("x509CRL", X509_CRL(''), X509_CRL, length_from=lambda x:x.length-5),lambda x:x.cert_type==7),
+	]
 
 IKEv2_payload_type_overload = {}
 for i, payloadname in enumerate(IKEv2_payload_type):
