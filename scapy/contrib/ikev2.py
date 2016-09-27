@@ -650,7 +650,7 @@ class IKEv2_payload_CERT(IKEv2_class):
         ByteField("res",0),
         FieldLenField("length",None,"cert_data","H",adjust=lambda pkt,x: x+len(pkt.x509Cert)+len(pkt.x509CRL)+5),
         ByteEnumField("cert_type",0,IKEv2CertificateEncodings),
-        ConditionalField(StrLenField("cert_data", "", length_from=lambda x:x.length-5),lambda x:x.cert_type not in {4}),
+        ConditionalField(StrLenField("cert_data", "", length_from=lambda x:x.length-5),lambda x:x.cert_type not in {4,7}),
 	ConditionalField(PacketLenField("x509Cert", X509_Cert(''), X509_Cert, length_from=lambda x:x.length-5),lambda x:x.cert_type==4),
 	ConditionalField(PacketLenField("x509CRL", X509_CRL(''), X509_CRL, length_from=lambda x:x.length-5),lambda x:x.cert_type==7),
 	]
