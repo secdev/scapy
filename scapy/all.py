@@ -38,6 +38,11 @@ from scapy.autorun import *
 from scapy.main import *
 
 from scapy.layers.all import *
+if "tls" in conf.load_layers:
+    try:
+        from scapy.layers.tls.all import *
+    except ImportError:
+        pass
 
 from scapy.asn1.asn1 import *
 from scapy.asn1.ber import *

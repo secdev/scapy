@@ -413,13 +413,12 @@ class Conf(ConfClass):
     temp_files = []
     netcache = NetCache()
     geoip_city = '/usr/share/GeoIP/GeoLiteCity.dat'
-    load_layers = ["l2", "inet", "dhcp", "dns", "dot11", "gprs",
+    load_layers = ["l2", "inet", "dhcp", "dns", "dot11", "gprs", "tls",
                    "hsrp", "inet6", "ir", "isakmp", "l2tp", "mgcp",
                    "mobileip", "netbios", "netflow", "ntp", "ppp",
                    "radius", "rip", "rtp", "skinny", "smb", "snmp",
                    "tftp", "x509", "bluetooth", "dhcp6", "llmnr",
                    "sctp", "vrrp", "ipsec", "lltd", "vxlan"]
-    # The TLS layer has its own directory; it must be imported manually.
     contribs = dict()
 
 

@@ -18,6 +18,9 @@ import sys
 from contextlib import contextmanager
 from StringIO import StringIO
 
+basedir = os.path.abspath(os.path.join(os.path.dirname(__file__),"../"))
+sys.path=[basedir]+sys.path
+
 from scapy.layers.tls.automaton import TLSServerAutomaton
 
 
@@ -53,7 +56,6 @@ else:
     expected_data = None
 
 with captured_output() as (out, err):
-    basedir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../"))
     t = TLSServerAutomaton(mycert=basedir+'/scapy/layers/tls/examples/pki_test/srv_cert.pem',
                            mykey=basedir+'/scapy/layers/tls/examples/pki_test/srv_key.pem')
     t.run()

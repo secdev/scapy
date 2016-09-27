@@ -13,11 +13,6 @@ will be preferred to any other suite the client might propose.
 
 import sys
 
-#XXX I need this as long as I have scapy installed system-wide
-import os
-basedir = os.path.abspath(os.path.join(os.path.dirname(__file__),"../../../../"))
-sys.path=[basedir]+sys.path
-
 from scapy.layers.tls.automaton import TLSServerAutomaton
 
 if len(sys.argv) == 2:

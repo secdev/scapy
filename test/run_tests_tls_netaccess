@@ -27,6 +27,7 @@ function test_tls_server {
   if [ $(<$EXIT_CODE) == "0" ];
   then
     echo "PASSED - TLS server test with cipher suite $suite $versions"
+    rm -f $EXIT_CODE $OSSL_STDO $OSSL_STDE $SCAPY_STDE
   else
     echo "FAILED - TLS server test with cipher suite $suite $versions"
     echo -e "\n###\nHere are scapy writings to stderr:\n"
@@ -35,9 +36,9 @@ function test_tls_server {
     cat $OSSL_STDO
     cat $OSSL_STDE
     echo -e "\n###\n"
+    rm -f $EXIT_CODE $OSSL_STDO $OSSL_STDE $SCAPY_STDE
+    exit 1
   fi
-
-  rm -f $EXIT_CODE $OSSL_STDO $OSSL_STDE $SCAPY_STDE
 }
 
 
@@ -70,6 +71,7 @@ function test_tls_client {
   if [ $(<$EXIT_CODE) == "0" ];
   then
     echo "PASSED - TLS client test with cipher suite $suite $version"
+    rm -f $CLI_STDO $CLI_STDE $SRV_STDO $SRV_STDE $EXIT_CODE
   else
     echo "FAILED - TLS client test with cipher suite $suite $version"
     echo -e "\n###\nHere are scapy client writings to stdout & stderr:\n"
@@ -79,9 +81,9 @@ function test_tls_client {
     cat $SRV_STDO
     cat $SRV_STDE
     echo -e "\n###\n"
+    rm -f $CLI_STDO $CLI_STDE $SRV_STDO $SRV_STDE $EXIT_CODE
+    exit 1
   fi
-
-  rm -f $CLI_STDO $CLI_STDE $SRV_STDO $SRV_STDE $EXIT_CODE
 }
 
 

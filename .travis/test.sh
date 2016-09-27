@@ -26,6 +26,9 @@ do
   $TRAVIS_SUDO ./run_tests -f text -t $f $UT_FLAGS -P "load_contrib('$(basename ${f/.uts})')" || exit $?
 done
 
-# Run unit tests with openssl
-$TRAVIS_SUDO ./run_openssl_tests
+# Run unit tests with openssl if we have root privileges
+if [ "$TRAVIS_OS_NAME" = "linux" ] && [ ! -z $SCAPY_USE_PCAPDNET ] && [ ! -z $TRAVIS_SUDO ]
+then
+  $TRAVIS_SUDO ./run_tests_tls_netaccess || exit $?
+fi
 

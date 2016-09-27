@@ -28,12 +28,11 @@ def _import_star(m):
                 __all__.append(name)
                 globals()[name] = sym
 
-for _l in conf.load_layers:         # this does not include "tls"
+for _l in conf.load_layers:
     log_loading.debug("Loading layer %s" % _l)
     try:
-        _import_star(_l)
+        if _l != "tls":
+            _import_star(_l)
     except Exception,e:
         log.warning("can't import layer %s: %s" % (_l,e))
-
-from scapy.layers.tls.all import *
 

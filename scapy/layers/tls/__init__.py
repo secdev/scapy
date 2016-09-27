@@ -108,6 +108,7 @@ except ImportError:
     import logging
     log_loading = logging.getLogger("scapy.loading")
     log_loading.info("Can't import python Crypto lib. Disabled TLS tools.")
+    raise ImportError
 
 try:
     import ecdsa
@@ -115,6 +116,5 @@ except ImportError:
     import logging
     log_loading = logging.getLogger("scapy.loading")
     log_loading.info("Can't import python ecdsa lib. Disabled TLS tools.")
-else:
-    from scapy.layers.tls.all import *
+    raise ImportError
 
