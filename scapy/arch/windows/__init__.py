@@ -13,6 +13,7 @@ import subprocess as sp
 from glob import glob
 import tempfile
 
+from scapy.arch.consts import LOOPBACK_NAME
 from scapy.config import conf,ConfClass
 from scapy.error import Scapy_Exception,log_loading,log_runtime
 from scapy.utils import atol, itom, inet_aton, inet_ntoa, PcapReader
@@ -38,7 +39,6 @@ if not hasattr(socket, 'IPPROTO_ESP'):
 from scapy.arch import pcapdnet
 from scapy.arch.pcapdnet import *
 
-LOOPBACK_NAME="lo0"
 WINDOWS = True
 
 def _exec_query_ps(cmd, fields):
