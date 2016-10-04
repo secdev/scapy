@@ -450,13 +450,13 @@ class IKEv2_payload_Proposal(IKEv2_class):
     fields_desc = [
         ByteEnumField("next_payload",None,{0:"last", 2:"Proposal"}),
         ByteField("res",0),
-        FieldLenField("length",None,"trans","H", adjust=lambda pkt,x:x+8),
+        FieldLenField("length",None,"trans","H", adjust=lambda pkt,x:x+8+pkt.SPIsize),
         ByteField("proposal",1),
         ByteEnumField("proto",1,{1:"IKEv2"}),
         FieldLenField("SPIsize",None,"SPI","B"),
         ByteField("trans_nb",None),
-        StrLenField("SPI","",length_from=lambda x:x.SPIsize),
-        PacketLenField("trans",conf.raw_layer(),IKEv2_payload_Transform,length_from=lambda x:x.length-8),
+        StrLenField("SPI","",length_from=lambda pkt:pkt.SPIsize),
+        PacketLenField("trans",conf.raw_layer(),IKEv2_payload_Transform,length_from=lambda pkt:pkt.length-8-pkt.SPIsize),
         ]
 
 
