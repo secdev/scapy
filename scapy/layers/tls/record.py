@@ -155,7 +155,7 @@ class _TLSMsgListField(PacketListField):
         for p in val:
             res += self.i2m(pkt, p)
         if not pkt.type:
-            return "\x00" + s[1:5]
+            pkt.type = 0
         hdr = struct.pack("!B", pkt.type) + s[1:5]
         return hdr + res
 
