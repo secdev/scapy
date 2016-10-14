@@ -5,8 +5,9 @@
     IS-IS Scapy Extension
     ~~~~~~~~~~~~~~~~~~~~~
 
-    :copyright: 2014, 2015 BENOCS GmbH, Berlin (Germany)
+    :copyright: 2014-2016 BENOCS GmbH, Berlin (Germany)
     :author:    Marcel Patzlaff, mpatzlaff@benocs.com
+                Michal Kaliszan, mkaliszan@benocs.com
     :license:   GPLv2
 
         This module is free software; you can redistribute it and/or
@@ -52,10 +53,13 @@ from scapy.config import conf
 from scapy.fields import *
 from scapy.packet import *
 from scapy.layers.clns import network_layer_protocol_ids, register_cln_protocol
-from scapy.layers.inet6 import IP6ListField
+from scapy.layers.inet6 import IP6ListField, IP6Field
+from scapy.utils import fletcher16_checkbytes
+from scapy.volatile import RandString, RandByte
+import random
 
 
-EXT_VERSION = "v0.0.1"
+EXT_VERSION = "v0.0.2"
 
 conf.debug_dissector = True
 
@@ -357,8 +361,72 @@ class ISIS_GenericSubTlv(Packet):
         return conf.padding_layer
 
 
-def _isis_guess_subtlv_cls(p, **kargs):
-    return ISIS_GenericSubTlv(p, **kargs)
+def _ISIS_GuessSubTlvClass(p, **kargs):
+    cls = conf.raw_layer
+    if len(p) >= 2:
+        subtlvtype = struct.unpack("!B", p[0])[0]
+        clsname = _isis_subtlv_classes.get(subtlvtype, "ISIS_GenericSubTlv")
+        cls = globals()[clsname]
+
+    return cls(p, **kargs)
+
+
+
+#######################################################################
+##  ISIS Sub-TLVs                                                        ##
+#######################################################################
+_isis_subtlv_classes = {
+    4:  "ISIS_LinkLocalRemoteIdentifiersSubTlv",
+    6:  "ISIS_IPv4InterfaceAddressSubTlv",
+    8:  "ISIS_IPv4NeighborAddressSubTlv",
+    12: "ISIS_IPv6InterfaceAddressSubTlv",
+    13: "ISIS_IPv6NeighborAddressSubTlv"
+}
+
+
+_isis_subtlv_names = {
+    4:  "Link Local/Remote Identifiers",
+    6:  "IPv4 Interface Address",
+    8:  "IPv4 Neighbor Address",
+    12: "IPv6 Interface Address",
+    13: "IPv6 Neighbor Address"
+}
+
+
+class ISIS_IPv4InterfaceAddressSubTlv(ISIS_GenericSubTlv):
+    name = "ISIS IPv4 Interface Address (S)"
+    fields_desc = [ByteEnumField("type", 6, _isis_subtlv_names),
+                   FieldLenField("len", None, length_of= "address", fmt="B"),
+                   IPField("address", "0.0.0.0")]
+
+
+class ISIS_IPv4NeighborAddressSubTlv(ISIS_GenericSubTlv):
+    name = "ISIS IPv4 Neighbor Address (S)"
+    fields_desc = [ByteEnumField("type", 8, _isis_subtlv_names),
+                   FieldLenField("len", None, length_of= "address", fmt="B"),
+                   IPField("address", "0.0.0.0")]
+
+
+class ISIS_LinkLocalRemoteIdentifiersSubTlv(ISIS_GenericSubTlv):
+    name = "ISIS Link Local/Remote Identifiers (S)"
+    fields_desc = [ByteEnumField("type", 4, _isis_subtlv_names),
+                   FieldLenField("len", None, fmt="B"),
+                   IntField("localid", "0"),
+                   IntField("remoteid", "0")]
+
+
+class ISIS_IPv6InterfaceAddressSubTlv(ISIS_GenericSubTlv):
+    name = "ISIS IPv6 Interface Address (S)"
+    fields_desc = [ByteEnumField("type", 12, _isis_subtlv_names),
+                   FieldLenField("len", None, length_of= "address", fmt="B"),
+                   IP6Field("address", "::")]
+
+
+class ISIS_IPv6NeighborAddressSubTlv(ISIS_GenericSubTlv):
+    name = "ISIS IPv6 Neighbor Address (S)"
+    fields_desc = [ByteEnumField("type", 13, _isis_subtlv_names),
+                   FieldLenField("len", None, length_of= "address", fmt="B"),
+                   IP6Field("address", "::")]
 
 
 class ISIS_ExtendedIpPrefix(Packet):
@@ -370,7 +438,7 @@ class ISIS_ExtendedIpPrefix(Packet):
         BitFieldLenField("pfxlen", None, 6, length_of="pfx"),
         IPPrefixField("pfx", None, wordbytes=1, length_from=lambda x: x.pfxlen),
         ConditionalField(FieldLenField("subtlvslen", None, length_of=lambda x: x.subtlvs, fmt= "B"), lambda pkt: pkt.subtlvindicator == 1), 
-        ConditionalField(PacketListField("subtlvs", [], _isis_guess_subtlv_cls, length_from=lambda x: x.subtlvslen), lambda pkt: pkt.subtlvindicator == 1)
+        ConditionalField(PacketListField("subtlvs", [], _ISIS_GuessSubTlvClass, length_from=lambda x: x.subtlvslen), lambda pkt: pkt.subtlvindicator == 1)
     ]
 
     def extract_padding(self, s):
@@ -389,7 +457,7 @@ class ISIS_ExtendedIsNeighbourEntry(Packet):
     fields_desc = [ISIS_NodeIdField("neighbourid", "0102.0304.0506.07"),
                    ThreeBytesField("metric", 1),
                    FieldLenField("subtlvslen", None, length_of="subtlvs", fmt= "B"),
-                   ConditionalField(PacketListField("subtlvs", [], _isis_guess_subtlv_cls, length_from=lambda x: x.subtlvslen), lambda pkt: pkt.subtlvslen > 0)]
+                   ConditionalField(PacketListField("subtlvs", [], _ISIS_GuessSubTlvClass, length_from=lambda x: x.subtlvslen), lambda pkt: pkt.subtlvslen > 0)]
 
     def extract_padding(self, s):
         return "", s
@@ -429,7 +497,7 @@ class ISIS_Ipv6Prefix(Packet):
         FieldLenField("pfxlen", None, length_of="pfx", fmt="B"),
         IP6PrefixField("pfx", None, wordbytes=1, length_from=lambda x: x.pfxlen),
         ConditionalField(FieldLenField("subtlvslen", None, length_of=lambda x: x.subtlvs, fmt= "B"), lambda pkt: pkt.subtlvindicator == 1), 
-        ConditionalField(PacketListField("subtlvs", [], _isis_guess_subtlv_cls, length_from=lambda x: x.subtlvslen), lambda pkt: pkt.subtlvindicator == 1)
+        ConditionalField(PacketListField("subtlvs", [], _ISIS_GuessSubTlvClass, length_from=lambda x: x.subtlvslen), lambda pkt: pkt.subtlvindicator == 1)
     ]
 
     def extract_padding(self, s):
@@ -767,3 +835,4 @@ bind_layers(ISIS_CommonHdr, ISIS_L1_CSNP, hdrlen=33, pdutype=24)
 bind_layers(ISIS_CommonHdr, ISIS_L2_CSNP, hdrlen=33, pdutype=25)
 bind_layers(ISIS_CommonHdr, ISIS_L1_PSNP, hdrlen=17, pdutype=26)
 bind_layers(ISIS_CommonHdr, ISIS_L2_PSNP, hdrlen=17, pdutype=27)
+
