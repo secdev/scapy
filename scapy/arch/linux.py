@@ -8,7 +8,7 @@ Linux specific functions.
 """
 
 from __future__ import with_statement
-import sys,os,struct,socket,time
+import sys,os,struct,socket,time,array,platform
 from select import select
 from fcntl import ioctl
 
@@ -167,47 +167,71 @@ def set_promisc(s,iff,val=1):
 
 
 def read_routes():
+
+    link_local = []
+
+    bits,_ = platform.architecture()
+    if bits == "32bit":
+        offset,name_len=32,32 # 32-bit
+    elif bits == "64bit":
+        offset,name_len=16,40
+    else:
+        warning("Unsupported architecure")
+        return []
+
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    names = array.array('B', '\0' * 4096)
+    ifreq = ioctl(s.fileno(), SIOCGIFCONF, struct.pack('iL', len(names),
+                                                       names.buffer_info()[0]))
+    out = struct.unpack('iL', ifreq)[0]
+    names = names.tostring()
+    names = [names[i:i+offset].split('\0', 1)[0]
+                   for i in range(0, out, name_len)]
+    for ifname in names:
+        ifreq = ioctl(s, SIOCGIFADDR,struct.pack("16s16x",ifname))
+        ifaddr = struct.unpack('>I', ifreq[20:24])[0]
+        ifreq = ioctl(s, SIOCGIFNETMASK,struct.pack("16s16x",ifname))
+        msk = struct.unpack('>I', ifreq[20:24])[0]
+        if ":" in ifname:
+            ifname = ifname[:ifname.index(":")]
+
+        link_local.append((ifaddr & msk, msk, "0.0.0.0", ifname,
+                           scapy.utils.ltoa(ifaddr)))
+
+    link_local.sort()
+    routes = link_local[:]
+
     try:
         f=open("/proc/net/route","r")
     except IOError:
         warning("Can't open /proc/net/route !")
-        return []
-    routes = []
-    s=socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    ifreq = ioctl(s, SIOCGIFADDR,struct.pack("16s16x",LOOPBACK_NAME))
-    addrfamily = struct.unpack("h",ifreq[16:18])[0]
-    if addrfamily == socket.AF_INET:
-        ifreq2 = ioctl(s, SIOCGIFNETMASK,struct.pack("16s16x",LOOPBACK_NAME))
-        msk = socket.ntohl(struct.unpack("I",ifreq2[20:24])[0])
-        dst = socket.ntohl(struct.unpack("I",ifreq[20:24])[0]) & msk
-        ifaddr = scapy.utils.inet_ntoa(ifreq[20:24])
-        routes.append((dst, msk, "0.0.0.0", LOOPBACK_NAME, ifaddr))
-    else:
-        warning("Interface lo: unkown address family (%i)"% addrfamily)
+        return routes
 
     for l in f.readlines()[1:]:
         iff,dst,gw,flags,x,x,x,msk,x,x,x = l.split()
+        gw = socket.htonl(long(gw, 16))
+        if gw == 0:
+            continue
         flags = int(flags,16)
         if flags & RTF_UP == 0:
             continue
         if flags & RTF_REJECT:
             continue
-        try:
-            ifreq = ioctl(s, SIOCGIFADDR,struct.pack("16s16x",iff))
-        except IOError: # interface is present in routing tables but does not have any assigned IP
-            ifaddr="0.0.0.0"
-        else:
-            addrfamily = struct.unpack("h",ifreq[16:18])[0]
-            if addrfamily == socket.AF_INET:
-                ifaddr = scapy.utils.inet_ntoa(ifreq[20:24])
-            else:
-                warning("Interface %s: unkown address family (%i)"%(iff, addrfamily))
-                continue
-        routes.append((socket.htonl(long(dst,16))&0xffffffffL,
-                       socket.htonl(long(msk,16))&0xffffffffL,
-                       scapy.utils.inet_ntoa(struct.pack("I",long(gw,16))),
-                       iff, ifaddr))
-    
+
+        # default value if no interface ip found
+        src = "0.0.0.0"
+
+        # choose src by interface ip - prefer those in gw subnet
+        for lnet, lmsk, _, lifname, lsrc in link_local:
+            if lifname == iff:
+                src = lsrc
+                if gw & lmsk == lnet:
+                    break
+
+        routes.append((socket.htonl(long(dst,16)) & 0xffffffffL,
+                       socket.htonl(long(msk,16)) & 0xffffffffL,
+                       scapy.utils.ltoa(gw), iff, src))
+
     f.close()
     return routes
 
