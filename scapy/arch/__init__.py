@@ -81,6 +81,7 @@ elif SOLARIS:
     from scapy.arch.solaris import *
 elif WINDOWS:
     from scapy.arch.windows import *
+    from scapy.arch.windows.compatibility import *
 
 if scapy.config.conf.iface is None:
     scapy.config.conf.iface = LOOPBACK_NAME
