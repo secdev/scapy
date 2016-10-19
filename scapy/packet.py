@@ -309,8 +309,8 @@ class Packet(BasePacket):
     def copy_fields_dict(self, fields):
         if fields is None:
             return None
-        return dict([fname, self.copy_field_value(fname, fval)]
-                    for fname, fval in fields.iteritems())
+        return {fname: self.copy_field_value(fname, fval)
+                for fname, fval in fields.iteritems()}
     def self_build(self, field_pos_list=None):
         if self.raw_packet_cache is not None:
             for fname, fval in self.raw_packet_cache_fields.iteritems():
