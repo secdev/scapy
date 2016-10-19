@@ -609,7 +609,7 @@ class PCO_PPP_Auth(Packet):
                        StrFixedLenField(
                            "Password",
                            "",
-                           length_from=lambda pkt: pkt.Password_length)
+                           length_from=lambda pkt: pkt.Password_length),
                        lambda pkt: pkt.Password_length)]
 
     def extract_padding(self, pkt):
