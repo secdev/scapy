@@ -4,9 +4,6 @@ matrix:
     include:
         # Run as a regular user
         - os: linux
-          python: 2.6
-
-        - os: linux
           python: 2.7
 
         - os: linux
