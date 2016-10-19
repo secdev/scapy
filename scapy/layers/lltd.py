@@ -304,8 +304,8 @@ SPECIFIC_CLASSES = {}
 
 
 def _register_lltd_specific_class(*attr_types):
-    """This can be used as a class decorator, but since we want to
-    support Python 2.5, we have to replace
+    """This can be used as a class decorator; if we want to support Python
+    2.5, we have to replace
 
 @_register_lltd_specific_class(x[, y[, ...]])
 class LLTDAttributeSpecific(LLTDAttribute):
@@ -330,14 +330,13 @@ LLTDAttributeSpecific = _register_lltd_specific_class(x[, y[, ...]])(
     return _register
 
 
+@_register_lltd_specific_class(0)
 class LLTDAttributeEOP(LLTDAttribute):
     name = "LLTD Attribute - End Of Property"
     fields_desc = []
 
 
-LLTDAttributeEOP = _register_lltd_specific_class(0)(LLTDAttributeEOP)
-
-
+@_register_lltd_specific_class(1)
 class LLTDAttributeHostID(LLTDAttribute):
     name = "LLTD Attribute - Host ID"
     fields_desc = [
@@ -349,9 +348,7 @@ class LLTDAttributeHostID(LLTDAttribute):
         return "ID: %s" % self.mac, [LLTD, LLTDAttributeMachineName]
 
 
-LLTDAttributeHostID = _register_lltd_specific_class(1)(LLTDAttributeHostID)
-
-
+@_register_lltd_specific_class(2)
 class LLTDAttributeCharacteristics(LLTDAttribute):
     name = "LLTD Attribute - Characteristics"
     fields_desc = [
@@ -366,11 +363,7 @@ class LLTDAttributeCharacteristics(LLTDAttribute):
     ]
 
 
-LLTDAttributeCharacteristics = _register_lltd_specific_class(2)(
-    LLTDAttributeCharacteristics
-)
-
-
+@_register_lltd_specific_class(3)
 class LLTDAttributePhysicalMedium(LLTDAttribute):
     name = "LLTD Attribute - Physical Medium"
     fields_desc = [
@@ -656,11 +649,7 @@ class LLTDAttributePhysicalMedium(LLTDAttribute):
     ]
 
 
-LLTDAttributePhysicalMedium = _register_lltd_specific_class(3)(
-    LLTDAttributePhysicalMedium
-)
-
-
+@_register_lltd_specific_class(7)
 class LLTDAttributeIPv4Address(LLTDAttribute):
     name = "LLTD Attribute - IPv4 Address"
     fields_desc = [
@@ -669,11 +658,7 @@ class LLTDAttributeIPv4Address(LLTDAttribute):
     ]
 
 
-LLTDAttributeIPv4Address = _register_lltd_specific_class(7)(
-    LLTDAttributeIPv4Address
-)
-
-
+@_register_lltd_specific_class(8)
 class LLTDAttributeIPv6Address(LLTDAttribute):
     name = "LLTD Attribute - IPv6 Address"
     fields_desc = [
@@ -682,11 +667,7 @@ class LLTDAttributeIPv6Address(LLTDAttribute):
     ]
 
 
-LLTDAttributeIPv6Address = _register_lltd_specific_class(8)(
-    LLTDAttributeIPv6Address
-)
-
-
+@_register_lltd_specific_class(9)
 class LLTDAttribute80211MaxRate(LLTDAttribute):
     name = "LLTD Attribute - 802.11 Max Rate"
     fields_desc = [
@@ -695,11 +676,7 @@ class LLTDAttribute80211MaxRate(LLTDAttribute):
     ]
 
 
-LLTDAttribute80211MaxRate = _register_lltd_specific_class(9)(
-    LLTDAttribute80211MaxRate
-)
-
-
+@_register_lltd_specific_class(10)
 class LLTDAttributePerformanceCounterFrequency(LLTDAttribute):
     name = "LLTD Attribute - Performance Counter Frequency"
     fields_desc = [
@@ -708,11 +685,7 @@ class LLTDAttributePerformanceCounterFrequency(LLTDAttribute):
     ]
 
 
-LLTDAttributePerformanceCounterFrequency = _register_lltd_specific_class(10)(
-    LLTDAttributePerformanceCounterFrequency
-)
-
-
+@_register_lltd_specific_class(12)
 class LLTDAttributeLinkSpeed(LLTDAttribute):
     name = "LLTD Attribute - Link Speed"
     fields_desc = [
@@ -721,11 +694,7 @@ class LLTDAttributeLinkSpeed(LLTDAttribute):
     ]
 
 
-LLTDAttributeLinkSpeed = _register_lltd_specific_class(12)(
-    LLTDAttributeLinkSpeed
-)
-
-
+@_register_lltd_specific_class(14, 24, 26)
 class LLTDAttributeLargeTLV(LLTDAttribute):
     name = "LLTD Attribute - Large TLV"
     fields_desc = [
@@ -733,11 +702,7 @@ class LLTDAttributeLargeTLV(LLTDAttribute):
     ]
 
 
-LLTDAttributeLargeTLV = _register_lltd_specific_class(14, 24, 26)(
-    LLTDAttributeLargeTLV
-)
-
-
+@_register_lltd_specific_class(15)
 class LLTDAttributeMachineName(LLTDAttribute):
     name = "LLTD Attribute - Machine Name"
     fields_desc = [
@@ -750,11 +715,7 @@ class LLTDAttributeMachineName(LLTDAttribute):
                 [LLTD, LLTDAttributeHostID])
 
 
-LLTDAttributeMachineName = _register_lltd_specific_class(15)(
-    LLTDAttributeMachineName
-)
-
-
+@_register_lltd_specific_class(18)
 class LLTDAttributeDeviceUUID(LLTDAttribute):
     name = "LLTD Attribute - Device UUID"
     fields_desc = [
@@ -763,11 +724,7 @@ class LLTDAttributeDeviceUUID(LLTDAttribute):
     ]
 
 
-LLTDAttributeDeviceUUID = _register_lltd_specific_class(18)(
-    LLTDAttributeDeviceUUID
-)
-
-
+@_register_lltd_specific_class(20)
 class LLTDAttributeQOSCharacteristics(LLTDAttribute):
     name = "LLTD Attribute - QoS Characteristics"
     fields_desc = [
@@ -778,11 +735,7 @@ class LLTDAttributeQOSCharacteristics(LLTDAttribute):
     ]
 
 
-LLTDAttributeQOSCharacteristics = _register_lltd_specific_class(20)(
-    LLTDAttributeQOSCharacteristics
-)
-
-
+@_register_lltd_specific_class(21)
 class LLTDAttribute80211PhysicalMedium(LLTDAttribute):
     name = "LLTD Attribute - 802.11 Physical Medium"
     fields_desc = [
@@ -799,22 +752,13 @@ class LLTDAttribute80211PhysicalMedium(LLTDAttribute):
     ]
 
 
-LLTDAttribute80211PhysicalMedium = _register_lltd_specific_class(21)(
-    LLTDAttribute80211PhysicalMedium
-)
-
-
+@_register_lltd_specific_class(25)
 class LLTDAttributeSeesList(LLTDAttribute):
     name = "LLTD Attribute - Sees List Working Set"
     fields_desc = [
         ByteField("len", 2),
         ShortField("max_entries", 0),
     ]
-
-
-LLTDAttributeSeesList = _register_lltd_specific_class(25)(
-    LLTDAttributeSeesList
-)
 
 
 bind_layers(Ether, LLTD, type=0x88d9)
@@ -890,5 +834,5 @@ class LargeTlvBuilder(object):
         fetched, also as a string.
 
         """
-        return dict((key, "".join(chr(byte) for byte in data))
-                    for key, data in self.data.iteritems())
+        return {key: "".join(chr(byte) for byte in data)
+                for key, data in self.data.iteritems()}

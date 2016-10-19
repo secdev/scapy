@@ -7,8 +7,6 @@
 Common customizations for all Unix-like operating systems other than Linux
 """
 
-from __future__ import with_statement
-
 import sys,os,struct,socket,time
 from fcntl import ioctl
 import socket

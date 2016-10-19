@@ -7,7 +7,6 @@
 Main module for interactive startup.
 """
 
-from __future__ import generators
 import os,sys
 import glob
 import types

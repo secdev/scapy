@@ -7,7 +7,6 @@
 Automata with states, transitions and actions.
 """
 
-from __future__ import with_statement
 import types,itertools,time,os,sys,socket,traceback
 from select import select
 from collections import deque

@@ -5,8 +5,6 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
-from __future__ import with_statement
-
 import os,thread,select
 import subprocess
 import itertools

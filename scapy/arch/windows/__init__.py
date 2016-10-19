@@ -7,7 +7,6 @@
 Customizations needed to support Microsoft Windows.
 """
 
-from __future__ import with_statement
 import os,re,sys,socket,time, itertools
 import subprocess as sp
 from glob import glob
@@ -359,8 +358,7 @@ def read_routes_xp():
     routes = []
     partial_routes = []
     # map local IP addresses to interfaces
-    local_addresses = dict((iface.ip, iface)
-                           for iface in IFACES.itervalues())
+    local_addresses = {iface.ip: iface for iface in IFACES.itervalues()}
     iface_indexes = {}
     for line in exec_query(['Get-WmiObject', 'Win32_IP4RouteTable'],
                            ['Name', 'Mask', 'NextHop', 'InterfaceIndex']):

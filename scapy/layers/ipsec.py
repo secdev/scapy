@@ -44,18 +44,7 @@ import struct
 try:
     from Crypto.Util.number import GCD as gcd
 except ImportError:
-    try:
-        from fractions import gcd
-    except ImportError:
-        def gcd(a, b):
-            """Fallback implementation when Crypto is missing, and fractions does
-            not exist (Python 2.5)
-
-            """
-            if b > a:
-                a, b = b, a
-            c = a % b
-            return b if c == 0 else gcd(c, b)
+    from fractions import gcd
 
 
 from scapy.data import IP_PROTOS
