@@ -21,7 +21,7 @@ class ScapyFreqFilter(logging.Filter):
         logging.Filter.__init__(self)
         self.warning_table = {}
     def filter(self, record):        
-        from config import conf
+        from scapy.config import conf
         wt = conf.warning_threshold
         if wt > 0:
             stk = traceback.extract_stack()
@@ -45,10 +45,16 @@ class ScapyFreqFilter(logging.Filter):
             self.warning_table[caller] = (tm,nb)
         return 1    
 
+try:
+    from logging import NullHandler
+except ImportError:
+    # compat for python 2.6
+    from logging import Handler
+    class NullHandler(Handler):
+        def emit(self, record):
+            pass
 log_scapy = logging.getLogger("scapy")
-console_handler = logging.StreamHandler()
-console_handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
-log_scapy.addHandler(console_handler)
+log_scapy.addHandler(NullHandler())
 log_runtime = logging.getLogger("scapy.runtime")          # logs at runtime
 log_runtime.addFilter(ScapyFreqFilter())
 log_interactive = logging.getLogger("scapy.interactive")  # logs in interactive functions

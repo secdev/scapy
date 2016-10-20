@@ -2,11 +2,12 @@
 # scapy.contrib.description = CARP
 # scapy.contrib.status = loads
 
+import struct, hmac, hashlib
+
 from scapy.packet import *
 from scapy.layers.inet import IP
 from scapy.fields import BitField, ByteField, XShortField, IntField, XIntField
-from scapy.utils import checksum
-import struct, hmac, hashlib
+from scapy.utils import checksum, inet_aton
 
 class CARP(Packet):
     name = "CARP"
@@ -33,7 +34,11 @@ class CARP(Packet):
 
         return pkt
 
-def build_hmac_sha1(pkt, pw = '\0' * 20, ip4l = [], ip6l = []):
+def build_hmac_sha1(pkt, pw = '\0' * 20, ip4l=None, ip6l=None):
+    if ip4l is None:
+        ip4l = []
+    if ip6l is None:
+        ip6l = []
     if not pkt.haslayer(CARP):
         return None 
 

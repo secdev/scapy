@@ -35,7 +35,9 @@ from types import StringType
 #from  time import sleep
 import socket
 logging.getLogger("scapy").setLevel(1)
-from scapy.all import *
+
+from scapy.packet import *
+from scapy.fields import *
 
 # This method is intended to send gsm air packets. It uses a unix domain
 # socket. It opens a socket, sends the parameter to the socket and
@@ -2229,7 +2231,7 @@ def startCc(CallControlCapabilities_presence=0):
     packet = a / b
     if CallControlCapabilities_presence is 1:
         c = CallControlCapabilitiesHdr(ieiCCC=0x15, eightBitCCC=0x0)
-        packet = paclet / c
+        packet = packet / c
     return packet
 
 
@@ -12789,4 +12791,5 @@ class AttachType(Packet):
 
 
 if __name__ == "__main__":
+    from scapy.main import interact
     interact(mydict=globals(), mybanner="Scapy GSM-UM (Air) Addon")

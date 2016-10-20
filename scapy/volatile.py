@@ -8,8 +8,8 @@ Fields that hold random numbers.
 """
 
 import random,time,math
-from base_classes import Net
-from utils import corrupt_bits,corrupt_bytes
+from scapy.base_classes import Net
+from scapy.utils import corrupt_bits,corrupt_bytes
 
 ####################
 ## Random numbers ##
@@ -192,10 +192,8 @@ class RandEnumSLong(RandEnum):
 class RandEnumKeys(RandEnum):
     """Picks a random value from dict keys list. """
     def __init__(self, enum):
-        self.enum = []
-        for key in list(enum.keys()):
-            self.enum.append(key)
-        self.seq = RandomEnumeration(0, len(list(enum.keys())) - 1)
+        self.enum = list(enum)
+        self.seq = RandomEnumeration(0, len(self.enum) - 1)
 
     def _fix(self):
         return self.enum[self.seq.next()]
@@ -642,10 +640,19 @@ class IntAutoTime(AutoTime):
 
 
 class ZuluTime(AutoTime):
-    def __init__(self, diff=None):
-        self.diff=diff
+    def __init__(self, diff=0):
+        self.diff = diff
     def _fix(self):
-        return time.strftime("%y%m%d%H%M%SZ",time.gmtime(time.time()+self.diff))
+        return time.strftime("%y%m%d%H%M%SZ",
+                             time.gmtime(time.time() + self.diff))
+
+
+class GeneralizedTime(AutoTime):
+    def __init__(self, diff=0):
+        self.diff = diff
+    def _fix(self):
+        return time.strftime("%Y%m%d%H%M%SZ",
+                             time.gmtime(time.time() + self.diff))
 
 
 class DelayedEval(VolatileValue):

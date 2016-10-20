@@ -8,9 +8,11 @@
 # scapy.contrib.description = SEND
 # scapy.contrib.status = loads
 
+import socket
+
 from scapy.packet import *
 from scapy.fields import *
-from scapy.layers.inet6 import icmp6typescls, _ICMPv6NDGuessPayload
+from scapy.layers.inet6 import icmp6typescls, _ICMPv6NDGuessPayload, Net6
 
 send_icmp6typescls = { 11: "ICMPv6NDOptCGA",
                        12: "ICMPv6NDOptRsaSig",

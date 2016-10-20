@@ -1,0 +1,55 @@
+% Scapy Bluetooth layer tests
+
++ HCI Commands
+= LE Create Connection Cancel
+
+expected_cmd_raw_data = "010e2000".decode('hex')
+cmd_raw_data = str(HCI_Hdr() / HCI_Command_Hdr() / HCI_Cmd_LE_Create_Connection_Cancel())
+assert(expected_cmd_raw_data == cmd_raw_data)
+
+= Disconnect
+expected_cmd_raw_data = "01060403341213".decode('hex')
+cmd_raw_data = str(HCI_Hdr() / HCI_Command_Hdr() / HCI_Cmd_Disconnect(handle=0x1234))
+assert(expected_cmd_raw_data == cmd_raw_data)
+
+= LE Connection Update Command
+expected_cmd_raw_data = "0113200e47000a00140001003c000100ffff".decode('hex')
+cmd_raw_data = str(
+    HCI_Hdr() / HCI_Command_Hdr() / HCI_Cmd_LE_Connection_Update(
+        handle=0x47, min_interval=10, max_interval=20, latency=1, timeout=60,
+        min_ce=1, max_ce=0xffff))
+assert(expected_cmd_raw_data == cmd_raw_data)
+
+
++ HCI Events
+= LE Connection Update Event
+evt_raw_data = "043e0a03004800140001003c00".decode('hex')
+evt_pkt =  HCI_Hdr(evt_raw_data)
+assert(evt_pkt[HCI_LE_Meta_Connection_Update_Complete].handle == 0x48)
+assert(evt_pkt[HCI_LE_Meta_Connection_Update_Complete].interval == 20)
+assert(evt_pkt[HCI_LE_Meta_Connection_Update_Complete].latency == 1)
+assert(evt_pkt[HCI_LE_Meta_Connection_Update_Complete].timeout == 60)
+
+
++ Bluetooth LE Advertising / Scan Response Data Parsing
+= Parse EIR_Flags, EIR_CompleteList16BitServiceUUIDs, EIR_CompleteLocalName and EIR_TX_Power_Level
+
+ad_report_raw_data = \
+    "043e2b020100016522c00181781f0201020303d9fe1409" \
+    "506562626c652054696d65204c452037314536020a0cde".decode('hex')
+scapy_packet = HCI_Hdr(ad_report_raw_data)
+
+assert(scapy_packet[EIR_Flags].flags == 0x02)
+assert(scapy_packet[EIR_CompleteList16BitServiceUUIDs].svc_uuids == [0xfed9])
+assert(scapy_packet[EIR_CompleteLocalName].local_name == 'Pebble Time LE 71E6')
+assert(scapy_packet[EIR_TX_Power_Level].level == 12)
+
+= Parse EIR_Manufacturer_Specific_Data
+
+scan_resp_raw_data = \
+    "043e2302010401be5e0eb9f04f1716ff5401005f423331" \
+    "3134374432343631fc00030c0000de".decode('hex')
+scapy_packet = HCI_Hdr(scan_resp_raw_data)
+
+assert(scapy_packet[EIR_Manufacturer_Specific_Data].data == '\x00_B31147D2461\xfc\x00\x03\x0c\x00\x00')
+assert(scapy_packet[EIR_Manufacturer_Specific_Data].company_id == 0x154)

@@ -12,7 +12,9 @@
 # scapy.contrib.status = loads
 
 import struct
-from scapy.all import *
+from scapy.fields import *
+from scapy.layers.l2 import *
+from scapy.layers.inet import *
 
 ### If prereq_autocomplete is True then match prerequisites will be
 ### automatically handled. See OFPMatch class.
@@ -553,7 +555,7 @@ class OXMPacketListField(PacketListField):
             for oxm in fix_val:
                 f = 2*oxm.field
                 fix_index = list(self.index)
-                while f in need_prereq.keys():
+                while f in need_prereq:
                 # this loop enables a small recursion
                 # e.g. ipv6_nd<--icmpv6<--ip_proto<--eth_type
                     prereq = need_prereq[f]

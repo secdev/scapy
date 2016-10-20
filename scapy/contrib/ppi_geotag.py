@@ -260,11 +260,9 @@ class HCSIAppField(StrFixedLenField):
         return StrFixedLenField.__init__(self, name, default, length=60)
 
 def _FlagsList(myfields):
-    flags = []
-    for i in xrange(32):
-        flags.append("Reserved%02d" % i)
-    for i in myfields.keys():
-        flags[i] = myfields[i]
+    flags = ["Reserved%02d" % i for i in xrange(32)]
+    for i, value in myfields.iteritems():
+        flags[i] = value
     return flags
 
 # Define all geolocation-tag flags lists

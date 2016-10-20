@@ -1,0 +1,192 @@
+% Tests for X.509 objects
+# 
+# Try me with:
+# bash test/run_tests -t test/x509.uts -F
+
+########### ASN.1 border case #######################################
+
++ General BER decoding tests
+= Decoding an ASN.1 SEQUENCE with an unknown, high-tag identifier
+s = '\xff\x84\x92\xb9\x86H\x1e0\x1c\x16\x04BNCH\x04\x14\xb7\xca\x01wO\x9b\xbaz\xbb\xb5\x92\x87>T\xb2\xc3g\xc1]\xfb'
+p = ASN1P_PRIVSEQ(s)
+
+
+########### Key class ###############################################
+
++ Private RSA & ECDSA keys class tests
+= Key class : Importing DER encoded RSA private key
+k='MIIEowIBAAKCAQEAmFdqP+nTEZukS0lLP+yj1gNImsEIf7P2ySTunceYxwkm4VE5QReDbb2L5/HL\nA9pPmIeQLSq/BgO1meOcbOSJ2YVHQ28MQ56+8Crb6n28iycX4hp0H3AxRAjh0edX+q3yilvYJ4W9\n/NnIb/wAZwS0oJif/tTkVF77HybAfJde5Eqbp+bCKIvMWnambh9DRUyjrBBZo5dA1o32zpuFBrJd\nI8dmUpw9gtf0F0Ba8lGZm8Uqc0GyXeXOJUE2u7CiMu3M77BM6ZLLTcow5+bQImkmTL1SGhzwfinM\nE1e6p3Hm//pDjuJvFaY22k05LgLuyqc59vFiB3Toldz8+AbMNjvzAwIDAQABAoIBAH3KeJZL2hhI\n/1GXNMaU/PfDgFkgmYbxMA8JKusnm/SFjxAwBGnGI6UjBXpBgpQs2Nqm3ZseF9u8hmCKvGiCEX2G\nesCo2mSfmSQxD6RBrMTuQ99UXpxzBIscFnM/Zrs8lPBARGzmF2nI3qPxXtex4ABX5o0Cd4NfZlZj\npj96skUoO8+bd3I4OPUFYFFFuv81LoSQ6Hew0a8xtJXtKkDp9h1jTGGUOc189WACNoBLH0MGeVoS\nUfc1++RcC3cypUZ8fNP1OO6GBfv06f5oXES4ZbxGYpa+nCfNwb6V2gWbkvaYm7aFn0KWGNZXS1P3\nOcWv6IWdOmg2CI7MMBLJ0LyWVCECgYEAyMJYw195mvHl8VyxJ3HkxeQaaozWL4qhNQ0Kaw+mzD+j\nYdkbHb3aBYghsgEDZjnyOVblC7I+4smvAZJLWJaf6sZ5HAw3zmj1ibCkXx7deoRc/QVcOikl3dE/\nymO0KGJNiGzJZmxbRS3hTokmVPuxSWW4p5oSiMupFHKa18Uv8DECgYEAwkJ7iTOUL6b4e3lQuHQn\nJbsiQpd+P/bsIPP7kaaHObewfHpfOOtIdtN4asxVFf/PgW5uWmBllqAHZYR14DEYIdL+hdLrdvk5\nnYQ3YfhOnp+haHUPCdEiXrRZuGXjmMA4V0hL3HPF5ZM8H80fLnN8Pgn2rIC7CZQ46y4PnoV1nXMC\ngYBBwCUCF8rkDEWa/ximKo8aoNJmAypC98xEa7j1x3KBgnYoHcrbusok9ajTe7F5UZEbZnItmnsu\nG4/Nm/RBV1OYuNgBb573YzjHl6q93IX9EkzCMXc7NS7JrzaNOopOj6OFAtwTR3m89oHMDu8W9jfi\nKgaIHdXkJ4+AuugrstE4gQKBgFK0d1/8g7SeA+Cdz84YNaqMt5NeaDPXbsTA23QxUBU0rYDxoKTd\nFybv9a6SfA83sCLM31K/A8FTNJL2CDGA9WNBL3fOSs2GYg88AVBGpUJHeDK+0748OcPUSPaG+pVI\nETSn5RRgffq16r0nWYUvSdAn8cuTqw3y+yC1pZS6AU8dAoGBAL5QCi0dTWKN3kf3cXaCAnYiWe4Q\ng2S+SgLE+F1U4Xws2rqAuSvIiuT5i5+Mqk9ZCGdoReVbAovJFoRqe7Fj9yWM+b1awGjL0bOTtnqx\n0iljob6uFyhpl1xgW3a3ICJ/ZYLvkgb4IBEteOwWpp37fX57vzhW8EmUV2UX7ve1uNRI'.decode('base64')
+x=RSAPrivateKey(k)
+
+= Key class : key version
+x.version == ASN1_INTEGER(0L)
+
+= Key class : key modulus
+x.modulus == ASN1_INTEGER(19231328316532061413420367242571475005688288081144416166988378525696075445024135424022026378563116068168327239354659928492979285632474448448624869172454076124150405352043642781483254546569202103296262513098482624188672299255268092629150366527784294463900039290024710152521604731213565912934889752122898104556895316819303096201441834849255370122572613047779766933573375974464479123135292080801384304131606933504677232323037116557327478512106367095125103346134248056463878553619525193565824925835325216545121044922690971718737998420984924512388011040969150550056783451476150234324593710633552558175109683813482739004163L)
+
+= Key class : key public exponent
+x.publicExponent == ASN1_INTEGER(65537L)
+
+= Key class : key private exponent
+x.privateExponent == ASN1_INTEGER(15879630313397508329451198152673380989865598204237760057319927734227125481903063742175442230739018051313441697936698689753842471306305671266572085925009572141819112648211571007521954312641597446020984266846581125287547514750428503480880603089110687015181510081018160579576523796170439894692640171752302225125980423560965987469457505107324833137678663960560798216976668670722016960863268272661588745006387723814962668678285659376534048525020951633874488845649968990679414325096323920666486328886913648207836459784281744709948801682209478580185160477801656666089536527545026197569990716720623647770979759861119273292833L)
+
+= Key class : key prime1
+x.prime1 == ASN1_INTEGER(140977881300857803928857666115326329496639762170623218602431133528876162476487960230341078724702018316260690172014674492782486113504117653531825010840338251572887403113276393351318549036549656895326851872473595350667293402676143426484331639796163189182788306480699144107905869179435145810212051656274284113969L)
+
+= Key class : key prime2
+x.prime2 == ASN1_INTEGER(136413798668820291889092636919077529673097927884427227010121877374504825870002258140616512268521246045642663981036167305976907058413796938050224182519965099316625879807962173794483933183111515251808827349718943344770056106787713032506379905031673992574818291891535689493330517205396872699985860522390496583027L)
+
+= Key class : key exponent1
+x.exponent1 == ASN1_INTEGER(46171616708754015342920807261537213121074749458020000367465429453038710215532257783908950878847126373502288079285334594398328912526548076894076506899568491565992572446455658740752572386903609191774044411412991906964352741123956581870694330173563737928488765282233340389888026245745090096745219902501964298369L)
+
+= Key class : key exponent2
+x.exponent2 == ASN1_INTEGER(58077388505079936284685944662039782610415160654764308528562806086690474868010482729442634318267235411531220690585030443434512729356878742778542733733189895801341155353491318998637269079682889033003797865508917973141494201620317820971253064836562060222814287812344611566640341960495346782352037479526674026269L)
+
+= Key class : key coefficient
+x.coefficient == ASN1_INTEGER(133642091354977099805228515340626956943759840737228695249787077343495440064451558090846230978708992851702164116059746794777336918772240719297253693109788134358485382183551757562334253896010728509892421673776502933574360356472723011839127418477652997263867089539752161307227878233961465798519818890416647361608L)
+
+
+########### Cert class ##############################################
+
++ X509_Cert class tests
+= Cert class : Importing DER encoded X.509 Certificate with RSA public key
+c='MIIFEjCCA/qgAwIBAgIJALRecEPnCQtxMA0GCSqGSIb3DQEBBQUAMIG2MQswCQYDVQQGEwJGUjEO\nMAwGA1UECBMFUGFyaXMxDjAMBgNVBAcTBVBhcmlzMRcwFQYDVQQKEw5NdXNocm9vbSBDb3JwLjEe\nMBwGA1UECxMVTXVzaHJvb20gVlBOIFNlcnZpY2VzMSUwIwYDVQQDExxJS0V2MiBYLjUwOSBUZXN0\nIGNlcnRpZmljYXRlMScwJQYJKoZIhvcNAQkBFhhpa2V2Mi10ZXN0QG11c2hyb29tLmNvcnAwHhcN\nMDYwNzEzMDczODU5WhcNMjYwMzMwMDczODU5WjCBtjELMAkGA1UEBhMCRlIxDjAMBgNVBAgTBVBh\ncmlzMQ4wDAYDVQQHEwVQYXJpczEXMBUGA1UEChMOTXVzaHJvb20gQ29ycC4xHjAcBgNVBAsTFU11\nc2hyb29tIFZQTiBTZXJ2aWNlczElMCMGA1UEAxMcSUtFdjIgWC41MDkgVGVzdCBjZXJ0aWZpY2F0\nZTEnMCUGCSqGSIb3DQEJARYYaWtldjItdGVzdEBtdXNocm9vbS5jb3JwMIIBIjANBgkqhkiG9w0B\nAQEFAAOCAQ8AMIIBCgKCAQEAmFdqP+nTEZukS0lLP+yj1gNImsEIf7P2ySTunceYxwkm4VE5QReD\nbb2L5/HLA9pPmIeQLSq/BgO1meOcbOSJ2YVHQ28MQ56+8Crb6n28iycX4hp0H3AxRAjh0edX+q3y\nilvYJ4W9/NnIb/wAZwS0oJif/tTkVF77HybAfJde5Eqbp+bCKIvMWnambh9DRUyjrBBZo5dA1o32\nzpuFBrJdI8dmUpw9gtf0F0Ba8lGZm8Uqc0GyXeXOJUE2u7CiMu3M77BM6ZLLTcow5+bQImkmTL1S\nGhzwfinME1e6p3Hm//pDjuJvFaY22k05LgLuyqc59vFiB3Toldz8+AbMNjvzAwIDAQABo4IBHzCC\nARswHQYDVR0OBBYEFPPYTt6Q9+Zd0s4zzVxWjG+XFDFLMIHrBgNVHSMEgeMwgeCAFPPYTt6Q9+Zd\n0s4zzVxWjG+XFDFLoYG8pIG5MIG2MQswCQYDVQQGEwJGUjEOMAwGA1UECBMFUGFyaXMxDjAMBgNV\nBAcTBVBhcmlzMRcwFQYDVQQKEw5NdXNocm9vbSBDb3JwLjEeMBwGA1UECxMVTXVzaHJvb20gVlBO\nIFNlcnZpY2VzMSUwIwYDVQQDExxJS0V2MiBYLjUwOSBUZXN0IGNlcnRpZmljYXRlMScwJQYJKoZI\nhvcNAQkBFhhpa2V2Mi10ZXN0QG11c2hyb29tLmNvcnCCCQC0XnBD5wkLcTAMBgNVHRMEBTADAQH/\nMA0GCSqGSIb3DQEBBQUAA4IBAQA2zt0BvXofiVvHMWlftZCstQaawej1SmxrAfDB4NUM24NsG+UZ\nI88XA5XM6QolmfyKnNromMLC1+6CaFxjq3jC/qdS7ifalFLQVo7ik/te0z6Olo0RkBNgyagWPX2L\nR5kHe9RvSDuoPIsbSHMmJA98AZwatbvEhmzMINJNUoHVzhPeHZnIaBgUBg02XULk/ElidO51Rf3g\nh8dR/kgFQSQT687vs1x9TWD00z0Q2bs2UF3Ob3+NYkEGEo5F9RePQm0mY94CT2xs6WpHo060Fo7f\nVpAFktMWx1vpu+wsEbQAhgGqV0fCR2QwKDIbTrPW/p9HJtJDYVjYdAFxr3s7V77y'.decode('base64')
+x=X509_Cert(c)
+
+= Cert class : Rebuild certificate
+str(x) == c
+
+= Cert class : Version
+tbs = x.tbsCertificate
+tbs.version == ASN1_INTEGER(2L)
+
+= Cert class : Serial
+tbs.serialNumber == ASN1_INTEGER(0xb45e7043e7090b71)
+
+= Cert class : Signature algorithm (as advertised by TBSCertificate)
+assert(type(tbs.signature) is X509_AlgorithmIdentifier)
+tbs.signature.algorithm == ASN1_OID("sha1-with-rsa-signature")
+
+= Cert class : Issuer structure
+assert(type(tbs.issuer) is list)
+assert(len(tbs.issuer) == 7)
+assert(type(tbs.issuer[0]) is X509_RDN)
+assert(type(tbs.issuer[0].rdn) is list)
+assert(type(tbs.issuer[0].rdn[0]) is X509_AttributeTypeAndValue)
+
+= Cert class : Issuer first attribute
+tbs.issuer[0].rdn[0].type == ASN1_OID("countryName") and tbs.issuer[0].rdn[0].value == ASN1_PRINTABLE_STRING("FR")
+
+= Cert class : Issuer string
+tbs.get_issuer_str() == '/C=FR/ST=Paris/L=Paris/O=Mushroom Corp./OU=Mushroom VPN Services/CN=IKEv2 X.509 Test certificate/emailAddress=ikev2-test@mushroom.corp'
+
+= Cert class : Validity
+assert(type(tbs.validity) is X509_Validity)
+tbs.validity.not_before == ASN1_UTC_TIME("060713073859Z") and tbs.validity.not_after == ASN1_UTC_TIME("260330073859Z")
+
+= Cert class : Subject structure
+assert(type(tbs.subject) is list)
+assert(len(tbs.subject) == 7)
+assert(type(tbs.subject[0]) is X509_RDN)
+assert(type(tbs.subject[0].rdn) is list)
+assert(type(tbs.subject[0].rdn[0]) is X509_AttributeTypeAndValue)
+
+= Cert class : Subject last attribute
+tbs.issuer[6].rdn[0].type == ASN1_OID("emailAddress") and tbs.issuer[6].rdn[0].value == ASN1_IA5_STRING("ikev2-test@mushroom.corp")
+
+= Cert class : Subject string
+tbs.get_subject_str() == '/C=FR/ST=Paris/L=Paris/O=Mushroom Corp./OU=Mushroom VPN Services/CN=IKEv2 X.509 Test certificate/emailAddress=ikev2-test@mushroom.corp'
+
+= Cert class : SubjectPublicKey algorithm
+assert(type(tbs.subjectPublicKeyInfo) is X509_SubjectPublicKeyInfo)
+spki = tbs.subjectPublicKeyInfo
+spki.signatureAlgorithm.algorithm == ASN1_OID("rsaEncryption")
+
+= Cert class : SubjectPublicKey value
+assert(type(spki.subjectPublicKey) is RSAPublicKey)
+spki.subjectPublicKey.modulus == ASN1_INTEGER(19231328316532061413420367242571475005688288081144416166988378525696075445024135424022026378563116068168327239354659928492979285632474448448624869172454076124150405352043642781483254546569202103296262513098482624188672299255268092629150366527784294463900039290024710152521604731213565912934889752122898104556895316819303096201441834849255370122572613047779766933573375974464479123135292080801384304131606933504677232323037116557327478512106367095125103346134248056463878553619525193565824925835325216545121044922690971718737998420984924512388011040969150550056783451476150234324593710633552558175109683813482739004163L) and spki.subjectPublicKey.publicExponent == ASN1_INTEGER(65537L)
+
+= Cert class : Extensions structure
+ext = tbs.extensions
+assert(type(ext) is list)
+assert(len(ext) == 3)
+
+= Cert class : Subject key identifier extension info
+assert(type(ext[0]) is X509_Extension)
+ext[0].extnID == ASN1_OID("subjectKeyIdentifier") and ext[0].critical == None
+
+= Cert class : Subject key identifier extension value
+assert(type(ext[0].extnValue) is X509_ExtSubjectKeyIdentifier)
+ext[0].extnValue.keyIdentifier == ASN1_STRING('\xf3\xd8N\xde\x90\xf7\xe6]\xd2\xce3\xcd\\V\x8co\x97\x141K')
+
+= Cert class : Signature algorithm
+assert(type(x.signatureAlgorithm) is X509_AlgorithmIdentifier)
+x.signatureAlgorithm.algorithm == ASN1_OID("sha1-with-rsa-signature")
+
+= Cert class : Signature value
+x.signatureValue == ASN1_BIT_STRING("6\xce\xdd\x01\xbdz\x1f\x89[\xc71i_\xb5\x90\xac\xb5\x06\x9a\xc1\xe8\xf5Jlk\x01\xf0\xc1\xe0\xd5\x0c\xdb\x83l\x1b\xe5\x19#\xcf\x17\x03\x95\xcc\xe9\n%\x99\xfc\x8a\x9c\xda\xe8\x98\xc2\xc2\xd7\xee\x82h\\c\xabx\xc2\xfe\xa7R\xee'\xda\x94R\xd0V\x8e\xe2\x93\xfb^\xd3>\x8e\x96\x8d\x11\x90\x13`\xc9\xa8\x16=}\x8bG\x99\x07{\xd4oH;\xa8<\x8b\x1bHs&$\x0f|\x01\x9c\x1a\xb5\xbb\xc4\x86l\xcc \xd2MR\x81\xd5\xce\x13\xde\x1d\x99\xc8h\x18\x14\x06\r6]B\xe4\xfcIbt\xeeuE\xfd\xe0\x87\xc7Q\xfeH\x05A$\x13\xeb\xce\xef\xb3\\}M`\xf4\xd3=\x10\xd9\xbb6P]\xceo\x7f\x8dbA\x06\x12\x8eE\xf5\x17\x8fBm&c\xde\x02Oll\xe9jG\xa3N\xb4\x16\x8e\xdfV\x90\x05\x92\xd3\x16\xc7[\xe9\xbb\xec,\x11\xb4\x00\x86\x01\xaaWG\xc2Gd0(2\x1bN\xb3\xd6\xfe\x9fG&\xd2CaX\xd8t\x01q\xaf{;W\xbe\xf2", readable=True)
+
+= Cert class : Default X509_Cert from scratch
+str(X509_Cert(str(X509_Cert()))) == str(X509_Cert())
+
+
+############ CRL class ###############################################
+
++ X509_CRL class tests
+= CRL class : Importing DER encoded X.509 CRL
+c='MIICHjCCAYcwDQYJKoZIhvcNAQEFBQAwXzELMAkGA1UEBhMCVVMxFzAVBgNVBAoTDlZlcmlTaWdu\nLCBJbmMuMTcwNQYDVQQLEy5DbGFzcyAxIFB1YmxpYyBQcmltYXJ5IENlcnRpZmljYXRpb24gQXV0\naG9yaXR5Fw0wNjExMDIwMDAwMDBaFw0wNzAyMTcyMzU5NTlaMIH2MCECECzSS2LEl6QXzW6jyJx6\nLcgXDTA0MDQwMTE3NTYxNVowIQIQOkXeVssCzdzcTndjIhvU1RcNMDEwNTA4MTkyMjM0WjAhAhBB\nXYg2gRUg1YCDRqhZkngsFw0wMTA3MDYxNjU3MjNaMCECEEc5gf/9hIHxlfnrGMJ8DfEXDTAzMDEw\nOTE4MDYxMlowIQIQcFR+auK62HZ/R6mZEEFeZxcNMDIwOTIzMTcwMDA4WjAhAhB+C13eGPI5ZoKm\nj2UiOCPIFw0wMTA1MDgxOTA4MjFaMCICEQDQVEhgGGfTrTXKLw1KJ5VeFw0wMTEyMTExODI2MjFa\nMA0GCSqGSIb3DQEBBQUAA4GBACLJ9rsdoaU9JMf/sCIRs3AGW8VV3TN2oJgiCGNEac9PRyV3mRKE\n0hmuIJTKLFSaa4HSAzimWpWNKuJhztsZzXUnWSZ8VuHkgHEaSbKqzUlb2g+o/848CvzJrcbeyEBk\nDCYJI5C3nLlQA49LGJ+w4GUPYBwaZ+WFxCX1C8kzglLm'.decode('base64')
+x=X509_CRL(c)
+
+= CRL class : Rebuild crl
+str(x) == c
+
+= CRL class : Version
+tbs = x.tbsCertList
+tbs.version == None
+
+= CRL class : Signature algorithm (as advertised by TBSCertList)
+assert(type(tbs.signature) is X509_AlgorithmIdentifier)
+tbs.signature.algorithm == ASN1_OID("sha1-with-rsa-signature")
+
+= CRL class : Issuer structure
+assert(type(tbs.issuer) is list)
+assert(len(tbs.issuer) == 3)
+assert(type(tbs.issuer[0]) is X509_RDN)
+assert(type(tbs.issuer[0].rdn) is list)
+assert(type(tbs.issuer[0].rdn[0]) is X509_AttributeTypeAndValue)
+
+= CRL class : Issuer first attribute
+tbs.issuer[0].rdn[0].type == ASN1_OID("countryName") and tbs.issuer[0].rdn[0].value == ASN1_PRINTABLE_STRING("US")
+
+= CRL class : Issuer string
+tbs.get_issuer_str() == '/C=US/O=VeriSign, Inc./OU=Class 1 Public Primary Certification Authority'
+
+= CRL class : This update
+tbs.this_update == ASN1_UTC_TIME("061102000000Z")
+
+= CRL class : Optional next update
+tbs.next_update == ASN1_UTC_TIME("070217235959Z")
+
+= CRL class : Optional revoked_certificates structure
+assert(type(tbs.revokedCertificates) is list)
+assert(len(tbs.revokedCertificates) == 7)
+assert(type(tbs.revokedCertificates[0]) is X509_RevokedCertificate)
+
+= CRL class : Revoked_certificates first attribute
+tbs.revokedCertificates[0].serialNumber == ASN1_INTEGER(59577943160751197113872490992424857032L) and tbs.revokedCertificates[0].revocationDate == ASN1_UTC_TIME("040401175615Z")
+
+= CRL class : Extensions structure
+tbs.crlExtensions == None
+
+= CRL class : Signature algorithm
+assert(type(x.signatureAlgorithm) is X509_AlgorithmIdentifier)
+x.signatureAlgorithm.algorithm == ASN1_OID("sha1-with-rsa-signature")
+
+= CRL class : Signature value
+x.signatureValue == ASN1_BIT_STRING('"\xc9\xf6\xbb\x1d\xa1\xa5=$\xc7\xff\xb0"\x11\xb3p\x06[\xc5U\xdd3v\xa0\x98"\x08cDi\xcfOG%w\x99\x12\x84\xd2\x19\xae \x94\xca,T\x9ak\x81\xd2\x038\xa6Z\x95\x8d*\xe2a\xce\xdb\x19\xcdu\'Y&|V\xe1\xe4\x80q\x1aI\xb2\xaa\xcdI[\xda\x0f\xa8\xff\xce<\n\xfc\xc9\xad\xc6\xde\xc8@d\x0c&\t#\x90\xb7\x9c\xb9P\x03\x8fK\x18\x9f\xb0\xe0e\x0f`\x1c\x1ag\xe5\x85\xc4%\xf5\x0b\xc93\x82R\xe6', readable=True)
+
+= CRL class : Default X509_CRL from scratch
+s = str(X509_CRL())
+str(X509_CRL(s)) == s
+
+

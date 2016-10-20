@@ -7,22 +7,39 @@
 Common customizations for all Unix-like operating systems other than Linux
 """
 
+from __future__ import with_statement
+
 import sys,os,struct,socket,time
 from fcntl import ioctl
-from scapy.error import warning
+import socket
+
+from scapy.error import warning, log_interactive
 import scapy.config
 import scapy.utils
-import scapy.utils6
+from scapy.utils6 import in6_getscope, construct_source_candidate_set
+from scapy.utils6 import in6_isvalid, in6_ismlladdr, in6_ismnladdr
 import scapy.arch
-
-scapy.config.conf.use_pcap = 1
-scapy.config.conf.use_dnet = 1
-from pcapdnet import *
+from scapy.config import conf
 
 
 ##################
 ## Routes stuff ##
 ##################
+
+def _guess_iface_name(netif):
+    """
+    We attempt to guess the name of interfaces that are truncated from the
+    output of ifconfig -l.
+    If there is only one possible candidate matching the interface name then we
+    return it.
+    If there are none or more, then we return None.
+    """
+    with os.popen('%s -l' % conf.prog.ifconfig) as fdesc:
+        ifaces = fdesc.readline().strip().split(' ')
+    matches = [iface for iface in ifaces if iface.startswith(netif)]
+    if len(matches) == 1:
+        return matches[0]
+    return None
 
 
 def read_routes():
@@ -81,8 +98,22 @@ def read_routes():
         if not "G" in flg:
             gw = '0.0.0.0'
         if netif is not None:
-            ifaddr = scapy.arch.get_if_addr(netif)
-            routes.append((dest,netmask,gw,netif,ifaddr))
+            try:
+                ifaddr = scapy.arch.get_if_addr(netif)
+                routes.append((dest,netmask,gw,netif,ifaddr))
+            except OSError as exc:
+                if exc.message == 'Device not configured':
+                    # This means the interface name is probably truncated by
+                    # netstat -nr. We attempt to guess it's name and if not we
+                    # ignore it.
+                    guessed_netif = _guess_iface_name(netif)
+                    if guessed_netif is not None:
+                        ifaddr = scapy.arch.get_if_addr(guessed_netif)
+                        routes.append((dest, netmask, gw, guessed_netif, ifaddr))
+                    else:
+                        warning("Could not guess partial interface name: %s" % netif)
+                else:
+                    raise
         else:
             pending_if.append((dest,netmask,gw))
     f.close()
@@ -139,7 +170,7 @@ def _in6_getifaddr(ifname):
             continue
 
         # Get the scope and keep the address
-        scope = scapy.utils6.in6_getscope(addr)
+        scope = in6_getscope(addr)
         ret.append((addr, scope, ifname))
 
     return ret
@@ -184,65 +215,116 @@ def in6_getifaddr():
 	ret += _in6_getifaddr(i)
     return ret	    
 
+
 def read_routes6():
-    f = os.popen("netstat -rn -f inet6")
-    ok = False
+    """Return a list of IPv6 routes than can be used by Scapy."""
+
+    # Call netstat to retrieve IPv6 routes
+    fd_netstat = os.popen("netstat -rn -f inet6")
+
+    # List interfaces IPv6 addresses 
+    lifaddr = in6_getifaddr()
+    if not lifaddr:
+        return []
+
+    # Routes header information
+    got_header = False
     mtu_present = False
     prio_present = False
+
+    # Parse the routes
     routes = []
-    lifaddr = in6_getifaddr()
-    for l in f.readlines():
-        if not l:
-            break
-        l = l.strip()
-        if not ok:
-            if l.find("Destination") >= 0:
-                ok = 1
-                mtu_present = l.find("Mtu") >= 0
-                prio_present = l.find("Prio") >= 0
-            continue
-        # gv 12/12/06: under debugging      
-        if scapy.arch.NETBSD or scapy.arch.OPENBSD:
-            lspl = l.split()
-            d,nh,fl = lspl[:3]
-            dev = lspl[5+mtu_present+prio_present]
-        else:       # FREEBSD or DARWIN 
-            d,nh,fl,dev = l.split()[:4]
-        if filter(lambda x: x[2] == dev, lifaddr) == []:
-            continue
-        if 'L' in fl: # drop MAC addresses
+    for line in fd_netstat.readlines():
+
+        # Parse the routes header and try to identify extra columns
+        if not got_header:
+            if "Destination" == line[:11]:
+                got_header = True
+                mtu_present = "Mtu" in line
+                prio_present = "Prio" in line
             continue
 
-        if 'link' in nh:
-            nh = '::'
-
-        cset = [] # candidate set (possible source addresses)
-        dp = 128
-        if d == 'default':
-            d = '::'
-            dp = 0
-        if '/' in d:
-            d,dp = d.split("/")
-            dp = int(dp)
-        if '%' in d:
-            d,dev = d.split('%')
-        if '%' in nh:
-            nh,dev = nh.split('%')
-        if scapy.arch.LOOPBACK_NAME in dev:
-            cset = ['::1']
-            nh = '::'
+        # Parse a route entry according to the operating system
+        splitted_line = line.split()
+        if scapy.arch.OPENBSD or scapy.arch.NETBSD:
+            index = 5 + mtu_present + prio_present
+            if len(splitted_line) < index:
+                warning("Not enough columns in route entry !")
+                continue
+            destination, next_hop, flags = splitted_line[:3]
+            dev = splitted_line[index]
         else:
+            # FREEBSD or DARWIN 
+            if len(splitted_line) < 4:
+                warning("Not enough columns in route entry !")
+                continue
+            destination, next_hop, flags, dev = splitted_line[:4]
+
+        # Check flags
+        if not "U" in flags:  # usable route
+            continue
+        if "R" in flags:  # Host or net unrechable
+            continue
+        if "m" in flags:  # multicast address
+            # Note: multicast routing is handled in Route6.route()
+            continue
+
+        # Replace link with the default route in next_hop
+        if "link" in next_hop:
+            next_hop = "::"
+
+        # Default prefix length
+        destination_plen = 128
+
+        # Extract network interface from the zone id
+        if '%' in destination:
+            destination, dev = destination.split('%')
+            if '/' in dev:
+                # Example: fe80::%lo0/64 ; dev = "lo0/64"
+                dev, destination_plen = dev.split('/')
+        if '%' in next_hop:
+            next_hop, dev = next_hop.split('%')
+
+        # Ensure that the next hop is a valid IPv6 address
+        if not in6_isvalid(next_hop):
+            # Note: the 'Gateway' column might contain a MAC address
+            next_hop = "::"
+
+        # Modify parsed routing entries
+        # Note: these rules are OS specific and may evolve over time
+        if destination == "default":
+            destination, destination_plen = "::", 0
+        elif '/' in destination:
+            # Example: fe80::/10
+            destination, destination_plen = destination.split('/')
+        if '/' in dev:
+            # Example: ff02::%lo0/32 ; dev = "lo0/32"
+            dev, destination_plen = dev.split('/')
+
+        # Check route entries parameters consistency
+        if not in6_isvalid(destination):
+            warning("Invalid destination IPv6 address in route entry !")
+            continue
+        try:
+            destination_plen = int(destination_plen)
+        except:
+            warning("Invalid IPv6 prefix length in route entry !")
+            continue
+        if in6_ismlladdr(destination) or in6_ismnladdr(destination):
+            # Note: multicast routing is handled in Route6.route()
+            continue
+
+        if scapy.arch.LOOPBACK_NAME in dev:
+            # Handle ::1 separately
+            cset = ["::1"]
+            next_hop = "::"
+        else:
+            # Get possible IPv6 source addresses
             devaddrs = filter(lambda x: x[2] == dev, lifaddr)
-            cset = scapy.utils6.construct_source_candidate_set(d, dp, devaddrs, scapy.arch.LOOPBACK_NAME)
+            cset = construct_source_candidate_set(destination, destination_plen, devaddrs, scapy.arch.LOOPBACK_NAME)
 
-        if len(cset) != 0:
-            routes.append((d, dp, nh, dev, cset))
+        if len(cset):
+            routes.append((destination, destination_plen, next_hop, dev, cset))
 
-    f.close()
+    fd_netstat.close()
     return routes
-
-
-            
-
-
-

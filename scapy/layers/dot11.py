@@ -8,11 +8,16 @@ Wireless LAN according to IEEE 802.11.
 """
 
 import re,struct
+from zlib import crc32
 
+from scapy.config import conf
+from scapy.data import *
 from scapy.packet import *
 from scapy.fields import *
+from scapy.ansmachine import *
 from scapy.plist import PacketList
 from scapy.layers.l2 import *
+from scapy.layers.inet import IP, TCP
 
 
 try:
@@ -167,7 +172,7 @@ class Dot11(Packet):
     def mysummary(self):
         return self.sprintf("802.11 %Dot11.type% %Dot11.subtype% %Dot11.addr2% > %Dot11.addr1%")
     def guess_payload_class(self, payload):
-        if self.type == 0x02 and (self.subtype >= 0x08 and self.subtype <=0xF and self.subtype != 0xD):
+        if self.type == 0x02 and (0x08 <= self.subtype <= 0xF and self.subtype != 0xD):
             return Dot11QoS
 	elif self.FCfield & 0x40:
             return Dot11WEP
@@ -441,11 +446,11 @@ iwconfig wlan0 mode managed
         p /= self.replace
         q.ID += 1
         q.getlayer(TCP).flags="RA"
-        q.getlayer(TCP).seq+=len(replace)
+        q.getlayer(TCP).seq+=len(self.replace)
         return [p,q]
     
     def print_reply(self):
-        print p.sprintf("Sent %IP.src%:%IP.sport% > %IP.dst%:%TCP.dport%")
+        print self.sprintf("Sent %IP.src%:%IP.sport% > %IP.dst%:%TCP.dport%")
 
     def send_reply(self, reply):
         sendp(reply, iface=self.ifto, **self.optsend)

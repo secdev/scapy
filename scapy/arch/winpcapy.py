@@ -148,10 +148,7 @@ class pcap_stat(Structure):
     pass
 ### _fields_ list in Structure is final.
 ### We need a temp list
-_tmpList=[]
-_tmpList.append(("ps_recv",c_uint))
-_tmpList.append(("ps_drop",c_uint))
-_tmpList.append(("ps_ifdrop",c_uint))
+_tmpList = [("ps_recv", c_uint), ("ps_drop", c_uint), ("ps_ifdrop", c_uint)]
 if HAVE_REMOTE:
     _tmpList.append(("ps_capt",c_uint))
     _tmpList.append(("ps_sent",c_uint))

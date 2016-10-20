@@ -46,19 +46,13 @@
 """
 
 import struct
+import random
 
 from scapy.config import conf
-from scapy.fields import Field, FlagsField, ByteField, ByteEnumField, \
-    FieldLenField, ShortField, PacketListField, XIntField, \
-    XShortField, ConditionalField, ThreeBytesField, IntField, BitField, IPField, \
-    FieldListField, MACField, BitFieldLenField, IPPrefixField, IP6PrefixField,\
-    BoundStrLenField
+from scapy.fields import *
+from scapy.packet import *
 from scapy.layers.clns import network_layer_protocol_ids, register_cln_protocol
 from scapy.layers.inet6 import IP6ListField
-from scapy.packet import Packet, bind_layers
-from scapy.utils import fletcher16_checkbytes
-from scapy.volatile import RandString, RandByte
-import random
 
 
 EXT_VERSION = "v0.0.1"
@@ -211,8 +205,10 @@ class ISIS_LspIdField(_ISIS_IdFieldBase):
 
 class ISIS_CircuitTypeField(FlagsField):
     def __init__(self, name="circuittype", default=2, size=8,
-                 names=["L1", "L2", "r0", "r1", "r2", "r3", "r4", "r5"]):
+                 names=None):
         FlagsField.__init__(self, name, default, size, names)
+        if names is None:
+            names = ["L1", "L2", "r0", "r1", "r2", "r3", "r4", "r5"]
 
 
 #######################################################################

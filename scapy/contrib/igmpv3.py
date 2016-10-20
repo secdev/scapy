@@ -6,6 +6,9 @@
 # scapy.contrib.status = loads
 
 from scapy.packet import *
+from scapy.fields import *
+from scapy.layers.inet import *
+from scapy.contrib.igmp import isValidMCAddr
 
 """ Based on the following references
  http://www.iana.org/assignments/igmp-type-numbers
@@ -25,7 +28,6 @@ from scapy.packet import *
 #
 
 #import sys, socket, struct, time
-from scapy.all import *
 print "IGMPv3  is still under development - Nov 2010"
 
 
@@ -47,9 +49,9 @@ class IGMPv3gr(Packet):
 
   fields_desc = [ ByteEnumField("rtype", 1, igmpv3grtypes),
                       ByteField("auxdlen",0),
-                  FieldLenField("numsrc", None, "srcaddrs"),
+                  FieldLenField("numsrc", None, count_of="srcaddrs"),
                         IPField("maddr", "0.0.0.0"),
-                 FieldListField("srcaddrs", None, IPField("sa", "0.0.0.0"), "numsrc") ]
+                 FieldListField("srcaddrs", [], IPField("sa", "0.0.0.0"), "numsrc") ]
   #show_indent=0
 #--------------------------------------------------------------------------
   def post_build(self, p, pay):

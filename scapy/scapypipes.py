@@ -3,8 +3,9 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
-from pipetool import Source,Drain,Sink
-from config import conf
+from scapy.pipetool import Source,Drain,Sink
+from scapy.config import conf
+from scapy.utils import PcapReader, PcapWriter
 
 
 class SniffSource(Source):
@@ -101,7 +102,7 @@ class WrpcapSink(Sink):
         
 
 class UDPDrain(Drain):
-    """Apply a function to messages on low and high entry
+    """UDP payloads received on high entry are sent over UDP
      +-------------+
   >>-|--[payload]--|->>
      |      X      |
@@ -114,10 +115,12 @@ class UDPDrain(Drain):
         self.port = port
 
     def push(self, msg):
+        from scapy.layers.inet import IP, UDP
         if IP in msg and msg[IP].proto == 17 and UDP in msg:
             payload = msg[UDP].payload
             self._high_send(str(payload))
     def high_push(self, msg):
+        from scapy.layers.inet import IP, UDP
         p = IP(dst=self.ip)/UDP(sport=1234,dport=self.port)/msg
         self._send(p)
         

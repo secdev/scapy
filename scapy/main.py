@@ -10,9 +10,13 @@ Main module for interactive startup.
 from __future__ import generators
 import os,sys
 import glob
+import types
+import gzip
+import cPickle
 import __builtin__
-from error import *
-import utils
+
+from scapy.error import *
+from scapy import utils
     
 
 def _probe_config_file(cf):
@@ -44,8 +48,8 @@ def _usage():
     sys.exit(0)
 
 
-from config import conf
-from themes import DefaultTheme
+from scapy.config import conf
+from scapy.themes import DefaultTheme
 
 
 ######################
@@ -56,7 +60,15 @@ from themes import DefaultTheme
 def _load(module):
     try:
         mod = __import__(module,globals(),locals(),".")
-        __builtin__.__dict__.update(mod.__dict__)
+        if '__all__' in mod.__dict__:
+            # import listed symbols
+            for name in mod.__dict__['__all__']:
+                __builtin__.__dict__[name] = mod.__dict__[name]
+        else:
+            # only import non-private symbols
+            for name, sym in mod.__dict__.iteritems():
+                if name[0] != '_':
+                    __builtin__.__dict__[name] = sym
     except Exception,e:
         log_interactive.error(e)
 
@@ -67,7 +79,12 @@ def load_layer(name):
     _load("scapy.layers."+name)
 
 def load_contrib(name):
-    _load("scapy.contrib."+name)
+    try:
+        __import__("scapy.contrib." + name)
+        _load("scapy.contrib." + name)
+    except ImportError:
+        # if layer not found in contrib, try in layers
+        load_layer(name)
 
 def list_contrib(name=None):
     if name is None:
@@ -178,11 +195,15 @@ def scapy_write_history_file(readline):
 
 def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
     global session
-    import code,sys,cPickle,os,getopt,re
-    from config import conf
+    import code,sys,os,getopt,re
+    from scapy.config import conf
     conf.interactive = True
     if loglevel is not None:
         conf.logLevel=loglevel
+
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
+    log_scapy.addHandler(console_handler)
 
     the_banner = "Welcome to Scapy (%s)"
     if mybanner is not None:
@@ -204,13 +225,13 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
             def global_matches(self, text):
                 matches = []
                 n = len(text)
-                for lst in [dir(__builtin__), session.keys()]:
+                for lst in [dir(__builtin__), session]:
                     for word in lst:
                         if word[:n] == text and word != "__builtins__":
                             matches.append(word)
                 return matches
-        
-    
+
+
             def attr_matches(self, text):
                 m = re.match(r"(\w+(\.\w+)*)\.(\w*)", text)
                 if not m:
@@ -220,6 +241,7 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
                     object = eval(expr)
                 except:
                     object = eval(expr, session)
+                from scapy.packet import Packet, Packet_metaclass
                 if isinstance(object, Packet) or isinstance(object, Packet_metaclass):
                     words = filter(lambda x: x[0]!="_",dir(object))
                     words += [x.name for x in object.fields_desc]
@@ -276,7 +298,9 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
         _read_config_file(PRESTART_FILE)
 
     scapy_builtins = __import__("all",globals(),locals(),".").__dict__
-    __builtin__.__dict__.update(scapy_builtins)
+    for name, sym in scapy_builtins.iteritems():
+        if name [0] != '_':
+            __builtin__.__dict__[name] = sym
     globkeys = scapy_builtins.keys()
     globkeys.append("scapy_session")
     scapy_builtins=None # XXX replace with "with" statement

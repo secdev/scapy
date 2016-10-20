@@ -9,11 +9,11 @@ PacketList: holds several packets and allows to do operations on them.
 
 
 import os,subprocess
-from config import conf
-from base_classes import BasePacket,BasePacketList
 from collections import defaultdict
 
-from utils import do_graph,hexdump,make_table,make_lined_table,make_tex_table,get_temp_file
+from scapy.config import conf
+from scapy.base_classes import BasePacket,BasePacketList
+from scapy.utils import do_graph,hexdump,make_table,make_lined_table,make_tex_table,get_temp_file
 
 from scapy.arch import plt, MATPLOTLIB_INLINED, MATPLOTLIB_DEFAULT_PLOT_KARGS
 
@@ -284,25 +284,41 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
     def conversations(self, getsrcdst=None,**kargs):
         """Graphes a conversations between sources and destinations and display it
         (using graphviz and imagemagick)
-        getsrcdst: a function that takes an element of the list and return the source and dest
-                   by defaults, return source and destination IP
+        getsrcdst: a function that takes an element of the list and
+                   returns the source, the destination and optionally
+                   a label. By default, returns the IP source and
+                   destination from IP and ARP layers
         type: output type (svg, ps, gif, jpg, etc.), passed to dot's "-T" option
         target: filename or redirect. Defaults pipe to Imagemagick's display program
         prog: which graphviz program to use"""
         if getsrcdst is None:
-            getsrcdst = lambda x:(x['IP'].src, x['IP'].dst)
+            def getsrcdst(pkt):
+                if 'IP' in pkt:
+                    return (pkt['IP'].src, pkt['IP'].dst)
+                if 'ARP' in pkt:
+                    return (pkt['ARP'].psrc, pkt['ARP'].pdst)
+                raise TypeError()
         conv = {}
         for p in self.res:
             p = self._elt2pkt(p)
             try:
                 c = getsrcdst(p)
             except:
-                #XXX warning()
+                # No warning here: it's OK that getsrcdst() raises an
+                # exception, since it might be, for example, a
+                # function that expects a specific layer in each
+                # packet. The try/except approach is faster and
+                # considered more Pythonic than adding tests.
                 continue
-            conv[c] = conv.get(c,0)+1
+            if len(c) == 3:
+                conv.setdefault(c[:2], set()).add(c[2])
+            else:
+                conv[c] = conv.get(c, 0) + 1
         gr = 'digraph "conv" {\n'
-        for s,d in conv:
-            gr += '\t "%s" -> "%s"\n' % (s,d)
+        for (s, d), l in conv.iteritems():
+            gr += '\t "%s" -> "%s" [label="%s"]\n' % (
+                s, d, ', '.join(str(x) for x in l) if isinstance(l, set) else l
+            )
         gr += "}\n"        
         return do_graph(gr, **kargs)
 
@@ -347,16 +363,17 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
             return 2+math.log(n)/4.0
 
         def minmax(x):
-            m,M = min(x),max(x)
+            m, M = reduce(lambda a, b: (min(a[0], b[0]), max(a[1], b[1])),
+                          ((a, a) for a in x))
             if m == M:
                 m = 0
             if M == 0:
                 M = 1
-            return m,M
+            return m, M
 
-        mins,maxs = minmax(map(lambda (x,y): x, sl.values()))
-        mine,maxe = minmax(map(lambda (x,y): x, el.values()))
-        mind,maxd = minmax(dl.values())
+        mins, maxs = minmax(x for x, _ in sl.itervalues())
+        mine, maxe = minmax(x for x, _ in el.itervalues())
+        mind, maxd = minmax(dl.itervalues())
     
         gr = 'digraph "afterglow" {\n\tedge [len=2.5];\n'
 
@@ -529,10 +546,3 @@ class SndRcvList(PacketList):
         return elt[1]
     def _elt2sum(self, elt):
         return "%s ==> %s" % (elt[0].summary(),elt[1].summary()) 
-
-
-
-    
-
-        
-                                                                               

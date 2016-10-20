@@ -12,8 +12,6 @@ Generators and packet meta classes.
 ################
 
 import re,random,socket
-import config
-import error
 import types
 
 class Gen(object):
@@ -202,6 +200,7 @@ class Packet_metaclass(type):
         for f in newcls.fields_desc:
             if hasattr(f, "register_owner"):
                 f.register_owner(newcls)
+        from scapy import config
         config.conf.layers.register(newcls)
         return newcls
 
@@ -216,9 +215,10 @@ class Packet_metaclass(type):
             try:
                 cls = cls.dispatch_hook(*args, **kargs)
             except:
-                if conf.debug_dissector:
+                from scapy import config
+                if config.conf.debug_dissector:
                     raise
-                cls = Raw
+                cls = config.conf.raw_layer
         i = cls.__new__(cls, cls.__name__, cls.__bases__, cls.__dict__)
         i.__init__(*args, **kargs)
         return i
@@ -238,7 +238,7 @@ class NewDefaultValues(Packet_metaclass):
     and it should still work.
     """    
     def __new__(cls, name, bases, dct):
-        from error import log_loading
+        from scapy.error import log_loading
         import traceback
         try:
             for tb in traceback.extract_stack()+[("??",-1,None,"")]:

