@@ -9,7 +9,7 @@ Instanciate part of the customizations needed to support Microsoft Windows.
 
 from scapy.arch.consts import LOOPBACK_NAME
 from scapy.config import conf,ConfClass
-from scapy.error import warning, Scapy_Exception, log_runtime
+from scapy.error import Scapy_Exception,log_loading,log_runtime
 from scapy.base_classes import Gen, SetGen
 from scapy import plist as plist
 from scapy.utils import PcapReader
