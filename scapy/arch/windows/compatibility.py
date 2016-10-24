@@ -9,6 +9,10 @@ Instanciate part of the customizations needed to support Microsoft Windows.
 
 from scapy.arch.consts import LOOPBACK_NAME
 from scapy.config import conf,ConfClass
+from scapy.error import warning, Scapy_Exception, log_runtime
+from scapy.data import *
+from scapy.arch import pcapdnet
+from scapy.arch.pcapdnet import *
 
 def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0, retry=0, multi=0):
     if not isinstance(pkt, Gen):
