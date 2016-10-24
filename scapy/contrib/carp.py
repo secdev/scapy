@@ -2,11 +2,12 @@
 # scapy.contrib.description = CARP
 # scapy.contrib.status = loads
 
+import struct, hmac, hashlib
+
 from scapy.packet import *
 from scapy.layers.inet import IP
 from scapy.fields import BitField, ByteField, XShortField, IntField, XIntField
-from scapy.utils import checksum
-import struct, hmac, hashlib
+from scapy.utils import checksum, inet_aton
 
 class CARP(Packet):
     name = "CARP"

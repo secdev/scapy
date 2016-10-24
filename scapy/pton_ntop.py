@@ -15,7 +15,7 @@ import socket,struct
 def inet_pton(af, addr):
     """Convert an IP address from text representation into binary form"""
     if af == socket.AF_INET:
-        return inet_aton(addr)
+        return socket.inet_aton(addr)
     elif af == socket.AF_INET6:
         # IPv6: The use of "::" indicates one or more groups of 16 bits of zeros.
         # We deal with this form of wildcard using a special marker. 
@@ -63,7 +63,7 @@ def inet_pton(af, addr):
 def inet_ntop(af, addr):
     """Convert an IP address from binary form into text represenation"""
     if af == socket.AF_INET:
-        return inet_ntoa(addr)
+        return socket.inet_ntoa(addr)
     elif af == socket.AF_INET6:
         # IPv6 addresses have 128bits (16 bytes)
         if len(addr) != 16:

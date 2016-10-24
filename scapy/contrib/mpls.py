@@ -3,10 +3,11 @@
 # scapy.contrib.description = MPLS
 # scapy.contrib.status = loads
 
-from scapy.packet import Packet,bind_layers
+from scapy.packet import Packet, bind_layers, Padding
 from scapy.fields import BitField,ByteField
-from scapy.layers.l2 import Ether
-from scapy.layers.l2 import GRE
+from scapy.layers.inet import IP
+from scapy.layers.inet6 import IPv6
+from scapy.layers.l2 import Ether, GRE
 
 class MPLS(Packet):
    name = "MPLS"

@@ -60,6 +60,7 @@ f = EigrpIP6Field("ipaddr", "2000::", length=128)
 f.i2len(None, "") == 16
 
 = EIGRPGuessPayloadClass function: Return Parameters TLV
+from scapy.contrib.eigrp import _EIGRPGuessPayloadClass
 isinstance(_EIGRPGuessPayloadClass("\x00\x01"), EIGRPParam)
 
 = EIGRPGuessPayloadClass function: Return Authentication Data TLV

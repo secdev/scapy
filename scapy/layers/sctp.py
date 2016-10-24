@@ -10,6 +10,7 @@ SCTP (Stream Control Transmission Protocol).
 
 import struct
 
+from scapy.config import conf
 from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.inet import IP

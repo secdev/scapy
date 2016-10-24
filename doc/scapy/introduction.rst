@@ -197,7 +197,7 @@ For a quick start, here's an overview of Python's data types:
 
 * ``tuple`` (immutable): ``(1,4,"42")`` 
 * ``list`` (mutable): ``[4,2,"1"]`` 
-* ``dict` (mutable): ``{ "one":1 , "two":2 }``
+* ``dict`` (mutable): ``{ "one":1 , "two":2 }``
 
 There are no block delimiters in Python. Instead, indentation does matter::
 

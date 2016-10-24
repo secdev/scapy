@@ -1,0 +1,32 @@
+% ProfinetIO layer test campaign
+
++ Syntax check
+= Import the ProfinetIO layer
+from scapy.contrib.pnio import *
+
+
++ Check DCE/RPC layer
+
+= ProfinetIO default values
+str(ProfinetIO()) == '\x00\x00'
+
+= ProfinetIO overloads Ethertype
+p = Ether() / ProfinetIO()
+p.type == 0x8892
+
+= ProfinetIO overloads UDP dport
+p = UDP() / ProfinetIO()
+p.dport == 0x8892
+
+= Ether guesses ProfinetIO as payload class
+p = Ether('ffffffffffff00000000000088920102'.decode('hex'))
+p.payload.__class__ == ProfinetIO and p.frameID == 0x0102
+
+= UDP guesses ProfinetIO as payload class
+p = UDP('12348892000a00000102'.decode('hex'))
+p.payload.__class__ == ProfinetIO and p.frameID == 0x0102
+
+= ProfinetIO guess payload to PNIORealTime
+p = UDP('12348892000c000080020102'.decode('hex'))
+p.payload.payload.__class__.__name__ == 'PNIORealTime' and p.frameID == 0x8002
+

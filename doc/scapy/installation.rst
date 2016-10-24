@@ -20,7 +20,8 @@ At the moment, there are two different versions of Scapy:
 * **Scapy v1.x**. It consists of only one file and works on Python 2.4, so it might be easier to install.
   Moreover, your OS may already have a specially prepared packages or ports for it. Last version is v1.2.2.
 * **Scapy v2.x**. The current development version adds several features (e.g. IPv6). It consists of several
-  files  packaged in the standard distutils way. Scapy v2 needs Python 2.5.
+  files  packaged in the standard distutils way. Scapy v2 <= 2.3.3 needs Python 2.5, Scapy v2 > 2.3.3 needs
+  Python 2.7.
 
 .. note::
 
@@ -198,7 +199,7 @@ Linux native
 
 Scapy can run natively on Linux, without libdnet and libpcap.
 
-* Install `Python 2.5 <http://www.python.org>`_.
+* Install `Python 2.7 <http://www.python.org>`_.
 * Install `tcpdump <http://www.tcpdump.org>`_ and make sure it is in the $PATH. (It's only used to compile BPF filters (``-ddd option``))
 * Make sure your kernel has Packet sockets selected (``CONFIG_PACKET``)
 * If your kernel is < 2.6, make sure that Socket filtering is selected ``CONFIG_FILTER``) 
@@ -238,60 +239,36 @@ Some optional packages:
 Mac OS X
 --------
 
-Here's how to install Scapy on Mac OS 10.4 (Tiger) or 10.5 (Leopard).
+On Mac OS X, Scapy does not work natively. You need to install Python bindings
+to use libdnet and libpcap. You can choose to install using either Homebrew or
+MacPorts. They both work fine, yet Homebrew is used to run unit tests with
+`Travis CI <https://travis-ci.org>`_. 
 
-Set up a development environment
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-1. Install X11. 
-   On the Mac OS X DVD, it is located in the "Optional Installs.mpkg" package.
- 
-2. Install SDK.
-   On the Mac OS X DVD, it is located in the "Xcode Tools/Packages" directory.
+Install using Homebrew
+^^^^^^^^^^^^^^^^^^^^^^
 
-3. Install Python 2.5 from Python.org.
-   Using Apple's Python version will lead to some problems.
-   Get it from http://www.python.org/ftp/python/2.5.2/python-2.5.2-macosx.dmg
+1. Update Homebrew::
+
+   $ sudo brew update
+
+2. Install Python bindings::
+
+   $ sudo brew install --with-python libdnet
+   $ sudo brew install https://raw.githubusercontent.com/secdev/scapy/master/.travis/pylibpcap.r
+
 
 Install using MacPorts
 ^^^^^^^^^^^^^^^^^^^^^^
 
-3. Install MacPorts
-   Download the dmg from macports.org and install it.
-     
-4. Update MacPorts::
+1. Update MacPorts::
 
    $ sudo port -d selfupdate
 
-5. Install Scapy::
+2. Install Python bindings::
 
-   $ sudo port install scapy
+   $ sudo port install py-libdnet py-pylibpcap
 
-You can then update to the latest version as shown in the generic installation above. 
-
-Install from original sources
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Install libdnet and its Python wrapper::
-
- $ wget http://libdnet.googlecode.com/files/libdnet-1.12.tgz
- $ tar xfz libdnet-1.12.tgz 
- $ ./configure
- $ make
- $ sudo make install
- $ cd python
- $ python2.5 setup.py install
-
-Install libpcap and its Python wrapper::
-
- $ wget http://dfn.dl.sourceforge.net/sourceforge/pylibpcap/pylibpcap-0.6.2.tar.gz
- $ tar xfz pylibpcap-0.6.2.tar.gz
- $ cd pylibpcap-0.6.2
- $ python2.5 setup.py install
-
-Optionally: Install readline::
-
- $ python `python -c "import pimp; print pimp.__file__"` -i readline
 
 OpenBSD
 -------
@@ -378,7 +355,7 @@ Scapy is primarily being developed for Unix-like systems and works best on those
 
 You need the following software packages in order to install Scapy on Windows:
 
-  * `Python <http://www.python.org>`_: `python-2.5.4.msi <http://www.python.org/ftp/python/2.5.4/python-2.5.4.msi>`_. `python-2.6.3.msi <http://www.python.org/ftp/python/2.6.3/python-2.6.3.msi>`_. After installation, add the Python installation directory and its \Scripts subdirectory to your PATH. Depending on your Python version, the defaults would be ``C:\Python25`` and ``C:\Python25\Scripts`` or ``C:\Python26`` and ``C:\Python26\Scripts`` respectively.
+  * `Python <http://www.python.org>`_: `python-2.7.12.msi <https://www.python.org/ftp/python/2.7.12/python-2.7.12.msi>`_. After installation, add the Python installation directory and its \Scripts subdirectory to your PATH. Depending on your Python version, the defaults would be ``C:\Python27`` and ``C:\Python27\Scripts`` respectively.
   * `Scapy <http://www.secdev.org/projects/scapy/>`_: `latest development version <https://github.com/secdev/scapy/archive/master.zip>`_ from the `Git repository <https://github.com/secdev/scapy>`_. Unzip the archive, open a command prompt in that directory and run "python setup.py install". 
   * `pywin32 <http://python.net/crew/mhammond/win32/Downloads.html>`_: `pywin32-214.win32-py2.5.exe <http://surfnet.dl.sourceforge.net/sourceforge/pywin32/pywin32-214.win32-py2.5.exe>`_ `pywin32-214.win32-py2.6.exe <http://downloads.sourceforge.net/project/pywin32/pywin32/Build%20214/pywin32-214.win32-py2.6.exe>`_
   * `WinPcap <http://www.winpcap.org/>`_: `WinPcap_4_1_1.exe <http://www.winpcap.org/install/bin/WinPcap_4_1_1.exe>`_. You might want to choose "[x] Automatically start the WinPcap driver at boot time", so that non-privileged users can sniff, especially under Vista and Windows 7. If you want to use the ethernet vendor database to resolve MAC addresses or use the ``wireshark()`` command, download `Wireshark <http://www.wireshark.org/>`_ which already includes WinPcap. 
@@ -440,6 +417,52 @@ Known bugs
  * Packets cannot be sent to localhost (or local IP addresses on your own host).
  * The ``voip_play()`` functions do not work because they output the sound via ``/dev/dsp`` which is not available on Windows. 
  
- 
 
+Build the documentation offline
+===============================
+The Scapy project's documentation is written using reStructuredText (files \*.rst) and can be built using
+the `Sphinx <http://www.sphinx-doc.org/>`_ python library. The official online version is available
+on `readthedocs <http://scapy.readthedocs.io/>`_.
 
+HTML version
+------------
+The instructions to build the HTML version are: ::
+
+   (activate a virtualenv)
+   pip install sphinx
+   cd doc/scapy
+   make html
+
+You can now open the resulting HTML file ``_build/html/index.html`` in your favorite web browser.
+
+To use the ReadTheDocs' template, you will have to install the corresponding theme with: ::
+
+   pip install sphinx_rtd_theme
+
+and edit the doc/scapy/conf.py file to have: ::
+
+   import sphinx_rtd_theme
+   #html_style = 'default.css'
+   html_theme = "sphinx_rtd_theme"
+   html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
+
+Note: make sure you commented out the ``html_style`` variable.
+
+UML diagram
+-----------
+Using ``pyreverse`` you can build an UML representation of the Scapy source code's object hierarchy. Here is an
+example on how to build the inheritence graph for the Fields objects : ::
+
+   (activate a virtualenv)
+   pip install pylint
+   cd scapy/
+   pyreverse -o png -p fields scapy/fields.py
+
+This will generate a ``classes_fields.png`` picture containing the inheritance hierarchy. Note that you can provide as many
+modules or packages as you want, but the result will quickly get unreadable.
+
+To see the dependencies between the DHCP layer and the ansmachine module, you can run: ::
+
+   pyreverse -o png -p dhcp_ans scapy/ansmachine.py scapy/layers/dhcp.py scapy/packet.py
+
+In this case, Pyreverse will also generate a ``packages_dhcp_ans.png`` showing the link between the different python modules provided.

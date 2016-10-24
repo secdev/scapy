@@ -8,14 +8,13 @@
 Classes that implement ASN.1 data structures.
 """
 
-from asn1.asn1 import *
-from asn1.ber import *
-from asn1.mib import *
-from volatile import *
-from base_classes import BasePacket
-from utils import binrepr
-
-FLEXIBLE_TAGS = False
+from scapy.asn1.asn1 import *
+from scapy.asn1.ber import *
+from scapy.asn1.mib import *
+from scapy.volatile import *
+from scapy.base_classes import BasePacket
+from scapy.utils import binrepr
+from scapy import packet
 
 class ASN1F_badsequence(Exception):
     pass
@@ -35,7 +34,8 @@ class ASN1F_field(ASN1F_element):
     context = ASN1_Class_UNIVERSAL
     
     def __init__(self, name, default, context=None,
-                 implicit_tag=None, explicit_tag=None):
+                 implicit_tag=None, explicit_tag=None,
+                 flexible_tag=False):
         self.context = context
         self.name = name
         if default is None:
@@ -44,7 +44,7 @@ class ASN1F_field(ASN1F_element):
             self.default = default
         else:
             self.default = self.ASN1_tag.asn1_object(default)
-        self.flexible_tag = False or FLEXIBLE_TAGS
+        self.flexible_tag = flexible_tag
         if (implicit_tag is not None) and (explicit_tag is not None):
             err_msg = "field cannot be both implicitly and explicitly tagged"
             raise ASN1_Error(err_msg)
@@ -70,13 +70,18 @@ class ASN1F_field(ASN1F_element):
 
         Regarding other fields, we might need to know whether encoding went
         as expected or not. Noticeably, input methods from cert.py expect
-        certain exceptions to be raised. Hence default flexible_tag is False,
-        but we provide a FLEXIBLE_TAGS switch for debugging purposes.
+        certain exceptions to be raised. Hence default flexible_tag is False.
         """
-        s = BER_tagging_dec(s, hidden_tag=self.ASN1_tag,
-                            implicit_tag=self.implicit_tag,
-                            explicit_tag=self.explicit_tag,
-                            safe=self.flexible_tag)
+        diff_tag, s = BER_tagging_dec(s, hidden_tag=self.ASN1_tag,
+                                      implicit_tag=self.implicit_tag,
+                                      explicit_tag=self.explicit_tag,
+                                      safe=self.flexible_tag)
+        if diff_tag is not None:
+            # this implies that flexible_tag was True
+            if self.implicit_tag is not None:
+                self.implicit_tag = diff_tag
+            elif self.explicit_tag is not None:
+                self.explicit_tag = diff_tag
         codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
         if self.flexible_tag:
             return codec.safedec(s, context=self.context)
@@ -251,19 +256,32 @@ class ASN1F_BMP_STRING(ASN1F_STRING):
     ASN1_tag = ASN1_Class_UNIVERSAL.BMP_STRING
    
 class ASN1F_SEQUENCE(ASN1F_field):
+# Here is how you could decode a SEQUENCE
+# with an unknown, private high-tag prefix :
+# class PrivSeq(ASN1_Packet):
+#     ASN1_codec = ASN1_Codecs.BER
+#     ASN1_root = ASN1F_SEQUENCE(
+#                       <asn1 field #0>,
+#                       ...
+#                       <asn1 field #N>,
+#                       explicit_tag=0,
+#                       flexible_tag=True)
+# Because we use flexible_tag, the value of the explicit_tag does not matter.
     ASN1_tag = ASN1_Class_UNIVERSAL.SEQUENCE
     holds_packets = 1
     def __init__(self, *seq, **kwargs):
         name = "dummy_seq_name"
         default = [field.default for field in seq]
-        for kwarg in ["context", "implicit_tag", "explicit_tag"]:
+        for kwarg in ["context", "implicit_tag",
+                      "explicit_tag", "flexible_tag"]:
             if kwarg in kwargs:
                 setattr(self, kwarg, kwargs[kwarg])
             else:
                 setattr(self, kwarg, None)
         ASN1F_field.__init__(self, name, default, context=self.context,
                              implicit_tag=self.implicit_tag,
-                             explicit_tag=self.explicit_tag)
+                             explicit_tag=self.explicit_tag,
+                             flexible_tag=self.flexible_tag)
         self.seq = seq
         self.islist = len(seq) > 1
     def __repr__(self):
@@ -284,10 +302,15 @@ class ASN1F_SEQUENCE(ASN1F_field):
         Thus m2i returns an empty list (along with the proper remainder).
         It is discarded by dissect() and should not be missed elsewhere.
         """
-        s = BER_tagging_dec(s, hidden_tag=self.ASN1_tag,
-                            implicit_tag=self.implicit_tag,
-                            explicit_tag=self.explicit_tag,
-                            safe=self.flexible_tag)
+        diff_tag, s = BER_tagging_dec(s, hidden_tag=self.ASN1_tag,
+                                      implicit_tag=self.implicit_tag,
+                                      explicit_tag=self.explicit_tag,
+                                      safe=self.flexible_tag)
+        if diff_tag is not None:
+            if self.implicit_tag is not None:
+                self.implicit_tag = diff_tag
+            elif self.explicit_tag is not None:
+                self.explicit_tag = diff_tag
         codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
         i,s,remain = codec.check_type_check_len(s)
         if len(s) == 0:
@@ -325,10 +348,15 @@ class ASN1F_SEQUENCE_OF(ASN1F_field):
     def is_empty(self, pkt):
         return ASN1F_field.is_empty(self, pkt)
     def m2i(self, pkt, s):
-        s = BER_tagging_dec(s, hidden_tag=self.ASN1_tag,
-                            implicit_tag=self.implicit_tag,
-                            explicit_tag=self.explicit_tag,
-                            safe=self.flexible_tag)
+        diff_tag, s = BER_tagging_dec(s, hidden_tag=self.ASN1_tag,
+                                      implicit_tag=self.implicit_tag,
+                                      explicit_tag=self.explicit_tag,
+                                      safe=self.flexible_tag)
+        if diff_tag is not None:
+            if self.implicit_tag is not None:
+                self.implicit_tag = diff_tag
+            elif self.explicit_tag is not None:
+                self.explicit_tag = diff_tag
         codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
         i,s,remain = codec.check_type_check_len(s)
         lst = []
@@ -349,7 +377,7 @@ class ASN1F_SEQUENCE_OF(ASN1F_field):
         return self.i2m(pkt, s)
 
     def randval(self):
-        return fuzz(self.asn1pkt())
+        return packet.fuzz(self.asn1pkt())
     def __repr__(self):
         return "<%s %s>" % (self.__class__.__name__, self.name)
 
@@ -368,7 +396,7 @@ class ASN1F_TIME_TICKS(ASN1F_INTEGER):
 #############################
 
 class ASN1F_optional(ASN1F_element):
-    def __init__(self, field, by_default=False):
+    def __init__(self, field):
         field.flexible_tag = False
         self._field = field
     def __getattr__(self, attr):
@@ -440,9 +468,8 @@ class ASN1F_CHOICE(ASN1F_field):
         """
         if len(s) == 0:
             raise ASN1_Error("ASN1F_CHOICE: got empty string")
-        s = BER_tagging_dec(s, hidden_tag=self.ASN1_tag,
-                            explicit_tag=self.explicit_tag,
-                            safe=self.flexible_tag)
+        _,s = BER_tagging_dec(s, hidden_tag=self.ASN1_tag,
+                              explicit_tag=self.explicit_tag)
         tag,_ = BER_id_dec(s)
         if tag not in self.choices:
             if self.flexible_tag:
@@ -470,7 +497,7 @@ class ASN1F_CHOICE(ASN1F_field):
                                 explicit_tag=exp)
         return BER_tagging_enc(s, explicit_tag=self.explicit_tag)
     def randval(self):
-        return RandChoice(*(fuzz(x()) for x in self.choices.itervalues()))
+        return RandChoice(*(packet.fuzz(x()) for x in self.choices.itervalues()))
 
 class ASN1F_PACKET(ASN1F_field):
     holds_packets = 1
@@ -484,10 +511,15 @@ class ASN1F_PACKET(ASN1F_field):
                 self.network_tag = 16|0x20
         self.default = default
     def m2i(self, pkt, s):
-        s = BER_tagging_dec(s, hidden_tag=self.cls.ASN1_root.ASN1_tag,
-                            implicit_tag=self.implicit_tag,
-                            explicit_tag=self.explicit_tag,
-                            safe=self.flexible_tag)
+        diff_tag, s = BER_tagging_dec(s, hidden_tag=self.cls.ASN1_root.ASN1_tag,
+                                      implicit_tag=self.implicit_tag,
+                                      explicit_tag=self.explicit_tag,
+                                      safe=self.flexible_tag)
+        if diff_tag is not None:
+            if self.implicit_tag is not None:
+                self.implicit_tag = diff_tag
+            elif self.explicit_tag is not None:
+                self.explicit_tag = diff_tag
         p,s = self.extract_packet(self.cls, s)
         return p,s
     def i2m(self, pkt, x):
@@ -548,7 +580,3 @@ class ASN1F_FLAGS(ASN1F_BIT_STRING):
             pretty_s = ", ".join(self.get_flags(pkt))
             return pretty_s + " " + repr(x)
         return repr(x)
-
-
-# This import must come last to avoid problems with cyclic dependencies
-import packet

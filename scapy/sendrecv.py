@@ -11,15 +11,18 @@ import errno
 import cPickle,os,sys,time,subprocess
 import itertools
 from select import select
-from data import *
-import arch
-from config import conf
-from packet import Gen
-from utils import warning,get_temp_file,PcapReader,wrpcap
-import plist
-from error import log_runtime,log_interactive
-from base_classes import SetGen
-from supersocket import StreamSocket
+from scapy.arch.consts import DARWIN, FREEBSD
+from scapy.data import *
+from scapy.config import conf
+from scapy.packet import Gen
+from scapy.utils import warning,get_temp_file,PcapReader,wrpcap
+from scapy import plist
+from scapy.error import log_runtime,log_interactive
+from scapy.base_classes import SetGen
+from scapy.supersocket import StreamSocket
+if conf.route is None:
+    # unused import, only to initialize conf.route
+    import scapy.route
 
 #################
 ## Debug class ##
@@ -124,7 +127,7 @@ def sndrcv(pks, pkt, timeout = None, inter = 0, verbose=None, chainCC=0, retry=0
                                 if remaintime <= 0:
                                     break
                             r = None
-                            if not isinstance(pks, StreamSocket) and (arch.FREEBSD or arch.DARWIN):
+                            if not isinstance(pks, StreamSocket) and (FREEBSD or DARWIN):
                                 inp, out, err = select(inmask,[],[], 0.05)
                                 if len(inp) == 0 or pks in inp:
                                     r = pks.nonblock_recv()

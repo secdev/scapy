@@ -1,0 +1,106 @@
+% PNIO RTC layer test campaign
+
++ Syntax check
+= Import the PNIO RTC layer
+from scapy.contrib.pnio import *
+from scapy.contrib.pnio_rtc import *
+
+
++ Check PNIORealTimeIOxS
+
+= PNIORealTimeIOxS default values
+str(PNIORealTimeIOxS()) == '\x80'
+
+= Check no payload is dissected (only padding)
+* In order for the PNIORealTime to dissect correctly all the data buffer, data field must strictly dissect what they know as being of themselves
+p = PNIORealTimeIOxS('\x40\x01\x02')
+p == PNIORealTimeIOxS(dataState='bad', instance='device') / conf.padding_layer('\x01\x02')
+
+
++ Check PNIORealTimeRawData
+
+= PNIORealTimeRawData default values
+str(PNIORealTimeRawData(config={'length': 5})) == '\x00\x00\x00\x00\x00'
+
+= PNIORealTimeRawData must always be the same configured length
+str(PNIORealTimeRawData(load='ABC', config={'length': 5})) == 'ABC\x00\x00'
+
+= PNIORealTimeRawData may be truncated
+str(PNIORealTimeRawData(load='ABCDEF', config={'length': 5})) == 'ABCDE'
+
+= Check that the dissected payload is an PNIORealTimeIOxS (IOPS)
+p = PNIORealTimeRawData('ABCDE\x80\x01\x02', config={'length': 5})
+p == PNIORealTimeRawData(load='ABCDE', config={'length': 5}) / PNIORealTimeIOxS() / conf.padding_layer('\x01\x02')
+
+= PNIORealTimeRawData is capable of dissected uncomplete packets
+p = PNIORealTimeRawData('ABC', config={'length': 5})
+p == PNIORealTimeRawData(load='ABC', config={'length': 5})
+
+
++ Check Profisafe
+
+= Profisafe default values
+str(Profisafe(config={'length': 7, 'CRC': 3})) == '\0\0\0\0\0\0\0'
+
+= Profisafe must always be the same configured length
+str(Profisafe(load='AB', config={'length': 7, 'CRC': 3})) == 'AB\0\0\0\0\0'
+
+= Profisafe load may be truncated
+str(Profisafe(load='ABCDEF', config={'length': 7, 'CRC': 3})) == 'ABC\0\0\0\0'
+
+= Check that the dissected payload is an PNIORealTimeIOxS (IOPS)
+p = Profisafe('ABC\x20\x12\x34\x56\x80\x01\x02', config={'length': 7, 'CRC': 3})
+p == Profisafe(load='ABC', Control_Status=0x20, CRC=0x123456, config={'length': 7, 'CRC': 3}) / PNIORealTimeIOxS() / conf.padding_layer('\x01\x02')
+
+= Profisafe with a CRC-32
+str(Profisafe(load='ABC', Control_Status=0x33, CRC=0x12345678, config={'length': 8, 'CRC': 4})) == 'ABC\x33\x12\x34\x56\x78'
+
+= Profisafe is capable of dissected uncomplete packets
+p = Profisafe('AB', config={'length': 7, 'CRC': 3})
+p == Profisafe(load='AB', Control_Status=0, CRC=0)
+
+
++ Check PNIORealTime layer
+
+= PNIORealTime default values
+str(PNIORealTime()) == '\0' * 40 + '\0\0\x35\0'
+
+= PNIORealTime default values under an UDP packet
+str(UDP(sport=0x1234) / ProfinetIO(frameID=0x8002) / PNIORealTime()) == '12348892001a00008002'.decode('hex') + '\0' * 12 + '\0\0\x35\0'
+
+= PNIORealTime simple packet
+* a simple data packet with a raw profinet data and its IOPS, an IOCS and a Profisafe data and its IOPS. 15B data length, 1B padding (20 - 15 -4)
+str(PNIORealTime(len=20, dataLen=15, cycleCounter=0x1234, dataStatus='redundancy+validData+no_problem', transferStatus=3,
+  data=[
+      PNIORealTimeRawData(load='\x01\x02\x03\x04', config={'length': 5}) / PNIORealTimeIOxS(),
+      PNIORealTimeIOxS(dataState='bad'),
+      Profisafe(load='\x05\x06', Control_Status=0x20, CRC=0x12345678, config={'length': 7, 'CRC': 4}) / PNIORealTimeIOxS()
+      ]
+  )) == '0102030400800005062012345678800012342603'.decode('hex')
+
+= PNIORealTime dissects to PNIORealTimeRawData when no config is available
+p = PNIORealTime('0102030400800005062012345678800012342603'.decode('hex'))
+p == PNIORealTime(len=20, dataLen=15, cycleCounter=0x1234, dataStatus='redundancy+validData+no_problem', transferStatus=3, padding='\0',
+  data=[
+      PNIORealTimeRawData(load='010203040080000506201234567880'.decode('hex'))
+      ]
+  )
+
+= PNIORealTime dissection is configurable
+* Usually, the configuration is not given manually, but using PNIORealTime.analyse_data() on a list of Packets which analyses and updates the configuration
+pnio_update_config({
+  ('06:07:08:09:0a:0b', '00:01:02:03:04:05'): [
+    (-15, PNIORealTimeRawData, {'length': 5}),
+    (-8, Profisafe, {'length': 7, 'CRC': 4}),
+    ]
+  })
+p = Ether('000102030405060708090a0b889280020102030400800005062012345678800012342603'.decode('hex'))
+p == Ether(dst='00:01:02:03:04:05', src='06:07:08:09:0a:0b') / ProfinetIO(frameID=0x8002) / PNIORealTime(
+  len=20, dataLen=15, cycleCounter=0x1234, dataStatus='redundancy+validData+no_problem', transferStatus=3, padding='\0',
+  data=[
+      PNIORealTimeRawData(load='\x01\x02\x03\x04\0', config={'length': 5}) / PNIORealTimeIOxS(),
+      PNIORealTimeIOxS(dataState='bad'),
+      Profisafe(load='\x05\x06', Control_Status=0x20, CRC=0x12345678, config={'length': 7, 'CRC': 4}) / PNIORealTimeIOxS()
+      ]
+  )
+

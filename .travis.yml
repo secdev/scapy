@@ -4,9 +4,6 @@ matrix:
     include:
         # Run as a regular user
         - os: linux
-          python: 2.6
-
-        - os: linux
           python: 2.7
 
         - os: linux
@@ -15,7 +12,7 @@ matrix:
         - os: osx
           language: generic
           env:
-            - SCAPY_USE_PCAPDNET=true
+            - SCAPY_USE_PCAPDNET=yes
 
         # Run as root
         - os: linux
@@ -29,13 +26,13 @@ matrix:
           python: 2.7
           env:
             - TRAVIS_SUDO=sudo
-            - SCAPY_USE_PCAPDNET=true
+            - SCAPY_USE_PCAPDNET=yes
 
         - os: osx
           language: generic
           env:
             - TRAVIS_SUDO=sudo
-            - SCAPY_USE_PCAPDNET=true
+            - SCAPY_USE_PCAPDNET=yes
 
 install: bash .travis/install.sh
 

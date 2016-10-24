@@ -11,7 +11,9 @@ import os,time,struct,re,socket,new
 from select import select
 from collections import defaultdict
 
-from scapy.utils import checksum
+from scapy.utils import checksum,inet_aton,inet_ntoa
+from scapy.base_classes import Gen
+from scapy.data import *
 from scapy.layers.l2 import *
 from scapy.config import conf
 from scapy.fields import *
@@ -20,6 +22,7 @@ from scapy.volatile import *
 from scapy.sendrecv import sr,sr1,srp1
 from scapy.plist import PacketList,SndRcvList
 from scapy.automaton import Automaton,ATMT
+from scapy.error import warning
 
 import scapy.as_resolvers
 
@@ -389,6 +392,9 @@ class IP(Packet, IPTools):
         dst = self.dst
         if isinstance(dst,Gen):
             dst = iter(dst).next()
+        if conf.route is None:
+            # unused import, only to initialize conf.route
+            import scapy.route
         return conf.route.route(dst)
     def hashret(self):
         if ( (self.proto == socket.IPPROTO_ICMP)
@@ -396,6 +402,8 @@ class IP(Packet, IPTools):
              and (self.payload.type in [3,4,5,11,12]) ):
             return self.payload.payload.hashret()
         else:
+            if self.dst == "224.0.0.251":  # mDNS
+                return struct.pack("B", self.proto) + self.payload.hashret()
             if conf.checkIPsrc and conf.checkIPaddr:
                 return strxor(inet_aton(self.src),inet_aton(self.dst))+struct.pack("B",self.proto)+self.payload.hashret()
             else:
@@ -403,8 +411,11 @@ class IP(Packet, IPTools):
     def answers(self, other):
         if not isinstance(other,IP):
             return 0
-        if conf.checkIPaddr and (self.dst != other.src):
-            return 0
+        if conf.checkIPaddr:
+            if other.dst == "224.0.0.251" and self.dst == "224.0.0.251":  # mDNS
+                return self.payload.answers(other.payload)
+            elif (self.dst != other.src):
+                return 0
         if ( (self.proto == socket.IPPROTO_ICMP) and
              (isinstance(self.payload, ICMP)) and
              (self.payload.type in [3,4,5,11,12]) ):
@@ -767,8 +778,10 @@ conf.l3types.register(ETH_P_IP, IP)
 conf.l3types.register_num2layer(ETH_P_ALL, IP)
 
 
-conf.neighbor.register_l3(Ether, IP, lambda l2,l3: getmacbyip(l3.dst))
-conf.neighbor.register_l3(Dot3, IP, lambda l2,l3: getmacbyip(l3.dst))
+def inet_register_l3(l2, l3):
+    return getmacbyip(l3.dst)
+conf.neighbor.register_l3(Ether, IP, inet_register_l3)
+conf.neighbor.register_l3(Dot3, IP, inet_register_l3)
 
 
 ###################

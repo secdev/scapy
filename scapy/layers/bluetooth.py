@@ -10,13 +10,15 @@ Bluetooth layers, sockets and send/receive functions.
 
 import socket,struct,array
 from ctypes import *
+from select import select
 
+from scapy.all import *
 from scapy.config import conf
 from scapy.packet import *
 from scapy.fields import *
 from scapy.supersocket import SuperSocket
+from scapy.sendrecv import sndrcv
 from scapy.data import MTU
-from select import select
 
 ##########
 # Fields #
@@ -25,6 +27,13 @@ from select import select
 class XLEShortField(LEShortField):
     def i2repr(self, pkt, x):
         return lhex(self.i2h(pkt, x))
+
+class XLELongField(LEShortField):
+    def __init__(self, name, default):
+        Field.__init__(self, name, default, "<Q")
+    def i2repr(self, pkt, x):
+        return lhex(self.i2h(pkt, x))
+
 
 class LEMACField(Field):
     def __init__(self, name, default):
@@ -88,7 +97,8 @@ class L2CAP_CmdHdr(Packet):
         ByteEnumField("code",8,{1:"rej",2:"conn_req",3:"conn_resp",
                                 4:"conf_req",5:"conf_resp",6:"disconn_req",
                                 7:"disconn_resp",8:"echo_req",9:"echo_resp",
-                                10:"info_req",11:"info_resp"}),
+                                10:"info_req",11:"info_resp", 18:"conn_param_update_req",
+                                19:"conn_param_update_resp"}),
         ByteField("id",0),
         LEShortField("len",None) ]
     def post_build(self, p, pay):
@@ -101,7 +111,7 @@ class L2CAP_CmdHdr(Packet):
         if other.id == self.id:
             if self.code == 1:
                 return 1
-            if other.code in [2,4,6,8,10] and self.code == other.code+1:
+            if other.code in [2,4,6,8,10,18] and self.code == other.code+1:
                 if other.code == 8:
                     return 1
                 return self.payload.answers(other.payload)
@@ -117,9 +127,8 @@ class L2CAP_ConnResp(Packet):
     name = "L2CAP Conn Resp"
     fields_desc = [ LEShortField("dcid",0),
                     LEShortField("scid",0),
-                    LEShortEnumField("result",0,["no_info","authen_pend","author_pend"]),
-                    LEShortEnumField("status",0,["success","pend","bad_psm",
-                                               "cr_sec_block","cr_no_mem"]),
+                    LEShortEnumField("result",0,["success", "pend", "cr_bad_psm", "cr_sec_block", "cr_no_mem", "reserved","cr_inval_scid", "cr_scid_in_use"]),
+                    LEShortEnumField("status",0,["no_info", "authen_pend", "author_pend", "reserved"]),
                     ]
     def answers(self, other):
         return self.scid == other.scid
@@ -175,6 +184,19 @@ class L2CAP_InfoResp(Packet):
     def answers(self, other):
         return self.type == other.type
 
+    
+class L2CAP_Connection_Parameter_Update_Request(Packet):
+    name = "L2CAP Connection Parameter Update Request"
+    fields_desc = [ LEShortField("min_interval", 0),
+                    LEShortField("max_interval", 0),
+                    LEShortField("slave_latency", 0),
+                    LEShortField("timeout_mult", 0), ]
+
+    
+class L2CAP_Connection_Parameter_Update_Response(Packet):
+    name = "L2CAP Connection Parameter Update Response"
+    fields_desc = [ LEShortField("move_result", 0), ]
+
 
 class ATT_Hdr(Packet):
     name = "ATT header"
@@ -216,11 +238,18 @@ class ATT_Find_By_Type_Value_Response(Packet):
     name = "Find By Type Value Response"
     fields_desc = [ StrField("handles", ""), ]
 
+class ATT_Read_By_Type_Request_128bit(Packet):
+    name = "Read By Type Request"
+    fields_desc = [ XLEShortField("start", 0x0001),
+                    XLEShortField("end", 0xffff),
+                    XLELongField("uuid1", None),
+                    XLELongField("uuid2", None)]
+
 class ATT_Read_By_Type_Request(Packet):
     name = "Read By Type Request"
     fields_desc = [ XLEShortField("start", 0x0001),
                     XLEShortField("end", 0xffff),
-                    XLEShortField("uuid", None), ]
+                    XLEShortField("uuid", None)]
 
 class ATT_Read_By_Type_Response(Packet):
     name = "Read By Type Response"
@@ -311,6 +340,19 @@ class SM_Master_Identification(Packet):
     name = "Master Identification"
     fields_desc = [ XLEShortField("ediv", 0),
                     StrFixedLenField("rand", '\x00' * 8, 8), ]
+    
+class SM_Identity_Information(Packet):
+    name = "Identity Information"
+    fields_desc = [ StrFixedLenField("irk", '\x00' * 16, 16), ]
+
+class SM_Identity_Address_Information(Packet):
+    name = "Identity Address Information"
+    fields_desc = [ ByteEnumField("atype", 0, {0:"public"}),
+                    LEMACField("address", None), ]
+    
+class SM_Signing_Information(Packet):
+    name = "Signing Information"
+    fields_desc = [ StrFixedLenField("csrk", '\x00' * 16, 16), ]
 
 
 class EIR_Hdr(Packet):
@@ -483,9 +525,29 @@ class HCI_Cmd_LE_Create_Connection(Packet):
                     LEShortField("timeout", 42),
                     LEShortField("min_ce", 0),
                     LEShortField("max_ce", 0), ]
+    
+class HCI_Cmd_LE_Connection_Update(Packet):
+    name = "LE Connection Update"
+    fields_desc = [ LEShortField("conn_handle", 64),
+                    LEShortField("conn_interval_min", 0),
+                    LEShortField("conn_interval_max", 0),
+                    LEShortField("conn_latency", 0),
+                    LEShortField("timeout", 600),
+                    LEShortField("min_ce_len", 0),
+                    LEShortField("max_ce_len", 0),]
 
 class HCI_Cmd_LE_Create_Connection_Cancel(Packet):
     name = "LE Create Connection Cancel"
+
+class HCI_Cmd_LE_Connection_Update(Packet):
+    name = "LE Connection Update"
+    fields_desc = [ XLEShortField("handle", 0),
+                    XLEShortField("min_interval", 0),
+                    XLEShortField("max_interval", 0),
+                    XLEShortField("latency", 0),
+                    XLEShortField("timeout", 0),
+                    LEShortField("min_ce", 0),
+                    LEShortField("max_ce", 0xffff), ]
 
 class HCI_Cmd_LE_Read_Buffer_Size(Packet):
     name = "LE Read Buffer Size"
@@ -513,6 +575,13 @@ class HCI_Cmd_LE_Set_Advertising_Data(Packet):
 class HCI_Cmd_LE_Set_Advertise_Enable(Packet):
     name = "LE Set Advertise Enable"
     fields_desc = [ ByteField("enable", 0) ]
+
+class HCI_Cmd_LE_Start_Encryption_Request(Packet):
+    name = "LE Start Encryption"
+    fields_desc = [ LEShortField("handle", 0),
+                    StrFixedLenField("rand", None, 8),
+                    XLEShortField("ediv", 0),
+                    StrFixedLenField("ltk", '\x00' * 16, 16), ]
 
 class HCI_Cmd_LE_Long_Term_Key_Request_Negative_Reply(Packet):
     name = "LE Long Term Key Request Negative Reply"
@@ -581,6 +650,14 @@ class HCI_LE_Meta_Connection_Complete(Packet):
                     LEShortField("supervision", 42),
                     XByteField("clock_latency", 5), ]
 
+class HCI_LE_Meta_Connection_Update_Complete(Packet):
+    name = "Connection Update Complete"
+    fields_desc = [ ByteEnumField("status", 0, {0:"success"}),
+                    LEShortField("handle", 0),
+                    LEShortField("interval", 54),
+                    LEShortField("latency", 0),
+                    LEShortField("timeout", 42), ]
+
 class HCI_LE_Meta_Advertising_Report(Packet):
     name = "Advertising Report"
     fields_desc = [ ByteField("number", 0),
@@ -621,6 +698,11 @@ bind_layers( HCI_Command_Hdr, HCI_Cmd_LE_Set_Scan_Enable, opcode=0x200c)
 bind_layers( HCI_Command_Hdr, HCI_Cmd_Disconnect, opcode=0x406)
 bind_layers( HCI_Command_Hdr, HCI_Cmd_LE_Create_Connection, opcode=0x200d)
 bind_layers( HCI_Command_Hdr, HCI_Cmd_LE_Create_Connection_Cancel, opcode=0x200e)
+bind_layers( HCI_Command_Hdr, HCI_Cmd_LE_Connection_Update, opcode=0x2013)
+
+
+bind_layers( HCI_Command_Hdr, HCI_Cmd_LE_Start_Encryption_Request, opcode=0x2019)
+
 bind_layers( HCI_Command_Hdr, HCI_Cmd_LE_Long_Term_Key_Request_Reply, opcode=0x201a)
 bind_layers( HCI_Command_Hdr, HCI_Cmd_LE_Long_Term_Key_Request_Negative_Reply, opcode=0x201b)
 
@@ -635,6 +717,7 @@ bind_layers( HCI_Event_Command_Complete, HCI_Cmd_Complete_Read_BD_Addr, opcode=0
 
 bind_layers( HCI_Event_LE_Meta, HCI_LE_Meta_Connection_Complete, event=1)
 bind_layers( HCI_Event_LE_Meta, HCI_LE_Meta_Advertising_Report, event=2)
+bind_layers( HCI_Event_LE_Meta, HCI_LE_Meta_Connection_Update_Complete, event=3)
 bind_layers( HCI_Event_LE_Meta, HCI_LE_Meta_Long_Term_Key_Request, event=5)
 
 bind_layers(EIR_Hdr, EIR_Flags, type=0x01)
@@ -648,6 +731,7 @@ bind_layers(EIR_Hdr, EIR_Raw)
 
 bind_layers( HCI_ACL_Hdr,   L2CAP_Hdr,     )
 bind_layers( L2CAP_Hdr,     L2CAP_CmdHdr,      cid=1)
+bind_layers( L2CAP_Hdr,     L2CAP_CmdHdr,      cid=5) #LE L2CAP Signaling Channel
 bind_layers( L2CAP_CmdHdr,  L2CAP_CmdRej,      code=1)
 bind_layers( L2CAP_CmdHdr,  L2CAP_ConnReq,     code=2)
 bind_layers( L2CAP_CmdHdr,  L2CAP_ConnResp,    code=3)
@@ -657,6 +741,8 @@ bind_layers( L2CAP_CmdHdr,  L2CAP_DisconnReq,  code=6)
 bind_layers( L2CAP_CmdHdr,  L2CAP_DisconnResp, code=7)
 bind_layers( L2CAP_CmdHdr,  L2CAP_InfoReq,     code=10)
 bind_layers( L2CAP_CmdHdr,  L2CAP_InfoResp,    code=11)
+bind_layers( L2CAP_CmdHdr,  L2CAP_Connection_Parameter_Update_Request,    code=18)
+bind_layers( L2CAP_CmdHdr,  L2CAP_Connection_Parameter_Update_Response,    code=19)
 bind_layers( L2CAP_Hdr,     ATT_Hdr,           cid=4)
 bind_layers( ATT_Hdr,       ATT_Error_Response, opcode=0x1)
 bind_layers( ATT_Hdr,       ATT_Exchange_MTU_Request, opcode=0x2)
@@ -666,6 +752,7 @@ bind_layers( ATT_Hdr,       ATT_Find_Information_Response, opcode=0x5)
 bind_layers( ATT_Hdr,       ATT_Find_By_Type_Value_Request, opcode=0x6)
 bind_layers( ATT_Hdr,       ATT_Find_By_Type_Value_Response, opcode=0x7)
 bind_layers( ATT_Hdr,       ATT_Read_By_Type_Request, opcode=0x8)
+bind_layers( ATT_Hdr,       ATT_Read_By_Type_Request_128bit, opcode=0x8)
 bind_layers( ATT_Hdr,       ATT_Read_By_Type_Response, opcode=0x9)
 bind_layers( ATT_Hdr,       ATT_Read_Request, opcode=0xa)
 bind_layers( ATT_Hdr,       ATT_Read_Response, opcode=0xb)
@@ -683,6 +770,10 @@ bind_layers( SM_Hdr,        SM_Random,         sm_command=4)
 bind_layers( SM_Hdr,        SM_Failed,         sm_command=5)
 bind_layers( SM_Hdr,        SM_Encryption_Information, sm_command=6)
 bind_layers( SM_Hdr,        SM_Master_Identification, sm_command=7)
+bind_layers( SM_Hdr,        SM_Identity_Information, sm_command=8)
+bind_layers( SM_Hdr,        SM_Identity_Address_Information, sm_command=9)
+bind_layers( SM_Hdr,        SM_Signing_Information, sm_command=0x0a)
+
 
 class BluetoothL2CAPSocket(SuperSocket):
     desc = "read/write packets on a connected L2CAP socket"
@@ -770,7 +861,7 @@ class BluetoothUserSocket(SuperSocket):
         self.send(cmd)
         while True:
             r = self.recv()
-            if r.code == 0xe and r.opcode == opcode:
+            if r.type == 0x04 and r.code == 0xe and r.opcode == opcode:
                 if r.status != 0:
                     raise BluetoothCommandError("Command %x failed with %x" % (opcode, r.status))
                 return r

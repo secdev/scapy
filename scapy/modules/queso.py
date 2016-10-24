@@ -10,6 +10,9 @@ Clone of queso OS fingerprinting
 from scapy.data import KnowledgeBase
 from scapy.config import conf
 from scapy.layers.inet import IP,TCP
+from scapy.error import warning
+from scapy.volatile import RandInt
+from scapy.sendrecv import sr
 #from 
 
 conf.queso_base ="/etc/queso.conf"

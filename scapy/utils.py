@@ -7,7 +7,6 @@
 General utility functions.
 """
 
-from __future__ import with_statement
 import os,sys,socket,types
 import random,time
 import gzip,zlib,cPickle
@@ -17,10 +16,10 @@ import subprocess
 import warnings
 warnings.filterwarnings("ignore","tempnam",RuntimeWarning, __name__)
 
-from config import conf
-from data import MTU
-from error import log_runtime,log_loading,log_interactive, Scapy_Exception
-from base_classes import BasePacketList
+from scapy.config import conf
+from scapy.data import MTU
+from scapy.error import log_runtime,log_loading,log_interactive, Scapy_Exception
+from scapy.base_classes import BasePacketList
 
 WINDOWS=sys.platform.startswith("win32")
 
@@ -214,9 +213,6 @@ def hexdiff(x,y):
                 doy=1
             else:
                 i += 16
-
-    
-crc32 = zlib.crc32
 
 if struct.pack("H",1) == "\x00\x01": # big endian
     def checksum(pkt):
@@ -425,21 +421,11 @@ def incremental_label(label="tag%05i", start=0):
         yield label % start
         start += 1
 
+def binrepr(val):
+    return bin(val)[2:]
 
-# Python <= 2.5 do not provide bin() built-in function
-try:
-    bin(0)
-except NameError:
-    def _binrepr(val):
-        while val:
-            yield val & 1
-            val >>= 1
-
-    binrepr = lambda val: "".join(reversed([str(bit) for bit in
-                                            _binrepr(val)])) or "0"
-else:
-    binrepr = lambda val: bin(val)[2:]
-
+def long_converter(s):
+    return long(s.replace('\n', '').replace(' ', ''), 16)
 
 #########################
 #### Enum management ####
@@ -590,7 +576,7 @@ class PcapReader_metaclass(type):
                     i.__init__(filename, fdesc, magic)
                 except Scapy_Exception:
                     try:
-                        self.f.seek(-4, 1)
+                        i.f.seek(-4, 1)
                     except:
                         pass
                     raise Scapy_Exception("Not a supported capture file")
@@ -728,7 +714,7 @@ class PcapReader(RawPcapReader):
         return p
     def read_all(self,count=-1):
         res = RawPcapReader.read_all(self, count)
-        import plist
+        from scapy import plist
         return plist.PacketList(res,name = os.path.basename(self.filename))
     def recv(self, size=MTU):
         return self.read_packet(size=size)
@@ -827,7 +813,7 @@ class PcapNgReader(RawPcapNgReader):
         return p
     def read_all(self,count=-1):
         res = RawPcapNgReader.read_all(self, count)
-        import plist
+        from scapy import plist
         return plist.PacketList(res, name=os.path.basename(self.filename))
     def recv(self, size=MTU):
         return self.read_packet()

@@ -12,7 +12,9 @@
 # scapy.contrib.status = loads
 
 import struct
-from scapy.all import *
+from scapy.fields import *
+from scapy.layers.l2 import *
+from scapy.layers.inet import *
 
 ### If prereq_autocomplete is True then match prerequisites will be
 ### automatically handled. See OFPMatch class.

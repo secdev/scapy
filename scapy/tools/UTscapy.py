@@ -38,7 +38,7 @@ class File:
     def get_local(self):
         return bz2.decompress(base64.decodestring(self.local))
     def get_URL(self):
-        return URL
+        return self.URL
     def write(self, dir):
         if dir:
             dir += "/"
@@ -82,12 +82,12 @@ vzM985aHXOHAxQN2UQZbQkUv3D4Vc+lyvalAffv3Tyg4ks3a22kPXiyeCGweviNX
 0K8TKasyOhGsVamTUAZBXfQVw1zmdS4rHDnbHgtIjX3DcCt6UIr0BHTYjdV0JbPj
 r1APYgXihjQwM2M83AKIhwQQJv/F3JFOFCQNsEI0QA==""")
     def get_local_dict(cls):
-        return dict((x, y.name) for (x, y) in cls.__dict__.iteritems()
-                    if isinstance(y, File))
+        return {x: y.name for (x, y) in cls.__dict__.iteritems()
+                if isinstance(y, File)}
     get_local_dict = classmethod(get_local_dict)
     def get_URL_dict(cls):
-        return dict((x, y.URL) for (x, y) in cls.__dict__.iteritems()
-                    if isinstance(y, File))
+        return {x: y.URL for (x, y) in cls.__dict__.iteritems()
+                if isinstance(y, File)}
     get_URL_dict = classmethod(get_URL_dict)
 
 

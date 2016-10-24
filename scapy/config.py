@@ -8,10 +8,12 @@ Implementation for of the configuration object.
 """
 
 import os,time,socket,sys
-from data import *
-import base_classes
-import themes
-from error import log_scapy
+
+from scapy import VERSION
+from scapy.data import *
+from scapy import base_classes
+from scapy import themes
+from scapy.error import log_scapy
 
 ############
 ## Config ##
@@ -279,7 +281,7 @@ def _prompt_changer(attr,val):
     prompt = conf.prompt
     try:
         ct = val
-        if isinstance(ct, AnsiColorTheme) and ct.prompt(""):
+        if isinstance(ct, themes.AnsiColorTheme) and ct.prompt(""):
             ## ^A and ^B delimit invisible caracters for readline to count right.
             ## And we need ct.prompt() to do change something or else ^A and ^B will be
             ## displayed
@@ -317,8 +319,9 @@ resolve   : holds list of fields for which resolution should be done
 noenum    : holds list of enum fields for which conversion to string should NOT be done
 AS_resolver: choose the AS resolver class to use
 extensions_paths: path or list of paths where extensions are to be looked for
+contribs: a dict which can be used by contrib layers to store local configuration
 """
-    version = "2.3.2-dev"
+    version = VERSION
     session = ""
     interactive = False
     interactive_shell = ""
@@ -377,12 +380,13 @@ extensions_paths: path or list of paths where extensions are to be looked for
     temp_files = []
     netcache = NetCache()
     geoip_city = '/usr/share/GeoIP/GeoLiteCity.dat'
-    load_layers = ["l2", "inet", "dhcp", "dns", "dot11", "gprs",
+    load_layers = ["l2", "inet", "dhcp", "dns", "dot11", "gprs", "tls",
                    "hsrp", "inet6", "ir", "isakmp", "l2tp", "mgcp",
                    "mobileip", "netbios", "netflow", "ntp", "ppp",
                    "radius", "rip", "rtp", "skinny", "smb", "snmp",
                    "tftp", "x509", "bluetooth", "dhcp6", "llmnr",
-                   "sctp", "vrrp", "ipsec", "lltd"]
+                   "sctp", "vrrp", "ipsec", "lltd", "vxlan"]
+    contribs = dict()
 
 
 if not Conf.ipv6_enabled:

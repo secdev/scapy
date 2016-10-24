@@ -10,14 +10,15 @@ Packet class. Binding mechanism. fuzz() method.
 import re
 import time,itertools
 import copy
-from fields import StrField, ConditionalField, Emph, PacketListField, BitField, \
-    MultiEnumField, EnumField, FlagsField
-from config import conf
-from base_classes import BasePacket, Gen, SetGen, Packet_metaclass
-from volatile import VolatileValue
-from utils import import_hexcap,tex_escape,colgen,get_temp_file
-from error import Scapy_Exception,log_runtime
 import subprocess
+
+from scapy.fields import StrField, ConditionalField, Emph, PacketListField, BitField, \
+    MultiEnumField, EnumField, FlagsField
+from scapy.config import conf
+from scapy.base_classes import BasePacket, Gen, SetGen, Packet_metaclass
+from scapy.volatile import VolatileValue
+from scapy.utils import import_hexcap,tex_escape,colgen,get_temp_file
+from scapy.error import Scapy_Exception,log_runtime
 
 try:
     import pyx
@@ -308,8 +309,8 @@ class Packet(BasePacket):
     def copy_fields_dict(self, fields):
         if fields is None:
             return None
-        return dict([fname, self.copy_field_value(fname, fval)]
-                    for fname, fval in fields.iteritems())
+        return {fname: self.copy_field_value(fname, fval)
+                for fname, fval in fields.iteritems()}
     def self_build(self, field_pos_list=None):
         if self.raw_packet_cache is not None:
             for fname, fval in self.raw_packet_cache_fields.iteritems():
@@ -836,10 +837,19 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
     def display(self,*args,**kargs):  # Deprecated. Use show()
         """Deprecated. Use show() method."""
         self.show(*args,**kargs)
-    def show(self, indent=3, lvl="", label_lvl=""):
-        """Prints a hierarchical view of the packet. "indent" gives the size of indentation for each layer."""
-        ct = conf.color_theme
-        print "%s%s %s %s" % (label_lvl,
+    
+    def _show_or_dump(self, dump=False, indent=3, lvl="", label_lvl="", first_call=True):
+        """
+        Internal method that shows or dumps a hierachical view of a packet.
+        Called by show.
+        """
+
+        if dump:
+            from scapy.themes import AnsiColorTheme
+            ct = AnsiColorTheme() # No color for dump output
+        else:
+            ct = conf.color_theme
+        s = "%s%s %s %s \n" % (label_lvl,
                               ct.punct("###["),
                               ct.layer_name(self.name),
                               ct.punct("]###"))
@@ -854,10 +864,10 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
                 vcol = ct.field_value
             fvalue = self.getfieldval(f.name)
             if isinstance(fvalue, Packet) or (f.islist and f.holds_packets and type(fvalue) is list):
-                print "%s  \\%-10s\\" % (label_lvl+lvl, ncol(f.name))
+                s += "%s  \\%-10s\\\n" % (label_lvl+lvl, ncol(f.name))
                 fvalue_gen = SetGen(fvalue,_iterpacket=0)
                 for fvalue in fvalue_gen:
-                    fvalue.show(indent=indent, label_lvl=label_lvl+lvl+"   |")
+                    s += fvalue._show_or_dump(dump=dump, indent=indent, label_lvl=label_lvl+lvl+"   |", first_call=False)
             else:
                 begn = "%s  %-10s%s " % (label_lvl+lvl,
                                         ncol(f.name),
@@ -868,11 +878,22 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
                                                               +len(lvl)
                                                               +len(f.name)
                                                               +4))
-                print "%s%s" % (begn,vcol(reprval))
-        self.payload.show(indent=indent, lvl=lvl+(" "*indent*self.show_indent), label_lvl=label_lvl)
-    def show2(self):
-        """Prints a hierarchical view of an assembled version of the packet, so that automatic fields are calculated (checksums, etc.)"""
-        self.__class__(str(self)).show()
+                s += "%s%s\n" % (begn,vcol(reprval))
+        if self.payload:
+            s += self.payload._show_or_dump(dump=dump, indent=indent, lvl=lvl+(" "*indent*self.show_indent), label_lvl=label_lvl, first_call=False)
+
+        if first_call and not dump:
+            print s
+        else:
+            return s
+
+    def show(self, dump=False, indent=3, lvl="", label_lvl=""):
+        """Prints or returns (when "dump" is true) a hierarchical view of the packet. "indent" gives the size of indentation for each layer."""
+	return self._show_or_dump(dump, indent, lvl, label_lvl)
+
+    def show2(self, dump=False, indent=3, lvl="", label_lvl=""):
+        """Prints or returns (when "dump" is true) a hierarchical view of an assembled version of the packet, so that automatic fields are calculated (checksums, etc.)"""
+        return self.__class__(str(self)).show(dump, indent, lvl, label_lvl)
 
     def sprintf(self, fmt, relax=1):
         """sprintf(format, [relax=1]) -> str

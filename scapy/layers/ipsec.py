@@ -44,18 +44,7 @@ import struct
 try:
     from Crypto.Util.number import GCD as gcd
 except ImportError:
-    try:
-        from fractions import gcd
-    except ImportError:
-        def gcd(a, b):
-            """Fallback implementation when Crypto is missing, and fractions does
-            not exist (Python 2.5)
-
-            """
-            if b > a:
-                a, b = b, a
-            c = a % b
-            return b if c == 0 else gcd(c, b)
+    from fractions import gcd
 
 
 from scapy.data import IP_PROTOS
@@ -607,9 +596,6 @@ if AES and XCBCMAC:
                                          key_size=(16,))
 
 #------------------------------------------------------------------------------
-
-
-#------------------------------------------------------------------------------
 def split_for_transport(orig_pkt, transport_proto):
     """
     Split an IP(v6) packet in the correct location to insert an ESP or AH
@@ -621,7 +607,8 @@ def split_for_transport(orig_pkt, transport_proto):
     @return: a tuple (header, nh, payload) where nh is the protocol number of
              payload.
     """
-    header = orig_pkt.copy()
+    # force resolution of default fields to avoid padding errors
+    header = orig_pkt.__class__(str(orig_pkt))
     next_hdr = header.payload
     nh = None
 

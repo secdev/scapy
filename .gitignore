@@ -1,1 +1,7 @@
 *.pyc
+*.pyo
+dist/
+build/
+MANIFEST
+*.egg-info/
+scapy/VERSION

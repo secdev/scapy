@@ -8,11 +8,11 @@ Fields: basic data structures that make up parts of packets.
 """
 
 import struct,copy,socket
-from config import conf
-from volatile import *
-from data import *
-from utils import *
-from base_classes import BasePacket, Gen, Net, Field_metaclass
+from scapy.config import conf
+from scapy.volatile import *
+from scapy.data import *
+from scapy.utils import *
+from scapy.base_classes import BasePacket, Gen, Net, Field_metaclass
 
 
 ############
@@ -265,6 +265,9 @@ class SourceIPField(IPField):
         return IPField.i2m(self, pkt, x)
     def i2h(self, pkt, x):
         if x is None:
+            if conf.route is None:
+                # unused import, only to initialize conf.route
+                import scapy.route
             dst=getattr(pkt,self.dstname)
             if isinstance(dst,Gen):
                 r = map(conf.route.route, dst)
@@ -630,7 +633,7 @@ class FieldLenField(Field):
         self.count_of = count_of
         self.adjust = adjust
         if fld is not None:
-            FIELD_LENGTH_MANAGEMENT_DEPRECATION(self.__class__.__name__)
+            #FIELD_LENGTH_MANAGEMENT_DEPRECATION(self.__class__.__name__)
             self.length_of = fld
     def i2m(self, pkt, x):
         if x is None:
@@ -894,13 +897,13 @@ class MultiEnumField(_MultiEnumField, EnumField):
 class BitMultiEnumField(BitField, _MultiEnumField):
     __slots__ = EnumField.__slots__ + MultiEnumField.__slots__
     def __init__(self, name, default, size, enum, depends_on):
-        MultiEnumField.__init__(self, name, default, enum)
+        _MultiEnumField.__init__(self, name, default, enum, depends_on)
         self.rev = size < 0
         self.size = abs(size)
     def any2i(self, pkt, x):
-        return MultiEnumField.any2i(self, pkt, x)
+        return _MultiEnumField.any2i(self, pkt, x)
     def i2repr(self, pkt, x):
-        return MultiEnumField.i2repr(self, pkt, x)
+        return _MultiEnumField.i2repr(self, pkt, x)
 
 
 class ByteEnumKeysField(ByteEnumField):
@@ -933,6 +936,26 @@ class LEFieldLenField(FieldLenField):
 
 
 class FlagsField(BitField):
+    """ Handle Flag type field
+
+   Make sure all your flags have a label
+
+   Example:
+       >>> from scapy.packet import Packet
+       >>> class FlagsTest(Packet):
+               fields_desc = [FlagsField("flags", 0, 8, ["f0", "f1", "f2", "f3", "f4", "f5", "f6", "f7"])]
+       >>> FlagsTest(flags=9).show2()
+       ###[ FlagsTest ]###
+         flags     = f0+f3
+       >>> FlagsTest(flags=0).show2().strip()
+       ###[ FlagsTest ]###
+         flags     =
+
+   :param name: field's name
+   :param default: default value for the field
+   :param size: number of bits in the field
+   :param names: (list or dict) label for each flag, Least Significant Bit tag's name is written first
+   """
     __slots__ = ["multi", "names"]
     def __init__(self, name, default, size, names):
         self.multi = type(names) is list
