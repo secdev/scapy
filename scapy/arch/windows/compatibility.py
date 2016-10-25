@@ -169,6 +169,7 @@ def sniff(count=0, store=1, offline=None, prn=None, lfilter=None,
     """Sniff packets
 sniff([count=0,] [prn=None,] [store=1,] [offline=None,]
 [lfilter=None,] + L2ListenSocket args) -> list of packets
+Select interface to sniff by setting conf.iface. Use show_interfaces() to see interface names.
 
   count: number of packets to capture. 0 means infinity
   store: wether to store sniffed packets or discard them
