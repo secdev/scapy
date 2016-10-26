@@ -11,8 +11,8 @@ import errno
 import cPickle,os,sys,time,subprocess
 import itertools
 from select import select
+from scapy.arch.consts import DARWIN, FREEBSD
 from scapy.data import *
-from scapy.arch import FREEBSD, DARWIN
 from scapy.config import conf
 from scapy.packet import Gen
 from scapy.utils import warning,get_temp_file,PcapReader,wrpcap
@@ -20,6 +20,9 @@ from scapy import plist
 from scapy.error import log_runtime,log_interactive
 from scapy.base_classes import SetGen
 from scapy.supersocket import StreamSocket
+if conf.route is None:
+    # unused import, only to initialize conf.route
+    import scapy.route
 
 #################
 ## Debug class ##
