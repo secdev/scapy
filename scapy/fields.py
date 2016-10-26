@@ -265,6 +265,9 @@ class SourceIPField(IPField):
         return IPField.i2m(self, pkt, x)
     def i2h(self, pkt, x):
         if x is None:
+            if conf.route is None:
+                # unused import, only to initialize conf.route
+                import scapy.route
             dst=getattr(pkt,self.dstname)
             if isinstance(dst,Gen):
                 r = map(conf.route.route, dst)

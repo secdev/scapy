@@ -51,6 +51,9 @@ from scapy.layers.l2 import *
 from scapy.layers.inet import *
 from scapy.utils import inet_pton, inet_ntop, strxor
 from scapy.error import warning
+if conf.route6 is None:
+    # unused import, only to initialize conf.route6
+    import scapy.route6
 
 
 #############################################################################
@@ -496,7 +499,9 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
             return self.payload.answers(other.payload)
 
 
-conf.neighbor.register_l3(Ether, IPv6, lambda l2,l3: getmacbyip6(l3.dst))
+def inet6_register_l3(l2, l3):
+    return getmacbyip6(l3.dst)
+conf.neighbor.register_l3(Ether, IPv6, inet6_register_l3)
 
 
 class IPerror6(IPv6):

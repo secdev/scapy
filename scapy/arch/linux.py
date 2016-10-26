@@ -7,11 +7,11 @@
 Linux specific functions.
 """
 
-from __future__ import with_statement
 import sys,os,struct,socket,time
 from select import select
 from fcntl import ioctl
 
+from scapy.arch.consts import LOOPBACK_NAME
 import scapy.utils
 import scapy.utils6
 from scapy.packet import Packet, Padding
@@ -80,8 +80,6 @@ PACKET_KERNEL = 7  # To kernel space
 PACKET_FASTROUTE = 6  # Fastrouted frame
 # Unused, PACKET_FASTROUTE and PACKET_LOOPBACK are invisible to user space
 
-
-LOOPBACK_NAME="lo"
 
 with os.popen("%s -V 2> /dev/null" % conf.prog.tcpdump) as _f:
     if _f.close() >> 8 == 0x7f:

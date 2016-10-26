@@ -47,7 +47,7 @@ if os.name == "nt":
 
 setup(
     name='scapy',
-    version='2.3.2-dev',
+    version=__import__('scapy').VERSION,
     packages=[
         'scapy',
         'scapy/arch',
@@ -62,6 +62,9 @@ setup(
     ],
     scripts=SCRIPTS,
     data_files=[('share/man/man1', ["doc/scapy.1.gz"])],
+    package_data={
+        'scapy': ['VERSION'],
+    },
 
     # Metadata
     author='Philippe BIONDI',
@@ -81,8 +84,6 @@ setup(
         "Intended Audience :: Telecommunications Industry",
         "License :: OSI Approved :: GNU General Public License v2 (GPLv2)",
         "Programming Language :: Python :: 2",
-        "Programming Language :: Python :: 2.5",
-        "Programming Language :: Python :: 2.6",
         "Programming Language :: Python :: 2.7",
         "Topic :: Security",
         "Topic :: System :: Networking",

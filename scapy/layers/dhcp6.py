@@ -310,7 +310,6 @@ class DHCP6OptIAAddress(_DHCP6OptGuessPayload):    # RFC sect 22.6
                     IP6Field("addr", "::"),
                     IntField("preflft", 0),
                     IntField("validlft", 0),
-                    XIntField("iaid", None),
                     StrLenField("iaaddropts", "",
                                 length_from  = lambda pkt: pkt.optlen - 24) ]
     def guess_payload_class(self, payload):
@@ -1109,6 +1108,7 @@ class DHCP6_RelayForward(_DHCP6OptGuessPayload,Packet):
                     ByteField("hopcount", None),
                     IP6Field("linkaddr", "::"),
                     IP6Field("peeraddr", "::") ]
+    overload_fields = { UDP: { "sport": 547, "dport": 547 } }
     def hashret(self): # we filter on peer address field
         return inet_pton(socket.AF_INET6, self.peeraddr)
 

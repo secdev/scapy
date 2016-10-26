@@ -392,6 +392,9 @@ class IP(Packet, IPTools):
         dst = self.dst
         if isinstance(dst,Gen):
             dst = iter(dst).next()
+        if conf.route is None:
+            # unused import, only to initialize conf.route
+            import scapy.route
         return conf.route.route(dst)
     def hashret(self):
         if ( (self.proto == socket.IPPROTO_ICMP)
@@ -776,8 +779,10 @@ conf.l3types.register(ETH_P_IP, IP)
 conf.l3types.register_num2layer(ETH_P_ALL, IP)
 
 
-conf.neighbor.register_l3(Ether, IP, lambda l2,l3: getmacbyip(l3.dst))
-conf.neighbor.register_l3(Dot3, IP, lambda l2,l3: getmacbyip(l3.dst))
+def inet_register_l3(l2, l3):
+    return getmacbyip(l3.dst)
+conf.neighbor.register_l3(Ether, IP, inet_register_l3)
+conf.neighbor.register_l3(Dot3, IP, inet_register_l3)
 
 
 ###################

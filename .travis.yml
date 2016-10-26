@@ -24,11 +24,6 @@ matrix:
           env:
             - TRAVIS_SUDO=sudo
 
-        - os: osx
-          language: generic
-          env:
-            - TRAVIS_SUDO=sudo
-
         - os: linux
           sudo: required
           python: 2.7
@@ -40,6 +35,11 @@ matrix:
           python: 2.7
           env:
             - TRAVIS_SUDO=sudo SCAPY_USE_PCAPDNET=yes
+
+        - os: osx
+          language: generic
+          env:
+            - TRAVIS_SUDO=sudo
 
         - os: osx
           language: generic

@@ -8,7 +8,7 @@ Routing and handling of network interfaces.
 """
 
 import socket
-from scapy.arch import read_routes,get_if_addr,LOOPBACK_NAME
+from scapy.arch.consts import LOOPBACK_NAME
 from scapy.utils import atol,ltoa,itom
 from scapy.config import conf
 from scapy.error import Scapy_Exception,warning
@@ -20,13 +20,13 @@ from scapy.error import Scapy_Exception,warning
 class Route:
     def __init__(self):
         self.resync()
-        self.s=socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.cache = {}
 
     def invalidate_cache(self):
         self.cache = {}
 
     def resync(self):
+        from scapy.arch import read_routes
         self.invalidate_cache()
         self.routes = read_routes()
 
@@ -41,6 +41,7 @@ class Route:
         return rt
 
     def make_route(self, host=None, net=None, gw=None, dev=None):
+        from scapy.arch import get_if_addr
         if host is not None:
             thenet,msk = host,32
         elif net is not None:

@@ -2856,21 +2856,21 @@ a.optcode == 2 and a.optlen == 6 and isinstance(a.duid, DUID_EN) and a.duid.type
 + Test DHCP6 IA Address Option (IA_TA or IA_NA suboption)
 
 = DHCP6OptIAAddress - Basic Instantiation
-str(DHCP6OptIAAddress()) == '\x00\x05\x00\x18\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+str(DHCP6OptIAAddress()) == '\x00\x05\x00\x18\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 
 = DHCP6OptIAAddress - Basic Dissection
-a = DHCP6OptIAAddress('\x00\x05\x00\x18\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
-a.optcode == 5 and a.optlen == 24 and a.addr == "::" and a.preflft == 0 and a. validlft == 0 and a.iaid == 0 and a.iaaddropts == ""
+a = DHCP6OptIAAddress('\x00\x05\x00\x18\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+a.optcode == 5 and a.optlen == 24 and a.addr == "::" and a.preflft == 0 and a. validlft == 0 and a.iaaddropts == ""
 
 = DHCP6OptIAAddress - Instantiation with specific values
-str(DHCP6OptIAAddress(optlen=0x1111, addr="2222:3333::5555", preflft=0x66666666, validlft=0x77777777, iaid=0x88888888, iaaddropts="somestring")) == '\x00\x05\x11\x11""33\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00UUffffwwww\x88\x88\x88\x88somestring'
+str(DHCP6OptIAAddress(optlen=0x1111, addr="2222:3333::5555", preflft=0x66666666, validlft=0x77777777, iaaddropts="somestring")) == '\x00\x05\x11\x11""33\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00UUffffwwwwsomestring'
 
 = DHCP6OptIAAddress - Instantiation with specific values (default optlen computation)
-str(DHCP6OptIAAddress(addr="2222:3333::5555", preflft=0x66666666, validlft=0x77777777, iaid=0x88888888, iaaddropts="somestring")) == '\x00\x05\x00"""33\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00UUffffwwww\x88\x88\x88\x88somestring'
+str(DHCP6OptIAAddress(addr="2222:3333::5555", preflft=0x66666666, validlft=0x77777777, iaaddropts="somestring")) == '\x00\x05\x00"""33\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00UUffffwwwwsomestring'
 
 = DHCP6OptIAAddress - Dissection with specific values 
-a = DHCP6OptIAAddress('\x00\x05\x00"""33\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00UUffffwwww\x88\x88\x88\x88somestring')
-a.optcode == 5 and a.optlen == 34 and a.addr == "2222:3333::5555" and a.preflft == 0x66666666 and a. validlft == 0x77777777 and a.iaid == 0x88888888 and a.iaaddropts == "somestring"
+a = DHCP6OptIAAddress('\x00\x05\x00"""33\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00UUffffwwwwsomestring')
+a.optcode == 5 and a.optlen == 34 and a.addr == "2222:3333::5555" and a.preflft == 0x66666666 and a. validlft == 0x77777777 and a.iaaddropts == "somestring"
 
 
 #####################################################################
@@ -2890,10 +2890,10 @@ str(DHCP6OptIA_NA(iaid=0x22222222, T1=0x33333333, T2=0x44444444)) == '\x00\x03\x
 str(DHCP6OptIA_NA(optlen=0x1111, iaid=0x22222222, T1=0x33333333, T2=0x44444444)) == '\x00\x03\x11\x11""""3333DDDD'
 
 = DHCP6OptIA_NA - Instantiation with a list of IA Addresses (optlen automatic computation)
-str(DHCP6OptIA_NA(iaid=0x22222222, T1=0x33333333, T2=0x44444444, ianaopts=[DHCP6OptIAAddress(), DHCP6OptIAAddress()])) == '\x00\x03\x00L""""3333DDDD\x00\x05\x00\x18\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x05\x00\x18\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+str(DHCP6OptIA_NA(iaid=0x22222222, T1=0x33333333, T2=0x44444444, ianaopts=[DHCP6OptIAAddress(), DHCP6OptIAAddress()])) == '\x00\x03\x00D""""3333DDDD\x00\x05\x00\x18\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x05\x00\x18\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 
 = DHCP6OptIA_NA - Dissection with specific values
-a = DHCP6OptIA_NA('\x00\x03\x00L""""3333DDDD\x00\x05\x00\x18\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x05\x00\x18\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+a = DHCP6OptIA_NA('\x00\x03\x00L""""3333DDDD\x00\x05\x00\x18\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x05\x00\x18\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
 a.optcode == 3 and a.optlen == 76 and a.iaid == 0x22222222 and a.T1 == 0x33333333 and a.T2==0x44444444 and len(a.ianaopts) == 2 and isinstance(a.ianaopts[0], DHCP6OptIAAddress) and isinstance(a.ianaopts[1], DHCP6OptIAAddress)
 
 
@@ -2908,10 +2908,10 @@ a = DHCP6OptIA_TA('\x00\x04\x00\x04\x00\x00\x00\x00')
 a.optcode == 4 and a.optlen == 4 and a.iaid == 0 and a.iataopts == []
 
 = DHCP6OptIA_TA - Instantiation with specific values
-str(DHCP6OptIA_TA(optlen=0x1111, iaid=0x22222222, iataopts=[DHCP6OptIAAddress(), DHCP6OptIAAddress()])) == '\x00\x04\x11\x11""""\x00\x05\x00\x18\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x05\x00\x18\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+str(DHCP6OptIA_TA(optlen=0x1111, iaid=0x22222222, iataopts=[DHCP6OptIAAddress(), DHCP6OptIAAddress()])) == '\x00\x04\x11\x11""""\x00\x05\x00\x18\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x05\x00\x18\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 
 = DHCP6OptIA_TA - Dissection with specific values
-a = DHCP6OptIA_TA('\x00\x04\x11\x11""""\x00\x05\x00\x18\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x05\x00\x18\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+a = DHCP6OptIA_TA('\x00\x04\x11\x11""""\x00\x05\x00\x18\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x05\x00\x18\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
 a.optcode == 4 and a.optlen == 0x1111 and a.iaid == 0x22222222 and len(a.iataopts) == 2 and isinstance(a.iataopts[0], DHCP6OptIAAddress) and isinstance(a.iataopts[1], DHCP6OptIAAddress)
 
 
@@ -4559,6 +4559,62 @@ assert isinstance(pkt, UDP) and pkt.dport == 5353
 pkt = pkt.payload
 assert isinstance(pkt, DNS) and isinstance(pkt.payload, NoPayload)
 
++ Mocked read_routes() calls
+
+= Truncated netstat -rn output on OS X
+
+import mock
+import StringIO
+
+@mock.patch("scapy.arch.get_if_addr")
+@mock.patch("scapy.arch.unix.os")
+def test_osx_netstat_truncated(mock_os, mock_get_if_addr):
+    """Test read_routes() on OS X 10.? with a long interface name"""
+    # netstat & ifconfig outputs from https://github.com/secdev/scapy/pull/119
+    netstat_output = """
+Routing tables
+
+Internet:
+Destination        Gateway            Flags        Refs      Use   Netif Expire
+default            192.168.1.1        UGSc          460        0     en1
+default            link#11            UCSI            1        0 bridge1
+127                127.0.0.1          UCS             1        0     lo0
+127.0.0.1          127.0.0.1          UH             10  2012351     lo0
+"""
+    ifconfig_output = "lo0 en1 bridge10\n"
+    # Mocked file descriptors
+    def se_popen(command):
+        """Perform specific side effects"""
+        if command == "netstat -rn":
+	    return StringIO.StringIO(netstat_output)
+        elif command == "ifconfig -l":
+	    ret = StringIO.StringIO(ifconfig_output)
+	    def unit():
+		return ret
+	    ret.__call__ = unit
+	    ret.__enter__ = unit
+	    ret.__exit__ = lambda x,y,z: None
+	    return ret
+	raise Exception("Command not mocked: %s" % command)
+    mock_os.popen.side_effect = se_popen
+    # Mocked get_if_addr() behavior
+    def se_get_if_addr(iface):
+        """Perform specific side effects"""
+        if iface == "bridge1":
+	    oserror_exc = OSError()
+	    oserror_exc.message = "Device not configured"
+	    raise oserror_exc
+	return "1.2.3.4"
+    mock_get_if_addr.side_effect = se_get_if_addr
+    # Test the function
+    from scapy.arch.unix import read_routes
+    routes = read_routes()
+    assert(len(routes) == 4)
+    assert([r for r in routes if r[3] == "bridge10"])
+
+
+test_osx_netstat_truncated()
+
 + Mocked read_routes6() calls
 
 = Preliminary definitions
@@ -6072,10 +6128,10 @@ assert(p.data[0].ifname.startswith("lo"))
 + VXLAN layer
 
 = Build a VXLAN packet with VNI of 42
-str(UDP(sport=1024, dport=4789, len=None, chksum=None)/VXLAN(flags=0x08, vni=42)) == "\x04\x00\x12\xb5\x00\x10\x00\x00\x08\x00\x00\x00\x00\x00\x2a\x00"
+str(UDP(sport=1024, dport=4789, len=None, chksum=None)/VXLAN(flags=0x08, vni=42)) == '\x04\x00\x12\xb5\x00\x10\x00\x00\x08\x00\x00\x00\x00\x00\x2a\x00'
 
 = Verify VXLAN Ethernet Binding
-str(VXLAN(vni=23)/Ether(dst="11:11:11:11:11:11", src="11:11:11:11:11:11", type=0x800)) == "\x08\x00\x00\x00\x00\x00\x17\x00\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x08\x00"
+str(VXLAN(vni=23)/Ether(dst="11:11:11:11:11:11", src="11:11:11:11:11:11", type=0x800)) == '\x0c\x00\x00\x03\x00\x00\x17\x00\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x08\x00'
 
 = Verify UDP dport overloading
 p = Ether(dst="11:11:11:11:11:11", src="22:22:22:22:22:22")
@@ -6083,6 +6139,17 @@ p /= IP(src="1.1.1.1", dst="2.2.2.2") / UDP(sport=1111)
 p /= VXLAN(flags=0x8, vni=42) / Ether() / IP()
 p = Ether(str(p))
 assert(p[UDP].dport == 8472)
+assert(p[Ether:2].type == 0x800)
+
+= Build a VXLAN packet with next protocol field
+p = Ether(dst="11:11:11:11:11:11", src="22:22:22:22:22:22")
+p /= IP(src="1.1.1.1", dst="2.2.2.2") / UDP(sport=1111)
+p /= VXLAN(flags=0xC, vni=42, NextProtocol=3) / Ether() / IP()
+p = Ether(str(p))
+assert(p[UDP].dport == 8472)
+assert(p[VXLAN].reserved0 == 0x0)
+assert(p[VXLAN].NextProtocol == 3)
+assert(p[Ether:2].type == 0x800)
 
 = Build a VXLAN packet with no group policy ID
 p = Ether(dst="11:11:11:11:11:11", src="22:22:22:22:22:22")
@@ -6091,6 +6158,7 @@ p /= VXLAN(flags=0x8, vni=42) / Ether() / IP()
 p = Ether(str(p))
 assert(p[VXLAN].reserved1 == 0x0)
 assert(p[VXLAN].gpid is None)
+assert(p[Ether:2].type == 0x800)
 
 = Build a VXLAN packet with group policy ID = 42
 p = Ether(dst="11:11:11:11:11:11", src="22:22:22:22:22:22")
@@ -6099,3 +6167,4 @@ p /= VXLAN(flags=0x88, gpid=42, vni=42) / Ether() / IP()
 p = Ether(str(p))
 assert(p[VXLAN].gpid == 42)
 assert(p[VXLAN].reserved1 is None)
+assert(p[Ether:2].type == 0x800)

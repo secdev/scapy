@@ -4,7 +4,7 @@ python -c "from scapy.all import *; print conf"
 # Don't run tests that requires root privileges
 if [ -z $TRAVIS_SUDO ]
 then
-  UT_FLAGS="-K netaccess -K needs_root"
+  UT_FLAGS="-K netaccess  -K needs_root"
 fi
 
 # Test AEAD modes in IPSec if available

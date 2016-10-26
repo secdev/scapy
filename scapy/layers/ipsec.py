@@ -41,21 +41,12 @@ True
 
 import socket
 import struct
+from scapy.error import warning
+
 try:
     from Crypto.Util.number import GCD as gcd
 except ImportError:
-    try:
-        from fractions import gcd
-    except ImportError:
-        def gcd(a, b):
-            """Fallback implementation when Crypto is missing, and fractions does
-            not exist (Python 2.5)
-
-            """
-            if b > a:
-                a, b = b, a
-            c = a % b
-            return b if c == 0 else gcd(c, b)
+    from fractions import gcd
 
 
 from scapy.data import IP_PROTOS
@@ -163,12 +154,19 @@ try:
     from Crypto import Random
 except ImportError:
     # no error if pycrypto is not available but encryption won't be supported
+    warning("IPSec encryption not supported (pycrypto required).")
     AES = None
     DES = None
     DES3 = None
     CAST = None
     Blowfish = None
     Random = None
+
+try:
+    from Crypto.Cipher.AES import MODE_GCM
+    from Crypto.Cipher.AES import MODE_CCM
+except ImportError:
+    warning("Combined crypto modes not available for IPSec (pycrypto 2.7a1 required).")
 
 #------------------------------------------------------------------------------
 def _lcm(a, b):
@@ -197,15 +195,19 @@ class CryptAlgo(object):
         @param key_size: an integer or list/tuple of integers. If specified,
                          force the secret keys length to one of the values.
                          Defaults to the `key_size` of the cipher.
+        @param icv_size: the length of the integrity check value of this algo.
+                         Only used in this class for AEAD algorithms.
         """
         self.name = name
         self.cipher = cipher
         self.mode = mode
-        self.icv_size = icv_size
         self.is_aead = (hasattr(self.cipher, 'MODE_GCM') and
                         self.mode == self.cipher.MODE_GCM) or \
                         (hasattr(self.cipher, 'MODE_CCM') and
                         self.mode == self.cipher.MODE_CCM)
+
+        if icv_size is not None:
+            self.icv_size = icv_size
 
         if block_size is not None:
             self.block_size = block_size
@@ -400,19 +402,23 @@ if AES:
                                        block_size=1,
                                        iv_size=8,
                                        key_size=(16 + 4, 24 + 4, 32 + 4))
+
+    # AEAD algorithms are only supported in pycrypto 2.7a1+
+    # they also have an additional field icv_size, which is usually
+    # populated by an auth algo when signing and verifying signatures.
     if hasattr(AES, "MODE_GCM"):
         CRYPT_ALGOS['AES-GCM'] = CryptAlgo('AES-GCM',
                                            cipher=AES,
                                            mode=AES.MODE_GCM,
                                            iv_size=8,
-                                           icv_size=8,
+                                           icv_size=16,
                                            key_size=(16 + 4, 24 + 4, 32 + 4))
     if hasattr(AES, "MODE_CCM"):
         CRYPT_ALGOS['AES-CCM'] = CryptAlgo('AES-CCM',
                                            cipher=AES,
                                            mode=AES.MODE_CCM,
                                            iv_size=8,
-                                           icv_size=8,
+                                           icv_size=16,
                                            key_size=(16 + 4, 24 + 4, 32 + 4))
 if DES:
     CRYPT_ALGOS['DES'] = CryptAlgo('DES',
@@ -607,9 +613,6 @@ if AES and XCBCMAC:
                                          key_size=(16,))
 
 #------------------------------------------------------------------------------
-
-
-#------------------------------------------------------------------------------
 def split_for_transport(orig_pkt, transport_proto):
     """
     Split an IP(v6) packet in the correct location to insert an ESP or AH
@@ -621,7 +624,8 @@ def split_for_transport(orig_pkt, transport_proto):
     @return: a tuple (header, nh, payload) where nh is the protocol number of
              payload.
     """
-    header = orig_pkt.copy()
+    # force resolution of default fields to avoid padding errors
+    header = orig_pkt.__class__(str(orig_pkt))
     next_hdr = header.payload
     nh = None
 

@@ -12,6 +12,7 @@ import socket,struct,array
 from ctypes import *
 from select import select
 
+from scapy.all import *
 from scapy.config import conf
 from scapy.packet import *
 from scapy.fields import *
@@ -126,9 +127,8 @@ class L2CAP_ConnResp(Packet):
     name = "L2CAP Conn Resp"
     fields_desc = [ LEShortField("dcid",0),
                     LEShortField("scid",0),
-                    LEShortEnumField("result",0,["no_info","authen_pend","author_pend"]),
-                    LEShortEnumField("status",0,["success","pend","bad_psm",
-                                               "cr_sec_block","cr_no_mem"]),
+                    LEShortEnumField("result",0,["success", "pend", "cr_bad_psm", "cr_sec_block", "cr_no_mem", "reserved","cr_inval_scid", "cr_scid_in_use"]),
+                    LEShortEnumField("status",0,["no_info", "authen_pend", "author_pend", "reserved"]),
                     ]
     def answers(self, other):
         return self.scid == other.scid
