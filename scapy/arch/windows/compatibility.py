@@ -9,6 +9,14 @@ Instanciate part of the customizations needed to support Microsoft Windows.
 
 from scapy.arch.consts import LOOPBACK_NAME
 from scapy.config import conf,ConfClass
+from scapy.error import Scapy_Exception,log_loading,log_runtime
+from scapy.base_classes import Gen, SetGen
+from scapy import plist as plist
+from scapy.utils import PcapReader
+from scapy.data import MTU, ETH_P_ARP, ETH_P_ALL
+from scapy.arch.pcapdnet import PcapTimeoutElapsed
+
+WINDOWS = True
 
 def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0, retry=0, multi=0):
     if not isinstance(pkt, Gen):
@@ -155,10 +163,14 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0, retry=0, m
 import scapy.sendrecv
 scapy.sendrecv.sndrcv = sndrcv
 
-def sniff(count=0, store=1, offline=None, prn = None, lfilter=None, L2socket=None, timeout=None, *arg, **karg):
+def sniff(count=0, store=1, offline=None, prn=None, lfilter=None,
+          L2socket=None, timeout=None, opened_socket=None,
+          stop_filter=None, *arg, **karg):
     """Sniff packets
-sniff([count=0,] [prn=None,] [store=1,] [offline=None,] [lfilter=None,] + L2ListenSocket args) -> list of packets
+sniff([count=0,] [prn=None,] [store=1,] [offline=None,]
+[lfilter=None,] + L2ListenSocket args) -> list of packets
 Select interface to sniff by setting conf.iface. Use show_interfaces() to see interface names.
+
   count: number of packets to capture. 0 means infinity
   store: wether to store sniffed packets or discard them
     prn: function to apply to each packet. If something is returned,
@@ -170,23 +182,31 @@ lfilter: python function applied to each packet to determine
 offline: pcap file to read packets from, instead of sniffing them
 timeout: stop sniffing after a given time (default: None)
 L2socket: use the provided L2socket
+opened_socket: provide an object ready to use .recv() on
+stop_filter: python function applied to each packet to determine
+             if we have to stop the capture after this packet
+             ex: stop_filter = lambda x: x.haslayer(TCP)
     """
     c = 0
-
-    if offline is None:
-        log_runtime.info('Sniffing on %s' % conf.iface)
-        if L2socket is None:
-            L2socket = conf.L2listen
-        s = L2socket(type=ETH_P_ALL, *arg, **karg)
+    if opened_socket is not None:
+        s = opened_socket
     else:
-        s = PcapReader(offline)
+        if offline is None:
+            log_runtime.info('Sniffing on %s' % conf.iface)
+            if L2socket is None:
+                L2socket = conf.L2listen
+            s = L2socket(type=ETH_P_ALL, *arg, **karg)
+        else:
+            s = PcapReader(offline)
 
     lst = []
     if timeout is not None:
         stoptime = time.time()+timeout
     remain = None
-    while 1:
-        try:
+    try:    
+        stop_event = False
+        while not stop_event:
+        
             if timeout is not None:
                 remain = stoptime-time.time()
                 if remain <= 0:
@@ -207,11 +227,16 @@ L2socket: use the provided L2socket
                 r = prn(p)
                 if r is not None:
                     print r
-            if 0 < count <= c:
+            if stop_filter and stop_filter(p):
+                stop_event = True
                 break
-        except KeyboardInterrupt:
-            break
-    s.close()
+            if 0 < count <= c:
+                stop_event = True
+                break
+    except KeyboardInterrupt:
+        pass
+    if opened_socket is None:
+        s.close()
     return plist.PacketList(lst,"Sniffed")
 
 import scapy.sendrecv

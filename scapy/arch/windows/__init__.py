@@ -49,7 +49,7 @@ def _exec_query_ps(cmd, fields):
     for line in ps.stdout:
         if not line.strip(): #skip empty lines
             continue
-        l.append(line.split(':', 1)[1].strip())
+        l.append(line.split(':', 1)[-1].strip())
         if len(l) == len(fields):
             yield l
             l=[]
