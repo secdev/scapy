@@ -267,7 +267,7 @@ Install using Homebrew
 2. Install Python bindings::
 
    $ sudo brew install --with-python libdnet
-   $ sudo brew install https://raw.githubusercontent.com/secdev/scapy/master/.travis/pylibpcap.r
+   $ sudo brew install https://raw.githubusercontent.com/secdev/scapy/master/.travis/pylibpcap.rb
 
 
 Install using MacPorts
