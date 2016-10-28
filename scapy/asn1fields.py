@@ -179,26 +179,16 @@ class ASN1F_enum_INTEGER(ASN1F_INTEGER):
         for k in keys:
             i2s[k] = enum[k]
             s2i[enum[k]] = k
-    def any2i_one(self, pkt, x):
-        if type(x) is str:
-            x = self.s2i[x]
-        return x
-    def any2i(self, pkt, x):
-        if type(x) is list:
-            return map(lambda z,pkt=pkt:self.any2i_one(pkt,z), x)
-        else:
-            return self.any2i_one(pkt, x)        
-    def i2repr_one(self, pkt, x):
-        if x is not None:
-            r = self.i2s.get(x)
-            if r:
-                return r + " " + repr(x)
-        return repr(x)
+    def i2m(self, pkt, s):
+        if isinstance(s, str):
+            s = self.s2i.get(s)
+        return super(ASN1F_INTEGER, self).i2m(pkt, s)
     def i2repr(self, pkt, x):
-        if type(x) is list:
-            return map(lambda z,pkt=pkt:self.i2repr_one(pkt, z), x)
-        else:
-            return self.i2repr_one(pkt, x)
+        if x is not None and isinstance(x, ASN1_INTEGER):
+            r = self.i2s.get(x.val)
+            if r:
+                return "'%s' %s" % (r, repr(x))
+        return repr(x)
 
 class ASN1F_BIT_STRING(ASN1F_field):
     ASN1_tag = ASN1_Class_UNIVERSAL.BIT_STRING
@@ -479,22 +469,23 @@ class ASN1F_CHOICE(ASN1F_field):
         else:
             choice = self.choices[tag]
         if hasattr(choice, "ASN1_root"):
+            # we don't want to import ASN1_Packet in this module...
             return self.extract_packet(choice, s)
+        elif type(choice) is type:
+            #XXX find a way not to instantiate the ASN1F_field
+            return choice(self.name, "").m2i(pkt, s)
         else:
-            if type(choice) is type:
-                return choice(self.name, "").m2i(pkt, s)
-            else:
-                # choice must be an ASN1F_PACKET instance here
-                return choice.m2i(pkt, s)
+            #XXX check properly if this is an ASN1F_PACKET
+            return choice.m2i(pkt, s)
     def i2m(self, pkt, x):
         if x is None:
             s = ""
         else:
             s = str(x)
-        if hash(type(x)) in self.pktchoices:
-            imp, exp = self.pktchoices[hash(type(x))]
-            s = BER_tagging_enc(s, implicit_tag=imp,
-                                explicit_tag=exp)
+            if hash(type(x)) in self.pktchoices:
+                imp, exp = self.pktchoices[hash(type(x))]
+                s = BER_tagging_enc(s, implicit_tag=imp,
+                                    explicit_tag=exp)
         return BER_tagging_enc(s, explicit_tag=self.explicit_tag)
     def randval(self):
         return RandChoice(*(packet.fuzz(x()) for x in self.choices.itervalues()))
