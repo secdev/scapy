@@ -20,7 +20,8 @@ At the moment, there are two different versions of Scapy:
 * **Scapy v1.x**. It consists of only one file and works on Python 2.4, so it might be easier to install.
   Moreover, your OS may already have a specially prepared packages or ports for it. Last version is v1.2.2.
 * **Scapy v2.x**. The current development version adds several features (e.g. IPv6). It consists of several
-  files  packaged in the standard distutils way. Scapy v2 needs Python 2.5.
+  files  packaged in the standard distutils way. Scapy v2 <= 2.3.3 needs Python 2.5, Scapy v2 > 2.3.3 needs
+  Python 2.7.
 
 .. note::
 
@@ -189,6 +190,18 @@ Here are the topics involved and some examples that you can use to try if your i
  
 * VOIP. ``voip_play()`` needs `SoX <http://sox.sourceforge.net/>`_.
  
+* IPSec Crypto Support. ``SecurityAssociation()`` needs `Pycrypto <https://github.com/dlitz/pycrypto>`_. Combined AEAD modes such as GCM and CCM require pycrypto2.7a1, which is only available from source (no pip or package).
+
+  .. code-block:: text
+  
+    # pycrypto 2.6 install
+    sudo pip install pycrypto
+
+    # pycrypto 2.7a1 install
+    curl -sL https://github.com/dlitz/pycrypto/archive/v2.7a1.tar.gz | tar xz
+    cd pycrypto-2.7a1
+    python setup.py build
+    sudo python setup.py install
 
 Platform-specific instructions
 ==============================
@@ -198,7 +211,7 @@ Linux native
 
 Scapy can run natively on Linux, without libdnet and libpcap.
 
-* Install `Python 2.5 <http://www.python.org>`_.
+* Install `Python 2.7 <http://www.python.org>`_.
 * Install `tcpdump <http://www.tcpdump.org>`_ and make sure it is in the $PATH. (It's only used to compile BPF filters (``-ddd option``))
 * Make sure your kernel has Packet sockets selected (``CONFIG_PACKET``)
 * If your kernel is < 2.6, make sure that Socket filtering is selected ``CONFIG_FILTER``) 
@@ -254,7 +267,7 @@ Install using Homebrew
 2. Install Python bindings::
 
    $ sudo brew install --with-python libdnet
-   $ sudo brew install https://raw.githubusercontent.com/secdev/scapy/master/.travis/pylibpcap.r
+   $ sudo brew install https://raw.githubusercontent.com/secdev/scapy/master/.travis/pylibpcap.rb
 
 
 Install using MacPorts
@@ -354,7 +367,7 @@ Scapy is primarily being developed for Unix-like systems and works best on those
 
 You need the following software packages in order to install Scapy on Windows:
 
-  * `Python <http://www.python.org>`_: `python-2.5.4.msi <http://www.python.org/ftp/python/2.5.4/python-2.5.4.msi>`_. `python-2.6.3.msi <http://www.python.org/ftp/python/2.6.3/python-2.6.3.msi>`_. After installation, add the Python installation directory and its \Scripts subdirectory to your PATH. Depending on your Python version, the defaults would be ``C:\Python25`` and ``C:\Python25\Scripts`` or ``C:\Python26`` and ``C:\Python26\Scripts`` respectively.
+  * `Python <http://www.python.org>`_: `python-2.7.12.msi <https://www.python.org/ftp/python/2.7.12/python-2.7.12.msi>`_. After installation, add the Python installation directory and its \Scripts subdirectory to your PATH. Depending on your Python version, the defaults would be ``C:\Python27`` and ``C:\Python27\Scripts`` respectively.
   * `Scapy <http://www.secdev.org/projects/scapy/>`_: `latest development version <https://github.com/secdev/scapy/archive/master.zip>`_ from the `Git repository <https://github.com/secdev/scapy>`_. Unzip the archive, open a command prompt in that directory and run "python setup.py install". 
   * `pywin32 <https://sourceforge.net/projects/pywin32/files/pywin32/>`_: `pywin32-220.win-amd64-py2.7.exe <https://sourceforge.net/projects/pywin32/files/pywin32/Build%20220/pywin32-220.win-amd64-py2.7.exe>`_ (64bits) or `pywin32-220.win32-py2.7.exe <https://sourceforge.net/projects/pywin32/files/pywin32/Build%20220/pywin32-220.win32-py2.7.exe>`_ (32bits)
   * `WinPcap <http://www.winpcap.org/>`_: `WinPcap_4_1_3.exe <https://www.winpcap.org/install/bin/WinPcap_4_1_3.exe>`_. You might want to choose "[x] Automatically start the WinPcap driver at boot time", so that non-privileged users can sniff, especially under Vista and Windows 7. If you want to use the ethernet vendor database to resolve MAC addresses or use the ``wireshark()`` command, download `Wireshark <http://www.wireshark.org/>`_ which already includes WinPcap. 

@@ -47,7 +47,7 @@ class PacketList(BasePacketList):
     def _elt2show(self, elt):
         return self._elt2sum(elt)
     def __repr__(self):
-        stats = dict((x, 0) for x in self.stats)
+        stats = {x: 0 for x in self.stats}
         other = 0
         for r in self.res:
             f = 0
