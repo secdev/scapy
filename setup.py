@@ -10,6 +10,7 @@ from distutils import sysconfig
 from distutils.core import setup
 from distutils.command.sdist import sdist
 import os
+import sys
 
 
 EZIP_HEADER = """#! /bin/sh
@@ -44,6 +45,8 @@ SCRIPTS = ['bin/scapy', 'bin/UTscapy']
 # On Windows we also need additional batch files to run the above scripts
 if os.name == "nt":
     SCRIPTS += ['bin/scapy.bat', 'bin/UTscapy.bat']
+
+sys.path.append(os.path.dirname(sys.argv[0]) or '.')
 
 setup(
     name='scapy',
