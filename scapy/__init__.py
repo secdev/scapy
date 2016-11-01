@@ -71,6 +71,18 @@ def _version():
                 tag = f.read()
             return tag
         except:
+            # last attempt, try to use the directory name, if it
+            # matches a Github archive structure
+            #
+            # NB: this might result in messages such as "Welcome to
+            # Scapy (master)", but that's still better than "Welcome
+            # to Scapy (unknown.version)" as this will tell us it
+            # comes from a Github archive
+            dirname = os.path.basename(os.path.dirname(os.path.abspath(
+                _SCAPY_PKG_DIR
+            )))
+            if dirname.startswith('scapy-'):
+                return dirname[6:]
             return 'unknown.version'
 
 VERSION = _version()
