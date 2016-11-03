@@ -449,6 +449,9 @@ class BERcodec_IPADDRESS(BERcodec_STRING):
 class BERcodec_COUNTER32(BERcodec_INTEGER):
     tag = ASN1_Class_UNIVERSAL.COUNTER32
 
+class BERcodec_GAUGE32(BERcodec_INTEGER):
+    tag = ASN1_Class_UNIVERSAL.GAUGE32
+
 class BERcodec_TIME_TICKS(BERcodec_INTEGER):
     tag = ASN1_Class_UNIVERSAL.TIME_TICKS
 

@@ -172,6 +172,7 @@ class ASN1_Class_UNIVERSAL(ASN1_Class):
     BMP_STRING = 30
     IPADDRESS = 0|0x40          # application-specific encoding
     COUNTER32 = 1|0x40          # application-specific encoding
+    GAUGE32 = 2|0x40            # application-specific encoding
     TIME_TICKS = 3|0x40         # application-specific encoding
 
 
@@ -373,7 +374,10 @@ class ASN1_IPADDRESS(ASN1_STRING):
 
 class ASN1_COUNTER32(ASN1_INTEGER):
     tag = ASN1_Class_UNIVERSAL.COUNTER32
-    
+
+class ASN1_GAUGE32(ASN1_INTEGER):
+    tag = ASN1_Class_UNIVERSAL.GAUGE32
+
 class ASN1_TIME_TICKS(ASN1_INTEGER):
     tag = ASN1_Class_UNIVERSAL.TIME_TICKS
    
