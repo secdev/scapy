@@ -4486,15 +4486,15 @@ assert bpkt.chksum == 0x7cc3 and bpkt.payload.chksum == 0x4b2c
 
 pkt = IP(options=[IPOption_RR()]) / TCP() / ("A" * 10)
 bpkt = IP(str(pkt))
-assert bpkt.chksum == 0xf0bb and bpkt.payload.chksum == 0x4b2c
+assert bpkt.chksum == 0x70bc and bpkt.payload.chksum == 0x4b2c
 
 pkt = IP(len=54, options=[IPOption_RR()]) / TCP() / ("A" * 10)
 bpkt = IP(str(pkt))
-assert bpkt.chksum == 0xf0bb and bpkt.payload.chksum == 0x4b2c
+assert bpkt.chksum == 0x70bc and bpkt.payload.chksum == 0x4b2c
 
 pkt = IP(len=54, ihl=6, options=[IPOption_RR()]) / TCP() / ("A" * 10)
 bpkt = IP(str(pkt))
-assert bpkt.chksum == 0xf0bb and bpkt.payload.chksum == 0x4b2c
+assert bpkt.chksum == 0x70bc and bpkt.payload.chksum == 0x4b2c
 
 pkt = IP() / UDP()
 bpkt = IP(str(pkt))
@@ -4522,15 +4522,15 @@ assert bpkt.chksum == 0x7cc4 and bpkt.payload.chksum == 0xbb17
 
 pkt = IP(options=[IPOption_RR()]) / UDP() / ("A" * 10)
 bpkt = IP(str(pkt))
-assert bpkt.chksum == 0xf0bc and bpkt.payload.chksum == 0xbb17
+assert bpkt.chksum == 0x70bd and bpkt.payload.chksum == 0xbb17
 
 pkt = IP(len=42, options=[IPOption_RR()]) / UDP() / ("A" * 10)
 bpkt = IP(str(pkt))
-assert bpkt.chksum == 0xf0bc and bpkt.payload.chksum == 0xbb17
+assert bpkt.chksum == 0x70bd and bpkt.payload.chksum == 0xbb17
 
 pkt = IP(len=42, ihl=6, options=[IPOption_RR()]) / UDP() / ("A" * 10)
 bpkt = IP(str(pkt))
-assert bpkt.chksum == 0xf0bc and bpkt.payload.chksum == 0xbb17
+assert bpkt.chksum == 0x70bd and bpkt.payload.chksum == 0xbb17
 
 = Layer binding
 
