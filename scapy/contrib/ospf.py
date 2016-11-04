@@ -36,9 +36,9 @@ class OSPFOptionsField(FlagsField):
 
     def __init__(self, name="options", default=0, size=8,
                  names=None):
-        FlagsField.__init__(self, name, default, size, names)
         if names is None:
             names = ["MT", "E", "MC", "NP", "L", "DC", "O", "DN"]
+        FlagsField.__init__(self, name, default, size, names)
 
 
 _OSPF_types = {1: "Hello",
@@ -133,9 +133,9 @@ class LLS_ExtendedOptionsField(FlagsField):
 
     def __init__(self, name="options", default=0, size=32,
                  names=None):
-        FlagsField.__init__(self, name, default, size, names)
         if names is None:
             names = ["LR", "RS"]
+        FlagsField.__init__(self, name, default, size, names)
 
 
 class LLS_Extended_Options(LLS_Generic_TLV):
@@ -460,9 +460,9 @@ class OSPFv3OptionsField(FlagsField):
 
     def __init__(self, name="options", default=0, size=24,
                  names=None):
-        FlagsField.__init__(self, name, default, size, names)
         if names is None:
             names = ["V6", "E", "MC", "N", "R", "DC", "AF", "L", "I", "F"]
+        FlagsField.__init__(self, name, default, size, names)
 
 
 class OSPFv3_Hello(Packet):
@@ -577,9 +577,9 @@ class OSPFv3PrefixOptionsField(FlagsField):
 
     def __init__(self, name="prefixoptions", default=0, size=8,
                  names=None):
-        FlagsField.__init__(self, name, default, size, names)
         if names is None:
             names = ["NU", "LA", "MC", "P"]
+        FlagsField.__init__(self, name, default, size, names)
 
 
 class OSPFv3_Inter_Area_Prefix_LSA(OSPF_BaseLSA):
