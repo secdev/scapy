@@ -18,7 +18,7 @@
 # @Author: GuillaumeF
 # @Date:   2016-10-18
 # @Last modified by:   GuilaumeF
-# @Last modified time: 2016-11-02 10:45:41
+# @Last modified time: 2016-11-03 11:45:08
 
 """
 Opc Data Access.
@@ -26,22 +26,33 @@ References : Data Access Custom Interface StanDard
 Using the website : http://pubs.opengroup.org/onlinepubs/9629399/chap12.htm
 """
 
+###############################################################################
+###############################################################################
+# Import
+###############################################################################
+###############################################################################
+
 import binascii
 from scapy.fields import *
 from scapy.packet import Packet
 import uuid #https://docs.python.org/2/library/uuid.html
 
+###############################################################################
+###############################################################################
 # Global Variables
+###############################################################################
+###############################################################################
+
 pfc_flag_objectUuid = 0
 auth_length = 0
 pdu_type = 0
 etat = 0
-# MS-Dcom.pdf 1.9
-_standardDcomEndpoint = {
-    '000001a5-0000-0000-c000-000000000046' : "ActivationContextInfo",
-    '00000338-0000-0000-c000-000000000046' : "ActivationPropertiesIn",
-    '39c13a4d-011e-11d0-9675-0020afd8adb3' : "IUnknwon"
-}
+
+###############################################################################
+###############################################################################
+# Defined values
+###############################################################################
+###############################################################################
 
 _tagOPCDataSource = {
     1 : "OPC_DS_CACHE",
@@ -228,6 +239,12 @@ _authentification_protocol = {
     1 : 'OsfDcePrivateKeyAuthentication',
 }
 
+###############################################################################
+###############################################################################
+#  Sub class for dissection
+###############################################################################
+###############################################################################
+
 class AuthentificationProtocol(Packet):
     name = 'authentificationProtocol'
     def extract_padding(self, p):
@@ -379,7 +396,16 @@ class ResultListLE(Packet):
     ]
 
 ###############################################################################
+# UUID defined for DCOM
 ###############################################################################
+
+# MS-Dcom.pdf 1.9
+_standardDcomEndpoint = {
+    '000001a5-0000-0000-c000-000000000046' : "ActivationContextInfo",
+    '00000338-0000-0000-c000-000000000046' : "ActivationPropertiesIn",
+    '39c13a4d-011e-11d0-9675-0020afd8adb3' : "IUnknwon"
+}
+
 ###############################################################################
 ###############################################################################
 
@@ -388,6 +414,30 @@ class ResultListLE(Packet):
 #  with the same sequence number and monotonically increasing fragment
 #  numbers. The body of a request PDU contains data that represents input
 #  parameters for the operation.
+class RequestSubData(Packet):
+    name = 'RequestSubData'
+    fields_desc = [
+        ShortField('versionMajor', 0),
+        ShortField('versionMinor', 0),
+        StrField('subdata', ''),
+    ]
+    def extract_padding(self, p):
+        return "", p
+
+class RequestSubDataLE(Packet):
+    name = 'RequestSubData'
+    fields_desc = [
+        LEShortField('versionMajor', 0),
+        LEShortField('versionMinor', 0),
+        LEIntField('flags',0),
+        LEIntField('reserved',0),
+        PUUID('uuid-test', str('0001'*8),1),
+        StrField('subdata', ''),
+    ]
+    def extract_padding(self, p):
+        return "", p
+
+
 class OpcDaRequest(Packet):
     name = "OpcDaRequest"
     fields_desc = [
@@ -395,8 +445,8 @@ class OpcDaRequest(Packet):
         ShortField('contextId', 0),
         ShortField('opNum', 0),
         PUUID("uuid", str('0001'*8), 0),
-        PacketLenField('subData', None, length_from=lambda pkt:pkt.allocHint),
-        # StrLenField('subData', None, length_from=lambda pkt:pkt.allocHint),
+        PacketLenField('subData', None, RequestSubData,
+            length_from=lambda pkt:pkt.allocHint),
         PacketField('authentication', None, AuthentificationProtocol),
     ]
     def extract_padding(self, p):
@@ -409,7 +459,8 @@ class OpcDaRequestLE(Packet):
         LEShortField('contextId', 0),
         LEShortField('opNum', 0),
         PUUID("uuid", str('0001'*8), 1),
-        StrLenField('subData', None, length_from=lambda pkt:pkt.allocHint),
+        PacketLenField('subData', None, RequestSubDataLE,
+            length_from=lambda pkt:pkt.allocHint),
         PacketField('authentication', None, AuthentificationProtocol),
     ]
     def extract_padding(self, p):
@@ -919,7 +970,8 @@ if __name__ == '__main__':
     # '000000001004301000000000000c00000000000004600000000045d888aeb1cc9119fe808'\
     # '002b10486002000000010001004301000000000000c000000000000046000000002c1cb76'\
     # 'c12984045030000000000000001000000'.decode('hex')
-    OpcDa_packet_request = '05000083100000008c00000009000000640000000400030007b00000f003000015384d9857f87b1c050007000000000000000000b71c168324e2c449875c7a9273739d9a0000000005000000000000000500000047005200500031000000000001000000e803000001000000000000000000020000000000000000000000000000000000c000000000000046'.decode('hex')
+    # OpcDa_packet_request = '05000083100000008c00000009000000640000000400030007b00000f003000015384d9857f87b1c050007000000000000000000b71c168324e2c449875c7a9273739d9a0000000005000000000000000500000047005200500031000000000001000000e803000001000000000000000000020000000000000000000000000000000000c000000000000046'.decode('hex')
+    OpcDa_packet_request = '050000831000000074000000050000004c0000000000030002fc0000ac030000b900764f3d063aaa050007000000000000000000c18e0a94d13a3647a5b6883fa4d4c0150000000028f80000ac030000e1b42e67158aaadf05000000010000000100000084b296b1b4ba1a10b69c00aa00341d07'.decode('hex')
     test_1 = OpcDaMessage(OpcDa_packet_request)
     test_1.show()
     #Request Ouverture Client 4 N°30

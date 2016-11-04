@@ -101,8 +101,6 @@ class Field(object):
             warning("no random class for [%s] (fmt=%s)." % (self.name, self.fmt))
 
 
-
-
 class Emph(object):
     __slots__ = ["fld"]
     def __init__(self, fld):
