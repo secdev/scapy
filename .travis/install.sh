@@ -1,7 +1,11 @@
 # Install dependencies using pip
-if [ -z $TRAVIS_SUDO ] && [ "$TRAVIS_OS_NAME" = "osx" ]
-then 
-  PIP_INSTALL_FLAGS="--user"
+if [ -z "$TRAVIS_SUDO" -o "$TRAVIS_SUDO" = "false" ]
+then
+  TRAVIS_SUDO=""
+  if [ "$TRAVIS_OS_NAME" = "osx" ]
+  then
+    PIP_INSTALL_FLAGS="--user"
+  fi
 fi
 $TRAVIS_SUDO pip install $PIP_INSTALL_FLAGS ecdsa mock
 
