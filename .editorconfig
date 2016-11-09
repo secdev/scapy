@@ -1,0 +1,25 @@
+# Copying and distribution of this file, with or without modification,
+# are permitted in any medium without royalty provided this notice is
+# preserved.  This file is offered as-is, without any warranty.
+# Names of contributors must not be used to endorse or promote products
+# derived from this file without specific prior written permission.
+
+# EditorConfig
+# http://EditorConfig.org
+
+# top-most EditorConfig file
+root = true
+
+# LF end-of-line, insert an empty new line and UTF-8
+[*]
+end_of_line = lf
+insert_final_newline = true
+charset = utf-8
+
+# Tab indentation
+[makefile,Makefile]
+indent_style = tab
+## PEP 0008 https://www.python.org/dev/peps/pep-0008/
+[*.py]
+indent_style = space
+indent_size = 4
