@@ -18,12 +18,16 @@
 # @Author: GuillaumeF
 # @Date:   2016-10-18
 # @Last modified by:   GuilaumeF
-# @Last modified time: 2016-11-03 11:45:08
+# @Last modified time: 2016-11-09 15:30:36
 
 """
 Opc Data Access.
 References : Data Access Custom Interface StanDard
 Using the website : http://pubs.opengroup.org/onlinepubs/9629399/chap12.htm
+
+DCOM Remote Protocol.
+References : Specifies Distributed Component Object Model (DCOM) Remote Protocol
+Using the website : https://msdn.microsoft.com/en-us/library/cc226801.aspx
 """
 
 ###############################################################################
@@ -399,11 +403,45 @@ class ResultListLE(Packet):
 # UUID defined for DCOM
 ###############################################################################
 
+# Specifies the Distributed Component Object Model (DCOM) Remote Protocol
+# https://msdn.microsoft.com/en-us/library/cc226801.aspx
 # MS-Dcom.pdf 1.9
+# OPC DA Specification.pdf
 _standardDcomEndpoint = {
+    # MS-DCOM
+    '4d9f4ab8-7d1c-11cf-861e-0020af6e7c57' : "IActivation",
+    '000001A0-0000-0000-C000-000000000046' : "IRemoteSCMActivator",
+    '99fcfec4-5260-101b-bbcb-00aa0021347a' : "IObjectExporter",
+    '00000000-0000-0000-C000-000000000046' : "IUnknown",
+    '00000131-0000-0000-C000-000000000046' : "IRemUnknown_IUnknown",
+    '00000143-0000-0000-C000-000000000046' : "IRemUnknown2_IRemUnknown",
+    # OLE for Process Control
+    '63D5F430-CFE4-11d1-B2C8-0060083BA1FB' : "CATID_OPCDAServer10",
+    '63D5F432-CFE4-11d1-B2C8-0060083BA1FB' : "CATID_OPCDAServer20",
+    'CC603642-66D7-48f1-B69A-B625E73652D7' : "CATID_OPCDAServer30",
+    '39c13a4d-011e-11d0-9675-0020afd8adb3' : "IOPCServer_IUnknown",
+    '39c13a4e-011e-11d0-9675-0020afd8adb3' : "IOPCServerPublicGroups_IUnknown",
+    '39c13a4f-011e-11d0-9675-0020afd8adb3' : "IOPCBrowseServerAddrSpace_IUnknown",
+    '39c13a50-011e-11d0-9675-0020afd8adb3' : "IOPCGroupStateMgt_IUnknown",
+    '39c13a51-011e-11d0-9675-0020afd8adb3' : "IOPCPublicGroupStateMgt_IUnknown",
+    '39c13a52-011e-11d0-9675-0020afd8adb3' : "IOPCSyncIO_IUnknown",
+    '39c13a53-011e-11d0-9675-0020afd8adb3' : "IOPCAsyncIO_IUnknown",
+    '39c13a54-011e-11d0-9675-0020afd8adb3' : "IOPCItemMgt_IUnknown",
+    '39c13a55-011e-11d0-9675-0020afd8adb3' : "IEnumOPCItemAttributes_IUnknown",
+    '39c13a70-011e-11d0-9675-0020afd8adb3' : "IOPCDataCallback_IUnknown",
+    '39c13a71-011e-11d0-9675-0020afd8adb3' : "IOPCAsyncIO2_IUnknown",
+    '39c13a72-011e-11d0-9675-0020afd8adb3' : "IOPCItemProperties_IUnknown",
+    '5946DA93-8B39-4ec8-AB3D-AA73DF5BC86F' : "IOPCItemDeadbandMgt_IUnknown",
+    '3E22D313-F08B-41a5-86C8-95E95CB49FFC' : "IOPCItemSamplingMgt_IUnknown",
+    '39227004-A18F-4b57-8B0A-5235670F4468' : "IOPCBrowse_IUnknown",
+    '85C0B427-2893-4cbc-BD78-E5FC5146F08F' : "IOPCItemIO_IUnknown",
+    '730F5F0F-55B1-4c81-9E18-FF8A0904E1FA' : "IOPCSyncIO2_IOPCSyncIO",
+    '0967B97B-36EF-423e-B6F8-6BFF1E40D39D' : "IOPCAsyncIO3_IOPCAsyncIO2",
+    '8E368666-D72E-4f78-87ED-647611C61C9F' : "IOPCGroupStateMgt2_IOPCGroupStateMgt",
+    '3B540B51-0378-4551-ADCC-EA9B104302BF' : "library_OPCDA",
+    #  Other
     '000001a5-0000-0000-c000-000000000046' : "ActivationContextInfo",
     '00000338-0000-0000-c000-000000000046' : "ActivationPropertiesIn",
-    '39c13a4d-011e-11d0-9675-0020afd8adb3' : "IUnknwon"
 }
 
 ###############################################################################
