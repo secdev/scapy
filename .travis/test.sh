@@ -1,10 +1,11 @@
 # Dump Scapy config
 python -c "from scapy.all import *; print conf"
 
-# Don't run tests that requires root privileges
-if [ -z $TRAVIS_SUDO ]
+# Don't run tests that require root privileges
+if [ -z "$TRAVIS_SUDO" -o "$TRAVIS_SUDO" = "false" ]
 then
   UT_FLAGS="-K netaccess "
+  TRAVIS_SUDO=""
 fi
 
 # Test AEAD modes in IPSec if available
