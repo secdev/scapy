@@ -1352,7 +1352,9 @@ class ICMPv6MLQuery(_ICMPv6ML): # RFC 2710
     overload_fields = {IPv6: { "dst": "ff02::1", "hlim": 1, "nh": 58 }} 
     def hashret(self):
         if self.mladdr != "::":
-            return struct.pack("HH",self.mladdr)+self.payload.hashret()
+            return (
+                inet_pton(socket.AF_INET6, self.mladdr) + self.payload.hashret()
+            )
         else:
             return self.payload.hashret()
         
