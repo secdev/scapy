@@ -190,7 +190,7 @@ Here are the topics involved and some examples that you can use to try if your i
  
 * VOIP. ``voip_play()`` needs `SoX <http://sox.sourceforge.net/>`_.
  
-* IPSec Crypto Support. ``SecurityAssociation()`` needs `Pycrypto <https://github.com/dlitz/pycrypto>`_. Combined AEAD modes such as GCM and CCM require pycrypto2.7a1, which is only available from source (no pip or package).
+* IPsec Crypto Support. ``SecurityAssociation()`` needs `Pycrypto <https://github.com/dlitz/pycrypto>`_. Combined AEAD modes such as GCM and CCM require pycrypto2.7a1, which is only available from source (no pip or package).
 
   .. code-block:: text
   
@@ -267,7 +267,7 @@ Install using Homebrew
 2. Install Python bindings::
 
    $ sudo brew install --with-python libdnet
-   $ sudo brew install https://raw.githubusercontent.com/secdev/scapy/master/.travis/pylibpcap.r
+   $ sudo brew install https://raw.githubusercontent.com/secdev/scapy/master/.travis/pylibpcap.rb
 
 
 Install using MacPorts

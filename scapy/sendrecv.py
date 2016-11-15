@@ -623,7 +623,10 @@ interfaces)
                 ins, _, _ = select(sniff_sockets, [], [], remain)
             for s in ins:
                 p = s.recv()
-                if p is not None:
+                if p is None and offline is not None:
+                    stop_event = True
+                    break
+                elif p is not None:
                     if lfilter and not lfilter(p):
                         continue
                     if s in label:

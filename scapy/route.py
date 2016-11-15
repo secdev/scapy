@@ -8,7 +8,7 @@ Routing and handling of network interfaces.
 """
 
 import socket
-from scapy.arch.consts import LOOPBACK_NAME
+from scapy.arch.consts import LOOPBACK_NAME, WINDOWS
 from scapy.utils import atol,ltoa,itom
 from scapy.config import conf
 from scapy.error import Scapy_Exception,warning
@@ -36,7 +36,7 @@ class Route:
             rt += "%-15s %-15s %-15s %-15s %-15s\n" % (ltoa(net),
                                               ltoa(msk),
                                               gw,
-                                              iface,
+                                              (iface.name if WINDOWS else iface),
                                               addr)
         return rt
 
