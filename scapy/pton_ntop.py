@@ -61,7 +61,7 @@ def inet_pton(af, addr):
 
 
 def inet_ntop(af, addr):
-    """Convert an IP address from binary form into text represenation"""
+    """Convert an IP address from binary form into text representation"""
     if af == socket.AF_INET:
         return socket.inet_ntoa(addr)
     elif af == socket.AF_INET6:

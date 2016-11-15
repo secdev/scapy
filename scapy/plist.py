@@ -125,7 +125,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
         return self.__class__(filter(func,self.res),
                               name="filtered %s"%self.listname)
     def make_table(self, *args, **kargs):
-        """Prints a table using a function that returs for each packet its head column value, head row value and displayed value
+        """Prints a table using a function that returns for each packet its head column value, head row value and displayed value
         ex: p.make_table(lambda x:(x[IP].dst, x[TCP].dport, x[TCP].sprintf("%flags%")) """
         return make_table(self.res, *args, **kargs)
     def make_lined_table(self, *args, **kargs):
@@ -139,7 +139,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
         """Applies a function to each packet to get a value that will be plotted
         with matplotlib. A list of matplotlib.lines.Line2D is returned.
 
-        lfilter: a truth function that decides whether a packet must be ploted
+        lfilter: a truth function that decides whether a packet must be plotted
         """
 
         # Get the list of packets
@@ -422,7 +422,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
                  
 
     def psdump(self, filename = None, **kargs):
-        """Creates a multipage poscript file with a psdump of every packet
+        """Creates a multi-page postcript file with a psdump of every packet
         filename: name of the file to write to. If empty, a temporary file is used and
                   conf.prog.psreader is called"""
         d = self._dump_document(**kargs)

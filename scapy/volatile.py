@@ -656,7 +656,7 @@ class GeneralizedTime(AutoTime):
 
 
 class DelayedEval(VolatileValue):
-    """ Exemple of usage: DelayedEval("time.time()") """
+    """ Example of usage: DelayedEval("time.time()") """
     def __init__(self, expr):
         self.expr = expr
     def _fix(self):

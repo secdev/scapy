@@ -299,7 +299,7 @@ def str2mac(s):
 def strxor(x,y):
     return "".join(map(lambda x,y:chr(ord(x)^ord(y)),x,y))
 
-# Workarround bug 643005 : https://sourceforge.net/tracker/?func=detail&atid=105470&aid=643005&group_id=5470
+# Workaround bug 643005 : https://sourceforge.net/tracker/?func=detail&atid=105470&aid=643005&group_id=5470
 try:
     socket.inet_aton("255.255.255.255")
 except socket.error:
@@ -651,7 +651,7 @@ class RawPcapReader:
     def dispatch(self, callback):
         """call the specified callback routine for each packet read
         
-        This is just a convienience function for the main loop
+        This is just a convenience function for the main loop
         that allows for easy launching of packet processing in a 
         thread.
         """
@@ -826,7 +826,7 @@ class RawPcapWriter:
 filename: the name of the file to write packets to, or an open,
           writable file-like object.
 linktype: force linktype to a given value. If None, linktype is taken
-          from the first writter packet
+          from the first writer packet
 gz: compress the capture on the fly
 endianness: force an endianness (little:"<", big:">"). Default is native
 append: append packets to the capture file instead of truncating it

@@ -9888,7 +9888,7 @@ class MultiRateConfiguration(Packet):
     """ MultiRate configuration Section 10.5.2.21aa"""
     name = "MultiRate Configuration"
  # This  packet has a variable length and hence structure. This packet
- # implements the longuest possible  packet. If you biuild a shorter
+ # implements the longest possible  packet. If you build a shorter
  #  packet, for example having only 6 bytes, the last 4 bytes are  named
  # "Spare" in the specs. Here they are  named "threshold2"
     fields_desc = [

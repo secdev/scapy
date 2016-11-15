@@ -78,7 +78,7 @@ IGMPv2 message format   http://www.faqs.org/rfcs/rfc2236.html
 
 #--------------------------------------------------------------------------
   def igmpize(self, ip=None, ether=None):
-    """Called to explicitely fixup associated IP and Ethernet headers
+    """Called to explicitly fixup associated IP and Ethernet headers
 
     Parameters:
       self    The instantiation of an IGMP class.
@@ -110,7 +110,7 @@ IGMPv2 message format   http://www.faqs.org/rfcs/rfc2236.html
 
 #--------------------------------------------------------------------------
   def adjust_ether (self, ip=None, ether=None):
-    """Called to explicitely fixup an associated Ethernet header
+    """Called to explicitly fixup an associated Ethernet header
 
     The function adjusts the ethernet header destination MAC address based on 
     the destination IP address.
@@ -127,7 +127,7 @@ IGMPv2 message format   http://www.faqs.org/rfcs/rfc2236.html
 
 #--------------------------------------------------------------------------
   def adjust_ip (self, ip=None):
-    """Called to explicitely fixup an associated IP header
+    """Called to explicitly fixup an associated IP header
 
     The function adjusts the IP header based on conformance rules 
     and the group address encoded in the IGMP message.
