@@ -282,7 +282,7 @@ def _prompt_changer(attr,val):
     try:
         ct = val
         if isinstance(ct, themes.AnsiColorTheme) and ct.prompt(""):
-            ## ^A and ^B delimit invisible caracters for readline to count right.
+            ## ^A and ^B delimit invisible characters for readline to count right.
             ## And we need ct.prompt() to do change something or else ^A and ^B will be
             ## displayed
              prompt = "\001%s\002" % ct.prompt("\002"+prompt+"\001")
@@ -293,7 +293,7 @@ def _prompt_changer(attr,val):
     sys.ps1 = prompt
 
 class Conf(ConfClass):
-    """This object contains the configuration of scapy.
+    """This object contains the configuration of Scapy.
 session  : filename where the session will be saved
 interactive_shell : If set to "ipython", use IPython as shell. Default: Python 
 stealth  : if 1, prevents any unwanted packet to go out (ARP, DNS, ...)
@@ -308,13 +308,13 @@ promisc  : default mode for listening socket (to get answers if you spoof on a l
 sniff_promisc : default mode for sniff()
 filter   : bpf filter added to every sniffing socket to exclude traffic from analysis
 histfile : history file
-padding  : includes padding in desassembled packets
+padding  : includes padding in disassembled packets
 except_filter : BPF filter for packets to ignore
 debug_match : when 1, store received packet that are not matched into debug.recv
 route    : holds the Scapy routing table and provides methods to manipulate it
 warning_threshold : how much time between warnings from the same place
 ASN1_default_codec: Codec used by default for ASN1 objects
-mib      : holds MIB direct access dictionnary
+mib      : holds MIB direct access dictionary
 resolve   : holds list of fields for which resolution should be done
 noenum    : holds list of enum fields for which conversion to string should NOT be done
 AS_resolver: choose the AS resolver class to use
@@ -390,7 +390,7 @@ contribs: a dict which can be used by contrib layers to store local configuratio
 
 
 if not Conf.ipv6_enabled:
-    log_scapy.warning("IPv6 support disabled in Python. Cannot load scapy IPv6 layers.")
+    log_scapy.warning("IPv6 support disabled in Python. Cannot load Scapy IPv6 layers.")
     for m in ["inet6","dhcp6"]:
         if m in Conf.load_layers:
             Conf.load_layers.remove(m)

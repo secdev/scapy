@@ -202,7 +202,7 @@ def parse_campaign_file(campaign_file):
         else:
             if test is None:
                 if l.strip():
-                    print >>sys.stderr, "Unkonwn content [%s]" % l.strip()
+                    print >>sys.stderr, "Unknown content [%s]" % l.strip()
             else:
                 test.test += l
     return test_campaign

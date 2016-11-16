@@ -108,7 +108,7 @@ class L3RawSocket(SuperSocket):
             log_runtime.error(msg)
 
 class SimpleSocket(SuperSocket):
-    desc = "wrapper arround a classic socket"
+    desc = "wrapper around a classic socket"
     def __init__(self, sock):
         self.ins = sock
         self.outs = sock

@@ -244,7 +244,7 @@ class PNIORealTime(Packet):
     @staticmethod
     def find_data(packets):
         """Analyse a packet list to extract data offsets from packets data."""
-        # a dictionnary to count data offsets (ie != 0x80)
+        # a dictionary to count data offsets (ie != 0x80)
         # It's formatted: {(src, dst): (total, [count for offset in len])}
         heuristic = {}
 
