@@ -12,6 +12,7 @@ import math
 from ecdsa.util import sigencode_der, sigdecode_der
 
 from scapy.config import conf
+from scapy.error import warning
 from scapy.fields import *
 from scapy.packet import Packet, Raw, Padding
 from scapy.layers.tls.cert import PubKey
@@ -800,7 +801,8 @@ class EncryptedPreMasterSecret(_GenericTLSSessionInheritance):
                 return m
             l = struct.unpack("!H", m[:2])[0]
             if len(m) != l+2:
-                print "TLS 1.0+, but RSA Encrypted PMS with no explicit length"
+                err = "TLS 1.0+, but RSA Encrypted PMS with no explicit length"
+                warning(err)
             else:
                 tbd = m[2:]
         if s.server_rsa_key is not None:
@@ -808,7 +810,8 @@ class EncryptedPreMasterSecret(_GenericTLSSessionInheritance):
             pms = decrypted[-48:]
         else:
             pms = "\x00"*48     # Hack but we should not be there anyway
-            print "No server RSA key to decrypt Pre Master Secret. Skipping."
+            err = "No server RSA key to decrypt Pre Master Secret. Skipping."
+            warning(err)
 
         s.pre_master_secret = pms
         s.compute_ms_and_derive_keys()
@@ -833,7 +836,7 @@ class EncryptedPreMasterSecret(_GenericTLSSessionInheritance):
         elif self.tls_session.server_tmp_rsa_key is not None:
             enc = s.server_tmp_rsa_key.encrypt(pkt, "pkcs")
         else:
-            print "No material to encrypt Pre Master Secret"
+            warning("No material to encrypt Pre Master Secret")
 
         l = ""
         if s.tls_version >= 0x0301:

@@ -12,6 +12,7 @@ import socket
 import struct
 
 from scapy.config import conf
+from scapy.error import warning
 from scapy.packet import Packet
 from scapy.utils import repr_hex
 from scapy.layers.tls.crypto.compression import Comp_NULL
@@ -242,8 +243,8 @@ class tlsSession(object):
     key exchange parameters and the master secret (when available).
     """
     def __init__(self,
-                 ipsrc="0.0.0.0", ipdst="0.0.0.0",
-                 sport=0, dport=0, sid=None,
+                 ipsrc=None, ipdst=None,
+                 sport=None, dport=None, sid=None,
                  connection_end="client",
                  wcs=None, rcs=None):
 
@@ -366,11 +367,11 @@ class tlsSession(object):
 
     def compute_master_secret(self):
         if self.pre_master_secret is None:
-            print "Missing pre_master_secret while computing master_secret"
+            warning("Missing pre_master_secret while computing master_secret")
         if self.client_random is None:
-            print "Missing client_random while computing master_secret"
+            warning("Missing client_random while computing master_secret")
         if self.server_random is None:
-            print "Missing server_random while computing master_secret"
+            warning("Missing server_random while computing master_secret")
 
         ms = self.pwcs.prf.compute_master_secret(self.pre_master_secret,
                                                  self.client_random,
@@ -441,8 +442,8 @@ class tlsSession(object):
         sid = repr(self.sid)
         if len(sid) > 12:
             sid = sid[:11] + "..."
-        return "%s[%d] <-> %s[%d] %s" % (self.ipsrc, self.sport,
-                                         self.ipdst, self.dport, sid)
+        return "%s:%s > %s:%s" % (self.ipsrc, str(self.sport),
+                                  self.ipdst, str(self.dport))
 
 
 ###############################################################################
@@ -508,6 +509,10 @@ class _GenericTLSSessionInheritance(Packet):
         We need self.__class__ to call the subclass in a dynamic way.
         """
         self.__class__(str(self), tls_session=self.tls_session).show()
+
+    # Uncomment this when the automata update IPs and ports properly
+    #def mysummary(self):
+    #    return "TLS %s" % repr(self.tls_session)
 
 
 ###############################################################################

@@ -7,6 +7,7 @@
 TLS Pseudorandom Function.
 """
 
+from scapy.error import warning
 from scapy.utils import strxor
 
 from scapy.layers.tls.crypto.hash import tls_hash_algs
@@ -78,7 +79,7 @@ def _ssl_PRF(secret, seed, req_len):
 
     """
     if req_len > 416:
-        print "_ssl_PRF() is not expected to provide more than 416 bytes"
+        warning("_ssl_PRF() is not expected to provide more than 416 bytes")
         return ""
 
     d = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M",
@@ -176,7 +177,7 @@ class PRF(object):
             else:
                 self.prf = _tls12_SHA256PRF
         else:
-            print "Unknown TLS version"
+            warning("Unknown TLS version")
 
     def compute_master_secret(self, pre_master_secret,
                               client_random, server_random):

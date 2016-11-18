@@ -33,8 +33,10 @@ import time
 import ecdsa
 from Crypto.PublicKey import RSA
 
+from scapy.config import conf
 from scapy.asn1.asn1 import ASN1_BIT_STRING
 from scapy.asn1.mib import hash_by_oid
+from scapy.error import warning
 from scapy.layers.x509 import X509_SubjectPublicKeyInfo
 from scapy.layers.x509 import RSAPublicKey, RSAPrivateKey
 from scapy.layers.x509 import ECDSAPublicKey, ECDSAPrivateKey
@@ -57,10 +59,10 @@ MAX_CRL_SIZE = 10*1024*1024   # some are that big
 # Some helpers
 #####################################################################
 
+@conf.commands.register
 def der2pem(der_string, obj="UNKNOWN"):
-    """
-    Encode a byte string in PEM format. Header advertizes <obj> type.
-    """
+    """Convert DER octet string to PEM format (with optional header)"""
+    # Encode a byte string in PEM format. Header advertizes <obj> type.
     pem_string = "-----BEGIN %s-----\n" % obj
     base64_string = base64.b64encode(der_string)
     chunks = [base64_string[i:i+64] for i in range(0, len(base64_string), 64)]
@@ -68,10 +70,10 @@ def der2pem(der_string, obj="UNKNOWN"):
     pem_string += "\n-----END %s-----\n" % obj
     return pem_string
 
+@conf.commands.register
 def pem2der(pem_string):
-    """
-    Encode every line between the first '-----\n' and the 2nd-to-last '-----'.
-    """
+    """Convert PEM string to DER format"""
+    # Encode all lines between the first '-----\n' and the 2nd-to-last '-----'.
     pem_string = pem_string.replace("\r", "")
     first_idx = pem_string.find("-----\n") + 6
     if pem_string.find("-----BEGIN", first_idx) != -1:
@@ -223,9 +225,7 @@ class PubKey(object):
     __metaclass__ = _PubKeyFactory
 
     def verifyCert(self, cert):
-        """
-        Verifies either a Cert or an X509_Cert.
-        """
+        """ Verifies either a Cert or an X509_Cert. """
         tbsCert = cert.tbsCertificate
         sigAlg = tbsCert.signature
         h = hash_by_oid[sigAlg.algorithm.val]
@@ -378,8 +378,18 @@ class PrivKey(object):
         return c
 
     def resignCert(self, cert):
-        # works with both Cert and X509_Cert types
+        """ Rewrite the signature of either a Cert or an X509_Cert. """
         return self.signTBSCert(cert.tbsCertificate)
+
+    def verifyCert(self, cert):
+        """ Verifies either a Cert or an X509_Cert. """
+        tbsCert = cert.tbsCertificate
+        sigAlg = tbsCert.signature
+        h = hash_by_oid[sigAlg.algorithm.val]
+        sigVal = str(cert.signatureValue)
+        return self.verify(str(tbsCert), sigVal, h=h,
+                           t='pkcs',
+                           sigdecode=ecdsa.util.sigdecode_der)
 
 
 class PrivKeyRSA(_PKIObj, PrivKey, _EncryptAndVerifyRSA, _DecryptAndSignRSA):
@@ -579,7 +589,7 @@ class Cert(_PKIObj):
                 else:
                     now = time.strptime(now, '%b %d %H:%M:%S %Y %Z')
             except:
-                print "Bad time string provided, will use localtime() instead."
+                warning("Bad time string provided, will use localtime() instead.")
                 now = time.localtime()
 
         now = time.mktime(now)

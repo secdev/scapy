@@ -27,6 +27,7 @@ t.run()
 import socket
 import struct
 
+from scapy.error import warning
 from scapy.automaton import Automaton, ATMT
 from scapy.layers.tls.cert import Cert, PrivKey, PrivKeyRSA, PrivKeyECDSA
 from scapy.layers.tls.basefields import _tls_version

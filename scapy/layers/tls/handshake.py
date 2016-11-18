@@ -12,6 +12,7 @@ mechanisms which are addressed with keyexchange.py.
 
 import math
 
+from scapy.error import warning
 from scapy.fields import *
 from scapy.packet import Packet, Raw, Padding
 from scapy.utils import repr_hex
@@ -121,13 +122,9 @@ class _GMTUnixTimeField(IntField):
         return 0
 
 class _TLSRandomBytesField(StrFixedLenField):
-    def i2h(self, pkt, x):
-        if x:
-            return x
-        l = self.length_from(pkt)
-        return '\x00'*l
-
     def i2repr(self, pkt, x):
+        if x is None:
+            return repr(x)
         return repr_hex(self.i2h(pkt,x))
 
 
@@ -789,12 +786,18 @@ class TLSClientHello(_TLSHandshake):
                     _ExtensionsField("ext", None,
                                      length_from=lambda pkt: pkt.extlen) ]
 
+    def post_build(self, p, pay):
+        if self.random_bytes is None:
+            p = p[:10] + randstring(28) + p[10+28:]
+        return super(TLSClientHello, self).post_build(p, pay)
+
     def tls_session_update(self, msg_str):
         """
         Either for parsing or building, we store the client_random
         along with the raw string representing this handshake message.
         """
         self.tls_session.advertised_tls_version = self.version
+        self.random_bytes = msg_str[10:38]
         self.tls_session.client_random = (struct.pack('!I',
                                                       self.gmt_unix_time) +
                                           self.random_bytes)
@@ -841,7 +844,6 @@ class TLSServerHello(TLSClientHello):
                     _ExtensionsField("ext", [],
                                      length_from=lambda pkt: pkt.extlen) ]
 
-
     def tls_session_update(self, msg_str):
         """
         Either for parsing or building, we store the server_random
@@ -853,6 +855,7 @@ class TLSServerHello(TLSClientHello):
         are committed once a ChangeCipherSpec has been sent/received.
         """
         self.tls_session.tls_version = self.version
+        self.random_bytes = msg_str[10:38]
         self.tls_session.server_random = (struct.pack('!I',
                                                       self.gmt_unix_time) +
                                           self.random_bytes)
@@ -864,7 +867,7 @@ class TLSServerHello(TLSClientHello):
         if self.cipher:
             cs_val = self.cipher
             if not _tls_cipher_suites_cls.has_key(cs_val):
-                print "Unknown cipher suite %d from ServerHello" % cs_val
+                warning("Unknown cipher suite %d from ServerHello" % cs_val)
                 # we do not try to set a default nor stop the execution
             else:
                 cs_cls = _tls_cipher_suites_cls[cs_val]
@@ -872,7 +875,8 @@ class TLSServerHello(TLSClientHello):
         if self.comp:
             comp_val = self.comp[0]
             if not _tls_compression_algs_cls.has_key(comp_val):
-                print "Unknown compression alg %d from ServerHello" % comp_val
+                err = "Unknown compression alg %d from ServerHello" % comp_val
+                warning(err)
                 comp_val = 0
             comp_cls = _tls_compression_algs_cls[comp_val]
 

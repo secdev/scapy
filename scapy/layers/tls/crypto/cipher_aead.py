@@ -23,6 +23,7 @@ import struct
 
 from Crypto.Cipher import AES
 
+from scapy.error import warning
 from scapy.layers.tls.crypto.pkcs1 import pkcs_i2osp, pkcs_os2ip
 from scapy.layers.tls.crypto.ciphers import CipherError
 
@@ -89,7 +90,7 @@ class _AEADCipher(object):
         Additional data may be authenticated without encryption (as A).
         """
         if self.pc_cls_mode is None:
-            print "No AEAD support! Please install pycrypto 2.7a or later."
+            warning("No AEAD support! Please install pycrypto 2.7a or later.")
             raise CipherError
 
         nonce_explicit = pkcs_i2osp(self.nonce_explicit,
@@ -121,7 +122,7 @@ class _AEADCipher(object):
                                       C[-self.tag_len:])
 
         if self.pc_cls_mode is None:
-            print "No AEAD support! Please install pycrypto 2.7a or later."
+            warning("No AEAD support! Please install pycrypto 2.7a or later.")
             raise CipherError, (nonce_explicit_str, C, mac)
 
         if self.key is None:

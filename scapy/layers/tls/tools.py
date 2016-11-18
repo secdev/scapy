@@ -7,6 +7,7 @@
 TLS helpers, provided as out-of-context methods.
 """
 
+from scapy.error import warning
 from scapy.fields import (ByteEnumField, ShortEnumField,
                           FieldLenField, StrLenField)
 from scapy.packet import Packet
@@ -118,16 +119,16 @@ def _tls_del_pad(p):
     """
 
     if p.len < 1:
-        print "Message format is invalid (padding)"
+        warning("Message format is invalid (padding)")
         return False
 
     padlen = ord(p.fragment[-1]) + 1
     if (p.len < padlen):
-        print "Invalid padding length"
+        warning("Invalid padding length")
         return False
 
     if (p.fragment[-padlen:] != p.fragment[-1] * padlen):
-        print "Padding content is invalid %s" % repr(p.fragment[-padlen:])
+        warning("Padding content is invalid %s" % repr(p.fragment[-padlen:]))
         return False
 
     p.fragment = p.fragment[:-padlen]

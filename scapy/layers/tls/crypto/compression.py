@@ -9,6 +9,8 @@ TLS compression.
 
 import zlib
 
+from scapy.error import warning
+
 
 _tls_compression_algs = {}
 _tls_compression_algs_cls = {}
@@ -73,10 +75,10 @@ class Comp_LZS(_GenericComp):
     val = 64
 
     def compress(self, s):
-        print "LZS Compression algorithm is not implemented yet"
+        warning("LZS Compression algorithm is not implemented yet")
         return s
 
     def decompress(self, s):
-        print "LZS Compression algorithm is not implemented yet"
+        warning("LZS Compression algorithm is not implemented yet")
         return s
 

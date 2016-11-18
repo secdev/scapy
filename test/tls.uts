@@ -687,6 +687,10 @@ assert(not t1.pad and not t1.padlen)
 len(t1.msg) == 1
 
 
++ Test TLS Record __getitem__
+= Reading test session - TLS Record __getitem__
+TLSClientHello in t1
+
 + Test TLS ClientHello
 = Reading test session - ClientHello
 ch = t1.msg[0]
@@ -739,6 +743,7 @@ ext[8].sig_algs[-1] == 0x0202
 
 + Test TLS ServerHello
 = Reading test session - ServerHello
+assert(TLSServerHello in t2)
 sh = t2.msg[0]
 assert(isinstance(sh, TLSServerHello))
 assert(sh.gmt_unix_time == 0x46076ee2)
