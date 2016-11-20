@@ -89,7 +89,7 @@ If you always want the latest version with all new features and bugfixes, use Sc
 
    or on OpenBSD:: 
     
-      $ pkg_add git
+      $ doas pkg_add git
 
 2. Check out a clone of Scapy's repository::
     
@@ -285,17 +285,15 @@ Install using MacPorts
 OpenBSD
 -------
 
-Here's how to install Scapy on OpenBSD 4.3.
+Here's how to install Scapy on OpenBSD 5.9+
 
 .. code-block:: text
 
- # export PKG_PATH=ftp://ftp.openbsd.org/pub/OpenBSD/4.3/packages/i386/
- # pkg_add py-libpcap py-libdnet git
- # ln -sf /usr/local/bin/python2.5 /usr/local/bin/python
- # cd /tmp
- # git clone http://github.com/secdev/scapy
- # cd scapy
- # python setup.py install
+ $ doas pkg_add py-libpcap py-libdnet git
+ $ cd /tmp
+ $ git clone http://github.com/secdev/scapy
+ $ cd scapy
+ $ doas python2.7 setup.py install
 
 
 Optional packages
