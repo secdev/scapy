@@ -2998,7 +2998,7 @@ class TracerouteResult6(TracerouteResult):
 
         for k in trace.itervalues():
             try:
-                m = min(x for x, y in k.itervalues() if y[1])
+                m = min(x for x, y in k.itervalues() if y)
             except ValueError:
                 continue
             for l in k.keys():  # use .keys(): k is modified in the loop
