@@ -4585,7 +4585,7 @@ default            link#11            UCSI            1        0 bridge1
     # Mocked file descriptors
     def se_popen(command):
         """Perform specific side effects"""
-        if command == "netstat -rn":
+        if command.startswith("netstat -rn"):
 	    return StringIO.StringIO(netstat_output)
         elif command == "ifconfig -l":
 	    ret = StringIO.StringIO(ifconfig_output)
