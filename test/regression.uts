@@ -4566,7 +4566,7 @@ assert isinstance(pkt, DNS) and isinstance(pkt.payload, NoPayload)
 import mock
 import StringIO
 
-@mock.patch("scapy.arch.get_if_addr")
+@mock.patch("scapy.arch.unix.get_if_addr")
 @mock.patch("scapy.arch.unix.os")
 def test_osx_netstat_truncated(mock_os, mock_get_if_addr):
     """Test read_routes() on OS X 10.? with a long interface name"""
@@ -4812,7 +4812,7 @@ test_freebsd_10_2()
 
 = OpenBSD 5.5
 
-@mock.patch("scapy.arch.OPENBSD")
+@mock.patch("scapy.arch.unix.OPENBSD")
 @mock.patch("scapy.arch.unix.in6_getifaddr")
 @mock.patch("scapy.arch.unix.os")
 def test_openbsd_5_5(mock_os, mock_in6_getifaddr, mock_openbsd):
@@ -4869,7 +4869,7 @@ test_openbsd_5_5()
 
 = NetBSD 7.0
 
-@mock.patch("scapy.arch.NETBSD")
+@mock.patch("scapy.arch.unix.NETBSD")
 @mock.patch("scapy.arch.unix.in6_getifaddr")
 @mock.patch("scapy.arch.unix.os")
 def test_netbsd_7_0(mock_os, mock_in6_getifaddr, mock_netbsd):
