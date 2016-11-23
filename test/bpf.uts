@@ -28,11 +28,13 @@ get_if_raw_hwaddr(LOOPBACK_NAME) == (ARPHDR_LOOPBACK, '\x00'*6)
 = Get a BPF handler
 ~ needs_root
 
+from scapy.arch.bpf.supersocket import get_dev_bpf
 fd, _ = get_dev_bpf()
 
 = Attach a BPF filter
 ~ needs_root
 
+from scapy.arch.bpf.supersocket import attach_filter
 attach_filter(fd, conf.iface, "arp or icmp")
 
 
@@ -45,15 +47,18 @@ len(iflist) > 0
 = Get working network interfaces
 ~ needs_root
 
+from scapy.arch.bpf.core import get_working_ifaces
 ifworking = get_working_ifaces()
 len(ifworking)
             
+from scapy.arch.bpf.core import get_working_if
 len(ifworking) and get_working_if() == ifworking[0][0]
 
 
 = Misc functions
 ~ needs_root
 
+from scapy.arch.bpf.supersocket import isBPFSocket, bpf_select
 isBPFSocket(L2bpfListenSocket()) and isBPFSocket(L2bpfSocket()) and isBPFSocket(L3bpfSocket())
 
 l = bpf_select([L2bpfSocket()])
