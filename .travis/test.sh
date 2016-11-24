@@ -1,3 +1,7 @@
+# Dump environment variables
+echo "TRAVIS_SUDO=" $TRAVIS_SUDO
+echo "TRAVIS_OS_NAME=" $TRAVIS_OS_NAME
+
 # Dump Scapy config
 python -c "from scapy.all import *; print conf"
 
