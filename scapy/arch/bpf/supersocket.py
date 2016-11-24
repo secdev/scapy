@@ -5,10 +5,12 @@ Scapy *BSD native support - BPF sockets
 """
 
 from scapy.config import conf
+from scapy.error import Scapy_Exception
 from scapy.supersocket import SuperSocket
 from scapy.layers.l2 import Ether
 from scapy.layers.inet import IP
 from scapy.layers.inet6 import IPv6
+from scapy.packet import Raw
 from scapy.data import ETH_P_ALL
 from scapy.arch.consts import FREEBSD, OPENBSD, NETBSD
 from scapy.utils import warning
