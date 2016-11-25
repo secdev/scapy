@@ -11,7 +11,7 @@ import errno
 import cPickle,os,sys,time,subprocess
 import itertools
 from select import select
-from scapy.arch.consts import DARWIN, FREEBSD
+from scapy.arch.consts import DARWIN, FREEBSD, OPENBSD
 from scapy.data import *
 from scapy.config import conf
 from scapy.packet import Gen
@@ -127,7 +127,7 @@ def sndrcv(pks, pkt, timeout = None, inter = 0, verbose=None, chainCC=0, retry=0
                                 if remaintime <= 0:
                                     break
                             r = None
-                            if not isinstance(pks, StreamSocket) and (FREEBSD or DARWIN):
+                            if not isinstance(pks, StreamSocket) and (FREEBSD or DARWIN or OPENBSD):
                                 inp, out, err = select(inmask,[],[], 0.05)
                                 if len(inp) == 0 or pks in inp:
                                     r = pks.nonblock_recv()
