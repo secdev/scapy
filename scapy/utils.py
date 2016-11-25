@@ -64,37 +64,83 @@ def lhex(x):
         return x
 
 @conf.commands.register
-def hexdump(x):
-    x=str(x)
+def hexdump(x, dump=False):
+    """ Build a tcpdump like hexadecimal view
+
+    :param x: a Packet
+    :param dump: define if the result must be printed or returned in a variable
+    :returns: a String only when dump=True
+    """
+    s = ""
+    x = str(x)
     l = len(x)
     i = 0
     while i < l:
-        print "%04x  " % i,
+        s += "%04x  " % i
         for j in xrange(16):
             if i+j < l:
-                print "%02X" % ord(x[i+j]),
+                s += "%02X" % ord(x[i+j])
             else:
-                print "  ",
+                s += "  "
             if j%16 == 7:
-                print "",
-        print " ",
-        print sane_color(x[i:i+16])
+                s += ""
+        s += " "
+        s += sane_color(x[i:i+16])
         i += 16
+        s += "\n"
+    # remove trailing \n
+    if s.endswith("\n"):
+        s = s[:-1]
+    if dump:
+        return s
+    else:
+        print s
+
 
 @conf.commands.register
-def linehexdump(x, onlyasc=0, onlyhex=0):
+def linehexdump(x, onlyasc=0, onlyhex=0, dump=False):
+    """ Build an equivalent view of hexdump() on a single line
+
+    Note that setting both onlyasc and onlyhex to 1 results in a empty output
+
+    :param x: a Packet
+    :param onlyasc: 1 to display only the ascii view
+    :param onlyhex: 1 to display only the hexadecimal view
+    :param dump: print the view if False
+    :returns: a String only when dump=True
+    """
+    s = ""
     x = str(x)
     l = len(x)
     if not onlyasc:
         for i in xrange(l):
-            print "%02X" % ord(x[i]),
-        print "",
+            s += "%02X" % ord(x[i])
+        if not onlyhex:  # separate asc & hex if both are displayed
+            s += " "
     if not onlyhex:
-        print sane_color(x)
+        s += sane_color(x)
+    if dump:
+        return s
+    else:
+        print s
 
-def chexdump(x):
-    x=str(x)
-    print ", ".join(map(lambda x: "%#04x"%ord(x), x))
+def chexdump(x, dump=False):
+    """ Build a per byte hexadecimal representation
+    
+    Example:
+        >>> chexdump(IP())
+        0x45, 0x00, 0x00, 0x14, 0x00, 0x01, 0x00, 0x00, 0x40, 0x00, 0x7c, 0xe7, 0x7f, 0x00, 0x00, 0x01, 0x7f, 0x00, 0x00, 0x01
+    
+    :param x: a Packet
+    :param dump: print the view if False
+    :returns: a String only if dump=True
+    """
+    x = str(x)
+    s = str(", ".join(map(lambda x: "%#04x"%ord(x), x)))
+    if dump:
+        return s
+    else:
+        print s
     
 def hexstr(x, onlyasc=0, onlyhex=0):
     s = []
@@ -103,7 +149,6 @@ def hexstr(x, onlyasc=0, onlyhex=0):
     if not onlyhex:
         s.append(sane(x)) 
     return "  ".join(s)
-
 
 @conf.commands.register
 def hexdiff(x,y):
