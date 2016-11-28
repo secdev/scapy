@@ -110,7 +110,7 @@ class AnsweringMachine(object):
             self.print_reply(pkt, reply)
 
     def run(self, *args, **kargs):
-        log_interactive.warning("run() method deprecated. The intance is now callable")
+        log_interactive.warning("run() method deprecated. The instance is now callable")
         self(*args,**kargs)
 
     def __call__(self, *args, **kargs):

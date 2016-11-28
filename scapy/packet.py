@@ -840,7 +840,7 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
     
     def _show_or_dump(self, dump=False, indent=3, lvl="", label_lvl="", first_call=True):
         """
-        Internal method that shows or dumps a hierachical view of a packet.
+        Internal method that shows or dumps a hierarchical view of a packet.
         Called by show.
         """
 
@@ -907,10 +907,10 @@ Special case : "%.time%" is the creation time.
 Ex : p.sprintf("%.time% %-15s,IP.src% -> %-15s,IP.dst% %IP.chksum% "
                "%03xr,IP.proto% %r,TCP.flags%")
 
-Moreover, the format string can include conditionnal statements. A conditionnal
+Moreover, the format string can include conditional statements. A conditional
 statement looks like : {layer:string} where layer is a layer name, and string
 is the string to insert in place of the condition if it is true, i.e. if layer
-is present. If layer is preceded by a "!", the result si inverted. Conditions
+is present. If layer is preceded by a "!", the result is inverted. Conditions
 can be imbricated. A valid statement can be :
   p.sprintf("This is a{TCP: TCP}{UDP: UDP}{ICMP:n ICMP} packet")
   p.sprintf("{IP:%IP.dst% {ICMP:%ICMP.type%}{TCP:%TCP.dport%}}")

@@ -170,7 +170,7 @@ def find_ifaddr2(addr, plen, laddr):
     if l == 1:  # Only one address for our scope
         return sameScope[0][1]
 
-    elif l > 1: # Muliple addresses for our scope
+    elif l > 1: # Multiple addresses for our scope
         stfAddr = filter(lambda x: x[0] & IPV6_ADDR_6TO4, sameScope)
         nativeAddr = filter(lambda x: not (x[0] & IPV6_ADDR_6TO4), sameScope)
 
@@ -360,8 +360,8 @@ def in6_get6to4Prefix(addr):
 
 def in6_6to4ExtractAddr(addr):
     """
-    Extract IPv4 address embbeded in 6to4 address. Passed address must be
-    a 6to4 addrees. None is returned on error.
+    Extract IPv4 address embedded in 6to4 address. Passed address must be
+    a 6to4 address. None is returned on error.
     """
     try:
         addr = inet_pton(socket.AF_INET6, addr)
@@ -375,7 +375,7 @@ def in6_6to4ExtractAddr(addr):
 def in6_getLocalUniquePrefix():
     """
     Returns a pseudo-randomly generated Local Unique prefix. Function
-    follows recommandation of Section 3.2.2 of RFC 4193 for prefix
+    follows recommendation of Section 3.2.2 of RFC 4193 for prefix
     generation.
     """
     # Extracted from RFC 1305 (NTP) :
@@ -730,7 +730,7 @@ def in6_ismgladdr(str):
 
 def in6_ismlladdr(str):
     """
-    Returns True if address balongs to link-local multicast address
+    Returns True if address belongs to link-local multicast address
     space (ff02::/16)
     """
     return in6_isincluded(str, 'ff02::', 16)

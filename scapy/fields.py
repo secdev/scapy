@@ -153,7 +153,7 @@ class ConditionalField(object):
 
 class PadField(object):
     """Add bytes after the proxified field so that it ends at the specified
-       alignment from its begining"""
+       alignment from its beginning"""
     __slots__ = ["_fld", "_align", "_padwith"]
     def __init__(self, fld, align, padwith=None):
         self._fld = fld

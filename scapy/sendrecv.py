@@ -283,7 +283,7 @@ def sendpfast(x, pps=None, mbps=None, realtime=None, loop=0, file_cache=False, i
     """Send packets at layer 2 using tcpreplay for performance
     pps:  packets per second
     mpbs: MBits per second
-    realtime: use packet's timestamp, bending time with realtime value
+    realtime: use packet's timestamp, bending time with real-time value
     loop: number of times to process the packet list
     file_cache: cache packets in RAM instead of reading from disk at each iteration
     iface: output interface """
@@ -323,7 +323,7 @@ def sendpfast(x, pps=None, mbps=None, realtime=None, loop=0, file_cache=False, i
 @conf.commands.register
 def sr(x,filter=None, iface=None, nofilter=0, *args,**kargs):
     """Send and receive packets at layer 3
-nofilter: put 1 to avoid use of bpf filters
+nofilter: put 1 to avoid use of BPF filters
 retry:    if positive, how many times to resend unanswered packets
           if negative, how many times to retry when no more packets are answered
 timeout:  how much time to wait after the last packet has been sent
@@ -341,7 +341,7 @@ iface:    listen answers only on the given interface"""
 @conf.commands.register
 def sr1(x,filter=None,iface=None, nofilter=0, *args,**kargs):
     """Send packets at layer 3 and return only the first answer
-nofilter: put 1 to avoid use of bpf filters
+nofilter: put 1 to avoid use of BPF filters
 retry:    if positive, how many times to resend unanswered packets
           if negative, how many times to retry when no more packets are answered
 timeout:  how much time to wait after the last packet has been sent
@@ -362,7 +362,7 @@ iface:    listen answers only on the given interface"""
 @conf.commands.register
 def srp(x,iface=None, iface_hint=None, filter=None, nofilter=0, type=ETH_P_ALL, *args,**kargs):
     """Send and receive packets at layer 2
-nofilter: put 1 to avoid use of bpf filters
+nofilter: put 1 to avoid use of BPF filters
 retry:    if positive, how many times to resend unanswered packets
           if negative, how many times to retry when no more packets are answered
 timeout:  how much time to wait after the last packet has been sent
@@ -382,7 +382,7 @@ iface:    work only on the given interface"""
 @conf.commands.register
 def srp1(*args,**kargs):
     """Send and receive packets at layer 2 and return only the first answer
-nofilter: put 1 to avoid use of bpf filters
+nofilter: put 1 to avoid use of BPF filters
 retry:    if positive, how many times to resend unanswered packets
           if negative, how many times to retry when no more packets are answered
 timeout:  how much time to wait after the last packet has been sent
@@ -521,7 +521,7 @@ def srflood(x,filter=None, iface=None, nofilter=None, *args,**kargs):
 prn:      function applied to packets received. Ret val is printed if not None
 store:    if 1 (default), store answers and return them
 unique:   only consider packets whose print 
-nofilter: put 1 to avoid use of bpf filters
+nofilter: put 1 to avoid use of BPF filters
 filter:   provide a BPF filter
 iface:    listen answers only on the given interface"""
     s = conf.L3socket(filter=filter, iface=iface, nofilter=nofilter)
@@ -535,7 +535,7 @@ def srpflood(x,filter=None, iface=None, iface_hint=None, nofilter=None, *args,**
 prn:      function applied to packets received. Ret val is printed if not None
 store:    if 1 (default), store answers and return them
 unique:   only consider packets whose print 
-nofilter: put 1 to avoid use of bpf filters
+nofilter: put 1 to avoid use of BPF filters
 filter:   provide a BPF filter
 iface:    listen answers only on the given interface"""
     if iface is None and iface_hint is not None:

@@ -29,7 +29,7 @@
          * RFC 1195 (only the TCP/IP related part)
          * RFC 3358 (optional checksums)
          * RFC 5301 (dynamic hostname extension)
-         * RFC 5302 (domain-wide prefix destribution)
+         * RFC 5302 (domain-wide prefix distribution)
          * RFC 5303 (three-way handshake)
          * RFC 5304 (cryptographic authentication)
          * RFC 5308 (routing IPv6 with IS-IS)

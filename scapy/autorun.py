@@ -47,7 +47,7 @@ def autorun_commands(cmds,my_globals=None,verb=0):
             interp = ScapyAutorunInterpreter(my_globals)
             cmd = ""
             cmds = cmds.splitlines()
-            cmds.append("") # ensure we finish multiline commands
+            cmds.append("") # ensure we finish multi-line commands
             cmds.reverse()
             __builtin__.__dict__["_"] = None
             while 1:

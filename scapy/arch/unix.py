@@ -261,7 +261,7 @@ def read_routes6():
         # Check flags
         if not "U" in flags:  # usable route
             continue
-        if "R" in flags:  # Host or net unrechable
+        if "R" in flags:  # Host or net unreachable
             continue
         if "m" in flags:  # multicast address
             # Note: multicast routing is handled in Route6.route()

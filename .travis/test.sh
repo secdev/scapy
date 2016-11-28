@@ -8,7 +8,7 @@ then
   TRAVIS_SUDO=""
 fi
 
-# Test AEAD modes in IPSec if available
+# Test AEAD modes in IPsec if available
 if [ "$TEST_COMBINED_MODES" != "yes" ]
 then
   UT_FLAGS+="-K combined_modes "
