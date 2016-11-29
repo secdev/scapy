@@ -7,10 +7,6 @@
 Aggregate top level objects from all TLS modules.
 """
 
-#XXX Sort through imports when there is no python-ecdsa support.
-#XXX Same thing for GCM, CCM...
-#XXX no SSLv2 nor TLS 1.3 support
-
 from scapy.layers.tls.cert import *
 
 from scapy.layers.tls.automaton import *

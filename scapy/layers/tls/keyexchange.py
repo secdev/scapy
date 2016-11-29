@@ -9,8 +9,6 @@ TLS key exchange logic.
 
 import math
 
-from ecdsa.util import sigencode_der, sigdecode_der
-
 from scapy.config import conf
 from scapy.error import warning
 from scapy.fields import *
@@ -20,8 +18,24 @@ from scapy.layers.tls.session import _GenericTLSSessionInheritance
 from scapy.layers.tls.basefields import _tls_version, _TLSClientVersionField
 from scapy.layers.tls.crypto.pkcs1 import pkcs_i2osp, pkcs_os2ip
 from scapy.layers.tls.crypto.ffdh import FFDHParams
-from scapy.layers.tls.crypto.ecdh import ECParams, ECDHParams
 from scapy.layers.tls.crypto.curves import encode_point
+
+ecdsa_support = False
+try:
+    from ecdsa.util import sigencode_der, sigdecode_der
+    from scapy.layers.tls.crypto.ecdh import ECParams, ECDHParams
+    ecdsa_support = True
+except ImportError:
+    import logging
+    log_loading = logging.getLogger("scapy.loading")
+    log_loading.info("Can't import python ecdsa lib. No EC-based kx.")
+    sigencode_der = sigdecode_der = None
+
+def ecdsa_warning(func):
+    def func_in(*args, **kwargs):
+        if ecdsa_support:
+            return func(*args, **kwargs)
+    return func_in
 
 
 ###############################################################################
@@ -416,6 +430,7 @@ class ServerECDHExplicitPrimeParams(_GenericTLSSessionInheritance):
                     StrLenField("point", "",
                                 length_from=lambda pkt: pkt.pointlen) ]
 
+    @ecdsa_warning
     def fill_missing(self):
         """
         We do not want TLSServerKeyExchange.build() to overload and recompute
@@ -480,6 +495,7 @@ class ServerECDHExplicitPrimeParams(_GenericTLSSessionInheritance):
         s.client_kx_params = dh_params_c
         s.client_kx_params.other_pub = self.point
 
+    @ecdsa_warning
     def post_dissection(self, pkt):
         """
         XXX Do a check_params() once it has been implemented in crypto/ecdh.py.
@@ -535,6 +551,7 @@ class ServerECDHExplicitChar2Params(_GenericTLSSessionInheritance):
                     StrLenField("point", "",
                                 length_from = lambda pkt: pkt.pointlen) ]
 
+    @ecdsa_warning
     def fill_missing(self):
         """
         We do not want TLSServerKeyExchange.build() to overload and recompute
@@ -543,6 +560,7 @@ class ServerECDHExplicitChar2Params(_GenericTLSSessionInheritance):
         """
         pass
 
+    @ecdsa_warning
     def post_dissection(self, pkt):
         """
         XXX Do a check_params() once it has been implemented in crypto/ecdh.py.
@@ -562,6 +580,7 @@ class ServerECDHNamedCurveParams(_GenericTLSSessionInheritance):
                     StrLenField("point", None,
                                 length_from = lambda pkt: pkt.pointlen) ]
 
+    @ecdsa_warning
     def fill_missing(self):
         """
         We do not want TLSServerKeyExchange.build() to overload and recompute
@@ -582,7 +601,7 @@ class ServerECDHNamedCurveParams(_GenericTLSSessionInheritance):
         if self.point is None:
             self.point = point
 
-        ec_params_s= ECParams(self.curve_type)
+        ec_params_s = ECParams(self.curve_type)
         ec_params_s.set_named_curve(self.named_curve)
         dh_params_s = ECDHParams(ec_params_s, dh_params_def.point_format)
         s.server_kx_params = dh_params_s
@@ -595,6 +614,7 @@ class ServerECDHNamedCurveParams(_GenericTLSSessionInheritance):
         s.client_kx_params = dh_params_c
         s.client_kx_params.other_pub = self.point
 
+    @ecdsa_warning
     def post_dissection(self, r):
         """
         XXX Do a check_params() once it has been implemented in crypto/ecdh.py.
@@ -780,6 +800,16 @@ class ClientECDiffieHellmanPublic(ClientDiffieHellmanPublic):
     fields_desc = [ FieldLenField("dh_Yclen", None, length_of="dh_Yc", fmt="B"),
                     StrLenField("dh_Yc", "",
                                 length_from=lambda pkt: pkt.dh_Yclen)]
+
+    def post_build(self, pkt, pay):
+        if ecdsa_support:
+            return super(ClientECDiffieHellmanPublic, self).post_build(pkt, pay)
+        else:
+            return pkt + pay
+
+    @ecdsa_warning
+    def post_dissection(self, m):
+        return super(ClientECDiffieHellmanPublic, self).post_dissection(m)
 
 
 ### RSA Encryption (standard & export)

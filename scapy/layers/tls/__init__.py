@@ -79,9 +79,6 @@ TODO list (may it be carved away by good souls):
     - Find a way to shutdown the automatons sockets properly without
     simultaneously breaking the unit tests.
 
-    - Allow for the ecdsa module not to be installed. Every 'import ecdsa'
-    and subsequent processing should be try/catch or if/then/else.
-
     - Switch from pycrypto to python-cryptography, once it provides proper
     AEAD support. See if we could get CHACHA20-POLY1305 in the process.
 
@@ -108,13 +105,5 @@ except ImportError:
     import logging
     log_loading = logging.getLogger("scapy.loading")
     log_loading.info("Can't import python Crypto lib. Disabled TLS tools.")
-    raise ImportError
-
-try:
-    import ecdsa
-except ImportError:
-    import logging
-    log_loading = logging.getLogger("scapy.loading")
-    log_loading.info("Can't import python ecdsa lib. Disabled TLS tools.")
     raise ImportError
 

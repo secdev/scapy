@@ -30,7 +30,24 @@ import base64
 import os
 import time
 
-import ecdsa
+ecdsa_support = False
+try:
+    import ecdsa
+    from scapy.layers.tls.crypto.curves import import_curve
+    ecdsa_support = True
+except ImportError:
+    import logging
+    log_loading = logging.getLogger("scapy.loading")
+    log_loading.info("Can't import python ecdsa lib. Disabled some TLS tools.")
+
+def ecdsa_exception(func):
+    def func_in(*args, **kwargs):
+        if not ecdsa_support:
+            raise ImportError("ecdsa module could not be imported!")
+        return func(*args, **kwargs)
+    return func_in
+
+
 from Crypto.PublicKey import RSA
 
 from scapy.config import conf
@@ -43,7 +60,6 @@ from scapy.layers.x509 import ECDSAPublicKey, ECDSAPrivateKey
 from scapy.layers.x509 import RSAPrivateKey_OpenSSL, ECDSAPrivateKey_OpenSSL
 from scapy.layers.x509 import X509_Cert, X509_CRL
 from scapy.utils import binrepr
-from scapy.layers.tls.crypto.curves import import_curve
 from scapy.layers.tls.crypto.pkcs1 import pkcs_os2ip, pkcs_i2osp, mapHashFunc
 from scapy.layers.tls.crypto.pkcs1 import _EncryptAndVerifyRSA
 from scapy.layers.tls.crypto.pkcs1 import _DecryptAndSignRSA
@@ -198,7 +214,10 @@ class _PubKeyFactory(_PKIObjMaker):
                 obj.updateWith(pubkey)
             elif isinstance(pubkey, ECDSAPublicKey):
                 obj.__class__ = PubKeyECDSA
-                obj.updateWith(spki)
+                try:
+                    obj.updateWith(spki)
+                except ImportError:
+                    pass
             else:
                 raise Exception("Unsupported publicKey type")
             marker = "PUBLIC KEY"
@@ -230,9 +249,12 @@ class PubKey(object):
         sigAlg = tbsCert.signature
         h = hash_by_oid[sigAlg.algorithm.val]
         sigVal = str(cert.signatureValue)
+        sigdec = None
+        if ecdsa_support:
+            sigdec = ecdsa.util.sigdecode_der
         return self.verify(str(tbsCert), sigVal, h=h,
                            t='pkcs',
-                           sigdecode=ecdsa.util.sigdecode_der)
+                           sigdecode=sigdec)
 
 
 class PubKeyRSA(_PKIObj, PubKey, _EncryptAndVerifyRSA):
@@ -254,12 +276,12 @@ class PubKeyRSA(_PKIObj, PubKey, _EncryptAndVerifyRSA):
         return _EncryptAndVerifyRSA.verify(self, msg, sig, h=h,
                                            t=t, mgf=mgf, sLen=sLen)
 
-
 class PubKeyECDSA(_PKIObj, PubKey):
     """
     Wrapper for ECDSA keys based on VerifyingKey from ecdsa library.
     Use the 'key' attribute to access original object.
     """
+    @ecdsa_exception
     def updateWith(self, spki):
         # For now we use from_der() or from_string() methods,
         # which do not offer support for compressed points.
@@ -276,12 +298,16 @@ class PubKeyECDSA(_PKIObj, PubKey):
                              p.base.val,
                              p.order.val)
             self.key = ecdsa.VerifyingKey.from_string(s, c)
+    @ecdsa_exception
     def encrypt(self, msg, t=None, h=None, mgf=None, L=None):
         # python-ecdsa does not support encryption
         raise Exception("No ECDSA encryption support")
+    @ecdsa_exception
     def verify(self, msg, sig, h=None,
                t=None, mgf=None, sLen=None,
-               sigdecode=ecdsa.util.sigdecode_string):
+               sigdecode=None):
+        if sigdecode is None:
+            sigdecode = ecdsa.util.sigdecode_string
         try:
             return self.key.verify(sig, msg, hashfunc=mapHashFunc(h),
                                    sigdecode=sigdecode)
@@ -333,7 +359,10 @@ class _PrivKeyFactory(_PKIObjMaker):
                         marker = "EC PRIVATE KEY"
                     except:
                         raise Exception("Unable to import private key")
-        obj.updateWith(privkey)
+        try:
+            obj.updateWith(privkey)
+        except ImportError:
+            pass
 
         if obj.frmt == "DER":
             if multiPEM:
@@ -368,9 +397,12 @@ class PrivKey(object):
         """
         sigAlg = tbsCert.signature
         h = h or hash_by_oid[sigAlg.algorithm.val]
+        sigenc = None
+        if ECDSA_SUPPORT:
+            sigenc = ecdsa.util.sigencode_der
         sigVal = self.sign(str(tbsCert), h=h,
                            t='pkcs',
-                           sigencode=ecdsa.util.sigencode_der)
+                           sigencode=sigenc)
         c = X509_Cert()
         c.tbsCertificate = tbsCert
         c.signatureAlgorithm = sigAlg
@@ -387,9 +419,13 @@ class PrivKey(object):
         sigAlg = tbsCert.signature
         h = hash_by_oid[sigAlg.algorithm.val]
         sigVal = str(cert.signatureValue)
-        return self.verify(str(tbsCert), sigVal, h=h,
-                           t='pkcs',
-                           sigdecode=ecdsa.util.sigdecode_der)
+        if not ecdsa_support:
+            print "No ecdsa support. Signature could not be verified."
+            return False
+        else:
+            return self.verify(str(tbsCert), sigVal, h=h,
+                               t='pkcs',
+                               sigdecode=ecdsa.util.sigdecode_der)
 
 
 class PrivKeyRSA(_PKIObj, PrivKey, _EncryptAndVerifyRSA, _DecryptAndSignRSA):
@@ -426,18 +462,23 @@ class PrivKeyECDSA(_PKIObj, PrivKey):
     Wrapper for ECDSA keys based on SigningKey from ecdsa library.
     Use the 'key' attribute to access original object.
     """
+    @ecdsa_exception
     def updateWith(self, privkey):
         self.privKey = pkcs_os2ip(privkey.privateKey.val)
         self.key = ecdsa.SigningKey.from_der(str(privkey))
         self.vkey = self.key.get_verifying_key()
+    @ecdsa_exception
     def verify(self, msg, sig, h=None,
                t=None, mgf=None, sLen=None,
                sigdecode=None):
         return self.vkey.verify(sig, msg, hashfunc=mapHashFunc(h),
                                 sigdecode=sigdecode)
+    @ecdsa_exception
     def sign(self, data, h=None,
              t=None, mgf=None, sLen=None,
-             k=None, entropy=None, sigencode=ecdsa.util.sigencode_string):
+             k=None, entropy=None, sigencode=None):
+        if sigencode is None:
+            sigencode = ecdsa.util.sigencode_string
         return self.key.sign(data, hashfunc=mapHashFunc(h),
                              k=k, entropy=entropy, sigencode=sigencode)
 

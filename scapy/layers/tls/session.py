@@ -17,8 +17,16 @@ from scapy.packet import Packet
 from scapy.utils import repr_hex
 from scapy.layers.tls.crypto.compression import Comp_NULL
 from scapy.layers.tls.crypto.ffdh import FFDHParams
-from scapy.layers.tls.crypto.ecdh import ECDHParams
 from scapy.layers.tls.crypto.prf import PRF
+
+ecdsa_support = False
+try:
+    from scapy.layers.tls.crypto.ecdh import ECDHParams
+    ecdsa_support = True
+except ImportError:
+    import logging
+    log_loading = logging.getLogger("scapy.loading")
+    log_loading.info("Can't import python ecdsa lib. No default ECDH params.")
 
 # Note the following import may happen inside connState.__init__()
 # in order to avoid to avoid cyclical dependancies.
@@ -324,7 +332,10 @@ class tlsSession(object):
         # We use the same defaults for explicit and named Fp curves,
         # but for now there is no support for char2 curves.
         self.default_ffdh_params = FFDHParams()
-        self.default_ecdh_params = [ECDHParams(), None]
+        if ecdsa_support:
+            self.default_ecdh_params = [ECDHParams(), None]
+        else:
+            self.default_ecdh_params = [None, None]
 
         # Either an instance of FFDHParams or ECDHParams.
         # Depending on which side of the connection we operate,
