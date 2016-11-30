@@ -990,8 +990,49 @@ class FlagsField(BitField):
             r = "+".join(r)
         return r
 
-            
 
+class MultiFlagsField(BitField):
+    __slots__ = FlagsField.__slots__ + ["depends_on"]
+    def __init__(self, name, default, size, names, depends_on):
+        self.names = names
+        self.depends_on = depends_on
+        super(MultiFlagsField, self).__init__(name, default, size)
+
+    def any2i(self, pkt, x):
+        if type(x) is list:
+            v = self.depends_on(pkt)
+            y = 0
+            these_names = self.names[v]
+            for i in x:
+                for j in these_names.keys():
+                    if these_names[j]['short'] == i:
+                        shft_cnt = j
+                        break
+                else:
+                    assert False, 'Unknown flag "{}" with this dependency'.format(i)
+                    continue
+                y |= 1 << shft_cnt
+            x = y
+        return x
+
+    def i2repr(self, pkt, x):
+        v = self.depends_on(pkt)
+        if self.names.has_key(v):
+            these_names = self.names[v]
+        else:
+            these_names = {}
+
+        r = []
+        i = 0
+        while x:
+            if x & 1:
+                if these_names.has_key(i):
+                    r.append("{} ({})".format(these_names[i]['long'], these_names[i]['short']))
+                else:
+                    r.append('bit {}'.format(str(i)))
+            x >>= 1
+            i += 1
+        return r
 
 class FixedPointField(BitField):
     __slots__ = ['frac_bits']
