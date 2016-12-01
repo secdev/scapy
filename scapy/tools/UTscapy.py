@@ -501,7 +501,7 @@ def usage():
     print >>sys.stderr,"""Usage: UTscapy [-m module] [-f {text|ansi|HTML|LaTeX}] [-o output_file] 
                [-t testfile] [-k keywords [-k ...]] [-K keywords [-K ...]]
                [-l] [-d|-D] [-F] [-q[q]] [-P preexecute_python_code]
-               [-s /path/to/scpay]
+               [-s /path/to/scapy]
 -l\t\t: generate local files
 -F\t\t: expand only failed tests
 -d\t\t: dump campaign
