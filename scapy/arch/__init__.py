@@ -44,6 +44,9 @@ def str2mac(s):
     return ("%02x:"*6)[:-1] % tuple(map(ord, s)) 
 
 
+if not scapy.config.conf.use_pcap and not scapy.config.conf.use_dnet:
+    from scapy.arch.bpf.core import get_if_raw_addr
+
 def get_if_addr(iff):
     return socket.inet_ntoa(get_if_raw_addr(iff))
     
@@ -63,6 +66,7 @@ def get_if_hwaddr(iff):
 # def attach_filter(s, filter, iface):
 # def set_promisc(s,iff,val=1):
 # def read_routes():
+# def read_routes6():
 # def get_if(iff,cmd):
 # def get_if_index(iff):
 
@@ -74,9 +78,16 @@ if LINUX:
         from scapy.arch.pcapdnet import *
 elif BSD:
     from scapy.arch.unix import read_routes, read_routes6, in6_getifaddr
-    scapy.config.conf.use_pcap = True
-    scapy.config.conf.use_dnet = True
-    from scapy.arch.pcapdnet import *
+
+    if scapy.config.conf.use_pcap or scapy.config.conf.use_dnet:
+        from scapy.arch.pcapdnet import *
+    else:
+        from scapy.arch.bpf.supersocket import L2bpfListenSocket, L2bpfSocket, L3bpfSocket
+        from scapy.arch.bpf.core import *
+        scapy.config.conf.use_bpf = True
+        scapy.config.conf.L2listen = L2bpfListenSocket
+        scapy.config.conf.L2socket = L2bpfSocket
+        scapy.config.conf.L3socket = L3bpfSocket
 elif SOLARIS:
     from scapy.arch.solaris import *
 elif WINDOWS:
