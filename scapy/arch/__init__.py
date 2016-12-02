@@ -44,8 +44,9 @@ def str2mac(s):
     return ("%02x:"*6)[:-1] % tuple(map(ord, s)) 
 
 
-if not scapy.config.conf.use_pcap and not scapy.config.conf.use_dnet:
-    from scapy.arch.bpf.core import get_if_raw_addr
+if not WINDOWS:
+    if not scapy.config.conf.use_pcap and not scapy.config.conf.use_dnet:
+        from scapy.arch.bpf.core import get_if_raw_addr
 
 def get_if_addr(iff):
     return socket.inet_ntoa(get_if_raw_addr(iff))
