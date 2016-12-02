@@ -1,0 +1,144 @@
+% Regression tests for Scapy BPF mode
+
+# More informations at http://www.secdev.org/projects/UTscapy/
+
+
+############
+############
++ Addresses manipulation functions
+
+= Get the packet IPv4 address configured on conf.iface
+
+get_if_raw_addr(conf.iface)
+
+
+= Get the packed MAC address of conf.iface
+
+get_if_raw_hwaddr(conf.iface)
+
+= Get the packed MAC address of LOOPBACK_NAME
+
+get_if_raw_hwaddr(LOOPBACK_NAME) == (ARPHDR_LOOPBACK, '\x00'*6) 
+
+
+############
+############
++ BPF related functions
+
+= Get a BPF handler
+~ needs_root
+
+from scapy.arch.bpf.supersocket import get_dev_bpf
+fd, _ = get_dev_bpf()
+
+= Attach a BPF filter
+~ needs_root
+
+from scapy.arch.bpf.supersocket import attach_filter
+attach_filter(fd, conf.iface, "arp or icmp")
+
+
+= Get network interfaces list
+
+iflist = get_if_list()
+len(iflist) > 0
+
+
+= Get working network interfaces
+~ needs_root
+
+from scapy.arch.bpf.core import get_working_ifaces
+ifworking = get_working_ifaces()
+len(ifworking)
+            
+from scapy.arch.bpf.core import get_working_if
+len(ifworking) and get_working_if() == ifworking[0][0]
+
+
+= Misc functions
+~ needs_root
+
+from scapy.arch.bpf.supersocket import isBPFSocket, bpf_select
+isBPFSocket(L2bpfListenSocket()) and isBPFSocket(L2bpfSocket()) and isBPFSocket(L3bpfSocket())
+
+l = bpf_select([L2bpfSocket()])
+l = bpf_select([L2bpfSocket(), sys.stdin.fileno()])
+
+
+############
+############
++ BPF sockets
+
+= L2bpfListenSocket - initialization variants
+~ needs_root
+
+L2bpfListenSocket()
+L2bpfListenSocket(iface=conf.iface)
+L2bpfListenSocket(promisc=True)
+L2bpfListenSocket(filter="icmp")
+L2bpfListenSocket(iface=conf.iface, promisc=True, filter="icmp")
+
+
+= L2bpfListenSocket - set_*()
+~ needs_root
+
+s = L2bpfListenSocket()
+s.set_promisc(0)
+s.set_nonblock(1)
+s.set_promisc(0)
+s.close()
+
+s = L2bpfListenSocket()
+s.set_nonblock(set_flag=False)
+s.set_nonblock(set_flag=True)
+s.set_nonblock(set_flag=False)
+s.close()
+
+
+= L2bpfListenSocket - get_*()
+~ needs_root
+
+s = L2bpfListenSocket()
+blen = s.get_blen()
+blen > 0 and type(blen) == int
+s.close()
+
+s = L2bpfListenSocket()
+stats = s.get_stats()
+len(stats) == 2 and type(stats) == tuple
+s.close()
+
+
+= L2bpfListenSocket - other methods
+~ needs_root
+
+s = L2bpfListenSocket()
+type(s.fileno()) == int
+s.close()
+
+s = L2bpfListenSocket()
+guessed = s.guess_cls()
+issubclass(guessed, Packet)
+s.close()
+
+
+= L2bpfSocket - nonblock_recv()
+~ needs_root
+
+s = L2bpfSocket()
+s.nonblock_recv()
+s.close()
+
+
+= L*bpfSocket - send()        
+~ needs_root
+                              
+s = L2bpfSocket()             
+s.send(Ether()/IP(dst="8.8.8.8")/ICMP())
+                              
+s = L3bpfSocket()             
+s.send(IP(dst="8.8.8.8")/ICMP())
+                              
+s = L3bpfSocket()             
+s.assigned_interface = LOOPBACK_NAME
+s.send(IP(dst="8.8.8.8")/ICMP())

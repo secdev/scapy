@@ -127,7 +127,12 @@ def sndrcv(pks, pkt, timeout = None, inter = 0, verbose=None, chainCC=0, retry=0
                                 if remaintime <= 0:
                                     break
                             r = None
-                            if not isinstance(pks, StreamSocket) and (FREEBSD or DARWIN):
+                            if conf.use_bpf:
+                                from scapy.arch.bpf.supersocket import bpf_select
+                                inp = bpf_select(inmask)
+                                if pks in inp:
+                                    r = pks.recv()
+                            elif not isinstance(pks, StreamSocket) and (FREEBSD or DARWIN):
                                 inp, out, err = select(inmask,[],[], 0.05)
                                 if len(inp) == 0 or pks in inp:
                                     r = pks.nonblock_recv()
@@ -488,7 +493,13 @@ def sndrcvflood(pks, pkt, prn=lambda (s,r):r.summary(), chainCC=0, store=1, uniq
 
     try:
         while 1:
-            readyr,readys,_ = select([rsock],[ssock],[])
+            if conf.use_bpf:
+                from scapy.arch.bpf.supersocket import bpf_select
+                readyr = bpf_select([rsock])
+                _, readys, _ = select([], [ssock], [])
+            else:
+                readyr, readys, _ = select([rsock], [ssock], [])
+
             if ssock in readys:
                 pks.send(packets_to_send.next())
                 
@@ -605,8 +616,12 @@ interfaces)
                 remain = stoptime-time.time()
                 if remain <= 0:
                     break
-            sel = select(sniff_sockets, [], [], remain)
-            for s in sel[0]:
+            if conf.use_bpf:
+                from scapy.arch.bpf.supersocket import bpf_select
+                ins = bpf_select(sniff_sockets, remain)
+            else:
+                ins, _, _ = select(sniff_sockets, [], [], remain)
+            for s in ins:
                 p = s.recv()
                 if p is None and offline is not None:
                     stop_event = True
@@ -678,7 +693,12 @@ stop_filter: python function applied to each packet to determine
                 remain = stoptime-time.time()
                 if remain <= 0:
                     break
-            ins, outs, errs = select([s1, s2], [], [], remain)
+            if conf.use_bpf:
+                from scapy.arch.bpf.supersocket import bpf_select
+                ins = bpf_select([s1, s2], remain)
+            else:
+                ins, _, _ = select([s1, s2], [], [], remain)
+
             for s in ins:
                 p = s.recv()
                 if p is not None:

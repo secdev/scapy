@@ -367,6 +367,7 @@ contribs: a dict which can be used by contrib layers to store local configuratio
     emph = Emphasize()
     use_pcap = os.getenv("SCAPY_USE_PCAPDNET", "").lower().startswith("y")
     use_dnet = os.getenv("SCAPY_USE_PCAPDNET", "").lower().startswith("y")
+    use_bpf = False
     use_winpcapy = False
     ipv6_enabled = socket.has_ipv6
     ethertypes = ETHER_TYPES
