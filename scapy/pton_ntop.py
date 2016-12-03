@@ -17,6 +17,12 @@ def inet_pton(af, addr):
     if af == socket.AF_INET:
         return socket.inet_aton(addr)
     elif af == socket.AF_INET6:
+        # Use inet_pton if available
+        try:
+            return socket.inet_pton(af, addr)
+        except AttributeError:
+            pass
+
         # IPv6: The use of "::" indicates one or more groups of 16 bits of zeros.
         # We deal with this form of wildcard using a special marker. 
         JOKER = "*"
@@ -65,6 +71,12 @@ def inet_ntop(af, addr):
     if af == socket.AF_INET:
         return socket.inet_ntoa(addr)
     elif af == socket.AF_INET6:
+        # Use inet_ntop if available
+        try:
+            return socket.inet_ntop(af, addr)
+        except AttributeError:
+            pass
+
         # IPv6 addresses have 128bits (16 bytes)
         if len(addr) != 16:
             raise Exception("Illegal syntax for IP address")
@@ -75,15 +87,9 @@ def inet_ntop(af, addr):
                 hexstr = hex(value)[2:]
             except TypeError:
                 raise Exception("Illegal syntax for IP address")
-            parts.append(hexstr.lstrip("0").lower())
-        result = ":".join(parts)
-        while ":::" in result:
-            result = result.replace(":::", "::")
-        # Leaving out leading and trailing zeros is only allowed with ::
-        if result.endswith(":") and not result.endswith("::"):
-            result = result + "0"
-        if result.startswith(":") and not result.startswith("::"):
-            result = "0" + result
-        return result
+            parts.append(hexstr.lower())
+
+        # Note: the returned address is never compact
+        return ":".join(parts)
     else:
-        raise Exception("Address family not supported yet")        
+        raise Exception("Address family not supported yet")   
