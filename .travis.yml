@@ -15,6 +15,7 @@ matrix:
         - os: osx
           language: generic
           env:
+            - TRAVIS_SUDO=false
             - SCAPY_USE_PCAPDNET=yes
 
         # Run as root
