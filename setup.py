@@ -51,6 +51,7 @@ setup(
     packages=[
         'scapy',
         'scapy/arch',
+        'scapy/arch/bpf',
         'scapy/arch/windows',
         'scapy/contrib',
         'scapy/layers',
