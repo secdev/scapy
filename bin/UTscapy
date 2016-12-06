@@ -24,4 +24,4 @@
 import sys
 from scapy.tools.UTscapy import main
 
-main(sys.argv[1:])
+exit(main(sys.argv[1:]))
