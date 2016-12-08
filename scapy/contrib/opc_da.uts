@@ -4,7 +4,7 @@
 = OpcDaRequest
 opcdaRequestPacket_Dissect = \
 '050000830000000000640000000000150000003c000600050000c41d0a9c0000d7028c7' \
-'61299f7bf'.decode('hex')
+'61299f7bf000000004e6f6e65'.decode('hex')
 elem1 = str(OpcDaMessage(opcdaRequestPacket_Dissect))
 
 opcdaRequestPacket_Build = OpcDaMessage(OpcDaMessage= \
@@ -13,15 +13,17 @@ OpcDaHeaderMessage (versionMajor=5,versionMinor=0,pduType=0, \
     characterRepresentation='ascii',floatingPointRepresentation='ieee',\
     reservedForFutur=0)/ OpcDaHeaderN(fragLenght=100,authLenght=0,callID=21)\
     / OpcDaRequest(allocHint=60,contextId=6,opNum=5,\
-    uuid=str('0000c41d-0a9c-0000-d702-8c761299f7bf')))
+    uuid=str('0000c41d-0a9c-0000-d702-8c761299f7bf'),subData=RequestSubData(\
+    versionMajor=0,versionMinor=0,subdata='')))
 elem2 = str(opcdaRequestPacket_Build)
 
 assert( elem1 == elem2 )
 
 = OpcDaRequestLE
 opcdaRequestLEPacket_Dissect = \
-    '050000831000000064000000150000003c000000060005001dc400009c0a0000d7028c7' \
-    '61299f7bf'.decode('hex')
+    '050000831000000064000000150000003c000000060005001dc400009c0a0000d702' \
+    '8c761299f7bf000000000000000000000000512d4e34ab431449a2cf7784b21b3ea1' \
+    '4e6f6e65'.decode('hex')
 elem1 = str(OpcDaMessage(opcdaRequestLEPacket_Dissect))
 
 opcdaRequestLEPacket_Build = OpcDaMessage(OpcDaMessage= \
@@ -30,7 +32,9 @@ OpcDaHeaderMessage (versionMajor=5,versionMinor=0,pduType=0, \
     characterRepresentation='ascii',floatingPointRepresentation='ieee',\
     reservedForFutur=0)/ OpcDaHeaderNLE(fragLenght=100,authLenght=0,callID=21)\
     / OpcDaRequestLE (allocHint=60,contextId=6,opNum=5,\
-    uuid=str('0000c41d-0a9c-0000-d702-8c761299f7bf')))
+    uuid=str('0000c41d-0a9c-0000-d702-8c761299f7bf'),\
+    subData=RequestSubDataLE(versionMajor=0,versionMinor=0,flags=0,reserved=0,\
+    subUuid=str('344e2d51-43ab-4914-a2cf-7784b21b3ea1'),subdata='')))
 elem2 = str(opcdaRequestLEPacket_Build)
 
 assert( elem1 == elem2 )
@@ -56,7 +60,13 @@ assert( elem1 == elem2 )
 + Test Response Packets
 = OpcDaResponse
 opcDaResponsePacket_Dissect = \
-    '050002030000000000d4000000000015000000bc00060000'.decode('hex')
+    '050002030000000000d4000000000015000000bc0006000030303030303030303030' \
+    '30303030303030303030303030303030303030303030303030303030303030303030' \
+    '30303030303030303030303030303030303030303030303030303030303030303030' \
+    '30303030303030303030303030303030303030303030303030303030303030303030' \
+    '30303030303030303030303030303030303030303030303030303030303030303030' \
+    '30303030303030303030303030303030303030303030303030303030303030303030' \
+    '4e6f6e65'.decode('hex')
 elem1 = str(OpcDaMessage(opcDaResponsePacket_Dissect))
 
 opcDaResponsePacket_Build = OpcDaMessage(OpcDaMessage= \
@@ -64,14 +74,21 @@ opcDaResponsePacket_Build = OpcDaMessage(OpcDaMessage= \
     pfc_flags = 3,integerRepresentation='bigEndian',\
     characterRepresentation='ascii',floatingPointRepresentation='ieee',\
     reservedForFutur=0)/ OpcDaHeaderN(fragLenght=212,authLenght=0,callID=21)\
-    / OpcDaResponse(allocHint=188,contextId=6,cancelCount=0))
+    / OpcDaResponse(allocHint=188,contextId=6,cancelCount=0,reserved=0,\
+        subData=str('0'*(212-32))))
 elem2 = str(opcDaResponsePacket_Build)
 
 assert( elem1 == elem2 )
 
 = OpcDaResponseLE
 opcDaResponseLEPacket_Dissect = \
-    '0500020310000000d400000015000000bc00000006000000'.decode('hex')
+    '0500020310000000d400000015000000bc0000000600000030303030303030303030' \
+    '30303030303030303030303030303030303030303030303030303030303030303030' \
+    '30303030303030303030303030303030303030303030303030303030303030303030' \
+    '30303030303030303030303030303030303030303030303030303030303030303030' \
+    '30303030303030303030303030303030303030303030303030303030303030303030' \
+    '30303030303030303030303030303030303030303030303030303030303030303030' \
+    '4e6f6e65'.decode('hex')
 elem1 = str(OpcDaMessage(opcDaResponseLEPacket_Dissect))
 
 opcDaResponseLEPacket_Build = OpcDaMessage(OpcDaMessage= \
@@ -79,7 +96,8 @@ opcDaResponseLEPacket_Build = OpcDaMessage(OpcDaMessage= \
     pfc_flags = 3,integerRepresentation='littleEndian',\
     characterRepresentation='ascii',floatingPointRepresentation='ieee',\
     reservedForFutur=0)/ OpcDaHeaderNLE(fragLenght=212,authLenght=0,callID=21)\
-    / OpcDaResponseLE(allocHint=188,contextId=6,cancelCount=0))
+    / OpcDaResponseLE(allocHint=188,contextId=6,cancelCount=0,reserved=0,\
+        subData=str('0'*(212-32))))
 elem2 = str(opcDaResponseLEPacket_Build)
 
 assert( elem1 == elem2 )
@@ -121,12 +139,12 @@ assert( elem1 == elem2 )
 # OpcDaCancel_ack
 # OpcDaCancel_ackLE
 
-+ Test Bind Packet 
-OpcDaBind
-OpcDaBindLE
+# + Test Bind Packet
+# OpcDaBind
+# OpcDaBindLE
 
 # + Test Bind ack Packet
-OpcDaBind_ack
+# OpcDaBind_ack
 
 # + Test Bind no ack Packet
 # No exemple yet

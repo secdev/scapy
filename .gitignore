@@ -5,3 +5,4 @@ build/
 MANIFEST
 *.egg-info/
 scapy/VERSION
+scapy/contrib/opc_da_ontest.py
