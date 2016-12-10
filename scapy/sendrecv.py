@@ -11,7 +11,7 @@ import errno
 import cPickle,os,sys,time,subprocess
 import itertools
 from select import select
-from scapy.arch.consts import DARWIN, FREEBSD
+from scapy.arch.consts import DARWIN, FREEBSD, OPENBSD
 from scapy.data import *
 from scapy.config import conf
 from scapy.packet import Gen
@@ -132,7 +132,7 @@ def sndrcv(pks, pkt, timeout = None, inter = 0, verbose=None, chainCC=0, retry=0
                                 inp = bpf_select(inmask)
                                 if pks in inp:
                                     r = pks.recv()
-                            elif not isinstance(pks, StreamSocket) and (FREEBSD or DARWIN):
+                            elif not isinstance(pks, StreamSocket) and (FREEBSD or DARWIN or OPENBSD):
                                 inp, out, err = select(inmask,[],[], 0.05)
                                 if len(inp) == 0 or pks in inp:
                                     r = pks.nonblock_recv()
@@ -326,7 +326,7 @@ def sendpfast(x, pps=None, mbps=None, realtime=None, loop=0, file_cache=False, i
         
     
 @conf.commands.register
-def sr(x,filter=None, iface=None, nofilter=0, *args,**kargs):
+def sr(x, promisc=None, filter=None, iface=None, nofilter=0, *args,**kargs):
     """Send and receive packets at layer 3
 nofilter: put 1 to avoid use of BPF filters
 retry:    if positive, how many times to resend unanswered packets
@@ -338,13 +338,13 @@ filter:   provide a BPF filter
 iface:    listen answers only on the given interface"""
     if not kargs.has_key("timeout"):
         kargs["timeout"] = -1
-    s = conf.L3socket(filter=filter, iface=iface, nofilter=nofilter)
+    s = conf.L3socket(promisc=promisc, filter=filter, iface=iface, nofilter=nofilter)
     a,b=sndrcv(s,x,*args,**kargs)
     s.close()
     return a,b
 
 @conf.commands.register
-def sr1(x,filter=None,iface=None, nofilter=0, *args,**kargs):
+def sr1(x, promisc=None, filter=None, iface=None, nofilter=0, *args,**kargs):
     """Send packets at layer 3 and return only the first answer
 nofilter: put 1 to avoid use of BPF filters
 retry:    if positive, how many times to resend unanswered packets
@@ -356,7 +356,7 @@ filter:   provide a BPF filter
 iface:    listen answers only on the given interface"""
     if not kargs.has_key("timeout"):
         kargs["timeout"] = -1
-    s=conf.L3socket(filter=filter, nofilter=nofilter, iface=iface)
+    s=conf.L3socket(promisc=promisc, filter=filter, nofilter=nofilter, iface=iface)
     a,b=sndrcv(s,x,*args,**kargs)
     s.close()
     if len(a) > 0:
@@ -365,7 +365,7 @@ iface:    listen answers only on the given interface"""
         return None
 
 @conf.commands.register
-def srp(x,iface=None, iface_hint=None, filter=None, nofilter=0, type=ETH_P_ALL, *args,**kargs):
+def srp(x, promisc=None, iface=None, iface_hint=None, filter=None, nofilter=0, type=ETH_P_ALL, *args,**kargs):
     """Send and receive packets at layer 2
 nofilter: put 1 to avoid use of BPF filters
 retry:    if positive, how many times to resend unanswered packets
@@ -379,7 +379,7 @@ iface:    work only on the given interface"""
         kargs["timeout"] = -1
     if iface is None and iface_hint is not None:
         iface = conf.route.route(iface_hint)[0]
-    s = conf.L2socket(iface=iface, filter=filter, nofilter=nofilter, type=type)
+    s = conf.L2socket(promisc=promisc, iface=iface, filter=filter, nofilter=nofilter, type=type)
     a,b=sndrcv(s ,x,*args,**kargs)
     s.close()
     return a,b
@@ -527,7 +527,7 @@ def sndrcvflood(pks, pkt, prn=lambda (s,r):r.summary(), chainCC=0, store=1, uniq
     return received
 
 @conf.commands.register
-def srflood(x,filter=None, iface=None, nofilter=None, *args,**kargs):
+def srflood(x, promisc=None, filter=None, iface=None, nofilter=None, *args,**kargs):
     """Flood and receive packets at layer 3
 prn:      function applied to packets received. Ret val is printed if not None
 store:    if 1 (default), store answers and return them
@@ -535,13 +535,13 @@ unique:   only consider packets whose print
 nofilter: put 1 to avoid use of BPF filters
 filter:   provide a BPF filter
 iface:    listen answers only on the given interface"""
-    s = conf.L3socket(filter=filter, iface=iface, nofilter=nofilter)
+    s = conf.L3socket(promisc=promisc, filter=filter, iface=iface, nofilter=nofilter)
     r=sndrcvflood(s,x,*args,**kargs)
     s.close()
     return r
 
 @conf.commands.register
-def srpflood(x,filter=None, iface=None, iface_hint=None, nofilter=None, *args,**kargs):
+def srpflood(x, promisc=None, filter=None, iface=None, iface_hint=None, nofilter=None, *args,**kargs):
     """Flood and receive packets at layer 2
 prn:      function applied to packets received. Ret val is printed if not None
 store:    if 1 (default), store answers and return them
@@ -551,7 +551,7 @@ filter:   provide a BPF filter
 iface:    listen answers only on the given interface"""
     if iface is None and iface_hint is not None:
         iface = conf.route.route(iface_hint)[0]    
-    s = conf.L2socket(filter=filter, iface=iface, nofilter=nofilter)
+    s = conf.L2socket(promisc=promisc, filter=filter, iface=iface, nofilter=nofilter)
     r=sndrcvflood(s,x,*args,**kargs)
     s.close()
     return r
