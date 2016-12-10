@@ -6,7 +6,6 @@
 """
 Customizations needed to support Microsoft Windows.
 """
-
 import os,re,sys,socket,time, itertools
 import subprocess as sp
 from glob import glob
@@ -18,6 +17,7 @@ from scapy.utils import atol, itom, inet_aton, inet_ntoa, PcapReader
 from scapy.base_classes import Gen, Net, SetGen
 import scapy.plist as plist
 from scapy.data import MTU, ETHER_BROADCAST, ETH_P_ARP
+from scapy.arch.consts import LOOPBACK_NAME
 
 conf.use_pcap = False
 conf.use_dnet = False
@@ -397,7 +397,7 @@ def read_routes():
         elif release == "XP":
             routes = read_routes_xp()
         else:
-            routes = read_routes_7()
+            routes = read_routes_post2008()
     except Exception as e:    
         log_loading.warning("Error building scapy routing table : %s"%str(e))
     else:
@@ -406,7 +406,6 @@ def read_routes():
     return routes
        
 def read_routes_post2008():
-    # XXX TODO: FIX THIS XXX
     routes = []
     if_index = '(\d+)'
     dest = '(\d+\.\d+\.\d+\.\d+)/(\d+)'
@@ -416,13 +415,15 @@ def read_routes_post2008():
     netstat_line = delim.join([if_index, dest, next_hop, metric_pattern])
     pattern = re.compile(netstat_line)
     # This works only starting from Windows 8/2012 and up. For older Windows another solution is needed
-    ps = sp.Popen([conf.prog.powershell, 'Get-NetRoute', '-AddressFamily IPV4', '|', 'select ifIndex, DestinationPrefix, NextHop, RouteMetric'], stdout = sp.PIPE, universal_newlines = True)
+    ps = sp.Popen([conf.prog.powershell, 'Get-NetRoute', '-AddressFamily IPV4'], stdout = sp.PIPE, universal_newlines = True)
     stdout, stdin = ps.communicate()
     for l in stdout.split('\n'):
         match = re.search(pattern,l)
         if match:
             try:
                 iface = dev_from_index(match.group(1))
+                if iface.ip == "0.0.0.0":
+                    continue
             except:
                 continue
             # try:
@@ -435,7 +436,42 @@ def read_routes_post2008():
     return routes
 
 def read_routes6():
-    return []
+    routes = []
+    ipv6_r = '([A-z|0-9|:]+)' #Hope it is a valid address...
+    #The correct IPv6 regex would be:
+    # ((([0-9A-Fa-f]{1,4}:){7}([0-9A-Fa-f]{1,4}|:))|(([0-9A-Fa-f]{1,4}:){6}(:[0-9A-Fa-f]{1,4}|((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){1,2})|:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){1,3})|((:[0-9A-Fa-f]{1,4})?:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){1,4})|((:[0-9A-Fa-f]{1,4}){0,2}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){1,5})|((:[0-9A-Fa-f]{1,4}){0,3}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){1,6})|((:[0-9A-Fa-f]{1,4}){0,4}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(:(((:[0-9A-Fa-f]{1,4}){1,7})|((:[0-9A-Fa-f]{1,4}){0,5}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:)))(%.+)?
+    # but is too big to be used (PyCParser): AssertionError: sorry, but this version only supports 100 named groups
+    netmask = '(\/\d+)?'
+    if_index = '(\d+)'
+    metric_pattern = "(\d+)"
+    delim = "\s+"        # The columns are separated by whitespace
+    netstat_line = delim.join([if_index, "".join([ipv6_r, netmask]), ipv6_r, metric_pattern])
+    pattern = re.compile(netstat_line)
+    # This works only starting from Windows 8/2012 and up. For older Windows another solution is needed
+    ps = sp.Popen([conf.prog.powershell, 'Get-NetRoute', '-AddressFamily IPV6'], stdout = sp.PIPE, universal_newlines = True)
+    stdout, stdin = ps.communicate()
+    for l in stdout.split('\n'):
+        match = re.search(pattern,l)
+        if match:
+            try:
+                iface = dev_from_index(match.group(1))
+            except:
+                continue
+
+            d = match.group(2)
+            dp = int(match.group(3)[1:])
+            nh = match.group(4)
+
+            if iface.name == LOOPBACK_NAME:
+                if d == '::':
+                    continue
+                cset = ['::1']
+            else:
+                cset = scapy.utils6.construct_source_candidate_set(d, dp, [iface.ip], LOOPBACK_NAME)
+            #APPEND (DESTINATION, NETMASK, NEXT HOP, IFACE, CANDIDATS)
+            #IN LINUX: routes.append((d, dp, nh, dev, cset))
+            routes.append((d, dp, nh, iface, cset))
+    return routes
 
 if conf.interactive_shell != 'ipython':
     try:

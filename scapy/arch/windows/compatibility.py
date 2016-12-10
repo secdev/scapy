@@ -13,6 +13,7 @@ from scapy.base_classes import Gen, SetGen
 import scapy.plist as plist
 from scapy.utils import PcapReader
 from scapy.data import MTU, ETH_P_ARP
+import scapy.error as error
 import os,re,sys,socket,time, itertools
 
 WINDOWS = True
@@ -23,7 +24,9 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0, retry=0, m
         
     if verbose is None:
         verbose = conf.verb
+    error.muteLogLoading(True) #Do not show the warning messages (already shown from arch.windows.__init__)
     from scapy.sendrecv import debug
+    error.muteLogLoading(False)
     debug.recv = plist.PacketList([],"Unanswered")
     debug.sent = plist.PacketList([],"Sent")
     debug.match = plist.SndRcvList([])
@@ -159,7 +162,9 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0, retry=0, m
     return plist.SndRcvList(ans),plist.PacketList(remain,"Unanswered")
 
 
+error.muteLogLoading(True) #Do not show the warning messages (already shown from arch.windows.__init__)
 import scapy.sendrecv
+error.muteLogLoading(False)
 scapy.sendrecv.sndrcv = sndrcv
 
 def sniff(count=0, store=1, offline=None, prn = None, lfilter=None, L2socket=None, timeout=None, *arg, **karg):
