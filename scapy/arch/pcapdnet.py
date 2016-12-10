@@ -229,11 +229,14 @@ if conf.use_winpcapy:
   conf.L2listen = L2pcapListenSocket
   class L2pcapSocket(SuperSocket):
       desc = "read/write packets at layer 2 using only libpcap"
-      def __init__(self, iface = None, type = ETH_P_ALL, filter=None, nofilter=0):
+      def __init__(self, iface = None, type = ETH_P_ALL, promisc=None, filter=None, nofilter=0):
           if iface is None:
               iface = conf.iface
           self.iface = iface
-          self.ins = open_pcap(iface, 1600, 0, 100)
+          if promisc is None:
+              promisc = 0
+          self.promisc = promisc
+          self.ins = open_pcap(iface, 1600, self.promisc, 100)
           try:
               ioctl(self.ins.fileno(),BIOCIMMEDIATE,struct.pack("I",1))
           except:
@@ -524,13 +527,16 @@ if conf.use_dnet:
 if conf.use_pcap and conf.use_dnet:
     class L3dnetSocket(SuperSocket):
         desc = "read/write packets at layer 3 using libdnet and libpcap"
-        def __init__(self, type = ETH_P_ALL, filter=None, promisc=None, iface=None, nofilter=0):
+        def __init__(self, type = ETH_P_ALL, promisc=None, filter=None, iface=None, nofilter=0):
             self.iflist = {}
             self.intf = dnet.intf()
             if iface is None:
                 iface = conf.iface
             self.iface = iface
-            self.ins = open_pcap(iface, 1600, 0, 100)
+            if promisc is None:
+                promisc = 0
+            self.promisc = promisc
+            self.ins = open_pcap(iface, 1600, self.promisc, 100)
             try:
                 ioctl(self.ins.fileno(),BIOCIMMEDIATE,struct.pack("I",1))
             except:
@@ -614,11 +620,14 @@ if conf.use_pcap and conf.use_dnet:
     
     class L2dnetSocket(SuperSocket):
         desc = "read/write packets at layer 2 using libdnet and libpcap"
-        def __init__(self, iface = None, type = ETH_P_ALL, filter=None, nofilter=0):
+        def __init__(self, iface = None, type = ETH_P_ALL, promisc=None, filter=None, nofilter=0):
             if iface is None:
                 iface = conf.iface
             self.iface = iface
-            self.ins = open_pcap(iface, 1600, 0, 100)
+            if promisc is None:
+                promisc = 0
+            self.promisc = promisc
+            self.ins = open_pcap(iface, 1600, self.promisc, 100)
             try:
                 ioctl(self.ins.fileno(),BIOCIMMEDIATE,struct.pack("I",1))
             except:
