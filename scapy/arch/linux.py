@@ -218,7 +218,7 @@ def in6_getifaddr():
     """
     Returns a list of 3-tuples of the form (addr, scope, iface) where
     'addr' is the address of scope 'scope' associated to the interface
-    'ifcace'.
+    'iface'.
 
     This is the list of all addresses of all interfaces available on
     the system.
