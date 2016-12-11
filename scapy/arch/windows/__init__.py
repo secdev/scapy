@@ -360,7 +360,7 @@ pcapdnet.open_pcap = lambda iface,*args,**kargs: _orig_open_pcap(pcapname(iface)
 
 _orig_get_if_raw_hwaddr = pcapdnet.get_if_raw_hwaddr
 pcapdnet.get_if_raw_hwaddr = lambda iface, *args, **kargs: (
-    ARPHDR_ETHER, IFACES.dev_from_pcapname(iface.pcap_name).mac.replace('-', '')
+    ARPHDR_ETHER, mac2str(IFACES.dev_from_pcapname(iface.pcap_name).mac.replace('-', ':'))
 )
 get_if_raw_hwaddr = pcapdnet.get_if_raw_hwaddr
 
