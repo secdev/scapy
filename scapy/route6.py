@@ -200,7 +200,7 @@ class Route6:
         # Deal with dev-specific request for cache search
         k = dst
         if dev is not None:
-            k = dst + "%%" + dev
+            k = dst + "%%" + (dev.pcap_name if WINDOWS else dev)
         if k in self.cache:
             return self.cache[k]
 
@@ -265,7 +265,7 @@ class Route6:
         # Fill the cache (including dev-specific request)
         k = dst
         if dev is not None:
-            k = dst + "%%" + dev
+            k = dst + "%%" + (dev.pcap_name if WINDOWS else dev)
         self.cache[k] = res[0][1]
 
         return res[0][1]

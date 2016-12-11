@@ -360,7 +360,7 @@ pcapdnet.open_pcap = lambda iface,*args,**kargs: _orig_open_pcap(pcapname(iface)
 
 _orig_get_if_raw_hwaddr = pcapdnet.get_if_raw_hwaddr
 pcapdnet.get_if_raw_hwaddr = lambda iface, *args, **kargs: (
-    ARPHDR_ETHER, IFACES.dev_from_pcapname(iface.pcap_name).mac.replace(':', '').decode('hex')
+    ARPHDR_ETHER, IFACES.dev_from_pcapname(iface.pcap_name).mac.replace('-', '')
 )
 get_if_raw_hwaddr = pcapdnet.get_if_raw_hwaddr
 
@@ -457,27 +457,18 @@ def in6_getifaddr():
     Returns all IPv6 addresses found on the computer
     """
     ret = []
-    ps = sp.Popen([conf.prog.powershell, 'netsh interface ipv6 show address'], stdout = sp.PIPE, universal_newlines = True)
+    ps = sp.Popen([conf.prog.powershell, 'Get-NetRoute', '-AddressFamily IPV6', '|', 'select ifIndex, DestinationPrefix'], stdout = sp.PIPE, universal_newlines = True)
     stdout, stdin = ps.communicate()
-
-    interface_title = "(\d+) : [^\s]+"
-    interface_reg = "\s+infinite\s+infinite\s+([A-z|0-9|:]+)%(\d+)"
-
-    interface_nbr = -1
-    pattern_title = re.compile(interface_title)
-    pattern_int = re.compile(interface_reg)
+    netstat_line = '\s+'.join(['(\d+)', ''.join(['([A-z|0-9|:]+)', '(\/\d+)'])])
+    pattern = re.compile(netstat_line)
     for l in stdout.split('\n'):
-        match_t = re.search(pattern_title, l)
-        if match_t:
-            interface_nbr = int(match_t.group(1))
-            continue
-        match_i = re.search(pattern_int, l)
-        if match_i:
+        match = re.search(pattern,l)
+        if match:
             try:
-                iface = dev_from_index(interface_nbr)
+                iface = dev_from_index(match.group(1))
             except:
                 continue
-            ret.append((match_i.group(1), int(match_i.group(2)), iface)) #(addr,scope,iface)
+            ret.append((match.group(2), scapy.utils6.in6_getscope(match.group(2)), iface)) #(addr,scope,iface)
             continue
     return ret
 
@@ -489,16 +480,13 @@ def read_routes6():
     # but is too big to be used (PyCParser): AssertionError: sorry, but this version only supports 100 named groups
     netmask = '(\/\d+)?'
     if_index = '(\d+)'
-    delim = "\s+"        # The columns are separated by whitespace
+    delim = '\s+'        # The columns are separated by whitespace
     netstat_line = delim.join([if_index, "".join([ipv6_r, netmask]), ipv6_r])
     pattern = re.compile(netstat_line)
     # This works only starting from Windows 8/2012 and up. For older Windows another solution is needed
     ps = sp.Popen([conf.prog.powershell, 'Get-NetRoute', '-AddressFamily IPV6', '|', 'select ifIndex, DestinationPrefix, NextHop'], stdout = sp.PIPE, universal_newlines = True)
     stdout, stdin = ps.communicate()
     lifaddr = in6_getifaddr()
-    print " # "
-    print lifaddr
-    print " # "
     for l in stdout.split('\n'):
         match = re.search(pattern,l)
         if match:
