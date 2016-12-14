@@ -1,4 +1,5 @@
 @echo off
+title UTscapy
 set MYDIR=%cd%\..
 set PYTHONPATH=%MYDIR%
 if [%1]==[] (
