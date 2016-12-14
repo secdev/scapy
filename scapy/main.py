@@ -239,7 +239,10 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
                 try:
                     object = eval(expr)
                 except:
-                    object = eval(expr, session)
+                    try:
+                        object = eval(expr, session)
+                    except (NameError, AttributeError):
+                        return
                 from scapy.packet import Packet, Packet_metaclass
                 if isinstance(object, Packet) or isinstance(object, Packet_metaclass):
                     words = filter(lambda x: x[0]!="_",dir(object))
