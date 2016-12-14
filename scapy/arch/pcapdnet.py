@@ -40,7 +40,9 @@ if conf.use_winpcapy:
 
   except OSError as e:
     if conf.interactive:
-      log_loading.error("Unable to import libpcap library: %s" % e)
+      log_loading.warning("wpcap.dll is not installed. You won't be able to send/recieve packets. Visit https://www.winpcap.org/ to install it")
+      def winpcapy_get_if_list():
+          return []
       conf.use_winpcapy = False
     else:
       raise
@@ -99,7 +101,8 @@ if conf.use_winpcapy:
       return ret
     finally:
       pcap_freealldevs(devs)
-  get_if_list = winpcapy_get_if_list
+  if(conf.use_winpcapy):
+      get_if_list = winpcapy_get_if_list
   def in6_getifaddr():
     err = create_string_buffer(PCAP_ERRBUF_SIZE)
     devs = POINTER(pcap_if_t)()

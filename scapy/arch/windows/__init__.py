@@ -286,7 +286,7 @@ class NetworkInterfaceDict(UserDict):
             except (KeyError, PcapNameNotFoundError):
                 pass
         
-        if len(self.data) == 0:
+        if (len(self.data) == 0) and conf.use_winpcapy:
             log_loading.warning("No match between your pcap and windows network interfaces found. "
                                 "You probably won't be able to send packets. "
                                 "Deactivating unneeded interfaces and restarting Scapy might help."
