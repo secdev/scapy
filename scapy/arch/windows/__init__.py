@@ -236,7 +236,7 @@ class NetworkInterface(object):
         self._update_pcapdata()
 
         try:
-            self.ip = socket.inet_ntoa(get_if_raw_addr(data['guid']))
+            self.ip = socket.inet_ntoa(get_if_raw_addr(data))
         except (KeyError, AttributeError, NameError):
             pass
 
@@ -461,3 +461,23 @@ def get_working_if():
         return LOOPBACK_NAME
 
 conf.iface = get_working_if()
+
+
+def route_add_loopback():
+    """Add a route to 127.0.0.1 to simplify unit tests on Windows"""
+
+    # Build the packed network addresses
+    loop_net = struct.unpack("!I", socket.inet_aton("127.0.0.0"))[0]
+    loop_mask = struct.unpack("!I", socket.inet_aton("255.0.0.0"))[0]
+
+    # Get the adapter from an existing route
+    if len(conf.route.routes) == 0:
+        return
+    adapter = conf.route.routes[0][3]
+
+    # Build and inject the fake route
+    loopback_route = (loop_net, loop_mask, "0.0.0.0", adapter, "127.0.0.1")
+    conf.route.routes.append(loopback_route)
+
+    # Flush the cache
+    conf.route.invalidate_cache()

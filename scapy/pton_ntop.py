@@ -87,9 +87,15 @@ def inet_ntop(af, addr):
                 hexstr = hex(value)[2:]
             except TypeError:
                 raise Exception("Illegal syntax for IP address")
-            parts.append(hexstr.lower())
-
-        # Note: the returned address is never compact
-        return ":".join(parts)
+            parts.append(hexstr.lstrip("0").lower())
+        result = ":".join(parts)
+        while ":::" in result:
+            result = result.replace(":::", "::")
+        # Leaving out leading and trailing zeros is only allowed with ::
+        if result.endswith(":") and not result.endswith("::"):
+            result = result + "0"
+        if result.startswith(":") and not result.startswith("::"):
+            result = "0" + result
+        return result
     else:
         raise Exception("Address family not supported yet")   
