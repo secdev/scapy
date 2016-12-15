@@ -390,6 +390,8 @@ if conf.use_pcap:
                         return None
                     else:
                         h,p = c
+                        if h is None:
+                            return
                         s,us = h.getts()
                         return (s+0.000001*us), p
                 def fileno(self):
