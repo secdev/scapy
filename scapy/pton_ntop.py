@@ -10,7 +10,7 @@ These functions are missing when python is compiled
 without IPv6 support, on Windows for instance.
 """
 
-import socket,struct
+import socket,struct,re
 
 def inet_pton(af, addr):
     """Convert an IP address from text representation into binary form"""
@@ -90,6 +90,21 @@ def inet_ntop(af, addr):
             parts.append(hexstr.lower())
 
         # Note: the returned address is never compact
-        return ":".join(parts)
+        address = ":".join(parts)
+        matches = re.findall('(?::|^)(0(?::0)*)(?::|$)', address)
+        match = max(matches)
+        leftidx = address.rfind(match)
+        left = address[:leftidx]
+        rightidx = leftidx + len(match)
+        if len(address) == rightidx:
+            compact_address = left + ":"
+        elif leftidx == 0:
+            compact_address = ":" + address[rightidx:]
+        else:
+            compact_address = left + address[rightidx:]
+
+        if compact_address == ":":
+            compact_address = "::"
+        return compact_address
     else:
         raise Exception("Address family not supported yet")   
