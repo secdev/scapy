@@ -33,9 +33,11 @@ if not hasattr(socket, 'IPPROTO_AH'):
 if not hasattr(socket, 'IPPROTO_ESP'):
     socket.IPPROTO_ESP=50
 
-
-from scapy.arch import pcapdnet
-from scapy.arch.pcapdnet import *
+try:
+    from scapy.arch import pcapdnet
+    from scapy.arch.pcapdnet import *
+except Scapy_Exception:
+    pass
 
 WINDOWS = True
 

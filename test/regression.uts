@@ -4943,7 +4943,7 @@ def dev_from_index_custom(if_index):
 
 @mock.patch("scapy.arch.windows.dev_from_index")
 @mock.patch("scapy.arch.windows.sp.Popen")
-def test_read_routes6_windows(mock_comm, mock_dev_from_index):
+def test_read_routes6_windows(mock_comm, mock_dev_from_index, mock_unit_detect):
     """Test read_routes6() on Windows"""
     # 'Get-NetRoute -AddressFamily IPV6 | select ifIndex, DestinationPrefix, NextHop'
     get_net_route_output = """
