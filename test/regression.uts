@@ -4941,6 +4941,7 @@ def dev_from_index_custom(if_index):
             return iface
     raise ValueError("Unknown network interface index %r" % if_index)
 
+@mock.patch("scapy.arch.windows.pcapdnet.load_winpcapy")
 @mock.patch("scapy.arch.windows.dev_from_index")
 @mock.patch("scapy.arch.windows.sp.Popen")
 def test_read_routes6_windows(mock_comm, mock_dev_from_index, mock_unit_detect):
@@ -4965,6 +4966,7 @@ ifIndex DestinationPrefix                          NextHop
 13 ::/0                                       fe80::224:d4ff:fea0:a6d7
 """
     mock_comm.return_value.communicate.return_value = (get_net_route_output, "")
+    mock_unit_detect.return_value = False
     # Mocked in6_getifaddr() output
     mock_dev_from_index.side_effect = dev_from_index_custom
     # Test the function
