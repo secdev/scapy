@@ -49,7 +49,7 @@ class Route6:
         rtlst = [('Destination', 'Next Hop', "iface", "src candidates")]
 
         for net,msk,gw,iface,cset in self.routes:
-	    rtlst.append(('%s/%i'% (net,msk), gw, iface, ", ".join(cset)))
+	    rtlst.append(('%s/%i'% (net,msk), gw, (iface.name if WINDOWS else iface), ", ".join(cset)))
 
         colwidth = map(lambda x: max(map(lambda y: len(y), x)), apply(zip, rtlst))
         fmt = "  ".join(map(lambda x: "%%-%ds"%x, colwidth))

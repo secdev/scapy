@@ -60,6 +60,13 @@ log_runtime.addFilter(ScapyFreqFilter())
 log_interactive = logging.getLogger("scapy.interactive")  # logs in interactive functions
 log_loading = logging.getLogger("scapy.loading")          # logs when loading Scapy
 
+# This mutes the log loading: used when a class is loaded several times, to avoid the warning messages to be showed more than once
+def muteLogLoading(mute):
+    if not mute:
+        log_loading.setLevel(logging.WARNING)
+    else:
+        log_loading.setLevel(logging.CRITICAL)
+
 
 def warning(x):
     log_runtime.warning(x)

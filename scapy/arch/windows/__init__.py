@@ -6,7 +6,6 @@
 """
 Customizations needed to support Microsoft Windows.
 """
-
 import os,re,sys,socket,time, itertools
 import subprocess as sp
 from glob import glob
@@ -18,6 +17,7 @@ from scapy.utils import atol, itom, inet_aton, inet_ntoa, PcapReader
 from scapy.base_classes import Gen, Net, SetGen
 import scapy.plist as plist
 from scapy.data import MTU, ETHER_BROADCAST, ETH_P_ARP
+from scapy.arch.consts import LOOPBACK_NAME
 
 conf.use_pcap = False
 conf.use_dnet = False
@@ -157,6 +157,14 @@ def win_find_exe(filename, installsubdir=None, env="ProgramFiles"):
     return path
 
 
+def is_new_release():
+    release = platform.release()
+    if (release=="post2008Server"):
+        return True
+    if release.isdigit():
+        return int(release) >= 8
+    return False
+
 class WinProgPath(ConfClass):
     _default = "<System default>"
     # We try some magic to find the appropriate executables
@@ -190,11 +198,16 @@ def is_interface_valid(iface):
     return False
 
 def get_windows_if_list():
-    if platform.release()=="post2008Server" or platform.release()=="8":
+    if is_new_release():
         # This works only starting from Windows 8/2012 and up. For older Windows another solution is needed
+        # Careful: this is weird, but Get-NetAdaptater works like: (Name isn't the interface name)
+        # Name                      InterfaceDescription                    ifIndex Status       MacAddress             LinkSpeed
+        #----                      --------------------                    ------- ------       ----------             ---------
+        #Ethernet                  Killer E2200 Gigabit Ethernet Contro...      13 Up           D0-50-99-56-DD-F9         1 Gbps
+        
         query = exec_query(['Get-NetAdapter'],
-                           ['Name', 'InterfaceIndex', 'InterfaceDescription',
-                            'InterfaceGuid', 'MacAddress'])
+                           ['InterfaceDescription', 'InterfaceIndex', 'Name',
+                            'InterfaceGuid', 'MacAddress']) # It is normal that it is in this order
     else:
         query = exec_query(['Get-WmiObject', 'Win32_NetworkAdapter'],
                            ['Name', 'InterfaceIndex', 'InterfaceDescription',
@@ -392,21 +405,20 @@ def read_routes():
     routes = []
     release = platform.release()
     try:
-        if release in ["post2008Server", "8"]:
+        if is_new_release():
             routes = read_routes_post2008()
         elif release == "XP":
             routes = read_routes_xp()
         else:
             routes = read_routes_7()
     except Exception as e:    
-        log_loading.warning("Error building scapy routing table : %s"%str(e))
+        log_loading.warning("Error building scapy routing table : %s" % str(e))
     else:
         if not routes:
             log_loading.warning("No default IPv4 routes found. Your Windows release may no be supported and you have to enter your routes manually")
     return routes
        
 def read_routes_post2008():
-    # XXX TODO: FIX THIS XXX
     routes = []
     if_index = '(\d+)'
     dest = '(\d+\.\d+\.\d+\.\d+)/(\d+)'
@@ -423,6 +435,8 @@ def read_routes_post2008():
         if match:
             try:
                 iface = dev_from_index(match.group(1))
+                if iface.ip == "0.0.0.0":
+                    continue
             except:
                 continue
             # try:
@@ -434,8 +448,84 @@ def read_routes_post2008():
                            match.group(4), iface, iface.ip))
     return routes
 
+############
+### IPv6 ###
+############
+
+def in6_getifaddr():
+    """
+    Returns all IPv6 addresses found on the computer
+    """
+    ret = []
+    ps = sp.Popen([conf.prog.powershell, 'netsh interface ipv6 show address'], stdout = sp.PIPE, universal_newlines = True)
+    stdout, stdin = ps.communicate()
+
+    interface_title = "(\d+) : [^\s]+"
+    interface_reg = "\s+infinite\s+infinite\s+([A-z|0-9|:]+)%(\d+)"
+
+    interface_nbr = -1
+    pattern_title = re.compile(interface_title)
+    pattern_int = re.compile(interface_reg)
+    for l in stdout.split('\n'):
+        match_t = re.search(pattern_title, l)
+        if match_t:
+            interface_nbr = int(match_t.group(1))
+            continue
+        match_i = re.search(pattern_int, l)
+        if match_i:
+            try:
+                iface = dev_from_index(interface_nbr)
+            except:
+                continue
+            ret.append((match_i.group(1), int(match_i.group(2)), iface)) #(addr,scope,iface)
+            continue
+    return ret
+
 def read_routes6():
-    return []
+    routes = []
+    ipv6_r = '([A-z|0-9|:]+)' #Hope it is a valid address...
+    # The correct IPv6 regex would be:
+    # ((([0-9A-Fa-f]{1,4}:){7}([0-9A-Fa-f]{1,4}|:))|(([0-9A-Fa-f]{1,4}:){6}(:[0-9A-Fa-f]{1,4}|((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){1,2})|:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){1,3})|((:[0-9A-Fa-f]{1,4})?:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){1,4})|((:[0-9A-Fa-f]{1,4}){0,2}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){1,5})|((:[0-9A-Fa-f]{1,4}){0,3}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){1,6})|((:[0-9A-Fa-f]{1,4}){0,4}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(:(((:[0-9A-Fa-f]{1,4}){1,7})|((:[0-9A-Fa-f]{1,4}){0,5}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:)))(%.+)?
+    # but is too big to be used (PyCParser): AssertionError: sorry, but this version only supports 100 named groups
+    netmask = '(\/\d+)?'
+    if_index = '(\d+)'
+    delim = "\s+"        # The columns are separated by whitespace
+    netstat_line = delim.join([if_index, "".join([ipv6_r, netmask]), ipv6_r])
+    pattern = re.compile(netstat_line)
+    # This works only starting from Windows 8/2012 and up. For older Windows another solution is needed
+    ps = sp.Popen([conf.prog.powershell, 'Get-NetRoute', '-AddressFamily IPV6', '|', 'select ifIndex, DestinationPrefix, NextHop'], stdout = sp.PIPE, universal_newlines = True)
+    stdout, stdin = ps.communicate()
+    lifaddr = in6_getifaddr()
+    print " # "
+    print lifaddr
+    print " # "
+    for l in stdout.split('\n'):
+        match = re.search(pattern,l)
+        if match:
+            try:
+                iface = dev_from_index(match.group(1))
+            except:
+                continue
+
+            d = match.group(2)
+            dp = int(match.group(3)[1:])
+            nh = match.group(4)
+            
+            cset = [] # candidate set (possible source addresses)
+            if iface.name == LOOPBACK_NAME:
+                if d == '::':
+                    continue
+                cset = ['::1']
+            else:
+                devaddrs = filter(lambda x: x[2] == iface, lifaddr)
+                cset = scapy.utils6.construct_source_candidate_set(d, dp, devaddrs, LOOPBACK_NAME)
+            #APPEND (DESTINATION, NETMASK, NEXT HOP, IFACE, CANDIDATS)
+            #IN LINUX: routes.append((d, dp, nh, dev, cset))
+            routes.append((d, dp, nh, iface, cset))
+    return routes
+
+
+
 
 if conf.interactive_shell != 'ipython':
     try:
