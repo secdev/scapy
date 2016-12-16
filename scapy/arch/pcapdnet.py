@@ -85,7 +85,7 @@ if conf.use_winpcapy:
     try:
       p = devs
       while p:
-        if p.contents.name.endswith(iff):
+        if p.contents.name.endswith(iff.guid):
           a = p.contents.addresses
           while a:
             if a.contents.addr.contents.sa_family == socket.AF_INET:
@@ -390,6 +390,8 @@ if conf.use_pcap:
                         return None
                     else:
                         h,p = c
+                        if h is None:
+                            return
                         s,us = h.getts()
                         return (s+0.000001*us), p
                 def fileno(self):

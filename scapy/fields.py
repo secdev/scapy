@@ -7,7 +7,7 @@
 Fields: basic data structures that make up parts of packets.
 """
 
-import struct,copy,socket
+import struct,copy,socket,collections
 from scapy.config import conf
 from scapy.volatile import *
 from scapy.data import *
@@ -990,7 +990,94 @@ class FlagsField(BitField):
             r = "+".join(r)
         return r
 
-            
+
+MultiFlagsEntry = collections.namedtuple('MultiFlagEntry', ['short', 'long'])
+
+
+class MultiFlagsField(BitField):
+    __slots__ = FlagsField.__slots__ + ["depends_on"]
+
+    def __init__(self, name, default, size, names, depends_on):
+        self.names = names
+        self.depends_on = depends_on
+        super(MultiFlagsField, self).__init__(name, default, size)
+
+    def any2i(self, pkt, x):
+        assert isinstance(x, (int, long, set)), 'set expected'
+
+        if pkt is not None:
+            if isinstance(x, (int, long)):
+                x = self.m2i(pkt, x)
+            else:
+                v = self.depends_on(pkt)
+                if v is not None:
+                    assert self.names.has_key(v), 'invalid dependency'
+                    these_names = self.names[v]
+                    s = set()
+                    for i in x:
+                        for j in these_names.keys():
+                            if these_names[j].short == i:
+                                s.add(i)
+                                break
+                        else:
+                            assert False, 'Unknown flag "{}" with this dependency'.format(i)
+                            continue
+                    x = s
+        return x
+
+    def i2m(self, pkt, x):
+        v = self.depends_on(pkt)
+        if v in self.names:
+            these_names = self.names[v]
+        else:
+            these_names = {}
+
+        r = 0
+        for flag_set in x:
+            for i in these_names.keys():
+                if these_names[i].short == flag_set:
+                    r |= 1 << i
+                    break
+            else:
+                r |= 1 << int(flag_set[len('bit '):])
+        return r
+
+    def m2i(self, pkt, x):
+        v = self.depends_on(pkt)
+        if v in self.names:
+            these_names = self.names[v]
+        else:
+            these_names = {}
+
+        r = set()
+        i = 0
+
+        while x:
+            if x & 1:
+                if i in these_names:
+                    r.add(these_names[i].short)
+                else:
+                    r.add('bit {}'.format(i))
+            x >>= 1
+            i += 1
+        return r
+
+    def i2repr(self, pkt, x):
+        v = self.depends_on(pkt)
+        if self.names.has_key(v):
+            these_names = self.names[v]
+        else:
+            these_names = {}
+
+        r = set()
+        for flag_set in x:
+            for i in these_names.itervalues():
+                if i.short == flag_set:
+                    r.add("{} ({})".format(i.long, i.short))
+                    break
+            else:
+                r.add(flag_set)
+        return repr(r)
 
 
 class FixedPointField(BitField):

@@ -4491,15 +4491,15 @@ assert bpkt.chksum == 0x7cc3 and bpkt.payload.chksum == 0x4b2c
 
 pkt = IP(options=[IPOption_RR()]) / TCP() / ("A" * 10)
 bpkt = IP(str(pkt))
-assert bpkt.chksum == 0xf0bb and bpkt.payload.chksum == 0x4b2c
+assert bpkt.chksum == 0x70bc and bpkt.payload.chksum == 0x4b2c
 
 pkt = IP(len=54, options=[IPOption_RR()]) / TCP() / ("A" * 10)
 bpkt = IP(str(pkt))
-assert bpkt.chksum == 0xf0bb and bpkt.payload.chksum == 0x4b2c
+assert bpkt.chksum == 0x70bc and bpkt.payload.chksum == 0x4b2c
 
 pkt = IP(len=54, ihl=6, options=[IPOption_RR()]) / TCP() / ("A" * 10)
 bpkt = IP(str(pkt))
-assert bpkt.chksum == 0xf0bb and bpkt.payload.chksum == 0x4b2c
+assert bpkt.chksum == 0x70bc and bpkt.payload.chksum == 0x4b2c
 
 pkt = IP() / UDP()
 bpkt = IP(str(pkt))
@@ -4527,15 +4527,15 @@ assert bpkt.chksum == 0x7cc4 and bpkt.payload.chksum == 0xbb17
 
 pkt = IP(options=[IPOption_RR()]) / UDP() / ("A" * 10)
 bpkt = IP(str(pkt))
-assert bpkt.chksum == 0xf0bc and bpkt.payload.chksum == 0xbb17
+assert bpkt.chksum == 0x70bd and bpkt.payload.chksum == 0xbb17
 
 pkt = IP(len=42, options=[IPOption_RR()]) / UDP() / ("A" * 10)
 bpkt = IP(str(pkt))
-assert bpkt.chksum == 0xf0bc and bpkt.payload.chksum == 0xbb17
+assert bpkt.chksum == 0x70bd and bpkt.payload.chksum == 0xbb17
 
 pkt = IP(len=42, ihl=6, options=[IPOption_RR()]) / UDP() / ("A" * 10)
 bpkt = IP(str(pkt))
-assert bpkt.chksum == 0xf0bc and bpkt.payload.chksum == 0xbb17
+assert bpkt.chksum == 0x70bd and bpkt.payload.chksum == 0xbb17
 
 = Layer binding
 
@@ -4562,6 +4562,7 @@ assert isinstance(pkt, DNS) and isinstance(pkt.payload, NoPayload)
 + Mocked read_routes() calls
 
 = Truncated netstat -rn output on OS X
+~ mock_read_routes6_bsd
 
 import mock
 import StringIO
@@ -4618,6 +4619,7 @@ test_osx_netstat_truncated()
 + Mocked read_routes6() calls
 
 = Preliminary definitions
+~ mock_read_routes6_bsd
 
 import mock
 import StringIO
@@ -4647,6 +4649,7 @@ def check_mandatory_ipv6_routes(routes6):
 
 
 = Mac OS X 10.9.5
+~ mock_read_routes6_bsd
 
 @mock.patch("scapy.arch.unix.in6_getifaddr")
 @mock.patch("scapy.arch.unix.os")
@@ -4687,6 +4690,7 @@ test_osx_10_9_5()
 
 
 = Mac OS X 10.9.5 with global IPv6 connectivity
+~ mock_read_routes6_bsd
 @mock.patch("scapy.arch.unix.in6_getifaddr")
 @mock.patch("scapy.arch.unix.os")
 def test_osx_10_9_5_global(mock_os, mock_in6_getifaddr):
@@ -4734,6 +4738,7 @@ test_osx_10_9_5_global()
 
 
 = Mac OS X 10.10.4
+~ mock_read_routes6_bsd
 
 @mock.patch("scapy.arch.unix.in6_getifaddr")
 @mock.patch("scapy.arch.unix.os")
@@ -4773,6 +4778,7 @@ test_osx_10_10_4()
 
 
 = FreeBSD 10.2
+~ mock_read_routes6_bsd
 
 @mock.patch("scapy.arch.unix.in6_getifaddr")
 @mock.patch("scapy.arch.unix.os")
@@ -4811,6 +4817,7 @@ test_freebsd_10_2()
 
 
 = OpenBSD 5.5
+~ mock_read_routes6_bsd
 
 @mock.patch("scapy.arch.unix.OPENBSD")
 @mock.patch("scapy.arch.unix.in6_getifaddr")
@@ -4868,6 +4875,7 @@ test_openbsd_5_5()
 
 
 = NetBSD 7.0
+~ mock_read_routes6_bsd
 
 @mock.patch("scapy.arch.unix.NETBSD")
 @mock.patch("scapy.arch.unix.in6_getifaddr")
@@ -6304,3 +6312,188 @@ except:
 assert(ret)
 p = ss.recv()
 assert(p.data == 3)
+
++ Tests on MultiFlagsField
+
+= Test calls on MultiFlagsField.any2i
+~ multiflagsfield
+
+import collections
+MockPacket = collections.namedtuple('MockPacket', ['type'])
+
+f = MultiFlagsField('flags', set(), 3, {
+        0: {
+            0: MultiFlagsEntry('A', 'OptionA'),
+            1: MultiFlagsEntry('B', 'OptionB'),
+        },
+        1: {
+            0: MultiFlagsEntry('+', 'Plus'),
+            1: MultiFlagsEntry('*', 'Star'),
+        },
+    },
+    depends_on=lambda x: x.type
+)
+
+mp = MockPacket(0)
+x = f.any2i(mp, set())
+assert(isinstance(x, set))
+assert(len(x) == 0)
+x = f.any2i(mp, {'A'})
+assert(isinstance(x, set))
+assert(len(x) == 1)
+assert('A' in x)
+assert('B' not in x)
+assert('+' not in x)
+x = f.any2i(mp, {'A', 'B'})
+assert(isinstance(x, set))
+assert(len(x) == 2)
+assert('A' in x)
+assert('B' in x)
+assert('+' not in x)
+assert('*' not in x)
+x = f.any2i(mp, 3)
+assert(isinstance(x, set))
+assert(len(x) == 2)
+assert('A' in x)
+assert('B' in x)
+assert('+' not in x)
+assert('*' not in x)
+x = f.any2i(mp, 7)
+assert(isinstance(x, set))
+assert(len(x) == 3)
+assert('A' in x)
+assert('B' in x)
+assert('bit 2' in x)
+assert('+' not in x)
+assert('*' not in x)
+mp = MockPacket(1)
+x = f.any2i(mp, {'+', '*'})
+assert(isinstance(x, set))
+assert(len(x) == 2)
+assert('+' in x)
+assert('*' in x)
+assert('A' not in x)
+assert('B' not in x)
+try:
+    x = f.any2i(mp, {'A'})
+    ret = False
+except AssertionError:
+    ret = True
+
+assert(ret)
+#Following test demonstrate a non-sensical yet acceptable usage :(
+x = f.any2i(None, {'Toto'})
+assert('Toto' in x)
+
+= Test calls on MultiFlagsField.i2m
+~ multiflagsfield
+
+import collections
+MockPacket = collections.namedtuple('MockPacket', ['type'])
+
+f = MultiFlagsField('flags', set(), 3, {
+        0: {
+            0: MultiFlagsEntry('A', 'OptionA'),
+            1: MultiFlagsEntry('B', 'OptionB'),
+        },
+        1: {
+            0: MultiFlagsEntry('+', 'Plus'),
+            1: MultiFlagsEntry('*', 'Star'),
+        },
+    },
+    depends_on=lambda x: x.type
+)
+
+mp = MockPacket(0)
+x = f.i2m(mp, set())
+assert(isinstance(x, (int, long)))
+assert(x == 0)
+x = f.i2m(mp, {'A'})
+assert(isinstance(x, (int, long)))
+assert(x == 1)
+x = f.i2m(mp, {'A', 'B'})
+assert(isinstance(x, (int, long)))
+assert(x == 3)
+x = f.i2m(mp, {'A', 'B', 'bit 2'})
+assert(isinstance(x, (int, long)))
+assert(x == 7)
+try:
+    x = f.i2m(mp, {'+'})
+    ret = False
+except:
+    ret = True
+
+assert(ret)
+
+= Test calls on MultiFlagsField.m2i
+~ multiflagsfield
+
+import collections
+MockPacket = collections.namedtuple('MockPacket', ['type'])
+
+f = MultiFlagsField('flags', set(), 3, {
+        0: {
+            0: MultiFlagsEntry('A', 'OptionA'),
+            1: MultiFlagsEntry('B', 'OptionB'),
+        },
+        1: {
+            0: MultiFlagsEntry('+', 'Plus'),
+            1: MultiFlagsEntry('*', 'Star'),
+        },
+    },
+    depends_on=lambda x: x.type
+)
+
+mp = MockPacket(0)
+x = f.m2i(mp, 2)
+assert(isinstance(x, set))
+assert(len(x) == 1)
+assert('B' in x)
+assert('A' not in x)
+assert('*' not in x)
+
+x = f.m2i(mp, 7)
+assert(isinstance(x, set))
+assert('B' in x)
+assert('A' in x)
+assert('bit 2' in x)
+assert('*' not in x)
+assert('+' not in x)
+x = f.m2i(mp, 0)
+assert(len(x) == 0)
+mp = MockPacket(1)
+x = f.m2i(mp, 2)
+assert(isinstance(x, set))
+assert(len(x) == 1)
+assert('*' in x)
+assert('+' not in x)
+assert('B' not in x)
+
+= Test calls on MultiFlagsField.i2repr
+~ multiflagsfield
+
+import collections, re
+MockPacket = collections.namedtuple('MockPacket', ['type'])
+
+f = MultiFlagsField('flags', set(), 3, {
+        0: {
+            0: MultiFlagsEntry('A', 'OptionA'),
+            1: MultiFlagsEntry('B', 'OptionB'),
+        },
+        1: {
+            0: MultiFlagsEntry('+', 'Plus'),
+            1: MultiFlagsEntry('*', 'Star'),
+        },
+    },
+    depends_on=lambda x: x.type
+)
+
+mp = MockPacket(0)
+x = f.i2repr(mp, {'A', 'B'})
+assert(re.match(r'^.*OptionA \(A\).*$', x) is not None)
+assert(re.match(r'^.*OptionB \(B\).*$', x) is not None)
+mp = MockPacket(1)
+x = f.i2repr(mp, {'*', '+', 'bit 2'})
+assert(re.match(r'^.*Star \(\*\).*$', x) is not None)
+assert(re.match(r'^.*Plus \(\+\).*$', x) is not None)
+assert(re.match(r'^.*bit 2.*$', x) is not None)
