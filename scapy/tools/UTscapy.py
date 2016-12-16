@@ -9,6 +9,7 @@ Unit testing infrastructure for Scapy
 
 import sys,getopt,imp
 import bz2, base64, os.path, time, traceback, zlib, sha
+from scapy.arch.consts import WINDOWS
 
 
 #### Import tool ####
@@ -293,6 +294,10 @@ def remove_empty_testsets(test_campaign):
 #### RUN CAMPAIGN #####
 
 def run_campaign(test_campaign, get_interactive_session, verb=2):
+    if WINDOWS:
+        # Add a route to 127.0.0.1
+        from scapy.arch.windows import route_add_loopback
+        route_add_loopback()
     passed=failed=0
     if test_campaign.preexec:
         test_campaign.preexec_output = get_interactive_session(test_campaign.preexec.strip())[0]
