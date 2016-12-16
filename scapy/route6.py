@@ -20,6 +20,7 @@ import socket
 from scapy.config import conf
 from scapy.utils6 import *
 from scapy.arch import *
+from scapy.arch.consts import WINDOWS
 from scapy.pton_ntop import *
 from scapy.error import warning, log_loading
 
