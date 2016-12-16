@@ -4929,6 +4929,8 @@ ff02::%lo0/32                      ::1                            UC          - 
 test_netbsd_7_0()
 
 = Windows
+~ mock_read_routes6_windows
+
 def check_mandatory_ipv6_routes_windows(routes6):
     """Ensure that mandatory IPv6 routes are present. There is not always a loopback interface on windows !"""
     if len(filter(lambda r: r[0] == "fe80::" and (r[1] == 64 or r[1] == 32), routes6)) < 1:
@@ -4953,10 +4955,9 @@ def dev_from_index_custom(if_index):
     raise ValueError("Unknown network interface index %r" % if_index)
 
 @mock.patch("scapy.arch.windows.winpcapy_get_if_list")
-@mock.patch("scapy.arch.windows.pcapdnet.load_winpcapy")
 @mock.patch("scapy.arch.windows.dev_from_index")
 @mock.patch("scapy.arch.windows.sp.Popen")
-def test_read_routes6_windows(mock_comm, mock_dev_from_index, mock_unit_detect, mock_winpcapylist):
+def test_read_routes6_windows(mock_comm, mock_dev_from_index, mock_winpcapylist):
     """Test read_routes6() on Windows"""
     # 'Get-NetRoute -AddressFamily IPV6 | select ifIndex, DestinationPrefix, NextHop'
     get_net_route_output = """
@@ -4978,7 +4979,6 @@ ifIndex DestinationPrefix                          NextHop
 13 ::/0                                       fe80::224:d4ff:fea0:a6d7
 """
     mock_comm.return_value.communicate.return_value = (get_net_route_output, "")
-    mock_unit_detect.return_value = False
     mock_winpcapylist.return_value = [u'\\Device\\NPF_{0EC72537-B662-4F5D-B34E-48BFAE799BBE}', u'\\Device\\NPF_{C56DFFB3-992C-4964-B000-3E7C0F76E8BA}']
     # Mocked in6_getifaddr() output
     mock_dev_from_index.side_effect = dev_from_index_custom

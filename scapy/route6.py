@@ -20,7 +20,6 @@ import socket
 from scapy.config import conf
 from scapy.utils6 import *
 from scapy.arch import *
-from scapy.arch.consts import WINDOWS
 from scapy.pton_ntop import *
 from scapy.error import warning, log_loading
 
@@ -50,7 +49,7 @@ class Route6:
         rtlst = [('Destination', 'Next Hop', "iface", "src candidates")]
 
         for net,msk,gw,iface,cset in self.routes:
-	    rtlst.append(('%s/%i'% (net,msk), gw, (iface.name if WINDOWS else iface), ", ".join(cset)))
+	    rtlst.append(('%s/%i'% (net,msk), gw, (iface.name if isinstance(iface, NetworkInterface) else iface), ", ".join(cset)))
 
         colwidth = map(lambda x: max(map(lambda y: len(y), x)), apply(zip, rtlst))
         fmt = "  ".join(map(lambda x: "%%-%ds"%x, colwidth))

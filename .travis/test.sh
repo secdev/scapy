@@ -18,6 +18,8 @@ then
   UT_FLAGS+=" -K combined_modes "
 fi
 
+UT_FLAGS+=" -K mock_read_routes6_windows "
+
 # Run unit tests
 cd test/
 

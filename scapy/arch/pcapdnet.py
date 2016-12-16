@@ -19,30 +19,24 @@ from scapy.supersocket import SuperSocket
 from scapy.error import Scapy_Exception, log_loading
 import scapy.arch
 
-def load_winpcapy():
-    return True
-
 if conf.use_winpcapy:
   #mostly code from https://github.com/phaethon/scapy translated to python2.X
   try:
-    if load_winpcapy():
-        from .winpcapy import *
-        def winpcapy_get_if_list():
-          err = create_string_buffer(PCAP_ERRBUF_SIZE)
-          devs = POINTER(pcap_if_t)()
-          ret = []
-          if pcap_findalldevs(byref(devs), err) < 0:
-            return ret
-          try:
-            p = devs
-            while p:
-              ret.append(p.contents.name.decode('ascii'))
-              p = p.contents.next
-            return ret
-          finally:
-            pcap_freealldevs(devs)
-    else:
-        raise Scapy_Exception()
+    from .winpcapy import *
+    def winpcapy_get_if_list():
+      err = create_string_buffer(PCAP_ERRBUF_SIZE)
+      devs = POINTER(pcap_if_t)()
+      ret = []
+      if pcap_findalldevs(byref(devs), err) < 0:
+        return ret
+      try:
+        p = devs
+        while p:
+          ret.append(p.contents.name.decode('ascii'))
+          p = p.contents.next
+        return ret
+      finally:
+        pcap_freealldevs(devs)
   except OSError as e:
     if conf.interactive:
       log_loading.warning("wpcap.dll is not installed. You won't be able to send/recieve packets. Visit https://www.winpcap.org/ to install it")
