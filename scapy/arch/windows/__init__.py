@@ -285,6 +285,9 @@ class NetworkInterface(object):
 
 from UserDict import UserDict
 
+def is_main_interface(if_index):
+    return (str(if_index) == "1" or str(if_index) == "2" or str(if_index) == "3")
+
 class NetworkInterfaceDict(UserDict):
     """Store information about network interfaces and convert between names""" 
     def load_from_powershell(self):
@@ -304,7 +307,6 @@ class NetworkInterfaceDict(UserDict):
     def dev_from_name(self, name):
         """Return the first pcap device name for a given Windows
         device name.
-
         """
         for iface in self.itervalues():
             if iface.name == name:
@@ -320,6 +322,8 @@ class NetworkInterfaceDict(UserDict):
 
     def dev_from_index(self, if_index):
         """Return interface name from interface index"""
+        if is_main_interface(if_index):
+            return conf.iface
         for devname, iface in self.items():
             if iface.win_index == str(if_index):
                 return iface
@@ -474,10 +478,12 @@ def in6_getifaddr():
         match = re.search(pattern,l)
         if match:
             try:
-                iface = dev_from_index(match.group(1))
+                if_index = match.group(1)
+                iface = dev_from_index(if_index)
             except:
                 continue
-            ret.append((match.group(2), scapy.utils6.in6_getscope(match.group(2)), iface)) #(addr,scope,iface)
+            scope = scapy.utils6.in6_getscope(match.group(2))
+            ret.append((match.group(2), scope, iface)) #(addr,scope,iface)
             continue
     return ret
 
@@ -493,6 +499,7 @@ def read_routes6():
     netstat_line = delim.join([if_index, "".join([ipv6_r, netmask]), ipv6_r])
     pattern = re.compile(netstat_line)
     # This works only starting from Windows 8/2012 and up. For older Windows another solution is needed
+    # Get-NetRoute -AddressFamily IPV6 | select ifIndex, DestinationPrefix, NextHop
     ps = sp.Popen([conf.prog.powershell, 'Get-NetRoute', '-AddressFamily IPV6', '|', 'select ifIndex, DestinationPrefix, NextHop'], stdout = sp.PIPE, universal_newlines = True)
     stdout, stdin = ps.communicate()
     lifaddr = in6_getifaddr()
@@ -500,7 +507,8 @@ def read_routes6():
         match = re.search(pattern,l)
         if match:
             try:
-                iface = dev_from_index(match.group(1))
+                if_index = match.group(1)
+                iface = dev_from_index(if_index)
             except:
                 continue
 
@@ -509,7 +517,7 @@ def read_routes6():
             nh = match.group(4)
             
             cset = [] # candidate set (possible source addresses)
-            if iface.name == LOOPBACK_NAME:
+            if is_main_interface(if_index):
                 if d == '::':
                     continue
                 cset = ['::1']

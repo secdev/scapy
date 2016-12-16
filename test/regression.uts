@@ -41,16 +41,6 @@ get_if_list()
 
 routes6 = read_routes6()
 
-from scapy.arch.consts import WINDOWS
-if WINDOWS:
-    """Add a route to ::1 to simplify unit tests on Windows"""
-    # Get the adapter from an existing route
-    if len(routes6) != 0:
-        adapter = routes6[0][3]
-        # Build and inject the fake routes
-        routes6.append(('::1', 128, "::", adapter, ["::1"]))
-        # routes6.append(('fe80::220:17fe:fe00:1e8e', 128, "::", adapter, ["::1"]))
-
 # Expected results:
 # - one route if there is only the loopback interface
 # - three routes if there is a network interface
@@ -58,11 +48,11 @@ if WINDOWS:
 if len(routes6):
     iflist = get_if_list()
     if iflist == [LOOPBACK_NAME]:
-	len(routes6) == 1
+        len(routes6) == 1
     elif len(iflist) >= 2:
-	len(routes6) >= 3
+        len(routes6) >= 3
     else:
-	False
+        False
 else:
     # IPv6 seems disabled. Force a route to ::1
     conf.route6.routes.append(("::1", 128, "::", LOOPBACK_NAME, ["::1"]))
@@ -1115,34 +1105,27 @@ assert( q[PPP_ECP_Option].data == "ABCDEFG" )
 a=IPv6() 
 
 = IPv6 Class basic build (default values)
-~ IPv6_default
 str(IPv6()) == '`\x00\x00\x00\x00\x00;@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01'
 
 = IPv6 Class basic dissection (default values)
-~ IPv6_default
 a=IPv6(str(IPv6())) 
 a.version == 6 and a.tc == 0 and a.fl == 0 and a.plen == 0 and a.nh == 59 and a.hlim ==64 and a.src == "::1" and a.dst == "::1"
 
 = IPv6 Class with basic TCP stacked - build
-~ IPv6_default
 str(IPv6()/TCP()) == '`\x00\x00\x00\x00\x14\x06@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\x8f}\x00\x00'
 
 = IPv6 Class with basic TCP stacked - dissection
-~ IPv6_default
 a=IPv6(str(IPv6()/TCP()))
 a.nh == 6 and a.plen == 20 and isinstance(a.payload, TCP) and a.payload.chksum == 0x8f7d
 
 = IPv6 Class with TCP and TCP data - build
-~ IPv6_default
 str(IPv6()/TCP()/Raw(load="somedata")) == '`\x00\x00\x00\x00\x1c\x06@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\xd5\xdd\x00\x00somedata'
 
 = IPv6 Class with TCP and TCP data - dissection
-~ IPv6_default
 a=IPv6(str(IPv6()/TCP()/Raw(load="somedata")))
 a.nh == 6 and a.plen == 28 and isinstance(a.payload, TCP) and a.payload.chksum == 0xd5dd and isinstance(a.payload.payload, Raw) and a[Raw].load == "somedata"
 
 = IPv6 Class binding with Ethernet - build
-~ IPv6_default
 str(Ether(src="00:00:00:00:00:00", dst="ff:ff:ff:ff:ff:ff")/IPv6()/TCP()) == '\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x86\xdd`\x00\x00\x00\x00\x14\x06@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\x8f}\x00\x00'
 
 = IPv6 Class binding with Ethernet - dissection
@@ -1848,7 +1831,6 @@ str(ICMPv6NDOptRedirectedHdr()) == '\x04\x01\x00\x00\x00\x00\x00\x00'
 str(ICMPv6NDOptRedirectedHdr(len=0xff, res=0x1111, pkt="somestringthatisnotanipv6packet")) == '\x04\xff4369\x00\x00somestringthatisnotanipv'
 
 = ICMPv6NDOptRedirectedHdr - Instantiation with simple IPv6 packet (no upper layer)
-~ IPv6_default
 ~ ICMPv6NDOptRedirectedHdr
 str(ICMPv6NDOptRedirectedHdr(pkt=IPv6())) == '\x04\x06\x00\x00\x00\x00\x00\x00`\x00\x00\x00\x00\x00;@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01'
 
@@ -2625,13 +2607,11 @@ len(l) == 33 and len(str(l[-1])) == 644
 + Test defragment6 function
 
 = defragment6 - test against a long TCP packet fragmented with a 1280 MTU
-~ IPv6_default
 l=fragment6(IPv6()/IPv6ExtHdrFragment()/TCP()/Raw(load="A"*40000), 1280) 
 str(defragment6(l)) == ('`\x00\x00\x00\x9cT\x06@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\xe92\x00\x00' + 'A'*40000)
 
 
 = defragment6 - test against a large TCP packet fragmented with a 1280 bytes MTU and missing fragments
-~ IPv6_default
 l=fragment6(IPv6()/IPv6ExtHdrFragment()/TCP()/Raw(load="A"*40000), 1280) 
 del(l[2])
 del(l[4])
@@ -2641,7 +2621,6 @@ str(defragment6(l)) == ('`\x00\x00\x00\x9cT\x06@\x00\x00\x00\x00\x00\x00\x00\x00
 
 
 = defragment6 - test against a TCP packet fragmented with a 800 bytes MTU and missing fragments
-~ IPv6_default
 l=fragment6(IPv6()/IPv6ExtHdrFragment()/TCP()/Raw(load="A"*4000), 800) 
 del(l[4])
 del(l[2])
@@ -3788,7 +3767,6 @@ not a < b and a > b
 + Mobile Prefix Solicitation/Advertisement
 
 = ICMPv6MPSol - build (default values)
-~ IPv6_default
 s = '`\x00\x00\x00\x00\x08:@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x92\x00m\xbb\x00\x00\x00\x00'
 str(IPv6()/ICMPv6MPSol()) == s
 
@@ -3797,7 +3775,6 @@ p = IPv6(s)
 p[ICMPv6MPSol].type == 146 and p[ICMPv6MPSol].cksum == 0x6dbb and p[ICMPv6MPSol].id == 0
 
 = ICMPv6MPSol - build
-~ IPv6_default
 s = '`\x00\x00\x00\x00\x08:@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x92\x00(\x08\x00\x08\x00\x00'
 str(IPv6()/ICMPv6MPSol(cksum=0x2808, id=8)) == s
 
@@ -3806,7 +3783,6 @@ p = IPv6(s)
 p[ICMPv6MPSol].cksum == 0x2808 and p[ICMPv6MPSol].id == 8
 
 = ICMPv6MPAdv - build (default values)
-~ IPv6_default
 s = '`\x00\x00\x00\x00(:@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x93\x00\xe8\xd6\x00\x00\x80\x00\x03\x04\x00\xc0\xff\xff\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 str(IPv6()/ICMPv6MPAdv()/ICMPv6NDOptPrefixInfo()) == s
 
@@ -3815,7 +3791,6 @@ p = IPv6(s)
 p[ICMPv6MPAdv].type == 147 and p[ICMPv6MPAdv].cksum == 0xe8d6 and p[ICMPv6NDOptPrefixInfo].prefix == '::'
 
 = ICMPv6MPAdv - build
-~ IPv6_default
 s = '`\x00\x00\x00\x00(:@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x93\x00(\x07\x00*@\x00\x03\x04\x00@\xff\xff\xff\xff\x00\x00\x00\x0c\x00\x00\x00\x00 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01'
 str(IPv6()/ICMPv6MPAdv(cksum=0x2807, flags=1, id=42)/ICMPv6NDOptPrefixInfo(prefix='2001:db8::1', L=0, preferredlifetime=12)) == s
 
@@ -4314,7 +4289,6 @@ a.nh == 135 and isinstance(b, MIP6MH_CoT) and b.nh==59 and b.mhtype == 4 and b.l
 + Binding Update Message
 
 = MIP6MH_BU - build (default values)
-~ IPv6_default
 s= '`\x00\x00\x00\x00(<@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x87\x02\x01\x02\x00\x00\xc9\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00;\x01\x05\x00\xee`\x00\x00\xd0\x00\x00\x03\x01\x02\x00\x00'
 str(IPv6()/IPv6ExtHdrDestOpt(options=[HAO()])/MIP6MH_BU()) == s
 
@@ -4323,7 +4297,6 @@ p = IPv6(s)
 p[MIP6MH_BU].len == 1
 
 = MIP6MH_BU - build
-~ IPv6_default
 s = '`\x00\x00\x00\x00P<@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x87\x02\x01\x02\x00\x00\xc9\x10 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xca\xfe;\x06\x05\x00\xea\xf2\x00\x00\xd0\x00\x00*\x01\x00\x03\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x02\x00\x00\x06\x12\x00@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 str(IPv6()/IPv6ExtHdrDestOpt(options=[HAO(hoa='2001:db8::cafe')])/MIP6MH_BU(mhtime=42, options=[MIP6OptAltCoA(),MIP6OptMobNetPrefix()])) == s
 
@@ -4335,7 +4308,6 @@ p[MIP6MH_BU].cksum == 0xeaf2 and p[MIP6MH_BU].len == 6 and len(p[MIP6MH_BU].opti
 + Binding ACK Message
 
 =  MIP6MH_BA - build
-~ IPv6_default
 s = '`\x00\x00\x00\x00\x10\x87@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01;\x01\x06\x00\xbc\xb9\x00\x80\x00\x00\x00*\x01\x02\x00\x00'
 str(IPv6()/MIP6MH_BA(mhtime=42)) == s
 
