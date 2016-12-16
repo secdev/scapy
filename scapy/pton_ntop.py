@@ -92,19 +92,22 @@ def inet_ntop(af, addr):
         # Note: the returned address is never compact
         address = ":".join(parts)
         matches = re.findall('(?::|^)(0(?::0)*)(?::|$)', address)
-        match = max(matches)
-        leftidx = address.rfind(match)
-        left = address[:leftidx]
-        rightidx = leftidx + len(match)
-        if len(address) == rightidx:
-            compact_address = left + ":"
-        elif leftidx == 0:
-            compact_address = ":" + address[rightidx:]
-        else:
-            compact_address = left + address[rightidx:]
+        if matches:
+            match = max(matches)
+            leftidx = address.rfind(match)
+            left = address[:leftidx]
+            rightidx = leftidx + len(match)
+            if len(address) == rightidx:
+                compact_address = left + ":"
+            elif leftidx == 0:
+                compact_address = ":" + address[rightidx:]
+            else:
+                compact_address = left + address[rightidx:]
 
-        if compact_address == ":":
-            compact_address = "::"
+            if compact_address == ":":
+                compact_address = "::"
+        else:
+            compact_address = address
         return compact_address
     else:
         raise Exception("Address family not supported yet")   
