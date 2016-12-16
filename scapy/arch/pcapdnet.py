@@ -42,7 +42,6 @@ if conf.use_winpcapy:
           finally:
             pcap_freealldevs(devs)
     else:
-        print "SKIPPED"
         raise Scapy_Exception()
   except OSError as e:
     if conf.interactive:
