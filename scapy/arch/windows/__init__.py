@@ -23,6 +23,7 @@ conf.use_pcap = False
 conf.use_dnet = False
 conf.use_winpcapy = True
 
+WINDOWS = (os.name == 'nt')
 
 #hot-patching socket for missing variables on Windows
 import socket
@@ -40,6 +41,8 @@ except Scapy_Exception:
     pass
 
 def _exec_query_ps(cmd, fields):
+    if not WINDOWS:
+        return
     """Execute a PowerShell query"""
     ps = sp.Popen([conf.prog.powershell] + cmd +
                   ['|', 'select %s' % ', '.join(fields), '|', 'fl'],
@@ -69,6 +72,8 @@ def _vbs_exec_code(code):
     os.unlink(tmpfile.name)
 
 def _vbs_get_iface_guid(devid):
+    if not WINDOWS:
+        return
     try:
         devid = str(int(devid) + 1)
         guid = _vbs_exec_code("""WScript.Echo CreateObject("WScript.Shell").RegRead("HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\NetworkCards\\%s\\ServiceName")
@@ -95,6 +100,8 @@ _VBS_WMI_OUTPUT = {
 }
 
 def _exec_query_vbs(cmd, fields):
+    if not WINDOWS:
+        return
     """Execute a query using VBS. Currently Get-WmiObject queries are
     supported.
 
@@ -144,7 +151,7 @@ def _where(filename, dirs=None, env="PATH"):
 
 def win_find_exe(filename, installsubdir=None, env="ProgramFiles"):
     """Find executable in current dir, system path or given ProgramFiles subdir"""
-    if not os.name == 'nt':
+    if not WINDOWS:
         return
     for fn in [filename, filename+".exe"]:
         try:
