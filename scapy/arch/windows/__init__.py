@@ -39,8 +39,6 @@ try:
 except Scapy_Exception:
     pass
 
-WINDOWS = True
-
 def _exec_query_ps(cmd, fields):
     """Execute a PowerShell query"""
     ps = sp.Popen([conf.prog.powershell] + cmd +
@@ -146,6 +144,8 @@ def _where(filename, dirs=None, env="PATH"):
 
 def win_find_exe(filename, installsubdir=None, env="ProgramFiles"):
     """Find executable in current dir, system path or given ProgramFiles subdir"""
+    if not os.name == 'nt':
+        return
     for fn in [filename, filename+".exe"]:
         try:
             if installsubdir is None:
