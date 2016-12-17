@@ -17,7 +17,7 @@ install:
   - refreshenv
 
   # Install Python modules
-  - "%PYTHON%\\python -m pip install ecdsa pycrypto"
+  - "%PYTHON%\\python -m pip install ecdsa pycrypto mock"
 
 test_script:
   # Set environment variables
@@ -25,12 +25,12 @@ test_script:
   - set PATH=%APPVEYOR_BUILD_FOLDER%;C:\Windows\System32\Npcap\;%PATH%
   
   # Main unit tests
-  - "%PYTHON%\\python bin\\UTscapy -f text -t test\\regression.uts -F -K automaton -K mock_read_routes6_bsd || exit /b 42"
+  - "%PYTHON%\\python scapy\\tools\\UTscapy.py -f text -t test\\regression.uts -F -K automaton -K mock_read_routes6_bsd || exit /b 42"
   - 'del test\regression.uts'
 
   # Secondary unit tests
   - 'del test\bpf.uts' # Don't bother with BPF regression tests
-  - "for %%t in (test\\*.uts) do (%PYTHON%\\python bin\\UTscapy -f text -t %%t -F -K combined_modes || exit /b 42)"
+  - "for %%t in (test\\*.uts) do (%PYTHON%\\python scapy\\tools\\UTscapy.py -f text -t %%t -F -K combined_modes || exit /b 42)"
   
   # Contrib unit tests
-  - "for %%t in (scapy\\contrib\\*.uts) do (%PYTHON%\\python bin\\UTscapy -f text -t %%t -F -P \"load_contrib(\'%%~nt\')\"  || exit /b 42)"
+  - "for %%t in (scapy\\contrib\\*.uts) do (%PYTHON%\\python scapy\\tools\\UTscapy.py -f text -t %%t -F -P \"load_contrib(\'%%~nt\')\"  || exit /b 42)"
