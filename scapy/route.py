@@ -36,7 +36,7 @@ class Route:
             rt += "%-15s %-15s %-15s %-15s %-15s\n" % (ltoa(net),
                                               ltoa(msk),
                                               gw,
-                                              (iface.name if WINDOWS else iface),
+                                              (iface.name if not isinstance(iface, basestring) else iface),
                                               addr)
         return rt
 

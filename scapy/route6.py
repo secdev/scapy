@@ -20,6 +20,7 @@ import socket
 from scapy.config import conf
 from scapy.utils6 import *
 from scapy.arch import *
+from scapy.arch.consts import WINDOWS
 from scapy.pton_ntop import *
 from scapy.error import warning, log_loading
 
@@ -49,7 +50,7 @@ class Route6:
         rtlst = [('Destination', 'Next Hop', "iface", "src candidates")]
 
         for net,msk,gw,iface,cset in self.routes:
-	    rtlst.append(('%s/%i'% (net,msk), gw, iface, ", ".join(cset)))
+	    rtlst.append(('%s/%i'% (net,msk), gw, (iface.name if not isinstance(iface, basestring) else iface), ", ".join(cset)))
 
         colwidth = map(lambda x: max(map(lambda y: len(y), x)), apply(zip, rtlst))
         fmt = "  ".join(map(lambda x: "%%-%ds"%x, colwidth))
@@ -200,7 +201,7 @@ class Route6:
         # Deal with dev-specific request for cache search
         k = dst
         if dev is not None:
-            k = dst + "%%" + dev
+            k = dst + "%%" + (dev.pcap_name if not isinstance(dev, basestring) else dev)
         if k in self.cache:
             return self.cache[k]
 
@@ -265,7 +266,7 @@ class Route6:
         # Fill the cache (including dev-specific request)
         k = dst
         if dev is not None:
-            k = dst + "%%" + dev
+            k = dst + "%%" + (dev.pcap_name if not isinstance(dev, basestring) else dev)
         self.cache[k] = res[0][1]
 
         return res[0][1]

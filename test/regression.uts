@@ -40,6 +40,7 @@ get_if_list()
 = Test read_routes6() - default output
 
 routes6 = read_routes6()
+
 # Expected results:
 # - one route if there is only the loopback interface
 # - three routes if there is a network interface
@@ -47,11 +48,11 @@ routes6 = read_routes6()
 if len(routes6):
     iflist = get_if_list()
     if iflist == [LOOPBACK_NAME]:
-	len(routes6) == 1
+        len(routes6) == 1
     elif len(iflist) >= 2:
-	len(routes6) >= 3
+        len(routes6) >= 3
     else:
-	False
+        False
 else:
     # IPv6 seems disabled. Force a route to ::1
     conf.route6.routes.append(("::1", 128, "::", LOOPBACK_NAME, ["::1"]))
@@ -62,8 +63,8 @@ else:
 if len(routes6):
     assert(len(filter(lambda r: r[0] == "::1" and r[-1] == ["::1"], routes6)) >= 1)
     if iflist >= 2:
-	assert(len(filter(lambda r: r[0] == "fe80::" and r[1] == 64, routes6)) >= 1)
-	len(filter(lambda r: in6_islladdr(r[0]) and r[1] == 128 and r[-1] == ["::1"], routes6)) >= 1
+        assert(len(filter(lambda r: r[0] == "fe80::" and r[1] == 64, routes6)) >= 1)
+        assert(len(filter(lambda r: in6_islladdr(r[0]) and r[1] == 128 and r[-1] == ["::1"], routes6)) >= 1)
 else:
     True
 
@@ -591,7 +592,7 @@ assert(x.PDU.varbindlist[2].value == 1)
 ############
 + Network tests
 
-* Those tests need network access
+* Those tests need network access and root
 
 = Sending and receiving an ICMP
 ~ netaccess IP ICMP
@@ -621,6 +622,8 @@ len(_) == 12
 ############
 ############
 + Real usages
+
+* Those tests need root
 
 = Port scan
 ~ netaccess IP TCP
@@ -4619,7 +4622,6 @@ test_osx_netstat_truncated()
 + Mocked read_routes6() calls
 
 = Preliminary definitions
-~ mock_read_routes6_bsd
 
 import mock
 import StringIO
@@ -4926,6 +4928,70 @@ ff02::%lo0/32                      ::1                            UC          - 
 
 test_netbsd_7_0()
 
+= Windows
+~ mock_read_routes6_windows
+
+def check_mandatory_ipv6_routes_windows(routes6):
+    """Ensure that mandatory IPv6 routes are present. There is not always a loopback interface on windows !"""
+    if len(filter(lambda r: r[0] == "fe80::" and (r[1] == 64 or r[1] == 32), routes6)) < 1:
+        return False
+    if len(filter(lambda r: in6_islladdr(r[0]) and r[1] == 128, routes6)) < 1:
+        return False
+    return True
+
+def dev_from_index_custom(if_index):
+    from scapy.arch.windows import NetworkInterface, PcapNameNotFoundError
+    if_list = [{'mac': 'D0-50-99-56-DD-F9', 'win_index': '13', 'guid': '{C56DFFB3-992C-4964-B000-3E7C0F76E8BA}', 'name': 'Killer E2200 Gigabit Ethernet Controller', 'description': 'Ethernet'}, {'mac': '00-FF-0E-C7-25-37', 'win_index': '3', 'guid': '{0EC72537-B662-4F5D-B34E-48BFAE799BBE}', 'name': 'TAP-Windows Adapter V9', 'description': 'Ethernet 2'}]
+    values = {}
+    for i in if_list:
+            try:
+                interface = NetworkInterface(i)
+                values[interface.guid] = interface
+            except (KeyError, PcapNameNotFoundError):
+                pass
+    for devname, iface in values.items():
+        if iface.win_index == str(if_index):
+            return iface
+    raise ValueError("Unknown network interface index %r" % if_index)
+
+@mock.patch("scapy.arch.windows.winpcapy_get_if_list")
+@mock.patch("scapy.arch.windows.dev_from_index")
+@mock.patch("scapy.arch.windows.sp.Popen")
+def test_read_routes6_windows(mock_comm, mock_dev_from_index, mock_winpcapylist):
+    """Test read_routes6() on Windows"""
+    # 'Get-NetRoute -AddressFamily IPV6 | select ifIndex, DestinationPrefix, NextHop'
+    get_net_route_output = """
+ifIndex DestinationPrefix                          NextHop
+------- -----------------                          -------
+3 ff00::/8                                   ::
+16 ff00::/8                                   ::
+13 ff00::/8                                   ::
+1 ff00::/8                                   ::
+13 fe80::dc1d:24e8:af00:125e/128              ::
+3 fe80::9402:5804:cb16:fb3b/128              ::
+16 fe80::100:7f:fffe/128                      ::
+3 fe80::/64                                  ::
+16 fe80::/64                                  ::
+13 fe80::/64                                  ::
+13 2a01:e35:2f17:fe60:dc1d:24e8:af00:125e/128 ::
+13 2a01:e35:2f17:fe60::/64                    ::
+1 ::1/128                                    ::
+13 ::/0                                       fe80::224:d4ff:fea0:a6d7
+"""
+    mock_comm.return_value.communicate.return_value = (get_net_route_output, "")
+    mock_winpcapylist.return_value = [u'\\Device\\NPF_{0EC72537-B662-4F5D-B34E-48BFAE799BBE}', u'\\Device\\NPF_{C56DFFB3-992C-4964-B000-3E7C0F76E8BA}']
+    # Mocked in6_getifaddr() output
+    mock_dev_from_index.side_effect = dev_from_index_custom
+    # Test the function
+    from scapy.arch.windows import read_routes6, sp
+    routes = read_routes6()
+    for r in routes:
+        print r
+    assert(len(routes) == 9)
+    assert(check_mandatory_ipv6_routes_windows(routes))
+    
+
+test_read_routes6_windows()
 
 ############
 ############
