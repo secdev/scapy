@@ -521,7 +521,19 @@ if conf.use_dnet:
 
         def get_if_raw_addr(ifname):
             i = dnet.intf()
-            return i.get(ifname)["addr"].data
+
+            try:
+                if_data = i.get(ifname)
+            except OSError, e:
+                if e.message == 'Device not configured':
+                    addr = None
+                else:
+                    raise
+            else:
+                addr = if_data["addr"].data
+
+            return addr
+
         def get_if_list():
             return [i.get("name", None) for i in dnet.intf()]
 
