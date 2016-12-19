@@ -410,6 +410,9 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
             elif (self.payload.type in [133,134,135,136,144,145]):
                 return struct.pack("B", self.nh)+self.payload.hashret()
 
+        if not conf.checkIPinIP and self.nh in [4, 41]:  # IP, IPv6
+            return self.payload.hashret()
+
         nh = self.nh
         sd = self.dst
         ss = self.src
@@ -455,6 +458,11 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
     def answers(self, other):
         if not isinstance(other, IPv6): # self is reply, other is request
             return False
+        if not conf.checkIPinIP:  # skip IP in IP and IPv6 in IP
+            if self.nh in [4, 41]:
+                return self.payload.answers(other)
+            if other.nh in [4, 41]:
+                return self.answers(other.payload)
         if conf.checkIPaddr: 
             ss = inet_pton(socket.AF_INET6, self.src)
             sd = inet_pton(socket.AF_INET6, self.dst)
