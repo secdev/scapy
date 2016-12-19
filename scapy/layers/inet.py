@@ -401,23 +401,26 @@ class IP(Packet, IPTools):
              and (isinstance(self.payload, ICMP))
              and (self.payload.type in [3,4,5,11,12]) ):
             return self.payload.payload.hashret()
-        elif not conf.checkIPinIP and self.proto in [4, 41]:  # IP, IPv6
+        if not conf.checkIPinIP and self.proto in [4, 41]:  # IP, IPv6
             return self.payload.hashret()
-        else:
-            if self.dst == "224.0.0.251":  # mDNS
-                return struct.pack("B", self.proto) + self.payload.hashret()
-            if conf.checkIPsrc and conf.checkIPaddr:
-                return strxor(inet_aton(self.src),inet_aton(self.dst))+struct.pack("B",self.proto)+self.payload.hashret()
-            else:
-                return struct.pack("B", self.proto)+self.payload.hashret()
+        if self.dst == "224.0.0.251":  # mDNS
+            return struct.pack("B", self.proto) + self.payload.hashret()
+        if conf.checkIPsrc and conf.checkIPaddr:
+            return (strxor(inet_aton(self.src), inet_aton(self.dst))
+                    + struct.pack("B",self.proto) + self.payload.hashret())
+        return struct.pack("B", self.proto) + self.payload.hashret()
     def answers(self, other):
-        if not isinstance(other,IP):
-            return 0
-        elif not conf.checkIPinIP:  # skip IP in IP and IPv6 in IP
+        if not conf.checkIPinIP:  # skip IP in IP and IPv6 in IP
             if self.proto in [4, 41]:
                 return self.payload.answers(other)
-            if other.proto in [4, 41]:
+            if isinstance(other, IP) and other.proto in [4, 41]:
                 return self.answers(other.payload)
+            if conf.ipv6_enabled \
+               and isinstance(other, scapy.layers.inet6.IPv6) \
+               and other.nh in [4, 41]:
+                return self.answers(other.payload)                
+        if not isinstance(other,IP):
+            return 0
         if conf.checkIPaddr:
             if other.dst == "224.0.0.251" and self.dst == "224.0.0.251":  # mDNS
                 return self.payload.answers(other.payload)
