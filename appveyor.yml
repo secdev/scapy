@@ -25,7 +25,7 @@ test_script:
   - set PATH=%APPVEYOR_BUILD_FOLDER%;C:\Windows\System32\Npcap\;%PATH%
   
   # Main unit tests
-  - "%PYTHON%\\python bin\\UTscapy -f text -t test\\regression.uts -F -K automaton -K mock_read_routes6_bsd || exit /b 42"
+  - "%PYTHON%\\python bin\\UTscapy -f text -t test\\regression.uts -F -K automaton -K mock_read_routes6_bsd -K tcpdump || exit /b 42"
   - 'del test\regression.uts'
 
   # Secondary unit tests

@@ -4609,11 +4609,13 @@ assert list(pktpcap) == list(sniff(offline=fdesc))
 fdesc.close()
 
 = Check offline sniff() with a filter (by filename)
+~ tcpdump
 pktpcap_flt = [(proto, sniff(offline=filename, filter=proto.__name__.lower()))
                for proto in [ICMP, UDP, TCP]]
 assert all(list(pktpcap[proto]) == list(packets) for proto, packets in pktpcap_flt)
 
 = Check offline sniff() with a filter (by file object)
+~ tcpdump
 fdesc = open(filename)
 pktpcap_tcp = sniff(offline=fdesc, filter="tcp")
 fdesc.close()
