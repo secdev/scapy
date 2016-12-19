@@ -19,7 +19,7 @@ install:
   - refreshenv
 
   # Install Python modules
-  - "%PYTHON%\\python -m pip install ecdsa pycrypto coverage"
+  - "%PYTHON%\\python -m pip install ecdsa cryptography coverage"
 
 test_script:
   # Set environment variables
