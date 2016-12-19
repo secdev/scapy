@@ -2,6 +2,9 @@
 echo "TRAVIS_SUDO=" $TRAVIS_SUDO
 echo "TRAVIS_OS_NAME=" $TRAVIS_OS_NAME
 
+# Dump Environment
+set
+
 # Dump Scapy config
 python -c "from scapy.all import *; print conf"
 
@@ -17,6 +20,11 @@ if [ "$TEST_COMBINED_MODES" != "yes" ]
 then
   UT_FLAGS+=" -K combined_modes "
 fi
+
+# Set PATH
+for _path in /sbin /usr/sbin /usr/local/sbin; do
+  [ -d "$_path" ] && echo "$PATH" | grep -qvE "(^|:)$_path(:|$)" && export PATH="$PATH:$_path"
+done
 
 # Run unit tests
 cd test/
