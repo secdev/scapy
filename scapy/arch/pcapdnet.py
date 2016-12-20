@@ -479,13 +479,13 @@ if conf.use_dnet:
             log_loading.error("Unable to import dnet module: %s" % e)
             conf.use_dnet = False
             def get_if_raw_hwaddr(iff):
-                "dummy"
+                """dummy"""
                 return (0,"\0\0\0\0\0\0")
             def get_if_raw_addr(iff):
-                "dummy"
+                """dummy"""
                 return "\0\0\0\0"
             def get_if_list():
-                "dummy"
+                """dummy"""
                 return []
         else:
             raise
