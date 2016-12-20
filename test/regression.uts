@@ -980,7 +980,8 @@ x
 assert( _ == "Venus" )
 
 
-
+############
+############
 + Test IP options
 
 = IP options individual assembly
@@ -1028,6 +1029,8 @@ assert(q[IPOption_Security].transmission_control_code == "XYZ")
 assert(q[TCP].flags == 2)
 
 
+############
+############
 + Test PPP
 
 = PPP/HDLC
@@ -1094,9 +1097,8 @@ assert( q[PPP_ECP_Option].data == "ABCDEFG" )
 
 # Scapy6 Regression Test Campaign 
 
-
-########### IPv6 Class ##############################################
-
+############
+############
 + Test IPv6 Class 
 = IPv6 Class basic Instantiation
 a=IPv6() 
@@ -1148,7 +1150,8 @@ str(IPv6(src="2048::deca", dst="2047::cafe")/IPv6ExtHdrRouting(addresses=["2001:
 str(IPv6(src="2048::deca", dst="2047::cafe")/IPv6ExtHdrRouting(addresses=["2001::deca", "2022::deca"], segleft=0)/TCP(dport=80)) == '`\x00\x00\x00\x00<+@ H\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xde\xca G\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xca\xfe\x06\x04\x00\x00\x00\x00\x00\x00 \x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xde\xca "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xde\xca\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\xa5&\x00\x00'
 
 
-########### in6_get6to4Prefix() #####################################
+############
+############
 + Test in6_get6to4Prefix()
 
 = Test in6_get6to4Prefix() - 0.0.0.0 address
@@ -1164,7 +1167,8 @@ in6_get6to4Prefix("1.1.1.1") == "2002:101:101::"
 in6_get6to4Prefix("somebadstring") is None
 
 
-########### in6_get6to4Prefix() #####################################
+############
+############
 + Test in6_6to4ExtractAddr()
 
 = Test in6_6to4ExtractAddr() - 2002:: address
@@ -1389,7 +1393,8 @@ a[ICMPv6PacketTooBig][TCPerror].chksum == b.chksum
 ########### ICMPv6ParamProblem Class ################################
 # See previous note
 
-########### ICMPv6EchoRequest Class #################################
+############
+############
 + Test ICMPv6EchoRequest Class
 
 = ICMPv6EchoRequest - Basic Instantiation
@@ -1414,7 +1419,8 @@ a=IPv6('`\x00\x00\x00\x00\x08:@ \x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00
 isinstance(a, IPv6) and a.nh == 58 and isinstance(a.payload, ICMPv6EchoRequest) and a.payload.cksum == 0x95f1
 
 
-########### ICMPv6EchoReply Class ###################################
+############
+############
 + Test ICMPv6EchoReply Class
 
 = ICMPv6EchoReply - Basic Instantiation
@@ -1507,7 +1513,8 @@ a=Ether(str(Ether()/IPv6()/ICMPv6MRD_Termination()))
 a.dst == "33:33:00:00:00:6a" and IPv6 in a and a[IPv6].plen == 4 and a[IPv6].nh == 58 and a[IPv6].hlim == 1 and a[IPv6].dst == "ff02::6a" and ICMPv6MRD_Termination in a and a[ICMPv6MRD_Termination].type == 153 and a[ICMPv6MRD_Termination].res == 0
 
 
-########### HBHOptUnknown Class  ##############################################
+############
+############
 + Test HBHOptUnknown Class
 
 = HBHOptUnknown - Basic Instantiation 
@@ -1528,7 +1535,8 @@ a=HBHOptUnknown('\x01\tBBBBBBBBBB')
 a.otype == 0x01 and a.optlen == 9 and a.optdata == "B"*9 and isinstance(a.payload, Raw) and a.payload.load == "B"
 
 
-########### Pad1 Class ##############################################
+############
+############
 + Test Pad1 Class
 
 = Pad1 - Basic Instantiation
@@ -1537,7 +1545,9 @@ str(Pad1()) == '\x00'
 = Pad1 - Basic Dissection
 str(Pad1('\x00')) == '\x00'
 
-########### PadN Class ##############################################
+
+############
+############
 + Test PadN Class
 
 = PadN - Basic Instantiation
@@ -1557,7 +1567,9 @@ a.otype == 1 and a.optlen == 12 and a.optdata == 'BBBBBBBBBB'
 = PadN - Instantiation with forced optlen 
 str(PadN(optdata="B"*10, optlen=9)) == '\x01\x09BBBBBBBBBB'
 
-########### RouterAlert Class #######################################
+
+############
+############
 + Test RouterAlert Class (RFC 2711)
 
 = RouterAlert - Basic Instantiation 
@@ -1575,7 +1587,8 @@ a=RouterAlert('\x05\x03\xff\xff')
 a.otype == 0x05 and a.optlen == 3 and a.value == 0xffff
 
 
-########### Jumbo Class  ############################################
+############
+############
 + Test Jumbo Class (RFC 2675)
 
 = Jumbo - Basic Instantiation 
@@ -1593,7 +1606,8 @@ a=Jumbo('\xc2\x06\xff\xff\xff\xff')
 a.otype == 0xc2 and a.optlen == 6 and a.jumboplen == 0xffffffff
 
 
-########### HAO Class  ##############################################
+############
+############
 + Test HAO Class (RFC 3775)
 
 = HAO - Basic Instantiation 
@@ -1611,7 +1625,8 @@ a=HAO('\xc9\t \x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff')
 a.otype == 0xC9 and a.optlen == 9 and a.hoa == "2001::ffff"
 
 
-########### IPv6ExtHdrHopByHop Class ##########################
+############
+############
 + Test IPv6ExtHdrHopByHop()
 
 = IPv6ExtHdrHopByHop - Basic Instantiation 
@@ -1651,9 +1666,8 @@ a.nh == 59 and a.len == 0 and len(a.options) == 1 and isinstance(a.options[0], P
 #str(IPv6ExtHdrHopByHop(options=["toto"])) == '\x00\x00tototo'
 
 
-
-
-########### ICMPv6ND_RS Class #######################################
+############
+############
 + Test ICMPv6ND_RS() class - ICMPv6 Type 133 Code 0
 
 = ICMPv6ND_RS - Basic instantiation
@@ -1671,7 +1685,8 @@ a=IPv6('`\x00\x00\x00\x00\x08:\xff \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x0
 isinstance(a, IPv6) and a.nh == 58 and a.hlim == 255 and isinstance(a.payload, ICMPv6ND_RS) and a.payload.type == 133 and a.payload.code == 0 and a.payload.cksum == 0x4dfe and a.payload.res == 0
 
 
-########### ICMPv6ND_RA Class #######################################
+############
+############
 + Test ICMPv6ND_RA() class - ICMPv6 Type 134 Code 0
 
 = ICMPv6ND_RA - Basic Instantiation 
@@ -1693,8 +1708,8 @@ isinstance(a, IPv6) and a.nh == 58 and a.hlim == 255 and isinstance(a.payload, I
 #       that reply with mcast RA to mcast rs )
 
 
-
-########### ICMPv6ND_NS Class #######################################
+############
+############
 + ICMPv6ND_NS Class Test
 
 = ICMPv6ND_NS - Basic Instantiation
@@ -1715,7 +1730,8 @@ a.code==0x11 and a.res==3758096385 and a.tgt=="ffff::1111"
 a=IPv6(str(IPv6()/ICMPv6ND_NS()))
 a.nh == 58 and a.dst=="ff02::1" and a.hlim==255
 
-########### ICMPv6ND_NA Class #######################################
+############
+############
 + ICMPv6ND_NA Class Test
 
 = ICMPv6ND_NA - Basic Instantiation
@@ -1736,7 +1752,9 @@ a.code==0x11 and a.R==0 and a.S==1 and a.O==0 and a.res==1 and a.tgt=="ffff::111
 a=IPv6(str(IPv6()/ICMPv6ND_NS()))
 a.nh == 58 and a.dst=="ff02::1" and a.hlim==255
 
-########### ICMPv6ND_NS/ICMPv6ND_NA matching ########################
+
+############
+############
 + ICMPv6ND_ND/ICMPv6ND_ND matching test
 
 =  ICMPv6ND_ND/ICMPv6ND_ND matching - test 1
@@ -1747,7 +1765,8 @@ b=IPv6('n\x00\x00\x00\x00 :\xff\xfe\x80\x00\x00\x00\x00\x00\x00\x02\x0f4\xff\xfe
 b.answers(a)
 
 
-########### ICMPv6NDOptUnknown Class ################################
+############
+############
 + ICMPv6NDOptUnknown Class Test
 
 = ICMPv6NDOptUnknown - Basic Instantiation
@@ -1764,7 +1783,9 @@ a.type == 0 and a.len == 2
 a=ICMPv6NDOptUnknown('\x00\x04somestring')
 a.type == 0 and a.len==4 and a.data == "so" and isinstance(a.payload, Raw) and a.payload.load == "mestring"
 
-########### ICMPv6NDOptSrcLLAddr Class ##############################
+
+############
+############
 + ICMPv6NDOptSrcLLAddr Class Test
 
 = ICMPv6NDOptSrcLLAddr - Basic Instantiation
@@ -1781,7 +1802,9 @@ a.type == 1 and a.len == 1 and a.lladdr == "00:00:00:00:00:00"
 a=ICMPv6NDOptSrcLLAddr('\x01\x02\x11\x11\x11\x11\x11\x11') 
 a.type == 1 and a.len == 2 and a.lladdr == "11:11:11:11:11:11"
 
-########### ICMPv6NDOptDstLLAddr Class ##############################
+
+############
+############
 + ICMPv6NDOptDstLLAddr Class Test
 
 = ICMPv6NDOptDstLLAddr - Basic Instantiation
@@ -1798,7 +1821,9 @@ a.type == 2 and a.len == 1 and a.lladdr == "00:00:00:00:00:00"
 a=ICMPv6NDOptDstLLAddr('\x02\x02\x11\x11\x11\x11\x11\x11') 
 a.type == 2 and a.len == 2 and a.lladdr == "11:11:11:11:11:11"
 
-########### ICMPv6NDOptPrefixInfo Class #############################
+
+############
+############
 + ICMPv6NDOptPrefixInfo Class Test
 
 = ICMPv6NDOptPrefixInfo - Basic Instantiation
@@ -1816,7 +1841,8 @@ a=ICMPv6NDOptPrefixInfo('\x03\x05@!\x11\x11\x11\x11""""3333 \x01\r\xb8\x00\x00\x
 a.type == 3 and a.len == 5 and a.prefixlen == 64 and a.L == 0 and a.A == 0 and a.R == 1 and a.res1 == 1 and a.validlifetime == 0x11111111 and a.preferredlifetime == 0x22222222 and a.res2 == 0x33333333 and a.prefix == "2001:db8::1"
 
 
-########### ICMPv6NDOptRedirectedHdr Class ##########################
+############
+############
 + ICMPv6NDOptRedirectedHdr Class Test 
 
 = ICMPv6NDOptRedirectedHdr - Basic Instantiation
@@ -1858,7 +1884,9 @@ x == ICMPv6NDOptRedirectedHdr(str(y))
 
 # Add more tests
 
-########### ICMPv6NDOptMTU Class ####################################
+
+############
+############
 + ICMPv6NDOptMTU Class Test 
 
 = ICMPv6NDOptMTU - Basic Instantiation
@@ -1875,7 +1903,9 @@ a.type == 5 and a.len == 1 and a.res == 0 and a.mtu == 1280
 a=ICMPv6NDOptMTU('\x05\x02\x11\x11\x00\x00\x05\xdc')
 a.type == 5 and a.len == 2 and a.res == 0x1111 and a.mtu == 1500
 
-########### ICMPv6NDOptShortcutLimit Class ##########################
+
+############
+############
 + ICMPv6NDOptShortcutLimit Class Test (RFC2491)
 
 = ICMPv6NDOptShortcutLimit - Basic Instantiation
@@ -1893,7 +1923,8 @@ a=ICMPv6NDOptShortcutLimit('\x06\x02\x11\xee\xaa\xaa\xaa\xaa')
 a.len==2 and a.shortcutlim==0x11 and a.res1==0xee and a.res2==0xaaaaaaaa
 
 
-########### ICMPv6NDOptAdvInterval Class ############################
+############
+############
 + ICMPv6NDOptAdvInterval Class Test 
 
 = ICMPv6NDOptAdvInterval - Basic Instantiation
@@ -1910,7 +1941,9 @@ a.type == 7 and a.len == 1 and a.res == 0 and a.advint == 0
 a=ICMPv6NDOptAdvInterval('\x07\x02\x11\x11\xff\xff\xff\xff')
 a.type == 7 and a.len == 2 and a.res == 0x1111 and a.advint == 0xffffffff
 
-########### ICMPv6NDOptHAInfo Class #################################
+
+############
+############
 + ICMPv6NDOptHAInfo Class Test
 
 = ICMPv6NDOptHAInfo - Basic Instantiation
@@ -1927,7 +1960,9 @@ a.type == 8 and a.len == 1 and a.res == 0 and a.pref == 0 and a.lifetime == 1
 a=ICMPv6NDOptHAInfo('\x08\x02\x11\x11""33')
 a.type == 8 and a.len == 2 and a.res == 0x1111 and a.pref == 0x2222 and a.lifetime == 0x3333
 
-########### ICMPv6NDOptSrcAddrList Class (RFC 3122) #################
+
+############
+############
 + ICMPv6NDOptSrcAddrList Class Test 
 
 = ICMPv6NDOptSrcAddrList - Basic Instantiation
@@ -1953,8 +1988,9 @@ a=ICMPv6NDOptSrcAddrList('\t\x03BBBBBB\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x
 conf.debug_dissector = True
 a.type == 9 and a.len == 3 and a.res == 'BBBBBB' and len(a.addrlist) == 1 and a.addrlist[0] == "ffff::ffff" and isinstance(a.payload, Raw) and a.payload.load == '\x11\x11\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x11\x11'
 
-########### ICMPv6NDOptTgtAddrList Class (RFC 3122) #################
 
+############
+############
 + ICMPv6NDOptTgtAddrList Class Test 
 
 = ICMPv6NDOptTgtAddrList - Basic Instantiation
@@ -1981,8 +2017,8 @@ conf.debug_dissector = True
 a.type == 10 and a.len == 3 and a.res == 'BBBBBB' and len(a.addrlist) == 1 and a.addrlist[0] == "ffff::ffff" and isinstance(a.payload, Raw) and a.payload.load == '\x11\x11\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x11\x11'
 
 
-
-########### ICMPv6NDOptIPAddr Class (RFC 4068) ######################
+############
+############
 + ICMPv6NDOptIPAddr Class Test (RFC 4068)
 
 = ICMPv6NDOptIPAddr - Basic Instantiation 
@@ -2000,7 +2036,8 @@ a=ICMPv6NDOptIPAddr('\x11\x05\xff(\xee\xee\xee\xee\xff\xff\x00\x00\x00\x00\x00\x
 a.type == 17 and a.len == 5 and a.optcode == 0xff and a.plen == 40 and a.res == 0xeeeeeeee and a.addr == "ffff::1111"
 
 
-########### ICMPv6NDOptNewRtrPrefix Class (RFC 4068) ################
+############
+############
 + ICMPv6NDOptNewRtrPrefix Class Test (RFC 4068)
 
 = ICMPv6NDOptNewRtrPrefix - Basic Instantiation 
@@ -2017,7 +2054,9 @@ a.type == 18 and a.len == 3 and a.optcode == 0 and a.plen == 64 and a.res == 0 a
 a=ICMPv6NDOptNewRtrPrefix('\x12\x05\xff(\xee\xee\xee\xee\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x11\x11')
 a.type == 18 and a.len == 5 and a.optcode == 0xff and a.plen == 40 and a.res == 0xeeeeeeee and a.prefix == "ffff::1111"
 
-########### ICMPv6NDOptLLA Class (RFC 4068) #########################
+
+############
+############
 + ICMPv6NDOptLLA Class Test (RFC 4068)
 
 = ICMPv6NDOptLLA - Basic Instantiation 
@@ -2035,9 +2074,8 @@ a=ICMPv6NDOptLLA('\x13\x02\x03\xff\x11\xff\x11\xff\x11')
 a.type == 19 and a.len == 2 and a.optcode == 3 and a.lla == "ff:11:ff:11:ff:11"
 
 
-
-
-########### ICMPv6NDOptRouteInfo Class (RFC 4191) ###################
+############
+############
 + ICMPv6NDOptRouteInfo Class Test
 
 = ICMPv6NDOptRouteInfo - Basic Instantiation
@@ -2069,7 +2107,9 @@ a.type == 24 and a.len == 3 and a.plen == 0 and a.res1 == 0 and a.prf == 0 and a
 a=ICMPv6NDOptRouteInfo('\x18\x04\x119"""" \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01')
 a.plen == 0x11 and a.res1 == 1 and a.prf == 3 and a.res2 == 1 and a.rtlifetime == 0x22222222 and a.prefix == "2001:db8::1" 
 
-########### ICMPv6NDOptMAP Class (RFC 4191) ###################
+
+############
+############
 + ICMPv6NDOptMAP Class Test
 
 = ICMPv6NDOptMAP - Basic Instantiation
@@ -2086,7 +2126,9 @@ a.type==23 and a.len==3 and a.dist==1 and a.pref==15 and a.R==1 and a.res==0 and
 a=ICMPv6NDOptMAP('\x17\x05:\x01\x11\x11\x11\x11\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x11\x11')
 a.type==23 and a.len==5 and a.dist==3 and a.pref==10 and a.R==0 and a.res==1 and a.validlifetime==0x11111111 and a.addr=="ffff::1111"
 
-########### ICMPv6NDOptRDNSS Class (RFC5006) ########################
+
+############
+############
 + ICMPv6NDOptRDNSS Class Test
 
 = ICMPv6NDOptRDNSS - Basic Instantiation
@@ -2113,7 +2155,9 @@ a.type==25 and a.len==3 and a.res ==0 and len(a.dns) == 1 and a.dns[0] == "2001:
 a=ICMPv6NDOptRDNSS('\x19\x05\xaa\xee\xff\xff\xff\xff \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02')
 a.type==25 and a.len==5 and a.res == 0xaaee and len(a.dns) == 2 and a.dns[0] == "2001:db8::1" and a.dns[1] == "2001:db8::2"
 
-########### ICMPv6NDOptDNSSL Class (RFC6106) ########################
+
+############
+############
 + ICMPv6NDOptDNSSL Class Test
 
 = ICMPv6NDOptDNSSL - Basic Instantiation
@@ -2136,7 +2180,9 @@ p.type == 31 and p.len == 1 and p.res == 0 and p.searchlist == []
 p = ICMPv6NDOptDNSSL('\x1f\x02\x00\x00\x00\x00\x00<\x04home\x00\x00\x00')
 p.type == 31 and p.len == 2 and p.res == 0 and p.lifetime == 60 and p.searchlist == ["home."]
 
-########### ICMPv6NDOptEFA Class (RFC5075) ##########################
+
+############
+############
 + ICMPv6NDOptEFA Class Test
 
 = ICMPv6NDOptEFA - Basic Instantiation
@@ -2146,7 +2192,9 @@ str(ICMPv6NDOptEFA()) == '\x1a\x01\x00\x00\x00\x00\x00\x00'
 a=ICMPv6NDOptEFA('\x1a\x01\x00\x00\x00\x00\x00\x00')
 a.type==26 and a.len==1 and a.res == 0
 
-#####################################################################
+
+############
+############
 + Test Node Information Query - ICMPv6NIQueryNOOP
 
 = ICMPv6NIQueryNOOP - Basic Instantiation
@@ -2157,7 +2205,8 @@ a = ICMPv6NIQueryNOOP('\x8b\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\
 a.type == 139 and a.code == 1 and a.cksum == 0 and a.qtype == 0 and a.unused == 0 and a.flags == 0 and a.nonce == "\x00"*8 and a.data == ""
 
 
-#####################################################################
+############
+############
 + Test Node Information Query - ICMPv6NIQueryName
 
 = ICMPv6NIQueryName - single label DNS name (internal)
@@ -2189,7 +2238,8 @@ type(a) is tuple and len(a) == 2 and a[0] == 2 and a[1] == '169.254.253.252'
 ICMPv6NIQueryName(data="169.254.253.252").data == '169.254.253.252'
 
 
-#####################################################################
+############
+############
 + Test Node Information Query - ICMPv6NIQueryIPv6
 
 = ICMPv6NIQueryIPv6 - single label DNS name (internal)
@@ -2221,7 +2271,8 @@ type(a) is tuple and len(a) == 2 and a[0] == 2 and a[1] == '169.254.253.252'
 ICMPv6NIQueryIPv6(data="169.254.253.252").data == '169.254.253.252'
 
 
-#####################################################################
+############
+############
 + Test Node Information Query - ICMPv6NIQueryIPv4
 
 = ICMPv6NIQueryIPv4 - single label DNS name (internal)
@@ -2252,7 +2303,9 @@ type(a) is tuple and len(a) == 2 and a[0] == 2 and a[1] == '169.254.253.252'
 = ICMPv6NIQueryIPv4 - IPv4 address
 ICMPv6NIQueryIPv4(data="169.254.253.252").data == '169.254.253.252'
 
-#####################################################################
+
+############
+############
 + Test Node Information Query - Flags tests
 
 = ICMPv6NIQuery* - flags handling (Test 1)
@@ -2324,7 +2377,8 @@ a.flags == 0 and b.flags == 0 and c.flags == 0 and d.flags == 0 and e.flags == 0
 # at least computeNIGroupAddr
 
 
-#####################################################################
+############
+############
 + Test Node Information Query - Dispatching
 
 = ICMPv6NIQueryIPv6 - dispatch with nothing in data
@@ -2413,8 +2467,8 @@ p = IPv6(s)
 isinstance(p.payload, ICMPv6NIReplyUnknown)
 
 
-
-#####################################################################
+############
+############
 + Test Node Information Query - ICMPv6NIReplyNOOP
 
 = ICMPv6NIReplyNOOP - single DNS name without hint => understood as string (internal)
@@ -2446,7 +2500,8 @@ type(a) is tuple and len(a) == 2 and a[0] == 0 and type(a[1]) is str and a[1] ==
 ICMPv6NIReplyNOOP(data="169.254.253.010").data == "169.254.253.010"
 
 
-#####################################################################
+############
+############
 + Test Node Information Query - ICMPv6NIReplyName
 
 = ICMPv6NIReplyName - single label DNS name as a string (without ttl) (internal)
@@ -2478,7 +2533,8 @@ type(a) is tuple and len(a) == 2 and a[0] == 2 and type(a[1]) is list and len(a[
 ICMPv6NIReplyName(data=[42, "abricot", "poire", "n.d.tld"]).data == [42, "abricot", "poire", "n.d.tld"]
 
 
-#####################################################################
+############
+############
 + Test Node Information Query - ICMPv6NIReplyIPv6
 
 = ICMPv6NIReplyIPv6 - one IPv6 address without TTL (internal)
@@ -2517,7 +2573,8 @@ type(a) is tuple and len(a) == 2 and a[0] == 3 and type(a[1]) is list and len(a[
 ICMPv6NIReplyIPv6(data=[(42, "2001:db8::1"), "2001:db8::2"]).data == [(42, "2001:db8::1"), (0, "2001:db8::2")]
 
 
-#####################################################################
+############
+############
 + Test Node Information Query - ICMPv6NIReplyIPv4
 
 = ICMPv6NIReplyIPv4 - one IPv4 address without TTL (internal)
@@ -2555,7 +2612,9 @@ type(a) is tuple and len(a) == 2 and a[0] == 4 and type(a[1]) is list and len(a[
 = ICMPv6NIReplyIPv4 - two IPv4 addresses as a list (first with ttl, second without) (internal)
 ICMPv6NIReplyIPv4(data=[(42, "169.254.253.252"), "169.254.253.253"]).data == [(42, "169.254.253.252"), (0, "169.254.253.253")]
 
-#####################################################################
+
+############
+############
 + Test Node Information Query - ICMPv6NIReplyRefuse
 = ICMPv6NIReplyRefuse - basic instantiation
 str(ICMPv6NIReplyRefuse())[:8] == '\x8c\x01\x00\x00\x00\x00\x00\x00'
@@ -2564,7 +2623,9 @@ str(ICMPv6NIReplyRefuse())[:8] == '\x8c\x01\x00\x00\x00\x00\x00\x00'
 a=ICMPv6NIReplyRefuse('\x8c\x01\x00\x00\x00\x00\x00\x00\xf1\xe9\xab\xc9\x8c\x0by\x18')
 a.type == 140 and a.code == 1 and a.cksum == 0 and a.unused == 0 and a.flags == 0 and a.nonce == '\xf1\xe9\xab\xc9\x8c\x0by\x18' and a.data ==  None
 
-#####################################################################
+
+############
+############
 + Test Node Information Query - ICMPv6NIReplyUnknown
 
 = ICMPv6NIReplyUnknown - basic instantiation
@@ -2574,7 +2635,9 @@ str(ICMPv6NIReplyUnknown(nonce='\x00'*8)) == '\x8c\x02\x00\x00\x00\x00\x00\x00\x
 a=ICMPv6NIReplyRefuse('\x8c\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
 a.type == 140 and a.code == 2 and a.cksum == 0 and a.unused == 0 and a.flags == 0 and a.nonce == '\x00'*8 and a.data ==  None
 
-########### IPv6ExtHdrFragment Class ##########################
+
+############
+############
 + IPv6ExtHdrFragment Class Test
 
 = IPv6ExtHdrFragment - Basic Instantiation
@@ -2592,7 +2655,8 @@ a=IPv6ExtHdrFragment('\xff\xee\xff\xfb\x11\x11\x11\x11')
 a.nh == 0xff and a.res1 == 0xee and a.offset==0x1fff and a.res2==1 and a.m == 1 and a.id == 0x11111111
 
 
-########### fragment6() function ####################################
+############
+############
 + Test fragment6 function
 
 = fragment6 - test against a long TCP packet with a 1280 MTU
@@ -2600,7 +2664,8 @@ l=fragment6(IPv6()/IPv6ExtHdrFragment()/TCP()/Raw(load="A"*40000), 1280)
 len(l) == 33 and len(str(l[-1])) == 644
 
 
-########### defragment6() function ####################################
+############
+############
 + Test defragment6 function
 
 = defragment6 - test against a long TCP packet fragmented with a 1280 MTU
@@ -2623,8 +2688,9 @@ del(l[4])
 del(l[2])
 str(defragment6(l)) == '`\x00\x00\x00\x0f\xb4\x06@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\xb2\x0f\x00\x00AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
 
-########### Route6 Class ############################################
 
+############
+############
 + Test Route6 class
 
 = Route6 - Route6 flushing
@@ -2681,7 +2747,8 @@ if not len(conf.route6.routes):
 #####################################################################
 
 
-#####################################################################
+############
+############
 + Test DHCP6 DUID_LLT
 
 = DUID_LLT basic instantiation
@@ -2702,7 +2769,8 @@ a=DUID_LLT('\x00\x01""\x11\x11\x11\x11\xff\xff\xff\xff\xff\xff')
 a.type == 1 and a.hwtype == 0x2222 and a.timeval == 0x11111111 and a.lladdr == "ff:ff:ff:ff:ff:ff"
 
 
-#####################################################################
+############
+############
 + Test DHCP6 DUID_EN
 
 = DUID_EN basic instantiation
@@ -2723,7 +2791,8 @@ a=DUID_EN('\x00\x02\x11\x11\x11\x11iamastring')
 a.type == 2 and a.enterprisenum == 0x11111111 and a.id =="iamastring"
 
 
-#####################################################################
+############
+############
 + Test DHCP6 DUID_LL
 
 = DUID_LL basic instantiation
@@ -2744,7 +2813,8 @@ a=DUID_LL('\x00\x03\x00\x01\xff\xff\xff\xff\xff\xff')
 a.hwtype == 1 and a.lladdr == "ff:ff:ff:ff:ff:ff"
 
 
-#####################################################################
+############
+############
 + Test DHCP6 Opt Unknown
 
 = DHCP6 Opt Unknown basic instantiation 
@@ -2757,7 +2827,8 @@ str(DHCP6OptUnknown()) == '\x00\x00\x00\x00'
 str(DHCP6OptUnknown(data="shouldbe9")) == '\x00\x00\x00\tshouldbe9'
 
 
-#####################################################################
+############
+############
 + Test DHCP6 Client Identifier option
 
 = DHCP6OptClientId basic instantiation
@@ -2808,7 +2879,9 @@ a.optcode == 1 and a.optlen == 14 and isinstance(a.duid, DUID_LLT) and a.duid.ty
 a=DHCP6OptClientId('\x00\x01\x00\x06\x00\x02\x00\x00\x017')
 a.optcode == 1 and a.optlen == 6 and isinstance(a.duid, DUID_EN) and a.duid.type == 2 and a.duid.enterprisenum == 311 and a.duid.id == ""
 
-#####################################################################
+
+############
+############
 + Test DHCP6 Server Identifier option
 
 = DHCP6OptServerId basic instantiation
@@ -2852,7 +2925,9 @@ a.optcode == 2 and a.optlen == 14 and isinstance(a.duid, DUID_LLT) and a.duid.ty
 a=DHCP6OptServerId('\x00\x02\x00\x06\x00\x02\x00\x00\x017')
 a.optcode == 2 and a.optlen == 6 and isinstance(a.duid, DUID_EN) and a.duid.type == 2 and a.duid.enterprisenum == 311 and a.duid.id == ""
 
-#####################################################################
+
+############
+############
 + Test DHCP6 IA Address Option (IA_TA or IA_NA suboption)
 
 = DHCP6OptIAAddress - Basic Instantiation
@@ -2873,7 +2948,8 @@ a = DHCP6OptIAAddress('\x00\x05\x00"""33\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00
 a.optcode == 5 and a.optlen == 34 and a.addr == "2222:3333::5555" and a.preflft == 0x66666666 and a. validlft == 0x77777777 and a.iaaddropts == "somestring"
 
 
-#####################################################################
+############
+############
 + Test DHCP6 Identity Association for Non-temporary Addresses Option
 
 = DHCP6OptIA_NA - Basic Instantiation
@@ -2897,7 +2973,8 @@ a = DHCP6OptIA_NA('\x00\x03\x00L""""3333DDDD\x00\x05\x00\x18\x00\x00\x00\x00\x00
 a.optcode == 3 and a.optlen == 76 and a.iaid == 0x22222222 and a.T1 == 0x33333333 and a.T2==0x44444444 and len(a.ianaopts) == 2 and isinstance(a.ianaopts[0], DHCP6OptIAAddress) and isinstance(a.ianaopts[1], DHCP6OptIAAddress)
 
 
-#####################################################################
+############
+############
 + Test DHCP6 Identity Association for Temporary Addresses Option
 
 = DHCP6OptIA_TA - Basic Instantiation
@@ -2915,7 +2992,8 @@ a = DHCP6OptIA_TA('\x00\x04\x11\x11""""\x00\x05\x00\x18\x00\x00\x00\x00\x00\x00\
 a.optcode == 4 and a.optlen == 0x1111 and a.iaid == 0x22222222 and len(a.iataopts) == 2 and isinstance(a.iataopts[0], DHCP6OptIAAddress) and isinstance(a.iataopts[1], DHCP6OptIAAddress)
 
 
-#####################################################################
+############
+############
 + Test DHCP6 Option Request Option
 
 = DHCP6OptOptReq - Basic Instantiation
@@ -2936,7 +3014,8 @@ a=DHCP6OptOptReq('\x00\x06\x00\x08\x00\x01\x00\x02\x00\x03\x00\x04')
 a.optcode == 6 and a.optlen == 8 and a.reqopts == [1,2,3,4]
 
 
-#####################################################################
+############
+############
 + Test DHCP6 Option - Preference option
 
 = DHCP6OptPref - Basic instantiation
@@ -2954,7 +3033,8 @@ a=DHCP6OptPref('\x00\x07\xff\xff\x11')
 a.optcode == 7 and a.optlen == 0xffff and a.prefval == 0x11
 
 
-#####################################################################
+############
+############
 + Test DHCP6 Option - Elapsed Time
 
 = DHCP6OptElapsedTime - Basic Instantiation
@@ -2972,7 +3052,8 @@ a=DHCP6OptElapsedTime('\x00\x08\x00\x02\x01\xa5')
 a.optcode == 8 and a.optlen == 2 and a.elapsedtime == 421
 
 
-#####################################################################
+############
+############
 + Test DHCP6 Option - Server Unicast Address
 
 = DHCP6OptServerUnicast - Basic Instantiation
@@ -2997,7 +3078,8 @@ a=DHCP6OptServerUnicast('\x00\x0c\x00* \x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\
 a.optcode == 12 and a.optlen == 42 and a.srvaddr == "2001::1"
 
 
-#####################################################################
+############
+############
 + Test DHCP6 Option - Status Code
 
 = DHCP6OptStatusCode - Basic Instantiation
@@ -3012,7 +3094,8 @@ str(DHCP6OptStatusCode(statuscode=0xff, statusmsg="Hello")) == '\x00\r\x00\x07\x
 # Add tests to verify Unicode behavior
 
 
-#####################################################################
+############
+############
 + Test DHCP6 Option - Rapid Commit
 
 = DHCP6OptRapidCommit - Basic Instantiation
@@ -3023,7 +3106,8 @@ a=DHCP6OptRapidCommit('\x00\x0e\x00\x00')
 a.optcode == 14 and a.optlen == 0
 
 
-#####################################################################
+############
+############
 + Test DHCP6 Option - User class
 
 = DHCP6OptUserClass - Basic Instantiation
@@ -3048,7 +3132,8 @@ a = DHCP6OptUserClass('\x00\x0f\x00\x1a\x00\tsomething\x00\rsomethingelse')
 a.optcode == 15 and a.optlen == 26 and len(a.userclassdata) == 2 and isinstance(a.userclassdata[0], USER_CLASS_DATA) and isinstance(a.userclassdata[1], USER_CLASS_DATA) and a.userclassdata[0].len == 9 and a.userclassdata[0].data == 'something' and a.userclassdata[1].len == 13 and a.userclassdata[1].data == 'somethingelse'
 
 
-#####################################################################
+############
+############
 + Test DHCP6 Option - Vendor class
 
 = DHCP6OptVendorClass - Basic Instantiation
@@ -3073,7 +3158,8 @@ a = DHCP6OptVendorClass('\x00\x10\x00\x1e\x00\x00\x00\x00\x00\tsomething\x00\rso
 a.optcode == 16 and a.optlen == 30 and a.enterprisenum == 0 and len(a.vcdata) == 2 and isinstance(a.vcdata[0], VENDOR_CLASS_DATA) and isinstance(a.vcdata[1], VENDOR_CLASS_DATA) and a.vcdata[0].len == 9 and a.vcdata[0].data == 'something' and a.vcdata[1].len == 13 and a.vcdata[1].data == 'somethingelse'
 
 
-#####################################################################
+############
+############
 + Test DHCP6 Option - Vendor-specific information
 
 = DHCP6OptVendorSpecificInfo - Basic Instantiation
@@ -3098,7 +3184,8 @@ a = DHCP6OptVendorSpecificInfo('\x00\x11\x00"\xee\xee\xee\xee\x00+\x00\tsomethin
 a.optcode == 17 and a.optlen == 34 and a.enterprisenum == 0xeeeeeeee and len(a.vso) == 2 and isinstance(a.vso[0], VENDOR_SPECIFIC_OPTION) and isinstance(a.vso[1], VENDOR_SPECIFIC_OPTION) and a.vso[0].optlen == 9 and a.vso[0].optdata == 'something' and a.vso[1].optlen == 13 and a.vso[1].optdata == 'somethingelse'
 
 
-#####################################################################
+############
+############
 + Test DHCP6 Option - Interface-Id 
 
 = DHCP6OptIfaceId - Basic Instantiation
@@ -3116,7 +3203,8 @@ a = DHCP6OptIfaceId('\x00\x12\x00\x09something')
 a.optcode == 18 and a.optlen == 9 and a.ifaceid == "something"
 
 
-#####################################################################
+############
+############
 + Test DHCP6 Option - Reconfigure Message
 
 = DHCP6OptReconfMsg - Basic Instantiation
@@ -3134,7 +3222,8 @@ a = DHCP6OptReconfMsg('\x00\x13\x00\x04\x05')
 a.optcode == 19 and a.optlen == 4 and a.msgtype == 5
 
 
-#####################################################################
+############
+############
 + Test DHCP6 Option - Reconfigure Accept
 
 = DHCP6OptReconfAccept - Basic Instantiation
@@ -3152,7 +3241,8 @@ a = DHCP6OptReconfAccept('\x00\x14\x00\x17')
 a.optcode == 20 and a.optlen == 23
 
 
-#####################################################################
+############
+############
 + Test DHCP6 Option - SIP Servers Domain Name List
 
 = DHCP6OptSIPDomains - Basic Instantiation
@@ -3180,7 +3270,8 @@ a.optcode == 21 and a.optlen == 36 and len(a.sipdomains) == 2 and a.sipdomains[0
 str(DHCP6OptSIPDomains(sipdomains=["toto.example.org."])) == '\x00\x15\x00\x12\x04toto\x07example\x03org\x00'
 
 
-#####################################################################
+############
+############
 + Test DHCP6 Option - SIP Servers IPv6 Address List
 
 = DHCP6OptSIPServers - Basic Instantiation
@@ -3205,7 +3296,8 @@ a = DHCP6OptSIPServers('\x00\x16\x00  \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00
 a.optcode == 22 and a.optlen == 32 and len(a.sipservers) == 2 and a.sipservers[0] == "2001:db8::1" and a.sipservers[1] == "2001:db8::2"
 
 
-#####################################################################
+############
+############
 + Test DHCP6 Option - DNS Recursive Name Server
 
 = DHCP6OptDNSServers - Basic Instantiation
@@ -3230,7 +3322,8 @@ a = DHCP6OptDNSServers('\x00\x17\x00  \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00
 a.optcode == 23 and a.optlen == 32 and len(a.dnsservers) == 2 and a.dnsservers[0] == "2001:db8::1" and a.dnsservers[1] == "2001:db8::2"
 
 
-#####################################################################
+############
+############
 + Test DHCP6 Option - DNS Domain Search List Option
 
 = DHCP6OptDNSDomains - Basic Instantiation
@@ -3255,7 +3348,8 @@ a = DHCP6OptDNSDomains('\x00\x18\x00$\x04toto\x07example\x03com\x00\x04titi\x07e
 a.optcode == 24 and a.optlen == 36 and len(a.dnsdomains) == 2 and a.dnsdomains[0] == "toto.example.com." and a.dnsdomains[1] == "titi.example.com."
 
 
-#####################################################################
+############
+############
 + Test DHCP6 Option - IA_PD Prefix Option
 
 = DHCP6OptIAPrefix - Basic Instantiation
@@ -3263,7 +3357,9 @@ str(DHCP6OptIAPrefix()) == '\x00\x1a\x00\x1a\x00\x00\x00\x00\x00\x00\x00\x000 \x
 
 #TODO : finish me
 
-#####################################################################
+
+############
+############
 + Test DHCP6 Option - Identity Association for Prefix Delegation
 
 = DHCP6OptIA_PD - Basic Instantiation
@@ -3271,7 +3367,9 @@ str(DHCP6OptIA_PD()) == '\x00\x19\x00\x0c\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0
 
 #TODO : finish me
 
-#####################################################################
+
+############
+############
 + Test DHCP6 Option - NIS Servers
 
 = DHCP6OptNISServers - Basic Instantiation
@@ -3295,7 +3393,9 @@ str(DHCP6OptNISServers(nisservers = ["2001:db8::1", "2001:db8::2"] )) == '\x00\x
 a = DHCP6OptNISServers('\x00\x1b\x00  \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02')
 a.optcode == 27 and a.optlen == 32 and len(a.nisservers) == 2 and a.nisservers[0] == "2001:db8::1" and a.nisservers[1] == "2001:db8::2"
 
-#####################################################################
+
+############
+############
 + Test DHCP6 Option - NIS+ Servers
 
 = DHCP6OptNISPServers - Basic Instantiation
@@ -3319,7 +3419,9 @@ str(DHCP6OptNISPServers(nispservers = ["2001:db8::1", "2001:db8::2"] )) == '\x00
 a = DHCP6OptNISPServers('\x00\x1c\x00  \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02')
 a.optcode == 28 and a.optlen == 32 and len(a.nispservers) == 2 and a.nispservers[0] == "2001:db8::1" and a.nispservers[1] == "2001:db8::2"
 
-#####################################################################
+
+############
+############
 + Test DHCP6 Option - NIS Domain Name
 
 = DHCP6OptNISDomain - Basic Instantiation
@@ -3340,7 +3442,8 @@ a.optcode == 29 and a.optlen == 17 and a.nisdomain == "toto.example.org"
 str(DHCP6OptNISDomain(nisdomain="toto.example.org.")) == '\x00\x1d\x00\x12\x04toto\x07example\x03org\x00'
 
 
-#####################################################################
+############
+############
 + Test DHCP6 Option - NIS+ Domain Name
 
 = DHCP6OptNISPDomain - Basic Instantiation
@@ -3361,7 +3464,8 @@ a.optcode == 30 and a.optlen == 17 and a.nispdomain == "toto.example.org"
 str(DHCP6OptNISPDomain(nispdomain="toto.example.org.")) == '\x00\x1e\x00\x12\x04toto\x07example\x03org\x00'
 
 
-#####################################################################
+############
+############
 + Test DHCP6 Option - SNTP Servers
 
 = DHCP6OptSNTPServers - Basic Instantiation
@@ -3385,7 +3489,8 @@ str(DHCP6OptSNTPServers(sntpservers = ["2001:db8::1", "2001:db8::2"] )) == '\x00
 a = DHCP6OptSNTPServers('\x00\x1f\x00  \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02')
 a.optcode == 31 and a.optlen == 32 and len(a.sntpservers) == 2 and a.sntpservers[0] == "2001:db8::1" and a.sntpservers[1] == "2001:db8::2"
 
-#####################################################################
+############
+############
 + Test DHCP6 Option - Information Refresh Time
 
 = DHCP6OptInfoRefreshTime - Basic Instantiation
@@ -3398,7 +3503,8 @@ a.optcode == 32 and a.optlen == 4 and a.reftime == 86400
 = DHCP6OptInfoRefreshTime - Instantiation with specific values
 str(DHCP6OptInfoRefreshTime(optlen=7, reftime=42)) == '\x00 \x00\x07\x00\x00\x00*'
 
-#####################################################################
+############
+############
 + Test DHCP6 Option - BCMCS Servers
 
 = DHCP6OptBCMCSServers - Basic Instantiation
@@ -3422,7 +3528,9 @@ str(DHCP6OptBCMCSServers(bcmcsservers = ["2001:db8::1", "2001:db8::2"] )) == '\x
 a = DHCP6OptBCMCSServers('\x00"\x00  \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02')
 a.optcode == 34 and a.optlen == 32 and len(a.bcmcsservers) == 2 and a.bcmcsservers[0] == "2001:db8::1" and a.bcmcsservers[1] == "2001:db8::2"
 
-#####################################################################
+
+############
+############
 + Test DHCP6 Option - BCMCS Domains
 
 = DHCP6OptBCMCSDomains - Basic Instantiation
@@ -3446,7 +3554,9 @@ str(DHCP6OptBCMCSDomains(bcmcsdomains=["toto.example.com.", "titi.example.com."]
 a = DHCP6OptBCMCSDomains('\x00!\x00$\x04toto\x07example\x03com\x00\x04titi\x07example\x03com\x00')
 a.optcode == 33 and a.optlen == 36 and len(a.bcmcsdomains) == 2 and a.bcmcsdomains[0] == "toto.example.com." and a.bcmcsdomains[1] == "titi.example.com."
 
-#####################################################################
+
+############
+############
 + Test DHCP6 Option - Relay Agent Remote-ID
 
 = DHCP6OptRemoteID - Basic Instantiation
@@ -3463,7 +3573,9 @@ str(DHCP6OptRemoteID(enterprisenum=0xeeeeeeee, remoteid="someid")) == '\x00%\x00
 a = DHCP6OptRemoteID('\x00%\x00\n\xee\xee\xee\xeesomeid')
 a.optcode == 37 and a.optlen == 10 and a.enterprisenum == 0xeeeeeeee and a.remoteid == "someid"
 
-#####################################################################
+
+############
+############
 + Test DHCP6 Option - Subscriber ID
 
 = DHCP6OptSubscriberID - Basic Instantiation
@@ -3481,7 +3593,8 @@ a = DHCP6OptSubscriberID('\x00&\x00\x06someid')
 a.optcode == 38 and a.optlen == 6 and a.subscriberid == "someid"
 
 
-#####################################################################
+############
+############
 + Test DHCP6 Option - Client FQDN
 
 = DHCP6OptClientFQDN - Basic Instantiation
@@ -3502,7 +3615,8 @@ a = DHCP6OptClientFQDN("\x00'\x00\x12\x00\x04toto\x07example\x03org\x00")
 a.optcode == 39 and a.optlen == 18 and a.res == 0 and a.flags == 0 and a.fqdn == "toto.example.org"
 
 
-#####################################################################
+############
+############
 + Test DHCP6 Option Relay Agent Echo Request Option
 
 = DHCP6OptRelayAgentERO - Basic Instantiation
@@ -3523,8 +3637,8 @@ a=DHCP6OptRelayAgentERO('\x00+\x00\x08\x00\x01\x00\x02\x00\x03\x00\x04')
 a.optcode == 43 and a.optlen == 8 and a.reqopts == [1,2,3,4]
 
 
-
-#####################################################################
+############
+############
 + Test DHCP6 Messages - DHCP6_Solicit
 
 = DHCP6_Solicit - Basic Instantiation
@@ -3549,17 +3663,8 @@ a=UDP(str(UDP()/DHCP6_Solicit()))
 isinstance(a.payload, DHCP6_Solicit)
 
 
-
-
-
-
-
-
-
-
-
-
-#####################################################################
+############
+############
 + Test DHCP6 Messages - DHCP6_Advertise
 
 = DHCP6_Advertise - Basic Instantiation
@@ -3585,7 +3690,9 @@ a > b
 a=UDP()/DHCP6_Advertise()
 a.sport == 547 and a.dport == 546
 
-#####################################################################
+
+############
+############
 + Test DHCP6 Messages - DHCP6_Request
 
 = DHCP6_Request - Basic Instantiation
@@ -3599,7 +3706,9 @@ a.msgtype == 3 and a.trid == 0
 a=UDP()/DHCP6_Request()
 a.sport == 546 and a.dport == 547
 
-#####################################################################
+
+############
+############
 + Test DHCP6 Messages - DHCP6_Confirm
 
 = DHCP6_Confirm - Basic Instantiation
@@ -3613,7 +3722,9 @@ a.msgtype == 4 and a.trid == 0
 a=UDP()/DHCP6_Confirm()
 a.sport == 546 and a.dport == 547
 
-#####################################################################
+
+############
+############
 + Test DHCP6 Messages - DHCP6_Renew
 
 = DHCP6_Renew - Basic Instantiation
@@ -3627,7 +3738,9 @@ a.msgtype == 5 and a.trid == 0
 a=UDP()/DHCP6_Renew()
 a.sport == 546 and a.dport == 547
 
-#####################################################################
+
+############
+############
 + Test DHCP6 Messages - DHCP6_Rebind
 
 = DHCP6_Rebind - Basic Instantiation
@@ -3641,7 +3754,9 @@ a.msgtype == 6 and a.trid == 0
 a=UDP()/DHCP6_Rebind()
 a.sport == 546 and a.dport == 547
 
-#####################################################################
+
+############
+############
 + Test DHCP6 Messages - DHCP6_Reply
 
 = DHCP6_Reply - Basic Instantiation
@@ -3655,7 +3770,9 @@ a.msgtype == 7 and a.trid == 0
 a=UDP()/DHCP6_Reply()
 a.sport == 547 and a.dport == 546
 
-#####################################################################
+
+############
+############
 + Test DHCP6 Messages - DHCP6_Release
 
 = DHCP6_Release - Basic Instantiation
@@ -3669,7 +3786,9 @@ a.msgtype == 8 and a.trid == 0
 a=UDP()/DHCP6_Release()
 a.sport == 546 and a.dport == 547
 
-#####################################################################
+
+############
+############
 + Test DHCP6 Messages - DHCP6_Decline
 
 = DHCP6_Decline - Basic Instantiation
@@ -3683,7 +3802,9 @@ a.msgtype == 9 and a.trid == 0
 a=UDP()/DHCP6_Decline()
 a.sport == 546 and a.dport == 547
 
-#####################################################################
+
+############
+############
 + Test DHCP6 Messages - DHCP6_Reconf
 
 = DHCP6_Reconf - Basic Instantiation
@@ -3697,7 +3818,9 @@ a.msgtype == 10 and a.trid == 0
 a=UDP()/DHCP6_Reconf()
 a.sport == 547 and a.dport == 546
 
-#####################################################################
+
+############
+############
 + Test DHCP6 Messages - DHCP6_InfoRequest
 
 = DHCP6_InfoRequest - Basic Instantiation
@@ -3711,7 +3834,9 @@ a.msgtype == 11 and a.trid == 0
 a=UDP()/DHCP6_InfoRequest()
 a.sport == 546 and a.dport == 547
 
-#####################################################################
+
+############
+############
 + Test DHCP6 Messages - DHCP6_RelayForward
 
 = DHCP6_RelayForward - Basic Instantiation
@@ -3726,7 +3851,8 @@ a = DHCP6_RelayForward('\x0c\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00
 a.msgtype == 12 and DHCP6OptRelayMsg in a and DHCP6OptClientId in a
 
 
-#####################################################################
+############
+############
 + Test DHCP6 Messages - DHCP6_RelayReply
 
 = DHCP6_RelayReply - Basic Instantiation
@@ -3737,12 +3863,8 @@ a=DHCP6_RelayReply('\r\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x
 a.msgtype == 13 and a.hopcount == 0 and a.linkaddr == "::" and a.peeraddr == "::"
 
 
-
-#####################################################################
-#####################################################################
-#################           MIPv6 and NEMO          #################
-#####################################################################
-#####################################################################
+############
+############
 + Home Agent Address Discovery
 
 = in6_getha()
@@ -3761,6 +3883,9 @@ a=ICMPv6HAADRequest(id=42)
 b=ICMPv6HAADReply(id=42)
 not a < b and a > b
 
+
+############
+############
 + Mobile Prefix Solicitation/Advertisement
 
 = ICMPv6MPSol - build (default values)
@@ -3795,12 +3920,18 @@ str(IPv6()/ICMPv6MPAdv(cksum=0x2807, flags=1, id=42)/ICMPv6NDOptPrefixInfo(prefi
 p = IPv6(s)
 p[ICMPv6MPAdv].cksum == 0x2807 and p[ICMPv6MPAdv].flags == 1 and p[ICMPv6MPAdv].id == 42 and p[ICMPv6NDOptPrefixInfo].prefix == '2001:db8::1' and p[ICMPv6NDOptPrefixInfo].preferredlifetime == 12
 
+
+############
+############
 + Type 2 Routing Header
 
 = IPv6ExtHdrRouting - type 2 - build/dissection
 p = IPv6(str(IPv6(dst='2001:db8::1', src='2001:db8::2')/IPv6ExtHdrRouting(type=2, addresses=['2001:db8::3'])/ICMPv6EchoRequest()))
 p.type == 2 and len(p.addresses) == 1 and p.cksum == 0x2446
 
+
+############
+############
 + Mobility Options - Binding Refresh Advice
 
 = MIP6OptBRAdvice - build (default values)
@@ -3819,6 +3950,9 @@ str(MIP6OptBRAdvice(otype=3, olen=42, rinter=2807)) == s
 p = MIP6OptBRAdvice(s)
 p.otype == 3 and p.olen == 42 and p.rinter == 2807
 
+
+############
+############
 + Mobility Options - Alternate Care-of Address
 
 = MIP6OptAltCoA - build (default values)
@@ -3837,6 +3971,9 @@ str(MIP6OptAltCoA(otype=42, olen=8, acoa='2001:db8::1')) == s
 p = MIP6OptAltCoA(s)
 p.otype == 42 and p.olen == 8 and p.acoa == '2001:db8::1'
 
+
+############
+############
 + Mobility Options - Nonce Indices
 
 = MIP6OptNonceIndices - build (default values)
@@ -3855,6 +3992,9 @@ str(MIP6OptNonceIndices(olen=18, hni=19, coni=20)) == s
 p = MIP6OptNonceIndices(s)
 p.hni == 19 and p.coni == 20
 
+
+############
+############
 + Mobility Options - Binding Authentication Data
 
 = MIP6OptBindingAuthData - build (default values)
@@ -3873,6 +4013,9 @@ str(MIP6OptBindingAuthData(olen=42, authenticator=2807)) == s
 p = MIP6OptBindingAuthData(s)
 p.otype == 5 and p.olen == 42 and p.authenticator == 2807
 
+
+############
+############
 + Mobility Options - Mobile Network Prefix
 
 = MIP6OptMobNetPrefix - build (default values)
@@ -3891,6 +4034,9 @@ str(MIP6OptMobNetPrefix(olen=42, reserved=2, plen=32, prefix='2001:db8::')) == s
 p = MIP6OptMobNetPrefix(s)
 p.olen ==  42 and p.reserved  == 2 and p.plen == 32 and p.prefix == '2001:db8::'
 
+
+############
+############
 + Mobility Options - Link-Layer Address (MH-LLA)
 
 = MIP6OptLLAddr - basic build
@@ -3909,6 +4055,9 @@ p = MIP6OptLLAddr('\x07*\x04\xff\xee\xee\xee\xee\xee\xee')
 str(MIP6OptLLAddr(olen=42, ocode=4, pad=0xff, lla='EE:EE:EE:EE:EE:EE'))
 p.otype == 7 and p.olen == 42 and p.ocode == 4 and p.pad == 0xff and p.lla == "ee:ee:ee:ee:ee:ee"
 
+
+############
+############
 + Mobility Options - Mobile Node Identifier
 
 = MIP6OptMNID - basic build
@@ -3926,6 +4075,9 @@ p = MIP6OptMNID('\x08\x07*someid')
 p.otype == 8 and p.olen == 7 and p.subtype == 42 and p.id == "someid"
 
 
+
+############
+############
 + Mobility Options - Message Authentication
 
 = MIP6OptMsgAuth - basic build
@@ -3943,6 +4095,8 @@ p = MIP6OptMsgAuth('\t\x15\xff\xee\xee\xee\xeeBBBBBBBBBBBBBBBB')
 p.otype == 9 and p.olen == 21 and p.subtype == 255 and p.mspi == 0xeeeeeeee and p.authdata == "B"*16
 
 
+############
+############
 + Mobility Options - Replay Protection
 
 = MIP6OptReplayProtection - basic build
@@ -3960,25 +4114,38 @@ p = MIP6OptReplayProtection('\n*a\xbev\x00\x00\x00\x00\x00')
 p.otype == 10 and p.olen == 42 and p.timestamp == 7043196609626112000L
 
 
+############
+############
 + Mobility Options - CGA Parameters
 = MIP6OptCGAParams
 
+
+############
+############
 + Mobility Options - Signature
 = MIP6OptSignature
 
+
+############
+############
 + Mobility Options - Permanent Home Keygen Token
 = MIP6OptHomeKeygenToken
 
+
+############
+############
 + Mobility Options - Care-of Test Init
 = MIP6OptCareOfTestInit
 
+
+############
+############
 + Mobility Options - Care-of Test
 = MIP6OptCareOfTest
 
 
-
-
-
+############
+############
 + Mobility Options - Automatic Padding - MIP6OptBRAdvice
 =  Mobility Options - Automatic Padding - MIP6OptBRAdvice
 a = str(MIP6MH_BU(seq=0x4242, options=[MIP6OptBRAdvice()]))                        ==';\x01\x05\x00\x00\x00BB\xd0\x00\x00\x03\x02\x02\x00\x00'
@@ -3992,6 +4159,8 @@ i = str(MIP6MH_BU(seq=0x4242, options=[PadN(optdata='\x00'*5),MIP6OptBRAdvice()]
 j = str(MIP6MH_BU(seq=0x4242, options=[PadN(optdata='\x00'*6),MIP6OptBRAdvice()])) ==';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x06\x00\x00\x00\x00\x00\x00\x02\x02\x00\x00'
 a and b and c and d and e and g and h and i and j
 						
+############
+############
 + Mobility Options - Automatic Padding - MIP6OptAltCoA		 
 =  Mobility Options - Automatic Padding - MIP6OptAltCoA		 
 a = str(MIP6MH_BU(seq=0x4242, options=[MIP6OptAltCoA()]))                        ==';\x03\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x00\x03\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
@@ -4004,7 +4173,10 @@ h = str(MIP6MH_BU(seq=0x4242, options=[PadN(optdata='\x00'*4),MIP6OptAltCoA()]))
 i = str(MIP6MH_BU(seq=0x4242, options=[PadN(optdata='\x00'*5),MIP6OptAltCoA()])) ==';\x04\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x05\x00\x00\x00\x00\x00\x01\x01\x00\x03\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 j = str(MIP6MH_BU(seq=0x4242, options=[PadN(optdata='\x00'*6),MIP6OptAltCoA()])) ==';\x04\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x06\x00\x00\x00\x00\x00\x00\x01\x00\x03\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 a and b and c and d and e and g and h and i and j
+
 						
+############
+############
 + Mobility Options - Automatic Padding - MIP6OptNonceIndices				 
 =  Mobility Options - Automatic Padding - MIP6OptNonceIndices				 
 a = str(MIP6MH_BU(seq=0x4242, options=[MIP6OptNonceIndices()]))                        ==';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x04\x10\x00\x00\x00\x00\x01\x04\x00\x00\x00\x00'
@@ -4017,7 +4189,10 @@ h = str(MIP6MH_BU(seq=0x4242, options=[PadN(optdata='\x00'*4),MIP6OptNonceIndice
 i = str(MIP6MH_BU(seq=0x4242, options=[PadN(optdata='\x00'*5),MIP6OptNonceIndices()])) ==';\x03\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x05\x00\x00\x00\x00\x00\x00\x04\x10\x00\x00\x00\x00\x01\x04\x00\x00\x00\x00'
 j = str(MIP6MH_BU(seq=0x4242, options=[PadN(optdata='\x00'*6),MIP6OptNonceIndices()])) ==';\x03\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x06\x00\x00\x00\x00\x00\x00\x04\x10\x00\x00\x00\x00\x01\x04\x00\x00\x00\x00'
 a and b and c and d and e and g and h and i and j
+
 						
+############
+############
 + Mobility Options - Automatic Padding - MIP6OptBindingAuthData				 
 =  Mobility Options - Automatic Padding - MIP6OptBindingAuthData				 
 a = str(MIP6MH_BU(seq=0x4242, options=[MIP6OptBindingAuthData()]))                        ==';\x03\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x04\x00\x00\x00\x00\x05\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
@@ -4030,7 +4205,10 @@ h = str(MIP6MH_BU(seq=0x4242, options=[PadN(optdata='\x00'*4),MIP6OptBindingAuth
 i = str(MIP6MH_BU(seq=0x4242, options=[PadN(optdata='\x00'*5),MIP6OptBindingAuthData()])) ==';\x04\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x05\x00\x00\x00\x00\x00\x01\x05\x00\x00\x00\x00\x00\x05\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 j = str(MIP6MH_BU(seq=0x4242, options=[PadN(optdata='\x00'*6),MIP6OptBindingAuthData()])) ==';\x04\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x06\x00\x00\x00\x00\x00\x00\x01\x04\x00\x00\x00\x00\x05\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 a and b and c and d and e and g and h and i and j
+
 						
+############
+############
 + Mobility Options - Automatic Padding - MIP6OptMobNetPrefix				 
 =  Mobility Options - Automatic Padding - MIP6OptMobNetPrefix				 
 a = str(MIP6MH_BU(seq=0x4242, options=[MIP6OptMobNetPrefix()]))                        == ';\x03\x05\x00\x00\x00BB\xd0\x00\x00\x03\x06\x12\x00@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
@@ -4043,7 +4221,10 @@ h = str(MIP6MH_BU(seq=0x4242, options=[PadN(optdata='\x00'*4),MIP6OptMobNetPrefi
 i = str(MIP6MH_BU(seq=0x4242, options=[PadN(optdata='\x00'*5),MIP6OptMobNetPrefix()])) == ';\x04\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x05\x00\x00\x00\x00\x00\x00\x06\x12\x00@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 j = str(MIP6MH_BU(seq=0x4242, options=[PadN(optdata='\x00'*6),MIP6OptMobNetPrefix()])) == ';\x04\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x06\x00\x00\x00\x00\x00\x00\x06\x12\x00@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 a and b and c and d and e and g and h and i and j
+
 						
+############
+############
 + Mobility Options - Automatic Padding - MIP6OptLLAddr				 
 =  Mobility Options - Automatic Padding - MIP6OptLLAddr				 
 a = str(MIP6MH_BU(seq=0x4242, options=[MIP6OptLLAddr()]))                        ==';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x07\x07\x02\x00\x00\x00\x00\x00\x00\x00\x01\x00'
@@ -4056,7 +4237,10 @@ h = str(MIP6MH_BU(seq=0x4242, options=[PadN(optdata='\x00'*4),MIP6OptLLAddr()]))
 i = str(MIP6MH_BU(seq=0x4242, options=[PadN(optdata='\x00'*5),MIP6OptLLAddr()])) ==';\x03\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x05\x00\x00\x00\x00\x00\x07\x07\x02\x00\x00\x00\x00\x00\x00\x00\x01\x01\x00'
 j = str(MIP6MH_BU(seq=0x4242, options=[PadN(optdata='\x00'*6),MIP6OptLLAddr()])) ==';\x03\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x06\x00\x00\x00\x00\x00\x00\x07\x07\x02\x00\x00\x00\x00\x00\x00\x00\x01\x00'
 a and b and c and d and e and g and h and i and j
+
 						
+############
+############
 + Mobility Options - Automatic Padding - MIP6OptMNID				 
 =  Mobility Options - Automatic Padding - MIP6OptMNID				 
 a = str(MIP6MH_BU(seq=0x4242, options=[MIP6OptMNID()]))                        ==';\x01\x05\x00\x00\x00BB\xd0\x00\x00\x03\x08\x01\x01\x00'
@@ -4069,7 +4253,10 @@ h = str(MIP6MH_BU(seq=0x4242, options=[PadN(optdata='\x00'*4),MIP6OptMNID()])) =
 i = str(MIP6MH_BU(seq=0x4242, options=[PadN(optdata='\x00'*5),MIP6OptMNID()])) ==';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x05\x00\x00\x00\x00\x00\x08\x01\x01\x01\x00'
 j = str(MIP6MH_BU(seq=0x4242, options=[PadN(optdata='\x00'*6),MIP6OptMNID()])) ==';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x06\x00\x00\x00\x00\x00\x00\x08\x01\x01\x00'
 a and b and c and d and e and g and h and i and j
+
 						
+############
+############
 + Mobility Options - Automatic Padding - MIP6OptMsgAuth				 
 =  Mobility Options - Automatic Padding - MIP6OptMsgAuth				 
 a = str(MIP6MH_BU(seq=0x4242, options=[MIP6OptMsgAuth()]))                        ==';\x03\x05\x00\x00\x00BB\xd0\x00\x00\x03\x00\t\x11\x01\x00\x00\x00\x00AAAAAAAAAAAA'
@@ -4082,7 +4269,10 @@ h = str(MIP6MH_BU(seq=0x4242, options=[PadN(optdata='\x00'*4),MIP6OptMsgAuth()])
 i = str(MIP6MH_BU(seq=0x4242, options=[PadN(optdata='\x00'*5),MIP6OptMsgAuth()])) ==';\x04\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x05\x00\x00\x00\x00\x00\x01\x00\t\x11\x01\x00\x00\x00\x00AAAAAAAAAAAA'
 j = str(MIP6MH_BU(seq=0x4242, options=[PadN(optdata='\x00'*6),MIP6OptMsgAuth()])) ==';\x04\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x06\x00\x00\x00\x00\x00\x00\x00\t\x11\x01\x00\x00\x00\x00AAAAAAAAAAAA'
 a and b and c and d and e and g and h and i and j
+
 						
+############
+############
 + Mobility Options - Automatic Padding - MIP6OptReplayProtection				 
 =  Mobility Options - Automatic Padding - MIP6OptReplayProtection				 
 a = str(MIP6MH_BU(seq=0x4242, options=[MIP6OptReplayProtection()]))                        ==';\x03\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x04\x00\x00\x00\x00\n\x08\x00\x00\x00\x00\x00\x00\x00\x00\x01\x02\x00\x00'
@@ -4095,7 +4285,10 @@ h = str(MIP6MH_BU(seq=0x4242, options=[PadN(optdata='\x00'*4),MIP6OptReplayProte
 i = str(MIP6MH_BU(seq=0x4242, options=[PadN(optdata='\x00'*5),MIP6OptReplayProtection()])) ==';\x04\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x05\x00\x00\x00\x00\x00\x01\x05\x00\x00\x00\x00\x00\n\x08\x00\x00\x00\x00\x00\x00\x00\x00\x01\x02\x00\x00'
 j = str(MIP6MH_BU(seq=0x4242, options=[PadN(optdata='\x00'*6),MIP6OptReplayProtection()])) ==';\x04\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x06\x00\x00\x00\x00\x00\x00\x01\x04\x00\x00\x00\x00\n\x08\x00\x00\x00\x00\x00\x00\x00\x00\x01\x02\x00\x00'
 a and b and c and d and e and g and h and i and j
+
 						
+############
+############
 + Mobility Options - Automatic Padding - MIP6OptCGAParamsReq				 
 =  Mobility Options - Automatic Padding - MIP6OptCGAParamsReq				 
 a = str(MIP6MH_BU(seq=0x4242, options=[MIP6OptCGAParamsReq()]))                        ==';\x01\x05\x00\x00\x00BB\xd0\x00\x00\x03\x0b\x00\x01\x00'
@@ -4109,6 +4302,9 @@ i = str(MIP6MH_BU(seq=0x4242, options=[PadN(optdata='\x00'*5),MIP6OptCGAParamsRe
 j = str(MIP6MH_BU(seq=0x4242, options=[PadN(optdata='\x00'*6),MIP6OptCGAParamsReq()])) ==';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x06\x00\x00\x00\x00\x00\x00\x0b\x00\x01\x00'
 a and b and c and d and e and g and h and i and j
 						
+
+############
+############
 + Mobility Options - Automatic Padding - MIP6OptCGAParams				 
 =  Mobility Options - Automatic Padding - MIP6OptCGAParams				 
 a = str(MIP6MH_BU(seq=0x4242, options=[MIP6OptCGAParams()]))                        ==';\x01\x05\x00\x00\x00BB\xd0\x00\x00\x03\x0c\x00\x01\x00'
@@ -4121,7 +4317,10 @@ h = str(MIP6MH_BU(seq=0x4242, options=[PadN(optdata='\x00'*4),MIP6OptCGAParams()
 i = str(MIP6MH_BU(seq=0x4242, options=[PadN(optdata='\x00'*5),MIP6OptCGAParams()])) ==';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x05\x00\x00\x00\x00\x00\x0c\x00\x01\x01\x00'
 j = str(MIP6MH_BU(seq=0x4242, options=[PadN(optdata='\x00'*6),MIP6OptCGAParams()])) ==';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x06\x00\x00\x00\x00\x00\x00\x0c\x00\x01\x00'
 a and b and c and d and e and g and h and i and j
+
 						
+############
+############
 + Mobility Options - Automatic Padding - MIP6OptSignature				 
 =  Mobility Options - Automatic Padding - MIP6OptSignature				 
 a = str(MIP6MH_BU(seq=0x4242, options=[MIP6OptSignature()]))                        ==';\x01\x05\x00\x00\x00BB\xd0\x00\x00\x03\r\x00\x01\x00'
@@ -4134,7 +4333,10 @@ h = str(MIP6MH_BU(seq=0x4242, options=[PadN(optdata='\x00'*4),MIP6OptSignature()
 i = str(MIP6MH_BU(seq=0x4242, options=[PadN(optdata='\x00'*5),MIP6OptSignature()])) ==';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x05\x00\x00\x00\x00\x00\r\x00\x01\x01\x00'
 j = str(MIP6MH_BU(seq=0x4242, options=[PadN(optdata='\x00'*6),MIP6OptSignature()])) ==';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x06\x00\x00\x00\x00\x00\x00\r\x00\x01\x00'
 a and b and c and d and e and g and h and i and j
+
 						
+############
+############
 + Mobility Options - Automatic Padding - MIP6OptHomeKeygenToken				 
 =  Mobility Options - Automatic Padding - MIP6OptHomeKeygenToken				 
 a = str(MIP6MH_BU(seq=0x4242, options=[MIP6OptHomeKeygenToken()]))                        ==';\x01\x05\x00\x00\x00BB\xd0\x00\x00\x03\x0e\x00\x01\x00'
@@ -4147,7 +4349,10 @@ h = str(MIP6MH_BU(seq=0x4242, options=[PadN(optdata='\x00'*4),MIP6OptHomeKeygenT
 i = str(MIP6MH_BU(seq=0x4242, options=[PadN(optdata='\x00'*5),MIP6OptHomeKeygenToken()])) ==';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x05\x00\x00\x00\x00\x00\x0e\x00\x01\x01\x00'
 j = str(MIP6MH_BU(seq=0x4242, options=[PadN(optdata='\x00'*6),MIP6OptHomeKeygenToken()])) ==';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x06\x00\x00\x00\x00\x00\x00\x0e\x00\x01\x00'
 a and b and c and d and e and g and h and i and j
+
 						
+############
+############
 + Mobility Options - Automatic Padding - MIP6OptCareOfTestInit				 
 =  Mobility Options - Automatic Padding - MIP6OptCareOfTestInit				 
 a = str(MIP6MH_BU(seq=0x4242, options=[MIP6OptCareOfTestInit()]))                        ==';\x01\x05\x00\x00\x00BB\xd0\x00\x00\x03\x0f\x00\x01\x00'
@@ -4160,7 +4365,10 @@ h = str(MIP6MH_BU(seq=0x4242, options=[PadN(optdata='\x00'*4),MIP6OptCareOfTestI
 i = str(MIP6MH_BU(seq=0x4242, options=[PadN(optdata='\x00'*5),MIP6OptCareOfTestInit()])) ==';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x05\x00\x00\x00\x00\x00\x0f\x00\x01\x01\x00'
 j = str(MIP6MH_BU(seq=0x4242, options=[PadN(optdata='\x00'*6),MIP6OptCareOfTestInit()])) ==';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x06\x00\x00\x00\x00\x00\x00\x0f\x00\x01\x00'
 a and b and c and d and e and g and h and i and j
+
 						
+############
+############
 + Mobility Options - Automatic Padding - MIP6OptCareOfTest				 
 =  Mobility Options - Automatic Padding - MIP6OptCareOfTest				 
 a = str(MIP6MH_BU(seq=0x4242, options=[MIP6OptCareOfTest()]))                        ==';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x10\x08\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00'
@@ -4175,8 +4383,8 @@ j = str(MIP6MH_BU(seq=0x4242, options=[PadN(optdata='\x00'*6),MIP6OptCareOfTest(
 a and b and c and d and e and g and h and i and j
 
 
-
-
+############
+############
 + Binding Refresh Request Message
 = MIP6MH_BRR - Build (default values)
 str(IPv6(src="2001:db8::1", dst="2001:db8::2")/MIP6MH_BRR()) == '`\x00\x00\x00\x00\x08\x87@ \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02;\x00\x00\x00h\xfb\x00\x00'
@@ -4206,6 +4414,8 @@ c=IPv6(str(IPv6(src=cn, dst=coa)/IPv6ExtHdrRouting(type=2, addresses=[hoa])/MIP6
 b.answers(a) and not a.answers(b) and c.answers(b) and not b.answers(c) and not c.answers(b2)
 
 
+############
+############
 + Home Test Init Message
 
 = MIP6MH_HoTI - Build (default values)
@@ -4226,6 +4436,8 @@ b=a.payload
 a.nh == 135 and isinstance(b, MIP6MH_HoTI) and b.nh==59 and b.mhtype == 1 and b.len == 1 and b.res == 0x77 and b.cksum == 0x8899 and b.cookie == '\xAA'*8
 
 
+############
+############
 + Care-of Test Init Message
 
 = MIP6MH_CoTI - Build (default values)
@@ -4245,6 +4457,8 @@ b=a.payload
 a.nh == 135 and isinstance(b, MIP6MH_CoTI) and b.nh==59 and b.mhtype == 2 and b.len == 1 and b.res == 0x77 and b.cksum == 0x8899 and b.cookie == '\xAA'*8
 
 
+############
+############
 + Home Test Message
 
 = MIP6MH_HoT - Build (default values)
@@ -4264,6 +4478,8 @@ b = a.payload
 a.nh == 135 and isinstance(b, MIP6MH_HoT) and b.nh==59 and b.mhtype == 3 and b.len== 2 and b.res == 0x77 and b.cksum == 0x8899 and b.index == 0xAABB and b.cookie == '\xAA'*8 and b.token == '\xCC'*8
 
 
+############
+############
 + Care-of Test Message
 
 = MIP6MH_CoT - Build (default values)
@@ -4283,6 +4499,8 @@ b = a.payload
 a.nh == 135 and isinstance(b, MIP6MH_CoT) and b.nh==59 and b.mhtype == 4 and b.len== 2 and b.res == 0x77 and b.cksum == 0x8899 and b.index == 0xAABB and b.cookie == '\xAA'*8 and b.token == '\xCC'*8
 
 
+############
+############
 + Binding Update Message
 
 = MIP6MH_BU - build (default values)
@@ -4302,6 +4520,8 @@ p = IPv6(s)
 p[MIP6MH_BU].cksum == 0xeaf2 and p[MIP6MH_BU].len == 6 and len(p[MIP6MH_BU].options) == 4 and p[MIP6MH_BU].mhtime == 42
 
 
+############
+############
 + Binding ACK Message
 
 =  MIP6MH_BA - build
@@ -4313,6 +4533,8 @@ p = IPv6(s)
 p[MIP6MH_BA].cksum == 0xbcb9 and p[MIP6MH_BA].len == 1 and len(p[MIP6MH_BA].options) == 1 and p[MIP6MH_BA].mhtime == 42
 
 
+############
+############
 + Binding ERR Message
 
 =  MIP6MH_BE - build
@@ -4370,6 +4592,35 @@ assert all(any(proto in pkt for pkt in pktpcap) for proto in [ICMP, UDP, TCP])
 = Check packets from pcap file
 assert all(IP in pkt for pkt in pktpcapng)
 assert all(any(proto in pkt for pkt in pktpcapng) for proto in [ICMP, UDP, TCP])
+
+= Check wrpcap()
+import os, tempfile
+fdesc, filename = tempfile.mkstemp()
+fdesc = os.fdopen(fdesc, "w")
+wrpcap(fdesc, pktpcap)
+fdesc.close()
+
+= Check offline sniff() (by filename)
+assert list(pktpcap) == list(sniff(offline=filename))
+
+= Check offline sniff() (by file object)
+fdesc = open(filename)
+assert list(pktpcap) == list(sniff(offline=fdesc))
+fdesc.close()
+
+= Check offline sniff() with a filter (by filename)
+~ tcpdump
+pktpcap_flt = [(proto, sniff(offline=filename, filter=proto.__name__.lower()))
+               for proto in [ICMP, UDP, TCP]]
+assert all(list(pktpcap[proto]) == list(packets) for proto, packets in pktpcap_flt)
+
+= Check offline sniff() with a filter (by file object)
+~ tcpdump
+fdesc = open(filename)
+pktpcap_tcp = sniff(offline=fdesc, filter="tcp")
+fdesc.close()
+assert list(pktpcap[TCP]) == list(pktpcap_tcp)
+os.unlink(filename)
 
 
 ############
@@ -4559,6 +4810,9 @@ assert isinstance(pkt, UDP) and pkt.dport == 5353
 pkt = pkt.payload
 assert isinstance(pkt, DNS) and isinstance(pkt.payload, NoPayload)
 
+
+############
+############
 + Mocked read_routes() calls
 
 = Truncated netstat -rn output on OS X
@@ -4616,6 +4870,9 @@ default            link#11            UCSI            1        0 bridge1
 
 test_osx_netstat_truncated()
 
+
+############
+############
 + Mocked read_routes6() calls
 
 = Preliminary definitions
@@ -4929,9 +5186,6 @@ test_netbsd_7_0()
 
 ############
 ############
-
-#################################### l2.py ####################################
-################################### EAPOL #####################################
 + EAPOL class tests
 
 = EAPOL - Basic Instantiation
@@ -4983,8 +5237,8 @@ assert(eapol.len == 60)
 assert(eapol.haslayer(EAP_FAST))
 
 
-
-#################################### EAP ######################################
+############
+############
 + EAP class tests
 
 = EAP - Basic Instantiation
@@ -5073,8 +5327,8 @@ assert(hasattr(eap, 'desired_auth_type'))
 assert(eap.desired_auth_type == 43)
 
 
-################################### ntp.py ###################################
-#################################### NTP #####################################
+############
+############
 + NTP module tests
 
 = NTP - Layers (1)
@@ -5104,7 +5358,8 @@ p = NTPPrivate()
 assert(type(p[NTP]) == NTPPrivate)
 
 
-################################# NTPHeader ##################################
+############
+############
 + NTPHeader tests
 
 = NTPHeader - Basic checks
@@ -5140,7 +5395,8 @@ assert(p.mode == 3)
 assert(p.stratum == 2)
 
 
-############################ NTP Control (mode 6) ############################
+############
+############
 + NTP Control (mode 6) tests
 
 = NTP Control (mode 6) - CTL_OP_READSTAT (1) - request
@@ -5432,7 +5688,8 @@ assert(p.data.load == 'nonce=db4186a2e2073198b93c6419, addr.0=192.168.122.100:12
 assert(p.authenticator == '')
 
 
-############################ NTP Private (mode 7) ############################
+############
+############
 + NTP Private (mode 7) tests
 
 = NTP Private (mode 7) - error - Dissection
@@ -6132,7 +6389,9 @@ assert(p.data[0].unaddr == "127.0.0.1")
 assert(p.data[0].unmask == "255.0.0.0")
 assert(p.data[0].ifname.startswith("lo"))
 
-################################### VXLAN ####################################
+
+############
+############
 + VXLAN layer
 
 = Build a VXLAN packet with VNI of 42
@@ -6177,6 +6436,9 @@ assert(p[VXLAN].gpid == 42)
 assert(p[VXLAN].reserved1 is None)
 assert(p[Ether:2].type == 0x800)
 
+
+############
+############
 + Tests of SSLStreamContext
 
 = Test with recv() calls that return exact packet-length strings

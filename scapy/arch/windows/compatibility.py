@@ -7,13 +7,20 @@
 Instanciate part of the customizations needed to support Microsoft Windows.
 """
 
+import itertools
+import os
+import re
+import socket
+import subprocess
+import sys
+import time
+
 from scapy.arch.consts import LOOPBACK_NAME
 from scapy.config import conf,ConfClass
 from scapy.base_classes import Gen, SetGen
 import scapy.plist as plist
 from scapy.utils import PcapReader
 from scapy.data import MTU, ETH_P_ARP
-import os,re,sys,socket,time, itertools
 
 WINDOWS = True
 
@@ -171,6 +178,7 @@ Select interface to sniff by setting conf.iface. Use show_interfaces() to see in
     prn: function to apply to each packet. If something is returned,
          it is displayed. Ex:
          ex: prn = lambda x: x.summary()
+ filter: provide a BPF filter
 lfilter: python function applied to each packet to determine
          if further action may be done
          ex: lfilter = lambda x: x.haslayer(Padding)
@@ -186,8 +194,25 @@ L2socket: use the provided L2socket
             L2socket = conf.L2listen
         s = L2socket(type=ETH_P_ALL, *arg, **karg)
     else:
-        s = PcapReader(offline)
-
+        flt = karg.get('filter')
+        if flt is not None:
+            if isinstance(offline, basestring):
+                s = PcapReader(
+                    subprocess.Popen(
+                        [conf.prog.tcpdump, "-r", offline, "-w", "-", flt],
+                        stdout=subprocess.PIPE
+                    ).stdout
+                )
+            else:
+                s = PcapReader(
+                    subprocess.Popen(
+                        [conf.prog.tcpdump, "-r", "-", "-w", "-", flt],
+                        stdin=offline,
+                        stdout=subprocess.PIPE
+                    ).stdout
+                )
+        else:
+            s = PcapReader(offline)
     lst = []
     if timeout is not None:
         stoptime = time.time()+timeout

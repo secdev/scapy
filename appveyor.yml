@@ -13,7 +13,9 @@ build: off
 install:
   # Installing WinPcap directly does not work,
   # see http://help.appveyor.com/discussions/problems/2280-winpcap-installation-issue
-  - choco install -y nmap
+  # - choco install -y nmap
+  - choco install -y winpcap
+  - ps: wget http://www.winpcap.org/windump/install/bin/windump_3_9_5/WinDump.exe -UseBasicParsing -OutFile C:\Windows\System32\windump.exe
   - refreshenv
 
   # Install Python modules
@@ -22,7 +24,7 @@ install:
 test_script:
   # Set environment variables
   - set PYTHONPATH=%APPVEYOR_BUILD_FOLDER%
-  - set PATH=%APPVEYOR_BUILD_FOLDER%;C:\Windows\System32\Npcap\;%PATH%
+  - set PATH=%APPVEYOR_BUILD_FOLDER%;%PATH%
   
   # Main unit tests
   - "%PYTHON%\\python bin\\UTscapy -f text -t test\\regression.uts -F -K automaton -K mock_read_routes6_bsd || exit /b 42"

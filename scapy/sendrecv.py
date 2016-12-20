@@ -572,6 +572,7 @@ sniff([count=0,] [prn=None,] [store=1,] [offline=None,]
     prn: function to apply to each packet. If something is returned,
          it is displayed. Ex:
          ex: prn = lambda x: x.summary()
+ filter: provide a BPF filter
 lfilter: python function applied to each packet to determine
          if further action may be done
          ex: lfilter = lambda x: x.haslayer(Padding)
@@ -603,8 +604,30 @@ interfaces)
                 sniff_sockets = [L2socket(type=ETH_P_ALL, iface=iface, *arg,
                                            **karg)]
         else:
-            sniff_sockets = [PcapReader(offline)]
-
+            flt = karg.get('filter')
+            if flt is not None:
+                if isinstance(offline, basestring):
+                    sniff_sockets = [
+                        PcapReader(
+                            subprocess.Popen(
+                                [conf.prog.tcpdump, "-r", offline, "-w", "-",
+                                 flt],
+                                stdout=subprocess.PIPE
+                            ).stdout
+                        )
+                    ]
+                else:
+                    sniff_sockets = [
+                        PcapReader(
+                            subprocess.Popen(
+                                [conf.prog.tcpdump, "-r", "-", "-w", "-", flt],
+                                stdin=offline,
+                                stdout=subprocess.PIPE
+                            ).stdout
+                        )
+                    ]
+            else:
+                sniff_sockets = [PcapReader(offline)]
     lst = []
     if timeout is not None:
         stoptime = time.time()+timeout

@@ -15,8 +15,19 @@ fi
 # Test AEAD modes in IPsec if available
 if [ "$TEST_COMBINED_MODES" != "yes" ]
 then
-  UT_FLAGS+=" -K combined_modes "
+  UT_FLAGS+=" -K combined_modes"
 fi
+
+# Set PATH
+for _path in /sbin /usr/sbin /usr/local/sbin; do
+  [ -d "$_path" ] && echo "$PATH" | grep -qvE "(^|:)$_path(:|$)" && export PATH="$PATH:$_path"
+done
+
+# Do we have tcpdump?
+which tcpdump >/dev/null 2>&1 || UT_FLAGS+=" -K tcpdump"
+
+# Dump Environment (so that we can check PATH, UT_FLAGS, etc.)
+set
 
 # Run unit tests
 cd test/
