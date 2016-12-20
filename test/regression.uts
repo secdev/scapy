@@ -156,6 +156,26 @@ t=Ether()/IP()/TCP()
 x==y, x==z, x==t, y==z, y==t, z==t, w==x
 _ == (False, False, False, False, False, False, True)
 
+= answers
+~ basic
+a1, a2 = "1.2.3.4", "5.6.7.8"
+p1 = IP(src=a1, dst=a2)/ICMP(type=8)
+p2 = IP(src=a2, dst=a1)/ICMP(type=0)
+assert p1.hashret() == p2.hashret()
+assert not p1.answers(p2)
+assert p2.answers(p1)
+conf_back = conf.checkIPinIP
+conf.checkIPinIP = True
+px = [IP()/p1, IPv6()/p1]
+assert not any(p.hashret() == p2.hashret() for p in px)
+assert not any(p.answers(p2) for p in px)
+assert not any(p2.answers(p) for p in px)
+conf.checkIPinIP = False
+assert all(p.hashret() == p2.hashret() for p in px)
+assert not any(p.answers(p2) for p in px)
+assert all(p2.answers(p) for p in px)
+conf.checkIPinIP = conf_back
+
 
 ############
 ############
