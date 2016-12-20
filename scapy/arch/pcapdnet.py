@@ -39,11 +39,11 @@ if conf.use_winpcapy:
         pcap_freealldevs(devs)
 
   except OSError as e:
+    def winpcapy_get_if_list():
+        return []
+    conf.use_winpcapy = False
     if conf.interactive:
-      log_loading.error("Unable to import libpcap library: %s" % e)
-      conf.use_winpcapy = False
-    else:
-      raise
+      log_loading.warning("wpcap.dll is not installed. You won't be able to send/recieve packets. Visit the scapy's doc to install it")
 
   # From BSD net/bpf.h
   #BIOCIMMEDIATE=0x80044270
@@ -99,7 +99,8 @@ if conf.use_winpcapy:
       return ret
     finally:
       pcap_freealldevs(devs)
-  get_if_list = winpcapy_get_if_list
+  if conf.use_winpcapy:
+      get_if_list = winpcapy_get_if_list
   def in6_getifaddr():
     err = create_string_buffer(PCAP_ERRBUF_SIZE)
     devs = POINTER(pcap_if_t)()
@@ -320,10 +321,7 @@ if conf.use_winpcapy:
   conf.L2socket=L2pcapSocket
   conf.L3socket=L3pcapSocket
     
-if conf.use_pcap:    
-
-
-
+if conf.use_pcap:
     try:
         import pcap
     except ImportError,e:
