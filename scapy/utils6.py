@@ -43,7 +43,7 @@ def construct_source_candidate_set(addr, plen, laddr, loname):
             return res
         # two global addresses: if one is native, it wins.
         if not in6_isaddr6to4(x):
-            return -1;
+            return -1
         return -res
 
     cset = []

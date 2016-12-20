@@ -831,7 +831,7 @@ class BluetoothUserSocket(SuperSocket):
         libc = CDLL("libc.so.6")
 
         socket_c = libc.socket
-        socket_c.argtypes = (c_int, c_int, c_int);
+        socket_c.argtypes = (c_int, c_int, c_int)
         socket_c.restype = c_int
 
         bind = libc.bind

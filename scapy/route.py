@@ -158,9 +158,10 @@ class Route:
     def get_if_bcast(self, iff):
         for net, msk, gw, iface, addr in self.routes:
             if (iff == iface and net != 0L):
-                bcast = atol(addr)|(~msk&0xffffffffL); # FIXME: check error in atol()
-                return ltoa(bcast);
-        warning("No broadcast address found for iface %s\n" % iff);
+                bcast = atol(addr)|(~msk&0xffffffffL)  # FIXME: check error in atol()
+                return ltoa(bcast)
+        warning("No broadcast address found for iface %s\n" % iff)
+
 
 conf.route=Route()
 
