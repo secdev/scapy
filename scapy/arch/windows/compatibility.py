@@ -250,5 +250,5 @@ import scapy.sendrecv
 scapy.sendrecv.sniff = sniff
 
 # If wpcap.dll is not available
-if (not conf.use_winpcapy) and (not conf.use_pcap) and (not conf.use_dnet):
+if not (conf.use_winpcapy or conf.use_pcap or conf.use_dnet):
     from scapy.arch.windows.disable_sendrecv import *
