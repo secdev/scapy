@@ -34,7 +34,7 @@ class PacketList(BasePacketList):
         self.stats = stats
         if res is None:
             res = []
-        if isinstance(res, PacketList):
+        elif isinstance(res, PacketList):
             res = res.res
         self.res = res
         self.listname = name
@@ -257,7 +257,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
 
     def padding(self, lfilter=None):
         """Same as hexraw(), for Padding layer"""
-        for i in enumerate(self.res):
+        for i, res in enumerate(self.res):
             p = self._elt2pkt(res)
             if p.haslayer(conf.padding_layer):
                 if lfilter is None or lfilter(p):
@@ -268,7 +268,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
 
     def nzpadding(self, lfilter=None):
         """Same as padding() but only non null padding"""
-        for i in enumerate(self.res):
+        for i, res in enumerate(self.res):
             p = self._elt2pkt(res)
             if p.haslayer(conf.padding_layer):
                 pad = p.getlayer(conf.padding_layer).load
@@ -407,9 +407,8 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
         import pyx
         d = pyx.document.document()
         l = len(self.res)
-        for i in enumerate(self.res):
-            elt = res
-            c = self._elt2pkt(elt).canvas_dump(**kargs)
+        for i, res in enumerate(self.res):
+            c = self._elt2pkt(res).canvas_dump(**kargs)
             cbb = c.bbox()
             c.text(cbb.left(),cbb.top()+1,r"\font\cmssfont=cmss12\cmssfont{Frame %i/%i}" % (i,l),[pyx.text.size.LARGE])
             if conf.verb >= 2:
