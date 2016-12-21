@@ -2850,7 +2850,7 @@ class MIP6MH_HoT(_MobilityHeader):
     overload_fields = { IPv6: { "nh": 135 } }
     def hashret(self):
         return self.cookie
-    def answers(self):
+    def answers(self, other):
         if (isinstance(other, MIP6MH_HoTI) and
             self.cookie == other.cookie):
             return 1

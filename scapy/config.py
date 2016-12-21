@@ -172,6 +172,8 @@ class CacheInstance(dict):
         self.timeout = timeout
         self.name = name
         self._timetable = {}
+    def flush(self):
+        self.__init__(name=self.name, timeout=self.timeout)
     def __getitem__(self, item):
         val = dict.__getitem__(self,item)
         if self.timeout is not None:
@@ -329,6 +331,7 @@ contribs: a dict which can be used by contrib layers to store local configuratio
     interactive_shell = ""
     stealth = "not implemented"
     iface = None
+    iface6 = None
     readfunc = None
     layers = LayersList()
     commands = CommandsList()
@@ -383,7 +386,8 @@ contribs: a dict which can be used by contrib layers to store local configuratio
     stats_dot11_protocols = []
     temp_files = []
     netcache = NetCache()
-    geoip_city = '/usr/share/GeoIP/GeoLiteCity.dat'
+    geoip_city = '/usr/share/GeoIP/GeoIPCity.dat'
+    geoip_city_ipv6 = '/usr/share/GeoIP/GeoIPCityv6.dat'
     load_layers = ["l2", "inet", "dhcp", "dns", "dot11", "gprs", "tls",
                    "hsrp", "inet6", "ir", "isakmp", "l2tp", "mgcp",
                    "mobileip", "netbios", "netflow", "ntp", "ppp",

@@ -128,11 +128,11 @@ class Route6:
             if iface != iff:
                 continue
             if gw == '::':
-                self.routes[i] = (the_net,the_plen,gw,iface,the_addr)
+                self.routes[i] = (the_net,the_plen,gw,iface,[the_addr])
             else:
-                self.routes[i] = (net,the_plen,gw,iface,the_addr)
+                self.routes[i] = (net,plen,gw,iface,[the_addr])
         self.invalidate_cache()
-        ip6_neigh_cache.flush()
+        conf.netcache.in6_neighbor.flush()
 
     def ifdel(self, iff):
         """ removes all route entries that uses 'iff' interface. """

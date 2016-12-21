@@ -7,6 +7,7 @@
 DHCP (Dynamic Host Configuration Protocol) d BOOTP
 """
 
+from collections import Iterable
 import struct
 
 from scapy.packet import *
@@ -301,8 +302,6 @@ class BOOTP_am(AnsweringMachine):
     send_function = staticmethod(sendp)
     def parse_options(self, pool=Net("192.168.1.128/25"), network="192.168.1.0/24",gw="192.168.1.1",
                       domain="localnet", renewal_time=60, lease_time=1800):
-        if type(pool) is str:
-            poom = Net(pool)
         self.domain = domain
         netw,msk = (network.split("/")+["32"])[:2]
         msk = itom(int(msk))
@@ -310,7 +309,9 @@ class BOOTP_am(AnsweringMachine):
         self.network = ltoa(atol(netw)&msk)
         self.broadcast = ltoa( atol(self.network) | (0xffffffff&~msk) )
         self.gw = gw
-        if isinstance(pool,Gen):
+        if isinstance(pool, basestring):
+            pool = Net(pool)
+        if isinstance(pool, Iterable):
             pool = [k for k in pool if k not in [gw, self.network, self.broadcast]]
             pool.reverse()
         if len(pool) == 1:
