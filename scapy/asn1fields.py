@@ -182,7 +182,7 @@ class ASN1F_enum_INTEGER(ASN1F_INTEGER):
     def i2m(self, pkt, s):
         if isinstance(s, str):
             s = self.s2i.get(s)
-        return super(ASN1F_INTEGER, self).i2m(pkt, s)
+        return super(ASN1F_enum_INTEGER, self).i2m(pkt, s)
     def i2repr(self, pkt, x):
         if x is not None and isinstance(x, ASN1_INTEGER):
             r = self.i2s.get(x.val)
