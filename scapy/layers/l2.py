@@ -203,9 +203,14 @@ conf.neighbor.register_l3(Dot3, LLC, l2_register_l3)
 
 
 class CookedLinux(Packet):
+    # Documentation: http://www.tcpdump.org/linktypes/LINKTYPE_LINUX_SLL.html
     name = "cooked linux"
+    # from wireshark's database
     fields_desc = [ ShortEnumField("pkttype",0, {0: "unicast",
-                                                 4:"sent-by-us"}), #XXX incomplete
+                                                 1: "broadcast",
+                                                 2: "multicast",
+                                                 3: "unicast-to-another-host",
+                                                 4:"sent-by-us"}),
                     XShortField("lladdrtype",512),
                     ShortField("lladdrlen",0),
                     StrFixedLenField("src","",8),

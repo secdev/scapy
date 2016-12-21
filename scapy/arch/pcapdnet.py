@@ -304,6 +304,7 @@ if conf.use_winpcapy:
               self.outs.close()
 
   class L3pcapSocket(L2pcapSocket):
+      desc = "read/write packets at layer 3 using only libpcap"
       #def __init__(self, iface = None, type = ETH_P_ALL, filter=None, nofilter=0):
       #    L2pcapSocket.__init__(self, iface, type, filter, nofilter)
       def recv(self, x = MTU):
