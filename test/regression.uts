@@ -4502,6 +4502,15 @@ a=IPv6('`\x00\x00\x00\x00\x18\x87@ \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x0
 b = a.payload
 a.nh == 135 and isinstance(b, MIP6MH_HoT) and b.nh==59 and b.mhtype == 3 and b.len== 2 and b.res == 0x77 and b.cksum == 0x8899 and b.index == 0xAABB and b.cookie == '\xAA'*8 and b.token == '\xCC'*8
 
+= MIP6MH_HoT answers
+a1, a2 = "2001:db8::1", "2001:db8::2"
+cookie = RandString(8)._fix()
+p1 = IPv6(src=a1, dst=a2)/MIP6MH_HoTI(cookie=cookie)
+p2 = IPv6(src=a2, dst=a1)/MIP6MH_HoT(cookie=cookie)
+p2_ko = IPv6(src=a2, dst=a1)/MIP6MH_HoT(cookie="".join(chr((ord('\xff') + 1) % 256)))
+assert p1.hashret() == p2.hashret() and p2.answers(p1) and not p1.answers(p2)
+assert p1.hashret() != p2_ko.hashret() and not p2_ko.answers(p1) and not p1.answers(p2_ko)
+
 
 ############
 ############
