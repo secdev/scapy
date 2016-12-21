@@ -4822,6 +4822,20 @@ pkt = IP(len=42, ihl=6, options=[IPOption_RR()]) / UDP() / ("A" * 10)
 bpkt = IP(str(pkt))
 assert bpkt.chksum == 0x70bd and bpkt.payload.chksum == 0xbb17
 
+= DNS
+
+* DNS over UDP
+pkt = IP(str(IP(src="10.0.0.1", dst="8.8.8.8")/UDP(sport=RandShort(), dport=53)/DNS(qd=DNSQR(qname="secdev.org."))))
+assert UDP in pkt and isinstance(pkt[UDP].payload, DNS)
+assert pkt[UDP].dport == 53 and pkt[UDP].length is None
+assert pkt[DNS].qdcount == 1 and pkt[DNS].qd.qname == "secdev.org."
+
+* DNS over TCP
+pkt = IP(str(IP(src="10.0.0.1", dst="8.8.8.8")/TCP(sport=RandShort(), dport=53, flags="P")/DNS(qd=DNSQR(qname="secdev.org."))))
+assert TCP in pkt and isinstance(pkt[TCP].payload, DNS)
+assert pkt[TCP].dport == 53 and pkt[DNS].length is not None
+assert pkt[DNS].qdcount == 1 and pkt[DNS].qd.qname == "secdev.org."
+
 = Layer binding
 
 * Test DestMACField & DestIPField
