@@ -172,6 +172,8 @@ class CacheInstance(dict):
         self.timeout = timeout
         self.name = name
         self._timetable = {}
+    def flush(self):
+        self.__init__(name=self.name, timeout=self.timeout)
     def __getitem__(self, item):
         val = dict.__getitem__(self,item)
         if self.timeout is not None:

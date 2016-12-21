@@ -67,6 +67,11 @@ if len(routes6):
 else:
     True
 
+= Test ifchange()
+conf.route6.ifchange(LOOPBACK_NAME, "::1/128")
+True
+
+
 ############
 ############
 + Basic tests
