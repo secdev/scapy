@@ -526,16 +526,6 @@ class HCI_Cmd_LE_Create_Connection(Packet):
                     LEShortField("min_ce", 0),
                     LEShortField("max_ce", 0), ]
     
-class HCI_Cmd_LE_Connection_Update(Packet):
-    name = "LE Connection Update"
-    fields_desc = [ LEShortField("conn_handle", 64),
-                    LEShortField("conn_interval_min", 0),
-                    LEShortField("conn_interval_max", 0),
-                    LEShortField("conn_latency", 0),
-                    LEShortField("timeout", 600),
-                    LEShortField("min_ce_len", 0),
-                    LEShortField("max_ce_len", 0),]
-
 class HCI_Cmd_LE_Create_Connection_Cancel(Packet):
     name = "LE Create Connection Cancel"
 
