@@ -784,10 +784,12 @@ class RawPcapNgReader(RawPcapReader):
     def __init__(self, filename, fdesc, magic):
         self.filename = filename
         self.f = fdesc
-        # A list of (linktype, snaplen); will be populated by IDBs.
+        # A list of (linktype, snaplen, tsresol); will be populated by IDBs.
         self.interfaces = []
         self.blocktypes = {
             1: self.read_block_idb,
+            2: self.read_block_pkt,
+            3: self.read_block_spb,
             6: self.read_block_epb,
         }
         if magic != "\x0a\x0d\x0d\x0a": # PcapNg:
@@ -817,12 +819,14 @@ class RawPcapNgReader(RawPcapReader):
             except struct.error:
                 return None
             block = self.f.read(blocklen - 12)
+            if blocklen % 4:
+                pad = self.f.read(4 - (blocklen % 4))
+                warning("PcapNg: bad blocklen %d (MUST be a multiple of 4. "
+                        "Ignored padding %r" % (blocklen, pad))
             try:
                 if (blocklen,) != struct.unpack(self.endian + 'I',
                                                 self.f.read(4)):
-                    raise Scapy_Exception(
-                        "Invalid pcapng block (bad blocklen)"
-                    )
+                    warning("PcapNg: Invalid pcapng block (bad blocklen)")
             except struct.error:
                 return None
             res = self.blocktypes.get(blocktype,
@@ -832,15 +836,57 @@ class RawPcapNgReader(RawPcapReader):
 
     def read_block_idb(self, block, _):
         """Interface Description Block"""
-        # We should read options to set if_tsresol
-        self.interfaces.append(struct.unpack(self.endian + "HxxI", block[:8]))
+        options = block[16:]
+        tsresol = 1000000
+        while len(options) >= 4:
+            code, length = struct.unpack(self.endian + "HH", options[:4])
+            # PCAP Next Generation (pcapng) Capture File Format
+            # 4.2. - Interface Description Block
+            # http://xml2rfc.tools.ietf.org/cgi-bin/xml2rfc.cgi?url=https://raw.githubusercontent.com/pcapng/pcapng/master/draft-tuexen-opsawg-pcapng.xml&modeAsFormat=html/ascii&type=ascii#rfc.section.4.2
+            if code == 9 and length == 1 and len(options) >= 5:
+                tsresol = ord(options[4])
+                tsresol = (2 if tsresol & 128 else 10) ** (tsresol & 127)
+            if code == 0:
+                if length != 0:
+                    warning("PcapNg: invalid option length %d for end-of-option" % length)
+                break
+            if length % 4:
+                length += (4 - (length % 4))
+            options = options[4 + length:]
+        self.interfaces.append(struct.unpack(self.endian + "HxxI", block[:8])
+                               + (tsresol,))
 
     def read_block_epb(self, block, size):
         """Enhanced Packet Block"""
-        intid, tshigh, tslow, caplen, wirelen = struct.unpack(self.endian + "5I",
-                                                          block[:20])
+        intid, tshigh, tslow, caplen, wirelen = struct.unpack(
+            self.endian + "5I",
+            block[:20],
+        )
         return (block[20:20 + caplen][:size],
-                (self.interfaces[intid][0], tshigh, tslow, wirelen))
+                (self.interfaces[intid][0], self.interfaces[intid][2],
+                 tshigh, tslow, wirelen))
+
+    def read_block_spb(self, block, size):
+        """Simple Packet Block"""
+        # "it MUST be assumed that all the Simple Packet Blocks have
+        # been captured on the interface previously specified in the
+        # first Interface Description Block."
+        intid = 0
+        wirelen, = struct.unpack(self.endian + "I", block[:4])
+        caplen = min(wirelen, self.interfaces[intid][1])
+        return (block[4:4 + caplen][:size],
+                (self.interfaces[intid][0], self.interfaces[intid][2],
+                 None, None, wirelen))
+
+    def read_block_pkt(self, block, size):
+        """(Obsolete) Packet Block"""
+        intid, drops, tshigh, tslow, caplen, wirelen = struct.unpack(
+            self.endian + "HH4I",
+            block[:20],
+        )
+        return (block[20:20 + caplen][:size],
+                (self.interfaces[intid][0], self.interfaces[intid][2],
+                 tshigh, tslow, wirelen))
 
 
 class PcapNgReader(RawPcapNgReader):
@@ -854,7 +900,7 @@ class PcapNgReader(RawPcapNgReader):
         rp = RawPcapNgReader.read_packet(self, size=size)
         if rp is None:
             return None
-        s, (linktype, tshigh, tslow, wirelen) = rp
+        s, (linktype, tsresol, tshigh, tslow, wirelen) = rp
         try:
             p = conf.l2types[linktype](s)
         except KeyboardInterrupt:
@@ -863,9 +909,8 @@ class PcapNgReader(RawPcapNgReader):
             if conf.debug_dissector:
                 raise
             p = conf.raw_layer(s)
-        # We should use if_tsresol when available (see
-        # RawPcapNgReader.read_block_idb)
-        p.time = float((tshigh << 32) + tslow) / 1000000
+        if tshigh is not None:
+            p.time = float((tshigh << 32) + tslow) / tsresol
         return p
     def read_all(self,count=-1):
         res = RawPcapNgReader.read_all(self, count)
