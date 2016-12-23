@@ -187,6 +187,7 @@ class WinProgPath(ConfClass):
     psreader = win_find_exe("gsview32.exe", "Ghostgum/gsview")
     dot = win_find_exe("dot", "ATT/Graphviz/bin")
     tcpdump = win_find_exe("windump")
+    tshark = win_find_exe("tshark")
     tcpreplay = win_find_exe("tcpreplay")
     display = _default
     hexedit = win_find_exe("hexer")

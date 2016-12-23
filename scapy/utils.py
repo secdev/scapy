@@ -1089,6 +1089,76 @@ def wireshark(pktlist):
     subprocess.Popen([conf.prog.wireshark, "-r", f])
 
 @conf.commands.register
+def tcpdump(pktlist, dump=False, getfd=False, args=None,
+            prog=None):
+    """Run tcpdump or tshark on a list of packets
+
+pktlist: a Packet instance, a PacketList instance or a list of Packet
+         instances. Can also be a filename (as a string) or an open
+         file-like object that must be a file format readable by
+         tshark (Pcap, PcapNg, etc.)
+
+dump:    when set to True, returns a string instead of displaying it.
+getfd:   when set to True, returns a file-like object to read data
+         from tcpdump or tshark from.
+args:    arguments (as a list) to pass to tshark (example for tshark:
+         args=["-T", "json"]). Defaults to ["-n"].
+prog:    program to use (defaults to tcpdump, will work with tshark)
+
+Examples:
+
+>>> tcpdump([IP()/TCP(), IP()/UDP()])
+reading from file -, link-type RAW (Raw IP)
+16:46:00.474515 IP 127.0.0.1.20 > 127.0.0.1.80: Flags [S], seq 0, win 8192, length 0
+16:46:00.475019 IP 127.0.0.1.53 > 127.0.0.1.53: [|domain]
+
+>>> tcpdump([IP()/TCP(), IP()/UDP()], prog=conf.prog.tshark)
+  1   0.000000    127.0.0.1 -> 127.0.0.1    TCP 40 20->80 [SYN] Seq=0 Win=8192 Len=0
+  2   0.000459    127.0.0.1 -> 127.0.0.1    UDP 28 53->53 Len=0
+
+To get a JSON representation of a tshark-parsed PacketList(), one can:
+>>> import json, pprint
+>>> json_data = json.load(tcpdump(IP(src="217.25.178.5", dst="45.33.32.156"),
+...                               prog=conf.prog.tshark, args=["-T", "json"],
+...                               getfd=True))
+>>> pprint.pprint(json_data)
+[{u'_index': u'packets-2016-12-23',
+  u'_score': None,
+  u'_source': {u'layers': {u'frame': {u'frame.cap_len': u'20',
+                                      u'frame.encap_type': u'7',
+[...]
+                                      u'frame.time_relative': u'0.000000000'},
+                           u'ip': {u'ip.addr': u'45.33.32.156',
+                                   u'ip.checksum': u'0x0000a20d',
+[...]
+                                   u'ip.ttl': u'64',
+                                   u'ip.version': u'4'},
+                           u'raw': u'Raw packet data'}},
+  u'_type': u'pcap_file'}]
+>>> json_data[0]['_source']['layers']['ip']['ip.ttl']
+u'64'
+
+    """
+    proc = subprocess.Popen(
+        [conf.prog.tcpdump if prog is None else prog, "-r",
+         pktlist if isinstance(pktlist, basestring) else "-"]
+        + (["-n"] if args is None else args),
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE if dump or getfd else None,
+    )
+    try:
+        proc.stdin.writelines(iter(lambda: pktlist.read(1048576), ""))
+    except AttributeError:
+        wrpcap(proc.stdin, pktlist)
+    else:
+        proc.stdin.close()
+    if dump:
+        return "".join(iter(lambda: proc.stdout.read(1048576), ""))
+    if getfd:
+        return proc.stdout
+    proc.wait()
+
+@conf.commands.register
 def hexedit(x):
     x = str(x)
     f = get_temp_file()

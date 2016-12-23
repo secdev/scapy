@@ -39,8 +39,9 @@ then
   fi
 fi
 
-# Do we have tcpdump?
+# Do we have tcpdump or thsark?
 which tcpdump >/dev/null 2>&1 || UT_FLAGS+=" -K tcpdump"
+which tshark >/dev/null 2>&1 || UT_FLAGS+=" -K tshark"
 
 # Dump Environment (so that we can check PATH, UT_FLAGS, etc.)
 set
