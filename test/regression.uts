@@ -4781,6 +4781,12 @@ assert frags[-1].flags == 0
 assert all(len(p.payload) == 8 for p in frags[:-1])
 assert len(frags[-1].payload) == ((payloadlen % fragsize) or fragsize)
 
+= fragment() and overloaded_fields
+pkt1 = Ether() / IP() / UDP()
+pkt2 = fragment(pkt1)[0]
+pkt3 = pkt2.__class__(str(pkt2))
+assert pkt1[IP].proto == pkt2[IP].proto == pkt3[IP].proto
+
 = defragment()
 defrags = defragment(frags)
 * we should have one single packet

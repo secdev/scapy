@@ -656,6 +656,7 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
         pkt.explicit = 1
         pkt.fields = kargs
         pkt.default_fields = self.copy_fields_dict(self.default_fields)
+        pkt.overloaded_fields = self.overloaded_fields.copy()
         pkt.time = self.time
         pkt.underlayer = self.underlayer
         pkt.post_transforms = self.post_transforms
