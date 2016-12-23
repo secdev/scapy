@@ -462,13 +462,11 @@ class IP(Packet, IPTools):
                 del(q[fnb].payload)
                 del(q[fnb].chksum)
                 del(q[fnb].len)
-                if i == nb-1:
-                    q[IP].flags &= ~1
-                else:
-                    q[IP].flags |= 1 
-                q[IP].frag = i*fragsize/8
+                if i != nb - 1:
+                    q[fnb].flags |= 1
+                q[fnb].frag += i * fragsize / 8
                 r = conf.raw_layer(load=s[i*fragsize:(i+1)*fragsize])
-                r.overload_fields = p[IP].payload.overload_fields.copy()
+                r.overload_fields = p[fnb].payload.overload_fields.copy()
                 q.add_payload(r)
                 lst.append(q)
         return lst
@@ -816,11 +814,9 @@ def fragment(pkt, fragsize=1480):
             del(q[IP].payload)
             del(q[IP].chksum)
             del(q[IP].len)
-            if i == nb-1:
-                q[IP].flags &= ~1
-            else:
-                q[IP].flags |= 1 
-            q[IP].frag = i*fragsize/8
+            if i != nb - 1:
+                q[IP].flags |= 1
+            q[IP].frag += i * fragsize / 8
             r = conf.raw_layer(load=s[i*fragsize:(i+1)*fragsize])
             r.overload_fields = p[IP].payload.overload_fields.copy()
             q.add_payload(r)

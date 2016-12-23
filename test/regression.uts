@@ -4787,6 +4787,22 @@ pkt2 = fragment(pkt1)[0]
 pkt3 = pkt2.__class__(str(pkt2))
 assert pkt1[IP].proto == pkt2[IP].proto == pkt3[IP].proto
 
+= fragment() already fragmented packets
+payloadlen = 1480 * 3
+ffrags = fragment(IP() / ("X" * payloadlen), 1480)
+ffrags = fragment(ffrags, 1400)
+len(ffrags) == 6
+* each fragment except the last one should have MF set
+assert all(p.flags == 1 for p in ffrags[:-1])
+assert ffrags[-1].flags == 0
+* fragment offset should be well computed
+plen = 0
+for p in ffrags:
+    assert p.frag == plen / 8
+    plen += len(p.payload)
+
+assert plen == payloadlen
+
 = defragment()
 defrags = defragment(frags)
 * we should have one single packet
