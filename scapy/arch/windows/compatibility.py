@@ -20,7 +20,9 @@ from scapy.config import conf,ConfClass
 from scapy.base_classes import Gen, SetGen
 import scapy.plist as plist
 from scapy.utils import PcapReader
-from scapy.data import MTU, ETH_P_ARP
+from scapy.arch.pcapdnet import PcapTimeoutElapsed
+from scapy.error import log_runtime
+from scapy.data import MTU, ETH_P_ARP,ETH_P_ALL
 
 WINDOWS = True
 
