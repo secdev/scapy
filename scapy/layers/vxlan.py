@@ -64,7 +64,7 @@ class VXLAN(Packet):
         else:
             return self.sprintf("VXLAN (vni=%VXLAN.vni%)")
 
-bind_layers(UDP, VXLAN, dport=4789)  # RFC standard xvlan port
+bind_layers(UDP, VXLAN, dport=4789)  # RFC standard vxlan port
 bind_layers(UDP, VXLAN, dport=4790)  # RFC standard vxlan-gpe port
 bind_layers(UDP, VXLAN, dport=6633)  # New IANA assigned port for use with NSH
 bind_layers(UDP, VXLAN, dport=8472)  # Linux implementation port
