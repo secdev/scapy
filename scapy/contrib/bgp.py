@@ -375,57 +375,8 @@ _bgp_cls_by_type = {
 class BGPHeader(Packet):
     """
     The header of any BGP message.
+    References: RFC 4271
     """
-
-    #________________________________________________________________________
-    #
-    # RFC 4271
-    #________________________________________________________________________
-    #
-    # Each message has a fixed-size header. There may or may not be a data
-    # portion following the header, depending on the message type. The
-    # layout of these fields is shown below:
-    #
-    #
-    # 0                   1                   2                   3
-    # 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-    # +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    # |                                                               |
-    # +                                                               +
-    # |                                                               |
-    # +                                                               +
-    # |                           Marker                              |
-    # +                                                               +
-    # |                                                               |
-    # +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    # |          Length               |      Type     |
-    # +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    #
-    # Marker:
-    #       This 16-octet field is included for compatibility; it MUST be set
-    #       to all ones.
-    #
-    # Length:
-    #       This 2-octet unsigned integer indicates the total length of the
-    #       message, including the header in octets.  Thus, it allows one to
-    #       locate the (Marker field of the) next message in the TCP stream.
-    #       The value of the Length field MUST always be at least 19 and no
-    #       greater than 4096, and MAY be further constrained, depending on
-    #       the message type.  "padding" of extra data after the message is
-    #       not allowed.  Therefore, the Length field MUST have the smallest
-    #       value required, given the rest of the message.
-    #
-    # Type:
-    #       This 1-octet unsigned integer indicates the type code of the
-    #       message. This document defines the following type codes:
-    #               1 - OPEN
-    #               2 - UPDATE
-    #               3 - NOTIFICATION
-    #               4 - KEEPALIVE
-    #
-    # [RFC2918] defines one more type code.
-    #________________________________________________________________________
-    #
 
     name = "HEADER"
     fields_desc = [
@@ -699,45 +650,8 @@ class BGPCapMultiprotocol(BGPCapability):
     """
     This class provides an implementation of the Multiprotocol
     capability.
+    References: RFC 4760
     """
-
-    #________________________________________________________________________
-    #
-    # RFC 4760
-    #________________________________________________________________________
-    #
-    # The Capability Code field is set to 1 (which indicates Multiprotocol
-    # Extensions capabilities).  The Capability Length field is set to 4.
-    # The Capability Value field is defined as:
-    #
-    #             0       7      15      23      31
-    #             +-------+-------+-------+-------+
-    #             |      AFI      | Res.  | SAFI  |
-    #             +-------+-------+-------+-------+
-    #
-    # The use and meaning of this field is as follow:
-    #       AFI  - Address Family Identifier (16 bit), encoded the same way
-    #       as in the Multiprotocol Extensions
-    #
-    #       Res. - Reserved (8 bit) field. SHOULD be set to 0 by the sender
-    #       and ignored by the receiver. Note that not setting the field
-    #       value to 0 may create issues for a receiver not ignoring the
-    #       field.  In addition, this definition is problematic if it is
-    #       ever attempted to redefine the field.
-    #
-    #       SAFI - Subsequent Address Family Identifier (8 bit), encoded the
-    #       same way as in the Multiprotocol Extensions.
-    #
-    # A speaker that supports multiple <AFI, SAFI> tuples includes them as
-    # multiple Capabilities in the Capabilities Optional Parameter.
-    #
-    # To have a bi-directional exchange of routing information for a
-    # particular <AFI, SAFI> between a pair of BGP speakers, each such
-    # speaker MUST advertise to the other (via the Capability Advertisement
-    # mechanism) the capability to support that particular <AFI, SAFI>
-    # route.
-    #________________________________________________________________________
-    #
 
     name = "Multiprotocol Extensions for BGP-4"
     fields_desc = [
@@ -844,63 +758,8 @@ class BGPCapORF(BGPCapability):
     """
     This class provides an implementation of the Outbound Route Filtering
     capability.
+    References: RFC 5291
     """
-
-    #________________________________________________________________________
-    #
-    # RFC 5291
-    #________________________________________________________________________
-    #
-    # The Outbound Route Filtering Capability is a new BGP Capability defined
-    # as follows:
-    #       Capability code: 3
-    #       Capability length: variable
-    #       Capability value: one or more of the entries as shown in Figure
-    #       3.
-    #
-    # +--------------------------------------------------+
-    # | Address Family Identifier (2 octets)             |
-    # +--------------------------------------------------+
-    # | Reserved (1 octet)                               |
-    # +--------------------------------------------------+
-    # | Subsequent Address Family Identifier (1 octet)   |
-    # +--------------------------------------------------+
-    # | Number of ORFs (1 octet)                         |
-    # +--------------------------------------------------+
-    # | ORF Type (1 octet)                               |
-    # +--------------------------------------------------+
-    # | Send/Receive (1 octet)                           |
-    # +--------------------------------------------------+
-    # | ...                                              |
-    # +--------------------------------------------------+
-    # | ORF Type (1 octet)                               |
-    # +--------------------------------------------------+
-    # | Send/Receive (1 octet)                           |
-    # +--------------------------------------------------+
-    #
-    # Figure 3: Outbound Route Filtering Capability Encoding
-    #
-    # The use and meaning of these fields are as follows:
-    #       Address Family Identifier (AFI):
-    #               This field is the same as the one used in RFC 4760.
-    #
-    #       Subsequent Address Family Identifier (SAFI):
-    #               This field is the same as the one used in RFC 4760.
-    #
-    #       Number of ORF Types:
-    #               This field contains the number of Filter Types to be
-    #               listed in the following fields.
-    #
-    #       ORF Type:
-    #               This field contains the value of an ORF Type.
-    #
-    #       Send/Receive:
-    #               This field indicates whether the sender is (a) willing to
-    #               receive ORF entries from its peer (value 1), (b) would
-    #               like to send ORF entries to its peer (value 2), or (c)
-    #               both (value 3) for the ORF Type.
-    #________________________________________________________________________
-    #
 
     name = "Outbound Route Filtering Capability"
     fields_desc = [
@@ -928,102 +787,8 @@ class BGPCapGracefulRestart(BGPCapability):
     """
     This class provides an implementation of the Graceful Restart
     capability.
+    References: RFC 4724
     """
-
-    #________________________________________________________________________
-    #
-    # RFC 4724
-    #________________________________________________________________________
-    #
-    # The Graceful Restart Capability is a new BGP capability that can be
-    # used by a BGP speaker to indicate its ability to preserve its
-    # forwarding state during BGP restart. It can also be used to convey to
-    # its peer its intention of generating the End-of-RIB marker upon the
-    # completion of its initial routing updates.
-    #
-    # This capability is defined as follows:
-    #       Capability code: 64
-    #       Capability length: variable
-    #       Capability value: Consists of the "Restart Flags" field,
-    #       "Restart Time" field, and 0 to 63 of the tuples <AFI, SAFI,
-    #       Flags for address family> as follows:
-    #
-    # +--------------------------------------------------+
-    # | Restart Flags (4 bits)                           |
-    # +--------------------------------------------------+
-    # | Restart Time in seconds (12 bits)                |
-    # +--------------------------------------------------+
-    # | Address Family Identifier (16 bits)              |
-    # +--------------------------------------------------+
-    # | Subsequent Address Family Identifier (8 bits)    |
-    # +--------------------------------------------------+
-    # | Flags for Address Family (8 bits)                |
-    # +--------------------------------------------------+
-    # | ...                                              |
-    # +--------------------------------------------------+
-    # | Address Family Identifier (16 bits)              |
-    # +--------------------------------------------------+
-    # | Subsequent Address Family Identifier (8 bits)    |
-    # +--------------------------------------------------+
-    # | Flags for Address Family (8 bits)                |
-    # +--------------------------------------------------+
-    #
-    # The use and meaning of the fields are as follows:
-    #
-    # Restart Flags:
-    #   This field contains bit flags related to restart.
-    #
-    #       0 1 2 3
-    #      +-+-+-+-+
-    #      |R|Resv.|
-    #      +-+-+-+-+
-    #
-    #   The most significant bit is defined as the Restart State (R) bit,
-    #   which can be used to avoid possible deadlock caused by waiting for
-    #   the End-of-RIB marker when multiple BGP speakers peering with each
-    #   other restart. When set (value 1), this bit indicates that the BGP
-    #   speaker has restarted, and its peer MUST NOT wait for the End-of-RIB
-    #   marker from the speaker before advertising routing information to the
-    #   speaker.
-    #
-    #   The remaining bits are reserved and MUST be set to zero by the sender
-    #   and ignored by the receiver.
-    #
-    # Restart Time:
-    #   This is the estimated time (in seconds) it will take for the BGP
-    #   session to be re-established after a restart.  This can be used to
-    #   speed up routing convergence by its peer in case that the BGP speaker
-    #   does not come back after a restart.
-    #
-    # Address Family Identifier (AFI), Subsequent Address Family
-    #   Identifier (SAFI):
-    #
-    #   The AFI and SAFI, taken in combination, indicate that Graceful
-    #   Restart is supported for routes that are advertised with the same
-    #   AFI and SAFI.  Routes may be explicitly associated with a particular
-    #   AFI and SAFI using the encoding of [BGP-MP] or implicitly associated
-    #   with <AFI=IPv4, SAFI=Unicast> if using the encoding of [BGP-4].
-    #
-    # Flags for Address Family:
-    #
-    #   This field contains bit flags relating to routes that were advertised
-    #   with the given AFI and SAFI.
-    #
-    #    0 1 2 3 4 5 6 7
-    #   +-+-+-+-+-+-+-+-+
-    #   |F|   Reserved  |
-    #   +-+-+-+-+-+-+-+-+
-    #
-    #   The most significant bit is defined as the Forwarding State (F) bit,
-    #   which can be used to indicate whether the forwarding state for routes
-    #   that were advertised with the given AFI and SAFI has indeed been
-    #   preserved during the previous BGP restart. When set (value 1), the
-    #   bit indicates that the forwarding state has been preserved.
-    #
-    #   The remaining bits are reserved and MUST be set to zero by the
-    #   sender and ignored by the receiver.
-    #________________________________________________________________________
-    #
 
     class GRTuple(Packet):
 
@@ -1049,20 +814,8 @@ class BGPCapFourBytesASN(BGPCapability):
     """
     This class provides an implementation of the 4-octet AS number
     capability.
+    References: RFC 4893
     """
-
-    #________________________________________________________________________
-    #
-    # RFC 4893
-    #________________________________________________________________________
-    #
-    # "The Capability that is used by a BGP speaker to convey to its BGP peer
-    # the 4-octet Autonomous System number capability, also carries the
-    # 4-octet Autonomous System number of the speaker in the Capability
-    # Value field of the Capability Optional Parameter.  The Capability
-    # Length field of the Capability is set to 4."
-    #________________________________________________________________________
-    #
 
     name = "Support for 4-octet AS number capability"
     fields_desc = [ByteEnumField("code", 65, _capabilities),
@@ -1079,55 +832,8 @@ class BGPAuthenticationInformation(Packet):
     """
     Provides an implementation of the Authentication Information optional
     parameter, which is now obsolete.
+    References: RFC 1771, RFC 1654, RFC 4271
     """
-
-    #________________________________________________________________________
-    #
-    # RFC 1771 (became an optional parameter in RFC 1771, was in the OPEN
-    # message in RFC 1654)
-    #________________________________________________________________________
-    #
-    # Authentication Information (Parameter Type 1):
-    #       This optional parameter may be used to authenticate a BGP peer.
-    #       The Parameter Value field contains a 1-octet Authentication Code
-    #       followed by a variable length Authentication Data.
-    #
-    # 0 1 2 3 4 5 6 7 8
-    # +-+-+-+-+-+-+-+-+
-    # |  Auth. Code   |
-    # +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    # |                                                     |
-    # |              Authentication Data                    |
-    # |                                                     |
-    # +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    #
-    # Authentication Code:
-    #       This 1-octet unsigned integer indicates the authentication
-    #       mechanism being used.  Whenever an authentication mechanism is
-    #       specified for use within BGP, three things must be included in
-    #       the specification:
-    #               - the value of the Authentication Code which indicates
-    #               use of the mechanism,
-    #               - the form and meaning of the Authentication Data, and
-    #               - the algorithm for computing values of Marker fields.
-    #
-    #               Note that a separate authentication mechanism may be used
-    #               in establishing the transport level connection.
-    #
-    # Authentication Data:
-    #       The form and meaning of this field is a variable-length field
-    #       depend on the Authentication Code.
-    #
-    #________________________________________________________________________
-    #________________________________________________________________________
-    #
-    # RFC 4271
-    #________________________________________________________________________
-    #
-    # Optional Parameter Type 1 (Authentication Information) has been
-    # deprecated.
-    #________________________________________________________________________
-    #
 
     name = "BGP Authentication Data"
     fields_desc = [ByteField("authentication_code", 0),
@@ -1167,32 +873,8 @@ class BGPOptParamPacketListField(PacketListField):
 class BGPOptParam(Packet):
     """
     Provides an implementation the OPEN message optional parameters.
+    References: RFC 4271
     """
-
-    #________________________________________________________________________
-    #
-    # RFC 4271
-    #________________________________________________________________________
-    #
-    # Optional Parameters:
-    #       This field contains a list of optional parameters, in which each
-    #       parameter is encoded as a <Parameter Type, Parameter Length,
-    #       Parameter Value> triplet.
-    #
-    # 0                   1
-    # 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5
-    # +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-...
-    # |  Parm. Type   | Parm. Length  |  Parameter Value (variable)
-    # +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-...
-    #
-    # Parameter Type is a one octet field that unambiguously identifies
-    # individual parameters.
-    # Parameter Length is a one octet field that contains the length of the
-    # Parameter Value field in octets.
-    # Parameter Value is a variable length field that is interpreted
-    # according to the value of the Parameter Type field.
-    #________________________________________________________________________
-    #
 
     name = "Optional parameter"
     fields_desc = [
@@ -1242,77 +924,8 @@ class BGPOptParam(Packet):
 class BGPOpen(BGP):
     """
     OPEN messages are exchanged in order to open a new BGP session.
+    References: RFC 4271
     """
-
-    #________________________________________________________________________
-    #
-    # RFC 4271
-    #________________________________________________________________________
-    #
-    # After a TCP connection is established, the first message sent by each
-    # side is an OPEN message.  If the OPEN message is acceptable, a
-    # KEEPALIVE message confirming the OPEN is sent back. In addition to the
-    # fixed-size BGP header, the OPEN message contains the following fields:
-    #
-    # 0                   1                   2                   3
-    # 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-    # +-+-+-+-+-+-+-+-+
-    # |    Version    |
-    # +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    # |     My Autonomous System      |
-    # +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    # |           Hold Time           |
-    # +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    # |                         BGP Identifier                        |
-    # +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    # | Opt Parm Len  |
-    # +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    # |                                                               |
-    # |             Optional Parameters (variable)                    |
-    # |                                                               |
-    # +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    #
-    # Version:
-    #       This 1-octet unsigned integer indicates the protocol version
-    #       number of the message.  The current BGP version number is 4.
-    #
-    # My Autonomous System:
-    #       This 2-octet unsigned integer indicates the Autonomous System
-    #       number of the sender.
-    #
-    # Hold Time:
-    #       This 2-octet unsigned integer indicates the number of seconds the
-    #       sender proposes for the value of the Hold Timer.  Upon receipt of
-    #       an OPEN message, a BGP speaker MUST calculate the value of the
-    #       Hold Timer by using the smaller of its configured Hold Time and
-    #       the Hold Time received in the OPEN message. The Hold Time MUST be
-    #       either zero or at least three seconds.  An implementation MAY
-    #       reject connections on the basis of the Hold Time. The calculated
-    #       value indicates the maximum number of seconds that may elapse
-    #       between the receipt of successive KEEPALIVE and/or UPDATE
-    #       messages from the sender.
-    #
-    # BGP Identifier:
-    #       This 4-octet unsigned integer indicates the BGP Identifier of the
-    #       sender. A given BGP speaker sets the value of its BGP Identifier
-    #       to an IP address that is assigned to that BGP speaker. The value
-    #       of the BGP Identifier is determined upon startup and is the same
-    #       for every local interface and BGP peer.
-    #
-    # Optional Parameters Length:
-    #       This 1-octet unsigned integer indicates the total length of the
-    #       Optional Parameters field in octets.  If the value of this field
-    #       is zero, no Optional Parameters are present.
-    #
-    # Optional Parameters:
-    #       [...]
-    #
-    # [RFC3392] defines the Capabilities Optional Parameter.
-    #
-    # The minimum length of the OPEN message is 29 octets (including the
-    # message header).
-    #________________________________________________________________________
-    #
 
     name = "OPEN"
     fields_desc = [
@@ -1472,27 +1085,8 @@ class BGPPAOrigin(Packet):
 
     """
     Packet handling the ORIGIN attribute value.
+    References: RFC 4271
     """
-
-    #________________________________________________________________________
-    #
-    # RFC 4271
-    #________________________________________________________________________
-    #
-    # ORIGIN (Type Code 1):
-    #   ORIGIN is a well-known mandatory attribute that defines the origin of
-    #   the path information. The data octet can assume the following values:
-    #
-    #  Value                Meaning
-    #
-    #       0               IGP - Network Layer Reachability Information is
-    #                       interior to the originating AS
-    #       1               EGP - Network Layer Reachability Information
-    #                       learned via the EGP protocol [RFC904]
-    #       2               INCOMPLETE - Network Layer Reachability
-    #                       Information learned by some other means
-    #________________________________________________________________________
-    #
 
     name = "ORIGIN"
     fields_desc = [
@@ -1545,47 +1139,8 @@ class BGPPAASPath(Packet):
     """
     Packet handling the AS_PATH attribute value (2 bytes ASNs, for old
     speakers).
+    References: RFC 4271, RFC 5065
     """
-
-    #________________________________________________________________________
-    #
-    # RFC 4271
-    #________________________________________________________________________
-    #
-    # AS_PATH (Type Code 2):
-    #   AS_PATH is a well-known mandatory attribute that is composed of a
-    #   sequence of AS path segments.  Each AS path segment is represented by
-    #   a triple <path segment type, path segment length,
-    #   path segment value>.
-    #
-    #   The path segment type is a 1-octet length field with the following
-    #   values defined:
-    #       Value   Segment Type
-    #           1         AS_SET: unordered set of ASes a route in the UPDATE
-    #                     message has traversed
-    #           2         AS_SEQUENCE: ordered set of ASes a route in the
-    #                     UPDATE message has traversed
-    #
-    #   The path segment length is a 1-octet length field, containing the
-    #   number of ASes (not the number of octets) in the path segment value
-    #   field.
-    #
-    #   The path segment value field contains one or more AS numbers, each
-    #   encoded as a 2-octet length field.
-    #________________________________________________________________________
-    #________________________________________________________________________
-    #
-    # RFC 5065
-    #________________________________________________________________________
-    #
-    # This document specifies two additional segment types:
-    #   3       AS_CONFED_SEQUENCE: ordered set of Member Autonomous Systems
-    #           in the local confederation that the UPDATE message has
-    #           traversed
-    #   4       AS_CONFED_SET: unordered set of Member Autonomous Systems in
-    #           the local confederation that the UPDATE message has traversed
-    #________________________________________________________________________
-    #
 
     AS_TRANS = 23456
 
@@ -1617,31 +1172,8 @@ class BGPPAAS4BytesPath(Packet):
     """
     Packet handling the AS_PATH attribute value (4 bytes ASNs, for new
     speakers -> ASNs are encoded as IntFields).
+    References: RFC 4893
     """
-
-    #________________________________________________________________________
-    #
-    # RFC 4893
-    #________________________________________________________________________
-    #
-    # 4.1. Interaction Between NEW BGP Speakers
-    #
-    # A BGP speaker that supports 4-octet Autonomous System numbers SHOULD
-    # advertise this to its peers using the BGP Capability Advertisements.
-    # A BGP speaker that advertises such capability to a particular peer, and
-    # receives from that peer the advertisement of such capability MUST
-    # encode Autonomous System numbers as 4-octet entities in both the
-    # AS_PATH and the AGGREGATOR attributes in the updates it sends to the
-    # peer, and MUST assume that these attributes in the updates received
-    # from the peer encode Autonomous System numbers as 4-octet entities.
-    #
-    # The new attributes, AS4_PATH and AS4_AGGREGATOR SHOULD NOT be carried
-    # in the UPDATE messages between NEW BGP peers. A NEW BGP speaker that
-    # receives the AS4_PATH and AS4_AGGREGATOR path attributes in an UPDATE
-    # message from a NEW BGP speaker SHOULD discard these path attributes
-    # and continue processing the UPDATE message.
-    #________________________________________________________________________
-    #
 
     class ASPathSegment(Packet):
         """
@@ -1672,21 +1204,8 @@ class BGPPAAS4BytesPath(Packet):
 class BGPPANextHop(Packet):
     """
     Packet handling the NEXT_HOP attribute value.
+    References: RFC 4271
     """
-
-    #________________________________________________________________________
-    #
-    # RFC 4271
-    #________________________________________________________________________
-    #
-    # NEXT_HOP (Type Code 3):
-    #
-    # This is a well-known mandatory attribute that defines the (unicast) IP
-    # address of the router that SHOULD be used as the next hop to the
-    # destinations listed in the Network Layer Reachability Information field
-    # of the UPDATE message.
-    #________________________________________________________________________
-    #
 
     name = "NEXT_HOP"
     fields_desc = [IPField("next_hop", "0.0.0.0")]
@@ -1699,21 +1218,8 @@ class BGPPANextHop(Packet):
 class BGPPAMultiExitDisc(Packet):
     """
     Packet handling the MULTI_EXIT_DISC attribute value.
+    References: RFC 4271
     """
-
-    #________________________________________________________________________
-    #
-    # RFC 4271
-    #________________________________________________________________________
-    #
-    # MULTI_EXIT_DISC (Type Code 4):
-    #
-    # This is an optional non-transitive attribute that is a four-octet
-    # unsigned integer. The value of this attribute MAY be used by a BGP
-    # speaker"s Decision Process to discriminate among multiple entry points
-    # to a neighboring autonomous system.
-    #________________________________________________________________________
-    #
 
     name = "MULTI_EXIT_DISC"
     fields_desc = [IntField("med", 0)]
@@ -1726,20 +1232,8 @@ class BGPPAMultiExitDisc(Packet):
 class BGPPALocalPref(Packet):
     """
     Packet handling the LOCAL_PREF attribute value.
+    References: RFC 4271
     """
-
-    #________________________________________________________________________
-    #
-    # RFC 4271
-    #________________________________________________________________________
-    #
-    # LOCAL_PREF (Type Code 5):
-    #
-    # LOCAL_PREF is a well-known attribute that is a four-octet unsigned
-    # integer. A BGP speaker uses it to inform its other internal peers of
-    # the advertising speaker"s degree of preference for an advertised route.
-    #________________________________________________________________________
-    #
 
     name = "LOCAL_PREF"
     fields_desc = [IntField("local_pref", 0)]
@@ -1752,23 +1246,8 @@ class BGPPALocalPref(Packet):
 class BGPPAAtomicAggregate(Packet):
     """
     Packet handling the ATOMIC_AGGREGATE attribute value.
+    References: RFC 4271
     """
-
-    #________________________________________________________________________
-    #
-    # RFC 4271
-    #________________________________________________________________________
-    #
-    # ATOMIC_AGGREGATE (Type Code 6)
-    #
-    # ATOMIC_AGGREGATE is a well-known discretionary attribute of length 0.
-    #
-    # If an aggregate excludes at least some of the AS numbers present in the
-    # AS_PATH of the routes that are aggregated as a result of dropping the
-    # AS_SET, the aggregated route, when advertised to the peer, SHOULD
-    # include the ATOMIC_AGGREGATE attribute.
-    #________________________________________________________________________
-    #
 
     name = "ATOMIC_AGGREGATE"
 
@@ -1780,23 +1259,8 @@ class BGPPAAtomicAggregate(Packet):
 class BGPPAAggregator(Packet):
     """
     Packet handling the AGGREGATOR attribute value.
+    References: RFC 4271
     """
-
-    #________________________________________________________________________
-    #
-    # RFC 4271
-    #________________________________________________________________________
-    #
-    # AGGREGATOR (Type Code 7)
-    #
-    # AGGREGATOR is an optional transitive attribute of length 6. The
-    # attribute contains the last AS number that formed the aggregate route
-    # (encoded as 2 octets), followed by the IP address of the BGP speaker
-    # that formed the aggregate route (encoded as 4 octets). This SHOULD be
-    # the same address as the one used for the BGP Identifier of the
-    # speaker.
-    #________________________________________________________________________
-    #
 
     name = "AGGREGATOR"
     fields_desc = [ShortField("aggregator_asn", 0),
@@ -1828,20 +1292,8 @@ well_known_communities = {
 class BGPPACommunity(Packet):
     """
     Packet handling the COMMUNITIES attribute value.
+    References: RFC 1997
     """
-
-    #________________________________________________________________________
-    #
-    # RFC 1997
-    #________________________________________________________________________
-    #
-    # The attribute consists of a set of four octet values, each of which
-    # specify a community. All routes with this attribute belong to the
-    # communities listed in the attribute.
-    #
-    # The COMMUNITIES attribute has Type Code 8.
-    #________________________________________________________________________
-    #
 
     name = "COMMUNITIES"
     fields_desc = [IntEnumField("community", 0, well_known_communities)]
@@ -1854,24 +1306,8 @@ class BGPPACommunity(Packet):
 class BGPPAOriginatorID(Packet):
     """
     Packet handling the ORIGINATOR_ID attribute value.
+    References: RFC 4456
     """
-
-    #________________________________________________________________________
-    #
-    # RFC 4456
-    #________________________________________________________________________
-    #
-    # ORIGINATOR_ID
-    #
-    # ORIGINATOR_ID is a new optional, non-transitive BGP attribute of Type
-    # code 9. This attribute is 4 bytes long and it will be created by an RR
-    # in reflecting a route. This attribute will carry the BGP Identifier of
-    # the originator of the route in the local AS.  A BGP speaker SHOULD NOT
-    # create an ORIGINATOR_ID attribute if one already exists. A router that
-    # recognizes the ORIGINATOR_ID attribute SHOULD ignore a route received
-    # with its BGP Identifier as the ORIGINATOR_ID.
-    #________________________________________________________________________
-    #
 
     name = "ORIGINATOR_ID"
     fields_desc = [IPField("originator_id", "0.0.0.0")]
@@ -1884,27 +1320,8 @@ class BGPPAOriginatorID(Packet):
 class BGPPAClusterList(Packet):
     """
     Packet handling the CLUSTER_LIST attribute value.
+    References: RFC 4456
     """
-
-    #________________________________________________________________________
-    #
-    # RFC 4456
-    #________________________________________________________________________
-    #
-    # CLUSTER_LIST
-    #
-    # CLUSTER_LIST is a new, optional, non-transitive BGP attribute of Type
-    # code 10. It is a sequence of CLUSTER_ID values representing the
-    # reflection path that the route has passed.
-    #
-    # When an RR reflects a route, it MUST prepend the local CLUSTER_ID to
-    # the CLUSTER_LIST.  If the CLUSTER_LIST is empty, it MUST create a new
-    # one.  Using this attribute an RR can identify if the routing
-    # information has looped back to the same cluster due to
-    # misconfiguration. If the local CLUSTER_ID is found in the CLUSTER_LIST,
-    # the advertisement received SHOULD be ignored.
-    #________________________________________________________________________
-    #
 
     name = "CLUSTER_LIST"
     fields_desc = [
@@ -2095,28 +1512,8 @@ class BGPPAExtCommTwoOctetASSpecific(Packet):
     """
     Packet handling the Two-Octet AS Specific Extended Community attribute
     value.
+    References: RFC 4360
     """
-
-    #________________________________________________________________________
-    #
-    # RFC 4360
-    #________________________________________________________________________
-    #
-    # The value of the high-order octet of this extended type is either 0x00
-    # or 0x40. The low-order octet of this extended type is used to indicate
-    # sub-types.
-    #
-    # The Value Field consists of two sub-fields:
-    # Global Administrator sub-field: 2 octets
-    # 	This sub-field contains an Autonomous System number assigned by IANA.
-    #
-    # Local Administrator sub-field: 4 octets
-    # The organization identified by Autonomous System number in the Global
-    # Administrator sub-field can encode any information in this sub-field.
-    # The format and meaning of the value encoded in this sub-field should be
-    # defined by the sub-type of the community.
-    #________________________________________________________________________
-    #
 
     name = "Two-Octet AS Specific Extended Community"
     fields_desc = [
@@ -2127,26 +1524,8 @@ class BGPPAExtCommFourOctetASSpecific(Packet):
     """
     Packet handling the Four-Octet AS Specific Extended Community
     attribute value.
+    References: RFC 5668
     """
-
-    #________________________________________________________________________
-    #
-    # RFC 5668
-    #________________________________________________________________________
-    #
-    # The Value field consists of 2 sub-fields:
-    #   Global Administrator sub-field: 4 octets
-    #       This sub-field contains a 4-octet Autonomous System number
-    #       assigned by IANA.
-    #
-    #   Local Administrator sub-field: 2 octets
-    #       The organization identified by the Autonomous System number in
-    #       the Global Administrator sub-field can encode any information in
-    #       this sub-field. The format and meaning of the value encoded in
-    #       this sub-field should be defined by the sub-type of the
-    #       community.
-    #________________________________________________________________________
-    #
 
     name = "Four-Octet AS Specific Extended Community"
     fields_desc = [
@@ -2157,34 +1536,8 @@ class BGPPAExtCommIPv4AddressSpecific(Packet):
     """
     Packet handling the IPv4 Address Specific Extended Community attribute
     value.
+    References: RFC 4360
     """
-
-    #________________________________________________________________________
-    #
-    # RFC 4360
-    #________________________________________________________________________
-    #
-    # This is an extended type with Type Field composed of 2 octets and Value
-    # Field composed of 6 octets.
-    #
-    # The value of the high-order octet of this extended type is either 0x01
-    # or 0x41. The low-order octet of this extended type is used to indicate
-    # sub-types.
-    #
-    # The Value field consists of two sub-fields:
-    #
-    # 	Global Administrator sub-field: 4 octets
-    #		This sub-field contains an IPv4 unicast address assigned by one
-    #       of  the Internet registries.
-    #
-    #	Local Administrator sub-field: 2 octets
-    #		The organization that has been assigned the IPv4 address in the
-    #       Global Administrator sub-field can encode any information in
-    #       this sub-field. The format and meaning of this value encoded in
-    #       this sub-field should be defined by the sub-type of the
-    #       community.
-    #________________________________________________________________________
-    #
 
     name = "IPv4 Address Specific Extended Community"
     fields_desc = [
@@ -2194,24 +1547,8 @@ class BGPPAExtCommIPv4AddressSpecific(Packet):
 class BGPPAExtCommOpaque(Packet):
     """
     Packet handling the Opaque Extended Community attribute value.
+    References: RFC 4360
     """
-
-    #________________________________________________________________________
-    #
-    # RFC 4360
-    #________________________________________________________________________
-    #
-    # This is an extended type with Type Field composed of 2 octets and Value
-    # Field composed of 6 octets.
-    #
-    # The value of the high-order octet of this extended type is either 0x03
-    # or 0x43. The low-order octet of this extended type is used to indicate
-    # sub-types.
-    #
-    # This is a generic community of extended type. The value of the sub-type
-    # that should define the Value Field is to be assigned by IANA.
-    #________________________________________________________________________
-    #
 
     name = "Opaque Extended Community"
     fields_desc = [StrFixedLenField("value", "", length=6)]
@@ -2224,29 +1561,8 @@ class BGPPAExtCommOpaque(Packet):
 class BGPPAExtCommTrafficRate(Packet):
     """
     Packet handling the (FlowSpec) "traffic-rate" extended community.
+    References: RFC 5575
     """
-
-    #________________________________________________________________________
-    #
-    # RFC 5575
-    #________________________________________________________________________
-    #
-    #  Traffic-rate:  The traffic-rate extended community is a non-
-    #  transitive extended community across the autonomous-system
-    #  boundary and uses following extended community encoding:
-    #
-    #     The first two octets carry the 2-octet id, which can be
-    #     assigned from a 2-byte AS number.  When a 4-byte AS number is
-    #     locally present, the 2 least significant bytes of such an AS
-    #     number can be used.  This value is purely informational and
-    #     should not be interpreted by the implementation.
-    #
-    #     The remaining 4 octets carry the rate information in IEEE
-    #     floating point [IEEE.754.1985] format, units being bytes per
-    #     second.  A traffic-rate of 0 should result on all traffic for
-    #     the particular flow to be discarded.
-    #________________________________________________________________________
-    #
 
     name = "FlowSpec traffic-rate extended community"
     fields_desc = [
@@ -2258,31 +1574,8 @@ class BGPPAExtCommTrafficRate(Packet):
 class BGPPAExtCommTrafficAction(Packet):
     """
     Packet handling the (FlowSpec) "traffic-action" extended community.
+    References: RFC 5575
     """
-
-    #________________________________________________________________________
-    #
-    # RFC 5575
-    #________________________________________________________________________
-    #
-    # Traffic-action:  The traffic-action extended community consists of 6
-    #   bytes of which only the 2 least significant bits of the 6th byte
-    #   (from left to right) are currently defined.
-    #
-    #                    40  41  42  43  44  45  46  47
-    #                  +---+---+---+---+---+---+---+---+
-    #                  |        reserved       | S | T |
-    #                  +---+---+---+---+---+---+---+---+
-    #
-    #   *  Terminal Action (bit 47): When this bit is set, the traffic
-    #      filtering engine will apply any subsequent filtering rules (as
-    #      defined by the ordering procedure).  If not set, the evaluation
-    #      of the traffic filter stops when this rule is applied.
-    #
-    #   *  Sample (bit 46): Enables traffic sampling and logging for this
-    #      flow specification.
-    #________________________________________________________________________
-    #
 
     name = "FlowSpec traffic-action extended community"
     fields_desc = [
@@ -2296,20 +1589,8 @@ class BGPPAExtCommRedirectAS2Byte(Packet):
     """
     Packet handling the (FlowSpec) "redirect AS-2byte" extended community
     (RFC 7674).
+    References: RFC 7674
     """
-
-    #________________________________________________________________________
-    #
-    # RFC 7674
-    #________________________________________________________________________
-    #
-    #   +--------+--------------------+-------------------------------------+
-    #   | type   | extended community | encoding                            |
-    #   +--------+--------------------+-------------------------------------+
-    #   | 0x8008 | redirect AS-2byte  | 2-octet AS, 4-octet Value           |
-    #   +--------+--------------------+-------------------------------------+
-    #________________________________________________________________________
-    #
 
     name = "FlowSpec redirect AS-2byte extended community"
     fields_desc = [
@@ -2322,20 +1603,8 @@ class BGPPAExtCommRedirectIPv4(Packet):
     """
     Packet handling the (FlowSpec) "redirect IPv4" extended community.
     (RFC 7674).
+    References: RFC 7674
     """
-
-    #________________________________________________________________________
-    #
-    # RFC 7674
-    #________________________________________________________________________
-    #
-    #   +--------+--------------------+-------------------------------------+
-    #   | type   | extended community | encoding                            |
-    #   +--------+--------------------+-------------------------------------+
-    #   | 0x8108 | redirect IPv4      | 4-octet IPv4 Address, 2-octet Value |
-    #   +--------+--------------------+-------------------------------------+
-    #________________________________________________________________________
-    #
 
     name = "FlowSpec redirect IPv4 extended community"
     fields_desc = [
@@ -2348,20 +1617,8 @@ class BGPPAExtCommRedirectAS4Byte(Packet):
     """
     Packet handling the (FlowSpec) "redirect AS-4byte" extended community.
     (RFC 7674).
+    References: RFC 7674
     """
-
-    #________________________________________________________________________
-    #
-    # RFC 7674
-    #________________________________________________________________________
-    #
-    #   +--------+--------------------+-------------------------------------+
-    #   | type   | extended community | encoding                            |
-    #   +--------+--------------------+-------------------------------------+
-    #   | 0x8208 | redirect AS-4byte  | 4-octet AS, 2-octet Value           |
-    #   +--------+--------------------+-------------------------------------+
-    #________________________________________________________________________
-    #
 
     name = "FlowSpec redirect AS-4byte extended community"
     fields_desc = [
@@ -2373,20 +1630,9 @@ class BGPPAExtCommRedirectAS4Byte(Packet):
 class BGPPAExtCommTrafficMarking(Packet):
     """
     Packet handling the (FlowSpec) "traffic-marking" extended community.
+    References: RFC 5575
     """
 
-    #________________________________________________________________________
-    #
-    # RFC 5575
-    #________________________________________________________________________
-    #
-    # Traffic Marking:  The traffic marking extended community instructs a
-    #   system to modify the DSCP bits of a transiting IP packet to the
-    #   corresponding value.  This extended community is encoded as a
-    #   sequence of 5 zero bytes followed by the DSCP value encoded in the
-    #   6 least significant bits of 6th byte.
-    #________________________________________________________________________
-    #
     name = "FlowSpec traffic-marking extended community"
     fields_desc = [
         BitEnumField("dscp", 48, 48, _ext_comm_traffic_action_fields)
@@ -2456,39 +1702,8 @@ class BGPPAIPv6AddressSpecificExtComm(Packet):
     Provides an implementation of the IPv6 Address Specific Extended
     Community attribute. This attribute is not defined using the existing
     BGP Extended Community attribute (see the RFC 5701 excerpt below).
+    References: RFC 5701
     """
-
-    #________________________________________________________________________
-    #
-    # RFC 5701
-    #________________________________________________________________________
-    #
-    # Because the BGP Extended Community attribute defines each BGP Extended
-    # Community as being 8 octets long, it is not possible to define the
-    # IPv6 Specific Extended Community using the existing BGP Extended
-    # Community attribute [RFC4360]. Therefore, this document defines a new
-    # BGP attribute, the IPv6 Address Specific Extended Community, that has
-    # a structure similar to the IPv4 Address Specific Extended Community,
-    # and thus could be used in a pure IPv6 environment as a replacement of
-    # the IPv4 Address Specific Extended Community.
-    #
-    # The first high-order octet indicates whether a particular sub-type of
-    # this community is transitive across Autonomous Systems (ASes) (0x00),
-    # or not (0x40). The second high-order octet of this extended type is
-    # used to indicate sub-types. The sub-types are the same as for the IPv4
-    # Address Specific Extended Community.
-    #
-    # Global Administrator field: 16 octets
-    #   This field contains an IPv6 unicast address assigned by one of the
-    #   Internet registries.
-    #
-    # Local Administrator field: 2 octets
-    #   The organization that has been assigned the IPv6 address in the
-    #   Global Administrator field can encode any information in this
-    #   field.  The format and meaning of the value encoded in this field
-    #   should be defined by the sub-type of the community.
-    #________________________________________________________________________
-    #
 
     name = "IPv6 Address Specific Extended Community"
     fields_desc = [
@@ -2523,52 +1738,8 @@ class _TypeLowField(ByteField):
 class BGPPAExtCommunity(Packet):
     """
     Provides an implementation of the Extended Communities attribute.
+    References: RFC 4360
     """
-
-    #________________________________________________________________________
-    #
-    # RFC 4360
-    #________________________________________________________________________
-    #
-    # The Extended Communities Attribute is a transitive optional BGP
-    # attribute, with the Type Code 16.  The attribute consists of a set of
-    # "extended communities".  All routes with the Extended Communities
-    # attribute belong to the communities listed in the attribute. Each
-    # Extended Community is encoded as an 8-octet quantity, as follows:
-    #    Type Field  : 1 or 2 octets
-    #    Value Field : Remaining octets
-    #
-    # Type Field:
-    #    Two classes of Type Field are introduced: Regular type and Extended
-    #    type.
-    #
-    #    The size of Type Field for Regular types is 1 octet, and the size of
-    #    the Type Field for Extended types is 2 octets.
-    #
-    #    The value of the high-order octet of the Type Field determines if an
-    #    extended community is a Regular type or an Extended type. The class
-    #    of a type (Regular or Extended) is not encoded in the structure of
-    #    the type itself. The class of a type is specified in the document
-    #    that defines the type and the IANA registry.
-    #
-    # I - IANA authority bit
-    #    Value 0: IANA-assignable type using the "First Come First Serve"
-    #    policy
-    #    Value 1: Part of this Type Field space is for IANA assignable types
-    #    using either the Standard Action or the Early IANA Allocation
-    #    policy. The rest of this Type Field space is for Experimental use.
-    #
-    # T - Transitive bit
-    #    Value 0: The community is transitive across ASes
-    #    Value 1: The community is non-transitive across ASes
-    #
-    # Remaining 6 bits: Indicates the structure of the community
-    #
-    # Value Field:
-    # The encoding of the Value Field is dependent on the "type" of the
-    # community as specified by the Type Field.
-    #________________________________________________________________________
-    #
 
     name = "EXTENDED_COMMUNITY"
     fields_desc = [
@@ -2656,75 +1827,8 @@ class BGPPAMPReachNLRI(Packet):
     """
     Packet handling the MP_REACH_NLRI attribute value, for non IPv6
     AFI.
+    References: RFC 4760
     """
-
-    #________________________________________________________________________
-    #
-    # RFC 4760
-    #________________________________________________________________________
-    #
-    # This is an optional non-transitive attribute that can be used for the
-    # following purposes:
-    #       (a) to advertise a feasible route to a peer
-    #       (b) to permit a router to advertise the Network Layer address of
-    #       the router that should be used as the next hop to the
-    #       destinations listed in the Network Layer Reachability Information
-    #       field of the MP_NLRI attribute.
-    #
-    # Address Family Identifier (AFI):
-    #       This field in combination with the Subsequent Address Family
-    #       Identifier field identifies the set of Network Layer protocols to
-    #       which the address carried in the Next Hop field must belong, the
-    #       way in which the address of the next hop is encoded, and the
-    #       semantics of the Network Layer Reachability Information that
-    #       follows.  If the Next Hop is allowed to be from more than one
-    #       Network Layer protocol, the encoding of the Next Hop MUST provide
-    #       a way to determine its Network Layer protocol.
-    #
-    #       Presently defined values for the Address Family Identifier field
-    #       are specified in the IANA"s Address Family Numbers registry
-    #       [IANA-AF].
-    #
-    # Subsequent Address Family Identifier (SAFI):
-    #       This field in combination with the Address Family Identifier
-    #       field identifies the set of Network Layer protocols to which the
-    #       address carried in the Next Hop must belong, the way in which
-    #       the address of the next hop is encoded, and the semantics of the
-    #       Network Layer Reachability Information that follows. If the Next
-    #       Hop is allowed to be from more than one Network Layer protocol,
-    #       the encoding of the Next Hop MUST provide a way to determine its
-    #       Network Layer protocol.
-    #
-    # Length of Next Hop Network Address:
-    #       A 1-octet field whose value expresses the length of the "Network
-    #       Address of Next Hop" field, measured in octets.
-    #
-    # Network Address of Next Hop:
-    #       A variable-length field that contains the Network Address of the
-    #       next router on the path to the destination system.  The Network
-    #       Layer protocol associated with the Network Address of the Next
-    #       Hop is identified by a combination of <AFI, SAFI> carried in the
-    #       attribute.
-    #
-    # Reserved:
-    #       A 1 octet field that MUST be set to 0, and SHOULD be ignored upon
-    #       receipt.
-    #
-    # Network Layer Reachability Information (NLRI):
-    #       A variable length field that lists NLRI for the feasible routes
-    #       that are being advertised in this attribute.  The semantics of
-    #       NLRI is identified by a combination of <AFI, SAFI> carried in the
-    #       attribute. When the Subsequent Address Family Identifier field is
-    #       set to one of the values defined in this document, each NLRI is
-    #       encoded as specified in the "NLRI encoding" section of this
-    #       document.
-    #
-    # The next hop information carried in the MP_REACH_NLRI path attribute
-    # defines the Network Layer address of the router that SHOULD be used as
-    # the next hop to the destinations listed in the MP_NLRI attribute in
-    # the UPDATE message.
-    #________________________________________________________________________
-    #
 
     name = "MP_REACH_NLRI"
     fields_desc = [
@@ -2784,30 +1888,8 @@ class BGPPAMPUnreachNLRI(Packet):
     """
     Packet handling the MP_UNREACH_NLRI attribute value, for non IPv6
     AFI.
+    References: RFC 4760
     """
-
-    #________________________________________________________________________
-    #
-    # RFC 4760
-    #________________________________________________________________________
-    #
-    # This is an optional non-transitive attribute that can be used for the
-    # purpose of withdrawing multiple unfeasible routes from service.
-    #
-    # Withdrawn Routes Network Layer Reachability Information:
-    #       A variable-length field that lists NLRI for the routes that are
-    #       being
-    #       withdrawn from service.  The semantics of NLRI is identified by a
-    #       combination of <AFI, SAFI> carried in the attribute.
-    #
-    #       When the Subsequent Address Family Identifier field is set to one
-    #       of the values defined in this document, each NLRI is encoded as
-    #       specified in the "NLRI encoding" section of this document.
-    #
-    # An UPDATE message that contains the MP_UNREACH_NLRI is not required to
-    # carry any other path attributes.
-    #________________________________________________________________________
-    #
 
     name = "MP_UNREACH_NLRI"
     fields_desc = [ShortEnumField("afi", 0, address_family_identifiers),
@@ -2828,50 +1910,8 @@ class BGPPAMPUnreachNLRI(Packet):
 class BGPPAAS4Path(Packet):
     """
     Provides an implementation of the AS4_PATH attribute "value part".
+    References: RFC 4893
     """
-
-    #________________________________________________________________________
-    #
-    # RFC 4893
-    #________________________________________________________________________
-    #
-    # When communicating with an OLD BGP speaker, a NEW speaker MUST send the
-    # AS path information in the AS_PATH attribute encoded with 2-octet AS
-    # numbers. The NEW speaker MUST also send the AS path information in the
-    # AS4_PATH attribute (encoded with 4-octet AS numbers), except for the
-    # case where the entire AS path information is composed of 2-octet AS
-    # numbers only.  In this case, the NEW speaker SHOULD NOT send the
-    # AS4_PATH attribute.
-    #
-    # In the AS_PATH attribute encoded with 2-octet AS numbers, non-mappable
-    # 4-octet AS numbers are represented by the well-known 2-octet AS number,
-    # AS_TRANS.  This will preserve the path length property of the AS path
-    # information and also help in updating the AS path information received
-    # on a NEW BGP speaker from an OLD speaker, as explained in the next
-    # section. The NEW speaker constructs the AS4_PATH attribute from the
-    # information carried in the AS_PATH attribute. In the case where the
-    # AS_PATH attribute contains either AS_CONFED_SEQUENCE or AS_CONFED_SET
-    # path segments, the NEW speaker, when constructing the AS4_PATH
-    # attribute from the AS_PATH attribute, MUST exclude such path segments.
-    # The AS4_PATH attribute will be carried across a series of OLD BGP
-    # speakers without modification and will help preserve the truly 4-octet
-    # AS numbers in the AS path information.
-    #
-    # Similarly, if the NEW speaker has to send the AGGREGATOR attribute, and
-    # if the aggregating Autonomous System"s AS number is truly 4-octets, then
-    # the speaker constructs the AS4_AGGREGATOR attributes by taking the
-    # attribute length and attribute value from the AGGREGATOR attribute and
-    # placing them into the attribute length and attribute value of the
-    # AS4_AGGREGATOR attribute, and sets the AS number field in the existing
-    # AGGREGATOR attribute to the reserved AS number, AS_TRANS. Note that if
-    # the AS number is 2-octets only, then the AS4_AGGREGATOR attribute
-    # SHOULD NOT be sent.
-    #
-    # Finally, this document introduces a reserved 2-octet AS number --
-    # AS_TRANS.
-    # The AS number 23456 has been assigned by the IANA for AS_TRANS.
-    #________________________________________________________________________
-    #
 
     name = "AS4_PATH"
     fields_desc = [
@@ -2900,19 +1940,8 @@ class BGPPAAS4Aggregator(Packet):
     """
     Provides an implementation of the AS4_AGGREGATOR attribute
     "value part".
+    References: RFC 4893
     """
-
-    #________________________________________________________________________
-    #
-    # RFC 4893
-    #________________________________________________________________________
-    #
-    # Similarly, this document defines a new aggregator attribute called
-    # AS4_AGGREGATOR, which is optional transitive. The AS4_AGGREGATOR
-    # attribute has the same semantics as the AGGREGATOR attribute, except
-    # that it carries a 4-octet AS number.
-    #________________________________________________________________________
-    #
 
     name = "AS4_AGGREGATOR "
     fields_desc = [IntField("aggregator_asn", 0),
@@ -2969,69 +1998,8 @@ class _PathAttrPacketField(PacketField):
 class BGPPathAttr(Packet):
     """
     Provides an implementation of the path attributes.
+    References: RFC 4271
     """
-
-    #________________________________________________________________________
-    #
-    # RFC 4271
-    #________________________________________________________________________
-    #
-    # Path Attributes:
-    #       A variable-length sequence of path attributes is present in every
-    #       UPDATE message, except for an UPDATE message that carries only
-    #       the withdrawn routes. Each path attribute is a triple <attribute
-    #       type, attribute length, attribute value> of variable length.
-    #
-    #       Attribute Type is a two-octet field that consists of the
-    #       Attribute Flags octet, followed by the Attribute Type Code octet.
-    #
-    #       0                   1
-    #       0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5
-    #       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    #       |  Attr. Flags  |Attr. Type Code|
-    #       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    #
-    #       The high-order bit (bit 0) of the Attribute Flags octet is the
-    #       Optional bit.  It defines whether the attribute is optional
-    #       (if set to 1) or well-known (if set to 0).
-    #
-    #       The second high-order bit (bit 1) of the Attribute Flags octet
-    #       is the Transitive bit.  It defines whether an optional attribute
-    #       is transitive (if set to 1) or non-transitive (if set to 0).
-    #
-    #       For well-known attributes, the Transitive bit MUST be set to 1.
-    #       (See Section 5 for a discussion of transitive attributes.)
-    #
-    #       The third high-order bit (bit 2) of the Attribute Flags octet is
-    #       the Partial bit.  It defines whether the information contained in
-    #       the optional transitive attribute is partial (if set to 1) or
-    #       complete (if set to 0).  For well-known attributes and for
-    #       optional non-transitive attributes, the Partial bit MUST be set
-    #       to 0.
-    #
-    #       The fourth high-order bit (bit 3) of the Attribute Flags octet is
-    #       the Extended Length bit.  It defines whether the Attribute Length
-    #       is one octet (if set to 0) or two octets (if set to 1).
-    #
-    #       The lower-order four bits of the Attribute Flags octet are unused.
-    #       They MUST be zero when sent and MUST be ignored when received.
-    #
-    #       The Attribute Type Code octet contains the Attribute Type Code.
-    #       Currently defined Attribute Type Codes are discussed in Section 5.
-    #
-    #       If the Extended Length bit of the Attribute Flags octet is set to
-    #       0, the third octet of the Path Attribute contains the length of
-    #       the attribute data in octets.
-    #
-    #       If the Extended Length bit of the Attribute Flags octet is set to
-    #       1, the third and fourth octets of the path attribute contain the
-    #       length of the attribute data in octets.
-    #
-    #       The remaining octets of the Path Attribute represent the
-    #       attribute value and are interpreted according to the Attribute
-    #       Flags and the Attribute Type Code.
-    #________________________________________________________________________
-    #
 
     name = "BGPPathAttr"
     fields_desc = [
@@ -3124,140 +2092,8 @@ class BGPPathAttr(Packet):
 class BGPUpdate(BGP):
     """
     UPDATE messages allow peers to exchange routes.
+    References: RFC 4271
     """
-
-    #________________________________________________________________________
-    #
-    # RFC 4271
-    #________________________________________________________________________
-    #
-    # UPDATE messages are used to transfer routing information between BGP
-    # peers.  The information in the UPDATE message can be used to construct
-    # a graph that describes the relationships of the various Autonomous
-    # Systems.  By applying rules to be discussed, routing information loops
-    # and some other anomalies may be detected and removed from inter-AS
-    # routing.
-    #
-    # An UPDATE message is used to advertise feasible routes that share
-    # common path attributes to a peer, or to withdraw multiple unfeasible
-    # routes from service (see 3.1). An UPDATE message MAY simultaneously
-    # advertise a feasible route and withdraw multiple unfeasible routes
-    # from service.  The UPDATE message always includes the fixed-size BGP
-    # header, and also includes the other fields, as shown below (note, some
-    # of the shown fields may not be present in every UPDATE message):
-    #
-    # +-----------------------------------------------------+
-    # |   Withdrawn Routes Length (2 octets)                |
-    # +-----------------------------------------------------+
-    # |   Withdrawn Routes (variable)                       |
-    # +-----------------------------------------------------+
-    # |   Total Path Attribute Length (2 octets)            |
-    # +-----------------------------------------------------+
-    # |   Path Attributes (variable)                        |
-    # +-----------------------------------------------------+
-    # |   Network Layer Reachability Information (variable) |
-    # +-----------------------------------------------------+
-    #
-    # Withdrawn Routes Length:
-    #
-    #       This 2-octets unsigned integer indicates the total length of the
-    #       Withdrawn Routes field in octets.  Its value allows the length of
-    #       the Network Layer Reachability Information field to be
-    #       determined, as specified below.
-    #
-    #       A value of 0 indicates that no routes are being withdrawn from
-    #       service, and that the WITHDRAWN ROUTES field is not present in
-    #       this UPDATE message.
-    #
-    #
-    # Withdrawn Routes:
-    #
-    #       This is a variable-length field that contains a list of IP
-    #       address prefixes for the routes that are being withdrawn from
-    #       service.  Each IP address prefix is encoded as a 2-tuple of
-    #       the form <length, prefix>, whose fields are described below:
-    #
-    #       +---------------------------+
-    #       |   Length (1 octet)        |
-    #       +---------------------------+
-    #       |   Prefix (variable)       |
-    #       +---------------------------+
-    #
-    #
-    #       The use and the meaning of these fields are as follows:
-    #
-    #               a) Length:
-    #               The Length field indicates the length in bits of the IP
-    #               address prefix.  A length of zero indicates a prefix that
-    #               matches all IP addresses (with prefix, itself, of zero
-    #               octets).
-    #
-    #               b) Prefix:
-    #               The Prefix field contains an IP address prefix, followed
-    #               by the minimum number of trailing bits needed to make the
-    #               end of the field fall on an octet boundary.  Note that
-    #               the value of trailing bits is irrelevant.
-    #
-    # Total Path Attribute Length:
-    #
-    #       This 2-octet unsigned integer indicates the total length of the
-    #       Path Attributes field in octets.  Its value allows the length of
-    #       the Network Layer Reachability field to be determined as
-    #       specified below.
-    #
-    #       A value of 0 indicates that neither the Network Layer
-    #       Reachability Information field nor the Path Attribute field is
-    #       present in this UPDATE message.
-    #
-    #
-    # Path Attributes: cf BGPPathAttrs and the attributes themselves.
-    #
-    #
-    # Network Layer Reachability Information:
-    #
-    #       This variable length field contains a list of IP address
-    #       prefixes.  The length, in octets, of the Network Layer
-    #       Reachability Information is not encoded explicitly, but can be
-    #       calculated as:
-    #
-    #               UPDATE message Length - 23 - Total Path Attributes
-    #               Length - Withdrawn Routes Length
-    #
-    #       where UPDATE message Length is the value encoded in the
-    #       fixed-size BGP header, Total Path Attribute Length, and Withdrawn
-    #       Routes Length are the values encoded in the variable part of the
-    #       UPDATE message, and 23 is a combined length of the fixed-size BGP
-    #       header, the Total Path Attribute Length field, and the Withdrawn
-    #       Routes Length field.
-    #
-    # Reachability information is encoded as one or more 2-tuples of the form
-    # <length, prefix>, whose fields are described below:
-    #
-    #       +---------------------------+
-    #       |   Length (1 octet)        |
-    #       +---------------------------+
-    #       |   Prefix (variable)       |
-    #       +---------------------------+
-    #
-    # The use and the meaning of these fields are as follows:
-    #
-    #       a) Length:
-    #               The Length field indicates the length in bits of the IP
-    #               address prefix.  A length of zero indicates a prefix that
-    #               matches all IP addresses (with prefix, itself, of zero
-    #               octets).
-    #       b) Prefix:
-    #               The Prefix field contains an IP address prefix, followed
-    #               by enough trailing bits to make the end of the field fall
-    #               on an octet boundary.
-    #               Note that the value of the trailing bits is irrelevant.
-    #
-    # The minimum length of the UPDATE message is 23 octets -- 19 octets for
-    # the fixed header + 2 octets for the Withdrawn Routes Length + 2 octets
-    # for the Total Path Attribute Length (the value of Withdrawn Routes
-    # Length is 0 and the value of Total Path Attribute Length is 0).
-    #________________________________________________________________________
-    #
 
     name = "UPDATE"
     fields_desc = [
@@ -3403,40 +2239,8 @@ _error_subcodes = {
 class BGPNotification(BGP):
     """
     NOTIFICATION messages end a BGP session.
+    References: RFC 4271
     """
-
-    #________________________________________________________________________
-    #
-    # RFC 4271
-    #________________________________________________________________________
-    #
-    # A NOTIFICATION message is sent when an error condition is detected.
-    # The BGP connection is closed immediately after it is sent. In addition
-    # to the fixed-size BGP header, the NOTIFICATION message contains the
-    # following fields:
-    #
-    # 0                   1                   2                   3
-    # 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-    # +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    # | Error code    | Error subcode |   Data (variable)             |
-    # +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    #
-    # Error Code:
-    #       This 1-octet unsigned integer indicates the type of NOTIFICATION.
-    #
-    # Error subcode:
-    #       This 1-octet unsigned integer provides more specific information
-    #       about the nature of the reported error.  Each Error Code may have
-    #       one or more Error Subcodes associated with it. If no appropriate
-    #       Error Subcode is defined, then a zero (Unspecific) value is used
-    #       for the Error Subcode field.
-    #
-    # Data:
-    #       This variable-length field is used to diagnose the reason for the
-    #       NOTIFICATION.  The contents of the Data field depend upon the
-    #       Error Code and Error Subcode.  See Section 6 for more details.
-    #________________________________________________________________________
-    #
 
     name = "NOTIFICATION"
     fields_desc = [
@@ -3495,47 +2299,8 @@ def _update_orf_afi_safi(afi, safi):
 class BGPORFEntry(Packet):
     """
     Provides an implementation of an ORF entry.
+    References: RFC 5291
     """
-
-    #________________________________________________________________________
-    #
-    # RFC 5291
-    #________________________________________________________________________
-    #
-    # 4.  Carrying ORF Entries in BGP
-    #
-    #    [ ... ]
-    #
-    #    The rest of the components in the common part are encoded in the
-    #    first octet of each ORF-entry (from the most significant to the least
-    #    significant bit) as shown in Figure 2:
-    #
-    #       Action is a two-bit field.  The value of this field is 0 for ADD,
-    #       1 for REMOVE, and 2 for REMOVE-ALL.
-    #
-    #       Match is a one-bit field.  The value of this field is 0 for PERMIT
-    #       and 1 for DENY.  This field is significant only when the value of
-    #       the Action field is either ADD or REMOVE.
-    #
-    #       Reserved is a 5-bit field.  It is set to 0 on transmit and ignored
-    #       on receipt.
-    #
-    #          +---------------------------------+
-    #          |   Action (2 bit)                |
-    #          +---------------------------------+
-    #          |   Match (1 bit)                 |
-    #          +---------------------------------+
-    #          |   Reserved (5 bits)             |
-    #          +---------------------------------+
-    #          |   Type specific part (variable) |
-    #          +---------------------------------+
-    #
-    #              Figure 2: ORF Entry Encoding
-    #
-    #       When the Action component of an ORF entry specifies REMOVE-ALL,
-    #       the entry consists of only the common part.
-    #________________________________________________________________________
-    #
 
     name = "ORF entry"
     fields_desc = [
@@ -3686,116 +2451,8 @@ class BGPORFEntryPacketListField(PacketListField):
 class BGPORF(Packet):
     """
     Provides an implementation of ORFs carried in the RR message.
+    References: RFC 5291
     """
-
-    #________________________________________________________________________
-    #
-    # RFC 5291
-    #________________________________________________________________________
-    #
-    # 4.  Carrying ORF Entries in BGP
-    #
-    #    ORF entries are carried in the BGP ROUTE-REFRESH message [BGP-RR].
-    #
-    #    A BGP speaker can distinguish an incoming ROUTE-REFRESH message that
-    #    carries one or more ORF entries from an incoming plain ROUTE-REFRESH
-    #    message by using the Message Length field in the BGP message header.
-    #
-    #    A single ROUTE-REFRESH message MAY carry multiple ORF entries in one
-    #    or more ORFs, as long as all these entries share the same AFI/SAFI.
-    #
-    #    From the encoding point of view, each ORF entry consists of a common
-    #    part and type-specific part, as shown in Figures 1 and 2.
-    #
-    #    The common part consists of <AFI/SAFI, ORF-Type, Action, Match>, and
-    #    is encoded as follows:
-    #
-    #       The AFI/SAFI component of an ORF entry is encoded in the AFI/SAFI
-    #       field of the ROUTE-REFRESH message.
-    #
-    #       Following the AFI/SAFI component is the one-octet When-to-refresh
-    #       field.  The value of this field can be either IMMEDIATE (0x01) or
-    #       DEFER (0x02).  The semantics of IMMEDIATE and DEFER are discussed
-    #       in the "Operation" section of this document.
-    #
-    #       Following the When-to-refresh field is a collection of one or more
-    #       ORFs, grouped by ORF-Type.
-    #
-    #       The ORF-Type component is encoded as a one-octet field.
-    #
-    #       The "Length of ORF entries" component is a two-octet field that
-    #       contains the total length (in octets) of the ORF entries that
-    #       follows for the specified ORF type.
-    #
-    #          +--------------------------------------------------+
-    #          | Address Family Identifier (2 octets)             |
-    #          +--------------------------------------------------+
-    #          | Reserved (1 octet)                               |
-    #          +--------------------------------------------------+
-    #          | Subsequent Address Family Identifier (1 octet)   |
-    #          +--------------------------------------------------+
-    #          | When-to-refresh (1 octet)                        |
-    #          +--------------------------------------------------+
-    #          | ORF Type (1 octet)                               |
-    #          +--------------------------------------------------+
-    #          | Length of ORF entries (2 octets)                 |
-    #          +--------------------------------------------------+
-    #          | First ORF entry (variable)                       |
-    #          +--------------------------------------------------+
-    #          | Second ORF entry (variable)                      |
-    #          +--------------------------------------------------+
-    #          | ...                                              |
-    #          +--------------------------------------------------+
-    #          | N-th ORF entry (variable)                        |
-    #          +--------------------------------------------------+
-    #          | ORF Type (1 octet)                               |
-    #          +--------------------------------------------------+
-    #          | Length of ORF entries (2 octets)                 |
-    #          +--------------------------------------------------+
-    #          | First ORF entry (variable)                       |
-    #          +--------------------------------------------------+
-    #          | Second ORF entry (variable)                      |
-    #          +--------------------------------------------------+
-    #          | ...                                              |
-    #          +--------------------------------------------------+
-    #          | N-th ORF entry (variable)                        |
-    #          +--------------------------------------------------+
-    #          | ...                                              |
-    #          +--------------------------------------------------+
-    #
-    #          Figure 1: Carrying ORF Entries in the ROUTE-REFRESH Message
-    #
-    #
-    #    The rest of the components in the common part are encoded in the
-    #    first octet of each ORF-entry (from the most significant to the least
-    #    significant bit) as shown in Figure 2:
-    #
-    #       Action is a two-bit field.  The value of this field is 0 for ADD,
-    #       1 for REMOVE, and 2 for REMOVE-ALL.
-    #
-    #       Match is a one-bit field.  The value of this field is 0 for PERMIT
-    #       and 1 for DENY.  This field is significant only when the value of
-    #       the Action field is either ADD or REMOVE.
-    #
-    #       Reserved is a 5-bit field.  It is set to 0 on transmit and ignored
-    #       on receipt.
-    #
-    #          +---------------------------------+
-    #          |   Action (2 bit)                |
-    #          +---------------------------------+
-    #          |   Match (1 bit)                 |
-    #          +---------------------------------+
-    #          |   Reserved (5 bits)             |
-    #          +---------------------------------+
-    #          |   Type specific part (variable) |
-    #          +---------------------------------+
-    #
-    #              Figure 2: ORF Entry Encoding
-    #
-    #       When the Action component of an ORF entry specifies REMOVE-ALL,
-    #       the entry consists of only the common part.
-    #________________________________________________________________________
-    #
 
     name = "ORF"
     fields_desc = [
@@ -3824,60 +2481,8 @@ rr_message_subtypes = {
 class BGPRouteRefresh(BGP):
     """
     Provides an implementation of the ROUTE-REFRESH message.
+    References: RFC 2918, RFC 7313
     """
-
-    #________________________________________________________________________
-    #
-    # RFC 2918
-    #________________________________________________________________________
-    #
-    # The ROUTE-REFRESH message is a new BGP message type defined as follows:
-    #
-    #   Type: 5 - ROUTE-REFRESH
-    #
-    #   Message Format: One <AFI, SAFI> encoded as
-    #
-    #       0       7      15      23      31
-    #       +-------+-------+-------+-------+
-    #       |      AFI      | Res.  | SAFI  |
-    #       +-------+-------+-------+-------+
-    #
-    #   The meaning, use and encoding of this <AFI, SAFI> field is the
-    #   same as defined in [BGP-MP, sect. 7]. More specifically,
-    #
-    #       AFI  - Address Family Identifier (16 bit).
-    #
-    #       Res. - Reserved (8 bit) field. Should be set to 0 by the
-    #              sender and ignored by the receiver.
-    #
-    #       SAFI - Subsequent Address Family Identifier (8 bit).
-    #________________________________________________________________________
-    #
-
-    #________________________________________________________________________
-    #
-    # RFC 7313
-    #________________________________________________________________________
-    #
-    # 3.2.  Subtypes for ROUTE-REFRESH Message
-    #
-    # The "Reserved" field of the ROUTE-REFRESH message specified in
-    # [RFC2918] is redefined as the "Message Subtype" with the following
-    # values:
-    #
-    #   0 - Normal route refresh request [RFC2918]
-    #       with/without Outbound Route Filtering (ORF) [RFC5291]
-    #   1 - Demarcation of the beginning of a route refresh
-    #       (BoRR) operation
-    #   2 - Demarcation of the ending of a route refresh
-    #       (EoRR) operation
-    #   255 - Reserved
-    #
-    # The remaining values of the message subtypes are reserved for future
-    # use; see Section 6 ("IANA Considerations").  The use of the new
-    # message subtypes is described in Section 4 ("Operation").
-    #________________________________________________________________________
-    #
 
     name = "ROUTE-REFRESH"
     fields_desc = [
