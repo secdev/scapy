@@ -176,7 +176,7 @@ class BGPFieldIPv6(Field):
         mask = struct.unpack(">B", m[0])[0]
         ip = "".join(
             [m[i + 1] if i < self.mask2iplen(mask) else "\x00" for i in range(16)])
-        return (mask, socket.inet_ntop(socket.AF_INET6, ip))
+        return (mask, pton_ntop.inet_ntop(socket.AF_INET6, ip))
 
 
 def has_extended_length(flags):
