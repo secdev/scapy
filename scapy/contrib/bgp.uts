@@ -512,7 +512,7 @@ a.afi == 2 and a.safi == 1 and a.nh_addr_len == 32 and a.nh_v6_global == "2001:d
 
 = BGPPAMPReachNLRI - Dissection (2)
 a = BGPPAMPReachNLRI('\x00\x02\x01 \xfe\x80\x00\x00\x00\x00\x00\x00\xfa\xc0\x01\x00\x15\xde\x15\x81\xfe\x80\x00\x00\x00\x00\x00\x00\xfa\xc0\x01\x00\x15\xde\x15\x81\x00\x06\x04\x05\x08\x04\x10\x03`\x03\x80\x03\xa0\x03\xc0\x04\xe0\x05\xf0\x06\xf8\t\xfe\x00\x16 \x01<\x08-\x07.\x040\x10?\xfe\x10 \x02\x80\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00`\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff@\x01\x00\x00\x00\x00\x00\x00\x00\x17 \x01\x00  \x01\x00\x000 \x01\x00\x02\x00\x00  \x01\r\xb8\x1c \x01\x00\x10\x07\xfc\n\xfe\x80\x08\xff\n\xfe\xc0\x03 \x03@\x08_`\x00d\xff\x9b\x00\x00\x00\x00\x00\x00\x00\x00\x08\x00\x08\x01\x07\x02')
-a.afi == 2 and a.safi == 1 and a.nh_addr_len == 32 and a.nh_v6_global == "fe80::fac0:100:15de:1581" and a.nh_v6_link_local == "fe80::fac0:100:15de:1581" and a.reserved == 0 and a.nlri[0].prefix == "400::/6" and a.nlri[1].prefix == "800::/5" and  a.nlri[18].prefix == "::ffff::/96" and a.nlri[35].prefix == "200::/7"
+a.afi == 2 and a.safi == 1 and a.nh_addr_len == 32 and a.nh_v6_global == "fe80::fac0:100:15de:1581" and a.nh_v6_link_local == "fe80::fac0:100:15de:1581" and a.reserved == 0 and a.nlri[0].prefix == "400::/6" and a.nlri[1].prefix == "800::/5" and  a.nlri[18].prefix == "::ffff:0:0/96" and a.nlri[35].prefix == "200::/7"
 
 
 ############################# BGPPAMPUnreachNLRI #############################
