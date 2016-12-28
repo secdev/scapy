@@ -14,6 +14,7 @@ import struct
 import re
 import socket
 
+from scapy import pton_ntop
 from scapy.packet import Packet, Packet_metaclass, bind_layers
 from scapy.fields import (Field, BitField, BitEnumField, XBitField, ByteField,
                           ByteEnumField, ShortField, ShortEnumField, IntField,
@@ -161,7 +162,7 @@ class BGPFieldIPv6(Field):
     def i2m(self, pkt, i):
         """"Internal" (IP as bytes, mask as int) to "machine" representation."""
         mask, ip = i
-        ip = socket.inet_pton(socket.AF_INET6, ip)
+        ip = pton_ntop.inet_pton(socket.AF_INET6, ip)
         return struct.pack(">B", mask) + ip[:self.mask2iplen(mask)]
 
     def addfield(self, pkt, s, val):
