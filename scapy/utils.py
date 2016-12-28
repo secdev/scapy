@@ -124,6 +124,7 @@ def linehexdump(x, onlyasc=0, onlyhex=0, dump=False):
     else:
         print s
 
+@conf.commands.register
 def chexdump(x, dump=False):
     """ Build a per byte hexadecimal representation
     
@@ -141,7 +142,8 @@ def chexdump(x, dump=False):
         return s
     else:
         print s
-    
+
+@conf.commands.register
 def hexstr(x, onlyasc=0, onlyhex=0):
     s = []
     if not onlyasc:
@@ -1066,6 +1068,7 @@ class PcapWriter(RawPcapWriter):
 
 re_extract_hexcap = re.compile("^((0x)?[0-9a-fA-F]{2,}[ :\t]{,3}|) *(([0-9a-fA-F]{2} {,2}){,16})")
 
+@conf.commands.register
 def import_hexcap():
     p = ""
     try:
