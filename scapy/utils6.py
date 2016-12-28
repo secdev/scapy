@@ -150,42 +150,6 @@ def get_source_addr_from_candidate_set(dst, candidate_set):
     return candidate_set[0]
 
 
-def find_ifaddr2(addr, plen, laddr):
-    dstAddrType = in6_getAddrType(addr)
-    
-    if dstAddrType == IPV6_ADDR_UNSPECIFIED: # Shouldn't happen as dst addr
-        return None
-
-    if dstAddrType == IPV6_ADDR_LOOPBACK: 
-        return None
-
-    tmp = [[]] + map(lambda (x,y,z): (in6_getAddrType(x), x, y, z), laddr)
-    def filterSameScope(l, t):
-        if (t[0] & dstAddrType & IPV6_ADDR_SCOPE_MASK) == 0:
-            l.append(t)
-        return l
-    sameScope = reduce(filterSameScope, tmp)
-    
-    l =  len(sameScope) 
-    if l == 1:  # Only one address for our scope
-        return sameScope[0][1]
-
-    elif l > 1: # Multiple addresses for our scope
-        stfAddr = filter(lambda x: x[0] & IPV6_ADDR_6TO4, sameScope)
-        nativeAddr = filter(lambda x: not (x[0] & IPV6_ADDR_6TO4), sameScope)
-
-        if not (dstAddrType & IPV6_ADDR_6TO4): # destination is not 6to4
-           if len(nativeAddr) != 0:
-               return nativeAddr[0][1]
-           return stfAddr[0][1]
-
-        else:  # Destination is 6to4, try to use source 6to4 addr if any
-            if len(stfAddr) != 0:
-                return stfAddr[0][1]
-            return nativeAddr[0][1]
-    else:
-        return None
-
 # Think before modify it : for instance, FE::1 does exist and is unicast
 # there are many others like that.
 # TODO : integrate Unique Local Addresses
