@@ -172,6 +172,7 @@ class ASN1_Class_UNIVERSAL(ASN1_Class):
     BMP_STRING = 30
     IPADDRESS = 0|0x40          # application-specific encoding
     COUNTER32 = 1|0x40          # application-specific encoding
+    GAUGE32 = 2|0x40            # application-specific encoding
     TIME_TICKS = 3|0x40         # application-specific encoding
 
 
@@ -262,19 +263,42 @@ class ASN1_BIT_STRING(ASN1_Object):
     """
     tag = ASN1_Class_UNIVERSAL.BIT_STRING
     def __init__(self, val, readable=False):
-        if readable:
-            self.val_readable = val
-            val = "".join(binrepr(ord(x)).zfill(8) for x in val)
-            self.unused_bits = 0
+        if not readable:
+            self.val = val
         else:
-            if len(val) % 8 == 0:
-                self.unused_bits = 0
+            self.val_readable = val
+    def __setattr__(self, name, value):
+        if name == "val_readable":
+            if isinstance(value, str):
+                val = "".join(binrepr(ord(x)).zfill(8) for x in value)
             else:
-                self.unused_bits = 8 - len(val)%8
-            padded_val = val + "0"*self.unused_bits
-            bytes_arr = zip(*[iter(padded_val)]*8)
-            self.val_readable = "".join(chr(int("".join(x),2)) for x in bytes_arr)
-        ASN1_Object.__init__(self, val)
+                val = "<invalid val_readable>"
+            super(ASN1_Object, self).__setattr__("val", val)
+            super(ASN1_Object, self).__setattr__(name, value)
+            super(ASN1_Object, self).__setattr__("unused_bits", 0)
+        elif name == "val":
+            if isinstance(value, str):
+                if len([c for c in value if c not in ["0", "1"]]) > 0:
+                    print "Invalid operation: 'val' is not a valid bit string."
+                    return
+                else:
+                    if len(value) % 8 == 0:
+                        unused_bits = 0
+                    else:
+                        unused_bits = 8 - (len(value) % 8)
+                    padded_value = value + ("0" * unused_bits)
+                    bytes_arr = zip(*[iter(padded_value)]*8)
+                    val_readable = "".join(chr(int("".join(x),2)) for x in bytes_arr)
+            else:
+                val_readable = "<invalid val>"
+                unused_bits = 0
+            super(ASN1_Object, self).__setattr__("val_readable", val_readable)
+            super(ASN1_Object, self).__setattr__(name, value)
+            super(ASN1_Object, self).__setattr__("unused_bits", unused_bits)
+        elif name == "unused_bits":
+            print "Invalid operation: unused_bits rewriting is not supported."
+        else:
+            super(ASN1_Object, self).__setattr__(name, value)
     def __repr__(self):
         if len(self.val) <= 16:
             return "<%s[%r] (%d unused bit%s)>" % (self.__dict__.get("name", self.__class__.__name__), self.val, self.unused_bits, "s" if self.unused_bits>1 else "")
@@ -327,26 +351,46 @@ class ASN1_IA5_STRING(ASN1_STRING):
 class ASN1_UTC_TIME(ASN1_STRING):
     tag = ASN1_Class_UNIVERSAL.UTC_TIME
     def __init__(self, val):
-        pretty_time = ""
-        if len(val) == 13 and val[-1] == "Z":
-            dt = datetime.strptime(val[:-1], "%y%m%d%H%M%S")
-            pretty_time = dt.strftime("%b %d %H:%M:%S %Y GMT")
-        self.pretty_time = pretty_time
-        ASN1_STRING.__init__(self, val)
+        super(ASN1_UTC_TIME, self).__init__(val)
+    def __setattr__(self, name, value):
+        if name == "val":
+            pretty_time = None
+            if (isinstance(value, str) and
+                len(value) == 13 and value[-1] == "Z"):
+                dt = datetime.strptime(value[:-1], "%y%m%d%H%M%S")
+                pretty_time = dt.strftime("%b %d %H:%M:%S %Y GMT")
+            else:
+                pretty_time = "%s [invalid utc_time]" % value
+            super(ASN1_UTC_TIME, self).__setattr__("pretty_time", pretty_time)
+            super(ASN1_UTC_TIME, self).__setattr__(name, value)
+        elif name == "pretty_time":
+            print "Invalid operation: pretty_time rewriting is not supported."
+        else:
+            super(ASN1_UTC_TIME, self).__setattr__(name, value)
     def __repr__(self):
-        return self.pretty_time + " " + ASN1_STRING.__repr__(self)
+        return "%s %s" % (self.pretty_time, ASN1_STRING.__repr__(self))
 
 class ASN1_GENERALIZED_TIME(ASN1_STRING):
     tag = ASN1_Class_UNIVERSAL.GENERALIZED_TIME
     def __init__(self, val):
-        pretty_time = ""
-        if len(val) == 15 and val[-1] == "Z":
-            dt = datetime.strptime(val[:-1], "%Y%m%d%H%M%S")
-            pretty_time = dt.strftime("%b %d %H:%M:%S %Y GMT")
-        self.pretty_time = pretty_time
-        ASN1_STRING.__init__(self, val)
+        super(ASN1_GENERALIZED_TIME, self).__init__(val)
+    def __setattr__(self, name, value):
+        if name == "val":
+            pretty_time = None
+            if (isinstance(value, str) and
+                len(value) == 15 and value[-1] == "Z"):
+                dt = datetime.strptime(value[:-1], "%Y%m%d%H%M%S")
+                pretty_time = dt.strftime("%b %d %H:%M:%S %Y GMT")
+            else:
+                pretty_time = "%s [invalid generalized_time]" % value
+            super(ASN1_GENERALIZED_TIME, self).__setattr__("pretty_time", pretty_time)
+            super(ASN1_GENERALIZED_TIME, self).__setattr__(name, value)
+        elif name == "pretty_time":
+            print "Invalid operation: pretty_time rewriting is not supported."
+        else:
+            super(ASN1_GENERALIZED_TIME, self).__setattr__(name, value)
     def __repr__(self):
-        return self.pretty_time + " " + ASN1_STRING.__repr__(self)
+        return "%s %s" % (self.pretty_time, ASN1_STRING.__repr__(self))
 
 class ASN1_ISO646_STRING(ASN1_STRING):
     tag = ASN1_Class_UNIVERSAL.ISO646_STRING
@@ -373,7 +417,10 @@ class ASN1_IPADDRESS(ASN1_STRING):
 
 class ASN1_COUNTER32(ASN1_INTEGER):
     tag = ASN1_Class_UNIVERSAL.COUNTER32
-    
+
+class ASN1_GAUGE32(ASN1_INTEGER):
+    tag = ASN1_Class_UNIVERSAL.GAUGE32
+
 class ASN1_TIME_TICKS(ASN1_INTEGER):
     tag = ASN1_Class_UNIVERSAL.TIME_TICKS
    

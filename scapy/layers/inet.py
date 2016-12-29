@@ -124,10 +124,9 @@ class IPOption_Security(IPOption):
                     StrFixedLenField("transmission_control_code","xxx",3),
                     ]
     
-class IPOption_LSRR(IPOption):
-    name = "IP Option Loose Source and Record Route"
-    copy_flag = 1
-    option = 3
+class IPOption_RR(IPOption):
+    name = "IP Option Record Route"
+    option = 7
     fields_desc = [ _IPOption_HDR,
                     FieldLenField("length", None, fmt="B",
                                   length_of="routers", adjust=lambda pkt,l:l+3),
@@ -138,16 +137,19 @@ class IPOption_LSRR(IPOption):
     def get_current_router(self):
         return self.routers[self.pointer/4-1]
 
-class IPOption_RR(IPOption_LSRR):
-    name = "IP Option Record Route"
-    option = 7
+class IPOption_LSRR(IPOption_RR):
+    name = "IP Option Loose Source and Record Route"
+    copy_flag = 1
+    option = 3
 
-class IPOption_SSRR(IPOption_LSRR):
+class IPOption_SSRR(IPOption_RR):
     name = "IP Option Strict Source and Record Route"
+    copy_flag = 1
     option = 9
 
 class IPOption_Stream_Id(IPOption):
     name = "IP Option Stream ID"
+    copy_flag = 1
     option = 8
     fields_desc = [ _IPOption_HDR,
                     ByteField("length", 4),
@@ -166,7 +168,6 @@ class IPOption_MTU_Reply(IPOption_MTU_Probe):
 
 class IPOption_Traceroute(IPOption):
     name = "IP Option Traceroute"
-    copy_flag = 1
     option = 18
     fields_desc = [ _IPOption_HDR,
                     ByteField("length", 12),
@@ -401,14 +402,24 @@ class IP(Packet, IPTools):
              and (isinstance(self.payload, ICMP))
              and (self.payload.type in [3,4,5,11,12]) ):
             return self.payload.payload.hashret()
-        else:
-            if self.dst == "224.0.0.251":  # mDNS
-                return struct.pack("B", self.proto) + self.payload.hashret()
-            if conf.checkIPsrc and conf.checkIPaddr:
-                return strxor(inet_aton(self.src),inet_aton(self.dst))+struct.pack("B",self.proto)+self.payload.hashret()
-            else:
-                return struct.pack("B", self.proto)+self.payload.hashret()
+        if not conf.checkIPinIP and self.proto in [4, 41]:  # IP, IPv6
+            return self.payload.hashret()
+        if self.dst == "224.0.0.251":  # mDNS
+            return struct.pack("B", self.proto) + self.payload.hashret()
+        if conf.checkIPsrc and conf.checkIPaddr:
+            return (strxor(inet_aton(self.src), inet_aton(self.dst))
+                    + struct.pack("B",self.proto) + self.payload.hashret())
+        return struct.pack("B", self.proto) + self.payload.hashret()
     def answers(self, other):
+        if not conf.checkIPinIP:  # skip IP in IP and IPv6 in IP
+            if self.proto in [4, 41]:
+                return self.payload.answers(other)
+            if isinstance(other, IP) and other.proto in [4, 41]:
+                return self.answers(other.payload)
+            if conf.ipv6_enabled \
+               and isinstance(other, scapy.layers.inet6.IPv6) \
+               and other.nh in [4, 41]:
+                return self.answers(other.payload)                
         if not isinstance(other,IP):
             return 0
         if conf.checkIPaddr:
@@ -451,13 +462,11 @@ class IP(Packet, IPTools):
                 del(q[fnb].payload)
                 del(q[fnb].chksum)
                 del(q[fnb].len)
-                if i == nb-1:
-                    q[IP].flags &= ~1
-                else:
-                    q[IP].flags |= 1 
-                q[IP].frag = i*fragsize/8
+                if i != nb - 1:
+                    q[fnb].flags |= 1
+                q[fnb].frag += i * fragsize / 8
                 r = conf.raw_layer(load=s[i*fragsize:(i+1)*fragsize])
-                r.overload_fields = p[IP].payload.overload_fields.copy()
+                r.overload_fields = p[fnb].payload.overload_fields.copy()
                 q.add_payload(r)
                 lst.append(q)
         return lst
@@ -557,7 +566,10 @@ class UDP(Packet):
                                      inet_aton(self.underlayer.dst),
                                      self.underlayer.proto,
                                      ln)
-                ck=checksum(psdhdr+p)
+                ck = checksum(psdhdr+p)
+                # According to RFC768 if the result checksum is 0, it should be set to 0xFFFF
+                if ck == 0:
+                    ck = 0xFFFF
                 p = p[:6]+struct.pack("!H", ck)+p[8:]
             elif isinstance(self.underlayer, scapy.layers.inet6.IPv6) or isinstance(self.underlayer, scapy.layers.inet6._IPv6ExtHdr):
                 ck = scapy.layers.inet6.in6_chksum(socket.IPPROTO_UDP, self.underlayer, p)
@@ -761,6 +773,7 @@ bind_layers( Ether,         IP,            type=2048)
 bind_layers( CookedLinux,   IP,            proto=2048)
 bind_layers( GRE,           IP,            proto=2048)
 bind_layers( SNAP,          IP,            code=2048)
+bind_layers( Loopback,      IP,            type=2)
 bind_layers( IPerror,       IPerror,       frag=0, proto=4)
 bind_layers( IPerror,       ICMPerror,     frag=0, proto=1)
 bind_layers( IPerror,       TCPerror,      frag=0, proto=6)
@@ -801,11 +814,9 @@ def fragment(pkt, fragsize=1480):
             del(q[IP].payload)
             del(q[IP].chksum)
             del(q[IP].len)
-            if i == nb-1:
-                q[IP].flags &= ~1
-            else:
-                q[IP].flags |= 1 
-            q[IP].frag = i*fragsize/8
+            if i != nb - 1:
+                q[IP].flags |= 1
+            q[IP].frag += i * fragsize / 8
             r = conf.raw_layer(load=s[i*fragsize:(i+1)*fragsize])
             r.overload_fields = p[IP].payload.overload_fields.copy()
             q.add_payload(r)
@@ -1037,7 +1048,7 @@ class TracerouteResult(SndRcvList):
             trace[d][s[IP].ttl] = r[IP].src, ICMP not in r
         for k in trace.itervalues():
             try:
-                m = min(x for x, y in k.itervalues() if y[1])
+                m = min(x for x, y in k.itervalues() if y)
             except ValueError:
                 continue
             for l in k.keys():  # use .keys(): k is modified in the loop

@@ -105,13 +105,15 @@ def BER_id_dec(s):
     # This returns the tag ALONG WITH THE PADDED CLASS+CONSTRUCTIVE INFO.
     # Let's recall that bits 8-7 from the first byte of the tag encode
     # the class information, while bit 6 means primitive or constructive.
+    #
     # For instance, with low-tag-number '\x81', class would be 0b10
     # ('context-specific') and tag 0x01, but we return 0x81 as a whole.
-    # For '\xff\x02', class would be 0b11 ('private'), constructed, then
-    # padding, then tag 0x02, but we return (0xff>>5)*128^1 + 0x02*128^0.
+    # For '\xff\x22', class would be 0b11 ('private'), constructed, then
+    # padding, then tag 0x22, but we return (0xff>>5)*128^1 + 0x22*128^0.
     # Why the 5-bit-shifting? Because it provides an unequivocal encoding
     # on base 128 (note that 0xff would equal 1*128^1 + 127*128^0...),
     # as we know that bits 5 to 1 are fixed to 1 anyway.
+    #
     # As long as there is no class differentiation, we have to keep this info
     # encoded in scapy's tag in order to reuse it for packet building.
     # Note that tags thus may have to be hard-coded with their extended
@@ -394,7 +396,7 @@ class BERcodec_ISO646_STRING(BERcodec_STRING):
 class BERcodec_UNIVERSAL_STRING(BERcodec_STRING):
     tag = ASN1_Class_UNIVERSAL.UNIVERSAL_STRING
 
-class BERcodec_BMP_STRING (BERcodec_STRING):
+class BERcodec_BMP_STRING(BERcodec_STRING):
     tag = ASN1_Class_UNIVERSAL.BMP_STRING
 
 class BERcodec_SEQUENCE(BERcodec_Object):
@@ -448,6 +450,9 @@ class BERcodec_IPADDRESS(BERcodec_STRING):
 
 class BERcodec_COUNTER32(BERcodec_INTEGER):
     tag = ASN1_Class_UNIVERSAL.COUNTER32
+
+class BERcodec_GAUGE32(BERcodec_INTEGER):
+    tag = ASN1_Class_UNIVERSAL.GAUGE32
 
 class BERcodec_TIME_TICKS(BERcodec_INTEGER):
     tag = ASN1_Class_UNIVERSAL.TIME_TICKS

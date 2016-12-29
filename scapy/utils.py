@@ -64,37 +64,83 @@ def lhex(x):
         return x
 
 @conf.commands.register
-def hexdump(x):
-    x=str(x)
+def hexdump(x, dump=False):
+    """ Build a tcpdump like hexadecimal view
+
+    :param x: a Packet
+    :param dump: define if the result must be printed or returned in a variable
+    :returns: a String only when dump=True
+    """
+    s = ""
+    x = str(x)
     l = len(x)
     i = 0
     while i < l:
-        print "%04x  " % i,
+        s += "%04x  " % i
         for j in xrange(16):
             if i+j < l:
-                print "%02X" % ord(x[i+j]),
+                s += "%02X" % ord(x[i+j])
             else:
-                print "  ",
+                s += "  "
             if j%16 == 7:
-                print "",
-        print " ",
-        print sane_color(x[i:i+16])
+                s += ""
+        s += " "
+        s += sane_color(x[i:i+16])
         i += 16
+        s += "\n"
+    # remove trailing \n
+    if s.endswith("\n"):
+        s = s[:-1]
+    if dump:
+        return s
+    else:
+        print s
+
 
 @conf.commands.register
-def linehexdump(x, onlyasc=0, onlyhex=0):
+def linehexdump(x, onlyasc=0, onlyhex=0, dump=False):
+    """ Build an equivalent view of hexdump() on a single line
+
+    Note that setting both onlyasc and onlyhex to 1 results in a empty output
+
+    :param x: a Packet
+    :param onlyasc: 1 to display only the ascii view
+    :param onlyhex: 1 to display only the hexadecimal view
+    :param dump: print the view if False
+    :returns: a String only when dump=True
+    """
+    s = ""
     x = str(x)
     l = len(x)
     if not onlyasc:
         for i in xrange(l):
-            print "%02X" % ord(x[i]),
-        print "",
+            s += "%02X" % ord(x[i])
+        if not onlyhex:  # separate asc & hex if both are displayed
+            s += " "
     if not onlyhex:
-        print sane_color(x)
+        s += sane_color(x)
+    if dump:
+        return s
+    else:
+        print s
 
-def chexdump(x):
-    x=str(x)
-    print ", ".join(map(lambda x: "%#04x"%ord(x), x))
+def chexdump(x, dump=False):
+    """ Build a per byte hexadecimal representation
+    
+    Example:
+        >>> chexdump(IP())
+        0x45, 0x00, 0x00, 0x14, 0x00, 0x01, 0x00, 0x00, 0x40, 0x00, 0x7c, 0xe7, 0x7f, 0x00, 0x00, 0x01, 0x7f, 0x00, 0x00, 0x01
+    
+    :param x: a Packet
+    :param dump: print the view if False
+    :returns: a String only if dump=True
+    """
+    x = str(x)
+    s = str(", ".join(map(lambda x: "%#04x"%ord(x), x)))
+    if dump:
+        return s
+    else:
+        print s
     
 def hexstr(x, onlyasc=0, onlyhex=0):
     s = []
@@ -103,7 +149,6 @@ def hexstr(x, onlyasc=0, onlyhex=0):
     if not onlyhex:
         s.append(sane(x)) 
     return "  ".join(s)
-
 
 @conf.commands.register
 def hexdiff(x,y):
@@ -299,7 +344,7 @@ def str2mac(s):
 def strxor(x,y):
     return "".join(map(lambda x,y:chr(ord(x)^ord(y)),x,y))
 
-# Workarround bug 643005 : https://sourceforge.net/tracker/?func=detail&atid=105470&aid=643005&group_id=5470
+# Workaround bug 643005 : https://sourceforge.net/tracker/?func=detail&atid=105470&aid=643005&group_id=5470
 try:
     socket.inet_aton("255.255.255.255")
 except socket.error:
@@ -608,10 +653,18 @@ class RawPcapReader:
     def __init__(self, filename, fdesc, magic):
         self.filename = filename
         self.f = fdesc
-        if magic == "\xa1\xb2\xc3\xd4": #big endian
+        if magic == "\xa1\xb2\xc3\xd4": # big endian
             self.endian = ">"
-        elif magic == "\xd4\xc3\xb2\xa1": #little endian
+            self.nano = False
+        elif magic == "\xd4\xc3\xb2\xa1": # little endian
             self.endian = "<"
+            self.nano = False
+        elif magic == "\xa1\xb2\x3c\x4d":  # big endian, nanosecond-precision
+            self.endian = ">"
+            self.nano = True
+        elif magic == "\x4d\x3c\xb2\xa1":  # little endian, nanosecond-precision
+            self.endian = "<"
+            self.nano = True
         else:
             raise Scapy_Exception(
                 "Not a pcap capture file (bad magic: %r)" % magic
@@ -651,7 +704,7 @@ class RawPcapReader:
     def dispatch(self, callback):
         """call the specified callback routine for each packet read
         
-        This is just a convienience function for the main loop
+        This is just a convenience function for the main loop
         that allows for easy launching of packet processing in a 
         thread.
         """
@@ -710,7 +763,7 @@ class PcapReader(RawPcapReader):
             if conf.debug_dissector:
                 raise
             p = conf.raw_layer(s)
-        p.time = sec+0.000001*usec
+        p.time = sec + (0.000000001 if self.nano else 0.000001) * usec
         return p
     def read_all(self,count=-1):
         res = RawPcapReader.read_all(self, count)
@@ -731,10 +784,12 @@ class RawPcapNgReader(RawPcapReader):
     def __init__(self, filename, fdesc, magic):
         self.filename = filename
         self.f = fdesc
-        # A list of (linktype, snaplen); will be populated by IDBs.
+        # A list of (linktype, snaplen, tsresol); will be populated by IDBs.
         self.interfaces = []
         self.blocktypes = {
             1: self.read_block_idb,
+            2: self.read_block_pkt,
+            3: self.read_block_spb,
             6: self.read_block_epb,
         }
         if magic != "\x0a\x0d\x0d\x0a": # PcapNg:
@@ -764,12 +819,14 @@ class RawPcapNgReader(RawPcapReader):
             except struct.error:
                 return None
             block = self.f.read(blocklen - 12)
+            if blocklen % 4:
+                pad = self.f.read(4 - (blocklen % 4))
+                warning("PcapNg: bad blocklen %d (MUST be a multiple of 4. "
+                        "Ignored padding %r" % (blocklen, pad))
             try:
                 if (blocklen,) != struct.unpack(self.endian + 'I',
                                                 self.f.read(4)):
-                    raise Scapy_Exception(
-                        "Invalid pcapng block (bad blocklen)"
-                    )
+                    warning("PcapNg: Invalid pcapng block (bad blocklen)")
             except struct.error:
                 return None
             res = self.blocktypes.get(blocktype,
@@ -779,14 +836,57 @@ class RawPcapNgReader(RawPcapReader):
 
     def read_block_idb(self, block, _):
         """Interface Description Block"""
-        self.interfaces.append(struct.unpack(self.endian + "HxxI", block[:8]))
+        options = block[16:]
+        tsresol = 1000000
+        while len(options) >= 4:
+            code, length = struct.unpack(self.endian + "HH", options[:4])
+            # PCAP Next Generation (pcapng) Capture File Format
+            # 4.2. - Interface Description Block
+            # http://xml2rfc.tools.ietf.org/cgi-bin/xml2rfc.cgi?url=https://raw.githubusercontent.com/pcapng/pcapng/master/draft-tuexen-opsawg-pcapng.xml&modeAsFormat=html/ascii&type=ascii#rfc.section.4.2
+            if code == 9 and length == 1 and len(options) >= 5:
+                tsresol = ord(options[4])
+                tsresol = (2 if tsresol & 128 else 10) ** (tsresol & 127)
+            if code == 0:
+                if length != 0:
+                    warning("PcapNg: invalid option length %d for end-of-option" % length)
+                break
+            if length % 4:
+                length += (4 - (length % 4))
+            options = options[4 + length:]
+        self.interfaces.append(struct.unpack(self.endian + "HxxI", block[:8])
+                               + (tsresol,))
 
     def read_block_epb(self, block, size):
         """Enhanced Packet Block"""
-        intid, sec, usec, caplen, wirelen = struct.unpack(self.endian + "5I",
-                                                          block[:20])
+        intid, tshigh, tslow, caplen, wirelen = struct.unpack(
+            self.endian + "5I",
+            block[:20],
+        )
         return (block[20:20 + caplen][:size],
-                (self.interfaces[intid][0], sec, usec, wirelen))
+                (self.interfaces[intid][0], self.interfaces[intid][2],
+                 tshigh, tslow, wirelen))
+
+    def read_block_spb(self, block, size):
+        """Simple Packet Block"""
+        # "it MUST be assumed that all the Simple Packet Blocks have
+        # been captured on the interface previously specified in the
+        # first Interface Description Block."
+        intid = 0
+        wirelen, = struct.unpack(self.endian + "I", block[:4])
+        caplen = min(wirelen, self.interfaces[intid][1])
+        return (block[4:4 + caplen][:size],
+                (self.interfaces[intid][0], self.interfaces[intid][2],
+                 None, None, wirelen))
+
+    def read_block_pkt(self, block, size):
+        """(Obsolete) Packet Block"""
+        intid, drops, tshigh, tslow, caplen, wirelen = struct.unpack(
+            self.endian + "HH4I",
+            block[:20],
+        )
+        return (block[20:20 + caplen][:size],
+                (self.interfaces[intid][0], self.interfaces[intid][2],
+                 tshigh, tslow, wirelen))
 
 
 class PcapNgReader(RawPcapNgReader):
@@ -800,7 +900,7 @@ class PcapNgReader(RawPcapNgReader):
         rp = RawPcapNgReader.read_packet(self, size=size)
         if rp is None:
             return None
-        s, (linktype, sec, usec, wirelen) = rp
+        s, (linktype, tsresol, tshigh, tslow, wirelen) = rp
         try:
             p = conf.l2types[linktype](s)
         except KeyboardInterrupt:
@@ -809,7 +909,8 @@ class PcapNgReader(RawPcapNgReader):
             if conf.debug_dissector:
                 raise
             p = conf.raw_layer(s)
-        p.time = sec+0.000001*usec
+        if tshigh is not None:
+            p.time = float((tshigh << 32) + tslow) / tsresol
         return p
     def read_all(self,count=-1):
         res = RawPcapNgReader.read_all(self, count)
@@ -821,16 +922,18 @@ class PcapNgReader(RawPcapNgReader):
 
 class RawPcapWriter:
     """A stream PCAP writer with more control than wrpcap()"""
-    def __init__(self, filename, linktype=None, gz=False, endianness="", append=False, sync=False):
+    def __init__(self, filename, linktype=None, gz=False, endianness="",
+                 append=False, sync=False, nano=False):
         """
-filename: the name of the file to write packets to, or an open,
-          writable file-like object.
-linktype: force linktype to a given value. If None, linktype is taken
-          from the first writter packet
-gz: compress the capture on the fly
+filename:   the name of the file to write packets to, or an open,
+            writable file-like object.
+linktype:   force linktype to a given value. If None, linktype is taken
+            from the first writer packet
+gz:         compress the capture on the fly
 endianness: force an endianness (little:"<", big:">"). Default is native
-append: append packets to the capture file instead of truncating it
-sync: do not bufferize writes to the capture file
+append:     append packets to the capture file instead of truncating it
+sync:       do not bufferize writes to the capture file
+nano:       use nanosecond-precision (requires libpcap >= 1.5.0)
 
         """
         
@@ -840,6 +943,7 @@ sync: do not bufferize writes to the capture file
         self.gz = gz
         self.endian = endianness
         self.sync = sync
+        self.nano = nano
         bufsz=4096
         if sync:
             bufsz = 0
@@ -868,7 +972,7 @@ sync: do not bufferize writes to the capture file
             if g.read(16):
                 return
             
-        self.f.write(struct.pack(self.endian+"IHHIIII", 0xa1b2c3d4L,
+        self.f.write(struct.pack(self.endian+"IHHIIII", 0xa1b23c4dL if self.nano else 0xa1b2c3d4L,
                                  2, 4, 0, 0, MTU, self.linktype))
         self.f.flush()
     
@@ -913,7 +1017,7 @@ sync: do not bufferize writes to the capture file
             if sec is None:
                 sec = it
             if usec is None:
-                usec = int(round((t-it)*1000000))
+                usec = int(round((t - it) * (1000000000 if self.nano else 1000000)))
         self.f.write(struct.pack(self.endian+"IIII", sec, usec, caplen, wirelen))
         self.f.write(packet)
         if self.sync:
@@ -951,7 +1055,7 @@ class PcapWriter(RawPcapWriter):
                 self._write_packet(pkt)
             return
         sec = int(packet.time)
-        usec = int(round((packet.time-sec)*1000000))
+        usec = int(round((packet.time - sec) * (1000000000 if self.nano else 1000000)))
         s = str(packet)
         caplen = len(s)
         RawPcapWriter._write_packet(self, s, sec, usec, caplen, caplen)

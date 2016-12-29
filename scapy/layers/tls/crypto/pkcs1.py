@@ -172,7 +172,7 @@ def pkcs_mgf1(mgfSeed, maskLen, h):
 
     # steps are those of Appendix B.2.1
     if not _hashFuncParams.has_key(h):
-        _warning("pkcs_mgf1: invalid hash (%s) provided")
+        _warning("pkcs_mgf1: invalid hash (%s) provided" % h)
         return None
     hLen = _hashFuncParams[h][0]
     hFunc = _hashFuncParams[h][2]
@@ -891,7 +891,7 @@ class _DecryptAndSignRSA(object):
         if h is None:
             h = "sha1"
         if not _hashFuncParams.has_key(h):
-            _warning("Key._rsaes_oaep_decrypt(): unknown hash function %s.", h)
+            _warning("Key._rsaes_oaep_decrypt(): unknown hash function %s." % h)
             return None
         hLen = _hashFuncParams[h][0]
         hFun = _hashFuncParams[h][2]

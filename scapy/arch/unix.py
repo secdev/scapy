@@ -16,7 +16,8 @@ import scapy.config
 import scapy.utils
 from scapy.utils6 import in6_getscope, construct_source_candidate_set
 from scapy.utils6 import in6_isvalid, in6_ismlladdr, in6_ismnladdr
-import scapy.arch
+from scapy.arch.consts import FREEBSD, NETBSD, OPENBSD, SOLARIS, LOOPBACK_NAME
+from scapy.arch import get_if_addr
 from scapy.config import conf
 
 
@@ -41,9 +42,9 @@ def _guess_iface_name(netif):
 
 
 def read_routes():
-    if scapy.arch.SOLARIS:
+    if SOLARIS:
         f=os.popen("netstat -rvn") # -f inet
-    elif scapy.arch.FREEBSD:
+    elif FREEBSD:
         f=os.popen("netstat -rnW") # -W to handle long interface names
     else:
         f=os.popen("netstat -rn") # -f inet
@@ -67,7 +68,7 @@ def read_routes():
             continue
         if not l:
             break
-        if scapy.arch.SOLARIS:
+        if SOLARIS:
             lspl = l.split()
             if len(lspl) == 10:
                 dest,mask,gw,netif,mxfrg,rtt,ref,flg = lspl[:8]
@@ -84,7 +85,7 @@ def read_routes():
             dest = 0L
             netmask = 0L
         else:
-            if scapy.arch.SOLARIS:
+            if SOLARIS:
                 netmask = scapy.utils.atol(mask)
             elif "/" in dest:
                 dest,netmask = dest.split("/")
@@ -97,7 +98,7 @@ def read_routes():
             gw = '0.0.0.0'
         if netif is not None:
             try:
-                ifaddr = scapy.arch.get_if_addr(netif)
+                ifaddr = get_if_addr(netif)
                 routes.append((dest,netmask,gw,netif,ifaddr))
             except OSError as exc:
                 if exc.message == 'Device not configured':
@@ -106,7 +107,7 @@ def read_routes():
                     # ignore it.
                     guessed_netif = _guess_iface_name(netif)
                     if guessed_netif is not None:
-                        ifaddr = scapy.arch.get_if_addr(guessed_netif)
+                        ifaddr = get_if_addr(guessed_netif)
                         routes.append((dest, netmask, gw, guessed_netif, ifaddr))
                     else:
                         warning("Could not guess partial interface name: %s" % netif)
@@ -184,7 +185,7 @@ def in6_getifaddr():
     """
 
     # List all network interfaces
-    if scapy.arch.OPENBSD:
+    if OPENBSD:
         try:
             f = os.popen("%s" % conf.prog.ifconfig)
         except OSError,msg:
@@ -244,7 +245,7 @@ def read_routes6():
 
         # Parse a route entry according to the operating system
         splitted_line = line.split()
-        if scapy.arch.OPENBSD or scapy.arch.NETBSD:
+        if OPENBSD or NETBSD:
             index = 5 + mtu_present + prio_present
             if len(splitted_line) < index:
                 warning("Not enough columns in route entry !")
@@ -261,7 +262,7 @@ def read_routes6():
         # Check flags
         if not "U" in flags:  # usable route
             continue
-        if "R" in flags:  # Host or net unrechable
+        if "R" in flags:  # Host or net unreachable
             continue
         if "m" in flags:  # multicast address
             # Note: multicast routing is handled in Route6.route()
@@ -312,14 +313,14 @@ def read_routes6():
             # Note: multicast routing is handled in Route6.route()
             continue
 
-        if scapy.arch.LOOPBACK_NAME in dev:
+        if LOOPBACK_NAME in dev:
             # Handle ::1 separately
             cset = ["::1"]
             next_hop = "::"
         else:
             # Get possible IPv6 source addresses
             devaddrs = filter(lambda x: x[2] == dev, lifaddr)
-            cset = construct_source_candidate_set(destination, destination_plen, devaddrs, scapy.arch.LOOPBACK_NAME)
+            cset = construct_source_candidate_set(destination, destination_plen, devaddrs, LOOPBACK_NAME)
 
         if len(cset):
             routes.append((destination, destination_plen, next_hop, dev, cset))

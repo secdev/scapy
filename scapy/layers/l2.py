@@ -16,7 +16,7 @@ from scapy.packet import *
 from scapy.ansmachine import *
 from scapy.plist import SndRcvList
 from scapy.fields import *
-from scapy.sendrecv import *
+from scapy.sendrecv import srp, srp1, srpflood
 from scapy.arch import get_if_hwaddr
 from scapy.arch.consts import LOOPBACK_NAME
 from scapy.utils import inet_ntoa, inet_aton
@@ -203,9 +203,14 @@ conf.neighbor.register_l3(Dot3, LLC, l2_register_l3)
 
 
 class CookedLinux(Packet):
+    # Documentation: http://www.tcpdump.org/linktypes/LINKTYPE_LINUX_SLL.html
     name = "cooked linux"
+    # from wireshark's database
     fields_desc = [ ShortEnumField("pkttype",0, {0: "unicast",
-                                                 4:"sent-by-us"}), #XXX incomplete
+                                                 1: "broadcast",
+                                                 2: "multicast",
+                                                 3: "unicast-to-another-host",
+                                                 4:"sent-by-us"}),
                     XShortField("lladdrtype",512),
                     ShortField("lladdrlen",0),
                     StrFixedLenField("src","",8),
@@ -603,9 +608,29 @@ class GRE(Packet):
         return p
 
 
+### *BSD loopback layer
+
+class LoIntEnumField(EnumField):
+    def __init__(self, name, default, enum):
+        EnumField.__init__(self, name, default, enum, "!I")
+
+    def m2i(self, pkt, x):
+        return x >> 24
+
+    def i2m(self, pkt, x):
+        return x << 24
+
+LOOPBACK_TYPES = { 0x2: "IPv4", 0x1c: "IPv6" }
+
+class Loopback(Packet):
+    """*BSD loopback layer"""
+
+    name = "Loopback"
+    fields_desc = [ LoIntEnumField("type", 0x2, LOOPBACK_TYPES) ]
+
+
 class Dot1AD(Dot1Q):
     name = '802_1AD'
-
 
 bind_layers( Dot3,          LLC,           )
 bind_layers( Ether,         LLC,           type=122)
@@ -652,6 +677,7 @@ conf.l2types.register_num2layer(ARPHDR_LOOPBACK, Ether)
 conf.l2types.register_layer2num(ARPHDR_ETHER, Dot3)
 conf.l2types.register(144, CookedLinux)  # called LINUX_IRDA, similar to CookedLinux
 conf.l2types.register(113, CookedLinux)
+conf.l2types.register(DLT_NULL, Loopback)
 
 conf.l3types.register(ETH_P_ARP, ARP)
 

@@ -1,6 +1,11 @@
 % IS-IS Tests
 * Tests for the IS-IS layer
 
++ Syntax check
+
+= Import the isis layer
+from scapy.contrib.isis import *
+
 + Basic Layer Tests
 
 = Layer Binding
@@ -13,9 +18,20 @@ assert(p[ISIS_CommonHdr].pdutype == 17)
 assert(p[ISIS_CommonHdr].hdrlen == 20)
 
 + Package Tests
+
+= P2P Hello
+p = Dot3(dst="09:00:2b:00:00:05",src="00:00:00:aa:00:8c")/LLC()/ISIS_CommonHdr()/ISIS_P2P_Hello(
+         holdingtime=40, sourceid="1720.1600.8016",
+         tlvs=[
+            ISIS_ProtocolsSupportedTlv(nlpids=["IPv4", "IPv6"])
+         ])
+p = p.__class__(str(p))
+assert(p[ISIS_P2P_Hello].pdulength == 24)
+assert(network_layer_protocol_ids[p[ISIS_ProtocolsSupportedTlv].nlpids[1]] == "IPv6")
+
 = LSP
 p = Dot3(dst="09:00:2b:00:00:05",src="00:00:00:aa:00:8c")/LLC()/ISIS_CommonHdr()/ISIS_L2_LSP(
-         lifetime=863, lspid="1720.1600.8016.00-00", seqnum=0x1f0, typeblock="L1+L2", 
+         lifetime=863, lspid="1720.1600.8016.00-00", seqnum=0x1f0, typeblock="L1+L2",
          tlvs=[
              ISIS_AreaTlv(
                  areas=[ISIS_AreaEntry(areaid="49.1000")]
@@ -50,8 +66,71 @@ p = Dot3(dst="09:00:2b:00:00:05",src="00:00:00:aa:00:8c")/LLC()/ISIS_CommonHdr()
              ISIS_ExtendedIsReachabilityTlv(
                  neighbours=[ISIS_ExtendedIsNeighbourEntry(neighbourid="1720.1600.8004.00", metric=10)]
              )
-         ]
-    )
+         ])
 p = p.__class__(str(p))
 assert(p[ISIS_L2_LSP].pdulength == 150)
 assert(p[ISIS_L2_LSP].checksum == 0x8701)
+
+= LSP with Sub-TLVs
+p = Dot3(dst="09:00:2b:00:00:05",src="00:00:00:aa:00:8c")/LLC()/ISIS_CommonHdr()/ISIS_L2_LSP(
+         lifetime=863, lspid="1720.1600.8016.00-00", seqnum=0x1f0, typeblock="L1+L2",
+         tlvs=[
+             ISIS_AreaTlv(
+                 areas=[ISIS_AreaEntry(areaid="49.1000")]
+             ),
+             ISIS_ProtocolsSupportedTlv(
+                 nlpids=["IPv4", "IPv6"]
+             ),
+             ISIS_DynamicHostnameTlv(
+                 hostname="BR-HH"
+             ),
+             ISIS_IpInterfaceAddressTlv(
+                 addresses=["172.16.8.16"]
+             ),
+             ISIS_GenericTlv(
+                 type=134,
+                 val="\xac\x10\x08\x10"
+             ),
+             ISIS_ExtendedIpReachabilityTlv(
+                 pfxs=[
+                     ISIS_ExtendedIpPrefix(metric=0, pfx="172.16.8.16/32"),
+                     ISIS_ExtendedIpPrefix(metric=10, pfx="10.1.0.109/30", subtlvindicator=1,
+                     subtlvs=[
+                        ISIS_32bitAdministrativeTagSubTlv(tags=[321, 123]),
+                        ISIS_64bitAdministrativeTagSubTlv(tags=[54321, 4294967311])
+                     ]),
+                     ISIS_ExtendedIpPrefix(metric=10, pfx="10.1.0.181/30", subtlvindicator=1,
+                     subtlvs=[
+                        ISIS_GenericSubTlv(type=123, val="\x11\x1f\x01\x1c")
+                     ])
+                 ]
+             ),
+             ISIS_Ipv6ReachabilityTlv(
+                 pfxs=[
+                     ISIS_Ipv6Prefix(metric=0, pfx="fe10:1::10/128"),
+                     ISIS_Ipv6Prefix(metric=10, pfx="fd1f:1::/64", subtlvindicator=1,
+                     subtlvs=[
+                        ISIS_GenericSubTlv(type=99, val="\x1f\x01\x1f\x01\x11\x1f\x01\x1c")
+                     ]),
+                     ISIS_Ipv6Prefix(metric=10, pfx="fd1f:1:12::/64")
+                 ]
+             ),
+             ISIS_ExtendedIsReachabilityTlv(
+                 neighbours=[
+                     ISIS_ExtendedIsNeighbourEntry(neighbourid="1720.1600.8004.00", metric=10,
+                     subtlvs=[
+                        ISIS_IPv4InterfaceAddressSubTlv(address="172.16.8.4"),
+                        ISIS_LinkLocalRemoteIdentifiersSubTlv(localid=418, remoteid=54321),
+                        ISIS_IPv6NeighborAddressSubTlv(address="fe10:1::5")
+                     ])
+                 ]
+             )
+         ])
+p = p.__class__(str(p))
+assert(p[ISIS_L2_LSP].pdulength == 231)
+assert(p[ISIS_L2_LSP].checksum == 0xf8df)
+assert(p[ISIS_ExtendedIpReachabilityTlv].pfxs[1].subtlvs[1].tags[0]==54321)
+assert(p[ISIS_Ipv6ReachabilityTlv].pfxs[1].subtlvs[0].len==8)
+assert(p[ISIS_ExtendedIsReachabilityTlv].neighbours[0].subtlvs[0].address=='172.16.8.4')
+assert(p[ISIS_ExtendedIsReachabilityTlv].neighbours[0].subtlvs[1].localid==418)
+

@@ -14,7 +14,7 @@ from scapy.packet import *
 from scapy.fields import *
 from scapy.ansmachine import *
 from scapy.sendrecv import sr1
-from scapy.layers.inet import IP, DestIPField, UDP
+from scapy.layers.inet import IP, DestIPField, UDP, TCP
 from scapy.layers.inet6 import DestIP6Field
 
 class DNSStrField(StrField):
@@ -233,36 +233,43 @@ class RDLenField(Field):
             rdataf = pkt.get_field("rdata")
             x = len(rdataf.i2m(pkt, pkt.rdata))
         return x
-    
+
 
 class DNS(Packet):
     name = "DNS"
-    fields_desc = [ ShortField("id", 0),
-                    BitField("qr", 0, 1),
-                    BitEnumField("opcode", 0, 4, {0:"QUERY",1:"IQUERY",2:"STATUS"}),
-                    BitField("aa", 0, 1),
-                    BitField("tc", 0, 1),
-                    BitField("rd", 1, 1),
-                    BitField("ra", 0, 1),
-                    BitField("z", 0, 1),
-                    # AD and CD bits are defined in RFC 2535
-                    BitField("ad", 0, 1), # Authentic Data
-                    BitField("cd", 0, 1), # Checking Disabled
-                    BitEnumField("rcode", 0, 4, {0:"ok", 1:"format-error", 2:"server-failure", 3:"name-error", 4:"not-implemented", 5:"refused"}),
-                    DNSRRCountField("qdcount", None, "qd"),
-                    DNSRRCountField("ancount", None, "an"),
-                    DNSRRCountField("nscount", None, "ns"),
-                    DNSRRCountField("arcount", None, "ar"),
-                    DNSQRField("qd", "qdcount"),
-                    DNSRRField("an", "ancount"),
-                    DNSRRField("ns", "nscount"),
-                    DNSRRField("ar", "arcount",0) ]
+    fields_desc = [
+        ConditionalField(ShortField("length", None),
+                         lambda p: isinstance(p.underlayer, TCP)),
+        ShortField("id", 0),
+        BitField("qr", 0, 1),
+        BitEnumField("opcode", 0, 4, {0: "QUERY", 1: "IQUERY", 2: "STATUS"}),
+        BitField("aa", 0, 1),
+        BitField("tc", 0, 1),
+        BitField("rd", 1, 1),
+        BitField("ra", 0, 1),
+        BitField("z", 0, 1),
+        # AD and CD bits are defined in RFC 2535
+        BitField("ad", 0, 1),  # Authentic Data
+        BitField("cd", 0, 1),  # Checking Disabled
+        BitEnumField("rcode", 0, 4, {0: "ok", 1: "format-error",
+                                     2: "server-failure", 3: "name-error",
+                                     4: "not-implemented", 5: "refused"}),
+        DNSRRCountField("qdcount", None, "qd"),
+        DNSRRCountField("ancount", None, "an"),
+        DNSRRCountField("nscount", None, "ns"),
+        DNSRRCountField("arcount", None, "ar"),
+        DNSQRField("qd", "qdcount"),
+        DNSRRField("an", "ancount"),
+        DNSRRField("ns", "nscount"),
+        DNSRRField("ar", "arcount", 0),
+    ]
+
     def answers(self, other):
         return (isinstance(other, DNS)
                 and self.id == other.id
                 and self.qr == 1
                 and other.qr == 0)
-        
+
     def mysummary(self):
         type = ["Qry","Ans"][self.qr]
         name = ""
@@ -276,14 +283,30 @@ class DNS(Packet):
                 name = ' "%s"' % self.qd.qname
         return 'DNS %s%s ' % (type, name)
 
-dnstypes = { 0:"ANY", 255:"ALL",
-             1:"A", 2:"NS", 3:"MD", 4:"MF", 5:"CNAME", 6:"SOA", 7: "MB", 8:"MG",
-             9:"MR",10:"NULL",11:"WKS",12:"PTR",13:"HINFO",14:"MINFO",15:"MX",16:"TXT",
-             17:"RP",18:"AFSDB",28:"AAAA", 33:"SRV",38:"A6",39:"DNAME",
-             41:"OPT", 43:"DS", 46:"RRSIG", 47:"NSEC", 48:"DNSKEY",
-	     50: "NSEC3", 51: "NSEC3PARAM", 32769:"DLV" }
+    def post_build(self, pkt, pay):
+        if isinstance(self.underlayer, TCP) and self.length is None:
+            pkt = struct.pack("!H", len(pkt) - 2) + pkt[2:]
+        return pkt + pay
 
-dnsqtypes = {251:"IXFR",252:"AXFR",253:"MAILB",254:"MAILA",255:"ALL"}
+
+# http://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml
+dnstypes = {
+    0:"ANY",
+    1: "A", 2: "NS", 3: "MD", 4: "MF", 5: "CNAME", 6: "SOA", 7: "MB", 8: "MG",
+    9: "MR", 10: "NULL", 11: "WKS", 12: "PTR", 13: "HINFO", 14: "MINFO",
+    15: "MX", 16: "TXT", 17: "RP", 18: "AFSDB", 19: "X25", 20: "ISDN", 21: "RT",
+    22: "NSAP", 23: "NSAP-PTR", 24: "SIG", 25: "KEY", 26: "PX", 27: "GPOS",
+    28: "AAAA", 29: "LOC", 30: "NXT", 31: "EID", 32: "NIMLOC", 33: "SRV",
+    34: "ATMA", 35: "NAPTR", 36: "KX", 37: "CERT", 38: "A6", 39: "DNAME",
+    40: "SINK", 41: "OPT", 42: "APL", 43: "DS", 44: "SSHFP", 45: "IPSECKEY",
+    46: "RRSIG", 47: "NSEC", 48: "DNSKEY", 49: "DHCID", 50: "NSEC3",
+    51: "NSEC3PARAM", 55: "HIP", 56: "NINFO", 57: "RKEY", 58: "TALINK",
+    99: "SPF", 100: "UINFO", 101: "UID", 102: "GID", 103: "UNSPEC", 249: "TKEY",
+    250: "TSIG",
+    32768: "TA", 32769:"DLV",
+}
+
+dnsqtypes = {251: "IXFR", 252: "AXFR", 253: "MAILB", 254: "MAILA", 255: "ALL"}
 dnsqtypes.update(dnstypes)
 dnsclasses =  {1: 'IN',  2: 'CS',  3: 'CH',  4: 'HS',  255: 'ANY'}
 
@@ -627,6 +650,8 @@ bind_layers(UDP, DNS, dport=53)
 bind_layers(UDP, DNS, sport=53)
 DestIPField.bind_addr(UDP, "224.0.0.251", dport=5353)
 DestIP6Field.bind_addr(UDP, "ff02::fb", dport=5353)
+bind_layers(TCP, DNS, dport=53)
+bind_layers(TCP, DNS, sport=53)
 
 
 @conf.commands.register

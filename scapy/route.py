@@ -36,7 +36,7 @@ class Route:
             rt += "%-15s %-15s %-15s %-15s %-15s\n" % (ltoa(net),
                                               ltoa(msk),
                                               gw,
-                                              iface,
+                                              (iface.name if not isinstance(iface, basestring) else iface),
                                               addr)
         return rt
 
@@ -137,6 +137,8 @@ class Route:
         dst = atol(dst)
         pathes=[]
         for d,m,gw,i,a in self.routes:
+            if not a: # some interfaces may not currently be connected
+                continue
             aa = atol(a)
             if aa == dst:
                 pathes.append((0xffffffffL,(LOOPBACK_NAME,a,"0.0.0.0")))

@@ -17,6 +17,12 @@ def inet_pton(af, addr):
     if af == socket.AF_INET:
         return socket.inet_aton(addr)
     elif af == socket.AF_INET6:
+        # Use inet_pton if available
+        try:
+            return socket.inet_pton(af, addr)
+        except AttributeError:
+            pass
+
         # IPv6: The use of "::" indicates one or more groups of 16 bits of zeros.
         # We deal with this form of wildcard using a special marker. 
         JOKER = "*"
@@ -61,10 +67,16 @@ def inet_pton(af, addr):
 
 
 def inet_ntop(af, addr):
-    """Convert an IP address from binary form into text represenation"""
+    """Convert an IP address from binary form into text representation"""
     if af == socket.AF_INET:
         return socket.inet_ntoa(addr)
     elif af == socket.AF_INET6:
+        # Use inet_ntop if available
+        try:
+            return socket.inet_ntop(af, addr)
+        except AttributeError:
+            pass
+
         # IPv6 addresses have 128bits (16 bytes)
         if len(addr) != 16:
             raise Exception("Illegal syntax for IP address")
@@ -86,4 +98,4 @@ def inet_ntop(af, addr):
             result = "0" + result
         return result
     else:
-        raise Exception("Address family not supported yet")        
+        raise Exception("Address family not supported yet")   

@@ -11,36 +11,46 @@ matrix:
 
         - os: osx
           language: generic
+
+        - os: osx
+          language: generic
           env:
-            - SCAPY_USE_PCAPDNET=yes
+            - SCAPY_SUDO=false SCAPY_USE_PCAPDNET=yes
 
         # Run as root
         - os: linux
           sudo: required
           python: 2.7
           env:
-            - TRAVIS_SUDO=sudo
+            - SCAPY_SUDO=sudo
 
         - os: linux
           sudo: required
           python: 2.7
           env:
-            - TRAVIS_SUDO=sudo
-            - SCAPY_USE_PCAPDNET=yes
+            - SCAPY_SUDO=sudo TEST_COMBINED_MODES=yes SCAPY_COVERAGE=yes 
 
         - os: linux
           sudo: required
           python: 2.7
           env:
-            - TRAVIS_SUDO=sudo
-            - TEST_COMBINED_MODES=yes
+            - SCAPY_SUDO=sudo SCAPY_USE_PCAPDNET=yes SCAPY_COVERAGE=yes 
 
         - os: osx
           language: generic
           env:
-            - TRAVIS_SUDO=sudo
-            - SCAPY_USE_PCAPDNET=yes
+            - SCAPY_SUDO=sudo SCAPY_COVERAGE=yes
+
+        - os: osx
+          language: generic
+          env:
+            - SCAPY_SUDO=sudo SCAPY_USE_PCAPDNET=yes SCAPY_COVERAGE=yes
 
 install: bash .travis/install.sh
 
 script: bash .travis/test.sh
+
+after_success:
+    - if [ "$SCAPY_COVERAGE" = "yes" ]; then pip install codecov; fi
+    # With UTScapy, the coverage dot file is located in the test directory
+    - if [ "$SCAPY_COVERAGE" = "yes" ]; then cd test; codecov; fi

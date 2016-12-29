@@ -10,8 +10,9 @@ Functions to send and receive packets.
 import errno
 import cPickle,os,sys,time,subprocess
 import itertools
-from select import select
-from scapy.arch.consts import DARWIN, FREEBSD
+from select import select, error as select_error
+
+from scapy.arch.consts import DARWIN, FREEBSD, OPENBSD
 from scapy.data import *
 from scapy.config import conf
 from scapy.packet import Gen
@@ -127,7 +128,12 @@ def sndrcv(pks, pkt, timeout = None, inter = 0, verbose=None, chainCC=0, retry=0
                                 if remaintime <= 0:
                                     break
                             r = None
-                            if not isinstance(pks, StreamSocket) and (FREEBSD or DARWIN):
+                            if conf.use_bpf:
+                                from scapy.arch.bpf.supersocket import bpf_select
+                                inp = bpf_select(inmask)
+                                if pks in inp:
+                                    r = pks.recv()
+                            elif not isinstance(pks, StreamSocket) and (FREEBSD or DARWIN or OPENBSD):
                                 inp, out, err = select(inmask,[],[], 0.05)
                                 if len(inp) == 0 or pks in inp:
                                     r = pks.nonblock_recv()
@@ -135,8 +141,9 @@ def sndrcv(pks, pkt, timeout = None, inter = 0, verbose=None, chainCC=0, retry=0
                                 inp = []
                                 try:
                                     inp, out, err = select(inmask,[],[], remaintime)
-                                except IOError, exc:
-                                    if exc.errno != errno.EINTR:
+                                except (IOError, select_error) as exc:
+                                    # select.error has no .errno attribute
+                                    if exc.args[0] != errno.EINTR:
                                         raise
                                 if len(inp) == 0:
                                     break
@@ -283,7 +290,7 @@ def sendpfast(x, pps=None, mbps=None, realtime=None, loop=0, file_cache=False, i
     """Send packets at layer 2 using tcpreplay for performance
     pps:  packets per second
     mpbs: MBits per second
-    realtime: use packet's timestamp, bending time with realtime value
+    realtime: use packet's timestamp, bending time with real-time value
     loop: number of times to process the packet list
     file_cache: cache packets in RAM instead of reading from disk at each iteration
     iface: output interface """
@@ -321,9 +328,9 @@ def sendpfast(x, pps=None, mbps=None, realtime=None, loop=0, file_cache=False, i
         
     
 @conf.commands.register
-def sr(x,filter=None, iface=None, nofilter=0, *args,**kargs):
+def sr(x, promisc=None, filter=None, iface=None, nofilter=0, *args,**kargs):
     """Send and receive packets at layer 3
-nofilter: put 1 to avoid use of bpf filters
+nofilter: put 1 to avoid use of BPF filters
 retry:    if positive, how many times to resend unanswered packets
           if negative, how many times to retry when no more packets are answered
 timeout:  how much time to wait after the last packet has been sent
@@ -333,15 +340,15 @@ filter:   provide a BPF filter
 iface:    listen answers only on the given interface"""
     if not kargs.has_key("timeout"):
         kargs["timeout"] = -1
-    s = conf.L3socket(filter=filter, iface=iface, nofilter=nofilter)
+    s = conf.L3socket(promisc=promisc, filter=filter, iface=iface, nofilter=nofilter)
     a,b=sndrcv(s,x,*args,**kargs)
     s.close()
     return a,b
 
 @conf.commands.register
-def sr1(x,filter=None,iface=None, nofilter=0, *args,**kargs):
+def sr1(x, promisc=None, filter=None, iface=None, nofilter=0, *args,**kargs):
     """Send packets at layer 3 and return only the first answer
-nofilter: put 1 to avoid use of bpf filters
+nofilter: put 1 to avoid use of BPF filters
 retry:    if positive, how many times to resend unanswered packets
           if negative, how many times to retry when no more packets are answered
 timeout:  how much time to wait after the last packet has been sent
@@ -351,7 +358,7 @@ filter:   provide a BPF filter
 iface:    listen answers only on the given interface"""
     if not kargs.has_key("timeout"):
         kargs["timeout"] = -1
-    s=conf.L3socket(filter=filter, nofilter=nofilter, iface=iface)
+    s=conf.L3socket(promisc=promisc, filter=filter, nofilter=nofilter, iface=iface)
     a,b=sndrcv(s,x,*args,**kargs)
     s.close()
     if len(a) > 0:
@@ -360,9 +367,9 @@ iface:    listen answers only on the given interface"""
         return None
 
 @conf.commands.register
-def srp(x,iface=None, iface_hint=None, filter=None, nofilter=0, type=ETH_P_ALL, *args,**kargs):
+def srp(x, promisc=None, iface=None, iface_hint=None, filter=None, nofilter=0, type=ETH_P_ALL, *args,**kargs):
     """Send and receive packets at layer 2
-nofilter: put 1 to avoid use of bpf filters
+nofilter: put 1 to avoid use of BPF filters
 retry:    if positive, how many times to resend unanswered packets
           if negative, how many times to retry when no more packets are answered
 timeout:  how much time to wait after the last packet has been sent
@@ -374,7 +381,7 @@ iface:    work only on the given interface"""
         kargs["timeout"] = -1
     if iface is None and iface_hint is not None:
         iface = conf.route.route(iface_hint)[0]
-    s = conf.L2socket(iface=iface, filter=filter, nofilter=nofilter, type=type)
+    s = conf.L2socket(promisc=promisc, iface=iface, filter=filter, nofilter=nofilter, type=type)
     a,b=sndrcv(s ,x,*args,**kargs)
     s.close()
     return a,b
@@ -382,7 +389,7 @@ iface:    work only on the given interface"""
 @conf.commands.register
 def srp1(*args,**kargs):
     """Send and receive packets at layer 2 and return only the first answer
-nofilter: put 1 to avoid use of bpf filters
+nofilter: put 1 to avoid use of BPF filters
 retry:    if positive, how many times to resend unanswered packets
           if negative, how many times to retry when no more packets are answered
 timeout:  how much time to wait after the last packet has been sent
@@ -488,7 +495,13 @@ def sndrcvflood(pks, pkt, prn=lambda (s,r):r.summary(), chainCC=0, store=1, uniq
 
     try:
         while 1:
-            readyr,readys,_ = select([rsock],[ssock],[])
+            if conf.use_bpf:
+                from scapy.arch.bpf.supersocket import bpf_select
+                readyr = bpf_select([rsock])
+                _, readys, _ = select([], [ssock], [])
+            else:
+                readyr, readys, _ = select([rsock], [ssock], [])
+
             if ssock in readys:
                 pks.send(packets_to_send.next())
                 
@@ -516,31 +529,31 @@ def sndrcvflood(pks, pkt, prn=lambda (s,r):r.summary(), chainCC=0, store=1, uniq
     return received
 
 @conf.commands.register
-def srflood(x,filter=None, iface=None, nofilter=None, *args,**kargs):
+def srflood(x, promisc=None, filter=None, iface=None, nofilter=None, *args,**kargs):
     """Flood and receive packets at layer 3
 prn:      function applied to packets received. Ret val is printed if not None
 store:    if 1 (default), store answers and return them
 unique:   only consider packets whose print 
-nofilter: put 1 to avoid use of bpf filters
+nofilter: put 1 to avoid use of BPF filters
 filter:   provide a BPF filter
 iface:    listen answers only on the given interface"""
-    s = conf.L3socket(filter=filter, iface=iface, nofilter=nofilter)
+    s = conf.L3socket(promisc=promisc, filter=filter, iface=iface, nofilter=nofilter)
     r=sndrcvflood(s,x,*args,**kargs)
     s.close()
     return r
 
 @conf.commands.register
-def srpflood(x,filter=None, iface=None, iface_hint=None, nofilter=None, *args,**kargs):
+def srpflood(x, promisc=None, filter=None, iface=None, iface_hint=None, nofilter=None, *args,**kargs):
     """Flood and receive packets at layer 2
 prn:      function applied to packets received. Ret val is printed if not None
 store:    if 1 (default), store answers and return them
 unique:   only consider packets whose print 
-nofilter: put 1 to avoid use of bpf filters
+nofilter: put 1 to avoid use of BPF filters
 filter:   provide a BPF filter
 iface:    listen answers only on the given interface"""
     if iface is None and iface_hint is not None:
         iface = conf.route.route(iface_hint)[0]    
-    s = conf.L2socket(filter=filter, iface=iface, nofilter=nofilter)
+    s = conf.L2socket(promisc=promisc, filter=filter, iface=iface, nofilter=nofilter)
     r=sndrcvflood(s,x,*args,**kargs)
     s.close()
     return r
@@ -561,6 +574,7 @@ sniff([count=0,] [prn=None,] [store=1,] [offline=None,]
     prn: function to apply to each packet. If something is returned,
          it is displayed. Ex:
          ex: prn = lambda x: x.summary()
+ filter: provide a BPF filter
 lfilter: python function applied to each packet to determine
          if further action may be done
          ex: lfilter = lambda x: x.haslayer(Padding)
@@ -592,8 +606,30 @@ interfaces)
                 sniff_sockets = [L2socket(type=ETH_P_ALL, iface=iface, *arg,
                                            **karg)]
         else:
-            sniff_sockets = [PcapReader(offline)]
-
+            flt = karg.get('filter')
+            if flt is not None:
+                if isinstance(offline, basestring):
+                    sniff_sockets = [
+                        PcapReader(
+                            subprocess.Popen(
+                                [conf.prog.tcpdump, "-r", offline, "-w", "-",
+                                 flt],
+                                stdout=subprocess.PIPE
+                            ).stdout
+                        )
+                    ]
+                else:
+                    sniff_sockets = [
+                        PcapReader(
+                            subprocess.Popen(
+                                [conf.prog.tcpdump, "-r", "-", "-w", "-", flt],
+                                stdin=offline,
+                                stdout=subprocess.PIPE
+                            ).stdout
+                        )
+                    ]
+            else:
+                sniff_sockets = [PcapReader(offline)]
     lst = []
     if timeout is not None:
         stoptime = time.time()+timeout
@@ -605,10 +641,17 @@ interfaces)
                 remain = stoptime-time.time()
                 if remain <= 0:
                     break
-            sel = select(sniff_sockets, [], [], remain)
-            for s in sel[0]:
+            if conf.use_bpf:
+                from scapy.arch.bpf.supersocket import bpf_select
+                ins = bpf_select(sniff_sockets, remain)
+            else:
+                ins, _, _ = select(sniff_sockets, [], [], remain)
+            for s in ins:
                 p = s.recv()
-                if p is not None:
+                if p is None and offline is not None:
+                    stop_event = True
+                    break
+                elif p is not None:
                     if lfilter and not lfilter(p):
                         continue
                     if s in label:
@@ -675,7 +718,12 @@ stop_filter: python function applied to each packet to determine
                 remain = stoptime-time.time()
                 if remain <= 0:
                     break
-            ins, outs, errs = select([s1, s2], [], [], remain)
+            if conf.use_bpf:
+                from scapy.arch.bpf.supersocket import bpf_select
+                ins = bpf_select([s1, s2], remain)
+            else:
+                ins, _, _ = select([s1, s2], [], [], remain)
+
             for s in ins:
                 p = s.recv()
                 if p is not None:

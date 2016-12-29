@@ -34,7 +34,7 @@ class PacketList(BasePacketList):
         self.stats = stats
         if res is None:
             res = []
-        if isinstance(res, PacketList):
+        elif isinstance(res, PacketList):
             res = res.res
         self.res = res
         self.listname = name
@@ -125,7 +125,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
         return self.__class__(filter(func,self.res),
                               name="filtered %s"%self.listname)
     def make_table(self, *args, **kargs):
-        """Prints a table using a function that returs for each packet its head column value, head row value and displayed value
+        """Prints a table using a function that returns for each packet its head column value, head row value and displayed value
         ex: p.make_table(lambda x:(x[IP].dst, x[TCP].dport, x[TCP].sprintf("%flags%")) """
         return make_table(self.res, *args, **kargs)
     def make_lined_table(self, *args, **kargs):
@@ -139,7 +139,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
         """Applies a function to each packet to get a value that will be plotted
         with matplotlib. A list of matplotlib.lines.Line2D is returned.
 
-        lfilter: a truth function that decides whether a packet must be ploted
+        lfilter: a truth function that decides whether a packet must be plotted
         """
 
         # Get the list of packets
@@ -257,7 +257,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
 
     def padding(self, lfilter=None):
         """Same as hexraw(), for Padding layer"""
-        for i in enumerate(self.res):
+        for i, res in enumerate(self.res):
             p = self._elt2pkt(res)
             if p.haslayer(conf.padding_layer):
                 if lfilter is None or lfilter(p):
@@ -268,7 +268,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
 
     def nzpadding(self, lfilter=None):
         """Same as padding() but only non null padding"""
-        for i in enumerate(self.res):
+        for i, res in enumerate(self.res):
             p = self._elt2pkt(res)
             if p.haslayer(conf.padding_layer):
                 pad = p.getlayer(conf.padding_layer).load
@@ -407,9 +407,8 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
         import pyx
         d = pyx.document.document()
         l = len(self.res)
-        for i in enumerate(self.res):
-            elt = res
-            c = self._elt2pkt(elt).canvas_dump(**kargs)
+        for i, res in enumerate(self.res):
+            c = self._elt2pkt(res).canvas_dump(**kargs)
             cbb = c.bbox()
             c.text(cbb.left(),cbb.top()+1,r"\font\cmssfont=cmss12\cmssfont{Frame %i/%i}" % (i,l),[pyx.text.size.LARGE])
             if conf.verb >= 2:
@@ -422,7 +421,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
                  
 
     def psdump(self, filename = None, **kargs):
-        """Creates a multipage poscript file with a psdump of every packet
+        """Creates a multi-page postcript file with a psdump of every packet
         filename: name of the file to write to. If empty, a temporary file is used and
                   conf.prog.psreader is called"""
         d = self._dump_document(**kargs)

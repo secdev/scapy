@@ -257,7 +257,7 @@ class BasePacket(Gen):
 
 
 #############################
-## Packet list base classe ##
+## Packet list base class  ##
 #############################
 
 class BasePacketList(object):

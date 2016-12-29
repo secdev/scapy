@@ -410,6 +410,9 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
             elif (self.payload.type in [133,134,135,136,144,145]):
                 return struct.pack("B", self.nh)+self.payload.hashret()
 
+        if not conf.checkIPinIP and self.nh in [4, 41]:  # IP, IPv6
+            return self.payload.hashret()
+
         nh = self.nh
         sd = self.dst
         ss = self.src
@@ -453,6 +456,13 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
             return struct.pack("B", nh)+self.payload.hashret()
 
     def answers(self, other):
+        if not conf.checkIPinIP:  # skip IP in IP and IPv6 in IP
+            if self.nh in [4, 41]:
+                return self.payload.answers(other)
+            if isinstance(other, IPv6) and other.nh in [4, 41]:
+                return self.answers(other.payload)
+            if isinstance(other, IP) and other.proto in [4, 41]:
+                return self.answers(other.payload)
         if not isinstance(other, IPv6): # self is reply, other is request
             return False
         if conf.checkIPaddr: 
@@ -1352,7 +1362,9 @@ class ICMPv6MLQuery(_ICMPv6ML): # RFC 2710
     overload_fields = {IPv6: { "dst": "ff02::1", "hlim": 1, "nh": 58 }} 
     def hashret(self):
         if self.mladdr != "::":
-            return struct.pack("HH",self.mladdr)+self.payload.hashret()
+            return (
+                inet_pton(socket.AF_INET6, self.mladdr) + self.payload.hashret()
+            )
         else:
             return self.payload.hashret()
         
@@ -2838,7 +2850,7 @@ class MIP6MH_HoT(_MobilityHeader):
     overload_fields = { IPv6: { "nh": 135 } }
     def hashret(self):
         return self.cookie
-    def answers(self):
+    def answers(self, other):
         if (isinstance(other, MIP6MH_HoTI) and
             self.cookie == other.cookie):
             return 1
@@ -2996,7 +3008,7 @@ class TracerouteResult6(TracerouteResult):
 
         for k in trace.itervalues():
             try:
-                m = min(x for x, y in k.itervalues() if y[1])
+                m = min(x for x, y in k.itervalues() if y)
             except ValueError:
                 continue
             for l in k.keys():  # use .keys(): k is modified in the loop
@@ -3722,6 +3734,7 @@ conf.l2types.register(31, IPv6)
 
 bind_layers(Ether,     IPv6,     type = 0x86dd )
 bind_layers(CookedLinux, IPv6,   proto = 0x86dd )
+bind_layers(Loopback,  IPv6,     type = 0x1c )
 bind_layers(IPerror6,  TCPerror, nh = socket.IPPROTO_TCP )
 bind_layers(IPerror6,  UDPerror, nh = socket.IPPROTO_UDP )
 bind_layers(IPv6,      TCP,      nh = socket.IPPROTO_TCP )

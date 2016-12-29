@@ -71,7 +71,17 @@ def _version():
                 tag = f.read()
             return tag
         except:
-            return 'unknown.version'
+            # Rely on git archive "export-subst" git attribute.
+            # See 'man gitattributes' for more details.
+            git_archive_id = '$Format:%h %d$'
+            sha1 = git_archive_id.strip().split()[0]
+            match = re.search(r'tag:(\S+)', git_archive_id)
+            if match:
+                return match.group(1)
+            elif sha1:
+                return sha1
+            else:
+                return 'unknown.version'
 
 VERSION = _version()
 

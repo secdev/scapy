@@ -58,7 +58,7 @@ log_scapy.addHandler(NullHandler())
 log_runtime = logging.getLogger("scapy.runtime")          # logs at runtime
 log_runtime.addFilter(ScapyFreqFilter())
 log_interactive = logging.getLogger("scapy.interactive")  # logs in interactive functions
-log_loading = logging.getLogger("scapy.loading")          # logs when loading scapy
+log_loading = logging.getLogger("scapy.loading")          # logs when loading Scapy
 
 
 def warning(x):

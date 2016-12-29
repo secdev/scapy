@@ -18,11 +18,13 @@ from scapy.utils import atol, itom, inet_aton, inet_ntoa, PcapReader
 from scapy.base_classes import Gen, Net, SetGen
 import scapy.plist as plist
 from scapy.data import MTU, ETHER_BROADCAST, ETH_P_ARP
+from scapy.arch.consts import LOOPBACK_NAME
 
 conf.use_pcap = False
 conf.use_dnet = False
 conf.use_winpcapy = True
 
+WINDOWS = (os.name == 'nt')
 
 #hot-patching socket for missing variables on Windows
 import socket
@@ -37,8 +39,6 @@ if not hasattr(socket, 'IPPROTO_ESP'):
 from scapy.arch import pcapdnet
 from scapy.arch.pcapdnet import *
 
-WINDOWS = True
-
 def _exec_query_ps(cmd, fields):
     """Execute a PowerShell query"""
     ps = sp.Popen([conf.prog.powershell] + cmd +
@@ -49,12 +49,19 @@ def _exec_query_ps(cmd, fields):
     for line in ps.stdout:
         if not line.strip(): #skip empty lines
             continue
-        l.append(line.split(':', 1)[1].strip())
+        sl = line.split(':', 1)
+        if len(sl) == 1:
+            l[-1] += sl[0].strip()
+            continue
+        else:
+            l.append(sl[1].strip())
         if len(l) == len(fields):
             yield l
             l=[]
 
 def _vbs_exec_code(code):
+    if not WINDOWS:
+        return
     tmpfile = tempfile.NamedTemporaryFile(suffix=".vbs", delete=False)
     tmpfile.write(code)
     tmpfile.close()
@@ -69,6 +76,8 @@ def _vbs_exec_code(code):
     os.unlink(tmpfile.name)
 
 def _vbs_get_iface_guid(devid):
+    if not WINDOWS:
+        return
     try:
         devid = str(int(devid) + 1)
         guid = _vbs_exec_code("""WScript.Echo CreateObject("WScript.Shell").RegRead("HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\NetworkCards\\%s\\ServiceName")
@@ -99,6 +108,8 @@ def _exec_query_vbs(cmd, fields):
     supported.
 
     """
+    if not WINDOWS:
+        return
     assert len(cmd) == 2 and cmd[0] == "Get-WmiObject"
     fields = [_VBS_WMI_FIELDS.get(cmd[1], {}).get(fld, fld) for fld in fields]
     values = _vbs_exec_code("""Set wmi = GetObject("winmgmts:")
@@ -144,6 +155,8 @@ def _where(filename, dirs=None, env="PATH"):
 
 def win_find_exe(filename, installsubdir=None, env="ProgramFiles"):
     """Find executable in current dir, system path or given ProgramFiles subdir"""
+    if not WINDOWS:
+        return
     for fn in [filename, filename+".exe"]:
         try:
             if installsubdir is None:
@@ -156,6 +169,16 @@ def win_find_exe(filename, installsubdir=None, env="ProgramFiles"):
             break        
     return path
 
+
+def is_new_release():
+    release = platform.release()
+    try:
+        if float(release) >= 8:
+            return True
+    except ValueError:
+        if (release=="post2008Server"):
+            return True
+    return False
 
 class WinProgPath(ConfClass):
     _default = "<System default>"
@@ -190,11 +213,15 @@ def is_interface_valid(iface):
     return False
 
 def get_windows_if_list():
-    if platform.release()=="post2008Server" or platform.release()=="8":
+    if is_new_release():
         # This works only starting from Windows 8/2012 and up. For older Windows another solution is needed
+        # Careful: this is weird, but Get-NetAdaptater works like: (Name isn't the interface name)
+        # Name                      InterfaceDescription                    ifIndex Status       MacAddress             LinkSpeed
+        # ----                      --------------------                    ------- ------       ----------             ---------
+        # Ethernet                  Killer E2200 Gigabit Ethernet Contro...      13 Up           D0-50-99-56-DD-F9         1 Gbps
         query = exec_query(['Get-NetAdapter'],
-                           ['Name', 'InterfaceIndex', 'InterfaceDescription',
-                            'InterfaceGuid', 'MacAddress'])
+                           ['InterfaceDescription', 'InterfaceIndex', 'Name',
+                            'InterfaceGuid', 'MacAddress']) #Weird order, but normal
     else:
         query = exec_query(['Get-WmiObject', 'Win32_NetworkAdapter'],
                            ['Name', 'InterfaceIndex', 'InterfaceDescription',
@@ -223,20 +250,23 @@ class NetworkInterface(object):
         self.pcap_name = None
         self.description = None
         self.data = data
+        self.invalid = False
         if data is not None:
             self.update(data)
 
     def update(self, data):
         """Update info about network interface according to given dnet dictionary"""
-        self.name = data["name"]
+        self.name = data['name']
         self.description = data['description']
         self.win_index = data['win_index']
         self.guid = data['guid']
+        if 'invalid' in data:
+            self.invalid = data['invalid']
         # Other attributes are optional
         self._update_pcapdata()
 
         try:
-            self.ip = socket.inet_ntoa(get_if_raw_addr(data['guid']))
+            self.ip = socket.inet_ntoa(get_if_raw_addr(data))
         except (KeyError, AttributeError, NameError):
             pass
 
@@ -251,12 +281,17 @@ class NetworkInterface(object):
             pass
 
     def _update_pcapdata(self):
+        if self.is_invalid():
+            return
         for i in winpcapy_get_if_list():
             if i.endswith(self.data['guid']):
                 self.pcap_name = i
                 return
 
         raise PcapNameNotFoundError
+
+    def is_invalid(self):
+        return self.invalid
 
     def __repr__(self):
         return "<%s %s %s>" % (self.__class__.__name__, self.name, self.guid)
@@ -273,7 +308,7 @@ class NetworkInterfaceDict(UserDict):
             except (KeyError, PcapNameNotFoundError):
                 pass
         
-        if len(self.data) == 0:
+        if len(self.data) == 0 and conf.use_winpcapy:
             log_loading.warning("No match between your pcap and windows network interfaces found. "
                                 "You probably won't be able to send packets. "
                                 "Deactivating unneeded interfaces and restarting Scapy might help."
@@ -322,6 +357,8 @@ def pcapname(dev):
 
     """
     if type(dev) is NetworkInterface:
+        if dev.is_invalid():
+            return None
         return dev.pcap_name
     try:
         return IFACES.dev_from_name(dev).pcap_name
@@ -347,7 +384,7 @@ pcapdnet.open_pcap = lambda iface,*args,**kargs: _orig_open_pcap(pcapname(iface)
 
 _orig_get_if_raw_hwaddr = pcapdnet.get_if_raw_hwaddr
 pcapdnet.get_if_raw_hwaddr = lambda iface, *args, **kargs: (
-    ARPHDR_ETHER, IFACES.dev_from_pcapname(iface.pcap_name).mac.replace(':', '').decode('hex')
+    ARPHDR_ETHER, mac2str(IFACES.dev_from_pcapname(pcapname(iface)).mac.replace('-', ':'))
 )
 get_if_raw_hwaddr = pcapdnet.get_if_raw_hwaddr
 
@@ -383,16 +420,16 @@ def read_routes_7():
                            ['Name', 'Mask', 'NextHop', 'InterfaceIndex']):
         try:
             iface = dev_from_index(line[3])
+            routes.append((atol(line[0]), atol(line[1]), line[2], iface, iface.ip))
         except ValueError:
             continue
-        routes.append((atol(line[0]), atol(line[1]), line[2], iface, iface.ip))
     return routes
-
+        
 def read_routes():
     routes = []
     release = platform.release()
     try:
-        if release in ["post2008Server", "8"]:
+        if is_new_release():
             routes = read_routes_post2008()
         elif release == "XP":
             routes = read_routes_xp()
@@ -406,7 +443,6 @@ def read_routes():
     return routes
        
 def read_routes_post2008():
-    # XXX TODO: FIX THIS XXX
     routes = []
     if_index = '(\d+)'
     dest = '(\d+\.\d+\.\d+\.\d+)/(\d+)'
@@ -423,6 +459,8 @@ def read_routes_post2008():
         if match:
             try:
                 iface = dev_from_index(match.group(1))
+                if iface.ip == "0.0.0.0":
+                    continue
             except:
                 continue
             # try:
@@ -461,3 +499,23 @@ def get_working_if():
         return LOOPBACK_NAME
 
 conf.iface = get_working_if()
+
+
+def route_add_loopback():
+    """Add a route to 127.0.0.1 to simplify unit tests on Windows"""
+
+    # Build the packed network addresses
+    loop_net = struct.unpack("!I", socket.inet_aton("127.0.0.0"))[0]
+    loop_mask = struct.unpack("!I", socket.inet_aton("255.0.0.0"))[0]
+
+    # Get the adapter from an existing route
+    if len(conf.route.routes) == 0:
+        return
+    adapter = conf.route.routes[0][3]
+
+    # Build and inject the fake route
+    loopback_route = (loop_net, loop_mask, "0.0.0.0", adapter, "127.0.0.1")
+    conf.route.routes.append(loopback_route)
+
+    # Flush the cache
+    conf.route.invalidate_cache()

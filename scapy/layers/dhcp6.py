@@ -211,7 +211,7 @@ class DUID_LLT(Packet):  # sect 9.2 RFC 3315
                     _LLAddrField("lladdr", ETHER_ANY) ]
 
 # In fact, IANA enterprise-numbers file available at 
-# http//www.iana.org/asignments/enterprise-numbers)
+# http://www.iana.org/assignments/enterprise-numbers
 # is simply huge (more than 2Mo and 600Ko in bz2). I'll
 # add only most common vendors, and encountered values.
 # -- arno
@@ -943,7 +943,7 @@ class DHCP6_Advertise(DHCP6):
 # - When the server receives a Request message via unicast from a
 # client to which the server has not sent a unicast option, the server
 # discards the Request message and responds with a Reply message
-# containinig Status Code option with the value UseMulticast, a Server
+# containing Status Code option with the value UseMulticast, a Server
 # Identifier Option containing the server's DUID, the client
 # Identifier option from the client message and no other option.
 
@@ -954,7 +954,7 @@ class DHCP6_Request(DHCP6):
 #####################################################################
 # Confirm Message
 # - sent by clients
-# - must include a clien identifier option
+# - must include a client identifier option
 # - When the server receives a Confirm Message, the server determines
 # whether the addresses in the Confirm message are appropriate for the
 # link to which the client is attached. cf p50

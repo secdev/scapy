@@ -16,7 +16,7 @@ memory usage, particularly in parts of the code often called.
 
 You want to spend to time working on Scapy but have no (or little)
 idea what to do? You can look for open issues
-[labeled "contributions wanted"](https://github.com/secdev/scapy/labels/contributions%20wanted).
+[labeled "contributions wanted"](https://github.com/secdev/scapy/labels/contributions%20wanted), or look at the [contributions roadmap](https://github.com/secdev/scapy/issues/399)
 
 If you have any ideas of useful contributions that you cannot (or do
 not want to) do yourself, open an issue and use the label

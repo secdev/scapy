@@ -5,6 +5,7 @@
 
 import os
 from sys import platform
+import platform as platform_lib
 
 LINUX = platform.startswith("linux")
 OPENBSD = platform.startswith("openbsd")
@@ -18,9 +19,15 @@ BSD = DARWIN or FREEBSD or OPENBSD or NETBSD
 if WINDOWS:
     X86_64 = False
     ARM_64 = False
+    try:
+        if float(platform_lib.release()) >= 8.1:
+            LOOPBACK_NAME = "Microsoft KM-TEST Loopback Adapter"
+        else:
+            LOOPBACK_NAME = "Microsoft Loopback Adapter"
+    except ValueError:
+        LOOPBACK_NAME = "Microsoft Loopback Adapter"
 else:
     uname = os.uname()
     X86_64 = uname[4] == 'x86_64'
     ARM_64 = uname[4] == 'aarch64'
-
-LOOPBACK_NAME = "lo" if LINUX else "lo0"
+    LOOPBACK_NAME = "lo" if LINUX else "lo0"

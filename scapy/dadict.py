@@ -10,7 +10,7 @@ Direct Access dictionary.
 from scapy.error import Scapy_Exception
 
 ###############################
-## Direct Access dictionnary ##
+## Direct Access dictionary  ##
 ###############################
 
 def fixname(x):
