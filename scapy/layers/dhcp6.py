@@ -694,13 +694,13 @@ class DHCP6OptIAPrefix(_DHCP6OptGuessPayload):                    #RFC3633
     name = "DHCP6 Option - IA_PD Prefix option"
     fields_desc = [ ShortEnumField("optcode", 26, dhcp6opts),
                     FieldLenField("optlen", None, length_of="iaprefopts",
-                                  adjust = lambda pkt,x: x+26),
+                                  adjust = lambda pkt,x: x+25),
                     IntField("preflft", 0),
                     IntField("validlft", 0),
                     ByteField("plen", 48),  # TODO: Challenge that default value
                     IP6Field("prefix", "2001:db8::"), # At least, global and won't hurt
                     StrLenField("iaprefopts", "",
-                                length_from = lambda pkt: pkt.optlen-26) ]
+                                length_from = lambda pkt: pkt.optlen-25) ]
 
 class DHCP6OptIA_PD(_DHCP6OptGuessPayload):                       #RFC3633
     name = "DHCP6 Option - Identity Association for Prefix Delegation"
