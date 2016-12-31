@@ -10,7 +10,7 @@ These functions are missing when python is compiled
 without IPv6 support, on Windows for instance.
 """
 
-import socket,struct
+import socket,struct,re
 
 def inet_pton(af, addr):
     """Convert an IP address from text representation into binary form"""
@@ -77,25 +77,53 @@ def inet_ntop(af, addr):
         except AttributeError:
             pass
 
-        # IPv6 addresses have 128bits (16 bytes)
-        if len(addr) != 16:
-            raise Exception("Illegal syntax for IP address")
-        parts = []
-        for left in [0, 2, 4, 6, 8, 10, 12, 14]:
-            try: 
-                value = struct.unpack("!H", addr[left:left+2])[0]
-                hexstr = hex(value)[2:]
-            except TypeError:
-                raise Exception("Illegal syntax for IP address")
-            parts.append(hexstr.lstrip("0").lower())
-        result = ":".join(parts)
-        while ":::" in result:
-            result = result.replace(":::", "::")
-        # Leaving out leading and trailing zeros is only allowed with ::
-        if result.endswith(":") and not result.endswith("::"):
-            result = result + "0"
-        if result.startswith(":") and not result.startswith("::"):
-            result = "0" + result
-        return result
+        return _ipv6_bin_to_str(addr)
     else:
-        raise Exception("Address family not supported yet")   
+        raise Exception("Address family not supported yet")
+
+
+def _ipv6_bin_to_str(addr):
+    # IPv6 addresses have 128bits (16 bytes)
+    if len(addr) != 16:
+        raise Exception("Illegal syntax for IP address")
+    parts = []
+    for left in [0, 2, 4, 6, 8, 10, 12, 14]:
+        try:
+            value = struct.unpack("!H", addr[left:left + 2])[0]
+            hexstr = hex(value)[2:]
+        except TypeError:
+            raise Exception("Illegal syntax for IP address")
+        parts.append(hexstr.lower())
+
+    address = ":".join(parts)
+
+    # Find all consecutive zero blocks
+    matches = re.findall('(?::|^)(0(?::0)+)(?::|$)', address)
+    if matches:
+        # If multiple consecutive blocks have the same length, take the leftmost
+        match = max(matches)
+        if address.startswith(match):
+            leftidx = 0
+        else:
+            leftidx = address.find(':' + match) + 1
+        left = address[:leftidx]
+        rightidx = leftidx + len(match)
+
+        # Adrress is like abcd:ef01::
+        if len(address) == rightidx:
+            compact_address = left + ":"
+
+        # Adrress is like ::abcd:ef01
+        elif leftidx == 0:
+            compact_address = ":" + address[rightidx:]
+
+        # Adrress is like abcd::ef01
+        else:
+            compact_address = left + address[rightidx:]
+
+        # Special case: address full of zeros
+        if compact_address == ":":
+            compact_address = "::"
+    else:
+        compact_address = address
+    return compact_address
