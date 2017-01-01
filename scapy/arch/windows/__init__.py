@@ -16,7 +16,6 @@ from scapy.config import conf,ConfClass
 from scapy.error import Scapy_Exception,log_loading,log_runtime
 from scapy.utils import atol, itom, inet_aton, inet_ntoa, PcapReader
 from scapy.base_classes import Gen, Net, SetGen
-import scapy.plist as plist
 from scapy.data import MTU, ETHER_BROADCAST, ETH_P_ARP
 from scapy.arch.consts import LOOPBACK_NAME
 

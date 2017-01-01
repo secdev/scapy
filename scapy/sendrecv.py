@@ -12,7 +12,7 @@ import cPickle,os,sys,time,subprocess
 import itertools
 from select import select, error as select_error
 
-from scapy.arch.consts import DARWIN, FREEBSD, OPENBSD
+from scapy.consts import DARWIN, FREEBSD, OPENBSD
 from scapy.data import *
 from scapy.config import conf
 from scapy.packet import Gen

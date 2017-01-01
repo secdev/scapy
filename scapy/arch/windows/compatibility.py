@@ -168,8 +168,8 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0, retry=0, m
     return plist.SndRcvList(ans),plist.PacketList(remain,"Unanswered")
 
 
-import scapy.sendrecv
-scapy.sendrecv.sndrcv = sndrcv
+import scapy.sendrecv as sendrecv
+sendrecv.sndrcv = sndrcv
 
 def sniff(count=0, store=1, offline=None, prn = None, lfilter=None, L2socket=None, timeout=None, *arg, **karg):
     """Sniff packets
@@ -249,7 +249,7 @@ L2socket: use the provided L2socket
     return plist.PacketList(lst,"Sniffed")
 
 import scapy.sendrecv
-scapy.sendrecv.sniff = sniff
+sendrecv.sniff = sniff
 
 # If wpcap.dll is not available
 if not (conf.use_winpcapy or conf.use_pcap or conf.use_dnet):
