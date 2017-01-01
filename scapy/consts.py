@@ -6,6 +6,7 @@
 import os, inspect
 from sys import platform
 import platform as platform_lib
+from scapy.error import *
 
 try:
     from matplotlib import get_backend as matplotlib_get_backend
