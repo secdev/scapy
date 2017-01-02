@@ -367,7 +367,7 @@ class ASN1F_SEQUENCE_OF(ASN1F_field):
         return self.i2m(pkt, s)
 
     def randval(self):
-        return packet.fuzz(self.asn1pkt())
+        return packet.fuzz(self.cls())
     def __repr__(self):
         return "<%s %s>" % (self.__class__.__name__, self.name)
 
@@ -488,7 +488,16 @@ class ASN1F_CHOICE(ASN1F_field):
                                     explicit_tag=exp)
         return BER_tagging_enc(s, explicit_tag=self.explicit_tag)
     def randval(self):
-        return RandChoice(*(packet.fuzz(x()) for x in self.choices.itervalues()))
+        randchoices = []
+        for p in self.choices.itervalues():
+            if hasattr(p, "ASN1_root"):   # should be ASN1_Packet class
+                randchoices.append(packet.fuzz(p()))
+            elif hasattr(p, "ASN1_tag"):
+                if type(p) is type:       # should be (basic) ASN1F_field class
+                    randchoices.append(p("dummy", None).randval())
+                else:                     # should be ASN1F_PACKET instance
+                    randchoices.append(p.randval())
+        return RandChoice(*randchoices)
 
 class ASN1F_PACKET(ASN1F_field):
     holds_packets = 1
@@ -520,6 +529,8 @@ class ASN1F_PACKET(ASN1F_field):
             s = str(x)
         return BER_tagging_enc(s, implicit_tag=self.implicit_tag,
                                explicit_tag=self.explicit_tag)
+    def randval(self):
+        return packet.fuzz(self.cls())
 
 class ASN1F_BIT_STRING_ENCAPS(ASN1F_BIT_STRING):
     """
