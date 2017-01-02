@@ -53,12 +53,14 @@ def get_if_raw_addr(ifname):
     try:
         fd = os.popen("%s %s" % (conf.prog.ifconfig, ifname))
     except OSError, msg:
-        raise Scapy_Exception("Failed to execute ifconfig: (%s)" % msg)
+        warning("Failed to execute ifconfig: (%s)" % msg)
+        return "\0\0\0\0"
 
     # Get IPv4 addresses
     addresses = [l for l in fd.readlines() if l.find("netmask") >= 0]
     if not addresses:
-        raise Scapy_Exception("No IPv4 address found on %s !" % ifname)
+        warning("No IPv4 address found on %s !" % ifname)
+        return "\0\0\0\0"
 
     # Pack the first address
     address = addresses[0].split(' ')[1]
@@ -78,7 +80,6 @@ def get_if_raw_hwaddr(ifname):
     try:
         fd = os.popen("%s %s" % (conf.prog.ifconfig, ifname))
     except OSError, msg:
-        warning("Failed to execute ifconfig: (%s)" % msg)
         raise Scapy_Exception("Failed to execute ifconfig: (%s)" % msg)
 
     # Get MAC addresses

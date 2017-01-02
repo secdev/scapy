@@ -34,6 +34,8 @@ get_if_raw_hwaddr(conf.iface)
 
 get_if_raw_addr(conf.iface).encode("hex")
 
+get_if_raw_addr("dummy0")
+
 get_if_list()
 
 = Test read_routes6() - default output
@@ -57,7 +59,7 @@ if len(routes6):
     else:
 	False
 else:
-    # IPv6 seems disabled. Force a route to ::1
+    # IPv6 seems disabled. Force a route to ::1
     conf.route6.routes.append(("::1", 128, "::", LOOPBACK_NAME, ["::1"]))
     True
 

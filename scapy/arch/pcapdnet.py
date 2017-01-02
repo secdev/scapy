@@ -520,7 +520,13 @@ if conf.use_dnet:
 
         def get_if_raw_addr(ifname):
             i = dnet.intf()
-            return i.get(ifname)["addr"].data
+            try:
+                return i.get(ifname)["addr"].data
+            except OSError:
+                warning("No MAC address found on %s !" % ifname)
+                return "\0\0\0\0"
+
+
         def get_if_list():
             return [i.get("name", None) for i in dnet.intf()]
 
