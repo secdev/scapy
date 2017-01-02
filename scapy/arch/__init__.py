@@ -9,7 +9,7 @@ Operating system specific functionality.
 
 import socket
 
-from scapy.arch.consts import LINUX, OPENBSD, FREEBSD, NETBSD, DARWIN, \
+from scapy.consts import LINUX, OPENBSD, FREEBSD, NETBSD, DARWIN, \
     SOLARIS, WINDOWS, BSD, X86_64, ARM_64, LOOPBACK_NAME, plt, MATPLOTLIB_INLINED, \
     MATPLOTLIB_DEFAULT_PLOT_KARGS, PYX, parent_function
 from scapy.error import *

@@ -11,7 +11,7 @@ import sys,os,struct,socket,time
 from select import select
 from fcntl import ioctl
 
-from scapy.arch.consts import LOOPBACK_NAME
+from scapy.consts import LOOPBACK_NAME
 import scapy.utils
 import scapy.utils6
 from scapy.packet import Packet, Padding

@@ -12,7 +12,7 @@ from scapy.layers.inet import IP
 from scapy.layers.inet6 import IPv6
 from scapy.packet import Raw
 from scapy.data import ETH_P_ALL
-from scapy.arch.consts import FREEBSD, OPENBSD, NETBSD
+from scapy.consts import FREEBSD, OPENBSD, NETBSD
 from scapy.utils import warning
 
 from scapy.arch.bpf.core import get_dev_bpf, attach_filter

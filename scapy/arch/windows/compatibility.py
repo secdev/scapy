@@ -15,7 +15,7 @@ import subprocess
 import sys
 import time
 
-from scapy.arch.consts import LOOPBACK_NAME
+from scapy.consts import LOOPBACK_NAME
 from scapy.config import conf,ConfClass
 from scapy.base_classes import Gen, SetGen
 import scapy.plist as plist
