@@ -429,15 +429,15 @@ class PacketLenField(PacketField):
 
 
 class PacketListField(PacketField):
-    __slots__ = ["count_from", "length_from"]
+    __slots__ = ["count_from", "length_from", "next_cls_cb"]
     islist = 1
-    def __init__(self, name, default, cls, count_from=None, length_from=None):
+    def __init__(self, name, default, cls=None, count_from=None, length_from=None, next_cls_cb=None):
         if default is None:
             default = []  # Create a new list for each instance
+        self.next_cls_cb = next_cls_cb
         PacketField.__init__(self, name, default, cls)
         self.count_from = count_from
         self.length_from = length_from
-
 
     def any2i(self, pkt, x):
         if type(x) is not list:
@@ -456,11 +456,14 @@ class PacketListField(PacketField):
         else:
             return [p if isinstance(p, basestring) else p.copy() for p in x]
     def getfield(self, pkt, s):
-        c = l = None
+        c = l = cls = None
         if self.length_from is not None:
             l = self.length_from(pkt)
         elif self.count_from is not None:
             c = self.count_from(pkt)
+        if self.next_cls_cb is not None:
+            cls = self.next_cls_cb(pkt, [], None, s)
+            c = 1
 
         lst = []
         ret = ""
@@ -473,7 +476,10 @@ class PacketListField(PacketField):
                     break
                 c -= 1
             try:
-                p = self.m2i(pkt,remain)
+                if cls is not None:
+                    p = cls(remain)
+                else:
+                    p = self.m2i(pkt, remain)
             except Exception:
                 if conf.debug_dissector:
                     raise
@@ -484,6 +490,10 @@ class PacketListField(PacketField):
                     pad = p[conf.padding_layer]
                     remain = pad.load
                     del(pad.underlayer.payload)
+                    if self.next_cls_cb is not None:
+                        cls = self.next_cls_cb(pkt, lst, p, remain)
+                        if cls is not None:
+                            c += 1
                 else:
                     remain = ""
             lst.append(p)
