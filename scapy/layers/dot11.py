@@ -43,10 +43,10 @@ class Dot11AddrMACField(MACField):
             return s,None
 
 class Dot11Addr2MACField(Dot11AddrMACField):
+    # Block-Ack, RTS, PS-Poll, CF-End, CF-End+CF-Ack
+    subtypes = {0x9, 0xb, 0xa, 0xe, 0xf}
     def is_applicable(self, pkt):
-        if pkt.type == 1:
-            return pkt.subtype in [ 0x9, 0xb, 0xa, 0xe, 0xf ] # Block-Ack, RTS, PS-Poll, CF-End, CF-End+CF-Ack
-        return 1
+        return pkt.type != 1 or pkt.subtype in self.subtypes
 
 class Dot11Addr3MACField(Dot11AddrMACField):
     def is_applicable(self, pkt):
