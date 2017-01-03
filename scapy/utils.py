@@ -1164,10 +1164,7 @@ u'64'
             stdout=subprocess.PIPE if dump or getfd else None,
             stderr=open(os.devnull),
         )
-        def newdel(self, *args, **kargs):
-            os.unlink(tmpfile.name)
-            proc.__del__(self, *args, **kargs)
-        proc.__del__ = newdel
+        conf.temp_files.append(tmpfile.name)
     else:
         proc = subprocess.Popen(
             [conf.prog.tcpdump if prog is None else prog, "-r", "-"]
