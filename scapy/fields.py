@@ -798,32 +798,68 @@ class XBitField(BitField):
 
 class _EnumField(Field):
     def __init__(self, name, default, enum, fmt = "H"):
-        i2s = self.i2s = {}
-        s2i = self.s2i = {}
-        if type(enum) is list:
-            keys = range(len(enum))
+        """ Initializes enum fields.
+
+        @param name:    name of this field
+        @param default: default value of this field
+        @param enum:    either a dict or a tuple of two callables. Dict keys are
+                        the internal values, while the dict values are the
+                        user-friendly representations. If the tuple is provided,
+                        the first callable receives the internal value as
+                        parameter and returns the user-friendly representation
+                        and the second callable does the converse. The first
+                        callable may return None to default to a literal string
+                        (repr()) representation.
+        @param fmt:     struct.pack format used to parse and serialize the 
+			internal value from and to machine representation.
+        """
+        if isinstance(enum, tuple):
+            self.i2s_cb = enum[0]
+            self.s2i_cb = enum[1]
+            self.i2s = None
+            self.s2i = None
         else:
-            keys = enum.keys()
-        if any(type(x) is str for x in keys):
-            i2s, s2i = s2i, i2s
-        for k in keys:
-            i2s[k] = enum[k]
-            s2i[enum[k]] = k
+            i2s = self.i2s = {}
+            s2i = self.s2i = {}
+            self.i2s_cb = None
+            self.s2i_cb = None
+            if type(enum) is list:
+                keys = range(len(enum))
+            else:
+                keys = enum.keys()
+            if any(type(x) is str for x in keys):
+                i2s, s2i = s2i, i2s
+            for k in keys:
+                i2s[k] = enum[k]
+                s2i[enum[k]] = k
         Field.__init__(self, name, default, fmt)
+
     def any2i_one(self, pkt, x):
         if type(x) is str:
-            x = self.s2i[x]
+            try:
+                x = self.s2i[x]
+            except TypeError:
+                x = self.s2i_cb(x)
         return x
+
     def i2repr_one(self, pkt, x):
-        if self not in conf.noenum and not isinstance(x,VolatileValue) and x in self.i2s:
-            return self.i2s[x]
+        if self not in conf.noenum and not isinstance(x,VolatileValue):
+            try:
+                return self.i2s[x]
+            except KeyError:
+                pass
+            except TypeError:
+                ret = self.i2s_cb(x)
+                if ret is not None:
+                    return ret
         return repr(x)
     
     def any2i(self, pkt, x):
         if type(x) is list:
             return map(lambda z,pkt=pkt:self.any2i_one(pkt,z), x)
         else:
-            return self.any2i_one(pkt,x)        
+            return self.any2i_one(pkt,x)
+
     def i2repr(self, pkt, x):
         if type(x) is list:
             return map(lambda z,pkt=pkt:self.i2repr_one(pkt,z), x)
@@ -831,17 +867,21 @@ class _EnumField(Field):
             return self.i2repr_one(pkt,x)
 
 class EnumField(_EnumField):
-    __slots__ = ["i2s", "s2i"]
+    __slots__ = ["i2s", "s2i", "s2i_cb", "i2s_cb"]
 
 class CharEnumField(EnumField):
     def __init__(self, name, default, enum, fmt = "1s"):
         EnumField.__init__(self, name, default, enum, fmt)
-        k = self.i2s.keys()
-        if k and len(k[0]) != 1:
-            self.i2s,self.s2i = self.s2i,self.i2s
+        if self.i2s is not None:
+            k = self.i2s.keys()
+            if k and len(k[0]) != 1:
+                self.i2s,self.s2i = self.s2i,self.i2s
     def any2i_one(self, pkt, x):
         if len(x) != 1:
-            x = self.s2i[x]
+            if self.s2i is None:
+                x = self.s2i_cb(x)
+            else:
+                x = self.s2i[x]
         return x
 
 class BitEnumField(BitField, _EnumField):
@@ -856,6 +896,7 @@ class BitEnumField(BitField, _EnumField):
         return _EnumField.i2repr(self, pkt, x)
 
 class ShortEnumField(EnumField):
+    __slots__ = EnumField.__slots__
     def __init__(self, name, default, enum):
         EnumField.__init__(self, name, default, enum, "H")
 
@@ -883,9 +924,17 @@ class LEIntEnumField(EnumField):
 
 class XShortEnumField(ShortEnumField):
     def i2repr_one(self, pkt, x):
-        if self not in conf.noenum and not isinstance(x,VolatileValue) and x in self.i2s:
-            return self.i2s[x]
+        if self not in conf.noenum and not isinstance(x,VolatileValue):
+            try:
+                return self.i2s[x]
+            except KeyError:
+                pass
+            except TypeError:
+                ret = self.i2s_cb(x)
+                if ret is not None:
+                    return ret
         return lhex(x)
+
 
 class _MultiEnumField(_EnumField):
     def __init__(self, name, default, enum, depends_on, fmt = "H"):

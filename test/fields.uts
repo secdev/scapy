@@ -507,4 +507,265 @@ assert(re.match(r'^.*Star \(\*\).*$', x) is not None)
 assert(re.match(r'^.*Plus \(\+\).*$', x) is not None)
 assert(re.match(r'^.*bit 2.*$', x) is not None)
 
+############
+############
++ EnumField tests
 
+= EnumField tests initialization
+
+# Basic EnumField
+f = EnumField('test', 0, {0: 'Foo', 1: 'Bar'})
+# Reverse i2s/s2i
+rf = EnumField('test', 0, {'Foo': 0, 'Bar': 1})
+# EnumField initialized with a list
+lf = EnumField('test', 0, ['Foo', 'Bar'])
+# EnumField with i2s_cb/s2i_cb
+fcb = EnumField('test', 0, (
+        lambda x: 'Foo' if x == 0 else 'Bar' if 1 <= x <= 10 else repr(x),
+        lambda x: 0 if x == 'Foo' else 1 if x == 'Bar' else int(x),
+    )
+)
+
+def expect_exception(e, c):
+    try:
+        eval(c)
+        return False
+    except e:
+        return True
+
+
+= EnumField.any2i_one
+~ field enumfield
+
+assert(f.any2i_one(None, 'Foo') == 0)
+assert(f.any2i_one(None, 'Bar') == 1)
+assert(f.any2i_one(None, 2) == 2)
+expect_exception(KeyError, 'f.any2i_one(None, "Baz")')
+
+assert(rf.any2i_one(None, 'Foo') == 0)
+assert(rf.any2i_one(None, 'Bar') == 1)
+assert(rf.any2i_one(None, 2) == 2)
+expect_exception(KeyError, 'rf.any2i_one(None, "Baz")')
+
+assert(lf.any2i_one(None, 'Foo') == 0)
+assert(lf.any2i_one(None, 'Bar') == 1)
+assert(lf.any2i_one(None, 2) == 2)
+expect_exception(KeyError, 'lf.any2i_one(None, "Baz")')
+
+assert(fcb.any2i_one(None, 'Foo') == 0)
+assert(fcb.any2i_one(None, 'Bar') == 1)
+assert(fcb.any2i_one(None, 5) == 5)
+expect_exception(ValueError, 'fcb.any2i_one(None, "Baz")')
+
+True
+
+= EnumField.any2i
+~ field enumfield
+
+assert(f.any2i(None, 'Foo') == 0)
+assert(f.any2i(None, 'Bar') == 1)
+assert(f.any2i(None, 2) == 2)
+expect_exception(KeyError, 'f.any2i(None, "Baz")')
+assert(f.any2i(None, ['Foo', 'Bar', 2]) == [0, 1, 2])
+
+assert(rf.any2i(None, 'Foo') == 0)
+assert(rf.any2i(None, 'Bar') == 1)
+assert(rf.any2i(None, 2) == 2)
+expect_exception(KeyError, 'rf.any2i(None, "Baz")')
+assert(rf.any2i(None, ['Foo', 'Bar', 2]) == [0, 1, 2])
+
+assert(lf.any2i(None, 'Foo') == 0)
+assert(lf.any2i(None, 'Bar') == 1)
+assert(lf.any2i(None, 2) == 2)
+expect_exception(KeyError, 'lf.any2i(None, "Baz")')
+assert(lf.any2i(None, ['Foo', 'Bar', 2]) == [0, 1, 2])
+
+assert(fcb.any2i(None, 'Foo') == 0)
+assert(fcb.any2i(None, 'Bar') == 1)
+assert(fcb.any2i(None, 5) == 5)
+expect_exception(ValueError, 'fcb.any2i(None, "Baz")')
+assert(f.any2i(None, ['Foo', 'Bar', 5]) == [0, 1, 5])
+
+True
+
+= EnumField.i2repr_one
+~ field enumfield
+
+assert(f.i2repr_one(None, 0) == 'Foo')
+assert(f.i2repr_one(None, 1) == 'Bar')
+expect_exception(KeyError, 'f.i2repr_one(None, 2)')
+
+assert(rf.i2repr_one(None, 0) == 'Foo')
+assert(rf.i2repr_one(None, 1) == 'Bar')
+expect_exception(KeyError, 'rf.i2repr_one(None, 2)')
+
+assert(lf.i2repr_one(None, 0) == 'Foo')
+assert(lf.i2repr_one(None, 1) == 'Bar')
+expect_exception(KeyError, 'lf.i2repr_one(None, 2)')
+
+assert(fcb.i2repr_one(None, 0) == 'Foo')
+assert(fcb.i2repr_one(None, 1) == 'Bar')
+assert(fcb.i2repr_one(None, 5) == 'Bar')
+assert(fcb.i2repr_one(None, 11) == repr(11))
+
+conf.noenum.add(f, rf, lf, fcb)
+
+assert(f.i2repr_one(None, 0) == repr(0))
+assert(f.i2repr_one(None, 1) == repr(1))
+assert(f.i2repr_one(None, 2) == repr(2))
+
+assert(rf.i2repr_one(None, 0) == repr(0))
+assert(rf.i2repr_one(None, 1) == repr(1))
+assert(rf.i2repr_one(None, 2) == repr(2))
+
+assert(lf.i2repr_one(None, 0) == repr(0))
+assert(lf.i2repr_one(None, 1) == repr(1))
+assert(lf.i2repr_one(None, 2) == repr(2))
+
+assert(fcb.i2repr_one(None, 0) == repr(0))
+assert(fcb.i2repr_one(None, 1) == repr(1))
+assert(fcb.i2repr_one(None, 5) == repr(5))
+assert(fcb.i2repr_one(None, 11) == repr(11))
+
+conf.noenum.remove(f, rf, lf, fcb)
+
+assert(f.i2repr_one(None, RandNum(0, 10)) == '<RandNum>')
+assert(rf.i2repr_one(None, RandNum(0, 10)) == '<RandNum>')
+assert(lf.i2repr_one(None, RandNum(0, 10)) == '<RandNum>')
+assert(fcb.i2repr_one(None, RandNum(0, 10)) == '<RandNum>')
+
+True
+
+= EnumField.i2repr
+~ field enumfield
+
+assert(f.i2repr(None, 0) == 'Foo')
+assert(f.i2repr(None, 1) == 'Bar')
+expect_exception(KeyError, 'f.i2repr(None, 2)')
+assert(f.i2repr(None, [0, 1]) == ['Foo', 'Bar'])
+
+assert(rf.i2repr(None, 0) == 'Foo')
+assert(rf.i2repr(None, 1) == 'Bar')
+expect_exception(KeyError, 'rf.i2repr(None, 2)')
+assert(rf.i2repr(None, [0, 1]) == ['Foo', 'Bar'])
+
+assert(lf.i2repr(None, 0) == 'Foo')
+assert(lf.i2repr(None, 1) == 'Bar')
+expect_exception(KeyError, 'lf.i2repr(None, 2)')
+assert(lf.i2repr(None, [0, 1]) == ['Foo', 'Bar'])
+
+assert(fcb.i2repr(None, 0) == 'Foo')
+assert(fcb.i2repr(None, 1) == 'Bar')
+assert(fcb.i2repr(None, 5) == 'Bar')
+assert(fcb.i2repr(None, 11) == repr(11))
+assert(fcb.i2repr(None, [0, 1, 5, 11]) == ['Foo', 'Bar', 'Bar', repr(11)])
+
+conf.noenum.add(f, rf, lf, fcb)
+
+assert(f.i2repr(None, 0) == repr(0))
+assert(f.i2repr(None, 1) == repr(1))
+assert(f.i2repr(None, 2) == repr(2))
+assert(f.i2repr(None, [0, 1, 2]) == [repr(0), repr(1), repr(2)])
+
+assert(rf.i2repr(None, 0) == repr(0))
+assert(rf.i2repr(None, 1) == repr(1))
+assert(rf.i2repr(None, 2) == repr(2))
+assert(rf.i2repr(None, [0, 1, 2]) == [repr(0), repr(1), repr(2)])
+
+assert(lf.i2repr(None, 0) == repr(0))
+assert(lf.i2repr(None, 1) == repr(1))
+assert(lf.i2repr(None, 2) == repr(2))
+assert(lf.i2repr(None, [0, 1, 2]) == [repr(0), repr(1), repr(2)])
+
+assert(fcb.i2repr(None, 0) == repr(0))
+assert(fcb.i2repr(None, 1) == repr(1))
+assert(fcb.i2repr(None, 5) == repr(5))
+assert(fcb.i2repr(None, 11) == repr(11))
+assert(fcb.i2repr(None, [0, 1, 5, 11]) == [repr(0), repr(1), repr(5), repr(11)])
+
+conf.noenum.remove(f, rf, lf, fcb)
+
+assert(f.i2repr_one(None, RandNum(0, 10)) == '<RandNum>')
+assert(rf.i2repr_one(None, RandNum(0, 10)) == '<RandNum>')
+assert(lf.i2repr_one(None, RandNum(0, 10)) == '<RandNum>')
+assert(fcb.i2repr_one(None, RandNum(0, 10)) == '<RandNum>')
+
+True
+
+############
+############
++ CharEnumField tests
+
+= Building expect_exception handler
+~ field charenumfield
+
+def expect_exception(e, c):
+    try:
+        eval(c)
+        return False
+    except e:
+        return True
+
+
+= CharEnumField tests initialization
+~ field charenumfield
+
+fc = CharEnumField('test', 'f', {'f': 'Foo', 'b': 'Bar'})
+fcb = CharEnumField('test', 'a', (
+    lambda x: 'Foo' if x == 'a' else 'Bar' if x == 'b' else 'Baz',
+    lambda x: 'a' if x == 'Foo' else 'b' if x == 'Bar' else ''
+))
+
+True
+
+= CharEnumField.any2i_one
+~ field charenumfield
+
+assert(fc.any2i_one(None, 'Foo') == 'f')
+assert(fc.any2i_one(None, 'Bar') == 'b')
+expect_exception(KeyError, 'fc.any2i_one(None, "Baz")')
+
+assert(fcb.any2i_one(None, 'Foo') == 'a')
+assert(fcb.any2i_one(None, 'Bar') == 'b')
+assert(fcb.any2i_one(None, 'Baz') == '')
+
+True
+
+############
+############
++ XShortEnumField tests
+
+= Building expect_exception handler
+~ field xshortenumfield
+
+def expect_exception(e, c):
+    try:
+        eval(c)
+        return False
+    except e:
+        return True
+
+
+= XShortEnumField tests initialization
+~ field xshortenumfield
+
+f = XShortEnumField('test', 0, {0: 'Foo', 1: 'Bar'})
+fcb = XShortEnumField('test', 0, (
+    lambda x: 'Foo' if x == 0 else 'Bar' if x == 1 else lhex(x),
+    lambda x: x
+))
+
+True
+
+= XShortEnumField.i2repr_one
+~ field xshortenumfield
+
+assert(f.i2repr_one(None, 0) == 'Foo')
+assert(f.i2repr_one(None, 1) == 'Bar')
+assert(f.i2repr_one(None, 0xff) == '0xff')
+
+assert(f.i2repr_one(None, 0) == 'Foo')
+assert(f.i2repr_one(None, 1) == 'Bar')
+assert(f.i2repr_one(None, 0xff) == '0xff')
+
+True
