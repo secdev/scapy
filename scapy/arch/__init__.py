@@ -67,6 +67,7 @@ elif SOLARIS:
 elif WINDOWS:
     from scapy.arch.windows import *
     # import only if parent is not route.py
+    # because compatibility.py will require route.py to work (through sendrecv.py)
     parents = parent_function()
     if len(parents) >= 3:
         if not parents[2][1].endswith("route.py"):
