@@ -9,40 +9,15 @@ Operating system specific functionality.
 
 import socket
 
-from scapy.arch.consts import LINUX, OPENBSD, FREEBSD, NETBSD, DARWIN, \
-    SOLARIS, WINDOWS, BSD, X86_64, ARM_64, LOOPBACK_NAME
+from scapy.consts import LINUX, OPENBSD, FREEBSD, NETBSD, DARWIN, \
+    SOLARIS, WINDOWS, BSD, X86_64, ARM_64, LOOPBACK_NAME, plt, MATPLOTLIB_INLINED, \
+    MATPLOTLIB_DEFAULT_PLOT_KARGS, PYX, parent_function
 from scapy.error import *
 import scapy.config
 from scapy.pton_ntop import inet_pton
 
-try:
-    from matplotlib import get_backend as matplotlib_get_backend
-    import matplotlib.pyplot as plt
-    MATPLOTLIB = 1
-    if "inline" in matplotlib_get_backend():
-        MATPLOTLIB_INLINED = 1
-    else:
-        MATPLOTLIB_INLINED = 0
-    MATPLOTLIB_DEFAULT_PLOT_KARGS = {"marker": "+"}
-# RuntimeError to catch gtk "Cannot open display" error
-except (ImportError, RuntimeError):
-    plt = None
-    MATPLOTLIB = 0
-    MATPLOTLIB_INLINED = 0
-    MATPLOTLIB_DEFAULT_PLOT_KARGS = dict()
-    log_loading.info("Can't import matplotlib. Won't be able to plot.")
-
-try:
-    import pyx
-    PYX=1
-except ImportError:
-    log_loading.info("Can't import PyX. Won't be able to use psdump() or pdfdump().")
-    PYX=0
-
-
 def str2mac(s):
     return ("%02x:"*6)[:-1] % tuple(map(ord, s)) 
-
 
 if not WINDOWS:
     if not scapy.config.conf.use_pcap and not scapy.config.conf.use_dnet:
@@ -71,8 +46,6 @@ def get_if_hwaddr(iff):
 # def get_if(iff,cmd):
 # def get_if_index(iff):
 
-
-
 if LINUX:
     from scapy.arch.linux import *
     if scapy.config.conf.use_pcap or scapy.config.conf.use_dnet:
@@ -93,7 +66,14 @@ elif SOLARIS:
     from scapy.arch.solaris import *
 elif WINDOWS:
     from scapy.arch.windows import *
-    from scapy.arch.windows.compatibility import *
+    # import only if parent is not route.py
+    # because compatibility.py will require route.py to work (through sendrecv.py)
+    parents = parent_function()
+    if len(parents) >= 3:
+        if not parents[2][1].endswith("route.py"):
+            from scapy.arch.windows.compatibility import *
+    else:
+        from scapy.arch.windows.compatibility import *
 
 if scapy.config.conf.iface is None:
     scapy.config.conf.iface = LOOPBACK_NAME

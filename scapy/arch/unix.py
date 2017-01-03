@@ -16,7 +16,7 @@ import scapy.config
 import scapy.utils
 from scapy.utils6 import in6_getscope, construct_source_candidate_set
 from scapy.utils6 import in6_isvalid, in6_ismlladdr, in6_ismnladdr
-from scapy.arch.consts import FREEBSD, NETBSD, OPENBSD, SOLARIS, LOOPBACK_NAME
+from scapy.consts import FREEBSD, NETBSD, OPENBSD, SOLARIS, LOOPBACK_NAME
 from scapy.arch import get_if_addr
 from scapy.config import conf
 

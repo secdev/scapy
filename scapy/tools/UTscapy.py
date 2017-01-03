@@ -9,7 +9,7 @@ Unit testing infrastructure for Scapy
 
 import sys,getopt,imp
 import bz2, base64, os.path, time, traceback, zlib, sha
-from scapy.arch.consts import WINDOWS
+from scapy.consts import WINDOWS
 
 
 #### Import tool ####

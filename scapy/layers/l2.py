@@ -18,7 +18,7 @@ from scapy.plist import SndRcvList
 from scapy.fields import *
 from scapy.sendrecv import srp, srp1, srpflood
 from scapy.arch import get_if_hwaddr
-from scapy.arch.consts import LOOPBACK_NAME
+from scapy.consts import LOOPBACK_NAME
 from scapy.utils import inet_ntoa, inet_aton
 if conf.route is None:
     # unused import, only to initialize conf.route
