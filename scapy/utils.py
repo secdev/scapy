@@ -12,6 +12,7 @@ import random,time
 import gzip,zlib,cPickle
 import re,struct,array
 import subprocess
+import tempfile
 
 import warnings
 warnings.filterwarnings("ignore","tempnam",RuntimeWarning, __name__)
@@ -1139,19 +1140,48 @@ To get a JSON representation of a tshark-parsed PacketList(), one can:
 u'64'
 
     """
-    proc = subprocess.Popen(
-        [conf.prog.tcpdump if prog is None else prog, "-r",
-         pktlist if isinstance(pktlist, basestring) else "-"]
-        + (["-n"] if args is None else args),
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE if dump or getfd else None,
-    )
-    try:
-        proc.stdin.writelines(iter(lambda: pktlist.read(1048576), ""))
-    except AttributeError:
-        wrpcap(proc.stdin, pktlist)
+    if isinstance(pktlist, basestring):
+        proc = subprocess.Popen(
+            [conf.prog.tcpdump if prog is None else prog, "-r", pktlist]
+            + (["-n"] if args is None else args),
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE if dump or getfd else None,
+            stderr=open(os.devnull),
+        )
+    elif sys.platform.startswith("darwin"):
+        # Tcpdump cannot read from stdin, see
+        # <http://apple.stackexchange.com/questions/152682/>
+        tmpfile = tempfile.NamedTemporaryFile(delete=False)
+        try:
+            tmpfile.writelines(iter(lambda: pktlist.read(1048576), ""))
+        except AttributeError:
+            wrpcap(tmpfile, pktlist)
+        else:
+            tmpfile.close()
+        proc = subprocess.Popen(
+            [conf.prog.tcpdump if prog is None else prog, "-r",
+             tmpfile.name] + (["-n"] if args is None else args),
+            stdout=subprocess.PIPE if dump or getfd else None,
+            stderr=open(os.devnull),
+        )
+        def newdel(self, *args, **kargs):
+            os.unlink(tmpfile.name)
+            proc.__del__(self, *args, **kargs)
+        proc.__del__ = newdel
     else:
-        proc.stdin.close()
+        proc = subprocess.Popen(
+            [conf.prog.tcpdump if prog is None else prog, "-r", "-"]
+            + (["-n"] if args is None else args),
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE if dump or getfd else None,
+            stderr=open(os.devnull),
+        )
+        try:
+            proc.stdin.writelines(iter(lambda: pktlist.read(1048576), ""))
+        except AttributeError:
+            wrpcap(proc.stdin, pktlist)
+        else:
+            proc.stdin.close()
     if dump:
         return "".join(iter(lambda: proc.stdout.read(1048576), ""))
     if getfd:
