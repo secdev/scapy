@@ -262,10 +262,13 @@ Install using Homebrew
 
 1. Update Homebrew::
 
-   $ sudo brew update
+   $ brew update
 
 2. Install Python bindings::
 
+
+   $ brew install --with-python libdnet
+   $ brew install https://raw.githubusercontent.com/secdev/scapy/master/.travis/pylibpcap.rb
    $ sudo brew install --with-python libdnet
    $ sudo brew install https://raw.githubusercontent.com/secdev/scapy/master/.travis/pylibpcap.rb
 
