@@ -57,6 +57,7 @@ class Packet(BasePacket):
     payload_guess = []
     show_indent = 1
     show_summary = True
+    non_explicit = (tuple, list, Gen, VolatileValue)
 
     @classmethod
     def from_hexcap(cls):
@@ -88,15 +89,22 @@ class Packet(BasePacket):
         self.init_fields()
         self.underlayer = _underlayer
         self.original = _pkt
-        self.explicit = 0
+        self.explicit = True
         self.raw_packet_cache = None
         self.raw_packet_cache_fields = None
         if _pkt:
             self.dissect(_pkt)
             if not _internal:
                 self.dissection_done(self)
-        for f, v in fields.iteritems():
-            self.fields[f] = self.get_field(f).any2i(self, v)
+        for fldname, val in fields.iteritems():
+            fld = self.get_field(fldname)
+            any2i = (lambda _, y: y) if fld is None else fld.any2i
+            val = any2i(self, val)
+            self.fields[fldname] = val
+            self.explicit &= not isinstance(val, self.non_explicit)
+        for fldname, val in self.default_fields.iteritems():
+            if fldname not in fields:
+                self.explicit &= not isinstance(val, self.non_explicit)
         if type(post_transform) is list:
             self.post_transforms = post_transform
         elif post_transform is None:
@@ -138,7 +146,9 @@ class Packet(BasePacket):
                 payload.add_underlayer(self)
                 for t in self.aliastypes:
                     if payload.overload_fields.has_key(t):
-                        self.overloaded_fields = payload.overload_fields[t]
+                        val = payload.overload_fields[t]
+                        self.overloaded_fields = val
+                        self.explicit &= not isinstance(val, self.non_explicit)
                         break
             elif type(payload) is str:
                 self.payload = conf.raw_layer(load=payload)
@@ -197,12 +207,10 @@ class Packet(BasePacket):
     def setfieldval(self, attr, val):
         if self.default_fields.has_key(attr):
             fld = self.get_field(attr)
-            if fld is None:
-                any2i = lambda x,y: y
-            else:
-                any2i = fld.any2i
-            self.fields[attr] = any2i(self, val)
-            self.explicit = 0
+            any2i = (lambda _, y: y) if fld is None else fld.any2i
+            val = any2i(self, val)
+            self.fields[attr] = val
+            self.explicit &= not isinstance(val, self.non_explicit)
             self.raw_packet_cache = None
             self.raw_packet_cache_fields = None
         elif attr == "payload":
@@ -223,7 +231,8 @@ class Packet(BasePacket):
     def delfieldval(self, attr):
         if self.fields.has_key(attr):
             del(self.fields[attr])
-            self.explicit = 0 # in case a default value must be explicited
+            newval = self.overloaded_fields.get(attr) or self.default_fields.get(attr)
+            self.explicit &= not isinstance(newval, self.non_explicit)
             self.raw_packet_cache = None
             self.raw_packet_cache_fields = None
         elif self.default_fields.has_key(attr):
@@ -592,7 +601,7 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
             self.fields[f.name] = fval
         assert(raw.endswith(s))
         self.raw_packet_cache = raw[:-len(s)] if s else raw
-        self.explicit = 1
+        self.explicit = True
         return s
 
     def do_dissect_payload(self, s):
@@ -653,7 +662,7 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
 
     def clone_with(self, payload=None, **kargs):
         pkt = self.__class__()
-        pkt.explicit = 1
+        pkt.explicit = True
         pkt.fields = kargs
         pkt.default_fields = self.copy_fields_dict(self.default_fields)
         pkt.overloaded_fields = self.overloaded_fields.copy()
