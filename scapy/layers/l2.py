@@ -549,6 +549,375 @@ class EAP_FAST(Packet):
     ]
 
 
+#############################################################################
+##### IEEE 802.1X-2010 - MACsec Key Agreement (MKA) protocol
+#############################################################################
+
+#________________________________________________________________________
+#
+# IEEE 802.1X-2010 standard
+# Section 11.11.1
+#________________________________________________________________________
+#
+
+_parameter_set_types = {
+    1:   "Live Peer List",
+    2:   "Potential Peer List",
+    3:   "MACsec SAK Use",
+    4:   "Distributed SAK",
+    5:   "Distributed CAK",
+    6:   "KMD",
+    7:   "Announcement",
+    255: "ICV Indicator"
+}
+
+
+# Used by MKAParamSet::dispatch_hook() to instantiate the appropriate class
+_param_set_cls = {
+    1:   "MKALivePeerListParamSet",
+    2:   "MKAPotentialPeerListParamSet",
+    3:   "MKASAKUseParamSet",
+    4:   "MKADistributedSAKParamSet",
+    255: "MKAICVSet",
+}
+
+
+class MACsecSCI(Packet):
+    """
+    Secure Channel Identifier.
+    """
+
+    #________________________________________________________________________
+    #
+    # IEEE 802.1AE-2006 standard
+    # Section 9.9
+    #________________________________________________________________________
+    #
+
+    name = "SCI"
+    fields_desc = [
+        MACField("system_identifier", "00:00:00:00:00:00"),
+        ShortField("port_identifier", 0)
+    ]
+
+    def extract_padding(self, s):
+        return "", s
+
+
+def _param_set_dispatcher(data):
+    """
+    Returns the right class for a given "Parameter set".
+    """
+
+    cls = conf.raw_layer
+    if data is not None:
+        ptype = struct.unpack("!B", data[0])[0]
+        return globals().get(_param_set_cls.get(ptype), conf.raw_layer)
+
+    return cls
+
+
+class MKAParamSet(Packet):
+    """
+    Class from which every parameter set class inherits (except
+    MKABasicParamSet, which has no "Parameter set type" field, and must
+    come first in the list of parameter sets).
+    """
+
+    MACSEC_DEFAULT_ICV_LEN = 16
+    EAPOL_MKA_DEFAULT_KEY_WRAP_LEN = 24
+
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        """
+        Returns the right parameter set class.
+        """
+
+        return _param_set_dispatcher(_pkt)
+
+
+class MKABasicParamSet(Packet):
+    """
+    Basic Parameter Set (802.1X-2010, section 11.11).
+    """
+
+    #________________________________________________________________________
+    #
+    # IEEE 802.1X-2010 standard
+    # Section 11.11
+    #________________________________________________________________________
+    #
+
+    name = "Basic Parameter Set"
+    fields_desc = [
+        ByteField("mka_version_id", 0),
+        ByteField("key_server_priority", 0),
+        BitField("key_server", 0, 1),
+        BitField("macsec_desired", 0, 1),
+        BitField("macsec_capability", 0, 2),
+        BitField("param_set_body_len", 0, 12),
+        PacketField("SCI", MACsecSCI(), MACsecSCI),
+        XStrFixedLenField("actor_member_id", "", length=12),
+        XIntField("actor_message_number", 0),
+        XIntField("algorithm_agility", 0),
+        PadField(
+            XStrLenField(
+                "cak_name",
+                "",
+                length_from=lambda pkt: (pkt.param_set_body_len - 28)
+            ),
+            4,
+            padwith="\x00"
+        )
+    ]
+
+    def extract_padding(self, s):
+        return "", s
+
+
+class MKAPeerListTuple(Packet):
+    """
+    Live / Potential Peer List parameter sets tuples (802.1X-2010, section 11.11).
+    """
+
+    name = "Peer List Tuple"
+    fields_desc = [
+        XStrFixedLenField("member_id", "", length=12),
+        XStrFixedLenField("message_number", "", length=4),
+    ]
+
+
+class MKALivePeerListParamSet(MKAParamSet):
+    """
+    Live Peer List parameter sets (802.1X-2010, section 11.11).
+    """
+
+    #________________________________________________________________________
+    #
+    # IEEE 802.1X-2010 standard
+    # Section 11.11
+    #________________________________________________________________________
+    #
+
+    name = "Live Peer List Parameter Set"
+    fields_desc = [
+        PadField(
+            ByteEnumField(
+                "param_set_type",
+                1,
+                _parameter_set_types
+            ),
+            2,
+            padwith="\x00"
+        ),
+        ShortField("param_set_body_len", 0),
+        PacketListField("member_id_message_num", [], MKAPeerListTuple)
+    ]
+
+
+class MKAPotentialPeerListParamSet(MKAParamSet):
+    """
+    Potential Peer List parameter sets (802.1X-2010, section 11.11).
+    """
+
+    #________________________________________________________________________
+    #
+    # IEEE 802.1X-2010 standard
+    # Section 11.11
+    #________________________________________________________________________
+    #
+
+    name = "Potential Peer List Parameter Set"
+    fields_desc = [
+        PadField(
+            ByteEnumField(
+                "param_set_type",
+                2,
+                _parameter_set_types
+            ),
+            2,
+            padwith="\x00"
+        ),
+        ShortField("param_set_body_len", 0),
+        PacketListField("member_id_message_num", [], MKAPeerListTuple)
+    ]
+
+
+class MKASAKUseParamSet(MKAParamSet):
+    """
+    SAK Use Parameter Set (802.1X-2010, section 11.11).
+    """
+
+    #________________________________________________________________________
+    #
+    # IEEE 802.1X-2010 standard
+    # Section 11.11
+    #________________________________________________________________________
+    #
+
+    name = "SAK Use Parameter Set"
+    fields_desc = [
+        ByteEnumField("param_set_type", 3, _parameter_set_types),
+        BitField("latest_key_an", 0, 2),
+        BitField("latest_key_tx", 0, 1),
+        BitField("latest_key_rx", 0, 1),
+        BitField("old_key_an", 0, 2),
+        BitField("old_key_tx", 0, 1),
+        BitField("old_key_rx", 0, 1),
+        BitField("plain_tx", 0, 1),
+        BitField("plain_rx", 0, 1),
+        BitField("X", 0, 1),
+        BitField("delay_protect", 0, 1),
+        BitField("param_set_body_len", 0, 12),
+        XStrFixedLenField("latest_key_key_server_member_id", "", length=12),
+        XStrFixedLenField("latest_key_key_number", "", length=4),
+        XStrFixedLenField("latest_key_lowest_acceptable_pn", "", length=4),
+        XStrFixedLenField("old_key_key_server_member_id", "", length=12),
+        XStrFixedLenField("old_key_key_number", "", length=4),
+        XStrFixedLenField("old_key_lowest_acceptable_pn", "", length=4)
+    ]
+
+
+class MKADistributedSAKParamSet(MKAParamSet):
+    """
+    Distributed SAK parameter set (802.1X-2010, section 11.11).
+    """
+
+    #________________________________________________________________________
+    #
+    # IEEE 802.1X-2010 standard
+    # Section 11.11
+    #________________________________________________________________________
+    #
+
+    name = "Distributed SAK parameter set"
+    fields_desc = [
+        ByteEnumField("param_set_type", 4, _parameter_set_types),
+        BitField("distributed_an", 0, 2),
+        BitField("confidentiality_offset", 0, 2),
+        BitField("unused", 0, 4),
+        ShortField("param_set_body_len", 0),
+        XStrFixedLenField("key_number", "", length=4),
+        ConditionalField(
+            XStrFixedLenField("macsec_cipher_suite", "", length=8),
+            lambda pkt: pkt.param_set_body_len > 28
+        ),
+        XStrFixedLenField(
+            "sak_aes_key_wrap",
+            "",
+            length=MKAParamSet.EAPOL_MKA_DEFAULT_KEY_WRAP_LEN
+        )
+    ]
+
+
+class MKADistributedCAKParamSet(MKAParamSet):
+    """
+    Distributed CAK Parameter Set (802.1X-2010, section 11.11).
+    """
+
+    #________________________________________________________________________
+    #
+    # IEEE 802.1X-2010 standard
+    # Section 11.11
+    #________________________________________________________________________
+    #
+
+    name = "Distributed CAK parameter set"
+    fields_desc = [
+        PadField(
+            ByteEnumField(
+                "param_set_type",
+                5,
+                _parameter_set_types
+            ),
+            2,
+            padwith="\x00"
+        ),
+        ShortField("param_set_body_len", 0),
+        XStrFixedLenField(
+            "cak_aes_key_wrap",
+            "",
+            length=MKAParamSet.EAPOL_MKA_DEFAULT_KEY_WRAP_LEN
+        ),
+        XStrField("cak_key_name", "")
+    ]
+
+
+class MKAICVSet(MKAParamSet):
+    """
+    ICV (802.1X-2010, section 11.11).
+    """
+
+    #________________________________________________________________________
+    #
+    # IEEE 802.1X-2010 standard
+    # Section 11.11
+    #________________________________________________________________________
+    #
+
+    name = "ICV"
+    fields_desc = [
+        PadField(
+            ByteEnumField(
+                "param_set_type",
+                255,
+                _parameter_set_types
+            ),
+            2,
+            padwith="\x00"
+        ),
+        ShortField("param_set_body_len", 0),
+        XStrFixedLenField("icv", "", length=MKAParamSet.MACSEC_DEFAULT_ICV_LEN)
+    ]
+
+
+class MKAParamSetPacketListField(PacketListField):
+    """
+    PacketListField that handles the parameter sets.
+    """
+
+    PARAM_SET_LEN_MASK = 0b0000111111111111
+
+    def m2i(self, pkt, m):
+        cls = _param_set_dispatcher(m)
+        return cls(m)
+
+    def getfield(self, pkt, s):
+        lst = []
+        remain = s
+
+        while remain:
+            len_bytes = struct.unpack("!H", remain[2:4])[0]
+            param_set_len = self.__class__.PARAM_SET_LEN_MASK & len_bytes
+            current = remain[:4 + param_set_len]
+            remain = remain[4 + param_set_len:]
+            current_packet = self.m2i(pkt, current)
+            lst.append(current_packet)
+
+        return remain, lst
+
+
+class MKAPDU(Packet):
+    """
+    MACsec Key Agreement Protocol Data Unit.
+    """
+
+    #________________________________________________________________________
+    #
+    # IEEE 802.1X-2010 standard
+    # Section 11.11
+    #________________________________________________________________________
+    #
+
+    name = "MKPDU"
+    fields_desc = [
+        PacketField("basic_param_set", "", MKABasicParamSet),
+        MKAParamSetPacketListField("parameter_sets", [], MKAParamSet),
+    ]
+
+    def extract_padding(self, s):
+        return "", s
+
 
 class ARP(Packet):
     name = "ARP"
@@ -674,9 +1043,10 @@ bind_layers( GRE,           GRErouting,    { "routing_present" : 1 } )
 bind_layers( GRErouting,    conf.raw_layer,{ "address_family" : 0, "SRE_len" : 0 })
 bind_layers( GRErouting,    GRErouting,    { } )
 bind_layers( EAPOL,         EAP,           type=0)
-bind_layers( EAP,           EAP_MD5,       type=4)
+bind_layers( EAPOL,         MKAPDU,        type=5)
 bind_layers(EAP,           EAP_TLS,       type=13)
 bind_layers(EAP,           EAP_FAST,      type=43)
+bind_layers( EAP,           EAP_MD5,       type=4)
 bind_layers( LLC,           STP,           dsap=66, ssap=66, ctrl=3)
 bind_layers( LLC,           SNAP,          dsap=170, ssap=170, ctrl=3)
 bind_layers( SNAP,          Dot1Q,         code=33024)
