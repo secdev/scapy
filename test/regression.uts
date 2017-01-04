@@ -7311,7 +7311,7 @@ len([ip for ip in n1]) == 2
 = in6_getLocalUniquePrefix()
 
 p = in6_getLocalUniquePrefix()
-len(p) == 16 and p.startswith("fd")
+len(inet_pton(socket.AF_INET6, p)) == 16 and p.startswith("fd")
 
 = Misc addresses manipulation functions
 
