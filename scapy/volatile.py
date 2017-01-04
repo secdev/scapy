@@ -97,6 +97,12 @@ class RandNum(RandField):
     def _fix(self):
         return random.randrange(self.min, self.max+1)
 
+    def __int__(self):
+        return int(self._fix())
+
+    def __str__(self):
+        return str(self._fix())
+
 class RandNumGamma(RandField):
     def __init__(self, alpha, beta):
         self.alpha = alpha
@@ -229,6 +235,9 @@ class RandTermString(RandString):
         self.term = term
     def _fix(self):
         return RandString._fix(self)+self.term
+
+    def __str__(self):
+        return str(self._fix())
     
     
 
@@ -517,6 +526,7 @@ class RandSingNum(RandSingularity):
             if not mn <= i <= mx:
                 sing.remove(i)
         self._choice = list(sing)
+        self._choice.sort()
         
 
 class RandSingByte(RandSingNum):
@@ -607,6 +617,9 @@ class RandSingString(RandSingularity):
                          r"\\myserver\share",
                          "foo.exe:",
                          "foo.exe\\", ]
+
+    def __str__(self):
+        return str(self._fix())
                              
 
 class RandPool(RandField):

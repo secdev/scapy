@@ -7413,10 +7413,11 @@ print r6 == "2001:0db8::9ccb"
 
 random.seed(0x2807)
 rm = RandMAC() 
-rm == "12:5a:ef:f5:91:44"
+rm == "d2:12:e4:5a:db:ef"
 
 rm = RandMAC("00:01:02:03:04:0-7")
-rm == "00:01:02:03:04:01"
+rm == "00:01:02:03:04:05"
+
 
 = RandOID
 
@@ -7440,22 +7441,25 @@ print re == "vmuvr @ 906  g"
 
 random.seed(0x2807)
 cb = CorruptedBytes("ABCDE", p=0.5)
-sane(cb) == "pB..E"
+sane(str(cb)) == ".BCD)"
 
 cb = CorruptedBits("ABCDE", p=0.2)
-sane(cb) == "E.Kl`"
+sane(str(cb)) == "ECk@Y"
 
 = Rand*
 
 random.seed(0x2807)
 rs = RandSingNum(-28, 07)
-print rs == -7
+rs == 3
 
+random.seed(0x2807)
 rss = RandSingString()
 rss == "CON:"
 
+random.seed(0x2807)
 rek = RandEnumKeys({'a': 1, 'b': 2})
-str(rek) == 'b'
+rek == 'b'
 
+random.seed(0x2807)
 rts = RandTermString(4, "scapy")
-sane(str(rts)) == "[...scapy"
+sane(str(rts)) == "...[scapy"
