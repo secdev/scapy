@@ -26,8 +26,8 @@ fi
 
 if python --version 2>&1 | grep -q PyPy
 then
-  TRAVIS_PYPY="yes"
-  UT_FLAGS+=" -K wep "
+  # cryptography requires PyPy >= 2.6, Travis CI uses 2.5.0
+  UT_FLAGS+=" -K crypto "
 fi
 
 # Set PATH
@@ -73,11 +73,6 @@ for f in *.uts
 do
   if [ "$f" = "bpf.uts" ]
   then
-    continue
-  fi
-  if [ "$f" = "cert.uts" -o "$f" = "ipsec.uts" ] && [ "$TRAVIS_PYPY" = "yes" ]
-  then
-    # currently disabled
     continue
   fi
   $SCAPY_SUDO ./run_tests -q -F -t $f $UT_FLAGS || exit $?

@@ -2,11 +2,14 @@
 % IPSec layer regression tests
 ##############################
 
+~ crypto
+
 ###############################################################################
 + IPv4 / ESP - Transport - Encryption Algorithms
 
 #######################################
 = IPv4 / ESP - Transport - NULL - NULL
+~ -crypto
 
 import socket
 
@@ -237,6 +240,7 @@ assert(d[TCP] == p[TCP])
 
 #######################################
 = IPv4 / ESP - Tunnel - NULL - NULL
+~ -crypto
 
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
@@ -2425,6 +2429,7 @@ except IPSecIntegrityError, err:
 
 #######################################
 = IPv6 / ESP - Transport - NULL - NULL
+~ -crypto
 
 p = IPv6(src='11::22', dst='22::11')
 p /= TCP(sport=45012, dport=80)
@@ -2752,6 +2757,7 @@ except IPSecIntegrityError, err:
 
 #######################################
 = IPv6 / ESP - Tunnel - NULL - NULL
+~ -crypto
 
 p = IPv6(src='11::22', dst='22::11')
 p /= TCP(sport=45012, dport=80)
