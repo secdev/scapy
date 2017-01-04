@@ -12,17 +12,11 @@ then
   SCAPY_SUDO=""
 fi
 
-# Test AEAD modes in IPsec if available
-if [ "$TEST_COMBINED_MODES" != "yes" ]
-then
-  UT_FLAGS+=" -K combined_modes"
-else
-    # AES-CCM not implemented yet in Cryptography
-    # See
-    #  - https://github.com/pyca/cryptography/issues/2968
-    #  - https://github.com/pyca/cryptography/issues/1141
-  UT_FLAGS+=" -K combined_modes_ccm"
-fi
+# AES-CCM not implemented yet in Cryptography
+# See
+#  - https://github.com/pyca/cryptography/issues/2968
+#  - https://github.com/pyca/cryptography/issues/1141
+UT_FLAGS+=" -K combined_modes_ccm"
 
 if python --version 2>&1 | grep -q PyPy
 then
