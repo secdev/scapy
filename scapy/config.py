@@ -64,6 +64,7 @@ class ProgPath(ConfClass):
     tcpdump = "tcpdump"
     tcpreplay = "tcpreplay"
     hexedit = "hexer"
+    tshark = "tshark"
     wireshark = "wireshark"
     ifconfig = "ifconfig"
 

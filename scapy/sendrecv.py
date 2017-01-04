@@ -16,7 +16,7 @@ from scapy.consts import DARWIN, FREEBSD, OPENBSD
 from scapy.data import *
 from scapy.config import conf
 from scapy.packet import Gen
-from scapy.utils import warning,get_temp_file,PcapReader,wrpcap
+from scapy.utils import warning, get_temp_file, PcapReader, tcpdump, wrpcap
 from scapy import plist
 from scapy.error import log_runtime,log_interactive
 from scapy.base_classes import SetGen
@@ -607,29 +607,10 @@ interfaces)
                                            **karg)]
         else:
             flt = karg.get('filter')
-            if flt is not None:
-                if isinstance(offline, basestring):
-                    sniff_sockets = [
-                        PcapReader(
-                            subprocess.Popen(
-                                [conf.prog.tcpdump, "-r", offline, "-w", "-",
-                                 flt],
-                                stdout=subprocess.PIPE
-                            ).stdout
-                        )
-                    ]
-                else:
-                    sniff_sockets = [
-                        PcapReader(
-                            subprocess.Popen(
-                                [conf.prog.tcpdump, "-r", "-", "-w", "-", flt],
-                                stdin=offline,
-                                stdout=subprocess.PIPE
-                            ).stdout
-                        )
-                    ]
-            else:
-                sniff_sockets = [PcapReader(offline)]
+            sniff_sockets = [PcapReader(
+                offline if flt is None else
+                tcpdump(offline, args=["-w", "-", flt], getfd=True)
+            )]
     lst = []
     if timeout is not None:
         stoptime = time.time()+timeout

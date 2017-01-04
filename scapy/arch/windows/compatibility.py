@@ -19,7 +19,7 @@ from scapy.consts import LOOPBACK_NAME
 from scapy.config import conf,ConfClass
 from scapy.base_classes import Gen, SetGen
 import scapy.plist as plist
-from scapy.utils import PcapReader
+from scapy.utils import PcapReader, tcpdump
 from scapy.arch.pcapdnet import PcapTimeoutElapsed
 from scapy.error import log_runtime
 from scapy.data import MTU, ETH_P_ARP,ETH_P_ALL
@@ -197,24 +197,8 @@ L2socket: use the provided L2socket
         s = L2socket(type=ETH_P_ALL, *arg, **karg)
     else:
         flt = karg.get('filter')
-        if flt is not None:
-            if isinstance(offline, basestring):
-                s = PcapReader(
-                    subprocess.Popen(
-                        [conf.prog.tcpdump, "-r", offline, "-w", "-", flt],
-                        stdout=subprocess.PIPE
-                    ).stdout
-                )
-            else:
-                s = PcapReader(
-                    subprocess.Popen(
-                        [conf.prog.tcpdump, "-r", "-", "-w", "-", flt],
-                        stdin=offline,
-                        stdout=subprocess.PIPE
-                    ).stdout
-                )
-        else:
-            s = PcapReader(offline)
+        s = PcapReader(offline if flt is None else
+                       tcpdump(offline, args=["-w", "-", flt], getfd=True))
     lst = []
     if timeout is not None:
         stoptime = time.time()+timeout
