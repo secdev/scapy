@@ -354,6 +354,10 @@ class Dot11WEP(Packet):
             self.add_payload(LLC(c.decrypt(self.wepdata)))
                     
 
+class Dot11Ack(Packet):
+    name = "802.11 Ack packet"
+
+
 bind_layers( PrismHeader,   Dot11,         )
 bind_layers( RadioTap,      Dot11,         )
 bind_layers( PPI,           Dot11,         dlt=105)
@@ -370,6 +374,7 @@ bind_layers( Dot11,         Dot11ATIM,       subtype=9, type=0)
 bind_layers( Dot11,         Dot11Disas,      subtype=10, type=0)
 bind_layers( Dot11,         Dot11Auth,       subtype=11, type=0)
 bind_layers( Dot11,         Dot11Deauth,     subtype=12, type=0)
+bind_layers( Dot11,         Dot11Ack,        subtype=13, type=1)
 bind_layers( Dot11Beacon,     Dot11Elt,    )
 bind_layers( Dot11AssoReq,    Dot11Elt,    )
 bind_layers( Dot11AssoResp,   Dot11Elt,    )
