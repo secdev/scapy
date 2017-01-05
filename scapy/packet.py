@@ -1271,7 +1271,7 @@ def ls(obj=None, case_sensitive=False, verbose=False):
                                     or pattern.search(layer.name or ''))),
                                 key=lambda x: x.__name__)
         for layer in all_layers:
-            print "%-10s : %s" % (layer.__name__, layer.name)
+            print "%-10s : %s" % (layer.__name__, layer._name)
 
     else:
         is_pkt = isinstance(obj, Packet)
@@ -1321,7 +1321,7 @@ def ls(obj=None, case_sensitive=False, verbose=False):
                 print "%-10s : %-35s =" % (f.name, class_name),
                 if is_pkt:
                     print "%-15r" % getattr(obj,f.name),
-                print "(%r)" % f.default
+                print "(%r)" % (f.default,)
                 for attr in long_attrs:
                     print "%-15s%s" % ("", attr)
             if is_pkt and not isinstance(obj.payload, NoPayload):

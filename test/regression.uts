@@ -2268,7 +2268,9 @@ ICMPv6NIQueryName(data="169.254.253.252").data == '169.254.253.252'
 + Test Node Information Query - ICMPv6NIQueryIPv6
 
 = ICMPv6NIQueryIPv6 - single label DNS name (internal)
-a=ICMPv6NIQueryIPv6(data="abricot").getfieldval("data")
+a = ICMPv6NIQueryIPv6(data="abricot")
+ls(a)
+a = a.getfieldval("data")
 type(a) is tuple and len(a) == 2 and a[0] == 1 and a[1] == '\x07abricot\x00\x00'
 
 = ICMPv6NIQueryIPv6 - single label DNS name
