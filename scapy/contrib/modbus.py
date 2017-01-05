@@ -548,7 +548,7 @@ _reserved_funccode_request = {
     0x7D: '0x7d Unknown Reserved Request',
     0x7E: '0x7e Unknown Reserved Request',
     0x7F: '0x7f Unknown Reserved Request',
-        }
+}
 
 _reserved_funccode_response = {
     0x08: '0x08 Unknown Reserved Response',
@@ -563,7 +563,7 @@ _reserved_funccode_response = {
     0x7D: '0x7d Unknown Reserved Response',
     0x7E: '0x7e Unknown Reserved Response',
     0x7F: '0x7f Unknown Reserved Response',
-        }
+}
 
 _reserved_funccode_error = {
     0x88: '0x88 Unknown Reserved Error',
@@ -579,7 +579,7 @@ _reserved_funccode_error = {
     0xFD: '0xfd Unknown Reserved Error',
     0xFE: '0xfe Unknown Reserved Error',
     0xFF: '0xff Unknown Reserved Error',
-        }
+}
 
 
 class ModbusPDUReservedFunctionCodeRequest(Packet):
