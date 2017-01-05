@@ -19,7 +19,7 @@ install:
   - refreshenv
 
   # Install Python modules
-  - "%PYTHON%\\python -m pip install ecdsa pycrypto"
+  - "%PYTHON%\\python -m pip install ecdsa pycrypto coverage"
 
 test_script:
   # Set environment variables
@@ -27,12 +27,18 @@ test_script:
   - set PATH="%APPVEYOR_BUILD_FOLDER%;C:\Program Files\Wireshark\;%PATH%"
   
   # Main unit tests
-  - "%PYTHON%\\python bin\\UTscapy -f text -t test\\regression.uts -F -K automaton -K mock_read_routes6_bsd || exit /b 42"
+  - "%PYTHON%\\python -m coverage run -a bin\\UTscapy -f text -t test\\regression.uts -F -K automaton -K mock_read_routes6_bsd || exit /b 42"
   - 'del test\regression.uts'
 
   # Secondary unit tests
   - 'del test\bpf.uts' # Don't bother with BPF regression tests
-  - "for %%t in (test\\*.uts) do (%PYTHON%\\python bin\\UTscapy -f text -t %%t -F -K combined_modes || exit /b 42)"
+  - "for %%t in (test\\*.uts) do (%PYTHON%\\python -m coverage run -a bin\\UTscapy -f text -t %%t -F -K combined_modes || exit /b 42)"
   
   # Contrib unit tests
-  - "for %%t in (scapy\\contrib\\*.uts) do (%PYTHON%\\python bin\\UTscapy -f text -t %%t -F -P \"load_contrib(\'%%~nt\')\"  || exit /b 42)"
+  - "for %%t in (scapy\\contrib\\*.uts) do (%PYTHON%\\python -m coverage run -a bin\\UTscapy -f text -t %%t -F -P \"load_contrib(\'%%~nt\')\"  || exit /b 42)"
+
+after_test:
+  # Install & run codecov
+  - "%PYTHON%\\python -m pip install codecov"
+  - "SET PATH=%PYTHON%\\Scripts\\;%PATH%"
+  - codecov
