@@ -18,11 +18,10 @@ import warnings
 warnings.filterwarnings("ignore","tempnam",RuntimeWarning, __name__)
 
 from scapy.config import conf
+from scapy.consts import DARWIN, WINDOWS
 from scapy.data import MTU
 from scapy.error import log_runtime,log_loading,log_interactive, Scapy_Exception
 from scapy.base_classes import BasePacketList
-
-WINDOWS=sys.platform.startswith("win32")
 
 ###########
 ## Tools ##
@@ -1148,7 +1147,7 @@ u'64'
             stdout=subprocess.PIPE if dump or getfd else None,
             stderr=open(os.devnull),
         )
-    elif sys.platform.startswith("darwin"):
+    elif DARWIN:
         # Tcpdump cannot read from stdin, see
         # <http://apple.stackexchange.com/questions/152682/>
         tmpfile = tempfile.NamedTemporaryFile(delete=False)
