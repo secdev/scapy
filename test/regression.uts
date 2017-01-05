@@ -34,7 +34,20 @@ get_if_raw_hwaddr(conf.iface)
 
 get_if_raw_addr(conf.iface).encode("hex")
 
-get_if_raw_addr("dummy0")
+def get_dummy_interface():
+    """Returns a dummy network interface"""
+    if WINDOWS:
+        data = {}
+        data["name"] = "dummy0"
+        data["description"] = "Does not exist"
+        data["win_index"] = -1
+        data["guid"] = "{0XX00000-X000-0X0X-X00X-00XXXX000XXX}"
+        data["invalid"] = True
+        return NetworkInterface(data)
+    else:
+        return "dummy0"
+
+get_if_raw_addr(get_dummy_interface())
 
 get_if_list()
 
@@ -7358,32 +7371,32 @@ r4 = Route()
 len_r4 = len(r4.routes)
 r4.make_route(host="10.12.13.14") == (168561934, 4294967295L, '0.0.0.0', LOOPBACK_NAME, '0.0.0.0')
 r4.make_route(net="10.12.13.0/24") == (168561920, 4294967040L, '0.0.0.0', LOOPBACK_NAME, '0.0.0.0')
-r4.make_route(net="10.12.0.0/16", dev="dummy0") == (168558592, 4294901760L, '0.0.0.0', 'dummy0', '0.0.0.0')
+r4.make_route(net="10.12.0.0/16", dev=get_dummy_interface()) == (168558592, 4294901760L, '0.0.0.0', get_dummy_interface(), '0.0.0.0')
 
 = add() & delt()
 
-r4.add(net="192.168.1.0/24", gw="1.2.3.4", dev="dummy0")
+r4.add(net="192.168.1.0/24", gw="1.2.3.4", dev=get_dummy_interface())
 len(r4.routes) == len_r4 + 1
-r4.delt(net="192.168.1.0/24", gw="1.2.3.4", dev="dummy0")
+r4.delt(net="192.168.1.0/24", gw="1.2.3.4", dev=get_dummy_interface())
 len(r4.routes) == len_r4
 
 = ifchange()
 
-r4.add(net="192.168.1.0/24", gw="1.2.3.4", dev="dummy0")
-r4.ifchange("dummy0", "5.6.7.8")
+r4.add(net="192.168.1.0/24", gw="1.2.3.4", dev=get_dummy_interface())
+r4.ifchange(get_dummy_interface(), "5.6.7.8")
 r4.routes[-1][-1] == "5.6.7.8"
 
 = ifdel()
 
-r4.ifdel("dummy0")
+r4.ifdel(get_dummy_interface())
 len(r4.routes) == len_r4
 
 = ifadd() & get_if_bcast()
 
-r4.ifadd("dummy0", "1.2.3.4/24")
-r4.get_if_bcast("dummy0") == "1.2.3.255"
+r4.ifadd(get_dummy_interface(), "1.2.3.4/24")
+r4.get_if_bcast(get_dummy_interface()) == "1.2.3.255"
 
-r4.ifdel("dummy0")
+r4.ifdel(get_dummy_interface())
 len(r4.routes) == len_r4
 
 
