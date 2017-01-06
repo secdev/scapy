@@ -51,6 +51,8 @@ get_if_raw_addr(get_dummy_interface())
 
 get_if_list()
 
+get_if_raw_addr6(conf.iface6)
+
 = Test read_routes6() - default output
 
 routes6 = read_routes6()
@@ -7368,16 +7370,19 @@ in6_getscope("::1") == IPV6_ADDR_LOOPBACK
 = make_route()
 
 r4 = Route()
-len_r4 = len(r4.routes)
-r4.make_route(host="10.12.13.14") == (168561934, 4294967295L, '0.0.0.0', LOOPBACK_NAME, '0.0.0.0')
-r4.make_route(net="10.12.13.0/24") == (168561920, 4294967040L, '0.0.0.0', LOOPBACK_NAME, '0.0.0.0')
-r4.make_route(net="10.12.0.0/16", dev=get_dummy_interface()) == (168558592, 4294901760L, '0.0.0.0', get_dummy_interface(), '0.0.0.0')
+tmp_route = r4.make_route(host="10.12.13.14")
+(tmp_route[0], tmp_route[1], tmp_route[2]) == (168561934, 4294967295L, '0.0.0.0')
+
+tmp_route = r4.make_route(net="10.12.13.0/24")
+(tmp_route[0], tmp_route[1], tmp_route[2]) == (168561920, 4294967040L, '0.0.0.0')
 
 = add() & delt()
 
-r4.add(net="192.168.1.0/24", gw="1.2.3.4", dev=get_dummy_interface())
+r4 = Route()
+len_r4 = len(r4.routes)
+r4.add(net="192.168.1.0/24", gw="1.2.3.4")
 len(r4.routes) == len_r4 + 1
-r4.delt(net="192.168.1.0/24", gw="1.2.3.4", dev=get_dummy_interface())
+r4.delt(net="192.168.1.0/24", gw="1.2.3.4")
 len(r4.routes) == len_r4
 
 = ifchange()
@@ -7393,10 +7398,16 @@ len(r4.routes) == len_r4
 
 = ifadd() & get_if_bcast()
 
+r4 = Route()
+len_r4 = len(r4.routes)
+
 r4.ifadd(get_dummy_interface(), "1.2.3.4/24")
+len(r4.routes) == len_r4 +1 
+
 r4.get_if_bcast(get_dummy_interface()) == "1.2.3.255"
 
 r4.ifdel(get_dummy_interface())
+print len(r4.routes), len_r4
 len(r4.routes) == len_r4
 
 
