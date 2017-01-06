@@ -12,10 +12,16 @@ then
   SCAPY_SUDO=""
 fi
 
-# Test AEAD modes in IPsec if available
-if [ "$TEST_COMBINED_MODES" != "yes" ]
+# AES-CCM not implemented yet in Cryptography
+# See
+#  - https://github.com/pyca/cryptography/issues/2968
+#  - https://github.com/pyca/cryptography/issues/1141
+UT_FLAGS+=" -K combined_modes_ccm"
+
+if python --version 2>&1 | grep -q PyPy
 then
-  UT_FLAGS+=" -K combined_modes"
+  # cryptography requires PyPy >= 2.6, Travis CI uses 2.5.0
+  UT_FLAGS+=" -K crypto "
 fi
 
 # Set PATH

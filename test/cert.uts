@@ -3,6 +3,7 @@
 # Try me with:
 # bash test/run_tests -t test/cert.uts -F
 
+~ crypto
 
 ########### PKCS helpers ###############################################
 

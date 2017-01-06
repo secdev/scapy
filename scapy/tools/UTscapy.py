@@ -112,11 +112,17 @@ class Format(EnumClass):
 class TestClass:
     def __getitem__(self, item):
         return getattr(self, item)
-    def add_keywords(self, kw):
-        if kw is str:
-            self.keywords.append(kw)
-        else:
-            self.keywords += kw
+    def add_keywords(self, kws):
+        if isinstance(kws, basestring):
+            kws = [kws]
+        for kwd in kws:
+            if kwd.startswith('-'):
+                try:
+                    self.keywords.remove(kwd[1:])
+                except KeyError:
+                    pass
+            else:
+                self.keywords.add(kwd)
 
 class TestCampaign(TestClass):
     def __init__(self, title):
@@ -124,13 +130,14 @@ class TestCampaign(TestClass):
         self.filename = None
         self.headcomments = ""
         self.campaign = []
-        self.keywords = []
+        self.keywords = set()
         self.crc = None
         self.sha = None
         self.preexec = None
         self.preexec_output = None
     def add_testset(self, testset):
         self.campaign.append(testset)
+        testset.keywords.update(self.keywords)
     def __iter__(self):
         return self.campaign.__iter__()
     def all_tests(self):
@@ -143,11 +150,12 @@ class TestSet(TestClass):
         self.name = name
         self.tests = []
         self.comments = ""
-        self.keywords = []
+        self.keywords = set()
         self.crc = None
         self.expand = 1
     def add_test(self, test):
         self.tests.append(test)
+        test.keywords.update(self.keywords)
     def __iter__(self):
         return self.tests.__iter__()
 
@@ -160,7 +168,7 @@ class UnitTest(TestClass):
         self.res = True  # must be True at init to have a different truth value than None
         self.output = ""
         self.num = -1
-        self.keywords = []
+        self.keywords = set()
         self.crc = None
         self.expand = 1
     def __nonzero__(self):
@@ -180,7 +188,7 @@ def parse_campaign_file(campaign_file):
         if l[0] == '#':
             continue
         if l[0] == "~":
-            (test or testset or campaign_file).add_keywords(l[1:].split())
+            (test or testset or test_campaign).add_keywords(l[1:].split())
         elif l[0] == "%":
             test_campaign.title = l[1:].strip()
         elif l[0] == "+":

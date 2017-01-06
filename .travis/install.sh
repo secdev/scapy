@@ -7,17 +7,12 @@ then
     PIP_INSTALL_FLAGS="--user"
   fi
 fi
-$SCAPY_SUDO pip install $PIP_INSTALL_FLAGS ecdsa mock
 
-# Pycrypto 2.7a1 isn't available on PyPi
-if [ "$TEST_COMBINED_MODES" = "yes" ]
-then
-  curl -sL https://github.com/dlitz/pycrypto/archive/v2.7a1.tar.gz | tar xz
-  cd pycrypto-2.7a1
-  python setup.py build
-  $SCAPY_SUDO python setup.py install
+if python --version 2>&1 | grep -q PyPy; then
+  # cryptography requires PyPy >= 2.6, Travis CI uses 2.5.0
+  $SCAPY_SUDO pip install $PIP_INSTALL_FLAGS ecdsa mock
 else
-  $SCAPY_SUDO pip install $PIP_INSTALL_FLAGS pycrypto
+  $SCAPY_SUDO pip install $PIP_INSTALL_FLAGS cryptography ecdsa mock
 fi
 
 # Install coverage
