@@ -6902,61 +6902,71 @@ assert(re.match(r'^.*bit 2.*$', x) is not None)
 + Test correct conversion from binary to string of IPv6 addresses
 
 = IPv6 bin to string conversion - all zero bytes
-from scapy.pton_ntop import _ipv6_bin_to_str
+from scapy.pton_ntop import _ipv6_bin_to_str, inet_ntop
+import socket
 address=b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00' # All zero
-compressed = _ipv6_bin_to_str(address)
-assert(compressed == '::')
+compressed1, compressed2 = _ipv6_bin_to_str(address), inet_ntop(socket.AF_INET6, address)
+assert(compressed1 == compressed2 == '::')
 
 = IPv6 bin to string conversion - non-compressable
-from scapy.pton_ntop import _ipv6_bin_to_str
+from scapy.pton_ntop import _ipv6_bin_to_str, inet_ntop
+import socket
 address=b'\x11\x11\x22\x22\x33\x33\x44\x44\x55\x55\x66\x66\x77\x77\x88\x88' # Not compressable
-compressed = _ipv6_bin_to_str(address)
-assert(compressed == '1111:2222:3333:4444:5555:6666:7777:8888')
+compressed1, compressed2 = _ipv6_bin_to_str(address), inet_ntop(socket.AF_INET6, address)
+assert(compressed1 == compressed2 == '1111:2222:3333:4444:5555:6666:7777:8888')
 
 = IPv6 bin to string conversion - Zero-block right
-from scapy.pton_ntop import _ipv6_bin_to_str
+from scapy.pton_ntop import _ipv6_bin_to_str, inet_ntop
+import socket
 address=b'\x11\x11\x22\x22\x33\x33\x44\x44\x55\x55\x00\x00\x00\x00\x00\x00' # Zeroblock right
-compressed = _ipv6_bin_to_str(address)
-assert(compressed == '1111:2222:3333:4444:5555::')
+compressed1, compressed2 = _ipv6_bin_to_str(address), inet_ntop(socket.AF_INET6, address)
+assert(compressed1 == compressed2 == '1111:2222:3333:4444:5555::')
 
 = IPv6 bin to string conversion - Zero-block left
-from scapy.pton_ntop import _ipv6_bin_to_str
+from scapy.pton_ntop import _ipv6_bin_to_str, inet_ntop
+import socket
 address=b'\x00\x00\x00\x00\x00\x00\x44\x44\x55\x55\x66\x66\x77\x77\x88\x88' # Zeroblock left
-compressed = _ipv6_bin_to_str(address)
-assert(compressed == '::4444:5555:6666:7777:8888')
+compressed1, compressed2 = _ipv6_bin_to_str(address), inet_ntop(socket.AF_INET6, address)
+assert(compressed1 == compressed2 == '::4444:5555:6666:7777:8888')
 
 = IPv6 bin to string conversion - Two zero-block with different length
-from scapy.pton_ntop import _ipv6_bin_to_str
+from scapy.pton_ntop import _ipv6_bin_to_str, inet_ntop
+import socket
 address=b'\x00\x00\x00\x00\x33\x33\x44\x44\x00\x00\x00\x00\x00\x00\x88\x88' # Short and long zero block
-compressed = _ipv6_bin_to_str(address)
-assert(compressed == '0:0:3333:4444::8888')
+compressed1, compressed2 = _ipv6_bin_to_str(address), inet_ntop(socket.AF_INET6, address)
+assert(compressed1 == compressed2 == '0:0:3333:4444::8888')
 
 = IPv6 bin to string conversion - Address 1::
-from scapy.pton_ntop import _ipv6_bin_to_str
+from scapy.pton_ntop import _ipv6_bin_to_str, inet_ntop
+import socket
 address=b'\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00' # only 1 on the left
-compressed = _ipv6_bin_to_str(address)
-assert(compressed == '1::')
+compressed1, compressed2 = _ipv6_bin_to_str(address), inet_ntop(socket.AF_INET6, address)
+assert(compressed1 == compressed2 == '1::')
 
 = IPv6 bin to string conversion - Address ::1
-from scapy.pton_ntop import _ipv6_bin_to_str
+from scapy.pton_ntop import _ipv6_bin_to_str, inet_ntop
+import socket
 address=b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01' # loopback
-compressed = _ipv6_bin_to_str(address)
-assert(compressed == '::1')
+compressed1, compressed2 = _ipv6_bin_to_str(address), inet_ntop(socket.AF_INET6, address)
+assert(compressed1 == compressed2 == '::1')
 
 = IPv6 bin to string conversion - Zero-block of length 1
-from scapy.pton_ntop import _ipv6_bin_to_str
+from scapy.pton_ntop import _ipv6_bin_to_str, inet_ntop
+import socket
 address=b'\x11\x11\x22\x22\x33\x33\x44\x44\x55\x55\x66\x66\x00\x00\x88\x88' # only one zero block
-compressed = _ipv6_bin_to_str(address)
-assert(compressed == '1111:2222:3333:4444:5555:6666:0:8888')
+compressed1, compressed2 = _ipv6_bin_to_str(address), inet_ntop(socket.AF_INET6, address)
+assert(compressed1 == compressed2 == '1111:2222:3333:4444:5555:6666:0:8888')
 
 = IPv6 bin to string conversion - Two zero-blocks with equal length
-from scapy.pton_ntop import _ipv6_bin_to_str
+from scapy.pton_ntop import _ipv6_bin_to_str, inet_ntop
+import socket
 address=b'\x11\x11\x00\x00\x00\x00\x44\x44\x00\x00\x00\x00\x77\x77\x88\x88' # two zero blocks of equal length
-compressed = _ipv6_bin_to_str(address)
-assert(compressed == '1111::4444:0:0:7777:8888')
+compressed1, compressed2 = _ipv6_bin_to_str(address), inet_ntop(socket.AF_INET6, address)
+assert(compressed1 == compressed2 == '1111::4444:0:0:7777:8888')
 
 = IPv6 bin to string conversion - Leading zero suppression
-from scapy.pton_ntop import _ipv6_bin_to_str
+from scapy.pton_ntop import _ipv6_bin_to_str, inet_ntop
+import socket
 address=b'\x10\x00\x02\x00\x00\x30\x00\x04\x00\x05\x00\x60\x07\x00\x80\x00' # Leading zero suppression
-compressed = _ipv6_bin_to_str(address)
-assert(compressed == '1000:200:30:4:5:60:700:8000')
+compressed1, compressed2 = _ipv6_bin_to_str(address), inet_ntop(socket.AF_INET6, address)
+assert(compressed1 == compressed2 == '1000:200:30:4:5:60:700:8000')

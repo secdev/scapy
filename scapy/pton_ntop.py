@@ -10,7 +10,8 @@ These functions are missing when python is compiled
 without IPv6 support, on Windows for instance.
 """
 
-import socket,struct,re
+import socket
+import re
 
 _IP6_ZEROS = re.compile('(?::|^)(0(?::0)+)(?::|$)')
 
