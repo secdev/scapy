@@ -804,7 +804,10 @@ class RawPcapNgReader(RawPcapReader):
             self.endian = "<"
         else:
             raise Scapy_Exception("Not a pcapng capture file (bad magic)")
-        self.f.seek(0)
+        try:
+            self.f.seek(0)
+        except:
+            pass
 
     def read_packet(self, size=MTU):
         """Read blocks until it reaches either EOF or a packet, and
@@ -1139,11 +1142,19 @@ To get a JSON representation of a tshark-parsed PacketList(), one can:
 u'64'
 
     """
-    if isinstance(pktlist, basestring):
+    if prog is None:
+        prog = [conf.prog.tcpdump]
+    elif isinstance(prog, basestring):
+        prog = [prog]
+    if pktlist is None:
         proc = subprocess.Popen(
-            [conf.prog.tcpdump if prog is None else prog, "-r", pktlist]
-            + (["-n"] if args is None else args),
-            stdin=subprocess.PIPE,
+            prog + (args if args is not None else []),
+            stdout=subprocess.PIPE if dump or getfd else None,
+            stderr=open(os.devnull),
+        )
+    elif isinstance(pktlist, basestring):
+        proc = subprocess.Popen(
+            prog + ["-r", pktlist] + (args if args is not None else []),
             stdout=subprocess.PIPE if dump or getfd else None,
             stderr=open(os.devnull),
         )
@@ -1158,16 +1169,14 @@ u'64'
         else:
             tmpfile.close()
         proc = subprocess.Popen(
-            [conf.prog.tcpdump if prog is None else prog, "-r",
-             tmpfile.name] + (["-n"] if args is None else args),
+            prog + ["-r", tmpfile.name] + (args if args is not None else []),
             stdout=subprocess.PIPE if dump or getfd else None,
             stderr=open(os.devnull),
         )
         conf.temp_files.append(tmpfile.name)
     else:
         proc = subprocess.Popen(
-            [conf.prog.tcpdump if prog is None else prog, "-r", "-"]
-            + (["-n"] if args is None else args),
+            prog + ["-r", "-"] + (args if args is not None else []),
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE if dump or getfd else None,
             stderr=open(os.devnull),
