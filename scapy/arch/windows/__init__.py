@@ -363,9 +363,11 @@ def pcapname(dev):
     try:
         return IFACES.dev_from_name(dev).pcap_name
     except ValueError:
-        # pcap.pcap() will choose a sensible default for sniffing if
-        # iface=None
-        return None
+        if conf.use_pcap:
+            # pcap.pcap() will choose a sensible default for sniffing if
+            # iface=None
+            return None
+        raise
 
 def dev_from_pcapname(pcap_name):
     """Return libdnet/Scapy device name for given pypcap device name"""
