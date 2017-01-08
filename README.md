@@ -23,7 +23,7 @@ etc.
 
 Scapy works without any external Python modules on Linux and BSD like operating systems. On Windows, you need to install some mandatory dependencies as described in the documentation.
 
-To benefit from all Scapy features, you might want to install Python modules, such as matplotlib or pycrypto.
+To benefit from all Scapy features, you might want to install Python modules, such as matplotlib or cryptography.
 
 See the [tutorial](http://scapy.readthedocs.io/en/latest/installation.html) and follow the instructions to install scapy.
 
