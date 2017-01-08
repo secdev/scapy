@@ -19,7 +19,17 @@ injecting your own 802.11 frames, combining technics (VLAN hopping+ARP
 cache poisoning, VOIP decoding on WEP encrypted channel, ...),
 etc.
 
-See
+# Installation #
+
+Scapy works without any external Python modules on Linux and BSD like operating systems. On Windows, you need to install some mandatory dependencies as described in the documentation.
+
+To benefit from all Scapy features, you might want to install Python modules, such as matplotlib or pycrypto.
+
+See the [tutorial](http://scapy.readthedocs.io/en/latest/installation.html) and follow the instructions to install scapy.
+
+## Tutorial ##
+
+To begin with scapy, see the
 [interactive tutorial](http://scapy.readthedocs.io/en/latest/usage.html#interactive-tutorial)
 and
 [the quick demo: an interactive session](http://scapy.readthedocs.io/en/latest/introduction.html#quick-demo)
