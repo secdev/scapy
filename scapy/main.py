@@ -381,7 +381,7 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
 
     else:
         code.interact(banner = the_banner % (conf.version),
-                      local=session, readfunc=conf.readfunc)
+                      local=session)
 
     if conf.session:
         save_session(conf.session, session)
