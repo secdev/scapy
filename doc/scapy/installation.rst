@@ -190,7 +190,7 @@ Here are the topics involved and some examples that you can use to try if your i
  
 * VOIP. ``voip_play()`` needs `SoX <http://sox.sourceforge.net/>`_.
  
-* IPsec Crypto Support. ``SecurityAssociation()`` needs `Cryptography <https://github.com/pyca/cryptography>`_. Combined AEAD modes such as GCM and CCM are not available yet because of cryptography restrictions.
+* IPsec Crypto Support. ``SecurityAssociation()`` needs `Pycrypto 2.7a1<https://github.com/dlitz/pycrypto>`_. Combined AEAD modes such as GCM and CCM are not available yet because of cryptography restrictions.
 
 Platform-specific instructions
 ==============================
