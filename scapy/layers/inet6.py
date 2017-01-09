@@ -106,7 +106,7 @@ def getmacbyip6(ip6, chainCC=0):
         mac = in6_getnsmac(inet_pton(socket.AF_INET6, ip6))
         return mac
 
-    iff,a,nh = conf.route6.route(ip6, dev=conf.iface6)
+    iff,a,nh = conf.route6.route(ip6)
 
     if iff == LOOPBACK_NAME:
         return "ff:ff:ff:ff:ff:ff"
