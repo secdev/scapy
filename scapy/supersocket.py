@@ -13,6 +13,7 @@ from scapy.config import conf
 from scapy.data import *
 from scapy.error import warning, log_runtime
 import scapy.packet
+from scapy.utils import PcapReader, tcpdump
 
 class _SuperSocket_metaclass(type):
     def __repr__(self):
@@ -173,6 +174,31 @@ class SSLStreamSocket(StreamSocket):
             pad = pad.payload
         self._buf = self._buf[x:]
         return pkt
+
+
+class L2ListenTcpdump(SuperSocket):
+    desc = "read packets at layer 2 using tcpdump"
+
+    def __init__(self, iface=None, promisc=None, filter=None, nofilter=False,
+                 prog=None, *arg, **karg):
+        self.outs = None
+        args = ['-w', '-', '-s', '65535']
+        if iface is not None:
+            args.extend(['-i', iface])
+        if not promisc:
+            args.append('-p')
+        if not nofilter:
+            if conf.except_filter:
+                if filter:
+                    filter = "(%s) and not (%s)" % (filter, conf.except_filter)
+                else:
+                    filter = "not (%s)" % conf.except_filter
+        if filter is not None:
+            args.append(filter)
+        self.ins = PcapReader(tcpdump(None, prog=prog, args=args, getfd=True))
+    def recv(self, x=MTU):
+        return self.ins.recv(x)
+
 
 if conf.L3socket is None:
     conf.L3socket = L3RawSocket
