@@ -579,7 +579,7 @@ def route_add_loopback(routes=None, ipv6=False, iflist=None):
         if len(conf.route.routes) == 0:
             return
     data = {}
-    data["name"] = LOOPBACK_NAME
+    data['name'] = LOOPBACK_NAME
     data['description'] = "Loopback"
     data['win_index'] = -1
     data['guid'] = "{0XX00000-X000-0X0X-X00X-00XXXX000XXX}"
