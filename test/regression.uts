@@ -1,7 +1,6 @@
 % Regression tests for Scapy
 
 # More informations at http://www.secdev.org/projects/UTscapy/
-# $Id: regression.uts,v 1.9 2008/07/29 15:30:29 pbi Exp pbi $
 
 ############
 ############
@@ -40,12 +39,17 @@ get_if_list()
 = Test read_routes6() - default output
 
 routes6 = read_routes6()
+if WINDOWS:
+    route_add_loopback(routes6, True)
+
 # Expected results:
 # - one route if there is only the loopback interface
 # - three routes if there is a network interface
 
 if len(routes6):
     iflist = get_if_list()
+    if WINDOWS:
+        route_add_loopback(ipv6=True, iflist=iflist)
     if iflist == [LOOPBACK_NAME]:
 	len(routes6) == 1
     elif len(iflist) >= 2:
@@ -3916,6 +3920,9 @@ not a < b and a > b
 + Mobile Prefix Solicitation/Advertisement
 
 = ICMPv6MPSol - build (default values)
+if WINDOWS:
+    route_add_loopback()
+
 s = '`\x00\x00\x00\x00\x08:@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x92\x00m\xbb\x00\x00\x00\x00'
 str(IPv6()/ICMPv6MPSol()) == s
 
@@ -5320,7 +5327,6 @@ ff02::%lo0/32                      ::1                            UC          - 
     assert(check_mandatory_ipv6_routes(routes))
 
 test_netbsd_7_0()
-
 
 ############
 ############
