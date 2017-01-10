@@ -6955,7 +6955,10 @@ from scapy.pton_ntop import _ipv6_bin_to_str, inet_ntop
 import socket
 address=b'\x11\x11\x22\x22\x33\x33\x44\x44\x55\x55\x66\x66\x00\x00\x88\x88' # only one zero block
 compressed1, compressed2 = _ipv6_bin_to_str(address), inet_ntop(socket.AF_INET6, address)
-assert(compressed1 == compressed2 == '1111:2222:3333:4444:5555:6666:0:8888')
+assert(compressed1 == '1111:2222:3333:4444:5555:6666:0:8888')
+# On Mac OS socket.inet_ntop is not fully compliant with RFC 5952 and shortens the single zero block to '::'. Still
+# this is a valid IPv6 address representation.
+assert(compressed2 in ('1111:2222:3333:4444:5555:6666:0:8888', '1111:2222:3333:4444:5555:6666::8888'))
 
 = IPv6 bin to string conversion - Two zero-blocks with equal length
 from scapy.pton_ntop import _ipv6_bin_to_str, inet_ntop
