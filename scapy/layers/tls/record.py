@@ -19,8 +19,7 @@ from scapy.fields import *
 from scapy.packet import *
 from scapy.layers.inet import TCP
 from scapy.layers.tls.session import _GenericTLSSessionInheritance
-from scapy.layers.tls.handshake import (_tls_handshake_cls, _TLSHandshake,
-                                        TLSClientHello)
+from scapy.layers.tls.handshake import _tls_handshake_cls, _TLSHandshake
 from scapy.layers.tls.basefields import (_TLSVersionField, _tls_version,
                                          _TLSIVField, _TLSMACField,
                                          _TLSPadField, _TLSPadLenField,
@@ -103,6 +102,8 @@ class _TLSMsgListField(PacketListField):
             remain, ret = s[:l], s[l:]
 
         if pkt.decipherable:
+            if remain == "":
+                return ret, [TLSApplicationData(data="")]
             while remain:
                 raw_msg = remain
                 p = self.m2i(pkt, remain)
@@ -286,8 +287,15 @@ class TLS(_GenericTLSSessionInheritance):
         read_seq_num = struct.pack("!Q", self.tls_session.rcs.seq_num)
         self.tls_session.rcs.seq_num += 1
         alg = self.tls_session.rcs.hmac
+
+        version = struct.unpack("!H", hdr[1:3])[0]
         try:
-            h = alg.digest(read_seq_num + hdr + msg)
+            if version > 0x300:
+                h = alg.digest(read_seq_num + hdr + msg)
+            elif version == 0x300:
+                h = alg.digest_sslv3(read_seq_num + hdr[0] + hdr[3:5] + msg)
+            else:
+                raise Exception("Unrecognized version.")
         except HMACError:
             h = mac
         return h == mac
@@ -308,6 +316,9 @@ class TLS(_GenericTLSSessionInheritance):
         TLSPlaintext.fragment. Else, it should be the length of the
         _TLSEncryptedContent.
         """
+        if len(s) < 5:
+            raise Exception("Invalid record: header is too short.")
+
         msglen = struct.unpack('!H', s[3:5])[0]
         hdr, efrag, r = s[:5], s[5:5+msglen], s[msglen+5:]
 
@@ -316,8 +327,7 @@ class TLS(_GenericTLSSessionInheritance):
         cipher_type = self.tls_session.rcs.cipher.type
 
         if cipher_type == 'block':
-            if len(s) >= 3:
-                version = struct.unpack("!H", s[1:3])[0]
+            version = struct.unpack("!H", s[1:3])[0]
 
             # Decrypt
             if version >= 0x0302:
@@ -462,7 +472,14 @@ class TLS(_GenericTLSSessionInheritance):
         write_seq_num = struct.pack("!Q", self.tls_session.wcs.seq_num)
         self.tls_session.wcs.seq_num += 1
         alg = self.tls_session.wcs.hmac
-        h = alg.digest(write_seq_num + hdr + msg)
+
+        version = struct.unpack("!H", hdr[1:3])[0]
+        if version > 0x300:
+            h = alg.digest(write_seq_num + hdr + msg)
+        elif version == 0x300:
+            h = alg.digest_sslv3(write_seq_num + hdr[0] + hdr[3:5] + msg)
+        else:
+            raise Exception("Unrecognized version.")
         return msg + h
 
     def _tls_pad(self, s):

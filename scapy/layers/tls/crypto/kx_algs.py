@@ -33,6 +33,7 @@ class _GenericKXMetaclass(type):
             the_class.export = kx_name.endswith("_EXPORT")
             the_class.anonymous = "_anon_" in kx_name
             the_class.no_ske = not ("DHE" in kx_name or "_anon_" in kx_name)
+            the_class.no_ske &= not the_class.export
             tls_kx_algs[kx_name[3:]] = the_class
         return the_class
 

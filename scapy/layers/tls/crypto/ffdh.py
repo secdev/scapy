@@ -4,57 +4,15 @@
 ## This program is published under a GPLv2 license
 
 """
-Primitive Finite Field Diffie-Hellman module.
-
-
-We prefer using 'FFDH' rather than 'DH' so as to differentiate it from 'ECDH'.
-
-This module provides:
-
-- a set of modp* classes providing verified DH groups parameters
-  (generator, modulus, modulus length). They are extracted from various
-  IKE-related RFC (RFC 4306, RFC 3526). Those group parameter classes
-  are keyed by modulus length in dh_params dictionary. For instance,
-  to get access to 1024 bits modulus length DH parameters, you can simply
-  do dh_params[1024]
-
-- a function dh_import_params() that converts PKCS#3-encoded DH parameters
-  into a 3-tuple (g, m, mLen). The PKCS#3-encoded parameters can be
-  provided in PEM or DER format, directly or by providing a filename.
-  The function directly reuses openssl command line utility
-
-- a FFDHParams() class, which should be instantiated with some group
-  parameters and provide access to methods for generating DH public values
-  and DH shared secret
-
-------- Example of use:
-
-In this example, we will use internally available group params
-
-a = ffdh_params[2048]              # get 2048 bit modulus FFDH group params
-p = FFDHParams(a.g, a.m, a.mLen)   # instantiate our params
-myPub = p.gen_public_params()      # generate public params (private part
-                                   # is stored internally)
-
-   --> send myPub to the peer
-  <--  get other_pub from the peer
-
-z = p.gen_secret(other_pub)        # Compute shared secret from peer's
-                                   # public value.
-
-This implementation is based on information provided by RSA Data Security
-PKCS#3 document available from their FTP site at the following address:
-
-       ftp://ftp.rsasecurity.com/pub/pkcs/ascii/pkcs-3.asc
+This is a register for DH groups from RFC 3526 and RFC 4306.
+XXX These groups (and the ones from RFC 7919) should be registered to
+the cryptography library. And this file should eventually be removed.
 """
 
-
-import popen2
-import random
-import struct
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives.asymmetric import dh
 
 from scapy.utils import long_converter
-from scapy.layers.tls.crypto.pkcs1 import pkcs_os2ip, pkcs_i2osp
 
 
 class modp768: # From RFC 4306
@@ -234,99 +192,108 @@ class modp8192: # From RFC 3526
     60C980DD 98EDD3DF FFFFFFFF FFFFFFFF""")
     mLen = 8192
 
-ffdh_params = {   768: modp768 ,
-                 1024: modp1024,
-                 1536: modp1536,
-                 2048: modp2048,
-                 3072: modp3072,
-                 4096: modp4096,
-                 6144: modp6144,
-                 8192: modp8192  }
+_ffdh_raw_params = { 'modp768' : modp768,
+                     'modp1024': modp1024,
+                     'modp1536': modp1536,
+                     'modp2048': modp2048,
+                     'modp3072': modp3072,
+                     'modp4096': modp4096,
+                     'modp6144': modp6144,
+                     'modp8192': modp8192  }
+
+FFDH_GROUPS = {}
+for name, group in _ffdh_raw_params.iteritems():
+    pn = dh.DHParameterNumbers(group.m, group.g)
+    params = pn.parameters(default_backend())
+    FFDH_GROUPS[name] = [params, group.mLen]
 
 
-class FFDHParams(object):
-    """
-    Finite-Field Diffie-Hellman parameters.
-    self.priv is an integer. Its value may remain unknown.
-    self.pub, self.other_pub, and finally self.secret, are also integers.
-    Default group parameters relate to the 2048-bit group from RFC 3526.
-    """
-    def __init__(self, g=ffdh_params[2048].g,
-                       m=ffdh_params[2048].m,
-                       mLen=ffdh_params[2048].mLen):
-        """
-           g: group (2, 5, ...). Can be provided as a string or long.
-           m: prime modulus. Can be provided as a string or long.
-        mLen: prime modulus length in bits.
-        """
-        if type(g) is str:
-            g = pkcs_os2ip(g)
-        if type(m) is str:
-            m = pkcs_os2ip(m)
-
-        self.g = long(g)
-        self.m = long(m)
-        self.mLen = mLen
-
-        self.priv       = None
-        self.pub        = None
-        self.other_pub  = None
-        self.secret     = None
-
-    def gen_public_params(self):
-        """
-        Generate FFDH public parameter, by choosing a random private
-        value in ] 0, p-1 [ and then exponentiating the generator of
-        the group with the private value. The public parameter is
-        returned as an octet string. The private parameter is internally
-        available for further secret generation (using .gen_secret()).
-
-        Note that 'secret' and 'other_pub' attribute of the instance
-        are reset by the call.
-        """
-        self.other_pub  = None
-        self.secret     = None
-
-        # Private key generation : 0 < x < p-1
-        x = random.randint(1, self.m-2)
-        self.priv = x
-
-        # Exponentiation
-        y = pow(self.g, self.priv, self.m)
-        self.pub = y
-
-        # Integer-to-octet-string conversion
-        y = pkcs_i2osp(y, self.mLen/8)
-
-        return y
-
-    def gen_secret(self, other_pub):
-        """
-        Given the peer's public value 'other_pub' provided as an octet string,
-        the shared secret is computed by exponentiating the value using
-        internally stored private value (self.priv, generated during
-        public_parameter generation using .gen_public_params()).
-
-        Computed secret is returned as a bitstring and stored internally.
-
-        No specific check is done on 'other_pub' before exponentiation.
-        """
-        if type(other_pub) is str:
-            other_pub = pkcs_os2ip(other_pub)
-
-        # Octet-string-to-integer conversion
-        self.other_pub = other_pub
-
-        # Exponentiation
-        z = pow(other_pub, self.priv, self.m)
-
-        # Integer-to-octet-string conversion
-        z = pkcs_i2osp(z, self.mLen/8)
-        self.secret = z
-
-        return z
-
-    def check_params(self):
-        #XXX Do me, maybe
-        pass
+#from scapy.layers.tls.crypto.pkcs1 import pkcs_os2ip, pkcs_i2osp
+#
+#
+#class FFDHParams(object):
+#    """
+#    Finite-Field Diffie-Hellman parameters.
+#    self.priv is an integer. Its value may remain unknown.
+#    self.pub, self.other_pub, and finally self.secret, are also integers.
+#    Default group parameters relate to the 2048-bit group from RFC 3526.
+#    """
+#    def __init__(self, g=ffdh_params[2048].g,
+#                       m=ffdh_params[2048].m,
+#                       mLen=ffdh_params[2048].mLen):
+#        """
+#           g: group (2, 5, ...). Can be provided as a string or long.
+#           m: prime modulus. Can be provided as a string or long.
+#        mLen: prime modulus length in bits.
+#        """
+#        if type(g) is str:
+#            g = pkcs_os2ip(g)
+#        if type(m) is str:
+#            m = pkcs_os2ip(m)
+#
+#        self.g = long(g)
+#        self.m = long(m)
+#        self.mLen = mLen
+#
+#        self.priv       = None
+#        self.pub        = None
+#        self.other_pub  = None
+#        self.secret     = None
+#
+#    def gen_public_params(self):
+#        """
+#        Generate FFDH public parameter, by choosing a random private
+#        value in ] 0, p-1 [ and then exponentiating the generator of
+#        the group with the private value. The public parameter is
+#        returned as an octet string. The private parameter is internally
+#        available for further secret generation (using .gen_secret()).
+#
+#        Note that 'secret' and 'other_pub' attribute of the instance
+#        are reset by the call.
+#        """
+#        self.other_pub  = None
+#        self.secret     = None
+#
+#        # Private key generation : 0 < x < p-1
+#        x = random.randint(1, self.m-2)
+#        self.priv = x
+#
+#        # Exponentiation
+#        y = pow(self.g, self.priv, self.m)
+#        self.pub = y
+#
+#        # Integer-to-octet-string conversion
+#        y = pkcs_i2osp(y, self.mLen/8)
+#
+#        return y
+#
+#    def gen_secret(self, other_pub):
+#        """
+#        Given the peer's public value 'other_pub' provided as an octet string,
+#        the shared secret is computed by exponentiating the value using
+#        internally stored private value (self.priv, generated during
+#        public_parameter generation using .gen_public_params()).
+#
+#        Computed secret is returned as a bitstring and stored internally.
+#
+#        No specific check is done on 'other_pub' before exponentiation.
+#        """
+#        if type(other_pub) is str:
+#            other_pub = pkcs_os2ip(other_pub)
+#
+#        # Octet-string-to-integer conversion
+#        self.other_pub = other_pub
+#
+#        # Exponentiation
+#        z = pow(other_pub, self.priv, self.m)
+#
+#        # Integer-to-octet-string conversion
+#        z = pkcs_i2osp(z, self.mLen/8)
+#        self.secret = z
+#
+#        return z
+#
+#    def check_params(self):
+#        #XXX Do me, maybe
+#        pass
 

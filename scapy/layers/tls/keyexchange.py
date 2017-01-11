@@ -9,33 +9,19 @@ TLS key exchange logic.
 
 import math
 
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import dh, ec, rsa
+
 from scapy.config import conf
 from scapy.error import warning
 from scapy.fields import *
 from scapy.packet import Packet, Raw, Padding
-from scapy.layers.tls.cert import PubKey
+from scapy.layers.tls.cert import PubKey, PrivKey
 from scapy.layers.tls.session import _GenericTLSSessionInheritance
 from scapy.layers.tls.basefields import _tls_version, _TLSClientVersionField
 from scapy.layers.tls.crypto.pkcs1 import pkcs_i2osp, pkcs_os2ip
-from scapy.layers.tls.crypto.ffdh import FFDHParams
-from scapy.layers.tls.crypto.curves import encode_point
-
-ecdsa_support = False
-try:
-    from ecdsa.util import sigencode_der, sigdecode_der
-    from scapy.layers.tls.crypto.ecdh import ECParams, ECDHParams
-    ecdsa_support = True
-except ImportError:
-    import logging
-    log_loading = logging.getLogger("scapy.loading")
-    log_loading.info("Can't import python ecdsa lib. No EC-based kx.")
-    sigencode_der = sigdecode_der = None
-
-def ecdsa_warning(func):
-    def func_in(*args, **kwargs):
-        if ecdsa_support:
-            return func(*args, **kwargs)
-    return func_in
+from scapy.layers.tls.crypto.ffdh import FFDH_GROUPS
 
 
 ###############################################################################
@@ -149,7 +135,7 @@ class _TLSSignature(_GenericTLSSessionInheritance):
             self.sig_val = key.sign(m, t='pkcs', h='tls')
         else:
             h = _tls_hash_sig[self.sig_alg].split('+')[0]
-            self.sig_val = key.sign(m, t='pkcs', h=h, sigencode=sigencode_der)
+            self.sig_val = key.sign(m, t='pkcs', h=h)
 
     def _verify_sig(self, m, cert):
         """
@@ -159,8 +145,7 @@ class _TLSSignature(_GenericTLSSessionInheritance):
         if self.sig_val:
             if self.sig_alg:
                 h = _tls_hash_sig[self.sig_alg].split('+')[0]
-                return cert.verify(m, self.sig_val, t='pkcs', h=h,
-                                   sigdecode=sigdecode_der)
+                return cert.verify(m, self.sig_val, t='pkcs', h=h)
             else:
                 return cert.verify(m, self.sig_val, t='pkcs', h='tls')
         return False
@@ -214,8 +199,7 @@ class _TLSServerParamsField(PacketField):
                 p = ServerDHParams(m, tls_session=s)
                 if pkcs_os2ip(p.load[:2]) not in _tls_hash_sig:
                     raise Exception
-                else:
-                    return p
+                return p
             except:
                 cls = _tls_server_ecdh_cls_guess(m)
                 p = cls(m, tls_session=s)
@@ -262,47 +246,53 @@ class ServerDHParams(_GenericTLSSessionInheritance):
         Note that we do not expect dh_params_def.g to be more than 0xff.
         """
         s = self.tls_session
-        dh_params_def = s.default_ffdh_params
-        dh_Ys = dh_params_def.gen_public_params()
 
-        if self.dh_plen is None:
-            self.dh_plen = dh_params_def.mLen/8
+        default_params = FFDH_GROUPS['modp2048'][0].parameter_numbers()
+        default_mLen = FFDH_GROUPS['modp2048'][1]
+
         if self.dh_p is "":
-            self.dh_p = pkcs_i2osp(dh_params_def.m, dh_params_def.mLen/8)
+            self.dh_p = pkcs_i2osp(default_params.p, default_mLen/8)
+        if self.dh_plen is None:
+            self.dh_plen = len(self.dh_p)
+
+        if self.dh_g is "":
+            self.dh_g = pkcs_i2osp(default_params.g, 1)
         if self.dh_glen is None:
             self.dh_glen = 1
-        if self.dh_g is "":
-            self.dh_g = pkcs_i2osp(dh_params_def.g, 1)
-        if self.dh_Yslen is None:
-            self.dh_Yslen = len(dh_Ys)
+
+        p = pkcs_os2ip(self.dh_p)
+        g = pkcs_os2ip(self.dh_g)
+        real_params = dh.DHParameterNumbers(p, g).parameters(default_backend())
+
         if self.dh_Ys is "":
-            self.dh_Ys = dh_Ys
+            s.server_kx_privkey = real_params.generate_private_key()
+            pubkey = s.server_kx_privkey.public_key()
+            y = pubkey.public_numbers().y
+            self.dh_Ys = pkcs_i2osp(y, pubkey.key_size/8)
+        # else, we assume that the user wrote the server_kx_privkey by himself
+        if self.dh_Yslen is None:
+            self.dh_Yslen = len(self.dh_Ys)
 
-        s.server_kx_params = FFDHParams(self.dh_g,
-                                        self.dh_p,
-                                        self.dh_plen*8)
-        s.server_kx_params.priv = dh_params_def.priv
-        s.server_kx_params.pub = pkcs_os2ip(self.dh_Ys)
-
-        s.client_kx_params = FFDHParams(self.dh_g,
-                                        self.dh_p,
-                                        self.dh_plen*8)
-        s.client_kx_params.other_pub = pkcs_os2ip(self.dh_Ys)
+        if not s.client_kx_ffdh_params:
+            s.client_kx_ffdh_params = real_params
 
     def post_dissection(self, r):
         """
-        XXX Do a check_params() once it has been implemented in crypto/ffdh.py.
+        XXX Check that the pubkey received is in the group.
         """
-        if self.dh_g and self.dh_p and self.dh_plen:
-            s = self.tls_session
+        #if self.dh_g and self.dh_p and self.dh_Ys: #XXX remove this, probably
+        p = pkcs_os2ip(self.dh_p)
+        g = pkcs_os2ip(self.dh_g)
+        pn = dh.DHParameterNumbers(p, g)
 
-            dh_params_s = FFDHParams(self.dh_g, self.dh_p, self.dh_plen*8)
-            s.server_kx_params = dh_params_s
-            s.server_kx_params.pub = pkcs_os2ip(self.dh_Ys)
+        y = pkcs_os2ip(self.dh_Ys)
+        public_numbers = dh.DHPublicNumbers(y, pn)
 
-            dh_params_c = FFDHParams(self.dh_g, self.dh_p, self.dh_plen*8)
-            s.client_kx_params = dh_params_c
-            s.client_kx_params.other_pub = pkcs_os2ip(self.dh_Ys)
+        s = self.tls_session
+        s.server_kx_pubkey = public_numbers.public_key(default_backend())
+
+        if not s.client_kx_ffdh_params:
+            s.client_kx_ffdh_params = pn.parameters(default_backend())
 
     def guess_payload_class(self, p):
         """
@@ -409,6 +399,10 @@ class _ECBasisField(PacketField):
 ## The most frequent encounter of the 3 is (by far) ServerECDHNamedCurveParams.
 
 class ServerECDHExplicitPrimeParams(_GenericTLSSessionInheritance):
+    """
+    XXX We provide parsing abilities for ExplicitPrimeParams, but there is no
+    'cryptography' support, hence no context operations.
+    """
     name = "Server ECDH parameters - Explicit Prime"
     fields_desc = [ ByteEnumField("curve_type", 1, _tls_ec_curve_types),
 		    FieldLenField("plen", None, length_of="p", fmt="B"),
@@ -430,7 +424,6 @@ class ServerECDHExplicitPrimeParams(_GenericTLSSessionInheritance):
                     StrLenField("point", "",
                                 length_from=lambda pkt: pkt.pointlen) ]
 
-    @ecdsa_warning
     def fill_missing(self):
         """
         We do not want TLSServerKeyExchange.build() to overload and recompute
@@ -439,89 +432,18 @@ class ServerECDHExplicitPrimeParams(_GenericTLSSessionInheritance):
 
         XXX Note that if it is not set by the user, the cofactor will always
         be 1. It is true for most, but not all, TLS elliptic curves.
+
+        XXX Try and create a curve with the 'cryptography' lib somehow,
+        extract the missing fields for filling, then set s.server_kx_privkey.
         """
-        s = self.tls_session
-        dh_params_def = s.default_ecdh_params[0]
-        c = dh_params_def.ec_parameters.curve
-        point = dh_params_def.gen_public_params()
-
         if self.curve_type is None:
-            self.curve_type = 1
-        if self.plen is None:
-            p = c.curve.p()
-            self.plen = len(pkcs_i2osp(p, c.baselen))
-        if self.p is "":
-            p = c.curve.p()
-            self.p = pkcs_i2osp(p, c.baselen)
-        if self.curve is None:
-            a = c.curve.a()
-            b = c.curve.b()
-            a_str = pkcs_i2osp(a, c.baselen)
-            b_str = pkcs_i2osp(b, c.baselen)
-            self.curve = ECCurvePkt(a=a_str, b=b_str)
-        if self.baselen is None:
-            self.baselen = c.baselen
-        if self.base is "":
-            self.base = encode_point(c.generator, dh_params_def.point_format)
-        if self.orderlen is None:
-            order = c.generator.order()
-            self.orderlen = len(pkcs_i2osp(order, c.baselen))
-        if self.order is "":
-            order = c.generator.order()
-            self.order = pkcs_i2osp(order, c.baselen)
-        if self.cofactorlen is None:
-            self.cofactorlen = 1
-        if self.cofactor is "":
-            self.cofactor = "\x01"
-        if self.pointlen is None:
-            self.pointlen = len(point)
-        if self.point is "":
-            self.point = point
+            self.curve_type = _tls_ec_curve_types["explicit_prime"]
 
-        ec_params_s = ECParams(self.curve_type)
-        ec_params_s.set_explicit_prime_curve(self.p,
-                                             self.curve.a, self.curve.b,
-                                             self.base, self.order)
-        dh_params_s = ECDHParams(ec_params_s, dh_params_def.point_format)
-        s.server_kx_params = dh_params_s
-        s.server_kx_params.priv = dh_params_def.priv
-        s.server_kx_params.pub = self.point
-
-        ec_params_c = ECParams(self.curve_type)
-        ec_params_c.set_explicit_prime_curve(self.p,
-                                             self.curve.a, self.curve.b,
-                                             self.base, self.order)
-        dh_params_c = ECDHParams(ec_params_c, dh_params_def.point_format)
-        s.client_kx_params = dh_params_c
-        s.client_kx_params.other_pub = self.point
-
-    @ecdsa_warning
     def post_dissection(self, pkt):
         """
-        XXX Do a check_params() once it has been implemented in crypto/ecdh.py.
+        XXX Store the server_kx_pubkey.
+        XXX Check that the pubkey received is on the curve.
         """
-        s = self.tls_session
-
-        point_format = 0
-        if self.point[0] in ["\x02", "\x03"]:
-            point_format = 1
-
-        ec_params_s = ECParams(self.curve_type)
-        ec_params_s.set_explicit_prime_curve(self.p,
-                                             self.curve.a, self.curve.b,
-                                             self.base, self.order)
-        dh_params_s = ECDHParams(ec_params_s, point_format)
-        s.server_kx_params = dh_params_s
-        s.server_kx_params.priv = dh_params_def.priv
-        s.server_kx_params.pub = self.point
-
-        ec_params_c = ECParams(self.curve_type)
-        ec_params_c.set_explicit_prime_curve(self.p,
-                                             self.curve.a, self.curve.b,
-                                             self.base, self.order)
-        dh_params_c = ECDHParams(ec_params_c, point_format)
-        s.client_kx_params = dh_params_c
-        s.client_kx_params.other_pub = self.point
 
     def guess_payload_class(self, p):
         return Padding
@@ -529,8 +451,8 @@ class ServerECDHExplicitPrimeParams(_GenericTLSSessionInheritance):
 
 class ServerECDHExplicitChar2Params(_GenericTLSSessionInheritance):
     """
-    XXX We provide parsing abilities for Char2Params, but the context
-    operations have not been implemented yet.
+    XXX We provide parsing abilities for Char2Params, but there is no
+    'cryptography' support, hence no context operations.
     """
     name = "Server ECDH parameters - Explicit Char2"
     fields_desc = [ ByteEnumField("curve_type", 2, _tls_ec_curve_types),
@@ -551,19 +473,19 @@ class ServerECDHExplicitChar2Params(_GenericTLSSessionInheritance):
                     StrLenField("point", "",
                                 length_from = lambda pkt: pkt.pointlen) ]
 
-    @ecdsa_warning
     def fill_missing(self):
         """
         We do not want TLSServerKeyExchange.build() to overload and recompute
         things everytime it is called. This method can be called specifically
         to have things filled in a smart fashion.
         """
-        pass
+        if self.curve_type is None:
+            self.curve_type = _tls_ec_curve_types["explicit_char2"]
 
-    @ecdsa_warning
     def post_dissection(self, pkt):
         """
-        XXX Do a check_params() once it has been implemented in crypto/ecdh.py.
+        XXX Store the server_kx_pubkey.
+        XXX Check that the pubkey received is in the group.
         """
         pass
 
@@ -580,62 +502,72 @@ class ServerECDHNamedCurveParams(_GenericTLSSessionInheritance):
                     StrLenField("point", None,
                                 length_from = lambda pkt: pkt.pointlen) ]
 
-    @ecdsa_warning
     def fill_missing(self):
         """
         We do not want TLSServerKeyExchange.build() to overload and recompute
         things everytime it is called. This method can be called specifically
         to have things filled in a smart fashion.
-        XXX We should check our point_format before 'point' filling.
+        XXX We should account for the point_format (before 'point' filling).
         """
         s = self.tls_session
-        dh_params_def = s.default_ecdh_params[0]
-        point = dh_params_def.gen_public_params()
 
         if self.curve_type is None:
-            self.curve_type = 3
+            self.curve_type = _tls_ec_curve_types["named_curve"]
+
         if self.named_curve is None:
-            self.named_curve = dh_params_def.ec_parameters.curve.curve_id
-        if self.pointlen is None:
-            self.pointlen = len(point)
+            curve = ec.SECP256R1()
+            s.server_kx_privkey = ec.generate_private_key(curve,
+                                                          default_backend())
+            curve_id = 0
+            for cid, name in _tls_named_curves.iteritems():
+                if name == curve.name:
+                    curve_id = cid
+                    break
+            self.named_curve = curve_id
+        else:
+            curve_name = _tls_named_curves.get(self.named_curve)
+            if curve_name is None:
+                # this fallback is arguable
+                curve = ec.SECP256R1()
+            else:
+                curve_cls = ec._CURVE_TYPES.get(curve_name)
+                if curve_cls is None:
+                    # this fallback is arguable
+                    curve = ec.SECP256R1()
+                else:
+                    curve = curve_cls()
+            s.server_kx_privkey = ec.generate_private_key(curve,
+                                                          default_backend())
+
         if self.point is None:
-            self.point = point
+            pubkey = s.server_kx_privkey.public_key()
+            self.point = pubkey.public_numbers().encode_point()
+        # else, we assume that the user wrote the server_kx_privkey by himself
+        if self.pointlen is None:
+            self.pointlen = len(self.point)
 
-        ec_params_s = ECParams(self.curve_type)
-        ec_params_s.set_named_curve(self.named_curve)
-        dh_params_s = ECDHParams(ec_params_s, dh_params_def.point_format)
-        s.server_kx_params = dh_params_s
-        s.server_kx_params.priv = dh_params_def.priv
-        s.server_kx_params.pub = self.point
+        if not s.client_kx_ecdh_params:
+            s.client_kx_ecdh_params = curve
 
-        ec_params_c = ECParams(self.curve_type)
-        ec_params_c.set_named_curve(self.named_curve)
-        dh_params_c = ECDHParams(ec_params_c, dh_params_def.point_format)
-        s.client_kx_params = dh_params_c
-        s.client_kx_params.other_pub = self.point
-
-    @ecdsa_warning
     def post_dissection(self, r):
         """
-        XXX Do a check_params() once it has been implemented in crypto/ecdh.py.
+        XXX Support compressed point format.
+        XXX Check that the pubkey received is on the curve.
         """
+        #point_format = 0
+        #if self.point[0] in ['\x02', '\x03']:
+        #    point_format = 1
+
+        #if self.named_curve and self.point: #XXX remove this, probably
+        curve_name = _tls_named_curves[self.named_curve]
+        curve = ec._CURVE_TYPES[curve_name]()
+        import_point = ec.EllipticCurvePublicNumbers.from_encoded_point
+        pubnum = import_point(curve, self.point)
         s = self.tls_session
+        s.server_kx_pubkey = pubnum.public_key(default_backend())
 
-        point_format = 0
-        if self.point[0] in ['\x02', '\x03']:
-            point_format = 1
-
-        ec_params_s = ECParams(self.curve_type)
-        ec_params_s.set_named_curve(self.named_curve)
-        dh_params_s = ECDHParams(ec_params_s, point_format)
-        s.server_kx_params = dh_params_s
-        s.server_kx_params.pub = self.point
-
-        ec_params_c = ECParams(self.curve_type)
-        ec_params_c.set_named_curve(self.named_curve)
-        dh_params_c = ECDHParams(ec_params_c, point_format)
-        s.client_kx_params = dh_params_c
-        s.client_kx_params.other_pub = self.point
+        if not s.client_kx_ecdh_params:
+            s.client_kx_ecdh_params = curve
 
     def guess_payload_class(self, p):
         return Padding
@@ -657,7 +589,7 @@ def _tls_server_ecdh_cls_guess(m):
 class ServerRSAParams(_GenericTLSSessionInheritance):
     """
     Defined for RSA_EXPORT kx : it enables servers to share RSA keys shorter
-    than their principal {>512}-bit key, when is not allowed for kx.
+    than their principal {>512}-bit key, when it is not allowed for kx.
 
     This should not appear in standard RSA kx negotiation, as the key
     has already been advertised in the Certificate message.
@@ -671,16 +603,24 @@ class ServerRSAParams(_GenericTLSSessionInheritance):
                                 length_from = lambda pkt: pkt.rsaexplen) ]
 
     def fill_missing(self):
-        k = self.tls_session.server_rsa_key
+        ext_k = rsa.generate_private_key(public_exponent=0x10001,
+                                         key_size=512,
+                                         backend=default_backend())
+        pem_k = ext_k.private_bytes(
+                        encoding=serialization.Encoding.PEM,
+                        format=serialization.PrivateFormat.TraditionalOpenSSL,
+                        encryption_algorithm=serialization.NoEncryption())
+        k = PrivKey(pem_k)
+        self.tls_session.server_tmp_rsa_key = k
 
         modlen = k.modulusLen / 8
-        if self.rsamod is None:
+        if self.rsamod is "":
             self.rsamod = pkcs_i2osp(k.modulus, modlen)
         if self.rsamodlen is None:
             self.rsamodlen = len(self.rsamod)
 
         rsaexplen = math.ceil(math.log(k.pubExp)/math.log(2)/8.)
-        if self.rsaexp is None:
+        if self.rsaexp is "":
             self.rsaexp = pkcs_i2osp(k.pubExp, rsaexplen)
         if self.rsaexplen is None:
             self.rsaexplen = len(self.rsaexp)
@@ -719,9 +659,6 @@ class ServerPSKParams(Packet):
         pass
 
     def post_dissection(self, pkt):
-        """
-        XXX Do a check_params() once it has been implemented in crypto/ecdh.py.
-        """
         pass
 
     def guess_payload_class(self, p):
@@ -752,24 +689,21 @@ class ClientDiffieHellmanPublic(_GenericTLSSessionInheritance):
         s = self.tls_session
 
         if self.dh_Yc == "":
-            dh_Yc = s.client_kx_params.gen_public_params()
-            dh_Yclen = len(dh_Yc)
-            self.dh_Yc = dh_Yc
+            params = s.client_kx_ffdh_params
+            s.client_kx_privkey = params.generate_private_key()
+            pubkey = s.client_kx_privkey.public_key()
+            y = pubkey.public_numbers().y
+            self.dh_Yc = pkcs_i2osp(y, pubkey.key_size/8)
+        # else, we assume that the user wrote the client_kx_privkey by himself
         if self.dh_Yclen is None:
-            self.dh_Yclen = dh_Yclen
-            # small hack so that ClientECDiffieHellmanPublic also works
-            l = struct.pack(self.fields_desc[0].fmt, self.dh_Yclen)
-            pkt = l + self.dh_Yc
+            self.dh_Yclen = len(self.dh_Yc)
 
-        if s.server_kx_params:
-            s.server_kx_params.other_pub = pkcs_os2ip(self.dh_Yc)
-
-        if s.client_kx_params.priv is not None:
-            pms = s.client_kx_params.gen_secret(s.server_kx_params.pub)
+        if s.client_kx_privkey and s.server_kx_pubkey:
+            pms = s.client_kx_privkey.exchange(s.server_kx_pubkey)
             s.pre_master_secret = pms
             s.compute_ms_and_derive_keys()
 
-        return pkt + pay
+        return pkcs_i2osp(self.dh_Yclen, 2) + self.dh_Yc + pay
 
     def post_dissection(self, m):
         """
@@ -779,37 +713,66 @@ class ClientDiffieHellmanPublic(_GenericTLSSessionInheritance):
         """
         s = self.tls_session
 
-        if s.client_kx_params:
-            s.client_kx_params.pub = pkcs_os2ip(self.dh_Yc)
+        if s.client_kx_ffdh_params:
+            y = pkcs_os2ip(self.dh_Yc)
+            param_numbers = s.client_kx_ffdh_params.parameter_numbers()
+            public_numbers = dh.DHPublicNumbers(y, param_numbers)
+            s.client_kx_pubkey = public_numbers.public_key(default_backend())
 
-        if s.server_kx_params:
-            s.server_kx_params.other_pub = pkcs_os2ip(self.dh_Yc)
-            if s.server_kx_params.priv:
-                ZZ = s.server_kx_params.gen_secret(self.dh_Yc)
-                s.pre_master_secret = ZZ
-                s.compute_ms_and_derive_keys()
+        if s.server_kx_privkey and s.client_kx_pubkey:
+            ZZ = s.server_kx_privkey.exchange(s.client_kx_pubkey)
+            s.pre_master_secret = ZZ
+            s.compute_ms_and_derive_keys()
 
     def guess_payload_class(self, p):
         return Padding
 
-class ClientECDiffieHellmanPublic(ClientDiffieHellmanPublic):
+class ClientECDiffieHellmanPublic(_GenericTLSSessionInheritance):
     """
-    We need an EC-dedicated subclass because the 'len' field is 1 byte longer.
+    Note that the 'len' field is 1 byte longer than with the previous class.
     """
     name = "Client ECDH Public Value"
-    fields_desc = [ FieldLenField("dh_Yclen", None, length_of="dh_Yc", fmt="B"),
-                    StrLenField("dh_Yc", "",
-                                length_from=lambda pkt: pkt.dh_Yclen)]
+    fields_desc = [ FieldLenField("ecdh_Yclen", None,
+                                  length_of="ecdh_Yc", fmt="B"),
+                    StrLenField("ecdh_Yc", "",
+                                length_from=lambda pkt: pkt.ecdh_Yclen)]
 
     def post_build(self, pkt, pay):
-        if ecdsa_support:
-            return super(ClientECDiffieHellmanPublic, self).post_build(pkt, pay)
-        else:
-            return pkt + pay
+        s = self.tls_session
 
-    @ecdsa_warning
+        if self.ecdh_Yc == "":
+            params = s.client_kx_ecdh_params
+            s.client_kx_privkey = ec.generate_private_key(params,
+                                                          default_backend())
+            pubkey = s.client_kx_privkey.public_key()
+            x = pubkey.public_numbers().x
+            y = pubkey.public_numbers().y
+            self.ecdh_Yc = ("\x04" +
+                            pkcs_i2osp(x, params.key_size/8) +
+                            pkcs_i2osp(y, params.key_size/8))
+        # else, we assume that the user wrote the client_kx_privkey by himself
+        if self.ecdh_Yclen is None:
+            self.ecdh_Yclen = len(self.ecdh_Yc)
+
+        if s.client_kx_privkey and s.server_kx_pubkey:
+            pms = s.client_kx_privkey.exchange(ec.ECDH(), s.server_kx_pubkey)
+            s.pre_master_secret = pms
+            s.compute_ms_and_derive_keys()
+
+        return pkcs_i2osp(self.ecdh_Yclen, 1) + self.ecdh_Yc + pay
+
     def post_dissection(self, m):
-        return super(ClientECDiffieHellmanPublic, self).post_dissection(m)
+        s = self.tls_session
+
+        if s.client_kx_ecdh_params:
+            import_point = ec.EllipticCurvePublicNumbers.from_encoded_point
+            pub_num = import_point(s.client_kx_ecdh_params, self.ecdh_Yc)
+            s.client_kx_pubkey = pub_num.public_key(default_backend())
+
+        if s.server_kx_privkey and s.client_kx_pubkey:
+            ZZ = s.server_kx_privkey.exchange(ec.ECDH(), s.client_kx_pubkey)
+            s.pre_master_secret = ZZ
+            s.compute_ms_and_derive_keys()
 
 
 ### RSA Encryption (standard & export)
@@ -835,7 +798,11 @@ class EncryptedPreMasterSecret(_GenericTLSSessionInheritance):
                 warning(err)
             else:
                 tbd = m[2:]
-        if s.server_rsa_key is not None:
+        if s.server_tmp_rsa_key is not None:
+            # priority is given to the tmp_key, if there is one
+            decrypted = s.server_tmp_rsa_key.decrypt(tbd)
+            pms = decrypted[-48:]
+        elif s.server_rsa_key is not None:
             decrypted = s.server_rsa_key.decrypt(tbd)
             pms = decrypted[-48:]
         else:
@@ -850,7 +817,7 @@ class EncryptedPreMasterSecret(_GenericTLSSessionInheritance):
 
     def post_build(self, pkt, pay):
         """
-        We encrypt premaster secret (the 48 bytes) with either the server
+        We encrypt the premaster secret (the 48 bytes) with either the server
         certificate or the temporary RSA key provided in a server key exchange
         message. After that step, we add the 2 bytes to provide the length, as
         described in implementation notes at the end of section 7.4.7.1.
@@ -861,10 +828,10 @@ class EncryptedPreMasterSecret(_GenericTLSSessionInheritance):
         s.pre_master_secret = enc
         s.compute_ms_and_derive_keys()
 
-        if s.server_certs:
-            enc = s.server_certs[0].encrypt(pkt, "pkcs")
-        elif self.tls_session.server_tmp_rsa_key is not None:
+        if s.server_tmp_rsa_key is not None:
             enc = s.server_tmp_rsa_key.encrypt(pkt, "pkcs")
+        elif s.server_certs is not None and len(s.server_certs) > 0:
+            enc = s.server_certs[0].encrypt(pkt, "pkcs")
         else:
             warning("No material to encrypt Pre Master Secret")
 

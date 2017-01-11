@@ -21,6 +21,7 @@ from scapy.layers.tls.basefields import _tls_version, _TLSVersionField
 from scapy.layers.tls.keyexchange import (_tls_named_curves, _TLSServerParamsField,
                                           _TLSSignature, _TLSSignatureField,
                                           _tls_hash_sig, SigAndHashAlgsField,
+                                          ServerRSAParams,
                                           SigAndHashAlgsLenField)
 from scapy.layers.tls.session import (_GenericTLSSessionInheritance,
                                       writeConnState,
@@ -1031,8 +1032,11 @@ class TLSServerKeyExchange(_TLSHandshake):
         if fval is None:
             s = self.tls_session
             if s.pwcs:
-                cls = s.pwcs.key_exchange.server_kx_msg_cls("\x03")
-                cls = cls(tls_session=s)
+                if s.pwcs.key_exchange.export:
+                    cls = ServerRSAParams(tls_session=s)
+                else:
+                    cls = s.pwcs.key_exchange.server_kx_msg_cls("\x03")
+                    cls = cls(tls_session=s)
                 try:
                     cls.fill_missing()
                 except:
@@ -1255,11 +1259,19 @@ class TLSClientKeyExchange(_TLSHandshake):
 ### Finished                                                                ###
 ###############################################################################
 
+class _VerifyDataField(StrLenField):
+    def getfield(self, pkt, s):
+        if pkt.tls_session.tls_version == 0x300:
+            sep = 36
+        else:
+            sep = 12
+        return s[sep:], s[:sep]
+
 class TLSFinished(_TLSHandshake):
     name = "TLS Handshake - Finished"
     fields_desc = [ ByteEnumField("msgtype", 20, _tls_handshake_type),
                     ThreeBytesField("msglen", None),
-                    StrFixedLenField("vdata", None, 12) ]
+                    _VerifyDataField("vdata", None) ]
 
     def build(self, *args, **kargs):
         fval = self.getfieldval("vdata")

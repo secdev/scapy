@@ -60,10 +60,10 @@ Jd5qtmDF2Zu+xrwrBRT0HBnPweDU+RsFxcyU/QxD9WYORzYarqxbcA==
 type(z) is PubKeyECDSA
 
 = PubKey class : checking curve
-z.key.curve.name == "SECP256k1"
+z.pubkey.curve.name == "secp256k1"
 
 = PubKey class : checking point value
-z.key.pubkey.point.x() == 104748656174769496952370005421566518252704263000192720134585149244759951661467L
+z.pubkey.public_numbers().x == 104748656174769496952370005421566518252704263000192720134585149244759951661467L
 
 
 ########### PrivKey class ###############################################
@@ -124,11 +124,24 @@ weDU+RsFxcyU/QxD9WYORzYarqxbcA==
 type(y) is PrivKeyECDSA
 
 = PrivKey class : checking public attributes
-assert(y.key.curve.name == "SECP256k1")
-y.key.privkey.public_key.point.y() == 86290575637772818452062569410092503179882738810918951913926481113065456425840L
+assert(y.key.curve.name == "secp256k1")
+y.key.public_key().public_numbers().y == 86290575637772818452062569410092503179882738810918951913926481113065456425840L
 
 = PrivKey class : checking private attributes
-y.key.privkey.secret_multiplier == 90719786431263082134670936670180839782031078050773732489701961692235185651857L
+y.key.private_numbers().private_value == 90719786431263082134670936670180839782031078050773732489701961692235185651857L
+
+
+########### PKCS crypto #############################################
+# these are legacy tests which should be removed eventually (see our pkcs1.py)
+
++ PKCS legacy tests
+
+= PKCS legacy : RSA signature & verification
+m = "Testing our PKCS legacy methods"
+s = x.sign_legacy(m, t="pkcs", h="tls")
+assert(s == "Zp\xd7`\x80\x97\x18\xc5t\xf1\xc2ZZ\x1e'\xee\xf1\x8d\xc2\xfat#Z\xde\xa5gnZ\xb5\xad\xc0?\xe0\xb5\xef\xe4\xc3Z\xe1>\x04@'<\xda\x8dtd\xd1Y\xdfm\x93\x88Sg\x9d\xc42\x87\x01\xd1\xfd\x03$C\x07A\x89\x86\xf4\x87*\x96\xd7\xf0\x0c\x19\x12\xf5\xa5\xa6\x07\x8b\xe6\x04c\x1a8\x18B\xfb\\t\xdf\x9f:\xdc\xa8\x0eg],I\xdc\xcc\x99\xa8\x93rl\xb3\xad\x91Kd\x92H\xf4\xfc\xc2\xf9\xf0\xe0`7\xb0\xf7E\x97\\k\xec\xfb\xff\xcff\xb3\xbf\xf6\xdf(\xae]\x01\x85\x06\xdd\x91\x91(\xf1,\x15c\x8b\x0b,\x1f \xc2\x1aN/\xeeJ$Qz\x9a\xc0\x8c\x99\x80\xe2\xba\xfdpu\x15p\x18;3\xff\x90\xbb$\xf1-VT\xe5'F\xed*0\xadXd9T!\x8au]\xc1\xe8\xf0\xb3\x04\x0f6b\xf2\x7f\xa8\x06}\x97*\xec\x97X\x94g\xd1\xc3a\x11\x1a4\xd0\x01\xb3yp\xdc\xdf5{\xb7\x9d\x97y`\xa6\xde\x03\xe9\xa6\x14s\x0fa")
+x_pub = PubKey((x.pubExp, x.modulus, x.modulusLen))
+x_pub.verify_legacy(m, s, t="pkcs", h="tls")
 
 
 ########### Cert class ##############################################
@@ -223,8 +236,9 @@ JjZ91eQ0hjkCMHw2U/Aw5WJjOpnitqM7mzT6HtoQknFekROn3aRukswy1vUhZscv
 
 = Cert class : Checking ECDSA public key
 assert(type(y.pubKey) is PubKeyECDSA)
-assert(y.pubKey.key.curve.name == 'SECP384r1')
-y.pubKey.key.pubkey.point.x() == 3987178688175281746349180015490646948656137448666005327832107126183726641822596270780616285891030558662603987311874L
+pubkey = y.pubKey.pubkey
+assert(pubkey.curve.name == 'secp384r1')
+pubkey.public_numbers().x == 3987178688175281746349180015490646948656137448666005327832107126183726641822596270780616285891030558662603987311874L
 
 = Cert class : Checking ECDSA signature
 y.signatureValue == '0d\x020%\xa4\x81E\x02k\x12KutO\xc8#\xe3p\xf2ur\xde|\x89\xf0\xcf\x91ra\x9e^\x10\x92YV\xb9\x83\xc7\x10\xe78\xe9X&6}\xd5\xe44\x869\x020|6S\xf00\xe5bc:\x99\xe2\xb6\xa3;\x9b4\xfa\x1e\xda\x10\x92q^\x91\x13\xa7\xdd\xa4n\x92\xcc2\xd6\xf5!f\xc7/\xea\x96cjeE\x92\x95\x01\xb4'

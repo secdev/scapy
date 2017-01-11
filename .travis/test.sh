@@ -77,8 +77,8 @@ do
 done
 
 # Run unit tests with openssl if we have root privileges
-if [ "$TRAVIS_OS_NAME" = "linux" ] && [ ! -z $SCAPY_USE_PCAPDNET ] && [ ! -z $TRAVIS_SUDO ]
+if [ "$TRAVIS_OS_NAME" = "linux" ] && [ ! -z $SCAPY_USE_PCAPDNET ] && [ ! -z $SCAPY_SUDO ]
 then
-  $TRAVIS_SUDO ./run_tests_tls_netaccess || exit $?
+  $SCAPY_SUDO tls/run_tests_tls_netaccess || exit $?
 fi
 

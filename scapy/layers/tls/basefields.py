@@ -155,10 +155,11 @@ class _TLSPadField(StrField):
 
     def getfield(self, pkt, s):
         if pkt.tls_session.consider_read_padding():
-            # We get the length from the first byte of s which
+            # We get the length from the last byte of s which
             # is either the first byte of padding or the padding
-            # length field itself is padding length is 0
-            l = ord(s[0])
+            # length field itself is padding length is 0.
+            # This should work with SSLv3 and also TLS versions.
+            l = ord(s[-1])
             return s[l:], self.m2i(pkt, s[:l])
         return s, None
 

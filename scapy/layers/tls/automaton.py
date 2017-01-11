@@ -829,9 +829,10 @@ class TLSServerAutomaton(Automaton):
         if self.cur_pkt.comp and 1 in self.cur_pkt.comp:
             comp = 1
 
-        # Should do more than that to decide which version to return
         self.cur_session.advertised_tls_version = self.cur_pkt.version
-        v = self.cur_session.advertised_tls_version
+        self.cur_session.tls_version = self.cur_pkt.version
+        #XXX there should be some checks on this version from the ClientHello
+        v = self.cur_session.tls_version
         print "\nVersion: " + _tls_version[v]
         print "Cipher suite: " + _tls_cipher_suites[c]
 

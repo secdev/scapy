@@ -215,25 +215,50 @@ class PRF(object):
          prior to this document when TLS 1.2 is negotiated."
         Cipher suites using SHA-384 were defined later on.
         """
+        if self.tls_version <= 0x0300:
 
-        if read_or_write == "write":
-            d = {"client": "client", "server": "server"}
-        else:
-            d = {"client": "server", "server": "client"}
-        finished_label = d[con_end] + " finished"
-
-        if self.tls_version <= 0x0302:
-            s1 = tls_hash_algs["MD5"]().digest(handshake_msg)
-            s2 = tls_hash_algs["SHA"]().digest(handshake_msg)
-
-            verify_data = self.prf(master_secret, finished_label, s1 + s2, 12)
-        else:
-            if self.hash_name in ["MD5", "SHA"]:
-                h = tls_hash_algs["SHA256"]()
+            if read_or_write == "write":
+                d = {"client": "CLNT", "server": "SRVR"}
             else:
-                h = tls_hash_algs[self.hash_name]()
-            s = h.digest(handshake_msg)
-            verify_data = self.prf(master_secret, finished_label, s, 12)
+                d = {"client": "SRVR", "server": "CLNT"}
+            label = d[con_end]
+
+            sslv3_md5_pad1 = "\x36"*48
+            sslv3_md5_pad2 = "\x5c"*48
+            sslv3_sha1_pad1 = "\x36"*40
+            sslv3_sha1_pad2 = "\x5c"*40
+
+            md5 = tls_hash_algs["MD5"]()
+            sha1 = tls_hash_algs["SHA"]()
+
+            md5_hash = md5.digest(master_secret + sslv3_md5_pad2 +
+                                  md5.digest(handshake_msg + label +
+                                             master_secret + sslv3_md5_pad1))
+            sha1_hash = sha1.digest(master_secret + sslv3_sha1_pad2 +
+                                    sha1.digest(handshake_msg + label +
+                                                master_secret + sslv3_sha1_pad1))
+            verify_data = md5_hash + sha1_hash
+
+        else:
+
+            if read_or_write == "write":
+                d = {"client": "client", "server": "server"}
+            else:
+                d = {"client": "server", "server": "client"}
+            label = d[con_end] + " finished"
+
+            if self.tls_version <= 0x0302:
+                s1 = tls_hash_algs["MD5"]().digest(handshake_msg)
+                s2 = tls_hash_algs["SHA"]().digest(handshake_msg)
+                verify_data = self.prf(master_secret, label, s1 + s2, 12)
+            else:
+                if self.hash_name in ["MD5", "SHA"]:
+                    h = tls_hash_algs["SHA256"]()
+                else:
+                    h = tls_hash_algs[self.hash_name]()
+                s = h.digest(handshake_msg)
+                verify_data = self.prf(master_secret, label, s, 12)
+
         return verify_data
 
     def postprocess_key_for_export(self, key, client_random, server_random,

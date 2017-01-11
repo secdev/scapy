@@ -7,7 +7,8 @@
 Stream ciphers.
 """
 
-from Crypto.Cipher import ARC4
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms
+from cryptography.hazmat.backends import default_backend
 
 from scapy.layers.tls.crypto.ciphers import CipherError
 
@@ -33,41 +34,65 @@ class _StreamCipher(object):
     __metaclass__ = _StreamCipherMetaclass
     type = "stream"
 
+    def __init__(self, key=None):
+        """
+        Note that we have to keep the encryption/decryption state in unique
+        encryptor and decryptor objects. This differs from _BlockCipher.
+        """
+        self.ready = {"key":True}
+        if key is None:
+            self.ready["key"] = False
+            key = "\0" * self.key_len
+
+        # we use super() in order to avoid any deadlock with __setattr__
+        super(_StreamCipher, self).__setattr__("key", key)
+
+        self._cipher = Cipher(self.pc_cls(key),
+                              mode=None,
+                              backend=default_backend())
+        self.encryptor = self._cipher.encryptor()
+        self.decryptor = self._cipher.decryptor()
+
+    def __setattr__(self, name, val):
+        if name == "key":
+            if self._cipher is not None:
+                self._cipher.algorithm.key = val
+            self.ready["key"] = True
+        super(_StreamCipher, self).__setattr__(name, val)
+
+    def encrypt(self, data):
+        if False in self.ready.itervalues():
+            raise CipherError, data
+        return self.encryptor.update(data)
+
+    def decrypt(self, data):
+        if False in self.ready.itervalues():
+            raise CipherError, data
+        return self.decryptor.update(data)
+
+
+class Cipher_RC4_40(_StreamCipher):
+    pc_cls = algorithms.ARC4
+    key_len = 5
+    expanded_key_len = 16
+
+class Cipher_RC4_128(Cipher_RC4_40):
+    key_len = 16
+
 
 class Cipher_NULL(_StreamCipher):
     key_len = 0
     expanded_key_len = 0
 
     def __init__(self, key=None):
-        self.key = key
+        self.ready = {"key":True}
+        # we use super() in order to avoid any deadlock with __setattr__
+        super(_StreamCipher, self).__setattr__("key", key)
+        self._cipher = None
 
     def encrypt(self, data):
         return data
 
     def decrypt(self, data):
         return data
-
-class Cipher_RC4_40(_StreamCipher):
-    key_len = 5
-    expanded_key_len = 16
-
-    def __init__(self, key=None):
-        self.alg_state = None
-        self.key = key
-
-    def __setattr__(self, name, value):
-        super(Cipher_RC4_40, self).__setattr__(name, value)
-        if name == "key" and value is not None:
-            self.alg_state = ARC4.new(value)
-
-    def encrypt(self, data):
-        return self.alg_state.encrypt(data)
-
-    def decrypt(self, data):
-        if self.key is None:
-            raise CipherError, data
-        return self.alg_state.decrypt(data)
-
-class Cipher_RC4_128(Cipher_RC4_40):
-    key_len = 16
 

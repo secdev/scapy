@@ -3,6 +3,7 @@
 # Try me with :
 # bash test/run_tests -t test/tls.uts -F
 
+~ crypto
 
 ###############################################################################
 ################################### Crypto ####################################
@@ -536,7 +537,7 @@ def _all_aes_gcm_tests():
     ciphers = []
     for t in [_aes128gcm_test_1, _aes128gcm_test_2]:
         c = Cipher_AES_128_GCM(key=t.k, salt=t.n[:4],
-                               nonce_explicit_init=pkcs_os2ip(t.n[4:]))
+                               nonce_explicit=pkcs_os2ip(t.n[4:]))
         ne = t.n[-c.nonce_explicit_len:]
         tup = ne, t.p, t.ct[-c.tag_len:]
         tmp1 = c.auth_decrypt(t.a, ne + t.ct, add_length=False) == tup
@@ -544,7 +545,7 @@ def _all_aes_gcm_tests():
         res = res and tmp1 and tmp2
     for t in [_aes256gcm_test_1, _aes256gcm_test_2]:
         c = Cipher_AES_256_GCM(key=t.k, salt=t.n[:4],
-                               nonce_explicit_init=pkcs_os2ip(t.n[4:]))
+                               nonce_explicit=pkcs_os2ip(t.n[4:]))
         ne = t.n[-c.nonce_explicit_len:]
         tup = ne, t.p, t.ct[-c.tag_len:]
         tmp1 = c.auth_decrypt(t.a, ne + t.ct, add_length=False) == tup
@@ -555,63 +556,64 @@ def _all_aes_gcm_tests():
 _all_aes_gcm_tests()
 
 
-+ Test AES-CCM
-= Crypto - AES cipher in CCM mode, checks from IEEE P1619.1
-~ combined_modes
-
-class _aes256ccm_test_1:
-    k= "\0"*32
-    n= "\0"*12
-    p= "\0"*16
-    a= ""
-    ct=("\xc1\x94\x40\x44\xc8\xe7\xaa\x95\xd2\xde\x95\x13\xc7\xf3\xdd\x8c" +
-       "\x4b\x0a\x3e\x5e\x51\xf1\x51\xeb\x0f\xfa\xe7\xc4\x3d\x01\x0f\xdb")
-
-class _aes256ccm_test_2:
-    k=("\xfb\x76\x15\xb2\x3d\x80\x89\x1d\xd4\x70\x98\x0b\xc7\x95\x84\xc8" +
-       "\xb2\xfb\x64\xce\x60\x97\x87\x8d\x17\xfc\xe4\x5a\x49\xe8\x30\xb7")
-    n= "\xdb\xd1\xa3\x63\x60\x24\xb7\xb4\x02\xda\x7d\x6f"
-    p= "\xa9"
-    a= "\x36"
-    ct="\x9d\x32\x61\xb1\xcf\x93\x14\x31\xe9\x9a\x32\x80\x67\x38\xec\xbd\x2a"
-
-class _aes256ccm_test_3:
-    k=("\xfb\x76\x15\xb2\x3d\x80\x89\x1d\xd4\x70\x98\x0b\xc7\x95\x84\xc8" +
-       "\xb2\xfb\x64\xce\x60\x97\x8f\x4d\x17\xfc\xe4\x5a\x49\xe8\x30\xb7")
-    n= "\xdb\xd1\xa3\x63\x60\x24\xb7\xb4\x02\xda\x7d\x6f"
-    p= "\xa8\x45\x34\x8e\xc8\xc5\xb5\xf1\x26\xf5\x0e\x76\xfe\xfd\x1b\x1e"
-    a= ""
-    ct=("\xcc\x88\x12\x61\xc6\xa7\xfa\x72\xb9\x6a\x17\x39\x17\x6b\x27\x7f" +
-       "\x34\x72\xe1\x14\x5f\x2c\x0c\xbe\x14\x63\x49\x06\x2c\xf0\xe4\x23")
-
-class _aes256ccm_test_4:
-    k=("\x40\x41\x42\x43\x44\x45\x46\x47\x48\x49\x4a\x4b\x4c\x4d\x4e\x4f" +
-       "\x50\x51\x52\x53\x54\x55\x56\x57\x58\x59\x5a\x5b\x5c\x5d\x5e\x5f")
-    n= "\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b"
-    p=("\x20\x21\x22\x23\x24\x25\x26\x27\x28\x29\x2a\x2b\x2c\x2d\x2e\x2f" +
-       "\x30\x31\x32\x33\x34\x35\x36\x37")
-    a=("\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f" +
-       "\x10\x11\x12\x13")
-    ct=("\x04\xf8\x83\xae\xb3\xbd\x07\x30\xea\xf5\x0b\xb6\xde\x4f\xa2\x21" +
-       "\x20\x34\xe4\xe4\x1b\x0e\x75\xe5\x9b\xba\x3f\x3a\x10\x7f\x32\x39" +
-       "\xbd\x63\x90\x29\x23\xf8\x03\x71")
-
-def _all_aes_ccm_tests():
-    from scapy.layers.tls.crypto.cipher_aead import Cipher_AES_256_CCM
-    res = True
-    ciphers = []
-    for t in [_aes256ccm_test_1, _aes256ccm_test_2,
-              _aes256ccm_test_3, _aes256ccm_test_4]:
-        c = Cipher_AES_256_CCM(key=t.k, salt=t.n[:4],
-                               nonce_explicit_init=pkcs_os2ip(t.n[4:]))
-        ne = t.n[-c.nonce_explicit_len:]
-        tup = ne, t.p, t.ct[-c.tag_len:]
-        tmp1 = c.auth_decrypt(t.a, ne + t.ct, add_length=False) == tup
-        tmp2 = c.auth_encrypt(t.p, t.a) == (ne + t.ct)
-        res = res and tmp1 and tmp2
-    return res
-
-_all_aes_ccm_tests()
+#XXX CCM remains to be added to the cryptography library
+#+ Test AES-CCM
+#= Crypto - AES cipher in CCM mode, checks from IEEE P1619.1
+#~ combined_modes
+#
+#class _aes256ccm_test_1:
+#    k= "\0"*32
+#    n= "\0"*12
+#    p= "\0"*16
+#    a= ""
+#    ct=("\xc1\x94\x40\x44\xc8\xe7\xaa\x95\xd2\xde\x95\x13\xc7\xf3\xdd\x8c" +
+#       "\x4b\x0a\x3e\x5e\x51\xf1\x51\xeb\x0f\xfa\xe7\xc4\x3d\x01\x0f\xdb")
+#
+#class _aes256ccm_test_2:
+#    k=("\xfb\x76\x15\xb2\x3d\x80\x89\x1d\xd4\x70\x98\x0b\xc7\x95\x84\xc8" +
+#       "\xb2\xfb\x64\xce\x60\x97\x87\x8d\x17\xfc\xe4\x5a\x49\xe8\x30\xb7")
+#    n= "\xdb\xd1\xa3\x63\x60\x24\xb7\xb4\x02\xda\x7d\x6f"
+#    p= "\xa9"
+#    a= "\x36"
+#    ct="\x9d\x32\x61\xb1\xcf\x93\x14\x31\xe9\x9a\x32\x80\x67\x38\xec\xbd\x2a"
+#
+#class _aes256ccm_test_3:
+#    k=("\xfb\x76\x15\xb2\x3d\x80\x89\x1d\xd4\x70\x98\x0b\xc7\x95\x84\xc8" +
+#       "\xb2\xfb\x64\xce\x60\x97\x8f\x4d\x17\xfc\xe4\x5a\x49\xe8\x30\xb7")
+#    n= "\xdb\xd1\xa3\x63\x60\x24\xb7\xb4\x02\xda\x7d\x6f"
+#    p= "\xa8\x45\x34\x8e\xc8\xc5\xb5\xf1\x26\xf5\x0e\x76\xfe\xfd\x1b\x1e"
+#    a= ""
+#    ct=("\xcc\x88\x12\x61\xc6\xa7\xfa\x72\xb9\x6a\x17\x39\x17\x6b\x27\x7f" +
+#       "\x34\x72\xe1\x14\x5f\x2c\x0c\xbe\x14\x63\x49\x06\x2c\xf0\xe4\x23")
+#
+#class _aes256ccm_test_4:
+#    k=("\x40\x41\x42\x43\x44\x45\x46\x47\x48\x49\x4a\x4b\x4c\x4d\x4e\x4f" +
+#       "\x50\x51\x52\x53\x54\x55\x56\x57\x58\x59\x5a\x5b\x5c\x5d\x5e\x5f")
+#    n= "\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b"
+#    p=("\x20\x21\x22\x23\x24\x25\x26\x27\x28\x29\x2a\x2b\x2c\x2d\x2e\x2f" +
+#       "\x30\x31\x32\x33\x34\x35\x36\x37")
+#    a=("\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f" +
+#       "\x10\x11\x12\x13")
+#    ct=("\x04\xf8\x83\xae\xb3\xbd\x07\x30\xea\xf5\x0b\xb6\xde\x4f\xa2\x21" +
+#       "\x20\x34\xe4\xe4\x1b\x0e\x75\xe5\x9b\xba\x3f\x3a\x10\x7f\x32\x39" +
+#       "\xbd\x63\x90\x29\x23\xf8\x03\x71")
+#
+#def _all_aes_ccm_tests():
+#    from scapy.layers.tls.crypto.cipher_aead import Cipher_AES_256_CCM
+#    res = True
+#    ciphers = []
+#    for t in [_aes256ccm_test_1, _aes256ccm_test_2,
+#              _aes256ccm_test_3, _aes256ccm_test_4]:
+#        c = Cipher_AES_256_CCM(key=t.k, salt=t.n[:4],
+#                               nonce_explicit_init=pkcs_os2ip(t.n[4:]))
+#        ne = t.n[-c.nonce_explicit_len:]
+#        tup = ne, t.p, t.ct[-c.tag_len:]
+#        tmp1 = c.auth_decrypt(t.a, ne + t.ct, add_length=False) == tup
+#        tmp2 = c.auth_encrypt(t.p, t.a) == (ne + t.ct)
+#        res = res and tmp1 and tmp2
+#    return res
+#
+#_all_aes_ccm_tests()
 
 
 + Test camellia
@@ -621,27 +623,27 @@ class _Camellia128_test:
     k= "\x01\x23\x45\x67\x89\xab\xcd\xef\xfe\xdc\xba\x98\x76\x54\x32\x10"
     p= "\x01\x23\x45\x67\x89\xab\xcd\xef\xfe\xdc\xba\x98\x76\x54\x32\x10"
     c= "\x67\x67\x31\x38\x54\x96\x69\x73\x08\x57\x06\x56\x48\xea\xbe\x43"
-
-class _Camellia192_test:
-    k=("\x01\x23\x45\x67\x89\xab\xcd\xef\xfe\xdc\xba\x98\x76\x54\x32\x10" +
-       "\x00\x11\x22\x33\x44\x55\x66\x77")
-    p= "\x01\x23\x45\x67\x89\xab\xcd\xef\xfe\xdc\xba\x98\x76\x54\x32\x10"
-    c= "\xb4\x99\x34\x01\xb3\xe9\x96\xf8\x4e\xe5\xce\xe7\xd7\x9b\x09\xb9"
+    iv="\0"*16
 
 class _Camellia256_test:
     k=("\x01\x23\x45\x67\x89\xab\xcd\xef\xfe\xdc\xba\x98\x76\x54\x32\x10" +
        "\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\xaa\xbb\xcc\xdd\xee\xff")
     p= "\x01\x23\x45\x67\x89\xab\xcd\xef\xfe\xdc\xba\x98\x76\x54\x32\x10"
     c= "\x9a\xcc\x23\x7d\xff\x16\xd7\x6c\x20\xef\x7c\x91\x9e\x3a\x75\x09"
+    iv="\0"*16
 
 def _all_camellia_tests():
-    from scapy.layers.tls.crypto.camellia import Camellia
-    cam = Camellia()
+    from scapy.layers.tls.crypto.cipher_block import (Cipher_CAMELLIA_128_CBC,
+                                                      Cipher_CAMELLIA_256_CBC)
     res = True
-    for t in [_Camellia128_test, _Camellia192_test, _Camellia256_test]:
-        tmp = ((cam.encrypt(t.p, t.k) == t.c) and
-               (cam.decrypt(t.c, t.k) == t.p))
-        res = res and tmp
+    t = _Camellia128_test
+    tmp = (Cipher_CAMELLIA_128_CBC(t.k, t.iv).encrypt(t.p) == t.c and
+           Cipher_CAMELLIA_128_CBC(t.k, t.iv).decrypt(t.c) == t.p)
+    res = res and tmp
+    t = _Camellia256_test
+    tmp = (Cipher_CAMELLIA_256_CBC(t.k, t.iv).encrypt(t.p) == t.c and
+           Cipher_CAMELLIA_256_CBC(t.k, t.iv).decrypt(t.c) == t.p)
+    res = res and tmp
     return res
 
 _all_camellia_tests()
@@ -785,7 +787,7 @@ assert(isinstance(ske, TLSServerKeyExchange))
 p = ske.params
 assert(isinstance(p, ServerECDHNamedCurveParams))
 assert(p.named_curve == 0x0017)
-assert(p.point[:4] == '\x04\xc3\x9d\x1c' and p.point[-4:] == 'X\x19\x03u')
+assert(p.point[0] == '\x04' and p.point[1:5] == '\xc3\x9d\x1cD' and p.point[-4:] == 'X\x19\x03u')
 assert(ske.sig.sig_alg == 0x0601)
 ske.sig.sig_val[:4] == 'y\x8aQ\x11' and ske.sig.sig_val[-4:] == '`15\xef'
 
@@ -801,12 +803,12 @@ t = shd.tls_session
 assert(len(t.handshake_messages) == 6)
 assert(t.handshake_messages_parsed[-1] is shd)
 assert(t.tls_version == 0x0303)
-assert(isinstance(t.server_kx_params, ECDHParams))
-p = t.server_kx_params.pub
-assert(p[:4] == '\x04\xc3\x9d\x1c' and p[-4:] == 'X\x19\x03u')
-assert(isinstance(t.client_kx_params, ECDHParams))
-p = t.client_kx_params.other_pub
-assert(p[:4] == '\x04\xc3\x9d\x1c' and p[-4:] == 'X\x19\x03u')
+assert(t.client_kx_ffdh_params is None)
+assert(t.client_kx_ecdh_params is not None)
+pn = t.server_kx_pubkey.public_numbers()
+x = pkcs_i2osp(pn.x, pn.curve.key_size/8)
+y = pkcs_i2osp(pn.y, pn.curve.key_size/8)
+assert(x[:4] == '\xc3\x9d\x1cD' and y[-4:] == 'X\x19\x03u')
 assert(t.rcs.row == "read")
 assert(t.wcs.row == "write")
 t.rcs.ciphersuite.val == 0
@@ -829,9 +831,8 @@ isinstance(t5.payload.payload.payload, NoPayload)
 assert(isinstance(cke, TLSClientKeyExchange))
 k = cke.exchkeys
 assert(isinstance(k, ClientECDiffieHellmanPublic))
-assert(k.dh_Yclen == 65)
-assert(k.dh_Yc[:4] == '\x04\xd2\x07\xce' and k.dh_Yc[-4:] == '\xdc\x86[\xe7')
-t.server_kx_params.other_pub == pkcs_os2ip(k.dh_Yc)
+assert(k.ecdh_Yclen == 65)
+assert(k.ecdh_Yc[:4] == '\x04\xd2\x07\xce' and k.ecdh_Yc[-4:] == '\xdc\x86[\xe7')
 
 
 + Test TLS ChangeCipherSpec

@@ -1,10 +1,14 @@
 ## This file is part of Scapy
-## Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
-##                     2015, 2016 Maxence Tury
+## Copyright (C) 2008 Arnaud Ebalard <arno@natisbad.org>
+##         2015, 2016 Maxence Tury <maxence.tury@ssi.gouv.fr>
 ## This program is published under a GPLv2 license
 
 """
 PKCS #1 methods as defined in RFC 3447.
+
+XXX We cannot rely solely on the cryptography library, because it does not
+support our "tls" hash used with TLS 1.0. Once it is added to (or from) the
+library, most of the present module should be removed.
 """
 
 import os, popen2, tempfile
@@ -72,18 +76,20 @@ def pkcs_ilen(n):
         i += 1
     return i
 
-# for every hash function a tuple is provided, giving access to
+
+#####################################################################
+# Hash functions
+#####################################################################
+
+# For every hash function a tuple is provided, giving access to
 # - hash output length in byte
 # - associated hash function that take data to be hashed as parameter
 #   XXX I do not provide update() at the moment.
 # - DER encoding of the leading bits of digestInfo (the hash value
 #   will be concatenated to create the complete digestInfo).
 #
-# Notes:
-# - MD4 asn.1 value should be verified. Also, as stated in
-#   PKCS#1 v2.1, MD4 should not be used.
-# - 'tls' one is the concatenation of both md5 and sha1 hashes used
-#   by SSL/TLS when signing/verifying things
+# Note that 'tls' is the concatenation of both md5 and sha1 hashes used by
+# SSL/TLS 1.0 when signing/verifying things.
 
 _hashFuncParams = {}
 if conf.crypto_valid:
@@ -124,11 +130,17 @@ if conf.crypto_valid:
         }
 
 def mapHashFunc(hashStr):
+    if hashStr == "tls":
+        raise Exception("mapHashFunc is not supposed to be called on 'tls'")
     try:
-        return _hashFuncParams[hashStr][1]
+        return _hashFuncParams[hashStr][1]()
     except:
         raise Exception("Unknown hash function %s" % hashStr)
 
+
+#####################################################################
+# Some more PKCS helpers
+#####################################################################
 
 def pkcs_mgf1(mgfSeed, maskLen, h):
     """
@@ -308,165 +320,166 @@ def pkcs_emsa_pkcs1_v1_5_encode(M, emLen, h): # section 9.2 of RFC 3447
     return EM                                                # 6)
 
 
-# XXX should add other pgf1 instance in a better fashion.
-
-def create_ca_file(anchor_list, filename):
-    """
-    Concatenate all the certificates (PEM format for the export) in
-    'anchor_list' and write the result to file 'filename'. On success
-    'filename' is returned, None otherwise.
-
-    If you are used to OpenSSL tools, this function builds a CAfile
-    that can be used for certificate and CRL check.
-
-    Also see create_temporary_ca_file().
-    """
-    try:
-        f = open(filename, "w")
-        for a in anchor_list:
-            s = a.output(fmt="PEM")
-            f.write(s)
-        f.close()
-    except:
-        return None
-    return filename
-
-def create_temporary_ca_file(anchor_list):
-    """
-    Concatenate all the certificates (PEM format for the export) in
-    'anchor_list' and write the result to file to a temporary file
-    using mkstemp() from tempfile module. On success 'filename' is
-    returned, None otherwise.
-
-    If you are used to OpenSSL tools, this function builds a CAfile
-    that can be used for certificate and CRL check.
-    """
-    try:
-        f, fname = tempfile.mkstemp()
-        for a in anchor_list:
-            s = a.output(fmt="PEM")
-            l = os.write(f, s)
-        os.close(f)
-    except:
-        return None
-    return fname
-
-def create_temporary_ca_path(anchor_list, folder):
-    """
-    Create a CA path folder as defined in OpenSSL terminology, by
-    storing all certificates in 'anchor_list' list in PEM format
-    under provided 'folder' and then creating the associated links
-    using the hash as usually done by c_rehash.
-
-    Note that you can also include CRL in 'anchor_list'. In that
-    case, they will also be stored under 'folder' and associated
-    links will be created.
-
-    In folder, the files are created with names of the form
-    0...ZZ.pem. If you provide an empty list, folder will be created
-    if it does not already exist, but that's all.
-
-    The number of certificates written to folder is returned on
-    success, None on error.
-    """
-    # We should probably avoid writing duplicate anchors and also
-    # check if they are all certs.
-    try:
-        if not os.path.isdir(folder):
-            os.makedirs(folder)
-    except:
-        return None
-
-    l = len(anchor_list)
-    if l == 0:
-        return None
-    fmtstr = "%%0%sd.pem" % math.ceil(math.log(l, 10))
-    i = 0
-    try:
-        for a in anchor_list:
-            fname = os.path.join(folder, fmtstr % i)
-            f = open(fname, "w")
-            s = a.output(fmt="PEM")
-            f.write(s)
-            f.close()
-            i += 1
-    except:
-        return None
-
-    r,w=popen2.popen2("c_rehash %s" % folder)
-    r.close(); w.close()
-
-    return l
-
-
 #####################################################################
-# Public Key Cryptography related stuff
+# Asymmetric Cryptography wrappers
 #####################################################################
 
 class _EncryptAndVerifyRSA(object):
+
+    def _rsaep(self, m):
+        """
+        Internal method providing raw RSA encryption, i.e. simple modular
+        exponentiation of the given message representative 'm', a long
+        between 0 and n-1.
+
+        This is the encryption primitive RSAEP described in PKCS#1 v2.1,
+        i.e. RFC 3447 Sect. 5.1.1.
+
+        Input:
+           m: message representative, a long between 0 and n-1, where
+              n is the key modulus.
+
+        Output:
+           ciphertext representative, a long between 0 and n-1
+
+        Not intended to be used directly. Please, see encrypt() method.
+        """
+
+        n = self.modulus
+        if isinstance(m, int):
+            m = long(m)
+        if (not isinstance(m, long)) or m > n-1:
+            warning("Key._rsaep() expects a long between 0 and n-1")
+            return None
+
+        return pow(m, self.pubExp, n)
+
+
     @crypto_validator
-    def encrypt(self, m, t=None, h=None, mgf=None, L=None):
-        """
-        Encrypt message 'm' using 't' encryption scheme where 't' can be:
+    def encrypt(self, m, t="pkcs", h=None, mgf=None, L=None):
+        if h == "tls" or t is None:
+            #return self.encrypt_legacy(m, t=t, h=h, mgf=mgf, L=L)
+            warning("Cannot call encrypt_legacy anymore.")
+            return None
 
-        - None: the message 'm' is directly applied the RSAEP encryption
-                primitive, as described in PKCS#1 v2.1, i.e. RFC 3447
-                Sect 5.1.1. Simply put, the message undergo a modular
-                exponentiation using the public key. Additionnal method
-                parameters are just ignored.
-
-        -'pkcs': the message 'm' is applied RSAES-PKCS1-V1_5-ENCRYPT encryption
-                scheme as described in section 7.2.1 of RFC 3447. In that
-                context, other parameters ('h', 'mgf', 'l') are not used.
-
-        -'oaep': the message 'm' is applied the RSAES-OAEP-ENCRYPT encryption
-                scheme, as described in PKCS#1 v2.1, i.e. RFC 3447 Sect
-                7.1.1. In that context,
-
-                o 'h' parameter provides the name of the hash method to use.
-                  Possible values are "md2", "md4", "md5", "sha1", "tls",
-                  "sha224", "sha256", "sha384" and "sha512". If none is
-                  provided, sha1 is used.
-
-                o 'mgf' is the mask generation function. By default, mgf
-                  is derived from the provided hash function using the
-                  generic MGF1 (see pkcs_mgf1() for details).
-
-                o 'L' is the optional label to be associated with the message.
-                  If not provided, the default value is used, i.e the empty
-                  string. No check is done on the input limitation of the hash
-                  function regarding the size of 'L' (for instance, 2^61 - 1
-                  for SHA-1). You have been warned.
-        """
         if h is not None:
             h = mapHashFunc(h)
-        if t is None: # Raw encryption
-            return self.key.encrypt(
-                m,
-                padding.AsymmetricPadding(),
-            )
-        elif t == "pkcs":
-            return self.key.encrypt(
-                m,
-                padding.PKCS1v15(),
-            )
 
+        if t == "pkcs":
+            pad = padding.PKCS1v15()
         elif t == "oaep":
-            return self.key.encrypt(
-                m,
-                padding.OAEP(
-                    mgf=mgf(h()),
-                    algorithm=h(),
-                    label=L,
-                ),
-            )
-
+            pad = padding.OAEP(mgf=mgf(h), algorithm=h, label=L)
         else:
             warning("Key.encrypt(): Unknown encryption type (%s) provided" % t)
             return None
+        return self.pubkey.encrypt(m, pad)
 
-    @crypto_validator
-    def verify(self, M, S, t=None, h=None, mgf=None, sLen=None):
+
+    ### Below are verification related methods
+
+    def _rsavp1(self, s):
+        """
+        Internal method providing raw RSA verification, i.e. simple modular
+        exponentiation of the given signature representative 'c', an integer
+        between 0 and n-1.
+
+        This is the signature verification primitive RSAVP1 described in
+        PKCS#1 v2.1, i.e. RFC 3447 Sect. 5.2.2.
+
+        Input:
+          s: signature representative, an integer between 0 and n-1,
+             where n is the key modulus.
+
+        Output:
+           message representative, an integer between 0 and n-1
+
+        Not intended to be used directly. Please, see verify() method.
+        """
+        return self._rsaep(s)
+
+    def _rsassa_pss_verify(self, M, S, h=None, mgf=None, sLen=None):
+        """
+        Implements RSASSA-PSS-VERIFY() function described in Sect 8.1.2
+        of RFC 3447
+
+        Input:
+           M: message whose signature is to be verified
+           S: signature to be verified, an octet string of length k, where k
+              is the length in octets of the RSA modulus n.
+
+        Output:
+           True is the signature is valid. False otherwise.
+        """
+
+        # Set default parameters if not provided
+        if h is None: # By default, sha1
+            h = "sha1"
+        if not _hashFuncParams.has_key(h):
+            warning("Key._rsassa_pss_verify(): unknown hash function "
+                    "provided (%s)" % h)
+            return False
+        if mgf is None: # use mgf1 with underlying hash function
+            mgf = lambda x,y: pkcs_mgf1(x, y, h)
+        if sLen is None: # use Hash output length (A.2.3 of RFC 3447)
+            hLen = _hashFuncParams[h][0]
+            sLen = hLen
+
+        # 1) Length checking
+        modBits = self.modulusLen
+        k = modBits / 8
+        if len(S) != k:
+            return False
+
+        # 2) RSA verification
+        s = pkcs_os2ip(S)                           # 2.a)
+        m = self._rsavp1(s)                         # 2.b)
+        emLen = math.ceil((modBits - 1) / 8.)       # 2.c)
+        EM = pkcs_i2osp(m, emLen)
+
+        # 3) EMSA-PSS verification
+        result = pkcs_emsa_pss_verify(M, EM, modBits - 1, h, mgf, sLen)
+
+        return result                               # 4)
+
+
+    def _rsassa_pkcs1_v1_5_verify(self, M, S, h):
+        """
+        Implements RSASSA-PKCS1-v1_5-VERIFY() function as described in
+        Sect. 8.2.2 of RFC 3447.
+
+        Input:
+           M: message whose signature is to be verified, an octet string
+           S: signature to be verified, an octet string of length k, where
+              k is the length in octets of the RSA modulus n
+           h: hash function name (in 'md2', 'md4', 'md5', 'sha1', 'tls',
+                'sha256', 'sha384').
+
+        Output:
+           True if the signature is valid. False otherwise.
+        """
+
+        # 1) Length checking
+        k = self.modulusLen / 8
+        if len(S) != k:
+            warning("invalid signature (len(S) != k)")
+            return False
+
+        # 2) RSA verification
+        s = pkcs_os2ip(S)                           # 2.a)
+        m = self._rsavp1(s)                         # 2.b)
+        EM = pkcs_i2osp(m, k)                       # 2.c)
+
+        # 3) EMSA-PKCS1-v1_5 encoding
+        EMPrime = pkcs_emsa_pkcs1_v1_5_encode(M, k, h)
+        if EMPrime is None:
+            warning("Key._rsassa_pkcs1_v1_5_verify(): unable to encode.")
+            return False
+
+        # 4) Comparison
+        return EM == EMPrime
+
+
+    def verify_legacy(self, M, S, t=None, h=None, mgf=None, sLen=None):
         """
         Verify alleged signature 'S' is indeed the signature of message 'M'
         using 't' signature scheme where 't' can be:
@@ -503,32 +516,50 @@ class _EncryptAndVerifyRSA(object):
                   default value (the byte length of the hash value for provided
                   algorithm) by providing another one with that parameter.
         """
+        if t is None: # RSAVP1
+            S = pkcs_os2ip(S)
+            n = self.modulus
+            if S > n-1:
+                warning("Signature to be verified is too long for key modulus")
+                return False
+            m = self._rsavp1(S)
+            if m is None:
+                return False
+            l = int(math.ceil(math.log(m, 2) / 8.)) # Hack
+            m = pkcs_i2osp(m, l)
+            return M == m
+        elif t == "pkcs": # RSASSA-PKCS1-v1_5-VERIFY
+            if h is None:
+                h = "sha1"
+            return self._rsassa_pkcs1_v1_5_verify(M, S, h)
+        elif t == "pss": # RSASSA-PSS-VERIFY
+            return self._rsassa_pss_verify(M, S, h, mgf, sLen)
+        else:
+            warning("Key.verify(): Unknown signature type (%s) provided" % t)
+            return None
+
+    @crypto_validator
+    def verify(self, M, S, t="pkcs", h=None, mgf=None, sLen=None):
+        if h == "tls" or t is None:
+            return self.verify_legacy(M, S, t=t, h=h, mgf=mgf, sLen=sLen)
+
         if h is not None:
             h = mapHashFunc(h)
 
-        if t is None: # RSAVP1
-            pad_inst = padding.AsymmetricPadding()
-        elif t == "pkcs": # RSASSA-PKCS1-v1_5-VERIFY
-            if h is None:
-                h = hashes.SHA1
-            pad_inst = padding.PKCS1v15()
+        if t == "pkcs": # RSASSA-PKCS1-v1_5-VERIFY
+            pad = padding.PKCS1v15()
         elif t == "pss": # RSASSA-PSS-VERIFY
-            pad_inst = padding.PSS(mgf=mgf, salt_length=sLen)
-
+            pad = padding.PSS(mgf=mgf(h), salt_length=sLen)
         else:
             warning("Key.verify(): Unknown signature type (%s) provided" % t)
             return None
 
         try:
-            self.key.verify(
-                signature=S,
-                data=M,
-                padding=pad_inst,
-                algorithm=h(),
-            )
+            self.pubkey.verify(signature=S, data=M, padding=pad, algorithm=h)
             return True
         except InvalidSignature:
             return False
+
 
 class _DecryptAndSignRSA(object):
     ### Below are decryption related methods. Encryption ones are inherited
@@ -557,210 +588,30 @@ class _DecryptAndSignRSA(object):
         if isinstance(c, int):
             c = long(c)
         if (not isinstance(c, long)) or c > n-1:
-            warning("Key._rsadp() expects a long between 0 and n-1")
+            warning("Key._rsaep() expects a long between 0 and n-1")
             return None
 
-        return self.key.decrypt(c)
+        return pow(c, self.privExp, n)
 
 
-    def _rsaes_pkcs1_v1_5_decrypt(self, C):
-        """
-        Implements RSAES-PKCS1-V1_5-DECRYPT() function described in section
-        7.2.2 of RFC 3447.
-
-        Input:
-           C: ciphertext to be decrypted, an octet string of length k, where
-              k is the length in octets of the RSA modulus n.
-
-        Output:
-           an octet string of length k at most k - 11
-
-        on error, None is returned.
-        """
-
-        # 1) Length checking
-        cLen = len(C)
-        k = self.modulusLen / 8
-        if cLen != k or k < 11:
-            warning("Key._rsaes_pkcs1_v1_5_decrypt() decryption error "
-                    "(cLen != k or k < 11)")
+    def decrypt(self, C, t="pkcs", h=None, mgf=None, L=None):
+        if h == "tls" or t is None:
+            #return self.decrypt_legacy(C, t=t, h=h, mgf=mgf, L=L)
+            warning("Cannot call decrypt_legacy anymore.")
             return None
 
-        # 2) RSA decryption
-        c = pkcs_os2ip(C)                           # 2.a)
-        m = self._rsadp(c)                          # 2.b)
-        EM = pkcs_i2osp(m, k)                       # 2.c)
+        if h is not None:
+            h = mapHashFunc(h)
 
-        # 3) EME-PKCS1-v1_5 decoding
-
-        # I am aware of the note at the end of 7.2.2 regarding error
-        # conditions reporting but the one provided below are for _local_
-        # debugging purposes. --arno
-
-        if EM[0] != '\x00':
-            warning("Key._rsaes_pkcs1_v1_5_decrypt(): decryption error "
-                    "(first byte is not 0x00)")
-            return None
-
-        if EM[1] != '\x02':
-            warning("Key._rsaes_pkcs1_v1_5_decrypt(): decryption error "
-                    "(second byte is not 0x02)")
-            return None
-
-        tmp = EM[2:].split('\x00', 1)
-        if len(tmp) != 2:
-            warning("Key._rsaes_pkcs1_v1_5_decrypt(): decryption error "
-                    "(no 0x00 to separate PS from M)")
-            return None
-
-        PS, M = tmp
-        if len(PS) < 8:
-            warning("Key._rsaes_pkcs1_v1_5_decrypt(): decryption error "
-                    "(PS is less than 8 byte long)")
-            return None
-
-        return M                                    # 4)
-
-
-    def _rsaes_oaep_decrypt(self, C, h=None, mgf=None, L=None):
-        """
-        Internal method providing RSAES-OAEP-DECRYPT as defined in Sect.
-        7.1.2 of RFC 3447. Not intended to be used directly. Please, see
-        encrypt() method for type "OAEP".
-
-
-        Input:
-           C  : ciphertext to be decrypted, an octet string of length k, where
-                k = 2*hLen + 2 (k denotes the byte length of the RSA modulus
-                and hLen the byte length of the hash function output)
-           h  : hash function name (in 'md2', 'md4', 'md5', 'sha1', 'tls',
-                'sha256', 'sha384'). 'sha1' is used if none is provided.
-           mgf: the mask generation function f : seed, maskLen -> mask
-           L  : optional label whose association with the message is to be
-                verified; the default value for L, if not provided is the empty
-                string.
-
-        Output:
-           message, an octet string of length k mLen, where mLen <= k-2*hLen-2
-
-        On error, None is returned.
-        """
-        # The steps below are the one described in Sect. 7.1.2 of RFC 3447.
-
-        # 1) Length Checking
-                                                    # 1.a) is not done
-        if h is None:
-            h = "sha1"
-        if not _hashFuncParams.has_key(h):
-            warning("Key._rsaes_oaep_decrypt(): unknown hash function %s." % h)
-            return None
-        hLen = _hashFuncParams[h][0]
-        hFun = _hashFuncParams[h][2]
-        k = self.modulusLen / 8
-        cLen = len(C)
-        if cLen != k:                               # 1.b)
-            warning("Key._rsaes_oaep_decrypt(): decryption error. "
-                    "(cLen != k)")
-            return None
-        if k < 2*hLen + 2:
-            warning("Key._rsaes_oaep_decrypt(): decryption error. "
-                    "(k < 2*hLen + 2)")
-            return None
-
-        # 2) RSA decryption
-        c = pkcs_os2ip(C)                           # 2.a)
-        m = self._rsadp(c)                          # 2.b)
-        EM = pkcs_i2osp(m, k)                       # 2.c)
-
-        # 3) EME-OAEP decoding
-        if L is None:                               # 3.a)
-            L = ""
-        lHash = hFun(L)
-        Y = EM[:1]                                  # 3.b)
-        if Y != '\x00':
-            warning("Key._rsaes_oaep_decrypt(): decryption error. "
-                    "(Y is not zero)")
-            return None
-        maskedSeed = EM[1:1+hLen]
-        maskedDB = EM[1+hLen:]
-        if mgf is None:
-            mgf = lambda x,y: pkcs_mgf1(x, y, h)
-        seedMask = mgf(maskedDB, hLen)              # 3.c)
-        seed = strxor(maskedSeed, seedMask)         # 3.d)
-        dbMask = mgf(seed, k - hLen - 1)            # 3.e)
-        DB = strxor(maskedDB, dbMask)               # 3.f)
-
-        # I am aware of the note at the end of 7.1.2 regarding error
-        # conditions reporting but the one provided below are for _local_
-        # debugging purposes. --arno
-
-        lHashPrime = DB[:hLen]                      # 3.g)
-        tmp = DB[hLen:].split('\x01', 1)
-        if len(tmp) != 2:
-            warning("Key._rsaes_oaep_decrypt(): decryption error. "
-                    "(0x01 separator not found)")
-            return None
-        PS, M = tmp
-        if PS != '\x00'*len(PS):
-            warning("Key._rsaes_oaep_decrypt(): decryption error. "
-                    "(invalid padding string)")
-            return None
-        if lHash != lHashPrime:
-            warning("Key._rsaes_oaep_decrypt(): decryption error. "
-                    "(invalid hash)")
-            return None
-        return M                                    # 4)
-
-
-    def decrypt(self, C, t=None, h=None, mgf=None, L=None):
-        """
-        Decrypt ciphertext 'C' using 't' decryption scheme where 't' can be:
-
-        - None: the ciphertext 'C' is directly applied the RSADP decryption
-                primitive, as described in PKCS#1 v2.1, i.e. RFC 3447
-                Sect 5.1.2. Simply, put the message undergo a modular
-                exponentiation using the private key. Additionnal method
-                parameters are just ignored.
-
-        - 'pkcs': the ciphertext 'C' is applied RSAES-PKCS1-V1_5-DECRYPT
-                decryption scheme as described in section 7.2.2 of RFC 3447.
-                In that context, other parameters ('h', 'mgf', 'l') are not
-                used.
-
-        - 'oaep': the ciphertext 'C' is applied the RSAES-OAEP-DECRYPT
-                decryption scheme, as described in PKCS#1 v2.1, i.e. RFC 3447
-                Sect 7.1.2. In that context,
-
-                o 'h' parameter provides the name of the hash method to use.
-                  Possible values are "md2", "md4", "md5", "sha1", "tls",
-                  "sha224", "sha256", "sha384" and "sha512". If None is
-                  provided, sha1 is used by default.
-
-                o 'mgf' is the mask generation function. By default, mgf
-                  is derived from the provided hash function using the
-                  generic MGF1 (see pkcs_mgf1() for details).
-
-                o 'L' is the optional label to be associated with the
-                  message. If not provided, the default value is used, i.e
-                  the empty string. No check is done on the input limitation
-                  of the hash function regarding the size of 'L' (for
-                  instance, 2^61 - 1 for SHA-1). You have been warned.
-        """
-        if t is None:
-            C = pkcs_os2ip(C)
-            c = self._rsadp(C)
-            l = int(math.ceil(math.log(c, 2) / 8.)) # Hack
-            return pkcs_i2osp(c, l)
-
-        elif t == "pkcs":
-            return self._rsaes_pkcs1_v1_5_decrypt(C)
-
+        if t == "pkcs":
+            pad = padding.PKCS1v15()
         elif t == "oaep":
-            return self._rsaes_oaep_decrypt(C, h, mgf, L)
-
+            pad = padding.OAEP(mgf=mgf(h), algorithm=h, label=L)
         else:
             warning("Key.decrypt(): Unknown decryption type (%s) provided" % t)
             return None
+        return self.key.decrypt(C, pad)
+
 
     ### Below are signature related methods.
     ### Verification methods are inherited from PubKey.
@@ -859,7 +710,7 @@ class _DecryptAndSignRSA(object):
         return S                                    # 3)
 
 
-    def sign(self, M, t=None, h=None, mgf=None, sLen=None):
+    def sign_legacy(self, M, t=None, h=None, mgf=None, sLen=None):
         """
         Sign message 'M' using 't' signature scheme where 't' can be:
 
@@ -892,7 +743,6 @@ class _DecryptAndSignRSA(object):
                   default value (the byte length of the hash value for provided
                   algorithm) by providing another one with that parameter.
         """
-
         if t is None: # RSASP1
             M = pkcs_os2ip(M)
             n = self.modulus
@@ -903,17 +753,123 @@ class _DecryptAndSignRSA(object):
             if s is None:
                 return None
             return pkcs_i2osp(s, self.modulusLen/8)
-
         elif t == "pkcs": # RSASSA-PKCS1-v1_5-SIGN
             if h is None:
                 h = "sha1"
             return self._rsassa_pkcs1_v1_5_sign(M, h)
-
         elif t == "pss": # RSASSA-PSS-SIGN
             return self._rsassa_pss_sign(M, h, mgf, sLen)
-
         else:
             warning("Key.sign(): Unknown signature type (%s) provided" % t)
             return None
 
+    def sign(self, M, t="pkcs", h=None, mgf=None, sLen=None):
+        if h == "tls" or t is None:
+            return self.sign_legacy(M, t=t, h=h, mgf=mgf, sLen=sLen)
+
+        if h is not None:
+            h = mapHashFunc(h)
+
+        if t == "pkcs": # RSASSA-PKCS1-v1_5-SIGN
+            pad = padding.PKCS1v15()
+        elif t == "pss": # RSASSA-PSS-SIGN
+            pad = padding.PSS(mgf=mgf(h), salt_length=sLen)
+        else:
+            warning("Key.sign(): Unknown signature type (%s) provided" % t)
+            return None
+        return self.key.sign(M, pad, h)
+
+
+
+#####################################################################
+# CA files helpers
+#####################################################################
+
+def create_ca_file(anchor_list, filename):
+    """
+    Concatenate all the certificates (PEM format for the export) in
+    'anchor_list' and write the result to file 'filename'. On success
+    'filename' is returned, None otherwise.
+
+    If you are used to OpenSSL tools, this function builds a CAfile
+    that can be used for certificate and CRL check.
+
+    Also see create_temporary_ca_file().
+    """
+    try:
+        f = open(filename, "w")
+        for a in anchor_list:
+            s = a.output(fmt="PEM")
+            f.write(s)
+        f.close()
+    except:
+        return None
+    return filename
+
+def create_temporary_ca_file(anchor_list):
+    """
+    Concatenate all the certificates (PEM format for the export) in
+    'anchor_list' and write the result to file to a temporary file
+    using mkstemp() from tempfile module. On success 'filename' is
+    returned, None otherwise.
+
+    If you are used to OpenSSL tools, this function builds a CAfile
+    that can be used for certificate and CRL check.
+    """
+    try:
+        f, fname = tempfile.mkstemp()
+        for a in anchor_list:
+            s = a.output(fmt="PEM")
+            l = os.write(f, s)
+        os.close(f)
+    except:
+        return None
+    return fname
+
+def create_temporary_ca_path(anchor_list, folder):
+    """
+    Create a CA path folder as defined in OpenSSL terminology, by
+    storing all certificates in 'anchor_list' list in PEM format
+    under provided 'folder' and then creating the associated links
+    using the hash as usually done by c_rehash.
+
+    Note that you can also include CRL in 'anchor_list'. In that
+    case, they will also be stored under 'folder' and associated
+    links will be created.
+
+    In folder, the files are created with names of the form
+    0...ZZ.pem. If you provide an empty list, folder will be created
+    if it does not already exist, but that's all.
+
+    The number of certificates written to folder is returned on
+    success, None on error.
+    """
+    # We should probably avoid writing duplicate anchors and also
+    # check if they are all certs.
+    try:
+        if not os.path.isdir(folder):
+            os.makedirs(folder)
+    except:
+        return None
+
+    l = len(anchor_list)
+    if l == 0:
+        return None
+    fmtstr = "%%0%sd.pem" % math.ceil(math.log(l, 10))
+    i = 0
+    try:
+        for a in anchor_list:
+            fname = os.path.join(folder, fmtstr % i)
+            f = open(fname, "w")
+            s = a.output(fmt="PEM")
+            f.write(s)
+            f.close()
+            i += 1
+    except:
+        return None
+
+    r,w=popen2.popen2("c_rehash %s" % folder)
+    r.close(); w.close()
+
+    return l
 

@@ -8,15 +8,7 @@ Tools for handling TLS sessions and digital certificates.
 
 Prerequisites:
 
-    - You need to 'pip install ecdsa' for the module to be loaded.
-
-    - We rely on pycrypto for several computations, however the last packaged
-    version does not provide AEAD support. If you don't need it, just do
-    'pip install pycrypto'. If however you need GCM & CCM support, do
-    curl -sL https://github.com/dlitz/pycrypto/archive/v2.7a1.tar.gz | tar xz
-    cd pycrypto-2.7a1
-    python setup.py build
-    sudo python setup.py install
+    - You may need to 'pip install cryptography' for the module to be loaded.
 
 
 Main features:
@@ -26,22 +18,23 @@ Main features:
     - RSA & ECDSA keys sign/verify methods.
 
     - TLS records and sublayers (handshake...) parsing/building. Works with
-    versions TLS 1.0, 1.1 and 1.2. SSLv3 should be mostly ok. This may be
-    enhanced by a TLS context. For instance, if scapy reads a ServerHello
-    with version TLS 1.2 and a cipher suite using AES, it will assume the
-    presence of IVs prepending the data. See test/tls.uts for real examples.
+      versions SSLv3, TLS 1.0, 1.1 and 1.2. This may be enhanced by a TLS
+      context. For instance, if scapy reads a ServerHello with version TLS 1.2
+      and a cipher suite using AES, it will assume the presence of IVs
+      prepending the data. See test/tls.uts for real examples.
 
     - TLS encryption/decryption capabilities with the usual ciphersuites. Once
-    again, the TLS context enables scapy to transparently send/receive
-    protected data if it learnt the session secrets. Note that if scapy acts as
-    one side of the handshake (e.g. reads all server-related packets and builds
-    all client-related packets), it will indeed compute the session secrets.
+      again, the TLS context enables scapy to transparently send/receive
+      protected data if it learnt the session secrets. Note that if scapy acts
+      as one side of the handshake (e.g. reads all server-related packets and
+      builds all client-related packets), it will indeed compute the session
+      secrets.
 
     - TLS client & server basic automatons, provided for testing and tweaking
-    purposes. These make for a very primitive TLS stack.
+      purposes. These make for a very primitive TLS stack.
 
     - Additionally, a basic test PKI (key + certificate for a CA, a client and
-    a server) is provided in tls/examples/pki_test.
+      a server) is provided in tls/examples/pki_test.
 
 
 Unit tests:
@@ -57,46 +50,67 @@ Unit tests:
 
 TODO list (may it be carved away by good souls):
 
-    - Enrich the automatons. The client should be able to receive data at any
-    time, and to send as much data as wanted from stdin (for now, only one
-    predefined data message may be sent following the handshake). The server
-    should stay online even after the first client leaves. Then we could look
-    at more complicated behaviours like renegotiation and resumption.
-    We might get some help from tintinweb/scapy-ssl_tls.
+    - Features to add (or wait for) in the cryptography library:
 
-    - Add some examples which illustrate how the automatons could be used.
-    Typically, we could showcase this with Heartbleed.
+        - no limitation on FFDH generator size;
+          (remove line 88 in cryptography/hazmat/primitives/asymmetric/dh.py)
 
-    - Split up parts of the automaton, e.g. when our server builds the
-    ServerHello, Certificate, ServerKeyExchange and ServerHelloDone in the
-    same should_REPLY_TO_CH method.
+        - CCM and CHACHA20-POLY1305 ciphers;
 
-    - Make the automatons tests more robust and less consuming.
+        - ECDH curves (x25519 and x448) from RFC 7748;
 
-    - Allow for the server to store simultaneously one RSA key and one ECDSA
-    key, and select the right one to use according to the ClientHello suites.
+        - FFDH groups from RFC 7919;
 
-    - Find a way to shutdown the automatons sockets properly without
-    simultaneously breaking the unit tests.
+        - the so-called 'tls' hash used with SSLv3 and TLS 1.0;
 
-    - Switch from pycrypto to python-cryptography, once it provides proper
-    AEAD support. See if we could get CHACHA20-POLY1305 in the process.
+        - the simple DES algorithm;
 
-    - Check FFDH and ECDH parameters at SKE/CKE reception.
+        - the compressed EC point format.
 
-    - Go through the kx_algs and see what may be commented out without risk.
 
-    - Define the OCSPStatus packet.
+    - About the automatons:
 
-    - Define several Certificate Transparency objects.
+        - Enrich the automatons. The client should be able to receive data at
+          any time, and to send as much data as wanted from stdin (for now,
+          only one predefined data message may be sent following the
+          handshake). The server should stay online even after the first client
+          leaves. Then we could look at more complicated behaviours like
+          renegotiation and resumption. We might get some help from
+          tintinweb/scapy-ssl_tls.
 
-    - Enhance PSK support.
+        - Add some examples which illustrate how the automatons could be used.
+          Typically, we could showcase this with Heartbleed.
 
-    - Mostly unused features : DSS, fixed DH, SRP, IDEA, KRB5, char2 curves...
+        - Split up parts of the automaton, e.g. when our server builds the
+          ServerHello, Certificate, ServerKeyExchange and ServerHelloDone in
+          the same should_REPLY_TO_CH method.
 
-    - Implement SSLv2 structures and automatons. xD
+        - Make the automatons tests more robust and less consuming.
 
-    - Implement TLS 1.3 structures and automatons. :D
+        - Allow the server to store both one RSA key and one ECDSA key, and
+          select the right one to use according to the ClientHello suites.
+
+        - Find a way to shutdown the automatons sockets properly without
+          simultaneously breaking the unit tests.
+
+
+    - Miscellaneous:
+
+        - Implement TLS 1.3 structures and automatons. :D
+
+        - Implement SSLv2 structures and automatons. xD
+
+        - Mostly unused features : DSS, fixed DH, SRP, IDEA, char2 curves...
+
+        - Check FFDH and ECDH parameters at SKE/CKE reception.
+
+        - Go through the kx_algs and see what may be commented out.
+
+        - Define the OCSPStatus packet.
+
+        - Define several Certificate Transparency objects.
+
+        - Enhance PSK and session ticket support.
 """
 
 from scapy.config import conf

@@ -11,17 +11,22 @@ any TLS client connection. If provided, TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA
 will be preferred to any other suite the client might propose.
 """
 
+import os
 import sys
 
 from scapy.layers.tls.automaton import TLSServerAutomaton
+
+basedir = os.path.abspath(os.path.join(os.path.dirname(__file__),"../../"))
+sys.path=[basedir]+sys.path
+
 
 if len(sys.argv) == 2:
     pcs = int(sys.argv[1], 16)
 else:
     pcs = None
 
-t = TLSServerAutomaton(mycert='pki_test/srv_cert.pem',
-                       mykey='pki_test/srv_key.pem',
+t = TLSServerAutomaton(mycert=basedir+'/test/tls/pki/srv_cert.pem',
+                       mykey=basedir+'/test/tls/pki/srv_key.pem',
                        preferred_ciphersuite=pcs)
 t.run()
 

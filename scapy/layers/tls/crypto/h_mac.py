@@ -12,6 +12,11 @@ import hmac
 from scapy.layers.tls.crypto.hash import tls_hash_algs
 
 
+SSLv3_PAD1_MD5  = "\x36"*48
+SSLv3_PAD1_SHA1 = "\x36"*40
+SSLv3_PAD2_MD5  = "\x5c"*48
+SSLv3_PAD2_SHA1 = "\x5c"*40
+
 tls_hmac_algs = {}
 
 class _GenericHMACMetaclass(type):
@@ -54,12 +59,32 @@ class _GenericHMAC(object):
             raise HMACError
         return hmac.new(self.key, tbd, self.hash_alg.hash_cls).digest()
 
+    def digest_sslv3(self, tbd):
+        if self.key is None:
+            raise HMACError
+
+        h = self.hash_alg()
+        if h.name == "SHA":
+            pad1 = SSLv3_PAD1_SHA1
+            pad2 = SSLv3_PAD2_SHA1
+        elif h.name == "MD5":
+            pad1 = SSLv3_PAD1_MD5
+            pad2 = SSLv3_PAD2_MD5
+        else:
+            raise HMACError("Provided hash does not work with SSLv3.")
+
+        return h.digest(self.key + pad2 +
+                        h.digest(self.key + pad1 + tbd))
+
 
 class Hmac_NULL(_GenericHMAC):
     hmac_len = 0
     key_len = 0
 
     def digest(self, tbd):
+        return ""
+
+    def digest_sslv3(self, tbd):
         return ""
 
 class Hmac_MD5(_GenericHMAC):

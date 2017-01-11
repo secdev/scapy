@@ -8,8 +8,6 @@
 High-level methods for PKI objects (X.509 certificates, CRLs, asymmetric keys).
 Supports both RSA and ECDSA objects.
 
-This module relies on python-crypto and python-ecdsa.
-
 The classes below are wrappers for the ASN.1 objects defined in x509.py.
 By collecting their attributes, we bypass the ASN.1 structure, hence
 there is no direct method for exporting a new full DER-encoded version
@@ -107,6 +105,7 @@ class _PKIObj(object):
     def __init__(self, frmt, der, pem):
         # Note that changing attributes of the _PKIObj does not update these
         # values (e.g. modifying k.modulus does not change k.der).
+        #XXX use __setattr__ for this
         self.frmt = frmt
         self.der = der
         self.pem = pem
@@ -174,18 +173,16 @@ class _PubKeyFactory(_PKIObjMaker):
     """
     Metaclass for PubKey creation.
     It casts the appropriate class on the fly, then fills in
-    the appropriate attributes with updateWith() submethod.
+    the appropriate attributes with import_from_asn1pkt() submethod.
     """
     def __call__(cls, key_path):
 
-        # First, we deal with the exceptional RSA KEA call.
+        # First, we deal with the exceptional RSA 'kx export' call.
         if type(key_path) is tuple:
-            e, m, mLen = key_path
             obj = type.__call__(cls)
+            obj.__class__ = PubKeyRSA
             obj.frmt = "tuple"
-            obj.modulus = m
-            obj.modulusLen = mLen
-            obj.pubExp = e
+            obj.import_from_tuple(key_path)
             return obj
 
         # Now for the usual calls, key_path may be the path to either:
@@ -198,11 +195,11 @@ class _PubKeyFactory(_PKIObjMaker):
             pubkey = spki.subjectPublicKey
             if isinstance(pubkey, RSAPublicKey):
                 obj.__class__ = PubKeyRSA
-                obj.updateWith(pubkey)
+                obj.import_from_asn1pkt(pubkey)
             elif isinstance(pubkey, ECDSAPublicKey):
                 obj.__class__ = PubKeyECDSA
                 try:
-                    obj.updateWith(spki)
+                    obj.import_from_asn1pkt(obj.der)
                 except ImportError:
                     pass
             else:
@@ -212,7 +209,7 @@ class _PubKeyFactory(_PKIObjMaker):
             try:
                 pubkey = RSAPublicKey(obj.der)
                 obj.__class__ = PubKeyRSA
-                obj.updateWith(pubkey)
+                obj.import_from_asn1pkt(pubkey)
                 marker = "RSA PUBLIC KEY"
             except:
                 # We cannot import an ECDSA public key without curve knowledge
@@ -236,12 +233,7 @@ class PubKey(object):
         sigAlg = tbsCert.signature
         h = hash_by_oid[sigAlg.algorithm.val]
         sigVal = str(cert.signatureValue)
-        sigdec = None
-        if ecdsa_support:
-            sigdec = ecdsa.util.sigdecode_der
-        return self.verify(str(tbsCert), sigVal, h=h,
-                           t='pkcs',
-                           sigdecode=sigdec)
+        return self.verify(str(tbsCert), sigVal, h=h, t='pkcs')
 
 
 class PubKeyRSA(_PKIObj, PubKey, _EncryptAndVerifyRSA):
@@ -250,60 +242,59 @@ class PubKeyRSA(_PKIObj, PubKey, _EncryptAndVerifyRSA):
     Use the 'key' attribute to access original object.
     """
     @crypto_validator
-    def updateWith(self, pubkey):
+    def import_from_tuple(self, tup):
+        # this is rarely used
+        e, m, mLen = tup
+        if isinstance(m, str):
+            self.modulus = pkcs_os2ip(m)
+        else:
+            self.modulus = m
+        self.modulusLen = mLen
+        if isinstance(e, str):
+            self.pubExp = pkcs_os2ip(e)
+        else:
+            self.pubExp = e
+        pubNum = rsa.RSAPublicNumbers(n=self.modulus, e=self.pubExp)
+        self.pubkey = pubNum.public_key(default_backend())
+        self.pem = self.pubkey.public_bytes(
+                        encoding=serialization.Encoding.PEM,
+                        format=serialization.PublicFormat.SubjectPublicKeyInfo)
+        self.der = pem2der(self.pem)
+
+    @crypto_validator
+    def import_from_asn1pkt(self, pubkey):
         self.modulus    = pubkey.modulus.val
         self.modulusLen = len(binrepr(pubkey.modulus.val))
         self.pubExp     = pubkey.publicExponent.val
-        self.key = rsa.RSAPublicNumbers(
-            n=self.modulus,
-            e=self.pubExp
-        ).public_key(default_backend())
+        pubNum = rsa.RSAPublicNumbers(n=self.modulus, e=self.pubExp)
+        self.pubkey = pubNum.public_key(default_backend())
     def encrypt(self, msg, t=None, h=None, mgf=None, L=None):
         # no ECDSA encryption support, hence no ECDSA specific keywords here
         return _EncryptAndVerifyRSA.encrypt(self, msg, t=t, h=h, mgf=mgf, L=L)
     def verify(self, msg, sig, h=None,
-               t=None, mgf=None, sLen=None,
-               sigdecode=None):
+               t=None, mgf=None, sLen=None):
         return _EncryptAndVerifyRSA.verify(self, msg, sig, h=h,
                                            t=t, mgf=mgf, sLen=sLen)
 
 class PubKeyECDSA(_PKIObj, PubKey):
     """
-    Wrapper for ECDSA keys based on VerifyingKey from ecdsa library.
+    Wrapper for ECDSA keys based on the cryptography library.
     Use the 'key' attribute to access original object.
     """
-    @ecdsa_exception
-    def updateWith(self, spki):
-        # For now we use from_der() or from_string() methods,
-        # which do not offer support for compressed points.
-        #XXX Try using the from_public_point() method.
-        try:
-            self.key = ecdsa.VerifyingKey.from_der(str(spki))
-            # from_der() raises an exception on explicit curves
-        except:
-            s = spki.subjectPublicKey.val_readable[1:]
-            p = spki.signatureAlgorithm.parameters
-            c = import_curve(p.fieldID.prime.val,
-                             p.curve.a.val,
-                             p.curve.b.val,
-                             p.base.val,
-                             p.order.val)
-            self.key = ecdsa.VerifyingKey.from_string(s, c)
-    @ecdsa_exception
+    def import_from_asn1pkt(self, pubkey):
+        # XXX does the cryptography lib support explicit curves?
+        # check also for compressed points
+        self.pubkey = serialization.load_der_public_key(pubkey,
+                                                    backend=default_backend())
     def encrypt(self, msg, t=None, h=None, mgf=None, L=None):
-        # python-ecdsa does not support encryption
+        # cryptography lib does not support ECDSA encryption
         raise Exception("No ECDSA encryption support")
-    @ecdsa_exception
     def verify(self, msg, sig, h=None,
-               t=None, mgf=None, sLen=None,
-               sigdecode=None):
-        if sigdecode is None:
-            sigdecode = ecdsa.util.sigdecode_string
-        try:
-            return self.key.verify(sig, msg, hashfunc=mapHashFunc(h),
-                                   sigdecode=sigdecode)
-        except ecdsa.keys.BadSignatureError:
-            return False
+               t=None, mgf=None, sLen=None):
+        # 'sig' should be a DER-encoded signature, as per RFC 3279
+        verifier = self.pubkey.verifier(sig, ec.ECDSA(mapHashFunc(h)))
+        verifier.update(msg)
+        return verifier.verify()
 
 
 ################
@@ -314,7 +305,7 @@ class _PrivKeyFactory(_PKIObjMaker):
     """
     Metaclass for PrivKey creation.
     It casts the appropriate class on the fly, then fills in
-    the appropriate attributes with updateWith() submethod.
+    the appropriate attributes with import_from_asn1pkt() submethod.
     """
     def __call__(cls, key_path):
         """
@@ -351,7 +342,7 @@ class _PrivKeyFactory(_PKIObjMaker):
                     except:
                         raise Exception("Unable to import private key")
         try:
-            obj.updateWith(privkey)
+            obj.import_from_asn1pkt(privkey)
         except ImportError:
             pass
 
@@ -383,17 +374,11 @@ class PrivKey(object):
         to both PrivKeyRSA and PrivKeyECDSA, the sign() methods of the
         subclasses accept any argument, be it from the RSA or ECDSA world,
         and then they keep the ones they're interested in.
-        Here, t will be passed eventually to pkcs1._DecryptAndSignRSA.sign(),
-        while sigencode will be passed to ecdsa.keys.SigningKey.sign().
+        Here, t will be passed eventually to pkcs1._DecryptAndSignRSA.sign().
         """
         sigAlg = tbsCert.signature
         h = h or hash_by_oid[sigAlg.algorithm.val]
-        sigenc = None
-        if ECDSA_SUPPORT:
-            sigenc = ecdsa.util.sigencode_der
-        sigVal = self.sign(str(tbsCert), h=h,
-                           t='pkcs',
-                           sigencode=sigenc)
+        sigVal = self.sign(str(tbsCert), h=h, t='pkcs')
         c = X509_Cert()
         c.tbsCertificate = tbsCert
         c.signatureAlgorithm = sigAlg
@@ -410,13 +395,7 @@ class PrivKey(object):
         sigAlg = tbsCert.signature
         h = hash_by_oid[sigAlg.algorithm.val]
         sigVal = str(cert.signatureValue)
-        if not ecdsa_support:
-            print "No ecdsa support. Signature could not be verified."
-            return False
-        else:
-            return self.verify(str(tbsCert), sigVal, h=h,
-                               t='pkcs',
-                               sigdecode=ecdsa.util.sigdecode_der)
+        return self.verify(str(tbsCert), sigVal, h=h, t='pkcs')
 
 
 class PrivKeyRSA(_PKIObj, PrivKey, _EncryptAndVerifyRSA, _DecryptAndSignRSA):
@@ -425,7 +404,7 @@ class PrivKeyRSA(_PKIObj, PrivKey, _EncryptAndVerifyRSA, _DecryptAndSignRSA):
     Use the 'key' attribute to access original object.
     """
     @crypto_validator
-    def updateWith(self, privkey):
+    def import_from_asn1pkt(self, privkey):
         self.modulus     = privkey.modulus.val
         self.modulusLen  = len(binrepr(privkey.modulus.val))
         self.pubExp      = privkey.publicExponent.val
@@ -440,15 +419,14 @@ class PrivKeyRSA(_PKIObj, PrivKey, _EncryptAndVerifyRSA, _DecryptAndSignRSA):
             dmq1=self.exponent2, iqmp=self.coefficient,
             public_numbers=rsa.RSAPublicNumbers(n=self.modulus, e=self.pubExp),
         ).private_key(default_backend())
+        self.pubkey = self.key.public_key()
     def verify(self, msg, sig, h=None,
-               t=None, mgf=None, sLen=None,
-               sigdecode=None):
+               t=None, mgf=None, sLen=None):
         # Let's copy this from PubKeyRSA instead of adding another baseclass :)
         return _EncryptAndVerifyRSA.verify(self, msg, sig, h=h,
                                            t=t, mgf=mgf, sLen=sLen)
     def sign(self, data, h=None,
-             t=None, mgf=None, sLen=None,
-             k=None, entropy=None, sigencode=None):
+             t=None, mgf=None, sLen=None):
         return _DecryptAndSignRSA.sign(self, data, h=h,
                                        t=t, mgf=mgf, sLen=sLen)
 
@@ -458,25 +436,20 @@ class PrivKeyECDSA(_PKIObj, PrivKey):
     Wrapper for ECDSA keys based on SigningKey from ecdsa library.
     Use the 'key' attribute to access original object.
     """
-    @ecdsa_exception
-    def updateWith(self, privkey):
-        self.privKey = pkcs_os2ip(privkey.privateKey.val)
-        self.key = ecdsa.SigningKey.from_der(str(privkey))
-        self.vkey = self.key.get_verifying_key()
-    @ecdsa_exception
-    def verify(self, msg, sig, h=None,
-               t=None, mgf=None, sLen=None,
-               sigdecode=None):
-        return self.vkey.verify(sig, msg, hashfunc=mapHashFunc(h),
-                                sigdecode=sigdecode)
-    @ecdsa_exception
-    def sign(self, data, h=None,
-             t=None, mgf=None, sLen=None,
-             k=None, entropy=None, sigencode=None):
-        if sigencode is None:
-            sigencode = ecdsa.util.sigencode_string
-        return self.key.sign(data, hashfunc=mapHashFunc(h),
-                             k=k, entropy=entropy, sigencode=sigencode)
+    def import_from_asn1pkt(self, privkey):
+        self.key = serialization.load_der_private_key(str(privkey),
+                                                      None,
+                                                      backend=default_backend())
+        self.pubkey = self.key.public_key()
+    def verify(self, msg, sig, h=None, **kwargs):
+        # 'sig' should be a DER-encoded signature, as per RFC 3279
+        verifier = self.pubkey.verifier(sig, ec.ECDSA(mapHashFunc(h)))
+        verifier.update(msg)
+        return verifier.verify()
+    def sign(self, data, h=None, **kwargs):
+        signer = self.key.signer(ec.ECDSA(mapHashFunc(h)))
+        signer.update(data)
+        return signer.finalize()
 
 
 ################
@@ -496,7 +469,7 @@ class _CertMaker(_PKIObjMaker):
             cert = X509_Cert(obj.der)
         except:
             raise Exception("Unable to import certificate")
-        obj.updateWith(cert)
+        obj.import_from_asn1pkt(cert)
         return obj
 
 
@@ -507,7 +480,7 @@ class Cert(_PKIObj):
     """
     __metaclass__ = _CertMaker
 
-    def updateWith(self, cert):
+    def import_from_asn1pkt(self, cert):
         error_msg = "Unable to import certificate"
 
         self.x509Cert = cert
@@ -591,11 +564,9 @@ class Cert(_PKIObj):
         return self.pubKey.encrypt(msg, t=t, h=h, mgf=mgf, L=L)
 
     def verify(self, msg, sig, h=None,
-               t=None, mgf=None, sLen=None,
-               sigdecode=None):
+               t=None, mgf=None, sLen=None):
         return self.pubKey.verify(msg, sig, h=h,
-                                  t=t, mgf=mgf, sLen=sLen,
-                                  sigdecode=sigdecode)
+                                  t=t, mgf=mgf, sLen=sLen)
 
     def remainingDays(self, now=None):
         """
@@ -698,7 +669,7 @@ class _CRLMaker(_PKIObjMaker):
             crl = X509_CRL(obj.der)
         except:
             raise Exception("Unable to import CRL")
-        obj.updateWith(crl)
+        obj.import_from_asn1pkt(crl)
         return obj
 
 
@@ -709,7 +680,7 @@ class CRL(_PKIObj):
     """
     __metaclass__ = _CRLMaker
 
-    def updateWith(self, crl):
+    def import_from_asn1pkt(self, crl):
         error_msg = "Unable to import CRL"
 
         self.x509CRL = crl
