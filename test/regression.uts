@@ -4876,6 +4876,12 @@ for p in ffrags:
 
 assert plen == payloadlen
 
+= defrag()
+nonfrag, unfrag, badfrag = defrag(frags)
+assert not nonfrag
+assert not badfrag
+assert len(unfrag) == 1
+
 = defragment()
 defrags = defragment(frags)
 * we should have one single packet
