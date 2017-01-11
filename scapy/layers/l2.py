@@ -496,6 +496,20 @@ class EAP(Packet):
         return p + pay
 
 
+class EAP_MD5(Packet):
+
+    """
+    RFC 3748 - "Extensible Authentication Protocol (EAP)"
+    """
+
+    name = "EAP-MD5"
+    fields_desc = [
+        ByteField("value_size", 0),
+        StrFixedLenField("value", 0, length=16), # MD5 hash length
+        StrLenField("optional_name", "", length_from=lambda p: p.value_size - 16)
+    ]
+
+
 class EAP_TLS(Packet):
 
     """
@@ -660,6 +674,7 @@ bind_layers( GRE,           GRErouting,    { "routing_present" : 1 } )
 bind_layers( GRErouting,    conf.raw_layer,{ "address_family" : 0, "SRE_len" : 0 })
 bind_layers( GRErouting,    GRErouting,    { } )
 bind_layers( EAPOL,         EAP,           type=0)
+bind_layers( EAP,           EAP_MD5,       type=4)
 bind_layers(EAP,           EAP_TLS,       type=13)
 bind_layers(EAP,           EAP_FAST,      type=43)
 bind_layers( LLC,           STP,           dsap=66, ssap=66, ctrl=3)

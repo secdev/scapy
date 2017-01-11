@@ -5464,6 +5464,29 @@ assert(eap.type == 3)
 assert(hasattr(eap, 'desired_auth_type'))
 assert(eap.desired_auth_type == 43)
 
+= EAP - EAP_MD5 - Request - Dissection (8)
+s = '\x01\x02\x00\x16\x04\x10\x86\xf9\x89\x94\x81\x01\xb3 nHh\x1b\x8d\xe7^\xdb\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+eap = EAP(s)
+assert(eap.code == 1)
+assert(eap.id == 2)
+assert(eap.len == 22)
+assert(eap.type == 4)
+assert(eap.haslayer(EAP_MD5))
+assert(eap[EAP_MD5].value_size == 16)
+assert(eap[EAP_MD5].value == '\x86\xf9\x89\x94\x81\x01\xb3 nHh\x1b\x8d\xe7^\xdb')
+assert(eap[EAP_MD5].optional_name == '')
+
+= EAP - EAP_MD5 - Response - Dissection (9)
+s = '\x02\x02\x00\x16\x04\x10\xfd\x1e\xffe\xf5\x80y\xa8\xe3\xc8\xf1\xbd\xc2\x85\xae\xcf\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+eap = EAP(s)
+assert(eap.code == 2)
+assert(eap.id == 2)
+assert(eap.len == 22)
+assert(eap.type == 4)
+assert(eap.haslayer(EAP_MD5))
+assert(eap[EAP_MD5].value_size == 16)
+assert(eap[EAP_MD5].value == '\xfd\x1e\xffe\xf5\x80y\xa8\xe3\xc8\xf1\xbd\xc2\x85\xae\xcf')
+assert(eap[EAP_MD5].optional_name == '')
 
 ############
 ############
