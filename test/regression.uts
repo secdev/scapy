@@ -529,6 +529,33 @@ hexdiff(a,b)
 assert( str(a) == str(b) )
 
 
+############
+############
++ PacketListField stop condition tests
+
+= Test the PacketListField stop condition
+
+class TestPktStop(Packet):
+    fields_desc = [ ByteField("f1", 0x33) ]
+    def extract_padding(self, p):
+        return "", p
+
+class TestPLFStop(Packet):
+    name="test"
+    fields_desc=[PacketListField("plist", None, TestPktStop, stop=lambda x:x.f1 == 0xff)]
+
+a=TestPLFStop()
+assert(str(a) == "")
+
+a.plist=[TestPktStop(), TestPktStop()]
+str(a)
+assert(_ == "\x33\x33")
+
+a = TestPLFStop("\x33\xff\x33")
+str(a)
+assert(_ == "\x33\xff\x33")
+assert(Raw in a)
+assert(str(a.payload) == "\x33")
 
 
 ############

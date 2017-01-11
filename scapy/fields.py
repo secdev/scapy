@@ -428,15 +428,15 @@ class PacketLenField(PacketField):
 
 
 class PacketListField(PacketField):
-    __slots__ = ["count_from", "length_from"]
+    __slots__ = ["count_from", "length_from", "stop"]
     islist = 1
-    def __init__(self, name, default, cls, count_from=None, length_from=None):
+    def __init__(self, name, default, cls, count_from=None, length_from=None, stop=None):
         if default is None:
             default = []  # Create a new list for each instance
         PacketField.__init__(self, name, default, cls)
         self.count_from = count_from
         self.length_from = length_from
-
+        self.stop = stop
 
     def any2i(self, pkt, x):
         if type(x) is not list:
@@ -486,6 +486,9 @@ class PacketListField(PacketField):
                 else:
                     remain = ""
             lst.append(p)
+            # Evaluate the stop condition
+            if self.stop and self.stop(p):
+                break
         return remain+ret,lst
     def addfield(self, pkt, s, val):
         return s+"".join(map(str, val))
