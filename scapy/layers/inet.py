@@ -42,7 +42,7 @@ class IPTools(object):
         t.sort()
         return t[t.index(self.ttl)+1]
     def hops(self):
-        return self.ottl()-self.ttl-1 
+        return self.ottl() - self.ttl
 
 
 _ip_options_names = { 0: "end_of_list",
