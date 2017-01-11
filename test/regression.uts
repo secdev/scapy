@@ -4801,6 +4801,12 @@ assert pkt.src == pkt.real_src
 assert pkt.tos == 0
 assert pkt.function == 0
 
+= Attribute build / dissection
+assert isinstance(LLTDAttribute(), LLTDAttribute)
+assert isinstance(LLTDAttribute(str(LLTDAttribute())), LLTDAttribute)
+assert all(isinstance(LLTDAttribute(type=i), LLTDAttribute) for i in xrange(256))
+assert all(isinstance(LLTDAttribute(str(LLTDAttribute(type=i))), LLTDAttribute) for i in xrange(256))
+
 = Large TLV
 m1, m2, seq = RandMAC()._fix(), RandMAC()._fix(), 123
 preqbase = Ether(src=m1, dst=m2) / LLTD() / \

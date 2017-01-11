@@ -298,6 +298,8 @@ class LLTDAttribute(Packet):
             cmd = kargs["type"]
             if isinstance(cmd, basestring):
                 cmd = cls.fields_desc[0].s2i[cmd]
+        else:
+            return cls
         return SPECIFIC_CLASSES.get(cmd, cls)
 
 SPECIFIC_CLASSES = {}
@@ -719,7 +721,7 @@ class LLTDAttributeMachineName(LLTDAttribute):
 class LLTDAttributeDeviceUUID(LLTDAttribute):
     name = "LLTD Attribute - Device UUID"
     fields_desc = [
-        FieldLenField("len", None, length_of="value", fmt="B"),
+        FieldLenField("len", None, length_of="uuid", fmt="B"),
         StrLenField("uuid", "\x00" * 16, length_from=lambda pkt: pkt.len),
     ]
 
