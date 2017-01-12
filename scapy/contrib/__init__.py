@@ -6,3 +6,6 @@
 """
 Package of contrib modules that have to be loaded explicitly.
 """
+from scapy.config import conf, ConfClass
+conf.append("contrib",ConfClass())
+# print dir(conf)

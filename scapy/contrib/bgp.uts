@@ -1,0 +1,183 @@
+% BGP-4 tests
+% 
+% Type the following command to launch start the tests:
+% $ sudo bash test/run_tests -t scapy/contrib/bgp.uts -F
+%
+
++ BGP-4 tests
+= Load BGP-4 library
+load_contrib("bgp")
+
++ BGPv4 basic messages
+= BGP-4 Keep Alive, calculate length when no payload
+
+keep = BGPHeader(type=4)
+str(keep) == '\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x13\x04'
+
+= Packet chopping
+
+bgp = BGPTraffic(str(keep)*4)
+len(bgp.packets) == 4
+
+= Capabilities
+
+capa_afi = CapabilityAFI(afi=2,safi=1)
+CapabilityAFI(str(capa_afi)).show()
+
+capa_graceful = CapabilityGraceful(restart_time=90,afi=[])
+CapabilityGraceful(str(capa_graceful)).show()
+
+open = BGPOpen(AS=65001,hold_time=90,bgp_id="10.0.0.1",opt_parm = [
+	capa_afi, capa_graceful
+])
+BGPOpen(str(open)).show()
+
+= BGP Notifications
+
+header_notify = HeaderNotification(SubErrorCode=2)
+header_notify.show()
+header_notify.ErrorCode == 1
+
+#
+# Check the class dispatcher
+# Open Notification for a Bad Peer AS
+#
+open_notify = BGPNotification("\x02\x02") 
+open_notify.show()
+OpenNotification in open_notify
+
+pkt = BGPHeader()/open_notify
+
+BGPHeader(str(pkt)).len == 19+2
+
++ BGP-4 attributes
+= Layering + Origin + LocalPreference
+
+update = BGPHeader(type=2) / BGPUpdate(total_path=[BGPOrigin(origin=0),BGPNextHop(next_hop='192.168.0.1'),BGPLocalPreference(local_pref=200)],nlri=['0.0.0.0/0'])
+
+update2 = BGPHeader(str(update))
+update2.show()
+
+update2[BGPHeader].total_path[2].local_pref == 200
+print update2.len
+update2.len == 19 + 2 + 2 + 4 + 7 + 7 + 1
+
+keep=BGPHeader(type=4)
+traffic=BGPTraffic(str(keep)+str(update)+str(keep))
+traffic.show()
+len(traffic.packets) == 3
+
+= Other Attributes
+
+len(str(BGPAtomicAggregate())) == 3
+BGPAtomicAggregate().show()
+
+aggr = str(BGPAggregator(aggregator="192.168.0.1"))
+agg  = BGPAggregator(aggr)
+agg.show()
+agg.type == 7 and agg.attr_len == 4
+
+= AS_PATH using conf.contrib.bgp.use_as4n to select 2-byte or 4-byte ASNs
+
+~ conf
+conf.contrib.bgp.use_as4n
+# create segment
+segm = BGPAS4Segment(segment=['AS6813','AS3615:200'])
+# Create and fill all counters, lengths. etc.
+path = BGPASPath(str(BGPASPath(as_path=[segm])))
+# 2 ases in the path
+path.as_path[0].segment_len == 2
+# AS_SEQUENCE by default
+path.as_path[0].segment_type == 2
+# 2 * 4-byte AS + type + count
+path.attr_len == 10
+path.show()
+
+# 2-byte AS
+
+# First we try to create a segment woth 2-byte AS numbers
+# and since this is only allowed when conf.contrib.bgp.use_as4n is False
+# we won't find the segment_len and the payload will be decoded as Raw
+segm2 = BGPAS2Segment(segment=['AS6813','AS6813','AS3615'])
+path2 = BGPASPath(str(BGPASPath(as_path=[segm2])))
+path2.show()
+"segment_len" not in path2.as_path[0].fields
+# Then we make sure we allow 2-byte AS numbers
+# and everything should work fine.
+conf.contrib.bgp.use_as4n = False
+path2 = BGPASPath(str(BGPASPath(as_path=[segm2])))
+"segment_len" in path2.as_path[0].fields
+path2.as_path[0].segment_len == 3
+= Communities
+
+comm = BGPCommunities("\xc0\x08\x08\xfe\x09\x01\xf4\xfe\x09\x02\x58")
+len(comm.communities) == 2
+comm.show()
+
+comm2 = BGPCommunities(communities = ["65033:500","65033:600"])
+comm2.show()
+BGPCommunities(str(comm2)).attr_len == 8
+str(comm2) == str(comm)
+
+= Originator ID
+
+originator = BGPOriginatorId(originator_id="192.162.10.4")
+# print "".join(["\\x%02x" % ord(c) for c in str(originator)])
+str(originator) == "\x80\x09\x04\xc0\xa2\x0a\x04"
+
+= Putting it all together
+
+update = BGPHeader(type=2) / BGPUpdate(total_path=[
+         BGPOrigin(origin=0),
+         BGPASPath(as_path=[BGPAS4Segment(segment=['AS65033','AS65033'])]),
+         BGPNextHop(next_hop='192.168.0.1'),
+         BGPLocalPreference(local_pref=200),
+         BGPCommunities(communities=['65033:500','65033:600']),
+         BGPOriginatorId(originator_id="10.11.12.13"),
+         BGPClusterList(cluster_id=["10.0.0.1","10.0.1.1"]),
+       ],
+       nlri=['10.0.0.0/8','172.16.0.0/12'])
+BGPHeader(str(update)).show()
+
++ Multiprotocol support
+= Multiprotocol reach
+mpreach = MPIPv6Reach(nha=["2001:c1ca::1","fe80::c001:bff:fe7e:0"],nlri=["2001:c1ca::/32","2001:2fb8::/32"])
+MPIPv6Reach(str(mpreach)).show()
+
+mpr = BGPMPReach(mp_reach=[mpreach])
+BGPMPReach(str(mpr)).show()
+
+= Multiprotocol unreach
+mpu = MPIPv6Unreach(nlri=["2001:1fe8:c1ca::/48"])
+MPIPv6Unreach(str(mpu)).show()
+
+unr=BGPMPUnreach(mp_unreach=mpu)
+BGPMPUnreach(str(unr)).show()
+
+
+= BGPIPField - BGPIPv6Field
+
+prefix4 = BGPIPField("prefix4",None)
+prefix4.i2m(None,prefix4.h2i(None,"10.20.8.0/24")) == "\x18\x0a\x14\x08"
+prefix4.alen == 4
+
+prefix6 = BGPIPv6Field("prefix",None)
+prefix6.i2h(None,prefix6.m2i(None,"\x20\x20\x02\xca\xc1")) == "2002:cac1::/32"
+prefix6.alen == 16
+
+= Route target fields
+
+rt = RouteTargetField("rt", "rt 6813:100:200")
+rbytes = rt.i2m(None,rt.h2i(None,"rt 6813:100:200"))
+len(rbytes) == 8
+rbytes == "\x02\x02\x1a\x9d\x00\x64\x00\xc8"
+
+rbytes = rt.i2m(None,rt.h2i(None,"rt 6813:200"))
+len(rbytes) == 8
+rbytes == "\x00\x02\x1a\x9d\x00\x00\x00\xc8"
+
+rbytes = rt.i2m(None,rt.h2i(None,"rt 10.11.12.13:200"))
+len(rbytes) == 8
+rbytes == "\x01\x02\x0a\x0b\x0c\x0d\x00\xc8"
+
+
