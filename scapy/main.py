@@ -380,8 +380,36 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
         IPython.embed(user_ns=session, banner2=banner)
 
     else:
-        code.interact(banner = the_banner % (conf.version),
-                      local=session)
+        from code import InteractiveConsole
+        iconsole = InteractiveConsole()
+        print the_banner % (conf.version)
+        def readLineScapy():
+            result = ""
+            end = False
+            while not end :
+                if not end and result != "":
+                    sys.stdout.write('... ')
+                    sys.stdout.flush()
+                    line = readline.rl.readline("")
+                else:
+                    # This does not show the color :(
+                    sys.stdout.write('\x1b[94m>>>\x1b[0m ')
+                    sys.stdout.flush()
+                    line = readline.rl.readline("")
+                if line.strip().endswith(":"):
+                    end = False
+                elif result == "":
+                    end = True
+                if line.strip() == "":
+                    end = True
+                result = result + "\n" + line
+            return unicode(result)
+        from code import InteractiveConsole
+        try:
+            while True:
+                iconsole.push(readLineScapy())
+        except KeyboardInterrupt:
+            pass
 
     if conf.session:
         save_session(conf.session, session)
