@@ -10,7 +10,7 @@ These functions are missing when python is compiled
 without IPv6 support, on Windows for instance.
 """
 
-import socket,struct
+import socket,struct,re
 
 def inet_pton(af, addr):
     """Convert an IP address from text representation into binary form"""
@@ -87,15 +87,27 @@ def inet_ntop(af, addr):
                 hexstr = hex(value)[2:]
             except TypeError:
                 raise Exception("Illegal syntax for IP address")
-            parts.append(hexstr.lstrip("0").lower())
-        result = ":".join(parts)
-        while ":::" in result:
-            result = result.replace(":::", "::")
-        # Leaving out leading and trailing zeros is only allowed with ::
-        if result.endswith(":") and not result.endswith("::"):
-            result = result + "0"
-        if result.startswith(":") and not result.startswith("::"):
-            result = "0" + result
-        return result
+            parts.append(hexstr.lower())
+
+        # Note: the returned address is never compact
+        address = ":".join(parts)
+        matches = re.findall('(?::|^)(0(?::0)*)(?::|$)', address)
+        if matches:
+            match = max(matches)
+            leftidx = address.rfind(match)
+            left = address[:leftidx]
+            rightidx = leftidx + len(match)
+            if len(address) == rightidx:
+                compact_address = left + ":"
+            elif leftidx == 0:
+                compact_address = ":" + address[rightidx:]
+            else:
+                compact_address = left + address[rightidx:]
+
+            if compact_address == ":":
+                compact_address = "::"
+        else:
+            compact_address = address
+        return compact_address
     else:
         raise Exception("Address family not supported yet")   
