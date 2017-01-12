@@ -7,7 +7,7 @@
 Main module for interactive startup.
 """
 
-import os,sys
+import os, sys
 import glob
 import types
 import gzip
@@ -192,7 +192,7 @@ def scapy_write_history_file(readline):
                 warning("Could not write history to [%s]. Discarded" % tmp)
 
 
-def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
+def interact(mydict=None,argv=None,mybanner=None,loglevel=20,returnExit=False):
     global session
     import code,sys,os,getopt,re
     from scapy.config import conf
@@ -262,7 +262,7 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
         readline.parse_and_bind("C-o: operate-and-get-next")
         readline.parse_and_bind("tab: complete")
     
-    
+    return_value=None
     session=None
     session_name=""
     STARTUP_FILE = DEFAULT_STARTUP_FILE
@@ -389,12 +389,10 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
             while not end :
                 if not end and result != "":
                     sys.stdout.write('... ')
-                    sys.stdout.flush()
                     line = readline.rl.readline("")
                 else:
                     # This does not show the color :(
                     sys.stdout.write('\x1b[94m>>>\x1b[0m ')
-                    sys.stdout.flush()
                     line = readline.rl.readline("")
                 if line.strip().endswith(":"):
                     end = False
@@ -406,20 +404,29 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
             return unicode(result)
         from code import InteractiveConsole
         try:
+            reg_end = re.compile(r"(quit|exit|sys.exit)(\(.*\))")
             while True:
-                iconsole.push(readLineScapy())
+                r_line = readLineScapy()
+                if returnExit:
+                    end_match = reg_end.match(str(r_line).strip())
+                    if end_match is not None:
+                        return_value = end_match.group(2)[1:-1]
+                        break
+                iconsole.push(r_line)
         except KeyboardInterrupt:
             pass
 
     if conf.session:
         save_session(conf.session, session)
 
-
     for k in globkeys:
         try:
             del(__builtin__.__dict__[k])
         except:
             pass
+    
+    if return_value is not None and returnExit:
+        return return_value
 
 if __name__ == "__main__":
     interact()
