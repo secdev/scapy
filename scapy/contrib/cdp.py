@@ -49,8 +49,8 @@ _cdp_tlv_cls = { 0x0001: "CDPMsgDeviceID",
                  0x000f: "CDPMsgVoIPVLANQuery",
                  0x0010: "CDPMsgPower",
                  0x0011: "CDPMsgMTU",
-#                 0x0012: "CDPMsgTrustBitmap",
-#                 0x0013: "CDPMsgUntrustedPortCoS",
+                 0x0012: "CDPMsgTrustBitmap",
+                 0x0013: "CDPMsgUntrustedPortCoS",
 #                 0x0014: "CDPMsgSystemName",
 #                 0x0015: "CDPMsgSystemOID",
                  0x0016: "CDPMsgMgmtAddr",
@@ -213,10 +213,16 @@ class CDPMsgIPPrefix(CDPMsgGeneric):
                     ShortField("len", 8),
                     IPField("defaultgw", "192.168.0.1") ]
 
-# TODO : Do me !!!!!! 0x0008
 class CDPMsgProtoHello(CDPMsgGeneric):
     name = "Protocol Hello"
     type = 0x0008
+    fields_desc = [ XShortEnumField("type", 0x0008, _cdp_tlv_types),
+                    ShortField("len", 32),
+                    X3BytesField("oui", 0x00000c),
+                    XShortField("protocol_id", 0x0),
+                    # TLV length (len) - 2 (type) - 2 (len) - 3 (OUI) - 2
+                    # (Protocol ID)
+                    StrLenField("data", "", length_from=lambda p: p.len - 9) ]
 
 class CDPMsgVTPMgmtDomain(CDPMsgGeneric):
     name = "VTP Management Domain"
@@ -239,16 +245,18 @@ class CDPMsgVoIPVLANReply(CDPMsgGeneric):
     fields_desc = [ XShortEnumField("type", 0x000e, _cdp_tlv_types),
                     ShortField("len", 7),
                     ByteField("status?", 1),
-                    ShortField("vlan", 1)]
+                    ShortField("vlan", 1) ]
 
 
-# TODO : Do me !!! 0x000F
 class CDPMsgVoIPVLANQuery(CDPMsgGeneric):
     name = "VoIP VLAN Query"
     type = 0x000f
-
-#    fields_desc = [XShortEnumField("type", 0x000f, _cdp_tlv_types),
-#		   FieldLenField("len", None, "val", "!H") ]
+    fields_desc = [ XShortEnumField("type", 0x000f, _cdp_tlv_types),
+    		    ShortField("len", 7),
+                    XByteField("unknown1", 0),
+                    ShortField("vlan", 1),
+                    # TLV length (len) - 2 (type) - 2 (len) - 1 (unknown1) - 2 (vlan)
+                    StrLenField("unknown2", "", length_from=lambda p: p.len - 7) ]
 
 
 class _CDPPowerField(ShortField):
@@ -272,6 +280,18 @@ class CDPMsgMTU(CDPMsgGeneric):
     fields_desc = [ XShortEnumField("type", 0x0011, _cdp_tlv_types),
                     ShortField("len", 6),
                     ShortField("mtu", 1500)]
+
+class CDPMsgTrustBitmap(CDPMsgGeneric):
+    name = "Trust Bitmap"
+    fields_desc = [ XShortEnumField("type", 0x0012, _cdp_tlv_types),
+                    ShortField("len", 5),
+                    XByteField("trust_bitmap", 0x0) ]
+
+class CDPMsgUntrustedPortCoS(CDPMsgGeneric):
+    name = "Untrusted Port CoS"
+    fields_desc = [ XShortEnumField("type", 0x0013, _cdp_tlv_types),
+                    ShortField("len", 5),
+                    XByteField("untrusted_port_cos", 0x0) ]
 
 class CDPMsgMgmtAddr(CDPMsgAddr):
     name = "Management Address"
