@@ -65,8 +65,7 @@ fi
 
 for f in *.uts
 do
-  if [ "$f" = "bpf.uts" ]
-  then
+  if [ "$f" = "bpf.uts" ] || [ "$f" = "mock_windows.uts" ] ; then
     continue
   fi
   $SCAPY_SUDO ./run_tests -q -F -t $f $UT_FLAGS || exit $?

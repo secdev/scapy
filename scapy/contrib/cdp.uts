@@ -1,0 +1,59 @@
+#################################### cdp.py ##################################
+% Regression tests for the cdp module
+
+
+################################## CDPv2_HDR ##################################
++ CDP
+
+= CDPv2 - Dissection (1)
+s = '\x02\xb4\x8c\xfa\x00\x01\x00\x0cmyswitch\x00\x02\x00\x11\x00\x00\x00\x01\x01\x01\xcc\x00\x04\xc0\xa8\x00\xfd\x00\x03\x00\x13FastEthernet0/1\x00\x04\x00\x08\x00\x00\x00(\x00\x05\x01\x14Cisco Internetwork Operating System Software \nIOS (tm) C2950 Software (C2950-I6K2L2Q4-M), Version 12.1(22)EA14, RELEASE SOFTWARE (fc1)\nTechnical Support: http://www.cisco.com/techsupport\nCopyright (c) 1986-2010 by cisco Systems, Inc.\nCompiled Tue 26-Oct-10 10:35 by nburra\x00\x06\x00\x15cisco WS-C2950-12\x00\x08\x00$\x00\x00\x0c\x01\x12\x00\x00\x00\x00\xff\xff\xff\xff\x01\x02!\xff\x00\x00\x00\x00\x00\x00\x00\x0b\xbe\x18\x9a@\xff\x00\x00\x00\t\x00\x0cMYDOMAIN\x00\n\x00\x06\x00\x01\x00\x0b\x00\x05\x01\x00\x0e\x00\x07\x01\x00\n\x00\x12\x00\x05\x00\x00\x13\x00\x05\x00\x00\x16\x00\x11\x00\x00\x00\x01\x01\x01\xcc\x00\x04\xc0\xa8\x00\xfd'
+cdpv2 = CDPv2_HDR(s)
+assert(cdpv2.vers == 2)
+assert(cdpv2.ttl == 180)
+assert(cdpv2.cksum == 0x8cfa)
+assert(cdpv2.haslayer(CDPMsgDeviceID))
+assert(cdpv2.haslayer(CDPMsgAddr))
+assert(cdpv2.haslayer(CDPAddrRecordIPv4))
+assert(cdpv2.haslayer(CDPMsgPortID))
+assert(cdpv2.haslayer(CDPMsgCapabilities))
+assert(cdpv2.haslayer(CDPMsgSoftwareVersion))
+assert(cdpv2.haslayer(CDPMsgPlatform))
+assert(cdpv2.haslayer(CDPMsgProtoHello))
+assert(cdpv2.haslayer(CDPMsgVTPMgmtDomain))
+assert(cdpv2.haslayer(CDPMsgNativeVLAN))
+assert(cdpv2.haslayer(CDPMsgDuplex))
+assert(cdpv2.haslayer(CDPMsgVoIPVLANReply))
+assert(cdpv2.haslayer(CDPMsgTrustBitmap))
+assert(cdpv2.haslayer(CDPMsgUntrustedPortCoS))
+assert(cdpv2.haslayer(CDPMsgMgmtAddr))
+assert(cdpv2[CDPMsgProtoHello].len == 36)
+assert(cdpv2[CDPMsgProtoHello].oui == 0xc)
+assert(cdpv2[CDPMsgProtoHello].protocol_id == 0x112)
+assert(cdpv2[CDPMsgTrustBitmap].type == 0x0012)
+assert(cdpv2[CDPMsgTrustBitmap].len == 5)
+assert(cdpv2[CDPMsgTrustBitmap].trust_bitmap == 0x0)
+assert(cdpv2[CDPMsgUntrustedPortCoS].type == 0x0013)
+assert(cdpv2[CDPMsgUntrustedPortCoS].len == 5)
+assert(cdpv2[CDPMsgUntrustedPortCoS].untrusted_port_cos == 0x0)
+
+= CDPv2 - Dissection (2)
+s = '\x02\xb4\xd7\xdb\x00\x01\x00\x13SIP001122334455\x00\x02\x00\x11\x00\x00\x00\x01\x01\x01\xcc\x00\x04\xc0\xa8\x01!\x00\x03\x00\nPort 1\x00\x04\x00\x08\x00\x00\x00\x10\x00\x05\x00\x10P003-08-2-00\x00\x06\x00\x17Cisco IP Phone 7960\x00\x0f\x00\x08 \x02\x00\x01\x00\x0b\x00\x05\x01\x00\x10\x00\x06\x18\x9c'
+cdpv2 = CDPv2_HDR(s)
+assert(cdpv2.vers == 2)
+assert(cdpv2.ttl == 180)
+assert(cdpv2.cksum == 0xd7db)
+assert(cdpv2.haslayer(CDPMsgDeviceID))
+assert(cdpv2.haslayer(CDPMsgAddr))
+assert(cdpv2.haslayer(CDPAddrRecordIPv4))
+assert(cdpv2.haslayer(CDPMsgPortID))
+assert(cdpv2.haslayer(CDPMsgCapabilities))
+assert(cdpv2.haslayer(CDPMsgSoftwareVersion))
+assert(cdpv2.haslayer(CDPMsgPlatform))
+assert(cdpv2.haslayer(CDPMsgVoIPVLANQuery))
+assert(cdpv2.haslayer(CDPMsgDuplex))
+assert(cdpv2.haslayer(CDPMsgPower))
+assert(cdpv2[CDPMsgVoIPVLANQuery].type == 0x000f)
+assert(cdpv2[CDPMsgVoIPVLANQuery].len == 8)
+assert(cdpv2[CDPMsgVoIPVLANQuery].unknown1 == 0x20)
+assert(cdpv2[CDPMsgVoIPVLANQuery].vlan == 512)
+

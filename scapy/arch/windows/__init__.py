@@ -6,7 +6,6 @@
 """
 Customizations needed to support Microsoft Windows.
 """
-
 import os,re,sys,socket,time, itertools
 import subprocess as sp
 from glob import glob
@@ -34,19 +33,20 @@ if not hasattr(socket, 'IPPROTO_AH'):
 if not hasattr(socket, 'IPPROTO_ESP'):
     socket.IPPROTO_ESP=50
 
-
 from scapy.arch import pcapdnet
 from scapy.arch.pcapdnet import *
 
 def _exec_query_ps(cmd, fields):
     """Execute a PowerShell query"""
+    if not WINDOWS:
+        return
     ps = sp.Popen([conf.prog.powershell] + cmd +
                   ['|', 'select %s' % ', '.join(fields), '|', 'fl'],
                   stdout=sp.PIPE,
                   universal_newlines=True)
     l=[]
     for line in ps.stdout:
-        if not line.strip(): #skip empty lines
+        if not line.strip(): # skip empty lines
             continue
         sl = line.split(':', 1)
         if len(sl) == 1:
@@ -103,6 +103,8 @@ _VBS_WMI_OUTPUT = {
 }
 
 def _exec_query_vbs(cmd, fields):
+    if not WINDOWS:
+        return
     """Execute a query using VBS. Currently Get-WmiObject queries are
     supported.
 
@@ -219,9 +221,10 @@ def get_windows_if_list():
         # Name                      InterfaceDescription                    ifIndex Status       MacAddress             LinkSpeed
         # ----                      --------------------                    ------- ------       ----------             ---------
         # Ethernet                  Killer E2200 Gigabit Ethernet Contro...      13 Up           D0-50-99-56-DD-F9         1 Gbps
+        
         query = exec_query(['Get-NetAdapter'],
                            ['InterfaceDescription', 'InterfaceIndex', 'Name',
-                            'InterfaceGuid', 'MacAddress']) #Weird order, but normal
+                            'InterfaceGuid', 'MacAddress']) # It is normal that it is in this order
     else:
         query = exec_query(['Get-WmiObject', 'Win32_NetworkAdapter'],
                            ['Name', 'InterfaceIndex', 'InterfaceDescription',
@@ -317,7 +320,6 @@ class NetworkInterfaceDict(UserDict):
     def dev_from_name(self, name):
         """Return the first pcap device name for a given Windows
         device name.
-
         """
         for iface in self.itervalues():
             if iface.name == name:
@@ -438,7 +440,7 @@ def read_routes():
         else:
             routes = read_routes_7()
     except Exception as e:    
-        log_loading.warning("Error building scapy routing table : %s"%str(e))
+        log_loading.warning("Error building scapy routing table : %s" % str(e))
     else:
         if not routes:
             log_loading.warning("No default IPv4 routes found. Your Windows release may no be supported and you have to enter your routes manually")
@@ -474,8 +476,75 @@ def read_routes_post2008():
                            match.group(4), iface, iface.ip))
     return routes
 
+############
+### IPv6 ###
+############
+
+def in6_getifaddr():
+    """
+    Returns all IPv6 addresses found on the computer
+    """
+    ret = []
+    ps = sp.Popen([conf.prog.powershell, 'Get-NetRoute', '-AddressFamily IPV6', '|', 'select ifIndex, DestinationPrefix'], stdout = sp.PIPE, universal_newlines = True)
+    stdout, stdin = ps.communicate()
+    netstat_line = '\s+'.join(['(\d+)', ''.join(['([A-z|0-9|:]+)', '(\/\d+)'])])
+    pattern = re.compile(netstat_line)
+    for l in stdout.split('\n'):
+        match = re.search(pattern,l)
+        if match:
+            try:
+                if_index = match.group(1)
+                iface = dev_from_index(if_index)
+            except:
+                continue
+            scope = scapy.utils6.in6_getscope(match.group(2))
+            ret.append((match.group(2), scope, iface)) # (addr,scope,iface)
+            continue
+    return ret
+
 def read_routes6():
-    return []
+    routes = []
+    ipv6_r = '([A-z|0-9|:]+)' #Hope it is a valid address...
+    # The correct IPv6 regex would be:
+    # ((([0-9A-Fa-f]{1,4}:){7}([0-9A-Fa-f]{1,4}|:))|(([0-9A-Fa-f]{1,4}:){6}(:[0-9A-Fa-f]{1,4}|((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){1,2})|:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){1,3})|((:[0-9A-Fa-f]{1,4})?:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){1,4})|((:[0-9A-Fa-f]{1,4}){0,2}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){1,5})|((:[0-9A-Fa-f]{1,4}){0,3}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){1,6})|((:[0-9A-Fa-f]{1,4}){0,4}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(:(((:[0-9A-Fa-f]{1,4}){1,7})|((:[0-9A-Fa-f]{1,4}){0,5}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:)))(%.+)?
+    # but is too big to be used (PyCParser): AssertionError: sorry, but this version only supports 100 named groups
+    netmask = '(\/\d+)?'
+    if_index = '(\d+)'
+    delim = '\s+'        # The columns are separated by whitespace
+    netstat_line = delim.join([if_index, "".join([ipv6_r, netmask]), ipv6_r])
+    pattern = re.compile(netstat_line)
+    # This works only starting from Windows 8/2012 and up. For older Windows another solution is needed
+    # Get-NetRoute -AddressFamily IPV6 | select ifIndex, DestinationPrefix, NextHop
+    ps = sp.Popen([conf.prog.powershell, 'Get-NetRoute', '-AddressFamily IPV6', '|', 'select ifIndex, DestinationPrefix, NextHop'], stdout = sp.PIPE, universal_newlines = True)
+    stdout, stdin = ps.communicate()
+    lifaddr = in6_getifaddr()
+    for l in stdout.split('\n'):
+        match = re.search(pattern,l)
+        if match:
+            try:
+                if_index = match.group(1)
+                iface = dev_from_index(if_index)
+            except:
+                continue
+
+            d = match.group(2)
+            dp = int(match.group(3)[1:])
+            nh = match.group(4)
+            
+            cset = [] # candidate set (possible source addresses)
+            if iface.name == LOOPBACK_NAME:
+                if d == '::':
+                    continue
+                cset = ['::1']
+            else:
+                devaddrs = filter(lambda x: x[2] == iface, lifaddr)
+                cset = scapy.utils6.construct_source_candidate_set(d, dp, devaddrs, LOOPBACK_NAME)
+            # APPEND (DESTINATION, NETMASK, NEXT HOP, IFACE, CANDIDATS)
+            routes.append((d, dp, nh, iface, cset))
+    return routes
+
+
+
 
 if conf.interactive_shell != 'ipython':
     try:
@@ -501,22 +570,43 @@ def get_working_if():
 
 conf.iface = get_working_if()
 
-
-def route_add_loopback():
-    """Add a route to 127.0.0.1 to simplify unit tests on Windows"""
-
+def route_add_loopback(routes=None, ipv6=False, iflist=None):
+    """Add a route to 127.0.0.1 and ::1 to simplify unit tests on Windows"""
+    # Add only if some adpaters already exist
+    if ipv6:
+        if len(conf.route6.routes) == 0:
+            return
+    else:
+        if len(conf.route.routes) == 0:
+            return
+    data = {}
+    data['name'] = LOOPBACK_NAME
+    data['description'] = "Loopback"
+    data['win_index'] = -1
+    data['guid'] = "{0XX00000-X000-0X0X-X00X-00XXXX000XXX}"
+    data['invalid'] = True
+    adapter = NetworkInterface(data)
+    if iflist:
+        iflist.append(unicode("\\Device\\NPF_" + adapter.guid))
+        return
     # Build the packed network addresses
     loop_net = struct.unpack("!I", socket.inet_aton("127.0.0.0"))[0]
     loop_mask = struct.unpack("!I", socket.inet_aton("255.0.0.0"))[0]
-
-    # Get the adapter from an existing route
-    if len(conf.route.routes) == 0:
-        return
-    adapter = conf.route.routes[0][3]
-
-    # Build and inject the fake route
+    # Build the fake routes
     loopback_route = (loop_net, loop_mask, "0.0.0.0", adapter, "127.0.0.1")
-    conf.route.routes.append(loopback_route)
-
-    # Flush the cache
-    conf.route.invalidate_cache()
+    loopback_route6 = ('::1', 128, '::', adapter, ["::1"])
+    loopback_route6_custom = ("fe80::", 128, "::", adapter, ["::1"])
+    if routes == None:
+        # Injection
+        conf.route6.routes.append(loopback_route6)
+        conf.route6.routes.append(loopback_route6_custom)
+        conf.route.routes.append(loopback_route)
+        # Flush the caches
+        conf.route6.invalidate_cache()
+        conf.route.invalidate_cache()
+    else:
+        if ipv6:
+            routes.append(loopback_route6)
+            routes.append(loopback_route6_custom)
+        else:
+            routes.append(loopback_route)
