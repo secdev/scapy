@@ -550,18 +550,15 @@ if conf.interactive_shell != 'ipython':
     try:
         __IPYTHON__
     except NameError:
-        def readLineScapy():
+        def readLineScapy(prompt):
             result = ""
             end = False
             while not end :
                 if not end and result != "":
                     sys.stdout.write('... ')
-                    sys.stdout.flush()
                     line = readline.rl.readline("")
                 else:
-                    # This does not show the color :(
-                    sys.stdout.write('\x1b[94m>>>\x1b[0m ')
-                    sys.stdout.flush()
+                    sys.stdout.write('\033[34m>>>\033[0m ')
                     line = readline.rl.readline("")
                 if line.strip().endswith(":"):
                     end = False
