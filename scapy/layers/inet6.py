@@ -108,8 +108,12 @@ def getmacbyip6(ip6, chainCC=0):
 
     iff,a,nh = conf.route6.route(ip6)
 
-    if iff == LOOPBACK_NAME:
-        return "ff:ff:ff:ff:ff:ff"
+    if isinstance(iff, basestring):
+        if iff == LOOPBACK_NAME:
+            return "ff:ff:ff:ff:ff:ff"
+    else:
+        if iff.name == LOOPBACK_NAME:
+            return "ff:ff:ff:ff:ff:ff"
 
     if nh != '::': 
         ip6 = nh # Found next hop
