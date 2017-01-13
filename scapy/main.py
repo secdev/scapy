@@ -7,7 +7,7 @@
 Main module for interactive startup.
 """
 
-import os,sys
+import os, sys
 import glob
 import types
 import gzip
@@ -261,8 +261,7 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
         readline.set_completer(ScapyCompleter().complete)
         readline.parse_and_bind("C-o: operate-and-get-next")
         readline.parse_and_bind("tab: complete")
-    
-    
+
     session=None
     session_name=""
     STARTUP_FILE = DEFAULT_STARTUP_FILE
@@ -381,7 +380,7 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
 
     else:
         code.interact(banner = the_banner % (conf.version),
-                      local=session)
+                      local=session, readfunc=conf.readfunc)
 
     if conf.session:
         save_session(conf.session, session)
