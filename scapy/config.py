@@ -333,6 +333,7 @@ contribs: a dict which can be used by contrib layers to store local configuratio
     stealth = "not implemented"
     iface = None
     iface6 = None
+    readfunc = None
     layers = LayersList()
     commands = CommandsList()
     logLevel = LogLevel()
