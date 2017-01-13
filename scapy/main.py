@@ -192,7 +192,7 @@ def scapy_write_history_file(readline):
                 warning("Could not write history to [%s]. Discarded" % tmp)
 
 
-def interact(mydict=None,argv=None,mybanner=None,loglevel=20,returnExit=False):
+def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
     global session
     import code,sys,os,getopt,re
     from scapy.config import conf
@@ -380,41 +380,8 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20,returnExit=False):
         IPython.embed(user_ns=session, banner2=banner)
 
     else:
-        from code import InteractiveConsole
-        iconsole = InteractiveConsole()
-        print the_banner % (conf.version)
-        def readLineScapy():
-            result = ""
-            end = False
-            while not end :
-                if not end and result != "":
-                    sys.stdout.write('... ')
-                    line = readline.rl.readline("")
-                else:
-                    # This does not show the color :(
-                    sys.stdout.write('\x1b[94m>>>\x1b[0m ')
-                    line = readline.rl.readline("")
-                if line.strip().endswith(":"):
-                    end = False
-                elif result == "":
-                    end = True
-                if line.strip() == "":
-                    end = True
-                result = result + "\n" + line
-            return unicode(result)
-        from code import InteractiveConsole
-        try:
-            reg_end = re.compile(r"(quit|exit|sys.exit)(\(.*\))")
-            while True:
-                r_line = readLineScapy()
-                if returnExit:
-                    end_match = reg_end.match(str(r_line).strip())
-                    if end_match is not None:
-                        return_value = end_match.group(2)[1:-1]
-                        break
-                iconsole.push(r_line)
-        except KeyboardInterrupt:
-            pass
+        code.interact(banner = the_banner % (conf.version),
+                      local=session, readfunc=conf.readfunc)
 
     if conf.session:
         save_session(conf.session, session)
@@ -424,9 +391,6 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20,returnExit=False):
             del(__builtin__.__dict__[k])
         except:
             pass
-    
-    if return_value is not None and returnExit:
-        return return_value
 
 if __name__ == "__main__":
     interact()

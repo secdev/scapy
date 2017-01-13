@@ -70,3 +70,48 @@ ifIndex DestinationPrefix                          NextHop
 
 
 test_read_routes6_windows()
+
+############
+############
++ Main.py emulator
+
+= Prepare functions
+
+from scapy.main import *
+import scapy.config as conf
+import sys
+
+import mock
+import readline
+
+index = 0
+@mock.patch("scapy.config.conf.readfunc")
+def emulate_main_input(data, mock_readfunc):
+    global index
+    index = 0 # reset var
+    try:
+        def readline(*args, **kargs):
+            global index
+            if len(data) == index:
+                r_data = "exit(0)"
+            else:
+                r_data = data[index]
+            index +=1
+            print r_data
+            return r_data
+        mock_readfunc.side_effect = readline
+        sys.argv = ['']
+        interact()
+    except Exception as ex:
+        raise
+        return ex.__class__.__name__
+
+= Test basic running
+data = ["IP()", "assert _.name == 'IP'"]
+emulate_main_input(data)
+assert _ == True
+
+= Test function parsing
+data = ["def test():", "    return True", "", "assert test() == True"]
+emulate_main_input(data)
+assert _ == True
