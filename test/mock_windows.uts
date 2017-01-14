@@ -74,7 +74,7 @@ test_read_routes6_windows()
 ############
 + Main.py emulator
 
-= Prepare functions
+= Prepare readline patching functions
 
 from scapy.main import *
 import scapy.config as conf
@@ -82,35 +82,60 @@ import sys
 
 import mock
 import readline
+import atexit
+
+from threading import Thread
+
+def sendTextAndTab(text):
+    """Send text directly as Input"""
+    import win32com.client
+    time.sleep(1)
+    shell = win32com.client.Dispatch("WScript.Shell")
+    shell.SendKeys(text)
+    shell.SendKeys("{TAB}")
+    shell.SendKeys("{ENTER}")
 
 index = 0
 @mock.patch("scapy.config.conf.readfunc")
 def emulate_main_input(data, mock_readfunc):
     global index
     index = 0 # reset var
+    def readlineScapy(*args, **kargs):
+        global index
+        if len(data) == index:
+            r_data = "exit(1 if hasattr(sys, 'last_value') and sys.last_value is not None else 0)"
+        else:
+            r_data = data[index]
+            if r_data.startswith("#AUTOCOMPLETE"):
+                send_text = re.match(r'#AUTOCOMPLETE{(.*)}', r_data).group(1)
+                thread = Thread(target=sendTextAndTab, args=[send_text])
+                thread.start()
+                # This will block the program until the thread has pushed the stuff
+                r_data = readline.rl.readline()
+        index +=1
+        print r_data
+        return r_data
+    mock_readfunc.side_effect = readlineScapy
+    sys.argv = ['']
+    def console_exit(code):
+        raise SystemExit(code)
+    exit_code = -1
     try:
-        def readline(*args, **kargs):
-            global index
-            if len(data) == index:
-                r_data = "exit(0)"
-            else:
-                r_data = data[index]
-            index +=1
-            print r_data
-            return r_data
-        mock_readfunc.side_effect = readline
-        sys.argv = ['']
-        interact()
-    except Exception as ex:
-        raise
-        return ex.__class__.__name__
+        interact(mydict={"exit": console_exit})
+    except SystemExit as e:
+        exit_code = str(e)
+        pass
+    assert exit_code == "0"
 
 = Test basic running
 data = ["IP()", "assert _.name == 'IP'"]
 emulate_main_input(data)
-assert _ == True
 
 = Test function parsing
 data = ["def test():", "    return True", "", "assert test() == True"]
 emulate_main_input(data)
-assert _ == True
+
+= Test auto-completion
+from ctypes import wintypes
+data = ["#AUTOCOMPLETE{scapy.config.conf.vers}", "assert _ == scapy.config.conf.version"]
+emulate_main_input(data)
