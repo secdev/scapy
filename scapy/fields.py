@@ -268,15 +268,15 @@ class SourceIPField(IPField):
             if conf.route is None:
                 # unused import, only to initialize conf.route
                 import scapy.route
-            dst=getattr(pkt,self.dstname)
-            if isinstance(dst,Gen):
-                r = map(conf.route.route, dst)
-                r.sort()
-                if r[0] != r[-1]:
-                    warning("More than one possible route for %s"%repr(dst))
-                iff,x,gw = r[0]
+            dst = ("0.0.0.0" if self.dstname is None else
+                   getattr(pkt, self.dstname))
+            if isinstance(dst, (Gen, list)):
+                r = {conf.route.route(daddr) for daddr in dst}
+                if len(r) > 1:
+                    warning("More than one possible route for %r" % (dst,))
+                x = min(r)[1]
             else:
-                iff,x,gw = conf.route.route(dst)
+                x = conf.route.route(dst)[1]
         return IPField.i2h(self, pkt, x)
 
     
