@@ -186,10 +186,12 @@ class Packet(BasePacket):
             return self.get_field(attr),self.overloaded_fields[attr]
         if attr in self.default_fields:
             return self.get_field(attr),self.default_fields[attr]
-        return self.payload.getfield_and_val(attr)
-    
+
     def __getattr__(self, attr):
-        fld,v = self.getfield_and_val(attr)
+        try:
+            fld, v = self.getfield_and_val(attr)
+        except TypeError:
+            return self.payload.__getattr__(attr)
         if fld is not None:
             return fld.i2h(self, v)
         return v

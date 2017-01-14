@@ -103,13 +103,17 @@ class DestMACField(MACField):
         return MACField.i2h(self, pkt, x)
     def i2m(self, pkt, x):
         return MACField.i2m(self, pkt, self.i2h(pkt, x))
-        
+
+
 class SourceMACField(MACField):
-    def __init__(self, name):
+    __slots__ = ["getif"]
+    def __init__(self, name, getif=None):
         MACField.__init__(self, name, None)
+        self.getif = ((lambda pkt: pkt.payload.route()[0])
+                      if getif is None else getif)
     def i2h(self, pkt, x):
         if x is None:
-            iff, a, gw = pkt.payload.route()
+            iff = self.getif(pkt)
             if iff is None:
                 iff = conf.iface
             if iff:
@@ -122,24 +126,14 @@ class SourceMACField(MACField):
         return MACField.i2h(self, pkt, x)
     def i2m(self, pkt, x):
         return MACField.i2m(self, pkt, self.i2h(pkt, x))
-        
-class ARPSourceMACField(MACField):
-    def __init__(self, name):
-        MACField.__init__(self, name, None)
-    def i2h(self, pkt, x):
-        if x is None:
-            iff,a,gw = pkt.route()
-            if iff:
-                try:
-                    x = get_if_hwaddr(iff)
-                except:
-                    pass
-            if x is None:
-                x = "00:00:00:00:00:00"
-        return MACField.i2h(self, pkt, x)
-    def i2m(self, pkt, x):
-        return MACField.i2m(self, pkt, self.i2h(pkt, x))
 
+
+class ARPSourceMACField(SourceMACField):
+    def __init__(self, name):
+        super(ARPSourceMACField, self).__init__(
+            name,
+            getif=lambda pkt: pkt.route()[0],
+        )
 
 
 ### Layers
