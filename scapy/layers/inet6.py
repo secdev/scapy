@@ -247,17 +247,17 @@ class SourceIP6Field(IP6Field):
         return IP6Field.i2m(self, pkt, x)
     def i2h(self, pkt, x):
         if x is None:
-            dst=getattr(pkt,self.dstname)
-            if isinstance(dst,Gen):
-                r = map(conf.route6.route, dst)
-                r.sort()
-                if r[0] == r[-1]:
-                    x=r[0][1]
-                else:
-                    warning("More than one possible route for %s"%repr(dst))
-                    return None
+            if conf.route6 is None:
+                # unused import, only to initialize conf.route6
+                import scapy.route6
+            dst = ("::" if self.dstname is None else getattr(pkt, self.dstname))
+            if isinstance(dst, (Gen, list)):
+                r = {conf.route6.route(daddr) for daddr in dst}
+                if len(r) > 1:
+                    warning("More than one possible route for %r" % (dst,))
+                x = min(r)[1]
             else:
-                iff,x,nh = conf.route6.route(dst)
+                x = conf.route6.route(dst)[1]
         return IP6Field.i2h(self, pkt, x)
 
 class DestIP6Field(IP6Field, DestField):
