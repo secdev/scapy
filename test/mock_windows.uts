@@ -101,8 +101,11 @@ class sendTextAndTab(Thread):
             keyboard.send("enter")
 
 index = 0
+@mock.patch("pyreadline.console.console.Console.size")
 @mock.patch("scapy.config.conf.readfunc")
-def emulate_main_input(data, mock_readfunc):
+def emulate_main_input(data, mock_readfunc, mock_pyr_size):
+    # This fix when the windows doesn't have a size (run with a windows server)
+    mock_pyr_size.return_value = (300, 300)
     global index
     index = 0 # reset var
     def readlineScapy(*args, **kargs):
