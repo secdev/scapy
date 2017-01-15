@@ -84,16 +84,21 @@ import mock
 import readline
 import atexit
 
-from threading import Thread
+from threading import Thread, Event
 
-def sendTextAndTab(text):
+class sendTextAndTab(Thread):
     """Send text directly as Input"""
-    import win32com.client
-    time.sleep(1)
-    shell = win32com.client.Dispatch("WScript.Shell")
-    shell.SendKeys(text)
-    shell.SendKeys("{TAB}")
-    shell.SendKeys("{ENTER}")
+    def __init__(self, event, text):
+        Thread.__init__(self)
+        self.stopped = event
+        self.send_text = text
+    def run(self):
+        import keyboard
+        time.sleep(1)
+        while not self.stopped.wait(0.5):
+            keyboard.write(self.send_text)
+            keyboard.send("tab")
+            keyboard.send("enter")
 
 index = 0
 @mock.patch("scapy.config.conf.readfunc")
@@ -108,10 +113,12 @@ def emulate_main_input(data, mock_readfunc):
             r_data = data[index]
             if r_data.startswith("#AUTOCOMPLETE"):
                 send_text = re.match(r'#AUTOCOMPLETE{(.*)}', r_data).group(1)
-                thread = Thread(target=sendTextAndTab, args=[send_text])
+                stopFlag = Event()
+                thread = sendTextAndTab(stopFlag, send_text)
                 thread.start()
                 # This will block the program until the thread has pushed the stuff
                 r_data = readline.rl.readline()
+                stopFlag.set()
         index +=1
         print r_data
         return r_data
