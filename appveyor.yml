@@ -19,7 +19,7 @@ install:
   - refreshenv
 
   # Install Python modules
-  - "%PYTHON%\\python -m pip install ecdsa cryptography coverage mock"
+  - "%PYTHON%\\python -m pip install ecdsa cryptography coverage mock pyreadline keyboard"
 
 test_script:
   # Set environment variables
