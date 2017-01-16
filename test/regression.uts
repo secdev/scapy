@@ -641,6 +641,14 @@ DNS in dns_ans
 ~ netaccess IP
 IP(src="8.8.8.8").whois()
 
+= AS resolvers
+~ netaccess IP
+
+ret = conf.AS_resolver.resolve("8.8.8.8", "8.8.4.4")
+assert (len(ret) == 2)
+
+all(x[1] == 15169 for x in ret)
+
 
 ############
 ############
