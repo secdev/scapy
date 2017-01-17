@@ -7596,3 +7596,27 @@ assert [p[TCP].flags for p in plist] == range(512)
 
 plist = PacketList(list(IP()/TCP(flags=["S", "SA", "A"])))
 assert [p[TCP].flags for p in plist] == [2, 18, 16]
+
+
+############
+############
++ SCTP
+
+= SCTP - Chunk Init - build
+s = str(IP()/SCTP()/SCTPChunkInit(params=[SCTPChunkParamIPv4Addr()]))
+s == 'E\x00\x00<\x00\x01\x00\x00@\x84|;\x7f\x00\x00\x01\x7f\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00@,\x0b_\x01\x00\x00\x1c\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x05\x00\x08\x7f\x00\x00\x01'
+
+= SCTP - Chunk Init - dissection
+p = IP(s)
+SCTPChunkParamIPv4Addr in p and p[SCTP].chksum == 0x402c0b5f and p[SCTPChunkParamIPv4Addr].addr == "127.0.0.1"
+
+= SCTP - SCTPChunkSACK - build
+s = str(IP()/SCTP()/SCTPChunkSACK(gap_ack_list=["7:28"]))
+s == 'E\x00\x004\x00\x01\x00\x00@\x84|C\x7f\x00\x00\x01\x7f\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00;\x01\xd4\x04\x03\x00\x00\x14\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x07\x00\x1c'
+
+= SCTP - SCTPChunkSACK - dissection
+p = IP(s)
+SCTPChunkSACK in p and p[SCTP].chksum == 0x3b01d404 and p[SCTPChunkSACK].gap_ack_list[0] == "7:28"
+
+= SCTP - answers
+(IP()/SCTP()).answers(IP()/SCTP()) == True
