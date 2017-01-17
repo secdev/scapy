@@ -604,19 +604,6 @@ class MACsecSCI(Packet):
         return "", s
 
 
-def _param_set_dispatcher(data):
-    """
-    Returns the right class for a given "Parameter set".
-    """
-
-    cls = conf.raw_layer
-    if data is not None:
-        ptype = struct.unpack("!B", data[0])[0]
-        return globals().get(_param_set_cls.get(ptype), conf.raw_layer)
-
-    return cls
-
-
 class MKAParamSet(Packet):
     """
     Class from which every parameter set class inherits (except
@@ -633,7 +620,12 @@ class MKAParamSet(Packet):
         Returns the right parameter set class.
         """
 
-        return _param_set_dispatcher(_pkt)
+        cls = conf.raw_layer
+        if _pkt is not None:
+            ptype = struct.unpack("!B", _pkt[0])[0]
+            return globals().get(_param_set_cls.get(ptype), conf.raw_layer)
+
+        return cls
 
 
 class MKABasicParamSet(Packet):
@@ -879,8 +871,7 @@ class MKAParamSetPacketListField(PacketListField):
     PARAM_SET_LEN_MASK = 0b0000111111111111
 
     def m2i(self, pkt, m):
-        cls = _param_set_dispatcher(m)
-        return cls(m)
+        return MKAParamSet(m)
 
     def getfield(self, pkt, s):
         lst = []
