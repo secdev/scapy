@@ -57,7 +57,7 @@ def get_if_raw_addr(ifname):
         return "\0\0\0\0"
 
     # Get IPv4 addresses
-    addresses = [l for l in fd.readlines() if l.find("netmask") >= 0]
+    addresses = [l for l in fd if l.find("netmask") >= 0]
     if not addresses:
         warning("No IPv4 address found on %s !" % ifname)
         return "\0\0\0\0"
