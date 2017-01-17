@@ -7,10 +7,10 @@
 General utility functions.
 """
 
-import os,sys,socket,types
-import random,time
-import gzip,zlib,cPickle
-import re,struct,array
+import os, sys, socket, types
+import random, time
+import gzip, zlib, cPickle
+import re, struct, array
 import subprocess
 import tempfile
 
@@ -1272,3 +1272,29 @@ def make_lined_table(*args, **kargs):
 def make_tex_table(*args, **kargs):
     __make_table(lambda l: "%s", lambda l: "& %s", "\\\\", seplinefunc=lambda a,x:"\\hline", *args, **kargs)
 
+###############################################
+### WHOIS CLIENT (not available on windows) ###
+###############################################
+
+def whois(ip_address):
+    """Whois client for python"""
+    query = "n " + ip_address
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.connect(("whois.arin.net", 43))
+    s.send(query + "\r\n")
+    answer = ''
+    while True:
+        d = s.recv(4096)
+        answer += d
+        if not d:
+            break
+    s.close()
+    result = "#\
+# ARIN WHOIS data and services are subject to the Terms of Use\n\
+# available at: https://www.arin.net/whois_tou.html\n\
+\n\
+"
+    for line in answer.split("\n"):
+        if not line.startswith("#") and line is not "":
+            result = result + line + "\n"
+    return result
