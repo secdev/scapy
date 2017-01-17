@@ -934,8 +934,8 @@ class LEFieldLenField(FieldLenField):
         FieldLenField.__init__(self, name, default, length_of=length_of, fmt=fmt, count_of=count_of, fld=fld, adjust=adjust)
 
 
-class FlagValue(int):
-    __slots__ = ["names", "multi"]
+class FlagValue(object):
+    __slots__ = ["value", "names", "multi"]
     @staticmethod
     def __fixvalue(value, names):
         if isinstance(value, basestring):
@@ -949,12 +949,32 @@ class FlagValue(int):
                 y |= 1 << names.index(i)
             value = y
         return value
-    def __new__(cls, value, names):
-        return super(FlagValue, cls).__new__(cls, cls.__fixvalue(value, names))
     def __init__(self, value, names):
-        super(FlagValue, self).__init__(value)
+        self.value = (value.value if isinstance(value, self.__class__)
+                      else self.__fixvalue(value, names))
         self.multi = isinstance(names, list)
         self.names = names
+    def __int__(self):
+        return self.value
+    def __cmp__(self, other):
+        if isinstance(other, self.__class__):
+            return cmp(self.value, other.value)
+        return cmp(self.value, other)
+    def __and__(self, other):
+        if isinstance(other, self.__class__):
+            return self.value & other.value
+        return self.value & other
+    __rand__ = __and__
+    def __or__(self, other):
+        if isinstance(other, self.__class__):
+            return self.value | other.value
+        return self.value | other
+    __ror__ = __or__
+    def __add__(self, other):
+        if isinstance(other, self.__class__):
+            return self.value + other.value
+        return self.value + other
+    __radd__ = __add__
     def flagrepr(self):
         i = 0
         r = []
@@ -966,15 +986,28 @@ class FlagValue(int):
             x >>= 1
         return ("+" if self.multi else "").join(r)
     def __repr__(self):
-        return "<Flag %r (%s)>" % (int(self),
-                                   self.flagrepr())
+        return "<Flag %d (%s)>" % (self, self.flagrepr())
     def __deepcopy__(self, memo):
         return self.__class__(int(self), self.names)
     def __getattr__(self, attr):
+        if attr in self.__slots__:
+            return super(FlagValue, self).__getattr__(attr)
         try:
             return bool((2 ** self.names.index(attr)) & int(self))
         except ValueError:
             return super(FlagValue, self).__getattr__(attr)
+    def __setattr__(self, attr, value):
+        if attr == "value" and not isinstance(value, (int, long)):
+            raise ValueError(value)
+        if attr in self.__slots__:
+            return super(FlagValue, self).__setattr__(attr, value)
+        if attr in self.names:
+            if value:
+                self.value |= (2 ** self.names.index(attr))
+            else:
+                self.value &= ~(2 ** self.names.index(attr))
+        else:
+            return super(FlagValue, self).__setattr__(attr, value)
 
 
 class FlagsField(BitField):

@@ -7497,11 +7497,20 @@ pkt = IP(flags="MF")
 assert pkt.flags.MF
 assert not pkt.flags.DF
 assert not pkt.flags.evil
+pkt.flags.MF = 0
+pkt.flags.DF = 1
+assert not pkt.flags.MF
+assert pkt.flags.DF
+assert not pkt.flags.evil
 
 pkt = IP(flags=3)
 assert pkt.flags.MF
 assert pkt.flags.DF
 assert not pkt.flags.evil
+pkt.flags = 6
+assert not pkt.flags.MF
+assert pkt.flags.DF
+assert pkt.flags.evil
 
 = TCP flags
 ~ TCP
@@ -7511,7 +7520,15 @@ assert pkt.flags == 18
 assert pkt.flags.S
 assert pkt.flags.A
 assert not any(getattr(pkt.flags, f) for f in 'FRPUECN')
+pkt.flags.U = True
+pkt.flags.S = False
+assert pkt.flags.A
+assert pkt.flags.U
+assert not any(getattr(pkt.flags, f) for f in 'FSRPECN')
 
 pkt = TCP(flags=56)
 assert all(getattr(pkt.flags, f) for f in 'PAU')
 assert not any(getattr(pkt.flags, f) for f in 'FSRECN')
+pkt.flags = 50
+assert all(getattr(pkt.flags, f) for f in 'SAU')
+assert not any(getattr(pkt.flags, f) for f in 'FRPECN')
