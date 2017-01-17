@@ -934,6 +934,49 @@ class LEFieldLenField(FieldLenField):
         FieldLenField.__init__(self, name, default, length_of=length_of, fmt=fmt, count_of=count_of, fld=fld, adjust=adjust)
 
 
+class FlagValue(int):
+    __slots__ = ["names", "multi"]
+    @staticmethod
+    def __fixvalue(value, names):
+        if isinstance(value, basestring):
+            if isinstance(names, list):
+                value = value.split('+')
+            else:
+                value = list(value)
+        if isinstance(value, list):
+            y = 0
+            for i in value:
+                y |= 1 << names.index(i)
+            value = y
+        return value
+    def __new__(cls, value, names):
+        return super(FlagValue, cls).__new__(cls, cls.__fixvalue(value, names))
+    def __init__(self, value, names):
+        super(FlagValue, self).__init__(value)
+        self.multi = isinstance(names, list)
+        self.names = names
+    def flagrepr(self):
+        i = 0
+        r = []
+        x = int(self)
+        while x:
+            if x & 1:
+                r.append(self.names[i])
+            i += 1
+            x >>= 1
+        return ("+" if self.multi else "").join(r)
+    def __repr__(self):
+        return "<Flag %r (%s)>" % (int(self),
+                                   self.flagrepr())
+    def __deepcopy__(self, memo):
+        return self.__class__(int(self), self.names)
+    def __getattr__(self, attr):
+        try:
+            return bool((2 ** self.names.index(attr)) & int(self))
+        except ValueError:
+            return super(FlagValue, self).__getattr__(attr)
+
+
 class FlagsField(BitField):
     """ Handle Flag type field
 
@@ -957,37 +1000,20 @@ class FlagsField(BitField):
    """
     __slots__ = ["multi", "names"]
     def __init__(self, name, default, size, names):
-        self.multi = type(names) is list
-        if self.multi:
-            self.names = map(lambda x:[x], names)
-        else:
-            self.names = names
+        self.multi = isinstance(names, list)
+        self.names = names
         BitField.__init__(self, name, default, size)
     def any2i(self, pkt, x):
-        if type(x) is str:
-            if self.multi:
-                x = map(lambda y:[y], x.split("+"))
-            y = 0
-            for i in x:
-                y |= 1 << self.names.index(i)
-            x = y
-        return x
+        if isinstance(x, (list, tuple)):
+            return type(x)(None if v is None else FlagValue(v, self.names)
+                           for v in x)
+        return None if x is None else FlagValue(x, self.names)
     def i2repr(self, pkt, x):
-        if type(x) is list or type(x) is tuple:
-            return repr(x)
-        if self.multi:
-            r = []
-        else:
-            r = ""
-        i=0
-        while x:
-            if x & 1:
-                r += self.names[i]
-            i += 1
-            x >>= 1
-        if self.multi:
-            r = "+".join(r)
-        return r
+        if isinstance(x, (list, tuple)):
+            return repr(type(x)(
+                None if v is None else FlagValue(v, self.names).flagrepr()
+                for v in x))
+        return None if x is None else FlagValue(x, self.names).flagrepr()
 
 
 MultiFlagsEntry = collections.namedtuple('MultiFlagEntry', ['short', 'long'])

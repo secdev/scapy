@@ -7143,7 +7143,9 @@ assert(re.match(r'^.*Star \(\*\).*$', x) is not None)
 assert(re.match(r'^.*Plus \(\+\).*$', x) is not None)
 assert(re.match(r'^.*bit 2.*$', x) is not None)
 
-###########################################################################################################
+
+############
+############
 + Test correct conversion from binary to string of IPv6 addresses
 
 = IPv6 bin to string conversion - all zero bytes
@@ -7222,7 +7224,6 @@ assert(compressed1 == compressed2 == '1000:200:30:4:5:60:700:8000')
 
 ############
 ############
-
 + VRRP tests
 
 = VRRP - build
@@ -7236,7 +7237,6 @@ VRRP in p and p[VRRP].chksum == 0x7afd
 
 ############
 ############
-
 + L2TP tests
 
 = L2TP - build
@@ -7250,7 +7250,6 @@ L2TP in p and p[L2TP].len == 14 and p.tunnel_id == 0 and p[UDP].chksum == 0xf465
 
 ############
 ############
-
 + HSRP tests
 
 = HSRP - build & dissection
@@ -7263,7 +7262,6 @@ assert pkt[HSRPmd5].type == 4 and pkt[HSRPmd5].sourceip == defaddr
 
 ############
 ############
-
 + RIP tests
 
 = RIP - build
@@ -7277,7 +7275,6 @@ RIPEntry in p and RIPAuth in p and p[RIPAuth].password.startswith("scapy")
 
 ############
 ############
-
 + Radius tests
 
 = Radius - build
@@ -7487,3 +7484,34 @@ rek == 'b'
 random.seed(0x2807)
 rts = RandTermString(4, "scapy")
 sane(str(rts)) == "...[scapy"
+
+
+############
+############
++ Flags
+
+= IP flags
+~ IP
+
+pkt = IP(flags="MF")
+assert pkt.flags.MF
+assert not pkt.flags.DF
+assert not pkt.flags.evil
+
+pkt = IP(flags=3)
+assert pkt.flags.MF
+assert pkt.flags.DF
+assert not pkt.flags.evil
+
+= TCP flags
+~ TCP
+
+pkt = TCP(flags="SA")
+assert pkt.flags == 18
+assert pkt.flags.S
+assert pkt.flags.A
+assert not any(getattr(pkt.flags, f) for f in 'FRPUECN')
+
+pkt = TCP(flags=56)
+assert all(getattr(pkt.flags, f) for f in 'PAU')
+assert not any(getattr(pkt.flags, f) for f in 'FSRECN')
