@@ -166,6 +166,55 @@ def update_session(fname=None):
     scapy_session = __builtin__.__dict__["scapy_session"]
     scapy_session.update(s)
 
+def init_session(mydict=None, session_name="", STARTUP_FILE=DEFAULT_STARTUP_FILE):
+    global session
+    scapy_builtins = __import__("all",globals(),locals(),".").__dict__
+    for name, sym in scapy_builtins.iteritems():
+        if name [0] != '_':
+            __builtin__.__dict__[name] = sym
+    globkeys = scapy_builtins.keys()
+    globkeys.append("scapy_session")
+    scapy_builtins=None # XXX replace with "with" statement
+    if mydict is not None:
+        __builtin__.__dict__.update(mydict)
+        globkeys += mydict.keys()
+    
+
+    conf.color_theme = DefaultTheme()
+    if STARTUP_FILE:
+        _read_config_file(STARTUP_FILE)
+        
+    if session_name:
+        try:
+            os.stat(session_name)
+        except OSError:
+            log_loading.info("New session [%s]" % session_name)
+        else:
+            try:
+                try:
+                    session = cPickle.load(gzip.open(session_name,"rb"))
+                except IOError:
+                    session = cPickle.load(open(session_name,"rb"))
+                log_loading.info("Using session [%s]" % session_name)
+            except EOFError:
+                log_loading.error("Error opening session [%s]" % session_name)
+            except AttributeError:
+                log_loading.error("Error opening session [%s]. Attribute missing" %  session_name)
+
+        if session:
+            if "conf" in session:
+                conf.configure(session["conf"])
+                session["conf"] = conf
+        else:
+            conf.session = session_name
+            session={"conf":conf}
+            
+    else:
+        session={"conf": conf}
+
+    __builtin__.__dict__["scapy_session"] = session
+    
+    return globkeys
 
 ################
 ##### Main #####
@@ -299,52 +348,7 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
     if PRESTART_FILE:
         _read_config_file(PRESTART_FILE)
 
-    scapy_builtins = __import__("all",globals(),locals(),".").__dict__
-    for name, sym in scapy_builtins.iteritems():
-        if name [0] != '_':
-            __builtin__.__dict__[name] = sym
-    globkeys = scapy_builtins.keys()
-    globkeys.append("scapy_session")
-    scapy_builtins=None # XXX replace with "with" statement
-    if mydict is not None:
-        __builtin__.__dict__.update(mydict)
-        globkeys += mydict.keys()
-    
-
-    conf.color_theme = DefaultTheme()
-    if STARTUP_FILE:
-        _read_config_file(STARTUP_FILE)
-        
-    if session_name:
-        try:
-            os.stat(session_name)
-        except OSError:
-            log_loading.info("New session [%s]" % session_name)
-        else:
-            try:
-                try:
-                    session = cPickle.load(gzip.open(session_name,"rb"))
-                except IOError:
-                    session = cPickle.load(open(session_name,"rb"))
-                log_loading.info("Using session [%s]" % session_name)
-            except EOFError:
-                log_loading.error("Error opening session [%s]" % session_name)
-            except AttributeError:
-                log_loading.error("Error opening session [%s]. Attribute missing" %  session_name)
-
-        if session:
-            if "conf" in session:
-                conf.configure(session["conf"])
-                session["conf"] = conf
-        else:
-            conf.session = session_name
-            session={"conf":conf}
-            
-    else:
-        session={"conf": conf}
-
-    __builtin__.__dict__["scapy_session"] = session
-
+    globkeys = init_session(mydict, session_name, STARTUP_FILE)
 
     if READLINE:
         if conf.histfile:
