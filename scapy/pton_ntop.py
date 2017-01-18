@@ -10,7 +10,10 @@ These functions are missing when python is compiled
 without IPv6 support, on Windows for instance.
 """
 
-import socket,struct
+import socket
+import re
+
+_IP6_ZEROS = re.compile('(?::|^)(0(?::0)+)(?::|$)')
 
 def inet_pton(af, addr):
     """Convert an IP address from text representation into binary form"""
@@ -75,27 +78,24 @@ def inet_ntop(af, addr):
         try:
             return socket.inet_ntop(af, addr)
         except AttributeError:
-            pass
-
-        # IPv6 addresses have 128bits (16 bytes)
-        if len(addr) != 16:
-            raise Exception("Illegal syntax for IP address")
-        parts = []
-        for left in [0, 2, 4, 6, 8, 10, 12, 14]:
-            try: 
-                value = struct.unpack("!H", addr[left:left+2])[0]
-                hexstr = hex(value)[2:]
-            except TypeError:
-                raise Exception("Illegal syntax for IP address")
-            parts.append(hexstr.lstrip("0").lower())
-        result = ":".join(parts)
-        while ":::" in result:
-            result = result.replace(":::", "::")
-        # Leaving out leading and trailing zeros is only allowed with ::
-        if result.endswith(":") and not result.endswith("::"):
-            result = result + "0"
-        if result.startswith(":") and not result.startswith("::"):
-            result = "0" + result
-        return result
+            return _ipv6_bin_to_str(addr)
     else:
-        raise Exception("Address family not supported yet")   
+        raise Exception("Address family not supported yet")
+
+
+def _ipv6_bin_to_str(addr):
+    # IPv6 addresses have 128bits (16 bytes)
+    if len(addr) != 16:
+        raise ValueError("invalid length of packed IP address string")
+
+    # Decode to hex representation
+    address = ":".join(addr[idx:idx + 2].encode('hex').lstrip('0') or '0' for idx in xrange(0, 16, 2))
+
+    try:
+        # Get the longest set of zero blocks
+        # Actually we need to take a look at group 1 regarding the length as 0:0:1:0:0:2:3:4 would have two matches:
+        # 0:0: and :0:0: where the latter is longer, though the first one should be taken. Group 1 is in both cases 0:0.
+        match = max(_IP6_ZEROS.finditer(address), key=lambda m: m.end(1) - m.start(1))
+        return '{}::{}'.format(address[:match.start()], address[match.end():])
+    except ValueError:
+        return address
