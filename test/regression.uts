@@ -75,6 +75,19 @@ else:
 conf.route6.ifchange(LOOPBACK_NAME, "::1/128")
 True
 
+############
+############
++ Main.py tests
+
+= Test save_session
+init_session()
+# TODO: Remove the comments once the pickling bug has been fixed
+#test_value = IP(dst="192.168.0.10")
+#test_value
+save_session(fname="scapySession1")
+
+= Test load_session
+load_session(fname="scapySession1")
 
 ############
 ############
