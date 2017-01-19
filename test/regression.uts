@@ -279,6 +279,20 @@ assert( _ == ("ABCD","1.2.3.4") )
 i.addfield(None, "FOO", "1.2.3.4")
 assert( _ == "FOO\x01\x02\x03\x04" )
 
+= SourceIPField
+~ core field
+defgw = conf.route.route('0.0.0.0')[1]
+class Test(Packet): fields_desc = [SourceIPField("sourceip", None)]
+
+assert Test().sourceip == defgw
+assert Test(str(Test())).sourceip == defgw
+
+assert IP(dst="0.0.0.0").src == defgw
+assert IP(str(IP(dst="0.0.0.0"))).src == defgw
+assert IP(dst="0.0.0.0/31").src == defgw
+assert IP(str(IP(dst="0.0.0.0/31"))).src == defgw
+
+
 #= ByteField
 #~ core field
 #b = ByteField("foo", None)
