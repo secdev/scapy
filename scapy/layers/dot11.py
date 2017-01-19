@@ -492,6 +492,7 @@ def get_toDS():
 #    os.system("iwconfig %s mode monitor" % iffrom)
 #    
 
+@conf.commands.register
 def airpwn(iffrom, ifto, replace, pattern="", ignorepattern=""):
     """Before using this, initialize "iffrom" and "ifto" interfaces:
 iwconfig iffrom mode monitor
