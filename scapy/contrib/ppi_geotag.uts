@@ -1,0 +1,29 @@
+# PPI_Geotag tests
+
+############
+############
++ PPI Geotags tests
+
+= Import PPI Geotag
+
+from scapy.contrib.ppi_geotag import *
+
+= Test GPS dissection
+
+assert str(GPS()) == '2u\x08\x00\x02\x00\x08\x00\x00\x00\x00\x00'
+
+= Test Vector dissection
+
+assert str(Vector()) == '3u\x08\x00\x02\x00\x08\x00\x00\x00\x00\x00'
+
+= Test Sensor dissection
+
+assert str(Sensor()) == '4u\x08\x00\x02\x00\x08\x00\x00\x00\x00\x00'
+
+= Test Antenna dissection
+
+assert str(Antenna()) == '5u\x08\x00\x02\x00\x08\x00\x00\x00\x00\x00'
+
+= Test GPSTime_Field time handling
+
+assert GPSTime_Field("GPSTime", None).delta == 0.0

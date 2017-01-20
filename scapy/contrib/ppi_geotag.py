@@ -10,7 +10,7 @@
 """
 PPI-GEOLOCATION tags
 """
-import struct
+import struct, time, datetime
 from scapy.packet import *
 from scapy.fields import *
 from scapy.contrib.ppi import PPIGenericFldHdr,addPPIType
@@ -154,10 +154,12 @@ class NSCounter_Field(LEIntField):
         return "%1.9f"%(y)
 
 class UTCTimeField(IntField):
-    def __init__(self, name, default, epoch=time.gmtime(0), strf="%a, %d %b %Y %H:%M:%S +0000"):
+    def __init__(self, name, default, epoch=None, strf="%a, %d %b %Y %H:%M:%S +0000"):
         IntField.__init__(self, name, default)
+        if epoch is None:
+            epoch = datetime.date(1970, 1, 2).timetuple()
         self.epoch = epoch
-        self.delta = time.mktime(epoch) - time.mktime(time.gmtime(0))
+        self.delta = time.mktime(epoch) - time.mktime(datetime.date(1970, 1, 2).timetuple())
         self.strf = strf
     def i2repr(self, pkt, x):
         if x is None:
@@ -168,10 +170,12 @@ class UTCTimeField(IntField):
 
 class LETimeField(UTCTimeField,LEIntField):
     __slots__ = ["epoch", "delta", "strf"]
-    def __init__(self, name, default, epoch=time.gmtime(0), strf="%a, %d %b %Y %H:%M:%S +0000"):
+    def __init__(self, name, default, epoch=None, strf="%a, %d %b %Y %H:%M:%S +0000"):
         LEIntField.__init__(self, name, default)
+        if epoch is None:
+            epoch = datetime.date(1970, 1, 2).timetuple()
         self.epoch = epoch
-        self.delta = time.mktime(epoch) - time.mktime(time.gmtime(0))
+        self.delta = time.mktime(epoch) - time.mktime(datetime.date(1970, 1, 2).timetuple())
         self.strf = strf
 
 class SignedByteField(Field):
