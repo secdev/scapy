@@ -7136,3 +7136,73 @@ import socket
 address=b'\x10\x00\x02\x00\x00\x30\x00\x04\x00\x05\x00\x60\x07\x00\x80\x00' # Leading zero suppression
 compressed1, compressed2 = _ipv6_bin_to_str(address), inet_ntop(socket.AF_INET6, address)
 assert(compressed1 == compressed2 == '1000:200:30:4:5:60:700:8000')
+
+
+############
+############
+
++ VRRP tests
+
+= VRRP - build
+s = str(IP()/VRRP())
+s == 'E\x00\x00$\x00\x01\x00\x00@p|g\x7f\x00\x00\x01\x7f\x00\x00\x01!\x01d\x00\x00\x01z\xfd\x00\x00\x00\x00\x00\x00\x00\x00'
+
+= VRRP - dissection
+p = IP(s)
+VRRP in p and p[VRRP].chksum == 0x7afd
+
+
+############
+############
+
++ L2TP tests
+
+= L2TP - build
+s = str(IP()/UDP()/L2TP())
+s == 'E\x00\x00*\x00\x01\x00\x00@\x11|\xc0\x7f\x00\x00\x01\x7f\x00\x00\x01\x06\xa5\x06\xa5\x00\x16\xf4e\x00\x02\x00\x0e\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+= L2TP - dissection
+p = IP(s)
+L2TP in p and p[L2TP].len == 14 and p.tunnel_id == 0 and p[UDP].chksum == 0xf465
+
+
+############
+############
+
++ HSRP tests
+
+= HSRP - build
+s = str(IP(src="127.0.0.1")/UDP(dport=1985, sport=1985)/HSRP()/HSRPmd5())
+s == 'E\x00\x00N\x00\x01\x00\x00@\x11\x1b\x9b\x7f\x00\x00\x01\xe0\x00\x00\x02\x07\xc1\x07\xc1\x00:\xeb\x00\x00\x00\x10\x03\nx\x01\x00cisco\x00\x00\x00\xc0\xa8\x01\x01\x04\x00\x00\x00\x00\x00\x7f\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+= HSRP - dissection
+p = IP(s)
+p[IP].dst == "224.0.0.2" and HSRPmd5 in p and p[HSRPmd5].sourceip == "127.0.0.1"
+
+
+############
+############
+
++ RIP tests
+
+= RIP - build
+s = str(IP()/UDP(sport=520)/RIP()/RIPEntry()/RIPAuth(authtype=2, password="scapy"))
+s == 'E\x00\x00H\x00\x01\x00\x00@\x11|\xa2\x7f\x00\x00\x01\x7f\x00\x00\x01\x02\x08\x02\x08\x004\xae\x99\x01\x01\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\xff\xff\x00\x02scapy\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+= RIP - dissection
+p = IP(s)
+RIPEntry in p and RIPAuth in p and p[RIPAuth].password.startswith("scapy")
+
+
+############
+############
+
++ Radius tests
+
+= Radius - build
+s = str(IP()/UDP(sport=1812)/Radius(authenticator="scapy")/RadiusAttribute(value="scapy"))
+s == 'E\x00\x007\x00\x01\x00\x00@\x11|\xb3\x7f\x00\x00\x01\x7f\x00\x00\x01\x07\x14\x07\x15\x00#U\xb2\x01\x00\x00\x1bscapy\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x07scapy'
+
+= Radius - dissection
+p = IP(s)
+Radius in p and len(p[Radius].attributes) == 1 and p[Radius].attributes[0].value == "scapy"

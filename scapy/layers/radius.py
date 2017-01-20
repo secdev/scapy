@@ -78,14 +78,14 @@ class RadiusAttribute(Packet):
                                  94:"Originating-Line-Info",
                                  101:"Error-Cause"
                                  }),
-        FieldLenField("len",None,"value","B", adjust=lambda pkt,x:x+2),
-        StrLenField("value",None,length_from= lambda pkt:pkt.len-2),]
+        FieldLenField("len", None, "value", "B", adjust=lambda pkt,x:len(pkt.value)+2),
+        StrLenField("value", "" , length_from=lambda pkt:pkt.len-2),]
 
     def post_build(self, p, pay):
         l = self.len
         if l is None:
             l = len(p)
-            p = p[:2]+struct.pack("!B",l)+p[4:]
+            p = p[:1]+struct.pack("!B", l)+p[2:]
         return p
         
     def extract_padding(self, pay):
@@ -132,7 +132,7 @@ class Radius(Packet):
                                               254: "Reserved",
                                               255: "Reserved"} ),
                     ByteField("id", 0),
-                    FieldLenField("len", None, "attributes", "H" , adjust= lambda pkt,x:len(x.value_pair)+20),
+                    FieldLenField("len", None, "attributes", "H" , adjust=lambda pkt,x:len(pkt.attributes)+20),
                     StrFixedLenField("authenticator","",16),
                     PacketListField("attributes", [], RadiusAttribute, length_from=lambda pkt:pkt.len-20) ]
 
