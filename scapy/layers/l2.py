@@ -596,7 +596,7 @@ class MACsecSCI(Packet):
 
     name = "SCI"
     fields_desc = [
-        MACField("system_identifier", "00:00:00:00:00:00"),
+        SourceMACField("system_identifier"),
         ShortField("port_identifier", 0)
     ]
 
