@@ -26,6 +26,7 @@ class Field(object):
     __slots__ = ["name", "fmt", "default", "sz", "owners"]
     __metaclass__ = Field_metaclass
     islist = 0
+    ismutable = False
     holds_packets = 0
     def __init__(self, name, default, fmt="H"):
         self.name = name
@@ -1008,6 +1009,8 @@ class FlagValue(object):
                 self.value &= ~(2 ** self.names.index(attr))
         else:
             return super(FlagValue, self).__setattr__(attr, value)
+    def copy(self):
+        return self.__class__(self.value, self.names)
 
 
 class FlagsField(BitField):
@@ -1031,12 +1034,18 @@ class FlagsField(BitField):
    :param size: number of bits in the field
    :param names: (list or dict) label for each flag, Least Significant Bit tag's name is written first
    """
+    ismutable = True
     __slots__ = ["multi", "names"]
     def __init__(self, name, default, size, names):
         self.multi = isinstance(names, list)
         self.names = names
         BitField.__init__(self, name, default, size)
     def any2i(self, pkt, x):
+        if isinstance(x, (list, tuple)):
+            return type(x)(None if v is None else FlagValue(v, self.names)
+                           for v in x)
+        return None if x is None else FlagValue(x, self.names)
+    def m2i(self, pkt, x):
         if isinstance(x, (list, tuple)):
             return type(x)(None if v is None else FlagValue(v, self.names)
                            for v in x)

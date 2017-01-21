@@ -7532,3 +7532,27 @@ assert not any(getattr(pkt.flags, f) for f in 'FSRECN')
 pkt.flags = 50
 assert all(getattr(pkt.flags, f) for f in 'SAU')
 assert not any(getattr(pkt.flags, f) for f in 'FRPECN')
+
+= Flag values mutation with .raw_packet_cache
+~ IP TCP
+
+pkt = IP(str(IP(flags="MF")/TCP(flags="SA")))
+assert pkt.raw_packet_cache is not None
+assert pkt[TCP].raw_packet_cache is not None
+assert pkt.flags.MF
+assert not pkt.flags.DF
+assert not pkt.flags.evil
+assert pkt[TCP].flags.S
+assert pkt[TCP].flags.A
+assert not any(getattr(pkt[TCP].flags, f) for f in 'FRPUECN')
+pkt.flags.MF = 0
+pkt.flags.DF = 1
+pkt[TCP].flags.U = True
+pkt[TCP].flags.S = False
+pkt = IP(str(pkt))
+assert not pkt.flags.MF
+assert pkt.flags.DF
+assert not pkt.flags.evil
+assert pkt[TCP].flags.A
+assert pkt[TCP].flags.U
+assert not any(getattr(pkt[TCP].flags, f) for f in 'FSRPECN')
