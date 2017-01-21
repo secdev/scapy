@@ -67,7 +67,7 @@ class HSRPmd5(Packet):
         ByteEnumField("algo", 0, {1: "MD5"}),
         ByteField("padding", 0x00),
         XShortField("flags", 0x00),
-        IPField("sourceip", "127.0.0.1"),
+        SourceIPField("sourceip", None),
         XIntField("keyid", 0x00),
         StrFixedLenField("authdigest", "\00" * 16, 16)]
 

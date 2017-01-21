@@ -257,26 +257,25 @@ class SourceIPField(IPField):
     def __init__(self, name, dstname):
         IPField.__init__(self, name, None)
         self.dstname = dstname
+    def __findaddr(self, pkt):
+        if conf.route is None:
+            # unused import, only to initialize conf.route
+            import scapy.route
+        dst = ("0.0.0.0" if self.dstname is None
+               else getattr(pkt, self.dstname))
+        if isinstance(dst, (Gen, list)):
+            r = {conf.route.route(daddr) for daddr in dst}
+            if len(r) > 1:
+                warning("More than one possible route for %r" % (dst,))
+            return min(r)[1]
+        return conf.route.route(dst)[1]
     def i2m(self, pkt, x):
         if x is None:
-            iff,x,gw = pkt.route()
-            if x is None:
-                x = "0.0.0.0"
+            x = self.__findaddr(pkt)
         return IPField.i2m(self, pkt, x)
     def i2h(self, pkt, x):
         if x is None:
-            if conf.route is None:
-                # unused import, only to initialize conf.route
-                import scapy.route
-            dst = ("0.0.0.0" if self.dstname is None else
-                   getattr(pkt, self.dstname))
-            if isinstance(dst, (Gen, list)):
-                r = {conf.route.route(daddr) for daddr in dst}
-                if len(r) > 1:
-                    warning("More than one possible route for %r" % (dst,))
-                x = min(r)[1]
-            else:
-                x = conf.route.route(dst)[1]
+            x = self.__findaddr(pkt)
         return IPField.i2h(self, pkt, x)
 
     

@@ -279,6 +279,20 @@ assert( _ == ("ABCD","1.2.3.4") )
 i.addfield(None, "FOO", "1.2.3.4")
 assert( _ == "FOO\x01\x02\x03\x04" )
 
+= SourceIPField
+~ core field
+defaddr = conf.route.route('0.0.0.0')[1]
+class Test(Packet): fields_desc = [SourceIPField("sourceip", None)]
+
+assert Test().sourceip == defaddr
+assert Test(str(Test())).sourceip == defaddr
+
+assert IP(dst="0.0.0.0").src == defaddr
+assert IP(str(IP(dst="0.0.0.0"))).src == defaddr
+assert IP(dst="0.0.0.0/31").src == defaddr
+assert IP(str(IP(dst="0.0.0.0/31"))).src == defaddr
+
+
 #= ByteField
 #~ core field
 #b = ByteField("foo", None)
@@ -7171,13 +7185,12 @@ L2TP in p and p[L2TP].len == 14 and p.tunnel_id == 0 and p[UDP].chksum == 0xf465
 
 + HSRP tests
 
-= HSRP - build
-s = str(IP(src="127.0.0.1")/UDP(dport=1985, sport=1985)/HSRP()/HSRPmd5())
-s == 'E\x00\x00N\x00\x01\x00\x00@\x11\x1b\x9b\x7f\x00\x00\x01\xe0\x00\x00\x02\x07\xc1\x07\xc1\x00:\xeb\x00\x00\x00\x10\x03\nx\x01\x00cisco\x00\x00\x00\xc0\xa8\x01\x01\x04\x00\x00\x00\x00\x00\x7f\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
-
-= HSRP - dissection
-p = IP(s)
-p[IP].dst == "224.0.0.2" and HSRPmd5 in p and p[HSRPmd5].sourceip == "127.0.0.1"
+= HSRP - build & dissection
+defaddr = conf.route.route('0.0.0.0')[1]
+pkt = IP(str(IP()/UDP(dport=1985, sport=1985)/HSRP()/HSRPmd5()))
+assert pkt[IP].dst == "224.0.0.2" and pkt[UDP].sport == pkt[UDP].dport == 1985
+assert pkt[HSRP].opcode == 0 and pkt[HSRP].state == 16
+assert pkt[HSRPmd5].type == 4 and pkt[HSRPmd5].sourceip == defaddr
 
 
 ############
