@@ -962,20 +962,17 @@ class FlagValue(object):
             return cmp(self.value, other.value)
         return cmp(self.value, other)
     def __and__(self, other):
-        if isinstance(other, self.__class__):
-            return self.value & other.value
-        return self.value & other
+        return self.__class__(self.value & int(other), self.names)
     __rand__ = __and__
     def __or__(self, other):
-        if isinstance(other, self.__class__):
-            return self.value | other.value
-        return self.value | other
+        return self.__class__(self.value | int(other), self.names)
     __ror__ = __or__
-    def __add__(self, other):
-        if isinstance(other, self.__class__):
-            return self.value + other.value
-        return self.value + other
-    __radd__ = __add__
+    def __lshift__(self, other):
+        return self.value << int(other)
+    def __rshift__(self, other):
+        return self.value >> int(other)
+    def __nonzero__(self):
+        return bool(self.value)
     def flagrepr(self):
         i = 0
         r = []
