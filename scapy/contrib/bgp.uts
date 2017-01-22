@@ -1,0 +1,669 @@
+#################################### bgp.py ##################################
+% Regression tests for the bgp module
+
+# Default configuration : OLD speaker (see RFC 6793)
+bgp_module_conf.use_2_bytes_asn  = True
+
+################################ BGPNLRI_IPv4 ################################
++ BGPNLRI_IPv4 class tests
+
+= BGPNLRI_IPv4 - Instantiation
+str(BGPNLRI_IPv4()) == '\x00'
+
+= BGPNLRI_IPv4 - Instantiation with specific values (1)
+str(BGPNLRI_IPv4(prefix = '255.255.255.255/32')) == ' \xff\xff\xff\xff'
+
+= BGPNLRI_IPv4 - Instantiation with specific values (2)
+str(BGPNLRI_IPv4(prefix = '0.0.0.0/0')) == '\x00'
+
+= BGPNLRI_IPv4 - Instantiation with specific values (3)
+str(BGPNLRI_IPv4(prefix = '192.0.2.0/24')) == '\x18\xc0\x00\x02'
+
+= BGPNLRI_IPv4 - Basic dissection
+nlri = BGPNLRI_IPv4('\x00')
+nlri.prefix == '0.0.0.0/0'
+
+= BGPNLRI_IPv4 - Dissection with specific values
+nlri = BGPNLRI_IPv4('\x18\xc0\x00\x02')
+nlri.prefix == '192.0.2.0/24'
+
+
+################################ BGPNLRI_IPv6 ################################
++ BGPNLRI_IPv6 class tests
+
+= BGPNLRI_IPv6 - Instantiation
+str(BGPNLRI_IPv6()) == '\x00'
+
+= BGPNLRI_IPv6 - Instantiation with specific values (1)
+str(BGPNLRI_IPv6(prefix = '::/0')) == '\x00'
+
+= BGPNLRI_IPv6 - Instantiation with specific values (2)
+str(BGPNLRI_IPv6(prefix = '2001:db8::/32')) == '  \x01\r\xb8'
+
+= BGPNLRI_IPv6 - Basic dissection
+nlri = BGPNLRI_IPv6('\x00')
+nlri.prefix == '::/0'
+
+= BGPNLRI_IPv6 - Dissection with specific values
+nlri = BGPNLRI_IPv6('  \x01\r\xb8')
+nlri.prefix == '2001:db8::/32'
+
+
+#################################### BGP #####################################
++ BGP class tests
+
+= BGP - Instantiation (Should be a KEEPALIVE)
+m = BGP()
+assert(str(m) == '\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x13\x04')
+assert(m.type == BGP.KEEPALIVE_TYPE)
+
+= BGP - Instantiation with specific values (1)
+str(BGP(type = 0)) == '\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x13\x00'
+
+= BGP - Instantiation with specific values (2)
+str(BGP(type = 1)) == '\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x13\x01'
+
+= BGP - Instantiation with specific values (3)
+str(BGP(type = 2)) == '\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x13\x02'
+
+= BGP - Instantiation with specific values (4)
+str(BGP(type = 3)) == '\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x13\x03'
+
+= BGP - Instantiation with specific values (5)
+str(BGP(type = 4)) == '\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x13\x04'
+
+= BGP - Instantiation with specific values (6)
+str(BGP(type = 5)) == '\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x13\x05'
+
+= BGP - Basic dissection
+h = BGP('\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x13\x04')
+assert(h.type == BGP.KEEPALIVE_TYPE)
+assert(h.len == 19)
+
+= BGP - Dissection with specific values
+h = BGP('\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x13\x01')
+assert(h.type == BGP.OPEN_TYPE)
+assert(h.len == 19)
+
+
+############################### BGPCapability #################################
++ BGPCapability class tests
+
+= BGPCapability - Instantiation (by default, should be a "generic" capability)
+str(BGPCapability())
+str(BGPCapability()) == '\x00\x00'
+
+= BGPCapability - Instantiation with specific values (1)
+c = BGPCapability(code = 70)
+assert(str(c) == 'F\x00')
+
+
+############################ BGPCapMultiprotocol ##############################
++ BGPCapMultiprotocol class tests
+
+= BGPCapMultiprotocol - Inheritance
+c = BGPCapMultiprotocol()
+assert(isinstance(c, BGPCapability))
+
+= BGPCapMultiprotocol - Instantiation
+str(BGPCapMultiprotocol()) == '\x01\x04\x00\x00\x00\x00'
+
+= BGPCapMultiprotocol - Instantiation with specific values (1)
+str(BGPCapMultiprotocol(afi = 1, safi = 1)) == '\x01\x04\x00\x01\x00\x01'
+
+= BGPCapMultiprotocol - Instantiation with specific values (2)
+str(BGPCapMultiprotocol(afi = 2, safi = 1)) == '\x01\x04\x00\x02\x00\x01'
+
+= BGPCapMultiprotocol - Dissection with specific values
+c = BGPCapMultiprotocol('\x01\x04\x00\x02\x00\x01')
+assert(c.code == 1)
+assert(c.length == 4)
+assert(c.afi == 2)
+assert(c.reserved == 0)
+assert(c.safi == 1)
+
+############################### BGPCapORFBlock ###############################
++ BGPCapORFBlock class tests
+
+= BGPCapORFBlock - Instantiation
+str(BGPCapORFBlock()) == '\x00\x00\x00\x00\x00'
+
+= BGPCapORFBlock - Instantiation with specific values (1)
+str(BGPCapORFBlock(afi = 1, safi = 1)) == '\x00\x01\x00\x01\x00'
+
+= BGPCapORFBlock - Instantiation with specific values (2)
+str(BGPCapORFBlock(afi = 2, safi = 1)) == '\x00\x02\x00\x01\x00'
+
+= BGPCapORFBlock - Basic dissection
+c = BGPCapORFBlock('\x00\x00\x00\x00\x00')
+c.afi == 0 and c.reserved == 0 and c.safi == 0 and c.orf_number == 0
+
+= BGPCapORFBlock - Dissection with specific values
+c = BGPCapORFBlock('\x00\x02\x00\x01\x00')
+c.afi == 2 and c.reserved == 0 and c.safi == 1 and c.orf_number == 0
+
+
+############################# BGPCapORFBlock.ORF ##############################
++ BGPCapORFBlock.ORF class tests
+
+= BGPCapORFBlock.ORF - Instantiation
+str(BGPCapORFBlock.ORFTuple()) == '\x00\x00'
+
+= BGPCapORFBlock.ORF - Instantiation with specific values (1)
+str(BGPCapORFBlock.ORFTuple(orf_type = 64, send_receive = 3)) == '@\x03'
+
+= BGPCapORFBlock.ORF - Basic dissection
+c = BGPCapORFBlock.ORFTuple('\x00\x00')
+c.orf_type == 0 and c.send_receive == 0
+
+= BGPCapORFBlock.ORF - Dissection with specific values
+c = BGPCapORFBlock.ORFTuple('@\x03')
+c.orf_type == 64 and c.send_receive == 3
+
+
+################################# BGPCapORF ###################################
++ BGPCapORF class tests
+
+= BGPCapORF - Inheritance
+c = BGPCapORF()
+assert(isinstance(c, BGPCapability))
+
+= BGPCapORF - Instantiation
+str(BGPCapORF()) == '\x03\x00'
+
+= BGPCapORF - Instantiation with specific values (1) 
+str(BGPCapORF(orf = [BGPCapORFBlock(afi = 1, safi = 1, entries = [BGPCapORFBlock.ORFTuple(orf_type = 64, send_receive = 3)])])) == '\x03\x07\x00\x01\x00\x01\x01@\x03'
+
+= BGPCapORF - Instantiation with specific values (2)
+str(BGPCapORF(orf = [BGPCapORFBlock(afi = 1, safi = 1, entries = [BGPCapORFBlock.ORFTuple(orf_type = 64, send_receive = 3)]), BGPCapORFBlock(afi = 2, safi = 1, entries = [BGPCapORFBlock.ORFTuple(orf_type = 64, send_receive = 3)])])) == '\x03\x0e\x00\x01\x00\x01\x01@\x03\x00\x02\x00\x01\x01@\x03'
+
+= BGPCapORF - Basic dissection
+c = BGPCapORF('\x03\x00')
+c.code == 3 and c.length == 0
+
+= BGPCapORF - Dissection with specific values
+c = BGPCapORF(orf = [BGPCapORFBlock(afi = 1, safi = 1, entries = [BGPCapORFBlock.ORFTuple(orf_type = 64, send_receive = 3)]), BGPCapORFBlock(afi = 2, safi = 1, entries = [BGPCapORFBlock.ORFTuple(orf_type = 64, send_receive = 3)])])
+c.code == 3 and c.orf[0].afi == 1 and c.orf[0].safi == 1 and c.orf[0].entries[0].orf_type == 64 and c.orf[0].entries[0].send_receive == 3 and c.orf[1].afi == 2 and c.orf[1].safi == 1 and c.orf[1].entries[0].orf_type == 64 and c.orf[1].entries[0].send_receive == 3
+
+
+####################### BGPCapGracefulRestart.GRTuple #########################
++ BGPCapGracefulRestart.GRTuple class tests
+
+= BGPCapGracefulRestart.GRTuple - Instantiation
+str(BGPCapGracefulRestart.GRTuple()) == '\x00\x00\x00\x00'
+
+= BGPCapGracefulRestart.GRTuple - Instantiation with specific values
+str(BGPCapGracefulRestart.GRTuple(afi = 1, safi = 1, flags = 128)) == '\x00\x01\x01\x80'
+
+= BGPCapGracefulRestart.GRTuple - Basic dissection
+c = BGPCapGracefulRestart.GRTuple('\x00\x00\x00\x00')
+c.afi == 0 and c.safi == 0 and c.flags == 0
+
+= BGPCapGracefulRestart.GRTuple - Dissection with specific values
+c = BGPCapGracefulRestart.GRTuple('\x00\x01\x01\x80')
+c.afi == 1 and c.safi == 1 and c.flags == 128
+
+
+########################### BGPCapGracefulRestart #############################
++ BGPCapGracefulRestart class tests
+
+= BGPCapGracefulRestart - Inheritance
+c = BGPCapGracefulRestart()
+assert(isinstance(c, BGPCapGracefulRestart))
+
+= BGPCapGracefulRestart - Instantiation
+str(BGPCapGracefulRestart()) == '@\x02\x00\x00'
+
+= BGPCapGracefulRestart - Instantiation with specific values (1)
+str(BGPCapGracefulRestart(restart_time = 120, entries = [BGPCapGracefulRestart.GRTuple(afi = 1, safi = 1)])) == '@\x06\x00x\x00\x01\x01\x00'
+
+= BGPCapGracefulRestart - Instantiation with specific values (2)
+str(BGPCapGracefulRestart(restart_time = 120, entries = [BGPCapGracefulRestart.GRTuple(afi = 1, safi = 1)])) == '@\x06\x00x\x00\x01\x01\x00'
+
+= BGPCapGracefulRestart - Instantiation with specific values (3)
+str(BGPCapGracefulRestart(restart_time = 120, entries = [BGPCapGracefulRestart.GRTuple(afi = 1, safi = 1, flags = 128)])) == '@\x06\x00x\x00\x01\x01\x80'
+
+= BGPCapGracefulRestart - Instantiation with specific values (4)
+str(BGPCapGracefulRestart(restart_time = 120, restart_flags = 0x8, entries = [BGPCapGracefulRestart.GRTuple(afi = 1, safi = 1, flags = 128)])) == '@\x06\x80x\x00\x01\x01\x80'
+
+= BGPCapGracefulRestart - Basic dissection
+c = BGPCapGracefulRestart('@\x02\x00\x00')
+c.code == 64 and c.restart_flags == 0 and c.restart_time == 0
+
+= BGPCapGracefulRestart - Dissection with specific values
+c = BGPCapGracefulRestart('@\x06\x80x\x00\x01\x01\x80')
+c.code == 64 and c.restart_time == 120 and c.restart_flags == 0x8 and c.entries[0].afi == 1 and c.entries[0].safi == 1 and c.entries[0].flags == 128
+
+
+############################ BGPCapFourBytesASN ###############################
++ BGPCapFourBytesASN class tests
+
+= BGPCapFourBytesASN - Inheritance
+c = BGPCapFourBytesASN()
+assert(isinstance(c, BGPCapFourBytesASN))
+
+= BGPCapFourBytesASN - Instantiation
+str(BGPCapFourBytesASN()) == 'A\x04\x00\x00\x00\x00'
+
+= BGPCapFourBytesASN - Instantiation with specific values (1)
+str(BGPCapFourBytesASN(asn = 6555555)) == 'A\x04\x00d\x07\xa3'
+
+= BGPCapFourBytesASN - Instantiation with specific values (2)
+str(BGPCapFourBytesASN(asn = 4294967295)) == 'A\x04\xff\xff\xff\xff'
+
+= BGPCapFourBytesASN - Basic dissection
+c = BGPCapFourBytesASN('A\x04\x00\x00\x00\x00')
+c.code == 65 and c.length == 4 and c.asn == 0
+
+= BGPCapFourBytesASN - Dissection with specific values
+c = BGPCapFourBytesASN('A\x04\xff\xff\xff\xff')
+c.code == 65 and c.length == 4 and c.asn == 4294967295
+
+
+####################### BGPAuthenticationInformation ##########################
++ BGPAuthenticationInformation class tests
+
+= BGPAuthenticationInformation - Instantiation
+str(BGPAuthenticationInformation()) == '\x00'
+
+= BGPAuthenticationInformation - Basic dissection
+c = BGPAuthenticationInformation('\x00')
+c.authentication_code == 0 and c.authentication_data == None
+
+
+################################# BGPOptParam #################################
++ BGPOptParam class tests
+
+= BGPOptParam - Instantiation
+str(BGPOptParam()) == '\x02\x00'
+
+= BGPOptParam - Instantiation with specific values (1)
+str(BGPOptParam(param_type = 1)) == '\x01\x00'
+str(BGPOptParam(param_type = 1, param_value = BGPAuthenticationInformation())) == '\x01\x04'
+
+= BGPOptParam - Instantiation with specific values (2)
+str(BGPOptParam(param_type = 2)) == '\x02\x00'
+
+= BGPOptParam - Instantiation with specific values (3)
+str(BGPOptParam(param_type = 2, param_value = BGPCapFourBytesASN(asn = 4294967295))) == '\x02\x06A\x04\xff\xff\xff\xff'
+
+= BGPOptParam - Instantiation with specific values (4)
+str(BGPOptParam(param_type = 2, param_value = BGPCapability(code = 127))) == '\x02\x02\x7f\x00'
+
+= BGPOptParam - Instantiation with specific values (5)
+str(BGPOptParam(param_type = 2, param_value = BGPCapability(code = 255))) == '\x02\x02\xff\x00'
+
+= BGPOptParam - Basic dissection
+p = BGPOptParam('\x02\x00')
+p.param_type == 2 and p.param_length == 0
+
+= BGPOptParam - Dissection with specific values
+p = BGPOptParam('\x02\x06A\x04\xff\xff\xff\xff')
+p.param_type == 2 and p.param_length == 6 and p.param_value[0].code == 65 and p.param_value[0].length == 4 and p.param_value[0].asn == 4294967295
+
+
+################################### BGPOpen ###################################
++ BGPOpen class tests
+
+= BGPOpen - Instantiation
+str(BGPOpen()) == '\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+= BGPOpen - Instantiation with specific values (1)
+str(BGPOpen(my_as = 64501, bgp_id = "192.0.2.1")) == '\x04\xfb\xf5\x00\x00\xc0\x00\x02\x01\x00'
+
+= BGPOpen - Instantiation with specific values (2)
+opt = BGPOptParam(param_value = BGPCapMultiprotocol(afi = 1, safi = 1))
+str(BGPOpen(my_as = 64501, bgp_id = "192.0.2.1", opt_params = [opt])) == '\x04\xfb\xf5\x00\x00\xc0\x00\x02\x01\x08\x02\x06\x01\x04\x00\x01\x00\x01'
+
+= BGPOpen - Instantiation with specific values (3)
+cap = BGPOptParam(param_value = BGPCapMultiprotocol(afi = 1, safi = 1))
+capabilities = [cap]
+cap = BGPOptParam(param_value = BGPCapability(code = 128))
+capabilities.append(cap)
+cap = BGPOptParam(param_value = BGPCapability(code = 2))
+capabilities.append(cap)
+cap = BGPOptParam(param_value = BGPCapGracefulRestart(restart_time = 120, entries = [BGPCapGracefulRestart.GRTuple(afi = 1, safi= 1, flags = 128)]))
+capabilities.append(cap)
+cap = BGPOptParam(param_value = BGPCapFourBytesASN(asn = 64503))
+capabilities.append(cap)
+str(BGPOpen(my_as = 64503, bgp_id = "192.168.100.3", hold_time = 30, opt_params = capabilities)) == '\x04\xfb\xf7\x00\x1e\xc0\xa8d\x03"\x02\x06\x01\x04\x00\x01\x00\x01\x02\x02\x80\x00\x02\x02\x02\x00\x02\x08@\x06\x00x\x00\x01\x01\x80\x02\x06A\x04\x00\x00\xfb\xf7'
+
+= BGPOpen - Dissection with specific values (1)
+m = BGP('\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00?\x01\x04\xfb\xf7\x00\x1e\xc0\xa8d\x03"\x02\x06\x01\x04\x00\x01\x00\x01\x02\x02\x80\x00\x02\x02\x02\x00\x02\x08@\x06\x00x\x00\x01\x01\x80\x02\x06A\x04\x00\x00\xfb\xf7')
+assert(BGPHeader in m and BGPOpen in m)
+assert(m.len == 63)
+assert(m.type == BGP.OPEN_TYPE)
+assert(m.version == 4)
+assert(m.my_as == 64503)
+assert(m.hold_time == 30)
+assert(m.bgp_id == "192.168.100.3")
+assert(m.opt_param_len == 34)
+assert(isinstance(m.opt_params[0].param_value, BGPCapMultiprotocol))
+assert(isinstance(m.opt_params[1].param_value, BGPCapability))
+assert(isinstance(m.opt_params[2].param_value, BGPCapability))
+assert(isinstance(m.opt_params[3].param_value, BGPCapGracefulRestart))
+
+= BGPOpen - Dissection with specific values (2) (followed by a KEEPALIVE)
+messages = '\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00=\x01\x04\xfb\xf6\x00\xb4\xc0\xa8ze \x02\x06\x01\x04\x00\x01\x00\x01\x02\x06\x01\x04\x00\x02\x00\x01\x02\x02\x80\x00\x02\x02\x02\x00\x02\x06A\x04\x00\x00\xfb\xf6\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x13\x04'
+m = BGP(messages)
+str(m) == '\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00=\x01\x04\xfb\xf6\x00\xb4\xc0\xa8ze \x02\x06\x01\x04\x00\x01\x00\x01\x02\x06\x01\x04\x00\x02\x00\x01\x02\x02\x80\x00\x02\x02\x02\x00\x02\x06A\x04\x00\x00\xfb\xf6\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x13\x04'
+
+= BGPOpen - Dissection with specific values (3)
+m = BGP('\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x8f\x01\x04\xfd\xe8\x00\xb4\n\xff\xff\x01r\x02\x06\x01\x04\x00\x01\x00\x84\x02\x06\x01\x04\x00\x19\x00A\x02\x06\x01\x04\x00\x02\x00\x02\x02\x06\x01\x04\x00\x01\x00\x02\x02\x06\x01\x04\x00\x02\x00\x80\x02\x06\x01\x04\x00\x01\x00\x80\x02\x06\x01\x04\x00\x01\x00B\x02\x06\x01\x04\x00\x02\x00\x01\x02\x06\x01\x04\x00\x02\x00\x04\x02\x06\x01\x04\x00\x01\x00\x01\x02\x06\x01\x04\x00\x01\x00\x04\x02\x02\x80\x00\x02\x02\x02\x00\x02\x04@\x02\x80x\x02\x02F\x00\x02\x06A\x04\x00\x00\xfd\xe8')
+assert(BGPHeader in m and BGPOpen in m)
+
+= BGPOpen - Dissection with specific values (4)
+m = BGP('\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x8f\x01\x04\xfd\xe8\x00\xb4\n\xff\xff\x02r\x02\x06\x01\x04\x00\x01\x00\x84\x02\x06\x01\x04\x00\x19\x00A\x02\x06\x01\x04\x00\x02\x00\x02\x02\x06\x01\x04\x00\x01\x00\x02\x02\x06\x01\x04\x00\x02\x00\x80\x02\x06\x01\x04\x00\x01\x00\x80\x02\x06\x01\x04\x00\x01\x00B\x02\x06\x01\x04\x00\x02\x00\x01\x02\x06\x01\x04\x00\x02\x00\x04\x02\x06\x01\x04\x00\x01\x00\x01\x02\x06\x01\x04\x00\x01\x00\x04\x02\x02\x80\x00\x02\x02\x02\x00\x02\x04@\x02\x00x\x02\x02F\x00\x02\x06A\x04\x00\x00\xfd\xe8')
+assert(BGPHeader in m and BGPOpen in m)
+
+
+################################# BGPPAOrigin #################################
++ BGPPAOrigin class tests
+
+= BGPPAOrigin - Instantiation
+str(BGPPAOrigin()) == '\x00'
+
+= BGPPAOrigin - Instantiation with specific values
+str(BGPPAOrigin(origin = 1)) == '\x01'
+
+= BGPPAOrigin - Dissection
+a = BGPPAOrigin('\x00')
+a.origin == 0
+
+
+################################ BGPPAASPath ##################################
++ BGPPAASPath class tests
+
+= BGPPAASPath - Instantiation
+str(BGPPAASPath()) == ''
+
+= BGPPAASPath - Instantiation with specific values (1)
+str(BGPPAASPath(segments = [BGPPAASPath.ASPathSegment(segment_type = 2, segment_value = [64496, 64497, 64498])])) == '\x02\x03\xfb\xf0\xfb\xf1\xfb\xf2'
+
+= BGPPAASPath - Instantiation with specific values (2)
+str(BGPPAASPath(segments = [BGPPAASPath.ASPathSegment(segment_type = 1, segment_value = [64496, 64497, 64498])])) == '\x01\x03\xfb\xf0\xfb\xf1\xfb\xf2'
+
+= BGPPAASPath - Instantiation with specific values (3)
+str(BGPPAASPath(segments = [BGPPAASPath.ASPathSegment(segment_type = 1, segment_value = [64496, 64497, 64498]), BGPPAASPath.ASPathSegment(segment_type = 2, segment_value = [64500, 64501, 64502, 64502, 64503])])) == '\x01\x03\xfb\xf0\xfb\xf1\xfb\xf2\x02\x05\xfb\xf4\xfb\xf5\xfb\xf6\xfb\xf6\xfb\xf7' 
+
+= BGPPAASPath - Dissection (1)
+a = BGPPAASPath('\x02\x03\xfb\xf0\xfb\xf1\xfb\xf2')
+a.segments[0].segment_type == 2 and a.segments[0].segment_length == 3 and a.segments[0].segment_value == [64496, 64497, 64498]
+
+= BGPPAASPath - Dissection (2)
+a = BGPPAASPath('\x01\x03\xfb\xf0\xfb\xf1\xfb\xf2\x02\x05\xfb\xf4\xfb\xf5\xfb\xf6\xfb\xf6\xfb\xf7')
+a.segments[0].segment_type == 1 and a.segments[0].segment_length == 3 and a.segments[0].segment_value == [64496, 64497, 64498] and a.segments[1].segment_type == 2 and a.segments[1].segment_length == 5 and a.segments[1].segment_value == [64500, 64501, 64502, 64502, 64503]
+
+
+############################### BGPPANextHop ##################################
++ BGPPANextHop class tests
+
+= BGPPANextHop - Instantiation
+str(BGPPANextHop()) == '\x00\x00\x00\x00'
+
+= BGPPANextHop - Instantiation with specific values
+str(BGPPANextHop(next_hop = "192.0.2.1")) == '\xc0\x00\x02\x01'
+
+= BGPPANextHop - Basic dissection
+a = BGPPANextHop('\x00\x00\x00\x00')
+a.next_hop == "0.0.0.0"
+
+= BGPPANextHop - Dissection with specific values
+a = BGPPANextHop('\xc0\x00\x02\x01')
+a.next_hop == '192.0.2.1'
+
+
+############################ BGPPAMultiExitDisc ##############################
++ BGPPAMultiExitDisc class tests
+
+= BGPPAMultiExitDisc - Instantiation
+str(BGPPAMultiExitDisc()) == '\x00\x00\x00\x00'
+
+= BGPPAMultiExitDisc - Instantiation with specific values (1)
+str(BGPPAMultiExitDisc(med = 4)) == '\x00\x00\x00\x04'
+
+= BGPPAMultiExitDisc - Basic dissection
+a = BGPPAMultiExitDisc('\x00\x00\x00\x00')
+a.med == 0
+
+
+############################## BGPPALocalPref ################################
++ BGPPALocalPref class tests
+
+= BGPPALocalPref - Instantiation
+str(BGPPALocalPref()) == '\x00\x00\x00\x00'
+
+= BGPPALocalPref - Instantiation with specific values (1)
+str(BGPPALocalPref(local_pref = 110)) == '\x00\x00\x00n'
+
+= BGPPALocalPref - Basic dissection
+a = BGPPALocalPref('\x00\x00\x00n')
+a.local_pref == 110
+
+
+############################## BGPPAAggregator ###############################
++ BGPPAAggregator class tests
+
+= BGPPAAggregator - Instantiation
+str(BGPPAAggregator()) == '\x00\x00\x00\x00\x00\x00'
+
+= BGPPAAggregator - Instantiation with specific values (1)
+str(BGPPAAggregator(aggregator_asn = 64500, speaker_address = "192.0.2.1")) == '\xfb\xf4\xc0\x00\x02\x01'
+
+= BGPPAAggregator - Dissection
+a = BGPPAAggregator('\xfb\xf4\xc0\x00\x02\x01')
+a.aggregator_asn == 64500 and a.speaker_address == "192.0.2.1"
+
+
+############################## BGPPACommunity ################################
++ BGPPACommunity class tests
+
+= BGPPACommunity - Basic instantiation
+str(BGPPACommunity()) == '\x00\x00\x00\x00'
+
+= BGPPACommunity - Instantiation with specific value
+str(BGPPACommunity(community = 0xFFFFFF01)) == '\xff\xff\xff\x01'
+
+= BGPPACommunity - Dissection
+a = BGPPACommunity('\xff\xff\xff\x01')
+a.community == 0xFFFFFF01
+
+
+############################ BGPPAOriginatorID ###############################
++ BGPPAOriginatorID class tests
+
+= BGPPAOriginatorID - Basic instantiation
+str(BGPPAOriginatorID()) == '\x00\x00\x00\x00'
+
+= BGPPAOriginatorID - Instantiation with specific value
+str(BGPPAOriginatorID(originator_id = '192.0.2.1')) == '\xc0\x00\x02\x01'
+
+= BGPPAOriginatorID - Dissection
+a = BGPPAOriginatorID('\xc0\x00\x02\x01')
+a.originator_id == "192.0.2.1"
+
+
+############################ BGPPAClusterList ################################
++ BGPPAClusterList class tests
+
+= BGPPAClusterList - Basic instantiation
+str(BGPPAClusterList()) == ''
+
+= BGPPAClusterList - Instantiation with specific values
+str(BGPPAClusterList(cluster_list = [150000, 165465465, 132132])) == '\x00\x02I\xf0\t\xdc\xcdy\x00\x02\x04$'
+
+= BGPPAClusterList - Dissection
+a = BGPPAClusterList('\x00\x02I\xf0\t\xdc\xcdy\x00\x02\x04$')
+a.cluster_list[0] == 150000 and a.cluster_list[1] == 165465465 and a.cluster_list[2] == 132132
+
+
+########################### BGPPAMPReachNLRI  ###############################
++ BGPPAMPReachNLRI class tests
+
+= BGPPAMPReachNLRI - Instantiation
+str(BGPPAMPReachNLRI()) == '\x00\x00\x00\x00\x00'
+
+= BGPPAMPReachNLRI - Instantiation with specific values (1)
+str(BGPPAMPReachNLRI(afi=2, safi=1, nh_addr_len=16, nh_v6_addr = "2001:db8::2", nlri = [BGPNLRI_IPv6(prefix = "2001:db8:2::/64")])) == '\x00\x02\x01\x10 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00@ \x01\r\xb8\x00\x02\x00\x00'
+
+= BGPPAMPReachNLRI - Dissection (1)
+a = BGPPAMPReachNLRI('\x00\x02\x01  \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\xfe\x80\x00\x00\x00\x00\x00\x00\xc0\x02\x0b\xff\xfe~\x00\x00\x00@ \x01\r\xb8\x00\x02\x00\x02@ \x01\r\xb8\x00\x02\x00\x01@ \x01\r\xb8\x00\x02\x00\x00')
+a.afi == 2 and a.safi == 1 and a.nh_addr_len == 32 and a.nh_v6_global == "2001:db8::2" and a.nh_v6_link_local == "fe80::c002:bff:fe7e:0" and a.reserved == 0 and a.nlri[0].prefix == "2001:db8:2:2::/64" and a.nlri[1].prefix == "2001:db8:2:1::/64" and a.nlri[2].prefix == "2001:db8:2::/64"
+
+= BGPPAMPReachNLRI - Dissection (2)
+a = BGPPAMPReachNLRI('\x00\x02\x01 \xfe\x80\x00\x00\x00\x00\x00\x00\xfa\xc0\x01\x00\x15\xde\x15\x81\xfe\x80\x00\x00\x00\x00\x00\x00\xfa\xc0\x01\x00\x15\xde\x15\x81\x00\x06\x04\x05\x08\x04\x10\x03`\x03\x80\x03\xa0\x03\xc0\x04\xe0\x05\xf0\x06\xf8\t\xfe\x00\x16 \x01<\x08-\x07.\x040\x10?\xfe\x10 \x02\x80\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00`\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff@\x01\x00\x00\x00\x00\x00\x00\x00\x17 \x01\x00  \x01\x00\x000 \x01\x00\x02\x00\x00  \x01\r\xb8\x1c \x01\x00\x10\x07\xfc\n\xfe\x80\x08\xff\n\xfe\xc0\x03 \x03@\x08_`\x00d\xff\x9b\x00\x00\x00\x00\x00\x00\x00\x00\x08\x00\x08\x01\x07\x02')
+a.afi == 2 and a.safi == 1 and a.nh_addr_len == 32 and a.nh_v6_global == "fe80::fac0:100:15de:1581" and a.nh_v6_link_local == "fe80::fac0:100:15de:1581" and a.reserved == 0 and a.nlri[0].prefix == "400::/6" and a.nlri[1].prefix == "800::/5" and  str(a.nlri[18]) == '`\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff' and a.nlri[35].prefix == "200::/7"
+
+
+############################# BGPPAMPUnreachNLRI #############################
++ BGPPAMPUnreachNLRI class tests
+
+= BGPPAMPUnreachNLRI - Instantiation
+str(BGPPAMPUnreachNLRI()) == '\x00\x00\x00'
+
+= BGPPAMPUnreachNLRI - Instantiation with specific values (1)
+str(BGPPAMPUnreachNLRI(afi = 2, safi = 1)) == '\x00\x02\x01'
+
+= BGPPAMPUnreachNLRI - Instantiation with specific values (2)
+str(BGPPAMPUnreachNLRI(afi = 2, safi = 1, afi_safi_specific = BGPPAMPUnreachNLRI_IPv6(withdrawn_routes = [BGPNLRI_IPv6(prefix = "2001:db8:2::/64")]))) == '\x00\x02\x01@ \x01\r\xb8\x00\x02\x00\x00'
+
+= BGPPAMPUnreachNLRI - Dissection (1)
+a = BGPPAMPUnreachNLRI('\x00\x02\x01')
+a.afi == 2 and a.safi == 1
+
+= BGPPAMPUnreachNLRI - Dissection (2)
+a = BGPPAMPUnreachNLRI('\x00\x02\x01\x03`\x03\x80\x03\xa0\x03\xc0\x04\xe0\x05\xf0\x06\xf8\x10 \x02`\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff@\x01\x00\x00\x00\x00\x00\x00\x00\x17 \x01\x00  \x01\x00\x000 \x01\x00\x02\x00\x00  \x01\r\xb8\n\xfe\xc0\x07\xfc\n\xfe\x80\x1c \x01\x00\x10\x03 \x06\x04\x03@\x08_\x05\x08\x04\x10')
+a.afi == 2 and a.safi == 1 and a.afi_safi_specific.withdrawn_routes[0].prefix == "6000::/3" and a.afi_safi_specific.withdrawn_routes[11].prefix == "2001::/32" and a.afi_safi_specific.withdrawn_routes[23].prefix == "1000::/4"
+
+
+############################# BGPPAAS4Aggregator #############################
++ BGPPAAS4Aggregator class tests
+
+= BGPPAAS4Aggregator - Instantiation
+str(BGPPAAS4Aggregator()) == '\x00\x00\x00\x00\x00\x00\x00\x00'
+
+= BGPPAAS4Aggregator - Instantiation with specific values
+str(BGPPAAS4Aggregator(aggregator_asn = 644566565, speaker_address = "192.0.2.1")) == '&kN%\xc0\x00\x02\x01'
+
+= BGPPAAS4Aggregator - Dissection
+a = BGPPAAS4Aggregator('&kN%\xc0\x00\x02\x01')
+a.aggregator_asn == 644566565 and a.speaker_address == "192.0.2.1"
+
+
+################################ BGPPathAttr #################################
++ BGPPathAttr class tests
+
+= BGPPathAttr - Instantiation
+str(BGPPathAttr()) == '\x80\x00\x00'
+
+= BGPPathAttr - Instantiation with specific values (1)
+str(BGPPathAttr(type_code = 1, attribute = BGPPAOrigin(origin = 0)))
+
+= BGPPathAttr - Instantiation with specific values (2)
+str(BGPPathAttr(type_code = 2, attribute = BGPPAASPath(segments = [BGPPAASPath.ASPathSegment(segment_type = 2, segment_value = [64501, 64501, 64501])]))) == '\x80\x02\x08\x02\x03\xfb\xf5\xfb\xf5\xfb\xf5'
+
+= BGPPathAttr - Instantiation with specific values (3)
+
+str(BGPPathAttr(type_code = 14, attribute = BGPPAMPReachNLRI(afi = 2, safi = 1, nh_addr_len = 16, nh_v6_addr = "2001:db8::2", nlri = [BGPNLRI_IPv6(prefix = "2001:db8:2::/64")]))) == '\x80\x0e\x1e\x00\x02\x01\x10 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00@ \x01\r\xb8\x00\x02\x00\x00'
+
+= BGPPathAttr - Dissection (1)
+a = BGPPathAttr('\x90\x0f\x00X\x00\x02\x01\x03`\x03\x80\x03\xa0\x03\xc0\x04\xe0\x05\xf0\x06\xf8\x10 \x02`\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff@\x01\x00\x00\x00\x00\x00\x00\x00\x17 \x01\x00  \x01\x00\x000 \x01\x00\x02\x00\x00  \x01\r\xb8\n\xfe\xc0\x07\xfc\n\xfe\x80\x1c \x01\x00\x10\x03 \x06\x04\x03@\x08_\x05\x08\x04\x10')
+a.type_flags == 0x90 and a.type_code == 15 and a.attr_ext_len == 88 and a.attribute.afi == 2 and a.attribute.safi == 1 and a.attribute.afi_safi_specific.withdrawn_routes[0].prefix == "6000::/3" and a.attribute.afi_safi_specific.withdrawn_routes[1].prefix == "8000::/3" and a.attribute.afi_safi_specific.withdrawn_routes[2].prefix == "a000::/3" and a.attribute.afi_safi_specific.withdrawn_routes[3].prefix == "c000::/3" and a.attribute.afi_safi_specific.withdrawn_routes[4].prefix == "e000::/4" and a.attribute.afi_safi_specific.withdrawn_routes[5].prefix == "f000::/5" and a.attribute.afi_safi_specific.withdrawn_routes[23].prefix == "1000::/4"
+
+
+################################# BGPUpdate ##################################
++ BGPUpdate class tests
+
+= BGPUpdate - Instantiation
+str(BGPUpdate()) == '\x00\x00\x00\x00'
+
+= BGPUpdate - Dissection (1)
+bgp_module_conf.use_2_bytes_asn = True
+m = BGP('\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x000\x02\x00\x19\x18\xc0\xa8\x96\x18\x07\x07\x07\x18\xc63d\x18\xc0\xa8\x01\x19\x06\x06\x06\x00\x18\xc0\xa8\x1a\x00\x00')
+assert(BGPHeader in m and BGPUpdate in m)
+assert(m.withdrawn_routes_len == 25)
+assert(m.withdrawn_routes[0].prefix == "192.168.150.0/24")
+assert(m.withdrawn_routes[5].prefix == "192.168.26.0/24")
+assert(m.path_attr_len == 0)
+
+= BGPUpdate - Behave like a NEW speaker (RFC 6793) - Dissection (2)
+bgp_module_conf.use_2_bytes_asn = False
+m = BGP('\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00=\x02\x00\x00\x00"@\x01\x01\x00@\x02\x06\x02\x01\x00\x00\xfb\xfa@\x03\x04\xc0\xa8\x10\x06\x80\x04\x04\x00\x00\x00\x00\xc0\x08\x04\xff\xff\xff\x01\x18\xc0\xa8\x01')
+assert(BGPHeader in m and BGPUpdate in m)
+assert(m.path_attr[1].attribute.segments[0].segment_value == [64506])
+assert(m.path_attr[4].attribute.community == 0xFFFFFF01)
+assert(m.nlri[0].prefix == "192.168.1.0/24")
+
+
+
+= BGPUpdate - Dissection (MP_REACH_NLRI)
+m = BGP('\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\xd8\x02\x00\x00\x00\xc1@\x01\x01\x00@\x02\x06\x02\x01\x00\x00\xfb\xf6\x90\x0e\x00\xb0\x00\x02\x01 \xfe\x80\x00\x00\x00\x00\x00\x00\xfa\xc0\x01\x00\x15\xde\x15\x81\xfe\x80\x00\x00\x00\x00\x00\x00\xfa\xc0\x01\x00\x15\xde\x15\x81\x00\x06\x04\x05\x08\x04\x10\x03`\x03\x80\x03\xa0\x03\xc0\x04\xe0\x05\xf0\x06\xf8\t\xfe\x00\x16 \x01<\x08-\x07.\x040\x10?\xfe\x10 \x02\x80\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00`\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff@\x01\x00\x00\x00\x00\x00\x00\x00\x17 \x01\x00  \x01\x00\x000 \x01\x00\x02\x00\x00  \x01\r\xb8\x1c \x01\x00\x10\x07\xfc\n\xfe\x80\x08\xff\n\xfe\xc0\x03 \x03@\x08_`\x00d\xff\x9b\x00\x00\x00\x00\x00\x00\x00\x00\x08\x00\x08\x01\x07\x02')
+assert(BGPHeader in m and BGPUpdate in m)
+assert(m.path_attr[2].attribute.afi == 2)
+assert(m.path_attr[2].attribute.safi == 1)
+assert(m.path_attr[2].attribute.nh_addr_len == 32)
+assert(m.path_attr[2].attribute.nh_v6_global == "fe80::fac0:100:15de:1581")
+assert(m.path_attr[2].attribute.nh_v6_link_local == "fe80::fac0:100:15de:1581")
+assert(m.path_attr[2].attribute.nlri[0].prefix == "400::/6")
+assert(m.nlri == [])
+
+= BGPUpdate - Dissection (MP_UNREACH_NLRI)
+m = BGP('\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00s\x02\x00\x00\x00\\\x90\x0f\x00X\x00\x02\x01\x03`\x03\x80\x03\xa0\x03\xc0\x04\xe0\x05\xf0\x06\xf8\x10 \x02`\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff@\x01\x00\x00\x00\x00\x00\x00\x00\x17 \x01\x00  \x01\x00\x000 \x01\x00\x02\x00\x00  \x01\r\xb8\n\xfe\xc0\x07\xfc\n\xfe\x80\x1c \x01\x00\x10\x03 \x06\x04\x03@\x08_\x05\x08\x04\x10')
+assert(BGPHeader in m and BGPUpdate in m)
+assert(m.path_attr[0].attribute.afi == 2)
+assert(m.path_attr[0].attribute.safi == 1)
+assert(m.path_attr[0].attribute.afi_safi_specific.withdrawn_routes[0].prefix == "6000::/3")
+assert(m.nlri == [])
+
+
+########## BGPNotification Class ###################################
++ BGPNotification class tests
+
+= BGPNotification - Instantiation
+str(BGPNotification()) == '\x00\x00'
+
+= BGPNotification - Dissection (Administratively Reset)
+m = BGP('\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x15\x03\x06\x04')
+m.type == BGP.NOTIFICATION_TYPE and m.error_code == 6 and m.error_subcode == 4
+
+= BGPNotification - Dissection (Bad Peer AS)
+m = BGP('\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x17\x03\x02\x02\x00\x00')
+m.type == BGP.NOTIFICATION_TYPE and m.error_code == 2 and m.error_subcode == 2
+
+= BGPNotification - Dissection (Attribute Flags Error)
+m = BGP('\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x19\x03\x03\x04\x80\x01\x01\x00')
+m.type == BGP.NOTIFICATION_TYPE and m.error_code == 3 and m.error_subcode == 4
+
+
+########## BGPRouteRefresh Class ###################################
++ BGPRouteRefresh class tests
+
+= BGPRouteRefresh - Instantiation
+str(BGPRouteRefresh()) == '\x00\x01\x00\x01'
+
+= BGPRouteRefresh - Instantiation with specific values
+str(BGPRouteRefresh(afi = 1, safi = 1)) == '\x00\x01\x00\x01'
+
+= BGPRouteRefresh - Dissection (1)
+m = BGP('\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x17\x05\x00\x02\x00\x01')
+m.type == BGP.ROUTEREFRESH_TYPE and m.len == 23 and m.afi == 2 and m.subtype == 0 and m.safi == 1
+ 
+
+= BGPRouteRefresh - Dissection (2) - With ORFs
+m = BGP('\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00.\x05\x00\x01\x00\x01\x01\x80\x00\x13 \x00\x00\x00\x05\x18\x18\x15\x01\x01\x00\x00\x00\x00\x00\n\x00 \x00')
+assert(m.type == BGP.ROUTEREFRESH_TYPE)
+assert(m.len == 46)
+assert(m.afi == 1)
+assert(m.subtype == 0)
+assert(m.safi == 1)
+assert(m.orf_data[0].when_to_refresh == 1)
+assert(m.orf_data[0].orf_type == 128)
+assert(m.orf_data[0].orf_len == 19)
+assert(len(m.orf_data[0].entries) == 2)
+assert(m.orf_data[0].entries[0].action == 0)
+assert(m.orf_data[0].entries[0].match == 1)
+assert(m.orf_data[0].entries[0].prefix.prefix == "1.1.0.0/21")
+assert(m.orf_data[0].entries[1].action == 0)
+assert(m.orf_data[0].entries[1].match == 0)
+assert(m.orf_data[0].entries[1].prefix.prefix == "0.0.0.0/0")
+
