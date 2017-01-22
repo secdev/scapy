@@ -105,7 +105,7 @@ class Route6:
         l = filter(lambda x: in6_ptop(x[0]) == dst and x[1] == plen, self.routes)
         if gw:
             gw = in6_ptop(gw)
-            l = filter(lambda x: in6_ptop(x[0]) == gw, self.routes)
+            l = [x for x in self.routes if in6_ptop(x[2]) == gw]
         if len(l) == 0:
             warning("No matching route found")
         elif len(l) > 1:

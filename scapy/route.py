@@ -12,6 +12,7 @@ from scapy.consts import LOOPBACK_NAME
 from scapy.utils import atol,ltoa,itom
 from scapy.config import conf
 from scapy.error import Scapy_Exception,warning
+from scapy.arch import WINDOWS
 
 ##############################
 ## Routing/Interfaces stuff ##
@@ -89,7 +90,10 @@ class Route:
         
         for i, route in enumerate(self.routes):
             net, msk, gw, iface, addr = route
-            if iface != iff:
+            if WINDOWS:
+                if iff.guid != iface.guid:
+                    continue
+            elif iff != iface:
                 continue
             if gw == '0.0.0.0':
                 self.routes[i] = (the_net,the_msk,gw,iface,the_addr)
@@ -103,8 +107,12 @@ class Route:
         self.invalidate_cache()
         new_routes=[]
         for rt in self.routes:
-            if rt[3] != iff:
-                new_routes.append(rt)
+            if WINDOWS:
+                if iff.guid == rt[3].guid:
+                    continue
+            elif iff == rt[3]:
+                continue
+            new_routes.append(rt)
         self.routes=new_routes
         
     def ifadd(self, iff, addr):
@@ -157,9 +165,15 @@ class Route:
             
     def get_if_bcast(self, iff):
         for net, msk, gw, iface, addr in self.routes:
-            if (iff == iface and net != 0L):
-                bcast = atol(addr)|(~msk&0xffffffffL); # FIXME: check error in atol()
-                return ltoa(bcast);
+            if net == 0:
+                continue
+            if WINDOWS:
+                if iff.guid != iface.guid:
+                    continue
+            elif iff != iface:
+                continue
+            bcast = atol(addr)|(~msk&0xffffffffL); # FIXME: check error in atol()
+            return ltoa(bcast)
         warning("No broadcast address found for iface %s\n" % iff);
 
 conf.route=Route()
