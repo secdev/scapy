@@ -16,6 +16,7 @@ from scapy.packet import Packet
 from scapy.fields import PacketField
 from scapy.volatile import *
 
+
 class ASN1P_OID(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_OID("oid", "0")
@@ -29,10 +30,10 @@ class ASN1P_PRIVSEQ(ASN1_Packet):
     # It showcases the private high-tag decoding capacities of scapy.
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_SEQUENCE(
-            ASN1F_IA5_STRING("str", ""),
-            ASN1F_STRING("int", 0),
-            explicit_tag=0,
-            flexible_tag=True)
+                    ASN1F_IA5_STRING("str", ""),
+                    ASN1F_STRING("int", 0),
+                    explicit_tag=0,
+                    flexible_tag=True)
 
 
 #######################
@@ -201,7 +202,7 @@ class X509_X400Address(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_field("x400Address", "")
 
-default_directoryName = [
+_default_directoryName = [
         X509_RDN(),
         X509_RDN(
             rdn=[X509_AttributeTypeAndValue(
@@ -215,7 +216,7 @@ default_directoryName = [
 
 class X509_DirectoryName(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_SEQUENCE_OF("directoryName", default_directoryName,
+    ASN1_root = ASN1F_SEQUENCE_OF("directoryName", _default_directoryName,
                     X509_RDN)
 
 class X509_EDIPartyName(ASN1_Packet):
@@ -303,7 +304,7 @@ class X509_ExtDistributionPointName(ASN1_Packet):
     ASN1_root = ASN1F_CHOICE("distributionPointName", None,
                     X509_ExtFullName, X509_ExtNameRelativeToCRLIssuer)
 
-reasons_mapping = ["unused",
+_reasons_mapping = ["unused",
                    "keyCompromise",
                    "cACompromise",
                    "affiliationChanged",
@@ -322,14 +323,14 @@ class X509_ExtDistributionPoint(ASN1_Packet):
                                      X509_ExtDistributionPointName,
                                      explicit_tag=0xa0)),
                     ASN1F_optional(
-                        ASN1F_FLAGS("reasons", None, reasons_mapping,
+                        ASN1F_FLAGS("reasons", None, _reasons_mapping,
                                     implicit_tag=0x81)),
                     ASN1F_optional(
                         ASN1F_SEQUENCE_OF("cRLIssuer", None,
                                           X509_GeneralName,
                                           implicit_tag=0xa2)))
 
-ku_mapping = ["digitalSignature",
+_ku_mapping = ["digitalSignature",
               "nonRepudiation",
               "keyEncipherment",
               "dataEncipherment",
@@ -341,7 +342,7 @@ ku_mapping = ["digitalSignature",
 
 class X509_ExtKeyUsage(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_FLAGS("keyUsage", "101", ku_mapping)
+    ASN1_root = ASN1F_FLAGS("keyUsage", "101", _ku_mapping)
     def get_keyUsage(self):
         return self.ASN1_root.get_flags(self)
 
@@ -380,7 +381,7 @@ class X509_ExtCRLNumber(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_INTEGER("cRLNumber", 0)
 
-cRL_reasons = ["unspecified",
+_cRL_reasons = ["unspecified",
                "keyCompromise",
                "cACompromise",
                "affiliationChanged",
@@ -394,7 +395,7 @@ cRL_reasons = ["unspecified",
 
 class X509_ExtReasonCode(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_ENUMERATED("cRLReason", 0, cRL_reasons)
+    ASN1_root = ASN1F_ENUMERATED("cRLReason", 0, _cRL_reasons)
 
 class X509_ExtDeltaCRLIndicator(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
@@ -414,7 +415,7 @@ class X509_ExtIssuingDistributionPoint(ASN1_Packet):
                                   implicit_tag=0x82),
                     ASN1F_optional(
                         ASN1F_FLAGS("onlySomeReasons", None,
-                                    reasons_mapping,
+                                    _reasons_mapping,
                                     implicit_tag=0x83)),
                     ASN1F_BOOLEAN("indirectCRL", False,
                                   implicit_tag=0x84),
@@ -438,7 +439,7 @@ class X509_ExtIssuerAltName(ASN1_Packet):
     ASN1_root = ASN1F_SEQUENCE_OF("issuerAltName", [], X509_GeneralName)
 
 class X509_ExtGeneralSubtree(ASN1_Packet):
-# 'minimum' is not optional in RFC 5280, yet it is in some implementations.
+    # 'minimum' is not optional in RFC 5280, yet it is in some implementations.
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_SEQUENCE(
                     ASN1F_PACKET("base", X509_GeneralName(), X509_GeneralName),
@@ -583,7 +584,7 @@ class X509_ExtDefault(ASN1_Packet):
 
 # oid-info.com shows that some extensions share multiple OIDs.
 # Here we only reproduce those written in RFC5280.
-ext_mapping = {
+_ext_mapping = {
         "2.5.29.9"      : X509_ExtSubjectDirectoryAttributes,
         "2.5.29.14"     : X509_ExtSubjectKeyIdentifier,
         "2.5.29.15"     : X509_ExtKeyUsage,
@@ -614,7 +615,7 @@ ext_mapping = {
         }
 
 class ASN1F_EXT_SEQUENCE(ASN1F_SEQUENCE):
-# We use explicit_tag=0x04 with extnValue as STRING encapsulation.
+    # We use explicit_tag=0x04 with extnValue as STRING encapsulation.
     def __init__(self, **kargs):
         seq = [ASN1F_OID("extnID", "2.5.29.19"),
                ASN1F_optional(
@@ -637,8 +638,8 @@ class ASN1F_EXT_SEQUENCE(ASN1F_SEQUENCE):
             extnID.set_val(pkt, oid)
             s = critical.dissect(pkt, s)
             encapsed = X509_ExtDefault
-            if oid.val in ext_mapping:
-                encapsed = ext_mapping[oid.val]
+            if oid.val in _ext_mapping:
+                encapsed = _ext_mapping[oid.val]
             self.seq[2].cls = encapsed
             self.seq[2].cls.ASN1_root.flexible_tag = True
             # there are too many private extensions not to be flexible here
@@ -654,6 +655,13 @@ class ASN1F_EXT_SEQUENCE(ASN1F_SEQUENCE):
 class X509_Extension(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_EXT_SEQUENCE()
+
+class X509_Extensions(ASN1_Packet):
+    # we use this in OCSP status requests, in tls/handshake.py
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_optional(
+                    ASN1F_SEQUENCE_OF("extensions",
+                                      None, X509_Extension))
 
 
 ####### Public key wrapper #######
@@ -748,10 +756,10 @@ class RSAPrivateKey_OpenSSL(ASN1_Packet):
                                      ECDSAPublicKey,
                                      explicit_tag=0xa1)))
 
-class _PacketFieldRaw(PacketField):
 # We need this hack because ECParameters parsing below must return
 # a Padding payload, and making the ASN1_Packet class have Padding
 # instead of Raw payload would break things...
+class _PacketFieldRaw(PacketField):
     def getfield(self, pkt, s):
         i = self.m2i(pkt, s)
         remain = ""
@@ -773,7 +781,7 @@ class ECDSAPrivateKey_OpenSSL(Packet):
 
 ####### TBSCertificate & Certificate #######
 
-default_issuer = [
+_default_issuer = [
         X509_RDN(),
         X509_RDN(
             rdn=[X509_AttributeTypeAndValue(
@@ -785,7 +793,7 @@ default_issuer = [
                  value=ASN1_PRINTABLE_STRING("Scapy Default Issuer"))])
             ]
 
-default_subject = [
+_default_subject = [
         X509_RDN(),
         X509_RDN(
             rdn=[X509_AttributeTypeAndValue(
@@ -807,7 +815,7 @@ class X509_Validity(ASN1_Packet):
                                   ASN1_UTC_TIME(str(ZuluTime(+86400))),
                                   ASN1F_UTC_TIME, ASN1F_GENERALIZED_TIME))
 
-attrName_mapping = [
+_attrName_mapping = [
         ("countryName"               , "C"),
         ("stateOrProvinceName"       , "ST"),
         ("localityName"              , "L"),
@@ -815,7 +823,7 @@ attrName_mapping = [
         ("organizationUnitName"      , "OU"),
         ("commonName"                , "CN")
         ]
-attrName_specials = [name for name, symbol in attrName_mapping]
+_attrName_specials = [name for name, symbol in _attrName_mapping]
 
 class X509_TBSCertificate(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
@@ -827,11 +835,11 @@ class X509_TBSCertificate(ASN1_Packet):
                     ASN1F_PACKET("signature",
                                  X509_AlgorithmIdentifier(),
                                  X509_AlgorithmIdentifier),
-                    ASN1F_SEQUENCE_OF("issuer", default_issuer, X509_RDN),
+                    ASN1F_SEQUENCE_OF("issuer", _default_issuer, X509_RDN),
                     ASN1F_PACKET("validity",
                                  X509_Validity(),
                                  X509_Validity),
-                    ASN1F_SEQUENCE_OF("subject", default_subject, X509_RDN),
+                    ASN1F_SEQUENCE_OF("subject", _default_subject, X509_RDN),
                     ASN1F_PACKET("subjectPublicKeyInfo",
                                  X509_SubjectPublicKeyInfo(),
                                  X509_SubjectPublicKeyInfo),
@@ -860,12 +868,12 @@ class X509_TBSCertificate(ASN1_Packet):
         """
         name_str = ""
         attrsDict = self.get_issuer()
-        for attrType, attrSymbol in attrName_mapping:
+        for attrType, attrSymbol in _attrName_mapping:
             if attrType in attrsDict:
                 name_str += "/" + attrSymbol + "="
                 name_str += attrsDict[attrType]
         for attrType in sorted(attrsDict):
-            if attrType not in attrName_specials:
+            if attrType not in _attrName_specials:
                 name_str += "/" + attrType + "="
                 name_str += attrsDict[attrType]
         return name_str
@@ -879,12 +887,12 @@ class X509_TBSCertificate(ASN1_Packet):
     def get_subject_str(self):
         name_str = ""
         attrsDict = self.get_subject()
-        for attrType, attrSymbol in attrName_mapping:
+        for attrType, attrSymbol in _attrName_mapping:
             if attrType in attrsDict:
                 name_str += "/" + attrSymbol + "="
                 name_str += attrsDict[attrType]
         for attrType in sorted(attrsDict):
-            if attrType not in attrName_specials:
+            if attrType not in _attrName_specials:
                 name_str += "/" + attrType + "="
                 name_str += attrsDict[attrType]
         return name_str
@@ -962,7 +970,7 @@ class X509_TBSCertList(ASN1_Packet):
                     ASN1F_PACKET("signature",
                                  X509_AlgorithmIdentifier(),
                                  X509_AlgorithmIdentifier),
-                    ASN1F_SEQUENCE_OF("issuer", default_issuer, X509_RDN),
+                    ASN1F_SEQUENCE_OF("issuer", _default_issuer, X509_RDN),
                     ASN1F_UTC_TIME("this_update", str(ZuluTime(-1))),
                     ASN1F_optional(
                         ASN1F_UTC_TIME("next_update", None)),
@@ -987,12 +995,12 @@ class X509_TBSCertList(ASN1_Packet):
         """
         name_str = ""
         attrsDict = self.get_issuer()
-        for attrType, attrSymbol in attrName_mapping:
+        for attrType, attrSymbol in _attrName_mapping:
             if attrType in attrsDict:
                 name_str += "/" + attrSymbol + "="
                 name_str += attrsDict[attrType]
         for attrType in sorted(attrsDict):
-            if attrType not in attrName_specials:
+            if attrType not in _attrName_specials:
                 name_str += "/" + attrType + "="
                 name_str += attrsDict[attrType]
         return name_str
@@ -1049,4 +1057,173 @@ class ASN1F_X509_CRL(ASN1F_SEQUENCE):
 class X509_CRL(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_X509_CRL()
+
+
+#############################
+#### OCSP Status packets ####
+#############################
+########### based on RFC 6960
+
+class OCSP_CertID(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+                    ASN1F_PACKET("hashAlgorithm",
+                                 X509_AlgorithmIdentifier(),
+                                 X509_AlgorithmIdentifier),
+                    ASN1F_STRING("issuerNameHash", ""),
+                    ASN1F_STRING("issuerKeyHash", ""),
+                    ASN1F_INTEGER("serialNumber", 0))
+
+class OCSP_GoodInfo(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_NULL("info", 0)
+
+class OCSP_RevokedInfo(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+                    ASN1F_GENERALIZED_TIME("revocationTime", ""),
+                    ASN1F_optional(
+                        ASN1F_PACKET("revocationReason", None,
+                                     X509_ExtReasonCode,
+                                     explicit_tag=0x80)))
+
+class OCSP_UnknownInfo(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_NULL("info", 0)
+
+class OCSP_CertStatus(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_CHOICE("certStatus", None,
+                    ASN1F_PACKET("good", OCSP_GoodInfo(),
+                                 OCSP_GoodInfo, implicit_tag=0x80),
+                    ASN1F_PACKET("revoked", OCSP_RevokedInfo(),
+                                 OCSP_RevokedInfo, implicit_tag=0xa1),
+                    ASN1F_PACKET("unknown", OCSP_UnknownInfo(),
+                                 OCSP_UnknownInfo, implicit_tag=0x82))
+
+class OCSP_SingleResponse(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+                    ASN1F_PACKET("certID", OCSP_CertID(), OCSP_CertID),
+                    ASN1F_PACKET("certStatus", OCSP_CertStatus(),
+                                 OCSP_CertStatus),
+                    ASN1F_GENERALIZED_TIME("thisUpdate", ""),
+                    ASN1F_optional(
+                        ASN1F_GENERALIZED_TIME("nextUpdate", "",
+                                               explicit_tag=0xa0)),
+                    ASN1F_optional(
+                        ASN1F_SEQUENCE_OF("singleExtensions", None,
+                                          X509_Extension,
+                                          explicit_tag=0xa1)))
+
+class OCSP_ByName(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE_OF("byName", [], X509_RDN)
+
+class OCSP_ByKey(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_STRING("byKey", "")
+
+class OCSP_ResponderID(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_CHOICE("responderID", None,
+                    ASN1F_PACKET("byName", OCSP_ByName(), OCSP_ByName,
+                                 explicit_tag=0xa1),
+                    ASN1F_PACKET("byKey", OCSP_ByKey(), OCSP_ByKey,
+                                 explicit_tag=0xa2))
+
+class OCSP_ResponseData(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+                    ASN1F_optional(
+                        ASN1F_enum_INTEGER("version", 0, {0: "v1"},
+                                           explicit_tag=0x80)),
+                    ASN1F_PACKET("responderID", OCSP_ResponderID(),
+                                 OCSP_ResponderID),
+                    ASN1F_GENERALIZED_TIME("producedAt",
+                                           str(GeneralizedTime())),
+                    ASN1F_SEQUENCE_OF("responses", [], OCSP_SingleResponse),
+                    ASN1F_optional(
+                        ASN1F_SEQUENCE_OF("responseExtensions", None,
+                                          X509_Extension,
+                                          explicit_tag=0xa1)))
+
+class ASN1F_OCSP_BasicResponseECDSA(ASN1F_SEQUENCE):
+    def __init__(self, **kargs):
+        seq = [ASN1F_PACKET("tbsResponseData",
+                            OCSP_ResponseData(),
+                            OCSP_ResponseData),
+               ASN1F_PACKET("signatureAlgorithm",
+                            X509_AlgorithmIdentifier(),
+                            X509_AlgorithmIdentifier),
+               ASN1F_BIT_STRING_ENCAPS("signature",
+                            ECDSASignature(),
+                            ECDSASignature),
+               ASN1F_optional(
+                   ASN1F_SEQUENCE_OF("certs", None, X509_Cert,
+                                     explicit_tag=0xa0))]
+        ASN1F_SEQUENCE.__init__(self, *seq, **kargs)
+
+class ASN1F_OCSP_BasicResponse(ASN1F_SEQUENCE):
+    def __init__(self, **kargs):
+        seq = [ASN1F_PACKET("tbsResponseData",
+                            OCSP_ResponseData(),
+                            OCSP_ResponseData),
+               ASN1F_PACKET("signatureAlgorithm",
+                            X509_AlgorithmIdentifier(),
+                            X509_AlgorithmIdentifier),
+               ASN1F_BIT_STRING("signature",
+                                "defaultsignature"*2),
+               ASN1F_optional(
+                   ASN1F_SEQUENCE_OF("certs", None, X509_Cert,
+                                     explicit_tag=0xa0))]
+        ASN1F_SEQUENCE.__init__(self, *seq, **kargs)
+    def m2i(self, pkt, x):
+        c,s = ASN1F_SEQUENCE.m2i(self, pkt, x)
+        sigtype = pkt.fields["signatureAlgorithm"].algorithm.oidname
+        if "rsa" in sigtype.lower():
+            return c,s
+        elif "ecdsa" in sigtype.lower():
+            return ASN1F_OCSP_BasicResponseECDSA().m2i(pkt, x)
+        else:
+            raise Exception("could not parse OCSP basic response")
+    def dissect(self, pkt, s):
+        c,x = self.m2i(pkt, s)
+        return x
+    def build(self, pkt):
+        if "signatureAlgorithm" in pkt.fields:
+            sigtype = pkt.fields['signatureAlgorithm'].algorithm.oidname
+        else:
+            sigtype = pkt.default_fields["signatureAlgorithm"].algorithm.oidname
+        if "rsa" in sigtype.lower():
+            return ASN1F_SEQUENCE.build(self, pkt)
+        elif "ecdsa" in sigtype.lower():
+            pkt.default_fields["signatureValue"] = ECDSASignature()
+            return ASN1F_OCSP_BasicResponseECDSA().build(pkt)
+        else:
+            raise Exception("could not build OCSP basic response")
+
+class OCSP_ResponseBytes(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+                    ASN1F_OID("responseType", "1.3.6.1.5.5.7.48.1.1"),
+                    ASN1F_OCSP_BasicResponse(explicit_tag=0x04))
+
+_responseStatus_mapping = ["successful",
+                          "malformedRequest",
+                          "internalError",
+                          "tryLater",
+                          "notUsed",
+                          "sigRequired",
+                          "unauthorized"]
+
+class OCSP_Response(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+                    ASN1F_ENUMERATED("responseStatus", 0,
+                                     _responseStatus_mapping),
+                    ASN1F_optional(
+                        ASN1F_PACKET("responseBytes", None,
+                                     OCSP_ResponseBytes,
+                                     explicit_tag=0xa0)))
 

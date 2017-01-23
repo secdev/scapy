@@ -16,12 +16,13 @@ from scapy.error import warning
 from scapy.fields import *
 from scapy.packet import Packet, Raw, Padding
 from scapy.utils import repr_hex
+from scapy.layers.x509 import X509_Extensions, OCSP_Response
 from scapy.layers.tls.cert import Cert, PrivKey, PubKey
 from scapy.layers.tls.basefields import _tls_version, _TLSVersionField
-from scapy.layers.tls.keyexchange import (_tls_named_curves, _TLSServerParamsField,
-                                          _TLSSignature, _TLSSignatureField,
-                                          _tls_hash_sig, SigAndHashAlgsField,
-                                          ServerRSAParams,
+from scapy.layers.tls.keyexchange import (_tls_named_curves, _tls_hash_sig,
+                                          _TLSSignature, _TLSServerParamsField,
+                                          _TLSSignatureField, ServerRSAParams,
+                                          SigAndHashAlgsField,
                                           SigAndHashAlgsLenField)
 from scapy.layers.tls.session import (_GenericTLSSessionInheritance,
                                       writeConnState,
@@ -417,13 +418,15 @@ class ResponderID(Packet):
         return Padding
 
 class OCSPStatusRequest(Packet):
+    """
+    This is the structure defined in RFC 6066, not in RFC 6960!
+    """
     name = "OCSPStatusRequest structure"
     fields_desc = [ FieldLenField("respidlen", None, length_of="respid"),
                     PacketListField("respid", [], ResponderID,
                                     length_from=lambda pkt: pkt.respidlen),
                     FieldLenField("reqextlen", None, length_of="reqext"),
-                    StrLenField("reqext", "",
-                                length_from=lambda pkt: pkt.reqextlen) ]
+                    PacketField("reqext", "", X509_Extensions) ]
     def guess_payload_class(self, p):
         return Padding
 
@@ -1365,17 +1368,24 @@ class ThreeBytesLenField(FieldLenField):
     def getfield(self, pkt, s):
         return  s[3:], self.m2i(pkt, struct.unpack(self.fmt, "\x00"+s[:3])[0])
 
+_cert_status_cls  = { 1: OCSP_Response }
+
+class _StatusField(PacketField):
+    def m2i(self, pkt, m):
+        idtype = pkt.status_type
+        cls = self.cls
+        if _cert_status_cls.has_key(idtype):
+            cls = _cert_status_cls[idtype]
+        return cls(m)
+
 class TLSCertificateStatus(_TLSHandshake):
-    """
-    XXX No OCSPStatus dissection support. See ASN.1 structures in RFC 6960.
-    """
     name = "TLS Handshake - Certificate Status"
     fields_desc = [ ByteEnumField("msgtype", 22, _tls_handshake_type),
                     ThreeBytesField("msglen", None),
-                    ByteEnumField("stype", 1, _cert_status_type),
-                    ThreeBytesLenField("resplen", None, length_of="resp"),
-                    StrLenField("resp", "",
-                                length_from=lambda pkt:pkt.resplen) ]
+                    ByteEnumField("status_type", 1, _cert_status_type),
+                    ThreeBytesLenField("responselen", None,
+                                       length_of="response"),
+                    _StatusField("response", None, Raw) ]
 
 
 ###############################################################################

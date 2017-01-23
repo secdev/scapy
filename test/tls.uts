@@ -776,9 +776,10 @@ isinstance(t4.payload.payload.payload, NoPayload)
 
 + Test TLS CertificateStatus
 = Reading test session - CertificateStatus
-#XXX Fill this once OCSP responses have been implemented
 assert(isinstance(cert_stat, TLSCertificateStatus))
-cert_stat.resplen == 471
+assert(cert_stat.responselen == 471)
+cert_stat.response[0].responseStatus == 0
+# we leave the remaining OCSP tests to x509.uts
 
 
 + Test TLS ServerKeyExchange
