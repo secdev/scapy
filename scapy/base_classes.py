@@ -24,11 +24,12 @@ class SetGen(Gen):
         self._iterpacket=_iterpacket
         if isinstance(values, (list, BasePacketList)):
             self.values = list(values)
-        elif (type(values) is tuple) and (2 <= len(values) <= 3) and \
-             all(type(i) is int for i in values):
+        elif (isinstance(values, tuple) and (2 <= len(values) <= 3) and \
+             all(hasattr(i, "__int__") for i in values)):
             # We use values[1] + 1 as stop value for xrange to maintain
             # the behavior of using tuples as field `values`
-            self.values = [xrange(*((values[0], values[1] + 1) + values[2:]))]
+            self.values = [xrange(*((int(values[0]), int(values[1]) + 1)
+                                    + tuple(int(v) for v in values[2:])))]
         else:
             self.values = [values]
     def transf(self, element):

@@ -7143,7 +7143,9 @@ assert(re.match(r'^.*Star \(\*\).*$', x) is not None)
 assert(re.match(r'^.*Plus \(\+\).*$', x) is not None)
 assert(re.match(r'^.*bit 2.*$', x) is not None)
 
-###########################################################################################################
+
+############
+############
 + Test correct conversion from binary to string of IPv6 addresses
 
 = IPv6 bin to string conversion - all zero bytes
@@ -7222,7 +7224,6 @@ assert(compressed1 == compressed2 == '1000:200:30:4:5:60:700:8000')
 
 ############
 ############
-
 + VRRP tests
 
 = VRRP - build
@@ -7236,7 +7237,6 @@ VRRP in p and p[VRRP].chksum == 0x7afd
 
 ############
 ############
-
 + L2TP tests
 
 = L2TP - build
@@ -7250,7 +7250,6 @@ L2TP in p and p[L2TP].len == 14 and p.tunnel_id == 0 and p[UDP].chksum == 0xf465
 
 ############
 ############
-
 + HSRP tests
 
 = HSRP - build & dissection
@@ -7263,7 +7262,6 @@ assert pkt[HSRPmd5].type == 4 and pkt[HSRPmd5].sourceip == defaddr
 
 ############
 ############
-
 + RIP tests
 
 = RIP - build
@@ -7277,7 +7275,6 @@ RIPEntry in p and RIPAuth in p and p[RIPAuth].password.startswith("scapy")
 
 ############
 ############
-
 + Radius tests
 
 = Radius - build
@@ -7487,3 +7484,115 @@ rek == 'b'
 random.seed(0x2807)
 rts = RandTermString(4, "scapy")
 sane(str(rts)) == "...[scapy"
+
+
+############
+############
++ Flags
+
+= IP flags
+~ IP
+
+pkt = IP(flags="MF")
+assert pkt.flags.MF
+assert not pkt.flags.DF
+assert not pkt.flags.evil
+assert repr(pkt.flags) == '<Flag 1 (MF)>'
+pkt.flags.MF = 0
+pkt.flags.DF = 1
+assert not pkt.flags.MF
+assert pkt.flags.DF
+assert not pkt.flags.evil
+assert repr(pkt.flags) == '<Flag 2 (DF)>'
+
+pkt = IP(flags=3)
+assert pkt.flags.MF
+assert pkt.flags.DF
+assert not pkt.flags.evil
+assert repr(pkt.flags) == '<Flag 3 (MF+DF)>'
+pkt.flags = 6
+assert not pkt.flags.MF
+assert pkt.flags.DF
+assert pkt.flags.evil
+assert repr(pkt.flags) == '<Flag 6 (DF+evil)>'
+
+= TCP flags
+~ TCP
+
+pkt = TCP(flags="SA")
+assert pkt.flags == 18
+assert pkt.flags.S
+assert pkt.flags.A
+assert pkt.flags.SA
+assert not any(getattr(pkt.flags, f) for f in 'FRPUECN')
+assert repr(pkt.flags) == '<Flag 18 (SA)>'
+pkt.flags.U = True
+pkt.flags.S = False
+assert pkt.flags.A
+assert pkt.flags.U
+assert pkt.flags.AU
+assert not any(getattr(pkt.flags, f) for f in 'FSRPECN')
+assert repr(pkt.flags) == '<Flag 48 (AU)>'
+
+pkt = TCP(flags=56)
+assert all(getattr(pkt.flags, f) for f in 'PAU')
+assert pkt.flags.PAU
+assert not any(getattr(pkt.flags, f) for f in 'FSRECN')
+assert repr(pkt.flags) == '<Flag 56 (PAU)>'
+pkt.flags = 50
+assert all(getattr(pkt.flags, f) for f in 'SAU')
+assert pkt.flags.SAU
+assert not any(getattr(pkt.flags, f) for f in 'FRPECN')
+assert repr(pkt.flags) == '<Flag 50 (SAU)>'
+
+= Flag values mutation with .raw_packet_cache
+~ IP TCP
+
+pkt = IP(str(IP(flags="MF")/TCP(flags="SA")))
+assert pkt.raw_packet_cache is not None
+assert pkt[TCP].raw_packet_cache is not None
+assert pkt.flags.MF
+assert not pkt.flags.DF
+assert not pkt.flags.evil
+assert repr(pkt.flags) == '<Flag 1 (MF)>'
+assert pkt[TCP].flags.S
+assert pkt[TCP].flags.A
+assert pkt[TCP].flags.SA
+assert not any(getattr(pkt[TCP].flags, f) for f in 'FRPUECN')
+assert repr(pkt[TCP].flags) == '<Flag 18 (SA)>'
+pkt.flags.MF = 0
+pkt.flags.DF = 1
+pkt[TCP].flags.U = True
+pkt[TCP].flags.S = False
+pkt = IP(str(pkt))
+assert not pkt.flags.MF
+assert pkt.flags.DF
+assert not pkt.flags.evil
+assert repr(pkt.flags) == '<Flag 2 (DF)>'
+assert pkt[TCP].flags.A
+assert pkt[TCP].flags.U
+assert pkt[TCP].flags.AU
+assert not any(getattr(pkt[TCP].flags, f) for f in 'FSRPECN')
+assert repr(pkt[TCP].flags) == '<Flag 48 (AU)>'
+
+= Operations on flag values
+~ TCP
+
+p1, p2 = TCP(flags="SU"), TCP(flags="AU")
+assert (p1.flags & p2.flags).U
+assert not any(getattr(p1.flags & p2.flags, f) for f in 'FSRPAECN')
+assert all(getattr(p1.flags | p2.flags, f) for f in 'SAU')
+assert (p1.flags | p2.flags).SAU
+assert not any(getattr(p1.flags | p2.flags, f) for f in 'FRPECN')
+
+assert TCP(flags="SA").flags & TCP(flags="S").flags == TCP(flags="S").flags
+assert TCP(flags="SA").flags | TCP(flags="S").flags == TCP(flags="SA").flags
+
+= Using tuples and lists as flag values
+~ IP TCP
+
+plist = PacketList(list(IP()/TCP(flags=(0, 2**9 - 1))))
+assert [p[TCP].flags for p in plist] == range(512)
+
+plist = PacketList(list(IP()/TCP(flags=["S", "SA", "A"])))
+assert [p[TCP].flags for p in plist] == [2, 18, 16]

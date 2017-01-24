@@ -589,7 +589,7 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
             s, fval = f.getfield(self, s)
             # We need to track fields with mutable values to discard
             # .raw_packet_cache when needed.
-            if f.islist or f.holds_packets:
+            if f.islist or f.holds_packets or f.ismutable:
                 self.raw_packet_cache_fields[f.name] = f.do_copy(fval)
             self.fields[f.name] = fval
         assert(raw.endswith(s))

@@ -26,6 +26,7 @@ class Field(object):
     __slots__ = ["name", "fmt", "default", "sz", "owners"]
     __metaclass__ = Field_metaclass
     islist = 0
+    ismutable = False
     holds_packets = 0
     def __init__(self, name, default, fmt="H"):
         self.name = name
@@ -934,6 +935,84 @@ class LEFieldLenField(FieldLenField):
         FieldLenField.__init__(self, name, default, length_of=length_of, fmt=fmt, count_of=count_of, fld=fld, adjust=adjust)
 
 
+class FlagValue(object):
+    __slots__ = ["value", "names", "multi"]
+    @staticmethod
+    def __fixvalue(value, names):
+        if isinstance(value, basestring):
+            if isinstance(names, list):
+                value = value.split('+')
+            else:
+                value = list(value)
+        if isinstance(value, list):
+            y = 0
+            for i in value:
+                y |= 1 << names.index(i)
+            value = y
+        return value
+    def __init__(self, value, names):
+        self.value = (value.value if isinstance(value, self.__class__)
+                      else self.__fixvalue(value, names))
+        self.multi = isinstance(names, list)
+        self.names = names
+    def __int__(self):
+        return self.value
+    def __cmp__(self, other):
+        if isinstance(other, self.__class__):
+            return cmp(self.value, other.value)
+        return cmp(self.value, other)
+    def __and__(self, other):
+        return self.__class__(self.value & int(other), self.names)
+    __rand__ = __and__
+    def __or__(self, other):
+        return self.__class__(self.value | int(other), self.names)
+    __ror__ = __or__
+    def __lshift__(self, other):
+        return self.value << int(other)
+    def __rshift__(self, other):
+        return self.value >> int(other)
+    def __nonzero__(self):
+        return bool(self.value)
+    def flagrepr(self):
+        i = 0
+        r = []
+        x = int(self)
+        while x:
+            if x & 1:
+                r.append(self.names[i])
+            i += 1
+            x >>= 1
+        return ("+" if self.multi else "").join(r)
+    def __repr__(self):
+        return "<Flag %d (%s)>" % (self, self.flagrepr())
+    def __deepcopy__(self, memo):
+        return self.__class__(int(self), self.names)
+    def __getattr__(self, attr):
+        if attr in self.__slots__:
+            return super(FlagValue, self).__getattr__(attr)
+        try:
+            if self.multi:
+                return bool((2 ** self.names.index(attr)) & int(self))
+            return all(bool((2 ** self.names.index(flag)) & int(self))
+                       for flag in attr)
+        except ValueError:
+            return super(FlagValue, self).__getattr__(attr)
+    def __setattr__(self, attr, value):
+        if attr == "value" and not isinstance(value, (int, long)):
+            raise ValueError(value)
+        if attr in self.__slots__:
+            return super(FlagValue, self).__setattr__(attr, value)
+        if attr in self.names:
+            if value:
+                self.value |= (2 ** self.names.index(attr))
+            else:
+                self.value &= ~(2 ** self.names.index(attr))
+        else:
+            return super(FlagValue, self).__setattr__(attr, value)
+    def copy(self):
+        return self.__class__(self.value, self.names)
+
+
 class FlagsField(BitField):
     """ Handle Flag type field
 
@@ -955,39 +1034,28 @@ class FlagsField(BitField):
    :param size: number of bits in the field
    :param names: (list or dict) label for each flag, Least Significant Bit tag's name is written first
    """
+    ismutable = True
     __slots__ = ["multi", "names"]
     def __init__(self, name, default, size, names):
-        self.multi = type(names) is list
-        if self.multi:
-            self.names = map(lambda x:[x], names)
-        else:
-            self.names = names
+        self.multi = isinstance(names, list)
+        self.names = names
         BitField.__init__(self, name, default, size)
     def any2i(self, pkt, x):
-        if type(x) is str:
-            if self.multi:
-                x = map(lambda y:[y], x.split("+"))
-            y = 0
-            for i in x:
-                y |= 1 << self.names.index(i)
-            x = y
-        return x
+        if isinstance(x, (list, tuple)):
+            return type(x)(None if v is None else FlagValue(v, self.names)
+                           for v in x)
+        return None if x is None else FlagValue(x, self.names)
+    def m2i(self, pkt, x):
+        if isinstance(x, (list, tuple)):
+            return type(x)(None if v is None else FlagValue(v, self.names)
+                           for v in x)
+        return None if x is None else FlagValue(x, self.names)
     def i2repr(self, pkt, x):
-        if type(x) is list or type(x) is tuple:
-            return repr(x)
-        if self.multi:
-            r = []
-        else:
-            r = ""
-        i=0
-        while x:
-            if x & 1:
-                r += self.names[i]
-            i += 1
-            x >>= 1
-        if self.multi:
-            r = "+".join(r)
-        return r
+        if isinstance(x, (list, tuple)):
+            return repr(type(x)(
+                None if v is None else FlagValue(v, self.names).flagrepr()
+                for v in x))
+        return None if x is None else FlagValue(x, self.names).flagrepr()
 
 
 MultiFlagsEntry = collections.namedtuple('MultiFlagEntry', ['short', 'long'])
