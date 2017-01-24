@@ -14,13 +14,13 @@ Logging subsystem and basic exception class.
 class Scapy_Exception(Exception):
     pass
 
-import logging,traceback,time
+import logging, traceback, time
 
 class ScapyFreqFilter(logging.Filter):
     def __init__(self):
         logging.Filter.__init__(self)
         self.warning_table = {}
-    def filter(self, record):        
+    def filter(self, record):
         from scapy.config import conf
         wt = conf.warning_threshold
         if wt > 0:
@@ -36,6 +36,9 @@ class ScapyFreqFilter(logging.Filter):
                 tm = ltm
                 nb = 0
             else:
+                if conf.warning_next_only_once:
+                    conf.warning_next_only_once = False
+                    return 0
                 if nb < 2:
                     nb += 1
                     if nb == 2:
@@ -60,18 +63,10 @@ log_runtime.addFilter(ScapyFreqFilter())
 log_interactive = logging.getLogger("scapy.interactive")  # logs in interactive functions
 log_loading = logging.getLogger("scapy.loading")          # logs when loading Scapy
 
-def muteLogLoading(mute):
-    """
-        This mutes the log loading: used when a class is loaded several times,
-        to avoid the warning messages to be showed more than once.
-        :param mute: setting it to True will mute, False will un-mute
-    """
-    if not mute:
-        log_loading.setLevel(logging.WARNING)
-    else:
-        log_loading.setLevel(logging.CRITICAL)
 
-
-def warning(x):
+def warning(x, onlyOnce=None):
+    from scapy.config import conf
+    if onlyOnce:
+        conf.warning_next_only_once = True
     log_runtime.warning(x)
 

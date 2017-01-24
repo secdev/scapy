@@ -14,9 +14,9 @@ if not sys.platform.startswith("win"):
 
 from scapy.data import *
 from scapy.config import conf
-from scapy.utils import warning, mac2str
+from scapy.utils import mac2str
 from scapy.supersocket import SuperSocket
-from scapy.error import Scapy_Exception, log_loading
+from scapy.error import Scapy_Exception, log_loading, warning
 import scapy.arch
 
 if conf.use_winpcapy:

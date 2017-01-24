@@ -12,14 +12,20 @@ import scapy.sendrecv as sendrecv
 import scapy.config as conf
 from scapy.supersocket import SuperSocket
 
+def log_warning():
+    if conf.conf.interactive:
+        log_runtime.warning("Function not available (winpcap is not installed)")
+    else:
+        raise ImportError("Function not available (winpcap is not installed)")
+
 def not_available(*args, **kwargs):
-    log_runtime.warning("Function not available")
+    log_warning()
     return None
 
 class not_available_socket(SuperSocket):
     desc = "wpcap.dll missing"
     def __init__(self, type=None, promisc=None, filter=None, iface=None, nofilter=0):
-        log_runtime.warning("Function not available")
+        log_warning()
         return
     def send(self, x):
         return

@@ -11,8 +11,8 @@ import subprocess as sp
 from glob import glob
 import tempfile
 
-from scapy.config import conf,ConfClass
-from scapy.error import Scapy_Exception,log_loading,log_runtime
+from scapy.config import conf, ConfClass
+from scapy.error import Scapy_Exception, log_loading, log_runtime, warning
 from scapy.utils import atol, itom, inet_aton, inet_ntoa, PcapReader
 from scapy.base_classes import Gen, Net, SetGen
 from scapy.data import MTU, ETHER_BROADCAST, ETH_P_ARP
@@ -312,10 +312,10 @@ class NetworkInterfaceDict(UserDict):
                 pass
         
         if len(self.data) == 0 and conf.use_winpcapy:
-            log_loading.warning("No match between your pcap and windows network interfaces found. "
+            warning("No match between your pcap and windows network interfaces found. "
                                 "You probably won't be able to send packets. "
                                 "Deactivating unneeded interfaces and restarting Scapy might help."
-                                "Check your winpcap and powershell installation, and access rights.")
+                                "Check your winpcap and powershell installation, and access rights.", True)
 
     def dev_from_name(self, name):
         """Return the first pcap device name for a given Windows
@@ -440,10 +440,10 @@ def read_routes():
         else:
             routes = read_routes_7()
     except Exception as e:    
-        log_loading.warning("Error building scapy routing table : %s" % str(e))
+        log_loading.warning("Error building scapy routing table : %s" % str(e), True)
     else:
         if not routes:
-            log_loading.warning("No default IPv4 routes found. Your Windows release may no be supported and you have to enter your routes manually")
+            warning("No default IPv4 routes found. Your Windows release may no be supported and you have to enter your routes manually", True)
     return routes
        
 def read_routes_post2008():

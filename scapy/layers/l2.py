@@ -20,6 +20,7 @@ from scapy.sendrecv import srp, srp1, srpflood
 from scapy.arch import get_if_hwaddr
 from scapy.consts import LOOPBACK_NAME
 from scapy.utils import inet_ntoa, inet_aton
+from scapy.error import warning
 if conf.route is None:
     # unused import, only to initialize conf.route
     import scapy.route
