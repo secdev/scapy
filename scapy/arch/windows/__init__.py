@@ -440,7 +440,7 @@ def read_routes():
         else:
             routes = read_routes_7()
     except Exception as e:    
-        log_loading.warning("Error building scapy routing table : %s" % str(e), True)
+        warning("Error building scapy routing table : %s" % str(e), True)
     else:
         if not routes:
             warning("No default IPv4 routes found. Your Windows release may no be supported and you have to enter your routes manually", True)
