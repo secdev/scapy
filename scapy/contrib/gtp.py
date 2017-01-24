@@ -192,6 +192,14 @@ class GTPHeader(Packet):
                 self.version == other.version and
                 self.payload.answers(other.payload))
 
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        if _pkt and len(_pkt) >= 1:
+            if (struct.unpack("B", _pkt[0])[0] >> 5) & 0x7 == 2:
+                import gtp_v2
+                return gtp_v2.GTPHeader
+        return GTPHeader
+
 
 class GTPEchoRequest(Packet):
     # 3GPP TS 29.060 V9.1.0 (2009-12)
