@@ -554,6 +554,30 @@ class StrLenField(StrField):
         l = self.length_from(pkt)
         return s[l:], self.m2i(pkt,s[:l])
     
+class XStrField(StrField):
+    """
+    StrField which value is printed as hexadecimal.
+    """
+
+    def i2repr(self, pkt, x):
+        return x.encode("hex")
+
+class XStrLenField(StrLenField):
+    """
+    StrLenField which value is printed as hexadecimal.
+    """
+
+    def i2repr(self, pkt, x):
+        return x[:self.length_from(pkt)].encode("hex")
+
+class XStrFixedLenField(StrFixedLenField):
+    """
+    StrFixedLenField which value is printed as hexadecimal.
+    """
+
+    def i2repr(self, pkt, x):
+        return x[:self.length_from(pkt)].encode("hex")
+
 class StrLenFieldUtf16(StrLenField):
     def h2i(self, pkt, x):
         return x.encode('utf-16')[2:]
