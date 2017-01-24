@@ -10,7 +10,7 @@ Operating system specific functionality.
 import socket
 
 from scapy.consts import LINUX, OPENBSD, FREEBSD, NETBSD, DARWIN, \
-    SOLARIS, WINDOWS, BSD, X86_64, ARM_64, LOOPBACK_NAME, plt, MATPLOTLIB_INLINED, \
+    SOLARIS, WINDOWS, BSD, IS_64BITS, LOOPBACK_NAME, plt, MATPLOTLIB_INLINED, \
     MATPLOTLIB_DEFAULT_PLOT_KARGS, PYX, parent_function
 from scapy.error import *
 import scapy.config
