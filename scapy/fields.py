@@ -991,7 +991,10 @@ class FlagValue(object):
         if attr in self.__slots__:
             return super(FlagValue, self).__getattr__(attr)
         try:
-            return bool((2 ** self.names.index(attr)) & int(self))
+            if self.multi:
+                return bool((2 ** self.names.index(attr)) & int(self))
+            return all(bool((2 ** self.names.index(flag)) & int(self))
+                       for flag in attr)
         except ValueError:
             return super(FlagValue, self).__getattr__(attr)
     def __setattr__(self, attr, value):
