@@ -1320,7 +1320,7 @@ def ls(obj=None, case_sensitive=False, verbose=False):
                                                    else "")
                 print "%-10s : %-35s =" % (f.name, class_name),
                 if is_pkt:
-                    print "%-15r" % getattr(obj,f.name),
+                    print "%-15r" % (getattr(obj, f.name),),
                 print "(%r)" % (f.default,)
                 for attr in long_attrs:
                     print "%-15s%s" % ("", attr)
