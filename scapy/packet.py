@@ -1283,7 +1283,8 @@ def ls(obj=None, case_sensitive=False, verbose=False):
                 attrs = []
                 long_attrs = []
                 while isinstance(cur_fld, (Emph, ConditionalField)):
-                    attrs.append(cur_fld.__class__.__name__[:4])
+                    if isinstance(cur_fld, ConditionalField):
+                        attrs.append(cur_fld.__class__.__name__[:4])
                     cur_fld = cur_fld.fld
                 if verbose and isinstance(cur_fld, EnumField) \
                    and hasattr(cur_fld, "i2s"):
