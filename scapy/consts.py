@@ -4,7 +4,7 @@
 ## This program is published under a GPLv2 license
 
 import os, inspect
-from sys import platform
+from sys import platform, maxsize
 import platform as platform_lib
 from scapy.error import *
 
@@ -40,10 +40,10 @@ DARWIN = platform.startswith("darwin")
 SOLARIS = platform.startswith("sunos")
 WINDOWS = platform.startswith("win32")
 BSD = DARWIN or FREEBSD or OPENBSD or NETBSD
+# See https://docs.python.org/3/library/platform.html#cross-platform
+IS_64BITS = maxsize > 2**32
 
 if WINDOWS:
-    X86_64 = False
-    ARM_64 = False
     try:
         if float(platform_lib.release()) >= 8.1:
             LOOPBACK_NAME = "Microsoft KM-TEST Loopback Adapter"
@@ -53,8 +53,6 @@ if WINDOWS:
         LOOPBACK_NAME = "Microsoft Loopback Adapter"
 else:
     uname = os.uname()
-    X86_64 = uname[4] == 'x86_64'
-    ARM_64 = uname[4] == 'aarch64'
     LOOPBACK_NAME = "lo" if LINUX else "lo0"
 
 def parent_function():
