@@ -309,7 +309,7 @@ def sendpfast(x, pps=None, mbps=None, realtime=None, loop=0, file_cache=False, i
     if loop:
         argv.append("--loop=%i" % loop)
         if file_cache:
-            argv.append("--enable-file-cache")
+            argv.append("--preload-pcap")
 
     f = get_temp_file()
     argv.append(f)
