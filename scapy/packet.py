@@ -1309,10 +1309,7 @@ def ls(obj=None, case_sensitive=False, verbose=False):
                             )
                 elif verbose and isinstance(cur_fld, FlagsField):
                     names = cur_fld.names
-                    if isinstance(names, basestring):
-                        long_attrs.append(", ".join(names))
-                    else:
-                        long_attrs.append(", ".join(name[0] for name in names))
+                    long_attrs.append(", ".join(names))
                 class_name = "%s (%s)" % (
                     cur_fld.__class__.__name__,
                     ", ".join(attrs)) if attrs else cur_fld.__class__.__name__
