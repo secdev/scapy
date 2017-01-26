@@ -44,19 +44,15 @@ import os
 import socket
 import struct
 
-from scapy.error import warning
-
+from scapy.config import conf, crypto_validator
 from scapy.data import IP_PROTOS
 from scapy.error import log_loading
-
-from scapy.fields import ByteEnumField, ByteField, StrField, XIntField, IntField, \
-    ShortField, PacketField
-
+from scapy.fields import (ByteEnumField, ByteField, StrField, XIntField,
+                          IntField, ShortField, PacketField)
 from scapy.packet import Packet, bind_layers, Raw
-
 from scapy.layers.inet import IP, UDP
-from scapy.layers.inet6 import IPv6, IPv6ExtHdrHopByHop, IPv6ExtHdrDestOpt, \
-    IPv6ExtHdrRouting
+from scapy.layers.inet6 import (IPv6, IPv6ExtHdrHopByHop, IPv6ExtHdrDestOpt,
+                                IPv6ExtHdrRouting)
 
 
 #------------------------------------------------------------------------------
@@ -142,26 +138,20 @@ class _ESPPlain(Packet):
         return str(self.data) + self.padding + chr(self.padlen) + chr(self.nh)
 
 #------------------------------------------------------------------------------
-try:
+if conf.crypto_valid:
     from cryptography.exceptions import InvalidTag
     from cryptography.hazmat.backends import default_backend
+    from cryptography.hazmat.primitives import interfaces
     from cryptography.hazmat.primitives.ciphers import (
         Cipher,
         algorithms,
         modes,
     )
-except ImportError:
-    log_loading.info("Can't import python cryptography lib. "
+else:
+    log_loading.info("Can't import python-cryptography v1.7+. "
                      "Disabled IPsec encryption/authentication.")
-    algorithms = None
-    Cipher = None
-    modes = None
-
-try:
-    from Crypto.Cipher.AES import MODE_GCM
-    from Crypto.Cipher.AES import MODE_CCM
-except ImportError:
-    warning("Combined crypto modes not available for IPsec (pycrypto 2.7a1 required).")
+    InvalidTag = default_backend = interfaces = None
+    Cipher = algorithms = modes = None
 
 #------------------------------------------------------------------------------
 def _lcm(a, b):
@@ -201,8 +191,9 @@ class CryptAlgo(object):
         self.mode = mode
         self.icv_size = icv_size
 
-        if self.mode is not None:
-            self.is_aead = issubclass(self.mode, modes.ModeWithAuthenticationTag)
+        if modes and self.mode is not None:
+            self.is_aead = issubclass(self.mode,
+                                      modes.ModeWithAuthenticationTag)
         else:
             self.is_aead = False
 
@@ -248,6 +239,7 @@ class CryptAlgo(object):
         # XXX: random bytes for counters, so it is not wrong to do it that way
         return os.urandom(self.iv_size - self.salt_size)
 
+    @crypto_validator
     def new_cipher(self, key, iv, digest=None):
         """
         @param key:    the secret key, a byte string
@@ -430,15 +422,13 @@ if algorithms:
                                     mode=modes.CBC)
 
 #------------------------------------------------------------------------------
-try:
+if conf.crypto_valid:
     from cryptography.hazmat.primitives.hmac import HMAC
     from cryptography.hazmat.primitives.cmac import CMAC
     from cryptography.hazmat.primitives import hashes
-except ImportError:
+else:
     # no error if cryptography is not available but authentication won't be supported
-    HMAC = None
-    CMAC = None
-    hashes = None
+    HMAC = CMAC = hashes = None
 
 #------------------------------------------------------------------------------
 class IPSecIntegrityError(Exception):
@@ -478,6 +468,7 @@ class AuthAlgo(object):
             raise TypeError('invalid key size %s, must be one of %s' %
                             (len(key), self.key_size))
 
+    @crypto_validator
     def new_mac(self, key):
         """
         @param key:    a byte string

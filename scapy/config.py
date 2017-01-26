@@ -4,7 +4,7 @@
 ## This program is published under a GPLv2 license
 
 """
-Implementation for of the configuration object.
+Implementation of the configuration object.
 """
 
 import os,time,socket,sys
@@ -279,6 +279,14 @@ class LogLevel(object):
         obj._logLevel = val
         
 
+def isCryptographyValid():
+    try:
+        import cryptography
+    except ImportError:
+        return False
+    from distutils.version import LooseVersion
+    return LooseVersion(cryptography.__version__) >= LooseVersion("1.7")
+
 
 def _prompt_changer(attr,val):
     prompt = conf.prompt
@@ -396,6 +404,7 @@ contribs: a dict which can be used by contrib layers to store local configuratio
                    "tftp", "x509", "bluetooth", "dhcp6", "llmnr",
                    "sctp", "vrrp", "ipsec", "lltd", "vxlan"]
     contribs = dict()
+    crypto_valid = isCryptographyValid()
 
 
 if not Conf.ipv6_enabled:
@@ -404,7 +413,23 @@ if not Conf.ipv6_enabled:
         if m in Conf.load_layers:
             Conf.load_layers.remove(m)
     
+if not Conf.crypto_valid:
+    log_scapy.warning("Crypto-related methods disabled for IPsec, Dot11 "
+                      "and TLS layers (needs python-cryptography v1.7+).")
 
 conf=Conf()
 conf.logLevel=30 # 30=Warning
+
+
+def crypto_validator(func):
+    """
+    This a decorator to be used for any method relying on the cryptography library.
+    Its behaviour depends on the 'crypto_valid' attribute of the global 'conf'.
+    """
+    def func_in(*args, **kwargs):
+        if not conf.crypto_valid:
+            raise ImportError("Cannot execute crypto-related method! "
+                              "Please install python-cryptography v1.7 or later.")
+        return func(*args, **kwargs)
+    return func_in
 

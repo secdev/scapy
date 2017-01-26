@@ -29,7 +29,7 @@ test_script:
 
   # Secondary unit tests
   - 'del test\bpf.uts' # Don't bother with BPF regression tests
-  - "for %%t in (test\\*.uts) do (%PYTHON%\\python -m coverage run -a bin\\UTscapy -f text -t %%t -F -K combined_modes || exit /b 42)"
+  - "for %%t in (test\\*.uts) do (%PYTHON%\\python -m coverage run -a bin\\UTscapy -f text -t %%t -F -K combined_modes_ccm || exit /b 42)"
   
   # Contrib unit tests
   - "for %%t in (scapy\\contrib\\*.uts) do (%PYTHON%\\python -m coverage run -a bin\\UTscapy -f text -t %%t -F -P \"load_contrib(\'%%~nt\')\"  || exit /b 42)"

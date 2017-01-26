@@ -29,9 +29,13 @@ Supports both RSA and ECDSA objects.
 import base64, os, time
 
 import ecdsa
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.primitives import hashes
+
+from scapy.config import conf, crypto_validator
+if conf.crypto_valid:
+    from cryptography.hazmat.backends import default_backend
+    from cryptography.hazmat.primitives.asymmetric import rsa
+else:
+    default_backend = rsa = None
 
 from scapy.layers.tls.crypto.curves import import_curve
 from scapy.layers.tls.crypto.pkcs1 import pkcs_os2ip, pkcs_i2osp, mapHashFunc
@@ -199,7 +203,7 @@ class _PubKeyFactory(_PKIObjMaker):
                 obj.__class__ = PubKeyECDSA
                 obj.updateWith(spki)
             else:
-                raise Exception("Unsupported publicKey type")
+                raise
             marker = "PUBLIC KEY"
         except:
             try:
@@ -241,6 +245,7 @@ class PubKeyRSA(_PKIObj, PubKey, _EncryptAndVerifyRSA):
     Wrapper for RSA keys based on _EncryptAndVerifyRSA from crypto/pkcs1.py
     Use the 'key' attribute to access original object.
     """
+    @crypto_validator
     def updateWith(self, pubkey):
         self.modulus    = pubkey.modulus.val
         self.modulusLen = len(binrepr(pubkey.modulus.val))
@@ -391,6 +396,7 @@ class PrivKeyRSA(_PKIObj, PrivKey, _EncryptAndVerifyRSA, _DecryptAndSignRSA):
     Wrapper for RSA keys based on _DecryptAndSignRSA from crypto/pkcs1.py
     Use the 'key' attribute to access original object.
     """
+    @crypto_validator
     def updateWith(self, privkey):
         self.modulus     = privkey.modulus.val
         self.modulusLen  = len(binrepr(privkey.modulus.val))

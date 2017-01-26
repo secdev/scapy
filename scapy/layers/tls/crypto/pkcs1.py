@@ -10,10 +10,14 @@ PKCS #1 methods as defined in RFC 3447.
 import os, popen2, tempfile
 import math, random, struct
 
-from cryptography.exceptions import InvalidSignature
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.asymmetric import padding
+from scapy.config import conf, crypto_validator
+if conf.crypto_valid:
+    from cryptography.exceptions import InvalidSignature
+    from cryptography.hazmat.backends import default_backend
+    from cryptography.hazmat.primitives import hashes
+    from cryptography.hazmat.primitives.asymmetric import padding
+else:
+    InvalidSignature = dafault_backend = hashes = padding = None
 
 
 #####################################################################
@@ -108,40 +112,44 @@ def pkcs_ilen(n):
 #   PKCS#1 v2.1, MD4 should not be used.
 # - 'tls' one is the concatenation of both md5 and sha1 hashes used
 #   by SSL/TLS when signing/verifying things
-def _hashWrapper(hash_algo, message, backend=default_backend()):
-    digest = hashes.Hash(hash_algo, backend).update(message)
-    return digest.finalize()
 
-_hashFuncParams = {
-    "md5"    : (16,
-                hashes.MD5,
-                lambda x: _hashWrapper(hashes.MD5, x),
-                '\x30\x20\x30\x0c\x06\x08\x2a\x86\x48\x86\xf7\x0d\x02\x05\x05\x00\x04\x10'),
-    "sha1"   : (20,
-                hashes.SHA1,
-                lambda x: _hashWrapper(hashes.SHA1, x),
-                '\x30\x21\x30\x09\x06\x05\x2b\x0e\x03\x02\x1a\x05\x00\x04\x14'),
-    "sha224" : (28,
-                hashes.SHA224,
-                lambda x: _hashWrapper(hashes.SHA224, x),
-                '\x30\x2d\x30\x0d\x06\x09\x60\x86\x48\x01\x65\x03\x04\x02\x04\x05\x00\x04\x1c'),
-    "sha256" : (32,
-                hashes.SHA256,
-                lambda x: _hashWrapper(hashes.SHA256, x),
-                '\x30\x31\x30\x0d\x06\x09\x60\x86\x48\x01\x65\x03\x04\x02\x01\x05\x00\x04\x20'),
-    "sha384" : (48,
-                hashes.SHA384,
-                lambda x: _hashWrapper(hashes.SHA384, x),
-                '\x30\x41\x30\x0d\x06\x09\x60\x86\x48\x01\x65\x03\x04\x02\x02\x05\x00\x04\x30'),
-    "sha512" : (64,
-                hashes.SHA512,
-                lambda x: _hashWrapper(hashes.SHA512, x),
-                '\x30\x51\x30\x0d\x06\x09\x60\x86\x48\x01\x65\x03\x04\x02\x03\x05\x00\x04\x40'),
-    "tls"    : (36,
-                None,
-                lambda x: _hashWrapper(hashes.MD5, x) + _hashWrapper(hashes.SHA1, x),
-                '')
-    }
+_hashFuncParams = {}
+if conf.crypto_valid:
+
+    def _hashWrapper(hash_algo, message, backend=default_backend()):
+        digest = hashes.Hash(hash_algo, backend).update(message)
+        return digest.finalize()
+
+    _hashFuncParams = {
+        "md5"    : (16,
+                    hashes.MD5,
+                    lambda x: _hashWrapper(hashes.MD5, x),
+                    '\x30\x20\x30\x0c\x06\x08\x2a\x86\x48\x86\xf7\x0d\x02\x05\x05\x00\x04\x10'),
+        "sha1"   : (20,
+                    hashes.SHA1,
+                    lambda x: _hashWrapper(hashes.SHA1, x),
+                    '\x30\x21\x30\x09\x06\x05\x2b\x0e\x03\x02\x1a\x05\x00\x04\x14'),
+        "sha224" : (28,
+                    hashes.SHA224,
+                    lambda x: _hashWrapper(hashes.SHA224, x),
+                    '\x30\x2d\x30\x0d\x06\x09\x60\x86\x48\x01\x65\x03\x04\x02\x04\x05\x00\x04\x1c'),
+        "sha256" : (32,
+                    hashes.SHA256,
+                    lambda x: _hashWrapper(hashes.SHA256, x),
+                    '\x30\x31\x30\x0d\x06\x09\x60\x86\x48\x01\x65\x03\x04\x02\x01\x05\x00\x04\x20'),
+        "sha384" : (48,
+                    hashes.SHA384,
+                    lambda x: _hashWrapper(hashes.SHA384, x),
+                    '\x30\x41\x30\x0d\x06\x09\x60\x86\x48\x01\x65\x03\x04\x02\x02\x05\x00\x04\x30'),
+        "sha512" : (64,
+                    hashes.SHA512,
+                    lambda x: _hashWrapper(hashes.SHA512, x),
+                    '\x30\x51\x30\x0d\x06\x09\x60\x86\x48\x01\x65\x03\x04\x02\x03\x05\x00\x04\x40'),
+        "tls"    : (36,
+                    None,
+                    lambda x: _hashWrapper(hashes.MD5, x) + _hashWrapper(hashes.SHA1, x),
+                    '')
+        }
 
 def mapHashFunc(hashStr):
     try:
@@ -424,6 +432,7 @@ def create_temporary_ca_path(anchor_list, folder):
 #####################################################################
 
 class _EncryptAndVerifyRSA(object):
+    @crypto_validator
     def encrypt(self, m, t=None, h=None, mgf=None, L=None):
         """
         Encrypt message 'm' using 't' encryption scheme where 't' can be:
@@ -484,6 +493,7 @@ class _EncryptAndVerifyRSA(object):
             _warning("Key.encrypt(): Unknown encryption type (%s) provided" % t)
             return None
 
+    @crypto_validator
     def verify(self, M, S, t=None, h=None, mgf=None, sLen=None):
         """
         Verify alleged signature 'S' is indeed the signature of message 'M'

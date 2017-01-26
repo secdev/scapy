@@ -10,7 +10,7 @@ Wireless LAN according to IEEE 802.11.
 import re,struct
 from zlib import crc32
 
-from scapy.config import conf
+from scapy.config import conf, crypto_validator
 from scapy.data import *
 from scapy.packet import *
 from scapy.fields import *
@@ -20,14 +20,12 @@ from scapy.layers.l2 import *
 from scapy.layers.inet import IP, TCP
 
 
-try:
+if conf.crypto_valid:
     from cryptography.hazmat.backends import default_backend
-    from cryptography.hazmat.primitives.ciphers import (
-        Cipher,
-        algorithms,
-    )
-except ImportError:
-    log_loading.info("Can't import python cryptography lib. Won't be able to decrypt WEP.")
+    from cryptography.hazmat.primitives.ciphers import Cipher, algorithms
+else:
+    default_backend = Ciphers = algorithms = None
+    log_loading.info("Can't import python-cryptography v1.7+. Disabled WEP decryption/encryption.")
 
 
 ### Fields
@@ -324,6 +322,18 @@ class Dot11WEP(Packet):
                     StrField("wepdata",None,remain=4),
                     IntField("icv",None) ]
 
+    @crypto_validator
+    def decrypt(self, key=None):
+        if key is None:
+            key = conf.wepkey
+        if key:
+            d = Cipher(
+                algorithms.ARC4(self.iv + key),
+                None,
+                default_backend(),
+            ).decryptor()
+            self.add_payload(LLC(d.update(self.wepdata) + d.finalize()))
+
     def post_dissect(self, s):
         self.decrypt()
 
@@ -332,36 +342,30 @@ class Dot11WEP(Packet):
             return Packet.build_payload(self)
         return ""
 
-    def post_build(self, p, pay):
-        if self.wepdata is None:
-            key = conf.wepkey
-            if key:
-                if self.icv is None:
-                    pay += struct.pack("<I",crc32(pay))
-                    icv = ""
-                else:
-                    icv = p[4:8]
-                e = Cipher(
-                    algorithms.ARC4(self.iv+key),
-                    None,
-                    default_backend(),
-                ).encryptor()
-                p = p[:4]+e.update(pay)+e.finalize()+icv
-            else:
-                warning("No WEP key set (conf.wepkey).. strange results expected..")
-        return p
-            
-
-    def decrypt(self,key=None):
+    @crypto_validator
+    def encrypt(self, p, pay, key=None):
         if key is None:
             key = conf.wepkey
         if key:
-            d = Cipher(
-                algorithms.ARC4(self.iv+key),
+            if self.icv is None:
+                pay += struct.pack("<I", crc32(pay))
+                icv = ""
+            else:
+                icv = p[4:8]
+            e = Cipher(
+                algorithms.ARC4(self.iv + key),
                 None,
                 default_backend(),
-            ).decryptor()
-            self.add_payload(LLC(d.update(self.wepdata)+d.finalize()))
+            ).encryptor()
+            return p[:4] + e.update(pay) + e.finalize() + icv
+        else:
+            warning("No WEP key set (conf.wepkey).. strange results expected..")
+            return None
+
+    def post_build(self, p, pay):
+        if self.wepdata is None:
+            p = self.encrypt(p, pay)
+        return p
 
 
 bind_layers( PrismHeader,   Dot11,         )
