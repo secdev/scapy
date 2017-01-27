@@ -38,13 +38,11 @@ class Dot11AddrMACField(MACField):
     def addfield(self, pkt, s, val):
         if self.is_applicable(pkt):
             return MACField.addfield(self, pkt, s, val)
-        else:
-            return s        
+        return s
     def getfield(self, pkt, s):
         if self.is_applicable(pkt):
             return MACField.getfield(self, pkt, s)
-        else:
-            return s,None
+        return s, None
 
 class Dot11Addr2MACField(Dot11AddrMACField):
     # Block-Ack, RTS, PS-Poll, CF-End, CF-End+CF-Ack
@@ -119,8 +117,7 @@ class PrismHeader(Packet):
     def answers(self, other):
         if isinstance(other, PrismHeader):
             return self.payload.answers(other.payload)
-        else:
-            return self.payload.answers(other)
+        return self.payload.answers(other)
 
 class RadioTap(Packet):
     name = "RadioTap dummy"
@@ -151,13 +148,11 @@ class Dot11SCField(LEShortField):
     def addfield(self, pkt, s, val):
         if self.is_applicable(pkt):
             return LEShortField.addfield(self, pkt, s, val)
-        else:
-            return s
+        return s
     def getfield(self, pkt, s):
         if self.is_applicable(pkt):
             return LEShortField.getfield(self, pkt, s)
-        else:
-            return s,None
+        return s, None
 
 class Dot11(Packet):
     name = "802.11"
@@ -178,10 +173,9 @@ class Dot11(Packet):
     def guess_payload_class(self, payload):
         if self.type == 0x02 and (0x08 <= self.subtype <= 0xF and self.subtype != 0xD):
             return Dot11QoS
-	elif self.FCfield & 0x40:
+        if self.FCfield & 0x40:
             return Dot11WEP
-        else:
-            return Packet.guess_payload_class(self, payload)
+        return Packet.guess_payload_class(self, payload)
     def answers(self, other):
         if isinstance(other,Dot11):
             if self.type == 0: # management
@@ -211,7 +205,7 @@ class Dot11(Packet):
                     warning("Dot11 can't be decrypted. Check conf.wepkey.")
                 return
         self.FCfield &= ~0x40
-        self.payload=self.payload.payload
+        self.payload = self.payload.payload
 
 
 class Dot11QoS(Packet):
@@ -254,14 +248,14 @@ class Dot11Beacon(Packet):
 class Dot11Elt(Packet):
     name = "802.11 Information Element"
     fields_desc = [ ByteEnumField("ID", 0, {0:"SSID", 1:"Rates", 2: "FHset", 3:"DSset", 4:"CFset", 5:"TIM", 6:"IBSSset", 16:"challenge",
-                                            42:"ERPinfo", 46:"QoS Capability", 47:"ERPinfo", 48:"RSNinfo", 50:"ESRates",221:"vendor",68:"reserved"}),
+                                            42:"ERPinfo", 46:"QoS Capability", 47:"ERPinfo", 48:"RSNinfo", 50:"ESRates",
+                                            68:"reserved", 221:"vendor"}),
                     FieldLenField("len", None, "info", "B"),
                     StrLenField("info", "", length_from=lambda x:x.len) ]
     def mysummary(self):
         if self.ID == 0:
             return "SSID=%s"%repr(self.info),[Dot11]
-        else:
-            return ""
+        return ""
 
 class Dot11ATIM(Packet):
     name = "802.11 ATIM"
@@ -462,7 +456,7 @@ iwconfig wlan0 mode managed
         return [p,q]
     
     def print_reply(self):
-        print self.sprintf("Sent %IP.src%:%IP.sport% > %IP.dst%:%TCP.dport%")
+        print(self.sprintf("Sent %IP.src%:%IP.sport% > %IP.dst%:%TCP.dport%"))
 
     def send_reply(self, reply):
         sendp(reply, iface=self.ifto, **self.optsend)
@@ -481,7 +475,7 @@ def get_toDS():
             continue
         if p.FCfield & 1:
             plst.append(p)
-            print "."
+            print(".")
 
 
 #    if not ifto.endswith("ap"):
@@ -546,7 +540,7 @@ iwconfig wlan0 mode managed
         sendp([p,q], iface=ifto, verbose=0)
 #        print "send",repr(p)        
 #        print "send",repr(q)
-        print p.sprintf("Sent %IP.src%:%IP.sport% > %IP.dst%:%TCP.dport%")
+        print(p.sprintf("Sent %IP.src%:%IP.sport% > %IP.dst%:%TCP.dport%"))
 
     sniff(iface=iffrom,prn=do_airpwn)
 
@@ -565,12 +559,11 @@ class Dot11PacketList(PacketList):
 
         PacketList.__init__(self, res, name, stats)
     def toEthernet(self):
-        data = map(lambda x:x.getlayer(Dot11), filter(lambda x : x.haslayer(Dot11) and x.type == 2, self.res))
+        data = map(lambda x:x.getlayer(Dot11),
+                   filter(lambda x : x.haslayer(Dot11) and x.type == 2, self.res))
         r2 = []
         for p in data:
             q = p.copy()
             q.unwep()
             r2.append(Ether()/q.payload.payload.payload) #Dot11/LLC/SNAP/IP
         return PacketList(r2,name="Ether from %s"%self.listname)
-        
-        
