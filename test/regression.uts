@@ -7464,6 +7464,32 @@ in6_getscope("ff05::2807") == IPV6_ADDR_SITELOCAL
 in6_getscope("ff01::2807") == IPV6_ADDR_LOOPBACK
 in6_getscope("::1") == IPV6_ADDR_LOOPBACK
 
+= inet_pton()
+
+import socket
+
+ip6_bad_addrs = ["fe80::2e67:ef2d:7eca::ed8a",
+                 "fe80:1234:abcd::192.168.40.12:abcd",
+                 "fe80:1234:abcd::192.168.40",
+                 "fe80:1234:abcd::192.168.400.12"]
+for ip6 in ip6_bad_addrs:
+    rc = False
+    try:
+        inet_pton(socket.AF_INET6, ip6)
+    except Exception, e:
+        rc = True
+    assert rc
+
+ip6_good_addrs = ["fe80:1234:abcd::192.168.40.12",
+                 "fe80:1234:abcd::fe06",
+                 "fe80::2e67:ef2d:7ece:ed8a"]
+for ip6 in ip6_good_addrs:
+    rc = True
+    try:
+        inet_pton(socket.AF_INET6, ip6)
+    except Exception, e:
+        rc = False
+    assert rc
 
 ############
 ############

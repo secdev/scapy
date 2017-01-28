@@ -13,6 +13,7 @@ without IPv6 support, on Windows for instance.
 import socket
 import re
 
+_IP4_FORMAT = re.compile("^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$")
 _IP6_ZEROS = re.compile('(?::|^)(0(?::0)+)(?::|$)')
 
 def inet_pton(af, addr):
@@ -34,9 +35,16 @@ def inet_pton(af, addr):
         joker_pos = None 
         
         # The last part of an IPv6 address can be an IPv4 address
+        ipv4_bin = None
         ipv4_addr = None
         if "." in addr:
             ipv4_addr = addr.split(":")[-1]
+            if _IP4_FORMAT.match(ipv4_addr) is None:
+                raise Exception("Illegal syntax for IP address")
+            try:
+                ipv4_bin = socket.inet_aton(ipv4_addr)
+            except socket.error:
+                raise Exception("Illegal syntax for IP address")
            
         result = ""
         parts = addr.split(":")
@@ -47,9 +55,8 @@ def inet_pton(af, addr):
                    joker_pos = len(result)
                 else:
                    raise Exception("Illegal syntax for IP address")
-            elif part == ipv4_addr: # FIXME: Make sure IPv4 can only be last part
-                # FIXME: inet_aton allows IPv4 addresses with less than 4 octets 
-                result += socket.inet_aton(ipv4_addr)
+            elif part == ipv4_addr:
+                result += ipv4_bin
             else:
                 # Each part must be 16bit. Add missing zeroes before decoding. 
                 try:
