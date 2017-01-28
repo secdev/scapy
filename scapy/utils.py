@@ -364,12 +364,15 @@ except AttributeError:
     from scapy.pton_ntop import *
     log_loading.info("inet_ntop/pton functions not found. Python IPv6 support not present")
 
+def gethostbyname(x):
+    """Returns the IPv4 address of the host"""
+    return socket.gethostbyname(x)
 
 def atol(x):
     try:
         ip = inet_aton(x)
     except socket.error:
-        ip = inet_aton(socket.gethostbyname(x))
+        ip = inet_aton(gethostbyname(x))
     return struct.unpack("!I", ip)[0]
 def ltoa(x):
     return inet_ntoa(struct.pack("!I", x&0xffffffff))
@@ -1277,10 +1280,14 @@ def make_tex_table(*args, **kargs):
 ###############################################
 
 def whois(ip_address):
-    """Whois client for python"""
-    query = "n " + ip_address
+    """Whois client for Python"""
+    whois_ip = str(ip_address)
+    try:
+        query = gethostbyname(whois_ip)
+    except:
+        query = whois_ip
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.connect(("whois.arin.net", 43))
+    s.connect(("whois.ripe.net", 43))
     s.send(query + "\r\n")
     answer = ''
     while True:
@@ -1289,12 +1296,13 @@ def whois(ip_address):
         if not d:
             break
     s.close()
-    result = "#\
-# ARIN WHOIS data and services are subject to the Terms of Use\n\
-# available at: https://www.arin.net/whois_tou.html\n\
-\n\
-"
-    for line in answer.split("\n"):
-        if not line.startswith("#") and line is not "":
-            result = result + line + "\n"
-    return result
+    ignore_tag = "remarks:"
+    # ignore all lines starting with the ignore_tag
+    lines = [ line for line in answer.split("\n") if not line or (line and not line.startswith(ignore_tag))]
+    # remove empty lines at the bottom
+    for i in range(1, len(lines)):
+        if not lines[-i].strip():
+            del lines[-i]
+        else:
+            break
+    return "\n".join(lines[3:])
