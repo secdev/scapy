@@ -1283,7 +1283,8 @@ def ls(obj=None, case_sensitive=False, verbose=False):
                 attrs = []
                 long_attrs = []
                 while isinstance(cur_fld, (Emph, ConditionalField)):
-                    attrs.append(cur_fld.__class__.__name__[:4])
+                    if isinstance(cur_fld, ConditionalField):
+                        attrs.append(cur_fld.__class__.__name__[:4])
                     cur_fld = cur_fld.fld
                 if verbose and isinstance(cur_fld, EnumField) \
                    and hasattr(cur_fld, "i2s"):
@@ -1309,10 +1310,7 @@ def ls(obj=None, case_sensitive=False, verbose=False):
                             )
                 elif verbose and isinstance(cur_fld, FlagsField):
                     names = cur_fld.names
-                    if isinstance(names, basestring):
-                        long_attrs.append(", ".join(names))
-                    else:
-                        long_attrs.append(", ".join(name[0] for name in names))
+                    long_attrs.append(", ".join(names))
                 class_name = "%s (%s)" % (
                     cur_fld.__class__.__name__,
                     ", ".join(attrs)) if attrs else cur_fld.__class__.__name__
@@ -1322,7 +1320,7 @@ def ls(obj=None, case_sensitive=False, verbose=False):
                                                    else "")
                 print "%-10s : %-35s =" % (f.name, class_name),
                 if is_pkt:
-                    print "%-15r" % getattr(obj,f.name),
+                    print "%-15r" % (getattr(obj, f.name),),
                 print "(%r)" % (f.default,)
                 for attr in long_attrs:
                     print "%-15s%s" % ("", attr)
