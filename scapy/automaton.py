@@ -33,6 +33,8 @@ class ObjectPipe:
     def send(self, obj):
         self.queue.append(obj)
         os.write(self.wr,"X")
+    def write(self, obj):
+        self.send(obj)
     def recv(self, n=0):
         if WINDOWS:
             try:
@@ -46,6 +48,8 @@ class ObjectPipe:
         else:
             os.read(self.rd,1)
             return self.queue.popleft()
+    def read(self, n=0):
+        return self.recv(n)
 
 class Message:
     def __init__(self, **args):
@@ -340,11 +344,12 @@ def select_objects(inputs, remain):
         def search_select():
             while len(r) == 0:
                 for fd in inputs:
-                    if isinstance(fd, ObjectPipe):
+                    if isinstance(fd, ObjectPipe) or isinstance(fd, Automaton._IO_fdwrapper):
                         if fd.checkRecv():
                             r.append(fd)
                     else:
-                        raise OSError("Not supported type of socket:" + str(type(other[0])))
+                        raise OSError("Not supported type of socket:" + str(type(fd)))
+                        break
         t_select = threading.Thread(target=search_select)
         t_select.start()
         t_select.join(remain)
@@ -741,7 +746,7 @@ class Automaton:
         with self.started:
             # Flush command pipes
             while True:
-                r,_,_ = select([self.cmdin, self.cmdout],[],[],0)
+                r = select_objects([self.cmdin, self.cmdout],0)
                 if not r:
                     break
                 for fd in r:

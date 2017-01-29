@@ -876,7 +876,6 @@ send_and_sniff(Ether()/IP(dst="secdev.org")/ICMP())
 + Automaton tests
 
 = Simple automaton
-~ automaton
 class ATMT1(Automaton):
     def parse_args(self, init, *args, **kargs):
         Automaton.parse_args(self, *args, **kargs)
@@ -907,7 +906,6 @@ class ATMT1(Automaton):
         self.result = s
     
 = Simple automaton Tests
-~ automaton
 
 a=ATMT1(init="a", ll=lambda: None, recvsock=lambda: None)
 a.run()
@@ -921,7 +919,6 @@ a.result
 assert( _ == 'babababababababababababababab' )
 
 = Simple automaton stuck test
-~ automaton
 
 try:    
     ATMT1(init="", ll=lambda: None, recvsock=lambda: None).run()
@@ -932,7 +929,6 @@ else:
 
 
 = Automaton state overloading
-~ automaton
 class ATMT2(ATMT1):
     @ATMT.state()
     def MAIN(self, s):
@@ -953,7 +949,6 @@ assert( _ == 'cccccbaccbabaccccbaccbabab')
 
 
 = Automaton condition overloading
-~ automaton
 class ATMT3(ATMT2):
     @ATMT.condition(ATMT1.MAIN)
     def trA(self, s):
@@ -975,7 +970,6 @@ assert( _ == 'cccccbdaccbdabdaccccbdaccbdabdab' )
 
 
 = Automaton action overloading
-~ automaton
 class ATMT4(ATMT3):
     @ATMT.action(ATMT1.go_to_END)
     def action_test(self, s):
@@ -994,7 +988,6 @@ assert( _ == 'ecccccbdaccbdabdaccccbdaccbdabdabe' )
 
 
 = Automaton priorities
-~ automaton
 class ATMT5(Automaton):
     @ATMT.state(initial=1)
     def BEGIN(self):
@@ -1029,7 +1022,6 @@ a.run()
 assert( _ == 'Jupiter' )
 
 = Automaton test same action for many conditions
-~ automaton
 class ATMT6(Automaton):
     @ATMT.state(initial=1)
     def BEGIN(self):
@@ -1069,7 +1061,6 @@ a.run()
 assert( _ == 'Mercury' )
 
 = Automaton test io event
-~ automaton
 
 class ATMT7(Automaton):
     @ATMT.state(initial=1)
@@ -1132,11 +1123,20 @@ class ATMT8(Automaton):
         return self.res
 
 r,w = os.pipe()
+if WINDOWS:
+    r_ = ObjectPipe()
+else:
+    r_ = r
 
-a=ATMT8(external_fd={"extfd":r}, ll=lambda: None, recvsock=lambda: None)
+a=ATMT8(external_fd={"extfd":r_}, ll=lambda: None, recvsock=lambda: None)
 a.run(wait=False)
-os.write(w,"ra")
-os.write(w,"nu")
+if WINDOWS:
+    r_.write("ra")
+    r_.write("nu")
+else:
+    os.write(w,"ra")
+    os.write(w,"nu")
+
 a.run()
 assert( _ == "Uranus" )
 
@@ -1148,7 +1148,6 @@ a.run()
 assert( _ == "Uranus" )
 
 = Automaton test interception_points, and restart
-~ automaton
 class ATMT9(Automaton):
     def my_send(self, x):
         self.io.loop.send(x)
