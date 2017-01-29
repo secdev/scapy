@@ -25,24 +25,18 @@ def inet_pton(af, addr):
             return socket.inet_pton(af, addr)
         except AttributeError:
             pass
-
-        # IPv6: The use of "::" indicates one or more groups of 16 bits of zeros.
-        # We deal with this form of wildcard using a special marker. 
-        JOKER = "*"
-        while "::" in addr:
-            addr = addr.replace("::", ":" + JOKER + ":")
-        joker_pos = None 
-        
+        joker_pos = None
         result = ""
         parts = addr.split(":")
         nparts = len(parts)
         for i, part in enumerate(parts):
-            if part == JOKER:
-                # Wildcard is only allowed once
+            if not part:
+                # "::" indicates one or more groups of 2 null bytes
                 if joker_pos is None:
-                   joker_pos = len(result)
+                    joker_pos = len(result)
                 else:
-                   raise Exception("Illegal syntax for IP address")
+                    # Wildcard is only allowed once
+                    raise Exception("Illegal syntax for IP address")
             elif i + 1 == nparts and '.' in part:
                 # The last part of an IPv6 address can be an IPv4 address
                 try:
@@ -55,12 +49,10 @@ def inet_pton(af, addr):
                     result += part.rjust(4, "0").decode("hex")
                 except TypeError:
                     raise Exception("Illegal syntax for IP address")
-                    
         # If there's a wildcard, fill up with zeros to reach 128bit (16 bytes) 
-        if JOKER in addr:
+        if joker_pos is not None:
             result = (result[:joker_pos] + "\x00" * (16 - len(result))
                       + result[joker_pos:])
-    
         if len(result) != 16:
             raise Exception("Illegal syntax for IP address")
         return result 
