@@ -10,27 +10,42 @@ Automata with states, transitions and actions.
 import types,itertools,time,os,sys,socket,traceback
 from select import select
 from collections import deque
-import thread
+import thread, threading
 from scapy.config import conf
-from scapy.utils import do_graph
+from scapy.utils import do_graph, get_temp_file
 from scapy.error import log_interactive
 from scapy.plist import PacketList
 from scapy.data import MTU
 from scapy.supersocket import SuperSocket
+from scapy.consts import WINDOWS
 
 class ObjectPipe:
+    class NoDataAvailable(Exception):
+        def __init__(self, *args, **kargs):
+            pass
     def __init__(self):
-        self.rd,self.wr = os.pipe()
         self.queue = deque()
+        self.rd,self.wr = os.pipe()
     def fileno(self):
         return self.rd
+    def checkRecv(self):
+        return len(self.queue) != 0
     def send(self, obj):
         self.queue.append(obj)
         os.write(self.wr,"X")
     def recv(self, n=0):
-        os.read(self.rd,1)
-        return self.queue.popleft()
-
+        if WINDOWS:
+            try:
+                os.read(self.rd,1024)
+                return self.queue.popleft()
+            except OSError as e:
+                if GetLastError() == ERROR_NO_DATA:
+                    raise self.NoDataAvailable()
+                else:
+                    raise
+        else:
+            os.read(self.rd,1)
+            return self.queue.popleft()
 
 class Message:
     def __init__(self, **args):
@@ -319,7 +334,24 @@ class Automaton_metaclass(type):
         s += "}\n"
         return do_graph(s, **kargs)
         
-
+def select_objects(inputs, remain):
+    if WINDOWS:
+        r = []
+        def search_select():
+            while len(r) == 0:
+                for fd in inputs:
+                    if isinstance(fd, ObjectPipe):
+                        if fd.checkRecv():
+                            r.append(fd)
+                    else:
+                        raise OSError("Not supported type of socket:" + str(type(other[0])))
+        t_select = threading.Thread(target=search_select)
+        t_select.start()
+        t_select.join(remain)
+        return r
+    else:
+        r,_,_ = select(inputs,[],[],remain)
+        return r
 
 class Automaton:
     __metaclass__ = Automaton_metaclass
@@ -353,26 +385,26 @@ class Automaton:
         def write(self, msg):
             return os.write(self.wr,msg)
         def recv(self, n=65535):
-            return self.read(n)        
+            return self.read(n)   
         def send(self, msg):
             return self.write(msg)
 
     class _IO_mixer:
         def __init__(self,rd,wr):
-            self.rd = rd
-            self.wr = wr
+            self.reader = rd
+            self.writer = wr
         def fileno(self):
             if type(self.rd) is int:
                 return self.rd
-            return self.rd.fileno()
+            return self.reader.fileno()
         def recv(self, n=None):
-            return self.rd.recv(n)
+            return self.reader.recv(n)
         def read(self, n=None):
-            return self.rd.recv(n)        
+            return self.read(n)
         def send(self, msg):
-            return self.wr.send(msg)
+            return self.writer.send(msg)
         def write(self, msg):
-            return self.wr.send(msg)
+            return self.send(msg)
 
 
     class AutomatonException(Exception):
@@ -406,7 +438,7 @@ class Automaton:
     ## Services
     def debug(self, lvl, msg):
         if self.debug_level >= lvl:
-            log_interactive.debug(msg)            
+            log_interactive.debug(msg)
 
     def send(self, pkt):
         if self.state.state in self.interception_points:
@@ -622,7 +654,7 @@ class Automaton:
                         remain = next_timeout-t
     
                     self.debug(5, "Select on %r" % fds)
-                    r,_,_ = select(fds,[],[],remain)
+                    r = select_objects(fds, remain)
                     self.debug(5, "Selected %r" % r)
                     for fd in r:
                         self.debug(5, "Looking at %r" % fd)
