@@ -4,7 +4,7 @@
 ## This program is published under a GPLv2 license
 
 """
-DHCP (Dynamic Host Configuration Protocol) d BOOTP
+DHCP (Dynamic Host Configuration Protocol) and BOOTP
 """
 
 from collections import Iterable
@@ -286,6 +286,7 @@ bind_layers( UDP,           BOOTP,         dport=68, sport=67)
 bind_bottom_up( UDP, BOOTP, dport=67, sport=67)
 bind_layers( BOOTP,         DHCP,          options='c\x82Sc')
 
+@conf.commands.register
 def dhcp_request(iface=None,**kargs):
     if conf.checkIPaddr != 0:
         warning("conf.checkIPaddr is not 0, I may not be able to match the answer")
