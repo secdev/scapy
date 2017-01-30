@@ -13,96 +13,116 @@ without IPv6 support, on Windows for instance.
 import socket
 import re
 
-_IP4_FORMAT = re.compile("^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$")
 _IP6_ZEROS = re.compile('(?::|^)(0(?::0)+)(?::|$)')
+_INET6_PTON_EXC = socket.error("illegal IP address string passed to inet_pton")
+
+def _inet6_pton(addr):
+    """Convert an IPv6 address from text representation into binary form,
+used when socket.inet_pton is not available.
+
+    """
+    joker_pos = None
+    result = ""
+    if addr == '::':
+        return '\x00' * 16
+    if addr.startswith('::'):
+        addr = addr[1:]
+    if addr.endswith('::'):
+        addr = addr[:-1]
+    parts = addr.split(":")
+    nparts = len(parts)
+    for i, part in enumerate(parts):
+        if not part:
+            # "::" indicates one or more groups of 2 null bytes
+            if joker_pos is None:
+                joker_pos = len(result)
+            else:
+                # Wildcard is only allowed once
+                raise _INET6_PTON_EXC
+        elif i + 1 == nparts and '.' in part:
+            # The last part of an IPv6 address can be an IPv4 address
+            if part.count('.') != 3:
+                # we have to do this since socket.inet_aton('1.2') ==
+                # '\x01\x00\x00\x02'
+                raise _INET6_PTON_EXC
+            try:
+                result += socket.inet_aton(part)
+            except socket.error:
+                raise _INET6_PTON_EXC
+        else:
+            # Each part must be 16bit. Add missing zeroes before decoding.
+            try:
+                result += part.rjust(4, "0").decode("hex")
+            except TypeError:
+                raise _INET6_PTON_EXC
+    # If there's a wildcard, fill up with zeros to reach 128bit (16 bytes)
+    if joker_pos is not None:
+        if len(result) == 16:
+            raise _INET6_PTON_EXC
+        result = (result[:joker_pos] + "\x00" * (16 - len(result))
+                  + result[joker_pos:])
+    if len(result) != 16:
+        raise _INET6_PTON_EXC
+    return result
+
+
+_INET_PTON = {
+    socket.AF_INET: socket.inet_aton,
+    socket.AF_INET6: _inet6_pton,
+}
+
 
 def inet_pton(af, addr):
-    """Convert an IP address from text representation into binary form"""
-    if af == socket.AF_INET:
-        return socket.inet_aton(addr)
-    elif af == socket.AF_INET6:
-        # Use inet_pton if available
+    """Convert an IP address from text representation into binary form."""
+    # Use inet_pton if available
+    try:
+        return socket.inet_pton(af, addr)
+    except AttributeError:
         try:
-            return socket.inet_pton(af, addr)
-        except AttributeError:
-            pass
-
-        # IPv6: The use of "::" indicates one or more groups of 16 bits of zeros.
-        # We deal with this form of wildcard using a special marker. 
-        JOKER = "*"
-        while "::" in addr:
-            addr = addr.replace("::", ":" + JOKER + ":")
-        joker_pos = None 
-        
-        # The last part of an IPv6 address can be an IPv4 address
-        ipv4_bin = None
-        ipv4_addr = None
-        if "." in addr:
-            ipv4_addr = addr.split(":")[-1]
-            if _IP4_FORMAT.match(ipv4_addr) is None:
-                raise Exception("Illegal syntax for IP address")
-            try:
-                ipv4_bin = socket.inet_aton(ipv4_addr)
-            except socket.error:
-                raise Exception("Illegal syntax for IP address")
-           
-        result = ""
-        parts = addr.split(":")
-        for part in parts:
-            if part == JOKER:
-                # Wildcard is only allowed once
-                if joker_pos is None:
-                   joker_pos = len(result)
-                else:
-                   raise Exception("Illegal syntax for IP address")
-            elif part == ipv4_addr:
-                result += ipv4_bin
-            else:
-                # Each part must be 16bit. Add missing zeroes before decoding. 
-                try:
-                    result += part.rjust(4, "0").decode("hex")
-                except TypeError:
-                    raise Exception("Illegal syntax for IP address")
-                    
-        # If there's a wildcard, fill up with zeros to reach 128bit (16 bytes) 
-        if JOKER in addr:
-            result = (result[:joker_pos] + "\x00" * (16 - len(result))
-                      + result[joker_pos:])
-    
-        if len(result) != 16:
-            raise Exception("Illegal syntax for IP address")
-        return result 
-    else:
-        raise Exception("Address family not supported")
+            return _INET_PTON[af](addr)
+        except KeyError:
+            raise socket.error("Address family not supported by protocol")
 
 
-def inet_ntop(af, addr):
-    """Convert an IP address from binary form into text representation"""
-    if af == socket.AF_INET:
-        return socket.inet_ntoa(addr)
-    elif af == socket.AF_INET6:
-        # Use inet_ntop if available
-        try:
-            return socket.inet_ntop(af, addr)
-        except AttributeError:
-            return _ipv6_bin_to_str(addr)
-    else:
-        raise Exception("Address family not supported yet")
+def _inet6_ntop(addr):
+    """Convert an IPv6 address from binary form into text representation,
+used when socket.inet_pton is not available.
 
-
-def _ipv6_bin_to_str(addr):
+    """
     # IPv6 addresses have 128bits (16 bytes)
     if len(addr) != 16:
         raise ValueError("invalid length of packed IP address string")
 
     # Decode to hex representation
-    address = ":".join(addr[idx:idx + 2].encode('hex').lstrip('0') or '0' for idx in xrange(0, 16, 2))
+    address = ":".join(addr[idx:idx + 2].encode('hex').lstrip('0') or '0'
+                       for idx in xrange(0, 16, 2))
 
     try:
-        # Get the longest set of zero blocks
-        # Actually we need to take a look at group 1 regarding the length as 0:0:1:0:0:2:3:4 would have two matches:
-        # 0:0: and :0:0: where the latter is longer, though the first one should be taken. Group 1 is in both cases 0:0.
-        match = max(_IP6_ZEROS.finditer(address), key=lambda m: m.end(1) - m.start(1))
+        # Get the longest set of zero blocks. We need to take a look
+        # at group 1 regarding the length, as 0:0:1:0:0:2:3:4 would
+        # have two matches: 0:0: and :0:0: where the latter is longer,
+        # though the first one should be taken. Group 1 is in both
+        # cases 0:0.
+        match = max(_IP6_ZEROS.finditer(address),
+                    key=lambda m: m.end(1) - m.start(1))
         return '{}::{}'.format(address[:match.start()], address[match.end():])
     except ValueError:
         return address
+
+
+_INET_NTOP = {
+    socket.AF_INET: socket.inet_ntoa,
+    socket.AF_INET6: _inet6_ntop,
+}
+
+
+def inet_ntop(af, addr):
+    """Convert an IP address from binary form into text representation."""
+    # Use inet_ntop if available
+    try:
+        return socket.inet_ntop(af, addr)
+    except AttributeError:
+        try:
+            return _INET_NTOP[af](addr)
+        except KeyError:
+            raise ValueError("unknown address family %d" % af)
