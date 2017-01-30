@@ -10,7 +10,7 @@ Automata with states, transitions and actions.
 import types,itertools,time,os,sys,socket,traceback
 from select import select
 from collections import deque
-import thread, threading
+import threading
 from scapy.config import conf
 from scapy.utils import do_graph, get_temp_file
 from scapy.error import log_interactive, log_runtime
@@ -54,8 +54,8 @@ class _instance_state:
     def __getattr__(self, attr):
         return getattr(self.im_func, attr)
 
-    def __call__(self, *args, **kargs):
-        return self.im_func(self.im_self, *args, **kargs)
+    def __call__(self, *args, **kwargs):
+        return self.im_func(self.im_self, *args, **kwargs)
     def breaks(self):
         return self.im_self.add_breakpoints(self.im_func)
     def intercepts(self):
@@ -79,7 +79,7 @@ class ATMT:
     IOEVENT = "I/O event"
 
     class NewStateRequested(Exception):
-        def __init__(self, state_func, automaton, *args, **kargs):
+        def __init__(self, state_func, automaton, *args, **kwargs):
             self.func = state_func
             self.state = state_func.atmt_state
             self.initial = state_func.atmt_initial
@@ -88,14 +88,14 @@ class ATMT:
             Exception.__init__(self, "Request state [%s]" % self.state)
             self.automaton = automaton
             self.args = args
-            self.kargs = kargs
+            self.kwargs = kwargs
             self.action_parameters() # init action parameters
-        def action_parameters(self, *args, **kargs):
+        def action_parameters(self, *args, **kwargs):
             self.action_args = args
-            self.action_kargs = kargs
+            self.action_kwargs = kwargs
             return self
         def run(self):
-            return self.func(self.automaton, *self.args, **self.kargs)
+            return self.func(self.automaton, *self.args, **self.kwargs)
         def __repr__(self):
             return "NewStateRequested(%s)" % self.state
 
@@ -107,8 +107,8 @@ class ATMT:
             f.atmt_initial = initial
             f.atmt_final = final
             f.atmt_error = error
-            def state_wrapper(self, *args, **kargs):
-                return ATMT.NewStateRequested(f, self, *args, **kargs)
+            def state_wrapper(self, *args, **kwargs):
+                return ATMT.NewStateRequested(f, self, *args, **kwargs)
 
             state_wrapper.func_name = "%s_wrapper" % f.func_name
             state_wrapper.atmt_type = ATMT.STATE
@@ -182,13 +182,13 @@ class _ATMT_Command:
     REJECT = "REJECT"
 
 class _ATMT_supersocket(SuperSocket):
-    def __init__(self, name, ioevent, automaton, proto, args, kargs):
+    def __init__(self, name, ioevent, automaton, proto, args, kwargs):
         self.name = name
         self.ioevent = ioevent
         self.proto = proto
         self.spa,self.spb = socket.socketpair(socket.AF_UNIX, socket.SOCK_DGRAM)
-        kargs["external_fd"] = {ioevent:self.spb}
-        self.atmt = automaton(*args, **kargs)
+        kwargs["external_fd"] = {ioevent:self.spb}
+        self.atmt = automaton(*args, **kwargs)
         self.atmt.runbg()
     def fileno(self):
         return self.spa.fileno()
@@ -209,8 +209,8 @@ class _ATMT_to_supersocket:
         self.name = name
         self.ioevent = ioevent
         self.automaton = automaton
-    def __call__(self, proto, *args, **kargs):
-        return _ATMT_supersocket(self.name, self.ioevent, self.automaton, proto, args, kargs)
+    def __call__(self, proto, *args, **kwargs):
+        return _ATMT_supersocket(self.name, self.ioevent, self.automaton, proto, args, kwargs)
 
 class Automaton_metaclass(type):
     def __new__(cls, name, bases, dct):
@@ -283,7 +283,7 @@ class Automaton_metaclass(type):
 
         return cls
 
-    def graph(self, **kargs):
+    def graph(self, **kwargs):
         s = 'digraph "%s" {\n'  % self.__class__.__name__
         
         se = "" # Keep initial nodes at the begining for better rendering
@@ -323,7 +323,7 @@ class Automaton_metaclass(type):
                             l += "\\l>[%s]" % x.func_name
                         s += '\t"%s" -> "%s" [label="%s",color=blue];\n' % (k,n,l)
         s += "}\n"
-        return do_graph(s, **kargs)
+        return do_graph(s, **kwargs)
         
 def select_objects(inputs, remain):
     if WINDOWS:
@@ -349,9 +349,9 @@ class Automaton:
     __metaclass__ = Automaton_metaclass
 
     ## Methods to overload
-    def parse_args(self, debug=0, store=1, **kargs):
+    def parse_args(self, debug=0, store=1, **kwargs):
         self.debug_level=debug
-        self.socket_kargs = kargs
+        self.socket_kwargs = kwargs
         self.store_packets = store        
 
     def master_filter(self, pkt):
@@ -405,7 +405,7 @@ class Automaton:
         def recv(self, n=None):
             return self.reader.recv(n)
         def read(self, n=None):
-            return self.read(n)
+            return self.recv(n)
         def send(self, msg):
             return self.writer.send(msg)
         def write(self, msg):
@@ -471,11 +471,11 @@ class Automaton:
 
 
     ## Internals
-    def __init__(self, *args, **kargs):
-        external_fd = kargs.pop("external_fd",{})
-        self.send_sock_class = kargs.pop("ll", conf.L3socket)
-        self.recv_sock_class = kargs.pop("recvsock", conf.L2listen)
-        self.started = thread.allocate_lock()
+    def __init__(self, *args, **kwargs):
+        external_fd = kwargs.pop("external_fd",{})
+        self.send_sock_class = kwargs.pop("ll", conf.L3socket)
+        self.recv_sock_class = kwargs.pop("recvsock", conf.L2listen)
+        self.started = threading.Lock()
         self.threadid = None
         self.breakpointed = None
         self.breakpoints = set()
@@ -483,7 +483,7 @@ class Automaton:
         self.intercepted_packet = None
         self.debug_level=0
         self.init_args=args
-        self.init_kargs=kargs
+        self.init_kwargs=kwargs
         self.io = type.__new__(type, "IOnamespace",(),{})
         self.oi = type.__new__(type, "IOnamespace",(),{})
         self.cmdin = ObjectPipe()
@@ -517,8 +517,7 @@ class Automaton:
             setattr(self, stname, 
                     _instance_state(getattr(self, stname)))
         
-        self.parse_args(*args, **kargs)
-
+        self.parse_args(*args, **kwargs)
         self.start()
 
     def __iter__(self):
@@ -527,10 +526,10 @@ class Automaton:
     def __del__(self):
         self.stop()
 
-    def _run_condition(self, cond, *args, **kargs):
+    def _run_condition(self, cond, *args, **kwargs):
         try:
             self.debug(5, "Trying %s [%s]" % (cond.atmt_type, cond.atmt_condname))
-            cond(self,*args, **kargs)
+            cond(self,*args, **kwargs)
         except ATMT.NewStateRequested, state_req:
             self.debug(2, "%s [%s] taken to state [%s]" % (cond.atmt_type, cond.atmt_condname, state_req.state))
             if cond.atmt_type == ATMT.RECV:
@@ -538,7 +537,7 @@ class Automaton:
                     self.packets.append(args[0])
             for action in self.actions[cond.atmt_condname]:
                 self.debug(2, "   + Running action [%s]" % action.func_name)
-                action(self, *state_req.action_args, **state_req.action_kargs)
+                action(self, *state_req.action_args, **state_req.action_kwargs)
             raise
         except Exception,e:
             self.debug(2, "%s [%s] raised exception [%s]" % (cond.atmt_type, cond.atmt_condname, e))
@@ -546,25 +545,23 @@ class Automaton:
         else:
             self.debug(2, "%s [%s] not taken" % (cond.atmt_type, cond.atmt_condname))
 
-    def _do_start(self, *args, **kargs):
-        
-        thread.start_new_thread(self._do_control, args, kargs)
+    def _do_start(self, *args, **kwargs):
+        threading.Thread(target=self._do_control, args=(args), kwargs=kwargs).start()
 
-
-    def _do_control(self, *args, **kargs):
+    def _do_control(self, *args, **kwargs):
         with self.started:
-            self.threadid = thread.get_ident()
+            self.threadid = threading.currentThread().ident
 
             # Update default parameters
             a = args+self.init_args[len(args):]
-            k = self.init_kargs.copy()
-            k.update(kargs)
+            k = self.init_kwargs.copy()
+            k.update(kwargs)
             self.parse_args(*a,**k)
     
             # Start the automaton
             self.state=self.initial_states[0](self)
             self.send_sock = self.send_sock_class()
-            self.listen_sock = self.recv_sock_class(**self.socket_kargs)
+            self.listen_sock = self.recv_sock_class(**self.socket_kwargs)
             self.packets = PacketList(name="session[%s]"%self.__class__.__name__)
 
             singlestep = True
@@ -712,9 +709,9 @@ class Automaton:
                 bp = bp.atmt_state
             self.breakpoints.discard(bp)
 
-    def start(self, *args, **kargs):
+    def start(self, *args, **kwargs):
         if not self.started.locked():
-            self._do_start(*args, **kargs)
+            self._do_start(*args, **kwargs)
         
     def run(self, resume=None, wait=True):
         if resume is None:
@@ -754,9 +751,9 @@ class Automaton:
                 for fd in r:
                     fd.recv()
                 
-    def restart(self, *args, **kargs):
+    def restart(self, *args, **kwargs):
         self.stop()
-        self.start(*args, **kargs)
+        self.start(*args, **kwargs)
 
     def accept_packet(self, pkt=None, wait=False):
         rsm = Message()
