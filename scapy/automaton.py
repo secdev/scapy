@@ -13,16 +13,13 @@ from collections import deque
 import thread, threading
 from scapy.config import conf
 from scapy.utils import do_graph, get_temp_file
-from scapy.error import log_interactive
+from scapy.error import log_interactive, log_runtime
 from scapy.plist import PacketList
 from scapy.data import MTU
 from scapy.supersocket import SuperSocket
 from scapy.consts import WINDOWS
 
 class ObjectPipe:
-    class NoDataAvailable(Exception):
-        def __init__(self, *args, **kargs):
-            pass
     def __init__(self):
         self.queue = deque()
         self.rd,self.wr = os.pipe()
@@ -36,18 +33,8 @@ class ObjectPipe:
     def write(self, obj):
         self.send(obj)
     def recv(self, n=0):
-        if WINDOWS:
-            try:
-                os.read(self.rd,1024)
-                return self.queue.popleft()
-            except OSError as e:
-                if GetLastError() == ERROR_NO_DATA:
-                    raise self.NoDataAvailable()
-                else:
-                    raise
-        else:
-            os.read(self.rd,1)
-            return self.queue.popleft()
+        os.read(self.rd,1)
+        return self.queue.popleft()
     def read(self, n=0):
         return self.recv(n)
 
@@ -377,17 +364,30 @@ class Automaton:
     ## Utility classes and exceptions
     class _IO_fdwrapper:
         def __init__(self,rd,wr):
-            if rd is not None and type(rd) is not int:
-                rd = rd.fileno()
-            if wr is not None and type(wr) is not int:
-                wr = wr.fileno()
-            self.rd = rd
-            self.wr = wr
+            if WINDOWS:
+                # rd will be used for reading and sending
+                if isinstance(rd, ObjectPipe):
+                    self.rd = rd
+                else:
+                    raise OSError("On windows, only instances of ObjectPipe are externally available")
+            else:
+                if rd is not None and type(rd) is not int:
+                    rd = rd.fileno()
+                if wr is not None and type(wr) is not int:
+                    wr = wr.fileno()
+                self.rd = rd
+                self.wr = wr
         def fileno(self):
             return self.rd
+        def checkRecv(self):
+            return self.rd.checkRecv()
         def read(self, n=65535):
+            if WINDOWS:
+                return self.rd.recv(n)
             return os.read(self.rd, n)
         def write(self, msg):
+            if WINDOWS:
+                return self.rd.send(msg)
             return os.write(self.wr,msg)
         def recv(self, n=65535):
             return self.read(n)   
@@ -494,6 +494,8 @@ class Automaton:
             extfd = external_fd.get(n)
             if type(extfd) is not tuple:
                 extfd = (extfd,extfd)
+            elif WINDOWS:
+                raise OSError("Tuples are not allowed as external_fd on windows")
             ioin,ioout = extfd                
             if ioin is None:
                 ioin = ObjectPipe()

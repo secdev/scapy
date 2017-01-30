@@ -1099,7 +1099,6 @@ a.run()
 assert( _ == "Saturn" )
 
 = Automaton test io event from external fd
-~ automaton
 import os
 
 class ATMT8(Automaton):
@@ -1122,28 +1121,29 @@ class ATMT8(Automaton):
         self.res += "s"
         return self.res
 
-r,w = os.pipe()
 if WINDOWS:
-    r_ = ObjectPipe()
+    r = w = ObjectPipe()
 else:
-    r_ = r
+    r,w = os.pipe()
 
-a=ATMT8(external_fd={"extfd":r_}, ll=lambda: None, recvsock=lambda: None)
+def writeOn(w, msg):
+    if WINDOWS:
+        w.write(msg)
+    else:
+        os.write(w, msg)
+
+a=ATMT8(external_fd={"extfd":r}, ll=lambda: None, recvsock=lambda: None)
 a.run(wait=False)
-if WINDOWS:
-    r_.write("ra")
-    r_.write("nu")
-else:
-    os.write(w,"ra")
-    os.write(w,"nu")
+writeOn(w,"ra")
+writeOn(w,"nu")
 
 a.run()
 assert( _ == "Uranus" )
 
 a.restart()
 a.run(wait=False)
-os.write(w,"ra")
-os.write(w,"nu")
+writeOn(w,"ra")
+writeOn(w,"nu")
 a.run()
 assert( _ == "Uranus" )
 
