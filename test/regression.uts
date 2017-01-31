@@ -7744,6 +7744,7 @@ SCTPChunkSACK in p and p[SCTP].chksum == 0x3b01d404 and p[SCTPChunkSACK].gap_ack
 = SCTP - answers
 (IP()/SCTP()).answers(IP()/SCTP()) == True
 
+
 ############
 ############
 + DHCP
@@ -7768,3 +7769,41 @@ s == 'E\x00\x01\x10\x00\x01\x00\x00@\x11{\xda\x7f\x00\x00\x01\x7f\x00\x00\x01\x0
 = DHCP - dissection
 p = IP(s)
 DHCP in p and p[DHCP].options[0] == ('message-type', 1)
+
+
+############
+############
++ 802.11
+
+= 802.11 - misc
+PrismHeader().answers(PrismHeader()) == True
+
+dpl = Dot11PacketList([Dot11()/LLC()/SNAP()/IP()/UDP()])
+len(dpl) == 1
+
+dpl_ether = dpl.toEthernet()
+len(dpl_ether) == 1 and Ether in dpl_ether[0]
+
+= Dot11 - build
+s = str(Dot11())
+s == '\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+= Dot11 - dissection
+p = Dot11(s)
+Dot11 in p and p.addr3 == "00:00:00:00:00:00"
+p.mysummary() == '802.11 Management 0L 00:00:00:00:00:00 > 00:00:00:00:00:00'
+
+= Dot11QoS - build
+s = str(Dot11(type=2, subtype=8)/Dot11QoS())
+s == '\x88\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+= Dot11QoS - dissection
+p = Dot11(s)
+Dot11QoS in p
+
+= Dot11 - answers
+query = Dot11(type=0, subtype=0)
+Dot11(type=0, subtype=1).answers(query) == True
+
+= Dot11 - misc
+Dot11Elt(info="scapy").summary() == "SSID='scapy'"
