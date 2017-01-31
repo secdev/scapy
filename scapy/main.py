@@ -39,7 +39,7 @@ def _read_config_file(cf):
 
 DEFAULT_PRESTART_FILE = _probe_config_file(".scapy_prestart.py")
 DEFAULT_STARTUP_FILE = _probe_config_file(".scapy_startup.py")
-session=None
+session = None
 
 def _usage():
     print """Usage: scapy.py [-s sessionfile] [-c new_startup_file] [-p new_prestart_file] [-C] [-P]
@@ -139,14 +139,10 @@ def save_session(fname=None, session=None, pickleProto=-1):
              del(to_be_saved[k])
 
     
-    if os.path.exists(fname):
-        i=0
-        while True:
-            bak_f = fname+".bak"+("" if i==0 else str(i))
-            if not os.path.exists(bak_f):
-                os.rename(fname, bak_f)
-                break
-            i=i+1
+    try:
+         os.rename(fname, fname+".bak")
+    except OSError:
+         pass
     
     f=gzip.open(fname,"wb")
     cPickle.dump(to_be_saved, f, pickleProto)
