@@ -325,8 +325,6 @@ class Dot11WEP(Packet):
                     IntField("icv",None) ]
 
     def post_dissect(self, s):
-#        self.icv, = struct.unpack("!I",self.wepdata[-4:])
-#        self.wepdata = self.wepdata[:-4]
         self.decrypt()
 
     def build_payload(self):
@@ -471,28 +469,6 @@ iwconfig wlan0 mode managed
         sniff(iface=self.iffrom, **self.optsniff)
 
 
-
-plst=[]
-def get_toDS():
-    global plst
-    while 1:
-        p,=sniff(iface="eth1",count=1)
-        if not isinstance(p,Dot11):
-            continue
-        if p.FCfield & 1:
-            plst.append(p)
-            print "."
-
-
-#    if not ifto.endswith("ap"):
-#        print "iwpriv %s hostapd 1" % ifto
-#        os.system("iwpriv %s hostapd 1" % ifto)
-#        ifto += "ap"
-#        
-#    os.system("iwconfig %s mode monitor" % iffrom)
-#    
-
-@conf.commands.register
 def airpwn(iffrom, ifto, replace, pattern="", ignorepattern=""):
     """Before using this, initialize "iffrom" and "ifto" interfaces:
 iwconfig iffrom mode monitor
@@ -523,13 +499,10 @@ iwconfig wlan0 mode managed
         ip = p.getlayer(IP)
         tcp = p.getlayer(TCP)
         pay = str(tcp.payload)
-#        print "got tcp"
         if not ptrn.match(pay):
             return
-#        print "match 1"
         if iptrn.match(pay):
             return
-#        print "match 2"
         del(p.payload.payload.payload)
         p.FCfield="from-DS"
         p.addr1,p.addr2 = p.addr2,p.addr1
@@ -545,8 +518,6 @@ iwconfig wlan0 mode managed
         q.getlayer(TCP).seq+=len(replace)
         
         sendp([p,q], iface=ifto, verbose=0)
-#        print "send",repr(p)        
-#        print "send",repr(q)
         print p.sprintf("Sent %IP.src%:%IP.sport% > %IP.dst%:%TCP.dport%")
 
     sniff(iface=iffrom,prn=do_airpwn)
