@@ -391,7 +391,7 @@ contribs: a dict which can be used by contrib layers to store local configuratio
     geoip_city_ipv6 = '/usr/share/GeoIP/GeoIPCityv6.dat'
     load_layers = ["l2", "inet", "dhcp", "dns", "dot11", "gprs", "tls",
                    "hsrp", "inet6", "ir", "isakmp", "l2tp", "mgcp",
-                   "mobileip", "netbios", "netflow", "ntp", "ppp",
+                   "mobileip", "netbios", "netflow", "ntp", "ppp", "pptp",
                    "radius", "rip", "rtp", "skinny", "smb", "snmp",
                    "tftp", "x509", "bluetooth", "dhcp6", "llmnr",
                    "sctp", "vrrp", "ipsec", "lltd", "vxlan"]

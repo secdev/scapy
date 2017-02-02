@@ -968,11 +968,49 @@ class GRE(Packet):
                     ConditionalField(XIntField("key",None), lambda pkt:pkt.key_present==1),
                     ConditionalField(XIntField("seqence_number",None), lambda pkt:pkt.seqnum_present==1),
                     ]
+
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        if _pkt and struct.unpack("!H", _pkt[2:4])[0] == 0x880b:
+            return GRE_PPTP
+        return cls
+
     def post_build(self, p, pay):
         p += pay
         if self.chksum_present and self.chksum is None:
             c = checksum(p)
             p = p[:4]+chr((c>>8)&0xff)+chr(c&0xff)+p[6:]
+        return p
+
+
+class GRE_PPTP(GRE):
+
+    """
+    Enhanced GRE header used with PPTP
+    RFC 2637
+    """
+
+    name = "GRE PPTP"
+    fields_desc = [BitField("chksum_present", 0, 1),
+                   BitField("routing_present", 0, 1),
+                   BitField("key_present", 1, 1),
+                   BitField("seqnum_present", 0, 1),
+                   BitField("strict_route_source", 0, 1),
+                   BitField("recursion_control", 0, 3),
+                   BitField("acknum_present", 0, 1),
+                   BitField("flags", 0, 4),
+                   BitField("version", 1, 3),
+                   XShortEnumField("proto", 0x880b, ETHER_TYPES),
+                   ShortField("payload_len", None),
+                   ShortField("call_id", None),
+                   ConditionalField(XIntField("seqence_number", None), lambda pkt: pkt.seqnum_present == 1),
+                   ConditionalField(XIntField("ack_number", None), lambda pkt: pkt.acknum_present == 1)]
+
+    def post_build(self, p, pay):
+        p += pay
+        if self.payload_len is None:
+            pay_len = len(pay)
+            p = p[:4] + chr((pay_len >> 8) & 0xff) + chr(pay_len & 0xff) + p[6:]
         return p
 
 
