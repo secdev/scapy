@@ -106,8 +106,6 @@ TODO list (may it be carved away by good souls):
 
         - Go through the kx_algs and see what may be commented out.
 
-        - Define the OCSPStatus packet.
-
         - Define several Certificate Transparency objects.
 
         - Enhance PSK and session ticket support.

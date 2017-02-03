@@ -95,7 +95,8 @@ _hashFuncParams = {}
 if conf.crypto_valid:
 
     def _hashWrapper(hash_algo, message, backend=default_backend()):
-        digest = hashes.Hash(hash_algo, backend).update(message)
+        digest = hashes.Hash(hash_algo(), backend)
+        digest.update(message)
         return digest.finalize()
 
     _hashFuncParams = {
@@ -345,14 +346,14 @@ class _EncryptAndVerifyRSA(object):
         Not intended to be used directly. Please, see encrypt() method.
         """
 
-        n = self.modulus
+        n = self._modulus
         if isinstance(m, int):
             m = long(m)
         if (not isinstance(m, long)) or m > n-1:
             warning("Key._rsaep() expects a long between 0 and n-1")
             return None
 
-        return pow(m, self.pubExp, n)
+        return pow(m, self._pubExp, n)
 
 
     @crypto_validator
@@ -425,7 +426,7 @@ class _EncryptAndVerifyRSA(object):
             sLen = hLen
 
         # 1) Length checking
-        modBits = self.modulusLen
+        modBits = self._modulusLen
         k = modBits / 8
         if len(S) != k:
             return False
@@ -459,7 +460,7 @@ class _EncryptAndVerifyRSA(object):
         """
 
         # 1) Length checking
-        k = self.modulusLen / 8
+        k = self._modulusLen / 8
         if len(S) != k:
             warning("invalid signature (len(S) != k)")
             return False
@@ -518,7 +519,7 @@ class _EncryptAndVerifyRSA(object):
         """
         if t is None: # RSAVP1
             S = pkcs_os2ip(S)
-            n = self.modulus
+            n = self._modulus
             if S > n-1:
                 warning("Signature to be verified is too long for key modulus")
                 return False
@@ -584,14 +585,15 @@ class _DecryptAndSignRSA(object):
         Not intended to be used directly. Please, see decrypt() method.
         """
 
-        n = self.modulus
+        n = self._modulus
         if isinstance(c, int):
             c = long(c)
         if (not isinstance(c, long)) or c > n-1:
             warning("Key._rsaep() expects a long between 0 and n-1")
             return None
 
-        return pow(c, self.privExp, n)
+        privExp = self.key.private_numbers().d
+        return pow(c, privExp, n)
 
 
     def decrypt(self, C, t="pkcs", h=None, mgf=None, L=None):
@@ -666,7 +668,7 @@ class _DecryptAndSignRSA(object):
             sLen = hLen
 
         # 1) EMSA-PSS encoding
-        modBits = self.modulusLen
+        modBits = self._modulusLen
         k = modBits / 8
         EM = pkcs_emsa_pss_encode(M, modBits - 1, h, mgf, sLen)
         if EM is None:
@@ -696,7 +698,7 @@ class _DecryptAndSignRSA(object):
         """
 
         # 1) EMSA-PKCS1-v1_5 encoding
-        k = self.modulusLen / 8
+        k = self._modulusLen / 8
         EM = pkcs_emsa_pkcs1_v1_5_encode(M, k, h)
         if EM is None:
             warning("Key._rsassa_pkcs1_v1_5_sign(): unable to encode")
@@ -745,14 +747,14 @@ class _DecryptAndSignRSA(object):
         """
         if t is None: # RSASP1
             M = pkcs_os2ip(M)
-            n = self.modulus
+            n = self._modulus
             if M > n-1:
                 warning("Message to be signed is too long for key modulus")
                 return None
             s = self._rsasp1(M)
             if s is None:
                 return None
-            return pkcs_i2osp(s, self.modulusLen/8)
+            return pkcs_i2osp(s, self._modulusLen/8)
         elif t == "pkcs": # RSASSA-PKCS1-v1_5-SIGN
             if h is None:
                 h = "sha1"

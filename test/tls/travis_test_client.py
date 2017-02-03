@@ -16,11 +16,11 @@ Reception of the exact send_data on the server is to be checked externally.
 import os
 import sys
 
-from scapy.layers.tls.automaton import TLSClientAutomaton
-from scapy.layers.tls.handshake import TLSClientHello
-
 basedir = os.path.abspath(os.path.join(os.path.dirname(__file__),"../../"))
 sys.path=[basedir]+sys.path
+
+from scapy.layers.tls.automaton import TLSClientAutomaton
+from scapy.layers.tls.handshake import TLSClientHello
 
 
 send_data = cipher_suite_code = version = None

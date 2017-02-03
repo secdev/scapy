@@ -243,3 +243,6 @@ assert(singleResponse.thisUpdate == ASN1_GENERALIZED_TIME("20160914121000Z"))
 assert(singleResponse.nextUpdate == ASN1_GENERALIZED_TIME("20160921112500Z"))
 singleResponse.singleExtensions is None
 
+= OCSP class : OCSP Response reconstruction
+str(response) == s
+

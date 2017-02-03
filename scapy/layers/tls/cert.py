@@ -31,23 +31,23 @@ import time
 from scapy.config import conf, crypto_validator
 if conf.crypto_valid:
     from cryptography.hazmat.backends import default_backend
+    from cryptography.hazmat.primitives import serialization
     from cryptography.hazmat.primitives.asymmetric import rsa
 else:
-    default_backend = rsa = None
+    default_backend = rsa = serialization = None
 
-from scapy.config import conf
+from scapy.error import warning
+from scapy.utils import binrepr
 from scapy.asn1.asn1 import ASN1_BIT_STRING
 from scapy.asn1.mib import hash_by_oid
-from scapy.error import warning
-from scapy.layers.x509 import X509_SubjectPublicKeyInfo
-from scapy.layers.x509 import RSAPublicKey, RSAPrivateKey
-from scapy.layers.x509 import ECDSAPublicKey, ECDSAPrivateKey
-from scapy.layers.x509 import RSAPrivateKey_OpenSSL, ECDSAPrivateKey_OpenSSL
-from scapy.layers.x509 import X509_Cert, X509_CRL
-from scapy.utils import binrepr
-from scapy.layers.tls.crypto.pkcs1 import pkcs_os2ip, pkcs_i2osp, mapHashFunc
-from scapy.layers.tls.crypto.pkcs1 import _EncryptAndVerifyRSA
-from scapy.layers.tls.crypto.pkcs1 import _DecryptAndSignRSA
+from scapy.layers.x509 import (X509_SubjectPublicKeyInfo,
+                               RSAPublicKey, RSAPrivateKey,
+                               ECDSAPublicKey, ECDSAPrivateKey,
+                               RSAPrivateKey_OpenSSL, ECDSAPrivateKey_OpenSSL,
+                               X509_Cert, X509_CRL)
+from scapy.layers.tls.crypto.pkcs1 import (pkcs_os2ip, pkcs_i2osp, mapHashFunc,
+                                           _EncryptAndVerifyRSA,
+                                           _DecryptAndSignRSA)
 
 # Maximum allowed size in bytes for a certificate file, to avoid
 # loading huge file when importing a cert
@@ -175,9 +175,18 @@ class _PubKeyFactory(_PKIObjMaker):
     It casts the appropriate class on the fly, then fills in
     the appropriate attributes with import_from_asn1pkt() submethod.
     """
-    def __call__(cls, key_path):
+    def __call__(cls, key_path=None):
 
-        # First, we deal with the exceptional RSA 'kx export' call.
+        if key_path is None:
+            obj = type.__call__(cls)
+            if cls is PubKey:
+                cls = PubKeyRSA
+            obj.__class__ = cls
+            obj.frmt = "original"
+            obj.fill_and_store()
+            return obj
+
+        # This deals with the rare RSA 'kx export' call.
         if type(key_path) is tuple:
             obj = type.__call__(cls)
             obj.__class__ = PubKeyRSA
@@ -199,7 +208,7 @@ class _PubKeyFactory(_PKIObjMaker):
             elif isinstance(pubkey, ECDSAPublicKey):
                 obj.__class__ = PubKeyECDSA
                 try:
-                    obj.import_from_asn1pkt(obj.der)
+                    obj.import_from_der(obj.der)
                 except ImportError:
                     pass
             else:
@@ -236,61 +245,84 @@ class PubKey(object):
         return self.verify(str(tbsCert), sigVal, h=h, t='pkcs')
 
 
-class PubKeyRSA(_PKIObj, PubKey, _EncryptAndVerifyRSA):
+class PubKeyRSA(PubKey, _EncryptAndVerifyRSA):
     """
     Wrapper for RSA keys based on _EncryptAndVerifyRSA from crypto/pkcs1.py
     Use the 'key' attribute to access original object.
     """
     @crypto_validator
+    def fill_and_store(self, modulus=None, modulusLen=None, pubExp=None):
+        pubExp = pubExp or 65537
+        if modulus is None:
+            real_modulusLen = modulusLen or 2048
+            private_key = rsa.generate_private_key(public_exponent=pubExp,
+                                                   key_size=real_modulusLen,
+                                                   backend=default_backend())
+            self.pubkey = private_key.public_key()
+        else:
+            real_modulusLen = len(binrepr(modulus))
+            if real_modulusLen != modulusLen:
+                warning("modulus and modulusLen do not match!")
+            pubNum = rsa.RSAPublicNumbers(n=modulus, e=pubExp)
+            self.pubkey = pubNum.public_key(default_backend())
+        #XXX lines below should be removed once pkcs1.py is cleaned of legacy
+        pubNum = self.pubkey.public_numbers()
+        self._modulusLen = real_modulusLen
+        self._modulus = pubNum.n
+        self._pubExp = pubNum.e
+
+    @crypto_validator
     def import_from_tuple(self, tup):
         # this is rarely used
         e, m, mLen = tup
         if isinstance(m, str):
-            self.modulus = pkcs_os2ip(m)
-        else:
-            self.modulus = m
-        self.modulusLen = mLen
+            m = pkcs_os2ip(m)
         if isinstance(e, str):
-            self.pubExp = pkcs_os2ip(e)
-        else:
-            self.pubExp = e
-        pubNum = rsa.RSAPublicNumbers(n=self.modulus, e=self.pubExp)
-        self.pubkey = pubNum.public_key(default_backend())
+            e = pkcs_os2ip(e)
+        self.fill_and_store(modulus=m, pubExp=e)
         self.pem = self.pubkey.public_bytes(
                         encoding=serialization.Encoding.PEM,
                         format=serialization.PublicFormat.SubjectPublicKeyInfo)
         self.der = pem2der(self.pem)
 
-    @crypto_validator
     def import_from_asn1pkt(self, pubkey):
-        self.modulus    = pubkey.modulus.val
-        self.modulusLen = len(binrepr(pubkey.modulus.val))
-        self.pubExp     = pubkey.publicExponent.val
-        pubNum = rsa.RSAPublicNumbers(n=self.modulus, e=self.pubExp)
-        self.pubkey = pubNum.public_key(default_backend())
+        modulus    = pubkey.modulus.val
+        pubExp     = pubkey.publicExponent.val
+        self.fill_and_store(modulus=modulus, pubExp=pubExp)
+
     def encrypt(self, msg, t=None, h=None, mgf=None, L=None):
         # no ECDSA encryption support, hence no ECDSA specific keywords here
         return _EncryptAndVerifyRSA.encrypt(self, msg, t=t, h=h, mgf=mgf, L=L)
+
     def verify(self, msg, sig, h=None,
                t=None, mgf=None, sLen=None):
         return _EncryptAndVerifyRSA.verify(self, msg, sig, h=h,
                                            t=t, mgf=mgf, sLen=sLen)
 
-class PubKeyECDSA(_PKIObj, PubKey):
+class PubKeyECDSA(PubKey):
     """
     Wrapper for ECDSA keys based on the cryptography library.
     Use the 'key' attribute to access original object.
     """
-    def import_from_asn1pkt(self, pubkey):
+    @crypto_validator
+    def fill_and_store(self, curve=None):
+        curve = curve or ec.SECP256R1
+        private_key = ec.generate_private_key(curve(), default_backend())
+        self.pubkey = private_key.public_key()
+
+    @crypto_validator
+    def import_from_der(self, pubkey):
         # XXX does the cryptography lib support explicit curves?
         # check also for compressed points
         self.pubkey = serialization.load_der_public_key(pubkey,
                                                     backend=default_backend())
-    def encrypt(self, msg, t=None, h=None, mgf=None, L=None):
+
+    def encrypt(self, msg, h=None, **kwargs):
         # cryptography lib does not support ECDSA encryption
         raise Exception("No ECDSA encryption support")
-    def verify(self, msg, sig, h=None,
-               t=None, mgf=None, sLen=None):
+
+    @crypto_validator
+    def verify(self, msg, sig, h=None, **kwargs):
         # 'sig' should be a DER-encoded signature, as per RFC 3279
         verifier = self.pubkey.verifier(sig, ec.ECDSA(mapHashFunc(h)))
         verifier.update(msg)
@@ -307,7 +339,7 @@ class _PrivKeyFactory(_PKIObjMaker):
     It casts the appropriate class on the fly, then fills in
     the appropriate attributes with import_from_asn1pkt() submethod.
     """
-    def __call__(cls, key_path):
+    def __call__(cls, key_path=None):
         """
         key_path may be the path to either:
             _an RSAPrivateKey_OpenSSL (as generated by openssl);
@@ -315,6 +347,15 @@ class _PrivKeyFactory(_PKIObjMaker):
             _an RSAPrivateKey;
             _an ECDSAPrivateKey.
         """
+        if key_path is None:
+            obj = type.__call__(cls)
+            if cls is PrivKey:
+                cls = PrivKeyECDSA
+            obj.__class__ = cls
+            obj.frmt = "original"
+            obj.fill_and_store()
+            return obj
+
         obj = _PKIObjMaker.__call__(cls, key_path, MAX_KEY_SIZE)
         multiPEM = False
         try:
@@ -398,54 +439,94 @@ class PrivKey(object):
         return self.verify(str(tbsCert), sigVal, h=h, t='pkcs')
 
 
-class PrivKeyRSA(_PKIObj, PrivKey, _EncryptAndVerifyRSA, _DecryptAndSignRSA):
+class PrivKeyRSA(PrivKey, _EncryptAndVerifyRSA, _DecryptAndSignRSA):
     """
     Wrapper for RSA keys based on _DecryptAndSignRSA from crypto/pkcs1.py
     Use the 'key' attribute to access original object.
     """
     @crypto_validator
+    def fill_and_store(self, modulus=None, modulusLen=None, pubExp=None,
+                             prime1=None, prime2=None, coefficient=None,
+                             exponent1=None, exponent2=None, privExp=None):
+        pubExp = pubExp or 65537
+        if None in [modulus, prime1, prime2, coefficient, privExp,
+                    exponent1, exponent2]:
+            # note that the library requires every parameter
+            # in order to call RSAPrivateNumbers(...)
+            # if one of these is missing, we generate a whole new key
+            real_modulusLen = modulusLen or 2048
+            self.key = rsa.generate_private_key(public_exponent=pubExp,
+                                                key_size=real_modulusLen,
+                                                backend=default_backend())
+            self.pubkey = self.key.public_key()
+        else:
+            real_modulusLen = len(binrepr(modulus))
+            if real_modulusLen != modulusLen:
+                warning("modulus and modulusLen do not match!")
+            pubNum = rsa.RSAPublicNumbers(n=modulus, e=pubExp)
+            privNum = rsa.RSAPrivateNumbers(p=prime1, q=prime2,
+                                            dmp1=exponent1, dmq1=exponent2,
+                                            iqmp=coefficient, d=privExp,
+                                            public_numbers=pubNum)
+            self.key = privNum.private_key(default_backend())
+            self.pubkey = self.key.public_key()
+        #XXX lines below should be removed once pkcs1.py is cleaned of legacy
+        pubNum = self.pubkey.public_numbers()
+        self._modulusLen = real_modulusLen
+        self._modulus = pubNum.n
+        self._pubExp = pubNum.e
+
     def import_from_asn1pkt(self, privkey):
-        self.modulus     = privkey.modulus.val
-        self.modulusLen  = len(binrepr(privkey.modulus.val))
-        self.pubExp      = privkey.publicExponent.val
-        self.privExp     = privkey.privateExponent.val
-        self.prime1      = privkey.prime1.val
-        self.prime2      = privkey.prime2.val
-        self.exponent1   = privkey.exponent1.val
-        self.exponent2   = privkey.exponent2.val
-        self.coefficient = privkey.coefficient.val
-        self.key = rsa.RSAPrivateNumbers(
-            p=self.prime1, q=self.prime2, d=self.privExp, dmp1=self.exponent1,
-            dmq1=self.exponent2, iqmp=self.coefficient,
-            public_numbers=rsa.RSAPublicNumbers(n=self.modulus, e=self.pubExp),
-        ).private_key(default_backend())
-        self.pubkey = self.key.public_key()
+        modulus     = privkey.modulus.val
+        pubExp      = privkey.publicExponent.val
+        privExp     = privkey.privateExponent.val
+        prime1      = privkey.prime1.val
+        prime2      = privkey.prime2.val
+        exponent1   = privkey.exponent1.val
+        exponent2   = privkey.exponent2.val
+        coefficient = privkey.coefficient.val
+        self.fill_and_store(modulus=modulus, pubExp=pubExp,
+                            privExp=privExp, prime1=prime1, prime2=prime2,
+                            exponent1=exponent1, exponent2=exponent2,
+                            coefficient=coefficient)
+
     def verify(self, msg, sig, h=None,
                t=None, mgf=None, sLen=None):
         # Let's copy this from PubKeyRSA instead of adding another baseclass :)
         return _EncryptAndVerifyRSA.verify(self, msg, sig, h=h,
                                            t=t, mgf=mgf, sLen=sLen)
+
     def sign(self, data, h=None,
              t=None, mgf=None, sLen=None):
         return _DecryptAndSignRSA.sign(self, data, h=h,
                                        t=t, mgf=mgf, sLen=sLen)
 
 
-class PrivKeyECDSA(_PKIObj, PrivKey):
+class PrivKeyECDSA(PrivKey):
     """
     Wrapper for ECDSA keys based on SigningKey from ecdsa library.
     Use the 'key' attribute to access original object.
     """
-    def import_from_asn1pkt(self, privkey):
-        self.key = serialization.load_der_private_key(str(privkey),
-                                                      None,
-                                                      backend=default_backend())
+    @crypto_validator
+    def fill_and_store(self, curve=None):
+        curve = curve or ec.SECP256R1
+        self.key = ec.generate_private_key(curve(), default_backend())
         self.pubkey = self.key.public_key()
+
+    @crypto_validator
+    def import_from_asn1pkt(self, privkey):
+        self.key = serialization.load_der_private_key(str(privkey), None,
+                                                  backend=default_backend())
+        self.pubkey = self.key.public_key()
+
+    @crypto_validator
     def verify(self, msg, sig, h=None, **kwargs):
         # 'sig' should be a DER-encoded signature, as per RFC 3279
         verifier = self.pubkey.verifier(sig, ec.ECDSA(mapHashFunc(h)))
         verifier.update(msg)
         return verifier.verify()
+
+    @crypto_validator
     def sign(self, data, h=None, **kwargs):
         signer = self.key.signer(ec.ECDSA(mapHashFunc(h)))
         signer.update(data)
@@ -473,7 +554,7 @@ class _CertMaker(_PKIObjMaker):
         return obj
 
 
-class Cert(_PKIObj):
+class Cert(object):
     """
     Wrapper for the X509_Cert from layers/x509.py.
     Use the 'x509Cert' attribute to access original object.
@@ -673,7 +754,7 @@ class _CRLMaker(_PKIObjMaker):
         return obj
 
 
-class CRL(_PKIObj):
+class CRL(object):
     """
     Wrapper for the X509_CRL from layers/x509.py.
     Use the 'x509CRL' attribute to access original object.

@@ -17,7 +17,7 @@ from scapy.config import conf
 from scapy.error import warning
 from scapy.fields import *
 from scapy.packet import Packet, Raw, Padding
-from scapy.layers.tls.cert import PubKey, PrivKey
+from scapy.layers.tls.cert import PubKeyRSA, PrivKeyRSA
 from scapy.layers.tls.session import _GenericTLSSessionInheritance
 from scapy.layers.tls.basefields import _tls_version, _TLSClientVersionField
 from scapy.layers.tls.crypto.pkcs1 import pkcs_i2osp, pkcs_os2ip
@@ -610,18 +610,18 @@ class ServerRSAParams(_GenericTLSSessionInheritance):
                         encoding=serialization.Encoding.PEM,
                         format=serialization.PrivateFormat.TraditionalOpenSSL,
                         encryption_algorithm=serialization.NoEncryption())
-        k = PrivKey(pem_k)
+        k = PrivKeyRSA(pem_k)
         self.tls_session.server_tmp_rsa_key = k
+        pubNum = k.pubkey.public_numbers()
 
-        modlen = k.modulusLen / 8
         if self.rsamod is "":
-            self.rsamod = pkcs_i2osp(k.modulus, modlen)
+            self.rsamod = pkcs_i2osp(pubNum.n, k.pubkey.key_size/8)
         if self.rsamodlen is None:
             self.rsamodlen = len(self.rsamod)
 
-        rsaexplen = math.ceil(math.log(k.pubExp)/math.log(2)/8.)
+        rsaexplen = math.ceil(math.log(pubNum.e)/math.log(2)/8.)
         if self.rsaexp is "":
-            self.rsaexp = pkcs_i2osp(k.pubExp, rsaexplen)
+            self.rsaexp = pkcs_i2osp(pubNum.e, rsaexplen)
         if self.rsaexplen is None:
             self.rsaexplen = len(self.rsaexp)
 
@@ -629,7 +629,7 @@ class ServerRSAParams(_GenericTLSSessionInheritance):
         mLen = self.rsamodlen
         m    = self.rsamod
         e    = self.rsaexp
-        self.tls_session.server_tmp_rsa_key = PubKey((e, m, mLen))
+        self.tls_session.server_tmp_rsa_key = PubKeyRSA((e, m, mLen))
 
     def guess_payload_class(self, p):
         return Padding

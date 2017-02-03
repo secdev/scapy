@@ -18,10 +18,10 @@ import sys
 from contextlib import contextmanager
 from StringIO import StringIO
 
-from scapy.layers.tls.automaton import TLSServerAutomaton
-
 basedir = os.path.abspath(os.path.join(os.path.dirname(__file__),"../../"))
 sys.path=[basedir]+sys.path
+
+from scapy.layers.tls.automaton import TLSServerAutomaton
 
 
 @contextmanager
