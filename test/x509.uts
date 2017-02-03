@@ -190,3 +190,17 @@ s = str(X509_CRL())
 str(X509_CRL(s)) == s
 
 
+############ Randval tests ###############################################
+
+= Randval tests : ASN1F_SEQUENCE_OF
+random.seed(42)
+r = ASN1F_SEQUENCE_OF("test", [], ASN1P_INTEGER).randval().number
+assert(isinstance(r, RandNum))
+int(r) == -16393048219351680611L
+
+= Randval tests : ASN1F_PACKET
+random.seed(0xcafecafe)
+r = ASN1F_PACKET("otherName", None, X509_OtherName).randval()
+assert(isinstance(r, X509_OtherName))
+str(r.type_id) == '171.184.10.271'
+
