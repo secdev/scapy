@@ -9,15 +9,21 @@ VoIP (Voice over IP) related functions
 
 import os
 ###################
-## Testing stuff ##
+##  Listen VoIP  ##
 ###################
 
-from fcntl import fcntl
 from scapy.sendrecv import sniff
 from scapy.layers.inet import IP,UDP
 from scapy.layers.rtp import RTP
 from scapy.utils import get_temp_file
+from scapy.consts import WINDOWS
+from scapy.config import conf
 
+if WINDOWS:
+    if conf.prog.sox is None:
+        raise OSError("Sox must be installed to play VoIP packets")
+else:
+    from fcntl import fcntl
 
 def merge(x,y,sample_size=2):
     if len(x) > len(y):
@@ -33,9 +39,38 @@ def merge(x,y,sample_size=2):
 
 
 def voip_play(s1,list=None,**kargs):
-    FIFO=get_temp_file()
-    FIFO1=FIFO % 1
-    FIFO2=FIFO % 2
+    """Play VoIP packets with RAW data that
+    are either sniffed either from an IP, or
+    specified as a list
+    
+    :param s1: The IP of the src or of the
+    dst of any VoIP packet.
+    :param list: (optional) A list of packets to load
+    :type s1: string
+    :type list: list
+
+    :Example:
+
+    >>> voip_play("64.2.142.189")
+    while calling '411@ideasip.com'
+
+    >>> voip_play(None, list)
+    with list a list of packets with VoIP data
+    in their RAW layer
+
+    .. note:: On Windows, this will act like
+    voip_play1
+
+    .. seealso:: voip_play1
+    to avoid using FIFO
+
+    .. seealso:: voip_play3
+    to read RTP VoIP packets
+    """
+    if WINDOWS:
+        return voip_play1(s1, list, **kargs)
+    FIFO1=get_temp_file()
+    FIFO2=get_temp_file()
     
     os.mkfifo(FIFO1)
     os.mkfifo(FIFO2)
@@ -53,7 +88,7 @@ def voip_play(s1,list=None,**kargs):
                 last = []
             if not pkt:
                 return 
-            if not pkt.haslayer(UDP):
+            if not pkt.haslayer(UDP) or not pkt.haslayer(IP):
                 return 
             ip=pkt.getlayer(IP)
             if s1 in [ip.src, ip.dst]:
@@ -84,13 +119,22 @@ def voip_play(s1,list=None,**kargs):
 
 
 def voip_play1(s1,list=None,**kargs):
+    """
+    No-FIFO version of voip_play
+    It will not store the data in a temp file, which
+    might be faster
 
-    
-    dsp,rd = os.popen2("sox -t .ul - -t ossdsp /dev/dsp")
+    .. seealso:: voip_play
+    """
+    if not WINDOWS:
+        _command = "sox -t .ul - -t ossdsp /dev/dsp"
+    else:
+        _command = conf.prog.sox + " -t .ul - -t waveaudio"
+    dsp,rd = os.popen2(_command)
     def play(pkt):
         if not pkt:
             return 
-        if not pkt.haslayer(UDP):
+        if not pkt.haslayer(UDP) or not pkt.haslayer(IP):
             return 
         ip=pkt.getlayer(IP)
         if s1 in [ip.src, ip.dst]:
@@ -107,13 +151,18 @@ def voip_play1(s1,list=None,**kargs):
         rd.close()
 
 def voip_play2(s1,**kargs):
-    dsp,rd = os.popen2("sox -t .ul -c 2 - -t ossdsp /dev/dsp")
+    # FIXME
+    if not WINDOWS:
+        _command = "sox -t .ul -c 2 - -t ossdsp /dev/dsp"
+    else:
+        _command = conf.prog.sox + " -t .ul -c 2 - -t waveaudio"
+    dsp,rd = os.popen2(_command)
     def play(pkt, last=None):
         if last is None:
             last = []
         if not pkt:
             return 
-        if not pkt.haslayer(UDP):
+        if not pkt.haslayer(UDP) or not pkt.haslayer(IP):
             return 
         ip=pkt.getlayer(IP)
         if s1 in [ip.src, ip.dst]:
@@ -135,11 +184,20 @@ def voip_play2(s1,**kargs):
     sniff(store=0, prn=play, **kargs)
 
 def voip_play3(lst=None,**kargs):
-    dsp,rd = os.popen2("sox -t .ul - -t ossdsp /dev/dsp")
+    """
+    Read and play VoIP RTP packets
+    
+    .. seealso:: voip_play
+    """
+    if not WINDOWS:
+        _command = "sox -t .ul - -t ossdsp /dev/dsp"
+    else:
+        _command = conf.prog.sox + " -t .ul - -t waveaudio"
+    dsp,rd = os.popen2(_command)
     try:
         def play(pkt, dsp=dsp):
             from scapy.config import conf
-            if pkt and pkt.haslayer(UDP) and pkt.haslayer(conf.raw_layer):
+            if pkt and pkt.haslayer(UDP) and pkt.haslayer(RTP):
                 dsp.write(pkt.getlayer(RTP).load)
         if lst is None:
             sniff(store=0, prn=play, **kargs)

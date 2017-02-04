@@ -251,6 +251,8 @@ class WinProgPath(ConfClass):
 conf.prog = WinProgPath()
 if conf.prog.powershell == "powershell":
     conf.prog.powershell = None
+if conf.prog.sox == "sox":
+    conf.prog.sox = None
 
 class PcapNameNotFoundError(Scapy_Exception):
     pass    
