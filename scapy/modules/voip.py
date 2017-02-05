@@ -27,9 +27,15 @@ else:
 def merge(x,y,sample_size=2):
     m = ""
     ss=sample_size
-    for i in xrange(len(x)/ss):
+    min_ = 0
+    if len(x) >= len(y):
+        min_ = y
+    elif len(x) < len(y):
+        min_ = x
+    r_ = len(min_)/ss
+    for i in xrange(r_):
         m += x[ss*i:ss*(i+1)]+y[ss*i:ss*(i+1)]
-    return  m
+    return x[len(min_):], y[len(min_):], m
 
 
 def voip_play(s1, list=None, **kargs):
@@ -106,34 +112,30 @@ def voip_play2(s1,**kargs):
     else:
         _command = conf.prog.sox + " -t .ul -c 2 - -t waveaudio"
     dsp,rd = os.popen2(_command)
-    global last
-    last = None
+    global x1, x2
+    x1 = ""
+    x2 = ""
     def play(pkt):
-        global last
+        global x1, x2
         if not pkt:
             return 
         if not pkt.haslayer(UDP) or not pkt.haslayer(IP):
             return 
         ip=pkt.getlayer(IP)
         if s1 in [ip.src, ip.dst]:
-            if not last:
-                last = []
-                last.append(pkt)
-                return
-            load=last.pop()
-            x1 = load.getlayer(conf.raw_layer).load[12:]
-            if load.getlayer(IP).src == ip.src:
-                x2 = ""
-                last.append(pkt)
+            if ip.dst == s1:
+                x1 += pkt.getlayer(conf.raw_layer).load[12:]
             else:
-                x2 = pkt.getlayer(conf.raw_layer).load[12:]
-            dsp.write(merge(x1,x2))
+                x2 += pkt.getlayer(conf.raw_layer).load[12:]
+            x1, x2, r = merge(x1, x2)
+            dsp.write(r)
             
     sniff(store=0, prn=play, **kargs)
 
-def voip_play3(lst=None,**kargs):
+def voip_play3(list=None,**kargs):
     """Same than voip_play, but made to
-    read and play VoIP RTP packets
+    read and play VoIP RTP packets, without
+    checking IP.
     
     .. seealso:: voip_play
     for basic VoIP packets
