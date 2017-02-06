@@ -283,7 +283,7 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
             def attr_matches(self, text):
                 m = re.match(r"(\w+(\.\w+)*)\.(\w*)", text)
                 if not m:
-                    return
+                    return []
                 expr, attr = m.group(1, 3)
                 try:
                     object = eval(expr)
@@ -291,7 +291,7 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
                     try:
                         object = eval(expr, session)
                     except (NameError, AttributeError):
-                        return
+                        return []
                 from scapy.packet import Packet, Packet_metaclass
                 if isinstance(object, Packet) or isinstance(object, Packet_metaclass):
                     words = filter(lambda x: x[0]!="_",dir(object))
