@@ -391,7 +391,6 @@ try:
     inet_pton = socket.inet_pton
 except AttributeError:
     from scapy.pton_ntop import *
-    log_loading.info("inet_ntop/pton functions not found. Python IPv6 support not present")
 
 
 def atol(x):

@@ -15,7 +15,6 @@ import cPickle
 import __builtin__
 
 from scapy.error import *
-from scapy import utils
     
 
 def _probe_config_file(cf):
@@ -257,6 +256,8 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
     log_scapy.addHandler(console_handler)
+
+    from scapy import utils
 
     the_banner = "Welcome to Scapy (%s)"
     if mybanner is not None:

@@ -8,6 +8,8 @@ from sys import platform, maxsize
 import platform as platform_lib
 from scapy.error import *
 
+import subprocess
+
 try:
     from matplotlib import get_backend as matplotlib_get_backend
     import matplotlib.pyplot as plt
@@ -25,12 +27,26 @@ except (ImportError, RuntimeError):
     MATPLOTLIB_DEFAULT_PLOT_KARGS = dict()
     log_loading.info("Can't import matplotlib. Won't be able to plot.")
 
+def test_pyx():
+    try:
+        with open(os.devnull, 'wb') as devnull:
+            r = subprocess.check_call(["pdflatex", "--version"], stdout=devnull, stderr=subprocess.STDOUT)
+    except:
+        return False
+    else:
+        return r == 0
+
 try:
     import pyx
-    PYX=1
+    if test_pyx():
+        PYX = 1
+    else:
+        log_loading.warning("PyX depedencies are not installed ! Please install TexLive or MikTeX.")
+        PYX = 0
 except ImportError:
     log_loading.info("Can't import PyX. Won't be able to use psdump() or pdfdump().")
-    PYX=0
+    PYX = 0
+
 
 LINUX = platform.startswith("linux")
 OPENBSD = platform.startswith("openbsd")
