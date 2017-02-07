@@ -138,15 +138,52 @@ def exec_query(cmd, fields):
         return _exec_query_vbs(cmd, fields)
     return _exec_query_ps(cmd, fields)
 
+DEEP_LOOKUP_CACHE = {}
+
+def _deep_lookup(prog_list, max_depth=3):
+    """Quickly iterate through Program Files to find the programs"""
+    results = {}
+    def env_path(key):
+        try:
+            return os.environ[key]
+        except KeyError:
+            return ""
+    def has_common_item(l1, l2):
+        for i in l1:
+            if i in l2:
+                return True, i, i
+            if i + ".exe" in l2:
+                return True, i + ".exe", i
+        return False, None, None
+    def key_in_path(path, key):
+        return key.lower() in path.lower()
+    deeper_paths = [env_path("ProgramFiles"), env_path("ProgramFiles(x86)")]
+    for path in deeper_paths:
+        len_p = len(path) + len(os.path.sep)
+        for root, subFolders, files in os.walk(path):
+            depth = root[len_p:].count(os.path.sep)
+            if depth > max_depth:
+                del subFolders[:]
+                continue
+            ye, name, key = has_common_item(prog_list, files)
+            if ye:
+                _k_path = os.path.normpath(os.path.join(root, name))
+                if key_in_path(_k_path, prog_list[key]):
+                    results[name] = _k_path
+    global DEEP_LOOKUP_CACHE
+    DEEP_LOOKUP_CACHE = results
 
 def _where(filename, dirs=None, env="PATH"):
-    """Find file in current dir or system path"""
+    """Find file in current dir, in deep_lookup cache or in system path"""
     if dirs is None:
         dirs = []
     if not isinstance(dirs, list):
         dirs = [dirs]
     if glob(filename):
         return filename
+    global DEEP_LOOKUP_CACHE
+    if filename in DEEP_LOOKUP_CACHE:
+        return DEEP_LOOKUP_CACHE[filename]
     paths = [os.curdir] + os.environ[env].split(os.path.pathsep) + dirs
     for path in paths:
         for match in glob(os.path.join(path, filename)):
@@ -158,7 +195,8 @@ def win_find_exe(filename, installsubdir=None, env="ProgramFiles"):
     """Find executable in current dir, system path or given ProgramFiles subdir"""
     if not WINDOWS:
         return
-    for fn in [filename, filename+".exe"]:
+    fns = [filename] if filename.endswith(".exe") else [filename+".exe", filename]
+    for fn in fns:
         try:
             if installsubdir is None:
                 path = _where(fn)
@@ -182,24 +220,28 @@ def is_new_release():
     return False
 
 class WinProgPath(ConfClass):
+    external_prog_list = {"AcroRd32" : "", "gsview32" : "", "dot" : "graph", "windump" : "", "tshark" : "",
+                          "tcpreplay" : "", "hexer" : "", "wireshark" : ""}
     _default = "<System default>"
-    # We try some magic to find the appropriate executables
-    pdfreader = win_find_exe("AcroRd32") 
-    psreader = win_find_exe("gsview32.exe", "Ghostgum/gsview")
-    dot = win_find_exe("dot", "ATT/Graphviz/bin")
-    tcpdump = win_find_exe("windump")
-    tshark = win_find_exe("tshark")
-    tcpreplay = win_find_exe("tcpreplay")
-    display = _default
-    hexedit = win_find_exe("hexer")
-    wireshark = win_find_exe("wireshark", "wireshark")
-    powershell = win_find_exe(
-        "powershell",
-        installsubdir="System32\\WindowsPowerShell\\v1.0",
-        env="SystemRoot"
-    )
-    cscript = win_find_exe("cscript", installsubdir="System32",
-                           env="SystemRoot")
+    def __init__(self):
+        _deep_lookup(self.external_prog_list)
+        # We try some magic to find the appropriate executables
+        self.pdfreader = win_find_exe("AcroRd32") 
+        self.psreader = win_find_exe("gsview32")
+        self.dot = win_find_exe("dot")
+        self.tcpdump = win_find_exe("windump")
+        self.tshark = win_find_exe("tshark")
+        self.tcpreplay = win_find_exe("tcpreplay")
+        self.display = self._default
+        self.hexedit = win_find_exe("hexer")
+        self.wireshark = win_find_exe("wireshark", "wireshark")
+        self.powershell = win_find_exe(
+            "powershell",
+            installsubdir="System32\\WindowsPowerShell\\v1.0",
+            env="SystemRoot"
+        )
+        self.cscript = win_find_exe("cscript", installsubdir="System32",
+                               env="SystemRoot")
 
 conf.prog = WinProgPath()
 if conf.prog.powershell == "powershell":
