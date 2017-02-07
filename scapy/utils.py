@@ -364,15 +364,12 @@ except AttributeError:
     from scapy.pton_ntop import *
     log_loading.info("inet_ntop/pton functions not found. Python IPv6 support not present")
 
-def gethostbyname(x):
-    """Returns the IPv4 address of the host"""
-    return socket.gethostbyname(x)
 
 def atol(x):
     try:
         ip = inet_aton(x)
     except socket.error:
-        ip = inet_aton(gethostbyname(x))
+        ip = inet_aton(socket.gethostbyname(x))
     return struct.unpack("!I", ip)[0]
 def ltoa(x):
     return inet_ntoa(struct.pack("!I", x&0xffffffff))
@@ -1283,7 +1280,7 @@ def whois(ip_address):
     """Whois client for Python"""
     whois_ip = str(ip_address)
     try:
-        query = gethostbyname(whois_ip)
+        query = socket.gethostbyname(whois_ip)
     except:
         query = whois_ip
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
