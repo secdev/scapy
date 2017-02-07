@@ -7301,3 +7301,30 @@ Dot11(type=0, subtype=1).answers(query) == True
 
 = Dot11 - misc
 Dot11Elt(info="scapy").summary() == "SSID='scapy'"
+
+
+############
+############
++ ASN.1
+
+= MIB
+
+import tempfile
+fd, fname = tempfile.mkstemp()
+os.write(fd, "-- MIB test\nscapy       OBJECT IDENTIFIER ::= {test 2807}\n")
+os.close(fd)
+
+load_mib(fname)
+len([k for k in conf.mib.iterkeys() if "scapy" in k]) == 1
+
+= BER tests
+
+BER_id_enc(42) == '*'
+BER_id_enc(2807) == '\xbfw'
+
+b = BERcodec_IPADDRESS()
+r1 = b.enc("8.8.8.8")
+r1 == '@\x04\x08\x08\x08\x08'
+
+r2 = b.dec(r1)[0]
+r2.val == '8.8.8.8'
