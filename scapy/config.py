@@ -280,6 +280,10 @@ class LogLevel(object):
         
 
 def isCryptographyValid():
+    """
+    Check if the cryptography library is present, and if it is recent enough
+    (v1.7 or later).
+    """
     try:
         import cryptography
     except ImportError:
