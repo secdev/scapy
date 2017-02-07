@@ -7,12 +7,12 @@
 Tools for handling TLS sessions and digital certificates.
 """
 
-try:
-    import cryptography
-except ImportError:
+from scapy.config import conf
+
+if not conf.crypto_valid:
     import logging
     log_loading = logging.getLogger("scapy.loading")
-    log_loading.info("Can't import python cryptography lib. Disabled certificate manipulation tools")
+    log_loading.info("Can't import python-cryptography v1.7+. Disabled PKCS #1 signing/verifying.")
 
 try:
     import ecdsa

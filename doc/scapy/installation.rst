@@ -166,11 +166,13 @@ Here are the topics involved and some examples that you can use to try if your i
      >>> enc=rdpcap("weplab-64bit-AA-managed.pcap")
      >>> enc.show()
      >>> enc[0]
-      >>> conf.wepkey="AA\x00\x00\x00"
-      >>> dec=Dot11PacketList(enc).toEthernet()
-      >>> dec.show()
-      >>> dec[0]
+     >>> conf.wepkey="AA\x00\x00\x00"
+     >>> dec=Dot11PacketList(enc).toEthernet()
+     >>> dec.show()
+     >>> dec[0]
  
+* PKI operations and TLS decryption. `cryptography <https://cryptography.io>` is also needed.
+
 * Fingerprinting. ``nmap_fp()`` needs `Nmap <http://nmap.org>`_. You need an `old version <http://nmap.org/dist-old/>`_ (before v4.23) that still supports first generation fingerprinting.
 
   .. code-block:: python 
@@ -187,8 +189,6 @@ Here are the topics involved and some examples that you can use to try if your i
  
 * VOIP. ``voip_play()`` needs `SoX <http://sox.sourceforge.net/>`_.
  
-* IPsec Crypto Support. ``SecurityAssociation()`` needs `Pycrypto 2.7a1 <https://github.com/dlitz/pycrypto>`_. Combined AEAD modes such as GCM and CCM are not available yet because of cryptography restrictions.
-
 Platform-specific instructions
 ==============================
 
@@ -207,7 +207,13 @@ Debian/Ubuntu
 
 Just use the standard packages::
 
-$ sudo apt-get install tcpdump graphviz imagemagick python-gnuplot python-crypto python-pyx 
+$ sudo apt-get install tcpdump graphviz imagemagick python-gnuplot python-cryptography python-pyx
+
+Scapy optionally uses python-cryptography v1.7 or later. It has not been packaged for ``apt`` in less recent OS versions (e.g. Debian Jessie). If you need the cryptography-related methods, you may install the library with:
+
+.. code-block:: text
+
+    # pip install cryptography
 
 Fedora
 ------
@@ -226,7 +232,7 @@ Some optional packages:
 
 .. code-block:: text
 
-    # yum install graphviz python-crypto sox PyX gnuplot numpy
+    # yum install graphviz python-cryptography sox PyX gnuplot numpy
     # cd /tmp
     # wget http://heanet.dl.sourceforge.net/sourceforge/gnuplot-py/gnuplot-py-1.8.tar.gz
     # tar xvfz gnuplot-py-1.8.tar.gz
@@ -288,11 +294,11 @@ Here's how to install Scapy on OpenBSD 5.9+
 Optional packages (OpenBSD only)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-py-crypto
+py-cryptography
 
 .. code-block:: text
 
- # pkg_add py-crypto
+ # pkg_add py-cryptography
 
 gnuplot and its Python binding: 
 
