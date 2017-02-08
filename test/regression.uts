@@ -96,15 +96,63 @@ True
 ############
 + Main.py tests
 
-= Test save_session
-init_session()
-# TODO: Remove the comments once the pickling bug has been fixed
-#test_value = IP(dst="192.168.0.10")
-#test_value
-save_session(fname="scapySession1")
+= Prepare emulator
+import mock
+from mock import Mock
 
-= Test load_session
-load_session(fname="scapySession1")
+if WINDOWS:
+    # This fix when the windows doesn't have a size (run with a windows server)
+    mock.patch("pyreadline.console.console.Console.size").return_value = (300, 300)
+
+@mock.patch("scapy.config.conf.readfunc")
+def emulate_main_input(data, mock_readfunc):
+    global index
+    index = 0 # reset var
+    def readlineScapy(*args, **kargs):
+        global index
+        if len(data) == index:
+            r_data = "exit(1 if hasattr(sys, 'last_value') and sys.last_value is not None else 0)"
+        else:
+            r_data = data[index]
+        index +=1
+        print r_data
+        return r_data
+    mock_readfunc.side_effect = readlineScapy
+    def reduce_mock(self):
+        return (Mock, ())
+    mock_readfunc.__reduce__ = reduce_mock
+    sys.argv = ['']
+    def console_exit(code):
+        raise SystemExit(code)
+    exit_code = -1
+    try:
+        interact(mydict={"exit": console_exit})
+    except SystemExit as e:
+        exit_code = str(e)
+        pass
+    assert exit_code == "0"
+
+= Test basic save_session and load_session
+
+data = ["init_session(\"scapySession1\")",\
+"test_value = \"8.8.8.8\"",\
+"save_session()",\
+"del test_value",\
+"load_session()",\
+"assert test_value == \"8.8.8.8\""]
+
+emulate_main_input(data)
+
+= Test save_session and load_session with fname
+
+data = ["init_session(\"scapySession2\")",\
+"test_value = 7",\
+"save_session(fname=\"scapySaveSession.dat\")",\
+"del test_value",\
+"load_session(fname=\"scapySaveSession.dat\")",\
+"assert test_value == 7"]
+
+emulate_main_input(data)
 
 = Test utility functions
 

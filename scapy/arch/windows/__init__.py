@@ -546,7 +546,7 @@ def read_routes6():
 
 
 
-if conf.interactive_shell != 'ipython':
+if conf.interactive_shell != 'ipython' and conf.interactive:
     try:
         __IPYTHON__
     except NameError:

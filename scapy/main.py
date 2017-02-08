@@ -39,6 +39,7 @@ def _read_config_file(cf):
 
 DEFAULT_PRESTART_FILE = _probe_config_file(".scapy_prestart.py")
 DEFAULT_STARTUP_FILE = _probe_config_file(".scapy_startup.py")
+session = None
 
 def _usage():
     print """Usage: scapy.py [-s sessionfile] [-c new_startup_file] [-p new_prestart_file] [-C] [-P]
@@ -137,13 +138,16 @@ def save_session(fname=None, session=None, pickleProto=-1):
              log_interactive.error("[%s] (%s) can't be saved." % (k, type(to_be_saved[k])))
              del(to_be_saved[k])
 
+    
     try:
-        os.rename(fname, fname+".bak")
+         os.rename(fname, fname+".bak")
     except OSError:
-        pass
+         pass
+    
     f=gzip.open(fname,"wb")
     cPickle.dump(to_be_saved, f, pickleProto)
     f.close()
+    del f
 
 def load_session(fname=None):
     if fname is None:
@@ -151,11 +155,17 @@ def load_session(fname=None):
     try:
         s = cPickle.load(gzip.open(fname,"rb"))
     except IOError:
-        s = cPickle.load(open(fname,"rb"))
+        try:
+            s = cPickle.load(open(fname,"rb"))
+        except IOError:
+            # Raise "No such file exception"
+            raise
+
     scapy_session = __builtin__.__dict__["scapy_session"]
     scapy_session.clear()
     scapy_session.update(s)
-
+    log_loading.info("Loaded session [%s]" % conf.session)
+    
 def update_session(fname=None):
     if fname is None:
         fname = conf.session
@@ -166,8 +176,10 @@ def update_session(fname=None):
     scapy_session = __builtin__.__dict__["scapy_session"]
     scapy_session.update(s)
 
-def init_session(mydict=None, session_name="", STARTUP_FILE=DEFAULT_STARTUP_FILE):
+def init_session(session_name, mydict=None):
     global session
+    global globkeys
+    
     scapy_builtins = __import__("all",globals(),locals(),".").__dict__
     for name, sym in scapy_builtins.iteritems():
         if name [0] != '_':
@@ -179,11 +191,6 @@ def init_session(mydict=None, session_name="", STARTUP_FILE=DEFAULT_STARTUP_FILE
         __builtin__.__dict__.update(mydict)
         globkeys += mydict.keys()
     
-
-    conf.color_theme = DefaultTheme()
-    if STARTUP_FILE:
-        _read_config_file(STARTUP_FILE)
-        
     if session_name:
         try:
             os.stat(session_name)
@@ -208,13 +215,10 @@ def init_session(mydict=None, session_name="", STARTUP_FILE=DEFAULT_STARTUP_FILE
         else:
             conf.session = session_name
             session={"conf":conf}
-            
     else:
         session={"conf": conf}
 
     __builtin__.__dict__["scapy_session"] = session
-    
-    return globkeys
 
 ################
 ##### Main #####
@@ -243,6 +247,7 @@ def scapy_write_history_file(readline):
 
 def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
     global session
+    global globkeys
     import code,sys,os,getopt,re
     from scapy.config import conf
     conf.interactive = True
@@ -312,13 +317,11 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
         readline.parse_and_bind("tab: complete")
     
     
-    session=None
-    session_name=""
     STARTUP_FILE = DEFAULT_STARTUP_FILE
     PRESTART_FILE = DEFAULT_PRESTART_FILE
 
+    session_name = ""
 
-    iface = None
     try:
         opts=getopt.getopt(argv[1:], "hs:Cc:Pp:d")
         for opt, parm in opts[0]:
@@ -345,10 +348,14 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
         log_loading.error(msg)
         sys.exit(1)
 
+    conf.color_theme = DefaultTheme()
+    
+    if STARTUP_FILE:
+        _read_config_file(STARTUP_FILE)
     if PRESTART_FILE:
         _read_config_file(PRESTART_FILE)
 
-    globkeys = init_session(mydict, session_name, STARTUP_FILE)
+    init_session(None, mydict)
 
     if READLINE:
         if conf.histfile:
