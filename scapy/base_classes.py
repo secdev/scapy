@@ -77,7 +77,8 @@ class Net(Gen):
         self.repr=net
         self.parsed,self.netmask = self._parse_net(net)
 
-
+    def __str__(self):
+        return self.repr
                                                                                                
     def __iter__(self):
         for d in xrange(*self.parsed[3]):

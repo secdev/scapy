@@ -7,10 +7,10 @@
 General utility functions.
 """
 
-import os,sys,socket,types
-import random,time
-import gzip,zlib,cPickle
-import re,struct,array
+import os, sys, socket, types
+import random, time
+import gzip, zlib, cPickle
+import re, struct, array
 import subprocess
 import tempfile
 
@@ -1275,3 +1275,34 @@ def make_lined_table(*args, **kargs):
 def make_tex_table(*args, **kargs):
     __make_table(lambda l: "%s", lambda l: "& %s", "\\\\", seplinefunc=lambda a,x:"\\hline", *args, **kargs)
 
+###############################################
+### WHOIS CLIENT (not available on windows) ###
+###############################################
+
+def whois(ip_address):
+    """Whois client for Python"""
+    whois_ip = str(ip_address)
+    try:
+        query = socket.gethostbyname(whois_ip)
+    except:
+        query = whois_ip
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.connect(("whois.ripe.net", 43))
+    s.send(query + "\r\n")
+    answer = ''
+    while True:
+        d = s.recv(4096)
+        answer += d
+        if not d:
+            break
+    s.close()
+    ignore_tag = "remarks:"
+    # ignore all lines starting with the ignore_tag
+    lines = [ line for line in answer.split("\n") if not line or (line and not line.startswith(ignore_tag))]
+    # remove empty lines at the bottom
+    for i in range(1, len(lines)):
+        if not lines[-i].strip():
+            del lines[-i]
+        else:
+            break
+    return "\n".join(lines[3:])

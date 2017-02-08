@@ -16,6 +16,7 @@ from scapy.base_classes import Gen
 from scapy.data import *
 from scapy.layers.l2 import *
 from scapy.config import conf
+from scapy.consts import WINDOWS
 from scapy.fields import *
 from scapy.packet import *
 from scapy.volatile import *
@@ -23,6 +24,7 @@ from scapy.sendrecv import sr,sr1,srp1
 from scapy.plist import PacketList,SndRcvList
 from scapy.automaton import Automaton,ATMT
 from scapy.error import warning
+from scapy.utils import whois
 
 import scapy.as_resolvers
 
@@ -36,7 +38,11 @@ class IPTools(object):
     """Add more powers to a class with an "src" attribute."""
     __slots__ = []
     def whois(self):
-        os.system("whois %s" % self.src)
+        """whois the source and print the output"""
+        if WINDOWS:
+            print whois(self.src)
+        else:
+            os.system("whois %s" % self.src)
     def ottl(self):
         t = [32,64,128,255]+[self.ttl]
         t.sort()
