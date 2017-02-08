@@ -12,6 +12,7 @@ Implicit elliptic curves.
 # Note that this module will overwrite curves from python-ecdsa.
 
 import math
+import ecdsa
 from ecdsa.ellipticcurve import CurveFp, Point
 from ecdsa.curves import Curve
 from ecdsa.numbertheory import square_root_mod_prime
@@ -19,6 +20,17 @@ from ecdsa.numbertheory import square_root_mod_prime
 from scapy.utils import long_converter, binrepr
 from scapy.layers.tls.crypto.pkcs1 import pkcs_i2osp, pkcs_os2ip
 
+##############################################################
+# Version check
+##############################################################
+
+# Check if ECDSA is not too old (minimum is 0.13)
+
+try:
+    if float(ecdsa.__version__) < 0.13:
+        raise RuntimeError("Python-ECDSA is too old, please download the latest version with pip")
+except ValueError:
+    pass
 
 ##############################################################
 # Some helpers
