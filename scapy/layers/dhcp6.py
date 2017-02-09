@@ -74,7 +74,9 @@ dhcp6opts = { 1: "CLIENTID",
              36: "OPTION_GEOCONF_CIVIC",             #RFC-ietf-geopriv-dhcp-civil-09.txt
              37: "OPTION_REMOTE_ID",                 #RFC4649
              38: "OPTION_SUBSCRIBER_ID",             #RFC4580
-             39: "OPTION_CLIENT_FQDN" }              #RFC4704
+             39: "OPTION_CLIENT_FQDN",               #RFC4704
+             68: "OPTION_VSS",                       #RFC6607
+             79: "OPTION_CLIENT_LINKLAYER_ADDR" }    #RFC6939
 
 dhcp6opts_by_code = {  1: "DHCP6OptClientId", 
                        2: "DHCP6OptServerId",
@@ -116,12 +118,14 @@ dhcp6opts_by_code = {  1: "DHCP6OptClientId",
                        #40: "DHCP6OptPANAAgent",          #RFC-ietf-dhc-paa-option-05.txt
                        #41: "DHCP6OptNewPOSIXTimeZone,    #RFC4833
                        #42: "DHCP6OptNewTZDBTimeZone,     #RFC4833
-                       43: "DHCP6OptRelayAgentERO"        #RFC4994
+                       43: "DHCP6OptRelayAgentERO",       #RFC4994
                        #44: "DHCP6OptLQQuery",            #RFC5007
                        #45: "DHCP6OptLQClientData",       #RFC5007
                        #46: "DHCP6OptLQClientTime",       #RFC5007
                        #47: "DHCP6OptLQRelayData",        #RFC5007
                        #48: "DHCP6OptLQClientLink",       #RFC5007
+                       68: "DHCP6OptVSS",                 #RFC6607
+                       79: "DHCP6OptClientLinkLayerAddr", #RFC6939
 }
 
 
@@ -837,6 +841,26 @@ class DHCP6OptRelayAgentERO(_DHCP6OptGuessPayload):       # RFC4994
                     FieldLenField("optlen", None, length_of="reqopts", fmt="!H"),
                     _OptReqListField("reqopts", [23, 24],
                                      length_from = lambda pkt: pkt.optlen) ]
+
+# "Client link-layer address type.  The link-layer type MUST be a valid hardware
+# type assigned by the IANA, as described in [RFC0826]
+class DHCP6OptClientLinkLayerAddr(_DHCP6OptGuessPayload):       #RFC6939
+    name = "DHCP6 Option - Client Link Layer address"
+    fields_desc = [ ShortEnumField("optcode", 79, dhcp6opts),
+                    FieldLenField("optlen", None, length_of="clladdr",
+                                  adjust = lambda pkt,x: x+1),
+                    ShortField("lltype", 1), # ethernet
+                    _LLAddrField("clladdr", ETHER_ANY) ]
+
+# Virtual Subnet selection
+class DHCP6OptVSS(_DHCP6OptGuessPayload):       #RFC6607
+    name = "DHCP6 Option - Virtual Subnet Selection"
+    fields_desc = [ ShortEnumField("optcode", 68, dhcp6opts),
+                    FieldLenField("optlen", None, length_of="data",
+                                  adjust = lambda pkt,x: x+1),
+                    ByteField("type", 255), # Default Global/default table
+                    StrLenField("data", "",
+                                length_from = lambda pkt: pkt.optlen) ]
 
 #####################################################################
 ###                        DHCPv6 messages                        ###
