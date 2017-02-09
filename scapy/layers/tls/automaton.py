@@ -735,7 +735,7 @@ class TLSServerAutomaton(Automaton):
                                                                 self.local_port)
             return
         self.socket, addr = s.accept()
-        self.remote_ip, self.remote_port = addr
+        self.remote_ip, self.remote_port = addr, self.local_port
 
         raise self.WAITING_FOR_ClientHello()
 
