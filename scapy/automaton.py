@@ -390,7 +390,7 @@ class Automaton:
                 return self.rd.send(msg)
             return os.write(self.wr,msg)
         def recv(self, n=65535):
-            return self.read(n)   
+            return self.read(n)        
         def send(self, msg):
             return self.write(msg)
 
@@ -443,7 +443,7 @@ class Automaton:
     ## Services
     def debug(self, lvl, msg):
         if self.debug_level >= lvl:
-            log_interactive.debug(msg)
+            log_interactive.debug(msg)            
 
     def send(self, pkt):
         if self.state.state in self.interception_points:
@@ -518,6 +518,7 @@ class Automaton:
                     _instance_state(getattr(self, stname)))
         
         self.parse_args(*args, **kargs)
+
         self.start()
 
     def __iter__(self):
