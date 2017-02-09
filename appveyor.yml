@@ -24,7 +24,7 @@ test_script:
   - set PATH="%APPVEYOR_BUILD_FOLDER%;C:\Program Files\Wireshark\;%PATH%"
   
   # Main unit tests
-  - "%PYTHON%\\python -m coverage run -a bin\\UTscapy -f text -t test\\regression.uts -K mock_read_routes6_bsd || exit /b 42"
+  - "%PYTHON%\\python -m coverage run -a bin\\UTscapy -f text -t test\\regression.uts -F -K mock_read_routes6_bsd || exit /b 42"
   - 'del test\regression.uts'
 
   # Secondary unit tests
