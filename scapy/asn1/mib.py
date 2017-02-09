@@ -169,6 +169,12 @@ pkcs1_oids = {
         "sha224WithRSAEncryption"           : "1.2.840.113549.1.1.14"
         }
 
+####### secsig oiw #######
+
+secsig_oids = {
+        "sha1"                              : "1.3.14.3.2.26"
+        }
+
 ####### pkcs9 #######
 
 pkcs9_oids = {
@@ -428,7 +434,8 @@ certPkixAd_oids = {
         "id-ad-caRepository"            : "1.3.6.1.5.5.7.48.5",
         "id-pkix-ocsp-archive-cutoff"   : "1.3.6.1.5.5.7.48.6",
         "id-pkix-ocsp-service-locator"  : "1.3.6.1.5.5.7.48.7",
-        "id-ad-cmc"                     : "1.3.6.1.5.5.7.48.12"
+        "id-ad-cmc"                     : "1.3.6.1.5.5.7.48.12",
+        "basic-response"                : "1.3.6.1.5.5.7.48.1.1"
         }
 
 ####### ansi-x962 #######
@@ -556,6 +563,7 @@ evPolicy_oids = {
 
 x509_oids_sets = [
                  pkcs1_oids,
+                 secsig_oids,
                  pkcs9_oids,
                  attributeType_oids,
                  certificateExtension_oids,

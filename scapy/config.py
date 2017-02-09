@@ -310,7 +310,7 @@ def _prompt_changer(attr,val):
 class Conf(ConfClass):
     """This object contains the configuration of Scapy.
 session  : filename where the session will be saved
-interactive_shell : If set to "ipython", use IPython as shell. Default: Python 
+interactive_shell : If set to "ipython", use IPython as shell. Default: Python
 stealth  : if 1, prevents any unwanted packet to go out (ARP, DNS, ...)
 checkIPID: if 0, doesn't check that IPID matches between IP sent and ICMP IP citation received
            if 1, checks that they either are equal or byte swapped equals (bug in some IP stacks)
@@ -332,11 +332,12 @@ route    : holds the Scapy routing table and provides methods to manipulate it
 warning_threshold : how much time between warnings from the same place
 ASN1_default_codec: Codec used by default for ASN1 objects
 mib      : holds MIB direct access dictionary
-resolve   : holds list of fields for which resolution should be done
-noenum    : holds list of enum fields for which conversion to string should NOT be done
+resolve  : holds list of fields for which resolution should be done
+noenum   : holds list of enum fields for which conversion to string should NOT be done
 AS_resolver: choose the AS resolver class to use
 extensions_paths: path or list of paths where extensions are to be looked for
-contribs: a dict which can be used by contrib layers to store local configuration
+contribs : a dict which can be used by contrib layers to store local configuration
+debug_tls:When 1, print some TLS session secrets when they are computed.
 """
     version = VERSION
     session = ""
@@ -373,6 +374,7 @@ contribs: a dict which can be used by contrib layers to store local configuratio
     padding = 1
     except_filter = ""
     debug_match = 0
+    debug_tls = 0
     wepkey = ""
     route = None # Filed by route.py
     route6 = None # Filed by route6.py

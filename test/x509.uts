@@ -204,3 +204,45 @@ r = ASN1F_PACKET("otherName", None, X509_OtherName).randval()
 assert(isinstance(r, X509_OtherName))
 str(r.type_id) == '171.184.10.271'
 
+
+############ OCSP class ###############################################
+
+= OCSP class : OCSP Response import
+s = '0\x82\x01\xd3\n\x01\x00\xa0\x82\x01\xcc0\x82\x01\xc8\x06\t+\x06\x01\x05\x05\x070\x01\x01\x04\x82\x01\xb90\x82\x01\xb50\x81\x9e\xa2\x16\x04\x14Qh\xff\x90\xaf\x02\x07u<\xcc\xd9edb\xa2\x12\xb8Yr;\x18\x0f20160914121000Z0s0q0I0\t\x06\x05+\x0e\x03\x02\x1a\x05\x00\x04\x14\xcf&\xf5\x18\xfa\xc9~\x8f\x8c\xb3B\xe0\x1c/j\x10\x9e\x8e_\n\x04\x14Qh\xff\x90\xaf\x02\x07u<\xcc\xd9edb\xa2\x12\xb8Yr;\x02\x10\x07z]\xc36#\x01\xf9\x89\xfeT\xf7\xf8o>d\x80\x00\x18\x0f20160914121000Z\xa0\x11\x18\x0f20160921112500Z0\r\x06\t*\x86H\x86\xf7\r\x01\x01\x0b\x05\x00\x03\x82\x01\x01\x00\x90\xef\xf9\x15U\x88\xac@l\xf6n\x04C/\x1a\xf5\xbc[Xi\xd9U\xbe\'\xd3\xb7\xf5\xbb\t\xd8\xb1Tw\x9c2\xac\x7f\x88\xba\x98\xe4\xa13\xf4\xdc\xea\xf3\xacX\xe4,E\xf5\xa9\xc3\xf4B-N\xe0\x89D[\xbe\n\xc2h\x9ar\xfd\'.\xc8,\xed\x83\xc2\xf0\x89_\x8c\xc3\xe7\x8a\xad\xa4\x14\x03\x96\x02\xc4\xa8\xc8\x90\x96%X\x80\x95\x02\x9d_\xc82;m\xe9\x15\x00\xa8\x00\xb9\x01\xe3aN&\xe4\xd5\x8a\xc4w7\x0b\xc3~\xc5\xb1M\x10~T\x9e\x1d\xf6\x06\xf8\x12sTg\x14b_\xe7\xc04\xb4\xa3\xd2\x8f\xe6\xa6\xc4\x01q\x03j\xc8\xd4\xc7\x89\xdde\x99\x1a\xd9\x02\xe7\x17\xd1\xf40P\xef\xf6$\xee\xfad\xf4\xeb\xc8\xf7\x0bRL\x8b\xa5x\xe4R2\xe9\xc2\xfcB\nh\x93\xf7\x0ep4h\xeb\x17\x83\xc8\x88!\xc3W\x94WG\xfe3\x15C0qE&A\x99\xa8}\x1a\xda"\xa9O\xba\x90W_W\xado\x1c\xf0`g7\xbb$\x91o\xec\xdd\xbd\x9e\x8bb\xfc'
+response = OCSP_Response(s)
+
+= OCSP class : OCSP Response global checks
+assert(response.responseStatus.val == 0)
+assert(isinstance(response.responseBytes, OCSP_ResponseBytes))
+responseBytes = response.responseBytes
+assert(responseBytes.responseType == ASN1_OID("basic-response"))
+assert(responseBytes.signatureAlgorithm.algorithm == ASN1_OID("sha256WithRSAEncryption"))
+assert(responseBytes.signatureAlgorithm.parameters == ASN1_NULL(0))
+assert(responseBytes.signature.val_readable[:3] == "\x90\xef\xf9" and responseBytes.signature.val_readable[-3:] == "\x8bb\xfc")
+responseBytes.certs is None
+
+= OCSP class : OCSP ResponseData checks
+responseData = responseBytes.tbsResponseData
+assert(responseData.version is None)
+rID = responseData.responderID.responderID
+assert(isinstance(rID, OCSP_ByKey))
+assert(rID.byKey.val[:3] == "Qh\xff" and rID.byKey.val[-3:] == "Yr;")
+assert(responseData.producedAt == ASN1_GENERALIZED_TIME("20160914121000Z"))
+assert(len(responseData.responses) == 1)
+responseData.responseExtensions is None
+
+= OCSP class : OCSP SingleResponse checks
+singleResponse = responseData.responses[0]
+assert(singleResponse.certID.hashAlgorithm.algorithm == ASN1_OID("sha1"))
+assert(singleResponse.certID.hashAlgorithm.parameters == ASN1_NULL(0))
+assert(singleResponse.certID.issuerNameHash.val[:3] == "\xcf&\xf5" and singleResponse.certID.issuerNameHash.val[-3:] == "\x8e_\n")
+assert(singleResponse.certID.issuerKeyHash.val[:3] == "Qh\xff" and singleResponse.certID.issuerKeyHash.val[-3:] == "Yr;")
+assert(singleResponse.certID.serialNumber.val == 0x77a5dc3362301f989fe54f7f86f3e64)
+assert(isinstance(singleResponse.certStatus.certStatus, OCSP_GoodInfo))
+assert(singleResponse.thisUpdate == ASN1_GENERALIZED_TIME("20160914121000Z"))
+assert(singleResponse.nextUpdate == ASN1_GENERALIZED_TIME("20160921112500Z"))
+singleResponse.singleExtensions is None
+
+= OCSP class : OCSP Response reconstruction
+str(response) == s
+

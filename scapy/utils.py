@@ -152,6 +152,10 @@ def hexstr(x, onlyasc=0, onlyhex=0):
         s.append(sane(x)) 
     return "  ".join(s)
 
+def repr_hex(s):
+    """ Convert provided bitstring to a simple string of hex digits """
+    return "".join(map(lambda x: "%02x" % ord(x),s))
+
 @conf.commands.register
 def hexdiff(x,y):
     """Show differences between 2 binary strings"""
@@ -343,8 +347,34 @@ def mac2str(mac):
 def str2mac(s):
     return ("%02x:"*6)[:-1] % tuple(map(ord, s)) 
 
-def strxor(x,y):
-    return "".join(map(lambda x,y:chr(ord(x)^ord(y)),x,y))
+def randstring(l):
+    """
+    Returns a random string of length l (l >= 0)
+    """
+    tmp = map(lambda x: struct.pack("B", random.randrange(0, 256, 1)), [""]*l)
+    return "".join(tmp)
+
+def zerofree_randstring(l):
+    """
+    Returns a random string of length l (l >= 0) without zero in it.
+    """
+    tmp = map(lambda x: struct.pack("B", random.randrange(1, 256, 1)), [""]*l)
+    return "".join(tmp)
+
+def strxor(s1, s2):
+    """
+    Returns the binary XOR of the 2 provided strings s1 and s2. s1 and s2
+    must be of same length.
+    """
+    return "".join(map(lambda x,y:chr(ord(x)^ord(y)), s1, s2))
+
+def strand(s1, s2):
+    """
+    Returns the binary AND of the 2 provided strings s1 and s2. s1 and s2
+    must be of same length.
+    """
+    return "".join(map(lambda x,y:chr(ord(x)&ord(y)), s1, s2))
+
 
 # Workaround bug 643005 : https://sourceforge.net/tracker/?func=detail&atid=105470&aid=643005&group_id=5470
 try:
