@@ -61,8 +61,6 @@ TODO list (may it be carved away by good souls):
 
         - FFDH groups from RFC 7919;
 
-        - the so-called 'tls' hash used with SSLv3 and TLS 1.0;
-
         - the compressed EC point format.
 
 
