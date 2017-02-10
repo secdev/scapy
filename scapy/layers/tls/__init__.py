@@ -63,8 +63,6 @@ TODO list (may it be carved away by good souls):
 
         - the so-called 'tls' hash used with SSLv3 and TLS 1.0;
 
-        - the simple DES algorithm;
-
         - the compressed EC point format.
 
 
