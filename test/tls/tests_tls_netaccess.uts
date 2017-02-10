@@ -10,7 +10,7 @@
 
 = Load server util functions
 
-import sys, os, time, multiprocessing, subprocess
+import sys, os, re, time, multiprocessing, subprocess
 
 sys.path.append(os.path.abspath("./tls"))
 
@@ -28,13 +28,25 @@ def test_tls_server(suite="", version=""):
     # Run client
     CA_f = os.path.abspath("./tls/pki/ca_cert.pem")
     p = subprocess.Popen("openssl s_client -cipher " + suite + " " + version + " -CAfile " + CA_f, stdout=subprocess.PIPE, universal_newlines=True,
-                            stdin=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+                            stdin=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
     out, err = p.communicate(input=msg)
-    if err:
-        print err
+    print out
+    if p.returncode != 0:
         th_.terminate()
         raise RuntimeError("OpenSSL returned with error code")
-    assert p.returncode == 0
+    else:
+        p = re.compile(r'verify return:(\d+)')
+        _failed = False
+        _one_success = False
+        for match in p.finditer(out):
+            if match.group(1).strip() != "1":
+                _failed = True
+                break
+            else:
+                _one_success = True
+        if _failed or not _one_success:
+            th_.terminate()
+            raise RuntimeError("OpenSSL returned unexpected values")
     # Wait for server
     th_.join(30)
     if th_.is_alive():

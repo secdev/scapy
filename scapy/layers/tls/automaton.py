@@ -735,7 +735,11 @@ class TLSServerAutomaton(Automaton):
                                                                 self.local_port)
             return
         self.socket, addr = s.accept()
-        self.remote_ip, self.remote_port = addr, self.local_port
+        if not isinstance(addr, tuple):
+            addr = self.socket.getpeername()
+        if len(addr) > 2:
+            addr = (addr[0], addr[1])
+        self.remote_ip, self.remote_port = addr
 
         raise self.WAITING_FOR_ClientHello()
 
