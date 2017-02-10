@@ -79,6 +79,7 @@ done
 # Run unit tests with openssl if we have root privileges
 if [ "$TRAVIS_OS_NAME" = "linux" ] && [ ! -z $SCAPY_USE_PCAPDNET ] && [ ! -z $SCAPY_SUDO ]
 then
-  $SCAPY_SUDO ./run_tests -q -F -t tls/tests_tls_netaccess.uts $UT_FLAGS || exit $?
+  # Run test using directly coverage to set concurrency parameter
+  $SCAPY_SUDO coverage run --concurrency=multiprocessing -a ./scapy/tools/UTScapy.py -q -F -t tls/tests_tls_netaccess.uts $UT_FLAGS || exit $?
 fi
 
