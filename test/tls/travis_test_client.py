@@ -43,7 +43,7 @@ def test_tls_client(suite, version, q):
     # Run client
     run_tls_test_client(msg, suite, version)
     # Wait for server
-    th_.join(30)
+    th_.join(60)
     if th_.is_alive():
         th_.terminate()
         raise RuntimeError("Test timed out")
