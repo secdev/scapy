@@ -13,7 +13,8 @@
 ### HMAC                                                                    ###
 ###############################################################################
 
-+ Test Hmac_MD5
++ Test HMACs
+
 = Crypto - Hmac_MD5 instantiation, parameter check 
 from scapy.layers.tls.crypto.h_mac import Hmac_MD5
 a = Hmac_MD5("somekey")
@@ -31,7 +32,6 @@ t7 = a(b'\xaa'*80).digest("Test Using Larger Than Block-Size Key and Larger Than
 t1 and t2 and t3 and t4 and t5 and t6 and t7
 
 
-+ Test Hmac_SHA
 = Crypto - Hmac_SHA instantiation, parameter check 
 from scapy.layers.tls.crypto.h_mac import Hmac_SHA
 a = Hmac_SHA("somekey")
@@ -49,7 +49,6 @@ t7 = a(b'\xaa'*80).digest("Test Using Larger Than Block-Size Key and Larger Than
 t1 and t2 and t3 and t4 and t5 and t6 and t7
 
 
-+ Test Hmac_SHA2
 = Crypto - Hmac_SHA2 behavior on test vectors from RFC 4231
 
 class _hmac_test_case_1:
@@ -250,7 +249,8 @@ _all_hmac_sha2_tests()
 ### PRF                                                                     ###
 ###############################################################################
 
-+ Test _tls_P_MD5
++ Test PRFs and associated methods
+
 = Crypto - _tls_P_MD5 behavior on test vectors borrowed from RFC 2202 (+ errata)
 from scapy.layers.tls.crypto.prf import _tls_P_MD5
 t1 = _tls_P_MD5(b'\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b', "Hi There", 64) == b'8\x99\xc0\xb8!\xd7}RI\xb2\xbb\x8e\xbe\xf8\x97Y\xcc\xffL\xae\xc3I\x8f\x7f .\x81\xe0\xce\x1a\x82\xbd\x19\xa0\x16\x10P}\xf0\xda\xdc\xa0>\xc4,\xa1\xcfS`\x85\xc5\x084+QN31b\xd7%L\x9d\xdc'
@@ -263,7 +263,6 @@ t7 = _tls_P_MD5(b'\xaa'*80, "Test Using Larger Than Block-Size Key and Larger Th
 t1 and t2 and t3 and t4 and t5 and t6 and t7
 
 
-+ Test _tls_P_SHA1
 = Crypto - _tls_P_SHA1 behavior on test vectors borrowed from RFC 2202 (+ errata)
 from scapy.layers.tls.crypto.prf import _tls_P_SHA1
 t1 = _tls_P_SHA1(b'\x0b'*20, "Hi There", 80) == b'\x13\r\x11Q7(\xc1\xad\x7f>%m\xfc\x08\xb6\xb9$\xb1MG\xe4\x9c\xcdY\x0e\\T\xd0\x8f\x1a-O@`\xd2\x9eV_\xfd\xed\x1f\x93V\xfb\x18\xb6\xbclq3A\xa2\x87\xb1u\xfc\xb3RQ\x19;#\n(\xd2o%lB\x8b\x01\x89\x1c6m"\xc3\xe2\xa0\xe7'
@@ -276,7 +275,6 @@ t7 = _tls_P_SHA1(b'\xaa'*80, "Test Using Larger Than Block-Size Key and Larger T
 t1 and t2 and t3 and t4 and t5 and t6 and t7
 
 
-+ Test _tls_PRF()
 = Crypto - _tls_PRF behavior on test vectors borrowed from RFC 2202 (+ errata)
 from scapy.layers.tls.crypto.prf import _tls_PRF
 t1 = _tls_PRF(b'\x0b'*20, "Test Label XXXX", "Hi There", 80) == b'E\xcc\xeb\x12\x0b<\xbfh\x1f\xc3\xd3%J\x85\xdeQ\t\xbc[\xcd.\xbe\x170\xf2\xebm\xe6g\x05x\xad\x86V\x0b\xb3\xb7\xe5i\x7fh}T\xe5$\xe4\xba\xa0\xc6\xf0\xf1\xb1\xe1\x8a\xf5\xcc\x9ab\x1c\xc9\x10\x82\x93\x82Q\xd2\x80\xf0\xf8\x0f\x03\xe2\xbe\xc3\x94T\x05\xben\x9e'
@@ -289,7 +287,6 @@ t7 = _tls_PRF(b'\xaa'*80, "Test Label MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM", "Test Us
 t1 and t2 and t3 and t4 and t5 and t6 and t7
 
 
-+ Test _ssl_PRF()
 = Crypto - _ssl_PRF behavior on test vectors
 from scapy.layers.tls.crypto.prf import _ssl_PRF
 t1 = _ssl_PRF(b'\x0b'*20, "Hi There", 80) == b'\x0fo\xbe9\x83>~Bc\xaea^\x86\xd2b\x94X\xfd9Be\xe799\xf2\x00\xfcS\xd6\x1c=\xe5\x7fin\x1e\xf9r\xc8\xe6k\x19K\x8a\x85SK\xe5\xb7;A\x19b\x86F3M\x8d=\xcf\x15\xeedo\xd3\xae\xa2\x95\x8e\x80\x13\xabG\x8d\x1c,\x8c\xab\xf7\xd4'
@@ -302,7 +299,6 @@ t7 = _ssl_PRF(b'\xaa'*80, "Test Using Larger Than Block-Size Key and Larger Than
 t1 and t2 and t3 and t4 and t5 and t6 and t7
 
 
-+ Test PRF for TLS 1.2
 = Crypto - _tls12_*_PRF behavior, using SHA-256, SHA-384 and SHA-512
 # https://www.ietf.org/mail-archive/web/tls/current/msg03416.html
 
@@ -341,7 +337,6 @@ def _all_prf_tls12_tests():
 _all_prf_tls12_tests()
 
 
-+ Test compute_master_secret() for SSL
 = Crypto - compute_master_secret() in SSL mode
 f = PRF(tls_version=0x300)
 t1 = f.compute_master_secret("A"*48, "B"*32, "C"*32) == b'\xe8\xb5O68e\x8c\x1e\xd0hD!\xc1Zk\x9e\xc7x3\xfc".\xf9\x17\xd5B\xfc\xef\x8d\xed\x9fP\xcer\x83|6\x02\xe0\x86\xda\xab-G\x8c\xa9H5'
@@ -351,7 +346,6 @@ t4 = f.compute_master_secret("D"*48, "B"*32, "A"*32) == b'\xbe\x9a\xc8)\xb5{.H1\
 t1 and t2 and t3 and t4
 
 
-+ Test derive_key_block() for SSL
 = Crypto - derive_key_block() in SSL mode
 t1 = f.derive_key_block("A"*48, "B"*32, "C"*32, 72) == b'\xe8\xb5O68e\x8c\x1e\xd0hD!\xc1Zk\x9e\xc7x3\xfc".\xf9\x17\xd5B\xfc\xef\x8d\xed\x9fP\xcer\x83|6\x02\xe0\x86\xda\xab-G\x8c\xa9H5\xdf\x14\xa9\xcfV\r\xea}\x98\x04\x8dK,\xb6\xf7;\xaa\xa8\xa5\xad\x7f\x0fCY'
 t2 = f.derive_key_block("A"*48, "C"*32, "B"*32, 72) == b'Ts/q\x83\x88\x10\x9c1Y\xff\xf3vo\xe3\x8aM\x9b\xa3k[J\xeeWXs\xcfTe\x19\xc6\xb1\x0ebj1}\x0c\xca\x97=|\x88W\xd8q\xfb|\x17\x99\nH;\xec\xd2\x15\xabd\xed\xc3\xe0p\xd8\x1eS\xb5\xf4*8\xceE^'
@@ -360,7 +354,6 @@ t4 = f.derive_key_block("D"*48, "B"*32, "A"*32, 72) == b'\xbe\x9a\xc8)\xb5{.H1\x
 t1 and t2 and t3 and t4
 
 
-+ Test compute_master_secret() for TLS 1.0
 = Crypto - compute_master_secret() in TLS 1.0 mode
 from scapy.layers.tls.crypto.prf import PRF
 f = PRF(tls_version=0x301)
@@ -371,7 +364,6 @@ t4 = f.compute_master_secret("D"*48, "B"*32, "A"*32) == b'\xeb3\xf5Ty\x08xqP\x01
 t1 and t2 and t3 and t4
 
 
-+ Test derive_key_block() for TLS 1.0
 = Crypto - derive_key_block() in TLS 1.0 mode
 t1 = f.derive_key_block("A"*48, "B"*32, "C"*32, 72) == b'\x06\xccA\xd5\xf3\x9dT`ZC!/\xa0\xbe\x95\x86m\xdb@\x18\xfb\x95\xad\xcd\xac<(K\x88\xacB\x92s\x8d7AVG\xf04\x0be\x8dv\x02\xd6\x03\x7f\xe4\x8eYe\x88\xb7YI\xc2\xf0!\x1dSx\x86\xdeY\x81\x89\x11\xa6\xd9\xd1\xed'
 t2 = f.derive_key_block("A"*48, "C"*32, "B"*32, 72) == b"\\@d\x1d9V\xae\xe2'\xf6Q\xc9\xd7\x8beu\xe8u\xd9\xe8\r\x18a\x8c|\xde\x95H\xec\xc5}I\xf9s(e\xe4\x87*s\x98=\x96wsj\xfe\x0euo\x1f\\1hh-\x0f\xda9\x9etk\x0fW\x03\xe2k\xb0\x87Pb3"
@@ -383,13 +375,6 @@ t1 and t2 and t3 and t4
 ###############################################################################
 ### Ciphers                                                                 ###
 ###############################################################################
-
-+ Test _CipherSuitesField
-
-a = _CipherSuitesField("test", None, {})
-assert a.i2repr(None, None) == "None"
-assert isinstance(a.randval(), RandBin)
-assert hash(a) == 8890308
 
 + Test RC4
 = Crypto - RC4 stream cipher, encryption/decryption checks from RFC 6229
@@ -423,9 +408,32 @@ def _all_rc4_tests():
 _all_rc4_tests()
 
 
-+ Test DES-CBC
-= Crypto - DES cipher in CBC mode, check from FIPS PUB 81
+= Crypto - RC2 block cipher, encryption/decryption checks from RFC 2268
+
 import binascii
+class _rc2_128_cbc_test:
+    k= binascii.unhexlify("88bca90e90875a7f0f79c384627bafb2")
+    p= binascii.unhexlify("0000000000000000")
+    c= binascii.unhexlify("2269552ab0f85ca6")
+    iv=binascii.unhexlify("0000000000000000")
+
+def _all_rc2_tests():
+    try:
+        from scapy.layers.tls.crypto.cipher_block import Cipher_RC2_CBC
+        res = True
+        t = _rc2_128_cbc_test
+        tmp = (Cipher_RC2_CBC(t.k, t.iv).encrypt(t.p) == t.c and
+               Cipher_RC2_CBC(t.k, t.iv).decrypt(t.c) == t.p)
+        res = res and tmp
+        return res
+    except ImportError:
+        return True
+
+_all_rc2_tests()
+
+
+= Crypto - DES cipher in CBC mode, check from FIPS PUB 81
+
 class _descbc_test:
     k= binascii.unhexlify("0123456789abcdef")
     p= binascii.unhexlify("4e6f77206973207468652074696d6520666f7220616c6c20")
@@ -444,7 +452,6 @@ def _all_aes_cbc_tests():
 _all_aes_cbc_tests()
 
 
-+ Test AES-CBC
 = Crypto - AES cipher in CBC mode, checks from RFC 3602
 
 class _aes128cbc_test_1:
@@ -496,7 +503,6 @@ def _all_aes_cbc_tests():
 _all_aes_cbc_tests()
 
 
-+ Test AES-GCM
 = Crypto - AES cipher in GCM mode, auth_encrypt() and auth_decrypt() checks
 #https://tools.ietf.org/html/draft-mcgrew-gcm-test-01
 
@@ -584,66 +590,64 @@ _all_aes_gcm_tests()
 
 
 #XXX CCM remains to be added to the cryptography library
-+ Test AES-CCM
-= Crypto - AES cipher in CCM mode, checks from IEEE P1619.1
-~ combined_modes_ccm
+#= Crypto - AES cipher in CCM mode, checks from IEEE P1619.1
+#~ combined_modes
+#
+#class _aes256ccm_test_1:
+#    k= "\0"*32
+#    n= "\0"*12
+#    p= "\0"*16
+#    a= ""
+#    ct=("\xc1\x94\x40\x44\xc8\xe7\xaa\x95\xd2\xde\x95\x13\xc7\xf3\xdd\x8c" +
+#       "\x4b\x0a\x3e\x5e\x51\xf1\x51\xeb\x0f\xfa\xe7\xc4\x3d\x01\x0f\xdb")
+#
+#class _aes256ccm_test_2:
+#    k=("\xfb\x76\x15\xb2\x3d\x80\x89\x1d\xd4\x70\x98\x0b\xc7\x95\x84\xc8" +
+#       "\xb2\xfb\x64\xce\x60\x97\x87\x8d\x17\xfc\xe4\x5a\x49\xe8\x30\xb7")
+#    n= "\xdb\xd1\xa3\x63\x60\x24\xb7\xb4\x02\xda\x7d\x6f"
+#    p= "\xa9"
+#    a= "\x36"
+#    ct="\x9d\x32\x61\xb1\xcf\x93\x14\x31\xe9\x9a\x32\x80\x67\x38\xec\xbd\x2a"
+#
+#class _aes256ccm_test_3:
+#    k=("\xfb\x76\x15\xb2\x3d\x80\x89\x1d\xd4\x70\x98\x0b\xc7\x95\x84\xc8" +
+#       "\xb2\xfb\x64\xce\x60\x97\x8f\x4d\x17\xfc\xe4\x5a\x49\xe8\x30\xb7")
+#    n= "\xdb\xd1\xa3\x63\x60\x24\xb7\xb4\x02\xda\x7d\x6f"
+#    p= "\xa8\x45\x34\x8e\xc8\xc5\xb5\xf1\x26\xf5\x0e\x76\xfe\xfd\x1b\x1e"
+#    a= ""
+#    ct=("\xcc\x88\x12\x61\xc6\xa7\xfa\x72\xb9\x6a\x17\x39\x17\x6b\x27\x7f" +
+#       "\x34\x72\xe1\x14\x5f\x2c\x0c\xbe\x14\x63\x49\x06\x2c\xf0\xe4\x23")
+#
+#class _aes256ccm_test_4:
+#    k=("\x40\x41\x42\x43\x44\x45\x46\x47\x48\x49\x4a\x4b\x4c\x4d\x4e\x4f" +
+#       "\x50\x51\x52\x53\x54\x55\x56\x57\x58\x59\x5a\x5b\x5c\x5d\x5e\x5f")
+#    n= "\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b"
+#    p=("\x20\x21\x22\x23\x24\x25\x26\x27\x28\x29\x2a\x2b\x2c\x2d\x2e\x2f" +
+#       "\x30\x31\x32\x33\x34\x35\x36\x37")
+#    a=("\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f" +
+#       "\x10\x11\x12\x13")
+#    ct=("\x04\xf8\x83\xae\xb3\xbd\x07\x30\xea\xf5\x0b\xb6\xde\x4f\xa2\x21" +
+#       "\x20\x34\xe4\xe4\x1b\x0e\x75\xe5\x9b\xba\x3f\x3a\x10\x7f\x32\x39" +
+#       "\xbd\x63\x90\x29\x23\xf8\x03\x71")
+#
+#def _all_aes_ccm_tests():
+#    from scapy.layers.tls.crypto.cipher_aead import Cipher_AES_256_CCM
+#    res = True
+#    ciphers = []
+#    for t in [_aes256ccm_test_1, _aes256ccm_test_2,
+#              _aes256ccm_test_3, _aes256ccm_test_4]:
+#        c = Cipher_AES_256_CCM(key=t.k, salt=t.n[:4],
+#                               nonce_explicit_init=pkcs_os2ip(t.n[4:]))
+#        ne = t.n[-c.nonce_explicit_len:]
+#        tup = ne, t.p, t.ct[-c.tag_len:]
+#        tmp1 = c.auth_decrypt(t.a, ne + t.ct, add_length=False) == tup
+#        tmp2 = c.auth_encrypt(t.p, t.a) == (ne + t.ct)
+#        res = res and tmp1 and tmp2
+#    return res
+#
+#_all_aes_ccm_tests()
 
-class _aes256ccm_test_1:
-    k= b"\0"*32
-    n= b"\0"*12
-    p= b"\0"*16
-    a= ""
-    ct=(b"\xc1\x94\x40\x44\xc8\xe7\xaa\x95\xd2\xde\x95\x13\xc7\xf3\xdd\x8c" +
-       b"\x4b\x0a\x3e\x5e\x51\xf1\x51\xeb\x0f\xfa\xe7\xc4\x3d\x01\x0f\xdb")
 
-class _aes256ccm_test_2:
-    k=(b"\xfb\x76\x15\xb2\x3d\x80\x89\x1d\xd4\x70\x98\x0b\xc7\x95\x84\xc8" +
-       b"\xb2\xfb\x64\xce\x60\x97\x87\x8d\x17\xfc\xe4\x5a\x49\xe8\x30\xb7")
-    n= b"\xdb\xd1\xa3\x63\x60\x24\xb7\xb4\x02\xda\x7d\x6f"
-    p= b"\xa9"
-    a= b"\x36"
-    ct=b"\x9d\x32\x61\xb1\xcf\x93\x14\x31\xe9\x9a\x32\x80\x67\x38\xec\xbd\x2a"
-
-class _aes256ccm_test_3:
-    k=(b"\xfb\x76\x15\xb2\x3d\x80\x89\x1d\xd4\x70\x98\x0b\xc7\x95\x84\xc8" +
-       b"\xb2\xfb\x64\xce\x60\x97\x8f\x4d\x17\xfc\xe4\x5a\x49\xe8\x30\xb7")
-    n= b"\xdb\xd1\xa3\x63\x60\x24\xb7\xb4\x02\xda\x7d\x6f"
-    p= b"\xa8\x45\x34\x8e\xc8\xc5\xb5\xf1\x26\xf5\x0e\x76\xfe\xfd\x1b\x1e"
-    a= ""
-    ct=(b"\xcc\x88\x12\x61\xc6\xa7\xfa\x72\xb9\x6a\x17\x39\x17\x6b\x27\x7f" +
-       b"\x34\x72\xe1\x14\x5f\x2c\x0c\xbe\x14\x63\x49\x06\x2c\xf0\xe4\x23")
-
-class _aes256ccm_test_4:
-    k=(b"\x40\x41\x42\x43\x44\x45\x46\x47\x48\x49\x4a\x4b\x4c\x4d\x4e\x4f" +
-       b"\x50\x51\x52\x53\x54\x55\x56\x57\x58\x59\x5a\x5b\x5c\x5d\x5e\x5f")
-    n= b"\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b"
-    p=(b"\x20\x21\x22\x23\x24\x25\x26\x27\x28\x29\x2a\x2b\x2c\x2d\x2e\x2f" +
-       b"\x30\x31\x32\x33\x34\x35\x36\x37")
-    a=(b"\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f" +
-       b"\x10\x11\x12\x13")
-    ct=(b"\x04\xf8\x83\xae\xb3\xbd\x07\x30\xea\xf5\x0b\xb6\xde\x4f\xa2\x21" +
-       b"\x20\x34\xe4\xe4\x1b\x0e\x75\xe5\x9b\xba\x3f\x3a\x10\x7f\x32\x39" +
-       b"\xbd\x63\x90\x29\x23\xf8\x03\x71")
-
-def _all_aes_ccm_tests():
-    from scapy.layers.tls.crypto.cipher_aead import Cipher_AES_256_CCM
-    res = True
-    ciphers = []
-    for t in [_aes256ccm_test_1, _aes256ccm_test_2,
-              _aes256ccm_test_3, _aes256ccm_test_4]:
-        c = Cipher_AES_256_CCM(key=t.k, salt=t.n[:4],
-                               nonce_explicit_init=pkcs_os2ip(t.n[4:]))
-        ne = t.n[-c.nonce_explicit_len:]
-        tup = ne, t.p, t.ct[-c.tag_len:]
-        tmp1 = c.auth_decrypt(t.a, ne + t.ct, add_length=False) == tup
-        tmp2 = c.auth_encrypt(t.p, t.a) == (ne + t.ct)
-        res = res and tmp1 and tmp2
-    return res
-
-_all_aes_ccm_tests()
-
-
-+ Test camellia
 = Crypto - Camellia cipher, encryption/decryption checks
 
 class _Camellia128_test:
@@ -677,13 +681,14 @@ _all_camellia_tests()
 
 
 ###############################################################################
-############################ Reading test session #############################
+#################### Reading protected test session ###########################
 ###############################################################################
 
 # These packets come from a random TLS thread captured
 # during a github connection from a Mozilla Firefox client.
 
-+ Test strings
++ Read a protected TLS session
+
 = Reading test session - Loading unparsed TLS records
 p1_ch = b'\x16\x03\x01\x00\xd5\x01\x00\x00\xd1\x03\x03\x17\xf2M\xc3|\x19\xdb\xc3<\xb5J\x0b\x8d5\x81\xc5\xce\t 2\x08\xd8\xec\xd1\xf8"B\x9cW\xd0\x16v\x00\x00\x16\xc0+\xc0/\xc0\n\xc0\t\xc0\x13\xc0\x14\x003\x009\x00/\x005\x00\n\x01\x00\x00\x92\x00\x00\x00\x1f\x00\x1d\x00\x00\x1acamo.githubusercontent.com\xff\x01\x00\x01\x00\x00\n\x00\x08\x00\x06\x00\x17\x00\x18\x00\x19\x00\x0b\x00\x02\x01\x00\x00#\x00\x003t\x00\x00\x00\x10\x00)\x00\'\x05h2-16\x05h2-15\x05h2-14\x02h2\x08spdy/3.1\x08http/1.1\x00\x05\x00\x05\x01\x00\x00\x00\x00\x00\r\x00\x16\x00\x14\x04\x01\x05\x01\x06\x01\x02\x01\x04\x03\x05\x03\x06\x03\x02\x03\x04\x02\x02\x02'
 p2_sh = b'\x16\x03\x03\x00T\x02\x00\x00P\x03\x03F\x07n\xe2\x0c\x97g\xb7o\xb6\x9b\x14\x19\xbd\xdd1\x80@\xaaQ+\xc2,\x19\x15"\x82\xe8\xc5,\xe8\x12\x00\xc0/\x00\x00(\x00\x00\x00\x00\xff\x01\x00\x01\x00\x00\x0b\x00\x04\x03\x00\x01\x02\x00#\x00\x00\x00\x05\x00\x00\x00\x10\x00\x0b\x00\t\x08http/1.1'
@@ -694,37 +699,29 @@ p6_tick_ccs_fin = b"\x16\x03\x03\x00\xca\x04\x00\x00\xc6\x00\x00\x04\xb0\x00\xc0
 p7_data = b"\x17\x03\x03\x01\xf6\x00\x00\x00\x00\x00\x00\x00\x01?\x04iy\x00\x04 \\\xd0\xd4\x9eG\x1f\xbf\xa3k\xfe=\xee\xce\x15\xa0%%\x06c}\xf6\xd4\xfb\xa6\xf0\xf6\x0cO\x1c\x9c\x91\xa9\x0b\x88J\xe0z\x94\xcaT\xeb\xc7\xad\x02j\x10\r\xc6\x12\xb9\xb9\x7f<\x84V\xab\x1e\xfc\xe5\x01\xda\xd6G\xf5\xb7\xf2I6\x8b\xc9\xc4a\xd3\x19\xeat\xfc\x9b\xfa\x1e\xe7\x8c\xaa\xb3\xce\xd0\x86G\x9b\x90\xf7\xde\xb1\x8bwM\x93\xa2gS>\xf3\x97\xf1CB\xfb\x8fs\x1e\xff\x83\xf9\x8b\xc0]\xbd\x80Mn3\xff\xa9\xf3)'\xc3S\xc8\xcd:\xbe\xd72B~$\xb2;\xeb+\xa4\xbd\xa9A\xd9 \n\x87\xe9\xe2\xe9\x82\x83M\x19Q\xf2n\x0e\x15\xdf\xb3;0\xdd&R\xb7\x15\x89\xe9O\xd8G7\x7f\xc3\xb8f\xc7\xd3\xc90R\x83\xf3\xd4\x1cd\xe8\xc5\x8d\xe4N(k7\xf0\xb7\xbd\x01\xb3\x9b\x86\xbaC.\x17\x8d\xd0g\xc9\xb1\x01\xfa\x01\xbe\xdbt\xb1u/\x19V\xc6\x08@\xff\xa8n\xe8\xd0\xd6n,\x05\xc9\xc2\xd8g\x19\x03.l\xb4)\xa09\xf9\xe7\x83\x01-\xe8\xf8\xffy\xbf\xf7\xe6\x11\xc5\xf5\x9aG\xb3e \xd85\x0f\x8f\x85H\xea\xc2n\x1eR\xbe\x01\xef\xef\x93\xe7*>\xbd\x84\x8b9HDI\x90\xc4$\x9a\x9aK\x88Ki\n\xa3\xab\xed\x91\xcd\xe8\xb1\xd4\x8e\xbcE\x88\xe8\x05\x16\xd5\xed\x18\x16g>\x04\xd8\x1dB}\x91\x90\xd1\xda\x03\xe1\x972CxtD\x85\xafF|~7D9*U\xad\x0b\xc4#\x06}\xec\xd6\xd3?y\x96\xa4\xb5\xa3\x1d\x1c\xbd\xc9\xc9g\xb12\xc9\x0f\xa1\x03\x12N\x0b\xec\x14\xc9vJ\nM\xa7\xc8h\xd0|(1(\xa3\x98@nH\n\x0b\xa80\x00\x02\xb7\x06Z\xd4M\xdc!AV\xe2\xa7*\xc3\x90U\xee\xd0\xb2\x05\xa3w\xe1\xe2\xbe\x1e\xbe\xd4u\xb1\xa1z\x1e\x1c\x15%7\xdd\xf9\xb9~\x02\xf9s\x0c1\xfb;\xab\xf1\x1e\xaf\x06\x8c\xafe\x00\x15e5\xac\xd7]>\x1dLb5\x8e+\x01n\xcb\x19\xcc\x17Ey\xc8"
 
 
-+ Test TLS
-= Reading test session - TLS parsing (no encryption) does not throw any error
+= Reading TLS test session - TLS parsing (no encryption) does not throw any error
 # We will need to distinguish between connection ends. See next XXX below.
 t1 = TLS(p1_ch)
-t2 = TLS(p2_sh, tls_session=t1.tls_session)
-t3 = TLS(p3_cert, tls_session=t1.tls_session)
-t4 = TLS(p4_certstat_ske_shd, tls_session=t1.tls_session)
+t2 = TLS(p2_sh, tls_session=t1.tls_session.mirror())
+t3 = TLS(p3_cert, tls_session=t2.tls_session)
+t4 = TLS(p4_certstat_ske_shd, tls_session=t3.tls_session)
 
-= Test TLS with bad data
-a = TLS(b'\x00\x03\x03\x00\x03data')
-assert a.haslayer(Raw)
 
-+ Test TLS Record header
-= Reading test session - TLS Record header
+= Reading TLS test session - TLS Record header
 # We leave the possibility for some attributes to be either '' or None.
 assert(t1.type == 0x16)
 assert(t1.version == 0x0301)
 assert(t1.len == 213)
-assert(len(t1.msg) == 1)
 assert(not t1.iv)
 assert(not t1.mac)
 assert(not t1.pad and not t1.padlen)
 len(t1.msg) == 1
 
 
-+ Test TLS Record __getitem__
-= Reading test session - TLS Record __getitem__
+= Reading TLS test session - TLS Record __getitem__
 TLSClientHello in t1
 
-+ Test TLS ClientHello
-= Reading test session - ClientHello
+= Reading TLS test session - ClientHello
 ch = t1.msg[0]
 assert(isinstance(ch, TLSClientHello))
 assert(ch.msgtype == 1)
@@ -740,8 +737,7 @@ assert(ch.complen == 1)
 assert(ch.comp == [0])
 
 
-+ Test TLS ClientHello Extensions
-= Reading test session - ClientHello extensions
+= Reading TLS test session - ClientHello extensions
 assert(ch.extlen == 146)
 ext = ch.ext
 assert(len(ext) == 9)
@@ -756,7 +752,7 @@ assert(ext[0].servernames[0].servername == "camo.githubusercontent.com")
 assert(isinstance(ext[1], TLS_Ext_RenegotiationInfo))
 assert(not ext[1].renegotiated_connection)
 assert(isinstance(ext[2], TLS_Ext_SupportedEllipticCurves))
-assert(ext[2].ecl == [0x17, 0x18,  0x19])
+assert(ext[2].ecl == [0x17, 0x18, 0x19])
 assert(isinstance(ext[3], TLS_Ext_SupportedPointFormat))
 assert(ext[3].ecpl == [0])
 assert(isinstance(ext[4], TLS_Ext_SessionTicket))
@@ -773,8 +769,7 @@ assert(len(ext[8].sig_algs) == 10)
 ext[8].sig_algs[-1] == 0x0202
 
 
-+ Test TLS ServerHello
-= Reading test session - ServerHello
+= Reading TLS test session - ServerHello
 assert(TLSServerHello in t2)
 sh = t2.msg[0]
 assert(isinstance(sh, TLSServerHello))
@@ -784,11 +779,8 @@ assert(sh.cipher == 0xc02f)
 assert(len(sh.ext) == 6)
 sh.ext[-1].protocols[-1].protocol == "http/1.1"
 
-= Useless function
-assert not TLSHelloRequest().tls_session_update(None)
 
-+ Test TLS Certificate
-= Reading test session - Certificate
+= Reading TLS test session - Certificate
 cert = t3.msg[0]
 assert(cert.certslen == 2670)
 assert(len(cert.certs) == 2)
@@ -798,24 +790,21 @@ assert(srv_cert.serial == 0x077a5dc3362301f989fe54f7f86f3e64)
 srv_cert.subject['commonName'] == 'www.github.com'
 
 
-+ Test TLS CertStat-SKE-SHD
-= Reading test session - Multiple TLS layers
+= Reading TLS test session - Multiple TLS layers
 cert_stat = t4.msg[0]
 ske = t4.payload.msg[0]
 shd = t4.payload.payload.msg[0]
 isinstance(t4.payload.payload.payload, NoPayload)
 
 
-+ Test TLS CertificateStatus
-= Reading test session - CertificateStatus
+= Reading TLS test session - CertificateStatus
 assert(isinstance(cert_stat, TLSCertificateStatus))
 assert(cert_stat.responselen == 471)
 cert_stat.response[0].responseStatus == 0
 # we leave the remaining OCSP tests to x509.uts
 
 
-+ Test TLS ServerKeyExchange
-= Reading test session - ServerKeyExchange
+= Reading TLS test session - ServerKeyExchange
 assert(isinstance(ske, TLSServerKeyExchange))
 p = ske.params
 assert(isinstance(p, ServerECDHNamedCurveParams))
@@ -825,13 +814,11 @@ assert(ske.sig.sig_alg == 0x0601)
 ske.sig.sig_val[:4] == b'y\x8aQ\x11' and ske.sig.sig_val[-4:] == b'`15\xef'
 
 
-+ Test TLS ServerHelloDone
-= Reading test session - ServerHelloDone
+= Reading TLS test session - ServerHelloDone
 assert(isinstance(shd, TLSServerHelloDone))
 shd.msglen == 0
 
-+ Test tls_session
-= Reading test session - Context checks after 1st RTT
+= Reading TLS test session - Context checks after 1st RTT
 t = shd.tls_session
 assert(len(t.handshake_messages) == 6)
 assert(t.handshake_messages_parsed[-1] is shd)
@@ -847,15 +834,13 @@ assert(t.wcs.row == "write")
 t.rcs.ciphersuite.val == 0
 
 
-+ Test TLS
-= Reading test session - TLS parsing (with encryption) does not throw any error
+= Reading TLS test session - TLS parsing (with encryption) does not throw any error
 # XXX Something should be done, as for instance the reading of the 1st CCS
 # will mess up the reading state of the other side (even before the 2nd CCS).
-t5 = TLS(p5_cke_ccs_fin, tls_session=t1.tls_session)
+t5 = TLS(p5_cke_ccs_fin, tls_session=t4.tls_session.mirror())
 
 
-+ Test TLS ClientKeyExchange
-= Reading test session - ClientKeyExchange
+= Reading TLS test session - ClientKeyExchange
 cke = t5.msg[0]
 ccs = t5.payload.msg[0]
 rec_fin = t5.payload.payload
@@ -867,21 +852,16 @@ assert(isinstance(k, ClientECDiffieHellmanPublic))
 assert(k.ecdh_Yclen == 65)
 assert(k.ecdh_Yc[:4] == b'\x04\xd2\x07\xce' and k.ecdh_Yc[-4:] == b'\xdc\x86[\xe7')
 
-= Bad data in TLSClientKeyExchange
 
-a = TLSClientKeyExchange(str(TLSClientKeyExchange(exchkeys="baddata")))
-assert a.haslayer(Raw)
-
-+ Test TLS ChangeCipherSpec
-= Reading test session - ChangeCipherSpec
+= Reading TLS test session - ChangeCipherSpec
 assert(isinstance(ccs, TLSChangeCipherSpec))
 ccs.msgtype == 1
 
 
-+ Test TLS Finished
-= Reading test session - Finished
+= Reading TLS test session - Finished
 assert(rec_fin.version == 0x0303)
-assert(rec_fin.len == 16)
+assert(rec_fin.deciphered_len == 16)
+assert(rec_fin.len == 40)
 assert(rec_fin.iv == b'\x00\x00\x00\x00\x00\x00\x00\x00')
 assert(rec_fin.mac == b'\xc7^\xc1\x8e\x81M\xff\x00\x0f}G\xf2\x8c\xab\n=')
 assert(not rec_fin.pad and not rec_fin.padlen)
@@ -890,9 +870,8 @@ assert(isinstance(fin, _TLSEncryptedContent))
 fin.load == b'\xd9\xcb,\x8cM\xfd\xbc9\xaa\x05\xf3\xd3\xf3Z\x8a-'
 
 
-+ Test TLS Tick-CCS-Fin
-= Reading test session - Ticket, CCS & Finished
-t6 = TLS(p6_tick_ccs_fin)       # empty tls_session
+= Reading TLS test session - Ticket, CCS & Finished
+t6 = TLS(p6_tick_ccs_fin, tls_session=t5.tls_session.mirror())
 tick = t6.msg[0]
 assert(isinstance(tick, TLSNewSessionTicket))
 assert(tick.msgtype == 4)
@@ -901,16 +880,15 @@ assert(tick.ticketlen == 192)
 assert(tick.ticket[:4] == b'c\xccwJ' and tick.ticket[-4:] == b'\xf3.\xcf\x04')
 ccs = t6.payload.msg[0]
 assert(isinstance(ccs, TLSChangeCipherSpec))
-rec_fin = TLS(str(t6.payload.payload), tls_session=t1.tls_session)
+rec_fin = t6.getlayer(4)
 assert(rec_fin.iv == b'\xd8m\x92\t5YZ:')
 assert(rec_fin.mac == b'\xecguD\xa8\x87$<7+\n\x94\x1e9\x96\xfa')
 assert(isinstance(rec_fin.msg[0], _TLSEncryptedContent))
 rec_fin.msg[0].load == b'7\\)`\xaa`\x7ff\xcd\x10\xa9v\xa3*\x17\x1a'
 
 
-+ Test TLS ApplicationData
-= Reading test session - ApplicationData
-t7 = TLS(p7_data, tls_session=t1.tls_session)
+= Reading TLS test session - ApplicationData
+t7 = TLS(p7_data, tls_session=t6.tls_session.mirror())
 assert(t7.iv == b'\x00\x00\x00\x00\x00\x00\x00\x01')
 assert(t7.mac == b'>\x1dLb5\x8e+\x01n\xcb\x19\xcc\x17Ey\xc8')
 assert(not t7.pad and not t7.padlen)
@@ -919,10 +897,42 @@ len(t7.msg[0].load) == 478
 
 
 ###############################################################################
+################## Reading TLS vulnerable test session ########################
+###############################################################################
+
+# These packets come from a session between an s_server and an s_client.
+# We assume the server's private key has been retrieved. Because the cipher
+# suite does not provide PFS, we are able to break the data confidentiality.
+
++ Read a vulnerable TLS session
+
+= Reading TLS vulnerable session - Decrypt data from using a compromised server key
+import os
+basedir = os.path.abspath(os.path.join(os.path.dirname(__file__),"../"))
+key = PrivKeyRSA(basedir + "/test/tls/pki/srv_key.pem")
+ch = '\x16\x03\x01\x005\x01\x00\x001\x03\x01X\xac\x0e\x8c\xe46\xe9\xedo\xda\x085$M\xae$\x90\xd9\xa93\xb7(\x13J\xf9\xc5?\xef\xf4\x96\xa1\xfa\x00\x00\x04\x00/\x00\xff\x01\x00\x00\x04\x00#\x00\x00'
+sh = '\x16\x03\x01\x005\x02\x00\x001\x03\x01\x88\xac\xd4\xaf\x93~\xb5\x1b8c\xe7)\xa6\x9b\xa9\xed\xf3\xf3*\xdb\x00\x8bB\xf6\n\xcbz\x8eP\x83`G\x00\x00/\x00\x00\t\xff\x01\x00\x01\x00\x00#\x00\x00\x16\x03\x01\x03\xac\x0b\x00\x03\xa8\x00\x03\xa5\x00\x03\xa20\x82\x03\x9e0\x82\x02\x86\xa0\x03\x02\x01\x02\x02\t\x00\xfe\x04W\r\xc7\'\xe9\xf60\r\x06\t*\x86H\x86\xf7\r\x01\x01\x0b\x05\x000T1\x0b0\t\x06\x03U\x04\x06\x13\x02MN1\x140\x12\x06\x03U\x04\x07\x0c\x0bUlaanbaatar1\x170\x15\x06\x03U\x04\x0b\x0c\x0eScapy Test PKI1\x160\x14\x06\x03U\x04\x03\x0c\rScapy Test CA0\x1e\x17\r160916102811Z\x17\r260915102811Z0X1\x0b0\t\x06\x03U\x04\x06\x13\x02MN1\x140\x12\x06\x03U\x04\x07\x0c\x0bUlaanbaatar1\x170\x15\x06\x03U\x04\x0b\x0c\x0eScapy Test PKI1\x1a0\x18\x06\x03U\x04\x03\x0c\x11Scapy Test Server0\x82\x01"0\r\x06\t*\x86H\x86\xf7\r\x01\x01\x01\x05\x00\x03\x82\x01\x0f\x000\x82\x01\n\x02\x82\x01\x01\x00\xcc\xf1\xf1\x9b`-`\xae\xf2\x98\r\')\xd9\xc0\tYL\x0fJ0\xa8R\xdf\xe5\xb1!\x9fO\xc3=V\x93\xdd_\xc6\xf7\xb3\xf6U\x8b\xe7\x92\xe2\xde\xf2\x85I\xb4\xa1,\xf4\xfdv\xa8g\xca\x04 `\x11\x18\xa6\xf2\xa9\xb6\xa6\x1d\xd9\xaa\xe5\xd9\xdb\xaf\xe6\xafUW\x9f\xffR\x89e\xe6\x80b\x80!\x94\xbc\xcf\x81\x1b\xcbg\xc2\x9d\xb5\x05w\x04\xa6\xc7\x88\x18\x80xh\x956\xde\x97\x1b\xb6a\x87B\x1au\x98E\x82\xeb>2\x11\xc8\x9b\x86B9\x8dM\x12\xb7X\x1b\x19\xf3\x9d+\xa1\x98\x82\xca\xd7;$\xfb\t9\xb0\xbc\xc2\x95\xcf\x82)u\x16)?B \x17+M@\x8cVl\xad\xba\x0f4\x85\xb1\x7f@yqx\xb7\xa5\x04\xbb\x94\xf7\xb5A\x95\xee|\xeb\x8d\x0cyhY\xef\xcb\xb3\xfa>x\x1e\xeegLz\xdd\xe0\x99\xef\xda\xe7\xef\xb2\t]\xbe\x80 !\x05\x83,D\xdb]*v)\xa5\xb0#\x88t\x07T"\xd6)z\x92\xf5o-\x9e\xe7\xf8&+\x9cXe\x02\x03\x01\x00\x01\xa3o0m0\t\x06\x03U\x1d\x13\x04\x020\x000\x0b\x06\x03U\x1d\x0f\x04\x04\x03\x02\x05\xe00\x1d\x06\x03U\x1d\x0e\x04\x16\x04\x14\xa1+ p\xd2k\x80\xe5e\xbc\xeb\x03\x0f\x88\x9ft\xad\xdd\xf6\x130\x1f\x06\x03U\x1d#\x04\x180\x16\x80\x14fS\x94\xf4\x15\xd1\xbdgh\xb0Q725\xe1\xa4\xaa\xde\x07|0\x13\x06\x03U\x1d%\x04\x0c0\n\x06\x08+\x06\x01\x05\x05\x07\x03\x010\r\x06\t*\x86H\x86\xf7\r\x01\x01\x0b\x05\x00\x03\x82\x01\x01\x00\x81\x88\x92sk\x93\xe7\x95\xd6\xddA\xee\x8e\x1e\xbd\xa3HX\xa7A5?{}\xd07\x98\x0e\xb8,\x94w\xc8Q6@\xadY\t(\xc8V\xd6\xea[\xac\xb4\xd8?h\xb7f\xca\xe1V7\xa9\x00e\xeaQ\xc9\xec\xb2iI]\xf9\xe3\xc0\xedaT\xc9\x12\x9f\xc6\xb0\nsU\xe8U5`\xef\x1c6\xf0\xda\xd1\x90wV\x04\xb8\xab8\xee\xf7\t\xc5\xa5\x98\x90#\xea\x1f\xdb\x15\x7f2(\x81\xab\x9b\x85\x02K\x95\xe77Q{\x1bH.\xfb>R\xa3\r\xb4F\xa9\x92:\x1c\x1f\xd7\n\x1eXJ\xfa.Q\x8f)\xc6\x1e\xb8\x0e1\x0es\xf1\'\x88\x17\xca\xc8i\x0c\xfa\x83\xcd\xb3y\x0e\x14\xb0\xb8\x9b/:-\t\xe3\xfc\x06\xf0:n\xfd6;+\x1a\t*\xe8\xab_\x8c@\xe4\x81\xb2\xbc\xf7\x83g\x11nN\x93\xea"\xaf\xff\xa3\x9awWv\xd0\x0b8\xac\xf8\x8a\x945\x8e\xd7\xd4a\xcc\x01\xff$\xb4\x8fa#\xba\x88\xd7Y\xe4\xe9\xba*N\xb5\x15\x0f\x9c\xd0\xea\x06\x91\xd9\xde\xab\x16\x03\x01\x00\x04\x0e\x00\x00\x00'
+ck = "\x16\x03\x01\x01\x06\x10\x00\x01\x02\x01\x00w\x93\xec\xfa\xf3\xdf[\x9a4\xa7\x9e\xcd\x06=\x8dH\xf1\x069\x8c\x06\x01S\xf7\xb5\x16h\xf6\xd5 I\xd7\xf0\xc5Z\xf6\xe0f7\x95\x91\xddNC\xe7$\xf5\xdaZ\xcdG\xd8\x14\xcaV\x98\xc4\xb2\x8cm\xe51@\x9b\x9c\xb8\xadul\xd0\xdf\xf2\xd7@Q\xe4\x05J\xf31[\xdf\xc8'(\x8f#\xf0\xc4\x1c\xc6\x07G\xb327\x85\xad\xa2\xa6\xa2E\x18\x85rP\xb8\x86uL\\7\x82\x18\xceh\xc6\xd1\xf4\xcc\xb9VN\x85\x7f9c\x92\t\x96\x8e\x80\x06\xe4\r\xbfu<\xabgP^z\xc7\xfd\x8e\x12t^\xb7\xc7Lr\xdc5\xf8\xa7\xdb\x9c\xbd\xd5\xad\xabP<\xe7\x9f%f\xb4\xd8\xf4\xf0~\x99\xbeZ\xe9\xbc\x0c9\r\xb2Uq\xfcd\xa4\xda\x89\x90\xd1\x15\x05\xcc\x00\xb1\xcd\xa9c\xb4\xe8\x7fRH\xbd\xe1\xd2\xd8\x9c\xb6\xd2\x8dq9\xe5\t\xeb\xfc\x1b\x06\xac\xab\x96\xa7\xfd{\xdf\xf2\x16\r\xd6'\xb8\xd3\xa5L\xc8\x08 \xb9\xccN\xe5\xf0\xa0S\xf3\xc3\xc9\xdf\xee\xd0\r\xd8[\x14\x03\x01\x00\x01\x01\x16\x03\x01\x000~\x01\xe1!2\x90\xba\xc8 \xb6\x8c\xb7\xd9\xf5\x80\x1d$Z^\xc8\xa3\x9f\xb3\xf1M\x0c\xd1\xedd\xb1'\x0f\xe4ER\xc9\xf7L\xf3;\xc1\xbaz\xfa\xb76\xe3q"
+fin = "\x16\x03\x01\x00\xaa\x04\x00\x00\xa6\x00\x00\x1c \x00\xa0*\xf5.4:\xe4;t\xf0v\xed\xeaLX\xa5\xce*@\xe7\x83\rWx\xadWkM-\x95\xe7\x98\xcb6x\xeb\xca\xfe8\xf5\x84*\x9bAmZ/o9\xb03\xea\x1e\x99\xfdQ\xbfe\r\xe8W\xd5\xdb\xdd\x83\x90\x14\xc6\xef\x10s\x15\xff\xc2U\xce\xb0\x00\x11\x02|\xed\x99\xbac\xfb\x03M\xce\xd3\x92\xbe\x98\x95\x1c\xef\x9b\xb1\xd6,\x0c6Td\xc9j*\x17\xb9\xde\x13\x8f\xba[\xbcD\x1b\x9a~\xe9\xa2\xf3\xa4V3\xfe\xd6'\xc8i+\xb0m\xf8&\x86\x83\xaa\xe5\x1d\x06\x07lOx\x06 \x02\xbe\xfe\xda\x93-\x9fk\xeaHu\x8a\xec_\x14\x03\x01\x00\x01\x01\x16\x03\x01\x000Pc\xe0T+\x17\\>\xd0\xbc\xe6Xx}\xe5\xa26\xea\x0b\xad\x1bY\x1b\x05,\x7f\xeeQ\xd6\xea!\x9d.\xe0\xf3\x88\xe6'jV\xfdz]M'\xcejJ"
+data = '\x17\x03\x01\x00 \xe8\x91\'mRT\x17\xa1\xd6}+\x80\x02\xda\xadw.\x82TA\'\xdep\xa4\xe1\xb1H\xa9\xb1\x81gw\x17\x03\x01\x00P\xddD\x18\xdb\x82pz\xb75>\x1c\xd7\xa9=\x18C\xbd\xf0F\xa1k\x0c\xe5&\xf2\xdf\x97\xf0\xab5\xf41W\x85 \xcf\xd9\x98\xa4\xe8\xcc\xff \x1c\xbc\xb3U\xc8\x9c>\xc4$\xa5U\xc6\xd4\x1f"\xce\xf0\x98\xf0D\xd2\x1d\r*\x99*\xdcd4?\xc9\x0b\xa6\xb2\x81%\xfc'
+t = TLS(ch)
+t = TLS(sh, tls_session=t.tls_session.mirror())
+t.tls_session.server_rsa_key = key
+t = TLS(ck, tls_session=t.tls_session.mirror())
+t = TLS(fin, tls_session=t.tls_session.mirror())
+t = TLS(data, tls_session=t.tls_session.mirror())
+assert(len(t.msg) == 1)
+assert(isinstance(t.msg[0], TLSApplicationData))
+assert(t.msg[0].data == "")
+t.getlayer(2).msg[0].data == "To boldly go where no man has gone before...\n"
+
+
+###############################################################################
 ############################## Building packets ###############################
 ###############################################################################
 
-+ Test Build TLS empty records
++ Build TLS packets
+
 = Building packets - Various default records
 str(TLS())
 str(TLSClientHello())
@@ -935,7 +945,6 @@ str(TLSChangeCipherSpec())
 str(TLSApplicationData()) == ''
 
 
-+ Test Build TLS ClientHello
 = Building packets - ClientHello with automatic length computation
 ch = TLSClientHello()
 ch.msgtype = 'client_hello'
@@ -958,7 +967,6 @@ t = TLS(type='handshake', version='TLS 1.0', msg=ch)
 str(t) == b'\x16\x03\x01\x00\xc7\x01\x00\x00\xc3\x03\x03&\xee-\xddX\xe1\xb1T\xaa\xb1\x0b\xa0zlg\xf8\xd14]%\xa9\x91d\x08\xc7t\xcd6\xd4"\x9f\xcf\x00\x00\x16\xc0+\xc0/\xc0\n\xc0\t\xc0\x13\xc0\x14\x003\x009\x00/\x005\x00\n\x01\x00\x00\x84\x00\x00\x00\x11\x00\x0f\x00\x00\x0cmn.scapy.wtv\xff\x01\x00\x01\x00\x00\n\x00\x08\x00\x06\x00\x17\x00\x18\x00\x19\x00\x0b\x00\x02\x01\x00\x00#\x00\x003t\x00\x00\x00\x10\x00)\x00\'\x05h2-16\x05h2-15\x05h2-14\x02h2\x08spdy/3.1\x08http/1.1\x00\x05\x00\x05\x01\x00\x00\x00\x00\x00\r\x00\x16\x00\x14\x04\x01\x05\x01\x06\x01\x02\x01\x04\x03\x05\x03\x06\x03\x02\x03\x04\x02\x02\x02'
 
 
-+ Test Build TLS ServerKeyExchange
 = Building packets - ServerHello context linking
 from scapy.layers.tls.crypto.kx_algs import KX_ECDHE_RSA
 from scapy.layers.tls.crypto.cipher_block import Cipher_AES_256_CBC
@@ -972,7 +980,6 @@ assert(isinstance(t.tls_session.pwcs.hmac, Hmac_SHA))
 t.tls_session.server_random == 'A'*4+'B'*28
 
 
-+ Test Build TLS wrong record
 = Building packets - ChangeCipherSpec with forged, forbidden field values
 t = TLS(msg=TLSChangeCipherSpec())
 assert(str(t) == b'\x14\x03\x03\x00\x01\x01')
@@ -984,10 +991,31 @@ t.len = 0xefff
 str(t) == b'\xde\xad\xbe\xef\xff\x01'
 
 
+= Building packets - TLS record with bad data
+a = TLS(b'\x00\x03\x03\x00\x03data')
+assert a.haslayer(Raw)
+
+
+= Building packets - _CipherSuitesField with no cipher
+a = _CipherSuitesField("test", None, {})
+assert a.i2repr(None, None) == "None"
+assert isinstance(a.randval(), RandBin)
+assert hash(a) == 8890308
+
+
+= Building packets - TLSClientKeyExchange with bad data
+a = TLSClientKeyExchange(str(TLSClientKeyExchange(exchkeys="baddata")))
+assert a.haslayer(Raw)
+
+
+= Building packets - Perform dummy session update
+assert not TLSHelloRequest().tls_session_update(None)
+
+
 ###############################################################################
 ############################ Automaton behaviour ##############################
 ###############################################################################
 
-# see test/run_openssl_tests
+# see test/tls/tests_tls_netaccess.uts
 
 

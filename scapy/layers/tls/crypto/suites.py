@@ -1,6 +1,6 @@
 ## This file is part of Scapy
 ## Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
-##                     2015, 2016 Maxence Tury
+##               2015, 2016, 2017 Maxence Tury
 ## This program is published under a GPLv2 license
 
 """
@@ -23,29 +23,39 @@ def get_algs_from_ciphersuite_name(ciphersuite_name):
     Return the 3-tuple made of the Key Exchange Algorithm class, the Cipher
     class and the HMAC class, through the parsing of the ciphersuite name.
     """
-    s = ciphersuite_name[4:]
+    if ciphersuite_name.startswith("TLS"):
+        s = ciphersuite_name[4:]
+    
+        kx_name, s = s.split("_WITH_")
+        kx_alg = tls_kx_algs.get(kx_name)
+    
+        if s.endswith("CCM") or s.endswith("CCM_8"):
+    
+            hash_alg = tls_hash_algs.get("SHA256")
+            cipher_alg = tls_cipher_algs.get(s)
+            hmac_alg = None
+    
+        else:
+    
+            hash_name = s.split('_')[-1]
+            hash_alg = tls_hash_algs.get(hash_name)
+    
+            cipher_name = s[:-(len(hash_name) + 1)]
+            cipher_alg = tls_cipher_algs.get(cipher_name)
+    
+            hmac_alg = None
+            if cipher_alg is not None and cipher_alg.type != "aead":
+                hmac_name = "HMAC-%s" % hash_name
+                hmac_alg = tls_hmac_algs.get(hmac_name)
 
-    kx_name, s = s.split("_WITH_")
-    kx_alg = tls_kx_algs.get(kx_name)
-
-    if s.endswith("CCM") or s.endswith("CCM_8"):
-
-        hash_alg = tls_hash_algs.get("SHA256")
-        cipher_alg = tls_cipher_algs.get(s)
-        hmac_alg = None
-
-    else:
-
-        hash_name = s.split('_')[-1]
+    elif ciphersuite_name.startswith("SSL"):
+        s = ciphersuite_name[7:]
+        kx_alg = tls_kx_algs.get("SSLv2")
+        cipher_name, hash_name = s.split("_WITH_")
+        cipher_alg = tls_cipher_algs.get(cipher_name.rstrip("_EXPORT40"))
+        kx_alg.export = cipher_name.endswith("_EXPORT40")
+        hmac_alg = tls_hmac_algs.get("HMAC-NULL")
         hash_alg = tls_hash_algs.get(hash_name)
-
-        cipher_name = s[:-(len(hash_name) + 1)]
-        cipher_alg = tls_cipher_algs.get(cipher_name)
-
-        hmac_alg = None
-        if cipher_alg is not None and cipher_alg.type != "aead":
-            hmac_name = "HMAC-%s" % hash_name
-            hmac_alg = tls_hmac_algs.get(hmac_name)
 
     return kx_alg, cipher_alg, hmac_alg, hash_alg
 
@@ -64,9 +74,7 @@ class _GenericCipherSuiteMetaclass(type):
 
     Regarding the AEAD cipher suites, note that the 'hmac_alg' attribute will
     be set to None. Yet, we always need a 'hash_alg' for the PRF.
-
-    Also, if pycrypto 2.7a is not installed, there will be no AES.GCM nor
-    AES.CCM support, so the 'usable' attribute will be set to False.
+    For now, only AES_GCM is supported by the library and will be 'usable'.
     """
     def __new__(cls, cs_name, bases, dct):
         cs_val = dct.get("val")
@@ -924,30 +932,53 @@ class TLS_ECDHE_ECDSA_WITH_AES_128_CCM_8(_GenericCipherSuite):
 class TLS_ECDHE_ECDSA_WITH_AES_256_CCM_8(_GenericCipherSuite):
     val = 0xC0AF
 
-#class TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256(_GenericCipherSuite):
-#    val = 0xCCA8
-#
-#class TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256(_GenericCipherSuite):
-#    val = 0xCCA9
-#
-#class TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256(_GenericCipherSuite):
-#    val = 0xCCAA
-#
-#class TLS_PSK_WITH_CHACHA20_POLY1305_SHA256(_GenericCipherSuite):
-#    val = 0xCCAB
-#
-#class TLS_ECDHE_PSK_WITH_CHACHA20_POLY1305_SHA256(_GenericCipherSuite):
-#    val = 0xCCAC
-#
-#class TLS_DHE_PSK_WITH_CHACHA20_POLY1305_SHA256(_GenericCipherSuite):
-#    val = 0xCCAD
-#
-#class TLS_RSA_PSK_WITH_CHACHA20_POLY1305_SHA256(_GenericCipherSuite):
-#    val = 0xCCAE
+class TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256(_GenericCipherSuite):
+    val = 0xCCA8
+
+class TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256(_GenericCipherSuite):
+    val = 0xCCA9
+
+class TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256(_GenericCipherSuite):
+    val = 0xCCAA
+
+class TLS_PSK_WITH_CHACHA20_POLY1305_SHA256(_GenericCipherSuite):
+    val = 0xCCAB
+
+class TLS_ECDHE_PSK_WITH_CHACHA20_POLY1305_SHA256(_GenericCipherSuite):
+    val = 0xCCAC
+
+class TLS_DHE_PSK_WITH_CHACHA20_POLY1305_SHA256(_GenericCipherSuite):
+    val = 0xCCAD
+
+class TLS_RSA_PSK_WITH_CHACHA20_POLY1305_SHA256(_GenericCipherSuite):
+    val = 0xCCAE
+
+
+class SSL_CK_RC4_128_WITH_MD5(_GenericCipherSuite):
+     val = 0x010080
+
+class SSL_CK_RC4_128_EXPORT40_WITH_MD5(_GenericCipherSuite):
+     val = 0x020080
+
+class SSL_CK_RC2_128_CBC_WITH_MD5(_GenericCipherSuite):
+     val = 0x030080
+
+class SSL_CK_RC2_128_CBC_EXPORT40_WITH_MD5(_GenericCipherSuite):
+     val = 0x040080
+
+class SSL_CK_IDEA_128_CBC_WITH_MD5(_GenericCipherSuite):
+     val = 0x050080
+
+class SSL_CK_DES_64_CBC_WITH_MD5(_GenericCipherSuite):
+     val = 0x060040
+
+class SSL_CK_DES_192_EDE3_CBC_WITH_MD5(_GenericCipherSuite):
+     val = 0x0700C0
 
 
 _tls_cipher_suites[0x00ff] = "TLS_EMPTY_RENEGOTIATION_INFO_SCSV"
 _tls_cipher_suites[0x5600] = "TLS_FALLBACK_SCSV"
+
 
 
 def get_usable_ciphersuites(l, kx):
@@ -965,7 +996,7 @@ def get_usable_ciphersuites(l, kx):
             if ciph.usable:
                 #XXX select among RSA and ECDSA cipher suites
                 # according to the key(s) the server was given
-                if kx in ciph.kx_alg.name:
+                if ciph.kx_alg.anonymous or kx in ciph.kx_alg.name:
                     res.append(c)
     return res
 

@@ -1,6 +1,6 @@
 ## This file is part of Scapy
 ## Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
-##                     2015, 2016 Maxence Tury
+##               2015, 2016, 2017 Maxence Tury
 ## This program is published under a GPLv2 license
 
 """
@@ -11,10 +11,9 @@ from __future__ import absolute_import
 import math
 
 from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import dh, ec, rsa
+from cryptography.hazmat.primitives.asymmetric import dh, ec
 
-from scapy.config import conf
+from scapy.config import conf, crypto_validator
 from scapy.error import warning
 from scapy.fields import *
 from scapy.packet import Packet, Raw, Padding
@@ -22,7 +21,7 @@ from scapy.layers.tls.cert import PubKeyRSA, PrivKeyRSA
 from scapy.layers.tls.session import _GenericTLSSessionInheritance
 from scapy.layers.tls.basefields import _tls_version, _TLSClientVersionField
 from scapy.layers.tls.crypto.pkcs1 import pkcs_i2osp, pkcs_os2ip
-from scapy.layers.tls.crypto.ffdh import FFDH_GROUPS
+from scapy.layers.tls.crypto.ffdh import _ffdh_groups
 import scapy.modules.six as six
 
 
@@ -43,7 +42,10 @@ _tls_hash_sig = { 0x0000: "none+anon",    0x0001: "none+rsa",
                   0x0500: "sha384+anon",  0x0501: "sha384+rsa",
                   0x0502: "sha384+dsa",   0x0503: "sha384+ecdsa",
                   0x0600: "sha512+anon",  0x0601: "sha512+rsa",
-                  0x0602: "sha512+dsa",   0x0603: "sha512+ecdsa" }
+                  0x0602: "sha512+dsa",   0x0603: "sha512+ecdsa",
+                  0x0804: "sha256+rsapss",
+                  0x0805: "sha384+rsapss",
+                  0x0806: "sha512+rsapss" }
 
 
 def phantom_mode(pkt):
@@ -76,55 +78,78 @@ def phantom_decorate(f, get_or_add):
     return wrapper
 
 class SigAndHashAlgField(EnumField):
-    """
-    Used in _TLSSignature.
-    """
+    """Used in _TLSSignature."""
     phantom_value = None
     getfield = phantom_decorate(EnumField.getfield, True)
     addfield = phantom_decorate(EnumField.addfield, False)
 
 class SigAndHashAlgsLenField(FieldLenField):
-    """
-    Used in TLS_Ext_SignatureAlgorithms and TLSCertificateResquest.
-    """
+    """Used in TLS_Ext_SignatureAlgorithms and TLSCertificateResquest."""
     phantom_value = 0
     getfield = phantom_decorate(FieldLenField.getfield, True)
     addfield = phantom_decorate(FieldLenField.addfield, False)
 
 class SigAndHashAlgsField(FieldListField):
-    """
-    Used in TLS_Ext_SignatureAlgorithms and TLSCertificateResquest.
-    """
+    """Used in TLS_Ext_SignatureAlgorithms and TLSCertificateResquest."""
     phantom_value = []
     getfield = phantom_decorate(FieldListField.getfield, True)
     addfield = phantom_decorate(FieldListField.addfield, False)
 
 
+class SigLenField(FieldLenField):
+    """There is a trick for SSLv2, which uses implicit lengths..."""
+    def getfield(self, pkt, s):
+        if pkt.tls_session.tls_version < 0x0300:
+            return s, None
+        return super(SigLenField, self).getfield(pkt, s)
+
+    def addfield(self, pkt, s, val):
+        """With SSLv2 you will never be able to add a sig_len."""
+        if pkt.tls_session.tls_version < 0x0300:
+            return s
+        return super(SigLenField, self).addfield(pkt, s, val)
+
+class SigValField(StrLenField):
+    """There is a trick for SSLv2, which uses implicit lengths..."""
+    def getfield(self, pkt, m):
+        s = pkt.tls_session
+        if s.tls_version < 0x0300:
+            if len(s.client_certs) > 0:
+                sig_len = s.client_certs[0].pubKey.pubkey.key_size / 8
+            else:
+                warning("No client certificate provided. "
+                        "We're making a wild guess about the signature size.")
+                sig_len = 256
+            return m[sig_len:], self.m2i(pkt, m[:sig_len])
+        return super(SigValField, self).getfield(pkt, m)
+
+
 class _TLSSignature(_GenericTLSSessionInheritance):
     """
-    Prior to TLS 1.2, digitally-signed structure implictly used the
-    concatenation of a SHA-1 hash and a MD5 hash (this is the 'tls' mode
-    of key signing). TLS 1.2 introduced explicit SignatureAndHashAlgorithms,
+    Prior to TLS 1.2, digitally-signed structure implicitly used the
+    concatenation of a MD5 hash and a SHA-1 hash.
+    Then TLS 1.2 introduced explicit SignatureAndHashAlgorithms,
     i.e. couples of (hash_alg, sig_alg). See RFC 5246, section 7.4.1.4.1.
 
     By default, the _TLSSignature implements the TLS 1.2 scheme,
     but if it is provided a TLS context with a tls_version < 0x0303
     at initialization, it will fall back to the implicit signature.
+    Even more, the 'sig_len' field won't be used with SSLv2.
 
     #XXX 'sig_alg' should be set in __init__ depending on the context.
     """
     name = "TLS Digital Signature"
     fields_desc = [ SigAndHashAlgField("sig_alg", 0x0401, _tls_hash_sig),
-                    FieldLenField("sig_len", None, fmt="!H",
-                                  length_of="sig_val"),
-                    StrLenField("sig_val", None,
-                                length_from = lambda pkt: pkt.sig_len) ]
+                    SigLenField("sig_len", None, fmt="!H",
+                                length_of="sig_val"),
+                    SigValField("sig_val", None,
+                                length_from=lambda pkt: pkt.sig_len) ]
 
     def __init__(self, *args, **kargs):
-        _GenericTLSSessionInheritance.__init__(self, *args, **kargs)
-        if ("tls_session" in kargs and
-            kargs["tls_session"].tls_version and
-            kargs["tls_session"].tls_version < 0x0303):
+        super(_TLSSignature, self).__init__(*args, **kargs)
+        if (self.tls_session and
+            self.tls_session.tls_version and
+            self.tls_session.tls_version < 0x0303):
             self.sig_alg = None
 
     def _update_sig(self, m, key):
@@ -134,10 +159,17 @@ class _TLSSignature(_GenericTLSSessionInheritance):
         of the PrivKey (neither do we care to compare the both of them).
         """
         if self.sig_alg is None:
-            self.sig_val = key.sign(m, t='pkcs', h='tls')
+            if self.tls_session.tls_version >= 0x0300:
+                self.sig_val = key.sign(m, t='pkcs', h='md5-sha1')
+            else:
+                self.sig_val = key.sign(m, t='pkcs', h='md5')
         else:
-            h = _tls_hash_sig[self.sig_alg].split('+')[0]
-            self.sig_val = key.sign(m, t='pkcs', h=h)
+            h, sig = _tls_hash_sig[self.sig_alg].split('+')
+            if sig.endswith('pss'):
+                t = "pss"
+            else:
+                t = "pkcs"
+            self.sig_val = key.sign(m, t=t, h=h)
 
     def _verify_sig(self, m, cert):
         """
@@ -146,10 +178,17 @@ class _TLSSignature(_GenericTLSSessionInheritance):
         """
         if self.sig_val:
             if self.sig_alg:
-                h = _tls_hash_sig[self.sig_alg].split('+')[0]
-                return cert.verify(m, self.sig_val, t='pkcs', h=h)
+                h, sig = _tls_hash_sig[self.sig_alg].split('+')
+                if sig.endswith('pss'):
+                    t = "pss"
+                else:
+                    t = "pkcs"
+                return cert.verify(m, self.sig_val, t=t, h=h)
             else:
-                return cert.verify(m, self.sig_val, t='pkcs', h='tls')
+                if self.tls_session.tls_version >= 0x0300:
+                    return cert.verify(m, self.sig_val, t='pkcs', h='md5-sha1')
+                else:
+                    return cert.verify(m, self.sig_val, t='pkcs', h='md5')
         return False
 
     def guess_payload_class(self, p):
@@ -170,6 +209,17 @@ class _TLSSignatureField(PacketField):
         if l == 0:
            return None
         return _TLSSignature(m, tls_session=pkt.tls_session)
+
+    def getfield(self, pkt, s):
+        i = self.m2i(pkt, s)
+        if i is None:
+            return s, None
+        remain = ""
+        if conf.padding_layer in i:
+            r = i[conf.padding_layer]
+            del(r.underlayer.payload)
+            remain = r.load
+        return remain, i
 
 
 class _TLSServerParamsField(PacketField):
@@ -239,6 +289,7 @@ class ServerDHParams(_GenericTLSSessionInheritance):
                     StrLenField("dh_Ys", "",
                                 length_from=lambda pkt: pkt.dh_Yslen) ]
 
+    @crypto_validator
     def fill_missing(self):
         """
         We do not want TLSServerKeyExchange.build() to overload and recompute
@@ -249,8 +300,8 @@ class ServerDHParams(_GenericTLSSessionInheritance):
         """
         s = self.tls_session
 
-        default_params = FFDH_GROUPS['modp2048'][0].parameter_numbers()
-        default_mLen = FFDH_GROUPS['modp2048'][1]
+        default_params = _ffdh_groups['modp2048'][0].parameter_numbers()
+        default_mLen = _ffdh_groups['modp2048'][1]
 
         if self.dh_p is "":
             self.dh_p = pkcs_i2osp(default_params.p, default_mLen/8)
@@ -504,6 +555,7 @@ class ServerECDHNamedCurveParams(_GenericTLSSessionInheritance):
                     StrLenField("point", None,
                                 length_from = lambda pkt: pkt.pointlen) ]
 
+    @crypto_validator
     def fill_missing(self):
         """
         We do not want TLSServerKeyExchange.build() to overload and recompute
@@ -604,15 +656,10 @@ class ServerRSAParams(_GenericTLSSessionInheritance):
                     StrLenField("rsaexp", "",
                                 length_from = lambda pkt: pkt.rsaexplen) ]
 
+    @crypto_validator
     def fill_missing(self):
-        ext_k = rsa.generate_private_key(public_exponent=0x10001,
-                                         key_size=512,
-                                         backend=default_backend())
-        pem_k = ext_k.private_bytes(
-                        encoding=serialization.Encoding.PEM,
-                        format=serialization.PrivateFormat.TraditionalOpenSSL,
-                        encryption_algorithm=serialization.NoEncryption())
-        k = PrivKeyRSA(pem_k)
+        k = PrivKeyRSA()
+        k.fill_and_store(modulusLen=512)
         self.tls_session.server_tmp_rsa_key = k
         pubNum = k.pubkey.public_numbers()
 
@@ -831,9 +878,9 @@ class EncryptedPreMasterSecret(_GenericTLSSessionInheritance):
         s.compute_ms_and_derive_keys()
 
         if s.server_tmp_rsa_key is not None:
-            enc = s.server_tmp_rsa_key.encrypt(pkt, "pkcs")
+            enc = s.server_tmp_rsa_key.encrypt(pkt, t="pkcs")
         elif s.server_certs is not None and len(s.server_certs) > 0:
-            enc = s.server_certs[0].encrypt(pkt, "pkcs")
+            enc = s.server_certs[0].encrypt(pkt, t="pkcs")
         else:
             warning("No material to encrypt Pre Master Secret")
 

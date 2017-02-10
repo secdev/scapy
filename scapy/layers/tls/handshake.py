@@ -1,6 +1,6 @@
 ## This file is part of Scapy
 ## Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
-##                     2015, 2016 Maxence Tury
+##               2015, 2016, 2017 Maxence Tury
 ## This program is published under a GPLv2 license
 
 """
@@ -20,15 +20,15 @@ from scapy.packet import Packet, Raw, Padding
 from scapy.utils import repr_hex
 from scapy.layers.x509 import X509_Extensions, OCSP_Response
 from scapy.layers.tls.cert import Cert, PrivKey, PubKey
-from scapy.layers.tls.basefields import _tls_version, _TLSVersionField
+from scapy.layers.tls.basefields import (_tls_version, _TLSVersionField,
+                                         _TLSClientVersionField)
 from scapy.layers.tls.keyexchange import (_tls_named_curves, _tls_hash_sig,
                                           _TLSSignature, _TLSServerParamsField,
                                           _TLSSignatureField, ServerRSAParams,
                                           SigAndHashAlgsField,
                                           SigAndHashAlgsLenField)
 from scapy.layers.tls.session import (_GenericTLSSessionInheritance,
-                                      writeConnState,
-                                      readConnState)
+                                      readConnState, writeConnState)
 from scapy.layers.tls.crypto.compression import (_tls_compression_algs,
                                                  _tls_compression_algs_cls,
                                                  _GenericComp,
@@ -37,7 +37,7 @@ from scapy.layers.tls.crypto.suites import (_tls_cipher_suites,
                                             _tls_cipher_suites_cls,
                                             _GenericCipherSuite,
                                             _GenericCipherSuiteMetaclass,
-                                            TLS_DHE_RSA_WITH_AES_128_CBC_SHA)
+                                            TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256)
 
 
 ###############################################################################
@@ -749,7 +749,7 @@ class TLSClientHello(_TLSHandshake):
     name = "TLS Handshake - Client Hello"
     fields_desc = [ ByteEnumField("msgtype", 1, _tls_handshake_type),
                     ThreeBytesField("msglen", None),
-                    _TLSVersionField("version", 0x0303, _tls_version),
+                    _TLSClientVersionField("version", None, _tls_version),
 
                     #_TLSRandomBytesField("random_bytes", None, 32),
                     _GMTUnixTimeField("gmt_unix_time", None),
@@ -762,7 +762,7 @@ class TLSClientHello(_TLSHandshake):
                     FieldLenField("cipherslen", None, fmt="!H",
                                   length_of="ciphers"),
                     _CipherSuitesField("ciphers",
-                                       [TLS_DHE_RSA_WITH_AES_128_CBC_SHA],
+                                       [TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256],
                                        _tls_cipher_suites, itemfmt="!H",
                                        length_from=lambda pkt: pkt.cipherslen),
 
@@ -1065,9 +1065,11 @@ class TLSServerKeyExchange(_TLSHandshake):
         XXX Add a 'fixed_dh' OR condition to the 'anonymous' test.
         """
         s = self.tls_session
-        if s.prcs and s.prcs.key_exchange.anonymous:
+        if s.prcs and s.prcs.key_exchange.no_ske:
             print("USELESS SERVER KEY EXCHANGE")
-        if (s.client_random and s.server_random and
+        if (s.prcs and
+            not s.prcs.key_exchange.anonymous and
+            s.client_random and s.server_random and
             s.server_certs and len(s.server_certs) > 0):
             m = s.client_random + s.server_random + str(self.params)
             sig_test = self.sig._verify_sig(m, s.server_certs[0])
@@ -1135,22 +1137,19 @@ class TLSCertificateRequest(_TLSHandshake):
                     ThreeBytesField("msglen", None),
                     FieldLenField("ctypeslen", None, fmt="B",
                                   length_of="ctypes"),
-                    _CertTypesField("ctypes", [],
+                    _CertTypesField("ctypes", [1, 64],
                                     _tls_client_certificate_types,
                                     itemfmt="!B",
                                     length_from=lambda pkt: pkt.ctypeslen),
                     SigAndHashAlgsLenField("sig_algs_len", None,
                                            length_of="sig_algs"),
-                    SigAndHashAlgsField("sig_algs", [],
-                                        EnumField("hash_sig", None,
-                                                     _tls_hash_sig),
-                                        length_from=
-                                            lambda pkt: pkt.sig_algs_len),
+                    SigAndHashAlgsField("sig_algs", [0x0403, 0x0401, 0x0201],
+                                EnumField("hash_sig", None, _tls_hash_sig),
+                                length_from=lambda pkt: pkt.sig_algs_len),
                     FieldLenField("certauthlen", None, fmt="!H",
                                   length_of="certauth"),
                     _CertAuthoritiesField("certauth", [],
-                                          length_from=
-                                              lambda pkt: pkt.certauthlen) ]
+                                length_from=lambda pkt: pkt.certauthlen) ]
 
 
 ###############################################################################

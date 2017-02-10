@@ -1,6 +1,6 @@
 ## This file is part of Scapy
 ## Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
-##                     2015, 2016 Maxence Tury
+##               2015, 2016, 2017 Maxence Tury
 ## This program is published under a GPLv2 license
 
 """
@@ -8,8 +8,12 @@ Block ciphers.
 """
 
 from __future__ import absolute_import
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.utils import register_interface
+from cryptography.hazmat.primitives.ciphers import (Cipher, algorithms, modes,
+                                                    BlockCipherAlgorithm,
+                                                    CipherAlgorithm)
 from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.backends.openssl.backend import GetCipherByName
 
 from scapy.utils import strxor
 from scapy.layers.tls.crypto.ciphers import CipherError
@@ -37,7 +41,7 @@ class _BlockCipher(six.with_metaclass(_BlockCipherMetaclass, object)):
     type = "block"
 
     def __init__(self, key=None, iv=None):
-        self.ready = {"key":True, "iv":True}
+        self.ready = {"key": True, "iv": True}
         if key is None:
             self.ready["key"] = False
             if hasattr(self, "expanded_key_len"):
@@ -93,6 +97,11 @@ class _BlockCipher(six.with_metaclass(_BlockCipherMetaclass, object)):
         tmp = decryptor.update(data) + decryptor.finalize()
         self.iv = data[-self.block_size:]
         return tmp
+
+    def snapshot(self):
+        c = self.__class__(self.key, self.iv)
+        c.ready = self.ready.copy()
+        return c
 
 
 class Cipher_AES_128_CBC(_BlockCipher):
@@ -153,10 +162,56 @@ class Cipher_SEED_CBC(_BlockCipher):
     block_size = 16
     key_len = 16
 
-#class Cipher_RC2_CBC_40(_BlockCipher): # RFC 2268
-#    pc_cls = ARC2              # no support in the cryptography library
-#    pc_cls_mode = modes.CBC
-#    block_size = 8
-#    key_len = 5
-#    expanded_key_len = 16
+
+sslv2_block_cipher_algs = {
+        "IDEA_128_CBC":     Cipher_IDEA_CBC,
+        "DES_64_CBC":       Cipher_DES_CBC,
+        "DES_192_EDE3_CBC": Cipher_3DES_EDE_CBC
+        }
+
+
+# We need some black magic for RC2, which is not registered by default
+# to the openssl backend of the cryptography library.
+# If the current version of openssl does not support rc2, the RC2 ciphers are
+# silently not declared, and the corresponding suites will have 'usable' False.
+
+@register_interface(BlockCipherAlgorithm)
+@register_interface(CipherAlgorithm)
+class _ARC2(object):
+    name = "RC2"
+    block_size = 64
+    key_sizes = frozenset([128])
+
+    def __init__(self, key):
+        self.key = algorithms._verify_key_size(self, key)
+
+    @property
+    def key_size(self):
+        return len(self.key) * 8
+
+
+_openssl_backend = default_backend()._backends[0]
+_gcbn_format = "{cipher.name}-{mode.name}"
+
+if GetCipherByName(_gcbn_format)(_openssl_backend, _ARC2, modes.CBC) != \
+        _openssl_backend._ffi.NULL:
+
+    class Cipher_RC2_CBC(_BlockCipher):
+        pc_cls = _ARC2
+        pc_cls_mode = modes.CBC
+        block_size = 8
+        key_len = 16
+
+    class Cipher_RC2_CBC_40(Cipher_RC2_CBC):
+        expanded_key_len = 16
+        key_len = 5
+
+    _openssl_backend.register_cipher_adapter(Cipher_RC2_CBC.pc_cls,
+                                             Cipher_RC2_CBC.pc_cls_mode,
+                                             GetCipherByName(_gcbn_format))
+
+    sslv2_block_cipher_algs["RC2_128_CBC"] = Cipher_RC2_CBC
+
+
+tls_block_cipher_algs.update(sslv2_block_cipher_algs)
 

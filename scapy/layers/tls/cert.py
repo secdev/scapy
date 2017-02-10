@@ -1,7 +1,7 @@
 ## This file is part of Scapy
 ## Copyright (C) 2008 Arnaud Ebalard <arnaud.ebalard@eads.net>
 ##                                   <arno@natisbad.org>
-##         2015, 2016 Maxence Tury   <maxence.tury@ssi.gouv.fr>
+##   2015, 2016, 2017 Maxence Tury   <maxence.tury@ssi.gouv.fr>
 ## This program is published under a GPLv2 license
 
 """
@@ -37,8 +37,6 @@ if conf.crypto_valid:
     from cryptography.hazmat.backends import default_backend
     from cryptography.hazmat.primitives import serialization
     from cryptography.hazmat.primitives.asymmetric import rsa
-else:
-    default_backend = rsa = serialization = None
 
 from scapy.error import warning
 from scapy.utils import binrepr
@@ -49,7 +47,7 @@ from scapy.layers.x509 import (X509_SubjectPublicKeyInfo,
                                ECDSAPublicKey, ECDSAPrivateKey,
                                RSAPrivateKey_OpenSSL, ECDSAPrivateKey_OpenSSL,
                                X509_Cert, X509_CRL)
-from scapy.layers.tls.crypto.pkcs1 import (pkcs_os2ip, pkcs_i2osp, mapHashFunc,
+from scapy.layers.tls.crypto.pkcs1 import (pkcs_os2ip, pkcs_i2osp, _get_hash,
                                            _EncryptAndVerifyRSA,
                                            _DecryptAndSignRSA)
 
@@ -293,14 +291,12 @@ class PubKeyRSA(PubKey, _EncryptAndVerifyRSA):
         pubExp     = pubkey.publicExponent.val
         self.fill_and_store(modulus=modulus, pubExp=pubExp)
 
-    def encrypt(self, msg, t=None, h=None, mgf=None, L=None):
+    def encrypt(self, msg, t="pkcs", h="sha256", mgf=None, L=None):
         # no ECDSA encryption support, hence no ECDSA specific keywords here
-        return _EncryptAndVerifyRSA.encrypt(self, msg, t=t, h=h, mgf=mgf, L=L)
+        return _EncryptAndVerifyRSA.encrypt(self, msg, t, h, mgf, L)
 
-    def verify(self, msg, sig, h=None,
-               t=None, mgf=None, sLen=None):
-        return _EncryptAndVerifyRSA.verify(self, msg, sig, h=h,
-                                           t=t, mgf=mgf, sLen=sLen)
+    def verify(self, msg, sig, t="pkcs", h="sha256", mgf=None, L=None):
+        return _EncryptAndVerifyRSA.verify(self, msg, sig, t, h, mgf, L)
 
 class PubKeyECDSA(PubKey):
     """
@@ -320,14 +316,14 @@ class PubKeyECDSA(PubKey):
         self.pubkey = serialization.load_der_public_key(pubkey,
                                                     backend=default_backend())
 
-    def encrypt(self, msg, h=None, **kwargs):
+    def encrypt(self, msg, h="sha256", **kwargs):
         # cryptography lib does not support ECDSA encryption
         raise Exception("No ECDSA encryption support")
 
     @crypto_validator
-    def verify(self, msg, sig, h=None, **kwargs):
+    def verify(self, msg, sig, h="sha256", **kwargs):
         # 'sig' should be a DER-encoded signature, as per RFC 3279
-        verifier = self.pubkey.verifier(sig, ec.ECDSA(mapHashFunc(h)))
+        verifier = self.pubkey.verifier(sig, ec.ECDSA(_get_hash(h)))
         verifier.update(msg)
         return verifier.verify()
 
@@ -405,7 +401,7 @@ class PrivKey(six.with_metaclass(_PrivKeyFactory, object)):
     Provides common signTBSCert() and resignCert() methods.
     """
 
-    def signTBSCert(self, tbsCert, h=None):
+    def signTBSCert(self, tbsCert, h="sha256"):
         """
         Note that this will always copy the signature field from the
         tbsCertificate into the signatureAlgorithm field of the result,
@@ -492,16 +488,12 @@ class PrivKeyRSA(PrivKey, _EncryptAndVerifyRSA, _DecryptAndSignRSA):
                             exponent1=exponent1, exponent2=exponent2,
                             coefficient=coefficient)
 
-    def verify(self, msg, sig, h=None,
-               t=None, mgf=None, sLen=None):
+    def verify(self, msg, sig, t="pkcs", h="sha256", mgf=None, L=None):
         # Let's copy this from PubKeyRSA instead of adding another baseclass :)
-        return _EncryptAndVerifyRSA.verify(self, msg, sig, h=h,
-                                           t=t, mgf=mgf, sLen=sLen)
+        return _EncryptAndVerifyRSA.verify(self, msg, sig, t, h, mgf, L)
 
-    def sign(self, data, h=None,
-             t=None, mgf=None, sLen=None):
-        return _DecryptAndSignRSA.sign(self, data, h=h,
-                                       t=t, mgf=mgf, sLen=sLen)
+    def sign(self, data, t="pkcs", h="sha256", mgf=None, L=None):
+        return _DecryptAndSignRSA.sign(self, data, t, h, mgf, L)
 
 
 class PrivKeyECDSA(PrivKey):
@@ -522,15 +514,15 @@ class PrivKeyECDSA(PrivKey):
         self.pubkey = self.key.public_key()
 
     @crypto_validator
-    def verify(self, msg, sig, h=None, **kwargs):
+    def verify(self, msg, sig, h="sha256", **kwargs):
         # 'sig' should be a DER-encoded signature, as per RFC 3279
-        verifier = self.pubkey.verifier(sig, ec.ECDSA(mapHashFunc(h)))
+        verifier = self.pubkey.verifier(sig, ec.ECDSA(_get_hash(h)))
         verifier.update(msg)
         return verifier.verify()
 
     @crypto_validator
-    def sign(self, data, h=None, **kwargs):
-        signer = self.key.signer(ec.ECDSA(mapHashFunc(h)))
+    def sign(self, data, h="sha256", **kwargs):
+        signer = self.key.signer(ec.ECDSA(_get_hash(h)))
         signer.update(data)
         return signer.finalize()
 
@@ -641,14 +633,12 @@ class Cert(six.with_metaclass(_CertMaker, object)):
             return self.isIssuerCert(self)
         return False
 
-    def encrypt(self, msg, t=None, h=None, mgf=None, L=None):
+    def encrypt(self, msg, t="pkcs", h="sha256", mgf=None, L=None):
         # no ECDSA *encryption* support, hence only RSA specific keywords here
-        return self.pubKey.encrypt(msg, t=t, h=h, mgf=mgf, L=L)
+        return self.pubKey.encrypt(msg, t, h, mgf, L)
 
-    def verify(self, msg, sig, h=None,
-               t=None, mgf=None, sLen=None):
-        return self.pubKey.verify(msg, sig, h=h,
-                                  t=t, mgf=mgf, sLen=sLen)
+    def verify(self, msg, sig, t="pkcs", h="sha256", mgf=None, L=None):
+        return self.pubKey.verify(msg, sig, t, h, mgf, L)
 
     def remainingDays(self, now=None):
         """
@@ -984,4 +974,28 @@ class Chain(list):
                 s += "\n"
             idx += 1
         return s
+
+
+##############################
+# Certificate export helpers #
+##############################
+
+def _create_ca_file(anchor_list, filename):
+    """
+    Concatenate all the certificates (PEM format for the export) in
+    'anchor_list' and write the result to file 'filename'. On success
+    'filename' is returned, None otherwise.
+
+    If you are used to OpenSSL tools, this function builds a CAfile
+    that can be used for certificate and CRL check.
+    """
+    try:
+        f = open(filename, "w")
+        for a in anchor_list:
+            s = a.output(fmt="PEM")
+            f.write(s)
+        f.close()
+    except:
+        return None
+    return filename
 

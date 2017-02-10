@@ -1,10 +1,12 @@
 ## This file is part of Scapy
 ## Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
-##                     2015, 2016 Maxence Tury
+##               2015, 2016, 2017 Maxence Tury
 ## This program is published under a GPLv2 license
 
 """
 TLS Pseudorandom Function.
+
+XXX More errors should be raised for SSLv2.
 """
 
 from __future__ import absolute_import
@@ -35,7 +37,6 @@ def _tls_P_hash(secret, seed, req_len, hm):
            Hmac_MD5 or Hmac_SHA1 in TLS <= 1.1 or
            Hmac_SHA256 or Hmac_SHA384 in TLS 1.2)
     """
-
     hash_len = hm.hash_alg.hash_len
     n = (req_len + hash_len - 1) / hash_len
 
@@ -68,6 +69,22 @@ def _tls_P_SHA512(secret, seed, req_len):
 
 ### PRF functions, according to the protocol version
 
+def _sslv2_PRF(secret, seed, req_len):
+    hash_md5 = tls_hash_algs["MD5"]()
+    rounds = (req_len + hash_md5.hash_len - 1) / hash_md5.hash_len
+
+    res = ""
+    if rounds == 1:
+        res += hash_md5.digest(secret + seed)
+    else:
+        r = 0
+        while r < rounds:
+            label = str(r)
+            res += hash_md5.digest(secret + label + seed)
+            r += 1
+
+    return res[:req_len]
+
 def _ssl_PRF(secret, seed, req_len):
     """
     Provides the implementation of SSLv3 PRF function:
@@ -78,7 +95,6 @@ def _ssl_PRF(secret, seed, req_len):
         MD5(secret || SHA-1("CCC" || secret || seed)) || ...
 
     req_len should not be more than  26 x 16 = 416.
-
     """
     if req_len > 416:
         warning("_ssl_PRF() is not expected to provide more than 416 bytes")
@@ -87,13 +103,14 @@ def _ssl_PRF(secret, seed, req_len):
     d = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M",
          "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"]
     res = ""
-    hash_md5 = tls_hash_algs["MD5"]
+    hash_sha1 = tls_hash_algs["SHA"]()
+    hash_md5 = tls_hash_algs["MD5"]()
     rounds = (req_len + hash_md5.hash_len - 1) / hash_md5.hash_len
 
     for i in range(rounds):
         label = d[i] * (i+1)
-        tmp = tls_hash_algs["SHA"]().digest(label + secret + seed)
-        res += tls_hash_algs["MD5"]().digest(secret + tmp)
+        tmp = hash_sha1.digest(label + secret + seed)
+        res += hash_md5.digest(secret + tmp)
 
     return res[:req_len]
 
@@ -113,9 +130,7 @@ def _tls_PRF(secret, label, seed, req_len):
              depending on the use of the generated PRF keystream
     - seed: the seed used by the expansion functions.
     - req_len: amount of keystream to be generated
-
     """
-
     l = (len(secret) + 1) / 2
     S1 = secret[:l]
     S2 = secret[-l:]
@@ -140,7 +155,6 @@ def _tls12_SHA256PRF(secret, label, seed, req_len):
              depending on the use of the generated PRF keystream
     - seed: the seed used by the expansion functions.
     - req_len: amount of keystream to be generated
-
     """
     return _tls_P_SHA256(secret, label+seed, req_len)
 
@@ -165,8 +179,9 @@ class PRF(object):
         self.tls_version = tls_version
         self.hash_name = hash_name
 
-        if (tls_version == 0x0200 or        # SSLv2
-            tls_version == 0x0300):         # SSLv3
+        if tls_version < 0x0300:            # SSLv2
+            self.prf = _sslv2_PRF
+        elif tls_version == 0x0300:         # SSLv3
             self.prf = _ssl_PRF
         elif (tls_version == 0x0301 or      # TLS 1.0
               tls_version == 0x0302):       # TLS 1.1
@@ -188,7 +203,9 @@ class PRF(object):
         client_random and server_random. See RFC 5246, section 6.3.
         """
         seed = client_random + server_random
-        if self.tls_version <= 0x0300:
+        if self.tls_version < 0x0300:
+            return None
+        elif self.tls_version == 0x0300:
             return self.prf(pre_master_secret, seed, 48)
         else:
             return self.prf(pre_master_secret, "master secret", seed, 48)
@@ -217,7 +234,9 @@ class PRF(object):
          prior to this document when TLS 1.2 is negotiated."
         Cipher suites using SHA-384 were defined later on.
         """
-        if self.tls_version <= 0x0300:
+        if self.tls_version < 0x0300:
+            return None
+        elif self.tls_version == 0x0300:
 
             if read_or_write == "write":
                 d = {"client": "CLNT", "server": "SRVR"}
@@ -273,7 +292,9 @@ class PRF(object):
         s = con_end + read_or_write
         s = (s == "clientwrite" or s == "serverread")
 
-        if self.tls_version == 0x0300:
+        if self.tls_version < 0x0300:
+            return None
+        elif self.tls_version == 0x0300:
             if s:
                 tbh = key + client_random + server_random
             else:
@@ -300,7 +321,9 @@ class PRF(object):
         s = con_end + read_or_write
         s = (s == "clientwrite" or s == "serverread")
 
-        if self.tls_version == 0x0300:
+        if self.tls_version < 0x0300:
+            return None
+        elif self.tls_version == 0x0300:
             if s:
                 tbh = client_random + server_random
             else:

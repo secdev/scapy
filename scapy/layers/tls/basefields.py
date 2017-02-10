@@ -1,6 +1,6 @@
 ## This file is part of Scapy
 ## Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
-##                     2015, 2016 Maxence Tury
+##               2015, 2016, 2017 Maxence Tury
 ## This program is published under a GPLv2 license
 
 """
@@ -16,58 +16,66 @@ _tls_type = { 20: "change_cipher_spec",
               22: "handshake",
               23: "application_data" }
 
-_tls_version = { 0x0200: "SSLv2",
+_tls_version = { 0x0002: "SSLv2",
+                 0x0200: "SSLv2",
                  0x0300: "SSLv3",
                  0x0301: "TLS 1.0",
                  0x0302: "TLS 1.1",
                  0x0303: "TLS 1.2" }
 
-
-class _TLSVersionField(ShortEnumField):
-    """
-    Behavior: if the user does not provide a value, we use the version provided
-    by tls_version parameter in packet's session, only if it is defined. In
-    that case, this is the version selected by the server. Otherwise, we use
-    the value provided by advertised_tls_version parameter in packet's session.
-    In that latter case, this is simply the version provided by the client.
-    """
-    def i2h(self, pkt, x):
-        if x is None:
-            if pkt.tls_session.tls_version:
-                return pkt.tls_session.tls_version
-            return pkt.tls_session.advertised_tls_version
-        return x
-
-    def i2m(self, pkt, x):
-        if x is None:
-            if pkt.tls_session.tls_version:
-                return pkt.tls_session.tls_version
-            return pkt.tls_session.advertised_tls_version
-        return x
-
+_tls_version_options = { "sslv2": 0x0002,
+                         "sslv3": 0x0300,
+                         "tls1" : 0x0301,
+                         "tls10": 0x0301,
+                         "tls11": 0x0302,
+                         "tls12": 0x0303 }
 
 class _TLSClientVersionField(ShortEnumField):
     """
-    Unlike _TLSVersionField, we use advertised_tls_version preferentially,
-    and then tls_version if there was none advertised.
+    We use the advertised_tls_version if it has been defined.
     """
     def i2h(self, pkt, x):
         if x is None:
             if pkt.tls_session.advertised_tls_version:
                 return pkt.tls_session.advertised_tls_version
-            return pkt.tls_session.tls_version
+            return ""
         return x
 
     def i2m(self, pkt, x):
         if x is None:
             if pkt.tls_session.advertised_tls_version:
                 return pkt.tls_session.advertised_tls_version
-            return pkt.tls_session.tls_version
+            return ""
+        return x
+
+
+class _TLSVersionField(ShortEnumField):
+    """
+    We use the tls_version if it has been defined, else the advertised version.
+    """
+    def i2h(self, pkt, x):
+        if x is None:
+            if pkt.tls_session.tls_version:
+                return pkt.tls_session.tls_version
+            return pkt.tls_session.advertised_tls_version
+        return x
+
+    def i2m(self, pkt, x):
+        if x is None:
+            if pkt.tls_session.tls_version:
+                return pkt.tls_session.tls_version
+            return pkt.tls_session.advertised_tls_version
         return x
 
 
 class _TLSLengthField(ShortField):
-    pass
+    def i2repr(self, pkt, x):
+        s = super(_TLSLengthField, self).i2repr(pkt, x)
+        if pkt.deciphered_len is not None:
+            dx = pkt.deciphered_len
+            ds = super(_TLSLengthField, self).i2repr(pkt, dx)
+            s += "    [deciphered_len= %s]" % ds
+        return s
 
 
 class _TLSIVField(StrField):
@@ -155,11 +163,12 @@ class _TLSPadField(StrField):
 
     def getfield(self, pkt, s):
         if pkt.tls_session.consider_read_padding():
-            # We get the length from the last byte of s which
-            # is either the first byte of padding or the padding
-            # length field itself is padding length is 0.
             # This should work with SSLv3 and also TLS versions.
-            l = ord(s[-1])
+            # Note that we need to retrieve pkt.padlen beforehand,
+            # because it's possible that the padding is followed by some data
+            # from another TLS record (hence the last byte from s would not be
+            # the last byte from the current record padding).
+            l = ord(s[pkt.padlen-1])
             return s[l:], self.m2i(pkt, s[:l])
         return s, None
 
@@ -175,6 +184,47 @@ class _TLSPadLenField(ByteField):
 
     def getfield(self, pkt, s):
         if pkt.tls_session.consider_read_padding():
+            return ByteField.getfield(self, pkt, s)
+        return s, None
+
+
+### SSLv2 fields
+
+class _SSLv2LengthField(_TLSLengthField):
+    def i2repr(self, pkt, x):
+        s = super(_SSLv2LengthField, self).i2repr(pkt, x)
+        if pkt.with_padding:
+            x |= 0x8000
+        #elif pkt.with_escape:      #XXX
+        #   x |= 0x4000
+            s += "    [with padding: %s]" % hex(x)
+        return s
+
+    def getfield(self, pkt, s):
+        msglen = struct.unpack('!H', s[:2])[0]
+        pkt.with_padding = (msglen & 0x8000) == 0
+        if pkt.with_padding:
+            msglen_clean = msglen & 0x3fff
+        else:
+            msglen_clean = msglen & 0x7fff
+        return s[2:], msglen_clean
+
+
+class _SSLv2MACField(_TLSMACField):
+    pass
+
+
+class _SSLv2PadField(_TLSPadField):
+    def getfield(self, pkt, s):
+        if pkt.padlen is not None:
+            l = pkt.padlen
+            return s[l:], self.m2i(pkt, s[:l])
+        return s, None
+
+
+class _SSLv2PadLenField(_TLSPadLenField):
+    def getfield(self, pkt, s):
+        if pkt.with_padding:
             return ByteField.getfield(self, pkt, s)
         return s, None
 

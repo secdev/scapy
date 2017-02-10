@@ -1,6 +1,6 @@
 ## This file is part of Scapy
 ## Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
-##                     2015, 2016 Maxence Tury
+##               2015, 2016, 2017 Maxence Tury
 ## This program is published under a GPLv2 license
 
 """
@@ -58,7 +58,7 @@ class _AEADCipher(six.with_metaclass(_AEADCipherMetaclass, object)):
         'key' and 'salt' are to be provided as strings, whereas the internal
         'nonce_explicit' is an integer (it is simpler for incrementation).
         """
-        self.ready = {"key":True, "salt":True, "nonce_explicit":True}
+        self.ready = {"key": True, "salt": True, "nonce_explicit": True}
         if key is None:
             self.ready["key"] = False
             key = b"\0" * self.key_len
@@ -100,6 +100,7 @@ class _AEADCipher(six.with_metaclass(_AEADCipherMetaclass, object)):
                 self._cipher.mode._initialization_vector = iv
             self.ready["nonce_explicit"] = True
         super(_AEADCipher, self).__setattr__(name, val)
+
 
     def _update_nonce(self):
         """
@@ -165,6 +166,11 @@ class _AEADCipher(six.with_metaclass(_AEADCipherMetaclass, object)):
         except InvalidTag:
             raise AEADTagError, (nonce_explicit_str, P, mac)
         return nonce_explicit_str, P, mac
+
+    def snapshot(self):
+        c = self.__class__(self.key, self.salt, self.nonce_explicit)
+        c.ready = self.ready.copy()
+        return c
 
 
 class Cipher_AES_128_GCM(_AEADCipher):

@@ -17,7 +17,7 @@ import sys
 basedir = os.path.abspath(os.path.join(os.path.dirname(__file__),"../../"))
 sys.path=[basedir]+sys.path
 
-from scapy.layers.tls.automaton import TLSServerAutomaton
+from scapy.layers.tls.automaton_srv import TLSServerAutomaton
 
 
 if len(sys.argv) == 2:
@@ -29,5 +29,4 @@ t = TLSServerAutomaton(mycert=basedir+'/test/tls/pki/srv_cert.pem',
                        mykey=basedir+'/test/tls/pki/srv_key.pem',
                        preferred_ciphersuite=pcs)
 t.run()
-
 
