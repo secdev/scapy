@@ -416,6 +416,27 @@ def _all_rc4_tests():
 _all_rc4_tests()
 
 
++ Test DES-CBC
+= Crypto - DES cipher in CBC mode, check from FIPS PUB 81
+import binascii
+class _descbc_test:
+    k= binascii.unhexlify("0123456789abcdef")
+    p= binascii.unhexlify("4e6f77206973207468652074696d6520666f7220616c6c20")
+    c= binascii.unhexlify("e5c7cdde872bf27c43e934008c389c0f683788499a7c05f6")
+    iv=binascii.unhexlify("1234567890abcdef")
+
+def _all_aes_cbc_tests():
+    from scapy.layers.tls.crypto.cipher_block import Cipher_DES_CBC
+    res = True
+    t = _descbc_test
+    tmp = (Cipher_DES_CBC(t.k, t.iv).encrypt(t.p) == t.c and
+           Cipher_DES_CBC(t.k, t.iv).decrypt(t.c) == t.p)
+    res = res and tmp
+    return res
+
+_all_aes_cbc_tests()
+
+
 + Test AES-CBC
 = Crypto - AES cipher in CBC mode, checks from RFC 3602
 

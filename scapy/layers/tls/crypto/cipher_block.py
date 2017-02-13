@@ -39,7 +39,11 @@ class _BlockCipher(object):
         self.ready = {"key":True, "iv":True}
         if key is None:
             self.ready["key"] = False
-            key = "\0" * self.key_len
+            if hasattr(self, "expanded_key_len"):
+                l = self.expanded_key_len
+            else:
+                l = self.key_len
+            key = "\0" * l
         if iv is None or iv == "":
             self.ready["iv"] = False
             iv = "\0" * self.block_size
@@ -112,6 +116,24 @@ class Cipher_CAMELLIA_256_CBC(Cipher_CAMELLIA_128_CBC):
 
 ### Mostly deprecated ciphers
 
+class Cipher_DES_CBC(_BlockCipher):
+    pc_cls = algorithms.TripleDES
+    pc_cls_mode = modes.CBC
+    block_size = 8
+    key_len = 8
+
+class Cipher_DES40_CBC(Cipher_DES_CBC):
+    """
+    This is an export cipher example. The key length has been weakened to 5
+    random bytes (i.e. 5 bytes will be extracted from the master_secret).
+    Yet, we still need to know the original length which will actually be
+    fed into the encryption algorithm. This is what expanded_key_len
+    is for, and it gets used in PRF.postprocess_key_for_export().
+    We never define this attribute with non-export ciphers.
+    """
+    expanded_key_len = 8
+    key_len = 5
+
 class Cipher_3DES_EDE_CBC(_BlockCipher):
     pc_cls = algorithms.TripleDES
     pc_cls_mode = modes.CBC
@@ -129,24 +151,6 @@ class Cipher_SEED_CBC(_BlockCipher):
     pc_cls_mode = modes.CBC
     block_size = 16
     key_len = 16
-
-#class Cipher_DES_CBC(_BlockCipher):
-#    pc_cls = algorithms.DES    # no support in the cryptography library
-#    pc_cls_mode = modes.CBC
-#    block_size = 8
-#    key_len = 8
-
-#class Cipher_DES40_CBC(Cipher_DES_CBC):
-#    """
-#    This is an export cipher example. The key length has been weakened to 5
-#    random bytes (i.e. 5 bytes will be extracted from the master_secret).
-#    Yet, we still need to know the original length which will actually be
-#    fed into the encryption algorithm. This is what expanded_key_len
-#    is for, and it gets used in PRF.postprocess_key_for_export().
-#    We never define this attribute with non-export ciphers.
-#    """
-#    key_len = 5
-#    expanded_key_len = 8
 
 #class Cipher_RC2_CBC_40(_BlockCipher): # RFC 2268
 #    pc_cls = ARC2              # no support in the cryptography library

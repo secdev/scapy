@@ -42,7 +42,11 @@ class _StreamCipher(object):
         self.ready = {"key":True}
         if key is None:
             self.ready["key"] = False
-            key = "\0" * self.key_len
+            if hasattr(self, "expanded_key_len"):
+                l = self.expanded_key_len
+            else:
+                l = self.key_len
+            key = "\0" * l
 
         # we use super() in order to avoid any deadlock with __setattr__
         super(_StreamCipher, self).__setattr__("key", key)
@@ -71,18 +75,17 @@ class _StreamCipher(object):
         return self.decryptor.update(data)
 
 
-class Cipher_RC4_40(_StreamCipher):
+class Cipher_RC4_128(_StreamCipher):
     pc_cls = algorithms.ARC4
-    key_len = 5
-    expanded_key_len = 16
-
-class Cipher_RC4_128(Cipher_RC4_40):
     key_len = 16
+
+class Cipher_RC4_40(Cipher_RC4_128):
+    expanded_key_len = 16
+    key_len = 5
 
 
 class Cipher_NULL(_StreamCipher):
     key_len = 0
-    expanded_key_len = 0
 
     def __init__(self, key=None):
         self.ready = {"key":True}
