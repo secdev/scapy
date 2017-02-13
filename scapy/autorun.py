@@ -78,6 +78,8 @@ def autorun_get_interactive_session(cmds, **kargs):
             self.s = ""
         def write(self, x):
             self.s += x
+        def flush(self):
+            pass
             
     sw = StringWriter()
     sstdout,sstderr = sys.stdout,sys.stderr

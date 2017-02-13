@@ -1,0 +1,99 @@
+% TLS tests with real cases
+
+# More informations at http://www.secdev.org/projects/UTscapy/
+
+############
+############
++ TLS server automaton tests
+
+### DISCLAIMER: Those tests are slow ###
+
+= Load server util functions
+
+import sys, os, time, multiprocessing, subprocess
+
+sys.path.append(os.path.abspath("./tls"))
+
+from travis_test_server import *
+
+def test_tls_server(suite="", version=""):
+    msg = "TestS_" + suite + "_data"
+    # Run server
+    q_ = multiprocessing.Manager().Queue()
+    th_ = multiprocessing.Process(target=run_tls_test_server, args=(msg, q_))
+    th_.start()
+    # Synchronise threads
+    q_.get()
+    time.sleep(1)
+    # Run client
+    p = subprocess.Popen(["openssl", "s_client", "-cipher " + suite, version], stdout=subprocess.PIPE, universal_newlines=True,
+                            stdin=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+    out, err = p.communicate(input=msg)
+    if err:
+        print err
+        th_.terminate()
+        raise RuntimeError("OpenSSL returned with error code")
+    assert p.returncode == 0
+    # Wait for server
+    th_.join(30)
+    if th_.is_alive():
+        th_.terminate()
+        raise RuntimeError("Test timed out")
+    # Analyse values
+    print q_.get()
+    assert th_.exitcode == 0
+    
+
+= Testing TLS server with TLS 1.0 and TLS_RSA_WITH_RC4_128_SHA
+
+test_tls_server("RC4-SHA", "-tls1")
+
+= Testing TLS server with TLS 1.2 and TLS_DHE_RSA_WITH_AES_128_CBC_SHA256
+
+test_tls_server("DHE-RSA-AES128-SHA256", "-tls1_2")
+
+= Testing TLS server with TLS 1.2 and TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+
+test_tls_server("ECDHE-RSA-AES256-GCM-SHA384", "-tls1_2")
+
++ TLS client automaton tests
+
+= Load client utils functions
+
+import sys, os, threading, Queue
+
+sys.path.append(os.path.abspath("./tls"))
+
+from travis_test_client import *
+
+def perform_tls_client_test(suite, version):
+    # Run test_tls_client in an other thread
+    q = Queue.Queue()
+    p = threading.Thread(target=test_tls_client, args=(suite, version, q))
+    p.start()
+    # Wait for the function to end
+    p.join()
+    # Analyse data and return
+    if not q.empty():
+        print q.get()
+    if not q.empty():
+        assert q.get() == 0
+    else:
+        print "ERROR: Missing one of the return value detected !"
+        assert False
+
+= Testing TLS client with TLS 1.0 and TLS_DHE_RSA_WITH_CAMELLIA_256_CBC_SHA
+
+perform_tls_client_test("0088", "0301")
+
+= Testing TLS client with TLS 1.1 and TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA
+
+perform_tls_client_test("c013", "0302")
+
+= Testing TLS server with TLS 1.2 and TLS_DHE_RSA_WITH_AES_128_GCM_SHA256
+
+perform_tls_client_test("009e", "0303")
+
+= Testing TLS server with SSLv3 and TLS_RSA_EXPORT_WITH_RC4_40_MD5
+
+perform_tls_client_test("0003", "0300")

@@ -5,7 +5,6 @@
 
 """
 TLS client used in unit tests.
-Usage: [sudo] ./unit_test_client.py [send_data [cipher_suite_code [version]]]
 
 Start our TLS client, send our send_data, and terminate session with an Alert.
 Optional cipher_cuite_code and version may be provided as hexadecimal strings
@@ -13,8 +12,8 @@ Optional cipher_cuite_code and version may be provided as hexadecimal strings
 Reception of the exact send_data on the server is to be checked externally.
 """
 
-import os
-import sys
+import sys, os, time
+import threading, multiprocessing
 
 basedir = os.path.abspath(os.path.join(os.path.dirname(__file__),"../../"))
 sys.path=[basedir]+sys.path
@@ -25,18 +24,29 @@ from scapy.layers.tls.handshake import TLSClientHello
 
 send_data = cipher_suite_code = version = None
 
-if len(sys.argv) >= 2:
-    send_data = sys.argv[1]
+def run_tls_test_client(send_data=None, cipher_suite_code=None, version=None):
+    ch = TLSClientHello(version=int(version, 16), ciphers=int(cipher_suite_code, 16))
+    t = TLSClientAutomaton(client_hello=ch, data=send_data)
+    t.run()
 
-if len(sys.argv) >= 3:
-    cipher_suite_code = int(sys.argv[2], 16)
+from travis_test_server import run_tls_test_server
 
-if len(sys.argv) >= 4:
-    version = int(sys.argv[3], 16)
-
-
-ch = TLSClientHello(version=version, ciphers=cipher_suite_code)
-t = TLSClientAutomaton(client_hello=ch, data=send_data)
-t.run()
-
-
+def test_tls_client(suite, version, q):
+    msg = "TestC_" + suite + "_data"
+    # Run server
+    q_ = multiprocessing.Manager().Queue()
+    th_ = multiprocessing.Process(target=run_tls_test_server, args=(msg, q_))
+    th_.start()
+    # Synchronise threads
+    q_.get()
+    time.sleep(1)
+    # Run client
+    run_tls_test_client(msg, suite, version)
+    # Wait for server
+    th_.join(60)
+    if th_.is_alive():
+        th_.terminate()
+        raise RuntimeError("Test timed out")
+    # Return values
+    q.put(q_.get())
+    q.put(th_.exitcode)
