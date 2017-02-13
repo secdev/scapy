@@ -5,12 +5,16 @@
 
 """
 PKCS #1 methods as defined in RFC 3447.
+
+We cannot rely solely on the cryptography library, because the openssl package
+used by the cryptography library may not implement the md5-sha1 hash, as with
+Ubuntu or OSX. This is why we reluctantly keep some legacy crypto here.
 """
 
 from scapy.config import conf, crypto_validator
 if conf.crypto_valid:
     from cryptography import utils
-    from cryptography.exceptions import InvalidSignature
+    from cryptography.exceptions import InvalidSignature, UnsupportedAlgorithm
     from cryptography.hazmat.backends import default_backend
     from cryptography.hazmat.primitives import hashes
     from cryptography.hazmat.primitives.asymmetric import padding
@@ -58,6 +62,23 @@ def pkcs_ilen(n):
         n >>= 8
         i += 1
     return i
+
+@crypto_validator
+def _legacy_pkcs1_v1_5_encode_md5_sha1(M, emLen):
+    """
+    Legacy method for PKCS1 v1.5 encoding with MD5-SHA1 hash.
+    """
+    md5_hash = hashes.Hash(_get_hash("md5"), backend=default_backend())
+    md5_hash.update(M)
+    sha1_hash = hashes.Hash(_get_hash("sha1"), backend=default_backend())
+    sha1_hash.update(M)
+    H = md5_hash.finalize() + sha1_hash.finalize()
+    if emLen < 36 + 11:
+        warning("pkcs_emsa_pkcs1_v1_5_encode: "
+                "intended encoded message length too short")
+        return None
+    PS = '\xff'*(emLen - 36 - 3)
+    return '\x00' + '\x01' + PS + '\x00' + H
 
 
 #####################################################################
@@ -123,10 +144,35 @@ class _EncryptAndVerifyRSA(object):
         h = _get_hash(h)
         pad = _get_padding(t, mgf, h, L)
         try:
-            self.pubkey.verify(S, M, pad, h)
+            try:
+                self.pubkey.verify(S, M, pad, h)
+            except UnsupportedAlgorithm:
+                if t != "pkcs" and h != "md5-sha1":
+                    raise UnsupportedAlgorithm("RSA verification with %s" % h)
+                self._legacy_verify_md5_sha1(M, S)
             return True
         except InvalidSignature:
             return False
+
+    def _legacy_verify_md5_sha1(self, M, S):
+        k = self._modulusLen / 8
+        if len(S) != k:
+            warning("invalid signature (len(S) != k)")
+            return False
+        s = pkcs_os2ip(S)
+        n = self._modulus
+        if isinstance(s, int):
+            s = long(s)
+        if (not isinstance(s, long)) or s > n-1:
+            warning("Key._rsaep() expects a long between 0 and n-1")
+            return None
+        m = pow(s, self._pubExp, n)
+        EM = pkcs_i2osp(m, k)
+        EMPrime = _legacy_pkcs1_v1_5_encode_md5_sha1(M, k)
+        if EMPrime is None:
+            warning("Key._rsassa_pkcs1_v1_5_verify(): unable to encode.")
+            return False
+        return EM == EMPrime
 
 
 class _DecryptAndSignRSA(object):
@@ -143,5 +189,27 @@ class _DecryptAndSignRSA(object):
         mgf = mgf or padding.MGF1
         h = _get_hash(h)
         pad = _get_padding(t, mgf, h, L)
-        return self.key.sign(M, pad, h)
+        try:
+            return self.key.sign(M, pad, h)
+        except UnsupportedAlgorithm:
+            if t != "pkcs" and h != "md5-sha1":
+                raise UnsupportedAlgorithm("RSA signature with %s" % h)
+            return self._legacy_sign_md5_sha1(M)
+
+    def _legacy_sign_md5_sha1(self, M):
+        k = self._modulusLen / 8
+        EM = _legacy_pkcs1_v1_5_encode_md5_sha1(M, k)
+        if EM is None:
+            warning("Key._rsassa_pkcs1_v1_5_sign(): unable to encode")
+            return None
+        m = pkcs_os2ip(EM)
+        n = self._modulus
+        if isinstance(m, int):
+            m = long(m)
+        if (not isinstance(m, long)) or m > n-1:
+            warning("Key._rsaep() expects a long between 0 and n-1")
+            return None
+        privExp = self.key.private_numbers().d
+        s = pow(m, privExp, n)
+        return pkcs_i2osp(s, k)
 
