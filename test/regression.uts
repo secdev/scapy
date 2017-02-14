@@ -858,19 +858,29 @@ class ATMT8(Automaton):
         self.res += "s"
         return self.res
 
-r,w = os.pipe()
+if WINDOWS:
+    r = w = ObjectPipe()
+else:
+    r,w = os.pipe()
+
+def writeOn(w, msg):
+    if WINDOWS:
+        w.write(msg)
+    else:
+        os.write(w, msg)
 
 a=ATMT8(external_fd={"extfd":r}, ll=lambda: None, recvsock=lambda: None)
 a.run(wait=False)
-os.write(w,"ra")
-os.write(w,"nu")
+writeOn(w,"ra")
+writeOn(w,"nu")
+
 a.run()
 assert( _ == "Uranus" )
 
 a.restart()
 a.run(wait=False)
-os.write(w,"ra")
-os.write(w,"nu")
+writeOn(w,"ra")
+writeOn(w,"nu")
 a.run()
 assert( _ == "Uranus" )
 

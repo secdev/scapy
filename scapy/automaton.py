@@ -10,13 +10,14 @@ Automata with states, transitions and actions.
 import types,itertools,time,os,sys,socket,traceback
 from select import select
 from collections import deque
-import thread
+import threading
 from scapy.config import conf
 from scapy.utils import do_graph
 from scapy.error import log_interactive
 from scapy.plist import PacketList
 from scapy.data import MTU
 from scapy.supersocket import SuperSocket
+from scapy.consts import WINDOWS
 
 class ObjectPipe:
     def __init__(self):
@@ -24,13 +25,18 @@ class ObjectPipe:
         self.queue = deque()
     def fileno(self):
         return self.rd
+    def checkRecv(self):
+        return len(self.queue) != 0
     def send(self, obj):
         self.queue.append(obj)
         os.write(self.wr,"X")
+    def write(self, obj):
+        self.send(obj)
     def recv(self, n=0):
         os.read(self.rd,1)
         return self.queue.popleft()
-
+    def read(self, n=0):
+        return self.recv(n)
 
 class Message:
     def __init__(self, **args):
@@ -319,7 +325,25 @@ class Automaton_metaclass(type):
         s += "}\n"
         return do_graph(s, **kargs)
         
-
+def select_objects(inputs, remain):
+    if WINDOWS:
+        r = []
+        def search_select():
+            while len(r) == 0:
+                for fd in inputs:
+                    if isinstance(fd, ObjectPipe) or isinstance(fd, Automaton._IO_fdwrapper):
+                        if fd.checkRecv():
+                            r.append(fd)
+                    else:
+                        raise OSError("Not supported type of socket:" + str(type(fd)))
+                        break
+        t_select = threading.Thread(target=search_select)
+        t_select.start()
+        t_select.join(remain)
+        return r
+    else:
+        r,_,_ = select(inputs,[],[],remain)
+        return r
 
 class Automaton:
     __metaclass__ = Automaton_metaclass
@@ -340,17 +364,30 @@ class Automaton:
     ## Utility classes and exceptions
     class _IO_fdwrapper:
         def __init__(self,rd,wr):
-            if rd is not None and type(rd) is not int:
-                rd = rd.fileno()
-            if wr is not None and type(wr) is not int:
-                wr = wr.fileno()
-            self.rd = rd
-            self.wr = wr
+            if WINDOWS:
+                # rd will be used for reading and sending
+                if isinstance(rd, ObjectPipe):
+                    self.rd = rd
+                else:
+                    raise OSError("On windows, only instances of ObjectPipe are externally available")
+            else:
+                if rd is not None and type(rd) is not int:
+                    rd = rd.fileno()
+                if wr is not None and type(wr) is not int:
+                    wr = wr.fileno()
+                self.rd = rd
+                self.wr = wr
         def fileno(self):
             return self.rd
+        def checkRecv(self):
+            return self.rd.checkRecv()
         def read(self, n=65535):
+            if WINDOWS:
+                return self.rd.recv(n)
             return os.read(self.rd, n)
         def write(self, msg):
+            if WINDOWS:
+                return self.rd.send(msg)
             return os.write(self.wr,msg)
         def recv(self, n=65535):
             return self.read(n)        
@@ -368,11 +405,11 @@ class Automaton:
         def recv(self, n=None):
             return self.rd.recv(n)
         def read(self, n=None):
-            return self.rd.recv(n)        
+            return self.recv(n)
         def send(self, msg):
             return self.wr.send(msg)
         def write(self, msg):
-            return self.wr.send(msg)
+            return self.send(msg)
 
 
     class AutomatonException(Exception):
@@ -438,7 +475,7 @@ class Automaton:
         external_fd = kargs.pop("external_fd",{})
         self.send_sock_class = kargs.pop("ll", conf.L3socket)
         self.recv_sock_class = kargs.pop("recvsock", conf.L2listen)
-        self.started = thread.allocate_lock()
+        self.started = threading.Lock()
         self.threadid = None
         self.breakpointed = None
         self.breakpoints = set()
@@ -457,6 +494,8 @@ class Automaton:
             extfd = external_fd.get(n)
             if type(extfd) is not tuple:
                 extfd = (extfd,extfd)
+            elif WINDOWS:
+                raise OSError("Tuples are not allowed as external_fd on windows")
             ioin,ioout = extfd                
             if ioin is None:
                 ioin = ObjectPipe()
@@ -508,13 +547,11 @@ class Automaton:
             self.debug(2, "%s [%s] not taken" % (cond.atmt_type, cond.atmt_condname))
 
     def _do_start(self, *args, **kargs):
-        
-        thread.start_new_thread(self._do_control, args, kargs)
-
+        threading.Thread(target=self._do_control, args=(args), kwargs=kargs).start()
 
     def _do_control(self, *args, **kargs):
         with self.started:
-            self.threadid = thread.get_ident()
+            self.threadid = threading.currentThread().ident
 
             # Update default parameters
             a = args+self.init_args[len(args):]
@@ -622,7 +659,7 @@ class Automaton:
                         remain = next_timeout-t
     
                     self.debug(5, "Select on %r" % fds)
-                    r,_,_ = select(fds,[],[],remain)
+                    r = select_objects(fds, remain)
                     self.debug(5, "Selected %r" % r)
                     for fd in r:
                         self.debug(5, "Looking at %r" % fd)
@@ -709,7 +746,7 @@ class Automaton:
         with self.started:
             # Flush command pipes
             while True:
-                r,_,_ = select([self.cmdin, self.cmdout],[],[],0)
+                r = select_objects([self.cmdin, self.cmdout],0)
                 if not r:
                     break
                 for fd in r:
