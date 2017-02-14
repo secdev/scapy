@@ -5,7 +5,6 @@
 
 """
 TLS server used in unit tests.
-Usage: [sudo] ./unit_test_server.py [expected_data]
 
 When some expected_data is provided, a TLS client (e.g. openssl s_client)
 should send some application data after the handshake. If this data matches our
@@ -34,31 +33,35 @@ def captured_output():
     finally:
         sys.stdout, sys.stderr = old_out, old_err
 
-def check_output_for_data(out, err, data):
-    if err.getvalue():
-        sys.exit(1)
-
+def check_output_for_data(out, err, expected_data):
+    errored = err.getvalue()
+    if errored:
+        return (False, errored)
     output = out.getvalue().strip()
     if expected_data:
         lines = output.split("\n")
         for l in lines:
-            if l.startswith("Received"):
-                break
-        if l == ("Received '%s'" % data):
-            sys.exit(0)
-        sys.exit(1)
-    sys.exit(0)
+            if l == ("Received '%s'" % expected_data):
+                return (True, output)
+        return (False, output)
+    else:
+        return (True, None)
 
-
-if len(sys.argv) == 2:
-    expected_data = sys.argv[1]
-else:
-    expected_data = None
-
-with captured_output() as (out, err):
-    t = TLSServerAutomaton(mycert=basedir+'/test/tls/pki/srv_cert.pem',
+def run_tls_test_server(expected_data, q):
+    correct = False
+    with captured_output() as (out, err):
+        # Prepare automaton
+        t = TLSServerAutomaton(mycert=basedir+'/test/tls/pki/srv_cert.pem',
                            mykey=basedir+'/test/tls/pki/srv_key.pem')
-    t.run()
-
-check_output_for_data(out, err, expected_data)
-
+        # Sync threads
+        q.put(True)
+        # Run server automaton
+        t.run()
+        # Return correct answer
+        correct, out_e = check_output_for_data(out, err, expected_data)
+    # Return data
+    q.put(out_e)
+    if correct:
+        sys.exit(0)
+    else:
+        sys.exit(1)

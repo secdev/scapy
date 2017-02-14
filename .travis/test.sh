@@ -34,7 +34,7 @@ if [ "$SCAPY_COVERAGE" = "yes" ]
 then
   echo '#!/bin/bash' > test/python
   echo '[ "$*" = "--version" ] && echo "Python 2 - fake version string"' >> test/python
-  echo '[ "$*" != "--version" ] && coverage run -a $*' >> test/python
+  echo '[ "$*" != "--version" ] && coverage run --concurrency=multiprocessing -a $*' >> test/python
   chmod +x test/python
   PATH=.:$PATH
 
@@ -79,6 +79,6 @@ done
 # Run unit tests with openssl if we have root privileges
 if [ "$TRAVIS_OS_NAME" = "linux" ] && [ ! -z $SCAPY_USE_PCAPDNET ] && [ ! -z $SCAPY_SUDO ]
 then
-  $SCAPY_SUDO tls/run_tests_tls_netaccess || exit $?
+  $SCAPY_SUDO ./run_tests -q -F -t tls/tests_tls_netaccess.uts $UT_FLAGS || exit $?
 fi
 
