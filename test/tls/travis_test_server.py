@@ -14,7 +14,6 @@ If no expected_data was provided and the handshake was ok, we exit with 0.
 
 import os
 import sys
-import threading
 from contextlib import contextmanager
 from StringIO import StringIO
 
@@ -39,7 +38,6 @@ def check_output_for_data(out, err, expected_data):
     if errored:
         return (False, errored)
     output = out.getvalue().strip()
-    _lines = None
     if expected_data:
         lines = output.split("\n")
         for l in lines:
@@ -51,7 +49,6 @@ def check_output_for_data(out, err, expected_data):
 
 def run_tls_test_server(expected_data, q):
     correct = False
-    out_ = None
     with captured_output() as (out, err):
         # Prepare automaton
         t = TLSServerAutomaton(mycert=basedir+'/test/tls/pki/srv_cert.pem',

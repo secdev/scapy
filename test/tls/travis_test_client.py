@@ -13,7 +13,7 @@ Reception of the exact send_data on the server is to be checked externally.
 """
 
 import sys, os, time
-import threading, multiprocessing
+import multiprocessing
 
 basedir = os.path.abspath(os.path.join(os.path.dirname(__file__),"../../"))
 sys.path=[basedir]+sys.path
