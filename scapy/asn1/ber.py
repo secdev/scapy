@@ -90,6 +90,8 @@ def BER_num_enc(l, size=1):
             size -= 1
         return "".join([chr(k) for k in x])
 def BER_num_dec(s, cls_id=0):
+        if len(s) == 0:
+            raise BER_Decoding_Error("BER_num_dec: got empty string", remaining=s)
         x = cls_id
         for i, c in enumerate(s):
             c = ord(c)
@@ -445,7 +447,7 @@ class BERcodec_IPADDRESS(BERcodec_STRING):
         try:
             ipaddr_ascii = inet_ntoa(s)
         except Exception:
-            raise BER_Decoding_Error("IP address could not be decoded", decoded=obj)
+            raise BER_Decoding_Error("IP address could not be decoded", remaining=s)
         return cls.asn1_object(ipaddr_ascii), t
 
 class BERcodec_COUNTER32(BERcodec_INTEGER):
