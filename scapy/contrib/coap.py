@@ -178,7 +178,7 @@ class _CoAPOptsField(StrField):
                 opt_lst.append((coap_options[1][o[0]], o[1]))
             else:
                 opt_lst.append(o)
-        opt_lst.sort()
+        opt_lst.sort(key=lambda o:o[0])
 
         opts = _CoAPOpt(delta=opt_lst[0][0], opt_val=opt_lst[0][1])
         high_opt = opt_lst[0][0]
