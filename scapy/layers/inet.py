@@ -387,14 +387,6 @@ class IP(Packet, IPTools):
         l = self.len - (self.ihl << 2)
         return s[:l],s[l:]
 
-    def send(self, s, slp=0):
-        for p in self:
-            try:
-                s.sendto(str(p), (p.dst,0))
-            except socket.error, msg:
-                log_runtime.error(msg)
-            if slp:
-                time.sleep(slp)
     def route(self):
         dst = self.dst
         if isinstance(dst,Gen):
@@ -829,7 +821,15 @@ def fragment(pkt, fragsize=1480):
             lst.append(q)
     return lst
 
+@conf.commands.register
 def overlap_frag(p, overlap, fragsize=8, overlap_fragsize=None):
+    """Build overlapping fragments to bypass NIPS
+
+p:                the original packet
+overlap:          the overlapping data
+fragsize:         the fragment size of the packet
+overlap_fragsize: the fragment size of the overlapping packet"""
+
     if overlap_fragsize is None:
         overlap_fragsize = fragsize
     q = p.copy()
@@ -985,11 +985,12 @@ def _packetlist_timeskew_graph(self, ip, **kargs):
 
     # Build a list of tuples (creation_time, replied_timestamp)
     c = []
+    tsf = ICMPTimeStampField("", None)
     for p in b:
         opts = p.getlayer(TCP).options
         for o in opts:
             if o[0] == "Timestamp":
-                c.append((p.time,o[1][0]))
+                c.append((p.time, tsf.any2i("", o[1][0])))
 
     # Stop if the list is empty
     if not c:
@@ -1586,6 +1587,8 @@ class TCP_client(Automaton):
 ## Reporting stuff ##
 #####################
 
+
+@conf.commands.register
 def report_ports(target, ports):
     """portscan a target and output a LaTeX table
 report_ports(target, ports) -> string"""
@@ -1608,8 +1611,13 @@ report_ports(target, ports) -> string"""
     return rep
 
 
-
+@conf.commands.register
 def IPID_count(lst, funcID=lambda x:x[1].id, funcpres=lambda x:x[1].summary()):
+    """Identify IP id values classes in a list of packets
+
+lst:      a list of packets
+funcID:   a function that returns IP id values
+funcpres: a function used to summarize packets"""
     idlst = map(funcID, lst)
     idlst.sort()
     classes = [idlst[0]]+map(lambda x:x[1],filter(lambda (x,y): abs(x-y)>50, map(lambda x,y: (x,y),idlst[:-1], idlst[1:])))
@@ -1620,6 +1628,7 @@ def IPID_count(lst, funcID=lambda x:x[1].id, funcpres=lambda x:x[1].summary()):
         print "%5i" % id, pr
     
     
+@conf.commands.register
 def fragleak(target,sport=123, dport=123, timeout=0.2, onlyasc=0):
     load = "XXXXYYYYYYYYYY"
 #    getmacbyip(target)
@@ -1670,6 +1679,8 @@ def fragleak(target,sport=123, dport=123, timeout=0.2, onlyasc=0):
     except KeyboardInterrupt:
         pass
 
+
+@conf.commands.register
 def fragleak2(target, timeout=0.4, onlyasc=0):
     found={}
     try:
