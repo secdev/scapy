@@ -16,8 +16,8 @@ from scapy.packet import Packet, bind_layers
 from scapy.fields import (BitField, BitEnumField, ByteField, ByteEnumField, \
 XByteField, SignedByteField, FlagsField, ShortField, LEShortField, IntField,\
 LEIntField, FixedPointField, IPField, StrField, StrFixedLenField,\
-StrFixedLenEnumField, PacketField, PacketLenField, PacketListField,\
-FieldListField, ConditionalField, PadField)
+StrFixedLenEnumField, XStrFixedLenField, PacketField, PacketLenField,\
+PacketListField, FieldListField, ConditionalField, PadField)
 from scapy.layers.inet6 import IP6Field
 from scapy.layers.inet import UDP
 from scapy.utils import lhex
@@ -55,26 +55,11 @@ _NTP_HASH_SIZE = 128
 
 class XLEShortField(LEShortField):
     """
-    XLEShortField which value is encoded in little endian.
+    XShortField which value is encoded in little endian.
     """
 
     def i2repr(self, pkt, x):
         return lhex(self.i2h(pkt, x))
-
-
-class XStrFixedLenField(StrFixedLenField):
-    """
-    StrFixedLenField which value is printed as hexadecimal.
-    """
-
-    def i2repr(self, pkt, x):
-        output = ""
-        length = len(x)
-        len_from_val = self.length_from(pkt)
-        max_idx = length if length < len_from_val else len_from_val
-        for i in range(0, max_idx):
-            output += x[i].encode("hex")
-        return output
 
 
 class TimeStampField(FixedPointField):
@@ -761,7 +746,7 @@ class NTPControlStatusField(PacketField):
         ret = None
         association_id = struct.unpack("!H", m[2:4])[0]
 
-        if pkt.error == 1:
+        if pkt.err == 1:
             ret = NTPErrorStatusPacket(m)
 
         # op_code == CTL_OP_READSTAT
@@ -869,7 +854,7 @@ class NTPControl(NTP):
         BitField("version", 2, 3),
         BitField("mode", 6, 3),
         BitField("response", 0, 1),
-        BitField("error", 0, 1),
+        BitField("err", 0, 1),
         BitField("more", 0, 1),
         BitEnumField("op_code", 0, 5, _op_codes),
         ShortField("sequence", 0),
