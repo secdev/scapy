@@ -247,7 +247,6 @@ class HCSIFlagsField(FlagsField):
             val = 0
             if (pkt):
                 for i, name in enumerate(self.names):
-                    name = name[0]
                     value = pkt.getfieldval(name)
                     if value is not None:
                         val |= 1 << i
