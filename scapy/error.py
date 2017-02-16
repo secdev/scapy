@@ -65,6 +65,11 @@ log_loading = logging.getLogger("scapy.loading")          # logs when loading Sc
 
 
 def warning(x, onlyOnce=None):
+    """
+    Prints a warning during runtime.
+
+    onlyOnce - if True, the warning will never be printed again.
+    """ 
     if onlyOnce:
         from scapy.config import conf
         conf.warning_next_only_once = True

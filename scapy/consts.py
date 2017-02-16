@@ -28,6 +28,7 @@ except (ImportError, RuntimeError):
     log_loading.info("Can't import matplotlib. Won't be able to plot.")
 
 def test_pyx():
+    """Returns if PyX is correctly installed or not"""
     try:
         with open(os.devnull, 'wb') as devnull:
             r = subprocess.check_call(["pdflatex", "--version"], stdout=devnull, stderr=subprocess.STDOUT)
@@ -41,7 +42,7 @@ try:
     if test_pyx():
         PYX = 1
     else:
-        log_loading.warning("PyX depedencies are not installed ! Please install TexLive or MikTeX.")
+        log_loading.warning("PyX dependencies are not installed ! Please install TexLive or MikTeX.")
         PYX = 0
 except ImportError:
     log_loading.info("Can't import PyX. Won't be able to use psdump() or pdfdump().")
