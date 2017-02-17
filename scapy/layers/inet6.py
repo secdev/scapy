@@ -366,7 +366,7 @@ class _IPv6GuessPayload:
     def default_payload_class(self,p):
         if self.nh == 58: # ICMPv6
             t = ord(p[0])
-            if len(p) > 2 and t == 139 or t == 140: # Node Info Query 
+            if len(p) > 2 and (t == 139 or t == 140): # Node Info Query
                 return _niquery_guesser(p)
             if len(p) >= icmp6typesminhdrlen.get(t, sys.maxint): # Other ICMPv6 messages
                 return get_cls(icmp6typescls.get(t,"Raw"), "Raw")
