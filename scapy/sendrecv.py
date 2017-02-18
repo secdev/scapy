@@ -16,9 +16,9 @@ from scapy.consts import DARWIN, FREEBSD, OPENBSD
 from scapy.data import *
 from scapy.config import conf
 from scapy.packet import Gen
-from scapy.utils import warning, get_temp_file, PcapReader, tcpdump, wrpcap
+from scapy.utils import get_temp_file, PcapReader, tcpdump, wrpcap
 from scapy import plist
-from scapy.error import log_runtime,log_interactive
+from scapy.error import log_runtime, log_interactive, warning
 from scapy.base_classes import SetGen
 from scapy.supersocket import StreamSocket
 if conf.route is None:

@@ -20,6 +20,7 @@ from scapy.themes import Color
 from scapy.layers.inet6 import *
 from scapy.ansmachine import AnsweringMachine
 from scapy.sendrecv import *
+from scapy.error import warning
 
 #############################################################################
 # Helpers                                                                  ##

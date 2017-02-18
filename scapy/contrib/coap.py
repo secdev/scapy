@@ -23,6 +23,7 @@ RFC 7252 - Constrained Application Protocol (CoAP) layer for Scapy
 from scapy.fields import *
 from scapy.layers.inet import UDP
 from scapy.packet import *
+from scapy.error import warning
 
 coap_codes = {
     0: "Empty",

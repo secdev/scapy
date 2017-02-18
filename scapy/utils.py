@@ -20,7 +20,7 @@ warnings.filterwarnings("ignore","tempnam",RuntimeWarning, __name__)
 from scapy.config import conf
 from scapy.consts import DARWIN, WINDOWS
 from scapy.data import MTU
-from scapy.error import log_runtime,log_loading,log_interactive, Scapy_Exception
+from scapy.error import log_runtime, log_loading, log_interactive, Scapy_Exception, warning
 from scapy.base_classes import BasePacketList
 
 ###########
@@ -338,9 +338,6 @@ def fletcher16_checkbytes(binbuf, offset):
     return chr(x) + chr(y)
 
 
-def warning(x):
-    log_runtime.warning(x)
-
 def mac2str(mac):
     return "".join(map(lambda x: chr(int(x,16)), mac.split(":")))
 
@@ -394,7 +391,6 @@ try:
     inet_pton = socket.inet_pton
 except AttributeError:
     from scapy.pton_ntop import *
-    log_loading.info("inet_ntop/pton functions not found. Python IPv6 support not present")
 
 
 def atol(x):

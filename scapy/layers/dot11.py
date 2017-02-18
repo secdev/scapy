@@ -18,6 +18,7 @@ from scapy.ansmachine import *
 from scapy.plist import PacketList
 from scapy.layers.l2 import *
 from scapy.layers.inet import IP, TCP
+from scapy.error import warning
 
 
 if conf.crypto_valid:

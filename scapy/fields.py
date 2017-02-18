@@ -13,6 +13,7 @@ from scapy.volatile import *
 from scapy.data import *
 from scapy.utils import *
 from scapy.base_classes import BasePacket, Gen, Net, Field_metaclass
+from scapy.error import warning
 
 
 ############

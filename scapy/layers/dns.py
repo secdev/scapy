@@ -16,6 +16,7 @@ from scapy.ansmachine import *
 from scapy.sendrecv import sr1
 from scapy.layers.inet import IP, DestIPField, UDP, TCP
 from scapy.layers.inet6 import DestIP6Field
+from scapy.error import warning
 
 class DNSStrField(StrField):
 

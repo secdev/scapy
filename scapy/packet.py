@@ -18,7 +18,8 @@ from scapy.config import conf
 from scapy.base_classes import BasePacket, Gen, SetGen, Packet_metaclass
 from scapy.volatile import VolatileValue
 from scapy.utils import import_hexcap,tex_escape,colgen,get_temp_file
-from scapy.error import Scapy_Exception,log_runtime
+from scapy.error import Scapy_Exception, log_runtime
+from scapy.consts import PYX
 
 try:
     import pyx
@@ -422,6 +423,8 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
 
         
     def canvas_dump(self, layer_shift=0, rebuild=1):
+        if PYX == 0:
+            raise ImportError("PyX and its depedencies must be installed")
         canvas = pyx.canvas.canvas()
         if rebuild:
             p,t = self.__class__(str(self)).build_ps()

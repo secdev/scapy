@@ -18,6 +18,7 @@ from scapy.data import *
 from scapy.utils import *
 from scapy.pton_ntop import *
 from scapy.volatile import RandMAC
+from scapy.error import warning
 
 
 def construct_source_candidate_set(addr, plen, laddr, loname):

@@ -5,7 +5,7 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
-import os,thread,select
+import os, thread, select
 import subprocess
 import itertools
 import collections
@@ -13,7 +13,7 @@ import time
 import Queue
 import scapy.utils
 
-from scapy.error import log_interactive,warning
+from scapy.error import log_interactive, warning
 from scapy.config import conf
 
 class PipeEngine:

@@ -15,7 +15,6 @@ import cPickle
 import __builtin__
 
 from scapy.error import *
-from scapy import utils
     
 
 def _probe_config_file(cf):
@@ -120,6 +119,7 @@ def list_contrib(name=None):
 
 
 def save_session(fname=None, session=None, pickleProto=-1):
+    from scapy import utils
     if fname is None:
         fname = conf.session
         if not fname:
@@ -232,6 +232,7 @@ def scapy_delete_temp_files():
             pass
 
 def scapy_write_history_file(readline):
+    from scapy import utils
     if conf.histfile:
         try:
             readline.write_history_file(conf.histfile)

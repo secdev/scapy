@@ -21,6 +21,7 @@ from scapy.volatile import RandField
 
 from scapy.arch import get_if_raw_hwaddr
 from scapy.sendrecv import *
+from scapy.error import warning
 
 dhcpmagic="c\x82Sc"
 

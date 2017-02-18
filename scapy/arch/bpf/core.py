@@ -5,11 +5,10 @@ Scapy *BSD native support - core
 """
 
 from scapy.config import conf
-from scapy.error import Scapy_Exception
+from scapy.error import Scapy_Exception, warning
 from scapy.data import ARPHDR_LOOPBACK, ARPHDR_ETHER
 from scapy.arch.common import get_if
 from scapy.consts import LOOPBACK_NAME
-from scapy.utils import warning
 
 from scapy.arch.bpf.consts import *
 
