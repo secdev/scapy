@@ -18,13 +18,21 @@ from scapy.layers.rtp import RTP
 from scapy.consts import WINDOWS
 from scapy.config import conf
 
+
+sox_base = "sox -t .ul %s - -t ossdsp /dev/dsp"
+
 if WINDOWS:
     if conf.prog.sox is None:
         raise OSError("Sox must be installed to play VoIP packets")
-else:
-    from fcntl import fcntl
+    finally:
+        if p_test:
+            p_test.terminate()
+    sox_base = "\"" + conf.prog.sox + "\" -t .ul %s - -t waveaudio"
 
-def merge(x,y,sample_size=2):
+def _merge_sound_bytes(x,y,sample_size=2):
+    # TODO: find a better way to merge sound bytes
+    # This will only add them one next to each other:
+    # \xff + \xff ==> \xff\xff
     m = ""
     ss=sample_size
     min_ = 0
@@ -32,13 +40,13 @@ def merge(x,y,sample_size=2):
         min_ = y
     elif len(x) < len(y):
         min_ = x
-    r_ = len(min_)/ss
-    for i in xrange(r_):
+    r_ = len(min_)
+    for i in xrange(r_/ss):
         m += x[ss*i:ss*(i+1)]+y[ss*i:ss*(i+1)]
-    return x[len(min_):], y[len(min_):], m
+    return x[r_:], y[r_:], m
 
 
-def voip_play(s1, list=None, **kargs):
+def voip_play(s1, lst=None, **kargs):
     """Play VoIP packets with RAW data that
     are either sniffed either from an IP, or
     specified as a list.
@@ -46,16 +54,16 @@ def voip_play(s1, list=None, **kargs):
     It will play only the incoming packets !
     
     :param s1: The IP of the src of all VoIP packets.
-    :param list: (optional) A list of packets to load
+    :param lst: (optional) A list of packets to load
     :type s1: string
-    :type list: list
+    :type lst: list
 
     :Example:
 
     >>> voip_play("64.2.142.189")
     while calling '411@ideasip.com'
 
-    >>> voip_play(None, list)
+    >>> voip_play("64.2.142.189", lst)
     with list a list of packets with VoIP data
     in their RAW layer
 
@@ -66,11 +74,8 @@ def voip_play(s1, list=None, **kargs):
     .. seealso:: voip_play3
     to read RTP VoIP packets
     """
-    if not WINDOWS:
-        _command = "sox -t .ul - -t ossdsp /dev/dsp"
-    else:
-        _command = conf.prog.sox + " -t .ul - -t waveaudio"
-    dsp,rd = os.popen2(_command)
+    
+    dsp, rd = os.popen2(sox_base % "")
     def play(pkt):
         if not pkt:
             return 
@@ -80,21 +85,19 @@ def voip_play(s1, list=None, **kargs):
         if s1 == ip.src:
             dsp.write(pkt.getlayer(conf.raw_layer).load[12:])
     try:
-        if list is None:
+        if lst is None:
             sniff(store=0, prn=play, **kargs)
         else:
-            for p in list:
+            for p in lst:
                 play(p)
     finally:
         dsp.close()
         rd.close()
 
-
-
-def voip_play1(s1, list=None, **kargs):
+def voip_play1(s1, lst=None, **kargs):
     """Same than voip_play, backward compatibility
     """
-    return voip_play(s1, list, **kargs)
+    return voip_play(s1, lst, **kargs)
 
 def voip_play2(s1,**kargs):
     """
@@ -107,11 +110,7 @@ def voip_play2(s1,**kargs):
     .. seealso:: voip_play
     to play only incoming packets.
     """
-    if not WINDOWS:
-        _command = "sox -t .ul -c 2 - -t ossdsp /dev/dsp"
-    else:
-        _command = conf.prog.sox + " -t .ul -c 2 - -t waveaudio"
-    dsp,rd = os.popen2(_command)
+    dsp,rd = os.popen2(sox_base % "-c 2")
     global x1, x2
     x1 = ""
     x2 = ""
@@ -127,12 +126,12 @@ def voip_play2(s1,**kargs):
                 x1 += pkt.getlayer(conf.raw_layer).load[12:]
             else:
                 x2 += pkt.getlayer(conf.raw_layer).load[12:]
-            x1, x2, r = merge(x1, x2)
+            x1, x2, r = _merge_sound_bytes(x1, x2)
             dsp.write(r)
             
     sniff(store=0, prn=play, **kargs)
 
-def voip_play3(list=None,**kargs):
+def voip_play3(lst=None,**kargs):
     """Same than voip_play, but made to
     read and play VoIP RTP packets, without
     checking IP.
@@ -140,16 +139,11 @@ def voip_play3(list=None,**kargs):
     .. seealso:: voip_play
     for basic VoIP packets
     """
-    if not WINDOWS:
-        _command = "sox -t .ul - -t ossdsp /dev/dsp"
-    else:
-        _command = conf.prog.sox + " -t .ul - -t waveaudio"
-    dsp,rd = os.popen2(_command)
+    dsp,rd = os.popen2(sox_base % "")
+    def play(pkt, dsp=dsp):
+        if pkt and pkt.haslayer(UDP) and pkt.haslayer(RTP):
+            dsp.write(pkt.getlayer(RTP).load)
     try:
-        def play(pkt, dsp=dsp):
-            from scapy.config import conf
-            if pkt and pkt.haslayer(UDP) and pkt.haslayer(RTP):
-                dsp.write(pkt.getlayer(RTP).load)
         if lst is None:
             sniff(store=0, prn=play, **kargs)
         else:
