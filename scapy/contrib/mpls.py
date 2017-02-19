@@ -17,6 +17,8 @@ class MPLS(Packet):
                     ByteField("ttl", 0)  ]
 
    def guess_payload_class(self, payload):
+       if not self.s:
+            return MPLS
        if len(payload) >= 1:
            ip_version = (ord(payload[0]) >> 4) & 0xF
            if ip_version == 4:
@@ -27,3 +29,6 @@ class MPLS(Packet):
 
 bind_layers(Ether, MPLS, type=0x8847)
 bind_layers(GRE, MPLS, proto=0x8847)
+bind_layers(MPLS, MPLS, s=0)
+bind_layers(MPLS, IP, s=1)
+bind_layers(MPLS, IPv6, s=1)
