@@ -188,7 +188,9 @@ def _where(filename, dirs=None, env="PATH"):
     for path in paths:
         for match in glob(os.path.join(path, filename)):
             if match:
-                return os.path.normpath(match)
+                p_match = os.path.normpath(match)
+                if os.path.isfile(p_match):
+                    return p_match
     raise IOError("File not found: %s" % filename)
 
 def win_find_exe(filename, installsubdir=None, env="ProgramFiles"):
@@ -220,8 +222,10 @@ def is_new_release():
     return False
 
 class WinProgPath(ConfClass):
+    # This is a dict containing the name of the .exe and a keyword
+    # that must be in the path of the file
     external_prog_list = {"AcroRd32" : "", "gsview32" : "", "dot" : "graph", "windump" : "", "tshark" : "",
-                          "tcpreplay" : "", "hexer" : "", "wireshark" : ""}
+                          "tcpreplay" : "", "hexer" : "", "sox" : "", "wireshark" : ""}
     _default = "<System default>"
     def __init__(self):
         _deep_lookup(self.external_prog_list)
@@ -234,6 +238,7 @@ class WinProgPath(ConfClass):
         self.tcpreplay = win_find_exe("tcpreplay")
         self.display = self._default
         self.hexedit = win_find_exe("hexer")
+        self.sox = win_find_exe("sox")
         self.wireshark = win_find_exe("wireshark", "wireshark")
         self.powershell = win_find_exe(
             "powershell",
