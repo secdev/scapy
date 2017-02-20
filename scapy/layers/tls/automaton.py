@@ -166,7 +166,7 @@ class TLSClientAutomaton(Automaton):
 
     @ATMT.state()
     def INIT_TLS_SESSION(self):
-        self.cur_session = tlsSession()
+        self.cur_session = tlsSession(connection_end="client")
         self.cur_session.client_certs = self.mycert
         self.cur_session.client_key = self.mykey
         raise self.CONNECT()

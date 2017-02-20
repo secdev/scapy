@@ -59,7 +59,7 @@ class connState(object):
     """
 
     def __init__(self,
-                 connection_end="client",
+                 connection_end="server",
                  read_or_write="read",
                  compression_alg=Comp_NULL,
                  ciphersuite=None,
@@ -239,15 +239,17 @@ class tlsSession(object):
     a writeConnState instance. Along with overarching network attributes, a
     tlsSession object also holds negotiated, shared information, such as the
     key exchange parameters and the master secret (when available).
+
+    The default connection_end is "server". This corresponds to the expected
+    behaviour for static exchange analysis (with a ClientHello parsed first).
     """
     def __init__(self,
                  ipsrc=None, ipdst=None,
                  sport=None, dport=None, sid=None,
-                 connection_end="client",
+                 connection_end="server",
                  wcs=None, rcs=None):
 
         ### Network settings
-
         self.ipsrc = ipsrc
         self.ipdst = ipdst
         self.sport = sport
@@ -257,9 +259,7 @@ class tlsSession(object):
         # Our TCP socket. None until we send (or receive) a packet.
         self.sock = None
 
-
         ### Connection states
-
         self.connection_end = connection_end
 
         if wcs is None:
@@ -267,11 +267,16 @@ class tlsSession(object):
             self.wcs.derive_keys(client_random="",
                                  server_random="",
                                  master_secret="")
+        else:
+            self.wcs = wcs
+
         if rcs is None:
             self.rcs = readConnState(connection_end=connection_end)
             self.rcs.derive_keys(client_random="",
                                  server_random="",
                                  master_secret="")
+        else:
+            self.rcs = rcs
 
         # The pending write/read states are updated by the building/parsing
         # of various TLS packets. They get committed to self.wcs/self.rcs
@@ -363,6 +368,68 @@ class tlsSession(object):
         self.exchanged_pkts = []
 
 
+    def __setattr__(self, name, val):
+        if name == "connection_end":
+            if hasattr(self, "rcs") and self.rcs:
+                self.rcs.connection_end = val
+            if hasattr(self, "wcs") and self.wcs:
+                self.wcs.connection_end = val
+            if hasattr(self, "prcs") and self.prcs:
+                self.prcs.connection_end = val
+            if hasattr(self, "pwcs") and self.pwcs:
+                self.pwcs.connection_end = val
+        super(tlsSession, self).__setattr__(name, val)
+
+
+    ### Mirroring
+
+    def mirror(self):
+        """
+        This function takes a tlsSession object and swaps the IP addresses,
+        ports, connection ends and connection states. The triggered_commit are
+        also swapped (though it is probably overkill, it is cleaner this way).
+
+        It is useful for static analysis of a series of messages from both the
+        client and the server. In such a situation, it should be used every
+        time the message being read comes from a different side than the one
+        read right before, as the reading state becomes the writing state, and
+        vice versa. For instance you could do:
+
+        client_hello = open('client_hello.raw').read()
+        <read other messages>
+
+        m1 = TLS(client_hello)
+        m2 = TLS(server_hello, tls_session=m1.tls_session.mirror())
+        m3 = TLS(server_cert, tls_session=m2.tls_session)
+        m4 = TLS(client_keyexchange, tls_session=m3.tls_session.mirror())
+        """
+
+        self.ipdst, self.ipsrc = self.ipsrc, self.ipdst
+        self.dport, self.sport = self.sport, self.dport
+
+        self.rcs, self.wcs = self.wcs, self.rcs
+        if self.rcs:
+            self.rcs.row = "read"
+        if self.wcs:
+            self.wcs.row = "write"
+
+        self.prcs, self.pwcs = self.pwcs, self.prcs
+        if self.prcs:
+            self.prcs.row = "read"
+        if self.pwcs:
+            self.pwcs.row = "write"
+
+        self.triggered_prcs_commit, self.triggered_pwcs_commit = \
+                self.triggered_pwcs_commit, self.triggered_prcs_commit
+
+        if self.connection_end == "client":
+            self.connection_end = "server"
+        elif self.connection_end == "server":
+            self.connection_end = "client"
+
+        return self
+
+
     ### Master secret management
 
     def compute_master_secret(self):
@@ -444,7 +511,6 @@ class tlsSession(object):
             sid = sid[:11] + "..."
         return "%s:%s > %s:%s" % (self.ipsrc, str(self.sport),
                                   self.ipdst, str(self.dport))
-
 
 ###############################################################################
 ### Session singleton                                                       ###
