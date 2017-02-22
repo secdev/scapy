@@ -472,7 +472,6 @@ Known bugs
 
  * You may not be able to capture WLAN traffic on Windows. Reasons are explained on the Wireshark wiki and in the WinPcap FAQ. Try switching off promiscuous mode with ``conf.sniff_promisc=False``.
  * Packets sometimes cannot be sent to localhost (or local IP addresses on your own host).
- * The ``voip_play()`` functions do not work because they output the sound via ``/dev/dsp`` which is not available on Windows. 
  
 
 Build the documentation offline

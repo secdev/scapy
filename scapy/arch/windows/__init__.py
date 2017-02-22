@@ -188,9 +188,7 @@ def _where(filename, dirs=None, env="PATH"):
     for path in paths:
         for match in glob(os.path.join(path, filename)):
             if match:
-                p_match = os.path.normpath(match)
-                if os.path.isfile(p_match):
-                    return p_match
+                return os.path.normpath(match)
     raise IOError("File not found: %s" % filename)
 
 def win_find_exe(filename, installsubdir=None, env="ProgramFiles"):
@@ -251,6 +249,8 @@ class WinProgPath(ConfClass):
 conf.prog = WinProgPath()
 if conf.prog.powershell == "powershell":
     conf.prog.powershell = None
+if conf.prog.sox == "sox":
+    conf.prog.sox = None
 
 class PcapNameNotFoundError(Scapy_Exception):
     pass    
