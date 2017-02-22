@@ -564,10 +564,14 @@ def _send_or_sniff(pkt, timeout, flt, pid, fork, t_other=None):
             return
     else:
         spkt = str(pkt)
+        # We do not want to crash when a packet cannot be parsed
+        old_debug_dissector = conf.debug_dissector
+        conf.debug_dissector = False
         pkts = sniff(
             timeout=timeout, filter=flt,
             stop_filter=lambda p: pkt.__class__ in p and str(p[pkt.__class__]) == spkt
         )
+        conf.debug_dissector = old_debug_dissector
         if fork:
             os.waitpid(pid, 0)
         else:
@@ -581,7 +585,7 @@ def send_and_sniff(pkt, timeout=2, flt=None):
     else:
         from threading import Thread
         def run_function(pkt, timeout, flt, pid, thread, results):
-            _send_or_sniff(pkt, timeout, flt, pid, False, thread)
+            _send_or_sniff(pkt, timeout, flt, pid, False, t_other=thread)
             results.put(True)
         results = Queue.Queue()
         t_parent = Thread(target=run_function, args=(pkt, timeout, flt, 0, None, results))
