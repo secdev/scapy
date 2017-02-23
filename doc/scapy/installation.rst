@@ -497,14 +497,7 @@ To use the ReadTheDocs' template, you will have to install the corresponding the
 
    pip install sphinx_rtd_theme
 
-and edit the doc/scapy/conf.py file to have: ::
-
-   import sphinx_rtd_theme
-   #html_style = 'default.css'
-   html_theme = "sphinx_rtd_theme"
-   html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
-
-Note: make sure you commented out the ``html_style`` variable.
+If installed, it will be automatically used, but you may disable it by setting ``auto_rtd`` to ``False`` in ``doc/scapy/conf.py``
 
 UML diagram
 -----------
