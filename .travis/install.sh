@@ -37,3 +37,9 @@ then
     brew install .travis/pylibpcap.rb
   fi
 fi
+
+# Install wireshark data
+if [ ! -z "$SCAPY_SUDO" ] && [ "$TRAVIS_OS_NAME" = "linux" ]
+then
+  $SCAPY_SUDO apt-get install libwireshark-data
+fi

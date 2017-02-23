@@ -8,7 +8,7 @@ python -c "from scapy.all import *; print conf"
 # Don't run tests that require root privileges
 if [ -z "$SCAPY_SUDO" -o "$SCAPY_SUDO" = "false" ]
 then
-  UT_FLAGS="-K netaccess -K needs_root"
+  UT_FLAGS="-K netaccess -K needs_root -K manufdb"
   SCAPY_SUDO=""
 fi
 
@@ -61,6 +61,7 @@ then
   then
     $SCAPY_SUDO ./run_tests -q -F -t bpf.uts $UT_FLAGS || exit $?
   fi
+  UT_FLAGS+=" -K manufdb"
 fi
 
 # Run all normal and contrib tests
