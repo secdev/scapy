@@ -391,6 +391,7 @@ debug_tls:When 1, print some TLS session secrets when they are computed.
     use_dnet = os.getenv("SCAPY_USE_PCAPDNET", "").lower().startswith("y")
     use_bpf = False
     use_winpcapy = False
+    use_npcap = False
     ipv6_enabled = socket.has_ipv6
     ethertypes = ETHER_TYPES
     protocols = IP_PROTOS

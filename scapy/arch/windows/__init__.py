@@ -6,8 +6,7 @@
 """
 Customizations needed to support Microsoft Windows.
 """
-
-import os,re,sys,socket,time, itertools
+import os, re, sys, socket, time, itertools, platform
 import subprocess as sp
 from glob import glob
 import tempfile
@@ -24,6 +23,7 @@ conf.use_dnet = False
 conf.use_winpcapy = True
 
 WINDOWS = (os.name == 'nt')
+NEW_RELEASE = False
 
 #hot-patching socket for missing variables on Windows
 import socket
@@ -36,6 +36,18 @@ if not hasattr(socket, 'IPPROTO_ESP'):
 
 from scapy.arch import pcapdnet
 from scapy.arch.pcapdnet import *
+
+def is_new_release():
+    release = platform.release()
+    try:
+        if float(release) >= 8:
+            return True
+    except ValueError:
+        if (release=="post2008Server"):
+            return True
+    return False
+
+NEW_RELEASE = is_new_release()
 
 def _exec_query_ps(cmd, fields):
     """Execute a PowerShell query"""
@@ -221,7 +233,6 @@ def win_find_exe(filename, installsubdir=None, env="ProgramFiles"):
             break        
     return path
 
-
 def is_new_release(ignoreVBS=False):
     release = platform.release()
     if conf.prog.powershell is None and not ignoreVBS:
@@ -272,7 +283,6 @@ if conf.prog.sox == "sox":
 
 class PcapNameNotFoundError(Scapy_Exception):
     pass    
-import platform
 
 def is_interface_valid(iface):
     if "guid" in iface and iface["guid"]:
@@ -283,13 +293,13 @@ def is_interface_valid(iface):
     return False
 
 def get_windows_if_list():
-    if is_new_release():
+    """Returns windows interfaces"""
+    if NEW_RELEASE:
         # This works only starting from Windows 8/2012 and up. For older Windows another solution is needed
         # Careful: this is weird, but Get-NetAdaptater works like: (Name isn't the interface name)
         # Name                      InterfaceDescription                    ifIndex Status       MacAddress             LinkSpeed
         # ----                      --------------------                    ------- ------       ----------             ---------
         # Ethernet                  Killer E2200 Gigabit Ethernet Contro...      13 Up           D0-50-99-56-DD-F9         1 Gbps
-        
         query = exec_query(['Get-NetAdapter'],
                            ['InterfaceDescription', 'InterfaceIndex', 'Name',
                             'InterfaceGuid', 'MacAddress']) # It is normal that it is in this order
@@ -346,6 +356,8 @@ class NetworkInterface(object):
                 self.ip=get_ip_from_name(data['name'])
         except (KeyError, AttributeError, NameError) as e:
             print e
+        if not self.ip and self.name == LOOPBACK_NAME:
+            self.ip = "127.0.0.1"
         try:
             self.mac = data['mac']
         except KeyError:
@@ -501,7 +513,7 @@ def read_routes():
     routes = []
     release = platform.release()
     try:
-        if is_new_release():
+        if NEW_RELEASE:
             routes = read_routes_post2008()
         elif release == "XP":
             routes = read_routes_xp()
@@ -513,7 +525,7 @@ def read_routes():
         if not routes:
             warning("No default IPv4 routes found. Your Windows release may no be supported and you have to enter your routes manually", True)
     return routes
-       
+
 def read_routes_post2008():
     routes = []
     if_index = '(\d+)'

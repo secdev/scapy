@@ -1,3 +1,4 @@
+# Original license
 #-------------------------------------------------------------------------------
 # Name:        winpcapy.py
 #
@@ -7,31 +8,34 @@
 # Copyright:   (c) Massimo Ciani 2009
 #
 #-------------------------------------------------------------------------------
+# Modified for scapy's usage
 
+## This file is part of Scapy
+## See http://www.secdev.org/projects/scapy for more informations
+## This program is published under a GPLv2 license
 
 from ctypes import *
 from ctypes.util import find_library
-import sys
+import sys, os
+from scapy.consts import WINDOWS
 
-WIN32=False
 HAVE_REMOTE=False
 
-
-if sys.platform.startswith('win'):
-    WIN32=True
+if WINDOWS:
     HAVE_REMOTE=True
-
-if WIN32:
     SOCKET = c_uint
-    _lib=CDLL('wpcap.dll')
+    npcap_folder = os.environ["WINDIR"] + "\\System32\\Npcap"
+    if os.path.exists(npcap_folder):
+        # Try to load npcap
+        os.environ['PATH'] = npcap_folder + ";" + os.environ['PATH']
+    _lib=CDLL("wpcap.dll")
 else:
     SOCKET = c_int
-    _lib_name = find_library('pcap')
+    _lib_name = find_library("pcap")
     if not _lib_name:
-      raise OSError("Cannot fine libpcap.so library")
+        raise OSError("Cannot fine libpcap.so library")
     _lib=CDLL(_lib_name)
-
-
+    
 
 ##
 ## misc
@@ -70,7 +74,7 @@ timeval._fields_ = [('tv_sec', c_long),
 ## sockaddr is used by pcap_addr.
 ## For example if sa_family==socket.AF_INET then we need cast
 ## with sockaddr_in 
-if WIN32:
+if WINDOWS:
     class sockaddr(Structure):
         _fields_ = [("sa_family", c_ushort),
                     ("sa_data",c_ubyte * 14)]
@@ -501,8 +505,9 @@ pcap_dump_close = _lib.pcap_dump_close
 pcap_dump_close.restype = None
 pcap_dump_close.argtypes = [POINTER(pcap_dumper_t)]
 
-if not WIN32:
-
+if not WINDOWS:
+    #int pcap_get_selectable_fd(pcap_t, *p)
+    #   Returns, on UNIX, a file descriptor number for a file descriptor on which one can do a select(), poll(). -1 is returned if no such descriptor exists.
     pcap_get_selectable_fd = _lib.pcap_get_selectable_fd
     pcap_get_selectable_fd.restype = c_int    
     pcap_get_selectable_fd.argtypes = [POINTER(pcap_t)]
@@ -513,7 +518,7 @@ if not WIN32:
 ## (like remote packet capture, packet buffer size variation or high-precision packet injection).
 ## Howerver, at the moment they can be used only in Windows.
 ###########################################
-if WIN32:
+if WINDOWS:
     HANDLE = c_void_p
     
     ##############
