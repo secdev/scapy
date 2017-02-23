@@ -6,7 +6,7 @@
 """
 Customizations needed to support Microsoft Windows.
 """
-import os, re, sys, socket, time, itertools, platform
+import os, re, sys, socket, time, itertools, platform, subprocess
 import subprocess as sp
 from glob import glob
 import tempfile
@@ -280,6 +280,20 @@ if conf.prog.powershell == "powershell":
     conf.prog.powershell = None
 if conf.prog.sox == "sox":
     conf.prog.sox = None
+
+if conf.prog.tcpdump != "windump" and conf.use_npcap:
+    def test_windump_npcap():
+        """Return wether windump version is correct or not"""
+        try:
+            p_test_windump = subprocess.Popen([conf.prog.tcpdump, "-help"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            stdout, err = p_test_windump.communicate()
+            return "npcap" in stdout.lower()
+        except:
+            return False
+    windump_ok = test_windump_npcap()
+    if not windump_ok:
+        warning("The installed Windump version does not work with Npcap ! Refer to 'Winpcap/Npcap conflicts' in scapy's doc", True)
+    del windump_ok
 
 class PcapNameNotFoundError(Scapy_Exception):
     pass    
