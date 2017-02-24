@@ -547,9 +547,11 @@ class Automaton:
             self.debug(2, "%s [%s] not taken" % (cond.atmt_type, cond.atmt_condname))
 
     def _do_start(self, *args, **kargs):
-        threading.Thread(target=self._do_control, args=(args), kwargs=kargs).start()
+        ready = threading.Event()
+        threading.Thread(target=self._do_control, args=(ready,) + (args), kwargs=kargs).start()
+        ready.wait()
 
-    def _do_control(self, *args, **kargs):
+    def _do_control(self, ready, *args, **kargs):
         with self.started:
             self.threadid = threading.currentThread().ident
 
@@ -568,6 +570,8 @@ class Automaton:
             singlestep = True
             iterator = self._do_iter()
             self.debug(3, "Starting control thread [tid=%i]" % self.threadid)
+            # Sync threads
+            ready.set()
             try:
                 while True:
                     c = self.cmdin.recv()
