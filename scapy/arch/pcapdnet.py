@@ -7,7 +7,7 @@
 Packet sending and receiving with libdnet and libpcap/WinPcap.
 """
 
-import time,struct,sys
+import time, struct, sys, platform
 import socket
 if not sys.platform.startswith("win"):
     from fcntl import ioctl
@@ -45,7 +45,7 @@ if conf.use_winpcapy:
       if "winpcap" in version.lower():
           if os.path.exists(os.environ["WINDIR"] + "\\System32\\Npcap\\wpcap.dll"):
               warning("Winpcap is installed over Npcap. Will use Winpcap (see 'Winpcap/Npcap conflicts' in scapy's docs)", True)
-          else:
+          elif platform.release() != "XP":
               warning("WinPcap is now deprecated (not maintened). Please use Npcap instead", True)
       elif "npcap" in version.lower():
           conf.use_npcap = True
