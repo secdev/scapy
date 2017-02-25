@@ -126,8 +126,8 @@ class RandNumExpo(RandField):
 
 class RandEnum(RandNum):
     """Instances evaluate to integer sampling without replacement from the given interval"""
-    def __init__(self, min, max):
-        self.seq = RandomEnumeration(min,max)
+    def __init__(self, min, max, seed=None):
+        self.seq = RandomEnumeration(min,max,seed)
     def _fix(self):
         return self.seq.next()
 
@@ -197,9 +197,9 @@ class RandEnumSLong(RandEnum):
 
 class RandEnumKeys(RandEnum):
     """Picks a random value from dict keys list. """
-    def __init__(self, enum):
+    def __init__(self, enum, seed=None):
         self.enum = list(enum)
-        self.seq = RandomEnumeration(0, len(self.enum) - 1)
+        self.seq = RandomEnumeration(0, len(self.enum) - 1, seed)
 
     def _fix(self):
         return self.enum[self.seq.next()]
