@@ -12,7 +12,6 @@ import subprocess as sp
 from glob import glob
 import tempfile
 
-#import scapy.data
 from scapy.config import conf, ConfClass
 from scapy.error import Scapy_Exception, log_loading, log_runtime, warning
 from scapy.utils import atol, itom, inet_aton, inet_ntoa, PcapReader
