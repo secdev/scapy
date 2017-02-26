@@ -193,6 +193,7 @@ class GTPHeader(Packet):
                 self.version == other.version and
                 self.payload.answers(other.payload))
 
+    
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         if _pkt and len(_pkt) >= 1:
