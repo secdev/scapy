@@ -24,15 +24,22 @@ test_script:
   - set PATH="%APPVEYOR_BUILD_FOLDER%;C:\Program Files\Wireshark\;%PATH%"
   
   # Main unit tests
-  - "%PYTHON%\\python -m coverage run -a bin\\UTscapy -f text -t test\\regression.uts -F -K mock_read_routes6_bsd || exit /b 42"
+  - "%PYTHON%\\python -m coverage run --parallel-mode bin\\UTscapy -f text -t test\\regression.uts -F -K mock_read_routes6_bsd || exit /b 42"
   - 'del test\regression.uts'
 
   # Secondary and contrib unit tests
   - 'del test\bpf.uts' # Don't bother with BPF regression tests
-  - "%PYTHON%\\python -m coverage run -a bin\\UTscapy -c test\\configs\\windows.utsc || exit /b 42"
+  - "%PYTHON%\\python -m coverage run --parallel-mode bin\\UTscapy -c test\\configs\\windows.utsc || exit /b 42"
+  
+  # Tls unit tests
+  # Note: due to a multiprocessing bug, we got to be in the UTscapy.py folder and call it directly
+  - 'cd scapy/tools'
+  - "%PYTHON%\\python -m coverage run --concurrency=multiprocessing UTscapy.py -f text -t ..\\..\\test\\tls\\tests_tls_netaccess.uts -F -P \"sys.path.append(os.path.abspath('../../test/tls'))\" -K open_ssl_client || exit /b 42"
+  - 'cd ../../'
 
 after_test:
   # Install & run codecov
   - "%PYTHON%\\python -m pip install codecov"
   - "SET PATH=%PYTHON%\\Scripts\\;%PATH%"
+  - "coverage combine ./ ./scapy/tools/"
   - codecov
