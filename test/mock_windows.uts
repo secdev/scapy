@@ -206,3 +206,12 @@ for i in ps_read_routes:
         break
 
 assert _correct
+
+= show_interfaces
+
+from scapy.arch import *
+show_interfaces()
+
+= dev_from_pcapname
+
+assert dev_from_pcapname(conf.iface.pcap_name).guid == conf.iface.guid
