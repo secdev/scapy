@@ -209,9 +209,27 @@ assert _correct
 
 = show_interfaces
 
-from scapy.arch import *
-show_interfaces()
+from scapy.arch import show_interfaces
+from StringIO import StringIO
+
+@mock.patch('sys.stdout', new_callable=StringIO)
+def test_show_interfaces(mock_stdout):
+    show_interfaces()
+    lines = mock_stdout.getvalue().split("\n")[1:]
+    for l in lines:
+        if not l.strip():
+            continue
+        try:
+            int(l[0])
+        except:
+            sys.stderr.write(l)
+            return False
+    return True
+
+assert test_show_interfaces()
 
 = dev_from_pcapname
+
+from scapy.config import conf
 
 assert dev_from_pcapname(conf.iface.pcap_name).guid == conf.iface.guid
