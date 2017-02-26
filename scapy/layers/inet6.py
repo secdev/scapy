@@ -1986,14 +1986,14 @@ def computeNIGroupAddr(name):
 # Here is the deal. First, that protocol is a piece of shit. Then, we 
 # provide 4 classes for the different kinds of Requests (one for every
 # valid qtype: NOOP, Node Name, IPv6@, IPv4@). They all share the same
-# data field class that is made to be smart by guessing the specifc 
+# data field class that is made to be smart by guessing the specific
 # type of value provided : 
 #
 # - IPv6 if acceptable for inet_pton(AF_INET6, ): code is set to 0,
-#   if not overriden by user
+#   if not overridden by user
 # - IPv4 if acceptable for inet_pton(AF_INET,  ): code is set to 2,
-#   if not overriden
-# - Name in the other cases: code is set to 0, if not overriden by user
+#   if not overridden
+# - Name in the other cases: code is set to 0, if not overridden by user
 #
 # Internal storage, is not only the value, but the a pair providing
 # the type and the value (1 is IPv6@, 1 is Name or string, 2 is IPv4@)

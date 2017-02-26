@@ -165,7 +165,7 @@ Sensible default values
 -----------------------
 
 Scapy tries to use sensible default values for all packet fields.
-If not overriden, 
+If not overridden,
 
 * IP source is chosen according to destination and routing table 
 * Checksum is computed 

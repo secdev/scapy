@@ -392,7 +392,7 @@ def bitmap2RRlist(bitmap):
 	    return
    
 	window_block = ord(bitmap[0]) # window number
-	offset = 256*window_block # offset of the Ressource Record
+	offset = 256*window_block # offset of the Resource Record
 	bitmap_len = ord(bitmap[1]) # length of the bitmap in bytes
 
 	if bitmap_len <= 0 or bitmap_len > 32:
@@ -461,7 +461,7 @@ def RRlist2bitmap(lst):
         # Generate the bitmap
         for tmp in xrange(bytes):
             v = 0
-            # Remove out of range Ressource Records
+            # Remove out of range Resource Records
             tmp_rrlist = filter(lambda x: 256 * wb + 8 * tmp <= x < 256 * wb + 8 * tmp + 8, rrlist)
             if not tmp_rrlist == []:
                 # 1. rescale to fit into 8 bits
@@ -488,7 +488,7 @@ class RRlistField(StrField):
 
 
 class _DNSRRdummy(Packet):
-    name = "Dummy class that implements post_build() for Ressource Records"
+    name = "Dummy class that implements post_build() for Resource Records"
     def post_build(self, pkt, pay):
         if not self.rdlen == None:
             return pkt

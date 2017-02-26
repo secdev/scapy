@@ -1,4 +1,4 @@
-# DNSSEC Ressource Record unit tests
+# DNSSEC Resource Record unit tests
 #
 # Type the following command to launch start the tests:
 # $ sudo bash test/run_tests -t test/dnssecRR.uts -F

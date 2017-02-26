@@ -67,7 +67,7 @@ _cdp_tlv_types = { 0x0001: "Device ID",
                    0x0006: "Platform",
                    0x0007: "IP Prefix",
                    0x0008: "Protocol Hello",
-                   0x0009: "VTP Mangement Domain", # CDPv2
+                   0x0009: "VTP Management Domain", # CDPv2
                    0x000a: "Native VLAN",    # CDPv2
                    0x000b: "Duplex",        # 
                    0x000c: "CDP Unknown command (send us a pcap file)",
