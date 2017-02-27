@@ -82,21 +82,6 @@ import sys
 
 import mock
 import readline
-from threading import Thread, Event
-
-class sendTextAndTab(Thread):
-    """Send text directly as Input"""
-    def __init__(self, event, text):
-        Thread.__init__(self)
-        self.stopped = event
-        self.send_text = text
-    def run(self):
-        import keyboard
-        time.sleep(1)
-        while not self.stopped.wait(0.5):
-            keyboard.write(self.send_text)
-            keyboard.send("tab")
-            keyboard.send("enter")
 
 index = 0
 @mock.patch("pyreadline.console.console.Console.size")
@@ -114,12 +99,8 @@ def emulate_main_input(data, mock_readfunc, mock_pyr_size):
             r_data = data[index]
             if r_data.startswith("#AUTOCOMPLETE"):
                 send_text = re.match(r'#AUTOCOMPLETE{(.*)}', r_data).group(1)
-                stopFlag = Event()
-                thread = sendTextAndTab(stopFlag, send_text)
-                thread.start()
-                # This will block the program until the thread has pushed the stuff
-                r_data = readline.rl.readline()
-                stopFlag.set()
+                cmpl = readline.rl.get_completer()
+                r_data = cmpl(send_text, 0)
         index +=1
         print r_data
         return r_data
