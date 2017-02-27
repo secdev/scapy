@@ -343,7 +343,7 @@ class IE_EndUserAddress(IE_Base):
                     XByteField("PDPTypeNumber", None),
                     ConditionalField(IPField('PDPAddress_IPv4', RandIP()),
                                      lambda pkt: pkt.length == 6 or pkt.length == 22),
-                    ConditionalField(IP6Field('PDPAddress_IPv6', RandIP6()),
+                    ConditionalField(IP6Field('PDPAddress_IPv6', '::1'),
                                      lambda pkt: pkt.length == 18 or pkt.length == 22)
                     ]
 
