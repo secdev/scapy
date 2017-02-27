@@ -94,7 +94,7 @@ def _DTPGuessPayloadClass(p, **kargs):
         t = struct.unpack("!H", p[:2])[0]
         clsname = _DTP_TLV_CLS.get(t, "DtpGenericTlv")
         cls = globals()[clsname]
-	return cls(p, **kargs)
+    return cls(p, **kargs)
 
 class DTP(Packet):
     name = "DTP"
