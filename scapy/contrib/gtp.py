@@ -193,9 +193,8 @@ class GTPHeader(Packet):
                 self.version == other.version and
                 self.payload.answers(other.payload))
     
-    
     @classmethod
-    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+    def dispatch_hook(cls, _pkt=None, *args, **kwargs):
         if _pkt and len(_pkt) >= 1:
             if (struct.unpack("B", _pkt[0])[0] >> 5) & 0x7 == 2:
                 import gtp_v2
@@ -343,11 +342,11 @@ class IE_EndUserAddress(IE_Base):
                     BitField("SPARE", 15, 4),
                     BitField("PDPTypeOrganization", 1, 4),
                     XByteField("PDPTypeNumber", None),
-                    ConditionalField(IPField("PDPAddress_IPv4", RandIP()),
+                    ConditionalField(IPField('PDPAddress_IPv4', RandIP()),
                                      lambda pkt: pkt.length == 6 or pkt.length == 22),
-                    ConditionalField(IP6Field("PDPAddress_IPv6", "::1"), lambda
-                                    pkt: pkt.length == 18 or pkt.length == 22)]
-
+                    ConditionalField(IP6Field('PDPAddress_IPv6', RandIP6()),
+                                     lambda pkt: pkt.length == 18 or pkt.length == 22)
+                    ]
 
 class APNStrLenField(StrLenField):
     # Inspired by DNSStrField
