@@ -169,7 +169,7 @@ class CryptAlgo(object):
     """
 
     def __init__(self, name, cipher, mode, block_size=None, iv_size=None,
-                 key_size=None, icv_size=None, salt_size=None):
+                 key_size=None, icv_size=None, salt_size=None, format_mode_iv=None):
         """
         @param name: the name of this encryption algorithm
         @param cipher: a Cipher module
@@ -185,6 +185,9 @@ class CryptAlgo(object):
                          Used by Combined Mode Algorithms e.g. GCM
         @param salt_size: the length of the salt to use as the IV prefix.
                           Usually used by Counter modes e.g. CTR
+        @param format_mode_iv: function to format the Initialization Vector
+                               e.g. handle the salt value
+                               Default is the random buffer from `generate_iv`
         """
         self.name = name
         self.cipher = cipher
@@ -221,6 +224,11 @@ class CryptAlgo(object):
         else:
             self.salt_size = salt_size
 
+        if format_mode_iv is None:
+            self._format_mode_iv = lambda iv, **kw: iv
+        else:
+            self._format_mode_iv = format_mode_iv
+
     def check_key(self, key):
         """
         Check that the key length is valid.
@@ -237,17 +245,17 @@ class CryptAlgo(object):
         """
         # XXX: Handle counter modes with real counters? RFCs allow the use of
         # XXX: random bytes for counters, so it is not wrong to do it that way
-        return os.urandom(self.iv_size - self.salt_size)
+        return os.urandom(self.iv_size)
 
     @crypto_validator
-    def new_cipher(self, key, iv, digest=None):
+    def new_cipher(self, key, mode_iv, digest=None):
         """
-        @param key:    the secret key, a byte string
-        @param iv:     the initialization vector, a byte string. Used as the
-                       initial nonce in counter mode
-        @param digest: also known as tag or icv. A byte string containing the
-                       digest of the encrypted data. Only use this during
-                       decryption!
+        @param key:     the secret key, a byte string
+        @param mode_iv: the initialization vector or nonce, a byte string.
+                        Formatted by `format_mode_iv`.
+        @param digest:  also known as tag or icv. A byte string containing the
+                        digest of the encrypted data. Only use this during
+                        decryption!
 
         @return:    an initialized cipher object for this algo
         """
@@ -255,13 +263,13 @@ class CryptAlgo(object):
             # With AEAD, the mode needs the digest during decryption.
             return Cipher(
                 self.cipher(key),
-                self.mode(iv, digest, len(digest)),
+                self.mode(mode_iv, digest, len(digest)),
                 default_backend(),
             )
         else:
             return Cipher(
                 self.cipher(key),
-                self.mode(iv),
+                self.mode(mode_iv),
                 default_backend(),
             )
 
@@ -300,10 +308,11 @@ class CryptAlgo(object):
 
         return esp
 
-    def encrypt(self, esp, key):
+    def encrypt(self, sa, esp, key):
         """
         Encrypt an ESP packet
 
+        @param sa:   the SecurityAssociation associated with the ESP packet.
         @param esp:  an unencrypted _ESPPlain packet with valid padding
         @param key:  the secret key used for encryption
 
@@ -312,7 +321,8 @@ class CryptAlgo(object):
         data = esp.data_for_encryption()
 
         if self.cipher:
-            cipher = self.new_cipher(key, esp.iv)
+            mode_iv = self._format_mode_iv(algo=self, sa=sa, iv=esp.iv)
+            cipher = self.new_cipher(key, mode_iv)
             encryptor = cipher.encryptor()
 
             if self.is_aead:
@@ -325,10 +335,11 @@ class CryptAlgo(object):
 
         return ESP(spi=esp.spi, seq=esp.seq, data=esp.iv + data)
 
-    def decrypt(self, esp, key, icv_size=None):
+    def decrypt(self, sa, esp, key, icv_size=None):
         """
         Decrypt an ESP packet
 
+        @param sa:         the SecurityAssociation associated with the ESP packet.
         @param esp:        an encrypted ESP packet
         @param key:        the secret key used for encryption
         @param icv_size:   the length of the icv used for integrity check
@@ -345,7 +356,8 @@ class CryptAlgo(object):
         icv = esp.data[len(esp.data) - icv_size:]
 
         if self.cipher:
-            cipher = self.new_cipher(key, iv, icv)
+            mode_iv = self._format_mode_iv(sa=sa, iv=iv)
+            cipher = self.new_cipher(key, mode_iv, icv)
             decryptor = cipher.decryptor()
 
             if self.is_aead:
@@ -388,20 +400,29 @@ if algorithms:
     CRYPT_ALGOS['AES-CBC'] = CryptAlgo('AES-CBC',
                                        cipher=algorithms.AES,
                                        mode=modes.CBC)
+    _aes_ctr_format_mode_iv = lambda sa, iv, **kw: sa.crypt_salt + iv + b'\x00\x00\x00\x01'
     CRYPT_ALGOS['AES-CTR'] = CryptAlgo('AES-CTR',
                                        cipher=algorithms.AES,
                                        mode=modes.CTR,
-                                       salt_size=4)
+                                       iv_size=8,
+                                       salt_size=4,
+                                       format_mode_iv=_aes_ctr_format_mode_iv)
+    _salt_format_mode_iv = lambda sa, iv, **kw: sa.crypt_salt + iv
     CRYPT_ALGOS['AES-GCM'] = CryptAlgo('AES-GCM',
                                        cipher=algorithms.AES,
                                        mode=modes.GCM,
                                        salt_size=4,
-                                       icv_size=16)
+                                       iv_size=8,
+                                       icv_size=16,
+                                       format_mode_iv=_salt_format_mode_iv)
     if hasattr(modes, 'CCM'):
         CRYPT_ALGOS['AES-CCM'] = CryptAlgo('AES-CCM',
                                            cipher=algorithms.AES,
                                            mode=modes.CCM,
-                                           icv_size=16)
+                                           iv_size=8,
+                                           salt_size=3,
+                                           icv_size=16,
+                                           format_mode_iv=_salt_format_mode_iv)
     # XXX: Flagged as weak by 'cryptography'. Kept for backward compatibility
     CRYPT_ALGOS['Blowfish'] = CryptAlgo('Blowfish',
                                         cipher=algorithms.Blowfish,
@@ -788,8 +809,6 @@ class SecurityAssociation(object):
 
         if iv is None:
             iv = self.crypt_algo.generate_iv()
-            if self.crypt_salt:
-                iv = self.crypt_salt + iv
         else:
             if len(iv) != self.crypt_algo.iv_size:
                 raise TypeError('iv length must be %s' % self.crypt_algo.iv_size)
@@ -814,7 +833,7 @@ class SecurityAssociation(object):
         esp.nh = nh
 
         esp = self.crypt_algo.pad(esp)
-        esp = self.crypt_algo.encrypt(esp, self.crypt_key)
+        esp = self.crypt_algo.encrypt(self, esp, self.crypt_key)
 
         self.auth_algo.sign(esp, self.auth_key)
 
@@ -920,7 +939,7 @@ class SecurityAssociation(object):
             self.check_spi(pkt)
             self.auth_algo.verify(encrypted, self.auth_key)
 
-        esp = self.crypt_algo.decrypt(encrypted, self.crypt_key,
+        esp = self.crypt_algo.decrypt(self, encrypted, self.crypt_key,
                                       self.crypt_algo.icv_size or
                                       self.auth_algo.icv_size)
 
