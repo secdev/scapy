@@ -54,4 +54,3 @@ class AVSWLANHeader(Packet):
 	                ]
 
 bind_layers(AVSWLANHeader, Dot11)
-

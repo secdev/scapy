@@ -101,7 +101,7 @@ class Field(object):
             return RandBin(l)
         else:
             warning("no random class for [%s] (fmt=%s)." % (self.name, self.fmt))
-            
+
 
 
 
@@ -115,7 +115,7 @@ class Emph(object):
         return hash(self.fld)
     def __eq__(self, other):
         return self.fld == other
-    
+
 
 class ActionField(object):
     __slots__ = ["_fld", "_action_method", "_privdata"]
@@ -173,10 +173,10 @@ class PadField(object):
     def addfield(self, pkt, s, val):
         sval = self._fld.addfield(pkt, "", val)
         return s+sval+struct.pack("%is" % (self.padlen(len(sval))), self._padwith)
-    
+
     def __getattr__(self, attr):
         return getattr(self._fld,attr)
-        
+
 
 class DestField(Field):
     __slots__ = ["defaultdst"]
@@ -231,7 +231,7 @@ class IPField(Field):
             except socket.error:
                 x = Net(x)
         elif type(x) is list:
-            x = [self.h2i(pkt, n) for n in x] 
+            x = [self.h2i(pkt, n) for n in x]
         return x
     def resolve(self, x):
         if self in conf.resolve:
@@ -280,13 +280,13 @@ class SourceIPField(IPField):
             x = self.__findaddr(pkt)
         return IPField.i2h(self, pkt, x)
 
-    
+
 
 
 class ByteField(Field):
     def __init__(self, name, default):
         Field.__init__(self, name, default, "B")
-        
+
 class XByteField(ByteField):
     def i2repr(self, pkt, x):
         return lhex(self.i2h(pkt, x))
@@ -374,7 +374,7 @@ class StrField(Field):
     __slots__ = ["remain"]
     def __init__(self, name, default, fmt="H", remain=0):
         Field.__init__(self,name,default,fmt)
-        self.remain = remain        
+        self.remain = remain
     def i2len(self, pkt, i):
         return len(i)
     def i2m(self, pkt, x):
@@ -411,7 +411,7 @@ class PacketField(StrField):
             del(r.underlayer.payload)
             remain = r.load
         return remain,i
-    
+
 class PacketLenField(PacketField):
     __slots__ = ["length_from"]
     def __init__(self, name, default, cls, length_from=None):
@@ -461,7 +461,7 @@ class PacketListField(PacketField):
             l = self.length_from(pkt)
         elif self.count_from is not None:
             c = self.count_from(pkt)
-            
+
         lst = []
         ret = ""
         remain = s
@@ -554,7 +554,7 @@ class StrLenField(StrField):
     def getfield(self, pkt, s):
         l = self.length_from(pkt)
         return s[l:], self.m2i(pkt,s[:l])
-    
+
 class XStrField(StrField):
     """
     StrField which value is printed as hexadecimal.
@@ -591,7 +591,7 @@ class BoundStrLenField(StrLenField):
         StrLenField.__init__(self, name, default, fld, length_from)
         self.minlen = minlen
         self.maxlen = maxlen
-    
+
     def randval(self):
         return RandBin(RandNum(self.minlen, self.maxlen))
 
@@ -605,14 +605,14 @@ class FieldListField(Field):
         Field.__init__(self, name, default)
         self.count_from = count_from
         self.length_from = length_from
-            
+
     def i2count(self, pkt, val):
         if type(val) is list:
             return len(val)
         return 1
     def i2len(self, pkt, val):
         return sum( self.field.i2len(pkt,v) for v in val )
-    
+
     def i2m(self, pkt, val):
         if val is None:
             val = []
@@ -644,7 +644,7 @@ class FieldListField(Field):
         ret=""
         if l is not None:
             s,ret = s[:l],s[l:]
-            
+
         while s:
             if c is not None:
                 if c <= 0:
@@ -719,7 +719,7 @@ class BitField(Field):
     __slots__ = ["rev", "size"]
     def __init__(self, name, default, size):
         Field.__init__(self, name, default)
-        self.rev = size < 0 
+        self.rev = size < 0
         self.size = abs(size)
     def reverse(self, val):
         if self.size == 16:
@@ -727,7 +727,7 @@ class BitField(Field):
         elif self.size == 32:
             val = socket.ntohl(val)
         return val
-        
+
     def addfield(self, pkt, s, val):
         val = self.i2m(pkt, val)
         if type(s) is tuple:
@@ -815,8 +815,8 @@ class _EnumField(Field):
                         and the second callable does the converse. The first
                         callable may return None to default to a literal string
                         (repr()) representation.
-        @param fmt:     struct.pack format used to parse and serialize the 
-			internal value from and to machine representation.
+        @param fmt:     struct.pack format used to parse and serialize the
+                        internal value from and to machine representation.
         """
         if isinstance(enum, tuple):
             self.i2s_cb = enum[0]
@@ -858,7 +858,7 @@ class _EnumField(Field):
                 if ret is not None:
                     return ret
         return repr(x)
-    
+
     def any2i(self, pkt, x):
         if type(x) is list:
             return map(lambda z,pkt=pkt:self.any2i_one(pkt,z), x)
@@ -943,7 +943,7 @@ class XShortEnumField(ShortEnumField):
 
 class _MultiEnumField(_EnumField):
     def __init__(self, name, default, enum, depends_on, fmt = "H"):
-        
+
         self.depends_on = depends_on
         self.i2s_multi = enum
         self.s2i_multi = {}
@@ -1258,11 +1258,11 @@ class _IPPrefixFieldBase(Field):
         self.ntoa = ntoa
         Field.__init__(self, name, default, "%is" % self.maxbytes)
         self.length_from = length_from
-    
+
     def _numbytes(self, pfxlen):
         wbits= self.wordbytes * 8
         return ((pfxlen + (wbits - 1)) / wbits) * self.wordbytes
-    
+
     def h2i(self, pkt, x):
         # "fc00:1::1/64" -> ("fc00:1::1", 64)
         [pfx,pfxlen]= x.split('/')
@@ -1280,30 +1280,30 @@ class _IPPrefixFieldBase(Field):
         (pfx,pfxlen)= x
         s= self.aton(pfx);
         return (s[:self._numbytes(pfxlen)], pfxlen)
-    
+
     def m2i(self, pkt, x):
         # ("\xfc\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01", 64) -> ("fc00:1::1", 64)
         (s,pfxlen)= x
-        
+
         if len(s) < self.maxbytes:
             s= s + ("\0" * (self.maxbytes - len(s)))
         return (self.ntoa(s), pfxlen)
-    
+
     def any2i(self, pkt, x):
         if x is None:
             return (self.ntoa("\0"*self.maxbytes), 1)
-        
+
         return self.h2i(pkt,x)
-    
+
     def i2len(self, pkt, x):
         (_,pfxlen)= x
         return pfxlen
-        
+
     def addfield(self, pkt, s, val):
         (rawpfx,pfxlen)= self.i2m(pkt,val)
         fmt= "!%is" % self._numbytes(pfxlen)
         return s+struct.pack(fmt, rawpfx)
-    
+
     def getfield(self, pkt, s):
         pfxlen= self.length_from(pkt)
         numbytes= self._numbytes(pfxlen)
