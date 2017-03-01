@@ -10,8 +10,8 @@ gtp = IP()/UDP(dport=2123)/GTPHeader(teid=2807)/GTPCreatePDPContextRequest()
 gtp.dport == 2123 and gtp.teid == 2807 and len(gtp.IE_list) == 5
 
 = GTPCreatePDPContextRequest(), basic dissection
-random.seed(2807)
-str(gtp) == "E\x00\x00O\x00\x01\x00\x00@\x11|\x9b\x7f\x00\x00\x01\x7f\x00\x00\x01\x08K\x08K\x00;\xb9{2\x10\x00+\x00\x00\n\xf7\x8d\x9e\x00\x00\x10\xa6\xb2\xdc.\x14\t\x85\x00\x04\x83~:N\x85\x00\x04\xe0^\x96\xe7\x87\x00\x0fRmhqmG3QvzvsT3G"
+random.seed(0x2807)
+str(gtp) == "E\x00\x00O\x00\x01\x00\x00@\x11|\x9b\x7f\x00\x00\x01\x7f\x00\x00\x01\x08K\x08K\x00;{N2\x10\x00+\x00\x00\n\xf7\xd2y\x00\x00\x10\xf8>\x14\x05\x14\t\x85\x00\x04\xa6A\xd8+\x85\x00\x04z\xafnt\x87\x00\x0fxKbPaePK9oq0pb5"
 
 = GTPV1UpdatePDPContextRequest(), dissect
 h = "3333333333332222222222228100a38408004588006800000000fd1134820a2a00010a2a00024aa5084b005408bb32120044ed99aea9386f0000100000530514058500040a2a00018500040a2a000187000c0213921f739680fe74f2ffff94000130970001019800080112f41004d204d29900024000b6000101"
