@@ -321,7 +321,7 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
     STARTUP_FILE = DEFAULT_STARTUP_FILE
     PRESTART_FILE = DEFAULT_PRESTART_FILE
 
-    session_name = ""
+    session_name = None
 
     try:
         opts=getopt.getopt(argv[1:], "hs:Cc:Pp:d")
@@ -356,7 +356,7 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
     if PRESTART_FILE:
         _read_config_file(PRESTART_FILE)
 
-    init_session(None, mydict)
+    init_session(session_name, mydict)
 
     if READLINE:
         if conf.histfile:
