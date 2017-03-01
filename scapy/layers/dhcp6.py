@@ -638,7 +638,7 @@ class DHCP6OptIfaceId(_DHCP6OptGuessPayload):# RFC sect 22.18
 
 # A server includes a Reconfigure Message option in a Reconfigure
 # message to indicate to the client whether the client responds with a
-# renew message or an Informatiion-request message.
+# renew message or an Information-request message.
 class DHCP6OptReconfMsg(_DHCP6OptGuessPayload):       # RFC sect 22.19
     name = "DHCP6 Reconfigure Message Option"
     fields_desc = [ ShortEnumField("optcode", 19, dhcp6opts), 
@@ -1118,7 +1118,7 @@ class DHCP6_RelayForward(_DHCP6OptGuessPayload,Packet):
 # Normalement, doit inclure une option "Relay Message Option"
 # peut en inclure d'autres.
 # Les valeurs des champs hop-count, link-addr et peer-addr
-# sont copiees du messsage Forward associe. POur le suivi de session.
+# sont copiees du message Forward associe. POur le suivi de session.
 # Pour le moment, comme decrit dans le commentaire, le hashret
 # se limite au contenu du champ peer address.
 # Voir section 7.2 de la 3315.

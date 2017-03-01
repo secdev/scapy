@@ -80,7 +80,7 @@ def read_routes():
             dest,gw,flg = rt[:3]
             netif = rt[4 + mtu_present + prio_present + refs_present]
         if flg.find("Lc") >= 0:
-            continue                
+            continue
         if dest == "default":
             dest = 0L
             netmask = 0L
@@ -133,7 +133,7 @@ def read_routes():
             routes.append((dest,netmask,gw,gw_if,gw_if_addr))
         else:
             warning("Did not find output interface to reach gateway %s" % gw)
-            
+
     return routes
 
 ############
@@ -174,7 +174,7 @@ def _in6_getifaddr(ifname):
 
     return ret
 
-def in6_getifaddr():    
+def in6_getifaddr():
     """
     Returns a list of 3-tuples of the form (addr, scope, iface) where
     'addr' is the address of scope 'scope' associated to the interface
@@ -189,8 +189,8 @@ def in6_getifaddr():
         try:
             f = os.popen("%s" % conf.prog.ifconfig)
         except OSError,msg:
-	    log_interactive.warning("Failed to execute ifconfig.")
-	    return []
+            log_interactive.warning("Failed to execute ifconfig.")
+            return []
 
         # Get the list of network interfaces
         splitted_line = []
@@ -201,18 +201,18 @@ def in6_getifaddr():
 
     else: # FreeBSD, NetBSD or Darwin
         try:
-	    f = os.popen("%s -l" % conf.prog.ifconfig)
+            f = os.popen("%s -l" % conf.prog.ifconfig)
         except OSError,msg:
-	    log_interactive.warning("Failed to execute ifconfig.")
-	    return []
+            log_interactive.warning("Failed to execute ifconfig.")
+            return []
 
         # Get the list of network interfaces
         splitted_line = f.readline().rstrip().split()
 
     ret = []
     for i in splitted_line:
-	ret += _in6_getifaddr(i)
-    return ret	    
+        ret += _in6_getifaddr(i)
+    return ret
 
 
 def read_routes6():
@@ -221,7 +221,7 @@ def read_routes6():
     # Call netstat to retrieve IPv6 routes
     fd_netstat = os.popen("netstat -rn -f inet6")
 
-    # List interfaces IPv6 addresses 
+    # List interfaces IPv6 addresses
     lifaddr = in6_getifaddr()
     if not lifaddr:
         return []
@@ -253,7 +253,7 @@ def read_routes6():
             destination, next_hop, flags = splitted_line[:3]
             dev = splitted_line[index]
         else:
-            # FREEBSD or DARWIN 
+            # FREEBSD or DARWIN
             if len(splitted_line) < 4:
                 warning("Not enough columns in route entry !")
                 continue

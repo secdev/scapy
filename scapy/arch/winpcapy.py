@@ -68,7 +68,7 @@ timeval._fields_ = [('tv_sec', c_long),
                     ('tv_usec', c_long)]
 
 ## sockaddr is used by pcap_addr.
-## For exapmle if sa_family==socket.AF_INET then we need cast
+## For example if sa_family==socket.AF_INET then we need cast
 ## with sockaddr_in 
 if WIN32:
     class sockaddr(Structure):
@@ -543,7 +543,7 @@ if WIN32:
     #   Defines if the adapter has to go in promiscuous mode.
     PCAP_OPENFLAG_PROMISCUOUS=1
     # define  PCAP_OPENFLAG_DATATX_UDP   2
-    #   Defines if the data trasfer (in case of a remote capture) has to be done with UDP protocol.
+    #   Defines if the data transfer (in case of a remote capture) has to be done with UDP protocol.
     PCAP_OPENFLAG_DATATX_UDP=2
     # define  PCAP_OPENFLAG_NOCAPTURE_RPCAP   4
     PCAP_OPENFLAG_NOCAPTURE_RPCAP=4
@@ -585,7 +585,7 @@ if WIN32:
     # Defines the maximum buffer size in which address, port, interface names are kept.
     PCAP_BUF_SIZE = 1024
     # define  RPCAP_HOSTLIST_SIZE   1024
-    # Maximum lenght of an host name (needed for the RPCAP active mode).
+    # Maximum length of an host name (needed for the RPCAP active mode).
     RPCAP_HOSTLIST_SIZE = 1024
     
     class pcap_send_queue(Structure):

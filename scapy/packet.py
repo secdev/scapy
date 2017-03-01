@@ -895,7 +895,7 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
 
     def show(self, dump=False, indent=3, lvl="", label_lvl=""):
         """Prints or returns (when "dump" is true) a hierarchical view of the packet. "indent" gives the size of indentation for each layer."""
-	return self._show_or_dump(dump, indent, lvl, label_lvl)
+        return self._show_or_dump(dump, indent, lvl, label_lvl)
 
     def show2(self, dump=False, indent=3, lvl="", label_lvl=""):
         """Prints or returns (when "dump" is true) a hierarchical view of an assembled version of the packet, so that automatic fields are calculated (checksums, etc.)"""

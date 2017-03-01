@@ -4032,7 +4032,7 @@ class IraRestOctetsHdr(Packet):
              ]
 
 
-# len is 1 to 5 what do we do with the variable size? no lenght
+# len is 1 to 5 what do we do with the variable size? no length
 # field?! WTF
 class IaxRestOctetsHdr(Packet):
     """IAX Rest Octets Section 10.5.2.18"""
@@ -4509,7 +4509,7 @@ class PageModeAndChannelNeeded(Packet):
 
 class NccPermittedHdr(Packet):
     """NCC Permitted Section 10.5.2.27"""
-    name = "NCC Permited"
+    name = "NCC Permitted"
     fields_desc = [
              BitField("eightBitNP", None, 1),
              XBitField("ieiNP", None, 7),
@@ -7899,7 +7899,7 @@ class PTmsiSignature(Packet):
     name = "P-TMSI Signature"
     fields_desc = [
              ByteField("ieiPTS", 0x0),
-             BitField("sgnature", 0x0, 24)
+             BitField("signature", 0x0, 24)
              ]
 
 
@@ -9740,7 +9740,7 @@ class IraRestOctets(Packet):
              ]
 
 
-# len is 1 to 5 what do we do with the variable size? no lenght
+# len is 1 to 5 what do we do with the variable size? no length
 # field?! WTF
 class IaxRestOctets(Packet):
     """IAX Rest Octets Section 10.5.2.18"""
@@ -10032,7 +10032,7 @@ class PageMode(Packet):
 
 class NccPermitted(Packet):
     """NCC Permitted Section 10.5.2.27"""
-    name = "NCC Permited"
+    name = "NCC Permitted"
     fields_desc = [
              ByteField("nccPerm", 0x0)
              ]

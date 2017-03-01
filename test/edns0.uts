@@ -1,4 +1,4 @@
-# DNS OPT Ressource Record unit tests
+# DNS OPT Resource Record unit tests
 #
 # Type the following command to launch start the tests:
 # $ sudo bash test/run_tests -t test/edns0.uts -F
