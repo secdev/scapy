@@ -29,16 +29,16 @@ from scapy.arch.common import get_if
 
 # From bits/ioctls.h
 SIOCGIFHWADDR = 0x8927          # Get hardware address
-SIOCGIFADDR = 0x8915          # get PA address
-SIOCGIFNETMASK = 0x891b          # get network PA mask
-SIOCGIFNAME = 0x8910          # get iface name
-SIOCSIFLINK = 0x8911          # set iface channel
-SIOCGIFCONF = 0x8912          # get iface list
-SIOCGIFFLAGS = 0x8913          # get flags
-SIOCSIFFLAGS = 0x8914          # set flags
-SIOCGIFINDEX = 0x8933          # name -> if_index mapping
-SIOCGIFCOUNT = 0x8938          # get number of devices
-SIOCGSTAMP = 0x8906          # get packet timestamp (as a timeval)
+SIOCGIFADDR = 0x8915            # get PA address
+SIOCGIFNETMASK = 0x891b         # get network PA mask
+SIOCGIFNAME = 0x8910            # get iface name
+SIOCSIFLINK = 0x8911            # set iface channel
+SIOCGIFCONF = 0x8912            # get iface list
+SIOCGIFFLAGS = 0x8913           # get flags
+SIOCSIFFLAGS = 0x8914           # set flags
+SIOCGIFINDEX = 0x8933           # name -> if_index mapping
+SIOCGIFCOUNT = 0x8938           # get number of devices
+SIOCGSTAMP = 0x8906             # get packet timestamp (as a timeval)
 
 # From if.h
 IFF_UP = 0x1               # Interface is up.
@@ -72,14 +72,14 @@ RTF_UP = 0x0001  # Route usable
 RTF_REJECT = 0x0200
 
 # From if_packet.h
-PACKET_HOST = 0  # To us
+PACKET_HOST = 0       # To us
 PACKET_BROADCAST = 1  # To all
 PACKET_MULTICAST = 2  # To group
 PACKET_OTHERHOST = 3  # To someone else
-PACKET_OUTGOING = 4  # Outgoing of any type
-PACKET_LOOPBACK = 5  # MC/BRD frame looped back
-PACKET_USER = 6  # To user space
-PACKET_KERNEL = 7  # To kernel space
+PACKET_OUTGOING = 4   # Outgoing of any type
+PACKET_LOOPBACK = 5   # MC/BRD frame looped back
+PACKET_USER = 6       # To user space
+PACKET_KERNEL = 7     # To kernel space
 PACKET_FASTROUTE = 6  # Fastrouted frame
 # Unused, PACKET_FASTROUTE and PACKET_LOOPBACK are invisible to user space
 
