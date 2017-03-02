@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
-##                     2015, 2016 Maxence Tury
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
+# 2015, 2016 Maxence Tury
+# This program is published under a GPLv2 license
 
 """
 TLS automatons. This makes for a primitive TLS stack.
@@ -100,11 +100,10 @@ class TLSClientAutomaton(Automaton):
 
         if mycert and mykey:
             self.mycert = Cert(mycert)
-            self.mykey  = PrivKey(mykey)
+            self.mykey = PrivKey(mykey)
         else:
             self.mycert = None
-            self.mykey  = None
-
+            self.mykey = None
 
     def get_next_msg(self, socket_timeout=5, retry=5):
         """
@@ -158,7 +157,6 @@ class TLSClientAutomaton(Automaton):
             elif isinstance(p.payload, TLS):
                 p = p.payload
                 self.msg_list += p.msg
-
 
     @ATMT.state(initial=True)
     def INITIAL(self):
@@ -232,7 +230,7 @@ class TLSClientAutomaton(Automaton):
         our own ClientHello.
         """
         if (not self.msg_list or
-            not isinstance(self.msg_list[0], TLSServerHello)):
+                not isinstance(self.msg_list[0], TLSServerHello)):
             return
         p = self.msg_list[0]
         self.msg_list = self.msg_list[1:]
@@ -254,7 +252,7 @@ class TLSClientAutomaton(Automaton):
     def should_HANDLE_CERT(self):
         self.get_next_msg()
         if (not self.msg_list or
-            not isinstance(self.msg_list[0], TLSCertificate)):
+                not isinstance(self.msg_list[0], TLSCertificate)):
             return
         p = self.msg_list[0]
         self.msg_list = self.msg_list[1:]
@@ -284,7 +282,7 @@ class TLSClientAutomaton(Automaton):
         """
         self.get_next_msg()
         if (not self.msg_list or
-            not isinstance(self.msg_list[0], TLSServerKeyExchange)):
+                not isinstance(self.msg_list[0], TLSServerKeyExchange)):
             return
         p = self.msg_list[0]
         self.msg_list = self.msg_list[1:]
@@ -313,7 +311,7 @@ class TLSClientAutomaton(Automaton):
         with the cipher suite, etc.
         """
         if (not self.msg_list or
-            not isinstance(self.msg_list[0], TLSCertificateRequest)):
+                not isinstance(self.msg_list[0], TLSCertificateRequest)):
             return
         p = self.msg_list[0]
         self.msg_list = self.msg_list[1:]
@@ -327,7 +325,7 @@ class TLSClientAutomaton(Automaton):
         with the cipher suite, etc.
         """
         if (not self.msg_list or
-            not isinstance(self.msg_list[0], TLSCertificateRequest)):
+                not isinstance(self.msg_list[0], TLSCertificateRequest)):
             return
         p = self.msg_list[0]
         self.msg_list = self.msg_list[1:]
@@ -338,7 +336,7 @@ class TLSClientAutomaton(Automaton):
     def should_HANDLE_SHD(self):
         self.get_next_msg()
         if (not self.msg_list or
-            not isinstance(self.msg_list[0], TLSServerHelloDone)):
+                not isinstance(self.msg_list[0], TLSServerHelloDone)):
             return
         p = self.msg_list[0]
         self.msg_list = self.msg_list[1:]
@@ -347,7 +345,7 @@ class TLSClientAutomaton(Automaton):
     @ATMT.condition(HANDLE_CERT_REQ, prio=4)
     def should_HANDLE_SHD_from_CERT_REQ(self):
         if (not self.msg_list or
-            not isinstance(self.msg_list[0], TLSServerHelloDone)):
+                not isinstance(self.msg_list[0], TLSServerHelloDone)):
             return
         p = self.msg_list[0]
         self.msg_list = self.msg_list[1:]
@@ -357,7 +355,7 @@ class TLSClientAutomaton(Automaton):
     def should_HANDLE_SHD_from_CERT(self):
         self.get_next_msg()
         if (not self.msg_list or
-            not isinstance(self.msg_list[0], TLSServerHelloDone)):
+                not isinstance(self.msg_list[0], TLSServerHelloDone)):
             return
         p = self.msg_list[0]
         self.msg_list = self.msg_list[1:]
@@ -431,7 +429,7 @@ class TLSClientAutomaton(Automaton):
         """
         if (not self.cert_req or
             self.mycert is None or
-            self.mykey is None):
+                self.mykey is None):
             return
         self.cur_pkt = TLS(tls_session=self.cur_session, msg=[])
         p = TLSCertificateVerify()
@@ -511,7 +509,7 @@ class TLSClientAutomaton(Automaton):
     def should_HANDLE_CCS(self):
         self.get_next_msg()
         if (not self.msg_list or
-            not isinstance(self.msg_list[0], TLSChangeCipherSpec)):
+                not isinstance(self.msg_list[0], TLSChangeCipherSpec)):
             return
         p = self.msg_list[0]
         self.msg_list = self.msg_list[1:]
@@ -525,7 +523,7 @@ class TLSClientAutomaton(Automaton):
     def should_HANDLE_FINISHED(self):
         self.get_next_msg()
         if (not self.msg_list or
-            not isinstance(self.msg_list[0], TLSFinished)):
+                not isinstance(self.msg_list[0], TLSFinished)):
             return
         p = self.msg_list[0]
         self.msg_list = self.msg_list[1:]
@@ -620,7 +618,7 @@ class TLSServerAutomaton(Automaton):
         Automaton.parse_args(self, **kargs)
 
         self.mycert = Cert(mycert)
-        self.mykey  = PrivKey(mykey)
+        self.mykey = PrivKey(mykey)
 
         try:
             if ':' in server:
@@ -648,7 +646,6 @@ class TLSServerAutomaton(Automaton):
         self.cert_req = None
 
         self.preferred_ciphersuite = preferred_ciphersuite
-
 
     def get_next_msg(self):
         """
@@ -719,7 +716,7 @@ class TLSServerAutomaton(Automaton):
         self.cur_session.server_key = self.mykey
         if isinstance(self.mykey, PrivKeyRSA):
             self.cur_session.server_rsa_key = self.mykey
-        #elif isinstance(self.mykey, PrivKeyECDSA):
+        # elif isinstance(self.mykey, PrivKeyECDSA):
         #    self.cur_session.server_ecdsa_key = self.mykey
         raise self.BIND_AND_WAIT()
 
@@ -756,7 +753,7 @@ class TLSServerAutomaton(Automaton):
     @ATMT.condition(PREPROCESS_ClientHello, prio=1)
     def should_HANDLE_ClientHello(self):
         if (not self.msg_list or
-            not isinstance(self.msg_list[0], TLSClientHello)):
+                not isinstance(self.msg_list[0], TLSClientHello)):
             return
         self.cur_pkt = self.msg_list[0]
         self.msg_list = self.msg_list[1:]
@@ -835,7 +832,7 @@ class TLSServerAutomaton(Automaton):
 
         self.cur_session.advertised_tls_version = self.cur_pkt.version
         self.cur_session.tls_version = self.cur_pkt.version
-        #XXX there should be some checks on this version from the ClientHello
+        # XXX there should be some checks on this version from the ClientHello
         v = self.cur_session.tls_version
         print "\nVersion: " + _tls_version[v]
         print "Cipher suite: " + _tls_cipher_suites[c]
@@ -867,7 +864,7 @@ class TLSServerAutomaton(Automaton):
     def should_HANDLE_CKE(self):
         self.get_next_msg()
         if (not self.msg_list or
-            not isinstance(self.msg_list[0], TLSClientKeyExchange)):
+                not isinstance(self.msg_list[0], TLSClientKeyExchange)):
             return
         self.cur_pkt = self.msg_list[0]
         self.msg_list = self.msg_list[1:]
@@ -881,7 +878,7 @@ class TLSServerAutomaton(Automaton):
     def should_HANDLE_ALERT_INSTEAD_OF_CKE(self):
         self.get_next_msg()
         if (not self.msg_list or
-            not isinstance(self.msg_list[0], TLSAlert)):
+                not isinstance(self.msg_list[0], TLSAlert)):
             return
         self.cur_pkt = self.msg_list[0]
         self.msg_list = self.msg_list[1:]
@@ -899,12 +896,11 @@ class TLSServerAutomaton(Automaton):
     def HANDLE_MISSING_CKE(self):
         print "Missing CKE in client's reply"
 
-
     @ATMT.condition(HANDLE_CKE, prio=1)
     def should_HANDLE_CCS(self):
         self.get_next_msg()
         if (not self.msg_list or
-            not isinstance(self.msg_list[0], TLSChangeCipherSpec)):
+                not isinstance(self.msg_list[0], TLSChangeCipherSpec)):
             return
         self.cur_pkt = self.msg_list[0]
         self.msg_list = self.msg_list[1:]
@@ -918,7 +914,7 @@ class TLSServerAutomaton(Automaton):
     def should_HANDLE_ALERT_INSTEAD_OF_CCS(self):
         self.get_next_msg()
         if (not self.msg_list or
-            not isinstance(self.msg_list[0], TLSAlert)):
+                not isinstance(self.msg_list[0], TLSAlert)):
             return
         self.cur_pkt = self.msg_list[0]
         self.msg_list = self.msg_list[1:]
@@ -941,7 +937,7 @@ class TLSServerAutomaton(Automaton):
     def should_HANDLE_Finished(self):
         self.get_next_msg()
         if (not self.msg_list or
-            not isinstance(self.msg_list[0], TLSFinished)):
+                not isinstance(self.msg_list[0], TLSFinished)):
             return
         self.cur_pkt = self.msg_list[0]
         self.msg_list = self.msg_list[1:]
@@ -955,7 +951,7 @@ class TLSServerAutomaton(Automaton):
     def should_HANDLE_ALERT_INSTEAD_OF_Finished(self):
         self.get_next_msg()
         if (not self.msg_list or
-            not isinstance(self.msg_list[0], TLSAlert)):
+                not isinstance(self.msg_list[0], TLSAlert)):
             return
         self.cur_pkt = self.msg_list[0]
         self.msg_list = self.msg_list[1:]
@@ -1009,7 +1005,7 @@ class TLSServerAutomaton(Automaton):
     def should_HANDLE_ALERT_FROM_FINISHED(self):
         self.get_next_msg()
         if (not self.msg_list or
-            not isinstance(self.msg_list[0], TLSAlert)):
+                not isinstance(self.msg_list[0], TLSAlert)):
             return
         raise self.HANDLE_ALERT_FROM_FINISHED_SENT()
 
@@ -1019,7 +1015,7 @@ class TLSServerAutomaton(Automaton):
         self.msg_list = self.msg_list[1:]
         print "Received Alert Message after sending Finished"
         print "Closing connection"
-        #XXX no support for new connections, for now
+        # XXX no support for new connections, for now
         raise self.FINAL()
 
     @ATMT.condition(FINISHED_SENT, prio=2)
@@ -1034,7 +1030,7 @@ class TLSServerAutomaton(Automaton):
     def should_PROCESS_DATA(self):
         self.get_next_msg()
         if (not self.msg_list or
-            not isinstance(self.msg_list[0], TLSApplicationData)):
+                not isinstance(self.msg_list[0], TLSApplicationData)):
             return
         raise self.PROCESS_DATA()
 
@@ -1051,19 +1047,20 @@ class TLSServerAutomaton(Automaton):
         print "Received %s" % repr(recv_data)
 
         if recv_data.startswith("GET / HTTP/1."):
-            header  = "HTTP/1.1 200 OK\r\n"
+            header = "HTTP/1.1 200 OK\r\n"
             header += "Server: Scapy TLS Extension\r\n"
             header += "Content-type: text/html\r\n"
             header += "Content-length: %d\r\n\r\n"
-            s  = "Information on current TLS session:\n\n"
+            s = "Information on current TLS session:\n\n"
             s += "Local end      : %s:%d\n" % (self.local_ip, self.local_port)
-            s += "Remote end     : %s:%d\n" % (self.remote_ip, self.remote_port)
+            s += "Remote end     : %s:%d\n" % (self.remote_ip,
+                                               self.remote_port)
             v = self.cur_session.advertised_tls_version
             v = "%s (0x%04x)" % (_tls_version[v], v)
             s += "TLS version    : %s\n" % v
             s += repr(self.cur_session.wcs)
             body = "<html><body><pre>%s</pre></body></html>\r\n\r\n" % s
-            page = (header+body) % len(body)
+            page = (header + body) % len(body)
         else:
             page = recv_data
 
@@ -1079,4 +1076,3 @@ class TLSServerAutomaton(Automaton):
         #self.socket.shutdown(1)
         """
         self.socket.close()
-

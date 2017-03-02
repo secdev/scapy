@@ -13,20 +13,19 @@ import time
 import datetime
 
 from scapy.packet import Packet, bind_layers
-from scapy.fields import (BitField, BitEnumField, ByteField, ByteEnumField, \
-XByteField, SignedByteField, FlagsField, ShortField, LEShortField, IntField,\
-LEIntField, FixedPointField, IPField, StrField, StrFixedLenField,\
-StrFixedLenEnumField, PacketField, PacketLenField, PacketListField,\
-FieldListField, ConditionalField, PadField)
+from scapy.fields import (BitField, BitEnumField, ByteField, ByteEnumField,
+                          XByteField, SignedByteField, FlagsField, ShortField, LEShortField, IntField,
+                          LEIntField, FixedPointField, IPField, StrField, StrFixedLenField,
+                          StrFixedLenEnumField, PacketField, PacketLenField, PacketListField,
+                          FieldListField, ConditionalField, PadField)
 from scapy.layers.inet6 import IP6Field
 from scapy.layers.inet import UDP
 from scapy.utils import lhex
 from scapy.config import conf
 
 
-
 #############################################################################
-##### Constants
+# Constants
 #############################################################################
 
 _NTP_AUTH_MD5_MIN_SIZE = 68
@@ -115,7 +114,7 @@ def get_cls(name, fallback_cls=conf.raw_layer):
 
 
 #############################################################################
-##### NTP
+# NTP
 #############################################################################
 
 # RFC 5905 / Section 7.3
@@ -548,7 +547,7 @@ class _NTPInvalidDataException(Exception):
 
 
 ##############################################################################
-##### Private (mode 7)
+# Private (mode 7)
 ##############################################################################
 
 # Operation codes
@@ -894,7 +893,7 @@ class NTPControl(NTP):
 
 
 ##############################################################################
-##### Private (mode 7)
+# Private (mode 7)
 ##############################################################################
 
 _information_error_codes = {
@@ -1568,7 +1567,8 @@ class NTPPrivateRespPacketListField(PacketListField):
             is_v6 = struct.unpack("!I", s[48:52])[0]
             ret = NTPInfoIfStatsIPv6(s) if is_v6 else NTPInfoIfStatsIPv4(s)
         else:
-            ret = _private_data_objects.get(pkt.request_code, conf.raw_layer)(s)
+            ret = _private_data_objects.get(
+                pkt.request_code, conf.raw_layer)(s)
 
         return ret
 
@@ -1886,11 +1886,9 @@ class NTPPrivate(NTP):
 
 
 ##############################################################################
-##### Layer bindings
+# Layer bindings
 ##############################################################################
 
 bind_layers(UDP, NTP, {"sport": 123})
 bind_layers(UDP, NTP, {"dport": 123})
 bind_layers(UDP, NTP, {"sport": 123, "dport": 123})
-
-

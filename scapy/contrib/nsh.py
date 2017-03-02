@@ -63,7 +63,7 @@ class NSH(Packet):
         ConditionalField(PacketListField("ContextHeaders", None,
                                          NSHTLV, count_from="Length"),
                          lambda pkt: pkt.MDType == 2)
-        ]
+    ]
 
     def mysummary(self):
         return self.sprintf("NSP: %NSP% - NSI: %NSI%")

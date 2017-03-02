@@ -36,7 +36,8 @@ import struct
 try:
     from typing import Optional, List, Union, Callable, Any, Tuple, Sized
 except ImportError:
-    class Sized(object): pass
+    class Sized(object):
+        pass
 
 import scapy.fields as fields
 import scapy.packet as packet
@@ -45,9 +46,10 @@ import scapy.base_classes as base_classes
 import scapy.volatile as volatile
 import scapy.error as error
 
-########################################################################################################################
-################################################ HPACK Integer Fields ##################################################
-########################################################################################################################
+##########################################################################
+################################################ HPACK Integer Fields ####
+##########################################################################
+
 
 class HPackMagicBitField(fields.BitField):
     """ HPackMagicBitField is a BitField variant that cannot be assigned another
@@ -68,13 +70,15 @@ class HPackMagicBitField(fields.BitField):
         @raise AssertionError
         """
         assert(default >= 0)
-        # size can be negative if encoding is little-endian (see rev property of bitfields)
+        # size can be negative if encoding is little-endian (see rev property
+        # of bitfields)
         assert(size != 0)
         self._magic = default
         super(HPackMagicBitField, self).__init__(name, default, size)
 
     def addfield(self, pkt, s, val):
-        # type: (Optional[packet.Packet], Union[str, Tuple[str, int, int]], int) -> Union[str, Tuple[str, int, int]]
+        # type: (Optional[packet.Packet], Union[str, Tuple[str, int, int]],
+        # int) -> Union[str, Tuple[str, int, int]]
         """
         @param packet.Packet|None pkt: the packet instance containing this field instance; probably unused.
         @param str|(str, int, long) s: either a str if 0 == size%8 or a tuple with the string to add this field to, the
@@ -83,11 +87,13 @@ class HPackMagicBitField(fields.BitField):
         @return str|(str, int, long): the s string extended with this field machine representation
         @raise AssertionError
         """
-        assert val == self._magic, 'val parameter must value {}; received: {}'.format(self._magic, val)
+        assert val == self._magic, 'val parameter must value {}; received: {}'.format(
+            self._magic, val)
         return super(HPackMagicBitField, self).addfield(pkt, s, self._magic)
 
     def getfield(self, pkt, s):
-        # type: (Optional[packet.Packet], Union[str, Tuple[str, int]]) -> Tuple[Union[Tuple[str, int], str], int]
+        # type: (Optional[packet.Packet], Union[str, Tuple[str, int]]) ->
+        # Tuple[Union[Tuple[str, int], str], int]
         """
         @param packet.Packet|None pkt: the packet instance containing this field instance; probably unused.
         @param str|(str, int) s: either a str if size%8==0 or a tuple with the string to parse from and the number of
@@ -102,7 +108,8 @@ class HPackMagicBitField(fields.BitField):
             and len(r) == 2
             and isinstance(r[1], (int, long))
         ), 'Second element of BitField.getfield return value expected to be an int or a long; API change detected'
-        assert r[1] == self._magic, 'Invalid value parsed from s; error in class guessing detected!'
+        assert r[
+            1] == self._magic, 'Invalid value parsed from s; error in class guessing detected!'
         return r
 
     def h2i(self, pkt, x):
@@ -114,7 +121,8 @@ class HPackMagicBitField(fields.BitField):
         @raise AssertionError
         """
         assert x == self._magic, \
-            'EINVAL: x: This field is magic. Do not attempt to modify it. Expected value: {}'.format(self._magic)
+            'EINVAL: x: This field is magic. Do not attempt to modify it. Expected value: {}'.format(
+                self._magic)
         return super(HPackMagicBitField, self).h2i(pkt, self._magic)
 
     def i2h(self, pkt, x):
@@ -126,7 +134,8 @@ class HPackMagicBitField(fields.BitField):
         @raise AssertionError
         """
         assert x == self._magic, \
-            'EINVAL: x: This field is magic. Do not attempt to modify it. Expected value: {}'.format(self._magic)
+            'EINVAL: x: This field is magic. Do not attempt to modify it. Expected value: {}'.format(
+                self._magic)
         return super(HPackMagicBitField, self).i2h(pkt, self._magic)
 
     def m2i(self, pkt, x):
@@ -150,7 +159,8 @@ class HPackMagicBitField(fields.BitField):
         @raise AssertionError
         """
         assert x == self._magic, \
-            'EINVAL: x: This field is magic. Do not attempt to modify it. Expected value: {}'.format(self._magic)
+            'EINVAL: x: This field is magic. Do not attempt to modify it. Expected value: {}'.format(
+                self._magic)
         return super(HPackMagicBitField, self).i2m(pkt, self._magic)
 
     def any2i(self, pkt, x):
@@ -162,7 +172,8 @@ class HPackMagicBitField(fields.BitField):
         @raise AssertionError
         """
         assert x == self._magic, \
-            'EINVAL: x: This field is magic. Do not attempt to modify it. Expected value: {}'.format(self._magic)
+            'EINVAL: x: This field is magic. Do not attempt to modify it. Expected value: {}'.format(
+                self._magic)
         return super(HPackMagicBitField, self).any2i(pkt, self._magic)
 
 
@@ -192,7 +203,8 @@ class AbstractUVarIntField(fields.Field):
         @return None
         @raise AssertionError
         """
-        assert(isinstance(default, types.NoneType) or (isinstance(default, (int, long)) and default >= 0))
+        assert(isinstance(default, types.NoneType) or (
+            isinstance(default, (int, long)) and default >= 0))
         assert(0 < size <= 8)
         super(AbstractUVarIntField, self).__init__(name, default)
         self.size = size
@@ -261,7 +273,8 @@ class AbstractUVarIntField(fields.Field):
             value += (byte ^ 0x80) << (7 * (i - 1))
             if value > max_value:
                 raise error.Scapy_Exception(
-                    'out-of-bound value: the string encodes a value that is too large (>2^{64}): {}'.format(value)
+                    'out-of-bound value: the string encodes a value that is too large (>2^{64}): {}'.format(
+                        value)
                 )
             i += 1
             assert i < l, 'EINVAL: x: out-of-bound read: the string ends before the AbstractUVarIntField!'
@@ -286,10 +299,12 @@ class AbstractUVarIntField(fields.Field):
         assert(isinstance(x, str) or (isinstance(x, tuple) and x[1] >= 0))
 
         if isinstance(x, tuple):
-            assert (8 - x[1]) == self.size, 'EINVAL: x: not enough bits remaining in current byte to read the prefix'
+            assert (
+                8 - x[1]) == self.size, 'EINVAL: x: not enough bits remaining in current byte to read the prefix'
             val = x[0]
         else:
-            assert isinstance(x, str) and self.size == 8, 'EINVAL: x: tuple expected when prefix_len is not a full byte'
+            assert isinstance(
+                x, str) and self.size == 8, 'EINVAL: x: tuple expected when prefix_len is not a full byte'
             val = x
 
         if self._detect_multi_byte(val[0]):
@@ -324,7 +339,8 @@ class AbstractUVarIntField(fields.Field):
             return ''.join(sl)
 
     def any2i(self, pkt, x):
-        # type: (Optional[packet.Packet], Union[None, str, int]) -> Optional[int]
+        # type: (Optional[packet.Packet], Union[None, str, int]) ->
+        # Optional[int]
         """
           A "x" value as a string is parsed as a binary encoding of a UVarInt. An int is considered an internal value.
           None is returned as is.
@@ -357,7 +373,8 @@ class AbstractUVarIntField(fields.Field):
         return repr(self.i2h(pkt, x))
 
     def addfield(self, pkt, s, val):
-        # type: (Optional[packet.Packet], Union[str, Tuple[str, int, int]], int) -> str
+        # type: (Optional[packet.Packet], Union[str, Tuple[str, int, int]],
+        # int) -> str
         """ An AbstractUVarIntField prefix always consumes the remaining bits
           of a BitField;if no current BitField is in use (no tuple in
           entry) then the prefix length is 8 bits and the whole byte is to
@@ -379,7 +396,8 @@ class AbstractUVarIntField(fields.Field):
         # s is a tuple
         assert(s[1] >= 0)
         assert(s[2] >= 0)
-        assert (8 - s[1]) == self.size, 'EINVAL: s: not enough bits remaining in current byte to read the prefix'
+        assert (
+            8 - s[1]) == self.size, 'EINVAL: s: not enough bits remaining in current byte to read the prefix'
 
         if val >= self._max_value:
             return s[0] + chr((s[2] << self.size) + self._max_value) + self.i2m(pkt, val)[1:]
@@ -436,7 +454,8 @@ class AbstractUVarIntField(fields.Field):
         return ret
 
     def getfield(self, pkt, s):
-        # type: (Optional[packet.Packet], Union[str, Tuple[str, int]]) -> Tuple[str, int]
+        # type: (Optional[packet.Packet], Union[str, Tuple[str, int]]) ->
+        # Tuple[str, int]
         """
         @param packet.Packet|None pkt: the packet instance containing this field; probably unused.
         @param str|(str, int) s: the input value to get this field value from. If size is 8, s is a string, else
@@ -453,7 +472,8 @@ class AbstractUVarIntField(fields.Field):
             assert 8 - ti == self.size, 'EINVAL: s: not enough bits remaining in current byte to read the prefix'
             val = ts
         else:
-            assert isinstance(s, str) and self.size == 8, 'EINVAL: s: tuple expected when prefix_len is not a full byte'
+            assert isinstance(
+                s, str) and self.size == 8, 'EINVAL: s: tuple expected when prefix_len is not a full byte'
             val = s
 
         if self._detect_multi_byte(val[0]):
@@ -474,6 +494,7 @@ class AbstractUVarIntField(fields.Field):
 
 
 class UVarIntField(AbstractUVarIntField):
+
     def __init__(self, name, default, size):
         # type: (str, int, int) -> None
         """
@@ -571,7 +592,8 @@ class FieldUVarLenField(AbstractUVarIntField):
         self._adjust = adjust
 
     def addfield(self, pkt, s, val):
-        # type: (Optional[packet.Packet], Union[str, Tuple[str, int, int]], Optional[int]) -> str
+        # type: (Optional[packet.Packet], Union[str, Tuple[str, int, int]],
+        # Optional[int]) -> str
         """
         @param packet.Packet|None pkt: the packet instance containing this field instance. This parameter must not be
           None if the val parameter is.
@@ -585,7 +607,8 @@ class FieldUVarLenField(AbstractUVarIntField):
         """
         if val is None:
             assert isinstance(pkt, packet.Packet), \
-                'EINVAL: pkt: Packet expected when val is None; received {}'.format(type(pkt))
+                'EINVAL: pkt: Packet expected when val is None; received {}'.format(
+                    type(pkt))
             val = self._compute_value(pkt)
         return super(FieldUVarLenField, self).addfield(pkt, s, val)
 
@@ -600,7 +623,8 @@ class FieldUVarLenField(AbstractUVarIntField):
         """
         if x is None:
             assert isinstance(pkt, packet.Packet), \
-                'EINVAL: pkt: Packet expected when x is None; received {}'.format(type(pkt))
+                'EINVAL: pkt: Packet expected when x is None; received {}'.format(
+                    type(pkt))
             x = self._compute_value(pkt)
         return super(FieldUVarLenField, self).i2m(pkt, x)
 
@@ -622,9 +646,10 @@ class FieldUVarLenField(AbstractUVarIntField):
         assert(ret >= 0)
         return ret
 
-########################################################################################################################
-################################################ HPACK String Fields ###################################################
-########################################################################################################################
+##########################################################################
+################################################ HPACK String Fields #####
+##########################################################################
+
 
 class HPackStringsInterface(Sized):
     __metaclass__ = abc.ABCMeta
@@ -682,7 +707,8 @@ class HuffmanNode(object):
     """
 
     def __init__(self, l, r):
-        # type: (Union[None, HuffmanNode, EOS, str], Union[None, HuffmanNode, EOS, str]) -> None
+        # type: (Union[None, HuffmanNode, EOS, str], Union[None, HuffmanNode,
+        # EOS, str]) -> None
         self.l = l
         self.r = r
 
@@ -1060,7 +1086,8 @@ class HPackZString(HPackStringsInterface):
                 if isinstance(cur, types.NoneType):
                     raise AssertionError()
             elif isinstance(elmt, EOS):
-                raise InvalidEncodingException('Huffman decoder met the full EOS symbol')
+                raise InvalidEncodingException(
+                    'Huffman decoder met the full EOS symbol')
             elif isinstance(elmt, str):
                 interrupted = False
                 s.append(elmt)
@@ -1068,7 +1095,8 @@ class HPackZString(HPackStringsInterface):
                 cur_sym = 0
                 cur_sym_bl = 0
             else:
-                raise InvalidEncodingException('Should never happen, so incidentally it will')
+                raise InvalidEncodingException(
+                    'Should never happen, so incidentally it will')
             j += 1
 
         if interrupted:
@@ -1076,11 +1104,13 @@ class HPackZString(HPackStringsInterface):
             # symbol; this symbol must be, according to RFC7541 par5.2 the MSB
             # of the EOS symbol
             if cur_sym_bl > 7:
-                raise InvalidEncodingException('Huffman decoder is detecting padding longer than 7 bits')
+                raise InvalidEncodingException(
+                    'Huffman decoder is detecting padding longer than 7 bits')
             eos_symbol = cls.static_huffman_code[-1]
             eos_msb = eos_symbol[0] >> (eos_symbol[1] - cur_sym_bl)
             if eos_msb != cur_sym:
-                raise InvalidEncodingException('Huffman decoder is detecting unexpected padding format')
+                raise InvalidEncodingException(
+                    'Huffman decoder is detecting unexpected padding format')
         return ''.join(s)
 
     @classmethod
@@ -1097,7 +1127,7 @@ class HPackZString(HPackStringsInterface):
         assert(bit_str >= 0)
         assert(bit_len >= 0)
 
-        byte_len = bit_len/8
+        byte_len = bit_len / 8
         rem_bit = bit_len % 8
         if rem_bit != 0:
             bit_str <<= 8 - rem_bit
@@ -1108,7 +1138,7 @@ class HPackZString(HPackStringsInterface):
         s = []  # type: List[str]
         i = 0
         while i < byte_len:
-            s.insert(0, chr((bit_str >> (i*8)) & 0xFF))
+            s.insert(0, chr((bit_str >> (i * 8)) & 0xFF))
             i += 1
         return ''.join(s)
 
@@ -1148,7 +1178,8 @@ class HPackZString(HPackStringsInterface):
             for idx in xrange(entry[1] - 1, -1, -1):
                 b = (entry[0] >> idx) & 1
                 if isinstance(parent[b], str):
-                    raise InvalidEncodingException('Huffman unique prefix violation :/')
+                    raise InvalidEncodingException(
+                        'Huffman unique prefix violation :/')
                 if idx == 0:
                     parent[b] = chr(i) if i < 256 else EOS()
                 elif parent[b] is None:
@@ -1183,7 +1214,8 @@ class HPackStrLenField(fields.Field):
     __slots__ = ['_length_from', '_type_from']
 
     def __init__(self, name, default, length_from, type_from):
-        # type: (str, HPackStringsInterface, Callable[[packet.Packet], int], str) -> None
+        # type: (str, HPackStringsInterface, Callable[[packet.Packet], int],
+        # str) -> None
         super(HPackStrLenField, self).__init__(name, default)
         self._length_from = length_from
         self._type_from = type_from
@@ -1251,7 +1283,8 @@ class HPackStrLenField(fields.Field):
         return self._parse(t == 1, x[:l])
 
     def any2i(self, pkt, x):
-        # type: (Optional[packet.Packet], Union[str, HPackStringsInterface]) -> HPackStringsInterface
+        # type: (Optional[packet.Packet], Union[str, HPackStringsInterface]) ->
+        # HPackStringsInterface
         """
         @param packet.Packet|None pkt: the packet instance containing this field instance.
         @param str|HPackStringsInterface x: the value to convert
@@ -1276,9 +1309,10 @@ class HPackStrLenField(fields.Field):
         # type: (Optional[packet.Packet], HPackStringsInterface) -> str
         return repr(self.i2h(pkt, x))
 
-########################################################################################################################
-################################################ HPACK Packets #########################################################
-########################################################################################################################
+##########################################################################
+################################################ HPACK Packets ###########
+##########################################################################
+
 
 class HPackHdrString(packet.Packet):
     """ HPackHdrString is a packet that that is serialized into a RFC7541 par5.2
@@ -1308,7 +1342,8 @@ class HPackHdrString(packet.Packet):
         build time, based on the "data" field internal type
         """
         if self.getfieldval('type') is None:
-            self.type = 1 if isinstance(self.getfieldval('data'), HPackZString) else 0
+            self.type = 1 if isinstance(
+                self.getfieldval('data'), HPackZString) else 0
         return super(HPackHdrString, self).self_build(field_pos_list)
 
 
@@ -1393,16 +1428,18 @@ class HPackDynamicSizeUpdate(HPackHeaders):
         UVarIntField('max_size', 0, 5)
     ]
 
-########################################################################################################################
-############################################# HTTP/2 Frames ############################################################
-########################################################################################################################
+##########################################################################
+############################################# HTTP/2 Frames ##############
+##########################################################################
+
 
 class H2FramePayload(packet.Packet):
     """ H2FramePayload is an empty class that is a super class of all Scapy
     HTTP/2 Frame Packets
     """
 
-############################################# HTTP/2 Data Frame Packets ################################################
+############################################# HTTP/2 Data Frame Packets ##
+
 
 class H2DataFrame(H2FramePayload):
     """ H2DataFrame implements RFC7540 par6.1
@@ -1432,11 +1469,11 @@ class H2PaddedDataFrame(H2DataFrame):
     fields_desc = [
         fields.FieldLenField('padlen', None, length_of='padding', fmt="B"),
         fields.StrLenField('data', '',
-            length_from=lambda pkt: pkt.get_data_len()
-        ),
+                           length_from=lambda pkt: pkt.get_data_len()
+                           ),
         fields.StrLenField('padding', '',
-            length_from=lambda pkt: pkt.getfieldval('padlen')
-        )
+                           length_from=lambda pkt: pkt.getfieldval('padlen')
+                           )
     ]
 
     def get_data_len(self):
@@ -1470,12 +1507,13 @@ class H2PaddedDataFrame(H2DataFrame):
         return s
 
 
-############################################# HTTP/2 Header Frame Packets ##############################################
+############################################# HTTP/2 Header Frame Packets
 
 class H2AbstractHeadersFrame(H2FramePayload):
     """Superclass of all variants of HTTP/2 Header Frame Packets.
     May be used for type checking.
     """
+
 
 class H2HeadersFrame(H2AbstractHeadersFrame):
     """ H2HeadersFrame implements RFC 7540 par6.2 Headers Frame
@@ -1512,11 +1550,11 @@ class H2PaddedHeadersFrame(H2AbstractHeadersFrame):
     fields_desc = [
         fields.FieldLenField('padlen', None, length_of='padding', fmt='B'),
         fields.PacketListField('hdrs', [], HPackHeaders,
-            length_from=lambda pkt: pkt.get_hdrs_len()
-        ),
+                               length_from=lambda pkt: pkt.get_hdrs_len()
+                               ),
         fields.StrLenField('padding', '',
-            length_from=lambda pkt: pkt.getfieldval('padlen')
-        )
+                           length_from=lambda pkt: pkt.getfieldval('padlen')
+                           )
     ]
 
     def get_hdrs_len(self):
@@ -1581,11 +1619,11 @@ class H2PaddedPriorityHeadersFrame(H2AbstractHeadersFrame):
         fields.BitField('stream_dependency', 0, 31),
         fields.ByteField('weight', 0),
         fields.PacketListField('hdrs', [], HPackHeaders,
-            length_from=lambda pkt: pkt.get_hdrs_len()
-        ),
+                               length_from=lambda pkt: pkt.get_hdrs_len()
+                               ),
         fields.StrLenField('padding', '',
-            length_from=lambda pkt: pkt.getfieldval('padlen')
-        )
+                           length_from=lambda pkt: pkt.getfieldval('padlen')
+                           )
     ]
 
     def get_hdrs_len(self):
@@ -1607,11 +1645,11 @@ class H2PaddedPriorityHeadersFrame(H2AbstractHeadersFrame):
         fld, fval = self.getfield_and_val('weight')
         weight_len = fld.i2len(self, fval)
         ret = (self.s_len
-            - padding_len_len
-            - padding_len
-            - (bit_cnt / 8)
-            - weight_len
-        )
+               - padding_len_len
+               - padding_len
+               - (bit_cnt / 8)
+               - weight_len
+               )
         assert(ret >= 0)
         return ret
 
@@ -1627,7 +1665,8 @@ class H2PaddedPriorityHeadersFrame(H2AbstractHeadersFrame):
         self.s_len = len(s)
         return s
 
-########################################### HTTP/2 Priority Frame Packets ##############################################
+########################################### HTTP/2 Priority Frame Packets
+
 
 class H2PriorityFrame(H2FramePayload):
     """ H2PriorityFrame implements RFC 7540 par6.3
@@ -1640,7 +1679,8 @@ class H2PriorityFrame(H2FramePayload):
         fields.ByteField('weight', 0)
     ]
 
-################################################# HTTP/2 Errors ########################################################
+################################################# HTTP/2 Errors ##########
+
 
 class H2ErrorCodes(object):
     """ H2ErrorCodes is an enumeration of the error codes defined in
@@ -1682,7 +1722,7 @@ class H2ErrorCodes(object):
     }
 
 
-########################################### HTTP/2 Reset Frame Packets #################################################
+########################################### HTTP/2 Reset Frame Packets ###
 
 class H2ResetFrame(H2FramePayload):
     """ H2ResetFrame implements RFC 7540 par6.4
@@ -1694,7 +1734,7 @@ class H2ResetFrame(H2FramePayload):
     ]
 
 
-########################################### HTTP/2 Settings Frame Packets ##############################################
+########################################### HTTP/2 Settings Frame Packets
 
 class H2Setting(packet.Packet):
     """ H2Setting implements a setting, as defined in RFC7540 par6.5.1
@@ -1759,7 +1799,8 @@ class H2SettingsFrame(H2FramePayload):
         ), 'Invalid settings frame; length is not a multiple of 6'
         super(H2SettingsFrame, self).__init__(*args, **kwargs)
 
-######################################## HTTP/2 Push Promise Frame Packets #############################################
+######################################## HTTP/2 Push Promise Frame Packets
+
 
 class H2PushPromiseFrame(H2FramePayload):
     """ H2PushPromiseFrame implements RFC7540 par6.6. This packet
@@ -1793,11 +1834,11 @@ class H2PaddedPushPromiseFrame(H2PushPromiseFrame):
         fields.BitField('reserved', 0, 1),
         fields.BitField('stream_id', 0, 31),
         fields.PacketListField('hdrs', [], HPackHeaders,
-            length_from=lambda pkt: pkt.get_hdrs_len()
-        ),
+                               length_from=lambda pkt: pkt.get_hdrs_len()
+                               ),
         fields.StrLenField('padding', '',
-            length_from=lambda pkt: pkt.getfieldval('padlen')
-        )
+                           length_from=lambda pkt: pkt.getfieldval('padlen')
+                           )
     ]
 
     def get_hdrs_len(self):
@@ -1816,10 +1857,10 @@ class H2PaddedPushPromiseFrame(H2PushPromiseFrame):
         bit_len += self.get_field('stream_id').size
 
         ret = (self.s_len
-            - padding_len_len
-            - padding_len
-            - (bit_len/8)
-        )
+               - padding_len_len
+               - padding_len
+               - (bit_len / 8)
+               )
         assert(ret >= 0)
         return ret
 
@@ -1835,7 +1876,8 @@ class H2PaddedPushPromiseFrame(H2PushPromiseFrame):
         self.s_len = len(s)
         return s
 
-############################################### HTTP/2 Ping Frame Packets ##############################################
+############################################### HTTP/2 Ping Frame Packets
+
 
 class H2PingFrame(H2FramePayload):
     """ H2PingFrame implements the RFC 7540 par6.7
@@ -1865,7 +1907,7 @@ class H2PingFrame(H2FramePayload):
         super(H2PingFrame, self).__init__(*args, **kwargs)
 
 
-############################################# HTTP/2 GoAway Frame Packets ##############################################
+############################################# HTTP/2 GoAway Frame Packets
 
 class H2GoAwayFrame(H2FramePayload):
     """ H2GoAwayFrame implements the RFC 7540 par6.8
@@ -1880,7 +1922,8 @@ class H2GoAwayFrame(H2FramePayload):
         fields.StrField('additional_data', '')
     ]
 
-###################################### HTTP/2 Window Update Frame Packets ##############################################
+###################################### HTTP/2 Window Update Frame Packets
+
 
 class H2WindowUpdateFrame(H2FramePayload):
     """ H2WindowUpdateFrame implements the RFC 7540 par6.9
@@ -1906,7 +1949,8 @@ class H2WindowUpdateFrame(H2FramePayload):
         ), 'Invalid window update frame; length is not 4'
         super(H2WindowUpdateFrame, self).__init__(*args, **kwargs)
 
-####################################### HTTP/2 Continuation Frame Packets ##############################################
+####################################### HTTP/2 Continuation Frame Packets
+
 
 class H2ContinuationFrame(H2FramePayload):
     """ H2ContinuationFrame implements the RFC 7540 par6.10
@@ -1922,7 +1966,8 @@ class H2ContinuationFrame(H2FramePayload):
         fields.PacketListField('hdrs', [], HPackHeaders)
     ]
 
-########################################## HTTP/2 Base Frame Packets ###################################################
+########################################## HTTP/2 Base Frame Packets #####
+
 
 class H2Frame(packet.Packet):
     """ H2Frame implements the frame structure as defined in RFC 7540 par4.1
@@ -1946,13 +1991,13 @@ class H2Frame(packet.Packet):
             9: 'ContFrm'
         }, "b"),
         fields.MultiFlagsField('flags', set(), 8, {
-                H2DataFrame.type_id: H2DataFrame.flags,
-                H2HeadersFrame.type_id: H2HeadersFrame.flags,
-                H2PushPromiseFrame.type_id: H2PushPromiseFrame.flags,
-                H2SettingsFrame.type_id: H2SettingsFrame.flags,
-                H2PingFrame.type_id: H2PingFrame.flags,
-                H2ContinuationFrame.type_id: H2ContinuationFrame.flags,
-            },
+            H2DataFrame.type_id: H2DataFrame.flags,
+            H2HeadersFrame.type_id: H2HeadersFrame.flags,
+            H2PushPromiseFrame.type_id: H2PushPromiseFrame.flags,
+            H2SettingsFrame.type_id: H2SettingsFrame.flags,
+            H2PingFrame.type_id: H2PingFrame.flags,
+            H2ContinuationFrame.type_id: H2ContinuationFrame.flags,
+        },
             depends_on=lambda pkt: pkt.getfieldval('type')
         ),
         fields.BitField('reserved', 0, 1),
@@ -1985,7 +2030,7 @@ class H2Frame(packet.Packet):
                 else:
                     return H2PaddedHeadersFrame
             elif H2HeadersFrame.flags[H2HeadersFrame.PRIORITY_FLAG].short in self.getfieldval('flags'):
-                    return H2PriorityHeadersFrame
+                return H2PriorityHeadersFrame
             return H2HeadersFrame
 
         if t == H2PriorityFrame.type_id:
@@ -2023,8 +2068,10 @@ class H2Frame(packet.Packet):
         @return (str, str): the padding and the payload data strings
         @raise AssertionError
         """
-        assert isinstance(self.len, (int, long)) and self.len >= 0, 'Invalid length: negative len?'
-        assert len(s) >= self.len, 'Invalid length: string too short for this length'
+        assert isinstance(self.len, (int, long)
+                          ) and self.len >= 0, 'Invalid length: negative len?'
+        assert len(
+            s) >= self.len, 'Invalid length: string too short for this length'
         return s[:self.len], s[self.len:]
 
     def post_build(self, p, pay):
@@ -2041,6 +2088,7 @@ class H2Frame(packet.Packet):
             assert(len(pay) < (1 << 24)), 'Invalid length: payload is too long'
             p = struct.pack('!L', len(pay))[1:] + p[3:]
         return super(H2Frame, self).post_build(p, pay)
+
 
 class H2Seq(packet.Packet):
     """ H2Seq is a helper packet that contains several H2Frames and their
@@ -2060,28 +2108,36 @@ class H2Seq(packet.Packet):
 packet.bind_layers(H2Frame, H2DataFrame, {'type': H2DataFrame.type_id})
 packet.bind_layers(H2Frame, H2PaddedDataFrame, {'type': H2DataFrame.type_id})
 packet.bind_layers(H2Frame, H2HeadersFrame, {'type': H2HeadersFrame.type_id})
-packet.bind_layers(H2Frame, H2PaddedHeadersFrame, {'type': H2HeadersFrame.type_id})
-packet.bind_layers(H2Frame, H2PriorityHeadersFrame, {'type': H2HeadersFrame.type_id})
-packet.bind_layers(H2Frame, H2PaddedPriorityHeadersFrame, {'type': H2HeadersFrame.type_id})
+packet.bind_layers(H2Frame, H2PaddedHeadersFrame, {
+                   'type': H2HeadersFrame.type_id})
+packet.bind_layers(H2Frame, H2PriorityHeadersFrame,
+                   {'type': H2HeadersFrame.type_id})
+packet.bind_layers(H2Frame, H2PaddedPriorityHeadersFrame,
+                   {'type': H2HeadersFrame.type_id})
 packet.bind_layers(H2Frame, H2PriorityFrame, {'type': H2PriorityFrame.type_id})
 packet.bind_layers(H2Frame, H2ResetFrame, {'type': H2ResetFrame.type_id})
 packet.bind_layers(H2Frame, H2SettingsFrame, {'type': H2SettingsFrame.type_id})
 packet.bind_layers(H2Frame, H2PingFrame, {'type': H2PingFrame.type_id})
-packet.bind_layers(H2Frame, H2PushPromiseFrame, {'type': H2PushPromiseFrame.type_id})
-packet.bind_layers(H2Frame, H2PaddedPushPromiseFrame, {'type': H2PaddedPushPromiseFrame.type_id})
+packet.bind_layers(H2Frame, H2PushPromiseFrame, {
+                   'type': H2PushPromiseFrame.type_id})
+packet.bind_layers(H2Frame, H2PaddedPushPromiseFrame, {
+                   'type': H2PaddedPushPromiseFrame.type_id})
 packet.bind_layers(H2Frame, H2GoAwayFrame, {'type': H2GoAwayFrame.type_id})
-packet.bind_layers(H2Frame, H2WindowUpdateFrame, {'type': H2WindowUpdateFrame.type_id})
-packet.bind_layers(H2Frame, H2ContinuationFrame, {'type': H2ContinuationFrame.type_id})
+packet.bind_layers(H2Frame, H2WindowUpdateFrame, {
+                   'type': H2WindowUpdateFrame.type_id})
+packet.bind_layers(H2Frame, H2ContinuationFrame, {
+                   'type': H2ContinuationFrame.type_id})
 
 
-########################################## HTTP/2 Connection Preface ###################################################
+########################################## HTTP/2 Connection Preface #####
 # From RFC 7540 par3.5
-H2_CLIENT_CONNECTION_PREFACE = '505249202a20485454502f322e300d0a0d0a534d0d0a0d0a'.decode('hex')
+H2_CLIENT_CONNECTION_PREFACE = '505249202a20485454502f322e300d0a0d0a534d0d0a0d0a'.decode(
+    'hex')
 
 
-########################################################################################################################
-################################################### HTTP/2 Helpers #####################################################
-########################################################################################################################
+##########################################################################
+################################################### HTTP/2 Helpers #######
+##########################################################################
 
 class HPackHdrEntry(Sized):
     """ HPackHdrEntry is an entry of the HPackHdrTable helper
@@ -2263,7 +2319,8 @@ class HPackHdrTable(Sized):
             idx -= type(self)._static_entries_last_idx + 1
             if idx >= len(self._dynamic_table):
                 raise KeyError(
-                    'EINVAL: idx: out-of-bound read: {}; maximum index: {}'.format(idx, len(self._dynamic_table))
+                    'EINVAL: idx: out-of-bound read: {}; maximum index: {}'.format(
+                        idx, len(self._dynamic_table))
                 )
             return self._dynamic_table[idx]
         return type(self)._static_entries[idx]
@@ -2277,7 +2334,8 @@ class HPackHdrTable(Sized):
         @raise AssertionError
         """
         assert 0 <= ns <= self._dynamic_table_cap_size, \
-            'EINVAL: ns: out-of-range value; expected value is in the range [0;{}['.format(self._dynamic_table_cap_size)
+            'EINVAL: ns: out-of-range value; expected value is in the range [0;{}['.format(
+                self._dynamic_table_cap_size)
 
         old_size = self._dynamic_table_max_size
         self._dynamic_table_max_size = ns
@@ -2320,7 +2378,8 @@ class HPackHdrTable(Sized):
             cur_sz -= last_elmt_sz
 
     def register(self, hdrs):
-        # type: (Union[HPackLitHdrFldWithIncrIndexing, H2Frame, List[HPackHeaders]]) -> None
+        # type: (Union[HPackLitHdrFldWithIncrIndexing, H2Frame,
+        # List[HPackHeaders]]) -> None
         """register adds to this table the instances of
         HPackLitHdrFldWithIncrIndexing provided as parameters.
 
@@ -2331,11 +2390,13 @@ class HPackHdrTable(Sized):
         @raise AssertionError
         """
         if isinstance(hdrs, H2Frame):
-            hdrs = [hdr for hdr in hdrs.payload.hdrs if isinstance(hdr, HPackLitHdrFldWithIncrIndexing)]
+            hdrs = [hdr for hdr in hdrs.payload.hdrs if isinstance(
+                hdr, HPackLitHdrFldWithIncrIndexing)]
         elif isinstance(hdrs, HPackLitHdrFldWithIncrIndexing):
             hdrs = [hdrs]
         else:
-            hdrs = [hdr for hdr in hdrs if isinstance(hdr, HPackLitHdrFldWithIncrIndexing)]
+            hdrs = [hdr for hdr in hdrs if isinstance(
+                hdr, HPackLitHdrFldWithIncrIndexing)]
 
         for hdr in hdrs:
             if hdr.index == 0:
@@ -2471,7 +2532,8 @@ class HPackHdrTable(Sized):
         return HPackHdrString(data=zs)
 
     def _convert_a_header_to_a_h2_header(self, hdr_name, hdr_value, is_sensitive, should_index):
-        # type: (str, str, Callable[[str, str], bool], Callable[[str], bool]) -> Tuple[HPackHeaders, int]
+        # type: (str, str, Callable[[str, str], bool], Callable[[str], bool])
+        # -> Tuple[HPackHeaders, int]
         """ _convert_a_header_to_a_h2_header builds a HPackHeaders from a header
         name and a value. It returns a HPackIndexedHdr whenever possible. If not,
         it returns a HPackLitHdrFldWithoutIndexing or a
@@ -2569,7 +2631,8 @@ class HPackHdrTable(Sized):
         # type: (str) -> Union[Tuple[None, None], Tuple[str, str]]
 
         if type(self)._regexp is None:
-            type(self)._regexp = re.compile(r'^(?::([a-z\-0-9]+)|([a-z\-0-9]+):)\s+(.+)$')
+            type(self)._regexp = re.compile(
+                r'^(?::([a-z\-0-9]+)|([a-z\-0-9]+):)\s+(.+)$')
 
         hdr_line = l.rstrip()
         grp = type(self)._regexp.match(hdr_line)
@@ -2578,7 +2641,7 @@ class HPackHdrTable(Sized):
             return None, None
 
         if grp.group(1) is not None:
-            hdr_name = ':'+grp.group(1)
+            hdr_name = ':' + grp.group(1)
         else:
             hdr_name = grp.group(2)
         return hdr_name.lower(), grp.group(3)
@@ -2589,10 +2652,12 @@ class HPackHdrTable(Sized):
                        body=None,  # type: Optional[str]
                        max_frm_sz=4096,  # type: int
                        max_hdr_lst_sz=0,  # type: int
-                       is_sensitive=lambda n, v: False,  # type: Callable[[str, str], bool]
-                       should_index=lambda x: False,  # type: Callable[[str], bool]
+                       # type: Callable[[str, str], bool]
+                       is_sensitive=lambda n, v: False,
+                       # type: Callable[[str], bool]
+                       should_index=lambda x: False,
                        register=True,  # type: bool
-    ):
+                       ):
         # type: (...) -> H2Seq
         """ parse_txt_hdrs parses headers expressed in text and converts them
         into a series of H2Frames with the "correct" flags. A body can be provided
@@ -2627,7 +2692,8 @@ class HPackHdrTable(Sized):
         base_frm_len = len(str(H2Frame()))
 
         ret = H2Seq()
-        cur_frm = H2HeadersFrame()  # type: Union[H2HeadersFrame, H2ContinuationFrame]
+        # type: Union[H2HeadersFrame, H2ContinuationFrame]
+        cur_frm = H2HeadersFrame()
         cur_hdr_sz = 0
 
         # For each line in the headers str to parse
@@ -2650,20 +2716,21 @@ class HPackHdrTable(Sized):
             # exceed the maximum length of a header fragment or it will just
             # never fit
             if (new_hdr_bin_len + base_frm_len > max_frm_sz
-                or (max_hdr_lst_sz != 0 and new_hdr_len > max_hdr_lst_sz)
-            ):
+                        or (max_hdr_lst_sz != 0 and new_hdr_len > max_hdr_lst_sz)
+                    ):
                 raise Exception('Header too long: {}'.format(hdr_name))
 
             if (max_frm_sz < len(str(cur_frm)) + base_frm_len + new_hdr_len
                 or (
                     max_hdr_lst_sz != 0
                     and max_hdr_lst_sz < cur_hdr_sz + new_hdr_len
-                )
+            )
             ):
                 flags = set()
                 if isinstance(cur_frm, H2HeadersFrame) and not body:
                     flags.add('ES')
-                ret.frames.append(H2Frame(stream_id=stream_id, flags=flags)/cur_frm)
+                ret.frames.append(
+                    H2Frame(stream_id=stream_id, flags=flags) / cur_frm)
                 cur_frm = H2ContinuationFrame()
                 cur_hdr_sz = 0
 
@@ -2674,19 +2741,21 @@ class HPackHdrTable(Sized):
         flags = {'EH'}
         if isinstance(cur_frm, H2HeadersFrame) and not body:
             flags.add('ES')
-        ret.frames.append(H2Frame(stream_id=stream_id, flags=flags)/cur_frm)
+        ret.frames.append(H2Frame(stream_id=stream_id, flags=flags) / cur_frm)
 
         if body:
             base_data_frm_len = len(str(H2DataFrame()))
             sio = StringIO.StringIO(body)
             frgmt = sio.read(max_frm_sz - base_data_frm_len - base_frm_len)
             while frgmt:
-                nxt_frgmt = sio.read(max_frm_sz - base_data_frm_len - base_frm_len)
+                nxt_frgmt = sio.read(
+                    max_frm_sz - base_data_frm_len - base_frm_len)
                 flags = set()
                 if len(nxt_frgmt) == 0:
                     flags.add('ES')
                 ret.frames.append(
-                    H2Frame(stream_id=stream_id, flags=flags)/H2DataFrame(data=frgmt)
+                    H2Frame(stream_id=stream_id, flags=flags) /
+                    H2DataFrame(data=frgmt)
                 )
                 frgmt = nxt_frgmt
         return ret

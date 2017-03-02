@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
-##                     2015, 2016 Maxence Tury
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
+# 2015, 2016 Maxence Tury
+# This program is published under a GPLv2 license
 
 """
 Key Exchange algorithms as listed in appendix C of RFC 4346.
@@ -18,6 +18,7 @@ from scapy.layers.tls.keyexchange import (ServerDHParams,
 
 
 tls_kx_algs = {}
+
 
 class _GenericKXMetaclass(type):
     """
@@ -44,25 +45,26 @@ class _GenericKX:
 
 class KX_NULL(_GenericKX):
     descr = "No key exchange"
-    server_kx_msg_cls = lambda _,m: None
+    server_kx_msg_cls = lambda _, m: None
     client_kx_msg_cls = None
 
 
-### Standard RSA-authenticated key exchange
+# Standard RSA-authenticated key exchange
 
 class KX_RSA(_GenericKX):
     descr = "RSA encryption"
-    server_kx_msg_cls = lambda _,m: None
+    server_kx_msg_cls = lambda _, m: None
     client_kx_msg_cls = EncryptedPreMasterSecret
 
-#class KX_DH_RSA(_GenericKX):
+# class KX_DH_RSA(_GenericKX):
 #    descr = "DH with RSA-based certificates"
 #    server_kx_msg_cls = lambda _,m: None
 #    client_kx_msg_cls = None
 
+
 class KX_DHE_RSA(_GenericKX):
     descr = "Ephemeral DH with RSA signature"
-    server_kx_msg_cls = lambda _,m: ServerDHParams
+    server_kx_msg_cls = lambda _, m: ServerDHParams
     client_kx_msg_cls = ClientDiffieHellmanPublic
 
 # class KX_ECDH_RSA(_GenericKX):
@@ -70,23 +72,26 @@ class KX_DHE_RSA(_GenericKX):
 #     server_kx_msg_cls = lambda _,m: None
 #     client_kx_msg_cls = None
 
+
 class KX_ECDHE_RSA(_GenericKX):
     descr = "Ephemeral ECDH with RSA signature"
-    server_kx_msg_cls = lambda _,m: _tls_server_ecdh_cls_guess(m)
+    server_kx_msg_cls = lambda _, m: _tls_server_ecdh_cls_guess(m)
     client_kx_msg_cls = ClientECDiffieHellmanPublic
+
 
 class KX_RSA_EXPORT(KX_RSA):
     descr = "RSA encryption, export version"
-    server_kx_msg_cls = lambda _,m: ServerRSAParams
+    server_kx_msg_cls = lambda _, m: ServerRSAParams
 
-#class KX_DH_RSA_EXPORT(KX_DH_RSA):
+# class KX_DH_RSA_EXPORT(KX_DH_RSA):
 #    descr = "DH with RSA-based certificates - Export version"
+
 
 class KX_DHE_RSA_EXPORT(KX_DHE_RSA):
     descr = "Ephemeral DH with RSA signature, export version"
 
 
-### Standard ECDSA-authenticated key exchange
+# Standard ECDSA-authenticated key exchange
 
 # class KX_ECDH_ECDSA(_GenericKX):
 #     descr = "ECDH ECDSA key exchange"
@@ -94,24 +99,24 @@ class KX_DHE_RSA_EXPORT(KX_DHE_RSA):
 #     client_kx_msg_cls = None
 
 class KX_ECDHE_ECDSA(_GenericKX):
-   descr = "Ephemeral ECDH with ECDSA signature"
-   server_kx_msg_cls = lambda _,m: _tls_server_ecdh_cls_guess(m)
-   client_kx_msg_cls = ClientECDiffieHellmanPublic
+    descr = "Ephemeral ECDH with ECDSA signature"
+    server_kx_msg_cls = lambda _, m: _tls_server_ecdh_cls_guess(m)
+    client_kx_msg_cls = ClientECDiffieHellmanPublic
 
 
-### Classes below are offered without any guarantee.
-### They may offer some parsing capabilities,
-### but surely won't be able to handle a proper TLS negotiation.
-### Uncomment them at your own risk.
+# Classes below are offered without any guarantee.
+# They may offer some parsing capabilities,
+# but surely won't be able to handle a proper TLS negotiation.
+# Uncomment them at your own risk.
 
-### Standard DSS-authenticated key exchange
+# Standard DSS-authenticated key exchange
 
 # class KX_DH_DSS(_GenericKX):
 #     descr = "DH with DSS-based certificates"
 #     server_kx_msg_cls = lambda _,m: ServerDHParams
 #     client_kx_msg_cls = ClientDiffieHellmanPublic
 
-#class KX_DHE_DSS(_GenericKX):
+# class KX_DHE_DSS(_GenericKX):
 #    descr = "Ephemeral DH with DSS signature"
 #    server_kx_msg_cls = lambda _,m: ServerDHParams
 #    client_kx_msg_cls = ClientDiffieHellmanPublic
@@ -119,11 +124,11 @@ class KX_ECDHE_ECDSA(_GenericKX):
 # class KX_DH_DSS_EXPORT(KX_DH_DSS):
 #     descr = "DH with DSS-based certificates - Export version"
 
-#class KX_DHE_DSS_EXPORT(KX_DHE_DSS):
+# class KX_DHE_DSS_EXPORT(KX_DHE_DSS):
 #    descr = "Ephemeral DH with DSS signature, export version"
 
 
-### PSK-based key exchange
+# PSK-based key exchange
 
 # class KX_PSK(_GenericKX): # RFC 4279
 #     descr = "PSK key exchange"
@@ -146,12 +151,12 @@ class KX_ECDHE_ECDSA(_GenericKX):
 #     client_kx_msg_cls = ClientDiffieHellmanPublic
 
 
-### SRP-based key exchange
+# SRP-based key exchange
 
 #
 
 
-### Kerberos-based key exchange
+# Kerberos-based key exchange
 
 # class KX_KRB5(_GenericKX):
 #     descr = "Kerberos 5 key exchange"
@@ -162,7 +167,7 @@ class KX_ECDHE_ECDSA(_GenericKX):
 #     descr = "Kerberos 5 key exchange - Export version"
 
 
-### Unauthenticated key exchange (opportunistic encryption)
+# Unauthenticated key exchange (opportunistic encryption)
 
 # class KX_DH_anon(_GenericKX):
 #     descr = "Anonymous DH, no signatures"
@@ -176,4 +181,3 @@ class KX_ECDHE_ECDSA(_GenericKX):
 
 # class KX_DH_anon_EXPORT(KX_DH_anon):
 #     descr = "Anonymous DH, no signatures - Export version"
-

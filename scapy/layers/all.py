@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Philippe Biondi <phil@secdev.org>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# This program is published under a GPLv2 license
 
 """
 All layers. Configurable with conf.load_layers.
@@ -13,6 +13,7 @@ import logging
 log = logging.getLogger("scapy.loading")
 
 __all__ = []
+
 
 def _import_star(m):
     mod = __import__(m, globals(), locals())
@@ -33,6 +34,5 @@ for _l in conf.load_layers:
     try:
         if _l != "tls":
             _import_star(_l)
-    except Exception,e:
-        log.warning("can't import layer %s: %s" % (_l,e))
-
+    except Exception, e:
+        log.warning("can't import layer %s: %s" % (_l, e))

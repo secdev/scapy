@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) 2016 Pascal Delaunay, Maxence Tury
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) 2016 Pascal Delaunay, Maxence Tury
+# This program is published under a GPLv2 license
 
 """
 Implicit elliptic curves.
@@ -21,7 +21,7 @@ format and additional curves).
 #from scapy.layers.tls.crypto.pkcs1 import pkcs_i2osp, pkcs_os2ip
 #
 #
-#def encode_point(point, point_format=0):
+# def encode_point(point, point_format=0):
 #    """
 #    Return a string representation of the Point p, according to point_format.
 #    """
@@ -38,16 +38,16 @@ format and additional curves).
 #    return frmt + x + y
 #
 #
-#try:
+# try:
 #    import ecdsa
 #    ecdsa_support = True
-#except ImportError:
+# except ImportError:
 #    import logging
 #    log_loading = logging.getLogger("scapy.loading")
 #    log_loading.info("Can't import python ecdsa lib. No curves.")
 #
 #
-#if ecdsa_support:
+# if ecdsa_support:
 #
 #    from ecdsa.ellipticcurve import CurveFp, Point
 #    from ecdsa.curves import Curve
@@ -106,10 +106,9 @@ format and additional curves).
 #        generator = Point(curve, x, y, r)
 #        return Curve(name, curve, generator, oid)
 
+# Named curves
 
-    ### Named curves
-
-    # We always provide _a as a positive integer.
+# We always provide _a as a positive integer.
 
 #    _p          = long_converter("""
 #                  ffffffff ffffffff ffffffff fffffffe ffffac73""")
@@ -266,4 +265,3 @@ format and additional curves).
 #    generator   = Point(curve, _Gx, _Gy, _r)
 #    BRNP512r1   = Curve("BRNP512r1", curve, generator,
 #                        (1, 3, 36, 3, 3, 2, 8, 1, 1, 13), "brainpoolP512r1")
-

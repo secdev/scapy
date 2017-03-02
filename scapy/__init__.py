@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Philippe Biondi <phil@secdev.org>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# This program is published under a GPLv2 license
 
 """
 Scapy: create, send, sniff, dissect and manipulate network packets.
@@ -16,6 +16,7 @@ import subprocess
 
 
 _SCAPY_PKG_DIR = os.path.dirname(__file__)
+
 
 def _version_from_git_describe():
     """
@@ -54,6 +55,7 @@ def _version_from_git_describe():
             return re.sub(r'^v', '', tag)
     else:
         raise subprocess.CalledProcessError(p.returncode, err)
+
 
 def _version():
     version_file = os.path.join(_SCAPY_PKG_DIR, 'VERSION')

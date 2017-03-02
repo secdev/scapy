@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Philippe Biondi <phil@secdev.org>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# This program is published under a GPLv2 license
 
 """
 Clone of Nmap's first generation OS fingerprinting.
@@ -18,9 +18,10 @@ from scapy.sendrecv import sr
 
 
 if WINDOWS:
-    conf.nmap_base=os.environ["ProgramFiles"] + "\\nmap\\nmap-os-fingerprints"
+    conf.nmap_base = os.environ["ProgramFiles"] + \
+        "\\nmap\\nmap-os-fingerprints"
 else:
-    conf.nmap_base ="/usr/share/nmap/nmap-os-fingerprints"
+    conf.nmap_base = "/usr/share/nmap/nmap-os-fingerprints"
 
 
 ######################
@@ -29,9 +30,10 @@ else:
 
 
 class NmapKnowledgeBase(KnowledgeBase):
+
     def lazy_init(self):
         try:
-            f=open(self.filename)
+            f = open(self.filename)
         except IOError:
             return
 
@@ -44,9 +46,9 @@ class NmapKnowledgeBase(KnowledgeBase):
                     continue
                 if l[:12] == "Fingerprint ":
                     if name is not None:
-                        self.base.append((name,sig))
+                        self.base.append((name, sig))
                     name = l[12:].strip()
-                    sig={}
+                    sig = {}
                     p = self.base
                     continue
                 elif l[:6] == "Class ":
@@ -57,45 +59,48 @@ class NmapKnowledgeBase(KnowledgeBase):
                     warning("error reading nmap os fp base file")
                     continue
                 test = l[:op]
-                s = map(lambda x: x.split("="), l[op+1:cl].split("%"))
+                s = map(lambda x: x.split("="), l[op + 1:cl].split("%"))
                 si = {}
-                for n,v in s:
+                for n, v in s:
                     si[n] = v
-                sig[test]=si
+                sig[test] = si
             if name is not None:
-                self.base.append((name,sig))
+                self.base.append((name, sig))
         except:
             self.base = None
-            warning("Can't read nmap database [%s](new nmap version ?)" % self.filename)
+            warning(
+                "Can't read nmap database [%s](new nmap version ?)" % self.filename)
         f.close()
 
 nmap_kdb = NmapKnowledgeBase(conf.nmap_base)
 
+
 def TCPflags2str(f):
-    fl="FSRPAUEC"
-    s=""
+    fl = "FSRPAUEC"
+    s = ""
     for fli in fl:
         if f & 1:
             s = fli + s
         f >>= 1
     return s
 
+
 def nmap_tcppacket_sig(pkt):
     r = {}
     if pkt is not None:
-#        r["Resp"] = "Y"
+        #        r["Resp"] = "Y"
         r["DF"] = (pkt.flags & 2) and "Y" or "N"
         r["W"] = "%X" % pkt.window
-        r["ACK"] = pkt.ack==2 and "S++" or pkt.ack==1 and "S" or "O"
+        r["ACK"] = pkt.ack == 2 and "S++" or pkt.ack == 1 and "S" or "O"
         r["Flags"] = TCPflags2str(pkt.payload.flags)
-        r["Ops"] = "".join(map(lambda x: x[0][0],pkt.payload.options))
+        r["Ops"] = "".join(map(lambda x: x[0][0], pkt.payload.options))
     else:
         r["Resp"] = "N"
     return r
 
 
-def nmap_udppacket_sig(S,T):
-    r={}
+def nmap_udppacket_sig(S, T):
+    r = {}
     if T is None:
         r["Resp"] = "N"
     else:
@@ -104,12 +109,14 @@ def nmap_udppacket_sig(S,T):
         r["IPLEN"] = "%X" % T.len
         r["RIPTL"] = "%X" % T.payload.payload.len
         r["RID"] = S.id == T.payload.payload.id and "E" or "F"
-        r["RIPCK"] = S.chksum == T.getlayer(IPerror).chksum and "E" or T.getlayer(IPerror).chksum == 0 and "0" or "F"
-        r["UCK"] = S.payload.chksum == T.getlayer(UDPerror).chksum and "E" or T.getlayer(UDPerror).chksum ==0 and "0" or "F"
+        r["RIPCK"] = S.chksum == T.getlayer(IPerror).chksum and "E" or T.getlayer(
+            IPerror).chksum == 0 and "0" or "F"
+        r["UCK"] = S.payload.chksum == T.getlayer(
+            UDPerror).chksum and "E" or T.getlayer(UDPerror).chksum == 0 and "0" or "F"
         r["ULEN"] = "%X" % T.getlayer(UDPerror).len
-        r["DAT"] = T.getlayer(conf.raw_layer) is None and "E" or S.getlayer(conf.raw_layer).load == T.getlayer(conf.raw_layer).load and "E" or "F"
+        r["DAT"] = T.getlayer(conf.raw_layer) is None and "E" or S.getlayer(
+            conf.raw_layer).load == T.getlayer(conf.raw_layer).load and "E" or "F"
     return r
-    
 
 
 def nmap_match_one_sig(seen, ref):
@@ -127,36 +134,43 @@ def nmap_match_one_sig(seen, ref):
 def nmap_sig(target, oport=80, cport=81, ucport=1):
     res = {}
 
-    tcpopt = [ ("WScale", 10),
-               ("NOP",None),
-               ("MSS", 256),
-               ("Timestamp",(123,0)) ]
-    tests = [ IP(dst=target, id=1)/TCP(seq=1, sport=5001, dport=oport, options=tcpopt, flags="CS"),
-              IP(dst=target, id=1)/TCP(seq=1, sport=5002, dport=oport, options=tcpopt, flags=0),
-              IP(dst=target, id=1)/TCP(seq=1, sport=5003, dport=oport, options=tcpopt, flags="SFUP"),
-              IP(dst=target, id=1)/TCP(seq=1, sport=5004, dport=oport, options=tcpopt, flags="A"),
-              IP(dst=target, id=1)/TCP(seq=1, sport=5005, dport=cport, options=tcpopt, flags="S"),
-              IP(dst=target, id=1)/TCP(seq=1, sport=5006, dport=cport, options=tcpopt, flags="A"),
-              IP(dst=target, id=1)/TCP(seq=1, sport=5007, dport=cport, options=tcpopt, flags="FPU"),
-              IP(str(IP(dst=target)/UDP(sport=5008,dport=ucport)/(300*"i"))) ]
+    tcpopt = [("WScale", 10),
+              ("NOP", None),
+              ("MSS", 256),
+              ("Timestamp", (123, 0))]
+    tests = [IP(dst=target, id=1) / TCP(seq=1, sport=5001, dport=oport, options=tcpopt, flags="CS"),
+             IP(dst=target, id=1) / TCP(seq=1, sport=5002,
+                                        dport=oport, options=tcpopt, flags=0),
+             IP(dst=target, id=1) / TCP(seq=1, sport=5003,
+                                        dport=oport, options=tcpopt, flags="SFUP"),
+             IP(dst=target, id=1) / TCP(seq=1, sport=5004,
+                                        dport=oport, options=tcpopt, flags="A"),
+             IP(dst=target, id=1) / TCP(seq=1, sport=5005,
+                                        dport=cport, options=tcpopt, flags="S"),
+             IP(dst=target, id=1) / TCP(seq=1, sport=5006,
+                                        dport=cport, options=tcpopt, flags="A"),
+             IP(dst=target, id=1) / TCP(seq=1, sport=5007,
+                                        dport=cport, options=tcpopt, flags="FPU"),
+             IP(str(IP(dst=target) / UDP(sport=5008, dport=ucport) / (300 * "i")))]
 
     ans, unans = sr(tests, timeout=2)
-    ans += map(lambda x: (x,None), unans)
+    ans += map(lambda x: (x, None), unans)
 
-    for S,T in ans:
+    for S, T in ans:
         if S.sport == 5008:
-            res["PU"] = nmap_udppacket_sig(S,T)
+            res["PU"] = nmap_udppacket_sig(S, T)
         else:
-            t = "T%i" % (S.sport-5000)
+            t = "T%i" % (S.sport - 5000)
             if T is not None and T.haslayer(ICMP):
                 warning("Test %s answered by an ICMP" % t)
-                T=None
+                T = None
             res[t] = nmap_tcppacket_sig(T)
 
     return res
 
+
 def nmap_probes2sig(tests):
-    tests=tests.copy()
+    tests = tests.copy()
     res = {}
     if "PU" in tests:
         res["PU"] = nmap_udppacket_sig(*tests["PU"])
@@ -164,23 +178,23 @@ def nmap_probes2sig(tests):
     for k in tests:
         res[k] = nmap_tcppacket_sig(tests[k])
     return res
-        
+
 
 def nmap_search(sigs):
-    guess = 0,[]
-    for os,fp in nmap_kdb.get_base():
+    guess = 0, []
+    for os, fp in nmap_kdb.get_base():
         c = 0.0
         for t, v in sigs.itervalues():
             if t in fp:
                 c += nmap_match_one_sig(v, fp[t])
         c /= len(sigs)
         if c > guess[0]:
-            guess = c,[ os ]
+            guess = c, [os]
         elif c == guess[0]:
             guess[1].append(os)
     return guess
-    
-    
+
+
 @conf.commands.register
 def nmap_fp(target, oport=80, cport=81):
     """nmap fingerprinting
@@ -188,15 +202,15 @@ nmap_fp(target, [oport=80,] [cport=81,]) -> list of best guesses with accuracy
 """
     sigs = nmap_sig(target, oport, cport)
     return nmap_search(sigs)
-        
+
 
 @conf.commands.register
 def nmap_sig2txt(sig):
-    torder = ["TSeq","T1","T2","T3","T4","T5","T6","T7","PU"]
+    torder = ["TSeq", "T1", "T2", "T3", "T4", "T5", "T6", "T7", "PU"]
     korder = ["Class", "gcd", "SI", "IPID", "TS",
               "Resp", "DF", "W", "ACK", "Flags", "Ops",
-              "TOS", "IPLEN", "RIPTL", "RID", "RIPCK", "UCK", "ULEN", "DAT" ]
-    txt=[]
+              "TOS", "IPLEN", "RIPTL", "RID", "RIPCK", "UCK", "ULEN", "DAT"]
+    txt = []
     for i in sig:
         if i not in torder:
             torder.append(i)
@@ -209,10 +223,6 @@ def nmap_sig2txt(sig):
             v = sl.get(k)
             if v is None:
                 continue
-            s.append("%s=%s"%(k,v))
+            s.append("%s=%s" % (k, v))
         txt.append("%s(%s)" % (t, "%".join(s)))
     return "\n".join(txt)
-            
-        
-
-

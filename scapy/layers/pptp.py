@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Jan Sebechlebsky <sebechlebskyjan@gmail.com>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Jan Sebechlebsky <sebechlebskyjan@gmail.com>
+# This program is published under a GPLv2 license
 
 """
 PPTP (Point to Point Tunneling Protocol)
@@ -12,8 +12,8 @@ PPTP (Point to Point Tunneling Protocol)
 from scapy.packet import Packet, bind_layers
 from scapy.layers.inet import TCP
 from scapy.fields import ByteEnumField, FieldLenField, FlagsField, IntField, IntEnumField,\
-                         LenField, XIntField, ShortField, ShortEnumField, StrFixedLenField,\
-                         StrLenField, XShortField, XByteField
+    LenField, XIntField, ShortField, ShortEnumField, StrFixedLenField,\
+    StrLenField, XShortField, XByteField
 
 _PPTP_MAGIC_COOKIE = 0x1a2b3c4d
 
@@ -21,24 +21,24 @@ _PPTP_msg_type = {1: "Control Message",
                   2: "Managemenent Message"}
 
 _PPTP_ctrl_msg_type = {  # Control Connection Management
-                       1: "Start-Control-Connection-Request",
-                       2: "Start-Control-Connection-Reply",
-                       3: "Stop-Control-Connection-Request",
-                       4: "Stop-Control-Connection-Reply",
-                       5: "Echo-Request",
-                       6: "Echo-Reply",
-                       # Call Management
-                       7: "Outgoing-Call-Request",
-                       8: "Outgoing-Call-Reply",
-                       9: "Incoming-Call-Request",
-                       10: "Incoming-Call-Reply",
-                       11: "Incoming-Call-Connected",
-                       12: "Call-Clear-Request",
-                       13: "Call-Disconnect-Notify",
-                       # Error Reporting
-                       14: "WAN-Error-Notify",
-                       # PPP Session Control
-                       15: "Set-Link-Info"}
+    1: "Start-Control-Connection-Request",
+    2: "Start-Control-Connection-Reply",
+    3: "Stop-Control-Connection-Request",
+    4: "Stop-Control-Connection-Reply",
+    5: "Echo-Request",
+    6: "Echo-Reply",
+    # Call Management
+    7: "Outgoing-Call-Request",
+    8: "Outgoing-Call-Reply",
+    9: "Incoming-Call-Request",
+    10: "Incoming-Call-Reply",
+    11: "Incoming-Call-Connected",
+    12: "Call-Clear-Request",
+    13: "Call-Disconnect-Notify",
+    # Error Reporting
+    14: "WAN-Error-Notify",
+    # PPP Session Control
+    15: "Set-Link-Info"}
 
 _PPTP_general_error_code = {0: "None",
                             1: "Not-Connected",
@@ -57,7 +57,7 @@ class PPTP(Packet):
                    XIntField("magic_cookie", _PPTP_MAGIC_COOKIE),
                    ShortEnumField("ctrl_msg_type", 1, _PPTP_ctrl_msg_type),
                    XShortField("reserved_0", 0x0000),
-                   StrLenField("data", "",length_from=lambda p: p.len - 12)]
+                   StrLenField("data", "", length_from=lambda p: p.len - 12)]
 
     registered_options = {}
 

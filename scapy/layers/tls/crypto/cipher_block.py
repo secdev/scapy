@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
-##                     2015, 2016 Maxence Tury
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
+# 2015, 2016 Maxence Tury
+# This program is published under a GPLv2 license
 
 """
 Block ciphers.
@@ -15,6 +15,7 @@ from scapy.layers.tls.crypto.ciphers import CipherError
 
 
 tls_block_cipher_algs = {}
+
 
 class _BlockCipherMetaclass(type):
     """
@@ -36,7 +37,7 @@ class _BlockCipher(object):
     type = "block"
 
     def __init__(self, key=None, iv=None):
-        self.ready = {"key":True, "iv":True}
+        self.ready = {"key": True, "iv": True}
         if key is None:
             self.ready["key"] = False
             if hasattr(self, "expanded_key_len"):
@@ -66,7 +67,6 @@ class _BlockCipher(object):
                 self._cipher.mode._initialization_vector = val
             self.ready["iv"] = True
         super(_BlockCipher, self).__setattr__(name, val)
-
 
     def encrypt(self, data):
         """
@@ -100,6 +100,7 @@ class Cipher_AES_128_CBC(_BlockCipher):
     block_size = 16
     key_len = 16
 
+
 class Cipher_AES_256_CBC(Cipher_AES_128_CBC):
     key_len = 32
 
@@ -110,17 +111,19 @@ class Cipher_CAMELLIA_128_CBC(_BlockCipher):
     block_size = 16
     key_len = 16
 
+
 class Cipher_CAMELLIA_256_CBC(Cipher_CAMELLIA_128_CBC):
     key_len = 32
 
 
-### Mostly deprecated ciphers
+# Mostly deprecated ciphers
 
 class Cipher_DES_CBC(_BlockCipher):
     pc_cls = algorithms.TripleDES
     pc_cls_mode = modes.CBC
     block_size = 8
     key_len = 8
+
 
 class Cipher_DES40_CBC(Cipher_DES_CBC):
     """
@@ -134,11 +137,13 @@ class Cipher_DES40_CBC(Cipher_DES_CBC):
     expanded_key_len = 8
     key_len = 5
 
+
 class Cipher_3DES_EDE_CBC(_BlockCipher):
     pc_cls = algorithms.TripleDES
     pc_cls_mode = modes.CBC
     block_size = 8
     key_len = 24
+
 
 class Cipher_IDEA_CBC(_BlockCipher):
     pc_cls = algorithms.IDEA
@@ -146,16 +151,16 @@ class Cipher_IDEA_CBC(_BlockCipher):
     block_size = 8
     key_len = 16
 
+
 class Cipher_SEED_CBC(_BlockCipher):
     pc_cls = algorithms.SEED
     pc_cls_mode = modes.CBC
     block_size = 16
     key_len = 16
 
-#class Cipher_RC2_CBC_40(_BlockCipher): # RFC 2268
+# class Cipher_RC2_CBC_40(_BlockCipher): # RFC 2268
 #    pc_cls = ARC2              # no support in the cryptography library
 #    pc_cls_mode = modes.CBC
 #    block_size = 8
 #    key_len = 5
 #    expanded_key_len = 16
-

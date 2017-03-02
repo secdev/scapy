@@ -333,10 +333,11 @@ subsequent_afis = {
     1: "Network Layer Reachability Information used for unicast forwarding",  # RFC 4760
     2: "Network Layer Reachability Information used for multicast forwarding",  # RFC 4760
     3: "Reserved",  # RFC 4760
-    4: "Network Layer Reachability Information (NLRI) with MPLS Labels",  # RFC 3107
+    # RFC 3107
+    4: "Network Layer Reachability Information (NLRI) with MPLS Labels",
     5: "MCAST-VPN",  # RFC 6514
     6: "Network Layer Reachability Information used for Dynamic Placement of\
-        Multi-Segment Pseudowires", # RFC 7267
+        Multi-Segment Pseudowires",  # RFC 7267
     7: "Encapsulation SAFI",  # RFC 5512
     8: "MCAST-VPLS",  # RFC 7117
     64: "Tunnel SAFI",  # DRAFT-NALAWADE-KAPOOR-TUNNEL-SAFI-01
@@ -349,7 +350,8 @@ subsequent_afis = {
     71: "BGP-LS",  # RFC 7752
     72: "BGP-LS-VPN",  # RFC 7752
     128: "MPLS-labeled VPN address",  # RFC 4364
-    129: "Multicast for BGP/MPLS IP Virtual Private Networks (VPNs)",  # RFC 6514
+    # RFC 6514
+    129: "Multicast for BGP/MPLS IP Virtual Private Networks (VPNs)",
     132: "Route Target constraint",  # RFC 4684
     133: "IPv4 dissemination of flow specification rules",  # RFC 5575
     134: "VPNv4 dissemination of flow specification rules",  # RFC 5575
@@ -494,19 +496,24 @@ _capabilities = {
     3: "Outbound Route Filtering Capability",  # RFC 5291
     4: "Multiple routes to a destination capability",  # RFC 3107
     5: "Extended Next Hop Encoding",  # RFC 5549
-    6: "BGP-Extended Message",  # (TEMPORARY - registered 2015-09-30, expires 2016-09-30),
+    # (TEMPORARY - registered 2015-09-30, expires 2016-09-30),
+    6: "BGP-Extended Message",
     # draft-ietf-idr-bgp-extended-messages
     64: "Graceful Restart Capability",  # RFC 4724
     65: "Support for 4-octet AS number capability",  # RFC 6793
     66: "Deprecated (2003-03-06)",
-    67: "Support for Dynamic Capability (capability specific)",  # draft-ietf-idr-dynamic-cap
+    # draft-ietf-idr-dynamic-cap
+    67: "Support for Dynamic Capability (capability specific)",
     68: "Multisession BGP Capability",  # draft-ietf-idr-bgp-multisession
     69: "ADD-PATH Capability",  # RFC-ietf-idr-add-paths-15
     70: "Enhanced Route Refresh Capability",  # RFC 7313
-    71: "Long-Lived Graceful Restart (LLGR) Capability",  # draft-uttaro-idr-bgp-persistence
+    # draft-uttaro-idr-bgp-persistence
+    71: "Long-Lived Graceful Restart (LLGR) Capability",
     73: "FQDN Capability",  # draft-walton-bgp-hostname-capability
-    128: "Route Refresh Capability for BGP-4 (Cisco)",  # Cisco also uses 128 for RR capability
-    130: "Outbound Route Filtering Capability (Cisco)",  # Cisco also uses 130 for ORF capability
+    # Cisco also uses 128 for RR capability
+    128: "Route Refresh Capability for BGP-4 (Cisco)",
+    # Cisco also uses 130 for ORF capability
+    130: "Outbound Route Filtering Capability (Cisco)",
 }
 
 
@@ -550,6 +557,7 @@ def _bgp_capability_dispatcher(payload):
 
 
 class _BGPCap_metaclass(type):
+
     def __new__(cls, clsname, bases, attrs):
         newclass = super(_BGPCap_metaclass, cls).__new__(
             cls, clsname, bases, attrs)
@@ -721,7 +729,8 @@ class BGPCapORFBlock(Packet):
     def post_build(self, p, pay):
         count = None
         if self.orf_number is None:
-            count = len(self.entries)  # orf_type (1 byte) + send_receive (1 byte)
+            # orf_type (1 byte) + send_receive (1 byte)
+            count = len(self.entries)
             p = p[:4] + struct.pack("!B", count) + p[5:]
         return p + pay
 
@@ -986,7 +995,8 @@ path_attributes = {
     16: "EXTENDED COMMUNITIES",  # RFC 4360
     17: "AS4_PATH",  # RFC 6793
     18: "AS4_AGGREGATOR",  # RFC 6793
-    19: "SAFI Specific Attribute (SSA) (deprecated)",  # draft-kapoor-nalawade-idr-bgp-ssa-00,
+    # draft-kapoor-nalawade-idr-bgp-ssa-00,
+    19: "SAFI Specific Attribute (SSA) (deprecated)",
     # draft-nalawade-idr-mdt-safi-00, draft-wijnands-mt-discovery-00
     20: "Connector Attribute (deprecated)",  # RFC 6037
     21: "AS_PATHLIMIT (deprecated)",  # draft-ietf-idr-as-pathlimit
@@ -996,9 +1006,11 @@ path_attributes = {
     25: "IPv6 Address Specific Extended Community",  # RFC 5701
     26: "AIGP",  # RFC 7311
     27: "PE Distinguisher Labels",  # RFC 6514
-    28: "BGP Entropy Label Capability Attribute (deprecated)",  # RFC 6790, RFC 7447
+    # RFC 6790, RFC 7447
+    28: "BGP Entropy Label Capability Attribute (deprecated)",
     29: "BGP-LS Attribute",  # RFC 7752
-    40: "BGP Prefix-SID",  # (TEMPORARY - registered 2015-09-30, expires 2016-09-30)
+    # (TEMPORARY - registered 2015-09-30, expires 2016-09-30)
+    40: "BGP Prefix-SID",
     # draft-ietf-idr-bgp-prefix-sid
     128: "ATTR_SET",  # RFC 6368
     255: "Reserved for development"
@@ -1343,7 +1355,8 @@ _ext_comm_types = {
     0x05: "CoS Capability",  # Thomas_Martin_Knoll
     0x06: "EVPN",  # RFC 7153
     0x07: "Unassigned",
-    0x08: "Flow spec redirect/mirror to IP next-hop",  # draft-simpson-idr-flowspec-redirect
+    # draft-simpson-idr-flowspec-redirect
+    0x08: "Flow spec redirect/mirror to IP next-hop",
 
     # BGP Non-Transitive Extended Community Types
     0x40: "Non-Transitive Two-Octet AS-Specific Extended Community",  # RFC 7153
@@ -1439,7 +1452,8 @@ _ext_comm_trans_opaque_subtypes = {
 
 # Non-Transitive Opaque Extended Community Sub-Types
 _ext_comm_non_trans_opaque_subtypes = {
-    0x00: "BGP Origin Validation State",  # draft-ietf-sidr-origin-validation-signaling
+    # draft-ietf-sidr-origin-validation-signaling
+    0x00: "BGP Origin Validation State",
     0x01: "Cost Community",  # draft-ietf-idr-custom-decision
 }
 
@@ -1982,7 +1996,7 @@ class _PathAttrPacketField(PacketField):
         # Unassigned
         elif (type_code >= 30 and type_code <= 39) or\
             (type_code >= 41 and type_code <= 127) or\
-            (type_code >= 129 and type_code <= 254):
+                (type_code >= 129 and type_code <= 254):
             ret = conf.raw_layer(m)
         # Known path attributes
         else:
@@ -2016,13 +2030,13 @@ class BGPPathAttr(Packet):
         ByteEnumField("type_code", 0, path_attributes),
         ConditionalField(
             ShortField("attr_ext_len", None),
-            lambda x: x.type_flags != None and\
-                has_extended_length(x.type_flags)
+            lambda x: x.type_flags != None and
+            has_extended_length(x.type_flags)
         ),
         ConditionalField(
             ByteField("attr_len", None),
-            lambda x: x.type_flags != None and not\
-                has_extended_length(x.type_flags)
+            lambda x: x.type_flags != None and not
+            has_extended_length(x.type_flags)
         ),
         _PathAttrPacketField("attribute", None, Packet)
     ]
@@ -2512,4 +2526,3 @@ bind_layers(BGPHeader, BGPRouteRefresh, {"type": 5})
 # When loading the module, display the current module configuration.
 log_runtime.warning(
     "[bgp.py] use_2_bytes_asn: %s", bgp_module_conf.use_2_bytes_asn)
-

@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
-##                     2015, 2016 Maxence Tury
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
+# 2015, 2016 Maxence Tury
+# This program is published under a GPLv2 license
 
 """
 TLS base fields, used for record parsing/building. As several operations depend
@@ -11,16 +11,16 @@ upon the TLS version or ciphersuite, the packet has to provide a TLS context.
 from scapy.fields import *
 
 
-_tls_type = { 20: "change_cipher_spec",
-	      21: "alert",
-	      22: "handshake",
-	      23: "application_data" }
+_tls_type = {20: "change_cipher_spec",
+             21: "alert",
+             22: "handshake",
+             23: "application_data"}
 
-_tls_version = { 0x0200: "SSLv2",
-                 0x0300: "SSLv3",
-                 0x0301: "TLS 1.0",
-                 0x0302: "TLS 1.1",
-                 0x0303: "TLS 1.2" }
+_tls_version = {0x0200: "SSLv2",
+                0x0300: "SSLv3",
+                0x0301: "TLS 1.0",
+                0x0302: "TLS 1.1",
+                0x0303: "TLS 1.2"}
 
 
 class _TLSVersionField(ShortEnumField):
@@ -31,6 +31,7 @@ class _TLSVersionField(ShortEnumField):
     the value provided by advertised_tls_version parameter in packet's session.
     In that latter case, this is simply the version provided by the client.
     """
+
     def i2h(self, pkt, x):
         if x is None:
             if pkt.tls_session.tls_version:
@@ -51,6 +52,7 @@ class _TLSClientVersionField(ShortEnumField):
     Unlike _TLSVersionField, we use advertised_tls_version preferentially,
     and then tls_version if there was none advertised.
     """
+
     def i2h(self, pkt, x):
         if x is None:
             if pkt.tls_session.advertised_tls_version:
@@ -82,6 +84,7 @@ class _TLSIVField(StrField):
     kept empty (unless forced to a specific value) when the cipher is a stream
     cipher (and NULL is considered a stream cipher).
     """
+
     def i2len(self, pkt, i):
         if i is not None:
             return len(i)
@@ -115,6 +118,7 @@ class _TLSIVField(StrField):
 
 
 class _TLSMACField(StrField):
+
     def i2len(self, pkt, i):
         if i is not None:
             return len(i)
@@ -134,11 +138,12 @@ class _TLSMACField(StrField):
         return s[l:], self.m2i(pkt, s[:l])
 
     def i2repr(self, pkt, x):
-        #XXX Provide status when dissection has been performed successfully?
+        # XXX Provide status when dissection has been performed successfully?
         return repr(self.i2m(pkt, x))
 
 
 class _TLSPadField(StrField):
+
     def i2len(self, pkt, i):
         if i is not None:
             return len(i)
@@ -164,11 +169,12 @@ class _TLSPadField(StrField):
         return s, None
 
     def i2repr(self, pkt, x):
-        #XXX Provide status when dissection has been performed successfully?
+        # XXX Provide status when dissection has been performed successfully?
         return repr(self.i2m(pkt, x))
 
 
 class _TLSPadLenField(ByteField):
+
     def addfield(self, pkt, s, val):
         # We add nothing here. This is done in .post_build() if needed.
         return s
@@ -177,4 +183,3 @@ class _TLSPadLenField(ByteField):
         if pkt.tls_session.consider_read_padding():
             return ByteField.getfield(self, pkt, s)
         return s, None
-

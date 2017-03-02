@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Philippe Biondi <phil@secdev.org>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# This program is published under a GPLv2 license
 
 #############################################################################
 ##                                                                         ##
@@ -19,14 +19,14 @@
 ## General Public License for more details.                                ##
 ##                                                                         ##
 #############################################################################
-## HSRP Version 1
-##  Ref. RFC 2281
-## HSRP Version 2
-##  Ref. http://www.smartnetworks.jp/2006/02/hsrp_8_hsrp_version_2.html
+# HSRP Version 1
+# Ref. RFC 2281
+# HSRP Version 2
+# Ref. http://www.smartnetworks.jp/2006/02/hsrp_8_hsrp_version_2.html
 ##
-## $Log: hsrp.py,v $
-## Revision 0.2  2011/05/01 15:23:34  mrenard
-##   Cleanup code
+# $Log: hsrp.py,v $
+# Revision 0.2  2011/05/01 15:23:34  mrenard
+# Cleanup code
 
 """
 HSRP (Hot Standby Router Protocol): proprietary redundancy protocol for Cisco routers.
@@ -42,8 +42,10 @@ class HSRP(Packet):
     name = "HSRP"
     fields_desc = [
         ByteField("version", 0),
-        ByteEnumField("opcode", 0, {0: "Hello", 1: "Coup", 2: "Resign", 3: "Advertise"}),
-        ByteEnumField("state", 16, {0: "Initial", 1: "Learn", 2: "Listen", 4: "Speak", 8: "Standby", 16: "Active"}),
+        ByteEnumField("opcode", 0, {0: "Hello",
+                                    1: "Coup", 2: "Resign", 3: "Advertise"}),
+        ByteEnumField("state", 16, {
+                      0: "Initial", 1: "Learn", 2: "Listen", 4: "Speak", 8: "Standby", 16: "Active"}),
         ByteField("hellotime", 3),
         ByteField("holdtime", 10),
         ByteField("priority", 120),

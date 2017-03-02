@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
-##                     2015, 2016 Maxence Tury
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
+# 2015, 2016 Maxence Tury
+# This program is published under a GPLv2 license
 
 """
 Stream ciphers.
@@ -14,6 +14,7 @@ from scapy.layers.tls.crypto.ciphers import CipherError
 
 
 tls_stream_cipher_algs = {}
+
 
 class _StreamCipherMetaclass(type):
     """
@@ -39,7 +40,7 @@ class _StreamCipher(object):
         Note that we have to keep the encryption/decryption state in unique
         encryptor and decryptor objects. This differs from _BlockCipher.
         """
-        self.ready = {"key":True}
+        self.ready = {"key": True}
         if key is None:
             self.ready["key"] = False
             if hasattr(self, "expanded_key_len"):
@@ -79,6 +80,7 @@ class Cipher_RC4_128(_StreamCipher):
     pc_cls = algorithms.ARC4
     key_len = 16
 
+
 class Cipher_RC4_40(Cipher_RC4_128):
     expanded_key_len = 16
     key_len = 5
@@ -88,7 +90,7 @@ class Cipher_NULL(_StreamCipher):
     key_len = 0
 
     def __init__(self, key=None):
-        self.ready = {"key":True}
+        self.ready = {"key": True}
         # we use super() in order to avoid any deadlock with __setattr__
         super(_StreamCipher, self).__setattr__("key", key)
         self._cipher = None
@@ -98,4 +100,3 @@ class Cipher_NULL(_StreamCipher):
 
     def decrypt(self, data):
         return data
-

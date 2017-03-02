@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## Copyright (C) 2008 Arnaud Ebalard <arno@natisbad.org>
-##         2015, 2016 Maxence Tury <maxence.tury@ssi.gouv.fr>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# Copyright (C) 2008 Arnaud Ebalard <arno@natisbad.org>
+# 2015, 2016 Maxence Tury <maxence.tury@ssi.gouv.fr>
+# This program is published under a GPLv2 license
 
 """
 PKCS #1 methods as defined in RFC 3447.
@@ -11,8 +11,12 @@ support our "tls" hash used with TLS 1.0. Once it is added to (or from) the
 library, most of the present module should be removed.
 """
 
-import os, popen2, tempfile
-import math, random, struct
+import os
+import popen2
+import tempfile
+import math
+import random
+import struct
 
 from scapy.config import conf, crypto_validator
 if conf.crypto_valid:
@@ -46,6 +50,8 @@ def pkcs_os2ip(x):
     return int(x.encode("hex"), 16)
 
 # I2OSP function defined in RFC 3447 for integer to octet string conversion
+
+
 def pkcs_i2osp(x, xLen):
     """
     Converts a long (the first parameter) to the associated byte string
@@ -60,10 +66,11 @@ def pkcs_i2osp(x, xLen):
     Reverse function is pkcs_os2ip().
     """
     # The user is responsible for providing an appropriate xLen.
-    #if x >= 256**xLen:
+    # if x >= 256**xLen:
     #    raise Exception("Integer too large for provided xLen %d" % xLen)
-    fmt = "%%0%dx" % (2*xLen)
+    fmt = "%%0%dx" % (2 * xLen)
     return (fmt % x).decode("hex")
+
 
 def pkcs_ilen(n):
     """
@@ -100,35 +107,37 @@ if conf.crypto_valid:
         return digest.finalize()
 
     _hashFuncParams = {
-        "md5"    : (16,
-                    hashes.MD5,
-                    lambda x: _hashWrapper(hashes.MD5, x),
-                    '\x30\x20\x30\x0c\x06\x08\x2a\x86\x48\x86\xf7\x0d\x02\x05\x05\x00\x04\x10'),
-        "sha1"   : (20,
-                    hashes.SHA1,
-                    lambda x: _hashWrapper(hashes.SHA1, x),
-                    '\x30\x21\x30\x09\x06\x05\x2b\x0e\x03\x02\x1a\x05\x00\x04\x14'),
-        "sha224" : (28,
-                    hashes.SHA224,
-                    lambda x: _hashWrapper(hashes.SHA224, x),
-                    '\x30\x2d\x30\x0d\x06\x09\x60\x86\x48\x01\x65\x03\x04\x02\x04\x05\x00\x04\x1c'),
-        "sha256" : (32,
-                    hashes.SHA256,
-                    lambda x: _hashWrapper(hashes.SHA256, x),
-                    '\x30\x31\x30\x0d\x06\x09\x60\x86\x48\x01\x65\x03\x04\x02\x01\x05\x00\x04\x20'),
-        "sha384" : (48,
-                    hashes.SHA384,
-                    lambda x: _hashWrapper(hashes.SHA384, x),
-                    '\x30\x41\x30\x0d\x06\x09\x60\x86\x48\x01\x65\x03\x04\x02\x02\x05\x00\x04\x30'),
-        "sha512" : (64,
-                    hashes.SHA512,
-                    lambda x: _hashWrapper(hashes.SHA512, x),
-                    '\x30\x51\x30\x0d\x06\x09\x60\x86\x48\x01\x65\x03\x04\x02\x03\x05\x00\x04\x40'),
-        "tls"    : (36,
-                    None,
-                    lambda x: _hashWrapper(hashes.MD5, x) + _hashWrapper(hashes.SHA1, x),
-                    '')
-        }
+        "md5": (16,
+                hashes.MD5,
+                lambda x: _hashWrapper(hashes.MD5, x),
+                '\x30\x20\x30\x0c\x06\x08\x2a\x86\x48\x86\xf7\x0d\x02\x05\x05\x00\x04\x10'),
+        "sha1": (20,
+                 hashes.SHA1,
+                 lambda x: _hashWrapper(hashes.SHA1, x),
+                 '\x30\x21\x30\x09\x06\x05\x2b\x0e\x03\x02\x1a\x05\x00\x04\x14'),
+        "sha224": (28,
+                   hashes.SHA224,
+                   lambda x: _hashWrapper(hashes.SHA224, x),
+                   '\x30\x2d\x30\x0d\x06\x09\x60\x86\x48\x01\x65\x03\x04\x02\x04\x05\x00\x04\x1c'),
+        "sha256": (32,
+                   hashes.SHA256,
+                   lambda x: _hashWrapper(hashes.SHA256, x),
+                   '\x30\x31\x30\x0d\x06\x09\x60\x86\x48\x01\x65\x03\x04\x02\x01\x05\x00\x04\x20'),
+        "sha384": (48,
+                   hashes.SHA384,
+                   lambda x: _hashWrapper(hashes.SHA384, x),
+                   '\x30\x41\x30\x0d\x06\x09\x60\x86\x48\x01\x65\x03\x04\x02\x02\x05\x00\x04\x30'),
+        "sha512": (64,
+                   hashes.SHA512,
+                   lambda x: _hashWrapper(hashes.SHA512, x),
+                   '\x30\x51\x30\x0d\x06\x09\x60\x86\x48\x01\x65\x03\x04\x02\x03\x05\x00\x04\x40'),
+        "tls": (36,
+                None,
+                lambda x: _hashWrapper(hashes.MD5, x) +
+                _hashWrapper(hashes.SHA1, x),
+                '')
+    }
+
 
 def mapHashFunc(hashStr):
     if hashStr == "tls":
@@ -205,22 +214,22 @@ def pkcs_emsa_pss_encode(M, emBits, h, mgf, sLen):
     hLen = _hashFuncParams[h][0]                             # 2)
     hFunc = _hashFuncParams[h][2]
     mHash = hFunc(M)
-    emLen = int(math.ceil(emBits/8.))
+    emLen = int(math.ceil(emBits / 8.))
     if emLen < hLen + sLen + 2:                              # 3)
         warning("encoding error (emLen < hLen + sLen + 2)")
         return None
     salt = randstring(sLen)                                  # 4)
-    MPrime = '\x00'*8 + mHash + salt                         # 5)
+    MPrime = '\x00' * 8 + mHash + salt                         # 5)
     H = hFunc(MPrime)                                        # 6)
-    PS = '\x00'*(emLen - sLen - hLen - 2)                    # 7)
+    PS = '\x00' * (emLen - sLen - hLen - 2)                    # 7)
     DB = PS + '\x01' + salt                                  # 8)
     dbMask = mgf(H, emLen - hLen - 1)                        # 9)
     maskedDB = strxor(DB, dbMask)                            # 10)
-    l = (8*emLen - emBits)/8                                 # 11)
-    rem = 8*emLen - emBits - 8*l # additionnal bits
-    andMask = l*'\x00'
+    l = (8 * emLen - emBits) / 8                                 # 11)
+    rem = 8 * emLen - emBits - 8 * l  # additionnal bits
+    andMask = l * '\x00'
     if rem:
-        j = chr(reduce(lambda x,y: x+y, map(lambda x: 1<<x, range(8-rem))))
+        j = chr(reduce(lambda x, y: x + y, map(lambda x: 1 << x, range(8 - rem))))
         andMask += j
         l += 1
     maskedDB = strand(maskedDB[:l], andMask) + maskedDB[l:]
@@ -250,44 +259,44 @@ def pkcs_emsa_pss_verify(M, EM, emBits, h, mgf, sLen):
     hLen = _hashFuncParams[h][0]                             # 2)
     hFunc = _hashFuncParams[h][2]
     mHash = hFunc(M)
-    emLen = int(math.ceil(emBits/8.))                        # 3)
+    emLen = int(math.ceil(emBits / 8.))                        # 3)
     if emLen < hLen + sLen + 2:
         return False
     if EM[-1] != '\xbc':                                     # 4)
         return False
     l = emLen - hLen - 1                                     # 5)
     maskedDB = EM[:l]
-    H = EM[l:l+hLen]
-    l = (8*emLen - emBits)/8                                 # 6)
-    rem = 8*emLen - emBits - 8*l # additionnal bits
-    andMask = l*'\xff'
+    H = EM[l:l + hLen]
+    l = (8 * emLen - emBits) / 8                                 # 6)
+    rem = 8 * emLen - emBits - 8 * l  # additionnal bits
+    andMask = l * '\xff'
     if rem:
-        val = reduce(lambda x,y: x+y, map(lambda x: 1<<x, range(8-rem)))
+        val = reduce(lambda x, y: x + y, map(lambda x: 1 << x, range(8 - rem)))
         j = chr(~val & 0xff)
         andMask += j
         l += 1
-    if strand(maskedDB[:l], andMask) != '\x00'*l:
+    if strand(maskedDB[:l], andMask) != '\x00' * l:
         return False
     dbMask = mgf(H, emLen - hLen - 1)                        # 7)
     DB = strxor(maskedDB, dbMask)                            # 8)
-    l = (8*emLen - emBits)/8                                 # 9)
-    rem = 8*emLen - emBits - 8*l # additionnal bits
-    andMask = l*'\x00'
+    l = (8 * emLen - emBits) / 8                                 # 9)
+    rem = 8 * emLen - emBits - 8 * l  # additionnal bits
+    andMask = l * '\x00'
     if rem:
-        j = chr(reduce(lambda x,y: x+y, map(lambda x: 1<<x, range(8-rem))))
+        j = chr(reduce(lambda x, y: x + y, map(lambda x: 1 << x, range(8 - rem))))
         andMask += j
         l += 1
     DB = strand(DB[:l], andMask) + DB[l:]
     l = emLen - hLen - sLen - 1                              # 10)
-    if DB[:l] != '\x00'*(l-1) + '\x01':
+    if DB[:l] != '\x00' * (l - 1) + '\x01':
         return False
     salt = DB[-sLen:]                                        # 11)
-    MPrime = '\x00'*8 + mHash + salt                         # 12)
+    MPrime = '\x00' * 8 + mHash + salt                         # 12)
     HPrime = hFunc(MPrime)                                   # 13)
     return H == HPrime                                       # 14)
 
 
-def pkcs_emsa_pkcs1_v1_5_encode(M, emLen, h): # section 9.2 of RFC 3447
+def pkcs_emsa_pkcs1_v1_5_encode(M, emLen, h):  # section 9.2 of RFC 3447
     """
     Implements EMSA-PKCS1-V1_5-ENCODE() function described in Sect.
     9.2 of RFC 3447.
@@ -316,7 +325,7 @@ def pkcs_emsa_pkcs1_v1_5_encode(M, emLen, h): # section 9.2 of RFC 3447
         warning("pkcs_emsa_pkcs1_v1_5_encode:"
                 "intended encoded message length too short")
         return None
-    PS = '\xff'*(emLen - tLen - 3)                           # 4)
+    PS = '\xff' * (emLen - tLen - 3)                           # 4)
     EM = '\x00' + '\x01' + PS + '\x00' + T                   # 5)
     return EM                                                # 6)
 
@@ -349,17 +358,16 @@ class _EncryptAndVerifyRSA(object):
         n = self._modulus
         if isinstance(m, int):
             m = long(m)
-        if (not isinstance(m, long)) or m > n-1:
+        if (not isinstance(m, long)) or m > n - 1:
             warning("Key._rsaep() expects a long between 0 and n-1")
             return None
 
         return pow(m, self._pubExp, n)
 
-
     @crypto_validator
     def encrypt(self, m, t="pkcs", h=None, mgf=None, L=None):
         if h == "tls" or t is None:
-            #return self.encrypt_legacy(m, t=t, h=h, mgf=mgf, L=L)
+            # return self.encrypt_legacy(m, t=t, h=h, mgf=mgf, L=L)
             warning("Cannot call encrypt_legacy anymore.")
             return None
 
@@ -375,8 +383,7 @@ class _EncryptAndVerifyRSA(object):
             return None
         return self.pubkey.encrypt(m, pad)
 
-
-    ### Below are verification related methods
+    # Below are verification related methods
 
     def _rsavp1(self, s):
         """
@@ -413,15 +420,15 @@ class _EncryptAndVerifyRSA(object):
         """
 
         # Set default parameters if not provided
-        if h is None: # By default, sha1
+        if h is None:  # By default, sha1
             h = "sha1"
         if not _hashFuncParams.has_key(h):
             warning("Key._rsassa_pss_verify(): unknown hash function "
                     "provided (%s)" % h)
             return False
-        if mgf is None: # use mgf1 with underlying hash function
-            mgf = lambda x,y: pkcs_mgf1(x, y, h)
-        if sLen is None: # use Hash output length (A.2.3 of RFC 3447)
+        if mgf is None:  # use mgf1 with underlying hash function
+            mgf = lambda x, y: pkcs_mgf1(x, y, h)
+        if sLen is None:  # use Hash output length (A.2.3 of RFC 3447)
             hLen = _hashFuncParams[h][0]
             sLen = hLen
 
@@ -441,7 +448,6 @@ class _EncryptAndVerifyRSA(object):
         result = pkcs_emsa_pss_verify(M, EM, modBits - 1, h, mgf, sLen)
 
         return result                               # 4)
-
 
     def _rsassa_pkcs1_v1_5_verify(self, M, S, h):
         """
@@ -478,7 +484,6 @@ class _EncryptAndVerifyRSA(object):
 
         # 4) Comparison
         return EM == EMPrime
-
 
     def verify_legacy(self, M, S, t=None, h=None, mgf=None, sLen=None):
         """
@@ -517,23 +522,23 @@ class _EncryptAndVerifyRSA(object):
                   default value (the byte length of the hash value for provided
                   algorithm) by providing another one with that parameter.
         """
-        if t is None: # RSAVP1
+        if t is None:  # RSAVP1
             S = pkcs_os2ip(S)
             n = self._modulus
-            if S > n-1:
+            if S > n - 1:
                 warning("Signature to be verified is too long for key modulus")
                 return False
             m = self._rsavp1(S)
             if m is None:
                 return False
-            l = int(math.ceil(math.log(m, 2) / 8.)) # Hack
+            l = int(math.ceil(math.log(m, 2) / 8.))  # Hack
             m = pkcs_i2osp(m, l)
             return M == m
-        elif t == "pkcs": # RSASSA-PKCS1-v1_5-VERIFY
+        elif t == "pkcs":  # RSASSA-PKCS1-v1_5-VERIFY
             if h is None:
                 h = "sha1"
             return self._rsassa_pkcs1_v1_5_verify(M, S, h)
-        elif t == "pss": # RSASSA-PSS-VERIFY
+        elif t == "pss":  # RSASSA-PSS-VERIFY
             return self._rsassa_pss_verify(M, S, h, mgf, sLen)
         else:
             warning("Key.verify(): Unknown signature type (%s) provided" % t)
@@ -547,9 +552,9 @@ class _EncryptAndVerifyRSA(object):
         if h is not None:
             h = mapHashFunc(h)
 
-        if t == "pkcs": # RSASSA-PKCS1-v1_5-VERIFY
+        if t == "pkcs":  # RSASSA-PKCS1-v1_5-VERIFY
             pad = padding.PKCS1v15()
-        elif t == "pss": # RSASSA-PSS-VERIFY
+        elif t == "pss":  # RSASSA-PSS-VERIFY
             pad = padding.PSS(mgf=mgf(h), salt_length=sLen)
         else:
             warning("Key.verify(): Unknown signature type (%s) provided" % t)
@@ -563,8 +568,8 @@ class _EncryptAndVerifyRSA(object):
 
 
 class _DecryptAndSignRSA(object):
-    ### Below are decryption related methods. Encryption ones are inherited
-    ### from PubKey
+    # Below are decryption related methods. Encryption ones are inherited
+    # from PubKey
 
     def _rsadp(self, c):
         """
@@ -588,17 +593,16 @@ class _DecryptAndSignRSA(object):
         n = self._modulus
         if isinstance(c, int):
             c = long(c)
-        if (not isinstance(c, long)) or c > n-1:
+        if (not isinstance(c, long)) or c > n - 1:
             warning("Key._rsaep() expects a long between 0 and n-1")
             return None
 
         privExp = self.key.private_numbers().d
         return pow(c, privExp, n)
 
-
     def decrypt(self, C, t="pkcs", h=None, mgf=None, L=None):
         if h == "tls" or t is None:
-            #return self.decrypt_legacy(C, t=t, h=h, mgf=mgf, L=L)
+            # return self.decrypt_legacy(C, t=t, h=h, mgf=mgf, L=L)
             warning("Cannot call decrypt_legacy anymore.")
             return None
 
@@ -614,9 +618,8 @@ class _DecryptAndSignRSA(object):
             return None
         return self.key.decrypt(C, pad)
 
-
-    ### Below are signature related methods.
-    ### Verification methods are inherited from PubKey.
+    # Below are signature related methods.
+    # Verification methods are inherited from PubKey.
 
     def _rsasp1(self, m):
         """
@@ -638,7 +641,6 @@ class _DecryptAndSignRSA(object):
         """
         return self._rsadp(m)
 
-
     def _rsassa_pss_sign(self, M, h=None, mgf=None, sLen=None):
         """
         Implements RSASSA-PSS-SIGN() function described in Sect. 8.1.1 of
@@ -655,15 +657,15 @@ class _DecryptAndSignRSA(object):
         """
 
         # Set default parameters if not provided
-        if h is None: # By default, sha1
+        if h is None:  # By default, sha1
             h = "sha1"
         if not _hashFuncParams.has_key(h):
             warning("Key._rsassa_pss_sign(): unknown hash function "
                     "provided (%s)" % h)
             return None
-        if mgf is None: # use mgf1 with underlying hash function
-            mgf = lambda x,y: pkcs_mgf1(x, y, h)
-        if sLen is None: # use Hash output length (A.2.3 of RFC 3447)
+        if mgf is None:  # use mgf1 with underlying hash function
+            mgf = lambda x, y: pkcs_mgf1(x, y, h)
+        if sLen is None:  # use Hash output length (A.2.3 of RFC 3447)
             hLen = _hashFuncParams[h][0]
             sLen = hLen
 
@@ -681,7 +683,6 @@ class _DecryptAndSignRSA(object):
         S = pkcs_i2osp(s, k)                        # 2.c)
 
         return S                                    # 3)
-
 
     def _rsassa_pkcs1_v1_5_sign(self, M, h):
         """
@@ -710,7 +711,6 @@ class _DecryptAndSignRSA(object):
         S = pkcs_i2osp(s, k)                        # 2.c)
 
         return S                                    # 3)
-
 
     def sign_legacy(self, M, t=None, h=None, mgf=None, sLen=None):
         """
@@ -745,21 +745,21 @@ class _DecryptAndSignRSA(object):
                   default value (the byte length of the hash value for provided
                   algorithm) by providing another one with that parameter.
         """
-        if t is None: # RSASP1
+        if t is None:  # RSASP1
             M = pkcs_os2ip(M)
             n = self._modulus
-            if M > n-1:
+            if M > n - 1:
                 warning("Message to be signed is too long for key modulus")
                 return None
             s = self._rsasp1(M)
             if s is None:
                 return None
-            return pkcs_i2osp(s, self._modulusLen/8)
-        elif t == "pkcs": # RSASSA-PKCS1-v1_5-SIGN
+            return pkcs_i2osp(s, self._modulusLen / 8)
+        elif t == "pkcs":  # RSASSA-PKCS1-v1_5-SIGN
             if h is None:
                 h = "sha1"
             return self._rsassa_pkcs1_v1_5_sign(M, h)
-        elif t == "pss": # RSASSA-PSS-SIGN
+        elif t == "pss":  # RSASSA-PSS-SIGN
             return self._rsassa_pss_sign(M, h, mgf, sLen)
         else:
             warning("Key.sign(): Unknown signature type (%s) provided" % t)
@@ -772,15 +772,14 @@ class _DecryptAndSignRSA(object):
         if h is not None:
             h = mapHashFunc(h)
 
-        if t == "pkcs": # RSASSA-PKCS1-v1_5-SIGN
+        if t == "pkcs":  # RSASSA-PKCS1-v1_5-SIGN
             pad = padding.PKCS1v15()
-        elif t == "pss": # RSASSA-PSS-SIGN
+        elif t == "pss":  # RSASSA-PSS-SIGN
             pad = padding.PSS(mgf=mgf(h), salt_length=sLen)
         else:
             warning("Key.sign(): Unknown signature type (%s) provided" % t)
             return None
         return self.key.sign(M, pad, h)
-
 
 
 #####################################################################
@@ -808,6 +807,7 @@ def create_ca_file(anchor_list, filename):
         return None
     return filename
 
+
 def create_temporary_ca_file(anchor_list):
     """
     Concatenate all the certificates (PEM format for the export) in
@@ -827,6 +827,7 @@ def create_temporary_ca_file(anchor_list):
     except:
         return None
     return fname
+
 
 def create_temporary_ca_path(anchor_list, folder):
     """
@@ -870,8 +871,8 @@ def create_temporary_ca_path(anchor_list, folder):
     except:
         return None
 
-    r,w=popen2.popen2("c_rehash %s" % folder)
-    r.close(); w.close()
+    r, w = popen2.popen2("c_rehash %s" % folder)
+    r.close()
+    w.close()
 
     return l
-

@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
-##                     2015, 2016 Maxence Tury
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
+# 2015, 2016 Maxence Tury
+# This program is published under a GPLv2 license
 
 """
 This is a register for DH groups from RFC 3526 and RFC 4306.
@@ -15,7 +15,7 @@ from cryptography.hazmat.primitives.asymmetric import dh
 from scapy.utils import long_converter
 
 
-class modp768: # From RFC 4306
+class modp768:  # From RFC 4306
     g = 0x02
     m = long_converter("""
     FFFFFFFF FFFFFFFF C90FDAA2 2168C234 C4C6628B 80DC1CD1 29024E08
@@ -24,7 +24,8 @@ class modp768: # From RFC 4306
     A63A3620 FFFFFFFF FFFFFFFF""")
     mLen = 768
 
-class modp1024: # From RFC 4306
+
+class modp1024:  # From RFC 4306
     g = 0x02
     m = long_converter("""
     FFFFFFFF FFFFFFFF C90FDAA2 2168C234 C4C6628B 80DC1CD1 29024E08
@@ -32,9 +33,10 @@ class modp1024: # From RFC 4306
     302B0A6D F25F1437 4FE1356D 6D51C245 E485B576 625E7EC6 F44C42E9
     A637ED6B 0BFF5CB6 F406B7ED EE386BFB 5A899FA5 AE9F2411 7C4B1FE6
     49286651 ECE65381 FFFFFFFF FFFFFFFF""")
-    mLen  = 1024
+    mLen = 1024
 
-class modp1536: # From RFC 3526
+
+class modp1536:  # From RFC 3526
     g = 0x02
     m = long_converter("""
     FFFFFFFF FFFFFFFF C90FDAA2 2168C234 C4C6628B 80DC1CD1
@@ -45,9 +47,10 @@ class modp1536: # From RFC 3526
     C2007CB8 A163BF05 98DA4836 1C55D39A 69163FA8 FD24CF5F
     83655D23 DCA3AD96 1C62F356 208552BB 9ED52907 7096966D
     670C354E 4ABC9804 F1746C08 CA237327 FFFFFFFF FFFFFFFF""")
-    mLen  = 1536
+    mLen = 1536
 
-class modp2048: # From RFC 3526
+
+class modp2048:  # From RFC 3526
     g = 0x02
     m = long_converter("""
     FFFFFFFF FFFFFFFF C90FDAA2 2168C234 C4C6628B 80DC1CD1
@@ -61,9 +64,10 @@ class modp2048: # From RFC 3526
     E39E772C 180E8603 9B2783A2 EC07A28F B5C55DF0 6F4C52C9
     DE2BCBF6 95581718 3995497C EA956AE5 15D22618 98FA0510
     15728E5A 8AACAA68 FFFFFFFF FFFFFFFF""")
-    mLen  = 2048
+    mLen = 2048
 
-class modp3072: # From RFC 3526
+
+class modp3072:  # From RFC 3526
     g = 0x02
     m = long_converter("""
     FFFFFFFF FFFFFFFF C90FDAA2 2168C234 C4C6628B 80DC1CD1
@@ -82,9 +86,10 @@ class modp3072: # From RFC 3526
     F12FFA06 D98A0864 D8760273 3EC86A64 521F2B18 177B200C
     BBE11757 7A615D6C 770988C0 BAD946E2 08E24FA0 74E5AB31
     43DB5BFC E0FD108E 4B82D120 A93AD2CA FFFFFFFF FFFFFFFF""")
-    mLen  = 3072
+    mLen = 3072
 
-class modp4096: # From RFC 3526
+
+class modp4096:  # From RFC 3526
     g = 0x02
     m = long_converter("""
     FFFFFFFF FFFFFFFF C90FDAA2 2168C234 C4C6628B 80DC1CD1
@@ -109,9 +114,10 @@ class modp4096: # From RFC 3526
     1F612970 CEE2D7AF B81BDD76 2170481C D0069127 D5B05AA9
     93B4EA98 8D8FDDC1 86FFB7DC 90A6C08F 4DF435C9 34063199
     FFFFFFFF FFFFFFFF""")
-    mLen  = 4096
+    mLen = 4096
 
-class modp6144: # From RFC 3526
+
+class modp6144:  # From RFC 3526
     g = 0x02
     m = long_converter("""
     FFFFFFFF FFFFFFFF C90FDAA2 2168C234 C4C6628B 80DC1CD1 29024E08
@@ -144,7 +150,8 @@ class modp6144: # From RFC 3526
     6DCC4024 FFFFFFFF FFFFFFFF""")
     mLen = 6144
 
-class modp8192: # From RFC 3526
+
+class modp8192:  # From RFC 3526
     g = 0x02
     m = long_converter("""
     FFFFFFFF FFFFFFFF C90FDAA2 2168C234 C4C6628B 80DC1CD1
@@ -192,14 +199,14 @@ class modp8192: # From RFC 3526
     60C980DD 98EDD3DF FFFFFFFF FFFFFFFF""")
     mLen = 8192
 
-_ffdh_raw_params = { 'modp768' : modp768,
-                     'modp1024': modp1024,
-                     'modp1536': modp1536,
-                     'modp2048': modp2048,
-                     'modp3072': modp3072,
-                     'modp4096': modp4096,
-                     'modp6144': modp6144,
-                     'modp8192': modp8192  }
+_ffdh_raw_params = {'modp768': modp768,
+                    'modp1024': modp1024,
+                    'modp1536': modp1536,
+                    'modp2048': modp2048,
+                    'modp3072': modp3072,
+                    'modp4096': modp4096,
+                    'modp6144': modp6144,
+                    'modp8192': modp8192}
 
 FFDH_GROUPS = {}
 for name, group in _ffdh_raw_params.iteritems():
@@ -211,7 +218,7 @@ for name, group in _ffdh_raw_params.iteritems():
 #from scapy.layers.tls.crypto.pkcs1 import pkcs_os2ip, pkcs_i2osp
 #
 #
-#class FFDHParams(object):
+# class FFDHParams(object):
 #    """
 #    Finite-Field Diffie-Hellman parameters.
 #    self.priv is an integer. Its value may remain unknown.
@@ -296,4 +303,3 @@ for name, group in _ffdh_raw_params.iteritems():
 #    def check_params(self):
 #        #XXX Do me, maybe
 #        pass
-

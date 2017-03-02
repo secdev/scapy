@@ -85,7 +85,7 @@ class GTPHeader(Packet):
     def post_build(self, p, pay):
         p += pay
         if self.length is None:
-            l = len(p)-8
+            l = len(p) - 8
             p = p[:2] + struct.pack("!H", l) + p[4:]
         return p
 
@@ -258,7 +258,7 @@ class IE_IMSI(gtp.IE_Base):
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
                    gtp.TBCDByteField("IMSI", "33607080910",
-                                        length_from=lambda x: x.length)]
+                                     length_from=lambda x: x.length)]
 
 
 class IE_Cause(gtp.IE_Base):
@@ -290,7 +290,7 @@ class IE_APN(gtp.IE_Base):
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
                    gtp.APNStrLenField("APN", "nternet",
-                                         length_from=lambda x: x.length)]
+                                      length_from=lambda x: x.length)]
 
 
 class IE_AMBR(gtp.IE_Base):
@@ -310,7 +310,7 @@ class IE_MSISDN(gtp.IE_Base):
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
                    gtp.TBCDByteField("digits", "33123456789",
-                                        length_from=lambda x: x.length)]
+                                     length_from=lambda x: x.length)]
 
 
 class IE_Indication(gtp.IE_Base):
@@ -388,6 +388,7 @@ PCO_OPTION_TYPES = {
 
 
 class PCO_Option(Packet):
+
     def extract_padding(self, pkt):
         return "", pkt
 
@@ -458,7 +459,7 @@ def PCO_option_dispatcher(s):
 
 
 def len_options(pkt):
-    return pkt.length-4 if pkt.length else 0
+    return pkt.length - 4 if pkt.length else 0
 
 
 class PCO_P_CSCF_IPv6_Address_Request(PCO_Option):
@@ -576,7 +577,7 @@ class PCO_PPP_Challenge(PCO_Option):
                        lambda pkt: pkt.value_size),
                    ConditionalField(StrFixedLenField(
                        "name", "",
-                       length_from=lambda pkt: pkt.length-pkt.value_size-5),
+                       length_from=lambda pkt: pkt.length - pkt.value_size - 5),
                        lambda pkt: pkt.length)]
 
 
@@ -603,7 +604,7 @@ PCO_PROTOCOL_CLASSES = {
 
 def PCO_protocol_dispatcher(s):
     """Choose the correct PCO element."""
-    proto_num = ord(s[0])*256+ord(s[1])
+    proto_num = ord(s[0]) * 256 + ord(s[1])
     cls = PCO_PROTOCOL_CLASSES.get(proto_num, Raw)
     return cls(s)
 
@@ -618,7 +619,7 @@ class IE_PCO(gtp.IE_Base):
                    BitField("SPARE", 0, 4),
                    BitField("PPP", 0, 3),
                    PacketListField("Protocols", None, PCO_protocol_dispatcher,
-                                   length_from=lambda pkt: pkt.length-1)]
+                                   length_from=lambda pkt: pkt.length - 1)]
 
 
 class IE_PAA(gtp.IE_Base):
