@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
-##                     2015, 2016 Maxence Tury
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
+# 2015, 2016 Maxence Tury
+# This program is published under a GPLv2 license
 
 """
 TLS cipher suites.
@@ -51,6 +51,7 @@ def get_algs_from_ciphersuite_name(ciphersuite_name):
 _tls_cipher_suites = {}
 _tls_cipher_suites_cls = {}
 
+
 class _GenericCipherSuiteMetaclass(type):
     """
     Cipher suite classes are automatically registered through this metaclass.
@@ -82,27 +83,27 @@ class _GenericCipherSuiteMetaclass(type):
                 dct["hmac_alg"] = hm
                 dct["hash_alg"] = h
 
-                kb_len = 2*c.key_len
+                kb_len = 2 * c.key_len
 
                 if c.type == "stream" or c.type == "block":
-                    kb_len += 2*hm.key_len
+                    kb_len += 2 * hm.key_len
 
                 kb_len_v1_0 = kb_len
                 if c.type == "block":
-                    kb_len_v1_0 += 2*c.block_size
+                    kb_len_v1_0 += 2 * c.block_size
                     # no explicit IVs added for TLS 1.1+
                 elif c.type == "aead":
-                    kb_len_v1_0 += 2*c.salt_len
-                    kb_len += 2*c.salt_len
+                    kb_len_v1_0 += 2 * c.salt_len
+                    kb_len += 2 * c.salt_len
 
                 dct["_key_block_len_v1_0"] = kb_len_v1_0
                 dct["key_block_len"] = kb_len
 
             _tls_cipher_suites[cs_val] = cs_name
         the_class = super(_GenericCipherSuiteMetaclass, cls).__new__(cls,
-                                                                    cs_name,
-                                                                    bases,
-                                                                    dct)
+                                                                     cs_name,
+                                                                     bases,
+                                                                     dct)
         if cs_name != "_GenericCipherSuite":
             _tls_cipher_suites_cls[cs_val] = the_class
         return the_class
@@ -130,819 +131,1081 @@ class _GenericCipherSuite(object):
 class TLS_NULL_WITH_NULL_NULL(_GenericCipherSuite):
     val = 0x0000
 
+
 class TLS_RSA_WITH_NULL_MD5(_GenericCipherSuite):
     val = 0x0001
+
 
 class TLS_RSA_WITH_NULL_SHA(_GenericCipherSuite):
     val = 0x0002
 
+
 class TLS_RSA_EXPORT_WITH_RC4_40_MD5(_GenericCipherSuite):
     val = 0x0003
+
 
 class TLS_RSA_WITH_RC4_128_MD5(_GenericCipherSuite):
     val = 0x0004
 
+
 class TLS_RSA_WITH_RC4_128_SHA(_GenericCipherSuite):
     val = 0x0005
+
 
 class TLS_RSA_EXPORT_WITH_RC2_CBC_40_MD5(_GenericCipherSuite):
     val = 0x0006
 
+
 class TLS_RSA_WITH_IDEA_CBC_SHA(_GenericCipherSuite):
     val = 0x0007
+
 
 class TLS_RSA_EXPORT_WITH_DES40_CBC_SHA(_GenericCipherSuite):
     val = 0x0008
 
+
 class TLS_RSA_WITH_DES_CBC_SHA(_GenericCipherSuite):
     val = 0x0009
+
 
 class TLS_RSA_WITH_3DES_EDE_CBC_SHA(_GenericCipherSuite):
     val = 0x000A
 
+
 class TLS_DH_DSS_EXPORT_WITH_DES40_CBC_SHA(_GenericCipherSuite):
     val = 0x000B
+
 
 class TLS_DH_DSS_WITH_DES_CBC_SHA(_GenericCipherSuite):
     val = 0x000C
 
+
 class TLS_DH_DSS_WITH_3DES_EDE_CBC_SHA(_GenericCipherSuite):
     val = 0x000D
+
 
 class TLS_DH_RSA_EXPORT_WITH_DES40_CBC_SHA(_GenericCipherSuite):
     val = 0x000E
 
+
 class TLS_DH_RSA_WITH_DES_CBC_SHA(_GenericCipherSuite):
     val = 0x000F
+
 
 class TLS_DH_RSA_WITH_3DES_EDE_CBC_SHA(_GenericCipherSuite):
     val = 0x0010
 
+
 class TLS_DHE_DSS_EXPORT_WITH_DES40_CBC_SHA(_GenericCipherSuite):
     val = 0x0011
+
 
 class TLS_DHE_DSS_WITH_DES_CBC_SHA(_GenericCipherSuite):
     val = 0x0012
 
+
 class TLS_DHE_DSS_WITH_3DES_EDE_CBC_SHA(_GenericCipherSuite):
     val = 0x0013
+
 
 class TLS_DHE_RSA_EXPORT_WITH_DES40_CBC_SHA(_GenericCipherSuite):
     val = 0x0014
 
+
 class TLS_DHE_RSA_WITH_DES_CBC_SHA(_GenericCipherSuite):
     val = 0x0015
+
 
 class TLS_DHE_RSA_WITH_3DES_EDE_CBC_SHA(_GenericCipherSuite):
     val = 0x0016
 
+
 class TLS_DH_anon_EXPORT_WITH_RC4_40_MD5(_GenericCipherSuite):
     val = 0x0017
+
 
 class TLS_DH_anon_WITH_RC4_128_MD5(_GenericCipherSuite):
     val = 0x0018
 
+
 class TLS_DH_anon_EXPORT_WITH_DES40_CBC_SHA(_GenericCipherSuite):
     val = 0x0019
+
 
 class TLS_DH_anon_WITH_DES_CBC_SHA(_GenericCipherSuite):
     val = 0x001A
 
+
 class TLS_DH_anon_WITH_3DES_EDE_CBC_SHA(_GenericCipherSuite):
     val = 0x001B
+
 
 class TLS_KRB5_WITH_DES_CBC_SHA(_GenericCipherSuite):
     val = 0x001E
 
+
 class TLS_KRB5_WITH_3DES_EDE_CBC_SHA(_GenericCipherSuite):
     val = 0x001F
+
 
 class TLS_KRB5_WITH_RC4_128_SHA(_GenericCipherSuite):
     val = 0x0020
 
+
 class TLS_KRB5_WITH_IDEA_CBC_SHA(_GenericCipherSuite):
     val = 0x0021
+
 
 class TLS_KRB5_WITH_DES_CBC_MD5(_GenericCipherSuite):
     val = 0x0022
 
+
 class TLS_KRB5_WITH_3DES_EDE_CBC_MD5(_GenericCipherSuite):
     val = 0x0023
+
 
 class TLS_KRB5_WITH_RC4_128_MD5(_GenericCipherSuite):
     val = 0x0024
 
+
 class TLS_KRB5_WITH_IDEA_CBC_MD5(_GenericCipherSuite):
     val = 0x0025
+
 
 class TLS_KRB5_EXPORT_WITH_DES40_CBC_SHA(_GenericCipherSuite):
     val = 0x0026
 
+
 class TLS_KRB5_EXPORT_WITH_RC2_CBC_40_SHA(_GenericCipherSuite):
     val = 0x0027
+
 
 class TLS_KRB5_EXPORT_WITH_RC4_40_SHA(_GenericCipherSuite):
     val = 0x0028
 
+
 class TLS_KRB5_EXPORT_WITH_DES40_CBC_MD5(_GenericCipherSuite):
     val = 0x0029
+
 
 class TLS_KRB5_EXPORT_WITH_RC2_CBC_40_MD5(_GenericCipherSuite):
     val = 0x002A
 
+
 class TLS_KRB5_EXPORT_WITH_RC4_40_MD5(_GenericCipherSuite):
     val = 0x002B
+
 
 class TLS_PSK_WITH_NULL_SHA(_GenericCipherSuite):
     val = 0x002C
 
+
 class TLS_DHE_PSK_WITH_NULL_SHA(_GenericCipherSuite):
     val = 0x002D
+
 
 class TLS_RSA_PSK_WITH_NULL_SHA(_GenericCipherSuite):
     val = 0x002E
 
+
 class TLS_RSA_WITH_AES_128_CBC_SHA(_GenericCipherSuite):
     val = 0x002F
+
 
 class TLS_DH_DSS_WITH_AES_128_CBC_SHA(_GenericCipherSuite):
     val = 0x0030
 
+
 class TLS_DH_RSA_WITH_AES_128_CBC_SHA(_GenericCipherSuite):
     val = 0x0031
+
 
 class TLS_DHE_DSS_WITH_AES_128_CBC_SHA(_GenericCipherSuite):
     val = 0x0032
 
+
 class TLS_DHE_RSA_WITH_AES_128_CBC_SHA(_GenericCipherSuite):
     val = 0x0033
+
 
 class TLS_DH_anon_WITH_AES_128_CBC_SHA(_GenericCipherSuite):
     val = 0x0034
 
+
 class TLS_RSA_WITH_AES_256_CBC_SHA(_GenericCipherSuite):
     val = 0x0035
+
 
 class TLS_DH_DSS_WITH_AES_256_CBC_SHA(_GenericCipherSuite):
     val = 0x0036
 
+
 class TLS_DH_RSA_WITH_AES_256_CBC_SHA(_GenericCipherSuite):
     val = 0x0037
+
 
 class TLS_DHE_DSS_WITH_AES_256_CBC_SHA(_GenericCipherSuite):
     val = 0x0038
 
+
 class TLS_DHE_RSA_WITH_AES_256_CBC_SHA(_GenericCipherSuite):
     val = 0x0039
+
 
 class TLS_DH_anon_WITH_AES_256_CBC_SHA(_GenericCipherSuite):
     val = 0x003A
 
+
 class TLS_RSA_WITH_NULL_SHA256(_GenericCipherSuite):
     val = 0x003B
+
 
 class TLS_RSA_WITH_AES_128_CBC_SHA256(_GenericCipherSuite):
     val = 0x003C
 
+
 class TLS_RSA_WITH_AES_256_CBC_SHA256(_GenericCipherSuite):
     val = 0x003D
+
 
 class TLS_DH_DSS_WITH_AES_128_CBC_SHA256(_GenericCipherSuite):
     val = 0x003E
 
+
 class TLS_DH_RSA_WITH_AES_128_CBC_SHA256(_GenericCipherSuite):
     val = 0x003F
+
 
 class TLS_DHE_DSS_WITH_AES_128_CBC_SHA256(_GenericCipherSuite):
     val = 0x0040
 
+
 class TLS_RSA_WITH_CAMELLIA_128_CBC_SHA(_GenericCipherSuite):
     val = 0x0041
+
 
 class TLS_DH_DSS_WITH_CAMELLIA_128_CBC_SHA(_GenericCipherSuite):
     val = 0x0042
 
+
 class TLS_DH_RSA_WITH_CAMELLIA_128_CBC_SHA(_GenericCipherSuite):
     val = 0x0043
+
 
 class TLS_DHE_DSS_WITH_CAMELLIA_128_CBC_SHA(_GenericCipherSuite):
     val = 0x0044
 
+
 class TLS_DHE_RSA_WITH_CAMELLIA_128_CBC_SHA(_GenericCipherSuite):
     val = 0x0045
+
 
 class TLS_DH_anon_WITH_CAMELLIA_128_CBC_SHA(_GenericCipherSuite):
     val = 0x0046
 
+
 class TLS_DHE_RSA_WITH_AES_128_CBC_SHA256(_GenericCipherSuite):
     val = 0x0067
+
 
 class TLS_DH_DSS_WITH_AES_256_CBC_SHA256(_GenericCipherSuite):
     val = 0x0068
 
+
 class TLS_DH_RSA_WITH_AES_256_CBC_SHA256(_GenericCipherSuite):
     val = 0x0069
+
 
 class TLS_DHE_DSS_WITH_AES_256_CBC_SHA256(_GenericCipherSuite):
     val = 0x006A
 
+
 class TLS_DHE_RSA_WITH_AES_256_CBC_SHA256(_GenericCipherSuite):
     val = 0x006B
+
 
 class TLS_DH_anon_WITH_AES_128_CBC_SHA256(_GenericCipherSuite):
     val = 0x006C
 
+
 class TLS_DH_anon_WITH_AES_256_CBC_SHA256(_GenericCipherSuite):
     val = 0x006D
+
 
 class TLS_RSA_WITH_CAMELLIA_256_CBC_SHA(_GenericCipherSuite):
     val = 0x0084
 
+
 class TLS_DH_DSS_WITH_CAMELLIA_256_CBC_SHA(_GenericCipherSuite):
     val = 0x0085
+
 
 class TLS_DH_RSA_WITH_CAMELLIA_256_CBC_SHA(_GenericCipherSuite):
     val = 0x0086
 
+
 class TLS_DHE_DSS_WITH_CAMELLIA_256_CBC_SHA(_GenericCipherSuite):
     val = 0x0087
+
 
 class TLS_DHE_RSA_WITH_CAMELLIA_256_CBC_SHA(_GenericCipherSuite):
     val = 0x0088
 
+
 class TLS_DH_anon_WITH_CAMELLIA_256_CBC_SHA(_GenericCipherSuite):
     val = 0x0089
+
 
 class TLS_PSK_WITH_RC4_128_SHA(_GenericCipherSuite):
     val = 0x008A
 
+
 class TLS_PSK_WITH_3DES_EDE_CBC_SHA(_GenericCipherSuite):
     val = 0x008B
+
 
 class TLS_PSK_WITH_AES_128_CBC_SHA(_GenericCipherSuite):
     val = 0x008C
 
+
 class TLS_PSK_WITH_AES_256_CBC_SHA(_GenericCipherSuite):
     val = 0x008D
+
 
 class TLS_DHE_PSK_WITH_RC4_128_SHA(_GenericCipherSuite):
     val = 0x008E
 
+
 class TLS_DHE_PSK_WITH_3DES_EDE_CBC_SHA(_GenericCipherSuite):
     val = 0x008F
+
 
 class TLS_DHE_PSK_WITH_AES_128_CBC_SHA(_GenericCipherSuite):
     val = 0x0090
 
+
 class TLS_DHE_PSK_WITH_AES_256_CBC_SHA(_GenericCipherSuite):
     val = 0x0091
+
 
 class TLS_RSA_PSK_WITH_RC4_128_SHA(_GenericCipherSuite):
     val = 0x0092
 
+
 class TLS_RSA_PSK_WITH_3DES_EDE_CBC_SHA(_GenericCipherSuite):
     val = 0x0093
+
 
 class TLS_RSA_PSK_WITH_AES_128_CBC_SHA(_GenericCipherSuite):
     val = 0x0094
 
+
 class TLS_RSA_PSK_WITH_AES_256_CBC_SHA(_GenericCipherSuite):
     val = 0x0095
+
 
 class TLS_RSA_WITH_SEED_CBC_SHA(_GenericCipherSuite):
     val = 0x0096
 
+
 class TLS_DH_DSS_WITH_SEED_CBC_SHA(_GenericCipherSuite):
     val = 0x0097
+
 
 class TLS_DH_RSA_WITH_SEED_CBC_SHA(_GenericCipherSuite):
     val = 0x0098
 
+
 class TLS_DHE_DSS_WITH_SEED_CBC_SHA(_GenericCipherSuite):
     val = 0x0099
+
 
 class TLS_DHE_RSA_WITH_SEED_CBC_SHA(_GenericCipherSuite):
     val = 0x009A
 
+
 class TLS_DH_anon_WITH_SEED_CBC_SHA(_GenericCipherSuite):
     val = 0x009B
+
 
 class TLS_RSA_WITH_AES_128_GCM_SHA256(_GenericCipherSuite):
     val = 0x009C
 
+
 class TLS_RSA_WITH_AES_256_GCM_SHA384(_GenericCipherSuite):
     val = 0x009D
+
 
 class TLS_DHE_RSA_WITH_AES_128_GCM_SHA256(_GenericCipherSuite):
     val = 0x009E
 
+
 class TLS_DHE_RSA_WITH_AES_256_GCM_SHA384(_GenericCipherSuite):
     val = 0x009F
+
 
 class TLS_DH_RSA_WITH_AES_128_GCM_SHA256(_GenericCipherSuite):
     val = 0x00A0
 
+
 class TLS_DH_RSA_WITH_AES_256_GCM_SHA384(_GenericCipherSuite):
     val = 0x00A1
+
 
 class TLS_DHE_DSS_WITH_AES_128_GCM_SHA256(_GenericCipherSuite):
     val = 0x00A2
 
+
 class TLS_DHE_DSS_WITH_AES_256_GCM_SHA384(_GenericCipherSuite):
     val = 0x00A3
+
 
 class TLS_DH_DSS_WITH_AES_128_GCM_SHA256(_GenericCipherSuite):
     val = 0x00A4
 
+
 class TLS_DH_DSS_WITH_AES_256_GCM_SHA384(_GenericCipherSuite):
     val = 0x00A5
+
 
 class TLS_DH_anon_WITH_AES_128_GCM_SHA256(_GenericCipherSuite):
     val = 0x00A6
 
+
 class TLS_DH_anon_WITH_AES_256_GCM_SHA384(_GenericCipherSuite):
     val = 0x00A7
+
 
 class TLS_PSK_WITH_AES_128_GCM_SHA256(_GenericCipherSuite):
     val = 0x00A8
 
+
 class TLS_PSK_WITH_AES_256_GCM_SHA384(_GenericCipherSuite):
     val = 0x00A9
+
 
 class TLS_DHE_PSK_WITH_AES_128_GCM_SHA256(_GenericCipherSuite):
     val = 0x00AA
 
+
 class TLS_DHE_PSK_WITH_AES_256_GCM_SHA384(_GenericCipherSuite):
     val = 0x00AB
+
 
 class TLS_RSA_PSK_WITH_AES_128_GCM_SHA256(_GenericCipherSuite):
     val = 0x00AC
 
+
 class TLS_RSA_PSK_WITH_AES_256_GCM_SHA384(_GenericCipherSuite):
     val = 0x00AD
+
 
 class TLS_PSK_WITH_AES_128_CBC_SHA256(_GenericCipherSuite):
     val = 0x00AE
 
+
 class TLS_PSK_WITH_AES_256_CBC_SHA384(_GenericCipherSuite):
     val = 0x00AF
+
 
 class TLS_PSK_WITH_NULL_SHA256(_GenericCipherSuite):
     val = 0x00B0
 
+
 class TLS_PSK_WITH_NULL_SHA384(_GenericCipherSuite):
     val = 0x00B1
+
 
 class TLS_DHE_PSK_WITH_AES_128_CBC_SHA256(_GenericCipherSuite):
     val = 0x00B2
 
+
 class TLS_DHE_PSK_WITH_AES_256_CBC_SHA384(_GenericCipherSuite):
     val = 0x00B3
+
 
 class TLS_DHE_PSK_WITH_NULL_SHA256(_GenericCipherSuite):
     val = 0x00B4
 
+
 class TLS_DHE_PSK_WITH_NULL_SHA384(_GenericCipherSuite):
     val = 0x00B5
+
 
 class TLS_RSA_PSK_WITH_AES_128_CBC_SHA256(_GenericCipherSuite):
     val = 0x00B6
 
+
 class TLS_RSA_PSK_WITH_AES_256_CBC_SHA384(_GenericCipherSuite):
     val = 0x00B7
+
 
 class TLS_RSA_PSK_WITH_NULL_SHA256(_GenericCipherSuite):
     val = 0x00B8
 
+
 class TLS_RSA_PSK_WITH_NULL_SHA384(_GenericCipherSuite):
     val = 0x00B9
+
 
 class TLS_RSA_WITH_CAMELLIA_128_CBC_SHA256(_GenericCipherSuite):
     val = 0x00BA
 
+
 class TLS_DH_DSS_WITH_CAMELLIA_128_CBC_SHA256(_GenericCipherSuite):
     val = 0x00BB
+
 
 class TLS_DH_RSA_WITH_CAMELLIA_128_CBC_SHA256(_GenericCipherSuite):
     val = 0x00BC
 
+
 class TLS_DHE_DSS_WITH_CAMELLIA_128_CBC_SHA256(_GenericCipherSuite):
     val = 0x00BD
+
 
 class TLS_DHE_RSA_WITH_CAMELLIA_128_CBC_SHA256(_GenericCipherSuite):
     val = 0x00BE
 
+
 class TLS_DH_anon_WITH_CAMELLIA_128_CBC_SHA256(_GenericCipherSuite):
     val = 0x00BF
+
 
 class TLS_RSA_WITH_CAMELLIA_256_CBC_SHA256(_GenericCipherSuite):
     val = 0x00C0
 
+
 class TLS_DH_DSS_WITH_CAMELLIA_256_CBC_SHA256(_GenericCipherSuite):
     val = 0x00C1
+
 
 class TLS_DH_RSA_WITH_CAMELLIA_256_CBC_SHA256(_GenericCipherSuite):
     val = 0x00C2
 
+
 class TLS_DHE_DSS_WITH_CAMELLIA_256_CBC_SHA256(_GenericCipherSuite):
     val = 0x00C3
+
 
 class TLS_DHE_RSA_WITH_CAMELLIA_256_CBC_SHA256(_GenericCipherSuite):
     val = 0x00C4
 
+
 class TLS_DH_anon_WITH_CAMELLIA_256_CBC_SHA256(_GenericCipherSuite):
     val = 0x00C5
 
-#class TLS_EMPTY_RENEGOTIATION_INFO_CSV(_GenericCipherSuite):
+# class TLS_EMPTY_RENEGOTIATION_INFO_CSV(_GenericCipherSuite):
 #    val = 0x00FF
 
-#class TLS_FALLBACK_SCSV(_GenericCipherSuite):
+# class TLS_FALLBACK_SCSV(_GenericCipherSuite):
 #    val = 0x5600
+
 
 class TLS_ECDH_ECDSA_WITH_NULL_SHA(_GenericCipherSuite):
     val = 0xC001
 
+
 class TLS_ECDH_ECDSA_WITH_RC4_128_SHA(_GenericCipherSuite):
     val = 0xC002
+
 
 class TLS_ECDH_ECDSA_WITH_3DES_EDE_CBC_SHA(_GenericCipherSuite):
     val = 0xC003
 
+
 class TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA(_GenericCipherSuite):
     val = 0xC004
+
 
 class TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA(_GenericCipherSuite):
     val = 0xC005
 
+
 class TLS_ECDHE_ECDSA_WITH_NULL_SHA(_GenericCipherSuite):
     val = 0xC006
+
 
 class TLS_ECDHE_ECDSA_WITH_RC4_128_SHA(_GenericCipherSuite):
     val = 0xC007
 
+
 class TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA(_GenericCipherSuite):
     val = 0xC008
+
 
 class TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA(_GenericCipherSuite):
     val = 0xC009
 
+
 class TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA(_GenericCipherSuite):
     val = 0xC00A
+
 
 class TLS_ECDH_RSA_WITH_NULL_SHA(_GenericCipherSuite):
     val = 0xC00B
 
+
 class TLS_ECDH_RSA_WITH_RC4_128_SHA(_GenericCipherSuite):
     val = 0xC00C
+
 
 class TLS_ECDH_RSA_WITH_3DES_EDE_CBC_SHA(_GenericCipherSuite):
     val = 0xC00D
 
+
 class TLS_ECDH_RSA_WITH_AES_128_CBC_SHA(_GenericCipherSuite):
     val = 0xC00E
+
 
 class TLS_ECDH_RSA_WITH_AES_256_CBC_SHA(_GenericCipherSuite):
     val = 0xC00F
 
+
 class TLS_ECDHE_RSA_WITH_NULL_SHA(_GenericCipherSuite):
     val = 0xC010
+
 
 class TLS_ECDHE_RSA_WITH_RC4_128_SHA(_GenericCipherSuite):
     val = 0xC011
 
+
 class TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA(_GenericCipherSuite):
     val = 0xC012
+
 
 class TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA(_GenericCipherSuite):
     val = 0xC013
 
+
 class TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA(_GenericCipherSuite):
     val = 0xC014
+
 
 class TLS_ECDH_anon_WITH_NULL_SHA(_GenericCipherSuite):
     val = 0xC015
 
+
 class TLS_ECDH_anon_WITH_RC4_128_SHA(_GenericCipherSuite):
     val = 0xC016
+
 
 class TLS_ECDH_anon_WITH_3DES_EDE_CBC_SHA(_GenericCipherSuite):
     val = 0xC017
 
+
 class TLS_ECDH_anon_WITH_AES_128_CBC_SHA(_GenericCipherSuite):
     val = 0xC018
+
 
 class TLS_ECDH_anon_WITH_AES_256_CBC_SHA(_GenericCipherSuite):
     val = 0xC019
 
+
 class TLS_SRP_SHA_WITH_3DES_EDE_CBC_SHA(_GenericCipherSuite):
     val = 0xC01A
+
 
 class TLS_SRP_SHA_RSA_WITH_3DES_EDE_CBC_SHA(_GenericCipherSuite):
     val = 0xC01B
 
+
 class TLS_SRP_SHA_DSS_WITH_3DES_EDE_CBC_SHA(_GenericCipherSuite):
     val = 0xC01C
+
 
 class TLS_SRP_SHA_WITH_AES_128_CBC_SHA(_GenericCipherSuite):
     val = 0xC01D
 
+
 class TLS_SRP_SHA_RSA_WITH_AES_128_CBC_SHA(_GenericCipherSuite):
     val = 0xC01E
+
 
 class TLS_SRP_SHA_DSS_WITH_AES_128_CBC_SHA(_GenericCipherSuite):
     val = 0xC01F
 
+
 class TLS_SRP_SHA_WITH_AES_256_CBC_SHA(_GenericCipherSuite):
     val = 0xC020
+
 
 class TLS_SRP_SHA_RSA_WITH_AES_256_CBC_SHA(_GenericCipherSuite):
     val = 0xC021
 
+
 class TLS_SRP_SHA_DSS_WITH_AES_256_CBC_SHA(_GenericCipherSuite):
     val = 0xC022
+
 
 class TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256(_GenericCipherSuite):
     val = 0xC023
 
+
 class TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384(_GenericCipherSuite):
     val = 0xC024
+
 
 class TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA256(_GenericCipherSuite):
     val = 0xC025
 
+
 class TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA384(_GenericCipherSuite):
     val = 0xC026
+
 
 class TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256(_GenericCipherSuite):
     val = 0xC027
 
+
 class TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384(_GenericCipherSuite):
     val = 0xC028
+
 
 class TLS_ECDH_RSA_WITH_AES_128_CBC_SHA256(_GenericCipherSuite):
     val = 0xC029
 
+
 class TLS_ECDH_RSA_WITH_AES_256_CBC_SHA384(_GenericCipherSuite):
     val = 0xC02A
+
 
 class TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256(_GenericCipherSuite):
     val = 0xC02B
 
+
 class TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384(_GenericCipherSuite):
     val = 0xC02C
+
 
 class TLS_ECDH_ECDSA_WITH_AES_128_GCM_SHA256(_GenericCipherSuite):
     val = 0xC02D
 
+
 class TLS_ECDH_ECDSA_WITH_AES_256_GCM_SHA384(_GenericCipherSuite):
     val = 0xC02E
+
 
 class TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256(_GenericCipherSuite):
     val = 0xC02F
 
+
 class TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384(_GenericCipherSuite):
     val = 0xC030
+
 
 class TLS_ECDH_RSA_WITH_AES_128_GCM_SHA256(_GenericCipherSuite):
     val = 0xC031
 
+
 class TLS_ECDH_RSA_WITH_AES_256_GCM_SHA384(_GenericCipherSuite):
     val = 0xC032
+
 
 class TLS_ECDHE_PSK_WITH_RC4_128_SHA(_GenericCipherSuite):
     val = 0xC033
 
+
 class TLS_ECDHE_PSK_WITH_3DES_EDE_CBC_SHA(_GenericCipherSuite):
     val = 0xC034
+
 
 class TLS_ECDHE_PSK_WITH_AES_128_CBC_SHA(_GenericCipherSuite):
     val = 0xC035
 
+
 class TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA(_GenericCipherSuite):
     val = 0xC036
+
 
 class TLS_ECDHE_PSK_WITH_AES_128_CBC_SHA256(_GenericCipherSuite):
     val = 0xC037
 
+
 class TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA384(_GenericCipherSuite):
     val = 0xC038
+
 
 class TLS_ECDHE_PSK_WITH_NULL_SHA(_GenericCipherSuite):
     val = 0xC039
 
+
 class TLS_ECDHE_PSK_WITH_NULL_SHA256(_GenericCipherSuite):
     val = 0xC03A
+
 
 class TLS_ECDHE_PSK_WITH_NULL_SHA384(_GenericCipherSuite):
     val = 0xC03B
 
 # suites 0xC03C-C071 use ARIA
 
+
 class TLS_ECDHE_ECDSA_WITH_CAMELLIA_128_CBC_SHA256(_GenericCipherSuite):
     val = 0xC072
+
 
 class TLS_ECDHE_ECDSA_WITH_CAMELLIA_256_CBC_SHA384(_GenericCipherSuite):
     val = 0xC073
 
+
 class TLS_ECDH_ECDSA_WITH_CAMELLIA_128_CBC_SHA256(_GenericCipherSuite):
     val = 0xC074
+
 
 class TLS_ECDH_ECDSA_WITH_CAMELLIA_256_CBC_SHA384(_GenericCipherSuite):
     val = 0xC075
 
+
 class TLS_ECDHE_RSA_WITH_CAMELLIA_128_CBC_SHA256(_GenericCipherSuite):
     val = 0xC076
+
 
 class TLS_ECDHE_RSA_WITH_CAMELLIA_256_CBC_SHA384(_GenericCipherSuite):
     val = 0xC077
 
+
 class TLS_ECDH_RSA_WITH_CAMELLIA_128_CBC_SHA256(_GenericCipherSuite):
     val = 0xC078
+
 
 class TLS_ECDH_RSA_WITH_CAMELLIA_256_CBC_SHA384(_GenericCipherSuite):
     val = 0xC079
 
+
 class TLS_RSA_WITH_CAMELLIA_128_GCM_SHA256(_GenericCipherSuite):
     val = 0xC07A
+
 
 class TLS_RSA_WITH_CAMELLIA_256_GCM_SHA384(_GenericCipherSuite):
     val = 0xC07B
 
+
 class TLS_DHE_RSA_WITH_CAMELLIA_128_GCM_SHA256(_GenericCipherSuite):
     val = 0xC07C
+
 
 class TLS_DHE_RSA_WITH_CAMELLIA_256_GCM_SHA384(_GenericCipherSuite):
     val = 0xC07D
 
+
 class TLS_DH_RSA_WITH_CAMELLIA_128_GCM_SHA256(_GenericCipherSuite):
     val = 0xC07E
+
 
 class TLS_DH_RSA_WITH_CAMELLIA_256_GCM_SHA384(_GenericCipherSuite):
     val = 0xC07F
 
+
 class TLS_DHE_DSS_WITH_CAMELLIA_128_GCM_SHA256(_GenericCipherSuite):
     val = 0xC080
+
 
 class TLS_DHE_DSS_WITH_CAMELLIA_256_GCM_SHA384(_GenericCipherSuite):
     val = 0xC081
 
+
 class TLS_DH_DSS_WITH_CAMELLIA_128_GCM_SHA256(_GenericCipherSuite):
     val = 0xC082
+
 
 class TLS_DH_DSS_WITH_CAMELLIA_256_GCM_SHA384(_GenericCipherSuite):
     val = 0xC083
 
+
 class TLS_DH_anon_WITH_CAMELLIA_128_GCM_SHA256(_GenericCipherSuite):
     val = 0xC084
+
 
 class TLS_DH_anon_WITH_CAMELLIA_256_GCM_SHA384(_GenericCipherSuite):
     val = 0xC085
 
+
 class TLS_ECDHE_ECDSA_WITH_CAMELLIA_128_GCM_SHA256(_GenericCipherSuite):
     val = 0xC086
+
 
 class TLS_ECDHE_ECDSA_WITH_CAMELLIA_256_GCM_SHA384(_GenericCipherSuite):
     val = 0xC087
 
+
 class TLS_ECDH_ECDSA_WITH_CAMELLIA_128_GCM_SHA256(_GenericCipherSuite):
     val = 0xC088
+
 
 class TLS_ECDH_ECDSA_WITH_CAMELLIA_256_GCM_SHA384(_GenericCipherSuite):
     val = 0xC089
 
+
 class TLS_ECDHE_RSA_WITH_CAMELLIA_128_GCM_SHA256(_GenericCipherSuite):
     val = 0xC08A
+
 
 class TLS_ECDHE_RSA_WITH_CAMELLIA_256_GCM_SHA384(_GenericCipherSuite):
     val = 0xC08B
 
+
 class TLS_ECDH_RSA_WITH_CAMELLIA_128_GCM_SHA256(_GenericCipherSuite):
     val = 0xC08C
+
 
 class TLS_ECDH_RSA_WITH_CAMELLIA_256_GCM_SHA384(_GenericCipherSuite):
     val = 0xC08D
 
+
 class TLS_PSK_WITH_CAMELLIA_128_GCM_SHA256(_GenericCipherSuite):
     val = 0xC08E
+
 
 class TLS_PSK_WITH_CAMELLIA_256_GCM_SHA384(_GenericCipherSuite):
     val = 0xC08F
 
+
 class TLS_DHE_PSK_WITH_CAMELLIA_128_GCM_SHA256(_GenericCipherSuite):
     val = 0xC090
+
 
 class TLS_DHE_PSK_WITH_CAMELLIA_256_GCM_SHA384(_GenericCipherSuite):
     val = 0xC091
 
+
 class TLS_RSA_PSK_WITH_CAMELLIA_128_GCM_SHA256(_GenericCipherSuite):
     val = 0xC092
+
 
 class TLS_RSA_PSK_WITH_CAMELLIA_256_GCM_SHA384(_GenericCipherSuite):
     val = 0xC093
 
+
 class TLS_PSK_WITH_CAMELLIA_128_CBC_SHA256(_GenericCipherSuite):
     val = 0xC094
+
 
 class TLS_PSK_WITH_CAMELLIA_256_CBC_SHA384(_GenericCipherSuite):
     val = 0xC095
 
+
 class TLS_DHE_PSK_WITH_CAMELLIA_128_CBC_SHA256(_GenericCipherSuite):
     val = 0xC096
+
 
 class TLS_DHE_PSK_WITH_CAMELLIA_256_CBC_SHA384(_GenericCipherSuite):
     val = 0xC097
 
+
 class TLS_RSA_PSK_WITH_CAMELLIA_128_CBC_SHA256(_GenericCipherSuite):
     val = 0xC098
+
 
 class TLS_RSA_PSK_WITH_CAMELLIA_256_CBC_SHA384(_GenericCipherSuite):
     val = 0xC099
 
+
 class TLS_ECDHE_PSK_WITH_CAMELLIA_128_CBC_SHA256(_GenericCipherSuite):
     val = 0xC09A
+
 
 class TLS_ECDHE_PSK_WITH_CAMELLIA_256_CBC_SHA384(_GenericCipherSuite):
     val = 0xC09B
 
+
 class TLS_RSA_WITH_AES_128_CCM(_GenericCipherSuite):
     val = 0xC09C
+
 
 class TLS_RSA_WITH_AES_256_CCM(_GenericCipherSuite):
     val = 0xC09D
 
+
 class TLS_DHE_RSA_WITH_AES_128_CCM(_GenericCipherSuite):
     val = 0xC09E
+
 
 class TLS_DHE_RSA_WITH_AES_256_CCM(_GenericCipherSuite):
     val = 0xC09F
 
+
 class TLS_RSA_WITH_AES_128_CCM_8(_GenericCipherSuite):
     val = 0xC0A0
+
 
 class TLS_RSA_WITH_AES_256_CCM_8(_GenericCipherSuite):
     val = 0xC0A1
 
+
 class TLS_DHE_RSA_WITH_AES_128_CCM_8(_GenericCipherSuite):
     val = 0xC0A2
+
 
 class TLS_DHE_RSA_WITH_AES_256_CCM_8(_GenericCipherSuite):
     val = 0xC0A3
 
+
 class TLS_PSK_WITH_AES_128_CCM(_GenericCipherSuite):
     val = 0xC0A4
+
 
 class TLS_PSK_WITH_AES_256_CCM(_GenericCipherSuite):
     val = 0xC0A5
 
+
 class TLS_DHE_PSK_WITH_AES_128_CCM(_GenericCipherSuite):
     val = 0xC0A6
+
 
 class TLS_DHE_PSK_WITH_AES_256_CCM(_GenericCipherSuite):
     val = 0xC0A7
 
+
 class TLS_PSK_WITH_AES_128_CCM_8(_GenericCipherSuite):
     val = 0xC0A8
+
 
 class TLS_PSK_WITH_AES_256_CCM_8(_GenericCipherSuite):
     val = 0xC0A9
 
+
 class TLS_DHE_PSK_WITH_AES_128_CCM_8(_GenericCipherSuite):
     val = 0xC0AA
+
 
 class TLS_DHE_PSK_WITH_AES_256_CCM_8(_GenericCipherSuite):
     val = 0xC0AB
 
+
 class TLS_ECDHE_ECDSA_WITH_AES_128_CCM(_GenericCipherSuite):
     val = 0xC0AC
+
 
 class TLS_ECDHE_ECDSA_WITH_AES_256_CCM(_GenericCipherSuite):
     val = 0xC0AD
 
+
 class TLS_ECDHE_ECDSA_WITH_AES_128_CCM_8(_GenericCipherSuite):
     val = 0xC0AE
+
 
 class TLS_ECDHE_ECDSA_WITH_AES_256_CCM_8(_GenericCipherSuite):
     val = 0xC0AF
 
-#class TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256(_GenericCipherSuite):
+# class TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256(_GenericCipherSuite):
 #    val = 0xCCA8
 #
-#class TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256(_GenericCipherSuite):
+# class TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256(_GenericCipherSuite):
 #    val = 0xCCA9
 #
-#class TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256(_GenericCipherSuite):
+# class TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256(_GenericCipherSuite):
 #    val = 0xCCAA
 #
-#class TLS_PSK_WITH_CHACHA20_POLY1305_SHA256(_GenericCipherSuite):
+# class TLS_PSK_WITH_CHACHA20_POLY1305_SHA256(_GenericCipherSuite):
 #    val = 0xCCAB
 #
-#class TLS_ECDHE_PSK_WITH_CHACHA20_POLY1305_SHA256(_GenericCipherSuite):
+# class TLS_ECDHE_PSK_WITH_CHACHA20_POLY1305_SHA256(_GenericCipherSuite):
 #    val = 0xCCAC
 #
-#class TLS_DHE_PSK_WITH_CHACHA20_POLY1305_SHA256(_GenericCipherSuite):
+# class TLS_DHE_PSK_WITH_CHACHA20_POLY1305_SHA256(_GenericCipherSuite):
 #    val = 0xCCAD
 #
-#class TLS_RSA_PSK_WITH_CHACHA20_POLY1305_SHA256(_GenericCipherSuite):
+# class TLS_RSA_PSK_WITH_CHACHA20_POLY1305_SHA256(_GenericCipherSuite):
 #    val = 0xCCAE
 
 
@@ -963,9 +1226,8 @@ def get_usable_ciphersuites(l, kx):
         if _tls_cipher_suites_cls.has_key(c):
             ciph = _tls_cipher_suites_cls[c]
             if ciph.usable:
-                #XXX select among RSA and ECDSA cipher suites
+                # XXX select among RSA and ECDSA cipher suites
                 # according to the key(s) the server was given
                 if kx in ciph.kx_alg.name:
                     res.append(c)
     return res
-

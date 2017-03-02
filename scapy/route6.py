@@ -1,10 +1,10 @@
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Philippe Biondi <phil@secdev.org>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# This program is published under a GPLv2 license
 
-## Copyright (C) 2005  Guillaume Valadon <guedou@hongo.wide.ad.jp>
-##                     Arnaud Ebalard <arnaud.ebalard@eads.net>
+# Copyright (C) 2005  Guillaume Valadon <guedou@hongo.wide.ad.jp>
+# Arnaud Ebalard <arnaud.ebalard@eads.net>
 
 """
 Routing and network interface handling for IPv6.
@@ -48,24 +48,26 @@ class Route6:
     def __repr__(self):
         rtlst = [('Destination', 'Next Hop', "iface", "src candidates")]
 
-        for net,msk,gw,iface,cset in self.routes:
-            rtlst.append(('%s/%i'% (net,msk), gw, (iface if isinstance(iface, basestring) else iface.name), ", ".join(cset)))
+        for net, msk, gw, iface, cset in self.routes:
+            rtlst.append(('%s/%i' % (net, msk), gw, (iface if isinstance(iface,
+                                                                         basestring) else iface.name), ", ".join(cset)))
 
-        colwidth = map(lambda x: max(map(lambda y: len(y), x)), apply(zip, rtlst))
-        fmt = "  ".join(map(lambda x: "%%-%ds"%x, colwidth))
+        colwidth = map(lambda x: max(
+            map(lambda y: len(y), x)), apply(zip, rtlst))
+        fmt = "  ".join(map(lambda x: "%%-%ds" % x, colwidth))
         rt = "\n".join(map(lambda x: fmt % x, rtlst))
 
         return rt
 
-
     # Unlike Scapy's Route.make_route() function, we do not have 'host' and 'net'
     # parameters. We only have a 'dst' parameter that accepts 'prefix' and
     # 'prefix/prefixlen' values.
-    # WARNING: Providing a specific device will at the moment not work correctly.
+    # WARNING: Providing a specific device will at the moment not work
+    # correctly.
     def make_route(self, dst, gw=None, dev=None):
         """Internal function : create a route for 'dst' via 'gw'.
         """
-        prefix, plen = (dst.split("/")+["128"])[:2]
+        prefix, plen = (dst.split("/") + ["128"])[:2]
         plen = int(plen)
 
         if gw is None:
@@ -77,10 +79,10 @@ class Route6:
             # replace that unique address by the list of all addresses
             lifaddr = in6_getifaddr()
             devaddrs = filter(lambda x: x[2] == dev, lifaddr)
-            ifaddr = construct_source_candidate_set(prefix, plen, devaddrs, LOOPBACK_NAME)
+            ifaddr = construct_source_candidate_set(
+                prefix, plen, devaddrs, LOOPBACK_NAME)
 
         return (prefix, plen, gw, dev, ifaddr)
-
 
     def add(self, *args, **kargs):
         """Ex:
@@ -91,18 +93,18 @@ class Route6:
         self.invalidate_cache()
         self.routes.append(self.make_route(*args, **kargs))
 
-
     def delt(self, dst, gw=None):
         """ Ex:
         delt(dst="::/0")
         delt(dst="2001:db8:cafe:f000::/56")
         delt(dst="2001:db8:cafe:f000::/56", gw="2001:db8:deca::1")
         """
-        tmp = dst+"/128"
+        tmp = dst + "/128"
         dst, plen = tmp.split('/')[:2]
         dst = in6_ptop(dst)
         plen = int(plen)
-        l = filter(lambda x: in6_ptop(x[0]) == dst and x[1] == plen, self.routes)
+        l = filter(lambda x: in6_ptop(x[0]) ==
+                   dst and x[1] == plen, self.routes)
         if gw:
             gw = in6_ptop(gw)
             l = [x for x in self.routes if in6_ptop(x[2]) == gw]
@@ -111,38 +113,37 @@ class Route6:
         elif len(l) > 1:
             warning("Found more than one match. Aborting.")
         else:
-            i=self.routes.index(l[0])
+            i = self.routes.index(l[0])
             self.invalidate_cache()
             del(self.routes[i])
 
     def ifchange(self, iff, addr):
-        the_addr, the_plen = (addr.split("/")+["128"])[:2]
+        the_addr, the_plen = (addr.split("/") + ["128"])[:2]
         the_plen = int(the_plen)
 
         naddr = inet_pton(socket.AF_INET6, the_addr)
         nmask = in6_cidr2mask(the_plen)
-        the_net = inet_ntop(socket.AF_INET6, in6_and(nmask,naddr))
+        the_net = inet_ntop(socket.AF_INET6, in6_and(nmask, naddr))
 
         for i, route in enumerate(self.routes):
-            net,plen,gw,iface,addr = route
+            net, plen, gw, iface, addr = route
             if iface != iff:
                 continue
             if gw == '::':
-                self.routes[i] = (the_net,the_plen,gw,iface,[the_addr])
+                self.routes[i] = (the_net, the_plen, gw, iface, [the_addr])
             else:
-                self.routes[i] = (net,plen,gw,iface,[the_addr])
+                self.routes[i] = (net, plen, gw, iface, [the_addr])
         self.invalidate_cache()
         conf.netcache.in6_neighbor.flush()
 
     def ifdel(self, iff):
         """ removes all route entries that uses 'iff' interface. """
-        new_routes=[]
+        new_routes = []
         for rt in self.routes:
             if rt[3] != iff:
                 new_routes.append(rt)
         self.invalidate_cache()
         self.routes = new_routes
-
 
     def ifadd(self, iff, addr):
         """
@@ -157,14 +158,14 @@ class Route6:
             prefix length value can be omitted. In that case, a value of 128
             will be used.
         """
-        addr, plen = (addr.split("/")+["128"])[:2]
+        addr, plen = (addr.split("/") + ["128"])[:2]
         addr = in6_ptop(addr)
         plen = int(plen)
         naddr = inet_pton(socket.AF_INET6, addr)
         nmask = in6_cidr2mask(plen)
-        prefix = inet_ntop(socket.AF_INET6, in6_and(nmask,naddr))
+        prefix = inet_ntop(socket.AF_INET6, in6_and(nmask, naddr))
         self.invalidate_cache()
-        self.routes.append((prefix,plen,'::',iff,[addr]))
+        self.routes.append((prefix, plen, '::', iff, [addr]))
 
     def route(self, dst, dev=None):
         """
@@ -183,12 +184,12 @@ class Route6:
         """
         # Transform "2001:db8:cafe:*::1-5:0/120" to one IPv6 address of the set
         dst = dst.split("/")[0]
-        savedst = dst # In case following inet_pton() fails
-        dst = dst.replace("*","0")
+        savedst = dst  # In case following inet_pton() fails
+        dst = dst.replace("*", "0")
         l = dst.find("-")
         while l >= 0:
-            m = (dst[l:]+":").find(":")
-            dst = dst[:l]+dst[l+m:]
+            m = (dst[l:] + ":").find(":")
+            dst = dst[:l] + dst[l + m:]
             l = dst.find("-")
 
         try:
@@ -200,7 +201,8 @@ class Route6:
         # Deal with dev-specific request for cache search
         k = dst
         if dev is not None:
-            k = dst + "%%" + (dev if isinstance(dev, basestring) else dev.pcap_name)
+            k = dst + "%%" + \
+                (dev if isinstance(dev, basestring) else dev.pcap_name)
         if k in self.cache:
             return self.cache[k]
 
@@ -219,8 +221,9 @@ class Route6:
                 pathes.append((plen, (iface, cset, gw)))
 
         if not pathes:
-            warning("No route found for IPv6 destination %s (no default route?)" % dst)
-            return (LOOPBACK_NAME, "::", "::") # XXX Linux specific
+            warning(
+                "No route found for IPv6 destination %s (no default route?)" % dst)
+            return (LOOPBACK_NAME, "::", "::")  # XXX Linux specific
 
         # Sort with longest prefix first
         pathes.sort(reverse=True)
@@ -229,15 +232,16 @@ class Route6:
         pathes = filter(lambda x: x[0] == best_plen, pathes)
 
         res = []
-        for p in pathes: # Here we select best source address for every route
+        for p in pathes:  # Here we select best source address for every route
             tmp = p[1]
             srcaddr = get_source_addr_from_candidate_set(dst, p[1][1])
             if srcaddr is not None:
                 res.append((p[0], (tmp[0], srcaddr, tmp[2])))
 
         if res == []:
-            warning("Found a route for IPv6 destination '%s', but no possible source address." % dst)
-            return (LOOPBACK_NAME, "::", "::") # XXX Linux specific
+            warning(
+                "Found a route for IPv6 destination '%s', but no possible source address." % dst)
+            return (LOOPBACK_NAME, "::", "::")  # XXX Linux specific
 
         # Symptom  : 2 routes with same weight (our weight is plen)
         # Solution :
@@ -265,7 +269,8 @@ class Route6:
         # Fill the cache (including dev-specific request)
         k = dst
         if dev is not None:
-            k = dst + "%%" + (dev if isinstance(dev, basestring) else dev.pcap_name)
+            k = dst + "%%" + \
+                (dev if isinstance(dev, basestring) else dev.pcap_name)
         self.cache[k] = res[0][1]
 
         return res[0][1]
@@ -277,4 +282,3 @@ if _res:
     iff, gw, addr = _res
     conf.iface6 = iff
 del(_res)
-

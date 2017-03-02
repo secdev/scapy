@@ -5,7 +5,7 @@
 #
 #############################################################
 # Example SPB Frame Creation
-# 
+#
 # Note the outer Dot1Q Ethertype marking (0x88e7)
 #############################################################
 # backboneEther     = Ether(dst='00:bb:00:00:90:00', src='00:bb:00:00:40:00', type=0x8100)
@@ -22,14 +22,15 @@ from scapy.packet import Packet, bind_layers
 from scapy.fields import *
 from scapy.layers.l2 import Ether, Dot1Q
 
+
 class SPBM(Packet):
     name = "SPBM"
-    fields_desc = [ BitField("prio", 0, 3),
-                    BitField("dei", 0, 1),
-                    BitField("nca", 0, 1),
-                    BitField("res1", 0, 1),
-                    BitField("res2", 0, 2),
-                    ThreeBytesField("isid", 0)]
+    fields_desc = [BitField("prio", 0, 3),
+                   BitField("dei", 0, 1),
+                   BitField("nca", 0, 1),
+                   BitField("res1", 0, 1),
+                   BitField("res2", 0, 2),
+                   ThreeBytesField("isid", 0)]
 
     def mysummary(self):
         return self.sprintf("SPBM (isid=%SPBM.isid%")

@@ -55,7 +55,8 @@ class _L2bpfSocket(SuperSocket):
 
         # Set the BPF buffer length
         try:
-            fcntl.ioctl(self.ins, BIOCSBLEN, struct.pack('I', BPF_BUFFER_LENGTH))
+            fcntl.ioctl(self.ins, BIOCSBLEN,
+                        struct.pack('I', BPF_BUFFER_LENGTH))
         except IOError, err:
             msg = "BIOCSBLEN failed on /dev/bpf%i" % self.dev_bpf
             raise Scapy_Exception(msg)
@@ -229,7 +230,8 @@ class L2bpfListenSocket(_L2bpfSocket):
             BPF_ALIGNMENT = 4  # sizeof(int32_t)
 
         x = bh_h + bh_c
-        return ((x)+(BPF_ALIGNMENT-1)) & ~(BPF_ALIGNMENT-1)  # from <net/bpf.h>
+        # from <net/bpf.h>
+        return ((x) + (BPF_ALIGNMENT - 1)) & ~(BPF_ALIGNMENT - 1)
 
     def extract_frames(self, bpf_buffer):
         """Extract all frames from the buffer and stored them in the received list."""
@@ -248,16 +250,19 @@ class L2bpfListenSocket(_L2bpfSocket):
             bh_tstamp_offset = 8
 
         # Parse the BPF header
-        bh_caplen = struct.unpack('I', bpf_buffer[bh_tstamp_offset:bh_tstamp_offset+4])[0]
+        bh_caplen = struct.unpack(
+            'I', bpf_buffer[bh_tstamp_offset:bh_tstamp_offset + 4])[0]
         next_offset = bh_tstamp_offset + 4
-        bh_datalen = struct.unpack('I', bpf_buffer[next_offset:next_offset+4])[0]
+        bh_datalen = struct.unpack(
+            'I', bpf_buffer[next_offset:next_offset + 4])[0]
         next_offset += 4
-        bh_hdrlen = struct.unpack('H', bpf_buffer[next_offset:next_offset+2])[0]
+        bh_hdrlen = struct.unpack(
+            'H', bpf_buffer[next_offset:next_offset + 2])[0]
         if bh_datalen == 0:
             return
 
         # Get and store the Scapy object
-        frame_str = bpf_buffer[bh_hdrlen:bh_hdrlen+bh_caplen]
+        frame_str = bpf_buffer[bh_hdrlen:bh_hdrlen + bh_caplen]
         try:
             pkt = self.guessed_cls(frame_str)
         except:
@@ -309,7 +314,8 @@ class L2bpfSocket(L2bpfListenSocket):
             return self.get_frame()
 
         else:
-            # Set the non blocking flag, read from the socket, and unset the flag
+            # Set the non blocking flag, read from the socket, and unset the
+            # flag
             self.set_nonblock(True)
             pkt = L2bpfListenSocket.recv(self)
             self.set_nonblock(False)
@@ -339,7 +345,7 @@ class L3bpfSocket(L2bpfSocket):
             self.assigned_interface = iff
 
         # Build the frame
-        frame = str(self.guessed_cls()/pkt)
+        frame = str(self.guessed_cls() / pkt)
         pkt.sent_time = time.time()
 
         # Send the frame

@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
-##                     2015, 2016 Maxence Tury
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
+# 2015, 2016 Maxence Tury
+# This program is published under a GPLv2 license
 
 """
 TLS session handler.
@@ -123,13 +123,13 @@ class connState(object):
         # When slicing the key_block, keep the right half of the material
         skip_first = False
         if ((self.connection_end == "client" and self.row == "read") or
-            (self.connection_end == "server" and self.row == "write")):
+                (self.connection_end == "server" and self.row == "write")):
             skip_first = True
 
         pos = 0
         cipher_alg = cs.cipher_alg
 
-        ### MAC secret (for block and stream ciphers)
+        # MAC secret (for block and stream ciphers)
         if (cipher_alg.type == "stream") or (cipher_alg.type == "block"):
             start = pos
             if skip_first:
@@ -137,11 +137,11 @@ class connState(object):
             end = start + cs.hmac_alg.key_len
             self.mac_secret = key_block[start:end]
             self.debug_repr("mac_secret", self.mac_secret)
-            pos += 2*cs.hmac_alg.key_len
+            pos += 2 * cs.hmac_alg.key_len
         else:
             self.mac_secret = None
 
-        ### Cipher secret
+        # Cipher secret
         start = pos
         if skip_first:
             start += cipher_alg.key_len
@@ -157,9 +157,9 @@ class connState(object):
                                                       reqLen)
         self.cipher_secret = key
         self.debug_repr("cipher_secret", self.cipher_secret)
-        pos += 2*cipher_alg.key_len
+        pos += 2 * cipher_alg.key_len
 
-        ### Implicit IV (for block and AEAD ciphers)
+        # Implicit IV (for block and AEAD ciphers)
         start = pos
         if cipher_alg.type == "block":
             if skip_first:
@@ -170,7 +170,7 @@ class connState(object):
                 start += cipher_alg.salt_len
             end = start + cipher_alg.salt_len
 
-        ### Now we have the secrets, we can instantiate the algorithms
+        # Now we have the secrets, we can instantiate the algorithms
         if cs.hmac_alg is None:         # AEAD
             self.hmac = None
             self.mac_len = cipher_alg.tag_len
@@ -208,10 +208,10 @@ class connState(object):
         def indent(s):
             if s and s[-1] == '\n':
                 s = s[:-1]
-            s = '\n'.join(map(lambda x: '\t'+x, s.split('\n')) + [''])
+            s = '\n'.join(map(lambda x: '\t' + x, s.split('\n')) + [''])
             return s
 
-        res =  "Connection end : %s\n" % self.connection_end.upper()
+        res = "Connection end : %s\n" % self.connection_end.upper()
         res += "Cipher suite   : %s (0x%04x)\n" % (self.ciphersuite.name,
                                                    self.ciphersuite.val)
         res += "Compression Alg: %s (0x%02x)\n" % (self.compression.name,
@@ -219,11 +219,15 @@ class connState(object):
         tabsize = 4
         return res.expandtabs(tabsize)
 
+
 class readConnState(connState):
+
     def __init__(self, **kargs):
         connState.__init__(self, read_or_write="read", **kargs)
 
+
 class writeConnState(connState):
+
     def __init__(self, **kargs):
         connState.__init__(self, read_or_write="write", **kargs)
 
@@ -240,13 +244,14 @@ class tlsSession(object):
     tlsSession object also holds negotiated, shared information, such as the
     key exchange parameters and the master secret (when available).
     """
+
     def __init__(self,
                  ipsrc=None, ipdst=None,
                  sport=None, dport=None, sid=None,
                  connection_end="client",
                  wcs=None, rcs=None):
 
-        ### Network settings
+        # Network settings
 
         self.ipsrc = ipsrc
         self.ipdst = ipdst
@@ -257,8 +262,7 @@ class tlsSession(object):
         # Our TCP socket. None until we send (or receive) a packet.
         self.sock = None
 
-
-        ### Connection states
+        # Connection states
 
         self.connection_end = connection_end
 
@@ -281,8 +285,7 @@ class tlsSession(object):
         self.prcs = None
         self.triggered_prcs_commit = False
 
-
-        ### Certificates and private keys
+        # Certificates and private keys
 
         # The server certificate chain, as a list of Cert instances.
         # Either we act as server and it has to be provided, or it is expected
@@ -313,10 +316,9 @@ class tlsSession(object):
         self.client_certs = []
         self.client_key = None
 
+        # Ephemeral key exchange parameters
 
-        ### Ephemeral key exchange parameters
-
-        ## XXX Explain why we need pubkey (which should be contained in privkey)
+        # XXX Explain why we need pubkey (which should be contained in privkey)
         # also, params is used to hold params between the SKE and the CKE
         self.server_kx_privkey = None
         self.server_kx_pubkey = None
@@ -326,22 +328,21 @@ class tlsSession(object):
         self.client_kx_ffdh_params = None
         self.client_kx_ecdh_params = None
 
-        ## Either an instance of FFDHParams or ECDHParams.
-        ## Depending on which side of the connection we operate,
-        ## one of these params will not hold 'priv' and 'secret' attributes.
-        ## We did not use these intermediaries for RSAkx, as the 'priv' would
-        ## equate the PrivKey, and the 'secret' the pre_master_secret.
-        ## (It could have been useful for RSAkx export, though...)
+        # Either an instance of FFDHParams or ECDHParams.
+        # Depending on which side of the connection we operate,
+        # one of these params will not hold 'priv' and 'secret' attributes.
+        # We did not use these intermediaries for RSAkx, as the 'priv' would
+        # equate the PrivKey, and the 'secret' the pre_master_secret.
+        # (It could have been useful for RSAkx export, though...)
         #self.server_kx_params = None
         #self.client_kx_params = None
 
-
-        ### Negotiated session parameters
+        # Negotiated session parameters
 
         # The advertised TLS version found in the ClientHello (and
         # EncryptedPreMasterSecret if used). If acting as server, it is set to
         # the value advertised by the client in its ClientHello.
-        #XXX See what needs to be changed in automaton.py in order to keep
+        # XXX See what needs to be changed in automaton.py in order to keep
         # this to None. For now it is necessary for running the client.
         self.advertised_tls_version = 0x303
 
@@ -362,8 +363,7 @@ class tlsSession(object):
         # All exchanged TLS packets.
         self.exchanged_pkts = []
 
-
-    ### Master secret management
+    # Master secret management
 
     def compute_master_secret(self):
         if self.pre_master_secret is None:
@@ -389,8 +389,7 @@ class tlsSession(object):
                               server_random=self.server_random,
                               master_secret=self.master_secret)
 
-
-    ### Tests for record building/parsing
+    # Tests for record building/parsing
 
     def consider_read_padding(self):
         # Return True if padding is needed. Used by TLSPadField.
@@ -407,8 +406,7 @@ class tlsSession(object):
             return False
         return version >= 0x0302
 
-
-    ### Python object management
+    # Python object management
 
     def hash(self):
         s1 = struct.pack("!H", self.sport)
@@ -423,12 +421,12 @@ class tlsSession(object):
     def eq(self, other):
         ok = False
         if (self.sport == other.sport and self.dport == other.dport and
-            self.ipsrc == other.ipsrc and self.ipdst == other.ipdst):
+                self.ipsrc == other.ipsrc and self.ipdst == other.ipdst):
             ok = True
 
         if (not ok and
             self.dport == other.sport and self.sport == other.dport and
-            self.ipdst == other.ipsrc and self.ipsrc == other.ipdst):
+                self.ipdst == other.ipsrc and self.ipsrc == other.ipdst):
             ok = True
 
         if ok:
@@ -511,7 +509,7 @@ class _GenericTLSSessionInheritance(Packet):
         self.__class__(str(self), tls_session=self.tls_session).show()
 
     # Uncomment this when the automata update IPs and ports properly
-    #def mysummary(self):
+    # def mysummary(self):
     #    return "TLS %s" % repr(self.tls_session)
 
 
@@ -520,6 +518,7 @@ class _GenericTLSSessionInheritance(Packet):
 ###############################################################################
 
 class _tls_sessions(object):
+
     def __init__(self):
         self.sessions = {}
 
@@ -568,10 +567,9 @@ class _tls_sessions(object):
                 res.append((src, dst, sid))
         colwidth = map(lambda x: max(map(lambda y: len(y), x)),
                        apply(zip, res))
-        fmt = "  ".join(map(lambda x: "%%-%ds"%x, colwidth))
+        fmt = "  ".join(map(lambda x: "%%-%ds" % x, colwidth))
         return "\n".join(map(lambda x: fmt % x, res))
 
 
 conf.tls_sessions = _tls_sessions()
 conf.tls_verbose = False
-

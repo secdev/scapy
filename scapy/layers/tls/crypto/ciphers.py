@@ -1,12 +1,13 @@
 
-## This file is part of Scapy
-## Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
-##                     2015, 2016 Maxence Tury
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
+# 2015, 2016 Maxence Tury
+# This program is published under a GPLv2 license
 
 """
 TLS ciphers.
 """
+
 
 class CipherError(Exception):
     """
@@ -25,4 +26,3 @@ tls_cipher_algs = {}
 tls_cipher_algs.update(tls_block_cipher_algs)
 tls_cipher_algs.update(tls_stream_cipher_algs)
 tls_cipher_algs.update(tls_aead_cipher_algs)
-

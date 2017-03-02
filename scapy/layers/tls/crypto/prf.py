@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
-##                     2015, 2016 Maxence Tury
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
+# 2015, 2016 Maxence Tury
+# This program is published under a GPLv2 license
 
 """
 TLS Pseudorandom Function.
@@ -14,7 +14,7 @@ from scapy.layers.tls.crypto.hash import tls_hash_algs
 from scapy.layers.tls.crypto.h_mac import tls_hmac_algs
 
 
-### Data expansion functions
+# Data expansion functions
 
 def _tls_P_hash(secret, seed, req_len, hm):
     """
@@ -51,20 +51,24 @@ def _tls_P_hash(secret, seed, req_len, hm):
 def _tls_P_MD5(secret, seed, req_len):
     return _tls_P_hash(secret, seed, req_len, tls_hmac_algs["HMAC-MD5"])
 
+
 def _tls_P_SHA1(secret, seed, req_len):
     return _tls_P_hash(secret, seed, req_len, tls_hmac_algs["HMAC-SHA"])
+
 
 def _tls_P_SHA256(secret, seed, req_len):
     return _tls_P_hash(secret, seed, req_len, tls_hmac_algs["HMAC-SHA256"])
 
+
 def _tls_P_SHA384(secret, seed, req_len):
     return _tls_P_hash(secret, seed, req_len, tls_hmac_algs["HMAC-SHA384"])
+
 
 def _tls_P_SHA512(secret, seed, req_len):
     return _tls_P_hash(secret, seed, req_len, tls_hmac_algs["HMAC-SHA512"])
 
 
-### PRF functions, according to the protocol version
+# PRF functions, according to the protocol version
 
 def _ssl_PRF(secret, seed, req_len):
     """
@@ -89,11 +93,12 @@ def _ssl_PRF(secret, seed, req_len):
     rounds = (req_len + hash_md5.hash_len - 1) / hash_md5.hash_len
 
     for i in range(rounds):
-        label = d[i] * (i+1)
+        label = d[i] * (i + 1)
         tmp = tls_hash_algs["SHA"]().digest(label + secret + seed)
         res += tls_hash_algs["MD5"]().digest(secret + tmp)
 
     return res[:req_len]
+
 
 def _tls_PRF(secret, label, seed, req_len):
     """
@@ -118,10 +123,11 @@ def _tls_PRF(secret, label, seed, req_len):
     S1 = secret[:l]
     S2 = secret[-l:]
 
-    a1 = _tls_P_MD5(S1, label+seed, req_len)
-    a2 = _tls_P_SHA1(S2, label+seed, req_len)
+    a1 = _tls_P_MD5(S1, label + seed, req_len)
+    a2 = _tls_P_SHA1(S2, label + seed, req_len)
 
     return strxor(a1, a2)
+
 
 def _tls12_SHA256PRF(secret, label, seed, req_len):
     """
@@ -140,13 +146,15 @@ def _tls12_SHA256PRF(secret, label, seed, req_len):
     - req_len: amount of keystream to be generated
 
     """
-    return _tls_P_SHA256(secret, label+seed, req_len)
+    return _tls_P_SHA256(secret, label + seed, req_len)
+
 
 def _tls12_SHA384PRF(secret, label, seed, req_len):
-    return _tls_P_SHA384(secret, label+seed, req_len)
+    return _tls_P_SHA384(secret, label + seed, req_len)
+
 
 def _tls12_SHA512PRF(secret, label, seed, req_len):
-    return _tls_P_SHA512(secret, label+seed, req_len)
+    return _tls_P_SHA512(secret, label + seed, req_len)
 
 
 class PRF(object):
@@ -159,12 +167,13 @@ class PRF(object):
     _tls_PRF() object is provided. It is expected to be initialised in the
     context of the connection state using the tls_version and the cipher suite.
     """
+
     def __init__(self, hash_name="SHA256", tls_version=0x0303):
         self.tls_version = tls_version
         self.hash_name = hash_name
 
         if (tls_version == 0x0200 or        # SSLv2
-            tls_version == 0x0300):         # SSLv3
+                tls_version == 0x0300):         # SSLv3
             self.prf = _ssl_PRF
         elif (tls_version == 0x0301 or      # TLS 1.0
               tls_version == 0x0302):       # TLS 1.1
@@ -223,10 +232,10 @@ class PRF(object):
                 d = {"client": "SRVR", "server": "CLNT"}
             label = d[con_end]
 
-            sslv3_md5_pad1 = "\x36"*48
-            sslv3_md5_pad2 = "\x5c"*48
-            sslv3_sha1_pad1 = "\x36"*40
-            sslv3_sha1_pad2 = "\x5c"*40
+            sslv3_md5_pad1 = "\x36" * 48
+            sslv3_md5_pad2 = "\x5c" * 48
+            sslv3_sha1_pad1 = "\x36" * 40
+            sslv3_sha1_pad2 = "\x5c" * 40
 
             md5 = tls_hash_algs["MD5"]()
             sha1 = tls_hash_algs["SHA"]()
@@ -308,10 +317,9 @@ class PRF(object):
             iv_block = self.prf("",
                                 "IV block",
                                 client_random + server_random,
-                                2*req_len)
+                                2 * req_len)
             if s:
                 iv = iv_block[:req_len]
             else:
                 iv = iv_block[req_len:]
         return iv
-

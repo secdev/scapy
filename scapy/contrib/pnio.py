@@ -27,21 +27,21 @@ from scapy.fields import XShortEnumField
 
 # Some constants
 PNIO_FRAME_IDS = {
-    0x0020:"PTCP-RTSyncPDU-followup",
-    0x0080:"PTCP-RTSyncPDU",
-    0xFC01:"Alarm High",
-    0xFE01:"Alarm Low",
-    0xFEFC:"DCP-Hello-Req",
-    0xFEFD:"DCP-Get-Set",
-    0xFEFE:"DCP-Identify-ReqPDU",
-    0xFEFF:"DCP-Identify-ResPDU",
-    0xFF00:"PTCP-AnnouncePDU",
-    0xFF20:"PTCP-FollowUpPDU",
-    0xFF40:"PTCP-DelayReqPDU",
-    0xFF41:"PTCP-DelayResPDU-followup",
-    0xFF42:"PTCP-DelayFuResPDU",
-    0xFF43:"PTCP-DelayResPDU",
-    }
+    0x0020: "PTCP-RTSyncPDU-followup",
+    0x0080: "PTCP-RTSyncPDU",
+    0xFC01: "Alarm High",
+    0xFE01: "Alarm Low",
+    0xFEFC: "DCP-Hello-Req",
+    0xFEFD: "DCP-Get-Set",
+    0xFEFE: "DCP-Identify-ReqPDU",
+    0xFEFF: "DCP-Identify-ResPDU",
+    0xFF00: "PTCP-AnnouncePDU",
+    0xFF20: "PTCP-FollowUpPDU",
+    0xFF40: "PTCP-DelayReqPDU",
+    0xFF41: "PTCP-DelayResPDU-followup",
+    0xFF42: "PTCP-DelayFuResPDU",
+    0xFF43: "PTCP-DelayResPDU",
+}
 for i in xrange(0x0100, 0x1000):
     PNIO_FRAME_IDS[i] = "RT_CLASS_3"
 for i in xrange(0x8000, 0xC000):
@@ -55,13 +55,14 @@ for i in xrange(0xFF80, 0xFF90):
 ## PROFINET IO ##
 #################
 
+
 class ProfinetIO(Packet):
     """Basic PROFINET IO dispatcher"""
     fields_desc = [XShortEnumField("frameID", 0, PNIO_FRAME_IDS)]
     overload_fields = {
         Ether: {"type": 0x8892},
         UDP: {"dport": 0x8892},
-        }
+    }
 
     def guess_payload_class(self, payload):
         # For frameID in the RT_CLASS_* range, use the RTC packet as payload
@@ -74,4 +75,3 @@ class ProfinetIO(Packet):
 
 bind_layers(Ether, ProfinetIO, type=0x8892)
 bind_layers(UDP, ProfinetIO, dport=0x8892)
-

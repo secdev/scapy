@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
-##                     2015, 2016 Maxence Tury
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
+# 2015, 2016 Maxence Tury
+# This program is published under a GPLv2 license
 
 """
 HMAC classes.
@@ -12,12 +12,13 @@ import hmac
 from scapy.layers.tls.crypto.hash import tls_hash_algs
 
 
-SSLv3_PAD1_MD5  = "\x36"*48
-SSLv3_PAD1_SHA1 = "\x36"*40
-SSLv3_PAD2_MD5  = "\x5c"*48
-SSLv3_PAD2_SHA1 = "\x5c"*40
+SSLv3_PAD1_MD5 = "\x36" * 48
+SSLv3_PAD1_SHA1 = "\x36" * 40
+SSLv3_PAD2_MD5 = "\x5c" * 48
+SSLv3_PAD2_SHA1 = "\x5c" * 40
 
 tls_hmac_algs = {}
+
 
 class _GenericHMACMetaclass(type):
     """
@@ -47,6 +48,7 @@ class HMACError(Exception):
     Raised when HMAC verification fails.
     """
     pass
+
 
 class _GenericHMAC(object):
     __metaclass__ = _GenericHMACMetaclass
@@ -87,21 +89,26 @@ class Hmac_NULL(_GenericHMAC):
     def digest_sslv3(self, tbd):
         return ""
 
+
 class Hmac_MD5(_GenericHMAC):
     pass
+
 
 class Hmac_SHA(_GenericHMAC):
     pass
 
+
 class Hmac_SHA224(_GenericHMAC):
     pass
+
 
 class Hmac_SHA256(_GenericHMAC):
     pass
 
+
 class Hmac_SHA384(_GenericHMAC):
     pass
 
+
 class Hmac_SHA512(_GenericHMAC):
     pass
-

@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Philippe Biondi <phil@secdev.org>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# This program is published under a GPLv2 license
 
 """
 Operating system specific functionality.
@@ -17,22 +17,26 @@ import scapy.config
 from scapy.pton_ntop import inet_pton
 from scapy.data import *
 
+
 def str2mac(s):
-    return ("%02x:"*6)[:-1] % tuple(map(ord, s)) 
+    return ("%02x:" * 6)[:-1] % tuple(map(ord, s))
 
 if not WINDOWS:
     if not scapy.config.conf.use_pcap and not scapy.config.conf.use_dnet:
         from scapy.arch.bpf.core import get_if_raw_addr
 
+
 def get_if_addr(iff):
     return socket.inet_ntoa(get_if_raw_addr(iff))
-    
+
+
 def get_if_hwaddr(iff):
     addrfamily, mac = get_if_raw_hwaddr(iff)
-    if addrfamily in [ARPHDR_ETHER,ARPHDR_LOOPBACK]:
+    if addrfamily in [ARPHDR_ETHER, ARPHDR_LOOPBACK]:
         return str2mac(mac)
     else:
-        raise Scapy_Exception("Unsupported address family (%i) for interface [%s]" % (addrfamily,iff))
+        raise Scapy_Exception(
+            "Unsupported address family (%i) for interface [%s]" % (addrfamily, iff))
 
 
 # Next step is to import following architecture specific functions:
@@ -68,7 +72,8 @@ elif SOLARIS:
 elif WINDOWS:
     from scapy.arch.windows import *
     # import only if parent is not route.py
-    # because compatibility.py will require route.py to work (through sendrecv.py)
+    # because compatibility.py will require route.py to work (through
+    # sendrecv.py)
     parents = parent_function()
     if len(parents) >= 3:
         if not parents[2][1].endswith("route.py"):
@@ -89,8 +94,9 @@ def get_if_addr6(iff):
     for x in in6_getifaddr():
         if x[2] == iff and x[1] == IPV6_ADDR_GLOBAL:
             return x[0]
-        
+
     return None
+
 
 def get_if_raw_addr6(iff):
     """
@@ -98,8 +104,8 @@ def get_if_raw_addr6(iff):
     interface, in network format. If no global address is found, None 
     is returned. 
     """
-    ip6= get_if_addr6(iff)
+    ip6 = get_if_addr6(iff)
     if ip6 is not None:
         return inet_pton(socket.AF_INET6, ip6)
-    
+
     return None

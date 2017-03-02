@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
-##                     2015, 2016 Maxence Tury
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
+# 2015, 2016 Maxence Tury
+# This program is published under a GPLv2 license
 
 """
 Authenticated Encryption with Associated Data ciphers.
@@ -26,6 +26,7 @@ from scapy.layers.tls.crypto.ciphers import CipherError
 
 tls_aead_cipher_algs = {}
 
+
 class _AEADCipherMetaclass(type):
     """
     Cipher classes are automatically registered through this metaclass.
@@ -48,6 +49,7 @@ class AEADTagError(Exception):
     """
     pass
 
+
 class _AEADCipher(object):
     __metaclass__ = _AEADCipherMetaclass
     type = "aead"
@@ -57,7 +59,7 @@ class _AEADCipher(object):
         'key' and 'salt' are to be provided as strings, whereas the internal
         'nonce_explicit' is an integer (it is simpler for incrementation).
         """
-        self.ready = {"key":True, "salt":True, "nonce_explicit":True}
+        self.ready = {"key": True, "salt": True, "nonce_explicit": True}
         if key is None:
             self.ready["key"] = False
             key = "\0" * self.key_len
@@ -105,7 +107,7 @@ class _AEADCipher(object):
         Increment the explicit nonce while avoiding any overflow.
         """
         ne = self.nonce_explicit + 1
-        self.nonce_explicit = ne % 2**(self.nonce_explicit_len*8)
+        self.nonce_explicit = ne % 2**(self.nonce_explicit_len * 8)
 
     def auth_encrypt(self, P, A):
         """
@@ -175,20 +177,20 @@ class Cipher_AES_128_GCM(_AEADCipher):
     nonce_explicit_len = 8
     tag_len = 16
 
+
 class Cipher_AES_256_GCM(Cipher_AES_128_GCM):
     key_len = 32
 
 
 # no support for now in the cryptography library
-#class Cipher_AES_128_CCM(_AEADCipher):
+# class Cipher_AES_128_CCM(_AEADCipher):
 #    pc_cls_mode = modes.CCM
 #
-#class Cipher_AES_256_CCM(Cipher_AES_128_CCM):
+# class Cipher_AES_256_CCM(Cipher_AES_128_CCM):
 #    key_len = 32
 #
-#class Cipher_AES_128_CCM_8(Cipher_AES_128_CCM):
+# class Cipher_AES_128_CCM_8(Cipher_AES_128_CCM):
 #    tag_len = 8
 #
-#class Cipher_AES_256_CCM_8(Cipher_AES_128_CCM_8):
+# class Cipher_AES_256_CCM_8(Cipher_AES_128_CCM_8):
 #    key_len = 32
-

@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Philippe Biondi <phil@secdev.org>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# This program is published under a GPLv2 license
 
 """
 Clone of queso OS fingerprinting
@@ -9,13 +9,13 @@ Clone of queso OS fingerprinting
 
 from scapy.data import KnowledgeBase
 from scapy.config import conf
-from scapy.layers.inet import IP,TCP
+from scapy.layers.inet import IP, TCP
 from scapy.error import warning
 from scapy.volatile import RandInt
 from scapy.sendrecv import sr
-#from 
+# from
 
-conf.queso_base ="/etc/queso.conf"
+conf.queso_base = "/etc/queso.conf"
 
 
 #################
@@ -32,7 +32,9 @@ def quesoTCPflags(flags):
         v |= 2**flv.index(i)
     return "%x" % v
 
+
 class QuesoKnowledgeBase(KnowledgeBase):
+
     def lazy_init(self):
         try:
             f = open(self.filename)
@@ -65,33 +67,34 @@ class QuesoKnowledgeBase(KnowledgeBase):
             self.base = None
             warning("Can't load queso base [%s]", self.filename)
         f.close()
-            
-        
+
+
 queso_kdb = QuesoKnowledgeBase(conf.queso_base)
 
-    
+
 def queso_sig(target, dport=80, timeout=3):
     p = queso_kdb.get_base()
     ret = []
     for flags in ["S", "SA", "F", "FA", "SF", "P", "SEC"]:
-        ans, unans = sr(IP(dst=target)/TCP(dport=dport,flags=flags,seq=RandInt()),
+        ans, unans = sr(IP(dst=target) / TCP(dport=dport, flags=flags, seq=RandInt()),
                         timeout=timeout, verbose=0)
         if len(ans) == 0:
             rs = "- - - -"
         else:
-            s,r = ans[0]
+            s, r = ans[0]
             rs = "%i" % (r.seq != 0)
             if not r.ack:
                 r += " 0"
-            elif r.ack-s.seq > 666:
+            elif r.ack - s.seq > 666:
                 rs += " R" % 0
             else:
-                rs += " +%i" % (r.ack-s.seq)
+                rs += " +%i" % (r.ack - s.seq)
             rs += " %X" % r.window
             rs += " %x" % r.payload.flags
         ret.append(rs)
     return ret
-            
+
+
 def queso_search(sig):
     p = queso_kdb.get_base()
     sig.reverse()
@@ -105,12 +108,10 @@ def queso_search(sig):
     except KeyError:
         pass
     return ret
-        
+
 
 @conf.commands.register
-def queso(*args,**kargs):
+def queso(*args, **kargs):
     """Queso OS fingerprinting
 queso(target, dport=80, timeout=3)"""
     return queso_search(queso_sig(*args, **kargs))
-
-
