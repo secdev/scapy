@@ -112,6 +112,7 @@ _VBS_WMI_OUTPUT = {
 def _exec_query_vbs(cmd, fields):
     """Execute a query using VBS. Currently Get-WmiObject queries are
     supported.
+
     """
     if not WINDOWS:
         return
@@ -143,6 +144,7 @@ Next
 def exec_query(cmd, fields):
     """Execute a system query using PowerShell if it is available, and
     using VBS/cscript as a fallback.
+
     """
     if conf.prog.powershell is None:
         return _exec_query_vbs(cmd, fields)
@@ -240,7 +242,6 @@ def get_windows_if_list():
         query = exec_query(['Get-NetAdapter'],
                            ['InterfaceDescription', 'InterfaceIndex', 'Name',
                             'InterfaceGuid', 'MacAddress']) # It is normal that it is in this order
-        
     else:
         query = exec_query(['Get-WmiObject', 'Win32_NetworkAdapter'],
                            ['Name', 'InterfaceIndex', 'InterfaceDescription',
