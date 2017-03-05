@@ -1,0 +1,14 @@
+{
+  "testfiles": [
+    "test\\*.uts",
+    "scapy\\contrib\\*.uts"
+  ],
+  "onlyfailed": true,
+  "preexec": {
+    "scapy\\contrib\\*.uts": "load_contrib(\"%name%\")"
+  },
+  "format": "text",
+  "kw_ko": [
+    "combined_modes_ccm"
+  ]
+}
