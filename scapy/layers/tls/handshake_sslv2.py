@@ -124,11 +124,10 @@ class SSLv2ClientHello(_SSLv2Handshake):
                                  length_from=lambda pkt:pkt.challengelen) ]
 
     def tls_session_update(self, msg_str):
+        super(SSLv2ClientHello, self).tls_session_update(msg_str)
         self.tls_session.advertised_tls_version = self.version
         self.tls_session.sslv2_common_cs = self.ciphers
         self.tls_session.sslv2_challenge = self.challenge
-        self.tls_session.handshake_messages.append(msg_str)
-        self.tls_session.handshake_messages_parsed.append(self)
 
 
 ###############################################################################
@@ -186,8 +185,9 @@ class SSLv2ServerHello(_SSLv2Handshake):
         """
         XXX Something should be done about the session ID here.
         """
-        s = self.tls_session
+        super(SSLv2ServerHello, self).tls_session_update(msg_str)
 
+        s = self.tls_session
         client_cs = s.sslv2_common_cs
         css = [cs for cs in client_cs if cs in self.ciphers]
         s.sslv2_common_cs = css
@@ -195,8 +195,6 @@ class SSLv2ServerHello(_SSLv2Handshake):
         s.tls_version = self.version
         if self.cert is not None:
             s.server_certs = [self.cert]
-
-        super(SSLv2ServerHello, self).tls_session_update(msg_str)
 
 
 ###############################################################################
@@ -347,6 +345,8 @@ class SSLv2ClientMasterKey(_SSLv2Handshake):
         return s + pay
 
     def tls_session_update(self, msg_str):
+        super(SSLv2ClientMasterKey, self).tls_session_update(msg_str)
+
         s = self.tls_session
         cs_val = self.cipher
         if not _tls_cipher_suites_cls.has_key(cs_val):
@@ -378,8 +378,6 @@ class SSLv2ClientMasterKey(_SSLv2Handshake):
 
             s.triggered_prcs_commit = True
             s.triggered_pwcs_commit = True
-
-        super(SSLv2ClientMasterKey, self).tls_session_update(msg_str)
 
 
 ###############################################################################
@@ -423,9 +421,8 @@ class SSLv2RequestCertificate(_SSLv2Handshake):
                     XStrField("challenge", "") ]
 
     def tls_session_update(self, msg_str):
+        super(SSLv2RequestCertificate, self).tls_session_update(msg_str)
         self.tls_session.sslv2_challenge_clientcert = self.challenge
-        self.tls_session.handshake_messages.append(msg_str)
-        self.tls_session.handshake_messages_parsed.append(self)
 
 
 ###############################################################################
@@ -485,10 +482,9 @@ class SSLv2ClientCertificate(_SSLv2Handshake):
                 print "INVALID CLIENT CERTIFICATE VERIFY SIGNATURE"
 
     def tls_session_update(self, msg_str):
-        s = self.tls_session
-        if self.certdata:
-            s.client_certs = [self.certdata]
         super(SSLv2ClientCertificate, self).tls_session_update(msg_str)
+        if self.certdata:
+            self.tls_session.client_certs = [self.certdata]
 
 
 ###############################################################################
@@ -533,8 +529,8 @@ class SSLv2ServerFinished(_SSLv2Handshake):
         return super(SSLv2ServerFinished, self).build(*args, **kargs)
 
     def post_dissection_tls_session_update(self, msg_str):
-        self.tls_session.sid = self.sid
         self.tls_session_update(msg_str)
+        self.tls_session.sid = self.sid
 
 
 ###############################################################################

@@ -23,6 +23,7 @@ from cryptography.exceptions import InvalidTag
 
 from scapy.layers.tls.crypto.pkcs1 import pkcs_i2osp, pkcs_os2ip
 from scapy.layers.tls.crypto.ciphers import CipherError
+from scapy.utils import strxor
 import scapy.modules.six as six
 
 
@@ -198,4 +199,114 @@ class Cipher_AES_256_GCM(Cipher_AES_128_GCM):
 #
 #class Cipher_AES_256_CCM_8(Cipher_AES_128_CCM_8):
 #    key_len = 32
+
+
+class _AEADCipher_TLS13(object):
+    __metaclass__ = _AEADCipherMetaclass
+    type = "aead"
+
+    def __init__(self, key=None, iv=None):
+        """
+        'key' and 'iv' are to be provided as strings.
+        """
+        self.ready = {"key": True, "iv": True}
+        if key is None:
+            self.ready["key"] = False
+            key = "\0" * self.key_len
+        if iv is None:
+            self.ready["iv"] = False
+            iv = "\0" * self.iv_len
+
+        # we use super() in order to avoid any deadlock with __setattr__
+        super(_AEADCipher_TLS13, self).__setattr__("key", key)
+        super(_AEADCipher_TLS13, self).__setattr__("iv", iv)
+
+        self._cipher = Cipher(self.pc_cls(key),
+                              self.pc_cls_mode(iv),
+                              backend=default_backend())
+
+    def __setattr__(self, name, val):
+        if name == "key":
+            if self._cipher is not None:
+                self._cipher.algorithm.key = val
+            self.ready["key"] = True
+        elif name == "iv":
+            self.ready["iv"] = True
+        super(_AEADCipher_TLS13, self).__setattr__(name, val)
+
+    def set_nonce(self, seq_num):
+        padlen = len(self.iv) - 8
+        padded_seq_num = "\x00" * padlen + seq_num
+        nonce = strxor(padded_seq_num, self.iv)
+        self._cipher.mode._initialization_vector = nonce
+
+    def auth_encrypt(self, P, A, seq_num):
+        """
+        Encrypt the data, prepend the explicit part of the nonce, and append
+        the computed authentication code. TLS 1.3 does not use additional
+        data, but we leave this option to the user nonetheless.
+
+        Note that the cipher's authentication tag must be None when encrypting.
+        """
+        if False in self.ready.itervalues():
+            raise CipherError, (P, A)
+        self._cipher.mode._tag = None
+
+        self.set_nonce(seq_num)
+        encryptor = self._cipher.encryptor()
+        encryptor.authenticate_additional_data(A)
+        res = encryptor.update(P) + encryptor.finalize()
+        res += encryptor.tag
+        return res
+
+    def auth_decrypt(self, A, C, seq_num):
+        """
+        Decrypt the data and verify the authentication code (in this order).
+        Note that TLS 1.3 is not supposed to use any additional data A.
+        If the verification fails, an AEADTagError is raised. It is the user's
+        responsibility to catch it if deemed useful. If we lack the key, we
+        raise a CipherError which contains the encrypted input.
+        """
+        C, mac = C[:-self.tag_len], C[-self.tag_len:]
+        if False in self.ready.itervalues():
+            raise CipherError, (C, mac)
+
+        self.set_nonce(seq_num)
+        self._cipher.mode._tag = mac
+
+        decryptor = self._cipher.decryptor()
+        decryptor.authenticate_additional_data(A)
+        P = decryptor.update(C)
+        try:
+            decryptor.finalize()
+        except InvalidTag:
+            raise AEADTagError, (P, mac)
+        return P, mac
+
+    def snapshot(self):
+        c = self.__class__(self.key, self.iv)
+        c.ready = self.ready.copy()
+        return c
+
+
+class Cipher_AES_128_GCM_TLS13(_AEADCipher_TLS13):
+    pc_cls = algorithms.AES
+    pc_cls_mode = modes.GCM
+    block_size = 16
+    key_len = 16
+    iv_len = 12
+    tag_len = 16
+
+class Cipher_AES_256_GCM_TLS13(Cipher_AES_128_GCM_TLS13):
+    key_len = 32
+
+
+# no support for now in the cryptography library
+#class Cipher_AES_128_CCM_TLS13(_AEADCipher_TLS13):
+#    pc_cls_mode = modes.CCM
+#
+#class Cipher_AES_128_CCM_8_TLS13(Cipher_AES_128_CCM_TLS13):
+#    tag_len = 8
+#
+#class Cipher_CHACHA20_POLY1305_TLS13(_AEADCipher_TLS13):
 

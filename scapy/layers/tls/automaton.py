@@ -16,6 +16,7 @@ from scapy.layers.tls.basefields import _tls_type
 from scapy.layers.tls.cert import Cert, PrivKey
 from scapy.layers.tls.record import TLS
 from scapy.layers.tls.record_sslv2 import SSLv2
+from scapy.layers.tls.record_tls13 import TLS13
 
 
 class _TLSAutomaton(Automaton):
@@ -35,15 +36,15 @@ class _TLSAutomaton(Automaton):
       | <<<--------- |    S2 - Finished [encrypted]
 
     We call these successive groups of messages:
-    ClientBatch1, ServerBatch1, ClientBatch2 and ServerBatch2.
+    ClientFlight1, ServerFlight1, ClientFlight2 and ServerFlight2.
 
-    We want to send our messages from the same batch all at once through the
+    We want to send our messages from the same flight all at once through the
     socket. This is achieved by managing a list of records in 'buffer_out'.
     We may put several messages (i.e. what RFC 5246 calls the record fragments)
     in the same record when possible, but we may need several records for the
-    same batch, as with ClientBatch2.
+    same flight, as with ClientFlight2.
 
-    However, note that the batches from the opposite side may be spread wildly
+    However, note that the flights from the opposite side may be spread wildly
     accross TLS records and TCP packets. This is why we use a 'get_next_msg'
     method for feeding a list of received messages, 'buffer_in'. Raw data
     which has not yet been interpreted as a TLS record is kept in 'remain_in'.
@@ -140,7 +141,14 @@ class _TLSAutomaton(Automaton):
         self.remain_in = ""
         if type(p) is SSLv2 and not p.msg:
             p.msg = Raw("")
-        self.buffer_in += p.msg
+        if self.cur_session.tls_version < 0x0304:
+            self.buffer_in += p.msg
+        else:
+            if type(p) is TLS13:
+                self.buffer_in += p.inner.msg
+            else:
+                # should be TLS13ServerHello only
+                self.buffer_in += p.msg
 
         while p.payload:
             if isinstance(p.payload, Raw):
@@ -148,7 +156,10 @@ class _TLSAutomaton(Automaton):
                 p = p.payload
             elif isinstance(p.payload, TLS):
                 p = p.payload
-                self.buffer_in += p.msg
+                if self.cur_session.tls_version < 0x0304:
+                    self.buffer_in += p.msg
+                else:
+                    self.buffer_in += p.inner.msg
 
     def raise_on_packet(self, pkt_cls, state, get_next_msg=True):
         """
@@ -166,17 +177,21 @@ class _TLSAutomaton(Automaton):
         self.buffer_in = self.buffer_in[1:]
         raise state()
 
-    def add_record(self, is_sslv2=None):
+    def add_record(self, is_sslv2=None, is_tls13=None):
         """
-        Add a new TLS or SSLv2 record to the packets buffered out.
+        Add a new TLS or SSLv2 or TLS 1.3 record to the packets buffered out.
         """
-        if is_sslv2 is None:
+        if is_sslv2 is None and is_tls13 is None:
             v = (self.cur_session.tls_version or
                  self.cur_session.advertised_tls_version)
             if v in [0x0200, 0x0002]:
                 is_sslv2 = True
+            elif v >= 0x0304:
+                is_tls13 = True
         if is_sslv2:
             self.buffer_out.append(SSLv2(tls_session=self.cur_session))
+        elif is_tls13:
+            self.buffer_out.append(TLS13(tls_session=self.cur_session))
         else:
             self.buffer_out.append(TLS(tls_session=self.cur_session))
 
@@ -188,7 +203,11 @@ class _TLSAutomaton(Automaton):
         """
         if not self.buffer_out:
             self.add_record()
-        self.buffer_out[-1].msg.append(pkt)
+        r = self.buffer_out[-1]
+        if isinstance(r, TLS13):
+            self.buffer_out[-1].inner.msg.append(pkt)
+        else:
+            self.buffer_out[-1].msg.append(pkt)
 
     def flush_records(self):
         """

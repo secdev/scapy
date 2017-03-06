@@ -20,7 +20,7 @@ from scapy.fields import *
 from scapy.packet import *
 from scapy.layers.inet import TCP
 from scapy.layers.tls.session import _GenericTLSSessionInheritance
-from scapy.layers.tls.handshake import _tls_handshake_cls, _TLSHandshake
+from scapy.layers.tls.handshake import _tls_handshake_cls, _TLSHandshake, TLS13ServerHello
 from scapy.layers.tls.basefields import (_TLSVersionField, _tls_version,
                                          _TLSIVField, _TLSMACField,
                                          _TLSPadField, _TLSPadLenField,
@@ -131,7 +131,8 @@ class _TLSMsgListField(PacketListField):
                     remain = ""
 
                 if isinstance(p, _GenericTLSSessionInheritance):
-                    p.post_dissection_tls_session_update(raw_msg)
+                    if not p.tls_session.frozen:
+                        p.post_dissection_tls_session_update(raw_msg)
 
                 lst.append(p)
             return remain + ret, lst
@@ -153,8 +154,11 @@ class _TLSMsgListField(PacketListField):
                elif isinstance(p, TLSApplicationData):
                    pkt.type = 23
            p.tls_session = pkt.tls_session
-           cur = p.str_stateful()
-           p.post_build_tls_session_update(cur)
+           if not pkt.tls_session.frozen:
+               cur = p.str_stateful()
+               p.post_build_tls_session_update(cur)
+           else:
+               cur = str(p)
        else:
            pkt.type = 23
            cur = str(p)
@@ -168,6 +172,10 @@ class _TLSMsgListField(PacketListField):
         res = ""
         for p in val:
             res += self.i2m(pkt, p)
+        if (isinstance(pkt, _GenericTLSSessionInheritance) and
+            pkt.tls_session.tls_version >= 0x0304 and
+            not isinstance(pkt, TLS13ServerHello)):
+                return s + res
         if not pkt.type:
             pkt.type = 0
         hdr = struct.pack("!B", pkt.type) + s[1:5]
@@ -254,6 +262,12 @@ class TLS(_GenericTLSSessionInheritance):
             if (byte0 not in _tls_type) or (byte1 != 3):
                 from scapy.layers.tls.record_sslv2 import SSLv2
                 return SSLv2
+            else:
+                s = kargs.get("tls_session", None)
+                if s and s.tls_version >= 0x0304:
+                    if s.rcs and type(s.rcs.cipher) is not Cipher_NULL:
+                        from scapy.layers.tls.record_tls13 import TLS13
+                        return TLS13
         return TLS
 
     ### Parsing methods
@@ -381,6 +395,7 @@ class TLS(_GenericTLSSessionInheritance):
             # Extract padding ('pad' actually includes the trailing padlen)
             padlen = ord(pfrag[-1]) + 1
             mfrag, pad = pfrag[:-padlen], pfrag[-padlen:]
+            self.padlen = padlen
 
             # Extract MAC
             l = self.tls_session.rcs.mac_len
@@ -399,6 +414,7 @@ class TLS(_GenericTLSSessionInheritance):
             # Decrypt
             pfrag = self._tls_decrypt(efrag)
             mfrag = pfrag
+            self.padlen = None
 
             # Extract MAC
             l = self.tls_session.rcs.mac_len
@@ -417,6 +433,7 @@ class TLS(_GenericTLSSessionInheritance):
             # Authenticated encryption
             # crypto/cipher_aead.py prints a warning for integrity failure
             iv, cfrag, mac = self._tls_auth_decrypt(hdr, efrag)
+            self.padlen = None
 
         frag = self._tls_decompress(cfrag)
 
@@ -426,23 +443,26 @@ class TLS(_GenericTLSSessionInheritance):
             self.deciphered_len = None
 
         reconstructed_body = iv + frag + mac + pad
-        self.padlen = len(pad)
 
         return hdr + reconstructed_body + r
 
     def post_dissect(self, s):
         """
-        Commit the pending read state if it has been triggered (e.g. by an
+        Commit the pending r/w state if it has been triggered (e.g. by an
         underlying TLSChangeCipherSpec or a SSLv2ClientMasterKey). We update
         nothing if the prcs was not set, as this probably means that we're
         working out-of-context (and we need to keep the default rcs).
         """
-        #XXX can't we move this to post_dissection_tls_session_update?
         if self.tls_session.triggered_prcs_commit:
             if self.tls_session.prcs is not None:
                 self.tls_session.rcs = self.tls_session.prcs
                 self.tls_session.prcs = None
             self.tls_session.triggered_prcs_commit = False
+        if self.tls_session.triggered_pwcs_commit:
+            if self.tls_session.pwcs is not None:
+                self.tls_session.wcs = self.tls_session.pwcs
+                self.tls_session.pwcs = None
+            self.tls_session.triggered_pwcs_commit = False
         return s
 
     def do_dissect_payload(self, s):
@@ -598,7 +618,6 @@ class TLS(_GenericTLSSessionInheritance):
         # by an underlying TLSChangeCipherSpec or a SSLv2ClientMasterKey). We
         # update nothing if the pwcs was not set. This probably means that
         # we're working out-of-context (and we need to keep the default wcs).
-        #XXX can't we move this to post_build_tls_session_update?
         if self.tls_session.triggered_pwcs_commit:
             if self.tls_session.pwcs is not None:
                 self.tls_session.wcs = self.tls_session.pwcs

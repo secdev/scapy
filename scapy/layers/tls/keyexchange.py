@@ -45,7 +45,9 @@ _tls_hash_sig = { 0x0000: "none+anon",    0x0001: "none+rsa",
                   0x0602: "sha512+dsa",   0x0603: "sha512+ecdsa",
                   0x0804: "sha256+rsapss",
                   0x0805: "sha384+rsapss",
-                  0x0806: "sha512+rsapss" }
+                  0x0806: "sha512+rsapss",
+                  0x0807: "ed25519",
+                  0x0808: "ed448" }
 
 
 def phantom_mode(pkt):
@@ -296,7 +298,7 @@ class ServerDHParams(_GenericTLSSessionInheritance):
         things everytime it is called. This method can be called specifically
         to have things filled in a smart fashion.
 
-        Note that we do not expect dh_params_def.g to be more than 0xff.
+        Note that we do not expect default_params.g to be more than 0xff.
         """
         s = self.tls_session
 
@@ -372,6 +374,7 @@ _tls_named_curves = {  1: "sect163k1",  2: "sect163r1",  3: "sect163r2",
                       22: "secp256k1", 23: "secp256r1", 24: "secp384r1",
                       25: "secp521r1", 26: "brainpoolP256r1",
                       27: "brainpoolP384r1", 28: "brainpoolP512r1",
+                      29: "x25519",    30: "x448",
                       0xff01: "arbitrary_explicit_prime_curves",
                       0xff02: "arbitrary_explicit_char2_curves"}
 

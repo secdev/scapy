@@ -5,8 +5,6 @@
 
 """
 TLS Pseudorandom Function.
-
-XXX More errors should be raised for SSLv2.
 """
 
 from __future__ import absolute_import

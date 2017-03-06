@@ -216,6 +216,11 @@ assert(t.tls_session.rcs.seq_num == 2)
 assert(t.tls_session.wcs.seq_num == 2)
 t.msg[0].challenge == challenge
 
+= Check TLS-related scapy internals - Checking tls_session freeze during show2()
+l = len(t.tls_session.handshake_messages)
+t.show2()
+l == len(t.tls_session.handshake_messages)
+
 = Check TLS-related scapy internals - Checking SSLv2 cast from TLS class
 t = TLS(ch)
 assert(isinstance(t, SSLv2))

@@ -15,8 +15,10 @@ from scapy.layers.tls.extensions import *
 from scapy.layers.tls.handshake import *
 from scapy.layers.tls.handshake_sslv2 import *
 from scapy.layers.tls.keyexchange import *
+from scapy.layers.tls.keyexchange_tls13 import *
 from scapy.layers.tls.record import *
 from scapy.layers.tls.record_sslv2 import *
+from scapy.layers.tls.record_tls13 import *
 from scapy.layers.tls.session import *
 
 from scapy.layers.tls.crypto.all import *

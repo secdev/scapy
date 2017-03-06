@@ -54,6 +54,11 @@ class KX_SSLv2(_GenericKX):
     server_kx_msg_cls = lambda _,m: None
     client_kx_msg_cls = None
 
+class KX_TLS13(_GenericKX):
+    descr = "TLS 1.3 dummy key exchange class"
+    server_kx_msg_cls = lambda _,m: None
+    client_kx_msg_cls = None
+
 
 ### Standard RSA-authenticated key exchange
 

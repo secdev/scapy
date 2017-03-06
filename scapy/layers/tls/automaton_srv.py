@@ -177,27 +177,27 @@ class TLSServerAutomaton(_TLSAutomaton):
             self.cur_session.server_rsa_key = self.mykey
         #elif isinstance(self.mykey, PrivKeyECDSA):
         #    self.cur_session.server_ecdsa_key = self.mykey
-        raise self.WAITING_CLIENTBATCH1()
+        raise self.WAITING_CLIENTFLIGHT1()
 
     @ATMT.state()
-    def WAITING_CLIENTBATCH1(self):
+    def WAITING_CLIENTFLIGHT1(self):
         self.get_next_msg()
-        raise self.RECEIVED_CLIENTBATCH1()
+        raise self.RECEIVED_CLIENTFLIGHT1()
 
     @ATMT.state()
-    def RECEIVED_CLIENTBATCH1(self):
+    def RECEIVED_CLIENTFLIGHT1(self):
         pass
 
     ########################### TLS handshake #################################
 
-    @ATMT.condition(RECEIVED_CLIENTBATCH1, prio=1)
+    @ATMT.condition(RECEIVED_CLIENTFLIGHT1, prio=1)
     def should_handle_ClientHello(self):
         self.raise_on_packet(TLSClientHello,
                              self.HANDLED_CLIENTHELLO)
 
     @ATMT.state()
     def HANDLED_CLIENTHELLO(self):
-        raise self.PREPARE_SERVERBATCH1()
+        raise self.PREPARE_SERVERFLIGHT1()
 
     @ATMT.condition(HANDLED_CLIENTHELLO)
     def should_check_ciphersuites(self):
@@ -217,7 +217,7 @@ class TLSServerAutomaton(_TLSAutomaton):
         self.vprint("No usable cipher suite!")
         raise self.CLOSE_NOTIFY()
 
-    @ATMT.condition(RECEIVED_CLIENTBATCH1, prio=3)
+    @ATMT.condition(RECEIVED_CLIENTFLIGHT1, prio=3)
     def missing_ClientHello(self):
         raise self.MISSING_CLIENTHELLO()
 
@@ -227,10 +227,10 @@ class TLSServerAutomaton(_TLSAutomaton):
         raise self.CLOSE_NOTIFY()
 
     @ATMT.state()
-    def PREPARE_SERVERBATCH1(self):
+    def PREPARE_SERVERFLIGHT1(self):
         self.add_record()
 
-    @ATMT.condition(PREPARE_SERVERBATCH1)
+    @ATMT.condition(PREPARE_SERVERFLIGHT1)
     def should_add_ServerHello(self):
         """
         XXX Selecting a cipher suite should be no trouble as we already caught
@@ -297,25 +297,25 @@ class TLSServerAutomaton(_TLSAutomaton):
         pass
 
     @ATMT.condition(ADDED_SERVERHELLODONE)
-    def should_send_ServerBatch1(self):
+    def should_send_ServerFlight1(self):
         self.flush_records()
-        raise self.WAITING_CLIENTBATCH2()
+        raise self.WAITING_CLIENTFLIGHT2()
 
     @ATMT.state()
-    def WAITING_CLIENTBATCH2(self):
+    def WAITING_CLIENTFLIGHT2(self):
         self.get_next_msg()
-        raise self.RECEIVED_CLIENTBATCH2()
+        raise self.RECEIVED_CLIENTFLIGHT2()
 
     @ATMT.state()
-    def RECEIVED_CLIENTBATCH2(self):
+    def RECEIVED_CLIENTFLIGHT2(self):
         pass
 
-    @ATMT.condition(RECEIVED_CLIENTBATCH2, prio=1)
+    @ATMT.condition(RECEIVED_CLIENTFLIGHT2, prio=1)
     def should_handle_ClientCertificate(self):
         self.raise_on_packet(TLSCertificate,
                              self.HANDLED_CLIENTCERTIFICATE)
 
-    @ATMT.condition(RECEIVED_CLIENTBATCH2, prio=2)
+    @ATMT.condition(RECEIVED_CLIENTFLIGHT2, prio=2)
     def no_ClientCertificate(self):
         if self.client_auth:
             raise self.MISSING_CLIENTCERTIFICATE()
@@ -414,7 +414,7 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def HANDLED_CLIENTFINISHED(self):
-        raise self.PREPARE_SERVERBATCH2()
+        raise self.PREPARE_SERVERFLIGHT2()
 
     @ATMT.condition(HANDLED_CHANGECIPHERSPEC, prio=2)
     def should_handle_Alert_from_ClientFinished(self):
@@ -436,10 +436,10 @@ class TLSServerAutomaton(_TLSAutomaton):
         raise self.CLOSE_NOTIFY()
 
     @ATMT.state()
-    def PREPARE_SERVERBATCH2(self):
+    def PREPARE_SERVERFLIGHT2(self):
         self.add_record()
 
-    @ATMT.condition(PREPARE_SERVERBATCH2)
+    @ATMT.condition(PREPARE_SERVERFLIGHT2)
     def should_add_ChangeCipherSpec(self):
         self.add_msg(TLSChangeCipherSpec())
         raise self.ADDED_CHANGECIPHERSPEC()
@@ -459,12 +459,12 @@ class TLSServerAutomaton(_TLSAutomaton):
         pass
 
     @ATMT.condition(ADDED_SERVERFINISHED)
-    def should_send_ServerBatch2(self):
+    def should_send_ServerFlight2(self):
         self.flush_records()
-        raise self.SENT_SERVERBATCH2()
+        raise self.SENT_SERVERFLIGHT2()
 
     @ATMT.state()
-    def SENT_SERVERBATCH2(self):
+    def SENT_SERVERFLIGHT2(self):
         self.vprint("TLS handshake completed!")
         self.vprint_sessioninfo()
         if self.is_echo_server:
@@ -572,7 +572,7 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     ########################## SSLv2 handshake ################################
 
-    @ATMT.condition(RECEIVED_CLIENTBATCH1, prio=2)
+    @ATMT.condition(RECEIVED_CLIENTFLIGHT1, prio=2)
     def sslv2_should_handle_ClientHello(self):
         self.raise_on_packet(SSLv2ClientHello,
                              self.SSLv2_HANDLED_CLIENTHELLO)

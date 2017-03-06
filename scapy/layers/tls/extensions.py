@@ -5,14 +5,18 @@
 """
 TLS handshake extensions.
 """
+#XXX add certificate_authorities and oid_filters extensions
 
 from scapy.fields import *
 from scapy.packet import Packet, Raw, Padding
 from scapy.layers.x509 import X509_Extensions
 from scapy.layers.tls.basefields import _tls_version
-from scapy.layers.tls.keyexchange import (_tls_named_curves,
-                                          SigAndHashAlgsLenField,
+from scapy.layers.tls.keyexchange import (SigAndHashAlgsLenField,
                                           SigAndHashAlgsField, _tls_hash_sig)
+from scapy.layers.tls.keyexchange_tls13 import (_tls_ext_keyshare_cls,
+                                                _tls_ext_presharedkey_cls,
+                                                _tls_named_groups,
+                                                _tls_ext, TLS_Ext_Unknown)
 from scapy.layers.tls.session import _GenericTLSSessionInheritance
 
 
@@ -22,43 +26,6 @@ from scapy.layers.tls.session import _GenericTLSSessionInheritance
 
 # We provide these extensions mostly for packet manipulation purposes.
 # For now, most of them are not considered by our automaton.
-
-_tls_ext = {  0: "server_name",             # RFC 4366
-              1: "max_fragment_length",     # RFC 4366
-              2: "client_certificate_url",  # RFC 4366
-              3: "trusted_ca_keys",         # RFC 4366
-              4: "truncated_hmac",          # RFC 4366
-              5: "status_request",          # RFC 4366
-              6: "user_mapping",            # RFC 4681
-              7: "client_authz",            # RFC 5878
-              8: "server_authz",            # RFC 5878
-              9: "cert_type",               # RFC 6091
-             10: "elliptic_curves",         # RFC 4492
-             11: "ec_point_formats",        # RFC 4492
-             13: "signature_algorithms",    # RFC 5246
-             0x0f: "heartbeat",             # RFC 6520
-             0x10: "alpn",                  # RFC 7301
-             0x15: "padding",               # RFC 7685
-             0x23: "session_ticket",        # RFC 5077
-             0x3374: "next_protocol_negotiation",
-                                            # RFC-draft-agl-tls-nextprotoneg-03
-             0xff01: "renegotiation_info"   # RFC 5746
-             }
-
-
-class TLS_Ext_Unknown(_GenericTLSSessionInheritance):
-    name = "TLS Extension - Scapy Unknown"
-    fields_desc = [ShortEnumField("type", None, _tls_ext),
-                   FieldLenField("len", None, fmt="!H", length_of="val"),
-                   StrLenField("val", "",
-                               length_from=lambda pkt: pkt.len) ]
-
-    def post_build(self, p, pay):
-        if self.len is None:
-            l = len(p) - 4
-            p = p[:2] + struct.pack("!H", l) + p[4:]
-        return p+pay
-
 
 class TLS_Ext_PrettyPacketList(TLS_Ext_Unknown):
     """
@@ -124,12 +91,22 @@ class ServerListField(PacketListField):
         res = [p.servername for p in x]
         return "[%s]" % ", ".join(res)
 
+class ServerLenField(FieldLenField):
+    """
+    There is no length when there are no servernames (as in a ServerHello).
+    """
+    def addfield(self, pkt, s, val):
+        if not val:
+            if not pkt.servernames:
+                return s
+        return super(ServerLenField, self).addfield(pkt, s, val)
+
 class TLS_Ext_ServerName(TLS_Ext_PrettyPacketList):                 # RFC 4366
     name = "TLS Extension - Server Name"
     fields_desc = [ShortEnumField("type", 0, _tls_ext),
                    FieldLenField("len", None, length_of="servernames",
                                  adjust=lambda pkt,x: x+2),
-                   FieldLenField("servernameslen", None,
+                   ServerLenField("servernameslen", None,
                                  length_of="servernames"),
                    ServerListField("servernames", [], ServerName,
                                    length_from=lambda pkt: pkt.servernameslen)]
@@ -317,15 +294,22 @@ def _TLS_Ext_CertTypeDispatcher(m, *args, **kargs):
     return cls(m, *args, **kargs)
 
 
-class TLS_Ext_SupportedEllipticCurves(TLS_Ext_Unknown):             # RFC 4492
-    name = "TLS Extension - Supported Elliptic Curves"
+class TLS_Ext_SupportedGroups(TLS_Ext_Unknown):
+    """
+    This extension was known as 'Supported Elliptic Curves' before TLS 1.3
+    merged both group selection mechanisms for ECDH and FFDH.
+    """
+    name = "TLS Extension - Supported Groups"
     fields_desc = [ShortEnumField("type", 10, _tls_ext),
                    ShortField("len", None),
-                   FieldLenField("ecllen", None, length_of="ecl"),
-                   FieldListField("ecl", [],
-                                  ShortEnumField("nc", None,
-                                                 _tls_named_curves),
-                                  length_from=lambda pkt: pkt.ecllen) ]
+                   FieldLenField("groupslen", None, length_of="groups"),
+                   FieldListField("groups", [],
+                                  ShortEnumField("ng", None,
+                                                 _tls_named_groups),
+                                  length_from=lambda pkt: pkt.groupslen) ]
+
+class TLS_Ext_SupportedEllipticCurves(TLS_Ext_SupportedGroups):     # RFC 4492
+    pass
 
 
 _tls_ecpoint_format = { 0: "uncompressed",
@@ -419,6 +403,66 @@ class TLS_Ext_SessionTicket(TLS_Ext_Unknown):                       # RFC 5077
                                length_from=lambda pkt: pkt.len) ]
 
 
+class TLS_Ext_KeyShare(TLS_Ext_Unknown):
+    name = "TLS Extension - Key Share (dummy class)"
+    fields_desc = [ShortEnumField("type", 0x28, _tls_ext),
+                   ShortField("len", None) ]
+
+
+class TLS_Ext_PreSharedKey(TLS_Ext_Unknown):
+    name = "TLS Extension - Pre Shared Key (dummy class)"
+    fields_desc = [ShortEnumField("type", 0x29, _tls_ext),
+                   ShortField("len", None) ]
+
+
+class TLS_Ext_EarlyData(TLS_Ext_Unknown):
+    name = "TLS Extension - Early Data"
+    fields_desc = [ShortEnumField("type", 0x2a, _tls_ext),
+                   ShortField("len", None) ]
+
+
+class TLS_Ext_SupportedVersions(TLS_Ext_Unknown):
+    name = "TLS Extension - Supported Versions"
+    fields_desc = [ShortEnumField("type", 0x2b, _tls_ext),
+                   ShortField("len", None),
+                   FieldLenField("versionslen", None, fmt='B',
+                                 length_of="versions"),
+                   FieldListField("versions", [],
+                                  ShortEnumField("version", None,
+                                                 _tls_version),
+                                  length_from=lambda pkt: pkt.versionslen) ]
+
+
+class TLS_Ext_Cookie(TLS_Ext_Unknown):
+    name = "TLS Extension - Cookie"
+    fields_desc = [ShortEnumField("type", 0x2c, _tls_ext),
+                   ShortField("len", None),
+                   FieldLenField("cookielen", None, length_of="cookie"),
+                   XStrLenField("cookie", "",
+                                length_from=lambda pkt: pkt.cookielen) ]
+
+
+_tls_psk_kx_modes = { 0: "psk_ke", 1: "psk_dhe_ke" }
+
+class TLS_Ext_PSKKeyExchangeModes(TLS_Ext_Unknown):
+    name = "TLS Extension - PSK Key Exchange Modes"
+    fields_desc = [ShortEnumField("type", 0x2d, _tls_ext),
+                   ShortField("len", None),
+                   FieldLenField("kxmodeslen", None, fmt='B',
+                                 length_of="kxmodes"),
+                   FieldListField("kxmodes", [],
+                                  ByteEnumField("kxmode", None,
+                                                 _tls_psk_kx_modes),
+                                  length_from=lambda pkt: pkt.kxmodeslen) ]
+
+
+class TLS_Ext_TicketEarlyDataInfo(TLS_Ext_Unknown):
+    name = "TLS Extension - Ticket Early Data Info"
+    fields_desc = [ShortEnumField("type", 0x2e, _tls_ext),
+                   ShortField("len", None),
+                   IntField("max_early_data_size", 0) ]
+
+
 class TLS_Ext_NPN(TLS_Ext_PrettyPacketList):
     """
     Defined in RFC-draft-agl-tls-nextprotoneg-03. Deprecated in favour of ALPN.
@@ -450,7 +494,8 @@ _tls_ext_cls = { 0: TLS_Ext_ServerName,
                  7: TLS_Ext_ClientAuthz,
                  8: TLS_Ext_ServerAuthz,
                  9: _TLS_Ext_CertTypeDispatcher,
-                10: TLS_Ext_SupportedEllipticCurves,
+               #10: TLS_Ext_SupportedEllipticCurves,
+                10: TLS_Ext_SupportedGroups,
                 11: TLS_Ext_SupportedPointFormat,
                 13: TLS_Ext_SignatureAlgorithms,
                 0x0f: TLS_Ext_Heartbeat,
@@ -459,84 +504,61 @@ _tls_ext_cls = { 0: TLS_Ext_ServerName,
                 0x16: TLS_Ext_EncryptThenMAC,
                 0x17: TLS_Ext_ExtendedMasterSecret,
                 0x23: TLS_Ext_SessionTicket,
+                0x28: TLS_Ext_KeyShare,
+                0x29: TLS_Ext_PreSharedKey,
+                0x2a: TLS_Ext_EarlyData,
+                0x2b: TLS_Ext_SupportedVersions,
+                0x2c: TLS_Ext_Cookie,
+                0x2d: TLS_Ext_PSKKeyExchangeModes,
+                0x2e: TLS_Ext_TicketEarlyDataInfo,
+               #0x2f: TLS_Ext_CertificateAuthorities,
+               #0x30: TLS_Ext_OIDFilters,
                 0x3374: TLS_Ext_NPN,
                 0xff01: TLS_Ext_RenegotiationInfo
                 }
 
 
 class _ExtensionsLenField(FieldLenField):
-    """
-    This field provides the first half of extensions support implementation
-    as defined in RFC 3546. The second is provided by _ExtensionsField. Both
-    are used as the last fields at the end of ClientHello messages.
-
-    The idea is quite simple:
-    - dissection : the _ExtensionsLenField will compute the remaining length of
-    the message based on the value of a provided field (for instance 'msglen'
-    in ClientHello) and a list of other fields that are considered "shifters".
-    This shifters are length fields of some vectors. The sum of their value
-    will be substracted to the one of the main field. If the result is
-    positive, this means that extensions are present and the
-    _ExtensionsLenField behaves just like a normal FieldLenField. If the value
-    is null, invalid or not sufficient to grab a length, the getfield method of
-    the field will simply return a 0 value without "eating" bytes from current
-    string. In a sense, the field is always present (which means that its value
-    is available for the _ExtensionsField field) but the behavior during
-    dissection is conditional. Then, the _ExtensionsField uses the length value
-    from the _ExtensionsLenField, to know how much data it should grab (TLS
-    extension is basically a vector). If no extensions are present, the length
-    field will have a null value and nothing will be grabbed.
-
-    - build: during build, if some extensions are provided, the
-    _ExtensionsLenField will automatically access the whole length and use it
-    if the user does not provide a specific value. Now, if no extensions are
-    available and the user does not provide a specific value, nothing is added
-    during the build, i.e. no length field with a null value will appear. As a
-    side note, this is also the case for the rebuild of a dissected packet: if
-    the initial packet had a length field with a null value, one will be built.
-    If no length field was present, nothing is added, i.e. a rebuilt dissected
-    packet will look like the original. Another side note is that the shifters
-    allow us to decide if there is an extension vector but the length of that
-    vector is grabbed from the value of the 2 first bytes, not from the value
-    computed from shifters and msglen.
-    """
-    __slots__ = ["lfld", "shifters"]
-    def __init__(self, name, default,
-                 lfld, shifters=[],
-                 fmt="!H", length_of=None):
-        FieldLenField.__init__(self, name, default,
-                               fmt=fmt, length_of=length_of)
-        self.lfld = lfld
-        self.shifters = shifters
-
     def getfield(self, pkt, s):
-        # compute the length of remaining data to see if there are ext
-        l = getattr(pkt, self.lfld)
-        for fname in self.shifters:
-            if type(fname) is int:
-                l -= fname
-            else:
-                l -= getattr(pkt, fname)
-
-        if l is None or l <= 0 or l < self.sz:
-            return s, None  # let's consider there's no extensions
-
-        return Field.getfield(self, pkt, s)
+        """
+        We try to compute a length, usually from a msglen parsed earlier.
+        If this length is 0, we consider 'selection_present' (from RFC 5246)
+        to be False. This means that there should not be any length field.
+        However, with TLS 1.3, zero lengths are always explicit.
+        """
+        ext = pkt.get_field(self.length_of)
+        l = ext.length_from(pkt)
+        if l is None or l <= 0:
+            v = pkt.tls_session.tls_version
+            if v < 0x0304:
+                return s, None
+        return super(_ExtensionsLenField, self).getfield(pkt, s)
 
     def addfield(self, pkt, s, i):
+        """
+        There is a hack with the _ExtensionsField.i2len. It works only because
+        we expect _ExtensionsField.i2m to return a string of the same size (if
+        not of the same value) upon successive calls (e.g. through i2len here,
+        then i2m when directly building the _ExtensionsField).
+
+        XXX A proper way to do this would be to keep the extensions built from
+        the i2len call here, instead of rebuilding them later on.
+        """
         if i is None:
             if self.length_of is not None:
                 fld,fval = pkt.getfield_and_val(self.length_of)
+
+                tmp = pkt.tls_session.frozen
+                pkt.tls_session.frozen = True
                 f = fld.i2len(pkt, fval)
+                pkt.tls_session.frozen = tmp
+
                 i = self.adjust(pkt, f)
                 if i == 0: # for correct build if no ext and not explicitly 0
                     return s
         return s + struct.pack(self.fmt, i)
 
 class _ExtensionsField(StrLenField):
-    """
-    See ExtensionsLenField documentation.
-    """
     islist=1
     holds_packets=1
 
@@ -554,6 +576,16 @@ class _ExtensionsField(StrLenField):
     def i2m(self, pkt, i):
         if i is None:
             return ""
+        if isinstance(pkt, _GenericTLSSessionInheritance):
+            if not pkt.tls_session.frozen:
+                s = ""
+                for ext in i:
+                    if isinstance(ext, _GenericTLSSessionInheritance):
+                        ext.tls_session = pkt.tls_session
+                        s += ext.str_stateful()
+                    else:
+                        s += str(ext)
+                return s
         return "".join(map(str, i))
 
     def m2i(self, pkt, m):
@@ -562,9 +594,12 @@ class _ExtensionsField(StrLenField):
             t = struct.unpack("!H", m[:2])[0]
             l = struct.unpack("!H", m[2:4])[0]
             cls = _tls_ext_cls.get(t, TLS_Ext_Unknown)
+            if cls is TLS_Ext_KeyShare:
+                cls = _tls_ext_keyshare_cls.get(pkt.msgtype, TLS_Ext_Unknown)
+            elif cls is TLS_Ext_PreSharedKey:
+                cls = _tls_ext_presharedkey_cls.get(pkt.msgtype, TLS_Ext_Unknown)
             res.append(cls(m[:l+4], tls_session=pkt.tls_session))
             m = m[l+4:]
         return res
-
 
 

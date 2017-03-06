@@ -24,8 +24,14 @@ from scapy.automaton import ATMT
 from scapy.layers.tls.automaton import _TLSAutomaton
 from scapy.layers.tls.basefields import _tls_version, _tls_version_options
 from scapy.layers.tls.session import tlsSession
+from scapy.layers.tls.extensions import (TLS_Ext_SupportedGroups,
+                                         TLS_Ext_SupportedVersions,
+                                         TLS_Ext_SignatureAlgorithms,
+                                         TLS_Ext_ServerName, ServerName)
 from scapy.layers.tls.handshake import *
 from scapy.layers.tls.handshake_sslv2 import *
+from scapy.layers.tls.keyexchange_tls13 import (TLS_Ext_KeyShare_CH,
+                                                KeyShareEntry)
 from scapy.layers.tls.record import (TLS, TLSAlert, TLSChangeCipherSpec,
                                      TLSApplicationData)
 from scapy.layers.tls.record_sslv2 import SSLv2
@@ -111,7 +117,10 @@ class TLSClientAutomaton(_TLSAutomaton):
             self.vprint("Version       : %s" % v)
             cs = s.wcs.ciphersuite.name
             self.vprint("Cipher suite  : %s" % cs)
-            ms = s.master_secret
+            if s.tls_version >= 0x0304:
+                ms = s.tls13_master_secret
+            else:
+                ms = s.master_secret
             self.vprint("Master secret : %s" % repr_hex(ms))
             if s.server_certs:
                 self.vprint("Server certificate chain: %r" % s.server_certs)
@@ -148,16 +157,18 @@ class TLSClientAutomaton(_TLSAutomaton):
         self.vprint()
         if self.cur_session.advertised_tls_version in [0x0200, 0x0002]:
             raise self.SSLv2_PREPARE_CLIENTHELLO()
+        elif self.cur_session.advertised_tls_version >= 0x0304:
+            raise self.TLS13_START()
         else:
-            raise self.PREPARE_CLIENTBATCH1()
+            raise self.PREPARE_CLIENTFLIGHT1()
 
     ########################### TLS handshake #################################
 
     @ATMT.state()
-    def PREPARE_CLIENTBATCH1(self):
+    def PREPARE_CLIENTFLIGHT1(self):
         self.add_record()
 
-    @ATMT.condition(PREPARE_CLIENTBATCH1)
+    @ATMT.condition(PREPARE_CLIENTFLIGHT1)
     def should_add_ClientHello(self):
         self.add_msg(self.client_hello or TLSClientHello())
         raise self.ADDED_CLIENTHELLO()
@@ -167,24 +178,24 @@ class TLSClientAutomaton(_TLSAutomaton):
         pass
 
     @ATMT.condition(ADDED_CLIENTHELLO)
-    def should_send_ClientBatch1(self):
+    def should_send_ClientFlight1(self):
         self.flush_records()
-        raise self.SENT_CLIENTBATCH1()
+        raise self.SENT_CLIENTFLIGHT1()
 
     @ATMT.state()
-    def SENT_CLIENTBATCH1(self):
-        raise self.WAITING_SERVERBATCH1()
+    def SENT_CLIENTFLIGHT1(self):
+        raise self.WAITING_SERVERFLIGHT1()
 
     @ATMT.state()
-    def WAITING_SERVERBATCH1(self):
+    def WAITING_SERVERFLIGHT1(self):
         self.get_next_msg()
-        raise self.RECEIVED_SERVERBATCH1()
+        raise self.RECEIVED_SERVERFLIGHT1()
 
     @ATMT.state()
-    def RECEIVED_SERVERBATCH1(self):
+    def RECEIVED_SERVERFLIGHT1(self):
         pass
 
-    @ATMT.condition(RECEIVED_SERVERBATCH1, prio=1)
+    @ATMT.condition(RECEIVED_SERVERFLIGHT1, prio=1)
     def should_handle_ServerHello(self):
         """
         XXX We should check the ServerHello attributes for discrepancies with
@@ -197,7 +208,7 @@ class TLSClientAutomaton(_TLSAutomaton):
     def HANDLED_SERVERHELLO(self):
         pass
 
-    @ATMT.condition(RECEIVED_SERVERBATCH1, prio=2)
+    @ATMT.condition(RECEIVED_SERVERFLIGHT1, prio=2)
     def missing_ServerHello(self):
         raise self.MISSING_SERVERHELLO()
 
@@ -289,13 +300,13 @@ class TLSClientAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def HANDLED_SERVERHELLODONE(self):
-        raise self.PREPARE_CLIENTBATCH2()
+        raise self.PREPARE_CLIENTFLIGHT2()
 
     @ATMT.state()
-    def PREPARE_CLIENTBATCH2(self):
+    def PREPARE_CLIENTFLIGHT2(self):
         self.add_record()
 
-    @ATMT.condition(PREPARE_CLIENTBATCH2, prio=1)
+    @ATMT.condition(PREPARE_CLIENTFLIGHT2, prio=1)
     def should_add_ClientCertificate(self):
         """
         If the server sent a CertificateRequest, we send a Certificate message.
@@ -322,8 +333,8 @@ class TLSClientAutomaton(_TLSAutomaton):
         self.add_msg(TLSClientKeyExchange())
         raise self.ADDED_CLIENTKEYEXCHANGE()
 
-    @ATMT.condition(PREPARE_CLIENTBATCH2, prio=2)
-    def should_add_ClientKeyExchange_from_ClientBatch2(self):
+    @ATMT.condition(PREPARE_CLIENTFLIGHT2, prio=2)
+    def should_add_ClientKeyExchange_from_ClientFlight2(self):
         return self.should_add_ClientKeyExchange()
 
     @ATMT.condition(ADDED_CLIENTCERTIFICATE)
@@ -382,24 +393,24 @@ class TLSClientAutomaton(_TLSAutomaton):
         pass
 
     @ATMT.condition(ADDED_CLIENTFINISHED)
-    def should_send_ClientBatch2(self):
+    def should_send_ClientFlight2(self):
         self.flush_records()
-        raise self.SENT_CLIENTBATCH2()
+        raise self.SENT_CLIENTFLIGHT2()
 
     @ATMT.state()
-    def SENT_CLIENTBATCH2(self):
-        raise self.WAITING_SERVERBATCH2()
+    def SENT_CLIENTFLIGHT2(self):
+        raise self.WAITING_SERVERFLIGHT2()
 
     @ATMT.state()
-    def WAITING_SERVERBATCH2(self):
+    def WAITING_SERVERFLIGHT2(self):
         self.get_next_msg()
-        raise self.RECEIVED_SERVERBATCH2()
+        raise self.RECEIVED_SERVERFLIGHT2()
 
     @ATMT.state()
-    def RECEIVED_SERVERBATCH2(self):
+    def RECEIVED_SERVERFLIGHT2(self):
         pass
 
-    @ATMT.condition(RECEIVED_SERVERBATCH2)
+    @ATMT.condition(RECEIVED_SERVERFLIGHT2)
     def should_handle_ChangeCipherSpec(self):
         self.raise_on_packet(TLSChangeCipherSpec,
                              self.HANDLED_CHANGECIPHERSPEC)
@@ -431,8 +442,15 @@ class TLSClientAutomaton(_TLSAutomaton):
 
     @ATMT.condition(WAIT_CLIENTDATA, prio=1)
     def add_ClientData(self):
+        """
+        The user may type in:
+        GET / HTTP/1.1\r\nHost: testserver.com\r\n\r\n
+        Special characters are handled so that it becomes a valid HTTP request.
+        """
         if not self.data_to_send:
             data = raw_input()
+            data = data.replace("\\r", "\r")
+            data = data.replace("\\n", "\n")
         else:
             data = self.data_to_send.pop()
         if data == "quit":
@@ -721,6 +739,8 @@ class TLSClientAutomaton(_TLSAutomaton):
     def sslv2_add_ClientData(self):
         if not self.data_to_send:
             data = raw_input()
+            data = data.replace("\\r", "\r")
+            data = data.replace("\\n", "\n")
         else:
             data = self.data_to_send.pop()
             self.vprint("> Read from list: %s" % data)
@@ -792,6 +812,130 @@ class TLSClientAutomaton(_TLSAutomaton):
             self.vprint("Could not send our goodbye. The server probably stopped.")
         self.socket.close()
         raise self.FINAL()
+
+    ######################### TLS 1.3 handshake ###############################
+
+    @ATMT.state()
+    def TLS13_START(self):
+        pass
+
+    @ATMT.condition(TLS13_START)
+    def tls13_should_add_ClientHello(self):
+        # we have to use the legacy, plaintext TLS record here
+        self.add_record(is_tls13=False)
+        if self.client_hello:
+            p = self.client_hello
+        else:
+            # uncomment these lines (and provide the right IP) for testing TLS 1.3
+           #sn = ServerName(servername="blog.cloudflare.com")
+            ext = [TLS_Ext_SupportedGroups(groups=["secp256r1"]),
+                  #TLS_Ext_ServerName(servernames=[sn]),
+                   TLS_Ext_KeyShare_CH(client_shares=[KeyShareEntry()]),
+                   TLS_Ext_SupportedVersions(versions=["TLS 1.3-d18"]),
+                   TLS_Ext_SignatureAlgorithms(sig_algs=["sha256+rsapss",
+                                                         "sha256+rsa"]) ]
+            p = TLSClientHello(ciphers=0x1301, ext=ext)
+        self.add_msg(p)
+        raise self.TLS13_ADDED_CLIENTHELLO()
+
+    @ATMT.state()
+    def TLS13_ADDED_CLIENTHELLO(self):
+        pass
+
+    @ATMT.condition(TLS13_ADDED_CLIENTHELLO)
+    def tls13_should_send_ClientHello(self):
+        self.flush_records()
+        raise self.TLS13_SENT_CLIENTHELLO()
+
+    @ATMT.state()
+    def TLS13_SENT_CLIENTHELLO(self):
+        raise self.TLS13_WAITING_SERVERHELLO()
+
+    @ATMT.state()
+    def TLS13_WAITING_SERVERHELLO(self):
+        self.get_next_msg()
+
+    @ATMT.condition(TLS13_WAITING_SERVERHELLO)
+    def tls13_should_handle_ServerHello(self):
+        self.raise_on_packet(TLS13ServerHello,
+                             self.TLS13_WAITING_ENCRYPTEDEXTENSIONS)
+
+    @ATMT.state()
+    def TLS13_WAITING_ENCRYPTEDEXTENSIONS(self):
+        self.get_next_msg()
+
+    @ATMT.condition(TLS13_WAITING_ENCRYPTEDEXTENSIONS)
+    def tls13_should_handle_EncryptedExtensions(self):
+        self.raise_on_packet(TLSEncryptedExtensions,
+                             self.TLS13_WAITING_CERTIFICATE)
+
+    @ATMT.state()
+    def TLS13_WAITING_CERTIFICATE(self):
+        self.get_next_msg()
+
+    @ATMT.condition(TLS13_WAITING_CERTIFICATE, prio=1)
+    def tls13_should_handle_Certificate(self):
+        self.raise_on_packet(TLS13Certificate,
+                             self.TLS13_WAITING_CERTIFICATEVERIFY)
+
+    @ATMT.condition(TLS13_WAITING_CERTIFICATE, prio=2)
+    def tls13_should_handle_CertificateRequest(self):
+        hs_msg = [type(m) for m in self.cur_session.handshake_messages_parsed]
+        if TLSCertificateRequest in hs_msg:
+            self.vprint("TLSCertificateRequest already received!")
+        self.raise_on_packet(TLSCertificateRequest,
+                             self.TLS13_WAITING_CERTIFICATE)
+
+    @ATMT.condition(TLS13_WAITING_CERTIFICATE, prio=3)
+    def tls13_should_handle_ServerFinished_from_EncryptedExtensions(self):
+        self.raise_on_packet(TLSFinished,
+                             self.TLS13_CONNECTED)
+
+    @ATMT.condition(TLS13_WAITING_CERTIFICATE, prio=4)
+    def tls13_missing_Certificate(self):
+        self.vprint("Missing TLS 1.3 message after EncryptedExtensions!")
+        raise self.FINAL()
+
+    @ATMT.state()
+    def TLS13_WAITING_CERTIFICATEVERIFY(self):
+        self.get_next_msg()
+
+    @ATMT.condition(TLS13_WAITING_CERTIFICATEVERIFY)
+    def tls13_should_handle_CertificateVerify(self):
+        self.raise_on_packet(TLSCertificateVerify,
+                             self.TLS13_WAITING_SERVERFINISHED)
+
+    @ATMT.state()
+    def TLS13_WAITING_SERVERFINISHED(self):
+        self.get_next_msg()
+
+    @ATMT.condition(TLS13_WAITING_SERVERFINISHED)
+    def tls13_should_handle_ServerFinished_from_CertificateVerify(self):
+        self.raise_on_packet(TLSFinished,
+                             self.TLS13_PREPARE_CLIENTFLIGHT2)
+
+    @ATMT.state()
+    def TLS13_PREPARE_CLIENTFLIGHT2(self):
+        self.add_record(is_tls13=True)
+        #raise self.FINAL()
+
+    @ATMT.condition(TLS13_PREPARE_CLIENTFLIGHT2)
+    def tls13_should_add_ClientFinished(self):
+        self.add_msg(TLSFinished())
+        raise self.TLS13_ADDED_CLIENTFINISHED()
+
+    @ATMT.state()
+    def TLS13_ADDED_CLIENTFINISHED(self):
+        pass
+
+    @ATMT.condition(TLS13_ADDED_CLIENTFINISHED)
+    def tls13_should_send_ClientFlight2(self):
+        self.flush_records()
+        raise self.TLS13_SENT_CLIENTFLIGHT2()
+
+    @ATMT.state()
+    def TLS13_SENT_CLIENTFLIGHT2(self):
+        raise self.HANDLED_SERVERFINISHED()
 
     @ATMT.state(final=True)
     def FINAL(self):

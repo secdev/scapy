@@ -27,7 +27,7 @@ else:
     ch = None
 
 t = TLSClientAutomaton(client_hello=ch,
-                       version="tls12",
+                       version="tls13-d18",
                        mycert=basedir+"/test/tls/pki/cli_cert.pem",
                        mykey=basedir+"/test/tls/pki/cli_key.pem")
 t.run()

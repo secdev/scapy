@@ -27,21 +27,20 @@ try:
     # We test with dummy values whether the size limitation has been removed.
     pn_test = DHParameterNumbers(2, 7)
 except ValueError:
-    # We rewrite the __init__ through a backport of cryptography v1.7.
+    # We get rid of the limitation through the cryptography v1.9 __init__.
     import six
-    def DHParameterNumbers__init__hack(self, p, g):
+    def DHParameterNumbers__init__hack(self, p, g, q=None):
         if (
             not isinstance(p, six.integer_types) or
             not isinstance(g, six.integer_types)
         ):
             raise TypeError("p and g must be integers")
-
-        # This the part we want to get rid of.
-        #if g not in (2, 5):
-        #    raise ValueError("DH generator must be 2 or 5")
+        if q is not None and not isinstance(q, six.integer_types):
+            raise TypeError("q must be integer or None")
 
         self._p = p
         self._g = g
+        self._q = q
 
     DHParameterNumbers.__init__ = DHParameterNumbers__init__hack
 

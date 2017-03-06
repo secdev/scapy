@@ -89,6 +89,7 @@ def _legacy_pkcs1_v1_5_encode_md5_sha1(M, emLen):
 # Hash and padding helpers
 #####################################################################
 
+#XXX this should be moved to hash.py
 _get_hash = None
 if conf.crypto_valid:
 

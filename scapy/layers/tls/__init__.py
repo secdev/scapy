@@ -80,8 +80,6 @@ TODO list (may it be carved away by good souls):
 
     - Miscellaneous:
 
-        - Implement TLS 1.3 structures and automatons. :D
-
         - Enhance PSK and session ticket support.
 
         - Define several Certificate Transparency objects.
