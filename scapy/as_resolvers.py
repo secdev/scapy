@@ -8,7 +8,7 @@ Resolve Autonomous Systems (AS).
 """
 
 
-import socket
+import socket, errno
 from scapy.config import conf
 
 class AS_resolver:
@@ -91,12 +91,12 @@ class AS_resolver_cymru(AS_resolver):
             asn,ip,desc = map(str.strip, l.split("|"))
             if asn == "NA":
                 continue
-            asn = int(asn)
-            ASNlist.append((ip,asn,desc))
+            asn = "AS" + str(int(asn))
+            ASNlist.append((ip, asn, desc))
         return ASNlist
 
 class AS_resolver_multi(AS_resolver):
-    resolvers_list = ( AS_resolver_cymru(),AS_resolver_riswhois(),AS_resolver_radb() )
+    resolvers_list = ( AS_resolver_riswhois(),AS_resolver_radb(),AS_resolver_cymru() )
     def __init__(self, *reslist):
         if reslist:
             self.resolvers_list = reslist
@@ -104,10 +104,18 @@ class AS_resolver_multi(AS_resolver):
         todo = ips
         ret = []
         for ASres in self.resolvers_list:
-            res = ASres.resolve(*todo)
+            try:
+                res = ASres.resolve(*todo)
+            except socket.error as e:
+                if e[0] in [errno.ECONNREFUSED, errno.ETIMEDOUT, errno.ECONNRESET]:
+                    continue
             resolved = [ ip for ip,asn,desc in res ]
             todo = [ ip for ip in todo if ip not in resolved ]
             ret += res
+            if len(todo) == 0:
+                break
+        if len(ips) != len(ret):
+            raise RuntimeError("Could not contact whois providers")
         return ret
 
 

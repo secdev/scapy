@@ -481,7 +481,7 @@ success = False
 for i in xrange(5):
     try:
         ret = conf.AS_resolver.resolve("8.8.8.8", "8.8.4.4")
-    except socket.error:
+    except RuntimeError:
         time.sleep(2)
     else:
         success = True
@@ -489,7 +489,7 @@ for i in xrange(5):
 
 assert (len(ret) == 2)
 
-all(x[1] == 15169 for x in ret)
+all(x[1] == "AS15169" for x in ret)
 
 
 ############
