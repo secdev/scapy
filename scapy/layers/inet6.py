@@ -415,6 +415,8 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
                 return self.payload.payload.hashret()
             elif (self.payload.type in [133,134,135,136,144,145]):
                 return struct.pack("B", self.nh)+self.payload.hashret()
+            elif (self.payload.type in [128, 129]):
+                return self.payload.hashret()
 
         if not conf.checkIPinIP and self.nh in [4, 41]:  # IP, IPv6
             return self.payload.hashret()
