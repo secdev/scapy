@@ -11,6 +11,7 @@ from scapy.layers.tls.cert import *
 
 from scapy.layers.tls.automaton_cli import *
 from scapy.layers.tls.automaton_srv import *
+from scapy.layers.tls.extensions import *
 from scapy.layers.tls.handshake import *
 from scapy.layers.tls.handshake_sslv2 import *
 from scapy.layers.tls.keyexchange import *

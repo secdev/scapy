@@ -955,25 +955,25 @@ class TLS_RSA_PSK_WITH_CHACHA20_POLY1305_SHA256(_GenericCipherSuite):
 
 
 class SSL_CK_RC4_128_WITH_MD5(_GenericCipherSuite):
-     val = 0x010080
+    val = 0x010080
 
 class SSL_CK_RC4_128_EXPORT40_WITH_MD5(_GenericCipherSuite):
-     val = 0x020080
+    val = 0x020080
 
 class SSL_CK_RC2_128_CBC_WITH_MD5(_GenericCipherSuite):
-     val = 0x030080
+    val = 0x030080
 
 class SSL_CK_RC2_128_CBC_EXPORT40_WITH_MD5(_GenericCipherSuite):
-     val = 0x040080
+    val = 0x040080
 
 class SSL_CK_IDEA_128_CBC_WITH_MD5(_GenericCipherSuite):
-     val = 0x050080
+    val = 0x050080
 
 class SSL_CK_DES_64_CBC_WITH_MD5(_GenericCipherSuite):
-     val = 0x060040
+    val = 0x060040
 
 class SSL_CK_DES_192_EDE3_CBC_WITH_MD5(_GenericCipherSuite):
-     val = 0x0700C0
+    val = 0x0700C0
 
 
 _tls_cipher_suites[0x00ff] = "TLS_EMPTY_RENEGOTIATION_INFO_SCSV"
