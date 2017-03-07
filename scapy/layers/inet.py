@@ -525,7 +525,12 @@ class TCP(Packet):
             if not ((self.sport == other.dport) and
                     (self.dport == other.sport)):
                 return 0
-        if (abs(other.seq-self.ack) > 2+len(other.payload)):
+        if abs(other.ack - self.seq) > 2:
+            return 0
+        # Do not check ack value for RST packets when ack is 0
+        if self.flags.R and not self.ack:
+            return 1
+        if abs(other.seq - self.ack) > 2 + len(other.payload):
             return 0
         return 1
     def mysummary(self):
