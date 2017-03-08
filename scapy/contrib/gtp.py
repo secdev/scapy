@@ -797,6 +797,10 @@ class GTPDeletePDPContextRequest(Packet):
                     ByteField("npdu", 0),
                     ByteField("next_ex", 0),
                     PacketListField("IE_list", [], IE_Dispatcher) ]
+    def hashret(self):
+        return struct.pack("H", self.seq)
+
+
 
 class GTPDeletePDPContextResponse(Packet):
     # 3GPP TS 29.060 V9.1.0 (2009-12)
@@ -805,6 +809,11 @@ class GTPDeletePDPContextResponse(Packet):
                     ByteField("npdu", 0),
                     ByteField("next_ex",0),
                     PacketListField("IE_list", [], IE_Dispatcher) ]
+    def hashret(self):
+        return struct.pack("H", self.seq)
+
+    def answers(self, other):
+        return self.seq == other.seq
 
 class GTPPDUNotificationRequest(Packet):
     # 3GPP TS 29.060 V9.1.0 (2009-12)
