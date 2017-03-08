@@ -521,14 +521,29 @@ class TCP(Packet):
     def answers(self, other):
         if not isinstance(other, TCP):
             return 0
+        # RST packets don't get answers
+        if other.flags.R:
+            return 0
+        # We do not support the four-way handshakes with the SYN+ACK
+        # answer split in two packets (one ACK and one SYN): in that
+        # case the ACK will be seen as an answer, but not the SYN.
+        if self.flags.S:
+            # SYN packets without ACK are not answers
+            if not self.flags.A:
+                return 0
+            # SYN+ACK packets answer SYN packets
+            if not other.flags.S:
+                return 0
         if conf.checkIPsrc:
             if not ((self.sport == other.dport) and
                     (self.dport == other.sport)):
                 return 0
-        if abs(other.ack - self.seq) > 2:
+        # Do not check ack value for SYN packets without ACK
+        if not (other.flags.S and not other.flags.A) \
+           and abs(other.ack - self.seq) > 2:
             return 0
-        # Do not check ack value for RST packets when ack is 0
-        if self.flags.R and not self.ack:
+        # Do not check ack value for RST packets without ACK
+        if self.flags.R and not self.flags.A:
             return 1
         if abs(other.seq - self.ack) > 2 + len(other.payload):
             return 0
