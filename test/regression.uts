@@ -304,6 +304,33 @@ assert all(p.hashret() == p2.hashret() for p in px)
 assert not any(p.answers(p2) for p in px)
 assert all(p2.answers(p) for p in px)
 conf.checkIPinIP = conf_back
+prt1, prt2 = 12345, 54321
+s1, s2 = 2767216324, 3845532842
+p1 = IP(src=a1, dst=a2)/TCP(flags='SA', seq=s1, ack=s2, sport=prt1, dport=prt2)
+p2 = IP(src=a2, dst=a1)/TCP(flags='R', seq=s2, ack=0, sport=prt2, dport=prt1)
+assert p2.answers(p1)
+assert not p1.answers(p2)
+p1 = IP(src=a1, dst=a2)/TCP(flags='S', seq=s1, ack=0, sport=prt1, dport=prt2)
+p2 = IP(src=a2, dst=a1)/TCP(flags='RA', seq=0, ack=s1+1, sport=prt2, dport=prt1)
+assert p2.answers(p1)
+assert not p1.answers(p2)
+p1 = IP(src=a1, dst=a2)/TCP(flags='S', seq=s1, ack=0, sport=prt1, dport=prt2)
+p2 = IP(src=a2, dst=a1)/TCP(flags='SA', seq=s2, ack=s1+1, sport=prt2, dport=prt1)
+assert p2.answers(p1)
+assert not p1.answers(p2)
+p1 = IP(src=a1, dst=a2)/TCP(flags='A', seq=s1, ack=s2+1, sport=prt1, dport=prt2)
+assert not p2.answers(p1)
+assert p1.answers(p2)
+p1 = IP(src=a1, dst=a2)/TCP(flags='S', seq=s1, ack=0, sport=prt1, dport=prt2)
+p2 = IP(src=a2, dst=a1)/TCP(flags='SA', seq=s2, ack=s1+10, sport=prt2, dport=prt1)
+assert not p2.answers(p1)
+assert not p1.answers(p2)
+p1 = IP(src=a1, dst=a2)/TCP(flags='A', seq=s1, ack=s2+1, sport=prt1, dport=prt2)
+assert not p2.answers(p1)
+assert not p1.answers(p2)
+p1 = IP(src=a1, dst=a2)/TCP(flags='A', seq=s1+9, ack=s2+10, sport=prt1, dport=prt2)
+assert not p2.answers(p1)
+assert not p1.answers(p2)
 
 
 ############
