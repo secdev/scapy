@@ -1104,6 +1104,8 @@ A side effect is that, to obtain "{" and "}" characters, you must use
                 fv = fv.command()
             elif fld.islist and fld.holds_packets and type(fv) is list:
                 fv = "[%s]" % ",".join( map(Packet.command, fv))
+            elif isinstance(fld, FlagsField):
+                fv = int(fv)
             else:
                 fv = repr(fv)
             f.append("%s=%s" % (fn, fv))
