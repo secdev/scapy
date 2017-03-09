@@ -25,7 +25,7 @@ class DADict_Exception(Scapy_Exception):
 class DADict:
     def __init__(self, _name="DADict", **kargs):
         self._name=_name
-        self._update(kargs)
+        self.update(kargs)
     def fixname(self,val):
         return fixname(val)
     def __contains__(self, val):
@@ -56,7 +56,7 @@ class DADict:
                 return False
         return True
 
-    def _update(self, *args, **kwargs):
+    def update(self, *args, **kwargs):
         for k, v in dict(*args, **kwargs).iteritems():
             self[k] = v
     
