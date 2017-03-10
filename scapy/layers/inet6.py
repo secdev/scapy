@@ -70,12 +70,12 @@ def get_cls(name, fallback_cls):
 
 conf.netcache.new_cache("in6_neighbor", 120)
 
+@conf.commands.register
 def neighsol(addr, src, iface, timeout=1, chainCC=0):
-    """
-    Sends an ICMPv6 Neighbor Solicitation message to get the MAC address
-    of the neighbor with specified IPv6 address addr. 'src' address is
-    used as source of the message. Message is sent on iface. By default,
-    timeout waiting for an answer is 1 second.
+    """Sends an ICMPv6 Neighbor Solicitation message to get the MAC address of the neighbor with specified IPv6 address addr
+
+    'src' address is used as source of the message. Message is sent on iface.
+    By default, timeout waiting for an answer is 1 second.
 
     If no answer is gathered, None is returned. Else, the answer is
     returned (ethernet frame).
@@ -92,9 +92,10 @@ def neighsol(addr, src, iface, timeout=1, chainCC=0):
 
     return res
 
+@conf.commands.register
 def getmacbyip6(ip6, chainCC=0):
-    """
-    Returns the mac address to be used for provided 'ip6' peer.
+    """Returns the MAC address corresponding to an IPv6 address
+
     neighborCache.get() method is used on instantiated neighbor cache.
     Resolution mechanism is described in associated doc string.
 
@@ -1972,8 +1973,9 @@ class NonceField(StrFixedLenField):
         if default is None:
             self.default = self.randval()
 
-# Compute the NI group Address. Can take a FQDN as input parameter
+@conf.commands.register
 def computeNIGroupAddr(name):
+    """Compute the NI group Address. Can take a FQDN as input parameter"""
     import md5
     name = name.lower().split(".")[0]
     record = chr(len(name))+name
@@ -2557,7 +2559,6 @@ class MIP6OptMsgAuth(_MIP6OptAlign, Packet): # RFC 4285 (Sect. 5)
 # in seconds relative to 0h on 1 January 1900. The integer part is in the
 # first 32 bits and the fraction part in the last 32 bits.
 class NTPTimestampField(LongField):
-    epoch = (1900, 1, 1, 0, 0, 0, 5, 1, 0)
     def i2repr(self, pkt, x):
         if x < ((50*31536000)<<32):
             return "Some date a few decades ago (%d)" % x
@@ -2981,7 +2982,13 @@ class  AS_resolver6(AS_resolver_riswhois):
 
         _, asn, desc = AS_resolver_riswhois._resolve_one(self, addr)
 
-        return ip,asn,desc
+        if asn.startswith("AS"):
+            try:
+                asn = int(asn[2:])
+            except ValueError:
+                pass
+
+        return ip,asn,desc        
 
 class TracerouteResult6(TracerouteResult):
     __slots__ = []
@@ -3023,11 +3030,11 @@ class TracerouteResult6(TracerouteResult):
 
     def graph(self, ASres=AS_resolver6(), **kargs):
         TracerouteResult.graph(self, ASres=ASres, **kargs)
-
-def traceroute6(target, dport=80, minttl=1, maxttl=30, sport=RandShort(),
+    
+@conf.commands.register
+def traceroute6(target, dport=80, minttl=1, maxttl=30, sport=RandShort(), 
                 l4 = None, timeout=2, verbose=None, **kargs):
-    """
-    Instant TCP traceroute using IPv6 :
+    """Instant TCP traceroute using IPv6
     traceroute6(target, [maxttl=30], [dport=80], [sport=80]) -> None
     """
     if verbose is None:
