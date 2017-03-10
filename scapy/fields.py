@@ -1015,40 +1015,33 @@ class LEFieldLenField(FieldLenField):
 
 class FlagValue(object):
     __slots__ = ["value", "names", "multi"]
-    @staticmethod
-    def __fixvalue(value, names):
+    def _fixvalue(self, value):
         if isinstance(value, basestring):
-            if isinstance(names, list):
-                value = value.split('+')
-            else:
-                value = list(value)
+            value = value.split('+') if self.multi else list(value)
         if isinstance(value, list):
             y = 0
             for i in value:
-                y |= 1 << names.index(i)
+                y |= 1 << self.names.index(i)
             value = y
-        return value
+        return None if value is None else int(value)
     def __init__(self, value, names):
-        self.value = (value.value if isinstance(value, self.__class__)
-                      else self.__fixvalue(value, names))
         self.multi = isinstance(names, list)
         self.names = names
+        self.value = self._fixvalue(value)
     def __int__(self):
         return self.value
     def __cmp__(self, other):
-        if isinstance(other, self.__class__):
-            return cmp(self.value, other.value)
-        return cmp(self.value, other)
+        return cmp(self.value, self._fixvalue(other))
     def __and__(self, other):
-        return self.__class__(self.value & int(other), self.names)
+        return self.__class__(self.value & self._fixvalue(other), self.names)
     __rand__ = __and__
     def __or__(self, other):
-        return self.__class__(self.value | int(other), self.names)
+        return self.__class__(self.value | self._fixvalue(other), self.names)
     __ror__ = __or__
     def __lshift__(self, other):
-        return self.value << int(other)
+        return self.value << self._fixvalue(other)
     def __rshift__(self, other):
-        return self.value >> int(other)
+        return self.value >> self._fixvalue(other)
     def __nonzero__(self):
         return bool(self.value)
     def flagrepr(self):

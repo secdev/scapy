@@ -7211,6 +7211,12 @@ assert not pkt.flags.MF
 assert pkt.flags.DF
 assert not pkt.flags.evil
 assert repr(pkt.flags) == '<Flag 2 (DF)>'
+pkt.flags |= 'evil+MF'
+pkt.flags &= 'DF+MF'
+assert pkt.flags.MF
+assert pkt.flags.DF
+assert not pkt.flags.evil
+assert repr(pkt.flags) == '<Flag 3 (MF+DF)>'
 
 pkt = IP(flags=3)
 assert pkt.flags.MF
@@ -7240,6 +7246,12 @@ assert pkt.flags.U
 assert pkt.flags.AU
 assert not any(getattr(pkt.flags, f) for f in 'FSRPECN')
 assert repr(pkt.flags) == '<Flag 48 (AU)>'
+pkt.flags &= 'SFA'
+pkt.flags |= 'P'
+assert pkt.flags.P
+assert pkt.flags.A
+assert pkt.flags.PA
+assert not any(getattr(pkt.flags, f) for f in 'FSRUECN')
 
 pkt = TCP(flags=56)
 assert all(getattr(pkt.flags, f) for f in 'PAU')
