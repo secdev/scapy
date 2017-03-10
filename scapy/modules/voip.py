@@ -24,9 +24,6 @@ sox_base = "sox -t .ul %s - -t ossdsp /dev/dsp"
 if WINDOWS:
     if conf.prog.sox is None:
         raise OSError("Sox must be installed to play VoIP packets")
-    finally:
-        if p_test:
-            p_test.terminate()
     sox_base = "\"" + conf.prog.sox + "\" -t .ul %s - -t waveaudio"
 
 def _merge_sound_bytes(x,y,sample_size=2):

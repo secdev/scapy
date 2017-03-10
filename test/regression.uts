@@ -1244,7 +1244,7 @@ in6_addrtomac("FE80::" + in6_mactoifaceid("FF:00:00:00:00:00", ulbit=0)) == 'ff:
 import socket
 
 res=True
-for _ in xrange(10):
+for a in xrange(10):
     s1,s2 = in6_getRandomizedIfaceId('20b:93ff:feeb:2d3')
     inet_pton(socket.AF_INET6, '::'+s1)
     tmp2 = inet_pton(socket.AF_INET6, '::'+s2)
@@ -7473,10 +7473,11 @@ def test_show():
         result_show += s
     mock_stdout = mock.Mock()
     mock_stdout.write = write
+    saved_stdout = sys.stdout
     sys.stdout = mock_stdout
     tr = TracerouteResult(tr_packets)
     tr.show()
-    sys.stdout = sys.__stdout__
+    sys.stdout = saved_stdout
     expected = "  192.168.0.1:tcp80  \n"
     expected += "1 192.168.0.1     11 \n"
     expected += "2 192.168.0.2     11 \n"
@@ -7525,10 +7526,11 @@ def test_IPID_count():
         result_IPID_count += s
     mock_stdout = mock.Mock()
     mock_stdout.write = write
+    saved_stdout = sys.stdout
     sys.stdout = mock_stdout
     random.seed(0x2807)
     IPID_count([(IP()/UDP(), IP(id=random.randint(0, 65535))/UDP()) for i in range(3)])
-    sys.stdout = sys.__stdout__
+    sys.stdout = saved_stdout
     lines = result_IPID_count.split("\n")
     print len(lines) == 5
     print lines[0] == "Probably 3 classes: [4613, 53881, 58437]"

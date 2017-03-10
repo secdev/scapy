@@ -63,18 +63,8 @@ then
   fi
 fi
 
-for f in *.uts
-do
-  if [ "$f" = "bpf.uts" ] || [ "$f" = "mock_windows.uts" ] ; then
-    continue
-  fi
-  $SCAPY_SUDO ./run_tests -q -F -t $f $UT_FLAGS || exit $?
-done
-
-for f in ../scapy/contrib/*.uts
-do
-  $SCAPY_SUDO ./run_tests -f text -t $f $UT_FLAGS -P "load_contrib('$(basename ${f/.uts})')" || exit $?
-done
+# Run all normal and contrib tests
+$SCAPY_SUDO ./run_tests -c ./configs/travis.utsc -T "bpf.uts" -T "mock_windows.uts" $UT_FLAGS || exit $?
 
 # Run unit tests with openssl if we have root privileges
 if [ "$TRAVIS_OS_NAME" = "linux" ] && [ ! -z $SCAPY_USE_PCAPDNET ] && [ ! -z $SCAPY_SUDO ]

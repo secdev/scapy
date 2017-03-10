@@ -7,10 +7,15 @@
 Unit testing infrastructure for Scapy
 """
 
-import sys,getopt,imp
+import sys, getopt, imp, glob
 import bz2, base64, os.path, time, traceback, zlib, sha
 from scapy.consts import WINDOWS
 
+
+### Util class ###
+
+class Bunch:
+    __init__ = lambda self, **kw: setattr(self, '__dict__', kw)
 
 #### Import tool ####
 
@@ -135,9 +140,16 @@ class TestCampaign(TestClass):
         self.sha = None
         self.preexec = None
         self.preexec_output = None
+        self.end_pos = 0
     def add_testset(self, testset):
         self.campaign.append(testset)
         testset.keywords.update(self.keywords)
+    def startNum(self, beginpos):
+        for ts in self:
+            for t in ts:
+                t.num = beginpos
+                beginpos += 1
+        self.end_pos = beginpos
     def __iter__(self):
         return self.campaign.__iter__()
     def all_tests(self):
@@ -171,9 +183,57 @@ class UnitTest(TestClass):
         self.keywords = set()
         self.crc = None
         self.expand = 1
+    def decode(self):
+        self.test = self.test.decode("utf8")
+        self.output = self.output.decode("utf8")
+        self.comments = self.comments.decode("utf8")
+        self.result = self.result.decode("utf8")
+    def encode(self):
+        self.test = self.test.encode("utf8")
+        self.output = self.output.encode("utf8")
+        self.comments = self.comments.encode("utf8")
+        self.result = self.result.encode("utf8")
     def __nonzero__(self):
         return self.res
 
+
+# Careful note: all data not included will be set by default.
+# Use -c as first argument !!
+def parse_config_file(config_path, verb=3):
+    """Parse provided json to get configuration
+    Empty default json:
+    {
+      "testfiles": [],
+      "onlyfailed": false,
+      "verb": 2,
+      "dump": 0,
+      "crc": true,
+      "scapy": "scapy",
+      "preexec": {},
+      "global_preexec": "",
+      "outputfile": null,
+      "local": true,
+      "format": "ansi",
+      "num": null,
+      "modules": [],
+      "kw_ok": [],
+      "kw_ko": []
+    }
+
+    """
+    import json, unicodedata
+    with open(config_path) as config_file:
+        data = json.load(config_file, encoding="utf8")
+        if verb > 2:
+            print >>sys.stderr, "### Loaded config file", config_path
+    def get_if_exist(key, default):
+        return data[key] if key in data else default
+    return Bunch(testfiles=get_if_exist("testfiles", []), onlyfailed=get_if_exist("onlyfailed", False),
+                 verb=get_if_exist("verb", 3), dump=get_if_exist("dump", 0), crc=get_if_exist("crc", 1),
+                 scapy=get_if_exist("scapy", "scapy"), preexec=get_if_exist("preexec", {}),
+                 global_preexec=get_if_exist("global_preexec", ""), outfile=get_if_exist("outputfile", sys.stdout),
+                 local=get_if_exist("local", 0), num=get_if_exist("num", None), modules=get_if_exist("modules", []),
+                 kw_ok=get_if_exist("kw_ok", []), kw_ko=get_if_exist("kw_ko", []), format=get_if_exist("format", "ansi"))
 
 #### PARSE CAMPAIGN ####
 
@@ -202,7 +262,6 @@ def parse_campaign_file(campaign_file):
             testset.add_test(test)
         elif l[0] == "*":
             if test is not None:
-                
                 test.comments += l[1:]
             elif testset is not None:
                 testset.comments += l[1:]
@@ -286,9 +345,9 @@ def filter_tests_keep_on_keywords(test_campaign, kw):
 def filter_tests_remove_on_keywords(test_campaign, kw):
     def kw_match(lst, kw):
         for k in kw:
-            if k not in lst:
-                return False
-        return True
+            if k in lst:
+                return True
+        return False
     
     if kw:
         for ts in test_campaign:
@@ -301,7 +360,7 @@ def remove_empty_testsets(test_campaign):
 
 #### RUN CAMPAIGN #####
 
-def run_campaign(test_campaign, get_interactive_session, verb=2):
+def run_campaign(test_campaign, get_interactive_session, verb=3):
     if WINDOWS:
         # Add a route to 127.0.0.1
         from scapy.arch.windows import route_add_loopback
@@ -328,6 +387,7 @@ def run_campaign(test_campaign, get_interactive_session, verb=2):
                 res = "failed"
                 failed += 1
             t.result = res
+            t.decode()
             if verb > 1:
                 print >>sys.stderr,"%(result)6s %(crc)s %(name)s" % t
     test_campaign.passed = passed
@@ -399,40 +459,18 @@ def campaign_to_xUNIT(test_campaign):
     return output
 
 
-def campaign_to_HTML(test_campaign, local=0):
-    output = """<html>
-<head>
-<title>%(title)s</title>
-<link rel="stylesheet" href="%%(UTscapy_css)s" type="text/css">
-<script language="JavaScript" src="%%(UTscapy_js)s" type="text/javascript"></script>
-</head>
-<body>
-
+def campaign_to_HTML(test_campaign):
+    output = """
 <h1>%(title)s</h1>
 
-<span class=button onClick="hide_all('tst')">Shrink All</span>
-<span class=button onClick="show_all('tst')">Expand All</span>
-<span class=button onClick="show_passed('tst')">Expand Passed</span>
-<span class=button onClick="show_failed('tst')">Expand Failed</span>
 <p>
 """ % test_campaign
-
-    if local:
-        External_Files.UTscapy_js.write(os.path.dirname(test_campaign.output_file.name))
-        External_Files.UTscapy_css.write(os.path.dirname(test_campaign.output_file.name))
-        output %= External_Files.get_local_dict()
-    else:
-        output %= External_Files.get_URL_dict()
 
     if test_campaign.crc is not None and test_campaign.sha is not None:
         output += "CRC=<span class=crc>%(crc)s</span> SHA=<span class=crc>%(sha)s</span><br>" % test_campaign
     output += "<small><em>"+html_info_line(test_campaign)+"</em></small>"
     output += test_campaign.headcomments +  "\n<p>PASSED=%(passed)i FAILED=%(failed)i<p>\n\n" % test_campaign
-    for ts in test_campaign:
-        for t in ts:
-            output += """<span class=button%(result)s onClick="goto_id('tst%(num)il')">%(num)03i</span>\n""" % t
-    output += "\n\n"
-    
+
     for testset in test_campaign:
         output += "<h2>" % testset
         if testset.crc is not None:
@@ -460,8 +498,44 @@ def campaign_to_HTML(test_campaign, local=0):
 %(output)s</pre></span>
 """ % t
         output += "\n</ul>\n\n"
+    return output
 
-    output += "</body></html>"
+def pack_html_campaigns(runned_campaigns, data, local=0, title=None):
+    output = """
+<html>
+<head>
+<title>%(title)s</title>
+<h1>UTScapy tests</h1>
+
+<span class=button onClick="hide_all('tst')">Shrink All</span>
+<span class=button onClick="show_all('tst')">Expand All</span>
+<span class=button onClick="show_passed('tst')">Expand Passed</span>
+<span class=button onClick="show_failed('tst')">Expand Failed</span>
+
+<p>
+"""
+    for test_campaign in runned_campaigns:
+        for ts in test_campaign:
+            for t in ts:
+                output += """<span class=button%(result)s onClick="goto_id('tst%(num)il')">%(num)03i</span>\n""" % t
+        
+    output += """</p>\n\n
+<link rel="stylesheet" href="%(UTscapy_css)s" type="text/css">
+<script language="JavaScript" src="%(UTscapy_js)s" type="text/javascript"></script>
+</head>
+<body>
+%(data)s
+</body></html>
+"""
+    out_dict = {'data': data, 'title': title if title else "UTScapy tests"}
+    if local:
+        External_Files.UTscapy_js.write(os.path.dirname(test_campaign.output_file.name))
+        External_Files.UTscapy_css.write(os.path.dirname(test_campaign.output_file.name))
+        out_dict.update(External_Files.get_local_dict())
+    else:
+        out_dict.update(External_Files.get_URL_dict())
+
+    output %= out_dict
     return output
 
 def campaign_to_LATEX(test_campaign):
@@ -512,15 +586,18 @@ def campaign_to_LATEX(test_campaign):
                       
 def usage():
     print >>sys.stderr,"""Usage: UTscapy [-m module] [-f {text|ansi|HTML|LaTeX}] [-o output_file] 
-               [-t testfile] [-k keywords [-k ...]] [-K keywords [-K ...]]
+               [-t testfile] [-T testfile] [-k keywords [-k ...]] [-K keywords [-K ...]]
                [-l] [-d|-D] [-F] [-q[q]] [-P preexecute_python_code]
-               [-s /path/to/scapy]
+               [-s /path/to/scapy] [-c configfile]
+-t\t\t: provide test files (can be used many times)
+-T\t\t: if -t is used with *, remove a specific file (can be used many times)
 -l\t\t: generate local files
 -F\t\t: expand only failed tests
 -d\t\t: dump campaign
 -D\t\t: dump campaign and stop
 -C\t\t: don't calculate CRC and SHA
 -s\t\t: path to scapy.py
+-c\t\t: load a .utsc config file
 -q\t\t: quiet mode
 -qq\t\t: [silent mode]
 -n <testnum>\t: only tests whose numbers are given (eg. 1,3-7,12)
@@ -534,95 +611,8 @@ def usage():
 
 #### MAIN ####
 
-def main(argv):
-    import __builtin__
-
-    # Parse arguments
-    
-    FORMAT = Format.ANSI
-    TESTFILE = sys.stdin
-    OUTPUTFILE = sys.stdout
-    LOCAL = 0
-    NUM=None
-    KW_OK = []
-    KW_KO = []
-    DUMP = 0
-    CRC = 1
-    ONLYFAILED = 0
-    VERB=2
-    PREEXEC=""
-    SCAPY="scapy"
-    MODULES = []
-    try:
-        opts = getopt.getopt(argv, "o:t:f:hln:m:k:K:DdCFqP:s:")
-        for opt,optarg in opts[0]:
-            if opt == "-h":
-                usage()
-            elif opt == "-F":
-                ONLYFAILED = 1
-            elif opt == "-q":
-                VERB -= 1
-            elif opt == "-D":
-                DUMP = 2
-            elif opt == "-d":
-                DUMP = 1
-            elif opt == "-C":
-                CRC = 0
-            elif opt == "-s":
-                SCAPY = optarg
-            elif opt == "-P":
-                PREEXEC += "\n"+optarg
-            elif opt == "-f":
-                try:
-                    FORMAT = Format.from_string(optarg)
-                except KeyError,msg:
-                    raise getopt.GetoptError("Unknown output format %s" % msg)
-            elif opt == "-t":
-                TESTFILE = open(optarg)
-            elif opt == "-o":
-                OUTPUTFILE = open(optarg, "w")
-            elif opt == "-l":
-                LOCAL = 1
-            elif opt == "-n":
-                NUM = []
-                for v in (x.strip() for x in optarg.split(",")):
-                    try:
-                        NUM.append(int(v))
-                    except ValueError:
-                        v1, v2 = map(int, v.split("-", 1))
-                        NUM.extend(xrange(v1, v2 + 1))
-            elif opt == "-m":
-                MODULES.append(optarg)
-            elif opt == "-k":
-                KW_OK.append(optarg.split(","))
-            elif opt == "-K":
-                KW_KO.append(optarg.split(","))
-
-        
-        try:
-            from scapy import all as scapy
-        except ImportError,e:
-            raise getopt.GetoptError("cannot import [%s]: %s" % (SCAPY,e))
-
-        for m in MODULES:
-            try:
-                mod = import_module(m)
-                __builtin__.__dict__.update(mod.__dict__)
-            except ImportError,e:
-                raise getopt.GetoptError("cannot import [%s]: %s" % (m,e))
-                
-    except getopt.GetoptError,msg:
-        print >>sys.stderr,"ERROR:",msg
-        raise SystemExit
-
-    autorun_func = {
-        Format.TEXT: scapy.autorun_get_text_interactive_session,
-        Format.ANSI: scapy.autorun_get_ansi_interactive_session,
-        Format.HTML: scapy.autorun_get_html_interactive_session,
-        Format.LATEX: scapy.autorun_get_latex_interactive_session,
-        Format.XUNIT: scapy.autorun_get_text_interactive_session,
-        }
-
+def execute_campaign(TESTFILE, OUTPUTFILE, PREEXEC, NUM, KW_OK, KW_KO, DUMP,
+                     FORMAT, VERB, ONLYFAILED, CRC, autorun_func, pos_begin=0):
     # Parse test file
     test_campaign = parse_campaign_file(TESTFILE)
 
@@ -630,7 +620,6 @@ def main(argv):
     if PREEXEC:
         test_campaign.preexec = PREEXEC
     
-
     # Compute campaign CRC and SHA
     if CRC:
         compute_campaign_digests(test_campaign)
@@ -663,21 +652,195 @@ def main(argv):
             else:
                 t.expand = 2
 
+    pos_end = 0
     # Generate report
     if FORMAT == Format.TEXT:
         output = campaign_to_TEXT(test_campaign)
     elif FORMAT == Format.ANSI:
         output = campaign_to_ANSI(test_campaign)
     elif FORMAT == Format.HTML:
-        output = campaign_to_HTML(test_campaign, local=LOCAL)
+        test_campaign.startNum(pos_begin)
+        output = campaign_to_HTML(test_campaign)
     elif FORMAT == Format.LATEX:
         output = campaign_to_LATEX(test_campaign)
     elif FORMAT == Format.XUNIT:
         output = campaign_to_xUNIT(test_campaign)
 
-    OUTPUTFILE.write(output)
+    return output, (result == 0), test_campaign
+
+def resolve_testfiles(TESTFILES):
+    for tfile in TESTFILES[:]:
+        if "*" in tfile:
+            TESTFILES.remove(tfile)
+            TESTFILES.extend(glob.glob(tfile))
+    return TESTFILES
+
+def main(argv):
+    import __builtin__
+
+    # Parse arguments
+    
+    FORMAT = Format.ANSI
+    TESTFILE = sys.stdin
+    OUTPUTFILE = sys.stdout
+    LOCAL = 0
+    NUM = None
+    KW_OK = []
+    KW_KO = []
+    DUMP = 0
+    CRC = True
+    ONLYFAILED = False
+    VERB = 3
+    GLOB_PREEXEC = ""
+    PREEXEC_DICT = {}
+    SCAPY = "scapy"
+    MODULES = []
+    TESTFILES = []
+    try:
+        opts = getopt.getopt(argv, "o:t:T:c:f:hln:m:k:K:DdCFqP:s:")
+        for opt,optarg in opts[0]:
+            if opt == "-h":
+                usage()
+            elif opt == "-F":
+                ONLYFAILED = True
+            elif opt == "-q":
+                VERB -= 1
+            elif opt == "-D":
+                DUMP = 2
+            elif opt == "-d":
+                DUMP = 1
+            elif opt == "-C":
+                CRC = False
+            elif opt == "-s":
+                SCAPY = optarg
+            elif opt == "-P":
+                GLOB_PREEXEC += "\n"+optarg
+            elif opt == "-f":
+                try:
+                    FORMAT = Format.from_string(optarg)
+                except KeyError,msg:
+                    raise getopt.GetoptError("Unknown output format %s" % msg)
+            elif opt == "-t":
+                TESTFILES.append(optarg)
+                TESTFILES = resolve_testfiles(TESTFILES)
+            elif opt == "-T":
+                TESTFILES.remove(optarg)
+            elif opt == "-c":
+                data = parse_config_file(optarg, VERB)
+                ONLYFAILED = data.onlyfailed
+                VERB = data.verb
+                DUMP = data.dump
+                CRC = data.crc
+                SCAPY = data.scapy
+                PREEXEC_DICT = data.preexec
+                GLOB_PREEXEC = data.global_preexec
+                OUTPUTFILE = data.outfile
+                TESTFILES = data.testfiles
+                LOCAL = 1 if data.local else 0
+                NUM = data.num
+                MODULES = data.modules
+                KW_OK = [data.kw_ok]
+                KW_KO = [data.kw_ko]
+                try:
+                    FORMAT = Format.from_string(data.format)
+                except KeyError,msg:
+                    raise getopt.GetoptError("Unknown output format %s" % msg)
+                TESTFILES = resolve_testfiles(TESTFILES)
+            elif opt == "-o":
+                OUTPUTFILE = open(optarg, "w")
+            elif opt == "-l":
+                LOCAL = 1
+            elif opt == "-n":
+                NUM = []
+                for v in (x.strip() for x in optarg.split(",")):
+                    try:
+                        NUM.append(int(v))
+                    except ValueError:
+                        v1, v2 = map(int, v.split("-", 1))
+                        NUM.extend(xrange(v1, v2 + 1))
+            elif opt == "-m":
+                MODULES.append(optarg)
+            elif opt == "-k":
+                KW_OK.append(optarg.split(","))
+            elif opt == "-K":
+                KW_KO.append(optarg.split(","))
+
+        if VERB > 2:
+            print >>sys.stderr, "### Booting scapy..."
+        try:
+            from scapy import all as scapy
+        except ImportError,e:
+            raise getopt.GetoptError("cannot import [%s]: %s" % (SCAPY,e))
+
+        for m in MODULES:
+            try:
+                mod = import_module(m)
+                __builtin__.__dict__.update(mod.__dict__)
+            except ImportError,e:
+                raise getopt.GetoptError("cannot import [%s]: %s" % (m,e))
+                
+    except getopt.GetoptError,msg:
+        print >>sys.stderr,"ERROR:",msg
+        raise SystemExit
+
+    autorun_func = {
+        Format.TEXT: scapy.autorun_get_text_interactive_session,
+        Format.ANSI: scapy.autorun_get_ansi_interactive_session,
+        Format.HTML: scapy.autorun_get_html_interactive_session,
+        Format.LATEX: scapy.autorun_get_latex_interactive_session,
+        Format.XUNIT: scapy.autorun_get_text_interactive_session,
+        }
+
+    if VERB > 2:
+        print >>sys.stderr,"### Starting tests..."
+
+    glob_output = ""
+    glob_result = 0
+    glob_title = None
+
+    UNIQUE = len(TESTFILES) == 1
+
+    # Resolve tags and asterix
+    for prex in PREEXEC_DICT.keys():
+        if "*" in prex:
+            pycode = PREEXEC_DICT[prex]
+            del PREEXEC_DICT[prex]
+            for gl in glob.iglob(prex):
+                _pycode = pycode.replace("%name%", os.path.splitext(os.path.split(gl)[1])[0])
+                PREEXEC_DICT[gl] = _pycode
+
+    pos_begin = 0
+
+    runned_campaigns = []
+    # Execute all files
+    for TESTFILE in TESTFILES:
+        if VERB > 2:
+            print >>sys.stderr,"### Loading:", TESTFILE
+        PREEXEC = PREEXEC_DICT[TESTFILE] if TESTFILE in PREEXEC_DICT else GLOB_PREEXEC
+        output, result, campaign = execute_campaign(open(TESTFILE), OUTPUTFILE,
+                                          PREEXEC, NUM, KW_OK, KW_KO,
+                                          DUMP, FORMAT, VERB, ONLYFAILED,
+                                          CRC, autorun_func, pos_begin)
+        runned_campaigns.append(campaign)
+        pos_begin = campaign.end_pos
+        if UNIQUE:
+            glob_title = campaign.title
+        glob_output += output
+        if not result:
+            glob_result = 1
+            break
+
+    if VERB > 2:
+            print >>sys.stderr,"### Writing output..."
+    # Concenate outputs
+    if FORMAT == Format.HTML:
+        glob_output = pack_html_campaigns(runned_campaigns, glob_output, LOCAL, glob_title)
+    
+    OUTPUTFILE.write(glob_output.encode("utf8"))
     OUTPUTFILE.close()
-    return result
+
+    # Return state
+    return glob_result
 
 if __name__ == "__main__":
     exit(main(sys.argv[1:]))
