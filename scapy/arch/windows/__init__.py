@@ -58,7 +58,7 @@ def _exec_query_ps(cmd, fields):
             yield l
             l=[]
 
-def _vbs_exec_code(code):
+def _vbs_exec_code(code, split_tag="@"):
     if not WINDOWS:
         return
     tmpfile = tempfile.NamedTemporaryFile(suffix=".vbs", delete=False)
@@ -71,7 +71,9 @@ def _vbs_exec_code(code):
         # skip 3 first lines
         ps.stdout.readline()
     for line in ps.stdout:
-        yield line
+        data = line.replace("\n", "").split(split_tag)
+        for l in data:
+            yield l
     os.unlink(tmpfile.name)
 
 def _vbs_get_iface_guid(devid):
@@ -92,7 +94,12 @@ _VBS_WMI_FIELDS = {
     "Win32_NetworkAdapter": {
         "InterfaceIndex": "Index",
         "InterfaceDescription": "Description",
-        "GUID": "DeviceID",
+    }
+}
+
+_VBS_WMI_REPLACE = {
+    "Win32_NetworkAdapterConfiguration": {
+        "line.IPAddress": "\"{\" & Join( line.IPAddress, \", \" ) & \"}\"",
     }
 }
 
@@ -103,16 +110,21 @@ _VBS_WMI_OUTPUT = {
 }
 
 def _exec_query_vbs(cmd, fields):
-    if not WINDOWS:
-        return
     """Execute a query using VBS. Currently Get-WmiObject queries are
     supported.
 
     """
     if not WINDOWS:
         return
-    assert len(cmd) == 2 and cmd[0] == "Get-WmiObject"
+    if not(len(cmd) == 2 and cmd[0] == "Get-WmiObject"):
+        return
+    
     fields = [_VBS_WMI_FIELDS.get(cmd[1], {}).get(fld, fld) for fld in fields]
+    parsed_command = "WScript.Echo " + " & \" @ \" & ".join("line.%s" % fld for fld in fields
+                           if fld is not None)
+    # The IPAddress is an array: convert it to a string
+    for key,val in _VBS_WMI_REPLACE.get(cmd[1], {}).items():
+        parsed_command = parsed_command.replace(key, val)
     values = _vbs_exec_code("""Set wmi = GetObject("winmgmts:")
 Set lines = wmi.InstancesOf("%s")
 On Error Resume Next
@@ -120,8 +132,8 @@ Err.clear
 For Each line in lines
   %s
 Next
-""" % (cmd[1], "\n  ".join("WScript.Echo line.%s" % fld for fld in fields
-                           if fld is not None))).__iter__()
+""" % (cmd[1], parsed_command), "@")
+    
     while True:
         yield [None if fld is None else
                _VBS_WMI_OUTPUT.get(cmd[1], {}).get(fld, lambda x: x)(
@@ -209,8 +221,10 @@ def win_find_exe(filename, installsubdir=None, env="ProgramFiles"):
     return path
 
 
-def is_new_release():
+def is_new_release(ignoreVBS=False):
     release = platform.release()
+    if conf.prog.powershell is None and not ignoreVBS:
+        return False
     try:
         if float(release) >= 8:
             return True
@@ -258,6 +272,9 @@ import platform
 
 def is_interface_valid(iface):
     if "guid" in iface and iface["guid"]:
+        # Fix '-' instead of ':'
+        if "mac" in iface:
+            iface["mac"] = iface["mac"].replace("-", ":")
         return True
     return False
 
@@ -435,7 +452,7 @@ pcapdnet.open_pcap = lambda iface,*args,**kargs: _orig_open_pcap(pcapname(iface)
 
 _orig_get_if_raw_hwaddr = pcapdnet.get_if_raw_hwaddr
 pcapdnet.get_if_raw_hwaddr = lambda iface, *args, **kargs: (
-    ARPHDR_ETHER, mac2str(IFACES.dev_from_pcapname(pcapname(iface)).mac.replace('-', ':'))
+    ARPHDR_ETHER, mac2str(IFACES.dev_from_pcapname(pcapname(iface)).mac)
 )
 get_if_raw_hwaddr = pcapdnet.get_if_raw_hwaddr
 
