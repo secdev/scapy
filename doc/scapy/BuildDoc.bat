@@ -1,7 +1,8 @@
 @echo off
 title Build scapy docs
-set /P CLEAR=Clear build ? (y/n)
+set /P CLEAR=Clear build ? (y/n) [y] 
 If /I "%CLEAR%"=="y" goto yes 
+If /I "%CLEAR%"=="" goto yes 
 If /I "%CLEAR%"=="n" goto no
 
 echo Unknown answer !
