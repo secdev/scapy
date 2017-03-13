@@ -7,10 +7,10 @@
 Linux specific functions.
 """
 
-from __future__ import with_statement
-import sys, os, struct, socket, time, array, platform
+import sys,os,struct,socket,time
 from select import select
 from fcntl import ioctl
+import array
 
 from scapy.consts import LOOPBACK_NAME, IS_64BITS
 import scapy.utils
@@ -162,73 +162,107 @@ def set_promisc(s,iff,val=1):
     s.setsockopt(SOL_PACKET, cmd, mreq)
 
 
+def get_alias_address(iface_name, ip_mask):
+    """
+    Get the correct source IP address of an interface alias
+    """
+
+    # Detect the architecture
+    if scapy.consts.IS_64BITS:
+        offset, name_len = 16, 40
+    else:
+        offset, name_len = 32, 32
+
+    # Retrieve interfaces structures
+    sck = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    names = array.array('B', '\0' * 4096)
+    ifreq = ioctl(sck.fileno(), SIOCGIFCONF,
+                  struct.pack("iL", len(names), names.buffer_info()[0]))
+
+    # Extract interfaces names
+    out = struct.unpack("iL", ifreq)[0]
+    names = names.tostring()
+    names = [names[i:i+offset].split('\0', 1)[0] for i in xrange(0, out, name_len)]
+
+    # Look for the IP address
+    for ifname in names:
+        # Only look for a matching interface name
+        if not ifname.startswith(iface_name):
+            continue
+
+        # Retrieve and convert addresses
+        ifreq = ioctl(sck, SIOCGIFADDR, struct.pack("16s16x", ifname))
+        ifaddr = struct.unpack(">I", ifreq[20:24])[0]
+        ifreq = ioctl(sck, SIOCGIFNETMASK, struct.pack("16s16x", ifname))
+        msk = struct.unpack(">I", ifreq[20:24])[0]
+       
+        # Get the full interface name
+        if ':' in ifname:
+            ifname = ifname[:ifname.index(':')]
+        else:
+            continue
+
+        # Check if the source address is included in the network
+        if (ifaddr & msk) == ip_mask:
+            sck.close()
+            return (ifaddr & msk, msk, "0.0.0.0", ifname,
+                    scapy.utils.ltoa(ifaddr))
+
+    sck.close()
+    return
+
 
 def read_routes():
-
-    link_local = []
-
-    bits,_ = platform.architecture()
-    if bits == "32bit":
-        offset,name_len=32,32 # 32-bit
-    elif bits == "64bit":
-        offset,name_len=16,40
-    else:
-        warning("Unsupported architecure")
-        return []
-
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    names = array.array('B', '\0' * 4096)
-    ifreq = ioctl(s.fileno(), SIOCGIFCONF, struct.pack('iL', len(names),
-                                                       names.buffer_info()[0]))
-    out = struct.unpack('iL', ifreq)[0]
-    names = names.tostring()
-    names = [names[i:i+offset].split('\0', 1)[0]
-                   for i in range(0, out, name_len)]
-    for ifname in names:
-        ifreq = ioctl(s, SIOCGIFADDR,struct.pack("16s16x",ifname))
-        ifaddr = struct.unpack('>I', ifreq[20:24])[0]
-        ifreq = ioctl(s, SIOCGIFNETMASK,struct.pack("16s16x",ifname))
-        msk = struct.unpack('>I', ifreq[20:24])[0]
-        if ":" in ifname:
-            ifname = ifname[:ifname.index(":")]
-
-        link_local.append((ifaddr & msk, msk, "0.0.0.0", ifname,
-                           scapy.utils.ltoa(ifaddr)))
-
-    link_local.sort()
-    routes = link_local[:]
-
     try:
         f=open("/proc/net/route","r")
     except IOError:
         warning("Can't open /proc/net/route !")
-        return routes
+        return []
+    routes = []
+    s=socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    ifreq = ioctl(s, SIOCGIFADDR,struct.pack("16s16x",LOOPBACK_NAME))
+    addrfamily = struct.unpack("h",ifreq[16:18])[0]
+    if addrfamily == socket.AF_INET:
+        ifreq2 = ioctl(s, SIOCGIFNETMASK,struct.pack("16s16x",LOOPBACK_NAME))
+        msk = socket.ntohl(struct.unpack("I",ifreq2[20:24])[0])
+        dst = socket.ntohl(struct.unpack("I",ifreq[20:24])[0]) & msk
+        ifaddr = scapy.utils.inet_ntoa(ifreq[20:24])
+        routes.append((dst, msk, "0.0.0.0", LOOPBACK_NAME, ifaddr))
+    else:
+        warning("Interface lo: unkown address family (%i)"% addrfamily)
 
     for l in f.readlines()[1:]:
         iff,dst,gw,flags,x,x,x,msk,x,x,x = l.split()
-        gw = socket.htonl(long(gw, 16))
-        if gw == 0:
-            continue
         flags = int(flags,16)
         if flags & RTF_UP == 0:
             continue
         if flags & RTF_REJECT:
             continue
+        try:
+            ifreq = ioctl(s, SIOCGIFADDR,struct.pack("16s16x",iff))
+        except IOError: # interface is present in routing tables but does not have any assigned IP
+            ifaddr="0.0.0.0"
+        else:
+            addrfamily = struct.unpack("h",ifreq[16:18])[0]
+            if addrfamily == socket.AF_INET:
+                ifaddr = scapy.utils.inet_ntoa(ifreq[20:24])
+            else:
+                warning("Interface %s: unkown address family (%i)"%(iff, addrfamily))
+                continue
 
-        # default value if no interface ip found
-        src = "0.0.0.0"
-
-        # choose src by interface ip - prefer those in gw subnet
-        for lnet, lmsk, _, lifname, lsrc in link_local:
-            if lifname == iff:
-                src = lsrc
-                if gw & lmsk == lnet:
-                    break
-
-        routes.append((socket.htonl(long(dst,16)) & 0xffffffffL,
-                       socket.htonl(long(msk,16)) & 0xffffffffL,
-                       scapy.utils.ltoa(gw), iff, src))
-
+        # Attempt to detect an interface alias based on addresses inconsistencies
+        dst_int = socket.htonl(int(dst, 16)) & 0xffffffff
+        msk_int = socket.htonl(int(msk, 16)) & 0xffffffff
+        ifaddr_int = struct.unpack("!I", ifreq[20:24])[0]
+        if ifaddr_int & msk_int != dst_int:
+            tmp_route = get_alias_address(iff, dst_int)
+            if tmp_route:
+                routes.append(tmp_route)
+        else:
+            routes.append((dst_int, msk_int,
+                           scapy.utils.inet_ntoa(struct.pack("I", int(gw, 16))),
+                           iff, ifaddr))
+    
     f.close()
     return routes
 
