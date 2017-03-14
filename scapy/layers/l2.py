@@ -545,7 +545,7 @@ class EAP_TLS(EAP):
     ]
 
 
-class EAP_FAST(Packet):
+class EAP_FAST(EAP):
 
     """
     RFC 4851 - "The Flexible Authentication via Secure Tunneling
@@ -554,14 +554,18 @@ class EAP_FAST(Packet):
 
     name = "EAP-FAST"
     fields_desc = [
+        ByteEnumField("code", 1, eap_codes),
+        ByteField("id", 0),
+        FieldLenField("len", None, fmt="H", length_of="data",
+                      adjust=lambda p, x: x + 10 if p.L == 1 else x + 6),
+        ByteEnumField("type", 43, eap_types),
         BitField('L', 0, 1),
         BitField('M', 0, 1),
         BitField('S', 0, 1),
         BitField('reserved', 0, 2),
         BitField('version', 0, 3),
         ConditionalField(IntField('message_len', 0), lambda pkt: pkt.L == 1),
-        ConditionalField(
-            StrLenField('data', '', length_from=lambda pkt: pkt.message_len), lambda pkt: pkt.L == 1)
+        StrLenField('data', '', length_from=lambda pkt: pkt.len - 10 if pkt.L == 1 else pkt.len - 6)
     ]
 
 
@@ -1089,7 +1093,6 @@ bind_layers( GRErouting,    conf.raw_layer,{ "address_family" : 0, "SRE_len" : 0
 bind_layers( GRErouting,    GRErouting,    { } )
 bind_layers( EAPOL,         EAP,           type=0)
 bind_layers( EAPOL,         MKAPDU,        type=5)
-bind_layers(EAP,           EAP_FAST,      type=43)
 bind_layers( EAP,           EAP_MD5,       type=4)
 bind_layers( LLC,           STP,           dsap=66, ssap=66, ctrl=3)
 bind_layers( LLC,           SNAP,          dsap=170, ssap=170, ctrl=3)
