@@ -475,6 +475,21 @@ class EAP(Packet):
     INITIATE = 5
     FINISH = 6
 
+    registered_options = {}
+
+    @classmethod
+    def register_variant(cls):
+        cls.registered_options[cls.type.default] = cls
+
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        if _pkt:
+            c = ord(_pkt[0])
+            if c in [1, 2] and len(_pkt) >= 5:
+                t = ord(_pkt[4])
+                return cls.registered_options.get(t, cls)
+        return cls
+
     def answers(self, other):
         if isinstance(other, EAP):
             if self.code == self.REQUEST:
@@ -508,7 +523,7 @@ class EAP_MD5(Packet):
     ]
 
 
-class EAP_TLS(Packet):
+class EAP_TLS(EAP):
 
     """
     RFC 5216 - "The EAP-TLS Authentication Protocol"
@@ -516,14 +531,17 @@ class EAP_TLS(Packet):
 
     name = "EAP-TLS"
     fields_desc = [
+        ByteEnumField("code", 1, eap_codes),
+        ByteField("id", 0),
+        FieldLenField("len", None, fmt="H", length_of="tls_data",
+                      adjust=lambda p, x: x + 10 if p.L == 1 else x + 6),
+        ByteEnumField("type", 13, eap_types),
         BitField('L', 0, 1),
         BitField('M', 0, 1),
         BitField('S', 0, 1),
         BitField('reserved', 0, 5),
-        ConditionalField(
-            IntField('tls_message_len', 0), lambda pkt: pkt.L == 1),
-        ConditionalField(
-            StrLenField('tls_data', '', length_from=lambda pkt: pkt.tls_message_len), lambda pkt: pkt.L == 1)
+        ConditionalField(IntField('tls_message_len', 0), lambda pkt: pkt.L == 1),
+        StrLenField('tls_data', '', length_from=lambda pkt: pkt.len - 10 if pkt.L == 1 else pkt.len - 6)
     ]
 
 
@@ -1071,7 +1089,6 @@ bind_layers( GRErouting,    conf.raw_layer,{ "address_family" : 0, "SRE_len" : 0
 bind_layers( GRErouting,    GRErouting,    { } )
 bind_layers( EAPOL,         EAP,           type=0)
 bind_layers( EAPOL,         MKAPDU,        type=5)
-bind_layers(EAP,           EAP_TLS,       type=13)
 bind_layers(EAP,           EAP_FAST,      type=43)
 bind_layers( EAP,           EAP_MD5,       type=4)
 bind_layers( LLC,           STP,           dsap=66, ssap=66, ctrl=3)
