@@ -374,13 +374,9 @@ class _IPv6GuessPayload:
             return Raw
         elif self.nh == 135 and len(p) > 3: # Mobile IPv6
             return _mip6_mhtype2cls.get(ord(p[2]), MIP6MH_Generic)
-        #FIXME
-        elif self.nh == 43: # Routing header
-            t = ord(p[2])
-            return get_cls(routingtypescls.get(t,"Raw"), "Raw")
-
-        else:
-            return get_cls(ipv6nhcls.get(self.nh,"Raw"), "Raw")
+        elif self.nh == 43 and ord(p[2]) == 4:  # Segment Routing header
+            return IPv6ExtHdrSegmentRouting
+        return get_cls(ipv6nhcls.get(self.nh, "Raw"), "Raw")
 
 class IPv6(_IPv6GuessPayload, Packet, IPTools):
     name = "IPv6"
@@ -443,10 +439,9 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
                     sd = strxor(sd, a)
                 sd = inet_ntop(socket.AF_INET6, sd)
 
-        if self.nh == 43 and isinstance(self.payload,
-                                        IPv6ExtHdrSegmentRouting):
-            # With segment routing header (rh = 4), the destination is
-            # the first address of the IPv6 list
+        if self.nh == 43 and isinstance(self.payload, IPv6ExtHdrSegmentRouting):
+            # With segment routing header (rh == 4), the destination is
+            # the first address of the IPv6 addresses list
             try:
                 sd = self.addresses[0]
             except IndexError:
@@ -518,10 +513,8 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
             return self.payload.answers(other.payload.payload)
         elif other.nh == 43 and isinstance(other.payload, IPv6ExtHdrRouting):
             return self.payload.answers(other.payload.payload) # Buggy if self.payload is a IPv6ExtHdrRouting
-        elif other.nh == 43 and isinstance(other.payload,
-                                           IPv6ExtHdrSegmentRouting):
+        elif other.nh == 43 and isinstance(other.payload, IPv6ExtHdrSegmentRouting):
             return self.payload.answers(other.payload.payload)  # Buggy if self.payload is a IPv6ExtHdrRouting
-
         elif other.nh == 60 and isinstance(other.payload, IPv6ExtHdrDestOpt):
             return self.payload.payload.answers(other.payload.payload)
         elif self.nh == 60 and isinstance(self.payload, IPv6ExtHdrDestOpt): # BU in reply to BRR, for instance
@@ -935,13 +928,6 @@ class IPv6ExtHdrDestOpt(_IPv6ExtHdr):
 
 ############################# Routing Header ################################
 
-routingtypescls = {  0: "IPv6ExtHdrRouting",
-                     1: "IPv6ExtHdrRouting",  # TODO other routing header
-                     2: "IPv6ExtHdrRouting",  # TODO other routing header
-                     3: "IPv6ExtHdrRouting",  # TODO other Routing header
-                     4: "IPv6ExtHdrSegmentRouting"
-                   };
-
 class IPv6ExtHdrRouting(_IPv6ExtHdr):
     name = "IPv6 Option Header Routing"
     fields_desc = [ ByteEnumField("nh", 59, ipv6nh),
@@ -959,34 +945,109 @@ class IPv6ExtHdrRouting(_IPv6ExtHdr):
             pkt = pkt[:3]+struct.pack("B", len(self.addresses))+pkt[4:]
         return _IPv6ExtHdr.post_build(self, pkt, pay)
 
+
 ######################### Segment Routing Header ############################
+
+# This implementation is based on draft 06, available at:
+# https://tools.ietf.org/html/draft-ietf-6man-segment-routing-header-06
+
+class IPv6ExtHdrSegmentRoutingTLV(Packet):
+    name = "IPv6 Option Header Segment Routing - Generic TLV"
+    fields_desc = [ ByteField("type", 0),
+                    ByteField("len", 0),
+                    ByteField("reserved", 0),
+                    ByteField("flags", 0),
+                    StrLenField("value", "", length_from=lambda pkt: pkt.len) ]
+
+    def extract_padding(self, p):
+        return "",p
+
+    registered_sr_tlv = {}
+    @classmethod
+    def register_variant(cls):
+        cls.registered_sr_tlv[cls.type.default] = cls
+
+    @classmethod
+    def dispatch_hook(cls, pkt=None, *args, **kargs):
+        if pkt:
+            tmp_type = ord(pkt[0])
+            return cls.registered_sr_tlv.get(tmp_type, cls)
+        return cls
+
+
+class IPv6ExtHdrSegmentRoutingTLVIngressNode(IPv6ExtHdrSegmentRoutingTLV):
+    name = "IPv6 Option Header Segment Routing - Ingress Node TLV"
+    fields_desc = [ ByteField("type", 1),
+                    ByteField("len", 18),
+                    ByteField("reserved", 0),
+                    ByteField("flags", 0),
+                    IP6Field("ingress_node", "::1") ]
+
+
+class IPv6ExtHdrSegmentRoutingTLVEgressNode(IPv6ExtHdrSegmentRoutingTLV):
+    name = "IPv6 Option Header Segment Routing - Egress Node TLV"
+    fields_desc = [ ByteField("type", 2),
+                    ByteField("len", 18),
+                    ByteField("reserved", 0),
+                    ByteField("flags", 0),
+                    IP6Field("egress_node", "::1") ]
+
+
+class IPv6ExtHdrSegmentRoutingTLVPadding(IPv6ExtHdrSegmentRoutingTLV):
+    name = "IPv6 Option Header Segment Routing - Padding TLV"
+    fields_desc = [ ByteField("type", 4),
+                    FieldLenField("len", None, length_of="padding", fmt="B"),
+                    StrLenField("padding", "\x00", length_from=lambda pkt: pkt.len) ]
+
 
 class IPv6ExtHdrSegmentRouting(_IPv6ExtHdr):
     name = "IPv6 Option Header Segment Routing"
     fields_desc = [ ByteEnumField("nh", 59, ipv6nh),
-                    FieldLenField("len", None, count_of="addresses", fmt="B",
-                                  adjust=lambda pkt,x:2*x), # in 8 bytes blocks
+                    ByteField("len", None),
                     ByteField("type", 4),
-                    ByteField("nseg", None),
-                    ByteField("fseg", None),
-                    BitField("clean", 0, 1),
+                    ByteField("segleft", None),
+                    ByteField("lastentry", None),
+                    BitField("unused1", 0, 1),
                     BitField("protected", 0, 1),
                     BitField("oam", 0, 1),
                     BitField("alert", 0, 1),
                     BitField("hmac", 0, 1),
-                    BitField("unused", 0, 11),  # Destined to change
-                    ByteField("reserved", 0),
-                    IP6ListField("addresses", [],
-                                 length_from=lambda pkt: 8*pkt.len)]
-    overload_fields = {IPv6: { "nh": 43 }}
+                    BitField("unused2", 0, 3),
+                    ShortField("tag", 0),
+                    IP6ListField("addresses", ["::1"],
+                        count_from=lambda pkt: pkt.lastentry),
+                    PacketListField("tlv_objects", [], IPv6ExtHdrSegmentRoutingTLV,
+                        length_from=lambda pkt: 8*pkt.len - 16*pkt.lastentry) ]
+
+    overload_fields = { IPv6: { "nh": 43 } }
 
     def post_build(self, pkt, pay):
-        if self.nseg is None:
-            pkt = pkt[:3]+struct.pack("B", len(self.addresses)-1)+pkt[4:]
-        if self.fseg is None:
-            pkt = pkt[:4]+struct.pack("B", len(self.addresses)-1)+pkt[5:]
 
-        return _IPv6ExtHdr.post_build(self, pkt, pay)
+        if self.len is None:
+
+            # The extension must be align on 8 bytes
+            tmp_mod = (len(pkt) - 8) % 8
+            if tmp_mod == 1:
+                warning("IPv6ExtHdrSegmentRouting(): can't pad 1 byte !")
+            elif tmp_mod >= 2:
+                #Add the padding extension
+                tmp_pad = "\x00" * (tmp_mod-2)
+                tlv = IPv6ExtHdrSegmentRoutingTLVPadding(padding=tmp_pad)
+                pkt += str(tlv)
+
+            tmp_len = (len(pkt) - 8) / 8
+            pkt = pkt[:1] + struct.pack("B", tmp_len)+ pkt[2:]
+
+        if self.segleft is None:
+            tmp_len = len(self.addresses)
+            if tmp_len:
+                tmp_len -= 1
+            pkt = pkt[:3] + struct.pack("B", tmp_len) + pkt[4:]
+
+        if self.lastentry is None:
+            pkt = pkt[:4] + struct.pack("B", len(self.addresses)) + pkt[5:]
+
+        return _IPv6ExtHdr.post_build(self, pkt, pay) 
 
 
 ########################### Fragmentation Header ############################
