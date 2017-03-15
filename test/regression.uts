@@ -671,6 +671,23 @@ send_and_sniff(IP(dst="secdev.org")/ICMP())
 send_and_sniff(IP(dst="secdev.org")/ICMP(), flt="icmp")
 send_and_sniff(Ether()/IP(dst="secdev.org")/ICMP())
 
+############
+############
++ ManuFDB tests
+
+= __repr__
+
+if conf.manufdb:
+    conf.manufdb
+else:
+    True
+
+= check _resolve_MAC
+
+if conf.manufdb:
+    assert conf.manufdb._resolve_MAC("00:00:63") == "HP"
+else:
+    True
 
 ############
 ############

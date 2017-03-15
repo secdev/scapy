@@ -6,6 +6,7 @@
 """
 Customizations needed to support Microsoft Windows.
 """
+
 import os,re,sys,socket,time, itertools
 import subprocess as sp
 from glob import glob
@@ -259,6 +260,9 @@ class WinProgPath(ConfClass):
         )
         self.cscript = win_find_exe("cscript", installsubdir="System32",
                                env="SystemRoot")
+        if self.wireshark != "wireshark":
+            manu_path = load_manuf(os.path.sep.join(self.wireshark.split(os.path.sep)[:-1])+os.path.sep+"manuf")
+            scapy.data.MANUFDB = conf.manufdb = MANUFDB = manu_path
 
 conf.prog = WinProgPath()
 if conf.prog.powershell == "powershell":
