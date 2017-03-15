@@ -73,6 +73,31 @@ class Packet(BasePacket):
         for lower,fval in self._overload_fields.iteritems():
             print "%-20s  %s" % (lower.__name__, ", ".join("%-12s" % ("%s=%r"%i) for i in fval.iteritems()))
 
+    def _unpickle(self, dlist):
+        """Used to unpack pickling"""
+        self.__init__("".join(dlist))
+        return self
+
+    def __reduce__(self):
+        """Used by pickling methods"""
+        return (self.__class__, (), (self.build(),))
+
+    def __reduce_ex__(self, proto):
+        """Used by pickling methods"""
+        return self.__reduce__()
+
+    def __getstate__(self):
+        """Mark object as pickable"""
+        return self.__reduce__()[2]
+
+    def __setstate__(self, state):
+        """Rebuild state using pickable methods"""
+        return self._unpickle(state)
+
+    def __deepcopy__(self, memo):
+        """Used by copy.deepcopy"""
+        return self.copy()
+
     def __init__(self, _pkt="", post_transform=None, _internal=0, _underlayer=None, **fields):
         self.time  = time.time()
         self.sent_time = None

@@ -154,6 +154,27 @@ data = ["init_session(\"scapySession2\")",\
 
 emulate_main_input(data)
 
+= Test pickling with packets
+
+data = ["init_session(\"scapySession1\")",\
+"test_value = IP(src=\"127.0.0.1\", dst=\"8.8.8.8\")",\
+"test_value2 = ICMPv6EchoReply(data=\"testData@%!\")",\
+"save_session()",\
+"del test_value",\
+"load_session()",\
+"assert test_value.src == \"127.0.0.1\"",\
+"assert test_value.dst == \"8.8.8.8\"",\
+"assert test_value2.data == \"testData@%!\""]
+
+emulate_main_input(data)
+
+= Clean up session files
+
+try:
+    os.remove("scapySaveSession.dat")
+except OSError:
+    pass
+
 = Test utility functions
 
 tmpfile =  get_temp_file(autoext=".ut")
