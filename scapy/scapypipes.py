@@ -124,3 +124,53 @@ class UDPDrain(Drain):
         p = IP(dst=self.ip)/UDP(sport=1234,dport=self.port)/msg
         self._send(p)
         
+
+class FDSourceSink(Source):
+    def __init__(self, fd, name=None):
+        Source.__init__(self, name=name)
+        self.fd = fd
+    def push(self, msg):
+        self.fd.write(msg)
+    def fileno(self):
+        return self.fd.fileno()
+    def deliver(self):
+        self._send(self.fd.read())
+
+
+class TCPConnectPipe(Source):
+    def __init__(self, addr="", port=0, name=None):
+        Source.__init__(self, name=name)
+        self.addr = addr
+        self.port = port
+        self.fd = None
+    def start(self):
+        self.fd = socket.socket()
+        self.fd.connect((self.addr,self.port))
+    def stop(self):
+        self.fd.close()
+    def push(self, msg):
+        self.fd.send(msg)
+    def fileno(self):
+        return self.fd.fileno()
+    def deliver(self):
+        self._send(self.fd.recv(65536))
+
+class TCPListenPipe(TCPConnectPipe):
+    def __init__(self, addr="", port=0, name=None):
+        TCPConnectPipe.__init__(self, addr, port, name)
+        self.connected = False
+    def start(self):
+        self.connected = False
+        self.fd = socket.socket()
+        self.fd.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.fd.bind((self.addr,self.port))
+        self.fd.listen(1)
+    def deliver(self):
+        if self.connected:
+            self._send(self.fd.recv(65536))
+        else:
+            fd,frm = self.fd.accept()
+            self._high_send(repr(frm))
+            self.fd.close()
+            self.fd = fd
+            self.connected = True
