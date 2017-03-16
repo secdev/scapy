@@ -38,19 +38,28 @@ class IGMPv3gr(Packet):
   instantiation of class IGMPv3. Within the IGMPv3 instantiation, the numgrp
   element will need to be manipulated to indicate the proper number of
   group records.
+  Example usage:
+
+  Create as many Group Records as needed
+      gr1 = IGMPv3gr()
+      gr2 = IGMPv3gr()
+  Append the GRs to an IGMPv3Report class:
+      report = IGMPv3Report()/gr1/gr2
+  Update the numgrprecs:
+      report.numgrprecs = 2
   """
   name = "IGMPv3gr"
-  igmpv3grtypes = { 1 : "Mode Is Include",
-                    2 : "Mode Is Exclude",
-                    3 : "Change To Include Mode",
-                    4 : "Change To Exclude Mode",
-                    5 : "Allow New Sources",
-                    6 : "Block Old Sources"}
+  igmpv3grtypes = { 1 : "MODE_IS_INCLUDE",
+                    2 : "MODE_IS_EXCLUDE",
+                    3 : "MODE_TO_INCLUDE",
+                    4 : "MODE_TO_EXCLUDE",
+                    5 : "ALLOW_NEW_SOURCES",
+                    6 : "BLOCK_OLD_SOURCES"}
 
-  fields_desc = [ ByteEnumField("rtype", 1, igmpv3grtypes),
-                      ByteField("auxdlen",0),
-                  FieldLenField("numsrc", None, count_of="srcaddrs"),
-                        IPField("maddr", "0.0.0.0"),
+  fields_desc = [ByteEnumField("rtype", 1, igmpv3grtypes),
+                 ByteField("auxdlen",0),
+                 FieldLenField("numsrc", None, count_of="srcaddrs"),
+                 IPField("maddr", "0.0.0.0"),
                  FieldListField("srcaddrs", [], IPField("sa", "0.0.0.0"), "numsrc") ]
   #show_indent=0
 #--------------------------------------------------------------------------
@@ -68,6 +77,58 @@ class IGMPv3gr(Packet):
     return self.sprintf("IGMPv3 Group Record %IGMPv3gr.type% %IGMPv3gr.maddr%")
 
 
+class IGMPv3Report(Packet):
+  """IGMP Report Class for v3.
+
+  The IGMP v3 Report header differs significantly from other IGMP messages,
+  therefore a specific class is implemented for it.
+
+  'chksum' is automatically calculated before the packet is sent.
+  """
+  name = "IGMPv3Report"
+  fields_desc = [XByteField("type", 0x22),  # Type 0x22 : "V3 Member Report"
+                 ByteField("resv", 0),
+                 XShortField("chksum", None),
+                 ShortField("resv2", 0),
+                 ShortField("numgrprecs", 0)]  # Update manually GR are added
+  # Over load the ip fields here to avoid using igmpize
+  ip_dst = "224.0.0.22"
+  iplong = atol(ip_dst)
+  dst_addr = "01:00:5e:%02x:%02x:%02x" % ((iplong >> 16) & 0x7F,
+                                          (iplong >> 8) & 0xFF,
+                                          (iplong) & 0xFF)
+  overload_fields = {
+    IP: {
+      "dst": ip_dst,
+      "proto": 2, "ttl": 1, "tos": 0xc0,
+      "options": [IPOption_Router_Alert()]
+    },
+    Ether: {
+     "dst": dst_addr
+    }
+  }
+ 
+  def post_build(self, p, pay):
+    """
+      Called implicitly before a packet is sent to
+      compute and place IGMPv3 checksum.
+    """
+    p += pay
+    if self.chksum is None:
+      ck = checksum(p)
+      p = p[:2] + chr(ck >> 8) + chr(ck & 0xff) + p[4:]
+    return p
+
+  def mysummary(self):
+     """Display a summary of the IGMPv3 Report object."""
+     if isinstance(self.underlayer, IP):
+       return self.underlayer.sprintf("IGMPv3Report: \
+                                       %IP.src% > %IP.dst% \
+                                       %IGMPv3Report.type%")
+     else:
+       return self.sprintf("IGMPv3Report %IGMPv3.type%")
+
+
 class IGMPv3(Packet):
   """IGMP Message Class for v3.
 
@@ -83,7 +144,7 @@ class IGMPv3(Packet):
     c.srcaddrs += ['192.168.10.24']
   At this point, 'c.numsrc' is three (3)
 
-  'chksum' is automagically calculated before the packet is sent.
+  'chksum' is automatically calculated before the packet is sent.
 
   'mrcode' is also the Advertisement Interval field
 
@@ -95,29 +156,26 @@ class IGMPv3(Packet):
                   0x31 : "Multicast Router Solicitation",
                   0x32 : "Multicast Router Termination"}
 
-  fields_desc = [ ByteEnumField("type", 0x11, igmpv3types),
-                      ByteField("mrcode",0),
-                    XShortField("chksum", None),
-                    IPField("gaddr", "0.0.0.0")
-                    ]
-                                          # use float_encode()
-
+  fields_desc = [ByteEnumField("type", 0x11, igmpv3types),
+                 ByteField("mrcode",0),
+                 XShortField("chksum", None),
+                 IPField("gaddr", "0.0.0.0")]    # use float_encode()
     # if type = 0x11 (Membership Query), the next field is group address 
     #   ConditionalField(IPField("gaddr", "0.0.0.0"), "type", lambda x:x==0x11),
     # else if type = 0x22 (Membership Report), the next fields are 
     #         reserved and number of group records
     #ConditionalField(ShortField("rsvd2", 0), "type", lambda x:x==0x22),
     #ConditionalField(ShortField("numgrp", 0), "type", lambda x:x==0x22),
-#                  FieldLenField("numgrp", None, "grprecs")]
+    #                  FieldLenField("numgrp", None, "grprecs")]
     # else if type = 0x30 (Multicast Router Advertisement), the next fields are 
     #         query interval and robustness
     #ConditionalField(ShortField("qryIntvl", 0), "type", lambda x:x==0x30),
     #ConditionalField(ShortField("robust", 0), "type", lambda x:x==0x30),
-#  The following are only present for membership queries
-       #   ConditionalField(BitField("resv", 0, 4), "type", lambda x:x==0x11),
-       #   ConditionalField(BitField("s", 0, 1), "type", lambda x:x==0x11),
-       #   ConditionalField(BitField("qrv", 0, 3), "type", lambda x:x==0x11), 
-       #  ConditionalField(ByteField("qqic",0), "type", lambda x:x==0x11),
+    #  The following are only present for membership queries
+    #   ConditionalField(BitField("resv", 0, 4), "type", lambda x:x==0x11),
+    #   ConditionalField(BitField("s", 0, 1), "type", lambda x:x==0x11),
+    #   ConditionalField(BitField("qrv", 0, 3), "type", lambda x:x==0x11), 
+    #  ConditionalField(ByteField("qqic",0), "type", lambda x:x==0x11),
     # ConditionalField(FieldLenField("numsrc", None, "srcaddrs"), "type", lambda x:x==0x11),
     # ConditionalField(FieldListField("srcaddrs", None, IPField("sa", "0.0.0.0"), "numsrc"), "type", lambda x:x==0x11),
 
@@ -266,6 +324,6 @@ class IGMPv3(Packet):
     return retCode
 
 
+bind_layers(IP, IGMPv3Report, frag=0, proto=2, ttl=1, tos=0xc0)
 bind_layers(IP, IGMPv3, frag=0, proto=2, ttl=1, tos=0xc0)
-bind_layers(IGMPv3, IGMPv3gr)
-bind_layers(IGMPv3gr, IGMPv3gr)
+bind_layers(IGMPv3, IGMPv3gr, numgrprecs=1)
