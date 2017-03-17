@@ -161,7 +161,8 @@ class TCPConnectPipe(Source):
         self.fd = socket.socket()
         self.fd.connect((self.addr,self.port))
     def stop(self):
-        self.fd.close()
+        if self.fd:
+            self.fd.close()
     def push(self, msg):
         self.fd.send(msg)
     def fileno(self):
