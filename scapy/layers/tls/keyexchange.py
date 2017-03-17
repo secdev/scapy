@@ -10,10 +10,9 @@ TLS key exchange logic.
 import math
 
 from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import dh, ec, rsa
+from cryptography.hazmat.primitives.asymmetric import dh, ec
 
-from scapy.config import conf
+from scapy.config import conf, crypto_validator
 from scapy.error import warning
 from scapy.fields import *
 from scapy.packet import Packet, Raw, Padding
@@ -101,8 +100,8 @@ class SigAndHashAlgsField(FieldListField):
 class _TLSSignature(_GenericTLSSessionInheritance):
     """
     Prior to TLS 1.2, digitally-signed structure implictly used the
-    concatenation of a SHA-1 hash and a MD5 hash (this is the 'tls' mode
-    of key signing). TLS 1.2 introduced explicit SignatureAndHashAlgorithms,
+    concatenation of a MD5 hash and a SHA-1 hash.
+    Then TLS 1.2 introduced explicit SignatureAndHashAlgorithms,
     i.e. couples of (hash_alg, sig_alg). See RFC 5246, section 7.4.1.4.1.
 
     By default, the _TLSSignature implements the TLS 1.2 scheme,
@@ -132,7 +131,7 @@ class _TLSSignature(_GenericTLSSessionInheritance):
         of the PrivKey (neither do we care to compare the both of them).
         """
         if self.sig_alg is None:
-            self.sig_val = key.sign(m, t='pkcs', h='tls')
+            self.sig_val = key.sign(m, t='pkcs', h='md5-sha1')
         else:
             h = _tls_hash_sig[self.sig_alg].split('+')[0]
             self.sig_val = key.sign(m, t='pkcs', h=h)
@@ -147,7 +146,7 @@ class _TLSSignature(_GenericTLSSessionInheritance):
                 h = _tls_hash_sig[self.sig_alg].split('+')[0]
                 return cert.verify(m, self.sig_val, t='pkcs', h=h)
             else:
-                return cert.verify(m, self.sig_val, t='pkcs', h='tls')
+                return cert.verify(m, self.sig_val, t='pkcs', h='md5-sha1')
         return False
 
     def guess_payload_class(self, p):
@@ -237,6 +236,7 @@ class ServerDHParams(_GenericTLSSessionInheritance):
                     StrLenField("dh_Ys", "",
                                 length_from=lambda pkt: pkt.dh_Yslen) ]
 
+    @crypto_validator
     def fill_missing(self):
         """
         We do not want TLSServerKeyExchange.build() to overload and recompute
@@ -502,6 +502,7 @@ class ServerECDHNamedCurveParams(_GenericTLSSessionInheritance):
                     StrLenField("point", None,
                                 length_from = lambda pkt: pkt.pointlen) ]
 
+    @crypto_validator
     def fill_missing(self):
         """
         We do not want TLSServerKeyExchange.build() to overload and recompute
@@ -602,15 +603,10 @@ class ServerRSAParams(_GenericTLSSessionInheritance):
                     StrLenField("rsaexp", "",
                                 length_from = lambda pkt: pkt.rsaexplen) ]
 
+    @crypto_validator
     def fill_missing(self):
-        ext_k = rsa.generate_private_key(public_exponent=0x10001,
-                                         key_size=512,
-                                         backend=default_backend())
-        pem_k = ext_k.private_bytes(
-                        encoding=serialization.Encoding.PEM,
-                        format=serialization.PrivateFormat.TraditionalOpenSSL,
-                        encryption_algorithm=serialization.NoEncryption())
-        k = PrivKeyRSA(pem_k)
+        k = PrivKeyRSA()
+        k.fill_and_store(modulusLen=512)
         self.tls_session.server_tmp_rsa_key = k
         pubNum = k.pubkey.public_numbers()
 
@@ -829,9 +825,9 @@ class EncryptedPreMasterSecret(_GenericTLSSessionInheritance):
         s.compute_ms_and_derive_keys()
 
         if s.server_tmp_rsa_key is not None:
-            enc = s.server_tmp_rsa_key.encrypt(pkt, "pkcs")
+            enc = s.server_tmp_rsa_key.encrypt(pkt, t="pkcs")
         elif s.server_certs is not None and len(s.server_certs) > 0:
-            enc = s.server_certs[0].encrypt(pkt, "pkcs")
+            enc = s.server_certs[0].encrypt(pkt, t="pkcs")
         else:
             warning("No material to encrypt Pre Master Secret")
 
