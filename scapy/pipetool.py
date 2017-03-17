@@ -166,10 +166,15 @@ class PipeEngine:
             for q in p.sinks:
                 g.append('\t"%i" -> "%i";' % (id(p), id(q)))
         g.append("")
-        g.append("\tedge [color=red, arrowhead=veevee];")
+        g.append("\tedge [color=purple, arrowhead=veevee];")
         for p in self.active_pipes:
             for q in p.high_sinks:
-                g.append('\t"%i" -> "%i" [color="red"];' % (id(p), id(q)))
+                g.append('\t"%i" -> "%i";' % (id(p), id(q)))
+        g.append("")
+        g.append("\tedge [color=red, arrowhead=diamond];")
+        for p in self.active_pipes:
+            for q in p.trigger_sinks:
+                g.append('\t"%i" -> "%i";' % (id(p), id(q)))
         g.append('}')
         graph = "\n".join(g)
         scapy.utils.do_graph(graph, **kargs) 
@@ -181,6 +186,8 @@ class _ConnectorLogic(object):
         self.sinks = set()
         self.high_sources = set()
         self.high_sinks = set()
+        self.trigger_sources = set()
+        self.trigger_sinks = set()
 
     def __lt__(self, other):
         other.sinks.add(self)
@@ -208,6 +215,10 @@ class _ConnectorLogic(object):
         other >> self
         return other
 
+    def __xor__(self, other):
+        self.trigger_sinks.add(other)
+        other.trigger_sources.add(self)
+        return other
 
 class Pipe(_ConnectorLogic):
     class __metaclass__(type):
@@ -226,6 +237,9 @@ class Pipe(_ConnectorLogic):
     def _high_send(self, msg):
         for s in self.high_sinks:
             s.high_push(msg)
+    def _trigger(self, msg):
+        for s in self.trigger_sinks:
+            s.on_trigger(msg)
 
     def __repr__(self):
         ct = conf.color_theme
@@ -250,6 +264,17 @@ class Pipe(_ConnectorLogic):
             if self.high_sinks:
                 s+="%s%s" % (ct.field_value(">>"),
                              ct.punct(",").join(ct.field_name(s.name) for s in self.high_sinks))
+            s += ct.punct("]")
+
+        if self.trigger_sources or self.trigger_sinks:
+            s+= " %s" % ct.punct("[")
+            if self.trigger_sources:
+                s+="%s%s" %  (ct.punct(",").join(ct.field_name(s.name) for s in self.trigger_sources),
+                              ct.field_value("^"))
+            s += ct.layer_name("#")
+            if self.trigger_sinks:
+                s+="%s%s" % (ct.field_value("^"),
+                             ct.punct(",").join(ct.field_name(s.name) for s in self.trigger_sinks))
             s += ct.punct("]")
 
 
