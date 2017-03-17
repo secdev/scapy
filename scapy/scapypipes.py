@@ -196,3 +196,41 @@ class TCPListenPipe(TCPConnectPipe):
             self.fd.close()
             self.fd = fd
             self.connected = True
+
+class TriggeredMessage(Drain):
+    """Send a preloaded message when triggered and trigger in chain
+     +------^------+
+  >>-|      | /----|->>
+     |      |/     |
+   >-|-[ message ]-|->
+     +------^------+
+"""
+    def __init__(self, msg, name=None):
+        Drain.__init__(self, name=name)
+        self.msg = msg
+    def on_trigger(self, trigmsg):
+        self._send(self.msg)
+        self._high_send(self.msg)
+        self._trigger(trigmsg)
+
+class TriggerDrain(Drain):
+    """Pass messages and trigger when a condition is met
+     +------^------+
+  >>-|-[condition]-|->>
+     |      |      |
+   >-|-[condition]-|->
+     +-------------+
+"""
+    def __init__(self, f, name=None):
+        Drain.__init__(self, name=name)
+        self.f = f
+    def push(self, msg):
+        v = self.f(msg)
+        if v:
+            self._trigger(v)
+        self._send(msg)
+    def high_push(self, msg):
+        v = self.f(msg)
+        if v:
+            self._trigger(v)
+        self._high_send(msg)
