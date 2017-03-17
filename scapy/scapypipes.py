@@ -126,6 +126,13 @@ class UDPDrain(Drain):
         
 
 class FDSourceSink(Source):
+    """Use a file descriptor as source and sink
+     +-------------+
+  >>-|             |->>
+     |             |
+   >-|-[file desc]-|->
+     +-------------+
+"""
     def __init__(self, fd, name=None):
         Source.__init__(self, name=name)
         self.fd = fd
@@ -138,6 +145,13 @@ class FDSourceSink(Source):
 
 
 class TCPConnectPipe(Source):
+    """TCP connect to addr:port and use it as source and sink
+     +-------------+
+  >>-|             |->>
+     |             |
+   >-|-[addr:port]-|->
+     +-------------+
+"""
     def __init__(self, addr="", port=0, name=None):
         Source.__init__(self, name=name)
         self.addr = addr
@@ -156,6 +170,13 @@ class TCPConnectPipe(Source):
         self._send(self.fd.recv(65536))
 
 class TCPListenPipe(TCPConnectPipe):
+    """TCP listen on [addr:]port and use first connection as source and sink ; send peer address to high output
+     +-------------+
+  >>-|    +-[peer]-|->>
+     |   /         |
+   >-|-[addr:port]-|->
+     +-------------+
+"""
     def __init__(self, addr="", port=0, name=None):
         TCPConnectPipe.__init__(self, addr, port, name)
         self.connected = False
