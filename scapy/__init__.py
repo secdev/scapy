@@ -10,6 +10,7 @@ Usable either from an interactive console or as a Python library.
 http://www.secdev.org/projects/scapy
 """
 
+from __future__ import absolute_import
 import os
 import re
 import subprocess

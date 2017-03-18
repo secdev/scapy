@@ -7,6 +7,7 @@
 Aggregate top level objects from all TLS modules.
 """
 
+from __future__ import absolute_import
 from scapy.layers.tls.cert import *
 
 from scapy.layers.tls.automaton import *

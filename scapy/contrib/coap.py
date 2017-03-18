@@ -20,6 +20,7 @@
 RFC 7252 - Constrained Application Protocol (CoAP) layer for Scapy
 """
 
+from __future__ import absolute_import
 from scapy.fields import *
 from scapy.layers.inet import UDP
 from scapy.packet import *

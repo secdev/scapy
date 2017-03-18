@@ -7,6 +7,7 @@
 When wpcap.dll is not available, replace all sendrecv functions that won't work.
 """
 
+from __future__ import absolute_import
 from scapy.error import log_runtime
 import scapy.sendrecv as sendrecv
 import scapy.config as conf

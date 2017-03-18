@@ -22,9 +22,11 @@
 ##                                                                         ##
 #############################################################################
 
+from __future__ import absolute_import
 from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.inet6 import *
+from six.moves import range
 
 
 #####################################################################
@@ -184,7 +186,7 @@ _cdp_capabilities = ["Router",
                      "Switch",
                      "Host",
                      "IGMPCapable",
-                     "Repeater"] + ["Bit%d" % x for x in xrange(25, 0, -1)]
+                     "Repeater"] + ["Bit%d" % x for x in range(25, 0, -1)]
 
 
 class CDPMsgCapabilities(CDPMsgGeneric):
@@ -252,7 +254,7 @@ class CDPMsgVoIPVLANQuery(CDPMsgGeneric):
     name = "VoIP VLAN Query"
     type = 0x000f
     fields_desc = [ XShortEnumField("type", 0x000f, _cdp_tlv_types),
-    		    ShortField("len", 7),
+                ShortField("len", 7),
                     XByteField("unknown1", 0),
                     ShortField("vlan", 1),
                     # TLV length (len) - 2 (type) - 2 (len) - 1 (unknown1) - 2 (vlan)

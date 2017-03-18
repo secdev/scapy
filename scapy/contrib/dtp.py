@@ -15,11 +15,15 @@
     - TLV code derived from the CDP implementation of scapy. (Thanks to Nicolas Bareil and Arnaud Ebalard)
         http://trac.secdev.org/scapy/ticket/18
 """
+from __future__ import print_function
 
+from __future__ import absolute_import
 from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.l2 import SNAP,Dot3,LLC
 from scapy.sendrecv import sendp
+from functools import reduce
+from six.moves import map
 
 class DtpGenericTlv(Packet):
     name = "DTP Generic TLV"
@@ -50,7 +54,7 @@ class RepeatedTlvListField(PacketListField):
         return remain,lst
 
     def addfield(self, pkt, s, val):
-        return s+reduce(str.__add__, map(str, val),"")
+        return s+reduce(str.__add__, list(map(str, val)),"")
 
 _DTP_TLV_CLS = {
                     0x0001 : "DTPDomain",
@@ -106,7 +110,7 @@ bind_layers(SNAP, DTP, code=0x2004, OUI=0xc)
 
 
 def negotiate_trunk(iface=conf.iface, mymac=str(RandMAC())):
-    print "Trying to negotiate a trunk on interface %s" % iface
+    print("Trying to negotiate a trunk on interface %s" % iface)
     p = Dot3(src=mymac, dst="01:00:0c:cc:cc:cc")/LLC()/SNAP()/DTP(tlvlist=[DTPDomain(),DTPStatus(),DTPType(),DTPNeighbor(neighbor=mymac)])
     sendp(p)
 

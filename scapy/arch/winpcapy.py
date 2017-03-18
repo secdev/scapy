@@ -9,6 +9,7 @@
 #-------------------------------------------------------------------------------
 
 
+from __future__ import absolute_import
 from ctypes import *
 from ctypes.util import find_library
 import sys

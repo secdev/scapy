@@ -7,11 +7,13 @@
 TFTP (Trivial File Transfer Protocol).
 """
 
+from __future__ import absolute_import
 import os,random
 from scapy.packet import *
 from scapy.fields import *
 from scapy.automaton import *
 from scapy.layers.inet import UDP, IP
+from six.moves import range
 
 
 
@@ -26,8 +28,8 @@ class TFTP(Packet):
 
 class TFTP_RRQ(Packet):
     name = "TFTP Read Request"
-    fields_desc = [ StrNullField("filename", ""),
-                    StrNullField("mode", "octet") ]
+    fields_desc = [ StrNullField("filename", b""),
+                    StrNullField("mode", b"octet") ]
     def answers(self, other):
         return 0
     def mysummary(self):
@@ -36,8 +38,8 @@ class TFTP_RRQ(Packet):
 
 class TFTP_WRQ(Packet):
     name = "TFTP Write Request"
-    fields_desc = [ StrNullField("filename", ""),
-                    StrNullField("mode", "octet") ]
+    fields_desc = [ StrNullField("filename", b""),
+                    StrNullField("mode", b"octet") ]
     def answers(self, other):
         return 0
     def mysummary(self):
@@ -52,8 +54,8 @@ class TFTP_DATA(Packet):
         return self.sprintf("DATA %block%"),[UDP]
 
 class TFTP_Option(Packet):
-    fields_desc = [ StrNullField("oname",""),
-                    StrNullField("value","") ]
+    fields_desc = [ StrNullField("oname", b""),
+                    StrNullField("value", b"") ]
     def extract_padding(self, pkt):
         return "",pkt
 
@@ -228,7 +230,7 @@ class TFTP_write(Automaton):
     @ATMT.state(initial=1)
     def BEGIN(self):
         self.data = [self.origdata[i*self.blocksize:(i+1)*self.blocksize]
-                     for i in xrange( len(self.origdata)/self.blocksize+1)]
+                     for i in range( len(self.origdata)/self.blocksize+1)]
         self.my_tid = self.sport or RandShort()._fix()
         bind_bottom_up(UDP, TFTP, dport=self.my_tid)
         self.server_tid = None

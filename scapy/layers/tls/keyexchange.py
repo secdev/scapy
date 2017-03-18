@@ -7,6 +7,7 @@
 TLS key exchange logic.
 """
 
+from __future__ import absolute_import
 import math
 
 from cryptography.hazmat.backends import default_backend
@@ -22,6 +23,7 @@ from scapy.layers.tls.session import _GenericTLSSessionInheritance
 from scapy.layers.tls.basefields import _tls_version, _TLSClientVersionField
 from scapy.layers.tls.crypto.pkcs1 import pkcs_i2osp, pkcs_os2ip
 from scapy.layers.tls.crypto.ffdh import FFDH_GROUPS
+import six
 
 
 ###############################################################################
@@ -405,19 +407,19 @@ class ServerECDHExplicitPrimeParams(_GenericTLSSessionInheritance):
     """
     name = "Server ECDH parameters - Explicit Prime"
     fields_desc = [ ByteEnumField("curve_type", 1, _tls_ec_curve_types),
-		    FieldLenField("plen", None, length_of="p", fmt="B"),
-		    StrLenField("p", "", length_from=lambda pkt: pkt.plen),
+            FieldLenField("plen", None, length_of="p", fmt="B"),
+            StrLenField("p", "", length_from=lambda pkt: pkt.plen),
                     PacketField("curve", None, ECCurvePkt),
                     FieldLenField("baselen", None, length_of="base", fmt="B"),
                     StrLenField("base", "",
                                 length_from=lambda pkt: pkt.baselen),
-		    FieldLenField("orderlen", None,
+            FieldLenField("orderlen", None,
                                   length_of="order", fmt="B"),
-		    StrLenField("order", "",
+            StrLenField("order", "",
                                 length_from=lambda pkt: pkt.orderlen),
-		    FieldLenField("cofactorlen", None,
+            FieldLenField("cofactorlen", None,
                                   length_of="cofactor", fmt="B"),
-		    StrLenField("cofactor", "",
+            StrLenField("cofactor", "",
                                 length_from=lambda pkt: pkt.cofactorlen),
                     FieldLenField("pointlen", None,
                                   length_of="point", fmt="B"),
@@ -519,7 +521,7 @@ class ServerECDHNamedCurveParams(_GenericTLSSessionInheritance):
             s.server_kx_privkey = ec.generate_private_key(curve,
                                                           default_backend())
             curve_id = 0
-            for cid, name in _tls_named_curves.iteritems():
+            for cid, name in six.iteritems(_tls_named_curves):
                 if name == curve.name:
                     curve_id = cid
                     break

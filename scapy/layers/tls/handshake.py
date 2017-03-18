@@ -9,7 +9,9 @@ TLS handshake fields & logic.
 This module covers the handshake TLS subprotocol, except for the key exchange
 mechanisms which are addressed with keyexchange.py.
 """
+from __future__ import print_function
 
+from __future__ import absolute_import
 import math
 
 from scapy.error import warning
@@ -36,6 +38,7 @@ from scapy.layers.tls.crypto.suites import (_tls_cipher_suites,
                                             _GenericCipherSuite,
                                             _GenericCipherSuiteMetaclass,
                                             TLS_DHE_RSA_WITH_AES_128_CBC_SHA)
+from six.moves import map
 
 
 ###############################################################################
@@ -146,7 +149,7 @@ class _CipherSuitesField(StrLenField):
         self.itemsize = struct.calcsize(itemfmt)
         i2s = self.i2s = {}
         s2i = self.s2i = {}
-        keys = dico.keys()
+        keys = list(dico.keys())
         for k in keys:
             i2s[k] = dico[k]
             s2i[dico[k]] = k
@@ -166,12 +169,12 @@ class _CipherSuitesField(StrLenField):
     def any2i(self, pkt, x):
         if type(x) is not list:
             x = [x]
-        return map(lambda z,pkt=pkt:self.any2i_one(pkt,z), x)
+        return list(map(lambda z,pkt=pkt:self.any2i_one(pkt,z), x))
 
     def i2repr(self, pkt, x):
         if x is None:
             return "None"
-        l = map(lambda z,pkt=pkt:self.i2repr_one(pkt,z), x)
+        l = list(map(lambda z,pkt=pkt:self.i2repr_one(pkt,z), x))
         if len(l) == 1:
             l = l[0]
         else:
@@ -181,7 +184,7 @@ class _CipherSuitesField(StrLenField):
     def i2m(self, pkt, val):
         if val is None:
             val = []
-        return "".join(map(lambda x: struct.pack(self.itemfmt, x), val))
+        return "".join([struct.pack(self.itemfmt, x) for x in val])
 
     def m2i(self, pkt, m):
         res = []
@@ -292,7 +295,7 @@ class TLS_Ext_PrettyPacketList(TLS_Ext_Unknown):
                                 label_lvl=label_lvl, first_call=False)
 
         if first_call and not dump:
-            print s
+            print(s)
         else:
             return s
 
@@ -390,7 +393,7 @@ class _TAListField(PacketListField):
     def m2i(self, pkt, m):
         idtype = ord(m[0])
         cls = self.cls
-        if _tls_trusted_authority_cls.has_key(idtype):
+        if idtype in _tls_trusted_authority_cls:
             cls = _tls_trusted_authority_cls[idtype]
         return cls(m)
 
@@ -437,7 +440,7 @@ class _StatusReqField(PacketListField):
     def m2i(self, pkt, m):
         idtype = pkt.stype
         cls = self.cls
-        if _cert_status_req_cls.has_key(idtype):
+        if idtype in _cert_status_req_cls:
             cls = _cert_status_req_cls[idtype]
         return cls(m)
 
@@ -870,7 +873,7 @@ class TLSServerHello(TLSClientHello):
 
         if self.cipher:
             cs_val = self.cipher
-            if not _tls_cipher_suites_cls.has_key(cs_val):
+            if cs_val not in _tls_cipher_suites_cls:
                 warning("Unknown cipher suite %d from ServerHello" % cs_val)
                 # we do not try to set a default nor stop the execution
             else:
@@ -878,7 +881,7 @@ class TLSServerHello(TLSClientHello):
 
         if self.comp:
             comp_val = self.comp[0]
-            if not _tls_compression_algs_cls.has_key(comp_val):
+            if comp_val not in _tls_compression_algs_cls:
                 err = "Unknown compression alg %d from ServerHello" % comp_val
                 warning(err)
                 comp_val = 0
@@ -970,7 +973,7 @@ class _ASN1CertListField(StrLenField):
             return i
         if isinstance(i, Cert):
             i = [i]
-        return "".join(map(lambda x: i2m_one(x), i))
+        return "".join([i2m_one(x) for x in i])
 
     def any2i(self, pkt, x):
         return x
@@ -990,9 +993,9 @@ class TLSCertificate(_TLSHandshake):
     def post_dissection_tls_session_update(self, msg_str):
         connection_end = self.tls_session.connection_end
         if connection_end == "client":
-            self.tls_session.server_certs = map(lambda x: x[1], self.certs)
+            self.tls_session.server_certs = [x[1] for x in self.certs]
         else:
-            self.tls_session.client_certs = map(lambda x: x[1], self.certs)
+            self.tls_session.client_certs = [x[1] for x in self.certs]
         self.tls_session.handshake_messages.append(msg_str)
         self.tls_session.handshake_messages_parsed.append(self)
 
@@ -1076,13 +1079,13 @@ class TLSServerKeyExchange(_TLSHandshake):
         """
         s = self.tls_session
         if s.prcs and s.prcs.key_exchange.anonymous:
-            print "USELESS SERVER KEY EXCHANGE"
+            print("USELESS SERVER KEY EXCHANGE")
         if (s.client_random and s.server_random and
             s.server_certs and len(s.server_certs) > 0):
             m = s.client_random + s.server_random + str(self.params)
             sig_test = self.sig._verify_sig(m, s.server_certs[0])
             if not sig_test:
-                print "INVALID SERVER KEY EXCHANGE SIGNATURE"
+                print("INVALID SERVER KEY EXCHANGE SIGNATURE")
 
 
 ###############################################################################
@@ -1127,7 +1130,7 @@ class _CertAuthoritiesField(StrLenField):
         return res
 
     def i2m(self, pkt, i):
-        return "".join(map(lambda (x,y): struct.pack("!H", x) + y, i))
+        return "".join([struct.pack("!H", x_y[0]) + x_y[1] for x_y in i])
 
     def addfield(self, pkt, s, val):
         return s + self.i2m(pkt, val)
@@ -1199,7 +1202,7 @@ class TLSCertificateVerify(_TLSHandshake):
         if s.client_certs and len(s.client_certs) > 0:
             sig_test = self.sig._verify_sig(m, s.client_certs[0])
             if not sig_test:
-                print "INVALID CERTIFICATE VERIFY SIGNATURE"
+                print("INVALID CERTIFICATE VERIFY SIGNATURE")
 
 
 ###############################################################################
@@ -1296,7 +1299,7 @@ class TLSFinished(_TLSHandshake):
             verify_data = s.rcs.prf.compute_verify_data(con_end, "read",
                                                         handshake_msg, ms)
             if self.vdata != verify_data:
-                print "INVALID TLS FINISHED RECEIVED"
+                print("INVALID TLS FINISHED RECEIVED")
 
 
 ## Additional handshake messages
@@ -1374,7 +1377,7 @@ class _StatusField(PacketField):
     def m2i(self, pkt, m):
         idtype = pkt.status_type
         cls = self.cls
-        if _cert_status_cls.has_key(idtype):
+        if idtype in _cert_status_cls:
             cls = _cert_status_cls[idtype]
         return cls(m)
 

@@ -46,6 +46,7 @@
 
 """
 
+from __future__ import absolute_import
 import struct
 import random
 
@@ -57,6 +58,8 @@ from scapy.layers.inet6 import IP6ListField, IP6Field
 from scapy.utils import fletcher16_checkbytes
 from scapy.volatile import RandString, RandByte
 import random
+from six.moves import map
+from six.moves import range
 
 
 EXT_VERSION = "v0.0.2"
@@ -139,7 +142,7 @@ class _ISIS_RandId(RandString):
 
         val = ()
 
-        for _ in xrange(self.bytecount):
+        for _ in range(self.bytecount):
             val += (RandByte(),)
 
         return self.format % val
@@ -306,13 +309,13 @@ class ISIS_IPv6NeighborAddressSubTlv(ISIS_GenericSubTlv):
 ##  ISIS Sub-TLVs for TLVs 135, 235, 236, and 237                    ##
 #######################################################################
 _isis_subtlv_classes_2 = {
-    1:	"ISIS_32bitAdministrativeTagSubTlv",
-    2:	"ISIS_64bitAdministrativeTagSubTlv"
+    1:  "ISIS_32bitAdministrativeTagSubTlv",
+    2:  "ISIS_64bitAdministrativeTagSubTlv"
 }
 
 _isis_subtlv_names_2 = {
-    1:	"32-bit Administrative Tag",
-    2:	"64-bit Administrative Tag"
+    1:  "32-bit Administrative Tag",
+    2:  "64-bit Administrative Tag"
 }
 
 

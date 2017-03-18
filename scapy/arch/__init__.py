@@ -7,6 +7,7 @@
 Operating system specific functionality.
 """
 
+from __future__ import absolute_import
 import socket
 
 from scapy.consts import LINUX, OPENBSD, FREEBSD, NETBSD, DARWIN, \
@@ -16,16 +17,18 @@ from scapy.error import *
 import scapy.config
 from scapy.pton_ntop import inet_pton
 from scapy.data import *
+from scapy.utils import orb
+from six.moves import map
 
 def str2mac(s):
-    return ("%02x:"*6)[:-1] % tuple(map(ord, s)) 
+    return ("%02x:"*6)[:-1] % tuple(map(orb, s)) 
 
 if not WINDOWS:
     if not scapy.config.conf.use_pcap and not scapy.config.conf.use_dnet:
         from scapy.arch.bpf.core import get_if_raw_addr
 
 def get_if_addr(iff):
-    return socket.inet_ntoa(get_if_raw_addr(iff))
+    return socket.inet_ntoa(str_bytes(get_if_raw_addr(iff)))
     
 def get_if_hwaddr(iff):
     addrfamily, mac = get_if_raw_hwaddr(iff)

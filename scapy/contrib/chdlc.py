@@ -5,6 +5,7 @@
 
 # This layer is based on information from http://www.nethelp.no/net/cisco-hdlc.txt
 
+from __future__ import absolute_import
 from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.l2 import *

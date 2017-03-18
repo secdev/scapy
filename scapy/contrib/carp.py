@@ -2,6 +2,7 @@
 # scapy.contrib.description = CARP
 # scapy.contrib.status = loads
 
+from __future__ import absolute_import
 import struct, hmac, hashlib
 
 from scapy.packet import *

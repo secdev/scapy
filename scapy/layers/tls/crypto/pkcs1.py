@@ -11,10 +11,13 @@ support our "tls" hash used with TLS 1.0. Once it is added to (or from) the
 library, most of the present module should be removed.
 """
 
+from __future__ import absolute_import
 import os, popen2, tempfile
 import math, random, struct
 
 from scapy.config import conf, crypto_validator
+from functools import reduce
+from six.moves import range
 if conf.crypto_valid:
     from cryptography.exceptions import InvalidSignature
     from cryptography.hazmat.backends import default_backend
@@ -163,7 +166,7 @@ def pkcs_mgf1(mgfSeed, maskLen, h):
     """
 
     # steps are those of Appendix B.2.1
-    if not _hashFuncParams.has_key(h):
+    if h not in _hashFuncParams:
         warning("pkcs_mgf1: invalid hash (%s) provided" % h)
         return None
     hLen = _hashFuncParams[h][0]
@@ -220,7 +223,7 @@ def pkcs_emsa_pss_encode(M, emBits, h, mgf, sLen):
     rem = 8*emLen - emBits - 8*l # additionnal bits
     andMask = l*'\x00'
     if rem:
-        j = chr(reduce(lambda x,y: x+y, map(lambda x: 1<<x, range(8-rem))))
+        j = chr(reduce(lambda x,y: x+y, [1<<x for x in range(8-rem)]))
         andMask += j
         l += 1
     maskedDB = strand(maskedDB[:l], andMask) + maskedDB[l:]
@@ -262,7 +265,7 @@ def pkcs_emsa_pss_verify(M, EM, emBits, h, mgf, sLen):
     rem = 8*emLen - emBits - 8*l # additionnal bits
     andMask = l*'\xff'
     if rem:
-        val = reduce(lambda x,y: x+y, map(lambda x: 1<<x, range(8-rem)))
+        val = reduce(lambda x,y: x+y, [1<<x for x in range(8-rem)])
         j = chr(~val & 0xff)
         andMask += j
         l += 1
@@ -274,7 +277,7 @@ def pkcs_emsa_pss_verify(M, EM, emBits, h, mgf, sLen):
     rem = 8*emLen - emBits - 8*l # additionnal bits
     andMask = l*'\x00'
     if rem:
-        j = chr(reduce(lambda x,y: x+y, map(lambda x: 1<<x, range(8-rem))))
+        j = chr(reduce(lambda x,y: x+y, [1<<x for x in range(8-rem)]))
         andMask += j
         l += 1
     DB = strand(DB[:l], andMask) + DB[l:]
@@ -348,8 +351,8 @@ class _EncryptAndVerifyRSA(object):
 
         n = self._modulus
         if isinstance(m, int):
-            m = long(m)
-        if (not isinstance(m, long)) or m > n-1:
+            m = int(m)
+        if (not isinstance(m, int)) or m > n-1:
             warning("Key._rsaep() expects a long between 0 and n-1")
             return None
 
@@ -415,7 +418,7 @@ class _EncryptAndVerifyRSA(object):
         # Set default parameters if not provided
         if h is None: # By default, sha1
             h = "sha1"
-        if not _hashFuncParams.has_key(h):
+        if h not in _hashFuncParams:
             warning("Key._rsassa_pss_verify(): unknown hash function "
                     "provided (%s)" % h)
             return False
@@ -587,8 +590,8 @@ class _DecryptAndSignRSA(object):
 
         n = self._modulus
         if isinstance(c, int):
-            c = long(c)
-        if (not isinstance(c, long)) or c > n-1:
+            c = int(c)
+        if (not isinstance(c, int)) or c > n-1:
             warning("Key._rsaep() expects a long between 0 and n-1")
             return None
 
@@ -657,7 +660,7 @@ class _DecryptAndSignRSA(object):
         # Set default parameters if not provided
         if h is None: # By default, sha1
             h = "sha1"
-        if not _hashFuncParams.has_key(h):
+        if h not in _hashFuncParams:
             warning("Key._rsassa_pss_sign(): unknown hash function "
                     "provided (%s)" % h)
             return None

@@ -10,6 +10,7 @@
 """
 PPI (Per-Packet Information).
 """
+from __future__ import absolute_import
 import logging,struct
 from scapy.config import conf
 from scapy.packet import *

@@ -1,6 +1,7 @@
 #! /usr/bin/env python
 # scapy.contrib.description = nsh
 # scapy.contrib.status = loads
+from __future__ import absolute_import
 from scapy.all import bind_layers
 from scapy.fields import BitField, ByteField, ByteEnumField
 from scapy.fields import ShortField, X3BytesField, XIntField
