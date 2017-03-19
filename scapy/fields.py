@@ -55,7 +55,7 @@ class Field(six.with_metaclass(Field_metaclass, object)):
     def i2b(self, pkt, x):
         """Convert internal value to internal value"""
         if type(x) is str:
-          x = bytes([ ord(i) for i in x ])
+          x = str_bytes([ ord(i) for i in x ])
         return x
     def i2dict(self, pkt, x):
         return { self.name: x }
@@ -550,13 +550,13 @@ class NetBIOSNameField(StrFixedLenField):
         x += b" "*(l)
         x = x[:l]
         #x = "".join([chr(0x41+(ord(x)>>4))+chr(0x41+(ord(x)&0xf)) for x in x])
-        x = b"".join([ bytes([0x41+(i>>4),0x41+(i&0xf)]) for i in x ])
+        x = b"".join([ str_bytes([0x41+(i>>4),0x41+(i&0xf)]) for i in x ])
         x = b" "+x
         return x
     def m2i(self, pkt, x):
         x = x.strip(b"\x00").strip(b" ")
         #return "".join(map(lambda x,y: chr((((ord(x)-1)&0xf)<<4)+((ord(y)-1)&0xf)), x[::2],x[1::2]))
-        return b"".join(map(lambda x,y: bytes([(((x-1)&0xf)<<4)+((y-1)&0xf)]), x[::2],x[1::2]))
+        return b"".join(map(lambda x,y: str_bytes([(((x-1)&0xf)<<4)+((y-1)&0xf)]), x[::2],x[1::2]))
 
 class StrLenField(StrField):
     __slots__ = ["length_from"]

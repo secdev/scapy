@@ -633,7 +633,11 @@ arping(_+"/24")
 ~ netaccess
 import time
 import os
-import queue
+try:
+    from Queue import Queue as queue
+except:
+    from queue import Queue as queue
+
 def _send_or_sniff(pkt, timeout, flt, pid, fork, t_other=None):
     assert pid != -1
     if pid == 0:
@@ -668,7 +672,7 @@ def send_and_sniff(pkt, timeout=2, flt=None):
         def run_function(pkt, timeout, flt, pid, thread, results):
             _send_or_sniff(pkt, timeout, flt, pid, False, t_other=thread)
             results.put(True)
-        results = queue.Queue()
+        results = queue()
         t_parent = Thread(target=run_function, args=(pkt, timeout, flt, 0, None, results))
         t_child = Thread(target=run_function, args=(pkt, timeout, flt, 1, t_parent, results))
         t_parent.start()
@@ -4925,9 +4929,9 @@ assert isinstance(pkt, NoPayload)
 pcapfile = six.BytesIO(b'\xd4\xc3\xb2\xa1\x02\x00\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\x00\x00e\x00\x00\x00\xcf\xc5\xacVo*\n\x00(\x00\x00\x00(\x00\x00\x00E\x00\x00(\x00\x01\x00\x00@\x06|\xcd\x7f\x00\x00\x01\x7f\x00\x00\x01\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\x91|\x00\x00\xcf\xc5\xacV_-\n\x00\x1c\x00\x00\x00\x1c\x00\x00\x00E\x00\x00\x1c\x00\x01\x00\x00@\x11|\xce\x7f\x00\x00\x01\x7f\x00\x00\x01\x005\x005\x00\x08\x01r\xcf\xc5\xacV\xf90\n\x00\x1c\x00\x00\x00\x1c\x00\x00\x00E\x00\x00\x1c\x00\x01\x00\x00@\x01|\xde\x7f\x00\x00\x01\x7f\x00\x00\x01\x08\x00\xf7\xff\x00\x00\x00\x00')
 data = tcpdump(pcapfile, dump=True, args=['-n']).split(b'\n')
 print(data)
-assert 'IP 127.0.0.1.20 > 127.0.0.1.80:' in data[0]
-assert 'IP 127.0.0.1.53 > 127.0.0.1.53:' in data[1]
-assert 'IP 127.0.0.1 > 127.0.0.1:' in data[2]
+assert b'IP 127.0.0.1.20 > 127.0.0.1.80:' in data[0]
+assert b'IP 127.0.0.1.53 > 127.0.0.1.53:' in data[1]
+assert b'IP 127.0.0.1 > 127.0.0.1:' in data[2]
 
 = Check tcpdump() command with tshark
 ~ tshark

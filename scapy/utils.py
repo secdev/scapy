@@ -724,7 +724,7 @@ class PcapReader_metaclass(type):
         """Open (if necessary) filename, and read the magic."""
         if isinstance(filename, six.string_types):
             try:
-                fdesc = gzip.open(filename,"rb")
+                fdesc = gzip.open(filename, "rb")
                 magic = fdesc.read(4)
             except IOError:
                 fdesc = open(filename,"rb")
@@ -1252,7 +1252,7 @@ u'64'
         # <http://apple.stackexchange.com/questions/152682/>
         tmpfile = tempfile.NamedTemporaryFile(delete=False)
         try:
-            tmpfile.writelines(iter(lambda: pktlist.read(1048576), ""))
+            tmpfile.writelines(iter(lambda: pktlist.read(1048576), b""))
         except AttributeError:
             wrpcap(tmpfile, pktlist)
         else:
@@ -1264,20 +1264,22 @@ u'64'
         )
         conf.temp_files.append(tmpfile.name)
     else:
+        args = args if args is not None else []
+        args = ["-r", "-"] + ((["-i", conf.iface.pcap_name] + args) if WINDOWS else args)
         proc = subprocess.Popen(
-            prog + ["-r", "-"] + (args if args is not None else []),
+            prog + args,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE if dump or getfd else None,
             stderr=open(os.devnull),
         )
         try:
-            proc.stdin.writelines(iter(lambda: pktlist.read(1048576), ""))
+            proc.stdin.writelines(iter(lambda: pktlist.read(1048576), b""))
         except AttributeError:
             wrpcap(proc.stdin, pktlist)
         else:
             proc.stdin.close()
     if dump:
-        return "".join(iter(lambda: proc.stdout.read(1048576), ""))
+        return b"".join(iter(lambda: proc.stdout.read(1048576), b""))
     if getfd:
         return proc.stdout
     proc.wait()
