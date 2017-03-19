@@ -10,6 +10,7 @@
 BGP (Border Gateway Protocol).
 """
 
+from __future__ import absolute_import
 import struct
 import re
 import socket
@@ -27,6 +28,9 @@ from scapy.layers.inet import TCP
 from scapy.layers.inet6 import IP6Field
 from scapy.config import conf, ConfClass
 from scapy.error import log_runtime
+from six.moves import map
+import six
+from six.moves import range
 
 
 #
@@ -561,12 +565,10 @@ class _BGPCapability_metaclass(Packet_metaclass, _BGPCap_metaclass):
     pass
 
 
-class BGPCapability(Packet):
+class BGPCapability(six.with_metaclass(_BGPCapability_metaclass, Packet)):
     """
     Generic BGP capability.
     """
-
-    __metaclass__ = _BGPCapability_metaclass
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
@@ -2036,7 +2038,7 @@ class BGPPathAttr(Packet):
         # Set default flags value ?
         if self.type_flags is None:
             # Set the standard value, if it is exists in attributes_flags.
-            if attributes_flags.has_key(self.type_code):
+            if self.type_code in attributes_flags:
                 flags_value = attributes_flags.get(self.type_code)
 
             # Otherwise, set to optional, non-transitive.

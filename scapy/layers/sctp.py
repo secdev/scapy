@@ -8,6 +8,7 @@
 SCTP (Stream Control Transmission Protocol).
 """
 
+from __future__ import absolute_import
 import struct
 
 from scapy.config import conf
@@ -16,6 +17,8 @@ from scapy.fields import *
 from scapy.layers.inet import IP
 from scapy.layers.inet6 import IP6Field
 from scapy.layers.inet6 import IPv6
+from scapy.utils import orb
+from six.moves import map
 
 IPPROTO_SCTP=132
 
@@ -90,7 +93,7 @@ crc32c_table = [
 def crc32c(buf):
     crc = 0xffffffff
     for c in buf:
-        crc = (crc>>8) ^ crc32c_table[(crc^(ord(c))) & 0xFF]
+        crc = (crc>>8) ^ crc32c_table[(crc^(orb(c))) & 0xFF]
     crc = (~crc) & 0xffffffff
     # reverse endianness
     return struct.unpack(">I",struct.pack("<I", crc))[0]
@@ -104,8 +107,8 @@ def update_adler32(adler, buf):
     print s1,s2
 
     for c in buf:
-        print ord(c)
-        s1 = (s1 + ord(c)) % BASE
+        print orb(c)
+        s1 = (s1 + orb(c)) % BASE
         s2 = (s2 + s1) % BASE
         print s1,s2
     return (s2 << 16) + s1
@@ -182,7 +185,7 @@ class _SCTPChunkGuessPayload:
         if len(p) < 4:
             return conf.padding_layer
         else:
-            t = ord(p[0])
+            t = orb(p[0])
             return globals().get(sctpchunktypescls.get(t, "Raw"), conf.raw_layer)
 
 
@@ -202,7 +205,7 @@ class SCTP(_SCTPChunkGuessPayload, Packet):
     def post_build(self, p, pay):
         p += pay
         if self.chksum is None:
-            crc = crc32c(str(p))
+            crc = crc32c(bytes(p))
             p = p[:8]+struct.pack(">I", crc)+p[12:]
         return p
 
@@ -214,14 +217,14 @@ class ChunkParamField(PacketListField):
     def m2i(self, p, m):
         cls = conf.raw_layer
         if len(m) >= 4:
-            t = ord(m[0]) * 256 + ord(m[1])
+            t = orb(m[0]) * 256 + orb(m[1])
             cls = globals().get(sctpchunkparamtypescls.get(t, "Raw"), conf.raw_layer)
         return cls(m)
 
 # dummy class to avoid Raw() after Chunk params
 class _SCTPChunkParam:
     def extract_padding(self, s):
-        return "",s[:]
+        return b"",s[:]
 
 class SCTPChunkParamHearbeatInfo(_SCTPChunkParam, Packet):
     fields_desc = [ ShortEnumField("type", 1, sctpchunkparamtypes),
@@ -229,7 +232,7 @@ class SCTPChunkParamHearbeatInfo(_SCTPChunkParam, Packet):
                                   adjust = lambda pkt,x:x+4),
                     PadField(StrLenField("data", "",
                                          length_from=lambda pkt: pkt.len-4),
-                             4, padwith="\x00"),]
+                             4, padwith=b"\x00"),]
 
 class SCTPChunkParamIPv4Addr(_SCTPChunkParam, Packet):
     fields_desc = [ ShortEnumField("type", 5, sctpchunkparamtypes),
@@ -247,7 +250,7 @@ class SCTPChunkParamStateCookie(_SCTPChunkParam, Packet):
                                   adjust = lambda pkt,x:x+4),
                     PadField(StrLenField("cookie", "",
                                          length_from=lambda pkt: pkt.len-4),
-                             4, padwith="\x00"),]
+                             4, padwith=b"\x00"),]
 
 class SCTPChunkParamUnrocognizedParam(_SCTPChunkParam, Packet):
     fields_desc = [ ShortEnumField("type", 8, sctpchunkparamtypes),
@@ -255,7 +258,7 @@ class SCTPChunkParamUnrocognizedParam(_SCTPChunkParam, Packet):
                                   adjust = lambda pkt,x:x+4),
                     PadField(StrLenField("param", "",
                                          length_from=lambda pkt: pkt.len-4),
-                             4, padwith="\x00"),]
+                             4, padwith=b"\x00"),]
 
 class SCTPChunkParamCookiePreservative(_SCTPChunkParam, Packet):
     fields_desc = [ ShortEnumField("type", 9, sctpchunkparamtypes),
@@ -268,7 +271,7 @@ class SCTPChunkParamHostname(_SCTPChunkParam, Packet):
                                   adjust = lambda pkt,x:x+4),
                     PadField(StrLenField("hostname", "",
                                          length_from=lambda pkt: pkt.len-4),
-                             4, padwith="\x00"), ]
+                             4, padwith=b"\x00"), ]
 
 class SCTPChunkParamSupportedAddrTypes(_SCTPChunkParam, Packet):
     fields_desc = [ ShortEnumField("type", 12, sctpchunkparamtypes),
@@ -277,7 +280,7 @@ class SCTPChunkParamSupportedAddrTypes(_SCTPChunkParam, Packet):
                     PadField(FieldListField("addr_type_list", [ "IPv4" ],
                                             ShortEnumField("addr_type", 5, sctpchunkparamtypes),
                                             length_from=lambda pkt: pkt.len-4),
-                             4, padwith="\x00"), ]
+                             4, padwith=b"\x00"), ]
 
 class SCTPChunkParamECNCapable(_SCTPChunkParam, Packet):
     fields_desc = [ ShortEnumField("type", 32768, sctpchunkparamtypes),
@@ -307,7 +310,7 @@ class SCTPChunkData(_SCTPChunkGuessPayload, Packet):
                     XShortField("stream_seq", None),
                     XIntField("proto_id", None),
                     PadField(StrLenField("data", None, length_from=lambda pkt: pkt.len-16),
-                             4, padwith="\x00"),
+                             4, padwith=b"\x00"),
                     ]
 
 class SCTPChunkInit(_SCTPChunkGuessPayload, Packet):
@@ -340,7 +343,7 @@ class GapAckField(Field):
     def i2m(self, pkt, x):
         if x is None:
             return "\0\0\0\0"
-        sta, end = map(int, x.split(":"))
+        sta, end = list(map(int, x.split(":")))
         args = tuple([">HH", sta, end])
         return struct.pack(*args)
     def m2i(self, pkt, x):
@@ -388,7 +391,7 @@ class SCTPChunkAbort(_SCTPChunkGuessPayload, Packet):
                     BitField("TCB", 0, 1),
                     FieldLenField("len", None, length_of="error_causes", adjust = lambda pkt,x:x+4),
                     PadField(StrLenField("error_causes", "", length_from=lambda pkt: pkt.len-4),
-                             4, padwith="\x00"),
+                             4, padwith=b"\x00"),
                    ]
 
 class SCTPChunkShutdown(_SCTPChunkGuessPayload, Packet):
@@ -409,7 +412,7 @@ class SCTPChunkError(_SCTPChunkGuessPayload, Packet):
                     XByteField("flags", None),
                     FieldLenField("len", None, length_of="error_causes", adjust = lambda pkt,x:x+4),
                     PadField(StrLenField("error_causes", "", length_from=lambda pkt: pkt.len-4),
-                             4, padwith="\x00"),
+                             4, padwith=b"\x00"),
                    ]
 
 class SCTPChunkCookieEcho(_SCTPChunkGuessPayload, Packet):
@@ -417,7 +420,7 @@ class SCTPChunkCookieEcho(_SCTPChunkGuessPayload, Packet):
                     XByteField("flags", None),
                     FieldLenField("len", None, length_of="cookie", adjust = lambda pkt,x:x+4),
                     PadField(StrLenField("cookie", "", length_from=lambda pkt: pkt.len-4),
-                             4, padwith="\x00"),
+                             4, padwith=b"\x00"),
                    ]
 
 class SCTPChunkCookieAck(_SCTPChunkGuessPayload, Packet):

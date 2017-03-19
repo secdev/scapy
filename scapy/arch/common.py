@@ -7,6 +7,7 @@
 Functions common to different architectures
 """
 
+from __future__ import absolute_import
 import socket
 from fcntl import ioctl
 import struct

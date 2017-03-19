@@ -23,12 +23,17 @@ For instance, here is what you could do in order to modify the serial of
     new_x509_cert = k.resignCert(c)
 No need for obnoxious openssl tweaking anymore. :)
 """
+from __future__ import print_function
 
+from __future__ import absolute_import
 import base64
 import os
 import time
 
 from scapy.config import conf, crypto_validator
+from six.moves import map
+import six
+from six.moves import range
 if conf.crypto_valid:
     from cryptography.hazmat.backends import default_backend
     from cryptography.hazmat.primitives import serialization
@@ -229,12 +234,11 @@ class _PubKeyFactory(_PKIObjMaker):
         return obj
 
 
-class PubKey(object):
+class PubKey(six.with_metaclass(_PubKeyFactory, object)):
     """
     Parent class for both PubKeyRSA and PubKeyECDSA.
     Provides a common verifyCert() method.
     """
-    __metaclass__ = _PubKeyFactory
 
     def verifyCert(self, cert):
         """ Verifies either a Cert or an X509_Cert. """
@@ -396,12 +400,11 @@ class _PrivKeyFactory(_PKIObjMaker):
         return obj
 
 
-class PrivKey(object):
+class PrivKey(six.with_metaclass(_PrivKeyFactory, object)):
     """
     Parent class for both PrivKeyRSA and PrivKeyECDSA.
     Provides common signTBSCert() and resignCert() methods.
     """
-    __metaclass__ = _PrivKeyFactory
 
     def signTBSCert(self, tbsCert, h=None):
         """
@@ -554,12 +557,11 @@ class _CertMaker(_PKIObjMaker):
         return obj
 
 
-class Cert(object):
+class Cert(six.with_metaclass(_CertMaker, object)):
     """
     Wrapper for the X509_Cert from layers/x509.py.
     Use the 'x509Cert' attribute to access original object.
     """
-    __metaclass__ = _CertMaker
 
     def import_from_asn1pkt(self, cert):
         error_msg = "Unable to import certificate"
@@ -706,11 +708,9 @@ class Cert(object):
             if (self.authorityKeyID is not None and
                 c.authorityKeyID is not None and
                 self.authorityKeyID == c.authorityKeyID):
-                return self.serial in map(lambda x: x[0],
-                                                    c.revoked_cert_serials)
+                return self.serial in [x[0] for x in c.revoked_cert_serials]
             elif self.issuer == c.issuer:
-                return self.serial in map(lambda x: x[0],
-                                                    c.revoked_cert_serials)
+                return self.serial in [x[0] for x in c.revoked_cert_serials]
         return False
 
     def export(self, filename, fmt="DER"):
@@ -725,10 +725,10 @@ class Cert(object):
         f.close()
 
     def show(self):
-        print "Serial: %s" % self.serial
-        print "Issuer: " + self.issuer_str
-        print "Subject: " + self.subject_str
-        print "Validity: %s to %s" % (self.notBefore_str, self.notAfter_str)
+        print("Serial: %s" % self.serial)
+        print("Issuer: " + self.issuer_str)
+        print("Subject: " + self.subject_str)
+        print("Validity: %s to %s" % (self.notBefore_str, self.notAfter_str))
 
     def __repr__(self):
         return "[X.509 Cert. Subject:%s, Issuer:%s]" % (self.subject_str, self.issuer_str)
@@ -754,12 +754,11 @@ class _CRLMaker(_PKIObjMaker):
         return obj
 
 
-class CRL(object):
+class CRL(six.with_metaclass(_CRLMaker, object)):
     """
     Wrapper for the X509_CRL from layers/x509.py.
     Use the 'x509CRL' attribute to access original object.
     """
-    __metaclass__ = _CRLMaker
 
     def import_from_asn1pkt(self, crl):
         error_msg = "Unable to import CRL"
@@ -837,11 +836,11 @@ class CRL(object):
         return False
 
     def show(self):
-        print "Version: %d" % self.version
-        print "sigAlg: " + self.sigAlg
-        print "Issuer: " + self.issuer_str
-        print "lastUpdate: %s" % self.lastUpdate_str
-        print "nextUpdate: %s" % self.nextUpdate_str
+        print("Version: %d" % self.version)
+        print("sigAlg: " + self.sigAlg)
+        print("Issuer: " + self.issuer_str)
+        print("lastUpdate: %s" % self.lastUpdate_str)
+        print("nextUpdate: %s" % self.nextUpdate_str)
 
 
 ######################

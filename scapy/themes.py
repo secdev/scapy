@@ -11,6 +11,7 @@ Color themes for the interactive console.
 ## Color themes ##
 ##################
 
+from __future__ import absolute_import
 class Color:
     normal = "\033[0m"
     black = "\033[30m"

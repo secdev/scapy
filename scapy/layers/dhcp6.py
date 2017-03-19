@@ -9,7 +9,9 @@
 """
 DHCPv6: Dynamic Host Configuration Protocol for IPv6. [RFC 3315]
 """
+from __future__ import print_function
 
+from __future__ import absolute_import
 import socket
 
 from scapy.packet import *
@@ -274,7 +276,7 @@ class _DUIDField(PacketField):
         self.length_from = length_from
 
     def i2m(self, pkt, i):
-        return str(i)
+        return str_bytes(i)
 
     def m2i(self, pkt, x):
         cls = conf.raw_layer
@@ -320,7 +322,7 @@ class _IANAOptField(PacketListField):
     def i2len(self, pkt, z):
         if z is None or z == []:
             return 0
-        return sum(map(lambda x: len(str(x)) ,z))
+        return sum([len(bytes(x)) for x in z])
 
     def getfield(self, pkt, s):
         l = self.length_from(pkt)
@@ -379,7 +381,7 @@ class _OptReqListField(StrLenField):
     def i2repr(self, pkt, x):
         s = []
         for y in self.i2h(pkt, x):
-            if dhcp6opts.has_key(y):
+            if y in dhcp6opts:
                 s.append(dhcp6opts[y])
             else:
                 s.append("%d" % y)
@@ -396,7 +398,7 @@ class _OptReqListField(StrLenField):
         return r
     
     def i2m(self, pkt, x):
-        return "".join(map(lambda y: struct.pack("!H", y), x))
+        return b"".join([struct.pack("!H", y) for y in x])
 
 # A client may include an ORO in a solicit, Request, Renew, Rebind,
 # Confirm or Information-request
@@ -548,7 +550,7 @@ class _UserClassDataField(PacketListField):
     def i2len(self, pkt, z):
         if z is None or z == []:
             return 0
-        return sum(map(lambda x: len(str(x)) ,z))
+        return sum([len(bytes(x)) for x in z])
 
     def getfield(self, pkt, s):
         l = self.length_from(pkt)
@@ -739,17 +741,17 @@ class DomainNameField(StrLenField):
     def m2i(self, pkt, x):
         cur = []
         while x:
-            l = ord(x[0])
-            cur.append(x[1:1+l])
+            l = orb(x[0])
+            cur.append(bytes_str(x[1:1+l]))
             x = x[l+1:]
         ret_str = ".".join(cur)
-        return ret_str
+        return str_bytes(ret_str)
 
     def i2m(self, pkt, x):
         if not x:
-            return ""
-        tmp = "".join(map(lambda z: chr(len(z))+z, x.split('.')))
-        return tmp
+            return b""
+        tmp = "".join([chr(len(z))+z for z in x.split('.')])
+        return str_bytes(tmp)
 
 class DHCP6OptNISDomain(_DHCP6OptGuessPayload):             #RFC3898
     name = "DHCP6 Option - NIS Domain Name"
@@ -1160,7 +1162,7 @@ dhcp6_cls_by_type = {  1: "DHCP6_Solicit",
 def _dhcp6_dispatcher(x, *args, **kargs):
     cls = conf.raw_layer
     if len(x) >= 2:
-        cls = get_cls(dhcp6_cls_by_type.get(ord(x[0]), "Raw"), conf.raw_layer)
+        cls = get_cls(dhcp6_cls_by_type.get(orb(x[0]), "Raw"), conf.raw_layer)
     return cls(x, *args, **kargs)
 
 bind_bottom_up(UDP, _dhcp6_dispatcher, { "dport": 547 } )
@@ -1236,7 +1238,7 @@ dhcp6d( dns="2001:500::1035", domain="localdomain, local", duid=None)
          See RFC 4280 for details.
 
    If you have a need for others, just ask ... or provide a patch."""
-        print msg
+        print(msg)
 
     def parse_options(self, dns="2001:500::1035", domain="localdomain, local",
                       startip="2001:db8::1", endip="2001:db8::20", duid=None,
@@ -1251,9 +1253,9 @@ dhcp6d( dns="2001:500::1035", domain="localdomain, local", duid=None)
                 return val
             elif type(val) is str:
                 l = val.split(',')
-                return map(lambda x: x.strip(), l)
+                return [x.strip() for x in l]
             else:
-                print "Bad '%s' parameter provided." % param_name
+                print("Bad '%s' parameter provided." % param_name)
                 self.usage()
                 return -1
 
@@ -1286,11 +1288,11 @@ dhcp6d( dns="2001:500::1035", domain="localdomain, local", duid=None)
                 self.dhcpv6_options[o[2]] = o[3](opt)
 
         if self.debug:
-            print "\n[+] List of active DHCPv6 options:"
-            opts = self.dhcpv6_options.keys()
+            print("\n[+] List of active DHCPv6 options:")
+            opts = list(self.dhcpv6_options.keys())
             opts.sort()
             for i in opts:
-                print "    %d: %s" % (i, repr(self.dhcpv6_options[i]))
+                print("    %d: %s" % (i, repr(self.dhcpv6_options[i])))
 
         # Preference value used in Advertise. 
         self.advpref = advpref
@@ -1317,18 +1319,17 @@ dhcp6d( dns="2001:500::1035", domain="localdomain, local", duid=None)
 
             # Mac Address
             rawmac = get_if_raw_hwaddr(iface)[1]
-            mac = ":".join(map(lambda x: "%.02x" % ord(x), list(rawmac)))
+            mac = ":".join(["%.02x" % orb(x) for x in list(rawmac)])
 
             self.duid = DUID_LLT(timeval = timeval, lladdr = mac)
             
         if self.debug:
-            print "\n[+] Our server DUID:" 
+            print("\n[+] Our server DUID:") 
             self.duid.show(label_lvl=" "*4)
 
         ####
         # Find the source address we will use
-        l = filter(lambda x: x[2] == iface and in6_islladdr(x[0]), 
-                   in6_getifaddr())
+        l = [x for x in in6_getifaddr() if x[2] == iface and in6_islladdr(x[0])]
         if not l:
             warning("Unable to get a Link-Local address")
             return 
@@ -1341,7 +1342,7 @@ dhcp6d( dns="2001:500::1035", domain="localdomain, local", duid=None)
         
 
         if self.debug:
-            print "\n[+] Starting DHCPv6 service on %s:" % self.iface 
+            print("\n[+] Starting DHCPv6 service on %s:" % self.iface) 
 
     def is_request(self, p):
         if not IPv6 in p:
@@ -1391,7 +1392,7 @@ dhcp6d( dns="2001:500::1035", domain="localdomain, local", duid=None)
             duid = p[DHCP6OptServerId].duid
             if (type(duid) != type(self.duid)):
                 return False
-            if str(duid) != str(self.duid):
+            if str_bytes(duid) != str_bytes(self.duid):
                 return False
 
             if (p.msgtype == 5 or # Renew
@@ -1427,17 +1428,17 @@ dhcp6d( dns="2001:500::1035", domain="localdomain, local", duid=None)
                 elif isinstance(it, DHCP6OptIA_TA):
                     l = it.iataopts
 
-                opsaddr = filter(lambda x: isinstance(x, DHCP6OptIAAddress),l)
-                a=map(lambda x: x.addr,  opsaddr)
+                opsaddr = [x for x in l if isinstance(x, DHCP6OptIAAddress)]
+                a=[x.addr for x in opsaddr]
                 addrs += a
                 it = it.payload
                     
-            addrs = map(lambda x: bo + x + n, addrs)
+            addrs = [bo + x + n for x in addrs]
             if debug:
                 msg = r + "[DEBUG]" + n + " Received " + g + "Decline" + n 
                 msg += " from " + bo + src + vendor + " for "
                 msg += ", ".join(addrs)+ n
-                print msg
+                print(msg)
 
             # See sect 18.1.7
 
@@ -1458,7 +1459,7 @@ dhcp6d( dns="2001:500::1035", domain="localdomain, local", duid=None)
                 duid = p[DHCP6OptServerId].duid
                 if (type(duid) != type(self.duid)):
                     return False
-                if str(duid) != str(self.duid):
+                if str_bytes(duid) != str_bytes(self.duid):
                     return False
             if ((DHCP6OptIA_NA in p) or 
                 (DHCP6OptIA_TA in p) or
@@ -1494,7 +1495,7 @@ dhcp6d( dns="2001:500::1035", domain="localdomain, local", duid=None)
         reqsrc  = bo + reqsrc + n
         reptype = g + norm(reply.getlayer(UDP).payload.name) + n
 
-        print "Sent %s answering to %s from %s%s" % (reptype, reqtype, reqsrc, vendor)
+        print("Sent %s answering to %s from %s%s" % (reptype, reqtype, reqsrc, vendor))
 
     def make_reply(self, req):
         req_mac_src = req.src

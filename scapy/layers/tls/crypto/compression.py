@@ -7,9 +7,11 @@
 TLS compression.
 """
 
+from __future__ import absolute_import
 import zlib
 
 from scapy.error import warning
+import six
 
 
 _tls_compression_algs = {}
@@ -30,8 +32,8 @@ class _GenericCompMetaclass(type):
         return the_class
 
 
-class _GenericComp(object):
-    __metaclass__ = _GenericCompMetaclass
+class _GenericComp(six.with_metaclass(_GenericCompMetaclass, object)):
+    pass
 
 
 class Comp_NULL(_GenericComp):

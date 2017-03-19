@@ -9,6 +9,7 @@ https://msdn.microsoft.com/en-us/library/cc233983.aspx
 
 """
 
+from __future__ import absolute_import
 import struct
 from array import array
 
@@ -21,7 +22,9 @@ from scapy.plist import PacketList
 from scapy.layers.l2 import Ether
 from scapy.layers.inet import IPField
 from scapy.layers.inet6 import IP6Field
-from scapy.data import ETHER_ANY
+from scapy.utils import orb
+from scapy.data import ETHER_ANY, str_bytes
+import six
 
 # Protocol layers
 ##################
@@ -211,9 +214,9 @@ class LLTDQueryResp(Packet):
         if self.descs_count is None:
             # descs_count should be a FieldLenField but has an
             # unsupported format (14 bits)
-            flags = ord(pkt[0]) & 0xc0
+            flags = orb(pkt[0]) & 0xc0
             count = len(self.descs_list)
-            pkt = chr(flags + (count >> 8)) + chr(count % 256) + pkt[2:]
+            pkt = str_bytes(flags + (count >> 8)) + str_bytes(count % 256) + pkt[2:]
         return pkt + pay
 
     def mysummary(self):
@@ -253,9 +256,9 @@ class LLTDQueryLargeTlvResp(Packet):
         if self.len is None:
             # len should be a FieldLenField but has an unsupported
             # format (14 bits)
-            flags = ord(pkt[0]) & 0xc0
+            flags = orb(pkt[0]) & 0xc0
             length = len(self.value)
-            pkt = chr(flags + (length >> 8)) + chr(length % 256) + pkt[2:]
+            pkt = str_bytes(flags + (length >> 8)) + str_bytes(length % 256) + pkt[2:]
         return pkt + pay
 
     def mysummary(self):
@@ -293,10 +296,10 @@ class LLTDAttribute(Packet):
     @classmethod
     def dispatch_hook(cls, _pkt=None, *_, **kargs):
         if _pkt:
-            cmd = struct.unpack("B", _pkt[0])[0]
+            cmd = struct.unpack("B", str_bytes(_pkt[0]))[0]
         elif "type" in kargs:
             cmd = kargs["type"]
-            if isinstance(cmd, basestring):
+            if isinstance(cmd, six.string_types):
                 cmd = cls.fields_desc[0].s2i[cmd]
         else:
             return cls
@@ -722,7 +725,7 @@ class LLTDAttributeDeviceUUID(LLTDAttribute):
     name = "LLTD Attribute - Device UUID"
     fields_desc = [
         FieldLenField("len", None, length_of="uuid", fmt="B"),
-        StrLenField("uuid", "\x00" * 16, length_from=lambda pkt: pkt.len),
+        StrLenField("uuid", b"\x00" * 16, length_from=lambda pkt: pkt.len),
     ]
 
 
@@ -827,7 +830,7 @@ class LargeTlvBuilder(object):
                 data = self.data.setdefault(key, array("B"))
                 datalen = len(data)
                 if datalen < loc.stop:
-                    data.extend(array("B", "\x00" * (loc.stop - datalen)))
+                    data.extend(array("B", b"\x00" * (loc.stop - datalen)))
                 data[loc] = array("B", pkt[LLTDQueryLargeTlvResp].value)
 
     def get_data(self):
@@ -837,4 +840,4 @@ class LargeTlvBuilder(object):
 
         """
         return {key: "".join(chr(byte) for byte in data)
-                for key, data in self.data.iteritems()}
+                for key, data in six.iteritems(self.data)}

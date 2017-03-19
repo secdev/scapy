@@ -9,10 +9,12 @@ XXX These groups (and the ones from RFC 7919) should be registered to
 the cryptography library. And this file should eventually be removed.
 """
 
+from __future__ import absolute_import
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import dh
 
 from scapy.utils import long_converter
+import six
 
 
 class modp768: # From RFC 4306
@@ -202,7 +204,7 @@ _ffdh_raw_params = { 'modp768' : modp768,
                      'modp8192': modp8192  }
 
 FFDH_GROUPS = {}
-for name, group in _ffdh_raw_params.iteritems():
+for name, group in six.iteritems(_ffdh_raw_params):
     pn = dh.DHParameterNumbers(group.m, group.g)
     params = pn.parameters(default_backend())
     FFDH_GROUPS[name] = [params, group.mLen]

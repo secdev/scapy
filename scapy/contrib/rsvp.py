@@ -5,6 +5,7 @@
 # scapy.contrib.description = RSVP
 # scapy.contrib.status = loads
 
+from __future__ import absolute_import
 from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.inet import IP
@@ -144,7 +145,7 @@ class RSVP_Data(Packet):
 class RSVP_HOP(Packet):
     name = "HOP"
     fields_desc = [ IPField("neighbor","0.0.0.0"),
-		  BitField("inface",1,32)]
+          BitField("inface",1,32)]
     def default_payload_class(self, payload):
       return RSVP_Object
 

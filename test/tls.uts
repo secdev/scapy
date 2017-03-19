@@ -15,6 +15,7 @@
 
 + Test Hmac_MD5
 = Crypto - Hmac_MD5 instantiation, parameter check 
+from __future__ import absolute_import
 from scapy.layers.tls.crypto.h_mac import Hmac_MD5
 a = Hmac_MD5("somekey")
 a.key_len == 16 and a.hmac_len == 16

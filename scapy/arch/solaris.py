@@ -8,6 +8,7 @@ Customization for the Solaris operation system.
 """
 
 # IPPROTO_GRE is missing on Solaris
+from __future__ import absolute_import
 import socket
 socket.IPPROTO_GRE = 47
 

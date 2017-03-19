@@ -16,6 +16,7 @@
 
 # Copyright (C) 2016 Arthur Gervais, Ken LE PRADO, Sébastien Mainand
 
+from __future__ import absolute_import
 from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.inet import *

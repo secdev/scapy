@@ -12,6 +12,7 @@ expected_data, then we leave with exit code 0. Else we leave with exit code 1.
 If no expected_data was provided and the handshake was ok, we exit with 0.
 """
 
+from __future__ import absolute_import
 import os
 import sys
 from contextlib import contextmanager
