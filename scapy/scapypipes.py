@@ -182,12 +182,18 @@ class TCPListenPipe(TCPConnectPipe):
     def __init__(self, addr="", port=0, name=None):
         TCPConnectPipe.__init__(self, addr, port, name)
         self.connected = False
+        self.q = Queue.Queue()
     def start(self):
         self.connected = False
         self.fd = socket.socket()
         self.fd.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.fd.bind((self.addr,self.port))
         self.fd.listen(1)
+    def push(self, msg):
+        if self.connected:
+            self.fd.send(msg)
+        else:
+            self.q.put(msg)
     def deliver(self):
         if self.connected:
             self._send(self.fd.recv(65536))
@@ -197,6 +203,12 @@ class TCPListenPipe(TCPConnectPipe):
             self.fd.close()
             self.fd = fd
             self.connected = True
+            while True:
+                try:
+                    self.fd.send(self.q.get(block=False))
+                except Queue.Empty:
+                    break
+
 
 class TriggeredMessage(Drain):
     """Send a preloaded message when triggered and trigger in chain
