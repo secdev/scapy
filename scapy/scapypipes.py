@@ -4,6 +4,7 @@
 ## This program is published under a GPLv2 license
 
 import socket
+import Queue
 from scapy.pipetool import Source,Drain,Sink
 from scapy.config import conf
 from scapy.utils import PcapReader, PcapWriter
