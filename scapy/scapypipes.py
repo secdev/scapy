@@ -235,3 +235,62 @@ class TriggerDrain(Drain):
         if v:
             self._trigger(v)
         self._high_send(msg)
+
+class TriggeredValve(Drain):
+    """Let messages alternatively pass or not, changing on trigger
+     +------^------+
+  >>-|-[pass/stop]-|->>
+     |      |      |
+   >-|-[pass/stop]-|->
+     +------^------+
+"""
+    def __init__(self, start_state=True, name=None):
+        Drain.__init__(self, name=name)
+        self.opened = start_state
+    def push(self, msg):
+        if self.opened:
+            self._send(msg)
+    def high_push(self, msg):
+        if self.opened:
+            self._send(msg)
+    def on_trigger(self, msg):
+        self.opened ^= True
+        self._trigger(msg)
+
+class TriggeredQueueingValve(Drain):
+    """Let messages alternatively pass or queued, changing on trigger
+     +------^-------+
+  >>-|-[pass/queue]-|->>
+     |      |       |
+   >-|-[pass/queue]-|->
+     +------^-------+
+"""
+    def __init__(self, start_state=True, name=None):
+        Drain.__init__(self, name=name)
+        self.opened = start_state
+        self.q = Queue.Queue()
+    def start(self):
+        self.q = Queue.Queue()
+    def push(self, msg):
+        if self.opened:
+            self._send(msg)
+        else:
+            self.q.put((True,msg))
+    def high_push(self, msg):
+        if self.opened:
+            self._send(msg)
+        else:
+            self.hq.put((False,msg))
+    def on_trigger(self, msg):
+        self.opened ^= True
+        self._trigger(msg)
+        while True:
+            try:
+                low,msg = self.q.get(block=False)
+            except Queue.Empty:
+                break
+            else:
+                if low:
+                    self._send(msg)
+                else:
+                    self._high_send(msg)
