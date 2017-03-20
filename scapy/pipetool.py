@@ -237,7 +237,7 @@ class Pipe(_ConnectorLogic):
     def _high_send(self, msg):
         for s in self.high_sinks:
             s.high_push(msg)
-    def _trigger(self, msg):
+    def _trigger(self, msg=None):
         for s in self.trigger_sinks:
             s.on_trigger(msg)
 
