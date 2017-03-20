@@ -294,3 +294,24 @@ class TriggeredQueueingValve(Drain):
                     self._send(msg)
                 else:
                     self._high_send(msg)
+
+class TriggeredSwitch(Drain):
+    """Let messages alternatively high or low, changing on trigger
+     +------^------+
+  >>-|-\    |    /-|->>
+     |  [up/down]  |
+   >-|-/    |    \-|->
+     +------^------+
+"""
+    def __init__(self, start_state=True, name=None):
+        Drain.__init__(self, name=name)
+        self.low = start_state
+    def push(self, msg):
+        if self.low:
+            self._send(msg)
+        else:
+            self._high_send(msg)
+    high_push = push
+    def on_trigger(self, msg):
+        self.low ^= True
+        self._trigger(msg)
