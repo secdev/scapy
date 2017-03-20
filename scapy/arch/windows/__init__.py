@@ -6,7 +6,7 @@
 """
 Customizations needed to support Microsoft Windows.
 """
-import os, re, sys, socket, time, itertools, platform, subprocess
+import os, re, sys, socket, time, itertools, platform
 import subprocess as sp
 from glob import glob
 import tempfile
@@ -233,6 +233,7 @@ def win_find_exe(filename, installsubdir=None, env="ProgramFiles"):
             break        
     return path
 
+
 def is_new_release(ignoreVBS=False):
     release = platform.release()
     if conf.prog.powershell is None and not ignoreVBS:
@@ -285,7 +286,7 @@ if conf.prog.tcpdump != "windump" and conf.use_npcap:
     def test_windump_npcap():
         """Return wether windump version is correct or not"""
         try:
-            p_test_windump = subprocess.Popen([conf.prog.tcpdump, "-help"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            p_test_windump = sp.Popen([conf.prog.tcpdump, "-help"], stdout=sp.PIPE, stderr=sp.STDOUT)
             stdout, err = p_test_windump.communicate()
             return "npcap" in stdout.lower()
         except:
