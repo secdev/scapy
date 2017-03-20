@@ -173,7 +173,7 @@ class TCPConnectPipe(Source):
 
 class TCPListenPipe(TCPConnectPipe):
     """TCP listen on [addr:]port and use first connection as source and sink ; send peer address to high output
-     +-------------+
+     +------^------+
   >>-|    +-[peer]-|->>
      |   /         |
    >-|-[addr:port]-|->
@@ -208,6 +208,7 @@ class TCPListenPipe(TCPConnectPipe):
                     self.fd.send(self.q.get(block=False))
                 except Queue.Empty:
                     break
+            self._trigger(repr(frm))
 
 
 class TriggeredMessage(Drain):
