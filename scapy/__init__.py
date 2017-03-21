@@ -38,6 +38,9 @@ def _version_from_git_describe():
         >>> _version_from_git_describe()
         '2.3.2.dev346'
     """
+    if not os.path.isdir(os.path.join(_SCAPY_PKG_DIR, '../.git')):
+        raise ValueError('not in scapy git repo')
+
     p = subprocess.Popen(['git', 'describe', '--always'], cwd=_SCAPY_PKG_DIR,
                          stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
