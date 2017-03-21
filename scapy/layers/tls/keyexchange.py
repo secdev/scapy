@@ -405,19 +405,19 @@ class ServerECDHExplicitPrimeParams(_GenericTLSSessionInheritance):
     """
     name = "Server ECDH parameters - Explicit Prime"
     fields_desc = [ ByteEnumField("curve_type", 1, _tls_ec_curve_types),
-		    FieldLenField("plen", None, length_of="p", fmt="B"),
-		    StrLenField("p", "", length_from=lambda pkt: pkt.plen),
+                    FieldLenField("plen", None, length_of="p", fmt="B"),
+                    StrLenField("p", "", length_from=lambda pkt: pkt.plen),
                     PacketField("curve", None, ECCurvePkt),
                     FieldLenField("baselen", None, length_of="base", fmt="B"),
                     StrLenField("base", "",
                                 length_from=lambda pkt: pkt.baselen),
-		    FieldLenField("orderlen", None,
+                    FieldLenField("orderlen", None,
                                   length_of="order", fmt="B"),
-		    StrLenField("order", "",
+                    StrLenField("order", "",
                                 length_from=lambda pkt: pkt.orderlen),
-		    FieldLenField("cofactorlen", None,
+                    FieldLenField("cofactorlen", None,
                                   length_of="cofactor", fmt="B"),
-		    StrLenField("cofactor", "",
+                    StrLenField("cofactor", "",
                                 length_from=lambda pkt: pkt.cofactorlen),
                     FieldLenField("pointlen", None,
                                   length_of="point", fmt="B"),
@@ -555,7 +555,7 @@ class ServerECDHNamedCurveParams(_GenericTLSSessionInheritance):
         XXX Check that the pubkey received is on the curve.
         """
         #point_format = 0
-        #if self.point[0] in ['\x02', '\x03']:
+        #if self.point[0] in [b'\x02', b'\x03']:
         #    point_format = 1
 
         #if self.named_curve and self.point: #XXX remove this, probably
@@ -747,7 +747,7 @@ class ClientECDiffieHellmanPublic(_GenericTLSSessionInheritance):
             pubkey = s.client_kx_privkey.public_key()
             x = pubkey.public_numbers().x
             y = pubkey.public_numbers().y
-            self.ecdh_Yc = ("\x04" +
+            self.ecdh_Yc = (b"\x04" +
                             pkcs_i2osp(x, params.key_size/8) +
                             pkcs_i2osp(y, params.key_size/8))
         # else, we assume that the user wrote the client_kx_privkey by himself
@@ -806,7 +806,7 @@ class EncryptedPreMasterSecret(_GenericTLSSessionInheritance):
             decrypted = s.server_rsa_key.decrypt(tbd)
             pms = decrypted[-48:]
         else:
-            pms = "\x00"*48     # Hack but we should not be there anyway
+            pms = b"\x00"*48     # Hack but we should not be there anyway
             err = "No server RSA key to decrypt Pre Master Secret. Skipping."
             warning(err)
 

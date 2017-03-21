@@ -53,13 +53,13 @@ def get_if_raw_addr(ifname):
         fd = os.popen("%s %s" % (conf.prog.ifconfig, ifname))
     except OSError, msg:
         warning("Failed to execute ifconfig: (%s)" % msg)
-        return "\0\0\0\0"
+        return b"\0\0\0\0"
 
     # Get IPv4 addresses
     addresses = [l for l in fd if l.find("netmask") >= 0]
     if not addresses:
         warning("No IPv4 address found on %s !" % ifname)
-        return "\0\0\0\0"
+        return b"\0\0\0\0"
 
     # Pack the first address
     address = addresses[0].split(' ')[1]
@@ -69,7 +69,7 @@ def get_if_raw_addr(ifname):
 def get_if_raw_hwaddr(ifname):
     """Returns the packed MAC address configured on 'ifname'."""
 
-    NULL_MAC_ADDRESS = '\x00'*6
+    NULL_MAC_ADDRESS = b'\x00'*6
 
     # Handle the loopback interface separately
     if ifname == LOOPBACK_NAME:

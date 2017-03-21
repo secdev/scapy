@@ -23,7 +23,7 @@ from scapy.arch import get_if_raw_hwaddr
 from scapy.sendrecv import *
 from scapy.error import warning
 
-dhcpmagic="c\x82Sc"
+dhcpmagic=b"c\x82Sc"
 
 
 class BOOTP(Packet):
@@ -269,7 +269,7 @@ class DHCPOptionsField(StrField):
                   DHCPRevOptions[o][1] == None):
                 s += chr(DHCPRevOptions[o][0])
             elif type(o) is int:
-                s += chr(o)+"\0"
+                s += chr(o)+b"\0"
             elif type(o) is str:
                 s += o
             else:
@@ -285,7 +285,7 @@ class DHCP(Packet):
 bind_layers( UDP,           BOOTP,         dport=67, sport=68)
 bind_layers( UDP,           BOOTP,         dport=68, sport=67)
 bind_bottom_up( UDP, BOOTP, dport=67, sport=67)
-bind_layers( BOOTP,         DHCP,          options='c\x82Sc')
+bind_layers( BOOTP,         DHCP,          options=b'c\x82Sc')
 
 @conf.commands.register
 def dhcp_request(iface=None,**kargs):

@@ -24,7 +24,7 @@ used when socket.inet_pton is not available.
     joker_pos = None
     result = ""
     if addr == '::':
-        return '\x00' * 16
+        return b'\x00' * 16
     if addr.startswith('::'):
         addr = addr[1:]
     if addr.endswith('::'):
@@ -43,7 +43,7 @@ used when socket.inet_pton is not available.
             # The last part of an IPv6 address can be an IPv4 address
             if part.count('.') != 3:
                 # we have to do this since socket.inet_aton('1.2') ==
-                # '\x01\x00\x00\x02'
+                # b'\x01\x00\x00\x02'
                 raise _INET6_PTON_EXC
             try:
                 result += socket.inet_aton(part)
@@ -59,7 +59,7 @@ used when socket.inet_pton is not available.
     if joker_pos is not None:
         if len(result) == 16:
             raise _INET6_PTON_EXC
-        result = (result[:joker_pos] + "\x00" * (16 - len(result))
+        result = (result[:joker_pos] + b"\x00" * (16 - len(result))
                   + result[joker_pos:])
     if len(result) != 16:
         raise _INET6_PTON_EXC

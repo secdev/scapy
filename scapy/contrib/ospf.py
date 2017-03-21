@@ -149,8 +149,8 @@ class LLS_Crypto_Auth(LLS_Generic_TLV):
     name = "LLS Cryptographic Authentication"
     fields_desc = [ShortField("type", 2),
                    FieldLenField("len", 20, fmt="B", length_of=lambda x: x.authdata),
-                   XIntField("sequence", "\x00\x00\x00\x00"),
-                   StrLenField("authdata", "\x00" * 16, length_from=lambda x: x.len)]
+                   XIntField("sequence", b"\x00\x00\x00\x00"),
+                   StrLenField("authdata", b"\x00" * 16, length_from=lambda x: x.len)]
 
     def post_build(self, p, pay):
         p += pay
@@ -213,7 +213,7 @@ _OSPF_LSclasses = {1: "OSPF_Router_LSA",
 
 
 def ospf_lsa_checksum(lsa):
-    return fletcher16_checkbytes("\x00\x00" + lsa[2:], 16) # leave out age
+    return fletcher16_checkbytes(b"\x00\x00" + lsa[2:], 16) # leave out age
 
 
 class OSPF_LSA_Hdr(Packet):

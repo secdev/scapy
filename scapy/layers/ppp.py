@@ -204,7 +204,7 @@ class PPP(Packet):
     fields_desc = [ ShortEnumField("proto", 0x0021, _PPP_proto) ]
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
-        if _pkt and _pkt[0] == '\xff':
+        if _pkt and _pkt[0] == b'\xff':
             cls = HDLC
         return cls
 
@@ -295,7 +295,7 @@ class PPP_IPCP_Option_NBNS2(PPP_IPCP_Option):
 
 class PPP_IPCP(Packet):
     fields_desc = [ ByteEnumField("code" , 1, _PPP_conftypes),
-		    XByteField("id", 0 ),
+                    XByteField("id", 0 ),
                     FieldLenField("len" , None, fmt="H", length_of="options", adjust=lambda p,x:x+4 ),
                     PacketListField("options", [],  PPP_IPCP_Option, length_from=lambda p:p.len-4,) ]
 
@@ -335,7 +335,7 @@ class PPP_ECP_Option_OUI(PPP_ECP_Option):
 
 class PPP_ECP(Packet):
     fields_desc = [ ByteEnumField("code" , 1, _PPP_conftypes),
-		    XByteField("id", 0 ),
+                    XByteField("id", 0 ),
                     FieldLenField("len" , None, fmt="H", length_of="options", adjust=lambda p,x:x+4 ),
                     PacketListField("options", [],  PPP_ECP_Option, length_from=lambda p:p.len-4,) ]
 

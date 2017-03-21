@@ -223,10 +223,10 @@ class PRF(object):
                 d = {"client": "SRVR", "server": "CLNT"}
             label = d[con_end]
 
-            sslv3_md5_pad1 = "\x36"*48
-            sslv3_md5_pad2 = "\x5c"*48
-            sslv3_sha1_pad1 = "\x36"*40
-            sslv3_sha1_pad2 = "\x5c"*40
+            sslv3_md5_pad1 = b"\x36"*48
+            sslv3_md5_pad2 = b"\x5c"*48
+            sslv3_sha1_pad1 = b"\x36"*40
+            sslv3_sha1_pad2 = b"\x5c"*40
 
             md5 = tls_hash_algs["MD5"]()
             sha1 = tls_hash_algs["SHA"]()

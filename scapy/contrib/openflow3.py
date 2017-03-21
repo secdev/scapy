@@ -642,7 +642,7 @@ class OFPMatch(Packet):
             l = len(p)+len(pay)
             p = p[:2] + struct.pack("!H", l) + p[4:]
             zero_bytes = (8 - l%8) % 8
-            p += "\x00" * zero_bytes
+            p += b"\x00" * zero_bytes
         # message with user-defined length will not be automatically padded
         return p + pay
 
@@ -914,7 +914,7 @@ class OFPATSetField(_ofp_action_header):
         else:
             zero_bytes = (8 - l%8) % 8
         # every message will be padded correctly
-        p += "\x00" * zero_bytes
+        p += b"\x00" * zero_bytes
         return p + pay
 
     def extract_padding(self, s):
@@ -2835,7 +2835,7 @@ class _ofp_table_features_prop_header(Packet):
             p = p[:2] + struct.pack("!H", l) + p[4:]
         # every message will be padded correctly
         zero_bytes = (8 - l%8) % 8
-        p += "\x00" * zero_bytes
+        p += b"\x00" * zero_bytes
         return p + pay
 
     def extract_padding(self, s):

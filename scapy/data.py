@@ -15,8 +15,8 @@ from scapy.error import log_loading
 ## Consts ##
 ############
 
-ETHER_ANY = "\x00"*6
-ETHER_BROADCAST = "\xff"*6
+ETHER_ANY = b"\x00"*6
+ETHER_BROADCAST = b"\xff"*6
 
 ETH_P_ALL = 3
 ETH_P_IP = 0x800

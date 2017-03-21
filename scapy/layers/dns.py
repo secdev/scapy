@@ -27,13 +27,13 @@ class DNSStrField(StrField):
 
     def i2m(self, pkt, x):
         if x == ".":
-          return "\x00"
+          return b"\x00"
 
         x = [k[:63] for k in x.split(".")] # Truncate chunks that cannot be encoded (more than 63 bytes..)
         x = map(lambda y: chr(len(y))+y, x)
         x = "".join(x)
-        if x[-1] != "\x00":
-            x += "\x00"
+        if x[-1] != b"\x00":
+            x += b"\x00"
         return x
 
     def getfield(self, pkt, s):
@@ -125,12 +125,12 @@ class DNSRRField(StrField):
         ret = s[p:p+10]
         type,cls,ttl,rdlen = struct.unpack("!HHIH", ret)
         p += 10
-        rr = DNSRR("\x00"+ret+s[p:p+rdlen])
+        rr = DNSRR(b"\x00"+ret+s[p:p+rdlen])
         if type in [2, 3, 4, 5]:
             rr.rdata = DNSgetstr(s,p)[0]
             del(rr.rdlen)
         elif type in DNSRR_DISPATCHER:
-            rr = DNSRR_DISPATCHER[type]("\x00"+ret+s[p:p+rdlen])
+            rr = DNSRR_DISPATCHER[type](b"\x00"+ret+s[p:p+rdlen])
         else:
           del(rr.rdlen)
 
@@ -166,7 +166,7 @@ class DNSQRField(DNSRRField):
     def decodeRR(self, name, s, p):
         ret = s[p:p+4]
         p += 4
-        rr = DNSQR("\x00"+ret)
+        rr = DNSQR(b"\x00"+ret)
         rr.qname = name
         return rr,p
 
@@ -203,14 +203,14 @@ class RDataField(StrLenField):
         elif pkt.type in [2, 3, 4, 5, 12]: # NS, MD, MF, CNAME, PTR
             s = "".join(map(lambda x: chr(len(x))+x, s.split(".")))
             if ord(s[-1]):
-                s += "\x00"
+                s += b"\x00"
         elif pkt.type == 16: # TXT
             if s:
                 ret_s = ""
                 # The initial string must be splitted into a list of strings
                 # prepended with theirs sizes.
                 while len(s) >= 255:
-                    ret_s += "\xff" + s[:255]
+                    ret_s += b"\xff" + s[:255]
                     s = s[255:]
                 # The remaining string is less than 255 bytes long
                 if len(s):

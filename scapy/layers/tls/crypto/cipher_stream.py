@@ -46,7 +46,7 @@ class _StreamCipher(object):
                 l = self.expanded_key_len
             else:
                 l = self.key_len
-            key = "\0" * l
+            key = b"\0" * l
 
         # we use super() in order to avoid any deadlock with __setattr__
         super(_StreamCipher, self).__setattr__("key", key)

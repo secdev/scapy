@@ -29,7 +29,7 @@
         - Have a closer look at 8 byte padding in summary adv.
             "debug sw-vlan vtp packets" sais the TLV length is invalid,
             when I change the values
-            '\x00\x00\x00\x01\x06\x01\x00\x02'
+            b'\x00\x00\x00\x01\x06\x01\x00\x02'
                 * \x00\x00 ?
                 * \x00\x01 tlvtype?
                 * \x06 length?
@@ -105,7 +105,7 @@ class VTPVlanInfo(Packet):
         # Pad vlan name with zeros if vlannamelen > len(vlanname)
         l = vlannamelen - len(self.vlanname)
         if l != 0:
-            p += "\x00" * l
+            p += b"\x00" * l
 
         p += pay
 
@@ -149,7 +149,7 @@ class VTP(Packet):
                                         lambda pkt:pkt.code == 1),
                     ConditionalField(VTPTimeStampField("timestamp", '930301000000'),
                                         lambda pkt:pkt.code == 1),
-                    ConditionalField(StrFixedLenField("md5", "\x00" * 16, 16),
+                    ConditionalField(StrFixedLenField("md5", b"\x00" * 16, 16),
                                         lambda pkt:pkt.code == 1),
                     ConditionalField(
                         PacketListField("vlaninfo", [], VTPVlanInfo),
@@ -160,7 +160,7 @@ class VTP(Packet):
 
     def post_build(self, p, pay):
         if self.domnamelen == None:
-            domnamelen = len(self.domname.strip("\x00"))
+            domnamelen = len(self.domname.strip(b"\x00"))
             p = p[:3] + chr(domnamelen & 0xff) + p[4:]
 
         p += pay
