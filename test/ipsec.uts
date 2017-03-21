@@ -538,7 +538,7 @@ assert(e[ESP].spi == sa.spi)
 assert('testdata' in e[ESP].data)
 
 * simulate the alteration of the packet before decryption
-e[ESP].data = e[ESP].data.replace('\x01', '\x21')
+e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
 
 * integrity verification should fail
 try:
@@ -606,7 +606,7 @@ assert(e[ESP].spi == sa.spi)
 assert('testdata' in e[ESP].data)
 
 * simulate the alteration of the packet before decryption
-e[ESP].data = e[ESP].data.replace('\x01', '\x21')
+e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
 
 * integrity verification should fail
 try:
@@ -674,7 +674,7 @@ assert(e[ESP].spi == sa.spi)
 assert('testdata' in e[ESP].data)
 
 * simulate the alteration of the packet before decryption
-e[ESP].data = e[ESP].data.replace('\x01', '\x21')
+e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
 
 * integrity verification should fail
 try:
@@ -742,7 +742,7 @@ assert(e[ESP].spi == sa.spi)
 assert('testdata' in e[ESP].data)
 
 * simulate the alteration of the packet before decryption
-e[ESP].data = e[ESP].data.replace('\x01', '\x21')
+e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
 
 * integrity verification should fail
 try:
@@ -810,7 +810,7 @@ assert(e[ESP].spi == sa.spi)
 assert('testdata' in e[ESP].data)
 
 * simulate the alteration of the packet before decryption
-e[ESP].data = e[ESP].data.replace('\x01', '\x21')
+e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
 
 * integrity verification should fail
 try:
@@ -878,7 +878,7 @@ assert(e[ESP].spi == sa.spi)
 assert('testdata' in e[ESP].data)
 
 * simulate the alteration of the packet before decryption
-e[ESP].data = e[ESP].data.replace('\x01', '\x21')
+e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
 
 * integrity verification should fail
 try:
@@ -951,7 +951,7 @@ assert(e[ESP].spi == sa.spi)
 assert('testdata' in e[ESP].data)
 
 * simulate the alteration of the packet before decryption
-e[ESP].data = e[ESP].data.replace('\x01', '\x21')
+e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
 
 * integrity verification should fail
 try:
@@ -1023,7 +1023,7 @@ assert(e[ESP].spi == sa.spi)
 assert('testdata' in e[ESP].data)
 
 * simulate the alteration of the packet before decryption
-e[ESP].data = e[ESP].data.replace('\x01', '\x21')
+e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
 
 * integrity verification should fail
 try:
@@ -1095,7 +1095,7 @@ assert(e[ESP].spi == sa.spi)
 assert('testdata' in e[ESP].data)
 
 * simulate the alteration of the packet before decryption
-e[ESP].data = e[ESP].data.replace('\x01', '\x21')
+e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
 
 * integrity verification should fail
 try:
@@ -1167,7 +1167,7 @@ assert(e[ESP].spi == sa.spi)
 assert('testdata' in e[ESP].data)
 
 * simulate the alteration of the packet before decryption
-e[ESP].data = e[ESP].data.replace('\x01', '\x21')
+e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
 
 * integrity verification should fail
 try:
@@ -1239,7 +1239,7 @@ assert(e[ESP].spi == sa.spi)
 assert('testdata' in e[ESP].data)
 
 * simulate the alteration of the packet before decryption
-e[ESP].data = e[ESP].data.replace('\x01', '\x21')
+e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
 
 * integrity verification should fail
 try:
@@ -1311,7 +1311,7 @@ assert(e[ESP].spi == sa.spi)
 assert('testdata' in e[ESP].data)
 
 * simulate the alteration of the packet before decryption
-e[ESP].data = e[ESP].data.replace('\x01', '\x21')
+e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
 
 * integrity verification should fail
 try:
@@ -2613,7 +2613,7 @@ assert(e[ESP].spi == sa.spi)
 assert('testdata' in e[ESP].data)
 
 * simulate the alteration of the packet before decryption
-e[ESP].data = e[ESP].data.replace('\x01', '\x21')
+e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
 
 * integrity verification should fail
 try:
@@ -2879,7 +2879,7 @@ assert(e[ESP].spi == sa.spi)
 assert('testdata' in e[ESP].data)
 
 * simulate the alteration of the packet before decryption
-e[ESP].data = e[ESP].data.replace('\x01', '\x21')
+e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
 
 * integrity verification should fail
 try:
