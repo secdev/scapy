@@ -920,7 +920,7 @@ class _ASN1CertLenField(FieldLenField):
         return s + struct.pack(self.fmt, self.i2m(pkt,val))[1:4]
 
     def getfield(self, pkt, s):
-        return s[3:], self.m2i(pkt, struct.unpack(self.fmt, "\x00" + s[:3])[0])
+        return s[3:], self.m2i(pkt, struct.unpack(self.fmt, b"\x00" + s[:3])[0])
 
 
 class _ASN1CertListField(StrLenField):
@@ -945,7 +945,7 @@ class _ASN1CertListField(StrLenField):
         if l is not None:
             m, ret = s[:l], s[l:]
         while m:
-            clen = struct.unpack("!I", '\x00' + m[:3])[0]
+            clen = struct.unpack("!I", b'\x00' + m[:3])[0]
             lst.append((clen, Cert(m[3:3 + clen])))
             m = m[3 + clen:]
         return m + ret, lst
@@ -1025,7 +1025,7 @@ class TLSServerKeyExchange(_TLSHandshake):
           server_kx_msg_cls does not matter.
         - ServerECDH*Params: for ephemeral ECDH. There are actually three
           classes, which are dispatched by _tls_server_ecdh_cls_guess on
-          the first byte retrieved. The default here is "\03", which
+          the first byte retrieved. The default here is b"\03", which
           corresponds to ServerECDHNamedCurveParams (implicit curves).
 
         When the Server*DHParams are built via .fill_missing(), the session
@@ -1038,7 +1038,7 @@ class TLSServerKeyExchange(_TLSHandshake):
                 if s.pwcs.key_exchange.export:
                     cls = ServerRSAParams(tls_session=s)
                 else:
-                    cls = s.pwcs.key_exchange.server_kx_msg_cls("\x03")
+                    cls = s.pwcs.key_exchange.server_kx_msg_cls(b"\x03")
                     cls = cls(tls_session=s)
                 try:
                     cls.fill_missing()
@@ -1366,7 +1366,7 @@ class ThreeBytesLenField(FieldLenField):
     def addfield(self, pkt, s, val):
         return s+struct.pack(self.fmt, self.i2m(pkt,val))[1:4]
     def getfield(self, pkt, s):
-        return  s[3:], self.m2i(pkt, struct.unpack(self.fmt, "\x00"+s[:3])[0])
+        return  s[3:], self.m2i(pkt, struct.unpack(self.fmt, b"\x00"+s[:3])[0])
 
 _cert_status_cls  = { 1: OCSP_Response }
 

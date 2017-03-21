@@ -40,7 +40,7 @@ class LEMACField(Field):
         Field.__init__(self, name, default, "6s")
     def i2m(self, pkt, x):
         if x is None:
-            return "\0\0\0\0\0\0"
+            return b"\0\0\0\0\0\0"
         return mac2str(x)[::-1]
     def m2i(self, pkt, x):
         return str2mac(x[::-1])
@@ -322,11 +322,11 @@ class SM_Pairing_Response(Packet):
 
 class SM_Confirm(Packet):
     name = "Pairing Confirm"
-    fields_desc = [ StrFixedLenField("confirm", '\x00' * 16, 16) ]
+    fields_desc = [ StrFixedLenField("confirm", b'\x00' * 16, 16) ]
 
 class SM_Random(Packet):
     name = "Pairing Random"
-    fields_desc = [ StrFixedLenField("random", '\x00' * 16, 16) ]
+    fields_desc = [ StrFixedLenField("random", b'\x00' * 16, 16) ]
 
 class SM_Failed(Packet):
     name = "Pairing Failed"
@@ -334,16 +334,16 @@ class SM_Failed(Packet):
 
 class SM_Encryption_Information(Packet):
     name = "Encryption Information"
-    fields_desc = [ StrFixedLenField("ltk", "\x00" * 16, 16), ]
+    fields_desc = [ StrFixedLenField("ltk", b"\x00" * 16, 16), ]
 
 class SM_Master_Identification(Packet):
     name = "Master Identification"
     fields_desc = [ XLEShortField("ediv", 0),
-                    StrFixedLenField("rand", '\x00' * 8, 8), ]
+                    StrFixedLenField("rand", b'\x00' * 8, 8), ]
     
 class SM_Identity_Information(Packet):
     name = "Identity Information"
-    fields_desc = [ StrFixedLenField("irk", '\x00' * 16, 16), ]
+    fields_desc = [ StrFixedLenField("irk", b'\x00' * 16, 16), ]
 
 class SM_Identity_Address_Information(Packet):
     name = "Identity Address Information"
@@ -352,7 +352,7 @@ class SM_Identity_Address_Information(Packet):
     
 class SM_Signing_Information(Packet):
     name = "Signing Information"
-    fields_desc = [ StrFixedLenField("csrk", '\x00' * 16, 16), ]
+    fields_desc = [ StrFixedLenField("csrk", b'\x00' * 16, 16), ]
 
 
 class EIR_Hdr(Packet):
@@ -487,7 +487,7 @@ class HCI_Cmd_LE_Host_Supported(Packet):
 
 class HCI_Cmd_Set_Event_Mask(Packet):
     name = "Set Event Mask"
-    fields_desc = [ StrFixedLenField("mask", "\xff\xff\xfb\xff\x07\xf8\xbf\x3d", 8) ]
+    fields_desc = [ StrFixedLenField("mask", b"\xff\xff\xfb\xff\x07\xf8\xbf\x3d", 8) ]
 
 class HCI_Cmd_Read_BD_Addr(Packet):
     name = "Read BD Addr"
@@ -571,7 +571,7 @@ class HCI_Cmd_LE_Start_Encryption_Request(Packet):
     fields_desc = [ LEShortField("handle", 0),
                     StrFixedLenField("rand", None, 8),
                     XLEShortField("ediv", 0),
-                    StrFixedLenField("ltk", '\x00' * 16, 16), ]
+                    StrFixedLenField("ltk", b'\x00' * 16, 16), ]
 
 class HCI_Cmd_LE_Long_Term_Key_Request_Negative_Reply(Packet):
     name = "LE Long Term Key Request Negative Reply"
@@ -580,7 +580,7 @@ class HCI_Cmd_LE_Long_Term_Key_Request_Negative_Reply(Packet):
 class HCI_Cmd_LE_Long_Term_Key_Request_Reply(Packet):
     name = "LE Long Term Key Request Reply"
     fields_desc = [ LEShortField("handle", 0),
-                    StrFixedLenField("ltk", '\x00' * 16, 16), ]
+                    StrFixedLenField("ltk", b'\x00' * 16, 16), ]
 
 class HCI_Event_Hdr(Packet):
     name = "HCI Event header"

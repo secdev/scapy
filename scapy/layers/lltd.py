@@ -722,7 +722,7 @@ class LLTDAttributeDeviceUUID(LLTDAttribute):
     name = "LLTD Attribute - Device UUID"
     fields_desc = [
         FieldLenField("len", None, length_of="uuid", fmt="B"),
-        StrLenField("uuid", "\x00" * 16, length_from=lambda pkt: pkt.len),
+        StrLenField("uuid", b"\x00" * 16, length_from=lambda pkt: pkt.len),
     ]
 
 
@@ -827,7 +827,7 @@ class LargeTlvBuilder(object):
                 data = self.data.setdefault(key, array("B"))
                 datalen = len(data)
                 if datalen < loc.stop:
-                    data.extend(array("B", "\x00" * (loc.stop - datalen)))
+                    data.extend(array("B", b"\x00" * (loc.stop - datalen)))
                 data[loc] = array("B", pkt[LLTDQueryLargeTlvResp].value)
 
     def get_data(self):

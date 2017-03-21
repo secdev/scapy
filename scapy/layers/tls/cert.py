@@ -127,7 +127,7 @@ class _PKIObjMaker(type):
         if obj_path is None:
             raise Exception(error_msg)
 
-        if (not '\x00' in obj_path) and os.path.isfile(obj_path):
+        if (not b'\x00' in obj_path) and os.path.isfile(obj_path):
             _size = os.path.getsize(obj_path)
             if _size > obj_max_size:
                 raise Exception(error_msg)

@@ -47,7 +47,7 @@ p = Dot3(dst="09:00:2b:00:00:05",src="00:00:00:aa:00:8c")/LLC()/ISIS_CommonHdr()
              ),
              ISIS_GenericTlv(
                  type=134,
-                 val="\xac\x10\x08\x10"
+                 val=b"\xac\x10\x08\x10"
              ),
              ISIS_ExtendedIpReachabilityTlv(
                  pfxs=[
@@ -89,7 +89,7 @@ p = Dot3(dst="09:00:2b:00:00:05",src="00:00:00:aa:00:8c")/LLC()/ISIS_CommonHdr()
              ),
              ISIS_GenericTlv(
                  type=134,
-                 val="\xac\x10\x08\x10"
+                 val=b"\xac\x10\x08\x10"
              ),
              ISIS_ExtendedIpReachabilityTlv(
                  pfxs=[
@@ -101,7 +101,7 @@ p = Dot3(dst="09:00:2b:00:00:05",src="00:00:00:aa:00:8c")/LLC()/ISIS_CommonHdr()
                      ]),
                      ISIS_ExtendedIpPrefix(metric=10, pfx="10.1.0.181/30", subtlvindicator=1,
                      subtlvs=[
-                        ISIS_GenericSubTlv(type=123, val="\x11\x1f\x01\x1c")
+                        ISIS_GenericSubTlv(type=123, val=b"\x11\x1f\x01\x1c")
                      ])
                  ]
              ),
@@ -110,7 +110,7 @@ p = Dot3(dst="09:00:2b:00:00:05",src="00:00:00:aa:00:8c")/LLC()/ISIS_CommonHdr()
                      ISIS_Ipv6Prefix(metric=0, pfx="fe10:1::10/128"),
                      ISIS_Ipv6Prefix(metric=10, pfx="fd1f:1::/64", subtlvindicator=1,
                      subtlvs=[
-                        ISIS_GenericSubTlv(type=99, val="\x1f\x01\x1f\x01\x11\x1f\x01\x1c")
+                        ISIS_GenericSubTlv(type=99, val=b"\x1f\x01\x1f\x01\x11\x1f\x01\x1c")
                      ]),
                      ISIS_Ipv6Prefix(metric=10, pfx="fd1f:1:12::/64")
                  ]

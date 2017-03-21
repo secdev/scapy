@@ -654,7 +654,7 @@ class MKABasicParamSet(Packet):
                 length_from=lambda pkt: (pkt.param_set_body_len - 28)
             ),
             4,
-            padwith="\x00"
+            padwith=b"\x00"
         )
     ]
 
@@ -695,7 +695,7 @@ class MKALivePeerListParamSet(MKAParamSet):
                 _parameter_set_types
             ),
             2,
-            padwith="\x00"
+            padwith=b"\x00"
         ),
         ShortField("param_set_body_len", 0),
         PacketListField("member_id_message_num", [], MKAPeerListTuple)
@@ -723,7 +723,7 @@ class MKAPotentialPeerListParamSet(MKAParamSet):
                 _parameter_set_types
             ),
             2,
-            padwith="\x00"
+            padwith=b"\x00"
         ),
         ShortField("param_set_body_len", 0),
         PacketListField("member_id_message_num", [], MKAPeerListTuple)
@@ -818,7 +818,7 @@ class MKADistributedCAKParamSet(MKAParamSet):
                 _parameter_set_types
             ),
             2,
-            padwith="\x00"
+            padwith=b"\x00"
         ),
         ShortField("param_set_body_len", 0),
         XStrFixedLenField(
@@ -851,7 +851,7 @@ class MKAICVSet(MKAParamSet):
                 _parameter_set_types
             ),
             2,
-            padwith="\x00"
+            padwith=b"\x00"
         ),
         ShortField("param_set_body_len", 0),
         XStrFixedLenField("icv", "", length=MKAParamSet.MACSEC_DEFAULT_ICV_LEN)

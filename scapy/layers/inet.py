@@ -285,10 +285,10 @@ class TCPOptionsField(StrField):
         for oname,oval in x:
             if type(oname) is str:
                 if oname == "NOP":
-                    opt += "\x01"
+                    opt += b"\x01"
                     continue
                 elif oname == "EOL":
-                    opt += "\x00"
+                    opt += b"\x00"
                     continue
                 elif TCPOptions[1].has_key(oname):
                     onum = TCPOptions[1][oname]
@@ -308,7 +308,7 @@ class TCPOptionsField(StrField):
                     warning("option [%i] is not string."%onum)
                     continue
             opt += chr(onum)+chr(2+len(oval))+oval
-        return opt+"\x00"*(3-((len(opt)+3)%4))
+        return opt+b"\x00"*(3-((len(opt)+3)%4))
     def randval(self):
         return [] # XXX
     
@@ -371,7 +371,7 @@ class IP(Packet, IPTools):
                     PacketListField("options", [], IPOption, length_from=lambda p:p.ihl*4-20) ]
     def post_build(self, p, pay):
         ihl = self.ihl
-        p += "\0"*((-len(p))%4) # pad IP options if needed
+        p += b"\0"*((-len(p))%4) # pad IP options if needed
         if ihl is None:
             ihl = len(p)/4
             p = chr(((self.version&0xf)<<4) | ihl&0x0f)+p[1:]
@@ -1406,7 +1406,7 @@ class TracerouteResult(SndRcvList):
             for snd,rcv in self.res:
                 if rcv.src not in ports and rcv.haslayer(conf.padding_layer):
                     p = rcv.getlayer(conf.padding_layer).load
-                    if p != "\x00"*len(p):
+                    if p != b"\x00"*len(p):
                         pad[rcv.src]=None
             for rcv in pad:
                 s += '\t"%s" [shape=triangle,color=black,fillcolor=red,style=filled];\n' % rcv
@@ -1652,8 +1652,8 @@ funcpres: a function used to summarize packets"""
 def fragleak(target,sport=123, dport=123, timeout=0.2, onlyasc=0):
     load = "XXXXYYYYYYYYYY"
 #    getmacbyip(target)
-#    pkt = IP(dst=target, id=RandShort(), options="\x22"*40)/UDP()/load
-    pkt = IP(dst=target, id=RandShort(), options="\x00"*40, flags=1)/UDP(sport=sport, dport=sport)/load
+#    pkt = IP(dst=target, id=RandShort(), options=b"\x22"*40)/UDP()/load
+    pkt = IP(dst=target, id=RandShort(), options=b"\x00"*40, flags=1)/UDP(sport=sport, dport=sport)/load
     s=conf.L3socket()
     intr=0
     found={}
@@ -1705,7 +1705,7 @@ def fragleak2(target, timeout=0.4, onlyasc=0):
     found={}
     try:
         while 1:
-            p = sr1(IP(dst=target, options="\x00"*40, proto=200)/"XXXXYYYYYYYYYYYY",timeout=timeout,verbose=0)
+            p = sr1(IP(dst=target, options=b"\x00"*40, proto=200)/"XXXXYYYYYYYYYYYY",timeout=timeout,verbose=0)
             if not p:
                 continue
             if conf.padding_layer in p:

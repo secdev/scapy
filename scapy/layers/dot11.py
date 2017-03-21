@@ -177,7 +177,7 @@ class Dot11(Packet):
     def guess_payload_class(self, payload):
         if self.type == 0x02 and (0x08 <= self.subtype <= 0xF and self.subtype != 0xD):
             return Dot11QoS
-	elif self.FCfield & 0x40:
+        elif self.FCfield & 0x40:
             return Dot11WEP
         else:
             return Packet.guess_payload_class(self, payload)
@@ -318,7 +318,7 @@ class Dot11Deauth(Packet):
 
 class Dot11WEP(Packet):
     name = "802.11 WEP packet"
-    fields_desc = [ StrFixedLenField("iv", "\0\0\0", 3),
+    fields_desc = [ StrFixedLenField("iv", b"\0\0\0", 3),
                     ByteField("keyid", 0),
                     StrField("wepdata",None,remain=4),
                     IntField("icv",None) ]

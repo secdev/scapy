@@ -203,7 +203,7 @@ class MACField(Field):
         Field.__init__(self, name, default, "6s")
     def i2m(self, pkt, x):
         if x is None:
-            return "\0\0\0\0\0\0"
+            return b"\0\0\0\0\0\0"
         return mac2str(x)
     def m2i(self, pkt, x):
         return str2mac(x)
@@ -301,7 +301,7 @@ class X3BytesField(XByteField):
     def addfield(self, pkt, s, val):
         return s+struct.pack(self.fmt, self.i2m(pkt,val))[1:4]
     def getfield(self, pkt, s):
-        return  s[3:], self.m2i(pkt, struct.unpack(self.fmt, "\x00"+s[:3])[0])
+        return  s[3:], self.m2i(pkt, struct.unpack(self.fmt, b"\x00"+s[:3])[0])
 
 class ThreeBytesField(X3BytesField, ByteField):
     def i2repr(self, pkt, x):
@@ -501,7 +501,7 @@ class StrFixedLenField(StrField):
             self.length_from = lambda pkt,length=length: length
     def i2repr(self, pkt, v):
         if type(v) is str:
-            v = v.rstrip("\0")
+            v = v.rstrip(b"\0")
         return repr(v)
     def getfield(self, pkt, s):
         l = self.length_from(pkt)
@@ -522,7 +522,7 @@ class StrFixedLenEnumField(StrFixedLenField):
         StrFixedLenField.__init__(self, name, default, length=length, length_from=length_from)
         self.enum = enum
     def i2repr(self, pkt, v):
-        r = v.rstrip("\0")
+        r = v.rstrip(b"\0")
         rr = repr(r)
         if v in self.enum:
             rr = "%s (%s)" % (rr, self.enum[v])
@@ -543,7 +543,7 @@ class NetBIOSNameField(StrFixedLenField):
         x = " "+x
         return x
     def m2i(self, pkt, x):
-        x = x.strip("\x00").strip(" ")
+        x = x.strip(b"\x00").strip(" ")
         return "".join(map(lambda x,y: chr((((ord(x)-1)&0xf)<<4)+((ord(y)-1)&0xf)), x[::2],x[1::2]))
 
 class StrLenField(StrField):
@@ -677,15 +677,15 @@ class FieldLenField(Field):
 
 class StrNullField(StrField):
     def addfield(self, pkt, s, val):
-        return s+self.i2m(pkt, val)+"\x00"
+        return s+self.i2m(pkt, val)+b"\x00"
     def getfield(self, pkt, s):
-        l = s.find("\x00")
+        l = s.find(b"\x00")
         if l < 0:
             #XXX \x00 not found
             return "",s
         return s[l+1:],self.m2i(pkt, s[:l])
     def randval(self):
-        return RandTermString(RandNum(0,1200),"\x00")
+        return RandTermString(RandNum(0,1200),b"\x00")
 
 class StrStopField(StrField):
     __slots__ = ["stop", "additionnal"]
@@ -1269,22 +1269,22 @@ class _IPPrefixFieldBase(Field):
         return "%s/%i" % (pfx,pfxlen)
 
     def i2m(self, pkt, x):
-        # ("fc00:1::1", 64) -> ("\xfc\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01", 64)
+        # ("fc00:1::1", 64) -> (b"\xfc\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01", 64)
         (pfx,pfxlen)= x
         s= self.aton(pfx);
         return (s[:self._numbytes(pfxlen)], pfxlen)
 
     def m2i(self, pkt, x):
-        # ("\xfc\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01", 64) -> ("fc00:1::1", 64)
+        # (b"\xfc\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01", 64) -> ("fc00:1::1", 64)
         (s,pfxlen)= x
 
         if len(s) < self.maxbytes:
-            s= s + ("\0" * (self.maxbytes - len(s)))
+            s= s + (b"\0" * (self.maxbytes - len(s)))
         return (self.ntoa(s), pfxlen)
 
     def any2i(self, pkt, x):
         if x is None:
-            return (self.ntoa("\0"*self.maxbytes), 1)
+            return (self.ntoa(b"\0"*self.maxbytes), 1)
 
         return self.h2i(pkt,x)
 

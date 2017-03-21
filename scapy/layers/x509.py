@@ -269,7 +269,7 @@ class X509_ExtAuthorityKeyIdentifier(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_SEQUENCE(
                     ASN1F_optional(
-                        ASN1F_STRING("keyIdentifier", "\xff"*20,
+                        ASN1F_STRING("keyIdentifier", b"\xff"*20,
                                      implicit_tag=0x80)),
                     ASN1F_optional(
                         ASN1F_SEQUENCE_OF("authorityCertIssuer", None,

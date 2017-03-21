@@ -108,9 +108,9 @@ def BER_id_dec(s):
     # Let's recall that bits 8-7 from the first byte of the tag encode
     # the class information, while bit 6 means primitive or constructive.
     #
-    # For instance, with low-tag-number '\x81', class would be 0b10
+    # For instance, with low-tag-number b'\x81', class would be 0b10
     # ('context-specific') and tag 0x01, but we return 0x81 as a whole.
-    # For '\xff\x22', class would be 0b11 ('private'), constructed, then
+    # For b'\xff\x22', class would be 0b11 ('private'), constructed, then
     # padding, then tag 0x22, but we return (0xff>>5)*128^1 + 0x22*128^0.
     # Why the 5-bit-shifting? Because it provides an unequivocal encoding
     # on base 128 (note that 0xff would equal 1*128^1 + 127*128^0...),
@@ -345,7 +345,7 @@ class BERcodec_NULL(BERcodec_INTEGER):
     @classmethod
     def enc(cls, i):
         if i == 0:
-            return chr(cls.tag)+"\0"
+            return chr(cls.tag)+b"\0"
         else:
             return super(cls,cls).enc(i)
 
