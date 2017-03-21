@@ -8,7 +8,7 @@ from scapy.contrib.pnio import *
 + Check DCE/RPC layer
 
 = ProfinetIO default values
-str(ProfinetIO()) == '\x00\x00'
+str(ProfinetIO()) == b'\x00\x00'
 
 = ProfinetIO overloads Ethertype
 p = Ether() / ProfinetIO()

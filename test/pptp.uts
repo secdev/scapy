@@ -355,8 +355,8 @@ assert start_control_connection_pkt.framing_capabilities == 1
 assert start_control_connection_pkt.bearer_capabilities == 2
 assert start_control_connection_pkt.maximum_channels == 42
 assert start_control_connection_pkt.firmware_revision == 47
-assert start_control_connection_pkt.host_name == 'test host name' + '\0' * (64-len('test host name'))
-assert start_control_connection_pkt.vendor_string == 'test vendor string' + '\0' * (64-len('test vendor string'))
+assert start_control_connection_pkt.host_name == 'test host name' + b'\0' * (64-len('test host name'))
+assert start_control_connection_pkt.vendor_string == 'test vendor string' + b'\0' * (64-len('test vendor string'))
 
 = Test PPTP Start-Control-Connection-Reply
 ~ pptp
@@ -383,8 +383,8 @@ assert start_control_connection_reply_pkt.result_code == 2
 assert start_control_connection_reply_pkt.error_code == 1
 assert start_control_connection_reply_pkt.framing_capabilities == 2
 assert start_control_connection_reply_pkt.bearer_capabilities == 1
-assert start_control_connection_reply_pkt.host_name == 'linux' + '\0' * (64-len('linux'))
-assert start_control_connection_reply_pkt.vendor_string == 'vendor' + '\0' * (64-len('vendor'))
+assert start_control_connection_reply_pkt.host_name == 'linux' + b'\0' * (64-len('linux'))
+assert start_control_connection_reply_pkt.vendor_string == 'vendor' + b'\0' * (64-len('vendor'))
 
 start_control_connection_request = PPTPStartControlConnectionRequest()
 
@@ -491,8 +491,8 @@ assert outgoing_call_pkt.framing_type == 3
 assert outgoing_call_pkt.pkt_window_size == 16
 assert outgoing_call_pkt.pkt_proc_delay == 1
 assert outgoing_call_pkt.phone_number_len == 9
-assert outgoing_call_pkt.phone_number == '123456789' + '\0' * (64-len('123456789'))
-assert outgoing_call_pkt.subaddress == 'test' + '\0' * (64-len('test'))
+assert outgoing_call_pkt.phone_number == '123456789' + b'\0' * (64-len('123456789'))
+assert outgoing_call_pkt.subaddress == 'test' + b'\0' * (64-len('test'))
 
 = Test PPTP Outgoing-Call-Reply
 ~ pptp
@@ -554,9 +554,9 @@ assert incoming_call_pkt.bearer_type == 2
 assert incoming_call_pkt.channel_id == 12
 assert incoming_call_pkt.dialed_number_len == 9
 assert incoming_call_pkt.dialing_number_len == 10
-assert incoming_call_pkt.dialed_number == '123456789' + '\0' * (64-len('123456789'))
-assert incoming_call_pkt.dialing_number == '0123456789' + '\0' * (64-len('0123456879'))
-assert incoming_call_pkt.subaddress == 'test' + '\0' * (64-len('test'))
+assert incoming_call_pkt.dialed_number == '123456789' + b'\0' * (64-len('123456789'))
+assert incoming_call_pkt.dialing_number == '0123456789' + b'\0' * (64-len('0123456879'))
+assert incoming_call_pkt.subaddress == 'test' + b'\0' * (64-len('test'))
 
 = Test PPTP Incoming-Call-Reply
 ~ pptp
@@ -646,7 +646,7 @@ assert call_disconnect_notify_pkt.call_id == 4242
 assert call_disconnect_notify_pkt.result_code == 3
 assert call_disconnect_notify_pkt.error_code == 0
 assert call_disconnect_notify_pkt.cause_code == 47
-assert call_disconnect_notify_pkt.call_statistic == 'some description' + '\0' * (128-len('some description'))
+assert call_disconnect_notify_pkt.call_statistic == 'some description' + b'\0' * (128-len('some description'))
 
 = Test PPTP WAN-Error-Notify
 ~ pptp
