@@ -61,43 +61,43 @@ f.i2len(None, "") == 16
 
 = EIGRPGuessPayloadClass function: Return Parameters TLV
 from scapy.contrib.eigrp import _EIGRPGuessPayloadClass
-isinstance(_EIGRPGuessPayloadClass("\x00\x01"), EIGRPParam)
+isinstance(_EIGRPGuessPayloadClass(b"\x00\x01"), EIGRPParam)
 
 = EIGRPGuessPayloadClass function: Return Authentication Data TLV
-isinstance(_EIGRPGuessPayloadClass("\x00\x02"), EIGRPAuthData)
+isinstance(_EIGRPGuessPayloadClass(b"\x00\x02"), EIGRPAuthData)
 
 = EIGRPGuessPayloadClass function: Return Sequence TLV
-isinstance(_EIGRPGuessPayloadClass("\x00\x03"), EIGRPSeq)
+isinstance(_EIGRPGuessPayloadClass(b"\x00\x03"), EIGRPSeq)
 
 = EIGRPGuessPayloadClass function: Return Software Version TLV
-isinstance(_EIGRPGuessPayloadClass("\x00\x04"), EIGRPSwVer)
+isinstance(_EIGRPGuessPayloadClass(b"\x00\x04"), EIGRPSwVer)
 
 = EIGRPGuessPayloadClass function: Return Next Multicast Sequence TLV
-isinstance(_EIGRPGuessPayloadClass("\x00\x05"), EIGRPNms)
+isinstance(_EIGRPGuessPayloadClass(b"\x00\x05"), EIGRPNms)
 
 = EIGRPGuessPayloadClass function: Return Stub Router TLV
-isinstance(_EIGRPGuessPayloadClass("\x00\x06"), EIGRPStub)
+isinstance(_EIGRPGuessPayloadClass(b"\x00\x06"), EIGRPStub)
 
 = EIGRPGuessPayloadClass function: Return Internal Route TLV
-isinstance(_EIGRPGuessPayloadClass("\x01\x02"), EIGRPIntRoute)
+isinstance(_EIGRPGuessPayloadClass(b"\x01\x02"), EIGRPIntRoute)
 
 = EIGRPGuessPayloadClass function: Return External Route TLV
-isinstance(_EIGRPGuessPayloadClass("\x01\x03"), EIGRPExtRoute)
+isinstance(_EIGRPGuessPayloadClass(b"\x01\x03"), EIGRPExtRoute)
 
 = EIGRPGuessPayloadClass function: Return IPv6 Internal Route TLV
-isinstance(_EIGRPGuessPayloadClass("\x04\x02"), EIGRPv6IntRoute)
+isinstance(_EIGRPGuessPayloadClass(b"\x04\x02"), EIGRPv6IntRoute)
 
 = EIGRPGuessPayloadClass function: Return IPv6 External Route TLV
-isinstance(_EIGRPGuessPayloadClass("\x04\x03"), EIGRPv6ExtRoute)
+isinstance(_EIGRPGuessPayloadClass(b"\x04\x03"), EIGRPv6ExtRoute)
 
 = EIGRPGuessPayloadClass function: Return EIGRPGeneric
-isinstance(_EIGRPGuessPayloadClass("\x23\x42"), EIGRPGeneric)
+isinstance(_EIGRPGuessPayloadClass(b"\x23\x42"), EIGRPGeneric)
 
 + TLV List
 
 = EIGRP parameters and software version
 p = IP()/EIGRP(tlvlist=[EIGRPParam()/EIGRPSwVer()])
-s = '\x45\x00\x00\x3C\x00\x01\x00\x00\x40\x58\x7C\x67\x7F\x00\x00\x01\x7F\x00\x00\x01\x02\x05\xEE\x6C\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x64\x00\x01\x00\x0C\x01\x00\x01\x00\x00\x00\x00\x0F\x00\x04\x00\x08\x0C\x00\x01\x02'
+s = b'\x45\x00\x00\x3C\x00\x01\x00\x00\x40\x58\x7C\x67\x7F\x00\x00\x01\x7F\x00\x00\x01\x02\x05\xEE\x6C\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x64\x00\x01\x00\x0C\x01\x00\x01\x00\x00\x00\x00\x0F\x00\x04\x00\x08\x0C\x00\x01\x02'
 str(p) == s
 
 = EIGRP internal route length field
@@ -196,9 +196,9 @@ p[EIGRPExtRoute:2].mtu == 23
 + Authentication Data TLV
 
 = Verify keysize calculation
-p = IP()/EIGRP(tlvlist=[EIGRPAuthData(authdata="\xaa\xbb\xcc")])
-p[EIGRPAuthData].build()[6:8] == "\x00\x03"
+p = IP()/EIGRP(tlvlist=[EIGRPAuthData(authdata=b"\xaa\xbb\xcc")])
+p[EIGRPAuthData].build()[6:8] == b"\x00\x03"
 
 = Verify length calculation
-p = IP()/EIGRP(tlvlist=[EIGRPAuthData(authdata="\xaa\xbb\xcc\xdd")])
-p[EIGRPAuthData].build()[2:4] == "\x00\x1c"
+p = IP()/EIGRP(tlvlist=[EIGRPAuthData(authdata=b"\xaa\xbb\xcc\xdd")])
+p[EIGRPAuthData].build()[2:4] == b"\x00\x1c"

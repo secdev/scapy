@@ -80,11 +80,11 @@ class EigrpIPField(StrField, IPField):
         l = self.length_from(pkt)
 
         if l <= 8:
-            x += "\x00\x00\x00"
+            x += b"\x00\x00\x00"
         elif l <= 16:
-            x += "\x00\x00"
+            x += b"\x00\x00"
         elif l <= 24:
-            x += "\x00"
+            x += b"\x00"
 
         return inet_ntoa(x)
 
@@ -151,7 +151,7 @@ class EigrpIP6Field(StrField, IP6Field):
         if l > 128:
             warning("EigrpIP6Field: Prefix length is > 128. Dissection of this packet will fail")
         else:
-            pad = "\x00" * (16 - prefixlen)
+            pad = b"\x00" * (16 - prefixlen)
             x += pad
 
         return inet_ntop(socket.AF_INET6, x)
@@ -181,7 +181,7 @@ class EIGRPGeneric(Packet):
     name = "EIGRP Generic TLV"
     fields_desc = [ XShortField("type", 0x0000),
             FieldLenField("len", None, "value", "!H", adjust=lambda pkt,x: x + 4),
-            StrLenField("value", "\x00", length_from=lambda pkt: pkt.len - 4)]
+            StrLenField("value", b"\x00", length_from=lambda pkt: pkt.len - 4)]
 
     def guess_payload_class(self, p):
         return conf.padding_layer
@@ -211,7 +211,7 @@ class EIGRPAuthData(EIGRPGeneric):
             ShortEnumField("authtype", 2, {2 : "MD5"}),
             ShortField("keysize", None),
             IntField("keyid", 1),
-            StrFixedLenField("nullpad", "\x00" * 12, 12),
+            StrFixedLenField("nullpad", b"\x00" * 12, 12),
             StrLenField("authdata", RandString(16), length_from=lambda pkt: pkt.keysize)
             ]
 

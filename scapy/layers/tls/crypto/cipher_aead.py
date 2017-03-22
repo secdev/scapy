@@ -60,10 +60,10 @@ class _AEADCipher(object):
         self.ready = {"key":True, "salt":True, "nonce_explicit":True}
         if key is None:
             self.ready["key"] = False
-            key = "\0" * self.key_len
+            key = b"\0" * self.key_len
         if salt is None:
             self.ready["salt"] = False
-            salt = "\0" * self.salt_len
+            salt = b"\0" * self.salt_len
         if nonce_explicit is None:
             self.ready["nonce_explicit"] = False
             nonce_explicit = 0

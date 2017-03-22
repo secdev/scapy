@@ -103,27 +103,27 @@ if conf.crypto_valid:
         "md5"    : (16,
                     hashes.MD5,
                     lambda x: _hashWrapper(hashes.MD5, x),
-                    '\x30\x20\x30\x0c\x06\x08\x2a\x86\x48\x86\xf7\x0d\x02\x05\x05\x00\x04\x10'),
+                    b'\x30\x20\x30\x0c\x06\x08\x2a\x86\x48\x86\xf7\x0d\x02\x05\x05\x00\x04\x10'),
         "sha1"   : (20,
                     hashes.SHA1,
                     lambda x: _hashWrapper(hashes.SHA1, x),
-                    '\x30\x21\x30\x09\x06\x05\x2b\x0e\x03\x02\x1a\x05\x00\x04\x14'),
+                    b'\x30\x21\x30\x09\x06\x05\x2b\x0e\x03\x02\x1a\x05\x00\x04\x14'),
         "sha224" : (28,
                     hashes.SHA224,
                     lambda x: _hashWrapper(hashes.SHA224, x),
-                    '\x30\x2d\x30\x0d\x06\x09\x60\x86\x48\x01\x65\x03\x04\x02\x04\x05\x00\x04\x1c'),
+                    b'\x30\x2d\x30\x0d\x06\x09\x60\x86\x48\x01\x65\x03\x04\x02\x04\x05\x00\x04\x1c'),
         "sha256" : (32,
                     hashes.SHA256,
                     lambda x: _hashWrapper(hashes.SHA256, x),
-                    '\x30\x31\x30\x0d\x06\x09\x60\x86\x48\x01\x65\x03\x04\x02\x01\x05\x00\x04\x20'),
+                    b'\x30\x31\x30\x0d\x06\x09\x60\x86\x48\x01\x65\x03\x04\x02\x01\x05\x00\x04\x20'),
         "sha384" : (48,
                     hashes.SHA384,
                     lambda x: _hashWrapper(hashes.SHA384, x),
-                    '\x30\x41\x30\x0d\x06\x09\x60\x86\x48\x01\x65\x03\x04\x02\x02\x05\x00\x04\x30'),
+                    b'\x30\x41\x30\x0d\x06\x09\x60\x86\x48\x01\x65\x03\x04\x02\x02\x05\x00\x04\x30'),
         "sha512" : (64,
                     hashes.SHA512,
                     lambda x: _hashWrapper(hashes.SHA512, x),
-                    '\x30\x51\x30\x0d\x06\x09\x60\x86\x48\x01\x65\x03\x04\x02\x03\x05\x00\x04\x40'),
+                    b'\x30\x51\x30\x0d\x06\x09\x60\x86\x48\x01\x65\x03\x04\x02\x03\x05\x00\x04\x40'),
         "tls"    : (36,
                     None,
                     lambda x: _hashWrapper(hashes.MD5, x) + _hashWrapper(hashes.SHA1, x),
@@ -210,21 +210,21 @@ def pkcs_emsa_pss_encode(M, emBits, h, mgf, sLen):
         warning("encoding error (emLen < hLen + sLen + 2)")
         return None
     salt = randstring(sLen)                                  # 4)
-    MPrime = '\x00'*8 + mHash + salt                         # 5)
+    MPrime = b'\x00'*8 + mHash + salt                         # 5)
     H = hFunc(MPrime)                                        # 6)
-    PS = '\x00'*(emLen - sLen - hLen - 2)                    # 7)
-    DB = PS + '\x01' + salt                                  # 8)
+    PS = b'\x00'*(emLen - sLen - hLen - 2)                    # 7)
+    DB = PS + b'\x01' + salt                                  # 8)
     dbMask = mgf(H, emLen - hLen - 1)                        # 9)
     maskedDB = strxor(DB, dbMask)                            # 10)
     l = (8*emLen - emBits)/8                                 # 11)
     rem = 8*emLen - emBits - 8*l # additionnal bits
-    andMask = l*'\x00'
+    andMask = l*b'\x00'
     if rem:
         j = chr(reduce(lambda x,y: x+y, map(lambda x: 1<<x, range(8-rem))))
         andMask += j
         l += 1
     maskedDB = strand(maskedDB[:l], andMask) + maskedDB[l:]
-    EM = maskedDB + H + '\xbc'                               # 12)
+    EM = maskedDB + H + b'\xbc'                               # 12)
     return EM                                                # 13)
 
 
@@ -253,36 +253,36 @@ def pkcs_emsa_pss_verify(M, EM, emBits, h, mgf, sLen):
     emLen = int(math.ceil(emBits/8.))                        # 3)
     if emLen < hLen + sLen + 2:
         return False
-    if EM[-1] != '\xbc':                                     # 4)
+    if EM[-1] != b'\xbc':                                     # 4)
         return False
     l = emLen - hLen - 1                                     # 5)
     maskedDB = EM[:l]
     H = EM[l:l+hLen]
     l = (8*emLen - emBits)/8                                 # 6)
     rem = 8*emLen - emBits - 8*l # additionnal bits
-    andMask = l*'\xff'
+    andMask = l*b'\xff'
     if rem:
         val = reduce(lambda x,y: x+y, map(lambda x: 1<<x, range(8-rem)))
         j = chr(~val & 0xff)
         andMask += j
         l += 1
-    if strand(maskedDB[:l], andMask) != '\x00'*l:
+    if strand(maskedDB[:l], andMask) != b'\x00'*l:
         return False
     dbMask = mgf(H, emLen - hLen - 1)                        # 7)
     DB = strxor(maskedDB, dbMask)                            # 8)
     l = (8*emLen - emBits)/8                                 # 9)
     rem = 8*emLen - emBits - 8*l # additionnal bits
-    andMask = l*'\x00'
+    andMask = l*b'\x00'
     if rem:
         j = chr(reduce(lambda x,y: x+y, map(lambda x: 1<<x, range(8-rem))))
         andMask += j
         l += 1
     DB = strand(DB[:l], andMask) + DB[l:]
     l = emLen - hLen - sLen - 1                              # 10)
-    if DB[:l] != '\x00'*(l-1) + '\x01':
+    if DB[:l] != b'\x00'*(l-1) + b'\x01':
         return False
     salt = DB[-sLen:]                                        # 11)
-    MPrime = '\x00'*8 + mHash + salt                         # 12)
+    MPrime = b'\x00'*8 + mHash + salt                         # 12)
     HPrime = hFunc(MPrime)                                   # 13)
     return H == HPrime                                       # 14)
 
@@ -316,8 +316,8 @@ def pkcs_emsa_pkcs1_v1_5_encode(M, emLen, h): # section 9.2 of RFC 3447
         warning("pkcs_emsa_pkcs1_v1_5_encode:"
                 "intended encoded message length too short")
         return None
-    PS = '\xff'*(emLen - tLen - 3)                           # 4)
-    EM = '\x00' + '\x01' + PS + '\x00' + T                   # 5)
+    PS = b'\xff'*(emLen - tLen - 3)                           # 4)
+    EM = b'\x00' + b'\x01' + PS + b'\x00' + T                   # 5)
     return EM                                                # 6)
 
 

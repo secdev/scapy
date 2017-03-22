@@ -60,7 +60,7 @@ _BGP_HEADER_SIZE = 19
 
 # Marker included in every message (RFC 4271: "This 16-octet field is
 # included for compatibility; it MUST be set to all ones")
-_BGP_HEADER_MARKER = "\xff" * 16
+_BGP_HEADER_MARKER = b"\xff" * 16
 
 # extended-length flag (RFC 4271 4.3. UPDATE Message Format -
 # Path Attributes)
@@ -131,7 +131,7 @@ class BGPFieldIPv4(Field):
         mask = struct.unpack(">B", m[0])[0]
         mask2iplen_res = self.mask2iplen(mask)
         ip = "".join(
-            [m[i + 1] if i < mask2iplen_res else "\x00" for i in range(4)])
+            [m[i + 1] if i < mask2iplen_res else b"\x00" for i in range(4)])
         return (mask, socket.inet_ntoa(ip))
 
 
@@ -175,7 +175,7 @@ class BGPFieldIPv6(Field):
     def m2i(self, pkt, m):
         mask = struct.unpack(">B", m[0])[0]
         ip = "".join(
-            [m[i + 1] if i < self.mask2iplen(mask) else "\x00" for i in range(16)])
+            [m[i + 1] if i < self.mask2iplen(mask) else b"\x00" for i in range(16)])
         return (mask, pton_ntop.inet_ntop(socket.AF_INET6, ip))
 
 

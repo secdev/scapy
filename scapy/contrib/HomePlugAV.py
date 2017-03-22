@@ -156,8 +156,8 @@ class GetDeviceVersion(Packet):
     fields_desc=[ ByteEnumField("Status", 0x0, StatusCodes),
                 ByteEnumField("DeviceID",0x20, HPAVDeviceIDList),
                 FieldLenField("VersionLen", None, count_of="DeviceVersion", fmt="B"),
-                StrLenField("DeviceVersion", "NoVersion\x00", length_from = lambda pkt: pkt.VersionLen),
-                StrLenField("DeviceVersion_pad", "\xcc\xcc\xcc\xcc\xcc"+"\x00"*59, length_from = lambda pkt: 64-pkt.VersionLen), 
+                StrLenField("DeviceVersion", b"NoVersion\x00", length_from = lambda pkt: pkt.VersionLen),
+                StrLenField("DeviceVersion_pad", b"\xcc\xcc\xcc\xcc\xcc"+b"\x00"*59, length_from = lambda pkt: 64-pkt.VersionLen), 
                 ByteEnumField("Upgradable", 0, {0:"False",1:"True"}) ]
 
 class NetworkInformationRequest(Packet):
@@ -172,7 +172,7 @@ class NetworkInfoV10(Packet):
         Network Information Element
     """
     name = "NetworkInfo"
-    fields_desc = [ StrFixedLenField("NetworkID", "\x00\x00\x00\x00\x00\x00\x00", 7),
+    fields_desc = [ StrFixedLenField("NetworkID", b"\x00\x00\x00\x00\x00\x00\x00", 7),
                     XByteField("ShortNetworkID", 0x00),
                     XByteField("TerminalEID", 0x01),
                     ByteEnumField("StationRole", 0x00, StationRole),
@@ -204,7 +204,7 @@ class NetworkInfoV11(Packet):
         Network Information Element
     """
     name = "NetworkInfo"
-    fields_desc = [ StrFixedLenField("NetworkID", "\x00\x00\x00\x00\x00\x00\x00", 7),
+    fields_desc = [ StrFixedLenField("NetworkID", b"\x00\x00\x00\x00\x00\x00\x00", 7),
                     ShortField("reserved_1", 0x0000),
                     XByteField("ShortNetworkID", 0x00),
                     XByteField("TerminalEID", 0x01),
@@ -255,11 +255,11 @@ class NetworkInfoConfirmationV11(Packet):
         This introduce few 'crazy' reserved bytes -> have fun!
     """
     name = "NetworkInfoConfirmation"
-    fields_desc= [ StrFixedLenField("reserved_n1", "\x00\x00\x3a\x00\x00", 5),
+    fields_desc= [ StrFixedLenField("reserved_n1", b"\x00\x00\x3a\x00\x00", 5),
                 XByteField("LogicalNetworksNumber", 0x01),
                 PacketListField("NetworksInfos", "", NetworkInfoV11, length_from=lambda pkt: pkt.LogicalNetworksNumber * 26),
                 XByteField("StationsNumber", 0x01),
-                StrFixedLenField("reserverd_s1", "\x00\x00\x00\x00\x00", 5),
+                StrFixedLenField("reserverd_s1", b"\x00\x00\x00\x00\x00", 5),
                 PacketListField("StationsInfos", "", StationInfoV11, length_from=lambda pkt: pkt.StationsNumber * 23) ]
 
 
@@ -295,12 +295,12 @@ class SetEncryptionKeyRequest(Packet):
     name = "SetEncryptionKeyRequest"
     fields_desc=[ XByteField("EKS", 0x00),
                 StrFixedLenField("NMK", 
-                                "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00",
+                                b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00",
                                 16),
                 XByteField("PayloadEncKeySelect", 0x00),
                 MACField("DestinationMAC", "ff:ff:ff:ff:ff:ff"),
                 StrFixedLenField("DAK", 
-                                "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00", 
+                                b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00", 
                                 16) ]
 
 SetEncKey_Status = {    0x00 : "Success",
@@ -416,7 +416,7 @@ class ReadMACMemoryConfirmation(Packet):
     fields_desc=[ ByteEnumField("Status", 0x00 , ReadMACStatus),
                   LEIntField("Address" , 0),
                   FieldLenField("MACLen", None, length_of="MACData", fmt="<H"),
-                  StrLenField("MACData", "\x00", length_from = lambda pkt: pkt.MACLen),
+                  StrLenField("MACData", b"\x00", length_from = lambda pkt: pkt.MACLen),
                 ]
 
 ######################################################################
@@ -450,7 +450,7 @@ class ReadModuleDataConfirmation(Packet):
                   FieldLenField("DataLen", None, count_of="ModuleData", fmt="<H"),
                   LEIntField("Offset", 0x00000000),
                   LEIntField("checksum", None), 
-                  StrLenField("ModuleData", "\x00", length_from = lambda pkt: pkt.DataLen),
+                  StrLenField("ModuleData", b"\x00", length_from = lambda pkt: pkt.DataLen),
                 ]
 
     def post_build(self, p, pay):
@@ -473,7 +473,7 @@ class WriteModuleDataRequest(Packet):
                   FieldLenField("DataLen", None, count_of="ModuleData", fmt="<H"),
                   LEIntField("Offset", 0x00000000),
                   LEIntField("checksum", None),
-                  StrLenField("ModuleData", "\x00", length_from = lambda pkt: pkt.DataLen),
+                  StrLenField("ModuleData", b"\x00", length_from = lambda pkt: pkt.DataLen),
                 ]
 
     def post_build(self, p, pay):
@@ -495,7 +495,7 @@ class ClassifierPriorityMap(Packet):
                   LEIntField("PID" , 0),
                   LEIntField("IndividualOperand" , 0),
                   StrFixedLenField("ClassifierValue",
-                                "\x00"*16,
+                                b"\x00"*16,
                                 16),
                 ]
  
@@ -508,7 +508,7 @@ class ClassifierObj(Packet):
     fields_desc=[ LEIntField("ClassifierPID", 0),
                   LEIntField("IndividualOperand", 0),
                   StrFixedLenField("ClassifierValue",
-                                "\x00"*16,
+                                b"\x00"*16,
                                 16), 
                 ]
 
@@ -529,11 +529,11 @@ class AutoConnection(Packet):
                   LEIntField("ConnTTL", 0),
                   ShortField("CSPECversion", 0),
                   StrFixedLenField("VlanTag",
-                                "\x00"*4,
+                                b"\x00"*4,
                                 4),
                   XIntField("reserved_1", 0),
                   StrFixedLenField("reserved_2",
-                                "\x00"*14,
+                                b"\x00"*14,
                                 14),
                 ]
 
@@ -676,25 +676,25 @@ class ModulePIB(Packet):
         ConditionalField(MACField("PIBMACAddr", "00:00:00:00:00:00"),
                          lambda pkt:(0xC >= pkt.__offset and 0x12 <= pkt.__offset+pkt.__length)),
         ConditionalField(StrFixedLenField("DAK",
-                                          "\x00"*16,
+                                          b"\x00"*16,
                                           16),
                          lambda pkt:(0x12 >= pkt.__offset and 0x22 <= pkt.__offset+pkt.__length)),
         ConditionalField(XShortField("reserved_3" , 0x0000),
                          lambda pkt:(0x22 >= pkt.__offset and 0x24 <= pkt.__offset+pkt.__length)),
         ConditionalField(StrFixedLenField("ManufactorID",
-                                          "\x00"*64,
+                                          b"\x00"*64,
                                           64),
                          lambda pkt:(0x24 >= pkt.__offset and 0x64 <= pkt.__offset+pkt.__length)),
         ConditionalField(StrFixedLenField("NMK",
-                                          "\x00"*16,
+                                          b"\x00"*16,
                                           16),
                          lambda pkt:(0x64 >= pkt.__offset and 0x74 <= pkt.__offset+pkt.__length)),
         ConditionalField(StrFixedLenField("UserID",
-                                          "\x00"*64,
+                                          b"\x00"*64,
                                           64),
                          lambda pkt:(0x74 >= pkt.__offset and 0xB4 <= pkt.__offset+pkt.__length)),
         ConditionalField(StrFixedLenField("AVLN_ID",
-                                          "\x00"*64,
+                                          b"\x00"*64,
                                           64),
                          lambda pkt:(0xB4 >= pkt.__offset and 0xF4 <= pkt.__offset+pkt.__length)),
         ConditionalField(XByteField("CCoSelection", 0x00),
@@ -706,7 +706,7 @@ class ModulePIB(Packet):
         ConditionalField(XByteField("H3CDowngradeShld", 0x00),
                          lambda pkt:(0xF7 >= pkt.__offset and 0xF8 <= pkt.__offset+pkt.__length)),
         ConditionalField(StrFixedLenField("PreferredNID",
-                                          "\x00"*7,
+                                          b"\x00"*7,
                                           7),
                          lambda pkt:(0xF8 >= pkt.__offset and 0xFF <= pkt.__offset+pkt.__length)),
         ConditionalField(XByteField("AutoFWUpgradeable", 0x00),
@@ -736,7 +736,7 @@ class ModulePIB(Packet):
         ConditionalField(PacketListField("PeerNodes", "", PeerNode, length_from=lambda x: 56),
                          lambda pkt:(0x116 >= pkt.__offset and 0x11C <= pkt.__offset+pkt.__length)), 
         ConditionalField(StrFixedLenField("reserved_5",
-                                          "\x00"*62,
+                                          b"\x00"*62,
                                           62),
                          lambda pkt:(0x146 >= pkt.__offset and 0x14e <= pkt.__offset+pkt.__length)),
         ConditionalField(XByteField("OverideModeDefaults" , 0x00),
@@ -790,7 +790,7 @@ class ModulePIB(Packet):
         ConditionalField(XShortField("PCISybsystemVendorID" , 0x0000),
                          lambda pkt:(0x1AA >= pkt.__offset and 0x1AC <= pkt.__offset+pkt.__length)),
         ConditionalField(StrFixedLenField("reserved_8",
-                                          "\x00"*64,
+                                          b"\x00"*64,
                                           64),
                          lambda pkt:(0x1AC >= pkt.__offset and 0x1EC <= pkt.__offset+pkt.__length)),
         ConditionalField(XByteField("OverrideIGMPDefaults" , 0x00),
@@ -800,7 +800,7 @@ class ModulePIB(Packet):
         ConditionalField(XByteField("NumCpToSend_PLFrames" , 0x00),
                          lambda pkt:(0x1EE >= pkt.__offset and 0x1EF <= pkt.__offset+pkt.__length)),
         ConditionalField(StrFixedLenField("reserved_9",
-                                          "\x00"*29,
+                                          b"\x00"*29,
                                           29),
                          lambda pkt:(0x1EF >= pkt.__offset and 0x20C <= pkt.__offset+pkt.__length)),
         ConditionalField(XByteField("UniCastPriority" , 0x00),
@@ -842,7 +842,7 @@ class ModulePIB(Packet):
         ConditionalField(PacketListField("RSVD_CustomAggregationParameters", "", RSVD_CustomAggregationParameter, length_from=lambda x: 48),
                          lambda pkt:(0x961 >= pkt.__offset and 0x991 <= pkt.__offset+pkt.__length)),
         ConditionalField(StrFixedLenField("reserved_11",
-                                          "\x00"*123,
+                                          b"\x00"*123,
                                           123),
                          lambda pkt:(0x991 >= pkt.__offset and 0xA0C <= pkt.__offset+pkt.__length)),
         ConditionalField(XIntField("ToneMaskType" , 0),
@@ -854,7 +854,7 @@ class ModulePIB(Packet):
         ConditionalField(XIntField("EndTone" , 0),
                          lambda pkt:(0xA18 >= pkt.__offset and 0xA1C <= pkt.__offset+pkt.__length)),
         ConditionalField(StrFixedLenField("reserved_12",
-                                          "\x00"*12,
+                                          b"\x00"*12,
                                           12),
                          lambda pkt:(0xA1C >= pkt.__offset and 0xA28 <= pkt.__offset+pkt.__length)),
         ConditionalField(XIntField("PsdIndex" , 0),
@@ -864,7 +864,7 @@ class ModulePIB(Packet):
         ConditionalField(PacketListField("PrescalerValues", "", PrescalerValue, length_from=lambda x: 3600),
                          lambda pkt:(0xA30 >= pkt.__offset and 0xA34 <= pkt.__offset+pkt.__length)),
         ConditionalField(StrFixedLenField("reserved_13",
-                                          "\x00"*1484,
+                                          b"\x00"*1484,
                                           1484),
                          lambda pkt:(0x1840 >= pkt.__offset and 0x1E0C <= pkt.__offset+pkt.__length)),
         ConditionalField(XIntField("AllowNEKRotation" , 0),
@@ -872,7 +872,7 @@ class ModulePIB(Packet):
         ConditionalField(XIntField("OverrideLocalNEK" , 0),
                          lambda pkt:(0x1E10 >= pkt.__offset and 0x1E14 <= pkt.__offset+pkt.__length)),
         ConditionalField(StrFixedLenField("LocalNEKToUse",
-                                          "\x00"*16,
+                                          b"\x00"*16,
                                           16),
                          lambda pkt:(0x1E14 >= pkt.__offset and 0x1E24 <= pkt.__offset+pkt.__length)),
         ConditionalField(XIntField("OverrideNEKRotationTimer" , 0),
@@ -880,7 +880,7 @@ class ModulePIB(Packet):
         ConditionalField(XIntField("NEKRotationTime_Min" , 0),
                          lambda pkt:(0x1E28 >= pkt.__offset and 0x1E2C <= pkt.__offset+pkt.__length)),
         ConditionalField(StrFixedLenField("reserved_14",
-                                          "\x00"*96,
+                                          b"\x00"*96,
                                           96),
                          lambda pkt:(0x1E2C >= pkt.__offset and 0x1E8C <= pkt.__offset+pkt.__length)),
         ConditionalField(XIntField("AVLNMembership" , 0),
@@ -912,13 +912,13 @@ class ModulePIB(Packet):
         ConditionalField(XByteField("EnableTrafficClass_DSCPOver" , 0),
                          lambda pkt:(0x1EB8 >= pkt.__offset and 0x1EB9 <= pkt.__offset+pkt.__length)),
         ConditionalField(StrFixedLenField("TrafficClass_DSCPMatrices",
-                                          "\x00"*64,
+                                          b"\x00"*64,
                                           64),
                          lambda pkt:(0x1EB9 >= pkt.__offset and 0x1EF9 <= pkt.__offset+pkt.__length)),
         ConditionalField(XByteField("GPIOControl" , 0),
                          lambda pkt:(0x1EF9 >= pkt.__offset and 0x1EFA <= pkt.__offset+pkt.__length)),
         ConditionalField(StrFixedLenField("LEDControl",
-                                          "\x00"*32,
+                                          b"\x00"*32,
                                           32),
                          lambda pkt:(0x1EFA >= pkt.__offset and 0x1F1A <= pkt.__offset+pkt.__length)),
         ConditionalField(XIntField("OverrideMinButtonPressHoldTime" , 0),
@@ -926,7 +926,7 @@ class ModulePIB(Packet):
         ConditionalField(LEIntField("MinButtonPressHoldTime" , 0),
                          lambda pkt:(0x1F1E >= pkt.__offset and 0x1F22 <= pkt.__offset+pkt.__length)),
         ConditionalField(StrFixedLenField("reserved_17",
-                                          "\x00"*22,
+                                          b"\x00"*22,
                                           22),
                          lambda pkt:(0x1F22 >= pkt.__offset and 0x1F38 <= pkt.__offset+pkt.__length)),
         ConditionalField(XIntField("MemoryProfile" , 0),
@@ -972,7 +972,7 @@ class ModulePIB(Packet):
         ConditionalField(XByteField("ReservedPercentageForRxStreams" , 0),
                          lambda pkt:(0x1F71 >= pkt.__offset and 0x1F72 <= pkt.__offset+pkt.__length)),
         ConditionalField(StrFixedLenField("reserved_20",
-                                          "\x00"*22,
+                                          b"\x00"*22,
                                           22),
                          lambda pkt:(0x1F72 >= pkt.__offset and 0x1F88 <= pkt.__offset+pkt.__length)),
         ConditionalField(XIntField("LegacyNetworkUpgradeEnable" , 0),
@@ -1020,7 +1020,7 @@ class ModulePIB(Packet):
         ConditionalField(XByteField("ContinuousRx" , 0),
                          lambda pkt:(0x1FC1 >= pkt.__offset and 0x1FC2 <= pkt.__offset+pkt.__length)),
         ConditionalField(StrFixedLenField("reserved_22",
-                                          "\x00"*6,
+                                          b"\x00"*6,
                                           6),
                          lambda pkt:(0x1FC2 >= pkt.__offset and 0x1FC8 <= pkt.__offset+pkt.__length)),
         ConditionalField(XByteField("PBControlStatus" , 0),
@@ -1034,7 +1034,7 @@ class ModulePIB(Packet):
         ConditionalField(XByteField("ChainingEnabled" , 0),
                          lambda pkt:(0x1FCC >= pkt.__offset and 0x1FCD <= pkt.__offset+pkt.__length)),
         ConditionalField(StrFixedLenField("VendorSpecificNMK",
-                                          "\x00"*16,
+                                          b"\x00"*16,
                                           16),
                          lambda pkt:(0x1FCD >= pkt.__offset and 0x1FDD <= pkt.__offset+pkt.__length)),
         ConditionalField(XByteField("LocalMACAddressLimit" , 0),
@@ -1054,7 +1054,7 @@ class ModulePIB(Packet):
         ConditionalField(XIntField("reserved_25" , 0),
                          lambda pkt:(0x1FEC >= pkt.__offset and 0x1FF0 <= pkt.__offset+pkt.__length)),
         ConditionalField(StrFixedLenField("reserved_26",
-                                          "\x00"*24,
+                                          b"\x00"*24,
                                           24),
                          lambda pkt:(0x1FF0 >= pkt.__offset and 0x2008 <= pkt.__offset+pkt.__length)),
         ConditionalField(XByteField("OverrideDefaultLedEventBehavior" , 0x80),

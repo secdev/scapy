@@ -163,9 +163,9 @@ def in6_getAddrType(addr):
     # is defined in RFC 3513 as those in 2000::/3
     if ((struct.unpack("B", naddr[0])[0] & 0xE0) == 0x20):
         addrType = (IPV6_ADDR_UNICAST | IPV6_ADDR_GLOBAL)
-        if naddr[:2] == ' \x02': # Mark 6to4 @
+        if naddr[:2] == b' \x02': # Mark 6to4 @
             addrType |= IPV6_ADDR_6TO4
-    elif naddr[0] == '\xff': # multicast
+    elif naddr[0] == b'\xff': # multicast
         addrScope = paddr[3]
         if addrScope == '2':
             addrType = (IPV6_ADDR_LINKLOCAL | IPV6_ADDR_MULTICAST)
@@ -173,7 +173,7 @@ def in6_getAddrType(addr):
             addrType = (IPV6_ADDR_GLOBAL | IPV6_ADDR_MULTICAST)
         else:
             addrType = (IPV6_ADDR_GLOBAL | IPV6_ADDR_MULTICAST)
-    elif ((naddr[0] == '\xfe') and ((int(paddr[2], 16) & 0xC) == 0x8)):
+    elif ((naddr[0] == b'\xfe') and ((int(paddr[2], 16) & 0xC) == 0x8)):
         addrType = (IPV6_ADDR_UNICAST | IPV6_ADDR_LINKLOCAL)
     elif paddr == "::1":
         addrType = IPV6_ADDR_LOOPBACK
@@ -215,7 +215,7 @@ def in6_ifaceidtomac(ifaceid): # TODO: finish commenting function behavior
         ifaceid = inet_pton(socket.AF_INET6, "::"+ifaceid)[8:16]
     except:
         return None
-    if ifaceid[3:5] != '\xff\xfe':
+    if ifaceid[3:5] != b'\xff\xfe':
         return None
     first = struct.unpack("B", ifaceid[:1])[0]
     ulbit = 2*[1,'-',0][first & 0x02]
@@ -264,7 +264,7 @@ def in6_getLinkScopedMcastAddr(addr, grpid=None, scope=2):
     By default, the function returns a ::/96 prefix (aka last 32 bits of 
     returned address are null). If a group id is provided through 'grpid' 
     parameter, last 32 bits of the address are set to that value (accepted 
-    formats : '\x12\x34\x56\x78' or '12345678' or 0x12345678 or 305419896).
+    formats : b'\x12\x34\x56\x78' or '12345678' or 0x12345678 or 305419896).
 
     By default, generated address scope is Link-Local (2). That value can 
     be modified by passing a specific 'scope' value as an argument of the
@@ -287,7 +287,7 @@ def in6_getLinkScopedMcastAddr(addr, grpid=None, scope=2):
     iid = addr[8:]
 
     if grpid is None:
-        grpid = '\x00\x00\x00\x00'
+        grpid = b'\x00\x00\x00\x00'
     else:
         if type(grpid) is str:
             if len(grpid) == 8:
@@ -305,9 +305,9 @@ def in6_getLinkScopedMcastAddr(addr, grpid=None, scope=2):
         grpid = struct.pack("!I", grpid)
 
     flgscope = struct.pack("B", 0xff & ((0x3 << 4) | scope))
-    plen = '\xff'
-    res = '\x00'
-    a = '\xff' + flgscope + res + plen + iid + grpid
+    plen = b'\xff'
+    res = b'\x00'
+    a = b'\xff' + flgscope + res + plen + iid + grpid
 
     return inet_ntop(socket.AF_INET6, a)
 
@@ -319,7 +319,7 @@ def in6_get6to4Prefix(addr):
     """
     try:
         addr = inet_pton(socket.AF_INET, addr)
-        addr = inet_ntop(socket.AF_INET6, '\x20\x02'+addr+'\x00'*10)
+        addr = inet_ntop(socket.AF_INET6, b'\x20\x02'+addr+b'\x00'*10)
     except:
         return None
     return addr
@@ -333,7 +333,7 @@ def in6_6to4ExtractAddr(addr):
         addr = inet_pton(socket.AF_INET6, addr)
     except:
         return None
-    if addr[:2] != " \x02":
+    if addr[:2] != b" \x02":
         return None
     return inet_ntop(socket.AF_INET, addr[2:6])
     
@@ -364,7 +364,7 @@ def in6_getLocalUniquePrefix():
     eui64 = inet_pton(socket.AF_INET6, '::' + in6_mactoifaceid(mac))[8:] 
     import sha
     globalid = sha.new(tod+eui64).digest()[:5]
-    return inet_ntop(socket.AF_INET6, '\xfd' + globalid + '\x00'*10)
+    return inet_ntop(socket.AF_INET6, b'\xfd' + globalid + b'\x00'*10)
 
 def in6_getRandomizedIfaceId(ifaceid, previous=None):
     """
@@ -398,8 +398,8 @@ def in6_getRandomizedIfaceId(ifaceid, previous=None):
     s = md5.new(s).digest()
     s1,s2 = s[:8],s[8:]
     s1 = chr(ord(s1[0]) | 0x04) + s1[1:]  
-    s1 = inet_ntop(socket.AF_INET6, "\xff"*8 + s1)[20:]
-    s2 = inet_ntop(socket.AF_INET6, "\xff"*8 + s2)[20:]    
+    s1 = inet_ntop(socket.AF_INET6, b"\xff"*8 + s1)[20:]
+    s2 = inet_ntop(socket.AF_INET6, b"\xff"*8 + s2)[20:]    
     return (s1, s2)
 
 
@@ -459,7 +459,7 @@ def in6_isaddr6to4(x):
     address (being in 2002::/16).
     """
     x = inet_pton(socket.AF_INET6, x)
-    return x[:2] == ' \x02'
+    return x[:2] == b' \x02'
 
 conf.teredoPrefix = "2001::" # old one was 3ffe:831f (it is a /32)
 conf.teredoServerPort = 3544
@@ -485,8 +485,8 @@ def teredoAddrExtractInfo(x):
     addr = inet_pton(socket.AF_INET6, x)
     server = inet_ntop(socket.AF_INET, addr[4:8])
     flag = struct.unpack("!H",addr[8:10])[0]
-    mappedport = struct.unpack("!H",strxor(addr[10:12],'\xff'*2))[0] 
-    mappedaddr = inet_ntop(socket.AF_INET, strxor(addr[12:16],'\xff'*4))
+    mappedport = struct.unpack("!H",strxor(addr[10:12],b'\xff'*2))[0] 
+    mappedaddr = inet_ntop(socket.AF_INET, strxor(addr[12:16],b'\xff'*4))
     return server, flag, mappedaddr, mappedport
 
 def in6_iseui64(x):
@@ -556,7 +556,7 @@ def in6_cidr2mask(m):
     """
     Return the mask (bitstring) associated with provided length 
     value. For instance if function is called on 48, return value is
-    '\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'.
+    b'\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'.
     
     """
     if m > 128 or m < 0:
@@ -622,8 +622,8 @@ def in6_isllsnmaddr(str):
     multicast address, i.e. belongs to ff02::1:ff00:0/104. False is
     returned otherwise.
     """
-    temp = in6_and("\xff"*13+"\x00"*3, inet_pton(socket.AF_INET6, str))
-    temp2 = '\xff\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\xff\x00\x00\x00'
+    temp = in6_and(b"\xff"*13+b"\x00"*3, inet_pton(socket.AF_INET6, str))
+    temp2 = b'\xff\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\xff\x00\x00\x00'
     return temp == temp2
 
 def in6_isdocaddr(str):

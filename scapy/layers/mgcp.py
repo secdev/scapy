@@ -22,8 +22,8 @@ class MGCP(Packet):
                     StrFixedLenField("sep2"," ",1),
                     StrStopField("endpoint","dummy@dummy.net"," ", -1),
                     StrFixedLenField("sep3"," ",1),
-                    StrStopField("version","MGCP 1.0 NCS 1.0","\x0a", -1),
-                    StrFixedLenField("sep4","\x0a",1),
+                    StrStopField("version","MGCP 1.0 NCS 1.0",b"\x0a", -1),
+                    StrFixedLenField("sep4",b"\x0a",1),
                     ]
                     
     

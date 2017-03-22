@@ -319,7 +319,7 @@ class SkinnyMessageSoftKeyEvent(Packet):
 class SkinnyMessagePromptStatus(Packet):
     name='Prompt status'
     fields_desc = [ LEIntField("timeout", 0),
-                    StrFixedLenField("text", "\0"*32, 32),
+                    StrFixedLenField("text", b"\0"*32, 32),
                     LEIntField("instance", 1),
                     LEIntField("callid", 0)]
 
@@ -371,10 +371,10 @@ class SkinnyMessageCallInfo(Packet):
                     StrFixedLenField("lastredirectingnum", "1034", 24),
                     LEIntField("originalredirectreason", 0),
                     LEIntField("lastredirectreason", 0),
-                    StrFixedLenField('voicemailboxG', '\0'*24, 24),
-                    StrFixedLenField('voicemailboxD', '\0'*24, 24),
-                    StrFixedLenField('originalvoicemailboxD', '\0'*24, 24),
-                    StrFixedLenField('lastvoicemailboxD', '\0'*24, 24),
+                    StrFixedLenField('voicemailboxG', b'\0'*24, 24),
+                    StrFixedLenField('voicemailboxD', b'\0'*24, 24),
+                    StrFixedLenField('originalvoicemailboxD', b'\0'*24, 24),
+                    StrFixedLenField('lastvoicemailboxD', b'\0'*24, 24),
                     LEIntField('security', 0),
                     FlagsField('restriction', 0, 16, _skinny_message_callinfo_restrictions),
                     LEIntField('unknown', 0)]

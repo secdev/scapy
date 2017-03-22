@@ -12,10 +12,10 @@ import hmac
 from scapy.layers.tls.crypto.hash import tls_hash_algs
 
 
-SSLv3_PAD1_MD5  = "\x36"*48
-SSLv3_PAD1_SHA1 = "\x36"*40
-SSLv3_PAD2_MD5  = "\x5c"*48
-SSLv3_PAD2_SHA1 = "\x5c"*40
+SSLv3_PAD1_MD5  = b"\x36"*48
+SSLv3_PAD1_SHA1 = b"\x36"*40
+SSLv3_PAD2_MD5  = b"\x5c"*48
+SSLv3_PAD2_SHA1 = b"\x5c"*40
 
 tls_hmac_algs = {}
 

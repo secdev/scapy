@@ -114,7 +114,7 @@ class _ISIS_IdFieldBase(Field):
 
     def i2m(self, pkt, x):
         if x is None:
-            return "\0"*self.length
+            return b"\0"*self.length
 
         return self.to_str(x)
 
@@ -306,13 +306,13 @@ class ISIS_IPv6NeighborAddressSubTlv(ISIS_GenericSubTlv):
 ##  ISIS Sub-TLVs for TLVs 135, 235, 236, and 237                    ##
 #######################################################################
 _isis_subtlv_classes_2 = {
-    1:	"ISIS_32bitAdministrativeTagSubTlv",
-    2:	"ISIS_64bitAdministrativeTagSubTlv"
+    1:  "ISIS_32bitAdministrativeTagSubTlv",
+    2:  "ISIS_64bitAdministrativeTagSubTlv"
 }
 
 _isis_subtlv_names_2 = {
-    1:	"32-bit Administrative Tag",
-    2:	"64-bit Administrative Tag"
+    1:  "32-bit Administrative Tag",
+    2:  "64-bit Administrative Tag"
 }
 
 

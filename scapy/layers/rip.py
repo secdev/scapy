@@ -22,7 +22,7 @@ class RIP(Packet):
         ]
 
     def guess_payload_class(self, payload):
-        if payload[:2] == "\xff\xff":
+        if payload[:2] == b"\xff\xff":
             return RIPAuth
         else:
             return Packet.guess_payload_class(self, payload)
@@ -61,7 +61,7 @@ class RIPAuth(Packet):
         ]
 
     def pre_dissect(self, s):
-        if s[2:4] == "\x00\x01":
+        if s[2:4] == b"\x00\x01":
             self.md5datalen = len(s) - 4
 
         return s

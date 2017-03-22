@@ -300,7 +300,7 @@ def _prompt_changer(attr,val):
             ## ^A and ^B delimit invisible characters for readline to count right.
             ## And we need ct.prompt() to do change something or else ^A and ^B will be
             ## displayed
-             prompt = "\001%s\002" % ct.prompt("\002"+prompt+"\001")
+             prompt = b"\001%s\002" % ct.prompt(b"\002"+prompt+b"\001")
         else:
             prompt = ct.prompt(prompt)
     except:

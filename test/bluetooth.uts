@@ -51,5 +51,5 @@ scan_resp_raw_data = \
     "3134374432343631fc00030c0000de".decode('hex')
 scapy_packet = HCI_Hdr(scan_resp_raw_data)
 
-assert(scapy_packet[EIR_Manufacturer_Specific_Data].data == '\x00_B31147D2461\xfc\x00\x03\x0c\x00\x00')
+assert(scapy_packet[EIR_Manufacturer_Specific_Data].data == b'\x00_B31147D2461\xfc\x00\x03\x0c\x00\x00')
 assert(scapy_packet[EIR_Manufacturer_Specific_Data].company_id == 0x154)

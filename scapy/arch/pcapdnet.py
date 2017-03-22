@@ -67,7 +67,7 @@ if conf.use_winpcapy:
   def get_if_raw_hwaddr(iff):
     err = create_string_buffer(PCAP_ERRBUF_SIZE)
     devs = POINTER(pcap_if_t)()
-    ret = "\0\0\0\0\0\0"
+    ret = b"\0\0\0\0\0\0"
     
     if pcap_findalldevs(byref(devs), err) < 0:
       return ret
@@ -90,7 +90,7 @@ if conf.use_winpcapy:
   def get_if_raw_addr(iff):
     err = create_string_buffer(PCAP_ERRBUF_SIZE)
     devs = POINTER(pcap_if_t)()
-    ret = "\0\0\0\0"
+    ret = b"\0\0\0\0"
 
     if pcap_findalldevs(byref(devs), err) < 0:
       return ret
@@ -491,10 +491,10 @@ if conf.use_dnet:
             conf.use_dnet = False
             def get_if_raw_hwaddr(iff):
                 "dummy"
-                return (0,"\0\0\0\0\0\0")
+                return (0,b"\0\0\0\0\0\0")
             def get_if_raw_addr(iff):
                 "dummy"
-                return "\0\0\0\0"
+                return b"\0\0\0\0"
             def get_if_list():
                 "dummy"
                 return []
@@ -506,7 +506,7 @@ if conf.use_dnet:
                address corresponding to the interface 'iff'"""
 
             if iff == scapy.arch.LOOPBACK_NAME:
-                return (ARPHDR_LOOPBACK, '\x00'*6)
+                return (ARPHDR_LOOPBACK, b'\x00'*6)
 
             # Retrieve interface information
             try:
@@ -536,7 +536,7 @@ if conf.use_dnet:
                 return i.get(ifname)["addr"].data
             except OSError:
                 warning("No MAC address found on %s !" % ifname)
-                return "\0\0\0\0"
+                return b"\0\0\0\0"
 
 
         def get_if_list():
