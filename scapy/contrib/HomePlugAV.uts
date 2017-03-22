@@ -85,18 +85,27 @@ _ == (True, True)
 #= Discovery packet tests in local
 #~ netaccess HomePlugAV NetworkInfoConfirmationV10 NetworkInfoConfirmationV11
 #pkt = Ether()/HomePlugAV()
+#old_debug_dissector = conf.debug_dissector
+#conf.debug_dissector = False
 #a = srp1(pkt, iface="eth0")
+#conf.debug_dissector = old_debug_dissector
 #a
 #pkt.version = a.version
 #pkt /= NetworkInformationRequest()
+#old_debug_dissector = conf.debug_dissector
+#conf.debug_dissector = False
 #a = srp1(pkt, iface="eth0")
+#conf.debug_dissector = old_debug_dissector
 #NetworkInfoConfirmationV10 in a or NetworkInfoConfirmationV11 in a
 #_ == True
 
 #= Reading local 0x400st octets of Software Image in Module Data blocks
 #~ netaccess HomePlugAV ReadModuleDataRequest
 #pkt = Ether()/HomePlugAV()/ReadModuleDataRequest(ModuleID=0x1)
+#old_debug_dissector = conf.debug_dissector
+#conf.debug_dissector = False
 #a = srp1(pkt, iface="eth0")
+#conf.debug_dissector = old_debug_dissector
 #a
 #len(a.ModuleData) == pkt.Length
 #_ == True
