@@ -101,10 +101,10 @@ else:
 = Test read_routes6() - check mandatory routes
 
 if len(routes6):
-    assert(len(filter(lambda r: r[0] == "::1" and r[-1] == ["::1"], routes6)) >= 1)
+    assert(len(list(filter(lambda r: r[0] == "::1" and r[-1] == ["::1"], routes6))) >= 1)
     if iflist >= 2:
-        assert(len(filter(lambda r: r[0] == "fe80::" and r[1] == 64, routes6)) >= 1)
-        len(filter(lambda r: in6_islladdr(r[0]) and r[1] == 128 and r[-1] == ["::1"], routes6)) >= 1
+        assert(len(list(filter(lambda r: r[0] == "fe80::" and r[1] == 64, routes6))) >= 1)
+        len(list(filter(lambda r: in6_islladdr(r[0]) and r[1] == 128 and r[-1] == ["::1"], routes6))) >= 1
 else:
     True
 
@@ -799,7 +799,7 @@ old_debug_dissector = conf.debug_dissector
 conf.debug_dissector = False
 ans,unans=sr(IP(dst="www.google.com/30")/TCP(dport=[80,443]),timeout=2)
 conf.debug_dissector = old_debug_dissector
-ans.make_table(lambda (s,r): (s.dst, s.dport, r.sprintf("{TCP:%TCP.flags%}{ICMP:%ICMP.code%}")))
+ans.make_table(lambda s_r: (s_r[0].dst, s_r[0].dport, s_r[1].sprintf("{TCP:%TCP.flags%}{ICMP:%ICMP.code%}")))
 
 = Traceroute function
 ~ netaccess
@@ -841,6 +841,11 @@ arping(_+"/24")
 ~ netaccess
 import time
 import os
+try:
+    from Queue import Queue as queue
+except:
+    from queue import Queue as queue
+
 def _send_or_sniff(pkt, timeout, flt, pid, fork, t_other=None):
     assert pid != -1
     if pid == 0:
@@ -875,7 +880,7 @@ def send_and_sniff(pkt, timeout=2, flt=None):
         def run_function(pkt, timeout, flt, pid, thread, results):
             _send_or_sniff(pkt, timeout, flt, pid, False, t_other=thread)
             results.put(True)
-        results = Queue.Queue()
+        results = queue()
         t_parent = Thread(target=run_function, args=(pkt, timeout, flt, 0, None, results))
         t_child = Thread(target=run_function, args=(pkt, timeout, flt, 1, t_parent, results))
         t_parent.start()
@@ -5579,12 +5584,12 @@ def valid_output_read_routes6(routes):
 
 def check_mandatory_ipv6_routes(routes6):
     """Ensure that mandatory IPv6 routes are present"""
-    if len(filter(lambda r: r[0] == "::1" and r[-1] == ["::1"], routes6)) < 1:
+    if len(list(filter(lambda r: r[0] == "::1" and r[-1] == ["::1"], routes6))) < 1:
         return False
-    if len(filter(lambda r: r[0] == "fe80::" and r[1] == 64, routes6)) < 1:
+    if len(list(filter(lambda r: r[0] == "fe80::" and r[1] == 64, routes6))) < 1:
         return False
-    if len(filter(lambda r: in6_islladdr(r[0]) and r[1] == 128 and \
-            r[-1] == ["::1"], routes6)) < 1:
+    if len(list(filter(lambda r: in6_islladdr(r[0]) and r[1] == 128 and \
+            r[-1] == ["::1"], routes6))) < 1:
         return False
     return True
 
@@ -7923,7 +7928,7 @@ assert TCP(flags="SA").flags | TCP(flags="S").flags == TCP(flags="SA").flags
 ~ IP TCP
 
 plist = PacketList(list(IP()/TCP(flags=(0, 2**9 - 1))))
-assert [p[TCP].flags for p in plist] == range(512)
+assert [p[TCP].flags for p in plist] == [x for x in range(512)]
 
 plist = PacketList(list(IP()/TCP(flags=["S", "SA", "A"])))
 assert [p[TCP].flags for p in plist] == [2, 18, 16]
@@ -8239,7 +8244,7 @@ s == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\
 = Dot11 - dissection
 p = Dot11(s)
 Dot11 in p and p.addr3 == "00:00:00:00:00:00"
-p.mysummary() == '802.11 Management 0L 00:00:00:00:00:00 > 00:00:00:00:00:00'
+p.mysummary() == '802.11 Management 0 00:00:00:00:00:00 > 00:00:00:00:00:00'
 
 = Dot11QoS - build
 s = str(Dot11(type=2, subtype=8)/Dot11QoS())

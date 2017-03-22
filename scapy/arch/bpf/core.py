@@ -4,6 +4,7 @@
 Scapy *BSD native support - core
 """
 
+from __future__ import absolute_import
 from scapy.config import conf
 from scapy.error import Scapy_Exception, warning
 from scapy.data import ARPHDR_LOOPBACK, ARPHDR_ETHER
@@ -20,6 +21,7 @@ import struct
 from ctypes import cdll, cast, pointer, POINTER, Structure
 from ctypes import c_uint, c_uint32, c_int, c_ulong, c_char_p, c_ushort, c_ubyte
 from ctypes.util import find_library
+from six.moves import range
 
 
 # ctypes definitions
@@ -51,7 +53,7 @@ def get_if_raw_addr(ifname):
     # Get ifconfig output
     try:
         fd = os.popen("%s %s" % (conf.prog.ifconfig, ifname))
-    except OSError, msg:
+    except OSError as msg:
         warning("Failed to execute ifconfig: (%s)" % msg)
         return b"\0\0\0\0"
 
@@ -78,7 +80,7 @@ def get_if_raw_hwaddr(ifname):
     # Get ifconfig output
     try:
         fd = os.popen("%s %s" % (conf.prog.ifconfig, ifname))
-    except OSError, msg:
+    except OSError as msg:
         raise Scapy_Exception("Failed to execute ifconfig: (%s)" % msg)
 
     # Get MAC addresses
@@ -104,7 +106,7 @@ def get_dev_bpf():
         try:
             fd = os.open("/dev/bpf%i" % bpf, os.O_RDWR)
             return (fd, bpf)
-        except OSError, err:
+        except OSError as err:
             continue
 
     raise Scapy_Exception("No /dev/bpf handle is available !")
@@ -117,7 +119,7 @@ def attach_filter(fd, iface, bpf_filter_string):
     command = "%s -i %s -ddd -s 1600 '%s'" % (conf.prog.tcpdump, iface, bpf_filter_string)
     try:
         f = os.popen(command)
-    except OSError, msg:
+    except OSError as msg:
         raise Scapy_Exception("Failed to execute tcpdump: (%s)" % msg)
 
     # Convert the byte code to a BPF program structure
@@ -132,7 +134,7 @@ def attach_filter(fd, iface, bpf_filter_string):
 
     # Fill the BPF instruction structures with the byte code
     lines = lines[1:]
-    for i in xrange(len(lines)):
+    for i in range(len(lines)):
         values = [int(v) for v in lines[i].split()]
         bip[i].code = c_ushort(values[0])
         bip[i].jt = c_ubyte(values[1])
@@ -154,7 +156,7 @@ def get_if_list():
     # Get ifconfig output
     try:
         fd = os.popen("%s -a" % conf.prog.ifconfig)
-    except OSError, msg:
+    except OSError as msg:
         raise Scapy_Exception("Failed to execute ifconfig: (%s)" % msg)
 
     # Get interfaces
@@ -184,7 +186,7 @@ def get_working_ifaces():
         # Get interface flags
         try:
             result = get_if(ifname, SIOCGIFFLAGS)
-        except IOError, msg:
+        except IOError as msg:
             warning("ioctl(SIOCGIFFLAGS) failed on %s !" % ifname)
             continue
 
@@ -201,7 +203,7 @@ def get_working_ifaces():
             try:
                 fcntl.ioctl(fd, BIOCSETIF, struct.pack("16s16x", ifname))
                 interfaces.append((ifname, int(ifname[-1])))
-            except IOError, err:
+            except IOError as err:
                 pass
 
             # Close the file descriptor

@@ -10,6 +10,7 @@
 # All configuration values have a default value; values that are commented out
 # serve to show the default value.
 
+from __future__ import absolute_import
 import sys, os
 
 # If your extensions are in another directory, add it here. If the directory

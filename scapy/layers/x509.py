@@ -8,6 +8,7 @@
 X.509 certificates.
 """
 
+from __future__ import absolute_import
 from scapy.asn1.asn1 import *
 from scapy.asn1.ber import *
 from scapy.asn1packet import *
@@ -648,7 +649,7 @@ class ASN1F_EXT_SEQUENCE(ASN1F_SEQUENCE):
             if not self.flexible_tag and len(s) > 0:
                 err_msg = "extension sequence length issue"
                 raise BER_Decoding_Error(err_msg, remaining=s)
-        except ASN1F_badsequence,e:
+        except ASN1F_badsequence as e:
             raise Exception("could not parse extensions")
         return remain
 

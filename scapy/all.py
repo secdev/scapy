@@ -7,6 +7,7 @@
 Aggregate top level objects from all Scapy modules.
 """
 
+from __future__ import absolute_import
 from scapy.base_classes import *
 from scapy.config import *
 from scapy.dadict import *

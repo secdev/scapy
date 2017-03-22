@@ -8,6 +8,7 @@
 # scapy.contrib.description = GTPv2
 # scapy.contrib.status = loads
 
+from __future__ import absolute_import
 import time
 import logging
 
@@ -16,7 +17,7 @@ from scapy.fields import *
 from scapy.layers.inet import IP, UDP
 from scapy.layers.inet6 import IP6Field
 
-import gtp
+from . import gtp
 
 RATType = {
     6: "EUTRAN",

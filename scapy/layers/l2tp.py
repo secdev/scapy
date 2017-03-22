@@ -9,6 +9,7 @@ L2TP (Layer 2 Tunneling Protocol) for VPNs.
 [RFC 2661]
 """
 
+from __future__ import absolute_import
 import struct
 
 from scapy.packet import *

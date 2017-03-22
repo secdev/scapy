@@ -5,6 +5,7 @@
 # scapy.contrib.description = IKEv2
 # scapy.contrib.status = loads
 
+from __future__ import absolute_import
 import logging
 import struct
 

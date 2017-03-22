@@ -8,6 +8,7 @@
 Classes that implement ASN.1 data structures.
 """
 
+from __future__ import absolute_import
 from scapy.asn1.asn1 import *
 from scapy.asn1.ber import *
 from scapy.asn1.mib import *
@@ -15,6 +16,10 @@ from scapy.volatile import *
 from scapy.base_classes import BasePacket
 from scapy.utils import binrepr
 from scapy import packet
+import six
+from six.moves import map
+from six.moves import range
+from functools import reduce
 
 class ASN1F_badsequence(Exception):
     pass
@@ -129,7 +134,7 @@ class ASN1F_field(ASN1F_element):
             return x.copy()
         if type(x) is list:
             x = x[:]
-            for i in xrange(len(x)):
+            for i in range(len(x)):
                 if isinstance(x[i], BasePacket):
                     x[i] = x[i].copy()
         return x
@@ -171,10 +176,10 @@ class ASN1F_enum_INTEGER(ASN1F_INTEGER):
         i2s = self.i2s = {}
         s2i = self.s2i = {}
         if type(enum) is list:
-            keys = xrange(len(enum))
+            keys = range(len(enum))
         else:
-            keys = enum.keys()
-        if any(isinstance(x, basestring) for x in keys):
+            keys = list(enum.keys())
+        if any(isinstance(x, six.string_types) for x in keys):
             i2s, s2i = s2i, i2s
         for k in keys:
             i2s[k] = enum[k]
@@ -310,7 +315,7 @@ class ASN1F_SEQUENCE(ASN1F_field):
             for obj in self.seq:
                 try:
                     s = obj.dissect(pkt, s)
-                except ASN1F_badsequence,e:
+                except ASN1F_badsequence as e:
                     break
             if len(s) > 0:
                 raise BER_Decoding_Error("unexpected remainder", remaining=s)
@@ -439,7 +444,7 @@ class ASN1F_CHOICE(ASN1F_field):
         for p in args:
             if hasattr(p, "ASN1_root"):     # should be ASN1_Packet
                 if hasattr(p.ASN1_root, "choices"):
-                    for k,v in p.ASN1_root.choices.iteritems():
+                    for k,v in six.iteritems(p.ASN1_root.choices):
                         self.choices[k] = v         # ASN1F_CHOICE recursion
                 else:
                     self.choices[p.ASN1_root.network_tag] = p
@@ -489,7 +494,7 @@ class ASN1F_CHOICE(ASN1F_field):
         return BER_tagging_enc(s, explicit_tag=self.explicit_tag)
     def randval(self):
         randchoices = []
-        for p in self.choices.itervalues():
+        for p in six.itervalues(self.choices):
             if hasattr(p, "ASN1_root"):   # should be ASN1_Packet class
                 randchoices.append(packet.fuzz(p()))
             elif hasattr(p, "ASN1_tag"):

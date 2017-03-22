@@ -21,6 +21,7 @@
         This module provides a registration function and a generic PDU
         for OSI Connectionless-mode Network Services (such as IS-IS).
 """
+from __future__ import absolute_import
 import struct
 
 from scapy.config import conf

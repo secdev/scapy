@@ -7,6 +7,7 @@
 Common customizations for all Unix-like operating systems other than Linux
 """
 
+from __future__ import absolute_import
 import sys,os,struct,socket,time
 from fcntl import ioctl
 import socket
@@ -82,8 +83,8 @@ def read_routes():
         if flg.find("Lc") >= 0:
             continue
         if dest == "default":
-            dest = 0L
-            netmask = 0L
+            dest = 0
+            netmask = 0
         else:
             if SOLARIS:
                 netmask = scapy.utils.atol(mask)
@@ -148,7 +149,7 @@ def _in6_getifaddr(ifname):
     # Get the output of ifconfig
     try:
         f = os.popen("%s %s" % (conf.prog.ifconfig, ifname))
-    except OSError,msg:
+    except OSError as msg:
         log_interactive.warning("Failed to execute ifconfig.")
         return []
 
@@ -188,7 +189,7 @@ def in6_getifaddr():
     if OPENBSD:
         try:
             f = os.popen("%s" % conf.prog.ifconfig)
-        except OSError,msg:
+        except OSError as msg:
             log_interactive.warning("Failed to execute ifconfig.")
             return []
 
@@ -202,7 +203,7 @@ def in6_getifaddr():
     else: # FreeBSD, NetBSD or Darwin
         try:
             f = os.popen("%s -l" % conf.prog.ifconfig)
-        except OSError,msg:
+        except OSError as msg:
             log_interactive.warning("Failed to execute ifconfig.")
             return []
 
@@ -319,7 +320,7 @@ def read_routes6():
             next_hop = "::"
         else:
             # Get possible IPv6 source addresses
-            devaddrs = filter(lambda x: x[2] == dev, lifaddr)
+            devaddrs = [x for x in lifaddr if x[2] == dev]
             cset = construct_source_candidate_set(destination, destination_plen, devaddrs, LOOPBACK_NAME)
 
         if len(cset):

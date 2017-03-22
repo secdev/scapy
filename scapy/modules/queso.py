@@ -7,6 +7,7 @@
 Clone of queso OS fingerprinting
 """
 
+from __future__ import absolute_import
 from scapy.data import KnowledgeBase
 from scapy.config import conf
 from scapy.layers.inet import IP,TCP
@@ -56,7 +57,7 @@ class QuesoKnowledgeBase(KnowledgeBase):
                 res = l[2:].split()
                 res[-1] = quesoTCPflags(res[-1])
                 res = " ".join(res)
-                if not p.has_key(res):
+                if res not in p:
                     p[res] = {}
                 p = p[res]
             if p is not None:
@@ -100,7 +101,7 @@ def queso_search(sig):
         while sig:
             s = sig.pop()
             p = p[s]
-            if p.has_key(""):
+            if "" in p:
                 ret.append(p[""])
     except KeyError:
         pass

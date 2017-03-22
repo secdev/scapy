@@ -3,6 +3,7 @@
 # scapy.contrib.description = MPLS
 # scapy.contrib.status = loads
 
+from __future__ import absolute_import
 from scapy.packet import Packet, bind_layers, Padding
 from scapy.fields import BitField,ByteField
 from scapy.layers.inet import IP

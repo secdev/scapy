@@ -5,6 +5,7 @@
 # scapy.contrib.description = AVS WLAN Monitor Header
 # scapy.contrib.status = loads
 
+from __future__ import absolute_import
 from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.dot11 import *

@@ -14,6 +14,7 @@
 ## See http://www.secdev.org/projects/scapy for more informations
 ## This program is published under a GPLv2 license
 
+from __future__ import absolute_import
 from ctypes import *
 from ctypes.util import find_library
 import sys, os
