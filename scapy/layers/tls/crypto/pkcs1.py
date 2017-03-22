@@ -350,9 +350,11 @@ class _EncryptAndVerifyRSA(object):
         """
 
         n = self._modulus
+        # FIXME: long will not be supported anymore on Python 3 but
+        # removing it makes Python 2 crash
         if isinstance(m, int):
-            m = int(m)
-        if (not isinstance(m, int)) or m > n-1:
+            m = long(m)
+        if (not isinstance(m, long)) or m > n-1:
             warning("Key._rsaep() expects a long between 0 and n-1")
             return None
 
@@ -589,9 +591,11 @@ class _DecryptAndSignRSA(object):
         """
 
         n = self._modulus
+        # FIXME: long will not be supported anymore on Python 3 but
+        # removing it makes Python 2 crash
         if isinstance(c, int):
-            c = int(c)
-        if (not isinstance(c, int)) or c > n-1:
+            c = long(c)
+        if (not isinstance(c, long)) or c > n-1:
             warning("Key._rsaep() expects a long between 0 and n-1")
             return None
 
