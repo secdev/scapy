@@ -24,6 +24,8 @@ t = TLSClientAutomaton(dport=50000, client_hello=ch)
 t.run()
 """
 
+from __future__ import absolute_import
+from __future__ import print_function
 import socket
 import struct
 
@@ -248,7 +250,7 @@ class TLSClientAutomaton(Automaton):
 
     @ATMT.state(final=True)
     def MISSING_SH(self):
-        print "Missing TLS Server Hello message"
+        print("Missing TLS Server Hello message")
 
     @ATMT.condition(HANDLE_SH, prio=1)
     def should_HANDLE_CERT(self):
@@ -270,7 +272,7 @@ class TLSClientAutomaton(Automaton):
 
     @ATMT.state(final=True)
     def MISSING_CERT(self):
-        print "Missing TLS Certificate message"
+        print("Missing TLS Certificate message")
 
     @ATMT.state()
     def HANDLE_CERT_REQ(self):
@@ -549,16 +551,16 @@ class TLSClientAutomaton(Automaton):
         txt = self.data or "GET /\r\n\r\n"  # GET HTTP/1.1\r\n\r\n"
         p = TLS(type=23, tls_session=self.cur_session, msg=[Raw(load=txt)])
         self.socket.send(str(p))
-        print "Sent to server: \n%r" % txt
+        print("Sent to server: \n%r" % txt)
 
         self.get_next_msg(1, 0)
         if self.msg_list:
             p = self.msg_list[0]
             self.msg_list = self.msg_list[1:]
             if isinstance(p, Raw):
-                print "Received from server: \n%s" % p.load
+                print("Received from server: \n%s" % p.load)
             else:
-                print "Received from server: \n%s" % p
+                print("Received from server: \n%s" % p)
 
     @ATMT.state()
     def TESTED_CONNECTION(self):
@@ -581,7 +583,7 @@ class TLSClientAutomaton(Automaton):
         try:
             self.socket.send(str(self.cur_pkt))
         except:
-            print "Could not send termination Alert (maybe the server stopped)"
+            print("Could not send termination Alert (maybe the server stopped)")
         self.cur_pkt = None
 
     @ATMT.state()
@@ -731,8 +733,8 @@ class TLSServerAutomaton(Automaton):
             s.bind((self.local_ip, self.local_port))
             s.listen(1)
         except:
-            print "Unable to bind on address %s and port %d" % (self.local_ip,
-                                                                self.local_port)
+            print("Unable to bind on address %s and port %d" % (self.local_ip,
+                                                                self.local_port))
             return
         self.socket, addr = s.accept()
         if not isinstance(addr, tuple):
@@ -789,7 +791,7 @@ class TLSServerAutomaton(Automaton):
         """
         If there is no available cipher suite, close the session with an Alert.
         """
-        print "No usable cipher suite, closing connection"
+        print("No usable cipher suite, closing connection")
         self.cur_pkt = TLS(type=21, msg=[], tls_session=self.cur_session)
         p = TLSAlert(level=1, descr=0)
         self.cur_pkt.msg.append(p)
@@ -802,7 +804,7 @@ class TLSServerAutomaton(Automaton):
 
     @ATMT.state(final=True)
     def MISSING_CH(self):
-        print "Missing TLS Client Hello message"
+        print("Missing TLS Client Hello message")
 
     @ATMT.condition(HANDLE_CH, prio=2)
     def should_REPLY_TO_CH(self):
@@ -837,8 +839,8 @@ class TLSServerAutomaton(Automaton):
         self.cur_session.tls_version = self.cur_pkt.version
         #XXX there should be some checks on this version from the ClientHello
         v = self.cur_session.tls_version
-        print "\nVersion: " + _tls_version[v]
-        print "Cipher suite: " + _tls_cipher_suites[c]
+        print("\nVersion: " + _tls_version[v])
+        print("Cipher suite: " + _tls_cipher_suites[c])
 
         self.cur_pkt = TLS(tls_session=self.cur_session, msg=[])
 
@@ -889,7 +891,7 @@ class TLSServerAutomaton(Automaton):
 
     @ATMT.state()
     def HANDLE_ALERT_INSTEAD_OF_CKE(self):
-        print "Received Alert message instead of CKE"
+        print("Received Alert message instead of CKE")
 
     @ATMT.condition(SENT_SH, prio=3)
     def should_HANDLE_MISSING_CKE(self):
@@ -897,7 +899,7 @@ class TLSServerAutomaton(Automaton):
 
     @ATMT.state()
     def HANDLE_MISSING_CKE(self):
-        print "Missing CKE in client's reply"
+        print("Missing CKE in client's reply")
 
 
     @ATMT.condition(HANDLE_CKE, prio=1)
@@ -927,7 +929,7 @@ class TLSServerAutomaton(Automaton):
 
     @ATMT.state()
     def HANDLE_ALERT_INSTEAD_OF_CCS(self):
-        print "Received Alert message instead of CCS"
+        print("Received Alert message instead of CCS")
 
     @ATMT.condition(HANDLE_CKE, prio=3)
     def should_HANDLE_MISSING_CCS(self):
@@ -935,7 +937,7 @@ class TLSServerAutomaton(Automaton):
 
     @ATMT.state()
     def HANDLE_MISSING_CCS(self):
-        print "Missing CCS in client's reply"
+        print("Missing CCS in client's reply")
 
     @ATMT.condition(HANDLE_CCS, prio=1)
     def should_HANDLE_Finished(self):
@@ -963,7 +965,7 @@ class TLSServerAutomaton(Automaton):
 
     @ATMT.state()
     def HANDLE_ALERT_INSTEAD_OF_FINISHED(self):
-        print "Received Alert message instead of Finished"
+        print("Received Alert message instead of Finished")
 
     @ATMT.condition(HANDLE_CCS, prio=3)
     def should_HANDLE_MISSING_FINISHED(self):
@@ -971,7 +973,7 @@ class TLSServerAutomaton(Automaton):
 
     @ATMT.state()
     def HANDLE_MISSING_FINISHED(self):
-        print "Missing Finished in client's reply"
+        print("Missing Finished in client's reply")
 
     @ATMT.condition(HANDLE_FINISHED, prio=1)
     def should_SEND_CCS(self):
@@ -1002,7 +1004,7 @@ class TLSServerAutomaton(Automaton):
         self.get_next_msg()
         if self.msg_list:
             return
-        print "Client left. Closing connection..."
+        print("Client left. Closing connection...")
         raise self.FINAL()
 
     @ATMT.condition(FINISHED_SENT, prio=1)
@@ -1017,8 +1019,8 @@ class TLSServerAutomaton(Automaton):
     def HANDLE_ALERT_FROM_FINISHED_SENT(self):
         self.cur_pkt = self.msg_list[0]
         self.msg_list = self.msg_list[1:]
-        print "Received Alert Message after sending Finished"
-        print "Closing connection"
+        print("Received Alert Message after sending Finished")
+        print("Closing connection")
         #XXX no support for new connections, for now
         raise self.FINAL()
 
@@ -1048,7 +1050,7 @@ class TLSServerAutomaton(Automaton):
         self.msg_list = self.msg_list[1:]
 
         recv_data = self.cur_pkt.data
-        print "Received %s" % repr(recv_data)
+        print("Received %s" % repr(recv_data))
 
         if recv_data.startswith("GET / HTTP/1."):
             header  = "HTTP/1.1 200 OK\r\n"

@@ -4,6 +4,7 @@
 # scapy.contrib.description = Ubberlogger dissectors
 # scapy.contrib.status = untested
 
+from __future__ import absolute_import
 from scapy.packet import *
 from scapy.fields import *
 

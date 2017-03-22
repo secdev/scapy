@@ -7,6 +7,7 @@
 TLS helpers, provided as out-of-context methods.
 """
 
+from __future__ import absolute_import
 from scapy.error import warning
 from scapy.fields import (ByteEnumField, ShortEnumField,
                           FieldLenField, StrLenField)

@@ -7,9 +7,11 @@
 HMAC classes.
 """
 
+from __future__ import absolute_import
 import hmac
 
 from scapy.layers.tls.crypto.hash import tls_hash_algs
+import six
 
 
 SSLv3_PAD1_MD5  = b"\x36"*48
@@ -48,9 +50,7 @@ class HMACError(Exception):
     """
     pass
 
-class _GenericHMAC(object):
-    __metaclass__ = _GenericHMACMetaclass
-
+class _GenericHMAC(six.with_metaclass(_GenericHMACMetaclass, object)):
     def __init__(self, key=None):
         self.key = key
 

@@ -109,6 +109,7 @@ TODO list (may it be carved away by good souls):
         - Enhance PSK and session ticket support.
 """
 
+from __future__ import absolute_import
 from scapy.config import conf
 
 if not conf.crypto_valid:

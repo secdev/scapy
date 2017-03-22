@@ -7,6 +7,7 @@
 DNS: Domain Name System.
 """
 
+from __future__ import absolute_import
 import socket,struct
 
 from scapy.config import conf
@@ -17,6 +18,9 @@ from scapy.sendrecv import sr1
 from scapy.layers.inet import IP, DestIPField, UDP, TCP
 from scapy.layers.inet6 import DestIP6Field
 from scapy.error import warning
+import six
+from six.moves import range
+from functools import reduce
 
 class DNSStrField(StrField):
 
@@ -30,7 +34,7 @@ class DNSStrField(StrField):
           return b"\x00"
 
         x = [k[:63] for k in x.split(".")] # Truncate chunks that cannot be encoded (more than 63 bytes..)
-        x = map(lambda y: chr(len(y))+y, x)
+        x = [chr(len(y))+y for y in x]
         x = "".join(x)
         if x[-1] != b"\x00":
             x += b"\x00"
@@ -201,7 +205,7 @@ class RDataField(StrLenField):
             if s:
                 s = inet_aton(s)
         elif pkt.type in [2, 3, 4, 5, 12]: # NS, MD, MF, CNAME, PTR
-            s = "".join(map(lambda x: chr(len(x))+x, s.split(".")))
+            s = "".join([chr(len(x))+x for x in s.split(".")])
             if ord(s[-1]):
                 s += b"\x00"
         elif pkt.type == 16: # TXT
@@ -402,9 +406,9 @@ def bitmap2RRlist(bitmap):
         tmp_bitmap = bitmap[2:2+bitmap_len]
 
         # Let's compare each bit of tmp_bitmap and compute the real RR value
-        for b in xrange(len(tmp_bitmap)):
+        for b in range(len(tmp_bitmap)):
             v = 128
-            for i in xrange(8):
+            for i in range(8):
                 if ord(tmp_bitmap[b]) & v:
                     # each of the RR is encoded as a bit
                     RRlist += [ offset + b*8 + i ]
@@ -429,8 +433,8 @@ def RRlist2bitmap(lst):
     lst = list(set(lst))
     lst.sort()
 
-    lst = filter(lambda x: x <= 65535, lst)
-    lst = map(lambda x: abs(x), lst)
+    lst = [x for x in lst if x <= 65535]
+    lst = [abs(x) for x in lst]
 
     # number of window blocks
     max_window_blocks = int(math.ceil(lst[-1] / 256.))
@@ -438,10 +442,10 @@ def RRlist2bitmap(lst):
     if min_window_blocks == max_window_blocks:
         max_window_blocks += 1
 
-    for wb in xrange(min_window_blocks, max_window_blocks+1):
+    for wb in range(min_window_blocks, max_window_blocks+1):
         # First, filter out RR not encoded in the current window block
         # i.e. keep everything between 256*wb <= 256*(wb+1)
-        rrlist = filter(lambda x: 256 * wb <= x < 256 * (wb + 1), lst)
+        rrlist = [x for x in lst if 256 * wb <= x < 256 * (wb + 1)]
         rrlist.sort()
         if rrlist == []:
             continue
@@ -459,15 +463,15 @@ def RRlist2bitmap(lst):
         bitmap += struct.pack("B", bytes)
 
         # Generate the bitmap
-        for tmp in xrange(bytes):
+        for tmp in range(bytes):
             v = 0
             # Remove out of range Resource Records
-            tmp_rrlist = filter(lambda x: 256 * wb + 8 * tmp <= x < 256 * wb + 8 * tmp + 8, rrlist)
+            tmp_rrlist = [x for x in rrlist if 256 * wb + 8 * tmp <= x < 256 * wb + 8 * tmp + 8]
             if not tmp_rrlist == []:
                 # 1. rescale to fit into 8 bits
-                tmp_rrlist = map(lambda x: (x-256*wb)-(tmp*8), tmp_rrlist)
+                tmp_rrlist = [(x-256*wb)-(tmp*8) for x in tmp_rrlist]
                 # 2. x gives the bit position ; compute the corresponding value
-                tmp_rrlist = map(lambda x: 2**(7-x) , tmp_rrlist)
+                tmp_rrlist = [2**(7-x) for x in tmp_rrlist]
                 # 3. sum everything
                 v = reduce(lambda x,y: x+y, tmp_rrlist)
             bitmap += struct.pack("B", v)
@@ -629,7 +633,7 @@ DNSRR_DISPATCHER = {
     32769: DNSRRDLV,     # RFC 4431
 }
 
-DNSSEC_CLASSES = tuple(DNSRR_DISPATCHER.itervalues())
+DNSSEC_CLASSES = tuple(six.itervalues(DNSRR_DISPATCHER))
 
 def isdnssecRR(obj):
     return isinstance(obj, DNSSEC_CLASSES)

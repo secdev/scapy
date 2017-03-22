@@ -18,6 +18,7 @@
 
 # Copyright (C) 2010 Florian Duraffourg
 
+from __future__ import absolute_import
 import struct
 
 from scapy.packet import *
@@ -26,6 +27,7 @@ from scapy.ansmachine import *
 from scapy.layers.inet import UDP
 from scapy.layers.inet import TCP
 from scapy.base_classes import Net
+from six.moves import range
 
 
 # Guess payload
@@ -132,7 +134,7 @@ class AddressTLVField(StrField):
         nbr /= 4
         x=x[6:]
         list=[]
-        for i in xrange(0, nbr):
+        for i in range(0, nbr):
             add = x[4*i:4*i+4]
             list.append(inet_ntoa(add))
         return list

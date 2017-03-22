@@ -12,6 +12,7 @@ Optional cipher_cuite_code and version may be provided as hexadecimal strings
 Reception of the exact send_data on the server is to be checked externally.
 """
 
+from __future__ import absolute_import
 import sys, os, time
 import multiprocessing
 
@@ -29,7 +30,7 @@ def run_tls_test_client(send_data=None, cipher_suite_code=None, version=None):
     t = TLSClientAutomaton(client_hello=ch, data=send_data)
     t.run()
 
-from travis_test_server import run_tls_test_server
+from .travis_test_server import run_tls_test_server
 
 def test_tls_client(suite, version, q):
     msg = "TestC_" + suite + "_data"

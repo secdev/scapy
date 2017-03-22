@@ -6,8 +6,10 @@
 """
 Run commands when the Scapy interpreter starts.
 """
+from __future__ import print_function
 
-import code,sys
+from __future__ import absolute_import
+import code, sys, importlib
 from scapy.config import conf
 from scapy.themes import *
 from scapy.error import Scapy_Exception
@@ -36,20 +38,23 @@ class ScapyAutorunInterpreter(code.InteractiveInterpreter):
         return code.InteractiveInterpreter.showtraceback(self, *args, **kargs)
 
 
-def autorun_commands(cmds,my_globals=None,verb=0):
+def autorun_commands(cmds, my_globals=None, ignore_globals=None, verb=0):
     sv = conf.verb
-    import __builtin__
+    import six.moves.builtins
     try:
         try:
             if my_globals is None:
-                my_globals = __import__("scapy.all").all.__dict__
+                my_globals = importlib.import_module(".all", "scapy").__dict__
+                if ignore_globals:
+                    for ig in ignore_globals:
+                        my_globals.pop(ig, None)
             conf.verb = verb
             interp = ScapyAutorunInterpreter(my_globals)
             cmd = ""
             cmds = cmds.splitlines()
             cmds.append("") # ensure we finish multi-line commands
             cmds.reverse()
-            __builtin__.__dict__["_"] = None
+            six.moves.builtins.__dict__["_"] = None
             while 1:
                 if cmd:
                     sys.stderr.write(sys.__dict__.get("ps2","... "))
@@ -57,7 +62,7 @@ def autorun_commands(cmds,my_globals=None,verb=0):
                     sys.stderr.write(str(sys.__dict__.get("ps1",ColorPrompt())))
                     
                 l = cmds.pop()
-                print l
+                print(l)
                 cmd += "\n"+l
                 if interp.runsource(cmd):
                     continue
@@ -87,7 +92,7 @@ def autorun_get_interactive_session(cmds, **kargs):
         try:
             sys.stdout = sys.stderr = sw
             res = autorun_commands(cmds, **kargs)
-        except StopAutorun,e:
+        except StopAutorun as e:
             e.code_run = sw.s
             raise
     finally:
@@ -119,7 +124,7 @@ def autorun_get_html_interactive_session(cmds, **kargs):
         try:
             conf.color_theme = HTMLTheme2()
             s,res = autorun_get_interactive_session(cmds, **kargs)
-        except StopAutorun,e:
+        except StopAutorun as e:
             e.code_run = to_html(e.code_run)
             raise
     finally:
@@ -134,11 +139,9 @@ def autorun_get_latex_interactive_session(cmds, **kargs):
         try:
             conf.color_theme = LatexTheme2()
             s,res = autorun_get_interactive_session(cmds, **kargs)
-        except StopAutorun,e:
+        except StopAutorun as e:
             e.code_run = to_latex(e.code_run)
             raise
     finally:
         conf.color_theme = ct
     return to_latex(s),res
-
-

@@ -7,6 +7,8 @@
 TLS session handler.
 """
 
+from __future__ import absolute_import
+from __future__ import print_function
 import random
 import socket
 import struct
@@ -17,6 +19,7 @@ from scapy.packet import Packet
 from scapy.utils import repr_hex
 from scapy.layers.tls.crypto.compression import Comp_NULL
 from scapy.layers.tls.crypto.prf import PRF
+from six.moves import zip
 
 # Note the following import may happen inside connState.__init__()
 # in order to avoid to avoid cyclical dependancies.
@@ -101,10 +104,10 @@ class connState(object):
 
     def debug_repr(self, name, secret):
         if conf.debug_tls and secret:
-            print "%s %s %s: %s" % (self.connection_end,
+            print("%s %s %s: %s" % (self.connection_end,
                                     self.row,
                                     name,
-                                    repr_hex(secret))
+                                    repr_hex(secret)))
 
     def derive_keys(self,
                     client_random="",
@@ -208,7 +211,7 @@ class connState(object):
         def indent(s):
             if s and s[-1] == '\n':
                 s = s[:-1]
-            s = '\n'.join(map(lambda x: '\t'+x, s.split('\n')) + [''])
+            s = '\n'.join(['\t'+x for x in s.split('\n')] + [''])
             return s
 
         res =  "Connection end : %s\n" % self.connection_end.upper()
@@ -378,7 +381,7 @@ class tlsSession(object):
                                                  self.server_random)
         self.master_secret = ms
         if conf.debug_tls:
-            print "master secret: %s" % repr_hex(ms)
+            print("master secret: %s" % repr_hex(ms))
 
     def compute_ms_and_derive_keys(self):
         self.compute_master_secret()
@@ -526,11 +529,11 @@ class _tls_sessions(object):
     def add(self, session):
         s = self.find(session)
         if s:
-            print "TLS session already exists. Not adding..."
+            print("TLS session already exists. Not adding...")
             return
 
         h = session.hash()
-        if self.sessions.has_key(h):
+        if h in self.sessions:
             self.sessions[h].append(session)
         else:
             self.sessions[h] = [session]
@@ -538,7 +541,7 @@ class _tls_sessions(object):
     def rem(self, session):
         s = self.find(session)
         if s:
-            print "TLS session does not exist. Not removing..."
+            print("TLS session does not exist. Not removing...")
             return
 
         h = session.hash()
@@ -546,14 +549,14 @@ class _tls_sessions(object):
 
     def find(self, session):
         h = session.hash()
-        if self.sessions.has_key(h):
+        if h in self.sessions:
             for k in self.sessions[h]:
                 if k.eq(session):
                     if conf.tls_verbose:
-                        print "Found Matching session %s" % k
+                        print("Found Matching session %s" % k)
                     return k
         if conf.tls_verbose:
-            print "Did not find matching session %s" % session
+            print("Did not find matching session %s" % session)
         return None
 
     def __repr__(self):
@@ -566,10 +569,9 @@ class _tls_sessions(object):
                 if len(sid) > 12:
                     sid = sid[:11] + "..."
                 res.append((src, dst, sid))
-        colwidth = map(lambda x: max(map(lambda y: len(y), x)),
-                       apply(zip, res))
-        fmt = "  ".join(map(lambda x: "%%-%ds"%x, colwidth))
-        return "\n".join(map(lambda x: fmt % x, res))
+        colwidth = [max([len(y) for y in x]) for x in zip(*res)]
+        fmt = "  ".join(["%%-%ds"%x for x in colwidth])
+        return "\n".join([fmt % x for x in res])
 
 
 conf.tls_sessions = _tls_sessions()

@@ -7,6 +7,7 @@
 Automata with states, transitions and actions.
 """
 
+from __future__ import absolute_import
 import types,itertools,time,os,sys,socket,traceback
 from select import select
 from collections import deque
@@ -18,6 +19,7 @@ from scapy.plist import PacketList
 from scapy.data import MTU
 from scapy.supersocket import SuperSocket
 from scapy.consts import WINDOWS
+import six
 
 class ObjectPipe:
     def __init__(self):
@@ -43,27 +45,27 @@ class Message:
         self.__dict__.update(args)
     def __repr__(self):
         return "<Message %s>" % " ".join("%s=%r"%(k,v)
-                                         for (k,v) in self.__dict__.iteritems()
+                                         for (k,v) in six.iteritems(self.__dict__)
                                          if not k.startswith("_"))
 
 class _instance_state:
     def __init__(self, instance):
-        self.im_self = instance.im_self
-        self.im_func = instance.im_func
-        self.im_class = instance.im_class
+        self.__self__ = instance.__self__
+        self.__func__ = instance.__func__
+        self.__self__.__class__ = instance.__self__.__class__
     def __getattr__(self, attr):
-        return getattr(self.im_func, attr)
+        return getattr(self.__func__, attr)
 
     def __call__(self, *args, **kargs):
-        return self.im_func(self.im_self, *args, **kargs)
+        return self.__func__(self.__self__, *args, **kargs)
     def breaks(self):
-        return self.im_self.add_breakpoints(self.im_func)
+        return self.__self__.add_breakpoints(self.__func__)
     def intercepts(self):
-        return self.im_self.add_interception_points(self.im_func)
+        return self.__self__.add_interception_points(self.__func__)
     def unbreaks(self):
-        return self.im_self.remove_breakpoints(self.im_func)
+        return self.__self__.remove_breakpoints(self.__func__)
     def unintercepts(self):
-        return self.im_self.remove_interception_points(self.im_func)
+        return self.__self__.remove_interception_points(self.__func__)
         
 
 ##############
@@ -103,16 +105,16 @@ class ATMT:
     def state(initial=0,final=0,error=0):
         def deco(f,initial=initial, final=final):
             f.atmt_type = ATMT.STATE
-            f.atmt_state = f.func_name
+            f.atmt_state = f.__name__
             f.atmt_initial = initial
             f.atmt_final = final
             f.atmt_error = error
             def state_wrapper(self, *args, **kargs):
                 return ATMT.NewStateRequested(f, self, *args, **kargs)
 
-            state_wrapper.func_name = "%s_wrapper" % f.func_name
+            state_wrapper.__name__ = "%s_wrapper" % f.__name__
             state_wrapper.atmt_type = ATMT.STATE
-            state_wrapper.atmt_state = f.func_name
+            state_wrapper.atmt_state = f.__name__
             state_wrapper.atmt_initial = initial
             state_wrapper.atmt_final = final
             state_wrapper.atmt_error = error
@@ -133,7 +135,7 @@ class ATMT:
         def deco(f, state=state):
             f.atmt_type = ATMT.CONDITION
             f.atmt_state = state.atmt_state
-            f.atmt_condname = f.func_name
+            f.atmt_condname = f.__name__
             f.atmt_prio = prio
             return f
         return deco
@@ -142,7 +144,7 @@ class ATMT:
         def deco(f, state=state):
             f.atmt_type = ATMT.RECV
             f.atmt_state = state.atmt_state
-            f.atmt_condname = f.func_name
+            f.atmt_condname = f.__name__
             f.atmt_prio = prio
             return f
         return deco
@@ -151,7 +153,7 @@ class ATMT:
         def deco(f, state=state):
             f.atmt_type = ATMT.IOEVENT
             f.atmt_state = state.atmt_state
-            f.atmt_condname = f.func_name
+            f.atmt_condname = f.__name__
             f.atmt_ioname = name
             f.atmt_prio = prio
             f.atmt_as_supersocket = as_supersocket
@@ -163,7 +165,7 @@ class ATMT:
             f.atmt_type = ATMT.TIMEOUT
             f.atmt_state = state.atmt_state
             f.atmt_timeout = timeout
-            f.atmt_condname = f.func_name
+            f.atmt_condname = f.__name__
             return f
         return deco
 
@@ -231,11 +233,11 @@ class Automaton_metaclass(type):
         while classes:
             c = classes.pop(0) # order is important to avoid breaking method overloading
             classes += list(c.__bases__)
-            for k,v in c.__dict__.iteritems():
+            for k,v in six.iteritems(c.__dict__):
                 if k not in members:
                     members[k] = v
 
-        decorated = [v for v in members.itervalues()
+        decorated = [v for v in six.itervalues(members)
                      if type(v) is types.FunctionType and hasattr(v, "atmt_type")]
         
         for m in decorated:
@@ -268,14 +270,14 @@ class Automaton_metaclass(type):
                     cls.actions[c].append(m)
             
 
-        for v in cls.timeout.itervalues():
+        for v in six.itervalues(cls.timeout):
             v.sort(lambda (t1,f1),(t2,f2): cmp(t1,t2))
             v.append((None, None))
-        for v in itertools.chain(cls.conditions.itervalues(),
-                                 cls.recv_conditions.itervalues(),
-                                 cls.ioevents.itervalues()):
+        for v in itertools.chain(six.itervalues(cls.conditions),
+                                 six.itervalues(cls.recv_conditions),
+                                 six.itervalues(cls.ioevents)):
             v.sort(lambda c1,c2: cmp(c1.atmt_prio,c2.atmt_prio))
-        for condname,actlst in cls.actions.iteritems():
+        for condname,actlst in six.iteritems(cls.actions):
             actlst.sort(lambda c1,c2: cmp(c1.atmt_cond[condname], c2.atmt_cond[condname]))
 
         for ioev in cls.iosupersockets:
@@ -287,7 +289,7 @@ class Automaton_metaclass(type):
         s = 'digraph "%s" {\n'  % self.__class__.__name__
         
         se = "" # Keep initial nodes at the begining for better rendering
-        for st in self.states.itervalues():
+        for st in six.itervalues(self.states):
             if st.atmt_initial:
                 se = ('\t"%s" [ style=filled, fillcolor=blue, shape=box, root=true];\n' % st.atmt_state)+se
             elif st.atmt_final:
@@ -296,8 +298,8 @@ class Automaton_metaclass(type):
                 se += '\t"%s" [ style=filled, fillcolor=red, shape=octagon ];\n' % st.atmt_state
         s += se
 
-        for st in self.states.itervalues():
-            for n in st.atmt_origfunc.func_code.co_names+st.atmt_origfunc.func_code.co_consts:
+        for st in six.itervalues(self.states):
+            for n in st.atmt_origfunc.__code__.co_names+st.atmt_origfunc.__code__.co_consts:
                 if n in self.states:
                     s += '\t"%s" -> "%s" [ color=green ];\n' % (st.atmt_state,n)
             
@@ -306,21 +308,21 @@ class Automaton_metaclass(type):
                       [("red",k,v) for k,v in self.recv_conditions.items()]+
                       [("orange",k,v) for k,v in self.ioevents.items()]):
             for f in v:
-                for n in f.func_code.co_names+f.func_code.co_consts:
+                for n in f.__code__.co_names+f.__code__.co_consts:
                     if n in self.states:
                         l = f.atmt_condname
                         for x in self.actions[f.atmt_condname]:
-                            l += "\\l>[%s]" % x.func_name
+                            l += "\\l>[%s]" % x.__name__
                         s += '\t"%s" -> "%s" [label="%s", color=%s];\n' % (k,n,l,c)
-        for k,v in self.timeout.iteritems():
+        for k,v in six.iteritems(self.timeout):
             for t,f in v:
                 if f is None:
                     continue
-                for n in f.func_code.co_names+f.func_code.co_consts:
+                for n in f.__code__.co_names+f.__code__.co_consts:
                     if n in self.states:
                         l = "%s/%.1fs" % (f.atmt_condname,t)                        
                         for x in self.actions[f.atmt_condname]:
-                            l += "\\l>[%s]" % x.func_name
+                            l += "\\l>[%s]" % x.__name__
                         s += '\t"%s" -> "%s" [label="%s",color=blue];\n' % (k,n,l)
         s += "}\n"
         return do_graph(s, **kargs)
@@ -345,10 +347,7 @@ def select_objects(inputs, remain):
         r,_,_ = select(inputs,[],[],remain)
         return r
 
-class Automaton:
-    __metaclass__ = Automaton_metaclass
-
-    ## Methods to overload
+class Automaton(six.with_metaclass(Automaton_metaclass)):
     def parse_args(self, debug=0, store=1, **kargs):
         self.debug_level=debug
         self.socket_kargs = kargs
@@ -531,16 +530,16 @@ class Automaton:
         try:
             self.debug(5, "Trying %s [%s]" % (cond.atmt_type, cond.atmt_condname))
             cond(self,*args, **kargs)
-        except ATMT.NewStateRequested, state_req:
+        except ATMT.NewStateRequested as state_req:
             self.debug(2, "%s [%s] taken to state [%s]" % (cond.atmt_type, cond.atmt_condname, state_req.state))
             if cond.atmt_type == ATMT.RECV:
                 if self.store_packets:
                     self.packets.append(args[0])
             for action in self.actions[cond.atmt_condname]:
-                self.debug(2, "   + Running action [%s]" % action.func_name)
+                self.debug(2, "   + Running action [%s]" % action.__name__)
                 action(self, *state_req.action_args, **state_req.action_kargs)
             raise
-        except Exception,e:
+        except Exception as e:
             self.debug(2, "%s [%s] raised exception [%s]" % (cond.atmt_type, cond.atmt_condname, e))
             raise
         else:
@@ -585,7 +584,7 @@ class Automaton:
                     elif c.type == _ATMT_Command.STOP:
                         break
                     while True:
-                        state = iterator.next()
+                        state = next(iterator)
                         if isinstance(state, self.CommandMessage):
                             break
                         elif isinstance(state, self.Breakpoint):
@@ -596,10 +595,10 @@ class Automaton:
                             c = Message(type=_ATMT_Command.SINGLESTEP,state=state)
                             self.cmdout.send(c)
                             break
-            except StopIteration,e:
+            except StopIteration as e:
                 c = Message(type=_ATMT_Command.END, result=e.args[0])
                 self.cmdout.send(c)
-            except Exception,e:
+            except Exception as e:
                 exc_info = sys.exc_info()
                 self.debug(3, "Transfering exception from tid=%i:\n%s"% (self.threadid, traceback.format_exc(exc_info)))
                 m = Message(type=_ATMT_Command.EXCEPTION, exception=e, exc_info=exc_info)
@@ -643,7 +642,7 @@ class Automaton:
     
                 # Finally listen and pay attention to timeouts
                 expirations = iter(self.timeout[self.state.state])
-                next_timeout,timeout_func = expirations.next()
+                next_timeout,timeout_func = next(expirations)
                 t0 = time.time()
                 
                 fds = [self.cmdin]
@@ -656,7 +655,7 @@ class Automaton:
                     if next_timeout is not None:
                         if next_timeout <= t:
                             self._run_condition(timeout_func, *state_output)
-                            next_timeout,timeout_func = expirations.next()
+                            next_timeout,timeout_func = next(expirations)
                     if next_timeout is None:
                         remain = None
                     else:
@@ -684,7 +683,7 @@ class Automaton:
                                 if ioevt.atmt_ioname == fd.ioname:
                                     self._run_condition(ioevt, fd, *state_output)
     
-            except ATMT.NewStateRequested,state_req:
+            except ATMT.NewStateRequested as state_req:
                 self.debug(2, "switching from [%s] to [%s]" % (self.state.state,state_req.state))
                 self.state = state_req
                 yield state_req
@@ -737,7 +736,7 @@ class Automaton:
             elif c.type == _ATMT_Command.BREAKPOINT:
                 raise self.Breakpoint("breakpoint triggered on state [%s]"%c.state.state, state=c.state.state)
             elif c.type == _ATMT_Command.EXCEPTION:
-                raise c.exc_info[0],c.exc_info[1],c.exc_info[2]
+                six.reraise(c.exc_info[0], c.exc_info[1], c.exc_info[2])
 
     def runbg(self, resume=None, wait=False):
         self.run(resume, wait)

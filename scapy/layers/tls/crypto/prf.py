@@ -7,11 +7,13 @@
 TLS Pseudorandom Function.
 """
 
+from __future__ import absolute_import
 from scapy.error import warning
 from scapy.utils import strxor
 
 from scapy.layers.tls.crypto.hash import tls_hash_algs
 from scapy.layers.tls.crypto.h_mac import tls_hmac_algs
+from six.moves import range
 
 
 ### Data expansion functions

@@ -11,9 +11,12 @@ Answering machines.
 ## Answering machines ##
 ########################
 
+from __future__ import absolute_import
+from __future__ import print_function
 from scapy.sendrecv import send,sendp,sniff
 from scapy.config import conf
 from scapy.error import log_interactive
+import six
 
 class ReferenceAM(type):
     def __new__(cls, name, bases, dct):
@@ -23,8 +26,7 @@ class ReferenceAM(type):
         return o
 
 
-class AnsweringMachine(object):
-    __metaclass__ = ReferenceAM
+class AnsweringMachine(six.with_metaclass(ReferenceAM, object)):
     function_name = ""
     filter = None
     sniff_options = { "store":0 }
@@ -53,7 +55,7 @@ class AnsweringMachine(object):
         for d in [self.optam2, self.optam1]:
             if attr in d:
                 return d[attr]
-        raise AttributeError,attr
+        raise AttributeError(attr)
                 
     def __setattr__(self, attr, val):
         mode = self.__dict__.get("mode",0)
@@ -99,7 +101,7 @@ class AnsweringMachine(object):
         self.send_function(reply, **self.optsend)
 
     def print_reply(self, req, reply):
-        print "%s ==> %s" % (req.summary(),reply.summary())
+        print("%s ==> %s" % (req.summary(),reply.summary()))
 
     def reply(self, pkt):
         if not self.is_request(pkt):
@@ -123,7 +125,7 @@ class AnsweringMachine(object):
         try:
             self.sniff()
         except KeyboardInterrupt:
-            print "Interrupted by user"
+            print("Interrupted by user")
         
     def sniff(self):
         sniff(**self.optsniff)

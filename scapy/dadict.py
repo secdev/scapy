@@ -7,7 +7,10 @@
 Direct Access dictionary.
 """
 
+from __future__ import absolute_import
+from __future__ import print_function
 from scapy.error import Scapy_Exception
+import six
 
 ###############################
 ## Direct Access dictionary  ##
@@ -35,13 +38,13 @@ class DADict:
     def __setitem__(self, attr, val):        
         return setattr(self, self.fixname(attr), val)
     def __iter__(self):
-        return iter(map(lambda (x,y):y,filter(lambda (x,y):x and x[0]!="_", self.__dict__.items())))
+        return iter([x_y1[1] for x_y1 in [x_y for x_y in list(self.__dict__.items()) if x_y[0] and x_y[0][0]!="_"]])
     def _show(self):
         for k in self.__dict__.keys():
             if k and k[0] != "_":
-                print "%10s = %r" % (k,getattr(self,k))
+                print("%10s = %r" % (k,getattr(self,k)))
     def __repr__(self):
-        return "<%s/ %s>" % (self._name," ".join(filter(lambda x:x and x[0]!="_",self.__dict__.keys())))
+        return "<%s/ %s>" % (self._name," ".join([x for x in list(self.__dict__.keys()) if x and x[0]!="_"]))
 
     def _branch(self, br, uniq=0):
         if uniq and br._name in self:
@@ -57,7 +60,7 @@ class DADict:
         return True
 
     def update(self, *args, **kwargs):
-        for k, v in dict(*args, **kwargs).iteritems():
+        for k, v in six.iteritems(dict(*args, **kwargs)):
             self[k] = v
     
     def _find(self, *args, **kargs):
@@ -87,6 +90,6 @@ class DADict:
                 r += p
         return r
     def keys(self):
-        return list(self.iterkeys())
+        return list(six.iterkeys(self))
     def iterkeys(self):
         return (x for x in self.__dict__ if x and x[0] != "_")

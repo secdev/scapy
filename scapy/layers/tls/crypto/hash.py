@@ -7,7 +7,9 @@
 Hash classes.
 """
 
+from __future__ import absolute_import
 from hashlib import md5, sha1, sha224, sha256, sha384, sha512
+import six
 
 
 tls_hash_algs = {}
@@ -27,9 +29,7 @@ class _GenericHashMetaclass(type):
         return the_class
 
 
-class _GenericHash(object):
-    __metaclass__ = _GenericHashMetaclass
-
+class _GenericHash(six.with_metaclass(_GenericHashMetaclass, object)):
     def digest(self, tbd):
         return self.hash_cls(tbd).digest()
 

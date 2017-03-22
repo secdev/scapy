@@ -7,6 +7,7 @@
 # VXLAN Group Policy Option:
 # http://tools.ietf.org/html/draft-smith-vxlan-group-policy-00
 
+from __future__ import absolute_import
 from scapy.packet import Packet, bind_layers
 from scapy.layers.l2 import Ether
 from scapy.layers.inet import IP, UDP

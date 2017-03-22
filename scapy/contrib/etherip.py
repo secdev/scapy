@@ -4,6 +4,7 @@
 # scapy.contrib.description = EtherIP
 # scapy.contrib.status = loads
 
+from __future__ import absolute_import
 from scapy.fields import BitField
 from scapy.packet import Packet, bind_layers
 from scapy.layers.inet import IP

@@ -7,6 +7,8 @@
 Wireless LAN according to IEEE 802.11.
 """
 
+from __future__ import absolute_import
+from __future__ import print_function
 import re,struct
 from zlib import crc32
 
@@ -470,7 +472,7 @@ iwconfig wlan0 mode managed
         return [p,q]
     
     def print_reply(self):
-        print self.sprintf("Sent %IP.src%:%IP.sport% > %IP.dst%:%TCP.dport%")
+        print(self.sprintf("Sent %IP.src%:%IP.sport% > %IP.dst%:%TCP.dport%"))
 
     def send_reply(self, reply):
         sendp(reply, iface=self.ifto, **self.optsend)
@@ -528,7 +530,7 @@ iwconfig wlan0 mode managed
         q.getlayer(TCP).seq+=len(replace)
         
         sendp([p,q], iface=ifto, verbose=0)
-        print p.sprintf("Sent %IP.src%:%IP.sport% > %IP.dst%:%TCP.dport%")
+        print(p.sprintf("Sent %IP.src%:%IP.sport% > %IP.dst%:%TCP.dport%"))
 
     sniff(iface=iffrom,prn=do_airpwn)
 
@@ -547,7 +549,7 @@ class Dot11PacketList(PacketList):
 
         PacketList.__init__(self, res, name, stats)
     def toEthernet(self):
-        data = map(lambda x:x.getlayer(Dot11), filter(lambda x : x.haslayer(Dot11) and x.type == 2, self.res))
+        data = [x.getlayer(Dot11) for x in [x for x in self.res if x.haslayer(Dot11) and x.type == 2]]
         r2 = []
         for p in data:
             q = p.copy()

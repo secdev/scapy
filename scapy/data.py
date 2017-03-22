@@ -7,6 +7,7 @@
 Global variables and functions for handling external data sets.
 """
 
+from __future__ import absolute_import
 import os,sys,re
 from scapy.dadict import DADict
 from scapy.error import log_loading
@@ -73,7 +74,7 @@ def load_protocols(filename):
                 if len(lt) < 2 or not lt[0]:
                     continue
                 dct[lt[0]] = int(lt[1])
-            except Exception,e:
+            except Exception as e:
                 log_loading.info("Couldn't parse file [%s]: line [%r] (%s)" % (filename,l,e))
     except IOError:
         log_loading.info("Can't open %s file" % filename)
@@ -96,10 +97,10 @@ def load_ethertypes(filename):
                 if len(lt) < 2 or not lt[0]:
                     continue
                 dct[lt[0]] = int(lt[1], 16)
-            except Exception,e:
+            except Exception as e:
                 log_loading.info("Couldn't parse file [%s]: line [%r] (%s)" % (filename,l,e))
         f.close()
-    except IOError,msg:
+    except IOError as msg:
         pass
     return dct
 
@@ -124,7 +125,7 @@ def load_services(filename):
                     tdct[lt[0]] = int(lt[1].split('/')[0])
                 elif lt[1].endswith("/udp"):
                     udct[lt[0]] = int(lt[1].split('/')[0])
-            except Exception,e:
+            except Exception as e:
                 log_loading.warning("Couldn't file [%s]: line [%r] (%s)" % (filename,l,e))
         f.close()
     except IOError:
@@ -167,7 +168,7 @@ def load_manuf(filename):
                 else:
                     lng = l[i+2:]
                 manufdb[oui] = shrt, lng
-            except Exception,e:
+            except Exception as e:
                 log_loading.warning("Couldn't parse one line from [%s] [%r] (%s)" % (filename, l, e))
     except IOError:
         log_loading.warning("Couldn't open [%s] file" % filename)
