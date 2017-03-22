@@ -15,7 +15,7 @@ install:
   - choco install -y npcap wireshark
   - ps: .\.appveyor\InstallWindump.ps1
   # Install Python modules
-  - "%PYTHON%\\python -m pip install cryptography coverage mock pyreadline"
+  - "%PYTHON%\\python -m pip install cryptography coverage mock pyreadline six"
   - set PATH="%PYTHON%\\Scripts\\;%PATH%"
 
 test_script:
