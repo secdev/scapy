@@ -509,7 +509,7 @@ class EAP(Packet):
         return p + pay
 
 
-class EAP_MD5(Packet):
+class EAP_MD5(EAP):
 
     """
     RFC 3748 - "Extensible Authentication Protocol (EAP)"
@@ -517,9 +517,14 @@ class EAP_MD5(Packet):
 
     name = "EAP-MD5"
     fields_desc = [
-        ByteField("value_size", 0),
-        StrFixedLenField("value", 0, length=16), # MD5 hash length
-        StrLenField("optional_name", "", length_from=lambda p: p.value_size - 16)
+        ByteEnumField("code", 1, eap_codes),
+        ByteField("id", 0),
+        FieldLenField("len", None, fmt="H", length_of="optional_name",
+                      adjust=lambda p, x: x + p.value_size + 6),
+        ByteEnumField("type", 4, eap_types),
+        FieldLenField("value_size", None, fmt="B", length_of="value"),
+        StrLenField("value", '', length_from=lambda p: p.value_size),
+        StrLenField("optional_name", '', length_from=lambda p: p.len - p.value_size - 6)
     ]
 
 
@@ -1093,7 +1098,6 @@ bind_layers( GRErouting,    conf.raw_layer,{ "address_family" : 0, "SRE_len" : 0
 bind_layers( GRErouting,    GRErouting,    { } )
 bind_layers( EAPOL,         EAP,           type=0)
 bind_layers( EAPOL,         MKAPDU,        type=5)
-bind_layers( EAP,           EAP_MD5,       type=4)
 bind_layers( LLC,           STP,           dsap=66, ssap=66, ctrl=3)
 bind_layers( LLC,           SNAP,          dsap=170, ssap=170, ctrl=3)
 bind_layers( SNAP,          Dot1Q,         code=33024)
