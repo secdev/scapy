@@ -491,7 +491,10 @@ assert(x.PDU.varbindlist[2].value == 1)
 
 = Sending and receiving an ICMP
 ~ netaccess IP ICMP
-x=sr1(IP(dst="www.google.com")/ICMP(),timeout=3)
+old_debug_dissector = conf.debug_dissector
+conf.debug_dissector = False
+x = sr1(IP(dst="www.google.com")/ICMP(),timeout=3)
+conf.debug_dissector = old_debug_dissector
 x
 assert x[IP].ottl() in [32, 64, 128, 255]
 assert 0 <= x[IP].hops() <= 126
@@ -501,7 +504,10 @@ x is not None and ICMP in x and x[ICMP].type == 0
 ~ netaccess IP UDP DNS
 * A possible cause of failure could be that the open DNS (resolver1.opendns.com)
 * is not reachable or down.
+old_debug_dissector = conf.debug_dissector
+conf.debug_dissector = False
 dns_ans = sr1(IP(dst="resolver1.opendns.com")/UDP()/DNS(rd=1,qd=DNSQR(qname="www.slashdot.com")),timeout=5)
+conf.debug_dissector = old_debug_dissector
 DNS in dns_ans
 
 = Whois request
@@ -579,7 +585,10 @@ len(_) == 12
 
 = Port scan
 ~ netaccess IP TCP
+old_debug_dissector = conf.debug_dissector
+conf.debug_dissector = False
 ans,unans=sr(IP(dst="www.google.com/30")/TCP(dport=[80,443]),timeout=2)
+conf.debug_dissector = old_debug_dissector
 ans.make_table(lambda (s,r): (s.dst, s.dport, r.sprintf("{TCP:%TCP.flags%}{ICMP:%ICMP.code%}")))
 
 = Traceroute function
