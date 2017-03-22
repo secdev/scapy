@@ -7,7 +7,7 @@
 Packet sending and receiving with libdnet and libpcap/WinPcap.
 """
 
-import time,struct,sys
+import time, struct, sys, platform
 import socket
 if not sys.platform.startswith("win"):
     from fcntl import ioctl
@@ -18,32 +18,44 @@ from scapy.utils import mac2str
 from scapy.supersocket import SuperSocket
 from scapy.error import Scapy_Exception, log_loading, warning
 import scapy.arch
+import scapy.consts
 
 if conf.use_winpcapy:
   #mostly code from https://github.com/phaethon/scapy translated to python2.X
   try:
-    from scapy.arch.winpcapy import *
-    def winpcapy_get_if_list():
-      err = create_string_buffer(PCAP_ERRBUF_SIZE)
-      devs = POINTER(pcap_if_t)()
-      ret = []
-      if pcap_findalldevs(byref(devs), err) < 0:
-        return ret
-      try:
-        p = devs
-        while p:
-          ret.append(p.contents.name.decode('ascii'))
-          p = p.contents.next
-        return ret
-      finally:
-        pcap_freealldevs(devs)
-
+      from scapy.arch.winpcapy import *
+      def winpcapy_get_if_list():
+          err = create_string_buffer(PCAP_ERRBUF_SIZE)
+          devs = POINTER(pcap_if_t)()
+          ret = []
+          if pcap_findalldevs(byref(devs), err) < 0:
+              return ret
+          try:
+              p = devs
+              while p:
+                  ret.append(p.contents.name.decode('ascii'))
+                  p = p.contents.next
+              return ret
+          except:
+              raise
+          finally:
+              pcap_freealldevs(devs)
+      # Detect Pcap version
+      version = pcap_lib_version()
+      if "winpcap" in version.lower():
+          if os.path.exists(os.environ["WINDIR"] + "\\System32\\Npcap\\wpcap.dll"):
+              warning("Winpcap is installed over Npcap. Will use Winpcap (see 'Winpcap/Npcap conflicts' in scapy's docs)", True)
+          elif platform.release() != "XP":
+              warning("WinPcap is now deprecated (not maintened). Please use Npcap instead", True)
+      elif "npcap" in version.lower():
+          conf.use_npcap = True
+          LOOPBACK_NAME = scapy.consts.LOOPBACK_NAME = "Npcap Loopback Adapter"
   except OSError as e:
-    def winpcapy_get_if_list():
-        return []
-    conf.use_winpcapy = False
-    if conf.interactive:
-      log_loading.warning("wpcap.dll is not installed. You won't be able to send/recieve packets. Visit the scapy's doc to install it")
+      def winpcapy_get_if_list():
+          return []
+      conf.use_winpcapy = False
+      if conf.interactive:
+          log_loading.warning("wpcap.dll is not installed. You won't be able to send/recieve packets. Visit the scapy's doc to install it")
 
   # From BSD net/bpf.h
   #BIOCIMMEDIATE=0x80044270

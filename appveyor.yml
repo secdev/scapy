@@ -11,11 +11,11 @@ environment:
 build: off
 
 install:
-  # Install the winpcap, windump and wireshark suites
-  - choco install -y winpcap wireshark
-  - ps: wget http://www.winpcap.org/windump/install/bin/windump_3_9_5/WinDump.exe -UseBasicParsing -OutFile C:\Windows\System32\windump.exe
+  # Install the npcap, windump and wireshark suites
+  - choco install -y npcap wireshark
+  - ps: .\.appveyor\InstallWindump.ps1
   # Install Python modules
-  - "%PYTHON%\\python -m pip install cryptography coverage mock pyreadline keyboard"
+  - "%PYTHON%\\python -m pip install cryptography coverage mock pyreadline"
   - set PATH="%PYTHON%\\Scripts\\;%PATH%"
 
 test_script:

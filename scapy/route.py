@@ -32,13 +32,18 @@ class Route:
         self.routes = read_routes()
 
     def __repr__(self):
-        rt = "Network         Netmask         Gateway         Iface           Output IP\n"
+        rtlst = [("Network", "Netmask", "Gateway", "Iface", "Output IP")]
+        
         for net,msk,gw,iface,addr in self.routes:
-            rt += "%-15s %-15s %-15s %-15s %-15s\n" % (ltoa(net),
-                                              ltoa(msk),
-                                              gw,
-                                              (iface.name if not isinstance(iface, basestring) else iface),
-                                              addr)
+	    rtlst.append((ltoa(net),
+                      ltoa(msk),
+                      gw,
+                      (iface.name if not isinstance(iface, basestring) else iface),
+                      addr))
+        
+        colwidth = map(lambda x: max(map(lambda y: len(y), x)), apply(zip, rtlst))
+        fmt = "  ".join(map(lambda x: "%%-%ds"%x, colwidth))
+        rt = "\n".join(map(lambda x: fmt % x, rtlst))
         return rt
 
     def make_route(self, host=None, net=None, gw=None, dev=None):
