@@ -32,9 +32,7 @@ import scapy.as_resolvers
 
 from scapy.arch import plt, MATPLOTLIB_INLINED, MATPLOTLIB_DEFAULT_PLOT_KARGS
 import six
-from six.moves import map
-from six.moves import range
-from six.moves import zip
+from six.moves import map, range, zip
 
 ####################
 ## IP Tools class ##
@@ -1066,8 +1064,8 @@ class TracerouteResult(SndRcvList):
 
     def show(self):
         return self.make_table(lambda s_r: (s_r[0].sprintf("%IP.dst%:{TCP:tcp%ir,TCP.dport%}{UDP:udp%ir,UDP.dport%}{ICMP:ICMP}"),
-                                              s_r[0].ttl,
-                                              s_r[1].sprintf("%-15s,IP.src% {TCP:%TCP.flags%}{ICMP:%ir,ICMP.type%}")))
+                                            s_r[0].ttl,
+                                            s_r[1].sprintf("%-15s,IP.src% {TCP:%TCP.flags%}{ICMP:%ir,ICMP.type%}")))
 
 
     def get_trace(self):

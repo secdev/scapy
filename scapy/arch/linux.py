@@ -147,7 +147,7 @@ def attach_filter(s, bpf_filter, iface):
     nb = int(lines[0])
     bpf = ""
     for l in lines[1:]:
-        bpf += struct.pack("HBBI",*list(map(int,l.split())))
+        bpf += struct.pack("HBBI",*map(int,l.split()))
 
     # XXX. Argl! We need to give the kernel a pointer on the BPF,
     # python object header seems to be 20 bytes. 36 bytes for x86 64bits arch.
