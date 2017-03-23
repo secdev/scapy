@@ -16,7 +16,7 @@ from scapy.data import *
 from scapy import base_classes
 from scapy import themes
 from scapy.error import log_scapy
-import six
+import scapy.modules.six as six
 
 ############
 ## Config ##

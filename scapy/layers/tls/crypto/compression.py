@@ -11,7 +11,7 @@ from __future__ import absolute_import
 import zlib
 
 from scapy.error import warning
-import six
+import scapy.modules.six as six
 
 
 _tls_compression_algs = {}

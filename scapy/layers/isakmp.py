@@ -16,7 +16,7 @@ from scapy.ansmachine import *
 from scapy.layers.inet import IP,UDP
 from scapy.sendrecv import sr
 from scapy.error import warning
-from six.moves import map
+from scapy.modules.six.moves import map
 from functools import reduce
 
 

@@ -16,7 +16,7 @@ from scapy.arch import WINDOWS
 from scapy.error import warning
 from scapy.layers.inet import IP, TCP, UDP, ICMP, UDPerror, IPerror
 from scapy.sendrecv import sr
-import six
+import scapy.modules.six as six
 
 
 if WINDOWS:

@@ -14,7 +14,8 @@ Generators and packet meta classes.
 from __future__ import absolute_import
 import re,random,socket
 import types
-from six.moves import map, range, zip
+import scapy.modules.six as six
+from scapy.modules.six.moves import map, range, zip
 
 class Gen(object):
     __slots__ = []

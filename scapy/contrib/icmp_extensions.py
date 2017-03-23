@@ -6,7 +6,7 @@ from scapy.layers.inet import IP, ICMP
 from scapy.layers.inet6 import IP6Field
 from scapy.error import warning
 from scapy.contrib.mpls import MPLS
-import six
+import scapy.modules.six as six
 
 
 class ICMPExtensionObject(Packet):

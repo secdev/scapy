@@ -16,9 +16,8 @@ from scapy.config import conf
 from scapy.error import Scapy_Exception, warning
 from scapy.volatile import RandField, RandIP
 from scapy.utils import Enum_metaclass, EnumElement, binrepr
-import six
-from six.moves import range
-from six.moves import zip
+import scapy.modules.six as six
+from scapy.modules.six.moves import range, zip
 
 class RandASN1Object(RandField):
     def __init__(self, objlist=None):

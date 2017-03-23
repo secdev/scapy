@@ -26,7 +26,7 @@ from __future__ import absolute_import
 from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.inet6 import *
-from six.moves import range
+from scapy.modules.six.moves import range
 
 
 #####################################################################

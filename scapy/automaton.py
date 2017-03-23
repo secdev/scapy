@@ -19,7 +19,7 @@ from scapy.plist import PacketList
 from scapy.data import MTU
 from scapy.supersocket import SuperSocket
 from scapy.consts import WINDOWS
-import six
+import scapy.modules.six as six
 
 class ObjectPipe:
     def __init__(self):

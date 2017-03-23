@@ -10,7 +10,7 @@ Direct Access dictionary.
 from __future__ import absolute_import
 from __future__ import print_function
 from scapy.error import Scapy_Exception
-import six
+import scapy.modules.six as six
 
 ###############################
 ## Direct Access dictionary  ##

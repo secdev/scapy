@@ -9,7 +9,7 @@ Hash classes.
 
 from __future__ import absolute_import
 from hashlib import md5, sha1, sha224, sha256, sha384, sha512
-import six
+import scapy.modules.six as six
 
 
 tls_hash_algs = {}

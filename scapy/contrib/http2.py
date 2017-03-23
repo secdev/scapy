@@ -31,8 +31,8 @@ import types
 import re
 import StringIO
 import struct
-import six
-from six.moves import range
+import scapy.modules.six as six
+from scapy.modules.six.moves import range
 
 # Only required if using mypy-lang for static typing
 # Most symbols are used in mypy-interpreted "comments".

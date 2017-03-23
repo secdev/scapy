@@ -11,7 +11,7 @@ from __future__ import absolute_import
 import hmac
 
 from scapy.layers.tls.crypto.hash import tls_hash_algs
-import six
+import scapy.modules.six as six
 
 
 SSLv3_PAD1_MD5  = b"\x36"*48

@@ -20,9 +20,8 @@ from scapy.utils import atol, itom, inet_aton, inet_ntoa, PcapReader
 from scapy.base_classes import Gen, Net, SetGen
 from scapy.data import MTU, ETHER_BROADCAST, ETH_P_ARP
 from scapy.consts import LOOPBACK_NAME
-import six
-from six.moves import range
-from six.moves import zip
+import scapy.modules.six as six
+from scapy.modules.six.moves import range, zip
 
 conf.use_pcap = False
 conf.use_dnet = False

@@ -11,7 +11,7 @@ from __future__ import absolute_import
 from scapy.config import conf
 from scapy.error import log_loading
 import logging
-import six
+import scapy.modules.six as six
 log = logging.getLogger("scapy.loading")
 
 __all__ = []

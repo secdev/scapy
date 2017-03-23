@@ -11,16 +11,14 @@ from __future__ import absolute_import
 from __future__ import print_function
 import os, sys, socket, types
 import random, time
-import gzip, zlib, six.moves.cPickle
+import gzip, zlib
 import re, struct, array
 import subprocess
 import tempfile
 
 import warnings
-import six
-from six.moves import map
-from six.moves import range
-from six.moves import input
+import scapy.modules.six as six
+from scapy.modules.six.moves import map, range, input
 warnings.filterwarnings("ignore","tempnam",RuntimeWarning, __name__)
 
 from scapy.config import conf

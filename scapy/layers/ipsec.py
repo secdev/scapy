@@ -54,8 +54,8 @@ from scapy.packet import Packet, bind_layers, Raw
 from scapy.layers.inet import IP, UDP
 from scapy.layers.inet6 import (IPv6, IPv6ExtHdrHopByHop, IPv6ExtHdrDestOpt,
                                 IPv6ExtHdrRouting)
-import six
-from six.moves import range
+import scapy.modules.six as six
+from scapy.modules.six.moves import range
 
 
 #------------------------------------------------------------------------------

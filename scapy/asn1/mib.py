@@ -14,7 +14,7 @@ from glob import glob
 from scapy.dadict import DADict,fixname
 from scapy.config import conf
 from scapy.utils import do_graph
-import six
+import scapy.modules.six as six
 
 #################
 ## MIB parsing ##

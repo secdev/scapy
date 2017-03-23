@@ -22,7 +22,7 @@ from scapy.supersocket import SuperSocket
 import scapy.arch
 from scapy.error import warning, Scapy_Exception, log_interactive, log_loading
 from scapy.arch.common import get_if
-from six.moves import map
+from scapy.modules.six.moves import map
 
 
 

@@ -16,7 +16,7 @@ from __future__ import print_function
 from scapy.sendrecv import send,sendp,sniff
 from scapy.config import conf
 from scapy.error import log_interactive
-import six
+import scapy.modules.six as six
 
 class ReferenceAM(type):
     def __new__(cls, name, bases, dct):

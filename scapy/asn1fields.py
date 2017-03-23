@@ -16,9 +16,8 @@ from scapy.volatile import *
 from scapy.base_classes import BasePacket
 from scapy.utils import binrepr
 from scapy import packet
-import six
-from six.moves import map
-from six.moves import range
+import scapy.modules.six as six
+from scapy.modules.six.moves import map, range
 from functools import reduce
 
 class ASN1F_badsequence(Exception):

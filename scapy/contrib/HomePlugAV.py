@@ -2,7 +2,7 @@ from __future__ import absolute_import
 from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.l2 import Ether
-from six.moves import range
+from scapy.modules.six.moves import range
 
 """
     Copyright (C) HomePlugAV Layer for Scapy by FlUxIuS (Sebastien Dudek)

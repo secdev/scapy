@@ -7,12 +7,12 @@
 
 from __future__ import absolute_import
 from __future__ import print_function
-import os, six.moves._thread, select
+import os, select
 import subprocess
 import itertools
 import collections
 import time
-import six.moves.queue
+import scapy.modules.six as six
 import scapy.utils
 
 from scapy.error import log_interactive, warning

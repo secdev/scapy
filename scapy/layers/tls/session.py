@@ -19,7 +19,7 @@ from scapy.packet import Packet
 from scapy.utils import repr_hex
 from scapy.layers.tls.crypto.compression import Comp_NULL
 from scapy.layers.tls.crypto.prf import PRF
-from six.moves import zip
+from scapy.modules.six.moves import zip
 
 # Note the following import may happen inside connState.__init__()
 # in order to avoid to avoid cyclical dependancies.

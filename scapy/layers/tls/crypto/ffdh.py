@@ -14,7 +14,7 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import dh
 
 from scapy.utils import long_converter
-import six
+import scapy.modules.six as six
 
 
 class modp768: # From RFC 4306
