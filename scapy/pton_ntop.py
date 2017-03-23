@@ -13,7 +13,7 @@ without IPv6 support, on Windows for instance.
 from __future__ import absolute_import
 import socket
 import re
-from six.moves import range
+from scapy.modules.six.moves import range
 
 _IP6_ZEROS = re.compile('(?::|^)(0(?::0)+)(?::|$)')
 _INET6_PTON_EXC = socket.error("illegal IP address string passed to inet_pton")

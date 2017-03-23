@@ -27,7 +27,7 @@ import socket
 from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.inet6 import icmp6typescls, _ICMPv6NDGuessPayload, Net6
-from six.moves import map
+from scapy.modules.six.moves import map
 
 send_icmp6typescls = { 11: "ICMPv6NDOptCGA",
                        12: "ICMPv6NDOptRsaSig",

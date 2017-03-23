@@ -36,7 +36,7 @@ from scapy.fields import BitEnumField, BitField, ByteField,\
 
 # local imports
 from scapy.contrib.pnio import ProfinetIO
-from six.moves import range
+from scapy.modules.six.moves import range
 
 
 #####################################

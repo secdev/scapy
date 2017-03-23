@@ -37,7 +37,7 @@ from scapy.layers.tls.crypto.suites import (_tls_cipher_suites,
                                             _GenericCipherSuite,
                                             _GenericCipherSuiteMetaclass,
                                             TLS_DHE_RSA_WITH_AES_128_CBC_SHA)
-from six.moves import map
+from scapy.modules.six.moves import map
 
 
 ###############################################################################

@@ -9,7 +9,7 @@ Functions to send and receive packets.
 
 from __future__ import absolute_import
 import errno
-import six.moves.cPickle,os,sys,time,subprocess
+import os, sys, time, subprocess
 import itertools
 from select import select, error as select_error
 
@@ -22,9 +22,8 @@ from scapy import plist
 from scapy.error import log_runtime, log_interactive, warning
 from scapy.base_classes import SetGen
 from scapy.supersocket import StreamSocket
-import six
-from six.moves import map
-from six.moves import zip
+import scapy.modules.six as six
+from scapy.modules.six.moves import map, zip
 if conf.route is None:
     # unused import, only to initialize conf.route
     import scapy.route

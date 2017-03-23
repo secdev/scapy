@@ -30,9 +30,8 @@ import os
 import time
 
 from scapy.config import conf, crypto_validator
-from six.moves import map
-import six
-from six.moves import range
+import scapy.modules.six as six
+from scapy.modules.six.moves import map, range
 if conf.crypto_valid:
     from cryptography.hazmat.backends import default_backend
     from cryptography.hazmat.primitives import serialization

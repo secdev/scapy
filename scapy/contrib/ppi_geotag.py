@@ -27,8 +27,8 @@ from scapy.packet import *
 from scapy.fields import *
 from scapy.contrib.ppi import PPIGenericFldHdr,addPPIType
 from scapy.error import warning
-import six
-from six.moves import range
+import scapy.modules.six as six
+from scapy.modules.six.moves import range
 
 CURR_GEOTAG_VER = 2 #Major revision of specification
 

@@ -23,7 +23,7 @@ from cryptography.exceptions import InvalidTag
 
 from scapy.layers.tls.crypto.pkcs1 import pkcs_i2osp, pkcs_os2ip
 from scapy.layers.tls.crypto.ciphers import CipherError
-import six
+import scapy.modules.six as six
 
 
 tls_aead_cipher_algs = {}

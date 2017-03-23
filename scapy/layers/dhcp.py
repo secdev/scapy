@@ -23,8 +23,8 @@ from scapy.volatile import RandField
 from scapy.arch import get_if_raw_hwaddr
 from scapy.sendrecv import *
 from scapy.error import warning
-import six
-from six.moves import range
+import scapy.modules.six as six
+from scapy.modules.six.moves import range
 
 dhcpmagic=b"c\x82Sc"
 

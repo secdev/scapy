@@ -37,9 +37,8 @@ from scapy.layers.inet import TCP
 from scapy.layers.inet6 import IP6Field
 from scapy.config import conf, ConfClass
 from scapy.error import log_runtime
-from six.moves import map
-import six
-from six.moves import range
+from scapy.modules.six.moves import map, range
+import scapy.modules.six as six
 
 
 #

@@ -21,7 +21,7 @@ import struct
 from ctypes import cdll, cast, pointer, POINTER, Structure
 from ctypes import c_uint, c_uint32, c_int, c_ulong, c_char_p, c_ushort, c_ubyte
 from ctypes.util import find_library
-from six.moves import range
+from scapy.modules.six.moves import range
 
 
 # ctypes definitions

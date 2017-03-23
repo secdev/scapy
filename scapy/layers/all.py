@@ -7,13 +7,12 @@
 All layers. Configurable with conf.load_layers.
 """
 
-import __builtin__
 from __future__ import absolute_import
 from scapy.config import conf
 from scapy.error import log_loading
 import logging, importlib
-ignored = list(__builtin__.__dict__.keys()) + ["sys"]
-import six
+import scapy.modules.six as six
+ignored = list(six.moves.builtins.__dict__.keys()) + ["sys"]
 log = logging.getLogger("scapy.loading")
 
 __all__ = []

@@ -23,8 +23,8 @@ from scapy.layers.inet6 import IP6Field
 from scapy.layers.inet import UDP
 from scapy.utils import lhex
 from scapy.config import conf
-import six
-from six.moves import range
+import scapy.modules.six as six
+from scapy.modules.six.moves import range
 
 
 

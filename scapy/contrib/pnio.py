@@ -25,7 +25,7 @@ A simple and non exhaustive Profinet IO layer for scapy
 from __future__ import absolute_import
 from scapy.all import Packet, bind_layers, Ether, UDP
 from scapy.fields import XShortEnumField
-from six.moves import range
+from scapy.modules.six.moves import range
 
 # Some constants
 PNIO_FRAME_IDS = {

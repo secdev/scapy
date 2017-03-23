@@ -12,6 +12,7 @@ from scapy.config import conf
 from scapy.themes import *
 from scapy.error import Scapy_Exception
 from scapy.utils import tex_escape
+import scapy.modules.six as six
 
 
 #########################
@@ -38,7 +39,6 @@ class ScapyAutorunInterpreter(code.InteractiveInterpreter):
 
 def autorun_commands(cmds, my_globals=None, ignore_globals=None, verb=0):
     sv = conf.verb
-    import six.moves.builtins
     try:
         try:
             if my_globals is None:

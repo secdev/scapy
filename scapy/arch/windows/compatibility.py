@@ -24,8 +24,8 @@ from scapy.utils import PcapReader, tcpdump
 from scapy.arch.pcapdnet import PcapTimeoutElapsed
 from scapy.error import log_runtime
 from scapy.data import MTU, ETH_P_ARP,ETH_P_ALL
-import six
-from six.moves import zip
+import scapy.modules.six as six
+from scapy.modules.six.moves import zip
 
 WINDOWS = True
 

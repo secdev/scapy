@@ -10,7 +10,7 @@ import subprocess
 import itertools
 import collections
 import time
-import six.moves.queue
+import scapy.modules.six as six
 from threading import Lock, Thread
 import scapy.utils
 

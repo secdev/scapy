@@ -12,7 +12,7 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms
 from cryptography.hazmat.backends import default_backend
 
 from scapy.layers.tls.crypto.ciphers import CipherError
-import six
+import scapy.modules.six as six
 
 
 tls_stream_cipher_algs = {}

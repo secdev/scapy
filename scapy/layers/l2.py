@@ -22,7 +22,7 @@ from scapy.arch import get_if_hwaddr
 from scapy.consts import LOOPBACK_INTERFACE
 from scapy.utils import inet_ntoa, inet_aton
 from scapy.error import warning
-from six.moves import map
+from scapy.modules.six.moves import map
 if conf.route is None:
     # unused import, only to initialize conf.route
     import scapy.route

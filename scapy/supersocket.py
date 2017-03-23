@@ -15,7 +15,7 @@ from scapy.data import *
 from scapy.error import warning, log_runtime
 import scapy.packet
 from scapy.utils import PcapReader, tcpdump
-import six
+import scapy.modules.six as six
 
 class _SuperSocket_metaclass(type):
     def __repr__(self):

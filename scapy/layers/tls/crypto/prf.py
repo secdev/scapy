@@ -13,7 +13,7 @@ from scapy.utils import strxor
 
 from scapy.layers.tls.crypto.hash import tls_hash_algs
 from scapy.layers.tls.crypto.h_mac import tls_hmac_algs
-from six.moves import range
+from scapy.modules.six.moves import range
 
 
 ### Data expansion functions

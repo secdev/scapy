@@ -11,7 +11,6 @@ the cryptography library. And this file should eventually be removed.
 
 from __future__ import absolute_import
 from scapy.config import conf
-import six
 if conf.crypto_valid:
     from cryptography.hazmat.backends import default_backend
     from cryptography.hazmat.primitives.asymmetric import dh
@@ -19,6 +18,7 @@ else:
     default_backend = dh = None
 
 from scapy.utils import long_converter
+import scapy.modules.six as six
 
 
 class modp768: # From RFC 4306

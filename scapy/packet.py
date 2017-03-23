@@ -21,8 +21,8 @@ from scapy.volatile import VolatileValue
 from scapy.utils import import_hexcap,tex_escape,colgen,get_temp_file
 from scapy.error import Scapy_Exception, log_runtime
 from scapy.consts import PYX
-import six
-from six.moves import map
+import scapy.modules.six as six
+from scapy.modules.six.moves import filter, map
 
 try:
     import pyx

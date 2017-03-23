@@ -11,9 +11,8 @@ from __future__ import absolute_import
 import sys, getopt, imp, glob, importlib
 import bz2, base64, os.path, time, traceback, zlib, sha
 from scapy.consts import WINDOWS
-import six
-from six.moves import map
-from six.moves import range
+import scapy.modules.six as six
+from scapy.modules.six.moves import map, range
 
 
 ### Util class ###
@@ -676,7 +675,7 @@ def resolve_testfiles(TESTFILES):
 
 def main(argv):
     import six.moves.builtins
-    ignore_globals = list(__builtin__.__dict__.keys()) + ["sys"]
+    ignore_globals = list(six.moves.builtins.__dict__.keys())
 
     # Parse arguments
     

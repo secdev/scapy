@@ -21,8 +21,7 @@ from scapy.pton_ntop import *
 from scapy.volatile import RandMAC
 from scapy.error import warning
 from functools import reduce
-from six.moves import map
-from six.moves import range
+from scapy.modules.six.moves import map, range
 
 
 def construct_source_candidate_set(addr, plen, laddr):

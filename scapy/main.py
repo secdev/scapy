@@ -12,14 +12,11 @@ import os,sys
 import glob
 import types
 import gzip
-import __builtin__
-ignored = list(__builtin__.__dict__.keys())
 import six.moves.cPickle
 import six.moves.builtins
+ignored = list(six.moves.builtins.__dict__.keys())
 
 from scapy.error import *
-import six
-    
 
 def _probe_config_file(cf):
     cf_path = os.path.join(os.path.expanduser("~"), cf)
@@ -289,7 +286,7 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
             def global_matches(self, text):
                 matches = []
                 n = len(text)
-                for lst in [dir(__builtin__), session]:
+                for lst in [dir(six.moves.builtins), session]:
                     for word in lst:
                         if word[:n] == text and word != "__builtins__":
                             matches.append(word)

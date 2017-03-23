@@ -13,7 +13,7 @@ from scapy.packet import *
 from scapy.fields import *
 from scapy.automaton import *
 from scapy.layers.inet import UDP, IP
-from six.moves import range
+from scapy.modules.six.moves import range
 
 
 

@@ -14,7 +14,7 @@ from scapy.utils import atol, ltoa, itom, pretty_routes
 from scapy.config import conf
 from scapy.error import Scapy_Exception, warning
 from scapy.arch import WINDOWS
-import six
+import scapy.modules.six as six
 
 ##############################
 ## Routing/Interfaces stuff ##

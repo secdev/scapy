@@ -9,8 +9,7 @@ Direct Access dictionary.
 
 from __future__ import absolute_import
 from scapy.error import Scapy_Exception
-import six
-from six.moves import map
+import scapy.modules.six as six
 
 ###############################
 ## Direct Access dictionary  ##

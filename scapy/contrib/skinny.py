@@ -27,7 +27,7 @@ from __future__ import absolute_import
 from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.inet import TCP
-from six.moves import range
+from scapy.modules.six.moves import range
 
 #####################################################################
 # Helpers and constants
