@@ -30,14 +30,14 @@ class ObjectPipe:
     def fileno(self):
         return self.rd
     def checkRecv(self):
-        return len(self.queue) != 0
+        return len(self.queue) > 0
     def send(self, obj):
         self.queue.append(obj)
         os.write(self.wr,b"X")
     def write(self, obj):
         self.send(obj)
     def recv(self, n=0):
-        os.read(self.rd,1)
+        os.read(self.rd, 1)
         return self.queue.popleft()
     def read(self, n=0):
         return self.recv(n)
@@ -57,7 +57,6 @@ class _instance_state:
         self.__self__.__class__ = instance.__self__.__class__
     def __getattr__(self, attr):
         return getattr(self.__func__, attr)
-
     def __call__(self, *args, **kargs):
         return self.__func__(self.__self__, *args, **kargs)
     def breaks(self):
@@ -332,15 +331,20 @@ class Automaton_metaclass(type):
 def select_objects(inputs, remain):
     if WINDOWS:
         r = []
+        def look_for_select():
+            for fd in inputs:
+                if isinstance(fd, ObjectPipe) or isinstance(fd, Automaton._IO_fdwrapper):
+                    if fd.checkRecv():
+                        r.append(fd)
+                else:
+                    raise OSError("Not supported type of socket:" + str(type(fd)))
+                    break
         def search_select():
             while len(r) == 0:
-                for fd in inputs:
-                    if isinstance(fd, ObjectPipe) or isinstance(fd, Automaton._IO_fdwrapper):
-                        if fd.checkRecv():
-                            r.append(fd)
-                    else:
-                        raise OSError("Not supported type of socket:" + str(type(fd)))
-                        break
+                look_for_select()
+        if remain == 0:
+            look_for_select()
+            return r
         t_select = threading.Thread(target=search_select)
         t_select.start()
         t_select.join(remain)
@@ -751,7 +755,7 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
         with self.started:
             # Flush command pipes
             while True:
-                r = select_objects([self.cmdin, self.cmdout],0)
+                r = select_objects([self.cmdin, self.cmdout], 0)
                 if not r:
                     break
                 for fd in r:
