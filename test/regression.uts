@@ -1175,6 +1175,13 @@ str(Ether(src="00:00:00:00:00:00", dst="ff:ff:ff:ff:ff:ff")/IPv6()/TCP()) == b'\
 a=Ether(str(Ether()/IPv6()/TCP()))
 a.type == 0x86dd
 
+= IPv6 Class binding with GRE - build
+str(IP()/GRE()/Ether()/IP()/GRE()/IPv6()) == b'E\x00\x00f\x00\x01\x00\x00@/|f\x7f\x00\x00\x01\x7f\x00\x00\x01\x00\x00eX\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x08\x00E\x00\x00@\x00\x01\x00\x00@/|\x8c\x7f\x00\x00\x01\x7f\x00\x00\x01\x00\x00\x86\xdd`\x00\x00\x00\x00\x00;@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01'
+
+= IPv6 Class binding with GRE - dissection
+p = IP(str(IP()/GRE()/Ether()/IP()/GRE()/IPv6()))
+GRE in p and p[GRE:1].proto == 0x6558 and p[GRE:2].proto == 0x86DD and IPv6 in p
+
 
 ########### IPv6ExtHdrRouting Class ###########################
 
@@ -3859,6 +3866,30 @@ a.optcode == 43 and a.optlen == 0 and a.reqopts == [23,24]
 = DHCP6OptRelayAgentERO - Dissection with specific value
 a=DHCP6OptRelayAgentERO(b'\x00+\x00\x08\x00\x01\x00\x02\x00\x03\x00\x04')
 a.optcode == 43 and a.optlen == 8 and a.reqopts == [1,2,3,4]
+
+
+############
+############
++ Test DHCP6 Option Client Link Layer address
+
+= Basic build & dissect
+s = str(DHCP6OptClientLinkLayerAddr())
+assert(s == b"\x00O\x00\x07\x00\x01\x00\x00\x00\x00\x00\x00")
+
+p = DHCP6OptClientLinkLayerAddr(s)
+assert(p.clladdr == "00:00:00:00:00:00")
+
+
+############
+############
++ Test DHCP6 Option Virtual Subnet Selection
+
+= Basic build & dissect
+s = str(DHCP6OptVSS())
+assert(s == b"\x00D\x00\x01\xff")
+
+p = DHCP6OptVSS(s)
+assert(p.type == 255)
 
 
 ############

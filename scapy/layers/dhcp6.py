@@ -845,7 +845,7 @@ class DHCP6OptRelayAgentERO(_DHCP6OptGuessPayload):       # RFC4994
 
 # "Client link-layer address type.  The link-layer type MUST be a valid hardware
 # type assigned by the IANA, as described in [RFC0826]
-class DHCP6OptClientLinkLayerAddr(_DHCP6OptGuessPayload):       #RFC6939
+class DHCP6OptClientLinkLayerAddr(_DHCP6OptGuessPayload):  # RFC6939
     name = "DHCP6 Option - Client Link Layer address"
     fields_desc = [ ShortEnumField("optcode", 79, dhcp6opts),
                     FieldLenField("optlen", None, length_of="clladdr",
@@ -854,7 +854,7 @@ class DHCP6OptClientLinkLayerAddr(_DHCP6OptGuessPayload):       #RFC6939
                     _LLAddrField("clladdr", ETHER_ANY) ]
 
 # Virtual Subnet selection
-class DHCP6OptVSS(_DHCP6OptGuessPayload):       #RFC6607
+class DHCP6OptVSS(_DHCP6OptGuessPayload):  # RFC6607
     name = "DHCP6 Option - Virtual Subnet Selection"
     fields_desc = [ ShortEnumField("optcode", 68, dhcp6opts),
                     FieldLenField("optlen", None, length_of="data",
@@ -862,6 +862,7 @@ class DHCP6OptVSS(_DHCP6OptGuessPayload):       #RFC6607
                     ByteField("type", 255), # Default Global/default table
                     StrLenField("data", "",
                                 length_from = lambda pkt: pkt.optlen) ]
+
 
 #####################################################################
 ###                        DHCPv6 messages                        ###
