@@ -90,7 +90,7 @@ class AS_resolver_cymru(AS_resolver):
         for l in r.splitlines()[1:]:
             if "|" not in l:
                 continue
-            asn,ip,desc = list(map(str.strip, l.split("|")))
+            asn,ip,desc = map(str.strip, l.split("|"))
             if asn == "NA":
                 continue
             asn = "AS" + str(int(asn))

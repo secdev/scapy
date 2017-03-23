@@ -30,7 +30,7 @@ def run_tls_test_client(send_data=None, cipher_suite_code=None, version=None):
     t = TLSClientAutomaton(client_hello=ch, data=send_data)
     t.run()
 
-from .travis_test_server import run_tls_test_server
+from travis_test_server import run_tls_test_server
 
 def test_tls_client(suite, version, q):
     msg = "TestC_" + suite + "_data"
