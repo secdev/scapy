@@ -1328,8 +1328,8 @@ def __make_table(yfmtfunc, fmtfunc, endline, list, fxyz, sortx=None, sorty=None,
         vy[yy] = None
         vz[(xx,yy)] = zz
 
-    vxk = list(vx.keys())
-    vyk = list(vy.keys())
+    vxk = sorted(vx.keys())
+    vyk = sorted(vy.keys())
     if sortx:
         vxk.sort(sortx)
     else:

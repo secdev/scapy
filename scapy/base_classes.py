@@ -14,9 +14,7 @@ Generators and packet meta classes.
 from __future__ import absolute_import
 import re,random,socket
 import types
-from six.moves import map
-from six.moves import range
-from six.moves import zip
+from six.moves import map, range, zip
 
 class Gen(object):
     __slots__ = []
