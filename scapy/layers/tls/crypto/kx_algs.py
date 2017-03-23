@@ -16,7 +16,7 @@ from scapy.layers.tls.keyexchange import (ServerDHParams,
                                           ClientECDiffieHellmanPublic,
                                           _tls_server_ecdh_cls_guess,
                                           EncryptedPreMasterSecret)
-import six
+import scapy.modules.six as six
 
 
 tls_kx_algs = {}

@@ -23,7 +23,7 @@ from scapy.layers.l2 import Ether
 from scapy.layers.inet import IPField
 from scapy.layers.inet6 import IP6Field
 from scapy.data import ETHER_ANY
-import six
+import scapy.modules.six as six
 
 # Protocol layers
 ##################

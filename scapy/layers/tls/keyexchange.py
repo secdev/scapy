@@ -23,7 +23,7 @@ from scapy.layers.tls.session import _GenericTLSSessionInheritance
 from scapy.layers.tls.basefields import _tls_version, _TLSClientVersionField
 from scapy.layers.tls.crypto.pkcs1 import pkcs_i2osp, pkcs_os2ip
 from scapy.layers.tls.crypto.ffdh import FFDH_GROUPS
-import six
+import scapy.modules.six as six
 
 
 ###############################################################################

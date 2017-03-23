@@ -18,7 +18,7 @@ else:
     default_backend = dh = None
 
 from scapy.utils import long_converter
-import six
+import scapy.modules.six as six
 
 
 class modp768: # From RFC 4306

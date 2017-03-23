@@ -20,8 +20,7 @@ from scapy.utils import *
 from scapy.pton_ntop import *
 from scapy.volatile import RandMAC
 from scapy.error import warning
-from six.moves import map
-from six.moves import range
+from scapy.modules.six.moves import map, range
 from functools import reduce
 
 

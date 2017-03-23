@@ -18,7 +18,7 @@ from scapy.layers.inet import IP,UDP
 from scapy.layers.rtp import RTP
 from scapy.consts import WINDOWS
 from scapy.config import conf
-from six.moves import range
+from scapy.modules.six.moves import range
 
 
 sox_base = "sox -t .ul %s - -t ossdsp /dev/dsp"

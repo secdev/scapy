@@ -18,8 +18,8 @@ from scapy.sendrecv import sr1
 from scapy.layers.inet import IP, DestIPField, UDP, TCP
 from scapy.layers.inet6 import DestIP6Field
 from scapy.error import warning
-import six
-from six.moves import range
+import scapy.modules.six as six
+from scapy.modules.six.moves import range
 from functools import reduce
 
 class DNSStrField(StrField):

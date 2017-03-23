@@ -24,8 +24,8 @@ from scapy.arch import *
 from scapy.pton_ntop import *
 from scapy.error import warning, log_loading
 from scapy.consts import LOOPBACK_INTERFACE
-import six
-from six.moves import zip
+import scapy.modules.six as six
+from scapy.modules.six.moves import zip
 
 
 class Route6:

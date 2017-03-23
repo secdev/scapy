@@ -16,8 +16,8 @@ from scapy.packet import *
 from scapy.fields import *
 from scapy.contrib.ppi import PPIGenericFldHdr,addPPIType
 from scapy.error import warning
-import six
-from six.moves import range
+import scapy.modules.six as six
+from scapy.modules.six.moves import range
 
 # On windows, epoch is 01/02/1970 at 00:00
 EPOCH = time.mktime((1970, 1, 2, 0, 0, 0, 0, 0, 0))-86400

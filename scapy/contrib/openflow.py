@@ -16,7 +16,7 @@ import struct
 from scapy.fields import *
 from scapy.layers.l2 import *
 from scapy.layers.inet import *
-from six.moves import zip
+from scapy.modules.six.moves import zip
 
 ### If prereq_autocomplete is True then match prerequisites will be
 ### automatically handled. See OFPMatch class.

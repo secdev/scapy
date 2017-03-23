@@ -18,10 +18,8 @@ from scapy.base_classes import BasePacket,BasePacketList
 from scapy.utils import do_graph,hexdump,make_table,make_lined_table,make_tex_table,get_temp_file
 
 from scapy.consts import plt, MATPLOTLIB_INLINED, MATPLOTLIB_DEFAULT_PLOT_KARGS
-import six
-from six.moves import filter
-from six.moves import range
-from six.moves import zip
+import scapy.modules.six as six
+from scapy.modules.six.moves import filter, range, zip
 from functools import reduce
 
 

@@ -16,7 +16,7 @@ import os, popen2, tempfile
 import math, random, struct
 
 from scapy.config import conf, crypto_validator
-from six.moves import range
+from scapy.modules.six.moves import range
 from functools import reduce
 if conf.crypto_valid:
     from cryptography.exceptions import InvalidSignature

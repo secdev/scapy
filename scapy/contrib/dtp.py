@@ -22,7 +22,7 @@ from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.l2 import SNAP,Dot3,LLC
 from scapy.sendrecv import sendp
-from six.moves import map
+from scapy.modules.six.moves import map
 from functools import reduce
 
 class DtpGenericTlv(Packet):

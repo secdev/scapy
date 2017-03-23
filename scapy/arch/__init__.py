@@ -17,7 +17,7 @@ from scapy.error import *
 import scapy.config
 from scapy.pton_ntop import inet_pton
 from scapy.data import *
-from six.moves import map
+from scapy.modules.six.moves import map
 
 def str2mac(s):
     return ("%02x:"*6)[:-1] % tuple(map(ord, s)) 

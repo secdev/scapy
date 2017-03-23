@@ -11,7 +11,7 @@ from __future__ import absolute_import
 from __future__ import print_function
 import os, sys, socket, types
 import random, time
-import gzip, zlib, six.moves.cPickle
+import gzip, zlib
 import re, struct, array
 import subprocess
 import tempfile

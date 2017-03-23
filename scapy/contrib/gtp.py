@@ -19,7 +19,7 @@ from scapy.fields import *
 from scapy.layers.inet import IP, UDP
 from scapy.layers.inet6 import IP6Field
 from scapy.error import warning
-from six.moves import range
+from scapy.modules.six.moves import range
 
 # GTP Data types
 
