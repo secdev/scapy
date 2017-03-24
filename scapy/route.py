@@ -37,7 +37,7 @@ class Route:
         rtlst = [("Network", "Netmask", "Gateway", "Iface", "Output IP")]
         
         for net,msk,gw,iface,addr in self.routes:
-	    rtlst.append((ltoa(net),
+            rtlst.append((ltoa(net),
                       ltoa(msk),
                       gw,
                       (iface.name if not isinstance(iface, six.string_types) else iface),

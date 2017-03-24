@@ -43,12 +43,12 @@ if conf.use_winpcapy:
               pcap_freealldevs(devs)
       # Detect Pcap version
       version = pcap_lib_version()
-      if "winpcap" in version.lower():
+      if b"winpcap" in version.lower():
           if os.path.exists(os.environ["WINDIR"] + "\\System32\\Npcap\\wpcap.dll"):
               warning("Winpcap is installed over Npcap. Will use Winpcap (see 'Winpcap/Npcap conflicts' in scapy's docs)", True)
           elif platform.release() != "XP":
               warning("WinPcap is now deprecated (not maintened). Please use Npcap instead", True)
-      elif "npcap" in version.lower():
+      elif b"npcap" in version.lower():
           conf.use_npcap = True
           LOOPBACK_NAME = scapy.consts.LOOPBACK_NAME = "Npcap Loopback Adapter"
   except OSError as e:

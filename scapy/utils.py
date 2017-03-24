@@ -9,6 +9,8 @@ General utility functions.
 
 from __future__ import absolute_import
 from __future__ import print_function
+from scapy.compat import *
+
 import os, sys, socket, types
 import random, time
 import gzip, zlib
@@ -519,8 +521,12 @@ class EnumElement:
         return getattr(self._value, attr)
     def __str__(self):
         return self._key
+    def __bytes__(self):
+        return raw(self._key)
+    def __hash__(self):
+        return self._value
     def __eq__(self, other):
-        return self._value == int(other)
+        return self._value == hash(other)
 
 
 class Enum_metaclass(type):

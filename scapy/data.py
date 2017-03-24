@@ -62,7 +62,7 @@ def load_protocols(filename):
     spaces = re.compile("[ \t]+|\n")
     dct = DADict(_name=filename)
     try:
-        for l in open(filename):
+        for l in open(filename, encoding="utf8"):
             try:
                 shrp = l.find("#")
                 if  shrp >= 0:
@@ -84,7 +84,7 @@ def load_ethertypes(filename):
     spaces = re.compile("[ \t]+|\n")
     dct = DADict(_name=filename)
     try:
-        f=open(filename)
+        f=open(filename, encoding="utf8")
         for l in f:
             try:
                 shrp = l.find("#")
@@ -109,7 +109,7 @@ def load_services(filename):
     tdct=DADict(_name="%s-tcp"%filename)
     udct=DADict(_name="%s-udp"%filename)
     try:
-        f=open(filename)
+        f=open(filename, encoding="utf8")
         for l in f:
             try:
                 shrp = l.find("#")
@@ -156,7 +156,7 @@ class ManufDA(DADict):
 def load_manuf(filename):
     try:
         manufdb=ManufDA(_name=filename)
-        for l in open(filename):
+        for l in open(filename, encoding="utf8"):
             try:
                 l = l.strip()
                 if not l or l.startswith("#"):

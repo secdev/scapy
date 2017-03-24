@@ -282,7 +282,7 @@ if conf.prog.tcpdump != "windump" and conf.use_npcap:
         try:
             p_test_windump = sp.Popen([conf.prog.tcpdump, "-help"], stdout=sp.PIPE, stderr=sp.STDOUT)
             stdout, err = p_test_windump.communicate()
-            return "npcap" in stdout.lower()
+            return b"npcap" in stdout.lower()
         except:
             return False
     windump_ok = test_windump_npcap()
@@ -391,7 +391,10 @@ class NetworkInterface(object):
     def __repr__(self):
         return "<%s %s %s>" % (self.__class__.__name__, self.name, self.guid)
 
-from UserDict import UserDict
+try:
+    from UserDict import UserDict
+except ImportError:
+    from collections import UserDict
 
 class NetworkInterfaceDict(UserDict):
     """Store information about network interfaces and convert between names""" 
