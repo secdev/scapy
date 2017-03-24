@@ -15,7 +15,8 @@ from scapy.compat import *
 
 import socket
 import re, binascii
-from six.moves import range
+import scapy.modules.six as six
+from scapy.modules.six.moves import range
 
 _IP6_ZEROS = re.compile('(?::|^)(0(?::0)+)(?::|$)')
 _INET6_PTON_EXC = socket.error("illegal IP address string passed to inet_pton")

@@ -30,33 +30,6 @@ from scapy.error import log_runtime, log_loading, log_interactive, Scapy_Excepti
 from scapy.base_classes import BasePacketList
 
 ###########
-# Python3 #
-###########
-
-def cmp_to_key(mycmp):
-    # TODO remove me once all 'key=cmp_to_key(..)' has been fixed in utils6.py, automaton.py
-    'Convert a cmp= function into a key= function'
-    class K(object):
-        def __init__(self, obj, *args):
-            self.obj = obj
-        def __lt__(self, other):
-            return mycmp(self.obj, other.obj) < 0
-        def __gt__(self, other):
-            return mycmp(self.obj, other.obj) > 0
-        def __eq__(self, other):
-            return mycmp(self.obj, other.obj) == 0
-        def __le__(self, other):
-            return mycmp(self.obj, other.obj) <= 0  
-        def __ge__(self, other):
-            return mycmp(self.obj, other.obj) >= 0
-        def __ne__(self, other):
-            return mycmp(self.obj, other.obj) != 0
-    return K
-
-def cmp(a, b):
-    return (a > b) - (a < b)
-
-###########
 ## Tools ##
 ###########
 
@@ -66,36 +39,17 @@ def get_temp_file(keep=False, autoext=""):
         conf.temp_files.append(f+autoext)
     return f
 
-def orb(x):
-  if type(x) is str or type(x) is bytes:
-      return ord(x)
-  else:
-    return x
-
-def chb(x):
-  if type(x) is str or type(x) is bytes:
-    return x
-  else:
-    return chr(x)
-
 def sane_color(x):
-    r=""
-    for i in x:
-        j = orb(i)
-        if (j < 32) or (j >= 127):
-            r=r+conf.color_theme.not_printable(".")
-        else:
-            r=r+chb(i)
-    return r
+    return sane(x, color=True)
 
-def sane(x):
+def sane(x, color=False):
     r=""
     for i in x:
         j = orb(i)
         if (j < 32) or (j >= 127):
-            r=r+"."
+            r=r + (conf.color_theme.not_printable(".") if color else ".")
         else:
-            r=r+chb(i)
+            r=r + chb(i)
     return r
 
 def lhex(x):
@@ -117,7 +71,7 @@ def hexdump(x, dump=False):
     :returns: a String only when dump=True
     """
     s = ""
-    x = bytes(x)
+    x = raw(x)
     l = len(x)
     i = 0
     while i < l:
@@ -158,7 +112,7 @@ def linehexdump(x, onlyasc=0, onlyhex=0, dump=False):
     :returns: a String only when dump=True
     """
     s = ""
-    x = bytes(x)
+    x = raw(x)
     l = len(x)
     if not onlyasc:
         for i in range(l):
@@ -198,14 +152,14 @@ def chexdump(x, dump=False):
 def hexstr(x, onlyasc=0, onlyhex=0):
     s = []
     if not onlyasc:
-        s.append(" ".join(["%02x"%orb(x) for x in x]))
+        s.append(" ".join(["%02x"%orb(y) for y in x]))
     if not onlyhex:
         s.append(sane(x)) 
     return "  ".join(s)
 
 def repr_hex(s):
     """ Convert provided bitstring to a simple string of hex digits """
-    return b"".join([b"%02x" % orb(x) for x in s])
+    return "".join(["%02x" % orb(x) for x in s])
 
 @conf.commands.register
 def hexdiff(x,y):
@@ -340,7 +294,7 @@ def _fletcher16(charbuf):
     # This is based on the GPLed C implementation in Zebra <http://www.zebra.org/>
     c0 = c1 = 0
     for char in charbuf:
-        c0 += ord(char)
+        c0 += orb(char)
         c1 += c0
 
     c0 %= 255
@@ -419,7 +373,7 @@ def strxor(s1, s2):
     must be of same length.
     """
     if six.PY2:
-        return "".join(map(lambda x,y:chr(ord(x)^ord(y)), s1, s2))
+        return "".join(map(lambda x,y:chr(orb(x)^orb(y)), s1, s2))
     return bytes([i[0]^i[1] for i in zip(s1,s2)])
 
 def strand(s1, s2):
@@ -428,7 +382,7 @@ def strand(s1, s2):
     must be of same length.
     """
     if six.PY2:
-        return "".join(map(lambda x,y:chr(ord(x)&ord(y)), s1, s2))
+        return "".join(map(lambda x,y:chr(orb(x)&orb(y)), s1, s2))
     return bytes([i[0]&i[1] for i in zip(s1,s2)])
 
 

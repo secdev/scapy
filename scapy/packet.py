@@ -635,7 +635,7 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
 
     def do_dissect(self, s):
         s = raw(s)
-        raw = s
+        _raw = s
         self.raw_packet_cache_fields = {}
         for f in self.fields_desc:
             if not s:
@@ -646,8 +646,8 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
             if f.islist or f.holds_packets or f.ismutable:
                 self.raw_packet_cache_fields[f.name] = f.do_copy(fval)
             self.fields[f.name] = fval
-        assert(raw.endswith(s))
-        self.raw_packet_cache = raw[:-len(s)] if s else raw
+        assert(_raw.endswith(s))
+        self.raw_packet_cache = _raw[:-len(s)] if s else _raw
         self.explicit = 1
         return s
 

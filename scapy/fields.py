@@ -780,7 +780,7 @@ class BitField(Field):
 
         b = 0
         for c in range(nb_bytes):
-            b |= int(bytes[c]) << (nb_bytes-c-1)*8
+            b |= int(_bytes[c]) << (nb_bytes-c-1)*8
 
         # get rid of high order bits
         b &= (1 << (nb_bytes*8-bn)) - 1
@@ -1162,7 +1162,7 @@ class MultiFlagsField(BitField):
         super(MultiFlagsField, self).__init__(name, default, size)
 
     def any2i(self, pkt, x):
-        assert isinstance(x, (int, int, set)), 'set expected'
+        assert isinstance(x, six.integer_types + (set,)), 'set expected'
 
         if pkt is not None:
             if isinstance(x, six.integer_types):
