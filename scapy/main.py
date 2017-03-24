@@ -85,7 +85,7 @@ def load_layer(name):
 
 def load_contrib(name):
     try:
-        __import__("scapy.contrib." + name)
+        importlib.import_module("scapy.contrib." + name)
         _load("scapy.contrib." + name)
     except ImportError:
         # if layer not found in contrib, try in layers
@@ -114,10 +114,6 @@ def list_contrib(name=None):
                 desc[key] = value
         print("%(name)-20s: %(description)-40s status=%(status)s" % desc)
 
-                        
-
-
-    
 
 ##############################
 ## Session saving/restoring ##

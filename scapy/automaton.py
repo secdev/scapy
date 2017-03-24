@@ -8,6 +8,8 @@ Automata with states, transitions and actions.
 """
 
 from __future__ import absolute_import
+from scapy.compat import *
+
 import types,itertools,time,os,sys,socket,traceback
 from select import select
 from collections import deque
@@ -31,7 +33,7 @@ class ObjectPipe:
         return len(self.queue) != 0
     def send(self, obj):
         self.queue.append(obj)
-        os.write(self.wr,"X")
+        os.write(self.wr,b"X")
     def write(self, obj):
         self.send(obj)
     def recv(self, n=0):
@@ -195,8 +197,8 @@ class _ATMT_supersocket(SuperSocket):
     def fileno(self):
         return self.spa.fileno()
     def send(self, s):
-        if type(s) is not str:
-            s = str(s)
+        if type(s) is not bytes:
+            s = bytes(s)
         return self.spa.send(s)
     def recv(self, n=MTU):
         r = self.spa.recv(n)
@@ -271,14 +273,14 @@ class Automaton_metaclass(type):
             
 
         for v in six.itervalues(cls.timeout):
-            v.sort(lambda (t1,f1),(t2,f2): cmp(t1,t2))
+            v.sort(key=cmp_to_key(lambda a, b: cmp(a[0],b[0])))
             v.append((None, None))
         for v in itertools.chain(six.itervalues(cls.conditions),
                                  six.itervalues(cls.recv_conditions),
                                  six.itervalues(cls.ioevents)):
-            v.sort(lambda c1,c2: cmp(c1.atmt_prio,c2.atmt_prio))
+            v.sort(key=cmp_to_key(lambda c1,c2: cmp(c1.atmt_prio,c2.atmt_prio)))
         for condname,actlst in six.iteritems(cls.actions):
-            actlst.sort(lambda c1,c2: cmp(c1.atmt_cond[condname], c2.atmt_cond[condname]))
+            actlst.sort(key=cmp_to_key(lambda c1,c2: cmp(c1.atmt_cond[condname], c2.atmt_cond[condname])))
 
         for ioev in cls.iosupersockets:
             setattr(cls, ioev.atmt_as_supersocket, _ATMT_to_supersocket(ioev.atmt_as_supersocket, ioev.atmt_ioname, cls))
@@ -600,7 +602,7 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
                 self.cmdout.send(c)
             except Exception as e:
                 exc_info = sys.exc_info()
-                self.debug(3, "Transfering exception from tid=%i:\n%s"% (self.threadid, traceback.format_exc(exc_info)))
+                self.debug(3, "Transfering exception from tid=%i:\n%s"% (self.threadid, traceback.format_exc()))
                 m = Message(type=_ATMT_Command.EXCEPTION, exception=e, exc_info=exc_info)
                 self.cmdout.send(m)        
             self.debug(3, "Stopping control thread (tid=%i)"%self.threadid)

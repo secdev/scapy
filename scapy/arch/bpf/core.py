@@ -210,8 +210,7 @@ def get_working_ifaces():
             os.close(fd)
 
     # Sort to mimic pcap_findalldevs() order
-    interfaces.sort(lambda (ifname_left, ifid_left),
-                        (ifname_right, ifid_right): ifid_left-ifid_right)
+    interfaces.sort(lambda if_left,if_right: if_left[1]-if_right[1])
     return interfaces
 
 

@@ -9,6 +9,8 @@ Management Information Base (MIB) parsing
 """
 
 from __future__ import absolute_import
+from scapy.compat import *
+
 import re
 from glob import glob
 from scapy.dadict import DADict,fixname
@@ -16,11 +18,12 @@ from scapy.config import conf
 from scapy.utils import do_graph
 import scapy.modules.six as six
 
+
 #################
 ## MIB parsing ##
 #################
 
-_mib_re_integer = re.compile("^[0-9]+$")
+_mib_re_integer = re.compile(b"^[0-9]+$")
 _mib_re_both = re.compile("^([a-zA-Z_][a-zA-Z0-9_-]*)\(([0-9]+)\)$")
 _mib_re_oiddecl = re.compile("$\s*([a-zA-Z0-9_-]+)\s+OBJECT([^:\{\}]|\{[^:]+\})+::=\s*\{([^\}]+)\}",re.M)
 _mib_re_strings = re.compile('"[^"]*"')
@@ -28,30 +31,32 @@ _mib_re_comments = re.compile('--.*(\r|\n)')
 
 class MIBDict(DADict):
     def _findroot(self, x):
-        if x.startswith("."):
+        if x.startswith(b"."):
             x = x[1:]
-        if not x.endswith("."):
-            x += "."
+        if not x.endswith(b"."):
+            x += b"."
         max=0
-        root="."
+        root=b"."
         for k in six.iterkeys(self):
-            if x.startswith(self[k]+"."):
+            if x.startswith(str_bytes(self[k])+b"."):
                 if max < len(self[k]):
                     max = len(self[k])
                     root = k
         return root, x[max:-1]
     def _oidname(self, x):
-        root,remainder = self._findroot(x)
-        return root+remainder
+        root, remainder = self._findroot(x)
+        return str_bytes(root)+remainder
     def _oid(self, x):
-        xl = x.strip(".").split(".")
+        if isinstance(x, str):
+            x = str_bytes(x)
+        xl = x.strip(b".").split(b".")
         p = len(xl)-1
         while p >= 0 and _mib_re_integer.match(xl[p]):
             p -= 1
         if p != 0 or xl[p] not in self:
             return x
         xl[p] = self[xl[p]] 
-        return ".".join(xl[p:])
+        return b".".join(xl[p:])
     def _make_graph(self, other_keys=None, **kargs):
         if other_keys is None:
             other_keys = []
@@ -67,7 +72,7 @@ class MIBDict(DADict):
         for k,o in nodes:
             parent,remainder = self._findroot(o[:-1])
             remainder = remainder[1:]+o[-1]
-            if parent != ".":
+            if parent != b".":
                 parent = self[parent]
             s += '\t"%s" -> "%s" [label="%s"];\n' % (parent, o,remainder)
         s += "}\n"
@@ -82,10 +87,10 @@ def mib_register(ident, value, the_mib, unresolved):
     resval = []
     not_resolved = 0
     for v in value:
-        if _mib_re_integer.match(v):
+        if _mib_re_integer.match(str_bytes(v)):
             resval.append(v)
         else:
-            v = fixname(v)
+            v = fixname(bytes_str(v))
             if v not in the_mib:
                 not_resolved = 1
             if v in the_mib:
@@ -105,7 +110,7 @@ def mib_register(ident, value, the_mib, unresolved):
         i = 0
         while i < len(keys):
             k = keys[i]
-            if mib_register(k,unresolved[k], the_mib, {}):
+            if mib_register(k, unresolved[k], the_mib, {}):
                 del(unresolved[k])
                 del(keys[i])
                 i = 0
@@ -121,7 +126,7 @@ def load_mib(filenames):
     for k in six.iterkeys(conf.mib):
         mib_register(k, conf.mib[k].split("."), the_mib, unresolved)
 
-    if type(filenames) is str:
+    if type(filenames) in [bytes, str]:
         filenames = [filenames]
     for fnames in filenames:
         for fname in glob(fnames):

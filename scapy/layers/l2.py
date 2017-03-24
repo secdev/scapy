@@ -9,6 +9,8 @@ Classes and functions for layer 2 protocols.
 
 from __future__ import absolute_import
 from __future__ import print_function
+from scapy.compat import *
+
 import os, struct, time, socket
 
 from scapy.base_classes import Net
@@ -24,7 +26,6 @@ from scapy.consts import LOOPBACK_NAME
 from scapy.utils import inet_ntoa, inet_aton
 from scapy.error import warning
 from scapy.modules.six.moves import map
-if conf.route is None:
     # unused import, only to initialize conf.route
     import scapy.route
 
@@ -62,7 +63,7 @@ def getmacbyip(ip, chainCC=0):
     if isinstance(ip,Net):
         ip = next(iter(ip))
     ip = inet_ntoa(inet_aton(ip))
-    tmp = list(map(ord, inet_aton(ip)))
+    tmp = list(map(orb, inet_aton(ip)))
     if (tmp[0] & 0xf0) == 0xe0: # mcast @
         return "01:00:5e:%.2x:%.2x:%.2x" % (tmp[1]&0x7f,tmp[2],tmp[3])
     iff,a,gw = conf.route.route(ip)
@@ -336,7 +337,7 @@ class EAPOL(Packet):
         return s[:l], s[l:]
 
     def hashret(self):
-        return chr(self.type) + self.payload.hashret()
+        return str_bytes(self.type) + self.payload.hashret()
 
     def answers(self, other):
         if isinstance(other, EAPOL):
@@ -508,7 +509,7 @@ class EAP(Packet):
     def post_build(self, p, pay):
         if self.len is None:
             l = len(p) + len(pay)
-            p = p[:2] + chr((l >> 8) & 0xff) + chr(l & 0xff) + p[4:]
+            p = p[:2] + str_bytes((l >> 8) & 0xff) + str_bytes(l & 0xff) + p[4:]
         return p + pay
 
 
@@ -650,7 +651,7 @@ class MKAParamSet(Packet):
 
         cls = conf.raw_layer
         if _pkt is not None:
-            ptype = struct.unpack("!B", _pkt[0])[0]
+            ptype = struct.unpack("!B", str_bytes(_pkt[0]))[0]
             return globals().get(_param_set_cls.get(ptype), conf.raw_layer)
 
         return cls
@@ -1013,7 +1014,7 @@ class GRE(Packet):
         p += pay
         if self.chksum_present and self.chksum is None:
             c = checksum(p)
-            p = p[:4]+chr((c>>8)&0xff)+chr(c&0xff)+p[6:]
+            p = p[:4]+str_bytes((c>>8)&0xff)+str_bytes(c&0xff)+p[6:]
         return p
 
 
@@ -1044,7 +1045,7 @@ class GRE_PPTP(GRE):
         p += pay
         if self.payload_len is None:
             pay_len = len(pay)
-            p = p[:4] + chr((pay_len >> 8) & 0xff) + chr(pay_len & 0xff) + p[6:]
+            p = p[:4] + str_bytes((pay_len >> 8) & 0xff) + str_bytes(pay_len & 0xff) + p[6:]
         return p
 
 

@@ -9,6 +9,7 @@ Functions to send and receive packets.
 
 from __future__ import absolute_import
 from __future__ import print_function
+
 import errno
 import os, sys, time, subprocess
 import itertools
@@ -167,7 +168,7 @@ def sndrcv(pks, pkt, timeout = None, inter = 0, verbose=None, chainCC=0, retry=0
                                     if r.answers(sentpkt):
                                         ans.append((sentpkt, r))
                                         if verbose > 1:
-                                            os.write(1, "*")
+                                            os.write(1, b"*")
                                         ok = 1
                                         if not multi:
                                             del hlst[i]
@@ -181,7 +182,7 @@ def sndrcv(pks, pkt, timeout = None, inter = 0, verbose=None, chainCC=0, retry=0
                                 break
                             if not ok:
                                 if verbose > 1:
-                                    os.write(1, ".")
+                                    os.write(1, b".")
                                 nbrecv += 1
                                 if conf.debug_match:
                                     debug.recv.append(r)
@@ -260,7 +261,7 @@ def __gen_send(s, x, inter=0, loop=0, count=None, verbose=None, realtime=None, r
                     sent_packets.append(p)
                 n += 1
                 if verbose:
-                    os.write(1,".")
+                    os.write(1, b".")
                 time.sleep(inter)
             if loop < 0:
                 loop += 1

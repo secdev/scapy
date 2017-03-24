@@ -6,61 +6,118 @@
 """
 General utility functions.
 """
+from __future__ import print_function
 
 from __future__ import absolute_import
+<<<<<<< HEAD
 from __future__ import print_function
 from scapy.compat import *
 
 import os, sys, socket, types
 import random, time
 import gzip, zlib
+=======
+import os, sys, socket, types, copy, tempfile
+import random, time
+import gzip, zlib, six.moves.cPickle
+>>>>>>> dd6874fc0f6484ebac87d95dc29c905820362170
 import re, struct, array
 import subprocess
 import tempfile
 
 import warnings
+<<<<<<< HEAD
 import scapy.modules.six as six
 from scapy.modules.six.moves import map, range, input
+=======
+import six
+from six.moves import map
+from six.moves import range
+from six.moves import input
+>>>>>>> dd6874fc0f6484ebac87d95dc29c905820362170
 warnings.filterwarnings("ignore","tempnam",RuntimeWarning, __name__)
 
 from scapy.config import conf
 from scapy.consts import DARWIN, WINDOWS
-from scapy.data import MTU
+from scapy.data import MTU, str_bytes
 from scapy.error import log_runtime, log_loading, log_interactive, Scapy_Exception, warning
 from scapy.base_classes import BasePacketList
+
+###########
+# Python3 #
+###########
+
+def cmp_to_key(mycmp):
+    # TODO remove me once all 'key=cmp_to_key(..)' has been fixed in utils6.py, automaton.py
+    'Convert a cmp= function into a key= function'
+    class K(object):
+        def __init__(self, obj, *args):
+            self.obj = obj
+        def __lt__(self, other):
+            return mycmp(self.obj, other.obj) < 0
+        def __gt__(self, other):
+            return mycmp(self.obj, other.obj) > 0
+        def __eq__(self, other):
+            return mycmp(self.obj, other.obj) == 0
+        def __le__(self, other):
+            return mycmp(self.obj, other.obj) <= 0  
+        def __ge__(self, other):
+            return mycmp(self.obj, other.obj) >= 0
+        def __ne__(self, other):
+            return mycmp(self.obj, other.obj) != 0
+    return K
+
+def cmp(a, b):
+    return (a > b) - (a < b)
 
 ###########
 ## Tools ##
 ###########
 
 def get_temp_file(keep=False, autoext=""):
-    f = os.tempnam("","scapy")
+    f = tempfile.TemporaryFile(prefix="scapy").name
     if not keep:
         conf.temp_files.append(f+autoext)
     return f
 
+def orb(x):
+  if type(x) is str or type(x) is bytes:
+      return ord(x)
+  else:
+    return x
+
+def chb(x):
+  if type(x) is str or type(x) is bytes:
+    return x
+  else:
+    return chr(x)
+
 def sane_color(x):
     r=""
     for i in x:
-        j = ord(i)
+        j = orb(i)
         if (j < 32) or (j >= 127):
             r=r+conf.color_theme.not_printable(".")
         else:
-            r=r+i
+            r=r+chb(i)
     return r
 
 def sane(x):
     r=""
     for i in x:
-        j = ord(i)
+        j = orb(i)
         if (j < 32) or (j >= 127):
             r=r+"."
         else:
-            r=r+i
+            r=r+chb(i)
     return r
 
 def lhex(x):
+<<<<<<< HEAD
     if type(x) in six.integer_types:
+=======
+    if type(x) in (int,int):
+>>>>>>> dd6874fc0f6484ebac87d95dc29c905820362170
         return hex(x)
     elif type(x) is tuple:
         return "(%s)" % ", ".join(map(lhex, x))
@@ -78,20 +135,23 @@ def hexdump(x, dump=False):
     :returns: a String only when dump=True
     """
     s = ""
-    x = str(x)
+    x = bytes(x)
     l = len(x)
     i = 0
     while i < l:
         s += "%04x  " % i
         for j in range(16):
             if i+j < l:
-                s += "%02X" % ord(x[i+j])
+                s += "%02X" % orb(x[i+j])
             else:
                 s += "  "
             if j%16 == 7:
                 s += ""
         s += " "
-        s += sane_color(x[i:i+16])
+        if not dump:
+            s += sane_color(x[i:i+16])
+        else:
+            s += sane(x[i:i+16])
         i += 16
         s += "\n"
     # remove trailing \n
@@ -116,15 +176,22 @@ def linehexdump(x, onlyasc=0, onlyhex=0, dump=False):
     :returns: a String only when dump=True
     """
     s = ""
-    x = str(x)
+    x = bytes(x)
     l = len(x)
     if not onlyasc:
         for i in range(l):
+<<<<<<< HEAD
             s += "%02X" % ord(x[i])
+=======
+            s += "%02X" % orb(x[i])
+>>>>>>> dd6874fc0f6484ebac87d95dc29c905820362170
         if not onlyhex:  # separate asc & hex if both are displayed
             s += " "
     if not onlyhex:
-        s += sane_color(x)
+        if not dump:
+            s += sane_color(x)
+        else:
+            s += sane(x)
     if dump:
         return s
     else:
@@ -142,8 +209,13 @@ def chexdump(x, dump=False):
     :param dump: print the view if False
     :returns: a String only if dump=True
     """
+<<<<<<< HEAD
     x = str(x)
     s = str(", ".join(["%#04x"%ord(x) for x in x]))
+=======
+    x = bytes(x)
+    s = ", ".join(map(lambda x: "%#04x"%orb(x), x))
+>>>>>>> dd6874fc0f6484ebac87d95dc29c905820362170
     if dump:
         return s
     else:
@@ -153,14 +225,22 @@ def chexdump(x, dump=False):
 def hexstr(x, onlyasc=0, onlyhex=0):
     s = []
     if not onlyasc:
+<<<<<<< HEAD
         s.append(" ".join(["%02x"%ord(x) for x in x]))
+=======
+        s.append(" ".join(map(lambda x: "%02x"%orb(x), x)))
+>>>>>>> dd6874fc0f6484ebac87d95dc29c905820362170
     if not onlyhex:
         s.append(sane(x)) 
     return "  ".join(s)
 
 def repr_hex(s):
     """ Convert provided bitstring to a simple string of hex digits """
+<<<<<<< HEAD
     return "".join(["%02x" % ord(x) for x in s])
+=======
+    return b"".join([b"%02x" % orb(x) for x in s])
+>>>>>>> dd6874fc0f6484ebac87d95dc29c905820362170
 
 @conf.commands.register
 def hexdiff(x,y):
@@ -244,7 +324,11 @@ def hexdiff(x,y):
             if i+j < l:
                 if line[j]:
                     col = colorize[(linex[j]!=liney[j])*(doy-dox)]
+<<<<<<< HEAD
                     print(col("%02X" % ord(line[j])), end=' ')
+=======
+                    print(col("%02X" % orb(line[j])), end=' ')
+>>>>>>> dd6874fc0f6484ebac87d95dc29c905820362170
                     if linex[j]==liney[j]:
                         cl += sane_color(line[j])
                     else:
@@ -345,10 +429,18 @@ def fletcher16_checkbytes(binbuf, offset):
 
 
 def mac2str(mac):
+<<<<<<< HEAD
     return "".join([chr(int(x,16)) for x in mac.split(":")])
+=======
+    if type(mac) != str:
+        mac = mac.decode('ascii')
+    return b''.join([six.int2byte(int(i, 16)) for i in mac.split(":")])
+>>>>>>> dd6874fc0f6484ebac87d95dc29c905820362170
 
 def str2mac(s):
-    return ("%02x:"*6)[:-1] % tuple(map(ord, s)) 
+    if isinstance(s, str):
+        return ("%02x:"*6)[:-1] % tuple(map(orb, s))
+    return ("%02x:"*6)[:-1] % tuple(s)
 
 def randstring(l):
     """
@@ -369,14 +461,18 @@ def strxor(s1, s2):
     Returns the binary XOR of the 2 provided strings s1 and s2. s1 and s2
     must be of same length.
     """
-    return "".join(map(lambda x,y:chr(ord(x)^ord(y)), s1, s2))
+    if six.PY2:
+        return "".join(map(lambda x,y:chr(ord(x)^ord(y)), s1, s2))
+    return bytes([i[0]^i[1] for i in zip(s1,s2)])
 
 def strand(s1, s2):
     """
     Returns the binary AND of the 2 provided strings s1 and s2. s1 and s2
     must be of same length.
     """
-    return "".join(map(lambda x,y:chr(ord(x)&ord(y)), s1, s2))
+    if six.PY2:
+        return "".join(map(lambda x,y:chr(ord(x)&ord(y)), s1, s2))
+    return bytes([i[0]&i[1] for i in zip(s1,s2)])
 
 
 # Workaround bug 643005 : https://sourceforge.net/tracker/?func=detail&atid=105470&aid=643005&group_id=5470
@@ -522,7 +618,11 @@ class EnumElement:
     def __str__(self):
         return self._key
     def __bytes__(self):
+<<<<<<< HEAD
         return raw(self._key)
+=======
+        return str_bytes(self._key)
+>>>>>>> dd6874fc0f6484ebac87d95dc29c905820362170
     def __hash__(self):
         return self._value
     def __eq__(self, other):
@@ -533,7 +633,11 @@ class Enum_metaclass(type):
     element_class = EnumElement
     def __new__(cls, name, bases, dct):
         rdict={}
+<<<<<<< HEAD
         for k,v in six.iteritems(dct):
+=======
+        for k,v in dct.items():
+>>>>>>> dd6874fc0f6484ebac87d95dc29c905820362170
             if type(v) is int:
                 v = cls.element_class(k,v)
                 dct[k] = v
@@ -574,7 +678,7 @@ def load_object(fname):
 @conf.commands.register
 def corrupt_bytes(s, p=0.01, n=None):
     """Corrupt a given percentage or number of bytes from a string"""
-    s = array.array("B",str(s))
+    s = array.array("B",str_bytes(s))
     l = len(s)
     if n is None:
         n = max(1,int(l*p))
@@ -585,12 +689,16 @@ def corrupt_bytes(s, p=0.01, n=None):
 @conf.commands.register
 def corrupt_bits(s, p=0.01, n=None):
     """Flip a given percentage or number of bits from a string"""
-    s = array.array("B",str(s))
+    s = array.array("B",str_bytes(s))
     l = len(s)*8
     if n is None:
         n = max(1,int(l*p))
     for i in random.sample(range(l), n):
+<<<<<<< HEAD
         s[i/8] ^= 1 << (i%8)
+=======
+        s[i//8] ^= 1 << (i%8)
+>>>>>>> dd6874fc0f6484ebac87d95dc29c905820362170
     return s.tostring()
 
 
@@ -671,7 +779,7 @@ class PcapReader_metaclass(type):
         """Open (if necessary) filename, and read the magic."""
         if isinstance(filename, six.string_types):
             try:
-                fdesc = gzip.open(filename,"rb")
+                fdesc = gzip.open(filename, "rb")
                 magic = fdesc.read(4)
             except IOError:
                 fdesc = open(filename,"rb")
@@ -706,7 +814,7 @@ class RawPcapReader(six.with_metaclass(PcapReader_metaclass)):
             raise Scapy_Exception(
                 "Not a pcap capture file (bad magic: %r)" % magic
             )
-        hdr = self.f.read(20)
+        hdr = str_bytes(self.f.read(20))
         if len(hdr)<20:
             raise Scapy_Exception("Invalid pcap file (too short)")
         vermaj, vermin, tz, sig, snaplen, linktype = struct.unpack(
@@ -884,7 +992,7 @@ class RawPcapNgReader(RawPcapReader):
             # 4.2. - Interface Description Block
             # http://xml2rfc.tools.ietf.org/cgi-bin/xml2rfc.cgi?url=https://raw.githubusercontent.com/pcapng/pcapng/master/draft-tuexen-opsawg-pcapng.xml&modeAsFormat=html/ascii&type=ascii#rfc.section.4.2
             if code == 9 and length == 1 and len(options) >= 5:
-                tsresol = ord(options[4])
+                tsresol = orb(options[4])
                 tsresol = (2 if tsresol & 128 else 10) ** (tsresol & 127)
             if code == 0:
                 if length != 0:
@@ -1032,7 +1140,7 @@ nano:       use nanosecond-precision (requires libpcap >= 1.5.0)
                 try:
                     p = next(pkt)
                 except StopIteration:
-                    self._write_header("")
+                    self._write_header(b"")
                     return
                 self._write_header(p)
                 self._write_packet(p)
@@ -1096,7 +1204,7 @@ class PcapWriter(RawPcapWriter):
             return
         sec = int(packet.time)
         usec = int(round((packet.time - sec) * (1000000000 if self.nano else 1000000)))
-        s = str(packet)
+        s = bytes(packet)
         caplen = len(s)
         RawPcapWriter._write_packet(self, s, sec, usec, caplen, caplen)
 
@@ -1119,8 +1227,6 @@ def import_hexcap():
     
     p = p.replace(" ","")
     return p.decode("hex")
-        
-
 
 @conf.commands.register
 def wireshark(pktlist):
@@ -1201,7 +1307,7 @@ u'64'
         # <http://apple.stackexchange.com/questions/152682/>
         tmpfile = tempfile.NamedTemporaryFile(delete=False)
         try:
-            tmpfile.writelines(iter(lambda: pktlist.read(1048576), ""))
+            tmpfile.writelines(iter(lambda: pktlist.read(1048576), b""))
         except AttributeError:
             wrpcap(tmpfile, pktlist)
         else:
@@ -1213,20 +1319,22 @@ u'64'
         )
         conf.temp_files.append(tmpfile.name)
     else:
+        args = args if args is not None else []
+        args = ["-r", "-"] + ((["-i", conf.iface.pcap_name] + args) if WINDOWS else args)
         proc = subprocess.Popen(
-            prog + ["-r", "-"] + (args if args is not None else []),
+            prog + args,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE if dump or getfd else None,
             stderr=open(os.devnull),
         )
         try:
-            proc.stdin.writelines(iter(lambda: pktlist.read(1048576), ""))
+            proc.stdin.writelines(iter(lambda: pktlist.read(1048576), b""))
         except AttributeError:
             wrpcap(proc.stdin, pktlist)
         else:
             proc.stdin.close()
     if dump:
-        return "".join(iter(lambda: proc.stdout.read(1048576), ""))
+        return b"".join(iter(lambda: proc.stdout.read(1048576), b""))
     if getfd:
         return proc.stdout
     proc.wait()
@@ -1323,21 +1431,21 @@ def whois(ip_address):
         query = whois_ip
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.connect(("whois.ripe.net", 43))
-    s.send(query + "\r\n")
-    answer = ''
+    s.send(str_bytes(query + "\r\n"))
+    answer = b''
     while True:
         d = s.recv(4096)
         answer += d
         if not d:
             break
     s.close()
-    ignore_tag = "remarks:"
+    ignore_tag = b"remarks:"
     # ignore all lines starting with the ignore_tag
-    lines = [ line for line in answer.split("\n") if not line or (line and not line.startswith(ignore_tag))]
+    lines = [ line for line in answer.split(b"\n") if not line or (line and not line.startswith(ignore_tag))]
     # remove empty lines at the bottom
     for i in range(1, len(lines)):
         if not lines[-i].strip():
             del lines[-i]
         else:
             break
-    return "\n".join(lines[3:])
+    return b"\n".join(lines[3:])

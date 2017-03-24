@@ -200,36 +200,36 @@ class CacheInstance(dict):
         self._timetable.update(other._timetable)
     def iteritems(self):
         if self.timeout is None:
-            return dict.iteritems(self)
+            return six.iteritems(self)
         t0=time.time()
-        return ((k,v) for (k,v) in dict.iteritems(self) if t0-self._timetable[k] < self.timeout) 
+        return ((k,v) for (k,v) in dict.items(self) if t0-self._timetable[k] < self.timeout) 
     def iterkeys(self):
         if self.timeout is None:
-            return dict.iterkeys(self)
+            return six.iterkeys(self)
         t0=time.time()
-        return (k for k in dict.iterkeys(self) if t0-self._timetable[k] < self.timeout)
+        return (k for k in dict.keys(self) if t0-self._timetable[k] < self.timeout)
     def __iter__(self):
         return six.iterkeys(self)
     def itervalues(self):
         if self.timeout is None:
             return dict.itervalues(self)
         t0=time.time()
-        return (v for (k,v) in dict.iteritems(self) if t0-self._timetable[k] < self.timeout)
+        return (v for (k,v) in dict.values(self) if t0-self._timetable[k] < self.timeout)
     def items(self):
         if self.timeout is None:
             return dict.items(self)
         t0=time.time()
-        return [(k,v) for (k,v) in dict.iteritems(self) if t0-self._timetable[k] < self.timeout]
+        return [(k,v) for (k,v) in dict.items(self) if t0-self._timetable[k] < self.timeout]
     def keys(self):
         if self.timeout is None:
             return dict.keys(self)
         t0=time.time()
-        return [k for k in dict.iterkeys(self) if t0-self._timetable[k] < self.timeout]
+        return [k for k in dict.keys(self) if t0-self._timetable[k] < self.timeout]
     def values(self):
         if self.timeout is None:
             return dict.values(self)
         t0=time.time()
-        return [v for (k,v) in dict.iteritems(self) if t0-self._timetable[k] < self.timeout]
+        return [v for (k,v) in dict.values(self) if t0-self._timetable[k] < self.timeout]
     def __len__(self):
         if self.timeout is None:
             return dict.__len__(self)

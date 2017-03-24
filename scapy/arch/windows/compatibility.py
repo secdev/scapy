@@ -6,9 +6,9 @@
 """
 Instanciate part of the customizations needed to support Microsoft Windows.
 """
+from __future__ import print_function
 
 from __future__ import absolute_import
-from __future__ import print_function
 import itertools
 import os
 import re
@@ -117,7 +117,7 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0, retry=0, m
                                     if r.answers(sentpkt):
                                         ans.append((sentpkt, r))
                                         if verbose > 1:
-                                            os.write(1, "*")
+                                            os.write(1, b"*")
                                         ok = 1
                                         if not multi:
                                             del hlst[i]
@@ -131,7 +131,7 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0, retry=0, m
                                 break
                             if not ok:
                                 if verbose > 1:
-                                    os.write(1, ".")
+                                    os.write(1, b".")
                                 nbrecv += 1
                                 if conf.debug_match:
                                     debug.recv.append(r)

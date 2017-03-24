@@ -17,6 +17,7 @@ Routing and network interface handling for IPv6.
 #############################################################################
 
 from __future__ import absolute_import
+
 import socket
 from scapy.config import conf
 from scapy.utils6 import *
@@ -226,7 +227,7 @@ class Route6:
             return (LOOPBACK_NAME, "::", "::") # XXX Linux specific
 
         # Sort with longest prefix first
-        pathes.sort(reverse=True)
+        pathes.sort(key=lambda x: x[0], reverse=True)
 
         best_plen = pathes[0][0]
         pathes = [x for x in pathes if x[0] == best_plen]

@@ -12,6 +12,7 @@ Generators and packet meta classes.
 ################
 
 from __future__ import absolute_import
+
 import re,random,socket
 import types
 import scapy.modules.six as six
@@ -41,7 +42,7 @@ class SetGen(Gen):
         for i in self.values:
             if (isinstance(i, Gen) and
                 (self._iterpacket or not isinstance(i,BasePacket))) or (
-                    isinstance(i, (xrange, types.GeneratorType))):
+                    isinstance(i, (range, types.GeneratorType))):
                 for j in i:
                     yield j
             else:

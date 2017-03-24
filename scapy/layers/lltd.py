@@ -10,6 +10,7 @@ https://msdn.microsoft.com/en-us/library/cc233983.aspx
 """
 
 from __future__ import absolute_import
+from scapy.compat import *
 import struct
 from array import array
 
@@ -213,9 +214,9 @@ class LLTDQueryResp(Packet):
         if self.descs_count is None:
             # descs_count should be a FieldLenField but has an
             # unsupported format (14 bits)
-            flags = ord(pkt[0]) & 0xc0
+            flags = orb(pkt[0]) & 0xc0
             count = len(self.descs_list)
-            pkt = chr(flags + (count >> 8)) + chr(count % 256) + pkt[2:]
+            pkt = str_bytes(flags + (count >> 8)) + str_bytes(count % 256) + pkt[2:]
         return pkt + pay
 
     def mysummary(self):
@@ -255,9 +256,9 @@ class LLTDQueryLargeTlvResp(Packet):
         if self.len is None:
             # len should be a FieldLenField but has an unsupported
             # format (14 bits)
-            flags = ord(pkt[0]) & 0xc0
+            flags = orb(pkt[0]) & 0xc0
             length = len(self.value)
-            pkt = chr(flags + (length >> 8)) + chr(length % 256) + pkt[2:]
+            pkt = str_bytes(flags + (length >> 8)) + str_bytes(length % 256) + pkt[2:]
         return pkt + pay
 
     def mysummary(self):
@@ -295,7 +296,7 @@ class LLTDAttribute(Packet):
     @classmethod
     def dispatch_hook(cls, _pkt=None, *_, **kargs):
         if _pkt:
-            cmd = struct.unpack("B", _pkt[0])[0]
+            cmd = struct.unpack("B", str_bytes(_pkt[0]))[0]
         elif "type" in kargs:
             cmd = kargs["type"]
             if isinstance(cmd, six.string_types):

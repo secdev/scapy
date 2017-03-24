@@ -9,6 +9,8 @@ Packet class. Binding mechanism. fuzz() method.
 
 from __future__ import absolute_import
 from __future__ import print_function
+from scapy.compat import *
+
 import re
 import time,itertools
 import copy
@@ -36,6 +38,8 @@ class RawVal:
         self.val = val
     def __str__(self):
         return str(self.val)
+    def __bytes__(self):
+        return bytes(self.val)
     def __repr__(self):
         return "<RawVal [%r]>" % self.val
 
@@ -78,7 +82,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
 
     def _unpickle(self, dlist):
         """Used to unpack pickling"""
-        self.__init__("".join(dlist))
+        self.__init__(b"".join(dlist))
         return self
 
     def __reduce__(self):
@@ -101,7 +105,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         """Used by copy.deepcopy"""
         return self.copy()
 
-    def __init__(self, _pkt="", post_transform=None, _internal=0, _underlayer=None, **fields):
+    def __init__(self, _pkt=b"", post_transform=None, _internal=0, _underlayer=None, **fields):
         self.time  = time.time()
         self.sent_time = None
         self.name = (self.__class__.__name__
@@ -169,10 +173,10 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
                     if t in payload.overload_fields:
                         self.overloaded_fields = payload.overload_fields[t]
                         break
-            elif type(payload) is str:
+            elif type(payload) is bytes:
                 self.payload = conf.raw_layer(load=payload)
             else:
-                raise TypeError("payload must be either 'Packet' or 'str', not [%s]" % repr(payload))
+                raise TypeError("payload must be either 'Packet' or 'bytes', not [%s]" % repr(payload))
     def remove_payload(self):
         self.payload.remove_underlayer(self)
         self.payload = NoPayload()
@@ -207,6 +211,18 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         if attr in self.default_fields:
             return self.default_fields[attr]
         return self.payload.getfieldval(attr)
+
+    def getbyteval(self, attr):
+        fld,v = self.getfield_and_val(attr)
+        return fld.i2b(self, v)
+    
+    def getstrval(self, attr):
+        fld,v = self.getfield_and_val(attr)
+        return fld.i2repr(self, v)
+
+    def getdictval(self, attr):
+        fld,v = self.getfield_and_val(attr)
+        return fld.i2dict(self, v)
     
     def getfield_and_val(self, attr):
         if attr in self.fields:
@@ -215,12 +231,12 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
             return self.get_field(attr),self.overloaded_fields[attr]
         if attr in self.default_fields:
             return self.get_field(attr),self.default_fields[attr]
+        return self.payload.getfield_and_val(attr)
 
     def __getattr__(self, attr):
-        try:
-            fld, v = self.getfield_and_val(attr)
-        except TypeError:
-            return self.payload.__getattr__(attr)
+        if attr == "fields":
+            raise AttributeError()
+        fld,v = self.getfield_and_val(attr)
         if fld is not None:
             return fld.i2h(self, v)
         return v
@@ -305,6 +321,9 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
                                   repr(self.payload),
                                   ct.punct(">"))
     def __str__(self):
+        #raise OSError(self.__class__)
+        return str(self.build())
+    def __bytes__(self):
         return self.build()
     def __div__(self, other):
         if isinstance(other, Packet):
@@ -312,13 +331,15 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
             cloneB = other.copy()
             cloneA.add_payload(cloneB)
             return cloneA
-        elif type(other) is str:
-            return self/conf.raw_layer(load=other)
+        elif type(other) in [bytes, str]:
+            other = str_bytes(other)
+            return self / conf.raw_layer(load=other)
         else:
             return other.__rdiv__(self)
     __truediv__ = __div__
     def __rdiv__(self, other):
-        if type(other) is str:
+        if type(other) in [bytes, str]:
+            other = str_bytes(other)
             return conf.raw_layer(load=other)/self
         else:
             raise TypeError
@@ -333,8 +354,9 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
     
     def __nonzero__(self):
         return True
+    __bool__ = __nonzero__
     def __len__(self):
-        return len(self.__str__())
+        return len(self.__bytes__())
     def copy_field_value(self, fieldname, value):
         return self.get_field(fieldname).do_copy(value)
     def copy_fields_dict(self, fields):
@@ -351,11 +373,11 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
                     break
             if self.raw_packet_cache is not None:
                 return self.raw_packet_cache
-        p=""
+        p=b""
         for f in self.fields_desc:
             val = self.getfieldval(f.name)
             if isinstance(val, RawVal):
-                sval = str(val)
+                sval = str_bytes(val)
                 p += sval
                 if field_pos_list is not None:
                     field_pos_list.append( (f.name, sval.encode("string_escape"), len(p), len(sval) ) )
@@ -395,18 +417,18 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         return self.payload.build_done(p)
 
     def do_build_ps(self):
-        p=""
+        p=b""
         pl = []
-        q=""
+        q=b""
         for f in self.fields_desc:
             if isinstance(f, ConditionalField) and not f._evalcond(self):
                 continue
             p = f.addfield(self, p, self.getfieldval(f.name) )
-            if type(p) is str:
+            if type(p) is bytes:
                 r = p[len(q):]
                 q = p
             else:
-                r = ""
+                r = b""
             pl.append( (f, f.i2repr(self,self.getfieldval(f.name)), r) )
             
         pkt,lst = self.payload.build_ps(internal=1)
@@ -455,7 +477,7 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
             raise ImportError("PyX and its depedencies must be installed")
         canvas = pyx.canvas.canvas()
         if rebuild:
-            p,t = self.__class__(str(self)).build_ps()
+            p,t = self.__class__(bytes(self)).build_ps()
         else:
             p,t = self.build_ps()
         YTXT=len(t)
@@ -612,6 +634,7 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
         return s
 
     def do_dissect(self, s):
+        s = str_bytes(s)
         raw = s
         self.raw_packet_cache_fields = {}
         for f in self.fields_desc:
@@ -637,7 +660,7 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
                 raise
             except:
                 if conf.debug_dissector:
-                    if isinstance(cls,type) and issubclass(cls,Packet):
+                    if isinstance(cls,type) and issubclass(cls, Packet):
                         log_runtime.error("%s dissector failed" % cls.name)
                     else:
                         log_runtime.error("%s.guess_payload_class() returned [%s]" % (self.__class__.__name__,repr(cls)))
@@ -742,7 +765,7 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
         """True if other is an answer from self (self ==> other)."""
         if isinstance(other, Packet):
             return other < self
-        elif type(other) is str:
+        elif type(other) is bytes:
             return 1
         else:
             raise TypeError((self, other))
@@ -750,7 +773,7 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
         """True if self is an answer from other (other ==> self)."""
         if isinstance(other, Packet):
             return self.answers(other)
-        elif type(other) is str:
+        elif type(other) is bytes:
             return 1
         else:
             raise TypeError((self, other))
@@ -846,7 +869,7 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
         if ret is None:
             if type(lname) is Packet_metaclass:
                 lname = lname.__name__
-            elif type(lname) is not str:
+            elif type(lname) is not bytes:
                 lname = repr(lname)
             raise IndexError("Layer [%s] not found" % lname)
         return ret
@@ -900,8 +923,8 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
             if isinstance(fvalue, Packet) or (f.islist and f.holds_packets and type(fvalue) is list):
                 s += "%s  \\%-10s\\\n" % (label_lvl+lvl, ncol(f.name))
                 fvalue_gen = SetGen(fvalue,_iterpacket=0)
-                for fvalue in fvalue_gen:
-                    s += fvalue._show_or_dump(dump=dump, indent=indent, label_lvl=label_lvl+lvl+"   |", first_call=False)
+                for _fvalue in fvalue_gen:
+                    s += _fvalue._show_or_dump(dump=dump, indent=indent, label_lvl=label_lvl+lvl+"   |", first_call=False)
             else:
                 begn = "%s  %-10s%s " % (label_lvl+lvl,
                                         ncol(f.name),
@@ -927,7 +950,7 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
 
     def show2(self, dump=False, indent=3, lvl="", label_lvl=""):
         """Prints or returns (when "dump" is true) a hierarchical view of an assembled version of the packet, so that automatic fields are calculated (checksums, etc.)"""
-        return self.__class__(str(self)).show(dump, indent, lvl, label_lvl)
+        return self.__class__(bytes(self)).show(dump, indent, lvl, label_lvl)
 
     def sprintf(self, fmt, relax=1):
         """sprintf(format, [relax=1]) -> str
@@ -1077,7 +1100,7 @@ A side effect is that, to obtain "{" and "}" characters, you must use
 
     def decode_payload_as(self,cls):
         """Reassembles the payload and decode it using another packet class"""
-        s = str(self.payload)
+        s = bytes(self.payload)
         self.payload = cls(s, _internal=1, _underlayer=self)
         pp = self
         while pp.underlayer is not None:
@@ -1087,7 +1110,7 @@ A side effect is that, to obtain "{" and "}" characters, you must use
     def libnet(self):
         """Not ready yet. Should give the necessary C code that interfaces with libnet to recreate the packet"""
         print("libnet_build_%s(" % self.__class__.name.lower())
-        det = self.__class__(str(self))
+        det = self.__class__(raw(self))
         for f in self.fields_desc:
             val = det.getfieldval(f.name)
             if val is None:
@@ -1141,18 +1164,21 @@ class NoPayload(Packet):
         return ""
     def __str__(self):
         return ""
+    def __bytes__(self):
+        return b""
     def __nonzero__(self):
         return False
+    __bool__ = __nonzero__
     def do_build(self):
-        return ""
+        return b""
     def build(self):
-        return ""
+        return b""
     def build_padding(self):
-        return ""
+        return b""
     def build_done(self, p):
         return p
     def build_ps(self, internal=0):
-        return "",[]
+        return b"",[]
     def getfieldval(self, attr):
         raise AttributeError(attr)
     def getfield_and_val(self, attr):
@@ -1170,7 +1196,7 @@ class NoPayload(Packet):
             return True
         return False
     def hashret(self):
-        return ""
+        return b""
     def answers(self, other):
         return isinstance(other, NoPayload) or isinstance(other, conf.padding_layer)
     def haslayer(self, cls):
@@ -1202,7 +1228,7 @@ class NoPayload(Packet):
             
 class Raw(Packet):
     name = "Raw"
-    fields_desc = [ StrField("load", "") ]
+    fields_desc = [ StrField("load", b"") ]
     def answers(self, other):
         return 1
 #        s = str(other)
@@ -1221,11 +1247,10 @@ class Raw(Packet):
 class Padding(Raw):
     name = "Padding"
     def self_build(self):
-        return ""
+        return b""
     def build_padding(self):
-        return (self.load if self.raw_packet_cache is None
+        return (self.getbyteval("load") if self.raw_packet_cache is None
                 else self.raw_packet_cache) + self.payload.build_padding()
-
 conf.raw_layer = Raw
 conf.padding_layer = Padding
 if conf.default_l2 is None:

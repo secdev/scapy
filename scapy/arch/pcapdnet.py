@@ -75,13 +75,13 @@ if conf.use_winpcapy:
     try:
       p = devs
       while p:
-        if p.contents.name.endswith(iff):
+        if p.contents.name.endswith(iff.guid.encode("ascii")):
           a = p.contents.addresses
           while a:
             if hasattr(socket, 'AF_LINK') and a.contents.addr.contents.sa_family == socket.AF_LINK:
               ap = a.contents.addr
               val = cast(ap, POINTER(sockaddr_dl))
-              ret = str(val.contents.sdl_data[ val.contents.sdl_nlen : val.contents.sdl_nlen + val.contents.sdl_alen ])
+              ret = str_bytes(val.contents.sdl_data[val.contents.sdl_nlen:val.contents.sdl_nlen+val.contents.sdl_alen])
             a = a.contents.next
           break
         p = p.contents.next
@@ -98,14 +98,14 @@ if conf.use_winpcapy:
     try:
       p = devs
       while p:
-        if p.contents.name.endswith(iff.guid):
+        if p.contents.name.endswith(iff.guid.encode("ascii")):
           a = p.contents.addresses
           while a:
             if a.contents.addr.contents.sa_family == socket.AF_INET:
               ap = a.contents.addr
               val = cast(ap, POINTER(sockaddr_in))
-              #ret = bytes(val.contents.sin_addr[:4])
-              ret = "".join([chr(x) for x in val.contents.sin_addr[:4]])
+              #ret = str_bytes(val.contents.sin_addr[:4])
+              ret = str_bytes(val.contents.sin_addr[:4])
             a = a.contents.next
           break
         p = p.contents.next
@@ -142,7 +142,7 @@ if conf.use_winpcapy:
   class _PcapWrapper_pypcap:
       def __init__(self, device, snaplen, promisc, to_ms):
           self.errbuf = create_string_buffer(PCAP_ERRBUF_SIZE)
-          self.iface = create_string_buffer(device)
+          self.iface = create_string_buffer(device.encode('ascii'))
           self.pcap = pcap_open_live(self.iface, snaplen, promisc, to_ms, self.errbuf)
           self.header = POINTER(pcap_pkthdr)()
           self.pkt_data = POINTER(c_ubyte)()
@@ -152,8 +152,8 @@ if conf.use_winpcapy:
           if not c > 0:
               return
           ts = self.header.contents.ts.tv_sec
-          pkt = "".join([ chr(i) for i in self.pkt_data[:self.header.contents.len] ])
-          #pkt = bytes(self.pkt_data[:self.header.contents.len])
+          pkt = str_bytes(self.pkt_data[:self.header.contents.len])
+          #pkt = str_bytes(self.pkt_data[:self.header.contents.len])
           return ts, pkt
       def datalink(self):
           return pcap_datalink(self.pcap)
@@ -163,7 +163,7 @@ if conf.use_winpcapy:
             return 0
           return pcap_get_selectable_fd(self.pcap) 
       def setfilter(self, f):
-          filter_exp = create_string_buffer(f)
+          filter_exp = create_string_buffer(f.encode('ascii'))
           if pcap_compile(self.pcap, byref(self.bpf_program), filter_exp, 0, -1) == -1:
             log_loading.error("Could not compile filter expression %s" % f)
             return False
@@ -274,7 +274,7 @@ if conf.use_winpcapy:
           if filter:
               self.ins.setfilter(filter)
       def send(self, x):
-          sx = str(x)
+          sx = bytes(x)
           if hasattr(x, "sent_time"):
               x.sent_time = time.time()
           return self.ins.send(sx)
@@ -328,7 +328,7 @@ if conf.use_winpcapy:
             return
       def send(self, x):
           cls = conf.l2types[1]
-          sx = str(cls()/x)
+          sx = bytes(cls()/x)
           if hasattr(x, "sent_time"):
               x.sent_time = time.time()
           return self.ins.send(sx)
@@ -370,7 +370,7 @@ if conf.use_pcap:
                     if c is None:
                         return
                     ts, pkt = c
-                    return ts, str(pkt)
+                    return ts, bytes(pkt)
             open_pcap = lambda *args,**kargs: _PcapWrapper_pypcap(*args,**kargs)
         elif hasattr(pcap,"pcapObject"): # python-libpcap
             class _PcapWrapper_libpcap:
@@ -596,9 +596,9 @@ if conf.use_pcap and conf.use_dnet:
                     ifs = dnet.ip()
                 self.iflist[iff] = ifs,cls
             if cls is None:
-                sx = str(x)
+                sx = bytes(x)
             else:
-                sx = str(cls()/x)
+                sx = bytes(cls()/x)
             x.sent_time = time.time()
             ifs.send(sx)
         def recv(self,x=MTU):

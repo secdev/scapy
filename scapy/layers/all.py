@@ -12,12 +12,14 @@ from scapy.config import conf
 from scapy.error import log_loading
 import logging
 import scapy.modules.six as six
+import importlib
+
 log = logging.getLogger("scapy.loading")
 
 __all__ = []
 
 def _import_star(m):
-    mod = __import__(m, globals(), locals())
+    mod = importlib.import_module("." + m, "scapy.layers")
     if '__all__' in mod.__dict__:
         # only import the exported symbols in __all__
         for name in mod.__dict__['__all__']:

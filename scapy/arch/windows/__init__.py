@@ -6,9 +6,10 @@
 """
 Customizations needed to support Microsoft Windows.
 """
-
-from __future__ import absolute_import
 from __future__ import print_function
+from __future__ import absolute_import
+from scapy.compat import *
+
 import os, re, sys, socket, time, itertools, platform
 import subprocess as sp
 from glob import glob
@@ -103,7 +104,7 @@ def _vbs_get_iface_guid(devid):
         devid = str(int(devid) + 1)
         guid = next(_vbs_exec_code("""WScript.Echo CreateObject("WScript.Shell").RegRead("HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\NetworkCards\\%s\\ServiceName")
 """ % devid).__iter__())
-        if guid.startswith('{') and guid.endswith('}\n'):
+        if guid.startswith(b'{') and guid.endswith(b'}\n'):
             return guid[:-1]
     except StopIteration:
         pass
@@ -189,7 +190,7 @@ def _deep_lookup(prog_list, max_depth=3):
         return False, None, None
     def key_in_path(path, key):
         return key.lower() in path.lower()
-    deeper_paths = [env_path("ProgramFiles"), env_path("ProgramFiles(x86)")]
+    deeper_paths = [x for x in [env_path("ProgramFiles"), env_path("ProgramW6432")] if x != ""]
     for path in deeper_paths:
         len_p = len(path) + len(os.path.sep)
         for root, subFolders, files in os.walk(path):
@@ -218,9 +219,9 @@ def _where(filename, dirs=None, env="PATH"):
         return DEEP_LOOKUP_CACHE[filename]
     paths = [os.curdir] + os.environ[env].split(os.path.pathsep) + dirs
     for path in paths:
-        for match in glob(os.path.join(path, filename)):
-            if match:
-                return os.path.normpath(match)
+        _path = os.path.normpath(os.path.join(path, filename))
+        if os.path.isfile(_path):
+            return _path
     raise IOError("File not found: %s" % filename)
 
 def win_find_exe(filename, installsubdir=None, env="ProgramFiles"):

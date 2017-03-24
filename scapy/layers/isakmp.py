@@ -8,6 +8,8 @@ ISAKMP (Internet Security Association and Key Management Protocol).
 """
 
 from __future__ import absolute_import
+from scapy.compat import *
+
 import struct
 from scapy.config import conf
 from scapy.packet import *
@@ -16,6 +18,7 @@ from scapy.ansmachine import *
 from scapy.layers.inet import IP,UDP
 from scapy.sendrecv import sr
 from scapy.error import warning
+import scapy.modules.six as six
 from scapy.modules.six.moves import map
 from functools import reduce
 
@@ -104,17 +107,17 @@ del(val)
 
 class ISAKMPTransformSetField(StrLenField):
     islist=1
-    def type2num(self, xxx_todo_changeme):
-        (typ,val) = xxx_todo_changeme
-        type_val,enc_dict,tlv = ISAKMPTransformTypes.get(typ, (typ,{},0))
+    def type2num(self, typval):
+        typ, val = typval
+        type_val, enc_dict, tlv = ISAKMPTransformTypes.get(typ, (typ,{},0))
         val = enc_dict.get(val, val)
-        s = ""
+        s = b""
         if (val & ~0xffff):
             if not tlv:
                 warning("%r should not be TLV but is too big => using TLV encoding" % typ)
             n = 0
             while val:
-                s = chr(val&0xff)+s
+                s = six.int2byte(val&0xff)+s
                 val >>= 8
                 n += 1
             val = n
@@ -127,9 +130,9 @@ class ISAKMPTransformSetField(StrLenField):
         return (val[0],enc)
     def i2m(self, pkt, i):
         if i is None:
-            return ""
+            return b""
         i = list(map(self.type2num, i))
-        return "".join(i)
+        return b"".join(i)
     def m2i(self, pkt, m):
         # I try to ensure that we don't read off the end of our packet based
         # on bad length fields we're provided in the packet. There are still
@@ -176,6 +179,8 @@ class ISAKMP_class(Packet):
             pt = ISAKMP_payload_type[np]
             return globals().get("ISAKMP_payload_%s" % pt, ISAKMP_payload)
         else:
+            if self.flags & 1:
+                return conf.raw_layer
             return ISAKMP_payload
 
 
@@ -191,11 +196,6 @@ class ISAKMP(ISAKMP_class): # rfc2408
         IntField("id",0),
         IntField("length",None)
         ]
-
-    def guess_payload_class(self, payload):
-        if self.flags & 1:
-            return conf.raw_layer
-        return ISAKMP_class.guess_payload_class(self, payload)
 
     def answers(self, other):
         if isinstance(other, ISAKMP):
@@ -233,7 +233,7 @@ class ISAKMP_payload_Transform(ISAKMP_class):
     def post_build(self, p, pay):
         if self.length is None:
             l = len(p)
-            p = p[:2]+chr((l>>8)&0xff)+chr(l&0xff)+p[4:]
+            p = p[:2]+str_bytes([((l>>8)&0xff),(l&0xff)])+p[4:]
         p += pay
         return p
             

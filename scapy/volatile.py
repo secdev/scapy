@@ -10,8 +10,15 @@ Fields that hold random numbers.
 from __future__ import absolute_import
 import random,time,math
 from scapy.base_classes import Net
+<<<<<<< HEAD
 from scapy.utils import corrupt_bits,corrupt_bytes
 from scapy.modules.six.moves import map, range
+=======
+from scapy.utils import corrupt_bits, corrupt_bytes
+from scapy.data import str_bytes
+from six.moves import map
+from six.moves import range
+>>>>>>> dd6874fc0f6484ebac87d95dc29c905820362170
 
 ####################
 ## Random numbers ##
@@ -37,7 +44,7 @@ class RandomEnumeration:
             n += 1
         self.n =n
 
-        self.fs = min(3,(n+1)/2)
+        self.fs = min(3,(n+1)//2)
         self.fsmask = 2**self.fs-1
         self.rounds = max(self.n,3)
         self.turns = 0
@@ -45,6 +52,7 @@ class RandomEnumeration:
 
     def __iter__(self):
         return self
+    
     def next(self):
         while True:
             if self.turns == 0 or (self.i == 0 and self.renewkeys):
@@ -66,6 +74,7 @@ class RandomEnumeration:
             self.i = 0
             if not self.forever:
                 raise StopIteration
+    __next__ = next
 
 
 class VolatileValue:
@@ -84,6 +93,10 @@ class VolatileValue:
         return getattr(self._fix(),attr)
     def _fix(self):
         return None
+    def __str__(self):
+        return str(self._fix())
+    def __bytes__(self):
+        return str_bytes(self._fix())
 
 
 class RandField(VolatileValue):
@@ -98,28 +111,26 @@ class RandNum(RandField):
         self.max = max
     def _fix(self):
         return random.randrange(self.min, self.max+1)
-
     def __int__(self):
         return int(self._fix())
+    def __index__(self):
+        return int(self)
 
-    def __str__(self):
-        return str(self._fix())
-
-class RandNumGamma(RandField):
+class RandNumGamma(RandNum):
     def __init__(self, alpha, beta):
         self.alpha = alpha
         self.beta = beta
     def _fix(self):
         return int(round(random.gammavariate(self.alpha, self.beta)))
 
-class RandNumGauss(RandField):
+class RandNumGauss(RandNum):
     def __init__(self, mu, sigma):
         self.mu = mu
         self.sigma = sigma
     def _fix(self):
         return int(round(random.gauss(self.mu, self.sigma)))
 
-class RandNumExpo(RandField):
+class RandNumExpo(RandNum):
     def __init__(self, lambd, base=0):
         self.lambd = lambd
         self.base = base
@@ -225,6 +236,8 @@ class RandString(RandField):
         for _ in range(self.size):
             s += random.choice(self.chars)
         return s
+    def __len__(self):
+        return len(self._fix())
 
 class RandBin(RandString):
     def __init__(self, size=None):
@@ -237,9 +250,10 @@ class RandTermString(RandString):
         self.term = term
     def _fix(self):
         return RandString._fix(self)+self.term
-
     def __str__(self):
         return str(self._fix())
+    def __bytes__(self):
+        return str_bytes(self._fix())
     
     
 
@@ -294,7 +308,7 @@ class RandIP6(RandString):
         done = 0
         nbm = self.multi
         ip = []
-        for i,n in enumerate(self.sp):
+        for i, n in enumerate(self.sp):
             if n == "**":
                 nbm -= 1
                 remain = 8-(len(self.sp)-i-1)-len(ip)+nbm
@@ -313,7 +327,7 @@ class RandIP6(RandString):
         if len(ip) == 9:
             ip.remove("")
         if ip[-1] == "":
-          ip[-1] = "0"
+            ip[-1] = "0"
         return ":".join(ip)
 
 class RandOID(RandString):
@@ -622,6 +636,8 @@ class RandSingString(RandSingularity):
 
     def __str__(self):
         return str(self._fix())
+    def __bytes__(self):
+        return str_bytes(self._fix())
                              
 
 class RandPool(RandField):

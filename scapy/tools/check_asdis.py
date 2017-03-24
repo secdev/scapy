@@ -1,7 +1,12 @@
 #! /usr/bin/env python
 
+<<<<<<< HEAD
 from __future__ import absolute_import
 from __future__ import print_function
+=======
+from __future__ import print_function
+from __future__ import absolute_import
+>>>>>>> dd6874fc0f6484ebac87d95dc29c905820362170
 import getopt
 
 def usage():

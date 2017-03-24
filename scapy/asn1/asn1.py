@@ -10,6 +10,8 @@ ASN.1 (Abstract Syntax Notation One)
 
 from __future__ import absolute_import
 from __future__ import print_function
+from scapy.compat import *
+
 import random
 from datetime import datetime
 from scapy.config import conf
@@ -198,6 +200,8 @@ class ASN1_Object(six.with_metaclass(ASN1_Object_metaclass)):
         return "<%s[%r]>" % (self.__dict__.get("name", self.__class__.__name__), self.val)
     def __str__(self):
         return self.enc(conf.ASN1_default_codec)
+    def __bytes__(self):
+        return str_bytes(self.enc(conf.ASN1_default_codec))
     def strshow(self, lvl=0):
         return ("  "*lvl)+repr(self)+"\n"
     def show(self, lvl=0):
@@ -255,7 +259,7 @@ class ASN1_BOOLEAN(ASN1_INTEGER):
     tag = ASN1_Class_UNIVERSAL.BOOLEAN
     # BER: 0 means False, anything else means True
     def __repr__(self):
-        return str((not (self.val==0))) + " " + ASN1_Object.__repr__(self)
+        return str_bytes((not (self.val==0))) + " " + ASN1_Object.__repr__(self)
     
 class ASN1_BIT_STRING(ASN1_Object):
     """

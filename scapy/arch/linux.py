@@ -396,7 +396,7 @@ class L3PacketSocket(SuperSocket):
             sdto = (iff, conf.l3types[type(x)])
         if sn[3] in conf.l2types:
             ll = lambda x:conf.l2types[sn[3]]()/x
-        sx = str(ll(x))
+        sx = bytes(ll(x))
         x.sent_time = time.time()
         try:
             self.outs.sendto(sx, sdto)
@@ -405,7 +405,7 @@ class L3PacketSocket(SuperSocket):
                 self.outs.send(sx + b"\x00" * (conf.min_pkt_size - len(sx)))
             elif conf.auto_fragment and msg[0] == 90:
                 for p in x.fragment():
-                    self.outs.sendto(str(ll(p)), sdto)
+                    self.outs.sendto(bytes(ll(p)), sdto)
             else:
                 raise
 
@@ -471,7 +471,7 @@ class L2Socket(SuperSocket):
                 if isinstance(x, Packet):
                     return SuperSocket.send(self, x / Padding(load=padding))
                 else:
-                    return SuperSocket.send(self, str(x) + padding)
+                    return SuperSocket.send(self, bytes(x) + padding)
             raise
 
 

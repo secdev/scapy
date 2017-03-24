@@ -17,11 +17,10 @@ import scapy.modules.six as six
 ###############################
 
 def fixname(x):
-    if x and x[0] in "0123456789":
-        x = "n_"+x
+    if x and str(x[0]) in "0123456789":
+        x = "n_" + x
     return x.translate("________________________________________________0123456789_______ABCDEFGHIJKLMNOPQRSTUVWXYZ______abcdefghijklmnopqrstuvwxyz_____________________________________________________________________________________________________________________________________")
-
-
+    
 class DADict_Exception(Scapy_Exception):
     pass
 
@@ -90,6 +89,6 @@ class DADict:
                 r += p
         return r
     def keys(self):
-        return list(six.iterkeys(self))
+        return list(self.__dict__.keys())
     def iterkeys(self):
         return (x for x in self.__dict__ if x and x[0] != "_")

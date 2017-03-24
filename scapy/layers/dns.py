@@ -8,6 +8,7 @@ DNS: Domain Name System.
 """
 
 from __future__ import absolute_import
+from scapy.compat import *
 import socket,struct
 
 from scapy.config import conf
@@ -25,36 +26,38 @@ from functools import reduce
 class DNSStrField(StrField):
 
     def h2i(self, pkt, x):
-      if x == "":
-        return "."
-      return x
+        x = str_bytes(x)
+        if x == b"":
+            return b"."
+        return x
 
     def i2m(self, pkt, x):
-        if x == ".":
-          return b"\x00"
+        x = str_bytes(x)
+        if x == b".":
+            return b"\x00"
 
-        x = [k[:63] for k in x.split(".")] # Truncate chunks that cannot be encoded (more than 63 bytes..)
-        x = [chr(len(y))+y for y in x]
-        x = "".join(x)
-        if x[-1] != b"\x00":
+        x = [k[:63] for k in x.split(b".")] # Truncate chunks that cannot be encoded (more than 63 bytes..)
+        x = [str_bytes([len(y)])+y for y in x]
+        x = b"".join(x)
+        if orb(x[-1]) != 0:
             x += b"\x00"
         return x
 
     def getfield(self, pkt, s):
-        n = ""
+        n = b""
 
-        if ord(s[0]) == 0:
-          return s[1:], "."
+        if orb(s[0]) == 0:
+            return s[1:], b"."
 
         while 1:
-            l = ord(s[0])
+            l = orb(s[0])
             s = s[1:]
             if not l:
                 break
             if l & 0xc0:
                 raise Scapy_Exception("DNS message can't be compressed at this point!")
             else:
-                n += s[:l]+"."
+                n += s[:l]+ b"."
                 s = s[l:]
         return s, n
 
@@ -83,14 +86,14 @@ class DNSRRCountField(ShortField):
 
 
 def DNSgetstr(s,p):
-    name = ""
+    name = b""
     q = 0
     jpath = [p]
     while 1:
         if p >= len(s):
             warning("DNS RR prematured end (ofs=%i, len=%i)"%(p,len(s)))
             break
-        l = ord(s[p])
+        l = orb(s[p])
         p += 1
         if l & 0xc0:
             if not q:
@@ -98,14 +101,14 @@ def DNSgetstr(s,p):
             if p >= len(s):
                 warning("DNS incomplete jump token at (ofs=%i)" % p)
                 break
-            p = ((l & 0x3f) << 8) + ord(s[p]) - 12
+            p = ((l & 0x3f) << 8) + orb(s[p]) - 12
             if p in jpath:
                 warning("DNS decompression loop detected")
                 break
             jpath.append(p)
             continue
         elif l > 0:
-            name += s[p:p+l]+"."
+            name += s[p:p+l]+b"."
             p += l
             continue
         break
@@ -123,8 +126,8 @@ class DNSRRField(StrField):
         self.passon = passon
     def i2m(self, pkt, x):
         if x is None:
-            return ""
-        return str(x)
+            return b""
+        return str_bytes(x)
     def decodeRR(self, name, s, p):
         ret = s[p:p+10]
         type,cls,ttl,rdlen = struct.unpack("!HHIH", ret)
@@ -151,7 +154,7 @@ class DNSRRField(StrField):
         c = getattr(pkt, self.countfld)
         if c > len(s):
             warning("wrong value: DNS.%s=%i" % (self.countfld,c))
-            return s,""
+            return s, b""
         while c:
             c -= 1
             name,p = DNSgetstr(s,p)
@@ -184,7 +187,7 @@ class RDataField(StrLenField):
         elif pkt.type == 12: # PTR
             s = DNSgetstr(s, 0)[0]
         elif pkt.type == 16: # TXT
-            ret_s = ""
+            ret_s = b""
             tmp_s = s
             # RDATA contains a list of strings, each are prepended with
             # a byte containing the size of the following string.
@@ -205,12 +208,13 @@ class RDataField(StrLenField):
             if s:
                 s = inet_aton(s)
         elif pkt.type in [2, 3, 4, 5, 12]: # NS, MD, MF, CNAME, PTR
-            s = "".join([chr(len(x))+x for x in s.split(".")])
-            if ord(s[-1]):
+            s = b"".join([str_bytes(len(x))+x for x in s.split(".")])
+            if orb(s[-1]):
                 s += b"\x00"
         elif pkt.type == 16: # TXT
             if s:
-                ret_s = ""
+                s = str_bytes(s)
+                ret_s = b""
                 # The initial string must be splitted into a list of strings
                 # prepended with theirs sizes.
                 while len(s) >= 255:
@@ -395,9 +399,9 @@ def bitmap2RRlist(bitmap):
             warning("bitmap too short (%i)" % len(bitmap))
             return
 
-        window_block = ord(bitmap[0]) # window number
+        window_block = orb(bitmap[0]) # window number
         offset = 256*window_block # offset of the Resource Record
-        bitmap_len = ord(bitmap[1]) # length of the bitmap in bytes
+        bitmap_len = orb(bitmap[1]) # length of the bitmap in bytes
 
         if bitmap_len <= 0 or bitmap_len > 32:
             warning("bitmap length is no valid (%i)" % bitmap_len)
@@ -409,7 +413,7 @@ def bitmap2RRlist(bitmap):
         for b in range(len(tmp_bitmap)):
             v = 128
             for i in range(8):
-                if ord(tmp_bitmap[b]) & v:
+                if orb(tmp_bitmap[b]) & v:
                     # each of the RR is encoded as a bit
                     RRlist += [ offset + b*8 + i ]
                 v = v >> 1

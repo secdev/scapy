@@ -9,6 +9,8 @@ Wireless LAN according to IEEE 802.11.
 
 from __future__ import absolute_import
 from __future__ import print_function
+from scapy.compat import *
+
 import re,struct
 from zlib import crc32
 
@@ -331,7 +333,7 @@ class Dot11WEP(Packet):
             key = conf.wepkey
         if key:
             d = Cipher(
-                algorithms.ARC4(self.iv + key),
+                algorithms.ARC4(str_bytes(self.iv) + str_bytes(key)),
                 None,
                 default_backend(),
             ).decryptor()
@@ -343,7 +345,7 @@ class Dot11WEP(Packet):
     def build_payload(self):
         if self.wepdata is None:
             return Packet.build_payload(self)
-        return ""
+        return b""
 
     @crypto_validator
     def encrypt(self, p, pay, key=None):
@@ -352,22 +354,22 @@ class Dot11WEP(Packet):
         if key:
             if self.icv is None:
                 pay += struct.pack("<I", crc32(pay))
-                icv = ""
+                icv = b""
             else:
                 icv = p[4:8]
             e = Cipher(
-                algorithms.ARC4(self.iv + key),
+                algorithms.ARC4(str_bytes(self.iv) + str_bytes(key)),
                 None,
                 default_backend(),
             ).encryptor()
             return p[:4] + e.update(pay) + e.finalize() + icv
         else:
             warning("No WEP key set (conf.wepkey).. strange results expected..")
-            return None
+        return p
 
     def post_build(self, p, pay):
         if self.wepdata is None:
-            p = self.encrypt(p, pay)
+            p = self.encrypt(p, str_bytes(pay))
         return p
 
 
@@ -447,7 +449,7 @@ iwconfig wlan0 mode managed
             return 0
         ip = pkt.getlayer(IP)
         tcp = pkt.getlayer(TCP)
-        pay = str(tcp.payload)
+        pay = bytes(tcp.payload)
         if not self.ptrn.match(pay):
             return 0
         if self.iptrn.match(pay):
@@ -456,7 +458,7 @@ iwconfig wlan0 mode managed
     def make_reply(self, p):
         ip = p.getlayer(IP)
         tcp = p.getlayer(TCP)
-        pay = str(tcp.payload)
+        pay = bytes(tcp.payload)
         del(p.payload.payload.payload)
         p.FCfield="from-DS"
         p.addr1,p.addr2 = p.addr2,p.addr1
@@ -510,7 +512,7 @@ iwconfig wlan0 mode managed
             return
         ip = p.getlayer(IP)
         tcp = p.getlayer(TCP)
-        pay = str(tcp.payload)
+        pay = bytes(tcp.payload)
         if not ptrn.match(pay):
             return
         if iptrn.match(pay):
