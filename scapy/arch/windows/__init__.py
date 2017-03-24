@@ -383,7 +383,6 @@ class NetworkInterface(object):
             if i.endswith(self.data['guid']):
                 self.pcap_name = i
                 return
-
         raise PcapNameNotFoundError
 
     def is_invalid(self):

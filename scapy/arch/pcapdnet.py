@@ -26,6 +26,7 @@ if conf.use_winpcapy:
   try:
       from scapy.arch.winpcapy import *
       def winpcapy_get_if_list():
+          """Return all winpcapy interfaces"""
           err = create_string_buffer(PCAP_ERRBUF_SIZE)
           devs = POINTER(pcap_if_t)()
           ret = []
@@ -53,6 +54,7 @@ if conf.use_winpcapy:
           LOOPBACK_NAME = scapy.consts.LOOPBACK_NAME = "Npcap Loopback Adapter"
   except OSError as e:
       def winpcapy_get_if_list():
+          """Winpcap not available"""
           return []
       conf.use_winpcapy = False
       if conf.interactive:
@@ -81,7 +83,7 @@ if conf.use_winpcapy:
             if hasattr(socket, 'AF_LINK') and a.contents.addr.contents.sa_family == socket.AF_LINK:
               ap = a.contents.addr
               val = cast(ap, POINTER(sockaddr_dl))
-              ret = str_bytes(val.contents.sdl_data[val.contents.sdl_nlen:val.contents.sdl_nlen+val.contents.sdl_alen])
+              ret = raw(val.contents.sdl_data[val.contents.sdl_nlen:val.contents.sdl_nlen+val.contents.sdl_alen])
             a = a.contents.next
           break
         p = p.contents.next
@@ -104,8 +106,8 @@ if conf.use_winpcapy:
             if a.contents.addr.contents.sa_family == socket.AF_INET:
               ap = a.contents.addr
               val = cast(ap, POINTER(sockaddr_in))
-              #ret = str_bytes(val.contents.sin_addr[:4])
-              ret = str_bytes(val.contents.sin_addr[:4])
+              #ret = raw(val.contents.sin_addr[:4])
+              ret = raw(val.contents.sin_addr[:4])
             a = a.contents.next
           break
         p = p.contents.next
@@ -152,8 +154,8 @@ if conf.use_winpcapy:
           if not c > 0:
               return
           ts = self.header.contents.ts.tv_sec
-          pkt = str_bytes(self.pkt_data[:self.header.contents.len])
-          #pkt = str_bytes(self.pkt_data[:self.header.contents.len])
+          pkt = raw(self.pkt_data[:self.header.contents.len])
+          #pkt = raw(self.pkt_data[:self.header.contents.len])
           return ts, pkt
       def datalink(self):
           return pcap_datalink(self.pcap)

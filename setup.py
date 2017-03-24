@@ -6,16 +6,10 @@ Distutils setup file for Scapy.
 
 
 from __future__ import absolute_import
-<<<<<<< HEAD
 from distutils import archive_util
 from distutils import sysconfig
 from distutils.core import setup
 from distutils.command.sdist import sdist
-=======
-from setuptools import archive_util
-from setuptools import setup
-from setuptools.command.sdist import sdist
->>>>>>> dd6874fc0f6484ebac87d95dc29c905820362170
 import os
 
 
@@ -69,10 +63,6 @@ setup(
     package_data={
         'scapy': ['VERSION'],
     },
-    install_requires=[
-        "six (>=1.10.0)"
-    ],
-
     # Metadata
     author='Philippe BIONDI',
     author_email='phil(at)secdev.org',

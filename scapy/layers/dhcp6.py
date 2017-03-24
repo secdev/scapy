@@ -278,7 +278,7 @@ class _DUIDField(PacketField):
         self.length_from = length_from
 
     def i2m(self, pkt, i):
-        return str_bytes(i)
+        return raw(i)
 
     def m2i(self, pkt, x):
         cls = conf.raw_layer
@@ -744,16 +744,16 @@ class DomainNameField(StrLenField):
         cur = []
         while x:
             l = orb(x[0])
-            cur.append(bytes_str(x[1:1+l]))
+            cur.append(plain_str(x[1:1+l]))
             x = x[l+1:]
         ret_str = ".".join(cur)
-        return str_bytes(ret_str)
+        return raw(ret_str)
 
     def i2m(self, pkt, x):
         if not x:
             return b""
         tmp = "".join([chr(len(z))+z for z in x.split('.')])
-        return str_bytes(tmp)
+        return raw(tmp)
 
 class DHCP6OptNISDomain(_DHCP6OptGuessPayload):             #RFC3898
     name = "DHCP6 Option - NIS Domain Name"
@@ -1394,7 +1394,7 @@ dhcp6d( dns="2001:500::1035", domain="localdomain, local", duid=None)
             duid = p[DHCP6OptServerId].duid
             if (type(duid) != type(self.duid)):
                 return False
-            if str_bytes(duid) != str_bytes(self.duid):
+            if raw(duid) != raw(self.duid):
                 return False
 
             if (p.msgtype == 5 or # Renew
@@ -1461,7 +1461,7 @@ dhcp6d( dns="2001:500::1035", domain="localdomain, local", duid=None)
                 duid = p[DHCP6OptServerId].duid
                 if (type(duid) != type(self.duid)):
                     return False
-                if str_bytes(duid) != str_bytes(self.duid):
+                if raw(duid) != raw(self.duid):
                     return False
             if ((DHCP6OptIA_NA in p) or 
                 (DHCP6OptIA_TA in p) or

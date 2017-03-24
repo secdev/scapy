@@ -199,7 +199,7 @@ def _ntp_dispatcher(payload):
     else:
         length = len(payload)
         if length >= _NTP_PACKET_MIN_SIZE:
-            first_byte = struct.unpack("!B", str_bytes(payload[0]))[0]
+            first_byte = struct.unpack("!B", raw(payload[0]))[0]
 
             # Extract NTP mode
             mode_mask = 0x07

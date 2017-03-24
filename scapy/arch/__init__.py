@@ -28,7 +28,7 @@ if not WINDOWS:
         from scapy.arch.bpf.core import get_if_raw_addr
 
 def get_if_addr(iff):
-    return socket.inet_ntoa(str_bytes(get_if_raw_addr(iff)))
+    return socket.inet_ntoa(raw(get_if_raw_addr(iff)))
     
 def get_if_hwaddr(iff):
     addrfamily, mac = get_if_raw_hwaddr(iff)

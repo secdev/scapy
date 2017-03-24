@@ -201,7 +201,7 @@ class ASN1_Object(six.with_metaclass(ASN1_Object_metaclass)):
     def __str__(self):
         return self.enc(conf.ASN1_default_codec)
     def __bytes__(self):
-        return str_bytes(self.enc(conf.ASN1_default_codec))
+        return raw(self.enc(conf.ASN1_default_codec))
     def strshow(self, lvl=0):
         return ("  "*lvl)+repr(self)+"\n"
     def show(self, lvl=0):
@@ -259,7 +259,7 @@ class ASN1_BOOLEAN(ASN1_INTEGER):
     tag = ASN1_Class_UNIVERSAL.BOOLEAN
     # BER: 0 means False, anything else means True
     def __repr__(self):
-        return str_bytes((not (self.val==0))) + " " + ASN1_Object.__repr__(self)
+        return raw((not (self.val==0))) + " " + ASN1_Object.__repr__(self)
     
 class ASN1_BIT_STRING(ASN1_Object):
     """

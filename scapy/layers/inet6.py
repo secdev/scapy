@@ -223,7 +223,7 @@ class IP6Field(Field):
             x = list(map(Net6, x))
         return x
     def i2m(self, pkt, x):
-        return inet_pton(socket.AF_INET6, bytes_str(x))
+        return inet_pton(socket.AF_INET6, plain_str(x))
     def m2i(self, pkt, x):
         return inet_ntop(socket.AF_INET6, x)
     def any2i(self, pkt, x):
@@ -471,7 +471,7 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
         if conf.checkIPsrc and conf.checkIPaddr and not in6_ismaddr(sd):
             sd = inet_pton(socket.AF_INET6, sd)
             ss = inet_pton(socket.AF_INET6, self.src)
-            return strxor(sd, ss) + struct.pack("B", nh) + str_bytes(self.payload.hashret())
+            return strxor(sd, ss) + struct.pack("B", nh) + raw(self.payload.hashret())
         else:
             return struct.pack("B", nh)+self.payload.hashret()
 
@@ -1689,7 +1689,7 @@ class TruncPktLenField(PacketLenField):
         return s
 
     def i2m(self, pkt, x):
-        s = str_bytes(x)
+        s = raw(x)
         l = len(s)
         r = (l + self.cur_shift) % 8
         l = l - r
@@ -1878,7 +1878,7 @@ class DomainNameListField(StrLenField):
         return len(self.i2m(pkt, x))
 
     def m2i(self, pkt, x):
-        x = bytes_str(x)
+        x = plain_str(x)
         res = []
         while x:
             # Get a name until \x00 is reached
@@ -1911,7 +1911,7 @@ class DomainNameListField(StrLenField):
         if self.padded and not len(ret_string) % self.padded_unit == 0:
             ret_string += b"\x00" * (self.padded_unit - len(ret_string) % self.padded_unit)
 
-        return str_bytes(ret_string)
+        return raw(ret_string)
 
 class ICMPv6NDOptDNSSL(_ICMPv6NDGuessPayload, Packet): # RFC 6106
     name = "ICMPv6 Neighbor Discovery Option - DNS Search List Option"
@@ -1971,7 +1971,7 @@ class ICMPv6ND_NS(_ICMPv6NDGuessPayload, _ICMPv6, Packet):
         return self.sprintf("%name% (tgt: %tgt%)")
 
     def hashret(self):
-        return str_bytes(self.tgt)+self.payload.hashret()
+        return raw(self.tgt)+self.payload.hashret()
 
 class ICMPv6ND_NA(_ICMPv6NDGuessPayload, _ICMPv6, Packet):
     name = "ICMPv6 Neighbor Discovery - Neighbor Advertisement"
@@ -1989,7 +1989,7 @@ class ICMPv6ND_NA(_ICMPv6NDGuessPayload, _ICMPv6, Packet):
         return self.sprintf("%name% (tgt: %tgt%)")
 
     def hashret(self):
-        return str_bytes(self.tgt)+self.payload.hashret()
+        return raw(self.tgt)+self.payload.hashret()
 
     def answers(self, other):
         return isinstance(other, ICMPv6ND_NS) and self.tgt == other.tgt
@@ -2099,7 +2099,7 @@ def computeNIGroupAddr(name):
     import hashlib
     name = name.lower().split(".")[0]
     record = chr(len(name))+name
-    h = hashlib.md5(str_bytes(record))
+    h = hashlib.md5(raw(record))
     h = h.digest()
     addr = "ff02::2:%2x%2x:%2x%2x" % struct.unpack("BBBB", h[:4])
     return addr
@@ -2140,8 +2140,8 @@ def names2dnsrepr(x):
 
     if type(x) is str:
         if x and x[-1] == '\x00': # stupid heuristic
-            return str_bytes(x)
-        x = [str_bytes(x)]
+            return raw(x)
+        x = [raw(x)]
     elif type(x) is bytes:
         if x and x[-1] == 0:
             return x
@@ -2150,11 +2150,11 @@ def names2dnsrepr(x):
     res = []
     for n in x:
         if type(n) is str:
-            n = str_bytes(n)
+            n = raw(n)
         termin = b"\x00"
         if n.count(b'.') == 0: # single-component gets one more
             termin += b'\x00'
-        n = b"".join([str_bytes(len(y))+y for y in n.split(b".")]) + termin
+        n = b"".join([raw(len(y))+y for y in n.split(b".")]) + termin
         res.append(n)
     return b"".join(res)
 
@@ -2167,7 +2167,7 @@ def dnsrepr2names(x):
     (does not end with a null character, a one element list
     is returned). Result is a list.
     """
-    x = bytes_str(x)
+    x = plain_str(x)
     res = []
     cur = ""
     while x:
@@ -2221,7 +2221,7 @@ class NIQueryDataField(StrField):
         return val
 
     def i2repr(self, pkt, x):
-        x = bytes_str(x)
+        x = plain_str(x)
         t,val = x
         if t == 1: # DNS Name
             # we don't use dnsrepr2names() to deal with
@@ -2834,7 +2834,7 @@ class _MobilityHeader(Packet):
         l = self.len
         if self.len is None:
             l = (len(p)-8)//8
-        p = str_bytes(p[0]) + struct.pack("B", l) + str_bytes(p[2:])
+        p = raw(p[0]) + struct.pack("B", l) + raw(p[2:])
         if self.cksum is None:
             cksum = in6_chksum(135, self.underlayer, p)
         else:
@@ -2959,7 +2959,7 @@ class MIP6MH_HoTI(_MobilityHeader):
                                           length_from = lambda pkt: 8*(pkt.len-1)) ]
     overload_fields = { IPv6: { "nh": 135 } }
     def hashret(self):
-        return str_bytes(self.cookie)
+        return raw(self.cookie)
 
 class MIP6MH_CoTI(MIP6MH_HoTI):
     name = "IPv6 Mobility Header - Care-of Test Init"

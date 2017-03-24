@@ -27,7 +27,7 @@ used when socket.inet_pton is not available.
     """
     joker_pos = None
     result = b""
-    addr = bytes_str(addr)
+    addr = plain_str(addr)
     if addr == '::':
         return b'\x00' * 16
     if addr.startswith('::'):
@@ -80,7 +80,7 @@ _INET_PTON = {
 def inet_pton(af, addr):
     """Convert an IP address from text representation into binary form."""
     # Use inet_pton if available
-    addr = bytes_str(addr)
+    addr = plain_str(addr)
     try:
         return socket.inet_pton(af, addr)
     except AttributeError:
@@ -125,7 +125,7 @@ _INET_NTOP = {
 def inet_ntop(af, addr):
     """Convert an IP address from binary form into text representation."""
     # Use inet_ntop if available
-    addr = str_bytes(addr)
+    addr = raw(addr)
     try:
         return socket.inet_ntop(af, addr)
     except AttributeError:

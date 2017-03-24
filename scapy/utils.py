@@ -6,40 +6,26 @@
 """
 General utility functions.
 """
-from __future__ import print_function
 
 from __future__ import absolute_import
-<<<<<<< HEAD
 from __future__ import print_function
 from scapy.compat import *
 
 import os, sys, socket, types
 import random, time
 import gzip, zlib
-=======
-import os, sys, socket, types, copy, tempfile
-import random, time
-import gzip, zlib, six.moves.cPickle
->>>>>>> dd6874fc0f6484ebac87d95dc29c905820362170
 import re, struct, array
 import subprocess
 import tempfile
 
 import warnings
-<<<<<<< HEAD
 import scapy.modules.six as six
 from scapy.modules.six.moves import map, range, input
-=======
-import six
-from six.moves import map
-from six.moves import range
-from six.moves import input
->>>>>>> dd6874fc0f6484ebac87d95dc29c905820362170
 warnings.filterwarnings("ignore","tempnam",RuntimeWarning, __name__)
 
 from scapy.config import conf
 from scapy.consts import DARWIN, WINDOWS
-from scapy.data import MTU, str_bytes
+from scapy.data import MTU, raw
 from scapy.error import log_runtime, log_loading, log_interactive, Scapy_Exception, warning
 from scapy.base_classes import BasePacketList
 
@@ -113,11 +99,7 @@ def sane(x):
     return r
 
 def lhex(x):
-<<<<<<< HEAD
     if type(x) in six.integer_types:
-=======
-    if type(x) in (int,int):
->>>>>>> dd6874fc0f6484ebac87d95dc29c905820362170
         return hex(x)
     elif type(x) is tuple:
         return "(%s)" % ", ".join(map(lhex, x))
@@ -180,11 +162,7 @@ def linehexdump(x, onlyasc=0, onlyhex=0, dump=False):
     l = len(x)
     if not onlyasc:
         for i in range(l):
-<<<<<<< HEAD
-            s += "%02X" % ord(x[i])
-=======
             s += "%02X" % orb(x[i])
->>>>>>> dd6874fc0f6484ebac87d95dc29c905820362170
         if not onlyhex:  # separate asc & hex if both are displayed
             s += " "
     if not onlyhex:
@@ -209,13 +187,8 @@ def chexdump(x, dump=False):
     :param dump: print the view if False
     :returns: a String only if dump=True
     """
-<<<<<<< HEAD
-    x = str(x)
-    s = str(", ".join(["%#04x"%ord(x) for x in x]))
-=======
-    x = bytes(x)
+    x = raw(x)
     s = ", ".join(map(lambda x: "%#04x"%orb(x), x))
->>>>>>> dd6874fc0f6484ebac87d95dc29c905820362170
     if dump:
         return s
     else:
@@ -225,22 +198,14 @@ def chexdump(x, dump=False):
 def hexstr(x, onlyasc=0, onlyhex=0):
     s = []
     if not onlyasc:
-<<<<<<< HEAD
-        s.append(" ".join(["%02x"%ord(x) for x in x]))
-=======
-        s.append(" ".join(map(lambda x: "%02x"%orb(x), x)))
->>>>>>> dd6874fc0f6484ebac87d95dc29c905820362170
+        s.append(" ".join(["%02x"%orb(x) for x in x]))
     if not onlyhex:
         s.append(sane(x)) 
     return "  ".join(s)
 
 def repr_hex(s):
     """ Convert provided bitstring to a simple string of hex digits """
-<<<<<<< HEAD
-    return "".join(["%02x" % ord(x) for x in s])
-=======
     return b"".join([b"%02x" % orb(x) for x in s])
->>>>>>> dd6874fc0f6484ebac87d95dc29c905820362170
 
 @conf.commands.register
 def hexdiff(x,y):
@@ -324,11 +289,7 @@ def hexdiff(x,y):
             if i+j < l:
                 if line[j]:
                     col = colorize[(linex[j]!=liney[j])*(doy-dox)]
-<<<<<<< HEAD
-                    print(col("%02X" % ord(line[j])), end=' ')
-=======
                     print(col("%02X" % orb(line[j])), end=' ')
->>>>>>> dd6874fc0f6484ebac87d95dc29c905820362170
                     if linex[j]==liney[j]:
                         cl += sane_color(line[j])
                     else:
@@ -429,13 +390,9 @@ def fletcher16_checkbytes(binbuf, offset):
 
 
 def mac2str(mac):
-<<<<<<< HEAD
-    return "".join([chr(int(x,16)) for x in mac.split(":")])
-=======
     if type(mac) != str:
         mac = mac.decode('ascii')
     return b''.join([six.int2byte(int(i, 16)) for i in mac.split(":")])
->>>>>>> dd6874fc0f6484ebac87d95dc29c905820362170
 
 def str2mac(s):
     if isinstance(s, str):
@@ -618,11 +575,7 @@ class EnumElement:
     def __str__(self):
         return self._key
     def __bytes__(self):
-<<<<<<< HEAD
         return raw(self._key)
-=======
-        return str_bytes(self._key)
->>>>>>> dd6874fc0f6484ebac87d95dc29c905820362170
     def __hash__(self):
         return self._value
     def __eq__(self, other):
@@ -633,11 +586,7 @@ class Enum_metaclass(type):
     element_class = EnumElement
     def __new__(cls, name, bases, dct):
         rdict={}
-<<<<<<< HEAD
         for k,v in six.iteritems(dct):
-=======
-        for k,v in dct.items():
->>>>>>> dd6874fc0f6484ebac87d95dc29c905820362170
             if type(v) is int:
                 v = cls.element_class(k,v)
                 dct[k] = v
@@ -678,7 +627,7 @@ def load_object(fname):
 @conf.commands.register
 def corrupt_bytes(s, p=0.01, n=None):
     """Corrupt a given percentage or number of bytes from a string"""
-    s = array.array("B",str_bytes(s))
+    s = array.array("B",raw(s))
     l = len(s)
     if n is None:
         n = max(1,int(l*p))
@@ -689,16 +638,12 @@ def corrupt_bytes(s, p=0.01, n=None):
 @conf.commands.register
 def corrupt_bits(s, p=0.01, n=None):
     """Flip a given percentage or number of bits from a string"""
-    s = array.array("B",str_bytes(s))
+    s = array.array("B",raw(s))
     l = len(s)*8
     if n is None:
         n = max(1,int(l*p))
     for i in random.sample(range(l), n):
-<<<<<<< HEAD
-        s[i/8] ^= 1 << (i%8)
-=======
         s[i//8] ^= 1 << (i%8)
->>>>>>> dd6874fc0f6484ebac87d95dc29c905820362170
     return s.tostring()
 
 
@@ -814,7 +759,7 @@ class RawPcapReader(six.with_metaclass(PcapReader_metaclass)):
             raise Scapy_Exception(
                 "Not a pcap capture file (bad magic: %r)" % magic
             )
-        hdr = str_bytes(self.f.read(20))
+        hdr = raw(self.f.read(20))
         if len(hdr)<20:
             raise Scapy_Exception("Invalid pcap file (too short)")
         vermaj, vermin, tz, sig, snaplen, linktype = struct.unpack(
@@ -1431,7 +1376,7 @@ def whois(ip_address):
         query = whois_ip
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.connect(("whois.ripe.net", 43))
-    s.send(str_bytes(query + "\r\n"))
+    s.send(raw(query + "\r\n"))
     answer = b''
     while True:
         d = s.recv(4096)

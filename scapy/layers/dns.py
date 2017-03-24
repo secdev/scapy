@@ -26,18 +26,18 @@ from functools import reduce
 class DNSStrField(StrField):
 
     def h2i(self, pkt, x):
-        x = str_bytes(x)
+        x = raw(x)
         if x == b"":
             return b"."
         return x
 
     def i2m(self, pkt, x):
-        x = str_bytes(x)
+        x = raw(x)
         if x == b".":
             return b"\x00"
 
         x = [k[:63] for k in x.split(b".")] # Truncate chunks that cannot be encoded (more than 63 bytes..)
-        x = [str_bytes([len(y)])+y for y in x]
+        x = [raw([len(y)])+y for y in x]
         x = b"".join(x)
         if orb(x[-1]) != 0:
             x += b"\x00"
@@ -127,7 +127,7 @@ class DNSRRField(StrField):
     def i2m(self, pkt, x):
         if x is None:
             return b""
-        return str_bytes(x)
+        return raw(x)
     def decodeRR(self, name, s, p):
         ret = s[p:p+10]
         type,cls,ttl,rdlen = struct.unpack("!HHIH", ret)
@@ -208,12 +208,12 @@ class RDataField(StrLenField):
             if s:
                 s = inet_aton(s)
         elif pkt.type in [2, 3, 4, 5, 12]: # NS, MD, MF, CNAME, PTR
-            s = b"".join([str_bytes(len(x))+x for x in s.split(".")])
+            s = b"".join([raw(len(x))+x for x in s.split(".")])
             if orb(s[-1]):
                 s += b"\x00"
         elif pkt.type == 16: # TXT
             if s:
-                s = str_bytes(s)
+                s = raw(s)
                 ret_s = b""
                 # The initial string must be splitted into a list of strings
                 # prepended with theirs sizes.

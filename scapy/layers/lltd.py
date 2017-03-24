@@ -216,7 +216,7 @@ class LLTDQueryResp(Packet):
             # unsupported format (14 bits)
             flags = orb(pkt[0]) & 0xc0
             count = len(self.descs_list)
-            pkt = str_bytes(flags + (count >> 8)) + str_bytes(count % 256) + pkt[2:]
+            pkt = raw(flags + (count >> 8)) + raw(count % 256) + pkt[2:]
         return pkt + pay
 
     def mysummary(self):
@@ -258,7 +258,7 @@ class LLTDQueryLargeTlvResp(Packet):
             # format (14 bits)
             flags = orb(pkt[0]) & 0xc0
             length = len(self.value)
-            pkt = str_bytes(flags + (length >> 8)) + str_bytes(length % 256) + pkt[2:]
+            pkt = raw(flags + (length >> 8)) + raw(length % 256) + pkt[2:]
         return pkt + pay
 
     def mysummary(self):
@@ -296,7 +296,7 @@ class LLTDAttribute(Packet):
     @classmethod
     def dispatch_hook(cls, _pkt=None, *_, **kargs):
         if _pkt:
-            cmd = struct.unpack("B", str_bytes(_pkt[0]))[0]
+            cmd = struct.unpack("B", raw(_pkt[0]))[0]
         elif "type" in kargs:
             cmd = kargs["type"]
             if isinstance(cmd, six.string_types):

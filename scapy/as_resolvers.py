@@ -30,7 +30,7 @@ class AS_resolver:
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.s.connect((self.server,self.port))
         if self.options:
-            self.s.send(str_bytes(self.options+"\n"))
+            self.s.send(raw(self.options+"\n"))
             self.s.recv(8192)
     def _stop(self):
         self.s.close()
@@ -49,7 +49,7 @@ class AS_resolver:
         return asn,desc.strip()
 
     def _resolve_one(self, ip):
-        self.s.send(str_bytes("%s\n" % ip))
+        self.s.send(raw("%s\n" % ip))
         x = b""
         while not (b"%" in x or b"source" in x):
             x += self.s.recv(8192)
@@ -59,7 +59,7 @@ class AS_resolver:
         self._start()
         ret = []
         for ip in ips:
-            ip,asn,desc = self._resolve_one(str_bytes(ip))
+            ip,asn,desc = self._resolve_one(raw(ip))
             if asn is not None:
                 ret.append((ip,asn,desc))
         self._stop()
@@ -82,7 +82,7 @@ class AS_resolver_cymru(AS_resolver):
         ASNlist = []
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.connect((self.server,self.port))
-        s.send(b"begin\r\n"+b"\r\n".join([str_bytes(x) for x in ips])+b"\r\nend\r\n")
+        s.send(b"begin\r\n"+b"\r\n".join([raw(x) for x in ips])+b"\r\nend\r\n")
         r = b""
         while 1:
             l = s.recv(8192)
@@ -93,7 +93,7 @@ class AS_resolver_cymru(AS_resolver):
         for l in r.splitlines()[1:]:
             if b"|" not in l:
                 continue
-            asn,ip,desc = [ str_bytes(i) for i in map(bytes.strip, l.split(b"|")) ]
+            asn,ip,desc = [ raw(i) for i in map(bytes.strip, l.split(b"|")) ]
             if asn == b"NA":
                 continue
             asn = b"AS" + asn

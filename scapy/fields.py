@@ -56,7 +56,7 @@ class Field(six.with_metaclass(Field_metaclass, object)):
     def i2b(self, pkt, x):
         """Convert internal value to internal value"""
         if type(x) is str:
-          x = str_bytes([ ord(i) for i in x ])
+          x = raw([ ord(i) for i in x ])
         return x
     def i2dict(self, pkt, x):
         return { self.name: x }
@@ -82,7 +82,7 @@ class Field(six.with_metaclass(Field_metaclass, object)):
         return repr(self.i2h(pkt,x))
     def addfield(self, pkt, s, val):
         """Add an internal value  to a string"""
-        return str_bytes(s)+struct.pack(self.fmt, self.i2m(pkt, val))
+        return raw(s)+struct.pack(self.fmt, self.i2m(pkt, val))
     def getfield(self, pkt, s):
         """Extract an internal value from a string"""
         return  s[self.sz:], self.m2i(pkt, struct.unpack(self.fmt, s[:self.sz])[0])
@@ -183,7 +183,7 @@ class PadField(object):
 
     def addfield(self, pkt, s, val):
         sval = self._fld.addfield(pkt, "", val)
-        return str_bytes(s)+sval+struct.pack("%is" % (self.padlen(len(sval))), str_bytes(self._padwith))
+        return raw(s)+sval+struct.pack("%is" % (self.padlen(len(sval))), raw(self._padwith))
 
     def __getattr__(self, attr):
         return getattr(self._fld,attr)
@@ -310,7 +310,7 @@ class X3BytesField(XByteField):
     def __init__(self, name, default):
         Field.__init__(self, name, default, "!I")
     def addfield(self, pkt, s, val):
-        return str_bytes(s)+struct.pack(self.fmt, self.i2m(pkt,val))[1:4]
+        return raw(s)+struct.pack(self.fmt, self.i2m(pkt,val))[1:4]
     def getfield(self, pkt, s):
         return  s[3:], self.m2i(pkt, struct.unpack(self.fmt, b"\x00"+s[:3])[0])
 
@@ -392,10 +392,10 @@ class StrField(Field):
         if x is None:
             x = b""
         elif not isinstance(x, bytes):
-            x = str_bytes(str(x))
+            x = raw(str(x))
         return x
     def addfield(self, pkt, s, val):
-        return str_bytes(s) + self.i2m(pkt, val)
+        return raw(s) + self.i2m(pkt, val)
     def getfield(self, pkt, s):
         if self.remain == 0:
             return b"",self.m2i(pkt, s)
@@ -500,7 +500,7 @@ class PacketListField(PacketField):
             lst.append(p)
         return remain+ret,lst
     def addfield(self, pkt, s, val):
-        return str_bytes(s)+b"".join([ bytes(i) for i in val ])
+        return raw(s)+b"".join([ bytes(i) for i in val ])
 
 
 class StrFixedLenField(StrField):
@@ -551,13 +551,13 @@ class NetBIOSNameField(StrFixedLenField):
         x += b" "*(l)
         x = x[:l]
         #x = "".join([chr(0x41+(ord(x)>>4))+chr(0x41+(ord(x)&0xf)) for x in x])
-        x = b"".join([ str_bytes([0x41+(i>>4),0x41+(i&0xf)]) for i in x ])
+        x = b"".join([ raw([0x41+(i>>4),0x41+(i&0xf)]) for i in x ])
         x = b" "+x
         return x
     def m2i(self, pkt, x):
         x = x.strip(b"\x00").strip(b" ")
         #return "".join(map(lambda x,y: chr((((ord(x)-1)&0xf)<<4)+((ord(y)-1)&0xf)), x[::2],x[1::2]))
-        return b"".join(map(lambda x,y: str_bytes([(((x-1)&0xf)<<4)+((y-1)&0xf)]), x[::2],x[1::2]))
+        return b"".join(map(lambda x,y: raw([(((x-1)&0xf)<<4)+((y-1)&0xf)]), x[::2],x[1::2]))
 
 class StrLenField(StrField):
     __slots__ = ["length_from"]
@@ -695,7 +695,7 @@ class FieldLenField(Field):
 
 class StrNullField(StrField):
     def addfield(self, pkt, s, val):
-        return str_bytes(s)+self.i2m(pkt, val)+b"\x00"
+        return raw(s)+self.i2m(pkt, val)+b"\x00"
     def getfield(self, pkt, s):
         l = s.find(b"\x00")
         if l < 0:

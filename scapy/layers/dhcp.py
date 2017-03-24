@@ -185,7 +185,7 @@ class RandDHCPOptions(RandField):
                 op.append((o.name, o.randval()._fix()))
         return op
     def __bytes__(self):
-        return str_bytes(self.__str__())
+        return raw(self.__str__())
 
 
 class DHCPOptionsField(StrField):
@@ -268,17 +268,17 @@ class DHCPOptionsField(StrField):
                     warning("Unknown field option %s" % name)
                     continue
 
-                s += str_bytes([onum])
-                s += str_bytes([len(oval)])
+                s += raw([onum])
+                s += raw([len(oval)])
                 s += oval
 
             elif (type(o) is str and o in DHCPRevOptions and 
                   DHCPRevOptions[o][1] == None):
-                s += str_bytes(DHCPRevOptions[o][0])
+                s += raw(DHCPRevOptions[o][0])
             elif type(o) is int:
                 s += chr(o)+b"\0"
             elif type(o) in [str, bytes]:
-                s += str_bytes(o)
+                s += raw(o)
             else:
                 warning("Malformed option %s" % o)
         return s

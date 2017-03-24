@@ -333,7 +333,7 @@ class Dot11WEP(Packet):
             key = conf.wepkey
         if key:
             d = Cipher(
-                algorithms.ARC4(str_bytes(self.iv) + str_bytes(key)),
+                algorithms.ARC4(raw(self.iv) + raw(key)),
                 None,
                 default_backend(),
             ).decryptor()
@@ -358,7 +358,7 @@ class Dot11WEP(Packet):
             else:
                 icv = p[4:8]
             e = Cipher(
-                algorithms.ARC4(str_bytes(self.iv) + str_bytes(key)),
+                algorithms.ARC4(raw(self.iv) + raw(key)),
                 None,
                 default_backend(),
             ).encryptor()
@@ -369,7 +369,7 @@ class Dot11WEP(Packet):
 
     def post_build(self, p, pay):
         if self.wepdata is None:
-            p = self.encrypt(p, str_bytes(pay))
+            p = self.encrypt(p, raw(pay))
         return p
 
 

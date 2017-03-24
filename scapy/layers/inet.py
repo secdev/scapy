@@ -313,7 +313,7 @@ class TCPOptionsField(StrField):
                 if type(oval) is not str:
                     warning("option [%i] is not string."%onum)
                     continue
-            opt += str_bytes([(onum), (2 + len(oval))]) + str_bytes(oval)
+            opt += raw([(onum), (2 + len(oval))]) + raw(oval)
         return opt+b"\x00"*(3-((len(opt)+3)%4))
     def randval(self):
         return [] # XXX
@@ -380,13 +380,13 @@ class IP(Packet, IPTools):
         p += b"\0"*((-len(p))%4) # pad IP options if needed
         if ihl is None:
             ihl = len(p)//4
-            p = str_bytes([((self.version & 0xf) << 4) | ihl & 0x0f]) + p[1:]
+            p = raw([((self.version & 0xf) << 4) | ihl & 0x0f]) + p[1:]
         if self.len is None:
             l = len(p)+len(pay)
             p = p[:2]+struct.pack("!H", l)+p[4:]
         if self.chksum is None:
             ck = checksum(p)
-            p = p[:10] + str_bytes([ck >> 8]) + str_bytes([ck & 0xff]) + p[12:]
+            p = p[:10] + raw([ck >> 8]) + raw([ck & 0xff]) + p[12:]
         return p+pay
 
     def extract_padding(self, s):
@@ -459,7 +459,7 @@ class IP(Packet, IPTools):
             fl = fl.underlayer
         
         for p in fl:
-            s = str_bytes(p[fnb].payload)
+            s = raw(p[fnb].payload)
             nb = (len(s)+fragsize-1)//fragsize
             for i in range(nb):            
                 q = p.copy()
@@ -494,7 +494,7 @@ class TCP(Packet):
         dataofs = self.dataofs
         if dataofs is None:
             dataofs = 5 + ((len(self.get_field("options").i2m(self,self.options)) + 3) // 4)
-            p = p[:12] + str_bytes([(dataofs << 4) | orb(p[12]) & 0x0f]) + p[13:]
+            p = p[:12] + raw([(dataofs << 4) | orb(p[12]) & 0x0f]) + p[13:]
         if self.chksum is None:
             if isinstance(self.underlayer, IP):
                 if self.underlayer.len is not None:
@@ -690,7 +690,7 @@ class ICMP(Packet):
         p += pay
         if self.chksum is None:
             ck = checksum(p)
-            p = p[:2] + str_bytes([ck >> 8, ck & 0xff]) + p[4:]
+            p = p[:2] + raw([ck >> 8, ck & 0xff]) + p[4:]
         return p
     
     def hashret(self):
@@ -831,7 +831,7 @@ def fragment(pkt, fragsize=1480):
     fragsize = (fragsize + 7) // 8 * 8
     lst = []
     for p in pkt:
-        s = str_bytes(p[IP].payload)
+        s = raw(p[IP].payload)
         nb = (len(s)+fragsize-1)//fragsize
         for i in range(nb):            
             q = p.copy()
@@ -921,7 +921,7 @@ def defrag(plist):
             defrag.append(p)
     defrag2=PacketList()
     for p in defrag:
-        defrag2.append(p.__class__(str_bytes(p)))
+        defrag2.append(p.__class__(raw(p)))
     return nofrag,defrag2,missfrag
             
 @conf.commands.register
@@ -983,7 +983,7 @@ def defragment(plist):
             defrag.append(p)
     defrag2=[]
     for p in defrag:
-        q = p.__class__(str_bytes(p))
+        q = p.__class__(raw(p))
         q._defrag_pos = p._defrag_pos
         defrag2.append(q)
     final += defrag2
@@ -1565,7 +1565,7 @@ class TCP_client(Automaton):
             raise self.ESTABLISHED().action_parameters(pkt)
     @ATMT.action(incoming_data_received)
     def receive_data(self,pkt):
-        data = str_bytes(pkt[TCP].payload)
+        data = raw(pkt[TCP].payload)
         if data and self.l4[TCP].ack == pkt[TCP].seq:
             self.l4[TCP].ack += len(data)
             self.l4[TCP].flags = "A"

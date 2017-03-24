@@ -26,6 +26,7 @@ from scapy.consts import LOOPBACK_NAME
 from scapy.utils import inet_ntoa, inet_aton
 from scapy.error import warning
 from scapy.modules.six.moves import map
+if conf.route is None:
     # unused import, only to initialize conf.route
     import scapy.route
 
@@ -337,7 +338,7 @@ class EAPOL(Packet):
         return s[:l], s[l:]
 
     def hashret(self):
-        return str_bytes(self.type) + self.payload.hashret()
+        return raw(self.type) + self.payload.hashret()
 
     def answers(self, other):
         if isinstance(other, EAPOL):
@@ -509,7 +510,7 @@ class EAP(Packet):
     def post_build(self, p, pay):
         if self.len is None:
             l = len(p) + len(pay)
-            p = p[:2] + str_bytes((l >> 8) & 0xff) + str_bytes(l & 0xff) + p[4:]
+            p = p[:2] + raw((l >> 8) & 0xff) + raw(l & 0xff) + p[4:]
         return p + pay
 
 
@@ -651,7 +652,7 @@ class MKAParamSet(Packet):
 
         cls = conf.raw_layer
         if _pkt is not None:
-            ptype = struct.unpack("!B", str_bytes(_pkt[0]))[0]
+            ptype = struct.unpack("!B", raw(_pkt[0]))[0]
             return globals().get(_param_set_cls.get(ptype), conf.raw_layer)
 
         return cls
@@ -1014,7 +1015,7 @@ class GRE(Packet):
         p += pay
         if self.chksum_present and self.chksum is None:
             c = checksum(p)
-            p = p[:4]+str_bytes((c>>8)&0xff)+str_bytes(c&0xff)+p[6:]
+            p = p[:4]+raw((c>>8)&0xff)+raw(c&0xff)+p[6:]
         return p
 
 
@@ -1045,7 +1046,7 @@ class GRE_PPTP(GRE):
         p += pay
         if self.payload_len is None:
             pay_len = len(pay)
-            p = p[:4] + str_bytes((pay_len >> 8) & 0xff) + str_bytes(pay_len & 0xff) + p[6:]
+            p = p[:4] + raw((pay_len >> 8) & 0xff) + raw(pay_len & 0xff) + p[6:]
         return p
 
 

@@ -6,25 +6,16 @@
 """
 Unit testing infrastructure for Scapy
 """
-from __future__ import print_function
 
 from __future__ import absolute_import
-<<<<<<< HEAD
 from __future__ import print_function
-=======
->>>>>>> dd6874fc0f6484ebac87d95dc29c905820362170
+
 import sys, getopt, imp, glob
 
 import bz2, base64, os.path, time, traceback, zlib, hashlib
 from scapy.consts import WINDOWS
-<<<<<<< HEAD
 import scapy.modules.six as six
 from scapy.modules.six.moves import map, range
-=======
-import six
-from six.moves import map
-from six.moves import range
->>>>>>> dd6874fc0f6484ebac87d95dc29c905820362170
 
 
 ### Util class ###
@@ -199,23 +190,12 @@ class UnitTest(TestClass):
         self.crc = None
         self.expand = 1
     def decode(self):
-<<<<<<< HEAD
-=======
         if six.PY3:
             return
->>>>>>> dd6874fc0f6484ebac87d95dc29c905820362170
         self.test = self.test.decode("utf8", "ignore")
         self.output = self.output.decode("utf8", "ignore")
         self.comments = self.comments.decode("utf8", "ignore")
         self.result = self.result.decode("utf8", "ignore")
-<<<<<<< HEAD
-=======
-    def encode(self):
-        self.test = self.test.encode("utf8")
-        self.output = self.output.encode("utf8")
-        self.comments = self.comments.encode("utf8")
-        self.result = self.result.encode("utf8")
->>>>>>> dd6874fc0f6484ebac87d95dc29c905820362170
     def __nonzero__(self):
         return self.res
     __bool__ = __nonzero__
@@ -249,11 +229,7 @@ def parse_config_file(config_path, verb=3):
     with open(config_path) as config_file:
         data = json.load(config_file, encoding="utf8")
         if verb > 2:
-<<<<<<< HEAD
-            print("### Loaded config file", config_path, file=sys.stderr)
-=======
             print("### Loaded config file: "+ config_path, file=sys.stderr)
->>>>>>> dd6874fc0f6484ebac87d95dc29c905820362170
     def get_if_exist(key, default):
         return data[key] if key in data else default
     return Bunch(testfiles=get_if_exist("testfiles", []), onlyfailed=get_if_exist("onlyfailed", False),
@@ -330,11 +306,7 @@ def dump_campaign(test_campaign):
 
 #### COMPUTE CAMPAIGN DIGESTS ####
 
-<<<<<<< HEAD
-def crc32(x):
-    return "%08X" % (0xffffffff & zlib.crc32(x))
-=======
-if sys.hexversion >= 0x3000000:
+if six.PY3:
     def crc32(x):
         return "%08X" % (0xffffffff & zlib.crc32(bytearray(x, "utf8")))
 
@@ -343,7 +315,6 @@ if sys.hexversion >= 0x3000000:
 else:
     def crc32(x):
         return "%08X" % (0xffffffff & zlib.crc32(x))
->>>>>>> dd6874fc0f6484ebac87d95dc29c905820362170
 
     def sha1(x):
         return hashlib.sha1(x).hexdigest().upper()
@@ -718,14 +689,8 @@ def resolve_testfiles(TESTFILES):
     return TESTFILES
 
 def main(argv):
-<<<<<<< HEAD
     ignore_globals = list(six.moves.builtins.__dict__.keys())
 
-=======
-    import six.moves.builtins as builtins
-    ignore_globals = list(builtins.__dict__.keys())
-    
->>>>>>> dd6874fc0f6484ebac87d95dc29c905820362170
     # Parse arguments
     
     FORMAT = Format.ANSI
@@ -823,11 +788,7 @@ def main(argv):
         for m in MODULES:
             try:
                 mod = import_module(m)
-<<<<<<< HEAD
                 six.moves.builtins.__dict__.update(mod.__dict__)
-=======
-                builtins.__dict__.update(mod.__dict__)
->>>>>>> dd6874fc0f6484ebac87d95dc29c905820362170
             except ImportError as e:
                 raise getopt.GetoptError("cannot import [%s]: %s" % (m,e))
                 
@@ -867,11 +828,7 @@ def main(argv):
     # Execute all files
     for TESTFILE in TESTFILES:
         if VERB > 2:
-<<<<<<< HEAD
-            print("### Loading:", TESTFILE, file=sys.stderr)
-=======
             print("### Loading: " + TESTFILE, file=sys.stderr)
->>>>>>> dd6874fc0f6484ebac87d95dc29c905820362170
         PREEXEC = PREEXEC_DICT[TESTFILE] if TESTFILE in PREEXEC_DICT else GLOB_PREEXEC
         output, result, campaign = execute_campaign(open(TESTFILE), OUTPUTFILE,
                                           PREEXEC, NUM, KW_OK, KW_KO,

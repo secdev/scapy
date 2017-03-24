@@ -332,14 +332,14 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
             cloneA.add_payload(cloneB)
             return cloneA
         elif type(other) in [bytes, str]:
-            other = str_bytes(other)
+            other = raw(other)
             return self / conf.raw_layer(load=other)
         else:
             return other.__rdiv__(self)
     __truediv__ = __div__
     def __rdiv__(self, other):
         if type(other) in [bytes, str]:
-            other = str_bytes(other)
+            other = raw(other)
             return conf.raw_layer(load=other)/self
         else:
             raise TypeError
@@ -377,7 +377,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         for f in self.fields_desc:
             val = self.getfieldval(f.name)
             if isinstance(val, RawVal):
-                sval = str_bytes(val)
+                sval = raw(val)
                 p += sval
                 if field_pos_list is not None:
                     field_pos_list.append( (f.name, sval.encode("string_escape"), len(p), len(sval) ) )
@@ -634,7 +634,7 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
         return s
 
     def do_dissect(self, s):
-        s = str_bytes(s)
+        s = raw(s)
         raw = s
         self.raw_packet_cache_fields = {}
         for f in self.fields_desc:

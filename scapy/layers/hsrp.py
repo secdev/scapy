@@ -50,7 +50,7 @@ class HSRP(Packet):
         ByteField("priority", 120),
         ByteField("group", 1),
         ByteField("reserved", 0),
-        StrFixedLenField("auth", "cisco" + b"\00" * 3, 8),
+        StrFixedLenField(b"auth", b"cisco" + b"\00" * 3, 8),
         IPField("virtualIP", "192.168.1.1")]
 
     def guess_payload_class(self, payload):

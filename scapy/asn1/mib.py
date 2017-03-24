@@ -38,17 +38,17 @@ class MIBDict(DADict):
         max=0
         root=b"."
         for k in six.iterkeys(self):
-            if x.startswith(str_bytes(self[k])+b"."):
+            if x.startswith(raw(self[k])+b"."):
                 if max < len(self[k]):
                     max = len(self[k])
                     root = k
         return root, x[max:-1]
     def _oidname(self, x):
         root, remainder = self._findroot(x)
-        return str_bytes(root)+remainder
+        return raw(root)+remainder
     def _oid(self, x):
         if isinstance(x, str):
-            x = str_bytes(x)
+            x = raw(x)
         xl = x.strip(b".").split(b".")
         p = len(xl)-1
         while p >= 0 and _mib_re_integer.match(xl[p]):
@@ -87,10 +87,10 @@ def mib_register(ident, value, the_mib, unresolved):
     resval = []
     not_resolved = 0
     for v in value:
-        if _mib_re_integer.match(str_bytes(v)):
+        if _mib_re_integer.match(raw(v)):
             resval.append(v)
         else:
-            v = fixname(bytes_str(v))
+            v = fixname(plain_str(v))
             if v not in the_mib:
                 not_resolved = 1
             if v in the_mib:
