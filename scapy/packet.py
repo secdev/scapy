@@ -39,7 +39,7 @@ class RawVal:
     def __str__(self):
         return str(self.val)
     def __bytes__(self):
-        return bytes(self.val)
+        return raw(self.val)
     def __repr__(self):
         return "<RawVal [%r]>" % self.val
 
@@ -477,7 +477,7 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
             raise ImportError("PyX and its depedencies must be installed")
         canvas = pyx.canvas.canvas()
         if rebuild:
-            p,t = self.__class__(bytes(self)).build_ps()
+            p,t = self.__class__(raw(self)).build_ps()
         else:
             p,t = self.build_ps()
         YTXT=len(t)
@@ -950,7 +950,7 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
 
     def show2(self, dump=False, indent=3, lvl="", label_lvl=""):
         """Prints or returns (when "dump" is true) a hierarchical view of an assembled version of the packet, so that automatic fields are calculated (checksums, etc.)"""
-        return self.__class__(bytes(self)).show(dump, indent, lvl, label_lvl)
+        return self.__class__(raw(self)).show(dump, indent, lvl, label_lvl)
 
     def sprintf(self, fmt, relax=1):
         """sprintf(format, [relax=1]) -> str
@@ -1100,7 +1100,7 @@ A side effect is that, to obtain "{" and "}" characters, you must use
 
     def decode_payload_as(self,cls):
         """Reassembles the payload and decode it using another packet class"""
-        s = bytes(self.payload)
+        s = raw(self.payload)
         self.payload = cls(s, _internal=1, _underlayer=self)
         pp = self
         while pp.underlayer is not None:
@@ -1231,7 +1231,7 @@ class Raw(Packet):
     fields_desc = [ StrField("load", b"") ]
     def answers(self, other):
         return 1
-#        s = str(other)
+#        s = raw(other)
 #        t = self.load
 #        l = min(len(s), len(t))
 #        return  s[:l] == t[:l]

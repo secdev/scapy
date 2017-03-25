@@ -9,6 +9,7 @@ SuperSocket.
 
 from __future__ import absolute_import
 import socket,time
+from scapy.compat import *
 
 from scapy.config import conf
 from scapy.data import *
@@ -33,7 +34,7 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
         self.outs = self.ins
         self.promisc=None
     def send(self, x):
-        sx = str(x)
+        sx = raw(x)
         if hasattr(x, "sent_time"):
             x.sent_time = time.time()
         return self.outs.send(sx)
@@ -104,7 +105,7 @@ class L3RawSocket(SuperSocket):
         return pkt
     def send(self, x):
         try:
-            sx = str(x)
+            sx = raw(x)
             x.sent_time = time.time()
             self.outs.sendto(sx,(x.dst,0))
         except socket.error as msg:

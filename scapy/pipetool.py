@@ -7,6 +7,8 @@
 
 from __future__ import absolute_import
 from __future__ import print_function
+from scapy.compat import *
+
 import os, select
 import subprocess
 import itertools
@@ -398,11 +400,11 @@ class RawConsoleSink(Sink):
     def push(self, msg):
         if self.newlines:
             msg += "\n"
-        os.write(1, str(msg))
+        os.write(1, raw(msg))
     def high_push(self, msg):
         if self.newlines:
             msg += "\n"
-        os.write(1, str(msg))
+        os.write(1, raw(msg))
 
 class CLIFeeder(AutoSource):
     """Send messages from python command line

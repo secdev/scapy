@@ -9,9 +9,10 @@ VRRP (Virtual Router Redundancy Protocol).
 """
 
 from __future__ import absolute_import
+from scapy.compat import *
+
 from scapy.packet import *
 from scapy.fields import *
-from scapy.data import raw
 from scapy.layers.inet import IP
 
 IPPROTO_VRRP=112

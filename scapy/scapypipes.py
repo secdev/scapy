@@ -121,7 +121,7 @@ class UDPDrain(Drain):
         from scapy.layers.inet import IP, UDP
         if IP in msg and msg[IP].proto == 17 and UDP in msg:
             payload = msg[UDP].payload
-            self._high_send(str(payload))
+            self._high_send(raw(payload))
     def high_push(self, msg):
         from scapy.layers.inet import IP, UDP
         p = IP(dst=self.ip)/UDP(sport=1234,dport=self.port)/msg

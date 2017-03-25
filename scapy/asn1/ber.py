@@ -261,10 +261,10 @@ class BERcodec_Object(six.with_metaclass(BERcodec_metaclass)):
 
     @classmethod
     def enc(cls, s):
-        if type(s) is bytes:
+        if type(s) in [bytes, str]:
             return BERcodec_STRING.enc(s)
         else:
-            return BERcodec_INTEGER.enc(int(s))
+            return BERcodec_INTEGER.enc(hash(s))
 
 ASN1_Codecs.BER.register_stem(BERcodec_Object)
 

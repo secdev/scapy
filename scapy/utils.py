@@ -25,7 +25,7 @@ warnings.filterwarnings("ignore","tempnam",RuntimeWarning, __name__)
 
 from scapy.config import conf
 from scapy.consts import DARWIN, WINDOWS
-from scapy.data import MTU, raw
+from scapy.data import MTU
 from scapy.error import log_runtime, log_loading, log_interactive, Scapy_Exception, warning
 from scapy.base_classes import BasePacketList
 
@@ -374,7 +374,7 @@ def strxor(s1, s2):
     """
     if six.PY2:
         return "".join(map(lambda x,y:chr(orb(x)^orb(y)), s1, s2))
-    return bytes([i[0]^i[1] for i in zip(s1,s2)])
+    return raw([i[0]^i[1] for i in zip(s1,s2)])
 
 def strand(s1, s2):
     """
@@ -383,7 +383,7 @@ def strand(s1, s2):
     """
     if six.PY2:
         return "".join(map(lambda x,y:chr(orb(x)&orb(y)), s1, s2))
-    return bytes([i[0]&i[1] for i in zip(s1,s2)])
+    return raw([i[0]&i[1] for i in zip(s1,s2)])
 
 
 # Workaround bug 643005 : https://sourceforge.net/tracker/?func=detail&atid=105470&aid=643005&group_id=5470
@@ -1103,7 +1103,7 @@ class PcapWriter(RawPcapWriter):
             return
         sec = int(packet.time)
         usec = int(round((packet.time - sec) * (1000000000 if self.nano else 1000000)))
-        s = bytes(packet)
+        s = raw(packet)
         caplen = len(s)
         RawPcapWriter._write_packet(self, s, sec, usec, caplen, caplen)
 

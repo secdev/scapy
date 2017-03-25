@@ -392,7 +392,8 @@ class StrField(Field):
         if x is None:
             x = b""
         elif not isinstance(x, bytes):
-            x = raw(str(x))
+            # TODO check this
+            x = raw(x)
         return x
     def addfield(self, pkt, s, val):
         return raw(s) + self.i2m(pkt, val)
@@ -411,7 +412,7 @@ class PacketField(StrField):
         StrField.__init__(self, name, default, remain=remain)
         self.cls = cls
     def i2m(self, pkt, i):
-        return bytes(i)
+        return raw(i)
     def m2i(self, pkt, m):
         return self.cls(m)
     def getfield(self, pkt, s):
@@ -500,7 +501,7 @@ class PacketListField(PacketField):
             lst.append(p)
         return remain+ret,lst
     def addfield(self, pkt, s, val):
-        return raw(s)+b"".join([ bytes(i) for i in val ])
+        return raw(s)+b"".join([ raw(i) for i in val ])
 
 
 class StrFixedLenField(StrField):

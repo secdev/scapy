@@ -198,7 +198,7 @@ class _ATMT_supersocket(SuperSocket):
         return self.spa.fileno()
     def send(self, s):
         if type(s) is not bytes:
-            s = bytes(s)
+            s = raw(s)
         return self.spa.send(s)
     def recv(self, n=MTU):
         r = self.spa.recv(n)
