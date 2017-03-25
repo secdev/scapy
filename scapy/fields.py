@@ -56,12 +56,14 @@ class Field(six.with_metaclass(Field_metaclass, object)):
     def i2b(self, pkt, x):
         """Convert internal value to internal value"""
         if type(x) is str:
-            x = raw([ ord(i) for i in x ])
+            x = raw([ord(i) for i in x])
         return x
     def i2dict(self, pkt, x):
         return { self.name: x }
     def h2i(self, pkt, x):
         """Convert human value to internal value"""
+        if type(x) is str:
+            x = raw([ord(i) for i in x])
         return x
     def i2h(self, pkt, x):
         """Convert internal value to human value"""
@@ -392,7 +394,6 @@ class StrField(Field):
         if x is None:
             x = b""
         elif not isinstance(x, bytes):
-            # TODO check this
             x = raw(x)
         return x
     def addfield(self, pkt, s, val):
@@ -412,6 +413,9 @@ class PacketField(StrField):
         StrField.__init__(self, name, default, remain=remain)
         self.cls = cls
     def i2m(self, pkt, i):
+        if i is None:
+            # Triggered by BGP
+            return b""
         return raw(i)
     def m2i(self, pkt, m):
         return self.cls(m)

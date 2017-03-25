@@ -72,7 +72,7 @@ def _load(module):
         else:
             # only import non-private symbols
             for name, sym in six.iteritems(mod.__dict__):
-                if name[0] != '_':
+                if _validate_local(name):
                     six.moves.builtins.__dict__[name] = sym
     except Exception as e:
         log_interactive.error(e)

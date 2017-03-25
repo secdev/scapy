@@ -535,6 +535,8 @@ class EnumElement:
         return int(self._value)
     def __eq__(self, other):
         return self._value == hash(other)
+    def __neq__(self, other):
+        return not self.__eq__(other)
 
 
 class Enum_metaclass(type):
