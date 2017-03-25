@@ -1900,16 +1900,16 @@ class DomainNameListField(StrLenField):
 
     def i2m(self, pkt, x):
         def conditionalTrailingDot(z):
-            if z and z[-1] == b'\x00':
+            if z and z[-1] == '\x00':
                 return z
-            return z+b'\x00'
+            return z+'\x00'
         # Build the encode names
         tmp = [list(map((lambda z: chr(len(z))+z), y.split('.'))) for y in x]
         ret_string  = "".join([conditionalTrailingDot("".join(x)) for x in tmp])
 
         # In padded mode, add some \x00 bytes
         if self.padded and not len(ret_string) % self.padded_unit == 0:
-            ret_string += b"\x00" * (self.padded_unit - len(ret_string) % self.padded_unit)
+            ret_string += "\x00" * (self.padded_unit - len(ret_string) % self.padded_unit)
 
         return raw(ret_string)
 

@@ -61,6 +61,8 @@ def chb(x):
     if type(x) is str or type(x) is bytes:
         return x
     else:
+        if hasattr(x, "__int__"):
+            return chr(int(x))
         return chr(x)
 
 if six.PY3:
@@ -71,7 +73,11 @@ if six.PY3:
         if isinstance(x, list):
             return bytes(x)
         if isinstance(x, int):
-             return bytes([x])
+            try:
+                return bytes([x])
+            except ValueError:
+                # Ignore out of range strings
+                pass
         if isinstance(x, bytes):
             return x
         if hasattr(x, "__bytes__"):

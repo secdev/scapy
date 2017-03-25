@@ -349,9 +349,8 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
             return  [self]*other
         else:
             raise TypeError
-    def __rmul__(self,other):
+    def __rmul__(self, other):
         return self.__mul__(other)
-    
     def __nonzero__(self):
         return True
     __bool__ = __nonzero__

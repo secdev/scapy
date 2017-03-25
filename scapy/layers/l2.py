@@ -489,9 +489,9 @@ class EAP(Packet):
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         if _pkt:
-            c = ord(_pkt[0])
+            c = orb(_pkt[0])
             if c in [1, 2] and len(_pkt) >= 5:
-                t = ord(_pkt[4])
+                t = orb(_pkt[4])
                 return cls.registered_options.get(t, cls)
         return cls
 

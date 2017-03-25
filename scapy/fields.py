@@ -56,7 +56,7 @@ class Field(six.with_metaclass(Field_metaclass, object)):
     def i2b(self, pkt, x):
         """Convert internal value to internal value"""
         if type(x) is str:
-          x = raw([ ord(i) for i in x ])
+            x = raw([ ord(i) for i in x ])
         return x
     def i2dict(self, pkt, x):
         return { self.name: x }
@@ -82,7 +82,7 @@ class Field(six.with_metaclass(Field_metaclass, object)):
         return repr(self.i2h(pkt,x))
     def addfield(self, pkt, s, val):
         """Add an internal value  to a string"""
-        return raw(s)+struct.pack(self.fmt, self.i2m(pkt, val))
+        return s+struct.pack(self.fmt, self.i2m(pkt, val))
     def getfield(self, pkt, s):
         """Extract an internal value from a string"""
         return  s[self.sz:], self.m2i(pkt, struct.unpack(self.fmt, s[:self.sz])[0])
@@ -219,7 +219,7 @@ class MACField(Field):
     def m2i(self, pkt, x):
         return str2mac(x)
     def any2i(self, pkt, x):
-        if type(x) is str and len(x) is 6:
+        if type(x) is bytes and len(x) is 6:
             x = self.m2i(pkt, x)
         return x
     def i2repr(self, pkt, x):
@@ -513,7 +513,7 @@ class StrFixedLenField(StrField):
             self.length_from = lambda pkt,length=length: length
     def i2repr(self, pkt, v):
         if type(v) is str:
-            v = v.rstrip(b"\0")
+            v = v.rstrip("\0")
         return repr(v)
     def getfield(self, pkt, s):
         l = self.length_from(pkt)
@@ -534,7 +534,7 @@ class StrFixedLenEnumField(StrFixedLenField):
         StrFixedLenField.__init__(self, name, default, length=length, length_from=length_from)
         self.enum = enum
     def i2repr(self, pkt, v):
-        r = v.rstrip(b"\0")
+        r = v.rstrip("\0")
         rr = repr(r)
         if v in self.enum:
             rr = "%s (%s)" % (rr, self.enum[v])
@@ -552,13 +552,13 @@ class NetBIOSNameField(StrFixedLenField):
         x += b" "*(l)
         x = x[:l]
         #x = "".join([chr(0x41+(ord(x)>>4))+chr(0x41+(ord(x)&0xf)) for x in x])
-        x = b"".join([ raw([0x41+(i>>4),0x41+(i&0xf)]) for i in x ])
+        x = b"".join([ raw([0x41+(orb(i)>>4),0x41+(orb(i)&0xf)]) for i in x ])
         x = b" "+x
         return x
     def m2i(self, pkt, x):
         x = x.strip(b"\x00").strip(b" ")
         #return "".join(map(lambda x,y: chr((((ord(x)-1)&0xf)<<4)+((ord(y)-1)&0xf)), x[::2],x[1::2]))
-        return b"".join(map(lambda x,y: raw([(((x-1)&0xf)<<4)+((y-1)&0xf)]), x[::2],x[1::2]))
+        return b"".join(map(lambda y,z: raw((((orb(y)-1)&0xf)<<4)+((orb(z)-1)&0xf)), x[::2],x[1::2]))
 
 class StrLenField(StrField):
     __slots__ = ["length_from"]

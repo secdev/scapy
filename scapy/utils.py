@@ -344,8 +344,7 @@ def fletcher16_checkbytes(binbuf, offset):
 
 
 def mac2str(mac):
-    if type(mac) != str:
-        mac = mac.decode('ascii')
+    mac = plain_str(mac)
     return b''.join([six.int2byte(int(i, 16)) for i in mac.split(":")])
 
 def str2mac(s):
@@ -532,6 +531,8 @@ class EnumElement:
         return raw(self._key)
     def __hash__(self):
         return self._value
+    def __int__(self):
+        return int(self._value)
     def __eq__(self, other):
         return self._value == hash(other)
 

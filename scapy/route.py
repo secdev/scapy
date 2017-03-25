@@ -43,9 +43,9 @@ class Route:
                       (iface.name if not isinstance(iface, six.string_types) else iface),
                       addr))
         
-        colwidth = map(lambda x: max(map(lambda y: len(y), x)), apply(zip, rtlst))
-        fmt = "  ".join(map(lambda x: "%%-%ds"%x, colwidth))
-        rt = "\n".join(map(lambda x: fmt % x, rtlst))
+        colwidth = [max([len(y) for y in x]) for x in zip(*rtlst)]
+        fmt = "  ".join(["%%-%ds"%x for x in colwidth])
+        rt = "\n".join([fmt % x for x in rtlst])
         return rt
 
     def make_route(self, host=None, net=None, gw=None, dev=None):
