@@ -8,6 +8,8 @@ Packet sending and receiving with libdnet and libpcap/WinPcap.
 """
 
 from __future__ import absolute_import
+from scapy.compat import *
+
 import time, struct, sys, platform
 import socket
 if not sys.platform.startswith("win"):

@@ -90,9 +90,15 @@ else:
         if isinstance(x, str):
             return x
         if isinstance(x, int):
-            return chr(x)
+            try:
+                return chr(x)
+            except ValueError:
+                # Ignore out of range strings
+                pass
         if isinstance(x, list):
             return "".join([chr(y) for y in x])
+        if hasattr(x, "__bytes__"):
+            return x.__bytes__()
         return str(x)
     def plain_str(x):
         """Convert basic byte objects to str"""

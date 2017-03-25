@@ -54,7 +54,7 @@ class File:
     def write(self, dir):
         if dir:
             dir += "/"
-        open(dir+self.name,"w").write(self.get_local())
+        open(dir+self.name,"wb").write(self.get_local())
 
         
 # Embed a base64 encoded bziped version of js and css files
@@ -327,9 +327,9 @@ def compute_campaign_digests(test_campaign):
         for t in ts:
             dt = t.test.strip()
             t.crc = crc32(dt)
-            dts += b"\0"+dt
+            dts += "\0"+dt
         ts.crc = crc32(dts)
-        dc += b"\0\x01"+dts
+        dc += "\0\x01"+dts
     test_campaign.crc = crc32(dc)
     test_campaign.sha = sha1(open(test_campaign.filename).read())
 
@@ -760,7 +760,7 @@ def main(argv):
                     raise getopt.GetoptError("Unknown output format %s" % msg)
                 TESTFILES = resolve_testfiles(TESTFILES)
             elif opt == "-o":
-                OUTPUTFILE = open(optarg, "w")
+                OUTPUTFILE = open(optarg, "wb")
             elif opt == "-l":
                 LOCAL = 1
             elif opt == "-n":
@@ -849,7 +849,7 @@ def main(argv):
     if FORMAT == Format.HTML:
         glob_output = pack_html_campaigns(runned_campaigns, glob_output, LOCAL, glob_title)
 
-    OUTPUTFILE.write(glob_output.encode("utf8") if six.PY2 else glob_output)
+    OUTPUTFILE.write(glob_output.encode("utf8", "ignore"))
     OUTPUTFILE.close()
 
     # Return state

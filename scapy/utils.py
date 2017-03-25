@@ -508,7 +508,7 @@ def incremental_label(label="tag%05i", start=0):
         start += 1
 
 def binrepr(val):
-    return bin(val)[2:]
+    return raw(bin(val)[2:])
 
 def long_converter(s):
     return int(s.replace('\n', '').replace(' ', ''), 16)
