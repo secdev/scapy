@@ -650,7 +650,7 @@ if conf.interactive_shell != 'ipython' and conf.interactive:
             end = False
             while not end :
                 if not end and result != "":
-                    line = readline.rl.readline("... ")
+                    line = readline.rl.readline(sys.ps2)
                 else:
                     line = readline.rl.readline(prompt)
                 if line.strip().endswith(":"):
