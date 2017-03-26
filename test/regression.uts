@@ -7285,12 +7285,12 @@ in6_getscope("::1") == IPV6_ADDR_LOOPBACK
 from scapy.pton_ntop import _inet6_pton, inet_pton
 import socket
 
-ip6_bad_addrs = [b"fe80::2e67:ef2d:7eca::ed8a",
-                 b"fe80:1234:abcd::192.168.40.12:abcd",
-                 b"fe80:1234:abcd::192.168.40",
-                 b"fe80:1234:abcd::192.168.400.12",
-                 b"1234:5678:9abc:def0:1234:5678:9abc:def0:",
-                 b"1234:5678:9abc:def0:1234:5678:9abc:def0:1234"]
+ip6_bad_addrs = ["fe80::2e67:ef2d:7eca::ed8a",
+                 "fe80:1234:abcd::192.168.40.12:abcd",
+                 "fe80:1234:abcd::192.168.40",
+                 "fe80:1234:abcd::192.168.400.12",
+                 "1234:5678:9abc:def0:1234:5678:9abc:def0:",
+                 "1234:5678:9abc:def0:1234:5678:9abc:def0:1234"]
 
 for ip6 in ip6_bad_addrs:
     rc = None
@@ -7307,17 +7307,17 @@ for ip6 in ip6_bad_addrs:
         pass
     assert rc
 
-ip6_good_addrs = [(b"fe80:1234:abcd::192.168.40.12",
+ip6_good_addrs = [("fe80:1234:abcd::192.168.40.12",
                    b'\xfe\x80\x124\xab\xcd\x00\x00\x00\x00\x00\x00\xc0\xa8(\x0c'),
-                  (b"fe80:1234:abcd::fe06",
+                  ("fe80:1234:abcd::fe06",
                    b'\xfe\x80\x124\xab\xcd\x00\x00\x00\x00\x00\x00\x00\x00\xfe\x06'),
-                  (b"fe80::2e67:ef2d:7ece:ed8a",
+                  ("fe80::2e67:ef2d:7ece:ed8a",
                    b'\xfe\x80\x00\x00\x00\x00\x00\x00.g\xef-~\xce\xed\x8a'),
-                  (b"::ffff",
+                  ("::ffff",
                    b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff'),
-                  (b"ffff::",
+                  ("ffff::",
                    b'\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'),
-                  (b'::', b'\x00' * 16)]
+                  ('::', b'\x00' * 16)]
 for ip6, res in ip6_good_addrs:
     res1 = inet_pton(socket.AF_INET6, ip6)
     res2 = _inet6_pton(ip6)

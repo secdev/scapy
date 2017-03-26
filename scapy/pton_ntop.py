@@ -59,7 +59,7 @@ used when socket.inet_pton is not available.
             # Each part must be 16bit. Add missing zeroes before decoding.
             try:
                 result += hex_bytes(part.rjust(4, "0"))
-            except binascii.Error:
+            except (binascii.Error, TypeError):
                 raise _INET6_PTON_EXC
     # If there's a wildcard, fill up with zeros to reach 128bit (16 bytes)
     if joker_pos is not None:
