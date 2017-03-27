@@ -211,7 +211,7 @@ class TLSClientAutomaton(Automaton):
 
     @ATMT.action(should_send_ClientHello, prio=1)
     def send_ClientHello(self):
-        self.socket.send(str(self.cur_pkt))
+        self.socket.send(raw(self.cur_pkt))
         self.cur_pkt = None
 
     @ATMT.state()
@@ -392,7 +392,7 @@ class TLSClientAutomaton(Automaton):
         self.cur_pkt = TLS(tls_session=self.cur_session, msg=[])
         p = TLSCertificate(certs=certs)
         self.cur_pkt.msg.append(p)
-        self.socket.send(str(self.cur_pkt))
+        self.socket.send(raw(self.cur_pkt))
         self.cur_pkt = None
         raise self.ADD_CLIENT_CERT()
 
@@ -405,7 +405,7 @@ class TLSClientAutomaton(Automaton):
         self.cur_pkt = TLS(tls_session=self.cur_session, msg=[])
         p = TLSClientKeyExchange()
         self.cur_pkt.msg.append(p)
-        self.socket.send(str(self.cur_pkt))
+        self.socket.send(raw(self.cur_pkt))
         self.cur_pkt = None
         raise self.ADD_CKE()
 
@@ -414,7 +414,7 @@ class TLSClientAutomaton(Automaton):
         self.cur_pkt = TLS(tls_session=self.cur_session, msg=[])
         p = TLSClientKeyExchange()
         self.cur_pkt.msg.append(p)
-        self.socket.send(str(self.cur_pkt))
+        self.socket.send(raw(self.cur_pkt))
         self.cur_pkt = None
         raise self.ADD_CKE()
 
@@ -438,7 +438,7 @@ class TLSClientAutomaton(Automaton):
         self.cur_pkt = TLS(tls_session=self.cur_session, msg=[])
         p = TLSCertificateVerify()
         self.cur_pkt.msg.append(p)
-        self.socket.send(str(self.cur_pkt))
+        self.socket.send(raw(self.cur_pkt))
         self.cur_pkt = None
         raise self.ADD_CV()
 
@@ -451,7 +451,7 @@ class TLSClientAutomaton(Automaton):
         self.cur_pkt = TLS(type=20, tls_session=self.cur_session, msg=[])
         p = TLSChangeCipherSpec()
         self.cur_pkt.msg.append(p)
-        self.socket.send(str(self.cur_pkt))
+        self.socket.send(raw(self.cur_pkt))
         self.cur_pkt = None
         raise self.ADD_CCS()
 
@@ -460,7 +460,7 @@ class TLSClientAutomaton(Automaton):
         self.cur_pkt = TLS(type=20, tls_session=self.cur_session, msg=[])
         p = TLSChangeCipherSpec()
         self.cur_pkt.msg.append(p)
-        self.socket.send(str(self.cur_pkt))
+        self.socket.send(raw(self.cur_pkt))
         self.cur_pkt = None
         raise self.ADD_CCS()
 
@@ -473,7 +473,7 @@ class TLSClientAutomaton(Automaton):
         self.cur_pkt = TLS(tls_session=self.cur_session, msg=[])
         p = TLSFinished()
         self.cur_pkt.msg.append(p)
-        self.socket.send(str(self.cur_pkt))
+        self.socket.send(raw(self.cur_pkt))
         self.cur_pkt = None
         raise self.ADD_FINISHED()
 
@@ -550,7 +550,7 @@ class TLSClientAutomaton(Automaton):
         """
         txt = self.data or "GET /\r\n\r\n"  # GET HTTP/1.1\r\n\r\n"
         p = TLS(type=23, tls_session=self.cur_session, msg=[Raw(load=txt)])
-        self.socket.send(str(p))
+        self.socket.send(raw(p))
         print("Sent to server: \n%r" % txt)
 
         self.get_next_msg(1, 0)
@@ -581,7 +581,7 @@ class TLSClientAutomaton(Automaton):
         p = TLSAlert(level=1, descr=0)
         self.cur_pkt.msg.append(p)
         try:
-            self.socket.send(str(self.cur_pkt))
+            self.socket.send(raw(self.cur_pkt))
         except:
             print("Could not send termination Alert (maybe the server stopped)")
         self.cur_pkt = None
@@ -795,7 +795,7 @@ class TLSServerAutomaton(Automaton):
         self.cur_pkt = TLS(type=21, msg=[], tls_session=self.cur_session)
         p = TLSAlert(level=1, descr=0)
         self.cur_pkt.msg.append(p)
-        self.socket.send(str(self.cur_pkt))
+        self.socket.send(raw(self.cur_pkt))
         self.cur_pkt = None
 
     @ATMT.condition(PREPROCESS_ClientHello, prio=2)
@@ -857,7 +857,7 @@ class TLSServerAutomaton(Automaton):
         p = TLSServerHelloDone()
         self.cur_pkt.msg.append(p)
 
-        self.socket.send(str(self.cur_pkt))
+        self.socket.send(raw(self.cur_pkt))
         self.cur_pkt = None
         raise self.SENT_SH()
 
@@ -979,7 +979,7 @@ class TLSServerAutomaton(Automaton):
     def should_SEND_CCS(self):
         ccs = TLSChangeCipherSpec()
         self.cur_pkt = TLS(type=20, msg=[ccs], tls_session=self.cur_session)
-        self.socket.send(str(self.cur_pkt))
+        self.socket.send(raw(self.cur_pkt))
         self.cur_pkt = None
         raise self.SEND_CCS()
 
@@ -991,7 +991,7 @@ class TLSServerAutomaton(Automaton):
     def should_SEND_FINISHED(self):
         p = TLSFinished()
         self.cur_pkt = TLS(tls_session=self.cur_session, msg=[p])
-        self.socket.send(str(self.cur_pkt))
+        self.socket.send(raw(self.cur_pkt))
         self.cur_pkt = None
         raise self.FINISHED_SENT()
 
@@ -1071,7 +1071,7 @@ class TLSServerAutomaton(Automaton):
 
         p = Raw(load=page)
         self.cur_pkt = TLS(type=23, msg=[p], tls_session=self.cur_session)
-        self.socket.send(str(self.cur_pkt))
+        self.socket.send(raw(self.cur_pkt))
         raise self.FINISHED_SENT()
 
     @ATMT.state(final=True)

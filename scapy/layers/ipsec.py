@@ -23,7 +23,7 @@ Example of use:
 >>> p = IP(src='1.1.1.1', dst='2.2.2.2')
 >>> p /= TCP(sport=45012, dport=80)
 >>> p /= Raw('testdata')
->>> p = IP(str(p))
+>>> p = IP(raw(p))
 >>> p
 <IP  version=4L ihl=5L tos=0x0 len=48 id=1 flags= frag=0L ttl=64 proto=tcp chksum=0x74c2 src=1.1.1.1 dst=2.2.2.2 options=[] |<TCP  sport=45012 dport=http seq=0 ack=0 dataofs=5L reserved=0L flags=S window=8192 chksum=0x1914 urgptr=0 options=[] |<Raw  load='testdata' |>>>
 >>>
@@ -40,6 +40,8 @@ True
 """
 
 from __future__ import absolute_import
+from scapy.compat import *
+
 from fractions import gcd
 import os
 import socket
@@ -497,12 +499,12 @@ class AuthAlgo(object):
         mac = self.new_mac(key)
 
         if pkt.haslayer(ESP):
-            mac.update(str(pkt[ESP]))
+            mac.update(raw(pkt[ESP]))
             pkt[ESP].data += mac.finalize()[:self.icv_size]
 
         elif pkt.haslayer(AH):
             clone = zero_mutable_fields(pkt.copy(), sending=True)
-            mac.update(str(clone))
+            mac.update(raw(clone))
             pkt[AH].icv = mac.finalize()[:self.icv_size]
 
         return pkt
@@ -533,7 +535,7 @@ class AuthAlgo(object):
             pkt_icv = pkt[AH].icv[:self.icv_size]
             clone = zero_mutable_fields(pkt.copy(), sending=False)
 
-        mac.update(str(clone))
+        mac.update(raw(clone))
         computed_icv = mac.finalize()[:self.icv_size]
 
         # XXX: Cannot use mac.verify because the ICV can be truncated
@@ -592,7 +594,7 @@ def split_for_transport(orig_pkt, transport_proto):
              payload.
     """
     # force resolution of default fields to avoid padding errors
-    header = orig_pkt.__class__(str(orig_pkt))
+    header = orig_pkt.__class__(raw(orig_pkt))
     next_hdr = header.payload
     nh = None
 
@@ -810,7 +812,7 @@ class SecurityAssociation(object):
                 del tunnel.nh
                 del tunnel.plen
 
-            pkt = tunnel.__class__(str(tunnel / pkt))
+            pkt = tunnel.__class__(raw(tunnel / pkt))
 
         ip_header, nh, payload = split_for_transport(pkt, socket.IPPROTO_ESP)
         esp.data = payload
@@ -834,7 +836,7 @@ class SecurityAssociation(object):
         if ip_header.version == 4:
             ip_header.len = len(ip_header) + len(esp)
             del ip_header.chksum
-            ip_header = ip_header.__class__(str(ip_header))
+            ip_header = ip_header.__class__(raw(ip_header))
         else:
             ip_header.plen = len(ip_header.payload) + len(esp)
 
@@ -860,7 +862,7 @@ class SecurityAssociation(object):
                 del tunnel.nh
                 del tunnel.plen
 
-            pkt = tunnel.__class__(str(tunnel / pkt))
+            pkt = tunnel.__class__(raw(tunnel / pkt))
 
         ip_header, nh, payload = split_for_transport(pkt, socket.IPPROTO_AH)
         ah.nh = nh
@@ -882,7 +884,7 @@ class SecurityAssociation(object):
         if ip_header.version == 4:
             ip_header.len = len(ip_header) + len(ah) + len(payload)
             del ip_header.chksum
-            ip_header = ip_header.__class__(str(ip_header))
+            ip_header = ip_header.__class__(raw(ip_header))
         else:
             ip_header.plen = len(ip_header.payload) + len(ah) + len(payload)
 
@@ -947,7 +949,7 @@ class SecurityAssociation(object):
                 ip_header.remove_payload()
                 ip_header.len = len(ip_header) + len(esp.data)
                 # recompute checksum
-                ip_header = ip_header.__class__(str(ip_header))
+                ip_header = ip_header.__class__(raw(ip_header))
             else:
                 encrypted.underlayer.nh = esp.nh
                 encrypted.underlayer.remove_payload()
@@ -979,7 +981,7 @@ class SecurityAssociation(object):
                 ip_header.remove_payload()
                 ip_header.len = len(ip_header) + len(payload)
                 # recompute checksum
-                ip_header = ip_header.__class__(str(ip_header))
+                ip_header = ip_header.__class__(raw(ip_header))
             else:
                 ah.underlayer.nh = ah.nh
                 ah.underlayer.remove_payload()

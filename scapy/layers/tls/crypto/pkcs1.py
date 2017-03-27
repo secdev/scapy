@@ -12,7 +12,9 @@ library, most of the present module should be removed.
 """
 
 from __future__ import absolute_import
-import os, popen2, tempfile
+from scapy.compat import *
+
+import os, tempfile
 import math, random, struct
 
 from scapy.config import conf, crypto_validator
@@ -46,7 +48,7 @@ def pkcs_os2ip(x):
 
     Reverse function is pkcs_i2osp()
     """
-    return int(x.encode("hex"), 16)
+    return int(bytes_hex(x), 16)
 
 # I2OSP function defined in RFC 3447 for integer to octet string conversion
 def pkcs_i2osp(x, xLen):
@@ -66,7 +68,7 @@ def pkcs_i2osp(x, xLen):
     #if x >= 256**xLen:
     #    raise Exception("Integer too large for provided xLen %d" % xLen)
     fmt = "%%0%dx" % (2*xLen)
-    return (fmt % x).decode("hex")
+    return hex_bytes((fmt % x))
 
 def pkcs_ilen(n):
     """
@@ -878,7 +880,7 @@ def create_temporary_ca_path(anchor_list, folder):
     except:
         return None
 
-    r,w=popen2.popen2("c_rehash %s" % folder)
+    r,w=os.popen2("c_rehash %s" % folder)
     r.close(); w.close()
 
     return l

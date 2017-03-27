@@ -1502,7 +1502,7 @@ bytes(ICMPv6EchoRequest(code=0xff, cksum=0x1111, id=0x2222, seq=0x3333, data=b"t
 
 = ICMPv6EchoRequest - Basic dissection
 a=ICMPv6EchoRequest(b'\x80\x00\x00\x00\x00\x00\x00\x00')
-a.type == 128 and a.code == 0 and a.cksum == 0 and a.id == 0 and a.seq == 0 and a.data == ""
+a.type == 128 and a.code == 0 and a.cksum == 0 and a.id == 0 and a.seq == 0 and a.data == b""
 
 = ICMPv6EchoRequest - Dissection with specific values 
 a=ICMPv6EchoRequest(b'\x80\xff\x11\x11""33thisissomestring')
@@ -1528,7 +1528,7 @@ bytes(ICMPv6EchoReply(code=0xff, cksum=0x1111, id=0x2222, seq=0x3333, data="this
 
 = ICMPv6EchoReply - Basic dissection
 a=ICMPv6EchoReply(b'\x80\x00\x00\x00\x00\x00\x00\x00')
-a.type == 128 and a.code == 0 and a.cksum == 0 and a.id == 0 and a.seq == 0 and a.data == ""
+a.type == 128 and a.code == 0 and a.cksum == 0 and a.id == 0 and a.seq == 0 and a.data == b""
 
 = ICMPv6EchoReply - Dissection with specific values 
 a=ICMPv6EchoReply(b'\x80\xff\x11\x11""33thisissomestring')
@@ -1619,7 +1619,7 @@ bytes(HBHOptUnknown()) == b'\x01\x00'
 
 = HBHOptUnknown - Basic Dissection 
 a=HBHOptUnknown(b'\x01\x00')
-a.otype == 0x01 and a.optlen == 0 and a.optdata == ""
+a.otype == 0x01 and a.optlen == 0 and a.optdata == b""
 
 = HBHOptUnknown - Automatic optlen computation
 bytes(HBHOptUnknown(optdata="B"*10)) == b'\x01\nBBBBBBBBBB'
@@ -1655,7 +1655,7 @@ bytes(PadN(optdata="B"*10)) == b'\x01\nBBBBBBBBBB'
 
 = PadN - Basic Dissection
 a=PadN(b'\x01\x00')
-a.otype == 1 and a.optlen == 0 and a.optdata == ''
+a.otype == 1 and a.optlen == 0 and a.optdata == b""
 
 = PadN - Dissection with specific values 
 a=PadN(b'\x01\x0cBBBBBBBBBB')
@@ -3107,7 +3107,7 @@ a.optcode == 1 and a.optlen == 14 and isinstance(a.duid, DUID_LLT) and a.duid.ty
 
 = DHCP6OptClientId dissection with specific DUID_EN as duid value
 a=DHCP6OptClientId(b'\x00\x01\x00\x06\x00\x02\x00\x00\x017')
-a.optcode == 1 and a.optlen == 6 and isinstance(a.duid, DUID_EN) and a.duid.type == 2 and a.duid.enterprisenum == 311 and a.duid.id == ""
+a.optcode == 1 and a.optlen == 6 and isinstance(a.duid, DUID_EN) and a.duid.type == 2 and a.duid.enterprisenum == 311 and a.duid.id == b""
 
 
 ############
@@ -3153,7 +3153,7 @@ a.optcode == 2 and a.optlen == 14 and isinstance(a.duid, DUID_LLT) and a.duid.ty
 
 = DHCP6OptServerId dissection with specific DUID_EN as duid value
 a=DHCP6OptServerId(b'\x00\x02\x00\x06\x00\x02\x00\x00\x017')
-a.optcode == 2 and a.optlen == 6 and isinstance(a.duid, DUID_EN) and a.duid.type == 2 and a.duid.enterprisenum == 311 and a.duid.id == ""
+a.optcode == 2 and a.optlen == 6 and isinstance(a.duid, DUID_EN) and a.duid.type == 2 and a.duid.enterprisenum == 311 and a.duid.id == b""
 
 
 ############
@@ -3165,7 +3165,7 @@ bytes(DHCP6OptIAAddress()) == b'\x00\x05\x00\x18\x00\x00\x00\x00\x00\x00\x00\x00
 
 = DHCP6OptIAAddress - Basic Dissection
 a = DHCP6OptIAAddress(b'\x00\x05\x00\x18\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
-a.optcode == 5 and a.optlen == 24 and a.addr == "::" and a.preflft == 0 and a. validlft == 0 and a.iaaddropts == ""
+a.optcode == 5 and a.optlen == 24 and a.addr == "::" and a.preflft == 0 and a. validlft == 0 and a.iaaddropts == b""
 
 = DHCP6OptIAAddress - Instantiation with specific values
 bytes(DHCP6OptIAAddress(optlen=0x1111, addr="2222:3333::5555", preflft=0x66666666, validlft=0x77777777, iaaddropts="somestring")) == b'\x00\x05\x11\x11""33\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00UUffffwwwwsomestring'
@@ -3659,7 +3659,7 @@ bytes(DHCP6OptNISDomain()) == b'\x00\x1d\x00\x00'
 
 = DHCP6OptNISDomain - Basic Dissection
 a = DHCP6OptNISDomain(b'\x00\x1d\x00\x00')
-a.optcode == 29 and a.optlen == 0 and a.nisdomain == ""
+a.optcode == 29 and a.optlen == 0 and a.nisdomain == b""
 
 = DHCP6OptNISDomain - Instantiation with one domain name
 bytes(DHCP6OptNISDomain(nisdomain="toto.example.org")) == b'\x00\x1d\x00\x11\x04toto\x07example\x03org'
@@ -3681,7 +3681,7 @@ bytes(DHCP6OptNISPDomain()) == b'\x00\x1e\x00\x00'
 
 = DHCP6OptNISPDomain - Basic Dissection
 a = DHCP6OptNISPDomain(b'\x00\x1e\x00\x00')
-a.optcode == 30 and a.optlen == 0 and a.nispdomain == ""
+a.optcode == 30 and a.optlen == 0 and a.nispdomain == b""
 
 = DHCP6OptNISPDomain - Instantiation with one domain name
 bytes(DHCP6OptNISPDomain(nispdomain="toto.example.org")) == b'\x00\x1e\x00\x11\x04toto\x07example\x03org'
@@ -3794,7 +3794,7 @@ bytes(DHCP6OptRemoteID()) == b'\x00%\x00\x04\x00\x00\x00\x00'
 
 = DHCP6OptRemoteID - Basic Dissection
 a = DHCP6OptRemoteID(b'\x00%\x00\x04\x00\x00\x00\x00')
-a.optcode == 37 and a.optlen == 4 and a.enterprisenum == 0 and a.remoteid == ""
+a.optcode == 37 and a.optlen == 4 and a.enterprisenum == 0 and a.remoteid == b""
 
 = DHCP6OptRemoteID - Instantiation with specific values 
 bytes(DHCP6OptRemoteID(enterprisenum=0xeeeeeeee, remoteid="someid")) == b'\x00%\x00\n\xee\xee\xee\xeesomeid'
@@ -3813,7 +3813,7 @@ bytes(DHCP6OptSubscriberID()) == b'\x00&\x00\x00'
 
 = DHCP6OptSubscriberID - Basic Dissection
 a = DHCP6OptSubscriberID(b'\x00&\x00\x00')
-a.optcode == 38 and a.optlen == 0 and a.subscriberid == ""
+a.optcode == 38 and a.optlen == 0 and a.subscriberid == b""
 
 = DHCP6OptSubscriberID - Instantiation with specific values
 bytes(DHCP6OptSubscriberID(subscriberid="someid")) == b'\x00&\x00\x06someid'
@@ -3832,7 +3832,7 @@ bytes(DHCP6OptClientFQDN()) == b"\x00'\x00\x01\x00"
 
 = DHCP6OptClientFQDN - Basic Dissection
 a = DHCP6OptClientFQDN("\x00'\x00\x01\x00")
-a.optcode == 39 and a.optlen == 1 and a.res == 0 and a.flags == 0 and a.fqdn == ""
+a.optcode == 39 and a.optlen == 1 and a.res == 0 and a.flags == 0 and a.fqdn == b""
 
 = DHCP6OptClientFQDN - Instantiation with various flags combinations
 bytes(DHCP6OptClientFQDN(flags="S")) == b"\x00'\x00\x01\x01" and bytes(DHCP6OptClientFQDN(flags="O")) == b"\x00'\x00\x01\x02" and bytes(DHCP6OptClientFQDN(flags="N")) == b"\x00'\x00\x01\x04" and bytes(DHCP6OptClientFQDN(flags="SON")) == b"\x00'\x00\x01\x07" and bytes(DHCP6OptClientFQDN(flags="ON")) == b"\x00'\x00\x01\x06"
@@ -4303,7 +4303,7 @@ bytes(MIP6OptMNID()) == b'\x08\x01\x01'
 
 = MIP6OptMNID - basic dissection
 p = MIP6OptMNID(b'\x08\x01\x01')
-p.otype == 8 and p.olen == 1 and p.subtype == 1 and p.id == ""
+p.otype == 8 and p.olen == 1 and p.subtype == 1 and p.id == b""
 
 = MIP6OptMNID - build with specific values
 bytes(MIP6OptMNID(subtype=42, id="someid")) == b'\x08\x07*someid'
@@ -5920,7 +5920,7 @@ assert(p.status == 0)
 assert(p.association_id == 0)
 assert(p.offset == 0)
 assert(p.count == 0)
-assert(p.data == '')
+assert(p.data == b'')
 
 
 = NTP Control (mode 6) - CTL_OP_READSTAT (2) - response
@@ -5966,7 +5966,7 @@ assert(p.op_code == 2)
 assert(p.sequence == 18)
 assert(p.status == 0)
 assert(p.association_id == 64655)
-assert(p.data == '')
+assert(p.data == b'')
 
 
 = NTP Control (mode 6) - CTL_OP_READVAR (2) - reponse (1st packet)
@@ -6149,8 +6149,8 @@ assert(p.response == 0)
 assert(p.err == 0)
 assert(p.more == 0)
 assert(p.op_code == 12)
-assert(p.data == '')
-assert(p.authenticator == '')
+assert(p.data == b'')
+assert(p.authenticator == b'')
 
 
 = NTP Control (mode 6) - CTL_OP_REQ_NONCE (2) - response
@@ -6164,7 +6164,7 @@ assert(p.err == 0)
 assert(p.more == 0)
 assert(p.op_code == 12)
 assert(p.data.load == b'nonce=db4186a2e1d9022472e24bc9\r\n')
-assert(p.authenticator == '')
+assert(p.authenticator == b'')
 
 
 = NTP Control (mode 6) - CTL_OP_READ_MRU (1) - request
@@ -6178,7 +6178,7 @@ assert(p.err == 0)
 assert(p.op_code == 10)
 assert(p.count == 40)
 assert(p.data.load == b'nonce=db4186a2e1d9022472e24bc9, frags=32')
-assert(p.authenticator == '')
+assert(p.authenticator == b'')
 
 = NTP Control (mode 6) - CTL_OP_READ_MRU (2) - response
 s = b'\xd6\x8a\x00\x08\x00\x00\x00\x00\x00\x00\x00\xe9nonce=db4186a2e2073198b93c6419, addr.0=192.168.122.100:123,\r\nfirst.0=0xdb418673.323e1a89, last.0=0xdb418673.323e1a89, ct.0=1,\r\nmv.0=36, rs.0=0x0, WWQ.0=18446744073709509383, now=0xdb4186a2.e20ff8f4,\r\nlast.newest=0xdb418673.323e1a89\r\n\x00\x00\x00'
@@ -6191,7 +6191,7 @@ assert(p.err == 0)
 assert(p.op_code == 10)
 assert(p.count == 233)
 assert(p.data.load == b'nonce=db4186a2e2073198b93c6419, addr.0=192.168.122.100:123,\r\nfirst.0=0xdb418673.323e1a89, last.0=0xdb418673.323e1a89, ct.0=1,\r\nmv.0=36, rs.0=0x0, WWQ.0=18446744073709509383, now=0xdb4186a2.e20ff8f4,\r\nlast.newest=0xdb418673.323e1a89\r\n\x00\x00\x00')
-assert(p.authenticator == '')
+assert(p.authenticator == b'')
 
 
 ############
@@ -7683,7 +7683,7 @@ BER_id_enc(2807) == b'\xbfw'
 
 b = BERcodec_IPADDRESS()
 r1 = b.enc("8.8.8.8")
-r1 == '@\x04\x08\x08\x08\x08'
+r1 == b'@\x04\x08\x08\x08\x08'
 
 r2 = b.dec(r1)[0]
 r2.val == '8.8.8.8'

@@ -77,7 +77,7 @@ if six.PY3:
                 return bytes([x])
             except ValueError:
                 # Ignore out of range strings
-                pass
+                return bytes(str(x), "utf8")
         if isinstance(x, bytes):
             return x
         if hasattr(x, "__bytes__"):
@@ -100,7 +100,7 @@ else:
                 return chr(x)
             except ValueError:
                 # Ignore out of range strings
-                pass
+                return str(x)
         if isinstance(x, list):
             return "".join([chr(y) for y in x])
         if hasattr(x, "__bytes__"):
@@ -110,19 +110,31 @@ else:
         """Convert basic byte objects to str"""
         return x
 
-def bytes_hex(x, force_str=False):
+def bytes_codec(x, codec, force_str=False):
     """Hexify a str or a bytes object"""
     if six.PY2:
-        return str(x).encode("hex")
+        return str(x).encode(codec)
     else:
-        hex_ = codecs.getencoder('hex_codec')(raw(x))[0]
+        hex_ = codecs.getencoder(codec)(raw(x))[0]
         if force_str:
             hex_ = hex_.decode('utf8')
         return hex_
 
-def hex_bytes(x):
+def codec_bytes(x, codec):
     """De-hexify a str or a byte object"""
     if six.PY2:
-        return str(x).decode("hex")
+        return str(x).decode(codec)
     else:
-        return codecs.getdecoder('hex_codec')(x)[0]
+        return codecs.getdecoder(codec)(x)[0]
+
+def bytes_hex(x, force_str=False):
+    """Hexify a str or a bytes object"""
+    return bytes_codec(x, "hex", force_str)
+
+def hex_bytes(x):
+    """De-hexify a str or a byte object"""
+    return codec_bytes(x, "hex")
+
+def base64_bytes(x):
+    """Turn base64 into bytes"""
+    return codec_bytes(raw(x), "base64")

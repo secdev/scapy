@@ -1085,11 +1085,11 @@ A side effect is that, to obtain "{" and "}" characters, you must use
             ret = "%s / %s" % (ret, s)
         else:
             ret = "%s%s" % (ret,s)
-        return found,ret,needed
+        return found, ret, needed
 
     def summary(self, intern=0):
         """Prints a one line summary of a packet."""
-        found,s,needed = self._do_summary()
+        found, s, needed = self._do_summary()
         return s
 
     

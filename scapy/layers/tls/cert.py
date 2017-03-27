@@ -131,7 +131,7 @@ class _PKIObjMaker(type):
         if obj_path is None:
             raise Exception(error_msg)
 
-        if (not b'\x00' in obj_path) and os.path.isfile(obj_path):
+        if (not '\x00' in obj_path) and os.path.isfile(obj_path):
             _size = os.path.getsize(obj_path)
             if _size > obj_max_size:
                 raise Exception(error_msg)
@@ -149,7 +149,7 @@ class _PKIObjMaker(type):
                 frmt = "PEM"
                 pem = raw
                 der_list = split_pem(raw)
-                der = ''.join(map(pem2der, der_list))
+                der = b''.join(map(pem2der, der_list))
             else:
                 frmt = "DER"
                 der = raw

@@ -143,10 +143,10 @@ class _TLSMsgListField(PacketListField):
                elif isinstance(p, TLSApplicationData):
                    pkt.type = 23
            p.tls_session = pkt.tls_session
-           cur = str(p)
+           cur = raw(p)
            p.post_build_tls_session_update(cur)
        else:
-           cur = str(p)
+           cur = raw(p)
        return cur
 
     def addfield(self, pkt, s, val):

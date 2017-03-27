@@ -262,7 +262,7 @@ class Dot11Elt(Packet):
                     StrLenField("info", "", length_from=lambda x:x.len) ]
     def mysummary(self):
         if self.ID == 0:
-            return "SSID=%s"%repr(self.info),[Dot11]
+            return "SSID=%s"%repr(plain_str(self.info)),[Dot11]
         else:
             return ""
 
