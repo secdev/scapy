@@ -5805,6 +5805,15 @@ assert(eap.type == 3)
 assert(hasattr(eap, 'desired_auth_type'))
 assert(eap.desired_auth_type == 43)
 
+= EAP - EAP_TLS - Basic Instantiation
+str(EAP_TLS()) == b'\x01\x00\x00\x06\r\x00'
+
+= EAP - EAP_FAST - Basic Instantiation
+str(EAP_FAST()) == b'\x01\x00\x00\x06+\x00'
+
+= EAP - EAP_MD5 - Basic Instantiation
+str(EAP_MD5()) == b'\x01\x00\x00\x06\x04\x00'
+
 = EAP - EAP_MD5 - Request - Dissection (8)
 s = b'\x01\x02\x00\x16\x04\x10\x86\xf9\x89\x94\x81\x01\xb3 nHh\x1b\x8d\xe7^\xdb\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 eap = EAP(s)
@@ -5828,6 +5837,33 @@ assert(eap.haslayer(EAP_MD5))
 assert(eap[EAP_MD5].value_size == 16)
 assert(eap[EAP_MD5].value == b'\xfd\x1e\xffe\xf5\x80y\xa8\xe3\xc8\xf1\xbd\xc2\x85\xae\xcf')
 assert(eap[EAP_MD5].optional_name == '')
+
+= EAP - Layers (1)
+eap = EAP_MD5()
+assert(EAP_MD5 in eap)
+assert(not EAP_TLS in eap)
+assert(not EAP_FAST in eap)
+assert(EAP in eap)
+eap = EAP_TLS()
+assert(EAP_TLS in eap)
+assert(not EAP_MD5 in eap)
+assert(not EAP_FAST in eap)
+assert(EAP in eap)
+eap = EAP_FAST()
+assert(EAP_FAST in eap)
+assert(not EAP_MD5 in eap)
+assert(not EAP_TLS in eap)
+assert(EAP in eap)
+
+
+= EAP - Layers (2)
+eap = EAP_MD5()
+assert(type(eap[EAP]) == EAP_MD5)
+eap = EAP_TLS()
+assert(type(eap[EAP]) == EAP_TLS)
+eap = EAP_FAST()
+assert(type(eap[EAP]) == EAP_FAST)
+
 
 ############
 ############
