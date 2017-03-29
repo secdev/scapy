@@ -868,7 +868,7 @@ class _HopByHopOptionsField(PacketListField):
             if d == 1:
                 s += str(Pad1())
             elif d != 0:
-                s += str(PadN(optdata='\x00'*(d-2)))
+                s += str(PadN(optdata=b'\x00'*(d-2)))
             pstr = str(p)
             curpos += len(pstr)
             s += pstr
@@ -882,7 +882,7 @@ class _HopByHopOptionsField(PacketListField):
         if d == 1:
             s += str(Pad1())
         elif d != 0:
-            s += str(PadN(optdata='\x00'*(d-2)))
+            s += str(PadN(optdata=b'\x00'*(d-2)))
 
         return s
 
@@ -997,7 +997,7 @@ class IPv6ExtHdrSegmentRoutingTLVPadding(IPv6ExtHdrSegmentRoutingTLV):
     name = "IPv6 Option Header Segment Routing - Padding TLV"
     fields_desc = [ ByteField("type", 4),
                     FieldLenField("len", None, length_of="padding", fmt="B"),
-                    StrLenField("padding", "\x00", length_from=lambda pkt: pkt.len) ]
+                    StrLenField("padding", b"\x00", length_from=lambda pkt: pkt.len) ]
 
 
 class IPv6ExtHdrSegmentRouting(_IPv6ExtHdr):
@@ -1031,7 +1031,7 @@ class IPv6ExtHdrSegmentRouting(_IPv6ExtHdr):
                 warning("IPv6ExtHdrSegmentRouting(): can't pad 1 byte !")
             elif tmp_mod >= 2:
                 #Add the padding extension
-                tmp_pad = "\x00" * (tmp_mod-2)
+                tmp_pad = b"\x00" * (tmp_mod-2)
                 tlv = IPv6ExtHdrSegmentRoutingTLVPadding(padding=tmp_pad)
                 pkt += str(tlv)
 
@@ -1702,7 +1702,7 @@ class ICMPv6NDOptRedirectedHdr(_ICMPv6NDGuessPayload, Packet):
     fields_desc = [ ByteField("type",4),
                     FieldLenField("len", None, length_of="pkt", fmt="B",
                                   adjust = lambda pkt,x:(x+8)/8),
-                    StrFixedLenField("res", "\x00"*6, 6),
+                    StrFixedLenField("res", b"\x00"*6, 6),
                     TruncPktLenField("pkt", "", IPv6, 8,
                                      length_from = lambda pkt: 8*pkt.len-8) ]
 
@@ -1806,7 +1806,7 @@ class _IP6PrefixField(IP6Field):
         l = self.length_from(pkt)
         p = s[:l]
         if l < 16:
-            p += '\x00'*(16-l)
+            p += b'\x00'*(16-l)
         return s[l:], self.m2i(pkt,p)
 
     def i2len(self, pkt, x):
@@ -1828,7 +1828,7 @@ class _IP6PrefixField(IP6Field):
         if l in [2, 3]:
             return x[:8*(l-1)]
 
-        return x + '\x00'*8*(l-3)
+        return x + b'\x00'*8*(l-3)
 
 class ICMPv6NDOptRouteInfo(_ICMPv6NDGuessPayload, Packet): # RFC 4191
     name = "ICMPv6 Neighbor Discovery Option - Route Information Option"
@@ -1879,7 +1879,7 @@ class DomainNameListField(StrLenField):
         while x:
             # Get a name until \x00 is reached
             cur = []
-            while x and x[0] != '\x00':
+            while x and x[0] != b'\x00':
                 l = ord(x[0])
                 cur.append(x[1:l+1])
                 x = x[l+1:]
@@ -1890,22 +1890,22 @@ class DomainNameListField(StrLenField):
             else:
               # Store the current name
               res.append(".".join(cur) + ".")
-            if x and x[0] == '\x00':
+            if x and x[0] == b'\x00':
                 x = x[1:]
         return res
 
     def i2m(self, pkt, x):
         def conditionalTrailingDot(z):
-            if z and z[-1] == '\x00':
+            if z and z[-1] == b'\x00':
                 return z
-            return z+'\x00'
+            return z+b'\x00'
         # Build the encode names
         tmp = map(lambda y: map((lambda z: chr(len(z))+z), y.split('.')), x)
         ret_string  = "".join(map(lambda x: conditionalTrailingDot("".join(x)), tmp))
 
         # In padded mode, add some \x00 bytes
         if self.padded and not len(ret_string) % self.padded_unit == 0:
-            ret_string += "\x00" * (self.padded_unit - len(ret_string) % self.padded_unit)
+            ret_string += b"\x00" * (self.padded_unit - len(ret_string) % self.padded_unit)
 
         return ret_string
 
@@ -2010,7 +2010,7 @@ class ICMPv6NDOptSrcAddrList(_ICMPv6NDGuessPayload, Packet):
     fields_desc = [ ByteField("type",9),
                     FieldLenField("len", None, count_of="addrlist", fmt="B",
                                   adjust = lambda pkt,x: 2*x+1),
-                    StrFixedLenField("res", "\x00"*6, 6),
+                    StrFixedLenField("res", b"\x00"*6, 6),
                     IP6ListField("addrlist", [],
                                 length_from = lambda pkt: 8*(pkt.len-1)) ]
 
@@ -2135,15 +2135,15 @@ def names2dnsrepr(x):
     """
 
     if type(x) is str:
-        if x and x[-1] == '\x00': # stupid heuristic
+        if x and x[-1] == b'\x00': # stupid heuristic
             return x
         x = [x]
 
     res = []
     for n in x:
-        termin = "\x00"
+        termin = b"\x00"
         if n.count('.') == 0: # single-component gets one more
-            termin += '\x00'
+            termin += b'\x00'
         n = "".join(map(lambda y: chr(len(y))+y, n.split("."))) + termin
         res.append(n)
     return "".join(res)
@@ -2740,7 +2740,7 @@ class MIP6OptCareOfTest(_MIP6OptAlign, Packet): # RFC 4866 (Sect. 5.5)
     name = "MIPv6 option - Care-of Test"
     fields_desc = [ ByteEnumField("otype", 16, _mobopttypes),
                     FieldLenField("olen", None, length_of="cokt", fmt="B"),
-                    StrLenField("cokt", '\x00'*8,
+                    StrLenField("cokt", b'\x00'*8,
                                 length_from = lambda pkt: pkt.olen) ]
     x = 0 ; y = 0 # alignment requirement: none
 
@@ -2838,7 +2838,7 @@ class MIP6MH_Generic(_MobilityHeader): # Mainly for decoding of unknown msg
                     ByteEnumField("mhtype", None, mhtypes),
                     ByteField("res", None),
                     XShortField("cksum", None),
-                    StrLenField("msg", "\x00"*2,
+                    StrLenField("msg", b"\x00"*2,
                                 length_from = lambda pkt: 8*pkt.len-6) ]
 
 
@@ -2894,7 +2894,7 @@ class _MobilityOptionsField(PacketListField):
             if d == 1:
                 s += str(Pad1())
             elif d != 0:
-                s += str(PadN(optdata='\x00'*(d-2)))
+                s += str(PadN(optdata=b'\x00'*(d-2)))
             pstr = str(p)
             curpos += len(pstr)
             s += pstr
@@ -2908,7 +2908,7 @@ class _MobilityOptionsField(PacketListField):
         if d == 1:
             s += str(Pad1())
         elif d != 0:
-            s += str(PadN(optdata='\x00'*(d-2)))
+            s += str(PadN(optdata=b'\x00'*(d-2)))
 
         return s
 
@@ -2929,9 +2929,9 @@ class MIP6MH_BRR(_MobilityHeader):
     overload_fields = { IPv6: { "nh": 135 } }
     def hashret(self):
         # Hack: BRR, BU and BA have the same hashret that returns the same
-        #       value "\x00\x08\x09" (concatenation of mhtypes). This is
+        #       value b"\x00\x08\x09" (concatenation of mhtypes). This is
         #       because we need match BA with BU and BU with BRR. --arno
-        return "\x00\x08\x09"
+        return b"\x00\x08\x09"
 
 class MIP6MH_HoTI(_MobilityHeader):
     name = "IPv6 Mobility Header - Home Test Init"
@@ -2940,8 +2940,8 @@ class MIP6MH_HoTI(_MobilityHeader):
                     ByteEnumField("mhtype", 1, mhtypes),
                     ByteField("res", None),
                     XShortField("cksum", None),
-                    StrFixedLenField("reserved", "\x00"*2, 2),
-                    StrFixedLenField("cookie", "\x00"*8, 8),
+                    StrFixedLenField("reserved", b"\x00"*2, 2),
+                    StrFixedLenField("cookie", b"\x00"*8, 8),
                     _PhantomAutoPadField("autopad", 1), # autopad activated by default
                     _MobilityOptionsField("options", [], MIP6OptUnknown, 16,
                                           length_from = lambda pkt: 8*(pkt.len-1)) ]
@@ -2963,8 +2963,8 @@ class MIP6MH_HoT(_MobilityHeader):
                     ByteField("res", None),
                     XShortField("cksum", None),
                     ShortField("index", None),
-                    StrFixedLenField("cookie", "\x00"*8, 8),
-                    StrFixedLenField("token", "\x00"*8, 8),
+                    StrFixedLenField("cookie", b"\x00"*8, 8),
+                    StrFixedLenField("token", b"\x00"*8, 8),
                     _PhantomAutoPadField("autopad", 1), # autopad activated by default
                     _MobilityOptionsField("options", [], MIP6OptUnknown, 24,
                                           length_from = lambda pkt: 8*(pkt.len-2)) ]
@@ -3010,7 +3010,7 @@ class MIP6MH_BU(_MobilityHeader):
     overload_fields = { IPv6: { "nh": 135 } }
 
     def hashret(self): # Hack: see comment in MIP6MH_BRR.hashret()
-        return "\x00\x08\x09"
+        return b"\x00\x08\x09"
 
     def answers(self, other):
         if isinstance(other, MIP6MH_BRR):
@@ -3035,7 +3035,7 @@ class MIP6MH_BA(_MobilityHeader):
     overload_fields = { IPv6: { "nh": 135 }}
 
     def hashret(self): # Hack: see comment in MIP6MH_BRR.hashret()
-        return "\x00\x08\x09"
+        return b"\x00\x08\x09"
 
     def answers(self, other):
         if (isinstance(other, MIP6MH_BU) and
@@ -3861,6 +3861,7 @@ conf.l2types.register(31, IPv6)
 
 bind_layers(Ether,     IPv6,     type = 0x86dd )
 bind_layers(CookedLinux, IPv6,   proto = 0x86dd )
+bind_layers(GRE,       IPv6,     proto = 0x86dd )
 bind_layers(Loopback,  IPv6,     type = 0x1c )
 bind_layers(IPerror6,  TCPerror, nh = socket.IPPROTO_TCP )
 bind_layers(IPerror6,  UDPerror, nh = socket.IPPROTO_UDP )
@@ -3869,3 +3870,4 @@ bind_layers(IPv6,      UDP,      nh = socket.IPPROTO_UDP )
 bind_layers(IP,        IPv6,     proto = socket.IPPROTO_IPV6 )
 bind_layers(IPv6,      IPv6,     nh = socket.IPPROTO_IPV6 )
 bind_layers(IPv6,      IP,       nh = socket.IPPROTO_IPIP )
+bind_layers(IPv6,      GRE,      nh = socket.IPPROTO_GRE )

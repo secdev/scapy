@@ -145,7 +145,7 @@ class _CoAPOpt(Packet):
         return Packet.do_build(self)
 
     def guess_payload_class(self, payload):
-        if payload[0] != '\xff':
+        if payload[0] != b'\xff':
             return _CoAPOpt
         else:
             return Packet.guess_payload_class(self, payload)
@@ -206,8 +206,8 @@ class _CoAPPaymark(StrField):
         return s[u:], m
 
     def m2i(self, pkt, x):
-        if len(x) > 0 and x[0] == '\xff':
-            return 1, '\xff'
+        if len(x) > 0 and x[0] == b'\xff':
+            return 1, b'\xff'
         return 0, '';
 
     def i2m(self, pkt, x):

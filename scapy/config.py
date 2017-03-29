@@ -300,7 +300,7 @@ def _prompt_changer(attr,val):
             ## ^A and ^B delimit invisible characters for readline to count right.
             ## And we need ct.prompt() to do change something or else ^A and ^B will be
             ## displayed
-             prompt = "\001%s\002" % ct.prompt("\002"+prompt+"\001")
+             prompt = b"\001%s\002" % ct.prompt(b"\002"+prompt+b"\001")
         else:
             prompt = ct.prompt(prompt)
     except:
@@ -391,6 +391,7 @@ debug_tls:When 1, print some TLS session secrets when they are computed.
     use_dnet = os.getenv("SCAPY_USE_PCAPDNET", "").lower().startswith("y")
     use_bpf = False
     use_winpcapy = False
+    use_npcap = False
     ipv6_enabled = socket.has_ipv6
     ethertypes = ETHER_TYPES
     protocols = IP_PROTOS

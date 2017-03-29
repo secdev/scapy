@@ -29,7 +29,7 @@ Example of use:
 >>>
 >>> e = sa.encrypt(p)
 >>> e
-<IP  version=4L ihl=5L tos=0x0 len=76 id=1 flags= frag=0L ttl=64 proto=esp chksum=0x747a src=1.1.1.1 dst=2.2.2.2 |<ESP  spi=0xdeadbeef seq=1 data='\xf8\xdb\x1e\x83[T\xab\\\xd2\x1b\xed\xd1\xe5\xc8Y\xc2\xa5d\x92\xc1\x05\x17\xa6\x92\x831\xe6\xc1]\x9a\xd6K}W\x8bFfd\xa5B*+\xde\xc8\x89\xbf{\xa9' |>>
+<IP  version=4L ihl=5L tos=0x0 len=76 id=1 flags= frag=0L ttl=64 proto=esp chksum=0x747a src=1.1.1.1 dst=2.2.2.2 |<ESP  spi=0xdeadbeef seq=1 data=b'\xf8\xdb\x1e\x83[T\xab\\\xd2\x1b\xed\xd1\xe5\xc8Y\xc2\xa5d\x92\xc1\x05\x17\xa6\x92\x831\xe6\xc1]\x9a\xd6K}W\x8bFfd\xa5B*+\xde\xc8\x89\xbf{\xa9' |>>
 >>>
 >>> d = sa.decrypt(e)
 >>> d
@@ -47,8 +47,8 @@ import struct
 from scapy.config import conf, crypto_validator
 from scapy.data import IP_PROTOS
 from scapy.error import log_loading
-from scapy.fields import (ByteEnumField, ByteField, StrField, XIntField,
-                          IntField, ShortField, PacketField)
+from scapy.fields import (ByteEnumField, ByteField, StrField, StrLenField,
+                          XIntField, IntField, ShortField, PacketField)
 from scapy.packet import Packet, bind_layers, Raw
 from scapy.layers.inet import IP, UDP
 from scapy.layers.inet6 import (IPv6, IPv6ExtHdrHopByHop, IPv6ExtHdrDestOpt,
@@ -65,14 +65,26 @@ class AH(Packet):
 
     name = 'AH'
 
+    def __get_icv_len(self):
+        """
+        Compute the size of the ICV based on the payloadlen field.
+        Padding size is included as it can only be known from the authentication
+        algorithm provided by the Security Association.
+        """
+        # payloadlen = length of AH in 32-bit words (4-byte units), minus "2"
+        # payloadlen = 3 32-bit word fixed fields + ICV + padding - 2
+        # ICV = (payloadlen + 2 - 3 - padding) in 32-bit words
+        return (self.payloadlen - 1) * 4
+
     fields_desc = [
         ByteEnumField('nh', None, IP_PROTOS),
         ByteField('payloadlen', None),
         ShortField('reserved', None),
         XIntField('spi', 0x0),
         IntField('seq', 0),
-        StrField('icv', None),
-        StrField('padding', None),
+        StrLenField('icv', None, length_from=__get_icv_len),
+        # Padding len can only be known with the SecurityAssociation.auth_algo
+        StrLenField('padding', None, length_from=lambda x: 0),
     ]
 
     overload_fields = {
@@ -85,6 +97,8 @@ class AH(Packet):
 
 bind_layers(IP, AH, proto=socket.IPPROTO_AH)
 bind_layers(IPv6, AH, nh=socket.IPPROTO_AH)
+bind_layers(AH, IP, nh=socket.IPPROTO_IP)
+bind_layers(AH, IPv6, nh=socket.IPPROTO_IPV6)
 
 #------------------------------------------------------------------------------
 class ESP(Packet):
@@ -527,7 +541,11 @@ class AuthAlgo(object):
             clone.data = clone.data[:len(clone.data) - self.icv_size]
 
         elif pkt.haslayer(AH):
-            pkt_icv = pkt[AH].icv[:self.icv_size]
+            if len(pkt[AH].icv) != self.icv_size:
+                # Fill padding since we know the actual icv_size
+                pkt[AH].padding = pkt[AH].icv[self.icv_size:]
+                pkt[AH].icv = pkt[AH].icv[:self.icv_size]
+            pkt_icv = pkt[AH].icv
             clone = zero_mutable_fields(pkt.copy(), sending=False)
 
         mac.update(str(clone))

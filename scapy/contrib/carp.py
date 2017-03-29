@@ -34,7 +34,7 @@ class CARP(Packet):
 
         return pkt
 
-def build_hmac_sha1(pkt, pw = '\0' * 20, ip4l=None, ip6l=None):
+def build_hmac_sha1(pkt, pw = b'\0' * 20, ip4l=None, ip6l=None):
     if ip4l is None:
         ip4l = []
     if ip6l is None:
@@ -45,7 +45,7 @@ def build_hmac_sha1(pkt, pw = '\0' * 20, ip4l=None, ip6l=None):
     p = pkt[CARP]
     h = hmac.new(pw, digestmod = hashlib.sha1)
     # XXX: this is a dirty hack. it needs to pack version and type into a single 8bit field
-    h.update('\x21')
+    h.update(b'\x21')
     # XXX: mac addy if different from special link layer. comes before vhid
     h.update(struct.pack('!B', p.vhid))
 

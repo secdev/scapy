@@ -43,10 +43,10 @@ class _BlockCipher(object):
                 l = self.expanded_key_len
             else:
                 l = self.key_len
-            key = "\0" * l
+            key = b"\0" * l
         if iv is None or iv == "":
             self.ready["iv"] = False
-            iv = "\0" * self.block_size
+            iv = b"\0" * self.block_size
 
         # we use super() in order to avoid any deadlock with __setattr__
         super(_BlockCipher, self).__setattr__("key", key)

@@ -310,7 +310,6 @@ eapol_types = {
 
 
 class EAPOL(Packet):
-
     """
     EAPOL - IEEE Std 802.1X-2010
     """
@@ -438,7 +437,6 @@ eap_codes = {
 
 
 class EAP(Packet):
-
     """
     RFC 3748 - Extensible Authentication Protocol (EAP)
     """
@@ -455,7 +453,10 @@ class EAP(Packet):
                          lambda pkt:pkt.code == EAP.RESPONSE and pkt.type == 3),
         ConditionalField(
             StrLenField("identity", '', length_from=lambda pkt: pkt.len - 5),
-                         lambda pkt: pkt.code == EAP.RESPONSE and hasattr(pkt, 'type') and pkt.type == 1)
+                         lambda pkt: pkt.code == EAP.RESPONSE and hasattr(pkt, 'type') and pkt.type == 1),
+        ConditionalField(
+            StrLenField("message", '', length_from=lambda pkt: pkt.len - 5),
+                         lambda pkt: pkt.code == EAP.REQUEST and hasattr(pkt, 'type') and pkt.type == 1)
     ]
 
     #________________________________________________________________________
@@ -471,6 +472,43 @@ class EAP(Packet):
     FAILURE = 4
     INITIATE = 5
     FINISH = 6
+
+    registered_methods = {}
+
+    @classmethod
+    def register_variant(cls):
+        cls.registered_methods[cls.type.default] = cls
+
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        if _pkt:
+            c = ord(_pkt[0])
+            if c in [1, 2] and len(_pkt) >= 5:
+                t = ord(_pkt[4])
+                return cls.registered_methods.get(t, cls)
+        return cls
+
+    def haslayer(self, cls):
+        ret = 0
+        if cls == EAP:
+            for eap_class in EAP.registered_methods.values():
+                if isinstance(self, eap_class):
+                    ret = 1
+                    break
+        elif cls in EAP.registered_methods.values() and isinstance(self, cls):
+            ret = 1
+        return ret
+
+    def getlayer(self, cls, nb=1, _track=None):
+        layer = None
+        if cls == EAP:
+            for eap_class in EAP.registered_methods.values():
+                if isinstance(self, eap_class):
+                    layer = self
+                    break
+        else:
+            layer = Packet.getlayer(self, cls, nb, _track)
+        return layer
 
     def answers(self, other):
         if isinstance(other, EAP):
@@ -491,41 +529,46 @@ class EAP(Packet):
         return p + pay
 
 
-class EAP_MD5(Packet):
-
+class EAP_MD5(EAP):
     """
     RFC 3748 - "Extensible Authentication Protocol (EAP)"
     """
 
     name = "EAP-MD5"
     fields_desc = [
-        ByteField("value_size", 0),
-        StrFixedLenField("value", 0, length=16), # MD5 hash length
-        StrLenField("optional_name", "", length_from=lambda p: p.value_size - 16)
+        ByteEnumField("code", 1, eap_codes),
+        ByteField("id", 0),
+        FieldLenField("len", None, fmt="H", length_of="optional_name",
+                      adjust=lambda p, x: x + p.value_size + 6),
+        ByteEnumField("type", 4, eap_types),
+        FieldLenField("value_size", 0, fmt="B", length_of="value"),
+        XStrLenField("value", '', length_from=lambda p: p.value_size),
+        XStrLenField("optional_name", '', length_from=lambda p: p.len - p.value_size - 6)
     ]
 
 
-class EAP_TLS(Packet):
-
+class EAP_TLS(EAP):
     """
     RFC 5216 - "The EAP-TLS Authentication Protocol"
     """
 
     name = "EAP-TLS"
     fields_desc = [
+        ByteEnumField("code", 1, eap_codes),
+        ByteField("id", 0),
+        FieldLenField("len", None, fmt="H", length_of="tls_data",
+                      adjust=lambda p, x: x + 10 if p.L == 1 else x + 6),
+        ByteEnumField("type", 13, eap_types),
         BitField('L', 0, 1),
         BitField('M', 0, 1),
         BitField('S', 0, 1),
         BitField('reserved', 0, 5),
-        ConditionalField(
-            IntField('tls_message_len', 0), lambda pkt: pkt.L == 1),
-        ConditionalField(
-            StrLenField('tls_data', '', length_from=lambda pkt: pkt.tls_message_len), lambda pkt: pkt.L == 1)
+        ConditionalField(IntField('tls_message_len', 0), lambda pkt: pkt.L == 1),
+        XStrLenField('tls_data', '', length_from=lambda pkt: pkt.len - 10 if pkt.L == 1 else pkt.len - 6)
     ]
 
 
-class EAP_FAST(Packet):
-
+class EAP_FAST(EAP):
     """
     RFC 4851 - "The Flexible Authentication via Secure Tunneling
     Extensible Authentication Protocol Method (EAP-FAST)"
@@ -533,14 +576,18 @@ class EAP_FAST(Packet):
 
     name = "EAP-FAST"
     fields_desc = [
+        ByteEnumField("code", 1, eap_codes),
+        ByteField("id", 0),
+        FieldLenField("len", None, fmt="H", length_of="data",
+                      adjust=lambda p, x: x + 10 if p.L == 1 else x + 6),
+        ByteEnumField("type", 43, eap_types),
         BitField('L', 0, 1),
         BitField('M', 0, 1),
         BitField('S', 0, 1),
         BitField('reserved', 0, 2),
         BitField('version', 0, 3),
         ConditionalField(IntField('message_len', 0), lambda pkt: pkt.L == 1),
-        ConditionalField(
-            StrLenField('data', '', length_from=lambda pkt: pkt.message_len), lambda pkt: pkt.L == 1)
+        XStrLenField('data', '', length_from=lambda pkt: pkt.len - 10 if pkt.L == 1 else pkt.len - 6)
     ]
 
 
@@ -654,7 +701,7 @@ class MKABasicParamSet(Packet):
                 length_from=lambda pkt: (pkt.param_set_body_len - 28)
             ),
             4,
-            padwith="\x00"
+            padwith=b"\x00"
         )
     ]
 
@@ -695,7 +742,7 @@ class MKALivePeerListParamSet(MKAParamSet):
                 _parameter_set_types
             ),
             2,
-            padwith="\x00"
+            padwith=b"\x00"
         ),
         ShortField("param_set_body_len", 0),
         PacketListField("member_id_message_num", [], MKAPeerListTuple)
@@ -723,7 +770,7 @@ class MKAPotentialPeerListParamSet(MKAParamSet):
                 _parameter_set_types
             ),
             2,
-            padwith="\x00"
+            padwith=b"\x00"
         ),
         ShortField("param_set_body_len", 0),
         PacketListField("member_id_message_num", [], MKAPeerListTuple)
@@ -818,7 +865,7 @@ class MKADistributedCAKParamSet(MKAParamSet):
                 _parameter_set_types
             ),
             2,
-            padwith="\x00"
+            padwith=b"\x00"
         ),
         ShortField("param_set_body_len", 0),
         XStrFixedLenField(
@@ -851,7 +898,7 @@ class MKAICVSet(MKAParamSet):
                 _parameter_set_types
             ),
             2,
-            padwith="\x00"
+            padwith=b"\x00"
         ),
         ShortField("param_set_body_len", 0),
         XStrFixedLenField("icv", "", length=MKAParamSet.MACSEC_DEFAULT_ICV_LEN)
@@ -1060,7 +1107,7 @@ bind_layers( CookedLinux,   EAPOL,         proto=34958)
 bind_layers( GRE,           LLC,           proto=122)
 bind_layers( GRE,           Dot1Q,         proto=33024)
 bind_layers( GRE,           Dot1AD,        type=0x88a8)
-bind_layers( GRE,           Ether,         proto=1)
+bind_layers( GRE,           Ether,         proto=0x6558)
 bind_layers( GRE,           ARP,           proto=2054)
 bind_layers( GRE,           EAPOL,         proto=34958)
 bind_layers( GRE,           GRErouting,    { "routing_present" : 1 } )
@@ -1068,9 +1115,6 @@ bind_layers( GRErouting,    conf.raw_layer,{ "address_family" : 0, "SRE_len" : 0
 bind_layers( GRErouting,    GRErouting,    { } )
 bind_layers( EAPOL,         EAP,           type=0)
 bind_layers( EAPOL,         MKAPDU,        type=5)
-bind_layers(EAP,           EAP_TLS,       type=13)
-bind_layers(EAP,           EAP_FAST,      type=43)
-bind_layers( EAP,           EAP_MD5,       type=4)
 bind_layers( LLC,           STP,           dsap=66, ssap=66, ctrl=3)
 bind_layers( LLC,           SNAP,          dsap=170, ssap=170, ctrl=3)
 bind_layers( SNAP,          Dot1Q,         code=33024)

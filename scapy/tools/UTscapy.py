@@ -315,9 +315,9 @@ def compute_campaign_digests(test_campaign):
         for t in ts:
             dt = t.test.strip()
             t.crc = crc32(dt)
-            dts += "\0"+dt
+            dts += b"\0"+dt
         ts.crc = crc32(dts)
-        dc += "\0\x01"+dts
+        dc += b"\0\x01"+dts
     test_campaign.crc = crc32(dc)
     test_campaign.sha = sha1(open(test_campaign.filename).read())
 
@@ -362,7 +362,7 @@ def remove_empty_testsets(test_campaign):
 
 def run_campaign(test_campaign, get_interactive_session, verb=3):
     if WINDOWS:
-        # Add a route to 127.0.0.1
+        # Add a route to 127.0.0.1 and ::1
         from scapy.arch.windows import route_add_loopback
         route_add_loopback()
     passed=failed=0

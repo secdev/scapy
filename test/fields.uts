@@ -7,12 +7,12 @@
 #= Field class
 #~ core field
 #Field("foo", None, fmt="H").i2m(None,0xabcdef)
-#assert( _ == "\xcd\xef" )
+#assert( _ == b"\xcd\xef" )
 #Field("foo", None, fmt="<I").i2m(None,0x12cdef)
-#assert( _ == "\xef\xcd\x12\x00" )
+#assert( _ == b"\xef\xcd\x12\x00" )
 #Field("foo", None, fmt="B").addfield(None, "FOO", 0x12)
-#assert( _ == "FOO\x12" )
-#Field("foo", None, fmt="I").getfield(None, "\x12\x34\x56\x78ABCD")
+#assert( _ == b"FOO\x12" )
+#Field("foo", None, fmt="I").getfield(None, b"\x12\x34\x56\x78ABCD")
 #assert( _ == ("ABCD",0x12345678) )
 #
 #= ConditionnalField class
@@ -23,11 +23,11 @@
 ~ core field
 m = MACField("foo", None)
 m.i2m(None, None)
-assert( _ == "\x00\x00\x00\x00\x00\x00" )
-m.getfield(None, "\xc0\x01\xbe\xef\xba\xbeABCD")
+assert( _ == b"\x00\x00\x00\x00\x00\x00" )
+m.getfield(None, b"\xc0\x01\xbe\xef\xba\xbeABCD")
 assert( _ == ("ABCD","c0:01:be:ef:ba:be") )
 m.addfield(None, "FOO", "c0:01:be:ef:ba:be")
-assert( _ == "FOO\xc0\x01\xbe\xef\xba\xbe" )
+assert( _ == b"FOO\xc0\x01\xbe\xef\xba\xbe" )
 
 = SourceMACField, ARPSourceMACField
 conf.route.add(net="1.2.3.4/32", dev=conf.iface)
@@ -39,15 +39,15 @@ conf.route.delt(net="1.2.3.4/32")
 ~ core field
 i = IPField("foo", None)
 i.i2m(None, "1.2.3.4")
-assert( _ == "\x01\x02\x03\x04" )
+assert( _ == b"\x01\x02\x03\x04" )
 i.i2m(None, "255.255.255.255")
-assert( _ == "\xff\xff\xff\xff" )
-i.m2i(None, "\x01\x02\x03\x04")
+assert( _ == b"\xff\xff\xff\xff" )
+i.m2i(None, b"\x01\x02\x03\x04")
 assert( _ == "1.2.3.4" )
-i.getfield(None, "\x01\x02\x03\x04ABCD")
+i.getfield(None, b"\x01\x02\x03\x04ABCD")
 assert( _ == ("ABCD","1.2.3.4") )
 i.addfield(None, "FOO", "1.2.3.4")
-assert( _ == "FOO\x01\x02\x03\x04" )
+assert( _ == b"FOO\x01\x02\x03\x04" )
 
 = SourceIPField
 ~ core field
@@ -113,17 +113,17 @@ class TestFLenF(Packet):
 ~ field
 TestFLenF()
 str(_)
-_ == "\x08default"
+_ == b"\x08default"
 
 = Assembly of non empty packet
 ~ field
 TestFLenF(str="123")
 str(_)
-_ == "\x04123"
+_ == b"\x04123"
 
 = Disassembly
 ~ field
-TestFLenF("\x04ABCDEFGHIJKL")
+TestFLenF(b"\x04ABCDEFGHIJKL")
 _
 _.len == 4 and _.str == "ABC" and Raw in _
 
@@ -137,16 +137,16 @@ class TestBFLenF(Packet):
 
 a=TestBFLenF()
 str(a)
-assert( _ == "\x8f\xffdefault" )
+assert( _ == b"\x8f\xffdefault" )
 
 a.str=""
 str(a)
-assert( _ == "\x1f\xff" )
+assert( _ == b"\x1f\xff" )
 
-TestBFLenF("\x1f\xff@@")
+TestBFLenF(b"\x1f\xff@@")
 assert( _.len == 1 and _.str == "" and Raw in _ and _[Raw].load == "@@" )
 
-TestBFLenF("\x6f\xffabcdeFGH")
+TestBFLenF(b"\x6f\xffabcdeFGH")
 assert( _.len == 6 and _.str == "abcde" and Raw in _ and _[Raw].load == "FGH" )
 
 
@@ -180,8 +180,8 @@ _ == struct.pack("!BII", 2,7,65539)
 = Disassemble
 ~ field
 import struct
-TestFLF("\x00\x11\x12")
-assert(_.len == 0 and Raw in _ and _[Raw].load == "\x11\x12")
+TestFLF(b"\x00\x11\x12")
+assert(_.len == 0 and Raw in _ and _[Raw].load == b"\x11\x12")
 TestFLF(struct.pack("!BIII",3,1234,2345,12345678))
 assert(_.len == 3 and _.lst == [1234,2345,12345678])
 
@@ -189,17 +189,17 @@ assert(_.len == 3 and _.lst == [1234,2345,12345678])
 ~ field
 a = TestFLF(lst=[4])
 str(a)
-assert(_ == "\x01\x00\x00\x00\x04")
+assert(_ == b"\x01\x00\x00\x00\x04")
 a.lst.append(1234)
 TestFLF(str(a))
 a.show2()
 a.len=7
 str(a)
-assert(_ == "\x07\x00\x00\x00\x04\x00\x00\x04\xd2")
+assert(_ == b"\x07\x00\x00\x00\x04\x00\x00\x04\xd2")
 a.len=2
 a.lst=[1,2,3,4,5]
 TestFLF(str(a))
-assert(Raw in _ and _[Raw].load == '\x00\x00\x00\x03\x00\x00\x00\x04\x00\x00\x00\x05') 
+assert(Raw in _ and _[Raw].load == b'\x00\x00\x00\x03\x00\x00\x00\x04\x00\x00\x00\x05') 
 
 
 ############
@@ -217,14 +217,14 @@ class TestPLF(Packet):
 ~ field lengthfield
 x=TestPLF()
 str(x)
-_ == "\x00\x00"
+_ == b"\x00\x00"
 
 = Test the PacketListField assembly 2
 ~ field lengthfield
 x=TestPLF()
 x.plist=[IP()/TCP(), IP()/UDP()]
 str(x)
-_.startswith('\x00\x02E')
+_.startswith(b'\x00\x02E')
 
 = Test disassembly
 ~ field lengthfield
@@ -255,14 +255,14 @@ class TestPLF(Packet):
 ~ field lengthfield
 x=TestPLF()
 str(x)
-_ == "\x00\x00"
+_ == b"\x00\x00"
 
 = Test the PacketListField assembly 2
 ~ field lengthfield
 x=TestPLF()
 x.plist=[IP()/TCP(), IP()/UDP()]
 str(x)
-_.startswith('\x00\x02E')
+_.startswith(b'\x00\x02E')
 
 = Test disassembly
 ~ field lengthfield
@@ -293,11 +293,11 @@ class TestPLF2(Packet):
 
 a=TestPLF2()
 str(a)
-assert( _ == "\x00\x02\x00\x00\x00\x00" )
+assert( _ == b"\x00\x02\x00\x00\x00\x00" )
 
 a.plist=[TestPkt(),TestPkt(f1=100)] 
 str(a)
-assert(_ == '\x00\x04\x00\x00\x00\x03ABDdBD')
+assert(_ == b'\x00\x04\x00\x00\x00\x03ABDdBD')
 
 a /= "123456"
 b = TestPLF2(str(a))

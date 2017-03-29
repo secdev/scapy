@@ -29,7 +29,7 @@ format and additional curves).
 #    x = pkcs_i2osp(point.x(), math.ceil(pLen/8))
 #    y = pkcs_i2osp(point.y(), math.ceil(pLen/8))
 #    if point_format == 0:
-#        frmt = '\x04'
+#        frmt = b'\x04'
 #    elif point_format == 1:
 #        frmt = chr(2 + y%2)
 #        y = ''
@@ -63,7 +63,7 @@ format and additional curves).
 #        p = curve.p()
 #        point_format = g[0]
 #        point = g[1:]
-#        if point_format == '\x04':
+#        if point_format == b'\x04':
 #            point_len = len(point)
 #            if point_len % 2 != 0:
 #                raise Exception("Point length is not even.")
@@ -71,7 +71,7 @@ format and additional curves).
 #            x = pkcs_os2ip(x_bytes) % p
 #            y_bytes = point[point_len>>1:]
 #            y = pkcs_os2ip(y_bytes) % p
-#        elif point_format in ['\x02', '\x03']:
+#        elif point_format in [b'\x02', b'\x03']:
 #            x_bytes = point
 #            x = pkcs_os2ip(x_bytes) % p
 #            # perform the y coordinate computation with self.tls_ec

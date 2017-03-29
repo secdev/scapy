@@ -63,21 +63,21 @@ class DTPDomain(DtpGenericTlv):
     name = "DTP Domain"
     fields_desc = [ ShortField("type", 1),
             FieldLenField("length", None, "domain", adjust=lambda pkt,x:x + 4),
-            StrLenField("domain", "\x00", length_from=lambda pkt:pkt.length - 4)
+            StrLenField("domain", b"\x00", length_from=lambda pkt:pkt.length - 4)
             ]
 
 class DTPStatus(DtpGenericTlv):
     name = "DTP Status"
     fields_desc = [ ShortField("type", 2),
             FieldLenField("length", None, "status", adjust=lambda pkt,x:x + 4),
-            StrLenField("status", "\x03", length_from=lambda pkt:pkt.length - 4)
+            StrLenField("status", b"\x03", length_from=lambda pkt:pkt.length - 4)
             ]
 
 class DTPType(DtpGenericTlv):
     name = "DTP Type"
     fields_desc = [ ShortField("type", 3),
             FieldLenField("length", None, "dtptype", adjust=lambda pkt,x:x + 4),
-            StrLenField("dtptype", "\xa5", length_from=lambda pkt:pkt.length - 4)
+            StrLenField("dtptype", b"\xa5", length_from=lambda pkt:pkt.length - 4)
             ]
 
 class DTPNeighbor(DtpGenericTlv):

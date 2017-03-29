@@ -12,9 +12,9 @@ from scapy.fields import *
 
 
 _tls_type = { 20: "change_cipher_spec",
-	      21: "alert",
-	      22: "handshake",
-	      23: "application_data" }
+              21: "alert",
+              22: "handshake",
+              23: "application_data" }
 
 _tls_version = { 0x0200: "SSLv2",
                  0x0300: "SSLv3",

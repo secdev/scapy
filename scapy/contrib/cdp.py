@@ -110,8 +110,8 @@ class CDPMsgDeviceID(CDPMsgGeneric):
     type = 0x0001
 
 _cdp_addr_record_ptype = {0x01: "NLPID", 0x02: "802.2"}
-_cdp_addrrecord_proto_ip = "\xcc"
-_cdp_addrrecord_proto_ipv6 = "\xaa\xaa\x03\x00\x00\x00\x86\xdd"
+_cdp_addrrecord_proto_ip = b"\xcc"
+_cdp_addrrecord_proto_ipv6 = b"\xaa\xaa\x03\x00\x00\x00\x86\xdd"
 
 class CDPAddrRecord(Packet):
     name = "CDP Address"
@@ -252,7 +252,7 @@ class CDPMsgVoIPVLANQuery(CDPMsgGeneric):
     name = "VoIP VLAN Query"
     type = 0x000f
     fields_desc = [ XShortEnumField("type", 0x000f, _cdp_tlv_types),
-    		    ShortField("len", 7),
+                    ShortField("len", 7),
                     XByteField("unknown1", 0),
                     ShortField("vlan", 1),
                     # TLV length (len) - 2 (type) - 2 (len) - 1 (unknown1) - 2 (vlan)
@@ -314,10 +314,10 @@ class _CDPChecksum:
         packet should not be altered."""
         if len(pkt) % 2:
             last_chr = pkt[-1]
-            if last_chr <= '\x80':
-                return pkt[:-1] + '\x00' + last_chr
+            if last_chr <= b'\x80':
+                return pkt[:-1] + b'\x00' + last_chr
             else:
-                return pkt[:-1] + '\xff' + chr(ord(last_chr) - 1)
+                return pkt[:-1] + b'\xff' + chr(ord(last_chr) - 1)
         else:
             return pkt
 

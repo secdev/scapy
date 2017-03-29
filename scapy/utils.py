@@ -265,10 +265,10 @@ def hexdiff(x,y):
             else:
                 i += 16
 
-if struct.pack("H",1) == "\x00\x01": # big endian
+if struct.pack("H",1) == b"\x00\x01": # big endian
     def checksum(pkt):
         if len(pkt) % 2 == 1:
-            pkt += "\0"
+            pkt += b"\0"
         s = sum(array.array("H", pkt))
         s = (s >> 16) + (s & 0xffff)
         s += s >> 16
@@ -277,7 +277,7 @@ if struct.pack("H",1) == "\x00\x01": # big endian
 else:
     def checksum(pkt):
         if len(pkt) % 2 == 1:
-            pkt += "\0"
+            pkt += b"\0"
         s = sum(array.array("H", pkt))
         s = (s >> 16) + (s & 0xffff)
         s += s >> 16
@@ -323,7 +323,7 @@ def fletcher16_checkbytes(binbuf, offset):
     if len(binbuf) < offset:
         raise Exception("Packet too short for checkbytes %d" % len(binbuf))
 
-    binbuf = binbuf[:offset] + "\x00\x00" + binbuf[offset + 2:]
+    binbuf = binbuf[:offset] + b"\x00\x00" + binbuf[offset + 2:]
     (c0,c1)= _fletcher16(binbuf)
 
     x = ((len(binbuf) - offset - 1) * c0 - c1) % 255
@@ -379,7 +379,7 @@ try:
 except socket.error:
     def inet_aton(x):
         if x == "255.255.255.255":
-            return "\xff"*4
+            return b"\xff"*4
         else:
             return socket.inet_aton(x)
 else:
@@ -681,16 +681,16 @@ class RawPcapReader:
     def __init__(self, filename, fdesc, magic):
         self.filename = filename
         self.f = fdesc
-        if magic == "\xa1\xb2\xc3\xd4": # big endian
+        if magic == b"\xa1\xb2\xc3\xd4": # big endian
             self.endian = ">"
             self.nano = False
-        elif magic == "\xd4\xc3\xb2\xa1": # little endian
+        elif magic == b"\xd4\xc3\xb2\xa1": # little endian
             self.endian = "<"
             self.nano = False
-        elif magic == "\xa1\xb2\x3c\x4d":  # big endian, nanosecond-precision
+        elif magic == b"\xa1\xb2\x3c\x4d":  # big endian, nanosecond-precision
             self.endian = ">"
             self.nano = True
-        elif magic == "\x4d\x3c\xb2\xa1":  # little endian, nanosecond-precision
+        elif magic == b"\x4d\x3c\xb2\xa1":  # little endian, nanosecond-precision
             self.endian = "<"
             self.nano = True
         else:
@@ -820,15 +820,15 @@ class RawPcapNgReader(RawPcapReader):
             3: self.read_block_spb,
             6: self.read_block_epb,
         }
-        if magic != "\x0a\x0d\x0d\x0a": # PcapNg:
+        if magic != b"\x0a\x0d\x0d\x0a": # PcapNg:
             raise Scapy_Exception(
                 "Not a pcapng capture file (bad magic: %r)" % magic
             )
         # see https://github.com/pcapng/pcapng
         blocklen, magic = self.f.read(4), self.f.read(4)
-        if magic == "\x1a\x2b\x3c\x4d":
+        if magic == b"\x1a\x2b\x3c\x4d":
             self.endian = ">"
-        elif magic == "\x4d\x3c\x2b\x1a":
+        elif magic == b"\x4d\x3c\x2b\x1a":
             self.endian = "<"
         else:
             raise Scapy_Exception("Not a pcapng capture file (bad magic)")

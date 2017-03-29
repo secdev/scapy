@@ -34,51 +34,51 @@ assert(f.any2i(None, 3) == 3)
 assert(f.any2i(None, 1<<5) == 1<<5)
 assert(f.any2i(None, 1<<16) == 1<<16)
 f = h2.UVarIntField('value', 0, 8)
-assert(f.any2i(None, '\x1E') == 30)
+assert(f.any2i(None, b'\x1E') == 30)
 
 = HTTP/2 UVarIntField.m2i on full byte
 ~ http2 frame field uvarintfield
 
 f = h2.UVarIntField('value', 0, 8)
-assert(f.m2i(None, '\x00') == 0)
-assert(f.m2i(None, '\x03') == 3)
-assert(f.m2i(None, '\xFE') == 254)
-assert(f.m2i(None, '\xFF\x00') == 255)
-assert(f.m2i(None, '\xFF\xFF\x03') == 766) #0xFF + (0xFF ^ 0x80) + (3<<7)
+assert(f.m2i(None, b'\x00') == 0)
+assert(f.m2i(None, b'\x03') == 3)
+assert(f.m2i(None, b'\xFE') == 254)
+assert(f.m2i(None, b'\xFF\x00') == 255)
+assert(f.m2i(None, b'\xFF\xFF\x03') == 766) #0xFF + (0xFF ^ 0x80) + (3<<7)
 
 = HTTP/2 UVarIntField.m2i on partial byte
 ~ http2 frame field uvarintfield
 
 f = h2.UVarIntField('value', 0, 5)
-assert(f.m2i(None, ('\x00', 3)) == 0)
-assert(f.m2i(None, ('\x03', 3)) == 3)
-assert(f.m2i(None, ('\x1e', 3)) == 30)
-assert(f.m2i(None, ('\x1f\x00', 3)) == 31)
-assert(f.m2i(None, ('\x1f\xe1\xff\x03', 3)) == 65536)
+assert(f.m2i(None, (b'\x00', 3)) == 0)
+assert(f.m2i(None, (b'\x03', 3)) == 3)
+assert(f.m2i(None, (b'\x1e', 3)) == 30)
+assert(f.m2i(None, (b'\x1f\x00', 3)) == 31)
+assert(f.m2i(None, (b'\x1f\xe1\xff\x03', 3)) == 65536)
 
 = HTTP/2 UVarIntField.getfield on full byte
 ~ http2 frame field uvarintfield
 
 f = h2.UVarIntField('value', 0, 8)
 
-r = f.getfield(None, '\x00\x00')
-assert(r[0] == '\x00')
+r = f.getfield(None, b'\x00\x00')
+assert(r[0] == b'\x00')
 assert(r[1] == 0)
 
-r = f.getfield(None, '\x03\x00')
-assert(r[0] == '\x00')
+r = f.getfield(None, b'\x03\x00')
+assert(r[0] == b'\x00')
 assert(r[1] == 3)
 
-r = f.getfield(None, '\xFE\x00')
-assert(r[0] == '\x00')
+r = f.getfield(None, b'\xFE\x00')
+assert(r[0] == b'\x00')
 assert(r[1] == 254)
 
-r = f.getfield(None, '\xFF\x00\x00')
-assert(r[0] == '\x00')
+r = f.getfield(None, b'\xFF\x00\x00')
+assert(r[0] == b'\x00')
 assert(r[1] == 255)
 
-r = f.getfield(None, '\xFF\xFF\x03\x00')
-assert(r[0] == '\x00')
+r = f.getfield(None, b'\xFF\xFF\x03\x00')
+assert(r[0] == b'\x00')
 assert(r[1] == 766)
 
 = HTTP/2 UVarIntField.getfield on partial byte
@@ -86,67 +86,67 @@ assert(r[1] == 766)
 
 f = h2.UVarIntField('value', 0, 5)
 
-r = f.getfield(None, ('\x00\x00', 3))
-assert(r[0] == '\x00')
+r = f.getfield(None, (b'\x00\x00', 3))
+assert(r[0] == b'\x00')
 assert(r[1] == 0)
 
-r = f.getfield(None, ('\x03\x00', 3))
-assert(r[0] == '\x00')
+r = f.getfield(None, (b'\x03\x00', 3))
+assert(r[0] == b'\x00')
 assert(r[1] == 3)
 
-r = f.getfield(None, ('\x1e\x00', 3))
-assert(r[0] == '\x00')
+r = f.getfield(None, (b'\x1e\x00', 3))
+assert(r[0] == b'\x00')
 assert(r[1] == 30)
 
-r = f.getfield(None, ('\x1f\x00\x00', 3))
-assert(r[0] == '\x00')
+r = f.getfield(None, (b'\x1f\x00\x00', 3))
+assert(r[0] == b'\x00')
 assert(r[1] == 31)
 
-r = f.getfield(None, ('\x1f\xe1\xff\x03\x00', 3))
-assert(r[0] == '\x00')
+r = f.getfield(None, (b'\x1f\xe1\xff\x03\x00', 3))
+assert(r[0] == b'\x00')
 assert(r[1] == 65536)
 
 = HTTP/2 UVarIntField.i2m on full byte
 ~ http2 frame field uvarintfield
 
 f = h2.UVarIntField('value', 0, 8)
-assert(f.i2m(None, 0) == '\x00')
-assert(f.i2m(None, 3) == '\x03')
-assert(f.i2m(None, 254).lower() == '\xfe')
-assert(f.i2m(None, 255).lower() == '\xff\x00')
-assert(f.i2m(None, 766).lower() == '\xff\xff\x03')
+assert(f.i2m(None, 0) == b'\x00')
+assert(f.i2m(None, 3) == b'\x03')
+assert(f.i2m(None, 254).lower() == b'\xfe')
+assert(f.i2m(None, 255).lower() == b'\xff\x00')
+assert(f.i2m(None, 766).lower() == b'\xff\xff\x03')
 
 = HTTP/2 UVarIntField.i2m on partial byte
 ~ http2 frame field uvarintfield
 
 f = h2.UVarIntField('value', 0, 5)
-assert(f.i2m(None, 0) == '\x00')
-assert(f.i2m(None, 3) == '\x03')
-assert(f.i2m(None, 30).lower() == '\x1e')
-assert(f.i2m(None, 31).lower() == '\x1f\x00')
-assert(f.i2m(None, 65536).lower() == '\x1f\xe1\xff\x03')
+assert(f.i2m(None, 0) == b'\x00')
+assert(f.i2m(None, 3) == b'\x03')
+assert(f.i2m(None, 30).lower() == b'\x1e')
+assert(f.i2m(None, 31).lower() == b'\x1f\x00')
+assert(f.i2m(None, 65536).lower() == b'\x1f\xe1\xff\x03')
 
 = HTTP/2 UVarIntField.addfield on full byte
 ~ http2 frame field uvarintfield
 
 f = h2.UVarIntField('value', 0, 8)
 
-assert(f.addfield(None, 'toto', 0) == 'toto\x00')
-assert(f.addfield(None, 'toto', 3) == 'toto\x03')
-assert(f.addfield(None, 'toto', 254).lower() == 'toto\xfe')
-assert(f.addfield(None, 'toto', 255).lower() == 'toto\xff\x00')
-assert(f.addfield(None, 'toto', 766).lower() == 'toto\xff\xff\x03')
+assert(f.addfield(None, 'toto', 0) == b'toto\x00')
+assert(f.addfield(None, 'toto', 3) == b'toto\x03')
+assert(f.addfield(None, 'toto', 254).lower() == b'toto\xfe')
+assert(f.addfield(None, 'toto', 255).lower() == b'toto\xff\x00')
+assert(f.addfield(None, 'toto', 766).lower() == b'toto\xff\xff\x03')
 
 = HTTP/2 UVarIntField.addfield on partial byte
 ~ http2 frame field uvarintfield
 
 f = h2.UVarIntField('value', 0, 5)
 
-assert(f.addfield(None, ('toto', 3, 4), 0) == 'toto\x80')
-assert(f.addfield(None, ('toto', 3, 4), 3) == 'toto\x83')
-assert(f.addfield(None, ('toto', 3, 4), 30).lower() == 'toto\x9e')
-assert(f.addfield(None, ('toto', 3, 4), 31).lower() == 'toto\x9f\x00')
-assert(f.addfield(None, ('toto', 3, 4), 65536).lower() == 'toto\x9f\xe1\xff\x03')
+assert(f.addfield(None, ('toto', 3, 4), 0) == b'toto\x80')
+assert(f.addfield(None, ('toto', 3, 4), 3) == b'toto\x83')
+assert(f.addfield(None, ('toto', 3, 4), 30).lower() == b'toto\x9e')
+assert(f.addfield(None, ('toto', 3, 4), 31).lower() == b'toto\x9f\x00')
+assert(f.addfield(None, ('toto', 3, 4), 65536).lower() == b'toto\x9f\xe1\xff\x03')
 
 = HTTP/2 UVarIntField.i2len on full byte
 ~ http2 frame field uvarintfield
@@ -184,11 +184,11 @@ class TrivialPacket(Packet):
         StrField('data', '')
     ]
 
-assert(f.i2m(TrivialPacket(data='a'*5), None) == '\x05')
-assert(f.i2m(TrivialPacket(data='a'*255), None).lower() == '\xff\x00')
-assert(f.i2m(TrivialPacket(data='a'), 2) == '\x02')
-assert(f.i2m(None, 2) == '\x02')
-assert(f.i2m(None, 0) == '\x00')
+assert(f.i2m(TrivialPacket(data='a'*5), None) == b'\x05')
+assert(f.i2m(TrivialPacket(data='a'*255), None).lower() == b'\xff\x00')
+assert(f.i2m(TrivialPacket(data='a'), 2) == b'\x02')
+assert(f.i2m(None, 2) == b'\x02')
+assert(f.i2m(None, 0) == b'\x00')
 
 = HTTP/2 FieldUVarLenField.i2m with adjustment
 ~ http2 frame field fielduvarlenfield
@@ -201,10 +201,10 @@ class TrivialPacket(Packet):
     ]
 
 f = h2.FieldUVarLenField('value', None, 8, length_of='data', adjust=lambda x: x-1)
-assert(f.i2m(TrivialPacket(data='a'*5), None) == '\x04')
-assert(f.i2m(TrivialPacket(data='a'*255), None).lower() == '\xfe')
+assert(f.i2m(TrivialPacket(data='a'*5), None) == b'\x04')
+assert(f.i2m(TrivialPacket(data='a'*255), None).lower() == b'\xfe')
 #Adjustement does not affect non-None value!
-assert(f.i2m(TrivialPacket(data='a'*3), 2) == '\x02')
+assert(f.i2m(TrivialPacket(data='a'*3), 2) == b'\x02')
 
 + HTTP/2 HPackZString Test Suite
 
@@ -214,29 +214,29 @@ assert(f.i2m(TrivialPacket(data='a'*3), 2) == '\x02')
 string = 'Test'
 s = h2.HPackZString(string)
 assert(len(s) == 3)
-assert(str(s) == "\xdeT'")
+assert(str(s) == b"\xdeT'")
 assert(s.origin() == string)
 
 string = 'a'*65535
 s = h2.HPackZString(string)
 assert(len(s) == 40960)
-assert(str(s) == ('\x18\xc61\x8cc' * 8191) + '\x18\xc61\x8c\x7f')
+assert(str(s) == (b'\x18\xc61\x8cc' * 8191) + b'\x18\xc61\x8c\x7f')
 assert(s.origin() == string)
 
 = HTTP/2 HPackZString Decompression
 ~ http2 hpack huffman
 
-s = "\xdeT'"
+s = b"\xdeT'"
 i, ibl = h2.HPackZString.huffman_conv2bitstring(s)
 assert('Test' == h2.HPackZString.huffman_decode(i, ibl))
 
-s = ('\x18\xc61\x8cc' * 8191) + '\x18\xc61\x8c\x7f'
+s = (b'\x18\xc61\x8cc' * 8191) + b'\x18\xc61\x8c\x7f'
 i, ibl = h2.HPackZString.huffman_conv2bitstring(s)
 assert('a'*65535 == h2.HPackZString.huffman_decode(i, ibl))
 
 assert(
     expect_exception(h2.InvalidEncodingException,
-    'h2.HPackZString.huffman_decode(*h2.HPackZString.huffman_conv2bitstring("\xdeT"))')
+    b'h2.HPackZString.huffman_decode(*h2.HPackZString.huffman_conv2bitstring(b"\xdeT"))')
 )
 
 + HTTP/2 HPackStrLenField Test Suite
@@ -257,7 +257,7 @@ s = f.m2i(TrivialPacket(type=0, len=4), 'Test')
 assert(isinstance(s, h2.HPackLiteralString))
 assert(s.origin() == 'Test')
 
-s = f.m2i(TrivialPacket(type=1, len=3), "\xdeT'")
+s = f.m2i(TrivialPacket(type=1, len=3), b"\xdeT'")
 assert(isinstance(s, h2.HPackZString))
 assert(s.origin() == 'Test')
 
@@ -277,7 +277,7 @@ s = f.any2i(TrivialPacket(type=0, len=4), 'Test')
 assert(isinstance(s, h2.HPackLiteralString))
 assert(s.origin() == 'Test')
 
-s = f.any2i(TrivialPacket(type=1, len=3), "\xdeT'")
+s = f.any2i(TrivialPacket(type=1, len=3), b"\xdeT'")
 assert(isinstance(s, h2.HPackZString))
 assert(s.origin() == 'Test')
 
@@ -313,7 +313,7 @@ assert(s == s2)
 
 s = 'Test'
 s2 = f.i2m(None, h2.HPackZString(s))
-assert(s2 == "\xdeT'")
+assert(s2 == b"\xdeT'")
 
 = HTTP/2 HPackStrLenField.addfield
 ~ http2 hpack field hpackstrlenfield
@@ -326,7 +326,7 @@ assert('toto' + s == s2)
 
 s = 'Test'
 s2 = f.addfield(None, 'toto', h2.HPackZString(s))
-assert(s2 == "toto\xdeT'")
+assert(s2 == b"toto\xdeT'")
 
 = HTTP/2 HPackStrLenField.getfield
 ~ http2 hpack field hpackstrlenfield
@@ -346,7 +346,7 @@ assert(r[0] == 'Toto')
 assert(isinstance(r[1], h2.HPackLiteralString))
 assert(r[1].origin() == 'Test')
 
-r = f.getfield(TrivialPacket(type=1, len=3), "\xdeT'Toto")
+r = f.getfield(TrivialPacket(type=1, len=3), b"\xdeT'Toto")
 assert(isinstance(r, tuple))
 assert(r[0] == 'Toto')
 assert(isinstance(r[1], h2.HPackZString))
@@ -400,23 +400,23 @@ assert(expect_exception(AssertionError, 'f.addfield(None, "toto", 2)'))
 
 f = h2.HPackMagicBitField('value', 3, 2)
 
-r = f.getfield(None, '\xc0')
+r = f.getfield(None, b'\xc0')
 assert(isinstance(r, tuple))
 assert(len(r) == 2)
 assert(isinstance(r[0], tuple))
 assert(len(r[0]) == 2)
-assert(r[0][0] == '\xc0')
+assert(r[0][0] == b'\xc0')
 assert(r[0][1] == 2)
 assert(r[1] == 3)
 
-r = f.getfield(None, ('\x03', 6))
+r = f.getfield(None, (b'\x03', 6))
 assert(isinstance(r, tuple))
 assert(len(r) == 2)
 assert(isinstance(r[0], str))
 assert(r[0] == '')
 assert(r[1] == 3)
 
-expect_exception(AssertionError, 'f.getfield(None, "\x80")')
+expect_exception(AssertionError, b'f.getfield(None, b"\x80")')
 
 = HTTP/2 HPackMagicBitField.h2i
 ~ http2 hpack field hpackmagicbitfield
@@ -451,13 +451,13 @@ expect_exception(AssertionError, 'f.any2i(None, 2)')
 = HTTP/2 Dissect HPackHdrString
 ~ http2 pack dissect hpackhdrstring
 
-p = h2.HPackHdrString('\x04Test')
+p = h2.HPackHdrString(b'\x04Test')
 assert(p.type == 0)
 assert(p.len == 4)
 assert(isinstance(p.getfieldval('data'), h2.HPackLiteralString))
 assert(p.getfieldval('data').origin() == 'Test')
 
-p = h2.HPackHdrString("\x83\xdeT'")
+p = h2.HPackHdrString(b"\x83\xdeT'")
 assert(p.type == 1)
 assert(p.len == 3)
 assert(isinstance(p.getfieldval('data'), h2.HPackZString))
@@ -467,25 +467,25 @@ assert(p.getfieldval('data').origin() == 'Test')
 ~ http2 hpack build hpackhdrstring
 
 p = h2.HPackHdrString(data=h2.HPackLiteralString('Test'))
-assert(str(p) == '\x04Test')
+assert(str(p) == b'\x04Test')
 
 p = h2.HPackHdrString(data=h2.HPackZString('Test'))
-assert(str(p) == "\x83\xdeT'")
+assert(str(p) == b"\x83\xdeT'")
 
 #Fuzzing-able tests
 p = h2.HPackHdrString(type=1, len=3, data=h2.HPackLiteralString('Test'))
-assert(str(p) == '\x83Test')
+assert(str(p) == b'\x83Test')
 
 + HTTP/2 HPackIndexedHdr Test Suite
 
 = HTTP/2 Dissect HPackIndexedHdr
 ~ http2 hpack dissect hpackindexedhdr
 
-p = h2.HPackIndexedHdr('\x80')
+p = h2.HPackIndexedHdr(b'\x80')
 assert(p.magic == 1)
 assert(p.index == 0)
 
-p = h2.HPackIndexedHdr('\xFF\x00')
+p = h2.HPackIndexedHdr(b'\xFF\x00')
 assert(p.magic == 1)
 assert(p.index == 127)
 
@@ -493,17 +493,17 @@ assert(p.index == 127)
 ~ http2 hpack build hpackindexedhdr
 
 p = h2.HPackIndexedHdr(index=0)
-assert(str(p) == '\x80')
+assert(str(p) == b'\x80')
 
 p = h2.HPackIndexedHdr(index=127)
-assert(str(p) == '\xFF\x00')
+assert(str(p) == b'\xFF\x00')
 
 + HTTP/2 HPackLitHdrFldWithIncrIndexing Test Suite
 
 = HTTP/2 Dissect HPackLitHdrFldWithIncrIndexing without indexed name
 ~ http2 hpack dissect hpacklithdrfldwithincrindexing
 
-p = h2.HPackLitHdrFldWithIncrIndexing('\x40\x04Test\x04Toto')
+p = h2.HPackLitHdrFldWithIncrIndexing(b'\x40\x04Test\x04Toto')
 assert(p.magic == 1)
 assert(p.index == 0)
 assert(isinstance(p.hdr_name, h2.HPackHdrString))
@@ -518,7 +518,7 @@ assert(p.hdr_value.getfieldval('data').origin() == 'Toto')
 = HTTP/2 Dissect HPackLitHdrFldWithIncrIndexing with indexed name
 ~ http2 hpack dissect hpacklithdrfldwithincrindexing
 
-p = h2.HPackLitHdrFldWithIncrIndexing('\x41\x04Toto')
+p = h2.HPackLitHdrFldWithIncrIndexing(b'\x41\x04Toto')
 assert(p.magic == 1)
 assert(p.index == 1)
 assert(p.hdr_name is None)
@@ -535,7 +535,7 @@ p = h2.HPackLitHdrFldWithIncrIndexing(
     hdr_name=h2.HPackHdrString(data=h2.HPackLiteralString('Test')),
     hdr_value=h2.HPackHdrString(data=h2.HPackLiteralString('Toto'))
 )
-assert(str(p) == '\x40\x04Test\x04Toto')
+assert(str(p) == b'\x40\x04Test\x04Toto')
 
 = HTTP/2 Build HPackLitHdrFldWithIncrIndexing with indexed name
 ~ http2 hpack build hpacklithdrfldwithincrindexing
@@ -544,14 +544,14 @@ p = h2.HPackLitHdrFldWithIncrIndexing(
     index=1,
     hdr_value=h2.HPackHdrString(data=h2.HPackLiteralString('Toto'))
 )
-assert(str(p) == '\x41\x04Toto')
+assert(str(p) == b'\x41\x04Toto')
 
 + HTTP/2 HPackLitHdrFldWithoutIndexing Test Suite
 
 = HTTP/2 Dissect HPackLitHdrFldWithoutIndexing : don't index and no index
 ~ http2 hpack dissect hpacklithdrfldwithoutindexing
 
-p = h2.HPackLitHdrFldWithoutIndexing('\x00\x04Test\x04Toto')
+p = h2.HPackLitHdrFldWithoutIndexing(b'\x00\x04Test\x04Toto')
 assert(p.magic == 0)
 assert(p.never_index == 0)
 assert(p.index == 0)
@@ -569,7 +569,7 @@ assert(p.hdr_value.getfieldval('data').origin() == 'Toto')
 = HTTP/2 Dissect HPackLitHdrFldWithoutIndexing : never index index and no index
 ~ http2 hpack dissect hpacklithdrfldwithoutindexing
 
-p = h2.HPackLitHdrFldWithoutIndexing('\x10\x04Test\x04Toto')
+p = h2.HPackLitHdrFldWithoutIndexing(b'\x10\x04Test\x04Toto')
 assert(p.magic == 0)
 assert(p.never_index == 1)
 assert(p.index == 0)
@@ -587,7 +587,7 @@ assert(p.hdr_value.getfieldval('data').origin() == 'Toto')
 = HTTP/2 Dissect HPackLitHdrFldWithoutIndexing : never index and indexed name
 ~ http2 hpack dissect hpacklithdrfldwithoutindexing
 
-p = h2.HPackLitHdrFldWithoutIndexing('\x11\x04Toto')
+p = h2.HPackLitHdrFldWithoutIndexing(b'\x11\x04Toto')
 assert(p.magic == 0)
 assert(p.never_index == 1)
 assert(p.index == 1)
@@ -605,7 +605,7 @@ p = h2.HPackLitHdrFldWithoutIndexing(
     hdr_name=h2.HPackHdrString(data=h2.HPackLiteralString('Test')),
     hdr_value=h2.HPackHdrString(data=h2.HPackLiteralString('Toto'))
 )
-assert(str(p) == '\x00\x04Test\x04Toto')
+assert(str(p) == b'\x00\x04Test\x04Toto')
 
 = HTTP/2 Build HPackLitHdrFldWithoutIndexing : never index index and no index
 ~ http2 hpack build hpacklithdrfldwithoutindexing
@@ -615,7 +615,7 @@ p = h2.HPackLitHdrFldWithoutIndexing(
     hdr_name=h2.HPackHdrString(data=h2.HPackLiteralString('Test')),
     hdr_value=h2.HPackHdrString(data=h2.HPackLiteralString('Toto'))
 )
-assert(str(p) == '\x10\x04Test\x04Toto')
+assert(str(p) == b'\x10\x04Test\x04Toto')
 
 = HTTP/2 Build HPackLitHdrFldWithoutIndexing : never index and indexed name
 ~ http2 hpack build hpacklithdrfldwithoutindexing
@@ -625,17 +625,17 @@ p = h2.HPackLitHdrFldWithoutIndexing(
     index=1,
     hdr_value=h2.HPackHdrString(data=h2.HPackLiteralString('Toto'))
 )
-assert(str(p) == '\x11\x04Toto')
+assert(str(p) == b'\x11\x04Toto')
 
 + HTTP/2 HPackDynamicSizeUpdate Test Suite
 
 = HTTP/2 Dissect HPackDynamicSizeUpdate
 ~ http2 hpack dissect hpackdynamicsizeupdate
 
-p = h2.HPackDynamicSizeUpdate('\x25')
+p = h2.HPackDynamicSizeUpdate(b'\x25')
 assert(p.magic == 1)
 assert(p.max_size == 5)
-p = h2.HPackDynamicSizeUpdate('\x3F\x00')
+p = h2.HPackDynamicSizeUpdate(b'\x3F\x00')
 assert(p.magic == 1)
 assert(p.max_size == 31)
 
@@ -643,16 +643,16 @@ assert(p.max_size == 31)
 ~ http2 hpack build hpackdynamicsizeupdate
 
 p = h2.HPackDynamicSizeUpdate(max_size=5)
-assert(str(p) == '\x25')
+assert(str(p) == b'\x25')
 p = h2.HPackDynamicSizeUpdate(max_size=31)
-assert(str(p) == '\x3F\x00')
+assert(str(p) == b'\x3F\x00')
 
 + HTTP/2 Data Frame Test Suite
 
 = HTTP/2 Dissect Data Frame: Simple data frame
 ~ http2 frame dissect data
 
-pkt = h2.H2Frame('\x00\x00\x04\x00\x00\x00\x00\x00\x01ABCD')
+pkt = h2.H2Frame(b'\x00\x00\x04\x00\x00\x00\x00\x00\x01ABCD')
 assert(pkt.type == 0)
 assert(pkt.len == 4)
 assert(len(pkt.flags) == 0)
@@ -667,7 +667,7 @@ assert(isinstance(pkt.payload.payload, scapy.packet.NoPayload))
 ~ http2 frame build data
 
 pkt = h2.H2Frame(stream_id = 1)/h2.H2DataFrame(data='ABCD')
-assert(str(pkt) == '\x00\x00\x04\x00\x00\x00\x00\x00\x01ABCD')
+assert(str(pkt) == b'\x00\x00\x04\x00\x00\x00\x00\x00\x01ABCD')
 try:
     pkt.show2(dump=True)
     assert(True)
@@ -677,7 +677,7 @@ except:
 = HTTP/2 Dissect Data Frame: Simple data frame with padding
 ~ http2 frame dissect data
 
-pkt = h2.H2Frame('\x00\x00\r\x00\x08\x00\x00\x00\x01\x08ABCD\x00\x00\x00\x00\x00\x00\x00\x00') #Padded data frame
+pkt = h2.H2Frame(b'\x00\x00\r\x00\x08\x00\x00\x00\x01\x08ABCD\x00\x00\x00\x00\x00\x00\x00\x00') #Padded data frame
 assert(pkt.type == 0)
 assert(pkt.len == 13)
 assert(len(pkt.flags) ==  1)
@@ -688,15 +688,15 @@ assert(isinstance(pkt.payload, h2.H2PaddedDataFrame))
 assert(pkt[h2.H2PaddedDataFrame])
 assert(pkt.payload.padlen == 8)
 assert(pkt.payload.data == 'ABCD')
-assert(pkt.payload.padding == '\x00'*8)
+assert(pkt.payload.padding == b'\x00'*8)
 assert(flags_bit_pattern.search(pkt.show(dump=True)) is None)
 assert(isinstance(pkt.payload.payload, scapy.packet.NoPayload))
 
 = HTTP/2 Build Data Frame: Simple data frame with padding
 ~ http2 frame build data
 
-pkt = h2.H2Frame(flags = {'P'}, stream_id = 1)/h2.H2PaddedDataFrame(data='ABCD', padding='\x00'*8)
-assert(str(pkt) == '\x00\x00\r\x00\x08\x00\x00\x00\x01\x08ABCD\x00\x00\x00\x00\x00\x00\x00\x00')
+pkt = h2.H2Frame(flags = {'P'}, stream_id = 1)/h2.H2PaddedDataFrame(data='ABCD', padding=b'\x00'*8)
+assert(str(pkt) == b'\x00\x00\r\x00\x08\x00\x00\x00\x01\x08ABCD\x00\x00\x00\x00\x00\x00\x00\x00')
 try:
     pkt.show2(dump=True)
     assert(True)
@@ -706,7 +706,7 @@ except:
 = HTTP/2 Dissect Data Frame: Simple data frame with padding and end stream flag
 ~ http2 frame dissect data
 
-pkt = h2.H2Frame('\x00\x00\r\x00\t\x00\x00\x00\x01\x08ABCD\x00\x00\x00\x00\x00\x00\x00\x00') #Padded data frame with end stream flag
+pkt = h2.H2Frame(b'\x00\x00\r\x00\t\x00\x00\x00\x01\x08ABCD\x00\x00\x00\x00\x00\x00\x00\x00') #Padded data frame with end stream flag
 assert(pkt.type == 0)
 assert(pkt.len == 13)
 assert(len(pkt.flags) == 2)
@@ -718,15 +718,15 @@ assert(isinstance(pkt.payload, h2.H2PaddedDataFrame))
 assert(pkt[h2.H2PaddedDataFrame])
 assert(pkt.payload.padlen == 8)
 assert(pkt.payload.data == 'ABCD')
-assert(pkt.payload.padding == '\x00'*8)
+assert(pkt.payload.padding == b'\x00'*8)
 assert(flags_bit_pattern.search(pkt.show(dump=True)) is None)
 assert(isinstance(pkt.payload.payload, scapy.packet.NoPayload))
 
 = HTTP/2 Build Data Frame: Simple data frame with padding and end stream flag
 ~ http2 frame build data
 
-pkt = h2.H2Frame(flags = {'P', 'ES'}, stream_id=1)/h2.H2PaddedDataFrame(data='ABCD', padding='\x00'*8)
-assert(str(pkt) == '\x00\x00\r\x00\t\x00\x00\x00\x01\x08ABCD\x00\x00\x00\x00\x00\x00\x00\x00')
+pkt = h2.H2Frame(flags = {'P', 'ES'}, stream_id=1)/h2.H2PaddedDataFrame(data='ABCD', padding=b'\x00'*8)
+assert(str(pkt) == b'\x00\x00\r\x00\t\x00\x00\x00\x01\x08ABCD\x00\x00\x00\x00\x00\x00\x00\x00')
 try:
     pkt.show2(dump=True)
     assert(True)
@@ -738,7 +738,7 @@ except:
 = HTTP/2 Dissect Headers Frame: Simple header frame
 ~ http2 frame dissect headers
 
-pkt = h2.H2Frame('\x00\x00\x0e\x01\x00\x00\x00\x00\x01\x88\x0f\x10\ntext/plain') #Header frame
+pkt = h2.H2Frame(b'\x00\x00\x0e\x01\x00\x00\x00\x00\x01\x88\x0f\x10\ntext/plain') #Header frame
 assert(pkt.type == 1)
 assert(pkt.len == 14)
 assert(len(pkt.flags) == 0)
@@ -775,12 +775,12 @@ p = h2.H2Frame(stream_id=1)/h2.H2HeadersFrame(hdrs=[
         )
     ]
 )
-assert(str(p) == '\x00\x00\x0e\x01\x00\x00\x00\x00\x01\x88\x0f\x10\ntext/plain')
+assert(str(p) == b'\x00\x00\x0e\x01\x00\x00\x00\x00\x01\x88\x0f\x10\ntext/plain')
 
 = HTTP/2 Dissect Headers Frame: Header frame with padding
 ~ http2 frame dissect headers
 
-pkt = h2.H2Frame('\x00\x00\x17\x01\x08\x00\x00\x00\x01\x08\x88\x0f\x10\ntext/plain\x00\x00\x00\x00\x00\x00\x00\x00') #Header frame with padding
+pkt = h2.H2Frame(b'\x00\x00\x17\x01\x08\x00\x00\x00\x01\x08\x88\x0f\x10\ntext/plain\x00\x00\x00\x00\x00\x00\x00\x00') #Header frame with padding
 assert(pkt.type == 1)
 assert(pkt.len == 23)
 assert(len(pkt.flags) == 1)
@@ -792,7 +792,7 @@ assert(flags_bit_pattern.search(pkt.show(dump=True)) is None)
 assert(pkt[h2.H2PaddedHeadersFrame])
 hf = pkt[h2.H2PaddedHeadersFrame]
 assert(hf.padlen == 8)
-assert(hf.padding == '\x00' * 8)
+assert(hf.padding == b'\x00' * 8)
 assert(len(hf.hdrs) == 2)
 assert(isinstance(hf.hdrs[0], h2.HPackIndexedHdr))
 assert(hf.hdrs[0].magic == 1)
@@ -821,14 +821,14 @@ p = h2.H2Frame(flags={'P'}, stream_id=1)/h2.H2PaddedHeadersFrame(
             hdr_value=h2.HPackHdrString(data=h2.HPackLiteralString('text/plain'))
         )
     ],
-    padding='\x00'*8,
+    padding=b'\x00'*8,
 )
-assert(str(p) == '\x00\x00\x17\x01\x08\x00\x00\x00\x01\x08\x88\x0f\x10\ntext/plain\x00\x00\x00\x00\x00\x00\x00\x00')
+assert(str(p) == b'\x00\x00\x17\x01\x08\x00\x00\x00\x01\x08\x88\x0f\x10\ntext/plain\x00\x00\x00\x00\x00\x00\x00\x00')
 
 = HTTP/2 Dissect Headers Frame: Header frame with priority
 ~ http2 frame dissect headers
 
-pkt = h2.H2Frame('\x00\x00\x13\x01 \x00\x00\x00\x01\x00\x00\x00\x02d\x88\x0f\x10\ntext/plain') #Header frame with priority
+pkt = h2.H2Frame(b'\x00\x00\x13\x01 \x00\x00\x00\x01\x00\x00\x00\x02d\x88\x0f\x10\ntext/plain') #Header frame with priority
 assert(pkt.type == 1)
 assert(pkt.len == 19)
 assert(len(pkt.flags) == 1)
@@ -874,12 +874,12 @@ p = h2.H2Frame(flags={'+'}, stream_id=1)/h2.H2PriorityHeadersFrame(
         )
     ]
 )
-assert(str(p) == '\x00\x00\x13\x01 \x00\x00\x00\x01\x00\x00\x00\x02d\x88\x0f\x10\ntext/plain')
+assert(str(p) == b'\x00\x00\x13\x01 \x00\x00\x00\x01\x00\x00\x00\x02d\x88\x0f\x10\ntext/plain')
 
 = HTTP/2 Dissect Headers Frame: Header frame with priority and padding and flags
 ~ http2 frame dissect headers
 
-pkt = h2.H2Frame('\x00\x00\x1c\x01-\x00\x00\x00\x01\x08\x00\x00\x00\x02d\x88\x0f\x10\ntext/plain\x00\x00\x00\x00\x00\x00\x00\x00') #Header frame with priority and padding and flags ES|EH
+pkt = h2.H2Frame(b'\x00\x00\x1c\x01-\x00\x00\x00\x01\x08\x00\x00\x00\x02d\x88\x0f\x10\ntext/plain\x00\x00\x00\x00\x00\x00\x00\x00') #Header frame with priority and padding and flags ES|EH
 assert(pkt.type == 1)
 assert(pkt.len == 28)
 assert(len(pkt.flags) == 4)
@@ -894,7 +894,7 @@ assert(flags_bit_pattern.search(pkt.show(dump=True)) is None)
 assert(pkt[h2.H2PaddedPriorityHeadersFrame])
 hf = pkt[h2.H2PaddedPriorityHeadersFrame]
 assert(hf.padlen == 8)
-assert(hf.padding == '\x00' * 8)
+assert(hf.padding == b'\x00' * 8)
 assert(hf.exclusive == 0)
 assert(hf.stream_dependency == 2)
 assert(hf.weight == 100)
@@ -922,7 +922,7 @@ p = h2.H2Frame(flags={'P', '+', 'ES', 'EH'}, stream_id=1)/h2.H2PaddedPriorityHea
     exclusive=0,
     stream_dependency=2,
     weight=100,
-    padding='\x00'*8,
+    padding=b'\x00'*8,
     hdrs=[
         h2.HPackIndexedHdr(index=8),
         h2.HPackLitHdrFldWithoutIndexing(
@@ -937,7 +937,7 @@ p = h2.H2Frame(flags={'P', '+', 'ES', 'EH'}, stream_id=1)/h2.H2PaddedPriorityHea
 = HTTP/2 Dissect Priority Frame
 ~ http2 frame dissect priority
 
-pkt = h2.H2Frame('\x00\x00\x05\x02\x00\x00\x00\x00\x03\x80\x00\x00\x01d')
+pkt = h2.H2Frame(b'\x00\x00\x05\x02\x00\x00\x00\x00\x03\x80\x00\x00\x01d')
 assert(pkt.type == 2)
 assert(pkt.len == 5)
 assert(len(pkt.flags) == 0)
@@ -958,14 +958,14 @@ p = h2.H2Frame(stream_id=3)/h2.H2PriorityFrame(
     stream_dependency=1,
     weight=100
 )
-assert(str(p) == '\x00\x00\x05\x02\x00\x00\x00\x00\x03\x80\x00\x00\x01d')
+assert(str(p) == b'\x00\x00\x05\x02\x00\x00\x00\x00\x03\x80\x00\x00\x01d')
 
 + HTTP/2 Reset Stream Frame Test Suite
 
 = HTTP/2 Dissect Reset Stream Frame: Protocol Error
 ~ http2 frame dissect rststream
 
-pkt = h2.H2Frame('\x00\x00\x04\x03\x00\x00\x00\x00\x01\x00\x00\x00\x01') #Reset stream with protocol error
+pkt = h2.H2Frame(b'\x00\x00\x04\x03\x00\x00\x00\x00\x01\x00\x00\x00\x01') #Reset stream with protocol error
 assert(pkt.type == 3)
 assert(pkt.len == 4)
 assert(len(pkt.flags) == 0)
@@ -981,15 +981,15 @@ assert(isinstance(rf.payload, scapy.packet.NoPayload))
 ~ http2 frame build rststream
 
 p = h2.H2Frame(stream_id=1)/h2.H2ResetFrame(error='Protocol error')
-assert(str(p) == '\x00\x00\x04\x03\x00\x00\x00\x00\x01\x00\x00\x00\x01')
+assert(str(p) == b'\x00\x00\x04\x03\x00\x00\x00\x00\x01\x00\x00\x00\x01')
 
 p = h2.H2Frame(stream_id=1)/h2.H2ResetFrame(error=1)
-assert(str(p) == '\x00\x00\x04\x03\x00\x00\x00\x00\x01\x00\x00\x00\x01')
+assert(str(p) == b'\x00\x00\x04\x03\x00\x00\x00\x00\x01\x00\x00\x00\x01')
 
 = HTTP/2 Dissect Reset Stream Frame: Raw 123456 error
 ~ http2 frame dissect rststream
 
-pkt = h2.H2Frame('\x00\x00\x04\x03\x00\x00\x00\x00\x01\x00\x01\xe2@') #Reset stream with raw error
+pkt = h2.H2Frame(b'\x00\x00\x04\x03\x00\x00\x00\x00\x01\x00\x01\xe2@') #Reset stream with raw error
 assert(pkt.type == 3)
 assert(pkt.len == 4)
 assert(len(pkt.flags) == 0)
@@ -1005,14 +1005,14 @@ assert(isinstance(rf.payload, scapy.packet.NoPayload))
 ~ http2 frame dissect rststream
 
 p = h2.H2Frame(stream_id=1)/h2.H2ResetFrame(error=123456)
-assert(str(p) == '\x00\x00\x04\x03\x00\x00\x00\x00\x01\x00\x01\xe2@')
+assert(str(p) == b'\x00\x00\x04\x03\x00\x00\x00\x00\x01\x00\x01\xe2@')
 
 + HTTP/2 Settings Frame Test Suite
 
 = HTTP/2 Dissect Settings Frame: Settings Frame
 ~ http2 frame dissect settings
 
-pkt = h2.H2Frame('\x00\x00$\x04\x00\x00\x00\x00\x00\x00\x01\x07[\xcd\x15\x00\x02\x00\x00\x00\x01\x00\x03\x00\x00\x00{\x00\x04\x00\x12\xd6\x87\x00\x05\x00\x01\xe2@\x00\x06\x00\x00\x00{') #Settings frame
+pkt = h2.H2Frame(b'\x00\x00$\x04\x00\x00\x00\x00\x00\x00\x01\x07[\xcd\x15\x00\x02\x00\x00\x00\x01\x00\x03\x00\x00\x00{\x00\x04\x00\x12\xd6\x87\x00\x05\x00\x01\xe2@\x00\x06\x00\x00\x00{') #Settings frame
 assert(pkt.type == 4)
 assert(pkt.len == 36)
 assert(len(pkt.flags) == 0)
@@ -1054,7 +1054,7 @@ p = h2.H2Frame()/h2.H2SettingsFrame(settings=[
         h2.H2Setting(id='Max header list size', value=123)
     ]
 )
-assert(str(p) == '\x00\x00$\x04\x00\x00\x00\x00\x00\x00\x01\x07[\xcd\x15\x00\x02\x00\x00\x00\x01\x00\x03\x00\x00\x00{\x00\x04\x00\x12\xd6\x87\x00\x05\x00\x01\xe2@\x00\x06\x00\x00\x00{')
+assert(str(p) == b'\x00\x00$\x04\x00\x00\x00\x00\x00\x00\x01\x07[\xcd\x15\x00\x02\x00\x00\x00\x01\x00\x03\x00\x00\x00{\x00\x04\x00\x12\xd6\x87\x00\x05\x00\x01\xe2@\x00\x06\x00\x00\x00{')
 
 = HTTP/2 Dissect Settings Frame: Incomplete Settings Frame
 ~ http2 frame dissect settings
@@ -1065,7 +1065,7 @@ assert(expect_exception(AssertionError, 'h2.H2Frame("0000240400000000000001075bc
 = HTTP/2 Dissect Settings Frame: Settings Frame acknowledgement
 ~ http2 frame dissect settings
 
-pkt = h2.H2Frame('\x00\x00\x00\x04\x01\x00\x00\x00\x00') #Settings frame w/ ack flag
+pkt = h2.H2Frame(b'\x00\x00\x00\x04\x01\x00\x00\x00\x00') #Settings frame w/ ack flag
 assert(pkt.type == 4)
 assert(pkt.len == 0)
 assert(len(pkt.flags) == 1)
@@ -1079,14 +1079,14 @@ assert(isinstance(pkt.payload, scapy.packet.NoPayload))
 ~ http2 frame build settings
 
 p = h2.H2Frame(type=h2.H2SettingsFrame.type_id, flags={'A'})
-assert(str(p) == '\x00\x00\x00\x04\x01\x00\x00\x00\x00')
+assert(str(p) == b'\x00\x00\x00\x04\x01\x00\x00\x00\x00')
 
 + HTTP/2 Push Promise Frame Test Suite
 
 = HTTP/2 Dissect Push Promise Frame: no flag & headers with compression and hdr_name
 ~ http2 frame dissect pushpromise
 
-pkt = h2.H2Frame('\x00\x00\x15\x05\x00\x00\x00\x00\x01\x00\x00\x00\x03@\x8c\xfc[i{ZT$\xb2-\xc8\xc9\x9f\x02Me')
+pkt = h2.H2Frame(b'\x00\x00\x15\x05\x00\x00\x00\x00\x01\x00\x00\x00\x03@\x8c\xfc[i{ZT$\xb2-\xc8\xc9\x9f\x02Me')
 assert(pkt.type == 5)
 assert(pkt.len == 21)
 assert(len(pkt.flags) == 0)
@@ -1121,12 +1121,12 @@ p = h2.H2Frame(stream_id=1)/h2.H2PushPromiseFrame(stream_id=3,hdrs=[
         hdr_value=h2.HPackHdrString(data=h2.HPackLiteralString('Me')),
     )
 ])
-assert(str(p) == '\x00\x00\x15\x05\x00\x00\x00\x00\x01\x00\x00\x00\x03@\x8c\xfc[i{ZT$\xb2-\xc8\xc9\x9f\x02Me')
+assert(str(p) == b'\x00\x00\x15\x05\x00\x00\x00\x00\x01\x00\x00\x00\x03@\x8c\xfc[i{ZT$\xb2-\xc8\xc9\x9f\x02Me')
 
 = HTTP/2 Dissect Push Promise Frame: with padding, the flag END_Header & headers with compression and hdr_name
 ~ http2 frame dissect pushpromise
 
-pkt = h2.H2Frame('\x00\x00\x1e\x05\x0c\x00\x00\x00\x01\x08\x00\x00\x00\x03@\x8c\xfc[i{ZT$\xb2-\xc8\xc9\x9f\x02Me\x00\x00\x00\x00\x00\x00\x00\x00')
+pkt = h2.H2Frame(b'\x00\x00\x1e\x05\x0c\x00\x00\x00\x01\x08\x00\x00\x00\x03@\x8c\xfc[i{ZT$\xb2-\xc8\xc9\x9f\x02Me\x00\x00\x00\x00\x00\x00\x00\x00')
 assert(pkt.type == 5)
 assert(pkt.len == 30)
 assert(len(pkt.flags) == 2)
@@ -1139,7 +1139,7 @@ assert(isinstance(pkt.payload, h2.H2PaddedPushPromiseFrame))
 assert(pkt[h2.H2PaddedPushPromiseFrame])
 pf = pkt[h2.H2PaddedPushPromiseFrame]
 assert(pf.padlen == 8)
-assert(pf.padding == '\x00'*8)
+assert(pf.padding == b'\x00'*8)
 assert(pf.stream_id == 3)
 assert(len(pf.hdrs) == 1)
 hdr = pf.hdrs[0]
@@ -1166,16 +1166,16 @@ p = h2.H2Frame(flags={'P', 'EH'}, stream_id=1)/h2.H2PaddedPushPromiseFrame(
             hdr_value=h2.HPackHdrString(data=h2.HPackLiteralString('Me'))
         )
     ],
-    padding='\x00'*8
+    padding=b'\x00'*8
 )
-assert(str(p) == '\x00\x00\x1e\x05\x0c\x00\x00\x00\x01\x08\x00\x00\x00\x03@\x8c\xfc[i{ZT$\xb2-\xc8\xc9\x9f\x02Me\x00\x00\x00\x00\x00\x00\x00\x00')
+assert(str(p) == b'\x00\x00\x1e\x05\x0c\x00\x00\x00\x01\x08\x00\x00\x00\x03@\x8c\xfc[i{ZT$\xb2-\xc8\xc9\x9f\x02Me\x00\x00\x00\x00\x00\x00\x00\x00')
 
 + HTTP/2 Ping Frame Test Suite
 
 = HTTP/2 Dissect Ping Frame: Ping frame
 ~ http2 frame dissect ping
 
-pkt = h2.H2Frame('\x00\x00\x08\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\xe2@') #Ping frame with payload
+pkt = h2.H2Frame(b'\x00\x00\x08\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\xe2@') #Ping frame with payload
 assert(pkt.type == 6)
 assert(pkt.len == 8)
 assert(len(pkt.flags) == 0)
@@ -1191,12 +1191,12 @@ assert(isinstance(pf.payload, scapy.packet.NoPayload))
 ~ http2 frame build ping
 
 p = h2.H2Frame()/h2.H2PingFrame(opaque=123456)
-assert(str(p) == '\x00\x00\x08\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\xe2@')
+assert(str(p) == b'\x00\x00\x08\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\xe2@')
 
 = HTTP/2 Dissect Ping Frame: Pong frame
 ~ http2 frame dissect ping
 
-pkt = h2.H2Frame('\x00\x00\x08\x06\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\xe2@') #Pong frame
+pkt = h2.H2Frame(b'\x00\x00\x08\x06\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\xe2@') #Pong frame
 assert(pkt.type == 6)
 assert(pkt.len == 8)
 assert(len(pkt.flags) == 1)
@@ -1214,14 +1214,14 @@ assert(isinstance(pf.payload, scapy.packet.NoPayload))
 ~ http2 frame dissect ping
 
 p = h2.H2Frame(flags={'A'})/h2.H2PingFrame(opaque=123456)
-assert(str(p) == '\x00\x00\x08\x06\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\xe2@')
+assert(str(p) == b'\x00\x00\x08\x06\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\xe2@')
 
 + HTTP/2 Go Away Frame Test Suite
 
 = HTTP/2 Dissect Go Away Frame: No error
 ~ http2 frame dissect goaway
 
-pkt = h2.H2Frame('\x00\x00\x08\x07\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00') #Go Away for no particular reason :)
+pkt = h2.H2Frame(b'\x00\x00\x08\x07\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00') #Go Away for no particular reason :)
 assert(pkt.type == 7)
 assert(pkt.len == 8)
 assert(len(pkt.flags) == 0)
@@ -1240,12 +1240,12 @@ assert(isinstance(gf.payload, scapy.packet.NoPayload))
 ~ http2 frame build goaway
 
 p = h2.H2Frame()/h2.H2GoAwayFrame(last_stream_id=1, error='No error')
-assert(str(p) == '\x00\x00\x08\x07\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00')
+assert(str(p) == b'\x00\x00\x08\x07\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00')
 
 = HTTP/2 Dissect Go Away Frame: Arbitrary error with additional data
 ~ http2 frame dissect goaway
 
-pkt = h2.H2Frame('\x00\x00\x10\x07\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x01\xe2@\x00\x00\x00\x00\x00\x00\x00\x00') #Go Away with debug data
+pkt = h2.H2Frame(b'\x00\x00\x10\x07\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x01\xe2@\x00\x00\x00\x00\x00\x00\x00\x00') #Go Away with debug data
 assert(pkt.type == 7)
 assert(pkt.len == 16)
 assert(len(pkt.flags) == 0)
@@ -1266,16 +1266,16 @@ assert(isinstance(gf.payload, scapy.packet.NoPayload))
 p = h2.H2Frame()/h2.H2GoAwayFrame(
     last_stream_id=2,
     error=123456,
-    additional_data='\x00'*8
+    additional_data=b'\x00'*8
 )
-assert(str(p) == '\x00\x00\x10\x07\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x01\xe2@\x00\x00\x00\x00\x00\x00\x00\x00')
+assert(str(p) == b'\x00\x00\x10\x07\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x01\xe2@\x00\x00\x00\x00\x00\x00\x00\x00')
 
 + HTTP/2 Window Update Frame Test Suite
 
 = HTTP/2 Dissect Window Update Frame: global
 ~ http2 frame dissect winupdate
 
-pkt = h2.H2Frame('\x00\x00\x04\x08\x00\x00\x00\x00\x00\x00\x01\xe2@') #Window update with increment for connection
+pkt = h2.H2Frame(b'\x00\x00\x04\x08\x00\x00\x00\x00\x00\x00\x01\xe2@') #Window update with increment for connection
 assert(pkt.type == 8)
 assert(pkt.len == 4)
 assert(len(pkt.flags) == 0)
@@ -1292,12 +1292,12 @@ assert(isinstance(wf.payload, scapy.packet.NoPayload))
 ~ http2 frame build winupdate
 
 p = h2.H2Frame()/h2.H2WindowUpdateFrame(win_size_incr=123456)
-assert(str(p) == '\x00\x00\x04\x08\x00\x00\x00\x00\x00\x00\x01\xe2@')
+assert(str(p) == b'\x00\x00\x04\x08\x00\x00\x00\x00\x00\x00\x01\xe2@')
 
 = HTTP/2 Dissect Window Update Frame: a stream
 ~ http2 frame dissect winupdate
 
-pkt = h2.H2Frame('\x00\x00\x04\x08\x00\x00\x00\x00\x01\x00\x01\xe2@') #Window update with increment for a stream
+pkt = h2.H2Frame(b'\x00\x00\x04\x08\x00\x00\x00\x00\x01\x00\x01\xe2@') #Window update with increment for a stream
 assert(pkt.type == 8)
 assert(pkt.len == 4)
 assert(len(pkt.flags) == 0)
@@ -1314,14 +1314,14 @@ assert(isinstance(wf.payload, scapy.packet.NoPayload))
 ~ http2 frame build winupdate
 
 p = h2.H2Frame(stream_id=1)/h2.H2WindowUpdateFrame(win_size_incr=123456)
-assert(str(p) == '\x00\x00\x04\x08\x00\x00\x00\x00\x01\x00\x01\xe2@')
+assert(str(p) == b'\x00\x00\x04\x08\x00\x00\x00\x00\x01\x00\x01\xe2@')
 
 + HTTP/2 Continuation Frame Test Suite
 
 = HTTP/2 Dissect Continuation Frame: no flag & headers with compression and hdr_name
 ~ http2 frame dissect continuation
 
-pkt = h2.H2Frame('\x00\x00\x11\t\x00\x00\x00\x00\x01@\x8c\xfc[i{ZT$\xb2-\xc8\xc9\x9f\x02Me')
+pkt = h2.H2Frame(b'\x00\x00\x11\t\x00\x00\x00\x00\x01@\x8c\xfc[i{ZT$\xb2-\xc8\xc9\x9f\x02Me')
 assert(pkt.type == 9)
 assert(pkt.len == 17)
 assert(len(pkt.flags) == 0)
@@ -1356,12 +1356,12 @@ p = h2.H2Frame(stream_id=1)/h2.H2ContinuationFrame(
         )
     ]
 )
-assert(str(p) == '\x00\x00\x11\t\x00\x00\x00\x00\x01@\x8c\xfc[i{ZT$\xb2-\xc8\xc9\x9f\x02Me')
+assert(str(p) == b'\x00\x00\x11\t\x00\x00\x00\x00\x01@\x8c\xfc[i{ZT$\xb2-\xc8\xc9\x9f\x02Me')
 
 = HTTP/2 Dissect Continuation Frame: flag END_Header & headers with compression, sensitive flag and hdr_name
 ~ http2 frame dissect continuation
 
-pkt = h2.H2Frame('\x00\x00\x11\t\x04\x00\x00\x00\x01\x10\x8c\xfc[i{ZT$\xb2-\xc8\xc9\x9f\x02Me')
+pkt = h2.H2Frame(b'\x00\x00\x11\t\x04\x00\x00\x00\x01\x10\x8c\xfc[i{ZT$\xb2-\xc8\xc9\x9f\x02Me')
 assert(pkt.type == 9)
 assert(pkt.len == 17)
 assert(len(pkt.flags) == 1)
@@ -1400,7 +1400,7 @@ p = h2.H2Frame(flags={'EH'}, stream_id=1)/h2.H2ContinuationFrame(
         )
     ]
 )
-assert(str(p) == '\x00\x00\x11\t\x04\x00\x00\x00\x01\x10\x8c\xfc[i{ZT$\xb2-\xc8\xc9\x9f\x02Me')
+assert(str(p) == b'\x00\x00\x11\t\x04\x00\x00\x00\x01\x10\x8c\xfc[i{ZT$\xb2-\xc8\xc9\x9f\x02Me')
 
 + HTTP/2 HPackHdrTable Test Suite
 

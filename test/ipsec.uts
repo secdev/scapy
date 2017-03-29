@@ -538,7 +538,7 @@ assert(e[ESP].spi == sa.spi)
 assert('testdata' in e[ESP].data)
 
 * simulate the alteration of the packet before decryption
-e[ESP].data = e[ESP].data.replace('\x01', '\x21')
+e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
 
 * integrity verification should fail
 try:
@@ -606,7 +606,7 @@ assert(e[ESP].spi == sa.spi)
 assert('testdata' in e[ESP].data)
 
 * simulate the alteration of the packet before decryption
-e[ESP].data = e[ESP].data.replace('\x01', '\x21')
+e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
 
 * integrity verification should fail
 try:
@@ -674,7 +674,7 @@ assert(e[ESP].spi == sa.spi)
 assert('testdata' in e[ESP].data)
 
 * simulate the alteration of the packet before decryption
-e[ESP].data = e[ESP].data.replace('\x01', '\x21')
+e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
 
 * integrity verification should fail
 try:
@@ -742,7 +742,7 @@ assert(e[ESP].spi == sa.spi)
 assert('testdata' in e[ESP].data)
 
 * simulate the alteration of the packet before decryption
-e[ESP].data = e[ESP].data.replace('\x01', '\x21')
+e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
 
 * integrity verification should fail
 try:
@@ -810,7 +810,7 @@ assert(e[ESP].spi == sa.spi)
 assert('testdata' in e[ESP].data)
 
 * simulate the alteration of the packet before decryption
-e[ESP].data = e[ESP].data.replace('\x01', '\x21')
+e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
 
 * integrity verification should fail
 try:
@@ -878,7 +878,7 @@ assert(e[ESP].spi == sa.spi)
 assert('testdata' in e[ESP].data)
 
 * simulate the alteration of the packet before decryption
-e[ESP].data = e[ESP].data.replace('\x01', '\x21')
+e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
 
 * integrity verification should fail
 try:
@@ -951,7 +951,7 @@ assert(e[ESP].spi == sa.spi)
 assert('testdata' in e[ESP].data)
 
 * simulate the alteration of the packet before decryption
-e[ESP].data = e[ESP].data.replace('\x01', '\x21')
+e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
 
 * integrity verification should fail
 try:
@@ -1023,7 +1023,7 @@ assert(e[ESP].spi == sa.spi)
 assert('testdata' in e[ESP].data)
 
 * simulate the alteration of the packet before decryption
-e[ESP].data = e[ESP].data.replace('\x01', '\x21')
+e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
 
 * integrity verification should fail
 try:
@@ -1095,7 +1095,7 @@ assert(e[ESP].spi == sa.spi)
 assert('testdata' in e[ESP].data)
 
 * simulate the alteration of the packet before decryption
-e[ESP].data = e[ESP].data.replace('\x01', '\x21')
+e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
 
 * integrity verification should fail
 try:
@@ -1167,7 +1167,7 @@ assert(e[ESP].spi == sa.spi)
 assert('testdata' in e[ESP].data)
 
 * simulate the alteration of the packet before decryption
-e[ESP].data = e[ESP].data.replace('\x01', '\x21')
+e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
 
 * integrity verification should fail
 try:
@@ -1239,7 +1239,7 @@ assert(e[ESP].spi == sa.spi)
 assert('testdata' in e[ESP].data)
 
 * simulate the alteration of the packet before decryption
-e[ESP].data = e[ESP].data.replace('\x01', '\x21')
+e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
 
 * integrity verification should fail
 try:
@@ -1311,7 +1311,7 @@ assert(e[ESP].spi == sa.spi)
 assert('testdata' in e[ESP].data)
 
 * simulate the alteration of the packet before decryption
-e[ESP].data = e[ESP].data.replace('\x01', '\x21')
+e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
 
 * integrity verification should fail
 try:
@@ -2613,7 +2613,7 @@ assert(e[ESP].spi == sa.spi)
 assert('testdata' in e[ESP].data)
 
 * simulate the alteration of the packet before decryption
-e[ESP].data = e[ESP].data.replace('\x01', '\x21')
+e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
 
 * integrity verification should fail
 try:
@@ -2879,7 +2879,7 @@ assert(e[ESP].spi == sa.spi)
 assert('testdata' in e[ESP].data)
 
 * simulate the alteration of the packet before decryption
-e[ESP].data = e[ESP].data.replace('\x01', '\x21')
+e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
 
 * integrity verification should fail
 try:
@@ -3098,6 +3098,72 @@ except IPSecIntegrityError, err:
     err
 
 #######################################
+= IPv6 / AH - Transport - SHA2-256-128
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(str(p))
+p
+
+sa = SecurityAssociation(AH, spi=0x222,
+                         auth_algo='SHA2-256-128', auth_key='secret key')
+
+e = sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+assert(e.src == '11::22' and e.dst == '22::11')
+* the encrypted packet should have an AH layer
+assert(e.nh == socket.IPPROTO_AH)
+assert(e.haslayer(AH))
+assert(e.haslayer(TCP))
+assert(e[AH].spi == sa.spi)
+
+* alter mutable fields in the packet
+e.hlim = 2
+
+* integrity verification should pass
+d = sa.decrypt(e)
+d
+
+* after decryption the original packet payload should be unaltered
+assert(d[TCP] == p[TCP])
+
+#######################################
+= IPv6 / AH - Transport - SHA2-256-128 - altered packet
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(str(p))
+p
+
+sa = SecurityAssociation(AH, spi=0x222,
+                         auth_algo='SHA2-256-128', auth_key='secret key')
+
+e = sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+assert(e.src == '11::22' and e.dst == '22::11')
+* the encrypted packet should have an AH layer
+assert(e.nh == socket.IPPROTO_AH)
+assert(e.haslayer(AH))
+assert(e.haslayer(TCP))
+assert(e[AH].spi == sa.spi)
+
+* simulate the alteration of the packet before verification
+e[TCP].dport = 46
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError, err:
+    err
+
+#######################################
 = IPv6 / AH - Tunnel - HMAC-SHA1-96
 
 p = IPv6(src='11::22', dst='22::11')
@@ -3142,6 +3208,74 @@ p
 
 sa = SecurityAssociation(AH, spi=0x222,
                          auth_algo='HMAC-SHA1-96', auth_key='secret key',
+                         tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
+
+e = sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == 'aa::bb' and e.dst == 'bb::aa')
+assert(e.nh == socket.IPPROTO_AH)
+assert(e.haslayer(AH))
+assert(e.haslayer(TCP))
+assert(e[AH].spi == sa.spi)
+
+* simulate the alteration of the packet before verification
+e.src = 'cc::ee'
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError, err:
+    err
+
+#######################################
+= IPv6 / AH - Tunnel - SHA2-256-128
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(str(p))
+p
+
+sa = SecurityAssociation(AH, spi=0x222,
+                         auth_algo='SHA2-256-128', auth_key='secret key',
+                         tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
+
+e = sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == 'aa::bb' and e.dst == 'bb::aa')
+assert(e.nh == socket.IPPROTO_AH)
+assert(e.haslayer(AH))
+assert(e.haslayer(TCP))
+assert(e[AH].spi == sa.spi)
+
+* alter mutable fields in the packet
+e.hlim = 2
+
+* integrity verification should pass
+d = sa.decrypt(e)
+d
+
+* after decryption the original packet payload should be unaltered
+assert(d == p)
+
+#######################################
+= IPv6 / AH - Tunnel - SHA2-256-128 - altered packet
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(str(p))
+p
+
+sa = SecurityAssociation(AH, spi=0x222,
+                         auth_algo='SHA2-256-128', auth_key='secret key',
                          tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
 
 e = sa.encrypt(p)
