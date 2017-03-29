@@ -18,7 +18,7 @@ from scapy.plist import SndRcvList
 from scapy.fields import *
 from scapy.sendrecv import srp, srp1, srpflood
 from scapy.arch import get_if_hwaddr
-from scapy.consts import LOOPBACK_NAME
+from scapy.consts import LOOPBACK_NAME, getLoopbackInterface
 from scapy.utils import inet_ntoa, inet_aton
 from scapy.error import warning
 if conf.route is None:
@@ -63,7 +63,7 @@ def getmacbyip(ip, chainCC=0):
     if (tmp[0] & 0xf0) == 0xe0: # mcast @
         return "01:00:5e:%.2x:%.2x:%.2x" % (tmp[1]&0x7f,tmp[2],tmp[3])
     iff,a,gw = conf.route.route(ip)
-    if ( (iff == LOOPBACK_NAME) or (ip == conf.route.get_if_bcast(iff)) ):
+    if ( (iff == getLoopbackInterface()) or (ip == conf.route.get_if_bcast(iff)) ):
         return "ff:ff:ff:ff:ff:ff"
     if gw != "0.0.0.0":
         ip = gw

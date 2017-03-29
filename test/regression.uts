@@ -11,6 +11,8 @@
 * Dump the current configuration
 conf
 
+IP().src
+
 = List layers
 ~ conf command
 ls()
@@ -91,6 +93,15 @@ else:
 = Test ifchange()
 conf.route6.ifchange(LOOPBACK_NAME, "::1/128")
 True
+
+= UTscapy route check
+* Check that UTscapy has correctly replaced the routes. Many tests won't work otherwise
+
+if WINDOWS:
+    route_add_loopback()
+
+IP().src
+assert _ == "127.0.0.1"
 
 ############
 ############

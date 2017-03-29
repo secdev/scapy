@@ -16,7 +16,7 @@ from scapy.error import Scapy_Exception, log_loading, log_runtime, warning
 from scapy.utils import atol, itom, inet_aton, inet_ntoa, PcapReader
 from scapy.base_classes import Gen, Net, SetGen
 from scapy.data import MTU, ETHER_BROADCAST, ETH_P_ARP
-from scapy.consts import LOOPBACK_NAME
+from scapy.consts import LOOPBACK_NAME, getLoopbackInterface
 
 conf.use_pcap = False
 conf.use_dnet = False
@@ -337,6 +337,7 @@ def get_ip_from_name(ifname, v6=False):
                                     ['Description', 'IPAddress']):
         if descr == ifname.strip():
             return ipaddr.split(",", 1)[v6].strip('{}').strip()
+    return None
         
 class NetworkInterface(object):
     """A network interface of your local host"""
@@ -371,6 +372,9 @@ class NetworkInterface(object):
         try:
             if not self.ip:
                 self.ip=get_ip_from_name(data['name'])
+            if not self.ip:
+                # No IP detected
+                self.invalid = True
         except (KeyError, AttributeError, NameError) as e:
             print e
         if not self.ip and self.name == LOOPBACK_NAME:
@@ -413,6 +417,14 @@ class NetworkInterfaceDict(UserDict):
                                 "You probably won't be able to send packets. "
                                 "Deactivating unneeded interfaces and restarting Scapy might help."
                                 "Check your winpcap and powershell installation, and access rights.", True)
+        else:
+            # Loading state: remove invalid interfaces
+            self.remove_invalid_ifaces()
+            # Replace interface for getLoopbackInterface()
+            try:
+                scapy.consts.LOOPBACK_INTERFACE = self.dev_from_name(LOOPBACK_NAME)
+            except:
+                pass
 
     def dev_from_name(self, name):
         """Return the first pcap device name for a given Windows
@@ -435,7 +447,18 @@ class NetworkInterfaceDict(UserDict):
         for devname, iface in self.items():
             if iface.win_index == str(if_index):
                 return iface
+        if str(if_index) == "1":
+            # Local loopback
+            loopback = getLoopbackInterface()
+            if loopback != LOOPBACK_NAME:
+                return loopback
         raise ValueError("Unknown network interface index %r" % if_index)
+
+    def remove_invalid_ifaces(self):
+        """Remove all invalid interfaces"""
+        for devname, iface in self.items():
+            if iface.is_invalid():
+                self.data.pop(devname)
 
     def show(self, resolve_mac=True):
         """Print list of available network interfaces in human readable form"""
@@ -635,13 +658,10 @@ def read_routes6():
                 cset = ['::1']
             else:
                 devaddrs = filter(lambda x: x[2] == iface, lifaddr)
-                cset = scapy.utils6.construct_source_candidate_set(d, dp, devaddrs, LOOPBACK_NAME)
+                cset = scapy.utils6.construct_source_candidate_set(d, dp, devaddrs, getLoopbackInterface())
             # APPEND (DESTINATION, NETMASK, NEXT HOP, IFACE, CANDIDATS)
             routes.append((d, dp, nh, iface, cset))
     return routes
-
-
-
 
 if conf.interactive_shell != 'ipython' and conf.interactive:
     try:
@@ -680,12 +700,16 @@ def get_working_if():
         return min(read_routes(), key=lambda x: x[1])[3]
     except ValueError:
         # no route
-        return LOOPBACK_NAME
+        return getLoopbackInterface()
 
 conf.iface = get_working_if()
 
 def route_add_loopback(routes=None, ipv6=False, iflist=None):
     """Add a route to 127.0.0.1 and ::1 to simplify unit tests on Windows"""
+    if not WINDOWS:
+        warning("Not available")
+        return
+    warning("This will completly mess up the routes. Testing purpose only !")
     # Add only if some adpaters already exist
     if ipv6:
         if len(conf.route6.routes) == 0:
@@ -699,10 +723,22 @@ def route_add_loopback(routes=None, ipv6=False, iflist=None):
     data['win_index'] = -1
     data['guid'] = "{0XX00000-X000-0X0X-X00X-00XXXX000XXX}"
     data['invalid'] = True
+    data['mac'] = '00:00:00:00:00:00'
     adapter = NetworkInterface(data)
     if iflist:
         iflist.append(unicode("\\Device\\NPF_" + adapter.guid))
         return
+    # Remove all LOOPBACK_NAME routes
+    for route in list(conf.route.routes):
+        iface = route[3]
+        if iface.name == LOOPBACK_NAME:
+            conf.route.routes.remove(route)
+    # Remove LOOPBACK_NAME interface
+    for devname, iface in IFACES.items():
+        if iface.name == LOOPBACK_NAME:
+            IFACES.pop(devname)
+    # Inject interface
+    IFACES[data['guid']] = adapter
     # Build the packed network addresses
     loop_net = struct.unpack("!I", socket.inet_aton("127.0.0.0"))[0]
     loop_mask = struct.unpack("!I", socket.inet_aton("255.0.0.0"))[0]
