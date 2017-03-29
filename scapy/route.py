@@ -190,6 +190,6 @@ conf.route=Route()
 
 #XXX use "with"
 _betteriface = conf.route.route("0.0.0.0", verbose=0)[0]
-if ((_betteriface.name != LOOPBACK_NAME) if WINDOWS else (_betteriface != LOOPBACK_NAME)):
+if ((_betteriface if (isinstance(_betteriface, basestring) or _betteriface is None) else _betteriface.name) != LOOPBACK_NAME):
     conf.iface = _betteriface
 del(_betteriface)

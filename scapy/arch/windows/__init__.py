@@ -23,7 +23,7 @@ conf.use_dnet = False
 conf.use_winpcapy = True
 
 WINDOWS = (os.name == 'nt')
-NEW_RELEASE = False
+NEW_RELEASE = None
 
 #hot-patching socket for missing variables on Windows
 import socket
@@ -39,17 +39,13 @@ if not hasattr(socket, 'IPPROTO_GRE'):
 from scapy.arch import pcapdnet
 from scapy.arch.pcapdnet import *
 
-def is_new_release():
+def is_new_release(ignoreVBS=False):
+    if NEW_RELEASE and conf.prog.powershell is not None:
+        return True
     release = platform.release()
-    try:
-        if float(release) >= 8:
-            return True
-    except ValueError:
-        if (release=="post2008Server"):
-            return True
-    return False
+    if conf.prog.powershell is None and not ignoreVBS:
+        return False
 
-NEW_RELEASE = is_new_release()
 
 def _exec_query_ps(cmd, fields):
     """Execute a PowerShell query"""
@@ -236,18 +232,6 @@ def win_find_exe(filename, installsubdir=None, env="ProgramFiles"):
     return path
 
 
-def is_new_release(ignoreVBS=False):
-    release = platform.release()
-    if conf.prog.powershell is None and not ignoreVBS:
-        return False
-    try:
-        if float(release) >= 8:
-            return True
-    except ValueError:
-        if (release=="post2008Server"):
-            return True
-    return False
-
 class WinProgPath(ConfClass):
     # This is a dict containing the name of the .exe and a keyword
     # that must be in the path of the file
@@ -298,6 +282,9 @@ if conf.prog.tcpdump != "windump" and conf.use_npcap:
         warning("The installed Windump version does not work with Npcap ! Refer to 'Winpcap/Npcap conflicts' in scapy's doc", True)
     del windump_ok
 
+# Auto-detect release
+NEW_RELEASE = is_new_release()
+
 class PcapNameNotFoundError(Scapy_Exception):
     pass    
 
@@ -311,7 +298,7 @@ def is_interface_valid(iface):
 
 def get_windows_if_list():
     """Returns windows interfaces"""
-    if NEW_RELEASE:
+    if is_new_release():
         # This works only starting from Windows 8/2012 and up. For older Windows another solution is needed
         # Careful: this is weird, but Get-NetAdaptater works like: (Name isn't the interface name)
         # Name                      InterfaceDescription                    ifIndex Status       MacAddress             LinkSpeed
@@ -460,6 +447,11 @@ class NetworkInterfaceDict(UserDict):
             if iface.is_invalid():
                 self.data.pop(devname)
 
+    def reload(self):
+        """Reload interface list"""
+        self.data.clear()
+        self.load_from_powershell()
+
     def show(self, resolve_mac=True):
         """Print list of available network interfaces in human readable form"""
         print "%s  %s  %s  %s" % ("INDEX".ljust(5), "IFACE".ljust(35), "IP".ljust(15), "MAC")
@@ -553,7 +545,7 @@ def read_routes():
     routes = []
     release = platform.release()
     try:
-        if NEW_RELEASE:
+        if is_new_release():
             routes = read_routes_post2008()
         elif release == "XP":
             routes = read_routes_xp()

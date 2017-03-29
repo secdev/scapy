@@ -201,7 +201,7 @@ def test_show_interfaces(mock_stdout):
         if not l.strip():
             continue
         try:
-            int(l[0])
+            int(l[:2])
         except:
             sys.stderr.write(l)
             return False
