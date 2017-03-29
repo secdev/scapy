@@ -33,6 +33,8 @@ if not hasattr(socket, 'IPPROTO_AH'):
     socket.IPPROTO_AH=51
 if not hasattr(socket, 'IPPROTO_ESP'):
     socket.IPPROTO_ESP=50
+if not hasattr(socket, 'IPPROTO_GRE'):
+    socket.IPPROTO_GRE=47
 
 from scapy.arch import pcapdnet
 from scapy.arch.pcapdnet import *
