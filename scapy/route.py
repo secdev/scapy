@@ -8,7 +8,7 @@ Routing and handling of network interfaces.
 """
 
 import socket
-from scapy.consts import LOOPBACK_NAME
+from scapy.consts import LOOPBACK_NAME, getLoopbackInterface
 from scapy.utils import atol, ltoa, itom
 from scapy.config import conf
 from scapy.error import Scapy_Exception, warning
@@ -32,7 +32,7 @@ class Route:
         self.routes = read_routes()
 
     def __repr__(self):
-        rtlst = [("Network", "Netmask", "Gateway", "Iface", "Output IP")]
+        rtlst = []
         
         for net,msk,gw,iface,addr in self.routes:
 	    rtlst.append((ltoa(net),
@@ -40,6 +40,11 @@ class Route:
                       gw,
                       (iface.name if not isinstance(iface, basestring) else iface),
                       addr))
+
+        # Sort correctly
+        rtlst.sort(key=lambda x: x[0])
+        # Append tag
+        rtlst = [("Network", "Netmask", "Gateway", "Iface", "Output IP")] + rtlst
         
         colwidth = map(lambda x: max(map(lambda y: len(y), x)), apply(zip, rtlst))
         fmt = "  ".join(map(lambda x: "%%-%ds"%x, colwidth))
@@ -154,13 +159,13 @@ class Route:
                 continue
             aa = atol(a)
             if aa == dst:
-                pathes.append((0xffffffffL,(LOOPBACK_NAME,a,"0.0.0.0")))
+                pathes.append((0xffffffff,(getLoopbackInterface(),a,"0.0.0.0")))
             if (dst & m) == (d & m):
                 pathes.append((m,(i,a,gw)))
         if not pathes:
             if verbose:
                 warning("No route found (no default route?)")
-            return LOOPBACK_NAME,"0.0.0.0","0.0.0.0" #XXX linux specific!
+            return getLoopbackInterface(),"0.0.0.0","0.0.0.0"
         # Choose the more specific route (greatest netmask).
         # XXX: we don't care about metrics
         pathes.sort()
@@ -185,6 +190,6 @@ conf.route=Route()
 
 #XXX use "with"
 _betteriface = conf.route.route("0.0.0.0", verbose=0)[0]
-if _betteriface != LOOPBACK_NAME:
+if ((_betteriface.name != LOOPBACK_NAME) if WINDOWS else (_betteriface != LOOPBACK_NAME)):
     conf.iface = _betteriface
 del(_betteriface)

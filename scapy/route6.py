@@ -22,6 +22,7 @@ from scapy.utils6 import *
 from scapy.arch import *
 from scapy.pton_ntop import *
 from scapy.error import warning, log_loading
+from scapy.consts import getLoopbackInterface
 
 
 class Route6:
@@ -46,14 +47,19 @@ class Route6:
             log_loading.info("No IPv6 support in kernel")
 
     def __repr__(self):
-        rtlst = [('Destination', 'Next Hop', "iface", "src candidates")]
+        rtlst = []
 
         for net,msk,gw,iface,cset in self.routes:
             rtlst.append(('%s/%i'% (net,msk), gw, (iface if isinstance(iface, basestring) else iface.name), ", ".join(cset)))
 
-        colwidth = map(lambda x: max(map(lambda y: len(y), x)), apply(zip, rtlst))
-        fmt = "  ".join(map(lambda x: "%%-%ds"%x, colwidth))
-        rt = "\n".join(map(lambda x: fmt % x, rtlst))
+        # Sort correctly
+        rtlst.sort(key=lambda x: x[0])
+        # Append tag
+        rtlst = [('Destination', 'Next Hop', "iface", "src candidates")] + rtlst
+        
+        colwidth = [max([len(y) for y in x]) for x in zip(*rtlst)]
+        fmt = "  ".join(["%%-%ds"%x for x in colwidth])
+        rt = "\n".join([fmt % x for x in rtlst])
 
         return rt
 
@@ -77,7 +83,7 @@ class Route6:
             # replace that unique address by the list of all addresses
             lifaddr = in6_getifaddr()
             devaddrs = filter(lambda x: x[2] == dev, lifaddr)
-            ifaddr = construct_source_candidate_set(prefix, plen, devaddrs, LOOPBACK_NAME)
+            ifaddr = construct_source_candidate_set(prefix, plen, devaddrs, getLoopbackInterface())
 
         return (prefix, plen, gw, dev, ifaddr)
 
@@ -220,7 +226,7 @@ class Route6:
 
         if not pathes:
             warning("No route found for IPv6 destination %s (no default route?)" % dst)
-            return (LOOPBACK_NAME, "::", "::") # XXX Linux specific
+            return (getLoopbackInterface(), "::", "::")
 
         # Sort with longest prefix first
         pathes.sort(reverse=True)
@@ -237,7 +243,7 @@ class Route6:
 
         if res == []:
             warning("Found a route for IPv6 destination '%s', but no possible source address." % dst)
-            return (LOOPBACK_NAME, "::", "::") # XXX Linux specific
+            return (getLoopbackInterface(), "::", "::")
 
         # Symptom  : 2 routes with same weight (our weight is plen)
         # Solution :
