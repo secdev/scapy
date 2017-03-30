@@ -290,7 +290,7 @@ class DNS(Packet):
         return pkt + pay
 
 
-# http://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml
+# https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-4
 dnstypes = {
     0:"ANY",
     1: "A", 2: "NS", 3: "MD", 4: "MF", 5: "CNAME", 6: "SOA", 7: "MB", 8: "MG",
@@ -301,10 +301,12 @@ dnstypes = {
     34: "ATMA", 35: "NAPTR", 36: "KX", 37: "CERT", 38: "A6", 39: "DNAME",
     40: "SINK", 41: "OPT", 42: "APL", 43: "DS", 44: "SSHFP", 45: "IPSECKEY",
     46: "RRSIG", 47: "NSEC", 48: "DNSKEY", 49: "DHCID", 50: "NSEC3",
-    51: "NSEC3PARAM", 55: "HIP", 56: "NINFO", 57: "RKEY", 58: "TALINK",
-    99: "SPF", 100: "UINFO", 101: "UID", 102: "GID", 103: "UNSPEC", 249: "TKEY",
-    250: "TSIG",
-    32768: "TA", 32769:"DLV",
+    51: "NSEC3PARAM", 52: "TLSA", 53: "SMIMEA", 55: "HIP", 56: "NINFO", 57: "RKEY",
+    58: "TALINK", 59: "CDS", 60: "CDNSKEY", 61: "OPENPGPKEY", 62: "CSYNC",
+    99: "SPF", 100: "UINFO", 101: "UID", 102: "GID", 103: "UNSPEC", 104: "NID",
+    105: "L32", 106: "L64", 107: "LP", 108: "EUI48", 109: "EUI64",
+    249: "TKEY", 250: "TSIG", 256: "URI", 257: "CAA", 258: "AVC",
+    32768: "TA", 32769: "DLV", 65535: "RESERVED"
 }
 
 dnsqtypes = {251: "IXFR", 252: "AXFR", 253: "MAILB", 254: "MAILA", 255: "ALL"}
