@@ -1,5 +1,13 @@
 % Tests for OpenFlow v1.3 with Scapy
 
++ Fields
+
+= GroupDescPacketListField(), check getfield
+remain, lst = GroupDescPacketListField(None, None, None).getfield(None, b'\x00\x10')
+not remain
+all([OFPGroupDesc in gd for gd in lst])
+lst[0].length == 0x0010
+
 + Usual OFv1.3 messages
 
 = OFPTHello(), hello without version bitmap
