@@ -79,5 +79,4 @@ s = b'\x01#Eg\x89\xab\x00\x11"3DU\x08\x00E\x00\x000\x00\x01\x00\x00@\x06\xaf\xee
 assert(str(ofm) == s)
 e = Ether(s)
 e.show2()
-of = OFPTFeaturesRequest(e[TCP].load)
-of.xid == 23
+e[OFPTFeaturesRequest].xid == 23
