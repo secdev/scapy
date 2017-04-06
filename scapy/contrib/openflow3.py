@@ -2595,7 +2595,7 @@ class GroupDescPacketListField(PacketListField):
         remain = s
 
         while remain:
-            l = GroupsDescPacketListField._get_group_desc_length(remain)
+            l = GroupDescPacketListField._get_group_desc_length(remain)
             current = remain[:l]
             remain = remain[l:]
             p = OFPGroupDesc(current)
