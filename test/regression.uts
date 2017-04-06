@@ -4964,6 +4964,14 @@ pcapfile = cStringIO.StringIO(b'\xd4\xc3\xb2\xa1\x02\x00\x04\x00\x00\x00\x00\x00
 values = [tuple(int(val) for val in line[:-1].split('\t')) for line in tcpdump(pcapfile, prog=conf.prog.tshark, getfd=True, args=['-T', 'fields', '-e', 'ip.ttl', '-e', 'ip.proto'])]
 assert values == [(64, 6), (64, 17), (64, 1)]
 
+= Check Raw IP pcap files
+
+import tempfile
+filename = tempfile.mktemp(suffix=".pcap")
+wrpcap(filename, [IP()/UDP(), IPv6()/UDP()], linktype=DLT_RAW)
+packets = rdpcap(filename)
+assert(isinstance(packets[0], IP) and isinstance(packets[1], IPv6))
+
 
 ############
 ############
