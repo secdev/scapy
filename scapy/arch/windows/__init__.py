@@ -614,7 +614,19 @@ def in6_getifaddr():
             continue
     return ret
 
-def read_routes6():
+def _append_route6(routes, dpref, dp, nh, iface, lifaddr):
+    cset = [] # candidate set (possible source addresses)
+    if iface.name == LOOPBACK_NAME:
+        if dpref == '::':
+            continue
+        cset = ['::1']
+    else:
+        devaddrs = filter(lambda x: x[2] == iface, lifaddr)
+        cset = scapy.utils6.construct_source_candidate_set(dpref, dp, devaddrs, getLoopbackInterface())
+    # APPEND (DESTINATION, NETMASK, NEXT HOP, IFACE, CANDIDATS)
+    routes.append((dpref, dp, nh, iface, cset))
+
+def read_routes6_post2008():
     routes = []
     ipv6_r = '([A-z|0-9|:]+)' #Hope it is a valid address...
     # The correct IPv6 regex would be:
@@ -639,21 +651,47 @@ def read_routes6():
             except:
                 continue
 
-            d = match.group(2)
+            dpref = match.group(2)
             dp = int(match.group(3)[1:])
             nh = match.group(4)
             
-            cset = [] # candidate set (possible source addresses)
-            if iface.name == LOOPBACK_NAME:
-                if d == '::':
-                    continue
-                cset = ['::1']
-            else:
-                devaddrs = filter(lambda x: x[2] == iface, lifaddr)
-                cset = scapy.utils6.construct_source_candidate_set(d, dp, devaddrs, getLoopbackInterface())
-            # APPEND (DESTINATION, NETMASK, NEXT HOP, IFACE, CANDIDATS)
-            routes.append((d, dp, nh, iface, cset))
+            _append_route6(routes, dpref, dp, nh, iface, lifaddr)
     return routes
+
+def read_routes6_7():
+    # Not supported in powershell, we have to use netsh
+    routes = []
+    # This works only starting from Windows 8/2012 and up. For older Windows another solution is needed
+    # Get-NetRoute -AddressFamily IPV6 | select ifIndex, DestinationPrefix, NextHop
+    ps = sp.Popen([conf.prog.powershell, 'netsh interface ipv6 show route level=verbose'], stdout = sp.PIPE, universal_newlines = True)
+    stdout, stdin = ps.communicate()
+    lifaddr = in6_getifaddr()
+    for l in stdout.split('\n'):
+        match = re.search(pattern, l)
+        if match:
+            try:
+                if_index = match.group(4)
+                iface = dev_from_index(if_index)
+            except:
+                continue
+
+            dpref = match.group(2)
+            dp = int(match.group(3)[1:])
+            nh = match.group(4)
+            
+            _append_route6(routes, dpref, dp, nh, iface, lifaddr)
+    return routes
+
+def read_routes6():
+    routes6 = []
+    try:
+        if is_new_release():
+            routes6 = read_routes6_post2008()
+        else:
+            routes = read_routes6_7()
+    except Exception as e:    
+        warning("Error building scapy routing table : %s" % str(e), True)
+    return routes6
 
 if conf.interactive_shell != 'ipython' and conf.interactive:
     try:

@@ -1,0 +1,191 @@
+
+Préfixe de destination :      ::/0
+Préfixe source :              ::/0
+Index d'interface :           13
+Nom de passerelle/interface : Teredo Tunneling Pseudo-Interface
+Publication :                 Non
+Type :                        Manuel
+Métrique :                    8
+Longueur de préfixe de site   0
+Durée de vie valide           Infini
+Durée de vie préférée         Infini
+
+
+Préfixe de destination :      ::1/128
+Préfixe source :              ::/0
+Index d'interface :           1
+Nom de passerelle/interface : Loopback Pseudo-Interface 1
+Publication :                 Non
+Type :                        Manuel
+Métrique :                    256
+Longueur de préfixe de site   0
+Durée de vie valide           Infini
+Durée de vie préférée         Infini
+
+
+Préfixe de destination :      2001::/32
+Préfixe source :              ::/0
+Index d'interface :           13
+Nom de passerelle/interface : Teredo Tunneling Pseudo-Interface
+Publication :                 Non
+Type :                        Manuel
+Métrique :                    8
+Longueur de préfixe de site   0
+Durée de vie valide           Infini
+Durée de vie préférée         Infini
+
+
+Préfixe de destination :      2001:0:9d38:6abd:3857:1d60:3f57:fefb/128
+Préfixe source :              ::/0
+Index d'interface :           13
+Nom de passerelle/interface : Teredo Tunneling Pseudo-Interface
+Publication :                 Non
+Type :                        Manuel
+Métrique :                    256
+Longueur de préfixe de site   0
+Durée de vie valide           Infini
+Durée de vie préférée         Infini
+
+
+Préfixe de destination :      fe80::/64
+Préfixe source :              ::/0
+Index d'interface :           11
+Nom de passerelle/interface : Connexion au réseau local
+Publication :                 Non
+Type :                        Manuel
+Métrique :                    256
+Longueur de préfixe de site   0
+Durée de vie valide           Infini
+Durée de vie préférée         Infini
+
+
+Préfixe de destination :      fe80::/64
+Préfixe source :              ::/0
+Index d'interface :           13
+Nom de passerelle/interface : Teredo Tunneling Pseudo-Interface
+Publication :                 Non
+Type :                        Manuel
+Métrique :                    256
+Longueur de préfixe de site   0
+Durée de vie valide           Infini
+Durée de vie préférée         Infini
+
+
+Préfixe de destination :      fe80::/64
+Préfixe source :              ::/0
+Index d'interface :           19
+Nom de passerelle/interface : Npcap Loopback Adapter
+Publication :                 Non
+Type :                        Manuel
+Métrique :                    256
+Longueur de préfixe de site   0
+Durée de vie valide           Infini
+Durée de vie préférée         Infini
+
+
+Préfixe de destination :      fe80::5efe:169.254.173.204/128
+Préfixe source :              ::/0
+Index d'interface :           22
+Nom de passerelle/interface : isatap.{1A7C386A-D8B7-49C2-BDD9-1EC7391400CF}
+Publication :                 Non
+Type :                        Manuel
+Métrique :                    256
+Longueur de préfixe de site   0
+Durée de vie valide           Infini
+Durée de vie préférée         Infini
+
+
+Préfixe de destination :      fe80::5efe:192.168.1.4/128
+Préfixe source :              ::/0
+Index d'interface :           12
+Nom de passerelle/interface : isatap.{08059C5F-6C38-4455-9DB6-6C6D733170A2}
+Publication :                 Non
+Type :                        Manuel
+Métrique :                    256
+Longueur de préfixe de site   0
+Durée de vie valide           Infini
+Durée de vie préférée         Infini
+
+
+Préfixe de destination :      fe80::3857:1d60:3f57:fefb/128
+Préfixe source :              ::/0
+Index d'interface :           13
+Nom de passerelle/interface : Teredo Tunneling Pseudo-Interface
+Publication :                 Non
+Type :                        Manuel
+Métrique :                    256
+Longueur de préfixe de site   0
+Durée de vie valide           Infini
+Durée de vie préférée         Infini
+
+
+Préfixe de destination :      fe80::58af:d9b1:f7a9:adcc/128
+Préfixe source :              ::/0
+Index d'interface :           19
+Nom de passerelle/interface : Npcap Loopback Adapter
+Publication :                 Non
+Type :                        Manuel
+Métrique :                    256
+Longueur de préfixe de site   0
+Durée de vie valide           Infini
+Durée de vie préférée         Infini
+
+
+Préfixe de destination :      fe80::7ce6:3e2d:9a3f:9ded/128
+Préfixe source :              ::/0
+Index d'interface :           11
+Nom de passerelle/interface : Connexion au réseau local
+Publication :                 Non
+Type :                        Manuel
+Métrique :                    256
+Longueur de préfixe de site   0
+Durée de vie valide           Infini
+Durée de vie préférée         Infini
+
+
+Préfixe de destination :      ff00::/8
+Préfixe source :              ::/0
+Index d'interface :           1
+Nom de passerelle/interface : Loopback Pseudo-Interface 1
+Publication :                 Non
+Type :                        Manuel
+Métrique :                    256
+Longueur de préfixe de site   0
+Durée de vie valide           Infini
+Durée de vie préférée         Infini
+
+
+Préfixe de destination :      ff00::/8
+Préfixe source :              ::/0
+Index d'interface :           13
+Nom de passerelle/interface : Teredo Tunneling Pseudo-Interface
+Publication :                 Non
+Type :                        Manuel
+Métrique :                    256
+Longueur de préfixe de site   0
+Durée de vie valide           Infini
+Durée de vie préférée         Infini
+
+
+Préfixe de destination :      ff00::/8
+Préfixe source :              ::/0
+Index d'interface :           11
+Nom de passerelle/interface : Connexion au réseau local
+Publication :                 Non
+Type :                        Manuel
+Métrique :                    256
+Longueur de préfixe de site   0
+Durée de vie valide           Infini
+Durée de vie préférée         Infini
+
+
+Préfixe de destination :      ff00::/8
+Préfixe source :              ::/0
+Index d'interface :           19
+Nom de passerelle/interface : Npcap Loopback Adapter
+Publication :                 Non
+Type :                        Manuel
+Métrique :                    256
+Longueur de préfixe de site   0
+Durée de vie valide           Infini
+Durée de vie préférée         Infini
