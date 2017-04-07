@@ -1053,7 +1053,7 @@ class FlagValue(object):
                 r.append(self.names[i])
             i += 1
             x >>= 1
-        return ("+" if self.multi else "").join(r) if r else int(self)
+        return ("+" if self.multi else "").join(r)
     def __repr__(self):
         return "<Flag %d (%s)>" % (self, self.flagrepr())
     def __deepcopy__(self, memo):
