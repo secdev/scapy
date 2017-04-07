@@ -9,7 +9,7 @@ Routing and handling of network interfaces.
 
 import socket
 from scapy.consts import LOOPBACK_NAME, getLoopbackInterface
-from scapy.utils import atol, ltoa, itom
+from scapy.utils import atol, ltoa, itom, pretty_routes
 from scapy.config import conf
 from scapy.error import Scapy_Exception, warning
 from scapy.arch import WINDOWS
@@ -41,15 +41,8 @@ class Route:
                       (iface.name if not isinstance(iface, basestring) else iface),
                       addr))
 
-        # Sort correctly
-        rtlst.sort(key=lambda x: x[0])
-        # Append tag
-        rtlst = [("Network", "Netmask", "Gateway", "Iface", "Output IP")] + rtlst
-        
-        colwidth = map(lambda x: max(map(lambda y: len(y), x)), apply(zip, rtlst))
-        fmt = "  ".join(map(lambda x: "%%-%ds"%x, colwidth))
-        rt = "\n".join(map(lambda x: fmt % x, rtlst))
-        return rt
+        return pretty_routes(rtlst,
+                             [("Network", "Netmask", "Gateway", "Iface", "Output IP")])
 
     def make_route(self, host=None, net=None, gw=None, dev=None):
         from scapy.arch import get_if_addr

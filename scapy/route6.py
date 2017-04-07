@@ -50,19 +50,11 @@ class Route6:
         rtlst = []
 
         for net,msk,gw,iface,cset in self.routes:
-            rtlst.append(('%s/%i'% (net,msk), gw, (iface if isinstance(iface, basestring) else iface.name), ", ".join(cset)))
+            rtlst.append(('%s/%i'% (net,msk), gw, (iface if isinstance(iface, basestring) else iface.name), ", ".join(cset) if len(cset) > 0 else ""))
 
-        # Sort correctly
-        rtlst.sort(key=lambda x: x[0])
-        # Append tag
-        rtlst = [('Destination', 'Next Hop', "iface", "src candidates")] + rtlst
-        
-        colwidth = [max([len(y) for y in x]) for x in zip(*rtlst)]
-        fmt = "  ".join(["%%-%ds"%x for x in colwidth])
-        rt = "\n".join([fmt % x for x in rtlst])
-
-        return rt
-
+        return pretty_routes(rtlst,
+                             [('Destination', 'Next Hop', "Iface", "Src candidates")],
+                             sortBy = 1)
 
     # Unlike Scapy's Route.make_route() function, we do not have 'host' and 'net'
     # parameters. We only have a 'dst' parameter that accepts 'prefix' and

@@ -1232,6 +1232,78 @@ def hexedit(x):
     os.unlink(f)
     return x
 
+def get_terminal_width():
+    """Get terminal width if in a window"""
+    if WINDOWS:
+        from ctypes import windll, create_string_buffer
+        # http://code.activestate.com/recipes/440694-determine-size-of-console-window-on-windows/
+        h = windll.kernel32.GetStdHandle(-12)
+        csbi = create_string_buffer(22)
+        res = windll.kernel32.GetConsoleScreenBufferInfo(h, csbi)
+        if res:
+            import struct
+            (bufx, bufy, curx, cury, wattr,
+             left, top, right, bottom, maxx, maxy) = struct.unpack("hhhhHhhhhhh", csbi.raw)
+            sizex = right - left + 1
+            #sizey = bottom - top + 1
+            return sizex
+        else:
+            return None
+    else:
+        sizex = 0
+        try:
+            import struct, fcntl, termios
+            s = struct.pack('HHHH', 0, 0, 0, 0)
+            x = fcntl.ioctl(1, termios.TIOCGWINSZ, s)
+            sizex = struct.unpack('HHHH', x)[1]
+        except IOError:
+            pass
+        if not sizex:
+            try:
+                sizex = int(os.environ['COLUMNS'])
+            except:
+                pass
+        if sizex:
+            return sizex
+        else:
+            return None
+
+def pretty_routes(rtlst, header, sortBy=0):
+    """Pretty route list, and add header"""
+    _l_header = len(header[0])
+    _space = "  "
+    # Sort correctly
+    rtlst.sort(key=lambda x: x[sortBy])
+    # Append tag
+    rtlst = header + rtlst
+    # Detect column's width
+    colwidth = map(lambda x: max(map(lambda y: len(y), x)), apply(zip, rtlst))
+    # Make text fit in box (if exist)
+    # TODO: find a better and more precise way of doing this. That's currently working but very complicated
+    width = get_terminal_width()
+    if width:
+        if sum(colwidth) > width:
+            # Needs to be cropped
+            _med = (width // _l_header) - (1 if WINDOWS else 0) # Windows has a fat window border
+            # Crop biggest until size is correct
+            for i in range(1, len(colwidth)): # Should use while, but this is safer
+                if (sum(colwidth)+6) <= width:
+                    break
+                _max = max(colwidth)
+                colwidth = [_med if x == _max else x for x in colwidth]
+            def _crop(x, width):
+                _r = x[:width]
+                if _r != x:
+                    _r = x[:width-3]
+                    return _r + "..."
+                return _r
+            rtlst = [tuple([_crop(rtlst[j][i], colwidth[i]) for i in range(0, len(rtlst[j]))]) for j in range(0, len(rtlst))]
+            # Recalculate column's width
+            colwidth = map(lambda x: max(map(lambda y: len(y), x)), apply(zip, rtlst))
+    fmt = _space.join(map(lambda x: "%%-%ds"%x, colwidth))
+    rt = "\n".join(map(lambda x: fmt % x, rtlst))
+    return rt
+
 def __make_table(yfmtfunc, fmtfunc, endline, list, fxyz, sortx=None, sorty=None, seplinefunc=None):
     vx = {} 
     vy = {} 
