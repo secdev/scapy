@@ -21,7 +21,7 @@ UT_FLAGS+=" -K combined_modes_ccm"
 if python --version 2>&1 | grep -q PyPy
 then
   # cryptography requires PyPy >= 2.6, Travis CI uses 2.5.0
-  UT_FLAGS+=" -K crypto "
+  UT_FLAGS+=" -K crypto -K not_pypy"
 fi
 
 # Set PATH

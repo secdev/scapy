@@ -302,6 +302,8 @@ class RandIP6(RandString):
                     remain = random.randint(0,remain)
                 for j in xrange(remain):
                     ip.append("%04x" % random.randint(0,65535))
+            elif isinstance(n, RandNum):
+                ip.append("%04x" % n)
             elif n == 0:
               ip.append("0")
             elif not n:
