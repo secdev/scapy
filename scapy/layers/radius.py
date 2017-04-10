@@ -133,7 +133,7 @@ class Radius(Packet):
                                               255: "Reserved"} ),
                     ByteField("id", 0),
                     FieldLenField("len", None, "attributes", "H" , adjust=lambda pkt,x:len(pkt.attributes)+20),
-                    StrFixedLenField("authenticator","",16),
+                    XStrFixedLenField("authenticator","",16),
                     PacketListField("attributes", [], RadiusAttribute, length_from=lambda pkt:pkt.len-20) ]
 
     def post_build(self, p, pay):
