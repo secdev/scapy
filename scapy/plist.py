@@ -529,11 +529,6 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
                             setattr(p[o], fld.name, new)
             x.append(p)
         return x
-                
-            
-        
-    
-        
 
 
 class SndRcvList(PacketList):

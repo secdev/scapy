@@ -1173,20 +1173,6 @@ A side effect is that, to obtain "{" and "}" characters, you must use
             pp = pp.underlayer
         self.payload.dissection_done(pp)
 
-    def libnet(self):
-        """Not ready yet. Should give the necessary C code that interfaces with libnet to recreate the packet"""
-        print "libnet_build_%s(" % self.__class__.name.lower()
-        det = self.__class__(str(self))
-        for f in self.fields_desc:
-            val = det.getfieldval(f.name)
-            if val is None:
-                val = 0
-            elif type(val) is int:
-                val = str(val)
-            else:
-                val = '"%s"' % str(val)
-            print "\t%s, \t\t/* %s */" % (val,f.name)
-        print ");"
     def command(self):
         """Returns a string representing the command you have to type to obtain the same packet"""
         f = []

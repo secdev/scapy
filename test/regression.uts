@@ -19,6 +19,24 @@ ls()
 ~ conf command
 lsc()
 
+= List contribs
+import mock
+result_list_contrib = ""
+def test_list_contrib():
+    def write(s):
+        global result_list_contrib
+        result_list_contrib += s
+    mock_stdout = mock.Mock()
+    mock_stdout.write = write
+    bck_stdout = sys.stdout
+    sys.stdout = mock_stdout
+    list_contrib()
+    sys.stdout = bck_stdout
+    assert("http2               : HTTP/2 (RFC 7540, RFC 7541)              status=loads" in result_list_contrib)
+    assert(result_list_contrib.split('\n') > 40)
+
+test_list_contrib()
+
 = Configuration
 ~ conf
 conf.debug_dissector = True
@@ -175,40 +193,120 @@ try:
 except OSError:
     pass
 
-= Test utility functions
+= Test temporary file creation
+tmpfile = get_temp_file(autoext=".ut")
+if WINDOWS:
+    assert("scapy" in tmpfile and tmpfile.startswith('C:\\Users\\appveyor\\AppData\\Local\\Temp'))
+else:
+    import platform
+    IS_PYPY = platform.python_implementation() == "PyPy"
+    assert("scapy" in tmpfile and (IS_PYPY == True or "/tmp/" in tmpfile))
 
-tmpfile =  get_temp_file(autoext=".ut")
-tmpfile.startswith("/tmp/scapy")
-conf.temp_files[0].endswith(".ut")
-conf.temp_files.pop()
+assert(conf.temp_files[0].endswith(".ut"))
+assert(conf.temp_files.pop())
+assert(len(conf.temp_files) == 0)
 
-get_temp_file(True).startswith("/tmp/scapy") and len(conf.temp_files) == 0
+= Test sane function
+sane("A\x00\xFFB") == "A..B"
 
-sane(b"A\x00\xFFB") == "A..B"
+= Test linehexdump function
+conf_color_theme = conf.color_theme
+conf.color_theme = BlackAndWhite()
+assert(linehexdump(Ether(src="00:01:02:03:04:05"), dump=True) == "FFFFFFFFFFFF0001020304059000 ..............")
+conf.color_theme = conf_color_theme
 
-linehexdump(Ether(), dump=True) == "FFFFFFFFFFFF0242D077E8129000 .......B.w...."
-
-chexdump(Ether(), dump=True) == "0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x02, 0x42, 0xd0, 0x77, 0xe8, 0x12, 0x90, 0x00"
+= Test chexdump function
+chexdump(Ether(src="00:01:02:02:04:05"), dump=True) == "0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x01, 0x02, 0x02, 0x04, 0x05, 0x90, 0x00"
 
 hexstr(b"A\x00\xFFB") == "41 00 ff 42  A..B"
 
 fletcher16_checksum(b"\x28\x07") == 22319
 
+= Test hexdiff function
+~ not_pypy
+import mock
+result_hexdiff = ""
+def test_hexdiff():
+    def write(s):
+        global result_hexdiff
+        result_hexdiff += s
+    conf_color_theme = conf.color_theme
+    conf.color_theme = BlackAndWhite()
+    mock_stdout = mock.Mock()
+    mock_stdout.write = write
+    bck_stdout = sys.stdout
+    sys.stdout = mock_stdout
+    hexdiff("abcde", "abCde")
+    sys.stdout = bck_stdout
+    conf.interactive = True
+    conf.color_theme = conf_color_theme
+    expected  = "0000        61 62 63 64 65                                     abcde\n"
+    expected += "     0000   61 62 43 64 65                                     abCde\n"
+    assert(result_hexdiff == expected)
+
+test_hexdiff()
+
+= Test fletcher16_* functions
+assert(fletcher16_checksum("\x28\x07") == 22319)
+assert(fletcher16_checkbytes("ABCDEF", 2) == "\x89\x67")
+
+= Test zerofree_randstring function
+random.seed(0x2807)
+zerofree_randstring(4) == "\xd2\x12\xe4\x5b"
+
+= Test export_object and import_object functions
+import mock
+result_export_object = ""
+def test_export_import_object():
+    def write(s):
+        global result_export_object
+        result_export_object += s
+    mock_stdout = mock.Mock()
+    mock_stdout.write = write
+    bck_stdout = sys.stdout
+    sys.stdout = mock_stdout
+    export_object(2807)
+    sys.stdout = bck_stdout
+    assert(result_export_object.endswith("eNprYPL9zqUHAAdrAf8=\n\n"))
+    assert(import_object(result_export_object) == 2807)
+
+test_export_import_object()
+
+= Test tex_escape function
 tex_escape("$#_") == "\\$\\#\\_"
 
+= Test colgen function
 f = colgen(range(3))
 len([f.next() for i in range(2)]) == 2
 
+= Test incremental_label function
 f = incremental_label()
 [f.next() for i in range(2)] == ["tag00000", "tag00001"]
 
+= Test corrupt_* functions
 import random
 random.seed(0x2807)
-corrupt_bytes("ABCDE") == "ABCDW"
-sane(corrupt_bytes("ABCDE", n=3)) == "A.8D4"
+assert(corrupt_bytes("ABCDE") == "ABCDW")
+assert(sane(corrupt_bytes("ABCDE", n=3)) == "A.8D4")
 
-corrupt_bits("ABCDE") == "EBCDE"
-sane(corrupt_bits("ABCDE", n=3)) == "AF.EE"
+assert(corrupt_bits("ABCDE") == "EBCDE")
+assert(sane(corrupt_bits("ABCDE", n=3)) == "AF.EE")
+
+= Test save_object and load_object functions
+import tempfile
+fd, fname = tempfile.mkstemp()
+save_object(fname, 2807)
+assert(load_object(fname) == 2807)
+
+= Test whois function
+if not WINDOWS:
+    result = whois("193.0.6.139")
+    assert("inetnum" in result and "Amsterdam" in result)
+
+= Test manuf DB methods
+~ manufdb
+assert(MANUFDB._resolve_MAC("00:00:0F:01:02:03") == "Next:01:02:03")
+assert(MANUFDB._get_short_manuf("00:00:0F:01:02:03") == "Next")
 
 = Test utility functions - network related
 ~ netaccess
@@ -222,6 +320,40 @@ atol("www.secdev.org") == 3642339845
 
 * Those test are here mainly to check nothing has been broken
 * and to catch Exceptions
+
+= Packet class methods
+p = IP()/ICMP()
+ret = p.do_build_ps()                                                                                                                             
+assert(ret[0] == "@\x00\x00\x00\x00\x01\x00\x00@\x01\x00\x00\x7f\x00\x00\x01\x7f\x00\x00\x01\x08\x00\x00\x00\x00\x00\x00\x00")
+assert(len(ret[1]) == 2)
+
+assert(p[ICMP].firstlayer() == p)
+
+assert(p.command() == "IP()/ICMP()")
+
+p.decode_payload_as(UDP)
+assert(p.sport == 2048 and p.dport == 63487)
+
+= hide_defaults
+conf_color_theme = conf.color_theme
+conf.color_theme = BlackAndWhite()
+p = IP(ttl=64)/ICMP()
+assert(repr(p) == "<IP  frag=0 ttl=64 proto=icmp |<ICMP  |>>")
+p.hide_defaults()
+assert(repr(p) == "<IP  frag=0 proto=icmp |<ICMP  |>>")
+conf.color_theme = conf_color_theme
+
+= split_layers
+p = IP()/ICMP()
+s = str(p)
+split_layers(IP, ICMP, proto=1)
+assert(Raw in IP(s))
+bind_layers(IP, ICMP, frag=0, proto=1)
+
+= fuzz
+~ not_pypy
+random.seed(0x2807)
+str(fuzz(IP()/ICMP())) == '\xe5S\x00\x1c\x9dC \x007\x01(H\x7f\x00\x00\x01\x7f\x00\x00\x01*\xdb\xf7,9\x8e\xa4i'
 
 = Building some packets
 ~ basic IP TCP UDP NTP LLC SNAP Dot11
@@ -314,6 +446,9 @@ p2 = IP(src=a2, dst=a1)/ICMP(type=0)
 assert p1.hashret() == p2.hashret()
 assert not p1.answers(p2)
 assert p2.answers(p1)
+assert p1 > p2
+assert p2 < p1
+assert p1 == p1
 conf_back = conf.checkIPinIP
 conf.checkIPinIP = True
 px = [IP()/p1, IPv6()/p1]
@@ -565,6 +700,20 @@ for i in xrange(5):
 assert (len(ret) == 2)
 
 all(x[1] == 15169 for x in ret)
+
+success = False
+for i in xrange(5):
+    try:
+        ret = AS_resolver_riswhois().resolve("8.8.8.8")
+    except socket.error:
+        time.sleep(2)
+    else:
+        success = True
+        break
+
+assert (len(ret) == 1)
+
+all(x[1] == "AS15169" for x in ret)
 
 
 ############
@@ -2859,9 +3008,13 @@ len_r6 = len(r6.routes)
 = Route6 - Route6.add & Route6.delt
 
 r6.add(dst="2001:db8:cafe:f000::/64", gw="2001:db8:cafe::1", dev="eth0")
-print len(r6.routes) == len_r6 + 1
+assert(len(r6.routes) == len_r6 + 1)
 r6.delt(dst="2001:db8:cafe:f000::/64", gw="2001:db8:cafe::1")
-len(r6.routes) == len_r6
+assert(len(r6.routes) == len_r6)
+
+= Route6 - Route6.ifadd & Route6.ifdel
+r6.ifadd("scapy0", "2001:bd8:cafe:1::1/64")
+r6.ifdel("scapy0")
 
 = IPv6 - utils
 
@@ -2926,10 +3079,11 @@ def test_show():
         result += s
     mock_stdout = mock.Mock()
     mock_stdout.write = write
+    bck_stdout = sys.stdout
     sys.stdout = mock_stdout
     tr6 = TracerouteResult6(tr6_packets)
     tr6.show()
-    sys.stdout = sys.__stdout__
+    sys.stdout = bck_stdout
     expected = "  2001:db8::1                               :udpdomain \n"
     expected += "1 2001:db8::1                                3         \n"
     expected += "2 2001:db8::2                                3         \n"
@@ -7435,7 +7589,6 @@ len(r4.routes) == len_r4 +1
 r4.get_if_bcast(get_dummy_interface()) == "1.2.3.255"
 
 r4.ifdel(get_dummy_interface())
-print len(r4.routes), len_r4
 len(r4.routes) == len_r4
 
 
@@ -7452,69 +7605,72 @@ re = RandomEnumeration(0, 7, seed=0x2807, forever=False)
 
 random.seed(0x2807)
 r6 = RandIP6()
-str(r6) == "d279:1205:e445:5a9f:db28:efc9:afd7:f594"
+assert(r6 == "d279:1205:e445:5a9f:db28:efc9:afd7:f594")
 
 random.seed(0x2807)
 r6 = RandIP6("2001:db8::-") 
-print r6 == "2001:0db8::9e9c"
+assert(r6 == "2001:0db8::afd7")
 
 r6 = RandIP6("2001:db8::*")
-print r6 == "2001:0db8::9ccb"
+assert(r6 == "2001:0db8::398e")
 
 = RandMAC
 
 random.seed(0x2807)
 rm = RandMAC() 
-rm == "d2:12:e4:5a:db:ef"
+assert(rm == "d2:12:e4:5a:db:ef")
 
 rm = RandMAC("00:01:02:03:04:0-7")
-rm == "00:01:02:03:04:05"
+assert(rm == "00:01:02:03:04:05")
 
 
 = RandOID
 
 random.seed(0x2807)
 ro = RandOID()
-ro == "7.222.44.194.276.116.320.6.84.97.31.5.25.20.13.84.104.18"
+assert(ro == "7.222.44.194.276.116.320.6.84.97.31.5.25.20.13.84.104.18")
 
 ro = RandOID("1.2.3.*")
-ro == "1.2.3.41"
+assert(ro == "1.2.3.41")
 
 ro = RandOID("1.2.3.0-28")
-ro == "1.2.3.11"
+assert(ro == "1.2.3.11")
 
 = RandRegExp
 
 random.seed(0x2807)
 re = RandRegExp("[g-v]* @? [0-9]{3} . (g|v)")
-print re == "vmuvr @ 906  g"
+re == 'vmuvr @ 906 \x9e g'
 
 = Corrupted(Bytes|Bits)
 
 random.seed(0x2807)
 cb = CorruptedBytes("ABCDE", p=0.5)
-sane(str(cb)) == ".BCD)"
+assert(sane(str(cb)) == ".BCD)")
 
 cb = CorruptedBits("ABCDE", p=0.2)
-sane(str(cb)) == "ECk@Y"
+assert(sane(str(cb)) == "ECk@Y")
 
-= Rand*
+= RandEnumKeys
+~ not_pypy
+random.seed(0x2807)
+rek = RandEnumKeys({'a': 1, 'b': 2, 'c': 3}, seed=0x2807)
+assert(rek == 'b')
 
+= RandSingNum
+~ not_pypy
 random.seed(0x2807)
 rs = RandSingNum(-28, 07)
-rs == 3
+assert(rs == -27)
 
+= Rand*
 random.seed(0x2807)
 rss = RandSingString()
-rss == "CON:"
-
-random.seed(0x2807)
-rek = RandEnumKeys({'a': 1, 'b': 2})
-rek == 'b'
+assert(rss == "CON:")
 
 random.seed(0x2807)
 rts = RandTermString(4, "scapy")
-sane(str(rts)) == "...[scapy"
+assert(sane(str(rts)) == "...[scapy")
 
 
 ############
@@ -7741,7 +7897,9 @@ os.write(fd, "-- MIB test\nscapy       OBJECT IDENTIFIER ::= {test 2807}\n")
 os.close(fd)
 
 load_mib(fname)
-len([k for k in conf.mib.iterkeys() if "scapy" in k]) == 1
+assert(len([k for k in conf.mib.iterkeys() if "scapy" in k]) == 1)
+
+assert(len([oid for oid in conf.mib]) > 100)
 
 = BER tests
 
@@ -7755,7 +7913,8 @@ r1 == b'@\x04\x08\x08\x08\x08'
 r2 = b.dec(r1)[0]
 r2.val == '8.8.8.8'
 
-
+############
+############
 + inet.py
 
 = IPv4 - ICMPTimeStampField
@@ -7773,23 +7932,22 @@ answer = IP(dst="192.168.0.254", src="192.168.0.2", ttl=1)/ICMP()/IPerror(dst="1
 
 query = IP(dst="192.168.0.1", src="192.168.0.254", ttl=1)/UDP()/DNS()
 answer = IP(dst="192.168.0.254", src="192.168.0.2")/ICMP(type=11)/IPerror(dst="192.168.0.1", src="192.168.0.254", ttl=0)/UDPerror()/DNS()
-answer.answers(query) == True
+assert(answer.answers(query) == True)
 
 query = IP(dst="192.168.0.1", src="192.168.0.254", ttl=1)/TCP()
 answer = IP(dst="192.168.0.254", src="192.168.0.2")/ICMP(type=11)/IPerror(dst="192.168.0.1", src="192.168.0.254", ttl=0)/TCPerror()
 
-answer.answers(query) == True
+assert(answer.answers(query) == True)
 
 query = IP(dst="192.168.0.1", src="192.168.0.254", ttl=1)/ICMP()/"scapy"
 answer = IP(dst="192.168.0.254", src="192.168.0.2")/ICMP(type=11)/IPerror(dst="192.168.0.1", src="192.168.0.254", ttl=0)/ICMPerror()/"scapy"
-
-answer.answers(query) == True
+assert(answer.answers(query) == True)
 
 = IPv4 - utilities
 l = overlap_frag(IP(dst="1.2.3.4")/ICMP()/("AB"*8), ICMP()/("CD"*8))
-len(l) == 6
-[len(str(IP.payload)) for p in l] == [38, 38, 38, 38, 38, 38]
-[(p.frag, p.flags.MF) for p in [IP(str(p)) for p in l]] == [(0, True), (1, True), (2, True), (0, True), (1, True), (2, False)]
+assert(len(l) == 6)
+assert([len(str(p[IP].payload)) for p in l] == [8, 8, 8, 8, 8, 8])
+assert([(p.frag, p.flags.MF) for p in [IP(str(p)) for p in l]] == [(0, True), (1, True), (2, True), (0, True), (1, True), (2, False)])
 
 = IPv4 - traceroute utilities
 ip_ttl = [("192.168.0.%d" % i, i) for i in xrange(1, 10)]
@@ -7799,8 +7957,7 @@ tr_packets = [ (IP(dst="192.168.0.1", src="192.168.0.254", ttl=ttl)/TCP(options=
                for (ip, ttl) in ip_ttl ]
 
 tr = TracerouteResult(tr_packets)
-tr.get_trace() == {'192.168.0.1': {1: ('192.168.0.1', False), 2: ('192.168.0.2', False), 3: ('192.168.0.3', False), 4: ('192.168.0.4', False), 5: ('192.168.0.5', False), 6: ('192.168.0.6', False), 7: ('192.168.0.7', False), 8: ('192.168.0.8', False), 9: ('192.168.0.9', False)}}
-
+assert(tr.get_trace() == {'192.168.0.1': {1: ('192.168.0.1', False), 2: ('192.168.0.2', False), 3: ('192.168.0.3', False), 4: ('192.168.0.4', False), 5: ('192.168.0.5', False), 6: ('192.168.0.6', False), 7: ('192.168.0.7', False), 8: ('192.168.0.8', False), 9: ('192.168.0.9', False)}})
 
 result_show = ""
 def test_show():
@@ -7830,6 +7987,23 @@ def test_show():
 
 test_show()
 
+import mock
+result_summary = ""
+def test_summary():
+    def write_summary(s):
+        global result_summary
+        result_summary += s
+    mock_stdout = mock.Mock()
+    mock_stdout.write = write_summary
+    bck_stdout = sys.stdout
+    sys.stdout = mock_stdout
+    tr = TracerouteResult(tr_packets)
+    tr.summary()
+    sys.stdout = bck_stdout
+    assert(len(result_summary.split('\n')) == 10)
+    assert("IP / TCP 192.168.0.254:ftp_data > 192.168.0.1:http S / Raw ==> IP / ICMP 192.168.0.9 > 192.168.0.254 time-exceeded ttl-zero-during-transit / IPerror / TCPerror / Raw" in result_summary) 
+
+test_summary()
 
 @mock.patch("scapy.layers.inet.plt")
 def test_timeskew_graph(mock_plt):
@@ -7838,20 +8012,31 @@ def test_timeskew_graph(mock_plt):
     mock_plt.plot = fake_plot
     srl = SndRcvList([(a, a) for a in [IP(str(p[0])) for p in tr_packets]])
     ret = srl.timeskew_graph("192.168.0.254")
-    len(ret) == 9
-    ret[0][1] == 0.0
+    assert(len(ret) == 9)
+    assert(ret[0][1] == 0.0)
 
 test_timeskew_graph()
-
 
 tr = TracerouteResult(tr_packets)
 saved_AS_resolver = conf.AS_resolver
 conf.AS_resolver = None
 tr.make_graph()
-print len(tr.graphdef) == 491
-print tr.graphdef.startswith("digraph trace {") == True
-print '"192.168.0.9" ->' in tr.graphdef == True
+assert(len(tr.graphdef) == 491)
+tr.graphdef.startswith("digraph trace {") == True
+assert(('"192.168.0.9" ->' in tr.graphdef) == True)
 conf.AS_resolver = conf.AS_resolver
+
+pl = PacketList(list([Ether()/x for x in itertools.chain(*tr_packets)]))
+srl, ul = pl.sr()
+assert(len(srl) == 9 and len(ul) == 0)
+
+conf_color_theme = conf.color_theme
+conf.color_theme = BlackAndWhite()
+assert(len(pl.sessions().keys()) == 10)
+conf.color_theme = conf_color_theme
+
+new_pl = pl.replace(IP.src, "192.168.0.254", "192.168.0.42")
+assert("192.168.0.254" not in [p[IP].src for p in new_pl])
 
 = IPv4 - reporting
 
@@ -7868,7 +8053,7 @@ def test_IPID_count():
     IPID_count([(IP()/UDP(), IP(id=random.randint(0, 65535))/UDP()) for i in range(3)])
     sys.stdout = saved_stdout
     lines = result_IPID_count.split("\n")
-    print len(lines) == 5
-    print lines[0] == "Probably 3 classes: [4613, 53881, 58437]"
+    assert(len(lines) == 5)
+    assert(lines[0].endswith("Probably 3 classes: [4613, 53881, 58437]"))
 
 test_IPID_count()
