@@ -47,12 +47,12 @@ import struct
 from scapy.config import conf, crypto_validator
 from scapy.data import IP_PROTOS
 from scapy.error import log_loading
-from scapy.fields import (ByteEnumField, ByteField, StrField, StrLenField,
-                          XIntField, IntField, ShortField, PacketField)
+from scapy.fields import ByteEnumField, ByteField, IntField, PacketField, \
+    ShortField, StrField, XIntField, XStrField, XStrLenField
 from scapy.packet import Packet, bind_layers, Raw
 from scapy.layers.inet import IP, UDP
-from scapy.layers.inet6 import (IPv6, IPv6ExtHdrHopByHop, IPv6ExtHdrDestOpt,
-                                IPv6ExtHdrRouting)
+from scapy.layers.inet6 import IPv6, IPv6ExtHdrHopByHop, IPv6ExtHdrDestOpt, \
+    IPv6ExtHdrRouting
 
 
 #------------------------------------------------------------------------------
@@ -82,9 +82,9 @@ class AH(Packet):
         ShortField('reserved', None),
         XIntField('spi', 0x0),
         IntField('seq', 0),
-        StrLenField('icv', None, length_from=__get_icv_len),
+        XStrLenField('icv', None, length_from=__get_icv_len),
         # Padding len can only be known with the SecurityAssociation.auth_algo
-        StrLenField('padding', None, length_from=lambda x: 0),
+        XStrLenField('padding', None, length_from=lambda x: 0),
     ]
 
     overload_fields = {
@@ -112,7 +112,7 @@ class ESP(Packet):
     fields_desc = [
         XIntField('spi', 0x0),
         IntField('seq', 0),
-        StrField('data', None),
+        XStrField('data', None),
     ]
 
     overload_fields = {
