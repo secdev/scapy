@@ -836,7 +836,7 @@ send_and_sniff(Ether()/IP(dst="secdev.org")/ICMP())
 = __repr__
 
 if conf.manufdb:
-    conf.manufdb
+    len(conf.manufdb)
 else:
     True
 
