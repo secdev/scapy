@@ -51,7 +51,7 @@ install: bash .travis/install.sh
 script: bash .travis/test.sh
 
 after_success:
-    - if [ "$SCAPY_COVERAGE" = "yes" ]; then pip install codecov; fi
+    - if [ "$SCAPY_COVERAGE" = "yes" ]; then pip install coveralls; fi
     # With UTScapy, the coverage dot file is located in the test directory
     - if [ "$SCAPY_COVERAGE" = "yes" ]; then cd test; coverage combine; fi
-    - if [ "$SCAPY_COVERAGE" = "yes" ]; then codecov; fi
+    - if [ "$SCAPY_COVERAGE" = "yes" ]; then coveralls; fi
