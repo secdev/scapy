@@ -32,3 +32,4 @@ parsers:
 
 ignore:
   - "**/site-packages/**"
+  - "**/dist-packages/**"
