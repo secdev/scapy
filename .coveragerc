@@ -1,4 +1,3 @@
 [run]
 omit =
-    */dist-packages/*
-    */site-packages/*
+    /usr/local/lib/python2.7/*

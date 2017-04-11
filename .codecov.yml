@@ -29,7 +29,3 @@ parsers:
       method: false
   javascript:
     enable_partials: yes
-
-ignore:
-  - "/usr/local/lib/python2.7/dist-packages/"
-  - "/usr/local/lib/python2.7/site-packages/"
