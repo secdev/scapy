@@ -1,0 +1,4 @@
+[run]
+omit =
+    */dist-packages/*
+    */site-packages/*
