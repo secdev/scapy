@@ -34,7 +34,7 @@ if [ "$SCAPY_COVERAGE" = "yes" ]
 then
   echo '#!/bin/bash' > test/python
   echo '[ "$*" = "--version" ] && echo "Python 2 - fake version string"' >> test/python
-  echo '[ "$*" != "--version" ] && coverage run --concurrency=multiprocessing -p $*' >> test/python
+  echo '[ "$*" != "--version" ] && coverage run --concurrency=multiprocessing -a $*' >> test/python
   chmod +x test/python
   PATH=.:$PATH
 
