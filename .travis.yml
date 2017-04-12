@@ -2,27 +2,27 @@ language: python
 
 matrix:
     include:
-#        # Run as a regular user
-#        - os: linux
-#          python: 2.7
-#
-#        - os: linux
-#          python: pypy
-#
-#        - os: osx
-#          language: generic
-#
-#        - os: osx
-#          language: generic
-#          env:
-#            - SCAPY_SUDO=false SCAPY_USE_PCAPDNET=yes
-#
-#        # Run as root
-#        - os: linux
-#          sudo: required
-#          python: 2.7
-#          env:
-#            - SCAPY_SUDO=sudo
+        # Run as a regular user
+        - os: linux
+          python: 2.7
+
+        - os: linux
+          python: pypy
+
+        - os: osx
+          language: generic
+
+        - os: osx
+          language: generic
+          env:
+            - SCAPY_SUDO=false SCAPY_USE_PCAPDNET=yes
+
+        # Run as root
+        - os: linux
+          sudo: required
+          python: 2.7
+          env:
+            - SCAPY_SUDO=sudo
 
         - os: linux
           sudo: required
@@ -30,21 +30,21 @@ matrix:
           env:
             - SCAPY_SUDO=sudo SCAPY_COVERAGE=yes
 
-#        - os: linux
-#          sudo: required
-#          python: 2.7
-#          env:
-#            - SCAPY_SUDO=sudo SCAPY_USE_PCAPDNET=yes SCAPY_COVERAGE=yes 
+        - os: linux
+          sudo: required
+          python: 2.7
+          env:
+            - SCAPY_SUDO=sudo SCAPY_USE_PCAPDNET=yes SCAPY_COVERAGE=yes 
 
         - os: osx
           language: generic
           env:
             - SCAPY_SUDO=sudo SCAPY_COVERAGE=yes
 
-#        - os: osx
-#          language: generic
-#          env:
-#            - SCAPY_SUDO=sudo SCAPY_USE_PCAPDNET=yes SCAPY_COVERAGE=yes
+        - os: osx
+          language: generic
+          env:
+            - SCAPY_SUDO=sudo SCAPY_USE_PCAPDNET=yes SCAPY_COVERAGE=yes
 
 install: bash .travis/install.sh
 
