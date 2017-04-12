@@ -1,0 +1,8 @@
+[run]
+omit =
+    # Python specific path
+    /usr/local/lib/python2.7/*
+    # Scapy specific paths
+    test/*
+    bin/*
+    scapy/tools/*
