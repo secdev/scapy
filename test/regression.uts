@@ -150,24 +150,26 @@ def emulate_main_input(data, mock_readfunc):
         pass
     assert exit_code == "0"
 
-= Test basic save_session and load_session
+= Test basic save_session, load_session and update_session
 
 data = ["init_session(\"scapySession1\")",\
 "test_value = \"8.8.8.8\"",\
 "save_session()",\
 "del test_value",\
 "load_session()",\
+"update_session()",\
 "assert test_value == \"8.8.8.8\""]
 
 emulate_main_input(data)
 
-= Test save_session and load_session with fname
+= Test save_session, load_session and update_session with fname
 
 data = ["init_session(\"scapySession2\")",\
 "test_value = 7",\
 "save_session(fname=\"scapySaveSession.dat\")",\
 "del test_value",\
 "load_session(fname=\"scapySaveSession.dat\")",\
+"update_session(fname=\"scapySaveSession.dat\")",\
 "assert test_value == 7"]
 
 emulate_main_input(data)
@@ -209,6 +211,11 @@ assert(len(conf.temp_files) == 0)
 = Test sane function
 sane("A\x00\xFFB") == "A..B"
 
+= Test lhex function
+assert(lhex(42) == "0x2a")
+assert(lhex((28,07)) == "(0x1c, 0x7)")
+assert(lhex([28,07]) == "[0x1c, 0x7]")
+
 = Test linehexdump function
 conf_color_theme = conf.color_theme
 conf.color_theme = BlackAndWhite()
@@ -218,9 +225,15 @@ conf.color_theme = conf_color_theme
 = Test chexdump function
 chexdump(Ether(src="00:01:02:02:04:05"), dump=True) == "0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x01, 0x02, 0x02, 0x04, 0x05, 0x90, 0x00"
 
+= Test repr_hex function
+repr_hex("scapy") == "7363617079"
+
+= Test hexstr function
 hexstr(b"A\x00\xFFB") == "41 00 ff 42  A..B"
 
-fletcher16_checksum(b"\x28\x07") == 22319
+= Test fletcher16 functions
+assert(fletcher16_checksum(b"\x28\x07") == 22319)
+assert(fletcher16_checkbytes(b"\x28\x07", 1) == "\xaf(")
 
 = Test hexdiff function
 ~ not_pypy
@@ -277,11 +290,11 @@ tex_escape("$#_") == "\\$\\#\\_"
 
 = Test colgen function
 f = colgen(range(3))
-len([f.next() for i in range(2)]) == 2
+assert(len([f.next() for i in range(2)]) == 2)
 
 = Test incremental_label function
 f = incremental_label()
-[f.next() for i in range(2)] == ["tag00000", "tag00001"]
+assert([f.next() for i in range(2)] == ["tag00000", "tag00001"])
 
 = Test corrupt_* functions
 import random
@@ -312,6 +325,29 @@ assert(MANUFDB._get_short_manuf("00:00:0F:01:02:03") == "Next")
 ~ netaccess
 
 atol("www.secdev.org") == 3642339845
+
+= Test autorun functions
+
+ret = autorun_get_text_interactive_session("IP().src")
+assert(ret == (">>> IP().src\n'127.0.0.1'\n", '127.0.0.1'))
+
+ret = autorun_get_html_interactive_session("IP().src")
+assert(ret == ("<span class=prompt>&gt;&gt;&gt; </span>IP().src\n'127.0.0.1'\n", '127.0.0.1'))
+
+ret = autorun_get_latex_interactive_session("IP().src")
+assert(ret == ("\\textcolor{blue}{{\\tt\\char62}{\\tt\\char62}{\\tt\\char62} }IP().src\n'127.0.0.1'\n", '127.0.0.1'))
+
+= Test config file functions
+
+saved_conf_verb = conf.verb
+fd, fname = tempfile.mkstemp()
+os.write(fd, "conf.verb = 42\n")
+os.close(fd)
+from scapy.main import _read_config_file
+_read_config_file(fname)
+assert(conf.verb == 42)
+conf.verb = saved_conf_verb
+
 
 
 ############
@@ -705,6 +741,20 @@ success = False
 for i in xrange(5):
     try:
         ret = AS_resolver_riswhois().resolve("8.8.8.8")
+    except socket.error:
+        time.sleep(2)
+    else:
+        success = True
+        break
+
+assert (len(ret) == 1)
+
+all(x[1] == "AS15169" for x in ret)
+
+success = False
+for i in xrange(5):
+    try:
+        ret = AS_resolver_cymru().resolve("8.8.8.8")
     except socket.error:
         time.sleep(2)
     else:
@@ -7900,6 +7950,12 @@ load_mib(fname)
 assert(len([k for k in conf.mib.iterkeys() if "scapy" in k]) == 1)
 
 assert(len([oid for oid in conf.mib]) > 100)
+
+assert(conf.mib._my_find("MIB", "keyUsage"))
+
+assert(len(conf.mib._find("MIB", "keyUsage")))
+
+assert(len(conf.mib._recurs_find_all((), "MIB", "keyUsage")))
 
 = BER tests
 
