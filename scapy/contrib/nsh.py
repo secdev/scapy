@@ -9,6 +9,7 @@ from scapy.layers.inet import Ether, IP
 from scapy.layers.inet6 import IPv6
 from scapy.layers.vxlan import VXLAN
 from scapy.packet import Packet
+from scapy.layers.l2 import GRE
 
 from scapy.contrib.mpls import MPLS
 
@@ -71,6 +72,7 @@ class NSH(Packet):
 
 bind_layers(Ether, NSH, {'type': 0x894F}, type=0x894F)
 bind_layers(VXLAN, NSH, {'flags': 0xC, 'NextProtocol': 4}, NextProtocol=4)
+bind_layers(GRE, NSH, {'proto': 0x894F}, proto=0x894F)
 
 bind_layers(NSH, IP, {'NextProto': 1}, NextProto=1)
 bind_layers(NSH, IPv6, {'NextProto': 2}, NextProto=2)
