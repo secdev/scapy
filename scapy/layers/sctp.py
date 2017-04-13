@@ -8,9 +8,9 @@
 SCTP (Stream Control Transmission Protocol).
 """
 
-import os
 import struct
 
+from scapy.volatile import RandBin
 from scapy.config import conf
 from scapy.packet import *
 from scapy.fields import *
@@ -319,7 +319,7 @@ class SCTPChunkParamRandom(_SCTPChunkParam, Packet):
     fields_desc = [ ShortEnumField("type", 0x8002, sctpchunkparamtypes),
                     FieldLenField("len", None, length_of="random",
                                   adjust = lambda pkt,x:x+4),
-                    PadField(StrLenField("random", os.urandom(32),
+                    PadField(StrLenField("random", RandBin(32),
                                          length_from=lambda pkt: pkt.len-4),
                              4, padwith=b"\x00"),]
 

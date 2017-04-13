@@ -7892,6 +7892,11 @@ assert(p.len == 8)
 assert(p.seq == 0)
 assert(p.params == [])
 
+= SCTPChunkParamRandom - Consecutive calls
+~ sctp
+param1, param2 = SCTPChunkParamRandom(), SCTPChunkParamRandom()
+assert(param1.random != param2.random)
+
 ############
 ############
 + DHCP
