@@ -1,0 +1,61 @@
+% Regression tests for Scapy Answering Machines
+
+# More informations at http://www.secdev.org/projects/UTscapy/
+
+
+############
+############
++ Answering Machines
+
+= Generic answering machine mocker
+import mock
+@mock.patch("scapy.ansmachine.sniff")
+def test_am(cls_name, packet_query, check_reply, mock_sniff, **kargs):
+    def sniff(*args,**kargs):
+        kargs["prn"](packet_query)
+    mock_sniff.side_effect = sniff
+    am = cls_name(**kargs)
+    am.send_reply = check_reply
+    am()
+
+
+= BOOT_am
+def check_BOOTP_am_reply(packet):
+    assert(BOOTP in packet and packet[BOOTP].op == 2)
+    assert(packet[BOOTP].yiaddr == "192.168.1.128" and packet[BOOTP].giaddr == "192.168.1.1")
+
+test_am(BOOTP_am,
+        IP()/UDP()/BOOTP(op=1),
+        check_BOOTP_am_reply)
+
+
+= DHCP_am
+def check_DHCP_am_reply(packet):
+    assert(DHCP in packet and len(packet[DHCP].options))
+    assert(("domain", "localnet") in packet[DHCP].options)
+
+test_am(DHCP_am,
+        IP()/UDP()/BOOTP(op=1)/DHCP(),
+        check_DHCP_am_reply)
+
+
+= ARP_am
+def check_ARP_am_reply(packet):
+    assert(ARP in packet and packet[ARP].psrc == "10.28.7.1")
+    assert(packet[ARP].hwsrc == "00:01:02:03:04:05")
+
+test_am(ARP_am,
+        Ether()/ARP(pdst="10.28.7.1"),
+        check_ARP_am_reply,
+        IP_addr="10.28.7.1",
+        ARP_addr="00:01:02:03:04:05")
+
+
+= DNS_am
+def check_DNS_am_reply(packet):
+    assert(DNS in packet and packet[DNS].ancount == 1)
+    assert(packet[DNS].an.rdata == "192.168.1.1")
+
+test_am(DNS_am,
+        IP()/UDP()/DNS(qd=DNSQR(qname="www.secdev.org")),
+        check_DNS_am_reply)
