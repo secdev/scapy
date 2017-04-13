@@ -16,7 +16,6 @@ from scapy.error import Scapy_Exception, log_loading, log_runtime, warning
 from scapy.utils import atol, itom, inet_aton, inet_ntoa, PcapReader
 from scapy.base_classes import Gen, Net, SetGen
 from scapy.data import MTU, ETHER_BROADCAST, ETH_P_ARP
-from scapy.consts import LOOPBACK_NAME, getLoopbackInterface
 
 conf.use_pcap = False
 conf.use_dnet = False
@@ -38,6 +37,8 @@ if not hasattr(socket, 'IPPROTO_GRE'):
 
 from scapy.arch import pcapdnet
 from scapy.arch.pcapdnet import *
+
+from scapy.consts import LOOPBACK_NAME
 
 def is_new_release(ignoreVBS=False):
     if NEW_RELEASE and conf.prog.powershell is not None:
@@ -416,7 +417,7 @@ class NetworkInterfaceDict(UserDict):
         else:
             # Loading state: remove invalid interfaces
             self.remove_invalid_ifaces()
-            # Replace interface for getLoopbackInterface()
+            # Replace LOOPBACK_INTERFACE
             try:
                 scapy.consts.LOOPBACK_INTERFACE = self.dev_from_name(LOOPBACK_NAME)
             except:
@@ -444,10 +445,9 @@ class NetworkInterfaceDict(UserDict):
             if iface.win_index == str(if_index):
                 return iface
         if str(if_index) == "1":
-            # Local loopback
-            loopback = getLoopbackInterface()
-            if loopback != LOOPBACK_NAME:
-                return loopback
+            # Test if the loopback interface is set up
+            if isinstance(scapy.consts.LOOPBACK_INTERFACE, NetworkInterface):
+                return scapy.consts.LOOPBACK_INTERFACE
         raise ValueError("Unknown network interface index %r" % if_index)
 
     def remove_invalid_ifaces(self):
@@ -650,7 +650,7 @@ def _append_route6(routes, dpref, dp, nh, iface, lifaddr):
         cset = ['::1']
     else:
         devaddrs = filter(lambda x: x[2] == iface, lifaddr)
-        cset = scapy.utils6.construct_source_candidate_set(dpref, dp, devaddrs, getLoopbackInterface())
+        cset = scapy.utils6.construct_source_candidate_set(dpref, dp, devaddrs, scapy.consts.LOOPBACK_INTERFACE)
     if len(cset) == 0:
         return
     # APPEND (DESTINATION, NETMASK, NEXT HOP, IFACE, CANDIDATS)
@@ -781,7 +781,7 @@ def get_working_if():
         return min(read_routes(), key=lambda x: x[1])[3]
     except ValueError:
         # no route
-        return getLoopbackInterface()
+        return scapy.consts.LOOPBACK_INTERFACE
 
 conf.iface = get_working_if()
 

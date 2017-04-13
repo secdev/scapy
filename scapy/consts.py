@@ -59,8 +59,6 @@ WINDOWS = platform.startswith("win32")
 BSD = DARWIN or FREEBSD or OPENBSD or NETBSD
 # See https://docs.python.org/3/library/platform.html#cross-platform
 IS_64BITS = maxsize > 2**32
-# Windows only
-LOOPBACK_INTERFACE = None
 
 if WINDOWS:
     try:
@@ -74,11 +72,8 @@ else:
     uname = os.uname()
     LOOPBACK_NAME = "lo" if LINUX else "lo0"
 
-def getLoopbackInterface():
-    if LOOPBACK_INTERFACE and WINDOWS:
-        return LOOPBACK_INTERFACE
-    else:
-        return LOOPBACK_NAME
+# Will be different on Windows
+LOOPBACK_INTERFACE = LOOPBACK_NAME
 
 def parent_function():
     return inspect.getouterframes(inspect.currentframe())
