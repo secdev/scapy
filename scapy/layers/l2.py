@@ -315,7 +315,6 @@ eapol_types = {
 
 
 class EAPOL(Packet):
-
     """
     EAPOL - IEEE Std 802.1X-2010
     """
@@ -443,7 +442,6 @@ eap_codes = {
 
 
 class EAP(Packet):
-
     """
     RFC 3748 - Extensible Authentication Protocol (EAP)
     """
@@ -480,11 +478,11 @@ class EAP(Packet):
     INITIATE = 5
     FINISH = 6
 
-    registered_options = {}
+    registered_methods = {}
 
     @classmethod
     def register_variant(cls):
-        cls.registered_options[cls.type.default] = cls
+        cls.registered_methods[cls.type.default] = cls
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
@@ -492,8 +490,30 @@ class EAP(Packet):
             c = orb(_pkt[0])
             if c in [1, 2] and len(_pkt) >= 5:
                 t = orb(_pkt[4])
-                return cls.registered_options.get(t, cls)
+                return cls.registered_methods.get(t, cls)
         return cls
+
+    def haslayer(self, cls):
+        ret = 0
+        if cls == EAP:
+            for eap_class in EAP.registered_methods.values():
+                if isinstance(self, eap_class):
+                    ret = 1
+                    break
+        elif cls in EAP.registered_methods.values() and isinstance(self, cls):
+            ret = 1
+        return ret
+
+    def getlayer(self, cls, nb=1, _track=None):
+        layer = None
+        if cls == EAP:
+            for eap_class in EAP.registered_methods.values():
+                if isinstance(self, eap_class):
+                    layer = self
+                    break
+        else:
+            layer = Packet.getlayer(self, cls, nb, _track)
+        return layer
 
     def answers(self, other):
         if isinstance(other, EAP):
@@ -515,7 +535,6 @@ class EAP(Packet):
 
 
 class EAP_MD5(EAP):
-
     """
     RFC 3748 - "Extensible Authentication Protocol (EAP)"
     """
@@ -527,14 +546,13 @@ class EAP_MD5(EAP):
         FieldLenField("len", None, fmt="H", length_of="optional_name",
                       adjust=lambda p, x: x + p.value_size + 6),
         ByteEnumField("type", 4, eap_types),
-        FieldLenField("value_size", None, fmt="B", length_of="value"),
-        StrLenField("value", '', length_from=lambda p: p.value_size),
-        StrLenField("optional_name", '', length_from=lambda p: p.len - p.value_size - 6)
+        FieldLenField("value_size", 0, fmt="B", length_of="value"),
+        XStrLenField("value", '', length_from=lambda p: p.value_size),
+        XStrLenField("optional_name", '', length_from=lambda p: p.len - p.value_size - 6)
     ]
 
 
 class EAP_TLS(EAP):
-
     """
     RFC 5216 - "The EAP-TLS Authentication Protocol"
     """
@@ -551,12 +569,11 @@ class EAP_TLS(EAP):
         BitField('S', 0, 1),
         BitField('reserved', 0, 5),
         ConditionalField(IntField('tls_message_len', 0), lambda pkt: pkt.L == 1),
-        StrLenField('tls_data', '', length_from=lambda pkt: pkt.len - 10 if pkt.L == 1 else pkt.len - 6)
+        XStrLenField('tls_data', '', length_from=lambda pkt: pkt.len - 10 if pkt.L == 1 else pkt.len - 6)
     ]
 
 
 class EAP_FAST(EAP):
-
     """
     RFC 4851 - "The Flexible Authentication via Secure Tunneling
     Extensible Authentication Protocol Method (EAP-FAST)"
@@ -575,7 +592,7 @@ class EAP_FAST(EAP):
         BitField('reserved', 0, 2),
         BitField('version', 0, 3),
         ConditionalField(IntField('message_len', 0), lambda pkt: pkt.L == 1),
-        StrLenField('data', '', length_from=lambda pkt: pkt.len - 10 if pkt.L == 1 else pkt.len - 6)
+        XStrLenField('data', '', length_from=lambda pkt: pkt.len - 10 if pkt.L == 1 else pkt.len - 6)
     ]
 
 
@@ -1095,7 +1112,7 @@ bind_layers( CookedLinux,   EAPOL,         proto=34958)
 bind_layers( GRE,           LLC,           proto=122)
 bind_layers( GRE,           Dot1Q,         proto=33024)
 bind_layers( GRE,           Dot1AD,        type=0x88a8)
-bind_layers( GRE,           Ether,         proto=1)
+bind_layers( GRE,           Ether,         proto=0x6558)
 bind_layers( GRE,           ARP,           proto=2054)
 bind_layers( GRE,           EAPOL,         proto=34958)
 bind_layers( GRE,           GRErouting,    { "routing_present" : 1 } )

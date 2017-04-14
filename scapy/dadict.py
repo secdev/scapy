@@ -92,3 +92,5 @@ class DADict:
         return list(self.__dict__.keys())
     def iterkeys(self):
         return (x for x in self.__dict__ if x and x[0] != "_")
+    def __len__(self):
+        return len(self.__dict__)

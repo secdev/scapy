@@ -41,5 +41,5 @@ after_test:
   # Install & run codecov
   - "%PYTHON%\\python -m pip install codecov"
   - "SET PATH=%PYTHON%\\Scripts\\;%PATH%"
-  - "coverage combine ./ ./scapy/tools/"
+  - "coverage combine ./"
   - codecov

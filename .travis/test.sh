@@ -8,7 +8,7 @@ python -c "from scapy.all import *; print conf"
 # Don't run tests that require root privileges
 if [ -z "$SCAPY_SUDO" -o "$SCAPY_SUDO" = "false" ]
 then
-  UT_FLAGS="-K netaccess -K needs_root"
+  UT_FLAGS="-K netaccess -K needs_root -K manufdb"
   SCAPY_SUDO=""
 fi
 
@@ -21,7 +21,7 @@ UT_FLAGS+=" -K combined_modes_ccm"
 if python --version 2>&1 | grep -q PyPy
 then
   # cryptography requires PyPy >= 2.6, Travis CI uses 2.5.0
-  UT_FLAGS+=" -K crypto "
+  UT_FLAGS+=" -K crypto -K not_pypy"
 fi
 
 # Set PATH
@@ -61,6 +61,7 @@ then
   then
     $SCAPY_SUDO ./run_tests -q -F -t bpf.uts $UT_FLAGS || exit $?
   fi
+  UT_FLAGS+=" -K manufdb"
 fi
 
 # Run all normal and contrib tests

@@ -19,6 +19,8 @@ class MPLS(Packet):
 
    def guess_payload_class(self, payload):
        if len(payload) >= 1:
+           if not self.s:
+              return MPLS
            ip_version = (ord(payload[0]) >> 4) & 0xF
            if ip_version == 4:
                return IP

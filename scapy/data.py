@@ -32,8 +32,11 @@ ARPHDR_PPP = 512
 ARPHDR_LOOPBACK = 772
 ARPHDR_TUN = 65534
 
-# From net/bpf.h
+# From pcap/dlt.h
 DLT_NULL = 0
+DLT_RAW = 101
+DLT_IPV4 = 228
+DLT_IPV6 = 229
 
 # From net/ipv6.h on Linux (+ Additions)
 IPV6_ADDR_UNICAST     = 0x01
@@ -191,7 +194,7 @@ else:
     IP_PROTOS=load_protocols("/etc/protocols")
     ETHER_TYPES=load_ethertypes("/etc/ethertypes")
     TCP_SERVICES,UDP_SERVICES=load_services("/etc/services")
-    MANUFDB = load_manuf("/usr/share/wireshark/wireshark/manuf")
+    MANUFDB = load_manuf("/usr/share/wireshark/manuf")
 
 
 

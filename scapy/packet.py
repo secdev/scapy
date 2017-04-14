@@ -138,9 +138,15 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
             self.post_transforms = [post_transform]
 
     def init_fields(self):
+        """
+        Initialize each fields of the fields_desc dict
+        """
         self.do_init_fields(self.fields_desc)
 
     def do_init_fields(self, flist):
+        """
+        Initialize each fields of the fields_desc dict
+        """
         for f in flist:
             self.default_fields[f.name] = copy.deepcopy(f.default)
             self.fieldtype[f.name] = f
@@ -364,6 +370,11 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         return {fname: self.copy_field_value(fname, fval)
                 for fname, fval in six.iteritems(fields)}
     def self_build(self, field_pos_list=None):
+        """
+        Create the default layer regarding fields_desc dict
+
+        :param field_pos_list:
+        """
         if self.raw_packet_cache is not None:
             for fname, fval in six.iteritems(self.raw_packet_cache_fields):
                 if self.getfieldval(fname) != fval:
@@ -385,9 +396,19 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         return p
 
     def do_build_payload(self):
+        """
+        Create the default version of the payload layer
+
+        :return: a string of payload layer
+        """
         return self.payload.do_build()
 
     def do_build(self):
+        """
+        Create the default version of the layer
+
+        :return: a string of the packet with the payload
+        """
         if not self.explicit:
             self = next(self.__iter__())
         pkt = self.self_build()
@@ -403,13 +424,24 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         return self.payload.build_padding()
 
     def build(self):
+        """
+        Create the current layer
+
+        :return: string of the packet with the payload
+        """
         p = self.do_build()
         p += self.build_padding()
         p = self.build_done(p)
         return p
     
     def post_build(self, pkt, pay):
-        """DEV: called right after the current layer is build."""
+        """
+        DEV: called right after the current layer is build.
+
+        :param str pkt: the current packet (build by self_buil function)
+        :param str pay: the packet payload (build by do_build_payload function)
+        :return: a string of the packet with the payload
+        """
         return pkt+pay
 
     def build_done(self, p):
@@ -449,8 +481,14 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
 
 
     def psdump(self, filename=None, **kargs):
-        """psdump(filename=None, layer_shift=0, rebuild=1)
-Creates an EPS file describing a packet. If filename is not provided a temporary file is created and gs is called."""
+        """
+        psdump(filename=None, layer_shift=0, rebuild=1)
+
+        Creates an EPS file describing a packet. If filename is not provided a
+        temporary file is created and gs is called.
+
+        :param filename: the file's filename
+        """
         canvas = self.canvas_dump(**kargs)
         if filename is None:
             fname = get_temp_file(autoext=".eps")
@@ -460,8 +498,14 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
             canvas.writeEPSfile(filename)
 
     def pdfdump(self, filename=None, **kargs):
-        """pdfdump(filename=None, layer_shift=0, rebuild=1)
-        Creates a PDF file describing a packet. If filename is not provided a temporary file is created and xpdf is called."""
+        """
+        pdfdump(filename=None, layer_shift=0, rebuild=1)
+
+        Creates a PDF file describing a packet. If filename is not provided a
+        temporary file is created and xpdf is called.
+
+        :param filename: the file's filename
+        """
         canvas = self.canvas_dump(**kargs)
         if filename is None:
             fname = get_temp_file(autoext=".pdf")
@@ -621,7 +665,12 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
 
 
     def extract_padding(self, s):
-        """DEV: to be overloaded to extract current layer's padding. Return a couple of strings (actual layer, padding)"""
+        """
+        DEV: to be overloaded to extract current layer's padding.
+
+        :param str s: the current layer
+        :return: a couple of strings (actual layer, padding)
+        """
         return s,None
 
     def post_dissect(self, s):
@@ -651,6 +700,11 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
         return s
 
     def do_dissect_payload(self, s):
+        """
+        Perform the dissection of the layer's payload
+
+        :param str s: the raw layer
+        """
         if s:
             cls = self.guess_payload_class(s)
             try:
@@ -682,7 +736,13 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
 
 
     def guess_payload_class(self, payload):
-        """DEV: Guesses the next payload class from layer bonds. Can be overloaded to use a different mechanism."""
+        """
+        DEV: Guesses the next payload class from layer bonds.
+        Can be overloaded to use a different mechanism.
+
+        :param str payload: the layer's payload
+        :return: the payload class
+        """
         for t in self.aliastypes:
             for fval, cls in t.payload_guess:
                 ok = 1
@@ -695,7 +755,13 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
         return self.default_payload_class(payload)
     
     def default_payload_class(self, payload):
-        """DEV: Returns the default payload class if nothing has been found by the guess_payload_class() method."""
+        """
+        DEV: Returns the default payload class if nothing has been found by the
+        guess_payload_class() method.
+
+        :param str payload: the layer's payload
+        :return: the default payload class define inside the configuration file
+        """
         return conf.raw_layer
 
     def hide_defaults(self):
@@ -898,6 +964,13 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
         """
         Internal method that shows or dumps a hierarchical view of a packet.
         Called by show.
+
+        :param dump: determine if it prints or returns the string value
+        :param int indent: the size of indentation for each layer
+        :param str lvl: additional information about the layer lvl
+        :param str label_lvl: additional information about the layer fields
+        :param first_call: determine if the current function is the first
+        :return: return a hierarchical view if dump, else print it
         """
 
         if dump:
@@ -944,11 +1017,30 @@ Creates an EPS file describing a packet. If filename is not provided a temporary
             return s
 
     def show(self, dump=False, indent=3, lvl="", label_lvl=""):
-        """Prints or returns (when "dump" is true) a hierarchical view of the packet. "indent" gives the size of indentation for each layer."""
+        """
+        Prints or returns (when "dump" is true) a hierarchical view of the
+        packet.
+
+        :param dump: determine if it prints or returns the string value
+        :param int indent: the size of indentation for each layer
+        :param str lvl: additional information about the layer lvl
+        :param str label_lvl: additional information about the layer fields
+        :return: return a hierarchical view if dump, else print it
+        """
         return self._show_or_dump(dump, indent, lvl, label_lvl)
 
     def show2(self, dump=False, indent=3, lvl="", label_lvl=""):
-        """Prints or returns (when "dump" is true) a hierarchical view of an assembled version of the packet, so that automatic fields are calculated (checksums, etc.)"""
+        """
+        Prints or returns (when "dump" is true) a hierarchical view of an
+        assembled version of the packet, so that automatic fields are
+        calculated (checksums, etc.)
+
+        :param dump: determine if it prints or returns the string value
+        :param int indent: the size of indentation for each layer
+        :param str lvl: additional information about the layer lvl
+        :param str label_lvl: additional information about the layer fields
+        :return: return a hierarchical view if dump, else print it
+        """
         return self.__class__(raw(self)).show(dump, indent, lvl, label_lvl)
 
     def sprintf(self, fmt, relax=1):
@@ -1106,20 +1198,6 @@ A side effect is that, to obtain "{" and "}" characters, you must use
             pp = pp.underlayer
         self.payload.dissection_done(pp)
 
-    def libnet(self):
-        """Not ready yet. Should give the necessary C code that interfaces with libnet to recreate the packet"""
-        print("libnet_build_%s(" % self.__class__.name.lower())
-        det = self.__class__(raw(self))
-        for f in self.fields_desc:
-            val = det.getfieldval(f.name)
-            if val is None:
-                val = 0
-            elif type(val) is int:
-                val = str(val)
-            else:
-                val = '"%s"' % str(val)
-            print("\t%s, \t\t/* %s */" % (val,f.name))
-        print(");")
     def command(self):
         """Returns a string representing the command you have to type to obtain the same packet"""
         f = []
@@ -1129,6 +1207,8 @@ A side effect is that, to obtain "{" and "}" characters, you must use
                 fv = fv.command()
             elif fld.islist and fld.holds_packets and type(fv) is list:
                 fv = "[%s]" % ",".join( map(Packet.command, fv))
+            elif isinstance(fld, FlagsField):
+                fv = int(fv)
             else:
                 fv = repr(fv)
             f.append("%s=%s" % (fn, fv))

@@ -810,6 +810,7 @@ bind_layers( IP,            GRE,           frag=0, proto=47)
 
 conf.l2types.register(101, IP)
 conf.l2types.register_num2layer(12, IP)
+conf.l2types.register(DLT_IPV4, IP)
 
 conf.l3types.register(ETH_P_IP, IP)
 conf.l3types.register_num2layer(ETH_P_ALL, IP)

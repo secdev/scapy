@@ -1185,7 +1185,7 @@ ofpt_cls = {  0: OFPTHello,
 TCP_guess_payload_class_copy = TCP.guess_payload_class
 
 def OpenFlow(self, payload):
-    if self is None or self.dport == 6653 or self.dport == 6633 or self.sport == 6653 or self.sport == 6653:
+    if self is None or self.dport == 6653 or self.dport == 6633 or self.sport == 6653 or self.sport == 6633:
     # port 6653 has been allocated by IANA, port 6633 should no longer be used
     # OpenFlow function may be called with None self in OFPPacketField
         of_type = ord(payload[1])

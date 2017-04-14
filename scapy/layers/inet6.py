@@ -531,6 +531,21 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
             return self.payload.answers(other.payload)
 
 
+class _IPv46(IP):
+    """
+    This class implements a dispatcher that is used to detect the IP version
+    while parsing Raw IP pcap files.
+    """
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *_, **kargs):
+        if _pkt:
+            if struct.unpack('B', _pkt[0])[0] >> 4 == 6:
+                return IPv6
+        elif kargs.get("version") == 6:
+            return IPv6
+        return IP
+
+
 def inet6_register_l3(l2, l3):
     return getmacbyip6(l3.dst)
 conf.neighbor.register_l3(Ether, IPv6, inet6_register_l3)
@@ -3086,6 +3101,7 @@ _mip6_mhtype2cls = { 0: MIP6MH_BRR,
                      7: MIP6MH_BE }
 
 
+
 #############################################################################
 #############################################################################
 ###                             Traceroute6                               ###
@@ -3870,9 +3886,12 @@ def NDP_Attack_Fake_Router(ra, iface=None, mac_src_filter=None,
 
 conf.l3types.register(ETH_P_IPV6, IPv6)
 conf.l2types.register(31, IPv6)
+conf.l2types.register(DLT_IPV6, IPv6)
+conf.l2types.register(DLT_RAW, _IPv46)
 
 bind_layers(Ether,     IPv6,     type = 0x86dd )
 bind_layers(CookedLinux, IPv6,   proto = 0x86dd )
+bind_layers(GRE,       IPv6,     proto = 0x86dd )
 bind_layers(Loopback,  IPv6,     type = 0x1c )
 bind_layers(IPerror6,  TCPerror, nh = socket.IPPROTO_TCP )
 bind_layers(IPerror6,  UDPerror, nh = socket.IPPROTO_UDP )
@@ -3881,3 +3900,4 @@ bind_layers(IPv6,      UDP,      nh = socket.IPPROTO_UDP )
 bind_layers(IP,        IPv6,     proto = socket.IPPROTO_IPV6 )
 bind_layers(IPv6,      IPv6,     nh = socket.IPPROTO_IPV6 )
 bind_layers(IPv6,      IP,       nh = socket.IPPROTO_IPIP )
+bind_layers(IPv6,      GRE,      nh = socket.IPPROTO_GRE )

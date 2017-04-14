@@ -33,42 +33,6 @@ else:
     log_loading.info("Can't import python-cryptography v1.7+. Disabled WEP decryption/encryption.")
 
 
-### Fields
-
-class Dot11AddrMACField(MACField):
-    def is_applicable(self, pkt):
-        return 1
-    def addfield(self, pkt, s, val):
-        if self.is_applicable(pkt):
-            return MACField.addfield(self, pkt, s, val)
-        else:
-            return s        
-    def getfield(self, pkt, s):
-        if self.is_applicable(pkt):
-            return MACField.getfield(self, pkt, s)
-        else:
-            return s,None
-
-class Dot11Addr2MACField(Dot11AddrMACField):
-    # Block-Ack, RTS, PS-Poll, CF-End, CF-End+CF-Ack
-    subtypes = {0x9, 0xb, 0xa, 0xe, 0xf}
-    def is_applicable(self, pkt):
-        return pkt.type != 1 or pkt.subtype in self.subtypes
-
-class Dot11Addr3MACField(Dot11AddrMACField):
-    def is_applicable(self, pkt):
-        if pkt.type in [0,2]:
-            return 1
-        return 0
-
-class Dot11Addr4MACField(Dot11AddrMACField):
-    def is_applicable(self, pkt):
-        if pkt.type == 2:
-            if pkt.FCfield & 0x3 == 0x3: # To-DS and From-DS are set
-                return 1
-        return 0
-    
-
 ### Layers
 
 
@@ -147,35 +111,33 @@ class PPI(Packet):
                     ]
 
 
-
-class Dot11SCField(LEShortField):
-    def is_applicable(self, pkt):
-        return pkt.type != 1 # control frame
-    def addfield(self, pkt, s, val):
-        if self.is_applicable(pkt):
-            return LEShortField.addfield(self, pkt, s, val)
-        else:
-            return s
-    def getfield(self, pkt, s):
-        if self.is_applicable(pkt):
-            return LEShortField.getfield(self, pkt, s)
-        else:
-            return s,None
-
 class Dot11(Packet):
     name = "802.11"
     fields_desc = [
-                    BitField("subtype", 0, 4),
-                    BitEnumField("type", 0, 2, ["Management", "Control", "Data", "Reserved"]),
-                    BitField("proto", 0, 2),
-                    FlagsField("FCfield", 0, 8, ["to-DS", "from-DS", "MF", "retry", "pw-mgt", "MD", "wep", "order"]),
-                    ShortField("ID",0),
-                    MACField("addr1", ETHER_ANY),
-                    Dot11Addr2MACField("addr2", ETHER_ANY),
-                    Dot11Addr3MACField("addr3", ETHER_ANY),
-                    Dot11SCField("SC", 0),
-                    Dot11Addr4MACField("addr4", ETHER_ANY) 
-                    ]
+        BitField("subtype", 0, 4),
+        BitEnumField("type", 0, 2, ["Management", "Control", "Data",
+                                    "Reserved"]),
+        BitField("proto", 0, 2),
+        FlagsField("FCfield", 0, 8, ["to-DS", "from-DS", "MF", "retry",
+                                     "pw-mgt", "MD", "wep", "order"]),
+        ShortField("ID",0),
+        MACField("addr1", ETHER_ANY),
+        ConditionalField(
+            MACField("addr2", ETHER_ANY),
+            lambda pkt: (pkt.type != 1 or
+                         pkt.subtype in [0x9, 0xb, 0xa, 0xe, 0xf]),
+        ),
+        ConditionalField(
+            MACField("addr3", ETHER_ANY),
+            lambda pkt: pkt.type in [0, 2],
+        ),
+        ConditionalField(LEShortField("SC", 0), lambda pkt: pkt.type != 1),
+        ConditionalField(
+            MACField("addr4", ETHER_ANY),
+            lambda pkt: (pkt.type == 2 and
+                         pkt.FCfield & 3 == 3),  ## from-DS+to-DS
+        ),
+    ]
     def mysummary(self):
         return self.sprintf("802.11 %Dot11.type% %Dot11.subtype% %Dot11.addr2% > %Dot11.addr1%")
     def guess_payload_class(self, payload):

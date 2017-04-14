@@ -576,9 +576,14 @@ def import_object(obj=None):
 
 
 def save_object(fname, obj):
-    six.moves.cPickle.dump(obj,gzip.open(fname,"wb"))
+    """Pickle a Python object"""
+
+    fd = gzip.open(fname, "wb")
+    six.moves.cPickle.dump(obj, fd)
+    fd.close()
 
 def load_object(fname):
+    """unpickle a Python object"""
     return six.moves.cPickle.load(gzip.open(fname,"rb"))
 
 @conf.commands.register

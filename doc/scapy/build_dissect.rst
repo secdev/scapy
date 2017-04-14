@@ -387,7 +387,14 @@ Binding layers
 
 One of the cool features with  Scapy when dissecting layers is that is
 try to guess for us what the next layer is. The official way to link 2
-layers is using ``bind_layers()``:
+layers is using ``bind_layers()`` function.
+
+Available inside the ``packet`` module, this function can be used as following::
+
+    bind_layers(ProtoA, ProtoB, FieldToBind=Value)
+
+Each time a packet ``ProtoA()/ProtoB()`` will be created, the ``FieldToBind`` of
+``ProtoA`` will be equal to ``Value``.
 
 For instance,  if you have a class ``HTTP``, you may expect  that all the
 packets coming from or going to  port 80 will be decoded as such. This
