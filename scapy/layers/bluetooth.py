@@ -12,7 +12,6 @@ import socket,struct,array
 from ctypes import *
 from select import select
 
-from scapy.all import *
 from scapy.config import conf
 from scapy.packet import *
 from scapy.fields import *
