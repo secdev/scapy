@@ -153,7 +153,7 @@ def chexdump(x, dump=False):
 def hexstr(x, onlyasc=0, onlyhex=0):
     s = []
     if not onlyasc:
-        s.append(" ".join(["%02x"%ord(x) for x in x]))
+        s.append(" ".join(["%02x"%ord(y) for y in x]))
     if not onlyhex:
         s.append(sane(x)) 
     return "  ".join(s)
@@ -504,7 +504,7 @@ def binrepr(val):
     return bin(val)[2:]
 
 def long_converter(s):
-    return int(s.replace('\n', '').replace(' ', ''), 16)
+    return long(s.replace('\n', '').replace(' ', ''), 16)
 
 #########################
 #### Enum management ####
