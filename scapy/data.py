@@ -7,9 +7,11 @@
 Global variables and functions for handling external data sets.
 """
 
-import os,sys,re
+from __future__ import absolute_import
+import os, sys, re
 from scapy.dadict import DADict
 from scapy.error import log_loading
+import scapy.modules.six as six
 
 ############
 ## Consts ##
@@ -51,12 +53,15 @@ IPV6_ADDR_6TO4        = 0x0100   # Added to have more specific info (should be 0
 IPV6_ADDR_UNSPECIFIED = 0x10000
 
 
-
-
 MTU = 0xffff # a.k.a give me all you have
 
 WINDOWS=sys.platform.startswith("win")
 
+def _open(filename):
+    if six.PY2:
+        return open(filename)
+    else:
+        return open(filename, encoding='utf8')
  
 # file parsing to get some values :
 
@@ -64,7 +69,7 @@ def load_protocols(filename):
     spaces = re.compile("[ \t]+|\n")
     dct = DADict(_name=filename)
     try:
-        for l in open(filename):
+        for l in _open(filename):
             try:
                 shrp = l.find("#")
                 if  shrp >= 0:
@@ -76,7 +81,7 @@ def load_protocols(filename):
                 if len(lt) < 2 or not lt[0]:
                     continue
                 dct[lt[0]] = int(lt[1])
-            except Exception,e:
+            except Exception as e:
                 log_loading.info("Couldn't parse file [%s]: line [%r] (%s)" % (filename,l,e))
     except IOError:
         log_loading.info("Can't open %s file" % filename)
@@ -86,7 +91,7 @@ def load_ethertypes(filename):
     spaces = re.compile("[ \t]+|\n")
     dct = DADict(_name=filename)
     try:
-        f=open(filename)
+        f=_open(filename)
         for l in f:
             try:
                 shrp = l.find("#")
@@ -99,10 +104,10 @@ def load_ethertypes(filename):
                 if len(lt) < 2 or not lt[0]:
                     continue
                 dct[lt[0]] = int(lt[1], 16)
-            except Exception,e:
+            except Exception as e:
                 log_loading.info("Couldn't parse file [%s]: line [%r] (%s)" % (filename,l,e))
         f.close()
-    except IOError,msg:
+    except IOError as msg:
         pass
     return dct
 
@@ -111,7 +116,7 @@ def load_services(filename):
     tdct=DADict(_name="%s-tcp"%filename)
     udct=DADict(_name="%s-udp"%filename)
     try:
-        f=open(filename)
+        f=_open(filename)
         for l in f:
             try:
                 shrp = l.find("#")
@@ -127,7 +132,7 @@ def load_services(filename):
                     tdct[lt[0]] = int(lt[1].split('/')[0])
                 elif lt[1].endswith("/udp"):
                     udct[lt[0]] = int(lt[1].split('/')[0])
-            except Exception,e:
+            except Exception as e:
                 log_loading.warning("Couldn't file [%s]: line [%r] (%s)" % (filename,l,e))
         f.close()
     except IOError:
@@ -158,7 +163,7 @@ class ManufDA(DADict):
 def load_manuf(filename):
     try:
         manufdb=ManufDA(_name=filename)
-        for l in open(filename):
+        for l in _open(filename):
             try:
                 l = l.strip()
                 if not l or l.startswith("#"):
@@ -170,7 +175,7 @@ def load_manuf(filename):
                 else:
                     lng = l[i+2:]
                 manufdb[oui] = shrt, lng
-            except Exception,e:
+            except Exception as e:
                 log_loading.warning("Couldn't parse one line from [%s] [%r] (%s)" % (filename, l, e))
     except IOError:
         log_loading.warning("Couldn't open [%s] file" % filename)
@@ -218,5 +223,3 @@ class KnowledgeBase:
         if self.base is None:
             self.lazy_init()
         return self.base
-    
-

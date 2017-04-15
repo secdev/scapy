@@ -11,10 +11,15 @@ support our "tls" hash used with TLS 1.0. Once it is added to (or from) the
 library, most of the present module should be removed.
 """
 
-import os, popen2, tempfile
+from __future__ import absolute_import
+from scapy.compat import *
+
+import os, tempfile
 import math, random, struct
 
 from scapy.config import conf, crypto_validator
+from scapy.modules.six.moves import range
+from functools import reduce
 if conf.crypto_valid:
     from cryptography.exceptions import InvalidSignature
     from cryptography.hazmat.backends import default_backend
@@ -43,7 +48,7 @@ def pkcs_os2ip(x):
 
     Reverse function is pkcs_i2osp()
     """
-    return int(x.encode("hex"), 16)
+    return int(bytes_hex(x), 16)
 
 # I2OSP function defined in RFC 3447 for integer to octet string conversion
 def pkcs_i2osp(x, xLen):
@@ -63,7 +68,7 @@ def pkcs_i2osp(x, xLen):
     #if x >= 256**xLen:
     #    raise Exception("Integer too large for provided xLen %d" % xLen)
     fmt = "%%0%dx" % (2*xLen)
-    return (fmt % x).decode("hex")
+    return hex_bytes((fmt % x))
 
 def pkcs_ilen(n):
     """
@@ -163,7 +168,7 @@ def pkcs_mgf1(mgfSeed, maskLen, h):
     """
 
     # steps are those of Appendix B.2.1
-    if not _hashFuncParams.has_key(h):
+    if h not in _hashFuncParams:
         warning("pkcs_mgf1: invalid hash (%s) provided" % h)
         return None
     hLen = _hashFuncParams[h][0]
@@ -196,7 +201,7 @@ def pkcs_emsa_pss_encode(M, emBits, h, mgf, sLen):
        sLen  : intended length in octets of the salt
 
     Output:
-       encoded message, an octet string of length emLen = ceil(emBits/8)
+       encoded message, an octet string of length emLen = ceil(emBits//8)
 
     On error, None is returned.
     """
@@ -216,11 +221,11 @@ def pkcs_emsa_pss_encode(M, emBits, h, mgf, sLen):
     DB = PS + b'\x01' + salt                                  # 8)
     dbMask = mgf(H, emLen - hLen - 1)                        # 9)
     maskedDB = strxor(DB, dbMask)                            # 10)
-    l = (8*emLen - emBits)/8                                 # 11)
+    l = (8*emLen - emBits)//8                                 # 11)
     rem = 8*emLen - emBits - 8*l # additionnal bits
     andMask = l*b'\x00'
     if rem:
-        j = chr(reduce(lambda x,y: x+y, map(lambda x: 1<<x, range(8-rem))))
+        j = chr(reduce(lambda x,y: x+y, [1<<x for x in range(8-rem)]))
         andMask += j
         l += 1
     maskedDB = strand(maskedDB[:l], andMask) + maskedDB[l:]
@@ -258,11 +263,11 @@ def pkcs_emsa_pss_verify(M, EM, emBits, h, mgf, sLen):
     l = emLen - hLen - 1                                     # 5)
     maskedDB = EM[:l]
     H = EM[l:l+hLen]
-    l = (8*emLen - emBits)/8                                 # 6)
+    l = (8*emLen - emBits)//8                                 # 6)
     rem = 8*emLen - emBits - 8*l # additionnal bits
     andMask = l*b'\xff'
     if rem:
-        val = reduce(lambda x,y: x+y, map(lambda x: 1<<x, range(8-rem)))
+        val = reduce(lambda x,y: x+y, [1<<x for x in range(8-rem)])
         j = chr(~val & 0xff)
         andMask += j
         l += 1
@@ -270,11 +275,11 @@ def pkcs_emsa_pss_verify(M, EM, emBits, h, mgf, sLen):
         return False
     dbMask = mgf(H, emLen - hLen - 1)                        # 7)
     DB = strxor(maskedDB, dbMask)                            # 8)
-    l = (8*emLen - emBits)/8                                 # 9)
+    l = (8*emLen - emBits)//8                                 # 9)
     rem = 8*emLen - emBits - 8*l # additionnal bits
     andMask = l*b'\x00'
     if rem:
-        j = chr(reduce(lambda x,y: x+y, map(lambda x: 1<<x, range(8-rem))))
+        j = chr(reduce(lambda x,y: x+y, [1<<x for x in range(8-rem)]))
         andMask += j
         l += 1
     DB = strand(DB[:l], andMask) + DB[l:]
@@ -347,6 +352,8 @@ class _EncryptAndVerifyRSA(object):
         """
 
         n = self._modulus
+        # FIXME: long will not be supported anymore on Python 3 but
+        # removing it makes Python 2 crash
         if isinstance(m, int):
             m = long(m)
         if (not isinstance(m, long)) or m > n-1:
@@ -415,7 +422,7 @@ class _EncryptAndVerifyRSA(object):
         # Set default parameters if not provided
         if h is None: # By default, sha1
             h = "sha1"
-        if not _hashFuncParams.has_key(h):
+        if h not in _hashFuncParams:
             warning("Key._rsassa_pss_verify(): unknown hash function "
                     "provided (%s)" % h)
             return False
@@ -427,7 +434,7 @@ class _EncryptAndVerifyRSA(object):
 
         # 1) Length checking
         modBits = self._modulusLen
-        k = modBits / 8
+        k = modBits // 8
         if len(S) != k:
             return False
 
@@ -460,7 +467,7 @@ class _EncryptAndVerifyRSA(object):
         """
 
         # 1) Length checking
-        k = self._modulusLen / 8
+        k = self._modulusLen // 8
         if len(S) != k:
             warning("invalid signature (len(S) != k)")
             return False
@@ -586,6 +593,8 @@ class _DecryptAndSignRSA(object):
         """
 
         n = self._modulus
+        # FIXME: long will not be supported anymore on Python 3 but
+        # removing it makes Python 2 crash
         if isinstance(c, int):
             c = long(c)
         if (not isinstance(c, long)) or c > n-1:
@@ -657,7 +666,7 @@ class _DecryptAndSignRSA(object):
         # Set default parameters if not provided
         if h is None: # By default, sha1
             h = "sha1"
-        if not _hashFuncParams.has_key(h):
+        if h not in _hashFuncParams:
             warning("Key._rsassa_pss_sign(): unknown hash function "
                     "provided (%s)" % h)
             return None
@@ -669,7 +678,7 @@ class _DecryptAndSignRSA(object):
 
         # 1) EMSA-PSS encoding
         modBits = self._modulusLen
-        k = modBits / 8
+        k = modBits // 8
         EM = pkcs_emsa_pss_encode(M, modBits - 1, h, mgf, sLen)
         if EM is None:
             warning("Key._rsassa_pss_sign(): unable to encode")
@@ -698,7 +707,7 @@ class _DecryptAndSignRSA(object):
         """
 
         # 1) EMSA-PKCS1-v1_5 encoding
-        k = self._modulusLen / 8
+        k = self._modulusLen // 8
         EM = pkcs_emsa_pkcs1_v1_5_encode(M, k, h)
         if EM is None:
             warning("Key._rsassa_pkcs1_v1_5_sign(): unable to encode")
@@ -745,6 +754,7 @@ class _DecryptAndSignRSA(object):
                   default value (the byte length of the hash value for provided
                   algorithm) by providing another one with that parameter.
         """
+
         if t is None: # RSASP1
             M = pkcs_os2ip(M)
             n = self._modulus
@@ -754,7 +764,7 @@ class _DecryptAndSignRSA(object):
             s = self._rsasp1(M)
             if s is None:
                 return None
-            return pkcs_i2osp(s, self._modulusLen/8)
+            return pkcs_i2osp(s, self._modulusLen//8)
         elif t == "pkcs": # RSASSA-PKCS1-v1_5-SIGN
             if h is None:
                 h = "sha1"
@@ -870,7 +880,7 @@ def create_temporary_ca_path(anchor_list, folder):
     except:
         return None
 
-    r,w=popen2.popen2("c_rehash %s" % folder)
+    r,w=os.popen2("c_rehash %s" % folder)
     r.close(); w.close()
 
     return l

@@ -7,6 +7,7 @@
 RTP (Real-time Transport Protocol).
 """
 
+from __future__ import absolute_import
 from scapy.packet import *
 from scapy.fields import *
 

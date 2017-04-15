@@ -11,6 +11,7 @@ Logging subsystem and basic exception class.
 ##### Logging subsystem #####
 #############################
 
+from __future__ import absolute_import
 class Scapy_Exception(Exception):
     pass
 

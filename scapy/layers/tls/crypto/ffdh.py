@@ -8,6 +8,7 @@ This is a register for DH groups from RFC 3526 and RFC 4306.
 XXX These groups (and the ones from RFC 7919) should be registered to
 the cryptography library. And this file should eventually be removed.
 """
+from __future__ import absolute_import
 
 from scapy.config import conf
 if conf.crypto_valid:
@@ -17,6 +18,7 @@ else:
     default_backend = dh = None
 
 from scapy.utils import long_converter
+import scapy.modules.six as six
 
 
 class modp768: # From RFC 4306
@@ -207,7 +209,7 @@ _ffdh_raw_params = { 'modp768' : modp768,
 
 FFDH_GROUPS = {}
 if dh and default_backend:
-    for name, group in _ffdh_raw_params.iteritems():
+    for name, group in six.iteritems(_ffdh_raw_params):
         pn = dh.DHParameterNumbers(group.m, group.g)
         params = pn.parameters(default_backend())
         FFDH_GROUPS[name] = [params, group.mLen]

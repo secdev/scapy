@@ -11,7 +11,9 @@ Optional cipher_cuite_code and version may be provided as hexadecimal strings
 (e.g. c09e for TLS_DHE_RSA_WITH_AES_128_CCM and 0303 for TLS 1.2).
 Reception of the exact send_data on the server is to be checked externally.
 """
+from __future__ import absolute_import
 
+from __future__ import absolute_import
 import sys, os, time
 import multiprocessing
 

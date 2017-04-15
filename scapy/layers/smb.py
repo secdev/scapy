@@ -7,6 +7,7 @@
 SMB (Server Message Block), also known as CIFS.
 """
 
+from __future__ import absolute_import
 from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.netbios import NBTSession
@@ -55,7 +56,7 @@ class SMBMailSlot(Packet):
                    LEShortField("priority", 1),
                    LEShortField("class", 2),
                    LEShortField("size", 135),
-                   StrNullField("name","\MAILSLOT\NET\GETDC660")]
+                   StrNullField("name","\\MAILSLOT\\NET\\GETDC660")]
 
 # SMB NetLogon Protocol Response Tail SAM
 class SMBNetlogon_Protocol_Response_Tail_SAM(Packet):
@@ -168,7 +169,7 @@ class SMBNegociate_Protocol_Response_Advanced_Security(Packet):
                    BitField("CompBulk",0,2),
                    BitField("Reserved3",0,5),
 # There have been 127490112000000000 tenths of micro-seconds between 1st january 1601 and 1st january 2005. 127490112000000000=0x1C4EF94D6228000, so ServerTimeHigh=0xD6228000 and ServerTimeLow=0x1C4EF94.
-                   LEIntField("ServerTimeHigh",0xD6228000L),
+                   LEIntField("ServerTimeHigh",0xD6228000),
                    LEIntField("ServerTimeLow",0x1C4EF94),
                    LEShortField("ServerTimeZone",0x3c),
                    ByteField("EncryptionKeyLength",0),
@@ -209,7 +210,7 @@ class SMBNegociate_Protocol_Response_No_Security(Packet):
                    FlagsField("CompBulk",0,2,"CB"),
                    BitField("Reserved3",0,5),
                    # There have been 127490112000000000 tenths of micro-seconds between 1st january 1601 and 1st january 2005. 127490112000000000=0x1C4EF94D6228000, so ServerTimeHigh=0xD6228000 and ServerTimeLow=0x1C4EF94.
-                   LEIntField("ServerTimeHigh",0xD6228000L),
+                   LEIntField("ServerTimeHigh",0xD6228000),
                    LEIntField("ServerTimeLow",0x1C4EF94),
                    LEShortField("ServerTimeZone",0x3c),
                    ByteField("EncryptionKeyLength",8),
@@ -250,7 +251,7 @@ class SMBNegociate_Protocol_Response_No_Security_No_Key(Packet):
                    FlagsField("CompBulk",0,2,"CB"),
                    BitField("Reserved3",0,5),
                    # There have been 127490112000000000 tenths of micro-seconds between 1st january 1601 and 1st january 2005. 127490112000000000=0x1C4EF94D6228000, so ServerTimeHigh=0xD6228000 and ServerTimeLow=0x1C4EF94.
-                   LEIntField("ServerTimeHigh",0xD6228000L),
+                   LEIntField("ServerTimeHigh",0xD6228000),
                    LEIntField("ServerTimeLow",0x1C4EF94),
                    LEShortField("ServerTimeZone",0x3c),
                    ByteField("EncryptionKeyLength",0),

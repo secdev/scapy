@@ -8,6 +8,7 @@ TLS base fields, used for record parsing/building. As several operations depend
 upon the TLS version or ciphersuite, the packet has to provide a TLS context.
 """
 
+from __future__ import absolute_import
 from scapy.fields import *
 
 

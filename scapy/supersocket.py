@@ -7,13 +7,16 @@
 SuperSocket.
 """
 
+from __future__ import absolute_import
 import socket,time
+from scapy.compat import *
 
 from scapy.config import conf
 from scapy.data import *
 from scapy.error import warning, log_runtime
 import scapy.packet
 from scapy.utils import PcapReader, tcpdump
+import scapy.modules.six as six
 
 class _SuperSocket_metaclass(type):
     def __repr__(self):
@@ -23,8 +26,7 @@ class _SuperSocket_metaclass(type):
             return "<%s>" % self.__name__
 
 
-class SuperSocket:
-    __metaclass__ = _SuperSocket_metaclass
+class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
     desc = None
     closed=0
     def __init__(self, family=socket.AF_INET,type=socket.SOCK_STREAM, proto=0):
@@ -32,7 +34,7 @@ class SuperSocket:
         self.outs = self.ins
         self.promisc=None
     def send(self, x):
-        sx = str(x)
+        sx = raw(x)
         if hasattr(x, "sent_time"):
             x.sent_time = time.time()
         return self.outs.send(sx)
@@ -103,10 +105,10 @@ class L3RawSocket(SuperSocket):
         return pkt
     def send(self, x):
         try:
-            sx = str(x)
+            sx = raw(x)
             x.sent_time = time.time()
             self.outs.sendto(sx,(x.dst,0))
-        except socket.error,msg:
+        except socket.error as msg:
             log_runtime.error(msg)
 
 class SimpleSocket(SuperSocket):
@@ -144,13 +146,13 @@ class SSLStreamSocket(StreamSocket):
     desc = "similar usage than StreamSocket but specialized for handling SSL-wrapped sockets"
 
     def __init__(self, sock, basecls=None):
-        self._buf = ''
+        self._buf = b''
         super(SSLStreamSocket, self).__init__(sock, basecls)
 
     #65535, the default value of x is the maximum length of a TLS record
     def recv(self, x=65535):
         pkt = None
-        if self._buf != '':
+        if self._buf != b'':
             try:
                 pkt = self.basecls(self._buf)
             except:

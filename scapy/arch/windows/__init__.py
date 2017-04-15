@@ -6,6 +6,10 @@
 """
 Customizations needed to support Microsoft Windows.
 """
+from __future__ import print_function
+from __future__ import absolute_import
+from scapy.compat import *
+
 import os, re, sys, socket, time, itertools, platform
 import subprocess as sp
 from glob import glob
@@ -17,13 +21,15 @@ from scapy.utils import atol, itom, inet_aton, inet_ntoa, PcapReader
 from scapy.base_classes import Gen, Net, SetGen
 from scapy.data import MTU, ETHER_BROADCAST, ETH_P_ARP
 from scapy.consts import LOOPBACK_NAME
+import scapy.modules.six as six
+from scapy.modules.six.moves import range, zip
 
 conf.use_pcap = False
 conf.use_dnet = False
 conf.use_winpcapy = True
 
 WINDOWS = (os.name == 'nt')
-NEW_RELEASE = False
+NEW_RELEASE = None
 
 #hot-patching socket for missing variables on Windows
 import socket
@@ -39,8 +45,12 @@ if not hasattr(socket, 'IPPROTO_GRE'):
 from scapy.arch import pcapdnet
 from scapy.arch.pcapdnet import *
 
-def is_new_release():
+def is_new_release(ignoreVBS=False):
+    if NEW_RELEASE and conf.prog.powershell is not None:
+        return True
     release = platform.release()
+    if conf.prog.powershell is None and not ignoreVBS:
+        return False
     try:
         if float(release) >= 8:
             return True
@@ -48,8 +58,6 @@ def is_new_release():
         if (release=="post2008Server"):
             return True
     return False
-
-NEW_RELEASE = is_new_release()
 
 def _exec_query_ps(cmd, fields):
     """Execute a PowerShell query"""
@@ -82,7 +90,7 @@ def _vbs_exec_code(code, split_tag="@"):
     ps = sp.Popen([conf.prog.cscript, tmpfile.name],
                   stdout=sp.PIPE, stderr=open(os.devnull),
                   universal_newlines=True)
-    for _ in xrange(3):
+    for _ in range(3):
         # skip 3 first lines
         ps.stdout.readline()
     for line in ps.stdout:
@@ -96,9 +104,9 @@ def _vbs_get_iface_guid(devid):
         return
     try:
         devid = str(int(devid) + 1)
-        guid = _vbs_exec_code("""WScript.Echo CreateObject("WScript.Shell").RegRead("HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\NetworkCards\\%s\\ServiceName")
-""" % devid).__iter__().next()
-        if guid.startswith('{') and guid.endswith('}\n'):
+        guid = next(_vbs_exec_code("""WScript.Echo CreateObject("WScript.Shell").RegRead("HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\NetworkCards\\%s\\ServiceName")
+""" % devid).__iter__())
+        if guid.startswith(b'{') and guid.endswith(b'}\n'):
             return guid[:-1]
     except StopIteration:
         pass
@@ -184,7 +192,7 @@ def _deep_lookup(prog_list, max_depth=3):
         return False, None, None
     def key_in_path(path, key):
         return key.lower() in path.lower()
-    deeper_paths = [env_path("ProgramFiles"), env_path("ProgramFiles(x86)")]
+    deeper_paths = [x for x in [env_path("ProgramFiles"), env_path("ProgramW6432")] if x != ""]
     for path in deeper_paths:
         len_p = len(path) + len(os.path.sep)
         for root, subFolders, files in os.walk(path):
@@ -213,9 +221,9 @@ def _where(filename, dirs=None, env="PATH"):
         return DEEP_LOOKUP_CACHE[filename]
     paths = [os.curdir] + os.environ[env].split(os.path.pathsep) + dirs
     for path in paths:
-        for match in glob(os.path.join(path, filename)):
-            if match:
-                return os.path.normpath(match)
+        _path = os.path.normpath(os.path.join(path, filename))
+        if os.path.isfile(_path):
+            return _path
     raise IOError("File not found: %s" % filename)
 
 def win_find_exe(filename, installsubdir=None, env="ProgramFiles"):
@@ -234,19 +242,6 @@ def win_find_exe(filename, installsubdir=None, env="ProgramFiles"):
         else:
             break        
     return path
-
-
-def is_new_release(ignoreVBS=False):
-    release = platform.release()
-    if conf.prog.powershell is None and not ignoreVBS:
-        return False
-    try:
-        if float(release) >= 8:
-            return True
-    except ValueError:
-        if (release=="post2008Server"):
-            return True
-    return False
 
 class WinProgPath(ConfClass):
     # This is a dict containing the name of the .exe and a keyword
@@ -290,13 +285,16 @@ if conf.prog.tcpdump != "windump" and conf.use_npcap:
         try:
             p_test_windump = sp.Popen([conf.prog.tcpdump, "-help"], stdout=sp.PIPE, stderr=sp.STDOUT)
             stdout, err = p_test_windump.communicate()
-            return "npcap" in stdout.lower()
+            return b"npcap" in stdout.lower()
         except:
             return False
     windump_ok = test_windump_npcap()
     if not windump_ok:
         warning("The installed Windump version does not work with Npcap ! Refer to 'Winpcap/Npcap conflicts' in scapy's doc", True)
     del windump_ok
+
+# Auto-detect release
+NEW_RELEASE = is_new_release()
 
 class PcapNameNotFoundError(Scapy_Exception):
     pass    
@@ -311,7 +309,7 @@ def is_interface_valid(iface):
 
 def get_windows_if_list():
     """Returns windows interfaces"""
-    if NEW_RELEASE:
+    if is_new_release():
         # This works only starting from Windows 8/2012 and up. For older Windows another solution is needed
         # Careful: this is weird, but Get-NetAdaptater works like: (Name isn't the interface name)
         # Name                      InterfaceDescription                    ifIndex Status       MacAddress             LinkSpeed
@@ -326,7 +324,7 @@ def get_windows_if_list():
                             'GUID', 'MacAddress'])
     return [
         iface for iface in
-        (dict(zip(['name', 'win_index', 'description', 'guid', 'mac'], line))
+        (dict(list(zip(['name', 'win_index', 'description', 'guid', 'mac'], line)))
          for line in query)
         if is_interface_valid(iface)
     ]
@@ -372,7 +370,7 @@ class NetworkInterface(object):
             if not self.ip:
                 self.ip=get_ip_from_name(data['name'])
         except (KeyError, AttributeError, NameError) as e:
-            print e
+            print(e)
         if not self.ip and self.name == LOOPBACK_NAME:
             self.ip = "127.0.0.1"
         try:
@@ -387,7 +385,6 @@ class NetworkInterface(object):
             if i.endswith(self.data['guid']):
                 self.pcap_name = i
                 return
-
         raise PcapNameNotFoundError
 
     def is_invalid(self):
@@ -396,7 +393,10 @@ class NetworkInterface(object):
     def __repr__(self):
         return "<%s %s %s>" % (self.__class__.__name__, self.name, self.guid)
 
-from UserDict import UserDict
+try:
+    from UserDict import UserDict
+except ImportError:
+    from collections import UserDict
 
 class NetworkInterfaceDict(UserDict):
     """Store information about network interfaces and convert between names""" 
@@ -418,14 +418,14 @@ class NetworkInterfaceDict(UserDict):
         """Return the first pcap device name for a given Windows
         device name.
         """
-        for iface in self.itervalues():
+        for iface in six.itervalues(self):
             if iface.name == name:
                 return iface
         raise ValueError("Unknown network interface %r" % name)
 
     def dev_from_pcapname(self, pcap_name):
         """Return Windows device name for given pcap device name."""
-        for iface in self.itervalues():
+        for iface in six.itervalues(self):
             if iface.pcap_name == pcap_name:
                 return iface
         raise ValueError("Unknown pypcap network interface %r" % pcap_name)
@@ -439,13 +439,13 @@ class NetworkInterfaceDict(UserDict):
 
     def show(self, resolve_mac=True):
         """Print list of available network interfaces in human readable form"""
-        print "%s  %s  %s  %s" % ("INDEX".ljust(5), "IFACE".ljust(35), "IP".ljust(15), "MAC")
+        print("%s  %s  %s  %s" % ("INDEX".ljust(5), "IFACE".ljust(35), "IP".ljust(15), "MAC"))
         for iface_name in sorted(self.data):
             dev = self.data[iface_name]
             mac = dev.mac
             if resolve_mac:
                 mac = conf.manufdb._resolve_MAC(mac)
-            print "%s  %s  %s  %s" % (str(dev.win_index).ljust(5), str(dev.name).ljust(35), str(dev.ip).ljust(15), mac)
+            print("%s  %s  %s  %s" % (str(dev.win_index).ljust(5), str(dev.name).ljust(35), str(dev.ip).ljust(15), mac))
             
 IFACES = NetworkInterfaceDict()
 IFACES.load_from_powershell()
@@ -496,7 +496,7 @@ def read_routes_xp():
     routes = []
     partial_routes = []
     # map local IP addresses to interfaces
-    local_addresses = {iface.ip: iface for iface in IFACES.itervalues()}
+    local_addresses = {iface.ip: iface for iface in six.itervalues(IFACES)}
     iface_indexes = {}
     for line in exec_query(['Get-WmiObject', 'Win32_IP4RouteTable'],
                            ['Name', 'Mask', 'NextHop', 'InterfaceIndex']):
@@ -530,7 +530,7 @@ def read_routes():
     routes = []
     release = platform.release()
     try:
-        if NEW_RELEASE:
+        if is_new_release():
             routes = read_routes_post2008()
         elif release == "XP":
             routes = read_routes_xp()
@@ -634,7 +634,7 @@ def read_routes6():
                     continue
                 cset = ['::1']
             else:
-                devaddrs = filter(lambda x: x[2] == iface, lifaddr)
+                devaddrs = [x for x in lifaddr if x[2] == iface]
                 cset = scapy.utils6.construct_source_candidate_set(d, dp, devaddrs, LOOPBACK_NAME)
             # APPEND (DESTINATION, NETMASK, NEXT HOP, IFACE, CANDIDATS)
             routes.append((d, dp, nh, iface, cset))
@@ -652,7 +652,7 @@ if conf.interactive_shell != 'ipython' and conf.interactive:
             end = False
             while not end :
                 if not end and result != "":
-                    line = readline.rl.readline("... ")
+                    line = readline.rl.readline(sys.ps2)
                 else:
                     line = readline.rl.readline(prompt)
                 if line.strip().endswith(":"):
@@ -662,7 +662,7 @@ if conf.interactive_shell != 'ipython' and conf.interactive:
                 if line.strip() == "":
                     end = True
                 result = result + "\n" + line
-            return unicode(result)
+            return six.text_type(result)
         try:
             import readline
             console = readline.GetOutputFile()
@@ -701,7 +701,7 @@ def route_add_loopback(routes=None, ipv6=False, iflist=None):
     data['invalid'] = True
     adapter = NetworkInterface(data)
     if iflist:
-        iflist.append(unicode("\\Device\\NPF_" + adapter.guid))
+        iflist.append(six.text_type("\\Device\\NPF_" + adapter.guid))
         return
     # Build the packed network addresses
     loop_net = struct.unpack("!I", socket.inet_aton("127.0.0.0"))[0]

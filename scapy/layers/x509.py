@@ -8,6 +8,7 @@
 X.509 certificates.
 """
 
+from __future__ import absolute_import
 from scapy.asn1.asn1 import *
 from scapy.asn1.ber import *
 from scapy.asn1packet import *
@@ -648,7 +649,7 @@ class ASN1F_EXT_SEQUENCE(ASN1F_SEQUENCE):
             if not self.flexible_tag and len(s) > 0:
                 err_msg = "extension sequence length issue"
                 raise BER_Decoding_Error(err_msg, remaining=s)
-        except ASN1F_badsequence,e:
+        except ASN1F_badsequence as e:
             raise Exception("could not parse extensions")
         return remain
 
@@ -703,9 +704,9 @@ class ASN1F_X509_SubjectPublicKeyInfo(ASN1F_SEQUENCE):
     def m2i(self, pkt, x):
         c,s = ASN1F_SEQUENCE.m2i(self, pkt, x)
         keytype = pkt.fields["signatureAlgorithm"].algorithm.oidname
-        if "rsa" in keytype.lower():
+        if b"rsa" in keytype.lower():
             return ASN1F_X509_SubjectPublicKeyInfoRSA().m2i(pkt, x)
-        elif keytype == "ecPublicKey":
+        elif keytype == b"ecPublicKey":
             return ASN1F_X509_SubjectPublicKeyInfoECDSA().m2i(pkt, x)
         else:
             raise Exception("could not parse subjectPublicKeyInfo")
@@ -717,10 +718,10 @@ class ASN1F_X509_SubjectPublicKeyInfo(ASN1F_SEQUENCE):
             ktype = pkt.fields['signatureAlgorithm'].algorithm.oidname
         else:
             ktype = pkt.default_fields["signatureAlgorithm"].algorithm.oidname
-        if "rsa" in ktype.lower():
+        if b"rsa" in ktype.lower():
             pkt.default_fields["subjectPublicKey"] = RSAPublicKey()
             return ASN1F_X509_SubjectPublicKeyInfoRSA().build(pkt)
-        elif ktype == "ecPublicKey":
+        elif ktype == b"ecPublicKey":
             pkt.default_fields["subjectPublicKey"] = ECDSAPublicKey()
             return ASN1F_X509_SubjectPublicKeyInfoECDSA().build(pkt)
         else:
@@ -924,9 +925,9 @@ class ASN1F_X509_Cert(ASN1F_SEQUENCE):
     def m2i(self, pkt, x):
         c,s = ASN1F_SEQUENCE.m2i(self, pkt, x)
         sigtype = pkt.fields["signatureAlgorithm"].algorithm.oidname
-        if "rsa" in sigtype.lower():
+        if b"rsa" in sigtype.lower():
             return c,s
-        elif "ecdsa" in sigtype.lower():
+        elif b"ecdsa" in sigtype.lower():
             return ASN1F_X509_CertECDSA().m2i(pkt, x)
         else:
             raise Exception("could not parse certificate")
@@ -938,9 +939,9 @@ class ASN1F_X509_Cert(ASN1F_SEQUENCE):
             sigtype = pkt.fields['signatureAlgorithm'].algorithm.oidname
         else:
             sigtype = pkt.default_fields["signatureAlgorithm"].algorithm.oidname
-        if "rsa" in sigtype.lower():
+        if b"rsa" in sigtype.lower():
             return ASN1F_SEQUENCE.build(self, pkt)
-        elif "ecdsa" in sigtype.lower():
+        elif b"ecdsa" in sigtype.lower():
             pkt.default_fields["signatureValue"] = ECDSASignature()
             return ASN1F_X509_CertECDSA().build(pkt)
         else:
@@ -1032,9 +1033,9 @@ class ASN1F_X509_CRL(ASN1F_SEQUENCE):
     def m2i(self, pkt, x):
         c,s = ASN1F_SEQUENCE.m2i(self, pkt, x)
         sigtype = pkt.fields["signatureAlgorithm"].algorithm.oidname
-        if "rsa" in sigtype.lower():
+        if b"rsa" in sigtype.lower():
             return c,s
-        elif "ecdsa" in sigtype.lower():
+        elif b"ecdsa" in sigtype.lower():
             return ASN1F_X509_CRLECDSA().m2i(pkt, x)
         else:
             raise Exception("could not parse certificate")
@@ -1046,9 +1047,9 @@ class ASN1F_X509_CRL(ASN1F_SEQUENCE):
             sigtype = pkt.fields['signatureAlgorithm'].algorithm.oidname
         else:
             sigtype = pkt.default_fields["signatureAlgorithm"].algorithm.oidname
-        if "rsa" in sigtype.lower():
+        if b"rsa" in sigtype.lower():
             return ASN1F_SEQUENCE.build(self, pkt)
-        elif "ecdsa" in sigtype.lower():
+        elif b"ecdsa" in sigtype.lower():
             pkt.default_fields["signatureValue"] = ECDSASignature()
             return ASN1F_X509_CRLECDSA().build(pkt)
         else:
@@ -1181,9 +1182,9 @@ class ASN1F_OCSP_BasicResponse(ASN1F_SEQUENCE):
     def m2i(self, pkt, x):
         c,s = ASN1F_SEQUENCE.m2i(self, pkt, x)
         sigtype = pkt.fields["signatureAlgorithm"].algorithm.oidname
-        if "rsa" in sigtype.lower():
+        if b"rsa" in sigtype.lower():
             return c,s
-        elif "ecdsa" in sigtype.lower():
+        elif b"ecdsa" in sigtype.lower():
             return ASN1F_OCSP_BasicResponseECDSA().m2i(pkt, x)
         else:
             raise Exception("could not parse OCSP basic response")
@@ -1195,9 +1196,9 @@ class ASN1F_OCSP_BasicResponse(ASN1F_SEQUENCE):
             sigtype = pkt.fields['signatureAlgorithm'].algorithm.oidname
         else:
             sigtype = pkt.default_fields["signatureAlgorithm"].algorithm.oidname
-        if "rsa" in sigtype.lower():
+        if b"rsa" in sigtype.lower():
             return ASN1F_SEQUENCE.build(self, pkt)
-        elif "ecdsa" in sigtype.lower():
+        elif b"ecdsa" in sigtype.lower():
             pkt.default_fields["signatureValue"] = ECDSASignature()
             return ASN1F_OCSP_BasicResponseECDSA().build(pkt)
         else:

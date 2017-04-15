@@ -7,6 +7,7 @@
 VoIP (Voice over IP) related functions
 """
 
+from __future__ import absolute_import
 import os
 ###################
 ##  Listen VoIP  ##
@@ -17,6 +18,7 @@ from scapy.layers.inet import IP,UDP
 from scapy.layers.rtp import RTP
 from scapy.consts import WINDOWS
 from scapy.config import conf
+from scapy.modules.six.moves import range
 
 
 sox_base = "sox -t .ul %s - -t ossdsp /dev/dsp"
@@ -38,7 +40,7 @@ def _merge_sound_bytes(x,y,sample_size=2):
     elif len(x) < len(y):
         min_ = x
     r_ = len(min_)
-    for i in xrange(r_/ss):
+    for i in range(r_/ss):
         m += x[ss*i:ss*(i+1)]+y[ss*i:ss*(i+1)]
     return x[r_:], y[r_:], m
 

@@ -22,8 +22,10 @@ A simple and non exhaustive Profinet IO layer for scapy
 """
 
 # Scapy imports
+from __future__ import absolute_import
 from scapy.all import Packet, bind_layers, Ether, UDP
 from scapy.fields import XShortEnumField
+from scapy.modules.six.moves import range
 
 # Some constants
 PNIO_FRAME_IDS = {
@@ -42,13 +44,13 @@ PNIO_FRAME_IDS = {
     0xFF42:"PTCP-DelayFuResPDU",
     0xFF43:"PTCP-DelayResPDU",
     }
-for i in xrange(0x0100, 0x1000):
+for i in range(0x0100, 0x1000):
     PNIO_FRAME_IDS[i] = "RT_CLASS_3"
-for i in xrange(0x8000, 0xC000):
+for i in range(0x8000, 0xC000):
     PNIO_FRAME_IDS[i] = "RT_CLASS_1"
-for i in xrange(0xC000, 0xFC00):
+for i in range(0xC000, 0xFC00):
     PNIO_FRAME_IDS[i] = "RT_CLASS_UDP"
-for i in xrange(0xFF80, 0xFF90):
+for i in range(0xFF80, 0xFF90):
     PNIO_FRAME_IDS[i] = "FragmentationFrameID"
 
 #################

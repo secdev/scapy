@@ -8,6 +8,7 @@
 RADIUS (Remote Authentication Dial In User Service)
 """
 
+from __future__ import absolute_import
 import struct
 from scapy.packet import *
 from scapy.fields import *

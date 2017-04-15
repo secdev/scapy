@@ -9,6 +9,7 @@ PPTP (Point to Point Tunneling Protocol)
 [RFC 2637]
 """
 
+from __future__ import absolute_import
 from scapy.packet import Packet, bind_layers
 from scapy.layers.inet import TCP
 from scapy.fields import ByteEnumField, FieldLenField, FlagsField, IntField, IntEnumField,\

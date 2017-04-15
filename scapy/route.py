@@ -7,12 +7,14 @@
 Routing and handling of network interfaces.
 """
 
+from __future__ import absolute_import
 import socket
 from scapy.consts import LOOPBACK_NAME
 from scapy.utils import atol, ltoa, itom
 from scapy.config import conf
 from scapy.error import Scapy_Exception, warning
 from scapy.arch import WINDOWS
+import scapy.modules.six as six
 
 ##############################
 ## Routing/Interfaces stuff ##
@@ -35,15 +37,15 @@ class Route:
         rtlst = [("Network", "Netmask", "Gateway", "Iface", "Output IP")]
         
         for net,msk,gw,iface,addr in self.routes:
-	    rtlst.append((ltoa(net),
+            rtlst.append((ltoa(net),
                       ltoa(msk),
                       gw,
-                      (iface.name if not isinstance(iface, basestring) else iface),
+                      (iface.name if not isinstance(iface, six.string_types) else iface),
                       addr))
         
-        colwidth = map(lambda x: max(map(lambda y: len(y), x)), apply(zip, rtlst))
-        fmt = "  ".join(map(lambda x: "%%-%ds"%x, colwidth))
-        rt = "\n".join(map(lambda x: fmt % x, rtlst))
+        colwidth = [max([len(y) for y in x]) for x in zip(*rtlst)]
+        fmt = "  ".join(["%%-%ds"%x for x in colwidth])
+        rt = "\n".join([fmt % x for x in rtlst])
         return rt
 
     def make_route(self, host=None, net=None, gw=None, dev=None):
@@ -154,7 +156,7 @@ class Route:
                 continue
             aa = atol(a)
             if aa == dst:
-                pathes.append((0xffffffffL,(LOOPBACK_NAME,a,"0.0.0.0")))
+                pathes.append((0xffffffff,(LOOPBACK_NAME,a,"0.0.0.0")))
             if (dst & m) == (d & m):
                 pathes.append((m,(i,a,gw)))
         if not pathes:
@@ -163,7 +165,7 @@ class Route:
             return LOOPBACK_NAME,"0.0.0.0","0.0.0.0" #XXX linux specific!
         # Choose the more specific route (greatest netmask).
         # XXX: we don't care about metrics
-        pathes.sort()
+        pathes.sort(key=lambda x: x[0])
         ret = pathes[-1][1]
         self.cache[dest] = ret
         return ret
@@ -177,7 +179,7 @@ class Route:
                     continue
             elif iff != iface:
                 continue
-            bcast = atol(addr)|(~msk&0xffffffffL); # FIXME: check error in atol()
+            bcast = atol(addr)|(~msk&0xffffffff); # FIXME: check error in atol()
             return ltoa(bcast)
         warning("No broadcast address found for iface %s\n" % iff);
 

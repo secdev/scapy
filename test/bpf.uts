@@ -9,6 +9,7 @@
 
 = Get the packet IPv4 address configured on conf.iface
 
+from __future__ import absolute_import
 get_if_raw_addr(conf.iface)
 
 

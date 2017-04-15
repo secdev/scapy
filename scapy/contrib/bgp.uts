@@ -279,7 +279,7 @@ str(BGPOptParam()) == b'\x02\x00'
 
 = BGPOptParam - Instantiation with specific values (1)
 str(BGPOptParam(param_type = 1)) == b'\x01\x00'
-str(BGPOptParam(param_type = 1, param_value = BGPAuthenticationInformation())) == b'\x01\x04'
+str(BGPOptParam(param_type = 1, param_value = BGPAuthenticationInformation())) == b'\x01\x00'
 
 = BGPOptParam - Instantiation with specific values (2)
 str(BGPOptParam(param_type = 2)) == b'\x02\x00'

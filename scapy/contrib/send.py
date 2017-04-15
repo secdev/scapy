@@ -8,11 +8,13 @@
 # scapy.contrib.description = SEND
 # scapy.contrib.status = loads
 
+from __future__ import absolute_import
 import socket
 
 from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.inet6 import icmp6typescls, _ICMPv6NDGuessPayload, Net6
+from scapy.modules.six.moves import map
 
 send_icmp6typescls = { 11: "ICMPv6NDOptCGA",
                        12: "ICMPv6NDOptRsaSig",
@@ -31,7 +33,7 @@ class HashField(Field):
             except socket.error:
                 x = Net6(x)
         elif type(x) is list:
-            x = map(Net6, x)
+            x = list(map(Net6, x))
         return x
     def i2m(self, pkt, x):
         return inet_pton(socket.AF_INET6, x)

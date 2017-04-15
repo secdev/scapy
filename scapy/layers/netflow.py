@@ -9,6 +9,7 @@ Cisco NetFlow protocol v1 and v5
 """
 
 
+from __future__ import absolute_import
 from scapy.fields import *
 from scapy.packet import *
 from scapy.data import IP_PROTOS

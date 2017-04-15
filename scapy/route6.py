@@ -16,12 +16,16 @@ Routing and network interface handling for IPv6.
 #############################################################################
 #############################################################################
 
+from __future__ import absolute_import
+
 import socket
 from scapy.config import conf
 from scapy.utils6 import *
 from scapy.arch import *
 from scapy.pton_ntop import *
 from scapy.error import warning, log_loading
+import scapy.modules.six as six
+from scapy.modules.six.moves import zip
 
 
 class Route6:
@@ -49,11 +53,11 @@ class Route6:
         rtlst = [('Destination', 'Next Hop', "iface", "src candidates")]
 
         for net,msk,gw,iface,cset in self.routes:
-            rtlst.append(('%s/%i'% (net,msk), gw, (iface if isinstance(iface, basestring) else iface.name), ", ".join(cset)))
+            rtlst.append(('%s/%i'% (net,msk), gw, (iface if isinstance(iface, six.string_types) else iface.name), ", ".join(cset)))
 
-        colwidth = map(lambda x: max(map(lambda y: len(y), x)), apply(zip, rtlst))
-        fmt = "  ".join(map(lambda x: "%%-%ds"%x, colwidth))
-        rt = "\n".join(map(lambda x: fmt % x, rtlst))
+        colwidth = [max([len(y) for y in x]) for x in zip(*rtlst)]
+        fmt = "  ".join(["%%-%ds"%x for x in colwidth])
+        rt = "\n".join([fmt % x for x in rtlst])
 
         return rt
 
@@ -76,7 +80,7 @@ class Route6:
             # TODO: do better than that
             # replace that unique address by the list of all addresses
             lifaddr = in6_getifaddr()
-            devaddrs = filter(lambda x: x[2] == dev, lifaddr)
+            devaddrs = [x for x in lifaddr if x[2] == dev]
             ifaddr = construct_source_candidate_set(prefix, plen, devaddrs, LOOPBACK_NAME)
 
         return (prefix, plen, gw, dev, ifaddr)
@@ -102,7 +106,7 @@ class Route6:
         dst, plen = tmp.split('/')[:2]
         dst = in6_ptop(dst)
         plen = int(plen)
-        l = filter(lambda x: in6_ptop(x[0]) == dst and x[1] == plen, self.routes)
+        l = [x for x in self.routes if in6_ptop(x[0]) == dst and x[1] == plen]
         if gw:
             gw = in6_ptop(gw)
             l = [x for x in self.routes if in6_ptop(x[2]) == gw]
@@ -200,7 +204,7 @@ class Route6:
         # Deal with dev-specific request for cache search
         k = dst
         if dev is not None:
-            k = dst + "%%" + (dev if isinstance(dev, basestring) else dev.pcap_name)
+            k = dst + "%%" + (dev if isinstance(dev, six.string_types) else dev.pcap_name)
         if k in self.cache:
             return self.cache[k]
 
@@ -223,10 +227,10 @@ class Route6:
             return (LOOPBACK_NAME, "::", "::") # XXX Linux specific
 
         # Sort with longest prefix first
-        pathes.sort(reverse=True)
+        pathes.sort(key=lambda x: x[0], reverse=True)
 
         best_plen = pathes[0][0]
-        pathes = filter(lambda x: x[0] == best_plen, pathes)
+        pathes = [x for x in pathes if x[0] == best_plen]
 
         res = []
         for p in pathes: # Here we select best source address for every route
@@ -254,10 +258,10 @@ class Route6:
             if in6_isgladdr(dst) and in6_isaddr6to4(dst):
                 # TODO : see if taking the longest match between dst and
                 #        every source addresses would provide better results
-                tmp = filter(lambda x: in6_isaddr6to4(x[1][1]), res)
+                tmp = [x for x in res if in6_isaddr6to4(x[1][1])]
             elif in6_ismaddr(dst) or in6_islladdr(dst):
                 # TODO : I'm sure we are not covering all addresses. Check that
-                tmp = filter(lambda x: x[1][0] == conf.iface6, res)
+                tmp = [x for x in res if x[1][0] == conf.iface6]
 
             if tmp:
                 res = tmp
@@ -265,7 +269,7 @@ class Route6:
         # Fill the cache (including dev-specific request)
         k = dst
         if dev is not None:
-            k = dst + "%%" + (dev if isinstance(dev, basestring) else dev.pcap_name)
+            k = dst + "%%" + (dev if isinstance(dev, six.string_types) else dev.pcap_name)
         self.cache[k] = res[0][1]
 
         return res[0][1]

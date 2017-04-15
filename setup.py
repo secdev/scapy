@@ -5,6 +5,7 @@ Distutils setup file for Scapy.
 """
 
 
+from __future__ import absolute_import
 from distutils import archive_util
 from distutils import sysconfig
 from distutils.core import setup
@@ -33,12 +34,8 @@ def make_ezipfile(base_name, base_dir, verbose=0, dry_run=0, **kwargs):
     os.system("zip -A '%s'" % fname)
     of.close()
     os.unlink(ofname)
-    os.chmod(fname, 0755)
+    os.chmod(fname, 0o755)
     return fname
-
-
-archive_util.ARCHIVE_FORMATS["ezip"] = (
-    make_ezipfile, [], 'Executable ZIP file')
 
 SCRIPTS = ['bin/scapy', 'bin/UTscapy']
 # On Windows we also need additional batch files to run the above scripts
@@ -66,7 +63,6 @@ setup(
     package_data={
         'scapy': ['VERSION'],
     },
-
     # Metadata
     author='Philippe BIONDI',
     author_email='phil(at)secdev.org',

@@ -9,6 +9,9 @@ PPP (Point to Point Protocol)
 [RFC 1661]
 """
 
+from __future__ import absolute_import
+from scapy.compat import *
+
 import struct
 from scapy.packet import Packet, bind_layers
 from scapy.layers.l2 import Ether, CookedLinux, GRE_PPTP
@@ -204,7 +207,7 @@ class PPP(Packet):
     fields_desc = [ ShortEnumField("proto", 0x0021, _PPP_proto) ]
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
-        if _pkt and _pkt[0] == b'\xff':
+        if _pkt and orb(_pkt[0]) == 0xff:
             cls = HDLC
         return cls
 
@@ -241,9 +244,9 @@ class PPP_IPCP_Option(Packet):
     name = "PPP IPCP Option"
     fields_desc = [ ByteEnumField("type" , None , _PPP_ipcpopttypes),
                     FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p,x:x+2),
-                    StrLenField("data", "", length_from=lambda p:max(0,p.len-2)) ]
+                    StrLenField("data", b"", length_from=lambda p:max(0,p.len-2)) ]
     def extract_padding(self, pay):
-        return "",pay
+        return b"",pay
 
     registered_options = {}
     @classmethod
@@ -252,7 +255,7 @@ class PPP_IPCP_Option(Packet):
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         if _pkt:
-            o = ord(_pkt[0])
+            o = orb(_pkt[0])
             return cls.registered_options.get(o, cls)
         return cls
 
@@ -261,36 +264,36 @@ class PPP_IPCP_Option_IPAddress(PPP_IPCP_Option):
     name = "PPP IPCP Option: IP Address"
     fields_desc = [ ByteEnumField("type" , 3 , _PPP_ipcpopttypes),
                     FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p,x:x+2),
-                    IPField("data","0.0.0.0"),
-                    ConditionalField(StrLenField("garbage","", length_from=lambda pkt:pkt.len-6), lambda p:p.len!=6) ]
+                    IPField("data", b"0.0.0.0"),
+                    ConditionalField(StrLenField("garbage", b"", length_from=lambda pkt:pkt.len-6), lambda p:p.len!=6) ]
 
 class PPP_IPCP_Option_DNS1(PPP_IPCP_Option):
     name = "PPP IPCP Option: DNS1 Address"
     fields_desc = [ ByteEnumField("type" , 129 , _PPP_ipcpopttypes),
                     FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p,x:x+2),
-                    IPField("data","0.0.0.0"),
-                    ConditionalField(StrLenField("garbage","", length_from=lambda pkt:pkt.len-6), lambda p:p.len!=6) ]
+                    IPField("data", b"0.0.0.0"),
+                    ConditionalField(StrLenField("garbage",b"", length_from=lambda pkt:pkt.len-6), lambda p:p.len!=6) ]
 
 class PPP_IPCP_Option_DNS2(PPP_IPCP_Option):
     name = "PPP IPCP Option: DNS2 Address"
     fields_desc = [ ByteEnumField("type" , 131 , _PPP_ipcpopttypes),
                     FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p,x:x+2),
-                    IPField("data","0.0.0.0"),
-                    ConditionalField(StrLenField("garbage","", length_from=lambda pkt:pkt.len-6), lambda p:p.len!=6) ]
+                    IPField("data",b"0.0.0.0"),
+                    ConditionalField(StrLenField("garbage",b"", length_from=lambda pkt:pkt.len-6), lambda p:p.len!=6) ]
 
 class PPP_IPCP_Option_NBNS1(PPP_IPCP_Option):
     name = "PPP IPCP Option: NBNS1 Address"
     fields_desc = [ ByteEnumField("type" , 130 , _PPP_ipcpopttypes),
                     FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p,x:x+2),
-                    IPField("data","0.0.0.0"),
-                    ConditionalField(StrLenField("garbage","", length_from=lambda pkt:pkt.len-6), lambda p:p.len!=6) ]
+                    IPField("data",b"0.0.0.0"),
+                    ConditionalField(StrLenField("garbage",b"", length_from=lambda pkt:pkt.len-6), lambda p:p.len!=6) ]
 
 class PPP_IPCP_Option_NBNS2(PPP_IPCP_Option):
     name = "PPP IPCP Option: NBNS2 Address"
     fields_desc = [ ByteEnumField("type" , 132 , _PPP_ipcpopttypes),
                     FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p,x:x+2),
-                    IPField("data","0.0.0.0"),
-                    ConditionalField(StrLenField("garbage","", length_from=lambda pkt:pkt.len-6), lambda p:p.len!=6) ]
+                    IPField("data",b"0.0.0.0"),
+                    ConditionalField(StrLenField("garbage",b"", length_from=lambda pkt:pkt.len-6), lambda p:p.len!=6) ]
 
 
 class PPP_IPCP(Packet):
@@ -311,7 +314,7 @@ class PPP_ECP_Option(Packet):
                     FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p,x:x+2),
                     StrLenField("data", "", length_from=lambda p:max(0,p.len-2)) ]
     def extract_padding(self, pay):
-        return "",pay
+        return b"",pay
 
     registered_options = {}
     @classmethod
@@ -320,7 +323,7 @@ class PPP_ECP_Option(Packet):
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         if _pkt:
-            o = ord(_pkt[0])
+            o = orb(_pkt[0])
             return cls.registered_options.get(o, cls)
         return cls
 
@@ -364,12 +367,12 @@ class PPP_LCP(Packet):
                                length_from=lambda p:p.len-4)]
 
     def extract_padding(self, pay):
-        return "",pay
+        return b"",pay
 
     @classmethod
     def dispatch_hook(cls, _pkt = None, *args, **kargs):
         if _pkt:
-            o = ord(_pkt[0])
+            o = orb(_pkt[0])
             if o in [1, 2, 3, 4]:
                 return PPP_LCP_Configure
             elif o in [5,6]:
@@ -405,7 +408,7 @@ class PPP_LCP_Option(Packet):
                    StrLenField("data", None, length_from=lambda p:p.len-2)]
 
     def extract_padding(self, pay):
-        return "", pay
+        return b"", pay
 
     registered_options = {}
 
@@ -416,7 +419,7 @@ class PPP_LCP_Option(Packet):
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         if _pkt:
-            o = ord(_pkt[0])
+            o = orb(_pkt[0])
             return cls.registered_options.get(o, cls)
         return cls
 

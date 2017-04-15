@@ -7,6 +7,10 @@
 Classes and functions for layer 2 protocols.
 """
 
+from __future__ import absolute_import
+from __future__ import print_function
+from scapy.compat import *
+
 import os, struct, time, socket
 
 from scapy.base_classes import Net
@@ -21,6 +25,7 @@ from scapy.arch import get_if_hwaddr
 from scapy.consts import LOOPBACK_NAME
 from scapy.utils import inet_ntoa, inet_aton
 from scapy.error import warning
+from scapy.modules.six.moves import map
 if conf.route is None:
     # unused import, only to initialize conf.route
     import scapy.route
@@ -57,9 +62,9 @@ conf.netcache.new_cache("arp_cache", 120) # cache entries expire after 120s
 def getmacbyip(ip, chainCC=0):
     """Return MAC address corresponding to a given IP address"""
     if isinstance(ip,Net):
-        ip = iter(ip).next()
+        ip = next(iter(ip))
     ip = inet_ntoa(inet_aton(ip))
-    tmp = map(ord, inet_aton(ip))
+    tmp = list(map(orb, inet_aton(ip)))
     if (tmp[0] & 0xf0) == 0xe0: # mcast @
         return "01:00:5e:%.2x:%.2x:%.2x" % (tmp[1]&0x7f,tmp[2],tmp[3])
     iff,a,gw = conf.route.route(ip)
@@ -332,7 +337,7 @@ class EAPOL(Packet):
         return s[:l], s[l:]
 
     def hashret(self):
-        return chr(self.type) + self.payload.hashret()
+        return raw(self.type) + self.payload.hashret()
 
     def answers(self, other):
         if isinstance(other, EAPOL):
@@ -482,9 +487,9 @@ class EAP(Packet):
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         if _pkt:
-            c = ord(_pkt[0])
+            c = orb(_pkt[0])
             if c in [1, 2] and len(_pkt) >= 5:
-                t = ord(_pkt[4])
+                t = orb(_pkt[4])
                 return cls.registered_methods.get(t, cls)
         return cls
 
@@ -525,7 +530,7 @@ class EAP(Packet):
     def post_build(self, p, pay):
         if self.len is None:
             l = len(p) + len(pay)
-            p = p[:2] + chr((l >> 8) & 0xff) + chr(l & 0xff) + p[4:]
+            p = p[:2] + raw((l >> 8) & 0xff) + raw(l & 0xff) + p[4:]
         return p + pay
 
 
@@ -664,7 +669,7 @@ class MKAParamSet(Packet):
 
         cls = conf.raw_layer
         if _pkt is not None:
-            ptype = struct.unpack("!B", _pkt[0])[0]
+            ptype = struct.unpack("!B", raw(_pkt[0]))[0]
             return globals().get(_param_set_cls.get(ptype), conf.raw_layer)
 
         return cls
@@ -975,7 +980,7 @@ class ARP(Packet):
     def route(self):
         dst = self.pdst
         if isinstance(dst,Gen):
-            dst = iter(dst).next()
+            dst = next(iter(dst))
         return conf.route.route(dst)
     def extract_padding(self, s):
         return "",s
@@ -1027,7 +1032,7 @@ class GRE(Packet):
         p += pay
         if self.chksum_present and self.chksum is None:
             c = checksum(p)
-            p = p[:4]+chr((c>>8)&0xff)+chr(c&0xff)+p[6:]
+            p = p[:4]+raw((c>>8)&0xff)+raw(c&0xff)+p[6:]
         return p
 
 
@@ -1058,7 +1063,7 @@ class GRE_PPTP(GRE):
         p += pay
         if self.payload_len is None:
             pay_len = len(pay)
-            p = p[:4] + chr((pay_len >> 8) & 0xff) + chr(pay_len & 0xff) + p[6:]
+            p = p[:4] + raw((pay_len >> 8) & 0xff) + raw(pay_len & 0xff) + p[6:]
         return p
 
 
@@ -1164,7 +1169,7 @@ class ARPingResult(SndRcvList):
 
     def show(self):
         for s,r in self.res:
-            print r.sprintf("%19s,Ether.src% %ARP.psrc%")
+            print(r.sprintf("%19s,Ether.src% %ARP.psrc%"))
 
 
 
@@ -1242,7 +1247,7 @@ class ARP_am(AnsweringMachine):
         ether = req.getlayer(Ether)
         arp = req.getlayer(ARP)
 
-        if self.optsend.has_key('iface'):
+        if 'iface' in self.optsend:
             iff = self.optsend.get('iface')
         else:
             iff,a,gw = conf.route.route(arp.psrc)
@@ -1264,20 +1269,20 @@ class ARP_am(AnsweringMachine):
         return resp
 
     def send_reply(self, reply):
-        if self.optsend.has_key('iface'):
+        if 'iface' in self.optsend:
             self.send_function(reply, **self.optsend)
         else:
             self.send_function(reply, iface=self.iff, **self.optsend)
 
     def print_reply(self, req, reply):
-        print "%s ==> %s on %s" % (req.summary(),reply.summary(),self.iff)
+        print("%s ==> %s on %s" % (req.summary(),reply.summary(),self.iff))
 
 
 @conf.commands.register
 def etherleak(target, **kargs):
     """Exploit Etherleak flaw"""
     return srpflood(Ether()/ARP(pdst=target), 
-                    prn=lambda (s,r): conf.padding_layer in r and hexstr(r[conf.padding_layer].load),
+                    prn=lambda s_r: conf.padding_layer in s_r[1] and hexstr(s_r[1][conf.padding_layer].load),
                     filter="arp", **kargs)
 
 

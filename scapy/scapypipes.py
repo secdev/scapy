@@ -3,6 +3,8 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
+from __future__ import absolute_import
+from __future__ import print_function
 import socket
 from scapy.pipetool import Source,Drain,Sink
 from scapy.config import conf
@@ -43,17 +45,17 @@ class RdpcapSource(Source):
         self.fname = fname
         self.f = PcapReader(self.fname)
     def start(self):
-        print "start"
+        print("start")
         self.f = PcapReader(self.fname)
         self.is_exhausted = False
     def stop(self):
-        print "stop"
+        print("stop")
         self.f.close()
     def fileno(self):
         return self.f.fileno()
     def deliver(self):    
         p = self.f.recv()
-        print "deliver %r" % p
+        print("deliver %r" % p)
         if p is None:
             self.is_exhausted = True
         else:
@@ -119,7 +121,7 @@ class UDPDrain(Drain):
         from scapy.layers.inet import IP, UDP
         if IP in msg and msg[IP].proto == 17 and UDP in msg:
             payload = msg[UDP].payload
-            self._high_send(str(payload))
+            self._high_send(raw(payload))
     def high_push(self, msg):
         from scapy.layers.inet import IP, UDP
         p = IP(dst=self.ip)/UDP(sport=1234,dport=self.port)/msg

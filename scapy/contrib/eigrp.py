@@ -39,10 +39,13 @@
     - IOS / EIGRP Version Representation FIX by Dirk Loss
 """
 
+from __future__ import absolute_import
 from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.inet import IP
 from scapy.layers.inet6 import *
+from scapy.modules.six.moves import map
+from functools import reduce
 
 class EigrpIPField(StrField, IPField):
     """
@@ -431,7 +434,7 @@ class RepeatedTlvListField(PacketListField):
         return remain,lst
 
     def addfield(self, pkt, s, val):
-        return s + reduce(str.__add__, map(str, val), "")
+        return s + reduce(str.__add__, list(map(str, val)), "")
 
 def _EIGRPGuessPayloadClass(p, **kargs):
     cls = conf.raw_layer

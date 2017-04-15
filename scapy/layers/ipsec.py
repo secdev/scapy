@@ -23,7 +23,7 @@ Example of use:
 >>> p = IP(src='1.1.1.1', dst='2.2.2.2')
 >>> p /= TCP(sport=45012, dport=80)
 >>> p /= Raw('testdata')
->>> p = IP(str(p))
+>>> p = IP(raw(p))
 >>> p
 <IP  version=4L ihl=5L tos=0x0 len=48 id=1 flags= frag=0L ttl=64 proto=tcp chksum=0x74c2 src=1.1.1.1 dst=2.2.2.2 options=[] |<TCP  sport=45012 dport=http seq=0 ack=0 dataofs=5L reserved=0L flags=S window=8192 chksum=0x1914 urgptr=0 options=[] |<Raw  load='testdata' |>>>
 >>>
@@ -39,6 +39,9 @@ Example of use:
 True
 """
 
+from __future__ import absolute_import
+from scapy.compat import *
+
 from fractions import gcd
 import os
 import socket
@@ -51,6 +54,8 @@ from scapy.fields import ByteEnumField, ByteField, IntField, PacketField, \
     ShortField, StrField, XIntField, XStrField, XStrLenField
 from scapy.packet import Packet, bind_layers, Raw
 from scapy.layers.inet import IP, UDP
+import scapy.modules.six as six
+from scapy.modules.six.moves import range
 from scapy.layers.inet6 import IPv6, IPv6ExtHdrHopByHop, IPv6ExtHdrDestOpt, \
     IPv6ExtHdrRouting
 
@@ -312,7 +317,7 @@ class CryptAlgo(object):
         # Still according to the RFC, the default value for padding *MUST* be an
         # array of bytes starting from 1 to padlen
         # TODO: Handle padding function according to the encryption algo
-        esp.padding = ''.join(chr(b) for b in xrange(1, esp.padlen + 1))
+        esp.padding = ''.join(chr(b) for b in range(1, esp.padlen + 1))
 
         # If the following test fails, it means that this algo does not comply
         # with the RFC
@@ -529,12 +534,12 @@ class AuthAlgo(object):
         mac = self.new_mac(key)
 
         if pkt.haslayer(ESP):
-            mac.update(str(pkt[ESP]))
+            mac.update(raw(pkt[ESP]))
             pkt[ESP].data += mac.finalize()[:self.icv_size]
 
         elif pkt.haslayer(AH):
             clone = zero_mutable_fields(pkt.copy(), sending=True)
-            mac.update(str(clone))
+            mac.update(raw(clone))
             pkt[AH].icv = mac.finalize()[:self.icv_size]
 
         return pkt
@@ -569,7 +574,7 @@ class AuthAlgo(object):
             pkt_icv = pkt[AH].icv
             clone = zero_mutable_fields(pkt.copy(), sending=False)
 
-        mac.update(str(clone))
+        mac.update(raw(clone))
         computed_icv = mac.finalize()[:self.icv_size]
 
         # XXX: Cannot use mac.verify because the ICV can be truncated
@@ -628,7 +633,7 @@ def split_for_transport(orig_pkt, transport_proto):
              payload.
     """
     # force resolution of default fields to avoid padding errors
-    header = orig_pkt.__class__(str(orig_pkt))
+    header = orig_pkt.__class__(raw(orig_pkt))
     next_hdr = header.payload
     nh = None
 
@@ -771,7 +776,7 @@ class SecurityAssociation(object):
 
         if proto not in (ESP, AH, ESP.name, AH.name):
             raise ValueError("proto must be either ESP or AH")
-        if isinstance(proto, basestring):
+        if isinstance(proto, six.string_types):
             self.proto = eval(proto)
         else:
             self.proto = proto
@@ -782,7 +787,7 @@ class SecurityAssociation(object):
         if crypt_algo:
             if crypt_algo not in CRYPT_ALGOS:
                 raise TypeError('unsupported encryption algo %r, try %r' %
-                                (crypt_algo, CRYPT_ALGOS.keys()))
+                                (crypt_algo, list(CRYPT_ALGOS.keys())))
             self.crypt_algo = CRYPT_ALGOS[crypt_algo]
 
             if crypt_key:
@@ -800,7 +805,7 @@ class SecurityAssociation(object):
         if auth_algo:
             if auth_algo not in AUTH_ALGOS:
                 raise TypeError('unsupported integrity algo %r, try %r' %
-                                (auth_algo, AUTH_ALGOS.keys()))
+                                (auth_algo, list(AUTH_ALGOS.keys())))
             self.auth_algo = AUTH_ALGOS[auth_algo]
             self.auth_key = auth_key
         else:
@@ -844,7 +849,7 @@ class SecurityAssociation(object):
                 del tunnel.nh
                 del tunnel.plen
 
-            pkt = tunnel.__class__(str(tunnel / pkt))
+            pkt = tunnel.__class__(raw(tunnel / pkt))
 
         ip_header, nh, payload = split_for_transport(pkt, socket.IPPROTO_ESP)
         esp.data = payload
@@ -868,7 +873,7 @@ class SecurityAssociation(object):
         if ip_header.version == 4:
             ip_header.len = len(ip_header) + len(esp)
             del ip_header.chksum
-            ip_header = ip_header.__class__(str(ip_header))
+            ip_header = ip_header.__class__(raw(ip_header))
         else:
             ip_header.plen = len(ip_header.payload) + len(esp)
 
@@ -894,7 +899,7 @@ class SecurityAssociation(object):
                 del tunnel.nh
                 del tunnel.plen
 
-            pkt = tunnel.__class__(str(tunnel / pkt))
+            pkt = tunnel.__class__(raw(tunnel / pkt))
 
         ip_header, nh, payload = split_for_transport(pkt, socket.IPPROTO_AH)
         ah.nh = nh
@@ -916,7 +921,7 @@ class SecurityAssociation(object):
         if ip_header.version == 4:
             ip_header.len = len(ip_header) + len(ah) + len(payload)
             del ip_header.chksum
-            ip_header = ip_header.__class__(str(ip_header))
+            ip_header = ip_header.__class__(raw(ip_header))
         else:
             ip_header.plen = len(ip_header.payload) + len(ah) + len(payload)
 
@@ -981,7 +986,7 @@ class SecurityAssociation(object):
                 ip_header.remove_payload()
                 ip_header.len = len(ip_header) + len(esp.data)
                 # recompute checksum
-                ip_header = ip_header.__class__(str(ip_header))
+                ip_header = ip_header.__class__(raw(ip_header))
             else:
                 encrypted.underlayer.nh = esp.nh
                 encrypted.underlayer.remove_payload()
@@ -1013,7 +1018,7 @@ class SecurityAssociation(object):
                 ip_header.remove_payload()
                 ip_header.len = len(ip_header) + len(payload)
                 # recompute checksum
-                ip_header = ip_header.__class__(str(ip_header))
+                ip_header = ip_header.__class__(raw(ip_header))
             else:
                 ah.underlayer.nh = ah.nh
                 ah.underlayer.remove_payload()

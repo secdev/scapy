@@ -10,8 +10,13 @@ These functions are missing when python is compiled
 without IPv6 support, on Windows for instance.
 """
 
+from __future__ import absolute_import
+from scapy.compat import *
+
 import socket
-import re
+import re, binascii
+import scapy.modules.six as six
+from scapy.modules.six.moves import range
 
 _IP6_ZEROS = re.compile('(?::|^)(0(?::0)+)(?::|$)')
 _INET6_PTON_EXC = socket.error("illegal IP address string passed to inet_pton")
@@ -22,7 +27,8 @@ used when socket.inet_pton is not available.
 
     """
     joker_pos = None
-    result = ""
+    result = b""
+    addr = plain_str(addr)
     if addr == '::':
         return b'\x00' * 16
     if addr.startswith('::'):
@@ -52,8 +58,8 @@ used when socket.inet_pton is not available.
         else:
             # Each part must be 16bit. Add missing zeroes before decoding.
             try:
-                result += part.rjust(4, "0").decode("hex")
-            except TypeError:
+                result += hex_bytes(part.rjust(4, "0"))
+            except (binascii.Error, TypeError):
                 raise _INET6_PTON_EXC
     # If there's a wildcard, fill up with zeros to reach 128bit (16 bytes)
     if joker_pos is not None:
@@ -75,6 +81,7 @@ _INET_PTON = {
 def inet_pton(af, addr):
     """Convert an IP address from text representation into binary form."""
     # Use inet_pton if available
+    addr = plain_str(addr)
     try:
         return socket.inet_pton(af, addr)
     except AttributeError:
@@ -94,8 +101,8 @@ used when socket.inet_pton is not available.
         raise ValueError("invalid length of packed IP address string")
 
     # Decode to hex representation
-    address = ":".join(addr[idx:idx + 2].encode('hex').lstrip('0') or '0'
-                       for idx in xrange(0, 16, 2))
+    address = ":".join(bytes_hex(addr[idx:idx + 2], force_str=True).lstrip('0') or '0'
+                       for idx in range(0, 16, 2))
 
     try:
         # Get the longest set of zero blocks. We need to take a look
@@ -119,6 +126,7 @@ _INET_NTOP = {
 def inet_ntop(af, addr):
     """Convert an IP address from binary form into text representation."""
     # Use inet_ntop if available
+    addr = raw(addr)
     try:
         return socket.inet_ntop(af, addr)
     except AttributeError:

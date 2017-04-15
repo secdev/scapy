@@ -7,6 +7,9 @@
 Packet sending and receiving with libdnet and libpcap/WinPcap.
 """
 
+from __future__ import absolute_import
+from scapy.compat import *
+
 import time, struct, sys, platform
 import socket
 if not sys.platform.startswith("win"):
@@ -25,6 +28,7 @@ if conf.use_winpcapy:
   try:
       from scapy.arch.winpcapy import *
       def winpcapy_get_if_list():
+          """Return all winpcapy interfaces"""
           err = create_string_buffer(PCAP_ERRBUF_SIZE)
           devs = POINTER(pcap_if_t)()
           ret = []
@@ -42,16 +46,17 @@ if conf.use_winpcapy:
               pcap_freealldevs(devs)
       # Detect Pcap version
       version = pcap_lib_version()
-      if "winpcap" in version.lower():
+      if b"winpcap" in version.lower():
           if os.path.exists(os.environ["WINDIR"] + "\\System32\\Npcap\\wpcap.dll"):
               warning("Winpcap is installed over Npcap. Will use Winpcap (see 'Winpcap/Npcap conflicts' in scapy's docs)", True)
           elif platform.release() != "XP":
               warning("WinPcap is now deprecated (not maintened). Please use Npcap instead", True)
-      elif "npcap" in version.lower():
+      elif b"npcap" in version.lower():
           conf.use_npcap = True
           LOOPBACK_NAME = scapy.consts.LOOPBACK_NAME = "Npcap Loopback Adapter"
   except OSError as e:
       def winpcapy_get_if_list():
+          """Winpcap not available"""
           return []
       conf.use_winpcapy = False
       if conf.interactive:
@@ -74,13 +79,13 @@ if conf.use_winpcapy:
     try:
       p = devs
       while p:
-        if p.contents.name.endswith(iff):
+        if p.contents.name.endswith(iff.guid.encode("ascii")):
           a = p.contents.addresses
           while a:
             if hasattr(socket, 'AF_LINK') and a.contents.addr.contents.sa_family == socket.AF_LINK:
               ap = a.contents.addr
               val = cast(ap, POINTER(sockaddr_dl))
-              ret = str(val.contents.sdl_data[ val.contents.sdl_nlen : val.contents.sdl_nlen + val.contents.sdl_alen ])
+              ret = raw(val.contents.sdl_data[val.contents.sdl_nlen:val.contents.sdl_nlen+val.contents.sdl_alen])
             a = a.contents.next
           break
         p = p.contents.next
@@ -97,14 +102,14 @@ if conf.use_winpcapy:
     try:
       p = devs
       while p:
-        if p.contents.name.endswith(iff.guid):
+        if p.contents.name.endswith(iff.guid.encode("ascii")):
           a = p.contents.addresses
           while a:
             if a.contents.addr.contents.sa_family == socket.AF_INET:
               ap = a.contents.addr
               val = cast(ap, POINTER(sockaddr_in))
-              #ret = bytes(val.contents.sin_addr[:4])
-              ret = "".join([chr(x) for x in val.contents.sin_addr[:4]])
+              #ret = raw(val.contents.sin_addr[:4])
+              ret = raw(val.contents.sin_addr[:4])
             a = a.contents.next
           break
         p = p.contents.next
@@ -141,7 +146,7 @@ if conf.use_winpcapy:
   class _PcapWrapper_pypcap:
       def __init__(self, device, snaplen, promisc, to_ms):
           self.errbuf = create_string_buffer(PCAP_ERRBUF_SIZE)
-          self.iface = create_string_buffer(device)
+          self.iface = create_string_buffer(device.encode('ascii'))
           self.pcap = pcap_open_live(self.iface, snaplen, promisc, to_ms, self.errbuf)
           self.header = POINTER(pcap_pkthdr)()
           self.pkt_data = POINTER(c_ubyte)()
@@ -151,9 +156,10 @@ if conf.use_winpcapy:
           if not c > 0:
               return
           ts = self.header.contents.ts.tv_sec
-          pkt = "".join([ chr(i) for i in self.pkt_data[:self.header.contents.len] ])
-          #pkt = bytes(self.pkt_data[:self.header.contents.len])
+          pkt = raw(self.pkt_data[:self.header.contents.len])
+          #pkt = raw(self.pkt_data[:self.header.contents.len])
           return ts, pkt
+      __next__ = next
       def datalink(self):
           return pcap_datalink(self.pcap)
       def fileno(self):
@@ -162,7 +168,7 @@ if conf.use_winpcapy:
             return 0
           return pcap_get_selectable_fd(self.pcap) 
       def setfilter(self, f):
-          filter_exp = create_string_buffer(f)
+          filter_exp = create_string_buffer(f.encode('ascii'))
           if pcap_compile(self.pcap, byref(self.bpf_program), filter_exp, 0, -1) == -1:
             log_loading.error("Could not compile filter expression %s" % f)
             return False
@@ -219,7 +225,7 @@ if conf.use_winpcapy:
 
           pkt = None
           while pkt is None:
-              pkt = self.ins.next()
+              pkt = next(self.ins)
               if pkt is not None:
                   ts,pkt = pkt
               if scapy.arch.WINDOWS and pkt is None:
@@ -273,7 +279,7 @@ if conf.use_winpcapy:
           if filter:
               self.ins.setfilter(filter)
       def send(self, x):
-          sx = str(x)
+          sx = bytes(x)
           if hasattr(x, "sent_time"):
               x.sent_time = time.time()
           return self.ins.send(sx)
@@ -286,7 +292,7 @@ if conf.use_winpcapy:
               cls = conf.default_l2
               warning("Unable to guess datalink type (interface=%s linktype=%i). Using %s" % (self.iface, ll, cls.name))
   
-          pkt = self.ins.next()
+          pkt = next(self.ins)
           if pkt is not None:
               ts,pkt = pkt
           if pkt is None:
@@ -327,7 +333,7 @@ if conf.use_winpcapy:
             return
       def send(self, x):
           cls = conf.l2types[1]
-          sx = str(cls()/x)
+          sx = bytes(cls()/x)
           if hasattr(x, "sent_time"):
               x.sent_time = time.time()
           return self.ins.send(sx)
@@ -337,10 +343,10 @@ if conf.use_winpcapy:
 if conf.use_pcap:
     try:
         import pcap
-    except ImportError,e:
+    except ImportError as e:
         try:
             import pcapy as pcap
-        except ImportError,e2:
+        except ImportError as e2:
             if conf.interactive:
                 log_loading.error("Unable to import pcap module: %s/%s" % (e,e2))
                 conf.use_pcap = False
@@ -365,11 +371,12 @@ if conf.use_pcap:
                 def __del__(self):
                     warning("__del__: don't know how to close the file descriptor. Bugs ahead ! Please report this bug.")
                 def next(self):
-                    c = self.pcap.next()
+                    c = next(self.pcap)
                     if c is None:
                         return
                     ts, pkt = c
-                    return ts, str(pkt)
+                    return ts, bytes(pkt)
+                __next__ = next
             open_pcap = lambda *args,**kargs: _PcapWrapper_pypcap(*args,**kargs)
         elif hasattr(pcap,"pcapObject"): # python-libpcap
             class _PcapWrapper_libpcap:
@@ -379,11 +386,12 @@ if conf.use_pcap:
                 def setfilter(self, filter):
                     self.pcap.setfilter(filter, 0, 0)
                 def next(self):
-                    c = self.pcap.next()
+                    c = next(self.pcap)
                     if c is None:
                         return
                     l,pkt,ts = c 
                     return ts,pkt
+                __next__ = next
                 def __getattr__(self, attr):
                     return getattr(self.pcap, attr)
                 def __del__(self):
@@ -396,7 +404,7 @@ if conf.use_pcap:
                     self.pcap = pcap.open_live(*args, **kargs)
                 def next(self):
                     try:
-                        c = self.pcap.next()
+                        c = next(self.pcap)
                     except pcap.PcapError:
                         return None
                     else:
@@ -405,6 +413,7 @@ if conf.use_pcap:
                             return
                         s,us = h.getts()
                         return (s+0.000001*us), p
+                __next__ = next
                 def fileno(self):
                     warning("fileno: pcapy API does not permit to get capure file descriptor. Bugs ahead! Press Enter to trigger packet reading")
                     return 0
@@ -454,7 +463,7 @@ if conf.use_pcap:
                     cls = conf.default_l2
                     warning("Unable to guess datalink type (interface=%s linktype=%i). Using %s" % (self.iface, ll, cls.name))
         
-                pkt = self.ins.next()
+                pkt = next(self.ins)
                 if scapy.arch.WINDOWS and pkt is None:
                         raise PcapTimeoutElapsed
                 if pkt is not None:
@@ -485,7 +494,7 @@ if conf.use_dnet:
         except ImportError:
             # Then, try to import dumbnet as dnet
             import dumbnet as dnet
-    except ImportError,e:
+    except ImportError as e:
         if conf.interactive:
             log_loading.error("Unable to import dnet module: %s" % e)
             conf.use_dnet = False
@@ -595,9 +604,9 @@ if conf.use_pcap and conf.use_dnet:
                     ifs = dnet.ip()
                 self.iflist[iff] = ifs,cls
             if cls is None:
-                sx = str(x)
+                sx = bytes(x)
             else:
-                sx = str(cls()/x)
+                sx = bytes(cls()/x)
             x.sent_time = time.time()
             ifs.send(sx)
         def recv(self,x=MTU):
@@ -608,7 +617,7 @@ if conf.use_pcap and conf.use_dnet:
                 cls = conf.default_l2
                 warning("Unable to guess datalink type (interface=%s linktype=%i). Using %s" % (self.iface, ll, cls.name))
     
-            pkt = self.ins.next()
+            pkt = next(self.ins)
             if pkt is not None:
                 ts,pkt = pkt
             if pkt is None:
@@ -678,7 +687,7 @@ if conf.use_pcap and conf.use_dnet:
                 cls = conf.default_l2
                 warning("Unable to guess datalink type (interface=%s linktype=%i). Using %s" % (self.iface, ll, cls.name))
     
-            pkt = self.ins.next()
+            pkt = next(self.ins)
             if pkt is not None:
                 ts,pkt = pkt
             if pkt is None:

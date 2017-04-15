@@ -7,6 +7,9 @@
 #  TODO: scapy 2 has function getmacbyip, maybe it can replace igmpize
 #          at least from the MAC layer
 
+from __future__ import absolute_import
+from __future__ import print_function
+
 from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.inet import *
@@ -148,7 +151,7 @@ IGMPv2 message format   http://www.faqs.org/rfcs/rfc2236.html
           ip.dst = self.gaddr                    # IP rule 3a
           retCode = True
         else:
-          print "Warning: Using invalid Group Address"
+          print("Warning: Using invalid Group Address")
           retCode = False
       elif ((self.type == 0x17) and isValidMCAddr(self.gaddr)):
           ip.dst = "224.0.0.2"                   # IP rule 2
@@ -157,10 +160,10 @@ IGMPv2 message format   http://www.faqs.org/rfcs/rfc2236.html
           ip.dst = self.gaddr                    # IP rule 3b
           retCode = True
       else:
-        print "Warning: Using invalid IGMP Type"
+        print("Warning: Using invalid IGMP Type")
         retCode = False
     else:
-      print "Warning: No IGMP Group Address set"
+      print("Warning: No IGMP Group Address set")
       retCode = False
     if retCode == True:
        ip.ttl=1                                  # IP Rule 4

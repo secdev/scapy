@@ -7,15 +7,17 @@
 Main module for interactive startup.
 """
 
+from __future__ import absolute_import
+from __future__ import print_function
 import os,sys
 import glob
 import types
 import gzip
-import cPickle
-import __builtin__
+import importlib
+import scapy
+import scapy.modules.six as six
 
 from scapy.error import *
-    
 
 def _probe_config_file(cf):
     cf_path = os.path.join(os.path.expanduser("~"), cf)
@@ -29,21 +31,25 @@ def _probe_config_file(cf):
 def _read_config_file(cf):
     log_loading.debug("Loading config file [%s]" % cf)
     try:
-        execfile(cf)
-    except IOError,e:
+        exec(compile(open(cf).read(), cf, 'exec'))
+    except IOError as e:
         log_loading.warning("Cannot read config file [%s] [%s]" % (cf,e))
-    except Exception,e:
+    except Exception as e:
         log_loading.exception("Error during evaluation of config file [%s]" % cf)
         
+ignored = list(six.moves.builtins.__dict__.keys())
+def _validate_local(x):
+    global ignored
+    return x[0] != "_" and not x in ignored
 
 DEFAULT_PRESTART_FILE = _probe_config_file(".scapy_prestart.py")
 DEFAULT_STARTUP_FILE = _probe_config_file(".scapy_startup.py")
 session = None
 
 def _usage():
-    print """Usage: scapy.py [-s sessionfile] [-c new_startup_file] [-p new_prestart_file] [-C] [-P]
+    print("""Usage: scapy.py [-s sessionfile] [-c new_startup_file] [-p new_prestart_file] [-C] [-P]
     -C: do not read startup file
-    -P: do not read pre-startup file"""
+    -P: do not read pre-startup file""")
     sys.exit(0)
 
 
@@ -58,17 +64,17 @@ from scapy.themes import DefaultTheme
 
 def _load(module):
     try:
-        mod = __import__(module,globals(),locals(),".")
+        mod = importlib.import_module(module)
         if '__all__' in mod.__dict__:
             # import listed symbols
             for name in mod.__dict__['__all__']:
-                __builtin__.__dict__[name] = mod.__dict__[name]
+                six.moves.builtins.__dict__[name] = mod.__dict__[name]
         else:
             # only import non-private symbols
-            for name, sym in mod.__dict__.iteritems():
-                if name[0] != '_':
-                    __builtin__.__dict__[name] = sym
-    except Exception,e:
+            for name, sym in six.iteritems(mod.__dict__):
+                if _validate_local(name):
+                    six.moves.builtins.__dict__[name] = sym
+    except Exception as e:
         log_interactive.error(e)
 
 def load_module(name):
@@ -79,7 +85,7 @@ def load_layer(name):
 
 def load_contrib(name):
     try:
-        __import__("scapy.contrib." + name)
+        importlib.import_module("scapy.contrib." + name)
         _load("scapy.contrib." + name)
     except ImportError:
         # if layer not found in contrib, try in layers
@@ -106,12 +112,8 @@ def list_contrib(name=None):
                 key = l[p:q].strip()
                 value = l[q+1:].strip()
                 desc[key] = value
-        print "%(name)-20s: %(description)-40s status=%(status)s" % desc
+        print("%(name)-20s: %(description)-40s status=%(status)s" % desc)
 
-                        
-
-
-    
 
 ##############################
 ## Session saving/restoring ##
@@ -126,15 +128,15 @@ def save_session(fname=None, session=None, pickleProto=-1):
             conf.session = fname = utils.get_temp_file(keep=True)
             log_interactive.info("Use [%s] as session file" % fname)
     if session is None:
-        session = __builtin__.__dict__["scapy_session"]
+        session = six.moves.builtins.__dict__["scapy_session"]
 
     to_be_saved = session.copy()
         
-    if to_be_saved.has_key("__builtins__"):
+    if "__builtins__" in to_be_saved:
         del(to_be_saved["__builtins__"])
 
     for k in to_be_saved.keys():
-        if type(to_be_saved[k]) in [types.TypeType, types.ClassType, types.ModuleType]:
+        if type(to_be_saved[k]) in [type, type, types.ModuleType]:
              log_interactive.error("[%s] (%s) can't be saved." % (k, type(to_be_saved[k])))
              del(to_be_saved[k])
 
@@ -145,7 +147,7 @@ def save_session(fname=None, session=None, pickleProto=-1):
          pass
     
     f=gzip.open(fname,"wb")
-    cPickle.dump(to_be_saved, f, pickleProto)
+    six.moves.cPickle.dump(to_be_saved, f, pickleProto)
     f.close()
     del f
 
@@ -153,15 +155,15 @@ def load_session(fname=None):
     if fname is None:
         fname = conf.session
     try:
-        s = cPickle.load(gzip.open(fname,"rb"))
+        s = six.moves.cPickle.load(gzip.open(fname,"rb"))
     except IOError:
         try:
-            s = cPickle.load(open(fname,"rb"))
+            s = six.moves.cPickle.load(open(fname,"rb"))
         except IOError:
             # Raise "No such file exception"
             raise
 
-    scapy_session = __builtin__.__dict__["scapy_session"]
+    scapy_session = six.moves.builtins.__dict__["scapy_session"]
     scapy_session.clear()
     scapy_session.update(s)
     log_loading.info("Loaded session [%s]" % conf.session)
@@ -170,26 +172,26 @@ def update_session(fname=None):
     if fname is None:
         fname = conf.session
     try:
-        s = cPickle.load(gzip.open(fname,"rb"))
+        s = six.moves.cPickle.load(gzip.open(fname,"rb"))
     except IOError:
-        s = cPickle.load(open(fname,"rb"))
-    scapy_session = __builtin__.__dict__["scapy_session"]
+        s = six.moves.cPickle.load(open(fname,"rb"))
+    scapy_session = six.moves.builtins.__dict__["scapy_session"]
     scapy_session.update(s)
 
 def init_session(session_name, mydict=None):
     global session
     global globkeys
     
-    scapy_builtins = __import__("all",globals(),locals(),".").__dict__
-    for name, sym in scapy_builtins.iteritems():
-        if name [0] != '_':
-            __builtin__.__dict__[name] = sym
-    globkeys = scapy_builtins.keys()
+    scapy_builtins = importlib.import_module(".all", "scapy").__dict__
+    for name, sym in six.iteritems(scapy_builtins):
+        if _validate_local(name):
+            six.moves.builtins.__dict__[name] = sym
+    globkeys = list(scapy_builtins.keys())
     globkeys.append("scapy_session")
     scapy_builtins=None # XXX replace with "with" statement
     if mydict is not None:
-        __builtin__.__dict__.update(mydict)
-        globkeys += mydict.keys()
+        six.moves.builtins.__dict__.update(mydict)
+        globkeys += list(mydict.keys())
     
     if session_name:
         try:
@@ -199,9 +201,9 @@ def init_session(session_name, mydict=None):
         else:
             try:
                 try:
-                    session = cPickle.load(gzip.open(session_name,"rb"))
+                    session = six.moves.cPickle.load(gzip.open(session_name,"rb"))
                 except IOError:
-                    session = cPickle.load(open(session_name,"rb"))
+                    session = six.moves.cPickle.load(open(session_name,"rb"))
                 log_loading.info("Using session [%s]" % session_name)
             except EOFError:
                 log_loading.error("Error opening session [%s]" % session_name)
@@ -218,7 +220,7 @@ def init_session(session_name, mydict=None):
     else:
         session={"conf": conf}
 
-    __builtin__.__dict__["scapy_session"] = session
+    six.moves.builtins.__dict__["scapy_session"] = session
 
 ################
 ##### Main #####
@@ -236,7 +238,7 @@ def scapy_write_history_file(readline):
     if conf.histfile:
         try:
             readline.write_history_file(conf.histfile)
-        except IOError,e:
+        except IOError as e:
             try:
                 warning("Could not write history to [%s]\n\t (%s)" % (conf.histfile,e))
                 tmp = utils.get_temp_file(keep=True)
@@ -279,7 +281,7 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
             def global_matches(self, text):
                 matches = []
                 n = len(text)
-                for lst in [dir(__builtin__), session]:
+                for lst in [dir(six.moves.builtins), session]:
                     for word in lst:
                         if word[:n] == text and word != "__builtins__":
                             matches.append(word)
@@ -300,7 +302,7 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
                         return []
                 from scapy.packet import Packet, Packet_metaclass
                 if isinstance(object, Packet) or isinstance(object, Packet_metaclass):
-                    words = filter(lambda x: x[0]!="_",dir(object))
+                    words = [x for x in dir(object) if x[0]!="_"]
                     words += [x.name for x in object.fields_desc]
                 else:
                     words = dir(object)
@@ -345,7 +347,7 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
             raise getopt.GetoptError("Too many parameters : [%s]" % " ".join(opts[1]))
 
 
-    except getopt.GetoptError, msg:
+    except getopt.GetoptError as msg:
         log_loading.error(msg)
         sys.exit(1)
 
@@ -373,7 +375,7 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
         try:
             import IPython
             IPYTHON=True
-        except ImportError, e:
+        except ImportError as e:
             log_loading.warning("IPython not available. Using standard Python shell instead.")
             IPYTHON=False
         
@@ -385,7 +387,7 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
           args = ['']  # IPython command line args (will be seen as sys.argv)
           ipshell = IPython.Shell.IPShellEmbed(args, banner = banner)
           ipshell(local_ns=session)
-        except AttributeError, e:
+        except AttributeError as e:
           pass
 
         # In the IPython cookbook, see 'Updating-code-for-use-with-IPython-0.11-and-later'
@@ -401,7 +403,7 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
 
     for k in globkeys:
         try:
-            del(__builtin__.__dict__[k])
+            del(six.moves.builtins.__dict__[k])
         except:
             pass
 

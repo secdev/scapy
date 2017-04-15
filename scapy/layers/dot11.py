@@ -7,6 +7,10 @@
 Wireless LAN according to IEEE 802.11.
 """
 
+from __future__ import absolute_import
+from __future__ import print_function
+from scapy.compat import *
+
 import re,struct
 from zlib import crc32
 
@@ -220,7 +224,7 @@ class Dot11Elt(Packet):
                     StrLenField("info", "", length_from=lambda x:x.len) ]
     def mysummary(self):
         if self.ID == 0:
-            return "SSID=%s"%repr(self.info),[Dot11]
+            return "SSID=%s"%repr(plain_str(self.info)),[Dot11]
         else:
             return ""
 
@@ -291,7 +295,7 @@ class Dot11WEP(Packet):
             key = conf.wepkey
         if key:
             d = Cipher(
-                algorithms.ARC4(self.iv + key),
+                algorithms.ARC4(raw(self.iv) + raw(key)),
                 None,
                 default_backend(),
             ).decryptor()
@@ -303,7 +307,7 @@ class Dot11WEP(Packet):
     def build_payload(self):
         if self.wepdata is None:
             return Packet.build_payload(self)
-        return ""
+        return b""
 
     @crypto_validator
     def encrypt(self, p, pay, key=None):
@@ -312,22 +316,22 @@ class Dot11WEP(Packet):
         if key:
             if self.icv is None:
                 pay += struct.pack("<I", crc32(pay))
-                icv = ""
+                icv = b""
             else:
                 icv = p[4:8]
             e = Cipher(
-                algorithms.ARC4(self.iv + key),
+                algorithms.ARC4(raw(self.iv) + raw(key)),
                 None,
                 default_backend(),
             ).encryptor()
             return p[:4] + e.update(pay) + e.finalize() + icv
         else:
             warning("No WEP key set (conf.wepkey).. strange results expected..")
-            return None
+        return p
 
     def post_build(self, p, pay):
         if self.wepdata is None:
-            p = self.encrypt(p, pay)
+            p = self.encrypt(p, raw(pay))
         return p
 
 
@@ -407,7 +411,7 @@ iwconfig wlan0 mode managed
             return 0
         ip = pkt.getlayer(IP)
         tcp = pkt.getlayer(TCP)
-        pay = str(tcp.payload)
+        pay = bytes(tcp.payload)
         if not self.ptrn.match(pay):
             return 0
         if self.iptrn.match(pay):
@@ -416,7 +420,7 @@ iwconfig wlan0 mode managed
     def make_reply(self, p):
         ip = p.getlayer(IP)
         tcp = p.getlayer(TCP)
-        pay = str(tcp.payload)
+        pay = bytes(tcp.payload)
         del(p.payload.payload.payload)
         p.FCfield="from-DS"
         p.addr1,p.addr2 = p.addr2,p.addr1
@@ -432,7 +436,7 @@ iwconfig wlan0 mode managed
         return [p,q]
     
     def print_reply(self):
-        print self.sprintf("Sent %IP.src%:%IP.sport% > %IP.dst%:%TCP.dport%")
+        print(self.sprintf("Sent %IP.src%:%IP.sport% > %IP.dst%:%TCP.dport%"))
 
     def send_reply(self, reply):
         sendp(reply, iface=self.ifto, **self.optsend)
@@ -470,7 +474,7 @@ iwconfig wlan0 mode managed
             return
         ip = p.getlayer(IP)
         tcp = p.getlayer(TCP)
-        pay = str(tcp.payload)
+        pay = bytes(tcp.payload)
         if not ptrn.match(pay):
             return
         if iptrn.match(pay):
@@ -490,7 +494,7 @@ iwconfig wlan0 mode managed
         q.getlayer(TCP).seq+=len(replace)
         
         sendp([p,q], iface=ifto, verbose=0)
-        print p.sprintf("Sent %IP.src%:%IP.sport% > %IP.dst%:%TCP.dport%")
+        print(p.sprintf("Sent %IP.src%:%IP.sport% > %IP.dst%:%TCP.dport%"))
 
     sniff(iface=iffrom,prn=do_airpwn)
 
@@ -509,7 +513,7 @@ class Dot11PacketList(PacketList):
 
         PacketList.__init__(self, res, name, stats)
     def toEthernet(self):
-        data = map(lambda x:x.getlayer(Dot11), filter(lambda x : x.haslayer(Dot11) and x.type == 2, self.res))
+        data = [x.getlayer(Dot11) for x in [x for x in self.res if x.haslayer(Dot11) and x.type == 2]]
         r2 = []
         for p in data:
             q = p.copy()
