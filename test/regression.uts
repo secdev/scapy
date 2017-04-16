@@ -2005,10 +2005,11 @@ a.type == 134 and a.code == 0 and a.cksum == 0 and a.chlim == 0 and a.M == 0 and
 a=IPv6(b'`\x00\x00\x00\x00\x10:\xff \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\xff\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x86\x00E\xe7\x00\x08\x07\x08\x00\x00\x00\x00\x00\x00\x00\x00')
 isinstance(a, IPv6) and a.nh == 58 and a.hlim == 255 and isinstance(a.payload, ICMPv6ND_RA) and a.payload.type == 134 and a.code == 0 and a.cksum == 0x45e7 and a.chlim == 0 and a.M == 0 and a.O == 0 and a.H == 0 and a.prf == 1 and a.res == 0 and a.routerlifetime == 1800 and a.reachabletime == 0 and a.retranstimer == 0 
 
-
-# TODO: Add answers()/Hashret() tests ( think about Cisco routers
-#       that reply with mcast RA to mcast rs )
-
+= ICMPv6ND_RA - Answers
+assert ICMPv6ND_RA().answers(ICMPv6ND_RS())
+a=IPv6(b'`\x00\x00\x00\x00\x10:\xff \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\xff\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x86\x00E\xe7\x00\x08\x07\x08\x00\x00\x00\x00\x00\x00\x00\x00')
+b = IPv6(b"`\x00\x00\x00\x00\x10:\xff\xff\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x85\x00M\xff\x00\x00\x00\x00")
+assert a.answers(b)
 
 ############
 ############
@@ -3088,12 +3089,15 @@ def test_getmacbyip6(mock_route6, mock_neighsol):
 
 test_getmacbyip6() == "05:04:03:02:01:00"
 
-= IPv6 - IPerror6 & UDPerror
+= IPv6 - IPerror6 & UDPerror & _ICMPv6Error
 
 query = IPv6(dst="2001:db8::1", src="2001:db8::2", hlim=1)/UDP()/DNS()
 answer = IPv6(dst="2001:db8::2", src="2001:db8::1", hlim=1)/ICMPv6TimeExceeded()/IPerror6(dst="2001:db8::1", src="2001:db8::2", hlim=0)/UDPerror()/DNS()
 answer.answers(query) == True
 
+# Test _ICMPv6Error
+from scapy.layers.inet6 import _ICMPv6Error
+assert _ICMPv6Error().guess_payload_class(None) == IPerror6
 
 ############
 ############
@@ -7934,6 +7938,25 @@ Dot11(type=0, subtype=1).answers(query) == True
 = Dot11 - misc
 Dot11Elt(info="scapy").summary() == "SSID='scapy'"
 
+############
+############
++ 802.3
+
+= Test detection
+
+assert isinstance(Dot3(str(Ether())),Ether)
+assert isinstance(Ether(str(Dot3())),Dot3)
+
+a = Ether(b'\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00')
+assert isinstance(a,Dot3)
+assert a.dst == 'ff:ff:ff:ff:ff:ff'
+assert a.src == '00:00:00:00:00:00'
+
+a = Dot3(b'\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x90\x00')
+assert isinstance(a,Ether)
+assert a.dst == 'ff:ff:ff:ff:ff:ff'
+assert a.src == '00:00:00:00:00:00'
+
 
 ############
 ############
@@ -7998,6 +8021,12 @@ assert(answer.answers(query) == True)
 query = IP(dst="192.168.0.1", src="192.168.0.254", ttl=1)/ICMP()/"scapy"
 answer = IP(dst="192.168.0.254", src="192.168.0.2")/ICMP(type=11)/IPerror(dst="192.168.0.1", src="192.168.0.254", ttl=0)/ICMPerror()/"scapy"
 assert(answer.answers(query) == True)
+
+= IPv4 - mDNS
+a = IP(dst="224.0.0.251")
+assert a.hashret() == b"\x00"
+
+# TODO add real case here
 
 = IPv4 - utilities
 l = overlap_frag(IP(dst="1.2.3.4")/ICMP()/("AB"*8), ICMP()/("CD"*8))
