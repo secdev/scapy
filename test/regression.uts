@@ -7969,6 +7969,7 @@ r1 == b'@\x04\x08\x08\x08\x08'
 r2 = b.dec(r1)[0]
 r2.val == '8.8.8.8'
 
+
 ############
 ############
 + inet.py
@@ -8113,3 +8114,22 @@ def test_IPID_count():
     assert(lines[0].endswith("Probably 3 classes: [4613, 53881, 58437]"))
 
 test_IPID_count()
+
+
+############
+############
++ Fields
+
+= FieldLenField with BitField
+class Test(Packet):
+    name = "Test"
+    fields_desc = [
+        FieldLenField("BitCount", None, fmt="H", count_of="Values"),
+        FieldLenField("ByteCount", None, fmt="B", length_of="Values"),
+        FieldListField("Values", [], BitField("data", 0x0, size=1),
+                       count_from=lambda pkt: pkt.BitCount),
+    ]
+
+pkt = Test(str(Test(Values=[0, 0, 0, 0, 1, 1, 1, 1])))
+assert(pkt.BitCount == 8)
+assert(pkt.ByteCount == 1)

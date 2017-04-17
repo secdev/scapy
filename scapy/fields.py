@@ -783,6 +783,8 @@ class BitField(Field):
             return s,b
     def randval(self):
         return RandNum(0,2**self.size-1)
+    def i2len(self, pkt, x):
+        return float(self.size)/8
 
 
 class BitFieldLenField(BitField):
