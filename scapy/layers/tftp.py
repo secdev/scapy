@@ -318,7 +318,7 @@ class TFTP_WRQ_server(Automaton):
         self.ip = ip.dst
         self.dst = ip.src
         self.filename = pkt[TFTP_WRQ].filename
-        options = pkt[TFTP_Options]
+        options = pkt.getlayer(TFTP_Options)
         self.l3 = IP(src=ip.dst, dst=ip.src)/UDP(sport=self.my_tid, dport=pkt.sport)/TFTP()
         if options is None:
             self.last_packet = self.l3/TFTP_ACK(block=0)
