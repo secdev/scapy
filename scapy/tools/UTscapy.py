@@ -184,15 +184,10 @@ class UnitTest(TestClass):
         self.crc = None
         self.expand = 1
     def decode(self):
-        self.test = self.test.decode("utf8")
-        self.output = self.output.decode("utf8")
-        self.comments = self.comments.decode("utf8")
-        self.result = self.result.decode("utf8")
-    def encode(self):
-        self.test = self.test.encode("utf8")
-        self.output = self.output.encode("utf8")
-        self.comments = self.comments.encode("utf8")
-        self.result = self.result.encode("utf8")
+        self.test = self.test.decode("utf8", "ignore")
+        self.output = self.output.decode("utf8", "ignore")
+        self.comments = self.comments.decode("utf8", "ignore")
+        self.result = self.result.decode("utf8", "ignore")
     def __nonzero__(self):
         return self.res
 

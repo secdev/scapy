@@ -16,14 +16,13 @@ from scapy.error import Scapy_Exception, log_loading, log_runtime, warning
 from scapy.utils import atol, itom, inet_aton, inet_ntoa, PcapReader
 from scapy.base_classes import Gen, Net, SetGen
 from scapy.data import MTU, ETHER_BROADCAST, ETH_P_ARP
-from scapy.consts import LOOPBACK_NAME
 
 conf.use_pcap = False
 conf.use_dnet = False
 conf.use_winpcapy = True
 
 WINDOWS = (os.name == 'nt')
-NEW_RELEASE = False
+NEW_RELEASE = None
 
 #hot-patching socket for missing variables on Windows
 import socket
@@ -39,17 +38,22 @@ if not hasattr(socket, 'IPPROTO_GRE'):
 from scapy.arch import pcapdnet
 from scapy.arch.pcapdnet import *
 
-def is_new_release():
+from scapy.consts import LOOPBACK_NAME
+
+def is_new_release(ignoreVBS=False):
+    if NEW_RELEASE and conf.prog.powershell is not None:
+        return True
     release = platform.release()
+    if conf.prog.powershell is None and not ignoreVBS:
+        return False
     try:
-        if float(release) >= 8:
-            return True
+         if float(release) >= 8:
+             return True
     except ValueError:
         if (release=="post2008Server"):
             return True
     return False
 
-NEW_RELEASE = is_new_release()
 
 def _exec_query_ps(cmd, fields):
     """Execute a PowerShell query"""
@@ -236,18 +240,6 @@ def win_find_exe(filename, installsubdir=None, env="ProgramFiles"):
     return path
 
 
-def is_new_release(ignoreVBS=False):
-    release = platform.release()
-    if conf.prog.powershell is None and not ignoreVBS:
-        return False
-    try:
-        if float(release) >= 8:
-            return True
-    except ValueError:
-        if (release=="post2008Server"):
-            return True
-    return False
-
 class WinProgPath(ConfClass):
     # This is a dict containing the name of the .exe and a keyword
     # that must be in the path of the file
@@ -274,6 +266,8 @@ class WinProgPath(ConfClass):
         )
         self.cscript = win_find_exe("cscript", installsubdir="System32",
                                env="SystemRoot")
+        self.cmd = win_find_exe("cmd", installsubdir="System32",
+                               env="SystemRoot")
         if self.wireshark != "wireshark":
             manu_path = load_manuf(os.path.sep.join(self.wireshark.split(os.path.sep)[:-1])+os.path.sep+"manuf")
             scapy.data.MANUFDB = conf.manufdb = MANUFDB = manu_path
@@ -298,6 +292,9 @@ if conf.prog.tcpdump != "windump" and conf.use_npcap:
         warning("The installed Windump version does not work with Npcap ! Refer to 'Winpcap/Npcap conflicts' in scapy's doc", True)
     del windump_ok
 
+# Auto-detect release
+NEW_RELEASE = is_new_release()
+
 class PcapNameNotFoundError(Scapy_Exception):
     pass    
 
@@ -311,7 +308,7 @@ def is_interface_valid(iface):
 
 def get_windows_if_list():
     """Returns windows interfaces"""
-    if NEW_RELEASE:
+    if is_new_release():
         # This works only starting from Windows 8/2012 and up. For older Windows another solution is needed
         # Careful: this is weird, but Get-NetAdaptater works like: (Name isn't the interface name)
         # Name                      InterfaceDescription                    ifIndex Status       MacAddress             LinkSpeed
@@ -337,6 +334,7 @@ def get_ip_from_name(ifname, v6=False):
                                     ['Description', 'IPAddress']):
         if descr == ifname.strip():
             return ipaddr.split(",", 1)[v6].strip('{}').strip()
+    return None
         
 class NetworkInterface(object):
     """A network interface of your local host"""
@@ -371,10 +369,13 @@ class NetworkInterface(object):
         try:
             if not self.ip:
                 self.ip=get_ip_from_name(data['name'])
+            if not self.ip and self.name == LOOPBACK_NAME:
+                self.ip = "127.0.0.1"
+            if not self.ip:
+                # No IP detected
+                self.invalid = True
         except (KeyError, AttributeError, NameError) as e:
             print e
-        if not self.ip and self.name == LOOPBACK_NAME:
-            self.ip = "127.0.0.1"
         try:
             self.mac = data['mac']
         except KeyError:
@@ -413,6 +414,14 @@ class NetworkInterfaceDict(UserDict):
                                 "You probably won't be able to send packets. "
                                 "Deactivating unneeded interfaces and restarting Scapy might help."
                                 "Check your winpcap and powershell installation, and access rights.", True)
+        else:
+            # Loading state: remove invalid interfaces
+            self.remove_invalid_ifaces()
+            # Replace LOOPBACK_INTERFACE
+            try:
+                scapy.consts.LOOPBACK_INTERFACE = self.dev_from_name(LOOPBACK_NAME)
+            except:
+                pass
 
     def dev_from_name(self, name):
         """Return the first pcap device name for a given Windows
@@ -435,7 +444,22 @@ class NetworkInterfaceDict(UserDict):
         for devname, iface in self.items():
             if iface.win_index == str(if_index):
                 return iface
+        if str(if_index) == "1":
+            # Test if the loopback interface is set up
+            if isinstance(scapy.consts.LOOPBACK_INTERFACE, NetworkInterface):
+                return scapy.consts.LOOPBACK_INTERFACE
         raise ValueError("Unknown network interface index %r" % if_index)
+
+    def remove_invalid_ifaces(self):
+        """Remove all invalid interfaces"""
+        for devname, iface in self.items():
+            if iface.is_invalid():
+                self.data.pop(devname)
+
+    def reload(self):
+        """Reload interface list"""
+        self.data.clear()
+        self.load_from_powershell()
 
     def show(self, resolve_mac=True):
         """Print list of available network interfaces in human readable form"""
@@ -489,7 +513,7 @@ pcapdnet.get_if_raw_hwaddr = lambda iface, *args, **kargs: (
 )
 get_if_raw_hwaddr = pcapdnet.get_if_raw_hwaddr
 
-def read_routes_xp():
+def _read_routes_xp():
     # The InterfaceIndex in Win32_IP4RouteTable does not match the
     # InterfaceIndex in Win32_NetworkAdapter under some platforms
     # (namely Windows XP): let's try an IP association
@@ -515,9 +539,9 @@ def read_routes_xp():
             routes.append((dst, mask, gw, iface, iface.ip))
     return routes
 
-def read_routes_7():
+def _read_routes_7():
     routes=[]
-    for line in exec_query(['Get-WmiObject', 'win32_IP4RouteTable'],
+    for line in exec_query(['Get-WmiObject', 'Win32_IP4RouteTable'],
                            ['Name', 'Mask', 'NextHop', 'InterfaceIndex']):
         try:
             iface = dev_from_index(line[3])
@@ -530,12 +554,12 @@ def read_routes():
     routes = []
     release = platform.release()
     try:
-        if NEW_RELEASE:
-            routes = read_routes_post2008()
+        if is_new_release():
+            routes = _read_routes_post2008()
         elif release == "XP":
-            routes = read_routes_xp()
+            routes = _read_routes_xp()
         else:
-            routes = read_routes_7()
+            routes = _read_routes_7()
     except Exception as e:    
         warning("Error building scapy routing table : %s" % str(e), True)
     else:
@@ -543,7 +567,7 @@ def read_routes():
             warning("No default IPv4 routes found. Your Windows release may no be supported and you have to enter your routes manually", True)
     return routes
 
-def read_routes_post2008():
+def _read_routes_post2008():
     routes = []
     if_index = '(\d+)'
     dest = '(\d+\.\d+\.\d+\.\d+)/(\d+)'
@@ -581,26 +605,59 @@ def in6_getifaddr():
     """
     Returns all IPv6 addresses found on the computer
     """
-    ret = []
-    ps = sp.Popen([conf.prog.powershell, 'Get-NetRoute', '-AddressFamily IPV6', '|', 'select ifIndex, DestinationPrefix'], stdout = sp.PIPE, universal_newlines = True)
-    stdout, stdin = ps.communicate()
-    netstat_line = '\s+'.join(['(\d+)', ''.join(['([A-z|0-9|:]+)', '(\/\d+)'])])
-    pattern = re.compile(netstat_line)
-    for l in stdout.split('\n'):
-        match = re.search(pattern,l)
-        if match:
+    if is_new_release():
+        ret = []
+        ps = sp.Popen([conf.prog.powershell, 'Get-NetRoute', '-AddressFamily IPV6', '|', 'select ifIndex, DestinationPrefix'], stdout = sp.PIPE, universal_newlines = True)
+        stdout, stdin = ps.communicate()
+        netstat_line = '\s+'.join(['(\d+)', ''.join(['([A-z|0-9|:]+)', '(\/\d+)'])])
+        pattern = re.compile(netstat_line)
+        for l in stdout.split('\n'):
+            match = re.search(pattern,l)
+            if match:
+                try:
+                    if_index = match.group(1)
+                    iface = dev_from_index(if_index)
+                except:
+                    continue
+                scope = scapy.utils6.in6_getscope(match.group(2))
+                ret.append((match.group(2), scope, iface)) # (addr,scope,iface)
+                continue
+        return ret
+    else:
+        ret = []
+        # Get-WmiObject Win32_NetworkAdapterConfiguration | select InterfaceIndex, IpAddress
+        for line in exec_query(['Get-WmiObject', 'Win32_NetworkAdapterConfiguration'], ['InterfaceIndex', 'IPAddress']):
             try:
-                if_index = match.group(1)
-                iface = dev_from_index(if_index)
+                iface = dev_from_index(line[0])
             except:
                 continue
-            scope = scapy.utils6.in6_getscope(match.group(2))
-            ret.append((match.group(2), scope, iface)) # (addr,scope,iface)
-            continue
-    return ret
+            _l_addresses = line[1]
+            _inline = []
+            if _l_addresses:
+                _inline = _l_addresses[1:-1].split(",")
+                for _address in _inline:
+                    _a = _address.strip()
+                    if "." not in _a:
+                        scope = scapy.utils6.in6_getscope(_a)
+                        ret.append((_a, scope, iface)) # (addr,scope,iface)
+        return ret
 
-def read_routes6():
-    routes = []
+def _append_route6(routes, dpref, dp, nh, iface, lifaddr):
+    cset = [] # candidate set (possible source addresses)
+    if iface.name == LOOPBACK_NAME:
+        if dpref == '::':
+            return
+        cset = ['::1']
+    else:
+        devaddrs = filter(lambda x: x[2] == iface, lifaddr)
+        cset = scapy.utils6.construct_source_candidate_set(dpref, dp, devaddrs, scapy.consts.LOOPBACK_INTERFACE)
+    if len(cset) == 0:
+        return
+    # APPEND (DESTINATION, NETMASK, NEXT HOP, IFACE, CANDIDATS)
+    routes.append((dpref, dp, nh, iface, cset))
+
+def _read_routes6_post2008():
+    routes6 = []
     ipv6_r = '([A-z|0-9|:]+)' #Hope it is a valid address...
     # The correct IPv6 regex would be:
     # ((([0-9A-Fa-f]{1,4}:){7}([0-9A-Fa-f]{1,4}|:))|(([0-9A-Fa-f]{1,4}:){6}(:[0-9A-Fa-f]{1,4}|((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){1,2})|:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){1,3})|((:[0-9A-Fa-f]{1,4})?:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){1,4})|((:[0-9A-Fa-f]{1,4}){0,2}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){1,5})|((:[0-9A-Fa-f]{1,4}){0,3}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){1,6})|((:[0-9A-Fa-f]{1,4}){0,4}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(:(((:[0-9A-Fa-f]{1,4}){1,7})|((:[0-9A-Fa-f]{1,4}){0,5}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:)))(%.+)?
@@ -624,24 +681,68 @@ def read_routes6():
             except:
                 continue
 
-            d = match.group(2)
+            dpref = match.group(2)
             dp = int(match.group(3)[1:])
             nh = match.group(4)
             
-            cset = [] # candidate set (possible source addresses)
-            if iface.name == LOOPBACK_NAME:
-                if d == '::':
+            _append_route6(routes6, dpref, dp, nh, iface, lifaddr)
+    return routes6
+
+def _read_routes6_7():
+    # Not supported in powershell, we have to use netsh
+    routes = []
+    ps = sp.Popen([conf.prog.cmd, '/c', 'netsh interface ipv6 show route level=verbose'], stdout = sp.PIPE, universal_newlines = True)
+    stdout, stdin = ps.communicate()
+    lifaddr = in6_getifaddr()
+    # Define regexes
+    r_int = [".*:\s+(\d+)"]
+    r_all = ["(.*)"]
+    r_ipv6 = [".*:\s+([A-z|0-9|:]+(\/\d+)?)"]
+    # Build regex list for each object
+    regex_list = r_ipv6*2 + r_int + r_all*3 + r_int + r_all*3
+    current_object =  []
+    index = 0
+    for l in stdout.split('\n'):
+        if not l.strip():
+            if len(current_object) == 0:
+                continue
+            
+            if len(current_object) == len(regex_list):
+                try:
+                    if_index = current_object[2]
+                    iface = dev_from_index(if_index)
+                except:
+                    current_object = []
+                    index = 0
                     continue
-                cset = ['::1']
-            else:
-                devaddrs = filter(lambda x: x[2] == iface, lifaddr)
-                cset = scapy.utils6.construct_source_candidate_set(d, dp, devaddrs, LOOPBACK_NAME)
-            # APPEND (DESTINATION, NETMASK, NEXT HOP, IFACE, CANDIDATS)
-            routes.append((d, dp, nh, iface, cset))
+                _ip = current_object[0].split("/")
+                dpref = _ip[0]
+                dp = int(_ip[1])
+                nh = current_object[1].split("/")[0]
+                # metric = current_object[6]
+                _append_route6(routes, dpref, dp, nh, iface, lifaddr)
+
+            # Reset current object
+            current_object = []
+            index = 0
+        else:
+            pattern = re.compile(regex_list[index])
+            match = re.search(pattern, l)
+            if match:
+                current_object.append(match.group(1))
+                index = index + 1
     return routes
 
-
-
+def read_routes6():
+    routes6 = []
+    try:
+        if is_new_release():
+            routes6 = _read_routes6_post2008()
+        else:
+            routes6 = _read_routes6_7()
+    except Exception as e:    
+        warning("Error building scapy routing table : %s" % str(e), True)
+    return routes6
 
 if conf.interactive_shell != 'ipython' and conf.interactive:
     try:
@@ -680,12 +781,16 @@ def get_working_if():
         return min(read_routes(), key=lambda x: x[1])[3]
     except ValueError:
         # no route
-        return LOOPBACK_NAME
+        return scapy.consts.LOOPBACK_INTERFACE
 
 conf.iface = get_working_if()
 
 def route_add_loopback(routes=None, ipv6=False, iflist=None):
     """Add a route to 127.0.0.1 and ::1 to simplify unit tests on Windows"""
+    if not WINDOWS:
+        warning("Not available")
+        return
+    warning("This will completly mess up the routes. Testing purpose only !")
     # Add only if some adpaters already exist
     if ipv6:
         if len(conf.route6.routes) == 0:
@@ -699,10 +804,22 @@ def route_add_loopback(routes=None, ipv6=False, iflist=None):
     data['win_index'] = -1
     data['guid'] = "{0XX00000-X000-0X0X-X00X-00XXXX000XXX}"
     data['invalid'] = True
+    data['mac'] = '00:00:00:00:00:00'
     adapter = NetworkInterface(data)
     if iflist:
         iflist.append(unicode("\\Device\\NPF_" + adapter.guid))
         return
+    # Remove all LOOPBACK_NAME routes
+    for route in list(conf.route.routes):
+        iface = route[3]
+        if iface.name == LOOPBACK_NAME:
+            conf.route.routes.remove(route)
+    # Remove LOOPBACK_NAME interface
+    for devname, iface in IFACES.items():
+        if iface.name == LOOPBACK_NAME:
+            IFACES.pop(devname)
+    # Inject interface
+    IFACES[data['guid']] = adapter
     # Build the packed network addresses
     loop_net = struct.unpack("!I", socket.inet_aton("127.0.0.0"))[0]
     loop_mask = struct.unpack("!I", socket.inet_aton("255.0.0.0"))[0]

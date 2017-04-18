@@ -8,8 +8,8 @@ Routing and handling of network interfaces.
 """
 
 import socket
-from scapy.consts import LOOPBACK_NAME
-from scapy.utils import atol, ltoa, itom
+from scapy.consts import LOOPBACK_NAME, LOOPBACK_INTERFACE
+from scapy.utils import atol, ltoa, itom, pretty_routes
 from scapy.config import conf
 from scapy.error import Scapy_Exception, warning
 from scapy.arch import WINDOWS
@@ -32,7 +32,7 @@ class Route:
         self.routes = read_routes()
 
     def __repr__(self):
-        rtlst = [("Network", "Netmask", "Gateway", "Iface", "Output IP")]
+        rtlst = []
         
         for net,msk,gw,iface,addr in self.routes:
 	    rtlst.append((ltoa(net),
@@ -40,11 +40,9 @@ class Route:
                       gw,
                       (iface.name if not isinstance(iface, basestring) else iface),
                       addr))
-        
-        colwidth = map(lambda x: max(map(lambda y: len(y), x)), apply(zip, rtlst))
-        fmt = "  ".join(map(lambda x: "%%-%ds"%x, colwidth))
-        rt = "\n".join(map(lambda x: fmt % x, rtlst))
-        return rt
+
+        return pretty_routes(rtlst,
+                             [("Network", "Netmask", "Gateway", "Iface", "Output IP")])
 
     def make_route(self, host=None, net=None, gw=None, dev=None):
         from scapy.arch import get_if_addr
@@ -154,13 +152,13 @@ class Route:
                 continue
             aa = atol(a)
             if aa == dst:
-                pathes.append((0xffffffffL,(LOOPBACK_NAME,a,"0.0.0.0")))
+                pathes.append((0xffffffffL,(LOOPBACK_INTERFACE,a,"0.0.0.0")))
             if (dst & m) == (d & m):
                 pathes.append((m,(i,a,gw)))
         if not pathes:
             if verbose:
                 warning("No route found (no default route?)")
-            return LOOPBACK_NAME,"0.0.0.0","0.0.0.0" #XXX linux specific!
+            return LOOPBACK_INTERFACE,"0.0.0.0","0.0.0.0"
         # Choose the more specific route (greatest netmask).
         # XXX: we don't care about metrics
         pathes.sort()
@@ -185,6 +183,6 @@ conf.route=Route()
 
 #XXX use "with"
 _betteriface = conf.route.route("0.0.0.0", verbose=0)[0]
-if _betteriface != LOOPBACK_NAME:
+if ((_betteriface if (isinstance(_betteriface, basestring) or _betteriface is None) else _betteriface.name) != LOOPBACK_NAME):
     conf.iface = _betteriface
 del(_betteriface)

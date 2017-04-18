@@ -8,10 +8,15 @@
 
 = Windows with fake IPv6 adapter
 
-import mock
+route_add_loopback()
 
-def check_mandatory_ipv6_routes_windows(routes6):
-    """Ensure that mandatory IPv6 routes are present. There is not always a loopback interface on windows !"""
+import mock
+from scapy.arch.windows import _read_routes6_post2008
+
+def check_mandatory_ipv6_routes(routes6):
+    """Ensure that mandatory IPv6 routes are present."""
+    if len(filter(lambda r: r[0] == "::" and r[-1] == ["::1"], routes6)) < 1:
+        return False
     if len(filter(lambda r: r[0] == "fe80::" and (r[1] == 64 or r[1] == 32), routes6)) < 1:
         return False
     if len(filter(lambda r: in6_islladdr(r[0]) and r[1] == 128, routes6)) < 1:
@@ -19,23 +24,24 @@ def check_mandatory_ipv6_routes_windows(routes6):
     return True
 
 def dev_from_index_custom(if_index):
-    if_list = [{'mac': 'D0-50-99-56-DD-F9', 'win_index': '13', 'guid': '{C56DFFB3-992C-4964-B000-3E7C0F76E8BA}', 'name': 'Killer E2200 Gigabit Ethernet Controller', 'description': 'Ethernet'}, {'mac': '00-FF-0E-C7-25-37', 'win_index': '3', 'guid': '{0EC72537-B662-4F5D-B34E-48BFAE799BBE}', 'name': 'TAP-Windows Adapter V9', 'description': 'Ethernet 2'}]
+    if_list = [{'mac': 'D0:50:99:56:DD:F9', 'win_index': '13', 'guid': '{C56DFFB3-992C-4964-B000-3E7C0F76E8BA}', 'name': 'Killer E2200 Gigabit Ethernet Controller', 'description': 'Ethernet'}, {'mac': '00:FF:0E:C7:25:37', 'win_index': '3', 'guid': '{0EC72537-B662-4F5D-B34E-48BFAE799BBE}', 'name': 'TAP-Windows Adapter V9', 'description': 'Ethernet 2'}]
     values = {}
     for i in if_list:
-            try:
-                interface = NetworkInterface(i)
-                values[interface.guid] = interface
-            except (KeyError, PcapNameNotFoundError):
-                pass
+        try:
+            interface = NetworkInterface(i)
+            values[interface.guid] = interface
+        except (KeyError, PcapNameNotFoundError):
+            pass
     for devname, iface in values.items():
         if iface.win_index == str(if_index):
             return iface
     raise ValueError("Unknown network interface index %r" % if_index)
 
+@mock.patch("scapy.utils6.construct_source_candidate_set")
 @mock.patch("scapy.arch.windows.winpcapy_get_if_list")
 @mock.patch("scapy.arch.windows.dev_from_index")
 @mock.patch("scapy.arch.windows.sp.Popen")
-def test_read_routes6_windows(mock_comm, mock_dev_from_index, mock_winpcapylist):
+def test_read_routes6_windows(mock_comm, mock_dev_from_index, mock_winpcapylist, mock_utils6cset):
     """Test read_routes6() on Windows"""
     # 'Get-NetRoute -AddressFamily IPV6 | select ifIndex, DestinationPrefix, NextHop'
     get_net_route_output = """
@@ -60,12 +66,15 @@ ifIndex DestinationPrefix                          NextHop
     mock_winpcapylist.return_value = [u'\\Device\\NPF_{0EC72537-B662-4F5D-B34E-48BFAE799BBE}', u'\\Device\\NPF_{C56DFFB3-992C-4964-B000-3E7C0F76E8BA}']
     # Mocked in6_getifaddr() output
     mock_dev_from_index.side_effect = dev_from_index_custom
+    # Random
+    mock_utils6cset.side_effect = lambda w,x,y,z: ["::1"] if w=="::" else ["fdbb:d995:ddd8:51fc::"]
     # Test the function
-    routes = read_routes6()
+    routes = _read_routes6_post2008()
     for r in routes:
         print r
+    print(len(routes))
     assert(len(routes) == 9)
-    assert(check_mandatory_ipv6_routes_windows(routes))
+    assert(check_mandatory_ipv6_routes(routes))
 
 
 test_read_routes6_windows()
@@ -201,7 +210,7 @@ def test_show_interfaces(mock_stdout):
         if not l.strip():
             continue
         try:
-            int(l[0])
+            int(l[:2])
         except:
             sys.stderr.write(l)
             return False

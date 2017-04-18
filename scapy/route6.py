@@ -22,6 +22,7 @@ from scapy.utils6 import *
 from scapy.arch import *
 from scapy.pton_ntop import *
 from scapy.error import warning, log_loading
+from scapy.consts import LOOPBACK_INTERFACE
 
 
 class Route6:
@@ -46,17 +47,14 @@ class Route6:
             log_loading.info("No IPv6 support in kernel")
 
     def __repr__(self):
-        rtlst = [('Destination', 'Next Hop', "iface", "src candidates")]
+        rtlst = []
 
         for net,msk,gw,iface,cset in self.routes:
-            rtlst.append(('%s/%i'% (net,msk), gw, (iface if isinstance(iface, basestring) else iface.name), ", ".join(cset)))
+            rtlst.append(('%s/%i'% (net,msk), gw, (iface if isinstance(iface, basestring) else iface.name), ", ".join(cset) if len(cset) > 0 else ""))
 
-        colwidth = map(lambda x: max(map(lambda y: len(y), x)), apply(zip, rtlst))
-        fmt = "  ".join(map(lambda x: "%%-%ds"%x, colwidth))
-        rt = "\n".join(map(lambda x: fmt % x, rtlst))
-
-        return rt
-
+        return pretty_routes(rtlst,
+                             [('Destination', 'Next Hop', "Iface", "Src candidates")],
+                             sortBy = 1)
 
     # Unlike Scapy's Route.make_route() function, we do not have 'host' and 'net'
     # parameters. We only have a 'dst' parameter that accepts 'prefix' and
@@ -77,7 +75,7 @@ class Route6:
             # replace that unique address by the list of all addresses
             lifaddr = in6_getifaddr()
             devaddrs = filter(lambda x: x[2] == dev, lifaddr)
-            ifaddr = construct_source_candidate_set(prefix, plen, devaddrs, LOOPBACK_NAME)
+            ifaddr = construct_source_candidate_set(prefix, plen, devaddrs, LOOPBACK_INTERFACE)
 
         return (prefix, plen, gw, dev, ifaddr)
 
@@ -220,7 +218,7 @@ class Route6:
 
         if not pathes:
             warning("No route found for IPv6 destination %s (no default route?)" % dst)
-            return (LOOPBACK_NAME, "::", "::") # XXX Linux specific
+            return (LOOPBACK_INTERFACE, "::", "::")
 
         # Sort with longest prefix first
         pathes.sort(reverse=True)
@@ -237,7 +235,7 @@ class Route6:
 
         if res == []:
             warning("Found a route for IPv6 destination '%s', but no possible source address." % dst)
-            return (LOOPBACK_NAME, "::", "::") # XXX Linux specific
+            return (LOOPBACK_INTERFACE, "::", "::")
 
         # Symptom  : 2 routes with same weight (our weight is plen)
         # Solution :
