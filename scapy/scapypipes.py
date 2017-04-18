@@ -200,16 +200,16 @@ class TCPListenPipe(TCPConnectPipe):
             self._send(self.fd.recv(65536))
         else:
             fd,frm = self.fd.accept()
-            self._high_send(repr(frm))
+            self._high_send(frm)
             self.fd.close()
             self.fd = fd
             self.connected = True
+            self._trigger(frm)
             while True:
                 try:
                     self.fd.send(self.q.get(block=False))
                 except Queue.Empty:
                     break
-            self._trigger(repr(frm))
 
 
 class TriggeredMessage(Drain):
