@@ -91,11 +91,12 @@ class RandNum(RandField):
     """Instances evaluate to random integers in selected range"""
     min = 0
     max = 0
-    def __init__(self, min, max):
+    def __init__(self, min, max, seed=None):
         self.min = min
         self.max = max
+        self.rnd = random.Random(seed)
     def _fix(self):
-        return random.randrange(self.min, self.max+1)
+        return self.rnd.randrange(self.min, self.max+1)
 
     def __int__(self):
         return int(self._fix())
@@ -132,36 +133,44 @@ class RandEnum(RandNum):
         return self.seq.next()
 
 class RandByte(RandNum):
-    def __init__(self):
-        RandNum.__init__(self, 0, 2L**8-1)
+    def __init__(self, seed=None):
+        self.seed = seed
+        RandNum.__init__(self, 0, 2L**8-1, seed=self.seed)
 
 class RandSByte(RandNum):
-    def __init__(self):
-        RandNum.__init__(self, -2L**7, 2L**7-1)
+    def __init__(self, seed=None):
+        self.seed = seed
+        RandNum.__init__(self, -2L**7, 2L**7-1, seed=self.seed)
 
 class RandShort(RandNum):
-    def __init__(self):
-        RandNum.__init__(self, 0, 2L**16-1)
+    def __init__(self, seed=None):
+        self.seed = seed
+        RandNum.__init__(self, 0, 2L**16-1, seed=self.seed)
 
 class RandSShort(RandNum):
-    def __init__(self):
-        RandNum.__init__(self, -2L**15, 2L**15-1)
+    def __init__(self, seed=None):
+        self.seed = seed
+        RandNum.__init__(self, -2L**15, 2L**15-1, seed=self.seed)
 
 class RandInt(RandNum):
-    def __init__(self):
-        RandNum.__init__(self, 0, 2L**32-1)
+    def __init__(self, seed=None):
+        self.seed = seed
+        RandNum.__init__(self, 0, 2L**32-1, seed=self.seed)
 
 class RandSInt(RandNum):
-    def __init__(self):
-        RandNum.__init__(self, -2L**31, 2L**31-1)
+    def __init__(self, seed=None):
+        self.seed = seed
+        RandNum.__init__(self, -2L**31, 2L**31-1, seed=self.seed)
 
 class RandLong(RandNum):
-    def __init__(self):
-        RandNum.__init__(self, 0, 2L**64-1)
+    def __init__(self, seed=None):
+        self.seed = seed
+        RandNum.__init__(self, 0, 2L**64-1, seed=self.seed)
 
 class RandSLong(RandNum):
-    def __init__(self):
-        RandNum.__init__(self, -2L**63, 2L**63-1)
+    def __init__(self, seed=None):
+        self.seed = seed
+        RandNum.__init__(self, -2L**63, 2L**63-1, seed=self.seed)
 
 class RandEnumByte(RandEnum):
     def __init__(self):
