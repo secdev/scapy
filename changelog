@@ -1,0 +1,28 @@
+## stryngs -- 6 May 2016
+Modified:
+  - def arpcachepoison():
+    - Added opcode argument with default value of 'who-has'
+      - Higher likelihood of success per https://www.defcon.org/images/defcon-15/dc15-presentations/dc-15-d_aguanno.pdf --> Slide 21
+    - Added direction argument for Targeted scenario allowing arp to go both ways
+    - Added iFace argument allowing user to set specific NIC
+       - Useful when arping your own box because otherwise you become ff:ff:ff:ff:ff:ff.....
+
+
+
+## stryngs -- 4 May 2016
+Modified:
+  - def arpcachepoison():
+    - Changed docstring to more clearly explain what's going on
+    - Added a broadcast method to where a specific target is not needed
+      - Allows user to target the whole subnet
+    - Switched original opcode for targeted attack to use ARP Reply -vs- ARP Request
+      - "who-has" --> "is-at"
+    - Changed default interval from 60 to 3
+
+
+Recommendations:
+  ** Concern:  Might break pre-existing projects
+  - class ARP():
+    - Switch ShortEnumField 1 and 2 to match the Opcode field translation
+      - "who-has":1 --> ARP-req:1
+      - "is-at":2   --> ARP-rep:2
