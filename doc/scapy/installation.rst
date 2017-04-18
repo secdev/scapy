@@ -48,27 +48,41 @@ Latest release
 .. note::
    To get the latest versions, with bugsfixes and new features, but maybe not as stable, see the `development version <#current-development-version>`_.
 
-Download the `latest version <http://scapy.net>`_ to a temporary directory and install it in the standard `distutils <http://docs.python.org/inst/inst.html>`_ way::
+Use pip::
+
+$ pip install scapy
+
+
+You can also download the `latest version <http://scapy.net>`_ to a temporary directory and install it in the standard `distutils <http://docs.python.org/inst/inst.html>`_ way::
 
 $ cd /tmp
-$ wget scapy.net 
-$ unzip scapy-latest.zip
+$ wget --trust-server-names scapy.net   # or wget -O scapy.zip scapy.net
+$ unzip scapy-x.x.x.zip
 $ cd scapy
 $ sudo python setup.py install
  
 Alternatively, you can execute the zip file::
 
-$ chmod +x scapy-latest.zip
-$ sudo ./scapy-latest.zip
+$ chmod +x scapy-x.x.x.zip
+$ sudo ./scapy-x.x.x.zip
 
 or::
 
-$ sudo sh scapy-latest.zip
+$ sudo sh scapy-x.x.x.zip
 
 or::
 
-$ mv scapy-latest.zip /usr/local/bin/scapy
+$ mv scapy-x.x.x.zip /usr/local/bin/scapy
 $ sudo scapy
+
+or::
+
+$ chmod +x scapy-x.x.x.zip
+$ ./scapy-x.x.x.zip
+
+or download and run in one command::
+  
+$ sh <(curl -sL scapy.net)
 
 .. note::
 
@@ -107,7 +121,10 @@ Then you can always update to the latest version::
 
    $ git pull
    $ sudo python setup.py install
- 
+
+.. note::
+
+   You can run scapy without installing it using the ``run_scapy`` (unix) or ``run_scapy.bat`` (Windows) script or running it directly from the executable zip file (see previous section).
 
 Installing Scapy v1.2 (Deprecated)
 ==================================
