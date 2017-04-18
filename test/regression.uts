@@ -8193,3 +8193,32 @@ def test_IPID_count():
     assert(lines[0].endswith("Probably 3 classes: [4613, 53881, 58437]"))
 
 test_IPID_count()
+
+############
+############
++ MPLS tests
+= MPLS - assembling
+from scapy.contrib.mpls import MPLS
+assert(str(MPLS(label=100)) == '\x00\x06A\x00')
+assert(str(MPLS(label=100, ttl=255)) == '\x00\x06A\xff')
+
+= MPLS - Raw
+p = MPLS(str(MPLS()/"ABCD"))
+p.show()
+assert(p.s == 1)
+
+= MPLS - MPLS/IP
+p = MPLS(str(MPLS(label=100, ttl=255)/IP()))
+p.show()
+assert(p.s == 1)
+
+= MPLS - MPLS/MPLS/IP
+p = MPLS(str(MPLS(label=100, ttl=255)/MPLS()/IP()))
+p.show()
+assert(p.s == 0)
+
+= MPLS - MPLS/MPLS/IPv6
+p = MPLS(str(MPLS(label=100, ttl=255)/MPLS()/IPv6()))
+p.show()
+assert(p.s == 0)
+assert(p[MPLS:2].s == 1)
