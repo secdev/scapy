@@ -591,6 +591,26 @@ class EAP_FAST(EAP):
     ]
 
 
+class LEAP(EAP):
+    """
+    Cisco LEAP (Lightweight EAP)
+    https://freeradius.org/rfc/leap.txt
+    """
+
+    name = "Cisco LEAP"
+    fields_desc = [
+        ByteEnumField("code", 1, eap_codes),
+        ByteField("id", 0),
+        ShortField("len", None),
+        ByteEnumField("type", 17, eap_types),
+        ByteField('version', 1),
+        XByteField('unused', 0),
+        FieldLenField("count", None, "challenge_response", "B", adjust=lambda p, x: len(p.challenge_response)),
+        XStrLenField("challenge_response", "", length_from=lambda p: 0 or p.count),
+        StrLenField("username", "", length_from=lambda p: p.len - (8 + (0 or p.count)))
+    ]
+
+
 #############################################################################
 ##### IEEE 802.1X-2010 - MACsec Key Agreement (MKA) protocol
 #############################################################################
