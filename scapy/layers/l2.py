@@ -539,11 +539,11 @@ class EAP_MD5(EAP):
         ByteEnumField("code", 1, eap_codes),
         ByteField("id", 0),
         FieldLenField("len", None, fmt="H", length_of="optional_name",
-                      adjust=lambda p, x: x + p.value_size + 6),
+                      adjust=lambda p, x: x + 6 + (p.value_size or 0)),
         ByteEnumField("type", 4, eap_types),
-        FieldLenField("value_size", 0, fmt="B", length_of="value"),
+        FieldLenField("value_size", None, fmt="B", length_of="value"),
         XStrLenField("value", '', length_from=lambda p: p.value_size),
-        XStrLenField("optional_name", '', length_from=lambda p: p.len - p.value_size - 6)
+        XStrLenField("optional_name", '', length_from=lambda p: 0 if p.len is None or p.value_size is None else (p.len - p.value_size - 6))
     ]
 
 
@@ -564,7 +564,7 @@ class EAP_TLS(EAP):
         BitField('S', 0, 1),
         BitField('reserved', 0, 5),
         ConditionalField(IntField('tls_message_len', 0), lambda pkt: pkt.L == 1),
-        XStrLenField('tls_data', '', length_from=lambda pkt: pkt.len - 10 if pkt.L == 1 else pkt.len - 6)
+        XStrLenField('tls_data', '', length_from=lambda pkt: 0 if pkt.len is None else pkt.len - (6 + 4 * pkt.L))
     ]
 
 
@@ -587,7 +587,27 @@ class EAP_FAST(EAP):
         BitField('reserved', 0, 2),
         BitField('version', 0, 3),
         ConditionalField(IntField('message_len', 0), lambda pkt: pkt.L == 1),
-        XStrLenField('data', '', length_from=lambda pkt: pkt.len - 10 if pkt.L == 1 else pkt.len - 6)
+        XStrLenField('data', '', length_from=lambda pkt: 0 if pkt.len is None else pkt.len - (6 + 4 * pkt.L))
+    ]
+
+
+class LEAP(EAP):
+    """
+    Cisco LEAP (Lightweight EAP)
+    https://freeradius.org/rfc/leap.txt
+    """
+
+    name = "Cisco LEAP"
+    fields_desc = [
+        ByteEnumField("code", 1, eap_codes),
+        ByteField("id", 0),
+        ShortField("len", None),
+        ByteEnumField("type", 17, eap_types),
+        ByteField('version', 1),
+        XByteField('unused', 0),
+        FieldLenField("count", None, "challenge_response", "B", adjust=lambda p, x: len(p.challenge_response)),
+        XStrLenField("challenge_response", "", length_from=lambda p: 0 or p.count),
+        StrLenField("username", "", length_from=lambda p: p.len - (8 + (0 or p.count)))
     ]
 
 
