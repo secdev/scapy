@@ -21,7 +21,7 @@ from scapy.volatile import RandMAC
 from scapy.error import warning
 
 
-def construct_source_candidate_set(addr, plen, laddr, loname):
+def construct_source_candidate_set(addr, plen, laddr, loiface):
     """
     Given all addresses assigned to a specific interface ('laddr' parameter),
     this function returns the "candidate set" associated with 'addr/plen'.
@@ -57,7 +57,7 @@ def construct_source_candidate_set(addr, plen, laddr, loname):
         cset = filter(lambda x: x[1] == IPV6_ADDR_SITELOCAL, laddr)
     elif in6_ismaddr(addr):
         if in6_ismnladdr(addr):
-            cset = [('::1', 16, loname)]
+            cset = [('::1', 16, loiface)]
         elif in6_ismgladdr(addr):
             cset = filter(lambda x: x[1] == IPV6_ADDR_GLOBAL, laddr)
         elif in6_ismlladdr(addr):
