@@ -8147,6 +8147,18 @@ assert("192.168.0.254" not in [p[IP].src for p in new_pl])
 
 = IPv4 - reporting
 
+@mock.patch("scapy.layers.inet.sr")
+def test_report_ports(mock_sr):
+    def sr(*args, **kargs):
+        return [(IP()/TCP(dport=81, flags="S"), IP()/TCP(sport=81, flags="SA")),
+                (IP()/TCP(dport=82, flags="S"), IP()/ICMP(type=3, code=1)),
+                (IP()/TCP(dport=83, flags="S"), IP()/TCP(sport=83, flags="R"))], [IP()/TCP(dport=84, flags="S")]
+    mock_sr.side_effect = sr
+    report = "\\begin{tabular}{|r|l|l|}\n\hline\n81 & open & SA \\\\\n\hline\n?? & closed & ICMP type dest-unreach/host-unreachable from 127.0.0.1 \\\\\n83 & closed & TCP R \\\\\n\hline\n84 & ? & unanswered \\\\\n\hline\n\end{tabular}\n"
+    assert(report_ports("www.secdev.org", [81,82,83,84]) == report)
+
+test_report_ports()
+
 result_IPID_count = ""
 def test_IPID_count():
     def write(s):
