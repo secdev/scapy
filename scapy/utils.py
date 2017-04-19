@@ -7,8 +7,7 @@
 General utility functions.
 """
 
-from __future__ import absolute_import
-from __future__ import print_function
+from __future__ import absolute_import, print_function
 import os, sys, socket, types
 import random, time
 import gzip, zlib
@@ -17,10 +16,8 @@ import subprocess
 import tempfile
 
 import warnings
-import six
-from six.moves import map
-from six.moves import range
-from six.moves import input
+import scapy.modules.six as six
+from scapy.modules.six.moves import map, range, input
 warnings.filterwarnings("ignore","tempnam",RuntimeWarning, __name__)
 
 from scapy.config import conf
@@ -345,7 +342,7 @@ def fletcher16_checkbytes(binbuf, offset):
 
 
 def mac2str(mac):
-    return "".join([chr(int(x,16)) for x in mac.split(":")])
+    return "".join(chr(int(x,16)) for x in mac.split(":"))
 
 def str2mac(s):
     return ("%02x:"*6)[:-1] % tuple(map(ord, s)) 
@@ -354,15 +351,13 @@ def randstring(l):
     """
     Returns a random string of length l (l >= 0)
     """
-    tmp = [struct.pack("B", random.randrange(0, 256, 1)) for x in [""]*l]
-    return "".join(tmp)
+    return "".join(struct.pack("B", random.randrange(0, 256, 1)) for x in [""]*l)
 
 def zerofree_randstring(l):
     """
     Returns a random string of length l (l >= 0) without zero in it.
     """
-    tmp = [struct.pack("B", random.randrange(1, 256, 1)) for x in [""]*l]
-    return "".join(tmp)
+    return "".join(struct.pack("B", random.randrange(1, 256, 1)) for x in [""]*l)
 
 def strxor(s1, s2):
     """
@@ -1287,7 +1282,7 @@ def pretty_routes(rtlst, header, sortBy=0):
     # Append tag
     rtlst = header + rtlst
     # Detect column's width
-    colwidth = map(lambda x: max(map(lambda y: len(y), x)), apply(zip, rtlst))
+    colwidth = list(map(lambda x: max(map(lambda y: len(y), x)), apply(zip, rtlst)))
     # Make text fit in box (if exist)
     # TODO: find a better and more precise way of doing this. That's currently working but very complicated
     width = get_terminal_width()
@@ -1377,7 +1372,7 @@ def make_table(*args, **kargs):
     
 def make_lined_table(*args, **kargs):
     __make_table(lambda l:"%%-%is |" % l, lambda l:"%%-%is |" % l, "",
-                 seplinefunc=lambda a,x:"+".join(["-"*(y+2) for y in [a-1]+x+[-2]]),
+                 seplinefunc=lambda a,x:"+".join("-"*(y+2) for y in [a-1]+x+[-2]),
                  *args, **kargs)
 
 def make_tex_table(*args, **kargs):

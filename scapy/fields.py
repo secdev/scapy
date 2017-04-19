@@ -541,7 +541,7 @@ class NetBIOSNameField(StrFixedLenField):
             x = ""
         x += " "*(l)
         x = x[:l]
-        x = "".join([chr(0x41+(ord(x)>>4))+chr(0x41+(ord(x)&0xf)) for x in x])
+        x = "".join(chr(0x41+(ord(x)>>4))+chr(0x41+(ord(x)&0xf)) for x in x)
         x = " "+x
         return x
     def m2i(self, pkt, x):
@@ -833,9 +833,9 @@ class _EnumField(Field):
             self.i2s_cb = None
             self.s2i_cb = None
             if type(enum) is list:
-                keys = list(range(len(enum)))
+                keys = range(len(enum))
             else:
-                keys = list(enum.keys())
+                keys = enum.keys()
             if any(type(x) is str for x in keys):
                 i2s, s2i = s2i, i2s
             for k in keys:
@@ -1145,7 +1145,7 @@ class MultiFlagsField(BitField):
         super(MultiFlagsField, self).__init__(name, default, size)
 
     def any2i(self, pkt, x):
-        assert isinstance(x, (int, int, set)), 'set expected'
+        assert isinstance(x, six.integer_types + (set,)), 'set expected'
 
         if pkt is not None:
             if isinstance(x, six.integer_types):

@@ -53,22 +53,22 @@ def construct_source_candidate_set(addr, plen, laddr, loiface):
 
     cset = []
     if in6_isgladdr(addr) or in6_isuladdr(addr):
-        cset = [x for x in laddr if x[1] == IPV6_ADDR_GLOBAL]
+        cset = (x for x in laddr if x[1] == IPV6_ADDR_GLOBAL)
     elif in6_islladdr(addr):
-        cset = [x for x in laddr if x[1] == IPV6_ADDR_LINKLOCAL]
+        cset = (x for x in laddr if x[1] == IPV6_ADDR_LINKLOCAL)
     elif in6_issladdr(addr):
-        cset = [x for x in laddr if x[1] == IPV6_ADDR_SITELOCAL]
+        cset = (x for x in laddr if x[1] == IPV6_ADDR_SITELOCAL)
     elif in6_ismaddr(addr):
         if in6_ismnladdr(addr):
             cset = [('::1', 16, loiface)]
         elif in6_ismgladdr(addr):
-            cset = [x for x in laddr if x[1] == IPV6_ADDR_GLOBAL]
+            cset = (x for x in laddr if x[1] == IPV6_ADDR_GLOBAL)
         elif in6_ismlladdr(addr):
-            cset = [x for x in laddr if x[1] == IPV6_ADDR_LINKLOCAL]
+            cset = (x for x in laddr if x[1] == IPV6_ADDR_LINKLOCAL)
         elif in6_ismsladdr(addr):
-            cset = [x for x in laddr if x[1] == IPV6_ADDR_SITELOCAL]
+            cset = (x for x in laddr if x[1] == IPV6_ADDR_SITELOCAL)
     elif addr == '::' and plen == 0:
-        cset = [x for x in laddr if x[1] == IPV6_ADDR_GLOBAL]
+        cset = (x for x in laddr if x[1] == IPV6_ADDR_GLOBAL)
     cset = [x[0] for x in cset]
     cset.sort(cmp=cset_sort) # Sort with global addresses first
     return cset            
@@ -225,8 +225,7 @@ def in6_ifaceidtomac(ifaceid): # TODO: finish commenting function behavior
     first = struct.pack("B", ((first & 0xFD) | ulbit))
     oui = first + ifaceid[1:3]
     end = ifaceid[5:]
-    l = ["%.02x" % struct.unpack("B", x)[0] for x in list(oui+end)]
-    return ":".join(l)
+    return ":".join("%.02x" % struct.unpack("B", x)[0] for x in list(oui+end))
 
 def in6_addrtomac(addr):
     """
@@ -527,9 +526,8 @@ def _in6_bitops(a1, a2, operator=0):
             lambda x,y: x & y,
             lambda x,y: x ^ y
           ]  
-    ret = list(map(fop[operator%len(fop)], a1, a2))
-    t = ''.join([struct.pack('I', x) for x in ret])
-    return t
+    ret = map(fop[operator%len(fop)], a1, a2)
+    return ''.join(struct.pack('I', x) for x in ret)
 
 def in6_or(a1, a2):
     """
@@ -566,11 +564,11 @@ def in6_cidr2mask(m):
         raise Scapy_Exception("value provided to in6_cidr2mask outside [0, 128] domain (%d)" % m)
 
     t = []
-    for i in range(0, 4):
+    for i in range(4):
         t.append(max(0, 2**32  - 2**(32-min(32, m))))
         m -= 32
 
-    return ''.join([struct.pack('!I', x) for x in t])
+    return ''.join(struct.pack('!I', x) for x in t)
 
 def in6_getnsma(a): 
     """
@@ -591,7 +589,7 @@ def in6_getnsmac(a): # return multicast Ethernet address associated with multica
 
     a = struct.unpack('16B', a)[-4:]
     mac = '33:33:'
-    mac += ':'.join(['%.2x' %x for x in a])
+    mac += ':'.join('%.2x' %x for x in a)
     return mac
 
 def in6_getha(prefix): 

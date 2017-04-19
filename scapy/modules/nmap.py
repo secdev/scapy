@@ -59,7 +59,7 @@ class NmapKnowledgeBase(KnowledgeBase):
                     warning("error reading nmap os fp base file")
                     continue
                 test = l[:op]
-                s = [x.split("=") for x in l[op+1:cl].split("%")]
+                s = (x.split("=") for x in l[op+1:cl].split("%"))
                 si = {}
                 for n,v in s:
                     si[n] = v
@@ -90,7 +90,7 @@ def nmap_tcppacket_sig(pkt):
         r["W"] = "%X" % pkt.window
         r["ACK"] = pkt.ack==2 and "S++" or pkt.ack==1 and "S" or "O"
         r["Flags"] = TCPflags2str(pkt.payload.flags)
-        r["Ops"] = "".join([x[0][0] for x in pkt.payload.options])
+        r["Ops"] = "".join(x[0][0] for x in pkt.payload.options)
     else:
         r["Resp"] = "N"
     return r
@@ -143,7 +143,7 @@ def nmap_sig(target, oport=80, cport=81, ucport=1):
               IP(str(IP(dst=target)/UDP(sport=5008,dport=ucport)/(300*"i"))) ]
 
     ans, unans = sr(tests, timeout=2)
-    ans += [(x,None) for x in unans]
+    ans.extend((x,None) for x in unans)
 
     for S,T in ans:
         if S.sport == 5008:

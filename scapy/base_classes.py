@@ -14,7 +14,8 @@ Generators and packet meta classes.
 from __future__ import absolute_import
 import re,random,socket
 import types
-from six.moves import map, range, zip
+import scapy.modules.six as six
+from scapy.modules.six.moves import map, range, zip
 
 class Gen(object):
     __slots__ = []
@@ -59,7 +60,7 @@ class Net(Gen):
         if a == "*":
             a = (0,256)
         elif a.find("-") >= 0:
-            x,y = list(map(int,a.split("-")))
+            x,y = map(int,a.split("-"))
             if x > y:
                 y = x
             a = (x &  (0xff<<netmask) , max(y, (x | (0xff>>(8-netmask))))+1)

@@ -364,7 +364,7 @@ class APNStrLenField(StrLenField):
         s = ret_s
         return s
     def i2m(self, pkt, s):
-        s = "".join([chr(len(x))+x for x in s.split(".")])
+        s = "".join(chr(len(x))+x for x in s.split("."))
         return s
 
 

@@ -3,8 +3,7 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
-from __future__ import absolute_import
-from __future__ import print_function
+from __future__ import absolute_import, print_function
 import socket
 from scapy.pipetool import Source,Drain,Sink
 from scapy.config import conf

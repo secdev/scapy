@@ -408,7 +408,7 @@ class BERcodec_SEQUENCE(BERcodec_Object):
     @classmethod
     def enc(cls, l):
         if type(l) is not str:
-            l = "".join([x.enc(cls.codec) for x in l])
+            l = "".join(x.enc(cls.codec) for x in l)
         return chr(cls.tag)+BER_len_enc(len(l))+l
     @classmethod
     def do_dec(cls, s, context=None, safe=False):

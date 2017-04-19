@@ -24,8 +24,7 @@ IPv6 (Internet Protocol v6).
 """
 
 
-from __future__ import absolute_import
-from __future__ import print_function
+from __future__ import absolute_import, print_function
 import random
 import socket
 import sys
@@ -1920,7 +1919,7 @@ class DomainNameListField(StrLenField):
             return z+b'\x00'
         # Build the encode names
         tmp = [list(map((lambda z: chr(len(z))+z), y.split('.'))) for y in x]
-        ret_string  = "".join([conditionalTrailingDot("".join(x)) for x in tmp])
+        ret_string  = "".join(conditionalTrailingDot("".join(x)) for x in tmp)
 
         # In padded mode, add some \x00 bytes
         if self.padded and not len(ret_string) % self.padded_unit == 0:
@@ -2163,7 +2162,7 @@ def names2dnsrepr(x):
         termin = b"\x00"
         if n.count('.') == 0: # single-component gets one more
             termin += b'\x00'
-        n = "".join([chr(len(y))+y for y in n.split(".")]) + termin
+        n = "".join(chr(len(y))+y for y in n.split(".")) + termin
         res.append(n)
     return "".join(res)
 
@@ -2406,9 +2405,9 @@ class NIReplyDataField(StrField):
             ttl,dnsstr = tmp
             return s+ struct.pack("!I", ttl) + dnsstr
         elif t == 3:
-            return s + "".join([struct.pack("!I", x_y1[0])+inet_pton(socket.AF_INET6, x_y1[1]) for x_y1 in tmp])
+            return s + "".join(struct.pack("!I", x_y1[0])+inet_pton(socket.AF_INET6, x_y1[1]) for x_y1 in tmp)
         elif t == 4:
-            return s + "".join([struct.pack("!I", x_y2[0])+inet_pton(socket.AF_INET, x_y2[1]) for x_y2 in tmp])
+            return s + "".join(struct.pack("!I", x_y2[0])+inet_pton(socket.AF_INET, x_y2[1]) for x_y2 in tmp)
         else:
             return s + tmp
 
@@ -2461,7 +2460,7 @@ class NIReplyDataField(StrField):
                 l = dnsrepr2names(l)
                 return "ttl:%d %s" % (ttl, ", ".join(l))
             elif t == 3 or t == 4:
-                return "[ %s ]" % (", ".join(["(%d, %s)" % (x_y[0], x_y[1]) for x_y in val]))
+                return "[ %s ]" % (", ".join("(%d, %s)" % (x_y[0], x_y[1]) for x_y in val))
             return repr(val)
         return repr(x) # XXX should not happen
 

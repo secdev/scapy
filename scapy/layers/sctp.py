@@ -472,7 +472,7 @@ class GapAckField(Field):
     def i2m(self, pkt, x):
         if x is None:
             return b"\0\0\0\0"
-        sta, end = list(map(int, x.split(":")))
+        sta, end = map(int, x.split(":"))
         args = tuple([">HH", sta, end])
         return struct.pack(*args)
     def m2i(self, pkt, x):

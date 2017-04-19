@@ -343,7 +343,7 @@ class RandOID(RandString):
                 if i == "*":
                     oid.append(str(self.idnum))
                 elif i == "**":
-                    oid += list(map(str, [self.idnum for i in range(1+self.depth)]))
+                    oid.extend(map(str, [self.idnum for i in range(1+self.depth)]))
                 elif type(i) is tuple:
                     oid.append(str(random.randrange(*i)))
                 else:
@@ -377,7 +377,7 @@ class RandRegExp(RandField):
                 s = s[:p-1]+rng+s[p+1:]
         res = m+s
         if invert:
-            res = "".join([chr(x) for x in range(256) if chr(x) not in res])
+            res = "".join(chr(x) for x in range(256) if chr(x) not in res)
         return res
 
     @staticmethod
@@ -517,7 +517,7 @@ class RandSingNum(RandSingularity):
             end = -end
             sign = -1
         end_n = int(math.log(end)/math.log(2))+1
-        return set([sign*2**i for i in range(end_n)])            
+        return set(sign*2**i for i in range(end_n))            
         
     def __init__(self, mn, mx):
         sing = set([0, mn, mx, int((mn+mx)/2)])

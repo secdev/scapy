@@ -38,13 +38,13 @@ class DADict:
     def __setitem__(self, attr, val):        
         return setattr(self, self.fixname(attr), val)
     def __iter__(self):
-        return iter([x_y1[1] for x_y1 in [x_y for x_y in list(self.__dict__.items()) if x_y[0] and x_y[0][0]!="_"]])
+        return (x_y1[1] for x_y1 in [x_y for x_y in list(self.__dict__.items()) if x_y[0] and x_y[0][0]!="_"])
     def _show(self):
         for k in self.__dict__.keys():
             if k and k[0] != "_":
                 print("%10s = %r" % (k,getattr(self,k)))
     def __repr__(self):
-        return "<%s/ %s>" % (self._name," ".join([x for x in list(self.__dict__.keys()) if x and x[0]!="_"]))
+        return "<%s/ %s>" % (self._name," ".join(x for x in list(self.__dict__.keys()) if x and x[0]!="_"))
 
     def _branch(self, br, uniq=0):
         if uniq and br._name in self:

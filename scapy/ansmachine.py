@@ -11,8 +11,7 @@ Answering machines.
 ## Answering machines ##
 ########################
 
-from __future__ import absolute_import
-from __future__ import print_function
+from __future__ import absolute_import, print_function
 from scapy.sendrecv import send,sendp,sniff
 from scapy.config import conf
 from scapy.error import log_interactive

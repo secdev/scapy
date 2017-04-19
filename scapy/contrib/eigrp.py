@@ -434,7 +434,7 @@ class RepeatedTlvListField(PacketListField):
         return remain,lst
 
     def addfield(self, pkt, s, val):
-        return s + reduce(str.__add__, list(map(str, val)), "")
+        return s + reduce(str.__add__, map(str, val), "")
 
 def _EIGRPGuessPayloadClass(p, **kargs):
     cls = conf.raw_layer

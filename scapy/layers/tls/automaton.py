@@ -24,8 +24,7 @@ t = TLSClientAutomaton(dport=50000, client_hello=ch)
 t.run()
 """
 
-from __future__ import absolute_import
-from __future__ import print_function
+from __future__ import absolute_import, print_function
 import socket
 import struct
 

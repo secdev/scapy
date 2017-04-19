@@ -7,8 +7,7 @@
 Clone of p0f passive OS fingerprinting
 """
 
-from __future__ import absolute_import
-from __future__ import print_function
+from __future__ import absolute_import, print_function
 import time
 import struct
 import os

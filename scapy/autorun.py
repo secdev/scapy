@@ -6,9 +6,8 @@
 """
 Run commands when the Scapy interpreter starts.
 """
-from __future__ import print_function
+from __future__ import print_function, absolute_import
 
-from __future__ import absolute_import
 import code, sys, importlib
 from scapy.config import conf
 from scapy.themes import *

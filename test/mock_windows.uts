@@ -15,11 +15,11 @@ from scapy.arch.windows import _read_routes6_post2008
 
 def check_mandatory_ipv6_routes(routes6):
     """Ensure that mandatory IPv6 routes are present."""
-    if len(filter(lambda r: r[0] == "::" and r[-1] == ["::1"], routes6)) < 1:
+    if not any(r[0] == "::" and r[-1] == ["::1"] for r in routes6):
         return False
-    if len(filter(lambda r: r[0] == "fe80::" and (r[1] == 64 or r[1] == 32), routes6)) < 1:
+    if not any(r[0] == "fe80::" and (r[1] == 64 or r[1] == 32) for r in routes6):
         return False
-    if len(list(filter(lambda r: in6_islladdr(r[0]) and r[1] == 128, routes6))) < 1:
+    if not any(in6_islladdr(r[0]) and r[1] == 128 for r in routes6):
         return False
     return True
 
@@ -74,7 +74,7 @@ ifIndex DestinationPrefix                          NextHop
         print r
     print(len(routes))
     assert(len(routes) == 9)
-    assert(check_mandatory_ipv6_routes(routes))
+    assert(check_mandatory_ipv6_routes(routes) == True)
 
 
 test_read_routes6_windows()

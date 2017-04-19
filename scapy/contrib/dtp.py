@@ -16,8 +16,7 @@
         http://trac.secdev.org/scapy/ticket/18
 """
 
-from __future__ import absolute_import
-from __future__ import print_function
+from __future__ import absolute_import, print_function
 from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.l2 import SNAP,Dot3,LLC
@@ -54,7 +53,7 @@ class RepeatedTlvListField(PacketListField):
         return remain,lst
 
     def addfield(self, pkt, s, val):
-        return s+reduce(str.__add__, list(map(str, val)),"")
+        return s+reduce(str.__add__, map(str, val),"")
 
 _DTP_TLV_CLS = {
                     0x0001 : "DTPDomain",

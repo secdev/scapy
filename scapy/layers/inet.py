@@ -7,8 +7,7 @@
 IPv4 (Internet Protocol v4).
 """
 
-from __future__ import absolute_import
-from __future__ import print_function
+from __future__ import absolute_import, print_function
 import os,time,struct,re,socket,new
 from select import select
 from collections import defaultdict
@@ -1009,7 +1008,7 @@ def _packetlist_timeskew_graph(self, ip, **kargs):
 
     # Filter TCP segments which source address is 'ip'
     res = [self._elt2pkt(x) for x in self.res]
-    b = [x for x in res if x.haslayer(IP) and x.getlayer(IP).src == ip and x.haslayer(TCP)]
+    b = (x for x in res if x.haslayer(IP) and x.getlayer(IP).src == ip and x.haslayer(TCP))
 
     # Build a list of tuples (creation_time, replied_timestamp)
     c = []

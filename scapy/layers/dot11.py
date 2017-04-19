@@ -7,8 +7,7 @@
 Wireless LAN according to IEEE 802.11.
 """
 
-from __future__ import absolute_import
-from __future__ import print_function
+from __future__ import absolute_import, print_function
 import re,struct
 from zlib import crc32
 
@@ -511,7 +510,7 @@ class Dot11PacketList(PacketList):
 
         PacketList.__init__(self, res, name, stats)
     def toEthernet(self):
-        data = [x.getlayer(Dot11) for x in [x for x in self.res if x.haslayer(Dot11) and x.type == 2]]
+        data = [x.getlayer(Dot11) for x in self.res if x.haslayer(Dot11) and x.type == 2]
         r2 = []
         for p in data:
             q = p.copy()

@@ -227,7 +227,7 @@ class Route6:
         pathes.sort(reverse=True)
 
         best_plen = pathes[0][0]
-        pathes = [x for x in pathes if x[0] == best_plen]
+        pathes = (x for x in pathes if x[0] == best_plen)
 
         res = []
         for p in pathes: # Here we select best source address for every route

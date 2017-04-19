@@ -7,8 +7,7 @@
 Functions to send and receive packets.
 """
 
-from __future__ import absolute_import
-from __future__ import print_function
+from __future__ import absolute_import, print_function
 import errno
 import os, sys, time, subprocess
 import itertools
@@ -202,9 +201,11 @@ def sndrcv(pks, pkt, timeout = None, inter = 0, verbose=None, chainCC=0, retry=0
             if pid == 0:
                 os._exit(0)
 
-        remain = list(itertools.chain(*six.itervalues(hsent)))
+        remain = itertools.chain(*six.itervalues(hsent))
         if multi:
             remain = [p for p in remain if not hasattr(p, '_answered')]
+        else:
+            remain = [p for p in remain]
 
         if autostop and len(remain) > 0 and len(remain) != len(tobesent):
             retry = autostop

@@ -7,8 +7,7 @@
 Unit testing infrastructure for Scapy
 """
 
-from __future__ import absolute_import
-from __future__ import print_function
+from __future__ import absolute_import, print_function
 import sys, getopt, imp, glob
 import bz2, base64, os.path, time, traceback, zlib, sha
 from scapy.consts import WINDOWS
@@ -20,6 +19,9 @@ from scapy.modules.six.moves import map, range
 
 class Bunch:
     __init__ = lambda self, **kw: setattr(self, '__dict__', kw)
+
+def exec_info():
+    return sys.exc_info()[0], sys.exc_info()[1], sys.exc_info()[2]
 
 #### Import tool ####
 
@@ -376,7 +378,7 @@ def run_campaign(test_campaign, get_interactive_session, verb=3, ignore_globals=
                     the_res= True
             except Exception as msg:
                 t.output+="UTscapy: Error during result interpretation:\n"
-                t.output+="".join(traceback.format_exception(sys.exc_info()[0], sys.exc_info()[1], sys.exc_info()[2],))
+                t.output+="".join(traceback.format_exception(*exec_info()))
             if the_res:
                 t.res = True
                 res = "passed"
@@ -755,7 +757,7 @@ def main(argv):
                     try:
                         NUM.append(int(v))
                     except ValueError:
-                        v1, v2 = list(map(int, v.split("-", 1)))
+                        v1, v2 = map(int, v.split("-", 1))
                         NUM.extend(range(v1, v2 + 1))
             elif opt == "-m":
                 MODULES.append(optarg)

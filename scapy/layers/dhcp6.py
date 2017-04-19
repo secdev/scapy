@@ -326,7 +326,7 @@ class _IANAOptField(PacketListField):
     def i2len(self, pkt, z):
         if z is None or z == []:
             return 0
-        return sum([len(str(x)) for x in z])
+        return sum(len(str(x)) for x in z)
 
     def getfield(self, pkt, s):
         l = self.length_from(pkt)
@@ -402,7 +402,7 @@ class _OptReqListField(StrLenField):
         return r
     
     def i2m(self, pkt, x):
-        return "".join([struct.pack("!H", y) for y in x])
+        return "".join(struct.pack("!H", y) for y in x)
 
 # A client may include an ORO in a solicit, Request, Renew, Rebind,
 # Confirm or Information-request
@@ -554,7 +554,7 @@ class _UserClassDataField(PacketListField):
     def i2len(self, pkt, z):
         if z is None or z == []:
             return 0
-        return sum([len(str(x)) for x in z])
+        return sum(len(str(x)) for x in z)
 
     def getfield(self, pkt, s):
         l = self.length_from(pkt)
@@ -754,7 +754,7 @@ class DomainNameField(StrLenField):
     def i2m(self, pkt, x):
         if not x:
             return ""
-        tmp = "".join([chr(len(z))+z for z in x.split('.')])
+        tmp = "".join(chr(len(z))+z for z in x.split('.'))
         return tmp
 
 class DHCP6OptNISDomain(_DHCP6OptGuessPayload):             #RFC3898
@@ -1344,7 +1344,7 @@ dhcp6d( dns="2001:500::1035", domain="localdomain, local", duid=None)
 
             # Mac Address
             rawmac = get_if_raw_hwaddr(iface)[1]
-            mac = ":".join(["%.02x" % ord(x) for x in list(rawmac)])
+            mac = ":".join("%.02x" % ord(x) for x in list(rawmac))
 
             self.duid = DUID_LLT(timeval = timeval, lladdr = mac)
             
