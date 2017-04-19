@@ -61,7 +61,7 @@ then
   then
     $SCAPY_SUDO ./run_tests -q -F -t bpf.uts $UT_FLAGS || exit $?
   fi
-  UT_FLAGS+=" -K manufdb"
+  UT_FLAGS+=" -K manufdb -K linux"
 fi
 
 # Run all normal and contrib tests
