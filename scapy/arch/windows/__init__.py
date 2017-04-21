@@ -54,6 +54,10 @@ def is_new_release(ignoreVBS=False):
             return True
     return False
 
+def _encapsulate_admin(cmd):
+    """Encapsulate a command with an Administrator flag"""
+    # To get admin access, we start a new powershell instance with admin rights, which will execute the command
+    return "Start-Process PowerShell -windowstyle hidden -Wait -Verb RunAs -ArgumentList '-command &{%s}'" % cmd
 
 def _exec_query_ps(cmd, fields):
     """Execute a PowerShell query"""
@@ -397,6 +401,37 @@ class NetworkInterface(object):
     def __repr__(self):
         return "<%s %s %s>" % (self.__class__.__name__, self.name, self.guid)
 
+def _pcap_service():
+    """Return the pcap adapter service's name"""
+    return "npcap" if conf.use_npcap else "npf"
+
+def pcap_service_status():
+    """Returns a tuple (name, description, started) of the windows pcap adapter"""
+    for i in exec_query(['Get-Service', 'npcap'], ['Name', 'DisplayName', 'Status']):
+        name = i[0]
+        description = i[1]
+        started = (not i[2].lower().strip() == 'stopped')
+        if name == _pcap_service():
+            return (name, description, started)
+    return (None, None, None)
+
+def _pcap_service_control(action, askadmin=True):
+    """Util to run pcap control command"""
+    command = action + ' ' + _pcap_service()
+    ps = sp.Popen([conf.prog.powershell, _encapsulate_admin(command) if askadmin else command],
+                    stdout=sp.PIPE,
+                    universal_newlines=True)
+    stdout, stderr = ps.communicate()
+    return (not "error" in stdout.lower())
+
+def pcap_service_start(askadmin=True):
+    """Starts the pcap adapter. Will ask for admin. Returns True if success"""
+    return _pcap_service_control('Start-Service', askadmin=askadmin)
+
+def pcap_service_stop(askadmin=True):
+    """Stops the pcap adapter. Will ask for admin. Returns True if success"""
+    return _pcap_service_control('Stop-Service', askadmin=askadmin) 
+    
 from UserDict import UserDict
 
 class NetworkInterfaceDict(UserDict):
@@ -410,10 +445,36 @@ class NetworkInterfaceDict(UserDict):
                 pass
         
         if len(self.data) == 0 and conf.use_winpcapy:
-            warning("No match between your pcap and windows network interfaces found. "
-                                "You probably won't be able to send packets. "
-                                "Deactivating unneeded interfaces and restarting Scapy might help."
-                                "Check your winpcap and powershell installation, and access rights.", True)
+            _detect = pcap_service_status()
+            def _ask_user():
+                if not conf.interactive:
+                    return False
+                while True:
+                    _confir = raw_input("Do you want to start it ? (yes/no) [y]: ").lower().strip()
+                    if _confir in ["yes", "y", ""]:
+                        return True
+                    elif _confir in ["no", "n"]:
+                        return False
+                return False
+            if _detect[0] and not _detect[2] and ((hasattr(self, "restarted_adapter") and not self.restarted_adapter)
+                                                 or not hasattr(self, "restarted_adapter")):
+                warning("Scapy has detected that your pcap service is not running !")
+                if not conf.interactive or _ask_user():
+                    succeed = pcap_service_start(askadmin=conf.interactive)
+                    self.restarted_adapter = True
+                    if succeed:
+                        log_loading.info("Pcap service started !")
+                        self.load_from_powershell()
+                        return
+                warning("Could not start the pcap service ! "
+                            "You probably won't be able to send packets. "
+                            "Deactivating unneeded interfaces and restarting Scapy might help. "
+                            "Check your winpcap and powershell installation, and access rights.")
+            else:
+                warning("No match between your pcap and windows network interfaces found. "
+                                    "You probably won't be able to send packets. "
+                                    "Deactivating unneeded interfaces and restarting Scapy might help. "
+                                    "Check your winpcap and powershell installation, and access rights.", True)
         else:
             # Loading state: remove invalid interfaces
             self.remove_invalid_ifaces()
