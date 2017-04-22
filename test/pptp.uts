@@ -382,6 +382,84 @@ pap_request_pkt = PPP('c023012a00220d61646d696e6973747261746f720f7365637265745f7
 assert pap_response_pkt.answers(pap_request_pkt)
 assert not pap_request_pkt.answers(pap_response_pkt)
 
++ PPP CHAP Tests
+= Test PPP CHAP Challenge
+~ ppp chap chap_challenge
+chap_challenge = PPP() / PPP_CHAP(code=1, id=47, value=('42'*7).decode('hex'),
+                                                        optional_name='server')
+chap_challenge_ref_data = 'c223012f00120742424242424242736572766572'.decode('hex')
+
+assert str(chap_challenge) == chap_challenge_ref_data
+
+chap_challenge_pkt = PPP(chap_challenge_ref_data)
+assert PPP_CHAP_ChallengeResponse in chap_challenge_pkt
+assert chap_challenge_pkt[PPP_CHAP_ChallengeResponse].code == 1
+assert chap_challenge_pkt[PPP_CHAP_ChallengeResponse].id == 47
+assert chap_challenge_pkt[PPP_CHAP_ChallengeResponse].value_size == 7
+assert chap_challenge_pkt[PPP_CHAP_ChallengeResponse].value == ('42'*7).decode('hex')
+assert chap_challenge_pkt[PPP_CHAP_ChallengeResponse].optional_name == 'server'
+assert chap_challenge_pkt[PPP_CHAP_ChallengeResponse].summary() == 'CHAP challenge=0x42424242424242 optional_name=\'server\''
+
+= Test PPP CHAP Response
+~ ppp chap chap_response
+chap_response = PPP() / PPP_CHAP(code='Response', id=47, value=('00'*16).decode('hex'), optional_name='client')
+chap_response_ref_data = 'c223022f001b1000000000000000000000000000000000636c69656e74'.decode('hex')
+
+assert str(chap_response) == chap_response_ref_data
+
+chap_response_pkt = PPP(chap_response_ref_data)
+assert PPP_CHAP_ChallengeResponse in chap_response_pkt
+assert chap_response_pkt[PPP_CHAP_ChallengeResponse].code == 2
+assert chap_response_pkt[PPP_CHAP_ChallengeResponse].id == 47
+assert chap_response_pkt[PPP_CHAP_ChallengeResponse].value_size == 16
+assert chap_response_pkt[PPP_CHAP_ChallengeResponse].value == ('00'*16).decode('hex')
+assert chap_response_pkt[PPP_CHAP_ChallengeResponse].optional_name == 'client'
+assert chap_response_pkt[PPP_CHAP_ChallengeResponse].summary() == 'CHAP response=0x00000000000000000000000000000000 optional_name=\'client\''
+
+chap_request = PPP('c223012f00120742424242424242736572766572'.decode('hex'))
+
+assert chap_response.answers(chap_challenge)
+assert not chap_challenge.answers(chap_response)
+
+= Test PPP CHAP Success
+~ ppp chap chap_success
+
+chap_success = PPP() / PPP_CHAP(code='Success', id=47)
+chap_success_ref_data = 'c223032f0004'.decode('hex')
+
+assert str(chap_success) == chap_success_ref_data
+
+chap_success_pkt = PPP(chap_success_ref_data)
+assert PPP_CHAP in chap_success_pkt
+assert chap_success_pkt[PPP_CHAP].code == 3
+assert chap_success_pkt[PPP_CHAP].id == 47
+assert chap_success_pkt[PPP_CHAP].data == ''
+assert chap_success_pkt[PPP_CHAP].summary() == 'CHAP Success message=\'\''
+
+chap_response_pkt = PPP('c223022f001b1000000000000000000000000000000000636c69656e74'.decode('hex'))
+
+assert chap_success_pkt.answers(chap_response_pkt)
+assert not chap_response_pkt.answers(chap_success_pkt)
+
+= Test PPP CHAP Failure
+~ ppp chap chap_failure
+chap_failure = PPP() / PPP_CHAP(code='Failure', id=47, data='Go away')
+chap_failure_ref_data = 'c223042f000b476f2061776179'.decode('hex')
+
+assert str(chap_failure) == chap_failure_ref_data
+
+chap_failure_pkt = PPP(chap_failure_ref_data)
+assert PPP_CHAP in chap_failure_pkt
+assert chap_failure_pkt[PPP_CHAP].code == 4
+assert chap_failure_pkt[PPP_CHAP].id == 47
+assert chap_failure_pkt[PPP_CHAP].data == 'Go away'
+assert chap_failure_pkt[PPP_CHAP].summary() == 'CHAP Failure message=\'Go away\''
+
+chap_response_pkt = PPP('c223022f001b1000000000000000000000000000000000636c69656e74'.decode('hex'))
+
+assert chap_failure_pkt.answers(chap_response_pkt)
+assert not chap_failure_pkt.answers(chap_success_pkt)
+
 + PPTP Tests
 = Test PPTP Start-Control-Connection-Request
 ~ pptp
