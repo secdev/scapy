@@ -328,6 +328,60 @@ assert terminate_ack_pkt[PPP_LCP_Terminate].id == 7
 assert terminate_ack_pkt.answers(terminate_request_pkt)
 assert not terminate_request_pkt.answers(terminate_ack_pkt)
 
++ PPP PAP Tests
+= Test PPP PAP Request
+~ ppp pap pap_request
+pap_request = PPP() / PPP_PAP_Request(id=42, username='administrator', password='secret_password')
+pap_request_ref_data = 'c023012a00220d61646d696e6973747261746f720f7365637265745f70617373776f7264'.decode('hex')
+
+assert str(pap_request) == pap_request_ref_data
+
+pap_request_pkt = PPP(pap_request_ref_data)
+assert PPP_PAP_Request in pap_request_pkt
+assert pap_request_pkt[PPP_PAP_Request].code == 1
+assert pap_request_pkt[PPP_PAP_Request].id == 42
+assert pap_request_pkt[PPP_PAP_Request].username == 'administrator'
+assert pap_request_pkt[PPP_PAP_Request].password == 'secret_password'
+assert pap_request_pkt[PPP_PAP_Request].summary() == 'PAP-Request username=\'administrator\' password=\'secret_password\''
+
+= Test PPP PAP Authenticate-Ack
+~ ppp pap pap_response pap_ack
+pap_response = PPP() / PPP_PAP(code='Authenticate-Ack', id=42)
+pap_response_ref_data = 'c023022a000500'.decode('hex')
+
+assert str(pap_response) == pap_response_ref_data
+
+pap_response_pkt = PPP(pap_response_ref_data)
+assert PPP_PAP_Response in pap_response_pkt
+assert pap_response_pkt[PPP_PAP_Response].code == 2
+assert pap_response_pkt[PPP_PAP_Response].id == 42
+assert pap_response_pkt[PPP_PAP_Response].msg_len == 0
+assert pap_response_pkt[PPP_PAP_Response].message == ''
+assert pap_response_pkt[PPP_PAP_Response].summary() == 'PAP-Ack'
+
+pap_request_pkt = PPP('c023012a00220d61646d696e6973747261746f720f7365637265745f70617373776f7264'.decode('hex'))
+assert pap_response_pkt.answers(pap_request_pkt)
+assert not pap_request_pkt.answers(pap_response_pkt)
+
+= Test PPP PAP Authenticate-Nak
+~ ppp pap pap_response pap_nak
+pap_response = PPP() / PPP_PAP(code=3, id=42, message='Bad password')
+pap_response_ref_data = 'c023032a00110c4261642070617373776f7264'.decode('hex')
+
+assert str(pap_response) == pap_response_ref_data
+
+pap_response_pkt = PPP(pap_response_ref_data)
+assert PPP_PAP_Response in pap_response_pkt
+assert pap_response_pkt[PPP_PAP_Response].code == 3
+assert pap_response_pkt[PPP_PAP_Response].id == 42
+assert pap_response_pkt[PPP_PAP_Response].msg_len == len('Bad password')
+assert pap_response_pkt[PPP_PAP_Response].message == 'Bad password'
+assert pap_response_pkt[PPP_PAP_Response].summary() == 'PAP-Nak msg=\'Bad password\''
+
+pap_request_pkt = PPP('c023012a00220d61646d696e6973747261746f720f7365637265745f70617373776f7264'.decode('hex'))
+assert pap_response_pkt.answers(pap_request_pkt)
+assert not pap_request_pkt.answers(pap_response_pkt)
+
 + PPTP Tests
 = Test PPTP Start-Control-Connection-Request
 ~ pptp
