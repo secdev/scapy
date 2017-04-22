@@ -552,6 +552,73 @@ class PPP_LCP_Discard_Request(PPP_LCP):
                    IntField("magic_number", None),
                    StrLenField("data", "", length_from=lambda p:p.len-8)]
 
+### Password authentication protocol (RFC 1334)
+
+_PPP_paptypes = {1: "Authenticate-Request",
+                 2: "Authenticate-Ack",
+                 3: "Authenticate-Nak"}
+
+
+class PPP_PAP(Packet):
+    name = "PPP Password Authentication Protocol"
+    fields_desc = [ByteEnumField("code", 1, _PPP_paptypes),
+                   XByteField("id", 0),
+                   FieldLenField("len", None, fmt="!H", length_of="data",
+                                 adjust=lambda _, x: x + 4),
+                   StrLenField("data", "", length_from=lambda p: p.len-4)]
+
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *_, **kargs):
+        code = None
+        if _pkt:
+            code = ord(_pkt[0])
+        elif "code" in kargs:
+            code = kargs["code"]
+            if isinstance(code, basestring):
+                code = cls.fields_desc[0].s2i[code]
+
+        if code == 1:
+            return PPP_PAP_Request
+        elif code in [2, 3]:
+            return PPP_PAP_Response
+        return cls
+
+    def extract_padding(self, pay):
+        return "", pay
+
+
+class PPP_PAP_Request(PPP_PAP):
+    fields_desc = [ByteEnumField("code", 1, _PPP_paptypes),
+                   XByteField("id", 0),
+                   FieldLenField("len", None, fmt="!H", length_of="username",
+                                 adjust=lambda p, x: x + 6 + len(p.password)),
+                   FieldLenField("username_len", None, fmt="B", length_of="username"),
+                   StrLenField("username", None, length_from=lambda p: p.username_len),
+                   FieldLenField("passwd_len", None, fmt="B", length_of="password"),
+                   StrLenField("password", None, length_from=lambda p: p.passwd_len)]
+
+    def mysummary(self):
+        return self.sprintf("PAP-Request username=%PPP_PAP_Request.username%" +
+                            " password=%PPP_PAP_Request.password%")
+
+
+class PPP_PAP_Response(PPP_PAP):
+    fields_desc = [ByteEnumField("code", 2, _PPP_paptypes),
+                   XByteField("id", 0),
+                   FieldLenField("len", None, fmt="!H", length_of="message",
+                                 adjust=lambda _, x: x + 5),
+                   FieldLenField("msg_len", None, fmt="B", length_of="message"),
+                   StrLenField("message", "", length_from=lambda p: p.msg_len)]
+
+    def answers(self, other):
+        return isinstance(other, PPP_PAP_Request) and other.id == self.id
+
+    def mysummary(self):
+        res = "PAP-Ack" if self.code == 2 else "PAP-Nak"
+        if self.msg_len > 0:
+            res += self.sprintf(" msg=%PPP_PAP_Response.message%")
+        return res
+
 
 bind_layers( Ether,         PPPoED,        type=0x8863)
 bind_layers( Ether,         PPPoE,         type=0x8864)
@@ -565,6 +632,7 @@ bind_layers( PPP,           IPv6,          proto=0x0057)
 bind_layers( PPP,           PPP_IPCP,      proto=0x8021)
 bind_layers( PPP,           PPP_ECP,       proto=0x8053)
 bind_layers( PPP,           PPP_LCP,       proto=0xc021)
+bind_layers( PPP,           PPP_PAP,       proto=0xc023)
 bind_layers( Ether,         PPP_IPCP,      type=0x8021)
 bind_layers( Ether,         PPP_ECP,       type=0x8053)
 bind_layers( GRE_PPTP,      PPP,           proto=0x880b)
