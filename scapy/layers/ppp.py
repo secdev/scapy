@@ -17,7 +17,7 @@ from scapy.layers.inet6 import IPv6
 from scapy.fields import BitField, ByteEnumField, ByteField, \
     ConditionalField, FieldLenField, IntField, IPField, LenField, \
     PacketListField, PacketField, ShortEnumField, ShortField, \
-    StrFixedLenField, StrLenField, XByteField, XShortField
+    StrFixedLenField, StrLenField, XByteField, XShortField, XStrLenField
 
 
 class PPPoE(Packet):
@@ -620,6 +620,74 @@ class PPP_PAP_Response(PPP_PAP):
         return res
 
 
+### Challenge Handshake Authentication protocol (RFC1994)
+
+_PPP_chaptypes = {1: "Challenge",
+                  2: "Response",
+                  3: "Success",
+                  4: "Failure"}
+
+
+class PPP_CHAP(Packet):
+    name = "PPP Challenge Handshake Authentication Protocol"
+    fields_desc = [ByteEnumField("code", 1, _PPP_chaptypes),
+                   XByteField("id", 0),
+                   FieldLenField("len", None, fmt="!H", length_of="data",
+                                 adjust=lambda _, x: x + 4),
+                   StrLenField("data", "", length_from=lambda p: p.len - 4)]
+
+    def answers(self, other):
+        return isinstance(other, PPP_CHAP_ChallengeResponse) and other.code == 2\
+               and self.code in (3, 4) and self.id == other.id
+
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *_, **kargs):
+        code = None
+        if _pkt:
+            code = ord(_pkt[0])
+        elif "code" in kargs:
+            code = kargs["code"]
+            if isinstance(code, basestring):
+                code = cls.fields_desc[0].s2i[code]
+
+        if code in (1, 2):
+            return PPP_CHAP_ChallengeResponse
+        return cls
+
+    def extract_padding(self, pay):
+        return "", pay
+
+    def mysummary(self):
+        if self.code == 3:
+            return self.sprintf("CHAP Success message=%PPP_CHAP.data%")
+        elif self.code == 4:
+            return self.sprintf("CHAP Failure message=%PPP_CHAP.data%")
+
+
+class PPP_CHAP_ChallengeResponse(PPP_CHAP):
+    fields_desc = [ByteEnumField("code", 1, _PPP_chaptypes),
+                   XByteField("id", 0),
+                   FieldLenField("len", None, fmt="!H", length_of="value",
+                                 adjust=lambda p, x: x + len(p.optional_name) + 5),
+                   FieldLenField("value_size", None, fmt="B", length_of="value"),
+                   XStrLenField("value", b"\0"*8, length_from=lambda p: p.value_size),
+                   StrLenField("optional_name", "", length_from=lambda p: p.len - p.value_size - 5)]
+
+    def answers(self, other):
+        return isinstance(other, PPP_CHAP_ChallengeResponse) and other.code == 1\
+               and self.code == 2 and self.id == other.id
+
+    def mysummary(self):
+        if self.code == 1:
+            return self.sprintf("CHAP challenge=0x%PPP_CHAP_ChallengeResponse.value% " +
+                                "optional_name=%PPP_CHAP_ChallengeResponse.optional_name%")
+        elif self.code == 2:
+            return self.sprintf("CHAP response=0x%PPP_CHAP_ChallengeResponse.value% " +
+                                "optional_name=%PPP_CHAP_ChallengeResponse.optional_name%")
+        else:
+            return PPP_CHAP.mysummary(self)
+
+
 bind_layers( Ether,         PPPoED,        type=0x8863)
 bind_layers( Ether,         PPPoE,         type=0x8864)
 bind_layers( CookedLinux,   PPPoED,        proto=0x8863)
@@ -629,6 +697,7 @@ bind_layers( HDLC,          PPP,           )
 bind_layers( PPP,           EAP,           proto=0xc227)
 bind_layers( PPP,           IP,            proto=0x0021)
 bind_layers( PPP,           IPv6,          proto=0x0057)
+bind_layers( PPP,           PPP_CHAP,      proto=0xc223)
 bind_layers( PPP,           PPP_IPCP,      proto=0x8021)
 bind_layers( PPP,           PPP_ECP,       proto=0x8053)
 bind_layers( PPP,           PPP_LCP,       proto=0xc021)
