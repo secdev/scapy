@@ -61,8 +61,8 @@ def _encapsulate_admin(cmd):
 
 def _exec_query_ps(cmd, fields):
     """Execute a PowerShell query"""
-    if not WINDOWS:
-        return
+    if not conf.prog.powershell:
+        raise OSError("Scapy could not detect powershell !")
     ps = sp.Popen([conf.prog.powershell] + cmd +
                   ['|', 'select %s' % ', '.join(fields), '|', 'fl'],
                   stdout=sp.PIPE,
@@ -82,8 +82,8 @@ def _exec_query_ps(cmd, fields):
             l=[]
 
 def _vbs_exec_code(code, split_tag="@"):
-    if not WINDOWS:
-        return
+    if not conf.prog.cscript:
+        raise OSError("Scapy could not detect cscript !")
     tmpfile = tempfile.NamedTemporaryFile(suffix=".vbs", delete=False)
     tmpfile.write(code)
     tmpfile.close()
@@ -100,8 +100,6 @@ def _vbs_exec_code(code, split_tag="@"):
     os.unlink(tmpfile.name)
 
 def _vbs_get_iface_guid(devid):
-    if not WINDOWS:
-        return
     try:
         devid = str(int(devid) + 1)
         guid = _vbs_exec_code("""WScript.Echo CreateObject("WScript.Shell").RegRead("HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\NetworkCards\\%s\\ServiceName")
@@ -137,8 +135,6 @@ def _exec_query_vbs(cmd, fields):
     supported.
 
     """
-    if not WINDOWS:
-        return
     if not(len(cmd) == 2 and cmd[0] == "Get-WmiObject"):
         return
     
@@ -192,7 +188,7 @@ def _deep_lookup(prog_list, max_depth=3):
         return False, None, None
     def key_in_path(path, key):
         return key.lower() in path.lower()
-    deeper_paths = [env_path("ProgramFiles"), env_path("ProgramFiles(x86)")]
+    deeper_paths = [env_path("ProgramFiles"), env_path("ProgramFiles(x86)")] + env_path("PATH").split(os.path.pathsep)
     for path in deeper_paths:
         len_p = len(path) + len(os.path.sep)
         for root, subFolders, files in os.walk(path):
@@ -228,8 +224,6 @@ def _where(filename, dirs=None, env="PATH"):
 
 def win_find_exe(filename, installsubdir=None, env="ProgramFiles"):
     """Find executable in current dir, system path or given ProgramFiles subdir"""
-    if not WINDOWS:
-        return
     fns = [filename] if filename.endswith(".exe") else [filename+".exe", filename]
     for fn in fns:
         try:
@@ -238,7 +232,7 @@ def win_find_exe(filename, installsubdir=None, env="ProgramFiles"):
             else:
                 path = _where(fn, dirs=[os.path.join(os.environ[env], installsubdir)])
         except IOError:
-            path = filename
+            path = None
         else:
             break        
     return path
@@ -249,6 +243,7 @@ class WinProgPath(ConfClass):
     # that must be in the path of the file
     external_prog_list = {"AcroRd32" : "", "gsview32" : "", "dot" : "graph", "windump" : "", "tshark" : "",
                           "tcpreplay" : "", "hexer" : "", "sox" : "", "wireshark" : ""}
+    os_access = False
     _default = "<System default>"
     def __init__(self):
         _deep_lookup(self.external_prog_list)
@@ -272,17 +267,17 @@ class WinProgPath(ConfClass):
                                env="SystemRoot")
         self.cmd = win_find_exe("cmd", installsubdir="System32",
                                env="SystemRoot")
-        if self.wireshark != "wireshark":
+        if self.wireshark:
             manu_path = load_manuf(os.path.sep.join(self.wireshark.split(os.path.sep)[:-1])+os.path.sep+"manuf")
             scapy.data.MANUFDB = conf.manufdb = MANUFDB = manu_path
+        if self.powershell or self.cscript:
+            self.os_access = True
 
 conf.prog = WinProgPath()
-if conf.prog.powershell == "powershell":
-    conf.prog.powershell = None
-if conf.prog.sox == "sox":
-    conf.prog.sox = None
+if not conf.prog.powershell and not conf.prog.cscript:
+    warning("Scapy did not detect powershell and cscript ! Routes, interfaces and much more won't work !", True)
 
-if conf.prog.tcpdump != "windump" and conf.use_npcap:
+if conf.prog.tcpdump and conf.use_npcap and conf.prog.os_access:
     def test_windump_npcap():
         """Return wether windump version is correct or not"""
         try:
@@ -312,6 +307,8 @@ def is_interface_valid(iface):
 
 def get_windows_if_list():
     """Returns windows interfaces"""
+    if not conf.prog.os_access:
+        return []
     if is_new_release():
         # This works only starting from Windows 8/2012 and up. For older Windows another solution is needed
         # Careful: this is weird, but Get-NetAdaptater works like: (Name isn't the interface name)
@@ -407,6 +404,8 @@ def _pcap_service():
 
 def pcap_service_status():
     """Returns a tuple (name, description, started) of the windows pcap adapter"""
+    if not conf.prog.cscript:
+        return (None, None, None)
     for i in exec_query(['Get-Service', 'npcap'], ['Name', 'DisplayName', 'Status']):
         name = i[0]
         description = i[1]
@@ -417,6 +416,8 @@ def pcap_service_status():
 
 def _pcap_service_control(action, askadmin=True):
     """Util to run pcap control command"""
+    if not conf.prog.cscript:
+        return False
     command = action + ' ' + _pcap_service()
     ps = sp.Popen([conf.prog.powershell, _encapsulate_admin(command) if askadmin else command],
                     stdout=sp.PIPE,
@@ -437,6 +438,8 @@ from UserDict import UserDict
 class NetworkInterfaceDict(UserDict):
     """Store information about network interfaces and convert between names""" 
     def load_from_powershell(self):
+        if not conf.prog.os_access:
+            return
         for i in get_windows_if_list():
             try:
                 interface = NetworkInterface(i)
@@ -613,6 +616,8 @@ def _read_routes_7():
         
 def read_routes():
     routes = []
+    if not conf.prog.os_access:
+        return routes
     release = platform.release()
     try:
         if is_new_release():
@@ -622,7 +627,7 @@ def read_routes():
         else:
             routes = _read_routes_7()
     except Exception as e:    
-        warning("Error building scapy routing table : %s" % str(e), True)
+        warning("Error building scapy ipv4 routing table : %s" % str(e), True)
     else:
         if not routes:
             warning("No default IPv4 routes found. Your Windows release may no be supported and you have to enter your routes manually", True)
@@ -796,13 +801,15 @@ def _read_routes6_7():
 
 def read_routes6():
     routes6 = []
+    if not conf.prog.os_access:
+        return routes6
     try:
         if is_new_release():
             routes6 = _read_routes6_post2008()
         else:
             routes6 = _read_routes6_7()
     except Exception as e:    
-        warning("Error building scapy routing table : %s" % str(e), True)
+        warning("Error building scapy ipv6 routing table : %s" % str(e), True)
     return routes6
 
 if conf.interactive_shell != 'ipython' and conf.interactive:
