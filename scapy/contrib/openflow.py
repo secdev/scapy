@@ -11,10 +11,12 @@
 # scapy.contrib.description = openflow v1.0
 # scapy.contrib.status = loads
 
+from __future__ import absolute_import
 import struct
 from scapy.fields import *
 from scapy.layers.l2 import *
 from scapy.layers.inet import *
+from scapy.modules.six.moves import zip
 
 ### If prereq_autocomplete is True then match prerequisites will be
 ### automatically handled. See OFPMatch class.
@@ -658,7 +660,7 @@ class OFPTFeaturesRequest(_ofp_header):
                     IntField("xid", 0) ]
     overload_fields = {TCP: {"sport": 6653}}
 
-ofp_action_types_flags = ofp_action_types.values()[:-1]  # no ofpat_vendor flag
+ofp_action_types_flags = list(ofp_action_types.values())[:-1]  # no ofpat_vendor flag
 
 class OFPTFeaturesReply(_ofp_header):
     name = "OFPT_FEATURES_REPLY"

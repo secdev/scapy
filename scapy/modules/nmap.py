@@ -7,6 +7,7 @@
 Clone of Nmap's first generation OS fingerprinting.
 """
 
+from __future__ import absolute_import
 import os
 
 from scapy.data import KnowledgeBase
@@ -15,6 +16,7 @@ from scapy.arch import WINDOWS
 from scapy.error import warning
 from scapy.layers.inet import IP, TCP, UDP, ICMP, UDPerror, IPerror
 from scapy.sendrecv import sr
+import scapy.modules.six as six
 
 
 if WINDOWS:
@@ -57,7 +59,7 @@ class NmapKnowledgeBase(KnowledgeBase):
                     warning("error reading nmap os fp base file")
                     continue
                 test = l[:op]
-                s = map(lambda x: x.split("="), l[op+1:cl].split("%"))
+                s = (x.split("=") for x in l[op+1:cl].split("%"))
                 si = {}
                 for n,v in s:
                     si[n] = v
@@ -88,7 +90,7 @@ def nmap_tcppacket_sig(pkt):
         r["W"] = "%X" % pkt.window
         r["ACK"] = pkt.ack==2 and "S++" or pkt.ack==1 and "S" or "O"
         r["Flags"] = TCPflags2str(pkt.payload.flags)
-        r["Ops"] = "".join(map(lambda x: x[0][0],pkt.payload.options))
+        r["Ops"] = "".join(x[0][0] for x in pkt.payload.options)
     else:
         r["Resp"] = "N"
     return r
@@ -114,7 +116,7 @@ def nmap_udppacket_sig(S,T):
 
 def nmap_match_one_sig(seen, ref):
     c = 0
-    for k, v in seen.iteritems():
+    for k, v in six.iteritems(seen):
         if k in ref:
             if v in ref[k].split("|"):
                 c += 1
@@ -141,7 +143,7 @@ def nmap_sig(target, oport=80, cport=81, ucport=1):
               IP(str(IP(dst=target)/UDP(sport=5008,dport=ucport)/(300*"i"))) ]
 
     ans, unans = sr(tests, timeout=2)
-    ans += map(lambda x: (x,None), unans)
+    ans.extend((x,None) for x in unans)
 
     for S,T in ans:
         if S.sport == 5008:
@@ -170,7 +172,7 @@ def nmap_search(sigs):
     guess = 0,[]
     for os,fp in nmap_kdb.get_base():
         c = 0.0
-        for t, v in sigs.itervalues():
+        for t, v in six.itervalues(sigs):
             if t in fp:
                 c += nmap_match_one_sig(v, fp[t])
         c /= len(sigs)

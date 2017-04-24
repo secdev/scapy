@@ -16,10 +16,13 @@
         http://trac.secdev.org/scapy/ticket/18
 """
 
+from __future__ import absolute_import, print_function
 from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.l2 import SNAP,Dot3,LLC
 from scapy.sendrecv import sendp
+from scapy.modules.six.moves import map
+from functools import reduce
 
 class DtpGenericTlv(Packet):
     name = "DTP Generic TLV"
@@ -106,7 +109,7 @@ bind_layers(SNAP, DTP, code=0x2004, OUI=0xc)
 
 
 def negotiate_trunk(iface=conf.iface, mymac=str(RandMAC())):
-    print "Trying to negotiate a trunk on interface %s" % iface
+    print("Trying to negotiate a trunk on interface %s" % iface)
     p = Dot3(src=mymac, dst="01:00:0c:cc:cc:cc")/LLC()/SNAP()/DTP(tlvlist=[DTPDomain(),DTPStatus(),DTPType(),DTPNeighbor(neighbor=mymac)])
     sendp(p)
 

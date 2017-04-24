@@ -8,6 +8,7 @@
 SCTP (Stream Control Transmission Protocol).
 """
 
+from __future__ import absolute_import
 import struct
 
 from scapy.volatile import RandBin
@@ -17,6 +18,7 @@ from scapy.fields import *
 from scapy.layers.inet import IP
 from scapy.layers.inet6 import IP6Field
 from scapy.layers.inet6 import IPv6
+from scapy.modules.six.moves import map
 
 IPPROTO_SCTP=132
 

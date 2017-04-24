@@ -9,6 +9,7 @@ PPP (Point to Point Protocol)
 [RFC 1661]
 """
 
+from __future__ import absolute_import
 import struct
 from scapy.packet import Packet, bind_layers
 from scapy.layers.l2 import Ether, CookedLinux, GRE_PPTP

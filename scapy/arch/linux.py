@@ -7,6 +7,7 @@
 Linux specific functions.
 """
 
+from __future__ import absolute_import
 import sys,os,struct,socket,time
 from select import select
 from fcntl import ioctl
@@ -137,7 +138,7 @@ def attach_filter(s, bpf_filter, iface):
             conf.iface if iface is None else iface,
             bpf_filter,
         ))
-    except OSError,msg:
+    except OSError as msg:
         log_interactive.warning("Failed to execute tcpdump: (%s)")
         return
     lines = f.readlines()
@@ -146,7 +147,7 @@ def attach_filter(s, bpf_filter, iface):
     nb = int(lines[0])
     bpf = ""
     for l in lines[1:]:
-        bpf += struct.pack("HBBI",*map(long,l.split()))
+        bpf += struct.pack("HBBI",*map(int,l.split()))
 
     # XXX. Argl! We need to give the kernel a pointer on the BPF,
     # python object header seems to be 20 bytes. 36 bytes for x86 64bits arch.
@@ -282,7 +283,7 @@ def in6_getifaddr():
     ret = []
     try:
         f = open("/proc/net/if_inet6","r")
-    except IOError, err:    
+    except IOError as err:    
         return ret
     l = f.readlines()
     for i in l:
@@ -296,7 +297,7 @@ def in6_getifaddr():
 def read_routes6():
     try:
         f = open("/proc/net/ipv6_route","r")
-    except IOError, err:
+    except IOError as err:
         return []
     # 1. destination network
     # 2. destination prefix length
@@ -334,7 +335,7 @@ def read_routes6():
                 continue
             cset = ['::1']
         else:
-            devaddrs = filter(lambda x: x[2] == dev, lifaddr)
+            devaddrs = [x for x in lifaddr if x[2] == dev]
             cset = scapy.utils6.construct_source_candidate_set(d, dp, devaddrs, LOOPBACK_NAME)
         
         if len(cset) != 0:
@@ -457,7 +458,7 @@ class L3PacketSocket(SuperSocket):
         x.sent_time = time.time()
         try:
             self.outs.sendto(sx, sdto)
-        except socket.error, msg:
+        except socket.error as msg:
             if msg[0] == 22 and len(sx) < conf.min_pkt_size:
                 self.outs.send(sx + b"\x00" * (conf.min_pkt_size - len(sx)))
             elif conf.auto_fragment and msg[0] == 90:
@@ -522,7 +523,7 @@ class L2Socket(SuperSocket):
     def send(self, x):
         try:
             return SuperSocket.send(self, x)
-        except socket.error, msg:
+        except socket.error as msg:
             if msg[0] == 22 and len(x) < conf.min_pkt_size:
                 padding = b"\x00" * (conf.min_pkt_size - len(x))
                 if isinstance(x, Packet):

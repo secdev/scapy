@@ -8,6 +8,7 @@
 TLS ciphers.
 """
 
+from __future__ import absolute_import
 class CipherError(Exception):
     """
     Raised when .decrypt() or .auth_decrypt() fails.

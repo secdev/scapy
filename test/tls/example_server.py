@@ -11,6 +11,7 @@ any TLS client connection. If provided, TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA
 will be preferred to any other suite the client might propose.
 """
 
+from __future__ import absolute_import
 import os
 import sys
 

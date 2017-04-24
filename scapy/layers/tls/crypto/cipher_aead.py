@@ -14,6 +14,7 @@ For now the cryptography library only supports GCM mode.
 Their interface might (and should) be changed in the future.
 """
 
+from __future__ import absolute_import
 import struct
 
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
@@ -22,6 +23,7 @@ from cryptography.exceptions import InvalidTag
 
 from scapy.layers.tls.crypto.pkcs1 import pkcs_i2osp, pkcs_os2ip
 from scapy.layers.tls.crypto.ciphers import CipherError
+import scapy.modules.six as six
 
 
 tls_aead_cipher_algs = {}
@@ -48,8 +50,7 @@ class AEADTagError(Exception):
     """
     pass
 
-class _AEADCipher(object):
-    __metaclass__ = _AEADCipherMetaclass
+class _AEADCipher(six.with_metaclass(_AEADCipherMetaclass, object)):
     type = "aead"
 
     def __init__(self, key=None, salt=None, nonce_explicit=None):
@@ -115,8 +116,8 @@ class _AEADCipher(object):
 
         Note that the cipher's authentication tag must be None when encrypting.
         """
-        if False in self.ready.itervalues():
-            raise CipherError, (P, A)
+        if False in six.itervalues(self.ready):
+            raise CipherError(P, A)
         self._cipher.mode._tag = None
         encryptor = self._cipher.encryptor()
         encryptor.authenticate_additional_data(A)
@@ -147,8 +148,8 @@ class _AEADCipher(object):
                                       C[self.nonce_explicit_len:-self.tag_len],
                                       C[-self.tag_len:])
 
-        if False in self.ready.itervalues():
-            raise CipherError, (nonce_explicit_str, C, mac)
+        if False in six.itervalues(self.ready):
+            raise CipherError(nonce_explicit_str, C, mac)
 
         self.nonce_explicit = pkcs_os2ip(nonce_explicit_str)
         self._cipher.mode._tag = mac
@@ -162,7 +163,7 @@ class _AEADCipher(object):
         try:
             decryptor.finalize()
         except InvalidTag:
-            raise AEADTagError, (nonce_explicit_str, P, mac)
+            raise AEADTagError(nonce_explicit_str, P, mac)
         return nonce_explicit_str, P, mac
 
 

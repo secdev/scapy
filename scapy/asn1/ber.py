@@ -9,9 +9,12 @@
 Basic Encoding Rules (BER) for ASN.1
 """
 
+from __future__ import absolute_import
 from scapy.error import warning
 from scapy.utils import binrepr,inet_aton,inet_ntoa
 from scapy.asn1.asn1 import ASN1_Decoding_Error,ASN1_Encoding_Error,ASN1_BadTag_Decoding_Error,ASN1_Codecs,ASN1_Class_UNIVERSAL,ASN1_Error,ASN1_DECODING_ERROR,ASN1_BADTAG
+import scapy.modules.six as six
+from scapy.modules.six.moves import map, zip
 
 ##################
 ## BER encoding ##
@@ -62,7 +65,7 @@ def BER_len_enc(l, size=0):
         s = ""
         while l or size>0:
             s = chr(l&0xff)+s
-            l >>= 8L
+            l >>= 8
             size -= 1
         if len(s) > 127:
             raise BER_Exception("BER_len_enc: Length too long (%i) to be encoded [%r]" % (len(s),s))
@@ -74,9 +77,9 @@ def BER_len_dec(s):
         l &= 0x7f
         if len(s) <= l:
             raise BER_Decoding_Error("BER_len_dec: Got %i bytes while expecting %i" % (len(s)-1, l),remaining=s)
-        ll = 0L
+        ll = 0
         for c in s[1:l+1]:
-            ll <<= 8L
+            ll <<= 8
             ll |= ord(c)
         return ll,s[l+1:]
         
@@ -184,8 +187,7 @@ class BERcodec_metaclass(type):
         return c
 
 
-class BERcodec_Object:
-    __metaclass__ = BERcodec_metaclass
+class BERcodec_Object(six.with_metaclass(BERcodec_metaclass)):
     codec = ASN1_Codecs.BER
     tag = ASN1_Class_UNIVERSAL.ANY
 
@@ -241,12 +243,12 @@ class BERcodec_Object:
             return cls.do_dec(s, context, safe)
         try:
             return cls.do_dec(s, context, safe)
-        except BER_BadTag_Decoding_Error,e:
+        except BER_BadTag_Decoding_Error as e:
             o,remain = BERcodec_Object.dec(e.remaining, context, safe)
             return ASN1_BADTAG(o),remain
-        except BER_Decoding_Error, e:
+        except BER_Decoding_Error as e:
             return ASN1_DECODING_ERROR(s, exc=e),""
-        except ASN1_Error, e:
+        except ASN1_Error as e:
             return ASN1_DECODING_ERROR(s, exc=e),""
 
     @classmethod
@@ -282,7 +284,7 @@ class BERcodec_INTEGER(BERcodec_Object):
             i >>= 8
             if not i:
                 break
-        s = map(chr, s)
+        s = list(map(chr, s))
         s.append(BER_len_enc(len(s)))
         s.append(chr(cls.tag))
         s.reverse()
@@ -290,10 +292,10 @@ class BERcodec_INTEGER(BERcodec_Object):
     @classmethod
     def do_dec(cls, s, context=None, safe=False):
         l,s,t = cls.check_type_check_len(s)
-        x = 0L
+        x = 0
         if s:
             if ord(s[0])&0x80: # negative int
-                x = -1L
+                x = -1
             for c in s:
                 x <<= 8
                 x |= ord(c)
@@ -406,7 +408,7 @@ class BERcodec_SEQUENCE(BERcodec_Object):
     @classmethod
     def enc(cls, l):
         if type(l) is not str:
-            l = "".join(map(lambda x: x.enc(cls.codec), l))
+            l = "".join(x.enc(cls.codec) for x in l)
         return chr(cls.tag)+BER_len_enc(len(l))+l
     @classmethod
     def do_dec(cls, s, context=None, safe=False):
@@ -418,7 +420,7 @@ class BERcodec_SEQUENCE(BERcodec_Object):
         while s:
             try:
                 o,s = BERcodec_Object.dec(s, context, safe)
-            except BER_Decoding_Error, err:
+            except BER_Decoding_Error as err:
                 err.remaining += t
                 if err.decoded is not None:
                     obj.append(err.decoded)

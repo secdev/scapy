@@ -3,6 +3,7 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
+from __future__ import absolute_import
 import os, inspect
 from sys import platform, maxsize
 import platform as platform_lib

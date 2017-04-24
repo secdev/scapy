@@ -7,8 +7,10 @@
 Packet holding data in Abstract Syntax Notation (ASN.1).
 """
 
+from __future__ import absolute_import
 from scapy.base_classes import Packet_metaclass
 from scapy.packet import Packet
+import scapy.modules.six as six
 
 class ASN1Packet_metaclass(Packet_metaclass):
     def __new__(cls, name, bases, dct):
@@ -16,8 +18,7 @@ class ASN1Packet_metaclass(Packet_metaclass):
             dct["fields_desc"] = dct["ASN1_root"].get_fields_list()
         return super(ASN1Packet_metaclass, cls).__new__(cls, name, bases, dct)
 
-class ASN1_Packet(Packet):
-    __metaclass__ = ASN1Packet_metaclass
+class ASN1_Packet(six.with_metaclass(ASN1Packet_metaclass, Packet)):
     ASN1_root = None
     ASN1_codec = None    
     def self_build(self):

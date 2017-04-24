@@ -7,12 +7,14 @@
 Routing and handling of network interfaces.
 """
 
+from __future__ import absolute_import
 import socket
 from scapy.consts import LOOPBACK_NAME, LOOPBACK_INTERFACE
 from scapy.utils import atol, ltoa, itom, pretty_routes
 from scapy.config import conf
 from scapy.error import Scapy_Exception, warning
 from scapy.arch import WINDOWS
+import scapy.modules.six as six
 
 ##############################
 ## Routing/Interfaces stuff ##
@@ -38,7 +40,7 @@ class Route:
 	    rtlst.append((ltoa(net),
                       ltoa(msk),
                       gw,
-                      (iface.name if not isinstance(iface, basestring) else iface),
+                      (iface.name if not isinstance(iface, six.string_types) else iface),
                       addr))
 
         return pretty_routes(rtlst,
@@ -152,7 +154,7 @@ class Route:
                 continue
             aa = atol(a)
             if aa == dst:
-                pathes.append((0xffffffffL,(LOOPBACK_INTERFACE,a,"0.0.0.0")))
+                pathes.append((0xffffffff,(LOOPBACK_INTERFACE,a,"0.0.0.0")))
             if (dst & m) == (d & m):
                 pathes.append((m,(i,a,gw)))
         if not pathes:
@@ -175,7 +177,7 @@ class Route:
                     continue
             elif iff != iface:
                 continue
-            bcast = atol(addr)|(~msk&0xffffffffL); # FIXME: check error in atol()
+            bcast = atol(addr)|(~msk&0xffffffff); # FIXME: check error in atol()
             return ltoa(bcast)
         warning("No broadcast address found for iface %s\n" % iff);
 

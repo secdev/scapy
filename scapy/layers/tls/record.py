@@ -12,6 +12,7 @@ ApplicationData submessages. For the Handshake type, see tls_handshake.py.
 See the TLS class documentation for more information.
 """
 
+from __future__ import absolute_import, print_function
 import struct
 
 from scapy.config import conf
@@ -250,7 +251,7 @@ class TLS(_GenericTLSSessionInheritance):
             self.decipherable = False
             return e.args
         except AEADTagError as e:
-            print "INTEGRITY CHECK FAILED"
+            print("INTEGRITY CHECK FAILED")
             return e.args
 
     def _tls_decrypt(self, s):
@@ -368,7 +369,7 @@ class TLS(_GenericTLSSessionInheritance):
             hdr = hdr[:3] + struct.pack('!H', len(cfrag))
             is_mac_ok = self._tls_hmac_verify(hdr, cfrag, mac)
             if not is_mac_ok:
-                print "INTEGRITY CHECK FAILED"
+                print("INTEGRITY CHECK FAILED")
 
         elif cipher_type == 'stream':
             # Decrypt
@@ -386,7 +387,7 @@ class TLS(_GenericTLSSessionInheritance):
             hdr = hdr[:3] + struct.pack('!H', len(cfrag))
             is_mac_ok = self._tls_hmac_verify(hdr, cfrag, mac)
             if not is_mac_ok:
-                print "INTEGRITY CHECK FAILED"
+                print("INTEGRITY CHECK FAILED")
 
         elif cipher_type == 'aead':
             # Authenticated encryption

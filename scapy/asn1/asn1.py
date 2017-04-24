@@ -8,18 +8,22 @@
 ASN.1 (Abstract Syntax Notation One)
 """
 
+from __future__ import absolute_import
+from __future__ import print_function
 import random
 from datetime import datetime
 from scapy.config import conf
 from scapy.error import Scapy_Exception, warning
 from scapy.volatile import RandField, RandIP
 from scapy.utils import Enum_metaclass, EnumElement, binrepr
+import scapy.modules.six as six
+from scapy.modules.six.moves import range, zip
 
 class RandASN1Object(RandField):
     def __init__(self, objlist=None):
         self.objlist = [
             x._asn1_obj
-            for x in ASN1_Class_UNIVERSAL.__rdict__.itervalues()
+            for x in six.itervalues(ASN1_Class_UNIVERSAL.__rdict__)
             if hasattr(x, "_asn1_obj")
         ] if objlist is None else objlist
         self.chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
@@ -32,11 +36,11 @@ class RandASN1Object(RandField):
             return o(z)
         elif issubclass(o, ASN1_STRING):
             z = int(random.expovariate(0.05)+1)
-            return o("".join(random.choice(self.chars) for _ in xrange(z)))
+            return o("".join(random.choice(self.chars) for _ in range(z)))
         elif issubclass(o, ASN1_SEQUENCE) and (n < 10):
             z = int(random.expovariate(0.08)+1)
             return o([self.__class__(objlist=self.objlist)._fix(n + 1)
-                      for _ in xrange(z)])
+                      for _ in range(z)])
         return ASN1_INTEGER(int(random.gauss(0,1000)))
 
 
@@ -72,8 +76,7 @@ class ASN1Codec(EnumElement):
 class ASN1_Codecs_metaclass(Enum_metaclass):
     element_class = ASN1Codec
 
-class ASN1_Codecs:
-    __metaclass__ = ASN1_Codecs_metaclass
+class ASN1_Codecs(six.with_metaclass(ASN1_Codecs_metaclass)):
     BER = 1
     DER = 2
     PER = 3
@@ -104,7 +107,7 @@ class ASN1Tag(EnumElement):
     def get_codec(self, codec):
         try:
             c = self._codec[codec]
-        except KeyError,msg:
+        except KeyError as msg:
             raise ASN1_Error("Codec %r not found for tag %r" % (codec, self))
         return c
 
@@ -112,12 +115,12 @@ class ASN1_Class_metaclass(Enum_metaclass):
     element_class = ASN1Tag
     def __new__(cls, name, bases, dct): # XXX factorise a bit with Enum_metaclass.__new__()
         for b in bases:
-            for k,v in b.__dict__.iteritems():
+            for k,v in six.iteritems(b.__dict__):
                 if k not in dct and isinstance(v,ASN1Tag):
                     dct[k] = v.clone()
 
         rdict = {}
-        for k,v in dct.iteritems():
+        for k,v in six.iteritems(dct):
             if type(v) is int:
                 v = ASN1Tag(k,v) 
                 dct[k] = v
@@ -133,8 +136,8 @@ class ASN1_Class_metaclass(Enum_metaclass):
         return cls
             
 
-class ASN1_Class:
-    __metaclass__ = ASN1_Class_metaclass
+class ASN1_Class(six.with_metaclass(ASN1_Class_metaclass)):
+    pass
 
 class ASN1_Class_UNIVERSAL(ASN1_Class):
     name = "UNIVERSAL"
@@ -185,8 +188,7 @@ class ASN1_Object_metaclass(type):
             warning("Error registering %r for %r" % (c.tag, c.codec))
         return c
 
-class ASN1_Object:
-    __metaclass__ = ASN1_Object_metaclass
+class ASN1_Object(six.with_metaclass(ASN1_Object_metaclass)):
     tag = ASN1_Class_UNIVERSAL.ANY
     def __init__(self, val):
         self.val = val
@@ -199,7 +201,7 @@ class ASN1_Object:
     def strshow(self, lvl=0):
         return ("  "*lvl)+repr(self)+"\n"
     def show(self, lvl=0):
-        print self.strshow(lvl)
+        print(self.strshow(lvl))
     def __eq__(self, other):
         return self.val == other
     def __cmp__(self, other):
@@ -279,7 +281,7 @@ class ASN1_BIT_STRING(ASN1_Object):
         elif name == "val":
             if isinstance(value, str):
                 if len([c for c in value if c not in ["0", "1"]]) > 0:
-                    print "Invalid operation: 'val' is not a valid bit string."
+                    print("Invalid operation: 'val' is not a valid bit string.")
                     return
                 else:
                     if len(value) % 8 == 0:
@@ -287,7 +289,7 @@ class ASN1_BIT_STRING(ASN1_Object):
                     else:
                         unused_bits = 8 - (len(value) % 8)
                     padded_value = value + ("0" * unused_bits)
-                    bytes_arr = zip(*[iter(padded_value)]*8)
+                    bytes_arr = list(zip(*[iter(padded_value)]*8))
                     val_readable = "".join(chr(int("".join(x),2)) for x in bytes_arr)
             else:
                 val_readable = "<invalid val>"
@@ -296,7 +298,7 @@ class ASN1_BIT_STRING(ASN1_Object):
             super(ASN1_Object, self).__setattr__(name, value)
             super(ASN1_Object, self).__setattr__("unused_bits", unused_bits)
         elif name == "unused_bits":
-            print "Invalid operation: unused_bits rewriting is not supported."
+            print("Invalid operation: unused_bits rewriting is not supported.")
         else:
             super(ASN1_Object, self).__setattr__(name, value)
     def __repr__(self):
@@ -364,7 +366,7 @@ class ASN1_UTC_TIME(ASN1_STRING):
             super(ASN1_UTC_TIME, self).__setattr__("pretty_time", pretty_time)
             super(ASN1_UTC_TIME, self).__setattr__(name, value)
         elif name == "pretty_time":
-            print "Invalid operation: pretty_time rewriting is not supported."
+            print("Invalid operation: pretty_time rewriting is not supported.")
         else:
             super(ASN1_UTC_TIME, self).__setattr__(name, value)
     def __repr__(self):
@@ -386,7 +388,7 @@ class ASN1_GENERALIZED_TIME(ASN1_STRING):
             super(ASN1_GENERALIZED_TIME, self).__setattr__("pretty_time", pretty_time)
             super(ASN1_GENERALIZED_TIME, self).__setattr__(name, value)
         elif name == "pretty_time":
-            print "Invalid operation: pretty_time rewriting is not supported."
+            print("Invalid operation: pretty_time rewriting is not supported.")
         else:
             super(ASN1_GENERALIZED_TIME, self).__setattr__(name, value)
     def __repr__(self):

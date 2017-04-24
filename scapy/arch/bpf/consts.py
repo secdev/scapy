@@ -5,6 +5,7 @@ Scapy *BSD native support - constants
 """
 
 
+from __future__ import absolute_import
 from scapy.data import MTU
 
 

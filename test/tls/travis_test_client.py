@@ -12,6 +12,7 @@ Optional cipher_cuite_code and version may be provided as hexadecimal strings
 Reception of the exact send_data on the server is to be checked externally.
 """
 
+from __future__ import absolute_import
 import sys, os, time
 import multiprocessing
 
