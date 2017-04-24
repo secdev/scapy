@@ -319,6 +319,14 @@ assert(Raw in b and b[Raw].load == "123456")
 hexdiff(a,b)
 assert( str(a) == str(b) )
 
+############
+############
++ Tests on TCPOptionsField
+
+= Test calls on TCPOptionsField.getfield
+
+assert TCPOptionsField("test", "").getfield(TCP(dataofs=0), "") == ('', [])
+
 
 ############
 ############
@@ -769,3 +777,18 @@ assert(f.i2repr_one(None, 1) == 'Bar')
 assert(f.i2repr_one(None, 0xff) == '0xff')
 
 True
+
+############
+############
++ DNSStrField tests
+
+= Raise exception - test data
+
+dnsf = DNSStrField("test", "")
+assert(dnsf.getfield("", b"\x01\x02\x00") == ("", b"\x02."))
+
+try:
+    dnsf.getfield("", b"\xff")
+    assert(False)
+except Scapy_Exception:
+    pass

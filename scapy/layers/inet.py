@@ -226,6 +226,9 @@ TCPOptions = (
                 25 : ("Mood","!p"),
                 28 : ("UTO", "!H"),
                 34 : ("TFO", "!II"),
+                # RFC 3692
+                253 : ("Experiment","!HHHH"),
+                254 : ("Experiment","!HHHH"),
                 },
               { "EOL":0,
                 "NOP":1,
@@ -482,7 +485,7 @@ class TCP(Packet):
                     ShortField("window", 8192),
                     XShortField("chksum", None),
                     ShortField("urgptr", 0),
-                    TCPOptionsField("options", {}) ]
+                    TCPOptionsField("options", []) ]
     def post_build(self, p, pay):
         p += pay
         dataofs = self.dataofs

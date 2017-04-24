@@ -5358,6 +5358,33 @@ str(TCP(options=[("UTO", 0xffff)])) == b"\x00\x14\x00\x50\x00\x00\x00\x00\x00\x0
 uto = TCP(b"\x00\x14\x00\x50\x00\x00\x00\x00\x00\x00\x00\x00\x60\x02\x20\x00\x00\x00\x00\x00\x1c\x04\xff\xff")
 uto[TCP].options[0][0] == "UTO" and uto[TCP].options[0][1] == 0xffff
 
+= TCP options: SAck - basic build
+str(TCP(options=[(5, "abcdefgh")])) == b"\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00\x80\x02 \x00\x00\x00\x00\x00\x05\nabcdefgh\x00\x00"
+
+= TCP options: SAck - basic dissection
+sack = TCP(b"\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00\x80\x02 \x00\x00\x00\x00\x00\x05\nabcdefgh\x00\x00")
+sack[TCP].options[0][0] == "SAck" and sack[TCP].options[0][1] == (1633837924, 1701209960)
+
+= TCP options: SAckOK - basic build
+str(TCP(options=[('SAckOK', '')])) == b"\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00`\x02 \x00\x00\x00\x00\x00\x04\x02\x00\x00"
+
+= TCP options: SAckOK - basic dissection
+sackok = TCP(b"\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00`\x02 \x00\x00\x00\x00\x00\x04\x02\x00\x00")
+sackok[TCP].options[0][0] == "SAckOK" and sackok[TCP].options[0][1] == ''
+
+= TCP options: EOL - basic build
+str(TCP(options=[(0, '')])) == b"\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00`\x02 \x00\x00\x00\x00\x00\x00\x02\x00\x00"
+
+= TCP options: EOL - basic dissection
+eol = TCP(b"\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00`\x02 \x00\x00\x00\x00\x00\x00\x02\x00\x00")
+eol[TCP].options[0][0] == "EOL" and eol[TCP].options[0][1] == None
+
+= TCP options: malformed - build
+str(TCP(options=[('unknown', '')])) == str(TCP())
+
+= TCP options: malformed - dissection
+str(TCP(b"\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00`\x02 \x00\x00\x00\x00\x00\x03\x00\x00\x00")) == b"\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00`\x02 \x00\x00\x00\x00\x00\x03\x00\x00\x00"
+
 = IP, TCP & UDP checksums (these tests highly depend on default values)
 pkt = IP() / TCP()
 bpkt = IP(str(pkt))
@@ -8164,6 +8191,7 @@ assert(param1.random != param2.random)
 
 = BOOTP - misc
 BOOTP().answers(BOOTP()) == True
+BOOTP().hashret() == b"\x00\x00\x00\x00"
 
 import random
 random.seed(0x2807)
@@ -8174,6 +8202,13 @@ dof = DHCPOptionsField("options", value)
 dof.i2repr("", value) == '[hostname scapy]'
 dof.i2m("", value) == b'\x0cscapy'
 
+unknown_value_end = b"\xfe" + b"\xff"*257
+udof = DHCPOptionsField("options", unknown_value_end)
+udof.m2i("", unknown_value_end) == [(254, '\xff'*255), 'end']
+
+unknown_value_pad = b"\xfe" + b"\xff"*256 + b"\x00"
+udof = DHCPOptionsField("options", unknown_value_pad)
+udof.m2i("", unknown_value_pad) == [(254, '\xff'*255), 'pad']
 
 = DHCP - build
 s = str(IP()/UDP()/BOOTP(chaddr="00:01:02:03:04:05")/DHCP(options=[("message-type","discover"),"end"]))
