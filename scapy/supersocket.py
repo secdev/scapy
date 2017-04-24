@@ -8,7 +8,7 @@ SuperSocket.
 """
 
 from __future__ import absolute_import
-import socket,time
+import socket, time, select
 
 from scapy.config import conf
 from scapy.data import *
@@ -16,6 +16,7 @@ from scapy.error import warning, log_runtime
 import scapy.packet
 from scapy.utils import PcapReader, tcpdump
 import scapy.modules.six as six
+from scapy.consts import WINDOWS
 
 class _SuperSocket_metaclass(type):
     def __repr__(self):
@@ -50,6 +51,20 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
                 self.outs.close()
         if self.ins and self.ins.fileno() != -1:
             self.ins.close()
+    def select(self, timeout):
+        """Same than select.select([self], [], [], timeout)
+        but also working under Windows. Will return
+        the socket if available.
+        
+        timeout: in seconds"""
+        if hasattr(self.ins, "select"):
+            return self.ins.select(self, timeout)
+        else:
+            if WINDOWS:
+                raise OSError("Not available on windows without npcap/winpcap")
+            else:
+                r,_,_ = select.select([self],[],[],timeout)
+                return r
     def sr(self, *args, **kargs):
         from scapy import sendrecv
         return sendrecv.sndrcv(self, *args, **kargs)
