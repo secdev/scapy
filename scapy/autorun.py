@@ -7,7 +7,7 @@
 Run commands when the Scapy interpreter starts.
 """
 
-import code,sys
+import code, sys, importlib
 from scapy.config import conf
 from scapy.themes import *
 from scapy.error import Scapy_Exception
@@ -36,13 +36,16 @@ class ScapyAutorunInterpreter(code.InteractiveInterpreter):
         return code.InteractiveInterpreter.showtraceback(self, *args, **kargs)
 
 
-def autorun_commands(cmds,my_globals=None,verb=0):
+def autorun_commands(cmds, my_globals=None, ignore_globals=None, verb=0):
     sv = conf.verb
     import __builtin__
     try:
         try:
             if my_globals is None:
-                my_globals = __import__("scapy.all").all.__dict__
+                my_globals = importlib.import_module(".all", "scapy").__dict__
+                if ignore_globals:
+                    for ig in ignore_globals:
+                        my_globals.pop(ig, None)
             conf.verb = verb
             interp = ScapyAutorunInterpreter(my_globals)
             cmd = ""
