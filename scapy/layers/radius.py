@@ -561,7 +561,6 @@ class RadiusAttr_Message_Authenticator(_RadiusAttrHexStringVal):
     ):
         """
         Computes the "Message-Authenticator" of a given RADIUS packet.
-        The "attributes" parameter must be a list of RadiusAttribute objects.
         """
 
         if not conf.crypto_valid:
