@@ -12,8 +12,8 @@ import os,sys
 import glob
 import types
 import gzip
-import six.moves.cPickle
-import six.moves.builtins
+import scapy.modules.six as six
+import importlib
 ignored = list(six.moves.builtins.__dict__.keys())
 
 from scapy.error import *
@@ -188,7 +188,7 @@ def init_session(session_name, mydict=None):
     global globkeys
     
     scapy_builtins = importlib.import_module(".all", "scapy").__dict__
-    for name, sym in scapy_builtins.iteritems():
+    for name, sym in six.iteritems(scapy_builtins):
         if _validate_local(name):
             six.moves.builtins.__dict__[name] = sym
     globkeys = list(scapy_builtins.keys())
