@@ -50,7 +50,7 @@ def autorun_commands(cmds,my_globals=None,verb=0):
             cmds.append("") # ensure we finish multi-line commands
             cmds.reverse()
             __builtin__.__dict__["_"] = None
-            while 1:
+            while True:
                 if cmd:
                     sys.stderr.write(sys.__dict__.get("ps2","... "))
                 else:
@@ -87,7 +87,7 @@ def autorun_get_interactive_session(cmds, **kargs):
         try:
             sys.stdout = sys.stderr = sw
             res = autorun_commands(cmds, **kargs)
-        except StopAutorun,e:
+        except StopAutorun as e:
             e.code_run = sw.s
             raise
     finally:
@@ -119,7 +119,7 @@ def autorun_get_html_interactive_session(cmds, **kargs):
         try:
             conf.color_theme = HTMLTheme2()
             s,res = autorun_get_interactive_session(cmds, **kargs)
-        except StopAutorun,e:
+        except StopAutorun as e:
             e.code_run = to_html(e.code_run)
             raise
     finally:
@@ -134,7 +134,7 @@ def autorun_get_latex_interactive_session(cmds, **kargs):
         try:
             conf.color_theme = LatexTheme2()
             s,res = autorun_get_interactive_session(cmds, **kargs)
-        except StopAutorun,e:
+        except StopAutorun as e:
             e.code_run = to_latex(e.code_run)
             raise
     finally:

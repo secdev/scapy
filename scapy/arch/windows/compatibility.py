@@ -97,7 +97,7 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0, retry=0, m
                 remaintime = None
                 try:
                     try:
-                        while 1:
+                        while True:
                             if stoptime:
                                 remaintime = stoptime-time.time()
                                 if remaintime <= 0:
@@ -206,7 +206,7 @@ stop_filter: python function applied to each packet to determine
     if timeout is not None:
         stoptime = time.time()+timeout
     remain = None
-    while 1:
+    while True:
         try:
             if timeout is not None:
                 remain = stoptime-time.time()

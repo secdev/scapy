@@ -122,7 +122,7 @@ class _ISIS_IdFieldBase(Field):
         return self.to_id(x)
 
     def any2i(self, pkt, x):
-        if type(x) is str and len(x) == self.length:
+        if isinstance(x, str) and len(x) == self.length:
             return self.m2i(pkt, x)
 
         return x

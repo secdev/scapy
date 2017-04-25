@@ -2036,7 +2036,7 @@ class BGPPathAttr(Packet):
         # Set default flags value ?
         if self.type_flags is None:
             # Set the standard value, if it is exists in attributes_flags.
-            if attributes_flags.has_key(self.type_code):
+            if self.type_code in attributes_flags:
                 flags_value = attributes_flags.get(self.type_code)
 
             # Otherwise, set to optional, non-transitive.

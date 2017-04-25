@@ -50,7 +50,7 @@ from scapy.fields import *
 
 def sendum(x, typeSock=0):
     try:
-        if type(x) is not str:
+        if not isinstance(x, str):
             x = str(x)
         if typeSock is 0:
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)

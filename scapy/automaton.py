@@ -48,21 +48,21 @@ class Message:
 
 class _instance_state:
     def __init__(self, instance):
-        self.im_self = instance.im_self
-        self.im_func = instance.im_func
-        self.im_class = instance.im_class
+        self.__self__ = instance.__self__
+        self.__func__ = instance.__func__
+        self.__self__.__class__ = instance.__self__.__class__
     def __getattr__(self, attr):
-        return getattr(self.im_func, attr)
+        return getattr(self.__func__, attr)
     def __call__(self, *args, **kargs):
-        return self.im_func(self.im_self, *args, **kargs)
+        return self.__func__(self.__self__, *args, **kargs)
     def breaks(self):
-        return self.im_self.add_breakpoints(self.im_func)
+        return self.__self__.add_breakpoints(self.__func__)
     def intercepts(self):
-        return self.im_self.add_interception_points(self.im_func)
+        return self.__self__.add_interception_points(self.__func__)
     def unbreaks(self):
-        return self.im_self.remove_breakpoints(self.im_func)
+        return self.__self__.remove_breakpoints(self.__func__)
     def unintercepts(self):
-        return self.im_self.remove_interception_points(self.im_func)
+        return self.__self__.remove_interception_points(self.__func__)
         
 
 ##############
@@ -102,16 +102,16 @@ class ATMT:
     def state(initial=0,final=0,error=0):
         def deco(f,initial=initial, final=final):
             f.atmt_type = ATMT.STATE
-            f.atmt_state = f.func_name
+            f.atmt_state = f.__name__
             f.atmt_initial = initial
             f.atmt_final = final
             f.atmt_error = error
             def state_wrapper(self, *args, **kargs):
                 return ATMT.NewStateRequested(f, self, *args, **kargs)
 
-            state_wrapper.func_name = "%s_wrapper" % f.func_name
+            state_wrapper.__name__ = "%s_wrapper" % f.__name__
             state_wrapper.atmt_type = ATMT.STATE
-            state_wrapper.atmt_state = f.func_name
+            state_wrapper.atmt_state = f.__name__
             state_wrapper.atmt_initial = initial
             state_wrapper.atmt_final = final
             state_wrapper.atmt_error = error
@@ -132,7 +132,7 @@ class ATMT:
         def deco(f, state=state):
             f.atmt_type = ATMT.CONDITION
             f.atmt_state = state.atmt_state
-            f.atmt_condname = f.func_name
+            f.atmt_condname = f.__name__
             f.atmt_prio = prio
             return f
         return deco
@@ -141,7 +141,7 @@ class ATMT:
         def deco(f, state=state):
             f.atmt_type = ATMT.RECV
             f.atmt_state = state.atmt_state
-            f.atmt_condname = f.func_name
+            f.atmt_condname = f.__name__
             f.atmt_prio = prio
             return f
         return deco
@@ -150,7 +150,7 @@ class ATMT:
         def deco(f, state=state):
             f.atmt_type = ATMT.IOEVENT
             f.atmt_state = state.atmt_state
-            f.atmt_condname = f.func_name
+            f.atmt_condname = f.__name__
             f.atmt_ioname = name
             f.atmt_prio = prio
             f.atmt_as_supersocket = as_supersocket
@@ -162,7 +162,7 @@ class ATMT:
             f.atmt_type = ATMT.TIMEOUT
             f.atmt_state = state.atmt_state
             f.atmt_timeout = timeout
-            f.atmt_condname = f.func_name
+            f.atmt_condname = f.__name__
             return f
         return deco
 
@@ -192,7 +192,7 @@ class _ATMT_supersocket(SuperSocket):
     def fileno(self):
         return self.spa.fileno()
     def send(self, s):
-        if type(s) is not str:
+        if not isinstance(s, str):
             s = str(s)
         return self.spa.send(s)
     def recv(self, n=MTU):
@@ -235,7 +235,7 @@ class Automaton_metaclass(type):
                     members[k] = v
 
         decorated = [v for v in members.itervalues()
-                     if type(v) is types.FunctionType and hasattr(v, "atmt_type")]
+                     if isinstance(v, types.FunctionType) and hasattr(v, "atmt_type")]
         
         for m in decorated:
             if m.atmt_type == ATMT.STATE:
@@ -296,7 +296,7 @@ class Automaton_metaclass(type):
         s += se
 
         for st in self.states.itervalues():
-            for n in st.atmt_origfunc.func_code.co_names+st.atmt_origfunc.func_code.co_consts:
+            for n in st.atmt_origfunc.__code__.co_names+st.atmt_origfunc.__code__.co_consts:
                 if n in self.states:
                     s += '\t"%s" -> "%s" [ color=green ];\n' % (st.atmt_state,n)
             
@@ -305,21 +305,21 @@ class Automaton_metaclass(type):
                       [("red",k,v) for k,v in self.recv_conditions.items()]+
                       [("orange",k,v) for k,v in self.ioevents.items()]):
             for f in v:
-                for n in f.func_code.co_names+f.func_code.co_consts:
+                for n in f.__code__.co_names+f.__code__.co_consts:
                     if n in self.states:
                         l = f.atmt_condname
                         for x in self.actions[f.atmt_condname]:
-                            l += "\\l>[%s]" % x.func_name
+                            l += "\\l>[%s]" % x.__name__
                         s += '\t"%s" -> "%s" [label="%s", color=%s];\n' % (k,n,l,c)
         for k,v in self.timeout.iteritems():
             for t,f in v:
                 if f is None:
                     continue
-                for n in f.func_code.co_names+f.func_code.co_consts:
+                for n in f.__code__.co_names+f.__code__.co_consts:
                     if n in self.states:
                         l = "%s/%.1fs" % (f.atmt_condname,t)                        
                         for x in self.actions[f.atmt_condname]:
-                            l += "\\l>[%s]" % x.func_name
+                            l += "\\l>[%s]" % x.__name__
                         s += '\t"%s" -> "%s" [label="%s",color=blue];\n' % (k,n,l)
         s += "}\n"
         return do_graph(s, **kargs)
@@ -375,9 +375,9 @@ class Automaton:
                 else:
                     raise OSError("On windows, only instances of ObjectPipe are externally available")
             else:
-                if rd is not None and type(rd) is not int:
+                if rd is not None and not isinstance(rd, int):
                     rd = rd.fileno()
-                if wr is not None and type(wr) is not int:
+                if wr is not None and not isinstance(wr, int):
                     wr = wr.fileno()
                 self.rd = rd
                 self.wr = wr
@@ -403,7 +403,7 @@ class Automaton:
             self.rd = rd
             self.wr = wr
         def fileno(self):
-            if type(self.rd) is int:
+            if isinstance(self.rd, int):
                 return self.rd
             return self.rd.fileno()
         def recv(self, n=None):
@@ -496,18 +496,18 @@ class Automaton:
         self.ioout = {}
         for n in self.ionames:
             extfd = external_fd.get(n)
-            if type(extfd) is not tuple:
+            if not isinstance(extfd, tuple):
                 extfd = (extfd,extfd)
             elif WINDOWS:
                 raise OSError("Tuples are not allowed as external_fd on windows")
             ioin,ioout = extfd                
             if ioin is None:
                 ioin = ObjectPipe()
-            elif type(ioin) is not types.InstanceType:
+            elif not isinstance(ioin, types.InstanceType):
                 ioin = self._IO_fdwrapper(ioin,None)
             if ioout is None:
                 ioout = ObjectPipe()
-            elif type(ioout) is not types.InstanceType:
+            elif not isinstance(ioout, types.InstanceType):
                 ioout = self._IO_fdwrapper(None,ioout)
 
             self.ioin[n] = ioin
@@ -535,16 +535,16 @@ class Automaton:
         try:
             self.debug(5, "Trying %s [%s]" % (cond.atmt_type, cond.atmt_condname))
             cond(self,*args, **kargs)
-        except ATMT.NewStateRequested, state_req:
+        except ATMT.NewStateRequested as state_req:
             self.debug(2, "%s [%s] taken to state [%s]" % (cond.atmt_type, cond.atmt_condname, state_req.state))
             if cond.atmt_type == ATMT.RECV:
                 if self.store_packets:
                     self.packets.append(args[0])
             for action in self.actions[cond.atmt_condname]:
-                self.debug(2, "   + Running action [%s]" % action.func_name)
+                self.debug(2, "   + Running action [%s]" % action.__name__)
                 action(self, *state_req.action_args, **state_req.action_kargs)
             raise
-        except Exception,e:
+        except Exception as e:
             self.debug(2, "%s [%s] raised exception [%s]" % (cond.atmt_type, cond.atmt_condname, e))
             raise
         else:
@@ -600,10 +600,10 @@ class Automaton:
                             c = Message(type=_ATMT_Command.SINGLESTEP,state=state)
                             self.cmdout.send(c)
                             break
-            except StopIteration,e:
+            except StopIteration as e:
                 c = Message(type=_ATMT_Command.END, result=e.args[0])
                 self.cmdout.send(c)
-            except Exception,e:
+            except Exception as e:
                 exc_info = sys.exc_info()
                 self.debug(3, "Transfering exception from tid=%i:\n%s"% (self.threadid, traceback.format_exc(exc_info)))
                 m = Message(type=_ATMT_Command.EXCEPTION, exception=e, exc_info=exc_info)
@@ -631,7 +631,7 @@ class Automaton:
     
                 if state_output is None:
                     state_output = ()
-                elif type(state_output) is not list:
+                elif not isinstance(state_output, list):
                     state_output = state_output,
                 
                 # Then check immediate conditions
@@ -655,7 +655,7 @@ class Automaton:
                     fds.append(self.listen_sock)
                 for ioev in self.ioevents[self.state.state]:
                     fds.append(self.ioin[ioev.atmt_ioname])
-                while 1:
+                while True:
                     t = time.time()-t0
                     if next_timeout is not None:
                         if next_timeout <= t:
@@ -688,7 +688,7 @@ class Automaton:
                                 if ioevt.atmt_ioname == fd.ioname:
                                     self._run_condition(ioevt, fd, *state_output)
     
-            except ATMT.NewStateRequested,state_req:
+            except ATMT.NewStateRequested as state_req:
                 self.debug(2, "switching from [%s] to [%s]" % (self.state.state,state_req.state))
                 self.state = state_req
                 yield state_req

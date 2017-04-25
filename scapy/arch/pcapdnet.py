@@ -337,10 +337,10 @@ if conf.use_winpcapy:
 if conf.use_pcap:
     try:
         import pcap
-    except ImportError,e:
+    except ImportError as e:
         try:
             import pcapy as pcap
-        except ImportError,e2:
+        except ImportError as e2:
             if conf.interactive:
                 log_loading.error("Unable to import pcap module: %s/%s" % (e,e2))
                 conf.use_pcap = False
@@ -485,7 +485,7 @@ if conf.use_dnet:
         except ImportError:
             # Then, try to import dumbnet as dnet
             import dumbnet as dnet
-    except ImportError,e:
+    except ImportError as e:
         if conf.interactive:
             log_loading.error("Unable to import dnet module: %s" % e)
             conf.use_dnet = False

@@ -112,7 +112,7 @@ class PipeEngine:
                     elif fd in sources:
                         try:
                             fd.deliver()
-                        except Exception,e:
+                        except Exception as e:
                             log_interactive.exception("piping from %s failed: %s" % (fd.name, e))
                         else:
                             if fd.exhausted():

@@ -173,7 +173,7 @@ def packet2p0f(pkt):
             if ilen > 0:
                 qqP = True
         else:
-            if type(option[0]) is str:
+            if isinstance(option[0], str):
                 ooo += "?%i," % TCPOptions[1][option[0]]
             else:
                 ooo += "?%i," % option[0]

@@ -79,7 +79,7 @@ class FecTLVField(StrField):
             x=x[4+nbroctets:]
         return list
     def i2m(self, pkt, x):
-        if type(x) is str:
+        if isinstance(x, str):
             return x
         s = b"\x01\x00"
         l = 0
@@ -109,7 +109,7 @@ class LabelTLVField(StrField):
     def m2i(self, pkt, x):
         return struct.unpack("!I",x[4:8])[0]
     def i2m(self, pkt, x):
-        if type(x) is str:
+        if isinstance(x, str):
             return x
         s = b"\x02\x00\x00\x04"
         s += struct.pack("!I",x)
@@ -137,7 +137,7 @@ class AddressTLVField(StrField):
             list.append(inet_ntoa(add))
         return list
     def i2m(self, pkt, x):
-        if type(x) is str:
+        if isinstance(x, str):
             return x
         l=2+len(x)*4
         s = b"\x01\x01"+struct.pack("!H",l)+b"\x00\x01"
@@ -167,7 +167,7 @@ class StatusTLVField(StrField):
         l.append( struct.unpack("!H", x[12:14])[0] )
         return l
     def i2m(self, pkt, x):
-        if type(x) is str:
+        if isinstance(x, str):
             return x
         s = b"\x03\x00" + struct.pack("!H",10)
         statuscode = 0
@@ -205,7 +205,7 @@ class CommonHelloTLVField(StrField):
         list.append(v)
         return list
     def i2m(self, pkt, x):
-        if type(x) is str:
+        if isinstance(x, str):
             return x
         s = b"\x04\x00\x00\x04"
         s += struct.pack("!H",x[0])
@@ -236,7 +236,7 @@ class CommonSessionTLVField(StrField):
         l.append( struct.unpack("!H",x[16:18])[0] )
         return l
     def i2m(self, pkt, x):
-        if type(x) is str:
+        if isinstance(x, str):
             return x
         s = b"\x05\x00\x00\x0E\x00\x01"
         s += struct.pack("!H",x[0])

@@ -145,7 +145,7 @@ DHCPOptions = {
 DHCPRevOptions = {}
 
 for k,v in DHCPOptions.iteritems():
-    if type(v) is str:
+    if isinstance(v, str):
         n = v
         v = None
     else:
@@ -173,7 +173,7 @@ class RandDHCPOptions(RandField):
         op = []
         for k in xrange(self.size):
             o = random.choice(self._opts)
-            if type(o) is str:
+            if isinstance(o, str):
                 op.append((o,self.rndstr*1))
             else:
                 op.append((o.name, o.randval()._fix()))
@@ -185,8 +185,8 @@ class DHCPOptionsField(StrField):
     def i2repr(self,pkt,x):
         s = []
         for v in x:
-            if type(v) is tuple and len(v) >= 2:
-                if  DHCPRevOptions.has_key(v[0]) and isinstance(DHCPRevOptions[v[0]][1],Field):
+            if isinstance(v, tuple) and len(v) >= 2:
+                if  v[0] in DHCPRevOptions and isinstance(DHCPRevOptions[v[0]][1],Field):
                     f = DHCPRevOptions[v[0]][1]
                     vv = ",".join(f.i2repr(pkt,val) for val in v[1:])
                 else:
@@ -214,7 +214,7 @@ class DHCPOptionsField(StrField):
             if len(x) < 2 or len(x) < ord(x[1])+2:
                 opt.append(x)
                 break
-            elif DHCPOptions.has_key(o):
+            elif o in DHCPOptions:
                 f = DHCPOptions[o]
 
                 if isinstance(f, str):
@@ -242,17 +242,17 @@ class DHCPOptionsField(StrField):
                 x = x[olen+2:]
         return opt
     def i2m(self, pkt, x):
-        if type(x) is str:
+        if isinstance(x, str):
             return x
         s = ""
         for o in x:
-            if type(o) is tuple and len(o) >= 2:
+            if isinstance(o, tuple) and len(o) >= 2:
                 name = o[0]
                 lval = o[1:]
 
                 if isinstance(name, int):
                     onum, oval = name, "".join(lval)
-                elif DHCPRevOptions.has_key(name):
+                elif name in DHCPRevOptions:
                     onum, f = DHCPRevOptions[name]
                     if  f is not None:
                         lval = [f.addfield(pkt,"",f.any2i(pkt,val)) for val in lval]
@@ -265,12 +265,12 @@ class DHCPOptionsField(StrField):
                 s += chr(len(oval))
                 s += oval
 
-            elif (type(o) is str and DHCPRevOptions.has_key(o) and 
+            elif (isinstance(o, str) and o in DHCPRevOptions and 
                   DHCPRevOptions[o][1] == None):
                 s += chr(DHCPRevOptions[o][0])
-            elif type(o) is int:
+            elif isinstance(o, int):
                 s += chr(o)+b"\0"
-            elif type(o) is str:
+            elif isinstance(o, str):
                 s += o
             else:
                 warning("Malformed option %s" % o)
@@ -336,8 +336,8 @@ class BOOTP_am(AnsweringMachine):
 
     def make_reply(self, req):        
         mac = req.src
-        if type(self.pool) is list:
-            if not self.leases.has_key(mac):
+        if isinstance(self.pool, list):
+            if mac not in self.leases:
                 self.leases[mac] = self.pool.pop()
             ip = self.leases[mac]
         else:
@@ -361,7 +361,7 @@ class DHCP_am(BOOTP_am):
         if DHCP in req:
             dhcp_options = [(op[0],{1:2,3:5}.get(op[1],op[1]))
                             for op in req[DHCP].options
-                            if type(op) is tuple  and op[0] == "message-type"]
+                            if isinstance(op, tuple)  and op[0] == "message-type"]
             dhcp_options += [("server_id",self.gw),
                              ("domain", self.domain),
                              ("router", self.gw),

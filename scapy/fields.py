@@ -78,7 +78,7 @@ class Field(object):
     def do_copy(self, x):
         if hasattr(x, "copy"):
             return x.copy()
-        if type(x) is list:
+        if isinstance(x, list):
             x = x[:]
             for i in xrange(len(x)):
                 if isinstance(x[i], BasePacket):
@@ -208,7 +208,7 @@ class MACField(Field):
     def m2i(self, pkt, x):
         return str2mac(x)
     def any2i(self, pkt, x):
-        if type(x) is str and len(x) is 6:
+        if isinstance(x, str) and len(x) is 6:
             x = self.m2i(pkt, x)
         return x
     def i2repr(self, pkt, x):
@@ -230,7 +230,7 @@ class IPField(Field):
                 inet_aton(x)
             except socket.error:
                 x = Net(x)
-        elif type(x) is list:
+        elif isinstance(x, list):
             x = [self.h2i(pkt, n) for n in x]
         return x
     def resolve(self, x):
@@ -380,7 +380,7 @@ class StrField(Field):
     def i2m(self, pkt, x):
         if x is None:
             x = ""
-        elif type(x) is not str:
+        elif not isinstance(x, str):
             x=str(x)
         return x
     def addfield(self, pkt, s, val):
@@ -440,12 +440,12 @@ class PacketListField(PacketField):
 
 
     def any2i(self, pkt, x):
-        if type(x) is not list:
+        if not isinstance(x, list):
             return [x]
         else:
             return x
     def i2count(self, pkt, val):
-        if type(val) is list:
+        if isinstance(val, list):
             return len(val)
         return 1
     def i2len(self, pkt, val):
@@ -500,7 +500,7 @@ class StrFixedLenField(StrField):
         if length is not None:
             self.length_from = lambda pkt,length=length: length
     def i2repr(self, pkt, v):
-        if type(v) is str:
+        if isinstance(v, str):
             v = v.rstrip(b"\0")
         return repr(v)
     def getfield(self, pkt, s):
@@ -607,7 +607,7 @@ class FieldListField(Field):
         self.length_from = length_from
 
     def i2count(self, pkt, val):
-        if type(val) is list:
+        if isinstance(val, list):
             return len(val)
         return 1
     def i2len(self, pkt, val):
@@ -618,7 +618,7 @@ class FieldListField(Field):
             val = []
         return val
     def any2i(self, pkt, x):
-        if type(x) is not list:
+        if not isinstance(x, list):
             return [self.field.any2i(pkt, x)]
         else:
             return map(lambda e, pkt=pkt: self.field.any2i(pkt, e), x)
@@ -730,7 +730,7 @@ class BitField(Field):
 
     def addfield(self, pkt, s, val):
         val = self.i2m(pkt, val)
-        if type(s) is tuple:
+        if isinstance(s, tuple):
             s,bitsdone,v = s
         else:
             bitsdone = 0
@@ -749,7 +749,7 @@ class BitField(Field):
         else:
             return s
     def getfield(self, pkt, s):
-        if type(s) is tuple:
+        if isinstance(s, tuple):
             s,bn = s
         else:
             bn = 0
@@ -795,7 +795,7 @@ class BitFieldLenField(BitField):
         self.count_of = count_of
         self.adjust = adjust
     def i2m(self, pkt, x):
-        return FieldLenField.i2m.im_func(self, pkt, x)
+        return FieldLenField.i2m.__func__(self, pkt, x)
 
 
 class XBitField(BitField):
@@ -830,11 +830,11 @@ class _EnumField(Field):
             s2i = self.s2i = {}
             self.i2s_cb = None
             self.s2i_cb = None
-            if type(enum) is list:
+            if isinstance(enum, list):
                 keys = range(len(enum))
             else:
                 keys = enum.keys()
-            if any(type(x) is str for x in keys):
+            if any(isinstance(x, str) for x in keys):
                 i2s, s2i = s2i, i2s
             for k in keys:
                 i2s[k] = enum[k]
@@ -842,7 +842,7 @@ class _EnumField(Field):
         Field.__init__(self, name, default, fmt)
 
     def any2i_one(self, pkt, x):
-        if type(x) is str:
+        if isinstance(x, str):
             try:
                 x = self.s2i[x]
             except TypeError:
@@ -862,13 +862,13 @@ class _EnumField(Field):
         return repr(x)
 
     def any2i(self, pkt, x):
-        if type(x) is list:
+        if isinstance(x, list):
             return map(lambda z,pkt=pkt:self.any2i_one(pkt,z), x)
         else:
             return self.any2i_one(pkt,x)
 
     def i2repr(self, pkt, x):
-        if type(x) is list:
+        if isinstance(x, list):
             return map(lambda z,pkt=pkt:self.i2repr_one(pkt,z), x)
         else:
             return self.i2repr_one(pkt,x)
@@ -957,7 +957,7 @@ class _MultiEnumField(_EnumField):
                 self.s2i_all[v] = k
         Field.__init__(self, name, default, fmt)
     def any2i_one(self, pkt, x):
-        if type (x) is str:
+        if isinstance(x, str):
             v = self.depends_on(pkt)
             if v in self.s2i_multi:
                 s2i = self.s2i_multi[v]
@@ -1151,7 +1151,7 @@ class MultiFlagsField(BitField):
             else:
                 v = self.depends_on(pkt)
                 if v is not None:
-                    assert self.names.has_key(v), 'invalid dependency'
+                    assert v in self.names, 'invalid dependency'
                     these_names = self.names[v]
                     s = set()
                     for i in x:
@@ -1204,7 +1204,7 @@ class MultiFlagsField(BitField):
 
     def i2repr(self, pkt, x):
         v = self.depends_on(pkt)
-        if self.names.has_key(v):
+        if v in self.names:
             these_names = self.names[v]
         else:
             these_names = {}

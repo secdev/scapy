@@ -104,7 +104,7 @@ class ASN1Tag(EnumElement):
     def get_codec(self, codec):
         try:
             c = self._codec[codec]
-        except KeyError,msg:
+        except KeyError as msg:
             raise ASN1_Error("Codec %r not found for tag %r" % (codec, self))
         return c
 
@@ -118,7 +118,7 @@ class ASN1_Class_metaclass(Enum_metaclass):
 
         rdict = {}
         for k,v in dct.iteritems():
-            if type(v) is int:
+            if isinstance(v, int):
                 v = ASN1Tag(k,v) 
                 dct[k] = v
                 rdict[v] = v

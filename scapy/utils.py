@@ -56,9 +56,9 @@ def sane(x):
 def lhex(x):
     if type(x) in (int,long):
         return hex(x)
-    elif type(x) is tuple:
+    elif isinstance(x, tuple):
         return "(%s)" % ", ".join(map(lhex, x))
-    elif type(x) is list:
+    elif isinstance(x, list):
         return "[%s]" % ", ".join(map(lhex, x))
     else:
         return x
@@ -482,7 +482,7 @@ def colgen(*lstcol,**kargs):
     if len(lstcol) < 2:
         lstcol *= 2
     trans = kargs.get("trans", lambda x,y,z: (x,y,z))
-    while 1:
+    while True:
         for i in xrange(len(lstcol)):
             for j in xrange(len(lstcol)):
                 for k in xrange(len(lstcol)):
@@ -524,7 +524,7 @@ class Enum_metaclass(type):
     def __new__(cls, name, bases, dct):
         rdict={}
         for k,v in dct.iteritems():
-            if type(v) is int:
+            if isinstance(v, int):
                 v = cls.element_class(k,v)
                 dct[k] = v
                 rdict[v] = k
@@ -1018,7 +1018,7 @@ nano:       use nanosecond-precision (requires libpcap >= 1.5.0)
         written to the dumpfile
 
         """
-        if type(pkt) is str:
+        if isinstance(pkt, str):
             if not self.header_present:
                 self._write_header(pkt)
             self._write_packet(pkt)
@@ -1103,7 +1103,7 @@ re_extract_hexcap = re.compile("^((0x)?[0-9a-fA-F]{2,}[ :\t]{,3}|) *(([0-9a-fA-F
 def import_hexcap():
     p = ""
     try:
-        while 1:
+        while True:
             l = raw_input().strip()
             try:
                 p += re_extract_hexcap.match(l).groups()[2]
@@ -1282,7 +1282,7 @@ def pretty_routes(rtlst, header, sortBy=0):
     # Append tag
     rtlst = header + rtlst
     # Detect column's width
-    colwidth = map(lambda x: max(map(lambda y: len(y), x)), apply(zip, rtlst))
+    colwidth = map(lambda x: max(map(lambda y: len(y), x)), zip(*rtlst))
     # Make text fit in box (if exist)
     # TODO: find a better and more precise way of doing this. That's currently working but very complicated
     width = get_terminal_width()
@@ -1304,7 +1304,7 @@ def pretty_routes(rtlst, header, sortBy=0):
                 return _r
             rtlst = [tuple([_crop(rtlst[j][i], colwidth[i]) for i in range(0, len(rtlst[j]))]) for j in range(0, len(rtlst))]
             # Recalculate column's width
-            colwidth = map(lambda x: max(map(lambda y: len(y), x)), apply(zip, rtlst))
+            colwidth = map(lambda x: max(map(lambda y: len(y), x)), zip(*rtlst))
     fmt = _space.join(map(lambda x: "%%-%ds"%x, colwidth))
     rt = "\n".join(map(lambda x: fmt % x, rtlst))
     return rt

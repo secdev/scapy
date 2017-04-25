@@ -476,7 +476,7 @@ class GapAckField(Field):
     def m2i(self, pkt, x):
         return "%d:%d"%(struct.unpack(">HH", x))
     def any2i(self, pkt, x):
-        if type(x) is tuple and len(x) == 2:
+        if isinstance(x, tuple) and len(x) == 2:
             return "%d:%d"%(x)
         return x
 

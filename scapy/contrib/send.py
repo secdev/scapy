@@ -25,12 +25,12 @@ class HashField(Field):
     def __init__(self, name, default):
         Field.__init__(self, name, default, "16s")
     def h2i(self, pkt, x):
-        if type(x) is str:
+        if isinstance(x, str):
             try:
                 x = in6_ptop(x)
             except socket.error:
                 x = Net6(x)
-        elif type(x) is list:
+        elif isinstance(x, list):
             x = map(Net6, x)
         return x
     def i2m(self, pkt, x):

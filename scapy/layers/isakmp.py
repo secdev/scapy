@@ -15,6 +15,7 @@ from scapy.ansmachine import *
 from scapy.layers.inet import IP,UDP
 from scapy.sendrecv import sr
 from scapy.error import warning
+from functools import reduce
 
 
 # see http://www.iana.org/assignments/ipsec-registry for details
@@ -101,7 +102,8 @@ del(val)
 
 class ISAKMPTransformSetField(StrLenField):
     islist=1
-    def type2num(self, (typ,val)):
+    def type2num(self, type_val_tuple):
+        (typ,val) = type_val_tuple
         type_val,enc_dict,tlv = ISAKMPTransformTypes.get(typ, (typ,{},0))
         val = enc_dict.get(val, val)
         s = ""

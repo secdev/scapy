@@ -44,8 +44,7 @@ class IPTools(object):
         else:
             os.system("whois %s" % self.src)
     def ottl(self):
-        t = [32,64,128,255]+[self.ttl]
-        t.sort()
+        t = sorted([32,64,128,255]+[self.ttl])
         return t[t.index(self.ttl)+1]
     def hops(self):
         return self.ottl() - self.ttl
@@ -269,7 +268,7 @@ class TCPOptionsField(StrField):
                 warning("Malformed TCP option (announced length is %i)" % olen)
                 olen = 2
             oval = x[2:olen]
-            if TCPOptions[0].has_key(onum):
+            if onum in TCPOptions[0]:
                 oname, ofmt = TCPOptions[0][onum]
                 if onum == 5: #SAck
                     ofmt += "%iI" % (len(oval)/4)
@@ -286,20 +285,20 @@ class TCPOptionsField(StrField):
     def i2m(self, pkt, x):
         opt = ""
         for oname,oval in x:
-            if type(oname) is str:
+            if isinstance(oname, str):
                 if oname == "NOP":
                     opt += b"\x01"
                     continue
                 elif oname == "EOL":
                     opt += b"\x00"
                     continue
-                elif TCPOptions[1].has_key(oname):
+                elif oname in TCPOptions[1]:
                     onum = TCPOptions[1][oname]
                     ofmt = TCPOptions[0][onum][1]
                     if onum == 5: #SAck
                         ofmt += "%iI" % len(oval)
-                    if ofmt is not None and (type(oval) is not str or "s" in ofmt):
-                        if type(oval) is not tuple:
+                    if ofmt is not None and (not isinstance(oval, str) or "s" in ofmt):
+                        if not isinstance(oval, tuple):
                             oval = (oval,)
                         oval = struct.pack(ofmt, *oval)
                 else:
@@ -307,7 +306,7 @@ class TCPOptionsField(StrField):
                     continue
             else:
                 onum = oname
-                if type(oval) is not str:
+                if not isinstance(oval, str):
                     warning("option [%i] is not string."%onum)
                     continue
             opt += chr(onum)+chr(2+len(oval))+oval
@@ -327,7 +326,7 @@ class ICMPTimeStampField(IntField):
             hour, min = divmod(min, 60)
             return "%d:%d:%d.%d" %(hour, min, sec, int(milli))
     def any2i(self, pkt, val):
-        if type(val) is str:
+        if isinstance(val, str):
             hmsms = self.re_hmsm.match(val)
             if hmsms:
                 h,_,m,_,s,_,ms = hmsms = hmsms.groups()
@@ -1063,9 +1062,9 @@ class TracerouteResult(SndRcvList):
         self.nloc = None
 
     def show(self):
-        return self.make_table(lambda (s,r): (s.sprintf("%IP.dst%:{TCP:tcp%ir,TCP.dport%}{UDP:udp%ir,UDP.dport%}{ICMP:ICMP}"),
-                                              s.ttl,
-                                              r.sprintf("%-15s,IP.src% {TCP:%TCP.flags%}{ICMP:%ir,ICMP.type%}")))
+        return self.make_table(lambda s_r: (s_r[0].sprintf("%IP.dst%:{TCP:tcp%ir,TCP.dport%}{UDP:udp%ir,UDP.dport%}{ICMP:ICMP}"),
+                                              s_r[0].ttl,
+                                              s_r[1].sprintf("%-15s,IP.src% {TCP:%TCP.flags%}{ICMP:%ir,ICMP.type%}")))
 
 
     def get_trace(self):
@@ -1159,7 +1158,7 @@ class TracerouteResult(SndRcvList):
                 start = ip.pos
         
         movcenter=None
-        while 1:
+        while True:
             visual.rate(50)
             if visual.scene.kb.keys:
                 k = visual.scene.kb.getkey()
@@ -1235,7 +1234,7 @@ class TracerouteResult(SndRcvList):
                 trace_id = (s.src,s.dst,s.proto,0)
             trace = rt.get(trace_id,{})
             if not r.haslayer(ICMP) or r.type != 11:
-                if ports_done.has_key(trace_id):
+                if trace_id in ports_done:
                     continue
                 ports_done[trace_id] = None
             trace[s.ttl] = r.src
@@ -1333,9 +1332,9 @@ class TracerouteResult(SndRcvList):
             trace = rt[rtk]
             max_trace = max(trace)
             for n in xrange(min(trace), max_trace):
-                if not trace.has_key(n):
+                if n not in trace:
                     trace[n] = unknown_label.next()
-            if not ports_done.has_key(rtk):
+            if rtk not in ports_done:
                 if rtk[2] == 1: #ICMP
                     bh = "%s %i/icmp" % (rtk[1],rtk[3])
                 elif rtk[2] == 6: #TCP
@@ -1421,7 +1420,7 @@ class TracerouteResult(SndRcvList):
     
     
         for rtk in rt:
-            s += "#---[%s\n" % `rtk`
+            s += "#---[%s\n" % repr(rtk)
             s += '\t\tedge [color="#%s%s%s"];\n' % forecolorlist.next()
             trace = rt[rtk]
             maxtrace = max(trace)
@@ -1642,9 +1641,8 @@ def IPID_count(lst, funcID=lambda x:x[1].id, funcpres=lambda x:x[1].summary()):
 lst:      a list of packets
 funcID:   a function that returns IP id values
 funcpres: a function used to summarize packets"""
-    idlst = map(funcID, lst)
-    idlst.sort()
-    classes = [idlst[0]]+map(lambda x:x[1],filter(lambda (x,y): abs(x-y)>50, map(lambda x,y: (x,y),idlst[:-1], idlst[1:])))
+    idlst = sorted(map(funcID, lst))
+    classes = [idlst[0]]+map(lambda x:x[1],filter(lambda x_y: abs(x_y[0]-x_y[1])>50, map(lambda x,y: (x,y),idlst[:-1], idlst[1:])))
     lst = map(lambda x:(funcID(x), funcpres(x)), lst)
     lst.sort()
     print "Probably %i classes:" % len(classes), classes
@@ -1662,7 +1660,7 @@ def fragleak(target,sport=123, dport=123, timeout=0.2, onlyasc=0):
     intr=0
     found={}
     try:
-        while 1:
+        while True:
             try:
                 if not intr:
                     s.send(pkt)
@@ -1708,7 +1706,7 @@ def fragleak(target,sport=123, dport=123, timeout=0.2, onlyasc=0):
 def fragleak2(target, timeout=0.4, onlyasc=0):
     found={}
     try:
-        while 1:
+        while True:
             p = sr1(IP(dst=target, options=b"\x00"*40, proto=200)/"XXXXYYYYYYYYYYYY",timeout=timeout,verbose=0)
             if not p:
                 continue

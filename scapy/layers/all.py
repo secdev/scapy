@@ -33,6 +33,6 @@ for _l in conf.load_layers:
     try:
         if _l != "tls":
             _import_star(_l)
-    except Exception,e:
+    except Exception as e:
         log.warning("can't import layer %s: %s" % (_l,e))
 

@@ -144,7 +144,7 @@ class _CipherSuitesField(StrLenField):
         if (isinstance(x, _GenericCipherSuite) or
             isinstance(x, _GenericCipherSuiteMetaclass)):
             x = x.val
-        if type(x) is str:
+        if isinstance(x, str):
             x = self.s2i[x]
         return x
 
@@ -153,7 +153,7 @@ class _CipherSuitesField(StrLenField):
         return self.i2s.get(x, fmt % x)
 
     def any2i(self, pkt, x):
-        if type(x) is not list:
+        if not isinstance(x, list):
             x = [x]
         return map(lambda z,pkt=pkt:self.any2i_one(pkt,z), x)
 
@@ -190,7 +190,7 @@ class _CompressionMethodsField(_CipherSuitesField):
         if (isinstance(x, _GenericComp) or
             isinstance(x, _GenericCompMetaclass)):
             x = x.val
-        if type(x) is str:
+        if isinstance(x, str):
             x = self.s2i[x]
         return x
 
@@ -257,7 +257,7 @@ class TLS_Ext_PrettyPacketList(TLS_Ext_Unknown):
             begn = "%s  %-10s%s " % (label_lvl+lvl, ncol(f.name),
                                      ct.punct("="),)
             reprval = f.i2repr(self,fvalue)
-            if type(reprval) is str:
+            if isinstance(reprval, str):
                 reprval = reprval.replace("\n", "\n"+" "*(len(label_lvl)
                                                           +len(lvl)
                                                           +len(f.name)
@@ -269,7 +269,7 @@ class TLS_Ext_PrettyPacketList(TLS_Ext_Unknown):
         fvalue = self.getfieldval(f.name)
         begn = "%s  %-10s%s " % (label_lvl+lvl, ncol(f.name), ct.punct("="),)
         reprval = f.i2repr(self,fvalue)
-        if type(reprval) is str:
+        if isinstance(reprval, str):
             reprval = reprval.replace("\n", "\n"+" "*(len(label_lvl)
                                                       +len(lvl)
                                                       +len(f.name)
@@ -379,7 +379,7 @@ class _TAListField(PacketListField):
     def m2i(self, pkt, m):
         idtype = ord(m[0])
         cls = self.cls
-        if _tls_trusted_authority_cls.has_key(idtype):
+        if idtype in _tls_trusted_authority_cls:
             cls = _tls_trusted_authority_cls[idtype]
         return cls(m)
 
@@ -426,7 +426,7 @@ class _StatusReqField(PacketListField):
     def m2i(self, pkt, m):
         idtype = pkt.stype
         cls = self.cls
-        if _cert_status_req_cls.has_key(idtype):
+        if idtype in _cert_status_req_cls:
             cls = _cert_status_req_cls[idtype]
         return cls(m)
 
@@ -677,7 +677,7 @@ class _ExtensionsLenField(FieldLenField):
         # compute the length of remaining data to see if there are ext
         l = getattr(pkt, self.lfld)
         for fname in self.shifters:
-            if type(fname) is int:
+            if isinstance(fname, int):
                 l -= fname
             else:
                 l -= getattr(pkt, fname)
@@ -859,7 +859,7 @@ class TLSServerHello(TLSClientHello):
 
         if self.cipher:
             cs_val = self.cipher
-            if not _tls_cipher_suites_cls.has_key(cs_val):
+            if cs_val not in _tls_cipher_suites_cls:
                 warning("Unknown cipher suite %d from ServerHello" % cs_val)
                 # we do not try to set a default nor stop the execution
             else:
@@ -867,7 +867,7 @@ class TLSServerHello(TLSClientHello):
 
         if self.comp:
             comp_val = self.comp[0]
-            if not _tls_compression_algs_cls.has_key(comp_val):
+            if comp_val not in _tls_compression_algs_cls:
                 err = "Unknown compression alg %d from ServerHello" % comp_val
                 warning(err)
                 comp_val = 0
@@ -941,7 +941,7 @@ class _ASN1CertListField(StrLenField):
 
     def i2m(self, pkt, i):
         def i2m_one(i):
-            if type(i) is str:
+            if isinstance(i, str):
                 return i
             if isinstance(i, Cert):
                 s = i.der
@@ -955,7 +955,7 @@ class _ASN1CertListField(StrLenField):
 
         if i is None:
             return ""
-        if type(i) is str:
+        if isinstance(i, str):
             return i
         if isinstance(i, Cert):
             i = [i]
@@ -1116,7 +1116,7 @@ class _CertAuthoritiesField(StrLenField):
         return res
 
     def i2m(self, pkt, i):
-        return "".join(map(lambda (x,y): struct.pack("!H", x) + y, i))
+        return "".join(map(lambda x_y: struct.pack("!H", x_y[0]) + x_y[1], i))
 
     def addfield(self, pkt, s, val):
         return s + self.i2m(pkt, val)
@@ -1363,7 +1363,7 @@ class _StatusField(PacketField):
     def m2i(self, pkt, m):
         idtype = pkt.status_type
         cls = self.cls
-        if _cert_status_cls.has_key(idtype):
+        if idtype in _cert_status_cls:
             cls = _cert_status_cls[idtype]
         return cls(m)
 
