@@ -783,7 +783,7 @@ class BluetoothHCISocket(SuperSocket):
         s = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_RAW, socket.BTPROTO_HCI)
         s.setsockopt(socket.SOL_HCI, socket.HCI_DATA_DIR,1)
         s.setsockopt(socket.SOL_HCI, socket.HCI_TIME_STAMP,1)
-        s.setsockopt(socket.SOL_HCI, socket.HCI_FILTER, struct.pack("IIIh2x", 0xffffffffL,0xffffffffL,0xffffffffL,0)) #type mask, event mask, event mask, opcode
+        s.setsockopt(socket.SOL_HCI, socket.HCI_FILTER, struct.pack("IIIh2x", 0xffffffff,0xffffffff,0xffffffff,0)) #type mask, event mask, event mask, opcode
         s.bind((iface,))
         self.ins = self.outs = s
 #        s.connect((peer,0))

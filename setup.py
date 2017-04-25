@@ -33,7 +33,7 @@ def make_ezipfile(base_name, base_dir, verbose=0, dry_run=0, **kwargs):
     os.system("zip -A '%s'" % fname)
     of.close()
     os.unlink(ofname)
-    os.chmod(fname, 0755)
+    os.chmod(fname, 0o755)
     return fname
 
 

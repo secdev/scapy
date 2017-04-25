@@ -62,7 +62,7 @@ def BER_len_enc(l, size=0):
         s = ""
         while l or size>0:
             s = chr(l&0xff)+s
-            l >>= 8L
+            l >>= 8
             size -= 1
         if len(s) > 127:
             raise BER_Exception("BER_len_enc: Length too long (%i) to be encoded [%r]" % (len(s),s))
@@ -74,9 +74,9 @@ def BER_len_dec(s):
         l &= 0x7f
         if len(s) <= l:
             raise BER_Decoding_Error("BER_len_dec: Got %i bytes while expecting %i" % (len(s)-1, l),remaining=s)
-        ll = 0L
+        ll = 0
         for c in s[1:l+1]:
-            ll <<= 8L
+            ll <<= 8
             ll |= ord(c)
         return ll,s[l+1:]
         
@@ -290,10 +290,10 @@ class BERcodec_INTEGER(BERcodec_Object):
     @classmethod
     def do_dec(cls, s, context=None, safe=False):
         l,s,t = cls.check_type_check_len(s)
-        x = 0L
+        x = 0
         if s:
             if ord(s[0])&0x80: # negative int
-                x = -1L
+                x = -1
             for c in s:
                 x <<= 8
                 x |= ord(c)

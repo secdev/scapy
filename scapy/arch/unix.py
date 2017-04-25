@@ -82,8 +82,8 @@ def read_routes():
         if flg.find("Lc") >= 0:
             continue
         if dest == "default":
-            dest = 0L
-            netmask = 0L
+            dest = 0
+            netmask = 0
         else:
             if SOLARIS:
                 netmask = scapy.utils.atol(mask)

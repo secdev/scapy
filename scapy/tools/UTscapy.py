@@ -298,7 +298,7 @@ def dump_campaign(test_campaign):
 #### COMPUTE CAMPAIGN DIGESTS ####
 
 def crc32(x):
-    return "%08X" % (0xffffffffL & zlib.crc32(x))
+    return "%08X" % (0xffffffff & zlib.crc32(x))
 
 def sha1(x):
     return sha.sha(x).hexdigest().upper()

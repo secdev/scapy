@@ -738,12 +738,12 @@ class BitField(Field):
         if self.rev:
             val = self.reverse(val)
         v <<= self.size
-        v |= val & ((1L<<self.size) - 1)
+        v |= val & ((1<<self.size) - 1)
         bitsdone += self.size
         while bitsdone >= 8:
             bitsdone -= 8
             s = s+struct.pack("!B", v >> bitsdone)
-            v &= (1L<<bitsdone)-1
+            v &= (1<<bitsdone)-1
         if bitsdone:
             return s,bitsdone,v
         else:
@@ -760,12 +760,12 @@ class BitField(Field):
         # split the substring byte by byte
         bytes = struct.unpack('!%dB' % nb_bytes , w)
 
-        b = 0L
+        b = 0
         for c in xrange(nb_bytes):
             b |= long(bytes[c]) << (nb_bytes-c-1)*8
 
         # get rid of high order bits
-        b &= (1L << (nb_bytes*8-bn)) - 1
+        b &= (1 << (nb_bytes*8-bn)) - 1
 
         # remove low order bits
         b = b >> (nb_bytes*8 - self.size - bn)
@@ -1235,7 +1235,7 @@ class FixedPointField(BitField):
 
     def i2h(self, pkt, val):
         int_part = val >> self.frac_bits
-        frac_part = val & (1L << self.frac_bits) - 1
+        frac_part = val & (1 << self.frac_bits) - 1
         frac_part /= 2.0**self.frac_bits
         return int_part+frac_part
     def i2repr(self, pkt, val):

@@ -60,9 +60,9 @@ class Net(Gen):
             x,y = map(int,a.split("-"))
             if x > y:
                 y = x
-            a = (x &  (0xffL<<netmask) , max(y, (x | (0xffL>>(8-netmask))))+1)
+            a = (x &  (0xff<<netmask) , max(y, (x | (0xff>>(8-netmask))))+1)
         else:
-            a = (int(a) & (0xffL<<netmask),(int(a) | (0xffL>>(8-netmask)))+1)
+            a = (int(a) & (0xff<<netmask),(int(a) | (0xff>>(8-netmask)))+1)
         return a
 
     @classmethod

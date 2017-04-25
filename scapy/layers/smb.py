@@ -168,7 +168,7 @@ class SMBNegociate_Protocol_Response_Advanced_Security(Packet):
                    BitField("CompBulk",0,2),
                    BitField("Reserved3",0,5),
 # There have been 127490112000000000 tenths of micro-seconds between 1st january 1601 and 1st january 2005. 127490112000000000=0x1C4EF94D6228000, so ServerTimeHigh=0xD6228000 and ServerTimeLow=0x1C4EF94.
-                   LEIntField("ServerTimeHigh",0xD6228000L),
+                   LEIntField("ServerTimeHigh",0xD6228000),
                    LEIntField("ServerTimeLow",0x1C4EF94),
                    LEShortField("ServerTimeZone",0x3c),
                    ByteField("EncryptionKeyLength",0),
@@ -209,7 +209,7 @@ class SMBNegociate_Protocol_Response_No_Security(Packet):
                    FlagsField("CompBulk",0,2,"CB"),
                    BitField("Reserved3",0,5),
                    # There have been 127490112000000000 tenths of micro-seconds between 1st january 1601 and 1st january 2005. 127490112000000000=0x1C4EF94D6228000, so ServerTimeHigh=0xD6228000 and ServerTimeLow=0x1C4EF94.
-                   LEIntField("ServerTimeHigh",0xD6228000L),
+                   LEIntField("ServerTimeHigh",0xD6228000),
                    LEIntField("ServerTimeLow",0x1C4EF94),
                    LEShortField("ServerTimeZone",0x3c),
                    ByteField("EncryptionKeyLength",8),
@@ -250,7 +250,7 @@ class SMBNegociate_Protocol_Response_No_Security_No_Key(Packet):
                    FlagsField("CompBulk",0,2,"CB"),
                    BitField("Reserved3",0,5),
                    # There have been 127490112000000000 tenths of micro-seconds between 1st january 1601 and 1st january 2005. 127490112000000000=0x1C4EF94D6228000, so ServerTimeHigh=0xD6228000 and ServerTimeLow=0x1C4EF94.
-                   LEIntField("ServerTimeHigh",0xD6228000L),
+                   LEIntField("ServerTimeHigh",0xD6228000),
                    LEIntField("ServerTimeLow",0x1C4EF94),
                    LEShortField("ServerTimeZone",0x3c),
                    ByteField("EncryptionKeyLength",0),
