@@ -940,6 +940,16 @@ class TLS_ECDHE_ECDSA_WITH_AES_128_CCM_8(_GenericCipherSuite):
 class TLS_ECDHE_ECDSA_WITH_AES_256_CCM_8(_GenericCipherSuite):
     val = 0xC0AF
 
+# the next 3 suites are from draft-agl-tls-chacha20poly1305-04
+class TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256_OLD(_GenericCipherSuite):
+    val = 0xCC13
+
+class TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256_OLD(_GenericCipherSuite):
+    val = 0xCC14
+
+class TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256_OLD(_GenericCipherSuite):
+    val = 0xCC15
+
 class TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256(_GenericCipherSuite):
     val = 0xCCA8
 

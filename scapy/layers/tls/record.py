@@ -85,7 +85,10 @@ class _TLSMsgListField(PacketListField):
         if cls is Raw:
             return Raw(m)
         else:
-            return cls(m, tls_session=pkt.tls_session)
+            try:
+                return cls(m, tls_session=pkt.tls_session)
+            except:
+                return Raw(m)
 
     def getfield(self, pkt, s):
         """

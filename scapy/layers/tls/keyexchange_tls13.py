@@ -39,6 +39,7 @@ _tls_ext = {  0: "server_name",             # RFC 4366
              13: "signature_algorithms",    # RFC 5246
              0x0f: "heartbeat",             # RFC 6520
              0x10: "alpn",                  # RFC 7301
+             0x12: "signed_certificate_timestamp",  # RFC 6962
              0x15: "padding",               # RFC 7685
              0x16: "encrypt_then_mac",      # RFC 7366
              0x17: "extended_master_secret",# RFC 7627
@@ -154,6 +155,9 @@ class KeyShareEntry(Packet):
                 import_point = ec.EllipticCurvePublicNumbers.from_encoded_point
                 public_numbers = import_point(curve, self.key_exchange)
                 self.pubkey = public_numbers.public_key(default_backend())
+
+    def extract_padding(self, s):
+        return "", s
 
 
 class TLS_Ext_KeyShare_CH(TLS_Ext_Unknown):

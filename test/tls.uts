@@ -970,7 +970,7 @@ str(t) == b'\x16\x03\x01\x00\xc7\x01\x00\x00\xc3\x03\x03&\xee-\xddX\xe1\xb1T\xaa
 = Building packets - ServerHello context linking
 from scapy.layers.tls.crypto.kx_algs import KX_ECDHE_RSA
 from scapy.layers.tls.crypto.cipher_block import Cipher_AES_256_CBC
-sh = TLSServerHello(gmt_unix_time=0x41414141, random_bytes='B'*28, cipher='TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA')
+sh = TLSServerHello(gmt_unix_time=0x41414141, random_bytes='B'*28, cipher=0xc014)
 t = TLS(msg=sh)
 t.str_stateful()
 assert(isinstance(t.tls_session.pwcs.ciphersuite, TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA))
