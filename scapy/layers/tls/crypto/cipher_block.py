@@ -7,11 +7,13 @@
 Block ciphers.
 """
 
+from __future__ import absolute_import
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 
 from scapy.utils import strxor
 from scapy.layers.tls.crypto.ciphers import CipherError
+import six
 
 
 tls_block_cipher_algs = {}
@@ -31,8 +33,7 @@ class _BlockCipherMetaclass(type):
         return the_class
 
 
-class _BlockCipher(object):
-    __metaclass__ = _BlockCipherMetaclass
+class _BlockCipher(six.with_metaclass(_BlockCipherMetaclass, object)):
     type = "block"
 
     def __init__(self, key=None, iv=None):
@@ -73,7 +74,7 @@ class _BlockCipher(object):
         Encrypt the data. Also, update the cipher iv. This is needed for SSLv3
         and TLS 1.0. For TLS 1.1/1.2, it is overwritten in TLS.post_build().
         """
-        if False in self.ready.itervalues():
+        if False in six.itervalues(self.ready):
             raise CipherError, data
         encryptor = self._cipher.encryptor()
         tmp = encryptor.update(data) + encryptor.finalize()
@@ -86,7 +87,7 @@ class _BlockCipher(object):
         and TLS 1.0. For TLS 1.1/1.2, it is overwritten in TLS.pre_dissect().
         If we lack the key, we raise a CipherError which contains the input.
         """
-        if False in self.ready.itervalues():
+        if False in six.itervalues(self.ready):
             raise CipherError, data
         decryptor = self._cipher.decryptor()
         tmp = decryptor.update(data) + decryptor.finalize()

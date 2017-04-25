@@ -22,6 +22,7 @@ PROFINET IO layers for scapy which correspond to Real-Time Cyclic data
 """
 
 # external imports
+from __future__ import absolute_import
 import math
 import struct
 
@@ -35,6 +36,7 @@ from scapy.fields import BitEnumField, BitField, ByteField,\
 
 # local imports
 from scapy.contrib.pnio import ProfinetIO
+from six.moves import range
 
 
 #####################################

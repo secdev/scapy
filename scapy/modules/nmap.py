@@ -16,6 +16,7 @@ database, you can fetch it from
 
 """
 
+from __future__ import absolute_import
 import os
 import re
 
@@ -26,6 +27,7 @@ from scapy.error import warning
 from scapy.layers.inet import IP, TCP, UDP, ICMP, UDPerror, IPerror
 from scapy.packet import NoPayload
 from scapy.sendrecv import sr
+import scapy.modules.six as six
 
 
 if WINDOWS:
@@ -126,7 +128,7 @@ def nmap_udppacket_sig(snd, rcv):
 
 def nmap_match_one_sig(seen, ref):
     cnt = sum(val in ref.get(key, "").split("|")
-              for key, val in seen.iteritems())
+              for key, val in six.iteritems(seen))
     if cnt == 0 and seen.get("Resp") == "N":
         return 0.7
     return float(cnt) / len(seen)
@@ -177,7 +179,7 @@ def nmap_search(sigs):
     guess = 0, []
     for osval, fprint in nmap_kdb.get_base():
         score = 0.0
-        for test, values in fprint.iteritems():
+        for test, values in six.iteritems(fprint):
             if test in sigs:
                 score += nmap_match_one_sig(sigs[test], values)
         score /= len(sigs)

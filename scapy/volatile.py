@@ -7,9 +7,12 @@
 Fields that hold random numbers.
 """
 
+from __future__ import absolute_import
 import random,time,math
 from scapy.base_classes import Net
 from scapy.utils import corrupt_bits,corrupt_bytes
+from six.moves import map
+from six.moves import range
 
 ####################
 ## Random numbers ##
@@ -48,12 +51,12 @@ class RandomEnumeration:
             if self.turns == 0 or (self.i == 0 and self.renewkeys):
                 self.cnt_key = self.rnd.randint(0,2**self.n-1)
                 self.sbox = [self.rnd.randint(0, self.fsmask)
-                             for _ in xrange(self.sbox_size)]
+                             for _ in range(self.sbox_size)]
             self.turns += 1
             while self.i < 2**self.n:
                 ct = self.i^self.cnt_key
                 self.i += 1
-                for _ in xrange(self.rounds): # Unbalanced Feistel Network
+                for _ in range(self.rounds): # Unbalanced Feistel Network
                     lsb = ct & self.fsmask
                     ct >>= self.fs
                     lsb ^= self.sbox[ct%self.sbox_size]
@@ -220,18 +223,18 @@ class RandString(RandField):
         self.chars = chars
     def _fix(self):
         s = ""
-        for _ in xrange(self.size):
+        for _ in range(self.size):
             s += random.choice(self.chars)
         return s
 
 class RandBin(RandString):
     def __init__(self, size=None):
-        RandString.__init__(self, size, "".join(map(chr, xrange(256))))
+        RandString.__init__(self, size, "".join(map(chr, range(256))))
 
 
 class RandTermString(RandString):
     def __init__(self, size, term):
-        RandString.__init__(self, size, "".join(map(chr, xrange(1,256))))
+        RandString.__init__(self, size, "".join(map(chr, range(1,256))))
         self.term = term
     def _fix(self):
         return RandString._fix(self)+self.term
@@ -252,7 +255,7 @@ class RandMAC(RandString):
         template += ":*:*:*:*:*"
         template = template.split(":")
         self.mac = ()
-        for i in xrange(6):
+        for i in range(6):
             if template[i] == "*":
                 v = RandByte()
             elif "-" in template[i]:
@@ -300,7 +303,7 @@ class RandIP6(RandString):
                     remain += 1
                 if nbm or self.variable:
                     remain = random.randint(0,remain)
-                for j in xrange(remain):
+                for j in range(remain):
                     ip.append("%04x" % random.randint(0,65535))
             elif isinstance(n, RandNum):
                 ip.append("%04x" % n)
@@ -321,7 +324,7 @@ class RandOID(RandString):
         self.ori_fmt = fmt
         if fmt is not None:
             fmt = fmt.split(".")
-            for i in xrange(len(fmt)):
+            for i in range(len(fmt)):
                 if "-" in fmt[i]:
                     fmt[i] = tuple(map(int, fmt[i].split("-")))
         self.fmt = fmt
@@ -334,7 +337,7 @@ class RandOID(RandString):
             return "<%s [%s]>" % (self.__class__.__name__, self.ori_fmt)
     def _fix(self):
         if self.fmt is None:
-            return ".".join(map(str, [self.idnum for i in xrange(1+self.depth)]))
+            return ".".join(map(str, [self.idnum for i in range(1+self.depth)]))
         else:
             oid = []
             for i in self.fmt:
@@ -371,7 +374,7 @@ class RandRegExp(RandField):
             else:
                 c1 = s[p-1]
                 c2 = s[p+1]
-                rng = "".join(map(chr, xrange(ord(c1), ord(c2)+1)))
+                rng = "".join(map(chr, range(ord(c1), ord(c2)+1)))
                 s = s[:p-1]+rng+s[p+1:]
         res = m+s
         if invert:
@@ -492,7 +495,7 @@ class RandRegExp(RandField):
                 if random.randint(0,1):
                     current.pop()
             elif c == '.':
-                current.append(RandChoice(*[chr(x) for x in xrange(256)]))
+                current.append(RandChoice(*[chr(x) for x in range(256)]))
             elif c == '$' or c == '^':
                 pass
             else:
@@ -515,7 +518,7 @@ class RandSingNum(RandSingularity):
             end = -end
             sign = -1
         end_n = int(math.log(end)/math.log(2))+1
-        return {sign*2**i for i in xrange(end_n)}            
+        return {sign*2**i for i in range(end_n)}
         
     def __init__(self, mn, mx):
         sing = {0, mn, mx, int((mn+mx)/2)}

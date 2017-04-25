@@ -21,11 +21,13 @@
 # scapy.contrib.description = SEND (ICMPv6)
 # scapy.contrib.status = loads
 
+from __future__ import absolute_import
 import socket
 
 from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.inet6 import icmp6typescls, _ICMPv6NDGuessPayload, Net6
+from six.moves import map
 
 send_icmp6typescls = { 11: "ICMPv6NDOptCGA",
                        12: "ICMPv6NDOptRsaSig",

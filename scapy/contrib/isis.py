@@ -60,6 +60,7 @@
 
 """
 
+from __future__ import absolute_import
 import struct
 import random
 
@@ -71,6 +72,8 @@ from scapy.layers.inet6 import IP6ListField, IP6Field
 from scapy.utils import fletcher16_checkbytes
 from scapy.volatile import RandString, RandByte
 import random
+from six.moves import map
+from six.moves import range
 
 
 EXT_VERSION = "v0.0.2"
@@ -153,7 +156,7 @@ class _ISIS_RandId(RandString):
 
         val = ()
 
-        for _ in xrange(self.bytecount):
+        for _ in range(self.bytecount):
             val += (RandByte(),)
 
         return self.format % val

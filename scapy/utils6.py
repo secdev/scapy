@@ -9,6 +9,7 @@
 """
 Utility functions for IPv6.
 """
+from __future__ import absolute_import
 import random
 import socket
 import struct
@@ -20,6 +21,8 @@ from scapy.pton_ntop import *
 from scapy.volatile import RandMAC
 from scapy.error import warning
 from functools import reduce
+from six.moves import map
+from six.moves import range
 
 
 def construct_source_candidate_set(addr, plen, laddr):
@@ -390,8 +393,8 @@ def in6_getRandomizedIfaceId(ifaceid, previous=None):
 
     s = ""
     if previous is None:
-        d = "".join(chr(x) for x in xrange(256))
-        for _ in xrange(8):
+        d = "".join(chr(x) for x in range(256))
+        for _ in range(8):
             s += random.choice(d)
         previous = s
     s = inet_pton(socket.AF_INET6, "::"+ifaceid)[8:] + previous
@@ -418,14 +421,14 @@ def in6_ctop(addr):
     Returns None on error.
     """
     if len(addr) != 20 or not reduce(lambda x,y: x and y, 
-                                     map(lambda x: x in _rfc1924map, addr)):
+                                     [x in _rfc1924map for x in addr]):
         return None
     i = 0
     for c in addr:
         j = _rfc1924map.index(c)
         i = 85*i + j
     res = []
-    for j in xrange(4):
+    for j in range(4):
         res.append(struct.pack("!I", i%2**32))
         i = i/(2**32)
     res.reverse()
@@ -443,7 +446,7 @@ def in6_ptoc(addr):
         return None
     res = 0
     m = [2**96, 2**64, 2**32, 1]
-    for i in xrange(4):
+    for i in range(4):
         res += d[i]*m[i]
     rem = res
     res = []
@@ -563,7 +566,7 @@ def in6_cidr2mask(m):
         raise Scapy_Exception("value provided to in6_cidr2mask outside [0, 128] domain (%d)" % m)
 
     t = []
-    for i in xrange(0, 4):
+    for i in range(0, 4):
         t.append(max(0, 2**32  - 2**(32-min(32, m))))
         m -= 32
 
@@ -754,7 +757,7 @@ def in6_get_common_plen(a, b):
     Return common prefix length of IPv6 addresses a and b.
     """
     def matching_bits(byte1, byte2):
-        for i in xrange(8):
+        for i in range(8):
             cur_mask = 0x80 >> i
             if (byte1 & cur_mask) != (byte2 & cur_mask):
                 return i
@@ -762,7 +765,7 @@ def in6_get_common_plen(a, b):
         
     tmpA = inet_pton(socket.AF_INET6, a)
     tmpB = inet_pton(socket.AF_INET6, b)
-    for i in xrange(16):
+    for i in range(16):
         mbits = matching_bits(ord(tmpA[i]), ord(tmpB[i]))
         if mbits != 8:
             return 8*i + mbits

@@ -7,6 +7,7 @@
 IPv4 (Internet Protocol v4).
 """
 
+from __future__ import absolute_import
 import os,time,struct,re,socket,new
 from select import select
 from collections import defaultdict
@@ -29,6 +30,10 @@ from scapy.utils import whois
 import scapy.as_resolvers
 
 from scapy.arch import plt, MATPLOTLIB_INLINED, MATPLOTLIB_DEFAULT_PLOT_KARGS
+import six
+from six.moves import map
+from six.moves import range
+from six.moves import zip
 
 ####################
 ## IP Tools class ##
@@ -457,7 +462,7 @@ class IP(Packet, IPTools):
         for p in fl:
             s = str(p[fnb].payload)
             nb = (len(s)+fragsize-1)/fragsize
-            for i in xrange(nb):            
+            for i in range(nb):            
                 q = p.copy()
                 del(q[fnb].payload)
                 del(q[fnb].chksum)
@@ -830,7 +835,7 @@ def fragment(pkt, fragsize=1480):
     for p in pkt:
         s = str(p[IP].payload)
         nb = (len(s)+fragsize-1)/fragsize
-        for i in xrange(nb):            
+        for i in range(nb):            
             q = p.copy()
             del(q[IP].payload)
             del(q[IP].chksum)
@@ -881,7 +886,7 @@ def defrag(plist):
         frags[uniq].append(p)
     defrag = []
     missfrag = []
-    for lst in frags.itervalues():
+    for lst in six.itervalues(frags):
         lst.sort(key=lambda x: x.frag)
         p = lst[0]
         lastp = lst[-1]
@@ -942,7 +947,7 @@ def defragment(plist):
 
     defrag = []
     missfrag = []
-    for lst in frags.itervalues():
+    for lst in six.itervalues(frags):
         lst.sort(key=lambda x: x.frag)
         p = lst[0]
         lastp = lst[-1]
@@ -1076,9 +1081,9 @@ class TracerouteResult(SndRcvList):
             if d not in trace:
                 trace[d] = {}
             trace[d][s[IP].ttl] = r[IP].src, ICMP not in r
-        for k in trace.itervalues():
+        for k in six.itervalues(trace):
             try:
-                m = min(x for x, y in k.itervalues() if y)
+                m = min(x for x, y in six.itervalues(k) if y)
             except ValueError:
                 continue
             for l in k.keys():  # use .keys(): k is modified in the loop
@@ -1121,7 +1126,7 @@ class TracerouteResult(SndRcvList):
         for i in trace:
             tr = trace[i]
             tr3d[i] = []
-            for t in xrange(1, max(tr) + 1):
+            for t in range(1, max(tr) + 1):
                 if t not in rings:
                     rings[t] = []
                 if t in tr:
@@ -1134,7 +1139,7 @@ class TracerouteResult(SndRcvList):
         for t in rings:
             r = rings[t]
             l = len(r)
-            for i in xrange(l):
+            for i in range(l):
                 if r[i][1] == -1:
                     col = (0.75,0.75,0.75)
                 elif r[i][1]:
@@ -1145,12 +1150,12 @@ class TracerouteResult(SndRcvList):
                 s = IPsphere(pos=((l-1)*visual.cos(2*i*visual.pi/l),(l-1)*visual.sin(2*i*visual.pi/l),2*t),
                              ip = r[i][0],
                              color = col)
-                for trlst in tr3d.itervalues():
+                for trlst in six.itervalues(tr3d):
                     if t <= len(trlst):
                         if trlst[t-1] == i:
                             trlst[t-1] = s
         forecol = colgen(0.625, 0.4375, 0.25, 0.125)
-        for trlst in tr3d.itervalues():
+        for trlst in six.itervalues(tr3d):
             col = forecol.next()
             start = (0,0,0)
             for ip in trlst:
@@ -1245,7 +1250,7 @@ class TracerouteResult(SndRcvList):
         for trace_id in rt:
             trace = rt[trace_id]
             loctrace = []
-            for i in xrange(max(trace)):
+            for i in range(max(trace)):
                 ip = trace.get(i,None)
                 if ip is None:
                     continue
@@ -1264,7 +1269,7 @@ class TracerouteResult(SndRcvList):
         bmap = Basemap()
 
         # Split latitudes and longitudes per traceroute measurement
-        locations = [zip(*tr) for tr in trt.itervalues()]
+        locations = [list(zip(*tr)) for tr in six.itervalues(trt)]
 
         # Plot the traceroute measurement as lines in the map
         lines = [bmap.plot(*bmap(lons, lats)) for lons, lats in locations]
@@ -1331,7 +1336,7 @@ class TracerouteResult(SndRcvList):
         for rtk in rt:
             trace = rt[rtk]
             max_trace = max(trace)
-            for n in xrange(min(trace), max_trace):
+            for n in range(min(trace), max_trace):
                 if n not in trace:
                     trace[n] = unknown_label.next()
             if rtk not in ports_done:
@@ -1424,7 +1429,7 @@ class TracerouteResult(SndRcvList):
             s += '\t\tedge [color="#%s%s%s"];\n' % forecolorlist.next()
             trace = rt[rtk]
             maxtrace = max(trace)
-            for n in xrange(min(trace), maxtrace):
+            for n in range(min(trace), maxtrace):
                 s += '\t%s ->\n' % trace[n]
             s += '\t%s;\n' % trace[maxtrace]
     

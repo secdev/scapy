@@ -10,10 +10,12 @@ A comprehensive list of specified cipher suites can be consulted at:
 https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml
 """
 
+from __future__ import absolute_import
 from scapy.layers.tls.crypto.kx_algs import tls_kx_algs
 from scapy.layers.tls.crypto.hash import tls_hash_algs
 from scapy.layers.tls.crypto.h_mac import tls_hmac_algs
 from scapy.layers.tls.crypto.ciphers import tls_cipher_algs
+import six
 
 
 def get_algs_from_ciphersuite_name(ciphersuite_name):
@@ -108,9 +110,7 @@ class _GenericCipherSuiteMetaclass(type):
         return the_class
 
 
-class _GenericCipherSuite(object):
-    __metaclass__ = _GenericCipherSuiteMetaclass
-
+class _GenericCipherSuite(six.with_metaclass(_GenericCipherSuiteMetaclass, object)):
     def __init__(self, tls_version=0x0303):
         """
         Most of the attributes are fixed and have already been set by the

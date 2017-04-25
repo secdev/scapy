@@ -24,9 +24,13 @@ IPv6 (Internet Protocol v6).
 """
 
 
+from __future__ import absolute_import
 import random
 import socket
 import sys
+import six
+from six.moves import map
+from six.moves import range
 if not socket.has_ipv6:
     raise socket.error("can't use AF_INET6, IPv6 is disabled")
 if not hasattr(socket, "IPPROTO_IPV6"):
@@ -109,7 +113,7 @@ def getmacbyip6(ip6, chainCC=0):
 
     iff,a,nh = conf.route6.route(ip6)
 
-    if isinstance(iff, basestring):
+    if isinstance(iff, six.string_types):
         if iff == LOOPBACK_NAME:
             return "ff:ff:ff:ff:ff:ff"
     else:
@@ -163,7 +167,7 @@ class Net6(Gen): # syntax ex. fec0::/126
         def m8(i):
             if i % 8 == 0:
                 return i
-        tuple = [x for x in xrange(8, 129) if m8(x)]
+        tuple = [x for x in range(8, 129) if m8(x)]
 
         a = in6_and(self.net, self.mask)
         tmp = [x for x in struct.unpack("16B", a)]
@@ -172,7 +176,7 @@ class Net6(Gen): # syntax ex. fec0::/126
             netmask = min(8,max(netmask,0))
             a = (int(a) & (0xff<<netmask),(int(a) | (0xff>>(8-netmask)))+1)
             return a
-        self.parsed = map(lambda x,y: parse_digit(x,y), tmp, map(lambda x,nm=self.plen: x-nm, tuple))
+        self.parsed = list(map(lambda x,y: parse_digit(x,y), tmp, list(map(lambda x,nm=self.plen: x-nm, tuple))))
 
         def rec(n, l):
             if n and  n % 2 == 0:
@@ -183,7 +187,7 @@ class Net6(Gen): # syntax ex. fec0::/126
                 return l
             else:
                 ll = []
-                for i in xrange(*self.parsed[n]):
+                for i in range(*self.parsed[n]):
                     for y in l:
                         ll += [y+sep+'%.2x'%i]
                 return rec(n+1, ll)
@@ -3149,9 +3153,9 @@ class TracerouteResult6(TracerouteResult):
 
             trace[d][s[IPv6].hlim] = r[IPv6].src, t
 
-        for k in trace.itervalues():
+        for k in six.itervalues(trace):
             try:
-                m = min(x for x, y in k.itervalues() if y)
+                m = min(x for x, y in six.itervalues(k) if y)
             except ValueError:
                 continue
             for l in k.keys():  # use .keys(): k is modified in the loop

@@ -7,7 +7,10 @@
 Direct Access dictionary.
 """
 
+from __future__ import absolute_import
 from scapy.error import Scapy_Exception
+import six
+from six.moves import map
 
 ###############################
 ## Direct Access dictionary  ##
@@ -57,7 +60,7 @@ class DADict:
         return True
 
     def update(self, *args, **kwargs):
-        for k, v in dict(*args, **kwargs).iteritems():
+        for k, v in six.iteritems(dict(*args, **kwargs)):
             self[k] = v
     
     def _find(self, *args, **kargs):
@@ -87,7 +90,7 @@ class DADict:
                 r += p
         return r
     def keys(self):
-        return list(self.iterkeys())
+        return list(six.iterkeys(self))
     def iterkeys(self):
         return (x for x in self.__dict__ if x and x[0] != "_")
     def __len__(self):

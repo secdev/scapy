@@ -39,6 +39,7 @@ Example of use:
 True
 """
 
+from __future__ import absolute_import
 from fractions import gcd
 import os
 import socket
@@ -53,6 +54,8 @@ from scapy.packet import Packet, bind_layers, Raw
 from scapy.layers.inet import IP, UDP
 from scapy.layers.inet6 import IPv6, IPv6ExtHdrHopByHop, IPv6ExtHdrDestOpt, \
     IPv6ExtHdrRouting
+import six
+from six.moves import range
 
 
 #------------------------------------------------------------------------------
@@ -312,7 +315,7 @@ class CryptAlgo(object):
         # Still according to the RFC, the default value for padding *MUST* be an
         # array of bytes starting from 1 to padlen
         # TODO: Handle padding function according to the encryption algo
-        esp.padding = ''.join(chr(b) for b in xrange(1, esp.padlen + 1))
+        esp.padding = ''.join(chr(b) for b in range(1, esp.padlen + 1))
 
         # If the following test fails, it means that this algo does not comply
         # with the RFC
@@ -771,7 +774,7 @@ class SecurityAssociation(object):
 
         if proto not in (ESP, AH, ESP.name, AH.name):
             raise ValueError("proto must be either ESP or AH")
-        if isinstance(proto, basestring):
+        if isinstance(proto, six.string_types):
             self.proto = eval(proto)
         else:
             self.proto = proto
@@ -782,7 +785,7 @@ class SecurityAssociation(object):
         if crypt_algo:
             if crypt_algo not in CRYPT_ALGOS:
                 raise TypeError('unsupported encryption algo %r, try %r' %
-                                (crypt_algo, CRYPT_ALGOS.keys()))
+                                (crypt_algo, list(CRYPT_ALGOS.keys())))
             self.crypt_algo = CRYPT_ALGOS[crypt_algo]
 
             if crypt_key:
@@ -800,7 +803,7 @@ class SecurityAssociation(object):
         if auth_algo:
             if auth_algo not in AUTH_ALGOS:
                 raise TypeError('unsupported integrity algo %r, try %r' %
-                                (auth_algo, AUTH_ALGOS.keys()))
+                                (auth_algo, list(AUTH_ALGOS.keys())))
             self.auth_algo = AUTH_ALGOS[auth_algo]
             self.auth_key = auth_key
         else:

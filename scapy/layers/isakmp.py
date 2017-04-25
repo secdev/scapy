@@ -7,6 +7,7 @@
 ISAKMP (Internet Security Association and Key Management Protocol).
 """
 
+from __future__ import absolute_import
 import struct
 from scapy.config import conf
 from scapy.packet import *
@@ -16,6 +17,7 @@ from scapy.layers.inet import IP,UDP
 from scapy.sendrecv import sr
 from scapy.error import warning
 from functools import reduce
+from six.moves import map
 
 
 # see http://www.iana.org/assignments/ipsec-registry for details

@@ -10,8 +10,9 @@ import subprocess
 import itertools
 import collections
 import time
-import Queue
+import six.moves.queue
 from threading import Lock, Thread
+import scapy.utils
 
 from scapy.automaton import Message, select_objects
 from scapy.consts import WINDOWS
@@ -573,7 +574,7 @@ class QueueSink(Sink):
 """
     def __init__(self, name=None):
         Sink.__init__(self, name=name)
-        self.q = Queue.Queue()
+        self.q = six.moves.queue.Queue()
     def push(self, msg):
         self.q.put(msg)
     def high_push(self, msg):
@@ -582,7 +583,7 @@ class QueueSink(Sink):
         while True:
             try:
                 return self.q.get(True, timeout=0.1)
-            except Queue.Empty:
+            except six.moves.queue.Empty:
                 pass
 
 

@@ -11,8 +11,12 @@ Generators and packet meta classes.
 ## Generators ##
 ################
 
+from __future__ import absolute_import
 import re,random,socket
 import types
+from six.moves import map
+from six.moves import range
+from six.moves import zip
 
 class Gen(object):
     __slots__ = []
@@ -28,7 +32,7 @@ class SetGen(Gen):
              all(hasattr(i, "__int__") for i in values)):
             # We use values[1] + 1 as stop value for xrange to maintain
             # the behavior of using tuples as field `values`
-            self.values = [xrange(*((int(values[0]), int(values[1]) + 1)
+            self.values = [range(*((int(values[0]), int(values[1]) + 1)
                                     + tuple(int(v) for v in values[2:])))]
         else:
             self.values = [values]
@@ -82,10 +86,10 @@ class Net(Gen):
         return self.repr
                                                                                                
     def __iter__(self):
-        for d in xrange(*self.parsed[3]):
-            for c in xrange(*self.parsed[2]):
-                for b in xrange(*self.parsed[1]):
-                    for a in xrange(*self.parsed[0]):
+        for d in range(*self.parsed[3]):
+            for c in range(*self.parsed[2]):
+                for b in range(*self.parsed[1]):
+                    for a in range(*self.parsed[0]):
                         yield "%i.%i.%i.%i" % (a,b,c,d)
     def choice(self):
         ip = []

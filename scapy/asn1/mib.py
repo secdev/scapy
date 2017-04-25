@@ -8,11 +8,13 @@
 Management Information Base (MIB) parsing
 """
 
+from __future__ import absolute_import
 import re
 from glob import glob
 from scapy.dadict import DADict,fixname
 from scapy.config import conf
 from scapy.utils import do_graph
+import six
 
 #################
 ## MIB parsing ##
@@ -32,7 +34,7 @@ class MIBDict(DADict):
             x += "."
         max=0
         root="."
-        for k in self.iterkeys():
+        for k in six.iterkeys(self):
             if x.startswith(self[k]+"."):
                 if max < len(self[k]):
                     max = len(self[k])
@@ -53,8 +55,8 @@ class MIBDict(DADict):
     def _make_graph(self, other_keys=None, **kargs):
         if other_keys is None:
             other_keys = []
-        nodes = [(k, self[k]) for k in self.iterkeys()]
-        oids = [self[k] for k in self.iterkeys()]
+        nodes = [(k, self[k]) for k in six.iterkeys(self)]
+        oids = [self[k] for k in six.iterkeys(self)]
         for k in other_keys:
             if k not in oids:
                 nodes.append(self.oidname(k),k)
@@ -71,7 +73,7 @@ class MIBDict(DADict):
         s += "}\n"
         do_graph(s, **kargs)
     def __len__(self):
-        return len(self.keys())
+        return len(list(self.keys()))
 
 
 def mib_register(ident, value, the_mib, unresolved):
@@ -99,7 +101,7 @@ def mib_register(ident, value, the_mib, unresolved):
         return False
     else:
         the_mib[ident] = resval
-        keys = unresolved.keys()
+        keys = list(unresolved.keys())
         i = 0
         while i < len(keys):
             k = keys[i]
@@ -116,7 +118,7 @@ def mib_register(ident, value, the_mib, unresolved):
 def load_mib(filenames):
     the_mib = {'iso': ['1']}
     unresolved = {}
-    for k in conf.mib.iterkeys():
+    for k in six.iterkeys(conf.mib):
         mib_register(k, conf.mib[k].split("."), the_mib, unresolved)
 
     if isinstance(filenames, str):
@@ -138,9 +140,9 @@ def load_mib(filenames):
                 mib_register(ident, oid, the_mib, unresolved)
 
     newmib = MIBDict(_name="MIB")
-    for k,o in the_mib.iteritems():
+    for k,o in six.iteritems(the_mib):
         newmib[k]=".".join(o)
-    for k,o in unresolved.iteritems():
+    for k,o in six.iteritems(unresolved):
         newmib[k]=".".join(o)
 
     conf.mib=newmib

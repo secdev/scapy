@@ -7,12 +7,14 @@
 Routing and handling of network interfaces.
 """
 
+from __future__ import absolute_import
 import socket
 from scapy.consts import LOOPBACK_NAME, LOOPBACK_INTERFACE
 from scapy.utils import atol, ltoa, itom, pretty_routes
 from scapy.config import conf
 from scapy.error import Scapy_Exception, warning
 from scapy.arch import WINDOWS
+import six
 
 ##############################
 ## Routing/Interfaces stuff ##
@@ -38,7 +40,7 @@ class Route:
 	    rtlst.append((ltoa(net),
                       ltoa(msk),
                       gw,
-                      (iface.name if not isinstance(iface, basestring) else iface),
+                      (iface.name if not isinstance(iface, six.string_types) else iface),
                       addr))
 
         return pretty_routes(rtlst,
@@ -183,6 +185,6 @@ conf.route=Route()
 
 #XXX use "with"
 _betteriface = conf.route.route("0.0.0.0", verbose=0)[0]
-if ((_betteriface if (isinstance(_betteriface, basestring) or _betteriface is None) else _betteriface.name) != LOOPBACK_NAME):
+if ((_betteriface if (isinstance(_betteriface, six.string_types) or _betteriface is None) else _betteriface.name) != LOOPBACK_NAME):
     conf.iface = _betteriface
 del(_betteriface)

@@ -7,16 +7,18 @@
 Main module for interactive startup.
 """
 
+from __future__ import absolute_import
 import os,sys
 import glob
 import types
 import gzip
-import importlib
-import cPickle
 import __builtin__
 ignored = list(__builtin__.__dict__.keys())
+import six.moves.cPickle
+import six.moves.builtins
 
 from scapy.error import *
+import six
     
 
 def _probe_config_file(cf):
@@ -70,12 +72,12 @@ def _load(module):
         if '__all__' in mod.__dict__:
             # import listed symbols
             for name in mod.__dict__['__all__']:
-                __builtin__.__dict__[name] = mod.__dict__[name]
+                six.moves.builtins.__dict__[name] = mod.__dict__[name]
         else:
             # only import non-private symbols
-            for name, sym in mod.__dict__.iteritems():
+            for name, sym in six.iteritems(mod.__dict__):
                 if _validate_local(name):
-                    __builtin__.__dict__[name] = sym
+                    six.moves.builtins.__dict__[name] = sym
     except Exception as e:
         log_interactive.error(e)
 
@@ -134,7 +136,7 @@ def save_session(fname=None, session=None, pickleProto=-1):
             conf.session = fname = utils.get_temp_file(keep=True)
             log_interactive.info("Use [%s] as session file" % fname)
     if session is None:
-        session = __builtin__.__dict__["scapy_session"]
+        session = six.moves.builtins.__dict__["scapy_session"]
 
     to_be_saved = session.copy()
         
@@ -153,7 +155,7 @@ def save_session(fname=None, session=None, pickleProto=-1):
          pass
     
     f=gzip.open(fname,"wb")
-    cPickle.dump(to_be_saved, f, pickleProto)
+    six.moves.cPickle.dump(to_be_saved, f, pickleProto)
     f.close()
     del f
 
@@ -161,15 +163,15 @@ def load_session(fname=None):
     if fname is None:
         fname = conf.session
     try:
-        s = cPickle.load(gzip.open(fname,"rb"))
+        s = six.moves.cPickle.load(gzip.open(fname,"rb"))
     except IOError:
         try:
-            s = cPickle.load(open(fname,"rb"))
+            s = six.moves.cPickle.load(open(fname,"rb"))
         except IOError:
             # Raise "No such file exception"
             raise
 
-    scapy_session = __builtin__.__dict__["scapy_session"]
+    scapy_session = six.moves.builtins.__dict__["scapy_session"]
     scapy_session.clear()
     scapy_session.update(s)
     log_loading.info("Loaded session [%s]" % conf.session)
@@ -178,10 +180,10 @@ def update_session(fname=None):
     if fname is None:
         fname = conf.session
     try:
-        s = cPickle.load(gzip.open(fname,"rb"))
+        s = six.moves.cPickle.load(gzip.open(fname,"rb"))
     except IOError:
-        s = cPickle.load(open(fname,"rb"))
-    scapy_session = __builtin__.__dict__["scapy_session"]
+        s = six.moves.cPickle.load(open(fname,"rb"))
+    scapy_session = six.moves.builtins.__dict__["scapy_session"]
     scapy_session.update(s)
 
 def init_session(session_name, mydict=None):
@@ -191,13 +193,13 @@ def init_session(session_name, mydict=None):
     scapy_builtins = importlib.import_module(".all", "scapy").__dict__
     for name, sym in scapy_builtins.iteritems():
         if _validate_local(name):
-            __builtin__.__dict__[name] = sym
+            six.moves.builtins.__dict__[name] = sym
     globkeys = list(scapy_builtins.keys())
     globkeys.append("scapy_session")
     scapy_builtins=None # XXX replace with "with" statement
     if mydict is not None:
-        __builtin__.__dict__.update(mydict)
-        globkeys += mydict.keys()
+        six.moves.builtins.__dict__.update(mydict)
+        globkeys += list(mydict.keys())
     
     if session_name:
         try:
@@ -207,9 +209,9 @@ def init_session(session_name, mydict=None):
         else:
             try:
                 try:
-                    session = cPickle.load(gzip.open(session_name,"rb"))
+                    session = six.moves.cPickle.load(gzip.open(session_name,"rb"))
                 except IOError:
-                    session = cPickle.load(open(session_name,"rb"))
+                    session = six.moves.cPickle.load(open(session_name,"rb"))
                 log_loading.info("Using session [%s]" % session_name)
             except EOFError:
                 log_loading.error("Error opening session [%s]" % session_name)
@@ -226,7 +228,7 @@ def init_session(session_name, mydict=None):
     else:
         session={"conf": conf}
 
-    __builtin__.__dict__["scapy_session"] = session
+    six.moves.builtins.__dict__["scapy_session"] = session
 
 ################
 ##### Main #####
@@ -409,7 +411,7 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
 
     for k in globkeys:
         try:
-            del(__builtin__.__dict__[k])
+            del(six.moves.builtins.__dict__[k])
         except:
             pass
 

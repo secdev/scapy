@@ -17,6 +17,7 @@
 # scapy.contrib.description = ICMP Extensions
 # scapy.contrib.status = loads
 
+from __future__ import absolute_import
 import scapy
 from scapy.packet import Packet, bind_layers
 from scapy.fields import *
@@ -24,6 +25,7 @@ from scapy.layers.inet import IP, ICMP
 from scapy.layers.inet6 import IP6Field
 from scapy.error import warning
 from scapy.contrib.mpls import MPLS
+import six
 
 
 class ICMPExtensionObject(Packet):
@@ -65,7 +67,7 @@ class ICMPExtensionHeader(Packet):
 
         for fval, cls in self.payload_guess:
             ok = 1
-            for k, v in fval.iteritems():
+            for k, v in six.iteritems(fval):
                 if not hasattr(ieo, k) or v != ieo.getfieldval(k):
                     ok = 0
                     break

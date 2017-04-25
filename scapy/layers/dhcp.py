@@ -7,6 +7,7 @@
 DHCP (Dynamic Host Configuration Protocol) and BOOTP
 """
 
+from __future__ import absolute_import
 from collections import Iterable
 import struct
 
@@ -22,6 +23,8 @@ from scapy.volatile import RandField
 from scapy.arch import get_if_raw_hwaddr
 from scapy.sendrecv import *
 from scapy.error import warning
+import six
+from six.moves import range
 
 dhcpmagic=b"c\x82Sc"
 
@@ -144,7 +147,7 @@ DHCPOptions = {
 
 DHCPRevOptions = {}
 
-for k,v in DHCPOptions.iteritems():
+for k,v in in six.iteritems(DHCPOptions):
     if isinstance(v, str):
         n = v
         v = None
@@ -166,12 +169,12 @@ class RandDHCPOptions(RandField):
         if rndstr is None:
             rndstr = RandBin(RandNum(0,255))
         self.rndstr=rndstr
-        self._opts = DHCPOptions.values()
+        self._opts = list(DHCPOptions.values())
         self._opts.remove("pad")
         self._opts.remove("end")
     def _fix(self):
         op = []
-        for k in xrange(self.size):
+        for k in range(self.size):
             o = random.choice(self._opts)
             if isinstance(o, str):
                 op.append((o,self.rndstr*1))
@@ -311,7 +314,7 @@ class BOOTP_am(AnsweringMachine):
         self.network = ltoa(atol(netw)&msk)
         self.broadcast = ltoa( atol(self.network) | (0xffffffff&~msk) )
         self.gw = gw
-        if isinstance(pool, basestring):
+        if isinstance(pool, six.string_types):
             pool = Net(pool)
         if isinstance(pool, Iterable):
             pool = [k for k in pool if k not in [gw, self.network, self.broadcast]]

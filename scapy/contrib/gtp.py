@@ -10,6 +10,7 @@
 # scapy.contrib.description = GTP
 # scapy.contrib.status = loads
 
+from __future__ import absolute_import
 import time
 import logging
 
@@ -18,6 +19,7 @@ from scapy.fields import *
 from scapy.layers.inet import IP, UDP
 from scapy.layers.inet6 import IP6Field
 from scapy.error import warning
+from six.moves import range
 
 # GTP Data types
 
@@ -153,7 +155,7 @@ class TBCDByteField(StrFixedLenField):
     def i2m(self, pkt, val):
         val = str(val)
         ret_string = ""
-        for i in xrange(0, len(val), 2):
+        for i in range(0, len(val), 2):
             tmp = val[i:i+2]
             if len(tmp) == 2:
               ret_string += chr(int(tmp[1] + tmp[0], 16))
@@ -362,7 +364,7 @@ class APNStrLenField(StrLenField):
         s = ret_s
         return s
     def i2m(self, pkt, s):
-        s = "".join(map(lambda x: chr(len(x))+x, s.split(".")))
+        s = "".join([chr(len(x))+x for x in s.split(".")])
         return s
 
 

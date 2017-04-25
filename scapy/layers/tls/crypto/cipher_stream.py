@@ -7,10 +7,12 @@
 Stream ciphers.
 """
 
+from __future__ import absolute_import
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms
 from cryptography.hazmat.backends import default_backend
 
 from scapy.layers.tls.crypto.ciphers import CipherError
+import six
 
 
 tls_stream_cipher_algs = {}
@@ -30,8 +32,7 @@ class _StreamCipherMetaclass(type):
         return the_class
 
 
-class _StreamCipher(object):
-    __metaclass__ = _StreamCipherMetaclass
+class _StreamCipher(six.with_metaclass(_StreamCipherMetaclass, object)):
     type = "stream"
 
     def __init__(self, key=None):
@@ -65,12 +66,12 @@ class _StreamCipher(object):
         super(_StreamCipher, self).__setattr__(name, val)
 
     def encrypt(self, data):
-        if False in self.ready.itervalues():
+        if False in six.itervalues(self.ready):
             raise CipherError, data
         return self.encryptor.update(data)
 
     def decrypt(self, data):
-        if False in self.ready.itervalues():
+        if False in six.itervalues(self.ready):
             raise CipherError, data
         return self.decryptor.update(data)
 

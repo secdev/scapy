@@ -11,11 +11,13 @@ support our "tls" hash used with TLS 1.0. Once it is added to (or from) the
 library, most of the present module should be removed.
 """
 
+from __future__ import absolute_import
 import os, popen2, tempfile
 import math, random, struct
 
 from scapy.config import conf, crypto_validator
 from functools import reduce
+from six.moves import range
 if conf.crypto_valid:
     from cryptography.exceptions import InvalidSignature
     from cryptography.hazmat.backends import default_backend

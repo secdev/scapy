@@ -38,7 +38,7 @@ class ScapyAutorunInterpreter(code.InteractiveInterpreter):
 
 def autorun_commands(cmds, my_globals=None, ignore_globals=None, verb=0):
     sv = conf.verb
-    import __builtin__
+    import six.moves.builtins
     try:
         try:
             if my_globals is None:
@@ -52,7 +52,7 @@ def autorun_commands(cmds, my_globals=None, ignore_globals=None, verb=0):
             cmds = cmds.splitlines()
             cmds.append("") # ensure we finish multi-line commands
             cmds.reverse()
-            __builtin__.__dict__["_"] = None
+            six.moves.builtins.__dict__["_"] = None
             while True:
                 if cmd:
                     sys.stderr.write(sys.__dict__.get("ps2","... "))

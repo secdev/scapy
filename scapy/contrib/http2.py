@@ -25,11 +25,14 @@ scapy.contrib.status=loads
 scapy.contrib.description=HTTP/2 (RFC 7540, RFC 7541)
 """
 
+from __future__ import absolute_import
 import abc
 import types
 import re
 import StringIO
 import struct
+import six
+from six.moves import range
 
 # Only required if using mypy-lang for static typing
 # Most symbols are used in mypy-interpreted "comments".
@@ -101,7 +104,7 @@ class HPackMagicBitField(fields.BitField):
         assert (
             isinstance(r, tuple)
             and len(r) == 2
-            and isinstance(r[1], (int, long))
+            and isinstance(r[1], six.integer_types)
         ), 'Second element of BitField.getfield return value expected to be an int or a long; API change detected'
         assert r[1] == self._magic, 'Invalid value parsed from s; error in class guessing detected!'
         return r
@@ -193,7 +196,7 @@ class AbstractUVarIntField(fields.Field):
         @return None
         @raise AssertionError
         """
-        assert(default is None or (isinstance(default, (int, long)) and default >= 0))
+        assert(default is None or (isinstance(default, six.integer_types)) and default >= 0))
         assert(0 < size <= 8)
         super(AbstractUVarIntField, self).__init__(name, default)
         self.size = size
@@ -211,7 +214,7 @@ class AbstractUVarIntField(fields.Field):
         @return int|None: the converted value.
         @raise AssertionError
         """
-        assert(not isinstance(x, (int, long)) or x >= 0)
+        assert(not isinstance(x, six.integer_types) or x >= 0)
         return x
 
     def i2h(self, pkt, x):
@@ -337,14 +340,14 @@ class AbstractUVarIntField(fields.Field):
         """
         if isinstance(x, type(None)):
             return x
-        if isinstance(x, (int, long)):
+        if isinstance(x, six.integer_types):
             assert(x >= 0)
             ret = self.h2i(pkt, x)
-            assert(isinstance(ret, (int, long)) and ret >= 0)
+            assert(isinstance(ret, six.integer_types) and ret >= 0)
             return ret
         elif isinstance(x, str):
             ret = self.m2i(pkt, x)
-            assert (isinstance(ret, (int, long)) and ret >= 0)
+            assert (isinstance(ret, six.integer_types) and ret >= 0)
             return ret
         assert False, 'EINVAL: x: No idea what the parameter format is'
 
@@ -627,9 +630,7 @@ class FieldUVarLenField(AbstractUVarIntField):
 ################################################ HPACK String Fields ###################################################
 ########################################################################################################################
 
-class HPackStringsInterface(Sized):
-    __metaclass__ = abc.ABCMeta
-
+class HPackStringsInterface(six.with_metaclass(abc.ABCMeta, Sized)):
     @abc.abstractmethod
     def __str__(self): pass
 
@@ -1146,7 +1147,7 @@ class HPackZString(HPackStringsInterface):
         i = 0
         for entry in cls.static_huffman_code:
             parent = cls.static_huffman_tree
-            for idx in xrange(entry[1] - 1, -1, -1):
+            for idx in range(entry[1] - 1, -1, -1):
                 b = (entry[0] >> idx) & 1
                 if isinstance(parent[b], str):
                     raise InvalidEncodingException('Huffman unique prefix violation :/')
@@ -2024,7 +2025,7 @@ class H2Frame(packet.Packet):
         @return (str, str): the padding and the payload data strings
         @raise AssertionError
         """
-        assert isinstance(self.len, (int, long)) and self.len >= 0, 'Invalid length: negative len?'
+        assert isinstance(self.len, six.integer_types) and self.len >= 0, 'Invalid length: negative len?'
         assert len(s) >= self.len, 'Invalid length: string too short for this length'
         return s[:self.len], s[self.len:]
 
@@ -2380,7 +2381,7 @@ class HPackHdrTable(Sized):
         for k in type(self)._static_entries.keys():
             if type(self)._static_entries[k].name() == name:
                 return k
-        for k in xrange(0, len(self._dynamic_table)):
+        for k in range(0, len(self._dynamic_table)):
             if self._dynamic_table[k].name() == name:
                 return type(self)._static_entries_last_idx + k + 1
         return None
@@ -2400,7 +2401,7 @@ class HPackHdrTable(Sized):
             elmt = type(self)._static_entries[k]
             if elmt.name() == name and elmt.value() == value:
                 return k
-        for k in xrange(0, len(self._dynamic_table)):
+        for k in range(0, len(self._dynamic_table)):
             elmt = self._dynamic_table[k]
             if elmt.name() == name and elmt.value() == value:
                 return type(self)._static_entries_last_idx + k + 1

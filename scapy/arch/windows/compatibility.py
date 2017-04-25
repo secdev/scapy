@@ -7,6 +7,7 @@
 Instanciate part of the customizations needed to support Microsoft Windows.
 """
 
+from __future__ import absolute_import
 import itertools
 import os
 import re
@@ -23,6 +24,8 @@ from scapy.utils import PcapReader, tcpdump
 from scapy.arch.pcapdnet import PcapTimeoutElapsed
 from scapy.error import log_runtime
 from scapy.data import MTU, ETH_P_ARP,ETH_P_ALL
+import six
+from six.moves import zip
 
 WINDOWS = True
 
@@ -141,7 +144,7 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0, retry=0, m
         finally:
             pass
 
-        remain = list(itertools.chain(*hsent.itervalues()))
+        remain = list(itertools.chain(*six.itervalues(hsent)))
         if multi:
             remain = [p for p in remain if not hasattr(p, '_answered')]
             

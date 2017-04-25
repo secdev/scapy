@@ -6,6 +6,7 @@
 """
 Customizations needed to support Microsoft Windows.
 """
+from __future__ import absolute_import
 import os, re, sys, socket, time, itertools, platform
 import subprocess as sp
 from glob import glob
@@ -16,6 +17,9 @@ from scapy.error import Scapy_Exception, log_loading, log_runtime, warning
 from scapy.utils import atol, itom, inet_aton, inet_ntoa, PcapReader
 from scapy.base_classes import Gen, Net, SetGen
 from scapy.data import MTU, ETHER_BROADCAST, ETH_P_ARP
+import six
+from six.moves import range
+from six.moves import zip
 
 conf.use_pcap = False
 conf.use_dnet = False
@@ -90,7 +94,7 @@ def _vbs_exec_code(code, split_tag="@"):
     ps = sp.Popen([conf.prog.cscript, tmpfile.name],
                   stdout=sp.PIPE, stderr=open(os.devnull),
                   universal_newlines=True)
-    for _ in xrange(3):
+    for _ in range(3):
         # skip 3 first lines
         ps.stdout.readline()
     for line in ps.stdout:
@@ -297,7 +301,7 @@ def get_windows_if_list():
                             'GUID', 'MacAddress'])
     return [
         iface for iface in
-        (dict(zip(['name', 'win_index', 'description', 'guid', 'mac'], line))
+        (dict(list(zip(['name', 'win_index', 'description', 'guid', 'mac'], line)))
          for line in query)
         if is_interface_valid(iface)
     ]
@@ -459,14 +463,14 @@ class NetworkInterfaceDict(UserDict):
         """Return the first pcap device name for a given Windows
         device name.
         """
-        for iface in self.itervalues():
+        for iface in six.itervalues(self):
             if iface.name == name:
                 return iface
         raise ValueError("Unknown network interface %r" % name)
 
     def dev_from_pcapname(self, pcap_name):
         """Return Windows device name for given pcap device name."""
-        for iface in self.itervalues():
+        for iface in six.itervalues(self):
             if iface.pcap_name == pcap_name:
                 return iface
         raise ValueError("Unknown pypcap network interface %r" % pcap_name)
@@ -552,7 +556,7 @@ def _read_routes_xp():
     routes = []
     partial_routes = []
     # map local IP addresses to interfaces
-    local_addresses = {iface.ip: iface for iface in IFACES.itervalues()}
+    local_addresses = {iface.ip: iface for iface in six.itervalues(IFACES)}
     iface_indexes = {}
     for line in exec_query(['Get-WmiObject', 'Win32_IP4RouteTable'],
                            ['Name', 'Mask', 'NextHop', 'InterfaceIndex']):
@@ -799,7 +803,7 @@ if conf.interactive_shell != 'ipython' and conf.interactive:
                 if line.strip() == "":
                     end = True
                 result = result + "\n" + line
-            return unicode(result)
+            return six.text_type(result)
         try:
             import readline
             console = readline.GetOutputFile()
@@ -843,7 +847,7 @@ def route_add_loopback(routes=None, ipv6=False, iflist=None):
     data['mac'] = '00:00:00:00:00:00'
     adapter = NetworkInterface(data)
     if iflist:
-        iflist.append(unicode("\\Device\\NPF_" + adapter.guid))
+        iflist.append(six.text_type("\\Device\\NPF_" + adapter.guid))
         return
     # Remove all LOOPBACK_NAME routes
     for route in list(conf.route.routes):
