@@ -144,7 +144,7 @@ class ISAKMPTransformSetField(StrLenField):
                 if value_len+4 > len(m):
                     warning("Bad length for ISAKMP tranform type=%#6x" % trans_type)
                 value = m[4:4+value_len]
-                value = reduce(lambda x,y: (x<<8L)|y, struct.unpack("!%s" % ("B"*len(value),), value),0)
+                value = reduce(lambda x,y: (x<<8)|y, struct.unpack("!%s" % ("B"*len(value),), value),0)
             else:
                 trans_type &= 0x7fff
                 value_len=0

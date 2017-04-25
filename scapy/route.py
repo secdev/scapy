@@ -152,7 +152,7 @@ class Route:
                 continue
             aa = atol(a)
             if aa == dst:
-                pathes.append((0xffffffffL,(LOOPBACK_INTERFACE,a,"0.0.0.0")))
+                pathes.append((0xffffffff,(LOOPBACK_INTERFACE,a,"0.0.0.0")))
             if (dst & m) == (d & m):
                 pathes.append((m,(i,a,gw)))
         if not pathes:
@@ -175,7 +175,7 @@ class Route:
                     continue
             elif iff != iface:
                 continue
-            bcast = atol(addr)|(~msk&0xffffffffL); # FIXME: check error in atol()
+            bcast = atol(addr)|(~msk&0xffffffff); # FIXME: check error in atol()
             return ltoa(bcast)
         warning("No broadcast address found for iface %s\n" % iff);
 

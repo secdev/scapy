@@ -170,7 +170,7 @@ class Net6(Gen): # syntax ex. fec0::/126
 
         def parse_digit(a, netmask):
             netmask = min(8,max(netmask,0))
-            a = (int(a) & (0xffL<<netmask),(int(a) | (0xffL>>(8-netmask)))+1)
+            a = (int(a) & (0xff<<netmask),(int(a) | (0xff>>(8-netmask)))+1)
             return a
         self.parsed = map(lambda x,y: parse_digit(x,y), tmp, map(lambda x,nm=self.plen: x-nm, tuple))
 
@@ -1671,8 +1671,8 @@ class ICMPv6NDOptPrefixInfo(_ICMPv6NDGuessPayload, Packet):
                     BitField("A",1,1),
                     BitField("R",0,1),
                     BitField("res1",0,5),
-                    XIntField("validlifetime",0xffffffffL),
-                    XIntField("preferredlifetime",0xffffffffL),
+                    XIntField("validlifetime",0xffffffff),
+                    XIntField("preferredlifetime",0xffffffff),
                     XIntField("res2",0x00000000),
                     IP6Field("prefix","::") ]
     def mysummary(self):

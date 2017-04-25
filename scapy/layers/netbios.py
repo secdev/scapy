@@ -89,7 +89,7 @@ class NBNSRequest(Packet):
                    IntField("TTL", 0),
                    ShortField("RDLENGTH", 6),
                    BitEnumField("G",0,1,{0:"Unique name",1:"Group name"}),
-                   BitEnumField("OWNER_NODE_TYPE",00,2,{00:"B node",01:"P node",02:"M node",03:"H node"}),
+                   BitEnumField("OWNER_NODE_TYPE",00,2,{0:"B node",1:"P node",2:"M node",3:"H node"}),
                    BitEnumField("UNUSED",0,13,{0:"Unused"}),
                    IPField("NB_ADDRESS", "127.0.0.1")]
 
@@ -131,7 +131,7 @@ class NBNSQueryResponseNegative(Packet):
                    IntField("TTL",0),
                    ShortField("RDLENGTH",6),
                    BitEnumField("G",0,1,{0:"Unique name",1:"Group name"}),
-                   BitEnumField("OWNER_NODE_TYPE",00,2,{00:"B node",01:"P node",02:"M node",03:"H node"}),
+                   BitEnumField("OWNER_NODE_TYPE",00,2,{0:"B node",1:"P node",2:"M node",3:"H node"}),
                    BitEnumField("UNUSED",0,13,{0:"Unused"}),
                    IPField("NB_ADDRESS", "127.0.0.1")]
     

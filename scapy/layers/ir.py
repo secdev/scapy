@@ -26,7 +26,7 @@ class IrLAPCommand(Packet):
     fields_desc = [ XByteField("Control", 0),
                     XByteField("Format identifier", 0),
                     XIntField("Source address", 0),
-                    XIntField("Destination address", 0xffffffffL),
+                    XIntField("Destination address", 0xffffffff),
                     XByteField("Discovery flags", 0x1),
                     ByteEnumField("Slot number", 255, {"final":255}),
                     XByteField("Version", 0)]

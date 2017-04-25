@@ -391,9 +391,9 @@ Some specifications of the p0f.fp file are not (yet) implemented."""
                 # MSS might have a maximum size because of window size
                 # specification
                 if pers[0][0] == 'S':
-                    maxmss = (2L**16-1) / int(pers[0][1:])
+                    maxmss = (2**16-1) / int(pers[0][1:])
                 else:
-                    maxmss = (2L**16-1)
+                    maxmss = (2**16-1)
                 # If we have to randomly pick up a value, we cannot use
                 # scapy RandXXX() functions, because the value has to be
                 # set in case we need it for the window size value. That's
@@ -411,7 +411,7 @@ Some specifications of the p0f.fp file are not (yet) implemented."""
                 elif opt[1] == '%':
                     coef = int(opt[2:])
                     options.append(('WScale', coef*RandNum(min=1,
-                                                           max=(2L**8-1)/coef)))
+                                                           max=(2**8-1)/coef)))
                 else:
                     options.append(('WScale', int(opt[1:])))
             elif opt == 'T0':
@@ -454,7 +454,7 @@ Some specifications of the p0f.fp file are not (yet) implemented."""
         pkt.payload.window = int(pers[0])
     elif pers[0][0] == '%':
         coef = int(pers[0][1:])
-        pkt.payload.window = coef * RandNum(min=1,max=(2L**16-1)/coef)
+        pkt.payload.window = coef * RandNum(min=1,max=(2**16-1)/coef)
     elif pers[0][0] == 'T':
         pkt.payload.window = mtu * int(pers[0][1:])
     elif pers[0][0] == 'S':
