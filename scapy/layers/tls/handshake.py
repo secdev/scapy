@@ -102,22 +102,11 @@ class TLSHelloRequest(_TLSHandshake):
 ### ClientHello fields                                                      ###
 ###############################################################################
 
-class _GMTUnixTimeField(IntField):
+class _GMTUnixTimeField(UTCTimeField):
     """
-    Piggybacked from scapy6 UTCTimeField
     "The current time and date in standard UNIX 32-bit format (seconds since
      the midnight starting Jan 1, 1970, GMT, ignoring leap seconds)."
     """
-    epoch = (1970, 1, 1, 0, 0, 0, 3, 1, 0)
-
-    def i2repr(self, pkt, x):
-        x = self.i2h(pkt, x)
-        from time import gmtime, strftime, mktime
-        delta = mktime(gmtime(0)) - mktime(self.epoch)
-        x = x-delta
-        t = strftime("%a, %d %b %Y %H:%M:%S +0000", gmtime(x))
-        return "%s (%d)" % (t, x)
-
     def i2h(self, pkt, x):
         if x is not None:
             return x

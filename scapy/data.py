@@ -7,7 +7,7 @@
 Global variables and functions for handling external data sets.
 """
 
-import os,sys,re
+import os, sys, re, time
 from scapy.dadict import DADict
 from scapy.error import log_loading
 
@@ -51,7 +51,8 @@ IPV6_ADDR_6TO4        = 0x0100   # Added to have more specific info (should be 0
 IPV6_ADDR_UNSPECIFIED = 0x10000
 
 
-
+# On windows, epoch is 01/02/1970 at 00:00
+EPOCH = time.mktime((1970, 1, 2, 0, 0, 0, 3, 1, 0))-86400
 
 MTU = 0xffff # a.k.a give me all you have
 

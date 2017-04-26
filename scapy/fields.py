@@ -1314,3 +1314,21 @@ class IPPrefixField(_IPPrefixFieldBase):
 class IP6PrefixField(_IPPrefixFieldBase):
     def __init__(self, name, default, wordbytes= 1, length_from= None):
         _IPPrefixFieldBase.__init__(self, name, default, wordbytes, 16, lambda a: inet_pton(socket.AF_INET6, a), lambda n: inet_ntop(socket.AF_INET6, n), length_from)
+
+class UTCTimeField(IntField):
+    __slots__ = ["epoch", "delta", "strf"]
+    def __init__(self, name, default, epoch=None, strf="%a, %d %b %Y %H:%M:%S +0000"):
+        IntField.__init__(self, name, default)
+        if epoch is None:
+            mk_epoch = EPOCH
+        else:
+            mk_epoch = time.mktime(epoch)
+        self.epoch = mk_epoch
+        self.delta = mk_epoch - EPOCH
+        self.strf = strf
+    def i2repr(self, pkt, x):
+        if x is None:
+            x = 0
+        x = int(x) + self.delta
+        t = time.strftime(self.strf, time.gmtime(x))
+        return "%s (%d)" % (t, x)
