@@ -16,9 +16,6 @@ from scapy.fields import *
 from scapy.contrib.ppi import PPIGenericFldHdr,addPPIType
 from scapy.error import warning
 
-# On windows, epoch is 01/02/1970 at 00:00
-EPOCH = time.mktime((1970, 1, 2, 0, 0, 0, 0, 0, 0))-86400
-
 CURR_GEOTAG_VER = 2 #Major revision of specification
 
 PPI_GPS     = 30002
@@ -156,24 +153,6 @@ class NSCounter_Field(LEIntField):
         else:
             y=self.i2h(pkt,x)
         return "%1.9f"%(y)
-
-class UTCTimeField(IntField):
-    __slots__ = ["epoch", "delta", "strf"]
-    def __init__(self, name, default, epoch=None, strf="%a, %d %b %Y %H:%M:%S +0000"):
-        IntField.__init__(self, name, default)
-        if epoch is None:
-            mk_epoch = EPOCH
-        else:
-            mk_epoch = time.mktime(epoch)
-        self.epoch = mk_epoch
-        self.delta = mk_epoch - EPOCH
-        self.strf = strf
-    def i2repr(self, pkt, x):
-        if x is None:
-            x = 0
-        x = int(x) + self.delta
-        t = time.strftime(self.strf, time.gmtime(x))
-        return "%s (%d)" % (t, x)
 
 class LETimeField(UTCTimeField,LEIntField):
     __slots__ = ["epoch", "delta", "strf"]
