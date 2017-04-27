@@ -568,8 +568,8 @@ class RadiusAttr_Message_Authenticator(_RadiusAttrHexStringVal):
             return None
 
         packed_hdr = struct.pack("!B", radius_packet.code) +\
-            struct.pack("!B", radius_packet.identifier) +\
-            struct.pack("!H", radius_packet.length)
+            struct.pack("!B", radius_packet.id) +\
+            struct.pack("!H", radius_packet.len)
         packed_attrs = ''
         for index in range(0, len(radius_packet.attributes)):
             packed_attrs = packed_attrs + str(radius_packet.attributes[index])
