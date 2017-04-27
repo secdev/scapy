@@ -7,7 +7,7 @@
 Clone of Nmap's first generation OS fingerprinting.
 """
 
-import os
+import os, gzip
 
 from scapy.data import KnowledgeBase
 from scapy.config import conf
@@ -18,9 +18,10 @@ from scapy.sendrecv import sr
 
 
 if WINDOWS:
-    conf.nmap_base=os.environ["ProgramFiles"] + "\\nmap\\nmap-os-fingerprints"
+    from scapy.arch.windows import win_find_exe
+    conf.nmap_base=win_find_exe("nmap-os-db")
 else:
-    conf.nmap_base ="/usr/share/nmap/nmap-os-fingerprints"
+    conf.nmap_base ="/usr/share/nmap/nmap-os-db"
 
 
 ######################
@@ -33,16 +34,23 @@ class NmapKnowledgeBase(KnowledgeBase):
         try:
             f=open(self.filename)
         except IOError:
-            return
+            warning("Could not find nmap installation ! Loading scapy's nmap-os-db ...")
+            self.filename = os.path.dirname(os.path.realpath(__file__)) + os.path.sep + "nmap-os-db.txt"
+            f=gzip.open(self.filename)
 
         self.base = []
+        self.ignore = False
         name = None
+        sig={}
         try:
             for l in f:
                 l = l.strip()
-                if not l or l[0] == "#":
+                if not l or l[0] == "#" or l[:3] == "CPE":
                     continue
+                if l[:11] == "MatchPoints":
+                    self.ignore = True
                 if l[:12] == "Fingerprint ":
+                    self.ignore = False
                     if name is not None:
                         self.base.append((name,sig))
                     name = l[12:].strip()
@@ -51,25 +59,31 @@ class NmapKnowledgeBase(KnowledgeBase):
                     continue
                 elif l[:6] == "Class ":
                     continue
+                if self.ignore:
+                    continue
                 op = l.find("(")
                 cl = l.find(")")
                 if op < 0 or cl < 0:
+                    print(l)
                     warning("error reading nmap os fp base file")
                     continue
                 test = l[:op]
-                s = map(lambda x: x.split("="), l[op+1:cl].split("%"))
+                s = [x.split("=") for x in l[op+1:cl].split("%")]
                 si = {}
-                for n,v in s:
-                    si[n] = v
+                for n_v in s:
+                    if len(n_v) < 2:
+                        continue
+                    si[n_v[0]] = n_v[1]
                 sig[test]=si
             if name is not None:
                 self.base.append((name,sig))
         except:
             self.base = None
             warning("Can't read nmap database [%s](new nmap version ?)" % self.filename)
-        f.close()
+        finally:
+            f.close()
 
-nmap_kdb = NmapKnowledgeBase(conf.nmap_base)
+nmap_kdb = NmapKnowledgeBase(conf.nmap_base if conf.nmap_base else "unknown")
 
 def TCPflags2str(f):
     fl="FSRPAUEC"
@@ -141,7 +155,7 @@ def nmap_sig(target, oport=80, cport=81, ucport=1):
               IP(str(IP(dst=target)/UDP(sport=5008,dport=ucport)/(300*"i"))) ]
 
     ans, unans = sr(tests, timeout=2)
-    ans += map(lambda x: (x,None), unans)
+    ans += PacketList(res=[(x,None) for x in unans])
 
     for S,T in ans:
         if S.sport == 5008:
