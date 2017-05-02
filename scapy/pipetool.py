@@ -5,16 +5,20 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
-import os, thread, select
+import os, thread
 import subprocess
 import itertools
 import collections
 import time
 import Queue
-import scapy.utils
 
+from scapy.automaton import Message, select_objects
+from scapy.consts import WINDOWS
 from scapy.error import log_interactive, warning
 from scapy.config import conf
+from scapy.utils import get_temp_file, do_graph
+
+import scapy.arch
 
 class PipeEngine:
     pipes = {}
@@ -41,6 +45,7 @@ class PipeEngine:
         self._add_pipes(*pipes)
         self.thread_lock = thread.allocate_lock()
         self.command_lock = thread.allocate_lock()
+        self.__fd_queue = []
         self.__fdr,self.__fdw = os.pipe()
         self.threadid = None
     def __getattr__(self, attr):
@@ -54,6 +59,20 @@ class PipeEngine:
                     return p
                 return f
         raise AttributeError(attr)
+
+    def checkRecv(self):
+        return len(self.__fd_queue) > 0
+
+    def fileno(self):
+        return self.__fdr
+
+    def _read_cmd(self):
+        self.__fd_queue.pop()
+        return os.read(self.__fdr,1)
+
+    def _write_cmd(self, _cmd):
+        os.write(self.__fdw, _cmd)
+        self.__fd_queue.append("X")
 
     def add_one_pipe(self, pipe):
         self.active_pipes.add(pipe)
@@ -90,15 +109,15 @@ class PipeEngine:
             for p in self.active_pipes:
                 p.start()
             sources = self.active_sources
-            sources.add(self.__fdr)
+            sources.add(self)
             exhausted = set([])
             RUN=True
             STOP_IF_EXHAUSTED = False
             while RUN and (not STOP_IF_EXHAUSTED or len(sources) > 1):
-                fds,fdo,fde=select.select(sources,[],[])
+                fds = select_objects(sources, 2, customTypes=(AutoSource, PipeEngine))
                 for fd in fds:
-                    if fd is self.__fdr:
-                        cmd = os.read(self.__fdr,1)
+                    if fd is self:
+                        cmd = self._read_cmd()
                         if cmd == "X":
                             RUN=False
                             break
@@ -139,7 +158,7 @@ class PipeEngine:
         try:
             with self.command_lock:
                 if self.threadid is not None:
-                    os.write(self.__fdw, _cmd)
+                    self._write_cmd(_cmd)
                     while not self.thread_lock.acquire(0):
                         time.sleep(0.01) # interruptible wait for thread to terminate
                     self.thread_lock.release() # (not using .join() because it needs 'threading' module)
@@ -154,7 +173,7 @@ class PipeEngine:
             if self.threadid is not None:
                 for p in pipes:
                     p.start()
-                os.write(self.__fdw, "A")
+                self._write_cmd("A")
     
     def graph(self,**kargs):
         g=['digraph "pipe" {',"\tnode [shape=rectangle];",]
@@ -177,7 +196,7 @@ class PipeEngine:
                 g.append('\t"%i" -> "%i";' % (id(p), id(q)))
         g.append('}')
         graph = "\n".join(g)
-        scapy.utils.do_graph(graph, **kargs) 
+        do_graph(graph, **kargs) 
 
 
 class _ConnectorLogic(object):
@@ -286,7 +305,6 @@ class Source(Pipe):
         Pipe.__init__(self, name=name)
         self.is_exhausted = False
     def _read_message(self):
-        from scapy.automaton import Message
         return Message()
     def deliver(self):
         msg = self._read_message
@@ -335,6 +353,8 @@ class AutoSource(Source):
         self._queue = collections.deque()
     def fileno(self):
         return self.__fdr
+    def checkRecv(self):
+        return len(self._queue) > 0
     def _gen_data(self, msg):
         self._queue.append((msg,False))
         self._wake_up()
@@ -474,26 +494,51 @@ class TermSink(Sink):
     def start(self):
         if not self.opened:
             self.opened = True
-            self.__r,self.__w = os.pipe()
-            cmd = ["xterm"]
-            if self.name is not None:
-                cmd.extend(["-title",self.name])
-            if self.keepterm:
-                cmd.append("-hold")
-            cmd.extend(["-e", "cat 0<&%i" % self.__r])
-            self.__p = subprocess.Popen(cmd)
-            os.close(self.__r)
+            if WINDOWS:
+                self.__f = get_temp_file()
+                self.name = "Scapy" if self.name is None else self.name
+                # Start a powershell in a new window and print the PID
+                cmd = "$app = Start-Process PowerShell -ArgumentList '-command &{$host.ui.RawUI.WindowTitle=\\\"%s\\\";Get-Content \\\"%s\\\" -wait}' -passthru; echo $app.Id" % (self.name, self.__f.replace("\\", "\\\\"))
+                print([conf.prog.powershell, cmd])
+                _p = subprocess.Popen([conf.prog.powershell, cmd], stdout=subprocess.PIPE)
+                _output, _stderr = _p.communicate()
+                # This is the process PID
+                self.__p = int(_output)
+                print("PID:" + str(self.__p))
+            else:
+                self.__r,self.__w = os.pipe()
+                cmd = ["xterm"]
+                if self.name is not None:
+                    cmd.extend(["-title",self.name])
+                if self.keepterm:
+                    cmd.append("-hold")
+                cmd.extend(["-e", "cat 0<&%i" % self.__r])
+                self.__p = subprocess.Popen(cmd, shell=True, executable="/bin/bash")
+                os.close(self.__r)
     def stop(self):
         if not self.keepterm:
             self.opened = False
-            os.close(self.__w)
-            self.__p.kill()
-            self.__p.wait()
+            if not WINDOWS:
+                os.close(self.__w)
+                self.__p.kill()
+                self.__p.wait()
+            else:
+                # Recipe to kill process with PID
+                # http://code.activestate.com/recipes/347462-terminating-a-subprocess-on-windows/
+                import ctypes
+                PROCESS_TERMINATE = 1
+                handle = ctypes.windll.kernel32.OpenProcess(PROCESS_TERMINATE, False, self.__p)
+                ctypes.windll.kernel32.TerminateProcess(handle, -1)
+                ctypes.windll.kernel32.CloseHandle(handle)
     def _print(self, s):
         if self.newlines:
             s+="\n"
-        os.write(self.__w, s)
-            
+        if WINDOWS:
+            self.__w = open(self.__f, "a")
+            self.__w.write(s)
+            self.__w.close()
+        else:
+            os.write(self.__w, s)
     def push(self, msg):
         self._print(str(msg))
     def high_push(self, msg):
@@ -581,7 +626,6 @@ def _testmain():
     p.graph(type="png",target="> /tmp/pipe.png")
 
     p.start()
-    print p.threadid
     time.sleep(5)
     p.stop()
 
