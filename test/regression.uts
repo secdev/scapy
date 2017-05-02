@@ -207,6 +207,8 @@ except OSError:
     pass
 
 = Test temporary file creation
+~ appveyor_only
+
 tmpfile = get_temp_file(autoext=".ut")
 if WINDOWS:
     assert("scapy" in tmpfile and tmpfile.startswith('C:\\Users\\appveyor\\AppData\\Local\\Temp'))
