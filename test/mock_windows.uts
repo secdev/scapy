@@ -67,7 +67,7 @@ ifIndex DestinationPrefix                          NextHop
     # Mocked in6_getifaddr() output
     mock_dev_from_index.side_effect = dev_from_index_custom
     # Random
-    mock_utils6cset.side_effect = lambda w,x,y,z: ["::1"] if w=="::" else ["fdbb:d995:ddd8:51fc::"]
+    mock_utils6cset.side_effect = lambda x,y,z: ["::1"] if x=="::" else ["fdbb:d995:ddd8:51fc::"]
     # Test the function
     routes = _read_routes6_post2008()
     for r in routes:

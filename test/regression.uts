@@ -7788,14 +7788,27 @@ in6_isaddrllallservers("ff02::2") == True
 
 = in6_getscope()
 
-in6_getscope("2001:db8::2807") == IPV6_ADDR_GLOBAL
-in6_getscope("fec0::2807") == IPV6_ADDR_SITELOCAL
-in6_getscope("fe80::2807") == IPV6_ADDR_LINKLOCAL
-in6_getscope("ff02::2807") == IPV6_ADDR_LINKLOCAL
-in6_getscope("ff0e::2807") == IPV6_ADDR_GLOBAL
-in6_getscope("ff05::2807") == IPV6_ADDR_SITELOCAL
-in6_getscope("ff01::2807") == IPV6_ADDR_LOOPBACK
-in6_getscope("::1") == IPV6_ADDR_LOOPBACK
+assert in6_getscope("2001:db8::2807") == IPV6_ADDR_GLOBAL
+assert in6_getscope("fec0::2807") == IPV6_ADDR_SITELOCAL
+assert in6_getscope("fe80::2807") == IPV6_ADDR_LINKLOCAL
+assert in6_getscope("ff02::2807") == IPV6_ADDR_LINKLOCAL
+assert in6_getscope("ff0e::2807") == IPV6_ADDR_GLOBAL
+assert in6_getscope("ff05::2807") == IPV6_ADDR_SITELOCAL
+assert in6_getscope("ff01::2807") == IPV6_ADDR_LOOPBACK
+assert in6_getscope("::1") == IPV6_ADDR_LOOPBACK
+
+= construct_source_candidate_set()
+
+dev_addresses = [('fe80::', IPV6_ADDR_LINKLOCAL, "linklocal"),('fec0::', IPV6_ADDR_SITELOCAL, "sitelocal"),('ff0e::', IPV6_ADDR_GLOBAL, "global")]
+
+assert construct_source_candidate_set("2001:db8::2807", 0, dev_addresses) == ["ff0e::"]
+assert construct_source_candidate_set("fec0::2807", 0, dev_addresses) == ["fec0::"]
+assert construct_source_candidate_set("fe80::2807", 0, dev_addresses) == ["fe80::"]
+assert construct_source_candidate_set("ff02::2807", 0, dev_addresses) == ["fe80::"]
+assert construct_source_candidate_set("ff0e::2807", 0, dev_addresses) == ["ff0e::"]
+assert construct_source_candidate_set("ff05::2807", 0, dev_addresses) == ["fec0::"]
+assert construct_source_candidate_set("ff01::2807", 0, dev_addresses) == ["::1"]
+assert construct_source_candidate_set("::", 0, dev_addresses) == ["ff0e::"]
 
 = inet_pton()
 

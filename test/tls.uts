@@ -384,6 +384,13 @@ t1 and t2 and t3 and t4
 ### Ciphers                                                                 ###
 ###############################################################################
 
++ Test _CipherSuitesField
+
+a = _CipherSuitesField("test", None, {})
+assert a.i2repr(None, None) == "None"
+assert isinstance(a.randval(), RandBin)
+assert hash(a) == 8890308
+
 + Test RC4
 = Crypto - RC4 stream cipher, encryption/decryption checks from RFC 6229
 
