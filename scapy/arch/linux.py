@@ -359,7 +359,7 @@ else:
 
 
 def _flush_fd(fd):
-    if not isinstance(fd, int):
+    if hasattr(fd, 'fileno'):
         fd = fd.fileno()
     while True:
         r,w,e = select([fd],[],[],0)

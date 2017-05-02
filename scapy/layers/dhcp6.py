@@ -1408,7 +1408,7 @@ dhcp6d( dns="2001:500::1035", domain="localdomain, local", duid=None)
                 return False
             # provided server DUID must match ours
             duid = p[DHCP6OptServerId].duid
-            if (not isinstance(duid, type(self.duid))):
+            if not isinstance(duid, type(self.duid)):
                 return False
             if str(duid) != str(self.duid):
                 return False
@@ -1475,7 +1475,7 @@ dhcp6d( dns="2001:500::1035", domain="localdomain, local", duid=None)
         elif p.msgtype == 11: # Information-Request
             if DHCP6OptServerId in p:
                 duid = p[DHCP6OptServerId].duid
-                if (not isinstance(duid, type(self.duid))):
+                if not isinstance(duid, type(self.duid)):
                     return False
                 if str(duid) != str(self.duid):
                     return False

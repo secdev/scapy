@@ -103,7 +103,7 @@ del(val)
 class ISAKMPTransformSetField(StrLenField):
     islist=1
     def type2num(self, type_val_tuple):
-        (typ,val) = type_val_tuple
+        typ, val = type_val_tuple
         type_val,enc_dict,tlv = ISAKMPTransformTypes.get(typ, (typ,{},0))
         val = enc_dict.get(val, val)
         s = ""

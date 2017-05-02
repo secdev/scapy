@@ -256,7 +256,7 @@ class BERcodec_Object:
 
     @classmethod
     def enc(cls, s):
-        if isinstance(s, str):
+        if isinstance(s, basestring):
             return BERcodec_STRING.enc(s)
         else:
             return BERcodec_INTEGER.enc(int(s))
