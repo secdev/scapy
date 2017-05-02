@@ -1,0 +1,32 @@
+% Regression tests for Scapy Nmap module
+
+~ nmap
+
+############
+############
++ Basic Nmap OS fingerprints tests
+
+= Module loading
+load_module('nmap')
+
+= Fetch database
+import urllib
+open('nmap-os-fingerprints', 'w').write(urllib.urlopen('https://raw.githubusercontent.com/nmap/nmap/9efe1892/nmap-os-fingerprints').read())
+conf.nmap_base = 'nmap-os-fingerprints'
+
+= Database loading
+assert len(nmap_kdb.get_base()) > 100
+
+= fingerprint test: www.secdev.org
+~ netaccess
+score, fprint = nmap_fp('www.secdev.org')
+print score, fprint
+assert score > 0.5
+assert fprint
+
+= fingerprint test: gateway
+~ netaccess
+score, fprint = nmap_fp(conf.route.route('0.0.0.0')[2])
+print score, fprint
+assert score > 0.5
+assert fprint
