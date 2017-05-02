@@ -609,26 +609,3 @@ class DownDrain(Drain):
         pass
     def high_push(self, msg):
         self._send(msg)
-        
-
-def _testmain():
-    s = PeriodicSource("hello", 1, name="src")
-    d1 = Drain(name="d1")
-    c = ConsoleSink(name="c")
-    tf = TransformDrain(lambda x:"Got %r" % x)
-    t = TermSink(name="t", keepterm=False)
-
-    s > d1 > c
-    d1 > tf > t
-
-    p = PipeEngine(s)
-
-    p.graph(type="png",target="> /tmp/pipe.png")
-
-    p.start()
-    time.sleep(5)
-    p.stop()
-
-
-if __name__ == "__main__":
-    _testmain()
