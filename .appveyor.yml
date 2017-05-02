@@ -28,7 +28,7 @@ test_script:
   - 'del test\regression.uts'
 
   # Secondary and contrib unit tests
-  - 'del test\bpf.uts' # Don't bother with BPF regression tests
+  - 'del test\bpf.uts test\linux.uts' # Don't bother with OS dependent regression tests
   - "%PYTHON%\\python -m coverage run --parallel-mode bin\\UTscapy -c test\\configs\\windows.utsc || exit /b 42"
   
   # TLS unit tests

@@ -1,0 +1,55 @@
+% Regression tests for Linux only
+
+# More informations at http://www.secdev.org/projects/UTscapy/
+
+
+############
+############
+
++ Linux only test
+
+= TCP client automaton
+~ automaton netaccess linux needs_root
+* This test retries on failure because it often fails
+
+import os
+import time
+import signal
+
+def handler(signum, stack_frame):
+    raise Exception("Timer expired !")
+
+tmp = signal.signal(signal.SIGALRM, handler)
+
+SECDEV_IP4 = "203.178.141.194"
+IPTABLE_RULE = "iptables -%c INPUT -s %s -p tcp --sport 80 -j DROP"
+
+# Drop packets from SECDEV_IP4
+assert(os.system(IPTABLE_RULE % ('A', SECDEV_IP4)) == 0)
+
+success = False
+for i in xrange(10):
+    tmp = signal.alarm(5)
+    try:
+        r, w = os.pipe()
+        t = TCP_client(SECDEV_IP4, 80, external_fd={ "tcp": (r,w) })
+        tmp = os.write(w, "HEAD / HTTP/1.0\r\n\r\n")
+        t.runbg()
+        time.sleep(0.5)
+        response = os.read(r, 4096)
+        tmp = signal.alarm(0)  # cancel the alarm
+        t.stop()
+        os.close(r)
+        os.close(w)
+        if response.startswith("HTTP/1.1 200 OK"):
+            success = True
+            break
+        else:
+            time.sleep(0.5)
+    except Exception as e:
+        print e
+
+# Remove the iptables rule
+assert(os.system(IPTABLE_RULE % ('D', SECDEV_IP4)) == 0)
+
+assert(success)
