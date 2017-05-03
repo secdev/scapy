@@ -480,7 +480,7 @@ srloop(pkts, [prn], [inter], [count], ...) --> None"""
     return __sr_loop(srp, pkts, *args, **kargs)
 
 
-def sndrcvflood(pks, pkt, prn=lambda s_r:s_r[1].summary(), chainCC=0, store=1, unique=0):
+def sndrcvflood(pks, pkt, prn=lambda s_r:s_r[1].summary(), chainCC=0, store=1, unique=0, timeout=None):
     if not isinstance(pkt, Gen):
         pkt = SetGen(pkt)
     tobesent = [p for p in pkt]
@@ -504,8 +504,15 @@ def sndrcvflood(pks, pkt, prn=lambda s_r:s_r[1].summary(), chainCC=0, store=1, u
 
     ssock = rsock = pks.fileno()
 
+    if timeout is not None:
+        stoptime = time.time()+timeout
+
     try:
         while True:
+            if timeout is not None:
+                remain = stoptime-time.time()
+                if remain <= 0:
+                    break
             if conf.use_bpf:
                 from scapy.arch.bpf.supersocket import bpf_select
                 readyr = bpf_select([rsock])
