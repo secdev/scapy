@@ -489,7 +489,7 @@ class PacketListField(PacketField):
             lst.append(p)
         return remain+ret,lst
     def addfield(self, pkt, s, val):
-        return s+"".join(map(str, val))
+        return s + "".join(str(v) for v in val)
 
 
 class StrFixedLenField(StrField):
@@ -539,7 +539,7 @@ class NetBIOSNameField(StrFixedLenField):
             x = ""
         x += " "*(l)
         x = x[:l]
-        x = "".join(map(lambda x: chr(0x41+(ord(x)>>4))+chr(0x41+(ord(x)&0xf)), x))
+        x = "".join(chr(0x41 + ord(b)>>4) + chr(0x41 + ord(b)&0xf) for b in x)
         x = " "+x
         return x
     def m2i(self, pkt, x):
@@ -621,7 +621,7 @@ class FieldListField(Field):
         if type(x) is not list:
             return [self.field.any2i(pkt, x)]
         else:
-            return map(lambda e, pkt=pkt: self.field.any2i(pkt, e), x)
+            return [self.field.any2i(pkt, e) for e in x]
     def i2repr(self, pkt, x):
         res = []
         for v in x:
@@ -863,13 +863,13 @@ class _EnumField(Field):
 
     def any2i(self, pkt, x):
         if type(x) is list:
-            return map(lambda z,pkt=pkt:self.any2i_one(pkt,z), x)
+            return [self.any2i_one(pkt, z) for z in x]
         else:
             return self.any2i_one(pkt,x)
 
     def i2repr(self, pkt, x):
         if type(x) is list:
-            return map(lambda z,pkt=pkt:self.i2repr_one(pkt,z), x)
+            return [self.i2repr_one(pkt, z) for z in x]
         else:
             return self.i2repr_one(pkt,x)
 

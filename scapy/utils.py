@@ -137,7 +137,7 @@ def chexdump(x, dump=False):
     :returns: a String only if dump=True
     """
     x = str(x)
-    s = str(", ".join(map(lambda x: "%#04x"%ord(x), x)))
+    s = str(", ".join("%#04x" % ord(x) for x in x))
     if dump:
         return s
     else:
@@ -147,14 +147,14 @@ def chexdump(x, dump=False):
 def hexstr(x, onlyasc=0, onlyhex=0):
     s = []
     if not onlyasc:
-        s.append(" ".join(map(lambda x:"%02x"%ord(x), x)))
+        s.append(" ".join("%02x" % ord(b) for b in x))
     if not onlyhex:
         s.append(sane(x)) 
     return "  ".join(s)
 
 def repr_hex(s):
     """ Convert provided bitstring to a simple string of hex digits """
-    return "".join(map(lambda x: "%02x" % ord(x),s))
+    return "".join("%02x" % ord(x) for x in s)
 
 @conf.commands.register
 def hexdiff(x,y):
@@ -339,7 +339,7 @@ def fletcher16_checkbytes(binbuf, offset):
 
 
 def mac2str(mac):
-    return "".join(map(lambda x: chr(int(x,16)), mac.split(":")))
+    return "".join(chr(int(x, 16)) for x in mac.split(':'))
 
 def str2mac(s):
     return ("%02x:"*6)[:-1] % tuple(map(ord, s)) 
@@ -348,15 +348,13 @@ def randstring(l):
     """
     Returns a random string of length l (l >= 0)
     """
-    tmp = map(lambda x: struct.pack("B", random.randrange(0, 256, 1)), [""]*l)
-    return "".join(tmp)
+    return b"".join(struct.pack('B', random.randint(0, 255)) for _ in xrange(l))
 
 def zerofree_randstring(l):
     """
     Returns a random string of length l (l >= 0) without zero in it.
     """
-    tmp = map(lambda x: struct.pack("B", random.randrange(1, 256, 1)), [""]*l)
-    return "".join(tmp)
+    return b"".join(struct.pack('B', random.randint(1, 255)) for _ in xrange(l))
 
 def strxor(s1, s2):
     """
@@ -1317,7 +1315,7 @@ def __make_table(yfmtfunc, fmtfunc, endline, list, fxyz, sortx=None, sorty=None,
     vyf = {}
     l = 0
     for e in list:
-        xx,yy,zz = map(str, fxyz(e))
+        xx, yy, zz = [str(s) for s in fxyz(e)]
         l = max(len(yy),l)
         vx[xx] = max(vx.get(xx,0), len(xx), len(zz))
         vy[yy] = None
@@ -1348,7 +1346,7 @@ def __make_table(yfmtfunc, fmtfunc, endline, list, fxyz, sortx=None, sorty=None,
 
 
     if seplinefunc:
-        sepline = seplinefunc(l, map(lambda x:vx[x],vxk))
+        sepline = seplinefunc(l, [vx[x] for x in vxk])
         print sepline
 
     fmt = yfmtfunc(l)
@@ -1372,7 +1370,7 @@ def make_table(*args, **kargs):
     
 def make_lined_table(*args, **kargs):
     __make_table(lambda l:"%%-%is |" % l, lambda l:"%%-%is |" % l, "",
-                 seplinefunc=lambda a,x:"+".join(map(lambda y:"-"*(y+2), [a-1]+x+[-2])),
+                 seplinefunc=lambda a,x:"+".join('-'*(y+2) for y in [a-1]+x+[-2]),
                  *args, **kargs)
 
 def make_tex_table(*args, **kargs):

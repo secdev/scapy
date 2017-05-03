@@ -103,8 +103,7 @@ if conf.use_winpcapy:
             if a.contents.addr.contents.sa_family == socket.AF_INET:
               ap = a.contents.addr
               val = cast(ap, POINTER(sockaddr_in))
-              #ret = bytes(val.contents.sin_addr[:4])
-              ret = "".join([chr(x) for x in val.contents.sin_addr[:4]])
+              ret = "".join(chr(x) for x in val.contents.sin_addr[:4])
             a = a.contents.next
           break
         p = p.contents.next
@@ -151,8 +150,7 @@ if conf.use_winpcapy:
           if not c > 0:
               return
           ts = self.header.contents.ts.tv_sec
-          pkt = "".join([ chr(i) for i in self.pkt_data[:self.header.contents.len] ])
-          #pkt = bytes(self.pkt_data[:self.header.contents.len])
+          pkt = "".join(chr(i) for i in self.pkt_data[:self.header.contents.len])
           return ts, pkt
       def datalink(self):
           return pcap_datalink(self.pcap)

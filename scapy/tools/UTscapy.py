@@ -751,7 +751,7 @@ def main(argv):
                     try:
                         NUM.append(int(v))
                     except ValueError:
-                        v1, v2 = map(int, v.split("-", 1))
+                        v1, v2 = [int(e) for e in v.split('-', 1)]
                         NUM.extend(xrange(v1, v2 + 1))
             elif opt == "-m":
                 MODULES.append(optarg)

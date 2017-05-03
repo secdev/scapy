@@ -1004,7 +1004,7 @@ def _packetlist_timeskew_graph(self, ip, **kargs):
     """Tries to graph the timeskew between the timestamps and real time for a given ip"""
 
     # Filter TCP segments which source address is 'ip'
-    res = map(lambda x: self._elt2pkt(x), self.res)
+    res = [self._elt2pkt(x) for x in self.res]
     b = filter(lambda x:x.haslayer(IP) and x.getlayer(IP).src == ip and x.haslayer(TCP), res)
 
     # Build a list of tuples (creation_time, replied_timestamp)
@@ -1034,7 +1034,7 @@ def _packetlist_timeskew_graph(self, ip, **kargs):
 
         return X, Y
 
-    data = map(_wrap_data, c)
+    data = [_wrap_data(e) for e in c]
 
     # Mimic the default gnuplot output
     if kargs == {}:
@@ -1642,10 +1642,10 @@ def IPID_count(lst, funcID=lambda x:x[1].id, funcpres=lambda x:x[1].summary()):
 lst:      a list of packets
 funcID:   a function that returns IP id values
 funcpres: a function used to summarize packets"""
-    idlst = map(funcID, lst)
+    idlst = [funcID(e) for e in lst]
     idlst.sort()
-    classes = [idlst[0]]+map(lambda x:x[1],filter(lambda (x,y): abs(x-y)>50, map(lambda x,y: (x,y),idlst[:-1], idlst[1:])))
-    lst = map(lambda x:(funcID(x), funcpres(x)), lst)
+    classes = [idlst[0]] + [x[1] for x in zip(idlst[:-1], idlst[1:]) if abs(x[0] - x[1]) > 50]
+    lst = [(funcID(x), funcpres(x)) for x in lst]
     lst.sort()
     print "Probably %i classes:" % len(classes), classes
     for id,pr in lst:
