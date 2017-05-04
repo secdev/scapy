@@ -107,6 +107,9 @@ def getmacbyip6(ip6, chainCC=0):
     (chainCC parameter value ends up being passed to sending function
      used to perform the resolution, if needed)
     """
+    
+    if isinstance(ip6,Net6):
+        ip6 = iter(ip6).next()
 
     if in6_ismaddr(ip6): # Multicast
         mac = in6_getnsmac(inet_pton(socket.AF_INET6, ip6))

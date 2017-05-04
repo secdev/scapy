@@ -3136,6 +3136,21 @@ ICMPv6MLQuery in p and p[IPv6].dst == "ff02::1"
 
 ############
 ############
++ Ether tests with IPv6
+
+= Ether IPv6 checking for dst
+~ netaccess
+
+# No more routing test after this line
+if WINDOWS:
+    route_add_loopback()
+
+p = Ether()/IPv6(dst="www.google.com")/TCP()
+assert p.dst != p[IPv6].dst
+p.show()
+
+############
+############
 + TracerouteResult6
 
 = get_trace()
@@ -4437,8 +4452,6 @@ not a < b and a > b
 + Mobile Prefix Solicitation/Advertisement
 
 = ICMPv6MPSol - build (default values)
-if WINDOWS:
-    route_add_loopback()
 
 s = b'`\x00\x00\x00\x00\x08:@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x92\x00m\xbb\x00\x00\x00\x00'
 str(IPv6()/ICMPv6MPSol()) == s
@@ -7922,6 +7935,14 @@ len([ip for ip in n3]) == 5
 
 (n3 in n2) == True
 
+= Net using web address
+
+ip = IP(dst="www.google.fr")
+n1 = ip.dst
+assert isinstance(n1, Net)
+assert n1.ip_regex.match(str(n1))
+ip.show()
+
 = OID
 
 oid = OID("1.2.3.4.5.6-8")
@@ -7932,6 +7953,13 @@ len([ o for o in oid ]) == 3
 n1 = Net6("2001:db8::/127")
 len([ip for ip in n1]) == 2
 
+= Net6 using web address
+
+ip = IPv6(dst="www.google.fr")
+n1 = ip.dst
+assert isinstance(n1, Net6)
+assert n1.ip_regex.match(str(n1))
+ip.show()
 
 ############
 ############
