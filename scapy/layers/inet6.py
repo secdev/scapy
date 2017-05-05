@@ -153,13 +153,13 @@ def getmacbyip6(ip6, chainCC=0):
 class Net6(Gen): # syntax ex. fec0::/126
     """Generate a list of IPv6s from a network address or a name"""
     name = "ipv6"
-    ipaddress = re.compile(r"^([a-fA-F0-9:]+)(/[1]?[0-3]?[0-9])?$")
+    ip_regex = re.compile(r"^([a-fA-F0-9:]+)(/[1]?[0-3]?[0-9])?$")
 
     def __init__(self, net):
         self.repr = net
 
         tmp = net.split('/')+["128"]
-        if not self.ipaddress.match(net):
+        if not self.ip_regex.match(net):
             tmp[0]=socket.getaddrinfo(tmp[0], None, socket.AF_INET6)[0][-1][0]
 
         netmask = int(tmp[1])
