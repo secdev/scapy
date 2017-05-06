@@ -1797,6 +1797,14 @@ b=IPv6(src="2047::deca", dst="2048::cafe")/ICMPv6EchoReply(id=0x6666, seq=0x7777
 a=IPv6(src="2048::cafe", dst="2047::deca")/ICMPv6EchoRequest(id=0x6666, seq=0x7777, data="somedata")
 (a > b) == True
 
+= ICMPv6EchoRequest and ICMPv6EchoReply - live answers() use Net6
+~ netaccess
+
+a = IPv6(dst="www.google.fr")/ICMPv6EchoRequest()
+b = IPv6(src="www.google.fr", dst=a.src)/ICMPv6EchoReply()
+assert b.answers(a)
+assert (a > b)
+
 
 ########### ICMPv6MRD* Classes ######################################
 
