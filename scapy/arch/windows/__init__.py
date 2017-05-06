@@ -293,7 +293,7 @@ def get_windows_if_list():
         # Name                      InterfaceDescription                    ifIndex Status       MacAddress             LinkSpeed
         # ----                      --------------------                    ------- ------       ----------             ---------
         # Ethernet                  Killer E2200 Gigabit Ethernet Contro...      13 Up           D0-50-99-56-DD-F9         1 Gbps
-        query = exec_query(['Get-NetAdapter -Physical'],
+        query = exec_query(['Get-NetAdapter'],
                            ['InterfaceDescription', 'InterfaceIndex', 'Name',
                             'InterfaceGuid', 'MacAddress']) # It is normal that it is in this order
     else:
@@ -647,42 +647,13 @@ def in6_getifaddr():
     """
     Returns all IPv6 addresses found on the computer
     """
-    if is_new_release():
-        ret = []
-        ps = sp.Popen([conf.prog.powershell, 'Get-NetRoute', '-AddressFamily IPV6', '|', 'select ifIndex, DestinationPrefix'], stdout = sp.PIPE, universal_newlines = True)
-        stdout, stdin = ps.communicate()
-        netstat_line = '\s+'.join(['(\d+)', ''.join(['([A-z|0-9|:]+)', '(\/\d+)'])])
-        pattern = re.compile(netstat_line)
-        for l in stdout.split('\n'):
-            match = re.search(pattern,l)
-            if match:
-                try:
-                    if_index = match.group(1)
-                    iface = dev_from_index(if_index)
-                except:
-                    continue
-                scope = scapy.utils6.in6_getscope(match.group(2))
-                ret.append((match.group(2), scope, iface)) # (addr,scope,iface)
-                continue
-        return ret
-    else:
-        ret = []
-        # Get-WmiObject Win32_NetworkAdapterConfiguration | select InterfaceIndex, IpAddress
-        for line in exec_query(['Get-WmiObject', 'Win32_NetworkAdapterConfiguration'], ['InterfaceIndex', 'IPAddress']):
-            try:
-                iface = dev_from_index(line[0])
-            except:
-                continue
-            _l_addresses = line[1]
-            _inline = []
-            if _l_addresses:
-                _inline = _l_addresses[1:-1].split(",")
-                for _address in _inline:
-                    _a = _address.strip()
-                    if "." not in _a:
-                        scope = scapy.utils6.in6_getscope(_a)
-                        ret.append((_a, scope, iface)) # (addr,scope,iface)
-        return ret
+    ifaddrs = []
+    for ifaddr in in6_getifaddr_raw():
+        try:
+            ifaddrs.append((ifaddr[0], ifaddr[1], dev_from_pcapname(ifaddr[2])))
+        except ValueError:
+            pass
+    return ifaddrs
 
 def _append_route6(routes, dpref, dp, nh, iface, lifaddr):
     cset = [] # candidate set (possible source addresses)
