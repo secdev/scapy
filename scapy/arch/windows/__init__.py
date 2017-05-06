@@ -13,6 +13,7 @@ import subprocess as sp
 from glob import glob
 import tempfile
 
+import scapy
 from scapy.config import conf, ConfClass
 from scapy.error import Scapy_Exception, log_loading, log_runtime, warning
 from scapy.utils import atol, itom, inet_aton, inet_ntoa, PcapReader
@@ -459,7 +460,6 @@ class NetworkInterfaceDict(UserDict):
                 scapy.consts.LOOPBACK_INTERFACE = self.dev_from_name(
                     scapy.consts.LOOPBACK_NAME,
                 )
-            except:
                 pass
 
     def dev_from_name(self, name):
@@ -814,7 +814,7 @@ def route_add_loopback(routes=None, ipv6=False, iflist=None):
         if not conf.route.routes:
             return
     data = {}
-    data['name'] = LOOPBACK_NAME
+    data['name'] = scapy.consts.LOOPBACK_NAME
     data['description'] = "Loopback"
     data['win_index'] = -1
     data['guid'] = "{0XX00000-X000-0X0X-X00X-00XXXX000XXX}"
@@ -827,11 +827,11 @@ def route_add_loopback(routes=None, ipv6=False, iflist=None):
     # Remove all LOOPBACK_NAME routes
     for route in list(conf.route.routes):
         iface = route[3]
-        if iface.name == LOOPBACK_NAME:
+        if iface.name == scapy.consts.LOOPBACK_NAME:
             conf.route.routes.remove(route)
     # Remove LOOPBACK_NAME interface
     for devname, iface in IFACES.items():
-        if iface.name == LOOPBACK_NAME:
+        if iface.name == scapy.consts.LOOPBACK_NAME:
             IFACES.pop(devname)
     # Inject interface
     IFACES[data['guid']] = adapter
