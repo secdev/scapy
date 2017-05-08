@@ -19,3 +19,49 @@ p.graph(type="png",target="> /tmp/pipe.png")
 p.start()
 time.sleep(3)
 p.stop()
+
+= Test add_pipe
+
+s = AutoSource()
+p = PipeEngine(s)
+p.add(Pipe())
+assert len(p.active_pipes) == 2
+
+x = p.spawn_Pipe()
+assert len(p.active_pipes) == 3
+assert isinstance(x, Pipe)
+
+= Test Operators
+
+s = AutoSource()
+p = PipeEngine(s)
+assert p == p
+assert not p < p
+assert not p > p
+
+a = AutoSource()
+b = AutoSource()
+a >> b
+assert len(a.high_sinks) == 1
+assert len(a.high_sources) == 0
+assert len(b.high_sinks) == 0
+assert len(b.high_sources) == 1
+a
+b
+
+a = AutoSource()
+b = AutoSource()
+a << b
+assert len(a.high_sinks) == 0
+assert len(a.high_sources) == 1
+assert len(b.high_sinks) == 1
+assert len(b.high_sources) == 0
+a
+b
+
+= Test doc
+
+s = AutoSource()
+p = PipeEngine(s)
+p.list_pipes()
+p.list_pipes_detailed()
