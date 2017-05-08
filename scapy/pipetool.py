@@ -5,12 +5,13 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
-import os, thread
+import os
 import subprocess
 import itertools
 import collections
 import time
 import Queue
+from threading import Lock, Thread
 
 from scapy.automaton import Message, select_objects
 from scapy.consts import WINDOWS
@@ -43,8 +44,8 @@ class PipeEngine:
         self.active_drains = set()
         self.active_sinks = set()
         self._add_pipes(*pipes)
-        self.thread_lock = thread.allocate_lock()
-        self.command_lock = thread.allocate_lock()
+        self.thread_lock = Lock()
+        self.command_lock = Lock()
         self.__fd_queue = []
         self.__fdr,self.__fdw = os.pipe()
         self.threadid = None
@@ -149,7 +150,9 @@ class PipeEngine:
 
     def start(self):
         if self.thread_lock.acquire(0):
-            self.threadid = thread.start_new_thread(self.run,())
+            _t = Thread(target=self.run)
+            _t.start()
+            self.threadid = _t.ident
         else:
             warning("Pipe engine already running")
     def wait_and_stop(self):
@@ -383,7 +386,7 @@ class ThreadGenSource(AutoSource):
         pass
     def start(self):
         self.RUN = True
-        thread.start_new_thread(self.generate,())
+        Thread(target=self.generate).start()
     def stop(self):
         self.RUN = False
 
