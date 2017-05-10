@@ -11,15 +11,15 @@ from scapy.contrib.mqtt import *
 
 + MQTT protocol test
 
-= MQTT_PUBLISH, packet instanciation
-p = MQTT()/MQTT_PUBLISH(topic='test1',value='test2')
+= MQTTPublish, packet instanciation
+p = MQTT()/MQTTPublish(topic='test1',value='test2')
 assert(p.type == 3)
 assert(p.topic == 'test1')
 assert(p.value == 'test2')
 assert(p.len == None)
 assert(p.length == None)
 
-= Fixed header and MQTT_PUBLISH, packet dissection
+= Fixed header and MQTTPublish, packet dissection
 s = b'0\n\x00\x04testtest'
 publish = MQTT(s)
 assert(publish.type == 3)
@@ -27,18 +27,18 @@ assert(publish.QOS == 0)
 assert(publish.DUP == 0)
 assert(publish.RETAIN == 0)
 assert(publish.len == 10)
-assert(publish[MQTT_PUBLISH].length == 4)
-assert(publish[MQTT_PUBLISH].topic == 'test')
-assert(publish[MQTT_PUBLISH].value == 'test')
+assert(publish[MQTTPublish].length == 4)
+assert(publish[MQTTPublish].topic == 'test')
+assert(publish[MQTTPublish].value == 'test')
 
 
-= MQTT_CONNECT, packet instanciation
-c = MQTT()/MQTT_CONNECT(clientIdlen=5, clientId='newid')
+= MQTTConnect, packet instanciation
+c = MQTT()/MQTTConnect(clientIdlen=5, clientId='newid')
 assert(c.type == 1)
 assert(c.clientId == 'newid')
 assert(c.clientIdlen == 5)
 
-= MQTT_CONNECT, packet dissection
+= MQTTConnect, packet dissection
 s = b'\x10\x1f\x00\x06MQIsdp\x03\x02\x00<\x00\x11mosqpub/1440-kali'
 connect = MQTT(s)
 assert(connect.length == 6)
@@ -56,28 +56,28 @@ assert(connect.clientIdlen == 17)
 assert(connect.clientId == 'mosqpub/1440-kali')
 
 
-=MQTT_CONNACK, packet instanciation
-ck = MQTT()/MQTT_CONNACK(sessPresentFlag=1,retcode=0)
+=MQTTConnack, packet instanciation
+ck = MQTT()/MQTTConnack(sessPresentFlag=1,retcode=0)
 assert(ck.type == 2)
 assert(ck.sessPresentFlag == 1)
 assert(ck.retcode == 0)
 
-= MQTT_CONNACK, packet dissection
+= MQTTConnack, packet dissection
 s = b' \x02\x00\x00'
 connack = MQTT(s)
 assert(connack.sessPresentFlag == 0)
 assert(connack.retcode == 0)
 
 
-= MQTT_SUBSCRIBE, packet instanciation
-sb = MQTT()/MQTT_SUBSCRIBE(msgid=1,topic='newtopic',QOS=0,length=0)
+= MQTTSubscribe, packet instanciation
+sb = MQTT()/MQTTSubscribe(msgid=1,topic='newtopic',QOS=0,length=0)
 assert(sb.type == 8)
 assert(sb.msgid == 1)
 assert(sb.topic == 'newtopic')
 assert(sb.length == 0)
-assert(sb[MQTT_SUBSCRIBE].QOS == 0)
+assert(sb[MQTTSubscribe].QOS == 0)
 
-= MQTT_SUBSCRIBE, packet dissection
+= MQTTSubscribe, packet dissection
 s = b'\x82\t\x00\x01\x00\x04test\x00'
 subscribe = MQTT(s)
 assert(subscribe.msgid == 1)
@@ -86,25 +86,25 @@ assert(subscribe.topic == 'test')
 assert(subscribe.QOS == 1)
 
 
-= MQTT_SUBACK, packet instanciation
-sk = MQTT()/MQTT_SUBACK(msgid=1, retcode=0)
+= MQTTSuback, packet instanciation
+sk = MQTT()/MQTTSuback(msgid=1, retcode=0)
 assert(sk.type == 9)
 assert(sk.msgid == 1)
 assert(sk.retcode == 0)
 
-= MQTT_SUBACK, packet dissection
+= MQTTSuback, packet dissection
 s = b'\x90\x03\x00\x01\x00'
 suback = MQTT(s)
 assert(suback.msgid == 1)
 assert(suback.retcode == 0)
 
 
-= MQTT_PUBREC, packet instanciation
-pc = MQTT()/MQTT_PUBREC(msgid=1)
+= MQTTPubrec, packet instanciation
+pc = MQTT()/MQTTPubrec(msgid=1)
 assert(pc.type == 5)
 assert(pc.msgid == 1)
 
-= MQTT_PUBREC packet dissection
+= MQTTPubrec packet dissection
 s = b'P\x02\x00\x01'
 pubrec = MQTT(s)
 assert(pubrec.msgid == 1)
