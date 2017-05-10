@@ -1,7 +1,7 @@
-''' This file is part of Scapy
- See http://www.secdev.org/projects/scapy for more informations
- Copyright (C) Santiago Hernandez Ramos <shramos@protonmail.com>
- This program is published under GPLv2 license '''
+## This file is part of Scapy
+## See http://www.secdev.org/projects/scapy for more informations
+## Copyright (C) Santiago Hernandez Ramos <shramos@protonmail.com>
+## This program is published under GPLv2 license
 
 
 from scapy.packet import Packet, bind_layers
@@ -13,7 +13,7 @@ from scapy.error import Scapy_Exception
 
 # CUSTOM FIELDS
 
-# source: http://stackoverflow.com/questions/43711208/scapy-adding-a-new-field-with-a-dynamic-length?noredirect=1&lq=1
+# source: http://stackoverflow.com/a/43717630
 class VariableFieldLenField(FieldLenField):
     def addfield(self, pkt, s, val):
         val = self.i2m(pkt, val)
@@ -67,7 +67,7 @@ QOS_level = {0: 'At most once delivery',
              2: 'Exactly once delivery'}
 
 
-# source: http://stackoverflow.com/questions/43721828/scapy-referencing-multiple-fields-from-a-fieldlenfield/43722441#43722441
+# source: http://stackoverflow.com/a/43722441
 class MQTT(Packet):
     name = "MQTT fixed header"
     fields_desc = [
