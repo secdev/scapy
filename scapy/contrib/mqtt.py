@@ -1,12 +1,12 @@
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Santiago Hernandez Ramos <shramos@protonmail.com>
-## This program is published under GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Santiago Hernandez Ramos <shramos@protonmail.com>
+# This program is published under GPLv2 license
 
 
 from scapy.packet import Packet, bind_layers
-from scapy.fields import FieldLenField, BitEnumField, StrLenField, ShortField, \
-    ConditionalField, ByteEnumField, ByteField, StrNullField
+from scapy.fields import FieldLenField, BitEnumField, StrLenField, \
+    ShortField, ConditionalField, ByteEnumField, ByteField, StrNullField
 from scapy.layers.inet import TCP
 from scapy.error import Scapy_Exception
 
@@ -46,23 +46,23 @@ class VariableFieldLenField(FieldLenField):
 
 # LAYERS
 
-control_packet_types = {1: 'CONNECT',
-                        2: 'CONNACK',
-                        3: 'PUBLISH',
-                        4: 'PUBACK',
-                        5: 'PUBREC',
-                        6: 'PUBREL',
-                        7: 'PUBCOMP',
-                        8: 'SUBSCRIBE',
-                        9: 'SUBACK',
-                        10: 'UNSUBSCRIBE',
-                        11: 'UNSUBACK',
-                        12: 'PINGREQ',
-                        13: 'PINGRESP',
-                        14: 'DISCONNECT'}
+CONTROL_PACKET_TYPE = {1: 'CONNECT',
+                       2: 'CONNACK',
+                       3: 'PUBLISH',
+                       4: 'PUBACK',
+                       5: 'PUBREC',
+                       6: 'PUBREL',
+                       7: 'PUBCOMP',
+                       8: 'SUBSCRIBE',
+                       9: 'SUBACK',
+                       10: 'UNSUBSCRIBE',
+                       11: 'UNSUBACK',
+                       12: 'PINGREQ',
+                       13: 'PINGRESP',
+                       14: 'DISCONNECT'}
 
 
-QOS_level = {0: 'At most once delivery',
+QOS_LEVEL = {0: 'At most once delivery',
              1: 'At least once delivery',
              2: 'Exactly once delivery'}
 
@@ -71,20 +71,21 @@ QOS_level = {0: 'At most once delivery',
 class MQTT(Packet):
     name = "MQTT fixed header"
     fields_desc = [
-        BitEnumField("type", 1, 4, control_packet_types),
+        BitEnumField("type", 1, 4, CONTROL_PACKET_TYPE),
         BitEnumField("DUP", 0, 1, {0: 'Disabled',
                                    1: 'Enabled'}),
-        BitEnumField("QOS", 0, 2, QOS_level),
+        BitEnumField("QOS", 0, 2, QOS_LEVEL),
         BitEnumField("RETAIN", 0, 1, {0: 'Disabled',
                                       1: 'Enabled'}),
-        # Since the size of the len field depends on the next layer, we need to "cheat" with the length_of parameter
-        # and use adjust parameter to calculate the value.
+        # Since the size of the len field depends on the next layer, we need
+        # to "cheat" with the length_of parameter and use adjust parameter to
+        # calculate the value.
         VariableFieldLenField("len", None, length_of="len",
                               adjust=lambda pkt, x: len(pkt.payload),),
     ]
 
 
-class MQTT_CONNECT(Packet):
+class MQTTConnect(Packet):
     name = "MQTT connect"
     fields_desc = [
         FieldLenField("length", None, length_of="protoname"),
@@ -97,7 +98,7 @@ class MQTT_CONNECT(Packet):
                                             1: 'Enabled'}),
         BitEnumField("willretainflag", 0, 1, {0: 'Disabled',
                                               1: 'Enabled'}),
-        BitEnumField("willQOSflag", 0, 2, QOS_level),
+        BitEnumField("willQOSflag", 0, 2, QOS_LEVEL),
         BitEnumField("willflag", 0, 1, {0: 'Disabled',
                                         1: 'Enabled'}),
         BitEnumField("cleansess", 0, 1, {0: 'Disabled',
@@ -132,7 +133,7 @@ class MQTT_CONNECT(Packet):
     ]
 
 
-return_code = {0: 'Connection Accepted',
+RETURN_CODE = {0: 'Connection Accepted',
                1: 'Unacceptable protocol version',
                2: 'Identifier rejected',
                3: 'Server unavailable',
@@ -140,16 +141,16 @@ return_code = {0: 'Connection Accepted',
                5: 'Not authorized'}
 
 
-class MQTT_CONNACK(Packet):
+class MQTTConnack(Packet):
     name = "MQTT connack"
     fields_desc = [
         ByteField("sessPresentFlag", 0),
-        ByteEnumField("retcode", 0, return_code),
+        ByteEnumField("retcode", 0, RETURN_CODE),
         # this package has not payload
     ]
 
 
-class MQTT_PUBLISH(Packet):
+class MQTTPublish(Packet):
     name = "MQTT publish"
     fields_desc = [
         FieldLenField("length", None, length_of="topic"),
@@ -159,64 +160,65 @@ class MQTT_PUBLISH(Packet):
                          lambda pkt: (pkt.underlayer.QOS == 1
                                       or pkt.underlayer.QOS == 2)),
         StrLenField("value", "",
-                    length_from=lambda pkt: (pkt.underlayer.len - pkt.length - 2)),
+                    length_from=lambda pkt: (pkt.underlayer.len -
+                                             pkt.length - 2)),
     ]
 
 
-class MQTT_PUBACK(Packet):
+class MQTTPuback(Packet):
     name = "MQTT puback"
     fields_desc = [
         ShortField("msgid", None),
         ]
 
 
-class MQTT_PUBREC(Packet):
+class MQTTPubrec(Packet):
     name = "MQTT pubrec"
     fields_desc = [
         ShortField("msgid", None),
         ]
 
 
-class MQTT_PUBREL(Packet):
+class MQTTPubrel(Packet):
     name = "MQTT pubrel"
     fields_desc = [
         ShortField("msgid", None),
         ]
 
 
-class MQTT_PUBCOMP(Packet):
+class MQTTPubcomp(Packet):
     name = "MQTT pubcomp"
     fields_desc = [
         ShortField("msgid", None),
         ]
 
 
-class MQTT_SUBSCRIBE(Packet):
+class MQTTSubscribe(Packet):
     name = "MQTT subscribe"
     fields_desc = [
         ShortField("msgid", None),
         FieldLenField("length", None, length_of="topic"),
         StrLenField("topic", "",
                     length_from=lambda pkt: pkt.length),
-        ByteEnumField("QOS", 0, QOS_level),
+        ByteEnumField("QOS", 0, QOS_LEVEL),
         ]
 
 
-allowed_return_codes = {0: 'Success',
-                        1: 'Success',
-                        2: 'Success',
-                        128: 'Failure'}
+ALLOWED_RETURN_CODE = {0: 'Success',
+                       1: 'Success',
+                       2: 'Success',
+                       128: 'Failure'}
 
 
-class MQTT_SUBACK(Packet):
+class MQTTSuback(Packet):
     name = "MQTT suback"
     fields_desc = [
         ShortField("msgid", None),
-        ByteEnumField("retcode", None, allowed_return_codes)
+        ByteEnumField("retcode", None, ALLOWED_RETURN_CODE)
         ]
 
 
-class MQTT_UNSUBSCRIBE(Packet):
+class MQTTUnsubscribe(Packet):
     name = "MQTT unsubscribe"
     fields_desc = [
         ShortField("msgid", None),
@@ -224,7 +226,7 @@ class MQTT_UNSUBSCRIBE(Packet):
         ]
 
 
-class MQTT_UNSUBACK(Packet):
+class MQTTUnsuback(Packet):
     name = "MQTT unsuback"
     fields_desc = [
         ShortField("msgid", None)
@@ -235,26 +237,25 @@ class MQTT_UNSUBACK(Packet):
 
 bind_layers(TCP, MQTT, sport=1883)
 bind_layers(TCP, MQTT, dport=1883)
-bind_layers(MQTT, MQTT_CONNECT, type=1)
-bind_layers(MQTT, MQTT_CONNACK, type=2)
-bind_layers(MQTT, MQTT_PUBLISH, type=3)
-bind_layers(MQTT, MQTT_PUBACK, type=4)
-bind_layers(MQTT, MQTT_PUBREC, type=5)
-bind_layers(MQTT, MQTT_PUBREL, type=6)
-bind_layers(MQTT, MQTT_PUBCOMP, type=7)
-bind_layers(MQTT, MQTT_SUBSCRIBE, type=8)
-bind_layers(MQTT, MQTT_SUBACK, type=9)
-bind_layers(MQTT, MQTT_UNSUBSCRIBE, type=10)
-bind_layers(MQTT, MQTT_UNSUBACK, type=11)
-bind_layers(MQTT_PUBLISH, MQTT)
-bind_layers(MQTT_CONNECT, MQTT)
-bind_layers(MQTT_CONNACK, MQTT)
-bind_layers(MQTT_PUBLISH, MQTT)
-bind_layers(MQTT_PUBACK, MQTT)
-bind_layers(MQTT_PUBREC, MQTT)
-bind_layers(MQTT_PUBREL, MQTT)
-bind_layers(MQTT_PUBCOMP, MQTT)
-bind_layers(MQTT_SUBSCRIBE, MQTT)
-bind_layers(MQTT_SUBACK, MQTT)
-bind_layers(MQTT_UNSUBSCRIBE, MQTT)
-bind_layers(MQTT_UNSUBACK, MQTT)
+bind_layers(MQTT, MQTTConnect, type=1)
+bind_layers(MQTT, MQTTConnack, type=2)
+bind_layers(MQTT, MQTTPublish, type=3)
+bind_layers(MQTT, MQTTPuback, type=4)
+bind_layers(MQTT, MQTTPubrec, type=5)
+bind_layers(MQTT, MQTTPubrel, type=6)
+bind_layers(MQTT, MQTTPubcomp, type=7)
+bind_layers(MQTT, MQTTSubscribe, type=8)
+bind_layers(MQTT, MQTTSuback, type=9)
+bind_layers(MQTT, MQTTUnsubscribe, type=10)
+bind_layers(MQTT, MQTTUnsuback, type=11)
+bind_layers(MQTTConnect, MQTT)
+bind_layers(MQTTConnack, MQTT)
+bind_layers(MQTTPublish, MQTT)
+bind_layers(MQTTPuback, MQTT)
+bind_layers(MQTTPubrec, MQTT)
+bind_layers(MQTTPubrel, MQTT)
+bind_layers(MQTTPubcomp, MQTT)
+bind_layers(MQTTSubscribe, MQTT)
+bind_layers(MQTTSuback, MQTT)
+bind_layers(MQTTUnsubscribe, MQTT)
+bind_layers(MQTTUnsuback, MQTT)
