@@ -7,7 +7,7 @@
 IPv4 (Internet Protocol v4).
 """
 
-import os,time,struct,re,socket,new
+import time,struct,re,socket,new
 import subprocess
 from select import select
 from collections import defaultdict
