@@ -62,6 +62,8 @@ class PipeEngine:
         raise AttributeError(attr)
 
     def checkRecv(self):
+        """As select.select is not available, we check if there
+        is some data to read by using a list that stores pointers."""
         return len(self.__fd_queue) > 0
 
     def fileno(self):
@@ -493,46 +495,56 @@ class TermSink(Sink):
         self.opened = False
         if self.openearly:
             self.start()
-
-    def start(self):
+    def _start_windows(self):
         if not self.opened:
             self.opened = True
-            if WINDOWS:
-                self.__f = get_temp_file()
-                self.name = "Scapy" if self.name is None else self.name
-                # Start a powershell in a new window and print the PID
-                cmd = "$app = Start-Process PowerShell -ArgumentList '-command &{$host.ui.RawUI.WindowTitle=\\\"%s\\\";Get-Content \\\"%s\\\" -wait}' -passthru; echo $app.Id" % (self.name, self.__f.replace("\\", "\\\\"))
-                print([conf.prog.powershell, cmd])
-                _p = subprocess.Popen([conf.prog.powershell, cmd], stdout=subprocess.PIPE)
-                _output, _stderr = _p.communicate()
-                # This is the process PID
-                self.__p = int(_output)
-                print("PID:" + str(self.__p))
-            else:
-                self.__r,self.__w = os.pipe()
-                cmd = ["xterm"]
-                if self.name is not None:
-                    cmd.extend(["-title",self.name])
-                if self.keepterm:
-                    cmd.append("-hold")
-                cmd.extend(["-e", "cat 0<&%i" % self.__r])
-                self.__p = subprocess.Popen(cmd, shell=True, executable="/bin/bash")
-                os.close(self.__r)
-    def stop(self):
+            self.__f = get_temp_file()
+            self.name = "Scapy" if self.name is None else self.name
+            # Start a powershell in a new window and print the PID
+            cmd = "$app = Start-Process PowerShell -ArgumentList '-command &{$host.ui.RawUI.WindowTitle=\\\"%s\\\";Get-Content \\\"%s\\\" -wait}' -passthru; echo $app.Id" % (self.name, self.__f.replace("\\", "\\\\"))
+            _p = subprocess.Popen([conf.prog.powershell, cmd], stdout=subprocess.PIPE)
+            _output, _stderr = _p.communicate()
+            # This is the process PID
+            self.__p = int(_output)
+            print("PID:" + str(self.__p))
+    def _start_unix(self):
+        if not self.opened:
+            self.opened = True
+            self.__r,self.__w = os.pipe()
+            cmd = ["xterm"]
+            if self.name is not None:
+                cmd.extend(["-title",self.name])
+            if self.keepterm:
+                cmd.append("-hold")
+            cmd.extend(["-e", "cat 0<&%i" % self.__r])
+            self.__p = subprocess.Popen(cmd, shell=True, executable="/bin/bash")
+            os.close(self.__r)
+    def start(self):
+        if WINDOWS:
+            return self._start_windows()
+        else:
+            return self._start_unix()
+    def _stop_windows(self):
         if not self.keepterm:
             self.opened = False
-            if not WINDOWS:
-                os.close(self.__w)
-                self.__p.kill()
-                self.__p.wait()
-            else:
-                # Recipe to kill process with PID
-                # http://code.activestate.com/recipes/347462-terminating-a-subprocess-on-windows/
-                import ctypes
-                PROCESS_TERMINATE = 1
-                handle = ctypes.windll.kernel32.OpenProcess(PROCESS_TERMINATE, False, self.__p)
-                ctypes.windll.kernel32.TerminateProcess(handle, -1)
-                ctypes.windll.kernel32.CloseHandle(handle)
+            # Recipe to kill process with PID
+            # http://code.activestate.com/recipes/347462-terminating-a-subprocess-on-windows/
+            import ctypes
+            PROCESS_TERMINATE = 1
+            handle = ctypes.windll.kernel32.OpenProcess(PROCESS_TERMINATE, False, self.__p)
+            ctypes.windll.kernel32.TerminateProcess(handle, -1)
+            ctypes.windll.kernel32.CloseHandle(handle)
+    def _stop_unix(self):
+        if not self.keepterm:
+            self.opened = False
+            os.close(self.__w)
+            self.__p.kill()
+            self.__p.wait()
+    def stop(self):
+        if WINDOWS:
+            return self._stop_windows()
+        else:
+            return self._stop_unix()
     def _print(self, s):
         if self.newlines:
             s+="\n"
