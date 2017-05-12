@@ -4,7 +4,7 @@
 from scapy.all import bind_layers
 from scapy.fields import BitField, ByteField, ByteEnumField
 from scapy.fields import ShortField, X3BytesField, XIntField
-from scapy.fields import ConditionalField, PacketListField
+from scapy.fields import ConditionalField, PacketListField, BitFieldLenField
 from scapy.layers.inet import Ether, IP
 from scapy.layers.inet6 import IPv6
 from scapy.layers.vxlan import VXLAN
@@ -47,7 +47,9 @@ class NSH(Packet):
         BitField('OAM', 0, 1),
         BitField('Critical', 0, 1),
         BitField('Reserved', 0, 6),
-        BitField('Len', 0, 6),
+        BitFieldLenField('Len', None, 6,
+                         count_of='ContextHeaders',
+                         adjust=lambda pkt, x: 6 if pkt.MDType == 1 else x + 2),
         ByteEnumField('MDType', 1, {1: 'Fixed Length',
                                     2: 'Variable Length'}),
         ByteEnumField('NextProto', 3, {1: 'IPv4',
