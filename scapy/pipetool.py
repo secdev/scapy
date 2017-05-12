@@ -128,7 +128,7 @@ class PipeEngine:
                             STOP_IF_EXHAUSTED = True
                         elif cmd == "A":
                             sources = self.active_sources-exhausted
-                            sources.add(self.__fdr)
+                            sources.add(self)
                         else:
                             warning("Unknown internal pipe engine command: %r. Ignoring." % cmd)
                     elif fd in sources:

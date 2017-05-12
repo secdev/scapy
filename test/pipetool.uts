@@ -31,6 +31,45 @@ x = p.spawn_Pipe()
 assert len(p.active_pipes) == 3
 assert isinstance(x, Pipe)
 
+= Test exhausted source
+
+s = AutoSource()
+s._gen_data("hello")
+s.is_exhausted = True
+d1 = Drain(name="d1")
+c = ConsoleSink(name="c")
+s > d1 > c
+
+p = PipeEngine(s)
+p.start()
+time.sleep(1)
+p.wait_and_stop()
+
+= Test add_pipe on running instance
+
+test_val = None
+
+class TestSink(Sink):
+    def push(self, msg):
+        global test_val
+        test_val = msg
+
+p = PipeEngine()
+p.start()
+
+s = AutoSource()
+s._gen_data("hello")
+s.is_exhausted = True
+
+d1 = Drain(name="d1")
+c = TestSink(name="c")
+s > d1 > c
+
+p.add(s)
+time.sleep(1)
+p.wait_and_stop()
+assert test_val == "hello"
+
 = Test Operators
 
 s = AutoSource()
@@ -58,6 +97,28 @@ assert len(b.high_sinks) == 1
 assert len(b.high_sources) == 0
 a
 b
+
+a = AutoSource()
+b = AutoSource()
+a == b
+assert len(a.sinks) == 1
+assert len(a.sources) == 1
+assert len(b.sinks) == 1
+assert len(b.sources) == 1
+
+a = AutoSource()
+b = AutoSource()
+a//b
+assert len(a.high_sinks) == 1
+assert len(a.high_sources) == 1
+assert len(b.high_sinks) == 1
+assert len(b.high_sources) == 1
+
+a = AutoSource()
+b = AutoSource()
+a^b
+assert len(b.trigger_sources) == 1
+assert len(a.trigger_sinks) == 1
 
 = Test doc
 

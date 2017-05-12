@@ -334,7 +334,7 @@ def select_objects(inputs, remain, customTypes=()):
     if WINDOWS:
         r = []
         def look_for_select():
-            for fd in inputs:
+            for fd in list(inputs):
                 if isinstance(fd, (ObjectPipe, Automaton._IO_fdwrapper) + customTypes):
                     if fd.checkRecv():
                         r.append(fd)
