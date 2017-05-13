@@ -99,22 +99,24 @@ def _vbs_exec_code(code, split_tag="@"):
             yield l
     os.unlink(tmpfile.name)
 
-def _vbs_get_iface_guid(devid):
+def _vbs_get_hardware_iface_guid(devid):
     try:
         devid = str(int(devid) + 1)
-        guid = _vbs_exec_code("""WScript.Echo CreateObject("WScript.Shell").RegRead("HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\NetworkCards\\%s\\ServiceName")
-""" % devid).__iter__().next()
+        guid = iter(_vbs_exec_code("""WScript.Echo CreateObject("WScript.Shell").RegRead("HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\NetworkCards\\%s\\ServiceName")
+""" % devid)).next()
         if guid.startswith('{') and guid.endswith('}\n'):
             return guid[:-1]
+        elif guid.startswith('{') and guid.endswith('}'):
+            return guid
     except StopIteration:
-        pass
+        return None
 
 # Some names differ between VBS and PS
 ## None: field will not be returned under VBS
 _VBS_WMI_FIELDS = {
     "Win32_NetworkAdapter": {
-        "InterfaceIndex": "Index",
         "InterfaceDescription": "Description",
+        "GUID": "DeviceID"
     }
 }
 
@@ -126,7 +128,7 @@ _VBS_WMI_REPLACE = {
 
 _VBS_WMI_OUTPUT = {
     "Win32_NetworkAdapter": {
-        "DeviceID": _vbs_get_iface_guid,
+        "DeviceID": _vbs_get_hardware_iface_guid,
     }
 }
 
@@ -315,7 +317,7 @@ def get_windows_if_list():
         # Name                      InterfaceDescription                    ifIndex Status       MacAddress             LinkSpeed
         # ----                      --------------------                    ------- ------       ----------             ---------
         # Ethernet                  Killer E2200 Gigabit Ethernet Contro...      13 Up           D0-50-99-56-DD-F9         1 Gbps
-        query = exec_query(['Get-NetAdapter'],
+        query = exec_query(['Get-NetAdapter -Physical'],
                            ['InterfaceDescription', 'InterfaceIndex', 'Name',
                             'InterfaceGuid', 'MacAddress']) # It is normal that it is in this order
     else:
