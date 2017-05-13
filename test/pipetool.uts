@@ -126,3 +126,94 @@ s = AutoSource()
 p = PipeEngine(s)
 p.list_pipes()
 p.list_pipes_detailed()
+
+= Test RawConsoleSink with CLIFeeder
+
+p = PipeEngine()
+p.start()
+
+s = CLIFeeder()
+s.send("hello")
+s.is_exhausted = True
+
+r, w = os.pipe()
+
+d1 = Drain(name="d1")
+c = RawConsoleSink(name="c")
+c._write_pipe = w
+s > d1 > c
+
+p.add(s)
+time.sleep(1)
+p.wait_and_stop()
+assert os.read(r, 20) == "hello\n"
+
+= Test QueueSink with CLIFeeder
+
+p = PipeEngine()
+p.start()
+
+s = CLIFeeder()
+s.send("hello")
+s.is_exhausted = True
+
+d1 = Drain(name="d1")
+c = QueueSink(name="c")
+s > d1 > c
+
+p.add(s)
+time.sleep(1)
+p.wait_and_stop()
+assert c.recv() == "hello"
+
+= Test UpDrain
+
+test_val = None
+
+class TestSink(Sink):
+    def high_push(self, msg):
+        global test_val
+        test_val = msg
+
+p = PipeEngine()
+p.start()
+
+s = CLIFeeder()
+s.send("hello")
+s.is_exhausted = True
+
+d1 = UpDrain(name="d1")
+c = TestSink(name="c")
+s > d1
+d1 >> c
+
+p.add(s)
+time.sleep(1)
+p.wait_and_stop()
+assert test_val == "hello"
+
+= Test DownDrain
+
+test_val = None
+
+class TestSink(Sink):
+    def push(self, msg):
+        global test_val
+        test_val = msg
+
+p = PipeEngine()
+p.start()
+
+s = CLIHighFeeder()
+s.send("hello")
+s.is_exhausted = True
+
+d1 = DownDrain(name="d1")
+c = TestSink(name="c")
+s >> d1
+d1 > c
+
+p.add(s)
+time.sleep(1)
+p.wait_and_stop()
+assert test_val == "hello"

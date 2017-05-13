@@ -316,6 +316,8 @@ class Source(Pipe):
         self._send(msg)
     def fileno(self):
         return None
+    def checkRecv(self):
+        return False
     def exhausted(self):
         return self.is_exhausted
     def start(self):
@@ -418,14 +420,15 @@ class RawConsoleSink(Sink):
     def __init__(self, name=None, newlines=True):
         Sink.__init__(self, name=name)
         self.newlines = newlines
+        self._write_pipe = 1
     def push(self, msg):
         if self.newlines:
             msg += "\n"
-        os.write(1, str(msg))
+        os.write(self._write_pipe, str(msg))
     def high_push(self, msg):
         if self.newlines:
             msg += "\n"
-        os.write(1, str(msg))
+        os.write(self._write_pipe, str(msg))
 
 class CLIFeeder(AutoSource):
     """Send messages from python command line
