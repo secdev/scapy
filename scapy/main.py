@@ -91,7 +91,7 @@ def list_contrib(name=None):
     elif "*" not in name and "?" not in name and not name.endswith(".py"):
         name += ".py"
     name = os.path.join(os.path.dirname(__file__), "contrib", name)
-    for f in glob.glob(name):
+    for f in sorted(glob.glob(name)):
         mod = os.path.basename(f)
         if mod.startswith("__"):
             continue
