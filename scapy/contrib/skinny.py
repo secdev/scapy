@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # scapy.contrib.description = Skinny Call Control Protocol (SCCP)
-# scapy.contrib.status = loads
+# scapy.contrib.status = untested
 
 
 #############################################################################
@@ -11,7 +11,8 @@
 ## Copyright (C) 2006    Nicolas Bareil      <nicolas.bareil@ eads.net>    ##
 ##                       EADS/CRC security team                            ##
 ##                                                                         ##
-## This program is free software; you can redistribute it and/or modify it ##
+## This file is part of Scapy                                              ##
+## Scapy is free software: you can redistribute it and/or modify           ##
 ## under the terms of the GNU General Public License version 2 as          ##
 ## published by the Free Software Foundation; version 2.                   ##
 ##                                                                         ##

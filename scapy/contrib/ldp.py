@@ -1,5 +1,5 @@
 # scapy.contrib.description = Label Distribution Protocol (LDP)
-# scapy.contrib.status = loads
+# scapy.contrib.status = untested
 
 # http://git.savannah.gnu.org/cgit/ldpscapy.git/snapshot/ldpscapy-5285b81d6e628043df2a83301b292f24a95f0ba1.tar.gz
 
