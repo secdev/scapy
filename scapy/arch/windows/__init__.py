@@ -461,6 +461,7 @@ class NetworkInterfaceDict(UserDict):
                     elif _confir in ["no", "n"]:
                         return False
                 return False
+            _error_msg = "No match between your pcap and windows network interfaces found. "
             if _detect[0] and not _detect[2] and ((hasattr(self, "restarted_adapter") and not self.restarted_adapter)
                                                  or not hasattr(self, "restarted_adapter")):
                 warning("Scapy has detected that your pcap service is not running !")
@@ -471,15 +472,11 @@ class NetworkInterfaceDict(UserDict):
                         log_loading.info("Pcap service started !")
                         self.load_from_powershell()
                         return
-                warning("Could not start the pcap service ! "
-                            "You probably won't be able to send packets. "
-                            "Deactivating unneeded interfaces and restarting Scapy might help. "
-                            "Check your winpcap and powershell installation, and access rights.")
-            else:
-                warning("No match between your pcap and windows network interfaces found. "
-                                    "You probably won't be able to send packets. "
-                                    "Deactivating unneeded interfaces and restarting Scapy might help. "
-                                    "Check your winpcap and powershell installation, and access rights.", True)
+                _error_msg = "Could not start the pcap service ! "
+            warning(_error_msg +
+                    "You probably won't be able to send packets. "
+                    "Deactivating unneeded interfaces and restarting Scapy might help. "
+                    "Check your winpcap and powershell installation, and access rights.", True)
         else:
             # Loading state: remove invalid interfaces
             self.remove_invalid_ifaces()
