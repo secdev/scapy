@@ -114,7 +114,7 @@ class BGPFieldIPv4(Field):
         #
         # Show IPv4 default prefix as "0/0"
         #
-        if self.af == socket.AF_INET and ip = "0.0.0.0":
+        if self.af == socket.AF_INET and ip == "0.0.0.0":
             ip = "0"
         return ip + "/" + str(mask)
 
