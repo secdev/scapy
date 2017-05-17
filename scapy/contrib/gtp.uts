@@ -146,12 +146,22 @@ ie.ietype == 127 and ie.Charging_id == 0xff1bc3f2
 h = "3333333333332222222222228100838408004588008500000000fd11840b0a2a00010a2a0002084b4a6c00717c8a32110061c1b9728f356a0000018008fe10af709e9011e3cb6a4b7fb60e1b28800006f1210a2a00038400218080210a0301000a03060ab0aa93802110030100108106ac14020a8306ac1402278500040a2a00018500040a2a000187000c0213621f7396486874f2ffff44ded108"
 gtp = Ether(h.decode('hex'))
 ie = gtp.IE_list[5]
-ie.ietype == 128 and ie.length == 6 and ie.PDPTypeOrganization == 1 and ie.PDPTypeNumber == 0x21 and ie.PDPAddress == '10.42.0.3'
+ie.ietype == 128 and ie.length == 6 and ie.PDPTypeOrganization == 1 and ie.PDPTypeNumber == 0x21 and ie.PDPAddress_IPv4 == '10.42.0.3'
 
-= IE_EndUserAddress(), basic instantiation
+= IE_EndUserAddress(), basic instantiation IPv4v6
 ie = IE_EndUserAddress(
-    length=6, PDPTypeOrganization=1, PDPTypeNumber=0x21, PDPAddress='10.42.0.3')
-ie.ietype == 128 and ie.length == 6 and ie.PDPTypeOrganization == 1 and ie.PDPTypeNumber == 0x21 and ie.PDPAddress == '10.42.0.3'
+    length=22, PDPTypeOrganization=1, PDPTypeNumber=0x8d, PDPAddress_IPv4='10.42.0.3', PDPAddress_IPv6 = '2001:db8:a0b:12f0::1')
+ie.ietype == 128 and ie.length == 22 and ie.PDPTypeOrganization == 1 and ie.PDPTypeNumber == 0x8d and ie.PDPAddress_IPv4 == '10.42.0.3' and ie.PDPAddress_IPv6 == '2001:db8:a0b:12f0::1'
+
+= IE_EndUserAddress(), basic instantiation IPv6
+ie = IE_EndUserAddress(
+    length=18, PDPTypeOrganization=1, PDPTypeNumber=0x57, PDPAddress_IPv6 = '2001:db8:a0b:12f0::1')
+ie.ietype == 128 and ie.length == 18 and ie.PDPTypeOrganization == 1 and ie.PDPTypeNumber == 0x57 and ie.PDPAddress_IPv6 == '2001:db8:a0b:12f0::1'
+
+= IE_EndUserAddress(), basic instantiation IPv4
+ie = IE_EndUserAddress(
+    length=6, PDPTypeOrganization=1, PDPTypeNumber=0x21, PDPAddress_IPv4 = '10.42.0.3')
+ie.ietype == 128 and ie.length == 6 and ie.PDPTypeOrganization == 1 and ie.PDPTypeNumber == 0x21 and ie.PDPAddress_IPv4 == '10.42.0.3'
 
 = IE_AccessPointName(), dissect
 h = "333333333333222222222222810083840800458800bc00000000fc1184c90a2a00010a2a00024acf084b00a87bbb3210009867fe972185e800000202081132547600000332f42004d27b0ffc1093b20c3f11940eb2bf14051a0400800002f1218300070661616161616184001480802110010000108106000000008306000000008500040a2a00018500040a2a00018600079111111111111187000f0213921f7396d3fe74f2ffff004a0094000120970001019800080132f42004d204d299000240009a000811111111111100001b1212951c5bbe"
