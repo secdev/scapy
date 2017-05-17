@@ -91,8 +91,8 @@ class BGPFieldIPv4(Field):
     IPv4 Field (CIDR)
     Using pton_ntop allows IPv4 and IPv6 to share code with marginal fixes
     """
-    alen = 4
-    af = socket.AF_INET
+    alen=4
+    af=socket.AF_INET
     def mask2iplen(self, mask):
         """Get the IP field mask length (in bytes)."""
         return (mask + 7) // 8
@@ -114,7 +114,7 @@ class BGPFieldIPv4(Field):
         #
         # Show IPv4 default prefix as "0/0"
         #
-        if self.af == socket.AF_INET and ip == "0.0.0.0":
+        if self.af == socket.AF_INET and ip = "0.0.0.0":
             ip = "0"
         return ip + "/" + str(mask)
 
@@ -149,8 +149,8 @@ class BGPFieldIPv4(Field):
 
 class BGPFieldIPv6(BGPFieldIPv4):
     """IPv6 Field (CIDR)"""
-    alen = 16
-    af = socket.AF_INET6
+    alen=16
+    af=socket.AF_INET6
 
 
 def has_extended_length(flags):
