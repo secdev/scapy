@@ -182,7 +182,7 @@ class BGPNLRI_IPv6(Packet):
 
 class TLVListField(PacketListField):
     __slots__ = ["count_from", "length_from", "slen_from"]
-    def __init__(self, name, default, cls, length_from=None, slen_from=None):
+    def __init__(self, name, default, cls, count_from = None, length_from=None, slen_from=None):
         """
         @param count_from(pkt): get the number of packets in the list from the
                packet (optional)
@@ -192,7 +192,7 @@ class TLVListField(PacketListField):
                from the byte stream (mandatory)
         """
         PacketListField.__init__(self, name, default, cls)
-        self.count_from = length_from
+        self.count_from = count_from
         self.length_from = length_from
         self.slen_from = slen_from
 
