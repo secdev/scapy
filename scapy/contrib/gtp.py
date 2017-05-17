@@ -328,7 +328,7 @@ class IE_ChargingId(IE_Base):
 
 class IE_EndUserAddress(IE_Base):
     # Supply protocol specific information of the external packet 
-    name = "End User Addresss"
+    name = "End User Address"
     fields_desc = [ ByteEnumField("ietype", 128, IEType),
                     #         data network accessed by the GGPRS subscribers.
                     #            - Request
@@ -342,8 +342,10 @@ class IE_EndUserAddress(IE_Base):
                     BitField("SPARE", 15, 4),
                     BitField("PDPTypeOrganization", 1, 4),
                     XByteField("PDPTypeNumber", None),
-                    ConditionalField(IPField("PDPAddress", RandIP()),
-                                     lambda pkt: pkt.length > 2)]
+                    ConditionalField(IPField("PDPAddress_IPv4", RandIP()),
+                                     lambda pkt: pkt.length == 6 or pkt.length == 22),
+                    ConditionalField(IP6Field("PDPAddress_IPv6", "::1"), lambda
+                                    pkt: pkt.length == 18 or pkt.length == 22)]
 
 
 class APNStrLenField(StrLenField):
