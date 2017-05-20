@@ -182,7 +182,7 @@ class BGPNLRI_IPv6(Packet):
 
 class TLVListField(PacketListField):
     __slots__ = ["count_from", "length_from", "slen_from"]
-    def __init__(self, name, default, cls, count_from = None, length_from=None, slen_from=None):
+    def __init__(self, name, default, cls, count_from=None, length_from=None, slen_from=None):
         """
         @param count_from(pkt): get the number of packets in the list from the
                packet (optional)
@@ -232,40 +232,6 @@ class TLVListField(PacketListField):
                 cnt = cnt - 1
                 if cnt == 0: break
         return remain + ret, lst
-
-class BGPNLRIPacketListField(PacketListField):
-    """
-    PacketListField handling NLRI fields.
-    """
-
-    def getfield(self, pkt, s):
-        lst = []
-        length = None
-        ret = ""
-
-        if self.length_from is not None:
-            length = self.length_from(pkt)
-
-        if length is not None:
-            remain, ret = s[:length], s[length:]
-        else:
-            index = s.find(_BGP_HEADER_MARKER)
-            if index != -1:
-                remain = s[:index]
-                ret = s[index:]
-            else:
-                remain = s
-
-        while remain:
-            mask_length_in_bits = struct.unpack("!B", remain[0])[0]
-            mask_length_in_bytes = (mask_length_in_bits + 7) // 8
-            current = remain[:mask_length_in_bytes + 1]
-            remain = remain[mask_length_in_bytes + 1:]
-            packet = self.m2i(pkt, current)
-            lst.append(packet)
-
-        return remain + ret, lst
-
 
 class _BGPInvalidDataException(Exception):
     """
@@ -1883,6 +1849,10 @@ class BGPPAMPReachNLRI(Packet):
 #
 # MP_UNREACH_NLRI
 #
+def _bgp_nlri_len(s):
+    """Return the length of the current NRLI"""
+    plen = struct.unpack_from("!B", s)[0]
+    return _bits_to_bytes_len(plen)+1
 
 class BGPPAMPUnreachNLRI_IPv6(Packet):
     """
@@ -1890,8 +1860,10 @@ class BGPPAMPUnreachNLRI_IPv6(Packet):
     """
 
     name = "MP_UNREACH_NLRI (IPv6 NLRI)"
-    fields_desc = [BGPNLRIPacketListField(
-        "withdrawn_routes", [], BGPNLRI_IPv6)]
+    fields_desc = [TLVListField(
+        "withdrawn_routes", [], BGPNLRI_IPv6,
+        slen_from=lambda s: _bgp_nlri_len(s)
+    )]
 
 
 class MPUnreachNLRIPacketField(PacketField):
@@ -2130,11 +2102,12 @@ class BGPUpdate(BGP):
             length_of="withdrawn_routes",
             fmt="!H"
         ),
-        BGPNLRIPacketListField(
+        TLVListField(
             "withdrawn_routes",
             [],
             BGPNLRI_IPv4,
-            length_from=lambda p: p.withdrawn_routes_len
+            length_from=lambda p: p.withdrawn_routes_len,
+            slen_from=lambda s: _bgp_nlri_len(s)
         ),
         FieldLenField(
             "path_attr_len",
@@ -2148,7 +2121,12 @@ class BGPUpdate(BGP):
             BGPPathAttr,
             length_from=lambda p: p.path_attr_len
         ),
-        BGPNLRIPacketListField("nlri", [], BGPNLRI_IPv4)
+        TLVListField(
+            "nlri",
+            [],
+            BGPNLRI_IPv4,
+            slen_from=lambda s: _bgp_nlri_len(s)
+        )
     ]
 
     def post_build(self, p, pay):
@@ -2531,7 +2509,7 @@ def _bgp_len_from_pkt(s):
     """
     plen = None
     if len(s) >= _BGP_HEADER_SIZE:
-        mark, plen = struct.unpack_from("!16sH",s)
+        mark, plen = struct.unpack_from("!16sH", s)
         if mark != _BGP_HEADER_MARKER:
             plen = None
     return plen
