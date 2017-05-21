@@ -13,7 +13,7 @@
 # along with Scapy. If not, see <http://www.gnu.org/licenses/>.
 
 # scapy.contrib.description = Cisco HDLC and SLARP
-# scapy.contrib.status = untested
+# scapy.contrib.status = loads
 
 # This layer is based on information from http://www.nethelp.no/net/cisco-hdlc.txt
 

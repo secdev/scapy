@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 # scapy.contrib.description = OSPF
-# scapy.contrib.status = untested
+# scapy.contrib.status = loads
 
 # This file is part of Scapy
 # Scapy is free software: you can redistribute it and/or modify

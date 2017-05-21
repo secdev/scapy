@@ -15,7 +15,7 @@
 # Author: Sylvain SARMEJEANNE
 
 # scapy.contrib.description = Ubberlogger dissectors
-# scapy.contrib.status = untested
+# scapy.contrib.status = loads
 
 from scapy.packet import *
 from scapy.fields import *

@@ -15,7 +15,7 @@
 # along with Scapy. If not, see <http://www.gnu.org/licenses/>.
 
 # scapy.contrib.description = DTP
-# scapy.contrib.status = untested
+# scapy.contrib.status = loads
 
 """
     DTP Scapy Extension

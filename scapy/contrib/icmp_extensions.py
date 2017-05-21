@@ -15,7 +15,7 @@
 # along with Scapy. If not, see <http://www.gnu.org/licenses/>.
 
 # scapy.contrib.description = ICMP Extensions
-# scapy.contrib.status = untested
+# scapy.contrib.status = loads
 
 import scapy
 from scapy.packet import Packet, bind_layers

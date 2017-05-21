@@ -15,7 +15,7 @@
 # along with Scapy. If not, see <http://www.gnu.org/licenses/>.
 
 # scapy.contrib.description = RIPng
-# scapy.contrib.status = untested
+# scapy.contrib.status = loads
 
 from scapy.packet import *
 from scapy.fields import *

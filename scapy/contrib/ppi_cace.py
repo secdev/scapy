@@ -15,7 +15,7 @@
 # author: <jellch@harris.com>
 
 # scapy.contrib.description = PPI CACE
-# scapy.contrib.status = untested
+# scapy.contrib.status = loads
 
 """
 CACE PPI types 

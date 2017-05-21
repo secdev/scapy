@@ -15,7 +15,7 @@
 # along with Scapy. If not, see <http://www.gnu.org/licenses/>.
 
 # scapy.contrib.description = PPI
-# scapy.contrib.status = untested
+# scapy.contrib.status = loads
 
     ####################################################################
     # This file holds the GSM UM interface implementation for Scapy    #

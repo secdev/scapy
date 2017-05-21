@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # scapy.contrib.description = Skinny Call Control Protocol (SCCP)
-# scapy.contrib.status = untested
+# scapy.contrib.status = loads
 
 
 #############################################################################

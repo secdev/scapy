@@ -15,7 +15,7 @@
 # along with Scapy. If not, see <http://www.gnu.org/licenses/>.
 
 # scapy.contrib.description = IGMP/IGMPv2
-# scapy.contrib.status = untested
+# scapy.contrib.status = loads
 
 
 #  TODO: scapy 2 has function getmacbyip, maybe it can replace igmpize

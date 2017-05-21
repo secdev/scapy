@@ -15,7 +15,7 @@
 # along with Scapy. If not, see <http://www.gnu.org/licenses/>.
 
 # scapy.contrib.description = IKEv2
-# scapy.contrib.status = untested
+# scapy.contrib.status = loads
 
 import logging
 import struct

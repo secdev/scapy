@@ -19,7 +19,7 @@
 
 # Partial support of RFC3971
 # scapy.contrib.description = SEND (ICMPv6)
-# scapy.contrib.status = untested
+# scapy.contrib.status = loads
 
 import socket
 

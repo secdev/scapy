@@ -18,7 +18,7 @@
 # Modeled after the scapy VXLAN contribution
 
 # scapy.contrib.description = SBPM
-# scapy.contrib.status = untested
+# scapy.contrib.status = loads
 
 """
  Example SPB Frame Creation
