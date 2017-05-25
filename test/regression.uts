@@ -8492,3 +8492,20 @@ class Test(Packet):
 pkt = Test(str(Test(Values=[0, 0, 0, 0, 1, 1, 1, 1])))
 assert(pkt.BitCount == 8)
 assert(pkt.ByteCount == 1)
+
+############
+############
++ MPLS tests
+
+= MPLS - build/dissection
+from scapy.contrib.mpls import MPLS
+p1 = MPLS()/IP()/UDP()
+assert(p1[MPLS].s == 1)
+p2 = MPLS()/MPLS()/IP()/UDP()
+assert(p2[MPLS].s == 0)
+
+p1[MPLS]
+p1[IP]
+p2[MPLS]
+p2[MPLS:1]
+p2[IP]

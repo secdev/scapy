@@ -41,3 +41,4 @@ class MPLS(Packet):
 
 bind_layers(Ether, MPLS, type=0x8847)
 bind_layers(GRE, MPLS, proto=0x8847)
+bind_layers(MPLS, MPLS, s=0)
