@@ -410,7 +410,7 @@ class IKEv2(IKEv2_class): # rfc4306
         StrFixedLenField("init_SPI","",8),
         StrFixedLenField("resp_SPI","",8),
         ByteEnumField("next_payload",0,IKEv2_payload_type),
-        XByteField("version",0x20), # IKEv2, right?
+        XByteField("version", 0x20),
         ByteEnumField("exch_type",0,IKEv2_exchange_type),
         FlagsField("flags",0, 8, ["res0","res1","res2","Initiator","Version","Response","res6","res7"]),
         IntField("id",0),
@@ -465,7 +465,7 @@ class IKEv2_payload_Proposal(IKEv2_class):
         FieldLenField("length",None,"trans","H", adjust=lambda pkt,x:x+8+pkt.SPIsize),
         ByteField("proposal",1),
         ByteEnumField("proto",1,{1:"IKEv2"}),
-        FieldLenField("SPIsize",None,"SPI","B"),
+        FieldLenField("SPIsize",0,"SPI","B"),
         ByteField("trans_nb",None),
         StrLenField("SPI","",length_from=lambda pkt:pkt.SPIsize),
         PacketLenField("trans",conf.raw_layer(),IKEv2_payload_Transform,length_from=lambda pkt:pkt.length-8-pkt.SPIsize),
@@ -682,12 +682,7 @@ split_layers(UDP, ISAKMP, dport=500)
 bind_layers( UDP,           IKEv2,        dport=500, sport=500) # TODO: distinguish IKEv1/IKEv2
 bind_layers( UDP,           IKEv2,        dport=4500, sport=4500)
 
-def ikev2scan(ip):
+def ikev2scan(ip, **kwargs):
+    """Send a IKEv2 SA to an IP and wait for answers."""
     return sr(IP(dst=ip)/UDP()/IKEv2(init_SPI=RandString(8),
-                                      exch_type=34)/IKEv2_payload_SA(prop=IKEv2_payload_Proposal()))
-
-# conf.debug_dissector = 1
-
-if __name__ == "__main__":
-    from scapy.main import interact
-    interact(mydict=globals(), mybanner="IKEv2 alpha-level protocol implementation")
+                                      exch_type=34)/IKEv2_payload_SA(prop=IKEv2_payload_Proposal()), **kwargs)
