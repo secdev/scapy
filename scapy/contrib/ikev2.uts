@@ -1,0 +1,27 @@
+% Ikev2 Tests
+* Tests for the Ikev2 layer
+
++ Basic Layer Tests
+
+= Ikev2 build
+
+a = IKEv2()
+assert str(a) == '\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00 \x00\x00\x00\x00\x00\x00\x00\x00\x00\x1c'
+
+= Ikev2 dissection
+
+a = IKEv2("\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00! \x00\x00\x00\x00\x00\x00\x00\x00\x000\x00\x00\x00\x14\x00\x00\x00\x10\x01\x01\x00\x00\x00\x00\x00\x08\x02\x00\x00\x03")
+assert a[IKEv2_payload_Transform].transform_type == 2
+assert a[IKEv2_payload_Transform].transform_id == 3
+assert a.next_payload == 33
+assert a[IKEv2_payload_SA].next_payload == 0
+assert a[IKEv2_payload_Proposal].next_payload == 0
+assert a[IKEv2_payload_Proposal].proposal == 1
+assert a[IKEv2_payload_Transform].next_payload == 0
+a[IKEv2_payload_Transform].show()
+
+
+= Build Ikev2 SA request packet
+
+a = IKEv2(init_SPI="MySPI",exch_type=34)/IKEv2_payload_SA(prop=IKEv2_payload_Proposal())
+assert str(a) == "MySPI\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00! \"\x00\x00\x00\x00\x00\x00\x00\x00(\x00\x00\x00\x0c\x00\x00\x00\x08\x01\x01\x00\x00"
