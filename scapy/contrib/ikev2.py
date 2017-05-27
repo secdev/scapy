@@ -435,16 +435,16 @@ class IKEv2(IKEv2_class): # rfc4306
 
 
 class IKEv2_Key_Length_Attribute(IntField):
-	# We only support the fixed-length Key Length attribute (the only one currently defined)
-	def __init__(self, name):
-		IntField.__init__(self, name, 0x800E0000)
+    # We only support the fixed-length Key Length attribute (the only one currently defined)
+    def __init__(self, name):
+        IntField.__init__(self, name, 0x800E0000)
 
-	def i2h(self, pkt, x):
-		return IntField.i2h(self, pkt, x & 0xFFFF)
-		
-	def h2i(self, pkt, x):
-		return IntField.h2i(self, pkt, x if x !=None else 0 | 0x800E0000)
-		
+    def i2h(self, pkt, x):
+        return IntField.i2h(self, pkt, x & 0xFFFF)
+
+    def h2i(self, pkt, x):
+        return IntField.h2i(self, pkt, x if x !=None else 0 | 0x800E0000)
+
 class IKEv2_payload_Transform(IKEv2_class):
     name = "IKE Transform"
     fields_desc = [
@@ -510,13 +510,13 @@ class TrafficSelector(IKEv2_class):
         ByteEnumField("TS_type",None,IKEv2TrafficSelectorTypes),
         ByteEnumField("IP_protocol_ID",None,IPProtocolIDs),
         FieldLenField("length",None,"load","H", adjust=lambda pkt,x:16 if pkt.TS_type==7 else 20 if pkt.TS_type==8 else 16 if pkt.TS_type==9 else x+4),
-	ConditionalField(ShortField("start_port",0),lambda x:x.TS_type in{7,8}),
+        ConditionalField(ShortField("start_port",0),lambda x:x.TS_type in{7,8}),
         ConditionalField(ShortField("end_port",65535),lambda x:x.TS_type in{7,8}),
         ConditionalField(IPField("starting_address_v4","192.168.0.1"),lambda x:x.TS_type==7),
-	ConditionalField(IP6Field("starting_address_v6","2001::"),lambda x:x.TS_type==8),
-	ConditionalField(IPField("ending_address_v4","192.168.0.255"),lambda x:x.TS_type==7),
-	ConditionalField(IP6Field("ending_address_v6","2001::"),lambda x:x.TS_type==8),
-	ConditionalField(ByteField("res",0),lambda x:x.TS_type==9),
+        ConditionalField(IP6Field("starting_address_v6","2001::"),lambda x:x.TS_type==8),
+        ConditionalField(IPField("ending_address_v4","192.168.0.255"),lambda x:x.TS_type==7),
+        ConditionalField(IP6Field("ending_address_v6","2001::"),lambda x:x.TS_type==8),
+        ConditionalField(ByteField("res",0),lambda x:x.TS_type==9),
         ConditionalField(X3BytesField("starting_address_FC",0),lambda x:x.TS_type==9),
         ConditionalField(ByteField("res2",0),lambda x:x.TS_type==9),
         ConditionalField(X3BytesField("ending_address_FC",0),lambda x:x.TS_type==9),
@@ -663,9 +663,9 @@ class IKEv2_payload_CERT(IKEv2_class):
         FieldLenField("length",None,"cert_data","H",adjust=lambda pkt,x: x+len(pkt.x509Cert)+len(pkt.x509CRL)+5),
         ByteEnumField("cert_type",0,IKEv2CertificateEncodings),
         ConditionalField(StrLenField("cert_data", "", length_from=lambda x:x.length-5),lambda x:x.cert_type not in {4,7}),
-	ConditionalField(PacketLenField("x509Cert", X509_Cert(''), X509_Cert, length_from=lambda x:x.length-5),lambda x:x.cert_type==4),
-	ConditionalField(PacketLenField("x509CRL", X509_CRL(''), X509_CRL, length_from=lambda x:x.length-5),lambda x:x.cert_type==7),
-	]
+        ConditionalField(PacketLenField("x509Cert", X509_Cert(''), X509_Cert, length_from=lambda x:x.length-5),lambda x:x.cert_type==4),
+        ConditionalField(PacketLenField("x509CRL", X509_CRL(''), X509_CRL, length_from=lambda x:x.length-5),lambda x:x.cert_type==7),
+        ]
 
 IKEv2_payload_type_overload = {}
 for i, payloadname in enumerate(IKEv2_payload_type):
