@@ -197,11 +197,7 @@ for i in ps_read_routes:
 
 assert _correct
 
-conf.prog.powershell = win_find_exe(
-            "powershell",
-            installsubdir="System32\\WindowsPowerShell\\v1.0",
-            env="SystemRoot"
-        )
+conf.prog._reload()
 
 = show_interfaces
 

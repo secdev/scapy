@@ -104,9 +104,8 @@ def _vbs_get_hardware_iface_guid(devid):
         devid = str(int(devid) + 1)
         guid = iter(_vbs_exec_code("""WScript.Echo CreateObject("WScript.Shell").RegRead("HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\NetworkCards\\%s\\ServiceName")
 """ % devid)).next()
-        if guid.startswith('{') and guid.endswith('}\n'):
-            return guid[:-1]
-        elif guid.startswith('{') and guid.endswith('}'):
+        guid = guid[:-1] if guid.endswith('}\n') else guid
+        if guid.startswith('{') and guid.endswith('}'):
             return guid
     except StopIteration:
         return None
@@ -116,6 +115,9 @@ def _vbs_get_hardware_iface_guid(devid):
 _VBS_WMI_FIELDS = {
     "Win32_NetworkAdapter": {
         "InterfaceDescription": "Description",
+        # Note: when using VBS, the GUID is not the same than with Powershell
+        # So we use get the device ID instead, then use _vbs_get_hardware_iface_guid
+        # To get its real GUID
         "GUID": "DeviceID"
     }
 }
@@ -241,14 +243,16 @@ def win_find_exe(filename, installsubdir=None, env="ProgramFiles"):
 
 
 class WinProgPath(ConfClass):
-    # This is a dict containing the name of the .exe and a keyword
-    # that must be in the path of the file
-    external_prog_list = {"AcroRd32" : "", "gsview32" : "", "dot" : "graph", "windump" : "", "tshark" : "",
-                          "tcpreplay" : "", "hexer" : "", "sox" : "", "wireshark" : ""}
-    os_access = False
     _default = "<System default>"
     def __init__(self):
-        _deep_lookup(self.external_prog_list)
+        # This is a dict containing the name of the .exe and a keyword
+        # that must be in the path of the file
+        external_prog_list = {"AcroRd32" : "", "gsview32" : "", "dot" : "graph", "windump" : "", "tshark" : "",
+                          "tcpreplay" : "", "hexer" : "", "sox" : "", "wireshark" : ""}
+        _deep_lookup(external_prog_list)
+        self._reload()
+
+    def _reload(self):
         # We try some magic to find the appropriate executables
         self.pdfreader = win_find_exe("AcroRd32") 
         self.psreader = win_find_exe("gsview32")
@@ -272,11 +276,11 @@ class WinProgPath(ConfClass):
         if self.wireshark:
             manu_path = load_manuf(os.path.sep.join(self.wireshark.split(os.path.sep)[:-1])+os.path.sep+"manuf")
             scapy.data.MANUFDB = conf.manufdb = MANUFDB = manu_path
-        if self.powershell or self.cscript:
-            self.os_access = True
+        
+        self.os_access = (self.powershell is not None) or (self.cscript is not None)
 
 conf.prog = WinProgPath()
-if not conf.prog.powershell and not conf.prog.cscript:
+if not conf.prog.os_access:
     warning("Scapy did not detect powershell and cscript ! Routes, interfaces and much more won't work !", True)
 
 if conf.prog.tcpdump and conf.use_npcap and conf.prog.os_access:
@@ -400,27 +404,27 @@ class NetworkInterface(object):
     def __repr__(self):
         return "<%s %s %s>" % (self.__class__.__name__, self.name, self.guid)
 
-def _pcap_service():
+def pcap_service_name():
     """Return the pcap adapter service's name"""
     return "npcap" if conf.use_npcap else "npf"
 
 def pcap_service_status():
     """Returns a tuple (name, description, started) of the windows pcap adapter"""
-    if not conf.prog.cscript:
+    if not conf.prog.powershell:
         return (None, None, None)
     for i in exec_query(['Get-Service', 'npcap'], ['Name', 'DisplayName', 'Status']):
         name = i[0]
         description = i[1]
         started = (not i[2].lower().strip() == 'stopped')
-        if name == _pcap_service():
+        if name == pcap_service_name():
             return (name, description, started)
     return (None, None, None)
 
-def _pcap_service_control(action, askadmin=True):
+def pcap_service_control(action, askadmin=True):
     """Util to run pcap control command"""
-    if not conf.prog.cscript:
+    if not conf.prog.powershell:
         return False
-    command = action + ' ' + _pcap_service()
+    command = action + ' ' + pcap_service_name()
     ps = sp.Popen([conf.prog.powershell, _encapsulate_admin(command) if askadmin else command],
                     stdout=sp.PIPE,
                     universal_newlines=True)
@@ -429,11 +433,11 @@ def _pcap_service_control(action, askadmin=True):
 
 def pcap_service_start(askadmin=True):
     """Starts the pcap adapter. Will ask for admin. Returns True if success"""
-    return _pcap_service_control('Start-Service', askadmin=askadmin)
+    return pcap_service_control('Start-Service', askadmin=askadmin)
 
 def pcap_service_stop(askadmin=True):
     """Stops the pcap adapter. Will ask for admin. Returns True if success"""
-    return _pcap_service_control('Stop-Service', askadmin=askadmin) 
+    return pcap_service_control('Stop-Service', askadmin=askadmin) 
     
 from UserDict import UserDict
 
@@ -626,7 +630,7 @@ def read_routes():
         else:
             routes = _read_routes_7()
     except Exception as e:    
-        warning("Error building scapy ipv4 routing table : %s" % str(e), True)
+        warning("Error building scapy IPv4 routing table : %s" % str(e), True)
     else:
         if not routes:
             warning("No default IPv4 routes found. Your Windows release may no be supported and you have to enter your routes manually", True)
@@ -808,7 +812,7 @@ def read_routes6():
         else:
             routes6 = _read_routes6_7()
     except Exception as e:    
-        warning("Error building scapy ipv6 routing table : %s" % str(e), True)
+        warning("Error building scapy IPv6 routing table : %s" % str(e), True)
     return routes6
 
 if conf.interactive_shell != 'ipython' and conf.interactive:
