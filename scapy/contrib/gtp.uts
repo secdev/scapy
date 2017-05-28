@@ -5,18 +5,26 @@
 
 + GTPv1
 
+= GTPHeader, basic instanciation
+
+a = GTPHeader()
+assert a.version == 1
+assert a.E == a.S == a.PN == 0
+
 = GTPCreatePDPContextRequest(), basic instanciation
 gtp = IP()/UDP(dport=2123)/GTPHeader(teid=2807)/GTPCreatePDPContextRequest()
 gtp.dport == 2123 and gtp.teid == 2807 and len(gtp.IE_list) == 5
 
 = GTPCreatePDPContextRequest(), basic dissection
 random.seed(0x2807)
-str(gtp) == b"E\x00\x00O\x00\x01\x00\x00@\x11|\x9b\x7f\x00\x00\x01\x7f\x00\x00\x01\x08K\x08K\x00;{N2\x10\x00+\x00\x00\n\xf7\xd2y\x00\x00\x10\xf8>\x14\x05\x14\t\x85\x00\x04\xa6A\xd8+\x85\x00\x04z\xafnt\x87\x00\x0fxKbPaePK9oq0pb5"
+str(gtp)
+assert _ == b"E\x00\x00K\x00\x01\x00\x00@\x11|\x9f\x7f\x00\x00\x01\x7f\x00\x00\x01\x08K\x08K\x007\xa6\xa70\x10\x00'\x00\x00\n\xf7\x10\xd6\xd2\xf6\xd8\x14\x0f\x85\x00\x04\x98\xfaz\xab\x85\x00\x04\x02`0A\x87\x00\x0fu8h9lxKbPaePK9o"
 
 = GTPV1UpdatePDPContextRequest(), dissect
 h = "3333333333332222222222228100a38408004588006800000000fd1134820a2a00010a2a00024aa5084b005408bb32120044ed99aea9386f0000100000530514058500040a2a00018500040a2a000187000c0213921f739680fe74f2ffff94000130970001019800080112f41004d204d29900024000b6000101"
 gtp = Ether(h.decode('hex'))
-gtp.gtp_type == 18
+assert gtp.gtp_type == 18
+assert gtp.next_ex == 0
 
 = GTPV1UpdatePDPContextResponse(), dissect
 h = "3333333333332222222222228100838408004588005400000000fd1182850a2a00010a2a0002084b084b00406b46321300305843da17f07300000180100000032c7f4a0f58108500040a2a00018500040a2a000187000f0213921f7396d1fe7482ffff004a00f7a71e0a"
