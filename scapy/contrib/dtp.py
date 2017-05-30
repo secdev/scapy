@@ -50,7 +50,7 @@ class RepeatedTlvListField(PacketListField):
         return remain,lst
 
     def addfield(self, pkt, s, val):
-        return s+reduce(str.__add__, map(str, val),"")
+        return s + ''.join(str(v) for v in val)
 
 _DTP_TLV_CLS = {
                     0x0001 : "DTPDomain",

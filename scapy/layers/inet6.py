@@ -166,7 +166,7 @@ class Net6(Gen): # syntax ex. fec0::/126
         tuple = filter(lambda x: m8(x), xrange(8, 129))
 
         a = in6_and(self.net, self.mask)
-        tmp = map(lambda x:  x, struct.unpack('16B', a))
+        tmp = [x for x in struct.unpack("16B", a)]
 
         def parse_digit(a, netmask):
             netmask = min(8,max(netmask,0))
@@ -214,7 +214,7 @@ class IP6Field(Field):
             except socket.error:
                 x = Net6(x)
         elif type(x) is list:
-            x = map(Net6, x)
+            x = [Net6(a) for a in x]
         return x
     def i2m(self, pkt, x):
         return inet_pton(socket.AF_INET6, x)
@@ -1915,8 +1915,8 @@ class DomainNameListField(StrLenField):
                 return z
             return z+b'\x00'
         # Build the encode names
-        tmp = map(lambda y: map((lambda z: chr(len(z))+z), y.split('.')), x)
-        ret_string  = "".join(map(lambda x: conditionalTrailingDot("".join(x)), tmp))
+        tmp = [[chr(len(z)) + z for z in y.split('.')] for y in x]
+        ret_string  = "".join(conditionalTrailingDot("".join(x)) for x in tmp)
 
         # In padded mode, add some \x00 bytes
         if self.padded and not len(ret_string) % self.padded_unit == 0:
@@ -2159,7 +2159,7 @@ def names2dnsrepr(x):
         termin = b"\x00"
         if n.count('.') == 0: # single-component gets one more
             termin += b'\x00'
-        n = "".join(map(lambda y: chr(len(y))+y, n.split("."))) + termin
+        n = "".join(chr(len(y)) + y for y in n.split('.')) + termin
         res.append(n)
     return "".join(res)
 
@@ -2389,7 +2389,7 @@ class NIReplyDataField(StrField):
                     return (0, x)
                 return x
 
-            return (qtype, map(addttl, x))
+            return (qtype, [addttl(d) for d in x])
 
         return (qtype, x)
 

@@ -509,7 +509,7 @@ class Dot11PacketList(PacketList):
 
         PacketList.__init__(self, res, name, stats)
     def toEthernet(self):
-        data = map(lambda x:x.getlayer(Dot11), filter(lambda x : x.haslayer(Dot11) and x.type == 2, self.res))
+        data = [x[Dot11] for x in self.res if Dot11 in x and x.type == 2]
         r2 = []
         for p in data:
             q = p.copy()

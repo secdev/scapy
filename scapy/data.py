@@ -152,7 +152,7 @@ class ManufDA(DADict):
             return ":".join([self[oui][0]]+ mac.split(":")[3:])
         return mac
     def __repr__(self):
-        return "\n".join(["<%s %s, %s>" % (i[0], i[1][0], i[1][1]) for i in self.__dict__.items()])
+        return "\n".join("<%s %s, %s>" % (i[0], i[1][0], i[1][1]) for i in self.__dict__.items())
         
         
 

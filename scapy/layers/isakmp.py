@@ -124,7 +124,7 @@ class ISAKMPTransformSetField(StrLenField):
     def i2m(self, pkt, i):
         if i is None:
             return ""
-        i = map(self.type2num, i)
+        i = [self.type2num(e) for e in i]
         return "".join(i)
     def m2i(self, pkt, m):
         # I try to ensure that we don't read off the end of our packet based
