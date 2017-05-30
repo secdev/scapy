@@ -221,7 +221,7 @@ def pkcs_emsa_pss_encode(M, emBits, h, mgf, sLen):
     rem = 8*emLen - emBits - 8*l # additionnal bits
     andMask = l*b'\x00'
     if rem:
-        j = chr(reduce(lambda x,y: x+y, map(lambda x: 1<<x, range(8-rem))))
+        j = sum(1 << x for x in range(8 - rem))
         andMask += j
         l += 1
     maskedDB = strand(maskedDB[:l], andMask) + maskedDB[l:]
@@ -263,7 +263,7 @@ def pkcs_emsa_pss_verify(M, EM, emBits, h, mgf, sLen):
     rem = 8*emLen - emBits - 8*l # additionnal bits
     andMask = l*b'\xff'
     if rem:
-        val = reduce(lambda x,y: x+y, map(lambda x: 1<<x, range(8-rem)))
+        val = sum(1 << x for x in range(8 - rem))
         j = chr(~val & 0xff)
         andMask += j
         l += 1
@@ -275,7 +275,7 @@ def pkcs_emsa_pss_verify(M, EM, emBits, h, mgf, sLen):
     rem = 8*emLen - emBits - 8*l # additionnal bits
     andMask = l*b'\x00'
     if rem:
-        j = chr(reduce(lambda x,y: x+y, map(lambda x: 1<<x, range(8-rem))))
+        j = chr(sum(1 << x for x in range(8 - rem)))
         andMask += j
         l += 1
     DB = strand(DB[:l], andMask) + DB[l:]

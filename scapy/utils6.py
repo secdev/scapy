@@ -67,7 +67,7 @@ def construct_source_candidate_set(addr, plen, laddr, loiface):
             cset = filter(lambda x: x[1] == IPV6_ADDR_SITELOCAL, laddr)
     elif addr == '::' and plen == 0:
         cset = filter(lambda x: x[1] == IPV6_ADDR_GLOBAL, laddr)
-    cset = map(lambda x: x[0], cset)
+    cset = [x[0] for x in cset]
     cset.sort(cmp=cset_sort) # Sort with global addresses first
     return cset            
 
@@ -223,7 +223,7 @@ def in6_ifaceidtomac(ifaceid): # TODO: finish commenting function behavior
     first = struct.pack("B", ((first & 0xFD) | ulbit))
     oui = first + ifaceid[1:3]
     end = ifaceid[5:]
-    l = map(lambda x: "%.02x" % struct.unpack("B", x)[0], list(oui+end))
+    l = ["%.02x" % struct.unpack('B', x)[0] for x in list(oui + end)]
     return ":".join(l)
 
 def in6_addrtomac(addr):
@@ -524,10 +524,9 @@ def _in6_bitops(a1, a2, operator=0):
     fop = [ lambda x,y: x | y,
             lambda x,y: x & y,
             lambda x,y: x ^ y
-          ]  
+          ]
     ret = map(fop[operator%len(fop)], a1, a2)
-    t = ''.join(map(lambda x: struct.pack('I', x), ret))
-    return t
+    return ''.join(struct.pack('I', x) for x in ret)
 
 def in6_or(a1, a2):
     """
@@ -568,7 +567,7 @@ def in6_cidr2mask(m):
         t.append(max(0, 2**32  - 2**(32-min(32, m))))
         m -= 32
 
-    return ''.join(map(lambda x: struct.pack('!I', x), t))
+    return ''.join(struct.pack('!I', x) for x in t)
 
 def in6_getnsma(a): 
     """
@@ -589,7 +588,7 @@ def in6_getnsmac(a): # return multicast Ethernet address associated with multica
 
     a = struct.unpack('16B', a)[-4:]
     mac = '33:33:'
-    mac += ':'.join(map(lambda x: '%.2x' %x, a))
+    mac += ':'.join("%.2x" %x for x in a)
     return mac
 
 def in6_getha(prefix): 

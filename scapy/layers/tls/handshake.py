@@ -155,12 +155,12 @@ class _CipherSuitesField(StrLenField):
     def any2i(self, pkt, x):
         if not isinstance(x, list):
             x = [x]
-        return map(lambda z,pkt=pkt:self.any2i_one(pkt,z), x)
+        return [self.any2i_one(pkt, z) for z in x]
 
     def i2repr(self, pkt, x):
         if x is None:
             return "None"
-        l = map(lambda z,pkt=pkt:self.i2repr_one(pkt,z), x)
+        l = [self.i2repr_one(pkt, z) for x in x]
         if len(l) == 1:
             l = l[0]
         else:
@@ -170,7 +170,7 @@ class _CipherSuitesField(StrLenField):
     def i2m(self, pkt, val):
         if val is None:
             val = []
-        return "".join(map(lambda x: struct.pack(self.itemfmt, x), val))
+        return "".join(struct.pack(self.itemfmt, x) for x in val)
 
     def m2i(self, pkt, m):
         res = []
@@ -959,7 +959,7 @@ class _ASN1CertListField(StrLenField):
             return i
         if isinstance(i, Cert):
             i = [i]
-        return "".join(map(lambda x: i2m_one(x), i))
+        return "".join(i2m_one(x) for x in i)
 
     def any2i(self, pkt, x):
         return x
@@ -979,9 +979,9 @@ class TLSCertificate(_TLSHandshake):
     def post_dissection_tls_session_update(self, msg_str):
         connection_end = self.tls_session.connection_end
         if connection_end == "client":
-            self.tls_session.server_certs = map(lambda x: x[1], self.certs)
+            self.tls_session.server_certs = [x[1] for x in self.certs]
         else:
-            self.tls_session.client_certs = map(lambda x: x[1], self.certs)
+            self.tls_session.client_certs = [x[1] for x in self.certs]
         self.tls_session.handshake_messages.append(msg_str)
         self.tls_session.handshake_messages_parsed.append(self)
 

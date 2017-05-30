@@ -706,11 +706,9 @@ class Cert(object):
             if (self.authorityKeyID is not None and
                 c.authorityKeyID is not None and
                 self.authorityKeyID == c.authorityKeyID):
-                return self.serial in map(lambda x: x[0],
-                                                    c.revoked_cert_serials)
+                return self.serial in (x[0] for x in c.revoked_cert_serials)
             elif self.issuer == c.issuer:
-                return self.serial in map(lambda x: x[0],
-                                                    c.revoked_cert_serials)
+                return self.serial in (x[0] for x in c.revoked_cert_serials)
         return False
 
     def export(self, filename, fmt="DER"):

@@ -59,7 +59,7 @@ def getmacbyip(ip, chainCC=0):
     if isinstance(ip,Net):
         ip = iter(ip).next()
     ip = inet_ntoa(inet_aton(ip))
-    tmp = map(ord, inet_aton(ip))
+    tmp = [ord(e) for e in inet_aton(ip)]
     if (tmp[0] & 0xf0) == 0xe0: # mcast @
         return "01:00:5e:%.2x:%.2x:%.2x" % (tmp[1]&0x7f,tmp[2],tmp[3])
     iff,a,gw = conf.route.route(ip)

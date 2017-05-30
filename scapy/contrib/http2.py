@@ -2409,7 +2409,7 @@ class HPackHdrTable(Sized):
         # type: () -> int
         """ __len__ returns the summed length of all dynamic entries
         """
-        return sum([len(x) for x in self._dynamic_table])
+        return sum(len(x) for x in self._dynamic_table)
 
     def gen_txt_repr(self, hdrs, register=True):
         # type: (Union[H2Frame, List[HPackHeaders]], Optional[bool]) -> str

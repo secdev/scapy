@@ -30,8 +30,8 @@ class DNSStrField(StrField):
         if x == ".":
           return b"\x00"
 
-        x = [k[:63] for k in x.split(".")] # Truncate chunks that cannot be encoded (more than 63 bytes..)
-        x = map(lambda y: chr(len(y))+y, x)
+        # Truncate chunks that cannot be encoded (more than 63 bytes..)
+        x = "".join(chr(len(y)) + y for y in (k[:63] for k in x.split(".")))
         x = "".join(x)
         if x[-1] != b"\x00":
             x += b"\x00"
@@ -202,7 +202,7 @@ class RDataField(StrLenField):
             if s:
                 s = inet_aton(s)
         elif pkt.type in [2, 3, 4, 5, 12]: # NS, MD, MF, CNAME, PTR
-            s = "".join(map(lambda x: chr(len(x))+x, s.split(".")))
+            s = "".join(chr(len(x)) + x for x in s.split('.'))
             if ord(s[-1]):
                 s += b"\x00"
         elif pkt.type == 16: # TXT
@@ -431,8 +431,7 @@ def RRlist2bitmap(lst):
     bitmap = ""
     lst = sorted(set(lst))
 
-    lst = filter(lambda x: x <= 65535, lst)
-    lst = map(lambda x: abs(x), lst)
+    lst = [abs(x) for x in lst if x <= 65535]
 
     # number of window blocks
     max_window_blocks = int(math.ceil(lst[-1] / 256.))
@@ -464,11 +463,10 @@ def RRlist2bitmap(lst):
             v = 0
             # Remove out of range Resource Records
             tmp_rrlist = filter(lambda x: 256 * wb + 8 * tmp <= x < 256 * wb + 8 * tmp + 8, rrlist)
-            if not tmp_rrlist == []:
+            if tmp_rrlist:
                 # 1. rescale to fit into 8 bits
-                tmp_rrlist = map(lambda x: (x-256*wb)-(tmp*8), tmp_rrlist)
                 # 2. x gives the bit position ; compute the corresponding value
-                tmp_rrlist = map(lambda x: 2**(7-x) , tmp_rrlist)
+                tmp_rrlist = [2 ** (7 - (x - 256 * wb) + (tmp * 8)) for x in tmp_rrlist]
                 # 3. sum everything
                 v = reduce(lambda x,y: x+y, tmp_rrlist)
             bitmap += struct.pack("B", v)

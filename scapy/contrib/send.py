@@ -31,7 +31,7 @@ class HashField(Field):
             except socket.error:
                 x = Net6(x)
         elif isinstance(x, list):
-            x = map(Net6, x)
+            x = [Net6(e) for e in x]
         return x
     def i2m(self, pkt, x):
         return inet_pton(socket.AF_INET6, x)
