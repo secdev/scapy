@@ -41,6 +41,8 @@ GTPmessageType = {   1: "echo_request",
                     21: "delete_pdp_context_res",
                     26: "error_indication",
                     27: "pdu_notification_req",
+                    31: "supported_extension_headers_notification",
+                   254: "end_marker",
                    255: "g_pdu" }
 
 IEType = {   1: "Cause",
@@ -177,20 +179,27 @@ class TBCDByteField(StrFixedLenField):
 
 TBCD_TO_ASCII = "0123456789*#abc"
 
-class GTP_UDPPort_ExtensionHeader(Packet):
-    fields_desc=[ ShortField("length", 0x40),
-                  BitField("udp_port", None, 48),
+class GTP_ExtensionHeader(Packet):
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        if _pkt == None:
+            return GTP_UDPPort_ExtensionHeader
+        return cls
+
+class GTP_UDPPort_ExtensionHeader(GTP_ExtensionHeader):
+    fields_desc=[ ByteField("length", 0x40),
+                  ShortField("udp_port", None),
                   ByteEnumField("next_ex", 0, ExtensionHeadersTypes), ]
 
-class GTP_PDCP_PDU_ExtensionHeader(Packet):
-    fields_desc=[ ShortField("length", 0x01),
-                  ByteField("pdcp_pdu", None),
-                  ByteField("pdcp_pdu", None),
+class GTP_PDCP_PDU_ExtensionHeader(GTP_ExtensionHeader):
+    fields_desc=[ ByteField("length", 0x01),
+                  ShortField("pdcp_pdu", None),
                   ByteEnumField("next_ex", 0, ExtensionHeadersTypes), ]
+    
 
 class GTPHeader(Packet):
     # 3GPP TS 29.060 V9.1.0 (2009-12)
-    name = "GTP Header"
+    name = "GTP-C Header"
     fields_desc=[ BitField("version", 1, 3),
                   BitField("PT", 1, 1),
                   BitField("reserved", 0, 1),
@@ -221,17 +230,39 @@ class GTPHeader(Packet):
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        if _pkt and len(_pkt) >= 1:
+            if (struct.unpack("B", _pkt[0])[0] >> 5) & 0x7 == 2:
+                import gtp_v2
+                return gtp_v2.GTPHeader
         if _pkt and len(_pkt) >= 8:
-            if struct.unpack("!B", _pkt[1:2])[0] == 255:
-                return GTP_U_Header
+            _gtp_type = struct.unpack("!B", _pkt[1:2])[0]
+            return GTPforcedTypes.get(_gtp_type, GTPHeader)
         return cls
+
+class GTP_U_Header(GTPHeader):
+    # 3GPP TS 29.060 V9.1.0 (2009-12)
+    name = "GTP-U Header"
+    # GTP-U protocol is used to transmit T-PDUs between GSN pairs (or between an SGSN and an RNC in UMTS), 
+    # encapsulated in G-PDUs. A G-PDU is a packet including a GTP-U header and a T-PDU. The Path Protocol 
+    # defines the path and the GTP-U header defines the tunnel. Several tunnels may be multiplexed on a single path.
+
+# Some gtp_types have to be associated with a certain type of header
+GTPforcedTypes = {
+    16: GTPHeader,
+    17: GTPHeader,
+    18: GTPHeader,
+    19: GTPHeader,
+    20: GTPHeader,
+    21: GTPHeader,
+    26: GTP_U_Header,
+    27: GTPHeader,
+    254: GTP_U_Header,
+    255: GTP_U_Header
+    }
 
 class GTPEchoRequest(Packet):
     # 3GPP TS 29.060 V9.1.0 (2009-12)
     name = "GTP Echo Request"
-    fields_desc = [ XBitField("seq", 0, 16),
-                    ByteField("npdu", 0),
-                    ByteEnumField("next_ex", 0, ExtensionHeadersTypes),]
 
     def hashret(self):
         return struct.pack("H", self.seq)
@@ -658,6 +689,11 @@ class IE_PrivateExtension(IE_Base):
                    StrLenField("extention_value", "",
                                length_from=lambda x: x.length)]
 
+class IE_ExtensionHeaderList(IE_Base):
+    name = "Extension Header List"
+    fields_desc = [ByteEnumField("ietype", 141, IEType),
+                   FieldLenField("length", None, length_of="extension_headers"),
+                   FieldListField("extension_headers", [64, 192], ByteField("", 0))]
 
 class IE_NotImplementedTLV(Packet):
     name = "IE not implemented"
@@ -688,6 +724,7 @@ ietypecls = {1: IE_Cause,
              133: IE_GSNAddress,
              134: IE_MSInternationalNumber,
              135: IE_QoS,
+             141: IE_ExtensionHeaderList,
              148: IE_CommonFlags,
              149: IE_APNRestriction,
              151: IE_RATType,
@@ -718,10 +755,7 @@ def IE_Dispatcher(s):
 class GTPEchoResponse(Packet):
     # 3GPP TS 29.060 V9.1.0 (2009-12)
     name = "GTP Echo Response"
-    fields_desc = [ XBitField("seq", 0, 16),
-                    ByteField("npdu", 0),
-                    ByteEnumField("next_ex", 0, ExtensionHeadersTypes),
-                    PacketListField("IE_list", [], IE_Dispatcher) ]
+    fields_desc = [ PacketListField("IE_list", [], IE_Dispatcher) ]
 
     def hashret(self):
         return struct.pack("H", self.seq)
@@ -733,10 +767,7 @@ class GTPEchoResponse(Packet):
 class GTPCreatePDPContextRequest(Packet):
     # 3GPP TS 29.060 V9.1.0 (2009-12)
     name = "GTP Create PDP Context Request"
-    fields_desc = [ ShortField("seq", RandShort()),
-                    ByteField("npdu", 0),
-                    ByteEnumField("next_ex", 0, ExtensionHeadersTypes),
-                    PacketListField("IE_list", [ IE_TEIDI(), IE_NSAPI(), IE_GSNAddress(),
+    fields_desc = [ PacketListField("IE_list", [ IE_TEIDI(), IE_NSAPI(), IE_GSNAddress(),
                                                  IE_GSNAddress(),
                                                  IE_NotImplementedTLV(ietype=135, length=15,data=RandString(15)) ],
                                     IE_Dispatcher) ]
@@ -746,10 +777,7 @@ class GTPCreatePDPContextRequest(Packet):
 class GTPCreatePDPContextResponse(Packet):
     # 3GPP TS 29.060 V9.1.0 (2009-12)
     name = "GTP Create PDP Context Response"
-    fields_desc = [ ShortField("seq", RandShort()),
-                    ByteField("npdu", 0),
-                    ByteEnumField("next_ex", 0, ExtensionHeadersTypes),
-                    PacketListField("IE_list", [], IE_Dispatcher) ]
+    fields_desc = [ PacketListField("IE_list", [], IE_Dispatcher) ]
 
     def hashret(self):
         return struct.pack("H", self.seq)
@@ -761,10 +789,7 @@ class GTPCreatePDPContextResponse(Packet):
 class GTPUpdatePDPContextRequest(Packet):
     # 3GPP TS 29.060 V9.1.0 (2009-12)
     name = "GTP Update PDP Context Request"
-    fields_desc = [ShortField("seq", RandShort()),
-                   ByteField("npdu", 0),
-                   ByteEnumField("next_ex", 0, ExtensionHeadersTypes),
-                   PacketListField("IE_list", [
+    fields_desc = [PacketListField("IE_list", [
                        IE_Cause(),
                        IE_Recovery(),
                        IE_TEIDI(),
@@ -793,10 +818,7 @@ class GTPUpdatePDPContextRequest(Packet):
 class GTPUpdatePDPContextResponse(Packet):
     # 3GPP TS 29.060 V9.1.0 (2009-12)
     name = "GTP Update PDP Context Response"
-    fields_desc = [ShortField("seq", RandShort()),
-                   ByteField("npdu", 0),
-                   ByteEnumField("next_ex", 0, ExtensionHeadersTypes),
-                   PacketListField("IE_list", None, IE_Dispatcher)]
+    fields_desc = [PacketListField("IE_list", None, IE_Dispatcher)]
 
     def hashret(self):
         return struct.pack("H", self.seq)
@@ -805,49 +827,37 @@ class GTPUpdatePDPContextResponse(Packet):
 class GTPErrorIndication(Packet):
     # 3GPP TS 29.060 V9.1.0 (2009-12)
     name = "GTP Error Indication"
-    fields_desc = [ XBitField("seq", 0, 16),
-                    ByteField("npdu", 0),
-                    ByteField("next_ex",0),
-                    PacketListField("IE_list", [], IE_Dispatcher) ]
+    fields_desc = [ PacketListField("IE_list", [], IE_Dispatcher) ]
 
 class GTPDeletePDPContextRequest(Packet):
     # 3GPP TS 29.060 V9.1.0 (2009-12)
     name = "GTP Delete PDP Context Request"
-    fields_desc = [ XBitField("seq", 0, 16),
-                    ByteField("npdu", 0),
-                    ByteEnumField("next_ex", 0, ExtensionHeadersTypes),
-                    PacketListField("IE_list", [], IE_Dispatcher) ]
+    fields_desc = [ PacketListField("IE_list", [], IE_Dispatcher) ]
 
 class GTPDeletePDPContextResponse(Packet):
     # 3GPP TS 29.060 V9.1.0 (2009-12)
     name = "GTP Delete PDP Context Response"
-    fields_desc = [ XBitField("seq", 0, 16),
-                    ByteField("npdu", 0),
-                    ByteField("next_ex",0),
-                    PacketListField("IE_list", [], IE_Dispatcher) ]
+    fields_desc = [ PacketListField("IE_list", [], IE_Dispatcher) ]
 
 class GTPPDUNotificationRequest(Packet):
     # 3GPP TS 29.060 V9.1.0 (2009-12)
     name = "GTP PDU Notification Request"
-    fields_desc = [ XBitField("seq", 0, 16),
-                    ByteField("npdu", 0),
-                    ByteEnumField("next_ex", 0, ExtensionHeadersTypes),
-                    PacketListField("IE_list", [ IE_IMSI(),
+    fields_desc = [ PacketListField("IE_list", [ IE_IMSI(),
                         IE_TEICP(TEICI=RandInt()),
                         IE_EndUserAddress(PDPTypeNumber=0x21),
                         IE_AccessPointName(),
                         IE_GSNAddress(address="127.0.0.1"),
                         ], IE_Dispatcher) ]
-                    
 
-class GTP_U_Header(GTPHeader):
-    # 3GPP TS 29.060 V9.1.0 (2009-12)
-    name = "GTP-U Header"
-    # GTP-U protocol is used to transmit T-PDUs between GSN pairs (or between an SGSN and an RNC in UMTS), 
-    # encapsulated in G-PDUs. A G-PDU is a packet including a GTP-U header and a T-PDU. The Path Protocol 
-    # defines the path and the GTP-U header defines the tunnel. Several tunnels may be multiplexed on a single path.
-    pass
+class GTPSupportedExtensionHeadersNotification(Packet):
+    name = "GTP Supported Extension Headers Notification"
+    fields_desc = [ PacketListField("IE_list", [ IE_ExtensionHeaderList(),
+                        ], IE_Dispatcher) ]
 
+class GTPErrorIndication(Packet):
+    name = "GTP Error Indication"
+    fields_desc = [ PacketListField("IE_list", [], IE_Dispatcher) ]
+    
 class GTPmorethan1500(Packet):
     # 3GPP TS 29.060 V9.1.0 (2009-12)
     name = "GTP More than 1500"
@@ -857,8 +867,8 @@ class GTPmorethan1500(Packet):
 # Bind GTP-C
 bind_layers(UDP, GTPHeader, dport = 2123)
 bind_layers(UDP, GTPHeader, sport = 2123)
-bind_layers(GTPHeader, GTPEchoRequest, gtp_type=1)
-bind_layers(GTPHeader, GTPEchoResponse, gtp_type=2)
+bind_layers(GTPHeader, GTPEchoRequest, gtp_type=1, S=1)
+bind_layers(GTPHeader, GTPEchoResponse, gtp_type=2, S=1)
 bind_layers(GTPHeader, GTPCreatePDPContextRequest, gtp_type=16)
 bind_layers(GTPHeader, GTPCreatePDPContextResponse, gtp_type=17)
 bind_layers(GTPHeader, GTPUpdatePDPContextRequest, gtp_type=18)
@@ -866,12 +876,14 @@ bind_layers(GTPHeader, GTPUpdatePDPContextResponse, gtp_type=19)
 bind_layers(GTPHeader, GTPDeletePDPContextRequest, gtp_type=20)
 bind_layers(GTPHeader, GTPDeletePDPContextResponse, gtp_type=21)
 bind_layers(GTPHeader, GTPPDUNotificationRequest, gtp_type=27)
-bind_layers(GTPHeader, GTP_UDPPort_ExtensionHeader, next_ex = 64, E = 1)
-bind_layers(GTPHeader, GTP_PDCP_PDU_ExtensionHeader, next_ex = 192, E = 1)
+bind_layers(GTPHeader, GTPSupportedExtensionHeadersNotification, gtp_type=31, S=1)
+bind_layers(GTPHeader, GTP_UDPPort_ExtensionHeader, next_ex=64, E=1)
+bind_layers(GTPHeader, GTP_PDCP_PDU_ExtensionHeader, next_ex=192, E=1)
 
 # Bind GTP-U
 bind_layers(UDP, GTP_U_Header, dport = 2152)
 bind_layers(UDP, GTP_U_Header, sport = 2152)
+bind_layers(GTP_U_Header, GTPErrorIndication, gtp_type=26, S=1)
 bind_layers(GTP_U_Header, IP, gtp_type = 255)
 
 if __name__ == "__main__":
