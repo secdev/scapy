@@ -18,6 +18,9 @@ __all__ = []
 
 
 def _validate_local(x):
+    """Returns whether or not a variable should be imported.
+    Will return False for any default modules (sys), or if
+    they are detected as private vars (starting with a _)"""
     global ignored
     return x[0] != "_" and not x in ignored
 
