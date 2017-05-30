@@ -297,8 +297,14 @@ def isCryptographyValid():
 
 def _prompt_changer(attr,val):
     prompt = conf.prompt
-    try:
+    ct = conf.color_theme
+
+    if attr == "prompt":
+        prompt = val
+    else:
         ct = val
+
+    try:
         if isinstance(ct, themes.AnsiColorTheme) and ct.prompt(""):
             ## ^A and ^B delimit invisible characters for readline to count right.
             ## And we need ct.prompt() to do change something or else ^A and ^B will be
@@ -359,7 +365,7 @@ debug_tls:When 1, print some TLS session secrets when they are computed.
     checkIPinIP = True
     check_TCPerror_seqack = 0
     verb = 2
-    prompt = ">>> "
+    prompt = Interceptor("prompt", ">>> ", _prompt_changer)
     promisc = 1
     sniff_promisc = 1
     raw_layer = None
