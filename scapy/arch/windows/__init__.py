@@ -247,8 +247,9 @@ class WinProgPath(ConfClass):
     def __init__(self):
         # This is a dict containing the name of the .exe and a keyword
         # that must be in the path of the file
-        external_prog_list = {"AcroRd32" : "", "gsview32" : "", "dot" : "graph", "windump" : "", "tshark" : "",
-                          "tcpreplay" : "", "hexer" : "", "sox" : "", "wireshark" : ""}
+        external_prog_list = {"AcroRd32" : "", "gsview32" : "", "dot" : "graph",
+                              "windump" : "", "tshark" : "", "tcpreplay" : "",
+                              "hexer" : "", "sox" : "", "wireshark" : ""}
         _deep_lookup(external_prog_list)
         self._reload()
 
