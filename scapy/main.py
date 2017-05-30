@@ -56,7 +56,7 @@ def _usage():
 
 
 from scapy.config import conf
-from scapy.themes import DefaultTheme
+from scapy import themes
 
 
 ######################
@@ -355,7 +355,7 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
         log_loading.error(msg)
         sys.exit(1)
 
-    conf.color_theme = DefaultTheme()
+    conf.color_theme = themes.DefaultTheme()
 
     if STARTUP_FILE:
         _read_config_file(STARTUP_FILE)
