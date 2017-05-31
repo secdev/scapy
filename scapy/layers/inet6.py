@@ -29,7 +29,7 @@ import random
 import socket
 import sys
 import scapy.modules.six as six
-from scapy.modules.six.moves import map, range
+from scapy.modules.six.moves import range
 if not socket.has_ipv6:
     raise socket.error("can't use AF_INET6, IPv6 is disabled")
 if not hasattr(socket, "IPPROTO_IPV6"):

@@ -48,8 +48,6 @@ from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.inet import IP
 from scapy.layers.inet6 import *
-from functools import reduce
-from scapy.modules.six.moves import map
 
 class EigrpIPField(StrField, IPField):
     """

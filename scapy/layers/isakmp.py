@@ -17,7 +17,6 @@ from scapy.layers.inet import IP,UDP
 from scapy.sendrecv import sr
 from scapy.error import warning
 from functools import reduce
-from scapy.modules.six.moves import map
 
 
 # see http://www.iana.org/assignments/ipsec-registry for details

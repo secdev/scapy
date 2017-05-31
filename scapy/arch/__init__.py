@@ -20,7 +20,7 @@ from scapy.data import *
 from scapy.modules.six.moves import map
 
 def str2mac(s):
-    return ("%02x:"*6)[:-1] % tuple(map(ord, s)) 
+    return ("%02x:"*6)[:-1] % tuple(ord(x) for x in s) 
 
 if not WINDOWS:
     if not scapy.config.conf.use_pcap and not scapy.config.conf.use_dnet:

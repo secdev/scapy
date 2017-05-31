@@ -16,7 +16,6 @@ from scapy.utils import *
 from scapy.base_classes import BasePacket, Gen, Net, Field_metaclass
 from scapy.error import warning
 import scapy.modules.six as six
-from scapy.modules.six.moves import map, range
 
 
 ############

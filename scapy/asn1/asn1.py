@@ -16,7 +16,7 @@ from scapy.error import Scapy_Exception, warning
 from scapy.volatile import RandField, RandIP
 from scapy.utils import Enum_metaclass, EnumElement, binrepr
 import scapy.modules.six as six
-from scapy.modules.six.moves import range, zip
+from scapy.modules.six.moves import range
 
 class RandASN1Object(RandField):
     def __init__(self, objlist=None):
@@ -288,7 +288,7 @@ class ASN1_BIT_STRING(ASN1_Object):
                     else:
                         unused_bits = 8 - (len(value) % 8)
                     padded_value = value + ("0" * unused_bits)
-                    bytes_arr = list(zip(*[iter(padded_value)]*8))
+                    bytes_arr = zip(*[iter(padded_value)]*8)
                     val_readable = "".join(chr(int("".join(x),2)) for x in bytes_arr)
             else:
                 val_readable = "<invalid val>"

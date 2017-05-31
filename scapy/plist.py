@@ -155,7 +155,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
         if kargs == {}:
             kargs = MATPLOTLIB_DEFAULT_PLOT_KARGS
         if plot_xy:
-            lines = plt.plot(*list(zip(*l)), **kargs)
+            lines = plt.plot(*zip(*l), **kargs)
         else:
             lines = plt.plot(l, **kargs)
 
@@ -215,7 +215,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
             kargs = MATPLOTLIB_DEFAULT_PLOT_KARGS
 
         if plot_xy:
-            lines = [plt.plot(*list(zip(*pl)), **dict(kargs, label=k))
+            lines = [plt.plot(*zip(*pl), **dict(kargs, label=k))
                      for k, pl in six.iteritems(d)]
         else:
             lines = [plt.plot(pl, **dict(kargs, label=k))

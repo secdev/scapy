@@ -232,7 +232,7 @@ class CacheInstance(dict):
     def __len__(self):
         if self.timeout is None:
             return dict.__len__(self)
-        return len(list(self.keys()))
+        return len(self.keys())
     def summary(self):
         return "%s: %i valid items. Timeout=%rs" % (self.name, len(self), self.timeout)
     def __repr__(self):

@@ -1267,7 +1267,7 @@ class TracerouteResult(SndRcvList):
         bmap = Basemap()
 
         # Split latitudes and longitudes per traceroute measurement
-        locations = [list(zip(*tr)) for tr in six.itervalues(trt)]
+        locations = [zip(*tr) for tr in six.itervalues(trt)]
 
         # Plot the traceroute measurement as lines in the map
         lines = [bmap.plot(*bmap(lons, lats)) for lons, lats in locations]

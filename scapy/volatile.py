@@ -11,7 +11,7 @@ from __future__ import absolute_import
 import random,time,math
 from scapy.base_classes import Net
 from scapy.utils import corrupt_bits,corrupt_bytes
-from scapy.modules.six.moves import map, range
+from scapy.modules.six.moves import range
 
 ####################
 ## Random numbers ##

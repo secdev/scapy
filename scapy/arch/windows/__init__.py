@@ -301,7 +301,7 @@ def get_windows_if_list():
                             'GUID', 'MacAddress'])
     return [
         iface for iface in
-        (dict(list(zip(['name', 'win_index', 'description', 'guid', 'mac'], line)))
+        (dict(zip(['name', 'win_index', 'description', 'guid', 'mac'], line))
          for line in query)
         if is_interface_valid(iface)
     ]

@@ -11,7 +11,6 @@ Resolve Autonomous Systems (AS).
 from __future__ import absolute_import
 import socket, errno
 from scapy.config import conf
-from scapy.modules.six.moves import map
 
 class AS_resolver:
     server = None

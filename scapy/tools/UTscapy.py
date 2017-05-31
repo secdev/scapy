@@ -12,7 +12,7 @@ import sys, getopt, imp, glob, importlib
 import bz2, base64, os.path, time, traceback, zlib, sha
 from scapy.consts import WINDOWS
 import scapy.modules.six as six
-from scapy.modules.six.moves import map, range
+from scapy.modules.six.moves import range
 
 
 ### Util class ###

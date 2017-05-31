@@ -72,7 +72,7 @@ from scapy.layers.inet6 import IP6ListField, IP6Field
 from scapy.utils import fletcher16_checkbytes
 from scapy.volatile import RandString, RandByte
 import random
-from scapy.modules.six.moves import map, range
+from scapy.modules.six.moves import range
 
 
 EXT_VERSION = "v0.0.2"
