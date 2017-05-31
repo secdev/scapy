@@ -7,15 +7,25 @@
 All layers. Configurable with conf.load_layers.
 """
 
+import __builtin__
 from scapy.config import conf
 from scapy.error import log_loading
-import logging
+import logging, importlib
+ignored = list(__builtin__.__dict__.keys()) + ["sys"]
 log = logging.getLogger("scapy.loading")
 
 __all__ = []
 
+
+def _validate_local(x):
+    """Returns whether or not a variable should be imported.
+    Will return False for any default modules (sys), or if
+    they are detected as private vars (starting with a _)"""
+    global ignored
+    return x[0] != "_" and not x in ignored
+
 def _import_star(m):
-    mod = __import__(m, globals(), locals())
+    mod = importlib.import_module("." + m, "scapy.layers")
     if '__all__' in mod.__dict__:
         # only import the exported symbols in __all__
         for name in mod.__dict__['__all__']:
@@ -24,7 +34,7 @@ def _import_star(m):
     else:
         # import all the non-private symbols
         for name, sym in mod.__dict__.iteritems():
-            if name[0] != '_':
+            if _validate_local(name):
                 __all__.append(name)
                 globals()[name] = sym
 
