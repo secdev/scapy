@@ -269,15 +269,13 @@ class RadiusAttribute(Packet):
         return cls
 
     def haslayer(self, cls):
-        ret = 0
         if cls == RadiusAttribute:
             for attr_class in RadiusAttribute.registered_attributes.values():
                 if isinstance(self, attr_class):
-                    ret = 1
-                    break
+                    return True
         elif cls in RadiusAttribute.registered_attributes.values() and isinstance(self, cls):
-            ret = 1
-        return ret
+            return True
+        return False
 
     def getlayer(self, cls, nb=1, _track=None):
         layer = None
@@ -553,6 +551,17 @@ class RadiusAttr_Message_Authenticator(_RadiusAttrHexStringVal):
     """RFC 2869"""
     val = 80
 
+    fields_desc = [
+        ByteEnumField("type", 24, _radius_attribute_types),
+        FieldLenField(
+            "len",
+            18,
+            "value",
+            "B",
+        ),
+        XStrFixedLenField("value", "\x00" * 16, length=16)
+    ]
+
     @staticmethod
     def compute_message_authenticator(
             radius_packet,
@@ -567,9 +576,9 @@ class RadiusAttr_Message_Authenticator(_RadiusAttrHexStringVal):
             g_log_loading.info(_crypto_loading_failure_message)
             return None
 
-        packed_hdr = struct.pack("!B", radius_packet.code) +\
-            struct.pack("!B", radius_packet.id) +\
-            struct.pack("!H", radius_packet.len)
+        packed_hdr = struct.pack("!B", radius_packet.code)
+        packed_hdr += struct.pack("!B", radius_packet.id)
+        packed_hdr += struct.pack("!H", radius_packet.len)
         packed_attrs = ''
         for index in range(0, len(radius_packet.attributes)):
             packed_attrs = packed_attrs + str(radius_packet.attributes[index])
@@ -1173,9 +1182,9 @@ class Radius(Packet):
             g_log_loading.info(_crypto_loading_failure_message)
             return None
 
-        packed_hdr = struct.pack("!B", self.code) +\
-            struct.pack("!B", self.id) +\
-            struct.pack("!H", self.len)
+        packed_hdr = struct.pack("!B", self.code)
+        packed_hdr += struct.pack("!B", self.id)
+        packed_hdr += struct.pack("!H", self.len)
         packed_attrs = ''
         for index in range(0, len(self.attributes)):
             packed_attrs = packed_attrs + str(self.attributes[index])
