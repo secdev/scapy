@@ -690,6 +690,19 @@ assert x[IP].ottl() in [32, 64, 128, 255]
 assert 0 <= x[IP].hops() <= 126
 x is not None and ICMP in x and x[ICMP].type == 0
 
+# Not available on travis/appveyor
+
+#= Sending and receiving an ICMPv6EchoRequest
+#~ netaccess IP ICMP
+#old_debug_dissector = conf.debug_dissector
+#conf.debug_dissector = False
+#x = sr1(IPv6(dst="www.google.com")/ICMPv6EchoRequest(),timeout=3)
+#conf.debug_dissector = old_debug_dissector
+#x
+#assert x[IPv6].ottl() in [32, 64, 128, 255]
+#assert 0 <= x[IPv6].hops() <= 126
+#x is not None and ICMPv6EchoReply in x and x[ICMPv6EchoReply].type == 129
+
 = DNS request
 ~ netaccess IP UDP DNS
 * A possible cause of failure could be that the open DNS (resolver1.opendns.com)
@@ -1797,13 +1810,15 @@ b=IPv6(src="2047::deca", dst="2048::cafe")/ICMPv6EchoReply(id=0x6666, seq=0x7777
 a=IPv6(src="2048::cafe", dst="2047::deca")/ICMPv6EchoRequest(id=0x6666, seq=0x7777, data="somedata")
 (a > b) == True
 
-= ICMPv6EchoRequest and ICMPv6EchoReply - live answers() use Net6
-~ netaccess
+# Not available on travis/appveyor
 
-a = IPv6(dst="www.google.fr")/ICMPv6EchoRequest()
-b = IPv6(src="www.google.fr", dst=a.src)/ICMPv6EchoReply()
-assert b.answers(a)
-assert (a > b)
+#= ICMPv6EchoRequest and ICMPv6EchoReply - live answers() use Net6
+#~ netaccess
+#
+#a = IPv6(dst="www.google.com")/ICMPv6EchoRequest()
+#b = IPv6(src="www.google.com", dst=a.src)/ICMPv6EchoReply()
+#assert b.answers(a)
+#assert (a > b)
 
 
 ########### ICMPv6MRD* Classes ######################################
@@ -3153,9 +3168,10 @@ ICMPv6MLQuery in p and p[IPv6].dst == "ff02::1"
 if WINDOWS:
     route_add_loopback()
 
-p = Ether()/IPv6(dst="www.google.com")/TCP()
-assert p.dst != p[IPv6].dst
-p.show()
+# Not available on travis/appveyor
+#p = Ether()/IPv6(dst="www.google.com")/TCP()
+#assert p.dst != p[IPv6].dst
+#p.show()
 
 ############
 ############
@@ -7945,7 +7961,7 @@ len([ip for ip in n3]) == 5
 
 = Net using web address
 
-ip = IP(dst="www.google.fr")
+ip = IP(dst="www.google.com")
 n1 = ip.dst
 assert isinstance(n1, Net)
 assert n1.ip_regex.match(str(n1))
@@ -7961,13 +7977,15 @@ len([ o for o in oid ]) == 3
 n1 = Net6("2001:db8::/127")
 len([ip for ip in n1]) == 2
 
-= Net6 using web address
+# Not available yet on travis/appveyor
 
-ip = IPv6(dst="www.google.fr")
-n1 = ip.dst
-assert isinstance(n1, Net6)
-assert n1.ip_regex.match(str(n1))
-ip.show()
+#= Net6 using web address
+#
+#ip = IPv6(dst="www.google.com")
+#n1 = ip.dst
+#assert isinstance(n1, Net6)
+#assert n1.ip_regex.match(str(n1))
+#ip.show()
 
 ############
 ############

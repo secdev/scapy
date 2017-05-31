@@ -262,7 +262,8 @@ if conf.prog.tcpdump and conf.use_npcap and conf.prog.os_access:
         try:
             p_test_windump = sp.Popen([conf.prog.tcpdump, "-help"], stdout=sp.PIPE, stderr=sp.STDOUT)
             stdout, err = p_test_windump.communicate()
-            return b"npcap" in stdout.lower()
+            _output = stdout.lower()
+            return b"npcap" in _output and not b"winpcap" in _output
         except:
             return False
     windump_ok = test_windump_npcap()
