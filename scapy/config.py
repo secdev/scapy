@@ -297,10 +297,13 @@ def isCryptographyValid():
 
 def _prompt_changer(attr,val):
     prompt = conf.prompt
+    prefix = conf.prompt_prefix
     ct = conf.color_theme
 
     if attr == "prompt":
         prompt = val
+    elif attr == "prompt_prefix":
+        prefix = val
     else:
         ct = val
 
@@ -314,7 +317,12 @@ def _prompt_changer(attr,val):
                 # Shell not launched yet. Do nothing
                 return
 
-            ip.prompts = prompt
+            class ScapyPrompts(prompt):
+                def in_prompt_tokens(self, cli=None):
+                    return [
+                        (prompts.Token.Prompt, prefix),
+                    ] + prompt.in_prompt_tokens(self, cli=cli)
+            ip.prompts = ScapyPrompts(ip)
             return
         except ImportError:
             # Fallback on standard Python shell
@@ -327,9 +335,9 @@ def _prompt_changer(attr,val):
             ## ^A and ^B delimit invisible characters for readline to count right.
             ## And we need ct.prompt() to do change something or else ^A and ^B will be
             ## displayed
-             prompt = b"\001%s\002" % ct.prompt(b"\002"+prompt+b"\001")
+            prompt = b"\001%s\002" % ct.prompt(b"\002"+prefix+prompt+b"\001")
         else:
-            prompt = ct.prompt(prompt)
+            prompt = ct.prompt(prefix+prompt)
     except:
         pass
     sys.ps1 = prompt
@@ -384,6 +392,7 @@ debug_tls:When 1, print some TLS session secrets when they are computed.
     check_TCPerror_seqack = 0
     verb = 2
     prompt = Interceptor("prompt", ">>> ", _prompt_changer)
+    prompt_prefix = Interceptor("prompt_prefix", "", _prompt_changer)
     promisc = 1
     sniff_promisc = 1
     raw_layer = None

@@ -393,9 +393,15 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
             # Replace default python with default ipython
             conf.prompt = prompts.Prompts
 
+        class ScapyPrompts(conf.prompt):
+            def in_prompt_tokens(self, cli=None):
+                return [
+                    (prompts.Token.Prompt, conf.prompt_prefix),
+                ] + conf.prompt.in_prompt_tokens(self, cli=cli)
+
         config = load_default_config()
         config.InteractiveShellEmbed = config.TerminalInteractiveShell
-        config.TerminalInteractiveShell.prompts_class = conf.prompt
+        config.TerminalInteractiveShell.prompts_class = ScapyPrompts
 
         # Old way to embed IPython kept for backward compatibility
         try:
