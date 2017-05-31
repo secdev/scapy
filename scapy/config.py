@@ -304,6 +304,24 @@ def _prompt_changer(attr,val):
     else:
         ct = val
 
+    if conf.interactive_shell.lower() == "ipython":
+        try:
+            import IPython
+            from IPython.terminal import prompts
+
+            ip = IPython.get_ipython()
+            if not ip:
+                # Shell not launched yet. Do nothing
+                return
+
+            ip.prompts = prompt
+            return
+        except ImportError:
+            # Fallback on standard Python shell
+            pass
+        except:
+            return
+
     try:
         if isinstance(ct, themes.AnsiColorTheme) and ct.prompt(""):
             ## ^A and ^B delimit invisible characters for readline to count right.

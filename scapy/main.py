@@ -386,6 +386,17 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
     if IPYTHON:
         banner = the_banner % (conf.version) + " using IPython %s" % IPython.__version__
 
+        from IPython.terminal.ipapp import load_default_config
+        from IPython.terminal import prompts
+
+        if conf.prompt == ">>> ":
+            # Replace default python with default ipython
+            conf.prompt = prompts.Prompts
+
+        config = load_default_config()
+        config.InteractiveShellEmbed = config.TerminalInteractiveShell
+        config.TerminalInteractiveShell.prompts_class = conf.prompt
+
         # Old way to embed IPython kept for backward compatibility
         try:
           args = ['']  # IPython command line args (will be seen as sys.argv)
@@ -395,7 +406,7 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
           pass
 
         # In the IPython cookbook, see 'Updating-code-for-use-with-IPython-0.11-and-later'
-        IPython.embed(user_ns=session, banner2=banner)
+        IPython.embed(user_ns=session, banner2=banner, config=config)
 
     else:
         code.interact(banner = the_banner % (conf.version),
