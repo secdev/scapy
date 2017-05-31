@@ -24,6 +24,7 @@ warnings.filterwarnings("ignore","tempnam",RuntimeWarning, __name__)
 from scapy.config import conf
 from scapy.consts import DARWIN, WINDOWS
 from scapy.data import MTU
+from scapy.compat import *
 from scapy.error import log_runtime, log_loading, log_interactive, Scapy_Exception, warning
 from scapy.base_classes import BasePacketList
 
@@ -44,7 +45,7 @@ def sane_color(x):
         if (j < 32) or (j >= 127):
             r=r+conf.color_theme.not_printable(".")
         else:
-            r=r+i
+            r=r+chb(i)
     return r
 
 def sane(x):
@@ -67,6 +68,10 @@ def lhex(x):
     else:
         return x
 
+def to_hex(x):
+    """Turns string or bytes to hex format"""
+    return x if isinstance(x, bytes) and not six.PY2 else x.encode("hex")
+
 @conf.commands.register
 def hexdump(x, dump=False):
     """ Build a tcpdump like hexadecimal view
@@ -76,7 +81,7 @@ def hexdump(x, dump=False):
     :returns: a String only when dump=True
     """
     s = ""
-    x = str(x)
+    x = raw(x)
     l = len(x)
     i = 0
     while i < l:
@@ -114,7 +119,7 @@ def linehexdump(x, onlyasc=0, onlyhex=0, dump=False):
     :returns: a String only when dump=True
     """
     s = ""
-    x = str(x)
+    x = raw(x)
     l = len(x)
     if not onlyasc:
         for i in range(l):
@@ -140,8 +145,8 @@ def chexdump(x, dump=False):
     :param dump: print the view if False
     :returns: a String only if dump=True
     """
-    x = str(x)
-    s = str(", ".join("%#04x" % ord(x) for x in x))
+    x = raw(x)
+    s = ", ".join("%#04x" % ord(x) for x in x)
     if dump:
         return s
     else:
@@ -343,10 +348,12 @@ def fletcher16_checkbytes(binbuf, offset):
 
 
 def mac2str(mac):
-    return b"".join(chr(int(x, 16)) for x in mac.split(':'))
+    return b"".join(chb(int(x, 16)) for x in mac.split(':'))
 
 def str2mac(s):
-    return ("%02x:"*6)[:-1] % tuple(map(ord, s)) 
+    if isinstance(s, str):
+        return ("%02x:"*6)[:-1] % tuple(map(ord, s))
+    return ("%02x:"*6)[:-1] % tuple(s)
 
 def randstring(l):
     """
@@ -365,14 +372,14 @@ def strxor(s1, s2):
     Returns the binary XOR of the 2 provided strings s1 and s2. s1 and s2
     must be of same length.
     """
-    return b"".join(map(lambda x,y:chr(ord(x)^ord(y)), s1, s2))
+    return b"".join(map(lambda x,y:chb(orb(x)^orb(y)), s1, s2))
 
 def strand(s1, s2):
     """
     Returns the binary AND of the 2 provided strings s1 and s2. s1 and s2
     must be of same length.
     """
-    return b"".join(map(lambda x,y:chr(ord(x)&ord(y)), s1, s2))
+    return b"".join(map(lambda x,y:chb(orb(x)&orb(y)), s1, s2))
 
 
 # Workaround bug 643005 : https://sourceforge.net/tracker/?func=detail&atid=105470&aid=643005&group_id=5470
@@ -555,7 +562,7 @@ def binrepr(val):
     return bin(val)[2:]
 
 def long_converter(s):
-    return long(s.replace('\n', '').replace(' ', ''), 16)
+    return int(s.replace('\n', '').replace(' ', ''), 16)
 
 #########################
 #### Enum management ####
@@ -572,8 +579,16 @@ class EnumElement:
         return getattr(self._value, attr)
     def __str__(self):
         return self._key
+    def __bytes__(self):
+        return raw(self.__str__())
+    def __hash__(self):
+        return self._value
+    def __int__(self):
+        return int(self._value)
     def __eq__(self, other):
         return self._value == int(other)
+    def __neq__(self, other):
+        return not self.__eq__(other)
 
 
 class Enum_metaclass(type):
@@ -626,7 +641,7 @@ def load_object(fname):
 @conf.commands.register
 def corrupt_bytes(s, p=0.01, n=None):
     """Corrupt a given percentage or number of bytes from a string"""
-    s = array.array("B",str(s))
+    s = array.array("B",raw(s))
     l = len(s)
     if n is None:
         n = max(1,int(l*p))
@@ -637,7 +652,7 @@ def corrupt_bytes(s, p=0.01, n=None):
 @conf.commands.register
 def corrupt_bits(s, p=0.01, n=None):
     """Flip a given percentage or number of bits from a string"""
-    s = array.array("B",str(s))
+    s = array.array("B",raw(s))
     l = len(s)*8
     if n is None:
         n = max(1,int(l*p))
@@ -710,6 +725,7 @@ class PcapReader_metaclass(type):
                 try:
                     i.__init__(filename, fdesc, magic)
                 except Scapy_Exception:
+                    raise
                     try:
                         i.f.seek(-4, 1)
                     except:
@@ -1149,7 +1165,7 @@ class PcapWriter(RawPcapWriter):
             return
         sec = int(packet.time)
         usec = int(round((packet.time - sec) * (1000000000 if self.nano else 1000000)))
-        s = str(packet)
+        s = raw(packet)
         caplen = len(s)
         RawPcapWriter._write_packet(self, s, sec, usec, caplen, caplen)
 
@@ -1345,7 +1361,7 @@ def pretty_routes(rtlst, header, sortBy=0):
     # Append tag
     rtlst = header + rtlst
     # Detect column's width
-    colwidth = [max([len(y) for y in x]) for x in apply(zip, rtlst)]
+    colwidth = [max([len(y) for y in x]) for x in zip(*rtlst)]
     # Make text fit in box (if exist)
     # TODO: find a better and more precise way of doing this. That's currently working but very complicated
     width = get_terminal_width()
@@ -1454,7 +1470,7 @@ def whois(ip_address):
         query = whois_ip
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.connect(("whois.ripe.net", 43))
-    s.send(query + b"\r\n")
+    s.send(query.encode("utf8") + b"\r\n")
     answer = b""
     while True:
         d = s.recv(4096)

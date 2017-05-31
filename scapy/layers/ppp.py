@@ -12,6 +12,7 @@ PPP (Point to Point Protocol)
 import struct
 from scapy.config import conf
 from scapy.data import DLT_PPP, DLT_PPP_SERIAL, DLT_PPP_ETHER
+from scapy.compat import *
 from scapy.packet import Packet, bind_layers
 from scapy.layers.eap import EAP
 from scapy.layers.l2 import Ether, CookedLinux, GRE_PPTP
@@ -207,7 +208,7 @@ class PPP(Packet):
     fields_desc = [ ShortEnumField("proto", 0x0021, _PPP_proto) ]
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
-        if _pkt and _pkt[0] == b'\xff':
+        if _pkt and ord(_pkt[0]) == 0xff:
             cls = HDLC
         return cls
 

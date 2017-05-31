@@ -13,6 +13,7 @@ import socket,struct
 from scapy.config import conf
 from scapy.packet import *
 from scapy.fields import *
+from scapy.compat import *
 from scapy.ansmachine import *
 from scapy.sendrecv import sr1
 from scapy.layers.inet import IP, DestIPField, UDP, TCP
@@ -23,11 +24,10 @@ import scapy.modules.six as six
 from scapy.modules.six.moves import range
 
 class DNSStrField(StrField):
-
     def h2i(self, pkt, x):
-      if x == "":
-        return "."
-      return x
+        if x == "":
+            return "."
+        return x
 
     def i2m(self, pkt, x):
         if x == ".":
@@ -35,7 +35,7 @@ class DNSStrField(StrField):
 
         # Truncate chunks that cannot be encoded (more than 63 bytes..)
         x = b"".join(chr(len(y)) + y for y in (k[:63] for k in x.split(".")))
-        if x[-1] != b"\x00":
+        if ord(x[-1]) != 0:
             x += b"\x00"
         return x
 
@@ -43,7 +43,7 @@ class DNSStrField(StrField):
         n = b""
 
         if ord(s[0]) == 0:
-          return s[1:], b"."
+          return s[1:], "."
 
         while True:
             l = ord(s[0])
@@ -53,7 +53,7 @@ class DNSStrField(StrField):
             if l & 0xc0:
                 raise Scapy_Exception("DNS message can't be compressed at this point!")
             else:
-                n += s[:l]+b"."
+                n += s[:l]+"."
                 s = s[l:]
         return s, n
 
@@ -123,7 +123,7 @@ class DNSRRField(StrField):
     def i2m(self, pkt, x):
         if x is None:
             return b""
-        return str(x)
+        return raw(x)
     def decodeRR(self, name, s, p):
         ret = s[p:p+10]
         type,cls,ttl,rdlen = struct.unpack("!HHIH", ret)
@@ -209,6 +209,7 @@ class RDataField(StrLenField):
                 s += b"\x00"
         elif pkt.type == 16: # TXT
             if s:
+                s = raw(s)
                 ret_s = b""
                 # The initial string must be splitted into a list of strings
                 # prepended with theirs sizes.

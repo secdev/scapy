@@ -22,6 +22,7 @@ PacketListField, FieldListField, ConditionalField, PadField)
 from scapy.layers.inet6 import IP6Field
 from scapy.layers.inet import UDP
 from scapy.utils import lhex
+from scapy.compat import *
 from scapy.config import conf
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
@@ -198,7 +199,7 @@ def _ntp_dispatcher(payload):
     else:
         length = len(payload)
         if length >= _NTP_PACKET_MIN_SIZE:
-            first_byte = struct.unpack("!B", payload[0])[0]
+            first_byte = struct.unpack("!B", raw(payload[0]))[0]
 
             # Extract NTP mode
             mode_mask = 0x07

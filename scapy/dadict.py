@@ -11,13 +11,14 @@ from __future__ import absolute_import
 from __future__ import print_function
 from scapy.error import Scapy_Exception
 import scapy.modules.six as six
+from scapy.compat import *
 
 ###############################
 ## Direct Access dictionary  ##
 ###############################
 
 def fixname(x):
-    if x and x[0] in "0123456789":
+    if x and str(x[0]) in "0123456789":
         x = "n_"+x
     return x.translate("________________________________________________0123456789_______ABCDEFGHIJKLMNOPQRSTUVWXYZ______abcdefghijklmnopqrstuvwxyz_____________________________________________________________________________________________________________________________________")
 
@@ -30,7 +31,7 @@ class DADict:
         self._name=_name
         self.update(kargs)
     def fixname(self,val):
-        return fixname(val)
+        return fixname(plain_str(val))
     def __contains__(self, val):
         return val in self.__dict__
     def __getitem__(self, attr):
@@ -90,7 +91,7 @@ class DADict:
                 r += p
         return r
     def keys(self):
-        return list(six.iterkeys(self))
+        return list(six.iterkeys(self.__dict__))
     def iterkeys(self):
         return (x for x in self.__dict__ if x and x[0] != "_")
     def __len__(self):

@@ -15,6 +15,7 @@ from scapy.dadict import DADict,fixname
 from scapy.config import conf
 from scapy.utils import do_graph
 import scapy.modules.six as six
+from scapy.compat import *
 
 #################
 ## MIB parsing ##
@@ -85,7 +86,7 @@ def mib_register(ident, value, the_mib, unresolved):
         if _mib_re_integer.match(v):
             resval.append(v)
         else:
-            v = fixname(v)
+            v = fixname(plain_str(v))
             if v not in the_mib:
                 not_resolved = 1
             if v in the_mib:
@@ -121,7 +122,7 @@ def load_mib(filenames):
     for k in six.iterkeys(conf.mib):
         mib_register(k, conf.mib[k].split("."), the_mib, unresolved)
 
-    if isinstance(filenames, str):
+    if isinstance(filenames, (str, bytes)):
         filenames = [filenames]
     for fnames in filenames:
         for fname in glob(fnames):

@@ -20,6 +20,7 @@ from scapy.consts import FREEBSD, NETBSD
 from scapy.data import ETH_P_ALL
 from scapy.error import Scapy_Exception, warning
 from scapy.supersocket import SuperSocket
+from scapy.compat import raw
 
 
 if FREEBSD or NETBSD:
@@ -288,7 +289,7 @@ class L2bpfSocket(L2bpfListenSocket):
 
     def send(self, x):
         """Send a frame"""
-        return os.write(self.outs, str(x))
+        return os.write(self.outs, raw(x))
 
     def nonblock_recv(self):
         """Non blocking receive"""
@@ -329,7 +330,7 @@ class L3bpfSocket(L2bpfSocket):
             self.assigned_interface = iff
 
         # Build the frame
-        frame = str(self.guessed_cls()/pkt)
+        frame = raw(self.guessed_cls()/pkt)
         pkt.sent_time = time.time()
 
         # Send the frame

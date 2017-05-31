@@ -13,6 +13,7 @@ if not sys.platform.startswith("win"):
     from fcntl import ioctl
 
 from scapy.data import *
+from scapy.compat import *
 from scapy.config import conf
 from scapy.utils import mac2str
 from scapy.supersocket import SuperSocket
@@ -74,13 +75,13 @@ if conf.use_winpcapy:
     try:
       p = devs
       while p:
-        if p.contents.name.endswith(iff):
+        if p.contents.name.endswith(iff.guid.encode("ascii")):
           a = p.contents.addresses
           while a:
             if hasattr(socket, 'AF_LINK') and a.contents.addr.contents.sa_family == socket.AF_LINK:
               ap = a.contents.addr
               val = cast(ap, POINTER(sockaddr_dl))
-              ret = str(val.contents.sdl_data[ val.contents.sdl_nlen : val.contents.sdl_nlen + val.contents.sdl_alen ])
+              ret = (val.contents.sdl_data[ val.contents.sdl_nlen : val.contents.sdl_nlen + val.contents.sdl_alen ]).encode("utf8")
             a = a.contents.next
           break
         p = p.contents.next
@@ -97,13 +98,13 @@ if conf.use_winpcapy:
     try:
       p = devs
       while p:
-        if p.contents.name.endswith(iff.guid):
+        if p.contents.name.endswith(iff.guid.encode("ascii")):
           a = p.contents.addresses
           while a:
             if a.contents.addr.contents.sa_family == socket.AF_INET:
               ap = a.contents.addr
               val = cast(ap, POINTER(sockaddr_in))
-              ret = "".join(chr(x) for x in val.contents.sin_addr[:4])
+              ret = b"".join(chr(x) for x in val.contents.sin_addr[:4])
             a = a.contents.next
           break
         p = p.contents.next
@@ -140,7 +141,7 @@ if conf.use_winpcapy:
   class _PcapWrapper_pypcap:
       def __init__(self, device, snaplen, promisc, to_ms):
           self.errbuf = create_string_buffer(PCAP_ERRBUF_SIZE)
-          self.iface = create_string_buffer(device)
+          self.iface = create_string_buffer(device.encode('ascii'))
           self.pcap = pcap_open_live(self.iface, snaplen, promisc, to_ms, self.errbuf)
           self.header = POINTER(pcap_pkthdr)()
           self.pkt_data = POINTER(c_ubyte)()
@@ -150,7 +151,7 @@ if conf.use_winpcapy:
           if not c > 0:
               return
           ts = self.header.contents.ts.tv_sec + float(self.header.contents.ts.tv_usec) / 1000000
-          pkt = "".join(chr(i) for i in self.pkt_data[:self.header.contents.len])
+          pkt = b"".join(chb(i) for i in self.pkt_data[:self.header.contents.len])
           return ts, pkt
       __next__ = next
       def datalink(self):
@@ -161,7 +162,7 @@ if conf.use_winpcapy:
             return 0
           return pcap_get_selectable_fd(self.pcap) 
       def setfilter(self, f):
-          filter_exp = create_string_buffer(f)
+          filter_exp = create_string_buffer(f.encode('ascii'))
           if pcap_compile(self.pcap, byref(self.bpf_program), filter_exp, 0, -1) == -1:
             log_loading.error("Could not compile filter expression %s" % f)
             return False
@@ -276,7 +277,7 @@ if conf.use_winpcapy:
           if filter:
               self.ins.setfilter(filter)
       def send(self, x):
-          sx = str(x)
+          sx = raw(x)
           if hasattr(x, "sent_time"):
               x.sent_time = time.time()
           return self.outs.send(sx)
@@ -332,7 +333,7 @@ if conf.use_winpcapy:
             return
       def send(self, x):
           cls = conf.l2types[1]
-          sx = str(cls()/x)
+          sx = raw(cls()/x)
           if hasattr(x, "sent_time"):
               x.sent_time = time.time()
           return self.ins.send(sx)
@@ -374,7 +375,7 @@ if conf.use_pcap:
                     if c is None:
                         return
                     ts, pkt = c
-                    return ts, str(pkt)
+                    return ts, raw(pkt)
                 __next__ = next
             open_pcap = lambda *args,**kargs: _PcapWrapper_pypcap(*args,**kargs)
         elif hasattr(pcap,"pcapObject"): # python-libpcap
@@ -603,9 +604,9 @@ if conf.use_pcap and conf.use_dnet:
                     ifs = dnet.ip()
                 self.iflist[iff] = ifs,cls
             if cls is None:
-                sx = str(x)
+                sx = raw(x)
             else:
-                sx = str(cls()/x)
+                sx = raw(cls()/x)
             x.sent_time = time.time()
             ifs.send(sx)
         def recv(self,x=MTU):

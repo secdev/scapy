@@ -17,6 +17,7 @@ import struct
 
 from scapy.config import conf
 from scapy.fields import *
+from scapy.compat import *
 from scapy.packet import *
 from scapy.layers.inet import TCP
 from scapy.layers.tls.session import _GenericTLSSessionInheritance
@@ -164,10 +165,10 @@ class _TLSMsgListField(PacketListField):
                cur = p.str_stateful()
                p.post_build_tls_session_update(cur)
            else:
-               cur = str(p)
+               cur = raw(p)
        else:
            pkt.type = 23
-           cur = str(p)
+           cur = raw(p)
        return cur
 
     def addfield(self, pkt, s, val):
@@ -735,4 +736,3 @@ class TLSApplicationData(_GenericTLSSessionInheritance):
 
 bind_bottom_up(TCP, TLS, {"dport": 443})
 bind_bottom_up(TCP, TLS, {"sport": 443})
-

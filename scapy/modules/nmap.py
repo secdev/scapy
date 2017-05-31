@@ -27,6 +27,7 @@ from scapy.error import warning
 from scapy.layers.inet import IP, TCP, UDP, ICMP, UDPerror, IPerror
 from scapy.packet import NoPayload
 from scapy.sendrecv import sr
+from scapy.compat import *
 import scapy.modules.six as six
 
 
@@ -64,6 +65,7 @@ None.
         name = None
         sig = {}
         for line in fdesc:
+            line = plain_str(line)
             line = line.split('#', 1)[0].strip()
             if not line:
                 continue

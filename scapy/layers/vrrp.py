@@ -10,6 +10,7 @@ VRRP (Virtual Router Redundancy Protocol).
 
 from scapy.packet import *
 from scapy.fields import *
+from scapy.compat import *
 from scapy.layers.inet import *
 from scapy.layers.inet6 import *
 from scapy.error import warning
@@ -35,7 +36,7 @@ class VRRP(Packet):
     def post_build(self, p, pay):
         if self.chksum is None:
             ck = checksum(p)
-            p = p[:6]+chr(ck>>8)+chr(ck&0xff)+p[8:]
+            p = p[:6]+chb(ck>>8)+chb(ck&0xff)+p[8:]
         return p
 
     @classmethod

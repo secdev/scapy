@@ -5,9 +5,10 @@
 
 from __future__ import print_function
 import socket
-import Queue
+from scapy.modules.six.moves.queue import Queue, Empty
 from scapy.pipetool import Source,Drain,Sink
 from scapy.config import conf
+from scapy.compat import *
 from scapy.utils import PcapReader, PcapWriter
 
 
@@ -121,7 +122,7 @@ class UDPDrain(Drain):
         from scapy.layers.inet import IP, UDP
         if IP in msg and msg[IP].proto == 17 and UDP in msg:
             payload = msg[UDP].payload
-            self._high_send(str(payload))
+            self._high_send(raw(payload))
     def high_push(self, msg):
         from scapy.layers.inet import IP, UDP
         p = IP(dst=self.ip)/UDP(sport=1234,dport=self.port)/msg
@@ -184,7 +185,7 @@ class TCPListenPipe(TCPConnectPipe):
     def __init__(self, addr="", port=0, name=None):
         TCPConnectPipe.__init__(self, addr, port, name)
         self.connected = False
-        self.q = Queue.Queue()
+        self.q = Queue()
     def start(self):
         self.connected = False
         self.fd = socket.socket()
@@ -209,7 +210,7 @@ class TCPListenPipe(TCPConnectPipe):
             while True:
                 try:
                     self.fd.send(self.q.get(block=False))
-                except Queue.Empty:
+                except Empty:
                     break
 
 
@@ -283,9 +284,9 @@ class TriggeredQueueingValve(Drain):
     def __init__(self, start_state=True, name=None):
         Drain.__init__(self, name=name)
         self.opened = start_state
-        self.q = Queue.Queue()
+        self.q = Queue()
     def start(self):
-        self.q = Queue.Queue()
+        self.q = Queue()
     def push(self, msg):
         if self.opened:
             self._send(msg)
@@ -302,7 +303,7 @@ class TriggeredQueueingValve(Drain):
         while True:
             try:
                 low,msg = self.q.get(block=False)
-            except Queue.Empty:
+            except Empty:
                 break
             else:
                 if low:

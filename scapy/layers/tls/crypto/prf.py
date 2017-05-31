@@ -14,6 +14,7 @@ from scapy.utils import strxor
 from scapy.layers.tls.crypto.hash import _tls_hash_algs
 from scapy.layers.tls.crypto.h_mac import _tls_hmac_algs
 from scapy.modules.six.moves import range
+from scapy.compat import *
 
 
 ### Data expansion functions
@@ -42,7 +43,7 @@ def _tls_P_hash(secret, seed, req_len, hm):
     a = hm(secret).digest(seed)  # A(1)
 
     while n > 0:
-        res += hm(secret).digest(a + seed)
+        res += hm(secret).digest(a + raw(seed))
         a = hm(secret).digest(a)
         n -= 1
 
