@@ -269,20 +269,27 @@ def __gen_send(s, x, inter=0, loop=0, count=None, verbose=None, realtime=None, r
         return sent_packets
         
 @conf.commands.register
-def send(x, inter=0, loop=0, count=None, verbose=None, realtime=None, return_packets=False, *args, **kargs):
+def send(x, inter=0, loop=0, count=None, verbose=None, realtime=None, return_packets=False, socket=None,
+         *args, **kargs):
     """Send packets at layer 3
-send(packets, [inter=0], [loop=0], [verbose=conf.verb]) -> None"""
-    return __gen_send(conf.L3socket(*args, **kargs), x, inter=inter, loop=loop, count=count,verbose=verbose,
+send(packets, [inter=0], [loop=0], [count=None], [verbose=conf.verb], [realtime=None], [return_packets=False],
+     [socket=None]) -> None"""
+    if socket is None:
+        socket = conf.L3socket(*args, **kargs)
+    return __gen_send(socket, x, inter=inter, loop=loop, count=count,verbose=verbose,
                       realtime=realtime, return_packets=return_packets)
 
 @conf.commands.register
 def sendp(x, inter=0, loop=0, iface=None, iface_hint=None, count=None, verbose=None, realtime=None,
-          return_packets=False, *args, **kargs):
+          return_packets=False, socket=None, *args, **kargs):
     """Send packets at layer 2
-sendp(packets, [inter=0], [loop=0], [verbose=conf.verb]) -> None"""
-    if iface is None and iface_hint is not None:
+sendp(packets, [inter=0], [loop=0], [iface=None], [iface_hint=None], [count=None], [verbose=conf.verb],
+      [realtime=None], [return_packets=False], [socket=None]) -> None"""
+    if iface is None and iface_hint is not None and socket is None:
         iface = conf.route.route(iface_hint)[0]
-    return __gen_send(conf.L2socket(iface=iface, *args, **kargs), x, inter=inter, loop=loop, count=count,
+    if socket is None:
+        socket = conf.L2socket(iface=iface, *args, **kargs)
+    return __gen_send(socket, x, inter=inter, loop=loop, count=count,
                       verbose=verbose, realtime=realtime, return_packets=return_packets)
 
 @conf.commands.register
