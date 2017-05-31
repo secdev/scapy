@@ -193,7 +193,7 @@ class AbstractUVarIntField(fields.Field):
         @return None
         @raise AssertionError
         """
-        assert(isinstance(default, types.NoneType) or (isinstance(default, (int, long)) and default >= 0))
+        assert(default is None or (isinstance(default, (int, long)) and default >= 0))
         assert(0 < size <= 8)
         super(AbstractUVarIntField, self).__init__(name, default)
         self.size = size
@@ -335,7 +335,7 @@ class AbstractUVarIntField(fields.Field):
         @return int|None: the converted value.
         @raise AssertionError
         """
-        if isinstance(x, types.NoneType):
+        if isinstance(x, type(None)):
             return x
         if isinstance(x, (int, long)):
             assert(x >= 0)
@@ -503,7 +503,7 @@ class UVarIntField(AbstractUVarIntField):
         @raise AssertionError
         """
         ret = super(UVarIntField, self).h2i(pkt, x)
-        assert(not isinstance(ret, types.NoneType) and ret >= 0)
+        assert(not isinstance(ret, type(None)) and ret >= 0)
         return ret
 
     def i2h(self, pkt, x):
@@ -516,7 +516,7 @@ class UVarIntField(AbstractUVarIntField):
         @raise AssertionError
         """
         ret = super(UVarIntField, self).i2h(pkt, x)
-        assert(not isinstance(ret, types.NoneType) and ret >= 0)
+        assert(not isinstance(ret, type(None)) and ret >= 0)
         return ret
 
     def any2i(self, pkt, x):
@@ -529,7 +529,7 @@ class UVarIntField(AbstractUVarIntField):
         @raise AssertionError
         """
         ret = super(UVarIntField, self).any2i(pkt, x)
-        assert(not isinstance(ret, types.NoneType) and ret >= 0)
+        assert(not isinstance(ret, type(None)) and ret >= 0)
         return ret
 
     def i2repr(self, pkt, x):
@@ -1039,9 +1039,9 @@ class HPackZString(HPackStringsInterface):
         assert(i >= 0)
         assert(ibl >= 0)
 
-        if isinstance(cls.static_huffman_tree, types.NoneType):
+        if isinstance(cls.static_huffman_tree, type(None)):
             cls.huffman_compute_decode_tree()
-        assert(not isinstance(cls.static_huffman_tree, types.NoneType))
+        assert(not isinstance(cls.static_huffman_tree, type(None)))
 
         s = []
         j = 0
@@ -1058,7 +1058,7 @@ class HPackZString(HPackStringsInterface):
             if isinstance(elmt, HuffmanNode):
                 interrupted = True
                 cur = elmt
-                if isinstance(cur, types.NoneType):
+                if isinstance(cur, type(None)):
                     raise AssertionError()
             elif isinstance(elmt, EOS):
                 raise InvalidEncodingException('Huffman decoder met the full EOS symbol')
@@ -2237,7 +2237,7 @@ class HPackHdrTable(Sized):
         @param int dynamic_table_cap_size: the maximum-maximum size of the dynamic entry table in bytes
         @raises AssertionError
         """
-        if isinstance(type(self)._static_entries_last_idx, types.NoneType):
+        if isinstance(type(self)._static_entries_last_idx, type(None)):
             type(self).init_static_table()
 
         assert dynamic_table_max_size <= dynamic_table_cap_size, \

@@ -75,7 +75,7 @@ class VolatileValue:
         elif attr == "__cmp__":
             x = self._fix()
             def cmp2(y,x=x):
-                if type(x) != type(y):
+                if not isinstance(x, type(y)):
                     return -1
                 return x.__cmp__(y)
             return cmp2
@@ -342,7 +342,7 @@ class RandOID(RandString):
                     oid.append(str(self.idnum))
                 elif i == "**":
                     oid += [str(self.idnum) for i in xrange(1 + self.depth)]
-                elif type(i) is tuple:
+                elif isinstance(i, tuple):
                     oid.append(str(random.randrange(*i)))
                 else:
                     oid.append(i)
@@ -383,7 +383,7 @@ class RandRegExp(RandField):
         r = ""
         mul = 1
         for e in lst:
-            if type(e) is list:
+            if isinstance(e, list):
                 if mul != 1:
                     mul = mul-1
                     r += RandRegExp.stack_fix(e[1:]*mul, index)
@@ -394,7 +394,7 @@ class RandRegExp(RandField):
                         index[i] = f
                 r += f
                 mul = 1
-            elif type(e) is tuple:
+            elif isinstance(e, tuple):
                 kind,val = e
                 if kind == "cite":
                     r += index[val-1]
@@ -433,7 +433,7 @@ class RandRegExp(RandField):
             elif c == '|':
                 p = current[0]
                 ch = p[-1]
-                if type(ch) is not tuple:
+                if not isinstance(ch, tuple):
                     ch = ("choice",[current])
                     p[-1] = ch
                 else:
@@ -441,7 +441,7 @@ class RandRegExp(RandField):
                 current = [p]
             elif c == ')':
                 ch = current[0][-1]
-                if type(ch) is tuple:
+                if isinstance(ch, tuple):
                     ch[1].append(current)
                 index.append(current)
                 current = current[0]
@@ -515,10 +515,10 @@ class RandSingNum(RandSingularity):
             end = -end
             sign = -1
         end_n = int(math.log(end)/math.log(2))+1
-        return set([sign*2**i for i in xrange(end_n)])            
+        return {sign*2**i for i in xrange(end_n)}            
         
     def __init__(self, mn, mx):
-        sing = set([0, mn, mx, int((mn+mx)/2)])
+        sing = {0, mn, mx, int((mn+mx)/2)}
         sing |= self.make_power_of_two(mn)
         sing |= self.make_power_of_two(mx)
         for i in sing.copy():
@@ -630,7 +630,7 @@ class RandPool(RandField):
         pool = []
         for p in args:
             w = 1
-            if type(p) is tuple:
+            if isinstance(p, tuple):
                 p,w = p
             pool += [p]*w
         self._pool = pool

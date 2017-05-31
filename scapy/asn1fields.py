@@ -15,6 +15,7 @@ from scapy.volatile import *
 from scapy.base_classes import BasePacket
 from scapy.utils import binrepr
 from scapy import packet
+from functools import reduce
 
 class ASN1F_badsequence(Exception):
     pass
@@ -40,7 +41,7 @@ class ASN1F_field(ASN1F_element):
         self.name = name
         if default is None:
             self.default = None
-        elif type(default) is ASN1_NULL:
+        elif isinstance(default, ASN1_NULL):
             self.default = default
         else:
             self.default = self.ASN1_tag.asn1_object(default)
@@ -127,7 +128,7 @@ class ASN1F_field(ASN1F_element):
     def do_copy(self, x):
         if hasattr(x, "copy"):
             return x.copy()
-        if type(x) is list:
+        if isinstance(x, list):
             x = x[:]
             for i in xrange(len(x)):
                 if isinstance(x[i], BasePacket):
@@ -170,7 +171,7 @@ class ASN1F_enum_INTEGER(ASN1F_INTEGER):
                                explicit_tag=explicit_tag)
         i2s = self.i2s = {}
         s2i = self.s2i = {}
-        if type(enum) is list:
+        if isinstance(enum, list):
             keys = xrange(len(enum))
         else:
             keys = enum.keys()
@@ -310,7 +311,7 @@ class ASN1F_SEQUENCE(ASN1F_field):
             for obj in self.seq:
                 try:
                     s = obj.dissect(pkt, s)
-                except ASN1F_badsequence,e:
+                except ASN1F_badsequence as e:
                     break
             if len(s) > 0:
                 raise BER_Decoding_Error("unexpected remainder", remaining=s)
@@ -444,7 +445,7 @@ class ASN1F_CHOICE(ASN1F_field):
                 else:
                     self.choices[p.ASN1_root.network_tag] = p
             elif hasattr(p, "ASN1_tag"):
-                if type(p) is type:         # should be ASN1F_field class
+                if isinstance(p, type):         # should be ASN1F_field class
                     self.choices[p.ASN1_tag] = p
                 else:                       # should be ASN1F_PACKET instance
                     self.choices[p.network_tag] = p
@@ -471,7 +472,7 @@ class ASN1F_CHOICE(ASN1F_field):
         if hasattr(choice, "ASN1_root"):
             # we don't want to import ASN1_Packet in this module...
             return self.extract_packet(choice, s)
-        elif type(choice) is type:
+        elif isinstance(choice, type):
             #XXX find a way not to instantiate the ASN1F_field
             return choice(self.name, "").m2i(pkt, s)
         else:
@@ -493,7 +494,7 @@ class ASN1F_CHOICE(ASN1F_field):
             if hasattr(p, "ASN1_root"):   # should be ASN1_Packet class
                 randchoices.append(packet.fuzz(p()))
             elif hasattr(p, "ASN1_tag"):
-                if type(p) is type:       # should be (basic) ASN1F_field class
+                if isinstance(p, type):       # should be (basic) ASN1F_field class
                     randchoices.append(p("dummy", None).randval())
                 else:                     # should be ASN1F_PACKET instance
                     randchoices.append(p.randval())

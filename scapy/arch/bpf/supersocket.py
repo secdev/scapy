@@ -56,14 +56,14 @@ class _L2bpfSocket(SuperSocket):
         # Set the BPF buffer length
         try:
             fcntl.ioctl(self.ins, BIOCSBLEN, struct.pack('I', BPF_BUFFER_LENGTH))
-        except IOError, err:
+        except IOError as err:
             msg = "BIOCSBLEN failed on /dev/bpf%i" % self.dev_bpf
             raise Scapy_Exception(msg)
 
         # Assign the network interface to the BPF handle
         try:
             fcntl.ioctl(self.ins, BIOCSETIF, struct.pack("16s16x", self.iface))
-        except IOError, err:
+        except IOError as err:
             msg = "BIOCSETIF failed on %s" % self.iface
             raise Scapy_Exception(msg)
         self.assigned_interface = self.iface
@@ -75,7 +75,7 @@ class _L2bpfSocket(SuperSocket):
         # Don't block on read
         try:
             fcntl.ioctl(self.ins, BIOCIMMEDIATE, struct.pack('I', 1))
-        except IOError, err:
+        except IOError as err:
             msg = "BIOCIMMEDIATE failed on /dev/bpf%i" % self.dev_bpf
             raise Scapy_Exception(msg)
 
@@ -83,7 +83,7 @@ class _L2bpfSocket(SuperSocket):
         # Otherwise, it is written by the kernel
         try:
             fcntl.ioctl(self.ins, BIOCSHDRCMPLT, struct.pack('i', 1))
-        except IOError, err:
+        except IOError as err:
             msg = "BIOCSHDRCMPLT failed on /dev/bpf%i" % self.dev_bpf
             raise Scapy_Exception(msg)
 
@@ -105,7 +105,7 @@ class _L2bpfSocket(SuperSocket):
 
         try:
             fcntl.ioctl(self.ins, BIOCPROMISC, struct.pack('i', value))
-        except IOError, err:
+        except IOError as err:
             msg = "Can't put your interface (%s) into promiscuous mode !" % self.iface
             raise Scapy_Exception(msg)
 
@@ -120,7 +120,7 @@ class _L2bpfSocket(SuperSocket):
         try:
             ret = fcntl.ioctl(self.ins, BIOCGDLT, struct.pack('I', 0))
             ret = struct.unpack('I', ret)[0]
-        except IOError, err:
+        except IOError as err:
             warning("BIOCGDLT failed: unable to guess type. Using Ethernet !")
             return Ether
 
@@ -143,7 +143,7 @@ class _L2bpfSocket(SuperSocket):
         if self.fd_flags is None:
             try:
                 self.fd_flags = fcntl.fcntl(self.ins, fcntl.F_GETFL)
-            except IOError, err:
+            except IOError as err:
                 warning("Can't get flags on this file descriptor !")
                 return
 
@@ -165,7 +165,7 @@ class _L2bpfSocket(SuperSocket):
         try:
             ret = fcntl.ioctl(self.ins, BIOCGSTATS, struct.pack("2I", 0, 0))
             return struct.unpack("2I", ret)
-        except IOError, err:
+        except IOError as err:
             warning("Unable to get stats from BPF !")
             return (None, None)
 
@@ -175,7 +175,7 @@ class _L2bpfSocket(SuperSocket):
         try:
             ret = fcntl.ioctl(self.ins, BIOCGBLEN, struct.pack("I", 0))
             return struct.unpack("I", ret)[0]
-        except IOError, err:
+        except IOError as err:
             warning("Unable to get the BPF buffer length")
             return
 
@@ -282,7 +282,7 @@ class L2bpfListenSocket(_L2bpfSocket):
             # Get data from BPF
             try:
                 bpf_buffer = os.read(self.ins, x)
-            except EnvironmentError, e:
+            except EnvironmentError as e:
                 if e.errno == errno.EAGAIN:
                     return
                 else:
@@ -333,7 +333,7 @@ class L3bpfSocket(L2bpfSocket):
         if self.assigned_interface != iff:
             try:
                 fcntl.ioctl(self.outs, BIOCSETIF, struct.pack("16s16x", iff))
-            except IOError, err:
+            except IOError as err:
                 msg = "BIOCSETIF failed on %s" % iff
                 raise Scapy_Exception(msg)
             self.assigned_interface = iff

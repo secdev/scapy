@@ -79,7 +79,7 @@ class AS_resolver_cymru(AS_resolver):
         s.connect((self.server,self.port))
         s.send("begin\r\n"+"\r\n".join(ips)+"\r\nend\r\n")
         r = ""
-        while 1:
+        while True:
             l = s.recv(8192)
             if l == "":
                 break

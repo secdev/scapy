@@ -68,7 +68,7 @@ class _AEADCipher(object):
             self.ready["nonce_explicit"] = False
             nonce_explicit = 0
 
-        if type(nonce_explicit) is str:
+        if isinstance(nonce_explicit, str):
             nonce_explicit = pkcs_os2ip(nonce_explicit)
 
         # we use super() in order to avoid any deadlock with __setattr__
@@ -92,7 +92,7 @@ class _AEADCipher(object):
                 self._cipher.mode._initialization_vector = iv
             self.ready["salt"] = True
         elif name == "nonce_explicit":
-            if type(val) is str:
+            if isinstance(val, str):
                 val = pkcs_os2ip(val)
             iv = self.salt + pkcs_i2osp(val, self.nonce_explicit_len)
             if self._cipher is not None:

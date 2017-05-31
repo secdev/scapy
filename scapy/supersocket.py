@@ -106,7 +106,7 @@ class L3RawSocket(SuperSocket):
             sx = str(x)
             x.sent_time = time.time()
             self.outs.sendto(sx,(x.dst,0))
-        except socket.error,msg:
+        except socket.error as msg:
             log_runtime.error(msg)
 
 class SimpleSocket(SuperSocket):

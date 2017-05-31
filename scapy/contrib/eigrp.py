@@ -47,6 +47,7 @@ from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.inet import IP
 from scapy.layers.inet6 import *
+from functools import reduce
 
 class EigrpIPField(StrField, IPField):
     """
@@ -265,13 +266,13 @@ class ShortVersionField(ShortField):
            Valid numbers are between 0 and 255.
         """
 
-        if type(x) is str and x.startswith("v") and len(x) <= 8:
+        if isinstance(x, str) and x.startswith("v") and len(x) <= 8:
             major = int(x.split(".")[0][1:])
             minor = int(x.split(".")[1])
 
             return (major << 8) | minor
 
-        elif type(x) is int and 0 <= x <= 65535:
+        elif isinstance(x, int) and 0 <= x <= 65535:
             return x
         else:
             if self.default != None:

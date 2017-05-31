@@ -210,7 +210,7 @@ class VectorFlags_Field(XLEIntField):
         sout = "+".join(r)
         return sout
     def any2i(self, pkt, x):
-        if type(x) is str:
+        if isinstance(x, str):
             r = x.split("+")
             y = 0
             for value in r:

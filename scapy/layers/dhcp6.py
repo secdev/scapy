@@ -378,7 +378,7 @@ class _OptReqListField(StrLenField):
     def i2repr(self, pkt, x):
         s = []
         for y in self.i2h(pkt, x):
-            if dhcp6opts.has_key(y):
+            if y in dhcp6opts:
                 s.append(dhcp6opts[y])
             else:
                 s.append("%d" % y)
@@ -1267,9 +1267,9 @@ dhcp6d( dns="2001:500::1035", domain="localdomain, local", duid=None)
         def norm_list(val, param_name):
             if val is None:
                 return None
-            if type(val) is list:
+            if isinstance(val, list):
                 return val
-            elif type(val) is str:
+            elif isinstance(val, str):
                 l = val.split(',')
                 return [x.strip() for x in l]
             else:
@@ -1307,8 +1307,7 @@ dhcp6d( dns="2001:500::1035", domain="localdomain, local", duid=None)
 
         if self.debug:
             print "\n[+] List of active DHCPv6 options:"
-            opts = self.dhcpv6_options.keys()
-            opts.sort()
+            opts = sorted(self.dhcpv6_options.keys())
             for i in opts:
                 print "    %d: %s" % (i, repr(self.dhcpv6_options[i]))
 
@@ -1409,7 +1408,7 @@ dhcp6d( dns="2001:500::1035", domain="localdomain, local", duid=None)
                 return False
             # provided server DUID must match ours
             duid = p[DHCP6OptServerId].duid
-            if (type(duid) != type(self.duid)):
+            if not isinstance(duid, type(self.duid)):
                 return False
             if str(duid) != str(self.duid):
                 return False
@@ -1474,7 +1473,7 @@ dhcp6d( dns="2001:500::1035", domain="localdomain, local", duid=None)
         elif p.msgtype == 11: # Information-Request
             if DHCP6OptServerId in p:
                 duid = p[DHCP6OptServerId].duid
-                if (type(duid) != type(self.duid)):
+                if not isinstance(duid, type(self.duid)):
                     return False
                 if str(duid) != str(self.duid):
                     return False

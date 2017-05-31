@@ -123,7 +123,7 @@ class Packet(BasePacket):
                 self.dissection_done(self)
         for f, v in fields.iteritems():
             self.fields[f] = self.get_field(f).any2i(self, v)
-        if type(post_transform) is list:
+        if isinstance(post_transform, list):
             self.post_transforms = post_transform
         elif post_transform is None:
             self.post_transforms = []
@@ -169,10 +169,10 @@ class Packet(BasePacket):
                 self.payload = payload
                 payload.add_underlayer(self)
                 for t in self.aliastypes:
-                    if payload.overload_fields.has_key(t):
+                    if t in payload.overload_fields:
                         self.overloaded_fields = payload.overload_fields[t]
                         break
-            elif type(payload) is str:
+            elif isinstance(payload, str):
                 self.payload = conf.raw_layer(load=payload)
             else:
                 raise TypeError("payload must be either 'Packet' or 'str', not [%s]" % repr(payload))
@@ -229,7 +229,7 @@ class Packet(BasePacket):
         return v
 
     def setfieldval(self, attr, val):
-        if self.default_fields.has_key(attr):
+        if attr in self.default_fields:
             fld = self.get_field(attr)
             if fld is None:
                 any2i = lambda x,y: y
@@ -255,12 +255,12 @@ class Packet(BasePacket):
         return object.__setattr__(self, attr, val)
 
     def delfieldval(self, attr):
-        if self.fields.has_key(attr):
+        if attr in self.fields:
             del(self.fields[attr])
             self.explicit = 0 # in case a default value must be explicited
             self.raw_packet_cache = None
             self.raw_packet_cache_fields = None
-        elif self.default_fields.has_key(attr):
+        elif attr in self.default_fields:
             pass
         elif attr == "payload":
             self.remove_payload()
@@ -315,19 +315,19 @@ class Packet(BasePacket):
             cloneB = other.copy()
             cloneA.add_payload(cloneB)
             return cloneA
-        elif type(other) is str:
+        elif isinstance(other, str):
             return self/conf.raw_layer(load=other)
         else:
             return other.__rdiv__(self)
     __truediv__ = __div__
     def __rdiv__(self, other):
-        if type(other) is str:
+        if isinstance(other, str):
             return conf.raw_layer(load=other)/self
         else:
             raise TypeError
     __rtruediv__ = __rdiv__
     def __mul__(self, other):
-        if type(other) is int:
+        if isinstance(other, int):
             return  [self]*other
         else:
             raise TypeError
@@ -431,7 +431,7 @@ class Packet(BasePacket):
             if isinstance(f, ConditionalField) and not f._evalcond(self):
                 continue
             p = f.addfield(self, p, self.getfieldval(f.name) )
-            if type(p) is str:
+            if isinstance(p, str):
                 r = p[len(q):]
                 q = p
             else:
@@ -805,7 +805,7 @@ class Packet(BasePacket):
         """True if other is an answer from self (self ==> other)."""
         if isinstance(other, Packet):
             return other < self
-        elif type(other) is str:
+        elif isinstance(other, str):
             return 1
         else:
             raise TypeError((self, other))
@@ -813,7 +813,7 @@ class Packet(BasePacket):
         """True if self is an answer from other (other ==> self)."""
         if isinstance(other, Packet):
             return self.answers(other)
-        elif type(other) is str:
+        elif isinstance(other, str):
             return 1
         else:
             raise TypeError((self, other))
@@ -858,10 +858,10 @@ class Packet(BasePacket):
         return self.payload.haslayer(cls)
     def getlayer(self, cls, nb=1, _track=None):
         """Return the nb^th layer that is an instance of cls."""
-        if type(cls) is int:
+        if isinstance(cls, int):
             nb = cls+1
             cls = None
-        if type(cls) is str and "." in cls:
+        if isinstance(cls, str) and "." in cls:
             ccls,fld = cls.split(".",1)
         else:
             ccls,fld = cls,None
@@ -895,7 +895,7 @@ class Packet(BasePacket):
         return q
 
     def __getitem__(self, cls):
-        if type(cls) is slice:
+        if isinstance(cls, slice):
             lname = cls.start
             if cls.stop:
                 ret = self.getlayer(cls.start, cls.stop)
@@ -907,9 +907,9 @@ class Packet(BasePacket):
             lname=cls
             ret = self.getlayer(cls)
         if ret is None:
-            if type(lname) is Packet_metaclass:
+            if isinstance(lname, Packet_metaclass):
                 lname = lname.__name__
-            elif type(lname) is not str:
+            elif not isinstance(lname, str):
                 lname = repr(lname)
             raise IndexError("Layer [%s] not found" % lname)
         return ret
@@ -967,7 +967,7 @@ class Packet(BasePacket):
                 ncol = ct.field_name
                 vcol = ct.field_value
             fvalue = self.getfieldval(f.name)
-            if isinstance(fvalue, Packet) or (f.islist and f.holds_packets and type(fvalue) is list):
+            if isinstance(fvalue, Packet) or (f.islist and f.holds_packets and isinstance(fvalue, list)):
                 s += "%s  \\%-10s\\\n" % (label_lvl+lvl, ncol(f.name))
                 fvalue_gen = SetGen(fvalue,_iterpacket=0)
                 for fvalue in fvalue_gen:
@@ -977,7 +977,7 @@ class Packet(BasePacket):
                                         ncol(f.name),
                                         ct.punct("="),)
                 reprval = f.i2repr(self,fvalue)
-                if type(reprval) is str:
+                if isinstance(reprval, str):
                     reprval = reprval.replace("\n", "\n"+" "*(len(label_lvl)
                                                               +len(lvl)
                                                               +len(f.name)
@@ -1135,7 +1135,7 @@ A side effect is that, to obtain "{" and "}" characters, you must use
         ret = ""
         if not found or self.__class__ in needed:
             ret = self.mysummary()
-            if type(ret) is tuple:
+            if isinstance(ret, tuple):
                 ret,n = ret
                 needed += n
         if ret or needed:
@@ -1180,7 +1180,7 @@ A side effect is that, to obtain "{" and "}" characters, you must use
             fld = self.get_field(fn)
             if isinstance(fv, Packet):
                 fv = fv.command()
-            elif fld.islist and fld.holds_packets and type(fv) is list:
+            elif fld.islist and fld.holds_packets and isinstance(fv, list):
                 fv = "[%s]" % ",".join( map(Packet.command, fv))
             elif isinstance(fld, FlagsField):
                 fv = int(fv)
@@ -1337,7 +1337,8 @@ def bind_layers(lower, upper, __fval=None, **fval):
 def split_bottom_up(lower, upper, __fval=None, **fval):
     if __fval is not None:
         fval.update(__fval)
-    def do_filter((f,u),upper=upper,fval=fval):
+    def do_filter(xxx_todo_changeme,upper=upper,fval=fval):
+        (f,u) = xxx_todo_changeme
         if u != upper:
             return True
         for k in fval:

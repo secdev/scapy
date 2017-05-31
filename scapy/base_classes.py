@@ -131,10 +131,10 @@ class OID(Gen):
         return "OID(%r)" % self.oid
     def __iter__(self):        
         ii = [k[0] for k in self.cmpt]
-        while 1:
+        while True:
             yield self.fmt % tuple(ii)
             i = 0
-            while 1:
+            while True:
                 if i >= len(ii):
                     raise StopIteration
                 if ii[i] < self.cmpt[i][1]:

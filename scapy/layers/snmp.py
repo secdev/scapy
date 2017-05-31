@@ -244,7 +244,7 @@ bind_layers( UDP,           SNMP,          dport=162)
 
 def snmpwalk(dst, oid="1", community="public"):
     try:
-        while 1:
+        while True:
             r = sr1(IP(dst=dst)/UDP(sport=RandShort())/SNMP(community=community, PDU=SNMPnext(varbindlist=[SNMPvarbind(oid=oid)])),timeout=2, chainCC=1, verbose=0, retry=2)
             if ICMP in r:
                 print repr(r)

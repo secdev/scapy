@@ -110,6 +110,13 @@ parsed from a string (during a network capture or a PCAP file
 read). Adding inefficient code here will have a disastrous effect on
 Scapy's performances.
 
+### Python 2 and 3 compatibility
+
+The project aims to provide code that works both on Python 2 and Python 3. Therefore, some rules need to be apply to achieve compatibility:
+- byte-string must be defined as `b"\x00\x01\x02"`
+- exceptions must comply with the new Python 3 format: `except SomeError as e:`
+- lambdas must be written using a single argument when using tuples: use `lambda x_y: x_y[0] + f(x_y[1])` instead of `lambda (x, y): x + f(y)`.
+
 ### Code review
 
 Maintainers tend to be picky, and you might feel frustrated that your

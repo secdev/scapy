@@ -547,7 +547,7 @@ def pcapname(dev):
     device name.
 
     """
-    if type(dev) is NetworkInterface:
+    if isinstance(dev, NetworkInterface):
         if dev.is_invalid():
             return None
         return dev.pcap_name

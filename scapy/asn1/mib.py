@@ -90,7 +90,7 @@ def mib_register(ident, value, the_mib, unresolved):
                 v = the_mib[v]
             elif v in unresolved:
                 v = unresolved[v]
-            if type(v) is list:
+            if isinstance(v, list):
                 resval += v
             else:
                 resval.append(v)
@@ -119,7 +119,7 @@ def load_mib(filenames):
     for k in conf.mib.iterkeys():
         mib_register(k, conf.mib[k].split("."), the_mib, unresolved)
 
-    if type(filenames) is str:
+    if isinstance(filenames, str):
         filenames = [filenames]
     for fnames in filenames:
         for fname in glob(fnames):

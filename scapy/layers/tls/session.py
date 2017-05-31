@@ -530,7 +530,7 @@ class _tls_sessions(object):
             return
 
         h = session.hash()
-        if self.sessions.has_key(h):
+        if h in self.sessions:
             self.sessions[h].append(session)
         else:
             self.sessions[h] = [session]
@@ -546,7 +546,7 @@ class _tls_sessions(object):
 
     def find(self, session):
         h = session.hash()
-        if self.sessions.has_key(h):
+        if h in self.sessions:
             for k in self.sessions[h]:
                 if k.eq(session):
                     if conf.tls_verbose:

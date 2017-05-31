@@ -187,7 +187,7 @@ class _PubKeyFactory(_PKIObjMaker):
             return obj
 
         # This deals with the rare RSA 'kx export' call.
-        if type(key_path) is tuple:
+        if isinstance(key_path, tuple):
             obj = type.__call__(cls)
             obj.__class__ = PubKeyRSA
             obj.frmt = "tuple"
@@ -671,7 +671,7 @@ class Cert(object):
         """
         if now is None:
             now = time.localtime()
-        elif type(now) is str:
+        elif isinstance(now, str):
             try:
                 if '/' in now:
                     now = time.strptime(now, '%m/%d/%y')

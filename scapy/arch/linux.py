@@ -137,7 +137,7 @@ def attach_filter(s, bpf_filter, iface):
             conf.iface if iface is None else iface,
             bpf_filter,
         ))
-    except OSError,msg:
+    except OSError as msg:
         log_interactive.warning("Failed to execute tcpdump: (%s)")
         return
     lines = f.readlines()
@@ -282,7 +282,7 @@ def in6_getifaddr():
     ret = []
     try:
         f = open("/proc/net/if_inet6","r")
-    except IOError, err:    
+    except IOError as err:    
         return ret
     l = f.readlines()
     for i in l:
@@ -296,7 +296,7 @@ def in6_getifaddr():
 def read_routes6():
     try:
         f = open("/proc/net/ipv6_route","r")
-    except IOError, err:
+    except IOError as err:
         return []
     # 1. destination network
     # 2. destination prefix length
@@ -359,9 +359,9 @@ else:
 
 
 def _flush_fd(fd):
-    if type(fd) is not int:
+    if hasattr(fd, 'fileno'):
         fd = fd.fileno()
-    while 1:
+    while True:
         r,w,e = select([fd],[],[],0)
         if r:
             os.read(fd,MTU)
@@ -457,7 +457,7 @@ class L3PacketSocket(SuperSocket):
         x.sent_time = time.time()
         try:
             self.outs.sendto(sx, sdto)
-        except socket.error, msg:
+        except socket.error as msg:
             if msg[0] == 22 and len(sx) < conf.min_pkt_size:
                 self.outs.send(sx + b"\x00" * (conf.min_pkt_size - len(sx)))
             elif conf.auto_fragment and msg[0] == 90:
@@ -522,7 +522,7 @@ class L2Socket(SuperSocket):
     def send(self, x):
         try:
             return SuperSocket.send(self, x)
-        except socket.error, msg:
+        except socket.error as msg:
             if msg[0] == 22 and len(x) < conf.min_pkt_size:
                 padding = b"\x00" * (conf.min_pkt_size - len(x))
                 if isinstance(x, Packet):

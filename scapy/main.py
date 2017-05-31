@@ -29,10 +29,10 @@ def _probe_config_file(cf):
 def _read_config_file(cf):
     log_loading.debug("Loading config file [%s]" % cf)
     try:
-        execfile(cf)
-    except IOError,e:
+        exec(compile(open(cf).read(), cf, 'exec'))
+    except IOError as e:
         log_loading.warning("Cannot read config file [%s] [%s]" % (cf,e))
-    except Exception,e:
+    except Exception as e:
         log_loading.exception("Error during evaluation of config file [%s]" % cf)
         
 
@@ -68,7 +68,7 @@ def _load(module):
             for name, sym in mod.__dict__.iteritems():
                 if name[0] != '_':
                     __builtin__.__dict__[name] = sym
-    except Exception,e:
+    except Exception as e:
         log_interactive.error(e)
 
 def load_module(name):
@@ -130,11 +130,11 @@ def save_session(fname=None, session=None, pickleProto=-1):
 
     to_be_saved = session.copy()
         
-    if to_be_saved.has_key("__builtins__"):
+    if "__builtins__" in to_be_saved:
         del(to_be_saved["__builtins__"])
 
     for k in to_be_saved.keys():
-        if type(to_be_saved[k]) in [types.TypeType, types.ClassType, types.ModuleType]:
+        if type(to_be_saved[k]) in [type, type, types.ModuleType]:
              log_interactive.error("[%s] (%s) can't be saved." % (k, type(to_be_saved[k])))
              del(to_be_saved[k])
 
@@ -236,7 +236,7 @@ def scapy_write_history_file(readline):
     if conf.histfile:
         try:
             readline.write_history_file(conf.histfile)
-        except IOError,e:
+        except IOError as e:
             try:
                 warning("Could not write history to [%s]\n\t (%s)" % (conf.histfile,e))
                 tmp = utils.get_temp_file(keep=True)
@@ -345,7 +345,7 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
             raise getopt.GetoptError("Too many parameters : [%s]" % " ".join(opts[1]))
 
 
-    except getopt.GetoptError, msg:
+    except getopt.GetoptError as msg:
         log_loading.error(msg)
         sys.exit(1)
 
@@ -373,7 +373,7 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
         try:
             import IPython
             IPYTHON=True
-        except ImportError, e:
+        except ImportError as e:
             log_loading.warning("IPython not available. Using standard Python shell instead.")
             IPYTHON=False
         
@@ -385,7 +385,7 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
           args = ['']  # IPython command line args (will be seen as sys.argv)
           ipshell = IPython.Shell.IPShellEmbed(args, banner = banner)
           ipshell(local_ns=session)
-        except AttributeError, e:
+        except AttributeError as e:
           pass
 
         # In the IPython cookbook, see 'Updating-code-for-use-with-IPython-0.11-and-later'

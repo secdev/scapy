@@ -960,7 +960,7 @@ def get_usable_ciphersuites(l, kx):
     """
     res = []
     for c in l:
-        if _tls_cipher_suites_cls.has_key(c):
+        if c in _tls_cipher_suites_cls:
             ciph = _tls_cipher_suites_cls[c]
             if ciph.usable:
                 #XXX select among RSA and ECDSA cipher suites

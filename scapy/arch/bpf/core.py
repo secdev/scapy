@@ -51,7 +51,7 @@ def get_if_raw_addr(ifname):
     # Get ifconfig output
     try:
         fd = os.popen("%s %s" % (conf.prog.ifconfig, ifname))
-    except OSError, msg:
+    except OSError as msg:
         warning("Failed to execute ifconfig: (%s)" % msg)
         return b"\0\0\0\0"
 
@@ -78,7 +78,7 @@ def get_if_raw_hwaddr(ifname):
     # Get ifconfig output
     try:
         fd = os.popen("%s %s" % (conf.prog.ifconfig, ifname))
-    except OSError, msg:
+    except OSError as msg:
         raise Scapy_Exception("Failed to execute ifconfig: (%s)" % msg)
 
     # Get MAC addresses
@@ -104,7 +104,7 @@ def get_dev_bpf():
         try:
             fd = os.open("/dev/bpf%i" % bpf, os.O_RDWR)
             return (fd, bpf)
-        except OSError, err:
+        except OSError as err:
             continue
 
     raise Scapy_Exception("No /dev/bpf handle is available !")
@@ -117,7 +117,7 @@ def attach_filter(fd, iface, bpf_filter_string):
     command = "%s -i %s -ddd -s 1600 '%s'" % (conf.prog.tcpdump, iface, bpf_filter_string)
     try:
         f = os.popen(command)
-    except OSError, msg:
+    except OSError as msg:
         raise Scapy_Exception("Failed to execute tcpdump: (%s)" % msg)
 
     # Convert the byte code to a BPF program structure
@@ -154,7 +154,7 @@ def get_if_list():
     # Get ifconfig output
     try:
         fd = os.popen("%s -a" % conf.prog.ifconfig)
-    except OSError, msg:
+    except OSError as msg:
         raise Scapy_Exception("Failed to execute ifconfig: (%s)" % msg)
 
     # Get interfaces
@@ -184,7 +184,7 @@ def get_working_ifaces():
         # Get interface flags
         try:
             result = get_if(ifname, SIOCGIFFLAGS)
-        except IOError, msg:
+        except IOError as msg:
             warning("ioctl(SIOCGIFFLAGS) failed on %s !" % ifname)
             continue
 
@@ -201,7 +201,7 @@ def get_working_ifaces():
             try:
                 fcntl.ioctl(fd, BIOCSETIF, struct.pack("16s16x", ifname))
                 interfaces.append((ifname, int(ifname[-1])))
-            except IOError, err:
+            except IOError as err:
                 pass
 
             # Close the file descriptor

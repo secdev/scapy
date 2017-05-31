@@ -19,6 +19,7 @@ from scapy.utils import *
 from scapy.pton_ntop import *
 from scapy.volatile import RandMAC
 from scapy.error import warning
+from functools import reduce
 
 
 def construct_source_candidate_set(addr, plen, laddr, loiface):
@@ -289,7 +290,7 @@ def in6_getLinkScopedMcastAddr(addr, grpid=None, scope=2):
     if grpid is None:
         grpid = b'\x00\x00\x00\x00'
     else:
-        if type(grpid) is str:
+        if isinstance(grpid, str):
             if len(grpid) == 8:
                 try:
                     grpid = int(grpid, 16) & 0xffffffff
