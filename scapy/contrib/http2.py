@@ -6,7 +6,8 @@
 ##                                                                         ##
 ## Copyright (C) 2016  Florian Maury <florian.maury@ssi.gouv.fr>           ##
 ##                                                                         ##
-## This program is free software; you can redistribute it and/or modify it ##
+## This file is part of Scapy                                              ##
+## Scapy is free software: you can redistribute it and/or modify it        ##
 ## under the terms of the GNU General Public License version 2 as          ##
 ## published by the Free Software Foundation.                              ##
 ##                                                                         ##

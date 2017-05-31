@@ -8,7 +8,7 @@
 ## Based on OpenFlow v1.0.1
 ## Specifications can be retrieved from https://www.opennetworking.org/
 
-# scapy.contrib.description = openflow v1.0
+# scapy.contrib.description = Openflow v1.0
 # scapy.contrib.status = loads
 
 import struct

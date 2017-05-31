@@ -11,7 +11,8 @@
 ##                       Arnaud Ebalard  <arnaud.ebalard AT eads DOT net>  ##
 ##                       EADS/CRC security team                            ##
 ##                                                                         ##
-## This program is free software; you can redistribute it and/or modify it ##
+## This file is part of Scapy                                              ##
+## Scapy is free software: you can redistribute it and/or modify it        ##
 ## under the terms of the GNU General Public License version 2 as          ##
 ## published by the Free Software Foundation; version 2.                   ##
 ##                                                                         ##
