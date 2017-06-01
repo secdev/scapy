@@ -436,7 +436,10 @@ def do_graph(graph,prog=None,format=None,target=None,type=None,string=None,optio
         format = "-T %s" % format
     w,r = os.popen2("%s %s %s %s" % (prog,options or "", format or "", target))
     w.write(graph)
-    w.close()
+    try:
+        w.close()
+    except IOError:
+        pass
     if start_viewer:
         # Workaround for file not found error: We wait until tempfile is written.
         waiting_start = time.time()

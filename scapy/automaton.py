@@ -324,12 +324,18 @@ class Automaton_metaclass(type):
         s += "}\n"
         return do_graph(s, **kargs)
         
-def select_objects(inputs, remain):
+def select_objects(inputs, remain, customTypes=()):
+    """
+    Select object that have checkRecv function.
+    inputs: objects to process
+    remain: timeout. If 0, return [].
+    customTypes: types of the objects that have the checkRecv function.
+    """
     if WINDOWS:
         r = []
         def look_for_select():
-            for fd in inputs:
-                if isinstance(fd, ObjectPipe) or isinstance(fd, Automaton._IO_fdwrapper):
+            for fd in list(inputs):
+                if isinstance(fd, (ObjectPipe, Automaton._IO_fdwrapper) + customTypes):
                     if fd.checkRecv():
                         r.append(fd)
                 else:
