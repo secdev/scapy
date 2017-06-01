@@ -540,8 +540,8 @@ def pack_html_campaigns(runned_campaigns, data, local=0, title=None):
 """
     out_dict = {'data': data, 'title': title if title else "UTScapy tests"}
     if local:
-        External_Files.UTscapy_js.write(os.path.dirname(test_campaign.output_file.name))
-        External_Files.UTscapy_css.write(os.path.dirname(test_campaign.output_file.name))
+        External_Files.UTscapy_js.write(os.path.dirname(test_campaign.output_file))
+        External_Files.UTscapy_css.write(os.path.dirname(test_campaign.output_file))
         out_dict.update(External_Files.get_local_dict())
     else:
         out_dict.update(External_Files.get_URL_dict())
@@ -692,7 +692,6 @@ def main(argv):
     # Parse arguments
 
     FORMAT = Format.ANSI
-    TESTFILE = sys.stdin
     OUTPUTFILE = sys.stdout
     LOCAL = 0
     NUM = None
@@ -760,7 +759,9 @@ def main(argv):
                 for testfile in resolve_testfiles(data.remove_testfiles):
                     TESTFILES.remove(testfile)
             elif opt == "-o":
-                OUTPUTFILE = open(optarg, "wb")
+                OUTPUTFILE = optarg
+                if not os.access(OUTPUTFILE, os.W_OK):
+                    raise getopt.GetoptError("Cannot write to file %s" % OUTPUTFILE)
             elif opt == "-l":
                 LOCAL = 1
             elif opt == "-n":
@@ -830,10 +831,12 @@ def main(argv):
         if VERB > 2:
             print("### Loading:", TESTFILE, file=sys.stderr)
         PREEXEC = PREEXEC_DICT[TESTFILE] if TESTFILE in PREEXEC_DICT else GLOB_PREEXEC
-        output, result, campaign = execute_campaign(open(TESTFILE), OUTPUTFILE,
-                                          PREEXEC, NUM, KW_OK, KW_KO,
-                                          DUMP, FORMAT, VERB, ONLYFAILED,
-                                          CRC, autorun_func, pos_begin, ignore_globals)
+        with open(TESTFILE) as testfile:
+            output, result, campaign = execute_campaign(testfile, OUTPUTFILE,
+                                                        PREEXEC, NUM, KW_OK, KW_KO,
+                                                        DUMP, FORMAT, VERB, ONLYFAILED,
+                                                        CRC, autorun_func, pos_begin,
+                                                        ignore_globals)
         runned_campaigns.append(campaign)
         pos_begin = campaign.end_pos
         if UNIQUE:
@@ -849,9 +852,13 @@ def main(argv):
     if FORMAT == Format.HTML:
         glob_output = pack_html_campaigns(runned_campaigns, glob_output, LOCAL, glob_title)
 
-    OUTPUTFILE.write(glob_output.encode("utf8", "ignore")
-                     if 'b' in OUTPUTFILE.mode else glob_output)
-    OUTPUTFILE.close()
+    if OUTPUTFILE == sys.stdout:
+        OUTPUTFILE.write(glob_output.encode("utf8", "ignore")
+                         if 'b' in OUTPUTFILE.mode else glob_output)
+    else:
+        with open(OUTPUTFILE, "wb") as f:
+            f.write(glob_output.encode("utf8", "ignore")
+                    if 'b' in f.mode else glob_output)
 
     # Return state
     return glob_result
