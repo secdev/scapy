@@ -116,6 +116,11 @@ The project aims to provide code that works both on Python 2 and Python 3. There
 - byte-string must be defined as `b"\x00\x01\x02"`
 - exceptions must comply with the new Python 3 format: `except SomeError as e:`
 - lambdas must be written using a single argument when using tuples: use `lambda x_y: x_y[0] + f(x_y[1])` instead of `lambda (x, y): x + f(y)`.
+- use int instead of long
+- use list comprehension instead of map() and filter()
+- use six.range instead of xrange and range
+- use six.itervalues(dict) instead of dict.values() or dict.itervalues()
+- use six.string_types instead of basestring
 
 ### Code review
 
