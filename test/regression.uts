@@ -889,7 +889,7 @@ def send_and_sniff(pkt, timeout=2, flt=None):
 
 send_and_sniff(IP(dst="secdev.org")/ICMP())
 send_and_sniff(IP(dst="secdev.org")/ICMP(), flt="icmp")
-send_and_sniff(iface=netifaces.interfaces(), Ether()/IP(dst="secdev.org")/ICMP())
+send_and_sniff(Ether()/IP(dst="secdev.org")/ICMP(), iface=netifaces.interfaces())
 
 ############
 ############
