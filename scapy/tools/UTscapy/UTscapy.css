@@ -1,0 +1,109 @@
+
+body {
+        background: #ffffff;
+        color: #000000;
+        font-size: 13px;
+        font-family: Verdana, Arial, Helvetica, sans-serif;
+        font-size: 12px;
+        text-align: justify;
+}
+h1 { font-size: 30px; }
+h2 { font-size: 20px; }
+h3 { font-size: 16px; }
+h4 { font-size: 12px; font-style: bold;}
+dt { font-style: italic; }
+
+
+pre {
+        border: solid #0000ff 1px;
+        color: #000000;
+        white-space: pre-wrap;       /* css-3 */
+        white-space: -moz-pre-wrap;  /* Mozilla, since 1999 */
+        white-space: -pre-wrap;      /* Opera 4-6 */
+        white-space: -o-pre-wrap;    /* Opera 7 */
+        word-wrap: break-word;       /* Internet Explorer 5.5+ */
+        background-color: #ffffd0;
+        padding-left: 10px;
+        padding-right: 10px;
+        padding-top: 10px;
+        padding-bottom: 10px;
+        margin-top: 0px;
+        text-align: left;
+        margin-left: auto;
+        margin-right: auto;
+        font-family:    Courier,Monospace, Courier, MS Courier New, Prestige, Everson Mono;
+        font-style: normal;
+        font-size: 14;
+}
+
+
+/* Scapy default color theme */
+
+span.prompt { color: #0000ff; font-weight: bold; }
+span.not_printable { color: #a0a0a0; }
+span.layer_name { color: #ff0000; font-weight: bold; }
+span.field_name { color: #0000ff; }
+span.field_value { color: #ff00ff; }
+span.emph_field_name { color: #0000ff; font-weight: bold; text-decoration: underline }
+span.emph_field_value { color: #ff00ff; font-weight: bold; text-decoration: underline }
+span.packetlist_name { color: #ff0000; font-weight: bold; }
+span.packetlist_proto { color: #0000ff; }
+span.packetlist_value { color: #ff00ff; }
+span.fail { color: #ff0000; font-weight: bold; }
+span.success { color: #0000ff; font-weight: bold; }
+span.even { color: #000000; font-weight: bold; }
+span.odd { color: #000000; }
+span.opening { color: #00ffff; }
+span.active { color: #000000; }
+span.closed { color: #808080; }
+
+/* Syntax highlighting */
+
+.num    { color:#2928ff; }
+.esc    { color:#830000; }
+.str    { color:#c00000; }
+.dstr   { color:#818100; }
+.slc    { color:#838183; font-style:italic; }
+.com    { color:#838183; font-style:italic; }
+.dir    { color:#ff0000; }
+.sym    { color:#000000; }
+.line   { color:#555555; }
+.blue   { color:#0000ff; font-style:italic; }
+.kwa    { color:#000000; font-weight:bold; }
+.kwb    { color:#00a000; }
+.kwc    { color:#00a000; }
+
+
+/* Regression tests */
+
+li.passed {color: #002000;}
+li.failed {color: #200000;}
+span.comment { color:#000000; font-style: italic;}
+
+span.crc {
+        font-family: monospace;
+        font-size: 12px;
+        font-weight: normal;
+        margin-top: 10px;
+        background-color: #ccccff;
+}
+
+span.buttonpassed {
+        font-family: monospace;
+        margin-top: 10px;
+        background-color: #aaffaa;
+}
+span.buttonfailed {
+        font-family: monospace;
+        margin-top: 10px;
+        background-color: #ffaaaa;
+}
+
+span.button {
+        border: solid #3b373f 1px;
+        background-color: #eeddff;
+        padding-left: 3px;
+        padding-right: 3px;
+        padding-top: 3px;
+        padding-bottom: 3px;
+}

@@ -10,7 +10,7 @@ Unit testing infrastructure for Scapy
 from __future__ import absolute_import
 from __future__ import print_function
 import sys, getopt, imp, glob, importlib
-import hashlib, copy, bz2, base64, os.path, time, traceback, zlib
+import hashlib, copy, os.path, time, traceback, zlib
 from scapy.consts import WINDOWS
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
@@ -38,67 +38,24 @@ def import_module(name):
             f.close()
 
 
-#### INTERNAL/EXTERNAL FILE EMBEDDING ####
+#### FILE EMBEDDING ####
+
 
 class File:
-    def __init__(self, name, URL, local):
+    def __init__(self, name, path=os.path.dirname(__file__)):
         self.name = name
-        self.local = local.encode("utf8")
-        self.URL = URL
-    def get_local(self):
-        return bz2.decompress(base64.decodestring(self.local))
-    def get_URL(self):
-        return self.URL
-    def write(self, dir):
-        if dir:
-            dir += "/"
-        open(dir+self.name,"wb").write(self.get_local())
+        self.path = path
+    def copy(self, dest_dir):
+        from shutil import copy2
+        copy2(os.path.join(self.path, self.name),
+              os.path.join(dest_dir, self.name))
+    def __str__(self):
+        return self.name
 
-
-# Embed a base64 encoded bziped version of js and css files
-# to work if you can't reach Internet.
-class External_Files:
-    UTscapy_js = File("UTscapy.js", "http://www.secdev.org/projects/UTscapy/UTscapy.js",
-"""QlpoOTFBWSZTWWVijKQAAXxfgERUYOvAChIhBAC/79+qQAH8AFA0poANAMjQAAAG
-ABo0NGEZNBo00BhgAaNDRhGTQaNNAYFURJinplGaKbRkJiekzSenqmpA0Gm1LFMp
-RUklVQlK9WUTZYpNFI1IiEWEFT09Sfj5uO+qO6S5DQwKIxM92+Zku94wL6V/1KTK
-an2c66Ug6SmVKy1ZIrgauxMVLF5xLH0lJRQuKlqLF10iatlTzqvw7S9eS3+h4lu3
-GZyMgoOude3NJ1pQy8eo+X96IYZw+ynehsiPj73m0rnvQ3QXZ9BJQiZQYQ5/uNcl
-2WOlC5vyQqV/BWsnr2NZYLYXQLDs/Bffk4ZfR4/SH6GfA5Xlek4xHNHqbSsRbREO
-gueXo3kcYi94K6hSO3ldD2O/qJXOFqJ8o3TE2aQahxtQpCVUKQMvODHwu2YkaORY
-ZC6gihEallcHDIAtRPScBACAJnUggYhLDX6DEko7nC9GvAw5OcEkiyDUbLdiGCzD
-aXWMC2DuQ2Y6sGf6NcRuON7QSbhHsPc4KKmZ/xdyRThQkGVijKQ=""")
-    UTscapy_css = File("UTscapy.css","http://www.secdev.org/projects/UTscapy/UTscapy.css",
-"""QlpoOTFBWSZTWTbBCNEAAE7fgHxwSB//+Cpj2QC//9/6UAR+63dxbNzO3ccmtGEk
-pM0m1I9E/Qp6g9Q09TNQ9QDR6gMgAkiBFG9U9TEGRkGgABoABoBmpJkRAaAxD1AN
-Gh6gNADQBzAATJgATCYJhDAEYAEiQkwIyJk0n6qenpqeoaMUeo9RgIxp6pX78kfx
-Jx4MUhDHKEb2pJAYAelG1cybiZBBDipH8ocxNyHDAqTUxiQmIAEDE3ApIBUUECAT
-7Lvlf4xA/sVK0QHkSlYtT0JmErdOjx1v5NONPYSjrIhQnbl1MbG5m+InMYmVAWJp
-uklD9cNdmQv2YigxbEtgUrsY2pDDV/qMT2SHnHsViu2rrp2LA01YJIHZqjYCGIQN
-sGNobFxAYHLqqMOj9TI2Y4GRpRCUGu82PnMnXUBgDSkTY4EfmygaqvUwbGMbPwyE
-220Q4G+sDvw7+6in3CAOS634pcOEAdREUW+QqMjvWvECrGISo1piv3vqubTGOL1c
-ssrFnnSfU4T6KSCbPs98HJ2yjWN4i8Bk5WrM/JmELLNeZ4vgMkA4JVQInNnWTUTe
-gmMSlJd/b7JuRwiM5RUzXOBTa0e3spO/rsNJiylu0rCxygdRo2koXdSJzmUVjJUm
-BOFIkUKq8LrE+oT9h2qUqqUQ25fGV7e7OFkpmZopqUi0WeIBzlXdYY0Zz+WUJUTC
-RC+CIPFIYh1RkopswMAop6ZjuZKRqR0WNuV+rfuF5aCXPpxAm0F14tPyhf42zFMT
-GJUMxxowJnoauRq4xGQk+2lYFxbQ0FiC43WZSyYLHMuo5NTJ92QLAgs4FgOyZQqQ
-xpsGKMA0cIisNeiootpnlWQvkPzNGUTPg8jqkwTvqQLguZLKJudha1hqfBib1IfO
-LNChcU6OqF+3wyPKg5Y5oSbSJPAMcRDANwmS2i9oZm6vsD1pLkWtFGbAkEjjCuEU
-W1ev1IsF2UVmWYFtJkqLT708ApUBK/ig3rbJWSq7RGQd3sSrOKu3lyKzTBdkXK2a
-BGLV5dS1XURdKxaRkMplLLQxsimBYZEAa8KQkYyI+4EagMqycRR7RgwtZFxJSu0T
-1q5wS2JG82iETHplbNj8DYo9IkmKzNAiw4FxK8bRfIYvwrbshbEagL11AQJFsqeZ
-WeXDoWEx2FMyyZRAB5QyCFnwYtwtWAQmmITY8aIM2SZyRnHH9Wi8+Sr2qyCscFYo
-vzM985aHXOHAxQN2UQZbQkUv3D4Vc+lyvalAffv3Tyg4ks3a22kPXiyeCGweviNX
-0K8TKasyOhGsVamTUAZBXfQVw1zmdS4rHDnbHgtIjX3DcCt6UIr0BHTYjdV0JbPj
-r1APYgXihjQwM2M83AKIhwQQJv/F3JFOFCQNsEI0QA==""")
-    def get_local_dict(cls):
-        return {x: y.name for (x, y) in six.iteritems(cls.__dict__)
-                if isinstance(y, File)}
-    get_local_dict = classmethod(get_local_dict)
-    def get_URL_dict(cls):
-        return {x: y.URL for (x, y) in six.iteritems(cls.__dict__)
-                if isinstance(y, File)}
-    get_URL_dict = classmethod(get_URL_dict)
+HTML_FILES = {
+    "UTscapy_js": File("UTscapy.js"),
+    "UTscapy_css": File("UTscapy.css")
+}
 
 
 #### HELPER CLASSES FOR PARAMETRING OUTPUT FORMAT ####
@@ -212,7 +169,6 @@ def parse_config_file(config_path, verb=3):
       "preexec": {},
       "global_preexec": "",
       "outputfile": null,
-      "local": true,
       "format": "ansi",
       "num": null,
       "modules": [],
@@ -237,7 +193,6 @@ def parse_config_file(config_path, verb=3):
                  preexec=get_if_exist("preexec", {}),
                  global_preexec=get_if_exist("global_preexec", ""),
                  outfile=get_if_exist("outputfile", sys.stdout),
-                 local=get_if_exist("local", 0),
                  num=get_if_exist("num", None),
                  modules=get_if_exist("modules", []),
                  kw_ok=get_if_exist("kw_ok", []),
@@ -511,7 +466,7 @@ def campaign_to_HTML(test_campaign):
         output += "\n</ul>\n\n"
     return output
 
-def pack_html_campaigns(runned_campaigns, data, local=0, title=None):
+def pack_html_campaigns(runned_campaigns, data, title=None):
     output = """
 <html>
 <head>
@@ -539,12 +494,10 @@ def pack_html_campaigns(runned_campaigns, data, local=0, title=None):
 </body></html>
 """
     out_dict = {'data': data, 'title': title if title else "UTScapy tests"}
-    if local:
-        External_Files.UTscapy_js.write(os.path.dirname(test_campaign.output_file))
-        External_Files.UTscapy_css.write(os.path.dirname(test_campaign.output_file))
-        out_dict.update(External_Files.get_local_dict())
-    else:
-        out_dict.update(External_Files.get_URL_dict())
+    dest_dir = os.path.dirname(test_campaign.output_file)
+    for f in six.itervalues(HTML_FILES):
+        f.copy(dest_dir)
+    out_dict.update(HTML_FILES)
 
     output %= out_dict
     return output
@@ -598,11 +551,10 @@ def campaign_to_LATEX(test_campaign):
 def usage():
     print("""Usage: UTscapy [-m module] [-f {text|ansi|HTML|LaTeX}] [-o output_file]
                [-t testfile] [-T testfile] [-k keywords [-k ...]] [-K keywords [-K ...]]
-               [-l] [-d|-D] [-F] [-q[q]] [-P preexecute_python_code]
+               [-d|-D] [-F] [-q[q]] [-P preexecute_python_code]
                [-s /path/to/scapy] [-c configfile]
 -t\t\t: provide test files (can be used many times)
 -T\t\t: if -t is used with *, remove a specific file (can be used many times)
--l\t\t: generate local files
 -F\t\t: expand only failed tests
 -d\t\t: dump campaign
 -D\t\t: dump campaign and stop
@@ -693,7 +645,6 @@ def main(argv):
 
     FORMAT = Format.ANSI
     OUTPUTFILE = sys.stdout
-    LOCAL = 0
     NUM = None
     KW_OK = []
     KW_KO = []
@@ -707,7 +658,7 @@ def main(argv):
     MODULES = []
     TESTFILES = []
     try:
-        opts = getopt.getopt(argv, "o:t:T:c:f:hln:m:k:K:DdCFqP:s:")
+        opts = getopt.getopt(argv, "o:t:T:c:f:hn:m:k:K:DdCFqP:s:")
         for opt,optarg in opts[0]:
             if opt == "-h":
                 usage()
@@ -746,7 +697,6 @@ def main(argv):
                 GLOB_PREEXEC = data.global_preexec
                 OUTPUTFILE = data.outfile
                 TESTFILES = data.testfiles
-                LOCAL = 1 if data.local else 0
                 NUM = data.num
                 MODULES = data.modules
                 KW_OK = [data.kw_ok]
@@ -762,8 +712,6 @@ def main(argv):
                 OUTPUTFILE = optarg
                 if not os.access(OUTPUTFILE, os.W_OK):
                     raise getopt.GetoptError("Cannot write to file %s" % OUTPUTFILE)
-            elif opt == "-l":
-                LOCAL = 1
             elif opt == "-n":
                 NUM = []
                 for v in (x.strip() for x in optarg.split(",")):
@@ -850,7 +798,7 @@ def main(argv):
             print("### Writing output...", file=sys.stderr)
     # Concenate outputs
     if FORMAT == Format.HTML:
-        glob_output = pack_html_campaigns(runned_campaigns, glob_output, LOCAL, glob_title)
+        glob_output = pack_html_campaigns(runned_campaigns, glob_output, glob_title)
 
     if OUTPUTFILE == sys.stdout:
         OUTPUTFILE.write(glob_output.encode("utf8", "ignore")
