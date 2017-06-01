@@ -3,9 +3,9 @@
 
 #############################################################################
 ##                                                                         ##
-## UTscapy.py --- Unit Tests with scapy                                    ##
-##                see http://www.secdev.org/projects/UTscapy/              ##
-##                for more informations                                    ##
+## UTscapy --- Unit Tests with scapy                                       ##
+##             see http://www.secdev.org/projects/UTscapy/                 ##
+##             for more informations                                       ##
 ##                                                                         ##
 ## Copyright (C) 2005  Philippe Biondi <phil@secdev.org>                   ##
 ##                                                                         ##

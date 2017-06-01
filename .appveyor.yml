@@ -41,10 +41,10 @@ test_script:
   - "%PYTHON%\\python -m coverage run --parallel-mode bin\\UTscapy -c test\\configs\\windows.utsc %ARGS% || exit /b 42"
   
   # TLS unit tests
-  # Note: due to a multiprocessing bug, we got to be in the UTscapy.py folder and call it directly
-  - 'cd scapy/tools'
-  - "%PYTHON%\\python -m coverage run --concurrency=multiprocessing UTscapy.py -f text -t ..\\..\\test\\tls\\tests_tls_netaccess.uts -F -P \"sys.path.append(os.path.abspath('../../test/tls'))\" %ARGS% || exit /b 42"
-  - 'cd ../../'
+  # Note: due to a multiprocessing bug, we got to be in the UTscapy folder and call it directly
+  - 'cd scapy/tools/UTscapy'
+  - "%PYTHON%\\python -m coverage run --concurrency=multiprocessing __init__.py -f text -t ..\\..\\..\\test\\tls\\tests_tls_netaccess.uts -F -P \"sys.path.append(os.path.abspath('../../../test/tls'))\" %ARGS% || exit /b 42"
+  - 'cd ../../../'
 
 after_test:
   # Install & run codecov
