@@ -842,6 +842,7 @@ arping(_+"/24")
 import time
 import os
 import netifaces
+from sys import platform
 def _send_or_sniff(pkt, timeout, flt, pid, fork, t_other=None):
     assert pid != -1
     if pid == 0:
@@ -856,8 +857,9 @@ def _send_or_sniff(pkt, timeout, flt, pid, fork, t_other=None):
         # We do not want to crash when a packet cannot be parsed
         old_debug_dissector = conf.debug_dissector
         conf.debug_dissector = False
+        ifaces= map(str, netifaces.interfaces()) if platform == "linux" or platform == "linux2" else None
         pkts = sniff(
-            timeout=timeout, filter=flt, iface=map(str, netifaces.interfaces()),
+            timeout=timeout, filter=flt, iface=ifaces,
             stop_filter=lambda p: pkt.__class__ in p and str(p[pkt.__class__]) == spkt
         )
         conf.debug_dissector = old_debug_dissector
