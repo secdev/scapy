@@ -373,6 +373,22 @@ def remove_empty_testsets(test_campaign):
     test_campaign.campaign = [ts for ts in test_campaign.campaign if ts.tests]
 
 
+#### RUN TEST #####
+
+def run_test(test, get_interactive_session, verb=3, ignore_globals=None):
+    test.output, res = get_interactive_session(test.test.strip(), ignore_globals=ignore_globals)
+    test.result = "failed"
+    try:
+        if res is None or res:
+            test.result = "passed"
+    except Exception:
+        test.output += "UTscapy: Error during result interpretation:\n"
+        test.output += "".join(traceback.format_exception(sys.exc_info()[0], sys.exc_info()[1], sys.exc_info()[2],))
+    test.decode()
+    if verb > 1:
+        print("%(result)6s %(crc)s %(name)s" % test, file=sys.stderr)
+    return bool(test)
+
 #### RUN CAMPAIGN #####
 
 def run_campaign(test_campaign, get_interactive_session, verb=3, ignore_globals=None):
@@ -381,21 +397,10 @@ def run_campaign(test_campaign, get_interactive_session, verb=3, ignore_globals=
         test_campaign.preexec_output = get_interactive_session(test_campaign.preexec.strip(), ignore_globals=ignore_globals)[0]
     for testset in test_campaign:
         for t in testset:
-            t.output,res = get_interactive_session(t.test.strip(), ignore_globals=ignore_globals)
-            t.result = "failed"
-            try:
-                if res is None or res:
-                    t.result = "passed"
-            except Exception as msg:
-                t.output+="UTscapy: Error during result interpretation:\n"
-                t.output+="".join(traceback.format_exception(sys.exc_info()[0], sys.exc_info()[1], sys.exc_info()[2],))
-            if t:
+            if run_test(t, get_interactive_session, verb, ignore_globals):
                 passed += 1
             else:
                 failed += 1
-            t.decode()
-            if verb > 1:
-                print("%(result)6s %(crc)s %(name)s" % t, file=sys.stderr)
     test_campaign.passed = passed
     test_campaign.failed = failed
     if verb:
