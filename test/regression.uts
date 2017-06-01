@@ -841,6 +841,7 @@ arping(_+"/24")
 ~ netaccess
 import time
 import os
+import netifaces
 def _send_or_sniff(pkt, timeout, flt, pid, fork, t_other=None):
     assert pid != -1
     if pid == 0:
@@ -888,7 +889,7 @@ def send_and_sniff(pkt, timeout=2, flt=None):
 
 send_and_sniff(IP(dst="secdev.org")/ICMP())
 send_and_sniff(IP(dst="secdev.org")/ICMP(), flt="icmp")
-send_and_sniff(Ether()/IP(dst="secdev.org")/ICMP())
+send_and_sniff(iface=netifaces.interfaces(), Ether()/IP(dst="secdev.org")/ICMP())
 
 ############
 ############
