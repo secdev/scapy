@@ -102,9 +102,12 @@ class TestCampaign(TestClass):
         self.preexec = None
         self.preexec_output = None
         self.end_pos = 0
+        self.interrupted = False
     def add_testset(self, testset):
         self.campaign.append(testset)
         testset.keywords.update(self.keywords)
+    def trunc(self, index):
+        self.campaign = self.campaign[:index]
     def startNum(self, beginpos):
         for ts in self:
             for t in ts:
@@ -129,6 +132,8 @@ class TestSet(TestClass):
     def add_test(self, test):
         self.tests.append(test)
         test.keywords.update(self.keywords)
+    def trunc(self, index):
+        self.tests = self.tests[:index]
     def __iter__(self):
         return self.tests.__iter__()
 
@@ -336,12 +341,17 @@ def run_test(test, get_interactive_session, verb=3, ignore_globals=None):
     try:
         if res is None or res:
             test.result = "passed"
+        if test.output.endswith('KeyboardInterrupt\n'):
+            test.result = "interrupted"
+            raise KeyboardInterrupt
     except Exception:
         test.output += "UTscapy: Error during result interpretation:\n"
         test.output += "".join(traceback.format_exception(sys.exc_info()[0], sys.exc_info()[1], sys.exc_info()[2],))
-    test.decode()
-    if verb > 1:
-        print("%(result)6s %(crc)s %(name)s" % test, file=sys.stderr)
+    finally:
+        test.decode()
+        if verb > 1:
+            print("%(result)6s %(crc)s %(name)s" % test, file=sys.stderr)
+
     return bool(test)
 
 #### RUN CAMPAIGN #####
@@ -350,12 +360,21 @@ def run_campaign(test_campaign, get_interactive_session, verb=3, ignore_globals=
     passed=failed=0
     if test_campaign.preexec:
         test_campaign.preexec_output = get_interactive_session(test_campaign.preexec.strip(), ignore_globals=ignore_globals)[0]
-    for testset in test_campaign:
-        for t in testset:
-            if run_test(t, get_interactive_session, verb, ignore_globals):
-                passed += 1
-            else:
-                failed += 1
+    try:
+        for i, testset in enumerate(test_campaign):
+            for j, t in enumerate(testset):
+                if run_test(t, get_interactive_session, verb):
+                    passed += 1
+                else:
+                    failed += 1
+    except KeyboardInterrupt:
+        failed += 1
+        testset.trunc(j+1)
+        test_campaign.trunc(i+1)
+        test_campaign.interrupted = True
+        if verb:
+            print("Campaign interrupted!", file=sys.stderr)
+
     test_campaign.passed = passed
     test_campaign.failed = failed
     if verb:
@@ -435,7 +454,13 @@ def campaign_to_HTML(test_campaign):
     if test_campaign.crc is not None and test_campaign.sha is not None:
         output += "CRC=<span class=crc>%(crc)s</span> SHA=<span class=crc>%(sha)s</span><br>" % test_campaign
     output += "<small><em>"+html_info_line(test_campaign)+"</em></small>"
-    output += test_campaign.headcomments +  "\n<p>PASSED=%(passed)i FAILED=%(failed)i<p>\n\n" % test_campaign
+    output += "".join([
+        test_campaign.headcomments,
+        "\n<p>",
+        "PASSED=%(passed)i FAILED=%(failed)i" % test_campaign,
+        " <span class=warn_interrupted>INTERRUPTED!</span>" if test_campaign.interrupted else "",
+        "<p>\n\n",
+    ])
 
     for testset in test_campaign:
         output += "<h2>" % testset
@@ -473,10 +498,10 @@ def pack_html_campaigns(runned_campaigns, data, title=None):
 <title>%(title)s</title>
 <h1>UTScapy tests</h1>
 
-<span class=button onClick="hide_all('tst')">Shrink All</span>
-<span class=button onClick="show_all('tst')">Expand All</span>
-<span class=button onClick="show_passed('tst')">Expand Passed</span>
-<span class=button onClick="show_failed('tst')">Expand Failed</span>
+<span class=control_button onClick="hide_all('tst')">Shrink All</span>
+<span class=control_button onClick="show_all('tst')">Expand All</span>
+<span class=control_button onClick="show_passed('tst')">Expand Passed</span>
+<span class=control_button onClick="show_failed('tst')">Expand Failed</span>
 
 <p>
 """

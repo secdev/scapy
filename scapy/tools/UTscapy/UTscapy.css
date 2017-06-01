@@ -78,6 +78,7 @@ span.closed { color: #808080; }
 
 li.passed {color: #002000;}
 li.failed {color: #200000;}
+li.interrupted {color: #200000;}
 span.comment { color:#000000; font-style: italic;}
 
 span.crc {
@@ -86,6 +87,13 @@ span.crc {
         font-weight: normal;
         margin-top: 10px;
         background-color: #ccccff;
+}
+
+span.warn_interrupted {
+        font-family: monospace;
+        font-size: 14px;
+        font-weight: bold;
+        color: #ff0000;
 }
 
 span.buttonpassed {
@@ -98,8 +106,18 @@ span.buttonfailed {
         margin-top: 10px;
         background-color: #ffaaaa;
 }
-
+span.buttoninterrupted {
+        font-family: monospace;
+        margin-top: 10px;
+        background-color: #ffcc88;
+}
 span.button {
+        font-family: monospace;
+        margin-top: 10px;
+        background-color: #eeddff;
+}
+
+span.control_button {
         border: solid #3b373f 1px;
         background-color: #eeddff;
         padding-left: 3px;
