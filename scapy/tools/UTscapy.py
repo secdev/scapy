@@ -180,8 +180,7 @@ class UnitTest(TestClass):
         self.name = name
         self.test = ""
         self.comments = ""
-        self.result = ""
-        self.res = True  # must be True at init to have a different truth value than None
+        self.result = "passed" # make instance True at init to have a different truth value than None
         self.output = ""
         self.num = -1
         self.keywords = set()
@@ -194,7 +193,7 @@ class UnitTest(TestClass):
             self.comments = self.comments.decode("utf8", "ignore")
             self.result = self.result.decode("utf8", "ignore")
     def __nonzero__(self):
-        return self.res
+        return self.result == "passed"
     __bool__ = __nonzero__
 
 
@@ -383,22 +382,17 @@ def run_campaign(test_campaign, get_interactive_session, verb=3, ignore_globals=
     for testset in test_campaign:
         for t in testset:
             t.output,res = get_interactive_session(t.test.strip(), ignore_globals=ignore_globals)
-            the_res = False
+            t.result = "failed"
             try:
                 if res is None or res:
-                    the_res= True
+                    t.result = "passed"
             except Exception as msg:
                 t.output+="UTscapy: Error during result interpretation:\n"
                 t.output+="".join(traceback.format_exception(sys.exc_info()[0], sys.exc_info()[1], sys.exc_info()[2],))
-            if the_res:
-                t.res = True
-                res = "passed"
+            if t:
                 passed += 1
             else:
-                t.res = False
-                res = "failed"
                 failed += 1
-            t.result = res
             t.decode()
             if verb > 1:
                 print("%(result)6s %(crc)s %(name)s" % t, file=sys.stderr)
@@ -464,7 +458,7 @@ def campaign_to_xUNIT(test_campaign):
             output += ' <testcase classname="%s"\n' % testset.name.encode("string_escape").replace('"',' ')
             output += '           name="%s"\n' % t.name.encode("string_escape").replace('"',' ')
             output += '           duration="0">\n' % t
-            if not t.res:
+            if not t:
                 output += '<error><![CDATA[%(output)s]]></error>\n' % t
             output += "</testcase>\n"
     output += '</testsuite>'
