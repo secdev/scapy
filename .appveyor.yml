@@ -16,7 +16,7 @@ install:
   - ps: .\.appveyor\InstallWindump.ps1
   - choco install -y wireshark
   # Install Python modules
-  - "%PYTHON%\\python -m pip install cryptography coverage mock pyreadline"
+  - "%PYTHON%\\python -m pip install cryptography coverage mock pyreadline netifaces"
   - set PATH="%PYTHON%\\Scripts\\;%PATH%"
 
 test_script:
