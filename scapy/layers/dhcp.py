@@ -147,7 +147,7 @@ DHCPOptions = {
 
 DHCPRevOptions = {}
 
-for k,v in in six.iteritems(DHCPOptions):
+for k,v in six.iteritems(DHCPOptions):
     if isinstance(v, str):
         n = v
         v = None

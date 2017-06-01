@@ -196,7 +196,7 @@ class AbstractUVarIntField(fields.Field):
         @return None
         @raise AssertionError
         """
-        assert(default is None or (isinstance(default, six.integer_types)) and default >= 0))
+        assert(default is None or (isinstance(default, six.integer_types)) and default >= 0)
         assert(0 < size <= 8)
         super(AbstractUVarIntField, self).__init__(name, default)
         self.size = size

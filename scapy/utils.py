@@ -16,10 +16,8 @@ import subprocess
 import tempfile
 
 import warnings
-import six
-from six.moves import map
-from six.moves import range
-from six.moves import input
+import scapy.modules.six as six
+from scapy.modules.six.moves import range
 warnings.filterwarnings("ignore","tempnam",RuntimeWarning, __name__)
 
 from scapy.config import conf

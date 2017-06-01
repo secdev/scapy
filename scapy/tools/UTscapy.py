@@ -674,7 +674,6 @@ def resolve_testfiles(TESTFILES):
     return TESTFILES
 
 def main(argv):
-    import six.moves.builtins
     ignore_globals = list(six.moves.builtins.__dict__.keys())
 
     # Parse arguments
