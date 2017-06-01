@@ -857,7 +857,7 @@ def _send_or_sniff(pkt, timeout, flt, pid, fork, t_other=None):
         old_debug_dissector = conf.debug_dissector
         conf.debug_dissector = False
         pkts = sniff(
-            timeout=timeout, filter=flt, iface=netifaces.interfaces(),
+            timeout=timeout, filter=flt, iface=map(str, netifaces.interfaces()),
             stop_filter=lambda p: pkt.__class__ in p and str(p[pkt.__class__]) == spkt
         )
         conf.debug_dissector = old_debug_dissector
