@@ -55,36 +55,32 @@ None.
                          self.filename)
         except (IOError, TypeError):
             warning("Cannot open nmap database [%s]" % self.filename)
+            self.filename = None
             return
 
         self.base = []
         name = None
         sig = {}
-        try:
-            for line in fdesc:
-                line = line.split('#', 1)[0].strip()
-                if not line:
-                    continue
-                if line.startswith("Fingerprint "):
-                    if name is not None:
-                        self.base.append((name, sig))
-                    name = line[12:].strip()
-                    sig = {}
-                    continue
-                if line.startswith("Class "):
-                    continue
-                line = _NMAP_LINE.search(line)
-                if line is None:
-                    continue
-                test, values = line.groups()
-                sig[test] = dict(val.split('=', 1) for val in
-                                 (values.split('%') if values else []))
-            if name is not None:
-                self.base.append((name, sig))
-        except Exception:
-            self.base = None
-            warning("Cannot read nmap database [%s](new nmap version ?)" %
-                    self.filename)
+        for line in fdesc:
+            line = line.split('#', 1)[0].strip()
+            if not line:
+                continue
+            if line.startswith("Fingerprint "):
+                if name is not None:
+                    self.base.append((name, sig))
+                name = line[12:].strip()
+                sig = {}
+                continue
+            if line.startswith("Class "):
+                continue
+            line = _NMAP_LINE.search(line)
+            if line is None:
+                continue
+            test, values = line.groups()
+            sig[test] = dict(val.split('=', 1) for val in
+                             (values.split('%') if values else []))
+        if name is not None:
+            self.base.append((name, sig))
         fdesc.close()
 
 
@@ -156,15 +152,15 @@ def nmap_sig(target, oport=80, cport=81, ucport=1):
 
     for snd, rcv in ans:
         if snd.sport == 5008:
-            res["PU"] = nmap_udppacket_sig(snd, rcv)
+            res["PU"] = (snd, rcv) 
         else:
             test = "T%i" % (snd.sport - 5000)
             if rcv is not None and ICMP in rcv:
                 warning("Test %s answered by an ICMP" % test)
                 rcv = None
-            res[test] = nmap_tcppacket_sig(rcv)
+            res[test] = rcv
 
-    return res
+    return nmap_probes2sig(res)
 
 def nmap_probes2sig(tests):
     tests = tests.copy()
