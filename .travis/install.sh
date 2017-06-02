@@ -10,9 +10,9 @@ fi
 
 if python --version 2>&1 | grep -q PyPy; then
   # cryptography requires PyPy >= 2.6, Travis CI uses 2.5.0
-  $SCAPY_SUDO pip install $PIP_INSTALL_FLAGS mock netifaces
+  $SCAPY_SUDO pip install $PIP_INSTALL_FLAGS mock netifaces pcapy
 else
-  $SCAPY_SUDO pip install $PIP_INSTALL_FLAGS cryptography mock netifaces
+  $SCAPY_SUDO pip install $PIP_INSTALL_FLAGS cryptography mock netifaces pcapy
 fi
 
 # Install coverage
