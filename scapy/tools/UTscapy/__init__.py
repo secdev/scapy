@@ -166,6 +166,7 @@ def parse_config_file(config_path, verb=3):
     Empty default json:
     {
       "testfiles": [],
+      "breakfailed": false,
       "onlyfailed": false,
       "verb": 2,
       "dump": 0,
@@ -190,6 +191,7 @@ def parse_config_file(config_path, verb=3):
     def get_if_exist(key, default):
         return data[key] if key in data else default
     return Bunch(testfiles=get_if_exist("testfiles", []),
+                 breakfailed=get_if_exist("breakfailed", False),
                  remove_testfiles=get_if_exist("remove_testfiles", []),
                  onlyfailed=get_if_exist("onlyfailed", False),
                  verb=get_if_exist("verb", 3),
@@ -576,11 +578,12 @@ def campaign_to_LATEX(test_campaign):
 def usage():
     print("""Usage: UTscapy [-m module] [-f {text|ansi|HTML|LaTeX}] [-o output_file]
                [-t testfile] [-T testfile] [-k keywords [-k ...]] [-K keywords [-K ...]]
-               [-d|-D] [-F] [-q[q]] [-P preexecute_python_code]
+               [-b] [-d|-D] [-F] [-q[q]] [-P preexecute_python_code]
                [-s /path/to/scapy] [-c configfile]
 -t\t\t: provide test files (can be used many times)
 -T\t\t: if -t is used with *, remove a specific file (can be used many times)
 -F\t\t: expand only failed tests
+-b\t\t: stop at first failed campaign
 -d\t\t: dump campaign
 -D\t\t: dump campaign and stop
 -C\t\t: don't calculate CRC and SHA
@@ -675,6 +678,7 @@ def main(argv):
     KW_KO = []
     DUMP = 0
     CRC = True
+    BREAKFAILED =  False
     ONLYFAILED = False
     VERB = 3
     GLOB_PREEXEC = ""
@@ -683,10 +687,12 @@ def main(argv):
     MODULES = []
     TESTFILES = []
     try:
-        opts = getopt.getopt(argv, "o:t:T:c:f:hn:m:k:K:DdCFqP:s:")
+        opts = getopt.getopt(argv, "o:t:T:c:f:hbn:m:k:K:DdCFqP:s:")
         for opt,optarg in opts[0]:
             if opt == "-h":
                 usage()
+            elif opt == "-b":
+                BREAKFAILED =  True
             elif opt == "-F":
                 ONLYFAILED = True
             elif opt == "-q":
@@ -713,6 +719,7 @@ def main(argv):
                 TESTFILES.remove(optarg)
             elif opt == "-c":
                 data = parse_config_file(optarg, VERB)
+                BREAKFAILED = data.breakfailed
                 ONLYFAILED = data.onlyfailed
                 VERB = data.verb
                 DUMP = data.dump
@@ -815,7 +822,7 @@ def main(argv):
         if UNIQUE:
             glob_title = campaign.title
         glob_output += output
-        if not result:
+        if not result and BREAKFAILED:
             glob_result = 1
             break
 
