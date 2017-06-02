@@ -4,9 +4,11 @@ matrix:
     include:
         # Run as a regular user
         - os: linux
+          dist: trusty
           python: 2.7
 
         - os: linux
+          dist: trusty
           python: pypy
 
         - os: osx
@@ -19,18 +21,21 @@ matrix:
 
         # Run as root
         - os: linux
+          dist: trusty
           sudo: required
           python: 2.7
           env:
             - SCAPY_SUDO="sudo -H"
 
         - os: linux
+          dist: trusty
           sudo: required
           python: 2.7
           env:
             - SCAPY_SUDO="sudo -H" SCAPY_COVERAGE=yes
 
         - os: linux
+          dist: trusty
           sudo: required
           python: 2.7
           services: docker
