@@ -11,8 +11,10 @@ fi
 if python --version 2>&1 | grep -q PyPy; then
   # cryptography requires PyPy >= 2.6, Travis CI uses 2.5.0
   $SCAPY_SUDO pip install $PIP_INSTALL_FLAGS mock netifaces
+  pip install mock netifaces
 else
   $SCAPY_SUDO pip install $PIP_INSTALL_FLAGS cryptography mock netifaces
+  pip install cryptography mock netifaces
 fi
 
 # Install coverage
@@ -28,6 +30,7 @@ then
   then
     $SCAPY_SUDO apt-get install python-libpcap python-dumbnet openssl libpcap-dev
     $SCAPY_SUDO pip install $PIP_INSTALL_FLAGS pcapy
+    pip install pcapy
   elif [ "$TRAVIS_OS_NAME" = "osx" ]
   then
     mkdir -p /Users/travis/Library/Python/2.7/lib/python/site-packages
