@@ -34,7 +34,7 @@ then
     git clone https://github.com/dugsong/libdnet.git
     pushd libdnet
     ./configure && make
-    cd python and pip install .
+    cd python && pip install .
     popd
   elif [ "$TRAVIS_OS_NAME" = "osx" ]
   then
