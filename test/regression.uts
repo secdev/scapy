@@ -848,7 +848,8 @@ def _send_or_sniff(pkt, timeout, flt, pid, fork, t_other=None):
     if pid == 0:
         time.sleep(1)
         return_packets = (sendp if isinstance(pkt, (Ether, Dot3)) else send)(pkt, return_packets=True)
-        assert return_packets == pkt
+        if platform == "linux" or platform == "linux2" or platform == "Darwin":
+            assert return_packets == pkt
         if fork:
             os._exit(0)
         else:
