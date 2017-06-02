@@ -29,8 +29,8 @@ then
   if [ "$TRAVIS_OS_NAME" = "linux" ]
   then
     $SCAPY_SUDO apt-get install python-libpcap python-dumbnet openssl libpcap-dev
-    $SCAPY_SUDO pip install $PIP_INSTALL_FLAGS pcapy
-    pip install pcapy
+    $SCAPY_SUDO pip install $PIP_INSTALL_FLAGS pcapy pydumbnet
+    pip install pcapy pydumbnet
   elif [ "$TRAVIS_OS_NAME" = "osx" ]
   then
     mkdir -p /Users/travis/Library/Python/2.7/lib/python/site-packages
