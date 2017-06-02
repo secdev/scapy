@@ -414,7 +414,7 @@ class IKEv2(IKEv2_class): # rfc4306
         ByteEnumField("exch_type",0,IKEv2_exchange_type),
         FlagsField("flags",0, 8, ["res0","res1","res2","Initiator","Version","Response","res6","res7"]),
         IntField("id",0),
-        IntField("length",None)
+        IntField("length",0)
         ]
 
     def guess_payload_class(self, payload):
@@ -504,27 +504,68 @@ class IKEv2_payload_VendorID(IKEv2_class):
         StrLenField("vendorID","",length_from=lambda x:x.length-4),
         ]
 
-class TrafficSelector(IKEv2_class):
-    name = "IKEv2 Traffic Selector"
+class TrafficSelector(Packet):
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        if _pkt and len(_pkt) >= 16:
+            ts_type = struct.unpack("!B", _pkt[0:1])[0]
+            if ts_type == 7:
+                return IPv4TrafficSelector
+            elif ts_type == 8:
+                IPv6TrafficSelector
+            elif ts_type == 9:
+                return EncryptedTrafficSelector
+            else:
+                return RawTrafficSelector
+        return IPv4TrafficSelector
+
+class IPv4TrafficSelector(TrafficSelector):
+    name = "IKEv2 IPv4 Traffic Selector"
+    fields_desc = [
+        ByteEnumField("TS_type",7,IKEv2TrafficSelectorTypes),
+        ByteEnumField("IP_protocol_ID",None,IPProtocolIDs),
+        FieldLenField("length",None,"load","H", adjust=lambda pkt,x:16),
+        ShortField("start_port",0),
+        ShortField("end_port",65535),
+        IPField("starting_address_v4","192.168.0.1"),
+        IPField("ending_address_v4","192.168.0.255"),
+        ]
+
+class IPv6TrafficSelector(TrafficSelector):
+    name = "IKEv2 IPv6 Traffic Selector"
+    fields_desc = [
+        ByteEnumField("TS_type",8,IKEv2TrafficSelectorTypes),
+        ByteEnumField("IP_protocol_ID",None,IPProtocolIDs),
+        FieldLenField("length",None,"load","H", adjust=lambda pkt,x:20),
+        ShortField("start_port",0),
+        ShortField("end_port",65535),
+        IP6Field("starting_address_v6","2001::"),
+        IP6Field("ending_address_v6","2001::"),
+        ]
+
+class EncryptedTrafficSelector(TrafficSelector):
+    name = "IKEv2 Encrypted Traffic Selector"
+    fields_desc = [
+        ByteEnumField("TS_type",9,IKEv2TrafficSelectorTypes),
+        ByteEnumField("IP_protocol_ID",None,IPProtocolIDs),
+        FieldLenField("length",None,"load","H", adjust=lambda pkt,x:16),
+        ByteField("res",0),
+        X3BytesField("starting_address_FC",0),
+        ByteField("res2",0),
+        X3BytesField("ending_address_FC",0),
+        ByteField("starting_R_CTL",0),
+        ByteField("ending_R_CTL",0),
+        ByteField("starting_type",0),
+        ByteField("ending_type",0),
+        ]
+
+class RawTrafficSelector(TrafficSelector):
+    name = "IKEv2 Encrypted Traffic Selector"
     fields_desc = [
         ByteEnumField("TS_type",None,IKEv2TrafficSelectorTypes),
         ByteEnumField("IP_protocol_ID",None,IPProtocolIDs),
-        FieldLenField("length",None,"load","H", adjust=lambda pkt,x:16 if pkt.TS_type==7 else 20 if pkt.TS_type==8 else 16 if pkt.TS_type==9 else x+4),
-        ConditionalField(ShortField("start_port",0),lambda x:x.TS_type in{7,8}),
-        ConditionalField(ShortField("end_port",65535),lambda x:x.TS_type in{7,8}),
-        ConditionalField(IPField("starting_address_v4","192.168.0.1"),lambda x:x.TS_type==7),
-        ConditionalField(IP6Field("starting_address_v6","2001::"),lambda x:x.TS_type==8),
-        ConditionalField(IPField("ending_address_v4","192.168.0.255"),lambda x:x.TS_type==7),
-        ConditionalField(IP6Field("ending_address_v6","2001::"),lambda x:x.TS_type==8),
-        ConditionalField(ByteField("res",0),lambda x:x.TS_type==9),
-        ConditionalField(X3BytesField("starting_address_FC",0),lambda x:x.TS_type==9),
-        ConditionalField(ByteField("res2",0),lambda x:x.TS_type==9),
-        ConditionalField(X3BytesField("ending_address_FC",0),lambda x:x.TS_type==9),
-        ConditionalField(ByteField("starting_R_CTL",0),lambda x:x.TS_type==9),
-        ConditionalField(ByteField("ending_R_CTL",0),lambda x:x.TS_type==9),
-        ConditionalField(ByteField("starting_type",0),lambda x:x.TS_type==9),
-        ConditionalField(ByteField("ending_type",0),lambda x:x.TS_type==9),
-        ConditionalField(PacketField("load", "", Raw),lambda x:x.TS_type not in{7,8,9}),
+        FieldLenField("length",None,"load","H", adjust=lambda pkt,x:x+4),
+        PacketField("load", "", Raw)
         ]
 
 class IKEv2_payload_TSi(IKEv2_class):
@@ -656,15 +697,46 @@ class IKEv2_payload_CERTREQ(IKEv2_class):
         ]
 
 class IKEv2_payload_CERT(IKEv2_class):
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        if _pkt and len(_pkt) >= 16:
+            ts_type = struct.unpack("!B", _pkt[4:5])[0]
+            if ts_type == 4:
+                return IKEv2_payload_CERT_CRT
+            elif ts_type == 7:
+                return IKEv2_payload_CERT_CRL
+            else:
+                return IKEv2_payload_CERT_STR
+        return IKEv2_payload_CERT_STR
+
+class IKEv2_payload_CERT_CRT(IKEv2_payload_CERT):
     name = "IKEv2 Certificate"
     fields_desc = [
         ByteEnumField("next_payload",None,IKEv2_payload_type),
         ByteField("res",0),
-        FieldLenField("length",None,"cert_data","H",adjust=lambda pkt,x: x+len(pkt.x509Cert)+len(pkt.x509CRL)+5),
+        FieldLenField("length",None,"cert_data","H",adjust=lambda pkt,x: x+len(pkt.x509Cert)+5),
+        ByteEnumField("cert_type",4,IKEv2CertificateEncodings),
+        PacketLenField("x509Cert", X509_Cert(''), X509_Cert, length_from=lambda x:x.length-5),
+        ]
+
+class IKEv2_payload_CERT_CRL(IKEv2_payload_CERT):
+    name = "IKEv2 Certificate"
+    fields_desc = [
+        ByteEnumField("next_payload",None,IKEv2_payload_type),
+        ByteField("res",0),
+        FieldLenField("length",None,"cert_data","H",adjust=lambda pkt,x: x+len(pkt.x509CRL)+5),
+        ByteEnumField("cert_type",7,IKEv2CertificateEncodings),
+        PacketLenField("x509CRL", X509_CRL(''), X509_CRL, length_from=lambda x:x.length-5),
+        ]
+
+class IKEv2_payload_CERT_STR(IKEv2_payload_CERT):
+    name = "IKEv2 Certificate"
+    fields_desc = [
+        ByteEnumField("next_payload",None,IKEv2_payload_type),
+        ByteField("res",0),
+        FieldLenField("length",None,"cert_data","H",adjust=lambda pkt,x: x+5),
         ByteEnumField("cert_type",0,IKEv2CertificateEncodings),
-        ConditionalField(StrLenField("cert_data", "", length_from=lambda x:x.length-5),lambda x:x.cert_type not in {4,7}),
-        ConditionalField(PacketLenField("x509Cert", X509_Cert(''), X509_Cert, length_from=lambda x:x.length-5),lambda x:x.cert_type==4),
-        ConditionalField(PacketLenField("x509CRL", X509_CRL(''), X509_CRL, length_from=lambda x:x.length-5),lambda x:x.cert_type==7),
+        StrLenField("cert_data","",length_from=lambda x:x.length-5),
         ]
 
 IKEv2_payload_type_overload = {}
