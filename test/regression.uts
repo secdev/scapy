@@ -331,6 +331,7 @@ if not WINDOWS:
 ~ manufdb
 assert(MANUFDB._resolve_MAC("00:00:0F:01:02:03") == "Next:01:02:03")
 assert(MANUFDB._get_short_manuf("00:00:0F:01:02:03") == "Next")
+assert(in6_addrtovendor("fe80::0200:0fff:fe01:0203").lower().startswith("next"))
 
 = Test utility functions - network related
 ~ netaccess
