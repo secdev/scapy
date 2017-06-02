@@ -33,6 +33,9 @@ matrix:
         - os: linux
           sudo: required
           python: 2.7
+          services: docker
+          before_install:
+            - docker run -d -p 69:69/udp jumanjiman/tftp-hpa
           env:
             - SCAPY_SUDO=sudo SCAPY_USE_PCAPDNET=yes SCAPY_COVERAGE=yes 
 
