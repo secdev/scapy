@@ -22,13 +22,13 @@ matrix:
           sudo: required
           python: 2.7
           env:
-            - SCAPY_SUDO=sudo
+            - SCAPY_SUDO="sudo -H"
 
         - os: linux
           sudo: required
           python: 2.7
           env:
-            - SCAPY_SUDO=sudo SCAPY_COVERAGE=yes
+            - SCAPY_SUDO="sudo -H" SCAPY_COVERAGE=yes
 
         - os: linux
           sudo: required
@@ -37,17 +37,17 @@ matrix:
           before_install:
             - docker run -d -p 69:69/udp jumanjiman/tftp-hpa
           env:
-            - SCAPY_SUDO=sudo SCAPY_USE_PCAPDNET=yes SCAPY_COVERAGE=yes 
+            - SCAPY_SUDO="sudo -H" SCAPY_USE_PCAPDNET=yes SCAPY_COVERAGE=yes 
 
         - os: osx
           language: generic
           env:
-            - SCAPY_SUDO=sudo SCAPY_COVERAGE=yes
+            - SCAPY_SUDO="sudo -H" SCAPY_COVERAGE=yes
 
         - os: osx
           language: generic
           env:
-            - SCAPY_SUDO=sudo SCAPY_USE_PCAPDNET=yes SCAPY_COVERAGE=yes
+            - SCAPY_SUDO="sudo -H" SCAPY_USE_PCAPDNET=yes SCAPY_COVERAGE=yes
 
 install: bash .travis/install.sh
 
