@@ -28,7 +28,7 @@ if [ ! -z $SCAPY_USE_PCAPDNET ]
 then
   if [ "$TRAVIS_OS_NAME" = "linux" ]
   then
-    $SCAPY_SUDO apt-get install python-libpcap python-dumbnet openssl libpcap-dev
+    $SCAPY_SUDO apt-get install python-libpcap python-dumbnet openssl libpcap-dev libdnet-dev
     $SCAPY_SUDO pip install $PIP_INSTALL_FLAGS pcapy pydumbnet
     pip install pcapy pydumbnet
   elif [ "$TRAVIS_OS_NAME" = "osx" ]
