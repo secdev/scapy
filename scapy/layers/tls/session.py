@@ -208,7 +208,7 @@ class connState(object):
         def indent(s):
             if s and s[-1] == '\n':
                 s = s[:-1]
-            s = '\n'.join(map(lambda x: '\t'+x, s.split('\n')) + [''])
+            s = '\n'.join('\t' + x for x in s.split('\n')) + '\n'
             return s
 
         res =  "Connection end : %s\n" % self.connection_end.upper()
@@ -530,7 +530,7 @@ class _tls_sessions(object):
             return
 
         h = session.hash()
-        if self.sessions.has_key(h):
+        if h in self.sessions:
             self.sessions[h].append(session)
         else:
             self.sessions[h] = [session]
@@ -546,7 +546,7 @@ class _tls_sessions(object):
 
     def find(self, session):
         h = session.hash()
-        if self.sessions.has_key(h):
+        if h in self.sessions:
             for k in self.sessions[h]:
                 if k.eq(session):
                     if conf.tls_verbose:
@@ -566,8 +566,7 @@ class _tls_sessions(object):
                 if len(sid) > 12:
                     sid = sid[:11] + "..."
                 res.append((src, dst, sid))
-        colwidth = map(lambda x: max(map(lambda y: len(y), x)),
-                       apply(zip, res))
+        colwidth = map(lambda x: max(map(lambda y: len(y), x)), apply(zip, res))
         fmt = "  ".join(map(lambda x: "%%-%ds"%x, colwidth))
         return "\n".join(map(lambda x: fmt % x, res))
 

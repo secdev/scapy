@@ -79,7 +79,7 @@ class AS_resolver_cymru(AS_resolver):
         s.connect((self.server,self.port))
         s.send("begin\r\n"+"\r\n".join(ips)+"\r\nend\r\n")
         r = ""
-        while 1:
+        while True:
             l = s.recv(8192)
             if l == "":
                 break
@@ -88,7 +88,7 @@ class AS_resolver_cymru(AS_resolver):
         for l in r.splitlines()[1:]:
             if "|" not in l:
                 continue
-            asn,ip,desc = map(str.strip, l.split("|"))
+            asn, ip, desc = [elt.strip() for elt in l.split('|')]
             if asn == "NA":
                 continue
             asn = "AS" + str(int(asn))

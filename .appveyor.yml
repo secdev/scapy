@@ -12,8 +12,9 @@ build: off
 
 install:
   # Install the npcap, windump and wireshark suites
-  - choco install -y npcap wireshark
+  - ps: .\.appveyor\InstallNpcap.ps1
   - ps: .\.appveyor\InstallWindump.ps1
+  - choco install -y wireshark
   # Install Python modules
   - "%PYTHON%\\python -m pip install cryptography coverage mock pyreadline"
   - set PATH="%PYTHON%\\Scripts\\;%PATH%"

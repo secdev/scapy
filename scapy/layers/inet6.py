@@ -166,7 +166,7 @@ class Net6(Gen): # syntax ex. fec0::/126
         tuple = filter(lambda x: m8(x), xrange(8, 129))
 
         a = in6_and(self.net, self.mask)
-        tmp = map(lambda x:  x, struct.unpack('16B', a))
+        tmp = [x for x in struct.unpack("16B", a)]
 
         def parse_digit(a, netmask):
             netmask = min(8,max(netmask,0))
@@ -208,13 +208,13 @@ class IP6Field(Field):
     def __init__(self, name, default):
         Field.__init__(self, name, default, "16s")
     def h2i(self, pkt, x):
-        if type(x) is str:
+        if isinstance(x, str):
             try:
                 x = in6_ptop(x)
             except socket.error:
                 x = Net6(x)
-        elif type(x) is list:
-            x = map(Net6, x)
+        elif isinstance(x, list):
+            x = [Net6(a) for a in x]
         return x
     def i2m(self, pkt, x):
         return inet_pton(socket.AF_INET6, x)
@@ -225,7 +225,7 @@ class IP6Field(Field):
     def i2repr(self, pkt, x):
         if x is None:
             return self.i2h(pkt,x)
-        elif not isinstance(x, Net6) and not type(x) is list:
+        elif not isinstance(x, Net6) and not isinstance(x, list):
             if in6_isaddrTeredo(x):   # print Teredo info
                 server, flag, maddr, mport = teredoAddrExtractInfo(x)
                 return "%s [Teredo srv: %s cli: %s:%s]" % (self.i2h(pkt, x), server, maddr,mport)
@@ -317,7 +317,7 @@ class IP6ListField(StrField):
         return 16*len(i)
 
     def i2count(self, pkt, i):
-        if type(i) is list:
+        if isinstance(i, list):
             return len(i)
         return 0
 
@@ -828,7 +828,7 @@ class _HopByHopOptionsField(PacketListField):
         return l
 
     def i2count(self, pkt, i):
-        if type(i) is list:
+        if isinstance(i, list):
             return len(i)
         return 0
 
@@ -851,7 +851,7 @@ class _HopByHopOptionsField(PacketListField):
                 c -= 1
             o = ord(x[0]) # Option type
             cls = self.cls
-            if _hbhoptcls.has_key(o):
+            if o in _hbhoptcls:
                 cls = _hbhoptcls[o]
             try:
                 op = cls(x)
@@ -1915,8 +1915,8 @@ class DomainNameListField(StrLenField):
                 return z
             return z+b'\x00'
         # Build the encode names
-        tmp = map(lambda y: map((lambda z: chr(len(z))+z), y.split('.')), x)
-        ret_string  = "".join(map(lambda x: conditionalTrailingDot("".join(x)), tmp))
+        tmp = [[chr(len(z)) + z for z in y.split('.')] for y in x]
+        ret_string  = "".join(conditionalTrailingDot("".join(x)) for x in tmp)
 
         # In padded mode, add some \x00 bytes
         if self.padded and not len(ret_string) % self.padded_unit == 0:
@@ -2149,7 +2149,7 @@ def names2dnsrepr(x):
     !!!  At the moment, compression is not implemented  !!!
     """
 
-    if type(x) is str:
+    if isinstance(x, str):
         if x and x[-1] == b'\x00': # stupid heuristic
             return x
         x = [x]
@@ -2159,7 +2159,7 @@ def names2dnsrepr(x):
         termin = b"\x00"
         if n.count('.') == 0: # single-component gets one more
             termin += b'\x00'
-        n = "".join(map(lambda y: chr(len(y))+y, n.split("."))) + termin
+        n = "".join(chr(len(y)) + y for y in n.split('.')) + termin
         res.append(n)
     return "".join(res)
 
@@ -2206,7 +2206,7 @@ class NIQueryDataField(StrField):
         return val
 
     def h2i(self, pkt, x):
-        if x is tuple and type(x[0]) is int:
+        if x is tuple and isinstance(x[0], int):
             return x
 
         val = None
@@ -2262,7 +2262,7 @@ class NIQueryDataField(StrField):
                 return "", (1, s)
 
     def addfield(self, pkt, s, val):
-        if ((type(val) is tuple and val[1] is None) or
+        if ((isinstance(val, tuple) and val[1] is None) or
             val is None):
             val = (1, "")
         t = val[0]
@@ -2360,7 +2360,7 @@ class NIReplyDataField(StrField):
                   # overridden through 'qtype' in pkt
 
         # No user hint, let's use 'qtype' value for that purpose
-        if type(x) is not tuple:
+        if not isinstance(x, tuple):
             if pkt is not None:
                 qtype = getattr(pkt, "qtype")
         else:
@@ -2370,26 +2370,26 @@ class NIReplyDataField(StrField):
         # From that point on, x is the value (second element of the tuple)
 
         if qtype == 2: # DNS name
-            if type(x) is str: # listify the string
+            if isinstance(x, str): # listify the string
                 x = [x]
-            if type(x) is list and x and type(x[0]) is not int: # ttl was omitted : use 0
+            if isinstance(x, list) and x and not isinstance(x[0], int): # ttl was omitted : use 0
                 x = [0] + x
             ttl = x[0]
             names = x[1:]
             return (2, [ttl, names2dnsrepr(names)])
 
         elif qtype in [3, 4]: # IPv4 or IPv6 addr
-            if type(x) is str:
+            if isinstance(x, str):
                 x = [x] # User directly provided an IP, instead of list
 
             # List elements are not tuples, user probably
             # omitted ttl value : we will use 0 instead
             def addttl(x):
-                if type(x) is str:
+                if isinstance(x, str):
                     return (0, x)
                 return x
 
-            return (qtype, map(addttl, x))
+            return (qtype, [addttl(d) for d in x])
 
         return (qtype, x)
 
@@ -2402,9 +2402,9 @@ class NIReplyDataField(StrField):
             ttl,dnsstr = tmp
             return s+ struct.pack("!I", ttl) + dnsstr
         elif t == 3:
-            return s + "".join(map(lambda (x,y): struct.pack("!I", x)+inet_pton(socket.AF_INET6, y), tmp))
+            return s + "".join(map(lambda x_y1: struct.pack("!I", x_y1[0])+inet_pton(socket.AF_INET6, x_y1[1]), tmp))
         elif t == 4:
-            return s + "".join(map(lambda (x,y): struct.pack("!I", x)+inet_pton(socket.AF_INET, y), tmp))
+            return s + "".join(map(lambda x_y2: struct.pack("!I", x_y2[0])+inet_pton(socket.AF_INET, x_y2[1]), tmp))
         else:
             return s + tmp
 
@@ -2450,14 +2450,14 @@ class NIReplyDataField(StrField):
         if x is None:
             return "[]"
 
-        if type(x) is tuple and len(x) == 2:
+        if isinstance(x, tuple) and len(x) == 2:
             t, val = x
             if t == 2: # DNS names
                 ttl,l = val
                 l = dnsrepr2names(l)
                 return "ttl:%d %s" % (ttl, ", ".join(l))
             elif t == 3 or t == 4:
-                return "[ %s ]" % (", ".join(map(lambda (x,y): "(%d, %s)" % (x, y), val)))
+                return "[ %s ]" % (", ".join(map(lambda x_y: "(%d, %s)" % (x_y[0], x_y[1]), val)))
             return repr(val)
         return repr(x) # XXX should not happen
 
@@ -2877,7 +2877,7 @@ class _MobilityOptionsField(PacketListField):
         while x:
             o = ord(x[0]) # Option type
             cls = self.cls
-            if moboptcls.has_key(o):
+            if o in moboptcls:
                 cls = moboptcls[o]
             try:
                 op = cls(x)
@@ -3125,9 +3125,9 @@ class  AS_resolver6(AS_resolver_riswhois):
 class TracerouteResult6(TracerouteResult):
     __slots__ = []
     def show(self):
-        return self.make_table(lambda (s,r): (s.sprintf("%-42s,IPv6.dst%:{TCP:tcp%TCP.dport%}{UDP:udp%UDP.dport%}{ICMPv6EchoRequest:IER}"), # TODO: ICMPv6 !
-                                              s.hlim,
-                                              r.sprintf("%-42s,IPv6.src% {TCP:%TCP.flags%}"+
+        return self.make_table(lambda s_r: (s_r[0].sprintf("%-42s,IPv6.dst%:{TCP:tcp%TCP.dport%}{UDP:udp%UDP.dport%}{ICMPv6EchoRequest:IER}"), # TODO: ICMPv6 !
+                                              s_r[0].hlim,
+                                              s_r[1].sprintf("%-42s,IPv6.src% {TCP:%TCP.flags%}"+
                                                         "{ICMPv6DestUnreach:%ir,type%}{ICMPv6PacketTooBig:%ir,type%}"+
                                                         "{ICMPv6TimeExceeded:%ir,type%}{ICMPv6ParamProblem:%ir,type%}"+
                                                         "{ICMPv6EchoReply:%ir,type%}")))

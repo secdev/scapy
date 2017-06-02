@@ -11,7 +11,8 @@
 ## Copyright (C) 2006    Nicolas Bareil      <nicolas.bareil@ eads.net>    ##
 ##                       EADS/CRC security team                            ##
 ##                                                                         ##
-## This program is free software; you can redistribute it and/or modify it ##
+## This file is part of Scapy                                              ##
+## Scapy is free software: you can redistribute it and/or modify           ##
 ## under the terms of the GNU General Public License version 2 as          ##
 ## published by the Free Software Foundation; version 2.                   ##
 ##                                                                         ##
@@ -207,13 +208,13 @@ class SkinnyDateTimeField(StrFixedLenField):
         return (year, month, day, hour, min, sec)
     
     def i2m(self, pkt, val):
-        if type(val) is str:
+        if isinstance(val, str):
             val = self.h2i(pkt, val)
         l= val[:2] + (0,) + val[2:7] + (0,)
         return struct.pack('<8I', *l)
 
     def i2h(self, pkt, x):
-        if type(x) is str:
+        if isinstance(x, str):
             return x
         else:
             return time.ctime(time.mktime(x+(0,0,0)))
@@ -223,7 +224,7 @@ class SkinnyDateTimeField(StrFixedLenField):
     
     def h2i(self, pkt, s):
         t = ()
-        if type(s) is str:
+        if isinstance(s, str):
             t = time.strptime(s)
             t = t[:2] + t[2:-3]
         else:

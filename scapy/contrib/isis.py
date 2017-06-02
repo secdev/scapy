@@ -1,3 +1,17 @@
+# This file is part of Scapy
+# Scapy is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 2 of the License, or
+# any later version.
+#
+# Scapy is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Scapy. If not, see <http://www.gnu.org/licenses/>.
+
 # scapy.contrib.description = ISIS
 # scapy.contrib.status = loads
 
@@ -122,7 +136,7 @@ class _ISIS_IdFieldBase(Field):
         return self.to_id(x)
 
     def any2i(self, pkt, x):
-        if type(x) is str and len(x) == self.length:
+        if isinstance(x, str) and len(x) == self.length:
             return self.m2i(pkt, x)
 
         return x

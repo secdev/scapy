@@ -16,6 +16,7 @@ from scapy.base_classes import BasePacket,BasePacketList
 from scapy.utils import do_graph,hexdump,make_table,make_lined_table,make_tex_table,get_temp_file
 
 from scapy.consts import plt, MATPLOTLIB_INLINED, MATPLOTLIB_DEFAULT_PLOT_KARGS
+from functools import reduce
 
 
 #############
@@ -77,7 +78,7 @@ class PacketList(BasePacketList):
         if isinstance(item,type) and issubclass(item,BasePacket):
             return self.__class__(filter(lambda x: item in self._elt2pkt(x),self.res),
                                   name="%s from %s"%(item.__name__,self.listname))
-        if type(item) is slice:
+        if isinstance(item, slice):
             return self.__class__(self.res.__getitem__(item),
                                   name = "mod %s" % self.listname)
         return self.res.__getitem__(item)
@@ -379,24 +380,24 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
         gr += "# src nodes\n"
         for s in sl:
             n,l = sl[s]; n = 1+float(n-mins)/(maxs-mins)
-            gr += '"src.%s" [label = "%s", shape=box, fillcolor="#FF0000", style=filled, fixedsize=1, height=%.2f,width=%.2f];\n' % (`s`,`s`,n,n)
+            gr += '"src.%s" [label = "%s", shape=box, fillcolor="#FF0000", style=filled, fixedsize=1, height=%.2f,width=%.2f];\n' % (repr(s),repr(s),n,n)
         gr += "# event nodes\n"
         for e in el:
             n,l = el[e]; n = n = 1+float(n-mine)/(maxe-mine)
-            gr += '"evt.%s" [label = "%s", shape=circle, fillcolor="#00FFFF", style=filled, fixedsize=1, height=%.2f, width=%.2f];\n' % (`e`,`e`,n,n)
+            gr += '"evt.%s" [label = "%s", shape=circle, fillcolor="#00FFFF", style=filled, fixedsize=1, height=%.2f, width=%.2f];\n' % (repr(e),repr(e),n,n)
         for d in dl:
             n = dl[d]; n = n = 1+float(n-mind)/(maxd-mind)
-            gr += '"dst.%s" [label = "%s", shape=triangle, fillcolor="#0000ff", style=filled, fixedsize=1, height=%.2f, width=%.2f];\n' % (`d`,`d`,n,n)
+            gr += '"dst.%s" [label = "%s", shape=triangle, fillcolor="#0000ff", style=filled, fixedsize=1, height=%.2f, width=%.2f];\n' % (repr(d),repr(d),n,n)
 
         gr += "###\n"
         for s in sl:
             n,l = sl[s]
             for e in l:
-                gr += ' "src.%s" -> "evt.%s";\n' % (`s`,`e`) 
+                gr += ' "src.%s" -> "evt.%s";\n' % (repr(s),repr(e)) 
         for e in el:
             n,l = el[e]
             for d in l:
-                gr += ' "evt.%s" -> "dst.%s";\n' % (`e`,`d`) 
+                gr += ' "evt.%s" -> "dst.%s";\n' % (repr(e),repr(d)) 
             
         gr += "}"
         return do_graph(gr, **kargs)
@@ -509,7 +510,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
         """
         delete_checksums = kargs.get("delete_checksums",False)
         x=PacketList(name="Replaced %s" % self.listname)
-        if type(args[0]) is not tuple:
+        if not isinstance(args[0], tuple):
             args = (args,)
         for p in self.res:
             p = self._elt2pkt(p)

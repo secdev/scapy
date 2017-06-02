@@ -128,7 +128,7 @@ class Route:
 
 
     def route(self,dest,verbose=None):
-        if type(dest) is list and dest:
+        if isinstance(dest, list) and dest:
             dest = dest[0]
         if dest in self.cache:
             return self.cache[dest]
@@ -137,7 +137,7 @@ class Route:
         # Transform "192.168.*.1-5" to one IP of the set
         dst = dest.split("/")[0]
         dst = dst.replace("*","0") 
-        while 1:
+        while True:
             l = dst.find("-")
             if l < 0:
                 break

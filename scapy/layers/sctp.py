@@ -470,13 +470,13 @@ class GapAckField(Field):
     def i2m(self, pkt, x):
         if x is None:
             return b"\0\0\0\0"
-        sta, end = map(int, x.split(":"))
+        sta, end = [int(e) for e in x.split(':')]
         args = tuple([">HH", sta, end])
         return struct.pack(*args)
     def m2i(self, pkt, x):
         return "%d:%d"%(struct.unpack(">HH", x))
     def any2i(self, pkt, x):
-        if type(x) is tuple and len(x) == 2:
+        if isinstance(x, tuple) and len(x) == 2:
             return "%d:%d"%(x)
         return x
 

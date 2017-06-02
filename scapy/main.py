@@ -11,8 +11,10 @@ import os,sys
 import glob
 import types
 import gzip
+import importlib
 import cPickle
 import __builtin__
+ignored = list(__builtin__.__dict__.keys())
 
 from scapy.error import *
     
@@ -29,12 +31,18 @@ def _probe_config_file(cf):
 def _read_config_file(cf):
     log_loading.debug("Loading config file [%s]" % cf)
     try:
-        execfile(cf)
-    except IOError,e:
+        exec(compile(open(cf).read(), cf, 'exec'))
+    except IOError as e:
         log_loading.warning("Cannot read config file [%s] [%s]" % (cf,e))
-    except Exception,e:
+    except Exception as e:
         log_loading.exception("Error during evaluation of config file [%s]" % cf)
         
+def _validate_local(x):
+    """Returns whether or not a variable should be imported.
+    Will return False for any default modules (sys), or if
+    they are detected as private vars (starting with a _)"""
+    global ignored
+    return x[0] != "_" and not x in ignored
 
 DEFAULT_PRESTART_FILE = _probe_config_file(".scapy_prestart.py")
 DEFAULT_STARTUP_FILE = _probe_config_file(".scapy_startup.py")
@@ -58,7 +66,7 @@ from scapy.themes import DefaultTheme
 
 def _load(module):
     try:
-        mod = __import__(module,globals(),locals(),".")
+        mod = importlib.import_module(module)
         if '__all__' in mod.__dict__:
             # import listed symbols
             for name in mod.__dict__['__all__']:
@@ -66,9 +74,9 @@ def _load(module):
         else:
             # only import non-private symbols
             for name, sym in mod.__dict__.iteritems():
-                if name[0] != '_':
+                if _validate_local(name):
                     __builtin__.__dict__[name] = sym
-    except Exception,e:
+    except Exception as e:
         log_interactive.error(e)
 
 def load_module(name):
@@ -79,7 +87,7 @@ def load_layer(name):
 
 def load_contrib(name):
     try:
-        __import__("scapy.contrib." + name)
+        importlib.import_module("scapy.contrib." + name)
         _load("scapy.contrib." + name)
     except ImportError:
         # if layer not found in contrib, try in layers
@@ -91,7 +99,7 @@ def list_contrib(name=None):
     elif "*" not in name and "?" not in name and not name.endswith(".py"):
         name += ".py"
     name = os.path.join(os.path.dirname(__file__), "contrib", name)
-    for f in glob.glob(name):
+    for f in sorted(glob.glob(name)):
         mod = os.path.basename(f)
         if mod.startswith("__"):
             continue
@@ -130,11 +138,11 @@ def save_session(fname=None, session=None, pickleProto=-1):
 
     to_be_saved = session.copy()
         
-    if to_be_saved.has_key("__builtins__"):
+    if "__builtins__" in to_be_saved:
         del(to_be_saved["__builtins__"])
 
     for k in to_be_saved.keys():
-        if type(to_be_saved[k]) in [types.TypeType, types.ClassType, types.ModuleType]:
+        if type(to_be_saved[k]) in [type, type, types.ModuleType]:
              log_interactive.error("[%s] (%s) can't be saved." % (k, type(to_be_saved[k])))
              del(to_be_saved[k])
 
@@ -180,11 +188,11 @@ def init_session(session_name, mydict=None):
     global session
     global globkeys
     
-    scapy_builtins = __import__("all",globals(),locals(),".").__dict__
+    scapy_builtins = importlib.import_module(".all", "scapy").__dict__
     for name, sym in scapy_builtins.iteritems():
-        if name [0] != '_':
+        if _validate_local(name):
             __builtin__.__dict__[name] = sym
-    globkeys = scapy_builtins.keys()
+    globkeys = list(scapy_builtins.keys())
     globkeys.append("scapy_session")
     scapy_builtins=None # XXX replace with "with" statement
     if mydict is not None:
@@ -236,7 +244,7 @@ def scapy_write_history_file(readline):
     if conf.histfile:
         try:
             readline.write_history_file(conf.histfile)
-        except IOError,e:
+        except IOError as e:
             try:
                 warning("Could not write history to [%s]\n\t (%s)" % (conf.histfile,e))
                 tmp = utils.get_temp_file(keep=True)
@@ -345,7 +353,7 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
             raise getopt.GetoptError("Too many parameters : [%s]" % " ".join(opts[1]))
 
 
-    except getopt.GetoptError, msg:
+    except getopt.GetoptError as msg:
         log_loading.error(msg)
         sys.exit(1)
 
@@ -373,7 +381,7 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
         try:
             import IPython
             IPYTHON=True
-        except ImportError, e:
+        except ImportError as e:
             log_loading.warning("IPython not available. Using standard Python shell instead.")
             IPYTHON=False
         
@@ -385,7 +393,7 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
           args = ['']  # IPython command line args (will be seen as sys.argv)
           ipshell = IPython.Shell.IPShellEmbed(args, banner = banner)
           ipshell(local_ns=session)
-        except AttributeError, e:
+        except AttributeError as e:
           pass
 
         # In the IPython cookbook, see 'Updating-code-for-use-with-IPython-0.11-and-later'

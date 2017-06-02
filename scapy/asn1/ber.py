@@ -88,7 +88,7 @@ def BER_num_enc(l, size=1):
                 x[0] |= 0x80
             l >>= 7
             size -= 1
-        return "".join([chr(k) for k in x])
+        return "".join(chr(k) for k in x)
 def BER_num_dec(s, cls_id=0):
         if len(s) == 0:
             raise BER_Decoding_Error("BER_num_dec: got empty string", remaining=s)
@@ -241,12 +241,12 @@ class BERcodec_Object:
             return cls.do_dec(s, context, safe)
         try:
             return cls.do_dec(s, context, safe)
-        except BER_BadTag_Decoding_Error,e:
+        except BER_BadTag_Decoding_Error as e:
             o,remain = BERcodec_Object.dec(e.remaining, context, safe)
             return ASN1_BADTAG(o),remain
-        except BER_Decoding_Error, e:
+        except BER_Decoding_Error as e:
             return ASN1_DECODING_ERROR(s, exc=e),""
-        except ASN1_Error, e:
+        except ASN1_Error as e:
             return ASN1_DECODING_ERROR(s, exc=e),""
 
     @classmethod
@@ -256,7 +256,7 @@ class BERcodec_Object:
 
     @classmethod
     def enc(cls, s):
-        if type(s) is str:
+        if isinstance(s, basestring):
             return BERcodec_STRING.enc(s)
         else:
             return BERcodec_INTEGER.enc(int(s))
@@ -273,7 +273,7 @@ class BERcodec_INTEGER(BERcodec_Object):
     @classmethod
     def enc(cls, i):
         s = []
-        while 1:
+        while True:
             s.append(i&0xff)
             if -127 <= i < 0:
                 break
@@ -282,7 +282,7 @@ class BERcodec_INTEGER(BERcodec_Object):
             i >>= 8
             if not i:
                 break
-        s = map(chr, s)
+        s = [chr(c) for c in s]
         s.append(BER_len_enc(len(s)))
         s.append(chr(cls.tag))
         s.reverse()
@@ -357,7 +357,7 @@ class BERcodec_OID(BERcodec_Object):
         if len(lst) >= 2:
             lst[1] += 40*lst[0]
             del(lst[0])
-        s = "".join([BER_num_enc(k) for k in lst])
+        s = "".join(BER_num_enc(k) for k in lst)
         return chr(cls.tag)+BER_len_enc(len(s))+s
     @classmethod
     def do_dec(cls, s, context=None, safe=False):
@@ -369,7 +369,7 @@ class BERcodec_OID(BERcodec_Object):
         if (len(lst) > 0):
             lst.insert(0,lst[0]/40)
             lst[1] %= 40
-        return cls.asn1_object(".".join([str(k) for k in lst])), t
+        return cls.asn1_object(".".join(str(k) for k in lst)), t
 
 class BERcodec_ENUMERATED(BERcodec_INTEGER):
     tag = ASN1_Class_UNIVERSAL.ENUMERATED
@@ -405,8 +405,8 @@ class BERcodec_SEQUENCE(BERcodec_Object):
     tag = ASN1_Class_UNIVERSAL.SEQUENCE
     @classmethod
     def enc(cls, l):
-        if type(l) is not str:
-            l = "".join(map(lambda x: x.enc(cls.codec), l))
+        if not isinstance(l, str):
+            l = "".join(x.enc(cls.codec) for x in l)
         return chr(cls.tag)+BER_len_enc(len(l))+l
     @classmethod
     def do_dec(cls, s, context=None, safe=False):
@@ -418,7 +418,7 @@ class BERcodec_SEQUENCE(BERcodec_Object):
         while s:
             try:
                 o,s = BERcodec_Object.dec(s, context, safe)
-            except BER_Decoding_Error, err:
+            except BER_Decoding_Error as err:
                 err.remaining += t
                 if err.decoded is not None:
                     obj.append(err.decoded)

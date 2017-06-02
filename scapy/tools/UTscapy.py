@@ -7,7 +7,7 @@
 Unit testing infrastructure for Scapy
 """
 
-import sys, getopt, imp, glob
+import sys, getopt, imp, glob, importlib
 import bz2, base64, os.path, time, traceback, zlib, sha
 from scapy.consts import WINDOWS
 
@@ -355,24 +355,24 @@ def remove_empty_testsets(test_campaign):
 
 #### RUN CAMPAIGN #####
 
-def run_campaign(test_campaign, get_interactive_session, verb=3):
+def run_campaign(test_campaign, get_interactive_session, verb=3, ignore_globals=None):
     if WINDOWS:
         # Add a route to 127.0.0.1 and ::1
         from scapy.arch.windows import route_add_loopback
         route_add_loopback()
     passed=failed=0
     if test_campaign.preexec:
-        test_campaign.preexec_output = get_interactive_session(test_campaign.preexec.strip())[0]
+        test_campaign.preexec_output = get_interactive_session(test_campaign.preexec.strip(), ignore_globals=ignore_globals)[0]
     for testset in test_campaign:
         for t in testset:
-            t.output,res = get_interactive_session(t.test.strip())
+            t.output,res = get_interactive_session(t.test.strip(), ignore_globals=ignore_globals)
             the_res = False
             try:
                 if res is None or res:
                     the_res= True
-            except Exception,msg:
+            except Exception as msg:
                 t.output+="UTscapy: Error during result interpretation:\n"
-                t.output+="".join(traceback.format_exception(sys.exc_type, sys.exc_value, sys.exc_traceback,))
+                t.output+="".join(traceback.format_exception(sys.exc_info()[0], sys.exc_info()[1], sys.exc_info()[2],))
             if the_res:
                 t.res = True
                 res = "passed"
@@ -607,7 +607,7 @@ def usage():
 #### MAIN ####
 
 def execute_campaign(TESTFILE, OUTPUTFILE, PREEXEC, NUM, KW_OK, KW_KO, DUMP,
-                     FORMAT, VERB, ONLYFAILED, CRC, autorun_func, pos_begin=0):
+                     FORMAT, VERB, ONLYFAILED, CRC, autorun_func, pos_begin=0, ignore_globals=None):
     # Parse test file
     test_campaign = parse_campaign_file(TESTFILE)
 
@@ -637,7 +637,7 @@ def execute_campaign(TESTFILE, OUTPUTFILE, PREEXEC, NUM, KW_OK, KW_KO, DUMP,
 
     # Run tests
     test_campaign.output_file = OUTPUTFILE
-    result = run_campaign(test_campaign, autorun_func[FORMAT], verb=VERB)
+    result = run_campaign(test_campaign, autorun_func[FORMAT], verb=VERB, ignore_globals=None)
 
     # Shrink passed
     if ONLYFAILED:
@@ -672,6 +672,7 @@ def resolve_testfiles(TESTFILES):
 
 def main(argv):
     import __builtin__
+    ignore_globals = list(__builtin__.__dict__.keys()) + ["sys"]
 
     # Parse arguments
     
@@ -713,7 +714,7 @@ def main(argv):
             elif opt == "-f":
                 try:
                     FORMAT = Format.from_string(optarg)
-                except KeyError,msg:
+                except KeyError as msg:
                     raise getopt.GetoptError("Unknown output format %s" % msg)
             elif opt == "-t":
                 TESTFILES.append(optarg)
@@ -738,7 +739,7 @@ def main(argv):
                 KW_KO = [data.kw_ko]
                 try:
                     FORMAT = Format.from_string(data.format)
-                except KeyError,msg:
+                except KeyError as msg:
                     raise getopt.GetoptError("Unknown output format %s" % msg)
                 TESTFILES = resolve_testfiles(TESTFILES)
             elif opt == "-o":
@@ -751,7 +752,7 @@ def main(argv):
                     try:
                         NUM.append(int(v))
                     except ValueError:
-                        v1, v2 = map(int, v.split("-", 1))
+                        v1, v2 = [int(e) for e in v.split('-', 1)]
                         NUM.extend(xrange(v1, v2 + 1))
             elif opt == "-m":
                 MODULES.append(optarg)
@@ -764,17 +765,17 @@ def main(argv):
             print >>sys.stderr, "### Booting scapy..."
         try:
             from scapy import all as scapy
-        except ImportError,e:
+        except ImportError as e:
             raise getopt.GetoptError("cannot import [%s]: %s" % (SCAPY,e))
 
         for m in MODULES:
             try:
                 mod = import_module(m)
                 __builtin__.__dict__.update(mod.__dict__)
-            except ImportError,e:
+            except ImportError as e:
                 raise getopt.GetoptError("cannot import [%s]: %s" % (m,e))
                 
-    except getopt.GetoptError,msg:
+    except getopt.GetoptError as msg:
         print >>sys.stderr,"ERROR:",msg
         raise SystemExit
 
@@ -815,7 +816,7 @@ def main(argv):
         output, result, campaign = execute_campaign(open(TESTFILE), OUTPUTFILE,
                                           PREEXEC, NUM, KW_OK, KW_KO,
                                           DUMP, FORMAT, VERB, ONLYFAILED,
-                                          CRC, autorun_func, pos_begin)
+                                          CRC, autorun_func, pos_begin, ignore_globals)
         runned_campaigns.append(campaign)
         pos_begin = campaign.end_pos
         if UNIQUE:

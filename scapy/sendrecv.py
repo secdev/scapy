@@ -122,7 +122,7 @@ def sndrcv(pks, pkt, timeout = None, inter = 0, verbose=None, chainCC=0, retry=0
                 inmask = [rdpipe,pks]
                 try:
                     try:
-                        while 1:
+                        while True:
                             if stoptime:
                                 remaintime = stoptime-time.time()
                                 if remaintime <= 0:
@@ -226,7 +226,7 @@ def sndrcv(pks, pkt, timeout = None, inter = 0, verbose=None, chainCC=0, retry=0
 
 
 def __gen_send(s, x, inter=0, loop=0, count=None, verbose=None, realtime=None, return_packets=False, *args, **kargs):
-    if type(x) is str:
+    if isinstance(x, str):
         x = conf.raw_layer(load=x)
     if not isinstance(x, Gen):
         x = SetGen(x)
@@ -269,20 +269,27 @@ def __gen_send(s, x, inter=0, loop=0, count=None, verbose=None, realtime=None, r
         return sent_packets
         
 @conf.commands.register
-def send(x, inter=0, loop=0, count=None, verbose=None, realtime=None, return_packets=False, *args, **kargs):
+def send(x, inter=0, loop=0, count=None, verbose=None, realtime=None, return_packets=False, socket=None,
+         *args, **kargs):
     """Send packets at layer 3
-send(packets, [inter=0], [loop=0], [verbose=conf.verb]) -> None"""
-    return __gen_send(conf.L3socket(*args, **kargs), x, inter=inter, loop=loop, count=count,verbose=verbose,
+send(packets, [inter=0], [loop=0], [count=None], [verbose=conf.verb], [realtime=None], [return_packets=False],
+     [socket=None]) -> None"""
+    if socket is None:
+        socket = conf.L3socket(*args, **kargs)
+    return __gen_send(socket, x, inter=inter, loop=loop, count=count,verbose=verbose,
                       realtime=realtime, return_packets=return_packets)
 
 @conf.commands.register
 def sendp(x, inter=0, loop=0, iface=None, iface_hint=None, count=None, verbose=None, realtime=None,
-          return_packets=False, *args, **kargs):
+          return_packets=False, socket=None, *args, **kargs):
     """Send packets at layer 2
-sendp(packets, [inter=0], [loop=0], [verbose=conf.verb]) -> None"""
-    if iface is None and iface_hint is not None:
+sendp(packets, [inter=0], [loop=0], [iface=None], [iface_hint=None], [count=None], [verbose=conf.verb],
+      [realtime=None], [return_packets=False], [socket=None]) -> None"""
+    if iface is None and iface_hint is not None and socket is None:
         iface = conf.route.route(iface_hint)[0]
-    return __gen_send(conf.L2socket(iface=iface, *args, **kargs), x, inter=inter, loop=loop, count=count,
+    if socket is None:
+        socket = conf.L2socket(iface=iface, *args, **kargs)
+    return __gen_send(socket, x, inter=inter, loop=loop, count=count,
                       verbose=verbose, realtime=realtime, return_packets=return_packets)
 
 @conf.commands.register
@@ -318,7 +325,7 @@ def sendpfast(x, pps=None, mbps=None, realtime=None, loop=0, file_cache=False, i
         subprocess.check_call(argv)
     except KeyboardInterrupt:
         log_interactive.info("Interrupted by user")
-    except Exception,e:
+    except Exception as e:
         log_interactive.error("while trying to exec [%s]: %s" % (argv[0],e))
     finally:
         os.unlink(f)
@@ -338,7 +345,7 @@ verbose:  set verbosity level
 multi:    whether to accept multiple answers for the same stimulus
 filter:   provide a BPF filter
 iface:    listen answers only on the given interface"""
-    if not kargs.has_key("timeout"):
+    if "timeout" not in kargs:
         kargs["timeout"] = -1
     s = conf.L3socket(promisc=promisc, filter=filter, iface=iface, nofilter=nofilter)
     a,b=sndrcv(s,x,*args,**kargs)
@@ -356,7 +363,7 @@ verbose:  set verbosity level
 multi:    whether to accept multiple answers for the same stimulus
 filter:   provide a BPF filter
 iface:    listen answers only on the given interface"""
-    if not kargs.has_key("timeout"):
+    if "timeout" not in kargs:
         kargs["timeout"] = -1
     s=conf.L3socket(promisc=promisc, filter=filter, nofilter=nofilter, iface=iface)
     a,b=sndrcv(s,x,*args,**kargs)
@@ -377,7 +384,7 @@ verbose:  set verbosity level
 multi:    whether to accept multiple answers for the same stimulus
 filter:   provide a BPF filter
 iface:    work only on the given interface"""
-    if not kargs.has_key("timeout"):
+    if "timeout" not in kargs:
         kargs["timeout"] = -1
     if iface is None and iface_hint is not None:
         iface = conf.route.route(iface_hint)[0]
@@ -397,7 +404,7 @@ verbose:  set verbosity level
 multi:    whether to accept multiple answers for the same stimulus
 filter:   provide a BPF filter
 iface:    work only on the given interface"""
-    if not kargs.has_key("timeout"):
+    if "timeout" not in kargs:
         kargs["timeout"] = -1
     a,b=srp(*args,**kargs)
     if len(a) > 0:
@@ -417,7 +424,7 @@ def __sr_loop(srfunc, pkts, prn=lambda x:x[1].summary(), prnfail=lambda x:x.summ
     if timeout is None:
         timeout = min(2*inter, 5)
     try:
-        while 1:
+        while True:
             parity ^= 1
             col = [ct.even,ct.odd][parity]
             if count is not None:
@@ -469,7 +476,7 @@ srloop(pkts, [prn], [inter], [count], ...) --> None"""
     return __sr_loop(srp, pkts, *args, **kargs)
 
 
-def sndrcvflood(pks, pkt, prn=lambda (s,r):r.summary(), chainCC=0, store=1, unique=0):
+def sndrcvflood(pks, pkt, prn=lambda s_r:s_r[1].summary(), chainCC=0, store=1, unique=0):
     if not isinstance(pkt, Gen):
         pkt = SetGen(pkt)
     tobesent = [p for p in pkt]
@@ -485,7 +492,7 @@ def sndrcvflood(pks, pkt, prn=lambda (s,r):r.summary(), chainCC=0, store=1, uniq
             hsent[h] = [i]
 
     def send_in_loop(tobesent):
-        while 1:
+        while True:
             for p in tobesent:
                 yield p
 
@@ -494,7 +501,7 @@ def sndrcvflood(pks, pkt, prn=lambda (s,r):r.summary(), chainCC=0, store=1, uniq
     ssock = rsock = pks.fileno()
 
     try:
-        while 1:
+        while True:
             if conf.use_bpf:
                 from scapy.arch.bpf.supersocket import bpf_select
                 readyr = bpf_select([rsock])
@@ -597,7 +604,7 @@ interfaces)
         if offline is None:
             if L2socket is None:
                 L2socket = conf.L2listen
-            if type(iface) is list:
+            if isinstance(iface, list):
                 for i in iface:
                     s = L2socket(type=ETH_P_ALL, iface=i, *arg, **karg)
                     label[s] = i

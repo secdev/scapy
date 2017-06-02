@@ -319,7 +319,7 @@ class _IANAOptField(PacketListField):
     def i2len(self, pkt, z):
         if z is None or z == []:
             return 0
-        return sum(map(lambda x: len(str(x)) ,z))
+        return sum(len(str(x)) for x in z)
 
     def getfield(self, pkt, s):
         l = self.length_from(pkt)
@@ -378,7 +378,7 @@ class _OptReqListField(StrLenField):
     def i2repr(self, pkt, x):
         s = []
         for y in self.i2h(pkt, x):
-            if dhcp6opts.has_key(y):
+            if y in dhcp6opts:
                 s.append(dhcp6opts[y])
             else:
                 s.append("%d" % y)
@@ -395,7 +395,7 @@ class _OptReqListField(StrLenField):
         return r
     
     def i2m(self, pkt, x):
-        return "".join(map(lambda y: struct.pack("!H", y), x))
+        return "".join(struct.pack('!H', y) for y in x)
 
 # A client may include an ORO in a solicit, Request, Renew, Rebind,
 # Confirm or Information-request
@@ -547,7 +547,7 @@ class _UserClassDataField(PacketListField):
     def i2len(self, pkt, z):
         if z is None or z == []:
             return 0
-        return sum(map(lambda x: len(str(x)) ,z))
+        return sum(len(str(x)) for x in z)
 
     def getfield(self, pkt, s):
         l = self.length_from(pkt)
@@ -747,7 +747,7 @@ class DomainNameField(StrLenField):
     def i2m(self, pkt, x):
         if not x:
             return ""
-        tmp = "".join(map(lambda z: chr(len(z))+z, x.split('.')))
+        tmp = "".join(chr(len(z)) + z for z in x.split('.'))
         return tmp
 
 class DHCP6OptNISDomain(_DHCP6OptGuessPayload):             #RFC3898
@@ -1267,11 +1267,11 @@ dhcp6d( dns="2001:500::1035", domain="localdomain, local", duid=None)
         def norm_list(val, param_name):
             if val is None:
                 return None
-            if type(val) is list:
+            if isinstance(val, list):
                 return val
-            elif type(val) is str:
+            elif isinstance(val, str):
                 l = val.split(',')
-                return map(lambda x: x.strip(), l)
+                return [x.strip() for x in l]
             else:
                 print "Bad '%s' parameter provided." % param_name
                 self.usage()
@@ -1307,8 +1307,7 @@ dhcp6d( dns="2001:500::1035", domain="localdomain, local", duid=None)
 
         if self.debug:
             print "\n[+] List of active DHCPv6 options:"
-            opts = self.dhcpv6_options.keys()
-            opts.sort()
+            opts = sorted(self.dhcpv6_options.keys())
             for i in opts:
                 print "    %d: %s" % (i, repr(self.dhcpv6_options[i]))
 
@@ -1337,7 +1336,7 @@ dhcp6d( dns="2001:500::1035", domain="localdomain, local", duid=None)
 
             # Mac Address
             rawmac = get_if_raw_hwaddr(iface)[1]
-            mac = ":".join(map(lambda x: "%.02x" % ord(x), list(rawmac)))
+            mac = ":".join("%.02x" % ord(x) for x in rawmac)
 
             self.duid = DUID_LLT(timeval = timeval, lladdr = mac)
             
@@ -1409,7 +1408,7 @@ dhcp6d( dns="2001:500::1035", domain="localdomain, local", duid=None)
                 return False
             # provided server DUID must match ours
             duid = p[DHCP6OptServerId].duid
-            if (type(duid) != type(self.duid)):
+            if not isinstance(duid, type(self.duid)):
                 return False
             if str(duid) != str(self.duid):
                 return False
@@ -1447,12 +1446,10 @@ dhcp6d( dns="2001:500::1035", domain="localdomain, local", duid=None)
                 elif isinstance(it, DHCP6OptIA_TA):
                     l = it.iataopts
 
-                opsaddr = filter(lambda x: isinstance(x, DHCP6OptIAAddress),l)
-                a=map(lambda x: x.addr,  opsaddr)
-                addrs += a
+                addrs += [x.addr for x in l if isinstance(x, DHCP6OptIAAddress)]
                 it = it.payload
                     
-            addrs = map(lambda x: bo + x + n, addrs)
+            addrs = [bo + x + n for x in addrs]
             if debug:
                 msg = r + "[DEBUG]" + n + " Received " + g + "Decline" + n 
                 msg += " from " + bo + src + vendor + " for "
@@ -1476,7 +1473,7 @@ dhcp6d( dns="2001:500::1035", domain="localdomain, local", duid=None)
         elif p.msgtype == 11: # Information-Request
             if DHCP6OptServerId in p:
                 duid = p[DHCP6OptServerId].duid
-                if (type(duid) != type(self.duid)):
+                if not isinstance(duid, type(self.duid)):
                     return False
                 if str(duid) != str(self.duid):
                     return False

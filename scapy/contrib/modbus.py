@@ -14,6 +14,9 @@
 # You should have received a copy of the GNU General Public License
 # along with Scapy. If not, see <http://www.gnu.org/licenses/>.
 
+# scapy.contrib.description = ModBus Protocol
+# scapy.contrib.status = loads
+
 # Copyright (C) 2016 Arthur Gervais, Ken LE PRADO, Sébastien Mainand
 
 from scapy.packet import *

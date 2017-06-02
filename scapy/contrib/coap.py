@@ -1,3 +1,5 @@
+#! /usr/bin/env python
+
 # This file is part of Scapy.
 # See http://www.secdev.org/projects/scapy for more information.
 #
@@ -15,6 +17,9 @@
 # along with Scapy.  If not, see <http://www.gnu.org/licenses/>.
 #
 # Copyright (C) 2016 Anmol Sarma <me@anmolsarma.in>
+
+# scapy.contrib.description = Constrained Application Protocol (CoAP)
+# scapy.contrib.status = loads
 
 """
 RFC 7252 - Constrained Application Protocol (CoAP) layer for Scapy

@@ -197,6 +197,8 @@ for i in ps_read_routes:
 
 assert _correct
 
+conf.prog._reload()
+
 = show_interfaces
 
 from scapy.arch import show_interfaces
@@ -223,3 +225,20 @@ assert test_show_interfaces()
 from scapy.config import conf
 
 assert dev_from_pcapname(conf.iface.pcap_name).guid == conf.iface.guid
+
+= test pcap_service_status
+
+status = pcap_service_status()
+status
+assert status[0] in ["npcap", "npf"]
+assert status[2] == True
+
+= test pcap_service_stop
+
+pcap_service_stop()
+assert pcap_service_status()[2] == False
+
+= test pcap_service_start
+
+pcap_service_start()
+assert pcap_service_status()[2] == True

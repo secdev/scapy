@@ -1,5 +1,19 @@
 #!/usr/bin/env python
 
+# This file is part of Scapy
+# Scapy is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 2 of the License, or
+# any later version.
+#
+# Scapy is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Scapy. If not, see <http://www.gnu.org/licenses/>.
+
 # scapy.contrib.description = EIGRP
 # scapy.contrib.status = loads
 
@@ -11,16 +25,6 @@
     :copyright: 2009 by Jochen Bartl
     :e-mail:    lobo@c3a.de / jochen.bartl@gmail.com
     :license:   GPL v2
-
-        This program is free software; you can redistribute it and/or
-        modify it under the terms of the GNU General Public License
-        as published by the Free Software Foundation; either version 2
-        of the License, or (at your option) any later version.
-
-        This program is distributed in the hope that it will be useful,
-        but WITHOUT ANY WARRANTY; without even the implied warranty of
-        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-        GNU General Public License for more details.
 
     :TODO
 
@@ -43,6 +47,7 @@ from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.inet import IP
 from scapy.layers.inet6 import *
+from functools import reduce
 
 class EigrpIPField(StrField, IPField):
     """
@@ -261,13 +266,13 @@ class ShortVersionField(ShortField):
            Valid numbers are between 0 and 255.
         """
 
-        if type(x) is str and x.startswith("v") and len(x) <= 8:
+        if isinstance(x, str) and x.startswith("v") and len(x) <= 8:
             major = int(x.split(".")[0][1:])
             minor = int(x.split(".")[1])
 
             return (major << 8) | minor
 
-        elif type(x) is int and 0 <= x <= 65535:
+        elif isinstance(x, int) and 0 <= x <= 65535:
             return x
         else:
             if self.default != None:
@@ -431,7 +436,7 @@ class RepeatedTlvListField(PacketListField):
         return remain,lst
 
     def addfield(self, pkt, s, val):
-        return s + reduce(str.__add__, map(str, val), "")
+        return s + ''.join(str(v) for v in val)
 
 def _EIGRPGuessPayloadClass(p, **kargs):
     cls = conf.raw_layer

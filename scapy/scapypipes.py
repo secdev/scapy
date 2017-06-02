@@ -4,6 +4,7 @@
 ## This program is published under a GPLv2 license
 
 import socket
+import Queue
 from scapy.pipetool import Source,Drain,Sink
 from scapy.config import conf
 from scapy.utils import PcapReader, PcapWriter
@@ -173,7 +174,7 @@ class TCPConnectPipe(Source):
 
 class TCPListenPipe(TCPConnectPipe):
     """TCP listen on [addr:]port and use first connection as source and sink ; send peer address to high output
-     +-------------+
+     +------^------+
   >>-|    +-[peer]-|->>
      |   /         |
    >-|-[addr:port]-|->
@@ -182,21 +183,34 @@ class TCPListenPipe(TCPConnectPipe):
     def __init__(self, addr="", port=0, name=None):
         TCPConnectPipe.__init__(self, addr, port, name)
         self.connected = False
+        self.q = Queue.Queue()
     def start(self):
         self.connected = False
         self.fd = socket.socket()
         self.fd.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.fd.bind((self.addr,self.port))
         self.fd.listen(1)
+    def push(self, msg):
+        if self.connected:
+            self.fd.send(msg)
+        else:
+            self.q.put(msg)
     def deliver(self):
         if self.connected:
             self._send(self.fd.recv(65536))
         else:
             fd,frm = self.fd.accept()
-            self._high_send(repr(frm))
+            self._high_send(frm)
             self.fd.close()
             self.fd = fd
             self.connected = True
+            self._trigger(frm)
+            while True:
+                try:
+                    self.fd.send(self.q.get(block=False))
+                except Queue.Empty:
+                    break
+
 
 class TriggeredMessage(Drain):
     """Send a preloaded message when triggered and trigger in chain
@@ -235,3 +249,83 @@ class TriggerDrain(Drain):
         if v:
             self._trigger(v)
         self._high_send(msg)
+
+class TriggeredValve(Drain):
+    """Let messages alternatively pass or not, changing on trigger
+     +------^------+
+  >>-|-[pass/stop]-|->>
+     |      |      |
+   >-|-[pass/stop]-|->
+     +------^------+
+"""
+    def __init__(self, start_state=True, name=None):
+        Drain.__init__(self, name=name)
+        self.opened = start_state
+    def push(self, msg):
+        if self.opened:
+            self._send(msg)
+    def high_push(self, msg):
+        if self.opened:
+            self._send(msg)
+    def on_trigger(self, msg):
+        self.opened ^= True
+        self._trigger(msg)
+
+class TriggeredQueueingValve(Drain):
+    """Let messages alternatively pass or queued, changing on trigger
+     +------^-------+
+  >>-|-[pass/queue]-|->>
+     |      |       |
+   >-|-[pass/queue]-|->
+     +------^-------+
+"""
+    def __init__(self, start_state=True, name=None):
+        Drain.__init__(self, name=name)
+        self.opened = start_state
+        self.q = Queue.Queue()
+    def start(self):
+        self.q = Queue.Queue()
+    def push(self, msg):
+        if self.opened:
+            self._send(msg)
+        else:
+            self.q.put((True,msg))
+    def high_push(self, msg):
+        if self.opened:
+            self._send(msg)
+        else:
+            self.hq.put((False,msg))
+    def on_trigger(self, msg):
+        self.opened ^= True
+        self._trigger(msg)
+        while True:
+            try:
+                low,msg = self.q.get(block=False)
+            except Queue.Empty:
+                break
+            else:
+                if low:
+                    self._send(msg)
+                else:
+                    self._high_send(msg)
+
+class TriggeredSwitch(Drain):
+    """Let messages alternatively high or low, changing on trigger
+     +------^------+
+  >>-|-\    |    /-|->>
+     |  [up/down]  |
+   >-|-/    |    \-|->
+     +------^------+
+"""
+    def __init__(self, start_state=True, name=None):
+        Drain.__init__(self, name=name)
+        self.low = start_state
+    def push(self, msg):
+        if self.low:
+            self._send(msg)
+        else:
+            self._high_send(msg)
+    high_push = push
+    def on_trigger(self, msg):
+        self.low ^= True
+        self._trigger(msg)

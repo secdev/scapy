@@ -187,7 +187,7 @@ class _PubKeyFactory(_PKIObjMaker):
             return obj
 
         # This deals with the rare RSA 'kx export' call.
-        if type(key_path) is tuple:
+        if isinstance(key_path, tuple):
             obj = type.__call__(cls)
             obj.__class__ = PubKeyRSA
             obj.frmt = "tuple"
@@ -671,7 +671,7 @@ class Cert(object):
         """
         if now is None:
             now = time.localtime()
-        elif type(now) is str:
+        elif isinstance(now, str):
             try:
                 if '/' in now:
                     now = time.strptime(now, '%m/%d/%y')
@@ -706,11 +706,9 @@ class Cert(object):
             if (self.authorityKeyID is not None and
                 c.authorityKeyID is not None and
                 self.authorityKeyID == c.authorityKeyID):
-                return self.serial in map(lambda x: x[0],
-                                                    c.revoked_cert_serials)
+                return self.serial in (x[0] for x in c.revoked_cert_serials)
             elif self.issuer == c.issuer:
-                return self.serial in map(lambda x: x[0],
-                                                    c.revoked_cert_serials)
+                return self.serial in (x[0] for x in c.revoked_cert_serials)
         return False
 
     def export(self, filename, fmt="DER"):

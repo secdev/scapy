@@ -57,7 +57,7 @@ class Net(Gen):
         if a == "*":
             a = (0,256)
         elif a.find("-") >= 0:
-            x,y = map(int,a.split("-"))
+            x, y = [int(d) for d in a.split('-')]
             if x > y:
                 y = x
             a = (x &  (0xff<<netmask) , max(y, (x | (0xff>>(8-netmask))))+1)
@@ -71,7 +71,8 @@ class Net(Gen):
         if not cls.ipaddress.match(net):
             tmp[0]=socket.gethostbyname(tmp[0])
         netmask = int(tmp[1])
-        return map(lambda x,y: cls._parse_digit(x,y), tmp[0].split("."), map(lambda x,nm=netmask: x-nm, (8,16,24,32))),netmask
+        ret_list = [cls._parse_digit(x, y-netmask) for (x, y) in zip(tmp[0].split('.'), [8, 16, 24, 32])]
+        return ret_list, netmask
 
     def __init__(self, net):
         self.repr=net
@@ -130,10 +131,10 @@ class OID(Gen):
         return "OID(%r)" % self.oid
     def __iter__(self):        
         ii = [k[0] for k in self.cmpt]
-        while 1:
+        while True:
             yield self.fmt % tuple(ii)
             i = 0
-            while 1:
+            while True:
                 if i >= len(ii):
                     raise StopIteration
                 if ii[i] < self.cmpt[i][1]:

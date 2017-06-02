@@ -103,8 +103,7 @@ if conf.use_winpcapy:
             if a.contents.addr.contents.sa_family == socket.AF_INET:
               ap = a.contents.addr
               val = cast(ap, POINTER(sockaddr_in))
-              #ret = bytes(val.contents.sin_addr[:4])
-              ret = "".join([chr(x) for x in val.contents.sin_addr[:4]])
+              ret = "".join(chr(x) for x in val.contents.sin_addr[:4])
             a = a.contents.next
           break
         p = p.contents.next
@@ -151,8 +150,7 @@ if conf.use_winpcapy:
           if not c > 0:
               return
           ts = self.header.contents.ts.tv_sec
-          pkt = "".join([ chr(i) for i in self.pkt_data[:self.header.contents.len] ])
-          #pkt = bytes(self.pkt_data[:self.header.contents.len])
+          pkt = "".join(chr(i) for i in self.pkt_data[:self.header.contents.len])
           return ts, pkt
       def datalink(self):
           return pcap_datalink(self.pcap)
@@ -337,10 +335,10 @@ if conf.use_winpcapy:
 if conf.use_pcap:
     try:
         import pcap
-    except ImportError,e:
+    except ImportError as e:
         try:
             import pcapy as pcap
-        except ImportError,e2:
+        except ImportError as e2:
             if conf.interactive:
                 log_loading.error("Unable to import pcap module: %s/%s" % (e,e2))
                 conf.use_pcap = False
@@ -485,7 +483,7 @@ if conf.use_dnet:
         except ImportError:
             # Then, try to import dumbnet as dnet
             import dumbnet as dnet
-    except ImportError,e:
+    except ImportError as e:
         if conf.interactive:
             log_loading.error("Unable to import dnet module: %s" % e)
             conf.use_dnet = False

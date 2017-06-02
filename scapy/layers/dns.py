@@ -17,6 +17,7 @@ from scapy.sendrecv import sr1
 from scapy.layers.inet import IP, DestIPField, UDP, TCP
 from scapy.layers.inet6 import DestIP6Field
 from scapy.error import warning
+from functools import reduce
 
 class DNSStrField(StrField):
 
@@ -29,8 +30,8 @@ class DNSStrField(StrField):
         if x == ".":
           return b"\x00"
 
-        x = [k[:63] for k in x.split(".")] # Truncate chunks that cannot be encoded (more than 63 bytes..)
-        x = map(lambda y: chr(len(y))+y, x)
+        # Truncate chunks that cannot be encoded (more than 63 bytes..)
+        x = "".join(chr(len(y)) + y for y in (k[:63] for k in x.split(".")))
         x = "".join(x)
         if x[-1] != b"\x00":
             x += b"\x00"
@@ -42,7 +43,7 @@ class DNSStrField(StrField):
         if ord(s[0]) == 0:
           return s[1:], "."
 
-        while 1:
+        while True:
             l = ord(s[0])
             s = s[1:]
             if not l:
@@ -82,7 +83,7 @@ def DNSgetstr(s,p):
     name = ""
     q = 0
     jpath = [p]
-    while 1:
+    while True:
         if p >= len(s):
             warning("DNS RR prematured end (ofs=%i, len=%i)"%(p,len(s)))
             break
@@ -139,7 +140,7 @@ class DNSRRField(StrField):
         rr.rrname = name
         return rr,p
     def getfield(self, pkt, s):
-        if type(s) is tuple :
+        if isinstance(s, tuple) :
             s,p = s
         else:
             p = 0
@@ -201,7 +202,7 @@ class RDataField(StrLenField):
             if s:
                 s = inet_aton(s)
         elif pkt.type in [2, 3, 4, 5, 12]: # NS, MD, MF, CNAME, PTR
-            s = "".join(map(lambda x: chr(len(x))+x, s.split(".")))
+            s = "".join(chr(len(x)) + x for x in s.split('.'))
             if ord(s[-1]):
                 s += b"\x00"
         elif pkt.type == 16: # TXT
@@ -365,7 +366,7 @@ dnssecdigesttypes = { 0:"Reserved", 1:"SHA-1", 2:"SHA-256", 3:"GOST R 34.11-94",
 class TimeField(IntField):
 
     def any2i(self, pkt, x):
-        if type(x) == str:
+        if isinstance(x, str):
             import time, calendar
             t = time.strptime(x, "%Y%m%d%H%M%S")
             return int(calendar.timegm(t))
@@ -428,11 +429,9 @@ def RRlist2bitmap(lst):
     import math
 
     bitmap = ""
-    lst = list(set(lst))
-    lst.sort()
+    lst = sorted(set(lst))
 
-    lst = filter(lambda x: x <= 65535, lst)
-    lst = map(lambda x: abs(x), lst)
+    lst = [abs(x) for x in lst if x <= 65535]
 
     # number of window blocks
     max_window_blocks = int(math.ceil(lst[-1] / 256.))
@@ -443,8 +442,7 @@ def RRlist2bitmap(lst):
     for wb in xrange(min_window_blocks, max_window_blocks+1):
         # First, filter out RR not encoded in the current window block
         # i.e. keep everything between 256*wb <= 256*(wb+1)
-        rrlist = filter(lambda x: 256 * wb <= x < 256 * (wb + 1), lst)
-        rrlist.sort()
+        rrlist = sorted(filter(lambda x: 256 * wb <= x < 256 * (wb + 1), lst))
         if rrlist == []:
             continue
 
@@ -465,11 +463,10 @@ def RRlist2bitmap(lst):
             v = 0
             # Remove out of range Resource Records
             tmp_rrlist = filter(lambda x: 256 * wb + 8 * tmp <= x < 256 * wb + 8 * tmp + 8, rrlist)
-            if not tmp_rrlist == []:
+            if tmp_rrlist:
                 # 1. rescale to fit into 8 bits
-                tmp_rrlist = map(lambda x: (x-256*wb)-(tmp*8), tmp_rrlist)
                 # 2. x gives the bit position ; compute the corresponding value
-                tmp_rrlist = map(lambda x: 2**(7-x) , tmp_rrlist)
+                tmp_rrlist = [2 ** (7 - (x - 256 * wb) + (tmp * 8)) for x in tmp_rrlist]
                 # 3. sum everything
                 v = reduce(lambda x,y: x+y, tmp_rrlist)
             bitmap += struct.pack("B", v)
@@ -479,7 +476,7 @@ def RRlist2bitmap(lst):
 
 class RRlistField(StrField):
     def h2i(self, pkt, x):
-        if type(x) == list:
+        if isinstance(x, list):
             return RRlist2bitmap(x)
         return x
 

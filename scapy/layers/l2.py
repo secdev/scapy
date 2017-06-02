@@ -59,7 +59,7 @@ def getmacbyip(ip, chainCC=0):
     if isinstance(ip,Net):
         ip = iter(ip).next()
     ip = inet_ntoa(inet_aton(ip))
-    tmp = map(ord, inet_aton(ip))
+    tmp = [ord(e) for e in inet_aton(ip)]
     if (tmp[0] & 0xf0) == 0xe0: # mcast @
         return "01:00:5e:%.2x:%.2x:%.2x" % (tmp[1]&0x7f,tmp[2],tmp[3])
     iff,a,gw = conf.route.route(ip)
@@ -1169,7 +1169,7 @@ arpcachepoison(target, victim, [interval=60]) -> None
     tmac = getmacbyip(target)
     p = Ether(dst=tmac)/ARP(op="who-has", psrc=victim, pdst=target)
     try:
-        while 1:
+        while True:
             sendp(p, iface_hint=target)
             if conf.verb > 1:
                 os.write(1,".")
@@ -1262,7 +1262,7 @@ class ARP_am(AnsweringMachine):
         ether = req.getlayer(Ether)
         arp = req.getlayer(ARP)
 
-        if self.optsend.has_key('iface'):
+        if 'iface' in self.optsend:
             iff = self.optsend.get('iface')
         else:
             iff,a,gw = conf.route.route(arp.psrc)
@@ -1284,7 +1284,7 @@ class ARP_am(AnsweringMachine):
         return resp
 
     def send_reply(self, reply):
-        if self.optsend.has_key('iface'):
+        if 'iface' in self.optsend:
             self.send_function(reply, **self.optsend)
         else:
             self.send_function(reply, iface=self.iff, **self.optsend)
@@ -1297,7 +1297,7 @@ class ARP_am(AnsweringMachine):
 def etherleak(target, **kargs):
     """Exploit Etherleak flaw"""
     return srpflood(Ether()/ARP(pdst=target), 
-                    prn=lambda (s,r): conf.padding_layer in r and hexstr(r[conf.padding_layer].load),
+                    prn=lambda s_r: conf.padding_layer in s_r[1] and hexstr(s_r[1][conf.padding_layer].load),
                     filter="arp", **kargs)
 
 

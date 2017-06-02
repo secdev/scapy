@@ -77,9 +77,9 @@ class ConfigFieldList:
     def _is_field(f):
         return hasattr(f, "owners")
     def _recalc_layer_list(self):
-        self.layers = set([owner for f in self.fields for owner in f.owners])
+        self.layers = {owner for f in self.fields for owner in f.owners}
     def add(self, *flds):
-        self.fields |= set([f for f in flds if self._is_field(f)])
+        self.fields |= {f for f in flds if self._is_field(f)}
         self._recalc_layer_list()
     def remove(self, *flds):
         self.fields -= set(flds)

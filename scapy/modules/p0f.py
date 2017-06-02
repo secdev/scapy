@@ -69,7 +69,7 @@ class p0fKnowledgeBase(KnowledgeBase):
                     if x.isdigit():
                         return int(x)
                     return x
-                li = map(a2i, l[1:4])
+                li = [a2i(e) for e in l[1:4]]
                 #if li[0] not in self.ttl_range:
                 #    self.ttl_range.append(li[0])
                 #    self.ttl_range.sort()
@@ -173,7 +173,7 @@ def packet2p0f(pkt):
             if ilen > 0:
                 qqP = True
         else:
-            if type(option[0]) is str:
+            if isinstance(option[0], str):
                 ooo += "?%i," % TCPOptions[1][option[0]]
             else:
                 ooo += "?%i," % option[0]
@@ -530,7 +530,9 @@ interface and may (are likely to) be different than those generated on
         # XXX are the packets also seen twice on non Linux systems ?
         count=14
         pl = sniff(iface=iface, filter='tcp and port ' + str(port), count = count, timeout=3)
-        map(addresult, map(packet2p0f, pl))
+        for pkt in pl:
+            for elt in packet2p0f(pkt):
+                addresult(elt)
         os.waitpid(pid,0)
     elif pid < 0:
         log_runtime.error("fork error")

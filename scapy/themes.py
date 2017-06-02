@@ -31,7 +31,7 @@ class Color:
 def create_styler(fmt=None, before="", after="", fmt2="%s"):
     def do_style(val, fmt=fmt, before=before, after=after, fmt2=fmt2):
         if fmt is None:
-            if type(val) is not str:
+            if not isinstance(val, str):
                 val = str(val)
         else:
             val = fmt % val
