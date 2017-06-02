@@ -29,8 +29,13 @@ then
   if [ "$TRAVIS_OS_NAME" = "linux" ]
   then
     $SCAPY_SUDO apt-get install python-libpcap python-dumbnet openssl libpcap-dev libdnet-dev
-    $SCAPY_SUDO pip install $PIP_INSTALL_FLAGS pcapy dnet
-    pip install pcapy dnet
+    $SCAPY_SUDO pip install $PIP_INSTALL_FLAGS pcapy
+    pip install pcapy
+    git clone https://github.com/dugsong/libdnet.git
+    pushd libdnet
+    ./configure && make
+    cd python and pip install .
+    popd
   elif [ "$TRAVIS_OS_NAME" = "osx" ]
   then
     mkdir -p /Users/travis/Library/Python/2.7/lib/python/site-packages
