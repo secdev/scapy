@@ -848,7 +848,7 @@ def _send_or_sniff(pkt, timeout, flt, pid, fork, t_other=None):
     if pid == 0:
         time.sleep(1)
         return_packets = (sendp if isinstance(pkt, (Ether, Dot3)) else send)(pkt, return_packets=True)
-        if platform == "linux" or platform == "linux2" or platform == "Darwin":
+        if platform in ["linux", "linux2", "Darwin"]:
             assert return_packets == pkt
         if fork:
             os._exit(0)
@@ -859,7 +859,7 @@ def _send_or_sniff(pkt, timeout, flt, pid, fork, t_other=None):
         # We do not want to crash when a packet cannot be parsed
         old_debug_dissector = conf.debug_dissector
         conf.debug_dissector = False
-        ifaces= map(str, netifaces.interfaces()) if platform == "linux" or platform == "linux2" else None
+        ifaces= map(str, netifaces.interfaces()) if platform in ["linux", "linux2"] else None
         pkts = sniff(
             timeout=timeout, filter=flt, iface=ifaces,
             stop_filter=lambda p: pkt.__class__ in p and str(p[pkt.__class__]) == spkt
