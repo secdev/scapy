@@ -5252,6 +5252,57 @@ raw(NetflowHeader()/NetflowHeaderV5(count=1)/NetflowRecordV5(dst="192.168.0.1"))
 nf5 = NetflowHeader(b'\x00\x05\x00\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x7f\x00\x00\x01\x7f\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00<\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x7f\x00\x00\x01\x7f\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00<\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00')
 nf5.version == 5 and nf5[NetflowHeaderV5].count == 2 and isinstance(nf5[NetflowRecordV5].payload, NetflowRecordV5)
 
+############
+############
++ Netflow v9
+
+= NetflowHeaderV9 - advanced building
+
+import time
+
+pkt = NetflowHeader()/\
+    NetflowHeaderV9(unixSecs=int(time.time()))/\
+    NetflowFlowsetV9(templates=[
+        NetflowTemplateV9(templateID=258, template_fields=[
+            NetflowTemplateFieldV9(fieldType=1),
+            NetflowTemplateFieldV9(fieldType=62),
+        ]),
+        NetflowTemplateV9(templateID=257, template_fields=[
+            NetflowTemplateFieldV9(fieldType=1),
+            NetflowTemplateFieldV9(fieldType=62),
+        ]),
+    ])/NetflowDataflowsetV9(templateID=258, records=[
+        NetflowRecordV9(fieldValue=b"\x01\x02\x03\x05"),
+        NetflowRecordV9(fieldValue=b"\x05\x03\x02\x01\x04\x03\x02\x01\x04\x03\x02\x01\x04\x03\x02\x01"),
+    ])/NetflowDataflowsetV9(templateID=257, records=[
+        NetflowRecordV9(fieldValue=b"\x01\x02\x03\x04"),
+        NetflowRecordV9(fieldValue=b"\x04\x03\x02\x01\x04\x03\x02\x01\x04\x03\x02\x01\x04\x03\x02\x01"),
+    ])/NetflowOptionsFlowsetV9(templateID=256, scopes=[NetflowOptionsFlowsetScopeV9(scopeFieldType=1, scopeFieldlength=4),
+                                                       NetflowOptionsFlowsetScopeV9(scopeFieldType=1, scopeFieldlength=3)], 
+                                               options=[NetflowOptionsFlowsetOptionV9(optionFieldType=1, optionFieldlength=2),
+                                                        NetflowOptionsFlowsetOptionV9(optionFieldType=1, optionFieldlength=1)])/\
+    NetflowOptionsDataRecordV9(templateID=256, records=[NetflowOptionsRecordScopeV9(fieldValue=b"\x01\x02\x03\x04"),
+                                                        NetflowOptionsRecordScopeV9(fieldValue=b"\x01\x02\x03"),
+                                                        NetflowOptionsRecordOptionV9(fieldValue=b"\x01\x02"),
+                                                        NetflowOptionsRecordOptionV9(fieldValue=b"\x01")])
+
+assert pkt[NetflowFlowsetV9].templates[0].template_fields[0].fieldLength == 4
+assert pkt[NetflowFlowsetV9].templates[0].template_fields[1].fieldLength == 16
+
+= NetflowHeaderV9 - advanced dissection
+
+d = NetflowHeader(raw(pkt))
+d.show()
+assert len(d[NetflowDataflowsetV9].records) == 2
+assert d.getlayer(NetflowDataflowsetV9, templateID=257).records[0].fieldValue == b"\x01\x02\x03\x04"
+assert d.getlayer(NetflowDataflowsetV9, templateID=257).records[1].fieldValue == b"\x04\x03\x02\x01\x04\x03\x02\x01\x04\x03\x02\x01\x04\x03\x02\x01"
+
+assert d.getlayer(NetflowDataflowsetV9, templateID=258).records[0].fieldValue == b"\x01\x02\x03\x05"
+assert d.getlayer(NetflowDataflowsetV9, templateID=258).records[1].fieldValue == b"\x05\x03\x02\x01\x04\x03\x02\x01\x04\x03\x02\x01\x04\x03\x02\x01"
+
+assert d[NetflowOptionsFlowsetV9].scopes[0].scopeFieldType == 1
+assert d[NetflowOptionsDataRecordV9].records[1].fieldValue == b"\x01\x02\x03"
+assert d[NetflowOptionsDataRecordV9].records[3].fieldValue == b"\x01"
 
 ############
 ############
