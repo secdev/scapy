@@ -13,7 +13,7 @@ import time
 import Queue
 from threading import Lock, Thread
 
-from scapy.automaton import Message, select_objects
+from scapy.automaton import Message, select_objects, SelectableObject
 from scapy.consts import WINDOWS
 from scapy.error import log_interactive, warning
 from scapy.config import conf
@@ -21,7 +21,7 @@ from scapy.utils import get_temp_file, do_graph
 
 import scapy.arch
 
-class PipeEngine:
+class PipeEngine(SelectableObject):
     pipes = {}
     @classmethod
     def list_pipes(cls):
@@ -46,9 +46,9 @@ class PipeEngine:
         self._add_pipes(*pipes)
         self.thread_lock = Lock()
         self.command_lock = Lock()
-        self.__fd_queue = []
+        self.__fd_queue = collections.deque()
         self.__fdr,self.__fdw = os.pipe()
-        self.threadid = None
+        self.thread = None
     def __getattr__(self, attr):
         if attr.startswith("spawn_"):
             dname = attr[6:]
@@ -61,7 +61,7 @@ class PipeEngine:
                 return f
         raise AttributeError(attr)
 
-    def checkRecv(self):
+    def check_recv(self):
         """As select.select is not available, we check if there
         is some data to read by using a list that stores pointers."""
         return len(self.__fd_queue) > 0
@@ -70,12 +70,13 @@ class PipeEngine:
         return self.__fdr
 
     def _read_cmd(self):
-        self.__fd_queue.pop()
-        return os.read(self.__fdr,1)
+        os.read(self.__fdr,1)
+        return self.__fd_queue.popleft()
 
     def _write_cmd(self, _cmd):
-        os.write(self.__fdw, _cmd)
-        self.__fd_queue.append("X")
+        self.__fd_queue.append(_cmd)
+        os.write(self.__fdw, "X")
+        self.call_release()
 
     def add_one_pipe(self, pipe):
         self.active_pipes.add(pipe)
@@ -117,7 +118,7 @@ class PipeEngine:
             RUN=True
             STOP_IF_EXHAUSTED = False
             while RUN and (not STOP_IF_EXHAUSTED or len(sources) > 1):
-                fds = select_objects(sources, 2, customTypes=(AutoSource, PipeEngine))
+                fds = select_objects(sources, 2)
                 for fd in fds:
                     if fd is self:
                         cmd = self._read_cmd()
@@ -154,7 +155,7 @@ class PipeEngine:
         if self.thread_lock.acquire(0):
             _t = Thread(target=self.run)
             _t.start()
-            self.threadid = _t.ident
+            self.thread = _t
         else:
             warning("Pipe engine already running")
     def wait_and_stop(self):
@@ -162,11 +163,13 @@ class PipeEngine:
     def stop(self, _cmd="X"):
         try:
             with self.command_lock:
-                if self.threadid is not None:
+                if self.thread is not None:
                     self._write_cmd(_cmd)
-                    while not self.thread_lock.acquire(0):
-                        time.sleep(0.01) # interruptible wait for thread to terminate
-                    self.thread_lock.release() # (not using .join() because it needs 'threading' module)
+                    self.thread.join()
+                    try:
+                        self.thread_lock.release()
+                    except:
+                        pass
                 else:
                     warning("Pipe engine thread not running")
         except KeyboardInterrupt:
@@ -175,7 +178,7 @@ class PipeEngine:
     def add(self, *pipes):
         pipes = self._add_pipes(*pipes)
         with self.command_lock:
-            if self.threadid is not None:
+            if self.thread is not None:
                 for p in pipes:
                     p.start()
                 self._write_cmd("A")
@@ -305,7 +308,7 @@ class Pipe(_ConnectorLogic):
         s += ct.punct(">")
         return s
 
-class Source(Pipe):
+class Source(Pipe, SelectableObject):
     def __init__(self, name=None):
         Pipe.__init__(self, name=name)
         self.is_exhausted = False
@@ -316,7 +319,7 @@ class Source(Pipe):
         self._send(msg)
     def fileno(self):
         return None
-    def checkRecv(self):
+    def check_recv(self):
         return False
     def exhausted(self):
         return self.is_exhausted
@@ -353,14 +356,14 @@ class Sink(Pipe):
         pass
 
 
-class AutoSource(Source):
+class AutoSource(Source, SelectableObject):
     def __init__(self, name=None):
         Source.__init__(self, name=name)
         self.__fdr,self.__fdw = os.pipe()
         self._queue = collections.deque()
     def fileno(self):
         return self.__fdr
-    def checkRecv(self):
+    def check_recv(self):
         return len(self._queue) > 0
     def _gen_data(self, msg):
         self._queue.append((msg,False))
@@ -369,7 +372,7 @@ class AutoSource(Source):
         self._queue.append((msg,True))
         self._wake_up()
     def _wake_up(self):
-        os.write(self.__fdw,"x")
+        os.write(self.__fdw,"X")
     def deliver(self):
         os.read(self.__fdr,1)
         try:
@@ -377,6 +380,7 @@ class AutoSource(Source):
         except IndexError: #empty queue. Exhausted source
             pass
         else:
+            self.call_release()
             if high:
                 self._high_send(msg)
             else:
@@ -502,6 +506,7 @@ class TermSink(Sink):
         if not self.opened:
             self.opened = True
             self.__f = get_temp_file()
+            open(self.__f, "a").close()
             self.name = "Scapy" if self.name is None else self.name
             # Start a powershell in a new window and print the PID
             cmd = "$app = Start-Process PowerShell -ArgumentList '-command &{$host.ui.RawUI.WindowTitle=\\\"%s\\\";Get-Content \\\"%s\\\" -wait}' -passthru; echo $app.Id" % (self.name, self.__f.replace("\\", "\\\\"))

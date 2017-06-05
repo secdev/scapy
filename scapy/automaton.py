@@ -19,17 +19,119 @@ from scapy.data import MTU
 from scapy.supersocket import SuperSocket
 from scapy.consts import WINDOWS
 
-class ObjectPipe:
+class SelectableObject:
+    trigger = threading.Lock()
+    was_ended = False
+    def check_recv(self):
+        """DEV: will be called only once (at beggining) to check if the object is ready."""
+        return False
+
+    def _wait_non_ressources(self, callback):
+        self.call_release()
+        self.trigger.acquire()
+        self.trigger.acquire()
+        if not self.was_ended:
+            callback(self)
+
+    def wait_return(self, callback):
+        if self.check_recv():
+            return callback(self)
+        threading.Thread(target=self._wait_non_ressources, args=(callback,)).start()
+        
+    def call_release(self, arborted=False):
+        """DEV: Must be call when the object is ready to read."""
+        self.was_ended = arborted
+        try:
+            self.trigger.release()
+        except:
+            pass
+
+class SelectableSelector(object):
+    """
+    Select SelectableObject objects.
+    
+    inputs: objects to process
+    remain: timeout. If 0, return [].
+    customTypes: types of the objects that have the checkRecv function.
+    """
+    results = None
+    inputs = None
+    available_lock = None
+    _ended = False
+    def _release_all(self):
+        for i in self.inputs:
+            i.call_release(True)
+        self.available_lock.release()
+
+    def _timeout_thread(self, remain):
+        time.sleep(remain)
+        if not self._ended:
+            self._ended = True
+            self._release_all()
+
+    def _exit_door(self,_input):
+        self.results.append(_input)
+        if self._ended:
+            return
+        self._ended = True
+        self._release_all()
+    
+    def __init__(self, inputs, remain):
+        self.results = []
+        self.inputs = list(inputs)
+        self.remain = remain
+        self.available_lock = threading.Lock()
+        self.available_lock.acquire()
+        self._ended = False
+
+    def process(self):
+        if WINDOWS:
+            if not self.remain:
+                for i in self.inputs:
+                    if not isinstance(i, SelectableObject):
+                        warning("Unknown ignored object type: " + type(i))
+                    else:
+                        if i.check_recv():
+                            self.results.append(i)
+                return self.results
+
+            for i in self.inputs:
+                if not isinstance(i, SelectableObject):
+                    warning("Unknown ignored object type: " + type(i))
+                else:
+                    i.wait_return(self._exit_door)
+
+            threading.Thread(target=self._timeout_thread, args=(self.remain,)).start()
+            if not self._ended:
+                self.available_lock.acquire()
+            return self.results
+        else:
+            r,_,_ = select(self.inputs,[],[],self.remain)
+            return r
+
+def select_objects(inputs, remain):
+    """
+    Select SelectableObject objects.
+    
+    inputs: objects to process
+    remain: timeout. If 0, return [].
+    customTypes: types of the objects that have the checkRecv function.
+    """
+    handler = SelectableSelector(inputs, remain)
+    return handler.process()
+
+class ObjectPipe(SelectableObject):
     def __init__(self):
         self.rd,self.wr = os.pipe()
         self.queue = deque()
     def fileno(self):
         return self.rd
-    def checkRecv(self):
+    def check_recv(self):
         return len(self.queue) > 0
     def send(self, obj):
         self.queue.append(obj)
         os.write(self.wr,"X")
+        self.call_release()
     def write(self, obj):
         self.send(obj)
     def recv(self, n=0):
@@ -323,37 +425,6 @@ class Automaton_metaclass(type):
                         s += '\t"%s" -> "%s" [label="%s",color=blue];\n' % (k,n,l)
         s += "}\n"
         return do_graph(s, **kargs)
-        
-def select_objects(inputs, remain, customTypes=()):
-    """
-    Select object that have checkRecv function.
-    inputs: objects to process
-    remain: timeout. If 0, return [].
-    customTypes: types of the objects that have the checkRecv function.
-    """
-    if WINDOWS:
-        r = []
-        def look_for_select():
-            for fd in list(inputs):
-                if isinstance(fd, (ObjectPipe, Automaton._IO_fdwrapper) + customTypes):
-                    if fd.checkRecv():
-                        r.append(fd)
-                else:
-                    raise OSError("Not supported type of socket:" + str(type(fd)))
-                    break
-        def search_select():
-            while len(r) == 0:
-                look_for_select()
-        if remain == 0:
-            look_for_select()
-            return r
-        t_select = threading.Thread(target=search_select)
-        t_select.start()
-        t_select.join(remain)
-        return r
-    else:
-        r,_,_ = select(inputs,[],[],remain)
-        return r
 
 class Automaton:
     __metaclass__ = Automaton_metaclass
@@ -372,7 +443,7 @@ class Automaton:
 
 
     ## Utility classes and exceptions
-    class _IO_fdwrapper:
+    class _IO_fdwrapper(SelectableObject):
         def __init__(self,rd,wr):
             if WINDOWS:
                 # rd will be used for reading and sending
@@ -389,7 +460,7 @@ class Automaton:
                 self.wr = wr
         def fileno(self):
             return self.rd
-        def checkRecv(self):
+        def check_recv(self):
             return self.rd.checkRecv()
         def read(self, n=65535):
             if WINDOWS:
@@ -397,7 +468,8 @@ class Automaton:
             return os.read(self.rd, n)
         def write(self, msg):
             if WINDOWS:
-                return self.rd.send(msg)
+                self.rd.send(msg)
+                return self.call_release()
             return os.write(self.wr,msg)
         def recv(self, n=65535):
             return self.read(n)        
