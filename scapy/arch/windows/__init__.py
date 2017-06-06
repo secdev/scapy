@@ -683,7 +683,7 @@ def _append_route6(routes, dpref, dp, nh, iface, lifaddr):
             return
         cset = ['::1']
     else:
-        devaddrs = filter(lambda x: x[2] == iface, lifaddr)
+        devaddrs = (x for x in lifaddr if x[2] == iface)
         cset = scapy.utils6.construct_source_candidate_set(dpref, dp, devaddrs)
     if len(cset) == 0:
         return

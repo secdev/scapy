@@ -76,7 +76,7 @@ class PacketList(BasePacketList):
         return getattr(self.res, attr)
     def __getitem__(self, item):
         if isinstance(item,type) and issubclass(item,BasePacket):
-            return self.__class__(filter(lambda x: item in self._elt2pkt(x),self.res),
+            return self.__class__([x for x in self.res if item in self._elt2pkt(x)],
                                   name="%s from %s"%(item.__name__,self.listname))
         if isinstance(item, slice):
             return self.__class__(self.res.__getitem__(item),
@@ -122,7 +122,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
     
     def filter(self, func):
         """Returns a packet list filtered by a truth function"""
-        return self.__class__(filter(func,self.res),
+        return self.__class__([x for x in self.res if func(x)],
                               name="filtered %s"%self.listname)
     def make_table(self, *args, **kargs):
         """Prints a table using a function that returns for each packet its head column value, head row value and displayed value
@@ -470,7 +470,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
                     break
             i += 1
         if multi:
-            remain = filter(lambda x:not hasattr(x,"_answered"), remain)
+            remain = [x for x in remain if not hasattr(x, "_answered")]
         return SndRcvList(sr),PacketList(remain)
 
     def sessions(self, session_extractor=None):

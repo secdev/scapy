@@ -365,9 +365,9 @@ Some specifications of the p0f.fp file are not (yet) implemented."""
         pb = db.get_base()
         if pb is None:
             pb = []
-        pb = filter(lambda x: x[6] == osgenre, pb)
+        pb = [x for x in pb if x[6] == osgenre]
         if osdetails:
-            pb = filter(lambda x: x[7] == osdetails, pb)
+            pb = [x for x in pb if x[7] == osdetails]
     elif signature:
         pb = [signature]
     else:
@@ -375,9 +375,9 @@ Some specifications of the p0f.fp file are not (yet) implemented."""
     if db == p0fr_kdb:
         # 'K' quirk <=> RST+ACK
         if pkt.payload.flags & 0x4 == 0x4:
-            pb = filter(lambda x: 'K' in x[5], pb)
+            pb = [x for x in pb if 'K' in x[5]]
         else:
-            pb = filter(lambda x: 'K' not in x[5], pb)
+            pb = [x for x in pb if 'K' not in x[5]]
     if not pb:
         raise Scapy_Exception("No match in the p0f database")
     pers = pb[random.randint(0, len(pb) - 1)]
@@ -459,8 +459,8 @@ Some specifications of the p0f.fp file are not (yet) implemented."""
         pkt.payload.window = mtu * int(pers[0][1:])
     elif pers[0][0] == 'S':
         ## needs MSS set
-        MSS = filter(lambda x: x[0] == 'MSS', options)
-        if not filter(lambda x: x[0] == 'MSS', options):
+        mss = [x for x in options if x[0] == 'MSS']
+        if not mss:
             raise Scapy_Exception("TCP window value requires MSS, and MSS option not set")
         pkt.payload.window = filter(lambda x: x[0] == 'MSS', options)[0][1] * int(pers[0][1:])
     else:

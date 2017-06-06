@@ -334,7 +334,7 @@ def read_routes6():
                 continue
             cset = ['::1']
         else:
-            devaddrs = filter(lambda x: x[2] == dev, lifaddr)
+            devaddrs = (x for x in lifaddr if x[2] == dev)
             cset = scapy.utils6.construct_source_candidate_set(d, dp, devaddrs)
         
         if len(cset) != 0:

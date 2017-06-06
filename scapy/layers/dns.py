@@ -442,34 +442,34 @@ def RRlist2bitmap(lst):
     for wb in xrange(min_window_blocks, max_window_blocks+1):
         # First, filter out RR not encoded in the current window block
         # i.e. keep everything between 256*wb <= 256*(wb+1)
-        rrlist = sorted(filter(lambda x: 256 * wb <= x < 256 * (wb + 1), lst))
+        rrlist = sorted(x for x in lst if 256 * wb <= x < 256 * (wb + 1))
         if rrlist == []:
             continue
 
         # Compute the number of bytes used to store the bitmap
         if rrlist[-1] == 0: # only one element in the list
-            bytes = 1
+            bytes_count = 1
         else:
             max = rrlist[-1] - 256*wb
-            bytes = int(math.ceil(max / 8)) + 1  # use at least 1 byte
-        if bytes > 32: # Don't encode more than 256 bits / values
-            bytes = 32
+            bytes_count = int(math.ceil(max / 8)) + 1  # use at least 1 byte
+        if bytes_count > 32: # Don't encode more than 256 bits / values
+            bytes_count = 32
 
         bitmap += struct.pack("B", wb)
-        bitmap += struct.pack("B", bytes)
+        bitmap += struct.pack("B", bytes_count)
 
         # Generate the bitmap
-        for tmp in xrange(bytes):
-            v = 0
-            # Remove out of range Resource Records
-            tmp_rrlist = filter(lambda x: 256 * wb + 8 * tmp <= x < 256 * wb + 8 * tmp + 8, rrlist)
-            if tmp_rrlist:
-                # 1. rescale to fit into 8 bits
-                # 2. x gives the bit position ; compute the corresponding value
-                tmp_rrlist = [2 ** (7 - (x - 256 * wb) + (tmp * 8)) for x in tmp_rrlist]
-                # 3. sum everything
-                v = reduce(lambda x,y: x+y, tmp_rrlist)
-            bitmap += struct.pack("B", v)
+	# The idea is to remove out of range Resource Records with these steps
+	# 1. rescale to fit into 8 bits
+	# 2. x gives the bit position ; compute the corresponding value
+	# 3. sum everything
+        bitmap += b"".join(
+	    struct.pack(
+		b"B",
+		sum(2 ** (7 - (x - 256 * wb) + (tmp * 8)) for x in rrlist
+		if 256 * wb + 8 * tmp <= x < 256 * wb + 8 * tmp + 8),
+	    ) for tmp in xrange(bytes_count)
+	)
 
     return bitmap
 

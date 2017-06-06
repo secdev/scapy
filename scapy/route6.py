@@ -74,7 +74,7 @@ class Route6:
             # TODO: do better than that
             # replace that unique address by the list of all addresses
             lifaddr = in6_getifaddr()
-            devaddrs = filter(lambda x: x[2] == dev, lifaddr)
+            devaddrs = [x for x in lifaddr if x[2] == dev]
             ifaddr = construct_source_candidate_set(prefix, plen, devaddrs)
 
         return (prefix, plen, gw, dev, ifaddr)
@@ -100,7 +100,7 @@ class Route6:
         dst, plen = tmp.split('/')[:2]
         dst = in6_ptop(dst)
         plen = int(plen)
-        l = filter(lambda x: in6_ptop(x[0]) == dst and x[1] == plen, self.routes)
+        l = [x for x in self.routes if in6_ptop(x[0]) == dst and x[1] == plen]
         if gw:
             gw = in6_ptop(gw)
             l = [x for x in self.routes if in6_ptop(x[2]) == gw]
@@ -224,7 +224,7 @@ class Route6:
         pathes.sort(reverse=True)
 
         best_plen = pathes[0][0]
-        pathes = filter(lambda x: x[0] == best_plen, pathes)
+        pathes = [x for x in pathes if x[0] == best_plen]
 
         res = []
         for p in pathes: # Here we select best source address for every route
@@ -252,10 +252,10 @@ class Route6:
             if in6_isgladdr(dst) and in6_isaddr6to4(dst):
                 # TODO : see if taking the longest match between dst and
                 #        every source addresses would provide better results
-                tmp = filter(lambda x: in6_isaddr6to4(x[1][1]), res)
+                tmp = [x for x in res if in6_isaddr6to4(x[1][1])]
             elif in6_ismaddr(dst) or in6_islladdr(dst):
                 # TODO : I'm sure we are not covering all addresses. Check that
-                tmp = filter(lambda x: x[1][0] == conf.iface6, res)
+                tmp = [x for x in res if x[1][0] == conf.iface6]
 
             if tmp:
                 res = tmp

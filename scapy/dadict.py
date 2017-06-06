@@ -41,7 +41,7 @@ class DADict:
             if k and k[0] != "_":
                 print "%10s = %r" % (k,getattr(self,k))
     def __repr__(self):
-        return "<%s/ %s>" % (self._name," ".join(filter(lambda x:x and x[0]!="_",self.__dict__.keys())))
+        return "<%s/ %s>" % (self._name," ".join(x for x in self.__dict__ if x and x[0]!="_"))
 
     def _branch(self, br, uniq=0):
         if uniq and br._name in self:
