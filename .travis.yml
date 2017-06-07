@@ -1,7 +1,7 @@
 language: python
 
 addons:
-    apts:
+    apt:
         packages:
             - python-libpcap
             - python-dumbnet
