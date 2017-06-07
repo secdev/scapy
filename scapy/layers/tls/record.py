@@ -102,8 +102,6 @@ class _TLSMsgListField(PacketListField):
             remain, ret = s[:l], s[l:]
 
         if pkt.decipherable:
-            if remain == "":
-                return ret, [TLSApplicationData(data="")]
             while remain:
                 raw_msg = remain
                 p = self.m2i(pkt, remain)
@@ -399,6 +397,7 @@ class TLS(_GenericTLSSessionInheritance):
             frag = cfrag
 
         reconstructed_body = iv + frag + mac + pad
+        self.padlen = len(pad)
 
         l = len(frag)
         # note that we do not include the MAC, only the content
