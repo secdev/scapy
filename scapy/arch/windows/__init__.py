@@ -173,41 +173,6 @@ def exec_query(cmd, fields):
         return _exec_query_vbs(cmd, fields)
     return _exec_query_ps(cmd, fields)
 
-DEEP_LOOKUP_CACHE = {}
-
-def _deep_lookup(prog_list, max_depth=3):
-    """Quickly iterate through Program Files to find the programs"""
-    results = {}
-    def env_path(key):
-        try:
-            return os.environ[key]
-        except KeyError:
-            return ""
-    def has_common_item(l1, l2):
-        for i in l1:
-            if i in l2:
-                return True, i, i
-            if i + ".exe" in l2:
-                return True, i + ".exe", i
-        return False, None, None
-    def key_in_path(path, key):
-        return key.lower() in path.lower()
-    deeper_paths = [env_path("ProgramFiles"), env_path("ProgramFiles(x86)")] + env_path("PATH").split(os.path.pathsep)
-    for path in deeper_paths:
-        len_p = len(path) + len(os.path.sep)
-        for root, subFolders, files in os.walk(path):
-            depth = root[len_p:].count(os.path.sep)
-            if depth > max_depth:
-                del subFolders[:]
-                continue
-            ye, name, key = has_common_item(prog_list, files)
-            if ye:
-                _k_path = os.path.normpath(os.path.join(root, name))
-                if key_in_path(_k_path, prog_list[key]):
-                    results[name] = _k_path
-    global DEEP_LOOKUP_CACHE
-    DEEP_LOOKUP_CACHE = results
-
 def _where(filename, dirs=None, env="PATH"):
     """Find file in current dir, in deep_lookup cache or in system path"""
     if dirs is None:
@@ -216,9 +181,6 @@ def _where(filename, dirs=None, env="PATH"):
         dirs = [dirs]
     if glob(filename):
         return filename
-    global DEEP_LOOKUP_CACHE
-    if filename in DEEP_LOOKUP_CACHE:
-        return DEEP_LOOKUP_CACHE[filename]
     paths = [os.curdir] + os.environ[env].split(os.path.pathsep) + dirs
     for path in paths:
         for match in glob(os.path.join(path, filename)):
@@ -245,12 +207,6 @@ def win_find_exe(filename, installsubdir=None, env="ProgramFiles"):
 class WinProgPath(ConfClass):
     _default = "<System default>"
     def __init__(self):
-        # This is a dict containing the name of the .exe and a keyword
-        # that must be in the path of the file
-        external_prog_list = {"AcroRd32" : "", "gsview32" : "", "dot" : "graph",
-                              "windump" : "", "tshark" : "", "tcpreplay" : "",
-                              "hexer" : "", "sox" : "", "wireshark" : ""}
-        _deep_lookup(external_prog_list)
         self._reload()
 
     def _reload(self):
