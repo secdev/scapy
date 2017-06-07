@@ -1,4 +1,5 @@
 #! /bin/sh
+pwd
 if [ -z "$*" ]; then
     python ../tools/UTscapy.py -t regression.uts -f html -l -o /tmp/scapy_regression_test_$(date +%Y%m%d-%H%M%S).html
 else
