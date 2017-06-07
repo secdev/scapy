@@ -8,29 +8,18 @@ fi
 
 if python --version 2>&1 | grep -q PyPy; then
   # cryptography requires PyPy >= 2.6, Travis CI uses 2.5.0
-  $SCAPY_SUDO pip install $PIP_INSTALL_FLAGS mock netifaces
   pip install mock netifaces
 else
-  $SCAPY_SUDO pip install $PIP_INSTALL_FLAGS --upgrade cryptography mock netifaces six
-  pip install --upgrade cryptography mock netifaces six
-fi
-
-# Install coverage
-if [ "$SCAPY_COVERAGE" = "yes" ]; then
-  $SCAPY_SUDO pip install $PIP_INSTALL_FLAGS coverage
+  pip install --upgrade cryptography mock netifaces six coverage
 fi
 
 # Install pcap & dnet
 if [ ! -z $SCAPY_USE_PCAPDNET ]; then
   if [ "$TRAVIS_OS_NAME" = "linux" ]; then
-    $SCAPY_SUDO apt-get install python-libpcap python-dumbnet openssl libpcap-dev libdnet-dev
-    $SCAPY_SUDO pip install $PIP_INSTALL_FLAGS pcapy
     pip install pcapy
     git clone https://github.com/dugsong/libdnet.git
-    pushd libdnet
-    ./configure && make
-    cd python && pip install .
-    popd
+    pushd libdnet && ./configure && make
+    cd python && pip install . && popd
   elif [ "$TRAVIS_OS_NAME" = "osx" ]; then
     mkdir -p /Users/travis/Library/Python/2.7/lib/python/site-packages
     echo 'import site; site.addsitedir("/usr/local/lib/python2.7/site-packages")' >> /Users/travis/Library/Python/2.7/lib/python/site-packages/homebrew.pth
@@ -38,10 +27,4 @@ if [ ! -z $SCAPY_USE_PCAPDNET ]; then
     brew install libdnet
     pip install pylibpcap
   fi
-fi
-
-# Install wireshark data
-if [ ! -z "$SCAPY_SUDO" ] && [ "$TRAVIS_OS_NAME" = "linux" ]
-then
-  $SCAPY_SUDO apt-get install libwireshark-data
 fi
