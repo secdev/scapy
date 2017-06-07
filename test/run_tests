@@ -1,6 +1,6 @@
 #! /bin/sh
 if [ -z "$*" ]; then
-    python ${DIR}/scapy/tools/UTscapy.py -t regression.uts -f html -l -o /tmp/scapy_regression_test_$(date +%Y%m%d-%H%M%S).html
+    python tools/UTscapy.py -t regression.uts -f html -l -o /tmp/scapy_regression_test_$(date +%Y%m%d-%H%M%S).html
 else
-    python ${DIR}/scapy/tools/UTscapy.py "$@"
+    python tools/UTscapy.py "$@"
 fi
