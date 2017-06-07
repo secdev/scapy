@@ -98,8 +98,10 @@ def _bits_to_bytes_len(length_in_bits):
 class BGPFieldIPv4(Field):
     """
     IPv4 Field (CIDR)
+    Using pton_ntop allows IPv4 and IPv6 to share code with marginal fixes
     """
-
+    alen = 4
+    af_inet = socket.AF_INET
     def mask2iplen(self, mask):
         """Get the IP field mask length (in bytes)."""
         return (mask + 7) // 8
@@ -107,26 +109,36 @@ class BGPFieldIPv4(Field):
     def h2i(self, pkt, h):
         """x.x.x.x/y to "internal" representation."""
         ip, mask = re.split("/", h)
+        #
+        # Allow IPv4 default prefix as "0/0"
+        #
+        if self.af_inet == socket.AF_INET and ip == "0":
+            ip = "0.0.0.0"
         return int(mask), ip
 
     def i2h(self, pkt, i):
         """"Internal" representation to "human" representation
         (x.x.x.x/y)."""
         mask, ip = i
+        #
+        # Show IPv4 default prefix as "0/0"
+        #
+        if self.af_inet == socket.AF_INET and ip == "0.0.0.0":
+            ip = "0"
         return ip + "/" + str(mask)
 
     def i2repr(self, pkt, i):
         return self.i2h(pkt, i)
 
     def i2len(self, pkt, i):
-        mask, ip = i
+        mask, _ = i
         return self.mask2iplen(mask) + 1
 
     def i2m(self, pkt, i):
         """"Internal" (IP as bytes, mask as int) to "machine"
         representation."""
         mask, ip = i
-        ip = socket.inet_aton(ip)
+        ip = pton_ntop.inet_pton(self.af_inet, ip)
         return struct.pack(">B", mask) + ip[:self.mask2iplen(mask)]
 
     def addfield(self, pkt, s, val):
@@ -140,52 +152,14 @@ class BGPFieldIPv4(Field):
         mask = struct.unpack(">B", m[0])[0]
         mask2iplen_res = self.mask2iplen(mask)
         ip = "".join(
-            [m[i + 1] if i < mask2iplen_res else b"\x00" for i in range(4)])
-        return (mask, socket.inet_ntoa(ip))
+            [m[i + 1] if i < mask2iplen_res else b"\x00" for i in range(self.alen)])
+        return (mask, pton_ntop.inet_ntop(self.af_inet, ip))
 
 
-class BGPFieldIPv6(Field):
+class BGPFieldIPv6(BGPFieldIPv4):
     """IPv6 Field (CIDR)"""
-
-    def mask2iplen(self, mask):
-        """Get the IP field mask length (in bytes)."""
-        return (mask + 7) // 8
-
-    def h2i(self, pkt, h):
-        """x.x.x.x/y to internal representation."""
-        ip, mask = re.split("/", h)
-        return int(mask), ip
-
-    def i2h(self, pkt, i):
-        """"Internal" representation to "human" representation."""
-        mask, ip = i
-        return ip + "/" + str(mask)
-
-    def i2repr(self, pkt, i):
-        return self.i2h(pkt, i)
-
-    def i2len(self, pkt, i):
-        mask, ip = i
-        return self.mask2iplen(mask) + 1
-
-    def i2m(self, pkt, i):
-        """"Internal" (IP as bytes, mask as int) to "machine" representation."""
-        mask, ip = i
-        ip = pton_ntop.inet_pton(socket.AF_INET6, ip)
-        return struct.pack(">B", mask) + ip[:self.mask2iplen(mask)]
-
-    def addfield(self, pkt, s, val):
-        return s + self.i2m(pkt, val)
-
-    def getfield(self, pkt, s):
-        length = self.mask2iplen(struct.unpack(">B", s[0])[0]) + 1
-        return s[length:], self.m2i(pkt, s[:length])
-
-    def m2i(self, pkt, m):
-        mask = struct.unpack(">B", m[0])[0]
-        ip = "".join(
-            [m[i + 1] if i < self.mask2iplen(mask) else b"\x00" for i in range(16)])
-        return (mask, pton_ntop.inet_ntop(socket.AF_INET6, ip))
+    alen = 16
+    af_inet = socket.AF_INET6
 
 
 def has_extended_length(flags):
@@ -203,7 +177,7 @@ class BGPNLRI_IPv4(Packet):
     """
 
     name = "IPv4 NLRI"
-    fields_desc = [BGPFieldIPv4("prefix", "0.0.0.0/0")]
+    fields_desc = [BGPFieldIPv4("prefix", "0/0")]
 
 
 class BGPNLRI_IPv6(Packet):
@@ -215,39 +189,58 @@ class BGPNLRI_IPv6(Packet):
     fields_desc = [BGPFieldIPv6("prefix", "::/0")]
 
 
-class BGPNLRIPacketListField(PacketListField):
-    """
-    PacketListField handling NLRI fields.
-    """
+class TLVListField(PacketListField):
+    __slots__ = ["count_from", "length_from", "slen_from"]
+    def __init__(self, name, default, cls, count_from=None, length_from=None, slen_from=None):
+        """
+        @param count_from(pkt): get the number of packets in the list from the
+               packet (optional)
+        @param length_from(pkt): get the length of the tlv list in bytes from the
+               packet (optional)
+        @param slen_from(s): calculate the length in bytes of the current packet
+               from the byte stream (mandatory)
+        """
+        PacketListField.__init__(self, name, default, cls)
+        self.count_from = count_from
+        self.length_from = length_from
+        self.slen_from = slen_from
 
     def getfield(self, pkt, s):
         lst = []
         length = None
         ret = ""
-
+        remain = s
+        cnt = None
+        #
+        # Chop the chunk of bytes of the TLV list if indicated in the packet
+        #
         if self.length_from is not None:
             length = self.length_from(pkt)
-
-        if length is not None:
             remain, ret = s[:length], s[length:]
-        else:
-            index = s.find(_BGP_HEADER_MARKER)
-            if index != -1:
-                remain = s[:index]
-                ret = s[index:]
-            else:
-                remain = s
-
+        #
+        # Prepare a packet counter if indicated in the packet
+        #
+        if self.count_from is not None:
+            cnt = self.count_from(pkt)
         while remain:
-            mask_length_in_bits = struct.unpack("!B", remain[0])[0]
-            mask_length_in_bytes = (mask_length_in_bits + 7) // 8
-            current = remain[:mask_length_in_bytes + 1]
-            remain = remain[mask_length_in_bytes + 1:]
+            l = None
+            if self.slen_from is not None:
+                l = self.slen_from(remain)
+            #
+            # if there is any error there, put the rest of the byte stream
+            # in a raw layer, append it to the packet list and return
+            #
+            if l is None:
+                lst.append(conf.raw_layer(remain))
+                remain = ""
+                break
+            current, remain = remain[:l], remain[l:]
             packet = self.m2i(pkt, current)
             lst.append(packet)
-
+            if cnt is not None:
+                cnt = cnt - 1
+                if cnt == 0: break
         return remain + ret, lst
-
 
 class _BGPInvalidDataException(Exception):
     """
@@ -1865,6 +1858,10 @@ class BGPPAMPReachNLRI(Packet):
 #
 # MP_UNREACH_NLRI
 #
+def _bgp_nlri_len(s):
+    """Return the length of the current NRLI"""
+    plen = struct.unpack_from("!B", s)[0]
+    return _bits_to_bytes_len(plen)+1
 
 class BGPPAMPUnreachNLRI_IPv6(Packet):
     """
@@ -1872,8 +1869,10 @@ class BGPPAMPUnreachNLRI_IPv6(Packet):
     """
 
     name = "MP_UNREACH_NLRI (IPv6 NLRI)"
-    fields_desc = [BGPNLRIPacketListField(
-        "withdrawn_routes", [], BGPNLRI_IPv6)]
+    fields_desc = [TLVListField(
+        "withdrawn_routes", [], BGPNLRI_IPv6,
+        slen_from=lambda s: _bgp_nlri_len(s)
+    )]
 
 
 class MPUnreachNLRIPacketField(PacketField):
@@ -2112,11 +2111,12 @@ class BGPUpdate(BGP):
             length_of="withdrawn_routes",
             fmt="!H"
         ),
-        BGPNLRIPacketListField(
+        TLVListField(
             "withdrawn_routes",
             [],
             BGPNLRI_IPv4,
-            length_from=lambda p: p.withdrawn_routes_len
+            length_from=lambda p: p.withdrawn_routes_len,
+            slen_from=lambda s: _bgp_nlri_len(s)
         ),
         FieldLenField(
             "path_attr_len",
@@ -2130,7 +2130,12 @@ class BGPUpdate(BGP):
             BGPPathAttr,
             length_from=lambda p: p.path_attr_len
         ),
-        BGPNLRIPacketListField("nlri", [], BGPNLRI_IPv4)
+        TLVListField(
+            "nlri",
+            [],
+            BGPNLRI_IPv4,
+            slen_from=lambda s: _bgp_nlri_len(s)
+        )
     ]
 
     def post_build(self, p, pay):
@@ -2505,13 +2510,35 @@ class BGPRouteRefresh(BGP):
         )
     ]
 
+def _bgp_len_from_pkt(s):
+    """
+    Get the BGP packet size from the byte stream.
+    Byte stream has to be at least 19 bytes long and the marker has to be present
+    Return the BGP packet size or None if there is an error
+    """
+    plen = None
+    if len(s) >= _BGP_HEADER_SIZE:
+        mark, plen = struct.unpack_from("!16sH", s)
+        if mark != _BGP_HEADER_MARKER:
+            plen = None
+    return plen
 
+class BGPStream(Packet):
+    name = "BGP-STREAM"
+    fields_desc = [
+        TLVListField(
+            "packet",
+            [],
+            BGP,
+            slen_from=lambda s: _bgp_len_from_pkt(s)
+        )
+    ]
 #
 # Layer bindings
 #
 
-bind_layers(TCP, BGP, dport=179)
-bind_layers(TCP, BGP, sport=179)
+bind_layers(TCP, BGPStream, dport=179)
+bind_layers(TCP, BGPStream, sport=179)
 bind_layers(BGPHeader, BGPOpen, {"type": 1})
 bind_layers(BGPHeader, BGPUpdate, {"type": 2})
 bind_layers(BGPHeader, BGPNotification, {"type": 3})
@@ -2520,5 +2547,6 @@ bind_layers(BGPHeader, BGPRouteRefresh, {"type": 5})
 
 # When loading the module, display the current module configuration.
 log_runtime.warning(
-    "[bgp.py] use_2_bytes_asn: %s", bgp_module_conf.use_2_bytes_asn)
+    "[bgp.py] use_2_bytes_asn: %s", bgp_module_conf.use_2_bytes_asn
+)
 

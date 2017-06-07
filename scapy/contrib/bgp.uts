@@ -14,14 +14,14 @@ str(BGPNLRI_IPv4()) == b'\x00'
 str(BGPNLRI_IPv4(prefix = '255.255.255.255/32')) == b' \xff\xff\xff\xff'
 
 = BGPNLRI_IPv4 - Instantiation with specific values (2)
-str(BGPNLRI_IPv4(prefix = '0.0.0.0/0')) == b'\x00'
+str(BGPNLRI_IPv4(prefix = '0/0')) == b'\x00'
 
 = BGPNLRI_IPv4 - Instantiation with specific values (3)
 str(BGPNLRI_IPv4(prefix = '192.0.2.0/24')) == b'\x18\xc0\x00\x02'
 
 = BGPNLRI_IPv4 - Basic dissection
 nlri = BGPNLRI_IPv4(b'\x00')
-nlri.prefix == '0.0.0.0/0'
+nlri.prefix == '0/0'
 
 = BGPNLRI_IPv4 - Dissection with specific values
 nlri = BGPNLRI_IPv4(b'\x18\xc0\x00\x02')
@@ -687,5 +687,27 @@ assert(m.orf_data[0].entries[0].match == 1)
 assert(m.orf_data[0].entries[0].prefix.prefix == "1.1.0.0/21")
 assert(m.orf_data[0].entries[1].action == 0)
 assert(m.orf_data[0].entries[1].match == 0)
-assert(m.orf_data[0].entries[1].prefix.prefix == "0.0.0.0/0")
+assert(m.orf_data[0].entries[1].prefix.prefix == "0/0")
 
+########## BGPStream Class ###################################
++ BGPStream class tests
+
+= BGPStream: Two Keepalive packets back-to-back
+
+m = BGP()
+s = BGPStream(2*str(m))
+s.show()
+assert len(s.packet) == 2
+
+= BGPStream: Two Keepalive packets followed by a corrupted packet
+m = BGP()
+s = BGPStream(2*str(m)+b'\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff')
+s.show()
+assert len(s.packet) == 3
+
+= BGPStream KeepAlive - Notification (Admin Reset) - KeepAlive 
+m1 = BGP()
+m2 = BGP(b'\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x15\x03\x06\x04')
+s = BGPStream(str(m1)+str(m2)+str(m1))
+s.show()
+assert len(s.packet) == 3
