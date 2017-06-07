@@ -42,7 +42,6 @@ s > d1 > c
 
 p = PipeEngine(s)
 p.start()
-time.sleep(1)
 p.wait_and_stop()
 
 = Test add_pipe on running instance
@@ -67,6 +66,7 @@ s > d1 > c
 
 p.add(s)
 time.sleep(1)
+
 p.wait_and_stop()
 assert test_val == "hello"
 
@@ -130,7 +130,6 @@ p.list_pipes_detailed()
 = Test RawConsoleSink with CLIFeeder
 
 p = PipeEngine()
-p.start()
 
 s = CLIFeeder()
 s.send("hello")
@@ -144,14 +143,14 @@ c._write_pipe = w
 s > d1 > c
 
 p.add(s)
-time.sleep(1)
-p.wait_and_stop()
+p.start()
+
 assert os.read(r, 20) == "hello\n"
+p.wait_and_stop()
 
 = Test QueueSink with CLIFeeder
 
 p = PipeEngine()
-p.start()
 
 s = CLIFeeder()
 s.send("hello")
@@ -162,7 +161,8 @@ c = QueueSink(name="c")
 s > d1 > c
 
 p.add(s)
-time.sleep(1)
+p.start()
+
 p.wait_and_stop()
 assert c.recv() == "hello"
 
@@ -176,7 +176,6 @@ class TestSink(Sink):
         test_val = msg
 
 p = PipeEngine()
-p.start()
 
 s = CLIFeeder()
 s.send("hello")
@@ -188,7 +187,8 @@ s > d1
 d1 >> c
 
 p.add(s)
-time.sleep(1)
+p.start()
+
 p.wait_and_stop()
 assert test_val == "hello"
 
@@ -202,7 +202,6 @@ class TestSink(Sink):
         test_val = msg
 
 p = PipeEngine()
-p.start()
 
 s = CLIHighFeeder()
 s.send("hello")
@@ -214,6 +213,7 @@ s >> d1
 d1 > c
 
 p.add(s)
-time.sleep(1)
+p.start()
+
 p.wait_and_stop()
 assert test_val == "hello"
