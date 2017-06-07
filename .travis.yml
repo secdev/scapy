@@ -14,7 +14,8 @@ addons:
 matrix:
     include:
         - python: 2.7
-        - python: pypy
+        - dist:
+          python: pypy
         - os: osx
           language: generic
         - os: osx
