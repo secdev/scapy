@@ -10,7 +10,8 @@ if python --version 2>&1 | grep -q PyPy; then
   # cryptography requires PyPy >= 2.6, Travis CI uses 2.5.0
   pip install mock netifaces
 else
-  pip install --upgrade cryptography mock netifaces six coverage pycrypto
+  pip install cryptography netifaces coverage
+  pip install --upgrade mock six
 fi
 
 # Install pcap & dnet
