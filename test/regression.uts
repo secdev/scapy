@@ -1786,6 +1786,19 @@ b=IPv6(src="2047::deca", dst="2048::cafe")/ICMPv6EchoReply(id=0x6666, seq=0x7777
 a=IPv6(src="2048::cafe", dst="2047::deca")/ICMPv6EchoRequest(id=0x6666, seq=0x7777, data="somedata")
 (a > b) == True
 
+########### ICMPv6EchoReply/Request Live tests #########
+
+# Disabled because Travis does not support IPv6 yet
+
+#= ICMPv6EchoRequest and ICMPv6EchoReply - Live test
+#~ netaccess
+#
+#r = sr1(IPv6(dst="ff02::1")/ICMPv6EchoRequest(), timeout=3)
+#assert r
+#assert len(r) != 0
+#l = IPv6().src
+#assert r[0].src != l
+
 
 ########### ICMPv6MRD* Classes ######################################
 

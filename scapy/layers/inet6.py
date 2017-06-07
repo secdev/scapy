@@ -102,6 +102,9 @@ def getmacbyip6(ip6, chainCC=0):
     (chainCC parameter value ends up being passed to sending function
      used to perform the resolution, if needed)
     """
+    
+    if isinstance(ip6,Net6):
+        ip6 = iter(ip6).next()
 
     if in6_ismaddr(ip6): # Multicast
         mac = in6_getnsmac(inet_pton(socket.AF_INET6, ip6))
@@ -145,13 +148,13 @@ def getmacbyip6(ip6, chainCC=0):
 class Net6(Gen): # syntax ex. fec0::/126
     """Generate a list of IPv6s from a network address or a name"""
     name = "ipv6"
-    ipaddress = re.compile(r"^([a-fA-F0-9:]+)(/[1]?[0-3]?[0-9])?$")
+    _ip6_regex = re.compile(r"^([a-fA-F0-9:]+)(/[1]?[0-3]?[0-9])?$")
 
     def __init__(self, net):
         self.repr = net
 
         tmp = net.split('/')+["128"]
-        if not self.ipaddress.match(net):
+        if not self._ip6_regex.match(net):
             tmp[0]=socket.getaddrinfo(tmp[0], None, socket.AF_INET6)[0][-1][0]
 
         netmask = int(tmp[1])
@@ -189,6 +192,9 @@ class Net6(Gen): # syntax ex. fec0::/126
                 return rec(n+1, ll)
 
         return iter(rec(0, ['']))
+
+    def __str__(self):
+        return self.repr
 
     def __repr__(self):
         return "Net6(%r)" % self.repr
@@ -415,6 +421,8 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
                 return self.payload.payload.hashret()
             elif (self.payload.type in [133,134,135,136,144,145]):
                 return struct.pack("B", self.nh)+self.payload.hashret()
+            elif (self.payload.type in [128, 129]):
+                return self.payload.hashret()
 
         if not conf.checkIPinIP and self.nh in [4, 41]:  # IP, IPv6
             return self.payload.hashret()

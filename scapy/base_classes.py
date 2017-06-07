@@ -49,7 +49,7 @@ class SetGen(Gen):
 class Net(Gen):
     """Generate a list of IPs from a network address or a name"""
     name = "ip"
-    ipaddress = re.compile(r"^(\*|[0-2]?[0-9]?[0-9](-[0-2]?[0-9]?[0-9])?)\.(\*|[0-2]?[0-9]?[0-9](-[0-2]?[0-9]?[0-9])?)\.(\*|[0-2]?[0-9]?[0-9](-[0-2]?[0-9]?[0-9])?)\.(\*|[0-2]?[0-9]?[0-9](-[0-2]?[0-9]?[0-9])?)(/[0-3]?[0-9])?$")
+    _ip_regex = re.compile(r"^(\*|[0-2]?[0-9]?[0-9](-[0-2]?[0-9]?[0-9])?)\.(\*|[0-2]?[0-9]?[0-9](-[0-2]?[0-9]?[0-9])?)\.(\*|[0-2]?[0-9]?[0-9](-[0-2]?[0-9]?[0-9])?)\.(\*|[0-2]?[0-9]?[0-9](-[0-2]?[0-9]?[0-9])?)(/[0-3]?[0-9])?$")
 
     @staticmethod
     def _parse_digit(a,netmask):
@@ -68,7 +68,7 @@ class Net(Gen):
     @classmethod
     def _parse_net(cls, net):
         tmp=net.split('/')+["32"]
-        if not cls.ipaddress.match(net):
+        if not cls._ip_regex.match(net):
             tmp[0]=socket.gethostbyname(tmp[0])
         netmask = int(tmp[1])
         ret_list = [cls._parse_digit(x, y-netmask) for (x, y) in zip(tmp[0].split('.'), [8, 16, 24, 32])]
