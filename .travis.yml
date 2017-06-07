@@ -1,5 +1,15 @@
 language: python
 
+addons:
+    apts:
+        packages:
+            - python-libpcap
+            - python-dumbnet
+            - openssl
+            - libpcap-dev
+            - libdnet-dev
+            - libwireshark-data
+
 matrix:
     include:
         # Run as a regular user
