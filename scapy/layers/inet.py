@@ -7,7 +7,8 @@
 IPv4 (Internet Protocol v4).
 """
 
-import os,time,struct,re,socket,new
+import time,struct,re,socket,new
+import subprocess
 from select import select
 from collections import defaultdict
 
@@ -42,7 +43,7 @@ class IPTools(object):
         if WINDOWS:
             print whois(self.src)
         else:
-            os.system("whois %s" % self.src)
+            subprocess.call("whois %s" % self.src, shell=True, executable='/bin/bash')
     def ottl(self):
         t = sorted([32,64,128,255]+[self.ttl])
         return t[t.index(self.ttl)+1]
