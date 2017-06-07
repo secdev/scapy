@@ -13,8 +13,8 @@ if python --version 2>&1 | grep -q PyPy; then
   $SCAPY_SUDO pip install $PIP_INSTALL_FLAGS mock netifaces
   pip install mock netifaces
 else
-  $SCAPY_SUDO pip install $PIP_INSTALL_FLAGS cryptography mock netifaces
-  pip install cryptography mock netifaces
+  $SCAPY_SUDO pip install $PIP_INSTALL_FLAGS cryptography mock netifaces six
+  pip install cryptography mock netifaces six
 fi
 
 # Install coverage
