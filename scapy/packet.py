@@ -202,6 +202,59 @@ class Packet(BasePacket):
         clone.time = self.time
         return clone
 
+    def set_byte(self, index, val):
+        #TODO: chack that val is an hexa char value
+        if (index < 0):
+            print "invalid index"
+        payload = self.payload
+        self.remove_payload()
+        if index < len(self):
+            s = list(str(self)) #convert packet to list of chars
+            s[index] = val
+            s = "".join(s)
+            self.dissect(s)
+            self.add_payload(payload)
+        else:
+            index -= len(self)
+            if isinstance(self,NoPayload):
+                raise IndexError("User supplied index out of bounds")
+            self.add_payload(payload)
+            if isinstance(self.payload,Packet):
+                self.payload.set_byte(index,val)
+            else:
+                raise TypeError("modified payload must be a Packet instance")
+        return self
+
+    def lastlayer_index(self):
+        #Find the lastlayer index
+        nb=1
+        layer = self.getlayer(None,nb)
+        while layer is not None:
+            nb += 1
+            layer = self.getlayer(None,nb)
+        lastlayerindex = nb - 2
+        return lastlayerindex
+
+    def remove_lastlayer(self):
+        index = self.lastlayer_index()
+        del(self[index])
+        return self
+
+    def decode_lastlayer_as(self,cls):
+        #S'il n'y a qu'une seule layer dans le paquet, inutile de la retirer
+        if self.lastlayer() == self:
+            s = str(self)
+            self = cls(s)
+            return self
+        s = str(self.lastlayer())
+        self.remove_lastlayer()
+        self.add_payload(cls(s, _internal=1, _underlayer=self))
+        pp = self
+        while pp.underlayer is not None:
+            pp = pp.underlayer
+        self.payload.dissection_done(pp)
+        return self
+
     def getfieldval(self, attr):
         if attr in self.fields:
             return self.fields[attr]
