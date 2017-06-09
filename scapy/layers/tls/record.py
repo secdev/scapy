@@ -20,7 +20,8 @@ from scapy.fields import *
 from scapy.packet import *
 from scapy.layers.inet import TCP
 from scapy.layers.tls.session import _GenericTLSSessionInheritance
-from scapy.layers.tls.handshake import _tls_handshake_cls, _TLSHandshake, TLS13ServerHello
+from scapy.layers.tls.handshake import (_tls_handshake_cls, _TLSHandshake,
+                                        TLS13ServerHello)
 from scapy.layers.tls.basefields import (_TLSVersionField, _tls_version,
                                          _TLSIVField, _TLSMACField,
                                          _TLSPadField, _TLSPadLenField,
@@ -28,6 +29,8 @@ from scapy.layers.tls.basefields import (_TLSVersionField, _tls_version,
 from scapy.layers.tls.crypto.pkcs1 import randstring, pkcs_i2osp
 from scapy.layers.tls.crypto.compression import Comp_NULL
 from scapy.layers.tls.crypto.cipher_aead import AEADTagError
+if conf.crypto_valid_advanced:
+    from scapy.layers.tls.crypto.cipher_aead import Cipher_CHACHA20_POLY1305
 from scapy.layers.tls.crypto.cipher_stream import Cipher_NULL
 from scapy.layers.tls.crypto.ciphers import CipherError
 from scapy.layers.tls.crypto.h_mac import HMACError
@@ -290,7 +293,8 @@ class TLS(_GenericTLSSessionInheritance):
             # this is why we need to look into the provided hdr.
             add_data = read_seq_num + hdr[0] + hdr[1:3]
             # Last two bytes of add_data are appended by the return function
-            return self.tls_session.rcs.cipher.auth_decrypt(add_data, s)
+            return self.tls_session.rcs.cipher.auth_decrypt(add_data, s,
+                                                            read_seq_num)
         except CipherError as e:
             return e.args
         except AEADTagError as e:
@@ -435,7 +439,12 @@ class TLS(_GenericTLSSessionInheritance):
         elif cipher_type == 'aead':
             # Authenticated encryption
             # crypto/cipher_aead.py prints a warning for integrity failure
-            iv, cfrag, mac = self._tls_auth_decrypt(hdr, efrag)
+            if (conf.crypto_valid_advanced and
+                isinstance(self.tls_session.rcs.cipher, Cipher_CHACHA20_POLY1305)):
+                iv = ""
+                cfrag, mac = self._tls_auth_decrypt(hdr, efrag)
+            else:
+                iv, cfrag, mac = self._tls_auth_decrypt(hdr, efrag)
             self.padlen = None
 
         frag = self._tls_decompress(cfrag)
@@ -506,7 +515,8 @@ class TLS(_GenericTLSSessionInheritance):
                     pkcs_i2osp(self.type, 1) +
                     pkcs_i2osp(self.version, 2) +
                     pkcs_i2osp(len(s), 2))
-        return self.tls_session.wcs.cipher.auth_encrypt(s, add_data)
+        return self.tls_session.wcs.cipher.auth_encrypt(s, add_data,
+                                                        write_seq_num)
 
     def _tls_hmac_add(self, hdr, msg):
         """

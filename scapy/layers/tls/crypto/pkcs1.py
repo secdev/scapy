@@ -12,10 +12,8 @@ Ubuntu or OSX. This is why we reluctantly keep some legacy crypto here.
 """
 
 from __future__ import absolute_import
-I
+
 from scapy.config import conf, crypto_validator
-from functools import reduce
-from scapy.modules.six.moves import range
 if conf.crypto_valid:
     from cryptography import utils
     from cryptography.exceptions import InvalidSignature, UnsupportedAlgorithm
@@ -89,7 +87,6 @@ def _legacy_pkcs1_v1_5_encode_md5_sha1(M, emLen):
 # Hash and padding helpers
 #####################################################################
 
-#XXX this should be moved to hash.py
 _get_hash = None
 if conf.crypto_valid:
 

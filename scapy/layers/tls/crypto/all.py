@@ -7,9 +7,5 @@
 Aggregate some TLS crypto objects.
 """
 
-# XXX This line should be removed once standard FFDH groups have been
-# registered in the cryptography library.
-from scapy.layers.tls.crypto.ffdh import *
-
 from scapy.layers.tls.crypto.suites import *
 

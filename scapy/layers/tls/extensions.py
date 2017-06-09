@@ -5,7 +5,6 @@
 """
 TLS handshake extensions.
 """
-#XXX add certificate_authorities and oid_filters extensions
 
 from scapy.fields import *
 from scapy.packet import Packet, Raw, Padding
@@ -13,11 +12,62 @@ from scapy.layers.x509 import X509_Extensions
 from scapy.layers.tls.basefields import _tls_version
 from scapy.layers.tls.keyexchange import (SigAndHashAlgsLenField,
                                           SigAndHashAlgsField, _tls_hash_sig)
-from scapy.layers.tls.keyexchange_tls13 import (_tls_ext_keyshare_cls,
-                                                _tls_ext_presharedkey_cls,
-                                                _tls_named_groups,
-                                                _tls_ext, TLS_Ext_Unknown)
 from scapy.layers.tls.session import _GenericTLSSessionInheritance
+from scapy.layers.tls.crypto.groups import _tls_named_groups
+
+
+_tls_ext = {  0: "server_name",             # RFC 4366
+              1: "max_fragment_length",     # RFC 4366
+              2: "client_certificate_url",  # RFC 4366
+              3: "trusted_ca_keys",         # RFC 4366
+              4: "truncated_hmac",          # RFC 4366
+              5: "status_request",          # RFC 4366
+              6: "user_mapping",            # RFC 4681
+              7: "client_authz",            # RFC 5878
+              8: "server_authz",            # RFC 5878
+              9: "cert_type",               # RFC 6091
+            #10: "elliptic_curves",         # RFC 4492
+             10: "supported_groups",
+             11: "ec_point_formats",        # RFC 4492
+             13: "signature_algorithms",    # RFC 5246
+             0x0f: "heartbeat",             # RFC 6520
+             0x10: "alpn",                  # RFC 7301
+             0x12: "signed_certificate_timestamp",  # RFC 6962
+             0x15: "padding",               # RFC 7685
+             0x16: "encrypt_then_mac",      # RFC 7366
+             0x17: "extended_master_secret",# RFC 7627
+             0x23: "session_ticket",        # RFC 5077
+             0x28: "key_share",
+             0x29: "pre_shared_key",
+             0x2a: "early_data",
+             0x2b: "supported_versions",
+             0x2c: "cookie",
+             0x2d: "psk_key_exchange_modes",
+             0x2e: "ticket_early_data_info",
+             0x2f: "certificate_authorities",
+             0x30: "oid_filters",
+             0x3374: "next_protocol_negotiation",
+                                            # RFC-draft-agl-tls-nextprotoneg-03
+             0xff01: "renegotiation_info"   # RFC 5746
+             }
+
+
+class TLS_Ext_Unknown(_GenericTLSSessionInheritance):
+    """
+    We put this here rather than in extensions.py in order to avoid
+    circular imports...
+    """
+    name = "TLS Extension - Scapy Unknown"
+    fields_desc = [ShortEnumField("type", None, _tls_ext),
+                   FieldLenField("len", None, fmt="!H", length_of="val"),
+                   StrLenField("val", "",
+                               length_from=lambda pkt: pkt.len) ]
+
+    def post_build(self, p, pay):
+        if self.len is None:
+            l = len(p) - 4
+            p = p[:2] + struct.pack("!H", l) + p[4:]
+        return p+pay
 
 
 ###############################################################################
@@ -511,8 +561,8 @@ _tls_ext_cls = { 0: TLS_Ext_ServerName,
                 0x2c: TLS_Ext_Cookie,
                 0x2d: TLS_Ext_PSKKeyExchangeModes,
                 0x2e: TLS_Ext_TicketEarlyDataInfo,
-               #0x2f: TLS_Ext_CertificateAuthorities,
-               #0x30: TLS_Ext_OIDFilters,
+               #0x2f: TLS_Ext_CertificateAuthorities,       #XXX
+               #0x30: TLS_Ext_OIDFilters,                   #XXX
                 0x3374: TLS_Ext_NPN,
                 0xff01: TLS_Ext_RenegotiationInfo
                 }
@@ -595,8 +645,10 @@ class _ExtensionsField(StrLenField):
             l = struct.unpack("!H", m[2:4])[0]
             cls = _tls_ext_cls.get(t, TLS_Ext_Unknown)
             if cls is TLS_Ext_KeyShare:
+                from scapy.layers.tls.keyexchange_tls13 import _tls_ext_keyshare_cls
                 cls = _tls_ext_keyshare_cls.get(pkt.msgtype, TLS_Ext_Unknown)
             elif cls is TLS_Ext_PreSharedKey:
+                from scapy.layers.tls.keyexchange_tls13 import _tls_ext_presharedkey_cls
                 cls = _tls_ext_presharedkey_cls.get(pkt.msgtype, TLS_Ext_Unknown)
             res.append(cls(m[:l+4], tls_session=pkt.tls_session))
             m = m[l+4:]

@@ -6,7 +6,7 @@
 """
 Key Exchange algorithms as listed in appendix C of RFC 4346.
 
-XXX Incomplete support for static DH, DSS, PSK, SRP, KRB and anonymous kx.
+XXX No support yet for PSK (also, no static DH, DSS, SRP or KRB).
 """
 
 from __future__ import absolute_import

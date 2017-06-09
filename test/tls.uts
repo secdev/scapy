@@ -569,7 +569,7 @@ def _all_aes_gcm_tests():
     res = True
     ciphers = []
     for t in [_aes128gcm_test_1, _aes128gcm_test_2]:
-        c = Cipher_AES_128_GCM(key=t.k, salt=t.n[:4],
+        c = Cipher_AES_128_GCM(key=t.k, fixed_iv=t.n[:4],
                                nonce_explicit=pkcs_os2ip(t.n[4:]))
         ne = t.n[-c.nonce_explicit_len:]
         tup = ne, t.p, t.ct[-c.tag_len:]
@@ -577,7 +577,7 @@ def _all_aes_gcm_tests():
         tmp2 = c.auth_encrypt(t.p, t.a) == (ne + t.ct)
         res = res and tmp1 and tmp2
     for t in [_aes256gcm_test_1, _aes256gcm_test_2]:
-        c = Cipher_AES_256_GCM(key=t.k, salt=t.n[:4],
+        c = Cipher_AES_256_GCM(key=t.k, fixed_iv=t.n[:4],
                                nonce_explicit=pkcs_os2ip(t.n[4:]))
         ne = t.n[-c.nonce_explicit_len:]
         tup = ne, t.p, t.ct[-c.tag_len:]
@@ -589,63 +589,136 @@ def _all_aes_gcm_tests():
 _all_aes_gcm_tests()
 
 
-#XXX CCM remains to be added to the cryptography library
-#= Crypto - AES cipher in CCM mode, checks from IEEE P1619.1
-#~ combined_modes
-#
-#class _aes256ccm_test_1:
-#    k= "\0"*32
-#    n= "\0"*12
-#    p= "\0"*16
-#    a= ""
-#    ct=("\xc1\x94\x40\x44\xc8\xe7\xaa\x95\xd2\xde\x95\x13\xc7\xf3\xdd\x8c" +
-#       "\x4b\x0a\x3e\x5e\x51\xf1\x51\xeb\x0f\xfa\xe7\xc4\x3d\x01\x0f\xdb")
-#
-#class _aes256ccm_test_2:
-#    k=("\xfb\x76\x15\xb2\x3d\x80\x89\x1d\xd4\x70\x98\x0b\xc7\x95\x84\xc8" +
-#       "\xb2\xfb\x64\xce\x60\x97\x87\x8d\x17\xfc\xe4\x5a\x49\xe8\x30\xb7")
-#    n= "\xdb\xd1\xa3\x63\x60\x24\xb7\xb4\x02\xda\x7d\x6f"
-#    p= "\xa9"
-#    a= "\x36"
-#    ct="\x9d\x32\x61\xb1\xcf\x93\x14\x31\xe9\x9a\x32\x80\x67\x38\xec\xbd\x2a"
-#
-#class _aes256ccm_test_3:
-#    k=("\xfb\x76\x15\xb2\x3d\x80\x89\x1d\xd4\x70\x98\x0b\xc7\x95\x84\xc8" +
-#       "\xb2\xfb\x64\xce\x60\x97\x8f\x4d\x17\xfc\xe4\x5a\x49\xe8\x30\xb7")
-#    n= "\xdb\xd1\xa3\x63\x60\x24\xb7\xb4\x02\xda\x7d\x6f"
-#    p= "\xa8\x45\x34\x8e\xc8\xc5\xb5\xf1\x26\xf5\x0e\x76\xfe\xfd\x1b\x1e"
-#    a= ""
-#    ct=("\xcc\x88\x12\x61\xc6\xa7\xfa\x72\xb9\x6a\x17\x39\x17\x6b\x27\x7f" +
-#       "\x34\x72\xe1\x14\x5f\x2c\x0c\xbe\x14\x63\x49\x06\x2c\xf0\xe4\x23")
-#
-#class _aes256ccm_test_4:
-#    k=("\x40\x41\x42\x43\x44\x45\x46\x47\x48\x49\x4a\x4b\x4c\x4d\x4e\x4f" +
-#       "\x50\x51\x52\x53\x54\x55\x56\x57\x58\x59\x5a\x5b\x5c\x5d\x5e\x5f")
-#    n= "\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b"
-#    p=("\x20\x21\x22\x23\x24\x25\x26\x27\x28\x29\x2a\x2b\x2c\x2d\x2e\x2f" +
-#       "\x30\x31\x32\x33\x34\x35\x36\x37")
-#    a=("\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f" +
-#       "\x10\x11\x12\x13")
-#    ct=("\x04\xf8\x83\xae\xb3\xbd\x07\x30\xea\xf5\x0b\xb6\xde\x4f\xa2\x21" +
-#       "\x20\x34\xe4\xe4\x1b\x0e\x75\xe5\x9b\xba\x3f\x3a\x10\x7f\x32\x39" +
-#       "\xbd\x63\x90\x29\x23\xf8\x03\x71")
-#
-#def _all_aes_ccm_tests():
-#    from scapy.layers.tls.crypto.cipher_aead import Cipher_AES_256_CCM
-#    res = True
-#    ciphers = []
-#    for t in [_aes256ccm_test_1, _aes256ccm_test_2,
-#              _aes256ccm_test_3, _aes256ccm_test_4]:
-#        c = Cipher_AES_256_CCM(key=t.k, salt=t.n[:4],
-#                               nonce_explicit_init=pkcs_os2ip(t.n[4:]))
-#        ne = t.n[-c.nonce_explicit_len:]
-#        tup = ne, t.p, t.ct[-c.tag_len:]
-#        tmp1 = c.auth_decrypt(t.a, ne + t.ct, add_length=False) == tup
-#        tmp2 = c.auth_encrypt(t.p, t.a) == (ne + t.ct)
-#        res = res and tmp1 and tmp2
-#    return res
-#
-#_all_aes_ccm_tests()
+= Crypto - AES cipher in CCM mode, checks from IEEE P1619.1
+~ crypto_advanced
+
+class _aes256ccm_test_1:
+    k= "\0"*32
+    n= "\0"*12
+    p= "\0"*16
+    a= ""
+    ct=("\xc1\x94\x40\x44\xc8\xe7\xaa\x95\xd2\xde\x95\x13\xc7\xf3\xdd\x8c" +
+       "\x4b\x0a\x3e\x5e\x51\xf1\x51\xeb\x0f\xfa\xe7\xc4\x3d\x01\x0f\xdb")
+
+class _aes256ccm_test_2:
+    k=("\xfb\x76\x15\xb2\x3d\x80\x89\x1d\xd4\x70\x98\x0b\xc7\x95\x84\xc8" +
+       "\xb2\xfb\x64\xce\x60\x97\x87\x8d\x17\xfc\xe4\x5a\x49\xe8\x30\xb7")
+    n= "\xdb\xd1\xa3\x63\x60\x24\xb7\xb4\x02\xda\x7d\x6f"
+    p= "\xa9"
+    a= "\x36"
+    ct="\x9d\x32\x61\xb1\xcf\x93\x14\x31\xe9\x9a\x32\x80\x67\x38\xec\xbd\x2a"
+
+class _aes256ccm_test_3:
+    k=("\xfb\x76\x15\xb2\x3d\x80\x89\x1d\xd4\x70\x98\x0b\xc7\x95\x84\xc8" +
+       "\xb2\xfb\x64\xce\x60\x97\x8f\x4d\x17\xfc\xe4\x5a\x49\xe8\x30\xb7")
+    n= "\xdb\xd1\xa3\x63\x60\x24\xb7\xb4\x02\xda\x7d\x6f"
+    p= "\xa8\x45\x34\x8e\xc8\xc5\xb5\xf1\x26\xf5\x0e\x76\xfe\xfd\x1b\x1e"
+    a= ""
+    ct=("\xcc\x88\x12\x61\xc6\xa7\xfa\x72\xb9\x6a\x17\x39\x17\x6b\x27\x7f" +
+       "\x34\x72\xe1\x14\x5f\x2c\x0c\xbe\x14\x63\x49\x06\x2c\xf0\xe4\x23")
+
+class _aes256ccm_test_4:
+    k=("\x40\x41\x42\x43\x44\x45\x46\x47\x48\x49\x4a\x4b\x4c\x4d\x4e\x4f" +
+       "\x50\x51\x52\x53\x54\x55\x56\x57\x58\x59\x5a\x5b\x5c\x5d\x5e\x5f")
+    n= "\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b"
+    p=("\x20\x21\x22\x23\x24\x25\x26\x27\x28\x29\x2a\x2b\x2c\x2d\x2e\x2f" +
+       "\x30\x31\x32\x33\x34\x35\x36\x37")
+    a=("\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f" +
+       "\x10\x11\x12\x13")
+    ct=("\x04\xf8\x83\xae\xb3\xbd\x07\x30\xea\xf5\x0b\xb6\xde\x4f\xa2\x21" +
+       "\x20\x34\xe4\xe4\x1b\x0e\x75\xe5\x9b\xba\x3f\x3a\x10\x7f\x32\x39" +
+       "\xbd\x63\x90\x29\x23\xf8\x03\x71")
+
+def _all_aes_ccm_tests():
+    from scapy.layers.tls.crypto.cipher_aead import Cipher_AES_256_CCM
+    res = True
+    ciphers = []
+    for t in [_aes256ccm_test_1, _aes256ccm_test_2,
+              _aes256ccm_test_3, _aes256ccm_test_4]:
+        c = Cipher_AES_256_CCM(key=t.k, fixed_iv=t.n[:4],
+                               nonce_explicit=pkcs_os2ip(t.n[4:]))
+        ne = t.n[-c.nonce_explicit_len:]
+        tup = ne, t.p, t.ct[-c.tag_len:]
+        tmp1 = c.auth_decrypt(t.a, ne + t.ct, add_length=False) == tup
+        tmp2 = c.auth_encrypt(t.p, t.a) == (ne + t.ct)
+        res = res and tmp1 and tmp2
+    return res
+
+_all_aes_ccm_tests()
+
+
+= Crypto - ChaCha20POly1305 test (test vector A.5 from RFC 7539)
+~ crypto_advanced
+
+import binascii
+def clean(s):
+    return binascii.unhexlify(''.join(c for c in s if c.isalnum()))
+
+class _chacha20poly1305_test_1:
+    k= clean("""
+        1c 92 40 a5 eb 55 d3 8a f3 33 88 86 04 f6 b5 f0
+        47 39 17 c1 40 2b 80 09 9d ca 5c bc 20 70 75 c0
+        """)
+    n= clean("""
+        00 00 00 00 01 02 03 04 05 06 07 08
+        """)
+    p= clean("""
+        49 6e 74 65 72 6e 65 74 2d 44 72 61 66 74 73 20
+        61 72 65 20 64 72 61 66 74 20 64 6f 63 75 6d 65
+        6e 74 73 20 76 61 6c 69 64 20 66 6f 72 20 61 20
+        6d 61 78 69 6d 75 6d 20 6f 66 20 73 69 78 20 6d
+        6f 6e 74 68 73 20 61 6e 64 20 6d 61 79 20 62 65
+        20 75 70 64 61 74 65 64 2c 20 72 65 70 6c 61 63
+        65 64 2c 20 6f 72 20 6f 62 73 6f 6c 65 74 65 64
+        20 62 79 20 6f 74 68 65 72 20 64 6f 63 75 6d 65
+        6e 74 73 20 61 74 20 61 6e 79 20 74 69 6d 65 2e
+        20 49 74 20 69 73 20 69 6e 61 70 70 72 6f 70 72
+        69 61 74 65 20 74 6f 20 75 73 65 20 49 6e 74 65
+        72 6e 65 74 2d 44 72 61 66 74 73 20 61 73 20 72
+        65 66 65 72 65 6e 63 65 20 6d 61 74 65 72 69 61
+        6c 20 6f 72 20 74 6f 20 63 69 74 65 20 74 68 65
+        6d 20 6f 74 68 65 72 20 74 68 61 6e 20 61 73 20
+        2f e2 80 9c 77 6f 72 6b 20 69 6e 20 70 72 6f 67
+        72 65 73 73 2e 2f e2 80 9d
+        """)
+    a= clean("""
+        f3 33 88 86 00 00 00 00 00 00 4e 91
+        """)
+    ct=clean("""
+        64 a0 86 15 75 86 1a f4 60 f0 62 c7 9b e6 43 bd
+        5e 80 5c fd 34 5c f3 89 f1 08 67 0a c7 6c 8c b2
+        4c 6c fc 18 75 5d 43 ee a0 9e e9 4e 38 2d 26 b0
+        bd b7 b7 3c 32 1b 01 00 d4 f0 3b 7f 35 58 94 cf
+        33 2f 83 0e 71 0b 97 ce 98 c8 a8 4a bd 0b 94 81
+        14 ad 17 6e 00 8d 33 bd 60 f9 82 b1 ff 37 c8 55
+        97 97 a0 6e f4 f0 ef 61 c1 86 32 4e 2b 35 06 38
+        36 06 90 7b 6a 7c 02 b0 f9 f6 15 7b 53 c8 67 e4
+        b9 16 6c 76 7b 80 4d 46 a5 9b 52 16 cd e7 a4 e9
+        90 40 c5 a4 04 33 22 5e e2 82 a1 b0 a0 6c 52 3e
+        af 45 34 d7 f8 3f a1 15 5b 00 47 71 8c bc 54 6a
+        0d 07 2b 04 b3 56 4e ea 1b 42 22 73 f5 48 27 1a
+        0b b2 31 60 53 fa 76 99 19 55 eb d6 31 59 43 4e
+        ce bb 4e 46 6d ae 5a 10 73 a6 72 76 27 09 7a 10
+        49 e6 17 d9 1d 36 10 94 fa 68 f0 ff 77 98 71 30
+        30 5b ea ba 2e da 04 df 99 7b 71 4d 6c 6f 2c 29
+        a6 ad 5c b4 02 2b 02 70 9b
+        """)
+    tag=clean("""
+        ee ad 9d 67 89 0c bb 22 39 23 36 fe a1 85 1f 38
+        """)
+
+def _all_chacha20poly1305_tests():
+    from scapy.layers.tls.crypto.cipher_aead import Cipher_CHACHA20_POLY1305_TLS13
+    res = True
+    ciphers = []
+    for t in [_chacha20poly1305_test_1]:
+        c = Cipher_CHACHA20_POLY1305_TLS13(key=t.k, fixed_iv=t.n)
+        tmp1 = c.auth_decrypt(t.a, t.ct + t.tag, b"\0"*8) == (t.p, t.tag)
+        tmp2 = c.auth_encrypt(t.p, t.a, b"\0"*8) == t.ct + t.tag
+        res = res and tmp1 and tmp2
+    return res
+
+_all_chacha20poly1305_tests()
 
 
 = Crypto - Camellia cipher, encryption/decryption checks

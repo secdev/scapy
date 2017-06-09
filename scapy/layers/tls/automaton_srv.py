@@ -28,9 +28,7 @@ from scapy.layers.tls.handshake import *
 from scapy.layers.tls.handshake_sslv2 import *
 from scapy.layers.tls.record import (TLS, TLSAlert, TLSChangeCipherSpec,
                                      TLSApplicationData)
-from scapy.layers.tls.record_sslv2 import SSLv2
 from scapy.layers.tls.crypto.suites import (_tls_cipher_suites_cls,
-                                            _tls_cipher_suites,
                                             get_usable_ciphersuites)
 
 
@@ -233,10 +231,8 @@ class TLSServerAutomaton(_TLSAutomaton):
     @ATMT.condition(PREPARE_SERVERFLIGHT1)
     def should_add_ServerHello(self):
         """
-        XXX Selecting a cipher suite should be no trouble as we already caught
-        the None case previously. However, regarding the protocol version, we
-        might want to try resending a ClientHello when the advertised version
-        is not deemed satisfying.
+        Selecting a cipher suite should be no trouble as we already caught
+        the None case previously.
 
         Also, we do not manage extensions at all.
         """

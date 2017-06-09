@@ -34,10 +34,6 @@ from scapy.layers.tls.keyexchange_tls13 import (TLS_Ext_KeyShare_CH,
                                                 KeyShareEntry)
 from scapy.layers.tls.record import (TLS, TLSAlert, TLSChangeCipherSpec,
                                      TLSApplicationData)
-from scapy.layers.tls.record_sslv2 import SSLv2
-from scapy.layers.tls.crypto.suites import (_tls_cipher_suites_cls,
-                                            _tls_cipher_suites,
-                                            get_usable_ciphersuites)
 
 
 class TLSClientAutomaton(_TLSAutomaton):
@@ -830,7 +826,7 @@ class TLSClientAutomaton(_TLSAutomaton):
            #sn = ServerName(servername="blog.cloudflare.com")
             ext = [TLS_Ext_SupportedGroups(groups=["secp256r1"]),
                   #TLS_Ext_ServerName(servernames=[sn]),
-                   TLS_Ext_KeyShare_CH(client_shares=[KeyShareEntry()]),
+                   TLS_Ext_KeyShare_CH(client_shares=[KeyShareEntry(group=23)]),
                    TLS_Ext_SupportedVersions(versions=["TLS 1.3-d18"]),
                    TLS_Ext_SignatureAlgorithms(sig_algs=["sha256+rsapss",
                                                          "sha256+rsa"]) ]

@@ -65,7 +65,6 @@ class SSLv2(TLS):
     """
     The encrypted_data is the encrypted version of mac+msg+pad.
     """
-    #XXX what is the point of protected_record?
     __slots__ = ["with_padding", "protected_record"]
     name = "SSLv2"
     fields_desc = [ _SSLv2LengthField("len", None),
@@ -222,7 +221,6 @@ class SSLv2(TLS):
             hdr += struct.pack("B", padlen)
 
         # Integrity
-        #XXX something fishy here, fix the "" vs. None situations
         if self.mac == "":
             mfrag = self._sslv2_mac_add(pfrag)
         else:
@@ -269,7 +267,4 @@ class SSLv2(TLS):
         self.tls_session.wcs.seq_num += 1
 
         return hdr + efrag + pay
-
-
-#XXX devise a binding method along with the TLS records
 

@@ -266,7 +266,7 @@ class PubKeyRSA(PubKey, _EncryptAndVerifyRSA):
                 warning("modulus and modulusLen do not match!")
             pubNum = rsa.RSAPublicNumbers(n=modulus, e=pubExp)
             self.pubkey = pubNum.public_key(default_backend())
-        #XXX lines below should be removed once pkcs1.py is cleaned of legacy
+        # Lines below are only useful for the legacy part of pkcs1.py
         pubNum = self.pubkey.public_numbers()
         self._modulusLen = real_modulusLen
         self._modulus = pubNum.n
@@ -311,8 +311,7 @@ class PubKeyECDSA(PubKey):
 
     @crypto_validator
     def import_from_der(self, pubkey):
-        # XXX does the cryptography lib support explicit curves?
-        # check also for compressed points
+        # No lib support for explicit curves nor compressed points.
         self.pubkey = serialization.load_der_public_key(pubkey,
                                                     backend=default_backend())
 
@@ -468,7 +467,8 @@ class PrivKeyRSA(PrivKey, _EncryptAndVerifyRSA, _DecryptAndSignRSA):
                                             public_numbers=pubNum)
             self.key = privNum.private_key(default_backend())
             self.pubkey = self.key.public_key()
-        #XXX lines below should be removed once pkcs1.py is cleaned of legacy
+
+        # Lines below are only useful for the legacy part of pkcs1.py
         pubNum = self.pubkey.public_numbers()
         self._modulusLen = real_modulusLen
         self._modulus = pubNum.n

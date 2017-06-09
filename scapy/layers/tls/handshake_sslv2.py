@@ -3,10 +3,7 @@
 ## This program is published under a GPLv2 license
 
 """
-TLS handshake fields & logic.
-
-This module covers the handshake TLS subprotocol, except for the key exchange
-mechanisms which are addressed with keyexchange.py.
+SSLv2 handshake fields & logic.
 """
 
 import math

@@ -9,8 +9,8 @@
   },
   "format": "html",
   "kw_ko": [
-    "combined_modes_ccm",
-    "mock_read_routes6_bsd",
+    "crypto_advanced",
+    "mock_read_routes6_bsd"
     "appveyor_only"
   ]
 }

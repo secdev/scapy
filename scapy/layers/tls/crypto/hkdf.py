@@ -8,12 +8,14 @@ Stateless HKDF for TLS 1.3.
 
 import struct
 
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives.kdf.hkdf import HKDF, HKDFExpand
-from cryptography.hazmat.primitives.hashes import Hash
-from cryptography.hazmat.primitives.hmac import HMAC
-
+from scapy.config import conf
 from scapy.layers.tls.crypto.pkcs1 import _get_hash
+
+if conf.crypto_valid:
+    from cryptography.hazmat.backends import default_backend
+    from cryptography.hazmat.primitives.kdf.hkdf import HKDF, HKDFExpand
+    from cryptography.hazmat.primitives.hashes import Hash
+    from cryptography.hazmat.primitives.hmac import HMAC
 
 
 class TLS13_HKDF(object):

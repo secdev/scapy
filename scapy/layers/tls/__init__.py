@@ -43,6 +43,8 @@ Unit tests:
 
     - Reading a TLS handshake between a Firefox client and a GitHub server.
 
+    - Reading TLS 1.3 handshakes from test vectors of a draft RFC.
+
     - Reading a SSLv2 handshake between s_client and s_server, without PFS.
 
     - Test our TLS server against s_client with different cipher suites.
@@ -54,9 +56,7 @@ TODO list (may it be carved away by good souls):
 
     - Features to add (or wait for) in the cryptography library:
 
-        - CCM and CHACHA20-POLY1305 ciphers;
-
-        - ECDH curves (x25519 and x448) from RFC 7748;
+        - X448 from RFC 7748 (no support in openssl yet);
 
         - the compressed EC point format.
 

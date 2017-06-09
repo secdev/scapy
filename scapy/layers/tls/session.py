@@ -118,6 +118,7 @@ class connState(object):
                     client_random="",
                     server_random="",
                     master_secret=""):
+        #XXX Can this be called over a non-usable suite? What happens then?
 
         cs = self.ciphersuite
 
@@ -173,8 +174,8 @@ class connState(object):
             end = start + cipher_alg.block_size
         elif cipher_alg.type == "aead":
             if skip_first:
-                start += cipher_alg.salt_len
-            end = start + cipher_alg.salt_len
+                start += cipher_alg.fixed_iv_len
+            end = start + cipher_alg.fixed_iv_len
 
         ### Now we have the secrets, we can instantiate the algorithms
         if cs.hmac_alg is None:         # AEAD
@@ -201,13 +202,13 @@ class connState(object):
             cipher = cipher_alg(cipher_secret, iv)
             self.debug_repr("block iv", iv)
         elif cipher_alg.type == "aead":
-            salt = key_block[start:end]
+            fixed_iv = key_block[start:end]
             nonce_explicit_init = 0
             # If you ever wanted to set a random nonce_explicit, use this:
             #exp_bit_len = cipher_alg.nonce_explicit_len * 8
             #nonce_explicit_init = random.randint(0, 2**exp_bit_len - 1)
-            cipher = cipher_alg(cipher_secret, salt, nonce_explicit_init)
-            self.debug_repr("aead salt", salt)
+            cipher = cipher_alg(cipher_secret, fixed_iv, nonce_explicit_init)
+            self.debug_repr("aead fixed iv", fixed_iv)
         self.cipher = cipher
 
     def sslv2_derive_keys(self, key_material):
@@ -236,7 +237,7 @@ class connState(object):
     def tls13_derive_keys(self, key_material):
         cipher_alg = self.ciphersuite.cipher_alg
         key_len = cipher_alg.key_len
-        iv_len = cipher_alg.iv_len
+        iv_len = cipher_alg.fixed_iv_len
         write_key = self.hkdf.expand_label(key_material, "key", "", key_len)
         write_iv = self.hkdf.expand_label(key_material, "iv", "", iv_len)
         self.cipher = cipher_alg(write_key, write_iv)
@@ -353,7 +354,7 @@ class tlsSession(object):
         # The server private key, as a PrivKey instance, when acting as server.
         # XXX It would be nice to be able to provide both an RSA and an ECDSA
         # key in order for the same scapy server to support both families of
-        # cipher suites. See INIT_TLS_SESSION() in automaton.py.
+        # cipher suites. See INIT_TLS_SESSION() in automaton_srv.py.
         # (For now server_key holds either one of both types for DHE
         # authentication, while server_rsa_key is used only for RSAkx.)
         self.server_key = None
@@ -376,29 +377,30 @@ class tlsSession(object):
 
         ### Ephemeral key exchange parameters
 
-        ## XXX Explain why we need pubkey (which should be contained in privkey)
-        # also, params is used to hold params between the SKE and the CKE
-        self.server_kx_privkey = None
-        self.server_kx_pubkey = None
-        self.client_kx_privkey = None
-        self.client_kx_pubkey = None
-
+        # These are the group/curve parameters, needed to hold the information
+        # e.g. from receiving an SKE to sending a CKE. Usually, only one of
+        # these attributes will be different from None.
         self.client_kx_ffdh_params = None
         self.client_kx_ecdh_params = None
 
+        # These are PrivateKeys and PublicKeys from the appropriate FFDH/ECDH
+        # cryptography module, i.e. these are not raw bytes. Usually, only one
+        # in two will be different from None, e.g. when being a TLS client you
+        # will need the client_kx_privkey (the serialized public key is not
+        # actually registered) and you will receive a server_kx_pubkey.
+        self.client_kx_privkey = None
+        self.client_kx_pubkey = None
+        self.server_kx_privkey = None
+        self.server_kx_pubkey = None
+
+        # When using TLS 1.3, the tls13_client_pubshares will contain every
+        # potential key share (equate the 'client_kx_pubkey' before) the client
+        # offered, indexed by the id of the FFDH/ECDH group. These dicts
+        # effectively replace the four previous attributes.
         self.tls13_client_privshares = {}
         self.tls13_client_pubshares = {}
         self.tls13_server_privshare = {}
         self.tls13_server_pubshare = {}
-
-        ## Either an instance of FFDHParams or ECDHParams.
-        ## Depending on which side of the connection we operate,
-        ## one of these params will not hold 'priv' and 'secret' attributes.
-        ## We did not use these intermediaries for RSAkx, as the 'priv' would
-        ## equate the PrivKey, and the 'secret' the pre_master_secret.
-        ## (It could have been useful for RSAkx export, though...)
-        #self.server_kx_params = None
-        #self.client_kx_params = None
 
 
         ### Negotiated session parameters

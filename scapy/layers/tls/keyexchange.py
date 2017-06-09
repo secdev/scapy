@@ -10,9 +10,6 @@ TLS key exchange logic.
 from __future__ import absolute_import
 import math
 
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives.asymmetric import dh, ec
-
 from scapy.config import conf, crypto_validator
 from scapy.error import warning
 from scapy.fields import *
@@ -21,8 +18,12 @@ from scapy.layers.tls.cert import PubKeyRSA, PrivKeyRSA
 from scapy.layers.tls.session import _GenericTLSSessionInheritance
 from scapy.layers.tls.basefields import _tls_version, _TLSClientVersionField
 from scapy.layers.tls.crypto.pkcs1 import pkcs_i2osp, pkcs_os2ip
-from scapy.layers.tls.crypto.ffdh import _ffdh_groups
+from scapy.layers.tls.crypto.groups import _ffdh_groups, _tls_named_curves
 import scapy.modules.six as six
+
+if conf.crypto_valid:
+    from cryptography.hazmat.backends import default_backend
+    from cryptography.hazmat.primitives.asymmetric import dh, ec
 
 
 ###############################################################################
@@ -56,7 +57,6 @@ def phantom_mode(pkt):
     any complete ClientHello, so we're most probably reading/building a
     signature_algorithms extension, hence we cannot be in phantom_mode.
     However, if the tls_version has been set, we test for TLS 1.2.
-    XXX Make this more generic. Also, factorize the classes below (metaclass?).
     """
     if not pkt.tls_session:
         return False
@@ -270,11 +270,10 @@ class _TLSServerParamsField(PacketField):
 
 class ServerDHParams(_GenericTLSSessionInheritance):
     """
-    ServerDHParams for FFDH-based key exchanges,
-    as it is defined in RFC 5246, section 7.4.3.
+    ServerDHParams for FFDH-based key exchanges, as defined in RFC 5246/7.4.3.
 
-    Either with .fill_missing() or .post_dissection(), the server_kx_params and
-    client_kx_params of the TLS context are updated according to the
+    Either with .fill_missing() or .post_dissection(), the server_kx_privkey or
+    server_kx_pubkey of the TLS context are updated according to the
     parsed/assembled values. It is the user's responsibility to store and
     restore the original values if he wants to keep them. For instance, this
     could be done between the writing of a ServerKeyExchange and the receiving
@@ -331,11 +330,11 @@ class ServerDHParams(_GenericTLSSessionInheritance):
         if not s.client_kx_ffdh_params:
             s.client_kx_ffdh_params = real_params
 
-    def post_dissection(self, r):
+    @crypto_validator
+    def register_pubkey(self):
         """
         XXX Check that the pubkey received is in the group.
         """
-        #if self.dh_g and self.dh_p and self.dh_Ys: #XXX remove this, probably
         p = pkcs_os2ip(self.dh_p)
         g = pkcs_os2ip(self.dh_g)
         pn = dh.DHParameterNumbers(p, g)
@@ -348,6 +347,12 @@ class ServerDHParams(_GenericTLSSessionInheritance):
 
         if not s.client_kx_ffdh_params:
             s.client_kx_ffdh_params = pn.parameters(default_backend())
+
+    def post_dissection(self, r):
+        try:
+            self.register_pubkey()
+        except ImportError:
+            pass
 
     def guess_payload_class(self, p):
         """
@@ -363,20 +368,6 @@ class ServerDHParams(_GenericTLSSessionInheritance):
 _tls_ec_curve_types = { 1: "explicit_prime",
                         2: "explicit_char2",
                         3: "named_curve" }
-
-_tls_named_curves = {  1: "sect163k1",  2: "sect163r1",  3: "sect163r2",
-                       4: "sect193r1",  5: "sect193r2",  6: "sect233k1",
-                       7: "sect233r1",  8: "sect239k1",  9: "sect283k1",
-                      10: "sect283r1", 11: "sect409k1", 12: "sect409r1",
-                      13: "sect571k1", 14: "sect571r1", 15: "secp160k1",
-                      16: "secp160r1", 17: "secp160r2", 18: "secp192k1",
-                      19: "secp192r1", 20: "secp224k1", 21: "secp224r1",
-                      22: "secp256k1", 23: "secp256r1", 24: "secp384r1",
-                      25: "secp521r1", 26: "brainpoolP256r1",
-                      27: "brainpoolP384r1", 28: "brainpoolP512r1",
-                      29: "x25519",    30: "x448",
-                      0xff01: "arbitrary_explicit_prime_curves",
-                      0xff02: "arbitrary_explicit_char2_curves"}
 
 _tls_ec_basis_types = { 0: "ec_basis_trinomial", 1: "ec_basis_pentanomial"}
 
@@ -456,8 +447,8 @@ class _ECBasisField(PacketField):
 
 class ServerECDHExplicitPrimeParams(_GenericTLSSessionInheritance):
     """
-    XXX We provide parsing abilities for ExplicitPrimeParams, but there is no
-    'cryptography' support, hence no context operations.
+    We provide parsing abilities for ExplicitPrimeParams, but there is no
+    support from the cryptography library, hence no context operations.
     """
     name = "Server ECDH parameters - Explicit Prime"
     fields_desc = [ ByteEnumField("curve_type", 1, _tls_ec_curve_types),
@@ -482,24 +473,11 @@ class ServerECDHExplicitPrimeParams(_GenericTLSSessionInheritance):
 
     def fill_missing(self):
         """
-        We do not want TLSServerKeyExchange.build() to overload and recompute
-        things everytime it is called. This method can be called specifically
-        to have things filled in a smart fashion.
-
-        XXX Note that if it is not set by the user, the cofactor will always
+        Note that if it is not set by the user, the cofactor will always
         be 1. It is true for most, but not all, TLS elliptic curves.
-
-        XXX Try and create a curve with the 'cryptography' lib somehow,
-        extract the missing fields for filling, then set s.server_kx_privkey.
         """
         if self.curve_type is None:
             self.curve_type = _tls_ec_curve_types["explicit_prime"]
-
-    def post_dissection(self, pkt):
-        """
-        XXX Store the server_kx_pubkey.
-        XXX Check that the pubkey received is on the curve.
-        """
 
     def guess_payload_class(self, p):
         return Padding
@@ -507,8 +485,8 @@ class ServerECDHExplicitPrimeParams(_GenericTLSSessionInheritance):
 
 class ServerECDHExplicitChar2Params(_GenericTLSSessionInheritance):
     """
-    XXX We provide parsing abilities for Char2Params, but there is no
-    'cryptography' support, hence no context operations.
+    We provide parsing abilities for Char2Params, but there is no
+    support from the cryptography library, hence no context operations.
     """
     name = "Server ECDH parameters - Explicit Char2"
     fields_desc = [ ByteEnumField("curve_type", 2, _tls_ec_curve_types),
@@ -530,20 +508,8 @@ class ServerECDHExplicitChar2Params(_GenericTLSSessionInheritance):
                                 length_from = lambda pkt: pkt.pointlen) ]
 
     def fill_missing(self):
-        """
-        We do not want TLSServerKeyExchange.build() to overload and recompute
-        things everytime it is called. This method can be called specifically
-        to have things filled in a smart fashion.
-        """
         if self.curve_type is None:
             self.curve_type = _tls_ec_curve_types["explicit_char2"]
-
-    def post_dissection(self, pkt):
-        """
-        XXX Store the server_kx_pubkey.
-        XXX Check that the pubkey received is in the group.
-        """
-        pass
 
     def guess_payload_class(self, p):
         return Padding
@@ -564,6 +530,7 @@ class ServerECDHNamedCurveParams(_GenericTLSSessionInheritance):
         We do not want TLSServerKeyExchange.build() to overload and recompute
         things everytime it is called. This method can be called specifically
         to have things filled in a smart fashion.
+
         XXX We should account for the point_format (before 'point' filling).
         """
         s = self.tls_session
@@ -606,7 +573,8 @@ class ServerECDHNamedCurveParams(_GenericTLSSessionInheritance):
         if not s.client_kx_ecdh_params:
             s.client_kx_ecdh_params = curve
 
-    def post_dissection(self, r):
+    @crypto_validator
+    def register_pubkey(self):
         """
         XXX Support compressed point format.
         XXX Check that the pubkey received is on the curve.
@@ -615,7 +583,6 @@ class ServerECDHNamedCurveParams(_GenericTLSSessionInheritance):
         #if self.point[0] in [b'\x02', b'\x03']:
         #    point_format = 1
 
-        #if self.named_curve and self.point: #XXX remove this, probably
         curve_name = _tls_named_curves[self.named_curve]
         curve = ec._CURVE_TYPES[curve_name]()
         import_point = ec.EllipticCurvePublicNumbers.from_encoded_point
@@ -625,6 +592,12 @@ class ServerECDHNamedCurveParams(_GenericTLSSessionInheritance):
 
         if not s.client_kx_ecdh_params:
             s.client_kx_ecdh_params = curve
+
+    def post_dissection(self, r):
+        try:
+            self.register_pubkey()
+        except ImportError:
+            pass
 
     def guess_payload_class(self, p):
         return Padding
@@ -677,11 +650,18 @@ class ServerRSAParams(_GenericTLSSessionInheritance):
         if self.rsaexplen is None:
             self.rsaexplen = len(self.rsaexp)
 
-    def post_dissection(self, pkt):
+    @crypto_validator
+    def register_pubkey(self):
         mLen = self.rsamodlen
         m    = self.rsamod
         e    = self.rsaexp
         self.tls_session.server_tmp_rsa_key = PubKeyRSA((e, m, mLen))
+
+    def post_dissection(self, pkt):
+        try:
+            self.register_pubkey()
+        except ImportError:
+            pass
 
     def guess_payload_class(self, p):
         return Padding
@@ -703,11 +683,6 @@ class ServerPSKParams(Packet):
                         length_from=lambda pkt: pkt.psk_identity_hint_len) ]
 
     def fill_missing(self):
-        """
-        We do not want TLSServerKeyExchange.build() to overload and recompute
-        things everytime it is called. This method can be called specifically
-        to have things filled in a smart fashion.
-        """
         pass
 
     def post_dissection(self, pkt):
@@ -725,8 +700,8 @@ class ServerPSKParams(Packet):
 
 class ClientDiffieHellmanPublic(_GenericTLSSessionInheritance):
     """
-    If the user provides a value for dh_Yc attribute,
-    the pms and ms are set accordingly when .post_build() is called.
+    If the user provides a value for dh_Yc attribute, we assume he will set
+    the pms and ms accordingly and trigger the key derivation on his own.
 
     XXX As specified in 7.4.7.2. of RFC 4346, we should distinguish the needs
     for implicit or explicit value depending on availability of DH parameters
@@ -737,24 +712,28 @@ class ClientDiffieHellmanPublic(_GenericTLSSessionInheritance):
                     StrLenField("dh_Yc", "",
                                 length_from=lambda pkt: pkt.dh_Yclen) ]
 
-    def post_build(self, pkt, pay):
+    @crypto_validator
+    def fill_missing(self):
         s = self.tls_session
-
-        if self.dh_Yc == "":
-            params = s.client_kx_ffdh_params
-            s.client_kx_privkey = params.generate_private_key()
-            pubkey = s.client_kx_privkey.public_key()
-            y = pubkey.public_numbers().y
-            self.dh_Yc = pkcs_i2osp(y, pubkey.key_size/8)
-        # else, we assume that the user wrote the client_kx_privkey by himself
-        if self.dh_Yclen is None:
-            self.dh_Yclen = len(self.dh_Yc)
+        params = s.client_kx_ffdh_params
+        s.client_kx_privkey = params.generate_private_key()
+        pubkey = s.client_kx_privkey.public_key()
+        y = pubkey.public_numbers().y
+        self.dh_Yc = pkcs_i2osp(y, pubkey.key_size/8)
 
         if s.client_kx_privkey and s.server_kx_pubkey:
             pms = s.client_kx_privkey.exchange(s.server_kx_pubkey)
             s.pre_master_secret = pms
             s.compute_ms_and_derive_keys()
 
+    def post_build(self, pkt, pay):
+        if self.dh_Yc == "":
+            try:
+                self.fill_missing()
+            except ImportError:
+                pass
+        if self.dh_Yclen is None:
+            self.dh_Yclen = len(self.dh_Yc)
         return pkcs_i2osp(self.dh_Yclen, 2) + self.dh_Yc + pay
 
     def post_dissection(self, m):
@@ -765,6 +744,7 @@ class ClientDiffieHellmanPublic(_GenericTLSSessionInheritance):
         """
         s = self.tls_session
 
+        # if there are kx params and keys, we assume the crypto library is ok
         if s.client_kx_ffdh_params:
             y = pkcs_os2ip(self.dh_Yc)
             param_numbers = s.client_kx_ffdh_params.parameter_numbers()
@@ -789,33 +769,38 @@ class ClientECDiffieHellmanPublic(_GenericTLSSessionInheritance):
                     StrLenField("ecdh_Yc", "",
                                 length_from=lambda pkt: pkt.ecdh_Yclen)]
 
-    def post_build(self, pkt, pay):
+    @crypto_validator
+    def fill_missing(self):
         s = self.tls_session
-
-        if self.ecdh_Yc == "":
-            params = s.client_kx_ecdh_params
-            s.client_kx_privkey = ec.generate_private_key(params,
-                                                          default_backend())
-            pubkey = s.client_kx_privkey.public_key()
-            x = pubkey.public_numbers().x
-            y = pubkey.public_numbers().y
-            self.ecdh_Yc = (b"\x04" +
-                            pkcs_i2osp(x, params.key_size/8) +
-                            pkcs_i2osp(y, params.key_size/8))
-        # else, we assume that the user wrote the client_kx_privkey by himself
-        if self.ecdh_Yclen is None:
-            self.ecdh_Yclen = len(self.ecdh_Yc)
+        params = s.client_kx_ecdh_params
+        s.client_kx_privkey = ec.generate_private_key(params,
+                                                      default_backend())
+        pubkey = s.client_kx_privkey.public_key()
+        x = pubkey.public_numbers().x
+        y = pubkey.public_numbers().y
+        self.ecdh_Yc = (b"\x04" +
+                        pkcs_i2osp(x, params.key_size/8) +
+                        pkcs_i2osp(y, params.key_size/8))
 
         if s.client_kx_privkey and s.server_kx_pubkey:
             pms = s.client_kx_privkey.exchange(ec.ECDH(), s.server_kx_pubkey)
             s.pre_master_secret = pms
             s.compute_ms_and_derive_keys()
 
+    def post_build(self, pkt, pay):
+        if self.ecdh_Yc == "":
+            try:
+                self.fill_missing()
+            except ImportError:
+                pass
+        if self.ecdh_Yclen is None:
+            self.ecdh_Yclen = len(self.ecdh_Yc)
         return pkcs_i2osp(self.ecdh_Yclen, 1) + self.ecdh_Yc + pay
 
     def post_dissection(self, m):
         s = self.tls_session
 
+        # if there are kx params and keys, we assume the crypto library is ok
         if s.client_kx_ecdh_params:
             import_point = ec.EllipticCurvePublicNumbers.from_encoded_point
             pub_num = import_point(s.client_kx_ecdh_params, self.ecdh_Yc)

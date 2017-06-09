@@ -665,7 +665,7 @@ class TLSServerKeyExchange(_TLSHandshake):
           corresponds to ServerECDHNamedCurveParams (implicit curves).
 
         When the Server*DHParams are built via .fill_missing(), the session
-        server_kx_params and client_kx_params will be updated accordingly.
+        server_kx_privkey will be updated accordingly.
         """
         fval = self.getfieldval("params")
         if fval is None:
@@ -706,7 +706,7 @@ class TLSServerKeyExchange(_TLSHandshake):
     def post_dissection(self, pkt):
         """
         While previously dissecting Server*DHParams, the session
-        server_kx_params and client_kx_params should have been updated.
+        server_kx_pubkey should have been updated.
 
         XXX Add a 'fixed_dh' OR condition to the 'anonymous' test.
         """

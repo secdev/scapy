@@ -81,7 +81,6 @@ class _GenericCipherSuiteMetaclass(type):
 
     Regarding the AEAD cipher suites, note that the 'hmac_alg' attribute will
     be set to None. Yet, we always need a 'hash_alg' for the PRF.
-    For now, only AES_GCM is supported by the library and will be 'usable'.
     """
     def __new__(cls, cs_name, bases, dct):
         cs_val = dct.get("val")
@@ -110,8 +109,8 @@ class _GenericCipherSuiteMetaclass(type):
                         kb_len_v1_0 += 2*c.block_size
                         # no explicit IVs added for TLS 1.1+
                     elif c.type == "aead":
-                        kb_len_v1_0 += 2*c.salt_len
-                        kb_len += 2*c.salt_len
+                        kb_len_v1_0 += 2*c.fixed_iv_len
+                        kb_len += 2*c.fixed_iv_len
 
                     dct["_key_block_len_v1_0"] = kb_len_v1_0
                     dct["key_block_len"] = kb_len

@@ -8,11 +8,13 @@ Stream ciphers.
 """
 
 from __future__ import absolute_import
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms
-from cryptography.hazmat.backends import default_backend
-
+from scapy.config import conf
 from scapy.layers.tls.crypto.ciphers import CipherError
 import scapy.modules.six as six
+
+if conf.crypto_valid:
+    from cryptography.hazmat.primitives.ciphers import Cipher, algorithms
+    from cryptography.hazmat.backends import default_backend
 
 
 tls_stream_cipher_algs = {}
@@ -100,13 +102,14 @@ class _StreamCipher(six.with_metaclass(_StreamCipherMetaclass, object)):
         return c
 
 
-class Cipher_RC4_128(_StreamCipher):
-    pc_cls = algorithms.ARC4
-    key_len = 16
+if conf.crypto_valid:
+    class Cipher_RC4_128(_StreamCipher):
+        pc_cls = algorithms.ARC4
+        key_len = 16
 
-class Cipher_RC4_40(Cipher_RC4_128):
-    expanded_key_len = 16
-    key_len = 5
+    class Cipher_RC4_40(Cipher_RC4_128):
+        expanded_key_len = 16
+        key_len = 5
 
 
 class Cipher_NULL(_StreamCipher):

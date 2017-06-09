@@ -12,11 +12,9 @@ then
   SCAPY_SUDO=""
 fi
 
-# AES-CCM not implemented yet in Cryptography
-# See
-#  - https://github.com/pyca/cryptography/issues/2968
-#  - https://github.com/pyca/cryptography/issues/1141
-UT_FLAGS+=" -K combined_modes_ccm"
+# AES-CCM, ChaCha20Poly1305 and X25519 were added to Cryptography v2.0
+# but the minimal version mandated by scapy is v1.7
+UT_FLAGS+=" -K crypto_advanced"
 
 if python --version 2>&1 | grep -q PyPy
 then

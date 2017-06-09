@@ -65,6 +65,7 @@ def test_tls_server(suite="", version=""):
 test_tls_server("RC4-SHA", "-tls1")
 
 = Testing TLS server with TLS 1.1 and TLS_DHE_RSA_WITH_3DES_EDE_CBC_SHA
+~ open_ssl_client
 
 test_tls_server("EDH-RSA-DES-CBC3-SHA", "-tls1_1")
 
