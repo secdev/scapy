@@ -163,7 +163,7 @@ class _CipherSuitesField(StrLenField):
     def i2repr(self, pkt, x):
         if x is None:
             return "None"
-        l = [self.i2repr_one(pkt, z) for x in x]
+        l = [self.i2repr_one(pkt, z) for z in x]
         if len(l) == 1:
             l = l[0]
         else:
@@ -266,7 +266,7 @@ class TLSClientHello(_TLSHandshake):
                                           self.random_bytes)
         if self.ext:
             for e in self.ext:
-                if type(e) is TLS_Ext_SupportedVersions:
+                if isinstance(e, TLS_Ext_SupportedVersions):
                     if self.tls_session.tls13_early_secret is None:
                         # this is not recomputed if there was a TLS 1.3 HRR
                         self.tls_session.compute_tls13_early_secrets()
@@ -394,7 +394,7 @@ class TLS13ServerHello(TLSClientHello):
 
         if self.cipher:
             cs_val = self.cipher
-            if not _tls_cipher_suites_cls.has_key(cs_val):
+            if cs_val not in _tls_cipher_suites_cls:
                 warning("Unknown cipher suite %d from ServerHello" % cs_val)
                 # we do not try to set a default nor stop the execution
             else:
@@ -547,7 +547,7 @@ class _ASN1CertField(StrLenField):
 
     def i2m(self, pkt, i):
         def i2m_one(i):
-            if type(i) is str:
+            if isinstance(i, str):
                 return i
             if isinstance(i, Cert):
                 s = i.der
@@ -593,8 +593,6 @@ class TLSCertificate(_TLSHandshake):
             self.tls_session.server_certs = [x[1] for x in self.certs]
         else:
             self.tls_session.client_certs = [x[1] for x in self.certs]
-        self.tls_session.handshake_messages.append(msg_str)
-        self.tls_session.handshake_messages_parsed.append(self)
 
 
 class _ASN1CertAndExt(_GenericTLSSessionInheritance):

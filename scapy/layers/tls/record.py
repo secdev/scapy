@@ -268,7 +268,7 @@ class TLS(_GenericTLSSessionInheritance):
             else:
                 s = kargs.get("tls_session", None)
                 if s and s.tls_version >= 0x0304:
-                    if s.rcs and type(s.rcs.cipher) is not Cipher_NULL:
+                    if s.rcs and not isinstance(s.rcs.cipher, Cipher_NULL):
                         from scapy.layers.tls.record_tls13 import TLS13
                         return TLS13
         return TLS
@@ -440,7 +440,7 @@ class TLS(_GenericTLSSessionInheritance):
 
         frag = self._tls_decompress(cfrag)
 
-        if type(self.tls_session.rcs.cipher) is not Cipher_NULL:
+        if not isinstance(self.tls_session.rcs.cipher, Cipher_NULL):
             self.deciphered_len = len(frag)
         else:
             self.deciphered_len = None

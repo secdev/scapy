@@ -139,12 +139,12 @@ class _TLSAutomaton(Automaton):
         p = TLS(self.remain_in, tls_session=self.cur_session)
         self.cur_session = p.tls_session
         self.remain_in = ""
-        if type(p) is SSLv2 and not p.msg:
+        if isinstance(p, SSLv2) and not p.msg:
             p.msg = Raw("")
         if self.cur_session.tls_version < 0x0304:
             self.buffer_in += p.msg
         else:
-            if type(p) is TLS13:
+            if isinstance(p, TLS13):
                 self.buffer_in += p.inner.msg
             else:
                 # should be TLS13ServerHello only

@@ -126,7 +126,7 @@ class TLS13(_GenericTLSSessionInheritance):
         if len(s) < 5:
             raise Exception("Invalid record: header is too short.")
 
-        if type(self.tls_session.rcs.cipher) is Cipher_NULL:
+        if isinstance(self.tls_session.rcs.cipher, Cipher_NULL):
             self.deciphered_len = None
             return s
         else:
@@ -183,7 +183,7 @@ class TLS13(_GenericTLSSessionInheritance):
         """
         # Compute the length of TLSPlaintext fragment
         hdr, frag = pkt[:5], pkt[5:]
-        if type(self.tls_session.rcs.cipher) is not Cipher_NULL:
+        if not isinstance(self.tls_session.rcs.cipher, Cipher_NULL):
             frag = self._tls_auth_encrypt(frag)
 
         if self.len is not None:

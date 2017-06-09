@@ -89,7 +89,7 @@ class _SSLv2CipherSuitesField(_CipherSuitesField):
         if val is None:
             val2 = []
         val2 = [(x >> 16, x & 0x00ffff) for x in val]
-        return "".join(map(lambda x: struct.pack(">BH", x[0], x[1]), val2))
+        return "".join([struct.pack(">BH", x[0], x[1]) for x in val2])
 
     def m2i(self, pkt, m):
         res = []
@@ -297,7 +297,7 @@ class SSLv2ClientMasterKey(_SSLv2Handshake):
         else:
             cipher = pkt[1:4]
             cs_val = struct.unpack("!I", "\x00" + cipher)[0]
-            if not _tls_cipher_suites_cls.has_key(cs_val):
+            if cs_val not in _tls_cipher_suites_cls:
                 warning("Unknown ciphersuite %d from ClientMasterKey" % cs_val)
                 cs_cls = None
             else:
@@ -349,7 +349,7 @@ class SSLv2ClientMasterKey(_SSLv2Handshake):
 
         s = self.tls_session
         cs_val = self.cipher
-        if not _tls_cipher_suites_cls.has_key(cs_val):
+        if cs_val not in _tls_cipher_suites_cls:
             warning("Unknown cipher suite %d from ClientMasterKey" % cs_val)
         else:
             cs_cls = _tls_cipher_suites_cls[cs_val]

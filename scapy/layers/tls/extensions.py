@@ -46,7 +46,7 @@ class TLS_Ext_PrettyPacketList(TLS_Ext_Unknown):
             begn = "%s  %-10s%s " % (label_lvl+lvl, ncol(f.name),
                                      ct.punct("="),)
             reprval = f.i2repr(self,fvalue)
-            if type(reprval) is str:
+            if isinstance(reprval, str):
                 reprval = reprval.replace("\n", "\n"+" "*(len(label_lvl)
                                                           +len(lvl)
                                                           +len(f.name)
@@ -58,7 +58,7 @@ class TLS_Ext_PrettyPacketList(TLS_Ext_Unknown):
         fvalue = self.getfieldval(f.name)
         begn = "%s  %-10s%s " % (label_lvl+lvl, ncol(f.name), ct.punct("="),)
         reprval = f.i2repr(self,fvalue)
-        if type(reprval) is str:
+        if isinstance(reprval, str):
             reprval = reprval.replace("\n", "\n"+" "*(len(label_lvl)
                                                       +len(lvl)
                                                       +len(f.name)
@@ -178,7 +178,7 @@ class _TAListField(PacketListField):
     def m2i(self, pkt, m):
         idtype = ord(m[0])
         cls = self.cls
-        if _tls_trusted_authority_cls.has_key(idtype):
+        if idtype in _tls_trusted_authority_cls:
             cls = _tls_trusted_authority_cls[idtype]
         return cls(m)
 
@@ -225,7 +225,7 @@ class _StatusReqField(PacketListField):
     def m2i(self, pkt, m):
         idtype = pkt.stype
         cls = self.cls
-        if _cert_status_req_cls.has_key(idtype):
+        if idtype in _cert_status_req_cls:
             cls = _cert_status_req_cls[idtype]
         return cls(m)
 
