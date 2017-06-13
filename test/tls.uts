@@ -702,6 +702,9 @@ t2 = TLS(p2_sh, tls_session=t1.tls_session)
 t3 = TLS(p3_cert, tls_session=t1.tls_session)
 t4 = TLS(p4_certstat_ske_shd, tls_session=t1.tls_session)
 
+= Test TLS with bad data
+a = TLS(b'\x00\x03\x03\x00\x03data')
+assert a.haslayer(Raw)
 
 + Test TLS Record header
 = Reading test session - TLS Record header
@@ -781,6 +784,8 @@ assert(sh.cipher == 0xc02f)
 assert(len(sh.ext) == 6)
 sh.ext[-1].protocols[-1].protocol == "http/1.1"
 
+= Useless function
+assert not TLSHelloRequest().tls_session_update(None)
 
 + Test TLS Certificate
 = Reading test session - Certificate
@@ -862,6 +867,10 @@ assert(isinstance(k, ClientECDiffieHellmanPublic))
 assert(k.ecdh_Yclen == 65)
 assert(k.ecdh_Yc[:4] == b'\x04\xd2\x07\xce' and k.ecdh_Yc[-4:] == b'\xdc\x86[\xe7')
 
+= Bad data in TLSClientKeyExchange
+
+a = TLSClientKeyExchange(str(TLSClientKeyExchange(exchkeys="baddata")))
+assert a.haslayer(Raw)
 
 + Test TLS ChangeCipherSpec
 = Reading test session - ChangeCipherSpec
