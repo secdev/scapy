@@ -203,9 +203,10 @@ class Packet(BasePacket):
         return clone
 
     def set_byte(self, index, val):
-        #TODO: chack that val is an hexa char value
+        if type(val) is not str:
+            raise TypeError("Val argument must be of char or str type")
         if (index < 0):
-            print "invalid index"
+            raise IndexError("Invalid negative index")
         payload = self.payload
         self.remove_payload()
         if index < len(self):
@@ -222,7 +223,7 @@ class Packet(BasePacket):
             if isinstance(self.payload,Packet):
                 self.payload.set_byte(index,val)
             else:
-                raise TypeError("modified payload must be a Packet instance")
+                raise TypeError("Modified payload must be a Packet instance")
         return self
 
     def lastlayer_index(self):
@@ -241,14 +242,21 @@ class Packet(BasePacket):
         return self
 
     def decode_lastlayer_as(self,cls):
-        #S'il n'y a qu'une seule layer dans le paquet, inutile de la retirer
+        #If there is only one layer in the packet no need to remove it
         if self.lastlayer() == self:
             s = str(self)
-            self = cls(s)
+            try:
+                self = cls(s)
+            except:
+                raise ValueError("Unable to decode last layer as specified class")
             return self
         s = str(self.lastlayer())
+        try:
+            newlayer = cls(s, _internal=1, _underlayer=self)
+        except:
+            raise ValueError("Unable to decode last layer as specified class")
         self.remove_lastlayer()
-        self.add_payload(cls(s, _internal=1, _underlayer=self))
+        self.add_payload(newlayer)
         pp = self
         while pp.underlayer is not None:
             pp = pp.underlayer
