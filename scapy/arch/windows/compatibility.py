@@ -30,6 +30,7 @@ import scapy.modules.six as six
 WINDOWS = True
 
 def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0, retry=0, multi=0):
+    # Function to send or recieve a packet through the pks socket
     if not isinstance(pkt, Gen):
         pkt = SetGen(pkt)
         
@@ -171,13 +172,14 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0, retry=0, m
     return plist.SndRcvList(ans),plist.PacketList(remain,"Unanswered")
 
 def sndrcvflood(pks, pkt, prn=lambda s_r: s_r[1].summary(), chainCC=0, store=1, unique=0, timeout=None):
+    # Function to send or recieve a packet by flooding it through the pks socket
     if not isinstance(pkt, Gen):
         pkt = SetGen(pkt)
     tobesent = [p for p in pkt]
     received = plist.SndRcvList()
     seen = {}
-
-    hsent={}
+    hsent = {}
+    
     for i in tobesent:
         h = i.hashret()
         if h in hsent:
@@ -186,7 +188,7 @@ def sndrcvflood(pks, pkt, prn=lambda s_r: s_r[1].summary(), chainCC=0, store=1, 
             hsent[h] = [i]
 
     def send_in_loop(tobesent):
-        while 1:
+        while True:
             for p in tobesent:
                 yield p
 
@@ -196,13 +198,12 @@ def sndrcvflood(pks, pkt, prn=lambda s_r: s_r[1].summary(), chainCC=0, store=1, 
         stoptime = time.time()+timeout
 
     try:
-        while 1:
+        while True:
             if timeout is not None:
                 remain = stoptime-time.time()
                 if remain <= 0:
                     break
             pks.send(packets_to_send.next())
-                
             p = pks.recv(MTU)
             if p is None:
                 continue

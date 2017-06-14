@@ -164,13 +164,15 @@ if conf.use_winpcapy:
           if timeout <= 0:
               return []
           if WINDOWS:
-            status = ctypes.windll.kernel32.WaitForSingleObject(pcap_getevent(self.pcap), int(timeout*1000))
-            if status == 0:
-                return socket
-            return []
+              # Following https://www.winpcap.org/pipermail/winpcap-users/2007-February/001722.html
+              # We get the HANDLE of the socket, then wait for it through the Windows API
+              status = ctypes.windll.kernel32.WaitForSingleObject(pcap_getevent(self.pcap), int(timeout*1000))
+              if status == 0:
+                  return [socket]
+              return []
           else:
-            r,_,_ = select.select([socket],[],[],timeout)
-            return r
+              r,_,_ = select.select([socket],[],[],timeout)
+              return r
       def setfilter(self, f):
           filter_exp = create_string_buffer(f)
           if pcap_compile(self.pcap, byref(self.bpf_program), filter_exp, 0, -1) == -1:
