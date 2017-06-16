@@ -100,6 +100,20 @@ str(BGPCapability()) == b'\x00\x00'
 c = BGPCapability(code = 70)
 assert(str(c) == b'F\x00')
 
+= BGPCapability - Check exception
+from scapy.contrib.bgp import _BGPInvalidDataException
+try:
+  BGPCapability("\x00")
+  False
+except _BGPInvalidDataException:
+  True
+
+= BGPCapability - Test haslayer()
+BGPCapFourBytesASN().haslayer(BGPCapability) == True
+
+= BGPCapability - Test getlayer()
+isinstance(BGPCapFourBytesASN().getlayer(BGPCapability), BGPCapFourBytesASN)
+
 
 ############################ BGPCapMultiprotocol ##############################
 + BGPCapMultiprotocol class tests
@@ -187,6 +201,10 @@ c.code == 3 and c.length == 0
 = BGPCapORF - Dissection with specific values
 c = BGPCapORF(orf = [BGPCapORFBlock(afi = 1, safi = 1, entries = [BGPCapORFBlock.ORFTuple(orf_type = 64, send_receive = 3)]), BGPCapORFBlock(afi = 2, safi = 1, entries = [BGPCapORFBlock.ORFTuple(orf_type = 64, send_receive = 3)])])
 c.code == 3 and c.orf[0].afi == 1 and c.orf[0].safi == 1 and c.orf[0].entries[0].orf_type == 64 and c.orf[0].entries[0].send_receive == 3 and c.orf[1].afi == 2 and c.orf[1].safi == 1 and c.orf[1].entries[0].orf_type == 64 and c.orf[1].entries[0].send_receive == 3
+
+= BGPCapORF - Dissection
+p = BGPCapORF(b'\x03\x07\x00\x01\x00\x01\x01@\x03')
+assert(len(p.orf) == 1)
 
 
 ####################### BGPCapGracefulRestart.GRTuple #########################
@@ -617,6 +635,10 @@ assert(m.path_attr[0].attribute.afi == 2)
 assert(m.path_attr[0].attribute.safi == 1)
 assert(m.path_attr[0].attribute.afi_safi_specific.withdrawn_routes[0].prefix == "6000::/3")
 assert(m.nlri == [])
+
+= BGPUpdate - with BGPHeader
+p = BGP(str(BGPHeader()/BGPUpdate()))
+assert(BGPHeader in p and BGPUpdate in p)
 
 
 ########## BGPNotification Class ###################################
