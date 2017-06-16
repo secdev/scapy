@@ -391,7 +391,7 @@ debug_tls:When 1, print some TLS session secrets when they are computed.
     checkIPinIP = True
     check_TCPerror_seqack = 0
     verb = 2
-    prompt = Interceptor("prompt", ">>> ", _prompt_changer)
+    prompt = Interceptor("prompt", themes.DEFAULT_PROMPT, _prompt_changer)
     prompt_prefix = Interceptor("prompt_prefix", "", _prompt_changer)
     promisc = 1
     sniff_promisc = 1

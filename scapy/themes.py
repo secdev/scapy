@@ -259,9 +259,10 @@ class HTMLTheme2(HTMLTheme):
     style_left = "#[#span class=left#]#%s#[#/span#]#"
     style_right = "#[#span class=right#]#%s#[#/span#]#"
 
+DEFAULT_PROMPT = ">>> "
 
 class ColorPrompt:
-    __prompt = ">>> "
+    __prompt = DEFAULT_PROMPT
     def __str__(self):
         try:
             from scapy import config

@@ -389,7 +389,7 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
         from IPython.terminal.ipapp import load_default_config
         from IPython.terminal import prompts
 
-        if conf.prompt == ">>> ":
+        if conf.prompt == themes.DEFAULT_PROMPT:
             # Replace default python with default ipython
             conf.prompt = prompts.Prompts
 
