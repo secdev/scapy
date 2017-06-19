@@ -789,9 +789,13 @@ class StrStopField(StrField):
         return RandTermString(RandNum(0,1200),self.stop)
 
 class LenField(Field):
+    __slots__ = ["adjust"]
+    def __init__(self, name, default, fmt="H", adjust=lambda x: x):
+        Field.__init__(self, name, default, fmt)
+        self.adjust = adjust
     def i2m(self, pkt, x):
         if x is None:
-            x = len(pkt.payload)
+            x = self.adjust(len(pkt.payload))
         return x
 
 class BCDFloatField(Field):
