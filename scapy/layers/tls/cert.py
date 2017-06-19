@@ -262,7 +262,7 @@ class PubKeyRSA(PubKey, _EncryptAndVerifyRSA):
             self.pubkey = private_key.public_key()
         else:
             real_modulusLen = len(binrepr(modulus))
-            if real_modulusLen != modulusLen:
+            if modulusLen and real_modulusLen != modulusLen:
                 warning("modulus and modulusLen do not match!")
             pubNum = rsa.RSAPublicNumbers(n=modulus, e=pubExp)
             self.pubkey = pubNum.public_key(default_backend())
@@ -458,7 +458,7 @@ class PrivKeyRSA(PrivKey, _EncryptAndVerifyRSA, _DecryptAndSignRSA):
             self.pubkey = self.key.public_key()
         else:
             real_modulusLen = len(binrepr(modulus))
-            if real_modulusLen != modulusLen:
+            if modulusLen and real_modulusLen != modulusLen:
                 warning("modulus and modulusLen do not match!")
             pubNum = rsa.RSAPublicNumbers(n=modulus, e=pubExp)
             privNum = rsa.RSAPrivateNumbers(p=prime1, q=prime2,

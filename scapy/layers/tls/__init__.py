@@ -84,6 +84,8 @@ TODO list (may it be carved away by good souls):
 
         - Define several Certificate Transparency objects.
 
+        - Add the extended master secret and encrypt-then-mac logic.
+
         - Mostly unused features : DSS, fixed DH, SRP, char2 curves...
 """
 

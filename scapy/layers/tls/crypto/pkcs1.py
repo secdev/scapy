@@ -118,7 +118,9 @@ if conf.crypto_valid:
         if padStr == "pkcs":
             return padding.PKCS1v15()
         elif padStr == "pss":
-            return padding.PSS(mgf=mgf(h), salt_length=padding.PSS.MAX_LENGTH)
+            # Can't find where this is written, but we have to use the digest
+            # size instead of the automatic padding.PSS.MAX_LENGTH.
+            return padding.PSS(mgf=mgf(h), salt_length=h.digest_size)
         elif padStr == "oaep":
             return padding.OAEP(mgf=mgf(h), algorithm=h, label=label)
         else:

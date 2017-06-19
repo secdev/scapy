@@ -824,12 +824,12 @@ class TLSCertificateVerify(_TLSHandshake):
         if sig is None:
             s = self.tls_session
             m = "".join(s.handshake_messages)
-            if s.tls_version >= 0x0304:     #XXX to be tested!
+            if s.tls_version >= 0x0304:
                 if s.connection_end == "client":
                     context_string = "TLS 1.3, client CertificateVerify"
                 elif s.connection_end == "server":
                     context_string = "TLS 1.3, server CertificateVerify"
-                m = 64*"\x20" + context_string + "\x00" + s.wcs.hash.digest(m)
+                m = b"\x20"*64 + context_string + b"\x00" + s.wcs.hash.digest(m)
             self.sig = _TLSSignature(tls_session=s)
             if s.connection_end == "client":
                 self.sig._update_sig(m, s.client_key)
@@ -841,12 +841,12 @@ class TLSCertificateVerify(_TLSHandshake):
     def post_dissection(self, pkt):
         s = self.tls_session
         m = "".join(s.handshake_messages)
-        if s.tls_version >= 0x0304:         #XXX to be tested!
+        if s.tls_version >= 0x0304:
             if s.connection_end == "client":
                 context_string = "TLS 1.3, server CertificateVerify"
             elif s.connection_end == "server":
                 context_string = "TLS 1.3, client CertificateVerify"
-            m = 64*"\x20" + context_string + "\x00" + s.rcs.hash.digest(m)
+            m = b"\x20"*64 + context_string + b"\x00" + s.rcs.hash.digest(m)
 
         if s.connection_end == "server":
             if s.client_certs and len(s.client_certs) > 0:
