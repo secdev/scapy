@@ -92,7 +92,12 @@ class GTPHeader(Packet):
                    BitField("SPARE", 0, 1),
                    BitField("SPARE", 0, 1),
                    ByteEnumField("gtp_type", None, GTPmessageType),
-                   ShortField("length", None)]
+                   ShortField("length", None),
+                   ConditionalField(IntField("teid", 0),
+                                    lambda pkt:pkt.T == 1),
+                   ThreeBytesField("seq", RandShort()),
+                   ByteField("SPARE", 0)
+                   ]
 
     def post_build(self, p, pay):
         p += pay
@@ -769,24 +774,15 @@ ietypecls = {1: IE_IMSI,
 
 
 class GTPV2Command(Packet):
-    fields_desc = [IntField("teid", 0),
-                   ThreeBytesField("seq", RandShort()),
-                   ByteField("SPARE", 0),
-                   PacketListField("IE_list", None, IE_Dispatcher)]
+    fields_desc = [PacketListField("IE_list", None, IE_Dispatcher)]
 
 
 class GTPV2EchoRequest(GTPV2Command):
     name = "GTPv2 Echo Request"
-    fields_desc = [ThreeBytesField("seq", RandShort()),
-                   ByteField("SPARE", 0),
-                   PacketListField("IE_list", None, IE_Dispatcher)]
 
 
 class GTPV2EchoResponse(GTPV2Command):
     name = "GTPv2 Echo Response"
-    fields_desc = [ThreeBytesField("seq", RandShort()),
-                   ByteField("SPARE", 0),
-                   PacketListField("IE_list", None, IE_Dispatcher)]
 
 
 class GTPV2CreateSessionRequest(GTPV2Command):
@@ -888,8 +884,8 @@ class GTPV2DownlinkDataNotif(GTPV2Command):
 class GTPV2DownlinkDataNotifAck(GTPV2Command):
     name = "GTPv2 Download Data Notification Acknowledgment"
 
-bind_layers(GTPHeader, GTPV2EchoRequest, gtp_type=1)
-bind_layers(GTPHeader, GTPV2EchoResponse, gtp_type=2)
+bind_layers(GTPHeader, GTPV2EchoRequest, gtp_type=1, T=0)
+bind_layers(GTPHeader, GTPV2EchoResponse, gtp_type=2, T=0)
 bind_layers(GTPHeader, GTPV2CreateSessionRequest, gtp_type=32)
 bind_layers(GTPHeader, GTPV2CreateSessionResponse, gtp_type=33)
 bind_layers(GTPHeader, GTPV2ModifyBearerRequest, gtp_type=34)

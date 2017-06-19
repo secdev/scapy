@@ -232,7 +232,7 @@ class GTPHeader(Packet):
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         if _pkt and len(_pkt) >= 1:
             if (struct.unpack("B", _pkt[0])[0] >> 5) & 0x7 == 2:
-                import gtp_v2
+                from . import gtp_v2
                 return gtp_v2.GTPHeader
         if _pkt and len(_pkt) >= 8:
             _gtp_type = struct.unpack("!B", _pkt[1:2])[0]
