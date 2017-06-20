@@ -119,6 +119,9 @@ _VBS_WMI_FIELDS = {
         # So we use get the device ID instead, then use _vbs_get_hardware_iface_guid
         # To get its real GUID
         "GUID": "DeviceID"
+    },
+    "*": {
+        "Status": "State"
     }
 }
 
@@ -135,20 +138,21 @@ _VBS_WMI_OUTPUT = {
 }
 
 def _exec_query_vbs(cmd, fields):
-    """Execute a query using VBS. Currently Get-WmiObject queries are
-    supported.
+    """Execute a query using VBS. Currently Get-WmiObject, Get-Service
+    queries are supported.
 
     """
-    if not(len(cmd) == 2 and cmd[0] == "Get-WmiObject"):
+    if not(len(cmd) == 2 and cmd[0] in ["Get-WmiObject", "Get-Service"]):
         return
-    
-    fields = [_VBS_WMI_FIELDS.get(cmd[1], {}).get(fld, fld) for fld in fields]
+    action = cmd[0]
+    fields = [_VBS_WMI_FIELDS.get(cmd[1], _VBS_WMI_FIELDS.get("*", {})).get(fld, fld) for fld in fields]
     parsed_command = "WScript.Echo " + " & \" @ \" & ".join("line.%s" % fld for fld in fields
                            if fld is not None)
     # The IPAddress is an array: convert it to a string
     for key,val in _VBS_WMI_REPLACE.get(cmd[1], {}).items():
         parsed_command = parsed_command.replace(key, val)
-    values = _vbs_exec_code("""Set wmi = GetObject("winmgmts:")
+    if action == "Get-WmiObject":
+        values = _vbs_exec_code("""Set wmi = GetObject("winmgmts:")
 Set lines = wmi.InstancesOf("%s")
 On Error Resume Next
 Err.clear
@@ -156,7 +160,13 @@ For Each line in lines
   %s
 Next
 """ % (cmd[1], parsed_command), "@")
-    
+    elif action == "Get-Service":
+        values = _vbs_exec_code("""serviceName = "%s"
+Set wmi = GetObject("winmgmts://./root/cimv2")
+Set line = wmi.Get("Win32_Service.Name='" & serviceName & "'")
+%s
+""" % (cmd[1], parsed_command), "@")
+
     while True:
         yield [None if fld is None else
                _VBS_WMI_OUTPUT.get(cmd[1], {}).get(fld, lambda x: x)(
@@ -367,12 +377,10 @@ def pcap_service_name():
 
 def pcap_service_status():
     """Returns a tuple (name, description, started) of the windows pcap adapter"""
-    if not conf.prog.powershell:
-        return (None, None, None)
     for i in exec_query(['Get-Service', 'npcap'], ['Name', 'DisplayName', 'Status']):
         name = i[0]
         description = i[1]
-        started = (not i[2].lower().strip() == 'stopped')
+        started = (i[2].lower().strip() == 'running')
         if name == pcap_service_name():
             return (name, description, started)
     return (None, None, None)
