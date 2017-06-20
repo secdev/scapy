@@ -136,8 +136,7 @@ class _CipherSuitesField(StrLenField):
         self.itemsize = struct.calcsize(itemfmt)
         i2s = self.i2s = {}
         s2i = self.s2i = {}
-        keys = list(dico.keys())
-        for k in keys:
+        for k in six.iterkeys(dico):
             i2s[k] = dico[k]
             s2i[dico[k]] = k
 

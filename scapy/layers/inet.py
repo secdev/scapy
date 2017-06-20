@@ -31,7 +31,7 @@ import scapy.as_resolvers
 
 from scapy.arch import plt, MATPLOTLIB_INLINED, MATPLOTLIB_DEFAULT_PLOT_KARGS
 import scapy.modules.six as six
-from scapy.modules.six.moves import map, range, zip
+from scapy.modules.six.moves import range
 
 ####################
 ## IP Tools class ##
