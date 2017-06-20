@@ -414,7 +414,7 @@ class IKEv2(IKEv2_class): # rfc4306
         ByteEnumField("exch_type",0,IKEv2_exchange_type),
         FlagsField("flags",0, 8, ["res0","res1","res2","Initiator","Version","Response","res6","res7"]),
         IntField("id",0),
-        IntField("length",0)
+        IntField("length",None) # Length of total message: packets + all payloads
         ]
 
     def guess_payload_class(self, payload):
@@ -462,10 +462,10 @@ class IKEv2_payload_Proposal(IKEv2_class):
     fields_desc = [
         ByteEnumField("next_payload",None,{0:"last", 2:"Proposal"}),
         ByteField("res",0),
-        FieldLenField("length",None,"trans","H", adjust=lambda pkt,x:x+8+pkt.SPIsize),
+        FieldLenField("length",None,"trans","H", adjust=lambda pkt,x:x+8+(pkt.SPIsize if pkt.SPIsize else 0)),
         ByteField("proposal",1),
-        ByteEnumField("proto",1,{1:"IKEv2"}),
-        FieldLenField("SPIsize",0,"SPI","B"),
+        ByteEnumField("proto",1,{1:"IKEv2", 2:"AH", 3:"ESP"}),
+        FieldLenField("SPIsize",None,"SPI","B"),
         ByteField("trans_nb",None),
         StrLenField("SPI","",length_from=lambda pkt:pkt.SPIsize),
         PacketLenField("trans",conf.raw_layer(),IKEv2_payload_Transform,length_from=lambda pkt:pkt.length-8-pkt.SPIsize),
@@ -512,7 +512,7 @@ class TrafficSelector(Packet):
             if ts_type == 7:
                 return IPv4TrafficSelector
             elif ts_type == 8:
-                IPv6TrafficSelector
+                return IPv6TrafficSelector
             elif ts_type == 9:
                 return EncryptedTrafficSelector
             else:
@@ -524,7 +524,7 @@ class IPv4TrafficSelector(TrafficSelector):
     fields_desc = [
         ByteEnumField("TS_type",7,IKEv2TrafficSelectorTypes),
         ByteEnumField("IP_protocol_ID",None,IPProtocolIDs),
-        FieldLenField("length",None,"load","H", adjust=lambda pkt,x:16),
+        ShortField("length",16),
         ShortField("start_port",0),
         ShortField("end_port",65535),
         IPField("starting_address_v4","192.168.0.1"),
@@ -536,7 +536,7 @@ class IPv6TrafficSelector(TrafficSelector):
     fields_desc = [
         ByteEnumField("TS_type",8,IKEv2TrafficSelectorTypes),
         ByteEnumField("IP_protocol_ID",None,IPProtocolIDs),
-        FieldLenField("length",None,"load","H", adjust=lambda pkt,x:20),
+        ShortField("length",20),
         ShortField("start_port",0),
         ShortField("end_port",65535),
         IP6Field("starting_address_v6","2001::"),
@@ -548,7 +548,7 @@ class EncryptedTrafficSelector(TrafficSelector):
     fields_desc = [
         ByteEnumField("TS_type",9,IKEv2TrafficSelectorTypes),
         ByteEnumField("IP_protocol_ID",None,IPProtocolIDs),
-        FieldLenField("length",None,"load","H", adjust=lambda pkt,x:16),
+        ShortField("length",16),
         ByteField("res",0),
         X3BytesField("starting_address_FC",0),
         ByteField("res2",0),
@@ -714,7 +714,7 @@ class IKEv2_payload_CERT_CRT(IKEv2_payload_CERT):
     fields_desc = [
         ByteEnumField("next_payload",None,IKEv2_payload_type),
         ByteField("res",0),
-        FieldLenField("length",None,"cert_data","H",adjust=lambda pkt,x: x+len(pkt.x509Cert)+5),
+        FieldLenField("length",None,"x509Cert","H",adjust=lambda pkt,x: x+len(pkt.x509Cert)+5),
         ByteEnumField("cert_type",4,IKEv2CertificateEncodings),
         PacketLenField("x509Cert", X509_Cert(''), X509_Cert, length_from=lambda x:x.length-5),
         ]
@@ -724,7 +724,7 @@ class IKEv2_payload_CERT_CRL(IKEv2_payload_CERT):
     fields_desc = [
         ByteEnumField("next_payload",None,IKEv2_payload_type),
         ByteField("res",0),
-        FieldLenField("length",None,"cert_data","H",adjust=lambda pkt,x: x+len(pkt.x509CRL)+5),
+        FieldLenField("length",None,"x509CRL","H",adjust=lambda pkt,x: x+len(pkt.x509CRL)+5),
         ByteEnumField("cert_type",7,IKEv2CertificateEncodings),
         PacketLenField("x509CRL", X509_CRL(''), X509_CRL, length_from=lambda x:x.length-5),
         ]
