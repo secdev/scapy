@@ -187,10 +187,8 @@ def init_session(session_name, mydict=None):
     global session
     global globkeys
     
-    scapy_builtins = importlib.import_module(".all", "scapy").__dict__
-    for name, sym in six.iteritems(scapy_builtins):
-        if _validate_local(name):
-            six.moves.builtins.__dict__[name] = sym
+    scapy_builtins = {k: v for k, v in six.iteritems(importlib.import_module(".all", "scapy").__dict__) if _validate_local(k)}
+    six.moves.builtins.__dict__.update(scapy_builtins)
     globkeys = list(scapy_builtins.keys())
     globkeys.append("scapy_session")
     scapy_builtins=None # XXX replace with "with" statement
