@@ -5,4 +5,4 @@ if python --version 2>&1 | grep -q '^Python 2'; then
 else
     PYTHON=python2
 fi
-PYTHONPATH=$DIR exec $PYTHON -m scapy.__init__
+PYTHONPATH=$DIR exec $PYTHON -m scapy.__init__ $@
