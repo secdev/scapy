@@ -3466,6 +3466,9 @@ a.optcode == 6 and a.optlen == 0 and a.reqopts == [23,24]
 a=DHCP6OptOptReq(b'\x00\x06\x00\x08\x00\x01\x00\x02\x00\x03\x00\x04')
 a.optcode == 6 and a.optlen == 8 and a.reqopts == [1,2,3,4]
 
+= DHCP6OptOptReq - repr
+a.show()
+
 
 ############
 ############
@@ -3503,6 +3506,9 @@ a.optcode == 8 and a.optlen == 2 and a.elapsedtime == 0
 = DHCP6OptElapsedTime - Dissection with specific values
 a=DHCP6OptElapsedTime(b'\x00\x08\x00\x02\x01\xa5')
 a.optcode == 8 and a.optlen == 2 and a.elapsedtime == 421
+
+= DHCP6OptElapsedTime - Repr
+a.show()
 
 
 ############
@@ -4247,6 +4253,11 @@ a.msgtype == 7 and a.trid == 0
 a=UDP()/DHCP6_Reply()
 a.sport == 547 and a.dport == 546
 
+= DHCP6_Reply - Answers
+
+assert not DHCP6_Reply(trid=0).answers(DHCP6_Request(trid=1))
+assert DHCP6_Reply(trid=1).answers(DHCP6_Request(trid=1))
+
 
 ############
 ############
@@ -4330,6 +4341,17 @@ a.msgtype == 12 and DHCP6OptRelayMsg in a and DHCP6OptClientId in a
 
 ############
 ############
++ Test DHCP6 Messages - DHCP6OptRelayMsg
+
+= DHCP6OptRelayMsg - Basic Instantiation
+str(DHCP6OptRelayMsg(optcode=37)) == b'\x00%\x00\x00'
+
+= DHCP6OptRelayMsg - Basic Dissection
+a=DHCP6OptRelayMsg(b'\x00\r\x00\x00')
+assert a.optcode == 13
+
+############
+############
 + Test DHCP6 Messages - DHCP6_RelayReply
 
 = DHCP6_RelayReply - Basic Instantiation
@@ -4339,6 +4361,53 @@ str(DHCP6_RelayReply()) == b'\r\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\
 a=DHCP6_RelayReply(b'\r\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
 a.msgtype == 13 and a.hopcount == 0 and a.linkaddr == "::" and a.peeraddr == "::"
 
+############
+############
++ Test DHCPv6_am
+
+= DHCPv6_am - Basic Instantiaion
+~ ipv6 netaccess
+a = DHCPv6_am()
+a.usage()
+
+a.parse_options(dns="2001:500::1035", domain="localdomain, local", duid=None,
+	iface=conf.iface6, advpref=255, sntpservers=None, 
+        sipdomains=None, sipservers=None, 
+        nisdomain=None, nisservers=None, 
+        nispdomain=None, nispservers=None,
+        bcmcsdomains=None, bcmcsservers=None,
+	debug=1)
+
+= DHCPv6_am - SOLICIT
+~ ipv6 netaccess
+req = IPv6(dst="::1")/UDP()/DHCP6(msgtype=1)/DHCP6OptClientId(duid=DUID_LLT())
+assert a.is_request(req)
+res = a.make_reply(req)
+assert not a.is_request(res)
+assert res[DHCP6_Advertise]
+assert res[DHCP6OptPref].prefval == 255
+assert res[DHCP6OptReconfAccept]
+a.print_reply(req, res)
+
+= DHCPv6_am - INFO-REQUEST
+~ ipv6 netaccess
+req = IPv6(dst="::1")/UDP()/DHCP6(msgtype=11)/DHCP6OptClientId(duid=DUID_LLT())
+assert a.is_request(req)
+res = a.make_reply(req)
+assert not a.is_request(res)
+assert res[DHCP6_Reply]
+assert "local" in res[DHCP6OptDNSDomains].dnsdomains
+a.print_reply(req, res)
+
+= DHCPv6_am - REQUEST
+~ ipv6 netaccess
+req = IPv6(dst="::1")/UDP()/DHCP6(msgtype=3)/DHCP6OptClientId(duid=DUID_LLT())/DHCP6OptServerId(duid=a.duid)
+assert a.is_request(req)
+res = a.make_reply(req)
+assert not a.is_request(res)
+assert res[UDP].dport == 546
+assert res[DHCP6_Solicit]
+a.print_reply(req, res)
 
 ############
 ############

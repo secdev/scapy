@@ -1194,12 +1194,12 @@ class DHCPv6_am(AnsweringMachine):
     send_function = staticmethod(send)
     def usage(self):
         msg = """
-dhcp6d( dns="2001:500::1035", domain="localdomain, local", duid=None)
-        iface=conf.iface6, advpref=255, sntpservers=None, 
+DHCPv6_am.parse_options( dns="2001:500::1035", domain="localdomain, local",
+        duid=None, iface=conf.iface6, advpref=255, sntpservers=None, 
         sipdomains=None, sipservers=None, 
         nisdomain=None, nisservers=None, 
         nispdomain=None, nispservers=None,
-        bcmcsdomain=None, bcmcsservers=None)
+        bcmcsdomains=None, bcmcsservers=None)
 
    debug : When set, additional debugging information is printed. 
 
@@ -1331,7 +1331,7 @@ dhcp6d( dns="2001:500::1035", domain="localdomain, local", duid=None)
             # Timeval
             from time import gmtime, strftime, mktime
             epoch = (2000, 1, 1, 0, 0, 0, 5, 1, 0)
-            delta = mktime(epoch) - mktime(gmtime(0))
+            delta = mktime(epoch) - EPOCH
             timeval = time.time() - delta
 
             # Mac Address

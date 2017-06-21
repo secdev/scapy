@@ -62,6 +62,9 @@ then
     $SCAPY_SUDO ./run_tests -q -F -t bpf.uts $UT_FLAGS || exit $?
   fi
   UT_FLAGS+=" -K manufdb -K linux"
+else
+  # IPv6 is not available yet on the linux machines (but is on OSX)
+  UT_FLAGS+=" -K ipv6"
 fi
 
 # Run all normal and contrib tests
