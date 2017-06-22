@@ -8547,7 +8547,31 @@ query = Dot11(type=0, subtype=0)
 Dot11(type=0, subtype=1).answers(query) == True
 
 = Dot11 - misc
-Dot11Elt(info="scapy").summary() == "SSID='scapy'"
+assert Dot11Elt(info="scapy").summary() == "SSID='scapy'"
+assert Dot11Elt(ID=1).mysummary() == ""
+
+= Dot11WEP - build
+~ crypto
+conf.wepkey = ""
+assert str(PPI()/Dot11(FCfield=0x40)/Dot11WEP()) == b'\x00\x00\x08\x00i\x00\x00\x00\x00@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+conf.wepkey = "test123"
+assert str(PPI()/Dot11(type=2, subtype=8, FCfield=0x40)/Dot11QoS()/Dot11WEP()) == b'\x00\x00\x08\x00i\x00\x00\x00\x88@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x008(^a'
+
+= Dot11WEP - dissect
+~ crypto
+conf.wepkey = "test123"
+a = PPI(b'\x00\x00\x08\x00i\x00\x00\x00\x88@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x008(^a')
+assert a[Dot11QoS][Dot11WEP].icv == 942169697
+
+= Dot11 - answers
+a = Dot11()/Dot11Auth(seqnum=1)
+b = Dot11()/Dot11Auth(seqnum=2)
+assert b.answers(a)
+assert not a.answers(b)
+
+assert not (Dot11()/Dot11Ack()).answers(Dot11())
+assert (Dot11()/LLC(dsap=2, ctrl=4)).answers(Dot11()/LLC(dsap=1, ctrl=5))
+
 
 ############
 ############
