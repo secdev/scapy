@@ -22,7 +22,7 @@ from scapy.error import warning
 from functools import reduce
 
 
-def construct_source_candidate_set(addr, plen, laddr, loiface):
+def construct_source_candidate_set(addr, plen, laddr):
     """
     Given all addresses assigned to a specific interface ('laddr' parameter),
     this function returns the "candidate set" associated with 'addr/plen'.
@@ -58,7 +58,7 @@ def construct_source_candidate_set(addr, plen, laddr, loiface):
         cset = filter(lambda x: x[1] == IPV6_ADDR_SITELOCAL, laddr)
     elif in6_ismaddr(addr):
         if in6_ismnladdr(addr):
-            cset = [('::1', 16, loiface)]
+            cset = [('::1', 16, scapy.consts.LOOPBACK_INTERFACE)]
         elif in6_ismgladdr(addr):
             cset = filter(lambda x: x[1] == IPV6_ADDR_GLOBAL, laddr)
         elif in6_ismlladdr(addr):

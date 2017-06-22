@@ -320,7 +320,7 @@ def read_routes6():
         else:
             # Get possible IPv6 source addresses
             devaddrs = filter(lambda x: x[2] == dev, lifaddr)
-            cset = construct_source_candidate_set(destination, destination_plen, devaddrs, LOOPBACK_NAME)
+            cset = construct_source_candidate_set(destination, destination_plen, devaddrs)
 
         if len(cset):
             routes.append((destination, destination_plen, next_hop, dev, cset))

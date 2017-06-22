@@ -129,6 +129,13 @@ x.signatureValue == ASN1_BIT_STRING(b"6\xce\xdd\x01\xbdz\x1f\x89[\xc71i_\xb5\x90
 = Cert class : Default X509_Cert from scratch
 str(X509_Cert(str(X509_Cert()))) == str(X509_Cert())
 
+= Cert class : Error
+try:
+    Cert("fail")
+except:
+    assert True
+else:
+    assert False
 
 ############ CRL class ###############################################
 

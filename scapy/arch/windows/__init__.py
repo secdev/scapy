@@ -684,7 +684,7 @@ def _append_route6(routes, dpref, dp, nh, iface, lifaddr):
         cset = ['::1']
     else:
         devaddrs = filter(lambda x: x[2] == iface, lifaddr)
-        cset = scapy.utils6.construct_source_candidate_set(dpref, dp, devaddrs, scapy.consts.LOOPBACK_INTERFACE)
+        cset = scapy.utils6.construct_source_candidate_set(dpref, dp, devaddrs)
     if len(cset) == 0:
         return
     # APPEND (DESTINATION, NETMASK, NEXT HOP, IFACE, CANDIDATS)

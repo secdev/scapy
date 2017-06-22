@@ -53,3 +53,13 @@ for i in xrange(10):
 assert(os.system(IPTABLE_RULE % ('D', SECDEV_IP4)) == 0)
 
 assert(success)
+
+= Supersocket _flush_fd
+~ needs_root linux
+
+import select
+
+from scapy.arch.linux import _flush_fd
+socket = conf.L2listen()
+select.select([socket],[],[],2)
+_flush_fd(socket.ins)

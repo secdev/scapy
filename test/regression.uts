@@ -207,6 +207,8 @@ except OSError:
     pass
 
 = Test temporary file creation
+~ appveyor_only
+
 tmpfile = get_temp_file(autoext=".ut")
 if WINDOWS:
     assert("scapy" in tmpfile and tmpfile.startswith('C:\\Users\\appveyor\\AppData\\Local\\Temp'))
@@ -3464,6 +3466,9 @@ a.optcode == 6 and a.optlen == 0 and a.reqopts == [23,24]
 a=DHCP6OptOptReq(b'\x00\x06\x00\x08\x00\x01\x00\x02\x00\x03\x00\x04')
 a.optcode == 6 and a.optlen == 8 and a.reqopts == [1,2,3,4]
 
+= DHCP6OptOptReq - repr
+a.show()
+
 
 ############
 ############
@@ -3501,6 +3506,9 @@ a.optcode == 8 and a.optlen == 2 and a.elapsedtime == 0
 = DHCP6OptElapsedTime - Dissection with specific values
 a=DHCP6OptElapsedTime(b'\x00\x08\x00\x02\x01\xa5')
 a.optcode == 8 and a.optlen == 2 and a.elapsedtime == 421
+
+= DHCP6OptElapsedTime - Repr
+a.show()
 
 
 ############
@@ -4245,6 +4253,11 @@ a.msgtype == 7 and a.trid == 0
 a=UDP()/DHCP6_Reply()
 a.sport == 547 and a.dport == 546
 
+= DHCP6_Reply - Answers
+
+assert not DHCP6_Reply(trid=0).answers(DHCP6_Request(trid=1))
+assert DHCP6_Reply(trid=1).answers(DHCP6_Request(trid=1))
+
 
 ############
 ############
@@ -4328,6 +4341,17 @@ a.msgtype == 12 and DHCP6OptRelayMsg in a and DHCP6OptClientId in a
 
 ############
 ############
++ Test DHCP6 Messages - DHCP6OptRelayMsg
+
+= DHCP6OptRelayMsg - Basic Instantiation
+str(DHCP6OptRelayMsg(optcode=37)) == b'\x00%\x00\x00'
+
+= DHCP6OptRelayMsg - Basic Dissection
+a=DHCP6OptRelayMsg(b'\x00\r\x00\x00')
+assert a.optcode == 13
+
+############
+############
 + Test DHCP6 Messages - DHCP6_RelayReply
 
 = DHCP6_RelayReply - Basic Instantiation
@@ -4337,6 +4361,53 @@ str(DHCP6_RelayReply()) == b'\r\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\
 a=DHCP6_RelayReply(b'\r\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
 a.msgtype == 13 and a.hopcount == 0 and a.linkaddr == "::" and a.peeraddr == "::"
 
+############
+############
++ Test DHCPv6_am
+
+= DHCPv6_am - Basic Instantiaion
+~ ipv6 netaccess
+a = DHCPv6_am()
+a.usage()
+
+a.parse_options(dns="2001:500::1035", domain="localdomain, local", duid=None,
+	iface=conf.iface6, advpref=255, sntpservers=None, 
+        sipdomains=None, sipservers=None, 
+        nisdomain=None, nisservers=None, 
+        nispdomain=None, nispservers=None,
+        bcmcsdomains=None, bcmcsservers=None,
+	debug=1)
+
+= DHCPv6_am - SOLICIT
+~ ipv6 netaccess
+req = IPv6(dst="::1")/UDP()/DHCP6(msgtype=1)/DHCP6OptClientId(duid=DUID_LLT())
+assert a.is_request(req)
+res = a.make_reply(req)
+assert not a.is_request(res)
+assert res[DHCP6_Advertise]
+assert res[DHCP6OptPref].prefval == 255
+assert res[DHCP6OptReconfAccept]
+a.print_reply(req, res)
+
+= DHCPv6_am - INFO-REQUEST
+~ ipv6 netaccess
+req = IPv6(dst="::1")/UDP()/DHCP6(msgtype=11)/DHCP6OptClientId(duid=DUID_LLT())
+assert a.is_request(req)
+res = a.make_reply(req)
+assert not a.is_request(res)
+assert res[DHCP6_Reply]
+assert "local" in res[DHCP6OptDNSDomains].dnsdomains
+a.print_reply(req, res)
+
+= DHCPv6_am - REQUEST
+~ ipv6 netaccess
+req = IPv6(dst="::1")/UDP()/DHCP6(msgtype=3)/DHCP6OptClientId(duid=DUID_LLT())/DHCP6OptServerId(duid=a.duid)
+assert a.is_request(req)
+res = a.make_reply(req)
+assert not a.is_request(res)
+assert res[UDP].dport == 546
+assert res[DHCP6_Solicit]
+a.print_reply(req, res)
 
 ############
 ############
@@ -5192,6 +5263,40 @@ wrpcap(filename, [IP()/UDP(), IPv6()/UDP()], linktype=DLT_RAW)
 packets = rdpcap(filename)
 assert(isinstance(packets[0], IP) and isinstance(packets[1], IPv6))
 
+############
+############
++ LLMNR protocol
+
+= Simple packet dissection
+pkt = Ether(b'\x11\x11\x11\x11\x11\x11\x99\x99\x99\x99\x99\x99\x08\x00E\x00\x00(\x00\x01\x00\x00@\x11:\xa4\xc0\xa8\x00w\x7f\x00\x00\x01\x14\xeb\x14\xeb\x00\x14\x95\xcf\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+assert pkt.sport == 5355
+assert pkt.dport == 5355
+assert pkt[LLMNRQuery].opcode == 0
+
+= Packet build / dissection
+pkt = UDP(str(UDP()/LLMNRResponse()))
+assert LLMNRResponse in pkt
+assert pkt.qr == 1
+assert pkt.c == 0
+assert pkt.tc == 0
+assert pkt.z == 0
+assert pkt.rcode == 0
+assert pkt.qdcount == 0
+assert pkt.arcount == 0
+assert pkt.nscount == 0
+assert pkt.ancount == 0
+
+= Answers - building
+a = UDP()/LLMNRResponse()
+b = UDP()/LLMNRQuery()
+assert a.answers(b)
+assert not b.answers(a)
+
+= Answers - dissecting
+a = Ether(b'\xd0P\x99V\xdd\xf9\x14\x0cv\x8f\xfe(\x08\x00E\x00\x00(\x00\x01\x00\x00@\x11:\xa4\x7f\x00\x00\x01\xc0\xa8\x00w\x14\xeb\x14\xeb\x00\x14\x95\xcf\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+b = Ether(b'\x14\x0cv\x8f\xfe(\xd0P\x99V\xdd\xf9\x08\x00E\x00\x00(\x00\x01\x00\x00@\x11:\xa4\xc0\xa8\x00w\x7f\x00\x00\x01\x14\xeb\x14\xeb\x00\x14\x15\xcf\x00\x00\x80\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+assert b.answers(a)
+assert not a.answers(b)
 
 ############
 ############
@@ -5867,6 +5972,20 @@ ff02::%lo0/32                      ::1                            UC          - 
     assert(check_mandatory_ipv6_routes(routes))
 
 test_netbsd_7_0()
+
+############
+############
++ STP tests
+
+= STP - Basic Instantiation
+assert str(STP()) == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x14\x00\x02\x00\x0f\x00'
+
+= STP - Basic Dissection
+
+s = STP(b'\x00\x00\x00\x00\x00\x00\x00\x12\x13\x14\x15\x16\x17\x00\x00\x00\x00\x00\x00\xaa\xaa\xaa\xaa\xaa\xaa\x00\x00\x01\x00\x14\x00\x05\x00\x0f\x00')
+assert s.rootmac == "12:13:14:15:16:17"
+assert s.bridgemac == "aa:aa:aa:aa:aa:aa"
+assert s.hellotime == 5
 
 ############
 ############
@@ -7788,14 +7907,27 @@ in6_isaddrllallservers("ff02::2") == True
 
 = in6_getscope()
 
-in6_getscope("2001:db8::2807") == IPV6_ADDR_GLOBAL
-in6_getscope("fec0::2807") == IPV6_ADDR_SITELOCAL
-in6_getscope("fe80::2807") == IPV6_ADDR_LINKLOCAL
-in6_getscope("ff02::2807") == IPV6_ADDR_LINKLOCAL
-in6_getscope("ff0e::2807") == IPV6_ADDR_GLOBAL
-in6_getscope("ff05::2807") == IPV6_ADDR_SITELOCAL
-in6_getscope("ff01::2807") == IPV6_ADDR_LOOPBACK
-in6_getscope("::1") == IPV6_ADDR_LOOPBACK
+assert in6_getscope("2001:db8::2807") == IPV6_ADDR_GLOBAL
+assert in6_getscope("fec0::2807") == IPV6_ADDR_SITELOCAL
+assert in6_getscope("fe80::2807") == IPV6_ADDR_LINKLOCAL
+assert in6_getscope("ff02::2807") == IPV6_ADDR_LINKLOCAL
+assert in6_getscope("ff0e::2807") == IPV6_ADDR_GLOBAL
+assert in6_getscope("ff05::2807") == IPV6_ADDR_SITELOCAL
+assert in6_getscope("ff01::2807") == IPV6_ADDR_LOOPBACK
+assert in6_getscope("::1") == IPV6_ADDR_LOOPBACK
+
+= construct_source_candidate_set()
+
+dev_addresses = [('fe80::', IPV6_ADDR_LINKLOCAL, "linklocal"),('fec0::', IPV6_ADDR_SITELOCAL, "sitelocal"),('ff0e::', IPV6_ADDR_GLOBAL, "global")]
+
+assert construct_source_candidate_set("2001:db8::2807", 0, dev_addresses) == ["ff0e::"]
+assert construct_source_candidate_set("fec0::2807", 0, dev_addresses) == ["fec0::"]
+assert construct_source_candidate_set("fe80::2807", 0, dev_addresses) == ["fe80::"]
+assert construct_source_candidate_set("ff02::2807", 0, dev_addresses) == ["fe80::"]
+assert construct_source_candidate_set("ff0e::2807", 0, dev_addresses) == ["ff0e::"]
+assert construct_source_candidate_set("ff05::2807", 0, dev_addresses) == ["fec0::"]
+assert construct_source_candidate_set("ff01::2807", 0, dev_addresses) == ["::1"]
+assert construct_source_candidate_set("::", 0, dev_addresses) == ["ff0e::"]
 
 = inet_pton()
 

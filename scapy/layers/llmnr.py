@@ -50,8 +50,8 @@ class LLMNRResponse(LLMNRQuery):
 
 def _llmnr_dispatcher(x, *args, **kargs):
     cls = conf.raw_layer
-    if len(x) >= 3:
-        if (ord(x[4]) & 0x80): # Response
+    if len(x) >= 2:
+        if (ord(x[2]) & 0x80): # Response
             cls = LLMNRResponse
         else:                  # Query
             cls = LLMNRQuery
