@@ -101,7 +101,7 @@ class PPI(Packet):
     name = "Per-Packet Information header (partial)"
     fields_desc = [ ByteField("version", 0),
                     ByteField("flags", 0),
-                    FieldLenField("len", None, fmt="<H", length_of="fields", adjust=lambda pkt,x:x+8),
+                    FieldLenField("len", None, fmt="<H", length_of="notdecoded", adjust=lambda pkt,x:x+8),
                     LEIntField("dlt", 0),
                     StrLenField("notdecoded", "", length_from = lambda pkt:pkt.len-8)
                     ]
@@ -323,7 +323,7 @@ class Dot11WEP(Packet):
             return p[:4] + e.update(pay) + e.finalize() + icv
         else:
             warning("No WEP key set (conf.wepkey).. strange results expected..")
-            return None
+            return ""
 
     def post_build(self, p, pay):
         if self.wepdata is None:
