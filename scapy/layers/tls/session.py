@@ -49,15 +49,15 @@ class connState(object):
     parameters a current state.  The initial current state always
     specifies that no encryption, compression, or MAC will be used.
 
-    (For practical reasons, scapy scraps these two last lines, through the
+    (For practical reasons, Scapy scraps these two last lines, through the
     implementation of dummy ciphers and MAC with TLS_NULL_WITH_NULL_NULL.)
 
     These attributes and behaviours are mostly mapped in this class.
-    Also, note that scapy may make a current state out of a pending state
+    Also, note that Scapy may make a current state out of a pending state
     which has been initialized with dummy security parameters. We need
     this in order to know when the content of a TLS message is encrypted,
     whether we possess the right keys to decipher/verify it or not.
-    For instance, when scapy parses a CKE without knowledge of any secret,
+    For instance, when Scapy parses a CKE without knowledge of any secret,
     and then a CCS, it needs to know that the following Finished
     is encrypted and signed according to a new cipher suite, even though
     it cannot decipher the message nor verify its integrity.
@@ -335,7 +335,7 @@ class tlsSession(object):
 
         # The pending write/read states are updated by the building/parsing
         # of various TLS packets. They get committed to self.wcs/self.rcs
-        # once scapy builds/parses a ChangeCipherSpec message, or for certain
+        # once Scapy builds/parses a ChangeCipherSpec message, or for certain
         # other messages in case of TLS 1.3.
         self.pwcs = None
         self.triggered_pwcs_commit = False
@@ -353,7 +353,7 @@ class tlsSession(object):
 
         # The server private key, as a PrivKey instance, when acting as server.
         # XXX It would be nice to be able to provide both an RSA and an ECDSA
-        # key in order for the same scapy server to support both families of
+        # key in order for the same Scapy server to support both families of
         # cipher suites. See INIT_TLS_SESSION() in automaton_srv.py.
         # (For now server_key holds either one of both types for DHE
         # authentication, while server_rsa_key is used only for RSAkx.)
@@ -365,7 +365,7 @@ class tlsSession(object):
         # RSA keys longer than 512 bits for RSAkx. When their usual RSA key
         # was longer than this, they had to create a new key and send it via
         # a ServerRSAParams message. When receiving such a message,
-        # scapy stores this key in server_tmp_rsa_key as a PubKey instance.
+        # Scapy stores this key in server_tmp_rsa_key as a PubKey instance.
         self.server_tmp_rsa_key = None
 
         # When client authentication is performed, we need at least a

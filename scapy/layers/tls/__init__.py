@@ -19,14 +19,14 @@ Main features:
 
     - TLS records and sublayers (handshake...) parsing/building. Works with
       versions SSLv2 to TLS 1.2. This may be enhanced by a TLS context. For
-      instance, if scapy reads a ServerHello with version TLS 1.2 and a cipher
+      instance, if Scapy reads a ServerHello with version TLS 1.2 and a cipher
       suite using AES, it will assume the presence of IVs prepending the data.
       See test/tls.uts for real examples.
 
     - TLS encryption/decryption capabilities with many ciphersuites, including
       some which may be deemed dangerous. Once again, the TLS context enables
-      scapy to transparently send/receive protected data if it learnt the
-      session secrets. Note that if scapy acts as one side of the handshake
+      Scapy to transparently send/receive protected data if it learnt the
+      session secrets. Note that if Scapy acts as one side of the handshake
       (e.g. reads all server-related packets and builds all client-related
       packets), it will indeed compute the session secrets.
 

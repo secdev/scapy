@@ -217,7 +217,7 @@ class _SSLv2LengthField(_TLSLengthField):
         s = super(_SSLv2LengthField, self).i2repr(pkt, x)
         if pkt.with_padding:
             x |= 0x8000
-        #elif pkt.with_escape:      #XXX
+        #elif pkt.with_escape:      #XXX no complete support for 'escape' yet
         #   x |= 0x4000
             s += "    [with padding: %s]" % hex(x)
         return s

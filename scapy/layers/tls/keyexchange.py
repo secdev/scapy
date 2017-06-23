@@ -101,13 +101,15 @@ class SigAndHashAlgsField(FieldListField):
 class SigLenField(FieldLenField):
     """There is a trick for SSLv2, which uses implicit lengths..."""
     def getfield(self, pkt, s):
-        if pkt.tls_session.tls_version < 0x0300:
+        v = pkt.tls_session.tls_version
+        if v and v < 0x0300:
             return s, None
         return super(SigLenField, self).getfield(pkt, s)
 
     def addfield(self, pkt, s, val):
         """With SSLv2 you will never be able to add a sig_len."""
-        if pkt.tls_session.tls_version < 0x0300:
+        v = pkt.tls_session.tls_version
+        if v and v < 0x0300:
             return s
         return super(SigLenField, self).addfield(pkt, s, val)
 
@@ -115,7 +117,7 @@ class SigValField(StrLenField):
     """There is a trick for SSLv2, which uses implicit lengths..."""
     def getfield(self, pkt, m):
         s = pkt.tls_session
-        if s.tls_version < 0x0300:
+        if s.tls_version and s.tls_version < 0x0300:
             if len(s.client_certs) > 0:
                 sig_len = s.client_certs[0].pubKey.pubkey.key_size / 8
             else:

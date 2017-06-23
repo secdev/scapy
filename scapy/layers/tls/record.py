@@ -218,22 +218,22 @@ class TLS(_GenericTLSSessionInheritance):
     (Note that to do things properly, here 't1.tls_session' should actually be
     't1.tls_session.mirror()'. See session.py for explanations.)
 
-    As no context was passed to t2, neither was any client_random. Hence scapy
+    As no context was passed to t2, neither was any client_random. Hence Scapy
     will not be able to verify the signature of the server_key_exchange inside
     t2. However, it should be able to do so for t3, thanks to the tls_session.
     The consequence of not having a complete TLS context is even more obvious
     when trying to parse ciphered content, as we decribed before.
 
-    Thus, in order to parse TLS-protected communications with scapy:
-    _either scapy reads every message from one side of the TLS connection and
+    Thus, in order to parse TLS-protected communications with Scapy:
+    _either Scapy reads every message from one side of the TLS connection and
     builds every message from the other side (as such, it should know the
     secrets needed for the generation of the pre_master_secret), while passing
     the same tls_session context (this is how our automaton.py mostly works);
-    _or, if scapy did not build any TLS message, it has to create a TLS context
+    _or, if Scapy did not build any TLS message, it has to create a TLS context
     and feed it with secrets retrieved by whatever technique. Note that the
     knowing the private key of the server certificate will not be sufficient
     if a PFS ciphersuite was used. However, if you got a master_secret somehow,
-    use it with tls_session.(w|r)cs.derive_keys() and leave the rest to scapy.
+    use it with tls_session.(w|r)cs.derive_keys() and leave the rest to Scapy.
 
     When building a TLS message with str_stateful, we expect the tls_session to
     have the right parameters for ciphering. Else, .post_build() might fail.

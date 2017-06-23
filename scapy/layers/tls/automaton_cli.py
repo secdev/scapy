@@ -822,8 +822,9 @@ class TLSClientAutomaton(_TLSAutomaton):
         if self.client_hello:
             p = self.client_hello
         else:
-            # uncomment these lines (and provide the right IP) for testing TLS 1.3
-           #sn = ServerName(servername="blog.cloudflare.com")
+            # When trying to connect to a public TLS 1.3 server,
+            # you will most likely need to provide an SNI extension.
+           #sn = ServerName(servername="<put server name here>")
             ext = [TLS_Ext_SupportedGroups(groups=["secp256r1"]),
                   #TLS_Ext_ServerName(servernames=[sn]),
                    TLS_Ext_KeyShare_CH(client_shares=[KeyShareEntry(group=23)]),
