@@ -19,14 +19,55 @@ from scapy.data import MTU
 from scapy.supersocket import SuperSocket
 from scapy.consts import WINDOWS
 
+# In Windows, select.select is not available for custom objects. Here's the implementation of scapy to re-create this functionnality
+# Passive way: using no-ressources locks
+"""
+               +---------+             +---------------+      +-------------------------+
+               |  Start  +------------->Select_objects +----->+Linux: call select.select|
+               +---------+             |(select.select)|      +-------------------------+
+                                       +-------+-------+
+                                               |
+                                          +----v----+               +--------+
+                                          | Windows |               |Time Out+----------------------------------+
+                                          +----+----+               +----+---+                                  |
+                                               |                         ^                                      |
+      Event                                    |                         |                                      |
+        +                                      |                         |                                      |
+        |                              +-------v-------+                 |                                      |
+        |                       +------+Selectable Sel.+-----+-----------------+-----------+                    |
+        |                       |      +-------+-------+     |           |     |           v              +-----v-----+
++-------v----------+            |              |             |           |     |        Passive lock<-----+release_all<------+
+|Data added to list|       +----v-----+  +-----v-----+  +----v-----+     v     v            +             +-----------+      |
++--------+---------+       |Selectable|  |Selectable |  |Selectable|   ............         |                                |
+         |                 +----+-----+  +-----------+  +----------+                        |                                |
+         |                      v                                                           |                                |
+         v                 +----+------+   +------------------+               +-------------v-------------------+            |
+   +-----+------+          |wait_return+-->+  check_recv:     |               |                                 |            |
+   |call_release|          +----+------+   |If data is in list|               |  END state: selectable returned |        +---+--------+
+   +-----+--------              v          +-------+----------+               |                                 |        | exit door  |
+         |                    else                 |                          +---------------------------------+        +---+--------+
+         |                      +                  |                                                                         |
+         |                 +----v-------+          |                                                                         |
+         +--------->free -->Passive lock|          |                                                                         |
+                           +----+-------+          |                                                                         |
+                                |                  |                                                                         |
+                                |                  v                                                                         |
+                                +------------------Selectable-Selector-is-advertised-that-the-selectable-is-readable---------+
+"""
+
 class SelectableObject:
+    """DEV: to implement one of those, you need to add 2 things to your object:
+    - add "check_recv" function
+    - call "self.call_release" once you are ready to be read"""
     trigger = threading.Lock()
     was_ended = False
     def check_recv(self):
         """DEV: will be called only once (at beggining) to check if the object is ready."""
-        return False
+        raise OSError("This function must be overwriten.")
 
     def _wait_non_ressources(self, callback):
+        # This get started as a thread, and waits for the data lock to be freed
+        # Then advertise itself to the SelectableSelector using the callback
         self.call_release()
         self.trigger.acquire()
         self.trigger.acquire()
@@ -34,12 +75,14 @@ class SelectableObject:
             callback(self)
 
     def wait_return(self, callback):
+        # Entry point of SelectableObject: register the callback
         if self.check_recv():
             return callback(self)
         threading.Thread(target=self._wait_non_ressources, args=(callback,)).start()
         
     def call_release(self, arborted=False):
-        """DEV: Must be call when the object is ready to read."""
+        """DEV: Must be call when the object becomes ready to read."""
+        # Relesases the lock of _wait_non_ressources
         self.was_ended = arborted
         try:
             self.trigger.release()
@@ -59,17 +102,21 @@ class SelectableSelector(object):
     available_lock = None
     _ended = False
     def _release_all(self):
+        # Releases all locks to kill all threads
         for i in self.inputs:
             i.call_release(True)
         self.available_lock.release()
 
     def _timeout_thread(self, remain):
+        # Timeout before releasing every thing, if nothing was returned
         time.sleep(remain)
         if not self._ended:
             self._ended = True
             self._release_all()
 
     def _exit_door(self,_input):
+        # This function is passed to each SelectableObject as a callback
+        # The SelectableObjects have to call it once there are ready
         self.results.append(_input)
         if self._ended:
             return
@@ -85,6 +132,7 @@ class SelectableSelector(object):
         self._ended = False
 
     def process(self):
+        # Entry point of SelectableSelector
         if WINDOWS:
             if not self.remain:
                 for i in self.inputs:
@@ -111,7 +159,9 @@ class SelectableSelector(object):
 
 def select_objects(inputs, remain):
     """
-    Select SelectableObject objects.
+    Select SelectableObject objects. Same than:
+        select.select([inputs], [], [], remain)
+    But also works on Windows, only on SelectableObject.
     
     inputs: objects to process
     remain: timeout. If 0, return [].
