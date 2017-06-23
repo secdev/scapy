@@ -32,7 +32,7 @@ from scapy.layers.tls.session import (_GenericTLSSessionInheritance,
                                       readConnState, writeConnState)
 from scapy.layers.tls.crypto.compression import (_tls_compression_algs,
                                                  _tls_compression_algs_cls,
-                                                 _GenericComp,
+                                                 Comp_NULL, _GenericComp,
                                                  _GenericCompMetaclass)
 from scapy.layers.tls.crypto.suites import (_tls_cipher_suites,
                                             _tls_cipher_suites_cls,
@@ -339,6 +339,7 @@ class TLSServerHello(TLSClientHello):
                                           self.random_bytes)
         self.tls_session.sid = self.sid
 
+        cs_cls = None
         if self.cipher:
             cs_val = self.cipher
             if cs_val not in _tls_cipher_suites_cls:
@@ -347,6 +348,7 @@ class TLSServerHello(TLSClientHello):
             else:
                 cs_cls = _tls_cipher_suites_cls[cs_val]
 
+        comp_cls = Comp_NULL
         if self.comp:
             comp_val = self.comp[0]
             if comp_val not in _tls_compression_algs_cls:
@@ -392,6 +394,7 @@ class TLS13ServerHello(TLSClientHello):
         s.tls_version = self.version
         s.server_random = self.random_bytes
 
+        cs_cls = None
         if self.cipher:
             cs_val = self.cipher
             if cs_val not in _tls_cipher_suites_cls:
