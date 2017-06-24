@@ -333,7 +333,12 @@ if conf.use_winpcapy:
           else:
             return
       def send(self, x):
-          cls = conf.l2types[1]
+          ll = self.ins.datalink()
+          if ll in conf.l2types:
+              cls = conf.l2types[ll]
+          else:
+              cls = conf.default_l2
+              warning("Unable to guess datalink type (interface=%s linktype=%i). Using %s" % (self.iface, ll, cls.name))
           sx = raw(cls()/x)
           if hasattr(x, "sent_time"):
               x.sent_time = time.time()

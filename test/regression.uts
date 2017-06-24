@@ -690,10 +690,8 @@ assert x[IP].ottl() in [32, 64, 128, 255]
 assert 0 <= x[IP].hops() <= 126
 x is not None and ICMP in x and x[ICMP].type == 0
 
-# Not available on travis/appveyor
-
 #= Sending and receiving an ICMPv6EchoRequest
-#~ netaccess IP ICMP
+#~ netaccess ipv6
 #old_debug_dissector = conf.debug_dissector
 #conf.debug_dissector = False
 #x = sr1(IPv6(dst="www.google.com")/ICMPv6EchoRequest(),timeout=3)
@@ -1810,10 +1808,8 @@ b=IPv6(src="2047::deca", dst="2048::cafe")/ICMPv6EchoReply(id=0x6666, seq=0x7777
 a=IPv6(src="2048::cafe", dst="2047::deca")/ICMPv6EchoRequest(id=0x6666, seq=0x7777, data="somedata")
 (a > b) == True
 
-# Not available on travis/appveyor
-
 #= ICMPv6EchoRequest and ICMPv6EchoReply - live answers() use Net6
-#~ netaccess
+#~ netaccess ipv6
 #
 #a = IPv6(dst="www.google.com")/ICMPv6EchoRequest()
 #b = IPv6(src="www.google.com", dst=a.src)/ICMPv6EchoReply()
@@ -3161,14 +3157,14 @@ ICMPv6MLQuery in p and p[IPv6].dst == "ff02::1"
 ############
 + Ether tests with IPv6
 
-= Ether IPv6 checking for dst
-~ netaccess
-
+= Logic
 # No more routing test after this line
 if WINDOWS:
     route_add_loopback()
 
-# Not available on travis/appveyor
+#= Ether IPv6 checking for dst
+#~ netaccess ipv6
+#
 #p = Ether()/IPv6(dst="www.google.com")/TCP()
 #assert p.dst != p[IPv6].dst
 #p.show()
@@ -7977,9 +7973,8 @@ len([ o for o in oid ]) == 3
 n1 = Net6("2001:db8::/127")
 len([ip for ip in n1]) == 2
 
-# Not available yet on travis/appveyor
-
 #= Net6 using web address
+#~ ipv6
 #
 #ip = IPv6(dst="www.google.com")
 #n1 = ip.dst

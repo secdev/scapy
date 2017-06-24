@@ -19,12 +19,6 @@ assert select_objects([TimeOutSelector()], 1) == []
 ############
 + Windows Networking tests
 
-= Restore normal routes
-
-IFACES.reload()
-conf.route.resync()
-conf.route6.resync()
-
 = Mocked read_routes6() calls
 
 import mock
@@ -96,17 +90,33 @@ ifIndex DestinationPrefix                          NextHop
 
 test_read_routes6_windows()
 
-= Test LOOPBACK_INTERFACE
+= Restore normal routes & Ifaces
 
-# Not available yet on appveyor/travis
+IFACES.reload()
+conf.route.resync()
+conf.route6.resync()
 
+# Loopback Adapter is not installed on Appveyor for an unknown reason...
+
+#= Test LOOPBACK_INTERFACE on IPv4
+#
 #scapy.consts.LOOPBACK_INTERFACE
 #
-#a = sr1(IP()/ICMP(), iface=scapy.consts.LOOPBACK_INTERFACE, timeout=3)
+#a = srp1(Loopback()/IP()/ICMP(), iface=scapy.consts.LOOPBACK_INTERFACE)
 #assert a.src == "127.0.0.1"
 #assert a.haslayer(ICMP)
 #
-#b = sr1(IPv6()/ICMPv6EchoRequest(), iface=scapy.consts.LOOPBACK_INTERFACE, timeout=3)
+#a = sr1(IP()/ICMP(), iface=scapy.consts.LOOPBACK_INTERFACE)
+#assert a.src == "127.0.0.1"
+#assert a.haslayer(ICMP)
+
+#= Test LOOPBACK_INTERFACE on IPv6
+#
+#b = srp1(Loopback()/IPv6()/ICMPv6EchoRequest(), iface=scapy.consts.LOOPBACK_INTERFACE)
+#assert b.src == "::1"
+#assert b.haslayer(ICMPv6EchoReply)
+#
+#b = sr1(IPv6()/ICMPv6EchoRequest(), iface=scapy.consts.LOOPBACK_INTERFACE)
 #assert b.src == "::1"
 #assert b.haslayer(ICMPv6EchoReply)
 
