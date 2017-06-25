@@ -210,29 +210,29 @@ class Packet(BasePacket):
         payload = self.payload
         self.remove_payload()
         if index < len(self):
-            s = list(str(self)) #convert packet to list of chars
+            s = list(str(self))  # convert packet to list of chars
             s[index] = val
             s = "".join(s)
             self.dissect(s)
             self.add_payload(payload)
         else:
             index -= len(self)
-            if isinstance(self,NoPayload):
+            if isinstance(self, NoPayload):
                 raise IndexError("User supplied index out of bounds")
             self.add_payload(payload)
-            if isinstance(self.payload,Packet):
-                self.payload.set_byte(index,val)
+            if isinstance(self.payload, Packet):
+                self.payload.set_byte(index, val)
             else:
                 raise TypeError("Modified payload must be a Packet instance")
         return self
 
     def lastlayer_index(self):
-        #Find the lastlayer index
-        nb=1
-        layer = self.getlayer(None,nb)
+        # Find the lastlayer index
+        nb = 1
+        layer = self.getlayer(None, nb)
         while layer is not None:
             nb += 1
-            layer = self.getlayer(None,nb)
+            layer = self.getlayer(None, nb)
         lastlayerindex = nb - 2
         return lastlayerindex
 
@@ -241,14 +241,15 @@ class Packet(BasePacket):
         del(self[index])
         return self
 
-    def decode_lastlayer_as(self,cls):
-        #If there is only one layer in the packet no need to remove it
+    def decode_lastlayer_as(self, cls):
+        # If there is only one layer in the packet no need to remove it
         if self.lastlayer() == self:
             s = str(self)
             try:
                 self = cls(s)
             except:
-                raise ValueError("Unable to decode last layer as specified class")
+                raise ValueError(\
+		            "Unable to decode last layer as specified class")
             return self
         s = str(self.lastlayer())
         try:
