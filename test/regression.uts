@@ -536,6 +536,42 @@ p1 = IP(src=a1, dst=a2)/TCP(flags='A', seq=s1+9, ack=s2+10, sport=prt1, dport=pr
 assert not p2.answers(p1)
 assert not p1.answers(p2)
 
+= lastlayer manipulations
+~ lastlayer_index
+pkt = IP() / UDP()
+s = str(pkt)
+assert(pkt.lastlayer_index() == 1)
+
+~ decode_lastlayer_as
+length = len(pkt)
+pkt.decode_lastlayer_as(ISAKMP)
+len(pkt) == length
+
+~ remove_lastlayer
+(pkt / DNS()).remove_lastlayer() == pkt
+
+= set_byte function
+~ Normal usage
+pkt.set_byte(3,'\x03')
+s = str(pkt)
+s[3] == '\x03'
+
+~ Error handling
+try:
+    pkt.set_byte(-1,'\x00')
+except IndexError:
+    True
+
+try:
+    pkt.set_byte(70,'\x03')
+except IndexError:
+    True
+
+try:
+    pkt.set_byte(3, 4)
+except TypeError:
+    True
+
 
 ############
 ############
