@@ -163,7 +163,7 @@ class Net6(Gen): # syntax ex. fec0::/126
         def m8(i):
             if i % 8 == 0:
                 return i
-        tuple = filter(lambda x: m8(x), xrange(8, 129))
+        tuple = [x for x in xrange(8, 129) if m8(x)]
 
         a = in6_and(self.net, self.mask)
         tmp = [x for x in struct.unpack("16B", a)]
@@ -1078,20 +1078,20 @@ class IPv6ExtHdrFragment(_IPv6ExtHdr):
     overload_fields = {IPv6: { "nh": 44 }}
 
 
-def defragment6(pktlist):
+def defragment6(packets):
     """
     Performs defragmentation of a list of IPv6 packets. Packets are reordered.
     Crap is dropped. What lacks is completed by 'X' characters.
     """
 
-    l = filter(lambda x: IPv6ExtHdrFragment in x, pktlist) # remove non fragments
+    l = [x for x in packets if IPv6ExtHdrFragment in x] # remove non fragments
     if not l:
         return []
 
     id = l[0][IPv6ExtHdrFragment].id
 
     llen = len(l)
-    l = filter(lambda x: x[IPv6ExtHdrFragment].id == id, l)
+    l = [x for x in l if x[IPv6ExtHdrFragment].id == id]
     if len(l) != llen:
         warning("defragment6: some fragmented packets have been removed from list")
     llen = len(l)

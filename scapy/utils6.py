@@ -51,22 +51,22 @@ def construct_source_candidate_set(addr, plen, laddr):
 
     cset = []
     if in6_isgladdr(addr) or in6_isuladdr(addr):
-        cset = filter(lambda x: x[1] == IPV6_ADDR_GLOBAL, laddr)
+        cset = (x for x in laddr if x[1] == IPV6_ADDR_GLOBAL)
     elif in6_islladdr(addr):
-        cset = filter(lambda x: x[1] == IPV6_ADDR_LINKLOCAL, laddr)
+        cset = (x for x in laddr if x[1] == IPV6_ADDR_LINKLOCAL)
     elif in6_issladdr(addr):
-        cset = filter(lambda x: x[1] == IPV6_ADDR_SITELOCAL, laddr)
+        cset = (x for x in laddr if x[1] == IPV6_ADDR_SITELOCAL)
     elif in6_ismaddr(addr):
         if in6_ismnladdr(addr):
             cset = [('::1', 16, scapy.consts.LOOPBACK_INTERFACE)]
         elif in6_ismgladdr(addr):
-            cset = filter(lambda x: x[1] == IPV6_ADDR_GLOBAL, laddr)
+            cset = (x for x in laddr if x[1] == IPV6_ADDR_GLOBAL)
         elif in6_ismlladdr(addr):
-            cset = filter(lambda x: x[1] == IPV6_ADDR_LINKLOCAL, laddr)
+            cset = (x for x in laddr if x[1] == IPV6_ADDR_LINKLOCAL)
         elif in6_ismsladdr(addr):
-            cset = filter(lambda x: x[1] == IPV6_ADDR_SITELOCAL, laddr)
+            cset = (x for x in laddr if x[1] == IPV6_ADDR_SITELOCAL)
     elif addr == '::' and plen == 0:
-        cset = filter(lambda x: x[1] == IPV6_ADDR_GLOBAL, laddr)
+        cset = (x for x in laddr if x[1] == IPV6_ADDR_GLOBAL)
     cset = [x[0] for x in cset]
     cset.sort(cmp=cset_sort) # Sort with global addresses first
     return cset            

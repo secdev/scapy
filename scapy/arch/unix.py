@@ -319,7 +319,7 @@ def read_routes6():
             next_hop = "::"
         else:
             # Get possible IPv6 source addresses
-            devaddrs = filter(lambda x: x[2] == dev, lifaddr)
+            devaddrs = (x for x in lifaddr if x[2] == dev)
             cset = construct_source_candidate_set(destination, destination_plen, devaddrs)
 
         if len(cset):

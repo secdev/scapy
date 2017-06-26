@@ -1345,7 +1345,7 @@ def split_bottom_up(lower, upper, __fval=None, **fval):
             if k not in f or f[k] != fval[k]:
                 return True
         return False
-    lower.payload_guess = filter(do_filter, lower.payload_guess)
+    lower.payload_guess = [x for x in lower.payload_guess if do_filter(x)]
         
 def split_top_down(lower, upper, __fval=None, **fval):
     if __fval is not None:
