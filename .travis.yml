@@ -1,50 +1,43 @@
 language: python
-
+os: linux
+dist: trusty
+addons:
+    apt:
+        packages:
+            - python-libpcap
+            - python-dumbnet
+            - openssl
+            - libssl-dev
+            - libpcap-dev
+            - libdnet-dev
+            - libwireshark-data
 matrix:
     include:
-        # Run as a regular user
-        - os: linux
-          python: 2.7
-
-        - os: linux
+        - python: 2.7
+        - dist:
           python: pypy
-
         - os: osx
           language: generic
-
         - os: osx
           language: generic
-          env:
-            - SCAPY_SUDO=false SCAPY_USE_PCAPDNET=yes
-
-        # Run as root
-        - os: linux
-          sudo: required
+          env: SCAPY_SUDO=false SCAPY_USE_PCAPDNET=yes
+        - sudo: required
           python: 2.7
-          env:
-            - SCAPY_SUDO=sudo
-
-        - os: linux
-          sudo: required
+          env: SCAPY_SUDO="sudo -H"
+        - sudo: required
           python: 2.7
-          env:
-            - SCAPY_SUDO=sudo SCAPY_COVERAGE=yes
-
-        - os: linux
-          sudo: required
+          env: SCAPY_SUDO="sudo -H" SCAPY_COVERAGE=yes
+        - sudo: required
           python: 2.7
-          env:
-            - SCAPY_SUDO=sudo SCAPY_USE_PCAPDNET=yes SCAPY_COVERAGE=yes 
-
+          services: docker
+          before_install: docker run -d -p 69:69/udp jumanjiman/tftp-hpa
+          env: SCAPY_SUDO="sudo -H" SCAPY_USE_PCAPDNET=yes SCAPY_COVERAGE=yes 
         - os: osx
           language: generic
-          env:
-            - SCAPY_SUDO=sudo SCAPY_COVERAGE=yes
-
+          env: SCAPY_SUDO="sudo -H" SCAPY_COVERAGE=yes
         - os: osx
           language: generic
-          env:
-            - SCAPY_SUDO=sudo SCAPY_USE_PCAPDNET=yes SCAPY_COVERAGE=yes
+          env: SCAPY_SUDO="sudo -H" SCAPY_USE_PCAPDNET=yes SCAPY_COVERAGE=yes
 
 install: bash .travis/install.sh
 

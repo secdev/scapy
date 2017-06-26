@@ -1,13 +1,7 @@
 #! /bin/sh
-DIR=$(dirname $0)/..
-if python --version 2>&1 | grep -q '^Python 2'; then
-    PYTHON=python
+cd ..
+if [ -z "$*" ]; then
+    python scapy/tools/UTscapy.py -t test/regression.uts -f html -l -o /tmp/scapy_regression_test_$(date +%Y%m%d-%H%M%S).html
 else
-    PYTHON=python2
-fi
-if [ -z "$*" ]
-then
-    PYTHONPATH=$DIR exec $PYTHON ${DIR}/scapy/tools/UTscapy.py -t regression.uts -f html -l -o /tmp/scapy_regression_test_$(date +%Y%m%d-%H%M%S).html
-else
-    PYTHONPATH=$DIR exec $PYTHON ${DIR}/scapy/tools/UTscapy.py "$@"
+    python scapy/tools/UTscapy.py "$@"
 fi

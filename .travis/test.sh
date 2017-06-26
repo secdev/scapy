@@ -39,7 +39,7 @@ then
   PATH=.:$PATH
 
   # Copy the fake Python interpreter to bypass /etc/sudoers rules on Ubuntu
-  if [ "$SCAPY_SUDO" = "sudo" ]
+  if [ "$SCAPY_SUDO" = "sudo -H" ]
   then
     $SCAPY_SUDO cp test/python /usr/local/sbin/
   fi
