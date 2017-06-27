@@ -203,9 +203,9 @@ conf.prog._reload()
 = show_interfaces
 
 from scapy.arch import show_interfaces
-from StringIO import StringIO
+from io import BytesIO
 
-@mock.patch('sys.stdout', new_callable=StringIO)
+@mock.patch('sys.stdout', new_callable=BytesIO)
 def test_show_interfaces(mock_stdout):
     show_interfaces()
     lines = mock_stdout.getvalue().split("\n")[1:]

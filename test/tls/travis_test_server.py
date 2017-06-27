@@ -15,7 +15,7 @@ If no expected_data was provided and the handshake was ok, we exit with 0.
 import os
 import sys
 from contextlib import contextmanager
-from StringIO import StringIO
+from io import BytesIO
 
 basedir = os.path.abspath(os.path.join(os.path.dirname(__file__),"../../"))
 sys.path=[basedir]+sys.path
@@ -25,7 +25,7 @@ from scapy.layers.tls.automaton import TLSServerAutomaton
 
 @contextmanager
 def captured_output():
-    new_out, new_err = StringIO(), StringIO()
+    new_out, new_err = BytesIO(), BytesIO()
     old_out, old_err = sys.stdout, sys.stderr
     try:
         sys.stdout, sys.stderr = new_out, new_err

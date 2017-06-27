@@ -30,7 +30,7 @@ from __future__ import print_function
 import abc
 import types
 import re
-import StringIO
+from io import BytesIO
 import struct
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
@@ -2625,7 +2625,7 @@ class HPackHdrTable(Sized):
         @raise Exception
         """
 
-        sio = StringIO.StringIO(s)
+        sio = BytesIO(s)
 
         base_frm_len = len(str(H2Frame()))
 
@@ -2681,7 +2681,7 @@ class HPackHdrTable(Sized):
 
         if body:
             base_data_frm_len = len(str(H2DataFrame()))
-            sio = StringIO.StringIO(body)
+            sio = BytesIO(body)
             frgmt = sio.read(max_frm_sz - base_data_frm_len - base_frm_len)
             while frgmt:
                 nxt_frgmt = sio.read(max_frm_sz - base_data_frm_len - base_frm_len)
