@@ -203,8 +203,16 @@ class ASN1_Object(six.with_metaclass(ASN1_Object_metaclass)):
         print self.strshow(lvl)
     def __eq__(self, other):
         return self.val == other
-    def __cmp__(self, other):
-        return cmp(self.val, other)
+    def __lt__(self, other):
+        return self.val < other
+    def __le__(self, other):
+        return self.val <= other
+    def __gt__(self, other):
+        return self.val > other
+    def __ge__(self, other):
+        return self.val >= other
+    def __ne__(self, other):
+        return self.val != other
 
 
 #######################
