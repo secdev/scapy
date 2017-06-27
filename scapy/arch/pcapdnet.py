@@ -418,6 +418,7 @@ if conf.use_pcap:
                         s,us = h.getts()
                         return (s+0.000001*us), p
                 def fileno(self):
+                    # TODO: Add it once https://github.com/CoreSecurity/pcapy/pull/22
                     warning("fileno: pcapy API does not permit to get capure file descriptor. Bugs ahead! Press Enter to trigger packet reading")
                     return 0
                 def __getattr__(self, attr):
