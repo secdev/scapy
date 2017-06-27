@@ -71,16 +71,15 @@ class RandomEnumeration:
 class VolatileValue:
     def __repr__(self):
         return "<%s>" % self.__class__.__name__
+    def __eq__(self, other):
+        x = self._fix()
+        y = other._fix() if isinstance(other, VolatileValue) else other
+        if not isinstance(x, type(y)):
+            return False
+        return x == y
     def __getattr__(self, attr):
         if attr == "__setstate__":
             raise AttributeError(attr)
-        elif attr == "__cmp__":
-            x = self._fix()
-            def cmp2(y,x=x):
-                if not isinstance(x, type(y)):
-                    return -1
-                return x.__cmp__(y)
-            return cmp2
         return getattr(self._fix(),attr)
     def _fix(self):
         return None

@@ -8039,10 +8039,10 @@ assert(r6 == "d279:1205:e445:5a9f:db28:efc9:afd7:f594")
 
 random.seed(0x2807)
 r6 = RandIP6("2001:db8::-") 
-assert(r6 == "2001:0db8::afd7")
+assert(r6 == "2001:0db8::e445")
 
 r6 = RandIP6("2001:db8::*")
-assert(r6 == "2001:0db8::398e")
+assert(r6 == "2001:0db8::efc9")
 
 = RandMAC
 
@@ -8091,6 +8091,7 @@ assert(rek == 'b')
 ~ not_pypy
 random.seed(0x2807)
 rs = RandSingNum(-28, 07)
+assert(rs == 3)
 assert(rs == -27)
 
 = Rand*
