@@ -470,7 +470,7 @@ def RRlist2bitmap(lst):
 		b"B",
 		sum(2 ** (7 - (x - 256 * wb) + (tmp * 8)) for x in rrlist
 		if 256 * wb + 8 * tmp <= x < 256 * wb + 8 * tmp + 8),
-	    ) for tmp in xrange(bytes_count)
+	    ) for tmp in range(bytes_count)
 	)
 
     return bitmap

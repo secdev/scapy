@@ -351,13 +351,13 @@ def randstring(l):
     """
     Returns a random string of length l (l >= 0)
     """
-    return b"".join(struct.pack('B', random.randint(0, 255)) for _ in xrange(l))
+    return b"".join(struct.pack('B', random.randint(0, 255)) for _ in range(l))
 
 def zerofree_randstring(l):
     """
     Returns a random string of length l (l >= 0) without zero in it.
     """
-    return b"".join(struct.pack('B', random.randint(1, 255)) for _ in xrange(l))
+    return b"".join(struct.pack('B', random.randint(1, 255)) for _ in range(l))
 
 def strxor(s1, s2):
     """

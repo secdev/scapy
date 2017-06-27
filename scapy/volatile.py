@@ -343,7 +343,7 @@ class RandOID(RandString):
                 if i == "*":
                     oid.append(str(self.idnum))
                 elif i == "**":
-                    oid += [str(self.idnum) for i in xrange(1 + self.depth)]
+                    oid += [str(self.idnum) for i in range(1 + self.depth)]
                 elif isinstance(i, tuple):
                     oid.append(str(random.randrange(*i)))
                 else:
@@ -377,7 +377,7 @@ class RandRegExp(RandField):
                 s = s[:p-1]+rng+s[p+1:]
         res = m+s
         if invert:
-            res = "".join(chr(x) for x in xrange(256) if chr(x) not in res)
+            res = "".join(chr(x) for x in range(256) if chr(x) not in res)
         return res
 
     @staticmethod

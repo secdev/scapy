@@ -28,7 +28,7 @@ class SetGen(Gen):
             self.values = list(values)
         elif (isinstance(values, tuple) and (2 <= len(values) <= 3) and \
              all(hasattr(i, "__int__") for i in values)):
-            # We use values[1] + 1 as stop value for xrange to maintain
+            # We use values[1] + 1 as stop value for (x)range to maintain
             # the behavior of using tuples as field `values`
             self.values = [range(*((int(values[0]), int(values[1]) + 1)
                                     + tuple(int(v) for v in values[2:])))]
@@ -40,7 +40,7 @@ class SetGen(Gen):
         for i in self.values:
             if (isinstance(i, Gen) and
                 (self._iterpacket or not isinstance(i,BasePacket))) or (
-                    isinstance(i, (xrange, types.GeneratorType))):
+                    isinstance(i, (range, types.GeneratorType))):
                 for j in i:
                     yield j
             else:
