@@ -242,7 +242,7 @@ class WinProgPath(ConfClass):
                                env="SystemRoot")
         if self.wireshark:
             manu_path = load_manuf(os.path.sep.join(self.wireshark.split(os.path.sep)[:-1])+os.path.sep+"manuf")
-            scapy.data.MANUFDB = conf.manufdb = MANUFDB = manu_path
+            scapy.data.MANUFDB = conf.manufdb = manu_path
         
         self.os_access = (self.powershell is not None) or (self.cscript is not None)
 
