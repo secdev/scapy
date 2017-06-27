@@ -8,6 +8,7 @@ Direct Access dictionary.
 """
 
 from __future__ import absolute_import
+from __future__ import print_function
 from scapy.error import Scapy_Exception
 import scapy.modules.six as six
 
@@ -41,7 +42,7 @@ class DADict:
     def _show(self):
         for k in self.__dict__.keys():
             if k and k[0] != "_":
-                print "%10s = %r" % (k,getattr(self,k))
+                print("%10s = %r" % (k,getattr(self,k)))
     def __repr__(self):
         return "<%s/ %s>" % (self._name," ".join(x for x in self.__dict__ if x and x[0]!="_"))
 

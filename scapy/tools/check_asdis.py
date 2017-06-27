@@ -1,13 +1,14 @@
 #! /usr/bin/env python
 
+from __future__ import print_function
 import getopt
 
 def usage():
-    print >>sys.stderr,"""Usage: check_asdis -i <pcap_file> [-o <wrong_packets.pcap>]
+    print("""Usage: check_asdis -i <pcap_file> [-o <wrong_packets.pcap>]
     -v   increase verbosity
     -d   hexdiff packets that differ
     -z   compress output pcap
-    -a   open pcap file in append mode"""
+    -a   open pcap file in append mode""", file=sys.stderr)
 
 def main(argv):
     PCAP_IN = None
@@ -40,7 +41,7 @@ def main(argv):
             raise getopt.GetoptError("Missing pcap file (-i)")
     
     except getopt.GetoptError as e:
-        print >>sys.stderr,"ERROR: %s" % e
+        print("ERROR: %s" % e, file=sys.stderr)
         raise SystemExit
     
     
@@ -58,7 +59,7 @@ def main(argv):
 
     LLcls = conf.l2types.get(pcap.linktype)
     if LLcls is None:
-        print >>sys.stderr," Unknown link type [%i]. Can't test anything!" % pcap.linktype
+        print(" Unknown link type [%i]. Can't test anything!" % pcap.linktype, file=sys.stderr)
         raise SystemExit
     
     
@@ -73,26 +74,26 @@ def main(argv):
         except KeyboardInterrupt:
             raise
         except Exception as e:
-            print "Dissection error on packet %i" % i
+            print("Dissection error on packet %i" % i)
             failed += 1
         else:
             if p1 == p2:
                 if VERBOSE >= 2:
-                    print "Packet %i ok" % i
+                    print("Packet %i ok" % i)
                 continue
             else:
-                print "Packet %i differs" % i
+                print("Packet %i differs" % i)
                 differ += 1
                 if VERBOSE >= 1:
-                    print repr(p2d)
+                    print(repr(p2d))
                 if DIFF:
                     hexdiff(p1,p2)
         if pcap_out is not None:
             pcap_out.write(p1)
     i+=1
     correct = i-differ-failed
-    print "%i total packets. %i ok, %i differed, %i failed. %.2f%% correct." % (i, correct, differ,
-                                                                                failed, i and 100.0*(correct)/i)
+    print("%i total packets. %i ok, %i differed, %i failed. %.2f%% correct." % (i, correct, differ,
+                                                                                failed, i and 100.0*(correct)/i))
     
         
 if __name__ == "__main__":
@@ -100,4 +101,4 @@ if __name__ == "__main__":
     try:
         main(sys.argv[1:])
     except KeyboardInterrupt:
-        print >>sys.stderr,"Interrupted by user."
+        print("Interrupted by user.", file=sys.stderr)

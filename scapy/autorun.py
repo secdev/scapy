@@ -7,6 +7,7 @@
 Run commands when the Scapy interpreter starts.
 """
 
+from __future__ import print_function
 import code, sys, importlib
 from scapy.config import conf
 from scapy.themes import *
@@ -60,7 +61,7 @@ def autorun_commands(cmds, my_globals=None, ignore_globals=None, verb=0):
                     sys.stderr.write(str(sys.__dict__.get("ps1",ColorPrompt())))
                     
                 l = cmds.pop()
-                print l
+                print(l)
                 cmd += "\n"+l
                 if interp.runsource(cmd):
                     continue

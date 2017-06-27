@@ -8,6 +8,7 @@ Packet class. Binding mechanism. fuzz() method.
 """
 
 from __future__ import absolute_import
+from __future__ import print_function
 import re
 import time,itertools
 import copy
@@ -67,12 +68,12 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
     @classmethod
     def upper_bonds(self):
         for fval,upper in self.payload_guess:
-            print "%-20s  %s" % (upper.__name__, ", ".join("%-12s" % ("%s=%r"%i) for i in six.iteritems(fval)))
+            print("%-20s  %s" % (upper.__name__, ", ".join("%-12s" % ("%s=%r"%i) for i in six.iteritems(fval))))
 
     @classmethod
     def lower_bonds(self):
         for lower,fval in six.iteritems(self._overload_fields):
-            print "%-20s  %s" % (lower.__name__, ", ".join("%-12s" % ("%s=%r"%i) for i in six.iteritems(fval)))
+            print("%-20s  %s" % (lower.__name__, ", ".join("%-12s" % ("%s=%r"%i) for i in six.iteritems(fval))))
 
     def _unpickle(self, dlist):
         """Used to unpack pickling"""
@@ -988,7 +989,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
             s += self.payload._show_or_dump(dump=dump, indent=indent, lvl=lvl+(" "*indent*self.show_indent), label_lvl=label_lvl, first_call=False)
 
         if first_call and not dump:
-            print s
+            print(s)
         else:
             return s
 
@@ -1383,7 +1384,7 @@ def ls(obj=None, case_sensitive=False, verbose=False):
                                     or pattern.search(layer.name or ''))),
                                 key=lambda x: x.__name__)
         for layer in all_layers:
-            print "%-10s : %s" % (layer.__name__, layer._name)
+            print("%-10s : %s" % (layer.__name__, layer._name))
 
     else:
         is_pkt = isinstance(obj, Packet)
@@ -1428,18 +1429,18 @@ def ls(obj=None, case_sensitive=False, verbose=False):
                     class_name += " (%d bit%s)" % (cur_fld.size,
                                                    "s" if cur_fld.size > 1
                                                    else "")
-                print "%-10s : %-35s =" % (f.name, class_name),
+                print("%-10s : %-35s =" % (f.name, class_name), end=' ')
                 if is_pkt:
-                    print "%-15r" % (getattr(obj, f.name),),
-                print "(%r)" % (f.default,)
+                    print("%-15r" % (getattr(obj, f.name),), end=' ')
+                print("(%r)" % (f.default,))
                 for attr in long_attrs:
-                    print "%-15s%s" % ("", attr)
+                    print("%-15s%s" % ("", attr))
             if is_pkt and not isinstance(obj.payload, NoPayload):
-                print "--"
+                print("--")
                 ls(obj.payload)
 
         else:
-            print "Not a packet class or name. Type 'ls()' to list packet classes."
+            print("Not a packet class or name. Type 'ls()' to list packet classes.")
 
 
     
@@ -1457,7 +1458,7 @@ def fuzz(p, _inplace=0):
         for f in q.fields_desc:
             if isinstance(f, PacketListField):
                 for r in getattr(q, f.name):
-                    print "fuzzing", repr(r)
+                    print("fuzzing", repr(r))
                     fuzz(r, _inplace=1)
             elif f.default is not None:
                 rnd = f.randval()

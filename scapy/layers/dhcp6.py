@@ -10,6 +10,7 @@
 DHCPv6: Dynamic Host Configuration Protocol for IPv6. [RFC 3315]
 """
 
+from __future__ import print_function
 import socket
 
 from scapy.packet import *
@@ -1256,7 +1257,7 @@ DHCPv6_am.parse_options( dns="2001:500::1035", domain="localdomain, local",
          See RFC 4280 for details.
 
    If you have a need for others, just ask ... or provide a patch."""
-        print msg
+        print(msg)
 
     def parse_options(self, dns="2001:500::1035", domain="localdomain, local",
                       startip="2001:db8::1", endip="2001:db8::20", duid=None,
@@ -1273,7 +1274,7 @@ DHCPv6_am.parse_options( dns="2001:500::1035", domain="localdomain, local",
                 l = val.split(',')
                 return [x.strip() for x in l]
             else:
-                print "Bad '%s' parameter provided." % param_name
+                print("Bad '%s' parameter provided." % param_name)
                 self.usage()
                 return -1
 
@@ -1306,10 +1307,10 @@ DHCPv6_am.parse_options( dns="2001:500::1035", domain="localdomain, local",
                 self.dhcpv6_options[o[2]] = o[3](opt)
 
         if self.debug:
-            print "\n[+] List of active DHCPv6 options:"
+            print("\n[+] List of active DHCPv6 options:")
             opts = sorted(self.dhcpv6_options.keys())
             for i in opts:
-                print "    %d: %s" % (i, repr(self.dhcpv6_options[i]))
+                print("    %d: %s" % (i, repr(self.dhcpv6_options[i])))
 
         # Preference value used in Advertise. 
         self.advpref = advpref
@@ -1341,7 +1342,7 @@ DHCPv6_am.parse_options( dns="2001:500::1035", domain="localdomain, local",
             self.duid = DUID_LLT(timeval = timeval, lladdr = mac)
             
         if self.debug:
-            print "\n[+] Our server DUID:" 
+            print("\n[+] Our server DUID:") 
             self.duid.show(label_lvl=" "*4)
 
         ####
@@ -1360,7 +1361,7 @@ DHCPv6_am.parse_options( dns="2001:500::1035", domain="localdomain, local",
         
 
         if self.debug:
-            print "\n[+] Starting DHCPv6 service on %s:" % self.iface 
+            print("\n[+] Starting DHCPv6 service on %s:" % self.iface) 
 
     def is_request(self, p):
         if not IPv6 in p:
@@ -1454,7 +1455,7 @@ DHCPv6_am.parse_options( dns="2001:500::1035", domain="localdomain, local",
                 msg = r + "[DEBUG]" + n + " Received " + g + "Decline" + n 
                 msg += " from " + bo + src + vendor + " for "
                 msg += ", ".join(addrs)+ n
-                print msg
+                print(msg)
 
             # See sect 18.1.7
 
@@ -1511,7 +1512,7 @@ DHCPv6_am.parse_options( dns="2001:500::1035", domain="localdomain, local",
         reqsrc  = bo + reqsrc + n
         reptype = g + norm(reply.getlayer(UDP).payload.name) + n
 
-        print "Sent %s answering to %s from %s%s" % (reptype, reqtype, reqsrc, vendor)
+        print("Sent %s answering to %s from %s%s" % (reptype, reqtype, reqsrc, vendor))
 
     def make_reply(self, req):
         req_mac_src = req.src

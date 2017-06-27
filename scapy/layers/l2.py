@@ -8,6 +8,7 @@ Classes and functions for layer 2 protocols.
 """
 
 from __future__ import absolute_import
+from __future__ import print_function
 import os, struct, time, socket
 
 from scapy.base_classes import Net
@@ -1185,7 +1186,7 @@ class ARPingResult(SndRcvList):
 
     def show(self):
         for s,r in self.res:
-            print r.sprintf("%19s,Ether.src% %ARP.psrc%")
+            print(r.sprintf("%19s,Ether.src% %ARP.psrc%"))
 
 
 
@@ -1291,7 +1292,7 @@ class ARP_am(AnsweringMachine):
             self.send_function(reply, iface=self.iff, **self.optsend)
 
     def print_reply(self, req, reply):
-        print "%s ==> %s on %s" % (req.summary(),reply.summary(),self.iff)
+        print("%s ==> %s on %s" % (req.summary(),reply.summary(),self.iff))
 
 
 @conf.commands.register

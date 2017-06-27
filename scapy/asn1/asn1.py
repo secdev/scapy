@@ -9,6 +9,7 @@ ASN.1 (Abstract Syntax Notation One)
 """
 
 from __future__ import absolute_import
+from __future__ import print_function
 import random
 from datetime import datetime
 from scapy.config import conf
@@ -200,7 +201,7 @@ class ASN1_Object(six.with_metaclass(ASN1_Object_metaclass)):
     def strshow(self, lvl=0):
         return ("  "*lvl)+repr(self)+"\n"
     def show(self, lvl=0):
-        print self.strshow(lvl)
+        print(self.strshow(lvl))
     def __eq__(self, other):
         return self.val == other
     def __cmp__(self, other):
@@ -280,7 +281,7 @@ class ASN1_BIT_STRING(ASN1_Object):
         elif name == "val":
             if isinstance(value, str):
                 if len([c for c in value if c not in ["0", "1"]]) > 0:
-                    print "Invalid operation: 'val' is not a valid bit string."
+                    print("Invalid operation: 'val' is not a valid bit string.")
                     return
                 else:
                     if len(value) % 8 == 0:
@@ -297,7 +298,7 @@ class ASN1_BIT_STRING(ASN1_Object):
             super(ASN1_Object, self).__setattr__(name, value)
             super(ASN1_Object, self).__setattr__("unused_bits", unused_bits)
         elif name == "unused_bits":
-            print "Invalid operation: unused_bits rewriting is not supported."
+            print("Invalid operation: unused_bits rewriting is not supported.")
         else:
             super(ASN1_Object, self).__setattr__(name, value)
     def __repr__(self):
@@ -365,7 +366,7 @@ class ASN1_UTC_TIME(ASN1_STRING):
             super(ASN1_UTC_TIME, self).__setattr__("pretty_time", pretty_time)
             super(ASN1_UTC_TIME, self).__setattr__(name, value)
         elif name == "pretty_time":
-            print "Invalid operation: pretty_time rewriting is not supported."
+            print("Invalid operation: pretty_time rewriting is not supported.")
         else:
             super(ASN1_UTC_TIME, self).__setattr__(name, value)
     def __repr__(self):
@@ -387,7 +388,7 @@ class ASN1_GENERALIZED_TIME(ASN1_STRING):
             super(ASN1_GENERALIZED_TIME, self).__setattr__("pretty_time", pretty_time)
             super(ASN1_GENERALIZED_TIME, self).__setattr__(name, value)
         elif name == "pretty_time":
-            print "Invalid operation: pretty_time rewriting is not supported."
+            print("Invalid operation: pretty_time rewriting is not supported.")
         else:
             super(ASN1_GENERALIZED_TIME, self).__setattr__(name, value)
     def __repr__(self):

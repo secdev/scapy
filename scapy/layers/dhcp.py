@@ -8,6 +8,7 @@ DHCP (Dynamic Host Configuration Protocol) and BOOTP
 """
 
 from __future__ import absolute_import
+from __future__ import print_function
 from collections import Iterable
 import struct
 
@@ -335,7 +336,7 @@ class BOOTP_am(AnsweringMachine):
         return 1
 
     def print_reply(self, req, reply):
-        print "Reply %s to %s" % (reply.getlayer(IP).dst,reply.dst)
+        print("Reply %s to %s" % (reply.getlayer(IP).dst,reply.dst))
 
     def make_reply(self, req):        
         mac = req.src

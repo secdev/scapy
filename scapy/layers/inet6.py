@@ -25,6 +25,7 @@ IPv6 (Internet Protocol v6).
 
 
 from __future__ import absolute_import
+from __future__ import print_function
 import random
 import socket
 import sys
@@ -3354,7 +3355,7 @@ def NDP_Attack_DAD_DoS_via_NS(iface=None, mac_src_filter=None, tgt_filter=None,
         rep = Ether(src=reply_mac)/IPv6(src="::", dst=dst)/ICMPv6ND_NS(tgt=tgt)
         sendp(rep, iface=iface, verbose=0)
 
-        print "Reply NS for target address %s (received from %s)" % (tgt, mac)
+        print("Reply NS for target address %s (received from %s)" % (tgt, mac))
 
     _NDP_Attack_DAD_DoS(ns_reply_callback, iface, mac_src_filter,
                         tgt_filter, reply_mac)
@@ -3415,7 +3416,7 @@ def NDP_Attack_DAD_DoS_via_NA(iface=None, mac_src_filter=None, tgt_filter=None,
         rep /= ICMPv6NDOptDstLLAddr(lladdr=reply_mac)
         sendp(rep, iface=iface, verbose=0)
 
-        print "Reply NA for target address %s (received from %s)" % (tgt, mac)
+        print("Reply NA for target address %s (received from %s)" % (tgt, mac))
 
     _NDP_Attack_DAD_DoS(na_reply_callback, iface, mac_src_filter,
                         tgt_filter, reply_mac)
@@ -3514,7 +3515,7 @@ def NDP_Attack_NA_Spoofing(iface=None, mac_src_filter=None, tgt_filter=None,
             received_snma = socket.inet_pton(socket.AF_INET6, dst)
             expected_snma = in6_getnsma(tgt)
             if received_snma != expected_snma:
-                print "solicited node multicast @ does not match target @!"
+                print("solicited node multicast @ does not match target @!")
                 return 0
 
         return 1
@@ -3540,7 +3541,7 @@ def NDP_Attack_NA_Spoofing(iface=None, mac_src_filter=None, tgt_filter=None,
 
         sendp(rep, iface=iface, verbose=0)
 
-        print "Reply NA for target address %s (received from %s)" % (tgt, mac)
+        print("Reply NA for target address %s (received from %s)" % (tgt, mac))
 
     if not iface:
         iface = conf.iface
@@ -3771,7 +3772,7 @@ def NDP_Attack_Kill_Default_Router(iface=None, mac_src_filter=None,
 
         sendp(rep, iface=iface, verbose=0)
 
-        print "Fake RA sent with source address %s" % src
+        print("Fake RA sent with source address %s" % src)
 
 
     if not iface:
@@ -3856,7 +3857,7 @@ def NDP_Attack_Fake_Router(ra, iface=None, mac_src_filter=None,
 
         src = req[IPv6].src
         sendp(ra, iface=iface, verbose=0)
-        print "Fake RA sent in response to RS from %s" % src
+        print("Fake RA sent in response to RS from %s" % src)
 
     if not iface:
         iface = conf.iface

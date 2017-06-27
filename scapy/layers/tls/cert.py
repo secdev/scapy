@@ -25,6 +25,7 @@ No need for obnoxious openssl tweaking anymore. :)
 """
 
 from __future__ import absolute_import
+from __future__ import print_function
 import base64
 import os
 import time
@@ -723,10 +724,10 @@ class Cert(six.with_metaclass(_CertMaker, object)):
         f.close()
 
     def show(self):
-        print "Serial: %s" % self.serial
-        print "Issuer: " + self.issuer_str
-        print "Subject: " + self.subject_str
-        print "Validity: %s to %s" % (self.notBefore_str, self.notAfter_str)
+        print("Serial: %s" % self.serial)
+        print("Issuer: " + self.issuer_str)
+        print("Subject: " + self.subject_str)
+        print("Validity: %s to %s" % (self.notBefore_str, self.notAfter_str))
 
     def __repr__(self):
         return "[X.509 Cert. Subject:%s, Issuer:%s]" % (self.subject_str, self.issuer_str)
@@ -834,11 +835,11 @@ class CRL(six.with_metaclass(_CRLMaker, object)):
         return False
 
     def show(self):
-        print "Version: %d" % self.version
-        print "sigAlg: " + self.sigAlg
-        print "Issuer: " + self.issuer_str
-        print "lastUpdate: %s" % self.lastUpdate_str
-        print "nextUpdate: %s" % self.nextUpdate_str
+        print("Version: %d" % self.version)
+        print("sigAlg: " + self.sigAlg)
+        print("Issuer: " + self.issuer_str)
+        print("lastUpdate: %s" % self.lastUpdate_str)
+        print("nextUpdate: %s" % self.nextUpdate_str)
 
 
 ######################

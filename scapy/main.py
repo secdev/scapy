@@ -8,6 +8,7 @@ Main module for interactive startup.
 """
 
 from __future__ import absolute_import
+from __future__ import print_function
 import os,sys
 import glob
 import types
@@ -48,9 +49,9 @@ DEFAULT_STARTUP_FILE = _probe_config_file(".scapy_startup.py")
 session = None
 
 def _usage():
-    print """Usage: scapy.py [-s sessionfile] [-c new_startup_file] [-p new_prestart_file] [-C] [-P]
+    print("""Usage: scapy.py [-s sessionfile] [-c new_startup_file] [-p new_prestart_file] [-C] [-P]
     -C: do not read startup file
-    -P: do not read pre-startup file"""
+    -P: do not read pre-startup file""")
     sys.exit(0)
 
 
@@ -113,7 +114,7 @@ def list_contrib(name=None):
                 key = l[p:q].strip()
                 value = l[q+1:].strip()
                 desc[key] = value
-        print "%(name)-20s: %(description)-40s status=%(status)s" % desc
+        print("%(name)-20s: %(description)-40s status=%(status)s" % desc)
 
                         
 
