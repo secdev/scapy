@@ -409,7 +409,7 @@ def pcap_service_stop(askadmin=True):
     """Stops the pcap adapter. Will ask for admin. Returns True if success"""
     return pcap_service_control('Stop-Service', askadmin=askadmin) 
     
-from UserDict import UserDict
+from scapy.modules.six.moves import UserDict
 
 class NetworkInterfaceDict(UserDict):
     """Store information about network interfaces and convert between names""" 
