@@ -1057,6 +1057,7 @@ class FlagValue(object):
         return self.value >> self._fixvalue(other)
     def __nonzero__(self):
         return bool(self.value)
+    __bool__ = __nonzero__
     def flagrepr(self):
         i = 0
         r = []
