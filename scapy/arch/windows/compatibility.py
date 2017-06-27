@@ -8,6 +8,7 @@ Instanciate part of the customizations needed to support Microsoft Windows.
 """
 
 from __future__ import absolute_import
+from __future__ import print_function
 import itertools
 import os
 import re
@@ -71,13 +72,13 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0, retry=0, m
                     try:
                         i = 0
                         if verbose:
-                            print "Begin emission:"
+                            print("Begin emission:")
                         for p in tobesent:
                             pks.send(p)
                             i += 1
                             time.sleep(inter)
                         if verbose:
-                            print "Finished to send %i packets." % i
+                            print("Finished to send %i packets." % i)
                     except SystemExit:
                         pass
                     except KeyboardInterrupt:
@@ -166,7 +167,7 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0, retry=0, m
                 del(s._answered)
     
     if verbose:
-        print "\nReceived %i packets, got %i answers, remaining %i packets" % (nbrecv+len(ans), len(ans), notans)
+        print("\nReceived %i packets, got %i answers, remaining %i packets" % (nbrecv+len(ans), len(ans), notans))
     return plist.SndRcvList(ans),plist.PacketList(remain,"Unanswered")
 
 
@@ -229,7 +230,7 @@ stop_filter: python function applied to each packet to determine
             if prn:
                 r = prn(p)
                 if r is not None:
-                    print r
+                    print(r)
             if stop_filter and stop_filter(p):
                 break
             if 0 < count <= c:

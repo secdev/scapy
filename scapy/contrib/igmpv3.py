@@ -17,6 +17,7 @@
 # scapy.contrib.description = IGMPv3
 # scapy.contrib.status = loads
 
+from __future__ import print_function
 from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.inet import *
@@ -40,7 +41,7 @@ from scapy.contrib.igmp import isValidMCAddr
 #
 
 #import sys, socket, struct, time
-print "IGMPv3  is still under development - Nov 2010"
+print("IGMPv3  is still under development - Nov 2010")
 
 
 class IGMPv3gr(Packet):
@@ -71,8 +72,8 @@ class IGMPv3gr(Packet):
     """
     p += pay
     if self.auxdlen != 0:
-      print "NOTICE: A properly formatted and complaint V3 Group Record should have an Auxiliary Data length of zero (0)."
-      print "        Subsequent Group Records are lost!"
+      print("NOTICE: A properly formatted and complaint V3 Group Record should have an Auxiliary Data length of zero (0).")
+      print("        Subsequent Group Records are lost!")
     return p
 #--------------------------------------------------------------------------
   def mysummary(self):
@@ -258,7 +259,7 @@ class IGMPv3(Packet):
           ip.dst = self.gaddr                    # IP rule 3a
           retCode = True
         else:
-          print "Warning: Using invalid Group Address"
+          print("Warning: Using invalid Group Address")
           retCode = False
       elif ((self.type == 0x17) and isValidMCAddr(self.gaddr)):
           ip.dst = "224.0.0.2"                   # IP rule 2
@@ -267,10 +268,10 @@ class IGMPv3(Packet):
           ip.dst = self.gaddr                    # IP rule 3b
           retCode = True
       else:
-        print "Warning: Using invalid IGMP Type"
+        print("Warning: Using invalid IGMP Type")
         retCode = False
     else:
-      print "Warning: No IGMP Group Address set"
+      print("Warning: No IGMP Group Address set")
       retCode = False
     if retCode == True:
        ip.ttl=1                                  # IP Rule 4

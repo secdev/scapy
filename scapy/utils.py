@@ -8,6 +8,7 @@ General utility functions.
 """
 
 from __future__ import absolute_import
+from __future__ import print_function
 import os, sys, socket, types
 import random, time
 import gzip, zlib
@@ -97,7 +98,7 @@ def hexdump(x, dump=False):
     if dump:
         return s
     else:
-        print s
+        print(s)
 
 
 @conf.commands.register
@@ -125,7 +126,7 @@ def linehexdump(x, onlyasc=0, onlyhex=0, dump=False):
     if dump:
         return s
     else:
-        print s
+        print(s)
 
 @conf.commands.register
 def chexdump(x, dump=False):
@@ -144,7 +145,7 @@ def chexdump(x, dump=False):
     if dump:
         return s
     else:
-        print s
+        print(s)
 
 @conf.commands.register
 def hexstr(x, onlyasc=0, onlyhex=0):
@@ -217,45 +218,45 @@ def hexdiff(x,y):
             while not linex[j]:
                 j += 1
                 xd -= 1
-            print colorize[doy-dox]("%04x" % xd),
+            print(colorize[doy-dox]("%04x" % xd), end=' ')
             x += xx
             line=linex
         else:
-            print "    ",
+            print("    ", end=' ')
         if doy:
             yd = y
             j = 0
             while not liney[j]:
                 j += 1
                 yd -= 1
-            print colorize[doy-dox]("%04x" % yd),
+            print(colorize[doy-dox]("%04x" % yd), end=' ')
             y += yy
             line=liney
         else:
-            print "    ",
+            print("    ", end=' ')
             
-        print " ",
+        print(" ", end=' ')
         
         cl = ""
         for j in range(16):
             if i+j < l:
                 if line[j]:
                     col = colorize[(linex[j]!=liney[j])*(doy-dox)]
-                    print col("%02X" % ord(line[j])),
+                    print(col("%02X" % ord(line[j])), end=' ')
                     if linex[j]==liney[j]:
                         cl += sane_color(line[j])
                     else:
                         cl += col(sane(line[j]))
                 else:
-                    print "  ",
+                    print("  ", end=' ')
                     cl += " "
             else:
-                print "  ",
+                print("  ", end=' ')
             if j == 7:
-                print "",
+                print("", end=' ')
 
 
-        print " ",cl
+        print(" ",cl)
 
         if doy or not yy:
             doy=0
@@ -551,7 +552,7 @@ class Enum_metaclass(type):
 
 
 def export_object(obj):
-    print gzip.zlib.compress(six.moves.cPickle.dumps(obj,2),9).encode("base64")
+    print(gzip.zlib.compress(six.moves.cPickle.dumps(obj,2),9).encode("base64"))
 
 def import_object(obj=None):
     if obj is None:
@@ -1352,23 +1353,23 @@ def __make_table(yfmtfunc, fmtfunc, endline, list, fxyz, sortx=None, sorty=None,
 
     if seplinefunc:
         sepline = seplinefunc(l, [vx[x] for x in vxk])
-        print sepline
+        print(sepline)
 
     fmt = yfmtfunc(l)
-    print fmt % "",
+    print(fmt % "", end=' ')
     for x in vxk:
         vxf[x] = fmtfunc(vx[x])
-        print vxf[x] % x,
-    print endline
+        print(vxf[x] % x, end=' ')
+    print(endline)
     if seplinefunc:
-        print sepline
+        print(sepline)
     for y in vyk:
-        print fmt % y,
+        print(fmt % y, end=' ')
         for x in vxk:
-            print vxf[x] % vz.get((x,y), "-"),
-        print endline
+            print(vxf[x] % vz.get((x,y), "-"), end=' ')
+        print(endline)
     if seplinefunc:
-        print sepline
+        print(sepline)
 
 def make_table(*args, **kargs):
     __make_table(lambda l:"%%-%is" % l, lambda l:"%%-%is" % l, "", *args, **kargs)

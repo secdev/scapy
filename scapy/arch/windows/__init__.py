@@ -7,6 +7,7 @@
 Customizations needed to support Microsoft Windows.
 """
 from __future__ import absolute_import
+from __future__ import print_function
 import os, re, sys, socket, time, itertools, platform
 import subprocess as sp
 from glob import glob
@@ -353,7 +354,7 @@ class NetworkInterface(object):
                 # No IP detected
                 self.invalid = True
         except (KeyError, AttributeError, NameError) as e:
-            print e
+            print(e)
         try:
             self.mac = data['mac']
         except KeyError:
@@ -499,13 +500,13 @@ class NetworkInterfaceDict(UserDict):
 
     def show(self, resolve_mac=True):
         """Print list of available network interfaces in human readable form"""
-        print "%s  %s  %s  %s" % ("INDEX".ljust(5), "IFACE".ljust(35), "IP".ljust(15), "MAC")
+        print("%s  %s  %s  %s" % ("INDEX".ljust(5), "IFACE".ljust(35), "IP".ljust(15), "MAC"))
         for iface_name in sorted(self.data):
             dev = self.data[iface_name]
             mac = dev.mac
             if resolve_mac:
                 mac = conf.manufdb._resolve_MAC(mac)
-            print "%s  %s  %s  %s" % (str(dev.win_index).ljust(5), str(dev.name).ljust(35), str(dev.ip).ljust(15), mac)
+            print("%s  %s  %s  %s" % (str(dev.win_index).ljust(5), str(dev.name).ljust(35), str(dev.ip).ljust(15), mac))
             
 IFACES = NetworkInterfaceDict()
 IFACES.load_from_powershell()

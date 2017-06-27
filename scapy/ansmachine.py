@@ -12,6 +12,7 @@ Answering machines.
 ########################
 
 from __future__ import absolute_import
+from __future__ import print_function
 from scapy.sendrecv import send,sendp,sniff
 from scapy.config import conf
 from scapy.error import log_interactive
@@ -100,7 +101,7 @@ class AnsweringMachine(six.with_metaclass(ReferenceAM, object)):
         self.send_function(reply, **self.optsend)
 
     def print_reply(self, req, reply):
-        print "%s ==> %s" % (req.summary(),reply.summary())
+        print("%s ==> %s" % (req.summary(),reply.summary()))
 
     def reply(self, pkt):
         if not self.is_request(pkt):
@@ -124,7 +125,7 @@ class AnsweringMachine(six.with_metaclass(ReferenceAM, object)):
         try:
             self.sniff()
         except KeyboardInterrupt:
-            print "Interrupted by user"
+            print("Interrupted by user")
         
     def sniff(self):
         sniff(**self.optsniff)

@@ -3,6 +3,7 @@
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
 ## This program is published under a GPLv2 license
 
+from __future__ import print_function
 import socket
 import Queue
 from scapy.pipetool import Source,Drain,Sink
@@ -44,17 +45,17 @@ class RdpcapSource(Source):
         self.fname = fname
         self.f = PcapReader(self.fname)
     def start(self):
-        print "start"
+        print("start")
         self.f = PcapReader(self.fname)
         self.is_exhausted = False
     def stop(self):
-        print "stop"
+        print("stop")
         self.f.close()
     def fileno(self):
         return self.f.fileno()
     def deliver(self):    
         p = self.f.recv()
-        print "deliver %r" % p
+        print("deliver %r" % p)
         if p is None:
             self.is_exhausted = True
         else:

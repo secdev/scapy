@@ -11,6 +11,7 @@ mechanisms which are addressed with keyexchange.py.
 """
 
 from __future__ import absolute_import
+from __future__ import print_function
 import math
 
 from scapy.error import warning
@@ -281,7 +282,7 @@ class TLS_Ext_PrettyPacketList(TLS_Ext_Unknown):
                                 label_lvl=label_lvl, first_call=False)
 
         if first_call and not dump:
-            print s
+            print(s)
         else:
             return s
 
@@ -1065,13 +1066,13 @@ class TLSServerKeyExchange(_TLSHandshake):
         """
         s = self.tls_session
         if s.prcs and s.prcs.key_exchange.anonymous:
-            print "USELESS SERVER KEY EXCHANGE"
+            print("USELESS SERVER KEY EXCHANGE")
         if (s.client_random and s.server_random and
             s.server_certs and len(s.server_certs) > 0):
             m = s.client_random + s.server_random + str(self.params)
             sig_test = self.sig._verify_sig(m, s.server_certs[0])
             if not sig_test:
-                print "INVALID SERVER KEY EXCHANGE SIGNATURE"
+                print("INVALID SERVER KEY EXCHANGE SIGNATURE")
 
 
 ###############################################################################
@@ -1188,7 +1189,7 @@ class TLSCertificateVerify(_TLSHandshake):
         if s.client_certs and len(s.client_certs) > 0:
             sig_test = self.sig._verify_sig(m, s.client_certs[0])
             if not sig_test:
-                print "INVALID CERTIFICATE VERIFY SIGNATURE"
+                print("INVALID CERTIFICATE VERIFY SIGNATURE")
 
 
 ###############################################################################
@@ -1285,7 +1286,7 @@ class TLSFinished(_TLSHandshake):
             verify_data = s.rcs.prf.compute_verify_data(con_end, "read",
                                                         handshake_msg, ms)
             if self.vdata != verify_data:
-                print "INVALID TLS FINISHED RECEIVED"
+                print("INVALID TLS FINISHED RECEIVED")
 
 
 ## Additional handshake messages

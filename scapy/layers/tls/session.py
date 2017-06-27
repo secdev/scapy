@@ -7,6 +7,7 @@
 TLS session handler.
 """
 
+from __future__ import print_function
 import random
 import socket
 import struct
@@ -101,10 +102,10 @@ class connState(object):
 
     def debug_repr(self, name, secret):
         if conf.debug_tls and secret:
-            print "%s %s %s: %s" % (self.connection_end,
+            print("%s %s %s: %s" % (self.connection_end,
                                     self.row,
                                     name,
-                                    repr_hex(secret))
+                                    repr_hex(secret)))
 
     def derive_keys(self,
                     client_random="",
@@ -378,7 +379,7 @@ class tlsSession(object):
                                                  self.server_random)
         self.master_secret = ms
         if conf.debug_tls:
-            print "master secret: %s" % repr_hex(ms)
+            print("master secret: %s" % repr_hex(ms))
 
     def compute_ms_and_derive_keys(self):
         self.compute_master_secret()
@@ -526,7 +527,7 @@ class _tls_sessions(object):
     def add(self, session):
         s = self.find(session)
         if s:
-            print "TLS session already exists. Not adding..."
+            print("TLS session already exists. Not adding...")
             return
 
         h = session.hash()
@@ -538,7 +539,7 @@ class _tls_sessions(object):
     def rem(self, session):
         s = self.find(session)
         if s:
-            print "TLS session does not exist. Not removing..."
+            print("TLS session does not exist. Not removing...")
             return
 
         h = session.hash()
@@ -550,10 +551,10 @@ class _tls_sessions(object):
             for k in self.sessions[h]:
                 if k.eq(session):
                     if conf.tls_verbose:
-                        print "Found Matching session %s" % k
+                        print("Found Matching session %s" % k)
                     return k
         if conf.tls_verbose:
-            print "Did not find matching session %s" % session
+            print("Did not find matching session %s" % session)
         return None
 
     def __repr__(self):

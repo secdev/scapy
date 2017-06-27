@@ -8,6 +8,7 @@ IPv4 (Internet Protocol v4).
 """
 
 from __future__ import absolute_import
+from __future__ import print_function
 import os,time,struct,re,socket,new
 from select import select
 from collections import defaultdict
@@ -43,7 +44,7 @@ class IPTools(object):
     def whois(self):
         """whois the source and print the output"""
         if WINDOWS:
-            print whois(self.src)
+            print(whois(self.src))
         else:
             os.system("whois %s" % self.src)
     def ottl(self):
@@ -1650,9 +1651,9 @@ funcpres: a function used to summarize packets"""
     classes += [t[1] for t in zip(idlst[:-1], idlst[1:]) if abs(t[0]-t[1]) > 50]
     lst = [(funcID(x), funcpres(x)) for x in lst]
     lst.sort()
-    print "Probably %i classes:" % len(classes), classes
+    print("Probably %i classes:" % len(classes), classes)
     for id,pr in lst:
-        print "%5i" % id, pr
+        print("%5i" % id, pr)
     
     
 @conf.commands.register
@@ -1682,7 +1683,7 @@ def fragleak(target,sport=123, dport=123, timeout=0.2, onlyasc=0):
                 if ans.payload.payload.dst != target:
                     continue
                 if ans.src  != target:
-                    print "leak from", ans.src,
+                    print("leak from", ans.src, end=' ')
 
 
 #                print repr(ans)
