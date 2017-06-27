@@ -19,7 +19,8 @@ from scapy.fields import StrField, ConditionalField, Emph, PacketListField, BitF
 from scapy.config import conf
 from scapy.base_classes import BasePacket, Gen, SetGen, Packet_metaclass
 from scapy.volatile import VolatileValue
-from scapy.utils import import_hexcap,tex_escape,colgen,get_temp_file
+from scapy.utils import import_hexcap,tex_escape,colgen,get_temp_file, \
+    ContextManagerSubprocess
 from scapy.error import Scapy_Exception, log_runtime
 from scapy.consts import PYX
 import scapy.modules.six as six
@@ -472,7 +473,8 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         if filename is None:
             fname = get_temp_file(autoext=".eps")
             canvas.writeEPSfile(fname)
-            subprocess.Popen([conf.prog.psreader, fname+".eps"])
+            with ContextManagerSubprocess("psdump()"):
+                subprocess.Popen([conf.prog.psreader, fname+".eps"])
         else:
             canvas.writeEPSfile(filename)
 
@@ -489,7 +491,8 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         if filename is None:
             fname = get_temp_file(autoext=".pdf")
             canvas.writePDFfile(fname)
-            subprocess.Popen([conf.prog.pdfreader, fname+".pdf"])
+            with ContextManagerSubprocess("pdfdump()"):
+                subprocess.Popen([conf.prog.pdfreader, fname+".pdf"])
         else:
             canvas.writePDFfile(filename)
 

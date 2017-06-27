@@ -407,6 +407,27 @@ def ltoa(x):
 def itom(x):
     return (0xffffffff00000000>>x)&0xffffffff
 
+class ContextManagerSubprocess(object):
+    """
+    Context manager that eases checking for unknown command.
+
+    Example:
+    >>> with ContextManagerSubprocess("my custom message"):
+    >>>     subprocess.Popen(["unknown_command"])
+
+    """
+    def __init__(self, name):
+        self.name = name
+
+    def __enter__(self):
+	pass
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        if exc_type == OSError:
+            msg = "%s: executing %r failed"
+            log_scapy.error(msg, self.name, conf.prog.wireshark, exc_info=1)
+            return True  # Suppress the exception
+
 def do_graph(graph,prog=None,format=None,target=None,type=None,string=None,options=None):
     """do_graph(graph, prog=conf.prog.dot, format="svg",
          target="| conf.prog.display", options=None, [string=1]):
@@ -456,7 +477,8 @@ def do_graph(graph,prog=None,format=None,target=None,type=None,string=None,optio
             if conf.prog.display == conf.prog._default:
                 os.startfile(tempfile)
             else:
-                subprocess.Popen([conf.prog.display, tempfile])
+                with ContextManagerSubprocess("do_graph()"):
+                    subprocess.Popen([conf.prog.display, tempfile])
 
 _TEX_TR = {
     "{":"{\\tt\\char123}",
@@ -1127,7 +1149,8 @@ def wireshark(pktlist):
     """Run wireshark on a list of packets"""
     f = get_temp_file()
     wrpcap(f, pktlist)
-    subprocess.Popen([conf.prog.wireshark, "-r", f])
+    with ContextManagerSubprocess("wireshark()"):
+        subprocess.Popen([conf.prog.wireshark, "-r", f])
 
 @conf.commands.register
 def tcpdump(pktlist, dump=False, getfd=False, args=None,
@@ -1185,17 +1208,19 @@ u'64'
     elif isinstance(prog, six.string_types):
         prog = [prog]
     if pktlist is None:
-        proc = subprocess.Popen(
-            prog + (args if args is not None else []),
-            stdout=subprocess.PIPE if dump or getfd else None,
-            stderr=open(os.devnull),
-        )
+        with ContextManagerSubprocess("tcpdump()"):
+            proc = subprocess.Popen(
+                prog + (args if args is not None else []),
+                stdout=subprocess.PIPE if dump or getfd else None,
+                stderr=open(os.devnull),
+            )
     elif isinstance(pktlist, six.string_types):
-        proc = subprocess.Popen(
-            prog + ["-r", pktlist] + (args if args is not None else []),
-            stdout=subprocess.PIPE if dump or getfd else None,
-            stderr=open(os.devnull),
-        )
+        with ContextManagerSubprocess("tcpdump()"):
+            proc = subprocess.Popen(
+                prog + ["-r", pktlist] + (args if args is not None else []),
+                stdout=subprocess.PIPE if dump or getfd else None,
+                stderr=open(os.devnull),
+            )
     elif DARWIN:
         # Tcpdump cannot read from stdin, see
         # <http://apple.stackexchange.com/questions/152682/>
@@ -1206,19 +1231,21 @@ u'64'
             wrpcap(tmpfile, pktlist)
         else:
             tmpfile.close()
-        proc = subprocess.Popen(
-            prog + ["-r", tmpfile.name] + (args if args is not None else []),
-            stdout=subprocess.PIPE if dump or getfd else None,
-            stderr=open(os.devnull),
-        )
+        with ContextManagerSubprocess("tcpdump()"):
+            proc = subprocess.Popen(
+                prog + ["-r", tmpfile.name] + (args if args is not None else []),
+                stdout=subprocess.PIPE if dump or getfd else None,
+                stderr=open(os.devnull),
+            )
         conf.temp_files.append(tmpfile.name)
     else:
-        proc = subprocess.Popen(
-            prog + ["-r", "-"] + (args if args is not None else []),
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE if dump or getfd else None,
-            stderr=open(os.devnull),
-        )
+        with ContextManagerSubprocess("tcpdump()"):
+            proc = subprocess.Popen(
+                prog + ["-r", "-"] + (args if args is not None else []),
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE if dump or getfd else None,
+                stderr=open(os.devnull),
+            )
         try:
             proc.stdin.writelines(iter(lambda: pktlist.read(1048576), ""))
         except AttributeError:
@@ -1236,7 +1263,8 @@ def hexedit(x):
     x = str(x)
     f = get_temp_file()
     open(f,"w").write(x)
-    subprocess.call([conf.prog.hexedit, f])
+    with ContextManagerSubprocess("hexedit()"):
+        subprocess.call([conf.prog.hexedit, f])
     x = open(f).read()
     os.unlink(f)
     return x
