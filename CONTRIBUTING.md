@@ -121,6 +121,10 @@ The project aims to provide code that works both on Python 2 and Python 3. There
 - use scapy.modules.six.range instead of xrange and range
 - use scapy.modules.six.itervalues(dict) instead of dict.values() or dict.itervalues()
 - use scapy.modules.six.string_types instead of basestring
+- `__bool__ = __nonzero__` must be used when declaring `__nonzero__` methods
+- `io.BytesIO` must be used instead of `StringIO` when using bytes
+- `__cmp__` must not be used.
+- UserDict should be imported via `six.UserDict`
 
 ### Code review
 
