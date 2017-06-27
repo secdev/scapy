@@ -8,6 +8,7 @@ NTP (Network Time Protocol).
 References : RFC 5905, RC 1305, ntpd source code
 """
 
+from __future__ import absolute_import
 import struct
 import time
 import datetime
@@ -22,6 +23,8 @@ from scapy.layers.inet6 import IP6Field
 from scapy.layers.inet import UDP
 from scapy.utils import lhex
 from scapy.config import conf
+import scapy.modules.six as six
+from scapy.modules.six.moves import range
 
 
 
@@ -79,7 +82,7 @@ class TimeStampField(FixedPointField):
         return time.strftime("%a, %d %b %Y %H:%M:%S +0000", time.gmtime(val - _NTP_BASETIME))
 
     def any2i(self, pkt, val):
-        if isinstance(val, basestring):
+        if isinstance(val, six.string_types):
             val = int(time.mktime(time.strptime(val))) + _NTP_BASETIME
         elif isinstance(val, datetime.datetime):
             val = int(val.strftime("%s")) + _NTP_BASETIME

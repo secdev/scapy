@@ -7,9 +7,12 @@
 Unit testing infrastructure for Scapy
 """
 
+from __future__ import absolute_import
 import sys, getopt, imp, glob, importlib
 import bz2, base64, os.path, time, traceback, zlib, sha
 from scapy.consts import WINDOWS
+import scapy.modules.six as six
+from scapy.modules.six.moves import range
 
 
 ### Util class ###
@@ -88,11 +91,11 @@ vzM985aHXOHAxQN2UQZbQkUv3D4Vc+lyvalAffv3Tyg4ks3a22kPXiyeCGweviNX
 0K8TKasyOhGsVamTUAZBXfQVw1zmdS4rHDnbHgtIjX3DcCt6UIr0BHTYjdV0JbPj
 r1APYgXihjQwM2M83AKIhwQQJv/F3JFOFCQNsEI0QA==""")
     def get_local_dict(cls):
-        return {x: y.name for (x, y) in cls.__dict__.iteritems()
+        return {x: y.name for (x, y) in six.iteritems(cls.__dict__)
                 if isinstance(y, File)}
     get_local_dict = classmethod(get_local_dict)
     def get_URL_dict(cls):
-        return {x: y.URL for (x, y) in cls.__dict__.iteritems()
+        return {x: y.URL for (x, y) in six.iteritems(cls.__dict__)
                 if isinstance(y, File)}
     get_URL_dict = classmethod(get_URL_dict)
 
@@ -118,7 +121,7 @@ class TestClass:
     def __getitem__(self, item):
         return getattr(self, item)
     def add_keywords(self, kws):
-        if isinstance(kws, basestring):
+        if isinstance(kws, six.string_types):
             kws = [kws]
         for kwd in kws:
             if kwd.startswith('-'):
@@ -671,8 +674,7 @@ def resolve_testfiles(TESTFILES):
     return TESTFILES
 
 def main(argv):
-    import __builtin__
-    ignore_globals = list(__builtin__.__dict__.keys()) + ["sys"]
+    ignore_globals = list(six.moves.builtins.__dict__.keys())
 
     # Parse arguments
     
@@ -753,7 +755,7 @@ def main(argv):
                         NUM.append(int(v))
                     except ValueError:
                         v1, v2 = [int(e) for e in v.split('-', 1)]
-                        NUM.extend(xrange(v1, v2 + 1))
+                        NUM.extend(range(v1, v2 + 1))
             elif opt == "-m":
                 MODULES.append(optarg)
             elif opt == "-k":
@@ -771,7 +773,7 @@ def main(argv):
         for m in MODULES:
             try:
                 mod = import_module(m)
-                __builtin__.__dict__.update(mod.__dict__)
+                six.moves.builtins.__dict__.update(mod.__dict__)
             except ImportError as e:
                 raise getopt.GetoptError("cannot import [%s]: %s" % (m,e))
                 

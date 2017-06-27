@@ -21,11 +21,14 @@
 """
 PPI-GEOLOCATION tags
 """
+from __future__ import absolute_import
 import struct, time
 from scapy.packet import *
 from scapy.fields import *
 from scapy.contrib.ppi import PPIGenericFldHdr,addPPIType
 from scapy.error import warning
+import scapy.modules.six as six
+from scapy.modules.six.moves import range
 
 CURR_GEOTAG_VER = 2 #Major revision of specification
 
@@ -256,8 +259,8 @@ class HCSIAppField(StrFixedLenField):
         return StrFixedLenField.__init__(self, name, default, length=60)
 
 def _FlagsList(myfields):
-    flags = ["Reserved%02d" % i for i in xrange(32)]
-    for i, value in myfields.iteritems():
+    flags = ["Reserved%02d" % i for i in range(32)]
+    for i, value in six.iteritems(myfields):
         flags[i] = value
     return flags
 

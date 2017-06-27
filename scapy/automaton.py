@@ -7,6 +7,7 @@
 Automata with states, transitions and actions.
 """
 
+from __future__ import absolute_import
 import types,itertools,time,os,sys,socket,traceback
 from select import select
 from collections import deque
@@ -18,6 +19,7 @@ from scapy.plist import PacketList
 from scapy.data import MTU
 from scapy.supersocket import SuperSocket
 from scapy.consts import WINDOWS
+import scapy.modules.six as six
 
 class ObjectPipe:
     def __init__(self):
@@ -43,7 +45,7 @@ class Message:
         self.__dict__.update(args)
     def __repr__(self):
         return "<Message %s>" % " ".join("%s=%r"%(k,v)
-                                         for (k,v) in self.__dict__.iteritems()
+                                         for (k,v) in six.iteritems(self.__dict__)
                                          if not k.startswith("_"))
 
 class _instance_state:
@@ -230,11 +232,11 @@ class Automaton_metaclass(type):
         while classes:
             c = classes.pop(0) # order is important to avoid breaking method overloading
             classes += list(c.__bases__)
-            for k,v in c.__dict__.iteritems():
+            for k,v in six.iteritems(c.__dict__):
                 if k not in members:
                     members[k] = v
 
-        decorated = [v for v in members.itervalues()
+        decorated = [v for v in six.itervalues(members)
                      if isinstance(v, types.FunctionType) and hasattr(v, "atmt_type")]
         
         for m in decorated:
@@ -267,14 +269,14 @@ class Automaton_metaclass(type):
                     cls.actions[c].append(m)
             
 
-        for v in cls.timeout.itervalues():
+        for v in six.itervalues(cls.timeout):
             v.sort(lambda (t1,f1),(t2,f2): cmp(t1,t2))
             v.append((None, None))
-        for v in itertools.chain(cls.conditions.itervalues(),
-                                 cls.recv_conditions.itervalues(),
-                                 cls.ioevents.itervalues()):
+        for v in itertools.chain(six.itervalues(cls.conditions),
+                                 six.itervalues(cls.recv_conditions),
+                                 six.itervalues(cls.ioevents)):
             v.sort(lambda c1,c2: cmp(c1.atmt_prio,c2.atmt_prio))
-        for condname,actlst in cls.actions.iteritems():
+        for condname,actlst in six.iteritems(cls.actions):
             actlst.sort(lambda c1,c2: cmp(c1.atmt_cond[condname], c2.atmt_cond[condname]))
 
         for ioev in cls.iosupersockets:
@@ -286,7 +288,7 @@ class Automaton_metaclass(type):
         s = 'digraph "%s" {\n'  % self.__class__.__name__
         
         se = "" # Keep initial nodes at the begining for better rendering
-        for st in self.states.itervalues():
+        for st in six.itervalues(self.states):
             if st.atmt_initial:
                 se = ('\t"%s" [ style=filled, fillcolor=blue, shape=box, root=true];\n' % st.atmt_state)+se
             elif st.atmt_final:
@@ -295,7 +297,7 @@ class Automaton_metaclass(type):
                 se += '\t"%s" [ style=filled, fillcolor=red, shape=octagon ];\n' % st.atmt_state
         s += se
 
-        for st in self.states.itervalues():
+        for st in six.itervalues(self.states):
             for n in st.atmt_origfunc.__code__.co_names+st.atmt_origfunc.__code__.co_consts:
                 if n in self.states:
                     s += '\t"%s" -> "%s" [ color=green ];\n' % (st.atmt_state,n)
@@ -311,7 +313,7 @@ class Automaton_metaclass(type):
                         for x in self.actions[f.atmt_condname]:
                             l += "\\l>[%s]" % x.__name__
                         s += '\t"%s" -> "%s" [label="%s", color=%s];\n' % (k,n,l,c)
-        for k,v in self.timeout.iteritems():
+        for k,v in six.iteritems(self.timeout):
             for t,f in v:
                 if f is None:
                     continue
@@ -355,10 +357,7 @@ def select_objects(inputs, remain, customTypes=()):
         r,_,_ = select(inputs,[],[],remain)
         return r
 
-class Automaton:
-    __metaclass__ = Automaton_metaclass
-
-    ## Methods to overload
+class Automaton(six.with_metaclass(Automaton_metaclass)):
     def parse_args(self, debug=0, store=1, **kargs):
         self.debug_level=debug
         self.socket_kargs = kargs
@@ -747,7 +746,7 @@ class Automaton:
             elif c.type == _ATMT_Command.BREAKPOINT:
                 raise self.Breakpoint("breakpoint triggered on state [%s]"%c.state.state, state=c.state.state)
             elif c.type == _ATMT_Command.EXCEPTION:
-                raise c.exc_info[0],c.exc_info[1],c.exc_info[2]
+                six.reraise(c.exc_info[0], c.exc_info[1], c.exc_info[2])
 
     def runbg(self, resume=None, wait=False):
         self.run(resume, wait)

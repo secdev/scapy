@@ -7,6 +7,7 @@
 Linux specific functions.
 """
 
+from __future__ import absolute_import
 import sys,os,struct,socket,time
 from select import select
 from fcntl import ioctl
@@ -22,6 +23,7 @@ from scapy.supersocket import SuperSocket
 import scapy.arch
 from scapy.error import warning, Scapy_Exception, log_interactive, log_loading
 from scapy.arch.common import get_if
+from scapy.modules.six.moves import range
 
 
 
@@ -182,7 +184,7 @@ def get_alias_address(iface_name, ip_mask):
     # Extract interfaces names
     out = struct.unpack("iL", ifreq)[0]
     names = names.tostring()
-    names = [names[i:i+offset].split('\0', 1)[0] for i in xrange(0, out, name_len)]
+    names = [names[i:i+offset].split('\0', 1)[0] for i in range(0, out, name_len)]
 
     # Look for the IP address
     for ifname in names:

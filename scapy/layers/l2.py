@@ -7,6 +7,7 @@
 Classes and functions for layer 2 protocols.
 """
 
+from __future__ import absolute_import
 import os, struct, time, socket
 
 from scapy.base_classes import Net
@@ -495,7 +496,7 @@ class EAP(Packet):
                 if isinstance(self, eap_class):
                     ret = 1
                     break
-        elif cls in EAP.registered_methods.values() and isinstance(self, cls):
+        elif cls in list(EAP.registered_methods.values()) and isinstance(self, cls):
             ret = 1
         return ret
 

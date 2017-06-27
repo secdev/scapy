@@ -43,11 +43,11 @@
     - IOS / EIGRP Version Representation FIX by Dirk Loss
 """
 
+from __future__ import absolute_import
 from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.inet import IP
 from scapy.layers.inet6 import *
-from functools import reduce
 
 class EigrpIPField(StrField, IPField):
     """

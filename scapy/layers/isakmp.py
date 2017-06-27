@@ -7,6 +7,7 @@
 ISAKMP (Internet Security Association and Key Management Protocol).
 """
 
+from __future__ import absolute_import
 import struct
 from scapy.config import conf
 from scapy.packet import *

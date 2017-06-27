@@ -8,6 +8,7 @@ PacketList: holds several packets and allows to do operations on them.
 """
 
 
+from __future__ import absolute_import
 import os,subprocess
 from collections import defaultdict
 
@@ -17,6 +18,8 @@ from scapy.utils import do_graph,hexdump,make_table,make_lined_table,make_tex_ta
 
 from scapy.consts import plt, MATPLOTLIB_INLINED, MATPLOTLIB_DEFAULT_PLOT_KARGS
 from functools import reduce
+import scapy.modules.six as six
+from scapy.modules.six.moves import filter, range, zip
 
 
 #############
@@ -172,10 +175,10 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
         # Get the list of packets
         if lfilter is None:
             l = [f(self.res[i], self.res[i+1])
-                    for i in xrange(len(self.res) - delay)]
+                    for i in range(len(self.res) - delay)]
         else:
             l = [f(self.res[i], self.res[i+1])
-                    for i in xrange(len(self.res) - delay)
+                    for i in range(len(self.res) - delay)
                         if lfilter(self.res[i])]
 
         # Mimic the default gnuplot output
@@ -213,10 +216,10 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
 
         if plot_xy:
             lines = [plt.plot(*zip(*pl), **dict(kargs, label=k))
-                     for k, pl in d.iteritems()]
+                     for k, pl in six.iteritems(d)]
         else:
             lines = [plt.plot(pl, **dict(kargs, label=k))
-                     for k, pl in d.iteritems()]
+                     for k, pl in six.iteritems(d)]
         plt.legend(loc="center right", bbox_to_anchor=(1.5, 0.5))
 
         # Call show() if matplotlib is not inlined
@@ -315,7 +318,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
             else:
                 conv[c] = conv.get(c, 0) + 1
         gr = 'digraph "conv" {\n'
-        for (s, d), l in conv.iteritems():
+        for (s, d), l in six.iteritems(conv):
             gr += '\t "%s" -> "%s" [label="%s"]\n' % (
                 s, d, ', '.join(str(x) for x in l) if isinstance(l, set) else l
             )
@@ -371,9 +374,9 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
                 M = 1
             return m, M
 
-        mins, maxs = minmax(x for x, _ in sl.itervalues())
-        mine, maxe = minmax(x for x, _ in el.itervalues())
-        mind, maxd = minmax(dl.itervalues())
+        mins, maxs = minmax(x for x, _ in six.itervalues(sl))
+        mine, maxe = minmax(x for x, _ in six.itervalues(el))
+        mind, maxd = minmax(six.itervalues(dl))
     
         gr = 'digraph "afterglow" {\n\tedge [len=2.5];\n'
 

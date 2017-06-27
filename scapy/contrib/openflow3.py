@@ -11,6 +11,7 @@
 # scapy.contrib.description = Openflow v1.3
 # scapy.contrib.status = loads
 
+from __future__ import absolute_import
 import struct
 from scapy.fields import *
 from scapy.layers.l2 import *
@@ -2628,7 +2629,7 @@ class OFPMPRequestGroupFeatures(_ofp_header):
                     XIntField("pad1", 0) ]
     overload_fields = {TCP: {"sport": 6653}}
 
-ofp_action_types_flags = ofp_action_types.values()[:-1]  # no ofpat_experimenter flag
+ofp_action_types_flags = list(ofp_action_types.values())[:-1]  # no ofpat_experimenter flag
 class OFPMPReplyGroupFeatures(_ofp_header):
     name = "OFPMP_REPLY_GROUP_FEATURES"
     fields_desc = [ ByteEnumField("version", 0x04, ofp_version),

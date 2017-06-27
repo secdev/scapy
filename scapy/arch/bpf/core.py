@@ -4,6 +4,7 @@
 Scapy *BSD native support - core
 """
 
+from __future__ import absolute_import
 from scapy.config import conf
 from scapy.error import Scapy_Exception, warning
 from scapy.data import ARPHDR_LOOPBACK, ARPHDR_ETHER
@@ -20,6 +21,7 @@ import struct
 from ctypes import cdll, cast, pointer, POINTER, Structure
 from ctypes import c_uint, c_uint32, c_int, c_ulong, c_char_p, c_ushort, c_ubyte
 from ctypes.util import find_library
+from scapy.modules.six.moves import range
 
 
 # ctypes definitions
@@ -132,7 +134,7 @@ def attach_filter(fd, iface, bpf_filter_string):
 
     # Fill the BPF instruction structures with the byte code
     lines = lines[1:]
-    for i in xrange(len(lines)):
+    for i in range(len(lines)):
         values = [int(v) for v in lines[i].split()]
         bip[i].code = c_ushort(values[0])
         bip[i].jt = c_ubyte(values[1])

@@ -7,6 +7,7 @@
 DNS: Domain Name System.
 """
 
+from __future__ import absolute_import
 import socket,struct
 
 from scapy.config import conf
@@ -18,6 +19,8 @@ from scapy.layers.inet import IP, DestIPField, UDP, TCP
 from scapy.layers.inet6 import DestIP6Field
 from scapy.error import warning
 from functools import reduce
+import scapy.modules.six as six
+from scapy.modules.six.moves import range
 
 class DNSStrField(StrField):
 
@@ -32,7 +35,6 @@ class DNSStrField(StrField):
 
         # Truncate chunks that cannot be encoded (more than 63 bytes..)
         x = "".join(chr(len(y)) + y for y in (k[:63] for k in x.split(".")))
-        x = "".join(x)
         if x[-1] != b"\x00":
             x += b"\x00"
         return x
@@ -405,9 +407,9 @@ def bitmap2RRlist(bitmap):
         tmp_bitmap = bitmap[2:2+bitmap_len]
 
         # Let's compare each bit of tmp_bitmap and compute the real RR value
-        for b in xrange(len(tmp_bitmap)):
+        for b in range(len(tmp_bitmap)):
             v = 128
-            for i in xrange(8):
+            for i in range(8):
                 if ord(tmp_bitmap[b]) & v:
                     # each of the RR is encoded as a bit
                     RRlist += [ offset + b*8 + i ]
@@ -439,7 +441,7 @@ def RRlist2bitmap(lst):
     if min_window_blocks == max_window_blocks:
         max_window_blocks += 1
 
-    for wb in xrange(min_window_blocks, max_window_blocks+1):
+    for wb in range(min_window_blocks, max_window_blocks+1):
         # First, filter out RR not encoded in the current window block
         # i.e. keep everything between 256*wb <= 256*(wb+1)
         rrlist = sorted(x for x in lst if 256 * wb <= x < 256 * (wb + 1))
@@ -468,7 +470,7 @@ def RRlist2bitmap(lst):
 		b"B",
 		sum(2 ** (7 - (x - 256 * wb) + (tmp * 8)) for x in rrlist
 		if 256 * wb + 8 * tmp <= x < 256 * wb + 8 * tmp + 8),
-	    ) for tmp in xrange(bytes_count)
+	    ) for tmp in range(bytes_count)
 	)
 
     return bitmap
@@ -628,7 +630,7 @@ DNSRR_DISPATCHER = {
     32769: DNSRRDLV,     # RFC 4431
 }
 
-DNSSEC_CLASSES = tuple(DNSRR_DISPATCHER.itervalues())
+DNSSEC_CLASSES = tuple(six.itervalues(DNSRR_DISPATCHER))
 
 def isdnssecRR(obj):
     return isinstance(obj, DNSSEC_CLASSES)

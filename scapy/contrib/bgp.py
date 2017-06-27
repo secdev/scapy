@@ -19,6 +19,7 @@
 BGP (Border Gateway Protocol).
 """
 
+from __future__ import absolute_import
 import struct
 import re
 import socket
@@ -36,6 +37,7 @@ from scapy.layers.inet import TCP
 from scapy.layers.inet6 import IP6Field
 from scapy.config import conf, ConfClass
 from scapy.error import log_runtime
+import scapy.modules.six as six
 
 
 #
@@ -570,12 +572,10 @@ class _BGPCapability_metaclass(Packet_metaclass, _BGPCap_metaclass):
     pass
 
 
-class BGPCapability(Packet):
+class BGPCapability(six.with_metaclass(_BGPCapability_metaclass, Packet)):
     """
     Generic BGP capability.
     """
-
-    __metaclass__ = _BGPCapability_metaclass
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):

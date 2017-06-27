@@ -7,8 +7,9 @@
 Functions to send and receive packets.
 """
 
+from __future__ import absolute_import
 import errno
-import cPickle,os,sys,time,subprocess
+import os, sys, time, subprocess
 import itertools
 from select import select, error as select_error
 
@@ -21,6 +22,8 @@ from scapy import plist
 from scapy.error import log_runtime, log_interactive, warning
 from scapy.base_classes import SetGen
 from scapy.supersocket import StreamSocket
+import scapy.modules.six as six
+from scapy.modules.six.moves import map, zip
 if conf.route is None:
     # unused import, only to initialize conf.route
     import scapy.route
@@ -109,7 +112,7 @@ def sndrcv(pks, pkt, timeout = None, inter = 0, verbose=None, chainCC=0, retry=0
                     try:
                         os.setpgrp() # Chance process group to avoid ctrl-C
                         sent_times = [p.sent_time for p in all_stimuli if p.sent_time]
-                        cPickle.dump( (conf.netcache,sent_times), wrpipe )
+                        six.moves.cPickle.dump( (conf.netcache,sent_times), wrpipe )
                         wrpipe.close()
                     except:
                         pass
@@ -186,7 +189,7 @@ def sndrcv(pks, pkt, timeout = None, inter = 0, verbose=None, chainCC=0, retry=0
                             raise
                 finally:
                     try:
-                        nc,sent_times = cPickle.load(rdpipe)
+                        nc,sent_times = six.moves.cPickle.load(rdpipe)
                     except EOFError:
                         warning("Child died unexpectedly. Packets may have not been sent %i"%os.getpid())
                     else:
@@ -198,7 +201,7 @@ def sndrcv(pks, pkt, timeout = None, inter = 0, verbose=None, chainCC=0, retry=0
             if pid == 0:
                 os._exit(0)
 
-        remain = list(itertools.chain(*hsent.itervalues()))
+        remain = list(itertools.chain(*six.itervalues(hsent)))
         if multi:
             remain = [p for p in remain if not hasattr(p, '_answered')]
 

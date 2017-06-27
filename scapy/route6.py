@@ -16,6 +16,7 @@ Routing and network interface handling for IPv6.
 #############################################################################
 #############################################################################
 
+from __future__ import absolute_import
 import socket
 from scapy.config import conf
 from scapy.utils6 import *
@@ -23,6 +24,7 @@ from scapy.arch import *
 from scapy.pton_ntop import *
 from scapy.error import warning, log_loading
 from scapy.consts import LOOPBACK_INTERFACE
+import scapy.modules.six as six
 
 
 class Route6:
@@ -50,7 +52,7 @@ class Route6:
         rtlst = []
 
         for net,msk,gw,iface,cset in self.routes:
-            rtlst.append(('%s/%i'% (net,msk), gw, (iface if isinstance(iface, basestring) else iface.name), ", ".join(cset) if len(cset) > 0 else ""))
+            rtlst.append(('%s/%i'% (net,msk), gw, (iface if isinstance(iface, six.string_types) else iface.name), ", ".join(cset) if len(cset) > 0 else ""))
 
         return pretty_routes(rtlst,
                              [('Destination', 'Next Hop', "Iface", "Src candidates")],
@@ -198,7 +200,7 @@ class Route6:
         # Deal with dev-specific request for cache search
         k = dst
         if dev is not None:
-            k = dst + "%%" + (dev if isinstance(dev, basestring) else dev.pcap_name)
+            k = dst + "%%" + (dev if isinstance(dev, six.string_types) else dev.pcap_name)
         if k in self.cache:
             return self.cache[k]
 
@@ -263,7 +265,7 @@ class Route6:
         # Fill the cache (including dev-specific request)
         k = dst
         if dev is not None:
-            k = dst + "%%" + (dev if isinstance(dev, basestring) else dev.pcap_name)
+            k = dst + "%%" + (dev if isinstance(dev, six.string_types) else dev.pcap_name)
         self.cache[k] = res[0][1]
 
         return res[0][1]

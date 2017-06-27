@@ -10,8 +10,10 @@ These functions are missing when python is compiled
 without IPv6 support, on Windows for instance.
 """
 
+from __future__ import absolute_import
 import socket
 import re
+from scapy.modules.six.moves import range
 
 _IP6_ZEROS = re.compile('(?::|^)(0(?::0)+)(?::|$)')
 _INET6_PTON_EXC = socket.error("illegal IP address string passed to inet_pton")
@@ -95,7 +97,7 @@ used when socket.inet_pton is not available.
 
     # Decode to hex representation
     address = ":".join(addr[idx:idx + 2].encode('hex').lstrip('0') or '0'
-                       for idx in xrange(0, 16, 2))
+                       for idx in range(0, 16, 2))
 
     try:
         # Get the longest set of zero blocks. We need to take a look

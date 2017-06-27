@@ -7,14 +7,17 @@
 General utility functions.
 """
 
+from __future__ import absolute_import
 import os, sys, socket, types
 import random, time
-import gzip, zlib, cPickle
+import gzip, zlib
 import re, struct, array
 import subprocess
 import tempfile
 
 import warnings
+import scapy.modules.six as six
+from scapy.modules.six.moves import range
 warnings.filterwarnings("ignore","tempnam",RuntimeWarning, __name__)
 
 from scapy.config import conf
@@ -54,7 +57,7 @@ def sane(x):
     return r
 
 def lhex(x):
-    if type(x) in (int,long):
+    if type(x) in six.integer_types:
         return hex(x)
     elif isinstance(x, tuple):
         return "(%s)" % ", ".join(map(lhex, x))
@@ -77,7 +80,7 @@ def hexdump(x, dump=False):
     i = 0
     while i < l:
         s += "%04x  " % i
-        for j in xrange(16):
+        for j in range(16):
             if i+j < l:
                 s += "%02X" % ord(x[i+j])
             else:
@@ -113,7 +116,7 @@ def linehexdump(x, onlyasc=0, onlyhex=0, dump=False):
     x = str(x)
     l = len(x)
     if not onlyasc:
-        for i in xrange(l):
+        for i in range(l):
             s += "%02X" % ord(x[i])
         if not onlyhex:  # separate asc & hex if both are displayed
             s += " "
@@ -164,13 +167,13 @@ def hexdiff(x,y):
     SUBST=1
     INSERT=1
     d = {(-1, -1): (0, (-1, -1))}
-    for j in xrange(len(y)):
+    for j in range(len(y)):
         d[-1,j] = d[-1,j-1][0]+INSERT, (-1,j-1)
-    for i in xrange(len(x)):
+    for i in range(len(x)):
         d[i,-1] = d[i-1,-1][0]+INSERT, (i-1,-1)
 
-    for j in xrange(len(y)):
-        for i in xrange(len(x)):
+    for j in range(len(y)):
+        for i in range(len(x)):
             d[i,j] = min( ( d[i-1,j-1][0]+SUBST*(x[i] != y[j]), (i-1,j-1) ),
                           ( d[i-1,j][0]+INSERT, (i-1,j) ),
                           ( d[i,j-1][0]+INSERT, (i,j-1) ) )
@@ -234,7 +237,7 @@ def hexdiff(x,y):
         print " ",
         
         cl = ""
-        for j in xrange(16):
+        for j in range(16):
             if i+j < l:
                 if line[j]:
                     col = colorize[(linex[j]!=liney[j])*(doy-dox)]
@@ -348,13 +351,13 @@ def randstring(l):
     """
     Returns a random string of length l (l >= 0)
     """
-    return b"".join(struct.pack('B', random.randint(0, 255)) for _ in xrange(l))
+    return b"".join(struct.pack('B', random.randint(0, 255)) for _ in range(l))
 
 def zerofree_randstring(l):
     """
     Returns a random string of length l (l >= 0) without zero in it.
     """
-    return b"".join(struct.pack('B', random.randint(1, 255)) for _ in xrange(l))
+    return b"".join(struct.pack('B', random.randint(1, 255)) for _ in range(l))
 
 def strxor(s1, s2):
     """
@@ -484,9 +487,9 @@ def colgen(*lstcol,**kargs):
         lstcol *= 2
     trans = kargs.get("trans", lambda x,y,z: (x,y,z))
     while True:
-        for i in xrange(len(lstcol)):
-            for j in xrange(len(lstcol)):
-                for k in xrange(len(lstcol)):
+        for i in range(len(lstcol)):
+            for j in range(len(lstcol)):
+                for k in range(len(lstcol)):
                     if i != j or j != k or k != i:
                         yield trans(lstcol[(i+j)%len(lstcol)],lstcol[(j+k)%len(lstcol)],lstcol[(k+i)%len(lstcol)])
 
@@ -524,7 +527,7 @@ class Enum_metaclass(type):
     element_class = EnumElement
     def __new__(cls, name, bases, dct):
         rdict={}
-        for k,v in dct.iteritems():
+        for k,v in six.iteritems(dct):
             if isinstance(v, int):
                 v = cls.element_class(k,v)
                 dct[k] = v
@@ -548,24 +551,24 @@ class Enum_metaclass(type):
 
 
 def export_object(obj):
-    print gzip.zlib.compress(cPickle.dumps(obj,2),9).encode("base64")
+    print gzip.zlib.compress(six.moves.cPickle.dumps(obj,2),9).encode("base64")
 
 def import_object(obj=None):
     if obj is None:
         obj = sys.stdin.read()
-    return cPickle.loads(gzip.zlib.decompress(obj.strip().decode("base64")))
+    return six.moves.cPickle.loads(gzip.zlib.decompress(obj.strip().decode("base64")))
 
 
 def save_object(fname, obj):
     """Pickle a Python object"""
 
     fd = gzip.open(fname, "wb")
-    cPickle.dump(obj, fd)
+    six.moves.cPickle.dump(obj, fd)
     fd.close()
 
 def load_object(fname):
     """unpickle a Python object"""
-    return cPickle.load(gzip.open(fname,"rb"))
+    return six.moves.cPickle.load(gzip.open(fname,"rb"))
 
 @conf.commands.register
 def corrupt_bytes(s, p=0.01, n=None):
@@ -574,7 +577,7 @@ def corrupt_bytes(s, p=0.01, n=None):
     l = len(s)
     if n is None:
         n = max(1,int(l*p))
-    for i in random.sample(xrange(l), n):
+    for i in random.sample(range(l), n):
         s[i] = (s[i]+random.randint(1,255))%256
     return s.tostring()
 
@@ -585,7 +588,7 @@ def corrupt_bits(s, p=0.01, n=None):
     l = len(s)*8
     if n is None:
         n = max(1,int(l*p))
-    for i in random.sample(xrange(l), n):
+    for i in random.sample(range(l), n):
         s[i/8] ^= 1 << (i%8)
     return s.tostring()
 
@@ -665,7 +668,7 @@ class PcapReader_metaclass(type):
     @staticmethod
     def open(filename):
         """Open (if necessary) filename, and read the magic."""
-        if isinstance(filename, basestring):
+        if isinstance(filename, six.string_types):
             try:
                 fdesc = gzip.open(filename,"rb")
                 magic = fdesc.read(4)
@@ -681,9 +684,8 @@ class PcapReader_metaclass(type):
         return filename, fdesc, magic
 
 
-class RawPcapReader:
+class RawPcapReader(six.with_metaclass(PcapReader_metaclass)):
     """A stateful pcap reader. Each packet is returned as a string"""
-    __metaclass__ = PcapReader_metaclass
     def __init__(self, filename, fdesc, magic):
         self.filename = filename
         self.f = fdesc
@@ -985,7 +987,7 @@ nano:       use nanosecond-precision (requires libpcap >= 1.5.0)
         if sync:
             bufsz = 0
 
-        if isinstance(filename, basestring):
+        if isinstance(filename, six.string_types):
             self.filename = filename
             self.f = [open,gzip.open][gz](filename,append and "ab" or "wb", gz and 9 or bufsz)
         else:
@@ -1105,7 +1107,7 @@ def import_hexcap():
     p = ""
     try:
         while True:
-            l = raw_input().strip()
+            l = input().strip()
             try:
                 p += re_extract_hexcap.match(l).groups()[2]
             except:
@@ -1179,7 +1181,7 @@ u'64'
     """
     if prog is None:
         prog = [conf.prog.tcpdump]
-    elif isinstance(prog, basestring):
+    elif isinstance(prog, six.string_types):
         prog = [prog]
     if pktlist is None:
         proc = subprocess.Popen(
@@ -1187,7 +1189,7 @@ u'64'
             stdout=subprocess.PIPE if dump or getfd else None,
             stderr=open(os.devnull),
         )
-    elif isinstance(pktlist, basestring):
+    elif isinstance(pktlist, six.string_types):
         proc = subprocess.Popen(
             prog + ["-r", pktlist] + (args if args is not None else []),
             stdout=subprocess.PIPE if dump or getfd else None,
@@ -1283,7 +1285,7 @@ def pretty_routes(rtlst, header, sortBy=0):
     # Append tag
     rtlst = header + rtlst
     # Detect column's width
-    colwidth = map(lambda x: max(map(lambda y: len(y), x)), zip(*rtlst))
+    colwidth = [max([len(y) for y in x]) for x in apply(zip, rtlst)]
     # Make text fit in box (if exist)
     # TODO: find a better and more precise way of doing this. That's currently working but very complicated
     width = get_terminal_width()
@@ -1305,9 +1307,9 @@ def pretty_routes(rtlst, header, sortBy=0):
                 return _r
             rtlst = [tuple([_crop(rtlst[j][i], colwidth[i]) for i in range(0, len(rtlst[j]))]) for j in range(0, len(rtlst))]
             # Recalculate column's width
-            colwidth = map(lambda x: max(map(lambda y: len(y), x)), zip(*rtlst))
-    fmt = _space.join(map(lambda x: "%%-%ds"%x, colwidth))
-    rt = "\n".join(map(lambda x: fmt % x, rtlst))
+            colwidth = [max([len(y) for y in x]) for x in apply(zip, rtlst)]
+    fmt = _space.join(["%%-%ds"%x for x in colwidth])
+    rt = "\n".join([fmt % x for x in rtlst])
     return rt
 
 def __make_table(yfmtfunc, fmtfunc, endline, list, fxyz, sortx=None, sorty=None, seplinefunc=None):
@@ -1324,8 +1326,8 @@ def __make_table(yfmtfunc, fmtfunc, endline, list, fxyz, sortx=None, sorty=None,
         vy[yy] = None
         vz[(xx,yy)] = zz
 
-    vxk = vx.keys()
-    vyk = vy.keys()
+    vxk = sorted(vx.keys())
+    vyk = sorted(vy.keys())
     if sortx:
         vxk.sort(sortx)
     else:

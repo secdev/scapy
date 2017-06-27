@@ -24,11 +24,14 @@ For instance, here is what you could do in order to modify the serial of
 No need for obnoxious openssl tweaking anymore. :)
 """
 
+from __future__ import absolute_import
 import base64
 import os
 import time
 
 from scapy.config import conf, crypto_validator
+import scapy.modules.six as six
+from scapy.modules.six.moves import range
 if conf.crypto_valid:
     from cryptography.hazmat.backends import default_backend
     from cryptography.hazmat.primitives import serialization
@@ -229,12 +232,11 @@ class _PubKeyFactory(_PKIObjMaker):
         return obj
 
 
-class PubKey(object):
+class PubKey(six.with_metaclass(_PubKeyFactory, object)):
     """
     Parent class for both PubKeyRSA and PubKeyECDSA.
     Provides a common verifyCert() method.
     """
-    __metaclass__ = _PubKeyFactory
 
     def verifyCert(self, cert):
         """ Verifies either a Cert or an X509_Cert. """
@@ -396,12 +398,11 @@ class _PrivKeyFactory(_PKIObjMaker):
         return obj
 
 
-class PrivKey(object):
+class PrivKey(six.with_metaclass(_PrivKeyFactory, object)):
     """
     Parent class for both PrivKeyRSA and PrivKeyECDSA.
     Provides common signTBSCert() and resignCert() methods.
     """
-    __metaclass__ = _PrivKeyFactory
 
     def signTBSCert(self, tbsCert, h=None):
         """
@@ -554,12 +555,11 @@ class _CertMaker(_PKIObjMaker):
         return obj
 
 
-class Cert(object):
+class Cert(six.with_metaclass(_CertMaker, object)):
     """
     Wrapper for the X509_Cert from layers/x509.py.
     Use the 'x509Cert' attribute to access original object.
     """
-    __metaclass__ = _CertMaker
 
     def import_from_asn1pkt(self, cert):
         error_msg = "Unable to import certificate"
@@ -752,12 +752,11 @@ class _CRLMaker(_PKIObjMaker):
         return obj
 
 
-class CRL(object):
+class CRL(six.with_metaclass(_CRLMaker, object)):
     """
     Wrapper for the X509_CRL from layers/x509.py.
     Use the 'x509CRL' attribute to access original object.
     """
-    __metaclass__ = _CRLMaker
 
     def import_from_asn1pkt(self, crl):
         error_msg = "Unable to import CRL"

@@ -6,3 +6,6 @@ omit =
     test/*
     bin/*
     scapy/tools/*
+    # Libraries
+    scapy/modules/six.py
+	scapy/modules/winpcapy.py

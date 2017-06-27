@@ -23,7 +23,7 @@ import scapy.consts
 if conf.use_winpcapy:
   #mostly code from https://github.com/phaethon/scapy translated to python2.X
   try:
-      from scapy.arch.winpcapy import *
+      from scapy.modules.winpcapy import *
       def winpcapy_get_if_list():
           err = create_string_buffer(PCAP_ERRBUF_SIZE)
           devs = POINTER(pcap_if_t)()

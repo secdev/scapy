@@ -8,6 +8,7 @@ Resolve Autonomous Systems (AS).
 """
 
 
+from __future__ import absolute_import
 import socket, errno
 from scapy.config import conf
 

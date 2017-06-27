@@ -9,6 +9,7 @@ https://msdn.microsoft.com/en-us/library/cc233983.aspx
 
 """
 
+from __future__ import absolute_import
 import struct
 from array import array
 
@@ -22,6 +23,7 @@ from scapy.layers.l2 import Ether
 from scapy.layers.inet import IPField
 from scapy.layers.inet6 import IP6Field
 from scapy.data import ETHER_ANY
+import scapy.modules.six as six
 
 # Protocol layers
 ##################
@@ -296,7 +298,7 @@ class LLTDAttribute(Packet):
             cmd = struct.unpack("B", _pkt[0])[0]
         elif "type" in kargs:
             cmd = kargs["type"]
-            if isinstance(cmd, basestring):
+            if isinstance(cmd, six.string_types):
                 cmd = cls.fields_desc[0].s2i[cmd]
         else:
             return cls
@@ -837,4 +839,4 @@ class LargeTlvBuilder(object):
 
         """
         return {key: "".join(chr(byte) for byte in data)
-                for key, data in self.data.iteritems()}
+                for key, data in six.iteritems(self.data)}

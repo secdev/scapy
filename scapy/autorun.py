@@ -12,6 +12,7 @@ from scapy.config import conf
 from scapy.themes import *
 from scapy.error import Scapy_Exception
 from scapy.utils import tex_escape
+import scapy.modules.six as six
 
 
 #########################
@@ -38,7 +39,6 @@ class ScapyAutorunInterpreter(code.InteractiveInterpreter):
 
 def autorun_commands(cmds, my_globals=None, ignore_globals=None, verb=0):
     sv = conf.verb
-    import __builtin__
     try:
         try:
             if my_globals is None:
@@ -52,7 +52,7 @@ def autorun_commands(cmds, my_globals=None, ignore_globals=None, verb=0):
             cmds = cmds.splitlines()
             cmds.append("") # ensure we finish multi-line commands
             cmds.reverse()
-            __builtin__.__dict__["_"] = None
+            six.moves.builtins.__dict__["_"] = None
             while True:
                 if cmd:
                     sys.stderr.write(sys.__dict__.get("ps2","... "))

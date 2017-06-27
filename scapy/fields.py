@@ -7,6 +7,7 @@
 Fields: basic data structures that make up parts of packets.
 """
 
+from __future__ import absolute_import
 import struct,copy,socket,collections
 from scapy.config import conf
 from scapy.volatile import *
@@ -14,18 +15,18 @@ from scapy.data import *
 from scapy.utils import *
 from scapy.base_classes import BasePacket, Gen, Net, Field_metaclass
 from scapy.error import warning
+import scapy.modules.six as six
 
 
 ############
 ## Fields ##
 ############
 
-class Field(object):
+class Field(six.with_metaclass(Field_metaclass, object)):
     """For more informations on how this work, please refer to
        http://www.secdev.org/projects/scapy/files/scapydoc.pdf
        chapter ``Adding a New Field''"""
     __slots__ = ["name", "fmt", "default", "sz", "owners"]
-    __metaclass__ = Field_metaclass
     islist = 0
     ismutable = False
     holds_packets = 0
@@ -80,7 +81,7 @@ class Field(object):
             return x.copy()
         if isinstance(x, list):
             x = x[:]
-            for i in xrange(len(x)):
+            for i in range(len(x)):
                 if isinstance(x[i], BasePacket):
                     x[i] = x[i].copy()
         return x
@@ -188,7 +189,7 @@ class DestField(Field):
         for addr, condition in self.bindings.get(pkt.payload.__class__, []):
             try:
                 if all(pkt.payload.getfieldval(field) == value
-                       for field, value in condition.iteritems()):
+                       for field, value in six.iteritems(condition)):
                     return addr
             except AttributeError:
                 pass
@@ -225,7 +226,7 @@ class IPField(Field):
     def __init__(self, name, default):
         Field.__init__(self, name, default, "4s")
     def h2i(self, pkt, x):
-        if isinstance(x, basestring):
+        if isinstance(x, six.string_types):
             try:
                 inet_aton(x)
             except socket.error:
@@ -454,7 +455,7 @@ class PacketListField(PacketField):
         if x is None:
             return None
         else:
-            return [p if isinstance(p, basestring) else p.copy() for p in x]
+            return [p if isinstance(p, six.string_types) else p.copy() for p in x]
     def getfield(self, pkt, s):
         c = l = None
         if self.length_from is not None:
@@ -761,8 +762,8 @@ class BitField(Field):
         bytes = struct.unpack('!%dB' % nb_bytes , w)
 
         b = 0
-        for c in xrange(nb_bytes):
-            b |= long(bytes[c]) << (nb_bytes-c-1)*8
+        for c in range(nb_bytes):
+            b |= int(bytes[c]) << (nb_bytes-c-1)*8
 
         # get rid of high order bits
         b &= (1 << (nb_bytes*8-bn)) - 1
@@ -880,7 +881,7 @@ class CharEnumField(EnumField):
     def __init__(self, name, default, enum, fmt = "1s"):
         EnumField.__init__(self, name, default, enum, fmt)
         if self.i2s is not None:
-            k = self.i2s.keys()
+            k = list(self.i2s.keys())
             if k and len(k[0]) != 1:
                 self.i2s,self.s2i = self.s2i,self.i2s
     def any2i_one(self, pkt, x):
@@ -952,7 +953,7 @@ class _MultiEnumField(_EnumField):
         self.s2i_all = {}
         for m in enum:
             self.s2i_multi[m] = s2i = {}
-            for k,v in enum[m].iteritems():
+            for k,v in six.iteritems(enum[m]):
                 s2i[v] = k
                 self.s2i_all[v] = k
         Field.__init__(self, name, default, fmt)
@@ -1018,7 +1019,7 @@ class LEFieldLenField(FieldLenField):
 class FlagValue(object):
     __slots__ = ["value", "names", "multi"]
     def _fixvalue(self, value):
-        if isinstance(value, basestring):
+        if isinstance(value, six.string_types):
             value = value.split('+') if self.multi else list(value)
         if isinstance(value, list):
             y = 0
@@ -1071,7 +1072,7 @@ class FlagValue(object):
         except ValueError:
             return super(FlagValue, self).__getattr__(attr)
     def __setattr__(self, attr, value):
-        if attr == "value" and not isinstance(value, (int, long)):
+        if attr == "value" and not isinstance(value, six.integer_types):
             raise ValueError(value)
         if attr in self.__slots__:
             return super(FlagValue, self).__setattr__(attr, value)
@@ -1146,7 +1147,7 @@ class MultiFlagsField(BitField):
         assert isinstance(x, (int, long, set)), 'set expected'
 
         if pkt is not None:
-            if isinstance(x, (int, long)):
+            if isinstance(x, six.integer_types):
                 x = self.m2i(pkt, x)
             else:
                 v = self.depends_on(pkt)
@@ -1211,7 +1212,7 @@ class MultiFlagsField(BitField):
 
         r = set()
         for flag_set in x:
-            for i in these_names.itervalues():
+            for i in six.itervalues(these_names):
                 if i.short == flag_set:
                     r.add("{} ({})".format(i.long, i.short))
                     break

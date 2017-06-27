@@ -23,9 +23,11 @@
 ##                                                                         ##
 #############################################################################
 
+from __future__ import absolute_import
 from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.inet6 import *
+from scapy.modules.six.moves import range
 
 
 #####################################################################
@@ -185,7 +187,7 @@ _cdp_capabilities = ["Router",
                      "Switch",
                      "Host",
                      "IGMPCapable",
-                     "Repeater"] + ["Bit%d" % x for x in xrange(25, 0, -1)]
+                     "Repeater"] + ["Bit%d" % x for x in range(25, 0, -1)]
 
 
 class CDPMsgCapabilities(CDPMsgGeneric):

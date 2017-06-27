@@ -7,6 +7,7 @@
 Clone of p0f passive OS fingerprinting
 """
 
+from __future__ import absolute_import
 import time
 import struct
 import os
@@ -20,6 +21,7 @@ from scapy.packet import NoPayload, Packet
 from scapy.error import warning, Scapy_Exception, log_runtime
 from scapy.volatile import RandInt, RandByte, RandChoice, RandNum, RandShort, RandString
 from scapy.sendrecv import sniff
+from scapy.modules.six.moves import map, range
 if conf.route is None:
     # unused import, only to initialize conf.route
     import scapy.route
@@ -256,7 +258,7 @@ def p0f_correl(x,y):
     yopt = y[4].split(",")
     if len(xopt) == len(yopt):
         same = True
-        for i in xrange(len(xopt)):
+        for i in range(len(xopt)):
             if not (xopt[i] == yopt[i] or
                     (len(yopt[i]) == 2 and len(xopt[i]) > 1 and
                      yopt[i][1] == "*" and xopt[i][0] == yopt[i][0]) or

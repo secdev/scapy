@@ -7,11 +7,12 @@
 All layers. Configurable with conf.load_layers.
 """
 
-import __builtin__
+from __future__ import absolute_import
 from scapy.config import conf
 from scapy.error import log_loading
 import logging, importlib
-ignored = list(__builtin__.__dict__.keys()) + ["sys"]
+import scapy.modules.six as six
+ignored = list(six.moves.builtins.__dict__.keys()) + ["sys"]
 log = logging.getLogger("scapy.loading")
 
 __all__ = []
@@ -33,7 +34,7 @@ def _import_star(m):
             globals()[name] = mod.__dict__[name]
     else:
         # import all the non-private symbols
-        for name, sym in mod.__dict__.iteritems():
+        for name, sym in six.iteritems(mod.__dict__):
             if _validate_local(name):
                 __all__.append(name)
                 globals()[name] = sym

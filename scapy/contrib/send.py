@@ -21,6 +21,7 @@
 # scapy.contrib.description = SEND (ICMPv6)
 # scapy.contrib.status = loads
 
+from __future__ import absolute_import
 import socket
 
 from scapy.packet import *

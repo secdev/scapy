@@ -7,6 +7,7 @@
 TLS key exchange logic.
 """
 
+from __future__ import absolute_import
 import math
 
 from cryptography.hazmat.backends import default_backend
@@ -22,6 +23,7 @@ from scapy.layers.tls.session import _GenericTLSSessionInheritance
 from scapy.layers.tls.basefields import _tls_version, _TLSClientVersionField
 from scapy.layers.tls.crypto.pkcs1 import pkcs_i2osp, pkcs_os2ip
 from scapy.layers.tls.crypto.ffdh import FFDH_GROUPS
+import scapy.modules.six as six
 
 
 ###############################################################################
@@ -519,7 +521,7 @@ class ServerECDHNamedCurveParams(_GenericTLSSessionInheritance):
             s.server_kx_privkey = ec.generate_private_key(curve,
                                                           default_backend())
             curve_id = 0
-            for cid, name in _tls_named_curves.iteritems():
+            for cid, name in six.iteritems(_tls_named_curves):
                 if name == curve.name:
                     curve_id = cid
                     break

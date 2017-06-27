@@ -7,6 +7,7 @@
 Implementation of the configuration object.
 """
 
+from __future__ import absolute_import
 import os,time,socket,sys
 
 from scapy import VERSION
@@ -14,6 +15,7 @@ from scapy.data import *
 from scapy import base_classes
 from scapy import themes
 from scapy.error import log_scapy
+import scapy.modules.six as six
 
 ############
 ## Config ##
@@ -127,14 +129,14 @@ class Num2Layer:
     
     def __repr__(self):
         lst = []
-        for num,layer in self.num2layer.iteritems():
+        for num,layer in six.iteritems(self.num2layer):
             if layer in self.layer2num and self.layer2num[layer] == num:
                 dir = "<->"
             else:
                 dir = " ->"
             lst.append((num,"%#6x %s %-20s (%s)" % (num, dir, layer.__name__,
                                                     layer._name)))
-        for layer,num in self.layer2num.iteritems():
+        for layer,num in six.iteritems(self.layer2num):
             if num not in self.num2layer or self.num2layer[num] != layer:
                 lst.append((num,"%#6x <-  %-20s (%s)" % (num, layer.__name__,
                                                          layer._name)))
@@ -206,7 +208,7 @@ class CacheInstance(dict):
         t0=time.time()
         return (k for k in dict.iterkeys(self) if t0-self._timetable[k] < self.timeout)
     def __iter__(self):
-        return self.iterkeys()
+        return six.iterkeys(self)
     def itervalues(self):
         if self.timeout is None:
             return dict.itervalues(self)
@@ -236,9 +238,9 @@ class CacheInstance(dict):
     def __repr__(self):
         s = []
         if self:
-            mk = max(len(k) for k in self.iterkeys())
+            mk = max(len(k) for k in six.iterkeys(self))
             fmt = "%%-%is %%s" % (mk+1)
-            for item in self.iteritems():
+            for item in six.iteritems(self):
                 s.append(fmt % item)
         return "\n".join(s)
             

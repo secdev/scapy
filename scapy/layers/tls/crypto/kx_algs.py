@@ -9,12 +9,14 @@ Key Exchange algorithms as listed in appendix C of RFC 4346.
 XXX Incomplete support for static DH, DSS, PSK, SRP, KRB and anonymous kx.
 """
 
+from __future__ import absolute_import
 from scapy.layers.tls.keyexchange import (ServerDHParams,
                                           ServerRSAParams,
                                           ClientDiffieHellmanPublic,
                                           ClientECDiffieHellmanPublic,
                                           _tls_server_ecdh_cls_guess,
                                           EncryptedPreMasterSecret)
+import scapy.modules.six as six
 
 
 tls_kx_algs = {}
@@ -38,8 +40,8 @@ class _GenericKXMetaclass(type):
         return the_class
 
 
-class _GenericKX:
-    __metaclass__ = _GenericKXMetaclass
+class _GenericKX(six.with_metaclass(_GenericKXMetaclass)):
+    pass
 
 
 class KX_NULL(_GenericKX):

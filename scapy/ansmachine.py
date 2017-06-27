@@ -11,9 +11,11 @@ Answering machines.
 ## Answering machines ##
 ########################
 
+from __future__ import absolute_import
 from scapy.sendrecv import send,sendp,sniff
 from scapy.config import conf
 from scapy.error import log_interactive
+import scapy.modules.six as six
 
 class ReferenceAM(type):
     def __new__(cls, name, bases, dct):
@@ -23,8 +25,7 @@ class ReferenceAM(type):
         return o
 
 
-class AnsweringMachine(object):
-    __metaclass__ = ReferenceAM
+class AnsweringMachine(six.with_metaclass(ReferenceAM, object)):
     function_name = ""
     filter = None
     sniff_options = { "store":0 }

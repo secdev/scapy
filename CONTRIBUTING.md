@@ -72,7 +72,7 @@ guidelines for new code.
   - [Google Python Style Guide](https://google.github.io/styleguide/pyguide.html)
     is a nice read!
   - Avoid creating unnecessary `list` objects, particularly if they
-    can be huge (e.g., when possible, use `xrange()` instead of
+    can be huge (e.g., when possible, use `scapy.modules.six.range()` instead of
     `range()`, `for line in fdesc` instead of `for line in
     fdesc.readlines()`; more generally prefer generators over lists).
 
@@ -116,6 +116,11 @@ The project aims to provide code that works both on Python 2 and Python 3. There
 - byte-string must be defined as `b"\x00\x01\x02"`
 - exceptions must comply with the new Python 3 format: `except SomeError as e:`
 - lambdas must be written using a single argument when using tuples: use `lambda x_y: x_y[0] + f(x_y[1])` instead of `lambda (x, y): x + f(y)`.
+- use int instead of long
+- use list comprehension instead of map() and filter()
+- use scapy.modules.six.range instead of xrange and range
+- use scapy.modules.six.itervalues(dict) instead of dict.values() or dict.itervalues()
+- use scapy.modules.six.string_types instead of basestring
 
 ### Code review
 

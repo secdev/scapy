@@ -30,11 +30,11 @@
         http://trac.secdev.org/scapy/ticket/18
 """
 
+from __future__ import absolute_import
 from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.l2 import SNAP,Dot3,LLC
 from scapy.sendrecv import sendp
-from functools import reduce
 
 class DtpGenericTlv(Packet):
     name = "DTP Generic TLV"
