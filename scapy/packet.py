@@ -337,6 +337,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
     
     def __nonzero__(self):
         return True
+    __bool__ = __nonzero__
     def __len__(self):
         return len(self.__str__())
     def copy_field_value(self, fieldname, value):
@@ -1221,6 +1222,7 @@ class NoPayload(Packet):
         return ""
     def __nonzero__(self):
         return False
+    __bool__ = __nonzero__
     def do_build(self):
         return ""
     def build(self):

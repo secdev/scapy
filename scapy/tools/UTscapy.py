@@ -193,6 +193,7 @@ class UnitTest(TestClass):
         self.result = self.result.decode("utf8", "ignore")
     def __nonzero__(self):
         return self.res
+    __bool__ = __nonzero__
 
 
 # Careful note: all data not included will be set by default.
