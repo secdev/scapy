@@ -48,12 +48,14 @@ from scapy.layers.l2 import Ether, Dot1Q, bind_layers, \
     BitFieldLenField, ShortField, Padding, Scapy_Exception, \
     XStrLenField
 from scapy.modules.six.moves import range
+from scapy.data import ETHER_TYPES
 
 LLDP_NEAREST_BRIDGE_MAC = '01:80:c2:00:00:0e'
 LLDP_NEAREST_NON_TPMR_BRIDGE_MAC = '01:80:c2:00:00:03'
 LLDP_NEAREST_CUSTOMER_BRIDGE_MAC = '01:80:c2:00:00:00'
 
 LLDP_ETHER_TYPE = 0x88cc
+ETHER_TYPES['LLDP'] = LLDP_ETHER_TYPE
 
 
 class LLDPInvalidFrameStructure(Scapy_Exception):
