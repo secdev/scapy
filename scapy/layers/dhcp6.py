@@ -23,7 +23,8 @@ from scapy.error import warning
 from scapy.fields import BitField, ByteEnumField, ByteField, FieldLenField, \
     FlagsField, IntEnumField, IntField, MACField, PacketField, \
     PacketListField, ShortEnumField, ShortField, StrField, StrFixedLenField, \
-    StrLenField, UTCTimeField, X3BytesField, XIntField, XShortEnumField
+    StrLenField, UTCTimeField, X3BytesField, XIntField, XShortEnumField, \
+    PacketLenField
 from scapy.layers.inet import UDP
 from scapy.layers.inet6 import DomainNameListField, IP6Field, IP6ListField, IPv6
 from scapy.packet import Packet, bind_bottom_up
@@ -441,20 +442,6 @@ class DHCP6OptElapsedTime(_DHCP6OptGuessPayload):# RFC sect 22.9
     fields_desc = [ ShortEnumField("optcode", 8, dhcp6opts), 
                     ShortField("optlen", 2),
                     _ElapsedTimeField("elapsedtime", 0) ]
-
-
-#### DHCPv6 Relay Message Option ####################################
-
-# Relayed message is seen as a payload.
-class DHCP6OptRelayMsg(_DHCP6OptGuessPayload):# RFC sect 22.10
-    name = "DHCP6 Relay Message Option"
-    fields_desc = [ ShortEnumField("optcode", 9, dhcp6opts), 
-                    ShortField("optlen", None ) ]
-    def post_build(self, p, pay):
-        if self.optlen is None:
-            l = len(pay) 
-            p = p[:2]+struct.pack("!H", l)
-        return p + pay
 
 
 #### DHCPv6 Authentication Option ###################################
@@ -911,6 +898,17 @@ class DHCP6(_DHCP6OptGuessPayload):
 
     def hashret(self):
         return struct.pack("!I", self.trid)[1:4]
+
+#### DHCPv6 Relay Message Option ####################################
+
+# Relayed message is seen as a payload.
+class DHCP6OptRelayMsg(_DHCP6OptGuessPayload):  # RFC sect 22.10
+    name = "DHCP6 Relay Message Option"
+    fields_desc = [ ShortEnumField("optcode", 9, dhcp6opts), 
+                    FieldLenField("optlen", None, fmt="!H",
+                        length_of="message"),
+                    PacketLenField("message", DHCP6(), DHCP6,
+                        length_from=lambda p: p.optlen) ]
 
 #####################################################################
 # Solicit Message : sect 17.1.1 RFC3315
