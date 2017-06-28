@@ -47,6 +47,7 @@ from scapy.layers.l2 import Ether, Dot1Q, bind_layers, \
     struct, BitField, StrLenField, ByteEnumField, BitEnumField, \
     BitFieldLenField, ShortField, Padding, Scapy_Exception, \
     XStrLenField
+from scapy.modules.six.moves import range
 
 LLDP_NEAREST_BRIDGE_MAC = '01:80:c2:00:00:0e'
 LLDP_NEAREST_NON_TPMR_BRIDGE_MAC = '01:80:c2:00:00:03'
@@ -105,7 +106,7 @@ class LLDPDU(Packet):
         0x06: 'system description',
         0x07: 'system capabilities',
         0x08: 'management address',
-        xrange(0x09, 0x7e): 'reserved - future standardization',
+        range(0x09, 0x7e): 'reserved - future standardization',
         127: 'organisation specific TLV'
     }
 
@@ -293,7 +294,7 @@ class LLDPDUChassisID(LLDPDU):
         0x05: 'network address',
         0x06: 'interface name',
         0x07: 'locally assigned',
-        xrange(0x08, 0xff): 'reserved'
+        range(0x08, 0xff): 'reserved'
     }
 
     SUBTYPE_RESERVED = 0x00
@@ -342,7 +343,7 @@ class LLDPDUPortID(LLDPDU):
         0x05: 'interface name',
         0x06: 'agent circuit ID',
         0x07: 'locally assigned',
-        xrange(0x08, 0xff): 'reserved'
+        range(0x08, 0xff): 'reserved'
     }
 
     SUBTYPE_RESERVED = 0x00
@@ -674,10 +675,9 @@ LLDPDU_CLASS_TYPES = {
     0x06: LLDPDUSystemDescription,
     0x07: LLDPDUSystemCapabilities,
     0x08: LLDPDUManagementAddress,
-    xrange(0x09, 0x7e): None,  # reserved - future standardization
+    range(0x09, 0x7e): None,  # reserved - future standardization
     127: None  # organisation specific TLV
 }
-
 
 class LLDPConfiguration(object):
     """
