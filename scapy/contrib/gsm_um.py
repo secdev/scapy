@@ -2933,7 +2933,6 @@ class MobileIdHdr(Packet):
             p = p[:1] + struct.pack(">B", res[1]) + p[2:]
         if res[0] != 0:
             p = p[:-res[0]]
-        print(repr(p))
         return p + pay
 
 
@@ -5952,7 +5951,6 @@ class BearerCapabilityHdr(Packet):
         if len(p) is 5:
             p = p[:-2]
         if self.lengthBC is None:
-            print("len von a %s" % (len(p),))
             p = p[:1] + struct.pack(">B", len(p)-3) + p[2:]
         return p + pay
 
