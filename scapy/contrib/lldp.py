@@ -254,7 +254,7 @@ class LLDPDU(Packet):
                                     standard_tlv_multiplicity,
                                     tlv_type_count[tlv_type_name]))
 
-            except KeyError:
+            except KeyError as err:
                 raise LLDPInvalidTLVCount('Missing TLV layer of type '
                                           '{}.'.format(tlv_type_name))
 
@@ -268,7 +268,7 @@ class LLDPDU(Packet):
                 LLDPDU.LAYER_STACK.append(self.__class__.__name__)
                 try:
                     LLDPDU.LAYER_MULTIPLICITIES[self.__class__.__name__] += 1
-                except KeyError:
+                except KeyError as err:
                     LLDPDU.LAYER_MULTIPLICITIES[self.__class__.__name__] = 1
 
         return s
