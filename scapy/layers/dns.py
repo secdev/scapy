@@ -618,6 +618,65 @@ class DNSRRNSEC3PARAM(_DNSRRdummy):
                     StrLenField("salt", "", length_from=lambda pkt: pkt.saltlength)
                   ]
 
+# RFC 2845 - Secret Key Transaction Authentication for DNS (TSIG)
+tsig_algo_sizes = { "HMAC-MD5.SIG-ALG.REG.INT": 16,
+                    "hmac-sha1": 20 }
+
+class TimeSignedField(StrFixedLenField):
+    def __init__(self, name, default):
+        StrFixedLenField.__init__(self, name, default, 6)
+
+    def _convert_seconds(self, packed_seconds):
+        """Unpack the internal representation."""
+        seconds = struct.unpack("!H", packed_seconds[:2])[0]
+        seconds += struct.unpack("!I", packed_seconds[2:])[0]
+        return seconds
+
+    def h2i(self, pkt, seconds):
+        """Convert the number of seconds since 1-Jan-70 UTC to the packed
+           representation."""
+
+        if seconds is None:
+            seconds = 0
+
+        tmp_short = (seconds >> 32) & 0xFFFF
+        tmp_int = seconds & 0xFFFFFFFF
+
+        return struct.pack("!HI", tmp_short, tmp_int)
+
+    def i2h(self, pkt, packed_seconds):
+        """Convert the internal representation to the number of seconds
+           since 1-Jan-70 UTC."""
+
+        if packed_seconds is None:
+            return None
+
+        return self._convert_seconds(packed_seconds)
+
+    def i2repr(self, pkt, packed_seconds):
+        """Convert the internal representation to a nice one using the RFC
+           format."""
+        time_struct = time.gmtime(self._convert_seconds(packed_seconds))
+        return time.strftime("%a %b %d %H:%M:%S %Y", time_struct)
+
+class DNSRRTSIG(_DNSRRdummy):
+    name = "DNS TSIG Resource Record"
+    fields_desc = [ DNSStrField("rrname", ""),
+                    ShortEnumField("type", 250, dnstypes),
+                    ShortEnumField("rclass", 1, dnsclasses),
+                    IntField("ttl", 0),
+                    ShortField("rdlen", None),
+                    DNSStrField("algo_name", "hmac-sha1"),
+                    TimeSignedField("time_signed", 0),
+                    ShortField("fudge", 0),
+                    FieldLenField("mac_len", 20, fmt="!H", length_of="mac_data"),
+                    StrLenField("mac_data", "", length_from=lambda pkt: pkt.mac_len),
+                    ShortField("original_id", 0),
+                    ShortField("error", 0),
+                    FieldLenField("other_len", 0, fmt="!H", length_of="other_data"),
+                    StrLenField("other_data", "", length_from=lambda pkt: pkt.other_len)
+                  ]
+
 
 DNSRR_DISPATCHER = {
     41: DNSRROPT,        # RFC 1671
@@ -627,6 +686,7 @@ DNSRR_DISPATCHER = {
     48: DNSRRDNSKEY,     # RFC 4034
     50: DNSRRNSEC3,      # RFC 5155
     51: DNSRRNSEC3PARAM, # RFC 5155
+    250: DNSRRTSIG,      # RFC 2845
     32769: DNSRRDLV,     # RFC 4431
 }
 

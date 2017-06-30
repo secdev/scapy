@@ -120,3 +120,20 @@ t = DNSRR(type="TXT", rdata="test")
 = DNSRRR(), check parameters
 t = DNSRR(b'\x04test\x00\x00\x10\x00\x01\x00\x00\x00\x00\x018\xffScapy is an interactive packet manipulation program that enables you to sniff, mangle, send network packets ; test equipments ; probe and discover networks ; quickly develop new protocols. It can easily handle most classical tasks like scanning, tracerout7ing, probing, unit tests, attacks or network discovery.')
 t.type == 16 and t.rdlen == 312 and t.rdata[:5] == "Scapy" and t.rdata[-10:] == "discovery."
+
++ Test DNSRRTSIG RR
+
+= DNSRRTSIG basic instanciation
+t = DNSRRTSIG()
+str(t) == b"\x00\x00\xfa\x00\x01\x00\x00\x00\x00\x00\x1b\thmac-sha1\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x14\x00\x00\x00\x00\x00\x00"
+
+= DNSRRTSIG(), check parameters
+t = DNSRRTSIG(rrname="SAMPLE-ALG.EXAMPLE.", time_signed=853804800, fudge=300)
+str(t) == b"\nSAMPLE-ALG\x07EXAMPLE\x00\x00\xfa\x00\x01\x00\x00\x00\x00\x00\x1b\thmac-sha1\x00\x00\x002\xe4\x07\x00\x01,\x00\x14\x00\x00\x00\x00\x00\x00"
+
+= TimeField methods
+
+packed_data = b"\x00\x002\xe4\x07\x00"
+assert(TimeSignedField("", 0).h2i("", 853804800) == packed_data)
+assert(TimeSignedField("", 0).i2h("", packed_data) == 853804800)
+assert(TimeSignedField("", 0).i2repr("", packed_data) == "Tue Jan 21 00:00:00 1997")
