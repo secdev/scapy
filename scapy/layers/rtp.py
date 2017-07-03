@@ -25,25 +25,25 @@ _rtp_payload_types = {
     31: 'H261',          32: 'MPV',
     33: 'MP2T',          34: 'H263' }
 
-extension_condition = lambda pkt: pkt.extension
 
 class RTP(Packet):
-    name="RTP"
-    fields_desc = [ BitField('version', 2, 2),
-                    BitField('padding', 0, 1),
-                    BitField('extension', 0, 1),
-                    BitFieldLenField('numsync', None, 4, count_of='sync'),
-                    BitField('marker', 0, 1),
-                    BitEnumField('payload_type', 0, 7, _rtp_payload_types),
-                    ShortField('sequence', 0),
-                    IntField('timestamp', 0),
-                    # This is the SSRC
-                    IntField('sourcesync', 0), 
-                    # These are the CSRCs
-                    FieldListField('sync', [], IntField("id",0), count_from=lambda pkt:pkt.numsync) 
-                    ConditionalField(ShortField("extension_header_id", 0), extension_condition),
-                    ConditionalField(FieldLenField("extension_header_len", None, count_of="extension_header", fmt="H", ),
+    name = "RTP"
+    extension_condition = lambda pkt: pkt.extension == 1
+    fields_desc = [BitField('version', 2, 2),
+                   BitField('padding', 0, 1),
+                   BitField('extension', 0, 1),
+                   BitFieldLenField('numsync', None, 4, count_of='sync'),
+                   BitField('marker', 0, 1),
+                   BitEnumField('payload_type', 0, 7, _rtp_payload_types),
+                   ShortField('sequence', 0),
+                   IntField('timestamp', 0),
+                   IntField('sourcesync', 0),
+                   FieldListField('sync', [], IntField("id", 0), count_from=lambda pkt: pkt.numsync),
+                   ConditionalField(ShortField("extension_header_id", 0), extension_condition),
+                   ConditionalField(FieldLenField("extension_header_len", None, count_of="extension_header", fmt="H", ),
                                     extension_condition),
-                    ConditionalField(FieldListField('extension_header', [], IntField("hdr",0), count_from=lambda pkt:pkt.numsync), extension_condition),
-                  ]
-    
+                   ConditionalField(
+                       FieldListField('extension_header', [], IntField("hdr", 0), count_from=lambda pkt: pkt.numsync),
+                       extension_condition),
+                   ]
+
