@@ -200,6 +200,10 @@ class TLS(_GenericTLSSessionInheritance):
     hold the length of the ciphered message; for the plaintext version, you
     should rely on the additional 'deciphered_len' attribute.
 
+    XXX Fix 'deciphered_len' which should not be defined when failing with
+    AEAD decryption. This is related to the 'decryption_success' below.
+    Also, follow this behaviour in record_sslv2.py and record_tls13.py
+
     Once we have isolated the ciphered message aggregate (which should be one
     or several TLS messages of the same type), we try to decipher it. Either we
     succeed and store the clear data in 'msg', or we graciously fail with a
@@ -306,13 +310,10 @@ class TLS(_GenericTLSSessionInheritance):
         Provided with stream- or block-ciphered data, return the clear version.
         The cipher should have been updated with the right IV early on,
         which should not be at the beginning of the input.
-        Note that we still return the slicing of the original input
-        in case of decryption failure.
+        In case of decryption failure, a CipherError will be raised with
+        the slicing of the original input as first argument.
         """
-        try:
-            return self.tls_session.rcs.cipher.decrypt(s)
-        except CipherError as e:
-            return e.args
+        return self.tls_session.rcs.cipher.decrypt(s)
 
     def _tls_hmac_verify(self, hdr, msg, mac):
         """
@@ -370,6 +371,8 @@ class TLS(_GenericTLSSessionInheritance):
         hdr, efrag, r = s[:5], s[5:5+msglen], s[msglen+5:]
 
         iv = mac = pad = ""
+        self.padlen = None
+        decryption_success = False
 
         cipher_type = self.tls_session.rcs.cipher.type
 
@@ -377,64 +380,74 @@ class TLS(_GenericTLSSessionInheritance):
             version = struct.unpack("!H", s[1:3])[0]
 
             # Decrypt
-            if version >= 0x0302:
-                # Explicit IV for TLS 1.1 and 1.2
-                block_size = self.tls_session.rcs.cipher.block_size
-                iv, efrag = efrag[:block_size], efrag[block_size:]
-                self.tls_session.rcs.cipher.iv = iv
-                pfrag = self._tls_decrypt(efrag)
+            try:
+                if version >= 0x0302:
+                    # Explicit IV for TLS 1.1 and 1.2
+                    block_size = self.tls_session.rcs.cipher.block_size
+                    iv, efrag = efrag[:block_size], efrag[block_size:]
+                    self.tls_session.rcs.cipher.iv = iv
+                    pfrag = self._tls_decrypt(efrag)
+                else:
+                    # Implicit IV for SSLv3 and TLS 1.0
+                    pfrag = self._tls_decrypt(efrag)
+            except CipherError as e:
+                # This will end up dissected as _TLSEncryptedContent.
+                cfrag = e.args[0]
             else:
-                # Implicit IV for SSLv3 and TLS 1.0
-                pfrag = self._tls_decrypt(efrag)
+                decryption_success = True
+                # Excerpt below better corresponds to TLS 1.1 IV definition,
+                # but the result is the same as with TLS 1.2 anyway.
+                # This leading *IV* has been decrypted by _tls_decrypt with a
+                # random IV, hence it does not correspond to anything.
+                # What actually matters is that we got the first encrypted block
+                # in order to decrypt the second block (first data block).
+                #if version >= 0x0302:
+                #    block_size = self.tls_session.rcs.cipher.block_size
+                #    iv, pfrag = pfrag[:block_size], pfrag[block_size:]
+                #    l = struct.unpack('!H', hdr[3:5])[0]
+                #    hdr = hdr[:3] + struct.pack('!H', l-block_size)
 
-            # Excerpt below better corresponds to TLS 1.1 IV definition,
-            # but the result is the same as with TLS 1.2 anyway.
-            # This leading *IV* has been decrypted by _tls_decrypt with a
-            # random IV, hence it does not correspond to anything.
-            # What actually matters is that we got the first encrypted block
-            # in order to decrypt the second block (first data block).
-            #if version >= 0x0302:
-            #    block_size = self.tls_session.rcs.cipher.block_size
-            #    iv, pfrag = pfrag[:block_size], pfrag[block_size:]
-            #    l = struct.unpack('!H', hdr[3:5])[0]
-            #    hdr = hdr[:3] + struct.pack('!H', l-block_size)
+                # Extract padding ('pad' actually includes the trailing padlen)
+                padlen = ord(pfrag[-1]) + 1
+                mfrag, pad = pfrag[:-padlen], pfrag[-padlen:]
+                self.padlen = padlen
 
-            # Extract padding ('pad' actually includes the trailing padlen)
-            padlen = ord(pfrag[-1]) + 1
-            mfrag, pad = pfrag[:-padlen], pfrag[-padlen:]
-            self.padlen = padlen
+                # Extract MAC
+                l = self.tls_session.rcs.mac_len
+                if l != 0:
+                    cfrag, mac = mfrag[:-l], mfrag[-l:]
+                else:
+                    cfrag, mac = mfrag, ""
 
-            # Extract MAC
-            l = self.tls_session.rcs.mac_len
-            if l != 0:
-                cfrag, mac = mfrag[:-l], mfrag[-l:]
-            else:
-                cfrag, mac = mfrag, ""
-
-            # Verify integrity
-            chdr = hdr[:3] + struct.pack('!H', len(cfrag))
-            is_mac_ok = self._tls_hmac_verify(chdr, cfrag, mac)
-            if not is_mac_ok:
-                print("INTEGRITY CHECK FAILED")
+                # Verify integrity
+                chdr = hdr[:3] + struct.pack('!H', len(cfrag))
+                is_mac_ok = self._tls_hmac_verify(chdr, cfrag, mac)
+                if not is_mac_ok:
+                    print("INTEGRITY CHECK FAILED")
 
         elif cipher_type == 'stream':
             # Decrypt
-            pfrag = self._tls_decrypt(efrag)
-            mfrag = pfrag
-            self.padlen = None
-
-            # Extract MAC
-            l = self.tls_session.rcs.mac_len
-            if l != 0:
-                cfrag, mac = mfrag[:-l], mfrag[-l:]
+            try:
+                pfrag = self._tls_decrypt(efrag)
+            except CipherError as e:
+                # This will end up dissected as _TLSEncryptedContent.
+                cfrag = e.args[0]
             else:
-                cfrag, mac = mfrag, ""
+                decryption_success = True
+                mfrag = pfrag
 
-            # Verify integrity
-            chdr = hdr[:3] + struct.pack('!H', len(cfrag))
-            is_mac_ok = self._tls_hmac_verify(chdr, cfrag, mac)
-            if not is_mac_ok:
-                print("INTEGRITY CHECK FAILED")
+                # Extract MAC
+                l = self.tls_session.rcs.mac_len
+                if l != 0:
+                    cfrag, mac = mfrag[:-l], mfrag[-l:]
+                else:
+                    cfrag, mac = mfrag, ""
+
+                # Verify integrity
+                chdr = hdr[:3] + struct.pack('!H', len(cfrag))
+                is_mac_ok = self._tls_hmac_verify(chdr, cfrag, mac)
+                if not is_mac_ok:
+                    print("INTEGRITY CHECK FAILED")
 
         elif cipher_type == 'aead':
             # Authenticated encryption
@@ -445,11 +458,12 @@ class TLS(_GenericTLSSessionInheritance):
                 cfrag, mac = self._tls_auth_decrypt(hdr, efrag)
             else:
                 iv, cfrag, mac = self._tls_auth_decrypt(hdr, efrag)
-            self.padlen = None
+            decryption_success = True       # see XXX above
 
         frag = self._tls_decompress(cfrag)
 
-        if not isinstance(self.tls_session.rcs.cipher, Cipher_NULL):
+        if (decryption_success and
+            not isinstance(self.tls_session.rcs.cipher, Cipher_NULL)):
             self.deciphered_len = len(frag)
         else:
             self.deciphered_len = None

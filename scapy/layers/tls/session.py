@@ -738,7 +738,8 @@ class tlsSession(object):
 
     def consider_read_padding(self):
         # Return True if padding is needed. Used by TLSPadField.
-        return self.rcs.cipher.type == "block"
+        return (self.rcs.cipher.type == "block" and
+                not (False in self.rcs.cipher.ready.itervalues()))
 
     def consider_write_padding(self):
         # Return True if padding is needed. Used by TLSPadField.

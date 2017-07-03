@@ -160,6 +160,10 @@ class _TLSMACField(StrField):
         return s
 
     def getfield(self, pkt, s):
+        if (pkt.tls_session.rcs.cipher.type != "aead" and
+            False in pkt.tls_session.rcs.cipher.ready.itervalues()):
+            #XXX Find a more proper way to handle the still-encrypted case
+            return s, ""
         l = pkt.tls_session.rcs.mac_len
         return s[l:], self.m2i(pkt, s[:l])
 

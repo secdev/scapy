@@ -816,6 +816,17 @@ class ClientECDiffieHellmanPublic(_GenericTLSSessionInheritance):
 
 ### RSA Encryption (standard & export)
 
+class _UnEncryptedPreMasterSecret(Raw):
+    """
+    When the content of an EncryptedPreMasterSecret could not be deciphered,
+    we use this class to represent the encrypted data.
+    """
+    name = "RSA Encrypted PreMaster Secret (protected)"
+    def __init__(self, *args, **kargs):
+        if 'tls_session' in kargs:
+            del(kargs['tls_session'])
+        return super(_UnEncryptedPreMasterSecret, self).__init__(*args, **kargs)
+
 class EncryptedPreMasterSecret(_GenericTLSSessionInheritance):
     """
     Pay attention to implementation notes in section 7.4.7.1 of RFC 5246.
@@ -824,6 +835,14 @@ class EncryptedPreMasterSecret(_GenericTLSSessionInheritance):
     fields_desc = [ _TLSClientVersionField("client_version", None,
                                            _tls_version),
                     StrFixedLenField("random", None, 46) ]
+
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        if 'tls_session' in kargs:
+            s = kargs['tls_session']
+            if s.server_tmp_rsa_key is None and s.server_rsa_key is None:
+                return _UnEncryptedPreMasterSecret
+        return EncryptedPreMasterSecret
 
     def pre_dissect(self, m):
         s = self.tls_session
@@ -845,7 +864,8 @@ class EncryptedPreMasterSecret(_GenericTLSSessionInheritance):
             decrypted = s.server_rsa_key.decrypt(tbd)
             pms = decrypted[-48:]
         else:
-            pms = b"\x00"*48     # Hack but we should not be there anyway
+            # the dispatch_hook is supposed to prevent this case
+            pms = b"\x00"*48
             err = "No server RSA key to decrypt Pre Master Secret. Skipping."
             warning(err)
 
