@@ -40,12 +40,6 @@ class RTP(Packet):
                    IntField('timestamp', 0),
                    IntField('sourcesync', 0),
                    FieldListField('sync', [], IntField("id", 0), count_from=lambda pkt: pkt.numsync),
-                   #ConditionalField(ShortField("extension_header_id", 0), extension_condition),
-                   #ConditionalField(FieldLenField("extension_header_len", None, 0, count_of="extension_header", fmt="H", ),
-                   #                 extension_condition),
-                   #ConditionalField(
-                   #    FieldListField('extension_header', [], IntField("hdr", 0), count_from=lambda pkt: pkt.extension_header),
-                   #    extension_condition),
                    ConditionalField(ShortField("extension_header_id", 0), extension_condition),
                    ConditionalField(FieldLenField("extension_header_len", None, count_of="extension_header", fmt="H", ),
                                     extension_condition),
