@@ -12,6 +12,20 @@ RTP
 + RTP tests
 
 
+def convertToHex(input, numerriere=False):
+    """Wandelt den übergebenen String in lesbarere Hexwerte um
+    :param numerriere Gibt außerdem eine Zeile mit den Nummern der Bytes aus"""
+    if isinstance(input, numpy.ndarray):
+        input = input.tostring()
+
+    result = ""
+    if numerriere:
+        result += colored(' '.join("%2d" % (i + 1) for i, _ in enumerate(input)), 'grey')
+        result += "\n"
+    result += ' '.join(x.encode('hex') for x in input)
+    return result
+
+
 = test rtp with extension header
 ~ rtp
 
@@ -42,7 +56,7 @@ assert parsed.extension_header == [0x11223344]
 = test RTP without extension
 
 created = RTP(extension=True, payload_type="DVI4", sequence=0x1234, timestamp=12345678, sourcesync=0xabcdef01)
-assert str(created) == '\x90\x08\x124\x00\xbcaN\xab\xcd\xef\x01\x00\x00\x00\x00'
+assert str(created) == '\x90\x11\x124\x00\xbcaN\xab\xcd\xef\x01\x00\x00\x00\x00'
 parsed = RTP(str(created))
 assert parsed.sourcesync == 0xabcdef01
 assert parsed.extension_header == []
