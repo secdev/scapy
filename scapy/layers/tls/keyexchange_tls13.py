@@ -6,8 +6,8 @@
 TLS 1.3 key exchange logic.
 """
 
+from __future__ import print_function
 import math
-
 
 from scapy.config import conf, crypto_validator
 from scapy.error import warning
@@ -141,7 +141,7 @@ class TLS_Ext_KeyShare_CH(TLS_Ext_Unknown):
             for kse in self.client_shares:
                 if kse.privkey:
                     if _tls_named_curves[kse.group] in privshares:
-                        print "Group %s used twice in the same ClientHello!" % kse.group
+                        print("Group %s used twice in the same ClientHello!" % kse.group)
                         break
                     privshares[_tls_named_groups[kse.group]] = kse.privkey
         return super(TLS_Ext_KeyShare_CH, self).post_build(pkt, pay)
@@ -152,7 +152,7 @@ class TLS_Ext_KeyShare_CH(TLS_Ext_Unknown):
                 if kse.pubkey:
                     pubshares = self.tls_session.tls13_client_pubshares
                     if _tls_named_curves[kse.group] in pubshares:
-                        print "Group %s used twice in the same ClientHello!" % kse.group
+                        print("Group %s used twice in the same ClientHello!" % kse.group)
                         break
                     pubshares[_tls_named_curves[kse.group]] = kse.pubkey
         return super(TLS_Ext_KeyShare_CH, self).post_dissection(r)
@@ -176,7 +176,7 @@ class TLS_Ext_KeyShare_SH(TLS_Ext_Unknown):
             # if there is a privkey, we assume the crypto library is ok
             privshare = self.tls_session.tls13_server_privshare
             if len(privshare) > 0:
-                print "Server key share was already stored...?"
+                print("Server key share was already stored...?")
             group_name = _tls_named_groups[self.server_share.group]
             privshare[group_name] = self.server_share.privkey
 
@@ -198,7 +198,7 @@ class TLS_Ext_KeyShare_SH(TLS_Ext_Unknown):
             # if there is a pubkey, we assume the crypto library is ok
             pubshare = self.tls_session.tls13_server_pubshare
             if len(pubshare) > 0:
-                print "Server key share was already stored...?"
+                print("Server key share was already stored...?")
             group_name = _tls_named_groups[self.server_share.group]
             pubshare[group_name] = self.server_share.pubkey
 

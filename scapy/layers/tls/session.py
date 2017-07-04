@@ -554,8 +554,8 @@ class tlsSession(object):
                                             2*self.pwcs.cipher.key_len)
         self.sslv2_key_material = km
         if conf.debug_tls:
-            print "master secret: %s" % repr_hex(self.master_secret)
-            print "key material: %s" % repr_hex(km)
+            print("master secret: %s" % repr_hex(self.master_secret))
+            print("key material: %s" % repr_hex(km))
 
     def compute_sslv2_km_and_derive_keys(self):
         self.compute_sslv2_key_material()

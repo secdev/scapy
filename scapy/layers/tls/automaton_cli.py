@@ -17,6 +17,7 @@ In order to run a client to tcp/50000 with one cipher suite of your choice:
 > t.run()
 """
 
+from __future__ import print_function
 import socket
 
 from scapy.utils import randstring
@@ -489,12 +490,12 @@ class TLSClientAutomaton(_TLSAutomaton):
             raise self.WAIT_CLIENTDATA()
         p = self.buffer_in[0]
         if isinstance(p, TLSApplicationData):
-            print "> Received: %s" % p.data
+            print("> Received: %s" % p.data)
         elif isinstance(p, TLSAlert):
-            print "> Received: %r" % p
+            print("> Received: %r" % p)
             raise self.CLOSE_NOTIFY()
         else:
-            print "> Received: %r" % p
+            print("> Received: %r" % p)
         self.buffer_in = self.buffer_in[1:]
         raise self.HANDLED_SERVERDATA()
 
@@ -779,7 +780,7 @@ class TLSClientAutomaton(_TLSAutomaton):
         if not self.buffer_in:
             raise self.SSLv2_WAITING_CLIENTDATA()
         p = self.buffer_in[0]
-        print "> Received: %s" % p.load
+        print("> Received: %s" % p.load)
         if p.load.startswith("goodbye"):
             raise self.SSLv2_CLOSE_NOTIFY()
         self.buffer_in = self.buffer_in[1:]

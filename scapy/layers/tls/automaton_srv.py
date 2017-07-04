@@ -16,6 +16,7 @@ In order to run a server listening on tcp/4433:
 > t.run()
 """
 
+from __future__ import print_function
 import socket
 
 from scapy.utils import randstring, repr_hex
@@ -488,7 +489,7 @@ class TLSServerAutomaton(_TLSAutomaton):
 
         recv_data = ""
         if isinstance(p, TLSApplicationData):
-            print "> Received: %s" % p.data
+            print("> Received: %s" % p.data)
             recv_data = p.data
             lines = recv_data.split("\n")
             stop = False
@@ -499,10 +500,10 @@ class TLSServerAutomaton(_TLSAutomaton):
             if stop:
                 raise self.CLOSE_NOTIFY_FINAL()
         elif isinstance(p, TLSAlert):
-            print "> Received: %r" % p
+            print("> Received: %r" % p)
             raise self.CLOSE_NOTIFY()
         else:
-            print "> Received: %r" % p
+            print("> Received: %r" % p)
 
         if recv_data.startswith("GET / HTTP/1.1"):
             p = TLSApplicationData(data=self.http_sessioninfo())

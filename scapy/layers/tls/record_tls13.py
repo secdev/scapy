@@ -3,7 +3,7 @@
 ## This program is published under a GPLv2 license
 
 """
-Common TLS fields & bindings.
+Common TLS 1.3 fields & bindings.
 
 This module covers the record layer, along with the ChangeCipherSpec, Alert and
 ApplicationData submessages. For the Handshake type, see tls_handshake.py.
@@ -11,6 +11,7 @@ ApplicationData submessages. For the Handshake type, see tls_handshake.py.
 See the TLS class documentation for more information.
 """
 
+from __future__ import print_function
 import struct
 
 from scapy.config import conf
@@ -116,7 +117,7 @@ class TLS13(_GenericTLSSessionInheritance):
         except CipherError as e:
             return e.args
         except AEADTagError as e:
-            print "INTEGRITY CHECK FAILED"
+            print("INTEGRITY CHECK FAILED")
             return e.args
 
     def pre_dissect(self, s):

@@ -6,6 +6,8 @@
 TLS handshake extensions.
 """
 
+from __future__ import print_function
+
 from scapy.fields import *
 from scapy.packet import Packet, Raw, Padding
 from scapy.layers.x509 import X509_Extensions
@@ -120,7 +122,7 @@ class TLS_Ext_PrettyPacketList(TLS_Ext_Unknown):
                                 label_lvl=label_lvl, first_call=False)
 
         if first_call and not dump:
-            print s
+            print(s)
         else:
             return s
 
