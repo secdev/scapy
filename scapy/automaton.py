@@ -10,7 +10,7 @@ Automata with states, transitions and actions.
 import types,itertools,time,os,sys,socket,traceback
 from select import select
 from collections import deque
-import threading
+import threading, thread
 from scapy.config import conf
 from scapy.utils import do_graph
 from scapy.error import log_interactive
@@ -19,9 +19,8 @@ from scapy.data import MTU
 from scapy.supersocket import SuperSocket
 from scapy.consts import WINDOWS
 
-# In Windows, select.select is not available for custom objects. Here's the implementation of scapy to re-create this functionnality
+""" In Windows, select.select is not available for custom objects. Here's the implementation of scapy to re-create this functionnality
 # Passive way: using no-ressources locks
-"""
                +---------+             +---------------+      +-------------------------+
                |  Start  +------------->Select_objects +----->+Linux: call select.select|
                +---------+             |(select.select)|      +-------------------------+
@@ -62,12 +61,11 @@ class SelectableObject:
     trigger = threading.Lock()
     was_ended = False
     def check_recv(self):
-        """DEV: will be called only once (at beggining) to check if the object is ready."""
-        raise OSError("This function must be overwriten.")
+        """DEV: will be called only once (at beginning) to check if the object is ready."""
+        raise OSError("This method must be overwriten.")
 
     def _wait_non_ressources(self, callback):
-        # This get started as a thread, and waits for the data lock to be freed
-        # Then advertise itself to the SelectableSelector using the callback
+        """This get started as a thread, and waits for the data lock to be freed then advertise itself to the SelectableSelector using the callback"""
         self.call_release()
         self.trigger.acquire()
         self.trigger.acquire()
@@ -75,18 +73,18 @@ class SelectableObject:
             callback(self)
 
     def wait_return(self, callback):
-        # Entry point of SelectableObject: register the callback
+        """Entry point of SelectableObject: register the callback"""
         if self.check_recv():
             return callback(self)
         threading.Thread(target=self._wait_non_ressources, args=(callback,)).start()
         
     def call_release(self, arborted=False):
-        """DEV: Must be call when the object becomes ready to read."""
-        # Relesases the lock of _wait_non_ressources
+        """DEV: Must be call when the object becomes ready to read.
+           Relesases the lock of _wait_non_ressources"""
         self.was_ended = arborted
         try:
             self.trigger.release()
-        except:
+        except thread.error:
             pass
 
 class SelectableSelector(object):
@@ -102,21 +100,21 @@ class SelectableSelector(object):
     available_lock = None
     _ended = False
     def _release_all(self):
-        # Releases all locks to kill all threads
+        """Releases all locks to kill all threads"""
         for i in self.inputs:
             i.call_release(True)
         self.available_lock.release()
 
     def _timeout_thread(self, remain):
-        # Timeout before releasing every thing, if nothing was returned
+        """Timeout before releasing every thing, if nothing was returned"""
         time.sleep(remain)
         if not self._ended:
             self._ended = True
             self._release_all()
 
     def _exit_door(self,_input):
-        # This function is passed to each SelectableObject as a callback
-        # The SelectableObjects have to call it once there are ready
+        """This function is passed to each SelectableObject as a callback
+        The SelectableObjects have to call it once there are ready"""
         self.results.append(_input)
         if self._ended:
             return
@@ -132,22 +130,17 @@ class SelectableSelector(object):
         self._ended = False
 
     def process(self):
-        # Entry point of SelectableSelector
+        """Entry point of SelectableSelector"""
         if WINDOWS:
-            if not self.remain:
-                for i in self.inputs:
-                    if not isinstance(i, SelectableObject):
-                        warning("Unknown ignored object type: " + type(i))
-                    else:
-                        if i.check_recv():
-                            self.results.append(i)
-                return self.results
-
             for i in self.inputs:
                 if not isinstance(i, SelectableObject):
                     warning("Unknown ignored object type: " + type(i))
+                elif not self.remain and i.check_recv():
+                    self.results.append(i)
                 else:
                     i.wait_return(self._exit_door)
+            if not self.remain:
+                return self.results
 
             threading.Thread(target=self._timeout_thread, args=(self.remain,)).start()
             if not self._ended:
