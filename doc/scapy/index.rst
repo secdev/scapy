@@ -21,6 +21,7 @@ This document is under a `Creative Commons Attribution - Non-Commercial
    advanced_usage
    extending
    build_dissect
+   functions
 
    troubleshooting
    development
