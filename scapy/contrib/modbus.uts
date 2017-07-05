@@ -31,16 +31,36 @@ assert(isinstance(p.payload, ModbusPDU2B0EReadDeviceIdentificationResponse))
 p = ModbusADUResponse(b'\x00\x00\x00\x00\x00\x03\xff\xab\x01')
 assert(isinstance(p.payload, ModbusPDU2B0EReadDeviceIdentificationError))
 
-= MBAP Guess Payload (Invalid payload)
-p = ModbusADURequest(b'\x00\x00\x00\x00\x00\x03\xff\xff\xff')
-assert(isinstance(p.payload, ModbusPDU00GenericRequest))
-= MBAP Guess Payload ModbusPDU02ReadDiscreteInputsResponse
-p = ModbusADUResponse(b'\x00\x00\x00\x00\x00\x04\xff\x80\xff\x00')
-assert(isinstance(p.payload, ModbusPDU00GenericResponse))
-= MBAP Guess Payload ModbusPDU02ReadDiscreteInputsError
-p = ModbusADUResponse(b'\x00\x00\x00\x00\x00\x04\xff\xff\xff\xff')
-assert(isinstance(p.payload, ModbusPDU00GenericError))
+= MBAP Guess Payload Reserved Function Request (Invalid payload)
+p = ModbusADURequest(b'\x00\x00\x00\x00\x00\x02\xff\x5b')
+assert(isinstance(p.payload,ModbusPDUReservedFunctionCodeRequest))
+= MBAP Guess Payload Reserved Function Response (Invalid payload)
+p = ModbusADUResponse(b'\x00\x00\x00\x00\x00\x02\xff\x7e')
+assert(isinstance(p.payload, ModbusPDUReservedFunctionCodeResponse))
+= MBAP Guess Payload Reserved Function Error (Invalid payload)
+p = ModbusADUResponse(b'\x00\x00\x00\x00\x00\x02\xff\x8a')
+assert(isinstance(p.payload, ModbusPDUReservedFunctionCodeError))
 
+= MBAP Guess Payload ModbusPDU02ReadDiscreteInputsResponse
+assert(str(ModbusPDU02ReadDiscreteInputsResponse()), b'\x02\x01\x00')
+= MBAP Guess Payload ModbusPDU02ReadDiscreteInputsResponse minimal parameters
+assert(str(ModbusPDU02ReadDiscreteInputsResponse(inputStatus=[0x02, 0x01])), b'\x02\x02\x02\x01')
+= MBAP Guess Payload ModbusPDU02ReadDiscreteInputsRequest dissection
+p = ModbusPDU02ReadDiscreteInputsResponse(b'\x02\x02\x02\x01')
+p.byteCount == 2 and p.inputStatus == [0x02, 0x01]
+
+= ModbusPDU02ReadDiscreteInputsError
+str(ModbusPDU02ReadDiscreteInputsError()) == b'\x82\x01'
+
+= MBAP Guess Payload User-Defined Function Request (Invalid payload)
+p = ModbusADURequest(b'\x00\x00\x00\x00\x00\x02\xff\x5b')
+assert(isinstance(p.payload, ModbusPDUReservedFunctionCodeRequest))
+= MBAP Guess Payload User-Defined Function Response (Invalid payload)
+p = ModbusADUResponse(b'\x00\x00\x00\x00\x00\x02\xff\x7e')
+assert(isinstance(p.payload, ModbusPDUReservedFunctionCodeResponse))
+= MBAP Guess Payload User-Defined Function Error (Invalid payload)
+p = ModbusADUResponse(b'\x00\x00\x00\x00\x00\x02\xff\x8a')
+assert(isinstance(p.payload, ModbusPDUReservedFunctionCodeError))
 
 + Test layer binding
 = Destination port
@@ -182,9 +202,11 @@ str(ModbusPDU10WriteMultipleRegistersError()) == b'\x90\x01'
 
 # 0x14/944 Read File Record ---------------------------------------------------------
 = ModbusPDU14ReadFileRecordRequest len parameters
-str(ModbusPDU14ReadFileRecordRequest()/ModbusReadFileSubRequest()/ModbusReadFileSubRequest()) == b'\x14\x0e\x06\x00\x01\x00\x00\x00\x01\x06\x00\x01\x00\x00\x00\x01'
+p = str(ModbusPDU14ReadFileRecordRequest()/ModbusReadFileSubRequest()/ModbusReadFileSubRequest())
+assert(p == b'\x14\x0e\x06\x00\x01\x00\x00\x00\x01\x06\x00\x01\x00\x00\x00\x01')
 = ModbusPDU14ReadFileRecordRequest minimal parameters
-str(ModbusPDU14ReadFileRecordRequest()/ModbusReadFileSubRequest(fileNumber=4, recordNumber=1, recordLength=02)/ModbusReadFileSubRequest(fileNumber=3, recordNumber=9, recordLength=2)) == b'\x14\x0e\x06\x00\x04\x00\x01\x00\x02\x06\x00\x03\x00\t\x00\x02'
+p = str(ModbusPDU14ReadFileRecordRequest()/ModbusReadFileSubRequest(fileNumber=4, recordNumber=1, recordLength=02)/ModbusReadFileSubRequest(fileNumber=3, recordNumber=9, recordLength=2))
+assert(p == b'\x14\x0e\x06\x00\x04\x00\x01\x00\x02\x06\x00\x03\x00\t\x00\x02')
 = ModbusPDU14ReadFileRecordRequest dissection
 p = ModbusPDU14ReadFileRecordRequest(b'\x14\x0e\x06\x00\x04\x00\x01\x00\x02\x06\x00\x03\x00\t\x00\x02')
 assert(isinstance(p.payload, ModbusReadFileSubRequest))
@@ -270,10 +292,13 @@ str(ModbusPDU18ReadFIFOQueueError()) == b'\x98\x01'
 
 # 0x2b 0xOE Read Device Information -------------------------------------------------
 = ModbusPDU2B0EReadDeviceIdentificationRequest
-str(ModbusPDU2B0EReadDeviceIdentificationRequest()) ==b'+\x0e\x01\x00'
+str(ModbusPDU2B0EReadDeviceIdentificationRequest()) == b'+\x0e\x01\x00'
 
 = ModbusPDU2B0EReadDeviceIdentificationResponse
 str(ModbusPDU2B0EReadDeviceIdentificationResponse()) == b'+\x0e\x04\x01\x00\x00\x00'
+= ModbusPDU2B0EReadDeviceIdentificationResponse complete response
+p = str(ModbusPDU2B0EReadDeviceIdentificationResponse(objCount=2)/ModbusObjectId(id=0, value="Obj1")/ModbusObjectId(id=1, value="Obj2"))
+assert(p == b'+\x0e\x04\x01\x00\x00\x02\x00\x04Obj1\x01\x04Obj2')
 = ModbusPDU2B0EReadDeviceIdentificationResponse dissection
 p = ModbusPDU2B0EReadDeviceIdentificationResponse(b'+\x0e\x01\x83\x00\x00\x03\x00\x08Pymodbus\x01\x02PM\x02\x031.0')
 assert(p.payload.payload.payload.id == 2)
