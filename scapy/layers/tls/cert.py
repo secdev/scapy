@@ -995,7 +995,7 @@ def _create_ca_file(anchor_list, filename):
             s = a.output(fmt="PEM")
             f.write(s)
         f.close()
-    except:
+    except IOError:
         return None
     return filename
 
