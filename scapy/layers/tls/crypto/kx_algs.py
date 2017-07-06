@@ -1,12 +1,12 @@
 ## This file is part of Scapy
 ## Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
-##                     2015, 2016 Maxence Tury
+##               2015, 2016, 2017 Maxence Tury
 ## This program is published under a GPLv2 license
 
 """
 Key Exchange algorithms as listed in appendix C of RFC 4346.
 
-XXX Incomplete support for static DH, DSS, PSK, SRP, KRB and anonymous kx.
+XXX No support yet for PSK (also, no static DH, DSS, SRP or KRB).
 """
 
 from __future__ import absolute_import
@@ -31,10 +31,10 @@ class _GenericKXMetaclass(type):
             dct["name"] = kx_name[3:]       # remove leading "KX_"
         the_class = super(_GenericKXMetaclass, cls).__new__(cls, kx_name,
                                                             bases, dct)
-        if kx_name:
+        if kx_name != "_GenericKX":
             the_class.export = kx_name.endswith("_EXPORT")
-            the_class.anonymous = "_anon_" in kx_name
-            the_class.no_ske = not ("DHE" in kx_name or "_anon_" in kx_name)
+            the_class.anonymous = "_anon" in kx_name
+            the_class.no_ske = not ("DHE" in kx_name or "_anon" in kx_name)
             the_class.no_ske &= not the_class.export
             tls_kx_algs[kx_name[3:]] = the_class
         return the_class
@@ -46,6 +46,16 @@ class _GenericKX(six.with_metaclass(_GenericKXMetaclass)):
 
 class KX_NULL(_GenericKX):
     descr = "No key exchange"
+    server_kx_msg_cls = lambda _,m: None
+    client_kx_msg_cls = None
+
+class KX_SSLv2(_GenericKX):
+    descr = "SSLv2 dummy key exchange class"
+    server_kx_msg_cls = lambda _,m: None
+    client_kx_msg_cls = None
+
+class KX_TLS13(_GenericKX):
+    descr = "TLS 1.3 dummy key exchange class"
     server_kx_msg_cls = lambda _,m: None
     client_kx_msg_cls = None
 
@@ -166,16 +176,16 @@ class KX_ECDHE_ECDSA(_GenericKX):
 
 ### Unauthenticated key exchange (opportunistic encryption)
 
-# class KX_DH_anon(_GenericKX):
-#     descr = "Anonymous DH, no signatures"
-#     server_kx_msg_cls = lambda _,m: ServerDHParams
-#     client_kx_msg_cls = ClientDiffieHellmanPublic
+class KX_DH_anon(_GenericKX):
+    descr = "Anonymous DH, no signatures"
+    server_kx_msg_cls = lambda _,m: ServerDHParams
+    client_kx_msg_cls = ClientDiffieHellmanPublic
 
-# class KX_ECDH_anon(_GenericKX):
-#     descr = "ECDH anonymous key exchange"
-#     server_kx_msg_cls = lambda _,m: _tls_server_ecdh_cls_guess(m)
-#     client_kx_msg_cls = ClientDiffieHellmanPublic
+class KX_ECDH_anon(_GenericKX):
+    descr = "ECDH anonymous key exchange"
+    server_kx_msg_cls = lambda _,m: _tls_server_ecdh_cls_guess(m)
+    client_kx_msg_cls = ClientECDiffieHellmanPublic
 
-# class KX_DH_anon_EXPORT(KX_DH_anon):
-#     descr = "Anonymous DH, no signatures - Export version"
+class KX_DH_anon_EXPORT(KX_DH_anon):
+    descr = "Anonymous DH, no signatures - Export version"
 

@@ -18,15 +18,18 @@ import multiprocessing
 basedir = os.path.abspath(os.path.join(os.path.dirname(__file__),"../../"))
 sys.path=[basedir]+sys.path
 
-from scapy.layers.tls.automaton import TLSClientAutomaton
+from scapy.layers.tls.automaton_cli import TLSClientAutomaton
 from scapy.layers.tls.handshake import TLSClientHello
 
 
 send_data = cipher_suite_code = version = None
 
 def run_tls_test_client(send_data=None, cipher_suite_code=None, version=None):
-    ch = TLSClientHello(version=int(version, 16), ciphers=int(cipher_suite_code, 16))
-    t = TLSClientAutomaton(client_hello=ch, data=send_data)
+    if version == "0002":
+        t = TLSClientAutomaton(data=[send_data, "stop_server", "quit"], version="sslv2")
+    else:
+        ch = TLSClientHello(version=int(version, 16), ciphers=int(cipher_suite_code, 16))
+        t = TLSClientAutomaton(client_hello=ch, data=[send_data, "stop_server", "quit"])
     t.run()
 
 from travis_test_server import run_tls_test_server

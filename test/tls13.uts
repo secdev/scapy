@@ -1,0 +1,266 @@
+% Tests for TLS 1.3
+#
+# Try me with :
+# bash test/run_tests -t test/tls13.uts -F
+
+
++ Read a TLS 1.3 session
+# /!\ These tests will not catch our 'INTEGRITY CHECK FAILED's. /!\
+# We deem the knowledge of the plaintext sufficient for passing...
+
+= Reading TLS 1.3 test session (vectors 5 from draft-ietf-tls-tls13-vectors-00)
+~ crypto
+import binascii
+from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePrivateNumbers
+from cryptography.hazmat.backends import default_backend
+
+def clean(s):
+    return binascii.unhexlify(''.join(c for c in s if c.isalnum()))
+
+clientHello1 = clean("""
+         16030100ae010000 aa0303d9e9898df6
+         3d43adbe64a2634f 0b63bcdc4019a3e5 26bc013a6042e05b
+         14555c0000061301 130313020100007b 0000000b00090000
+         06736572766572ff 01000100000a0008 0006001d00170018
+         002800260024001d 002005efa94d13f5 adcd14219379d5a3
+         7dbce4721d9294e5 72c6651aeb761838 815b002b0003027f
+         12000d0020001e04 0305030603020308 0408050806040105
+         0106010201040205 0206020202002d00 020101
+         """)
+t = TLS(clientHello1)
+
+helloRetryRequest = clean("""
+         160301000e060000 0a7f120006002800 020017
+         """)
+t = TLS(helloRetryRequest, tls_session=t.tls_session.mirror())
+
+secp256r1_client_privkey = clean("""
+         11fa48d153c917ff d89dff13140760a1
+         36265d399fa9f10e 2d766d42a6c84e90
+         """)
+clientHello2 = clean("""
+         16030100cf010000 cb0303d9e9898df6
+         3d43adbe64a2634f 0b63bcdc4019a3e5 26bc013a6042e05b
+         14555c0000061301 130313020100009c 0000000b00090000
+         06736572766572ff 01000100000a0008 0006001d00170018
+         0028004700450017 0041041e5a785f54 17fb18db42938435
+         34a5c0ba6e744baa 6846d0b32f4e9ea3 922724a08f2adb09
+         f071f81402e7fd8c a33b76abe1cd556f d3e8fe20e0fd2e82
+         02f969002b000302 7f12000d0020001e 0403050306030203
+         0804080508060401 0501060102010402 050206020202002d 00020101
+         """)
+t = TLS(clientHello2, tls_session=t.tls_session.mirror())
+pubnum = t.tls_session.tls13_client_pubshares["secp256r1"].public_numbers()
+privnum = EllipticCurvePrivateNumbers(pkcs_os2ip(secp256r1_client_privkey), pubnum)
+privkey = privnum.private_key(default_backend())
+t.tls_session.tls13_client_privshares["secp256r1"] = privkey
+
+#secp256r1_server_privkey = clean("""
+#         ff265d2062c70725 ca22513e1e6841ff
+#         475e8a00421f0818 186edd1c0080cc6a
+#         """)
+serverHello = clean("""
+         1603010073020000 6f7f1296ff693075
+         d8465651a9c28773 f5496542206ba390 199b9c997545d9a1
+         2666151301004900 2800450017004104 8a4d09cde58dbc04
+         1955b9a41a43c169 6dc5429ffa96f9cd 194a863ac782f181
+         59f072b4f610215d 86407dd7368b754a b2e64f2c1b3f9d45
+         7c264e2b1781a36b
+         """)
+t = TLS(serverHello, tls_session=t.tls_session.mirror())
+
+serverEncHS = clean("""
+         170301029081de4f cfd700da4573d570
+         5942f14a11e569aa 9aacc95260520102 6f74f2b2ad6abe08
+         7b53a4940ff94208 9e02d3159b1c6f11 75d7fcb51abad6fd
+         d4f7ff4af6590b47 16c1d90e1031e1a1 e32079f531108c6b
+         9f79d6120319e0a3 73010e82d780a8f9 c3fdf8474840cdb6
+         7e4943d3808a27cd 5d9375c766a95ef4 8393c235d83ad26a
+         20628671793f75df aa0be78b11fed206 6506d19a769d9d32
+         adc0437784994359 ef5e452609353670 1c46004cf6fc252e
+         546e797238c73b94 b073461158301f78 1498917c32dc0ece
+         658a53790c667397 f7744775c2bef907 b5f7d5677b2e57fe
+         7c4bfd43c7ad1ee4 6fd400c3d3c3c05f e8775f055263e98a
+         692b49a818d0f698 4400c1db2f429fa8 9fb61d523398e1d0
+         2bc5c393027146c0 f326032d18cb8283 473f2b6d554df942
+         c7b1a0050694c7b2 bf31a816f7ff77f1 d7db873dbb6e4646
+         acabfa73c317a34c e6212a3469f549e6 cde71ab229a6f220
+         acda60832b510663 02a23d02c734bd5e 71b04fb248ca47ba
+         0c7b1fd28fee9b5d 86e6b1a6a2a1a43e 3831210519f54134
+         c96486d11ef3125f 74969785690487e0 aa5c0a310ebf9d31
+         95ec5543af8a6ffb 710eb0a90285960d c1ccdc10ecee9669
+         9171e97eae526a17 205012ab6f262e44 31ae9a70ff2ed7bd
+         966ef6bd4563f56a 7a14970dcabf97ae 7e4354db1ea27548
+         c55c11542ad07bcd 6f47a7143b86c4e6 678ce7dc6d51a1b7
+         75687644d6526efa 3c864f592819e7b7 f9f1bbc02ed8821a
+         e66019b240b41f5e ebf9475069700030 7122f7c8a8d6c0da
+         a264c63183238d72 0eacb86879fab9ba 8a673c51a52c8284
+         75e3211223cd2238 bd8b8a934af3e4dd e10e788df23ad6d8
+         51d68b78082ac667 a854356415e7858b e526307332990d8c
+         c38a5dc4cfc22a2c a2bdd9126a2ce13d 7015264921
+         """)
+t = TLS(serverEncHS, tls_session=t.tls_session)
+
+clientFinished = clean("""
+         170301003543adad e592362412fb77d7
+         28b181c01b77cd62 a661e4125e6f9851 826e418f4c292ec6
+         3254e8b0342d65db 8a7f074eed527ea6 98a6
+         """)
+t = TLS(clientFinished, tls_session=t.tls_session.mirror())
+
+clientRecord = clean("""
+         17030100131ef5c9 e7205f31a1edf9b1
+         3600fec1271e4f5d
+         """)
+t = TLS(clientRecord, tls_session=t.tls_session)
+
+serverRecord = clean("""
+         170301001350ff6e 907c508b6b191ff6
+         094faf4c0b32d6a8
+         """)
+t = TLS(serverRecord, tls_session=t.tls_session.mirror())
+
+alert = t.inner.msg[0]
+assert(isinstance(alert, TLSAlert))
+alert.level == 1 and alert.descr == 0
+
+
+= Reading TLS 1.3 test session (vectors 3 from draft-ietf-tls-tls13-vectors-00)
+~ crypto_advanced
+from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
+
+x25519_client_privkey = clean("""
+         00b4198a84ed6a7c 218702891735239d
+         40b7c66505330364 3d3c67f7458ecbc9
+         """)
+clientHello = clean("""
+         1603010200010001 fc03039a464db650
+         dcc81fed6f1fea63 5f15861574c0ed0b fb5778de7724fb92
+         7c5ef100003e1301 13031302c02bc02f cca9cca8c00ac009
+         c013c023c027c014 009eccaa00330032 006700390038006b
+         00160013009c002f 003c0035003d000a 0005000401000195
+         001500fc00000000 0000000000000000 0000000000000000
+         0000000000000000 0000000000000000 0000000000000000
+         0000000000000000 0000000000000000 0000000000000000
+         0000000000000000 0000000000000000 0000000000000000
+         0000000000000000 0000000000000000 0000000000000000
+         0000000000000000 0000000000000000 0000000000000000
+         0000000000000000 0000000000000000 0000000000000000
+         0000000000000000 0000000000000000 0000000000000000
+         0000000000000000 0000000000000000 0000000000000000
+         0000000000000000 0000000000000000 0000000000000000
+         0000000000000000 0000000000000000 0000000b00090000
+         06736572766572ff 01000100000a0014 0012001d00170018
+         0019010001010102 01030104000b0002 0100002300000028
+         00260024001d0020 35e58b160db6124f 01a1d2475a22b72a
+         bd6896701eed4c7e fd6124ee231ba458 002b0007067f1203
+         030302000d002000 1e04030503060302 0308040805080604
+         0105010601020104 0205020602020200 2d00020101
+         """)
+t = TLS(clientHello)
+privkey = X25519PrivateKey._from_private_bytes(x25519_client_privkey)
+t.tls_session.tls13_client_privshares["x25519"] = privkey
+
+x25519_server_privkey = clean("""
+         03d43f48ed52076f 4ce9bab73d1f39ec
+         689cf304075829f5 2b90f9f13bea6f34
+         """)
+serverHello = clean("""
+         1603010052020000 4e7f1298e3436403
+         8683391cbec1039a a0fba2f496d8c8e6 327151cc94bbc5ef
+         7390751301002800 280024001d0020a2 0ed1b7f2d96a7f12
+         568f0e460bb0fc86 dc8d1db6c07d6b10 d4dc74aaac9219
+         """)
+t = TLS(serverHello, tls_session=t.tls_session.mirror())
+
+serverEncHS = clean("""
+         170301029c4e1f34 2dba17a54a09f7a1
+         8ffb2c6a29df17a6 db843044c52861bf 78988527ce366159
+         e6a24871b704d2b9 fade56488921796d 719173a753bdfec8
+         0554c8c15e128695 450ccfdde1204ffd 2fb1ecdcd87b8070
+         644eb5a6b86ec951 aba3ed314754a2f3 14d4d2620b92da1f
+         28f24b9559d76b67 a7b35c17cc231ba5 77a94fb2be59c74f
+         84c8c78bf5faf4cb b2f8a37091580743 3c67d9f4e1b1923a
+         3969b85a2ae9064e 34e84363aae43aa9 f58717836a017b9c
+         33c3ad733c2fd3ce 288ae362764403d0 102a371047d9e49d
+         f9b30596262b1704 f0e9839fff5641ba a7041a4bcf9e4d46
+         7108922fc0ea0bc1 48dab2ebdd155f51 76c632be04a7c610
+         3fbc92754dba7962 4f8a09f8e8d65c17 eee87f98636fbc93
+         bb734674b80d183c da904200a20d8f15 0a214902b6953209
+         aa2431c3973bda3b d92a33878baca7b9 0507f433a55f2fe8
+         f0db81898ebacf31 b68eaabfa27c39b6 a2453a322c005030
+         4e60bf53f0402b38 65b43fe5a7454c13 17a2dc76d1323fb1
+         aa553996876a0dfe 8e789d6adf3dc85b 0636bb58a96e6aad
+         851e7a6fc1dfa796 ec65e33bf9e3c05d 6de35f11e1f32731
+         fb9550a60cb75e90 9345eb0edb81f99f cad883cb41d4a3ef
+         7cbe671b92a8176b 472772be401b83a4 99b06b7ab0a1d9cd
+         795e5ba0b67ce2d6 5c45565028824aa2 08797f405bbcf243
+         27dd69a1d986032f 544b15d110e4d8c4 681cb85c09960adb
+         57fb9723eef0e0bb 275552af25fbdfc1 a4215adf14a9dba2
+         4462dd095f1a78f5 6ed6db3de139936f 14b091ab7f4adc81
+         c277e68bfb6fd925 d92c06c0a4ddd105 9c071073a8a2e987
+         f98948599f27bf6d 1f4369ac6c5a3323 2932fb8aa52ec4e1
+         85790dff0ef5eee0 13b4e90b5bc1cd4a c42b7ce82d856cc0
+         f5d1c80400e68d61 b434cec56d437141 1e31849d4cf88862
+         8ba288548df6a19e c4
+         """)
+t = TLS(serverEncHS, tls_session=t.tls_session)
+
+clientFinished = clean("""
+         1703010035161e94 818226d7bd618063
+         0804644debc52bdd 661034243217ac45 a084228c82086baa
+         4893ecfc969624d6 8e19d88c3e67ccb4 8bdf
+         """)
+t = TLS(clientFinished, tls_session=t.tls_session.mirror())
+
+serverRecord1 = clean("""
+         17030100bbe6b3e9 89df694688f29f5d
+         a42d9f56053fc6d2 f73ee23accad26f9 599ee4dcf4e0cf9e
+         de80128b48156a65 e5e47dee679a8401 1234862b6728fb12
+         be5198d5c023d6f2 0c355fc417a5eade 1aff0bf9ecba14c8
+         7277ea7aeb30055e a4d9b37bc12f7517 27ca7a1efc9285f8
+         ed5e9e3be42ff475 30f2b7347a90618b 6f7f4eba9b8b6564
+         f2159fcfcf09e4b6 2b4b09bb129e7c76 5c877966ca66e5cd
+         a84cdb6087a07fc0 50c97f275568623c 5d0f459d2b1133d1
+         d5d37cd441192da7
+         """)
+t = TLS(serverRecord1, tls_session=t.tls_session.mirror())
+
+clientRecord1 = clean("""
+         170301004341b540 bf5adeaf9d209001
+         9f0733e281964724 526678a1946852cf 6f586dffacf1151d
+         bf7c9262ef6ae960 4a423fff339fd7e4 0cc3e7604ae661f0
+         afa2f775c3668867
+         """)
+t = TLS(clientRecord1, tls_session=t.tls_session.mirror())
+app_data = t.inner.msg[0]
+assert(app_data.data == b'\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&\'()*+,-./01')
+
+serverRecord2 = clean("""
+         17030100438c3168 1fb21f820ef0603c
+         dc3b9d3deedeb2bb 615aa418fb2590a0 9b0dec00c2299feb
+         17c4206f89ab28d2 7a605e288ac9bd69 657593addd1046be
+         51b23940f8746634
+         """)
+t = TLS(serverRecord2, tls_session=t.tls_session.mirror())
+app_data = t.inner.msg[0]
+assert(app_data.data == b'\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&\'()*+,-./01')
+
+clientRecord2 = clean("""
+         17030100131ce9b1 f21ba236bca94455
+         ab2aad71c666534a
+         """)
+t = TLS(clientRecord2, tls_session=t.tls_session.mirror())
+alert = t.inner.msg[0]
+assert(isinstance(alert, TLSAlert))
+assert(alert.level == 1 and alert.descr == 0)
+
+serverRecord3 = clean("""
+         1703010013aabcdb 9d293d23fb00deb7
+         11b562afeddffeed
+         """)
+t = TLS(serverRecord3, tls_session=t.tls_session.mirror())
+alert = t.inner.msg[0]
+assert(isinstance(alert, TLSAlert))
+alert.level == 1 and alert.descr == 0
+

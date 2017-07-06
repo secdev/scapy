@@ -1596,7 +1596,7 @@ except IPSecIntegrityError, err:
 
 #######################################
 = IPv4 / ESP - Transport - AES-CCM - NULL
-~ combined_modes_ccm
+~ crypto_advanced
 
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
@@ -1650,7 +1650,7 @@ assert(d_ref.haslayer(ICMP))
 
 #######################################
 = IPv4 / ESP - Transport - AES-CCM - NULL - altered packet
-~ combined_modes_ccm
+~ crypto_advanced
 
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
@@ -1832,7 +1832,7 @@ except IPSecIntegrityError, err:
 
 #######################################
 = IPv4 / ESP - Tunnel - AES-CCM - NULL
-~ combined_modes_ccm
+~ crypto_advanced
 
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
@@ -1867,7 +1867,7 @@ assert(d == p)
 
 #######################################
 = IPv4 / ESP - Tunnel - AES-CCM - NULL
-~ combined_modes_ccm
+~ crypto_advanced
 
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
@@ -2989,7 +2989,7 @@ except IPSecIntegrityError, err:
 
 #######################################
 = IPv6 / ESP - Transport - AES-CCM - NULL
-~ combined_modes_ccm
+~ crypto_advanced
 
 p = IPv6(src='11::22', dst='22::11')
 p /= TCP(sport=45012, dport=80)
@@ -3021,7 +3021,7 @@ assert(d[TCP] == p[TCP])
 
 #######################################
 = IPv6 / ESP - Transport - AES-CCM - NULL - altered packet
-~ combined_modes_ccm
+~ crypto_advanced
 
 p = IPv6(src='11::22', dst='22::11')
 p /= TCP(sport=45012, dport=80)
@@ -3331,7 +3331,7 @@ except IPSecIntegrityError, err:
 
 #######################################
 = IPv6 / ESP - Tunnel - AES-CCM - NULL
-~ combined_modes_ccm
+~ crypto_advanced
 
 p = IPv6(src='11::22', dst='22::11')
 p /= TCP(sport=45012, dport=80)
@@ -3364,7 +3364,7 @@ assert(d[TCP] == p[TCP])
 
 #######################################
 = IPv6 / ESP - Tunnel - AES-CCM - NULL - altered packet
-~ combined_modes_ccm
+~ crypto_advanced
 
 p = IPv6(src='11::22', dst='22::11')
 p /= TCP(sport=45012, dport=80)

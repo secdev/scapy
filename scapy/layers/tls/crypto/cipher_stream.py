@@ -1,6 +1,6 @@
 ## This file is part of Scapy
 ## Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
-##                     2015, 2016 Maxence Tury
+##               2015, 2016, 2017 Maxence Tury
 ## This program is published under a GPLv2 license
 
 """
@@ -8,11 +8,13 @@ Stream ciphers.
 """
 
 from __future__ import absolute_import
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms
-from cryptography.hazmat.backends import default_backend
-
+from scapy.config import conf
 from scapy.layers.tls.crypto.ciphers import CipherError
 import scapy.modules.six as six
+
+if conf.crypto_valid:
+    from cryptography.hazmat.primitives.ciphers import Cipher, algorithms
+    from cryptography.hazmat.backends import default_backend
 
 
 tls_stream_cipher_algs = {}
@@ -39,8 +41,12 @@ class _StreamCipher(six.with_metaclass(_StreamCipherMetaclass, object)):
         """
         Note that we have to keep the encryption/decryption state in unique
         encryptor and decryptor objects. This differs from _BlockCipher.
+
+        In order to do connection state snapshots, we need to be able to
+        recreate past cipher contexts. This is why we feed _enc_updated_with
+        and _dec_updated_with every time encrypt() or decrypt() is called.
         """
-        self.ready = {"key":True}
+        self.ready = {"key": True}
         if key is None:
             self.ready["key"] = False
             if hasattr(self, "expanded_key_len"):
@@ -57,42 +63,68 @@ class _StreamCipher(six.with_metaclass(_StreamCipherMetaclass, object)):
                               backend=default_backend())
         self.encryptor = self._cipher.encryptor()
         self.decryptor = self._cipher.decryptor()
+        self._enc_updated_with = ""
+        self._dec_updated_with = ""
 
     def __setattr__(self, name, val):
+        """
+        We have to keep the encryptor/decryptor for a long time,
+        however they have to be updated every time the key is changed.
+        """
         if name == "key":
             if self._cipher is not None:
                 self._cipher.algorithm.key = val
+                self.encryptor = self._cipher.encryptor()
+                self.decryptor = self._cipher.decryptor()
             self.ready["key"] = True
         super(_StreamCipher, self).__setattr__(name, val)
+
 
     def encrypt(self, data):
         if False in six.itervalues(self.ready):
             raise CipherError, data
+        self._enc_updated_with += data
         return self.encryptor.update(data)
 
     def decrypt(self, data):
         if False in six.itervalues(self.ready):
             raise CipherError, data
+        self._dec_updated_with += data
         return self.decryptor.update(data)
 
+    def snapshot(self):
+        c = self.__class__(self.key)
+        c.ready = self.ready.copy()
+        c.encryptor.update(self._enc_updated_with)
+        c.decryptor.update(self._dec_updated_with)
+        c._enc_updated_with = self._enc_updated_with
+        c._dec_updated_with = self._dec_updated_with
+        return c
 
-class Cipher_RC4_128(_StreamCipher):
-    pc_cls = algorithms.ARC4
-    key_len = 16
 
-class Cipher_RC4_40(Cipher_RC4_128):
-    expanded_key_len = 16
-    key_len = 5
+if conf.crypto_valid:
+    class Cipher_RC4_128(_StreamCipher):
+        pc_cls = algorithms.ARC4
+        key_len = 16
+
+    class Cipher_RC4_40(Cipher_RC4_128):
+        expanded_key_len = 16
+        key_len = 5
 
 
 class Cipher_NULL(_StreamCipher):
     key_len = 0
 
     def __init__(self, key=None):
-        self.ready = {"key":True}
-        # we use super() in order to avoid any deadlock with __setattr__
-        super(_StreamCipher, self).__setattr__("key", key)
+        self.ready = {"key": True}
         self._cipher = None
+        # we use super() in order to avoid any deadlock with __setattr__
+        super(Cipher_NULL, self).__setattr__("key", key)
+
+    def snapshot(self):
+        c = self.__class__(self.key)
+        c.ready = self.ready.copy()
+        return c
 
     def encrypt(self, data):
         return data

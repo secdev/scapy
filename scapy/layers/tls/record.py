@@ -1,6 +1,6 @@
 ## This file is part of Scapy
 ## Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
-##                     2015, 2016 Maxence Tury
+##               2015, 2016, 2017 Maxence Tury
 ## This program is published under a GPLv2 license
 
 """
@@ -20,7 +20,8 @@ from scapy.fields import *
 from scapy.packet import *
 from scapy.layers.inet import TCP
 from scapy.layers.tls.session import _GenericTLSSessionInheritance
-from scapy.layers.tls.handshake import _tls_handshake_cls, _TLSHandshake
+from scapy.layers.tls.handshake import (_tls_handshake_cls, _TLSHandshake,
+                                        TLS13ServerHello)
 from scapy.layers.tls.basefields import (_TLSVersionField, _tls_version,
                                          _TLSIVField, _TLSMACField,
                                          _TLSPadField, _TLSPadLenField,
@@ -28,6 +29,8 @@ from scapy.layers.tls.basefields import (_TLSVersionField, _tls_version,
 from scapy.layers.tls.crypto.pkcs1 import randstring, pkcs_i2osp
 from scapy.layers.tls.crypto.compression import Comp_NULL
 from scapy.layers.tls.crypto.cipher_aead import AEADTagError
+if conf.crypto_valid_advanced:
+    from scapy.layers.tls.crypto.cipher_aead import Cipher_CHACHA20_POLY1305
 from scapy.layers.tls.crypto.cipher_stream import Cipher_NULL
 from scapy.layers.tls.crypto.ciphers import CipherError
 from scapy.layers.tls.crypto.h_mac import HMACError
@@ -55,8 +58,15 @@ class _TLSMsgListField(PacketListField):
     we inherit from PacketListField.
     """
     def __init__(self, name, default, length_from=None):
-        PacketListField.__init__(self, name, default, cls=None,
-                                 length_from=length_from)
+        if not length_from:
+            length_from = self._get_length
+        super(_TLSMsgListField, self).__init__(name, default, cls=None,
+                                               length_from=length_from)
+
+    def _get_length(self, pkt):
+        if pkt.deciphered_len is None:
+            return pkt.len
+        return pkt.deciphered_len
 
     def m2i(self, pkt, m):
         """
@@ -78,7 +88,10 @@ class _TLSMsgListField(PacketListField):
         if cls is Raw:
             return Raw(m)
         else:
-            return cls(m, tls_session=pkt.tls_session)
+            try:
+                return cls(m, tls_session=pkt.tls_session)
+            except:
+                return Raw(m)
 
     def getfield(self, pkt, s):
         """
@@ -102,9 +115,15 @@ class _TLSMsgListField(PacketListField):
         if l is not None:
             remain, ret = s[:l], s[l:]
 
-        if pkt.decipherable:
-            if remain == "":
+        if remain == "":
+            if pkt.tls_session.tls_version > 0x0200 and pkt.type == 23:
                 return ret, [TLSApplicationData(data="")]
+            else:
+                return ret, [Raw(load="")]
+
+        if False in pkt.tls_session.rcs.cipher.ready.itervalues():
+            return ret, _TLSEncryptedContent(remain)
+        else:
             while remain:
                 raw_msg = remain
                 p = self.m2i(pkt, remain)
@@ -117,13 +136,12 @@ class _TLSMsgListField(PacketListField):
                 else:
                     remain = ""
 
-                if not isinstance(p, Raw):
-                    p.post_dissection_tls_session_update(raw_msg)
+                if isinstance(p, _GenericTLSSessionInheritance):
+                    if not p.tls_session.frozen:
+                        p.post_dissection_tls_session_update(raw_msg)
 
                 lst.append(p)
             return remain + ret, lst
-        else:
-            return ret, _TLSEncryptedContent(remain)
 
     def i2m(self, pkt, p):
        """
@@ -142,9 +160,13 @@ class _TLSMsgListField(PacketListField):
                elif isinstance(p, TLSApplicationData):
                    pkt.type = 23
            p.tls_session = pkt.tls_session
-           cur = str(p)
-           p.post_build_tls_session_update(cur)
+           if not pkt.tls_session.frozen:
+               cur = p.str_stateful()
+               p.post_build_tls_session_update(cur)
+           else:
+               cur = str(p)
        else:
+           pkt.type = 23
            cur = str(p)
        return cur
 
@@ -156,6 +178,10 @@ class _TLSMsgListField(PacketListField):
         res = ""
         for p in val:
             res += self.i2m(pkt, p)
+        if (isinstance(pkt, _GenericTLSSessionInheritance) and
+            pkt.tls_session.tls_version >= 0x0304 and
+            not isinstance(pkt, TLS13ServerHello)):
+                return s + res
         if not pkt.type:
             pkt.type = 0
         hdr = struct.pack("!B", pkt.type) + s[1:5]
@@ -170,7 +196,13 @@ class TLS(_GenericTLSSessionInheritance):
     In .pre_dissect(), according to the type of the current cipher algorithm
     (self.tls_session.rcs.cipher.type), we extract the 'iv', 'mac', 'pad' and
     'padlen'. Some of these fields may remain blank: for instance, when using
-    a stream cipher, there is no IV nor any padding.
+    a stream cipher, there is no IV nor any padding. The 'len' should always
+    hold the length of the ciphered message; for the plaintext version, you
+    should rely on the additional 'deciphered_len' attribute.
+
+    XXX Fix 'deciphered_len' which should not be defined when failing with
+    AEAD decryption. This is related to the 'decryption_success' below.
+    Also, follow this behaviour in record_sslv2.py and record_tls13.py
 
     Once we have isolated the ciphered message aggregate (which should be one
     or several TLS messages of the same type), we try to decipher it. Either we
@@ -187,47 +219,66 @@ class TLS(_GenericTLSSessionInheritance):
         t2 = TLS(<server_hello | certificate | server_key_exchange>)
         t3 = TLS(<server_hello | certificate | server_key_exchange>,
                  tls_session=t1.tls_session)
-    As no context was passed to t2, neither was any client_random. Hence scapy
+    (Note that to do things properly, here 't1.tls_session' should actually be
+    't1.tls_session.mirror()'. See session.py for explanations.)
+
+    As no context was passed to t2, neither was any client_random. Hence Scapy
     will not be able to verify the signature of the server_key_exchange inside
     t2. However, it should be able to do so for t3, thanks to the tls_session.
     The consequence of not having a complete TLS context is even more obvious
     when trying to parse ciphered content, as we decribed before.
 
-    Thus, in order to parse TLS-protected communications with scapy:
-    _either scapy reads every message from one side of the TLS connection and
+    Thus, in order to parse TLS-protected communications with Scapy:
+    _either Scapy reads every message from one side of the TLS connection and
     builds every message from the other side (as such, it should know the
     secrets needed for the generation of the pre_master_secret), while passing
     the same tls_session context (this is how our automaton.py mostly works);
-    _or, if scapy did not build any TLS message, it has to create a TLS context
+    _or, if Scapy did not build any TLS message, it has to create a TLS context
     and feed it with secrets retrieved by whatever technique. Note that the
     knowing the private key of the server certificate will not be sufficient
     if a PFS ciphersuite was used. However, if you got a master_secret somehow,
-    use it with tls_session.(w|r)cs.derive_keys() and leave the rest to scapy.
+    use it with tls_session.(w|r)cs.derive_keys() and leave the rest to Scapy.
 
-    When building a TLS message, we expect the tls_session to have the right
-    parameters for ciphering. Else, .post_build() might fail.
+    When building a TLS message with str_stateful, we expect the tls_session to
+    have the right parameters for ciphering. Else, .post_build() might fail.
     """
-    __slots__ = ["decipherable"]
+    __slots__ = ["deciphered_len"]
     name = "TLS"
     fields_desc = [ ByteEnumField("type", None, _tls_type),
                     _TLSVersionField("version", None, _tls_version),
                     _TLSLengthField("len", None),
                     _TLSIVField("iv", None),
-                    _TLSMsgListField("msg", None,
-                                     length_from=lambda pkt: pkt.len),
+                    _TLSMsgListField("msg", []),
                     _TLSMACField("mac", None),
                     _TLSPadField("pad", None),
                     _TLSPadLenField("padlen", None) ]
 
     def __init__(self, *args, **kargs):
-        """
-        As long as 'decipherable' is True, _TLSMsgListField will try to
-        decipher the content of the TLS message. Else, it will simply
-        store/deliver the ciphered version.
-        """
-        self.decipherable = True
-        _GenericTLSSessionInheritance.__init__(self, *args, **kargs)
+        self.deciphered_len = kargs.get("deciphered_len", None)
+        super(TLS, self).__init__(*args, **kargs)
 
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        """
+        If the TLS class was called on raw SSLv2 data, we want to return an
+        SSLv2 record instance. We acknowledge the risk of SSLv2 packets with a
+        msglen of 0x1403, 0x1503, 0x1603 or 0x1703 which will never be casted
+        as SSLv2 records but TLS ones instead, but hey, we can't be held
+        responsible for low-minded extensibility choices.
+        """
+        if _pkt and len(_pkt) >= 2:
+            byte0 = struct.unpack("B", _pkt[0])[0]
+            byte1 = struct.unpack("B", _pkt[1])[0]
+            if (byte0 not in _tls_type) or (byte1 != 3):
+                from scapy.layers.tls.record_sslv2 import SSLv2
+                return SSLv2
+            else:
+                s = kargs.get("tls_session", None)
+                if s and s.tls_version >= 0x0304:
+                    if s.rcs and not isinstance(s.rcs.cipher, Cipher_NULL):
+                        from scapy.layers.tls.record_tls13 import TLS13
+                        return TLS13
+        return TLS
 
     ### Parsing methods
 
@@ -246,9 +297,9 @@ class TLS(_GenericTLSSessionInheritance):
             # this is why we need to look into the provided hdr.
             add_data = read_seq_num + hdr[0] + hdr[1:3]
             # Last two bytes of add_data are appended by the return function
-            return self.tls_session.rcs.cipher.auth_decrypt(add_data, s)
+            return self.tls_session.rcs.cipher.auth_decrypt(add_data, s,
+                                                            read_seq_num)
         except CipherError as e:
-            self.decipherable = False
             return e.args
         except AEADTagError as e:
             print("INTEGRITY CHECK FAILED")
@@ -259,14 +310,10 @@ class TLS(_GenericTLSSessionInheritance):
         Provided with stream- or block-ciphered data, return the clear version.
         The cipher should have been updated with the right IV early on,
         which should not be at the beginning of the input.
-        Note that we still return the slicing of the original input
-        in case of decryption failure.
+        In case of decryption failure, a CipherError will be raised with
+        the slicing of the original input as first argument.
         """
-        try:
-            return self.tls_session.rcs.cipher.decrypt(s)
-        except CipherError as e:
-            self.decipherable = False
-            return e.args
+        return self.tls_session.rcs.cipher.decrypt(s)
 
     def _tls_hmac_verify(self, hdr, msg, mac):
         """
@@ -279,16 +326,16 @@ class TLS(_GenericTLSSessionInheritance):
         It would fail with an AEAD cipher, because rcs.hmac would be None.
         See RFC 5246, section 6.2.3.
         """
+        read_seq_num = struct.pack("!Q", self.tls_session.rcs.seq_num)
+        self.tls_session.rcs.seq_num += 1
+
         mac_len = self.tls_session.rcs.mac_len
         if mac_len == 0:            # should be TLS_NULL_WITH_NULL_NULL
             return True
         if len(mac) != mac_len:
             return False
 
-        read_seq_num = struct.pack("!Q", self.tls_session.rcs.seq_num)
-        self.tls_session.rcs.seq_num += 1
         alg = self.tls_session.rcs.hmac
-
         version = struct.unpack("!H", hdr[1:3])[0]
         try:
             if version > 0x300:
@@ -324,6 +371,8 @@ class TLS(_GenericTLSSessionInheritance):
         hdr, efrag, r = s[:5], s[5:5+msglen], s[msglen+5:]
 
         iv = mac = pad = ""
+        self.padlen = None
+        decryption_success = False
 
         cipher_type = self.tls_session.rcs.cipher.type
 
@@ -331,93 +380,115 @@ class TLS(_GenericTLSSessionInheritance):
             version = struct.unpack("!H", s[1:3])[0]
 
             # Decrypt
-            if version >= 0x0302:
-                # Explicit IV for TLS 1.1 and 1.2
-                block_size = self.tls_session.rcs.cipher.block_size
-                iv, efrag = efrag[:block_size], efrag[block_size:]
-                self.tls_session.rcs.cipher.iv = iv
-                pfrag = self._tls_decrypt(efrag)
-                hdr = hdr[:3] + struct.pack("!H", len(pfrag))
+            try:
+                if version >= 0x0302:
+                    # Explicit IV for TLS 1.1 and 1.2
+                    block_size = self.tls_session.rcs.cipher.block_size
+                    iv, efrag = efrag[:block_size], efrag[block_size:]
+                    self.tls_session.rcs.cipher.iv = iv
+                    pfrag = self._tls_decrypt(efrag)
+                else:
+                    # Implicit IV for SSLv3 and TLS 1.0
+                    pfrag = self._tls_decrypt(efrag)
+            except CipherError as e:
+                # This will end up dissected as _TLSEncryptedContent.
+                cfrag = e.args[0]
             else:
-                # Implicit IV for SSLv3 and TLS 1.0
-                pfrag = self._tls_decrypt(efrag)
+                decryption_success = True
+                # Excerpt below better corresponds to TLS 1.1 IV definition,
+                # but the result is the same as with TLS 1.2 anyway.
+                # This leading *IV* has been decrypted by _tls_decrypt with a
+                # random IV, hence it does not correspond to anything.
+                # What actually matters is that we got the first encrypted block
+                # in order to decrypt the second block (first data block).
+                #if version >= 0x0302:
+                #    block_size = self.tls_session.rcs.cipher.block_size
+                #    iv, pfrag = pfrag[:block_size], pfrag[block_size:]
+                #    l = struct.unpack('!H', hdr[3:5])[0]
+                #    hdr = hdr[:3] + struct.pack('!H', l-block_size)
 
-            # Excerpt below better corresponds to TLS 1.1 IV definition,
-            # but the result is the same as with TLS 1.2 anyway.
-            # This leading *IV* has been decrypted by _tls_decrypt with a
-            # random IV, hence it does not correspond to anything.
-            # What actually matters is that we got the first encrypted block
-            # in order to decrypt the second block (first data block).
-            #if version >= 0x0302:
-            #    block_size = self.tls_session.rcs.cipher.block_size
-            #    iv, pfrag = pfrag[:block_size], pfrag[block_size:]
-            #    l = struct.unpack('!H', hdr[3:5])[0]
-            #    hdr = hdr[:3] + struct.pack('!H', l-block_size)
+                # Extract padding ('pad' actually includes the trailing padlen)
+                padlen = ord(pfrag[-1]) + 1
+                mfrag, pad = pfrag[:-padlen], pfrag[-padlen:]
+                self.padlen = padlen
 
-            # Extract padding ('pad' actually includes the trailing padlen)
-            padlen = ord(pfrag[-1]) + 1
-            mfrag, pad = pfrag[:-padlen], pfrag[-padlen:]
+                # Extract MAC
+                l = self.tls_session.rcs.mac_len
+                if l != 0:
+                    cfrag, mac = mfrag[:-l], mfrag[-l:]
+                else:
+                    cfrag, mac = mfrag, ""
 
-            # Extract MAC
-            l = self.tls_session.rcs.mac_len
-            if l != 0:
-                cfrag, mac = mfrag[:-l], mfrag[-l:]
-            else:
-                cfrag, mac = mfrag, ""
-
-            # Verify integrity
-            hdr = hdr[:3] + struct.pack('!H', len(cfrag))
-            is_mac_ok = self._tls_hmac_verify(hdr, cfrag, mac)
-            if not is_mac_ok:
-                print("INTEGRITY CHECK FAILED")
+                # Verify integrity
+                chdr = hdr[:3] + struct.pack('!H', len(cfrag))
+                is_mac_ok = self._tls_hmac_verify(chdr, cfrag, mac)
+                if not is_mac_ok:
+                    print("INTEGRITY CHECK FAILED")
 
         elif cipher_type == 'stream':
             # Decrypt
-            pfrag = self._tls_decrypt(efrag)
-            mfrag = pfrag
-
-            # Extract MAC
-            l = self.tls_session.rcs.mac_len
-            if l != 0:
-                cfrag, mac = mfrag[:-l], mfrag[-l:]
+            try:
+                pfrag = self._tls_decrypt(efrag)
+            except CipherError as e:
+                # This will end up dissected as _TLSEncryptedContent.
+                cfrag = e.args[0]
             else:
-                cfrag, mac = mfrag, ""
+                decryption_success = True
+                mfrag = pfrag
 
-            # Verify integrity
-            hdr = hdr[:3] + struct.pack('!H', len(cfrag))
-            is_mac_ok = self._tls_hmac_verify(hdr, cfrag, mac)
-            if not is_mac_ok:
-                print("INTEGRITY CHECK FAILED")
+                # Extract MAC
+                l = self.tls_session.rcs.mac_len
+                if l != 0:
+                    cfrag, mac = mfrag[:-l], mfrag[-l:]
+                else:
+                    cfrag, mac = mfrag, ""
+
+                # Verify integrity
+                chdr = hdr[:3] + struct.pack('!H', len(cfrag))
+                is_mac_ok = self._tls_hmac_verify(chdr, cfrag, mac)
+                if not is_mac_ok:
+                    print("INTEGRITY CHECK FAILED")
 
         elif cipher_type == 'aead':
             # Authenticated encryption
             # crypto/cipher_aead.py prints a warning for integrity failure
-            iv, cfrag, mac = self._tls_auth_decrypt(hdr, efrag)
+            if (conf.crypto_valid_advanced and
+                isinstance(self.tls_session.rcs.cipher, Cipher_CHACHA20_POLY1305)):
+                iv = ""
+                cfrag, mac = self._tls_auth_decrypt(hdr, efrag)
+            else:
+                iv, cfrag, mac = self._tls_auth_decrypt(hdr, efrag)
+            decryption_success = True       # see XXX above
 
-        if self.decipherable:
-            frag = self._tls_decompress(cfrag)
+        frag = self._tls_decompress(cfrag)
+
+        if (decryption_success and
+            not isinstance(self.tls_session.rcs.cipher, Cipher_NULL)):
+            self.deciphered_len = len(frag)
         else:
-            frag = cfrag
+            self.deciphered_len = None
 
         reconstructed_body = iv + frag + mac + pad
-
-        l = len(frag)
-        # note that we do not include the MAC, only the content
-        hdr = hdr[:3] + struct.pack("!H", l)
 
         return hdr + reconstructed_body + r
 
     def post_dissect(self, s):
         """
-        Commit the pending read state if it has been triggered.
-        We update nothing if the prcs was not set, as this probably means that
-        we're working out-of-context (and we need to keep the default rcs).
+        Commit the pending r/w state if it has been triggered (e.g. by an
+        underlying TLSChangeCipherSpec or a SSLv2ClientMasterKey). We update
+        nothing if the prcs was not set, as this probably means that we're
+        working out-of-context (and we need to keep the default rcs).
         """
         if self.tls_session.triggered_prcs_commit:
             if self.tls_session.prcs is not None:
                 self.tls_session.rcs = self.tls_session.prcs
                 self.tls_session.prcs = None
             self.tls_session.triggered_prcs_commit = False
+        if self.tls_session.triggered_pwcs_commit:
+            if self.tls_session.pwcs is not None:
+                self.tls_session.wcs = self.tls_session.pwcs
+                self.tls_session.pwcs = None
+            self.tls_session.triggered_pwcs_commit = False
         return s
 
     def do_dissect_payload(self, s):
@@ -458,7 +529,8 @@ class TLS(_GenericTLSSessionInheritance):
                     pkcs_i2osp(self.type, 1) +
                     pkcs_i2osp(self.version, 2) +
                     pkcs_i2osp(len(s), 2))
-        return self.tls_session.wcs.cipher.auth_encrypt(s, add_data)
+        return self.tls_session.wcs.cipher.auth_encrypt(s, add_data,
+                                                        write_seq_num)
 
     def _tls_hmac_add(self, hdr, msg):
         """
@@ -472,8 +544,8 @@ class TLS(_GenericTLSSessionInheritance):
         """
         write_seq_num = struct.pack("!Q", self.tls_session.wcs.seq_num)
         self.tls_session.wcs.seq_num += 1
-        alg = self.tls_session.wcs.hmac
 
+        alg = self.tls_session.wcs.hmac
         version = struct.unpack("!H", hdr[1:3])[0]
         if version > 0x300:
             h = alg.digest(write_seq_num + hdr + msg)
@@ -562,21 +634,22 @@ class TLS(_GenericTLSSessionInheritance):
             # Authenticated encryption (with nonce_explicit as header)
             efrag = self._tls_auth_encrypt(cfrag)
 
-        # Now, we can commit pending write state if needed
-        # We update nothing if the pwcs was not set. This probably means that
-        # we're working out-of-context (and we need to keep the default wcs).
-        if self.tls_session.triggered_pwcs_commit:
-            if self.tls_session.pwcs is not None:
-                self.tls_session.wcs = self.tls_session.pwcs
-                self.tls_session.pwcs = None
-            self.tls_session.triggered_pwcs_commit = False
-
         if self.len is not None:
             # The user gave us a 'len', let's respect this ultimately
             hdr = hdr[:3] + struct.pack("!H", self.len)
         else:
             # Update header with the length of TLSCiphertext.fragment
             hdr = hdr[:3] + struct.pack("!H", len(efrag))
+
+        # Now we commit the pending write state if it has been triggered (e.g.
+        # by an underlying TLSChangeCipherSpec or a SSLv2ClientMasterKey). We
+        # update nothing if the pwcs was not set. This probably means that
+        # we're working out-of-context (and we need to keep the default wcs).
+        if self.tls_session.triggered_pwcs_commit:
+            if self.tls_session.pwcs is not None:
+                self.tls_session.wcs = self.tls_session.pwcs
+                self.tls_session.pwcs = None
+            self.tls_session.triggered_pwcs_commit = False
 
         return hdr + efrag + pay
 

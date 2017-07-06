@@ -285,7 +285,7 @@ class LogLevel(object):
 def isCryptographyValid():
     """
     Check if the cryptography library is present, and if it is recent enough
-    (v1.7 or later).
+    for most usages in scapy (v1.7 or later).
     """
     try:
         import cryptography
@@ -293,6 +293,29 @@ def isCryptographyValid():
         return False
     from distutils.version import LooseVersion
     return LooseVersion(cryptography.__version__) >= LooseVersion("1.7")
+
+
+def isCryptographyAdvanced():
+    """
+    Check if the cryptography library is present, and if it supports X25519,
+    ChaCha20Poly1305 and such (v2.0 or later).
+    """
+    try:
+        import cryptography
+    except ImportError:
+        return False
+    from distutils.version import LooseVersion
+    lib_valid = LooseVersion(cryptography.__version__) >= LooseVersion("2.0")
+    if not lib_valid:
+        return False
+
+    try:
+        from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
+        X25519PrivateKey.generate()
+    except:
+        return False
+    else:
+        return True
 
 
 def _prompt_changer(attr,val):
@@ -416,6 +439,7 @@ debug_tls:When 1, print some TLS session secrets when they are computed.
                    "sctp", "vrrp", "ipsec", "lltd", "vxlan"]
     contribs = dict()
     crypto_valid = isCryptographyValid()
+    crypto_valid_advanced = isCryptographyAdvanced()
 
 
 if not Conf.ipv6_enabled:

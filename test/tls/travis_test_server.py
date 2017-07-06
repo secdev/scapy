@@ -20,7 +20,7 @@ from io import BytesIO
 basedir = os.path.abspath(os.path.join(os.path.dirname(__file__),"../../"))
 sys.path=[basedir]+sys.path
 
-from scapy.layers.tls.automaton import TLSServerAutomaton
+from scapy.layers.tls.automaton_srv import TLSServerAutomaton
 
 
 @contextmanager
@@ -41,7 +41,7 @@ def check_output_for_data(out, err, expected_data):
     if expected_data:
         lines = output.split("\n")
         for l in lines:
-            if l == ("Received '%s'" % expected_data):
+            if l == ("> Received: %s" % expected_data):
                 return (True, output)
         return (False, output)
     else:
@@ -52,7 +52,7 @@ def run_tls_test_server(expected_data, q):
     with captured_output() as (out, err):
         # Prepare automaton
         t = TLSServerAutomaton(mycert=basedir+'/test/tls/pki/srv_cert.pem',
-                           mykey=basedir+'/test/tls/pki/srv_key.pem')
+                               mykey=basedir+'/test/tls/pki/srv_key.pem')
         # Sync threads
         q.put(True)
         # Run server automaton
