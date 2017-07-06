@@ -305,7 +305,17 @@ def isCryptographyAdvanced():
     except ImportError:
         return False
     from distutils.version import LooseVersion
-    return LooseVersion(cryptography.__version__) >= LooseVersion("2.0")
+    lib_valid = LooseVersion(cryptography.__version__) >= LooseVersion("2.0")
+    if not lib_valid:
+        return False
+
+    try:
+        from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
+        X25519PrivateKey.generate()
+    except:
+        return False
+    else:
+        return True
 
 
 def _prompt_changer(attr,val):
