@@ -148,6 +148,7 @@ class Ether(Packet):
     fields_desc = [ DestMACField("dst"),
                     SourceMACField("src"),
                     XShortEnumField("type", 0x9000, ETHER_TYPES) ]
+    __slots__ = ["_defrag_pos"]
     def hashret(self):
         return struct.pack("H",self.type)+self.payload.hashret()
     def answers(self, other):
@@ -402,6 +403,7 @@ class Loopback(Packet):
 
     name = "Loopback"
     fields_desc = [ LoIntEnumField("type", 0x2, LOOPBACK_TYPES) ]
+    __slots__ = ["_defrag_pos"]
 
 
 class Dot1AD(Dot1Q):

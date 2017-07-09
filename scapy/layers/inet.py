@@ -874,10 +874,10 @@ def defrag(plist):
     frags = defaultdict(PacketList)
     nofrag = PacketList()
     for p in plist:
-        ip = p[IP]
         if IP not in p:
             nofrag.append(p)
             continue
+        ip = p[IP]
         if ip.frag == 0 and ip.flags & 1 == 0:
             nofrag.append(p)
             continue
