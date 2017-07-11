@@ -15,7 +15,7 @@ from scapy.fields import ByteField, ByteEnumField, IntField, StrLenField,\
     XStrLenField, XStrFixedLenField, FieldLenField, PacketField,\
     PacketListField, IPField, MultiEnumField
 from scapy.layers.inet import UDP
-from scapy.layers.l2 import EAP
+from scapy.layers.eap import EAP
 from scapy.config import conf
 from scapy.error import Scapy_Exception
 
