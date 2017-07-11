@@ -436,7 +436,7 @@ debug_tls:When 1, print some TLS session secrets when they are computed.
                    "mobileip", "netbios", "netflow", "ntp", "ppp", "pptp",
                    "radius", "rip", "rtp", "skinny", "smb", "snmp",
                    "tftp", "x509", "bluetooth", "dhcp6", "llmnr",
-                   "sctp", "vrrp", "ipsec", "lltd", "vxlan"]
+                   "sctp", "vrrp", "ipsec", "lltd", "vxlan", "eap"]
     contribs = dict()
     crypto_valid = isCryptographyValid()
     crypto_valid_advanced = isCryptographyAdvanced()
