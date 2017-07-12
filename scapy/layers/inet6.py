@@ -108,7 +108,7 @@ def getmacbyip6(ip6, chainCC=0):
      used to perform the resolution, if needed)
     """
     
-    if isinstance(ip6,Net6):
+    if isinstance(ip6, Net6):
         ip6 = iter(ip6).next()
 
     if in6_ismaddr(ip6): # Multicast
@@ -408,7 +408,7 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
         return conf.route6.route(dst)
 
     def mysummary(self):
-        return "%s > %s (%i)" % (str(self.src),str(self.dst), self.nh)
+        return "%s > %s (%i)" % (str(self.src), str(self.dst), self.nh)
 
     def post_build(self, p, pay):
         p += pay

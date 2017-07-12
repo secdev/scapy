@@ -333,6 +333,7 @@ if conf.use_winpcapy:
           else:
             return
       def send(self, x):
+          # Makes send detects when it should add Loopback(), Dot11... instead of Ether()
           ll = self.ins.datalink()
           if ll in conf.l2types:
               cls = conf.l2types[ll]
