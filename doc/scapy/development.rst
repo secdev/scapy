@@ -239,6 +239,6 @@ Table 5 shows a simple test campaign with multiple test set definitions. Additio
 
 To see an example that is targeted to Scapy, go to http://www.secdev.org/projects/UTscapy. Cut and paste the example at the bottom of the page to the file ``demo_campaign.txt`` and run UTScapy against it::
 
-./UTscapy.py -t demo_campaign.txt -f html -o demo_campaign.html –F -l
+./test/run_tests -t demo_campaign.txt -f html -o demo_campaign.html -F -l
 
 Examine the output generated in file ``demo_campaign.html``.
