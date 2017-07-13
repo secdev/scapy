@@ -11,7 +11,7 @@ from __future__ import absolute_import
 import types,itertools,time,os,sys,socket,traceback
 from select import select
 from collections import deque
-import threading
+import threading, thread
 from scapy.config import conf
 from scapy.utils import do_graph
 from scapy.error import log_interactive
@@ -21,17 +21,162 @@ from scapy.supersocket import SuperSocket
 from scapy.consts import WINDOWS
 import scapy.modules.six as six
 
-class ObjectPipe:
+""" In Windows, select.select is not available for custom objects. Here's the implementation of scapy to re-create this functionnality
+# Passive way: using no-ressources locks
+               +---------+             +---------------+      +-------------------------+
+               |  Start  +------------->Select_objects +----->+Linux: call select.select|
+               +---------+             |(select.select)|      +-------------------------+
+                                       +-------+-------+
+                                               |
+                                          +----v----+               +--------+
+                                          | Windows |               |Time Out+----------------------------------+
+                                          +----+----+               +----+---+                                  |
+                                               |                         ^                                      |
+      Event                                    |                         |                                      |
+        +                                      |                         |                                      |
+        |                              +-------v-------+                 |                                      |
+        |                       +------+Selectable Sel.+-----+-----------------+-----------+                    |
+        |                       |      +-------+-------+     |           |     |           v              +-----v-----+
++-------v----------+            |              |             |           |     |        Passive lock<-----+release_all<------+
+|Data added to list|       +----v-----+  +-----v-----+  +----v-----+     v     v            +             +-----------+      |
++--------+---------+       |Selectable|  |Selectable |  |Selectable|   ............         |                                |
+         |                 +----+-----+  +-----------+  +----------+                        |                                |
+         |                      v                                                           |                                |
+         v                 +----+------+   +------------------+               +-------------v-------------------+            |
+   +-----+------+          |wait_return+-->+  check_recv:     |               |                                 |            |
+   |call_release|          +----+------+   |If data is in list|               |  END state: selectable returned |        +---+--------+
+   +-----+--------              v          +-------+----------+               |                                 |        | exit door  |
+         |                    else                 |                          +---------------------------------+        +---+--------+
+         |                      +                  |                                                                         |
+         |                 +----v-------+          |                                                                         |
+         +--------->free -->Passive lock|          |                                                                         |
+                           +----+-------+          |                                                                         |
+                                |                  |                                                                         |
+                                |                  v                                                                         |
+                                +------------------Selectable-Selector-is-advertised-that-the-selectable-is-readable---------+
+"""
+
+class SelectableObject:
+    """DEV: to implement one of those, you need to add 2 things to your object:
+    - add "check_recv" function
+    - call "self.call_release" once you are ready to be read"""
+    trigger = threading.Lock()
+    was_ended = False
+    def check_recv(self):
+        """DEV: will be called only once (at beginning) to check if the object is ready."""
+        raise OSError("This method must be overwriten.")
+
+    def _wait_non_ressources(self, callback):
+        """This get started as a thread, and waits for the data lock to be freed then advertise itself to the SelectableSelector using the callback"""
+        self.call_release()
+        self.trigger.acquire()
+        self.trigger.acquire()
+        if not self.was_ended:
+            callback(self)
+
+    def wait_return(self, callback):
+        """Entry point of SelectableObject: register the callback"""
+        if self.check_recv():
+            return callback(self)
+        threading.Thread(target=self._wait_non_ressources, args=(callback,)).start()
+        
+    def call_release(self, arborted=False):
+        """DEV: Must be call when the object becomes ready to read.
+           Relesases the lock of _wait_non_ressources"""
+        self.was_ended = arborted
+        try:
+            self.trigger.release()
+        except thread.error:
+            pass
+
+class SelectableSelector(object):
+    """
+    Select SelectableObject objects.
+    
+    inputs: objects to process
+    remain: timeout. If 0, return [].
+    customTypes: types of the objects that have the checkRecv function.
+    """
+    results = None
+    inputs = None
+    available_lock = None
+    _ended = False
+    def _release_all(self):
+        """Releases all locks to kill all threads"""
+        for i in self.inputs:
+            i.call_release(True)
+        self.available_lock.release()
+
+    def _timeout_thread(self, remain):
+        """Timeout before releasing every thing, if nothing was returned"""
+        time.sleep(remain)
+        if not self._ended:
+            self._ended = True
+            self._release_all()
+
+    def _exit_door(self,_input):
+        """This function is passed to each SelectableObject as a callback
+        The SelectableObjects have to call it once there are ready"""
+        self.results.append(_input)
+        if self._ended:
+            return
+        self._ended = True
+        self._release_all()
+    
+    def __init__(self, inputs, remain):
+        self.results = []
+        self.inputs = list(inputs)
+        self.remain = remain
+        self.available_lock = threading.Lock()
+        self.available_lock.acquire()
+        self._ended = False
+
+    def process(self):
+        """Entry point of SelectableSelector"""
+        if WINDOWS:
+            for i in self.inputs:
+                if not isinstance(i, SelectableObject):
+                    warning("Unknown ignored object type: " + type(i))
+                elif not self.remain and i.check_recv():
+                    self.results.append(i)
+                else:
+                    i.wait_return(self._exit_door)
+            if not self.remain:
+                return self.results
+
+            threading.Thread(target=self._timeout_thread, args=(self.remain,)).start()
+            if not self._ended:
+                self.available_lock.acquire()
+            return self.results
+        else:
+            r,_,_ = select(self.inputs,[],[],self.remain)
+            return r
+
+def select_objects(inputs, remain):
+    """
+    Select SelectableObject objects. Same than:
+        select.select([inputs], [], [], remain)
+    But also works on Windows, only on SelectableObject.
+    
+    inputs: objects to process
+    remain: timeout. If 0, return [].
+    customTypes: types of the objects that have the checkRecv function.
+    """
+    handler = SelectableSelector(inputs, remain)
+    return handler.process()
+
+class ObjectPipe(SelectableObject):
     def __init__(self):
         self.rd,self.wr = os.pipe()
         self.queue = deque()
     def fileno(self):
         return self.rd
-    def checkRecv(self):
+    def check_recv(self):
         return len(self.queue) > 0
     def send(self, obj):
         self.queue.append(obj)
         os.write(self.wr,"X")
+        self.call_release()
     def write(self, obj):
         self.send(obj)
     def recv(self, n=0):
@@ -325,37 +470,6 @@ class Automaton_metaclass(type):
                         s += '\t"%s" -> "%s" [label="%s",color=blue];\n' % (k,n,l)
         s += "}\n"
         return do_graph(s, **kargs)
-        
-def select_objects(inputs, remain, customTypes=()):
-    """
-    Select object that have checkRecv function.
-    inputs: objects to process
-    remain: timeout. If 0, return [].
-    customTypes: types of the objects that have the checkRecv function.
-    """
-    if WINDOWS:
-        r = []
-        def look_for_select():
-            for fd in list(inputs):
-                if isinstance(fd, (ObjectPipe, Automaton._IO_fdwrapper) + customTypes):
-                    if fd.checkRecv():
-                        r.append(fd)
-                else:
-                    raise OSError("Not supported type of socket:" + str(type(fd)))
-                    break
-        def search_select():
-            while len(r) == 0:
-                look_for_select()
-        if remain == 0:
-            look_for_select()
-            return r
-        t_select = threading.Thread(target=search_select)
-        t_select.start()
-        t_select.join(remain)
-        return r
-    else:
-        r,_,_ = select(inputs,[],[],remain)
-        return r
 
 class Automaton(six.with_metaclass(Automaton_metaclass)):
     def parse_args(self, debug=0, store=1, **kargs):
@@ -371,7 +485,7 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
 
 
     ## Utility classes and exceptions
-    class _IO_fdwrapper:
+    class _IO_fdwrapper(SelectableObject):
         def __init__(self,rd,wr):
             if WINDOWS:
                 # rd will be used for reading and sending
@@ -388,7 +502,7 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
                 self.wr = wr
         def fileno(self):
             return self.rd
-        def checkRecv(self):
+        def check_recv(self):
             return self.rd.checkRecv()
         def read(self, n=65535):
             if WINDOWS:
@@ -396,7 +510,8 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
             return os.read(self.rd, n)
         def write(self, msg):
             if WINDOWS:
-                return self.rd.send(msg)
+                self.rd.send(msg)
+                return self.call_release()
             return os.write(self.wr,msg)
         def recv(self, n=65535):
             return self.read(n)        

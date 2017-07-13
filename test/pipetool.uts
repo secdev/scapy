@@ -65,7 +65,6 @@ c = TestSink(name="c")
 s > d1 > c
 
 p.add(s)
-time.sleep(1)
 
 p.wait_and_stop()
 assert test_val == "hello"
