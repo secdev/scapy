@@ -378,7 +378,7 @@ Scapy is primarily being developed for Unix-like systems and works best on those
 You need the following software packages in order to install Scapy on Windows:
 
   * `Python <http://www.python.org>`_: `python-2.7.13.amd64.msi <https://www.python.org/ftp/python/2.7.13/python-2.7.13.amd64.msi>`_ (64bits) or `python-2.7.13.msi <https://www.python.org/ftp/python/2.7.13/python-2.7.13.msi>`_ (32bits). After installation, add the Python installation directory and its \Scripts subdirectory to your PATH. Depending on your Python version, the defaults would be ``C:\Python27`` and ``C:\Python27\Scripts`` respectively.
-  * `Npcap <https://nmap.org/npcap/>`_: `npcap-0.81.exe <https://nmap.org/npcap/dist/npcap-0.81.exe>`_. Default values are recommanded. Scapy will also work with Winpcap.
+  * `Npcap <https://nmap.org/npcap/>`_: `the latest version <https://nmap.org/npcap/#download>`_. Default values are recommanded. Scapy will also work with Winpcap.
   * `pyreadline <https://pypi.python.org/pypi/pyreadline>`_: Depending on the installed version of Python `pyreadline-2.1.win-amd64.exe <https://pypi.python.org/packages/8b/13/bed49b87af0b4f345b4e54897b5ab6a4b848e4dd300ec4195a0016b8650c/pyreadline-2.1.win-amd64.exe>`_ (64bits) or `pyreadline-2.1.win32.exe <https://pypi.python.org/packages/bc/ca/316035ec616c08979bbed47fb25b843415cf2d118a2f95f55173334300a6/pyreadline-2.1.win32.exe>`_ (32bits)
   * `Scapy <http://www.secdev.org/projects/scapy/>`_: `latest development version <https://github.com/secdev/scapy/archive/master.zip>`_ from the `Git repository <https://github.com/secdev/scapy>`_. Unzip the archive, open a command prompt in that directory and run "python setup.py install". 
 
