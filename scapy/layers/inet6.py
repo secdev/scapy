@@ -199,7 +199,16 @@ class Net6(Gen): # syntax ex. fec0::/126
         return iter(rec(0, ['']))
 
     def __str__(self):
-        return next(self.__iter__())
+        try:
+            return next(self.__iter__())
+        except StopIteration:
+            return None
+
+    def __eq__(self, other):
+        return str(other) == str(self)
+
+    def __ne__(self, other):
+        return str(other) != str(self)
 
     def __repr__(self):
         return "Net6(%r)" % self.repr
@@ -408,7 +417,7 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
         return conf.route6.route(dst)
 
     def mysummary(self):
-        return "%s > %s (%i)" % (str(self.src), str(self.dst), self.nh)
+        return "%s > %s (%i)" % (self.src, self.dst, self.nh)
 
     def post_build(self, p, pay):
         p += pay
@@ -432,10 +441,8 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
             return self.payload.hashret()
 
         nh = self.nh
-        _sd = str(self.dst)
-        _ss = str(self.src)
-        sd = str(_sd)
-        ss=str(_ss)
+        sd = self.dst
+        ss = self.src
         if self.nh == 43 and isinstance(self.payload, IPv6ExtHdrRouting):
             # With routing header, the destination is the last
             # address of the IPv6 list if segleft > 0
@@ -459,7 +466,7 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
             try:
                 sd = self.addresses[0]
             except IndexError:
-                sd = str(_sd)
+                sd = self.dst
 
         if self.nh == 44 and isinstance(self.payload, IPv6ExtHdrFragment):
             nh = self.payload.nh
@@ -478,7 +485,7 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
 
         if conf.checkIPsrc and conf.checkIPaddr and not in6_ismaddr(sd):
             sd = inet_pton(socket.AF_INET6, sd)
-            ss = inet_pton(socket.AF_INET6, str(_ss))
+            ss = inet_pton(socket.AF_INET6, self.src)
             return strxor(sd, ss) + struct.pack("B", nh) + self.payload.hashret()
         else:
             return struct.pack("B", nh)+self.payload.hashret()
@@ -493,23 +500,19 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
                 return self.answers(other.payload)
         if not isinstance(other, IPv6): # self is reply, other is request
             return False
-        _sd = str(self.dst)
-        _ss = str(self.src)
-        _od = str(other.dst)
-        _os = str(other.src)
         if conf.checkIPaddr:
-            ss = inet_pton(socket.AF_INET6, _ss)
-            sd = inet_pton(socket.AF_INET6, _sd)
-            os = inet_pton(socket.AF_INET6, _os)
-            od = inet_pton(socket.AF_INET6, _od)
+            ss = inet_pton(socket.AF_INET6, self.src)
+            sd = inet_pton(socket.AF_INET6, self.dst)
+            os = inet_pton(socket.AF_INET6, other.src)
+            od = inet_pton(socket.AF_INET6, other.dst)
             # request was sent to a multicast address (other.dst)
             # Check reply destination addr matches request source addr (i.e
             # sd == os) except when reply is multicasted too
             # XXX test mcast scope matching ?
-            if in6_ismaddr(_od):
-                if in6_ismaddr(_sd):
+            if in6_ismaddr(other.dst):
+                if in6_ismaddr(self.dst):
                     if ((od == sd) or
-                        (in6_isaddrllallnodes(_od) and in6_isaddrllallservers(_od))):
+                        (in6_isaddrllallnodes(self.dst) and in6_isaddrllallservers(other.dst))):
                          return self.payload.answers(other.payload)
                     return False
                 if (os == sd):
@@ -568,10 +571,10 @@ class IPerror6(IPv6):
     def answers(self, other):
         if not isinstance(other, IPv6):
             return False
-        sd = inet_pton(socket.AF_INET6, str(self.dst))
-        ss = inet_pton(socket.AF_INET6, str(self.src))
-        od = inet_pton(socket.AF_INET6, str(other.dst))
-        os = inet_pton(socket.AF_INET6, str(other.src))
+        sd = inet_pton(socket.AF_INET6, self.dst)
+        ss = inet_pton(socket.AF_INET6, self.src)
+        od = inet_pton(socket.AF_INET6, other.dst)
+        os = inet_pton(socket.AF_INET6, other.src)
 
         # Make sure that the ICMPv6 error is related to the packet scapy sent
         if isinstance(self.underlayer, _ICMPv6) and self.underlayer.type < 128:
@@ -3162,7 +3165,7 @@ class TracerouteResult6(TracerouteResult):
         for s,r in self.res:
             if IPv6 not in s:
                 continue
-            d = str(s[IPv6].dst)
+            d = s[IPv6].dst
             if d not in trace:
                 trace[d] = {}
 
@@ -3171,7 +3174,7 @@ class TracerouteResult6(TracerouteResult):
                      ICMPv6PacketTooBig in r or
                      ICMPv6ParamProblem in r)
 
-            trace[d][s[IPv6].hlim] = str(r[IPv6].src), t
+            trace[d][s[IPv6].hlim] = r[IPv6].src, t
 
         for k in six.itervalues(trace):
             try:
@@ -3258,13 +3261,13 @@ class _IPv6inIP(SuperSocket):
       return p
     elif isinstance(p, IP):
       # TODO: verify checksum
-      if str(p.src) == str(self.dst) and p.proto == socket.IPPROTO_IPV6:
+      if p.src == self.dst and p.proto == socket.IPPROTO_IPV6:
         if isinstance(p.payload, IPv6):
           return p.payload
     return p
 
   def send(self, x):
-    return self.worker.send(IP(dst=str(self.dst), src=str(self.src), proto=socket.IPPROTO_IPV6)/x)
+    return self.worker.send(IP(dst=self.dst, src=self.src, proto=socket.IPPROTO_IPV6)/x)
 
 
 #############################################################################
@@ -3295,15 +3298,15 @@ def _NDP_Attack_DAD_DoS(reply_callback, iface=None, mac_src_filter=None,
             return 0
 
         # Source must be the unspecified address
-        if str(req[IPv6].src) != "::":
+        if req[IPv6].src != "::":
             return 0
 
         # Check destination is the link-local solicited-node multicast
         # address associated with target address in received NS
-        tgt = socket.inet_pton(socket.AF_INET6, req[ICMPv6ND_NS].tgt)
+        tgt = inet_pton(socket.AF_INET6, req[ICMPv6ND_NS].tgt)
         if tgt_filter and tgt != tgt_filter:
             return 0
-        received_snma = socket.inet_pton(socket.AF_INET6, str(req[IPv6].dst))
+        received_snma = inet_pton(socket.AF_INET6, req[IPv6].dst)
         expected_snma = in6_getnsma(tgt)
         if received_snma != expected_snma:
             return 0
@@ -3370,7 +3373,7 @@ def NDP_Attack_DAD_DoS_via_NS(iface=None, mac_src_filter=None, tgt_filter=None,
 
         # Let's build a reply and send it
         mac = req[Ether].src
-        dst = str(req[IPv6].dst)
+        dst = req[IPv6].dst
         tgt = req[ICMPv6ND_NS].tgt
         rep = Ether(src=reply_mac)/IPv6(src="::", dst=dst)/ICMPv6ND_NS(tgt=tgt)
         sendp(rep, iface=iface, verbose=0)
@@ -3429,7 +3432,7 @@ def NDP_Attack_DAD_DoS_via_NA(iface=None, mac_src_filter=None, tgt_filter=None,
 
         # Let's build a reply and send it
         mac = req[Ether].src
-        dst = str(req[IPv6].dst)
+        dst = req[IPv6].dst
         tgt = req[ICMPv6ND_NS].tgt
         rep = Ether(src=reply_mac)/IPv6(src=tgt, dst=dst)
         rep /= ICMPv6ND_NA(tgt=tgt, S=0, R=0, O=1)
@@ -3516,14 +3519,14 @@ def NDP_Attack_NA_Spoofing(iface=None, mac_src_filter=None, tgt_filter=None,
             return 0
 
         # Source must NOT be the unspecified address
-        if str(req[IPv6].src) == "::":
+        if req[IPv6].src == "::":
             return 0
 
-        tgt = socket.inet_pton(socket.AF_INET6, req[ICMPv6ND_NS].tgt)
+        tgt = inet_pton(socket.AF_INET6, req[ICMPv6ND_NS].tgt)
         if tgt_filter and tgt != tgt_filter:
             return 0
 
-        dst = str(req[IPv6].dst)
+        dst = req[IPv6].dst
         if in6_isllsnmaddr(dst): # Address is Link Layer Solicited Node mcast.
 
             # If this is a real address resolution NS, then the destination
@@ -3549,7 +3552,7 @@ def NDP_Attack_NA_Spoofing(iface=None, mac_src_filter=None, tgt_filter=None,
         # send it back.
         mac = req[Ether].src
         pkt = req[IPv6]
-        src = str(pkt.src)
+        src = pkt.src
         tgt = req[ICMPv6ND_NS].tgt
         rep = Ether(src=reply_mac, dst=mac)/IPv6(src=tgt, dst=src)
         rep /= ICMPv6ND_NA(tgt=tgt, S=1, R=router, O=1) # target from the NS
@@ -3743,7 +3746,7 @@ def NDP_Attack_Kill_Default_Router(iface=None, mac_src_filter=None,
         if mac_src_filter and mac_src != mac_src_filter:
             return 0
 
-        ip_src = str(req[IPv6].src)
+        ip_src = req[IPv6].src
         if ip_src_filter and ip_src != ip_src_filter:
             return 0
 
@@ -3761,7 +3764,7 @@ def NDP_Attack_Kill_Default_Router(iface=None, mac_src_filter=None,
 
         # Let's build a reply and send it
 
-        src = str(req[IPv6].src)
+        src = req[IPv6].src
 
         # Prepare packets parameters
         ether_params = {}
@@ -3864,7 +3867,7 @@ def NDP_Attack_Fake_Router(ra, iface=None, mac_src_filter=None,
         if mac_src_filter and mac_src != mac_src_filter:
             return 0
 
-        ip_src = str(req[IPv6].src)
+        ip_src = req[IPv6].src
         if ip_src_filter and ip_src != ip_src_filter:
             return 0
 
@@ -3875,7 +3878,7 @@ def NDP_Attack_Fake_Router(ra, iface=None, mac_src_filter=None,
         Callback that sends an RA in reply to an RS
         """
 
-        src = str(req[IPv6].src)
+        src = req[IPv6].src
         sendp(ra, iface=iface, verbose=0)
         print("Fake RA sent in response to RS from %s" % src)
 

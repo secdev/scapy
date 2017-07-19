@@ -461,6 +461,7 @@ class NetworkInterfaceDict(UserDict):
                 scapy.consts.LOOPBACK_INTERFACE = self.dev_from_name(
                     scapy.consts.LOOPBACK_NAME,
                 )
+            except:
                 pass
 
     def dev_from_name(self, name):

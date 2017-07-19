@@ -395,11 +395,7 @@ else:
     inet_aton = socket.inet_aton
 
 inet_ntoa = socket.inet_ntoa
-try:
-    inet_ntop = socket.inet_ntop
-    inet_pton = socket.inet_pton
-except AttributeError:
-    from scapy.pton_ntop import *
+from scapy.pton_ntop import *
 
 
 def atol(x):

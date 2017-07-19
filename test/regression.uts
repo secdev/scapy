@@ -509,12 +509,16 @@ assert all(p.hashret() == p2.hashret() for p in px)
 assert not any(p.answers(p2) for p in px)
 assert all(p2.answers(p) for p in px)
 conf.checkIPinIP = conf_back
+
+a1, a2 = Net("www.google.com"), Net("www.secdev.org")
 prt1, prt2 = 12345, 54321
 s1, s2 = 2767216324, 3845532842
 p1 = IP(src=a1, dst=a2)/TCP(flags='SA', seq=s1, ack=s2, sport=prt1, dport=prt2)
 p2 = IP(src=a2, dst=a1)/TCP(flags='R', seq=s2, ack=0, sport=prt2, dport=prt1)
 assert p2.answers(p1)
 assert not p1.answers(p2)
+# Not available yet because of IPv6
+# a1, a2 = Net6("www.google.com"), Net6("www.secdev.org")
 p1 = IP(src=a1, dst=a2)/TCP(flags='S', seq=s1, ack=0, sport=prt1, dport=prt2)
 p2 = IP(src=a2, dst=a1)/TCP(flags='RA', seq=0, ack=s1+1, sport=prt2, dport=prt1)
 assert p2.answers(p1)
@@ -690,16 +694,16 @@ assert x[IP].ottl() in [32, 64, 128, 255]
 assert 0 <= x[IP].hops() <= 126
 x is not None and ICMP in x and x[ICMP].type == 0
 
-#= Sending and receiving an ICMPv6EchoRequest
-#~ netaccess ipv6
-#old_debug_dissector = conf.debug_dissector
-#conf.debug_dissector = False
-#x = sr1(IPv6(dst="www.google.com")/ICMPv6EchoRequest(),timeout=3)
-#conf.debug_dissector = old_debug_dissector
-#x
-#assert x[IPv6].ottl() in [32, 64, 128, 255]
-#assert 0 <= x[IPv6].hops() <= 126
-#x is not None and ICMPv6EchoReply in x and x[ICMPv6EchoReply].type == 129
+= Sending and receiving an ICMPv6EchoRequest
+~ netaccess ipv6
+old_debug_dissector = conf.debug_dissector
+conf.debug_dissector = False
+x = sr1(IPv6(dst="www.google.com")/ICMPv6EchoRequest(),timeout=3)
+conf.debug_dissector = old_debug_dissector
+x
+assert x[IPv6].ottl() in [32, 64, 128, 255]
+assert 0 <= x[IPv6].hops() <= 126
+x is not None and ICMPv6EchoReply in x and x[ICMPv6EchoReply].type == 129
 
 = DNS request
 ~ netaccess IP UDP DNS
@@ -1808,13 +1812,13 @@ b=IPv6(src="2047::deca", dst="2048::cafe")/ICMPv6EchoReply(id=0x6666, seq=0x7777
 a=IPv6(src="2048::cafe", dst="2047::deca")/ICMPv6EchoRequest(id=0x6666, seq=0x7777, data="somedata")
 (a > b) == True
 
-#= ICMPv6EchoRequest and ICMPv6EchoReply - live answers() use Net6
-#~ netaccess ipv6
-#
-#a = IPv6(dst="www.google.com")/ICMPv6EchoRequest()
-#b = IPv6(src="www.google.com", dst=a.src)/ICMPv6EchoReply()
-#assert b.answers(a)
-#assert (a > b)
+= ICMPv6EchoRequest and ICMPv6EchoReply - live answers() use Net6
+~ netaccess ipv6
+
+a = IPv6(dst="www.google.com")/ICMPv6EchoRequest()
+b = IPv6(src="www.google.com", dst=a.src)/ICMPv6EchoReply()
+assert b.answers(a)
+assert (a > b)
 
 
 ########### ICMPv6MRD* Classes ######################################
@@ -3162,12 +3166,12 @@ ICMPv6MLQuery in p and p[IPv6].dst == "ff02::1"
 if WINDOWS:
     route_add_loopback()
 
-#= Ether IPv6 checking for dst
-#~ netaccess ipv6
-#
-#p = Ether()/IPv6(dst="www.google.com")/TCP()
-#assert p.dst != p[IPv6].dst
-#p.show()
+= Ether IPv6 checking for dst
+~ netaccess ipv6
+
+p = Ether()/IPv6(dst="www.google.com")/TCP()
+assert p.dst != p[IPv6].dst
+p.show()
 
 ############
 ############
@@ -4398,53 +4402,6 @@ str(DHCP6_RelayReply()) == b'\r\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\
 a=DHCP6_RelayReply(b'\r\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
 a.msgtype == 13 and a.hopcount == 0 and a.linkaddr == "::" and a.peeraddr == "::"
 
-############
-############
-+ Test DHCPv6_am
-
-= DHCPv6_am - Basic Instantiaion
-~ ipv6 netaccess
-a = DHCPv6_am()
-a.usage()
-
-a.parse_options(dns="2001:500::1035", domain="localdomain, local", duid=None,
-	iface=conf.iface6, advpref=255, sntpservers=None, 
-        sipdomains=None, sipservers=None, 
-        nisdomain=None, nisservers=None, 
-        nispdomain=None, nispservers=None,
-        bcmcsdomains=None, bcmcsservers=None,
-	debug=1)
-
-= DHCPv6_am - SOLICIT
-~ ipv6 netaccess
-req = IPv6(dst="::1")/UDP()/DHCP6(msgtype=1)/DHCP6OptClientId(duid=DUID_LLT())
-assert a.is_request(req)
-res = a.make_reply(req)
-assert not a.is_request(res)
-assert res[DHCP6_Advertise]
-assert res[DHCP6OptPref].prefval == 255
-assert res[DHCP6OptReconfAccept]
-a.print_reply(req, res)
-
-= DHCPv6_am - INFO-REQUEST
-~ ipv6 netaccess
-req = IPv6(dst="::1")/UDP()/DHCP6(msgtype=11)/DHCP6OptClientId(duid=DUID_LLT())
-assert a.is_request(req)
-res = a.make_reply(req)
-assert not a.is_request(res)
-assert res[DHCP6_Reply]
-assert "local" in res[DHCP6OptDNSDomains].dnsdomains
-a.print_reply(req, res)
-
-= DHCPv6_am - REQUEST
-~ ipv6 netaccess
-req = IPv6(dst="::1")/UDP()/DHCP6(msgtype=3)/DHCP6OptClientId(duid=DUID_LLT())/DHCP6OptServerId(duid=a.duid)
-assert a.is_request(req)
-res = a.make_reply(req)
-assert not a.is_request(res)
-assert res[UDP].dport == 546
-assert res[DHCP6_Solicit]
-a.print_reply(req, res)
 
 ############
 ############
@@ -7973,14 +7930,14 @@ len([ o for o in oid ]) == 3
 n1 = Net6("2001:db8::/127")
 len([ip for ip in n1]) == 2
 
-#= Net6 using web address
-#~ ipv6
-#
-#ip = IPv6(dst="www.google.com")
-#n1 = ip.dst
-#assert isinstance(n1, Net6)
-#assert n1.ip_regex.match(str(n1))
-#ip.show()
+= Net6 using web address
+~ netaccess ipv6
+
+ip = IPv6(dst="www.google.com")
+n1 = ip.dst
+assert isinstance(n1, Net6)
+assert n1.ip_regex.match(str(n1))
+ip.show()
 
 ############
 ############
@@ -8949,3 +8906,15 @@ p1[IP]
 p2[MPLS]
 p2[MPLS:1]
 p2[IP]
+
+
++ Restore normal routes & Ifaces
+
+= Windows
+
+if WINDOWS:
+    IFACES.reload()
+    conf.route.resync()
+    conf.route6.resync()
+
+True

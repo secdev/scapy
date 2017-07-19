@@ -18,7 +18,7 @@ Routing and network interface handling for IPv6.
 
 from __future__ import absolute_import
 import socket
-import scapy
+import scapy.consts
 from scapy.config import conf
 from scapy.utils6 import *
 from scapy.arch import *

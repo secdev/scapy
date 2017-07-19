@@ -23,6 +23,8 @@ if [ "$SCAPY_USE_PCAPDNET" = "yes" ]
 then
   UT_FLAGS+=" -K not_pcapdnet"
 fi
+# IPv6 is not available yet on travis
+UT_FLAGS+=" -K ipv6"
 
 # AES-CCM, ChaCha20Poly1305 and X25519 were added to Cryptography v2.0
 # but the minimal version mandated by scapy is v1.7
@@ -72,9 +74,11 @@ then
     $SCAPY_SUDO ./run_tests -q -F -t bpf.uts $UT_FLAGS || exit $?
   fi
   UT_FLAGS+=" -K manufdb -K linux"
-else
-  # IPv6 is not available yet on the linux machines (but is on OSX)
-  UT_FLAGS+=" -K ipv6"
+fi
+
+if [ "$TRAVIS_OS_NAME" = "linux" ]
+then
+  UT_FLAGS+=" -K osx"
 fi
 
 # Run all normal and contrib tests
