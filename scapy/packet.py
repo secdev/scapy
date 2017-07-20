@@ -1463,9 +1463,10 @@ def fuzz(p, _inplace=0):
                     print("fuzzing", repr(r))
                     fuzz(r, _inplace=1)
             elif f.default is not None:
-                rnd = f.randval()
-                if rnd is not None:
-                    q.default_fields[f.name] = rnd
+                if not isinstance(f, ConditionalField) or f._evalcond(q):
+                    rnd = f.randval()
+                    if rnd is not None:
+                        q.default_fields[f.name] = rnd
         q = q.payload
     return p
 
