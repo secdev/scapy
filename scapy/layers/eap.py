@@ -268,6 +268,16 @@ class EAP(Packet):
                 return 1
         return 0
 
+    def mysummary(self):
+        summary_str = "EAP %{eap_class}.code% %{eap_class}.type%".format(
+            eap_class = self.__class__.__name__
+        )
+        if self.type == 1 and self.code == EAP.RESPONSE:
+            summary_str += " %{eap_class}.identity%".format(
+                eap_class = self.__class__.__name__
+            )
+        return self.sprintf(summary_str)
+
     def post_build(self, p, pay):
         if self.len is None:
             l = len(p) + len(pay)
@@ -310,8 +320,30 @@ class EAP_TLS(EAP):
         BitField('S', 0, 1),
         BitField('reserved', 0, 5),
         ConditionalField(IntField('tls_message_len', 0), lambda pkt: pkt.L == 1),
-        #PacketField("tls_data", None, TLS)
         XStrLenField('tls_data', '', length_from=lambda pkt: 0 if pkt.len is None else pkt.len - (6 + 4 * pkt.L))
+    ]
+
+
+class EAP_TTLS(EAP):
+    """
+    RFC 5281 - "Extensible Authentication Protocol Tunneled Transport Layer
+    Security Authenticated Protocol Version 0 (EAP-TTLSv0)"
+    """
+
+    name = "EAP-TTLS"
+    fields_desc = [
+        ByteEnumField("code", 1, eap_codes),
+        ByteField("id", 0),
+        FieldLenField("len", None, fmt="H", length_of="data",
+                      adjust=lambda p, x: x + 10 if p.L == 1 else x + 6),
+        ByteEnumField("type", 21, eap_types),
+        BitField("L", 0, 1),
+        BitField("M", 0, 1),
+        BitField("S", 0, 1),
+        BitField("reserved", 0, 2),
+        BitField("version", 0, 3),
+        ConditionalField(IntField("message_len", 0), lambda pkt: pkt.L == 1),
+        XStrLenField("data", "", length_from=lambda pkt: 0 if pkt.len is None else pkt.len - (6 + 4 * pkt.L))
     ]
 
 
