@@ -10,7 +10,7 @@
   "format": "html",
   "kw_ko": [
     "crypto_advanced",
-    "mock_read_routes6_bsd"
+    "mock_read_routes6_bsd",
     "appveyor_only"
   ]
 }
