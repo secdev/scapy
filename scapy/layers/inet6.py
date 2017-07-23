@@ -292,6 +292,7 @@ ipv6nh = { 0:"Hop-by-Hop Option Header",
           58:"ICMPv6",
           59:"No Next Header",
           60:"Destination Option Header",
+         112:"VRRP",
          132:"SCTP",
          135:"Mobility Header"}
 
@@ -643,8 +644,9 @@ class PseudoIPv6(Packet): # IPv6 Pseudo-header for checksum computation
 
 def in6_chksum(nh, u, p):
     """
-    Performs IPv6 Upper Layer checksum computation. Provided parameters are:
+    As Specified in RFC 2460 - 8.1 Upper-Layer Checksums
 
+    Performs IPv6 Upper Layer checksum computation. Provided parameters are:
     - 'nh' : value of upper layer protocol
     - 'u'  : upper layer instance (TCP, UDP, ICMPv6*, ). Instance must be
              provided with all under layers (IPv6 and all extension headers,
