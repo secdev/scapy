@@ -475,6 +475,33 @@ class IP(Packet, IPTools):
                 lst.append(q)
         return lst
 
+def in4_chksum(proto, u, p):
+    """
+    As Specified in RFC 2460 - 8.1 Upper-Layer Checksums
+
+    Performs IPv4 Upper Layer checksum computation. Provided parameters are:
+    - 'proto' : value of upper layer protocol
+    - 'u'  : IP upper layer instance
+    - 'p'  : the payload of the upper layer provided as a string
+    """
+    if not isinstance(u, IP):
+        warning("No IP underlayer to compute checksum. Leaving null.")
+        return 0
+    if u.len is not None:
+        if u.ihl is None:
+            olen = sum(len(x) for x in u.options)
+            ihl = 5 + olen / 4 + (1 if olen % 4 else 0)
+        else:
+            ihl = u.ihl
+        ln = u.len - 4 * ihl
+    else:
+        ln = len(p)
+    psdhdr = struct.pack("!4s4sHH",
+                         inet_aton(u.src),
+                         inet_aton(u.dst),
+                         proto,
+                         ln)
+    return checksum(psdhdr+p)
 
 class TCP(Packet):
     name = "TCP"
@@ -497,21 +524,7 @@ class TCP(Packet):
             p = p[:12]+chr((dataofs << 4) | ord(p[12])&0x0f)+p[13:]
         if self.chksum is None:
             if isinstance(self.underlayer, IP):
-                if self.underlayer.len is not None:
-                    if self.underlayer.ihl is None:
-                        olen = sum(len(x) for x in self.underlayer.options)
-                        ihl = 5 + olen / 4 + (1 if olen % 4 else 0)
-                    else:
-                        ihl = self.underlayer.ihl
-                    ln = self.underlayer.len - 4 * ihl
-                else:
-                    ln = len(p)
-                psdhdr = struct.pack("!4s4sHH",
-                                     inet_aton(self.underlayer.src),
-                                     inet_aton(self.underlayer.dst),
-                                     self.underlayer.proto,
-                                     ln)
-                ck=checksum(psdhdr+p)
+                ck = in4_chksum(socket.IPPROTO_TCP, self.underlayer, p)
                 p = p[:16]+struct.pack("!H", ck)+p[18:]
             elif conf.ipv6_enabled and isinstance(self.underlayer, scapy.layers.inet6.IPv6) or isinstance(self.underlayer, scapy.layers.inet6._IPv6ExtHdr):
                 ck = scapy.layers.inet6.in6_chksum(socket.IPPROTO_TCP, self.underlayer, p)
@@ -576,21 +589,7 @@ class UDP(Packet):
             p = p[:4]+struct.pack("!H",l)+p[6:]
         if self.chksum is None:
             if isinstance(self.underlayer, IP):
-                if self.underlayer.len is not None:
-                    if self.underlayer.ihl is None:
-                        olen = sum(len(x) for x in self.underlayer.options)
-                        ihl = 5 + olen / 4 + (1 if olen % 4 else 0)
-                    else:
-                        ihl = self.underlayer.ihl
-                    ln = self.underlayer.len - 4 * ihl
-                else:
-                    ln = len(p)
-                psdhdr = struct.pack("!4s4sHH",
-                                     inet_aton(self.underlayer.src),
-                                     inet_aton(self.underlayer.dst),
-                                     self.underlayer.proto,
-                                     ln)
-                ck = checksum(psdhdr+p)
+                ck = in4_chksum(socket.IPPROTO_UDP, self.underlayer, p)
                 # According to RFC768 if the result checksum is 0, it should be set to 0xFFFF
                 if ck == 0:
                     ck = 0xFFFF

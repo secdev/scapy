@@ -7682,6 +7682,15 @@ s == b'E\x00\x00$\x00\x01\x00\x00@p|g\x7f\x00\x00\x01\x7f\x00\x00\x01!\x01d\x00\
 p = IP(s)
 VRRP in p and p[VRRP].chksum == 0x7afd
 
+= VRRP - chksums
+# VRRPv3
+p = Ether(src="00:00:5e:00:02:02",dst="01:00:5e:00:00:12")/IP(src="20.0.0.3", dst="224.0.0.18",ttl=255)/VRRP(priority=254,vrid=2,version=3,adv=1,addrlist=["20.0.1.2","20.0.1.3"])
+a = Ether(str(p))
+assert a[VRRP].chksum == 0xb256
+# VRRPv1
+p[VRRP].version = 1
+b = Ether(str(p))
+assert b[VRRP].chksum == 0xc6f4
 
 ############
 ############
