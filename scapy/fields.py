@@ -1065,6 +1065,9 @@ class FlagValue(object):
         return bool(self.value)
     __bool__ = __nonzero__
     def flagrepr(self):
+        warning("obj.flagrepr() is obsolete. Use str(obj) instead.")
+        return str(self)
+    def __str__(self):
         i = 0
         r = []
         x = int(self)
@@ -1075,7 +1078,7 @@ class FlagValue(object):
             x >>= 1
         return ("+" if self.multi else "").join(r)
     def __repr__(self):
-        return "<Flag %d (%s)>" % (self, self.flagrepr())
+        return "<Flag %d (%s)>" % (self, self)
     def __deepcopy__(self, memo):
         return self.__class__(int(self), self.names)
     def __getattr__(self, attr):
@@ -1144,9 +1147,9 @@ class FlagsField(BitField):
     def i2repr(self, pkt, x):
         if isinstance(x, (list, tuple)):
             return repr(type(x)(
-                None if v is None else FlagValue(v, self.names).flagrepr()
+                None if v is None else str(FlagValue(v, self.names))
                 for v in x))
-        return None if x is None else FlagValue(x, self.names).flagrepr()
+        return None if x is None else str(FlagValue(x, self.names))
 
 
 MultiFlagsEntry = collections.namedtuple('MultiFlagEntry', ['short', 'long'])

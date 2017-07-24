@@ -95,7 +95,7 @@ def nmap_tcppacket_sig(pkt):
         res["DF"] = "Y" if pkt.flags.DF else "N"
         res["W"] = "%X" % pkt.window
         res["ACK"] = "S++" if pkt.ack == 2 else "S" if pkt.ack == 1 else "O"
-        res["Flags"] = pkt[TCP].flags.flagrepr()[::-1]
+        res["Flags"] = str(pkt[TCP].flags)[::-1]
         res["Ops"] = "".join(x[0][0] for x in pkt[TCP].options)
     else:
         res["Resp"] = "N"
