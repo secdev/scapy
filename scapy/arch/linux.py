@@ -153,7 +153,7 @@ def attach_filter(s, bpf_filter, iface):
         )
         return
     nb = int(lines[0])
-    bpf = ""
+    bpf = b""
     for l in lines[1:]:
         bpf += struct.pack("HBBI", *(int(e) for e in l.split()))
 

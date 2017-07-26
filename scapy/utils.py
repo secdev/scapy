@@ -33,7 +33,8 @@ from scapy.base_classes import BasePacketList
 ###########
 
 def get_temp_file(keep=False, autoext=""):
-    f = os.tempnam("","scapy")
+    with tempfile.NamedTemporaryFile(prefix="scapy") as _f:
+        f = _f.name
     if not keep:
         conf.temp_files.append(f+autoext)
     return f + autoext
@@ -55,7 +56,7 @@ def sane(x):
         if (j < 32) or (j >= 127):
             r=r+"."
         else:
-            r=r+i
+            r=r+chb(i)
     return r
 
 def lhex(x):
@@ -485,7 +486,7 @@ def do_graph(graph,prog=None,format=None,target=None,type=None,string=None,optio
     start_viewer=False
     if target is None:
         if WINDOWS:
-            tempfile = os.tempnam("", "scapy") + "." + format
+            tempfile = get_temp_file() + "." + format
             target = "> %s" % tempfile
             start_viewer = True
         else:

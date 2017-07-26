@@ -753,7 +753,8 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
 
     def hide_defaults(self):
         """Removes fields' values that are the same as default values."""
-        for k, v in self.fields.items():  # use .items(): self.fields is modified in the loop
+        for k in list(self.fields.keys()):  # use .items(): self.fields is modified in the loop
+            v = self.fields[k]
             if k in self.default_fields:
                 if self.default_fields[k] == v:
                     del self.fields[k]

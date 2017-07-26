@@ -34,8 +34,8 @@ class DNSStrField(StrField):
           return b"\x00"
 
         # Truncate chunks that cannot be encoded (more than 63 bytes..)
-        x = b"".join(chr(len(y)) + y for y in (k[:63] for k in x.split(".")))
-        if ord(x[-1]) != 0:
+        x = b"".join(chb(len(y)) + y for y in (k[:63] for k in x.split(".")))
+        if orb(x[-1]) != 0:
             x += b"\x00"
         return x
 
