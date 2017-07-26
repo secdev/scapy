@@ -615,12 +615,12 @@ class Enum_metaclass(type):
 
 
 def export_object(obj):
-    print(gzip.zlib.compress(six.moves.cPickle.dumps(obj,2),9).encode("base64"))
+    print(bytes_codec(gzip.zlib.compress(six.moves.cPickle.dumps(obj,2),9), "base64"))
 
 def import_object(obj=None):
     if obj is None:
         obj = sys.stdin.read()
-    return six.moves.cPickle.loads(gzip.zlib.decompress(obj.strip().decode("base64")))
+    return six.moves.cPickle.loads(gzip.zlib.decompress(base64_bytes(obj.strip())))
 
 
 def save_object(fname, obj):

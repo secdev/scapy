@@ -43,7 +43,7 @@ def import_module(name):
 class File:
     def __init__(self, name, URL, local):
         self.name = name
-        self.local = local
+        self.local = local.encode("utf8")
         self.URL = URL
     def get_local(self):
         return bz2.decompress(base64.decodestring(self.local))
