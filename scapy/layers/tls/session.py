@@ -971,7 +971,7 @@ class _tls_sessions(object):
                 if len(sid) > 12:
                     sid = sid[:11] + "..."
                 res.append((src, dst, sid))
-        colwidth = map(lambda x: max(map(lambda y: len(y), x)), apply(zip, res))
+        colwidth = [max([len(y) for y in x]) for x in zip(*res)]
         fmt = "  ".join(map(lambda x: "%%-%ds"%x, colwidth))
         return "\n".join(map(lambda x: fmt % x, res))
 
