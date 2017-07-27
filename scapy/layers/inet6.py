@@ -390,7 +390,7 @@ class _IPv6GuessPayload:
             t = ord(p[0])
             if len(p) > 2 and (t == 139 or t == 140): # Node Info Query
                 return _niquery_guesser(p)
-            if len(p) >= icmp6typesminhdrlen.get(t, sys.maxint): # Other ICMPv6 messages
+            if len(p) >= icmp6typesminhdrlen.get(t, float("inf")): # Other ICMPv6 messages
                 return get_cls(icmp6typescls.get(t,"Raw"), "Raw")
             return Raw
         elif self.nh == 135 and len(p) > 3: # Mobile IPv6

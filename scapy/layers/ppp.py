@@ -256,7 +256,7 @@ class PPP_IPCP_Option(Packet):
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         if _pkt:
-            o = ord(_pkt[0])
+            o = orb(_pkt[0])
             return cls.registered_options.get(o, cls)
         return cls
 
