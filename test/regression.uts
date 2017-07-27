@@ -672,7 +672,7 @@ x.show()
 assert(x.community==b"public" and x.version == 0)
 assert(x.PDU.id == 41 and len(x.PDU.varbindlist) == 3)
 assert(x.PDU.varbindlist[0].oid == b"1.3.6.1.4.1.253.8.64.4.2.1.7.10.14130104")
-assert(x.PDU.varbindlist[0].value == "172.31.19.2")
+assert(x.PDU.varbindlist[0].value == b"172.31.19.2")
 assert(x.PDU.varbindlist[2].oid == b"1.3.6.1.4.1.253.8.64.4.2.1.5.10.14130400")
 assert(x.PDU.varbindlist[2].value == 1)
 
@@ -1365,14 +1365,14 @@ raw(p)
 assert(_ == b'\x80S\x01\x00\x00\n\x00\x06XYZ\x00')
 PPP(_)
 q=_
-assert( raw(p)==str(q) )
+assert( raw(p)==raw(q) )
 PPP()/PPP_ECP(options=[PPP_ECP_Option_OUI(oui="XYZ"),PPP_ECP_Option(type=1,data="ABCDEFG")])
 p=_
 raw(p)
 assert(_ == b'\x80S\x01\x00\x00\x13\x00\x06XYZ\x00\x01\tABCDEFG')
 PPP(_)
 q=_
-assert( raw(p) == str(q) )
+assert( raw(p) == raw(q) )
 assert( q[PPP_ECP_Option].data == "ABCDEFG" )
 
 
@@ -1608,11 +1608,11 @@ for a in six.moves.range(10):
     s1,s2 = in6_getRandomizedIfaceId('20b:93ff:feeb:2d3')
     inet_pton(socket.AF_INET6, '::'+s1)
     tmp2 = inet_pton(socket.AF_INET6, '::'+s2)
-    res = res and ((ord(s1[0]) & 0x04) == 0x04)
+    res = res and ((orb(s1[0]) & 0x04) == 0x04)
     s1,s2 = in6_getRandomizedIfaceId('20b:93ff:feeb:2d3', previous=tmp2)
     tmp = inet_pton(socket.AF_INET6, '::'+s1)
     inet_pton(socket.AF_INET6, '::'+s2)
-    res = res and ((ord(s1[0]) & 0x04) == 0x04)
+    res = res and ((orb(s1[0]) & 0x04) == 0x04)
 
 ########### RFC 1924 related function ###############################
 = Test RFC 1924 function - in6_ctop() basic test
@@ -1741,11 +1741,11 @@ raw(ICMPv6EchoRequest(code=0xff, cksum=0x1111, id=0x2222, seq=0x3333, data="this
 
 = ICMPv6EchoRequest - Basic dissection
 a=ICMPv6EchoRequest(b'\x80\x00\x00\x00\x00\x00\x00\x00')
-a.type == 128 and a.code == 0 and a.cksum == 0 and a.id == 0 and a.seq == 0 and a.data == ""
+a.type == 128 and a.code == 0 and a.cksum == 0 and a.id == 0 and a.seq == 0 and a.data == b""
 
 = ICMPv6EchoRequest - Dissection with specific values 
 a=ICMPv6EchoRequest(b'\x80\xff\x11\x11""33thisissomerawing')
-a.type == 128 and a.code == 0xff and a.cksum == 0x1111 and a.id == 0x2222 and a.seq == 0x3333 and a.data == "thisissomerawing"
+a.type == 128 and a.code == 0xff and a.cksum == 0x1111 and a.id == 0x2222 and a.seq == 0x3333 and a.data == b"thisissomerawing"
 
 = ICMPv6EchoRequest - Automatic checksum computation and field overloading (build)
 raw(IPv6(dst="2001::cafe", src="2001::deca", hlim=64)/ICMPv6EchoRequest()) == b'`\x00\x00\x00\x00\x08:@ \x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xde\xca \x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xca\xfe\x80\x00\x95\xf1\x00\x00\x00\x00'
@@ -1767,11 +1767,11 @@ raw(ICMPv6EchoReply(code=0xff, cksum=0x1111, id=0x2222, seq=0x3333, data="thisis
 
 = ICMPv6EchoReply - Basic dissection
 a=ICMPv6EchoReply(b'\x80\x00\x00\x00\x00\x00\x00\x00')
-a.type == 128 and a.code == 0 and a.cksum == 0 and a.id == 0 and a.seq == 0 and a.data == ""
+a.type == 128 and a.code == 0 and a.cksum == 0 and a.id == 0 and a.seq == 0 and a.data == b""
 
 = ICMPv6EchoReply - Dissection with specific values 
 a=ICMPv6EchoReply(b'\x80\xff\x11\x11""33thisissomerawing')
-a.type == 128 and a.code == 0xff and a.cksum == 0x1111 and a.id == 0x2222 and a.seq == 0x3333 and a.data == "thisissomerawing"
+a.type == 128 and a.code == 0xff and a.cksum == 0x1111 and a.id == 0x2222 and a.seq == 0x3333 and a.data == b"thisissomerawing"
 
 = ICMPv6EchoReply - Automatic checksum computation and field overloading (build)
 raw(IPv6(dst="2001::cafe", src="2001::deca", hlim=64)/ICMPv6EchoReply()) == b'`\x00\x00\x00\x00\x08:@ \x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xde\xca \x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xca\xfe\x81\x00\x94\xf1\x00\x00\x00\x00'
@@ -1866,7 +1866,7 @@ raw(HBHOptUnknown()) == b'\x01\x00'
 
 = HBHOptUnknown - Basic Dissection 
 a=HBHOptUnknown(b'\x01\x00')
-a.otype == 0x01 and a.optlen == 0 and a.optdata == ""
+a.otype == 0x01 and a.optlen == 0 and a.optdata == b""
 
 = HBHOptUnknown - Automatic optlen computation
 raw(HBHOptUnknown(optdata="B"*10)) == b'\x01\nBBBBBBBBBB'
@@ -1876,7 +1876,7 @@ raw(HBHOptUnknown(optlen=9, optdata="B"*10)) == b'\x01\tBBBBBBBBBB'
 
 = HBHOptUnknown - Dissection with specific values 
 a=HBHOptUnknown(b'\x01\tBBBBBBBBBB')
-a.otype == 0x01 and a.optlen == 9 and a.optdata == "B"*9 and isinstance(a.payload, Raw) and a.payload.load == "B"
+a.otype == 0x01 and a.optlen == 9 and a.optdata == b"B"*9 and isinstance(a.payload, Raw) and a.payload.load == "B"
 
 
 ############
@@ -1902,11 +1902,11 @@ raw(PadN(optdata="B"*10)) == b'\x01\nBBBBBBBBBB'
 
 = PadN - Basic Dissection
 a=PadN(b'\x01\x00')
-a.otype == 1 and a.optlen == 0 and a.optdata == ''
+a.otype == 1 and a.optlen == 0 and a.optdata == b''
 
 = PadN - Dissection with specific values 
 a=PadN(b'\x01\x0cBBBBBBBBBB')
-a.otype == 1 and a.optlen == 12 and a.optdata == 'BBBBBBBBBB'
+a.otype == 1 and a.optlen == 12 and a.optdata == b'BBBBBBBBBB'
 
 = PadN - Instantiation with forced optlen 
 raw(PadN(optdata="B"*10, optlen=9)) == b'\x01\x09BBBBBBBBBB'
@@ -2131,7 +2131,7 @@ a.type == 0 and a.len == 2
 
 = ICMPv6NDOptUnknown - Dissection with specific values 
 a=ICMPv6NDOptUnknown(b'\x00\x04somerawing')
-a.type == 0 and a.len==4 and a.data == "so" and isinstance(a.payload, Raw) and a.payload.load == "merawing"
+a.type == 0 and a.len==4 and a.data == b"so" and isinstance(a.payload, Raw) and a.payload.load == "merawing"
 
 
 ############
@@ -2552,7 +2552,7 @@ raw(ICMPv6NIQueryNOOP(nonce=b"\x00"*8)) == b'\x8b\x01\x00\x00\x00\x00\x00\x00\x0
 
 = ICMPv6NIQueryNOOP - Basic Dissection
 a = ICMPv6NIQueryNOOP(b'\x8b\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
-a.type == 139 and a.code == 1 and a.cksum == 0 and a.qtype == 0 and a.unused == 0 and a.flags == 0 and a.nonce == b"\x00"*8 and a.data == ""
+a.type == 139 and a.code == 1 and a.cksum == 0 and a.qtype == 0 and a.unused == 0 and a.flags == 0 and a.nonce == b"\x00"*8 and a.data == b""
 
 
 ############
@@ -3681,14 +3681,14 @@ raw(DHCP6OptVendorSpecificInfo(enterprisenum=0xeeeeeeee, vso=[VENDOR_SPECIFIC_OP
 
 = DHCP6OptVendorSpecificInfo - Dissection with with specific values (one option)
 a = DHCP6OptVendorSpecificInfo(b'\x00\x11\x00\x11\xee\xee\xee\xee\x00+\x00\tsomething')
-a.optcode == 17 and a.optlen == 17 and a.enterprisenum == 0xeeeeeeee and len(a.vso) == 1 and isinstance(a.vso[0], VENDOR_SPECIFIC_OPTION) and a.vso[0].optlen == 9 and a.vso[0].optdata == 'something'
+a.optcode == 17 and a.optlen == 17 and a.enterprisenum == 0xeeeeeeee and len(a.vso) == 1 and isinstance(a.vso[0], VENDOR_SPECIFIC_OPTION) and a.vso[0].optlen == 9 and a.vso[0].optdata == b'something'
 
 = DHCP6OptVendorSpecificInfo - Instantiation with specific values (two options)
 raw(DHCP6OptVendorSpecificInfo(enterprisenum=0xeeeeeeee, vso=[VENDOR_SPECIFIC_OPTION(optcode=43, optdata="something"), VENDOR_SPECIFIC_OPTION(optcode=42, optdata="somethingelse")])) == b'\x00\x11\x00"\xee\xee\xee\xee\x00+\x00\tsomething\x00*\x00\rsomethingelse'
 
 = DHCP6OptVendorSpecificInfo - Dissection with with specific values (two options)
 a = DHCP6OptVendorSpecificInfo(b'\x00\x11\x00"\xee\xee\xee\xee\x00+\x00\tsomething\x00*\x00\rsomethingelse')
-a.optcode == 17 and a.optlen == 34 and a.enterprisenum == 0xeeeeeeee and len(a.vso) == 2 and isinstance(a.vso[0], VENDOR_SPECIFIC_OPTION) and isinstance(a.vso[1], VENDOR_SPECIFIC_OPTION) and a.vso[0].optlen == 9 and a.vso[0].optdata == 'something' and a.vso[1].optlen == 13 and a.vso[1].optdata == 'somethingelse'
+a.optcode == 17 and a.optlen == 34 and a.enterprisenum == 0xeeeeeeee and len(a.vso) == 2 and isinstance(a.vso[0], VENDOR_SPECIFIC_OPTION) and isinstance(a.vso[1], VENDOR_SPECIFIC_OPTION) and a.vso[0].optlen == 9 and a.vso[0].optdata == b'something' and a.vso[1].optlen == 13 and a.vso[1].optdata == b'somethingelse'
 
 
 ############
@@ -3707,7 +3707,7 @@ raw(DHCP6OptIfaceId(ifaceid="something")) == b'\x00\x12\x00\x09something'
 
 = DHCP6OptIfaceId - Dissection with specific value
 a = DHCP6OptIfaceId(b'\x00\x12\x00\x09something')
-a.optcode == 18 and a.optlen == 9 and a.ifaceid == "something"
+a.optcode == 18 and a.optlen == 9 and a.ifaceid == b"something"
 
 
 ############
@@ -5043,7 +5043,7 @@ a1, a2 = "2001:db8::1", "2001:db8::2"
 cookie = RandString(8)._fix()
 p1 = IPv6(src=a1, dst=a2)/MIP6MH_HoTI(cookie=cookie)
 p2 = IPv6(src=a2, dst=a1)/MIP6MH_HoT(cookie=cookie)
-p2_ko = IPv6(src=a2, dst=a1)/MIP6MH_HoT(cookie="".join(chr((ord(b'\xff') + 1) % 256)))
+p2_ko = IPv6(src=a2, dst=a1)/MIP6MH_HoT(cookie="".join(chr((orb(b'\xff') + 1) % 256)))
 assert p1.hashret() == p2.hashret() and p2.answers(p1) and not p1.answers(p2)
 assert p1.hashret() != p2_ko.hashret() and not p2_ko.answers(p1) and not p1.answers(p2_ko)
 
@@ -7661,12 +7661,13 @@ for binfrm in ["\x00" * 15, b"\x00" * 17]:
     try:
         inet_ntop(socket.AF_INET6, binfrm)
     except Exception as exc1:
+        _exc1 = exc1
         rc = True
     assert rc
     try:
         _inet6_ntop(binfrm)
     except Exception as exc2:
-        rc = isinstance(exc2, type(exc1))
+        rc = isinstance(exc2, type(_exc1))
     assert rc
 
 
@@ -8060,10 +8061,10 @@ for ip6, res in ip6_good_addrs:
 
 r4 = Route()
 tmp_route = r4.make_route(host="10.12.13.14")
-(tmp_route[0], tmp_route[1], tmp_route[2]) == (168561934, 4294967295L, '0.0.0.0')
+(tmp_route[0], tmp_route[1], tmp_route[2]) == (168561934, 4294967295, '0.0.0.0')
 
 tmp_route = r4.make_route(net="10.12.13.0/24")
-(tmp_route[0], tmp_route[1], tmp_route[2]) == (168561920, 4294967040L, '0.0.0.0')
+(tmp_route[0], tmp_route[1], tmp_route[2]) == (168561920, 4294967040, '0.0.0.0')
 
 = add() & delt()
 

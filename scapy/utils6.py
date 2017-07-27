@@ -456,7 +456,7 @@ def in6_ptoc(addr):
         res.append(_rfc1924map[rem%85])
         rem = rem//85
     res.reverse()
-    return b"".join(res)
+    return "".join(res)
 
     
 def in6_isaddr6to4(x):

@@ -11,7 +11,7 @@ from __future__ import absolute_import
 import sys,os,struct,socket,time
 from select import select
 from fcntl import ioctl
-import array
+import array, ctypes
 
 from scapy.compat import *
 from scapy.consts import LOOPBACK_NAME, IS_64BITS
@@ -157,9 +157,12 @@ def attach_filter(s, bpf_filter, iface):
     for l in lines[1:]:
         bpf += struct.pack("HBBI", *(int(e) for e in l.split()))
 
-    # XXX. Argl! We need to give the kernel a pointer on the BPF,
-    # python object header seems to be 20 bytes. 36 bytes for x86 64bits arch.
-    bpfh = struct.pack("HL", nb, id(bpf) + (36 if IS_64BITS else 20))
+    # XXX. Argl! We need to give the kernel a pointer on the BPF
+    bpf_buf = ctypes.create_string_buffer(bpf)
+    class BpfPointer(ctypes.Structure):
+        _fields_ = [ ("bf_len", ctypes.c_int),
+                     ("bf_insn", ctypes.POINTER(type(bpf_buf))) ]
+    bpfh = BpfPointer(nb, ctypes.pointer(bpf_buf))
     s.setsockopt(SOL_SOCKET, SO_ATTACH_FILTER, bpfh)
 
 def set_promisc(s,iff,val=1):
