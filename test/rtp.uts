@@ -6,25 +6,10 @@
 
 
 ############
-RTP
+# RTP
 ############
 
 + RTP tests
-
-
-def convertToHex(input, numerriere=False):
-    """Wandelt den übergebenen String in lesbarere Hexwerte um
-    :param numerriere Gibt außerdem eine Zeile mit den Nummern der Bytes aus"""
-    if isinstance(input, numpy.ndarray):
-        input = input.tostring()
-
-    result = ""
-    if numerriere:
-        result += colored(' '.join("%2d" % (i + 1) for i, _ in enumerate(input)), 'grey')
-        result += "\n"
-    result += ' '.join(x.encode('hex') for x in input)
-    return result
-
 
 = test rtp with extension header
 ~ rtp
@@ -34,30 +19,31 @@ pkt = RTP(data)
 assert "RTP" in pkt
 parsed = pkt["RTP"]
 assert parsed.version == 2
-assert parsed.extension 
+assert parsed.extension
 assert parsed.numsync == 0
-assert not parsed.marker 
+assert not parsed.marker
 assert parsed.payload_type == 111
 assert parsed.sequence == 5246
 assert parsed.timestamp == 1499067752
 assert parsed.sourcesync == 0xcc23d7cf
-assert parsed.extension_header_id == 0x5548
-assert parsed.extension_header == [0x16373131,0x36363231,0x20003000]
+assert "RTPExtension" in parsed, parsed.show()
+assert parsed["RTPExtension"].header_id == 0x5548
+assert parsed["RTPExtension"].header == [0x16373131,0x36363231,0x20003000]
 
-= test layer creation 
+= test layer creation
 
-created = RTP(extension=True, payload_type="PCMA", sequence=0x1234, timestamp=12345678, 
-              sourcesync=0xabcdef01, extension_header_id=0x4321,extension_header=[0x11223344])
-assert str(created) == '\x90\x08\x124\x00\xbcaN\xab\xcd\xef\x01C!\x00\x01\x11"3D'
+created = RTP(extension=True, payload_type="PCMA", sequence=0x1234, timestamp=12345678, sourcesync=0xabcdef01)
+created /= RTPExtension(header_id=0x4321, header=[0x11223344])
+assert str(created) == '\x90\x08\x124\x00\xbcaN\xab\xcd\xef\x01C!\x00\x01\x11"3D', ' '.join(x.encode('hex') for x in str(created))
 parsed = RTP(str(created))
 assert parsed.payload_type == 8
-assert parsed.extension_header == [0x11223344]
+assert "RTPExtension" in parsed, parsed.show()
+assert parsed["RTPExtension"].header == [0x11223344]
 
 = test RTP without extension
 
-created = RTP(extension=True, payload_type="DVI4", sequence=0x1234, timestamp=12345678, sourcesync=0xabcdef01)
-assert str(created) == '\x90\x11\x124\x00\xbcaN\xab\xcd\xef\x01\x00\x00\x00\x00'
+created = RTP(extension=False, payload_type="DVI4", sequence=0x1234, timestamp=12345678, sourcesync=0xabcdef01)
+assert str(created) == '\x80\x11\x124\x00\xbcaN\xab\xcd\xef\x01', ' '.join(x.encode('hex') for x in str(created))
 parsed = RTP(str(created))
 assert parsed.sourcesync == 0xabcdef01
-assert parsed.extension_header == []
-assert parsed.extension_header_id == 0
+assert "RTPExtension" not in parsed
