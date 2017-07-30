@@ -11,7 +11,8 @@ PPP (Point to Point Protocol)
 
 import struct
 from scapy.packet import Packet, bind_layers
-from scapy.layers.l2 import EAP, Ether, CookedLinux, GRE_PPTP
+from scapy.layers.eap import EAP
+from scapy.layers.l2 import Ether, CookedLinux, GRE_PPTP
 from scapy.layers.inet import IP
 from scapy.layers.inet6 import IPv6
 from scapy.fields import BitField, ByteEnumField, ByteField, \
