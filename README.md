@@ -3,6 +3,8 @@
 [![Travis Build Status](https://travis-ci.org/secdev/scapy.svg?branch=master)](https://travis-ci.org/secdev/scapy)
 [![AppVeyor Build Status](https://ci.appveyor.com/api/projects/status/github/secdev/scapy?svg=true)](https://ci.appveyor.com/project/secdev/scapy)
 [![Codecov Status](https://codecov.io/gh/secdev/scapy/branch/master/graph/badge.svg)](https://codecov.io/gh/secdev/scapy)
+[![PyPI Version](https://img.shields.io/pypi/v/scapy.svg)](https://img.shields.io/pypi/v/scapy.svg)
+[![Python Versions](https://img.shields.io/pypi/pyversions/scapy.svg)](https://pypi.python.org/pypi/scapy/)
 
 Scapy is a powerful Python-based interactive packet manipulation
 program and library.
