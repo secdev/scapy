@@ -10,12 +10,15 @@ Classes related to the EAP protocol.
 from __future__ import absolute_import
 from __future__ import print_function
 
+import struct
+
 from scapy.fields import BitField, ByteField, XByteField, ByteEnumField,\
 ShortField, IntField, XIntField, ByteEnumField, StrLenField, XStrField,\
 XStrLenField, XStrFixedLenField, LenField, FieldLenField, PacketField,\
 PacketListField, ConditionalField, PadField
 from scapy.packet import Packet, bind_layers
 from scapy.layers.l2 import SourceMACField, Ether, CookedLinux, GRE, SNAP
+from scapy.config import conf
 
 
 #
