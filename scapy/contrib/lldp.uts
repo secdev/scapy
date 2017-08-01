@@ -6,10 +6,6 @@ from enum import test
 # > test/run_tests -P "load_contrib('lldp')" -t scapy/contrib/lldp.uts
 #
 
-+ Syntax check
-= Import the LLDP layer
-from scapy.contrib.lldp import *
-
 + Basic layer handling
 = build basic LLDP frames
 
