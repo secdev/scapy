@@ -16,7 +16,7 @@ from scapy.layers.l2 import Ether, CookedLinux, GRE_PPTP
 from scapy.layers.inet import IP
 from scapy.layers.inet6 import IPv6
 from scapy.fields import BitField, ByteEnumField, ByteField, \
-    ConditionalField, FieldLenField, IntField, IPField, LenField, \
+    ConditionalField, FieldLenField, IntField, IPField, \
     PacketListField, PacketField, ShortEnumField, ShortField, \
     StrFixedLenField, StrLenField, XByteField, XShortField, XStrLenField
 
