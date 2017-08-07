@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 ## Copyright (C) 2017 Leonardo Monteiro <decastromonteiro@gmail.com>
-##               2017 lexis Sultan    <alexis.sultan@sfr.com>
+##               2017 Alexis Sultan    <alexis.sultan@sfr.com>
 ##               2017 Alessio Deiana <adeiana@gmail.com>
 ##               2014 Guillaume Valadon <guillaume.valadon@ssi.gouv.fr>
 ##               2012 ffranz <ffranz@iniqua.com>
