@@ -364,8 +364,11 @@ class PPP_LCP(Packet):
                    StrLenField("data", "",
                                length_from=lambda p:p.len-4)]
 
+    def mysummary(self):
+        return self.sprintf('LCP %code%')
+
     def extract_padding(self, pay):
-        return "",pay
+        return "", pay
 
     @classmethod
     def dispatch_hook(cls, _pkt = None, *args, **kargs):
