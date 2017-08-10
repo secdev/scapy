@@ -436,7 +436,8 @@ def __sr_loop(srfunc, pkts, prn=lambda x:x[1].summary(), prnfail=lambda x:x.summ
                     break
                 count -= 1
             start = time.time()
-            print("\rsend...\r", end=' ')
+            if verbose > 1:
+                print("\rsend...\r", end=' ')
             res = srfunc(pkts, timeout=timeout, verbose=0, chainCC=1, *args, **kargs)
             n += len(res[0])+len(res[1])
             r += len(res[0])
