@@ -139,12 +139,17 @@ def attach_filter(s, bpf_filter, iface):
             conf.iface if iface is None else iface,
             bpf_filter,
         ))
-    except OSError as msg:
-        log_interactive.warning("Failed to execute tcpdump: (%s)")
+    except OSError:
+        log_interactive.warning("Failed to attach filter.",
+                                exc_info=True)
         return
     lines = f.readlines()
-    if f.close():
-        raise Scapy_Exception("Filter parse error")
+    ret = f.close()
+    if ret:
+        log_interactive.warning(
+            "Failed to attach filter: tcpdump returned %d", ret
+        )
+        return
     nb = int(lines[0])
     bpf = ""
     for l in lines[1:]:
