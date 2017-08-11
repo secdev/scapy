@@ -10,6 +10,8 @@ PPP (Point to Point Protocol)
 """
 
 import struct
+from scapy.config import conf
+from scapy.data import DLT_PPP, DLT_PPP_SERIAL, DLT_PPP_ETHER
 from scapy.packet import Packet, bind_layers
 from scapy.layers.eap import EAP
 from scapy.layers.l2 import Ether, CookedLinux, GRE_PPTP
@@ -364,8 +366,11 @@ class PPP_LCP(Packet):
                    StrLenField("data", "",
                                length_from=lambda p:p.len-4)]
 
+    def mysummary(self):
+        return self.sprintf('LCP %code%')
+
     def extract_padding(self, pay):
-        return "",pay
+        return "", pay
 
     @classmethod
     def dispatch_hook(cls, _pkt = None, *args, **kargs):
@@ -706,3 +711,8 @@ bind_layers( PPP,           PPP_PAP,       proto=0xc023)
 bind_layers( Ether,         PPP_IPCP,      type=0x8021)
 bind_layers( Ether,         PPP_ECP,       type=0x8053)
 bind_layers( GRE_PPTP,      PPP,           proto=0x880b)
+
+
+conf.l2types.register(DLT_PPP, PPP)
+conf.l2types.register(DLT_PPP_SERIAL, HDLC)
+conf.l2types.register(DLT_PPP_ETHER, PPPoE)
