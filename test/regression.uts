@@ -643,6 +643,12 @@ assert(_ == b'\x00\x00\x00\x00\xe3OjYLw\xc3x_%\xd0\xcf\xdeu-\xc3pH#\x1eK\xae\xf5
 Dot11WEP(_)
 assert(TCP in _ and _[TCP].seq == 12345678)
 
+= RadioTap Big-Small endian dissection
+raw = b'\x00\x00\x1a\x00/H\x00\x00\xe1\xd3\xcb\x05\x00\x00\x00\x00@0x\x14@\x01\xac\x00\x00\x00'
+r = RadioTap(raw)
+r.show()
+assert r.present == 18479
+
 
 ############
 ############
