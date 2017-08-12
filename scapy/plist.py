@@ -432,7 +432,8 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
         if filename is None:
             filename = get_temp_file(autoext=".ps")
             d.writePSfile(filename)
-            subprocess.Popen([conf.prog.psreader, filename+".ps"])
+            with ContextManagerSubprocess("psdump()"):
+                subprocess.Popen([conf.prog.psreader, filename+".ps"])
         else:
             d.writePSfile(filename)
         print()
@@ -445,7 +446,8 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
         if filename is None:
             filename = get_temp_file(autoext=".pdf")
             d.writePDFfile(filename)
-            subprocess.Popen([conf.prog.pdfreader, filename+".pdf"])
+            with ContextManagerSubprocess("psdump()"):
+                subprocess.Popen([conf.prog.pdfreader, filename+".pdf"])
         else:
             d.writePDFfile(filename)
         print()
