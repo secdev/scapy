@@ -14,10 +14,10 @@ from scapy.layers.tls.crypto.hash import _tls_hash_algs
 import scapy.modules.six as six
 
 
-SSLv3_PAD1_MD5  = b"\x36"*48
-SSLv3_PAD1_SHA1 = b"\x36"*40
-SSLv3_PAD2_MD5  = b"\x5c"*48
-SSLv3_PAD2_SHA1 = b"\x5c"*40
+_SSLv3_PAD1_MD5  = b"\x36"*48
+_SSLv3_PAD1_SHA1 = b"\x36"*40
+_SSLv3_PAD2_MD5  = b"\x5c"*48
+_SSLv3_PAD2_SHA1 = b"\x5c"*40
 
 _tls_hmac_algs = {}
 
@@ -65,11 +65,11 @@ class _GenericHMAC(six.with_metaclass(_GenericHMACMetaclass, object)):
 
         h = self.hash_alg()
         if h.name == "SHA":
-            pad1 = SSLv3_PAD1_SHA1
-            pad2 = SSLv3_PAD2_SHA1
+            pad1 = _SSLv3_PAD1_SHA1
+            pad2 = _SSLv3_PAD2_SHA1
         elif h.name == "MD5":
-            pad1 = SSLv3_PAD1_MD5
-            pad2 = SSLv3_PAD2_MD5
+            pad1 = _SSLv3_PAD1_MD5
+            pad2 = _SSLv3_PAD2_MD5
         else:
             raise HMACError("Provided hash does not work with SSLv3.")
 
