@@ -22,7 +22,7 @@ if conf.crypto_valid:
                                                               GetCipherByName)
 
 
-tls_block_cipher_algs = {}
+_tls_block_cipher_algs = {}
 
 class _BlockCipherMetaclass(type):
     """
@@ -35,7 +35,7 @@ class _BlockCipherMetaclass(type):
         the_class = super(_BlockCipherMetaclass, cls).__new__(cls, ciph_name,
                                                               bases, dct)
         if ciph_name != "_BlockCipher":
-            tls_block_cipher_algs[ciph_name[7:]] = the_class
+            _tls_block_cipher_algs[ciph_name[7:]] = the_class
         return the_class
 
 
@@ -167,10 +167,10 @@ if conf.crypto_valid:
         key_len = 16
 
 
-sslv2_block_cipher_algs = {}
+_sslv2_block_cipher_algs = {}
 
 if conf.crypto_valid:
-    sslv2_block_cipher_algs.update({
+    _sslv2_block_cipher_algs.update({
         "IDEA_128_CBC":     Cipher_IDEA_CBC,
         "DES_64_CBC":       Cipher_DES_CBC,
         "DES_192_EDE3_CBC": Cipher_3DES_EDE_CBC
@@ -216,8 +216,8 @@ if conf.crypto_valid:
                                         Cipher_RC2_CBC.pc_cls_mode,
                                         GetCipherByName(_gcbn_format))
 
-        sslv2_block_cipher_algs["RC2_128_CBC"] = Cipher_RC2_CBC
+        _sslv2_block_cipher_algs["RC2_128_CBC"] = Cipher_RC2_CBC
 
 
-tls_block_cipher_algs.update(sslv2_block_cipher_algs)
+_tls_block_cipher_algs.update(_sslv2_block_cipher_algs)
 

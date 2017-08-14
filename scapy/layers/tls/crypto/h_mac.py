@@ -10,7 +10,7 @@ HMAC classes.
 from __future__ import absolute_import
 import hmac
 
-from scapy.layers.tls.crypto.hash import tls_hash_algs
+from scapy.layers.tls.crypto.hash import _tls_hash_algs
 import scapy.modules.six as six
 
 
@@ -19,7 +19,7 @@ SSLv3_PAD1_SHA1 = b"\x36"*40
 SSLv3_PAD2_MD5  = b"\x5c"*48
 SSLv3_PAD2_SHA1 = b"\x5c"*40
 
-tls_hmac_algs = {}
+_tls_hmac_algs = {}
 
 class _GenericHMACMetaclass(type):
     """
@@ -34,13 +34,13 @@ class _GenericHMACMetaclass(type):
         hash_name = hmac_name[5:]               # remove leading "Hmac_"
         if hmac_name != "_GenericHMAC":
             dct["name"] = "HMAC-%s" % hash_name
-            dct["hash_alg"] = tls_hash_algs[hash_name]
-            dct["hmac_len"] = tls_hash_algs[hash_name].hash_len
+            dct["hash_alg"] = _tls_hash_algs[hash_name]
+            dct["hmac_len"] = _tls_hash_algs[hash_name].hash_len
             dct["key_len"] = dct["hmac_len"]
         the_class = super(_GenericHMACMetaclass, cls).__new__(cls, hmac_name,
                                                               bases, dct)
         if hmac_name != "_GenericHMAC":
-            tls_hmac_algs[dct["name"]] = the_class
+            _tls_hmac_algs[dct["name"]] = the_class
         return the_class
 
 
