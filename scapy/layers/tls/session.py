@@ -826,6 +826,14 @@ class _GenericTLSSessionInheritance(Packet):
                         _internal=_internal, _underlayer=_underlayer,
                         **fields)
 
+    def __getattr__(self, attr):
+        """
+        The tls_session should be found only through the normal mechanism.
+        """
+        if attr == "tls_session":
+            return None
+        return super(_GenericTLSSessionInheritance, self).__getattr__(attr)
+
     def tls_session_update(self, msg_str):
         """
         post_{build, dissection}_tls_session_update() are used to update the
