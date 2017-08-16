@@ -30,7 +30,7 @@ class RTPExtension(Packet):
     name = "RTPExtension"
     fields_desc = [
         ShortField("header_id", 0),
-        FieldLenField("header_len", None, count_of="header", fmt="H", ),
+        FieldLenField("header_len", None, count_of="header", fmt="H"),
         FieldListField('header', [], IntField("hdr", 0), count_from=lambda pkt: pkt.header_len),
     ]
 
