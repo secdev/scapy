@@ -7,8 +7,8 @@
 RTP (Real-time Transport Protocol).
 """
 
-from scapy.fields import *
 from scapy.packet import *
+from scapy.fields import *
 
 _rtp_payload_types = {
     # http://www.iana.org/assignments/rtp-parameters
@@ -51,7 +51,7 @@ class RTP(Packet):
     ]
 
     def guess_payload_class(self, pkt):
-        if ("extension" in self.fields and self.fields["extension"]==1):
+        if ("extension" in self.fields and self.extension):
             return RTPExtension
         else:
             return conf.raw_layer
