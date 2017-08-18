@@ -53,9 +53,9 @@ from scapy.layers.tls.crypto.pkcs1 import (pkcs_os2ip, pkcs_i2osp, _get_hash,
 
 # Maximum allowed size in bytes for a certificate file, to avoid
 # loading huge file when importing a cert
-MAX_KEY_SIZE = 50*1024
-MAX_CERT_SIZE = 50*1024
-MAX_CRL_SIZE = 10*1024*1024   # some are that big
+_MAX_KEY_SIZE = 50*1024
+_MAX_CERT_SIZE = 50*1024
+_MAX_CRL_SIZE = 10*1024*1024   # some are that big
 
 
 #####################################################################
@@ -200,7 +200,7 @@ class _PubKeyFactory(_PKIObjMaker):
         # _an X509_SubjectPublicKeyInfo, as processed by openssl;
         # _an RSAPublicKey;
         # _an ECDSAPublicKey.
-        obj = _PKIObjMaker.__call__(cls, key_path, MAX_KEY_SIZE)
+        obj = _PKIObjMaker.__call__(cls, key_path, _MAX_KEY_SIZE)
         try:
             spki = X509_SubjectPublicKeyInfo(obj.der)
             pubkey = spki.subjectPublicKey
@@ -354,7 +354,7 @@ class _PrivKeyFactory(_PKIObjMaker):
             obj.fill_and_store()
             return obj
 
-        obj = _PKIObjMaker.__call__(cls, key_path, MAX_KEY_SIZE)
+        obj = _PKIObjMaker.__call__(cls, key_path, _MAX_KEY_SIZE)
         multiPEM = False
         try:
             privkey = RSAPrivateKey_OpenSSL(obj.der)
@@ -538,7 +538,7 @@ class _CertMaker(_PKIObjMaker):
     """
     def __call__(cls, cert_path):
         obj = _PKIObjMaker.__call__(cls, cert_path,
-                                    MAX_CERT_SIZE, "CERTIFICATE")
+                                    _MAX_CERT_SIZE, "CERTIFICATE")
         obj.__class__ = Cert
         try:
             cert = X509_Cert(obj.der)
@@ -733,7 +733,7 @@ class _CRLMaker(_PKIObjMaker):
     but we reuse the model instead of creating redundant constructors.
     """
     def __call__(cls, cert_path):
-        obj = _PKIObjMaker.__call__(cls, cert_path, MAX_CRL_SIZE, "X509 CRL")
+        obj = _PKIObjMaker.__call__(cls, cert_path, _MAX_CRL_SIZE, "X509 CRL")
         obj.__class__ = CRL
         try:
             crl = X509_CRL(obj.der)

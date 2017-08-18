@@ -30,7 +30,7 @@ if conf.crypto_valid_advanced:
                                                              ChaCha20Poly1305)
 
 
-tls_aead_cipher_algs = {}
+_tls_aead_cipher_algs = {}
 
 class _AEADCipherMetaclass(type):
     """
@@ -43,7 +43,7 @@ class _AEADCipherMetaclass(type):
         the_class = super(_AEADCipherMetaclass, cls).__new__(cls, ciph_name,
                                                              bases, dct)
         if not ciph_name.startswith("_AEADCipher"):
-            tls_aead_cipher_algs[ciph_name[7:]] = the_class
+            _tls_aead_cipher_algs[ciph_name[7:]] = the_class
         return the_class
 
 

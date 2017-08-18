@@ -17,7 +17,7 @@ if conf.crypto_valid:
     from cryptography.hazmat.backends import default_backend
 
 
-tls_stream_cipher_algs = {}
+_tls_stream_cipher_algs = {}
 
 class _StreamCipherMetaclass(type):
     """
@@ -30,7 +30,7 @@ class _StreamCipherMetaclass(type):
         the_class = super(_StreamCipherMetaclass, cls).__new__(cls, ciph_name,
                                                                bases, dct)
         if ciph_name != "_StreamCipher":
-            tls_stream_cipher_algs[ciph_name[7:]] = the_class
+            _tls_stream_cipher_algs[ciph_name[7:]] = the_class
         return the_class
 
 

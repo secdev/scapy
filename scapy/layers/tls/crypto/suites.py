@@ -11,10 +11,10 @@ https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml
 """
 
 from __future__ import absolute_import
-from scapy.layers.tls.crypto.kx_algs import tls_kx_algs
-from scapy.layers.tls.crypto.hash import tls_hash_algs
-from scapy.layers.tls.crypto.h_mac import tls_hmac_algs
-from scapy.layers.tls.crypto.ciphers import tls_cipher_algs
+from scapy.layers.tls.crypto.kx_algs import _tls_kx_algs
+from scapy.layers.tls.crypto.hash import _tls_hash_algs
+from scapy.layers.tls.crypto.h_mac import _tls_hmac_algs
+from scapy.layers.tls.crypto.ciphers import _tls_cipher_algs
 import scapy.modules.six as six
 
 
@@ -29,40 +29,40 @@ def get_algs_from_ciphersuite_name(ciphersuite_name):
     
         if s.endswith("CCM") or s.endswith("CCM_8"):
             kx_name, s = s.split("_WITH_")
-            kx_alg = tls_kx_algs.get(kx_name)
-            hash_alg = tls_hash_algs.get("SHA256")
-            cipher_alg = tls_cipher_algs.get(s)
+            kx_alg = _tls_kx_algs.get(kx_name)
+            hash_alg = _tls_hash_algs.get("SHA256")
+            cipher_alg = _tls_cipher_algs.get(s)
             hmac_alg = None
     
         else:
             if "WITH" in s:
                 kx_name, s = s.split("_WITH_")
-                kx_alg = tls_kx_algs.get(kx_name)
+                kx_alg = _tls_kx_algs.get(kx_name)
             else:
                 tls1_3 = True
-                kx_alg = tls_kx_algs.get("TLS13")
+                kx_alg = _tls_kx_algs.get("TLS13")
     
             hash_name = s.split('_')[-1]
-            hash_alg = tls_hash_algs.get(hash_name)
+            hash_alg = _tls_hash_algs.get(hash_name)
     
             cipher_name = s[:-(len(hash_name) + 1)]
             if tls1_3:
                 cipher_name += "_TLS13"
-            cipher_alg = tls_cipher_algs.get(cipher_name)
+            cipher_alg = _tls_cipher_algs.get(cipher_name)
     
             hmac_alg = None
             if cipher_alg is not None and cipher_alg.type != "aead":
                 hmac_name = "HMAC-%s" % hash_name
-                hmac_alg = tls_hmac_algs.get(hmac_name)
+                hmac_alg = _tls_hmac_algs.get(hmac_name)
 
     elif ciphersuite_name.startswith("SSL"):
         s = ciphersuite_name[7:]
-        kx_alg = tls_kx_algs.get("SSLv2")
+        kx_alg = _tls_kx_algs.get("SSLv2")
         cipher_name, hash_name = s.split("_WITH_")
-        cipher_alg = tls_cipher_algs.get(cipher_name.rstrip("_EXPORT40"))
+        cipher_alg = _tls_cipher_algs.get(cipher_name.rstrip("_EXPORT40"))
         kx_alg.export = cipher_name.endswith("_EXPORT40")
-        hmac_alg = tls_hmac_algs.get("HMAC-NULL")
-        hash_alg = tls_hash_algs.get(hash_name)
+        hmac_alg = _tls_hmac_algs.get("HMAC-NULL")
+        hash_alg = _tls_hash_algs.get(hash_name)
 
     return kx_alg, cipher_alg, hmac_alg, hash_alg, tls1_3
 
