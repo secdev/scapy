@@ -5,7 +5,10 @@
   ],
   "onlyfailed": true,
   "preexec": {
-    "..\\scapy\\contrib\\*.uts": "load_contrib(\"%name%\")"
+    "..\\scapy\\contrib\\*.uts": "load_contrib(\"%name%\")",
+    "cert.uts": "load_layer(\"tls\")",
+    "sslv2.uts": "load_layer(\"tls\")",
+    "tls*.uts": "load_layer(\"tls\")"
   },
   "format": "html",
   "kw_ko": [
