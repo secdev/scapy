@@ -18,6 +18,7 @@ import importlib
 ignored = list(six.moves.builtins.__dict__.keys())
 
 from scapy.error import *
+from scapy.layers.all import LAYER_ALIASES
 
 def _probe_config_file(cf):
     cf_path = os.path.join(os.path.expanduser("~"), cf)
@@ -83,7 +84,7 @@ def load_module(name):
     _load("scapy.modules."+name)
 
 def load_layer(name):
-    _load("scapy.layers."+name)
+    _load("scapy.layers." + LAYER_ALIASES.get(name, name))
 
 def load_contrib(name):
     try:

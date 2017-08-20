@@ -39,11 +39,14 @@ def _import_star(m):
                 __all__.append(name)
                 globals()[name] = sym
 
+LAYER_ALIASES = {
+    "tls": "tls.all",
+}
+
 for _l in conf.load_layers:
     log_loading.debug("Loading layer %s" % _l)
     try:
-        if _l != "tls":
-            _import_star(_l)
+        _import_star(LAYER_ALIASES.get(_l, _l))
     except Exception as e:
         log.warning("can't import layer %s: %s" % (_l,e))
 
