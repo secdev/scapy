@@ -66,6 +66,7 @@ class RandomEnumeration:
             self.i = 0
             if not self.forever:
                 raise StopIteration
+    __next__ = next
 
 
 class VolatileValue:

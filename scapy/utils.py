@@ -745,6 +745,7 @@ class RawPcapReader(six.with_metaclass(PcapReader_metaclass)):
         if pkt == None:
             raise StopIteration
         return pkt
+    __next__ = next
 
 
     def read_packet(self, size=MTU):

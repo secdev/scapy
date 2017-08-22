@@ -54,7 +54,7 @@ None.
         try:
             fdesc = open(conf.nmap_base
                          if self.filename is None else
-                         self.filename)
+                         self.filename, "rb")
         except (IOError, TypeError):
             warning("Cannot open nmap database [%s]" % self.filename)
             self.filename = None

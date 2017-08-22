@@ -152,6 +152,7 @@ if conf.use_winpcapy:
           ts = self.header.contents.ts.tv_sec
           pkt = "".join(chr(i) for i in self.pkt_data[:self.header.contents.len])
           return ts, pkt
+      __next__ = next
       def datalink(self):
           return pcap_datalink(self.pcap)
       def fileno(self):
@@ -368,6 +369,7 @@ if conf.use_pcap:
                         return
                     ts, pkt = c
                     return ts, str(pkt)
+                __next__ = next
             open_pcap = lambda *args,**kargs: _PcapWrapper_pypcap(*args,**kargs)
         elif hasattr(pcap,"pcapObject"): # python-libpcap
             class _PcapWrapper_libpcap:
@@ -382,6 +384,7 @@ if conf.use_pcap:
                         return
                     l,pkt,ts = c 
                     return ts,pkt
+                __next__ = next
                 def __getattr__(self, attr):
                     return getattr(self.pcap, attr)
                 def __del__(self):
@@ -403,6 +406,7 @@ if conf.use_pcap:
                             return
                         s,us = h.getts()
                         return (s+0.000001*us), p
+                __next__ = next
                 def fileno(self):
                     warning("fileno: pcapy API does not permit to get capure file descriptor. Bugs ahead! Press Enter to trigger packet reading")
                     return 0
