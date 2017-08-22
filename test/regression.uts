@@ -5182,7 +5182,7 @@ fdesc.close()
 assert list(pktpcap) == list(sniff(offline=filename))
 
 = Check offline sniff() (by file object)
-fdesc = open(filename)
+fdesc = open(filename, "rb")
 assert list(pktpcap) == list(sniff(offline=fdesc))
 fdesc.close()
 
@@ -5194,7 +5194,7 @@ assert all(list(pktpcap[proto]) == list(packets) for proto, packets in pktpcap_f
 
 = Check offline sniff() with a filter (by file object)
 ~ tcpdump
-fdesc = open(filename)
+fdesc = open(filename, "rb")
 pktpcap_tcp = sniff(offline=fdesc, filter="tcp")
 fdesc.close()
 assert list(pktpcap[TCP]) == list(pktpcap_tcp)

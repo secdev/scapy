@@ -145,13 +145,13 @@ class SSLStreamSocket(StreamSocket):
     desc = "similar usage than StreamSocket but specialized for handling SSL-wrapped sockets"
 
     def __init__(self, sock, basecls=None):
-        self._buf = ''
+        self._buf = b""
         super(SSLStreamSocket, self).__init__(sock, basecls)
 
     #65535, the default value of x is the maximum length of a TLS record
     def recv(self, x=65535):
         pkt = None
-        if self._buf != '':
+        if self._buf != b"":
             try:
                 pkt = self.basecls(self._buf)
             except:

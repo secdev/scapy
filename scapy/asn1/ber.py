@@ -61,7 +61,7 @@ class BER_BadTag_Decoding_Error(BER_Decoding_Error, ASN1_BadTag_Decoding_Error):
 def BER_len_enc(l, size=0):
         if l <= 127 and size==0:
             return chr(l)
-        s = ""
+        s = b""
         while l or size>0:
             s = chr(l&0xff)+s
             l >>= 8
@@ -90,7 +90,7 @@ def BER_num_enc(l, size=1):
                 x[0] |= 0x80
             l >>= 7
             size -= 1
-        return "".join(chr(k) for k in x)
+        return b"".join(chr(k) for k in x)
 def BER_num_dec(s, cls_id=0):
         if len(s) == 0:
             raise BER_Decoding_Error("BER_num_dec: got empty string", remaining=s)
@@ -287,7 +287,7 @@ class BERcodec_INTEGER(BERcodec_Object):
         s.append(BER_len_enc(len(s)))
         s.append(chr(cls.tag))
         s.reverse()
-        return "".join(s)
+        return b"".join(s)
     @classmethod
     def do_dec(cls, s, context=None, safe=False):
         l,s,t = cls.check_type_check_len(s)
@@ -326,8 +326,8 @@ class BERcodec_BIT_STRING(BERcodec_Object):
             unused_bits = 0
         else:
             unused_bits = 8 - len(s)%8
-            s += "0"*unused_bits
-        s = "".join(chr(int("".join(x),2)) for x in zip(*[iter(s)]*8))
+            s += b"0"*unused_bits
+        s = b"".join(chr(int(b"".join(x),2)) for x in zip(*[iter(s)]*8))
         s = chr(unused_bits) + s
         return chr(cls.tag)+BER_len_enc(len(s))+s
 
@@ -358,7 +358,7 @@ class BERcodec_OID(BERcodec_Object):
         if len(lst) >= 2:
             lst[1] += 40*lst[0]
             del(lst[0])
-        s = "".join(BER_num_enc(k) for k in lst)
+        s = b"".join(BER_num_enc(k) for k in lst)
         return chr(cls.tag)+BER_len_enc(len(s))+s
     @classmethod
     def do_dec(cls, s, context=None, safe=False):

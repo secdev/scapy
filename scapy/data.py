@@ -65,12 +65,12 @@ WINDOWS=sys.platform.startswith("win")
 # file parsing to get some values :
 
 def load_protocols(filename):
-    spaces = re.compile("[ \t]+|\n")
+    spaces = re.compile(b"[ \t]+|\n")
     dct = DADict(_name=filename)
     try:
-        for l in open(filename):
+        for l in open(filename, "rb"):
             try:
-                shrp = l.find("#")
+                shrp = l.find(b"#")
                 if  shrp >= 0:
                     l = l[:shrp]
                 l = l.strip()
@@ -87,13 +87,13 @@ def load_protocols(filename):
     return dct
 
 def load_ethertypes(filename):
-    spaces = re.compile("[ \t]+|\n")
+    spaces = re.compile(b"[ \t]+|\n")
     dct = DADict(_name=filename)
     try:
-        f=open(filename)
+        f=open(filename, "rb")
         for l in f:
             try:
-                shrp = l.find("#")
+                shrp = l.find(b"#")
                 if  shrp >= 0:
                     l = l[:shrp]
                 l = l.strip()
@@ -111,14 +111,14 @@ def load_ethertypes(filename):
     return dct
 
 def load_services(filename):
-    spaces = re.compile("[ \t]+|\n")
+    spaces = re.compile(b"[ \t]+|\n")
     tdct=DADict(_name="%s-tcp"%filename)
     udct=DADict(_name="%s-udp"%filename)
     try:
-        f=open(filename)
+        f=open(filename, "rb")
         for l in f:
             try:
-                shrp = l.find("#")
+                shrp = l.find(b"#")
                 if  shrp >= 0:
                     l = l[:shrp]
                 l = l.strip()
@@ -127,10 +127,10 @@ def load_services(filename):
                 lt = tuple(re.split(spaces, l))
                 if len(lt) < 2 or not lt[0]:
                     continue
-                if lt[1].endswith("/tcp"):
-                    tdct[lt[0]] = int(lt[1].split('/')[0])
-                elif lt[1].endswith("/udp"):
-                    udct[lt[0]] = int(lt[1].split('/')[0])
+                if lt[1].endswith(b"/tcp"):
+                    tdct[lt[0]] = int(lt[1].split(b'/')[0])
+                elif lt[1].endswith(b"/udp"):
+                    udct[lt[0]] = int(lt[1].split(b'/')[0])
             except Exception as e:
                 log_loading.warning("Couldn't file [%s]: line [%r] (%s)" % (filename,l,e))
         f.close()
@@ -162,13 +162,13 @@ class ManufDA(DADict):
 def load_manuf(filename):
     try:
         manufdb=ManufDA(_name=filename)
-        for l in open(filename):
+        for l in open(filename, "rb"):
             try:
                 l = l.strip()
-                if not l or l.startswith("#"):
+                if not l or l.startswith(b"#"):
                     continue
                 oui,shrt=l.split()[:2]
-                i = l.find("#")
+                i = l.find(b"#")
                 if i < 0:
                     lng=shrt
                 else:

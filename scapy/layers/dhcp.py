@@ -43,10 +43,10 @@ class BOOTP(Packet):
                     IPField("yiaddr","0.0.0.0"),
                     IPField("siaddr","0.0.0.0"),
                     IPField("giaddr","0.0.0.0"),
-                    Field("chaddr","", "16s"),
-                    Field("sname","","64s"),
-                    Field("file","","128s"),
-                    StrField("options","") ]
+                    Field("chaddr",b"", "16s"),
+                    Field("sname",b"","64s"),
+                    Field("file",b"","128s"),
+                    StrField("options",b"") ]
     def guess_payload_class(self, payload):
         if self.options[:len(dhcpmagic)] == dhcpmagic:
             return DHCP
@@ -59,7 +59,7 @@ class BOOTP(Packet):
             self.options = self.options[:len(dhcpmagic)]
             return payload, None
         else:
-            return "", None
+            return b"", None
     def hashret(self):
         return struct.pack("L", self.xid)
     def answers(self, other):
@@ -202,7 +202,7 @@ class DHCPOptionsField(StrField):
         return "[%s]" % (" ".join(s))
         
     def getfield(self, pkt, s):
-        return "", self.m2i(pkt, s)
+        return b"", self.m2i(pkt, s)
     def m2i(self, pkt, x):
         opt = []
         while x:
@@ -248,19 +248,19 @@ class DHCPOptionsField(StrField):
     def i2m(self, pkt, x):
         if isinstance(x, str):
             return x
-        s = ""
+        s = b""
         for o in x:
             if isinstance(o, tuple) and len(o) >= 2:
                 name = o[0]
                 lval = o[1:]
 
                 if isinstance(name, int):
-                    onum, oval = name, "".join(lval)
+                    onum, oval = name, b"".join(lval)
                 elif name in DHCPRevOptions:
                     onum, f = DHCPRevOptions[name]
                     if  f is not None:
-                        lval = [f.addfield(pkt,"",f.any2i(pkt,val)) for val in lval]
-                    oval = "".join(lval)
+                        lval = [f.addfield(pkt,b"",f.any2i(pkt,val)) for val in lval]
+                    oval = b"".join(lval)
                 else:
                     warning("Unknown field option %s" % name)
                     continue
@@ -283,7 +283,7 @@ class DHCPOptionsField(StrField):
 
 class DHCP(Packet):
     name = "DHCP options"
-    fields_desc = [ DHCPOptionsField("options","") ]
+    fields_desc = [ DHCPOptionsField("options",b"") ]
 
 
 bind_layers( UDP,           BOOTP,         dport=67, sport=68)

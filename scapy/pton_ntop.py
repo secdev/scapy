@@ -24,7 +24,7 @@ used when socket.inet_pton is not available.
 
     """
     joker_pos = None
-    result = ""
+    result = b""
     if addr == '::':
         return b'\x00' * 16
     if addr.startswith('::'):

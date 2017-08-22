@@ -109,8 +109,8 @@ def _vbs_get_hardware_iface_guid(devid):
         devid = str(int(devid) + 1)
         guid = iter(_vbs_exec_code("""WScript.Echo CreateObject("WScript.Shell").RegRead("HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\NetworkCards\\%s\\ServiceName")
 """ % devid)).next()
-        guid = guid[:-1] if guid.endswith('}\n') else guid
-        if guid.startswith('{') and guid.endswith('}'):
+        guid = guid[:-1] if guid.endswith(b'}\n') else guid
+        if guid.startswith(b'{') and guid.endswith(b'}'):
             return guid
     except StopIteration:
         return None
@@ -261,7 +261,7 @@ if conf.prog.tcpdump and conf.use_npcap and conf.prog.os_access:
         try:
             p_test_windump = sp.Popen([conf.prog.tcpdump, "-help"], stdout=sp.PIPE, stderr=sp.STDOUT)
             stdout, err = p_test_windump.communicate()
-            return "npcap" in stdout.lower()
+            return b"npcap" in stdout.lower()
         except:
             return False
     windump_ok = test_windump_npcap()

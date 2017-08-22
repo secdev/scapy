@@ -32,11 +32,11 @@ class AS_resolver:
         self.s.close()
         
     def _parse_whois(self, txt):
-        asn,desc = None,""
+        asn,desc = None,b""
         for l in txt.splitlines():
-            if not asn and l.startswith("origin:"):
+            if not asn and l.startswith(b"origin:"):
                 asn = l[7:].strip()
-            if l.startswith("descr:"):
+            if l.startswith(b"descr:"):
                 if desc:
                     desc += r"\n"
                 desc += l[6:].strip()
@@ -46,8 +46,8 @@ class AS_resolver:
 
     def _resolve_one(self, ip):
         self.s.send("%s\n" % ip)
-        x = ""
-        while not ("%" in x  or "source" in x):
+        x = b""
+        while not (b"%" in x  or b"source" in x):
             x += self.s.recv(8192)
         asn, desc = self._parse_whois(x)
         return ip,asn,desc
@@ -78,21 +78,21 @@ class AS_resolver_cymru(AS_resolver):
         ASNlist = []
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.connect((self.server,self.port))
-        s.send("begin\r\n"+"\r\n".join(ips)+"\r\nend\r\n")
-        r = ""
+        s.send(b"begin\r\n"+b"\r\n".join(ips)+b"\r\nend\r\n")
+        r = b""
         while True:
             l = s.recv(8192)
-            if l == "":
+            if l == b"":
                 break
             r += l
         s.close()
         for l in r.splitlines()[1:]:
-            if "|" not in l:
+            if b"|" not in l:
                 continue
             asn, ip, desc = [elt.strip() for elt in l.split('|')]
-            if asn == "NA":
+            if asn == b"NA":
                 continue
-            asn = "AS" + str(int(asn))
+            asn = b"AS" + str(int(asn))
             ASNlist.append((ip, asn, desc))
         return ASNlist
 

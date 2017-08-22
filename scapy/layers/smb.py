@@ -55,7 +55,7 @@ class SMBMailSlot(Packet):
                    LEShortField("priority", 1),
                    LEShortField("class", 2),
                    LEShortField("size", 135),
-                   StrNullField("name","\MAILSLOT\NET\GETDC660")]
+                   StrNullField("name","\\MAILSLOT\\NET\\GETDC660")]
 
 # SMB NetLogon Protocol Response Tail SAM
 class SMBNetlogon_Protocol_Response_Tail_SAM(Packet):

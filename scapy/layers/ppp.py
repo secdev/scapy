@@ -246,7 +246,7 @@ class PPP_IPCP_Option(Packet):
                     FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p,x:x+2),
                     StrLenField("data", "", length_from=lambda p:max(0,p.len-2)) ]
     def extract_padding(self, pay):
-        return "",pay
+        return b"",pay
 
     registered_options = {}
     @classmethod
@@ -314,7 +314,7 @@ class PPP_ECP_Option(Packet):
                     FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p,x:x+2),
                     StrLenField("data", "", length_from=lambda p:max(0,p.len-2)) ]
     def extract_padding(self, pay):
-        return "",pay
+        return b"",pay
 
     registered_options = {}
     @classmethod
@@ -370,7 +370,7 @@ class PPP_LCP(Packet):
         return self.sprintf('LCP %code%')
 
     def extract_padding(self, pay):
-        return "", pay
+        return b"", pay
 
     @classmethod
     def dispatch_hook(cls, _pkt = None, *args, **kargs):
@@ -411,7 +411,7 @@ class PPP_LCP_Option(Packet):
                    StrLenField("data", None, length_from=lambda p:p.len-2)]
 
     def extract_padding(self, pay):
-        return "", pay
+        return b"", pay
 
     registered_options = {}
 

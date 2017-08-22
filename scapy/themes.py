@@ -12,20 +12,20 @@ Color themes for the interactive console.
 ##################
 
 class Color:
-    normal = b"\033[0m"
-    black = b"\033[30m"
-    red = b"\033[31m"
-    green = b"\033[32m"
-    yellow = b"\033[33m"
-    blue = b"\033[34m"
-    purple = b"\033[35m"
-    cyan = b"\033[36m"
-    grey = b"\033[37m"
+    normal = "\033[0m"
+    black = "\033[30m"
+    red = "\033[31m"
+    green = "\033[32m"
+    yellow = "\033[33m"
+    blue = "\033[34m"
+    purple = "\033[35m"
+    cyan = "\033[36m"
+    grey = "\033[37m"
 
-    bold = b"\033[1m"
-    uline = b"\033[4m"
-    blink = b"\033[5m"
-    invert = b"\033[7m"
+    bold = "\033[1m"
+    uline = "\033[4m"
+    blink = "\033[5m"
+    invert = "\033[7m"
         
 
 def create_styler(fmt=None, before="", after="", fmt2="%s"):
@@ -268,7 +268,7 @@ class ColorPrompt:
             ct = config.conf.color_theme
             if isinstance(ct, AnsiColorTheme):
                 ## ^A and ^B delimit invisible characters for readline to count right
-                return b"\001%s\002" % ct.prompt(b"\002"+config.conf.prompt+b"\001")
+                return "\001%s\002" % ct.prompt("\002"+config.conf.prompt+"\001")
             else:
                 return ct.prompt(config.conf.prompt)
         except:

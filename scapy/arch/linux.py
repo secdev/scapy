@@ -105,7 +105,7 @@ def get_if_raw_addr(iff):
 
 def get_if_list():
     try:
-        f=open("/proc/net/dev","r")
+        f=open("/proc/net/dev","rb")
     except IOError:
         warning("Can't open /proc/net/dev !")
         return []
@@ -182,14 +182,14 @@ def get_alias_address(iface_name, ip_mask):
 
     # Retrieve interfaces structures
     sck = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    names = array.array('B', '\0' * 4096)
+    names = array.array('B', b'\0' * 4096)
     ifreq = ioctl(sck.fileno(), SIOCGIFCONF,
                   struct.pack("iL", len(names), names.buffer_info()[0]))
 
     # Extract interfaces names
     out = struct.unpack("iL", ifreq)[0]
     names = names.tostring()
-    names = [names[i:i+offset].split('\0', 1)[0] for i in range(0, out, name_len)]
+    names = [names[i:i+offset].split(b'\0', 1)[0] for i in range(0, out, name_len)]
 
     # Look for the IP address
     for ifname in names:
@@ -204,8 +204,8 @@ def get_alias_address(iface_name, ip_mask):
         msk = struct.unpack(">I", ifreq[20:24])[0]
        
         # Get the full interface name
-        if ':' in ifname:
-            ifname = ifname[:ifname.index(':')]
+        if b':' in ifname:
+            ifname = ifname[:ifname.index(b':')]
         else:
             continue
 
@@ -221,7 +221,7 @@ def get_alias_address(iface_name, ip_mask):
 
 def read_routes():
     try:
-        f=open("/proc/net/route","r")
+        f=open("/proc/net/route","rb")
     except IOError:
         warning("Can't open /proc/net/route !")
         return []
@@ -288,7 +288,7 @@ def in6_getifaddr():
     """
     ret = []
     try:
-        f = open("/proc/net/if_inet6","r")
+        f = open("/proc/net/if_inet6","rb")
     except IOError as err:    
         return ret
     l = f.readlines()
@@ -302,7 +302,7 @@ def in6_getifaddr():
 
 def read_routes6():
     try:
-        f = open("/proc/net/ipv6_route","r")
+        f = open("/proc/net/ipv6_route","rb")
     except IOError as err:
         return []
     # 1. destination network

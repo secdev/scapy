@@ -78,7 +78,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
 
     def _unpickle(self, dlist):
         """Used to unpack pickling"""
-        self.__init__("".join(dlist))
+        self.__init__(b"".join(dlist))
         return self
 
     def __reduce__(self):
@@ -101,7 +101,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         """Used by copy.deepcopy"""
         return self.copy()
 
-    def __init__(self, _pkt="", post_transform=None, _internal=0, _underlayer=None, **fields):
+    def __init__(self, _pkt=b"", post_transform=None, _internal=0, _underlayer=None, **fields):
         self.time  = time.time()
         self.sent_time = None
         self.name = (self.__class__.__name__
@@ -363,7 +363,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
                     break
             if self.raw_packet_cache is not None:
                 return self.raw_packet_cache
-        p=""
+        p=b""
         for f in self.fields_desc:
             val = self.getfieldval(f.name)
             if isinstance(val, RawVal):
@@ -428,9 +428,9 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         return self.payload.build_done(p)
 
     def do_build_ps(self):
-        p=""
+        p = b""
         pl = []
-        q=""
+        q = b""
         for f in self.fields_desc:
             if isinstance(f, ConditionalField) and not f._evalcond(self):
                 continue
@@ -439,7 +439,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
                 r = p[len(q):]
                 q = p
             else:
-                r = ""
+                r = b""
             pl.append( (f, f.i2repr(self,self.getfieldval(f.name)), r) )
             
         pkt,lst = self.payload.build_ps(internal=1)
@@ -1228,15 +1228,15 @@ class NoPayload(Packet):
         return False
     __bool__ = __nonzero__
     def do_build(self):
-        return ""
+        return b""
     def build(self):
-        return ""
+        return b""
     def build_padding(self):
-        return ""
+        return b""
     def build_done(self, p):
         return p
     def build_ps(self, internal=0):
-        return "",[]
+        return b"",[]
     def getfieldval(self, attr):
         raise AttributeError(attr)
     def getfield_and_val(self, attr):
@@ -1254,7 +1254,7 @@ class NoPayload(Packet):
             return True
         return False
     def hashret(self):
-        return ""
+        return b""
     def answers(self, other):
         return isinstance(other, NoPayload) or isinstance(other, conf.padding_layer)
     def haslayer(self, cls):
@@ -1305,7 +1305,7 @@ class Raw(Packet):
 class Padding(Raw):
     name = "Padding"
     def self_build(self):
-        return ""
+        return b""
     def build_padding(self):
         return (self.load if self.raw_packet_cache is None
                 else self.raw_packet_cache) + self.payload.build_padding()

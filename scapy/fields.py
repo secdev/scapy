@@ -161,7 +161,7 @@ class PadField(object):
     def __init__(self, fld, align, padwith=None):
         self._fld = fld
         self._align = align
-        self._padwith = padwith or ""
+        self._padwith = padwith or b""
 
     def padlen(self, flen):
         return -flen%self._align
@@ -172,7 +172,7 @@ class PadField(object):
         return remain[padlen:], val
 
     def addfield(self, pkt, s, val):
-        sval = self._fld.addfield(pkt, "", val)
+        sval = self._fld.addfield(pkt, b"", val)
         return s+sval+struct.pack("%is" % (self.padlen(len(sval))), self._padwith)
 
     def __getattr__(self, attr):
@@ -380,7 +380,7 @@ class StrField(Field):
         return len(i)
     def i2m(self, pkt, x):
         if x is None:
-            x = ""
+            x = b""
         elif not isinstance(x, str):
             x=str(x)
         return x
@@ -388,7 +388,7 @@ class StrField(Field):
         return s+self.i2m(pkt, val)
     def getfield(self, pkt, s):
         if self.remain == 0:
-            return "",self.m2i(pkt, s)
+            return b"",self.m2i(pkt, s)
         else:
             return s[-self.remain:],self.m2i(pkt, s[:-self.remain])
     def randval(self):
@@ -406,7 +406,7 @@ class PacketField(StrField):
         return self.cls(m)
     def getfield(self, pkt, s):
         i = self.m2i(pkt, s)
-        remain = ""
+        remain = b""
         if conf.padding_layer in i:
             r = i[conf.padding_layer]
             del(r.underlayer.payload)
@@ -464,7 +464,7 @@ class PacketListField(PacketField):
             c = self.count_from(pkt)
 
         lst = []
-        ret = ""
+        ret = b""
         remain = s
         if l is not None:
             remain,ret = s[:l],s[l:]
@@ -479,18 +479,18 @@ class PacketListField(PacketField):
                 if conf.debug_dissector:
                     raise
                 p = conf.raw_layer(load=remain)
-                remain = ""
+                remain = b""
             else:
                 if conf.padding_layer in p:
                     pad = p[conf.padding_layer]
                     remain = pad.load
                     del(pad.underlayer.payload)
                 else:
-                    remain = ""
+                    remain = b""
             lst.append(p)
         return remain+ret,lst
     def addfield(self, pkt, s, val):
-        return s + "".join(str(v) for v in val)
+        return s + b"".join(str(v) for v in val)
 
 
 class StrFixedLenField(StrField):
@@ -502,7 +502,7 @@ class StrFixedLenField(StrField):
             self.length_from = lambda pkt,length=length: length
     def i2repr(self, pkt, v):
         if isinstance(v, str):
-            v = v.rstrip(b"\0")
+            v = v.rstrip("\0")
         return repr(v)
     def getfield(self, pkt, s):
         l = self.length_from(pkt)
@@ -523,7 +523,7 @@ class StrFixedLenEnumField(StrFixedLenField):
         StrFixedLenField.__init__(self, name, default, length=length, length_from=length_from)
         self.enum = enum
     def i2repr(self, pkt, v):
-        r = v.rstrip(b"\0")
+        r = v.rstrip("\0")
         rr = repr(r)
         if v in self.enum:
             rr = "%s (%s)" % (rr, self.enum[v])
@@ -537,15 +537,15 @@ class NetBIOSNameField(StrFixedLenField):
     def i2m(self, pkt, x):
         l = self.length_from(pkt)/2
         if x is None:
-            x = ""
-        x += " "*(l)
+            x = b""
+        x += b" "*(l)
         x = x[:l]
-        x = "".join(chr(0x41 + ord(b)>>4) + chr(0x41 + ord(b)&0xf) for b in x)
-        x = " "+x
+        x = b"".join(chr(0x41 + ord(b)>>4) + chr(0x41 + ord(b)&0xf) for b in x)
+        x = b" "+x
         return x
     def m2i(self, pkt, x):
         x = x.strip(b"\x00").strip(" ")
-        return "".join(map(lambda x,y: chr((((ord(x)-1)&0xf)<<4)+((ord(y)-1)&0xf)), x[::2],x[1::2]))
+        return b"".join(map(lambda x,y: chr((((ord(x)-1)&0xf)<<4)+((ord(y)-1)&0xf)), x[::2],x[1::2]))
 
 class StrLenField(StrField):
     __slots__ = ["length_from"]
@@ -648,7 +648,7 @@ class FieldListField(Field):
             c = self.count_from(pkt)
 
         val = []
-        ret=""
+        ret = b""
         if l is not None:
             s,ret = s[:l],s[l:]
 
@@ -689,7 +689,7 @@ class StrNullField(StrField):
         l = s.find(b"\x00")
         if l < 0:
             #XXX \x00 not found
-            return "",s
+            return b"",s
         return s[l+1:],self.m2i(pkt, s[:l])
     def randval(self):
         return RandTermString(RandNum(0,1200),b"\x00")
@@ -703,7 +703,7 @@ class StrStopField(StrField):
     def getfield(self, pkt, s):
         l = s.find(self.stop)
         if l < 0:
-            return "",s
+            return b"",s
 #            raise Scapy_Exception,"StrStopField: stop value [%s] not found" %stop
         l += len(self.stop)+self.additionnal
         return s[l:],s[:l]

@@ -34,16 +34,16 @@ class DNSStrField(StrField):
           return b"\x00"
 
         # Truncate chunks that cannot be encoded (more than 63 bytes..)
-        x = "".join(chr(len(y)) + y for y in (k[:63] for k in x.split(".")))
+        x = b"".join(chr(len(y)) + y for y in (k[:63] for k in x.split(".")))
         if x[-1] != b"\x00":
             x += b"\x00"
         return x
 
     def getfield(self, pkt, s):
-        n = ""
+        n = b""
 
         if ord(s[0]) == 0:
-          return s[1:], "."
+          return s[1:], b"."
 
         while True:
             l = ord(s[0])
@@ -53,7 +53,7 @@ class DNSStrField(StrField):
             if l & 0xc0:
                 raise Scapy_Exception("DNS message can't be compressed at this point!")
             else:
-                n += s[:l]+"."
+                n += s[:l]+b"."
                 s = s[l:]
         return s, n
 
@@ -82,7 +82,7 @@ class DNSRRCountField(ShortField):
 
 
 def DNSgetstr(s,p):
-    name = ""
+    name = b""
     q = 0
     jpath = [p]
     while True:
@@ -104,7 +104,7 @@ def DNSgetstr(s,p):
             jpath.append(p)
             continue
         elif l > 0:
-            name += s[p:p+l]+"."
+            name += s[p:p+l]+b"."
             p += l
             continue
         break
@@ -122,7 +122,7 @@ class DNSRRField(StrField):
         self.passon = passon
     def i2m(self, pkt, x):
         if x is None:
-            return ""
+            return b""
         return str(x)
     def decodeRR(self, name, s, p):
         ret = s[p:p+10]
@@ -150,7 +150,7 @@ class DNSRRField(StrField):
         c = getattr(pkt, self.countfld)
         if c > len(s):
             warning("wrong value: DNS.%s=%i" % (self.countfld,c))
-            return s,""
+            return s,b""
         while c:
             c -= 1
             name,p = DNSgetstr(s,p)
@@ -183,7 +183,7 @@ class RDataField(StrLenField):
         elif pkt.type == 12: # PTR
             s = DNSgetstr(s, 0)[0]
         elif pkt.type == 16: # TXT
-            ret_s = ""
+            ret_s = b""
             tmp_s = s
             # RDATA contains a list of strings, each are prepended with
             # a byte containing the size of the following string.
@@ -204,12 +204,12 @@ class RDataField(StrLenField):
             if s:
                 s = inet_aton(s)
         elif pkt.type in [2, 3, 4, 5, 12]: # NS, MD, MF, CNAME, PTR
-            s = "".join(chr(len(x)) + x for x in s.split('.'))
+            s = b"".join(chr(len(x)) + x for x in s.split('.'))
             if ord(s[-1]):
                 s += b"\x00"
         elif pkt.type == 16: # TXT
             if s:
-                ret_s = ""
+                ret_s = b""
                 # The initial string must be splitted into a list of strings
                 # prepended with theirs sizes.
                 while len(s) >= 255:
