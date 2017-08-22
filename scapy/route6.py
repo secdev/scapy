@@ -271,10 +271,7 @@ class Route6:
         return res[0][1]
 
 conf.route6 = Route6()
-
-_res = conf.route6.route("::/0")
-if _res:
-    iff, gw, addr = _res
-    conf.iface6 = iff
-del(_res)
-
+try:
+    conf.iface6 = conf.route6.route("::/0")[0]
+except:
+    pass
