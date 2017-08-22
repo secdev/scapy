@@ -14,7 +14,7 @@ import os, sys, time, subprocess
 import itertools
 from select import select, error as select_error
 
-from scapy.consts import DARWIN, FREEBSD, OPENBSD
+from scapy.consts import DARWIN, FREEBSD, OPENBSD, WINDOWS
 from scapy.data import *
 from scapy.config import conf
 from scapy.packet import Gen
@@ -64,34 +64,34 @@ def sndrcv(pks, pkt, timeout = None, inter = 0, verbose=None, chainCC=0, retry=0
     hsent={}
     for i in tobesent:
         h = i.hashret()
-        if h in hsent:
-            hsent[h].append(i)
-        else:
-            hsent[h] = [i]
+        hsent.setdefault(i.hashret(), []).append(i)
+
     if retry < 0:
         retry = -retry
-        autostop=retry
+        autostop = retry
     else:
-        autostop=0
-
+        autostop = 0
 
     while retry >= 0:
-        found=0
-    
+        found = 0
+
         if timeout < 0:
             timeout = None
-            
-        rdpipe,wrpipe = os.pipe()
-        rdpipe=os.fdopen(rdpipe)
-        wrpipe=os.fdopen(wrpipe,"w")
 
-        pid=1
+        if not WINDOWS:
+            rdpipe, wrpipe = os.pipe()
+            rdpipe = os.fdopen(rdpipe)
+            wrpipe = os.fdopen(wrpipe,"w")
+
+        pid = None
         try:
-            pid = os.fork()
-            if pid == 0:
+            if not WINDOWS:
+                pid = os.fork()
+            if WINDOWS or pid == 0:
                 try:
-                    sys.stdin.close()
-                    rdpipe.close()
+                    if not WINDOWS:
+                        sys.stdin.close()
+                        rdpipe.close()
                     try:
                         i = 0
                         if verbose:
@@ -107,23 +107,33 @@ def sndrcv(pks, pkt, timeout = None, inter = 0, verbose=None, chainCC=0, retry=0
                     except KeyboardInterrupt:
                         pass
                     except:
-                        log_runtime.exception("--- Error in child %i" % os.getpid())
-                        log_runtime.info("--- Error in child %i" % os.getpid())
+                        if WINDOWS:
+                            log_runtime.exception("--- Error sending packets")
+                            log_runtime.info("--- Error sending packets")
+                        else:
+                            log_runtime.exception("--- Error in child "
+                                                  "%i" % os.getpid())
+                            log_runtime.info("--- Error in child "
+                                             "%i" % os.getpid())
                 finally:
                     try:
-                        os.setpgrp() # Chance process group to avoid ctrl-C
                         sent_times = [p.sent_time for p in all_stimuli if p.sent_time]
-                        six.moves.cPickle.dump( (conf.netcache,sent_times), wrpipe )
-                        wrpipe.close()
+                        if not WINDOWS:
+                            # Change process group to avoid ctrl-C
+                            os.setpgrp()
+                            six.moves.cPickle.dump((conf.netcache, sent_times),
+                                                   wrpipe)
+                            wrpipe.close()
                     except:
                         pass
-            elif pid < 0:
+            elif not WINDOWS and pid < 0:
                 log_runtime.error("fork error")
-            else:
-                wrpipe.close()
+            elif WINDOWS or pid > 0:
+                if not WINDOWS:
+                    wrpipe.close()
+                    inmask = [rdpipe, pks]
                 stoptime = 0
                 remaintime = None
-                inmask = [rdpipe,pks]
                 try:
                     try:
                         while True:
@@ -132,19 +142,21 @@ def sndrcv(pks, pkt, timeout = None, inter = 0, verbose=None, chainCC=0, retry=0
                                 if remaintime <= 0:
                                     break
                             r = None
-                            if conf.use_bpf:
+                            if WINDOWS:
+                                r = pks.recv(MTU)
+                            elif conf.use_bpf:
                                 from scapy.arch.bpf.supersocket import bpf_select
                                 inp = bpf_select(inmask)
                                 if pks in inp:
                                     r = pks.recv()
                             elif not isinstance(pks, StreamSocket) and (FREEBSD or DARWIN or OPENBSD):
-                                inp, out, err = select(inmask,[],[], 0.05)
+                                inp, _, _ = select(inmask, [], [], 0.05)
                                 if len(inp) == 0 or pks in inp:
                                     r = pks.nonblock_recv()
                             else:
                                 inp = []
                                 try:
-                                    inp, out, err = select(inmask,[],[], remaintime)
+                                    inp, _, _ = select(inmask, [], [], remaintime)
                                 except (IOError, select_error) as exc:
                                     # select.error has no .errno attribute
                                     if exc.args[0] != errno.EINTR:
@@ -153,9 +165,9 @@ def sndrcv(pks, pkt, timeout = None, inter = 0, verbose=None, chainCC=0, retry=0
                                     break
                                 if pks in inp:
                                     r = pks.recv(MTU)
-                            if rdpipe in inp:
+                            if WINDOWS and rdpipe in inp:
                                 if timeout:
-                                    stoptime = time.time()+timeout
+                                    stoptime = time.time() + timeout
                                 del(inmask[inmask.index(rdpipe)])
                             if r is None:
                                 continue
@@ -189,13 +201,16 @@ def sndrcv(pks, pkt, timeout = None, inter = 0, verbose=None, chainCC=0, retry=0
                         if chainCC:
                             raise
                 finally:
-                    try:
-                        nc,sent_times = six.moves.cPickle.load(rdpipe)
-                    except EOFError:
-                        warning("Child died unexpectedly. Packets may have not been sent %i"%os.getpid())
+                    if not WINDOWS:
+                        try:
+                            nc, sent_times = six.moves.cPickle.load(rdpipe)
+                        except EOFError:
+                            warning("Child died unexpectedly. "
+                                    "Packets may have not been sent.")
                     else:
-                        conf.netcache.update(nc)
-                        for p,t in zip(all_stimuli, sent_times):
+                        if not WINDOWS:
+                            conf.netcache.update(nc)
+                        for p, t in zip(all_stimuli, sent_times):
                             p.sent_time = t
                     os.waitpid(pid,0)
         finally:
@@ -213,7 +228,7 @@ def sndrcv(pks, pkt, timeout = None, inter = 0, verbose=None, chainCC=0, retry=0
         if len(tobesent) == 0:
             break
         retry -= 1
-        
+
     if conf.debug_match:
         debug.sent=plist.PacketList(remain[:],"Sent")
         debug.match=plist.SndRcvList(ans[:])
@@ -223,7 +238,7 @@ def sndrcv(pks, pkt, timeout = None, inter = 0, verbose=None, chainCC=0, retry=0
         for s,r in ans:
             if hasattr(s, '_answered'):
                 del(s._answered)
-    
+
     if verbose:
         print("\nReceived %i packets, got %i answers, remaining %i packets" % (nbrecv+len(ans), len(ans), notans))
     return plist.SndRcvList(ans),plist.PacketList(remain,"Unanswered")
