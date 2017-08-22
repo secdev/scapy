@@ -791,7 +791,7 @@ class RouterAlert(Packet): # RFC 2711 - IPv6 Hop-By-Hop Option
     #        iana.org/assignments/ipv6-routeralert-values/ipv6-routeralert-values.xhtml
     def alignment_delta(self, curpos): # alignment requirement : 2n+0
         x = 2 ; y = 0
-        delta = x*((curpos - y + x - 1)/x) + y - curpos
+        delta = x*((curpos - y + x - 1)//x) + y - curpos
         return delta
 
 class Jumbo(Packet): # IPv6 Hop-By-Hop Option
@@ -801,7 +801,7 @@ class Jumbo(Packet): # IPv6 Hop-By-Hop Option
                    IntField("jumboplen", None) ]
     def alignment_delta(self, curpos): # alignment requirement : 4n+2
         x = 4 ; y = 2
-        delta = x*((curpos - y + x - 1)/x) + y - curpos
+        delta = x*((curpos - y + x - 1)//x) + y - curpos
         return delta
 
 class HAO(Packet): # IPv6 Destination Options Header Option
@@ -811,7 +811,7 @@ class HAO(Packet): # IPv6 Destination Options Header Option
                    IP6Field("hoa", "::") ]
     def alignment_delta(self, curpos): # alignment requirement : 8n+6
         x = 8 ; y = 6
-        delta = x*((curpos - y + x - 1)/x) + y - curpos
+        delta = x*((curpos - y + x - 1)//x) + y - curpos
         return delta
 
 _hbhoptcls = { 0x00: Pad1,
@@ -927,7 +927,7 @@ class IPv6ExtHdrHopByHop(_IPv6ExtHdr):
     name = "IPv6 Extension Header - Hop-by-Hop Options Header"
     fields_desc = [ ByteEnumField("nh", 59, ipv6nh),
                     FieldLenField("len", None, length_of="options", fmt="B",
-                                  adjust = lambda pkt,x: (x+2+7)/8 - 1),
+                                  adjust = lambda pkt,x: (x+2+7)//8 - 1),
                     _PhantomAutoPadField("autopad", 1), # autopad activated by default
                     _HopByHopOptionsField("options", [], HBHOptUnknown, 2,
                                           length_from = lambda pkt: (8*(pkt.len+1))-2) ]
@@ -940,7 +940,7 @@ class IPv6ExtHdrDestOpt(_IPv6ExtHdr):
     name = "IPv6 Extension Header - Destination Options Header"
     fields_desc = [ ByteEnumField("nh", 59, ipv6nh),
                     FieldLenField("len", None, length_of="options", fmt="B",
-                                  adjust = lambda pkt,x: (x+2+7)/8 - 1),
+                                  adjust = lambda pkt,x: (x+2+7)//8 - 1),
                     _PhantomAutoPadField("autopad", 1), # autopad activated by default
                     _HopByHopOptionsField("options", [], HBHOptUnknown, 2,
                                           length_from = lambda pkt: (8*(pkt.len+1))-2) ]
@@ -1056,7 +1056,7 @@ class IPv6ExtHdrSegmentRouting(_IPv6ExtHdr):
                 tlv = IPv6ExtHdrSegmentRoutingTLVPadding(padding=tmp_pad)
                 pkt += str(tlv)
 
-            tmp_len = (len(pkt) - 8) / 8
+            tmp_len = (len(pkt) - 8) // 8
             pkt = pkt[:1] + struct.pack("B", tmp_len)+ pkt[2:]
 
         if self.segleft is None:
@@ -1210,7 +1210,7 @@ def fragment6(pkt, fragSize):
             tmp = remain[:innerFragSize]
             remain = remain[innerFragSize:]
             fragHeader.offset = fragOffset    # update offset
-            fragOffset += (innerFragSize / 8)  # compute new one
+            fragOffset += (innerFragSize // 8)  # compute new one
             if IPv6 in unfragPart:
                 unfragPart[IPv6].plen = None
             tempo = unfragPart/fragHeader/conf.raw_layer(load=tmp)
@@ -1722,7 +1722,7 @@ class ICMPv6NDOptRedirectedHdr(_ICMPv6NDGuessPayload, Packet):
     name = "ICMPv6 Neighbor Discovery Option - Redirected Header"
     fields_desc = [ ByteField("type",4),
                     FieldLenField("len", None, length_of="pkt", fmt="B",
-                                  adjust = lambda pkt,x:(x+8)/8),
+                                  adjust = lambda pkt,x:(x+8)//8),
                     StrFixedLenField("res", b"\x00"*6, 6),
                     TruncPktLenField("pkt", "", IPv6, 8,
                                      length_from = lambda pkt: 8*pkt.len-8) ]
@@ -1855,7 +1855,7 @@ class ICMPv6NDOptRouteInfo(_ICMPv6NDGuessPayload, Packet): # RFC 4191
     name = "ICMPv6 Neighbor Discovery Option - Route Information Option"
     fields_desc = [ ByteField("type",24),
                     FieldLenField("len", None, length_of="prefix", fmt="B",
-                                  adjust = lambda pkt,x: x/8 + 1),
+                                  adjust = lambda pkt,x: x//8 + 1),
                     ByteField("plen", None),
                     BitField("res1",0,3),
                     BitField("prf",0,2),
@@ -1934,7 +1934,7 @@ class ICMPv6NDOptDNSSL(_ICMPv6NDGuessPayload, Packet): # RFC 6106
     name = "ICMPv6 Neighbor Discovery Option - DNS Search List Option"
     fields_desc = [ ByteField("type", 31),
                     FieldLenField("len", None, length_of="searchlist", fmt="B",
-                                  adjust=lambda pkt, x: 1+ x/8),
+                                  adjust=lambda pkt, x: 1+ x//8),
                     ShortField("res", None),
                     IntField("lifetime", 0xffffffff),
                     DomainNameListField("searchlist", [],
@@ -2615,7 +2615,7 @@ class _MIP6OptAlign:
       x = self.x ; y = self.y
       if x == 0 and y ==0:
           return 0
-      delta = x*((curpos - y + x - 1)/x) + y - curpos
+      delta = x*((curpos - y + x - 1)//x) + y - curpos
       return delta
 
 
@@ -2842,7 +2842,7 @@ class _MobilityHeader(Packet):
         p += pay
         l = self.len
         if self.len is None:
-            l = (len(p)-8)/8
+            l = (len(p)-8)//8
         p = p[0] + struct.pack("B", l) + p[2:]
         if self.cksum is None:
             cksum = in6_chksum(135, self.underlayer, p)

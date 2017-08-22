@@ -161,7 +161,7 @@ class _EncryptAndVerifyRSA(object):
             return False
 
     def _legacy_verify_md5_sha1(self, M, S):
-        k = self._modulusLen / 8
+        k = self._modulusLen // 8
         if len(S) != k:
             warning("invalid signature (len(S) != k)")
             return False
@@ -203,7 +203,7 @@ class _DecryptAndSignRSA(object):
             return self._legacy_sign_md5_sha1(M)
 
     def _legacy_sign_md5_sha1(self, M):
-        k = self._modulusLen / 8
+        k = self._modulusLen // 8
         EM = _legacy_pkcs1_v1_5_encode_md5_sha1(M, k)
         if EM is None:
             warning("Key._rsassa_pkcs1_v1_5_sign(): unable to encode")

@@ -535,7 +535,7 @@ class NetBIOSNameField(StrFixedLenField):
     def __init__(self, name, default, length=31):
         StrFixedLenField.__init__(self, name, default, length)
     def i2m(self, pkt, x):
-        l = self.length_from(pkt)/2
+        l = self.length_from(pkt)//2
         if x is None:
             x = ""
         x += " "*(l)
@@ -763,7 +763,7 @@ class BitField(Field):
         else:
             bn = 0
         # we don't want to process all the string
-        nb_bytes = (self.size+bn-1)/8 + 1
+        nb_bytes = (self.size+bn-1)//8 + 1
         w = s[:nb_bytes]
 
         # split the substring byte by byte
@@ -783,7 +783,7 @@ class BitField(Field):
             b = self.reverse(b)
 
         bn += self.size
-        s = s[bn/8:]
+        s = s[bn//8:]
         bn = bn%8
         b = self.m2i(pkt, b)
         if bn:
@@ -1279,7 +1279,7 @@ class _IPPrefixFieldBase(Field):
 
     def _numbytes(self, pfxlen):
         wbits= self.wordbytes * 8
-        return ((pfxlen + (wbits - 1)) / wbits) * self.wordbytes
+        return ((pfxlen + (wbits - 1)) // wbits) * self.wordbytes
 
     def h2i(self, pkt, x):
         # "fc00:1::1/64" -> ("fc00:1::1", 64)

@@ -429,7 +429,7 @@ def in6_ctop(addr):
     res = []
     for j in range(4):
         res.append(struct.pack("!I", i%2**32))
-        i = i/(2**32)
+        i = i//(2**32)
     res.reverse()
     return inet_ntop(socket.AF_INET6, "".join(res))
 
@@ -451,7 +451,7 @@ def in6_ptoc(addr):
     res = []
     while rem:
         res.append(_rfc1924map[rem%85])
-        rem = rem/85
+        rem = rem//85
     res.reverse()
     return "".join(res)
 

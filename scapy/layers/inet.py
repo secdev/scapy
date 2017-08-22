@@ -144,7 +144,7 @@ class IPOption_RR(IPOption):
                                    length_from=lambda pkt:pkt.length-3)
                     ]
     def get_current_router(self):
-        return self.routers[self.pointer/4-1]
+        return self.routers[self.pointer//4-1]
 
 class IPOption_LSRR(IPOption_RR):
     name = "IP Option Loose Source and Record Route"
@@ -275,7 +275,7 @@ class TCPOptionsField(StrField):
             if onum in TCPOptions[0]:
                 oname, ofmt = TCPOptions[0][onum]
                 if onum == 5: #SAck
-                    ofmt += "%iI" % (len(oval)/4)
+                    ofmt += "%iI" % (len(oval)//4)
                 if ofmt and struct.calcsize(ofmt) == len(oval):
                     oval = struct.unpack(ofmt, oval)
                     if len(oval) == 1:
@@ -379,7 +379,7 @@ class IP(Packet, IPTools):
         ihl = self.ihl
         p += b"\0"*((-len(p))%4) # pad IP options if needed
         if ihl is None:
-            ihl = len(p)/4
+            ihl = len(p)//4
             p = chr(((self.version&0xf)<<4) | ihl&0x0f)+p[1:]
         if self.len is None:
             l = len(p)+len(pay)
@@ -450,7 +450,7 @@ class IP(Packet, IPTools):
                  
     def fragment(self, fragsize=1480):
         """Fragment IP datagrams"""
-        fragsize = (fragsize+7)/8*8
+        fragsize = (fragsize+7)//8*8
         lst = []
         fnb = 0
         fl = self
@@ -460,7 +460,7 @@ class IP(Packet, IPTools):
         
         for p in fl:
             s = str(p[fnb].payload)
-            nb = (len(s)+fragsize-1)/fragsize
+            nb = (len(s)+fragsize-1)//fragsize
             for i in range(nb):            
                 q = p.copy()
                 del(q[fnb].payload)
@@ -468,7 +468,7 @@ class IP(Packet, IPTools):
                 del(q[fnb].len)
                 if i != nb - 1:
                     q[fnb].flags |= 1
-                q[fnb].frag += i * fragsize / 8
+                q[fnb].frag += i * fragsize // 8
                 r = conf.raw_layer(load=s[i*fragsize:(i+1)*fragsize])
                 r.overload_fields = p[fnb].payload.overload_fields.copy()
                 q.add_payload(r)
@@ -490,7 +490,7 @@ def in4_chksum(proto, u, p):
     if u.len is not None:
         if u.ihl is None:
             olen = sum(len(x) for x in u.options)
-            ihl = 5 + olen / 4 + (1 if olen % 4 else 0)
+            ihl = 5 + olen // 4 + (1 if olen % 4 else 0)
         else:
             ihl = u.ihl
         ln = u.len - 4 * ihl
@@ -520,7 +520,7 @@ class TCP(Packet):
         p += pay
         dataofs = self.dataofs
         if dataofs is None:
-            dataofs = 5+((len(self.get_field("options").i2m(self,self.options))+3)/4)
+            dataofs = 5+((len(self.get_field("options").i2m(self,self.options))+3)//4)
             p = p[:12]+chr((dataofs << 4) | ord(p[12])&0x0f)+p[13:]
         if self.chksum is None:
             if isinstance(self.underlayer, IP):
@@ -828,11 +828,11 @@ conf.neighbor.register_l3(Dot3, IP, inet_register_l3)
 @conf.commands.register
 def fragment(pkt, fragsize=1480):
     """Fragment a big IP datagram"""
-    fragsize = (fragsize+7)/8*8
+    fragsize = (fragsize+7)//8*8
     lst = []
     for p in pkt:
         s = str(p[IP].payload)
-        nb = (len(s)+fragsize-1)/fragsize
+        nb = (len(s)+fragsize-1)//fragsize
         for i in range(nb):            
             q = p.copy()
             del(q[IP].payload)
@@ -840,7 +840,7 @@ def fragment(pkt, fragsize=1480):
             del(q[IP].len)
             if i != nb - 1:
                 q[IP].flags |= 1
-            q[IP].frag += i * fragsize / 8
+            q[IP].frag += i * fragsize // 8
             r = conf.raw_layer(load=s[i*fragsize:(i+1)*fragsize])
             r.overload_fields = p[IP].payload.overload_fields.copy()
             q.add_payload(r)
