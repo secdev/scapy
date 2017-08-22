@@ -44,9 +44,49 @@ class debug:
 ####################
 
 
+def _sndrcv_snd(pks, inter, verbose, tobesent, all_stimuli, rdpipe, wrpipe):
+    try:
+        if not WINDOWS:
+            sys.stdin.close()
+            rdpipe.close()
+        try:
+            i = 0
+            if verbose:
+                print("Begin emission:")
+            for p in tobesent:
+                pks.send(p)
+                i += 1
+                time.sleep(inter)
+            if verbose:
+                print("Finished to send %i packets." % i)
+        except SystemExit:
+            pass
+        except KeyboardInterrupt:
+            pass
+        except:
+            if WINDOWS:
+                log_runtime.exception("--- Error sending packets")
+                log_runtime.info("--- Error sending packets")
+            else:
+                log_runtime.exception("--- Error in child "
+                                      "%i" % os.getpid())
+                log_runtime.info("--- Error in child "
+                                 "%i" % os.getpid())
+    finally:
+        try:
+            sent_times = [p.sent_time for p in all_stimuli if p.sent_time]
+            if not WINDOWS:
+                # Change process group to avoid ctrl-C
+                os.setpgrp()
+                six.moves.cPickle.dump((conf.netcache, sent_times),
+                                       wrpipe)
+                wrpipe.close()
+        except:
+            pass
 
 
-def sndrcv(pks, pkt, timeout = None, inter = 0, verbose=None, chainCC=0, retry=0, multi=0):
+def sndrcv(pks, pkt, timeout=None, inter=0, verbose=None, chainCC=False,
+           retry=0, multi=False):
     if not isinstance(pkt, Gen):
         pkt = SetGen(pkt)
         
@@ -87,47 +127,11 @@ def sndrcv(pks, pkt, timeout = None, inter = 0, verbose=None, chainCC=0, retry=0
         try:
             if not WINDOWS:
                 pid = os.fork()
-            if WINDOWS or pid == 0:
-                try:
-                    if not WINDOWS:
-                        sys.stdin.close()
-                        rdpipe.close()
-                    try:
-                        i = 0
-                        if verbose:
-                            print("Begin emission:")
-                        for p in tobesent:
-                            pks.send(p)
-                            i += 1
-                            time.sleep(inter)
-                        if verbose:
-                            print("Finished to send %i packets." % i)
-                    except SystemExit:
-                        pass
-                    except KeyboardInterrupt:
-                        pass
-                    except:
-                        if WINDOWS:
-                            log_runtime.exception("--- Error sending packets")
-                            log_runtime.info("--- Error sending packets")
-                        else:
-                            log_runtime.exception("--- Error in child "
-                                                  "%i" % os.getpid())
-                            log_runtime.info("--- Error in child "
-                                             "%i" % os.getpid())
-                finally:
-                    try:
-                        sent_times = [p.sent_time for p in all_stimuli if p.sent_time]
-                        if not WINDOWS:
-                            # Change process group to avoid ctrl-C
-                            os.setpgrp()
-                            six.moves.cPickle.dump((conf.netcache, sent_times),
-                                                   wrpipe)
-                            wrpipe.close()
-                    except:
-                        pass
-            elif not WINDOWS and pid < 0:
+            if not WINDOWS and pid < 0:
                 log_runtime.error("fork error")
+            elif WINDOWS or pid == 0:
+                _sndrcv_snd(pks, inter, verbose, tobesent, all_stimuli,
+                            rdpipe, wrpipe)
             elif WINDOWS or pid > 0:
                 if not WINDOWS:
                     wrpipe.close()
@@ -234,7 +238,7 @@ def sndrcv(pks, pkt, timeout = None, inter = 0, verbose=None, chainCC=0, retry=0
         debug.match=plist.SndRcvList(ans[:])
 
     #clean the ans list to delete the field _answered
-    if (multi):
+    if multi:
         for s,r in ans:
             if hasattr(s, '_answered'):
                 del(s._answered)
@@ -453,7 +457,7 @@ def __sr_loop(srfunc, pkts, prn=lambda x:x[1].summary(), prnfail=lambda x:x.summ
             start = time.time()
             if verbose > 1:
                 print("\rsend...\r", end=' ')
-            res = srfunc(pkts, timeout=timeout, verbose=0, chainCC=1, *args, **kargs)
+            res = srfunc(pkts, timeout=timeout, verbose=0, chainCC=True, *args, **kargs)
             n += len(res[0])+len(res[1])
             r += len(res[0])
             if verbose > 1 and prn and len(res[0]) > 0:
