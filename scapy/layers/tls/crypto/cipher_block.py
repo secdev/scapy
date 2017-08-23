@@ -81,7 +81,7 @@ class _BlockCipher(six.with_metaclass(_BlockCipherMetaclass, object)):
         and TLS 1.0. For TLS 1.1/1.2, it is overwritten in TLS.post_build().
         """
         if False in six.itervalues(self.ready):
-            raise CipherError, data
+            raise CipherError(data)
         encryptor = self._cipher.encryptor()
         tmp = encryptor.update(data) + encryptor.finalize()
         self.iv = tmp[-self.block_size:]
@@ -94,7 +94,7 @@ class _BlockCipher(six.with_metaclass(_BlockCipherMetaclass, object)):
         If we lack the key, we raise a CipherError which contains the input.
         """
         if False in six.itervalues(self.ready):
-            raise CipherError, data
+            raise CipherError(data)
         decryptor = self._cipher.decryptor()
         tmp = decryptor.update(data) + decryptor.finalize()
         self.iv = data[-self.block_size:]

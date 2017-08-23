@@ -82,13 +82,13 @@ class _StreamCipher(six.with_metaclass(_StreamCipherMetaclass, object)):
 
     def encrypt(self, data):
         if False in six.itervalues(self.ready):
-            raise CipherError, data
+            raise CipherError(data)
         self._enc_updated_with += data
         return self.encryptor.update(data)
 
     def decrypt(self, data):
         if False in six.itervalues(self.ready):
-            raise CipherError, data
+            raise CipherError(data)
         self._dec_updated_with += data
         return self.decryptor.update(data)
 

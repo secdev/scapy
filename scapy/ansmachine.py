@@ -55,7 +55,7 @@ class AnsweringMachine(six.with_metaclass(ReferenceAM, object)):
         for d in [self.optam2, self.optam1]:
             if attr in d:
                 return d[attr]
-        raise AttributeError,attr
+        raise AttributeError(attr)
                 
     def __setattr__(self, attr, val):
         mode = self.__dict__.get("mode",0)
