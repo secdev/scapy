@@ -408,8 +408,8 @@ if conf.use_pcap:
                         return (s+0.000001*us), p
                 __next__ = next
                 def fileno(self):
-                    warning("fileno: pcapy API does not permit to get capure file descriptor. Bugs ahead! Press Enter to trigger packet reading")
-                    return 0
+                    raise RuntimeError("%s has no fileno. Please report this bug." %
+                                       self.__class__.__name__)
                 def __getattr__(self, attr):
                     return getattr(self.pcap, attr)
                 def __del__(self):
@@ -634,10 +634,12 @@ if conf.use_pcap and conf.use_dnet:
             return p
     
         def close(self):
-            if hasattr(self, "ins"):
-                del(self.ins)
-            if hasattr(self, "outs"):
-                del(self.outs)
+            if not self.closed:
+                if hasattr(self, "ins"):
+                    del(self.ins)
+                if hasattr(self, "outs"):
+                    del(self.outs)
+            self.closed = True
     
     class L2dnetSocket(SuperSocket):
         desc = "read/write packets at layer 2 using libdnet and libpcap"
@@ -704,10 +706,12 @@ if conf.use_pcap and conf.use_dnet:
             return p
     
         def close(self):
-            if hasattr(self, "ins"):
-                del(self.ins)
-            if hasattr(self, "outs"):
-                del(self.outs)
+            if not self.closed:
+                if hasattr(self, "ins"):
+                    del(self.ins)
+                if hasattr(self, "outs"):
+                    del(self.outs)
+            self.closed = True
 
     conf.L3socket=L3dnetSocket
     conf.L2socket=L2dnetSocket
