@@ -37,7 +37,7 @@ class RandomEnumeration:
             n += 1
         self.n =n
 
-        self.fs = min(3,(n+1)/2)
+        self.fs = min(3,(n+1)//2)
         self.fsmask = 2**self.fs-1
         self.rounds = max(self.n,3)
         self.turns = 0
