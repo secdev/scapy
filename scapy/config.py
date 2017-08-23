@@ -201,8 +201,12 @@ class CacheInstance(dict, object):
         self._timetable[item] = time.time()
         dict.__setitem__(self, item,v)
     def update(self, other):
-        dict.update(self, other)
-        self._timetable.update(other._timetable)
+        for key, value in other.iteritems():
+            # We only update an element from `other` either if it does
+            # not exist in `self` or if the entry in `self` is older.
+            if key not in self or self._timetable[key] < other._timetable[key]:
+                dict.__setitem__(self, key, value)
+                self._timetable[key] = other._timetable[key]
     def iteritems(self):
         if self.timeout is None:
             return six.iteritems(self.__dict__)
