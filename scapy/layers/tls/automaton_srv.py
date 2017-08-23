@@ -788,14 +788,14 @@ class TLSServerAutomaton(_TLSAutomaton):
         self.buffer_in = self.buffer_in[1:]
         if hasattr(p, "load"):
             cli_data = p.load
-            self.vprint("Received: %s" % cli_data)
+            print("> Received: %s" % cli_data)
             if cli_data.startswith("goodbye"):
                 self.vprint()
                 self.vprint("Seems like the client left...")
                 raise self.WAITING_CLIENT()
         else:
             cli_data = str(p)
-            self.vprint("Received: %r" % p)
+            print("> Received: %r" % p)
 
         lines = cli_data.split("\n")
         stop = False

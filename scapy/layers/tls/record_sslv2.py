@@ -6,7 +6,7 @@
 SSLv2 Record.
 """
 
-from __future__ import print_function
+import logging
 import struct
 
 from scapy.config import conf
@@ -140,7 +140,7 @@ class SSLv2(TLS):
         # Verify integrity
         is_mac_ok = self._sslv2_mac_verify(cfrag + pad, mac)
         if not is_mac_ok:
-            print("INTEGRITY CHECK FAILED")
+            logging.info("INTEGRITY CHECK FAILED")
 
         reconstructed_body = mac + cfrag + pad
         return hdr + reconstructed_body + r

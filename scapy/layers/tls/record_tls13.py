@@ -11,7 +11,7 @@ ApplicationData submessages. For the Handshake type, see tls_handshake.py.
 See the TLS class documentation for more information.
 """
 
-from __future__ import print_function
+import logging
 import struct
 
 from scapy.config import conf
@@ -117,7 +117,7 @@ class TLS13(_GenericTLSSessionInheritance):
         except CipherError as e:
             return e.args
         except AEADTagError as e:
-            print("INTEGRITY CHECK FAILED")
+            logging.info("INTEGRITY CHECK FAILED")
             return e.args
 
     def pre_dissect(self, s):
