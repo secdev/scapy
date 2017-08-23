@@ -125,6 +125,8 @@ def sndrcv(pks, pkt, timeout=None, inter=0, verbose=None, chainCC=False,
                         inp = bpf_select([pks])
                         if pks in inp:
                             r = pks.recv()
+                    elif conf.use_pcap:
+                        r = pks.nonblock_recv()
                     elif not isinstance(pks, StreamSocket) and (
                             FREEBSD or DARWIN or OPENBSD
                     ):
