@@ -58,7 +58,7 @@ class Interceptor(object):
         setattr(obj, self.intname, val)
         self.hook(self.name, val, *self.args, **self.kargs)
 
-    
+
 class ProgPath(ConfClass):
     pdfreader = "acroread"
     psreader = "gv"
@@ -99,17 +99,17 @@ class Emphasize(ConfigFieldList):
 
 class Resolve(ConfigFieldList):
     pass
-    
+
 
 class Num2Layer:
     def __init__(self):
         self.num2layer = {}
         self.layer2num = {}
-        
+
     def register(self, num, layer):
         self.register_num2layer(num, layer)
         self.register_layer2num(num, layer)
-        
+
     def register_num2layer(self, num, layer):
         self.num2layer[num] = layer
     def register_layer2num(self, num, layer):
@@ -127,7 +127,7 @@ class Num2Layer:
         if item in self:
             return self[item]
         return default
-    
+
     def __repr__(self):
         lst = []
         for num,layer in six.iteritems(self.num2layer):
@@ -202,7 +202,7 @@ class CacheInstance(dict):
         if self.timeout is None:
             return dict.iteritems(self)
         t0=time.time()
-        return ((k,v) for (k,v) in dict.iteritems(self) if t0-self._timetable[k] < self.timeout) 
+        return ((k,v) for (k,v) in dict.iteritems(self) if t0-self._timetable[k] < self.timeout)
     def iterkeys(self):
         if self.timeout is None:
             return dict.iterkeys(self)
@@ -244,8 +244,8 @@ class CacheInstance(dict):
             for item in six.iteritems(self):
                 s.append(fmt % item)
         return "\n".join(s)
-            
-            
+
+
 
 
 class NetCache:
@@ -272,7 +272,7 @@ class NetCache:
             c.flush()
     def __repr__(self):
         return "\n".join(c.summary() for c in self._caches_list)
-        
+
 
 class LogLevel(object):
     def __get__(self, obj, otype):
@@ -280,7 +280,7 @@ class LogLevel(object):
     def __set__(self,obj,val):
         log_scapy.setLevel(val)
         obj._logLevel = val
-        
+
 
 def isCryptographyValid():
     """
@@ -320,15 +320,47 @@ def isCryptographyAdvanced():
 
 def _prompt_changer(attr,val):
     prompt = conf.prompt
-    try:
+    prefix = conf.prompt_prefix
+    ct = conf.color_theme
+
+    if attr == "prompt":
+        prompt = val
+    elif attr == "prompt_prefix":
+        prefix = val
+    else:
         ct = val
+
+    if conf.interactive_shell.lower() == "ipython":
+        try:
+            import IPython
+            from IPython.terminal import prompts
+
+            ip = IPython.get_ipython()
+            if not ip:
+                # Shell not launched yet. Do nothing
+                return
+
+            class ScapyPrompts(prompt):
+                def in_prompt_tokens(self, cli=None):
+                    return [
+                        (prompts.Token.Prompt, prefix),
+                    ] + prompt.in_prompt_tokens(self, cli=cli)
+            ip.prompts = ScapyPrompts(ip)
+            return
+        except ImportError:
+            # Fallback on standard Python shell
+            pass
+        except:
+            return
+
+    try:
         if isinstance(ct, themes.AnsiColorTheme) and ct.prompt(""):
             ## ^A and ^B delimit invisible characters for readline to count right.
             ## And we need ct.prompt() to do change something or else ^A and ^B will be
             ## displayed
-             prompt = b"\001%s\002" % ct.prompt(b"\002"+prompt+b"\001")
+            prompt = b"\001%s\002" % ct.prompt(b"\002"+prefix+prompt+b"\001")
         else:
-            prompt = ct.prompt(prompt)
+            prompt = ct.prompt(prefix+prompt)
     except:
         pass
     sys.ps1 = prompt
@@ -382,7 +414,8 @@ debug_tls:When 1, print some TLS session secrets when they are computed.
     checkIPinIP = True
     check_TCPerror_seqack = 0
     verb = 2
-    prompt = ">>> "
+    prompt = Interceptor("prompt", themes.DEFAULT_PROMPT, _prompt_changer)
+    prompt_prefix = Interceptor("prompt_prefix", "", _prompt_changer)
     promisc = 1
     sniff_promisc = 1
     raw_layer = None
@@ -447,7 +480,7 @@ if not Conf.ipv6_enabled:
     for m in ["inet6","dhcp6"]:
         if m in Conf.load_layers:
             Conf.load_layers.remove(m)
-    
+
 if not Conf.crypto_valid:
     log_scapy.warning("Crypto-related methods disabled for IPsec, Dot11 "
                       "and TLS layers (needs python-cryptography v1.7+).")

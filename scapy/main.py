@@ -36,7 +36,7 @@ def _read_config_file(cf):
         log_loading.warning("Cannot read config file [%s] [%s]" % (cf,e))
     except Exception as e:
         log_loading.exception("Error during evaluation of config file [%s]" % cf)
-        
+
 def _validate_local(x):
     """Returns whether or not a variable should be imported.
     Will return False for any default modules (sys), or if
@@ -56,7 +56,7 @@ def _usage():
 
 
 from scapy.config import conf
-from scapy.themes import DefaultTheme
+from scapy import themes
 
 
 ######################
@@ -116,10 +116,10 @@ def list_contrib(name=None):
                 desc[key] = value
         print("%(name)-20s: %(description)-40s status=%(status)s" % desc)
 
-                        
 
 
-    
+
+
 
 ##############################
 ## Session saving/restoring ##
@@ -137,7 +137,7 @@ def save_session(fname=None, session=None, pickleProto=-1):
         session = six.moves.builtins.__dict__["scapy_session"]
 
     to_be_saved = session.copy()
-        
+
     if "__builtins__" in to_be_saved:
         del(to_be_saved["__builtins__"])
 
@@ -146,12 +146,12 @@ def save_session(fname=None, session=None, pickleProto=-1):
              log_interactive.error("[%s] (%s) can't be saved." % (k, type(to_be_saved[k])))
              del(to_be_saved[k])
 
-    
+
     try:
          os.rename(fname, fname+".bak")
     except OSError:
          pass
-    
+
     f=gzip.open(fname,"wb")
     six.moves.cPickle.dump(to_be_saved, f, pickleProto)
     f.close()
@@ -173,7 +173,7 @@ def load_session(fname=None):
     scapy_session.clear()
     scapy_session.update(s)
     log_loading.info("Loaded session [%s]" % conf.session)
-    
+
 def update_session(fname=None):
     if fname is None:
         fname = conf.session
@@ -187,7 +187,7 @@ def update_session(fname=None):
 def init_session(session_name, mydict=None):
     global session
     global globkeys
-    
+
     scapy_builtins = {k: v for k, v in six.iteritems(importlib.import_module(".all", "scapy").__dict__) if _validate_local(k)}
     six.moves.builtins.__dict__.update(scapy_builtins)
     globkeys = list(scapy_builtins.keys())
@@ -196,7 +196,7 @@ def init_session(session_name, mydict=None):
     if mydict is not None:
         six.moves.builtins.__dict__.update(mydict)
         globkeys += list(mydict.keys())
-    
+
     if session_name:
         try:
             os.stat(session_name)
@@ -255,7 +255,7 @@ def scapy_write_history_file(readline):
 def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
     global session
     global globkeys
-    import code,sys,os,getopt,re
+    import code,getopt,re
     from scapy.config import conf
     conf.interactive = True
     if loglevel is not None:
@@ -318,12 +318,12 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
                     if word[:n] == attr and word != "__builtins__":
                         matches.append("%s.%s" % (expr, word))
                 return matches
-    
+
         readline.set_completer(ScapyCompleter().complete)
         readline.parse_and_bind("C-o: operate-and-get-next")
         readline.parse_and_bind("tab: complete")
-    
-    
+
+
     STARTUP_FILE = DEFAULT_STARTUP_FILE
     PRESTART_FILE = DEFAULT_PRESTART_FILE
 
@@ -346,7 +346,7 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
                 PRESTART_FILE = None
             elif opt == "-d":
                 conf.logLevel = max(1,conf.logLevel-10)
-        
+
         if len(opts[1]) > 0:
             raise getopt.GetoptError("Too many parameters : [%s]" % " ".join(opts[1]))
 
@@ -355,8 +355,8 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
         log_loading.error(msg)
         sys.exit(1)
 
-    conf.color_theme = DefaultTheme()
-    
+    conf.color_theme = themes.DefaultTheme()
+
     if STARTUP_FILE:
         _read_config_file(STARTUP_FILE)
     if PRESTART_FILE:
@@ -371,31 +371,48 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
             except IOError:
                 pass
         atexit.register(scapy_write_history_file,readline)
-    
+
     atexit.register(scapy_delete_temp_files)
-    
+
     IPYTHON=False
     if conf.interactive_shell.lower() == "ipython":
         try:
             import IPython
             IPYTHON=True
-        except ImportError as e:
+        except ImportError:
             log_loading.warning("IPython not available. Using standard Python shell instead.")
             IPYTHON=False
-        
+
     if IPYTHON:
         banner = the_banner % (conf.version) + " using IPython %s" % IPython.__version__
+
+        from IPython.terminal.ipapp import load_default_config
+        from IPython.terminal import prompts
+
+        if conf.prompt == themes.DEFAULT_PROMPT:
+            # Replace default python with default ipython
+            conf.prompt = prompts.Prompts
+
+        class ScapyPrompts(conf.prompt):
+            def in_prompt_tokens(self, cli=None):
+                return [
+                    (prompts.Token.Prompt, conf.prompt_prefix),
+                ] + conf.prompt.in_prompt_tokens(self, cli=cli)
+
+        config = load_default_config()
+        config.InteractiveShellEmbed = config.TerminalInteractiveShell
+        config.TerminalInteractiveShell.prompts_class = ScapyPrompts
 
         # Old way to embed IPython kept for backward compatibility
         try:
           args = ['']  # IPython command line args (will be seen as sys.argv)
           ipshell = IPython.Shell.IPShellEmbed(args, banner = banner)
           ipshell(local_ns=session)
-        except AttributeError as e:
+        except AttributeError:
           pass
 
         # In the IPython cookbook, see 'Updating-code-for-use-with-IPython-0.11-and-later'
-        IPython.embed(user_ns=session, banner2=banner)
+        IPython.embed(user_ns=session, banner2=banner, config=config)
 
     else:
         code.interact(banner = the_banner % (conf.version),
