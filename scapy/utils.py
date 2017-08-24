@@ -343,7 +343,7 @@ def fletcher16_checkbytes(binbuf, offset):
 
 
 def mac2str(mac):
-    return "".join(chr(int(x, 16)) for x in mac.split(':'))
+    return b"".join(chr(int(x, 16)) for x in mac.split(':'))
 
 def str2mac(s):
     return ("%02x:"*6)[:-1] % tuple(map(ord, s)) 
@@ -365,14 +365,14 @@ def strxor(s1, s2):
     Returns the binary XOR of the 2 provided strings s1 and s2. s1 and s2
     must be of same length.
     """
-    return "".join(map(lambda x,y:chr(ord(x)^ord(y)), s1, s2))
+    return b"".join(map(lambda x,y:chr(ord(x)^ord(y)), s1, s2))
 
 def strand(s1, s2):
     """
     Returns the binary AND of the 2 provided strings s1 and s2. s1 and s2
     must be of same length.
     """
-    return "".join(map(lambda x,y:chr(ord(x)&ord(y)), s1, s2))
+    return b"".join(map(lambda x,y:chr(ord(x)&ord(y)), s1, s2))
 
 
 # Workaround bug 643005 : https://sourceforge.net/tracker/?func=detail&atid=105470&aid=643005&group_id=5470
@@ -696,7 +696,7 @@ class PcapReader_metaclass(type):
                 fdesc = gzip.open(filename,"rb")
                 magic = fdesc.read(4)
             except IOError:
-                fdesc = open(filename,"rb")
+                fdesc = open(filename, "rb")
                 magic = fdesc.read(4)
         else:
             fdesc = filename
@@ -1055,7 +1055,7 @@ nano:       use nanosecond-precision (requires libpcap >= 1.5.0)
                 try:
                     p = pkt.next()
                 except StopIteration:
-                    self._write_header("")
+                    self._write_header(b"")
                     return
                 self._write_header(p)
                 self._write_packet(p)
@@ -1227,7 +1227,7 @@ u'64'
         # <http://apple.stackexchange.com/questions/152682/>
         tmpfile = tempfile.NamedTemporaryFile(delete=False)
         try:
-            tmpfile.writelines(iter(lambda: pktlist.read(1048576), ""))
+            tmpfile.writelines(iter(lambda: pktlist.read(1048576), b""))
         except AttributeError:
             wrpcap(tmpfile, pktlist)
         else:
@@ -1248,13 +1248,13 @@ u'64'
                 stderr=open(os.devnull),
             )
         try:
-            proc.stdin.writelines(iter(lambda: pktlist.read(1048576), ""))
+            proc.stdin.writelines(iter(lambda: pktlist.read(1048576), b""))
         except AttributeError:
             wrpcap(proc.stdin, pktlist)
         else:
             proc.stdin.close()
     if dump:
-        return "".join(iter(lambda: proc.stdout.read(1048576), ""))
+        return b"".join(iter(lambda: proc.stdout.read(1048576), b""))
     if getfd:
         return proc.stdout
     proc.wait()
@@ -1263,7 +1263,7 @@ u'64'
 def hexedit(x):
     x = str(x)
     f = get_temp_file()
-    open(f,"w").write(x)
+    open(f,"wb").write(x)
     with ContextManagerSubprocess("hexedit()"):
         subprocess.call([conf.prog.hexedit, f])
     x = open(f).read()
@@ -1424,21 +1424,21 @@ def whois(ip_address):
         query = whois_ip
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.connect(("whois.ripe.net", 43))
-    s.send(query + "\r\n")
-    answer = ''
+    s.send(query + b"\r\n")
+    answer = b""
     while True:
         d = s.recv(4096)
         answer += d
         if not d:
             break
     s.close()
-    ignore_tag = "remarks:"
+    ignore_tag = b"remarks:"
     # ignore all lines starting with the ignore_tag
-    lines = [ line for line in answer.split("\n") if not line or (line and not line.startswith(ignore_tag))]
+    lines = [ line for line in answer.split(b"\n") if not line or (line and not line.startswith(ignore_tag))]
     # remove empty lines at the bottom
     for i in range(1, len(lines)):
         if not lines[-i].strip():
             del lines[-i]
         else:
             break
-    return "\n".join(lines[3:])
+    return b"\n".join(lines[3:])

@@ -390,9 +390,9 @@ def in6_getRandomizedIfaceId(ifaceid, previous=None):
     ('fe97:46fe:9871:bd38', 'eeed:d79c:2e3f:62e')
     """
 
-    s = ""
+    s = b""
     if previous is None:
-        d = "".join(chr(x) for x in range(256))
+        d = b"".join(chr(x) for x in range(256))
         for _ in range(8):
             s += random.choice(d)
         previous = s
@@ -431,7 +431,7 @@ def in6_ctop(addr):
         res.append(struct.pack("!I", i%2**32))
         i = i//(2**32)
     res.reverse()
-    return inet_ntop(socket.AF_INET6, "".join(res))
+    return inet_ntop(socket.AF_INET6, b"".join(res))
 
 def in6_ptoc(addr):
     """
@@ -453,7 +453,7 @@ def in6_ptoc(addr):
         res.append(_rfc1924map[rem%85])
         rem = rem//85
     res.reverse()
-    return "".join(res)
+    return b"".join(res)
 
     
 def in6_isaddr6to4(x):
@@ -528,7 +528,7 @@ def _in6_bitops(a1, a2, operator=0):
             lambda x,y: x ^ y
           ]
     ret = map(fop[operator%len(fop)], a1, a2)
-    return ''.join(struct.pack('I', x) for x in ret)
+    return b"".join(struct.pack('I', x) for x in ret)
 
 def in6_or(a1, a2):
     """
@@ -569,7 +569,7 @@ def in6_cidr2mask(m):
         t.append(max(0, 2**32  - 2**(32-min(32, m))))
         m -= 32
 
-    return ''.join(struct.pack('!I', x) for x in t)
+    return b"".join(struct.pack('!I', x) for x in t)
 
 def in6_getnsma(a): 
     """

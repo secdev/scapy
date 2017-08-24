@@ -182,7 +182,7 @@ class ObjectPipe(SelectableObject):
         return len(self.queue) > 0
     def send(self, obj):
         self.queue.append(obj)
-        os.write(self.wr,"X")
+        os.write(self.wr,b"X")
         self.call_release()
     def write(self, obj):
         self.send(obj)

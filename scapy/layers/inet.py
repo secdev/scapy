@@ -287,7 +287,7 @@ class TCPOptionsField(StrField):
         return opt
     
     def i2m(self, pkt, x):
-        opt = ""
+        opt = b""
         for oname,oval in x:
             if isinstance(oname, str):
                 if oname == "NOP":

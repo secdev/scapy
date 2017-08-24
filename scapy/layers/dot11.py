@@ -304,7 +304,7 @@ class Dot11WEP(Packet):
     def build_payload(self):
         if self.wepdata is None:
             return Packet.build_payload(self)
-        return ""
+        return b""
 
     @crypto_validator
     def encrypt(self, p, pay, key=None):
@@ -313,7 +313,7 @@ class Dot11WEP(Packet):
         if key:
             if self.icv is None:
                 pay += struct.pack("<I", crc32(pay))
-                icv = ""
+                icv = b""
             else:
                 icv = p[4:8]
             e = Cipher(
@@ -324,7 +324,7 @@ class Dot11WEP(Packet):
             return p[:4] + e.update(pay) + e.finalize() + icv
         else:
             warning("No WEP key set (conf.wepkey).. strange results expected..")
-            return ""
+            return b""
 
     def post_build(self, p, pay):
         if self.wepdata is None:

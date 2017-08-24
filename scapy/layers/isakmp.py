@@ -107,7 +107,7 @@ class ISAKMPTransformSetField(StrLenField):
         typ, val = type_val_tuple
         type_val,enc_dict,tlv = ISAKMPTransformTypes.get(typ, (typ,{},0))
         val = enc_dict.get(val, val)
-        s = ""
+        s = b""
         if (val & ~0xffff):
             if not tlv:
                 warning("%r should not be TLV but is too big => using TLV encoding" % typ)
@@ -126,9 +126,9 @@ class ISAKMPTransformSetField(StrLenField):
         return (val[0],enc)
     def i2m(self, pkt, i):
         if i is None:
-            return ""
+            return b""
         i = [self.type2num(e) for e in i]
-        return "".join(i)
+        return b"".join(i)
     def m2i(self, pkt, m):
         # I try to ensure that we don't read off the end of our packet based
         # on bad length fields we're provided in the packet. There are still

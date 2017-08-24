@@ -334,7 +334,7 @@ class IP6ListField(StrField):
             c = self.count_from(pkt)
 
         lst = []
-        ret = ""
+        ret = b""
         remain = s
         if l is not None:
             remain,ret = s[:l],s[l:]
@@ -349,7 +349,7 @@ class IP6ListField(StrField):
         return remain+ret,lst
 
     def i2m(self, pkt, x):
-        s = ''
+        s = b""
         for y in x:
             try:
                 y = inet_pton(socket.AF_INET6, y)
@@ -846,7 +846,7 @@ class _HopByHopOptionsField(PacketListField):
             c = self.count_from(pkt)
 
         opt = []
-        ret = ""
+        ret = b""
         x = s
         if l is not None:
             x,ret = s[:l],s[l:]
@@ -868,7 +868,7 @@ class _HopByHopOptionsField(PacketListField):
                 x = op.payload.load
                 del(op.payload)
             else:
-                x = ""
+                x = b""
         return x+ret,opt
 
     def i2m(self, pkt, x):
@@ -879,10 +879,10 @@ class _HopByHopOptionsField(PacketListField):
             autopad = 1
 
         if not autopad:
-            return "".join(map(str, x))
+            return b"".join(map(str, x))
 
         curpos = self.curpos
-        s = ""
+        s = b""
         for p in x:
             d = p.alignment_delta(curpos)
             curpos += d
@@ -981,7 +981,7 @@ class IPv6ExtHdrSegmentRoutingTLV(Packet):
                     StrLenField("value", "", length_from=lambda pkt: pkt.len) ]
 
     def extract_padding(self, p):
-        return "",p
+        return b"",p
 
     registered_sr_tlv = {}
     @classmethod
@@ -1117,13 +1117,13 @@ def defragment6(packets):
         del(l[min_pos])
 
     # regenerate the fragmentable part
-    fragmentable = ""
+    fragmentable = b""
     for p in res:
         q=p[IPv6ExtHdrFragment]
         offset = 8*q.offset
         if offset != len(fragmentable):
             warning("Expected an offset of %d. Found %d. Padding with XXXX" % (len(fragmentable), offset))
-        fragmentable += "X"*(offset - len(fragmentable))
+        fragmentable += b"X"*(offset - len(fragmentable))
         fragmentable += str(q.payload)
 
     # Regenerate the unfragmentable part.
@@ -1724,7 +1724,7 @@ class ICMPv6NDOptRedirectedHdr(_ICMPv6NDGuessPayload, Packet):
                     FieldLenField("len", None, length_of="pkt", fmt="B",
                                   adjust = lambda pkt,x:(x+8)//8),
                     StrFixedLenField("res", b"\x00"*6, 6),
-                    TruncPktLenField("pkt", "", IPv6, 8,
+                    TruncPktLenField("pkt", b"", IPv6, 8,
                                      length_from = lambda pkt: 8*pkt.len-8) ]
 
 # See which value should be used for default MTU instead of 1280
@@ -1845,7 +1845,7 @@ class _IP6PrefixField(IP6Field):
         if l is None:
             return x
         if l in [0, 1]:
-            return ""
+            return b""
         if l in [2, 3]:
             return x[:8*(l-1)]
 
@@ -1917,9 +1917,9 @@ class DomainNameListField(StrLenField):
 
     def i2m(self, pkt, x):
         def conditionalTrailingDot(z):
-            if z and z[-1] == b'\x00':
+            if z and z[-1] == '\x00':
                 return z
-            return z+b'\x00'
+            return z+'\x00'
         # Build the encode names
         tmp = [[chr(len(z)) + z for z in y.split('.')] for y in x]
         ret_string  = "".join(conditionalTrailingDot("".join(x)) for x in tmp)
@@ -2165,9 +2165,9 @@ def names2dnsrepr(x):
         termin = b"\x00"
         if n.count('.') == 0: # single-component gets one more
             termin += b'\x00'
-        n = "".join(chr(len(y)) + y for y in n.split('.')) + termin
+        n = b"".join(chr(len(y)) + y for y in n.split('.')) + termin
         res.append(n)
-    return "".join(res)
+    return b"".join(res)
 
 
 def dnsrepr2names(x):
@@ -2257,7 +2257,7 @@ class NIQueryDataField(StrField):
     def getfield(self, pkt, s):
         qtype = getattr(pkt, "qtype")
         if qtype == 0: # NOOP
-            return s, (0, "")
+            return s, (0, b"")
         else:
             code = getattr(pkt, "code")
             if code == 0:   # IPv6 Addr
@@ -2265,12 +2265,12 @@ class NIQueryDataField(StrField):
             elif code == 2: # IPv4 Addr
                 return s[4:], (2, inet_ntop(socket.AF_INET, s[:4]))
             else:           # Name or Unknown
-                return "", (1, s)
+                return b"", (1, s)
 
     def addfield(self, pkt, s, val):
         if ((isinstance(val, tuple) and val[1] is None) or
             val is None):
-            val = (1, "")
+            val = (1, b"")
         t = val[0]
         if t == 1:
             return s + val[1]
@@ -2403,31 +2403,31 @@ class NIReplyDataField(StrField):
     def addfield(self, pkt, s, val):
         t,tmp = val
         if tmp is None:
-            tmp = ""
+            tmp = b""
         if t == 2:
             ttl,dnsstr = tmp
             return s+ struct.pack("!I", ttl) + dnsstr
         elif t == 3:
-            return s + "".join(map(lambda x_y1: struct.pack("!I", x_y1[0])+inet_pton(socket.AF_INET6, x_y1[1]), tmp))
+            return s + b"".join(map(lambda x_y1: struct.pack("!I", x_y1[0])+inet_pton(socket.AF_INET6, x_y1[1]), tmp))
         elif t == 4:
-            return s + "".join(map(lambda x_y2: struct.pack("!I", x_y2[0])+inet_pton(socket.AF_INET, x_y2[1]), tmp))
+            return s + b"".join(map(lambda x_y2: struct.pack("!I", x_y2[0])+inet_pton(socket.AF_INET, x_y2[1]), tmp))
         else:
             return s + tmp
 
     def getfield(self, pkt, s):
         code = getattr(pkt, "code")
         if code != 0:
-            return s, (0, "")
+            return s, (0, b"")
 
         qtype = getattr(pkt, "qtype")
         if qtype == 0: # NOOP
-            return s, (0, "")
+            return s, (0, b"")
 
         elif qtype == 2:
             if len(s) < 4:
-                return s, (0, "")
+                return s, (0, b"")
             ttl = struct.unpack("!I", s[:4])[0]
-            return "", (2, [ttl, s[4:]])
+            return b"", (2, [ttl, s[4:]])
 
         elif qtype == 3: # IPv6 addresses with TTLs
             # XXX TODO : get the real length
@@ -2450,7 +2450,7 @@ class NIReplyDataField(StrField):
             return s, (4, res)
         else:
             # XXX TODO : implement me and deal with real length
-            return "", (0, s)
+            return b"", (0, s)
 
     def i2repr(self, pkt, x):
         if x is None:
@@ -2905,10 +2905,10 @@ class _MobilityOptionsField(PacketListField):
             autopad = 1
 
         if not autopad:
-            return "".join(map(str, x))
+            return b"".join(map(str, x))
 
         curpos = self.curpos
-        s = ""
+        s = b""
         for p in x:
             d = p.alignment_delta(curpos)
             curpos += d
@@ -3120,7 +3120,7 @@ class  AS_resolver6(AS_resolver_riswhois):
 
         _, asn, desc = AS_resolver_riswhois._resolve_one(self, addr)
 
-        if asn.startswith("AS"):
+        if asn.startswith(b"AS"):
             try:
                 asn = int(asn[2:])
             except ValueError:

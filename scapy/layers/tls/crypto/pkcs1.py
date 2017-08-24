@@ -79,8 +79,8 @@ def _legacy_pkcs1_v1_5_encode_md5_sha1(M, emLen):
         warning("pkcs_emsa_pkcs1_v1_5_encode: "
                 "intended encoded message length too short")
         return None
-    PS = '\xff'*(emLen - 36 - 3)
-    return '\x00' + '\x01' + PS + '\x00' + H
+    PS = b'\xff'*(emLen - 36 - 3)
+    return b'\x00' + b'\x01' + PS + b'\x00' + H
 
 
 #####################################################################

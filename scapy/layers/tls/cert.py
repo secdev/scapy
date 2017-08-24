@@ -66,24 +66,24 @@ _MAX_CRL_SIZE = 10*1024*1024   # some are that big
 def der2pem(der_string, obj="UNKNOWN"):
     """Convert DER octet string to PEM format (with optional header)"""
     # Encode a byte string in PEM format. Header advertizes <obj> type.
-    pem_string = "-----BEGIN %s-----\n" % obj
+    pem_string = b"-----BEGIN %s-----\n" % obj
     base64_string = base64.b64encode(der_string)
     chunks = [base64_string[i:i+64] for i in range(0, len(base64_string), 64)]
-    pem_string += '\n'.join(chunks)
-    pem_string += "\n-----END %s-----\n" % obj
+    pem_string += b'\n'.join(chunks)
+    pem_string += b"\n-----END %s-----\n" % obj
     return pem_string
 
 @conf.commands.register
 def pem2der(pem_string):
     """Convert PEM string to DER format"""
     # Encode all lines between the first '-----\n' and the 2nd-to-last '-----'.
-    pem_string = pem_string.replace("\r", "")
-    first_idx = pem_string.find("-----\n") + 6
-    if pem_string.find("-----BEGIN", first_idx) != -1:
+    pem_string = pem_string.replace(b"\r", b"")
+    first_idx = pem_string.find(b"-----\n") + 6
+    if pem_string.find(b"-----BEGIN", first_idx) != -1:
         raise Exception("pem2der() expects only one PEM-encoded object")
-    last_idx = pem_string.rfind("-----", 0, pem_string.rfind("-----"))
+    last_idx = pem_string.rfind(b"-----", 0, pem_string.rfind(b"-----"))
     base64_string = pem_string[first_idx:last_idx]
-    base64_string.replace("\n", "")
+    base64_string.replace(b"\n", b"")
     der_string = base64.b64decode(base64_string)
     return der_string
 
@@ -92,12 +92,12 @@ def split_pem(s):
     Split PEM objects. Useful to process concatenated certificates.
     """
     pem_strings = []
-    while s != "":
-        start_idx = s.find("-----BEGIN")
+    while s != b"":
+        start_idx = s.find(b"-----BEGIN")
         if start_idx == -1:
             break
-        end_idx = s.find("-----END")
-        end_idx = s.find("\n", end_idx) + 1
+        end_idx = s.find(b"-----END")
+        end_idx = s.find(b"\n", end_idx) + 1
         pem_strings.append(s[start_idx:end_idx])
         s = s[end_idx:]
     return pem_strings
@@ -143,11 +143,11 @@ class _PKIObjMaker(type):
             raw = obj_path
 
         try:
-            if "-----BEGIN" in raw:
+            if b"-----BEGIN" in raw:
                 frmt = "PEM"
                 pem = raw
                 der_list = split_pem(raw)
-                der = ''.join(map(pem2der, der_list))
+                der = b''.join(map(pem2der, der_list))
             else:
                 frmt = "DER"
                 der = raw

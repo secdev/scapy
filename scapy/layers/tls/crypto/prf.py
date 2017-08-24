@@ -38,7 +38,7 @@ def _tls_P_hash(secret, seed, req_len, hm):
     hash_len = hm.hash_alg.hash_len
     n = (req_len + hash_len - 1) / hash_len
 
-    res = ""
+    res = b""
     a = hm(secret).digest(seed)  # A(1)
 
     while n > 0:
@@ -71,7 +71,7 @@ def _sslv2_PRF(secret, seed, req_len):
     hash_md5 = _tls_hash_algs["MD5"]()
     rounds = (req_len + hash_md5.hash_len - 1) / hash_md5.hash_len
 
-    res = ""
+    res = b""
     if rounds == 1:
         res += hash_md5.digest(secret + seed)
     else:
