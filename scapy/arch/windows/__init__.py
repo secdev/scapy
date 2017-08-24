@@ -43,7 +43,7 @@ if not hasattr(socket, 'IPPROTO_GRE'):
 from scapy.arch import pcapdnet
 from scapy.arch.pcapdnet import *
 
-from scapy.consts import LOOPBACK_NAME
+import scapy.consts
 
 def is_new_release(ignoreVBS=False):
     if NEW_RELEASE and conf.prog.powershell is not None:
@@ -348,7 +348,7 @@ class NetworkInterface(object):
         try:
             if not self.ip:
                 self.ip=get_ip_from_name(data['name'])
-            if not self.ip and self.name == LOOPBACK_NAME:
+            if not self.ip and self.name == scapy.consts.LOOPBACK_NAME:
                 self.ip = "127.0.0.1"
             if not self.ip:
                 # No IP detected
@@ -456,7 +456,9 @@ class NetworkInterfaceDict(UserDict):
             self.remove_invalid_ifaces()
             # Replace LOOPBACK_INTERFACE
             try:
-                scapy.consts.LOOPBACK_INTERFACE = self.dev_from_name(LOOPBACK_NAME)
+                scapy.consts.LOOPBACK_INTERFACE = self.dev_from_name(
+                    scapy.consts.LOOPBACK_NAME,
+                )
             except:
                 pass
 
@@ -683,7 +685,7 @@ def in6_getifaddr():
 
 def _append_route6(routes, dpref, dp, nh, iface, lifaddr):
     cset = [] # candidate set (possible source addresses)
-    if iface.name == LOOPBACK_NAME:
+    if iface.name == scapy.consts.LOOPBACK_NAME:
         if dpref == '::':
             return
         cset = ['::1']
