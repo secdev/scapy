@@ -67,14 +67,15 @@ def _sndrcv_snd(pks, timeout, inter, verbose, tobesent, all_stimuli, stopevent):
         log_runtime.info("--- Error sending packets")
     if timeout is not None:
         stopevent.wait(timeout)
-        pks.close()
+        stopevent.set()
 
 
 def sndrcv(pks, pkt, timeout=None, inter=0, verbose=None, chainCC=False,
            retry=0, multi=False):
+    if conf.use_bpf:
+        from scapy.arch.bpf.supersocket import bpf_select
     if not isinstance(pkt, Gen):
         pkt = SetGen(pkt)
-        
     if verbose is None:
         verbose = conf.verb
     debug.recv = plist.PacketList([],"Unanswered")
@@ -108,25 +109,20 @@ def sndrcv(pks, pkt, timeout=None, inter=0, verbose=None, chainCC=False,
                   stopevent),
         )
         thread.start()
-        stoptime = 0
-        remaintime = None
         try:
             try:
                 while True:
-                    if stoptime:
-                        remaintime = stoptime-time.time()
-                        if remaintime <= 0:
-                            break
                     r = None
                     if WINDOWS:
                         r = pks.recv(MTU)
                     elif conf.use_bpf:
-                        from scapy.arch.bpf.supersocket import bpf_select
                         inp = bpf_select([pks])
                         if pks in inp:
                             r = pks.recv()
                     elif conf.use_pcap:
                         r = pks.nonblock_recv()
+                        if r is None:
+                            time.sleep(0.05)
                     elif not isinstance(pks, StreamSocket) and (
                             FREEBSD or DARWIN or OPENBSD
                     ):
@@ -136,17 +132,17 @@ def sndrcv(pks, pkt, timeout=None, inter=0, verbose=None, chainCC=False,
                     else:
                         inp = []
                         try:
-                            inp, _, _ = select([pks], [], [], remaintime)
+                            inp, _, _ = select([pks], [], [], 0.05)
                         except (IOError, select_error) as exc:
                             # select.error has no .errno attribute
                             if exc.args[0] != errno.EINTR:
                                 raise
-                        if len(inp) == 0:
+                        if not inp and stopevent.is_set():
                             break
                         if pks in inp:
                             r = pks.recv(MTU)
                     if r is None:
-                        if pks.closed:
+                        if stopevent.is_set():
                             break
                         continue
                     ok = 0
@@ -181,6 +177,7 @@ def sndrcv(pks, pkt, timeout=None, inter=0, verbose=None, chainCC=False,
         finally:
             stopevent.set()
             thread.join()
+            pks.close()
 
         remain = list(itertools.chain(*six.itervalues(hsent)))
         if multi:
