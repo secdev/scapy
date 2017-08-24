@@ -70,6 +70,14 @@ def _sndrcv_snd(pks, timeout, inter, verbose, tobesent, all_stimuli, stopevent):
         stopevent.set()
 
 
+class _BreakException(Exception):
+    """A dummy exception used in _get_pkt() to get out of the infinite
+loop
+
+    """
+    pass
+
+
 def sndrcv(pks, pkt, timeout=None, inter=0, verbose=None, chainCC=False,
            retry=0, multi=False):
     if conf.use_bpf:
@@ -103,49 +111,50 @@ def sndrcv(pks, pkt, timeout=None, inter=0, verbose=None, chainCC=False,
             timeout = None
         stopevent = threading.Event()
 
+        if WINDOWS:
+            def _get_pkt():
+                return pks.recv(MTU)
+        elif conf.use_bpf:
+            def _get_pkt():
+                if bpf_select([pks]):
+                    return pks.recv()
+        elif conf.use_pcap or (not isinstance(pks, StreamSocket)
+                               and (DARWIN or FREEBSD or OPENBSD)):
+            def _get_pkt():
+                res = pks.nonblock_recv()
+                if res is None:
+                    time.sleep(0.05)
+                return res
+        else:
+            def _get_pkt():
+                try:
+                    inp, _, _ = select([pks], [], [], 0.05)
+                except (IOError, select_error) as exc:
+                    # select.error has no .errno attribute
+                    if exc.args[0] != errno.EINTR:
+                        raise
+                else:
+                    if inp:
+                        return pks.recv(MTU)
+                if stopevent.is_set():
+                    raise _BreakException()
+
         thread = threading.Thread(
             target=_sndrcv_snd,
             args=(pks, timeout, inter, verbose, tobesent, all_stimuli,
                   stopevent),
         )
         thread.start()
+
         try:
             try:
                 while True:
-                    r = None
-                    if WINDOWS:
-                        r = pks.recv(MTU)
-                    elif conf.use_bpf:
-                        inp = bpf_select([pks])
-                        if pks in inp:
-                            r = pks.recv()
-                    elif conf.use_pcap:
-                        r = pks.nonblock_recv()
-                        if r is None:
-                            time.sleep(0.05)
-                    elif not isinstance(pks, StreamSocket) and (
-                            FREEBSD or DARWIN or OPENBSD
-                    ):
-                        inp, _, _ = select([pks], [], [], 0.05)
-                        if len(inp) == 0 or pks in inp:
-                            r = pks.nonblock_recv()
-                    else:
-                        inp = []
-                        try:
-                            inp, _, _ = select([pks], [], [], 0.05)
-                        except (IOError, select_error) as exc:
-                            # select.error has no .errno attribute
-                            if exc.args[0] != errno.EINTR:
-                                raise
-                        if not inp and stopevent.is_set():
-                            break
-                        if pks in inp:
-                            r = pks.recv(MTU)
+                    r = _get_pkt()
                     if r is None:
                         if stopevent.is_set():
                             break
                         continue
-                    ok = 0
+                    ok = False
                     h = r.hashret()
                     if h in hsent:
                         hlst = hsent[h]
@@ -154,7 +163,7 @@ def sndrcv(pks, pkt, timeout=None, inter=0, verbose=None, chainCC=False,
                                 ans.append((sentpkt, r))
                                 if verbose > 1:
                                     os.write(1, b"*")
-                                ok = 1
+                                ok = True
                                 if not multi:
                                     del hlst[i]
                                     notans -= 1
@@ -174,6 +183,8 @@ def sndrcv(pks, pkt, timeout=None, inter=0, verbose=None, chainCC=False,
             except KeyboardInterrupt:
                 if chainCC:
                     raise
+            except _BreakException:
+                pass
         finally:
             stopevent.set()
             thread.join()
