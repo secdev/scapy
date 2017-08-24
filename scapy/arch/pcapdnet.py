@@ -7,6 +7,7 @@
 Packet sending and receiving with libdnet and libpcap/WinPcap.
 """
 
+from __future__ import unicode_literals
 import time, struct, sys, platform
 import socket
 if not sys.platform.startswith("win"):
@@ -41,7 +42,7 @@ if conf.use_winpcapy:
           finally:
               pcap_freealldevs(devs)
       # Detect Pcap version
-      version = pcap_lib_version()
+      version = pcap_lib_version().decode("ascii")
       if "winpcap" in version.lower():
           if os.path.exists(os.environ["WINDIR"] + "\\System32\\Npcap\\wpcap.dll"):
               warning("Winpcap is installed over Npcap. Will use Winpcap (see 'Winpcap/Npcap conflicts' in scapy's docs)", True)

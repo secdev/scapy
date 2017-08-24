@@ -16,6 +16,6 @@ def get_if(iff, cmd):
     """Ease SIOCGIF* ioctl calls"""
 
     sck = socket.socket()
-    ifreq = ioctl(sck, cmd, struct.pack("16s16x", iff))
+    ifreq = ioctl(sck, cmd, struct.pack("16s16x", iff.encode("ascii")))
     sck.close()
     return ifreq
