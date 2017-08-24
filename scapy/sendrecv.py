@@ -153,7 +153,7 @@ def sndrcv(pks, pkt, timeout=None, inter=0, verbose=None, chainCC=False,
                             if r.answers(sentpkt):
                                 ans.append((sentpkt, r))
                                 if verbose > 1:
-                                    os.write(1, "*")
+                                    os.write(1, b"*")
                                 ok = 1
                                 if not multi:
                                     del hlst[i]
@@ -167,7 +167,7 @@ def sndrcv(pks, pkt, timeout=None, inter=0, verbose=None, chainCC=False,
                         break
                     if not ok:
                         if verbose > 1:
-                            os.write(1, ".")
+                            os.write(1, b".")
                         nbrecv += 1
                         if conf.debug_match:
                             debug.recv.append(r)

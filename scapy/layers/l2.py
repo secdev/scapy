@@ -468,7 +468,7 @@ arpcachepoison(target, victim, [interval=60]) -> None
         while True:
             sendp(p, iface_hint=target)
             if conf.verb > 1:
-                os.write(1,".")
+                os.write(1, b".")
             time.sleep(interval)
     except KeyboardInterrupt:
         pass
