@@ -11,7 +11,7 @@ from __future__ import absolute_import
 import types,itertools,time,os,sys,socket,traceback
 from select import select
 from collections import deque
-import threading, thread
+import threading
 from scapy.config import conf
 from scapy.utils import do_graph
 from scapy.error import log_interactive
@@ -20,6 +20,13 @@ from scapy.data import MTU
 from scapy.supersocket import SuperSocket
 from scapy.consts import WINDOWS
 import scapy.modules.six as six
+
+try:
+    import thread
+except ImportError:
+    THREAD_EXCEPTION = RuntimeError
+else:
+    THREAD_EXCEPTION = thread.error
 
 """ In Windows, select.select is not available for custom objects. Here's the implementation of scapy to re-create this functionnality
 # Passive way: using no-ressources locks
@@ -86,7 +93,7 @@ class SelectableObject:
         self.was_ended = arborted
         try:
             self.trigger.release()
-        except thread.error:
+        except THREAD_EXCEPTION as e:
             pass
 
 class SelectableSelector(object):
@@ -95,7 +102,7 @@ class SelectableSelector(object):
     
     inputs: objects to process
     remain: timeout. If 0, return [].
-    customTypes: types of the objects that have the checkRecv function.
+    customTypes: types of the objects that have the check_recv function.
     """
     results = None
     inputs = None
@@ -160,7 +167,7 @@ def select_objects(inputs, remain):
     
     inputs: objects to process
     remain: timeout. If 0, return [].
-    customTypes: types of the objects that have the checkRecv function.
+    customTypes: types of the objects that have the check_recv function.
     """
     handler = SelectableSelector(inputs, remain)
     return handler.process()
@@ -503,7 +510,7 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
         def fileno(self):
             return self.rd
         def check_recv(self):
-            return self.rd.checkRecv()
+            return self.rd.check_recv()
         def read(self, n=65535):
             if WINDOWS:
                 return self.rd.recv(n)
@@ -518,7 +525,7 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
         def send(self, msg):
             return self.write(msg)
 
-    class _IO_mixer:
+    class _IO_mixer(SelectableObject):
         def __init__(self,rd,wr):
             self.rd = rd
             self.wr = wr
@@ -526,12 +533,15 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
             if isinstance(self.rd, int):
                 return self.rd
             return self.rd.fileno()
+        def check_recv(self):
+            return self.rd.check_recv()
         def recv(self, n=None):
             return self.rd.recv(n)
         def read(self, n=None):
             return self.recv(n)
         def send(self, msg):
-            return self.wr.send(msg)
+            self.wr.send(msg)
+            return self.call_release()
         def write(self, msg):
             return self.send(msg)
 
@@ -626,7 +636,7 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
             elif not isinstance(ioin, types.InstanceType):
                 ioin = self._IO_fdwrapper(ioin,None)
             if ioout is None:
-                ioout = ObjectPipe()
+                ioout = ioin if WINDOWS else ObjectPipe()
             elif not isinstance(ioout, types.InstanceType):
                 ioout = self._IO_fdwrapper(None,ioout)
 
@@ -709,7 +719,7 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
                     elif c.type == _ATMT_Command.STOP:
                         break
                     while True:
-                        state = iterator.next()
+                        state = next(iterator)
                         if isinstance(state, self.CommandMessage):
                             break
                         elif isinstance(state, self.Breakpoint):
@@ -767,7 +777,7 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
     
                 # Finally listen and pay attention to timeouts
                 expirations = iter(self.timeout[self.state.state])
-                next_timeout,timeout_func = expirations.next()
+                next_timeout,timeout_func = next(expirations)
                 t0 = time.time()
                 
                 fds = [self.cmdin]
@@ -780,7 +790,7 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
                     if next_timeout is not None:
                         if next_timeout <= t:
                             self._run_condition(timeout_func, *state_output)
-                            next_timeout,timeout_func = expirations.next()
+                            next_timeout,timeout_func = next(expirations)
                     if next_timeout is None:
                         remain = None
                     else:
@@ -868,6 +878,7 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
 
     def next(self):
         return self.run(resume = Message(type=_ATMT_Command.NEXT))
+    __next__ = next
 
     def stop(self):
         self.cmdin.send(Message(type=_ATMT_Command.STOP))
