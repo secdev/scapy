@@ -14,20 +14,19 @@ import threading
 import os
 from select import select, error as select_error
 import subprocess
-import sys
 import time
 
 from scapy.consts import DARWIN, FREEBSD, OPENBSD, WINDOWS
 from scapy.data import ETH_P_ALL, MTU
-from scapy.config import conf, CacheInstance
+from scapy.config import conf
 from scapy.packet import Gen
 from scapy.utils import get_temp_file, PcapReader, tcpdump, wrpcap
 from scapy import plist
-from scapy.error import log_runtime, log_interactive, warning
+from scapy.error import log_runtime, log_interactive
 from scapy.base_classes import SetGen
 from scapy.supersocket import StreamSocket
 import scapy.modules.six as six
-from scapy.modules.six.moves import map, zip
+from scapy.modules.six.moves import map
 if conf.route is None:
     # unused import, only to initialize conf.route
     import scapy.route
