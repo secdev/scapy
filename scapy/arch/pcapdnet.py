@@ -7,7 +7,7 @@
 Packet sending and receiving with libdnet and libpcap/WinPcap.
 """
 
-import time, struct, sys, platform
+import time, struct, sys, platform, ctypes, select
 import socket
 if not sys.platform.startswith("win"):
     from fcntl import ioctl
@@ -157,9 +157,23 @@ if conf.use_winpcapy:
           return pcap_datalink(self.pcap)
       def fileno(self):
           if sys.platform.startswith("win"):
-            log_loading.error("Cannot get selectable PCAP fd on Windows")
+            log_loading.error("Cannot get selectable PCAP fd on Windows. "
+                              "Use L2socket/L3socket select() function instead !")
             return 0
-          return pcap_get_selectable_fd(self.pcap) 
+          return pcap_get_selectable_fd(self.pcap)
+      def select(self, socket, timeout):
+          if timeout <= 0:
+              return []
+          if WINDOWS:
+              # Following https://www.winpcap.org/pipermail/winpcap-users/2007-February/001722.html
+              # We get the HANDLE of the socket, then wait for it through the Windows API
+              status = ctypes.windll.kernel32.WaitForSingleObject(pcap_getevent(self.pcap), int(timeout*1000))
+              if status == 0:
+                  return [socket]
+              return []
+          else:
+              r,_,_ = select.select([socket],[],[],timeout)
+              return r
       def setfilter(self, f):
           filter_exp = create_string_buffer(f)
           if pcap_compile(self.pcap, byref(self.bpf_program), filter_exp, 0, -1) == -1:
@@ -408,6 +422,7 @@ if conf.use_pcap:
                         return (s+0.000001*us), p
                 __next__ = next
                 def fileno(self):
+                    # TODO: Add it once https://github.com/CoreSecurity/pcapy/pull/22
                     warning("fileno: pcapy API does not permit to get capure file descriptor. Bugs ahead! Press Enter to trigger packet reading")
                     return 0
                 def __getattr__(self, attr):

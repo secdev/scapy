@@ -694,6 +694,31 @@ assert x[IP].ottl() in [32, 64, 128, 255]
 assert 0 <= x[IP].hops() <= 126
 x is not None and ICMP in x and x[ICMP].type == 0
 
+= Sending and receiving an ICMP using flooding methods
+~ netaccess IP ICMP
+old_debug_dissector = conf.debug_dissector
+conf.debug_dissector = False
+a = srpflood(Ether()/IP(dst="www.google.com")/ICMP(), timeout=1)
+conf.debug_dissector = old_debug_dissector
+a
+assert len(a) > 5
+x = a[0][0]
+assert x[IP].ottl() in [32, 64, 128, 255]
+assert 0 <= x[IP].hops() <= 126
+x is not None and ICMP in x
+
+= Sending and receiving an ICMP using loop methods
+~ netaccess IP ICMP
+old_debug_dissector = conf.debug_dissector
+conf.debug_dissector = False
+a = srploop(Ether()/IP(dst="www.google.com")/ICMP(), timeout=1, loop_timeout=3)
+conf.debug_dissector = old_debug_dissector
+a
+x = a[0][0][0]
+assert x[IP].ottl() in [32, 64, 128, 255]
+assert 0 <= x[IP].hops() <= 126
+x is not None and ICMP in x
+
 = DNS request
 ~ netaccess IP UDP DNS
 * A possible cause of failure could be that the open DNS (resolver1.opendns.com)

@@ -416,7 +416,7 @@ iface:    work only on the given interface"""
     else:
         return None
 
-def __sr_loop(srfunc, pkts, prn=lambda x:x[1].summary(), prnfail=lambda x:x.summary(), inter=1, timeout=None, count=None, verbose=None, store=1, *args, **kargs):
+def __sr_loop(srfunc, pkts, prn=lambda x:x[1].summary(), prnfail=lambda x:x.summary(), inter=1, timeout=None, loop_timeout=None, count=None, verbose=None, store=1, *args, **kargs):
     n = 0
     r = 0
     ct = conf.color_theme
@@ -427,8 +427,14 @@ def __sr_loop(srfunc, pkts, prn=lambda x:x[1].summary(), prnfail=lambda x:x.summ
     unans=[]
     if timeout is None:
         timeout = min(2*inter, 5)
+    if loop_timeout is not None:
+        stoptime = time.time()+loop_timeout
     try:
         while True:
+            if loop_timeout is not None:
+                remain = stoptime-time.time()
+                if remain <= 0:
+                    break
             parity ^= 1
             col = [ct.even,ct.odd][parity]
             if count is not None:
@@ -477,11 +483,11 @@ srloop(pkts, [prn], [inter], [count], ...) --> None"""
 @conf.commands.register
 def srploop(pkts, *args, **kargs):
     """Send a packet at layer 2 in loop and print the answer each time
-srloop(pkts, [prn], [inter], [count], ...) --> None"""
+srploop(pkts, [prn], [inter], [count], ...) --> None"""
     return __sr_loop(srp, pkts, *args, **kargs)
 
 
-def sndrcvflood(pks, pkt, prn=lambda s_r:s_r[1].summary(), chainCC=0, store=1, unique=0):
+def sndrcvflood(pks, pkt, prn=lambda s_r:s_r[1].summary(), chainCC=0, store=1, unique=0, timeout=None):
     if not isinstance(pkt, Gen):
         pkt = SetGen(pkt)
     tobesent = [p for p in pkt]
@@ -505,8 +511,15 @@ def sndrcvflood(pks, pkt, prn=lambda s_r:s_r[1].summary(), chainCC=0, store=1, u
 
     ssock = rsock = pks.fileno()
 
+    if timeout is not None:
+        stoptime = time.time()+timeout
+
     try:
         while True:
+            if timeout is not None:
+                remain = stoptime-time.time()
+                if remain <= 0:
+                    break
             if conf.use_bpf:
                 from scapy.arch.bpf.supersocket import bpf_select
                 readyr = bpf_select([rsock])

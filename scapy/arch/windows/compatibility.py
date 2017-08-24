@@ -30,6 +30,7 @@ import scapy.modules.six as six
 WINDOWS = True
 
 def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0, retry=0, multi=0):
+    # Function to send or recieve a packet through the pks socket
     if not isinstance(pkt, Gen):
         pkt = SetGen(pkt)
         
@@ -170,9 +171,64 @@ def sndrcv(pks, pkt, timeout = 2, inter = 0, verbose=None, chainCC=0, retry=0, m
         print("\nReceived %i packets, got %i answers, remaining %i packets" % (nbrecv+len(ans), len(ans), notans))
     return plist.SndRcvList(ans),plist.PacketList(remain,"Unanswered")
 
+def sndrcvflood(pks, pkt, prn=lambda s_r: s_r[1].summary(), chainCC=0, store=1, unique=0, timeout=None):
+    # Function to send or recieve a packet by flooding it through the pks socket
+    if not isinstance(pkt, Gen):
+        pkt = SetGen(pkt)
+    tobesent = [p for p in pkt]
+    received = plist.SndRcvList()
+    seen = {}
+    hsent = {}
+    
+    for i in tobesent:
+        h = i.hashret()
+        if h in hsent:
+            hsent[h].append(i)
+        else:
+            hsent[h] = [i]
+
+    def send_in_loop(tobesent):
+        while True:
+            for p in tobesent:
+                yield p
+
+    packets_to_send = send_in_loop(tobesent)
+
+    if timeout is not None:
+        stoptime = time.time()+timeout
+
+    try:
+        while True:
+            if timeout is not None:
+                remain = stoptime-time.time()
+                if remain <= 0:
+                    break
+            pks.send(packets_to_send.next())
+            p = pks.recv(MTU)
+            if p is None:
+                continue
+            h = p.hashret()
+            if h in hsent:
+                hlst = hsent[h]
+                for i in hlst:
+                    if p.answers(i):
+                        res = prn((i,p))
+                        if unique:
+                            if res in seen:
+                                continue
+                            seen[res] = None
+                        if res is not None:
+                            print res
+                        if store:
+                            received.append((i,p))
+    except KeyboardInterrupt:
+        if chainCC:
+            raise
+    return received
 
 import scapy.sendrecv as sendrecv
 sendrecv.sndrcv = sndrcv
+sendrecv.sndrcvflood = sndrcvflood
 
 def sniff(count=0, store=1, offline=None, prn = None, stop_filter=None, lfilter=None, L2socket=None, timeout=None, *arg, **karg):
     """Sniff packets

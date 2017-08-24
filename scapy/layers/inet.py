@@ -1669,7 +1669,7 @@ def fragleak(target,sport=123, dport=123, timeout=0.2, onlyasc=0):
             try:
                 if not intr:
                     s.send(pkt)
-                sin,sout,serr = select([s],[],[],timeout)
+                sin = s.select(timeout)
                 if not sin:
                     continue
                 ans=s.recv(1600)
