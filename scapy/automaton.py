@@ -23,8 +23,10 @@ import scapy.modules.six as six
 
 try:
     import thread
-except:
-    pass
+except ImportError:
+    THREAD_EXCEPTION = RuntimeError
+else:
+    THREAD_EXCEPTION = thread.error
 
 """ In Windows, select.select is not available for custom objects. Here's the implementation of scapy to re-create this functionnality
 # Passive way: using no-ressources locks
@@ -91,9 +93,8 @@ class SelectableObject:
         self.was_ended = arborted
         try:
             self.trigger.release()
-        except Exception as e:
-            if not isinstance(e, RuntimeError) and not (six.PY2 and isinstance(e, thread.error)):
-                raise
+        except THREAD_EXCEPTION as e:
+            pass
 
 class SelectableSelector(object):
     """
@@ -634,10 +635,8 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
                 ioin = ObjectPipe()
             elif not isinstance(ioin, types.InstanceType):
                 ioin = self._IO_fdwrapper(ioin,None)
-            if ioout is None and not WINDOWS:
-                ioout = ObjectPipe()
-            elif ioout is None:
-                ioout = ioin
+            if ioout is None:
+                ioout = ioin if WINDOWS else ObjectPipe()
             elif not isinstance(ioout, types.InstanceType):
                 ioout = self._IO_fdwrapper(None,ioout)
 
