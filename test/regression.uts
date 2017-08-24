@@ -362,6 +362,9 @@ _read_config_file(fname)
 assert(conf.verb == 42)
 conf.verb = saved_conf_verb
 
+= Test CacheInstance repr
+
+conf.netcache
 
 
 ############
