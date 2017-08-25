@@ -10,8 +10,6 @@ Main module for interactive startup.
 from __future__ import absolute_import
 from __future__ import print_function
 
-
-import atexit
 import code
 import getopt
 import glob
@@ -25,12 +23,11 @@ import sys
 import types
 
 
-from scapy.config import conf
+# Do not add any imports here that would trigger a warning messsage
+# Before the console handlers gets added in interact()
 from scapy.error import log_interactive, log_loading, log_scapy, warning
 import scapy.modules.six as six
 from scapy.themes import DefaultTheme
-from scapy import utils
-
 
 IGNORED = list(six.moves.builtins.__dict__)
 
@@ -182,6 +179,7 @@ def list_contrib(name=None):
 
 
 def save_session(fname=None, session=None, pickleProto=-1):
+    from scapy import utils
     if fname is None:
         fname = conf.session
         if not fname:
@@ -317,15 +315,16 @@ to be used in the fancy prompt.
 def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
     global SESSION
     global GLOBKEYS
-    conf.interactive = True
-    if loglevel is not None:
-        conf.logLevel=loglevel
 
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
     log_scapy.addHandler(console_handler)
 
+    from scapy.config import conf
     conf.color_theme = DefaultTheme()
+    conf.interactive = True
+    if loglevel is not None:
+        conf.logLevel=loglevel
 
     STARTUP_FILE = DEFAULT_STARTUP_FILE
     PRESTART_FILE = DEFAULT_PRESTART_FILE
