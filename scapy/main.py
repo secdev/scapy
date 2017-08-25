@@ -447,9 +447,14 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
                    return [(Token.Prompt, '>>> '),]
                 def out_prompt_tokens(self):
                    return [(Token.OutPrompt, ''),]
-
             cfg.TerminalInteractiveShell.prompts_class=ClassicPrompt
+            cfg.TerminalInteractiveShell.highlighting_style_overrides = {
+                Token.Prompt: "#ansiwhite",
+            }
+            cfg.TerminalInteractiveShell.confirm_exit = False
 
+        cfg.TerminalInteractiveShell.hist_file = conf.histfile
+        
         # configuration can thus be specified here.
         ipshell = InteractiveShellEmbed(config=cfg,
                                         banner1=banner,
