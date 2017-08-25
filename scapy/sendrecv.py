@@ -47,7 +47,8 @@ class debug:
 ####################
 
 
-def _sndrcv_snd(pks, timeout, inter, verbose, tobesent, all_stimuli, stopevent):
+def _sndrcv_snd(pks, timeout, inter, verbose, tobesent, stopevent):
+    """Function used in the sending thread of sndrcv()"""
     try:
         i = 0
         if verbose:
@@ -63,8 +64,7 @@ def _sndrcv_snd(pks, timeout, inter, verbose, tobesent, all_stimuli, stopevent):
     except KeyboardInterrupt:
         pass
     except:
-        log_runtime.exception("--- Error sending packets")
-        log_runtime.info("--- Error sending packets")
+        log_runtime.info("--- Error sending packets", exc_info=True)
     if timeout is not None:
         stopevent.wait(timeout)
         stopevent.set()
@@ -80,8 +80,6 @@ loop
 
 def sndrcv(pks, pkt, timeout=None, inter=0, verbose=None, chainCC=False,
            retry=0, multi=False):
-    if conf.use_bpf:
-        from scapy.arch.bpf.supersocket import bpf_select
     if not isinstance(pkt, Gen):
         pkt = SetGen(pkt)
     if verbose is None:
@@ -92,7 +90,7 @@ def sndrcv(pks, pkt, timeout=None, inter=0, verbose=None, chainCC=False,
     nbrecv=0
     ans = []
     # do it here to fix random fields, so that parent and child have the same
-    all_stimuli = tobesent = [p for p in pkt]
+    tobesent = [p for p in pkt]
     notans = len(tobesent)
 
     hsent={}
@@ -106,43 +104,43 @@ def sndrcv(pks, pkt, timeout=None, inter=0, verbose=None, chainCC=False,
     else:
         autostop = 0
 
+    if WINDOWS:
+        def _get_pkt():
+            return pks.recv(MTU)
+    elif conf.use_bpf:
+        from scapy.arch.bpf.supersocket import bpf_select
+        def _get_pkt():
+            if bpf_select([pks]):
+                return pks.recv()
+    elif conf.use_pcap or (not isinstance(pks, StreamSocket)
+                           and (DARWIN or FREEBSD or OPENBSD)):
+        def _get_pkt():
+            res = pks.nonblock_recv()
+            if res is None:
+                time.sleep(0.05)
+            return res
+    else:
+        def _get_pkt():
+            try:
+                inp, _, _ = select([pks], [], [], 0.05)
+            except (IOError, select_error) as exc:
+                # select.error has no .errno attribute
+                if exc.args[0] != errno.EINTR:
+                    raise
+            else:
+                if inp:
+                    return pks.recv(MTU)
+            if stopevent.is_set():
+                raise _BreakException()
+
     while retry >= 0:
         if timeout < 0:
             timeout = None
         stopevent = threading.Event()
 
-        if WINDOWS:
-            def _get_pkt():
-                return pks.recv(MTU)
-        elif conf.use_bpf:
-            def _get_pkt():
-                if bpf_select([pks]):
-                    return pks.recv()
-        elif conf.use_pcap or (not isinstance(pks, StreamSocket)
-                               and (DARWIN or FREEBSD or OPENBSD)):
-            def _get_pkt():
-                res = pks.nonblock_recv()
-                if res is None:
-                    time.sleep(0.05)
-                return res
-        else:
-            def _get_pkt():
-                try:
-                    inp, _, _ = select([pks], [], [], 0.05)
-                except (IOError, select_error) as exc:
-                    # select.error has no .errno attribute
-                    if exc.args[0] != errno.EINTR:
-                        raise
-                else:
-                    if inp:
-                        return pks.recv(MTU)
-                if stopevent.is_set():
-                    raise _BreakException()
-
         thread = threading.Thread(
             target=_sndrcv_snd,
-            args=(pks, timeout, inter, verbose, tobesent, all_stimuli,
-                  stopevent),
+            args=(pks, timeout, inter, verbose, tobesent, stopevent),
         )
         thread.start()
 
@@ -203,7 +201,7 @@ def sndrcv(pks, pkt, timeout=None, inter=0, verbose=None, chainCC=False,
         retry -= 1
 
     if conf.debug_match:
-        debug.sent=plist.PacketList(remain[:],"Sent")
+        debug.sent=plist.PacketList(remain[:], "Sent")
         debug.match=plist.SndRcvList(ans[:])
 
     # Clean the ans list to delete the field _answered
@@ -565,33 +563,49 @@ iface:    listen answers only on the given interface"""
 def sniff(count=0, store=True, offline=None, prn=None, lfilter=None,
           L2socket=None, timeout=None, opened_socket=None,
           stop_filter=None, iface=None, *arg, **karg):
-    """Sniff packets
-sniff([count=0,] [prn=None,] [store=1,] [offline=None,]
-[lfilter=None,] + L2ListenSocket args) -> list of packets
+    """
 
-count:         number of packets to capture. 0 means infinity
-store:         whether to store sniffed packets or discard them
-prn:           function to apply to each packet. If something is returned, it
-                 is displayed.
-                 Ex: prn = lambda x: x.summary()
-filter:        BPF filter
-lfilter:       python function applied to each packet to determine if further
-                 action may be done
-                 Ex: lfilter = lambda x: x.haslayer(Padding)
-offline:       pcap file (or list of pcap files) to read packets from, instead
-                 of sniffing them
-timeout:       stop sniffing after a given time (default: None)
-L2socket:      use the provided L2socket (default: use conf.L2listen)
-opened_socket: provide an object (or a list of objects) ready to use .recv() on
-stop_filter:   python function applied to each packet to determine if we have
-                 to stop the capture after this packet.
-                 Ex: stop_filter = lambda x: x.haslayer(TCP)
-iface:         interface or list of interfaces (default: None for sniffing on
-                 all interfaces)
+Sniff packets and return a list of packets.
+
+Arguments:
+
+  count: number of packets to capture. 0 means infinity.
+
+  store: whether to store sniffed packets or discard them
+
+  prn: function to apply to each packet. If something is returned, it
+      is displayed.
+
+      Ex: prn = lambda x: x.summary()
+
+  filter: BPF filter to apply.
+
+  lfilter: Python function applied to each packet to determine if
+      further action may be done.
+
+      Ex: lfilter = lambda x: x.haslayer(Padding)
+
+  offline: PCAP file (or list of PCAP files) to read packets from,
+      instead of sniffing them
+
+  timeout: stop sniffing after a given time (default: None).
+
+  L2socket: use the provided L2socket (default: use conf.L2listen).
+
+  opened_socket: provide an object (or a list of objects) ready to use
+      .recv() on.
+
+  stop_filter: Python function applied to each packet to determine if
+      we have to stop the capture after this packet.
+
+      Ex: stop_filter = lambda x: x.haslayer(TCP)
+
+  iface: interface or list of interfaces (default: None for sniffing
+      on all interfaces).
 
 The iface, offline and opened_socket parameters can be either an
 element, a list of elements, or a dict object mapping an element to a
-label (see examples below)
+label (see examples below).
 
 Examples:
 
@@ -602,14 +616,14 @@ Examples:
   >>> sniff(iface="eth0", prn=Packet.summary)
 
   >>> sniff(iface=["eth0", "mon0"],
-  ...       prn=lambda pkt: "%s: %s" % (pkt.sniffed_on, pkt.summary()))
+  ...       prn=lambda pkt: "%s: %s" % (pkt.sniffed_on,
+  ...                                   pkt.summary()))
 
   >>> sniff(iface={"eth0": "Ethernet", "mon0": "Wifi"},
-  ...       prn=lambda pkt: "%s: %s" % (pkt.sniffed_on, pkt.summary()))
+  ...       prn=lambda pkt: "%s: %s" % (pkt.sniffed_on,
+  ...                                   pkt.summary()))
 
     """
-    if conf.use_bpf:
-        from scapy.arch.bpf.supersocket import bpf_select
     c = 0
     sniff_sockets = {}  # socket: label dict
     if opened_socket is not None:
@@ -660,6 +674,7 @@ Examples:
     remain = None
     read_allowed_exceptions = ()
     if conf.use_bpf:
+        from scapy.arch.bpf.supersocket import bpf_select
         def _select(sockets):
             return bpf_select(sockets, remain)
     elif WINDOWS:
@@ -680,7 +695,6 @@ Examples:
                     return []
                 raise
     try:
-        stop_event = False
         while sniff_sockets:
             if timeout is not None:
                 remain = stoptime-time.time()
@@ -720,9 +734,9 @@ Examples:
 
 
 @conf.commands.register
-def bridge_and_sniff(if1, if2, count=0, store=1, offline=None, prn=None, 
-                     lfilter=None, L2socket=None, timeout=None,
-                     stop_filter=None, *args, **kargs):
+def bridge_and_sniff(if1, if2, count=0, store=1, prn=None, lfilter=None,
+                     L2socket=None, timeout=None, stop_filter=None, *args,
+                     **kargs):
     """Forward traffic between two interfaces and sniff packets exchanged
 bridge_and_sniff([count=0,] [prn=None,] [store=1,] [offline=None,] 
 [lfilter=None,] + L2Socket args) -> list of packets
