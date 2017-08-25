@@ -27,7 +27,7 @@ import types
 # Before the console handlers gets added in interact()
 from scapy.error import log_interactive, log_loading, log_scapy, warning
 import scapy.modules.six as six
-from scapy.themes import DefaultTheme
+from scapy.themes import DefaultTheme, apply_ipython_color
 
 IGNORED = list(six.moves.builtins.__dict__)
 
@@ -432,11 +432,17 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
 
     if IPYTHON:
         banner = the_banner + " using IPython %s" % IPython.__version__
-        from IPython.terminal.prompts import Prompts, Token
-        from traitlets.config.loader import Config
         from IPython.terminal.embed import InteractiveShellEmbed
+        from IPython.terminal.prompts import Prompts, Token
+        from IPython.utils.generics import complete_object
+        from traitlets.config.loader import Config
+        from scapy.packet import Packet
 
         cfg = Config()
+
+        @complete_object.when_type(Packet)
+        def complete_packet(obj, prev_completions):
+            return prev_completions + [fld.name for fld in obj.fields_desc]
 
         try:
             get_ipython
@@ -448,9 +454,7 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
                 def out_prompt_tokens(self):
                    return [(Token.OutPrompt, ''),]
             cfg.TerminalInteractiveShell.prompts_class=ClassicPrompt
-            cfg.TerminalInteractiveShell.highlighting_style_overrides = {
-                Token.Prompt: "#ansiwhite",
-            }
+            apply_ipython_color(shell=cfg.TerminalInteractiveShell)
             cfg.TerminalInteractiveShell.confirm_exit = False
 
         cfg.TerminalInteractiveShell.hist_file = conf.histfile

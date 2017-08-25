@@ -14,7 +14,7 @@ import os,time,socket,sys
 from scapy import VERSION
 from scapy.data import *
 from scapy import base_classes
-from scapy import themes
+from scapy.themes import NoTheme, apply_ipython_color
 from scapy.error import log_scapy
 import scapy.modules.six as six
 
@@ -326,21 +326,13 @@ def isCryptographyAdvanced():
     else:
         return True
 
-
-def _prompt_changer(attr,val):
-    prompt = conf.prompt
-    try:
-        ct = val
-        if isinstance(ct, themes.AnsiColorTheme) and ct.prompt(""):
-            ## ^A and ^B delimit invisible characters for readline to count right.
-            ## And we need ct.prompt() to do change something or else ^A and ^B will be
-            ## displayed
-             prompt = "\001%s\002" % ct.prompt("\002"+prompt+"\001")
-        else:
-            prompt = ct.prompt(prompt)
-    except:
-        pass
+def _prompt_changer(attr, val):
+    prompt = val or conf.prompt
     sys.ps1 = prompt
+    try:
+        apply_ipython_color(get_ipython())
+    except NameError:
+        pass
 
 class Conf(ConfClass):
     """This object contains the configuration of Scapy.
@@ -414,7 +406,7 @@ debug_tls:When 1, print some TLS session secrets when they are computed.
     route6 = None # Filed by route6.py
     auto_fragment = 1
     debug_dissector = 0
-    color_theme = Interceptor("color_theme", themes.NoTheme(), _prompt_changer)
+    color_theme = Interceptor("color_theme", NoTheme(), _prompt_changer)
     warning_threshold = 5
     warning_next_only_once = False
     prog = ProgPath()
