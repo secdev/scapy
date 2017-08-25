@@ -27,6 +27,7 @@ from scapy.base_classes import SetGen
 from scapy.supersocket import StreamSocket
 import scapy.modules.six as six
 from scapy.modules.six.moves import map
+from scapy.modules.six import iteritems
 if conf.route is None:
     # unused import, only to initialize conf.route
     import scapy.route
@@ -561,94 +562,155 @@ iface:    listen answers only on the given interface"""
 
 
 @conf.commands.register
-def sniff(count=0, store=1, offline=None, prn=None, lfilter=None,
+def sniff(count=0, store=True, offline=None, prn=None, lfilter=None,
           L2socket=None, timeout=None, opened_socket=None,
           stop_filter=None, iface=None, *arg, **karg):
     """Sniff packets
 sniff([count=0,] [prn=None,] [store=1,] [offline=None,]
 [lfilter=None,] + L2ListenSocket args) -> list of packets
 
-  count: number of packets to capture. 0 means infinity
-  store: whether to store sniffed packets or discard them
-    prn: function to apply to each packet. If something is returned,
-         it is displayed. Ex:
-         ex: prn = lambda x: x.summary()
- filter: provide a BPF filter
-lfilter: python function applied to each packet to determine
-         if further action may be done
-         ex: lfilter = lambda x: x.haslayer(Padding)
-offline: pcap file to read packets from, instead of sniffing them
-timeout: stop sniffing after a given time (default: None)
-L2socket: use the provided L2socket
-opened_socket: provide an object ready to use .recv() on
-stop_filter: python function applied to each packet to determine
-             if we have to stop the capture after this packet
-             ex: stop_filter = lambda x: x.haslayer(TCP)
-iface: interface or list of interfaces (default: None for sniffing on all
-interfaces)
+count:         number of packets to capture. 0 means infinity
+store:         whether to store sniffed packets or discard them
+prn:           function to apply to each packet. If something is returned, it
+                 is displayed.
+                 Ex: prn = lambda x: x.summary()
+filter:        BPF filter
+lfilter:       python function applied to each packet to determine if further
+                 action may be done
+                 Ex: lfilter = lambda x: x.haslayer(Padding)
+offline:       pcap file (or list of pcap files) to read packets from, instead
+                 of sniffing them
+timeout:       stop sniffing after a given time (default: None)
+L2socket:      use the provided L2socket (default: use conf.L2listen)
+opened_socket: provide an object (or a list of objects) ready to use .recv() on
+stop_filter:   python function applied to each packet to determine if we have
+                 to stop the capture after this packet.
+                 Ex: stop_filter = lambda x: x.haslayer(TCP)
+iface:         interface or list of interfaces (default: None for sniffing on
+                 all interfaces)
+
+The iface, offline and opened_socket parameters can be either an
+element, a list of elements, or a dict object mapping an element to a
+label (see examples below)
+
+Examples:
+
+  >>> sniff(filter="arp")
+
+  >>> sniff(lfilter=lambda pkt: ARP in pkt)
+
+  >>> sniff(iface="eth0", prn=Packet.summary)
+
+  >>> sniff(iface=["eth0", "mon0"],
+  ...       prn=lambda pkt: "%s: %s" % (pkt.sniffed_on, pkt.summary()))
+
+  >>> sniff(iface={"eth0": "Ethernet", "mon0": "Wifi"},
+  ...       prn=lambda pkt: "%s: %s" % (pkt.sniffed_on, pkt.summary()))
+
     """
+    if conf.use_bpf:
+        from scapy.arch.bpf.supersocket import bpf_select
     c = 0
-    label = {}
-    sniff_sockets = []
+    sniff_sockets = {}  # socket: label dict
     if opened_socket is not None:
-        sniff_sockets = [opened_socket]
-    else:
-        if offline is None:
-            if L2socket is None:
-                L2socket = conf.L2listen
-            if isinstance(iface, list):
-                for i in iface:
-                    s = L2socket(type=ETH_P_ALL, iface=i, *arg, **karg)
-                    label[s] = i
-                    sniff_sockets.append(s)
-            else:
-                sniff_sockets = [L2socket(type=ETH_P_ALL, iface=iface, *arg,
-                                           **karg)]
+        if isinstance(opened_socket, list):
+            sniff_sockets.update((s, "socket%d" % i)
+                                 for i, s in enumerate(opened_socket))
+        elif isinstance(opened_socket, dict):
+            sniff_sockets.update((s, label)
+                                 for s, label in iteritems(opened_socket))
         else:
-            flt = karg.get('filter')
-            sniff_sockets = [PcapReader(
+            sniff_sockets[opened_socket] = "socket0"
+    if offline is not None:
+        flt = karg.get('filter')
+        if isinstance(offline, list):
+            sniff_sockets.update((PcapReader(
+                fname if flt is None else
+                tcpdump(fname, args=["-w", "-", flt], getfd=True)
+            ), fname) for fname in offline)
+        elif isinstance(offline, dict):
+            sniff_sockets.update((PcapReader(
+                fname if flt is None else
+                tcpdump(fname, args=["-w", "-", flt], getfd=True)
+            ), label) for fname, label in iteritems(offline))
+        else:
+            sniff_sockets[PcapReader(
                 offline if flt is None else
                 tcpdump(offline, args=["-w", "-", flt], getfd=True)
-            )]
+            )] = offline
+    if not sniff_sockets or iface is not None:
+        if L2socket is None:
+            L2socket = conf.L2listen
+        if isinstance(iface, list):
+            sniff_sockets.update(
+                (L2socket(type=ETH_P_ALL, iface=ifname, *arg, **karg), ifname)
+                for ifname in iface
+            )
+        elif isinstance(iface, dict):
+            sniff_sockets.update(
+                (L2socket(type=ETH_P_ALL, iface=ifname, *arg, **karg), iflabel)
+                for ifname, iflabel in iteritems(iface)
+            )
+        else:
+            sniff_sockets[L2socket(type=ETH_P_ALL, iface=iface,
+                                   *arg, **karg)] = iface
     lst = []
     if timeout is not None:
         stoptime = time.time()+timeout
     remain = None
+    read_allowed_exceptions = ()
+    if conf.use_bpf:
+        def _select(sockets):
+            return bpf_select(sockets, remain)
+    elif WINDOWS:
+        from scapy.arch.pcapdnet import PcapTimeoutElapsed
+        read_allowed_exceptions = (PcapTimeoutElapsed,)
+        def _select(sockets):
+            try:
+                return sockets
+            except PcapTimeoutElapsed:
+                return []
+    else:
+        def _select(sockets):
+            try:
+                return select(sockets, [], [], remain)[0]
+            except select_error as exc:
+                # Catch 'Interrupted system call' errors
+                if exc[0] == errno.EINTR:
+                    return []
+                raise
     try:
         stop_event = False
-        while not stop_event:
+        while sniff_sockets:
             if timeout is not None:
                 remain = stoptime-time.time()
                 if remain <= 0:
                     break
-            if conf.use_bpf:
-                from scapy.arch.bpf.supersocket import bpf_select
-                ins = bpf_select(sniff_sockets, remain)
-            else:
-                ins, _, _ = select(sniff_sockets, [], [], remain)
+            ins = _select(sniff_sockets)
             for s in ins:
-                p = s.recv()
-                if p is None and offline is not None:
-                    stop_event = True
+                try:
+                    p = s.recv()
+                except read_allowed_exceptions:
+                    continue
+                if p is None:
+                    del sniff_sockets[s]
                     break
-                elif p is not None:
-                    if lfilter and not lfilter(p):
-                        continue
-                    if s in label:
-                        p.sniffed_on = label[s]
-                    if store:
-                        lst.append(p)
-                    c += 1
-                    if prn:
-                        r = prn(p)
-                        if r is not None:
-                            print(r)
-                    if stop_filter and stop_filter(p):
-                        stop_event = True
-                        break
-                    if 0 < count <= c:
-                        stop_event = True
-                        break
+                if lfilter and not lfilter(p):
+                    continue
+                p.sniffed_on = sniff_sockets[s]
+                if store:
+                    lst.append(p)
+                c += 1
+                if prn:
+                    r = prn(p)
+                    if r is not None:
+                        print(r)
+                if stop_filter and stop_filter(p):
+                    sniff_sockets = []
+                    break
+                if 0 < count <= c:
+                    sniff_sockets = []
+                    break
     except KeyboardInterrupt:
         pass
     if opened_socket is None:
