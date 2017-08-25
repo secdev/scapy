@@ -6,10 +6,9 @@
 SSLv2 handshake fields & logic.
 """
 
-import logging
 import math
 
-from scapy.error import warning
+from scapy.error import log_runtime, warning
 from scapy.fields import *
 from scapy.packet import Packet, Raw, Padding
 from scapy.layers.tls.cert import Cert, PrivKey, PubKey
@@ -401,7 +400,7 @@ class SSLv2ServerVerify(_SSLv2Handshake):
         s = self.tls_session
         if s.sslv2_challenge is not None:
             if self.challenge != s.sslv2_challenge:
-                logging.info("INVALID TLS SERVER VERIFY RECEIVED")
+                log_runtime.info("INVALID TLS SERVER VERIFY RECEIVED")
 
 
 ###############################################################################
@@ -477,7 +476,7 @@ class SSLv2ClientCertificate(_SSLv2Handshake):
                  s.server_certs[0].der)
             sig_test = self.responsedata._verify_sig(m, s.client_certs[0])
             if not sig_test:
-                logging.info("INVALID CLIENT CERTIFICATE VERIFY SIGNATURE")
+                log_runtime.info("INVALID CLIENT CERTIFICATE VERIFY SIGNATURE")
 
     def tls_session_update(self, msg_str):
         super(SSLv2ClientCertificate, self).tls_session_update(msg_str)
@@ -508,7 +507,7 @@ class SSLv2ClientFinished(_SSLv2Handshake):
         s = self.tls_session
         if s.sslv2_connection_id is not None:
             if self.connection_id != s.sslv2_connection_id:
-                logging.info("INVALID TLS CLIENT FINISHED RECEIVED")
+                log_runtime.info("INVALID TLS CLIENT FINISHED RECEIVED")
 
 
 class SSLv2ServerFinished(_SSLv2Handshake):
