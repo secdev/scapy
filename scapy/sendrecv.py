@@ -734,76 +734,48 @@ Examples:
 
 
 @conf.commands.register
-def bridge_and_sniff(if1, if2, count=0, store=1, prn=None, lfilter=None,
-                     L2socket=None, timeout=None, stop_filter=None, *args,
-                     **kargs):
-    """Forward traffic between two interfaces and sniff packets exchanged
-bridge_and_sniff([count=0,] [prn=None,] [store=1,] [offline=None,] 
-[lfilter=None,] + L2Socket args) -> list of packets
+def bridge_and_sniff(if1, if2, prn=None, L2socket=None, *args, **kargs):
+    """Forward traffic between interfaces if1 and if2, sniff and return the
+exchanged packets.
 
-  count: number of packets to capture. 0 means infinity
-  store: whether to store sniffed packets or discard them
-    prn: function to apply to each packet. If something is returned,
-         it is displayed. Ex:
-         ex: prn = lambda x: x.summary()
-lfilter: python function applied to each packet to determine
-         if further action may be done
-         ex: lfilter = lambda x: x.haslayer(Padding)
-timeout: stop sniffing after a given time (default: None)
-L2socket: use the provided L2socket
-stop_filter: python function applied to each packet to determine
-             if we have to stop the capture after this packet
-             ex: stop_filter = lambda x: x.haslayer(TCP)
+Arguments:
+
+  if1, if2: the interfaces to use
+
+  The other arguments are the same than for the function sniff(),
+      except for opened_socket, offline and iface that are ignored.
+      See help(sniff) for more.
+
     """
-    c = 0
+    for arg in ['opened_socket', 'offline', 'iface']:
+        if arg in kargs:
+            log_runtime.warning("Argument %s cannot be used in "
+                                "bridge_and_sniff() -- ignoring it.", arg)
+            del kargs[arg]
     if L2socket is None:
         L2socket = conf.L2socket
     s1 = L2socket(iface=if1)
     s2 = L2socket(iface=if2)
-    peerof={s1:s2,s2:s1}
-    label={s1:if1, s2:if2}
-    
-    lst = []
-    if timeout is not None:
-        stoptime = time.time()+timeout
-    remain = None
-    try:
-        stop_event = False
-        while not stop_event:
-            if timeout is not None:
-                remain = stoptime-time.time()
-                if remain <= 0:
-                    break
-            if conf.use_bpf:
-                from scapy.arch.bpf.supersocket import bpf_select
-                ins = bpf_select([s1, s2], remain)
-            else:
-                ins, _, _ = select([s1, s2], [], [], remain)
+    peers = {if1: s2, if2: s1}
+    def prn_send(pkt):
+        try:
+            sendsock = peers[pkt.sniffed_on]
+        except KeyError:
+            return
+        try:
+            sendsock.send(pkt.original)
+        except:
+            log_runtime.warning('Cannot forward packet [%s] received from %s',
+                                pkt.summary(), pkt.sniffed_on, exc_info=True)
+    if prn is None:
+        prn = prn_send
+    else:
+        prn_orig = prn
+        def prn(pkt):
+            prn_send(pkt)
+            return prn_orig(pkt)
 
-            for s in ins:
-                p = s.recv()
-                if p is not None:
-                    peerof[s].send(p.original)
-                    if lfilter and not lfilter(p):
-                        continue
-                    if store:
-                        p.sniffed_on = label[s]
-                        lst.append(p)
-                    c += 1
-                    if prn:
-                        r = prn(p)
-                        if r is not None:
-                            print(r)
-                    if stop_filter and stop_filter(p):
-                        stop_event = True
-                        break
-                    if 0 < count <= c:
-                        stop_event = True
-                        break
-    except KeyboardInterrupt:
-        pass
-    finally:
-        return plist.PacketList(lst,"Sniffed")
+    return sniff(opened_socket={s1: if1, s2: if2}, prn=prn, *args, **kargs)
 
 
 @conf.commands.register
