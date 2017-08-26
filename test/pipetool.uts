@@ -264,6 +264,8 @@ os.unlink("t2.pcap")
 = Test InjectSink and Inject3Sink
 ~ needs_root
 
+import mock
+
 a = IP(dst="192.168.0.1")/ICMP()
 msgs = []
 

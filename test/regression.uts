@@ -104,18 +104,76 @@ else:
 conf.route6.ifchange(LOOPBACK_NAME, "::1/128")
 True
 
-= UTscapy route check
-* Check that UTscapy has correctly replaced the routes. Many tests won't work otherwise
-
-if WINDOWS:
-    route_add_loopback()
-
-IP().src
-assert _ == "127.0.0.1"
 
 ############
 ############
 + Main.py tests
+
+= Pickle and unpickle a packet
+
+import scapy.modules.six as six
+
+a = IP(dst="192.168.0.1")/UDP()
+
+b = six.moves.cPickle.dumps(a)
+c = six.moves.cPickle.loads(b)
+
+assert c[IP].dst == "192.168.0.1"
+assert str(c) == str(a)
+
+= Usage test
+
+from scapy.main import _usage
+try:
+    _usage()
+    assert False
+except SystemExit:
+    assert True
+
+= Session test
+
+# This is automatic when using the console
+def get_var(var):
+    return six.moves.builtins.__dict__["scapy_session"][var]
+
+def set_var(var, value):
+    six.moves.builtins.__dict__["scapy_session"][var] = value
+
+def del_var(var):
+    del(six.moves.builtins.__dict__["scapy_session"][var])
+
+init_session(None, {"init_value": 123})
+set_var("test_value", "8.8.8.8") # test_value = "8.8.8.8"
+save_session()
+del_var("test_value")
+load_session()
+update_session()
+assert get_var("test_value") == "8.8.8.8" #test_value == "8.8.8.8"
+assert get_var("init_value") == 123
+ 
+= Session test with fname
+
+init_session("scapySession2")
+set_var("test_value", IP(dst="192.168.0.1")) # test_value = IP(dst="192.168.0.1")
+save_session(fname="scapySession1.dat")
+del_var("test_value")
+
+set_var("z", True) #z = True
+load_session(fname="scapySession1.dat")
+try:
+    get_var("z")
+    assert False
+except:
+    pass
+
+set_var("z", False) #z = False
+update_session(fname="scapySession1.dat")
+assert get_var("test_value").dst == "192.168.0.1" #test_value.dst == "192.168.0.1"
+assert not get_var("z")
+
+= Clear session files
+
+os.remove("scapySession1.dat")
 
 = Test temporary file creation
 ~ appveyor_only
@@ -129,8 +187,31 @@ else:
     assert("scapy" in tmpfile and (IS_PYPY == True or "/tmp/" in tmpfile))
 
 assert(conf.temp_files[0].endswith(".ut"))
-assert(conf.temp_files.pop())
+scapy_delete_temp_files()
 assert(len(conf.temp_files) == 0)
+
+= Emulate interact()
+
+import mock, sys
+try:
+    import IPython
+except:
+    code_interact_import = "scapy.main.code.interact"
+else:
+    code_interact_import = "scapy.main.IPython.terminal.embed.InteractiveShellEmbed"
+
+@mock.patch(code_interact_import)
+def interact_emulator(code_int):
+    try:
+        code_int = lambda *args, **kwargs: lambda: None
+        interact(argv=["-s scapy1"], mybanner="What a test")
+        return True
+    except:
+        raise
+        return False
+
+assert interact_emulator()
+sys.ps1 = ">>> "
 
 = Test sane function
 sane("A\x00\xFFB") == "A..B"
@@ -273,7 +354,7 @@ fd, fname = tempfile.mkstemp()
 os.write(fd, "conf.verb = 42\n")
 os.close(fd)
 from scapy.main import _read_config_file
-_read_config_file(fname)
+_read_config_file(fname, globals(), locals())
 assert(conf.verb == 42)
 conf.verb = saved_conf_verb
 
@@ -1332,10 +1413,11 @@ a=Ether(str(Ether()/IPv6()/TCP()))
 a.type == 0x86dd
 
 = IPv6 Class binding with GRE - build
-str(IP()/GRE()/Ether()/IP()/GRE()/IPv6()) == b'E\x00\x00f\x00\x01\x00\x00@/|f\x7f\x00\x00\x01\x7f\x00\x00\x01\x00\x00eX\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x08\x00E\x00\x00@\x00\x01\x00\x00@/|\x8c\x7f\x00\x00\x01\x7f\x00\x00\x01\x00\x00\x86\xdd`\x00\x00\x00\x00\x00;@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01'
+s = str(IP(src="127.0.0.1")/GRE()/Ether(dst="ff:ff:ff:ff:ff:ff", src="00:00:00:00:00:00")/IP()/GRE()/IPv6(src="::1"))
+s == b'E\x00\x00f\x00\x01\x00\x00@/|f\x7f\x00\x00\x01\x7f\x00\x00\x01\x00\x00eX\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x08\x00E\x00\x00@\x00\x01\x00\x00@/|\x8c\x7f\x00\x00\x01\x7f\x00\x00\x01\x00\x00\x86\xdd`\x00\x00\x00\x00\x00;@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01'
 
 = IPv6 Class binding with GRE - dissection
-p = IP(str(IP()/GRE()/Ether()/IP()/GRE()/IPv6()))
+p = IP(s)
 GRE in p and p[GRE:1].proto == 0x6558 and p[GRE:2].proto == 0x86DD and IPv6 in p
 
 
@@ -3075,15 +3157,21 @@ s == b"`\x00\x00\x00\x00\x18:\x01\xfe\x80\x00\x00\x00\x00\x00\x00\xba\xca:\xff\x
 p = IPv6(s)
 ICMPv6MLQuery in p and p[IPv6].dst == "ff02::1"
 
+###########
+###########
+= UTscapy route check
+* Check that UTscapy has correctly replaced the routes. Many tests won't work otherwise
+
+# No more routing/networking tests after this line
+if WINDOWS:
+    route_add_loopback()
+
+IP().src
+assert _ == "127.0.0.1"
 
 ############
 ############
 + Ether tests with IPv6
-
-= Logic
-# No more routing test after this line
-if WINDOWS:
-    route_add_loopback()
 
 = Ether IPv6 checking for dst
 ~ netaccess ipv6

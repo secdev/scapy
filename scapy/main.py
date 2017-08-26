@@ -10,21 +10,20 @@ Main module for interactive startup.
 from __future__ import absolute_import
 from __future__ import print_function
 
-import code
-import getopt
-import glob
-import gzip
+import sys, os, getopt, re, code
+import gzip, glob
 import importlib
 import logging
-import os
 from random import choice
-import re
-import sys
 import types
 
+try:
+    import IPython # Allow testing
+except:
+    pass
 
-# Do not add any imports here that would trigger a warning messsage
-# Before the console handlers gets added in interact()
+# Never add any global import, in main.py, that would trigger a warning messsage
+# before the console handlers gets added in interact()
 from scapy.error import log_interactive, log_loading, log_scapy, warning
 import scapy.modules.six as six
 from scapy.themes import DefaultTheme, apply_ipython_color
@@ -55,13 +54,37 @@ def _probe_config_file(cf):
     else:
         return cf_path
 
-def _read_config_file(cf):
+def _read_config_file(cf, _globals=globals(), _locals=locals(), interactive=True):
+    """Read a config file: execute a python file while loading scapy, that may contain
+    some pre-configured values.
+    
+    If _globals or _locals are specified, they will be updated with the loaded vars.
+    This allows an external program to use the function. Otherwise, vars are only available
+    from inside the scapy console.
+    
+    params:
+    - _globals: the globals() vars
+    - _locals: the locals() vars
+    - interactive: specified whether or not errors should be printed using the scapy console or
+    raised.
+
+    ex, content of a config.py file:
+        'conf.verb = 42\n'
+    Manual loading:
+        >>> _read_config_file("./config.py"))
+        >>> conf.verb
+        42
+    """
     log_loading.debug("Loading config file [%s]" % cf)
     try:
-        exec(compile(open(cf).read(), cf, 'exec'))
+        exec(compile(open(cf).read(), cf, 'exec'), _globals, _locals)
     except IOError as e:
+        if interactive:
+            raise
         log_loading.warning("Cannot read config file [%s] [%s]" % (cf,e))
     except Exception as e:
+        if interactive:
+            raise
         log_loading.exception("Error during evaluation of config file [%s]" % cf)
         
 def _validate_local(x):
@@ -179,26 +202,35 @@ def list_contrib(name=None):
 
 
 def save_session(fname=None, session=None, pickleProto=-1):
+    """Save current Scapy session to the file specified in the fname arg.
+
+    params:
+     - fname: file to save the scapy session in
+     - session: scapy session to use. If None, the console one will be used
+     - pickleProto: pickle proto version (default: -1 = latest)"""
     from scapy import utils
     if fname is None:
         fname = conf.session
         if not fname:
             conf.session = fname = utils.get_temp_file(keep=True)
-            log_interactive.info("Use [%s] as session file" % fname)
+    log_interactive.info("Use [%s] as session file" % fname)
+
     if session is None:
         session = six.moves.builtins.__dict__["scapy_session"]
 
     to_be_saved = session.copy()
-        
     if "__builtins__" in to_be_saved:
         del(to_be_saved["__builtins__"])
 
     for k in to_be_saved.keys():
-        if type(to_be_saved[k]) in [type, type, types.ModuleType]:
-             log_interactive.error("[%s] (%s) can't be saved." % (k, type(to_be_saved[k])))
-             del(to_be_saved[k])
+        i = to_be_saved[k]
+        if hasattr(i, "__module__") and (k[0] == "_" or i.__module__.startswith("IPython")):
+            del(to_be_saved[k])
+        elif isinstance(i, (type, type, types.ModuleType)):
+            if k[0] != "_":
+                log_interactive.error("[%s] (%s) can't be saved." % (k, type(to_be_saved[k])))
+            del(to_be_saved[k])
 
-    
     try:
          os.rename(fname, fname+".bak")
     except OSError:
@@ -210,6 +242,11 @@ def save_session(fname=None, session=None, pickleProto=-1):
     del f
 
 def load_session(fname=None):
+    """Load current Scapy session from the file specified in the fname arg.
+    This will erase any existing session.
+
+    params:
+     - fname: file to load the scapy session from"""
     if fname is None:
         fname = conf.session
     try:
@@ -224,9 +261,14 @@ def load_session(fname=None):
     scapy_session = six.moves.builtins.__dict__["scapy_session"]
     scapy_session.clear()
     scapy_session.update(s)
-    log_loading.info("Loaded session [%s]" % conf.session)
+
+    log_loading.info("Loaded session [%s]" % fname)
     
 def update_session(fname=None):
+    """Update current Scapy session from the file specified in the fname arg.
+
+    params:
+     - fname: file to load the scapy session from"""
     if fname is None:
         fname = conf.session
     try:
@@ -245,9 +287,6 @@ def init_session(session_name, mydict=None):
     GLOBKEYS.extend(scapy_builtins)
     GLOBKEYS.append("scapy_session")
     scapy_builtins=None # XXX replace with "with" statement
-    if mydict is not None:
-        six.moves.builtins.__dict__.update(mydict)
-        GLOBKEYS.extend(mydict)
     
     if session_name:
         try:
@@ -278,6 +317,10 @@ def init_session(session_name, mydict=None):
 
     six.moves.builtins.__dict__["scapy_session"] = SESSION
 
+    if mydict is not None:
+        six.moves.builtins.__dict__["scapy_session"].update(mydict)
+        GLOBKEYS.extend(mydict)
+
 ################
 ##### Main #####
 ################
@@ -288,6 +331,7 @@ def scapy_delete_temp_files():
             os.unlink(f)
         except:
             pass
+    del(conf.temp_files[:])
 
 def _prepare_quote(quote, author, max_len=78):
     """This function processes a quote and returns a string that is ready
@@ -324,7 +368,7 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
     conf.color_theme = DefaultTheme()
     conf.interactive = True
     if loglevel is not None:
-        conf.logLevel=loglevel
+        conf.logLevel = loglevel
 
     STARTUP_FILE = DEFAULT_STARTUP_FILE
     PRESTART_FILE = DEFAULT_PRESTART_FILE
@@ -361,9 +405,9 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
         sys.exit(1)
 
     if STARTUP_FILE:
-        _read_config_file(STARTUP_FILE)
+        _read_config_file(STARTUP_FILE, interactive=True)
     if PRESTART_FILE:
-        _read_config_file(PRESTART_FILE)
+        _read_config_file(PRESTART_FILE, interactive=True)
 
     init_session(session_name, mydict)
 
@@ -423,12 +467,14 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
     IPYTHON=False
     if not conf.interactive_shell or conf.interactive_shell.lower() in ["ipython", "auto"]:
         try:
-            import IPython
+            IPython
             IPYTHON=True
-        except ImportError as e:
-            log_loading.warning("IPython not available. Using standard Python "
-                                "shell instead. AutoCompletion, Colors, History are disabled.")
+        except NameError as e:
+            log_loading.warning("IPython not available. Using standard Python shell instead. "
+                                "AutoCompletion, History are disabled.")
             IPYTHON=False
+
+    init_session(session_name, mydict)
 
     if IPYTHON:
         banner = the_banner + " using IPython %s" % IPython.__version__
@@ -462,12 +508,12 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
         # configuration can thus be specified here.
         ipshell = InteractiveShellEmbed(config=cfg,
                                         banner1=banner,
-                                        hist_file=conf.histfile if conf.histfile else None)
+                                        hist_file=conf.histfile if conf.histfile else None,
+                                        user_ns=SESSION)
 
         ipshell(local_ns=SESSION)
     else:
-        code.interact(banner = the_banner % (conf.version),
-                      local=SESSION)
+        code.interact(banner = the_banner, local=SESSION)
 
     if conf.session:
         save_session(conf.session, SESSION)

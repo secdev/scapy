@@ -327,8 +327,11 @@ def isCryptographyAdvanced():
         return True
 
 def _prompt_changer(attr, val):
-    prompt = val or conf.prompt
-    sys.ps1 = prompt
+    """Change the current prompt theme"""
+    try:
+        sys.ps1 = val.prompt(conf.prompt)
+    except:
+        pass
     try:
         apply_ipython_color(get_ipython())
     except NameError:

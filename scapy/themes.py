@@ -29,6 +29,9 @@ class ColorTable:
         "invert": ("\033[7m", ""),
         }
 
+    def __repr__(self):
+        return "<ColorTable>"
+
     def __getattr__(self, attr):
         return self.colors.get(attr, [""])[0]
     
@@ -53,7 +56,12 @@ def create_styler(fmt=None, before="", after="", fmt2="%s"):
 class ColorTheme:
     def __repr__(self):
         return "<%s>" % self.__class__.__name__
+    def __reduce__(self):
+        return (self.__class__, (), ())
     def __getattr__(self, attr):
+        if attr in ["__getstate__", "__setstate__", "__getinitargs__",
+                    "__reduce_ex__"]:
+            raise AttributeError()
         return create_styler()
         
 
@@ -281,6 +289,8 @@ class HTMLTheme2(HTMLTheme):
 
 
 def apply_ipython_color(shell):
+    """Updates the specified IPython console shell with
+    the conf.color_theme scapy theme."""
     from IPython.terminal.prompts import Prompts, Token
     shell.highlighting_style_overrides = {
         Token.Prompt: Color.ansi_to_pygments(conf.color_theme.style_prompt),

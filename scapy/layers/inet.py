@@ -50,7 +50,7 @@ class IPTools(object):
             os.system("whois %s" % self.src)
     def _ttl(self):
         """Returns ttl or hlim, depending on the IP version"""
-        return self.hlim if isinstance(self, IPv6) else self.ttl
+        return self.hlim if isinstance(self, scapy.layers.inet6.IPv6) else self.ttl
     def ottl(self):
         t = sorted([32,64,128,255]+[self._ttl()])
         return t[t.index(self._ttl())+1]
