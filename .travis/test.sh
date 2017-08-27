@@ -12,6 +12,11 @@ then
   SCAPY_SUDO=""
 fi
 
+if [ "$SCAPY_USE_PCAPDNET" = "yes" ]
+then
+  UT_FLAGS+=" -K not_pcapdnet"
+fi
+
 # AES-CCM, ChaCha20Poly1305 and X25519 were added to Cryptography v2.0
 # but the minimal version mandated by scapy is v1.7
 UT_FLAGS+=" -K crypto_advanced"
