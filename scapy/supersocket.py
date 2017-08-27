@@ -48,12 +48,14 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
     def close(self):
         if self.closed:
             return
-        self.closed=1
-        if self.ins != self.outs:
-            if self.outs and self.outs.fileno() != -1:
-                self.outs.close()
-        if self.ins and self.ins.fileno() != -1:
-            self.ins.close()
+        self.closed = True
+        if hasattr(self, "outs"):
+            if not hasattr(self, "ins") or self.ins != self.outs:
+                if self.outs and self.outs.fileno() != -1:
+                    self.outs.close()
+        if hasattr(self, "ins"):
+            if self.ins and self.ins.fileno() != -1:
+                self.ins.close()
     def sr(self, *args, **kargs):
         from scapy import sendrecv
         return sendrecv.sndrcv(self, *args, **kargs)

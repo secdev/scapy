@@ -31,6 +31,7 @@ from scapy.modules.six import iteritems
 if conf.route is None:
     # unused import, only to initialize conf.route
     import scapy.route
+from scapy.supersocket import SuperSocket
 
 #################
 ## Debug class ##
@@ -735,12 +736,12 @@ Examples:
 
 @conf.commands.register
 def bridge_and_sniff(if1, if2, prn=None, L2socket=None, *args, **kargs):
-    """Forward traffic between interfaces if1 and if2, sniff and return the
-exchanged packets.
+    """Forward traffic between interfaces if1 and if2, sniff and return
+the exchanged packets.
 
 Arguments:
 
-  if1, if2: the interfaces to use
+  if1, if2: the interfaces to use (interface names or opened sockets).
 
   The other arguments are the same than for the function sniff(),
       except for opened_socket, offline and iface that are ignored.
@@ -752,11 +753,14 @@ Arguments:
             log_runtime.warning("Argument %s cannot be used in "
                                 "bridge_and_sniff() -- ignoring it.", arg)
             del kargs[arg]
-    if L2socket is None:
-        L2socket = conf.L2socket
-    s1 = L2socket(iface=if1)
-    s2 = L2socket(iface=if2)
-    peers = {if1: s2, if2: s1}
+    def _init_socket(iface, count):
+        if isinstance(iface, SuperSocket):
+            return iface, "iface%d" % count
+        else:
+            return (L2socket or conf.L2socket)(iface=iface), iface
+    sckt1, if1 = _init_socket(if1, 1)
+    sckt2, if2 = _init_socket(if2, 2)
+    peers = {if1: sckt2, if2: sckt1}
     def prn_send(pkt):
         try:
             sendsock = peers[pkt.sniffed_on]
@@ -775,7 +779,8 @@ Arguments:
             prn_send(pkt)
             return prn_orig(pkt)
 
-    return sniff(opened_socket={s1: if1, s2: if2}, prn=prn, *args, **kargs)
+    return sniff(opened_socket={sckt1: if1, sckt2: if2}, prn=prn,
+                 *args, **kargs)
 
 
 @conf.commands.register
