@@ -423,7 +423,7 @@ class NetworkInterfaceDict(UserDict):
             except (KeyError, PcapNameNotFoundError):
                 pass
         
-        if len(self.data) == 0 and conf.use_winpcapy:
+        if not self.data and conf.use_winpcapy:
             _detect = pcap_service_status()
             def _ask_user():
                 if not conf.interactive:
@@ -692,7 +692,7 @@ def _append_route6(routes, dpref, dp, nh, iface, lifaddr):
     else:
         devaddrs = (x for x in lifaddr if x[2] == iface)
         cset = scapy.utils6.construct_source_candidate_set(dpref, dp, devaddrs)
-    if len(cset) == 0:
+    if not cset:
         return
     # APPEND (DESTINATION, NETMASK, NEXT HOP, IFACE, CANDIDATS)
     routes.append((dpref, dp, nh, iface, cset))
@@ -745,7 +745,7 @@ def _read_routes6_7():
     index = 0
     for l in stdout.split('\n'):
         if not l.strip():
-            if len(current_object) == 0:
+            if not current_object:
                 continue
             
             if len(current_object) == len(regex_list):
@@ -836,10 +836,10 @@ def route_add_loopback(routes=None, ipv6=False, iflist=None):
     warning("This will completly mess up the routes. Testing purpose only !")
     # Add only if some adpaters already exist
     if ipv6:
-        if len(conf.route6.routes) == 0:
+        if not conf.route6.routes:
             return
     else:
-        if len(conf.route.routes) == 0:
+        if not conf.route.routes:
             return
     data = {}
     data['name'] = LOOPBACK_NAME
@@ -884,3 +884,16 @@ def route_add_loopback(routes=None, ipv6=False, iflist=None):
             routes.append(loopback_route6_custom)
         else:
             routes.append(loopback_route)
+
+
+if not conf.use_winpcapy:
+
+    class NotAvailableSocket(SuperSocket):
+        desc = "wpcap.dll missing"
+        def __init__(self, *args, **kargs):
+            raise RuntimeError("Sniffing and sending packets is not available: "
+                               "winpcap is not installed")
+
+    conf.L2socket = NotAvailableSocket
+    conf.L2listen = NotAvailableSocket
+    conf.L3socket = NotAvailableSocket
