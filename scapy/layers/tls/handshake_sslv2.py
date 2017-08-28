@@ -400,7 +400,7 @@ class SSLv2ServerVerify(_SSLv2Handshake):
         s = self.tls_session
         if s.sslv2_challenge is not None:
             if self.challenge != s.sslv2_challenge:
-                log_runtime.info("INVALID TLS SERVER VERIFY RECEIVED")
+                log_runtime.info("TLS: invalid ServerVerify received")
 
 
 ###############################################################################
@@ -476,7 +476,7 @@ class SSLv2ClientCertificate(_SSLv2Handshake):
                  s.server_certs[0].der)
             sig_test = self.responsedata._verify_sig(m, s.client_certs[0])
             if not sig_test:
-                log_runtime.info("INVALID CLIENT CERTIFICATE VERIFY SIGNATURE")
+                log_runtime.info("TLS: invalid client CertificateVerify signature")
 
     def tls_session_update(self, msg_str):
         super(SSLv2ClientCertificate, self).tls_session_update(msg_str)
@@ -507,7 +507,7 @@ class SSLv2ClientFinished(_SSLv2Handshake):
         s = self.tls_session
         if s.sslv2_connection_id is not None:
             if self.connection_id != s.sslv2_connection_id:
-                log_runtime.info("INVALID TLS CLIENT FINISHED RECEIVED")
+                log_runtime.info("TLS: invalid client Finished received")
 
 
 class SSLv2ServerFinished(_SSLv2Handshake):

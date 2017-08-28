@@ -303,7 +303,7 @@ class TLS(_GenericTLSSessionInheritance):
         except CipherError as e:
             return e.args
         except AEADTagError as e:
-            log_runtime.info("INTEGRITY CHECK FAILED")
+            log_runtime.info("TLS: record integrity check failed")
             return e.args
 
     def _tls_decrypt(self, s):
@@ -424,7 +424,7 @@ class TLS(_GenericTLSSessionInheritance):
                 chdr = hdr[:3] + struct.pack('!H', len(cfrag))
                 is_mac_ok = self._tls_hmac_verify(chdr, cfrag, mac)
                 if not is_mac_ok:
-                    log_runtime.info("INTEGRITY CHECK FAILED")
+                    log_runtime.info("TLS: record integrity check failed")
 
         elif cipher_type == 'stream':
             # Decrypt
@@ -448,7 +448,7 @@ class TLS(_GenericTLSSessionInheritance):
                 chdr = hdr[:3] + struct.pack('!H', len(cfrag))
                 is_mac_ok = self._tls_hmac_verify(chdr, cfrag, mac)
                 if not is_mac_ok:
-                    log_runtime.info("INTEGRITY CHECK FAILED")
+                    log_runtime.info("TLS: record integrity check failed")
 
         elif cipher_type == 'aead':
             # Authenticated encryption

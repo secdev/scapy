@@ -715,7 +715,7 @@ class TLSServerKeyExchange(_TLSHandshake):
         """
         s = self.tls_session
         if s.prcs and s.prcs.key_exchange.no_ske:
-            log_runtime.info("USELESS SERVER KEY EXCHANGE")
+            log_runtime.info("TLS: useless ServerKeyExchange")
         if (s.prcs and
             not s.prcs.key_exchange.anonymous and
             s.client_random and s.server_random and
@@ -723,7 +723,7 @@ class TLSServerKeyExchange(_TLSHandshake):
             m = s.client_random + s.server_random + str(self.params)
             sig_test = self.sig._verify_sig(m, s.server_certs[0])
             if not sig_test:
-                log_runtime.info("INVALID SERVER KEY EXCHANGE SIGNATURE")
+                log_runtime.info("TLS: invalid ServerKeyExchange signature")
 
 
 ###############################################################################
@@ -855,13 +855,13 @@ class TLSCertificateVerify(_TLSHandshake):
             if s.client_certs and len(s.client_certs) > 0:
                 sig_test = self.sig._verify_sig(m, s.client_certs[0])
                 if not sig_test:
-                    log_runtime.info("INVALID CERTIFICATE VERIFY SIGNATURE")
+                    log_runtime.info("TLS: invalid CertificateVerify signature")
         elif s.connection_end == "client":
             # should be TLS 1.3 only
             if s.server_certs and len(s.server_certs) > 0:
                 sig_test = self.sig._verify_sig(m, s.server_certs[0])
                 if not sig_test:
-                    log_runtime.info("INVALID CERTIFICATE VERIFY SIGNATURE")
+                    log_runtime.info("TLS: invalid CertificateVerify signature")
 
 
 ###############################################################################
@@ -964,12 +964,12 @@ class TLSFinished(_TLSHandshake):
                 verify_data = s.rcs.prf.compute_verify_data(con_end, "read",
                                                             handshake_msg, ms)
                 if self.vdata != verify_data:
-                    log_runtime.info("INVALID TLS FINISHED RECEIVED")
+                    log_runtime.info("TLS: invalid Finished received")
             elif s.tls_version >= 0x0304:
                 con_end = s.connection_end
                 verify_data = s.compute_tls13_verify_data(con_end, "read")
                 if self.vdata != verify_data:
-                    log_runtime.info("INVALID TLS FINISHED RECEIVED")
+                    log_runtime.info("TLS: invalid Finished received")
 
     def post_build_tls_session_update(self, msg_str):
         self.tls_session_update(msg_str)
