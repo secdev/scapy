@@ -178,10 +178,10 @@ class Dot11(Packet):
 
 class Dot11QoS(Packet):
     name = "802.11 QoS"
-    fields_desc = [ BitField("TID",None,4),
-                    BitField("EOSP",None,1),
+    fields_desc = [ BitField("Reserved",None,1),
                     BitField("Ack Policy",None,2),
-                    BitField("Reserved",None,1),
+                    BitField("EOSP",None,1),
+                    BitField("TID",None,4),
                     ByteField("TXOP",None) ]
     def guess_payload_class(self, payload):
         if isinstance(self.underlayer, Dot11):
