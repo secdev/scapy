@@ -43,7 +43,7 @@ if not hasattr(socket, 'IPPROTO_GRE'):
 from scapy.arch import pcapdnet
 from scapy.arch.pcapdnet import *
 
-from scapy.consts import LOOPBACK_NAME
+import scapy.consts
 
 def is_new_release(ignoreVBS=False):
     if NEW_RELEASE and conf.prog.powershell is not None:
@@ -348,7 +348,7 @@ class NetworkInterface(object):
         try:
             if not self.ip:
                 self.ip=get_ip_from_name(data['name'])
-            if not self.ip and self.name == LOOPBACK_NAME:
+            if not self.ip and self.name == scapy.consts.LOOPBACK_NAME:
                 self.ip = "127.0.0.1"
             if not self.ip:
                 # No IP detected
@@ -423,7 +423,7 @@ class NetworkInterfaceDict(UserDict):
             except (KeyError, PcapNameNotFoundError):
                 pass
         
-        if len(self.data) == 0 and conf.use_winpcapy:
+        if not self.data and conf.use_winpcapy:
             _detect = pcap_service_status()
             def _ask_user():
                 if not conf.interactive:
@@ -456,7 +456,9 @@ class NetworkInterfaceDict(UserDict):
             self.remove_invalid_ifaces()
             # Replace LOOPBACK_INTERFACE
             try:
-                scapy.consts.LOOPBACK_INTERFACE = self.dev_from_name(LOOPBACK_NAME)
+                scapy.consts.LOOPBACK_INTERFACE = self.dev_from_name(
+                    scapy.consts.LOOPBACK_NAME,
+                )
             except:
                 pass
 
@@ -683,14 +685,14 @@ def in6_getifaddr():
 
 def _append_route6(routes, dpref, dp, nh, iface, lifaddr):
     cset = [] # candidate set (possible source addresses)
-    if iface.name == LOOPBACK_NAME:
+    if iface.name == scapy.consts.LOOPBACK_NAME:
         if dpref == '::':
             return
         cset = ['::1']
     else:
         devaddrs = (x for x in lifaddr if x[2] == iface)
         cset = scapy.utils6.construct_source_candidate_set(dpref, dp, devaddrs)
-    if len(cset) == 0:
+    if not cset:
         return
     # APPEND (DESTINATION, NETMASK, NEXT HOP, IFACE, CANDIDATS)
     routes.append((dpref, dp, nh, iface, cset))
@@ -743,7 +745,7 @@ def _read_routes6_7():
     index = 0
     for l in stdout.split('\n'):
         if not l.strip():
-            if len(current_object) == 0:
+            if not current_object:
                 continue
             
             if len(current_object) == len(regex_list):
@@ -834,10 +836,10 @@ def route_add_loopback(routes=None, ipv6=False, iflist=None):
     warning("This will completly mess up the routes. Testing purpose only !")
     # Add only if some adpaters already exist
     if ipv6:
-        if len(conf.route6.routes) == 0:
+        if not conf.route6.routes:
             return
     else:
-        if len(conf.route.routes) == 0:
+        if not conf.route.routes:
             return
     data = {}
     data['name'] = LOOPBACK_NAME
@@ -882,3 +884,16 @@ def route_add_loopback(routes=None, ipv6=False, iflist=None):
             routes.append(loopback_route6_custom)
         else:
             routes.append(loopback_route)
+
+
+if not conf.use_winpcapy:
+
+    class NotAvailableSocket(SuperSocket):
+        desc = "wpcap.dll missing"
+        def __init__(self, *args, **kargs):
+            raise RuntimeError("Sniffing and sending packets is not available: "
+                               "winpcap is not installed")
+
+    conf.L2socket = NotAvailableSocket
+    conf.L2listen = NotAvailableSocket
+    conf.L3socket = NotAvailableSocket

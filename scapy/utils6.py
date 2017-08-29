@@ -15,6 +15,7 @@ import socket
 import struct
 
 from scapy.config import conf
+import scapy.consts
 from scapy.data import *
 from scapy.utils import *
 from scapy.pton_ntop import *

@@ -68,14 +68,6 @@ elif SOLARIS:
     from scapy.arch.solaris import *
 elif WINDOWS:
     from scapy.arch.windows import *
-    # import only if parent is not route.py
-    # because compatibility.py will require route.py to work (through sendrecv.py)
-    parents = parent_function()
-    if len(parents) >= 3:
-        if not parents[2][1].endswith("route.py"):
-            from scapy.arch.windows.compatibility import *
-    else:
-        from scapy.arch.windows.compatibility import *
 
 if scapy.config.conf.iface is None:
     scapy.config.conf.iface = LOOPBACK_NAME

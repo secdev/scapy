@@ -249,6 +249,10 @@ if conf.use_winpcapy:
               promisc = 0
           self.promisc = promisc
           self.ins = open_pcap(iface, 1600, self.promisc, 100)
+          # We need to have a different interface open because of an
+          # access violation in Npcap that occurs in multi-threading
+          # (see https://github.com/nmap/nmap/issues/982)
+          self.outs = open_pcap(iface, 1600, self.promisc, 100)
           try:
               ioctl(self.ins.fileno(),BIOCIMMEDIATE,struct.pack("I",1))
           except:
@@ -275,7 +279,7 @@ if conf.use_winpcapy:
           sx = str(x)
           if hasattr(x, "sent_time"):
               x.sent_time = time.time()
-          return self.ins.send(sx)
+          return self.outs.send(sx)
 
       def recv(self,x=MTU):
           ll = self.ins.datalink()
@@ -309,10 +313,12 @@ if conf.use_winpcapy:
           return p
   
       def close(self):
-          if hasattr(self, "ins"):
-              self.ins.close()
-          if hasattr(self, "outs"):
-              self.outs.close()
+          if not self.closed:
+              if hasattr(self, "ins"):
+                  self.ins.close()
+              if hasattr(self, "outs"):
+                  self.outs.close()
+          self.closed = True
 
   class L3pcapSocket(L2pcapSocket):
       desc = "read/write packets at layer 3 using only libpcap"
@@ -408,8 +414,8 @@ if conf.use_pcap:
                         return (s+0.000001*us), p
                 __next__ = next
                 def fileno(self):
-                    warning("fileno: pcapy API does not permit to get capure file descriptor. Bugs ahead! Press Enter to trigger packet reading")
-                    return 0
+                    raise RuntimeError("%s has no fileno. Please report this bug." %
+                                       self.__class__.__name__)
                 def __getattr__(self, attr):
                     return getattr(self.pcap, attr)
                 def __del__(self):
@@ -634,10 +640,12 @@ if conf.use_pcap and conf.use_dnet:
             return p
     
         def close(self):
-            if hasattr(self, "ins"):
-                del(self.ins)
-            if hasattr(self, "outs"):
-                del(self.outs)
+            if not self.closed:
+                if hasattr(self, "ins"):
+                    del(self.ins)
+                if hasattr(self, "outs"):
+                    del(self.outs)
+            self.closed = True
     
     class L2dnetSocket(SuperSocket):
         desc = "read/write packets at layer 2 using libdnet and libpcap"
@@ -704,10 +712,12 @@ if conf.use_pcap and conf.use_dnet:
             return p
     
         def close(self):
-            if hasattr(self, "ins"):
-                del(self.ins)
-            if hasattr(self, "outs"):
-                del(self.outs)
+            if not self.closed:
+                if hasattr(self, "ins"):
+                    del(self.ins)
+                if hasattr(self, "outs"):
+                    del(self.outs)
+            self.closed = True
 
     conf.L3socket=L3dnetSocket
     conf.L2socket=L2dnetSocket

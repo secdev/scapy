@@ -363,22 +363,19 @@ def bpf_select(fds_list, timeout=None):
 
     for tmp_fd in fds_list:
 
-        # Specific BPF sockets
-        if isBPFSocket(tmp_fd):
-            # Get buffers status
-            if tmp_fd.buffered_frames():
-                bpf_scks_buffered.append(tmp_fd)
-                continue
+        # Specific BPF sockets: get buffers status
+        if isBPFSocket(tmp_fd) and tmp_fd.buffered_frames():
+            bpf_scks_buffered.append(tmp_fd)
+            continue
 
         # Regular file descriptors or empty BPF buffer
         select_fds.append(tmp_fd)
 
-    if len(select_fds):
+    if select_fds:
         # Call select for sockets with empty buffers
         if timeout is None:
             timeout = 0.05
         ready_list, _, _ = select(select_fds, [], [], timeout)
         return bpf_scks_buffered + ready_list
-
     else:
         return bpf_scks_buffered
