@@ -8611,8 +8611,8 @@ Dot11 in p and p.addr3 == "00:00:00:00:00:00"
 p.mysummary() == '802.11 Management 0 00:00:00:00:00:00 > 00:00:00:00:00:00'
 
 = Dot11QoS - build
-s = str(Dot11(type=2, subtype=8)/Dot11QoS())
-s == b'\x88\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+s = str(Dot11(type=2, subtype=8)/Dot11QoS(TID=4))
+s == b'\x88\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x04\x00'
 
 = Dot11QoS - dissection
 p = Dot11(s)
