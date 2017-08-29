@@ -8,7 +8,6 @@ Routing and handling of network interfaces.
 """
 
 from __future__ import absolute_import
-import socket
 from scapy.consts import LOOPBACK_NAME, LOOPBACK_INTERFACE
 from scapy.utils import atol, ltoa, itom, pretty_routes
 from scapy.config import conf
