@@ -7,7 +7,6 @@ Scapy *BSD native support - BPF sockets
 from scapy.config import conf
 from scapy.error import Scapy_Exception, warning
 from scapy.supersocket import SuperSocket
-from scapy.layers.l2 import Ether
 from scapy.layers.inet import IP
 from scapy.layers.inet6 import IPv6
 from scapy.packet import Raw
@@ -121,20 +120,21 @@ class _L2bpfSocket(SuperSocket):
             ret = fcntl.ioctl(self.ins, BIOCGDLT, struct.pack('I', 0))
             ret = struct.unpack('I', ret)[0]
         except IOError as err:
-            warning("BIOCGDLT failed: unable to guess type. Using Ethernet !")
-            return Ether
+            cls = conf.default_l2
+            warning("BIOCGDLT failed: unable to guess type. Using %s !",
+                    cls.name)
+            return cls
 
         # *BSD loopback interface
         if OPENBSD and ret == 12:  # DTL_NULL on OpenBSD
             return Loopback
 
         # Retrieve the corresponding class
-        cls = conf.l2types.get(ret, None)
-        if cls is None:
-            cls = Ether
-            warning("Unable to guess type. Using Ethernet !")
-
-        return cls
+        try:
+            return conf.l2types[ret]
+        except KeyError:
+            cls = conf.default_l2
+            warning("Unable to guess type (type %i). Using %s", ret, cls.name)
 
     def set_nonblock(self, set_flag=True):
         """Set the non blocking flag on the socket"""
