@@ -13,6 +13,7 @@ import os, struct, time, socket
 
 from scapy.base_classes import Net
 from scapy.config import conf
+from scapy.consts import OPENBSD
 from scapy.data import *
 from scapy.packet import *
 from scapy.ansmachine import *
@@ -447,6 +448,9 @@ conf.l2types.register_layer2num(ARPHDR_ETHER, Dot3)
 conf.l2types.register(144, CookedLinux)  # called LINUX_IRDA, similar to CookedLinux
 conf.l2types.register(113, CookedLinux)
 conf.l2types.register(DLT_NULL, Loopback)
+# Under OpenBSD, for some reason, DLT_NULL == 12
+if OPENBSD:
+    conf.l2types.register(12, Loopback)
 
 conf.l3types.register(ETH_P_ARP, ARP)
 

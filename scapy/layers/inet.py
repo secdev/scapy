@@ -18,7 +18,7 @@ from scapy.base_classes import Gen
 from scapy.data import *
 from scapy.layers.l2 import *
 from scapy.config import conf
-from scapy.consts import WINDOWS
+from scapy.consts import OPENBSD, WINDOWS
 from scapy.fields import *
 from scapy.packet import *
 from scapy.volatile import *
@@ -796,6 +796,7 @@ bind_layers( Ether,         IP,            type=2048)
 bind_layers( CookedLinux,   IP,            proto=2048)
 bind_layers( GRE,           IP,            proto=2048)
 bind_layers( SNAP,          IP,            code=2048)
+bind_layers( Loopback,      IP,            type=0)
 bind_layers( Loopback,      IP,            type=2)
 bind_layers( IPerror,       IPerror,       frag=0, proto=4)
 bind_layers( IPerror,       ICMPerror,     frag=0, proto=1)
@@ -808,7 +809,9 @@ bind_layers( IP,            UDP,           frag=0, proto=17)
 bind_layers( IP,            GRE,           frag=0, proto=47)
 
 conf.l2types.register(101, IP)
-conf.l2types.register_num2layer(12, IP)
+if not OPENBSD:
+    # see scapy.layers.l2.py
+    conf.l2types.register_num2layer(12, IP)
 conf.l2types.register(DLT_IPV4, IP)
 
 conf.l3types.register(ETH_P_IP, IP)
