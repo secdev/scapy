@@ -19,8 +19,6 @@ ignored = list(six.moves.builtins.__dict__.keys())
 
 from scapy.error import *
 
-__all__ = []
-
 LAYER_ALIASES = {
     "tls": "tls.all"
 }
