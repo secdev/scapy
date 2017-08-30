@@ -272,6 +272,11 @@ def test_hexdiff():
 
 test_hexdiff()
 
+= Test mysummary functions - Ether
+
+Ether(dst="ff:ff:ff:ff:ff:ff", src="ff:ff:ff:ff:ff:ff", type=0x9000)
+assert _.mysummary() == 'ff:ff:ff:ff:ff:ff > ff:ff:ff:ff:ff:ff (0x9000)'
+
 = Test fletcher16_* functions
 assert(fletcher16_checksum("\x28\x07") == 22319)
 assert(fletcher16_checkbytes("ABCDEF", 2) == "\x89\x67")

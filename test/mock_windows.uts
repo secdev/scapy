@@ -4,6 +4,19 @@
 
 ############
 ############
++ Networking tests
+
+= Automaton - SelectableSelector system timeout
+
+class TimeOutSelector(SelectableObject):
+    def check_recv(self):
+        return False
+
+assert select_objects([TimeOutSelector()], 0) == []
+assert select_objects([TimeOutSelector()], 1) == []
+
+############
+############
 + Mocked read_routes6() calls
 
 = Windows with fake IPv6 adapter
