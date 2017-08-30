@@ -149,7 +149,7 @@ if conf.use_winpcapy:
           c = pcap_next_ex(self.pcap, byref(self.header), byref(self.pkt_data))
           if not c > 0:
               return
-          ts = self.header.contents.ts.tv_sec
+          ts = self.header.contents.ts.tv_sec + float(self.header.contents.ts.tv_usec) / 1000000
           pkt = "".join(chr(i) for i in self.pkt_data[:self.header.contents.len])
           return ts, pkt
       __next__ = next
