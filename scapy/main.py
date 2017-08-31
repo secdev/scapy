@@ -69,6 +69,13 @@ from scapy.themes import DefaultTheme
 
 
 def _load(module, globals_dict=None, symb_list=None):
+    """Loads a Python module to make variables, objects and functions
+available globally.
+
+    The idea is to load the module using importlib, then copy the
+symbols to the global symbol table.
+
+    """
     if globals_dict is None:
         globals_dict = six.moves.builtins.__dict__
     try:
@@ -90,13 +97,28 @@ def _load(module, globals_dict=None, symb_list=None):
         log_interactive.error("Loading module %s", module, exc_info=True)
 
 def load_module(name):
+    """Loads a Scapy module to make variables, objects and functions
+    available globally.
+
+    """
     _load("scapy.modules."+name)
 
 def load_layer(name, globals_dict=None, symb_list=None):
+    """Loads a Scapy layer module to make variables, objects and functions
+    available globally.
+
+    """
     _load("scapy.layers." + LAYER_ALIASES.get(name, name),
           globals_dict=globals_dict, symb_list=symb_list)
 
 def load_contrib(name):
+    """Loads a Scapy contrib module to make variables, objects and
+    functions available globally.
+
+    If no contrib module can be found with the given name, try to find
+    a layer module, since a contrib module may become a layer module.
+
+    """
     try:
         importlib.import_module("scapy.contrib." + name)
         _load("scapy.contrib." + name)

@@ -108,7 +108,7 @@ class _L2bpfSocket(SuperSocket):
         try:
             fcntl.ioctl(self.ins, BIOCPROMISC, struct.pack('i', value))
         except IOError:
-            raise Scapy_Exception("Cannott set promiscuous mode on interface "
+            raise Scapy_Exception("Cannot set promiscuous mode on interface "
                                   "(%s)!" % self.iface)
 
     def __del__(self):
