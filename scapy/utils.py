@@ -428,6 +428,36 @@ class ContextManagerSubprocess(object):
             log_scapy.error(msg, self.name, conf.prog.wireshark, exc_info=1)
             return True  # Suppress the exception
 
+class ContextManagerCaptureOutput(object):
+    """
+    Context manager that intercept the console's output.
+
+    Example:
+    >>> with ContextManagerCaptureOutput() as cmco:
+    ...     print("hey")
+    ...     assert cmco.get_output() == "hey"
+    """
+    def __init__(self):
+        self.result_export_object = ""
+        try:
+            import mock
+        except:
+            raise ImportError("The mock module needs to be installed !")
+    def __enter__(self):
+        import mock
+        def write(s, decorator=self):
+            decorator.result_export_object += s
+        mock_stdout = mock.Mock()
+        mock_stdout.write = write
+        self.bck_stdout = sys.stdout
+        sys.stdout = mock_stdout
+        return self
+    def __exit__(self, *exc):
+        sys.stdout = self.bck_stdout
+        return False
+    def get_output(self):
+        return self.result_export_object
+
 def do_graph(graph,prog=None,format=None,target=None,type=None,string=None,options=None):
     """do_graph(graph, prog=conf.prog.dot, format="svg",
          target="| conf.prog.display", options=None, [string=1]):
