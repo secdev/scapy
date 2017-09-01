@@ -18,7 +18,10 @@ import importlib
 ignored = list(six.moves.builtins.__dict__.keys())
 
 from scapy.error import *
-from scapy.layers.all import LAYER_ALIASES
+
+LAYER_ALIASES = {
+    "tls": "tls.all"
+}
 
 def _probe_config_file(cf):
     cf_path = os.path.join(os.path.expanduser("~"), cf)
@@ -65,28 +68,57 @@ from scapy.themes import DefaultTheme
 ######################
 
 
-def _load(module):
+def _load(module, globals_dict=None, symb_list=None):
+    """Loads a Python module to make variables, objects and functions
+available globally.
+
+    The idea is to load the module using importlib, then copy the
+symbols to the global symbol table.
+
+    """
+    if globals_dict is None:
+        globals_dict = six.moves.builtins.__dict__
     try:
         mod = importlib.import_module(module)
         if '__all__' in mod.__dict__:
             # import listed symbols
             for name in mod.__dict__['__all__']:
-                six.moves.builtins.__dict__[name] = mod.__dict__[name]
+                if symb_list is not None:
+                    symb_list.append(name)
+                globals_dict[name] = mod.__dict__[name]
         else:
             # only import non-private symbols
             for name, sym in six.iteritems(mod.__dict__):
                 if _validate_local(name):
-                    six.moves.builtins.__dict__[name] = sym
-    except Exception as e:
-        log_interactive.error(e)
+                    if symb_list is not None:
+                        symb_list.append(name)
+                    globals_dict[name] = sym
+    except Exception:
+        log_interactive.error("Loading module %s", module, exc_info=True)
 
 def load_module(name):
+    """Loads a Scapy module to make variables, objects and functions
+    available globally.
+
+    """
     _load("scapy.modules."+name)
 
-def load_layer(name):
-    _load("scapy.layers." + LAYER_ALIASES.get(name, name))
+def load_layer(name, globals_dict=None, symb_list=None):
+    """Loads a Scapy layer module to make variables, objects and functions
+    available globally.
+
+    """
+    _load("scapy.layers." + LAYER_ALIASES.get(name, name),
+          globals_dict=globals_dict, symb_list=symb_list)
 
 def load_contrib(name):
+    """Loads a Scapy contrib module to make variables, objects and
+    functions available globally.
+
+    If no contrib module can be found with the given name, try to find
+    a layer module, since a contrib module may become a layer module.
+
+    """
     try:
         importlib.import_module("scapy.contrib." + name)
         _load("scapy.contrib." + name)

@@ -12,16 +12,25 @@ DHCPv6: Dynamic Host Configuration Protocol for IPv6. [RFC 3315]
 
 from __future__ import print_function
 import socket
+import struct
+import time
 
-from scapy.packet import *
-from scapy.fields import *
-from scapy.data import *
-from scapy.utils6 import *
-from scapy.themes import Color
-from scapy.layers.inet6 import *
 from scapy.ansmachine import AnsweringMachine
-from scapy.sendrecv import *
+from scapy.arch import get_if_raw_hwaddr, in6_getifaddr
+from scapy.config import conf
+from scapy.data import EPOCH, ETHER_ANY
 from scapy.error import warning
+from scapy.fields import BitField, ByteEnumField, ByteField, FieldLenField, \
+    FlagsField, IntEnumField, IntField, MACField, PacketField, \
+    PacketListField, ShortEnumField, ShortField, StrField, StrFixedLenField, \
+    StrLenField, UTCTimeField, X3BytesField, XIntField, XShortEnumField
+from scapy.layers.inet import UDP
+from scapy.layers.inet6 import DomainNameListField, IP6Field, IP6ListField, IPv6
+from scapy.packet import Packet, bind_bottom_up
+from scapy.pton_ntop import inet_pton
+from scapy.sendrecv import send
+from scapy.themes import Color
+from scapy.utils6 import in6_addrtovendor, in6_islladdr
 
 #############################################################################
 # Helpers                                                                  ##
@@ -1330,9 +1339,8 @@ DHCPv6_am.parse_options( dns="2001:500::1035", domain="localdomain, local",
             self.duid = duid
         else:
             # Timeval
-            from time import gmtime, strftime, mktime
             epoch = (2000, 1, 1, 0, 0, 0, 5, 1, 0)
-            delta = mktime(epoch) - EPOCH
+            delta = time.mktime(epoch) - EPOCH
             timeval = time.time() - delta
 
             # Mac Address
@@ -1368,7 +1376,6 @@ DHCPv6_am.parse_options( dns="2001:500::1035", domain="localdomain, local",
             return False
 
         src = p[IPv6].src
-        dst = p[IPv6].dst
 
         p = p[IPv6].payload 
         if not isinstance(p, UDP) or p.sport != 546 or p.dport != 547 :
@@ -1451,7 +1458,7 @@ DHCPv6_am.parse_options( dns="2001:500::1035", domain="localdomain, local",
                 it = it.payload
                     
             addrs = [bo + x + n for x in addrs]
-            if debug:
+            if self.debug:
                 msg = r + "[DEBUG]" + n + " Received " + g + "Decline" + n 
                 msg += " from " + bo + src + vendor + " for "
                 msg += ", ".join(addrs)+ n
@@ -1515,12 +1522,8 @@ DHCPv6_am.parse_options( dns="2001:500::1035", domain="localdomain, local",
         print("Sent %s answering to %s from %s%s" % (reptype, reqtype, reqsrc, vendor))
 
     def make_reply(self, req):
-        req_mac_src = req.src
-        req_mac_dst = req.dst
-
         p = req[IPv6]
         req_src = p.src
-        req_dst = p.dst
 
         p = p.payload.payload
 
