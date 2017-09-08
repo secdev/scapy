@@ -1386,7 +1386,7 @@ Use Scapy to send a DHCP discover request and analyze the replies::
 
 In this case we got 2 replies, so there were two active DHCP servers on the test network::
 
-    >>> ans.summarize()
+    >>> ans.summary()
     Ether / IP / UDP 0.0.0.0:bootpc > 255.255.255.255:bootps / BOOTP / DHCP ==> Ether / IP / UDP 192.168.1.1:bootps > 255.255.255.255:bootpc / BOOTP / DHCP
     Ether / IP / UDP 0.0.0.0:bootpc > 255.255.255.255:bootps / BOOTP / DHCP ==> Ether / IP / UDP 192.168.1.11:bootps > 255.255.255.255:bootpc / BOOTP / DHCP
     }}}
