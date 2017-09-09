@@ -11,7 +11,7 @@ b=IP(src="1.2.3.4")
 c=IGMP(gaddr="0.0.0.0")
 x = a/b/c
 x[IGMP].igmpize()
-assert x.mrtime == 20
+assert x.mrcode == 20
 assert x[IP].dst == "224.0.0.1"
 
 = Build IGMP - Custom membership
@@ -21,7 +21,7 @@ b=IP(src="1.2.3.4")
 c=IGMP(gaddr="224.0.1.2")
 x = a/b/c
 x[IGMP].igmpize()
-assert x.mrtime == 20
+assert x.mrcode == 20
 assert x[IP].dst == "224.0.1.2"
 
 = Build IGMP - LG
@@ -32,21 +32,21 @@ c=IGMP(type=0x17, gaddr="224.2.3.4")
 x = a/b/c
 x[IGMP].igmpize()
 assert x.dst == "01:00:5e:00:00:02"
-assert x.mrtime == 0
+assert x.mrcode == 0
 assert x[IP].dst == "224.0.0.2"
 
 = Change IGMP params
 
 x = Ether(src="00:01:02:03:04:05")/IP()/IGMP()
 x[IGMP].igmpize()
-assert x.mrtime == 20
+assert x.mrcode == 20
 assert x[IP].dst == "224.0.0.1"
 
 x = Ether(src="00:01:02:03:04:05")/IP()/IGMP(gaddr="224.2.3.4", type=0x12)
-x.mrtime = 1
+x.mrcode = 1
 x[IGMP].igmpize()
 x = Ether(str(x))
-assert x.mrtime == 0
+assert x.mrcode == 0
 
 x.gaddr = "224.3.2.4"
 x[IGMP].igmpize()
@@ -65,9 +65,9 @@ assert IGMP().mysummary() == "IGMP Group Membership Query 0.0.0.0"
 
 x = Ether(src="00:01:02:03:04:05")/IP(dst="192.168.0.1")/IGMP(gaddr="www.google.fr", type=0x11)
 x = Ether(str(x))
-x[IGMP].igmpize()
+assert not x[IGMP].igmpize()
 assert x[IP].dst == "192.168.0.1"
 
 x = Ether(src="00:01:02:03:04:05")/IP(dst="192.168.0.1")/IGMP(gaddr="124.0.2.1", type=0x00)
-x[IGMP].igmpize()
+assert not x[IGMP].igmpize()
 assert x[IP].dst == "192.168.0.1"

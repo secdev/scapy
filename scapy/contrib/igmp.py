@@ -43,7 +43,7 @@ sendp(a/b/c, iface="en0")
 
     Parameters:
       type    IGMP type field, 0x11, 0x12, 0x16 or 0x17
-      mrtime  Maximum Response time (zero for v1)
+      mrcode  Maximum Response time (zero for v1)
       gaddr   Multicast Group Address 224.x.x.x/4
       
 See RFC2236, Section 2. Introduction for definitions of proper 
@@ -58,7 +58,7 @@ IGMPv2 message format   http://www.faqs.org/rfcs/rfc2236.html
                   0x17 : "Leave Group"}
 
     fields_desc = [ ByteEnumField("type", 0x11, igmptypes),
-                    ByteField("mrtime", 20),
+                    ByteField("mrcode", 20),
                     XShortField("chksum", None),
                     IPField("gaddr", "0.0.0.0")]
 
@@ -76,35 +76,68 @@ IGMPv2 message format   http://www.faqs.org/rfcs/rfc2236.html
             p = p[:2]+chr(ck>>8)+chr(ck&0xff)+p[4:]
         return p
 
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        if _pkt and len(_pkt) >= 4:
+            if ord(_pkt[0]) in [0x22, 0x30, 0x31, 0x32]:
+                return IGMPv3
+            if ord(_pkt[0]) == 0x11 and len(_pkt) >= 12:
+                return IGMPv3
+        return IGMP
+
     def igmpize(self):
-        """Applies IGMP rules to the packet"""
+        """Called to explicitly fixup the packet according to the IGMP RFC
+
+        The rules are:
+        General:
+            1.  the Max Response time is meaningful only in Membership Queries and should be zero
+        IP:
+            1. Send General Group Query to 224.0.0.1 (all systems)
+            2. Send Leave Group to 224.0.0.2 (all routers)
+            3a.Otherwise send the packet to the group address
+            3b.Send reports/joins to the group address
+            4. ttl = 1 (RFC 2236, section 2)
+            5. send the packet with the router alert IP option (RFC 2236, section 2)
+        Ether:
+            1. Recalculate destination
+
+        Returns:
+            True    The tuple ether/ip/self passed all check and represents
+                    a proper IGMP packet.
+            False   One of more validation checks failed and no fields 
+                    were adjusted.
+
+        The function will examine the IGMP message to assure proper format. 
+        Corrections will be attempted if possible. The IP header is then properly 
+        adjusted to ensure correct formatting and assignment. The Ethernet header
+        is then adjusted to the proper IGMP packet format.
+        """
         gaddr = self.gaddr if self.gaddr else "0.0.0.0"
         underlayer = self.underlayer
-        # The rules are:
-        #   1.  the Max Response time is meaningful only in Membership Queries and should be zero 
-        #       otherwise (RFC 2236, section 2.2)
-        if self.type != 0x11:         # Rule 1
-            self.mrtime = 0
+        if not self.type in [0x11, 0x30]:                               # General Rule 1
+            self.mrcode = 0
         if isinstance(underlayer, IP):
             if (self.type == 0x11):
                 if (gaddr == "0.0.0.0"):
                     underlayer.dst = "224.0.0.1"                        # IP rule 1
                 elif isValidMCAddr(gaddr):
-                    underlayer.dst = gaddr                             # IP rule 3a
+                    underlayer.dst = gaddr                              # IP rule 3a
                 else:
                     warning("Invalid IGMP Group Address detected !")
                     return False
             elif ((self.type == 0x17) and isValidMCAddr(gaddr)):
-                underlayer.dst = "224.0.0.2"                            # IP rule 2
+                underlayer.dst = "224.0.0.2"                           # IP rule 2
             elif ((self.type == 0x12) or (self.type == 0x16)) and (isValidMCAddr(gaddr)):
                 underlayer.dst = gaddr                                 # IP rule 3b
             else:
                 warning("Invalid IGMP Type detected !")
                 return False
+            if not any(isinstance(x, IPOption_Router_Alert) for x in underlayer.options):
+                underlayer.options.append(IPOption_Router_Alert())
             _root = self.firstlayer()
             if _root.haslayer(Ether):
                 # Force recalculate Ether dst
-                _root[Ether].dst = getmacbyip(underlayer.dst)
+                _root[Ether].dst = getmacbyip(underlayer.dst)          # Ether rule 1
         return True
 
     def mysummary(self):
@@ -116,5 +149,4 @@ IGMPv2 message format   http://www.faqs.org/rfcs/rfc2236.html
 
 bind_layers( IP,            IGMP,            frag=0,
                                              proto=2,
-                                             ttl=1,
-                                             options=[IPOption_Router_Alert()])
+                                             ttl=1)
