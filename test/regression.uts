@@ -333,6 +333,20 @@ assert(ret == ("<span class=prompt>&gt;&gt;&gt; </span>IP().src\n'127.0.0.1'\n",
 ret = autorun_get_latex_interactive_session("IP().src")
 assert(ret == ("\\textcolor{blue}{{\\tt\\char62}{\\tt\\char62}{\\tt\\char62} }IP().src\n'127.0.0.1'\n", '127.0.0.1'))
 
+= Test utility TEX functions
+
+assert tex_escape("{scapy}\\^$~#_&%|><") == "{\\tt\\char123}scapy{\\tt\\char125}{\\tt\\char92}\\^{}\\${\\tt\\char126}\\#\\_\\&\\%{\\tt\\char124}{\\tt\\char62}{\\tt\\char60}"
+
+a = colgen(1, 2, 3)
+assert a.next() == (1, 2, 2)
+assert a.next() == (1, 3, 3)
+assert a.next() == (2, 2, 1)
+assert a.next() == (2, 3, 2)
+assert a.next() == (2, 1, 3)
+assert a.next() == (3, 3, 1)
+assert a.next() == (3, 1, 2)
+assert a.next() == (3, 2, 3)
+
 = Test config file functions
 
 saved_conf_verb = conf.verb
