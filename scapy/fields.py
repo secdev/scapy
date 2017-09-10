@@ -1039,6 +1039,8 @@ class FlagValue(object):
         self.multi = isinstance(names, list)
         self.names = names
         self.value = self._fixvalue(value)
+    def __hash__(self):
+        return hash(self.value)
     def __int__(self):
         return self.value
     def __eq__(self, other):

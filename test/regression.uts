@@ -8185,6 +8185,8 @@ assert pkt.flags.DF
 assert pkt.flags.evil
 assert repr(pkt.flags) == '<Flag 6 (DF+evil)>'
 
+assert len({IP().flags, IP().flags}) == 1
+
 = TCP flags
 ~ TCP
 
