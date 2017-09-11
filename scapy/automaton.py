@@ -28,6 +28,12 @@ except ImportError:
 else:
     THREAD_EXCEPTION = thread.error
 
+if WINDOWS:
+    from scapy.arch.pcapdnet import PcapTimeoutElapsed
+    recv_error = PcapTimeoutElapsed
+else:
+    recv_error = ()
+
 """ In Windows, select.select is not available for custom objects. Here's the implementation of scapy to re-create this functionnality
 # Passive way: using no-ressources locks
                +---------+             +---------------+      +-------------------------+
@@ -350,7 +356,11 @@ class _ATMT_supersocket(SuperSocket):
             s = str(s)
         return self.spa.send(s)
     def recv(self, n=MTU):
-        r = self.spa.recv(n)
+        try:
+            r = self.spa.recv(n)
+        except recv_error:
+            if not WINDOWS:
+                raise
         if self.proto is not None:
             r = self.proto(r)
         return r

@@ -9,7 +9,7 @@ import Queue
 from scapy.pipetool import Source,Drain,Sink
 from scapy.config import conf
 from scapy.utils import PcapReader, PcapWriter
-
+from scapy.automaton import recv_error
 
 class SniffSource(Source):
     """Read packets from an interface and send them to low exit.
@@ -29,8 +29,14 @@ class SniffSource(Source):
         self.s.close()
     def fileno(self):
         return self.s.fileno()
+    def check_recv(self):
+        return True
     def deliver(self):
-        self._send(self.s.recv())
+        try:
+            self._send(self.s.recv())
+        except recv_error:
+            if not WINDOWS:
+                raise
 
 class RdpcapSource(Source):
     """Read packets from a PCAP file send them to low exit.
@@ -53,6 +59,8 @@ class RdpcapSource(Source):
         self.f.close()
     def fileno(self):
         return self.f.fileno()
+    def check_recv(self):
+        return True
     def deliver(self):    
         p = self.f.recv()
         print("deliver %r" % p)
@@ -100,6 +108,7 @@ class WrpcapSink(Sink):
         self.f = PcapWriter(fname)
     def stop(self):
         self.f.flush()
+        self.f.close()
     def push(self, msg):
         self.f.write(msg)
         
