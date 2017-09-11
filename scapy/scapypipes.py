@@ -277,7 +277,7 @@ class TriggeredValve(Drain):
             self._send(msg)
     def high_push(self, msg):
         if self.opened:
-            self._send(msg)
+            self._high_send(msg)
     def on_trigger(self, msg):
         self.opened ^= True
         self._trigger(msg)

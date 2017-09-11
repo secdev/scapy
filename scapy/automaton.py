@@ -74,15 +74,14 @@ class SelectableObject:
     """DEV: to implement one of those, you need to add 2 things to your object:
     - add "check_recv" function
     - call "self.call_release" once you are ready to be read"""
-    trigger = threading.Lock()
-    was_ended = False
     def check_recv(self):
         """DEV: will be called only once (at beginning) to check if the object is ready."""
         raise OSError("This method must be overwriten.")
 
     def _wait_non_ressources(self, callback):
         """This get started as a thread, and waits for the data lock to be freed then advertise itself to the SelectableSelector using the callback"""
-        self.call_release()
+        self.trigger = threading.Lock()
+        self.was_ended = False
         self.trigger.acquire()
         self.trigger.acquire()
         if not self.was_ended:
@@ -100,7 +99,7 @@ class SelectableObject:
         self.was_ended = arborted
         try:
             self.trigger.release()
-        except THREAD_EXCEPTION as e:
+        except (THREAD_EXCEPTION, AttributeError) as e:
             pass
 
 class SelectableSelector(object):
@@ -128,7 +127,7 @@ class SelectableSelector(object):
             self._ended = True
             self._release_all()
 
-    def _exit_door(self,_input):
+    def _exit_door(self, _input):
         """This function is passed to each SelectableObject as a callback
         The SelectableObjects have to call it once there are ready"""
         self.results.append(_input)
@@ -150,7 +149,7 @@ class SelectableSelector(object):
         if WINDOWS:
             for i in self.inputs:
                 if not isinstance(i, SelectableObject):
-                    warning("Unknown ignored object type: " + type(i))
+                    warning("Unknown ignored object type: " + str(type(i)))
                 elif not self.remain and i.check_recv():
                     self.results.append(i)
                 else:

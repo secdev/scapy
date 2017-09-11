@@ -375,6 +375,7 @@ class AutoSource(Source, SelectableObject):
         self._wake_up()
     def _wake_up(self):
         os.write(self.__fdw,"X")
+        self.call_release()
     def deliver(self):
         os.read(self.__fdr,1)
         try:
@@ -382,7 +383,6 @@ class AutoSource(Source, SelectableObject):
         except IndexError: #empty queue. Exhausted source
             pass
         else:
-            self.call_release()
             if high:
                 self._high_send(msg)
             else:

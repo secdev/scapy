@@ -10,7 +10,7 @@ s = PeriodicSource("hello", 1, name="src")
 d1 = Drain(name="d1")
 c = ConsoleSink(name="c")
 tf = TransformDrain(lambda x:"Got %r" % x)
-t = TermSink(name="t", keepterm=False)
+t = TermSink(name="PipeToolsPeriodicTest", keepterm=False)
 s > d1 > c
 d1 > tf > t
 
@@ -295,3 +295,150 @@ _inject_sink(False) # InjectSink
 _inject_sink(True) # Inject3Sink
 
 assert msgs == [a,a]
+
+= TriggerDrain and TriggeredValve with CLIFeeder
+
+s = CLIFeeder()
+d1 = TriggerDrain(lambda x:x=="trigger")
+d2 = TriggeredValve()
+c = QueueSink()
+
+s > d1 > d2 > c
+d1 ^ d2
+
+p = PipeEngine(s)
+p.start()
+
+s.send("hello")
+s.send("trigger")
+s.send("hello2")
+s.send("trigger")
+s.send("hello3")
+
+assert c.q.get(timeout=2) == "hello"
+assert c.q.get(timeout=2) == "trigger"
+assert c.q.get(timeout=2) == "hello3"
+
+p.stop()
+
+= TriggerDrain and TriggeredValve with CLIHighFeeder
+
+s = CLIHighFeeder()
+d1 = TriggerDrain(lambda x:x=="trigger")
+d2 = TriggeredValve()
+c = QueueSink()
+
+s >> d1 >> d2 >> c
+d1 ^ d2
+
+p = PipeEngine(s)
+p.start()
+
+s.send("hello")
+s.send("trigger")
+s.send("hello2")
+s.send("trigger")
+s.send("hello3")
+
+assert c.q.get(timeout=2) == "hello"
+assert c.q.get(timeout=2) == "trigger"
+assert c.q.get(timeout=2) == "hello3"
+
+p.stop()
+
+= TriggerDrain and TriggeredQueueingValve with CLIFeeder
+
+s = CLIFeeder()
+d1 = TriggerDrain(lambda x:x=="trigger")
+d2 = TriggeredValve()
+c = QueueSink()
+
+s > d1 > d2 > c
+d1 ^ d2
+
+p = PipeEngine(s)
+p.start()
+
+s.send("hello")
+s.send("trigger")
+s.send("hello2")
+s.send("trigger")
+s.send("hello3")
+
+assert c.q.get(timeout=2) == "hello"
+assert c.q.get(timeout=2) == "trigger"
+assert c.q.get(timeout=2) == "hello3"
+
+p.stop()
+
+= TriggerDrain and TriggeredSwitch with CLIFeeder on high channel
+
+s = CLIFeeder()
+d1 = TriggerDrain(lambda x:x=="trigger")
+d2 = TriggeredSwitch()
+c = QueueSink()
+
+s > d1 > d2
+d2 >> c
+d1 ^ d2
+
+p = PipeEngine(s)
+p.start()
+
+s.send("hello")
+s.send("trigger")
+s.send("hello2")
+s.send("trigger")
+s.send("hello3")
+
+assert c.q.get(timeout=2) == "trigger"
+assert c.q.get(timeout=2) == "hello2"
+
+p.stop()
+
+= TriggerDrain and TriggeredSwitch with CLIHighFeeder on low channel
+
+s = CLIHighFeeder()
+d1 = TriggerDrain(lambda x:x=="trigger")
+d2 = TriggeredSwitch()
+c = QueueSink()
+
+s >> d1 >> d2
+d2 > c
+d1 ^ d2
+
+p = PipeEngine(s)
+p.start()
+
+s.send("hello")
+s.send("trigger")
+s.send("hello2")
+s.send("trigger")
+s.send("hello3")
+
+assert c.q.get(timeout=2) == "hello"
+assert c.q.get(timeout=2) == "trigger"
+assert c.q.get(timeout=2) == "hello3"
+
+p.stop()
+
+= TriggerDrain and TriggeredMessage
+
+s = CLIFeeder()
+d1 = TriggerDrain(lambda x:x=="trigger")
+d2 = TriggeredMessage("hello")
+c = QueueSink()
+
+s > d1 > d2 > c
+d1 ^ d2
+
+p = PipeEngine(s)
+p.start()
+
+s.send("trigger")
+
+r = [c.q.get(timeout=5), c.q.get(timeout=5)]
+assert "hello" in r
+assert "trigger" in r
+
+p.stop()
