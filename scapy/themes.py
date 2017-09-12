@@ -85,6 +85,7 @@ class AnsiColorTheme(ColorTheme):
     style_closed = ""
     style_left = ""
     style_right = ""
+    style_logo = ""
 
 class BlackAndWhite(AnsiColorTheme):
     pass
@@ -112,6 +113,7 @@ class DefaultTheme(AnsiColorTheme):
     style_closed = Color.grey
     style_left = Color.blue+Color.invert
     style_right = Color.red+Color.invert
+    style_logo = Color.green+Color.bold
     
 class BrightTheme(AnsiColorTheme):
     style_normal = Color.normal
@@ -131,6 +133,7 @@ class BrightTheme(AnsiColorTheme):
     style_odd = Color.black
     style_left = Color.cyan+Color.invert
     style_right = Color.purple+Color.invert
+    style_logo = Color.green+Color.bold
 
 
 class RastaTheme(AnsiColorTheme):
@@ -153,6 +156,8 @@ class RastaTheme(AnsiColorTheme):
     style_odd = Color.green
     style_left = Color.yellow+Color.invert
     style_right = Color.red+Color.invert
+    style_logo = Color.green+Color.bold
+
 
 class ColorOnBlackTheme(AnsiColorTheme):
     """Color theme for black backgrounds"""
@@ -178,6 +183,7 @@ class ColorOnBlackTheme(AnsiColorTheme):
     style_closed = Color.black+Color.bold
     style_left = Color.cyan+Color.bold
     style_right = Color.red+Color.bold
+    style_logo = Color.green+Color.bold
 
 
 class FormatTheme(ColorTheme):
@@ -204,6 +210,7 @@ class LatexTheme(FormatTheme):
     style_right = r"\textcolor{red}{%s}"
 #    style_even = r"}{\bf "
 #    style_odd = ""
+    style_logo = r"\textcolor{green}{\bf %s}"
 
 class LatexTheme2(FormatTheme):
     style_prompt = r"@`@textcolor@[@blue@]@@[@%s@]@"
@@ -222,6 +229,7 @@ class LatexTheme2(FormatTheme):
 #    style_odd = r"@`@textcolor@[@black@]@@[@@`@bfseries@[@@]@%s@]@"
     style_left = r"@`@textcolor@[@blue@]@@[@%s@]@"
     style_right = r"@`@textcolor@[@red@]@@[@%s@]@"
+    style_logo = r"@`@textcolor@[@green@]@@[@@`@bfseries@[@@]@%s@]@"
 
 class HTMLTheme(FormatTheme):
     style_prompt = "<span class=prompt>%s</span>"

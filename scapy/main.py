@@ -9,19 +9,36 @@ Main module for interactive startup.
 
 from __future__ import absolute_import
 from __future__ import print_function
-import os,sys
+
+
 import glob
-import types
 import gzip
-import scapy.modules.six as six
 import importlib
+import os
+from random import choice
+import sys
+import types
+
+
+import scapy.modules.six as six
+from scapy.error import *
+
+
 ignored = list(six.moves.builtins.__dict__.keys())
 
-from scapy.error import *
 
 LAYER_ALIASES = {
     "tls": "tls.all"
 }
+
+QUOTES = [
+    ("Craft packets like it is your last day on earth.", "Lao-Tze"),
+    ("Craft packets like I craft my beer.", "Jean De Clerck"),
+    ("Craft packets before they craft you.", "Socrate"),
+    ("Craft me if you can.", "IPv6 layer"),
+    ("To craft a packet, you have to be a packet, and learn how to swim in the "
+     "wires and in the waves.", "Jean-Claude Van Damme"),
+]
 
 def _probe_config_file(cf):
     cf_path = os.path.join(os.path.expanduser("~"), cf)
@@ -270,6 +287,29 @@ def scapy_delete_temp_files():
         except:
             pass
 
+def _prepare_quote(quote, author, max_len=78):
+    """This function processes a quote and returns a string that is ready
+to be used in the fancy prompt.
+
+    """
+    quote = quote.split(' ')
+    max_len -= 6
+    lines = []
+    cur_line = []
+    def _len(line):
+        return sum(len(elt) for elt in line) + len(line) - 1
+    while quote:
+        if not cur_line or (_len(cur_line) + len(quote[0]) - 1 <= max_len):
+            cur_line.append(quote.pop(0))
+            continue
+        lines.append('   | %s' % ' '.join(cur_line))
+        cur_line = []
+    if cur_line:
+        lines.append('   | %s' % ' '.join(cur_line))
+        cur_line = []
+    lines.append('   | %s-- %s' % (" " * (max_len - len(author) - 5), author))
+    return lines
+
 def scapy_write_history_file(readline):
     from scapy import utils
     if conf.histfile:
@@ -298,13 +338,101 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
     console_handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
     log_scapy.addHandler(console_handler)
 
-    the_banner = "Welcome to Scapy (%s)"
-    if mybanner is not None:
-        the_banner += "\n"
-        the_banner += mybanner
+    conf.color_theme = DefaultTheme()
+
+    STARTUP_FILE = DEFAULT_STARTUP_FILE
+    PRESTART_FILE = DEFAULT_PRESTART_FILE
+
+    session_name = None
 
     if argv is None:
         argv = sys.argv
+
+    try:
+        opts = getopt.getopt(argv[1:], "hs:Cc:Pp:d")
+        for opt, parm in opts[0]:
+            if opt == "-h":
+                _usage()
+            elif opt == "-s":
+                session_name = parm
+            elif opt == "-c":
+                STARTUP_FILE = parm
+            elif opt == "-C":
+                STARTUP_FILE = None
+            elif opt == "-p":
+                PRESTART_FILE = parm
+            elif opt == "-P":
+                PRESTART_FILE = None
+            elif opt == "-d":
+                conf.logLevel = max(1, conf.logLevel-10)
+
+        if len(opts[1]) > 0:
+            raise getopt.GetoptError("Too many parameters : [%s]" % " ".join(opts[1]))
+
+
+    except getopt.GetoptError as msg:
+        log_loading.error(msg)
+        sys.exit(1)
+
+    if STARTUP_FILE:
+        _read_config_file(STARTUP_FILE)
+    if PRESTART_FILE:
+        _read_config_file(PRESTART_FILE)
+
+    init_session(session_name, mydict)
+
+    if conf.fancy_prompt:
+
+        the_logo = [
+            "                                      ",
+            "                     aSPY//YASa       ",
+            "             apyyyyCY//////////YCa    ",
+            "            sY//////YSpcs  scpCY//Pp  ",
+            " ayp ayyyyyyySCP//Pp           syY//C ",
+            " AYAsAYYYYYYYY///Ps              cY//S",
+            "         pCCCCY//p          cSSps y//Y",
+            "         SPPPP///a          pP///AC//Y",
+            "              A//A            cyP////C",
+            "              p///Ac            sC///a",
+            "              P////YCpc           A//A",
+            "       scccccp///pSP///p          p//Y",
+            "      sY/////////y  caa           S//P",
+            "       cayCyayP//Ya              pY/Ya",
+            "        sY/PsY////YCc          aC//Yp ",
+            "         sc  sccaCY//PCypaapyCP//YSs  ",
+            "                  spCPY//////YPSps    ",
+            "                       ccaacs         ",
+            "                                      ",
+        ]
+
+        the_banner = [
+            "",
+            "",
+            "   |",
+            "   | Welcome to Scapy",
+            "   | Version %s" % conf.version,
+            "   |",
+            "   | https://github.com/secdev/scapy",
+            "   |",
+            "   | Have fun!",
+            "   |",
+        ]
+
+        quote, author = choice(QUOTES)
+        the_banner.extend(_prepare_quote(quote, author, max_len=39))
+        the_banner.append("   |")
+        the_banner = "\n".join(
+            logo + banner for logo, banner in six.moves.zip_longest(
+                (conf.color_theme.logo(line) for line in the_logo),
+                (conf.color_theme.success(line) for line in the_banner),
+                fillvalue=""
+            )
+        )
+    else:
+        the_banner = "Welcome to Scapy (%s)" % conf.version
+    if mybanner is not None:
+        the_banner += "\n"
+        the_banner += mybanner
 
     import atexit
     try:
@@ -355,47 +483,6 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
         readline.set_completer(ScapyCompleter().complete)
         readline.parse_and_bind("C-o: operate-and-get-next")
         readline.parse_and_bind("tab: complete")
-    
-    
-    STARTUP_FILE = DEFAULT_STARTUP_FILE
-    PRESTART_FILE = DEFAULT_PRESTART_FILE
-
-    session_name = None
-
-    try:
-        opts=getopt.getopt(argv[1:], "hs:Cc:Pp:d")
-        for opt, parm in opts[0]:
-            if opt == "-h":
-                _usage()
-            elif opt == "-s":
-                session_name = parm
-            elif opt == "-c":
-                STARTUP_FILE = parm
-            elif opt == "-C":
-                STARTUP_FILE = None
-            elif opt == "-p":
-                PRESTART_FILE = parm
-            elif opt == "-P":
-                PRESTART_FILE = None
-            elif opt == "-d":
-                conf.logLevel = max(1,conf.logLevel-10)
-        
-        if len(opts[1]) > 0:
-            raise getopt.GetoptError("Too many parameters : [%s]" % " ".join(opts[1]))
-
-
-    except getopt.GetoptError as msg:
-        log_loading.error(msg)
-        sys.exit(1)
-
-    conf.color_theme = DefaultTheme()
-    
-    if STARTUP_FILE:
-        _read_config_file(STARTUP_FILE)
-    if PRESTART_FILE:
-        _read_config_file(PRESTART_FILE)
-
-    init_session(session_name, mydict)
 
     if READLINE:
         if conf.histfile:
@@ -417,7 +504,7 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
             IPYTHON=False
         
     if IPYTHON:
-        banner = the_banner % (conf.version) + " using IPython %s" % IPython.__version__
+        banner = the_banner + " using IPython %s" % IPython.__version__
 
         # Old way to embed IPython kept for backward compatibility
         try:
@@ -431,8 +518,7 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
         IPython.embed(user_ns=session, banner2=banner)
 
     else:
-        code.interact(banner = the_banner % (conf.version),
-                      local=session, readfunc=conf.readfunc)
+        code.interact(banner=the_banner, local=session, readfunc=conf.readfunc)
 
     if conf.session:
         save_session(conf.session, session)
