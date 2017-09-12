@@ -345,7 +345,7 @@ def _prompt_changer(attr,val):
 class Conf(ConfClass):
     """This object contains the configuration of Scapy.
 session  : filename where the session will be saved
-interactive_shell : If set to "ipython", use IPython as shell. Default: Python
+interactive_shell : can be "ipython", "python" or "auto". Default: Auto
 stealth  : if 1, prevents any unwanted packet to go out (ARP, DNS, ...)
 checkIPID: if 0, doesn't check that IPID matches between IP sent and ICMP IP citation received
            if 1, checks that they either are equal or byte swapped equals (bug in some IP stacks)
@@ -381,7 +381,6 @@ debug_tls:When 1, print some TLS session secrets when they are computed.
     stealth = "not implemented"
     iface = None
     iface6 = None
-    readfunc = None
     layers = LayersList()
     commands = CommandsList()
     logLevel = LogLevel()

@@ -314,20 +314,6 @@ to be used in the fancy prompt.
     lines.append('   | %s-- %s' % (" " * (max_len - len(author) - 5), author))
     return lines
 
-def scapy_write_history_file(readline):
-    if conf.histfile:
-        try:
-            readline.write_history_file(conf.histfile)
-        except IOError as e:
-            try:
-                warning("Could not write history to [%s]\n\t (%s)" % (conf.histfile,e))
-                tmp = utils.get_temp_file(keep=True)
-                readline.write_history_file(tmp)
-                warning("Wrote history to [%s]" % tmp)
-            except:
-                warning("Could not write history to [%s]. Discarded" % tmp)
-
-
 def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
     global SESSION
     global GLOBKEYS
@@ -434,92 +420,46 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
     if mybanner is not None:
         the_banner += "\n"
         the_banner += mybanner
-
-    try:
-        import readline, rlcompleter
-    except ImportError:
-        log_loading.info("Can't load Python libreadline or completer")
-        READLINE=0
-    else:
-        READLINE=1
-        class ScapyCompleter(rlcompleter.Completer):
-            def global_matches(self, text):
-                matches = []
-                n = len(text)
-                for lst in [dir(six.moves.builtins), SESSION]:
-                    for word in lst:
-                        if word[:n] == text and word != "__builtins__":
-                            matches.append(word)
-                return matches
-
-
-            def attr_matches(self, text):
-                m = re.match(r"(\w+(\.\w+)*)\.(\w*)", text)
-                if not m:
-                    return []
-                expr, attr = m.group(1, 3)
-                try:
-                    object = eval(expr)
-                except:
-                    try:
-                        object = eval(expr, SESSION)
-                    except (NameError, AttributeError):
-                        return []
-                from scapy.packet import Packet, Packet_metaclass
-                if isinstance(object, Packet) or isinstance(object, Packet_metaclass):
-                    words = [x for x in dir(object) if x[0] != "_"]
-                    words += [x.name for x in object.fields_desc]
-                else:
-                    words = dir(object)
-                    if hasattr( object,"__class__" ):
-                        words = words + rlcompleter.get_class_members(object.__class__)
-                matches = []
-                n = len(attr)
-                for word in words:
-                    if word[:n] == attr and word != "__builtins__":
-                        matches.append("%s.%s" % (expr, word))
-                return matches
-    
-        readline.set_completer(ScapyCompleter().complete)
-        readline.parse_and_bind("C-o: operate-and-get-next")
-        readline.parse_and_bind("tab: complete")
-
-    if READLINE:
-        if conf.histfile:
-            try:
-                readline.read_history_file(conf.histfile)
-            except IOError:
-                pass
-        atexit.register(scapy_write_history_file,readline)
-    
-    atexit.register(scapy_delete_temp_files)
     
     IPYTHON=False
-    if conf.interactive_shell.lower() == "ipython":
+    if not conf.interactive_shell or conf.interactive_shell.lower() in ["ipython", "auto"]:
         try:
             import IPython
             IPYTHON=True
-        except ImportError:
+        except ImportError as e:
             log_loading.warning("IPython not available. Using standard Python "
-                                "shell instead.")
+                                "shell instead. AutoCompletion, Colors, History are disabled.")
             IPYTHON=False
 
     if IPYTHON:
         banner = the_banner + " using IPython %s" % IPython.__version__
+        from IPython.terminal.prompts import Prompts, Token
+        from traitlets.config.loader import Config
+        from IPython.terminal.embed import InteractiveShellEmbed
 
-        # Old way to embed IPython kept for backward compatibility
+        cfg = Config()
+
         try:
-            args = ['']  # IPython command line args (will be seen as sys.argv)
-            ipshell = IPython.Shell.IPShellEmbed(args, banner = banner)
-            ipshell(local_ns=SESSION)
-        except AttributeError:
-            pass
+            get_ipython
+        except NameError:
+            # Set "classic" prompt style when launched from run_scapy(.bat) files
+            class ClassicPrompt(Prompts):
+                def in_prompt_tokens(self, cli=None):
+                   return [(Token.Prompt, '>>> '),]
+                def out_prompt_tokens(self):
+                   return [(Token.OutPrompt, ''),]
 
-        # In the IPython cookbook, see 'Updating-code-for-use-with-IPython-0.11-and-later'
-        IPython.embed(user_ns=SESSION, banner2=banner)
+            cfg.TerminalInteractiveShell.prompts_class=ClassicPrompt
 
+        # configuration can thus be specified here.
+        ipshell = InteractiveShellEmbed(config=cfg,
+                                        banner1=banner,
+                                        hist_file=conf.histfile if conf.histfile else None)
+
+        ipshell(local_ns=SESSION)
     else:
-        code.interact(banner=the_banner, local=SESSION, readfunc=conf.readfunc)
+        code.interact(banner = the_banner % (conf.version),
+                      local=SESSION)
 
     if conf.session:
         save_session(conf.session, SESSION)
