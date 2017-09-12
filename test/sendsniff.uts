@@ -9,15 +9,25 @@
 ~ tap linux
 
 = Create two tap interfaces
-tap0, tap1 = [TunTapInterface("tap%d" % i, create=True) for i in range(2)]
+
+import subprocess
 from threading import Thread
+
+tap0, tap1 = [TunTapInterface("tap%d" % i) for i in range(2)]
+
+if LINUX:
+    for i in range(2):
+        assert subprocess.check_call(["ip", "link", "set", "tap%d" % i, "up"]) == 0
+else:
+    for i in range(2):
+        assert subprocess.check_call(["ifconfig", "tap%d" % i, "up"]) == 0
 
 = Run a sniff thread on the tap1 **interface**
 * It will terminate when 5 IP packets from 1.2.3.4 have been sniffed
 t_sniff = Thread(
     target=sniff,
     kwargs={"iface": "tap1", "count": 5, "prn": Packet.summary,
-	    "lfilter": lambda p: IP in p and p[IP].src == "1.2.3.4"}
+            "lfilter": lambda p: IP in p and p[IP].src == "1.2.3.4"}
 )
 t_sniff.start()
 
@@ -42,7 +52,7 @@ t_sniff.join()
 t_sniff = Thread(
     target=sniff,
     kwargs={"iface": "tap1", "count": 5, "prn": Packet.summary,
-	    "lfilter": lambda p: IP in p and p[IP].src == "2.3.4.5"}
+            "lfilter": lambda p: IP in p and p[IP].src == "2.3.4.5"}
 )
 t_sniff.start()
 
@@ -81,15 +91,25 @@ del tap0, tap1
 ~ tun linux not_pcapdnet
 
 = Create two tun interfaces
-tun0, tun1 = [TunTapInterface("tun%d" % i, create=True) for i in range(2)]
+
+import subprocess
 from threading import Thread
+
+tun0, tun1 = [TunTapInterface("tun%d" % i) for i in range(2)]
+
+if LINUX:
+    for i in range(2):
+        assert subprocess.check_call(["ip", "link", "set", "tun%d" % i, "up"]) == 0
+else:
+    for i in range(2):
+        assert subprocess.check_call(["ifconfig", "tun%d" % i, "up"]) == 0
 
 = Run a sniff thread on the tun1 **interface**
 * It will terminate when 5 IP packets from 1.2.3.4 have been sniffed
 t_sniff = Thread(
     target=sniff,
     kwargs={"iface": "tun1", "count": 5, "prn": Packet.summary,
-	    "lfilter": lambda p: IP in p and p[IP].src == "1.2.3.4"}
+            "lfilter": lambda p: IP in p and p[IP].src == "1.2.3.4"}
 )
 t_sniff.start()
 
@@ -116,7 +136,7 @@ t_sniff.join()
 t_sniff = Thread(
     target=sniff,
     kwargs={"iface": "tun1", "count": 5, "prn": Packet.summary,
-	    "lfilter": lambda p: IP in p and p[IP].src == "2.3.4.5"}
+            "lfilter": lambda p: IP in p and p[IP].src == "2.3.4.5"}
 )
 t_sniff.start()
 
