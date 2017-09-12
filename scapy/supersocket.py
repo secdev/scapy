@@ -208,18 +208,14 @@ class L2ListenTcpdump(SuperSocket):
 
 
 class TunTapInterface(SuperSocket):
-    """A socket to act as the host's peer of a tun / tap interface. The
-interface can also be created, using `create=True`.
+    """A socket to act as the host's peer of a tun / tap interface.
 
     """
     desc = "Act as the host's peer of a tun / tap interface"
 
-    def __init__(self, iface=None, create=False, mode_tun=None, *arg, **karg):
+    def __init__(self, iface=None, mode_tun=None, *arg, **karg):
         self.iface = conf.iface if iface is None else iface
         self.mode_tun = ("tun" in iface) if mode_tun is None else mode_tun
-        self.created = False
-        if create:
-            self.create()
         self.closed = True
         self.open()
 
@@ -228,47 +224,9 @@ interface can also be created, using `create=True`.
 
     def __del__(self):
         self.close()
-        self.delete()
 
     def __exit__(self, *_):
-        pass
-
-    def create(self):
-        """Create the TUN or TAP interface, using system commands (ip on
-Linux, ifconfig on *BSD & Darwin).
-
-        """
-        if self.created:
-            return
-        if LINUX:
-            for cmd in [
-                    ["ip", "tuntap", "add", "mode",
-                     "tun" if self.mode_tun else "tap", "name", self.iface],
-                    ["ip", "link", "set", self.iface, "up"],
-            ]:
-                subprocess.check_call(cmd)
-        elif OPENBSD and not self.mode_tun:
-            subprocess.check_call(["ifconfig", self.iface, "create", "link0"])
-        elif BSD:
-            subprocess.check_call(["ifconfig", self.iface, "create"])
-        else:
-            raise RuntimeError("Don't know how to create %s" % self.iface)
-        self.created = True
-
-    def delete(self):
-        """Destroy the TUN or TAP interface, using system commands (ip on
-Linux, ifconfig on *BSD & Darwin).
-
-        """
-        if not self.created:
-            return
-        if LINUX:
-            subprocess.check_call(["ip", "tuntap", "del", "mode",
-                                   "tun" if self.mode_tun else "tap", "name",
-                                   self.iface])
-        elif BSD:
-            subprocess.check_call(["ifconfig", self.iface, "destroy"])
-        self.created = False
+        self.close()
 
     def open(self):
         """Open the TUN or TAP device."""
