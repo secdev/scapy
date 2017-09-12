@@ -11,21 +11,30 @@ from __future__ import absolute_import
 from __future__ import print_function
 
 
+import atexit
+import code
+import getopt
 import glob
 import gzip
 import importlib
+import logging
 import os
 from random import choice
+import re
 import sys
 import types
 
 
+from scapy.config import conf
+from scapy.error import log_interactive, log_loading, log_scapy, warning
 import scapy.modules.six as six
-from scapy.error import *
+from scapy.themes import DefaultTheme
+from scapy import utils
 
 
-ignored = list(six.moves.builtins.__dict__.keys())
+IGNORED = list(six.moves.builtins.__dict__)
 
+GLOBKEYS = []
 
 LAYER_ALIASES = {
     "tls": "tls.all"
@@ -62,22 +71,18 @@ def _validate_local(x):
     """Returns whether or not a variable should be imported.
     Will return False for any default modules (sys), or if
     they are detected as private vars (starting with a _)"""
-    global ignored
-    return x[0] != "_" and not x in ignored
+    global IGNORED
+    return x[0] != "_" and not x in IGNORED
 
 DEFAULT_PRESTART_FILE = _probe_config_file(".scapy_prestart.py")
 DEFAULT_STARTUP_FILE = _probe_config_file(".scapy_startup.py")
-session = None
+SESSION = None
 
 def _usage():
     print("""Usage: scapy.py [-s sessionfile] [-c new_startup_file] [-p new_prestart_file] [-C] [-P]
     -C: do not read startup file
     -P: do not read pre-startup file""")
     sys.exit(0)
-
-
-from scapy.config import conf
-from scapy.themes import DefaultTheme
 
 
 ######################
@@ -177,7 +182,6 @@ def list_contrib(name=None):
 
 
 def save_session(fname=None, session=None, pickleProto=-1):
-    from scapy import utils
     if fname is None:
         fname = conf.session
         if not fname:
@@ -235,17 +239,17 @@ def update_session(fname=None):
     scapy_session.update(s)
 
 def init_session(session_name, mydict=None):
-    global session
-    global globkeys
+    global SESSION
+    global GLOBKEYS
     
     scapy_builtins = {k: v for k, v in six.iteritems(importlib.import_module(".all", "scapy").__dict__) if _validate_local(k)}
     six.moves.builtins.__dict__.update(scapy_builtins)
-    globkeys = list(scapy_builtins.keys())
-    globkeys.append("scapy_session")
+    GLOBKEYS.extend(scapy_builtins)
+    GLOBKEYS.append("scapy_session")
     scapy_builtins=None # XXX replace with "with" statement
     if mydict is not None:
         six.moves.builtins.__dict__.update(mydict)
-        globkeys += list(mydict.keys())
+        GLOBKEYS.extend(mydict)
     
     if session_name:
         try:
@@ -255,26 +259,26 @@ def init_session(session_name, mydict=None):
         else:
             try:
                 try:
-                    session = six.moves.cPickle.load(gzip.open(session_name,"rb"))
+                    SESSION = six.moves.cPickle.load(gzip.open(session_name,"rb"))
                 except IOError:
-                    session = six.moves.cPickle.load(open(session_name,"rb"))
+                    SESSION = six.moves.cPickle.load(open(session_name,"rb"))
                 log_loading.info("Using session [%s]" % session_name)
             except EOFError:
                 log_loading.error("Error opening session [%s]" % session_name)
             except AttributeError:
                 log_loading.error("Error opening session [%s]. Attribute missing" %  session_name)
 
-        if session:
-            if "conf" in session:
-                conf.configure(session["conf"])
-                session["conf"] = conf
+        if SESSION:
+            if "conf" in SESSION:
+                conf.configure(SESSION["conf"])
+                SESSION["conf"] = conf
         else:
             conf.session = session_name
-            session={"conf":conf}
+            SESSION = {"conf":conf}
     else:
-        session={"conf": conf}
+        SESSION = {"conf": conf}
 
-    six.moves.builtins.__dict__["scapy_session"] = session
+    six.moves.builtins.__dict__["scapy_session"] = SESSION
 
 ################
 ##### Main #####
@@ -311,7 +315,6 @@ to be used in the fancy prompt.
     return lines
 
 def scapy_write_history_file(readline):
-    from scapy import utils
     if conf.histfile:
         try:
             readline.write_history_file(conf.histfile)
@@ -326,10 +329,8 @@ def scapy_write_history_file(readline):
 
 
 def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
-    global session
-    global globkeys
-    import code,sys,os,getopt,re
-    from scapy.config import conf
+    global SESSION
+    global GLOBKEYS
     conf.interactive = True
     if loglevel is not None:
         conf.logLevel=loglevel
@@ -434,9 +435,8 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
         the_banner += "\n"
         the_banner += mybanner
 
-    import atexit
     try:
-        import rlcompleter,readline
+        import readline, rlcompleter
     except ImportError:
         log_loading.info("Can't load Python libreadline or completer")
         READLINE=0
@@ -446,7 +446,7 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
             def global_matches(self, text):
                 matches = []
                 n = len(text)
-                for lst in [dir(six.moves.builtins), session]:
+                for lst in [dir(six.moves.builtins), SESSION]:
                     for word in lst:
                         if word[:n] == text and word != "__builtins__":
                             matches.append(word)
@@ -462,7 +462,7 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
                     object = eval(expr)
                 except:
                     try:
-                        object = eval(expr, session)
+                        object = eval(expr, SESSION)
                     except (NameError, AttributeError):
                         return []
                 from scapy.packet import Packet, Packet_metaclass
@@ -499,32 +499,32 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
         try:
             import IPython
             IPYTHON=True
-        except ImportError as e:
-            log_loading.warning("IPython not available. Using standard Python shell instead.")
+        except ImportError:
+            log_loading.warning("IPython not available. Using standard Python "
+                                "shell instead.")
             IPYTHON=False
-        
+
     if IPYTHON:
         banner = the_banner + " using IPython %s" % IPython.__version__
 
         # Old way to embed IPython kept for backward compatibility
         try:
-          args = ['']  # IPython command line args (will be seen as sys.argv)
-          ipshell = IPython.Shell.IPShellEmbed(args, banner = banner)
-          ipshell(local_ns=session)
-        except AttributeError as e:
-          pass
+            args = ['']  # IPython command line args (will be seen as sys.argv)
+            ipshell = IPython.Shell.IPShellEmbed(args, banner = banner)
+            ipshell(local_ns=SESSION)
+        except AttributeError:
+            pass
 
         # In the IPython cookbook, see 'Updating-code-for-use-with-IPython-0.11-and-later'
-        IPython.embed(user_ns=session, banner2=banner)
+        IPython.embed(user_ns=SESSION, banner2=banner)
 
     else:
-        code.interact(banner=the_banner, local=session, readfunc=conf.readfunc)
+        code.interact(banner=the_banner, local=SESSION, readfunc=conf.readfunc)
 
     if conf.session:
-        save_session(conf.session, session)
+        save_session(conf.session, SESSION)
 
-
-    for k in globkeys:
+    for k in GLOBKEYS:
         try:
             del(six.moves.builtins.__dict__[k])
         except:
