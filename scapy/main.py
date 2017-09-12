@@ -9,19 +9,45 @@ Main module for interactive startup.
 
 from __future__ import absolute_import
 from __future__ import print_function
-import os,sys
-import glob
-import types
-import gzip
-import scapy.modules.six as six
-import importlib
-ignored = list(six.moves.builtins.__dict__.keys())
 
-from scapy.error import *
+
+import atexit
+import code
+import getopt
+import glob
+import gzip
+import importlib
+import logging
+import os
+from random import choice
+import re
+import sys
+import types
+
+
+from scapy.config import conf
+from scapy.error import log_interactive, log_loading, log_scapy, warning
+import scapy.modules.six as six
+from scapy.themes import DefaultTheme
+from scapy import utils
+
+
+IGNORED = list(six.moves.builtins.__dict__)
+
+GLOBKEYS = []
 
 LAYER_ALIASES = {
     "tls": "tls.all"
 }
+
+QUOTES = [
+    ("Craft packets like it is your last day on earth.", "Lao-Tze"),
+    ("Craft packets like I craft my beer.", "Jean De Clerck"),
+    ("Craft packets before they craft you.", "Socrate"),
+    ("Craft me if you can.", "IPv6 layer"),
+    ("To craft a packet, you have to be a packet, and learn how to swim in the "
+     "wires and in the waves.", "Jean-Claude Van Damme"),
+]
 
 def _probe_config_file(cf):
     cf_path = os.path.join(os.path.expanduser("~"), cf)
@@ -45,22 +71,18 @@ def _validate_local(x):
     """Returns whether or not a variable should be imported.
     Will return False for any default modules (sys), or if
     they are detected as private vars (starting with a _)"""
-    global ignored
-    return x[0] != "_" and not x in ignored
+    global IGNORED
+    return x[0] != "_" and not x in IGNORED
 
 DEFAULT_PRESTART_FILE = _probe_config_file(".scapy_prestart.py")
 DEFAULT_STARTUP_FILE = _probe_config_file(".scapy_startup.py")
-session = None
+SESSION = None
 
 def _usage():
     print("""Usage: scapy.py [-s sessionfile] [-c new_startup_file] [-p new_prestart_file] [-C] [-P]
     -C: do not read startup file
     -P: do not read pre-startup file""")
     sys.exit(0)
-
-
-from scapy.config import conf
-from scapy.themes import DefaultTheme
 
 
 ######################
@@ -160,7 +182,6 @@ def list_contrib(name=None):
 
 
 def save_session(fname=None, session=None, pickleProto=-1):
-    from scapy import utils
     if fname is None:
         fname = conf.session
         if not fname:
@@ -218,17 +239,17 @@ def update_session(fname=None):
     scapy_session.update(s)
 
 def init_session(session_name, mydict=None):
-    global session
-    global globkeys
+    global SESSION
+    global GLOBKEYS
     
     scapy_builtins = {k: v for k, v in six.iteritems(importlib.import_module(".all", "scapy").__dict__) if _validate_local(k)}
     six.moves.builtins.__dict__.update(scapy_builtins)
-    globkeys = list(scapy_builtins.keys())
-    globkeys.append("scapy_session")
+    GLOBKEYS.extend(scapy_builtins)
+    GLOBKEYS.append("scapy_session")
     scapy_builtins=None # XXX replace with "with" statement
     if mydict is not None:
         six.moves.builtins.__dict__.update(mydict)
-        globkeys += list(mydict.keys())
+        GLOBKEYS.extend(mydict)
     
     if session_name:
         try:
@@ -238,26 +259,26 @@ def init_session(session_name, mydict=None):
         else:
             try:
                 try:
-                    session = six.moves.cPickle.load(gzip.open(session_name,"rb"))
+                    SESSION = six.moves.cPickle.load(gzip.open(session_name,"rb"))
                 except IOError:
-                    session = six.moves.cPickle.load(open(session_name,"rb"))
+                    SESSION = six.moves.cPickle.load(open(session_name,"rb"))
                 log_loading.info("Using session [%s]" % session_name)
             except EOFError:
                 log_loading.error("Error opening session [%s]" % session_name)
             except AttributeError:
                 log_loading.error("Error opening session [%s]. Attribute missing" %  session_name)
 
-        if session:
-            if "conf" in session:
-                conf.configure(session["conf"])
-                session["conf"] = conf
+        if SESSION:
+            if "conf" in SESSION:
+                conf.configure(SESSION["conf"])
+                SESSION["conf"] = conf
         else:
             conf.session = session_name
-            session={"conf":conf}
+            SESSION = {"conf":conf}
     else:
-        session={"conf": conf}
+        SESSION = {"conf": conf}
 
-    six.moves.builtins.__dict__["scapy_session"] = session
+    six.moves.builtins.__dict__["scapy_session"] = SESSION
 
 ################
 ##### Main #####
@@ -270,8 +291,30 @@ def scapy_delete_temp_files():
         except:
             pass
 
+def _prepare_quote(quote, author, max_len=78):
+    """This function processes a quote and returns a string that is ready
+to be used in the fancy prompt.
+
+    """
+    quote = quote.split(' ')
+    max_len -= 6
+    lines = []
+    cur_line = []
+    def _len(line):
+        return sum(len(elt) for elt in line) + len(line) - 1
+    while quote:
+        if not cur_line or (_len(cur_line) + len(quote[0]) - 1 <= max_len):
+            cur_line.append(quote.pop(0))
+            continue
+        lines.append('   | %s' % ' '.join(cur_line))
+        cur_line = []
+    if cur_line:
+        lines.append('   | %s' % ' '.join(cur_line))
+        cur_line = []
+    lines.append('   | %s-- %s' % (" " * (max_len - len(author) - 5), author))
+    return lines
+
 def scapy_write_history_file(readline):
-    from scapy import utils
     if conf.histfile:
         try:
             readline.write_history_file(conf.histfile)
@@ -286,10 +329,8 @@ def scapy_write_history_file(readline):
 
 
 def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
-    global session
-    global globkeys
-    import code,sys,os,getopt,re
-    from scapy.config import conf
+    global SESSION
+    global GLOBKEYS
     conf.interactive = True
     if loglevel is not None:
         conf.logLevel=loglevel
@@ -298,17 +339,104 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
     console_handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
     log_scapy.addHandler(console_handler)
 
-    the_banner = "Welcome to Scapy (%s)"
-    if mybanner is not None:
-        the_banner += "\n"
-        the_banner += mybanner
+    conf.color_theme = DefaultTheme()
+
+    STARTUP_FILE = DEFAULT_STARTUP_FILE
+    PRESTART_FILE = DEFAULT_PRESTART_FILE
+
+    session_name = None
 
     if argv is None:
         argv = sys.argv
 
-    import atexit
     try:
-        import rlcompleter,readline
+        opts = getopt.getopt(argv[1:], "hs:Cc:Pp:d")
+        for opt, parm in opts[0]:
+            if opt == "-h":
+                _usage()
+            elif opt == "-s":
+                session_name = parm
+            elif opt == "-c":
+                STARTUP_FILE = parm
+            elif opt == "-C":
+                STARTUP_FILE = None
+            elif opt == "-p":
+                PRESTART_FILE = parm
+            elif opt == "-P":
+                PRESTART_FILE = None
+            elif opt == "-d":
+                conf.logLevel = max(1, conf.logLevel-10)
+
+        if len(opts[1]) > 0:
+            raise getopt.GetoptError("Too many parameters : [%s]" % " ".join(opts[1]))
+
+
+    except getopt.GetoptError as msg:
+        log_loading.error(msg)
+        sys.exit(1)
+
+    if STARTUP_FILE:
+        _read_config_file(STARTUP_FILE)
+    if PRESTART_FILE:
+        _read_config_file(PRESTART_FILE)
+
+    init_session(session_name, mydict)
+
+    if conf.fancy_prompt:
+
+        the_logo = [
+            "                                      ",
+            "                     aSPY//YASa       ",
+            "             apyyyyCY//////////YCa    ",
+            "            sY//////YSpcs  scpCY//Pp  ",
+            " ayp ayyyyyyySCP//Pp           syY//C ",
+            " AYAsAYYYYYYYY///Ps              cY//S",
+            "         pCCCCY//p          cSSps y//Y",
+            "         SPPPP///a          pP///AC//Y",
+            "              A//A            cyP////C",
+            "              p///Ac            sC///a",
+            "              P////YCpc           A//A",
+            "       scccccp///pSP///p          p//Y",
+            "      sY/////////y  caa           S//P",
+            "       cayCyayP//Ya              pY/Ya",
+            "        sY/PsY////YCc          aC//Yp ",
+            "         sc  sccaCY//PCypaapyCP//YSs  ",
+            "                  spCPY//////YPSps    ",
+            "                       ccaacs         ",
+            "                                      ",
+        ]
+
+        the_banner = [
+            "",
+            "",
+            "   |",
+            "   | Welcome to Scapy",
+            "   | Version %s" % conf.version,
+            "   |",
+            "   | https://github.com/secdev/scapy",
+            "   |",
+            "   | Have fun!",
+            "   |",
+        ]
+
+        quote, author = choice(QUOTES)
+        the_banner.extend(_prepare_quote(quote, author, max_len=39))
+        the_banner.append("   |")
+        the_banner = "\n".join(
+            logo + banner for logo, banner in six.moves.zip_longest(
+                (conf.color_theme.logo(line) for line in the_logo),
+                (conf.color_theme.success(line) for line in the_banner),
+                fillvalue=""
+            )
+        )
+    else:
+        the_banner = "Welcome to Scapy (%s)" % conf.version
+    if mybanner is not None:
+        the_banner += "\n"
+        the_banner += mybanner
+
+    try:
+        import readline, rlcompleter
     except ImportError:
         log_loading.info("Can't load Python libreadline or completer")
         READLINE=0
@@ -318,7 +446,7 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
             def global_matches(self, text):
                 matches = []
                 n = len(text)
-                for lst in [dir(six.moves.builtins), session]:
+                for lst in [dir(six.moves.builtins), SESSION]:
                     for word in lst:
                         if word[:n] == text and word != "__builtins__":
                             matches.append(word)
@@ -334,7 +462,7 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
                     object = eval(expr)
                 except:
                     try:
-                        object = eval(expr, session)
+                        object = eval(expr, SESSION)
                     except (NameError, AttributeError):
                         return []
                 from scapy.packet import Packet, Packet_metaclass
@@ -355,47 +483,6 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
         readline.set_completer(ScapyCompleter().complete)
         readline.parse_and_bind("C-o: operate-and-get-next")
         readline.parse_and_bind("tab: complete")
-    
-    
-    STARTUP_FILE = DEFAULT_STARTUP_FILE
-    PRESTART_FILE = DEFAULT_PRESTART_FILE
-
-    session_name = None
-
-    try:
-        opts=getopt.getopt(argv[1:], "hs:Cc:Pp:d")
-        for opt, parm in opts[0]:
-            if opt == "-h":
-                _usage()
-            elif opt == "-s":
-                session_name = parm
-            elif opt == "-c":
-                STARTUP_FILE = parm
-            elif opt == "-C":
-                STARTUP_FILE = None
-            elif opt == "-p":
-                PRESTART_FILE = parm
-            elif opt == "-P":
-                PRESTART_FILE = None
-            elif opt == "-d":
-                conf.logLevel = max(1,conf.logLevel-10)
-        
-        if len(opts[1]) > 0:
-            raise getopt.GetoptError("Too many parameters : [%s]" % " ".join(opts[1]))
-
-
-    except getopt.GetoptError as msg:
-        log_loading.error(msg)
-        sys.exit(1)
-
-    conf.color_theme = DefaultTheme()
-    
-    if STARTUP_FILE:
-        _read_config_file(STARTUP_FILE)
-    if PRESTART_FILE:
-        _read_config_file(PRESTART_FILE)
-
-    init_session(session_name, mydict)
 
     if READLINE:
         if conf.histfile:
@@ -412,33 +499,32 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
         try:
             import IPython
             IPYTHON=True
-        except ImportError as e:
-            log_loading.warning("IPython not available. Using standard Python shell instead.")
+        except ImportError:
+            log_loading.warning("IPython not available. Using standard Python "
+                                "shell instead.")
             IPYTHON=False
-        
+
     if IPYTHON:
-        banner = the_banner % (conf.version) + " using IPython %s" % IPython.__version__
+        banner = the_banner + " using IPython %s" % IPython.__version__
 
         # Old way to embed IPython kept for backward compatibility
         try:
-          args = ['']  # IPython command line args (will be seen as sys.argv)
-          ipshell = IPython.Shell.IPShellEmbed(args, banner = banner)
-          ipshell(local_ns=session)
-        except AttributeError as e:
-          pass
+            args = ['']  # IPython command line args (will be seen as sys.argv)
+            ipshell = IPython.Shell.IPShellEmbed(args, banner = banner)
+            ipshell(local_ns=SESSION)
+        except AttributeError:
+            pass
 
         # In the IPython cookbook, see 'Updating-code-for-use-with-IPython-0.11-and-later'
-        IPython.embed(user_ns=session, banner2=banner)
+        IPython.embed(user_ns=SESSION, banner2=banner)
 
     else:
-        code.interact(banner = the_banner % (conf.version),
-                      local=session, readfunc=conf.readfunc)
+        code.interact(banner=the_banner, local=SESSION, readfunc=conf.readfunc)
 
     if conf.session:
-        save_session(conf.session, session)
+        save_session(conf.session, SESSION)
 
-
-    for k in globkeys:
+    for k in GLOBKEYS:
         try:
             del(six.moves.builtins.__dict__[k])
         except:
