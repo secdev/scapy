@@ -31,6 +31,7 @@ from scapy.modules.six import iteritems
 if conf.route is None:
     # unused import, only to initialize conf.route
     import scapy.route
+from scapy.supersocket import SuperSocket
 
 #################
 ## Debug class ##
@@ -734,16 +735,25 @@ Examples:
 
 
 @conf.commands.register
-def bridge_and_sniff(if1, if2, prn=None, L2socket=None, *args, **kargs):
-    """Forward traffic between interfaces if1 and if2, sniff and return the
-exchanged packets.
+def bridge_and_sniff(if1, if2, xfrm12=None, xfrm21=None, prn=None, L2socket=None,
+                     *args, **kargs):
+    """Forward traffic between interfaces if1 and if2, sniff and return
+the exchanged packets.
 
 Arguments:
 
-  if1, if2: the interfaces to use
+  if1, if2: the interfaces to use (interface names or opened sockets).
+
+  xfrm12: a function to call when forwarding a packet from if1 to
+      if2. If it returns True, the packet is forwarded as it. If it
+      returns False or None, the packet is discarded. If it returns a
+      packet, this packet is forwarded instead of the original packet
+      one.
+
+  xfrm21: same as xfrm12 for packets forwarded from if2 to if1.
 
   The other arguments are the same than for the function sniff(),
-      except for opened_socket, offline and iface that are ignored.
+      except for offline, opened_socket and iface that are ignored.
       See help(sniff) for more.
 
     """
@@ -752,20 +762,45 @@ Arguments:
             log_runtime.warning("Argument %s cannot be used in "
                                 "bridge_and_sniff() -- ignoring it.", arg)
             del kargs[arg]
-    if L2socket is None:
-        L2socket = conf.L2socket
-    s1 = L2socket(iface=if1)
-    s2 = L2socket(iface=if2)
-    peers = {if1: s2, if2: s1}
+    def _init_socket(iface, count):
+        if isinstance(iface, SuperSocket):
+            return iface, "iface%d" % count
+        else:
+            return (L2socket or conf.L2socket)(iface=iface), iface
+    sckt1, if1 = _init_socket(if1, 1)
+    sckt2, if2 = _init_socket(if2, 2)
+    peers = {if1: sckt2, if2: sckt1}
+    xfrms = {}
+    if xfrm12 is not None:
+        xfrms[if1] = xfrm12
+    if xfrm21 is not None:
+        xfrms[if2] = xfrm21
     def prn_send(pkt):
         try:
             sendsock = peers[pkt.sniffed_on]
         except KeyError:
             return
+        if pkt.sniffed_on in xfrms:
+            try:
+                newpkt = xfrms[pkt.sniffed_on](pkt)
+            except:
+                log_runtime.warning(
+                    'Exception in transformation function for packet [%s] '
+                    'received on %s -- dropping',
+                    pkt.summary(), pkt.sniffed_on, exc_info=True
+                )
+                return
+            else:
+                if newpkt is True:
+                    newpkt = pkt.original
+                elif not newpkt:
+                    return
+        else:
+            newpkt = pkt.original
         try:
-            sendsock.send(pkt.original)
+            sendsock.send(newpkt)
         except:
-            log_runtime.warning('Cannot forward packet [%s] received from %s',
+            log_runtime.warning('Cannot forward packet [%s] received on %s',
                                 pkt.summary(), pkt.sniffed_on, exc_info=True)
     if prn is None:
         prn = prn_send
@@ -775,7 +810,8 @@ Arguments:
             prn_send(pkt)
             return prn_orig(pkt)
 
-    return sniff(opened_socket={s1: if1, s2: if2}, prn=prn, *args, **kargs)
+    return sniff(opened_socket={sckt1: if1, sckt2: if2}, prn=prn,
+                 *args, **kargs)
 
 
 @conf.commands.register

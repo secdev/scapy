@@ -8,14 +8,18 @@ SuperSocket.
 """
 
 from __future__ import absolute_import
-import socket,time
+import socket
+import subprocess
+import struct
+import time
 
 from scapy.config import conf
+from scapy.consts import LINUX, OPENBSD, BSD
 from scapy.data import *
 from scapy.error import warning, log_runtime
+import scapy.modules.six as six
 import scapy.packet
 from scapy.utils import PcapReader, tcpdump
-import scapy.modules.six as six
 
 class _SuperSocket_metaclass(type):
     def __repr__(self):
@@ -44,12 +48,14 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
     def close(self):
         if self.closed:
             return
-        self.closed=1
-        if self.ins != self.outs:
-            if self.outs and self.outs.fileno() != -1:
-                self.outs.close()
-        if self.ins and self.ins.fileno() != -1:
-            self.ins.close()
+        self.closed = True
+        if hasattr(self, "outs"):
+            if not hasattr(self, "ins") or self.ins != self.outs:
+                if self.outs and self.outs.fileno() != -1:
+                    self.outs.close()
+        if hasattr(self, "ins"):
+            if self.ins and self.ins.fileno() != -1:
+                self.ins.close()
     def sr(self, *args, **kargs):
         from scapy import sendrecv
         return sendrecv.sndrcv(self, *args, **kargs)
@@ -199,6 +205,82 @@ class L2ListenTcpdump(SuperSocket):
         self.ins = PcapReader(tcpdump(None, prog=prog, args=args, getfd=True))
     def recv(self, x=MTU):
         return self.ins.recv(x)
+
+
+class TunTapInterface(SuperSocket):
+    """A socket to act as the host's peer of a tun / tap interface.
+
+    """
+    desc = "Act as the host's peer of a tun / tap interface"
+
+    def __init__(self, iface=None, mode_tun=None, *arg, **karg):
+        self.iface = conf.iface if iface is None else iface
+        self.mode_tun = ("tun" in iface) if mode_tun is None else mode_tun
+        self.closed = True
+        self.open()
+
+    def __enter__(self):
+        return self
+
+    def __del__(self):
+        self.close()
+
+    def __exit__(self, *_):
+        self.close()
+
+    def open(self):
+        """Open the TUN or TAP device."""
+        if not self.closed:
+            return
+        self.outs = self.ins = open(
+            "/dev/net/tun" if LINUX else ("/dev/%s" % self.iface), "r+b",
+        )
+        if LINUX:
+            from fcntl import ioctl
+            # TUNSETIFF = 0x400454ca
+            # IFF_TUN = 0x0001
+            # IFF_TAP = 0x0002
+            # IFF_NO_PI = 0x1000
+            ioctl(self.ins, 0x400454ca, struct.pack(
+                "16sH", self.iface, 0x0001 if self.mode_tun else 0x1002,
+            ))
+        self.closed = False
+
+    def __call__(self, *arg, **karg):
+        """Needed when using an instantiated TunTapInterface object for
+conf.L2listen, conf.L2socket or conf.L3socket.
+
+        """
+        return self
+
+    def recv(self, x=MTU):
+        if self.mode_tun:
+            data = os.read(self.ins.fileno(), x + 4)
+            proto = struct.unpack('!H', data[2:4])[0]
+            return conf.l3types.get(proto, conf.raw_layer)(data[4:])
+        return conf.l2types.get(1, conf.raw_layer)(
+            os.read(self.ins.fileno(), x)
+        )
+
+    def send(self, x):
+        sx = str(x)
+        if hasattr(x, "sent_time"):
+            x.sent_time = time.time()
+        if self.mode_tun:
+            try:
+                proto = conf.l3types[type(x)]
+            except KeyError:
+                log_runtime.warning(
+                    "Cannot find layer 3 protocol value to send %s in "
+                    "conf.l3types, using 0",
+                    x.name if hasattr(x, "name") else type(x).__name__
+                )
+                proto = 0
+            sx = struct.pack('!HH', 0, proto) + sx
+        try:
+            os.write(self.outs.fileno(), sx)
+        except socket.error:
+            log_runtime.error("%s send", self.__class__.__name__, exc_info=True)
 
 
 if conf.L3socket is None:
