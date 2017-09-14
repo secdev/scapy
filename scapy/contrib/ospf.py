@@ -260,7 +260,7 @@ class OSPF_Link(Packet):
 def _LSAGuessPayloadClass(p, **kargs):
     """ Guess the correct LSA class for a given payload """
     # This is heavily based on scapy-cdp.py by Nicolas Bareil and Arnaud Ebalard
-    # XXX: This only works if all payload
+    
     cls = conf.raw_layer
     if len(p) >= 4:
         typ = struct.unpack("!B", p[3])[0]
@@ -410,7 +410,7 @@ class OSPF_LSReq(Packet):
 class OSPF_LSUpd(Packet):
     name = "OSPF Link State Update"
     fields_desc = [FieldLenField("lsacount", None, fmt="!I", count_of="lsalist"),
-                   PacketListField("lsalist", [], _LSAGuessPayloadClass,
+                   PacketListField("lsalist", None, _LSAGuessPayloadClass,
                                 count_from = lambda pkt: pkt.lsacount,
                                 length_from = lambda pkt: pkt.underlayer.len - 24)]
 

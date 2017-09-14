@@ -439,7 +439,6 @@ class PacketListField(PacketField):
         self.count_from = count_from
         self.length_from = length_from
 
-
     def any2i(self, pkt, x):
         if not isinstance(x, list):
             return [x]
