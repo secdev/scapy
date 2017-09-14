@@ -10,6 +10,7 @@ Global variables and functions for handling external data sets.
 import os, sys, re, time
 from scapy.dadict import DADict
 from scapy.error import log_loading
+from scapy.compat import *
 
 ############
 ## Consts ##
@@ -141,7 +142,7 @@ def load_services(filename):
 
 class ManufDA(DADict):
     def fixname(self, val):
-        return val
+        return plain_str(val)
     def _get_manuf_couple(self, mac):
         oui = ":".join(mac.split(":")[:3]).upper()
         return self.__dict__.get(oui,(mac,mac))

@@ -198,6 +198,8 @@ class ASN1_Object(six.with_metaclass(ASN1_Object_metaclass)):
         return "<%s[%r]>" % (self.__dict__.get("name", self.__class__.__name__), self.val)
     def __str__(self):
         return self.enc(conf.ASN1_default_codec)
+    def __bytes__(self):
+        return self.enc(conf.ASN1_default_codec)
     def strshow(self, lvl=0):
         return ("  "*lvl)+repr(self)+"\n"
     def show(self, lvl=0):

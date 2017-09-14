@@ -430,11 +430,11 @@ class RawConsoleSink(Sink):
     def push(self, msg):
         if self.newlines:
             msg += "\n"
-        os.write(self._write_pipe, str(msg))
+        os.write(self._write_pipe, msg.encode("utf8"))
     def high_push(self, msg):
         if self.newlines:
             msg += "\n"
-        os.write(self._write_pipe, str(msg))
+        os.write(self._write_pipe, msg.encode("utf8"))
 
 class CLIFeeder(AutoSource):
     """Send messages from python command line

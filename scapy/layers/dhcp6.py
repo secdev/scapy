@@ -19,6 +19,7 @@ from scapy.ansmachine import AnsweringMachine
 from scapy.arch import get_if_raw_hwaddr, in6_getifaddr
 from scapy.config import conf
 from scapy.data import EPOCH, ETHER_ANY
+from scapy.compat import raw, chb
 from scapy.error import warning
 from scapy.fields import BitField, ByteEnumField, ByteField, FieldLenField, \
     FlagsField, IntEnumField, IntField, MACField, PacketField, \
@@ -283,7 +284,7 @@ class _DUIDField(PacketField):
         self.length_from = length_from
 
     def i2m(self, pkt, i):
-        return str(i)
+        return raw(i)
 
     def m2i(self, pkt, x):
         cls = conf.raw_layer
@@ -329,7 +330,7 @@ class _IANAOptField(PacketListField):
     def i2len(self, pkt, z):
         if z is None or z == []:
             return 0
-        return sum(len(str(x)) for x in z)
+        return sum(len(raw(x)) for x in z)
 
     def getfield(self, pkt, s):
         l = self.length_from(pkt)
@@ -757,8 +758,7 @@ class DomainNameField(StrLenField):
     def i2m(self, pkt, x):
         if not x:
             return b""
-        tmp = b"".join(chr(len(z)) + z for z in x.split('.'))
-        return tmp
+        return b"".join(chb(len(z)) + z for z in x.split('.'))
 
 class DHCP6OptNISDomain(_DHCP6OptGuessPayload):             #RFC3898
     name = "DHCP6 Option - NIS Domain Name"
@@ -1418,7 +1418,7 @@ DHCPv6_am.parse_options( dns="2001:500::1035", domain="localdomain, local",
             duid = p[DHCP6OptServerId].duid
             if not isinstance(duid, type(self.duid)):
                 return False
-            if str(duid) != str(self.duid):
+            if raw(duid) != raw(self.duid):
                 return False
 
             if (p.msgtype == 5 or # Renew
@@ -1483,7 +1483,7 @@ DHCPv6_am.parse_options( dns="2001:500::1035", domain="localdomain, local",
                 duid = p[DHCP6OptServerId].duid
                 if not isinstance(duid, type(self.duid)):
                     return False
-                if str(duid) != str(self.duid):
+                if raw(duid) != raw(self.duid):
                     return False
             if ((DHCP6OptIA_NA in p) or 
                 (DHCP6OptIA_TA in p) or

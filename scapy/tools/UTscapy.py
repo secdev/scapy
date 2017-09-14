@@ -10,7 +10,7 @@ Unit testing infrastructure for Scapy
 from __future__ import absolute_import
 from __future__ import print_function
 import sys, getopt, imp, glob, importlib
-import bz2, base64, os.path, time, traceback, zlib, sha
+import hashlib, copy, bz2, base64, os.path, time, traceback, zlib
 from scapy.consts import WINDOWS
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
@@ -188,10 +188,11 @@ class UnitTest(TestClass):
         self.crc = None
         self.expand = 1
     def decode(self):
-        self.test = self.test.decode("utf8", "ignore")
-        self.output = self.output.decode("utf8", "ignore")
-        self.comments = self.comments.decode("utf8", "ignore")
-        self.result = self.result.decode("utf8", "ignore")
+        if six.PY2:
+            self.test = self.test.decode("utf8", "ignore")
+            self.output = self.output.decode("utf8", "ignore")
+            self.comments = self.comments.decode("utf8", "ignore")
+            self.result = self.result.decode("utf8", "ignore")
     def __nonzero__(self):
         return self.res
     __bool__ = __nonzero__
@@ -301,12 +302,18 @@ def dump_campaign(test_campaign):
                 print("    %s%s" % (c,k)) 
 
 #### COMPUTE CAMPAIGN DIGESTS ####
+if six.PY2:
+    def crc32(x):
+        return "%08X" % (0xffffffff & zlib.crc32(x))
 
-def crc32(x):
-    return "%08X" % (0xffffffff & zlib.crc32(x))
+    def sha1(x):
+         return hashlib.sha1(x).hexdigest().upper()
+else:
+    def crc32(x):
+        return "%08X" % (0xffffffff & zlib.crc32(bytearray(x, "utf8")))
 
-def sha1(x):
-    return sha.sha(x).hexdigest().upper()
+    def sha1(x):
+        return hashlib.sha1(x.encode("utf8")).hexdigest().upper()
 
 def compute_campaign_digests(test_campaign):
     dc = ""
@@ -315,9 +322,9 @@ def compute_campaign_digests(test_campaign):
         for t in ts:
             dt = t.test.strip()
             t.crc = crc32(dt)
-            dts += b"\0"+dt
+            dts += "\0"+dt
         ts.crc = crc32(dts)
-        dc += b"\0\x01"+dts
+        dc += "\0\x01"+dts
     test_campaign.crc = crc32(dc)
     test_campaign.sha = sha1(open(test_campaign.filename).read())
 
@@ -801,7 +808,7 @@ def main(argv):
     UNIQUE = len(TESTFILES) == 1
 
     # Resolve tags and asterix
-    for prex in PREEXEC_DICT.keys():
+    for prex in six.iterkeys(copy.copy(PREEXEC_DICT)):
         if "*" in prex:
             pycode = PREEXEC_DICT[prex]
             del PREEXEC_DICT[prex]

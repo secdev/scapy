@@ -13,6 +13,7 @@ from scapy.asn1.asn1 import *
 from scapy.asn1.ber import *
 from scapy.asn1.mib import *
 from scapy.volatile import *
+from scapy.compat import *
 from scapy.base_classes import BasePacket
 from scapy.utils import binrepr
 from scapy import packet
@@ -199,7 +200,7 @@ class ASN1F_BIT_STRING(ASN1F_field):
     def __init__(self, name, default, default_readable=True, context=None,
                  implicit_tag=None, explicit_tag=None):
         if default is not None and default_readable:
-            default = b"".join(binrepr(ord(x)).zfill(8) for x in default)
+            default = b"".join(binrepr(ord(x)).zfill(8).encode("utf8") for x in default)
         ASN1F_field.__init__(self, name, default, context=context,
                              implicit_tag=implicit_tag,
                              explicit_tag=explicit_tag)
@@ -367,7 +368,7 @@ class ASN1F_SEQUENCE_OF(ASN1F_field):
         elif val is None:
             s = b""
         else:
-            s = b"".join(map(str, val))
+            s = b"".join(raw(i) for i in val)
         return self.i2m(pkt, s)
 
     def randval(self):
@@ -483,9 +484,9 @@ class ASN1F_CHOICE(ASN1F_field):
             return choice.m2i(pkt, s)
     def i2m(self, pkt, x):
         if x is None:
-            s = ""
+            s = b""
         else:
-            s = str(x)
+            s = raw(x)
             if hash(type(x)) in self.pktchoices:
                 imp, exp = self.pktchoices[hash(type(x))]
                 s = BER_tagging_enc(s, implicit_tag=imp,
@@ -530,7 +531,7 @@ class ASN1F_PACKET(ASN1F_field):
         if x is None:
             s = b""
         else:
-            s = str(x)
+            s = raw(x)
         return BER_tagging_enc(s, implicit_tag=self.implicit_tag,
                                explicit_tag=self.explicit_tag)
     def randval(self):
@@ -561,7 +562,7 @@ class ASN1F_BIT_STRING_ENCAPS(ASN1F_BIT_STRING):
         if x is None:
             s = b""
         else:
-            s = str(x)
+            s = raw(x)
         s = b"".join(binrepr(ord(x)).zfill(8) for x in s)
         return ASN1F_BIT_STRING.i2m(self, pkt, s)
 

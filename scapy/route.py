@@ -162,7 +162,7 @@ class Route:
             return LOOPBACK_INTERFACE,"0.0.0.0","0.0.0.0"
         # Choose the more specific route (greatest netmask).
         # XXX: we don't care about metrics
-        pathes.sort()
+        pathes.sort(key=lambda x: x[0])
         ret = pathes[-1][1]
         self.cache[dest] = ret
         return ret

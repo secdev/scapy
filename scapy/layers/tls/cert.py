@@ -51,6 +51,8 @@ from scapy.layers.tls.crypto.pkcs1 import (pkcs_os2ip, pkcs_i2osp, _get_hash,
                                            _EncryptAndVerifyRSA,
                                            _DecryptAndSignRSA)
 
+from scapy.compat import *
+
 # Maximum allowed size in bytes for a certificate file, to avoid
 # loading huge file when importing a cert
 _MAX_KEY_SIZE = 50*1024
@@ -66,6 +68,7 @@ _MAX_CRL_SIZE = 10*1024*1024   # some are that big
 def der2pem(der_string, obj="UNKNOWN"):
     """Convert DER octet string to PEM format (with optional header)"""
     # Encode a byte string in PEM format. Header advertizes <obj> type.
+    obj = raw(obj)
     pem_string = b"-----BEGIN %s-----\n" % obj
     base64_string = base64.b64encode(der_string)
     chunks = [base64_string[i:i+64] for i in range(0, len(base64_string), 64)]
@@ -128,6 +131,7 @@ class _PKIObjMaker(type):
 
         if obj_path is None:
             raise Exception(error_msg)
+        obj_path = raw(obj_path)
 
         if (not b'\x00' in obj_path) and os.path.isfile(obj_path):
             _size = os.path.getsize(obj_path)
@@ -135,25 +139,25 @@ class _PKIObjMaker(type):
                 raise Exception(error_msg)
             try:
                 f = open(obj_path)
-                raw = f.read()
+                _raw = f.read()
                 f.close()
             except:
                 raise Exception(error_msg)
         else:
-            raw = obj_path
+            _raw = obj_path
 
         try:
-            if b"-----BEGIN" in raw:
+            if b"-----BEGIN" in _raw:
                 frmt = "PEM"
-                pem = raw
-                der_list = split_pem(raw)
+                pem = _raw
+                der_list = split_pem(_raw)
                 der = b''.join(map(pem2der, der_list))
             else:
                 frmt = "DER"
-                der = raw
+                der = _raw
                 pem = ""
                 if pem_marker is not None:
-                    pem = der2pem(raw, pem_marker)
+                    pem = der2pem(_raw, pem_marker)
                 # type identification may be needed for pem_marker
                 # in such case, the pem attribute has to be updated
         except:
@@ -509,7 +513,7 @@ class PrivKeyECDSA(PrivKey):
 
     @crypto_validator
     def import_from_asn1pkt(self, privkey):
-        self.key = serialization.load_der_private_key(str(privkey), None,
+        self.key = serialization.load_der_private_key(raw(privkey), None,
                                                   backend=default_backend())
         self.pubkey = self.key.public_key()
 

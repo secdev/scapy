@@ -19,6 +19,7 @@ from scapy.plist import PacketList
 from scapy.data import MTU
 from scapy.supersocket import SuperSocket
 from scapy.consts import WINDOWS
+from scapy.compat import *
 import scapy.modules.six as six
 
 try:
@@ -352,8 +353,8 @@ class _ATMT_supersocket(SuperSocket):
     def fileno(self):
         return self.spa.fileno()
     def send(self, s):
-        if not isinstance(s, str):
-            s = str(s)
+        if not isinstance(s, bytes):
+            s = bytes(s)
         return self.spa.send(s)
     def recv(self, n=MTU):
         try:
@@ -432,14 +433,14 @@ class Automaton_metaclass(type):
             
 
         for v in six.itervalues(cls.timeout):
-            v.sort(lambda (t1,f1),(t2,f2): cmp(t1,t2))
+            v.sort(key=cmp_to_key(lambda t1_f1,t2_f2: cmp(t1_f1[0],t2_f2[0])))
             v.append((None, None))
         for v in itertools.chain(six.itervalues(cls.conditions),
                                  six.itervalues(cls.recv_conditions),
                                  six.itervalues(cls.ioevents)):
-            v.sort(lambda c1,c2: cmp(c1.atmt_prio,c2.atmt_prio))
+            v.sort(key=cmp_to_key(lambda c1,c2: cmp(c1.atmt_prio,c2.atmt_prio)))
         for condname,actlst in six.iteritems(cls.actions):
-            actlst.sort(lambda c1,c2: cmp(c1.atmt_cond[condname], c2.atmt_cond[condname]))
+            actlst.sort(key=cmp_to_key(lambda c1,c2: cmp(c1.atmt_cond[condname], c2.atmt_cond[condname])))
 
         for ioev in cls.iosupersockets:
             setattr(cls, ioev.atmt_as_supersocket, _ATMT_to_supersocket(ioev.atmt_as_supersocket, ioev.atmt_ioname, cls))

@@ -1,3 +1,10 @@
+# Report installed versions
+echo "### INSTALLED VERSIONS ###"
+for DEPENDENCY in "six" "cryptography" "mock"
+do
+    python -c 'import '$DEPENDENCY'; print("'$DEPENDENCY': "+str('$DEPENDENCY'.__version__))'
+done
+
 # Dump environment variables
 echo "SCAPY_SUDO=" $SCAPY_SUDO
 echo "TRAVIS_OS_NAME=" $TRAVIS_OS_NAME

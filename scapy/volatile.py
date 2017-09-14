@@ -10,6 +10,7 @@ Fields that hold random numbers.
 from __future__ import absolute_import
 import random,time,math
 from scapy.base_classes import Net
+from scapy.compat import *
 from scapy.utils import corrupt_bits,corrupt_bytes
 from scapy.modules.six.moves import range
 
@@ -82,6 +83,10 @@ class VolatileValue:
         if attr == "__setstate__":
             raise AttributeError(attr)
         return getattr(self._fix(),attr)
+    def __str__(self):
+        return str(self._fix())
+    def __bytes__(self):
+        return raw(self._fix())
     def _fix(self):
         return None
 
@@ -101,6 +106,8 @@ class RandNum(RandField):
 
     def __int__(self):
         return int(self._fix())
+    def __index__(self):
+        return int(self)
 
     def __str__(self):
         return str(self._fix())
@@ -240,7 +247,9 @@ class RandTermString(RandString):
 
     def __str__(self):
         return str(self._fix())
-    
+
+    def __bytes__(self):
+        return raw(self._fix())
     
 
 class RandIP(RandString):
@@ -624,6 +633,8 @@ class RandSingString(RandSingularity):
 
     def __str__(self):
         return str(self._fix())
+    def __bytes__(self):
+        return raw(self._fix())
                              
 
 class RandPool(RandField):

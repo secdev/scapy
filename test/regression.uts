@@ -53,7 +53,7 @@ def get_dummy_interface():
         data["name"] = "dummy0"
         data["description"] = "Does not exist"
         data["win_index"] = -1
-        data["guid"] = "{0XX00000-X000-0X0X-X00X-00XXXX000XXX}"
+        data["guid"] = "{1XX00000-X000-0X0X-X00X-00XXXX000XXX}"
         data["invalid"] = True
         return NetworkInterface(data)
     else:
@@ -592,7 +592,7 @@ assert(_ == b'5\x00\x00\x14\x00\x01\x00\x00 \x00\xac\xe7\x7f\x00\x00\x01\x7f\x00
 
 = ISAKMP creation
 ~ IP UDP ISAKMP 
-p=IP(src='192.168.8.14',dst='10.0.0.1')/UDP()/ISAKMP()/ISAKMP_payload_SA(prop=ISAKMP_payload_Proposal(trans=ISAKMP_payload_Transform(transforms=[('Encryption', 'AES-CBC'), ('Hash', 'MD5'), ('Authentication', 'PSK'), ('GroupDesc', '1536MODPgr'), ('KeyLength', 256), ('LifeType', 'Seconds'), ('LifeDuration', 86400L)])/ISAKMP_payload_Transform(res2=12345,transforms=[('Encryption', '3DES-CBC'), ('Hash', 'SHA'), ('Authentication', 'PSK'), ('GroupDesc', '1024MODPgr'), ('LifeType', 'Seconds'), ('LifeDuration', 86400L)])))
+p=IP(src='192.168.8.14',dst='10.0.0.1')/UDP()/ISAKMP()/ISAKMP_payload_SA(prop=ISAKMP_payload_Proposal(trans=ISAKMP_payload_Transform(transforms=[('Encryption', 'AES-CBC'), ('Hash', 'MD5'), ('Authentication', 'PSK'), ('GroupDesc', '1536MODPgr'), ('KeyLength', 256), ('LifeType', 'Seconds'), ('LifeDuration', 86400)])/ISAKMP_payload_Transform(res2=12345,transforms=[('Encryption', '3DES-CBC'), ('Hash', 'SHA'), ('Authentication', 'PSK'), ('GroupDesc', '1024MODPgr'), ('LifeType', 'Seconds'), ('LifeDuration', 86400)])))
 p.show()
 p
 

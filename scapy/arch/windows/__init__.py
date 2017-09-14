@@ -20,7 +20,7 @@ from scapy.base_classes import Gen, Net, SetGen
 from scapy.data import MTU, ETHER_BROADCAST, ETH_P_ARP
 
 import scapy.modules.six as six
-from scapy.modules.six.moves import range, zip
+from scapy.modules.six.moves import range, zip, input
 
 conf.use_pcap = False
 conf.use_dnet = False
@@ -429,7 +429,7 @@ class NetworkInterfaceDict(UserDict):
                 if not conf.interactive:
                     return False
                 while True:
-                    _confir = raw_input("Do you want to start it ? (yes/no) [y]: ").lower().strip()
+                    _confir = input("Do you want to start it ? (yes/no) [y]: ").lower().strip()
                     if _confir in ["yes", "y", ""]:
                         return True
                     elif _confir in ["no", "n"]:
@@ -480,7 +480,7 @@ class NetworkInterfaceDict(UserDict):
 
     def dev_from_index(self, if_index):
         """Return interface name from interface index"""
-        for devname, iface in self.items():
+        for devname, iface in six.iteritems(self):
             if iface.win_index == str(if_index):
                 return iface
         if str(if_index) == "1":
@@ -491,7 +491,8 @@ class NetworkInterfaceDict(UserDict):
 
     def remove_invalid_ifaces(self):
         """Remove all invalid interfaces"""
-        for devname, iface in self.items():
+        for devname in list(self.keys()):
+            iface = self.data[devname]
             if iface.is_invalid():
                 self.data.pop(devname)
 
@@ -863,6 +864,13 @@ def route_add_loopback(routes=None, ipv6=False, iflist=None):
             IFACES.pop(devname)
     # Inject interface
     IFACES[data['guid']] = adapter
+    scapy.consts.LOOPBACK_INTERFACE = adapter
+    if isinstance(conf.iface, NetworkInterface):
+        if conf.iface.name == LOOPBACK_NAME:
+            conf.iface = adapter
+    if isinstance(conf.iface6, NetworkInterface):
+        if conf.iface6.name == LOOPBACK_NAME:
+            conf.iface6 = adapter
     # Build the packed network addresses
     loop_net = struct.unpack("!I", socket.inet_aton("127.0.0.0"))[0]
     loop_mask = struct.unpack("!I", socket.inet_aton("255.0.0.0"))[0]

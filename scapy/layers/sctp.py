@@ -11,6 +11,7 @@ SCTP (Stream Control Transmission Protocol).
 from __future__ import absolute_import
 import struct
 
+from scapy.compat import *
 from scapy.volatile import RandBin
 from scapy.config import conf
 from scapy.packet import *
@@ -235,7 +236,7 @@ class SCTP(_SCTPChunkGuessPayload, Packet):
     def post_build(self, p, pay):
         p += pay
         if self.chksum is None:
-            crc = crc32c(str(p))
+            crc = crc32c(raw(p))
             p = p[:8]+struct.pack(">I", crc)+p[12:]
         return p
 
@@ -254,7 +255,7 @@ class ChunkParamField(PacketListField):
 # dummy class to avoid Raw() after Chunk params
 class _SCTPChunkParam:
     def extract_padding(self, s):
-        return "",s[:]
+        return b"",s[:]
 
 class SCTPChunkParamHearbeatInfo(_SCTPChunkParam, Packet):
     fields_desc = [ ShortEnumField("type", 1, sctpchunkparamtypes),

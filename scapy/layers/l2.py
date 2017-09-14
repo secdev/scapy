@@ -15,6 +15,7 @@ from scapy.base_classes import Net
 from scapy.config import conf
 from scapy.consts import OPENBSD
 from scapy.data import *
+from scapy.compat import *
 from scapy.packet import *
 from scapy.ansmachine import *
 from scapy.plist import SndRcvList
@@ -62,7 +63,7 @@ def getmacbyip(ip, chainCC=0):
     if isinstance(ip,Net):
         ip = iter(ip).next()
     ip = inet_ntoa(inet_aton(ip))
-    tmp = [ord(e) for e in inet_aton(ip)]
+    tmp = [orb(e) for e in inet_aton(ip)]
     if (tmp[0] & 0xf0) == 0xe0: # mcast @
         return "01:00:5e:%.2x:%.2x:%.2x" % (tmp[1]&0x7f,tmp[2],tmp[3])
     iff,a,gw = conf.route.route(ip)
@@ -350,7 +351,7 @@ class GRE(Packet):
         p += pay
         if self.chksum_present and self.chksum is None:
             c = checksum(p)
-            p = p[:4]+chr((c>>8)&0xff)+chr(c&0xff)+p[6:]
+            p = p[:4]+chb((c>>8)&0xff)+chb(c&0xff)+p[6:]
         return p
 
 
@@ -381,7 +382,7 @@ class GRE_PPTP(GRE):
         p += pay
         if self.payload_len is None:
             pay_len = len(pay)
-            p = p[:4] + chr((pay_len >> 8) & 0xff) + chr(pay_len & 0xff) + p[6:]
+            p = p[:4] + chb((pay_len >> 8) & 0xff) + chb(pay_len & 0xff) + p[6:]
         return p
 
 

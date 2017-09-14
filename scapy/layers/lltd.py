@@ -24,6 +24,8 @@ from scapy.layers.inet import IPField
 from scapy.layers.inet6 import IP6Field
 from scapy.data import ETHER_ANY
 import scapy.modules.six as six
+from scapy.compat import *
+
 
 # Protocol layers
 ##################
@@ -215,7 +217,7 @@ class LLTDQueryResp(Packet):
             # unsupported format (14 bits)
             flags = ord(pkt[0]) & 0xc0
             count = len(self.descs_list)
-            pkt = chr(flags + (count >> 8)) + chr(count % 256) + pkt[2:]
+            pkt = chb(flags + (count >> 8)) + chb(count % 256) + pkt[2:]
         return pkt + pay
 
     def mysummary(self):
@@ -257,7 +259,7 @@ class LLTDQueryLargeTlvResp(Packet):
             # format (14 bits)
             flags = ord(pkt[0]) & 0xc0
             length = len(self.value)
-            pkt = chr(flags + (length >> 8)) + chr(length % 256) + pkt[2:]
+            pkt = chb(flags + (length >> 8)) + chb(length % 256) + pkt[2:]
         return pkt + pay
 
     def mysummary(self):

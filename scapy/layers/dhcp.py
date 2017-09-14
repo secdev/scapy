@@ -16,6 +16,7 @@ from scapy.packet import *
 from scapy.fields import *
 from scapy.ansmachine import *
 from scapy.data import *
+from scapy.compat import *
 from scapy.layers.inet import UDP,IP
 from scapy.layers.l2 import Ether
 from scapy.base_classes import Net
@@ -182,6 +183,8 @@ class RandDHCPOptions(RandField):
             else:
                 op.append((o.name, o.randval()._fix()))
         return op
+    def __bytes__(self):
+        return raw(self.__str__())
 
 
 class DHCPOptionsField(StrField):
@@ -265,17 +268,17 @@ class DHCPOptionsField(StrField):
                     warning("Unknown field option %s" % name)
                     continue
 
-                s += chr(onum)
-                s += chr(len(oval))
+                s += chb(onum)
+                s += chb(len(oval))
                 s += oval
 
             elif (isinstance(o, str) and o in DHCPRevOptions and 
                   DHCPRevOptions[o][1] == None):
-                s += chr(DHCPRevOptions[o][0])
+                s += raw(DHCPRevOptions[o][0])
             elif isinstance(o, int):
-                s += chr(o)+b"\0"
-            elif isinstance(o, str):
-                s += o
+                s += chb(o)+b"\0"
+            elif isinstance(o, (str, bytes)):
+                s += raw(o)
             else:
                 warning("Malformed option %s" % o)
         return s

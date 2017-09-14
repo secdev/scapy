@@ -12,6 +12,7 @@ import struct,copy,socket,collections
 from scapy.config import conf
 from scapy.volatile import *
 from scapy.data import *
+from scapy.compat import *
 from scapy.utils import *
 from scapy.base_classes import BasePacket, Gen, Net, Field_metaclass
 from scapy.error import warning
@@ -209,7 +210,7 @@ class MACField(Field):
     def m2i(self, pkt, x):
         return str2mac(x)
     def any2i(self, pkt, x):
-        if isinstance(x, str) and len(x) is 6:
+        if isinstance(x, bytes) and len(x) == 6:
             x = self.m2i(pkt, x)
         return x
     def i2repr(self, pkt, x):
@@ -226,7 +227,9 @@ class IPField(Field):
     def __init__(self, name, default):
         Field.__init__(self, name, default, "4s")
     def h2i(self, pkt, x):
-        if isinstance(x, six.string_types):
+        if isinstance(x, bytes):
+            x = plain_str(x)
+        if isinstance(x, str):
             try:
                 inet_aton(x)
             except socket.error:
@@ -381,14 +384,14 @@ class StrField(Field):
     def i2m(self, pkt, x):
         if x is None:
             x = b""
-        elif not isinstance(x, str):
-            x=str(x)
+        elif not isinstance(x, bytes):
+            x = bytes(x)
         return x
     def addfield(self, pkt, s, val):
-        return s+self.i2m(pkt, val)
+        return s + self.i2m(pkt, val)
     def getfield(self, pkt, s):
         if self.remain == 0:
-            return b"",self.m2i(pkt, s)
+            return b"", self.m2i(pkt, s)
         else:
             return s[-self.remain:],self.m2i(pkt, s[:-self.remain])
     def randval(self):
@@ -401,7 +404,9 @@ class PacketField(StrField):
         StrField.__init__(self, name, default, remain=remain)
         self.cls = cls
     def i2m(self, pkt, i):
-        return str(i)
+        if i is None:
+            return b""
+        return raw(i)
     def m2i(self, pkt, m):
         return self.cls(m)
     def getfield(self, pkt, s):
@@ -455,7 +460,7 @@ class PacketListField(PacketField):
         if x is None:
             return None
         else:
-            return [p if isinstance(p, six.string_types) else p.copy() for p in x]
+            return [p if isinstance(p, bytes) else p.copy() for p in x]
     def getfield(self, pkt, s):
         c = l = None
         if self.length_from is not None:
@@ -490,7 +495,7 @@ class PacketListField(PacketField):
             lst.append(p)
         return remain+ret,lst
     def addfield(self, pkt, s, val):
-        return s + b"".join(str(v) for v in val)
+        return s + b"".join(raw(v) for v in val)
 
 
 class StrFixedLenField(StrField):
@@ -540,12 +545,12 @@ class NetBIOSNameField(StrFixedLenField):
             x = b""
         x += b" "*(l)
         x = x[:l]
-        x = b"".join(chr(0x41 + ord(b)>>4) + chr(0x41 + ord(b)&0xf) for b in x)
+        x = b"".join(chb(0x41 + ord(b)>>4) + chb(0x41 + ord(b)&0xf) for b in x)
         x = b" "+x
         return x
     def m2i(self, pkt, x):
         x = x.strip(b"\x00").strip(" ")
-        return b"".join(map(lambda x,y: chr((((ord(x)-1)&0xf)<<4)+((ord(y)-1)&0xf)), x[::2],x[1::2]))
+        return b"".join(map(lambda x,y: chb((((ord(x)-1)&0xf)<<4)+((ord(y)-1)&0xf)), x[::2],x[1::2]))
 
 class StrLenField(StrField):
     __slots__ = ["length_from"]
@@ -564,7 +569,7 @@ class XStrField(StrField):
     def i2repr(self, pkt, x):
         if not x:
             return repr(x)
-        return x.encode("hex")
+        return to_hex(x)
 
 class XStrLenField(StrLenField):
     """
@@ -574,7 +579,7 @@ class XStrLenField(StrLenField):
     def i2repr(self, pkt, x):
         if not x:
             return repr(x)
-        return x[:self.length_from(pkt)].encode("hex")
+        return to_hex(x[:self.length_from(pkt)])
 
 class XStrFixedLenField(StrFixedLenField):
     """
@@ -584,7 +589,7 @@ class XStrFixedLenField(StrFixedLenField):
     def i2repr(self, pkt, x):
         if not x:
             return repr(x)
-        return x[:self.length_from(pkt)].encode("hex")
+        return to_hex(x[:self.length_from(pkt)])
 
 class StrLenFieldUtf16(StrLenField):
     def h2i(self, pkt, x):
@@ -767,11 +772,11 @@ class BitField(Field):
         w = s[:nb_bytes]
 
         # split the substring byte by byte
-        bytes = struct.unpack('!%dB' % nb_bytes , w)
+        _bytes = struct.unpack('!%dB' % nb_bytes , w)
 
         b = 0
         for c in range(nb_bytes):
-            b |= int(bytes[c]) << (nb_bytes-c-1)*8
+            b |= int(_bytes[c]) << (nb_bytes-c-1)*8
 
         # get rid of high order bits
         b &= (1 << (nb_bytes*8-bn)) - 1
