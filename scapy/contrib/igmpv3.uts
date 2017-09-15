@@ -1,0 +1,46 @@
+##############
+% IGMPv3 tests
+##############
+
++ Basic IGMPv3 tests
+
+= Build IGMPv3 - Basic
+
+a=Ether(src="00:01:02:03:04:05")
+b=IP(src="1.2.3.4")
+c=IGMPv3()/IGMPv3mq()
+x = a/b/c
+x[IGMPv3].igmpize()
+assert x.mrcode == 20
+assert x[IP].dst == "224.0.0.1"
+assert isinstance(IGMP(str(x[IGMPv3])), IGMPv3)
+
+= Dissect IGMPv3 - IGMPv3mq
+
+x = Ether(b'\x14\x0cv\x8f\xfe(\x00\x01\x02\x03\x04\x05\x08\x00F\xc0\x00$\x00\x01\x00\x00\x01\x02\xe4h\xc0\xa8\x00\x01\x7f\x00\x00\x01\x94\x04\x00\x00\x11\x14\x0e\xe9\xe0\x00\x00\x02\x00\x00\x00\x00')
+assert IGMPv3 in x
+assert IGMPv3mq in x
+assert x[IGMPv3mq].gaddr == "224.0.0.2"
+assert x.summary() == "Ether / IP / IGMPv3: 192.168.0.1 > 127.0.0.1 Membership Query / IGMPv3mq"
+assert isinstance(IGMP(str(x[IGMPv3])), IGMPv3)
+
+= Dissect IGMPv3 - IGMPv3mr
+
+x = Ether(b'\x14\x0cv\x8f\xfe(\x00\x01\x02\x03\x04\x05\x08\x00F\xc0\x00;\x00\x01\x00\x00\x01\x02\xe4Q\xc0\xa8\x00\x01\x7f\x00\x00\x01\x94\x04\x00\x00"\x14w\xcc\x00\x00\x02\x01\x00\x00\x02{{{{\xc0\xa8\x00\x01\xc0\xa8\x84\xf7\x01\x00\x00\x01\x04\x04\x04\x04\x0c\x0c\x0c\x0c')
+assert IGMPv3 in x
+assert IGMPv3mr in x
+assert len(x[IGMPv3mr].records) == 2
+assert x[IGMPv3mr].records[0].srcaddrs == ["192.168.0.1", "192.168.132.247"]
+assert x[IGMPv3mr].records[1].maddr == "4.4.4.4"
+assert isinstance(IGMP(str(x[IGMPv3])), IGMPv3)
+
+= Dissect IGMPv3 - IGMPv3mra
+
+x = Ether(b'\x14\x0cv\x8f\xfe(\x00\x01\x02\x03\x04\x05\x08\x00F\xc0\x00 \x00\x01\x00\x00\x01\x02\xe4l\xc0\xa8\x00\x01\x7f\x00\x00\x01\x94\x04\x00\x000\x14\xcf\xe6\x00\x03\x00\x02')
+assert IGMPv3 in x
+assert IGMPv3mra in x
+assert x[IGMPv3mra].qryIntvl == 3
+assert x[IGMPv3mra].robust == 2
+assert isinstance(IGMP(str(x[IGMPv3])), IGMPv3)
+
+= IGMP vs IVMPv3 tests
