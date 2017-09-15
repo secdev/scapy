@@ -105,7 +105,7 @@ if conf.use_winpcapy:
             if a.contents.addr.contents.sa_family == socket.AF_INET:
               ap = a.contents.addr
               val = cast(ap, POINTER(sockaddr_in))
-              ret = b"".join(chr(x) for x in val.contents.sin_addr[:4])
+              ret = b"".join(chb(x) for x in val.contents.sin_addr[:4])
             a = a.contents.next
           break
         p = p.contents.next

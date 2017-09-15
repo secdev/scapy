@@ -263,6 +263,7 @@ os.unlink("t2.pcap")
 
 = Test InjectSink and Inject3Sink
 ~ needs_root
+import mock
 
 import mock
 

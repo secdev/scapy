@@ -19,7 +19,7 @@ PacketListField, ConditionalField, PadField
 from scapy.packet import Packet, bind_layers
 from scapy.layers.l2 import SourceMACField, Ether, CookedLinux, GRE, SNAP
 from scapy.config import conf
-
+from scapy.compat import orb
 
 #
 # EAPOL
@@ -231,9 +231,9 @@ class EAP(Packet):
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         if _pkt:
-            c = ord(_pkt[0])
+            c = orb(_pkt[0])
             if c in [1, 2] and len(_pkt) >= 5:
-                t = ord(_pkt[4])
+                t = orb(_pkt[4])
                 return cls.registered_methods.get(t, cls)
         return cls
 

@@ -46,7 +46,7 @@ def sane_color(x):
         if (j < 32) or (j >= 127):
             r=r+conf.color_theme.not_printable(".")
         else:
-            r=r+chb(i)
+            r=r+i
     return r
 
 def sane(x):
@@ -56,7 +56,7 @@ def sane(x):
         if (j < 32) or (j >= 127):
             r=r+"."
         else:
-            r=r+chb(i)
+            r=r+i
     return r
 
 def lhex(x):
@@ -89,7 +89,7 @@ def hexdump(x, dump=False):
         s += "%04x  " % i
         for j in range(16):
             if i+j < l:
-                s += "%02X" % ord(x[i+j])
+                s += "%02X" % orb(x[i+j])
             else:
                 s += "  "
             if j%16 == 7:
@@ -124,7 +124,7 @@ def linehexdump(x, onlyasc=0, onlyhex=0, dump=False):
     l = len(x)
     if not onlyasc:
         for i in range(l):
-            s += "%02X" % ord(x[i])
+            s += "%02X" % orb(x[i])
         if not onlyhex:  # separate asc & hex if both are displayed
             s += " "
     if not onlyhex:
@@ -147,7 +147,7 @@ def chexdump(x, dump=False):
     :returns: a String only if dump=True
     """
     x = raw(x)
-    s = ", ".join("%#04x" % ord(x) for x in x)
+    s = ", ".join("%#04x" % orb(x) for x in x)
     if dump:
         return s
     else:
@@ -157,14 +157,14 @@ def chexdump(x, dump=False):
 def hexstr(x, onlyasc=0, onlyhex=0):
     s = []
     if not onlyasc:
-        s.append(" ".join("%02x" % ord(b) for b in x))
+        s.append(" ".join("%02x" % orb(b) for b in x))
     if not onlyhex:
         s.append(sane(x)) 
     return "  ".join(s)
 
 def repr_hex(s):
     """ Convert provided bitstring to a simple string of hex digits """
-    return "".join("%02x" % ord(x) for x in s)
+    return "".join("%02x" % orb(x) for x in s)
 
 @conf.commands.register
 def hexdiff(x,y):
@@ -248,7 +248,7 @@ def hexdiff(x,y):
             if i+j < l:
                 if line[j]:
                     col = colorize[(linex[j]!=liney[j])*(doy-dox)]
-                    print(col("%02X" % ord(line[j])), end=' ')
+                    print(col("%02X" % orb(line[j])), end=' ')
                     if linex[j]==liney[j]:
                         cl += sane_color(line[j])
                     else:
@@ -299,7 +299,7 @@ def _fletcher16(charbuf):
     # This is based on the GPLed C implementation in Zebra <http://www.zebra.org/>
     c0 = c1 = 0
     for char in charbuf:
-        c0 += ord(char)
+        c0 += orb(char)
         c1 += c0
 
     c0 %= 255
@@ -1380,7 +1380,7 @@ def pretty_routes(rtlst, header, sortBy=0):
                 return _r
             rtlst = [tuple([_crop(rtlst[j][i], colwidth[i]) for i in range(0, len(rtlst[j]))]) for j in range(0, len(rtlst))]
             # Recalculate column's width
-            colwidth = [max([len(y) for y in x]) for x in apply(zip, rtlst)]
+            colwidth = [max([len(y) for y in x]) for x in zip(*rtlst)]
     fmt = _space.join(["%%-%ds"%x for x in colwidth])
     rt = "\n".join([fmt % x for x in rtlst])
     return rt

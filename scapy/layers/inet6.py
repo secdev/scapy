@@ -2175,18 +2175,15 @@ def names2dnsrepr(x):
     if isinstance(x, str):
         if x and x[-1] == '\x00': # stupid heuristic
             return x.encode("utf8")
-        x = [x.encode("utf8")]
-    elif type(x) is bytes:
-        if x and x[-1] == 0:
-            return x
+        x = [x]
 
     res = []
     for n in x:
-        termin = b"\x00"
-        if n.count(b'.') == 0: # single-component gets one more
-            termin += b'\x00'
-        n = b"".join(chb(len(y)) + y for y in n.split(b'.')) + termin
-        res.append(n)
+        termin = "\x00"
+        if n.count('.') == 0: # single-component gets one more
+            termin += '\x00'
+        n = "".join(chr(len(y)) + y for y in n.split('.')) + termin
+        res.append(n.encode("utf8"))
     return b"".join(res)
 
 

@@ -180,10 +180,10 @@ os.remove("scapySession1.dat")
 
 tmpfile = get_temp_file(autoext=".ut")
 if WINDOWS:
-    assert("scapy" in tmpfile and tmpfile.startswith('C:\\Users\\appveyor\\AppData\\Local\\Temp'))
+    assert("scapy" in tmpfile and tmpfile.lower().startswith('c:\\users\\appveyor\\appdata\\local\\temp'))
 else:
     import platform
-    IS_PYPY = platform.python_implementation() == "PyPy"
+    IS_PYPY = platform.python_implementation().lower() == "pypy"
     assert("scapy" in tmpfile and (IS_PYPY == True or "/tmp/" in tmpfile))
 
 assert(conf.temp_files[0].endswith(".ut"))

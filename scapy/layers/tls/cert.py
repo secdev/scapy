@@ -513,6 +513,7 @@ class PrivKeyECDSA(PrivKey):
 
     @crypto_validator
     def import_from_asn1pkt(self, privkey):
+        print(privkey)
         self.key = serialization.load_der_private_key(raw(privkey), None,
                                                   backend=default_backend())
         self.pubkey = self.key.public_key()

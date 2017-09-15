@@ -106,7 +106,7 @@ else:
         else:
             if hasattr(x, "__int__") and not isinstance(x, int):
                 return bytes(chr(int(x)), encoding="utf8")
-            return bytes(chr(x), encoding="utf8")
+            return bytes([x])
 
 def bytes_codec(x, codec, force_str=False):
     """Hexify a str or a bytes object"""
