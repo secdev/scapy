@@ -292,9 +292,9 @@ class GetMulticastMAC(RandMAC):
 		
 
 	    Index can be zero or another number.
-		- If valor is zero script will generate a random number (default Index = 0).
-		- Use index to generate a secuecial list. 
-	    Example:
+		- Indez zero generates a random number (default Index = 0).
+		- Use index value to generate a secuecial list. 
+	    Examples:
 		...
 		>>> for i in range(66111): print GetMulticastMAC(i)
 		>>> GetMulticastMAC()
