@@ -1139,31 +1139,40 @@ class FlagsField(BitField):
    """
     ismutable = True
     __slots__ = ["multi", "names"]
+
     def __init__(self, name, default, size, names):
         self.multi = isinstance(names, list)
         self.names = names
         BitField.__init__(self, name, default, size)
+
+    def _fixup_val(self, x):
+        """Returns a FlagValue instance when needed. Internal method, to be
+used in *2i() and i2*() methods.
+
+        """
+        if isinstance(x, (list, tuple)):
+            return type(x)(
+                v if v is None or isinstance(v, FlagValue)
+                else FlagValue(v, self.names)
+                for v in x
+            )
+        return x if x is None or isinstance(x, FlagValue) else FlagValue(x, self.names)
+
     def any2i(self, pkt, x):
-        if isinstance(x, (list, tuple)):
-            return type(x)(None if v is None else FlagValue(v, self.names)
-                           for v in x)
-        return None if x is None else FlagValue(x, self.names)
+        return self._fixup_val(super(FlagsField, self).any2i(pkt, x))
+
     def m2i(self, pkt, x):
-        if isinstance(x, (list, tuple)):
-            return type(x)(None if v is None else FlagValue(v, self.names)
-                           for v in x)
-        return None if x is None else FlagValue(x, self.names)
+        return self._fixup_val(super(FlagsField, self).m2i(pkt, x))
+
     def i2h(self, pkt, x):
-        if isinstance(x, (list, tuple)):
-            return type(x)(None if v is None else FlagValue(v, self.names)
-                           for v in x)
-        return None if x is None else FlagValue(x, self.names)
+        return self._fixup_val(super(FlagsField, self).i2h(pkt, x))
+
     def i2repr(self, pkt, x):
         if isinstance(x, (list, tuple)):
             return repr(type(x)(
-                None if v is None else str(FlagValue(v, self.names))
-                for v in x))
-        return None if x is None else str(FlagValue(x, self.names))
+                None if v is None else str(self._fixup_val(v)) for v in x
+            ))
+        return None if x is None else str(self._fixup_val(x))
 
 
 MultiFlagsEntry = collections.namedtuple('MultiFlagEntry', ['short', 'long'])
