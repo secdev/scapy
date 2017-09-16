@@ -365,13 +365,13 @@ bind_layers( Dot11Auth,       Dot11Elt,    )
 bind_layers( Dot11Elt,        Dot11Elt,    )
 
 
-conf.l2types.register(105, Dot11)
+conf.l2types.register(DLT_IEEE802_11, Dot11)
 conf.l2types.register_num2layer(801, Dot11)
-conf.l2types.register(119, PrismHeader)
+conf.l2types.register(DLT_PRISM_HEADER, PrismHeader)
 conf.l2types.register_num2layer(802, PrismHeader)
-conf.l2types.register(127, RadioTap)
-conf.l2types.register(0xc0, PPI)
+conf.l2types.register(DLT_IEEE802_11_RADIO, RadioTap)
 conf.l2types.register_num2layer(803, RadioTap)
+conf.l2types.register(DLT_PPI, PPI)
 
 
 class WiFi_am(AnsweringMachine):
