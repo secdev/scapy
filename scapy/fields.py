@@ -1153,6 +1153,11 @@ class FlagsField(BitField):
             return type(x)(None if v is None else FlagValue(v, self.names)
                            for v in x)
         return None if x is None else FlagValue(x, self.names)
+    def i2h(self, pkt, x):
+        if isinstance(x, (list, tuple)):
+            return type(x)(None if v is None else FlagValue(v, self.names)
+                           for v in x)
+        return None if x is None else FlagValue(x, self.names)
     def i2repr(self, pkt, x):
         if isinstance(x, (list, tuple)):
             return repr(type(x)(

@@ -26,7 +26,7 @@ class VXLAN(Packet):
                     'V1', 'V2', 'R', 'G']),
         ConditionalField(
             ShortField("reserved0", 0),
-            lambda pkt: pkt.flags & 0x04,
+            lambda pkt: pkt.flags.NextProtocol,
         ),
         ConditionalField(
             ByteEnumField('NextProtocol', 0,
@@ -35,22 +35,22 @@ class VXLAN(Packet):
                            2: 'IPv6',
                            3: 'Ethernet',
                            4: 'NSH'}),
-            lambda pkt: pkt.flags & 0x04,
+            lambda pkt: pkt.flags.NextProtocol,
         ),
         ConditionalField(
-            ThreeBytesField("reserved1", 0x000000),
-            lambda pkt: (not pkt.flags & 0x80) and (not pkt.flags & 0x04),
+            ThreeBytesField("reserved1", 0),
+            lambda pkt: (not pkt.flags.G) and (not pkt.flags.NextProtocol),
         ),
         ConditionalField(
-            FlagsField("gpflags", 0x0, 8, _GP_FLAGS),
-            lambda pkt: pkt.flags & 0x80,
+            FlagsField("gpflags", 0, 8, _GP_FLAGS),
+            lambda pkt: pkt.flags.G,
         ),
         ConditionalField(
             ShortField("gpid", 0),
-            lambda pkt: pkt.flags & 0x80,
+            lambda pkt: pkt.flags.G,
         ),
         X3BytesField("vni", 0),
-        XByteField("reserved2", 0x00),
+        XByteField("reserved2", 0),
     ]
 
     # Use default linux implementation port
@@ -59,7 +59,7 @@ class VXLAN(Packet):
     }
 
     def mysummary(self):
-        if self.flags & 0x80:
+        if self.flags.G:
             return self.sprintf("VXLAN (vni=%VXLAN.vni% gpid=%VXLAN.gpid%)")
         else:
             return self.sprintf("VXLAN (vni=%VXLAN.vni%)")
