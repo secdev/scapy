@@ -161,9 +161,9 @@ class ManufDA(DADict):
         
 
 def load_manuf(filename):
-    try:
-        manufdb=ManufDA(_name=filename)
-        for l in open(filename, "rb"):
+    manufdb=ManufDA(_name=filename)
+    with open(filename, "rb") as fdesc:
+        for l in fdesc:
             try:
                 l = l.strip()
                 if not l or l.startswith(b"#"):
@@ -175,27 +175,37 @@ def load_manuf(filename):
                 else:
                     lng = l[i+2:]
                 manufdb[oui] = shrt, lng
-            except Exception as e:
-                log_loading.warning("Couldn't parse one line from [%s] [%r] (%s)" % (filename, l, e))
-    except IOError:
-        log_loading.warning("Couldn't open [%s] file" % filename)
-        return ""
+            except Exception:
+                log_loading.warning("Couldn't parse one line from [%s] [%r]",
+                                    filename, l, exc_info=True)
     return manufdb
     
-
 
 if WINDOWS:
     ETHER_TYPES=load_ethertypes("ethertypes")
     IP_PROTOS=load_protocols(os.environ["SystemRoot"]+"\system32\drivers\etc\protocol")
     TCP_SERVICES,UDP_SERVICES=load_services(os.environ["SystemRoot"] + "\system32\drivers\etc\services")
     # Default value, will be updated by arch.windows
-    MANUFDB = load_manuf(os.environ["ProgramFiles"] + "\\wireshark\\manuf")
+    try:
+        MANUFDB = load_manuf(os.environ["ProgramFiles"] + "\\wireshark\\manuf")
+    except IOError:
+        log_loading.warning("Cannot read [%s]", filename)
+        MANUFDB = None
 else:
     IP_PROTOS=load_protocols("/etc/protocols")
     ETHER_TYPES=load_ethertypes("/etc/ethertypes")
     TCP_SERVICES,UDP_SERVICES=load_services("/etc/services")
-    MANUFDB = load_manuf("/usr/share/wireshark/manuf")
-
+    MANUFDB = None
+    for prefix in ['/usr', '/usr/local', '/opt', '/opt/wireshark']:
+        try:
+            MANUFDB = load_manuf(os.path.join(prefix, "share", "wireshark",
+                                              "manuf"))
+            if MANUFDB:
+                break
+        except IOError:
+            pass
+    if not MANUFDB:
+        log_loading.warning("Cannot read wireshark manuf database")
 
 
 #####################
