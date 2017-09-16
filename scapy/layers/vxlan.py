@@ -68,9 +68,11 @@ bind_layers(UDP, VXLAN, dport=4789)  # RFC standard vxlan port
 bind_layers(UDP, VXLAN, dport=4790)  # RFC standard vxlan-gpe port
 bind_layers(UDP, VXLAN, dport=6633)  # New IANA assigned port for use with NSH
 bind_layers(UDP, VXLAN, dport=8472)  # Linux implementation port
-bind_layers(VXLAN, Ether, {'flags': 0x8})
-bind_layers(VXLAN, Ether, {'flags': 0x88})
-bind_layers(VXLAN, Ether, {'flags': 0xC, 'NextProtocol': 0}, NextProtocol=0)
-bind_layers(VXLAN, IP, {'flags': 0xC, 'NextProtocol': 1}, NextProtocol=1)
-bind_layers(VXLAN, IPv6, {'flags': 0xC, 'NextProtocol': 2}, NextProtocol=2)
-bind_layers(VXLAN, Ether, {'flags': 0xC, 'NextProtocol': 3}, NextProtocol=3)
+
+bind_layers(VXLAN, Ether)
+bind_layers(VXLAN, IP, NextProtocol=1)
+bind_layers(VXLAN, IPv6, NextProtocol=2)
+bind_layers(VXLAN, Ether, flags=4, NextProtocol=0)
+bind_layers(VXLAN, IP, flags=4, NextProtocol=1)
+bind_layers(VXLAN, IPv6, flags=4, NextProtocol=2)
+bind_layers(VXLAN, Ether, flags=4, NextProtocol=3)
