@@ -317,12 +317,12 @@ class GetMulticastMAC(RandMAC):
                 for i in range(6):
                     if template[i] == "xx" and template[i-1] != "xx": 
                        v = RandByte()
-                elif template[i] == "xx" and template[i-1] == "xx":
-                       v = v
-                elif template [i] == "yy":
-                    v = RandByte()
-                else:
-                    v = int(template[i],16)
+                    elif template[i] == "xx" and template[i-1] == "xx":
+                           v = v
+                    elif template [i] == "yy":
+                        v = RandByte()
+                    else:
+                        v = int(template[i],16)
                 self.mac += (v,)        
         else:
             if 0 <= Index < 63:
