@@ -8,11 +8,11 @@ Routing and handling of network interfaces.
 """
 
 from __future__ import absolute_import
-from scapy.consts import LOOPBACK_NAME, LOOPBACK_INTERFACE
 from scapy.utils import atol, ltoa, itom, pretty_routes
 from scapy.config import conf
 from scapy.error import Scapy_Exception, warning
 from scapy.arch import WINDOWS
+import scapy.consts
 import scapy.modules.six as six
 
 ##############################
@@ -153,13 +153,13 @@ class Route:
                 continue
             aa = atol(a)
             if aa == dst:
-                pathes.append((0xffffffff,(LOOPBACK_INTERFACE,a,"0.0.0.0")))
+                pathes.append((0xffffffff,(scapy.consts.LOOPBACK_INTERFACE,a,"0.0.0.0")))
             if (dst & m) == (d & m):
                 pathes.append((m,(i,a,gw)))
         if not pathes:
             if verbose:
                 warning("No route found (no default route?)")
-            return LOOPBACK_INTERFACE,"0.0.0.0","0.0.0.0"
+            return scapy.consts.LOOPBACK_INTERFACE,"0.0.0.0","0.0.0.0"
         # Choose the more specific route (greatest netmask).
         # XXX: we don't care about metrics
         pathes.sort(key=lambda x: x[0])
@@ -184,6 +184,6 @@ conf.route=Route()
 
 #XXX use "with"
 _betteriface = conf.route.route("0.0.0.0", verbose=0)[0]
-if ((_betteriface if (isinstance(_betteriface, six.string_types) or _betteriface is None) else _betteriface.name) != LOOPBACK_NAME):
+if ((_betteriface if (isinstance(_betteriface, six.string_types) or _betteriface is None) else _betteriface.name) != scapy.consts.LOOPBACK_NAME):
     conf.iface = _betteriface
 del(_betteriface)

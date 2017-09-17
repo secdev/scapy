@@ -70,7 +70,7 @@ elif WINDOWS:
     from scapy.arch.windows import *
 
 if scapy.config.conf.iface is None:
-    scapy.config.conf.iface = LOOPBACK_NAME
+    scapy.config.conf.iface = scapy.consts.LOOPBACK_INTERFACE
 
 
 def get_if_addr6(iff):

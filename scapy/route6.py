@@ -18,12 +18,12 @@ Routing and network interface handling for IPv6.
 
 from __future__ import absolute_import
 import socket
+import scapy.consts
 from scapy.config import conf
 from scapy.utils6 import *
 from scapy.arch import *
 from scapy.pton_ntop import *
 from scapy.error import warning, log_loading
-from scapy.consts import LOOPBACK_INTERFACE
 import scapy.modules.six as six
 
 
@@ -220,7 +220,7 @@ class Route6:
 
         if not pathes:
             warning("No route found for IPv6 destination %s (no default route?)" % dst)
-            return (LOOPBACK_INTERFACE, "::", "::")
+            return (scapy.consts.LOOPBACK_INTERFACE, "::", "::")
 
         # Sort with longest prefix first
         pathes.sort(reverse=True)
@@ -237,7 +237,7 @@ class Route6:
 
         if res == []:
             warning("Found a route for IPv6 destination '%s', but no possible source address." % dst)
-            return (LOOPBACK_INTERFACE, "::", "::")
+            return (scapy.consts.LOOPBACK_INTERFACE, "::", "::")
 
         # Symptom  : 2 routes with same weight (our weight is plen)
         # Solution :

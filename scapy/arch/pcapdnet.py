@@ -18,6 +18,7 @@ from scapy.config import conf
 from scapy.utils import mac2str
 from scapy.supersocket import SuperSocket
 from scapy.error import Scapy_Exception, log_loading, warning
+from scapy.pton_ntop import inet_ntop
 import scapy.arch
 import scapy.consts
 
@@ -113,7 +114,7 @@ if conf.use_winpcapy:
       pcap_freealldevs(devs)
   if conf.use_winpcapy:
       get_if_list = winpcapy_get_if_list
-  def in6_getifaddr():
+  def in6_getifaddr_raw():
     err = create_string_buffer(PCAP_ERRBUF_SIZE)
     devs = POINTER(pcap_if_t)()
     ret = []
@@ -128,7 +129,7 @@ if conf.use_winpcapy:
           if a.contents.addr.contents.sa_family == socket.AF_INET6:
             ap = a.contents.addr
             val = cast(ap, POINTER(sockaddr_in6))
-            addr = socket.inet_ntop(socket.AF_INET6, str(val.contents.sin6_addr[:]))
+            addr = inet_ntop(socket.AF_INET6, "".join(chr(x) for x in val.contents.sin6_addr[:]))
             scope = scapy.utils6.in6_getscope(addr)
             ret.append((addr, scope, p.contents.name.decode('ascii')))
           a = a.contents.next
@@ -332,7 +333,13 @@ if conf.use_winpcapy:
           else:
             return
       def send(self, x):
-          cls = conf.l2types[1]
+          # Makes send detects when it should add Loopback(), Dot11... instead of Ether()
+          ll = self.ins.datalink()
+          if ll in conf.l2types:
+              cls = conf.l2types[ll]
+          else:
+              cls = conf.default_l2
+              warning("Unable to guess datalink type (interface=%s linktype=%i). Using %s" % (self.iface, ll, cls.name))
           sx = raw(cls()/x)
           if hasattr(x, "sent_time"):
               x.sent_time = time.time()

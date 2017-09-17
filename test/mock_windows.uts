@@ -17,11 +17,9 @@ assert select_objects([TimeOutSelector()], 1) == []
 
 ############
 ############
-+ Mocked read_routes6() calls
++ Windows Networking tests
 
-= Windows with fake IPv6 adapter
-
-route_add_loopback()
+= Mocked read_routes6() calls
 
 import mock
 from scapy.arch.windows import _read_routes6_post2008
@@ -91,6 +89,7 @@ ifIndex DestinationPrefix                          NextHop
 
 
 test_read_routes6_windows()
+
 
 ############
 ############

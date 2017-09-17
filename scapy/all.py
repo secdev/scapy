@@ -36,6 +36,7 @@ from scapy.automaton import *
 from scapy.autorun import *
 
 from scapy.main import *
+from scapy.consts import *
 
 from scapy.layers.all import *
 

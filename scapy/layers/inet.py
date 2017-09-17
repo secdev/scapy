@@ -48,11 +48,14 @@ class IPTools(object):
             print(whois(self.src))
         else:
             os.system("whois %s" % self.src)
+    def _ttl(self):
+        """Returns ttl or hlim, depending on the IP version"""
+        return self.hlim if isinstance(self, IPv6) else self.ttl
     def ottl(self):
-        t = sorted([32,64,128,255]+[self.ttl])
-        return t[t.index(self.ttl)+1]
+        t = sorted([32,64,128,255]+[self._ttl()])
+        return t[t.index(self._ttl())+1]
     def hops(self):
-        return self.ottl() - self.ttl
+        return self.ottl() - self._ttl()
 
 
 _ip_options_names = { 0: "end_of_list",

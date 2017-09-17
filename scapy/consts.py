@@ -68,12 +68,12 @@ if WINDOWS:
             LOOPBACK_NAME = "Microsoft Loopback Adapter"
     except ValueError:
         LOOPBACK_NAME = "Microsoft Loopback Adapter"
+    # Will be different on Windows
+    LOOPBACK_INTERFACE = None
 else:
     uname = os.uname()
     LOOPBACK_NAME = "lo" if LINUX else "lo0"
-
-# Will be different on Windows
-LOOPBACK_INTERFACE = LOOPBACK_NAME
+    LOOPBACK_INTERFACE = LOOPBACK_NAME
 
 def parent_function():
     return inspect.getouterframes(inspect.currentframe())

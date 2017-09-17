@@ -107,6 +107,9 @@ def getmacbyip6(ip6, chainCC=0):
     (chainCC parameter value ends up being passed to sending function
      used to perform the resolution, if needed)
     """
+    
+    if isinstance(ip6, Net6):
+        ip6 = iter(ip6).next()
 
     if in6_ismaddr(ip6): # Multicast
         mac = in6_getnsmac(inet_pton(socket.AF_INET6, ip6))
@@ -150,13 +153,13 @@ def getmacbyip6(ip6, chainCC=0):
 class Net6(Gen): # syntax ex. fec0::/126
     """Generate a list of IPv6s from a network address or a name"""
     name = "ipv6"
-    ipaddress = re.compile(r"^([a-fA-F0-9:]+)(/[1]?[0-3]?[0-9])?$")
+    ip_regex = re.compile(r"^([a-fA-F0-9:]+)(/[1]?[0-3]?[0-9])?$")
 
     def __init__(self, net):
         self.repr = net
 
         tmp = net.split('/')+["128"]
-        if not self.ipaddress.match(net):
+        if not self.ip_regex.match(net):
             tmp[0]=socket.getaddrinfo(tmp[0], None, socket.AF_INET6)[0][-1][0]
 
         netmask = int(tmp[1])
@@ -194,6 +197,18 @@ class Net6(Gen): # syntax ex. fec0::/126
                 return rec(n+1, ll)
 
         return iter(rec(0, ['']))
+
+    def __str__(self):
+        try:
+            return next(self.__iter__())
+        except StopIteration:
+            return None
+
+    def __eq__(self, other):
+        return str(other) == str(self)
+
+    def __ne__(self, other):
+        return str(other) != str(self)
 
     def __repr__(self):
         return "Net6(%r)" % self.repr
@@ -402,7 +417,7 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
         return conf.route6.route(dst)
 
     def mysummary(self):
-        return "%s > %s (%i)" % (self.src,self.dst, self.nh)
+        return "%s > %s (%i)" % (self.src, self.dst, self.nh)
 
     def post_build(self, p, pay):
         p += pay
@@ -3288,10 +3303,10 @@ def _NDP_Attack_DAD_DoS(reply_callback, iface=None, mac_src_filter=None,
 
         # Check destination is the link-local solicited-node multicast
         # address associated with target address in received NS
-        tgt = socket.inet_pton(socket.AF_INET6, req[ICMPv6ND_NS].tgt)
+        tgt = inet_pton(socket.AF_INET6, req[ICMPv6ND_NS].tgt)
         if tgt_filter and tgt != tgt_filter:
             return 0
-        received_snma = socket.inet_pton(socket.AF_INET6, req[IPv6].dst)
+        received_snma = inet_pton(socket.AF_INET6, req[IPv6].dst)
         expected_snma = in6_getnsma(tgt)
         if received_snma != expected_snma:
             return 0
@@ -3507,7 +3522,7 @@ def NDP_Attack_NA_Spoofing(iface=None, mac_src_filter=None, tgt_filter=None,
         if req[IPv6].src == "::":
             return 0
 
-        tgt = socket.inet_pton(socket.AF_INET6, req[ICMPv6ND_NS].tgt)
+        tgt = inet_pton(socket.AF_INET6, req[ICMPv6ND_NS].tgt)
         if tgt_filter and tgt != tgt_filter:
             return 0
 
