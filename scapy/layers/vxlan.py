@@ -26,7 +26,7 @@ class VXLAN(Packet):
                     'V1', 'V2', 'R', 'G']),
         ConditionalField(
             ShortField("reserved0", 0),
-            lambda pkt: pkt.flags & 0x04,
+            lambda pkt: pkt.flags.NextProtocol,
         ),
         ConditionalField(
             ByteEnumField('NextProtocol', 0,
@@ -35,22 +35,22 @@ class VXLAN(Packet):
                            2: 'IPv6',
                            3: 'Ethernet',
                            4: 'NSH'}),
-            lambda pkt: pkt.flags & 0x04,
+            lambda pkt: pkt.flags.NextProtocol,
         ),
         ConditionalField(
-            ThreeBytesField("reserved1", 0x000000),
-            lambda pkt: (not pkt.flags & 0x80) and (not pkt.flags & 0x04),
+            ThreeBytesField("reserved1", 0),
+            lambda pkt: (not pkt.flags.G) and (not pkt.flags.NextProtocol),
         ),
         ConditionalField(
-            FlagsField("gpflags", 0x0, 8, _GP_FLAGS),
-            lambda pkt: pkt.flags & 0x80,
+            FlagsField("gpflags", 0, 8, _GP_FLAGS),
+            lambda pkt: pkt.flags.G,
         ),
         ConditionalField(
             ShortField("gpid", 0),
-            lambda pkt: pkt.flags & 0x80,
+            lambda pkt: pkt.flags.G,
         ),
         X3BytesField("vni", 0),
-        XByteField("reserved2", 0x00),
+        XByteField("reserved2", 0),
     ]
 
     # Use default linux implementation port
@@ -59,7 +59,7 @@ class VXLAN(Packet):
     }
 
     def mysummary(self):
-        if self.flags & 0x80:
+        if self.flags.G:
             return self.sprintf("VXLAN (vni=%VXLAN.vni% gpid=%VXLAN.gpid%)")
         else:
             return self.sprintf("VXLAN (vni=%VXLAN.vni%)")
@@ -68,9 +68,11 @@ bind_layers(UDP, VXLAN, dport=4789)  # RFC standard vxlan port
 bind_layers(UDP, VXLAN, dport=4790)  # RFC standard vxlan-gpe port
 bind_layers(UDP, VXLAN, dport=6633)  # New IANA assigned port for use with NSH
 bind_layers(UDP, VXLAN, dport=8472)  # Linux implementation port
-bind_layers(VXLAN, Ether, {'flags': 0x8})
-bind_layers(VXLAN, Ether, {'flags': 0x88})
-bind_layers(VXLAN, Ether, {'flags': 0xC, 'NextProtocol': 0}, NextProtocol=0)
-bind_layers(VXLAN, IP, {'flags': 0xC, 'NextProtocol': 1}, NextProtocol=1)
-bind_layers(VXLAN, IPv6, {'flags': 0xC, 'NextProtocol': 2}, NextProtocol=2)
-bind_layers(VXLAN, Ether, {'flags': 0xC, 'NextProtocol': 3}, NextProtocol=3)
+
+bind_layers(VXLAN, Ether)
+bind_layers(VXLAN, IP, NextProtocol=1)
+bind_layers(VXLAN, IPv6, NextProtocol=2)
+bind_layers(VXLAN, Ether, flags=4, NextProtocol=0)
+bind_layers(VXLAN, IP, flags=4, NextProtocol=1)
+bind_layers(VXLAN, IPv6, flags=4, NextProtocol=2)
+bind_layers(VXLAN, Ether, flags=4, NextProtocol=3)
