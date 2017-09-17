@@ -19,7 +19,7 @@ from scapy.data import *
 from scapy.layers.l2 import *
 from scapy.compat import *
 from scapy.config import conf
-from scapy.consts import OPENBSD, WINDOWS
+from scapy.consts import WINDOWS
 from scapy.fields import *
 from scapy.packet import *
 from scapy.volatile import *
@@ -809,10 +809,8 @@ bind_layers( IP,            TCP,           frag=0, proto=6)
 bind_layers( IP,            UDP,           frag=0, proto=17)
 bind_layers( IP,            GRE,           frag=0, proto=47)
 
-conf.l2types.register(101, IP)
-if not OPENBSD:
-    # see scapy.layers.l2.py
-    conf.l2types.register_num2layer(12, IP)
+conf.l2types.register(DLT_RAW, IP)
+conf.l2types.register_num2layer(DLT_RAW_ALT, IP)
 conf.l2types.register(DLT_IPV4, IP)
 
 conf.l3types.register(ETH_P_IP, IP)

@@ -3888,6 +3888,7 @@ conf.l3types.register(ETH_P_IPV6, IPv6)
 conf.l2types.register(31, IPv6)
 conf.l2types.register(DLT_IPV6, IPv6)
 conf.l2types.register(DLT_RAW, _IPv46)
+conf.l2types.register_num2layer(DLT_RAW_ALT, _IPv46)
 
 bind_layers(Ether,     IPv6,     type = 0x86dd )
 bind_layers(CookedLinux, IPv6,   proto = 0x86dd )
