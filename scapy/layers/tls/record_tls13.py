@@ -117,7 +117,8 @@ class TLS13(_GenericTLSSessionInheritance):
         except CipherError as e:
             return e.args
         except AEADTagError as e:
-            log_runtime.info("TLS: record integrity check failed")
+            pkt_info = self.firstlayer().summary()
+            log_runtime.info("TLS: record integrity check failed [%s]", pkt_info)
             return e.args
 
     def pre_dissect(self, s):

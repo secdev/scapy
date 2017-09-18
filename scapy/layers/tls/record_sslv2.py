@@ -140,7 +140,8 @@ class SSLv2(TLS):
         # Verify integrity
         is_mac_ok = self._sslv2_mac_verify(cfrag + pad, mac)
         if not is_mac_ok:
-            log_runtime.info("TLS: record integrity check failed")
+            pkt_info = self.firstlayer().summary()
+            log_runtime.info("TLS: record integrity check failed [%s]", pkt_info)
 
         reconstructed_body = mac + cfrag + pad
         return hdr + reconstructed_body + r
