@@ -701,7 +701,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
             except:
                 if conf.debug_dissector:
                     if isinstance(cls,type) and issubclass(cls,Packet):
-                        log_runtime.error("%s dissector failed" % cls.name)
+                        log_runtime.error("%s dissector failed" % cls.__name__)
                     else:
                         log_runtime.error("%s.guess_payload_class() returned [%s]" % (self.__class__.__name__,repr(cls)))
                     if cls is not None:

@@ -163,7 +163,7 @@ def attach_filter(s, bpf_filter, iface):
     s.setsockopt(SOL_SOCKET, SO_ATTACH_FILTER, bpfh)
 
 def set_promisc(s,iff,val=1):
-    mreq = struct.pack("IHH8s", get_if_index(iff), PACKET_MR_PROMISC, 0, "")
+    mreq = struct.pack("IHH8s", get_if_index(iff), PACKET_MR_PROMISC, 0, b"")
     if val:
         cmd = PACKET_ADD_MEMBERSHIP
     else:
