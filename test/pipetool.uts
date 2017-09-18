@@ -46,28 +46,24 @@ p.wait_and_stop()
 
 = Test add_pipe on running instance
 
-test_val = None
-
-class TestSink(Sink):
-    def push(self, msg):
-        global test_val
-        test_val = msg
-
 p = PipeEngine()
 p.start()
 
-s = AutoSource()
-s._gen_data("hello")
-s.is_exhausted = True
+s = CLIFeeder()
 
 d1 = Drain(name="d1")
-c = TestSink(name="c")
+c = QueueSink(name="c")
 s > d1 > c
 
 p.add(s)
 
-p.wait_and_stop()
-assert test_val == "hello"
+s.send("hello")
+s.send("hi")
+
+assert c.q.get(timeout=5) == "hello"
+assert c.q.get(timeout=5) == "hi"
+
+p.stop()
 
 = Test Operators
 
@@ -315,9 +311,9 @@ s.send("hello2")
 s.send("trigger")
 s.send("hello3")
 
-assert c.q.get(timeout=2) == "hello"
-assert c.q.get(timeout=2) == "trigger"
-assert c.q.get(timeout=2) == "hello3"
+assert c.q.get(timeout=5) == "hello"
+assert c.q.get(timeout=5) == "trigger"
+assert c.q.get(timeout=5) == "hello3"
 
 p.stop()
 
@@ -328,7 +324,9 @@ d1 = TriggerDrain(lambda x:x=="trigger")
 d2 = TriggeredValve()
 c = QueueSink()
 
-s >> d1 >> d2 >> c
+s >> d1
+d1 >> d2
+d2 >> c
 d1 ^ d2
 
 p = PipeEngine(s)
@@ -340,9 +338,9 @@ s.send("hello2")
 s.send("trigger")
 s.send("hello3")
 
-assert c.q.get(timeout=2) == "hello"
-assert c.q.get(timeout=2) == "trigger"
-assert c.q.get(timeout=2) == "hello3"
+assert c.q.get(timeout=5) == "hello"
+assert c.q.get(timeout=5) == "trigger"
+assert c.q.get(timeout=5) == "hello3"
 
 p.stop()
 
@@ -365,9 +363,9 @@ s.send("hello2")
 s.send("trigger")
 s.send("hello3")
 
-assert c.q.get(timeout=2) == "hello"
-assert c.q.get(timeout=2) == "trigger"
-assert c.q.get(timeout=2) == "hello3"
+assert c.q.get(timeout=5) == "hello"
+assert c.q.get(timeout=5) == "trigger"
+assert c.q.get(timeout=5) == "hello3"
 
 p.stop()
 
@@ -391,8 +389,8 @@ s.send("hello2")
 s.send("trigger")
 s.send("hello3")
 
-assert c.q.get(timeout=2) == "trigger"
-assert c.q.get(timeout=2) == "hello2"
+assert c.q.get(timeout=5) == "trigger"
+assert c.q.get(timeout=5) == "hello2"
 
 p.stop()
 
@@ -403,7 +401,8 @@ d1 = TriggerDrain(lambda x:x=="trigger")
 d2 = TriggeredSwitch()
 c = QueueSink()
 
-s >> d1 >> d2
+s >> d1
+d1 >> d2
 d2 > c
 d1 ^ d2
 
@@ -416,9 +415,9 @@ s.send("hello2")
 s.send("trigger")
 s.send("hello3")
 
-assert c.q.get(timeout=2) == "hello"
-assert c.q.get(timeout=2) == "trigger"
-assert c.q.get(timeout=2) == "hello3"
+assert c.q.get(timeout=5) == "hello"
+assert c.q.get(timeout=5) == "trigger"
+assert c.q.get(timeout=5) == "hello3"
 
 p.stop()
 

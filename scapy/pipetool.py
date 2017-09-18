@@ -156,6 +156,7 @@ class PipeEngine(SelectableObject):
     def start(self):
         if self.thread_lock.acquire(0):
             _t = Thread(target=self.run)
+            _t.setDaemon(True)
             _t.start()
             self.thread = _t
         else:

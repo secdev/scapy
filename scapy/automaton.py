@@ -91,7 +91,9 @@ class SelectableObject:
         """Entry point of SelectableObject: register the callback"""
         if self.check_recv():
             return callback(self)
-        threading.Thread(target=self._wait_non_ressources, args=(callback,)).start()
+        _t = threading.Thread(target=self._wait_non_ressources, args=(callback,))
+        _t.setDaemon(True)
+        _t.start()
         
     def call_release(self, arborted=False):
         """DEV: Must be call when the object becomes ready to read.
@@ -110,10 +112,6 @@ class SelectableSelector(object):
     remain: timeout. If 0, return [].
     customTypes: types of the objects that have the check_recv function.
     """
-    results = None
-    inputs = None
-    available_lock = None
-    _ended = False
     def _release_all(self):
         """Releases all locks to kill all threads"""
         for i in self.inputs:
@@ -692,7 +690,9 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
 
     def _do_start(self, *args, **kargs):
         ready = threading.Event()
-        threading.Thread(target=self._do_control, args=(ready,) + (args), kwargs=kargs).start()
+        _t = threading.Thread(target=self._do_control, args=(ready,) + (args), kwargs=kargs)
+        _t.setDaemon(True)
+        _t.start()
         ready.wait()
 
     def _do_control(self, ready, *args, **kargs):
