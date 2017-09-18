@@ -93,7 +93,7 @@ crc32c_table = [
 def crc32c(buf):
     crc = 0xffffffff
     for c in buf:
-        crc = (crc>>8) ^ crc32c_table[(crc^(ord(c))) & 0xFF]
+        crc = (crc>>8) ^ crc32c_table[(crc^(orb(c))) & 0xFF]
     crc = (~crc) & 0xffffffff
     # reverse endianness
     return struct.unpack(">I",struct.pack("<I", crc))[0]
@@ -107,8 +107,8 @@ def update_adler32(adler, buf):
     print s1,s2
 
     for c in buf:
-        print ord(c)
-        s1 = (s1 + ord(c)) % BASE
+        print orb(c)
+        s1 = (s1 + orb(c)) % BASE
         s2 = (s2 + s1) % BASE
         print s1,s2
     return (s2 << 16) + s1
@@ -216,7 +216,7 @@ class _SCTPChunkGuessPayload:
         if len(p) < 4:
             return conf.padding_layer
         else:
-            t = ord(p[0])
+            t = orb(p[0])
             return globals().get(sctpchunktypescls.get(t, "Raw"), conf.raw_layer)
 
 
@@ -248,7 +248,7 @@ class ChunkParamField(PacketListField):
     def m2i(self, p, m):
         cls = conf.raw_layer
         if len(m) >= 4:
-            t = ord(m[0]) * 256 + ord(m[1])
+            t = orb(m[0]) * 256 + orb(m[1])
             cls = globals().get(sctpchunkparamtypescls.get(t, "Raw"), conf.raw_layer)
         return cls(m)
 

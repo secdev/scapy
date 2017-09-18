@@ -42,7 +42,7 @@ class VRRP(Packet):
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         if _pkt and len(_pkt) >= 9:
-            ver_n_type = ord(_pkt[0])
+            ver_n_type = orb(_pkt[0])
             if ver_n_type >= 48 and ver_n_type <= 57: # Version == 3
                 return VRRPv3
         return VRRP
@@ -72,13 +72,13 @@ class VRRPv3(Packet):
             else:
                 warning("No IP(v6) layer to compute checksum on VRRP. Leaving null")
                 ck = 0
-            p = p[:6]+chr(ck>>8)+chr(ck&0xff)+p[8:]
+            p = p[:6]+chb(ck>>8)+chb(ck&0xff)+p[8:]
         return p
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         if _pkt and len(_pkt) >= 16:
-            ver_n_type = ord(_pkt[0])
+            ver_n_type = orb(_pkt[0])
             if ver_n_type < 48 or ver_n_type > 57: # Version != 3
                 return VRRP
         return VRRPv3

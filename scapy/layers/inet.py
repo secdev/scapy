@@ -109,7 +109,7 @@ class IPOption(Packet):
     @classmethod
     def dispatch_hook(cls, pkt=None, *args, **kargs):
         if pkt:
-            opt = ord(pkt[0])&0x1f
+            opt = orb(pkt[0])&0x1f
             if opt in cls.registered_ip_options:
                 return cls.registered_ip_options[opt]
         return cls
@@ -262,7 +262,7 @@ class TCPOptionsField(StrField):
     def m2i(self, pkt, x):
         opt = []
         while x:
-            onum = ord(x[0])
+            onum = orb(x[0])
             if onum == 0:
                 opt.append(("EOL",None))
                 x=x[1:]
@@ -271,7 +271,7 @@ class TCPOptionsField(StrField):
                 opt.append(("NOP",None))
                 x=x[1:]
                 continue
-            olen = ord(x[1])
+            olen = orb(x[1])
             if olen < 2:
                 warning("Malformed TCP option (announced length is %i)" % olen)
                 olen = 2
@@ -525,7 +525,7 @@ class TCP(Packet):
         dataofs = self.dataofs
         if dataofs is None:
             dataofs = 5+((len(self.get_field("options").i2m(self,self.options))+3)//4)
-            p = p[:12]+chb((dataofs << 4) | ord(p[12])&0x0f)+p[13:]
+            p = p[:12]+chb((dataofs << 4) | orb(p[12])&0x0f)+p[13:]
         if self.chksum is None:
             if isinstance(self.underlayer, IP):
                 ck = in4_chksum(socket.IPPROTO_TCP, self.underlayer, p)

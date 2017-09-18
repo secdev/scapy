@@ -42,21 +42,21 @@ def get_temp_file(keep=False, autoext=""):
 def sane_color(x):
     r=""
     for i in x:
-        j = ord(i)
+        j = orb(i)
         if (j < 32) or (j >= 127):
             r=r+conf.color_theme.not_printable(".")
         else:
-            r=r+i
+            r=r+chr(j)
     return r
 
 def sane(x):
     r=""
     for i in x:
-        j = ord(i)
+        j = orb(i)
         if (j < 32) or (j >= 127):
             r=r+"."
         else:
-            r=r+i
+            r=r+chr(j)
     return r
 
 def lhex(x):
@@ -950,7 +950,7 @@ class RawPcapNgReader(RawPcapReader):
             # 4.2. - Interface Description Block
             # http://xml2rfc.tools.ietf.org/cgi-bin/xml2rfc.cgi?url=https://raw.githubusercontent.com/pcapng/pcapng/master/draft-tuexen-opsawg-pcapng.xml&modeAsFormat=html/ascii&type=ascii#rfc.section.4.2
             if code == 9 and length == 1 and len(options) >= 5:
-                tsresol = ord(options[4])
+                tsresol = orb(options[4])
                 tsresol = (2 if tsresol & 128 else 10) ** (tsresol & 127)
             if code == 0:
                 if length != 0:

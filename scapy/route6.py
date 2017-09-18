@@ -223,7 +223,7 @@ class Route6:
             return (scapy.consts.LOOPBACK_INTERFACE, "::", "::")
 
         # Sort with longest prefix first
-        pathes.sort(reverse=True)
+        pathes.sort(reverse=True, key=lambda x: x[0])
 
         best_plen = pathes[0][0]
         pathes = [x for x in pathes if x[0] == best_plen]

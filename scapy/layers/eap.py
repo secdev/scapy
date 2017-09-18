@@ -81,7 +81,7 @@ class EAPOL(Packet):
         return s[:l], s[l:]
 
     def hashret(self):
-        return chr(self.type) + self.payload.hashret()
+        return chb(self.type) + self.payload.hashret()
 
     def answers(self, other):
         if isinstance(other, EAPOL):
@@ -284,7 +284,7 @@ class EAP(Packet):
     def post_build(self, p, pay):
         if self.len is None:
             l = len(p) + len(pay)
-            p = p[:2] + chr((l >> 8) & 0xff) + chr(l & 0xff) + p[4:]
+            p = p[:2] + chb((l >> 8) & 0xff) + chb(l & 0xff) + p[4:]
         return p + pay
 
 
@@ -466,7 +466,7 @@ class MKAParamSet(Packet):
 
         cls = conf.raw_layer
         if _pkt is not None:
-            ptype = struct.unpack("!B", _pkt[0])[0]
+            ptype = orb(_pkt[0])
             return globals().get(_param_set_cls.get(ptype), conf.raw_layer)
 
         return cls

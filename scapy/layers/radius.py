@@ -264,7 +264,7 @@ class RadiusAttribute(Packet):
         """
 
         if _pkt:
-            attr_type = ord(_pkt[0])
+            attr_type = orb(_pkt[0])
             return cls.registered_attributes.get(attr_type, cls)
         return cls
 
@@ -1092,7 +1092,7 @@ class _RADIUSAttrPacketListField(PacketListField):
             remain, ret = s[:length], s[length:]
 
         while remain:
-            attr_len = struct.unpack("!B", remain[1])[0]
+            attr_len = orb(remain[1])
             current = remain[:attr_len]
             remain = remain[attr_len:]
             packet = self.m2i(pkt, current)

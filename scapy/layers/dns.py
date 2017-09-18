@@ -42,11 +42,11 @@ class DNSStrField(StrField):
     def getfield(self, pkt, s):
         n = b""
 
-        if ord(s[0]) == 0:
+        if orb(s[0]) == 0:
           return s[1:], "."
 
         while True:
-            l = ord(s[0])
+            l = orb(s[0])
             s = s[1:]
             if not l:
                 break
@@ -89,7 +89,7 @@ def DNSgetstr(s,p):
         if p >= len(s):
             warning("DNS RR prematured end (ofs=%i, len=%i)"%(p,len(s)))
             break
-        l = ord(s[p])
+        l = orb(s[p])
         p += 1
         if l & 0xc0:
             if not q:
@@ -97,7 +97,7 @@ def DNSgetstr(s,p):
             if p >= len(s):
                 warning("DNS incomplete jump token at (ofs=%i)" % p)
                 break
-            p = ((l & 0x3f) << 8) + ord(s[p]) - 12
+            p = ((l & 0x3f) << 8) + orb(s[p]) - 12
             if p in jpath:
                 warning("DNS decompression loop detected")
                 break
@@ -205,7 +205,7 @@ class RDataField(StrLenField):
                 s = inet_aton(s)
         elif pkt.type in [2, 3, 4, 5, 12]: # NS, MD, MF, CNAME, PTR
             s = b"".join(chr(len(x)) + x for x in s.split('.'))
-            if ord(s[-1]):
+            if orb(s[-1]):
                 s += b"\x00"
         elif pkt.type == 16: # TXT
             if s:

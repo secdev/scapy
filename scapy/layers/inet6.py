@@ -387,15 +387,15 @@ class _IPv6GuessPayload:
     name = "Dummy class that implements guess_payload_class() for IPv6"
     def default_payload_class(self,p):
         if self.nh == 58: # ICMPv6
-            t = ord(p[0])
+            t = orb(p[0])
             if len(p) > 2 and (t == 139 or t == 140): # Node Info Query
                 return _niquery_guesser(p)
             if len(p) >= icmp6typesminhdrlen.get(t, float("inf")): # Other ICMPv6 messages
                 return get_cls(icmp6typescls.get(t,"Raw"), "Raw")
             return Raw
         elif self.nh == 135 and len(p) > 3: # Mobile IPv6
-            return _mip6_mhtype2cls.get(ord(p[2]), MIP6MH_Generic)
-        elif self.nh == 43 and ord(p[2]) == 4:  # Segment Routing header
+            return _mip6_mhtype2cls.get(orb(p[2]), MIP6MH_Generic)
+        elif self.nh == 43 and orb(p[2]) == 4:  # Segment Routing header
             return IPv6ExtHdrSegmentRouting
         return get_cls(ipv6nhcls.get(self.nh, "Raw"), "Raw")
 
@@ -871,7 +871,7 @@ class _HopByHopOptionsField(PacketListField):
                 if c <= 0:
                     break
                 c -= 1
-            o = ord(x[0]) # Option type
+            o = orb(x[0]) # Option type
             cls = self.cls
             if o in _hbhoptcls:
                 cls = _hbhoptcls[o]
@@ -1007,7 +1007,7 @@ class IPv6ExtHdrSegmentRoutingTLV(Packet):
     @classmethod
     def dispatch_hook(cls, pkt=None, *args, **kargs):
         if pkt:
-            tmp_type = ord(pkt[0])
+            tmp_type = orb(pkt[0])
             return cls.registered_sr_tlv.get(tmp_type, cls)
         return cls
 
@@ -1657,7 +1657,7 @@ class _ICMPv6NDGuessPayload:
     name = "Dummy ND class that implements guess_payload_class()"
     def guess_payload_class(self,p):
         if len(p) > 1:
-            return get_cls(icmp6ndoptscls.get(ord(p[0]),"Raw"), "Raw") # s/Raw/ICMPv6NDOptUnknown/g ?
+            return get_cls(icmp6ndoptscls.get(orb(p[0]),"Raw"), "Raw") # s/Raw/ICMPv6NDOptUnknown/g ?
 
 
 # Beginning of ICMPv6 Neighbor Discovery Options.
@@ -1918,7 +1918,7 @@ class DomainNameListField(StrLenField):
             # Get a name until \x00 is reached
             cur = []
             while x and x[0] != b'\x00':
-                l = ord(x[0])
+                l = orb(x[0])
                 cur.append(x[1:l+1])
                 x = x[l+1:]
             if self.padded:
@@ -1938,7 +1938,7 @@ class DomainNameListField(StrLenField):
                 return z
             return z+b'\x00'
         # Build the encode names
-        tmp = [[chb(len(z)) + z for z in y.split('.')] for y in x]
+        tmp = [[chb(len(z)) + z.encode("utf8") for z in y.split('.')] for y in x]
         ret_string  = b"".join(conditionalTrailingDot(b"".join(x)) for x in tmp)
 
         # In padded mode, add some \x00 bytes
@@ -2198,14 +2198,14 @@ def dnsrepr2names(x):
     res = []
     cur = ""
     while x:
-        l = ord(x[0])
+        l = orb(x[0])
         x = x[1:]
         if l == 0:
             if cur and cur[-1] == '.':
                 cur = cur[:-1]
             res.append(cur)
             cur = ""
-            if x and ord(x[0]) == 0: # single component
+            if x and orb(x[0]) == 0: # single component
                 x = x[1:]
             continue
         if l & 0xc0: # XXX TODO : work on that -- arno
@@ -2256,7 +2256,7 @@ class NIQueryDataField(StrField):
             res = []
             weird = None
             while val:
-                l = ord(val[0])
+                l = orb(val[0])
                 val = val[1:]
                 if l == 0:
                     if (len(res) > 1 and val): # fqdn with data behind
@@ -2520,7 +2520,7 @@ class ICMPv6NIReplyUnknown(ICMPv6NIReplyNOOP):
 
 def _niquery_guesser(p):
     cls = conf.raw_layer
-    type = ord(p[0])
+    type = orb(p[0])
     if type == 139: # Node Info Query specific stuff
         if len(p) > 6:
             qtype, = struct.unpack("!H", p[4:6])
@@ -2529,7 +2529,7 @@ def _niquery_guesser(p):
                     3: ICMPv6NIQueryIPv6,
                     4: ICMPv6NIQueryIPv4 }.get(qtype, conf.raw_layer)
     elif type == 140: # Node Info Reply specific stuff
-        code = ord(p[1])
+        code = orb(p[1])
         if code == 0:
             if len(p) > 6:
                 qtype, = struct.unpack("!H", p[4:6])
@@ -2861,7 +2861,7 @@ class _MobilityHeader(Packet):
         l = self.len
         if self.len is None:
             l = (len(p)-8)//8
-        p = p[0] + struct.pack("B", l) + p[2:]
+        p = chb(p[0]) + struct.pack("B", l) + chb(p[2:])
         if self.cksum is None:
             cksum = in6_chksum(135, self.underlayer, p)
         else:
@@ -2899,7 +2899,7 @@ class _MobilityOptionsField(PacketListField):
     def m2i(self, pkt, x):
         opt = []
         while x:
-            o = ord(x[0]) # Option type
+            o = orb(x[0]) # Option type
             cls = self.cls
             if o in moboptcls:
                 cls = moboptcls[o]

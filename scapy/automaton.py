@@ -644,11 +644,11 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
             ioin,ioout = extfd                
             if ioin is None:
                 ioin = ObjectPipe()
-            elif not isinstance(ioin, types.InstanceType):
+            elif not isinstance(ioin, SelectableObject):
                 ioin = self._IO_fdwrapper(ioin,None)
             if ioout is None:
                 ioout = ioin if WINDOWS else ObjectPipe()
-            elif not isinstance(ioout, types.InstanceType):
+            elif not isinstance(ioout, SelectableObject):
                 ioout = self._IO_fdwrapper(None,ioout)
 
             self.ioin[n] = ioin

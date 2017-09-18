@@ -385,7 +385,7 @@ class StrField(Field):
         if x is None:
             x = b""
         elif not isinstance(x, bytes):
-            x = bytes(x)
+            x = raw(x)
         return x
     def addfield(self, pkt, s, val):
         return s + self.i2m(pkt, val)

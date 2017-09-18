@@ -109,7 +109,7 @@ else:
             return bytes([x])
 
 def bytes_codec(x, codec, force_str=False):
-    """Hexify a str or a bytes object"""
+    """Encode a str or a bytes object with a codec"""
     if six.PY2:
         return str(x).encode(codec)
     else:
@@ -119,7 +119,7 @@ def bytes_codec(x, codec, force_str=False):
         return hex_
 
 def codec_bytes(x, codec):
-    """De-hexify a str or a byte object"""
+    """Decode a str or a byte object with a codec"""
     if six.PY2:
         return str(x).decode(codec)
     else:

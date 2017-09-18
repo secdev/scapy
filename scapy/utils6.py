@@ -228,7 +228,7 @@ def in6_ifaceidtomac(ifaceid): # TODO: finish commenting function behavior
     first = struct.pack("B", ((first & 0xFD) | ulbit))
     oui = first + ifaceid[1:3]
     end = ifaceid[5:]
-    l = ["%.02x" % struct.unpack('B', raw(x))[0] for x in list(oui + end)]
+    l = ["%.02x" % orb(x) for x in list(oui + end)]
     return ":".join(l)
 
 def in6_addrtomac(addr):
@@ -766,7 +766,7 @@ def in6_get_common_plen(a, b):
     tmpA = inet_pton(socket.AF_INET6, a)
     tmpB = inet_pton(socket.AF_INET6, b)
     for i in range(16):
-        mbits = matching_bits(ord(tmpA[i]), ord(tmpB[i]))
+        mbits = matching_bits(orb(tmpA[i]), orb(tmpB[i]))
         if mbits != 8:
             return 8*i + mbits
     return 128

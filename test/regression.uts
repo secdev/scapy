@@ -671,9 +671,9 @@ x=SNMP(b'0y\x02\x01\x00\x04\x06public\xa2l\x02\x01)\x02\x01\x00\x02\x01\x000a0!\
 x.show()
 assert(x.community==b"public" and x.version == 0)
 assert(x.PDU.id == 41 and len(x.PDU.varbindlist) == 3)
-assert(x.PDU.varbindlist[0].oid == b"1.3.6.1.4.1.253.8.64.4.2.1.7.10.14130104")
+assert(x.PDU.varbindlist[0].oid == "1.3.6.1.4.1.253.8.64.4.2.1.7.10.14130104")
 assert(x.PDU.varbindlist[0].value == b"172.31.19.2")
-assert(x.PDU.varbindlist[2].oid == b"1.3.6.1.4.1.253.8.64.4.2.1.5.10.14130400")
+assert(x.PDU.varbindlist[2].oid == "1.3.6.1.4.1.253.8.64.4.2.1.5.10.14130400")
 assert(x.PDU.varbindlist[2].value == 1)
 
 
@@ -843,7 +843,7 @@ dns_ans.show2()
 dns_ans[DNS].an.show()
 dns_ans2 = IP(raw(dns_ans))
 DNS in dns_ans2
-assert(raw(dns_ans2) == str(dns_ans))
+assert(raw(dns_ans2) == raw(dns_ans))
 dns_ans2.qd.qname = "www.secdev.org."
 * We need to recalculate these values
 del(dns_ans2[IP].len)
@@ -1232,7 +1232,7 @@ class ATMT9(Automaton):
         self.send(Raw("ENU"))
     @ATMT.ioevent(BEGIN, name="loop")
     def received_sth(self, fd):
-        self.res += fd.recv().load
+        self.res += plain_str(fd.recv().load)
         raise self.END()
     @ATMT.state(final=1)
     def END(self):
@@ -1252,7 +1252,7 @@ a.BEGIN.intercepts()
 while True:
     try:
         x = a.run()
-    except Automaton.InterceptionPoint,p:
+    except Automaton.InterceptionPoint as p:
         a.accept_packet(Raw(p.packet.load.lower()), wait=False)
     else:
         break
@@ -1343,7 +1343,7 @@ raw(p)
 assert(_ == b'\x80!\x01\x00\x00\x16\x81\x06\x01\x02\x03\x04\x83\x06\x05\x06\x07\x08\x84\x06\t\n\x0b\x0c')
 PPP(_)
 q=_
-assert(raw(p) == str(q))
+assert(raw(p) == raw(q))
 assert(PPP(raw(q))==q)
 PPP()/PPP_IPCP(options=[PPP_IPCP_Option_DNS1(data="1.2.3.4"),PPP_IPCP_Option_DNS2(data="5.6.7.8"),PPP_IPCP_Option(type=123,data="ABCDEFG"),PPP_IPCP_Option_NBNS2(data="9.10.11.12")])
 p=_
@@ -1741,7 +1741,7 @@ raw(ICMPv6EchoRequest(code=0xff, cksum=0x1111, id=0x2222, seq=0x3333, data="this
 
 = ICMPv6EchoRequest - Basic dissection
 a=ICMPv6EchoRequest(b'\x80\x00\x00\x00\x00\x00\x00\x00')
-a.type == 128 and a.code == 0 and a.cksum == 0 and a.id == 0 and a.seq == 0 and a.data == b""
+a.type == 128 and a.code == 0 and a.cksum == 0 and a.id == 0 and a.seq == 0 and a.data == ""
 
 = ICMPv6EchoRequest - Dissection with specific values 
 a=ICMPv6EchoRequest(b'\x80\xff\x11\x11""33thisissomerawing')
@@ -1767,7 +1767,7 @@ raw(ICMPv6EchoReply(code=0xff, cksum=0x1111, id=0x2222, seq=0x3333, data="thisis
 
 = ICMPv6EchoReply - Basic dissection
 a=ICMPv6EchoReply(b'\x80\x00\x00\x00\x00\x00\x00\x00')
-a.type == 128 and a.code == 0 and a.cksum == 0 and a.id == 0 and a.seq == 0 and a.data == b""
+a.type == 128 and a.code == 0 and a.cksum == 0 and a.id == 0 and a.seq == 0 and a.data == ""
 
 = ICMPv6EchoReply - Dissection with specific values 
 a=ICMPv6EchoReply(b'\x80\xff\x11\x11""33thisissomerawing')
@@ -1866,7 +1866,7 @@ raw(HBHOptUnknown()) == b'\x01\x00'
 
 = HBHOptUnknown - Basic Dissection 
 a=HBHOptUnknown(b'\x01\x00')
-a.otype == 0x01 and a.optlen == 0 and a.optdata == b""
+a.otype == 0x01 and a.optlen == 0 and a.optdata == ""
 
 = HBHOptUnknown - Automatic optlen computation
 raw(HBHOptUnknown(optdata="B"*10)) == b'\x01\nBBBBBBBBBB'
@@ -1902,7 +1902,7 @@ raw(PadN(optdata="B"*10)) == b'\x01\nBBBBBBBBBB'
 
 = PadN - Basic Dissection
 a=PadN(b'\x01\x00')
-a.otype == 1 and a.optlen == 0 and a.optdata == b''
+a.otype == 1 and a.optlen == 0 and a.optdata == ""
 
 = PadN - Dissection with specific values 
 a=PadN(b'\x01\x0cBBBBBBBBBB')
@@ -2131,7 +2131,7 @@ a.type == 0 and a.len == 2
 
 = ICMPv6NDOptUnknown - Dissection with specific values 
 a=ICMPv6NDOptUnknown(b'\x00\x04somerawing')
-a.type == 0 and a.len==4 and a.data == b"so" and isinstance(a.payload, Raw) and a.payload.load == "merawing"
+a.type == 0 and a.len==4 and a.data == b"so" and isinstance(a.payload, Raw) and a.payload.load == b"merawing"
 
 
 ############
@@ -2552,7 +2552,7 @@ raw(ICMPv6NIQueryNOOP(nonce=b"\x00"*8)) == b'\x8b\x01\x00\x00\x00\x00\x00\x00\x0
 
 = ICMPv6NIQueryNOOP - Basic Dissection
 a = ICMPv6NIQueryNOOP(b'\x8b\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
-a.type == 139 and a.code == 1 and a.cksum == 0 and a.qtype == 0 and a.unused == 0 and a.flags == 0 and a.nonce == b"\x00"*8 and a.data == b""
+a.type == 139 and a.code == 1 and a.cksum == 0 and a.qtype == 0 and a.unused == 0 and a.flags == 0 and a.nonce == b"\x00"*8 and a.data == ""
 
 
 ############
@@ -4071,14 +4071,14 @@ raw(DHCP6OptRemoteID()) == b'\x00%\x00\x04\x00\x00\x00\x00'
 
 = DHCP6OptRemoteID - Basic Dissection
 a = DHCP6OptRemoteID(b'\x00%\x00\x04\x00\x00\x00\x00')
-a.optcode == 37 and a.optlen == 4 and a.enterprisenum == 0 and a.remoteid == ""
+a.optcode == 37 and a.optlen == 4 and a.enterprisenum == 0 and a.remoteid == b""
 
 = DHCP6OptRemoteID - Instantiation with specific values 
 raw(DHCP6OptRemoteID(enterprisenum=0xeeeeeeee, remoteid="someid")) == b'\x00%\x00\n\xee\xee\xee\xeesomeid'
 
 = DHCP6OptRemoteID - Dissection with specific values
 a = DHCP6OptRemoteID(b'\x00%\x00\n\xee\xee\xee\xeesomeid')
-a.optcode == 37 and a.optlen == 10 and a.enterprisenum == 0xeeeeeeee and a.remoteid == "someid"
+a.optcode == 37 and a.optlen == 10 and a.enterprisenum == 0xeeeeeeee and a.remoteid == b"someid"
 
 
 ############
@@ -4090,14 +4090,14 @@ raw(DHCP6OptSubscriberID()) == b'\x00&\x00\x00'
 
 = DHCP6OptSubscriberID - Basic Dissection
 a = DHCP6OptSubscriberID(b'\x00&\x00\x00')
-a.optcode == 38 and a.optlen == 0 and a.subscriberid == ""
+a.optcode == 38 and a.optlen == 0 and a.subscriberid == b""
 
 = DHCP6OptSubscriberID - Instantiation with specific values
 raw(DHCP6OptSubscriberID(subscriberid="someid")) == b'\x00&\x00\x06someid'
 
 = DHCP6OptSubscriberID - Dissection with specific values
 a = DHCP6OptSubscriberID(b'\x00&\x00\x06someid')
-a.optcode == 38 and a.optlen == 6 and a.subscriberid == "someid"
+a.optcode == 38 and a.optlen == 6 and a.subscriberid == b"someid"
 
 
 ############
@@ -4112,7 +4112,7 @@ a = DHCP6OptClientFQDN(b"\x00'\x00\x01\x00")
 a.optcode == 39 and a.optlen == 1 and a.res == 0 and a.flags == 0 and a.fqdn == ""
 
 = DHCP6OptClientFQDN - Instantiation with various flags combinations
-raw(DHCP6OptClientFQDN(flags="S")) == b"\x00'\x00\x01\x01" and str(DHCP6OptClientFQDN(flags="O")) == b"\x00'\x00\x01\x02" and str(DHCP6OptClientFQDN(flags="N")) == b"\x00'\x00\x01\x04" and str(DHCP6OptClientFQDN(flags="SON")) == b"\x00'\x00\x01\x07" and str(DHCP6OptClientFQDN(flags="ON")) == b"\x00'\x00\x01\x06"
+raw(DHCP6OptClientFQDN(flags="S")) == b"\x00'\x00\x01\x01" and raw(DHCP6OptClientFQDN(flags="O")) == b"\x00'\x00\x01\x02" and raw(DHCP6OptClientFQDN(flags="N")) == b"\x00'\x00\x01\x04" and raw(DHCP6OptClientFQDN(flags="SON")) == b"\x00'\x00\x01\x07" and raw(DHCP6OptClientFQDN(flags="ON")) == b"\x00'\x00\x01\x06"
 
 = DHCP6OptClientFQDN - Instantiation with one fqdn 
 raw(DHCP6OptClientFQDN(fqdn="toto.example.org")) == b"\x00'\x00\x12\x00\x04toto\x07example\x03org"
@@ -5516,7 +5516,7 @@ eol = TCP(b"\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00`\x02 \x00\x00\x00\x00\
 eol[TCP].options[0][0] == "EOL" and eol[TCP].options[0][1] == None
 
 = TCP options: malformed - build
-raw(TCP(options=[('unknown', '')])) == str(TCP())
+raw(TCP(options=[('unknown', '')])) == raw(TCP())
 
 = TCP options: malformed - dissection
 raw(TCP(b"\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00`\x02 \x00\x00\x00\x00\x00\x03\x00\x00\x00")) == b"\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00`\x02 \x00\x00\x00\x00\x00\x03\x00\x00\x00"
@@ -6409,7 +6409,7 @@ s = b"!\x0b\x06\xea\x00\x00\x00\x00\x00\x00\xf2\xc1\x7f\x7f\x01\x00\xdb9\xe8\xa2
 p = NTP(s)
 assert(isinstance(p, NTPHeader))
 assert(p[NTPAuthenticator].key_id == 1)
-assert(p[NTPAuthenticator].dgst.encode("hex") == 'ad79f3a1e5fcd032d26a1e27c3c1b60e')
+assert(bytes_hex(p[NTPAuthenticator].dgst) == 'ad79f3a1e5fcd032d26a1e27c3c1b60e')
 
 
 = NTPHeader - KoD
@@ -6523,7 +6523,7 @@ assert(p.status_word.peer_event_code == 1)
 assert(p.association_id == 64655)
 assert(p.offset == 0)
 assert(p.count == 468)
-assert(p.data.load == 'srcadr=192.168.122.1, srcport=123, dstadr=192.168.122.100, dstport=123,\r\nleap=3, stratum=16, precision=-24, rootdelay=0.000, rootdisp=0.000,\r\nrefid=INIT, reftime=0x00000000.00000000, rec=0x00000000.00000000,\r\nreach=0x0, unreach=5, hmode=1, pmode=0, hpoll=6, ppoll=10, headway=62,\r\nflash=0x1200, keyid=1, offset=0.000, delay=0.000, dispersion=15937.500,\r\njitter=0.000, xleave=0.240,\r\nfiltdelay= 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00,\r\nfiltoffset= 0.00 0.00 0.00 0.00 ')
+assert(p.data.load == b'srcadr=192.168.122.1, srcport=123, dstadr=192.168.122.100, dstport=123,\r\nleap=3, stratum=16, precision=-24, rootdelay=0.000, rootdisp=0.000,\r\nrefid=INIT, reftime=0x00000000.00000000, rec=0x00000000.00000000,\r\nreach=0x0, unreach=5, hmode=1, pmode=0, hpoll=6, ppoll=10, headway=62,\r\nflash=0x1200, keyid=1, offset=0.000, delay=0.000, dispersion=15937.500,\r\njitter=0.000, xleave=0.240,\r\nfiltdelay= 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00,\r\nfiltoffset= 0.00 0.00 0.00 0.00 ')
  
 
 = NTP Control (mode 6) - CTL_OP_READVAR (3) - reponse (2nd packet)
@@ -6556,7 +6556,7 @@ assert(p.more == 0)
 assert(p.op_code == 2)
 assert(len(p.data.load) == 12)
 assert(p.authenticator.key_id == 1)
-assert(p.authenticator.dgst.encode("hex") == '3dc23bc7edb9555339d68908c8afa612')
+assert(bytes_hex(p.authenticator.dgst) == '3dc23bc7edb9555339d68908c8afa612')
 
 
 = NTP Control (mode 6) - CTL_OP_READVAR (5) - response
@@ -6571,7 +6571,7 @@ assert(p.more == 0)
 assert(p.op_code == 2)
 assert(len(p.data.load) == 0)
 assert(p.authenticator.key_id == 1)
-assert(p.authenticator.dgst.encode("hex") == '97280249dba07338ed722860db4a580a')
+assert(bytes_hex(p.authenticator.dgst) == '97280249dba07338ed722860db4a580a')
 
 
 = NTP Control (mode 6) - CTL_OP_WRITEVAR (1) - request
@@ -6586,7 +6586,7 @@ assert(p.more == 0)
 assert(p.op_code == 3)
 assert(len(p.data.load) == 12)
 assert(p.authenticator.key_id == 1)
-assert(p.authenticator.dgst.encode("hex") == 'aff10cb4c9946dfc4d90094aa170944a')
+assert(bytes_hex(p.authenticator.dgst) == 'aff10cb4c9946dfc4d90094aa170944a')
 
 
 = NTP Control (mode 6) - CTL_OP_WRITEVAR (2) - response
@@ -6604,7 +6604,7 @@ assert(isinstance(p.status_word, NTPErrorStatusPacket))
 assert(p.status_word.error_code == 5)
 assert(len(p.data.load) == 0)
 assert(p.authenticator.key_id == 1)
-assert(p.authenticator.dgst.encode("hex") == '807a80fbafc470679853a8e57865811c')
+assert(bytes_hex(p.authenticator.dgst) == '807a80fbafc470679853a8e57865811c')
 
 
 = NTP Control (mode 6) - CTL_OP_CONFIGURE (1) - request
@@ -6618,9 +6618,9 @@ assert(p.err == 0)
 assert(p.more == 0)
 assert(p.op_code == 8)
 assert(p.count == 12)
-assert(p.data.load == 'controlkey 1')
+assert(p.data.load == b'controlkey 1')
 assert(p.authenticator.key_id == 1)
-assert(p.authenticator.dgst.encode("hex") == 'eaa7aca81b6a9cdb58e1530d36fbefa4')
+assert(bytes_hex(p.authenticator.dgst) == 'eaa7aca81b6a9cdb58e1530d36fbefa4')
 
 
 = NTP Control (mode 6) - CTL_OP_CONFIGURE (2) - response
@@ -6636,7 +6636,7 @@ assert(p.op_code == 8)
 assert(p.count == 18)
 assert(p.data.load == b'Config Succeeded\r\n\x00\x00')
 assert(p.authenticator.key_id == 1)
-assert(p.authenticator.dgst.encode("hex") == 'bfa6d85ff96d1e326c293caceec2a539')
+assert(bytes_hex(p.authenticator.dgst) == 'bfa6d85ff96d1e326c293caceec2a539')
 
 
 = NTP Control (mode 6) - CTL_OP_SAVECONFIG (1) - request
@@ -6652,7 +6652,7 @@ assert(p.op_code == 9)
 assert(p.count == 15)
 assert(p.data.load == b'ntp.test.2.conf\x00')
 assert(p.authenticator.key_id == 1)
-assert(p.authenticator.dgst.encode("hex") == 'c9fb8abe3c605ffa36d218c3b7648923')
+assert(bytes_hex(p.authenticator.dgst) == 'c9fb8abe3c605ffa36d218c3b7648923')
 
 
 = NTP Control (mode 6) - CTL_OP_SAVECONFIG (2) - response
@@ -6668,7 +6668,7 @@ assert(p.op_code == 9)
 assert(p.count == 42)
 assert(p.data.load == b"Configuration saved to 'ntp.test.2.conf'\r\n\x00\x00")
 assert(p.authenticator.key_id == 1)
-assert(p.authenticator.dgst.encode("hex") == '32c2ba59c533fe28f550e5a0860295d9')
+assert(bytes_hex(p.authenticator.dgst) == '32c2ba59c533fe28f550e5a0860295d9')
 
 
 = NTP Control (mode 6) - CTL_OP_REQ_NONCE (1) - request
@@ -6695,7 +6695,7 @@ assert(p.response == 1)
 assert(p.err == 0)
 assert(p.more == 0)
 assert(p.op_code == 12)
-assert(p.data.load == 'nonce=db4186a2e1d9022472e24bc9\r\n')
+assert(p.data.load == b'nonce=db4186a2e1d9022472e24bc9\r\n')
 assert(p.authenticator == '')
 
 
@@ -6709,7 +6709,7 @@ assert(p.response == 0)
 assert(p.err == 0)
 assert(p.op_code == 10)
 assert(p.count == 40)
-assert(p.data.load == 'nonce=db4186a2e1d9022472e24bc9, frags=32')
+assert(p.data.load == b'nonce=db4186a2e1d9022472e24bc9, frags=32')
 assert(p.authenticator == '')
 
 = NTP Control (mode 6) - CTL_OP_READ_MRU (2) - response
@@ -7053,7 +7053,7 @@ assert(p.req_data[0].minpoll == 6)
 assert(p.req_data[0].maxpoll == 10)
 assert(hasattr(p, 'authenticator'))
 assert(p.authenticator.key_id == 1)
-assert(p.authenticator.dgst.encode("hex") == '5abafe011c720564a114b129e976448d')
+assert(bytes_hex(p.authenticator.dgst) == '5abafe011c720564a114b129e976448d')
 
 
 = NTP Private (mode 7) - REQ_CONFIG (2) - response
@@ -7088,7 +7088,7 @@ assert(p.req_data[0].peeraddr == "192.168.122.107")
 assert(p.req_data[0].v6_flag == 0)
 assert(hasattr(p, 'authenticator'))
 assert(p.authenticator.key_id == 1)
-assert(p.authenticator.dgst.encode("hex") == '1d4d3bfe5a7e5d5ae34561929a45d825')
+assert(bytes_hex(p.authenticator.dgst) == '1d4d3bfe5a7e5d5ae34561929a45d825')
 
 
 = NTP Private (mode 7) - REQ_UNCONFIG (2) - response
@@ -7123,7 +7123,7 @@ assert(p.req_data[0].addr == "192.168.122.105")
 assert(p.req_data[0].mask == "255.255.255.255")
 assert(hasattr(p, 'authenticator'))
 assert(p.authenticator.key_id == 1)
-assert(p.authenticator.dgst.encode("hex") == '3e3db7305470eeaee1ad3462efe380c8')
+assert(bytes_hex(p.authenticator.dgst) == '3e3db7305470eeaee1ad3462efe380c8')
 
 
 = NTP Private (mode 7) - REQ_RESSUBFLAGS (1) - request
@@ -7143,7 +7143,7 @@ assert(p.req_data[0].addr == "192.168.122.105")
 assert(p.req_data[0].mask == "255.255.255.255")
 assert(hasattr(p, 'authenticator'))
 assert(p.authenticator.key_id == 1)
-assert(p.authenticator.dgst.encode("hex") == '3e650ddfdb1e3168d0ca294c076b900a')
+assert(bytes_hex(p.authenticator.dgst) == '3e650ddfdb1e3168d0ca294c076b900a')
 
 
 = NTP Private (mode 7) - REQ_RESET_PEER (1) - request
@@ -7206,7 +7206,7 @@ assert(isinstance(p.req_data[0], NTPConfTrap))
 assert(p.req_data[0].trap_address == '192.0.2.3')
 assert(hasattr(p, 'authenticator'))
 assert(p.authenticator.key_id == 1)
-assert(p.authenticator.dgst.encode("hex") == '6224b8494d2ea631d085498fa7278992')
+assert(bytes_hex(p.authenticator.dgst) == '6224b8494d2ea631d085498fa7278992')
 
 
 = NTP Private (mode 7) - REQ_ADD_TRAP (2) - response
@@ -7241,7 +7241,7 @@ assert(isinstance(p.req_data[0], NTPConfTrap))
 assert(p.req_data[0].trap_address == '192.0.2.3')
 assert(hasattr(p, 'authenticator'))
 assert(p.authenticator.key_id == 1)
-assert(p.authenticator.dgst.encode("hex") == 'a55f569eb87144921b1c3e5aad5d2a89')
+assert(bytes_hex(p.authenticator.dgst) == 'a55f569eb87144921b1c3e5aad5d2a89')
 
 
 = NTP Private (mode 7) - REQ_CLR_TRAP (2) - response
@@ -7351,7 +7351,7 @@ assert(p.nb_items == 0)
 assert(p.data_item_size == 0)
 assert(hasattr(p, 'authenticator'))
 assert(p.authenticator.key_id == 1)
-assert(p.authenticator.dgst.encode("hex") == '8bfb9075a86164e887cabf96d29ddd49')
+assert(bytes_hex(p.authenticator.dgst) == '8bfb9075a86164e887cabf96d29ddd49')
 
 
 = NTP Private (mode 7) - REQ_IF_STATS (2) - response
@@ -7370,7 +7370,7 @@ assert(p.data_item_size == 136)
 assert(isinstance(p.data[0], NTPInfoIfStatsIPv6))
 assert(p.data[0].unaddr == "::1")
 assert(p.data[0].unmask == "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff")
-assert(p.data[0].ifname.startswith("lo"))
+assert(p.data[0].ifname.startswith(b"lo"))
 
 
 = NTP Private (mode 7) - REQ_IF_STATS (3) - response
@@ -7389,7 +7389,7 @@ assert(p.data_item_size == 136)
 assert(isinstance(p.data[0], NTPInfoIfStatsIPv4))
 assert(p.data[0].unaddr == "192.168.122.101")
 assert(p.data[0].unmask == "255.255.255.0")
-assert(p.data[0].ifname.startswith("eth1"))
+assert(p.data[0].ifname.startswith(b"eth1"))
 
 
 = NTP Private (mode 7) - REQ_IF_RELOAD (1) - request
@@ -7406,7 +7406,7 @@ assert(p.nb_items == 0)
 assert(p.data_item_size == 0)
 assert(hasattr(p, 'authenticator'))
 assert(p.authenticator.key_id == 1)
-assert(p.authenticator.dgst.encode("hex") == 'fb3e962ae74ff78f6568d4074cc008cb')
+assert(bytes_hex(p.authenticator.dgst) == 'fb3e962ae74ff78f6568d4074cc008cb')
 
 
 = NTP Private (mode 7) - REQ_IF_RELOAD (2) - response
@@ -7425,7 +7425,7 @@ assert(p.data_item_size == 136)
 assert(isinstance(p.data[0], NTPInfoIfStatsIPv4))
 assert(p.data[0].unaddr == "127.0.0.1")
 assert(p.data[0].unmask == "255.0.0.0")
-assert(p.data[0].ifname.startswith("lo"))
+assert(p.data[0].ifname.startswith(b"lo"))
 
 
 ############
@@ -7686,11 +7686,11 @@ VRRP in p and p[VRRP].chksum == 0x7afd
 = VRRP - chksums
 # VRRPv3
 p = Ether(src="00:00:5e:00:02:02",dst="01:00:5e:00:00:12")/IP(src="20.0.0.3", dst="224.0.0.18",ttl=255)/VRRPv3(priority=254,vrid=2,version=3,adv=1,addrlist=["20.0.1.2","20.0.1.3"])
-a = Ether(str(p))
+a = Ether(raw(p))
 assert a[VRRPv3].chksum == 0xb25e
 # VRRPv1
 p = Ether(src="00:00:5e:00:02:02",dst="01:00:5e:00:00:12")/IP(src="20.0.0.3", dst="224.0.0.18",ttl=255)/VRRP(priority=254,vrid=2,version=1,adv=1,addrlist=["20.0.1.2","20.0.1.3"])
-b = Ether(str(p))
+b = Ether(raw(p))
 assert b[VRRP].chksum == 0xc6f4
 
 ############
@@ -8621,7 +8621,7 @@ Dot11 in p and p.addr3 == "00:00:00:00:00:00"
 p.mysummary() == '802.11 Management 0 00:00:00:00:00:00 > 00:00:00:00:00:00'
 
 = Dot11QoS - build
-s = str(Dot11(type=2, subtype=8)/Dot11QoS(TID=4))
+s = raw(Dot11(type=2, subtype=8)/Dot11QoS(TID=4))
 s == b'\x88\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x04\x00'
 
 = Dot11QoS - dissection
@@ -8687,7 +8687,7 @@ assert a.src == '00:00:00:00:00:00'
 
 import tempfile
 fd, fname = tempfile.mkstemp()
-os.write(fd, "-- MIB test\nscapy       OBJECT IDENTIFIER ::= {test 2807}\n")
+os.write(fd, b"-- MIB test\nscapy       OBJECT IDENTIFIER ::= {test 2807}\n")
 os.close(fd)
 
 load_mib(fname)
