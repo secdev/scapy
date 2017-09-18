@@ -238,7 +238,6 @@ if WINDOWS:
     try:
         MANUFDB = load_manuf(os.environ["ProgramFiles"] + "\\wireshark\\manuf")
     except IOError:
-        log_loading.warning("Cannot read [%s]", filename)
         MANUFDB = None
 else:
     IP_PROTOS=load_protocols("/etc/protocols")
