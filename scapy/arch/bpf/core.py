@@ -8,7 +8,7 @@ from __future__ import absolute_import
 from scapy.config import conf
 from scapy.error import Scapy_Exception, warning
 from scapy.data import ARPHDR_LOOPBACK, ARPHDR_ETHER
-from scapy.arch.common import get_if
+from scapy.arch.common import get_if, get_bpf_pointer
 from scapy.consts import LOOPBACK_NAME
 
 from scapy.arch.bpf.consts import *
@@ -19,7 +19,7 @@ import fcntl
 import struct
 
 from ctypes import cdll, cast, pointer, POINTER, Structure
-from ctypes import c_uint, c_uint32, c_int, c_ulong, c_char_p, c_ushort, c_ubyte
+from ctypes import c_int, c_ulong, c_char_p
 from ctypes.util import find_library
 from scapy.modules.six.moves import range
 
@@ -29,20 +29,6 @@ from scapy.modules.six.moves import range
 LIBC = cdll.LoadLibrary(find_library("libc"))
 LIBC.ioctl.argtypes = [c_int, c_ulong, c_char_p]
 LIBC.ioctl.restype = c_int
-
-
-class bpf_insn(Structure):
-    """"The BPF instruction data structure"""
-    _fields_ = [("code", c_ushort),
-                ("jt", c_ubyte),
-                ("jf", c_ubyte),
-                ("k", c_uint32)]
-
-
-class bpf_program(Structure):
-    """"Structure for BIOCSETF"""
-    _fields_ = [("bf_len", c_uint),
-                ("bf_insns", POINTER(bpf_insn))]
 
 
 # Addresses manipulation functions
@@ -127,22 +113,8 @@ def attach_filter(fd, iface, bpf_filter_string):
     if lines == []:
         raise Scapy_Exception("Got an empty BPF filter from tcpdump !")
 
-    # Allocate BPF instructions
-    size = int(lines[0])
-    bpf_insn_a = bpf_insn * size
-    bip = bpf_insn_a()
-
-    # Fill the BPF instruction structures with the byte code
-    lines = lines[1:]
-    for i in range(len(lines)):
-        values = [int(v) for v in lines[i].split()]
-        bip[i].code = c_ushort(values[0])
-        bip[i].jt = c_ubyte(values[1])
-        bip[i].jf = c_ubyte(values[2])
-        bip[i].k = c_uint(values[3])
-
-    # Create the BPF program and assign it to the interface
-    bp = bpf_program(size, bip)
+    bp = get_bpf_pointer(lines)
+    # Assign the BPF program to the interface
     ret = LIBC.ioctl(c_int(fd), BIOCSETF, cast(pointer(bp), c_char_p))
     if ret < 0:
         raise Scapy_Exception("Can't attach the BPF filter !")

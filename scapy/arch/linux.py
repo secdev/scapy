@@ -8,7 +8,7 @@ Linux specific functions.
 """
 
 from __future__ import absolute_import
-import sys,os,struct,socket,time
+import sys, os, struct, socket, time
 from select import select
 from fcntl import ioctl
 import array, ctypes
@@ -23,7 +23,7 @@ from scapy.data import *
 from scapy.supersocket import SuperSocket
 import scapy.arch
 from scapy.error import warning, Scapy_Exception, log_interactive, log_loading
-from scapy.arch.common import get_if
+from scapy.arch.common import get_if, get_bpf_pointer
 from scapy.modules.six.moves import range
 
 
@@ -152,18 +152,9 @@ def attach_filter(s, bpf_filter, iface):
             "Failed to attach filter: tcpdump returned %d", ret
         )
         return
-    nb = int(lines[0])
-    bpf = b""
-    for l in lines[1:]:
-        bpf += struct.pack("HBBI", *(int(e) for e in l.split()))
-
-    # XXX. Argl! We need to give the kernel a pointer on the BPF
-    bpf_buf = ctypes.create_string_buffer(bpf)
-    class BpfPointer(ctypes.Structure):
-        _fields_ = [ ("bf_len", ctypes.c_int),
-                     ("bf_insn", ctypes.POINTER(type(bpf_buf))) ]
-    bpfh = BpfPointer(nb, ctypes.pointer(bpf_buf))
-    s.setsockopt(SOL_SOCKET, SO_ATTACH_FILTER, bpfh)
+    
+    bp = get_bpf_pointer(lines)
+    s.setsockopt(SOL_SOCKET, SO_ATTACH_FILTER, bp)
 
 def set_promisc(s,iff,val=1):
     mreq = struct.pack("IHH8s", get_if_index(iff), PACKET_MR_PROMISC, 0, b"")
