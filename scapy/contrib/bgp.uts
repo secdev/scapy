@@ -13,15 +13,18 @@ str(BGPNLRI_IPv4()) == b'\x00'
 = BGPNLRI_IPv4 - Instantiation with specific values (1)
 str(BGPNLRI_IPv4(prefix = '255.255.255.255/32')) == b' \xff\xff\xff\xff'
 
-= BGPNLRI_IPv4 - Instantiation with specific values (2)
+= BGPNLRI_IPv4 - Instantiation with specific values (2a)
 str(BGPNLRI_IPv4(prefix = '0.0.0.0/0')) == b'\x00'
+
+= BGPNLRI_IPv4 - Instantiation with specific values (2b)
+str(BGPNLRI_IPv4(prefix = '0/0')) == b'\x00'
 
 = BGPNLRI_IPv4 - Instantiation with specific values (3)
 str(BGPNLRI_IPv4(prefix = '192.0.2.0/24')) == b'\x18\xc0\x00\x02'
 
 = BGPNLRI_IPv4 - Basic dissection
 nlri = BGPNLRI_IPv4(b'\x00')
-nlri.prefix == '0.0.0.0/0'
+nlri.prefix == '0/0'
 
 = BGPNLRI_IPv4 - Dissection with specific values
 nlri = BGPNLRI_IPv4(b'\x18\xc0\x00\x02')
@@ -687,5 +690,5 @@ assert(m.orf_data[0].entries[0].match == 1)
 assert(m.orf_data[0].entries[0].prefix.prefix == "1.1.0.0/21")
 assert(m.orf_data[0].entries[1].action == 0)
 assert(m.orf_data[0].entries[1].match == 0)
-assert(m.orf_data[0].entries[1].prefix.prefix == "0.0.0.0/0")
+assert(m.orf_data[0].entries[1].prefix.prefix == "0/0")
 

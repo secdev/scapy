@@ -101,20 +101,30 @@ class BGPFieldIPv4(Field):
     """
     IPv4 Field (CIDR)
     """
-
+    alen = 4
+    afam = socket.AF_INET
     def mask2iplen(self, mask):
         """Get the IP field mask length (in bytes)."""
         return (mask + 7) // 8
 
     def h2i(self, pkt, h):
-        """x.x.x.x/y to "internal" representation."""
+        """
+        x.x.x.x/y to "internal" representation.
+        However, expect 0/0 and change that to 0.0.0.0/0 internally
+        """
+        if h == "0/0":
+            h = "0.0.0.0/0"
         ip, mask = re.split("/", h)
         return int(mask), ip
 
     def i2h(self, pkt, i):
-        """"Internal" representation to "human" representation
-        (x.x.x.x/y)."""
+        """
+        "Internal" representation to "human" representation (x.x.x.x/y).
+        However:  0.0.0.0/0 should be 0/0
+        """
         mask, ip = i
+        if mask == 0 and ip == "0.0.0.0":
+            ip = "0"
         return ip + "/" + str(mask)
 
     def i2repr(self, pkt, i):
@@ -128,7 +138,10 @@ class BGPFieldIPv4(Field):
         """"Internal" (IP as bytes, mask as int) to "machine"
         representation."""
         mask, ip = i
-        ip = socket.inet_aton(ip)
+        #
+        # Change to inet_pton to use the same call in IPv4 and IPv6
+        #
+        ip = pton_ntop.inet_pton(self.afam, ip)
         return struct.pack(">B", mask) + ip[:self.mask2iplen(mask)]
 
     def addfield(self, pkt, s, val):
@@ -142,53 +155,20 @@ class BGPFieldIPv4(Field):
         mask = struct.unpack(">B", m[0])[0]
         mask2iplen_res = self.mask2iplen(mask)
         ip = "".join(
-            [m[i + 1] if i < mask2iplen_res else b"\x00" for i in range(4)])
-        return (mask, socket.inet_ntoa(ip))
+            [m[i + 1] if i < mask2iplen_res else b"\x00" for i in range(self.alen)])
+        #
+        # Same here
+        #
+        return (mask, pton_ntop.inet_ntop(self.afam, ip))
 
 
-class BGPFieldIPv6(Field):
-    """IPv6 Field (CIDR)"""
-
-    def mask2iplen(self, mask):
-        """Get the IP field mask length (in bytes)."""
-        return (mask + 7) // 8
-
-    def h2i(self, pkt, h):
-        """x.x.x.x/y to internal representation."""
-        ip, mask = re.split("/", h)
-        return int(mask), ip
-
-    def i2h(self, pkt, i):
-        """"Internal" representation to "human" representation."""
-        mask, ip = i
-        return ip + "/" + str(mask)
-
-    def i2repr(self, pkt, i):
-        return self.i2h(pkt, i)
-
-    def i2len(self, pkt, i):
-        mask, ip = i
-        return self.mask2iplen(mask) + 1
-
-    def i2m(self, pkt, i):
-        """"Internal" (IP as bytes, mask as int) to "machine" representation."""
-        mask, ip = i
-        ip = pton_ntop.inet_pton(socket.AF_INET6, ip)
-        return struct.pack(">B", mask) + ip[:self.mask2iplen(mask)]
-
-    def addfield(self, pkt, s, val):
-        return s + self.i2m(pkt, val)
-
-    def getfield(self, pkt, s):
-        length = self.mask2iplen(struct.unpack(">B", s[0])[0]) + 1
-        return s[length:], self.m2i(pkt, s[:length])
-
-    def m2i(self, pkt, m):
-        mask = struct.unpack(">B", m[0])[0]
-        ip = "".join(
-            [m[i + 1] if i < self.mask2iplen(mask) else b"\x00" for i in range(16)])
-        return (mask, pton_ntop.inet_ntop(socket.AF_INET6, ip))
-
+class BGPFieldIPv6(BGPFieldIPv4):
+    """
+    IPv6 Field (CIDR) derived from the IPv4 prefix
+    pton_ntop simplifies this
+    """
+    alen = 16
+    afam = socket.AF_INET6
 
 def has_extended_length(flags):
     """
