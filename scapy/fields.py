@@ -64,6 +64,8 @@ class Field(six.with_metaclass(Field_metaclass, object)):
         """Convert internal value to machine value"""
         if x is None:
             x = 0
+        elif isinstance(x, str):
+            return raw(x)
         return x
     def any2i(self, pkt, x):
         """Try to understand the most input values possible and make an internal value from them"""
@@ -575,8 +577,8 @@ class StrFixedLenField(StrField):
         if length is not None:
             self.length_from = lambda pkt,length=length: length
     def i2repr(self, pkt, v):
-        if isinstance(v, str):
-            v = v.rstrip("\0")
+        if isinstance(v, bytes):
+            v = v.rstrip(b"\0")
         return repr(v)
     def getfield(self, pkt, s):
         l = self.length_from(pkt)
@@ -614,12 +616,12 @@ class NetBIOSNameField(StrFixedLenField):
             x = b""
         x += b" "*(l)
         x = x[:l]
-        x = b"".join(chb(0x41 + ord(b)>>4) + chb(0x41 + ord(b)&0xf) for b in x)
+        x = b"".join(chb(0x41 + orb(b)>>4) + chb(0x41 + orb(b)&0xf) for b in x)
         x = b" "+x
         return x
     def m2i(self, pkt, x):
-        x = x.strip(b"\x00").strip(" ")
-        return b"".join(map(lambda x,y: chb((((ord(x)-1)&0xf)<<4)+((ord(y)-1)&0xf)), x[::2],x[1::2]))
+        x = x.strip(b"\x00").strip(b" ")
+        return b"".join(map(lambda x,y: chb((((orb(x)-1)&0xf)<<4)+((orb(y)-1)&0xf)), x[::2],x[1::2]))
 
 class StrLenField(StrField):
     __slots__ = ["length_from"]

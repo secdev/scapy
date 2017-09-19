@@ -109,7 +109,7 @@ def getmacbyip6(ip6, chainCC=0):
     """
     
     if isinstance(ip6, Net6):
-        ip6 = iter(ip6).next()
+        ip6 = str(ip6)
 
     if in6_ismaddr(ip6): # Multicast
         mac = in6_getnsmac(inet_pton(socket.AF_INET6, ip6))
@@ -413,7 +413,7 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
     def route(self):
         dst = self.dst
         if isinstance(dst,Gen):
-            dst = iter(dst).next()
+            dst = next(iter(dst))
         return conf.route6.route(dst)
 
     def mysummary(self):
@@ -554,7 +554,7 @@ class _IPv46(IP):
     @classmethod
     def dispatch_hook(cls, _pkt=None, *_, **kargs):
         if _pkt:
-            if struct.unpack('B', _pkt[0])[0] >> 4 == 6:
+            if orb(_pkt[0]) >> 4 == 6:
                 return IPv6
         elif kargs.get("version") == 6:
             return IPv6
@@ -1912,33 +1912,33 @@ class DomainNameListField(StrLenField):
         return len(self.i2m(pkt, x))
 
     def m2i(self, pkt, x):
-        x = plain_str(x)
+        x = plain_str(x) # Decode bytes to string
         res = []
         while x:
             # Get a name until \x00 is reached
             cur = []
-            while x and x[0] != b'\x00':
-                l = orb(x[0])
+            while x and ord(x[0]) != 0:
+                l = ord(x[0])
                 cur.append(x[1:l+1])
                 x = x[l+1:]
             if self.padded:
-              # Discard following \x00 in padded mode
-              if len(cur):
-                res.append(".".join(cur) + ".")
+                # Discard following \x00 in padded mode
+                if len(cur):
+                    res.append(".".join(cur) + ".")
             else:
               # Store the current name
               res.append(".".join(cur) + ".")
-            if x and x[0] == b'\x00':
+            if x and ord(x[0]) == 0:
                 x = x[1:]
         return res
 
     def i2m(self, pkt, x):
         def conditionalTrailingDot(z):
-            if z and z[-1] == b'\x00':
+            if z and orb(z[-1]) == 0:
                 return z
             return z+b'\x00'
         # Build the encode names
-        tmp = [[chb(len(z)) + z.encode("utf8") for z in y.split('.')] for y in x]
+        tmp = ([chb(len(z)) + z.encode("utf8") for z in y.split('.')] for y in x) # Also encode string to bytes
         ret_string  = b"".join(conditionalTrailingDot(b"".join(x)) for x in tmp)
 
         # In padded mode, add some \x00 bytes
@@ -2130,10 +2130,10 @@ class NonceField(StrFixedLenField):
 @conf.commands.register
 def computeNIGroupAddr(name):
     """Compute the NI group Address. Can take a FQDN as input parameter"""
-    import md5
+    import hashlib
     name = name.lower().split(".")[0]
     record = chr(len(name))+name
-    h = md5.new(record)
+    h = hashlib.md5(record.encode("utf8"))
     h = h.digest()
     addr = "ff02::2:%2x%2x:%2x%2x" % struct.unpack("BBBB", h[:4])
     return addr
@@ -2195,6 +2195,7 @@ def dnsrepr2names(x):
     (does not end with a null character, a one element list
     is returned). Result is a list.
     """
+    x = plain_str(x)
     res = []
     cur = ""
     while x:
@@ -2986,7 +2987,7 @@ class MIP6MH_HoTI(_MobilityHeader):
                                           length_from = lambda pkt: 8*(pkt.len-1)) ]
     overload_fields = { IPv6: { "nh": 135 } }
     def hashret(self):
-        return bytes(self.cookie)
+        return raw(self.cookie)
 
 class MIP6MH_CoTI(MIP6MH_HoTI):
     name = "IPv6 Mobility Header - Care-of Test Init"

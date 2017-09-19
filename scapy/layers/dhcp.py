@@ -184,7 +184,7 @@ class RandDHCPOptions(RandField):
                 op.append((o.name, o.randval()._fix()))
         return op
     def __bytes__(self):
-        return raw(self.__str__())
+        return raw(self._fix())
 
 
 class DHCPOptionsField(StrField):
@@ -209,7 +209,7 @@ class DHCPOptionsField(StrField):
     def m2i(self, pkt, x):
         opt = []
         while x:
-            o = ord(x[0])
+            o = orb(x[0])
             if o == 255:
                 opt.append("end")
                 x = x[1:]
@@ -225,11 +225,11 @@ class DHCPOptionsField(StrField):
                 f = DHCPOptions[o]
 
                 if isinstance(f, str):
-                    olen = ord(x[1])
+                    olen = orb(x[1])
                     opt.append( (f,x[2:olen+2]) )
                     x = x[olen+2:]
                 else:
-                    olen = ord(x[1])
+                    olen = orb(x[1])
                     lval = [f.name]
                     try:
                         left = x[2:olen+2]

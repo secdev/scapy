@@ -34,16 +34,16 @@ class DNSStrField(StrField):
           return b"\x00"
 
         # Truncate chunks that cannot be encoded (more than 63 bytes..)
-        x = b"".join(chb(len(y)) + y for y in (k[:63] for k in x.split(".")))
+        x = b"".join(chb(len(y)) + y.encode("utf8") for y in (k[:63] for k in x.split(".")))
         if orb(x[-1]) != 0:
             x += b"\x00"
         return x
 
     def getfield(self, pkt, s):
-        n = b""
+        n = ""
 
         if orb(s[0]) == 0:
-          return s[1:], "."
+            return s[1:], "."
 
         while True:
             l = orb(s[0])
@@ -53,7 +53,7 @@ class DNSStrField(StrField):
             if l & 0xc0:
                 raise Scapy_Exception("DNS message can't be compressed at this point!")
             else:
-                n += s[:l]+"."
+                n += plain_str(s[:l])+"."
                 s = s[l:]
         return s, n
 
@@ -139,7 +139,7 @@ class DNSRRField(StrField):
 
         p += rdlen
 
-        rr.rrname = name
+        rr.rrname = name.decode("utf8")
         return rr,p
     def getfield(self, pkt, s):
         if isinstance(s, tuple) :
@@ -170,8 +170,8 @@ class DNSQRField(DNSRRField):
         ret = s[p:p+4]
         p += 4
         rr = DNSQR(b"\x00"+ret)
-        rr.qname = name
-        return rr,p
+        rr.qname = plain_str(name)
+        return rr, p
 
 
 
@@ -188,7 +188,7 @@ class RDataField(StrLenField):
             # RDATA contains a list of strings, each are prepended with
             # a byte containing the size of the following string.
             while tmp_s:
-                tmp_len = struct.unpack("!B", tmp_s[0])[0] + 1
+                tmp_len = orb(tmp_s[0]) + 1
                 if tmp_len > len(tmp_s):
                   warning("DNS RR TXT prematured end of character-string (size=%i, remaining bytes=%i)" % (tmp_len, len(tmp_s)))
                 ret_s += tmp_s[1:tmp_len]

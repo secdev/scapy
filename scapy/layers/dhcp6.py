@@ -19,7 +19,7 @@ from scapy.ansmachine import AnsweringMachine
 from scapy.arch import get_if_raw_hwaddr, in6_getifaddr
 from scapy.config import conf
 from scapy.data import EPOCH, ETHER_ANY
-from scapy.compat import raw, chb
+from scapy.compat import *
 from scapy.error import warning
 from scapy.fields import BitField, ByteEnumField, ByteField, FieldLenField, \
     FlagsField, IntEnumField, IntField, MACField, PacketField, \
@@ -545,7 +545,7 @@ class _UserClassDataField(PacketListField):
     def i2len(self, pkt, z):
         if z is None or z == []:
             return 0
-        return sum(len(str(x)) for x in z)
+        return sum(len(raw(x)) for x in z)
 
     def getfield(self, pkt, s):
         l = self.length_from(pkt)

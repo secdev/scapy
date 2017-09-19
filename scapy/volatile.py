@@ -80,13 +80,15 @@ class VolatileValue:
             return False
         return x == y
     def __getattr__(self, attr):
-        if attr == "__setstate__":
+        if attr in ["__setstate__", "__getstate__"]:
             raise AttributeError(attr)
         return getattr(self._fix(),attr)
     def __str__(self):
         return str(self._fix())
     def __bytes__(self):
         return raw(self._fix())
+    def __len__(self):
+        return len(self._fix())
     def _fix(self):
         return None
 

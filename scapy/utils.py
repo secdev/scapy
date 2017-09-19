@@ -1096,7 +1096,7 @@ nano:       use nanosecond-precision (requires libpcap >= 1.5.0)
             pkt = pkt.__iter__()
             if not self.header_present:
                 try:
-                    p = pkt.next()
+                    p = next(pkt)
                 except StopIteration:
                     self._write_header(b"")
                     return

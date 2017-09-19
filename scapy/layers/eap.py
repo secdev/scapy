@@ -19,7 +19,7 @@ PacketListField, ConditionalField, PadField
 from scapy.packet import Packet, bind_layers
 from scapy.layers.l2 import SourceMACField, Ether, CookedLinux, GRE, SNAP
 from scapy.config import conf
-from scapy.compat import orb
+from scapy.compat import orb, chb
 
 #
 # EAPOL

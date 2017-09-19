@@ -179,12 +179,13 @@ os.remove("scapySession1.dat")
 ~ appveyor_only
 
 tmpfile = get_temp_file(autoext=".ut")
+tmpfile
 if WINDOWS:
     assert("scapy" in tmpfile and tmpfile.lower().startswith('c:\\users\\appveyor\\appdata\\local\\temp'))
 else:
     import platform
-    IS_PYPY = platform.python_implementation().lower() == "pypy"
-    assert("scapy" in tmpfile and (IS_PYPY == True or "/tmp/" in tmpfile))
+    BYPASS_TMP = platform.python_implementation().lower() == "pypy" or DARWIN
+    assert("scapy" in tmpfile and (BYPASS_TMP == True or "/tmp/" in tmpfile))
 
 assert(conf.temp_files[0].endswith(".ut"))
 scapy_delete_temp_files()
@@ -338,14 +339,14 @@ assert(ret == ("\\textcolor{blue}{{\\tt\\char62}{\\tt\\char62}{\\tt\\char62} }IP
 assert tex_escape("{scapy}\\^$~#_&%|><") == "{\\tt\\char123}scapy{\\tt\\char125}{\\tt\\char92}\\^{}\\${\\tt\\char126}\\#\\_\\&\\%{\\tt\\char124}{\\tt\\char62}{\\tt\\char60}"
 
 a = colgen(1, 2, 3)
-assert a.next() == (1, 2, 2)
-assert a.next() == (1, 3, 3)
-assert a.next() == (2, 2, 1)
-assert a.next() == (2, 3, 2)
-assert a.next() == (2, 1, 3)
-assert a.next() == (3, 3, 1)
-assert a.next() == (3, 1, 2)
-assert a.next() == (3, 2, 3)
+assert next(a) == (1, 2, 2)
+assert next(a) == (1, 3, 3)
+assert next(a) == (2, 2, 1)
+assert next(a) == (2, 3, 2)
+assert next(a) == (2, 1, 3)
+assert next(a) == (3, 3, 1)
+assert next(a) == (3, 1, 2)
+assert next(a) == (3, 2, 3)
 
 = Test config file functions
 
@@ -568,7 +569,7 @@ assert( _.len == 23 and len(_) == 29 )
 ~ PadField padding
 
 class TestPad(Packet):
-    fields_desc = [ PadField(StrNullField("st", ""),4), StrField("id", "")]
+    fields_desc = [ PadField(StrNullField("st", b""),4), StrField("id", b"")]
 
 TestPad() == TestPad(raw(TestPad()))
 
@@ -1352,7 +1353,7 @@ assert(_ == b'\x80!\x01\x00\x00\x1f\x81\x06\x01\x02\x03\x04\x83\x06\x05\x06\x07\
 PPP(_)
 q=_
 assert( q[PPP_IPCP_Option].type == 123 )
-assert( q[PPP_IPCP_Option].data == 'ABCDEFG' )
+assert( q[PPP_IPCP_Option].data == b"ABCDEFG" )
 assert( q[PPP_IPCP_Option_NBNS2].data == '9.10.11.12' )
 
 
@@ -1373,7 +1374,7 @@ assert(_ == b'\x80S\x01\x00\x00\x13\x00\x06XYZ\x00\x01\tABCDEFG')
 PPP(_)
 q=_
 assert( raw(p) == raw(q) )
-assert( q[PPP_ECP_Option].data == "ABCDEFG" )
+assert( q[PPP_ECP_Option].data == b"ABCDEFG" )
 
 
 # Scapy6 Regression Test Campaign 
@@ -1876,7 +1877,7 @@ raw(HBHOptUnknown(optlen=9, optdata="B"*10)) == b'\x01\tBBBBBBBBBB'
 
 = HBHOptUnknown - Dissection with specific values 
 a=HBHOptUnknown(b'\x01\tBBBBBBBBBB')
-a.otype == 0x01 and a.optlen == 9 and a.optdata == b"B"*9 and isinstance(a.payload, Raw) and a.payload.load == "B"
+a.otype == 0x01 and a.optlen == 9 and a.optdata == b"B"*9 and isinstance(a.payload, Raw) and a.payload.load == b"B"
 
 
 ############
@@ -2213,12 +2214,12 @@ a=ICMPv6NDOptRedirectedHdr(b'\x04\x00\x00\x00')
 assert(a.type == 4)
 assert(a.len == 0)
 assert(a.res == b"\x00\x00")
-assert(a.pkt == "")
+assert(a.pkt == b"")
 
 = ICMPv6NDOptRedirectedHdr - Disssection with specific values
 ~ ICMPv6NDOptRedirectedHdr
 a=ICMPv6NDOptRedirectedHdr(b'\x04\xff\x11\x11\x00\x00\x00\x00somerawingthatisnotanipv6pac')
-a.type == 4 and a.len == 255 and a.res == b'\x11\x11\x00\x00\x00\x00' and isinstance(a.pkt, Raw) and a.pkt.load == "somerawingthatisnotanipv6pac"
+a.type == 4 and a.len == 255 and a.res == b'\x11\x11\x00\x00\x00\x00' and isinstance(a.pkt, Raw) and a.pkt.load == b"somerawingthatisnotanipv6pac"
 
 = ICMPv6NDOptRedirectedHdr - Dissection with cut IPv6 Header
 ~ ICMPv6NDOptRedirectedHdr
@@ -2330,13 +2331,13 @@ a.type == 9 and a.len == 1 and a.res == b'\x00\x00\x00\x00\x00\x00' and not a.ad
 
 = ICMPv6NDOptSrcAddrList - Dissection with specific values (auto len)
 a=ICMPv6NDOptSrcAddrList(b'\t\x05BBBBBB\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\x11\x11\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x11\x11')
-a.type == 9 and a.len == 5 and a.res == 'BBBBBB' and len(a.addrlist) == 2 and a.addrlist[0] == "ffff::ffff" and a.addrlist[1] == "1111::1111"
+a.type == 9 and a.len == 5 and a.res == b'BBBBBB' and len(a.addrlist) == 2 and a.addrlist[0] == "ffff::ffff" and a.addrlist[1] == "1111::1111"
 
 = ICMPv6NDOptSrcAddrList - Dissection with specific values 
 conf.debug_dissector = False
 a=ICMPv6NDOptSrcAddrList(b'\t\x03BBBBBB\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\x11\x11\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x11\x11')
 conf.debug_dissector = True
-a.type == 9 and a.len == 3 and a.res == 'BBBBBB' and len(a.addrlist) == 1 and a.addrlist[0] == "ffff::ffff" and isinstance(a.payload, Raw) and a.payload.load == b'\x11\x11\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x11\x11'
+a.type == 9 and a.len == 3 and a.res == b'BBBBBB' and len(a.addrlist) == 1 and a.addrlist[0] == "ffff::ffff" and isinstance(a.payload, Raw) and a.payload.load == b'\x11\x11\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x11\x11'
 
 
 ############
@@ -2358,13 +2359,13 @@ a.type == 10 and a.len == 1 and a.res == b'\x00\x00\x00\x00\x00\x00' and not a.a
 
 = ICMPv6NDOptTgtAddrList - Dissection with specific values (auto len)
 a=ICMPv6NDOptTgtAddrList(b'\n\x05BBBBBB\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\x11\x11\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x11\x11')
-a.type == 10 and a.len == 5 and a.res == 'BBBBBB' and len(a.addrlist) == 2 and a.addrlist[0] == "ffff::ffff" and a.addrlist[1] == "1111::1111"
+a.type == 10 and a.len == 5 and a.res == b'BBBBBB' and len(a.addrlist) == 2 and a.addrlist[0] == "ffff::ffff" and a.addrlist[1] == "1111::1111"
 
 = ICMPv6NDOptTgtAddrList - Instantiation with specific values 
 conf.debug_dissector = False
 a=ICMPv6NDOptTgtAddrList(b'\n\x03BBBBBB\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\x11\x11\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x11\x11')
 conf.debug_dissector = True
-a.type == 10 and a.len == 3 and a.res == 'BBBBBB' and len(a.addrlist) == 1 and a.addrlist[0] == "ffff::ffff" and isinstance(a.payload, Raw) and a.payload.load == b'\x11\x11\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x11\x11'
+a.type == 10 and a.len == 3 and a.res == b'BBBBBB' and len(a.addrlist) == 1 and a.addrlist[0] == "ffff::ffff" and isinstance(a.payload, Raw) and a.payload.load == b'\x11\x11\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x11\x11'
 
 
 ############
@@ -2552,7 +2553,7 @@ raw(ICMPv6NIQueryNOOP(nonce=b"\x00"*8)) == b'\x8b\x01\x00\x00\x00\x00\x00\x00\x0
 
 = ICMPv6NIQueryNOOP - Basic Dissection
 a = ICMPv6NIQueryNOOP(b'\x8b\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
-a.type == 139 and a.code == 1 and a.cksum == 0 and a.qtype == 0 and a.unused == 0 and a.flags == 0 and a.nonce == b"\x00"*8 and a.data == ""
+a.type == 139 and a.code == 1 and a.cksum == 0 and a.qtype == 0 and a.unused == 0 and a.flags == 0 and a.nonce == b"\x00"*8 and a.data == b""
 
 
 ############
@@ -3050,7 +3051,7 @@ len(l) == 33 and len(raw(l[-1])) == 644
 
 = defragment6 - test against a long TCP packet fragmented with a 1280 MTU
 l=fragment6(IPv6()/IPv6ExtHdrFragment()/TCP()/Raw(load="A"*40000), 1280) 
-raw(defragment6(l)) == (b'`\x00\x00\x00\x9cT\x06@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\xe92\x00\x00' + 'A'*40000)
+raw(defragment6(l)) == (b'`\x00\x00\x00\x9cT\x06@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\xe92\x00\x00' + b'A'*40000)
 
 
 = defragment6 - test against a large TCP packet fragmented with a 1280 bytes MTU and missing fragments
@@ -3059,7 +3060,7 @@ del(l[2])
 del(l[4])
 del(l[12])
 del(l[18])
-raw(defragment6(l)) == (b'`\x00\x00\x00\x9cT\x06@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\xe92\x00\x00' + 2444*'A' + 1232*'X' + 2464*'A' + 1232*'X' + 9856*'A' + 1232*'X' + 7392*'A' + 1232*'X' + 12916*'A')
+raw(defragment6(l)) == (b'`\x00\x00\x00\x9cT\x06@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\xe92\x00\x00' + 2444*b'A' + 1232*b'X' + 2464*b'A' + 1232*b'X' + 9856*b'A' + 1232*b'X' + 7392*b'A' + 1232*b'X' + 12916*b'A')
 
 
 = defragment6 - test against a TCP packet fragmented with a 800 bytes MTU and missing fragments
@@ -3289,7 +3290,7 @@ a.type == 2 and a.enterprisenum == 311
 
 = DUID_EN dissection with specific values 
 a=DUID_EN(b'\x00\x02\x11\x11\x11\x11iamarawing')
-a.type == 2 and a.enterprisenum == 0x11111111 and a.id =="iamarawing"
+a.type == 2 and a.enterprisenum == 0x11111111 and a.id == b"iamarawing"
 
 
 ############
@@ -3366,7 +3367,7 @@ a.optcode == 1 and a.optlen == 0
 
 = DHCP6OptClientId dissection with specific duid value
 a=DHCP6OptClientId(b'\x00\x01\x00\x04somerawing')
-a.optcode == 1 and a.optlen == 4 and isinstance(a.duid, Raw) and a.duid.load == 'some' and isinstance(a.payload, DHCP6OptUnknown)
+a.optcode == 1 and a.optlen == 4 and isinstance(a.duid, Raw) and a.duid.load == b'some' and isinstance(a.payload, DHCP6OptUnknown)
 
 = DHCP6OptClientId dissection with specific DUID_LL as duid value
 a=DHCP6OptClientId(b'\x00\x01\x00\n\x00\x03\x00\x01\x00\x00\x00\x00\x00\x00')
@@ -3412,7 +3413,7 @@ a.optcode == 2 and a.optlen == 0
 
 = DHCP6OptServerId dissection with specific duid value
 a=DHCP6OptServerId(b'\x00\x02\x00\x04somerawing')
-a.optcode == 2 and a.optlen == 4 and isinstance(a.duid, Raw) and a.duid.load == 'some' and isinstance(a.payload, DHCP6OptUnknown)
+a.optcode == 2 and a.optlen == 4 and isinstance(a.duid, Raw) and a.duid.load == b'some' and isinstance(a.payload, DHCP6OptUnknown)
 
 = DHCP6OptServerId dissection with specific DUID_LL as duid value
 a=DHCP6OptServerId(b'\x00\x02\x00\n\x00\x03\x00\x01\x00\x00\x00\x00\x00\x00')
@@ -3446,7 +3447,7 @@ raw(DHCP6OptIAAddress(addr="2222:3333::5555", preflft=0x66666666, validlft=0x777
 
 = DHCP6OptIAAddress - Dissection with specific values 
 a = DHCP6OptIAAddress(b'\x00\x05\x00"""33\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00UUffffwwwwsomerawing')
-a.optcode == 5 and a.optlen == 34 and a.addr == "2222:3333::5555" and a.preflft == 0x66666666 and a. validlft == 0x77777777 and a.iaaddropts == "somerawing"
+a.optcode == 5 and a.optlen == 34 and a.addr == "2222:3333::5555" and a.preflft == 0x66666666 and a. validlft == 0x77777777 and a.iaaddropts == b"somerawing"
 
 
 ############
@@ -3629,14 +3630,14 @@ raw(DHCP6OptUserClass(userclassdata=[USER_CLASS_DATA(data="something")])) == b'\
 
 = DHCP6OptUserClass - Dissection with one user class data rawucture
 a = DHCP6OptUserClass(b'\x00\x0f\x00\x0b\x00\tsomething')
-a.optcode == 15 and a.optlen == 11 and len(a.userclassdata) == 1 and isinstance(a.userclassdata[0], USER_CLASS_DATA) and a.userclassdata[0].len == 9 and a.userclassdata[0].data == 'something'
+a.optcode == 15 and a.optlen == 11 and len(a.userclassdata) == 1 and isinstance(a.userclassdata[0], USER_CLASS_DATA) and a.userclassdata[0].len == 9 and a.userclassdata[0].data == b'something'
 
 = DHCP6OptUserClass - Instantiation with two user class data rawuctures
 raw(DHCP6OptUserClass(userclassdata=[USER_CLASS_DATA(data="something"), USER_CLASS_DATA(data="somethingelse")])) == b'\x00\x0f\x00\x1a\x00\tsomething\x00\rsomethingelse'
 
 = DHCP6OptUserClass - Dissection with two user class data rawuctures
 a = DHCP6OptUserClass(b'\x00\x0f\x00\x1a\x00\tsomething\x00\rsomethingelse')
-a.optcode == 15 and a.optlen == 26 and len(a.userclassdata) == 2 and isinstance(a.userclassdata[0], USER_CLASS_DATA) and isinstance(a.userclassdata[1], USER_CLASS_DATA) and a.userclassdata[0].len == 9 and a.userclassdata[0].data == 'something' and a.userclassdata[1].len == 13 and a.userclassdata[1].data == 'somethingelse'
+a.optcode == 15 and a.optlen == 26 and len(a.userclassdata) == 2 and isinstance(a.userclassdata[0], USER_CLASS_DATA) and isinstance(a.userclassdata[1], USER_CLASS_DATA) and a.userclassdata[0].len == 9 and a.userclassdata[0].data == b'something' and a.userclassdata[1].len == 13 and a.userclassdata[1].data == b'somethingelse'
 
 
 ############
@@ -3655,14 +3656,14 @@ raw(DHCP6OptVendorClass(vcdata=[VENDOR_CLASS_DATA(data="something")])) == b'\x00
 
 = DHCP6OptVendorClass - Dissection with one vendor class data rawucture
 a = DHCP6OptVendorClass(b'\x00\x10\x00\x0f\x00\x00\x00\x00\x00\tsomething')
-a.optcode == 16 and a.optlen == 15 and a.enterprisenum == 0 and len(a.vcdata) == 1 and isinstance(a.vcdata[0], VENDOR_CLASS_DATA) and a.vcdata[0].len == 9 and a.vcdata[0].data == 'something'
+a.optcode == 16 and a.optlen == 15 and a.enterprisenum == 0 and len(a.vcdata) == 1 and isinstance(a.vcdata[0], VENDOR_CLASS_DATA) and a.vcdata[0].len == 9 and a.vcdata[0].data == b'something'
 
 = DHCP6OptVendorClass - Instantiation with two vendor class data rawuctures
 raw(DHCP6OptVendorClass(vcdata=[VENDOR_CLASS_DATA(data="something"), VENDOR_CLASS_DATA(data="somethingelse")])) == b'\x00\x10\x00\x1e\x00\x00\x00\x00\x00\tsomething\x00\rsomethingelse'
 
 = DHCP6OptVendorClass - Dissection with two vendor class data rawuctures
 a = DHCP6OptVendorClass(b'\x00\x10\x00\x1e\x00\x00\x00\x00\x00\tsomething\x00\rsomethingelse')
-a.optcode == 16 and a.optlen == 30 and a.enterprisenum == 0 and len(a.vcdata) == 2 and isinstance(a.vcdata[0], VENDOR_CLASS_DATA) and isinstance(a.vcdata[1], VENDOR_CLASS_DATA) and a.vcdata[0].len == 9 and a.vcdata[0].data == 'something' and a.vcdata[1].len == 13 and a.vcdata[1].data == 'somethingelse'
+a.optcode == 16 and a.optlen == 30 and a.enterprisenum == 0 and len(a.vcdata) == 2 and isinstance(a.vcdata[0], VENDOR_CLASS_DATA) and isinstance(a.vcdata[1], VENDOR_CLASS_DATA) and a.vcdata[0].len == 9 and a.vcdata[0].data == b'something' and a.vcdata[1].len == 13 and a.vcdata[1].data == b'somethingelse'
 
 
 ############
@@ -4071,7 +4072,7 @@ raw(DHCP6OptRemoteID()) == b'\x00%\x00\x04\x00\x00\x00\x00'
 
 = DHCP6OptRemoteID - Basic Dissection
 a = DHCP6OptRemoteID(b'\x00%\x00\x04\x00\x00\x00\x00')
-a.optcode == 37 and a.optlen == 4 and a.enterprisenum == 0 and a.remoteid == b""
+a.optcode == 37 and a.optlen == 4 and a.enterprisenum == 0 and a.remoteid == ""
 
 = DHCP6OptRemoteID - Instantiation with specific values 
 raw(DHCP6OptRemoteID(enterprisenum=0xeeeeeeee, remoteid="someid")) == b'\x00%\x00\n\xee\xee\xee\xeesomeid'
@@ -4090,7 +4091,7 @@ raw(DHCP6OptSubscriberID()) == b'\x00&\x00\x00'
 
 = DHCP6OptSubscriberID - Basic Dissection
 a = DHCP6OptSubscriberID(b'\x00&\x00\x00')
-a.optcode == 38 and a.optlen == 0 and a.subscriberid == b""
+a.optcode == 38 and a.optlen == 0 and a.subscriberid == ""
 
 = DHCP6OptSubscriberID - Instantiation with specific values
 raw(DHCP6OptSubscriberID(subscriberid="someid")) == b'\x00&\x00\x06someid'
@@ -4392,7 +4393,7 @@ a.msgtype == 12 and DHCP6OptRelayMsg in a and isinstance(a.message, DHCP6)
 + Test DHCP6 Messages - DHCP6OptRelayMsg
 
 = DHCP6OptRelayMsg - Basic Instantiation
-str(DHCP6OptRelayMsg(optcode=37)) == b'\x00%\x00\x04\x00\x00\x00\x00'
+raw(DHCP6OptRelayMsg(optcode=37)) == b'\x00%\x00\x04\x00\x00\x00\x00'
 
 = DHCP6OptRelayMsg - Basic Dissection
 a=DHCP6OptRelayMsg(b'\x00\r\x00\x00')
@@ -4629,7 +4630,7 @@ raw(MIP6OptMNID(subtype=42, id="someid")) == b'\x08\x07*someid'
 
 = MIP6OptMNID - dissection with specific values
 p = MIP6OptMNID(b'\x08\x07*someid')
-p.otype == 8 and p.olen == 7 and p.subtype == 42 and p.id == "someid"
+p.otype == 8 and p.olen == 7 and p.subtype == 42 and p.id == b"someid"
 
 
 
@@ -4642,14 +4643,14 @@ raw(MIP6OptMsgAuth()) == b'\x09\x11\x01\x00\x00\x00\x00AAAAAAAAAAAA'
 
 = MIP6OptMsgAuth - basic dissection
 p = MIP6OptMsgAuth(b'\x09\x11\x01\x00\x00\x00\x00AAAAAAAAAAAA')
-p.otype == 9 and p.olen == 17 and p.subtype == 1 and p.mspi == 0 and p.authdata == "A"*12
+p.otype == 9 and p.olen == 17 and p.subtype == 1 and p.mspi == 0 and p.authdata == b"A"*12
 
 = MIP6OptMsgAuth - build with specific values
 raw(MIP6OptMsgAuth(authdata="B"*16, mspi=0xeeeeeeee, subtype=0xff)) == b'\t\x15\xff\xee\xee\xee\xeeBBBBBBBBBBBBBBBB'
 
 = MIP6OptMsgAuth - dissection with specific values
 p = MIP6OptMsgAuth(b'\t\x15\xff\xee\xee\xee\xeeBBBBBBBBBBBBBBBB')
-p.otype == 9 and p.olen == 21 and p.subtype == 255 and p.mspi == 0xeeeeeeee and p.authdata == "B"*16
+p.otype == 9 and p.olen == 21 and p.subtype == 255 and p.mspi == 0xeeeeeeee and p.authdata == b"B"*16
 
 
 ############
@@ -4669,7 +4670,7 @@ s == b'\n*\x87V|\x00\x00\x00\x00\x00'
 
 = MIP6OptReplayProtection - dissection with specific values
 p = MIP6OptReplayProtection(s)
-p.otype == 10 and p.olen == 42 and p.timestamp == 9752118382559232000L
+p.otype == 10 and p.olen == 42 and p.timestamp == 9752118382559232000
 p.fields_desc[-1].i2repr("", p.timestamp) == 'Mon, 13 Dec 1971 23:50:39 +0000 (9752118382559232000)'
 
 
@@ -5167,7 +5168,7 @@ assert all(any(proto in pkt for pkt in pktpcap) for proto in [ICMP, UDP, TCP])
 = Check wrpcap()
 import os, tempfile
 fdesc, filename = tempfile.mkstemp()
-fdesc = os.fdopen(fdesc, "w")
+fdesc = os.fdopen(fdesc, "wb")
 wrpcap(fdesc, pktpcap)
 fdesc.close()
 
@@ -5195,7 +5196,7 @@ os.unlink(filename)
 
 = Check wrpcap(nano=True)
 fdesc, filename = tempfile.mkstemp()
-fdesc = os.fdopen(fdesc, "w")
+fdesc = os.fdopen(fdesc, "wb")
 pktpcapnano[0].time += 0.000000001
 wrpcap(fdesc, pktpcapnano, nano=True)
 fdesc.close()
@@ -5218,7 +5219,7 @@ assert isinstance(pkt, IP)
 pkt = pkt.payload
 assert isinstance(pkt, ICMP)
 pkt = pkt.payload
-assert isinstance(pkt, Raw) and pkt.load == 'abcdefghijklmnopqrstuvwabcdefghi'
+assert isinstance(pkt, Raw) and pkt.load == b'abcdefghijklmnopqrstuvwabcdefghi'
 pkt = pkt.payload
 assert isinstance(pkt, Padding) and pkt.load == b'\xeay$\xf6'
 pkt = pkt.payload
@@ -5236,7 +5237,7 @@ assert isinstance(pkt, IP)
 pkt = pkt.payload
 assert isinstance(pkt, ICMP)
 pkt = pkt.payload
-assert isinstance(pkt, Raw) and pkt.load == 'abcdefghijklmnopqrstuvwabcdefghi'
+assert isinstance(pkt, Raw) and pkt.load == b'abcdefghijklmnopqrstuvwabcdefghi'
 pkt = pkt.payload
 assert isinstance(pkt, Padding) and pkt.load == b'\xeay$\xf6'
 pkt = pkt.payload
@@ -5246,16 +5247,16 @@ assert isinstance(pkt, NoPayload)
 ~ tcpdump
 * No very specific tests because we do not want to depend on tcpdump output
 pcapfile = BytesIO(b'\xd4\xc3\xb2\xa1\x02\x00\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\x00\x00e\x00\x00\x00\xcf\xc5\xacVo*\n\x00(\x00\x00\x00(\x00\x00\x00E\x00\x00(\x00\x01\x00\x00@\x06|\xcd\x7f\x00\x00\x01\x7f\x00\x00\x01\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\x91|\x00\x00\xcf\xc5\xacV_-\n\x00\x1c\x00\x00\x00\x1c\x00\x00\x00E\x00\x00\x1c\x00\x01\x00\x00@\x11|\xce\x7f\x00\x00\x01\x7f\x00\x00\x01\x005\x005\x00\x08\x01r\xcf\xc5\xacV\xf90\n\x00\x1c\x00\x00\x00\x1c\x00\x00\x00E\x00\x00\x1c\x00\x01\x00\x00@\x01|\xde\x7f\x00\x00\x01\x7f\x00\x00\x01\x08\x00\xf7\xff\x00\x00\x00\x00')
-data = tcpdump(pcapfile, dump=True, args=['-n']).split('\n')
+data = tcpdump(pcapfile, dump=True, args=['-n']).split(b'\n')
 print(data)
-assert 'IP 127.0.0.1.20 > 127.0.0.1.80:' in data[0]
-assert 'IP 127.0.0.1.53 > 127.0.0.1.53:' in data[1]
-assert 'IP 127.0.0.1 > 127.0.0.1:' in data[2]
+assert b'IP 127.0.0.1.20 > 127.0.0.1.80:' in data[0]
+assert b'IP 127.0.0.1.53 > 127.0.0.1.53:' in data[1]
+assert b'IP 127.0.0.1 > 127.0.0.1:' in data[2]
 
 = Check tcpdump() command with tshark
 ~ tshark
 pcapfile = BytesIO(b'\xd4\xc3\xb2\xa1\x02\x00\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\x00\x00e\x00\x00\x00\xcf\xc5\xacVo*\n\x00(\x00\x00\x00(\x00\x00\x00E\x00\x00(\x00\x01\x00\x00@\x06|\xcd\x7f\x00\x00\x01\x7f\x00\x00\x01\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\x91|\x00\x00\xcf\xc5\xacV_-\n\x00\x1c\x00\x00\x00\x1c\x00\x00\x00E\x00\x00\x1c\x00\x01\x00\x00@\x11|\xce\x7f\x00\x00\x01\x7f\x00\x00\x01\x005\x005\x00\x08\x01r\xcf\xc5\xacV\xf90\n\x00\x1c\x00\x00\x00\x1c\x00\x00\x00E\x00\x00\x1c\x00\x01\x00\x00@\x01|\xde\x7f\x00\x00\x01\x7f\x00\x00\x01\x08\x00\xf7\xff\x00\x00\x00\x00')
-values = [tuple(int(val) for val in line[:-1].split('\t')) for line in tcpdump(pcapfile, prog=conf.prog.tshark, getfd=True, args=['-T', 'fields', '-e', 'ip.ttl', '-e', 'ip.proto'])]
+values = [tuple(int(val) for val in line[:-1].split(b'\t')) for line in tcpdump(pcapfile, prog=conf.prog.tshark, getfd=True, args=['-T', 'fields', '-e', 'ip.ttl', '-e', 'ip.proto'])]
 assert values == [(64, 6), (64, 17), (64, 1)]
 
 = Check Raw IP pcap files
@@ -5506,7 +5507,7 @@ raw(TCP(options=[('SAckOK', '')])) == b"\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x0
 
 = TCP options: SAckOK - basic dissection
 sackok = TCP(b"\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00`\x02 \x00\x00\x00\x00\x00\x04\x02\x00\x00")
-sackok[TCP].options[0][0] == "SAckOK" and sackok[TCP].options[0][1] == ''
+sackok[TCP].options[0][0] == "SAckOK" and sackok[TCP].options[0][1] == b''
 
 = TCP options: EOL - basic build
 raw(TCP(options=[(0, '')])) == b"\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00`\x02 \x00\x00\x00\x00\x00\x00\x02\x00\x00"
@@ -6178,7 +6179,7 @@ assert(eap.id == 1)
 assert(eap.len == 14)
 assert(eap.type == 1)
 assert(hasattr(eap, 'identity'))
-assert(eap.identity == 'anonymous')
+assert(eap.identity == b'anonymous')
 
 = EAP - Dissection (3)
 s = b'\x01\x01\x00\x06\r '
@@ -6275,7 +6276,7 @@ assert(eap.type == 4)
 assert(eap.haslayer(EAP_MD5))
 assert(eap[EAP_MD5].value_size == 16)
 assert(eap[EAP_MD5].value == b'\x86\xf9\x89\x94\x81\x01\xb3 nHh\x1b\x8d\xe7^\xdb')
-assert(eap[EAP_MD5].optional_name == '')
+assert(eap[EAP_MD5].optional_name == b'')
 
 = EAP - EAP_MD5 - Response - Dissection (9)
 s = b'\x02\x02\x00\x16\x04\x10\xfd\x1e\xffe\xf5\x80y\xa8\xe3\xc8\xf1\xbd\xc2\x85\xae\xcf\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
@@ -6287,7 +6288,7 @@ assert(eap.type == 4)
 assert(eap.haslayer(EAP_MD5))
 assert(eap[EAP_MD5].value_size == 16)
 assert(eap[EAP_MD5].value == b'\xfd\x1e\xffe\xf5\x80y\xa8\xe3\xc8\xf1\xbd\xc2\x85\xae\xcf')
-assert(eap[EAP_MD5].optional_name == '')
+assert(eap[EAP_MD5].optional_name == b'')
 
 = EAP - LEAP - Basic Instantiation
 raw(LEAP()) == b'\x01\x00\x00\x08\x11\x01\x00\x00'
@@ -6303,7 +6304,7 @@ assert(eap.haslayer(LEAP))
 assert(eap[LEAP].version == 1)
 assert(eap[LEAP].count == 8)
 assert(eap[LEAP].challenge_response == b'8\xb6\xd7\xa1E<!\x15')
-assert(eap[LEAP].username == "supplicant-1")
+assert(eap[LEAP].username == b"supplicant-1")
 
 = EAP - LEAP - Response - Dissection (11)
 s = b'\x02D\x00,\x11\x01\x00\x18\xb3\x82[\x82\x8a\xc8M*\xf3\xe7\xb3\xad,7\x8b\xbfG\x81\xda\xbf\xe6\xc1\x9b\x95supplicant-1'
@@ -6316,7 +6317,7 @@ assert(eap.haslayer(LEAP))
 assert(eap[LEAP].version == 1)
 assert(eap[LEAP].count == 24)
 assert(eap[LEAP].challenge_response == b'\xb3\x82[\x82\x8a\xc8M*\xf3\xe7\xb3\xad,7\x8b\xbfG\x81\xda\xbf\xe6\xc1\x9b\x95')
-assert(eap[LEAP].username == "supplicant-1")
+assert(eap[LEAP].username == b"supplicant-1")
 
 = EAP - Layers (1)
 eap = EAP_MD5()
@@ -6409,7 +6410,7 @@ s = b"!\x0b\x06\xea\x00\x00\x00\x00\x00\x00\xf2\xc1\x7f\x7f\x01\x00\xdb9\xe8\xa2
 p = NTP(s)
 assert(isinstance(p, NTPHeader))
 assert(p[NTPAuthenticator].key_id == 1)
-assert(bytes_hex(p[NTPAuthenticator].dgst) == 'ad79f3a1e5fcd032d26a1e27c3c1b60e')
+assert(bytes_hex(p[NTPAuthenticator].dgst) == b'ad79f3a1e5fcd032d26a1e27c3c1b60e')
 
 
 = NTPHeader - KoD
@@ -6420,7 +6421,7 @@ assert(p.leap == 3)
 assert(p.version == 4)
 assert(p.mode == 4)
 assert(p.stratum == 0)
-assert(p.ref_id == 'INIT')
+assert(p.ref_id == b'INIT')
 
 
 = NTPHeader - Extension dissection test
@@ -6556,7 +6557,7 @@ assert(p.more == 0)
 assert(p.op_code == 2)
 assert(len(p.data.load) == 12)
 assert(p.authenticator.key_id == 1)
-assert(bytes_hex(p.authenticator.dgst) == '3dc23bc7edb9555339d68908c8afa612')
+assert(bytes_hex(p.authenticator.dgst) == b'3dc23bc7edb9555339d68908c8afa612')
 
 
 = NTP Control (mode 6) - CTL_OP_READVAR (5) - response
@@ -6571,7 +6572,7 @@ assert(p.more == 0)
 assert(p.op_code == 2)
 assert(len(p.data.load) == 0)
 assert(p.authenticator.key_id == 1)
-assert(bytes_hex(p.authenticator.dgst) == '97280249dba07338ed722860db4a580a')
+assert(bytes_hex(p.authenticator.dgst) == b'97280249dba07338ed722860db4a580a')
 
 
 = NTP Control (mode 6) - CTL_OP_WRITEVAR (1) - request
@@ -6586,7 +6587,7 @@ assert(p.more == 0)
 assert(p.op_code == 3)
 assert(len(p.data.load) == 12)
 assert(p.authenticator.key_id == 1)
-assert(bytes_hex(p.authenticator.dgst) == 'aff10cb4c9946dfc4d90094aa170944a')
+assert(bytes_hex(p.authenticator.dgst) == b'aff10cb4c9946dfc4d90094aa170944a')
 
 
 = NTP Control (mode 6) - CTL_OP_WRITEVAR (2) - response
@@ -6604,7 +6605,7 @@ assert(isinstance(p.status_word, NTPErrorStatusPacket))
 assert(p.status_word.error_code == 5)
 assert(len(p.data.load) == 0)
 assert(p.authenticator.key_id == 1)
-assert(bytes_hex(p.authenticator.dgst) == '807a80fbafc470679853a8e57865811c')
+assert(bytes_hex(p.authenticator.dgst) == b'807a80fbafc470679853a8e57865811c')
 
 
 = NTP Control (mode 6) - CTL_OP_CONFIGURE (1) - request
@@ -6620,7 +6621,7 @@ assert(p.op_code == 8)
 assert(p.count == 12)
 assert(p.data.load == b'controlkey 1')
 assert(p.authenticator.key_id == 1)
-assert(bytes_hex(p.authenticator.dgst) == 'eaa7aca81b6a9cdb58e1530d36fbefa4')
+assert(bytes_hex(p.authenticator.dgst) == b'eaa7aca81b6a9cdb58e1530d36fbefa4')
 
 
 = NTP Control (mode 6) - CTL_OP_CONFIGURE (2) - response
@@ -6636,7 +6637,7 @@ assert(p.op_code == 8)
 assert(p.count == 18)
 assert(p.data.load == b'Config Succeeded\r\n\x00\x00')
 assert(p.authenticator.key_id == 1)
-assert(bytes_hex(p.authenticator.dgst) == 'bfa6d85ff96d1e326c293caceec2a539')
+assert(bytes_hex(p.authenticator.dgst) == b'bfa6d85ff96d1e326c293caceec2a539')
 
 
 = NTP Control (mode 6) - CTL_OP_SAVECONFIG (1) - request
@@ -6652,7 +6653,7 @@ assert(p.op_code == 9)
 assert(p.count == 15)
 assert(p.data.load == b'ntp.test.2.conf\x00')
 assert(p.authenticator.key_id == 1)
-assert(bytes_hex(p.authenticator.dgst) == 'c9fb8abe3c605ffa36d218c3b7648923')
+assert(bytes_hex(p.authenticator.dgst) == b'c9fb8abe3c605ffa36d218c3b7648923')
 
 
 = NTP Control (mode 6) - CTL_OP_SAVECONFIG (2) - response
@@ -6668,7 +6669,7 @@ assert(p.op_code == 9)
 assert(p.count == 42)
 assert(p.data.load == b"Configuration saved to 'ntp.test.2.conf'\r\n\x00\x00")
 assert(p.authenticator.key_id == 1)
-assert(bytes_hex(p.authenticator.dgst) == '32c2ba59c533fe28f550e5a0860295d9')
+assert(bytes_hex(p.authenticator.dgst) == b'32c2ba59c533fe28f550e5a0860295d9')
 
 
 = NTP Control (mode 6) - CTL_OP_REQ_NONCE (1) - request
@@ -7053,7 +7054,7 @@ assert(p.req_data[0].minpoll == 6)
 assert(p.req_data[0].maxpoll == 10)
 assert(hasattr(p, 'authenticator'))
 assert(p.authenticator.key_id == 1)
-assert(bytes_hex(p.authenticator.dgst) == '5abafe011c720564a114b129e976448d')
+assert(bytes_hex(p.authenticator.dgst) == b'5abafe011c720564a114b129e976448d')
 
 
 = NTP Private (mode 7) - REQ_CONFIG (2) - response
@@ -7088,7 +7089,7 @@ assert(p.req_data[0].peeraddr == "192.168.122.107")
 assert(p.req_data[0].v6_flag == 0)
 assert(hasattr(p, 'authenticator'))
 assert(p.authenticator.key_id == 1)
-assert(bytes_hex(p.authenticator.dgst) == '1d4d3bfe5a7e5d5ae34561929a45d825')
+assert(bytes_hex(p.authenticator.dgst) == b'1d4d3bfe5a7e5d5ae34561929a45d825')
 
 
 = NTP Private (mode 7) - REQ_UNCONFIG (2) - response
@@ -7123,7 +7124,7 @@ assert(p.req_data[0].addr == "192.168.122.105")
 assert(p.req_data[0].mask == "255.255.255.255")
 assert(hasattr(p, 'authenticator'))
 assert(p.authenticator.key_id == 1)
-assert(bytes_hex(p.authenticator.dgst) == '3e3db7305470eeaee1ad3462efe380c8')
+assert(bytes_hex(p.authenticator.dgst) == b'3e3db7305470eeaee1ad3462efe380c8')
 
 
 = NTP Private (mode 7) - REQ_RESSUBFLAGS (1) - request
@@ -7143,7 +7144,7 @@ assert(p.req_data[0].addr == "192.168.122.105")
 assert(p.req_data[0].mask == "255.255.255.255")
 assert(hasattr(p, 'authenticator'))
 assert(p.authenticator.key_id == 1)
-assert(bytes_hex(p.authenticator.dgst) == '3e650ddfdb1e3168d0ca294c076b900a')
+assert(bytes_hex(p.authenticator.dgst) == b'3e650ddfdb1e3168d0ca294c076b900a')
 
 
 = NTP Private (mode 7) - REQ_RESET_PEER (1) - request
@@ -7206,7 +7207,7 @@ assert(isinstance(p.req_data[0], NTPConfTrap))
 assert(p.req_data[0].trap_address == '192.0.2.3')
 assert(hasattr(p, 'authenticator'))
 assert(p.authenticator.key_id == 1)
-assert(bytes_hex(p.authenticator.dgst) == '6224b8494d2ea631d085498fa7278992')
+assert(bytes_hex(p.authenticator.dgst) == b'6224b8494d2ea631d085498fa7278992')
 
 
 = NTP Private (mode 7) - REQ_ADD_TRAP (2) - response
@@ -7241,7 +7242,7 @@ assert(isinstance(p.req_data[0], NTPConfTrap))
 assert(p.req_data[0].trap_address == '192.0.2.3')
 assert(hasattr(p, 'authenticator'))
 assert(p.authenticator.key_id == 1)
-assert(bytes_hex(p.authenticator.dgst) == 'a55f569eb87144921b1c3e5aad5d2a89')
+assert(bytes_hex(p.authenticator.dgst) == b'a55f569eb87144921b1c3e5aad5d2a89')
 
 
 = NTP Private (mode 7) - REQ_CLR_TRAP (2) - response
@@ -7351,7 +7352,7 @@ assert(p.nb_items == 0)
 assert(p.data_item_size == 0)
 assert(hasattr(p, 'authenticator'))
 assert(p.authenticator.key_id == 1)
-assert(bytes_hex(p.authenticator.dgst) == '8bfb9075a86164e887cabf96d29ddd49')
+assert(bytes_hex(p.authenticator.dgst) == b'8bfb9075a86164e887cabf96d29ddd49')
 
 
 = NTP Private (mode 7) - REQ_IF_STATS (2) - response
@@ -7406,7 +7407,7 @@ assert(p.nb_items == 0)
 assert(p.data_item_size == 0)
 assert(hasattr(p, 'authenticator'))
 assert(p.authenticator.key_id == 1)
-assert(bytes_hex(p.authenticator.dgst) == 'fb3e962ae74ff78f6568d4074cc008cb')
+assert(bytes_hex(p.authenticator.dgst) == b'fb3e962ae74ff78f6568d4074cc008cb')
 
 
 = NTP Private (mode 7) - REQ_IF_RELOAD (2) - response
@@ -7728,7 +7729,7 @@ s == b'E\x00\x00H\x00\x01\x00\x00@\x11|\xa2\x7f\x00\x00\x01\x7f\x00\x00\x01\x02\
 
 = RIP - dissection
 p = IP(s)
-RIPEntry in p and RIPAuth in p and p[RIPAuth].password.startswith("scapy")
+RIPEntry in p and RIPAuth in p and p[RIPAuth].password.startswith(b"scapy")
 
 
 ############
@@ -7741,7 +7742,7 @@ s == b'E\x00\x007\x00\x01\x00\x00@\x11|\xb3\x7f\x00\x00\x01\x7f\x00\x00\x01\x07\
 
 = IP/UDP/RADIUS - Dissection
 p = IP(s)
-Radius in p and len(p[Radius].attributes) == 1 and p[Radius].attributes[0].value == "scapy"
+Radius in p and len(p[Radius].attributes) == 1 and p[Radius].attributes[0].value == b"scapy"
 
 = RADIUS - Access-Request - Dissection (1)
 s = b'\x01\xae\x01\x17>k\xd4\xc4\x19V\x0b*1\x99\xc8D\xea\xc2\x94Z\x01\x06leap\x06\x06\x00\x00\x00\x02\x1a\x1b\x00\x00\x00\t\x01\x15service-type=Framed\x0c\x06\x00\x00#\xee\x1e\x13AC-7E-8A-4E-E2-92\x1f\x1300-26-73-9E-0F-D3O\x0b\x02\x01\x00\t\x01leapP\x12U\xbc\x12\xcdM\x00\xf8\xdb4\xf1\x18r\xca_\x8c\xf6f\x02\x1a1\x00\x00\x00\t\x01+audit-session-id=0AC8090E0000001A0354CA00\x1a\x14\x00\x00\x00\t\x01\x0emethod=dot1x\x08\x06\xc0\xa8\n\xb9\x04\x06\xc0\xa8\n\x80\x1a\x1d\x00\x00\x00\t\x02\x17GigabitEthernet1/0/18W\x17GigabitEthernet1/0/18=\x06\x00\x00\x00\x0f\x05\x06\x00\x00\xc3\xc6'
@@ -7753,7 +7754,7 @@ assert(len(radius_packet.attributes) == 17)
 assert(radius_packet.attributes[0].type == 1)
 assert(type(radius_packet.attributes[0]) == RadiusAttribute)
 assert(radius_packet.attributes[0].len == 6)
-assert(radius_packet.attributes[0].value == "leap")
+assert(radius_packet.attributes[0].value == b"leap")
 assert(radius_packet.attributes[1].type == 6)
 assert(type(radius_packet.attributes[1]) == RadiusAttr_Service_Type)
 assert(radius_packet.attributes[1].len == 6)
@@ -7764,7 +7765,7 @@ assert(radius_packet.attributes[2].len == 27)
 assert(radius_packet.attributes[2].vendor_id == 9)
 assert(radius_packet.attributes[2].vendor_type == 1)
 assert(radius_packet.attributes[2].vendor_len == 21)
-assert(radius_packet.attributes[2].value == "service-type=Framed")
+assert(radius_packet.attributes[2].value == b"service-type=Framed")
 assert(radius_packet.attributes[6].type == 79)
 assert(type(radius_packet.attributes[6]) == RadiusAttr_EAP_Message)
 assert(radius_packet.attributes[6].len == 11)
@@ -7774,7 +7775,7 @@ assert(radius_packet.attributes[6].value[EAP].id == 1)
 assert(radius_packet.attributes[6].value[EAP].len == 9)
 assert(radius_packet.attributes[6].value[EAP].type == 1)
 assert(hasattr(radius_packet.attributes[6].value[EAP], "identity"))
-assert(radius_packet.attributes[6].value[EAP].identity == "leap")
+assert(radius_packet.attributes[6].value[EAP].identity == b"leap")
 assert(radius_packet.attributes[7].type == 80)
 assert(type(radius_packet.attributes[7]) == RadiusAttr_Message_Authenticator)
 assert(radius_packet.attributes[7].len == 18)
@@ -7798,7 +7799,7 @@ assert(len(radius_packet.attributes) == 4)
 assert(radius_packet.attributes[0].type == 18)
 assert(type(radius_packet.attributes[0]) == RadiusAttribute)
 assert(radius_packet.attributes[0].len == 13)
-assert(radius_packet.attributes[0].value == "Hello, leap")
+assert(radius_packet.attributes[0].value == b"Hello, leap")
 assert(radius_packet.attributes[1].type == 79)
 assert(type(radius_packet.attributes[1]) == RadiusAttr_EAP_Message)
 assert(radius_packet.attributes[1].len == 22)
@@ -7820,12 +7821,12 @@ s = b'\x01\xaf\x01DC\xbe!J\x08\xdf\xcf\x9f\x00v~,\xfb\x8e`\xc8\x01\x06leap\x06\x
 radius_packet = Radius(s)
 assert(radius_packet.id == 175)
 assert(radius_packet.len == 324)
-assert(radius_packet.authenticator == 'C\xbe!J\x08\xdf\xcf\x9f\x00v~,\xfb\x8e`\xc8')
+assert(radius_packet.authenticator == b'C\xbe!J\x08\xdf\xcf\x9f\x00v~,\xfb\x8e`\xc8')
 assert(len(radius_packet.attributes) == 18)
 assert(radius_packet.attributes[0].type == 1)
 assert(type(radius_packet.attributes[0]) == RadiusAttribute)
 assert(radius_packet.attributes[0].len == 6)
-assert(radius_packet.attributes[0].value == "leap")
+assert(radius_packet.attributes[0].value == b"leap")
 assert(radius_packet.attributes[1].type == 6)
 assert(type(radius_packet.attributes[1]) == RadiusAttr_Service_Type)
 assert(radius_packet.attributes[1].len == 6)
@@ -7836,7 +7837,7 @@ assert(radius_packet.attributes[2].len == 27)
 assert(radius_packet.attributes[2].vendor_id == 9)
 assert(radius_packet.attributes[2].vendor_type == 1)
 assert(radius_packet.attributes[2].vendor_len == 21)
-assert(radius_packet.attributes[2].value == "service-type=Framed")
+assert(radius_packet.attributes[2].value == b"service-type=Framed")
 assert(radius_packet.attributes[6].type == 79)
 assert(type(radius_packet.attributes[6]) == RadiusAttr_EAP_Message)
 assert(radius_packet.attributes[6].len == 38)
@@ -7872,7 +7873,7 @@ assert(len(radius_packet.attributes) == 4)
 assert(radius_packet.attributes[0].type == 18)
 assert(type(radius_packet.attributes[0]) == RadiusAttribute)
 assert(radius_packet.attributes[0].len == 13)
-assert(radius_packet.attributes[0].value == "Hello, leap")
+assert(radius_packet.attributes[0].value == b"Hello, leap")
 assert(radius_packet.attributes[1].type == 79)
 assert(type(radius_packet.attributes[1]) == RadiusAttr_EAP_Message)
 assert(radius_packet.attributes[1].len == 6)
@@ -7894,7 +7895,7 @@ s = b'\x01\xae\x01\x17>k\xd4\xc4\x19V\x0b*1\x99\xc8D\xea\xc2\x94Z\x01\x06leap\x0
 access_request = Radius(s)
 s = b'\x0b\xae\x00[\xc7\xae\xfc6\xa1=\xb5\x99&^\xdf=\xe9\x00\xa6\xe8\x12\rHello, leapO\x16\x01\x02\x00\x14\x11\x01\x00\x08\xb8\xc4\x1a4\x97x\xd3\x82leapP\x12\xd3\x12\x17\xa6\x0c.\x94\x85\x03]t\xd1\xdb\xd0\x13\x8c\x18\x12iQs\xf7iSb@k\x9d,\xa0\x99\x8ehO'
 access_challenge = Radius(s)
-access_challenge.compute_authenticator(access_request.authenticator, "radiuskey") == access_challenge.authenticator
+access_challenge.compute_authenticator(access_request.authenticator, b"radiuskey") == access_challenge.authenticator
 
 = RADIUS - Layers (1)
 radius_attr = RadiusAttr_EAP_Message(value = EAP())
@@ -8024,10 +8025,12 @@ ip6_bad_addrs = ["fe80::2e67:ef2d:7eca::ed8a",
                  "1234:5678:9abc:def0:1234:5678:9abc:def0:1234"]
 for ip6 in ip6_bad_addrs:
     rc = False
+    exc1 = None
     try:
         res1 = inet_pton(socket.AF_INET6, ip6)
-    except Exception as exc1:
+    except Exception as e:
         rc = True
+        exc1 = e
     assert rc
     rc = False
     try:
@@ -8354,7 +8357,7 @@ assert(p.tsn == 0)
 assert(p.stream_id == 0)
 assert(p.stream_seq == 0)
 assert(p.len == (len("data") + 16))
-assert(p.data == "data")
+assert(p.data == b"data")
 
 = basic SCTPChunkInit - Dissection
 ~ sctp
@@ -8429,7 +8432,7 @@ assert(set(params.keys()) == {SCTPChunkParamECNCapable, SCTPChunkParamHostname,
                               SCTPChunkParamFwdTSN, SCTPChunkParamSupportedExtensions,
                               SCTPChunkParamStateCookie})
 assert(params[SCTPChunkParamECNCapable] == SCTPChunkParamECNCapable())
-assert(params[SCTPChunkParamHostname] == SCTPChunkParamHostname(len=13, hostname="localhost"))
+assert(raw(params[SCTPChunkParamHostname]) == raw(SCTPChunkParamHostname(len=13, hostname="localhost")))
 assert(params[SCTPChunkParamFwdTSN] == SCTPChunkParamFwdTSN())
 assert(params[SCTPChunkParamSupportedExtensions] == SCTPChunkParamSupportedExtensions(len=7))
 assert(params[SCTPChunkParamStateCookie].len == 4+16)

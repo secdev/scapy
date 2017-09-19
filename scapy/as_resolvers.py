@@ -36,14 +36,14 @@ class AS_resolver:
         asn,desc = None,b""
         for l in txt.splitlines():
             if not asn and l.startswith(b"origin:"):
-                asn = l[7:].strip().decode("utf8")
+                asn = plain_str(l[7:].strip())
             if l.startswith(b"descr:"):
                 if desc:
                     desc += r"\n"
                 desc += l[6:].strip()
             if asn is not None and desc:
                 break
-        return asn, desc.strip().decode("utf8")
+        return asn, plain_str(desc.strip())
 
     def _resolve_one(self, ip):
         self.s.send(("%s\n" % ip).encode("utf8"))
@@ -56,7 +56,7 @@ class AS_resolver:
         self._start()
         ret = []
         for ip in ips:
-            ip,asn,desc = self._resolve_one(ip.encode("utf8"))
+            ip,asn,desc = self._resolve_one(ip)
             if asn is not None:
                 ret.append((ip,asn,desc))
         self._stop()
@@ -79,7 +79,7 @@ class AS_resolver_cymru(AS_resolver):
         ASNlist = []
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.connect((self.server,self.port))
-        s.send(b"begin\r\n"+b"\r\n".join(ips.encode("utf8"))+b"\r\nend\r\n")
+        s.send(b"begin\r\n"+b"\r\n".join(ip.encode("utf8") for ip in ips)+b"\r\nend\r\n")
         r = b""
         while True:
             l = s.recv(8192)
@@ -88,12 +88,13 @@ class AS_resolver_cymru(AS_resolver):
             r += l
         s.close()
         for l in r.splitlines()[1:]:
-            if b"|" not in l:
+            l = plain_str(l)
+            if "|" not in l:
                 continue
             asn, ip, desc = [elt.strip() for elt in l.split('|')]
-            if asn == b"NA":
+            if asn == "NA":
                 continue
-            asn = b"AS" + bytes(int(asn))
+            asn = "AS" + str(int(asn))
             ASNlist.append((ip, asn, desc))
         return ASNlist
 

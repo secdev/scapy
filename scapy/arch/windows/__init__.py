@@ -802,7 +802,7 @@ def route_add_loopback(routes=None, ipv6=False, iflist=None):
         if iface.name == scapy.consts.LOOPBACK_NAME:
             conf.route.routes.remove(route)
     # Remove LOOPBACK_NAME interface
-    for devname, iface in IFACES.items():
+    for devname, iface in list(IFACES.items()):
         if iface.name == scapy.consts.LOOPBACK_NAME:
             IFACES.pop(devname)
     # Inject interface
