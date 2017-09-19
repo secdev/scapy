@@ -3,6 +3,9 @@
 #   test/run_tests  -P "load_contrib('macsec')" -t scapy/contrib/macsec.uts -F
 
 + MACsec
+~ crypto not_pypy
+# Note: these tests are disabled with pypy, as the cryptography module does
+#       not currently work with the pypy version used by Travis CI.
 
 = MACsec - basic encap - encrypted
 sa = MACsecSA(sci='\x52\x54\x00\x13\x01\x56\x00\x01', an=0, pn=100, key=b'aaaaaaaaaaaaaaaa', icvlen=16, encrypt=1, send_sci=1)
