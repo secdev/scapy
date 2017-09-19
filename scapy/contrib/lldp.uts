@@ -1,0 +1,164 @@
+from enum import test
+% LLDP test campaign
+
+#
+# execute test:
+# > test/run_tests -P "load_contrib('lldp')" -t scapy/contrib/lldp.uts
+#
+
++ Basic layer handling
+= build basic LLDP frames
+
+frm = Ether(src='01:01:01:01:01:01', dst=LLDP_NEAREST_BRIDGE_MAC)/ \
+      LLDPDUChassisID(subtype=LLDPDUChassisID.SUBTYPE_MAC_ADDRESS, id=b'\x06\x05\x04\x03\x02\x01') / \
+      LLDPDUPortID(subtype=LLDPDUPortID.SUBTYPE_MAC_ADDRESS, id=b'\x01\x02\x03\x04\x05\x06')/\
+      LLDPDUTimeToLive()/\
+      LLDPDUSystemName(name='mate')/\
+      LLDPDUSystemCapabilities(telephone_available=1, router_available=1, telephone_enabled=1)/\
+      LLDPDUManagementAddress(
+            management_address_subtype=LLDPDUManagementAddress.SUBTYPE_MANAGEMENT_ADDRESS_IPV4,
+            management_address='1.2.3.4',
+            interface_numbering_subtype=LLDPDUManagementAddress.SUBTYPE_INTERFACE_NUMBER_IF_INDEX,
+            interface_number=23,
+            object_id='abcd') / \
+      LLDPDUEndOfLLDPDU()
+
+frm = frm.build()
+frm = Ether(frm)
+
+= add padding if required
+
+conf.contribs['LLDP'].strict_mode_disable()
+frm = Ether(src='01:01:01:01:01:01', dst=LLDP_NEAREST_BRIDGE_MAC) / \
+      LLDPDUPortID(subtype=LLDPDUPortID.SUBTYPE_INTERFACE_NAME, id='eth0') / \
+      LLDPDUChassisID(subtype=LLDPDUChassisID.SUBTYPE_MAC_ADDRESS, id=b'\x06\x05\x04\x03\x02\x01') / \
+      LLDPDUTimeToLive() / \
+      LLDPDUEndOfLLDPDU()
+assert(len(str(frm)) == 60)
+assert(len(str(Ether(str(frm))[Padding])) == 24)
+
+frm = Ether(src='01:01:01:01:01:01', dst=LLDP_NEAREST_BRIDGE_MAC) / \
+      LLDPDUPortID(subtype=LLDPDUPortID.SUBTYPE_INTERFACE_NAME, id='eth012345678901234567890123') / \
+      LLDPDUChassisID(subtype=LLDPDUChassisID.SUBTYPE_MAC_ADDRESS, id=b'\x06\x05\x04\x03\x02\x01') / \
+      LLDPDUTimeToLive() / \
+      LLDPDUEndOfLLDPDU()
+assert (len(str(frm)) == 60)
+assert (len(str(Ether(str(frm))[Padding])) == 1)
+
+frm = Ether(src='01:01:01:01:01:01', dst=LLDP_NEAREST_BRIDGE_MAC) / \
+      LLDPDUPortID(subtype=LLDPDUPortID.SUBTYPE_INTERFACE_NAME, id='eth0123456789012345678901234') / \
+      LLDPDUChassisID(subtype=LLDPDUChassisID.SUBTYPE_MAC_ADDRESS, id=b'\x06\x05\x04\x03\x02\x01') / \
+      LLDPDUTimeToLive() / \
+      LLDPDUEndOfLLDPDU()
+assert (len(str(frm)) == 60)
+try:
+      Ether(str(frm))[Padding]
+      assert False
+except IndexError:
+      pass
+
+
++ strict mode handling - build
+= basic frame structure
+
+conf.contribs['LLDP'].strict_mode_enable()
+
+# invalid lenght in LLDPDUEndOfLLDPDU
+try:
+      frm = Ether()/LLDPDUChassisID(id='slartibart')/LLDPDUPortID(id='42')/LLDPDUTimeToLive()/LLDPDUEndOfLLDPDU(_length=8)
+      frm.build()
+      assert False
+except LLDPInvalidLengthField:
+      pass
+
+# missing chassis id
+try:
+      frm = Ether()/LLDPDUChassisID()/LLDPDUPortID(id='42')/LLDPDUTimeToLive()/LLDPDUEndOfLLDPDU()
+      frm.build()
+      assert False
+except LLDPInvalidLengthField:
+      pass
+
+# missing management address
+try:
+      frm = Ether()/LLDPDUChassisID(id='slartibart')/LLDPDUPortID(id='42')/LLDPDUTimeToLive()/LLDPDUManagementAddress()/LLDPDUEndOfLLDPDU()
+      frm.build()
+      assert False
+except LLDPInvalidLengthField:
+      pass
+
++ strict mode handling - dissect
+= basic frame structure
+
+conf.contribs['LLDP'].strict_mode_enable()
+# missing PortIDTLV
+try:
+      frm = Ether() / LLDPDUChassisID(id='slartibart') / LLDPDUTimeToLive() / LLDPDUEndOfLLDPDU()
+      Ether(frm.build())
+      assert False
+except LLDPInvalidFrameStructure:
+      pass
+
+# invalid order
+try:
+      frm = Ether() / LLDPDUPortID(id='42') / LLDPDUChassisID(id='slartibart') / LLDPDUTimeToLive() / LLDPDUEndOfLLDPDU()
+      Ether(frm.build())
+      assert False
+except LLDPInvalidFrameStructure:
+      pass
+
+# layer LLDPDUPortID occures twice
+try:
+      frm = Ether() / LLDPDUChassisID(id='slartibart') / LLDPDUPortID(id='42') / LLDPDUPortID(id='23')  / LLDPDUTimeToLive() / LLDPDUEndOfLLDPDU()
+      Ether(frm.build())
+      assert False
+except LLDPInvalidFrameStructure:
+      pass
+
+# missing LLDPDUEndOfLLDPDU
+try:
+      frm = Ether() / LLDPDUChassisID(id='slartibart') / LLDPDUPortID(id='42') / \
+            LLDPDUPortID(id='23') / LLDPDUTimeToLive() / LLDPDUEndOfLLDPDU()
+      Ether(frm.build())
+      assert False
+except LLDPInvalidFrameStructure:
+      pass
+
+conf.contribs['LLDP'].strict_mode_disable()
+frm = Ether()/LLDPDUChassisID()/LLDPDUTimeToLive()/LLDPDUEndOfLLDPDU()
+frm = Ether(frm.build())
+
+= length fields / value sizes checks
+
+conf.contribs['LLDP'].strict_mode_enable()
+# missing chassis id => invalid length
+try:
+      frm = Ether() / LLDPDUChassisID() / LLDPDUPortID(id='42') / LLDPDUTimeToLive() / LLDPDUEndOfLLDPDU()
+      Ether(frm.build())
+      assert False
+except LLDPInvalidLengthField:
+      pass
+
+# invalid lenght in LLDPDUEndOfLLDPDU
+try:
+      frm = Ether()/LLDPDUChassisID(id='slartibart')/LLDPDUPortID(id='42')/LLDPDUTimeToLive()/LLDPDUEndOfLLDPDU(_length=8)
+      Ether(frm.build())
+      assert False
+except LLDPInvalidLengthField:
+      pass
+
+# invalid management address
+try:
+      frm = Ether() / LLDPDUChassisID(id='slartibart') / LLDPDUPortID(id='42') / LLDPDUTimeToLive() / LLDPDUManagementAddress() / LLDPDUEndOfLLDPDU()
+      Ether(frm.build())
+      assert False
+except LLDPInvalidLengthField:
+      pass
+
+conf.contribs['LLDP'].strict_mode_disable()
+
+frm = Ether() / LLDPDUChassisID(id='slartibart') / LLDPDUPortID(id='42') / LLDPDUTimeToLive() / LLDPDUEndOfLLDPDU()
+frm = Ether(frm.build())
+
+frm = Ether() / LLDPDUChassisID() / LLDPDUPortID() / LLDPDUTimeToLive() / LLDPDUEndOfLLDPDU(_length=8)
+frm = Ether(frm.build())
