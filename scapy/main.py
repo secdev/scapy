@@ -477,7 +477,7 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
     init_session(session_name, mydict)
 
     if IPYTHON:
-        banner = the_banner + " using IPython %s" % IPython.__version__
+        banner = the_banner + " using IPython %s\n" % IPython.__version__
         from IPython.terminal.embed import InteractiveShellEmbed
         from IPython.terminal.prompts import Prompts, Token
         from IPython.utils.generics import complete_object
@@ -499,9 +499,10 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
                    return [(Token.Prompt, '>>> '),]
                 def out_prompt_tokens(self):
                    return [(Token.OutPrompt, ''),]
-            cfg.TerminalInteractiveShell.prompts_class=ClassicPrompt
-            apply_ipython_color(shell=cfg.TerminalInteractiveShell)
-            cfg.TerminalInteractiveShell.confirm_exit = False
+            cfg.TerminalInteractiveShell.prompts_class=ClassicPrompt # Set classic prompt style
+            apply_ipython_color(shell=cfg.TerminalInteractiveShell) # Register and apply scapy color style
+            cfg.TerminalInteractiveShell.confirm_exit = False # Remove confirm exit
+            cfg.TerminalInteractiveShell.separate_in = u'' # Remove spacing line
 
         cfg.TerminalInteractiveShell.hist_file = conf.histfile
         
