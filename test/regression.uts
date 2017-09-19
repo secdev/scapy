@@ -4377,7 +4377,7 @@ a.msgtype == 12 and a.hopcount == 0 and a.linkaddr == "::" and a.peeraddr == "::
 
 = DHCP6_RelayForward - Dissection with options
 a = DHCP6_RelayForward(b'\x0c\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\t\x00\x04\x00\x01\x00\x00')
-a.msgtype == 12 and DHCP6OptRelayMsg in a and DHCP6OptClientId in a
+a.msgtype == 12 and DHCP6OptRelayMsg in a and isinstance(a.message, DHCP6)
 
 
 ############
@@ -4385,11 +4385,15 @@ a.msgtype == 12 and DHCP6OptRelayMsg in a and DHCP6OptClientId in a
 + Test DHCP6 Messages - DHCP6OptRelayMsg
 
 = DHCP6OptRelayMsg - Basic Instantiation
-str(DHCP6OptRelayMsg(optcode=37)) == b'\x00%\x00\x00'
+str(DHCP6OptRelayMsg(optcode=37)) == b'\x00%\x00\x04\x00\x00\x00\x00'
 
 = DHCP6OptRelayMsg - Basic Dissection
 a=DHCP6OptRelayMsg(b'\x00\r\x00\x00')
 assert a.optcode == 13
+
+= DHCP6OptRelayMsg - Embedded DHCP6 packet
+p = DHCP6OptRelayMsg(b'\x00\t\x00\x04\x00\x00\x00\x00')
+isinstance(p.message, DHCP6)
 
 ############
 ############
