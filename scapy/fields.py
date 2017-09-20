@@ -435,15 +435,74 @@ class PacketLenField(PacketField):
 
 
 class PacketListField(PacketField):
-    __slots__ = ["count_from", "length_from"]
+    """ PacketListField represents a series of Packet instances that might occur right in the middle of another Packet
+    field list.
+    This field type may also be used to indicate that a series of Packet instances have a sibling semantic instead of
+    a parent/child relationship (i.e. a stack of layers).
+    """
+    __slots__ = ["count_from", "length_from", "next_cls_cb"]
     islist = 1
-    def __init__(self, name, default, cls, count_from=None, length_from=None):
+    def __init__(self, name, default, cls=None, count_from=None, length_from=None, next_cls_cb=None):
+        """ The number of Packet instances that are dissected by this field can be parametrized using one of three
+        different mechanisms/parameters:
+            * count_from: a callback that returns the number of Packet instances to dissect. The callback prototype is:
+            count_from(pkt:Packet) -> int
+            * length_from: a callback that returns the number of bytes that must be dissected by this field. The
+            callback prototype is:
+            length_from(pkt:Packet) -> int
+            * next_cls_cb: a callback that enables a Scapy developer to dynamically discover if another Packet instance
+            should be dissected or not. See below for this callback prototype.
+
+        The bytes that are not consumed during the dissection of this field are passed to the next field of the current
+        packet.
+
+        For the serialization of such a field, the list of Packets that are contained in a PacketListField can be
+        heterogeneous and is unrestricted.
+
+        The type of the Packet instances that are dissected with this field is specified or discovered using one of the
+        following mechanism:
+            * the cls parameter may contain a callable that returns an instance of the dissected Packet. This
+                may either be a reference of a Packet subclass (e.g. DNSRROPT in layers/dns.py) to generate an
+                homogeneous PacketListField or a function deciding the type of the Packet instance
+                (e.g. _CDPGuessAddrRecord in contrib/cdp.py)
+            * the cls parameter may contain a class object with a defined "dispatch_hook" classmethod. That
+                method must return a Packet instance. The dispatch_hook callmethod must implement the following prototype:
+                dispatch_hook(cls, _pkt:Optional[Packet], *args, **kargs) -> Packet_metaclass
+                The _pkt parameter may contain a reference to the packet instance containing the PacketListField that is
+                being dissected.
+            * the next_cls_cb parameter may contain a callable whose prototype is:
+                cbk(pkt:Packet, lst:List[Packet], cur:Optional[Packet], remain:str) -> Optional[Packet_metaclass]
+                The pkt argument contains a reference to the Packet instance containing the PacketListField that is
+                being dissected. The lst argument is the list of all Packet instances that were previously parsed during
+                the current PacketListField dissection, save for the very last Packet instance. The cur argument
+                contains a reference to that very last parsed Packet instance. The remain argument contains the bytes
+                that may still be consumed by the current PacketListField dissection operation. This callback returns
+                either the type of the next Packet to dissect or None to indicate that no more Packet are to be
+                dissected.
+                These four arguments allows a variety of dynamic discovery of the number of Packet to dissect and of the
+                type of each one of these Packets, including: type determination based on current Packet instances or
+                its underlayers, continuation based on the previously parsed Packet instances within that
+                PacketListField, continuation based on a look-ahead on the bytes to be dissected...
+
+        The cls and next_cls_cb parameters are semantically exclusive, although one could specify both. If both are
+        specified, cls is silently ignored. The same is true for count_from and next_cls_cb.
+        length_from and next_cls_cb are compatible and the dissection will end, whichever of the two stop conditions
+        comes first.
+
+        @param name: the name of the field
+        @param default: the default value of this field; generally an empty Python list
+        @param cls: either a callable returning a Packet instance or a class object defining a dispatch_hook class
+            method
+        @param count_from: a callback returning the number of Packet instances to dissect
+        @param length_from: a callback returning the number of bytes to dissect
+        @param next_cls_cb: a callback returning either None or the type of the next Packet to dissect.
+        """
         if default is None:
             default = []  # Create a new list for each instance
         PacketField.__init__(self, name, default, cls)
         self.count_from = count_from
         self.length_from = length_from
-
+        self.next_cls_cb = next_cls_cb
 
     def any2i(self, pkt, x):
         if not isinstance(x, list):
@@ -462,11 +521,14 @@ class PacketListField(PacketField):
         else:
             return [p if isinstance(p, bytes) else p.copy() for p in x]
     def getfield(self, pkt, s):
-        c = l = None
+        c = l = cls = None
         if self.length_from is not None:
             l = self.length_from(pkt)
         elif self.count_from is not None:
             c = self.count_from(pkt)
+        if self.next_cls_cb is not None:
+            cls = self.next_cls_cb(pkt, [], None, s)
+            c = 1
 
         lst = []
         ret = b""
@@ -479,7 +541,10 @@ class PacketListField(PacketField):
                     break
                 c -= 1
             try:
-                p = self.m2i(pkt,remain)
+                if cls is not None:
+                    p = cls(remain)
+                else:
+                    p = self.m2i(pkt, remain)
             except Exception:
                 if conf.debug_dissector:
                     raise
@@ -490,6 +555,10 @@ class PacketListField(PacketField):
                     pad = p[conf.padding_layer]
                     remain = pad.load
                     del(pad.underlayer.payload)
+                    if self.next_cls_cb is not None:
+                        cls = self.next_cls_cb(pkt, lst, p, remain)
+                        if cls is not None:
+                            c += 1
                 else:
                     remain = b""
             lst.append(p)
