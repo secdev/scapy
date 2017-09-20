@@ -11,22 +11,37 @@ Color themes for the interactive console.
 ## Color themes ##
 ##################
 
-class Color:
-    normal = "\033[0m"
-    black = "\033[30m"
-    red = "\033[31m"
-    green = "\033[32m"
-    yellow = "\033[33m"
-    blue = "\033[34m"
-    purple = "\033[35m"
-    cyan = "\033[36m"
-    grey = "\033[37m"
+class ColorTable:
+    colors = { # Format: (ansi, pygments)
+        "normal": ("\033[0m", "noinherit"),
+        "black": ("\033[30m", "#ansiblack"),
+        "red": ("\033[31m", "#ansired"),
+        "green": ("\033[32m", "#ansigreen"),
+        "yellow": ("\033[33m", "#ansiyellow"),
+        "blue": ("\033[34m", "#ansiblue"),
+        "purple": ("\033[35m", "#ansipurple"),
+        "cyan": ("\033[36m", "#ansicyan"),
+        "grey": ("\033[37m", "#ansigrey"),
 
-    bold = "\033[1m"
-    uline = "\033[4m"
-    blink = "\033[5m"
-    invert = "\033[7m"
+        "bold": ("\033[1m", "bold"),
+        "uline": ("\033[4m", "underline"),
+        "blink": ("\033[5m", ""),
+        "invert": ("\033[7m", ""),
+        }
+
+    def __repr__(self):
+        return "<ColorTable>"
+
+    def __getattr__(self, attr):
+        return self.colors.get(attr, [""])[0]
+    
+    def ansi_to_pygments(self, x): # Transform ansi encoded text to Pygments text
+        inv_map = {v[0]: v[1] for k, v in self.colors.items()}
+        for k, v in inv_map.items():
+            x = x.replace(k, " "+v)
+        return x.strip()
         
+Color = ColorTable()
 
 def create_styler(fmt=None, before="", after="", fmt2="%s"):
     def do_style(val, fmt=fmt, before=before, after=after, fmt2=fmt2):
@@ -41,7 +56,12 @@ def create_styler(fmt=None, before="", after="", fmt2="%s"):
 class ColorTheme:
     def __repr__(self):
         return "<%s>" % self.__class__.__name__
+    def __reduce__(self):
+        return (self.__class__, (), ())
     def __getattr__(self, attr):
+        if attr in ["__getstate__", "__setstate__", "__getinitargs__",
+                    "__reduce_ex__"]:
+            raise AttributeError()
         return create_styler()
         
 
@@ -268,16 +288,14 @@ class HTMLTheme2(HTMLTheme):
     style_right = "#[#span class=right#]#%s#[#/span#]#"
 
 
-class ColorPrompt:
-    __prompt = ">>> "
-    def __str__(self):
-        try:
-            from scapy import config
-            ct = config.conf.color_theme
-            if isinstance(ct, AnsiColorTheme):
-                ## ^A and ^B delimit invisible characters for readline to count right
-                return "\001%s\002" % ct.prompt("\002"+config.conf.prompt+"\001")
-            else:
-                return ct.prompt(config.conf.prompt)
-        except:
-            return self.__prompt
+def apply_ipython_color(shell):
+    """Updates the specified IPython console shell with
+    the conf.color_theme scapy theme."""
+    from IPython.terminal.prompts import Prompts, Token
+    shell.highlighting_style_overrides = {
+        Token.Prompt: Color.ansi_to_pygments(conf.color_theme.style_prompt),
+    }
+    try:
+        get_ipython().refresh_style()
+    except NameError:
+        pass

@@ -36,7 +36,7 @@ def get_temp_file(keep=False, autoext=""):
     f = os.tempnam("","scapy")
     if not keep:
         conf.temp_files.append(f+autoext)
-    return f
+    return f + autoext
 
 def sane_color(x):
     r=""

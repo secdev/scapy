@@ -761,36 +761,6 @@ def read_routes6():
         warning("Error building scapy IPv6 routing table : %s" % str(e), True)
     return routes6
 
-if conf.interactive_shell != 'ipython' and conf.interactive:
-    try:
-        __IPYTHON__
-    except NameError:
-        def readLineScapy(prompt):
-            result = ""
-            end = False
-            while not end :
-                if not end and result != "":
-                    line = readline.rl.readline("... ")
-                else:
-                    line = readline.rl.readline(prompt)
-                if line.strip().endswith(":"):
-                    end = False
-                elif result == "":
-                    end = True
-                if line.strip() == "":
-                    end = True
-                result = result + "\n" + line
-            return six.text_type(result)
-        try:
-            import readline
-            console = readline.GetOutputFile()
-        except (ImportError, AttributeError):
-            log_loading.info("Could not get readline console. Will not interpret ANSI color codes.") 
-        else:
-            conf.readfunc = readLineScapy
-            orig_stdout = sys.stdout
-            sys.stdout = console
-
 def get_working_if():
     try:
         # return the interface associated with the route with smallest
