@@ -31,6 +31,7 @@ ETH_P_ALL = 3
 ETH_P_IP = 0x800
 ETH_P_ARP = 0x806
 ETH_P_IPV6 = 0x86dd
+ETH_P_MACSEC = 0x88e5
 
 # From net/if_arp.h
 ARPHDR_ETHER = 1

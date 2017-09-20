@@ -143,6 +143,7 @@ class ARPSourceMACField(SourceMACField):
 ### Layers
 
 ETHER_TYPES['802_AD'] = 0x88a8
+ETHER_TYPES['802_1AE'] = ETH_P_MACSEC
 
 class Ether(Packet):
     name = "Ethernet"
@@ -409,6 +410,7 @@ class Loopback(Packet):
 
 class Dot1AD(Dot1Q):
     name = '802_1AD'
+
 
 bind_layers( Dot3,          LLC,           )
 bind_layers( Ether,         LLC,           type=122)
