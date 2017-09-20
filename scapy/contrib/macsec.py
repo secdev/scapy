@@ -45,9 +45,9 @@ class MACsecSA(object):
     of MACsec frames
     """
     def __init__(self, sci, an, pn, key, icvlen, encrypt, send_sci):
-        if type(sci) == type(int()) or type(sci) == type(long()):
+        if isinstance(sci, int) or isinstance(sci, long):
             self.sci = struct.pack('!Q', sci)
-        elif type(sci) == type(str()):
+        elif isinstance(sci, str):
             self.sci = sci
         else:
             raise TypeError("SCI must be either str or int")
