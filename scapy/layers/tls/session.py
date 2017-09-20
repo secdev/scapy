@@ -7,13 +7,12 @@
 TLS session handler.
 """
 
-from __future__ import print_function
 import random
 import socket
 import struct
 
 from scapy.config import conf
-from scapy.error import warning
+from scapy.error import log_runtime, warning
 from scapy.packet import Packet
 from scapy.utils import repr_hex, strxor
 from scapy.layers.tls.crypto.compression import Comp_NULL
@@ -109,10 +108,11 @@ class connState(object):
 
     def debug_repr(self, name, secret):
         if conf.debug_tls and secret:
-            print("%s %s %s: %s" % (self.connection_end,
-                                    self.row,
-                                    name,
-                                    repr_hex(secret)))
+            log_runtime.debug("TLS: %s %s %s: %s",
+                              self.connection_end,
+                              self.row,
+                              name,
+                              repr_hex(secret))
 
     def derive_keys(self,
                     client_random="",
@@ -526,7 +526,7 @@ class tlsSession(object):
                                                  self.server_random)
         self.master_secret = ms
         if conf.debug_tls:
-            print("master secret: %s" % repr_hex(ms))
+            log_runtime.debug("TLS: master secret: %s", repr_hex(ms))
 
     def compute_ms_and_derive_keys(self):
         self.compute_master_secret()
@@ -554,8 +554,8 @@ class tlsSession(object):
                                             2*self.pwcs.cipher.key_len)
         self.sslv2_key_material = km
         if conf.debug_tls:
-            print("master secret: %s" % repr_hex(self.master_secret))
-            print("key material: %s" % repr_hex(km))
+            log_runtime.debug("TLS: master secret: %s", repr_hex(self.master_secret))
+            log_runtime.debug("TLS: key material: %s", repr_hex(km))
 
     def compute_sslv2_km_and_derive_keys(self):
         self.compute_sslv2_key_material()
@@ -931,7 +931,7 @@ class _tls_sessions(object):
     def add(self, session):
         s = self.find(session)
         if s:
-            print("TLS session already exists. Not adding...")
+            log_runtime.info("TLS: previous session shall not be overwritten")
             return
 
         h = session.hash()
@@ -943,7 +943,7 @@ class _tls_sessions(object):
     def rem(self, session):
         s = self.find(session)
         if s:
-            print("TLS session does not exist. Not removing...")
+            log_runtime.info("TLS: previous session shall not be overwritten")
             return
 
         h = session.hash()
@@ -955,10 +955,10 @@ class _tls_sessions(object):
             for k in self.sessions[h]:
                 if k.eq(session):
                     if conf.tls_verbose:
-                        print("Found Matching session %s" % k)
+                        log_runtime.info("TLS: found session matching %s", k)
                     return k
         if conf.tls_verbose:
-            print("Did not find matching session %s" % session)
+            log_runtime.info("TLS: did not find session matching %s", session)
         return None
 
     def __repr__(self):

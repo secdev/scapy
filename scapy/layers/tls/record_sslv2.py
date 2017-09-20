@@ -6,10 +6,10 @@
 SSLv2 Record.
 """
 
-from __future__ import print_function
 import struct
 
 from scapy.config import conf
+from scapy.error import log_runtime
 from scapy.fields import *
 from scapy.packet import *
 from scapy.layers.tls.session import _GenericTLSSessionInheritance
@@ -140,7 +140,8 @@ class SSLv2(TLS):
         # Verify integrity
         is_mac_ok = self._sslv2_mac_verify(cfrag + pad, mac)
         if not is_mac_ok:
-            print("INTEGRITY CHECK FAILED")
+            pkt_info = self.firstlayer().summary()
+            log_runtime.info("TLS: record integrity check failed [%s]", pkt_info)
 
         reconstructed_body = mac + cfrag + pad
         return hdr + reconstructed_body + r

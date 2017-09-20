@@ -7,10 +7,10 @@
 The _TLSAutomaton class provides methods common to both TLS client and server.
 """
 
-from __future__ import print_function
 import struct
 
 from scapy.automaton import Automaton
+from scapy.error import log_interactive
 from scapy.packet import Raw
 from scapy.layers.tls.basefields import _tls_type
 from scapy.layers.tls.cert import Cert, PrivKey
@@ -219,5 +219,5 @@ class _TLSAutomaton(Automaton):
 
     def vprint(self, s=""):
         if self.verbose:
-            print("> %s" % s)
+            log_interactive.info("> %s", s)
 
