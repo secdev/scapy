@@ -68,7 +68,7 @@ class MACsecSA(object):
         split the packet into associated data, plaintext or ciphertext, and
         optional ICV
         """
-        data = str(pkt)
+        data = raw(pkt)
         assoc = data[:assoclen]
         if icvlen:
             icv = data[-icvlen:]
@@ -121,7 +121,7 @@ class MACsecSA(object):
         next_layer = packet[MACsec].payload
         del prev_layer.payload
         if prev_layer.name == Ether().name:
-            return Ether(str(prev_layer/next_layer))
+            return Ether(raw(prev_layer/next_layer))
         return prev_layer/next_layer
 
     def encrypt(self, orig_pkt, assoclen=None):
