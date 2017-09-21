@@ -36,6 +36,7 @@ from scapy.fields import (Field, BitField, BitEnumField, XBitField, ByteField,
 from scapy.layers.inet import TCP
 from scapy.layers.inet6 import IP6Field
 from scapy.config import conf, ConfClass
+from scapy.compat import *
 from scapy.error import log_runtime
 import scapy.modules.six as six
 
@@ -241,7 +242,7 @@ class BGPNLRIPacketListField(PacketListField):
                 remain = s
 
         while remain:
-            mask_length_in_bits = struct.unpack("!B", remain[0])[0]
+            mask_length_in_bits = orb(remain[0])
             mask_length_in_bytes = (mask_length_in_bits + 7) // 8
             current = remain[:mask_length_in_bytes + 1]
             remain = remain[mask_length_in_bytes + 1:]
@@ -436,7 +437,7 @@ def _bgp_dispatcher(payload):
                 payload[:16] == _BGP_HEADER_MARKER:
 
             # Get BGP message type
-            message_type = struct.unpack("!B", payload[18])[0]
+            message_type = orb(payload[18])
             if message_type == 4:
                 cls = _get_cls("BGPKeepAlive")
             else:
@@ -562,7 +563,7 @@ def _bgp_capability_dispatcher(payload):
     else:
         length = len(payload)
         if length >= _BGP_CAPABILITY_MIN_SIZE:
-            code = struct.unpack("!B", payload[0])[0]
+            code = orb(payload[0])
             cls = _get_cls(_capabilities_objects.get(code, "BGPCapGeneric"))
 
     return cls
@@ -761,7 +762,7 @@ class BGPCapORFBlockPacketListField(PacketListField):
         while remain:
             # block length: afi (2 bytes) + reserved (1 byte) + safi (1 byte) +
             # orf_number (1 byte) + entries (2 bytes * orf_number)
-            orf_number = struct.unpack("!B", remain[4])[0]
+            orf_number = orb(remain[4])
             entries_length = orf_number * 2
             current = remain[:5 + entries_length]
             remain = remain[5 + entries_length:]
@@ -878,7 +879,7 @@ class BGPOptParamPacketListField(PacketListField):
             remain, ret = s[:length], s[length:]
 
         while remain:
-            param_len = struct.unpack("!B", remain[1])[0]  # Get param length
+            param_len = orb(remain[1])  # Get param length
             current = remain[:2 + param_len]
             remain = remain[2 + param_len:]
             packet = self.m2i(pkt, current)
@@ -1076,7 +1077,7 @@ class BGPPathAttrPacketListField(PacketListField):
         while remain:
             #
             # Get the path attribute flags
-            flags = struct.unpack("!B", remain[0])[0]
+            flags = orb(remain[0])
 
             attr_len = 0
             if has_extended_length(flags):
@@ -1084,7 +1085,7 @@ class BGPPathAttrPacketListField(PacketListField):
                 current = remain[:4 + attr_len]
                 remain = remain[4 + attr_len:]
             else:
-                attr_len = struct.unpack("!B", remain[2])[0]
+                attr_len = orb(remain[2])
                 current = remain[:3 + attr_len]
                 remain = remain[3 + attr_len:]
 
@@ -1137,7 +1138,7 @@ class ASPathSegmentPacketListField(PacketListField):
         while remain:
             #
             # Get the segment length
-            segment_length = struct.unpack("!B", remain[1])[0]
+            segment_length = orb(remain[1])
 
             if bgp_module_conf.use_2_bytes_asn:
                 current = remain[:2 + segment_length * 2]
@@ -2424,7 +2425,7 @@ class BGPORFEntryPacketListField(PacketListField):
                 # Address Prefix ORF
                 # Get the length, in bits, of the prefix
                 prefix_len = _bits_to_bytes_len(
-                    struct.unpack("!B", remain[6])[0]
+                    orb(remain[6])
                 )
                 # flags (1 byte) + sequence (4 bytes) + min_len (1 byte) +
                 # max_len (1 byte) + mask_len (1 byte) + prefix_len
@@ -2448,7 +2449,7 @@ class BGPORFEntryPacketListField(PacketListField):
                 elif _orf_entry_afi == 25:
                     # sequence (4 bytes) + min_len (1 byte) + max_len (1 byte) +
                     # rt (8 bytes) + import_rt (8 bytes)
-                    route_type = struct.unpack("!B", remain[22])[0]
+                    route_type = orb(remain[22])
 
                     if route_type == 2:
                         # MAC / IP Advertisement Route
