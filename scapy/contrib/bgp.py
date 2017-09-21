@@ -400,6 +400,14 @@ class BGPHeader(Packet):
         ByteEnumField("type", 4, _bgp_message_types)
     ]
 
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        """
+        Returns the right class for the given data.
+        """
+
+        return _bgp_dispatcher(_pkt)
+
     def post_build(self, p, pay):
         if self.len is None:
             length = len(p)

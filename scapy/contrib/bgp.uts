@@ -85,6 +85,19 @@ h = BGP(b'\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x
 assert(h.type == BGP.OPEN_TYPE)
 assert(h.len == 19)
 
+############################### BGPKeepAlive  #################################
++ BGPKeepAlive class tests
+
+= BGPKeepAlive - Instantiation (by default, should be a "generic" capability)
+raw(BGPKeepAlive())
+raw(BGPKeepAlive()) == b'\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x13\x04'
+
+= BGPKeepAlive - Swallowing tests: combined BGPKeepAlive
+o = BGPKeepAlive()
+m=IP(src="12.0.0.1",dst="12.0.0.2")/TCP(dport=54321)/BGP(raw(o)*2)
+m.show()
+assert isinstance(m[BGPKeepAlive].payload, BGPKeepAlive)
+assert m[BGPKeepAlive].payload.marker == 0xffffffffffffffffffffffffffffffff
 
 ############################### BGPCapability #################################
 + BGPCapability class tests
