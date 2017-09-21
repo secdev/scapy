@@ -64,13 +64,13 @@ log_interactive = logging.getLogger("scapy.interactive")  # logs in interactive 
 log_loading = logging.getLogger("scapy.loading")          # logs when loading Scapy
 
 
-def warning(x, *args, **kargs):
+def warning(x, onlyOnce=False, *args, **kargs):
     """
     Prints a warning during runtime.
 
     onlyOnce - if True, the warning will never be printed again.
     """ 
-    if kargs.pop("onlyOnce", False):
+    if onlyOnce:
         from scapy.config import conf
         conf.warning_next_only_once = True
     log_runtime.warning(x, *args, **kargs)

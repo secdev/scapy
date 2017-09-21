@@ -26,7 +26,7 @@ except:
 # before the console handlers gets added in interact()
 from scapy.error import log_interactive, log_loading, log_scapy, warning
 import scapy.modules.six as six
-from scapy.themes import DefaultTheme, apply_ipython_color
+from scapy.themes import DefaultTheme, apply_ipython_style
 
 IGNORED = list(six.moves.builtins.__dict__)
 
@@ -494,13 +494,7 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
             get_ipython
         except NameError:
             # Set "classic" prompt style when launched from run_scapy(.bat) files
-            class ClassicPrompt(Prompts):
-                def in_prompt_tokens(self, cli=None):
-                   return [(Token.Prompt, '>>> '),]
-                def out_prompt_tokens(self):
-                   return [(Token.OutPrompt, ''),]
-            cfg.TerminalInteractiveShell.prompts_class=ClassicPrompt # Set classic prompt style
-            apply_ipython_color(shell=cfg.TerminalInteractiveShell) # Register and apply scapy color style
+            apply_ipython_style(shell=cfg.TerminalInteractiveShell) # Register and apply scapy color+prompt style
             cfg.TerminalInteractiveShell.confirm_exit = False # Remove confirm exit
             cfg.TerminalInteractiveShell.separate_in = u'' # Remove spacing line
 

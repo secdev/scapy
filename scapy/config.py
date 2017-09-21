@@ -14,7 +14,7 @@ import os,time,socket,sys
 from scapy import VERSION
 from scapy.data import *
 from scapy import base_classes
-from scapy.themes import NoTheme, apply_ipython_color
+from scapy.themes import NoTheme, apply_ipython_style
 from scapy.error import log_scapy
 import scapy.modules.six as six
 
@@ -329,11 +329,11 @@ def isCryptographyAdvanced():
 def _prompt_changer(attr, val):
     """Change the current prompt theme"""
     try:
-        sys.ps1 = val.prompt(conf.prompt)
+        sys.ps1 = conf.color_theme.prompt(conf.prompt)
     except:
         pass
     try:
-        apply_ipython_color(get_ipython())
+        apply_ipython_style(get_ipython())
     except NameError:
         pass
 
@@ -385,7 +385,7 @@ debug_tls:When 1, print some TLS session secrets when they are computed.
     checkIPinIP = True
     check_TCPerror_seqack = 0
     verb = 2
-    prompt = ">>> "
+    prompt = Interceptor("prompt", ">>> ", _prompt_changer)
     promisc = 1
     sniff_promisc = 1
     raw_layer = None
