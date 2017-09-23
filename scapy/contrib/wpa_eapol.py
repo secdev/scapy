@@ -18,6 +18,8 @@
 from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.l2 import *
+from scapy.layers.eap import EAPOL
+
 
 class WPA_key(Packet):
     name = "WPA_key"
@@ -27,7 +29,7 @@ class WPA_key(Packet):
                     StrFixedLenField("replay_counter", "", 8),
                     StrFixedLenField("nonce", "", 32),
                     StrFixedLenField("key_iv", "", 16),
-                    StrFixedLenField("wpa_key_rsc", "", 8), 
+                    StrFixedLenField("wpa_key_rsc", "", 8),
                     StrFixedLenField("wpa_key_id", "", 8),
                     StrFixedLenField("wpa_key_mic", "", 16),
                     LenField("wpa_key_length", None, "H"),
@@ -41,6 +43,6 @@ class WPA_key(Packet):
         if isinstance(other,WPA_key):
                return 1
         return 0
-             
+
 
 bind_layers( EAPOL,         WPA_key,       type=3)
