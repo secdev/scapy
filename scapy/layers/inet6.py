@@ -2993,7 +2993,7 @@ class MIP6MH_CoTI(MIP6MH_HoTI):
     name = "IPv6 Mobility Header - Care-of Test Init"
     mhtype = 2
     def hashret(self):
-        return self.cookie
+        return raw(self.cookie)
 
 class MIP6MH_HoT(_MobilityHeader):
     name = "IPv6 Mobility Header - Home Test"
@@ -3010,7 +3010,7 @@ class MIP6MH_HoT(_MobilityHeader):
                                           length_from = lambda pkt: 8*(pkt.len-2)) ]
     overload_fields = { IPv6: { "nh": 135 } }
     def hashret(self):
-        return self.cookie
+        return raw(self.cookie)
     def answers(self, other):
         if (isinstance(other, MIP6MH_HoTI) and
             self.cookie == other.cookie):
@@ -3021,7 +3021,7 @@ class MIP6MH_CoT(MIP6MH_HoT):
     name = "IPv6 Mobility Header - Care-of Test"
     mhtype = 4
     def hashret(self):
-        return self.cookie
+        return raw(self.cookie)
 
     def answers(self):
         if (isinstance(other, MIP6MH_CoTI) and
@@ -3139,7 +3139,7 @@ class  AS_resolver6(AS_resolver_riswhois):
 
         _, asn, desc = AS_resolver_riswhois._resolve_one(self, addr)
 
-        if asn.startswith(b"AS"):
+        if asn.startswith("AS"):
             try:
                 asn = int(asn[2:])
             except ValueError:

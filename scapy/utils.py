@@ -459,7 +459,9 @@ class ContextManagerCaptureOutput(object):
     def __exit__(self, *exc):
         sys.stdout = self.bck_stdout
         return False
-    def get_output(self):
+    def get_output(self, eval_bytes=False):
+        if self.result_export_object.startswith("b'") and eval_bytes:
+            return plain_str(eval(self.result_export_object))
         return self.result_export_object
 
 def do_graph(graph,prog=None,format=None,target=None,type=None,string=None,options=None):

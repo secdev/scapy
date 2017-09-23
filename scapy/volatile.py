@@ -89,6 +89,7 @@ class VolatileValue:
         return raw(self._fix())
     def __len__(self):
         return len(self._fix())
+
     def _fix(self):
         return None
 
@@ -110,25 +111,31 @@ class RandNum(RandField):
         return int(self._fix())
     def __index__(self):
         return int(self)
+    def __add__(self, other):
+        return self._fix() + other
+    def __sub__(self, other):
+        return self._fix() - other
+    def __mul__(self, other):
+        return self._fix() * other
+    def __floordiv__(self, other):
+        return self._fix() / other
+    __div__ = __floordiv__
 
-    def __str__(self):
-        return str(self._fix())
-
-class RandNumGamma(RandField):
+class RandNumGamma(RandNum):
     def __init__(self, alpha, beta):
         self.alpha = alpha
         self.beta = beta
     def _fix(self):
         return int(round(random.gammavariate(self.alpha, self.beta)))
 
-class RandNumGauss(RandField):
+class RandNumGauss(RandNum):
     def __init__(self, mu, sigma):
         self.mu = mu
         self.sigma = sigma
     def _fix(self):
         return int(round(random.gauss(self.mu, self.sigma)))
 
-class RandNumExpo(RandField):
+class RandNumExpo(RandNum):
     def __init__(self, lambd, base=0):
         self.lambd = lambd
         self.base = base
@@ -234,6 +241,8 @@ class RandString(RandField):
         for _ in range(self.size):
             s += random.choice(self.chars)
         return s
+    def __mul__(self, n):
+        return self._fix()*n
 
 class RandBin(RandString):
     def __init__(self, size=None):

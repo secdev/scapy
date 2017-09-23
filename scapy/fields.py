@@ -694,7 +694,7 @@ class FieldListField(Field):
             return len(val)
         return 1
     def i2len(self, pkt, val):
-        return sum( self.field.i2len(pkt,v) for v in val )
+        return int(sum(self.field.i2len(pkt,v) for v in val))
 
     def i2m(self, pkt, val):
         if val is None:

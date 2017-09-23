@@ -183,8 +183,6 @@ class RandDHCPOptions(RandField):
             else:
                 op.append((o.name, o.randval()._fix()))
         return op
-    def __bytes__(self):
-        return raw(self._fix())
 
 
 class DHCPOptionsField(StrField):
@@ -218,7 +216,7 @@ class DHCPOptionsField(StrField):
                 opt.append("pad")
                 x = x[1:]
                 continue
-            if len(x) < 2 or len(x) < ord(x[1])+2:
+            if len(x) < 2 or len(x) < orb(x[1])+2:
                 opt.append(x)
                 break
             elif o in DHCPOptions:
@@ -244,7 +242,7 @@ class DHCPOptionsField(StrField):
                     opt.append(otuple)
                     x = x[olen+2:]
             else:
-                olen = ord(x[1])
+                olen = orb(x[1])
                 opt.append((o, x[2:olen+2]))
                 x = x[olen+2:]
         return opt
@@ -274,7 +272,7 @@ class DHCPOptionsField(StrField):
 
             elif (isinstance(o, str) and o in DHCPRevOptions and 
                   DHCPRevOptions[o][1] == None):
-                s += raw(DHCPRevOptions[o][0])
+                s += chb(DHCPRevOptions[o][0])
             elif isinstance(o, int):
                 s += chb(o)+b"\0"
             elif isinstance(o, (str, bytes)):

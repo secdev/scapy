@@ -275,8 +275,8 @@ import mock
 def test_export_import_object():
     with ContextManagerCaptureOutput() as cmco:
         export_object(2807)
-        result_export_object = cmco.get_output()
-    assert(result_export_object.endswith(b"eNprYPL9zqUHAAdrAf8=\n\n"))
+        result_export_object = cmco.get_output(eval_bytes=True)
+    assert(result_export_object.startswith("eNprYPL9zqUHAAdrAf8=\n"))
     assert(import_object(result_export_object) == 2807)
 
 test_export_import_object()
@@ -5368,7 +5368,7 @@ assert value == 'abcdefg'
 = fragment()
 payloadlen, fragsize = 100, 8
 assert fragsize % 8 == 0
-fragcount = (payloadlen / fragsize) + bool(payloadlen % fragsize)
+fragcount = (payloadlen // fragsize) + bool(payloadlen % fragsize)
 * create the packet
 pkt = IP() / ("X" * payloadlen)
 * create the fragments
@@ -5399,7 +5399,7 @@ assert ffrags[-1].flags == 0
 * fragment offset should be well computed
 plen = 0
 for p in ffrags:
-    assert p.frag == plen / 8
+    assert p.frag == plen // 8
     plen += len(p.payload)
 
 assert plen == payloadlen
@@ -5447,7 +5447,7 @@ assert plist_def[0][DNSRR].rrname == 'nyc.gov.'
 = Packet().fragment()
 payloadlen, fragsize = 100, 8
 assert fragsize % 8 == 0
-fragcount = (payloadlen / fragsize) + bool(payloadlen % fragsize)
+fragcount = (payloadlen // fragsize) + bool(payloadlen % fragsize)
 * create the packet
 pkt = IP() / ("X" * payloadlen)
 * create the fragments
@@ -8171,7 +8171,7 @@ assert(rek == 'b')
 = RandSingNum
 ~ not_pypy
 random.seed(0x2807)
-rs = RandSingNum(-28, 07)
+rs = RandSingNum(-28, 7)
 assert(rs == 3)
 assert(rs == -27)
 
@@ -8577,7 +8577,7 @@ BOOTP().hashret() == b"\x00\x00\x00\x00"
 
 import random
 random.seed(0x2807)
-raw(RandDHCPOptions()) == "[('WWW_server', '90.219.239.175')]"
+str(RandDHCPOptions()) == "[('WWW_server', '90.219.239.175')]"
 
 value = ("hostname", "scapy")
 dof = DHCPOptionsField("options", value)
@@ -8586,14 +8586,14 @@ dof.i2m("", value) == b'\x0cscapy'
 
 unknown_value_end = b"\xfe" + b"\xff"*257
 udof = DHCPOptionsField("options", unknown_value_end)
-udof.m2i("", unknown_value_end) == [(254, '\xff'*255), 'end']
+udof.m2i("", unknown_value_end) == [(254, b'\xff'*255), 'end']
 
 unknown_value_pad = b"\xfe" + b"\xff"*256 + b"\x00"
 udof = DHCPOptionsField("options", unknown_value_pad)
-udof.m2i("", unknown_value_pad) == [(254, '\xff'*255), 'pad']
+udof.m2i("", unknown_value_pad) == [(254, b'\xff'*255), 'pad']
 
 = DHCP - build
-s = raw(IP()/UDP()/BOOTP(chaddr="00:01:02:03:04:05")/DHCP(options=[("message-type","discover"),"end"]))
+s = raw(IP(src="127.0.0.1")/UDP()/BOOTP(chaddr="00:01:02:03:04:05")/DHCP(options=[("message-type","discover"),"end"]))
 s == b'E\x00\x01\x10\x00\x01\x00\x00@\x11{\xda\x7f\x00\x00\x01\x7f\x00\x00\x01\x00C\x00D\x00\xfcf\xea\x01\x01\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0000:01:02:03:04:0\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00c\x82Sc5\x01\x01\xff'
 
 = DHCP - dissection
