@@ -200,6 +200,12 @@ def list_contrib(name=None):
 ## Session saving/restoring ##
 ##############################
 
+def update_ipython_session(session):
+    """Updates IPython session with a custom one"""
+    try:
+        get_ipython().user_ns.update(session)
+    except:
+        pass
 
 def save_session(fname=None, session=None, pickleProto=-1):
     """Save current Scapy session to the file specified in the fname arg.
@@ -216,15 +222,20 @@ def save_session(fname=None, session=None, pickleProto=-1):
     log_interactive.info("Use [%s] as session file" % fname)
 
     if session is None:
-        session = six.moves.builtins.__dict__["scapy_session"]
+        try:
+            session = get_ipython().user_ns
+        except:
+            session = six.moves.builtins.__dict__["scapy_session"]
 
     to_be_saved = session.copy()
     if "__builtins__" in to_be_saved:
         del(to_be_saved["__builtins__"])
 
-    for k in to_be_saved.keys():
+    for k in list(to_be_saved.keys()):
         i = to_be_saved[k]
         if hasattr(i, "__module__") and (k[0] == "_" or i.__module__.startswith("IPython")):
+            del(to_be_saved[k])
+        if isinstance(i, ConfClass):
             del(to_be_saved[k])
         elif isinstance(i, (type, type, types.ModuleType)):
             if k[0] != "_":
@@ -261,6 +272,7 @@ def load_session(fname=None):
     scapy_session = six.moves.builtins.__dict__["scapy_session"]
     scapy_session.clear()
     scapy_session.update(s)
+    update_ipython_session(scapy_session)
 
     log_loading.info("Loaded session [%s]" % fname)
     
@@ -277,6 +289,7 @@ def update_session(fname=None):
         s = six.moves.cPickle.load(open(fname,"rb"))
     scapy_session = six.moves.builtins.__dict__["scapy_session"]
     scapy_session.update(s)
+    update_ipython_session(scapy_session)
 
 def init_session(session_name, mydict=None):
     global SESSION
@@ -319,6 +332,7 @@ def init_session(session_name, mydict=None):
 
     if mydict is not None:
         six.moves.builtins.__dict__["scapy_session"].update(mydict)
+        update_ipython_session(mydict)
         GLOBKEYS.extend(mydict)
 
 ################
