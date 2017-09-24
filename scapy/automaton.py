@@ -73,7 +73,12 @@ else:
 class SelectableObject:
     """DEV: to implement one of those, you need to add 2 things to your object:
     - add "check_recv" function
-    - call "self.call_release" once you are ready to be read"""
+    - call "self.call_release" once you are ready to be read
+
+    You can set the __selectable_force_select__ to True in the class, if you want to
+    force the handler to use fileno(). This may only be useable on sockets created using
+    the builtin socket API."""
+    __selectable_force_select__ = False
     def check_recv(self):
         """DEV: will be called only once (at beginning) to check if the object is ready."""
         raise OSError("This method must be overwriten.")
@@ -145,13 +150,20 @@ class SelectableSelector(object):
     def process(self):
         """Entry point of SelectableSelector"""
         if WINDOWS:
+            select_inputs = []
             for i in self.inputs:
                 if not isinstance(i, SelectableObject):
                     warning("Unknown ignored object type: " + str(type(i)))
+                elif i.__selectable_force_select__:
+                    # Then use select.select
+                    select_inputs.append(i)
                 elif not self.remain and i.check_recv():
                     self.results.append(i)
                 else:
                     i.wait_return(self._exit_door)
+            if len(select_inputs) > 0:
+                # Use default select function
+                self.results.extend(select(select_inputs, [], [], self.remain)[0])
             if not self.remain:
                 return self.results
 
@@ -171,7 +183,6 @@ def select_objects(inputs, remain):
     
     inputs: objects to process
     remain: timeout. If 0, return [].
-    customTypes: types of the objects that have the check_recv function.
     """
     handler = SelectableSelector(inputs, remain)
     return handler.process()

@@ -18,6 +18,7 @@ p = PipeEngine(s)
 p.graph(type="png",target="> /tmp/pipe.png")
 p.start()
 time.sleep(3)
+s.msg = []
 p.stop()
 
 = Test add_pipe
@@ -441,3 +442,116 @@ assert "hello" in r
 assert "trigger" in r
 
 p.stop()
+
+= TriggerDrain and TriggeredQueueingValve on low channel
+
+p = PipeEngine()
+
+s = CLIFeeder()
+r, w = os.pipe()
+
+d1 = TriggerDrain(lambda x:x=="trigger")
+d2 = TriggeredQueueingValve()
+c = QueueSink(name="c")
+s > d1 > d2 > c
+d1 ^ d2
+
+p.add(s)
+p.start()
+
+s.send("trigger")
+s.send("hello")
+s.send("trigger")
+assert c.q.get(timeout=3) == "trigger"
+assert d2.q.qsize() == 0
+assert 'hello' in c.q.queue and 'trigger' in c.q.queue
+
+p.stop()
+
+= TriggerDrain and TriggeredQueueingValve on high channel
+
+p = PipeEngine()
+
+s = CLIHighFeeder()
+r, w = os.pipe()
+
+d1 = TriggerDrain(lambda x:x=="trigger")
+d2 = TriggeredQueueingValve()
+c = QueueSink(name="c")
+s >> d1 >> d2 >> c
+d1 ^ d2
+
+p.add(s)
+p.start()
+
+s.send("trigger")
+s.send("hello")
+s.send("trigger")
+assert c.q.get(timeout=3) == "trigger"
+assert d2.q.qsize() == 0
+assert c.q.queue == deque(['hello'])
+
+p.stop()
+
+= UDPDrain
+
+p = PipeEngine()
+
+s = CLIFeeder()
+s2 = CLIHighFeeder()
+d1 = UDPDrain()
+c = QueueSink()
+
+s > d1 > c
+s2 >> d1 >> c
+
+p.add(s)
+p.add(s2)
+p.start()
+
+s.send(IP(src="127.0.0.1")/UDP()/DNS())
+s2.send(DNS())
+
+res = [c.q.get(timeout=2), c.q.get(timeout=2)]
+assert b'\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00' in res
+res.remove(b'\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+assert DNS in res[0] and res[0][UDP].sport == 1234
+
+p.stop()
+
+= FDSourceSink on a Bunch object
+
+class Bunch:
+    __init__ = lambda self, **kw: setattr(self, '__dict__', kw)
+
+fd = Bunch(write=lambda x: None, read=lambda: "hello", fileno=lambda: None)
+
+s = FDSourceSink(fd)
+d = Drain()
+c = QueueSink()
+s > d > c
+
+assert s.fileno() == None
+s.push("data")
+s.deliver()
+assert c.q.get(timeout=1) == "hello"
+
+= TCPConnectPipe networking test
+~ networking needs_root
+
+p = PipeEngine()
+
+s = CLIFeeder()
+d1 = TCPConnectPipe(addr="www.google.fr", port=80)
+c = QueueSink()
+
+s > d1 > c
+
+p.add(s)
+p.start()
+
+s.send("GET http://www.google.fr/search?q=scapy&start=1&num=1\n")
+result = c.q.get(timeout=10)
+p.stop()
+
+assert result.startswith("HTTP/1.0 200 OK")
