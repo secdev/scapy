@@ -18,6 +18,7 @@
 from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.l2 import *
+from scapy.layers.eap import EAPOL
 
 class WPA_key(Packet):
     name = "WPA_key"
