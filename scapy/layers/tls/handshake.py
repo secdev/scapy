@@ -37,8 +37,7 @@ from scapy.layers.tls.crypto.compression import (_tls_compression_algs,
 from scapy.layers.tls.crypto.suites import (_tls_cipher_suites,
                                             _tls_cipher_suites_cls,
                                             _GenericCipherSuite,
-                                            _GenericCipherSuiteMetaclass,
-                                            TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256)
+                                            _GenericCipherSuiteMetaclass)
 
 
 ###############################################################################
@@ -156,6 +155,8 @@ class _CipherSuitesField(StrLenField):
         return self.i2s.get(x, fmt % x)
 
     def any2i(self, pkt, x):
+        if x is None:
+            return None
         if not isinstance(x, list):
             x = [x]
         return [self.any2i_one(pkt, z) for z in x]
@@ -184,6 +185,8 @@ class _CipherSuitesField(StrLenField):
         return res
 
     def i2len(self, pkt, i):
+        if i is None:
+            return 0
         return len(i)*self.itemsize
 
 
@@ -227,8 +230,7 @@ class TLSClientHello(_TLSHandshake):
 
                     FieldLenField("cipherslen", None, fmt="!H",
                                   length_of="ciphers"),
-                    _CipherSuitesField("ciphers",
-                                       [TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256],
+                    _CipherSuitesField("ciphers", None,
                                        _tls_cipher_suites, itemfmt="!H",
                                        length_from=lambda pkt: pkt.cipherslen),
 
@@ -250,6 +252,21 @@ class TLSClientHello(_TLSHandshake):
     def post_build(self, p, pay):
         if self.random_bytes is None:
             p = p[:10] + randstring(28) + p[10+28:]
+
+        # if no ciphersuites were provided, we add a few usual, supported
+        # ciphersuites along with the appropriate extensions
+        if self.ciphers is None:
+            cipherstart = 39 + (self.sidlen or 0)
+            s = b"001ac02bc023c02fc027009e0067009c003cc009c0130033002f000a"
+            p = p[:cipherstart] + bytes.decode(s, 'hex') + p[cipherstart+2:]
+            if self.ext is None:
+                ext_len = b'\x00\x2c'
+                ext_reneg = b'\xff\x01\x00\x01\x00'
+                ext_sn = b'\x00\x00\x00\x0f\x00\r\x00\x00\nsecdev.org'
+                ext_sigalg = b'\x00\r\x00\x08\x00\x06\x04\x03\x04\x01\x02\x01'
+                ext_supgroups = b'\x00\n\x00\x04\x00\x02\x00\x17'
+                p += ext_len + ext_reneg + ext_sn + ext_sigalg + ext_supgroups
+
         return super(TLSClientHello, self).post_build(p, pay)
 
     def tls_session_update(self, msg_str):
