@@ -9110,3 +9110,22 @@ if test_pyx():
     plist.pdfdump(filename)
     assert(os.path.exists(filename))
     os.unlink(filename)
+
+############
+############
++ Scapy version
+
+= _version()
+
+import os
+version_filename = os.path.join(scapy._SCAPY_PKG_DIR, "VERSION")
+
+version = scapy._version()
+assert(os.path.exists(version_filename))
+
+import mock
+with mock.patch("scapy._version_from_git_describe") as version_mocked:
+  version_mocked.side_effect = Exception()
+  assert(scapy._version() == version)
+  os.unlink(version_filename)
+  assert(scapy._version() == "git-archive.dev$Format:%h")
