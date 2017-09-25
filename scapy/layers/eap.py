@@ -256,7 +256,7 @@ class EAP(Packet):
                        for fldname, fldvalue in flt.iteritems()):
                     return self
         else:
-            return Packet.getlayer(self, cls, nb, _track, **flt)
+            return super(EAP, self).getlayer(cls, nb=nb, _track=_track, **flt)
 
     def answers(self, other):
         if isinstance(other, EAP):

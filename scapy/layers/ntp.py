@@ -268,7 +268,7 @@ class NTP(Packet):
                        for fldname, fldvalue in flt.iteritems()):
                     return self
         else:
-            return Packet.getlayer(self, cls, nb, _track, **flt)
+            return super(NTP, self).getlayer(cls, nb=nb, _track=_track, **flt)
 
     def mysummary(self):
         return self.sprintf("NTP v%ir,NTP.version%, %NTP.mode%")

@@ -627,7 +627,9 @@ class BGPCapability(six.with_metaclass(_BGPCapability_metaclass, Packet)):
                        for fldname, fldvalue in flt.iteritems()):
                     return self
         else:
-            return Packet.getlayer(self, cls, nb, _track, **flt)
+            return super(BGPCapability, self).getlayer(
+                cls, nb=nb, _track=_track, **flt
+            )
 
     def post_build(self, p, pay):
         length = 0
