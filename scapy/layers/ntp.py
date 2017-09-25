@@ -255,21 +255,20 @@ class NTP(Packet):
             ret = 1
         return ret
 
-    def getlayer(self, cls, nb=1, _track=None):
+    def getlayer(self, cls, nb=1, _track=None, **flt):
         ntp_classes = [
             get_cls("NTPHeader"),
             get_cls("NTPControl"),
             get_cls("NTPPrivate")
         ]
-        layer = None
         if cls == NTP:
             for ntp_class in ntp_classes:
-                if isinstance(self, ntp_class):
-                    layer = self
-                    break
+                if isinstance(self, ntp_class) and \
+                   all(self.getfieldval(fldname) == fldvalue
+                       for fldname, fldvalue in flt.iteritems()):
+                    return self
         else:
-            layer = Packet.getlayer(self, cls, nb, _track)
-        return layer
+            return Packet.getlayer(self, cls, nb, _track, **flt)
 
     def mysummary(self):
         return self.sprintf("NTP v%ir,NTP.version%, %NTP.mode%")

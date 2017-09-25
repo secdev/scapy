@@ -888,8 +888,12 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
                     if ret:
                         return ret
         return self.payload.haslayer(cls)
-    def getlayer(self, cls, nb=1, _track=None):
-        """Return the nb^th layer that is an instance of cls."""
+
+    def getlayer(self, cls, nb=1, _track=None, **flt):
+        """Return the nb^th layer that is an instance of cls, matching flt
+values.
+
+        """
         if isinstance(cls, int):
             nb = cls+1
             cls = None
@@ -898,13 +902,15 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         else:
             ccls,fld = cls,None
         if cls is None or self.__class__ == cls or self.__class__.__name__ == ccls:
-            if nb == 1:
-                if fld is None:
-                    return self
+            if all(self.getfieldval(fldname) == fldvalue
+                   for fldname, fldvalue in flt.iteritems()):
+                if nb == 1:
+                    if fld is None:
+                        return self
+                    else:
+                        return self.getfieldval(fld)
                 else:
-                    return self.getfieldval(fld)
-            else:
-                nb -=1
+                    nb -=1
         for f in self.packetfields:
             fvalue_gen = self.getfieldval(f.name)
             if fvalue_gen is None:
@@ -918,7 +924,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
                     if ret is not None:
                         return ret
                     nb = track[0]
-        return self.payload.getlayer(cls,nb,_track=_track)
+        return self.payload.getlayer(cls, nb=nb, _track=_track, **flt)
 
     def firstlayer(self):
         q = self
@@ -930,13 +936,11 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         if isinstance(cls, slice):
             lname = cls.start
             if cls.stop:
-                ret = self.getlayer(cls.start, cls.stop)
+                ret = self.getlayer(cls.start, nb=cls.stop, **(cls.step or {}))
             else:
-                ret = self.getlayer(cls.start)
-            if ret is None and cls.step is not None:
-                ret = cls.step
+                ret = self.getlayer(cls.start, **(cls.step or {}))
         else:
-            lname=cls
+            lname = cls
             ret = self.getlayer(cls)
         if ret is None:
             if isinstance(lname, Packet_metaclass):
@@ -1287,7 +1291,7 @@ class NoPayload(Packet):
         return isinstance(other, NoPayload) or isinstance(other, conf.padding_layer)
     def haslayer(self, cls):
         return 0
-    def getlayer(self, cls, nb=1, _track=None):
+    def getlayer(self, cls, nb=1, _track=None, **flt):
         if _track is not None:
             _track.append(nb)
         return None

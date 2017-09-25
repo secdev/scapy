@@ -619,16 +619,15 @@ class BGPCapability(six.with_metaclass(_BGPCapability_metaclass, Packet)):
             ret = 1
         return ret
 
-    def getlayer(self, cls, nb=1, _track=None):
-        layer = None
+    def getlayer(self, cls, nb=1, _track=None, **flt):
         if cls == BGPCapability:
             for cap_class in _capabilities_registry:
-                if isinstance(self, _capabilities_registry[cap_class]):
-                    layer = self
-                    break
+                if isinstance(self, _capabilities_registry[cap_class]) and \
+                   all(self.getfieldval(fldname) == fldvalue
+                       for fldname, fldvalue in flt.iteritems()):
+                    return self
         else:
-            layer = Packet.getlayer(self, cls, nb, _track)
-        return layer
+            return Packet.getlayer(self, cls, nb, _track, **flt)
 
     def post_build(self, p, pay):
         length = 0

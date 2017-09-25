@@ -248,16 +248,15 @@ class EAP(Packet):
             ret = 1
         return ret
 
-    def getlayer(self, cls, nb=1, _track=None):
-        layer = None
+    def getlayer(self, cls, nb=1, _track=None, **flt):
         if cls == EAP:
             for eap_class in EAP.registered_methods.values():
-                if isinstance(self, eap_class):
-                    layer = self
-                    break
+                if isinstance(self, eap_class) and \
+                   all(self.getfieldval(fldname) == fldvalue
+                       for fldname, fldvalue in flt.iteritems()):
+                    return self
         else:
-            layer = Packet.getlayer(self, cls, nb, _track)
-        return layer
+            return Packet.getlayer(self, cls, nb, _track, **flt)
 
     def answers(self, other):
         if isinstance(other, EAP):

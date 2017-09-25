@@ -8645,6 +8645,11 @@ Dot11(type=0, subtype=1).answers(query) == True
 assert Dot11Elt(info="scapy").summary() == "SSID='scapy'"
 assert Dot11Elt(ID=1).mysummary() == ""
 
+= Multiple Dot11Elt layers
+pkt = Dot11() / Dot11Beacon() / Dot11Elt(ID="Rates") / Dot11Elt(ID="SSID", info="Scapy")
+assert pkt[Dot11Elt::{"ID": 0}].info == "Scapy"
+assert pkt.getlayer(Dot11Elt, ID=0).info == "Scapy"
+
 = Dot11WEP - build
 ~ crypto
 conf.wepkey = ""

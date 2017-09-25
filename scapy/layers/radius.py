@@ -278,17 +278,15 @@ class RadiusAttribute(Packet):
             return True
         return False
 
-    def getlayer(self, cls, nb=1, _track=None):
-        layer = None
+    def getlayer(self, cls, nb=1, _track=None, **flt):
         if cls == RadiusAttribute:
             for attr_class in RadiusAttribute.registered_attributes.values():
-                if isinstance(self, attr_class):
-                    layer = self
-                    break
+                if isinstance(self, attr_class) and \
+                   all(self.getfieldval(fldname) == fldvalue
+                       for fldname, fldvalue in flt.iteritems()):
+                    return self
         else:
-            layer = Packet.getlayer(self, cls, nb, _track)
-        return layer
-
+            return Packet.getlayer(self, cls, nb, _track, **flt)
 
     def post_build(self, p, pay):
         length = self.len
