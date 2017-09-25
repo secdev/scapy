@@ -480,15 +480,10 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
         banner = the_banner + " using IPython %s\n" % IPython.__version__
         from IPython.terminal.embed import InteractiveShellEmbed
         from IPython.terminal.prompts import Prompts, Token
-        from IPython.utils.generics import complete_object
         from traitlets.config.loader import Config
         from scapy.packet import Packet
 
         cfg = Config()
-
-        @complete_object.when_type(Packet)
-        def complete_packet(obj, prev_completions):
-            return prev_completions + [fld.name for fld in obj.fields_desc]
 
         try:
             get_ipython
