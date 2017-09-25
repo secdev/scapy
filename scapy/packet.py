@@ -284,6 +284,25 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
             pass
         return object.__delattr__(self, attr)
             
+    def _superdir(self):
+        """
+        Return a list of slots and methods, including those from subclasses.
+        """
+        attrs = set()
+        cls = self.__class__
+        if hasattr(cls, '__all_slots__'):
+            attrs.update(cls.__all_slots__)
+        for bcls in cls.__mro__:
+            if hasattr(bcls, '__dict__'):
+                attrs.update(bcls.__dict__)
+        return attrs
+
+    def __dir__(self):
+        """
+        Add fields to tab completion list.
+        """
+        return sorted(itertools.chain(self._superdir(), self.default_fields))
+
     def __repr__(self):
         s = ""
         ct = conf.color_theme
