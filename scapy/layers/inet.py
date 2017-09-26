@@ -310,7 +310,7 @@ class TCPOptionsField(StrField):
                             oval = (oval,)
                         oval = struct.pack(ofmt, *oval)
                 else:
-                    warning("option [%s] unknown. Skipped."%oname)
+                    warning("option [%s] unknown. Skipped.", oname)
                     continue
             else:
                 onum = oname

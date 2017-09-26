@@ -251,7 +251,7 @@ def read_routes():
             if addrfamily == socket.AF_INET:
                 ifaddr = scapy.utils.inet_ntoa(ifreq[20:24])
             else:
-                warning("Interface %s: unkown address family (%i)"%(iff, addrfamily))
+                warning("Interface %s: unkown address family (%i)", iff, addrfamily)
                 continue
 
         # Attempt to detect an interface alias based on addresses inconsistencies
@@ -430,7 +430,7 @@ class L3PacketSocket(SuperSocket):
             lvl = 3
         else:
             cls = conf.default_l2
-            warning("Unable to guess type (interface=%s protocol=%#x family=%i). Using %s" % (sa_ll[0],sa_ll[1],sa_ll[3],cls.name))
+            warning("Unable to guess type (interface=%s protocol=%#x family=%i). Using %s", sa_ll[0], sa_ll[1], sa_ll[3], cls.name)
             lvl = 2
 
         try:
@@ -504,7 +504,7 @@ class L2Socket(SuperSocket):
             self.LL = conf.l3types[sa_ll[1]]
         else:
             self.LL = conf.default_l2
-            warning("Unable to guess type (interface=%s protocol=%#x family=%i). Using %s" % (sa_ll[0],sa_ll[1],sa_ll[3],self.LL.name))
+            warning("Unable to guess type (interface=%s protocol=%#x family=%i). Using %s", sa_ll[0], sa_ll[1], sa_ll[3], self.LL.name)
     def close(self):
         if self.closed:
             return
@@ -586,8 +586,8 @@ class L2ListenSocket(SuperSocket):
         else:
             cls = conf.default_l2
             warning("Unable to guess type (interface=%s protocol=%#x "
-                    "family=%i). Using %s" % (sa_ll[0], sa_ll[1], sa_ll[3],
-                                              cls.name))
+                    "family=%i). Using %s", sa_ll[0], sa_ll[1], sa_ll[3],
+                                              cls.name)
 
         try:
             pkt = cls(pkt)

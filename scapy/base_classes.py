@@ -256,7 +256,7 @@ class NewDefaultValues(Packet_metaclass):
         except:
             f,l="??",-1
             raise
-        log_loading.warning("Deprecated (no more needed) use of NewDefaultValues  (%s l. %i)." % (f,l))
+        log_loading.warning("Deprecated (no more needed) use of NewDefaultValues  (%s l. %i).", f, l)
         
         return super(NewDefaultValues, cls).__new__(cls, name, bases, dct)
 

@@ -219,7 +219,7 @@ class Route6:
                 pathes.append((plen, (iface, cset, gw)))
 
         if not pathes:
-            warning("No route found for IPv6 destination %s (no default route?)" % dst)
+            warning("No route found for IPv6 destination %s (no default route?)", dst)
             return (scapy.consts.LOOPBACK_INTERFACE, "::", "::")
 
         # Sort with longest prefix first
@@ -236,7 +236,7 @@ class Route6:
                 res.append((p[0], (tmp[0], srcaddr, tmp[2])))
 
         if res == []:
-            warning("Found a route for IPv6 destination '%s', but no possible source address." % dst)
+            warning("Found a route for IPv6 destination '%s', but no possible source address.", dst)
             return (scapy.consts.LOOPBACK_INTERFACE, "::", "::")
 
         # Symptom  : 2 routes with same weight (our weight is plen)

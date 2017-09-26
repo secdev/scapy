@@ -128,7 +128,7 @@ def _tls_del_pad(p):
         return False
 
     if (p.fragment[-padlen:] != p.fragment[-1] * padlen):
-        warning("Padding content is invalid %s" % repr(p.fragment[-padlen:]))
+        warning("Padding content is invalid %s", repr(p.fragment[-padlen:]))
         return False
 
     p.fragment = p.fragment[:-padlen]

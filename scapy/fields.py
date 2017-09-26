@@ -104,7 +104,7 @@ class Field(six.with_metaclass(Field_metaclass, object)):
                 l = int(self.fmt[1:-1])
             return RandBin(l)
         else:
-            warning("no random class for [%s] (fmt=%s)." % (self.name, self.fmt))
+            warning("no random class for [%s] (fmt=%s).", self.name, self.fmt)
 
 
 

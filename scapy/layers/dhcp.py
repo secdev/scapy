@@ -263,7 +263,7 @@ class DHCPOptionsField(StrField):
                         lval = [f.addfield(pkt,b"",f.any2i(pkt,val)) for val in lval]
                     oval = b"".join(lval)
                 else:
-                    warning("Unknown field option %s" % name)
+                    warning("Unknown field option %s", name)
                     continue
 
                 s += chb(onum)
@@ -278,7 +278,7 @@ class DHCPOptionsField(StrField):
             elif isinstance(o, (str, bytes)):
                 s += raw(o)
             else:
-                warning("Malformed option %s" % o)
+                warning("Malformed option %s", o)
         return s
 
 

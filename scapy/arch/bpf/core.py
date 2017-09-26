@@ -40,13 +40,13 @@ def get_if_raw_addr(ifname):
     try:
         fd = os.popen("%s %s" % (conf.prog.ifconfig, ifname))
     except OSError as msg:
-        warning("Failed to execute ifconfig: (%s)" % msg)
+        warning("Failed to execute ifconfig: (%s)", msg)
         return b"\0\0\0\0"
 
     # Get IPv4 addresses
     addresses = [l for l in fd if l.find("netmask") >= 0]
     if not addresses:
-        warning("No IPv4 address found on %s !" % ifname)
+        warning("No IPv4 address found on %s !", ifname)
         return b"\0\0\0\0"
 
     # Pack the first address
@@ -159,7 +159,7 @@ def get_working_ifaces():
         try:
             result = get_if(ifname, SIOCGIFFLAGS)
         except IOError as msg:
-            warning("ioctl(SIOCGIFFLAGS) failed on %s !" % ifname)
+            warning("ioctl(SIOCGIFFLAGS) failed on %s !", ifname)
             continue
 
         # Convert flags

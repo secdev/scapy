@@ -606,7 +606,7 @@ def read_routes():
         else:
             routes = _read_routes_7()
     except Exception as e:    
-        warning("Error building scapy IPv4 routing table : %s" % str(e), True)
+        warning("Error building scapy IPv4 routing table : %s", e, onlyOnce=True)
     else:
         if not routes:
             warning("No default IPv4 routes found. Your Windows release may no be supported and you have to enter your routes manually", True)
@@ -636,7 +636,7 @@ def _read_routes_post2008():
             # try:
             #     intf = pcapdnet.dnet.intf().get_dst(pcapdnet.dnet.addr(type=2, addrtxt=dest))
             # except OSError:
-            #     log_loading.warning("Building Scapy's routing table: Couldn't get outgoing interface for destination %s" % dest)
+            #     log_loading.warning("Building Scapy's routing table: Couldn't get outgoing interface for destination %s", dest)
             #     continue               
             routes.append((atol(match.group(2)), itom(int(match.group(3))),
                            match.group(4), iface, iface.ip))
@@ -759,7 +759,7 @@ def read_routes6():
         else:
             routes6 = _read_routes6_7()
     except Exception as e:    
-        warning("Error building scapy IPv6 routing table : %s" % str(e), True)
+        warning("Error building scapy IPv6 routing table : %s", e, onlyOnce=True)
     return routes6
 
 def get_working_if():
