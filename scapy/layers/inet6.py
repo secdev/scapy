@@ -109,7 +109,7 @@ def getmacbyip6(ip6, chainCC=0):
     """
     
     if isinstance(ip6, Net6):
-        ip6 = iter(ip6).next()
+        ip6 = str(ip6)
 
     if in6_ismaddr(ip6): # Multicast
         mac = in6_getnsmac(inet_pton(socket.AF_INET6, ip6))
@@ -387,15 +387,15 @@ class _IPv6GuessPayload:
     name = "Dummy class that implements guess_payload_class() for IPv6"
     def default_payload_class(self,p):
         if self.nh == 58: # ICMPv6
-            t = ord(p[0])
+            t = orb(p[0])
             if len(p) > 2 and (t == 139 or t == 140): # Node Info Query
                 return _niquery_guesser(p)
-            if len(p) >= icmp6typesminhdrlen.get(t, sys.maxint): # Other ICMPv6 messages
+            if len(p) >= icmp6typesminhdrlen.get(t, float("inf")): # Other ICMPv6 messages
                 return get_cls(icmp6typescls.get(t,"Raw"), "Raw")
             return Raw
         elif self.nh == 135 and len(p) > 3: # Mobile IPv6
-            return _mip6_mhtype2cls.get(ord(p[2]), MIP6MH_Generic)
-        elif self.nh == 43 and ord(p[2]) == 4:  # Segment Routing header
+            return _mip6_mhtype2cls.get(orb(p[2]), MIP6MH_Generic)
+        elif self.nh == 43 and orb(p[2]) == 4:  # Segment Routing header
             return IPv6ExtHdrSegmentRouting
         return get_cls(ipv6nhcls.get(self.nh, "Raw"), "Raw")
 
@@ -413,7 +413,7 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
     def route(self):
         dst = self.dst
         if isinstance(dst,Gen):
-            dst = iter(dst).next()
+            dst = next(iter(dst))
         return conf.route6.route(dst)
 
     def mysummary(self):
@@ -554,7 +554,7 @@ class _IPv46(IP):
     @classmethod
     def dispatch_hook(cls, _pkt=None, *_, **kargs):
         if _pkt:
-            if struct.unpack('B', _pkt[0])[0] >> 4 == 6:
+            if orb(_pkt[0]) >> 4 == 6:
                 return IPv6
         elif kargs.get("version") == 6:
             return IPv6
@@ -871,7 +871,7 @@ class _HopByHopOptionsField(PacketListField):
                 if c <= 0:
                     break
                 c -= 1
-            o = ord(x[0]) # Option type
+            o = orb(x[0]) # Option type
             cls = self.cls
             if o in _hbhoptcls:
                 cls = _hbhoptcls[o]
@@ -1007,7 +1007,7 @@ class IPv6ExtHdrSegmentRoutingTLV(Packet):
     @classmethod
     def dispatch_hook(cls, pkt=None, *args, **kargs):
         if pkt:
-            tmp_type = ord(pkt[0])
+            tmp_type = orb(pkt[0])
             return cls.registered_sr_tlv.get(tmp_type, cls)
         return cls
 
@@ -1657,7 +1657,7 @@ class _ICMPv6NDGuessPayload:
     name = "Dummy ND class that implements guess_payload_class()"
     def guess_payload_class(self,p):
         if len(p) > 1:
-            return get_cls(icmp6ndoptscls.get(ord(p[0]),"Raw"), "Raw") # s/Raw/ICMPv6NDOptUnknown/g ?
+            return get_cls(icmp6ndoptscls.get(orb(p[0]),"Raw"), "Raw") # s/Raw/ICMPv6NDOptUnknown/g ?
 
 
 # Beginning of ICMPv6 Neighbor Discovery Options.
@@ -1912,33 +1912,33 @@ class DomainNameListField(StrLenField):
         return len(self.i2m(pkt, x))
 
     def m2i(self, pkt, x):
-        x = plain_str(x)
+        x = plain_str(x) # Decode bytes to string
         res = []
         while x:
             # Get a name until \x00 is reached
             cur = []
-            while x and x[0] != b'\x00':
+            while x and ord(x[0]) != 0:
                 l = ord(x[0])
                 cur.append(x[1:l+1])
                 x = x[l+1:]
             if self.padded:
-              # Discard following \x00 in padded mode
-              if len(cur):
-                res.append(".".join(cur) + ".")
+                # Discard following \x00 in padded mode
+                if len(cur):
+                    res.append(".".join(cur) + ".")
             else:
               # Store the current name
               res.append(".".join(cur) + ".")
-            if x and x[0] == b'\x00':
+            if x and ord(x[0]) == 0:
                 x = x[1:]
         return res
 
     def i2m(self, pkt, x):
         def conditionalTrailingDot(z):
-            if z and z[-1] == b'\x00':
+            if z and orb(z[-1]) == 0:
                 return z
             return z+b'\x00'
         # Build the encode names
-        tmp = [[chb(len(z)) + z for z in y.split('.')] for y in x]
+        tmp = ([chb(len(z)) + z.encode("utf8") for z in y.split('.')] for y in x) # Also encode string to bytes
         ret_string  = b"".join(conditionalTrailingDot(b"".join(x)) for x in tmp)
 
         # In padded mode, add some \x00 bytes
@@ -2130,10 +2130,10 @@ class NonceField(StrFixedLenField):
 @conf.commands.register
 def computeNIGroupAddr(name):
     """Compute the NI group Address. Can take a FQDN as input parameter"""
-    import md5
+    import hashlib
     name = name.lower().split(".")[0]
     record = chr(len(name))+name
-    h = md5.new(record)
+    h = hashlib.md5(record.encode("utf8"))
     h = h.digest()
     addr = "ff02::2:%2x%2x:%2x%2x" % struct.unpack("BBBB", h[:4])
     return addr
@@ -2175,18 +2175,15 @@ def names2dnsrepr(x):
     if isinstance(x, str):
         if x and x[-1] == '\x00': # stupid heuristic
             return x.encode("utf8")
-        x = [x.encode("utf8")]
-    elif type(x) is bytes:
-        if x and x[-1] == 0:
-            return x
+        x = [x]
 
     res = []
     for n in x:
-        termin = b"\x00"
-        if n.count(b'.') == 0: # single-component gets one more
-            termin += b'\x00'
-        n = b"".join(chb(len(y)) + y for y in n.split(b'.')) + termin
-        res.append(n)
+        termin = "\x00"
+        if n.count('.') == 0: # single-component gets one more
+            termin += '\x00'
+        n = "".join(chr(len(y)) + y for y in n.split('.')) + termin
+        res.append(n.encode("utf8"))
     return b"".join(res)
 
 
@@ -2198,17 +2195,18 @@ def dnsrepr2names(x):
     (does not end with a null character, a one element list
     is returned). Result is a list.
     """
+    x = plain_str(x)
     res = []
     cur = ""
     while x:
-        l = ord(x[0])
+        l = orb(x[0])
         x = x[1:]
         if l == 0:
             if cur and cur[-1] == '.':
                 cur = cur[:-1]
             res.append(cur)
             cur = ""
-            if x and ord(x[0]) == 0: # single component
+            if x and orb(x[0]) == 0: # single component
                 x = x[1:]
             continue
         if l & 0xc0: # XXX TODO : work on that -- arno
@@ -2259,7 +2257,7 @@ class NIQueryDataField(StrField):
             res = []
             weird = None
             while val:
-                l = ord(val[0])
+                l = orb(val[0])
                 val = val[1:]
                 if l == 0:
                     if (len(res) > 1 and val): # fqdn with data behind
@@ -2523,7 +2521,7 @@ class ICMPv6NIReplyUnknown(ICMPv6NIReplyNOOP):
 
 def _niquery_guesser(p):
     cls = conf.raw_layer
-    type = ord(p[0])
+    type = orb(p[0])
     if type == 139: # Node Info Query specific stuff
         if len(p) > 6:
             qtype, = struct.unpack("!H", p[4:6])
@@ -2532,7 +2530,7 @@ def _niquery_guesser(p):
                     3: ICMPv6NIQueryIPv6,
                     4: ICMPv6NIQueryIPv4 }.get(qtype, conf.raw_layer)
     elif type == 140: # Node Info Reply specific stuff
-        code = ord(p[1])
+        code = orb(p[1])
         if code == 0:
             if len(p) > 6:
                 qtype, = struct.unpack("!H", p[4:6])
@@ -2864,7 +2862,7 @@ class _MobilityHeader(Packet):
         l = self.len
         if self.len is None:
             l = (len(p)-8)//8
-        p = p[0] + struct.pack("B", l) + p[2:]
+        p = chb(p[0]) + struct.pack("B", l) + chb(p[2:])
         if self.cksum is None:
             cksum = in6_chksum(135, self.underlayer, p)
         else:
@@ -2902,7 +2900,7 @@ class _MobilityOptionsField(PacketListField):
     def m2i(self, pkt, x):
         opt = []
         while x:
-            o = ord(x[0]) # Option type
+            o = orb(x[0]) # Option type
             cls = self.cls
             if o in moboptcls:
                 cls = moboptcls[o]
@@ -2989,13 +2987,13 @@ class MIP6MH_HoTI(_MobilityHeader):
                                           length_from = lambda pkt: 8*(pkt.len-1)) ]
     overload_fields = { IPv6: { "nh": 135 } }
     def hashret(self):
-        return bytes(self.cookie)
+        return raw(self.cookie)
 
 class MIP6MH_CoTI(MIP6MH_HoTI):
     name = "IPv6 Mobility Header - Care-of Test Init"
     mhtype = 2
     def hashret(self):
-        return self.cookie
+        return raw(self.cookie)
 
 class MIP6MH_HoT(_MobilityHeader):
     name = "IPv6 Mobility Header - Home Test"
@@ -3012,7 +3010,7 @@ class MIP6MH_HoT(_MobilityHeader):
                                           length_from = lambda pkt: 8*(pkt.len-2)) ]
     overload_fields = { IPv6: { "nh": 135 } }
     def hashret(self):
-        return self.cookie
+        return raw(self.cookie)
     def answers(self, other):
         if (isinstance(other, MIP6MH_HoTI) and
             self.cookie == other.cookie):
@@ -3023,7 +3021,7 @@ class MIP6MH_CoT(MIP6MH_HoT):
     name = "IPv6 Mobility Header - Care-of Test"
     mhtype = 4
     def hashret(self):
-        return self.cookie
+        return raw(self.cookie)
 
     def answers(self):
         if (isinstance(other, MIP6MH_CoTI) and
@@ -3141,7 +3139,7 @@ class  AS_resolver6(AS_resolver_riswhois):
 
         _, asn, desc = AS_resolver_riswhois._resolve_one(self, addr)
 
-        if asn.startswith(b"AS"):
+        if asn.startswith("AS"):
             try:
                 asn = int(asn[2:])
             except ValueError:

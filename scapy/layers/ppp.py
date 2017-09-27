@@ -208,7 +208,7 @@ class PPP(Packet):
     fields_desc = [ ShortEnumField("proto", 0x0021, _PPP_proto) ]
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
-        if _pkt and ord(_pkt[0]) == 0xff:
+        if _pkt and orb(_pkt[0]) == 0xff:
             cls = HDLC
         return cls
 
@@ -256,7 +256,7 @@ class PPP_IPCP_Option(Packet):
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         if _pkt:
-            o = ord(_pkt[0])
+            o = orb(_pkt[0])
             return cls.registered_options.get(o, cls)
         return cls
 
@@ -324,7 +324,7 @@ class PPP_ECP_Option(Packet):
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         if _pkt:
-            o = ord(_pkt[0])
+            o = orb(_pkt[0])
             return cls.registered_options.get(o, cls)
         return cls
 
@@ -376,7 +376,7 @@ class PPP_LCP(Packet):
     @classmethod
     def dispatch_hook(cls, _pkt = None, *args, **kargs):
         if _pkt:
-            o = ord(_pkt[0])
+            o = orb(_pkt[0])
             if o in [1, 2, 3, 4]:
                 return PPP_LCP_Configure
             elif o in [5,6]:
@@ -423,7 +423,7 @@ class PPP_LCP_Option(Packet):
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         if _pkt:
-            o = ord(_pkt[0])
+            o = orb(_pkt[0])
             return cls.registered_options.get(o, cls)
         return cls
 
@@ -578,7 +578,7 @@ class PPP_PAP(Packet):
     def dispatch_hook(cls, _pkt=None, *_, **kargs):
         code = None
         if _pkt:
-            code = ord(_pkt[0])
+            code = orb(_pkt[0])
         elif "code" in kargs:
             code = kargs["code"]
             if isinstance(code, basestring):
@@ -651,7 +651,7 @@ class PPP_CHAP(Packet):
     def dispatch_hook(cls, _pkt=None, *_, **kargs):
         code = None
         if _pkt:
-            code = ord(_pkt[0])
+            code = orb(_pkt[0])
         elif "code" in kargs:
             code = kargs["code"]
             if isinstance(code, basestring):

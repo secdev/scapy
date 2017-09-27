@@ -19,7 +19,7 @@ from scapy.ansmachine import AnsweringMachine
 from scapy.arch import get_if_raw_hwaddr, in6_getifaddr
 from scapy.config import conf
 from scapy.data import EPOCH, ETHER_ANY
-from scapy.compat import raw, chb
+from scapy.compat import *
 from scapy.error import warning
 from scapy.fields import BitField, ByteEnumField, ByteField, FieldLenField, \
     FlagsField, IntEnumField, IntField, MACField, PacketField, \
@@ -545,7 +545,7 @@ class _UserClassDataField(PacketListField):
     def i2len(self, pkt, z):
         if z is None or z == []:
             return 0
-        return sum(len(str(x)) for x in z)
+        return sum(len(raw(x)) for x in z)
 
     def getfield(self, pkt, s):
         l = self.length_from(pkt)
@@ -736,16 +736,16 @@ class DomainNameField(StrLenField):
     def m2i(self, pkt, x):
         cur = []
         while x:
-            l = ord(x[0])
+            l = orb(x[0])
             cur.append(x[1:1+l])
             x = x[l+1:]
-        ret_str = ".".join(cur)
-        return ret_str
+        ret_str = b".".join(cur)
+        return plain_str(ret_str)
 
     def i2m(self, pkt, x):
         if not x:
             return b""
-        return b"".join(chb(len(z)) + z for z in x.split('.'))
+        return b"".join(chb(len(z)) + z.encode("utf8") for z in x.split('.'))
 
 class DHCP6OptNISDomain(_DHCP6OptGuessPayload):             #RFC3898
     name = "DHCP6 Option - NIS Domain Name"
@@ -1188,7 +1188,7 @@ dhcp6_cls_by_type = {  1: "DHCP6_Solicit",
 def _dhcp6_dispatcher(x, *args, **kargs):
     cls = conf.raw_layer
     if len(x) >= 2:
-        cls = get_cls(dhcp6_cls_by_type.get(ord(x[0]), "Raw"), conf.raw_layer)
+        cls = get_cls(dhcp6_cls_by_type.get(orb(x[0]), "Raw"), conf.raw_layer)
     return cls(x, *args, **kargs)
 
 bind_bottom_up(UDP, _dhcp6_dispatcher, { "dport": 547 } )

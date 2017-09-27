@@ -199,7 +199,7 @@ def _ntp_dispatcher(payload):
     else:
         length = len(payload)
         if length >= _NTP_PACKET_MIN_SIZE:
-            first_byte = struct.unpack("!B", raw(payload[0]))[0]
+            first_byte = orb(payload[0])
 
             # Extract NTP mode
             mode_mask = 0x07
@@ -307,7 +307,7 @@ class NTPAuthenticator(Packet):
     ]
 
     def extract_padding(self, s):
-        return "", s
+        return b"", s
 
 
 class NTPExtension(Packet):
@@ -660,7 +660,7 @@ class NTPStatusPacket(Packet):
     fields_desc = [ShortField("status", 0)]
 
     def extract_padding(self, s):
-        return "", s
+        return b"", s
 
 
 class NTPSystemStatusPacket(Packet):
@@ -678,7 +678,7 @@ class NTPSystemStatusPacket(Packet):
     ]
 
     def extract_padding(self, s):
-        return "", s
+        return b"", s
 
 
 class NTPPeerStatusPacket(Packet):
@@ -699,7 +699,7 @@ class NTPPeerStatusPacket(Packet):
     ]
 
     def extract_padding(self, s):
-        return "", s
+        return b"", s
 
 
 class NTPClockStatusPacket(Packet):
@@ -714,7 +714,7 @@ class NTPClockStatusPacket(Packet):
     ]
 
     def extract_padding(self, s):
-        return "", s
+        return b"", s
 
 
 class NTPErrorStatusPacket(Packet):
@@ -729,7 +729,7 @@ class NTPErrorStatusPacket(Packet):
     ]
 
     def extract_padding(self, s):
-        return "", s
+        return b"", s
 
 
 class NTPControlStatusField(PacketField):

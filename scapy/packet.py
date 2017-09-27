@@ -700,7 +700,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
             if f.islist or f.holds_packets or f.ismutable:
                 self.raw_packet_cache_fields[f.name] = f.do_copy(fval)
             self.fields[f.name] = fval
-        assert(_raw.endswith(s))
+        assert(_raw.endswith(raw(s)))
         self.raw_packet_cache = _raw[:-len(s)] if s else _raw
         self.explicit = 1
         return s
@@ -772,7 +772,8 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
 
     def hide_defaults(self):
         """Removes fields' values that are the same as default values."""
-        for k, v in self.fields.items():  # use .items(): self.fields is modified in the loop
+        for k in list(self.fields.keys()):  # use .items(): self.fields is modified in the loop
+            v = self.fields[k]
             if k in self.default_fields:
                 if self.default_fields[k] == v:
                     del self.fields[k]

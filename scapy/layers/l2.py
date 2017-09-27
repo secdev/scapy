@@ -59,7 +59,7 @@ conf.netcache.new_cache("arp_cache", 120) # cache entries expire after 120s
 @conf.commands.register
 def getmacbyip(ip, chainCC=0):
     """Return MAC address corresponding to a given IP address"""
-    if isinstance(ip,Net):
+    if isinstance(ip, Net):
         ip = iter(ip).next()
     ip = inet_ntoa(inet_aton(ip))
     tmp = [orb(e) for e in inet_aton(ip)]

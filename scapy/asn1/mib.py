@@ -102,7 +102,7 @@ def mib_register(ident, value, the_mib, unresolved):
         return False
     else:
         the_mib[ident] = resval
-        keys = unresolved.keys()
+        keys = list(unresolved.keys())
         i = 0
         while i < len(keys):
             k = keys[i]

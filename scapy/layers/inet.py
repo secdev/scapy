@@ -109,7 +109,7 @@ class IPOption(Packet):
     @classmethod
     def dispatch_hook(cls, pkt=None, *args, **kargs):
         if pkt:
-            opt = ord(pkt[0])&0x1f
+            opt = orb(pkt[0])&0x1f
             if opt in cls.registered_ip_options:
                 return cls.registered_ip_options[opt]
         return cls
@@ -262,7 +262,7 @@ class TCPOptionsField(StrField):
     def m2i(self, pkt, x):
         opt = []
         while x:
-            onum = ord(x[0])
+            onum = orb(x[0])
             if onum == 0:
                 opt.append(("EOL",None))
                 x=x[1:]
@@ -271,7 +271,7 @@ class TCPOptionsField(StrField):
                 opt.append(("NOP",None))
                 x=x[1:]
                 continue
-            olen = ord(x[1])
+            olen = orb(x[1])
             if olen < 2:
                 warning("Malformed TCP option (announced length is %i)" % olen)
                 olen = 2
@@ -399,8 +399,8 @@ class IP(Packet, IPTools):
 
     def route(self):
         dst = self.dst
-        if isinstance(dst,Gen):
-            dst = iter(dst).next()
+        if isinstance(dst, Gen):
+            dst = next(iter(dst))
         if conf.route is None:
             # unused import, only to initialize conf.route
             import scapy.route
@@ -525,7 +525,7 @@ class TCP(Packet):
         dataofs = self.dataofs
         if dataofs is None:
             dataofs = 5+((len(self.get_field("options").i2m(self,self.options))+3)//4)
-            p = p[:12]+chb((dataofs << 4) | ord(p[12])&0x0f)+p[13:]
+            p = p[:12]+chb((dataofs << 4) | orb(p[12])&0x0f)+p[13:]
         if self.chksum is None:
             if isinstance(self.underlayer, IP):
                 ck = in4_chksum(socket.IPPROTO_TCP, self.underlayer, p)
@@ -1159,7 +1159,7 @@ class TracerouteResult(SndRcvList):
                             trlst[t-1] = s
         forecol = colgen(0.625, 0.4375, 0.25, 0.125)
         for trlst in six.itervalues(tr3d):
-            col = forecol.next()
+            col = next(forecol)
             start = (0,0,0)
             for ip in trlst:
                 visual.cylinder(pos=start,axis=ip.pos-start,color=col,radius=0.2)
@@ -1341,7 +1341,7 @@ class TracerouteResult(SndRcvList):
             max_trace = max(trace)
             for n in range(min(trace), max_trace):
                 if n not in trace:
-                    trace[n] = unknown_label.next()
+                    trace[n] = next(unknown_label)
             if rtk not in ports_done:
                 if rtk[2] == 1: #ICMP
                     bh = "%s %i/icmp" % (rtk[1],rtk[3])
@@ -1390,7 +1390,7 @@ class TracerouteResult(SndRcvList):
         s += "\n#ASN clustering\n"
         for asn in ASNs:
             s += '\tsubgraph cluster_%s {\n' % asn
-            col = backcolorlist.next()
+            col = next(backcolorlist)
             s += '\t\tcolor="#%s%s%s";' % col
             s += '\t\tnode [fillcolor="#%s%s%s",style=filled];' % col
             s += '\t\tfontsize = 10;'
@@ -1429,7 +1429,7 @@ class TracerouteResult(SndRcvList):
     
         for rtk in rt:
             s += "#---[%s\n" % repr(rtk)
-            s += '\t\tedge [color="#%s%s%s"];\n' % forecolorlist.next()
+            s += '\t\tedge [color="#%s%s%s"];\n' % next(forecolorlist)
             trace = rt[rtk]
             maxtrace = max(trace)
             for n in range(min(trace), maxtrace):
@@ -1494,7 +1494,7 @@ traceroute(target, [maxttl=30,] [dport=80,] [sport=80,] [verbose=conf.verb]) -> 
 class TCP_client(Automaton):
     
     def parse_args(self, ip, port, *args, **kargs):
-        self.dst = iter(Net(ip)).next()
+        self.dst = str(Net(ip))
         self.dport = port
         self.sport = random.randrange(0,2**16)
         self.l4 = IP(dst=ip)/TCP(sport=self.sport, dport=self.dport, flags=0,

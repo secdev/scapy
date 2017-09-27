@@ -33,7 +33,8 @@ from scapy.base_classes import BasePacketList
 ###########
 
 def get_temp_file(keep=False, autoext=""):
-    f = os.tempnam("","scapy")
+    with tempfile.NamedTemporaryFile(prefix="scapy") as _f:
+        f = _f.name
     if not keep:
         conf.temp_files.append(f+autoext)
     return f + autoext
@@ -41,21 +42,21 @@ def get_temp_file(keep=False, autoext=""):
 def sane_color(x):
     r=""
     for i in x:
-        j = ord(i)
+        j = orb(i)
         if (j < 32) or (j >= 127):
             r=r+conf.color_theme.not_printable(".")
         else:
-            r=r+chb(i)
+            r=r+chr(j)
     return r
 
 def sane(x):
     r=""
     for i in x:
-        j = ord(i)
+        j = orb(i)
         if (j < 32) or (j >= 127):
             r=r+"."
         else:
-            r=r+i
+            r=r+chr(j)
     return r
 
 def lhex(x):
@@ -88,7 +89,7 @@ def hexdump(x, dump=False):
         s += "%04x  " % i
         for j in range(16):
             if i+j < l:
-                s += "%02X" % ord(x[i+j])
+                s += "%02X" % orb(x[i+j])
             else:
                 s += "  "
             if j%16 == 7:
@@ -123,7 +124,7 @@ def linehexdump(x, onlyasc=0, onlyhex=0, dump=False):
     l = len(x)
     if not onlyasc:
         for i in range(l):
-            s += "%02X" % ord(x[i])
+            s += "%02X" % orb(x[i])
         if not onlyhex:  # separate asc & hex if both are displayed
             s += " "
     if not onlyhex:
@@ -146,7 +147,7 @@ def chexdump(x, dump=False):
     :returns: a String only if dump=True
     """
     x = raw(x)
-    s = ", ".join("%#04x" % ord(x) for x in x)
+    s = ", ".join("%#04x" % orb(x) for x in x)
     if dump:
         return s
     else:
@@ -156,14 +157,14 @@ def chexdump(x, dump=False):
 def hexstr(x, onlyasc=0, onlyhex=0):
     s = []
     if not onlyasc:
-        s.append(" ".join("%02x" % ord(b) for b in x))
+        s.append(" ".join("%02x" % orb(b) for b in x))
     if not onlyhex:
         s.append(sane(x)) 
     return "  ".join(s)
 
 def repr_hex(s):
     """ Convert provided bitstring to a simple string of hex digits """
-    return "".join("%02x" % ord(x) for x in s)
+    return "".join("%02x" % orb(x) for x in s)
 
 @conf.commands.register
 def hexdiff(x,y):
@@ -247,7 +248,7 @@ def hexdiff(x,y):
             if i+j < l:
                 if line[j]:
                     col = colorize[(linex[j]!=liney[j])*(doy-dox)]
-                    print(col("%02X" % ord(line[j])), end=' ')
+                    print(col("%02X" % orb(line[j])), end=' ')
                     if linex[j]==liney[j]:
                         cl += sane_color(line[j])
                     else:
@@ -298,7 +299,7 @@ def _fletcher16(charbuf):
     # This is based on the GPLed C implementation in Zebra <http://www.zebra.org/>
     c0 = c1 = 0
     for char in charbuf:
-        c0 += ord(char)
+        c0 += orb(char)
         c1 += c0
 
     c0 %= 255
@@ -458,7 +459,9 @@ class ContextManagerCaptureOutput(object):
     def __exit__(self, *exc):
         sys.stdout = self.bck_stdout
         return False
-    def get_output(self):
+    def get_output(self, eval_bytes=False):
+        if self.result_export_object.startswith("b'") and eval_bytes:
+            return plain_str(eval(self.result_export_object))
         return self.result_export_object
 
 def do_graph(graph,prog=None,format=None,target=None,type=None,string=None,options=None):
@@ -485,7 +488,7 @@ def do_graph(graph,prog=None,format=None,target=None,type=None,string=None,optio
     start_viewer=False
     if target is None:
         if WINDOWS:
-            tempfile = os.tempnam("", "scapy") + "." + format
+            tempfile = get_temp_file() + "." + format
             target = "> %s" % tempfile
             start_viewer = True
         else:
@@ -615,12 +618,12 @@ class Enum_metaclass(type):
 
 
 def export_object(obj):
-    print(gzip.zlib.compress(six.moves.cPickle.dumps(obj,2),9).encode("base64"))
+    print(bytes_codec(gzip.zlib.compress(six.moves.cPickle.dumps(obj,2),9), "base64"))
 
 def import_object(obj=None):
     if obj is None:
         obj = sys.stdin.read()
-    return six.moves.cPickle.loads(gzip.zlib.decompress(obj.strip().decode("base64")))
+    return six.moves.cPickle.loads(gzip.zlib.decompress(base64_bytes(obj.strip())))
 
 
 def save_object(fname, obj):
@@ -949,7 +952,7 @@ class RawPcapNgReader(RawPcapReader):
             # 4.2. - Interface Description Block
             # http://xml2rfc.tools.ietf.org/cgi-bin/xml2rfc.cgi?url=https://raw.githubusercontent.com/pcapng/pcapng/master/draft-tuexen-opsawg-pcapng.xml&modeAsFormat=html/ascii&type=ascii#rfc.section.4.2
             if code == 9 and length == 1 and len(options) >= 5:
-                tsresol = ord(options[4])
+                tsresol = orb(options[4])
                 tsresol = (2 if tsresol & 128 else 10) ** (tsresol & 127)
             if code == 0:
                 if length != 0:
@@ -1095,7 +1098,7 @@ nano:       use nanosecond-precision (requires libpcap >= 1.5.0)
             pkt = pkt.__iter__()
             if not self.header_present:
                 try:
-                    p = pkt.next()
+                    p = next(pkt)
                 except StopIteration:
                     self._write_header(b"")
                     return
@@ -1379,7 +1382,7 @@ def pretty_routes(rtlst, header, sortBy=0):
                 return _r
             rtlst = [tuple([_crop(rtlst[j][i], colwidth[i]) for i in range(0, len(rtlst[j]))]) for j in range(0, len(rtlst))]
             # Recalculate column's width
-            colwidth = [max([len(y) for y in x]) for x in apply(zip, rtlst)]
+            colwidth = [max([len(y) for y in x]) for x in zip(*rtlst)]
     fmt = _space.join(["%%-%ds"%x for x in colwidth])
     rt = "\n".join([fmt % x for x in rtlst])
     return rt

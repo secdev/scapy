@@ -105,7 +105,7 @@ if conf.use_winpcapy:
             if a.contents.addr.contents.sa_family == socket.AF_INET:
               ap = a.contents.addr
               val = cast(ap, POINTER(sockaddr_in))
-              ret = b"".join(chr(x) for x in val.contents.sin_addr[:4])
+              ret = b"".join(chb(x) for x in val.contents.sin_addr[:4])
             a = a.contents.next
           break
         p = p.contents.next
@@ -129,7 +129,7 @@ if conf.use_winpcapy:
           if a.contents.addr.contents.sa_family == socket.AF_INET6:
             ap = a.contents.addr
             val = cast(ap, POINTER(sockaddr_in6))
-            addr = inet_ntop(socket.AF_INET6, "".join(chr(x) for x in val.contents.sin6_addr[:]))
+            addr = inet_ntop(socket.AF_INET6, b"".join(chb(x) for x in val.contents.sin6_addr[:]))
             scope = scapy.utils6.in6_getscope(addr)
             ret.append((addr, scope, p.contents.name.decode('ascii')))
           a = a.contents.next

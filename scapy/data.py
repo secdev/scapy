@@ -224,7 +224,7 @@ def load_manuf(filename):
                     lng=shrt
                 else:
                     lng = l[i+2:]
-                manufdb[oui] = shrt, lng
+                manufdb[oui] = plain_str(shrt), plain_str(lng)
             except Exception:
                 log_loading.warning("Couldn't parse one line from [%s] [%r]",
                                     filename, l, exc_info=True)

@@ -71,7 +71,7 @@ def BER_len_enc(l, size=0):
             raise BER_Exception("BER_len_enc: Length too long (%i) to be encoded [%r]" % (len(s),s))
         return chb(len(s)|0x80)+s
 def BER_len_dec(s):
-        l = ord(s[0])
+        l = orb(s[0])
         if not l & 0x80:
             return l,s[1:]
         l &= 0x7f
@@ -80,7 +80,7 @@ def BER_len_dec(s):
         ll = 0
         for c in s[1:l+1]:
             ll <<= 8
-            ll |= ord(c)
+            ll |= orb(c)
         return ll,s[l+1:]
         
 def BER_num_enc(l, size=1):
@@ -97,7 +97,7 @@ def BER_num_dec(s, cls_id=0):
             raise BER_Decoding_Error("BER_num_dec: got empty string", remaining=s)
         x = cls_id
         for i, c in enumerate(s):
-            c = ord(c)
+            c = orb(c)
             x <<= 7
             x |= c&0x7f
             if not c&0x80:
@@ -123,7 +123,7 @@ def BER_id_dec(s):
     # encoded in scapy's tag in order to reuse it for packet building.
     # Note that tags thus may have to be hard-coded with their extended
     # information, e.g. a SEQUENCE from asn1.py has a direct tag 0x20|16.
-        x = ord(s[0])
+        x = orb(s[0])
         if x & 0x1f != 0x1f:
             # low-tag-number
             return x,s[1:]
@@ -137,7 +137,7 @@ def BER_id_enc(n):
         else:
             # high-tag-number
             s = BER_num_enc(n)
-            tag = ord(s[0])             # first byte, as an int
+            tag = orb(s[0])             # first byte, as an int
             tag &= 0x07                 # reset every bit from 8 to 4
             tag <<= 5                   # move back the info bits on top
             tag |= 0x1f                 # pad with 1s every bit from 5 to 1
@@ -294,11 +294,11 @@ class BERcodec_INTEGER(BERcodec_Object):
         l,s,t = cls.check_type_check_len(s)
         x = 0
         if s:
-            if ord(s[0])&0x80: # negative int
+            if orb(s[0])&0x80: # negative int
                 x = -1
             for c in s:
                 x <<= 8
-                x |= ord(c)
+                x |= orb(c)
         return cls.asn1_object(x),t
     
 class BERcodec_BOOLEAN(BERcodec_INTEGER):
@@ -311,10 +311,10 @@ class BERcodec_BIT_STRING(BERcodec_Object):
         # /!\ the unused_bits information is lost after this decoding
         l,s,t = cls.check_type_check_len(s)
         if len(s) > 0:
-            unused_bits = ord(s[0])
+            unused_bits = orb(s[0])
             if safe and unused_bits > 7:
                 raise BER_Decoding_Error("BERcodec_BIT_STRING: too many unused_bits advertised", remaining=s)
-            s = "".join(binrepr(ord(x)).zfill(8) for x in s[1:])
+            s = "".join(binrepr(orb(x)).zfill(8) for x in s[1:])
             if unused_bits > 0:
                 s = s[:-unused_bits]
             return cls.tag.asn1_object(s),t
@@ -323,12 +323,13 @@ class BERcodec_BIT_STRING(BERcodec_Object):
     @classmethod
     def enc(cls,s):
         # /!\ this is DER encoding (bit strings are only zero-bit padded)
+        s = raw(s)
         if len(s) % 8 == 0:
             unused_bits = 0
         else:
             unused_bits = 8 - len(s)%8
             s += b"0"*unused_bits
-        s = b"".join(chb(int(b"".join(x),2)) for x in zip(*[iter(s)]*8))
+        s = b"".join(chb(int(b"".join(chb(y) for y in x),2)) for x in zip(*[iter(s)]*8))
         s = chb(unused_bits) + s
         return chb(hash(cls.tag))+BER_len_enc(len(s))+s
 
@@ -336,7 +337,7 @@ class BERcodec_STRING(BERcodec_Object):
     tag = ASN1_Class_UNIVERSAL.STRING
     @classmethod
     def enc(cls,s):
-        return chb(hash(cls.tag))+BER_len_enc(len(s))+s
+        return chb(hash(cls.tag))+BER_len_enc(len(s))+raw(s) # Be sure we are encoding bytes
     @classmethod
     def do_dec(cls, s, context=None, safe=False):
         l,s,t = cls.check_type_check_len(s)
