@@ -81,7 +81,10 @@ def inet_pton(af, addr):
     """Convert an IP address from text representation into binary form."""
     # Will replace Net/Net6 objects
     if not isinstance(addr, str):
-        addr = str(addr)
+        if isinstance(addr, bytes):
+            addr = addr.decode()
+        else:
+            addr = str(addr)
     # Use inet_pton if available
     addr = plain_str(addr)
     try:
