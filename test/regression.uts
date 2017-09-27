@@ -730,6 +730,24 @@ assert x[IP].ottl() in [32, 64, 128, 255]
 assert 0 <= x[IP].hops() <= 126
 x is not None and ICMP in x and x[ICMP].type == 0
 
+= Sending and receiving an ICMP with flooding methods
+~ netaccess IP ICMP
+# flooding methods do not support timeout. Packing the test for security
+def _test_flood():
+    old_debug_dissector = conf.debug_dissector
+    conf.debug_dissector = False
+    x = sr1flood(IP(dst="www.google.com")/ICMP())
+    conf.debug_dissector = old_debug_dissector
+    x
+    assert x[IP].ottl() in [32, 64, 128, 255]
+    assert 0 <= x[IP].hops() <= 126
+    x is not None and ICMP in x and x[ICMP].type == 0
+
+t = Thread(target=_test_flood)
+t.start()
+t.join(3)
+assert not t.is_alive()
+
 = Sending and receiving an ICMPv6EchoRequest
 ~ netaccess ipv6
 old_debug_dissector = conf.debug_dissector
