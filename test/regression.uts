@@ -8933,3 +8933,168 @@ if WINDOWS:
     conf.route6.resync()
 
 True
+
+
+############
+############
++ PacketList methods
+
+= plot()
+
+import mock
+@mock.patch("scapy.plist.plt")
+def test_plot(mock_plt):
+    def fake_plot(data, **kwargs):
+        return data
+    mock_plt.plot = fake_plot
+    plist = PacketList([IP(id=i)/TCP() for i in xrange(10)])
+    lines = plist.plot(lambda p: (p.time, p.id))
+    assert(len(lines) == 10)
+
+test_plot()
+
+= diffplot()
+
+import mock
+@mock.patch("scapy.plist.plt")
+def test_diffplot(mock_plt):
+    def fake_plot(data, **kwargs):
+        return data
+    mock_plt.plot = fake_plot
+    plist = PacketList([IP(id=i)/TCP() for i in xrange(10)])
+    lines = plist.diffplot(lambda x,y: (x.time, y.id-x.id))
+    assert(len(lines) == 9)
+
+test_diffplot()
+
+= multiplot()
+
+import mock
+@mock.patch("scapy.plist.plt")
+def test_multiplot(mock_plt):
+    def fake_plot(data, **kwargs):
+        return data
+    mock_plt.plot = fake_plot
+    tmp = [IP(id=i)/TCP() for i in xrange(10)]
+    plist = PacketList([tuple(tmp[i-2:i]) for i in xrange(2, 10, 2)])
+    lines = plist.multiplot(lambda x: (x[1][IP].src, (x[1].time, x[1][IP].id)))
+    assert(len(lines) == 1)
+    assert(len(lines[0]) == 4)
+
+test_multiplot()
+
+= rawhexdump()
+
+def test_rawhexdump():
+    with ContextManagerCaptureOutput() as cmco:
+        p = PacketList([IP()/TCP() for i in xrange(2)])
+        p.rawhexdump()
+        result_pl_rawhexdump = cmco.get_output()
+    assert(len(result_pl_rawhexdump.split('\n')) == 7)
+    assert(result_pl_rawhexdump.startswith("0000  45000028"))
+
+test_rawhexdump()
+
+= hexraw()
+
+def test_hexraw():
+    with ContextManagerCaptureOutput() as cmco:
+        p = PacketList([IP()/Raw(str(i)) for i in xrange(2)])
+        p.hexraw()
+        result_pl_hexraw = cmco.get_output()
+    assert(len(result_pl_hexraw.split('\n')) == 5)
+    assert("0000  30" in result_pl_hexraw)
+
+test_hexraw()
+
+= hexdump()
+
+def test_hexdump():
+    with ContextManagerCaptureOutput() as cmco:
+        p = PacketList([IP()/Raw(str(i)) for i in xrange(2)])
+        p.hexdump()
+        result_pl_hexdump = cmco.get_output()
+    assert(len(result_pl_hexdump.split('\n')) == 7)
+    assert("0010  7F00000131" in result_pl_hexdump)
+
+test_hexdump()
+
+= padding()
+
+def test_padding():
+    with ContextManagerCaptureOutput() as cmco:
+        p = PacketList([IP()/conf.padding_layer(str(i)) for i in xrange(2)])
+        p.padding()
+        result_pl_padding = cmco.get_output()
+    assert(len(result_pl_padding.split('\n')) == 5)
+    assert("0000  30" in result_pl_padding)
+
+test_padding()
+
+= nzpadding()
+
+def test_nzpadding():
+    with ContextManagerCaptureOutput() as cmco:
+        p = PacketList([IP()/conf.padding_layer("A%s" % i) for i in xrange(2)])
+        p.nzpadding()
+        result_pl_nzpadding = cmco.get_output()
+    assert(len(result_pl_nzpadding.split('\n')) == 5)
+    assert("0000  4130" in result_pl_nzpadding)
+
+test_nzpadding()
+
+= conversations()
+
+import mock
+@mock.patch("scapy.plist.do_graph")
+def test_conversations(mock_do_graph):
+    def fake_do_graph(graph, **kwargs):
+        return graph
+    mock_do_graph.side_effect = fake_do_graph
+    plist = PacketList([IP(dst="127.0.0.2")/TCP(dport=i) for i in xrange(2)])
+    plist.extend([IP(src="127.0.0.2")/TCP(sport=i) for i in xrange(2)])
+    result_conversations = plist.conversations()
+    assert(len(result_conversations.split('\n')) == 5)
+    assert(result_conversations.startswith('digraph "conv" {'))
+
+test_conversations()
+
+= afterglow()
+
+import mock
+@mock.patch("scapy.plist.do_graph")
+def test_afterglow(mock_do_graph):
+    def fake_do_graph(graph, **kwargs):
+        return graph
+    mock_do_graph.side_effect = fake_do_graph
+    plist = PacketList([IP(dst="127.0.0.2")/TCP(dport=i) for i in xrange(2)])
+    plist.extend([IP(src="127.0.0.2")/TCP(sport=i) for i in xrange(2)])
+    result_afterglow = plist.afterglow()
+    assert(len(result_afterglow.split('\n')) == 19)
+    assert(result_afterglow.startswith('digraph "afterglow" {'))
+
+test_afterglow()
+
+= psdump()
+
+print(test_pyx())
+if test_pyx():
+    import tempfile
+    import os
+    filename = tempfile.mktemp(suffix=".ps")
+    plist = PacketList([IP()/TCP()])
+    plist.psdump(filename)
+    assert(os.path.exists(filename))
+    os.unlink(filename)
+
+= pdfdump()
+
+print(test_pyx())
+if test_pyx():
+    import tempfile
+    import os
+    filename = tempfile.mktemp(suffix=".pdf")
+    plist = PacketList([IP()/TCP()])
+    plist.pdfdump(filename)
+    assert(os.path.exists(filename))
+    os.unlink(filename)

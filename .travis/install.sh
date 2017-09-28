@@ -19,6 +19,7 @@ fi
 if [ "$SCAPY_COVERAGE" = "yes" ]
 then
   $SCAPY_SUDO pip install $PIP_INSTALL_FLAGS coverage
+  $SCAPY_SUDO apt-get install python-pyx
 fi
 
 # Install pcap & dnet
