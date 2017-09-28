@@ -294,7 +294,7 @@ def in6_getifaddr():
         # addr, index, plen, scope, flags, ifname
         tmp = i.split()
         addr = struct.unpack('4s4s4s4s4s4s4s4s', tmp[0])
-        addr = scapy.utils6.in6_ptop(b':'.join(addr))
+        addr = scapy.utils6.in6_ptop(b':'.join(addr).decode())
         ret.append((addr, int(tmp[3], 16), tmp[5])) # (addr, scope, iface)
     return ret
 
@@ -316,7 +316,7 @@ def read_routes6():
     routes = []
     def proc2r(p):
         ret = struct.unpack('4s4s4s4s4s4s4s4s', raw(p))
-        ret = b':'.join(ret)
+        ret = b':'.join(ret).decode()
         return scapy.utils6.in6_ptop(ret)
     
     lifaddr = in6_getifaddr() 
