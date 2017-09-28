@@ -843,7 +843,8 @@ def main(argv):
     if FORMAT == Format.HTML:
         glob_output = pack_html_campaigns(runned_campaigns, glob_output, LOCAL, glob_title)
     
-    OUTPUTFILE.write(glob_output.encode("utf8", "ignore"))
+    OUTPUTFILE.write(glob_output.encode("utf8", "ignore")
+                     if 'b' in OUTPUTFILE.mode else glob_output)
     OUTPUTFILE.close()
 
     # Return state
