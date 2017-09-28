@@ -12,6 +12,7 @@ echo "SCAPY_SUDO=" $SCAPY_SUDO
 echo "TRAVIS_OS_NAME=" $TRAVIS_OS_NAME
 
 # Dump Scapy config
+python --version
 python -c "from scapy.all import *; print conf"
 
 # Don't run tests that require root privileges
