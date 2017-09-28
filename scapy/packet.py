@@ -551,7 +551,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         def hexstr(x):
             s = []
             for c in x:
-                s.append("%02x" % ord(c))
+                s.append("%02x" % orb(c))
             return " ".join(s)
 
                 
