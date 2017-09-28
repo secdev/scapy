@@ -337,6 +337,11 @@ class TLSServerHello(TLSClientHello):
                 return TLS13ServerHello
         return TLSServerHello
 
+    def post_build(self, p, pay):
+        if self.random_bytes is None:
+            p = p[:10] + randstring(28) + p[10+28:]
+        return super(TLSClientHello, self).post_build(p, pay)
+
     def tls_session_update(self, msg_str):
         """
         Either for parsing or building, we store the server_random
