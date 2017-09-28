@@ -106,7 +106,7 @@ class SelectableObject:
         self.was_ended = arborted
         try:
             self.trigger.release()
-        except (THREAD_EXCEPTION, AttributeError) as e:
+        except (THREAD_EXCEPTION, AttributeError):
             pass
 
 class SelectableSelector(object):
@@ -153,7 +153,7 @@ class SelectableSelector(object):
             select_inputs = []
             for i in self.inputs:
                 if not isinstance(i, SelectableObject):
-                    warning("Unknown ignored object type: " + str(type(i)))
+                    warning("Unknown ignored object type: %s", type(i))
                 elif i.__selectable_force_select__:
                     # Then use select.select
                     select_inputs.append(i)
@@ -161,7 +161,7 @@ class SelectableSelector(object):
                     self.results.append(i)
                 else:
                     i.wait_return(self._exit_door)
-            if len(select_inputs) > 0:
+            if select_inputs:
                 # Use default select function
                 self.results.extend(select(select_inputs, [], [], self.remain)[0])
             if not self.remain:
