@@ -113,8 +113,12 @@ class RandNum(RandField):
         return int(self)
     def __add__(self, other):
         return self._fix() + other
+    def __radd__(self, other):
+        return other + self._fix()
     def __sub__(self, other):
         return self._fix() - other
+    def __rsub__(self, other):
+        return other - self._fix()
     def __mul__(self, other):
         return self._fix() * other
     def __floordiv__(self, other):
@@ -356,7 +360,7 @@ class RandOID(RandString):
             return "<%s [%s]>" % (self.__class__.__name__, self.ori_fmt)
     def _fix(self):
         if self.fmt is None:
-            return ".".join(map(str, [self.idnum for i in range(1+self.depth)]))
+            return ".".join(str(self.idnum) for _ in range(1 + self.depth))
         else:
             oid = []
             for i in self.fmt:

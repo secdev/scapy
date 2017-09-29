@@ -656,7 +656,7 @@ def corrupt_bits(s, p=0.01, n=None):
     if n is None:
         n = max(1,int(l*p))
     for i in random.sample(range(l), n):
-        s[i/8] ^= 1 << (i%8)
+        s[i // 8] ^= 1 << (i % 8)
     return s.tostring()
 
 
