@@ -211,9 +211,13 @@ class L2ListenTcpdump(SuperSocket):
                     filter = "not (%s)" % conf.except_filter
         if filter is not None:
             args.append(filter)
-        self.ins = PcapReader(tcpdump(None, prog=prog, args=args, getfd=True))
+        self.tcpdump_proc = tcpdump(None, prog=prog, args=args, getproc=True)
+        self.ins = PcapReader(self.tcpdump_proc.stdout)
     def recv(self, x=MTU):
         return self.ins.recv(x)
+    def close(self):
+        SuperSocket.close(self)
+        self.tcpdump_proc.kill()
 
 
 class TunTapInterface(SuperSocket):
