@@ -165,6 +165,7 @@ class TCPConnectPipe(Source):
    >-|-[addr:port]-|->
      +-------------+
 """
+    __selectable_force_select__ = True
     def __init__(self, addr="", port=0, name=None):
         Source.__init__(self, name=name)
         self.addr = addr
@@ -181,7 +182,13 @@ class TCPConnectPipe(Source):
     def fileno(self):
         return self.fd.fileno()
     def deliver(self):
-        self._send(self.fd.recv(65536))
+        try:
+            msg = self.fd.recv(65536)
+        except socket.error:
+            self.stop()
+            raise
+        if msg:
+            self._send(msg)
 
 class TCPListenPipe(TCPConnectPipe):
     """TCP listen on [addr:]port and use first connection as source and sink ; send peer address to high output
@@ -191,6 +198,7 @@ class TCPListenPipe(TCPConnectPipe):
    >-|-[addr:port]-|->
      +-------------+
 """
+    __selectable_force_select__ = True
     def __init__(self, addr="", port=0, name=None):
         TCPConnectPipe.__init__(self, addr, port, name)
         self.connected = False
@@ -208,7 +216,13 @@ class TCPListenPipe(TCPConnectPipe):
             self.q.put(msg)
     def deliver(self):
         if self.connected:
-            self._send(self.fd.recv(65536))
+            try:
+                msg = self.fd.recv(65536)
+            except socket.error:
+                self.stop()
+                raise
+            if msg:
+                self._send(msg)
         else:
             fd,frm = self.fd.accept()
             self._high_send(frm)
@@ -277,7 +291,7 @@ class TriggeredValve(Drain):
             self._send(msg)
     def high_push(self, msg):
         if self.opened:
-            self._send(msg)
+            self._high_send(msg)
     def on_trigger(self, msg):
         self.opened ^= True
         self._trigger(msg)
@@ -305,7 +319,7 @@ class TriggeredQueueingValve(Drain):
         if self.opened:
             self._send(msg)
         else:
-            self.hq.put((False,msg))
+            self.q.put((False,msg))
     def on_trigger(self, msg):
         self.opened ^= True
         self._trigger(msg)

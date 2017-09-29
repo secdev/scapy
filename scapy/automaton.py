@@ -74,16 +74,20 @@ else:
 class SelectableObject:
     """DEV: to implement one of those, you need to add 2 things to your object:
     - add "check_recv" function
-    - call "self.call_release" once you are ready to be read"""
-    trigger = threading.Lock()
-    was_ended = False
+    - call "self.call_release" once you are ready to be read
+
+    You can set the __selectable_force_select__ to True in the class, if you want to
+    force the handler to use fileno(). This may only be useable on sockets created using
+    the builtin socket API."""
+    __selectable_force_select__ = False
     def check_recv(self):
         """DEV: will be called only once (at beginning) to check if the object is ready."""
         raise OSError("This method must be overwriten.")
 
     def _wait_non_ressources(self, callback):
         """This get started as a thread, and waits for the data lock to be freed then advertise itself to the SelectableSelector using the callback"""
-        self.call_release()
+        self.trigger = threading.Lock()
+        self.was_ended = False
         self.trigger.acquire()
         self.trigger.acquire()
         if not self.was_ended:
@@ -93,7 +97,9 @@ class SelectableObject:
         """Entry point of SelectableObject: register the callback"""
         if self.check_recv():
             return callback(self)
-        threading.Thread(target=self._wait_non_ressources, args=(callback,)).start()
+        _t = threading.Thread(target=self._wait_non_ressources, args=(callback,))
+        _t.setDaemon(True)
+        _t.start()
         
     def call_release(self, arborted=False):
         """DEV: Must be call when the object becomes ready to read.
@@ -101,7 +107,7 @@ class SelectableObject:
         self.was_ended = arborted
         try:
             self.trigger.release()
-        except THREAD_EXCEPTION as e:
+        except (THREAD_EXCEPTION, AttributeError):
             pass
 
 class SelectableSelector(object):
@@ -112,10 +118,6 @@ class SelectableSelector(object):
     remain: timeout. If 0, return [].
     customTypes: types of the objects that have the check_recv function.
     """
-    results = None
-    inputs = None
-    available_lock = None
-    _ended = False
     def _release_all(self):
         """Releases all locks to kill all threads"""
         for i in self.inputs:
@@ -129,7 +131,7 @@ class SelectableSelector(object):
             self._ended = True
             self._release_all()
 
-    def _exit_door(self,_input):
+    def _exit_door(self, _input):
         """This function is passed to each SelectableObject as a callback
         The SelectableObjects have to call it once there are ready"""
         self.results.append(_input)
@@ -149,13 +151,20 @@ class SelectableSelector(object):
     def process(self):
         """Entry point of SelectableSelector"""
         if WINDOWS:
+            select_inputs = []
             for i in self.inputs:
                 if not isinstance(i, SelectableObject):
-                    warning("Unknown ignored object type: " + type(i))
+                    warning("Unknown ignored object type: %s", type(i))
+                elif i.__selectable_force_select__:
+                    # Then use select.select
+                    select_inputs.append(i)
                 elif not self.remain and i.check_recv():
                     self.results.append(i)
                 else:
                     i.wait_return(self._exit_door)
+            if select_inputs:
+                # Use default select function
+                self.results.extend(select(select_inputs, [], [], self.remain)[0])
             if not self.remain:
                 return self.results
 
@@ -175,7 +184,6 @@ def select_objects(inputs, remain):
     
     inputs: objects to process
     remain: timeout. If 0, return [].
-    customTypes: types of the objects that have the check_recv function.
     """
     handler = SelectableSelector(inputs, remain)
     return handler.process()
@@ -694,7 +702,9 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
 
     def _do_start(self, *args, **kargs):
         ready = threading.Event()
-        threading.Thread(target=self._do_control, args=(ready,) + (args), kwargs=kargs).start()
+        _t = threading.Thread(target=self._do_control, args=(ready,) + (args), kwargs=kargs)
+        _t.setDaemon(True)
+        _t.start()
         ready.wait()
 
     def _do_control(self, ready, *args, **kargs):
