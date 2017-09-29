@@ -119,10 +119,12 @@ except _BGPInvalidDataException:
   True
 
 = BGPCapability - Test haslayer()
-BGPCapFourBytesASN().haslayer(BGPCapability) == True
+assert BGPCapFourBytesASN().haslayer(BGPCapability)
+assert BGPCapability in BGPCapFourBytesASN()
 
 = BGPCapability - Test getlayer()
-isinstance(BGPCapFourBytesASN().getlayer(BGPCapability), BGPCapFourBytesASN)
+assert isinstance(BGPCapFourBytesASN().getlayer(BGPCapability), BGPCapFourBytesASN)
+assert isinstance(BGPCapFourBytesASN()[BGPCapability], BGPCapFourBytesASN)
 
 
 ############################ BGPCapMultiprotocol ##############################

@@ -889,11 +889,15 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
                         return ret
         return self.payload.haslayer(cls)
 
-    def getlayer(self, cls, nb=1, _track=None, **flt):
+    def getlayer(self, cls, nb=1, _track=None, _subclass=False, **flt):
         """Return the nb^th layer that is an instance of cls, matching flt
 values.
 
         """
+        if _subclass:
+            match = lambda cls1, cls2: issubclass(cls1, cls2)
+        else:
+            match = lambda cls1, cls2: cls1 == cls2
         if isinstance(cls, int):
             nb = cls+1
             cls = None
@@ -901,7 +905,7 @@ values.
             ccls,fld = cls.split(".",1)
         else:
             ccls,fld = cls,None
-        if cls is None or self.__class__ == cls or self.__class__.__name__ == ccls:
+        if cls is None or match(self.__class__, cls) or self.__class__.__name__ == ccls:
             if all(self.getfieldval(fldname) == fldvalue
                    for fldname, fldvalue in flt.iteritems()):
                 if nb == 1:
@@ -920,11 +924,13 @@ values.
             for fvalue in fvalue_gen:
                 if isinstance(fvalue, Packet):
                     track=[]
-                    ret = fvalue.getlayer(cls, nb, _track=track)
+                    ret = fvalue.getlayer(cls, nb=nb, _track=track,
+                                          _subclass=_subclass)
                     if ret is not None:
                         return ret
                     nb = track[0]
-        return self.payload.getlayer(cls, nb=nb, _track=_track, **flt)
+        return self.payload.getlayer(cls, nb=nb, _track=_track,
+                                     _subclass=_subclass, **flt)
 
     def firstlayer(self):
         q = self

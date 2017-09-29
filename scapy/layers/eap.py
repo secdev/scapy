@@ -238,25 +238,17 @@ class EAP(Packet):
         return cls
 
     def haslayer(self, cls):
-        ret = 0
-        if cls == EAP:
-            for eap_class in EAP.registered_methods.values():
-                if isinstance(self, eap_class):
-                    ret = 1
-                    break
-        elif cls in list(EAP.registered_methods.values()) and isinstance(self, cls):
-            ret = 1
-        return ret
+        if cls == "EAP":
+            if isinstance(self, EAP):
+                return True
+        elif issubclass(cls, EAP):
+            if isinstance(self, cls):
+                return True
+        return super(EAP, self).haslayer(cls)
 
-    def getlayer(self, cls, nb=1, _track=None, **flt):
-        if cls == EAP:
-            for eap_class in EAP.registered_methods.values():
-                if isinstance(self, eap_class) and \
-                   all(self.getfieldval(fldname) == fldvalue
-                       for fldname, fldvalue in flt.iteritems()):
-                    return self
-        else:
-            return super(EAP, self).getlayer(cls, nb=nb, _track=_track, **flt)
+    def getlayer(self, cls, nb=1, _track=None, _subclass=True, **flt):
+        return super(EAP, self).getlayer(cls, nb=nb, _track=_track,
+                                         _subclass=True, **flt)
 
     def answers(self, other):
         if isinstance(other, EAP):
