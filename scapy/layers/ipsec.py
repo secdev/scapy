@@ -46,6 +46,7 @@ import socket
 import struct
 
 from scapy.config import conf, crypto_validator
+from scapy.compat import orb, raw
 from scapy.data import IP_PROTOS
 from scapy.compat import *
 from scapy.error import log_loading
@@ -153,7 +154,7 @@ class _ESPPlain(Packet):
     ]
 
     def data_for_encryption(self):
-        return str(self.data) + self.padding + chr(self.padlen) + chr(self.nh)
+        return raw(self.data) + self.padding + struct.pack("BB", self.padlen, self.nh)
 
 #------------------------------------------------------------------------------
 if conf.crypto_valid:
@@ -179,7 +180,7 @@ def _lcm(a, b):
     if a == 0 or b == 0:
         return 0
     else:
-        return abs(a * b) / gcd(a, b)
+        return abs(a * b) // gcd(a, b)
 
 class CryptAlgo(object):
     """
@@ -316,7 +317,7 @@ class CryptAlgo(object):
         # Still according to the RFC, the default value for padding *MUST* be an
         # array of bytes starting from 1 to padlen
         # TODO: Handle padding function according to the encryption algo
-        esp.padding = ''.join(chr(b) for b in range(1, esp.padlen + 1))
+        esp.padding = struct.pack("B" * esp.padlen, *range(1, esp.padlen + 1))
 
         # If the following test fails, it means that this algo does not comply
         # with the RFC
@@ -390,8 +391,8 @@ class CryptAlgo(object):
                 raise IPSecIntegrityError(err)
 
         # extract padlen and nh
-        padlen = ord(data[-2])
-        nh = ord(data[-1])
+        padlen = orb(data[-2])
+        nh = orb(data[-1])
 
         # then use padlen to determine data and padding
         data = data[:len(data) - padlen - 2]
@@ -690,7 +691,7 @@ def zero_mutable_fields(pkt, sending=False):
     """
 
     if pkt.haslayer(AH):
-        pkt[AH].icv = chr(0) * len(pkt[AH].icv)
+        pkt[AH].icv = b"\x00" * len(pkt[AH].icv)
     else:
         raise TypeError('no AH layer found')
 
@@ -712,7 +713,7 @@ def zero_mutable_fields(pkt, sending=False):
             if opt.option in IMMUTABLE_IPV4_OPTIONS:
                 immutable_opts.append(opt)
             else:
-                immutable_opts.append(Raw(chr(0) * len(opt)))
+                immutable_opts.append(Raw(b"\x00" * len(opt)))
         pkt.options = immutable_opts
 
     else:
@@ -732,7 +733,7 @@ def zero_mutable_fields(pkt, sending=False):
                 for opt in next_hdr.options:
                     if opt.otype & 0x20:
                         # option data can change en-route and must be zeroed
-                        opt.optdata = chr(0) * opt.optlen
+                        opt.optdata = b"\x00" * opt.optlen
             elif isinstance(next_hdr, IPv6ExtHdrRouting) and sending:
                 # The sender must order the field so that it appears as it
                 # will at the receiver, prior to performing the ICV computation.
@@ -872,7 +873,7 @@ class SecurityAssociation(object):
         if ip_header.version == 4:
             ip_header.len = len(ip_header) + len(esp)
             del ip_header.chksum
-            ip_header = ip_header.__class__(str(ip_header))
+            ip_header = ip_header.__class__(raw(ip_header))
         else:
             ip_header.plen = len(ip_header.payload) + len(esp)
 
@@ -885,7 +886,7 @@ class SecurityAssociation(object):
     def _encrypt_ah(self, pkt, seq_num=None):
 
         ah = AH(spi=self.spi, seq=seq_num or self.seq_num,
-                icv=chr(0) * self.auth_algo.icv_size)
+                icv = b"\x00" * self.auth_algo.icv_size)
 
         if self.tunnel_header:
             tunnel = self.tunnel_header.copy()
@@ -898,7 +899,7 @@ class SecurityAssociation(object):
                 del tunnel.nh
                 del tunnel.plen
 
-            pkt = tunnel.__class__(str(tunnel / pkt))
+            pkt = tunnel.__class__(raw(tunnel / pkt))
 
         ip_header, nh, payload = split_for_transport(pkt, socket.IPPROTO_AH)
         ah.nh = nh
@@ -906,16 +907,16 @@ class SecurityAssociation(object):
         if ip_header.version == 6 and len(ah) % 8 != 0:
             # For IPv6, the total length of the header must be a multiple of
             # 8-octet units.
-            ah.padding = chr(0) * (-len(ah) % 8)
+            ah.padding = b"\x00" * (-len(ah) % 8)
         elif len(ah) % 4 != 0:
             # For IPv4, the total length of the header must be a multiple of
             # 4-octet units.
-            ah.padding = chr(0) * (-len(ah) % 4)
+            ah.padding = b"\x00" * (-len(ah) % 4)
 
         # RFC 4302 - Section 2.2. Payload Length
         # This 8-bit field specifies the length of AH in 32-bit words (4-byte
         # units), minus "2".
-        ah.payloadlen = len(ah) / 4 - 2
+        ah.payloadlen = len(ah) // 4 - 2
 
         if ip_header.version == 4:
             ip_header.len = len(ip_header) + len(ah) + len(payload)
