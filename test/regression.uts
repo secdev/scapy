@@ -730,6 +730,24 @@ assert x[IP].ottl() in [32, 64, 128, 255]
 assert 0 <= x[IP].hops() <= 126
 x is not None and ICMP in x and x[ICMP].type == 0
 
+= Sending and receiving an ICMP with flooding methods
+~ netaccess IP ICMP
+# flooding methods do not support timeout. Packing the test for security
+def _test_flood():
+    old_debug_dissector = conf.debug_dissector
+    conf.debug_dissector = False
+    x = sr1flood(IP(dst="www.google.com")/ICMP())
+    conf.debug_dissector = old_debug_dissector
+    x
+    assert x[IP].ottl() in [32, 64, 128, 255]
+    assert 0 <= x[IP].hops() <= 126
+    x is not None and ICMP in x and x[ICMP].type == 0
+
+t = Thread(target=_test_flood)
+t.start()
+t.join(3)
+assert not t.is_alive()
+
 = Sending and receiving an ICMPv6EchoRequest
 ~ netaccess ipv6
 old_debug_dissector = conf.debug_dissector
@@ -904,7 +922,7 @@ try:
 except:
     from queue import Queue as queue
 
-def _send_or_sniff(pkt, timeout, flt, pid, fork, t_other=None):
+def _send_or_sniff(pkt, timeout, flt, pid, fork, t_other=None, opened_socket=None):
     assert pid != -1
     if pid == 0:
         time.sleep(1)
@@ -919,7 +937,7 @@ def _send_or_sniff(pkt, timeout, flt, pid, fork, t_other=None):
         old_debug_dissector = conf.debug_dissector
         conf.debug_dissector = False
         pkts = sniff(
-            timeout=timeout, filter=flt,
+            timeout=timeout, filter=flt, opened_socket=opened_socket,
             stop_filter=lambda p: pkt.__class__ in p and raw(p[pkt.__class__]) == spkt
         )
         conf.debug_dissector = old_debug_dissector
@@ -929,18 +947,18 @@ def _send_or_sniff(pkt, timeout, flt, pid, fork, t_other=None):
             t_other.join()
     assert raw(pkt) in (raw(p[pkt.__class__]) for p in pkts if pkt.__class__ in p)
 
-def send_and_sniff(pkt, timeout=2, flt=None):
+def send_and_sniff(pkt, timeout=2, flt=None, opened_socket=None):
     """Send a packet, sniff, and check the packet has been seen"""
     if hasattr(os, "fork"):
         _send_or_sniff(pkt, timeout, flt, os.fork(), True)
     else:
         from threading import Thread
-        def run_function(pkt, timeout, flt, pid, thread, results):
-            _send_or_sniff(pkt, timeout, flt, pid, False, t_other=thread)
+        def run_function(pkt, timeout, flt, pid, thread, results, opened_socket):
+            _send_or_sniff(pkt, timeout, flt, pid, False, t_other=thread, opened_socket=opened_socket)
             results.put(True)
         results = queue()
-        t_parent = Thread(target=run_function, args=(pkt, timeout, flt, 0, None, results))
-        t_child = Thread(target=run_function, args=(pkt, timeout, flt, 1, t_parent, results))
+        t_parent = Thread(target=run_function, args=(pkt, timeout, flt, 0, None, results, None))
+        t_child = Thread(target=run_function, args=(pkt, timeout, flt, 1, t_parent, results, opened_socket))
         t_parent.start()
         t_child.start()
         t_parent.join()
@@ -952,6 +970,11 @@ def send_and_sniff(pkt, timeout=2, flt=None):
 send_and_sniff(IP(dst="secdev.org")/ICMP())
 send_and_sniff(IP(dst="secdev.org")/ICMP(), flt="icmp")
 send_and_sniff(Ether()/IP(dst="secdev.org")/ICMP())
+
+a = L2ListenTcpdump()
+icmp_r = IP(b'E\x00\x00\x1c\x00\x01\x00\x00@\x01p\xc0\x7f\x00\x00\x01\xd9\x19\xb2\x05\x08\x00\xf7\xff\x00\x00\x00\x00')
+send_and_sniff(icmp_r, timeout=10, opened_socket=a)
+a.close()
 
 ############
 ############

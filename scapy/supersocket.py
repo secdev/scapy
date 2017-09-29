@@ -192,7 +192,15 @@ class L2ListenTcpdump(SuperSocket):
         self.outs = None
         args = ['-w', '-', '-s', '65535']
         if iface is not None:
-            args.extend(['-i', iface])
+            if WINDOWS:
+                try:
+                    args.extend(['-i', iface.pcap_name])
+                except AttributeError:
+                    args.extend(['-i', iface])
+            else:
+                args.extend(['-i', iface])
+        elif WINDOWS:
+            args.extend(['-i', conf.iface.pcap_name])
         if not promisc:
             args.append('-p')
         if not nofilter:
@@ -203,9 +211,13 @@ class L2ListenTcpdump(SuperSocket):
                     filter = "not (%s)" % conf.except_filter
         if filter is not None:
             args.append(filter)
-        self.ins = PcapReader(tcpdump(None, prog=prog, args=args, getfd=True))
+        self.tcpdump_proc = tcpdump(None, prog=prog, args=args, getproc=True)
+        self.ins = PcapReader(self.tcpdump_proc.stdout)
     def recv(self, x=MTU):
         return self.ins.recv(x)
+    def close(self):
+        SuperSocket.close(self)
+        self.tcpdump_proc.kill()
 
 
 class TunTapInterface(SuperSocket):

@@ -1200,7 +1200,7 @@ def wireshark(pktlist):
 
 @conf.commands.register
 def tcpdump(pktlist, dump=False, getfd=False, args=None,
-            prog=None):
+            prog=None, getproc=False):
     """Run tcpdump or tshark on a list of packets
 
 pktlist: a Packet instance, a PacketList instance or a list of Packet
@@ -1211,6 +1211,7 @@ pktlist: a Packet instance, a PacketList instance or a list of Packet
 dump:    when set to True, returns a string instead of displaying it.
 getfd:   when set to True, returns a file-like object to read data
          from tcpdump or tshark from.
+getproc: when set to True, the subprocess.Popen object is returned
 args:    arguments (as a list) to pass to tshark (example for tshark:
          args=["-T", "json"]). Defaults to ["-n"].
 prog:    program to use (defaults to tcpdump, will work with tshark)
@@ -1249,6 +1250,7 @@ To get a JSON representation of a tshark-parsed PacketList(), one can:
 u'64'
 
     """
+    getfd = getfd or getproc
     if prog is None:
         prog = [conf.prog.tcpdump]
     elif isinstance(prog, six.string_types):
@@ -1300,6 +1302,8 @@ u'64'
             proc.stdin.close()
     if dump:
         return b"".join(iter(lambda: proc.stdout.read(1048576), b""))
+    if getproc:
+        return proc
     if getfd:
         return proc.stdout
     proc.wait()
