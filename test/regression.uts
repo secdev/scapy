@@ -482,6 +482,37 @@ except IndexError:
 else:
     False
 
+= getlayer with a filter
+~ getlayer IP
+pkt = IP() / IP(ttl=3) / IP()
+assert pkt[IP::{"ttl":3}].ttl == 3
+assert pkt.getlayer(IP, ttl=3).ttl == 3
+
+= specific haslayer and getlayer implementations for NTP
+~ haslayer getlayer NTP
+pkt = IP() / UDP() / NTPHeader()
+assert NTP in pkt
+assert pkt.haslayer(NTP)
+assert isinstance(pkt[NTP], NTPHeader)
+assert isinstance(pkt.getlayer(NTP), NTPHeader)
+
+= specific haslayer and getlayer implementations for EAP
+~ haslayer getlayer EAP
+pkt = Ether() / EAPOL() / EAP_MD5()
+assert EAP in pkt
+assert pkt.haslayer(EAP)
+assert isinstance(pkt[EAP], EAP_MD5)
+assert isinstance(pkt.getlayer(EAP), EAP_MD5)
+
+= specific haslayer and getlayer implementations for RadiusAttribute
+~ haslayer getlayer RadiusAttribute
+pkt = RadiusAttr_EAP_Message()
+assert RadiusAttribute in pkt
+assert pkt.haslayer(RadiusAttribute)
+assert isinstance(pkt[RadiusAttribute], RadiusAttr_EAP_Message)
+assert isinstance(pkt.getlayer(RadiusAttribute), RadiusAttr_EAP_Message)
+
+
 = equality
 ~ basic
 w=Ether()/IP()/UDP(dport=53)
@@ -8644,6 +8675,11 @@ Dot11(type=0, subtype=1).answers(query) == True
 = Dot11 - misc
 assert Dot11Elt(info="scapy").summary() == "SSID='scapy'"
 assert Dot11Elt(ID=1).mysummary() == ""
+
+= Multiple Dot11Elt layers
+pkt = Dot11() / Dot11Beacon() / Dot11Elt(ID="Rates") / Dot11Elt(ID="SSID", info="Scapy")
+assert pkt[Dot11Elt::{"ID": 0}].info == "Scapy"
+assert pkt.getlayer(Dot11Elt, ID=0).info == "Scapy"
 
 = Dot11WEP - build
 ~ crypto

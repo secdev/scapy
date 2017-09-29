@@ -607,28 +607,18 @@ class BGPCapability(six.with_metaclass(_BGPCapability_metaclass, Packet)):
 
     # Every BGP capability object inherits from BGPCapability.
     def haslayer(self, cls):
-        ret = 0
-        if cls == BGPCapability:
-            # If cls is BGPCap (the parent class), check that the object is an
-            # instance of an existing BGP capability class.
-            for cap_class in _capabilities_registry:
-                if isinstance(self, _capabilities_registry[cap_class]):
-                    ret = 1
-                    break
-        elif cls in _capabilities_registry and isinstance(self, cls):
-            ret = 1
-        return ret
+        if cls == "BGPCapability":
+            if isinstance(self, BGPCapability):
+                return True
+        if issubclass(cls, BGPCapability):
+            if isinstance(self, cls):
+                return True
+        return super(BGPCapability, self).haslayer(cls)
 
-    def getlayer(self, cls, nb=1, _track=None):
-        layer = None
-        if cls == BGPCapability:
-            for cap_class in _capabilities_registry:
-                if isinstance(self, _capabilities_registry[cap_class]):
-                    layer = self
-                    break
-        else:
-            layer = Packet.getlayer(self, cls, nb, _track)
-        return layer
+    def getlayer(self, cls, nb=1, _track=None, _subclass=True, **flt):
+        return super(BGPCapability, self).getlayer(
+            cls, nb=nb, _track=_track, _subclass=True, **flt
+        )
 
     def post_build(self, p, pay):
         length = 0

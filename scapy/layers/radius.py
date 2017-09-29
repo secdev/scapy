@@ -270,25 +270,17 @@ class RadiusAttribute(Packet):
         return cls
 
     def haslayer(self, cls):
-        if cls == RadiusAttribute:
-            for attr_class in RadiusAttribute.registered_attributes.values():
-                if isinstance(self, attr_class):
-                    return True
-        elif cls in RadiusAttribute.registered_attributes.values() and isinstance(self, cls):
-            return True
-        return False
+        if cls == "RadiusAttribute":
+            if isinstance(self, RadiusAttribute):
+                return True
+        elif issubclass(cls, RadiusAttribute):
+            if isinstance(self, cls):
+                return True
+        return super(RadiusAttribute, self).haslayer(cls)
 
-    def getlayer(self, cls, nb=1, _track=None):
-        layer = None
-        if cls == RadiusAttribute:
-            for attr_class in RadiusAttribute.registered_attributes.values():
-                if isinstance(self, attr_class):
-                    layer = self
-                    break
-        else:
-            layer = Packet.getlayer(self, cls, nb, _track)
-        return layer
-
+    def getlayer(self, cls, nb=1, _track=None, _subclass=True, **flt):
+        return super(RadiusAttribute, self).getlayer(cls, nb=nb, _track=_track,
+                                                     _subclass=True, **flt)
 
     def post_build(self, p, pay):
         length = self.len
