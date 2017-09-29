@@ -288,11 +288,21 @@ class HTMLTheme2(HTMLTheme):
     style_right = "#[#span class=right#]#%s#[#/span#]#"
 
 
-def apply_ipython_color(shell):
+def apply_ipython_style(shell):
     """Updates the specified IPython console shell with
     the conf.color_theme scapy theme."""
     from IPython.terminal.prompts import Prompts, Token
-    shell.highlighting_style_overrides = {
+    from scapy.config import conf
+    if isinstance(conf.prompt, Prompts):
+        shell.prompts_class = conf.prompt # Set custom prompt style
+    else:
+        class ClassicPrompt(Prompts):
+            def in_prompt_tokens(self, cli=None):
+               return [(Token.Prompt, str(conf.prompt)),]
+            def out_prompt_tokens(self):
+               return [(Token.OutPrompt, ''),]
+        shell.prompts_class=ClassicPrompt # Apply classic prompt style
+    shell.highlighting_style_overrides = { # Register and apply scapy color style
         Token.Prompt: Color.ansi_to_pygments(conf.color_theme.style_prompt),
     }
     try:
