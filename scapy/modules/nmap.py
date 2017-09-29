@@ -57,7 +57,7 @@ None.
                          if self.filename is None else
                          self.filename, "rb")
         except (IOError, TypeError):
-            warning("Cannot open nmap database [%s]" % self.filename)
+            warning("Cannot open nmap database [%s]", self.filename)
             self.filename = None
             return
 
@@ -160,7 +160,7 @@ def nmap_sig(target, oport=80, cport=81, ucport=1):
         else:
             test = "T%i" % (snd.sport - 5000)
             if rcv is not None and ICMP in rcv:
-                warning("Test %s answered by an ICMP" % test)
+                warning("Test %s answered by an ICMP", test)
                 rcv = None
             res[test] = rcv
 

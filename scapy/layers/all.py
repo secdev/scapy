@@ -23,7 +23,6 @@ for _l in conf.load_layers:
     try:
         load_layer(_l, globals_dict=globals(), symb_list=__all__)
     except Exception as e:
-        raise
-        log.warning("can't import layer %s: %s" % (_l,e))
+        log.warning("can't import layer %s: %s", _l, e)
 
 del _l

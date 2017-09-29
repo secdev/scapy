@@ -110,7 +110,7 @@ def read_routes():
                         ifaddr = get_if_addr(guessed_netif)
                         routes.append((dest, netmask, gw, guessed_netif, ifaddr))
                     else:
-                        warning("Could not guess partial interface name: %s" % netif)
+                        warning("Could not guess partial interface name: %s", netif)
                 else:
                     raise
         else:
@@ -132,7 +132,7 @@ def read_routes():
         if gw_if:
             routes.append((dest,netmask,gw,gw_if,gw_if_addr))
         else:
-            warning("Did not find output interface to reach gateway %s" % gw)
+            warning("Did not find output interface to reach gateway %s", gw)
 
     return routes
 

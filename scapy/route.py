@@ -178,7 +178,7 @@ class Route:
                 continue
             bcast = atol(addr)|(~msk&0xffffffff); # FIXME: check error in atol()
             return ltoa(bcast)
-        warning("No broadcast address found for iface %s\n" % iff);
+        warning("No broadcast address found for iface %s\n", iff);
 
 conf.route=Route()
 

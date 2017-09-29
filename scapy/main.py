@@ -75,17 +75,17 @@ def _read_config_file(cf, _globals=globals(), _locals=locals(), interactive=True
         >>> conf.verb
         42
     """
-    log_loading.debug("Loading config file [%s]" % cf)
+    log_loading.debug("Loading config file [%s]", cf)
     try:
         exec(compile(open(cf).read(), cf, 'exec'), _globals, _locals)
     except IOError as e:
         if interactive:
             raise
-        log_loading.warning("Cannot read config file [%s] [%s]" % (cf,e))
+        log_loading.warning("Cannot read config file [%s] [%s]", cf, e)
     except Exception as e:
         if interactive:
             raise
-        log_loading.exception("Error during evaluation of config file [%s]" % cf)
+        log_loading.exception("Error during evaluation of config file [%s]", cf)
         
 def _validate_local(x):
     """Returns whether or not a variable should be imported.
@@ -228,7 +228,7 @@ def save_session(fname=None, session=None, pickleProto=-1):
             del(to_be_saved[k])
         elif isinstance(i, (type, type, types.ModuleType)):
             if k[0] != "_":
-                log_interactive.error("[%s] (%s) can't be saved." % (k, type(to_be_saved[k])))
+                log_interactive.error("[%s] (%s) can't be saved.", k, type(to_be_saved[k]))
             del(to_be_saved[k])
 
     try:

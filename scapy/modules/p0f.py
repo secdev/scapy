@@ -58,7 +58,7 @@ class p0fKnowledgeBase(KnowledgeBase):
         try:
             f=open(self.filename)
         except IOError:
-            warning("Can't open base %s" % self.filename)
+            warning("Can't open base %s", self.filename)
             return
         try:
             self.base = []

@@ -91,7 +91,7 @@ class L3RawSocket(SuperSocket):
             lvl = 3
         else:
             cls = conf.default_l2
-            warning("Unable to guess type (interface=%s protocol=%#x family=%i). Using %s" % (sa_ll[0],sa_ll[1],sa_ll[3],cls.name))
+            warning("Unable to guess type (interface=%s protocol=%#x family=%i). Using %s", sa_ll[0], sa_ll[1], sa_ll[3], cls.name)
             lvl = 3
 
         try:

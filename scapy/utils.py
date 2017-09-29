@@ -507,7 +507,7 @@ def do_graph(graph,prog=None,format=None,target=None,type=None,string=None,optio
         while not os.path.exists(tempfile):
             time.sleep(0.1)
             if time.time() - waiting_start > 3:
-                warning("Temporary file '%s' could not be written. Graphic will not be displayed." % tempfile)
+                warning("Temporary file '%s' could not be written. Graphic will not be displayed.", tempfile)
                 break
         else:  
             if conf.prog.display == conf.prog._default:
@@ -1153,7 +1153,7 @@ class PcapWriter(RawPcapWriter):
             try:
                 self.linktype = conf.l2types[pkt.__class__]
             except KeyError:
-                warning("PcapWriter: unknown LL type for %s. Using type 1 (Ethernet)" % pkt.__class__.__name__)
+                warning("PcapWriter: unknown LL type for %s. Using type 1 (Ethernet)", pkt.__class__.__name__)
                 self.linktype = 1
         RawPcapWriter._write_header(self, pkt)
 

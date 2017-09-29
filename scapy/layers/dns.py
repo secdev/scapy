@@ -149,7 +149,7 @@ class DNSRRField(StrField):
         ret = None
         c = getattr(pkt, self.countfld)
         if c > len(s):
-            warning("wrong value: DNS.%s=%i" % (self.countfld,c))
+            warning("wrong value: DNS.%s=%i", self.countfld, c)
             return s,b""
         while c:
             c -= 1

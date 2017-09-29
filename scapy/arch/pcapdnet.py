@@ -46,9 +46,9 @@ if conf.use_winpcapy:
       version = pcap_lib_version()
       if b"winpcap" in version.lower():
           if os.path.exists(os.environ["WINDIR"] + "\\System32\\Npcap\\wpcap.dll"):
-              warning("Winpcap is installed over Npcap. Will use Winpcap (see 'Winpcap/Npcap conflicts' in scapy's docs)", True)
+              warning("Winpcap is installed over Npcap. Will use Winpcap (see 'Winpcap/Npcap conflicts' in scapy's docs)", onlyOnce=True)
           elif platform.release() != "XP":
-              warning("WinPcap is now deprecated (not maintened). Please use Npcap instead", True)
+              warning("WinPcap is now deprecated (not maintened). Please use Npcap instead", onlyOnce=True)
       elif b"npcap" in version.lower():
           conf.use_npcap = True
           LOOPBACK_NAME = scapy.consts.LOOPBACK_NAME = "Npcap Loopback Adapter"
@@ -165,11 +165,11 @@ if conf.use_winpcapy:
       def setfilter(self, f):
           filter_exp = create_string_buffer(f.encode('ascii'))
           if pcap_compile(self.pcap, byref(self.bpf_program), filter_exp, 0, -1) == -1:
-            log_loading.error("Could not compile filter expression %s" % f)
+            log_loading.error("Could not compile filter expression %s", f)
             return False
           else:
             if pcap_setfilter(self.pcap, byref(self.bpf_program)) == -1:
-              log_loading.error("Could not install filter %s" % f)
+              log_loading.error("Could not install filter %s", f)
               return False
           return True
       def setnonblock(self, i):
@@ -216,7 +216,7 @@ if conf.use_winpcapy:
               cls = conf.l2types[ll]
           else:
               cls = conf.default_l2
-              warning("Unable to guess datalink type (interface=%s linktype=%i). Using %s" % (self.iface, ll, cls.name))
+              warning("Unable to guess datalink type (interface=%s linktype=%i). Using %s", self.iface, ll, cls.name)
 
           pkt = None
           while pkt is None:
@@ -289,7 +289,7 @@ if conf.use_winpcapy:
               cls = conf.l2types[ll]
           else:
               cls = conf.default_l2
-              warning("Unable to guess datalink type (interface=%s linktype=%i). Using %s" % (self.iface, ll, cls.name))
+              warning("Unable to guess datalink type (interface=%s linktype=%i). Using %s", self.iface, ll, cls.name)
   
           pkt = self.ins.next()
           if pkt is not None:
@@ -339,7 +339,7 @@ if conf.use_winpcapy:
               cls = conf.l2types[ll]
           else:
               cls = conf.default_l2
-              warning("Unable to guess datalink type (interface=%s linktype=%i). Using %s" % (self.iface, ll, cls.name))
+              warning("Unable to guess datalink type (interface=%s linktype=%i). Using %s", self.iface, ll, cls.name)
           sx = raw(cls()/x)
           if hasattr(x, "sent_time"):
               x.sent_time = time.time()
@@ -355,7 +355,7 @@ if conf.use_pcap:
             import pcapy as pcap
         except ImportError as e2:
             if conf.interactive:
-                log_loading.error("Unable to import pcap module: %s/%s" % (e,e2))
+                log_loading.error("Unable to import pcap module: %s/%s", e, e2)
                 conf.use_pcap = False
             else:
                 raise
@@ -468,7 +468,7 @@ if conf.use_pcap:
                     cls = conf.l2types[ll]
                 else:
                     cls = conf.default_l2
-                    warning("Unable to guess datalink type (interface=%s linktype=%i). Using %s" % (self.iface, ll, cls.name))
+                    warning("Unable to guess datalink type (interface=%s linktype=%i). Using %s", self.iface, ll, cls.name)
         
                 pkt = self.ins.next()
                 if scapy.arch.WINDOWS and pkt is None:
@@ -503,7 +503,7 @@ if conf.use_dnet:
             import dumbnet as dnet
     except ImportError as e:
         if conf.interactive:
-            log_loading.error("Unable to import dnet module: %s" % e)
+            log_loading.error("Unable to import dnet module: %s", e)
             conf.use_dnet = False
             def get_if_raw_hwaddr(iff):
                 "dummy"
@@ -622,7 +622,7 @@ if conf.use_pcap and conf.use_dnet:
                 cls = conf.l2types[ll]
             else:
                 cls = conf.default_l2
-                warning("Unable to guess datalink type (interface=%s linktype=%i). Using %s" % (self.iface, ll, cls.name))
+                warning("Unable to guess datalink type (interface=%s linktype=%i). Using %s", self.iface, ll, cls.name)
     
             pkt = self.ins.next()
             if pkt is not None:
@@ -694,7 +694,7 @@ if conf.use_pcap and conf.use_dnet:
                 cls = conf.l2types[ll]
             else:
                 cls = conf.default_l2
-                warning("Unable to guess datalink type (interface=%s linktype=%i). Using %s" % (self.iface, ll, cls.name))
+                warning("Unable to guess datalink type (interface=%s linktype=%i). Using %s", self.iface, ll, cls.name)
     
             pkt = self.ins.next()
             if pkt is not None:

@@ -125,7 +125,7 @@ if conf.crypto_valid:
         elif padStr == "oaep":
             return padding.OAEP(mgf=mgf(h), algorithm=h, label=label)
         else:
-            warning("Key.encrypt(): Unknown padding type (%s)" % padStr)
+            warning("Key.encrypt(): Unknown padding type (%s)", padStr)
             return None
 
 
