@@ -881,7 +881,7 @@ class BitFieldLenField(BitField):
         self.count_of = count_of
         self.adjust = adjust
     def i2m(self, pkt, x):
-        return FieldLenField.i2m.__func__(self, pkt, x)
+        return (FieldLenField.i2m.__func__ if six.PY2 else FieldLenField.i2m)(self, pkt, x)
 
 
 class XBitField(BitField):
@@ -1261,7 +1261,7 @@ class MultiFlagsField(BitField):
         super(MultiFlagsField, self).__init__(name, default, size)
 
     def any2i(self, pkt, x):
-        assert isinstance(x, (int, long, set)), 'set expected'
+        assert isinstance(x, six.integer_types + (set,)), 'set expected'
 
         if pkt is not None:
             if isinstance(x, six.integer_types):
