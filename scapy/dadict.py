@@ -39,9 +39,10 @@ class DADict:
     def __setitem__(self, attr, val):        
         return setattr(self, self.fixname(attr), val)
     def __iter__(self):
-        return iter(map(lambda x_y1: x_y1[1],filter(lambda x_y: x_y[0] and x_y[0][0]!="_", self.__dict__.items())))
+        return (value for key, value in six.iteritems(self.__dict__)
+                if key and key[0] != '_')
     def _show(self):
-        for k in self.__dict__.keys():
+        for k in self.__dict__:
             if k and k[0] != "_":
                 print("%10s = %r" % (k,getattr(self,k)))
     def __repr__(self):

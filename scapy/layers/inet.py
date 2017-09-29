@@ -1089,7 +1089,7 @@ class TracerouteResult(SndRcvList):
                 m = min(x for x, y in six.itervalues(k) if y)
             except ValueError:
                 continue
-            for l in k.keys():  # use .keys(): k is modified in the loop
+            for l in list(k):  # use list(): k is modified in the loop
                 if l > m:
                     del k[l]
         return trace

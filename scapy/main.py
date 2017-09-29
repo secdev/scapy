@@ -231,7 +231,7 @@ def save_session(fname=None, session=None, pickleProto=-1):
     if "__builtins__" in to_be_saved:
         del(to_be_saved["__builtins__"])
 
-    for k in list(to_be_saved.keys()):
+    for k in list(to_be_saved):
         i = to_be_saved[k]
         if hasattr(i, "__module__") and (k[0] == "_" or i.__module__.startswith("IPython")):
             del(to_be_saved[k])

@@ -73,8 +73,6 @@ class MIBDict(DADict):
             s += '\t"%s" -> "%s" [label="%s"];\n' % (parent, o,remainder)
         s += "}\n"
         do_graph(s, **kargs)
-    def __len__(self):
-        return len(self.keys())
 
 
 def mib_register(ident, value, the_mib, unresolved):
@@ -102,7 +100,7 @@ def mib_register(ident, value, the_mib, unresolved):
         return False
     else:
         the_mib[ident] = resval
-        keys = list(unresolved.keys())
+        keys = list(unresolved)
         i = 0
         while i < len(keys):
             k = keys[i]

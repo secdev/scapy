@@ -13,7 +13,7 @@ from scapy.error import log_loading
 from scapy.main import load_layer
 import logging, importlib
 import scapy.modules.six as six
-ignored = list(six.moves.builtins.__dict__.keys()) + ["sys"]
+ignored = list(six.moves.builtins.__dict__) + ["sys"]
 log = logging.getLogger("scapy.loading")
 
 __all__ = []
