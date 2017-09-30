@@ -16,7 +16,7 @@ from scapy.config import conf
 from scapy.error import Scapy_Exception, warning
 from scapy.volatile import RandField, RandIP
 from scapy.utils import Enum_metaclass, EnumElement, binrepr
-from scapy.compat import plain_str
+from scapy.compat import plain_str, chb, raw, orb
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
 
@@ -281,17 +281,23 @@ class ASN1_BIT_STRING(ASN1_Object):
         else:
             self.val_readable = val
     def __setattr__(self, name, value):
+        str_value = value
+        if isinstance(value, str):
+            str_value = value
+            value = raw(value)
+        elif isinstance(value, bytes):
+            str_value = value.decode()
         if name == "val_readable":
-            if isinstance(value, str):
-                val = "".join(binrepr(ord(x)).zfill(8) for x in value)
+            if isinstance(value, bytes):
+                val = b"".join(binrepr(orb(x)).zfill(8) for x in value)
             else:
                 val = "<invalid val_readable>"
             super(ASN1_Object, self).__setattr__("val", val)
             super(ASN1_Object, self).__setattr__(name, value)
             super(ASN1_Object, self).__setattr__("unused_bits", 0)
         elif name == "val":
-            if isinstance(value, str):
-                if len([c for c in value if c not in ["0", "1"]]) > 0:
+            if isinstance(value, bytes):
+                if any(c for c in str_value if c not in ["0", "1"]):
                     print("Invalid operation: 'val' is not a valid bit string.")
                     return
                 else:
@@ -299,9 +305,9 @@ class ASN1_BIT_STRING(ASN1_Object):
                         unused_bits = 0
                     else:
                         unused_bits = 8 - (len(value) % 8)
-                    padded_value = value + ("0" * unused_bits)
+                    padded_value = str_value + ("0" * unused_bits)
                     bytes_arr = zip(*[iter(padded_value)]*8)
-                    val_readable = "".join(chr(int("".join(x),2)) for x in bytes_arr)
+                    val_readable = b"".join(chb(int("".join(x),2)) for x in bytes_arr)
             else:
                 val_readable = "<invalid val>"
                 unused_bits = 0
@@ -321,6 +327,8 @@ class ASN1_BIT_STRING(ASN1_Object):
                 s = s[:10] + "..." + s[-10:]
             return "<%s[%r] (%d unused bit%s)>" % (self.__dict__.get("name", self.__class__.__name__), s, self.unused_bits, "s" if self.unused_bits>1 else "")
     def __str__(self):
+        return self.val_readable
+    def __bytes__(self):
         return self.val_readable
 
 class ASN1_STRING(ASN1_Object):
@@ -366,6 +374,8 @@ class ASN1_UTC_TIME(ASN1_STRING):
     def __init__(self, val):
         super(ASN1_UTC_TIME, self).__init__(val)
     def __setattr__(self, name, value):
+        if isinstance(value, bytes):
+            value = plain_str(value)
         if name == "val":
             pretty_time = None
             if (isinstance(value, str) and
@@ -388,6 +398,8 @@ class ASN1_GENERALIZED_TIME(ASN1_STRING):
     def __init__(self, val):
         super(ASN1_GENERALIZED_TIME, self).__init__(val)
     def __setattr__(self, name, value):
+        if isinstance(value, bytes):
+            value = plain_str(value)
         if name == "val":
             pretty_time = None
             if (isinstance(value, str) and

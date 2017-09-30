@@ -859,7 +859,7 @@ class X509_TBSCertificate(ASN1_Packet):
         attrsDict = {}
         for attr in attrs:
             # we assume there is only one name in each rdn ASN1_SET
-            attrsDict[attr.rdn[0].type.oidname] = attr.rdn[0].value.val
+            attrsDict[attr.rdn[0].type.oidname] = plain_str(attr.rdn[0].value.val)
         return attrsDict
     def get_issuer_str(self):
         """
@@ -882,7 +882,7 @@ class X509_TBSCertificate(ASN1_Packet):
         attrsDict = {}
         for attr in attrs:
             # we assume there is only one name in each rdn ASN1_SET
-            attrsDict[attr.rdn[0].type.oidname] = attr.rdn[0].value.val
+            attrsDict[attr.rdn[0].type.oidname] = plain_str(attr.rdn[0].value.val)
         return attrsDict
     def get_subject_str(self):
         name_str = ""
@@ -986,7 +986,7 @@ class X509_TBSCertList(ASN1_Packet):
         attrsDict = {}
         for attr in attrs:
             # we assume there is only one name in each rdn ASN1_SET
-            attrsDict[attr.rdn[0].type.oidname] = attr.rdn[0].value.val
+            attrsDict[attr.rdn[0].type.oidname] = plain_str(attr.rdn[0].value.val)
         return attrsDict
     def get_issuer_str(self):
         """

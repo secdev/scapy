@@ -71,6 +71,7 @@ def _legacy_pkcs1_v1_5_encode_md5_sha1(M, emLen):
     """
     Legacy method for PKCS1 v1.5 encoding with MD5-SHA1 hash.
     """
+    M = raw(M)
     md5_hash = hashes.Hash(_get_hash("md5"), backend=default_backend())
     md5_hash.update(M)
     sha1_hash = hashes.Hash(_get_hash("sha1"), backend=default_backend())
@@ -147,6 +148,7 @@ class _EncryptAndVerifyRSA(object):
 
     @crypto_validator
     def verify(self, M, S, t="pkcs", h="sha256", mgf=None, L=None):
+        M = raw(M)
         mgf = mgf or padding.MGF1
         h = _get_hash(h)
         pad = _get_padding(t, mgf, h, L)
@@ -168,9 +170,9 @@ class _EncryptAndVerifyRSA(object):
             return False
         s = pkcs_os2ip(S)
         n = self._modulus
-        if isinstance(s, int):
+        if isinstance(s, int) and six.PY2:
             s = long(s)
-        if (not isinstance(s, long)) or s > n-1:
+        if (six.PY2 and not isinstance(s, long)) or s > n-1:
             warning("Key._rsaep() expects a long between 0 and n-1")
             return None
         m = pow(s, self._pubExp, n)
@@ -193,6 +195,7 @@ class _DecryptAndSignRSA(object):
 
     @crypto_validator
     def sign(self, M, t="pkcs", h="sha256", mgf=None, L=None):
+        M = raw(M)
         mgf = mgf or padding.MGF1
         h = _get_hash(h)
         pad = _get_padding(t, mgf, h, L)
@@ -204,6 +207,7 @@ class _DecryptAndSignRSA(object):
             return self._legacy_sign_md5_sha1(M)
 
     def _legacy_sign_md5_sha1(self, M):
+        M = raw(M)
         k = self._modulusLen // 8
         EM = _legacy_pkcs1_v1_5_encode_md5_sha1(M, k)
         if EM is None:
@@ -211,9 +215,9 @@ class _DecryptAndSignRSA(object):
             return None
         m = pkcs_os2ip(EM)
         n = self._modulus
-        if isinstance(m, int):
+        if isinstance(m, int) and six.PY2:
             m = long(m)
-        if (not isinstance(m, long)) or m > n-1:
+        if (six.PY2 and not isinstance(m, long)) or m > n-1:
             warning("Key._rsaep() expects a long between 0 and n-1")
             return None
         privExp = self.key.private_numbers().d
