@@ -47,14 +47,14 @@ def _version_from_git_describe():
     out, err = p.communicate()
 
     if p.returncode == 0:
-        tag = out.strip()
-        match = re.match(r'^v?(.+?)-(\d+)-g[a-f0-9]+$', tag)
+        tag = out.decode().strip()
+        match = re.match('^v?(.+?)-(\\d+)-g[a-f0-9]+$', tag)
         if match:
             # remove the 'v' prefix and add a '.devN' suffix
             return '%s.dev%s' % (match.group(1), match.group(2))
         else:
             # just remove the 'v' prefix
-            return re.sub(r'^v', '', tag)
+            return re.sub('^v', '', tag)
     else:
         raise subprocess.CalledProcessError(p.returncode, err)
 
@@ -78,7 +78,7 @@ def _version():
             # See 'man gitattributes' for more details.
             git_archive_id = '$Format:%h %d$'
             sha1 = git_archive_id.strip().split()[0]
-            match = re.search(r'tag:(\S+)', git_archive_id)
+            match = re.search('tag:(\\S+)', git_archive_id)
             if match:
                 return "git-archive.dev" + match.group(1)
             elif sha1:

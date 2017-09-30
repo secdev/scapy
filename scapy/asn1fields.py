@@ -178,7 +178,7 @@ class ASN1F_enum_INTEGER(ASN1F_INTEGER):
         if isinstance(enum, list):
             keys = range(len(enum))
         else:
-            keys = enum.keys()
+            keys = list(enum)
         if any(isinstance(x, six.string_types) for x in keys):
             i2s, s2i = s2i, i2s
         for k in keys:

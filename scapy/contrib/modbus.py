@@ -785,7 +785,7 @@ class ModbusADURequest(Packet):
             return _modbus_request_classes[function_code]
         except KeyError:
             pass
-        if function_code in _reserved_funccode_request.keys():
+        if function_code in _reserved_funccode_request:
             return ModbusPDUReservedFunctionCodeRequest
         return ModbusPDUUserDefinedFunctionCodeRequest
 
@@ -820,9 +820,9 @@ class ModbusADUResponse(Packet):
             return _modbus_error_classes[function_code]
         except KeyError:
             pass
-        if function_code in _reserved_funccode_response.keys():
+        if function_code in _reserved_funccode_response:
             return ModbusPDUReservedFunctionCodeResponse
-        elif function_code in _reserved_funccode_error.keys():
+        elif function_code in _reserved_funccode_error:
             return ModbusPDUReservedFunctionCodeError
         if function_code < 0x80:
             return ModbusPDUUserDefinedFunctionCodeResponse

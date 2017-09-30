@@ -1315,7 +1315,7 @@ DHCPv6_am.parse_options( dns="2001:500::1035", domain="localdomain, local",
 
         if self.debug:
             print("\n[+] List of active DHCPv6 options:")
-            opts = sorted(self.dhcpv6_options.keys())
+            opts = sorted(self.dhcpv6_options)
             for i in opts:
                 print("    %d: %s" % (i, repr(self.dhcpv6_options[i])))
 
@@ -1343,7 +1343,7 @@ DHCPv6_am.parse_options( dns="2001:500::1035", domain="localdomain, local",
 
             # Mac Address
             rawmac = get_if_raw_hwaddr(iface)[1]
-            mac = ":".join("%.02x" % ord(x) for x in rawmac)
+            mac = ":".join("%.02x" % orb(x) for x in rawmac)
 
             self.duid = DUID_LLT(timeval = timeval, lladdr = mac)
             
@@ -1574,12 +1574,12 @@ DHCPv6_am.parse_options( dns="2001:500::1035", domain="localdomain, local",
                     reqopts = []
                     if p.haslayer(DHCP6OptOptReq): # add only asked ones
                         reqopts = p[DHCP6OptOptReq].reqopts
-                        for o in self.dhcpv6_options.keys():
+                        for o, opt in six.iteritems(self.dhcpv6_options):
                             if o in reqopts:
-                                resp /= self.dhcpv6_options[o]
+                                resp /= opt
                     else: # advertise everything we have available
-                        for o in self.dhcpv6_options.keys():
-                            resp /= self.dhcpv6_options[o]                    
+                        for o, opt in six.iteritems(self.dhcpv6_options):
+                            resp /= opt
 
             return resp
 
@@ -1595,15 +1595,15 @@ DHCPv6_am.parse_options( dns="2001:500::1035", domain="localdomain, local",
             reqopts = []
             if p.haslayer(DHCP6OptOptReq): # add only asked ones
                 reqopts = p[DHCP6OptOptReq].reqopts
-                for o in self.dhcpv6_options.keys():
+                for o, opt in six.iteritems(self.dhcpv6_options):
                     if o in reqopts:
-                        resp /= self.dhcpv6_options[o]
+                        resp /= opt
             else: 
                 # advertise everything we have available.
                 # Should not happen has clients MUST include 
                 # and ORO in requests (sec 18.1.1)   -- arno
-                for o in self.dhcpv6_options.keys():
-                    resp /= self.dhcpv6_options[o]          
+                for o, opt in six.iteritems(self.dhcpv6_options):
+                    resp /= opt
 
             return resp            
         
@@ -1693,8 +1693,8 @@ DHCPv6_am.parse_options( dns="2001:500::1035", domain="localdomain, local",
             reqopts = []
             if p.haslayer(DHCP6OptOptReq):
                 reqopts = p[DHCP6OptOptReq].reqopts
-            for o in self.dhcpv6_options.keys():
-                resp /= self.dhcpv6_options[o]
+            for o, opt in six.iteritems(self.dhcpv6_options):
+                resp /= opt
 
             return resp
 

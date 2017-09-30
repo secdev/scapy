@@ -397,9 +397,9 @@ def bitmap2RRlist(bitmap):
             warning("bitmap too short (%i)" % len(bitmap))
             return
 
-        window_block = ord(bitmap[0]) # window number
-        offset = 256*window_block # offset of the Resource Record
-        bitmap_len = ord(bitmap[1]) # length of the bitmap in bytes
+        window_block = orb(bitmap[0]) # window number
+        offset = 256 * window_block # offset of the Resource Record
+        bitmap_len = orb(bitmap[1]) # length of the bitmap in bytes
 
         if bitmap_len <= 0 or bitmap_len > 32:
             warning("bitmap length is no valid (%i)" % bitmap_len)
@@ -411,7 +411,7 @@ def bitmap2RRlist(bitmap):
         for b in range(len(tmp_bitmap)):
             v = 128
             for i in range(8):
-                if ord(tmp_bitmap[b]) & v:
+                if orb(tmp_bitmap[b]) & v:
                     # each of the RR is encoded as a bit
                     RRlist += [ offset + b*8 + i ]
                 v = v >> 1
@@ -431,10 +431,8 @@ def RRlist2bitmap(lst):
 
     import math
 
-    bitmap = ""
-    lst = sorted(set(lst))
-
-    lst = [abs(x) for x in lst if x <= 65535]
+    bitmap = b""
+    lst = [abs(x) for x in sorted(set(lst)) if x <= 65535]
 
     # number of window blocks
     max_window_blocks = int(math.ceil(lst[-1] / 256.))
@@ -446,7 +444,7 @@ def RRlist2bitmap(lst):
         # First, filter out RR not encoded in the current window block
         # i.e. keep everything between 256*wb <= 256*(wb+1)
         rrlist = sorted(x for x in lst if 256 * wb <= x < 256 * (wb + 1))
-        if rrlist == []:
+        if not rrlist:
             continue
 
         # Compute the number of bytes used to store the bitmap
@@ -454,12 +452,11 @@ def RRlist2bitmap(lst):
             bytes_count = 1
         else:
             max = rrlist[-1] - 256*wb
-            bytes_count = int(math.ceil(max / 8)) + 1  # use at least 1 byte
+            bytes_count = int(math.ceil(max // 8)) + 1  # use at least 1 byte
         if bytes_count > 32: # Don't encode more than 256 bits / values
             bytes_count = 32
 
-        bitmap += struct.pack("B", wb)
-        bitmap += struct.pack("B", bytes_count)
+        bitmap += struct.pack("BB", wb, bytes_count)
 
         # Generate the bitmap
 	# The idea is to remove out of range Resource Records with these steps

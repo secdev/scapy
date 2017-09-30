@@ -10,6 +10,7 @@ Fields: basic data structures that make up parts of packets.
 from __future__ import absolute_import
 import struct,copy,socket,collections
 from scapy.config import conf
+from scapy.dadict import DADict
 from scapy.volatile import *
 from scapy.data import *
 from scapy.compat import *
@@ -880,7 +881,7 @@ class BitFieldLenField(BitField):
         self.count_of = count_of
         self.adjust = adjust
     def i2m(self, pkt, x):
-        return FieldLenField.i2m.__func__(self, pkt, x)
+        return (FieldLenField.i2m.__func__ if six.PY2 else FieldLenField.i2m)(self, pkt, x)
 
 
 class XBitField(BitField):
@@ -917,8 +918,10 @@ class _EnumField(Field):
             self.s2i_cb = None
             if isinstance(enum, list):
                 keys = range(len(enum))
-            else:
+            elif isinstance(enum, DADict):
                 keys = enum.keys()
+            else:
+                keys = list(enum)
             if any(isinstance(x, str) for x in keys):
                 i2s, s2i = s2i, i2s
             for k in keys:
@@ -965,7 +968,7 @@ class CharEnumField(EnumField):
     def __init__(self, name, default, enum, fmt = "1s"):
         EnumField.__init__(self, name, default, enum, fmt)
         if self.i2s is not None:
-            k = list(self.i2s.keys())
+            k = list(self.i2s)
             if k and len(k[0]) != 1:
                 self.i2s,self.s2i = self.s2i,self.i2s
     def any2i_one(self, pkt, x):
@@ -1258,7 +1261,7 @@ class MultiFlagsField(BitField):
         super(MultiFlagsField, self).__init__(name, default, size)
 
     def any2i(self, pkt, x):
-        assert isinstance(x, (int, long, set)), 'set expected'
+        assert isinstance(x, six.integer_types + (set,)), 'set expected'
 
         if pkt is not None:
             if isinstance(x, six.integer_types):
@@ -1270,8 +1273,8 @@ class MultiFlagsField(BitField):
                     these_names = self.names[v]
                     s = set()
                     for i in x:
-                        for j in these_names.keys():
-                            if these_names[j].short == i:
+                        for val in six.itervalues(these_names):
+                            if val.short == i:
                                 s.add(i)
                                 break
                         else:
@@ -1289,8 +1292,8 @@ class MultiFlagsField(BitField):
 
         r = 0
         for flag_set in x:
-            for i in these_names.keys():
-                if these_names[i].short == flag_set:
+            for i, val in six.iteritems(these_names):
+                if val.short == flag_set:
                     r |= 1 << i
                     break
             else:
