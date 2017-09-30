@@ -77,7 +77,7 @@ class PipeEngine(SelectableObject):
 
     def _write_cmd(self, _cmd):
         self.__fd_queue.append(_cmd)
-        os.write(self.__fdw, "X")
+        os.write(self.__fdw, b"X")
         self.call_release()
 
     def add_one_pipe(self, pipe):
@@ -250,12 +250,16 @@ class _ConnectorLogic(object):
         other.trigger_sources.add(self)
         return other
 
-class Pipe(_ConnectorLogic):
-    class __metaclass__(type):
-        def __new__(cls, name, bases, dct):
-            c = type.__new__(cls, name, bases, dct)
-            PipeEngine.pipes[name] = c
-            return c
+    def __hash__(self):
+        return object.__hash__(self)
+
+class _PipeMeta(type):
+    def __new__(cls, name, bases, dct):
+        c = type.__new__(cls, name, bases, dct)
+        PipeEngine.pipes[name] = c
+        return c
+
+class Pipe(six.with_metaclass(_PipeMeta, _ConnectorLogic)):
     def __init__(self, name=None):
         _ConnectorLogic.__init__(self)
         if name is None:
@@ -375,7 +379,7 @@ class AutoSource(Source, SelectableObject):
         self._queue.append((msg,True))
         self._wake_up()
     def _wake_up(self):
-        os.write(self.__fdw,"X")
+        os.write(self.__fdw, b"X")
         self.call_release()
     def deliver(self):
         os.read(self.__fdr,1)
@@ -472,7 +476,7 @@ class PeriodicSource(ThreadGenSource):
 """
     def __init__(self, msg, period, period2=0, name=None):
         ThreadGenSource.__init__(self,name=name)
-        if not hasattr(msg, "__iter__"):
+        if not isinstance(msg, (list, set, tuple)):
             msg=[msg]
         self.msg = msg
         self.period = period
@@ -564,7 +568,7 @@ class TermSink(Sink):
             self.__w.write(s)
             self.__w.close()
         else:
-            os.write(self.__w, s)
+            os.write(self.__w, s.encode())
     def push(self, msg):
         self._print(str(msg))
     def high_push(self, msg):
