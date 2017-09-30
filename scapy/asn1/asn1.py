@@ -281,21 +281,21 @@ class ASN1_BIT_STRING(ASN1_Object):
         else:
             self.val_readable = val
     def __setattr__(self, name, value):
-        str_value = value
+        str_value = None
         if isinstance(value, str):
             str_value = value
             value = raw(value)
-        elif isinstance(value, bytes):
-            str_value = value.decode()
         if name == "val_readable":
             if isinstance(value, bytes):
-                val = b"".join(binrepr(orb(x)).zfill(8) for x in value)
+                val = b"".join(binrepr(orb(x)).zfill(8).encode("utf8") for x in value)
             else:
                 val = "<invalid val_readable>"
             super(ASN1_Object, self).__setattr__("val", val)
             super(ASN1_Object, self).__setattr__(name, value)
             super(ASN1_Object, self).__setattr__("unused_bits", 0)
         elif name == "val":
+            if not str_value:
+                str_value = plain_str(value)
             if isinstance(value, bytes):
                 if any(c for c in str_value if c not in ["0", "1"]):
                     print("Invalid operation: 'val' is not a valid bit string.")
