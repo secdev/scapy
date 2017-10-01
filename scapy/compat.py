@@ -105,7 +105,7 @@ else:
             return x
         else:
             if hasattr(x, "__int__") and not isinstance(x, int):
-                return bytes(chr(int(x)), encoding="utf8")
+                return bytes([int(x)])
             return bytes([x])
 
 def bytes_codec(x, codec, force_str=False):

@@ -37,7 +37,7 @@ def _tls_P_hash(secret, seed, req_len, hm):
            Hmac_SHA256 or Hmac_SHA384 in TLS 1.2)
     """
     hash_len = hm.hash_alg.hash_len
-    n = (req_len + hash_len - 1) / hash_len
+    n = (req_len + hash_len - 1) // hash_len
 
     res = b""
     a = hm(secret).digest(seed)  # A(1)
@@ -70,7 +70,7 @@ def _tls_P_SHA512(secret, seed, req_len):
 
 def _sslv2_PRF(secret, seed, req_len):
     hash_md5 = _tls_hash_algs["MD5"]()
-    rounds = (req_len + hash_md5.hash_len - 1) / hash_md5.hash_len
+    rounds = (req_len + hash_md5.hash_len - 1) // hash_md5.hash_len
 
     res = b""
     if rounds == 1:
@@ -99,12 +99,13 @@ def _ssl_PRF(secret, seed, req_len):
         warning("_ssl_PRF() is not expected to provide more than 416 bytes")
         return ""
 
-    d = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M",
-         "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"]
-    res = ""
+    d = [b"A", b"B", b"C", b"D", b"E", b"F", b"G", b"H", b"I", b"J", b"K", b"L",
+         b"M", b"N", b"O", b"P", b"Q", b"R", b"S", b"T", b"U", b"V", b"W", b"X",
+         b"Y", b"Z"]
+    res = b""
     hash_sha1 = _tls_hash_algs["SHA"]()
     hash_md5 = _tls_hash_algs["MD5"]()
-    rounds = (req_len + hash_md5.hash_len - 1) / hash_md5.hash_len
+    rounds = (req_len + hash_md5.hash_len - 1) // hash_md5.hash_len
 
     for i in range(rounds):
         label = d[i] * (i+1)
@@ -130,7 +131,7 @@ def _tls_PRF(secret, label, seed, req_len):
     - seed: the seed used by the expansion functions.
     - req_len: amount of keystream to be generated
     """
-    l = (len(secret) + 1) / 2
+    l = (len(secret) + 1) // 2
     S1 = secret[:l]
     S2 = secret[-l:]
 
@@ -207,7 +208,7 @@ class PRF(object):
         elif self.tls_version == 0x0300:
             return self.prf(pre_master_secret, seed, 48)
         else:
-            return self.prf(pre_master_secret, "master secret", seed, 48)
+            return self.prf(pre_master_secret, b"master secret", seed, 48)
 
     def derive_key_block(self, master_secret, server_random,
                          client_random, req_len):
@@ -219,7 +220,7 @@ class PRF(object):
         if self.tls_version <= 0x0300:
             return self.prf(master_secret, seed, req_len)
         else:
-            return self.prf(master_secret, "key expansion", seed, req_len)
+            return self.prf(master_secret, b"key expansion", seed, req_len)
 
     def compute_verify_data(self, con_end, read_or_write,
                             handshake_msg, master_secret):

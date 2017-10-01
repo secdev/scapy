@@ -13,6 +13,7 @@ import math
 from scapy.config import conf, crypto_validator
 from scapy.error import warning
 from scapy.fields import *
+from scapy.compat import orb
 from scapy.packet import Packet, Raw, Padding
 from scapy.layers.tls.cert import PubKeyRSA, PrivKeyRSA
 from scapy.layers.tls.session import _GenericTLSSessionInheritance
@@ -612,7 +613,7 @@ _tls_server_ecdh_cls = { 1: ServerECDHExplicitPrimeParams,
 def _tls_server_ecdh_cls_guess(m):
     if not m:
         return None
-    curve_type = ord(m[0])
+    curve_type = orb(m[0])
     return _tls_server_ecdh_cls.get(curve_type, None)
 
 

@@ -115,9 +115,9 @@ class connState(object):
                               repr_hex(secret))
 
     def derive_keys(self,
-                    client_random="",
-                    server_random="",
-                    master_secret=""):
+                    client_random=b"",
+                    server_random=b"",
+                    master_secret=b""):
         #XXX Can this be called over a non-usable suite? What happens then?
 
         cs = self.ciphersuite
@@ -739,7 +739,7 @@ class tlsSession(object):
     def consider_read_padding(self):
         # Return True if padding is needed. Used by TLSPadField.
         return (self.rcs.cipher.type == "block" and
-                not (False in self.rcs.cipher.ready.itervalues()))
+                not (False in six.itervalues(self.rcs.cipher.ready)))
 
     def consider_write_padding(self):
         # Return True if padding is needed. Used by TLSPadField.
@@ -859,18 +859,18 @@ class _GenericTLSSessionInheritance(Packet):
         return pkt
 
     def str_stateful(self):
-        return super(_GenericTLSSessionInheritance, self).__str__()
+        return super(_GenericTLSSessionInheritance, self).__bytes__()
 
-    def __str__(self):
+    def __bytes__(self):
         """
-        The __str__ call has to leave the connection states unchanged.
+        The __bytes__ call has to leave the connection states unchanged.
         We also have to delete raw_packet_cache in order to access post_build.
 
         For performance, the pending connStates are not snapshotted.
         This should not be an issue, but maybe pay attention to this.
 
-        The previous_freeze_state prevents issues with calling a str() calling
-        in turn another str(), which would unfreeze the session too soon.
+        The previous_freeze_state prevents issues with calling a raw() calling
+        in turn another raw(), which would unfreeze the session too soon.
         """
         s = self.tls_session
         rcs_snap = s.rcs.snapshot()
@@ -882,7 +882,7 @@ class _GenericTLSSessionInheritance(Packet):
         self.raw_packet_cache = None
         previous_freeze_state = s.frozen
         s.frozen = True
-        built_packet = super(_GenericTLSSessionInheritance, self).__str__()
+        built_packet = super(_GenericTLSSessionInheritance, self).__bytes__()
         s.frozen = previous_freeze_state
 
         s.rcs = rcs_snap
@@ -899,7 +899,7 @@ class _GenericTLSSessionInheritance(Packet):
         Howether we do not want the tls_session.{r,w}cs.seq_num to be updated.
         We have to bring back the init states (it's possible the cipher context
         has been updated because of parsing) but also to keep the current state
-        and restore it afterwards (the str() call may also update the states).
+        and restore it afterwards (the raw() call may also update the states).
         """
         s = self.tls_session
         rcs_snap = s.rcs.snapshot()
@@ -907,7 +907,7 @@ class _GenericTLSSessionInheritance(Packet):
 
         s.rcs = self.rcs_snap_init
 
-        built_packet = str(self)
+        built_packet = raw(self)
         s.frozen = True
         self.__class__(built_packet, tls_session=s).show()
         s.frozen = False

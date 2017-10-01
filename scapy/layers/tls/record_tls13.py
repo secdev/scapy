@@ -45,11 +45,11 @@ class TLSInnerPlaintext(_GenericTLSSessionInheritance):
             raise Exception("Invalid InnerPlaintext (too short).")
 
         l = len(s) - 1
-        if s[-1] != "\x00":
+        if s[-1] != b"\x00":
             msg_len = l
         else:
             n = 1
-            while s[-n] != "\x00" and n < l:
+            while s[-n] != b"\x00" and n < l:
                 n += 1
             msg_len = l - n
         self.fields_desc[0].length_from = lambda pkt: msg_len

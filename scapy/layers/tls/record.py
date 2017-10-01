@@ -77,7 +77,7 @@ class _TLSMsgListField(PacketListField):
         cls = Raw
         if pkt.type == 22:
             if len(m) >= 1:
-                msgtype = ord(m[0])
+                msgtype = orb(m[0])
                 cls = _tls_handshake_cls.get(msgtype, Raw)
         elif pkt.type == 20:
             cls = TLSChangeCipherSpec
@@ -111,18 +111,18 @@ class _TLSMsgListField(PacketListField):
         """
         l = self.length_from(pkt)
         lst = []
-        ret = ""
+        ret = b""
         remain = s
         if l is not None:
             remain, ret = s[:l], s[l:]
 
-        if remain == "":
-            if pkt.tls_session.tls_version > 0x0200 and pkt.type == 23:
-                return ret, [TLSApplicationData(data="")]
+        if remain == b"":
+            if pkt.tls_session.tls_version and pkt.tls_session.tls_version > 0x0200 and pkt.type == 23:
+                return ret, [TLSApplicationData(data=b"")]
             else:
-                return ret, [Raw(load="")]
+                return ret, [Raw(load=b"")]
 
-        if False in pkt.tls_session.rcs.cipher.ready.itervalues():
+        if False in six.itervalues(pkt.tls_session.rcs.cipher.ready):
             return ret, _TLSEncryptedContent(remain)
         else:
             while remain:
@@ -135,7 +135,7 @@ class _TLSMsgListField(PacketListField):
                     if len(remain) != 0:
                         raw_msg = raw_msg[:-len(remain)]
                 else:
-                    remain = ""
+                    remain = b""
 
                 if isinstance(p, _GenericTLSSessionInheritance):
                     if not p.tls_session.frozen:
@@ -149,7 +149,7 @@ class _TLSMsgListField(PacketListField):
        Update the context with information from the built packet.
        If no type was given at the record layer, we try to infer it.
        """
-       cur = ""
+       cur = b""
        if isinstance(p, _GenericTLSSessionInheritance):
            if pkt.type is None:
                if isinstance(p, TLSChangeCipherSpec):
@@ -176,10 +176,12 @@ class _TLSMsgListField(PacketListField):
         Reconstruct the header because the TLS type may have been updated.
         Then, append the content.
         """
-        res = ""
+        res = b""
         for p in val:
+            print(type(self))
             res += self.i2m(pkt, p)
         if (isinstance(pkt, _GenericTLSSessionInheritance) and
+            pkt.tls_session.tls_version and
             pkt.tls_session.tls_version >= 0x0304 and
             not isinstance(pkt, TLS13ServerHello)):
                 return s + res
@@ -268,14 +270,14 @@ class TLS(_GenericTLSSessionInheritance):
         responsible for low-minded extensibility choices.
         """
         if _pkt and len(_pkt) >= 2:
-            byte0 = struct.unpack("B", _pkt[0])[0]
-            byte1 = struct.unpack("B", _pkt[1])[0]
+            byte0 = orb(_pkt[0])
+            byte1 = orb(_pkt[1])
             if (byte0 not in _tls_type) or (byte1 != 3):
                 from scapy.layers.tls.record_sslv2 import SSLv2
                 return SSLv2
             else:
                 s = kargs.get("tls_session", None)
-                if s and s.tls_version >= 0x0304:
+                if s and s.tls_version and s.tls_version >= 0x0304:
                     if s.rcs and not isinstance(s.rcs.cipher, Cipher_NULL):
                         from scapy.layers.tls.record_tls13 import TLS13
                         return TLS13
@@ -296,7 +298,7 @@ class TLS(_GenericTLSSessionInheritance):
             self.tls_session.rcs.seq_num += 1
             # self.type and self.version have not been parsed yet,
             # this is why we need to look into the provided hdr.
-            add_data = read_seq_num + hdr[0] + hdr[1:3]
+            add_data = read_seq_num + chb(hdr[0]) + hdr[1:3]
             # Last two bytes of add_data are appended by the return function
             return self.tls_session.rcs.cipher.auth_decrypt(add_data, s,
                                                             read_seq_num)
@@ -372,7 +374,7 @@ class TLS(_GenericTLSSessionInheritance):
         msglen = struct.unpack('!H', s[3:5])[0]
         hdr, efrag, r = s[:5], s[5:5+msglen], s[msglen+5:]
 
-        iv = mac = pad = ""
+        iv = mac = pad = b""
         self.padlen = None
         decryption_success = False
 
@@ -410,7 +412,7 @@ class TLS(_GenericTLSSessionInheritance):
                 #    hdr = hdr[:3] + struct.pack('!H', l-block_size)
 
                 # Extract padding ('pad' actually includes the trailing padlen)
-                padlen = ord(pfrag[-1]) + 1
+                padlen = orb(pfrag[-1]) + 1
                 mfrag, pad = pfrag[:-padlen], pfrag[-padlen:]
                 self.padlen = padlen
 
@@ -419,7 +421,7 @@ class TLS(_GenericTLSSessionInheritance):
                 if l != 0:
                     cfrag, mac = mfrag[:-l], mfrag[-l:]
                 else:
-                    cfrag, mac = mfrag, ""
+                    cfrag, mac = mfrag, b""
 
                 # Verify integrity
                 chdr = hdr[:3] + struct.pack('!H', len(cfrag))
@@ -444,7 +446,7 @@ class TLS(_GenericTLSSessionInheritance):
                 if l != 0:
                     cfrag, mac = mfrag[:-l], mfrag[-l:]
                 else:
-                    cfrag, mac = mfrag, ""
+                    cfrag, mac = mfrag, b""
 
                 # Verify integrity
                 chdr = hdr[:3] + struct.pack('!H', len(cfrag))
@@ -458,7 +460,7 @@ class TLS(_GenericTLSSessionInheritance):
             # crypto/cipher_aead.py prints a warning for integrity failure
             if (conf.crypto_valid_advanced and
                 isinstance(self.tls_session.rcs.cipher, Cipher_CHACHA20_POLY1305)):
-                iv = ""
+                iv = b""
                 cfrag, mac = self._tls_auth_decrypt(hdr, efrag)
             else:
                 iv, cfrag, mac = self._tls_auth_decrypt(hdr, efrag)
@@ -569,12 +571,12 @@ class TLS(_GenericTLSSessionInheritance):
 
         Meant to be used with a block cipher only.
         """
-        padding = ""
+        padding = b""
         block_size = self.tls_session.wcs.cipher.block_size
         padlen = block_size - ((len(s) + 1) % block_size)
         if padlen == block_size:
             padlen = 0
-        pad_pattern = chr(padlen)
+        pad_pattern = chb(padlen)
         padding = pad_pattern * (padlen + 1)
         return s + padding
 

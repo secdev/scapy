@@ -138,7 +138,7 @@ class _PKIObjMaker(type):
             if _size > obj_max_size:
                 raise Exception(error_msg)
             try:
-                f = open(obj_path)
+                f = open(obj_path, "rb")
                 _raw = f.read()
                 f.close()
             except:

@@ -324,7 +324,7 @@ class ASN1_BIT_STRING(ASN1_Object):
         else:
             s = self.val_readable
             if len(s) > 20:
-                s = s[:10] + "..." + s[-10:]
+                s = s[:10] + b"..." + s[-10:]
             return "<%s[%r] (%d unused bit%s)>" % (self.__dict__.get("name", self.__class__.__name__), s, self.unused_bits, "s" if self.unused_bits>1 else "")
     def __str__(self):
         return self.val_readable

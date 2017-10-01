@@ -296,7 +296,7 @@ class _AEADCipher_TLS13(object):
 
     def _get_nonce(self, seq_num):
         padlen = self.fixed_iv_len - len(seq_num)
-        padded_seq_num = "\x00" * padlen + seq_num
+        padded_seq_num = b"\x00" * padlen + seq_num
         return strxor(padded_seq_num, self.fixed_iv)
 
     def auth_encrypt(self, P, A, seq_num):
@@ -307,7 +307,7 @@ class _AEADCipher_TLS13(object):
 
         Note that the cipher's authentication tag must be None when encrypting.
         """
-        if False in self.ready.itervalues():
+        if False in six.itervalues(self.ready):
             raise CipherError(P, A)
 
         if hasattr(self, "pc_cls"):
@@ -335,7 +335,7 @@ class _AEADCipher_TLS13(object):
         raise a CipherError which contains the encrypted input.
         """
         C, mac = C[:-self.tag_len], C[-self.tag_len:]
-        if False in self.ready.itervalues():
+        if False in six.itervalues(self.ready):
             raise CipherError(C, mac)
 
         if hasattr(self, "pc_cls"):

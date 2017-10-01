@@ -141,7 +141,7 @@ class ServerName(Packet):
 class ServerListField(PacketListField):
     def i2repr(self, pkt, x):
         res = [p.servername for p in x]
-        return "[%s]" % ", ".join(res)
+        return "[%s]" % b", ".join(res)
 
 class ServerLenField(FieldLenField):
     """
@@ -412,7 +412,7 @@ class ProtocolName(Packet):
 class ProtocolListField(PacketListField):
     def i2repr(self, pkt, x):
         res = [p.protocol for p in x]
-        return "[%s]" % ", ".join(res)
+        return "[%s]" % b", ".join(res)
 
 class TLS_Ext_ALPN(TLS_Ext_PrettyPacketList):                       # RFC 7301
     name = "TLS Extension - Application Layer Protocol Negotiation"
@@ -627,18 +627,18 @@ class _ExtensionsField(StrLenField):
 
     def i2m(self, pkt, i):
         if i is None:
-            return ""
+            return b""
         if isinstance(pkt, _GenericTLSSessionInheritance):
             if not pkt.tls_session.frozen:
-                s = ""
+                s = b""
                 for ext in i:
                     if isinstance(ext, _GenericTLSSessionInheritance):
                         ext.tls_session = pkt.tls_session
                         s += ext.str_stateful()
                     else:
-                        s += str(ext)
+                        s += raw(ext)
                 return s
-        return "".join(map(str, i))
+        return b"".join(map(raw, i))
 
     def m2i(self, pkt, m):
         res = []
