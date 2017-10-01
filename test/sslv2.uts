@@ -252,7 +252,7 @@ raw(t) == b'\x80\x03\x00\x00\x01'
 = Building SSLv2 packets - ClientHello with automatic length computation
 ch_pkt = SSLv2ClientHello()
 ch_pkt.msgtype = 'client_hello'
-ch_pkt.version = 0x002
+ch_pkt.version = 0x0002
 ch_pkt.ciphers = [SSL_CK_DES_192_EDE3_CBC_WITH_MD5, SSL_CK_IDEA_128_CBC_WITH_MD5, SSL_CK_RC2_128_CBC_WITH_MD5, SSL_CK_RC4_128_WITH_MD5, SSL_CK_DES_64_CBC_WITH_MD5, SSL_CK_RC2_128_CBC_EXPORT40_WITH_MD5, SSL_CK_RC4_128_EXPORT40_WITH_MD5]
 ch_pkt.challenge = b'!2bc\x97^\xa3\r9\x14*\xe4\xd6\xd4\n\x1e'
 t = SSLv2(msg=ch_pkt)

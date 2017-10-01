@@ -12,7 +12,7 @@ ApplicationData submessages. For the Handshake type, see tls_handshake.py.
 See the TLS class documentation for more information.
 """
 
-import struct
+import struct, traceback
 
 from scapy.config import conf
 from scapy.error import log_runtime
@@ -92,6 +92,8 @@ class _TLSMsgListField(PacketListField):
             try:
                 return cls(m, tls_session=pkt.tls_session)
             except:
+                if conf.debug_dissector:
+                    traceback.print_exc()
                 return Raw(m)
 
     def getfield(self, pkt, s):
@@ -117,7 +119,7 @@ class _TLSMsgListField(PacketListField):
             remain, ret = s[:l], s[l:]
 
         if remain == b"":
-            if pkt.tls_session.tls_version and pkt.tls_session.tls_version > 0x0200 and pkt.type == 23:
+            if pkt.tls_session.tls_version > 0x0200 and pkt.type == 23:
                 return ret, [TLSApplicationData(data=b"")]
             else:
                 return ret, [Raw(load=b"")]
@@ -178,10 +180,8 @@ class _TLSMsgListField(PacketListField):
         """
         res = b""
         for p in val:
-            print(type(self))
             res += self.i2m(pkt, p)
         if (isinstance(pkt, _GenericTLSSessionInheritance) and
-            pkt.tls_session.tls_version and
             pkt.tls_session.tls_version >= 0x0304 and
             not isinstance(pkt, TLS13ServerHello)):
                 return s + res
@@ -277,7 +277,7 @@ class TLS(_GenericTLSSessionInheritance):
                 return SSLv2
             else:
                 s = kargs.get("tls_session", None)
-                if s and s.tls_version and s.tls_version >= 0x0304:
+                if s and s.tls_version >= 0x0304:
                     if s.rcs and not isinstance(s.rcs.cipher, Cipher_NULL):
                         from scapy.layers.tls.record_tls13 import TLS13
                         return TLS13

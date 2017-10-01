@@ -12,6 +12,7 @@ import socket
 import struct
 
 from scapy.config import conf
+import scapy.modules.six as six
 from scapy.error import log_runtime, warning
 from scapy.packet import Packet
 from scapy.utils import repr_hex, strxor
@@ -89,7 +90,7 @@ class connState(object):
         self.cipher = ciphersuite.cipher_alg()
         self.hash = ciphersuite.hash_alg()
 
-        if tls_version and tls_version > 0x0200:
+        if tls_version > 0x0200:
             if ciphersuite.cipher_alg.type == "aead":
                 self.hmac = None
                 self.mac_len = self.cipher.tag_len
@@ -100,7 +101,7 @@ class connState(object):
             self.hmac = ciphersuite.hmac_alg()          # should be Hmac_NULL
             self.mac_len = self.hash.hash_len
 
-        if tls_version and tls_version >= 0x0304:
+        if tls_version >= 0x0304:
             self.hkdf = TLS13_HKDF(self.hash.name.lower())
         else:
             self.prf = PRF(ciphersuite.hash_alg.name, tls_version)
@@ -238,8 +239,8 @@ class connState(object):
         cipher_alg = self.ciphersuite.cipher_alg
         key_len = cipher_alg.key_len
         iv_len = cipher_alg.fixed_iv_len
-        write_key = self.hkdf.expand_label(key_material, "key", "", key_len)
-        write_iv = self.hkdf.expand_label(key_material, "iv", "", iv_len)
+        write_key = self.hkdf.expand_label(key_material, b"key", b"", key_len)
+        write_iv = self.hkdf.expand_label(key_material, b"iv", b"", iv_len)
         self.cipher = cipher_alg(write_key, write_iv)
 
     def snapshot(self):
@@ -412,7 +413,7 @@ class tlsSession(object):
         self.advertised_tls_version = 0x0303
 
         # The agreed-upon TLS version found in the ServerHello.
-        self.tls_version = None
+        self.tls_version = 0
 
         # These attributes should eventually be known to both sides (SSLv3-TLS 1.2).
         self.client_random = None
@@ -581,9 +582,9 @@ class tlsSession(object):
                                                self.tls13_psk_secret)
 
         bk = hkdf.derive_secret(self.tls13_early_secret,
-                                "external psk binder key",
+                                b"external psk binder key",
                                #"resumption psk binder key",
-                                "")
+                                b"")
         self.tls13_derived_secrets["binder_key"] = bk
 
         if len(self.handshake_messages) > 1:
@@ -591,13 +592,13 @@ class tlsSession(object):
             return
 
         cets = hkdf.derive_secret(self.tls13_early_secret,
-                                  "client early traffic secret",
-                                  "".join(self.handshake_messages))
+                                  b"client early traffic secret",
+                                  b"".join(self.handshake_messages))
         self.tls13_derived_secrets["client_early_traffic_secret"] = cets
 
         ees = hkdf.derive_secret(self.tls13_early_secret,
-                                 "early exporter master secret",
-                                 "".join(self.handshake_messages))
+                                 b"early exporter master secret",
+                                 b"".join(self.handshake_messages))
         self.tls13_derived_secrets["early_exporter_secret"] = ees
 
         if self.connection_end == "server":
@@ -619,13 +620,13 @@ class tlsSession(object):
                                                    self.tls13_dhe_secret)
 
         chts = hkdf.derive_secret(self.tls13_handshake_secret,
-                                  "client handshake traffic secret",
-                                  "".join(self.handshake_messages))
+                                  b"client handshake traffic secret",
+                                  b"".join(self.handshake_messages))
         self.tls13_derived_secrets["client_handshake_traffic_secret"] = chts
 
         shts = hkdf.derive_secret(self.tls13_handshake_secret,
-                                  "server handshake traffic secret",
-                                  "".join(self.handshake_messages))
+                                  b"server handshake traffic secret",
+                                  b"".join(self.handshake_messages))
         self.tls13_derived_secrets["server_handshake_traffic_secret"] = shts
 
         if self.connection_end == "server":
@@ -646,18 +647,18 @@ class tlsSession(object):
                                                 None)
 
         cts0 = hkdf.derive_secret(self.tls13_master_secret,
-                                  "client application traffic secret",
-                                  "".join(self.handshake_messages))
+                                  b"client application traffic secret",
+                                  b"".join(self.handshake_messages))
         self.tls13_derived_secrets["client_traffic_secrets"] = [cts0]
 
         sts0 = hkdf.derive_secret(self.tls13_master_secret,
-                                  "server application traffic secret",
-                                  "".join(self.handshake_messages))
+                                  b"server application traffic secret",
+                                  b"".join(self.handshake_messages))
         self.tls13_derived_secrets["server_traffic_secrets"] = [sts0]
 
         es = hkdf.derive_secret(self.tls13_master_secret,
-                                "exporter master secret",
-                                "".join(self.handshake_messages))
+                                b"exporter master secret",
+                                b"".join(self.handshake_messages))
         self.tls13_derived_secrets["exporter_secret"] = es
 
         if self.connection_end == "server":
@@ -694,7 +695,7 @@ class tlsSession(object):
             warning("Missing arguments for verify_data computation!")
             return None
         #XXX this join() works in standard cases, but does it in all of them?
-        handshake_context = "".join(self.handshake_messages)
+        handshake_context = b"".join(self.handshake_messages)
         return hkdf.compute_verify_data(basekey, handshake_context)
 
     def compute_tls13_resumption_secret(self):
@@ -706,8 +707,8 @@ class tlsSession(object):
         elif self.connection_end == "client":
             hkdf = self.pwcs.hkdf
         rs = hkdf.derive_secret(self.tls13_master_secret,
-                                "resumption master secret",
-                                "".join(self.handshake_messages))
+                                b"resumption master secret",
+                                b"".join(self.handshake_messages))
         self.tls13_derived_secrets["resumption_secret"] = rs
 
     def compute_tls13_next_traffic_secrets(self):

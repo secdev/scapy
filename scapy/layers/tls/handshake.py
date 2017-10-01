@@ -147,7 +147,7 @@ class _CipherSuitesField(StrLenField):
         if (isinstance(x, _GenericCipherSuite) or
             isinstance(x, _GenericCipherSuiteMetaclass)):
             x = x.val
-        if isinstance(x, str):
+        if isinstance(x, bytes):
             x = self.s2i[x]
         return x
 
@@ -871,9 +871,9 @@ class TLSCertificateVerify(_TLSHandshake):
         m = b"".join(s.handshake_messages)
         if s.tls_version >= 0x0304:
             if s.connection_end == "client":
-                context_string = "TLS 1.3, server CertificateVerify"
+                context_string = b"TLS 1.3, server CertificateVerify"
             elif s.connection_end == "server":
-                context_string = "TLS 1.3, client CertificateVerify"
+                context_string = b"TLS 1.3, client CertificateVerify"
             m = b"\x20"*64 + context_string + b"\x00" + s.rcs.hash.digest(m)
 
         if s.connection_end == "server":

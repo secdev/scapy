@@ -185,9 +185,9 @@ class TLS_Ext_KeyShare_SH(TLS_Ext_Unknown):
             if group_name in self.tls_session.tls13_client_pubshares:
                 privkey = self.server_share.privkey
                 pubkey = self.tls_session.tls13_client_pubshares[group_name]
-                if group_name in _tls_named_ffdh_groups.itervalues():
+                if group_name in six.itervalues(_tls_named_ffdh_groups):
                     pms = privkey.exchange(pubkey)
-                elif group_name in _tls_named_curves.itervalues():
+                elif group_name in six.itervalues(_tls_named_curves):
                     if group_name == "x25519":
                         pms = privkey.exchange(pubkey)
                     else:
@@ -208,9 +208,9 @@ class TLS_Ext_KeyShare_SH(TLS_Ext_Unknown):
             if group_name in self.tls_session.tls13_client_privshares:
                 pubkey = self.server_share.pubkey
                 privkey = self.tls_session.tls13_client_privshares[group_name]
-                if group_name in _tls_named_ffdh_groups.itervalues():
+                if group_name in six.itervalues(_tls_named_ffdh_groups):
                     pms = privkey.exchange(pubkey)
-                elif group_name in _tls_named_curves.itervalues():
+                elif group_name in six.itervalues(_tls_named_curves):
                     if group_name == "x25519":
                         pms = privkey.exchange(pubkey)
                     else:

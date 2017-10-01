@@ -246,13 +246,12 @@ if conf.crypto_valid_advanced:
         key_len = 32
 
 
-class _AEADCipher_TLS13(object):
+class _AEADCipher_TLS13(six.with_metaclass(_AEADCipherMetaclass, object)):
     """
     The hasattr(self, "pc_cls") enable support for the legacy implementation
     of GCM in the cryptography library. They should not be used, and might
     eventually be removed, with cryptography v2.0. XXX
     """
-    __metaclass__ = _AEADCipherMetaclass
     type = "aead"
 
     def __init__(self, key=None, fixed_iv=None, nonce_explicit=None):
@@ -266,10 +265,10 @@ class _AEADCipher_TLS13(object):
         self.ready = {"key": True, "fixed_iv": True}
         if key is None:
             self.ready["key"] = False
-            key = "\0" * self.key_len
+            key = b"\0" * self.key_len
         if fixed_iv is None:
             self.ready["fixed_iv"] = False
-            fixed_iv = "\0" * self.fixed_iv_len
+            fixed_iv = b"\0" * self.fixed_iv_len
 
         # we use super() in order to avoid any deadlock with __setattr__
         super(_AEADCipher_TLS13, self).__setattr__("key", key)
