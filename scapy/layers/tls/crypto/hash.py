@@ -38,7 +38,7 @@ class Hash_NULL(_GenericHash):
     hash_len = 0
 
     def digest(self, tbd):
-        return ""
+        return b""
 
 class Hash_MD5(_GenericHash):
     hash_cls = md5

@@ -26,7 +26,7 @@ class TLS13_HKDF(object):
         h = self.hash
         hkdf = HKDF(h, h.digest_size, salt, None, default_backend())
         if ikm is None:
-            ikm = "\x00" * h.digest_size
+            ikm = b"\x00" * h.digest_size
         return hkdf._extract(ikm)
 
     def expand(self, prk, info, L):
@@ -37,7 +37,7 @@ class TLS13_HKDF(object):
     def expand_label(self, secret, label, hash_value, length):
         hkdf_label  = struct.pack("!H", length)
         hkdf_label += struct.pack("B", 9 + len(label))
-        hkdf_label += "TLS 1.3, "
+        hkdf_label += b"TLS 1.3, "
         hkdf_label += label
         hkdf_label += struct.pack("B", len(hash_value))
         hkdf_label += hash_value
@@ -52,7 +52,7 @@ class TLS13_HKDF(object):
 
     def compute_verify_data(self, basekey, handshake_context):
         hash_len = self.hash.digest_size
-        finished_key = self.expand_label(basekey, "finished", "", hash_len)
+        finished_key = self.expand_label(basekey, b"finished", b"", hash_len)
 
         h = Hash(self.hash, backend=default_backend())
         h.update(handshake_context)

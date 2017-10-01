@@ -10,6 +10,7 @@ import struct
 
 from scapy.config import conf
 from scapy.error import log_runtime
+from scapy.compat import *
 from scapy.fields import *
 from scapy.packet import *
 from scapy.layers.tls.session import _GenericTLSSessionInheritance
@@ -34,7 +35,7 @@ class _SSLv2MsgListField(_TLSMsgListField):
     def m2i(self, pkt, m):
         cls = Raw
         if len(m) >= 1:
-            msgtype = ord(m[0])
+            msgtype = orb(m[0])
             cls = _sslv2_handshake_cls.get(msgtype, Raw)
 
         if cls is Raw:
@@ -50,9 +51,9 @@ class _SSLv2MsgListField(_TLSMsgListField):
                cur = p.str_stateful()
                p.post_build_tls_session_update(cur)
            else:
-               cur = str(p)
+               cur = raw(p)
        else:
-           cur = str(p)
+           cur = raw(p)
        return cur
 
     def addfield(self, pkt, s, val):
@@ -70,7 +71,7 @@ class SSLv2(TLS):
     name = "SSLv2"
     fields_desc = [ _SSLv2LengthField("len", None),
                     _SSLv2PadLenField("padlen", None),
-                    _TLSMACField("mac", ""),
+                    _TLSMACField("mac", b""),
                     _SSLv2MsgListField("msg", []),
                     _SSLv2PadField("pad", "") ]
 

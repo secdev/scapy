@@ -138,7 +138,7 @@ class _GenericCipherSuite(six.with_metaclass(_GenericCipherSuiteMetaclass, objec
         simply be discarded), but we still provide this for completeness.
         """
         super(_GenericCipherSuite, self).__init__()
-        if tls_version <= 0x301:
+        if (not tls_version) or tls_version <= 0x301:
             self.key_block_len = self._key_block_len_v1_0
 
 

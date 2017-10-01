@@ -89,7 +89,7 @@ class connState(object):
         self.cipher = ciphersuite.cipher_alg()
         self.hash = ciphersuite.hash_alg()
 
-        if tls_version > 0x0200:
+        if tls_version and tls_version > 0x0200:
             if ciphersuite.cipher_alg.type == "aead":
                 self.hmac = None
                 self.mac_len = self.cipher.tag_len
@@ -100,7 +100,7 @@ class connState(object):
             self.hmac = ciphersuite.hmac_alg()          # should be Hmac_NULL
             self.mac_len = self.hash.hash_len
 
-        if tls_version >= 0x0304:
+        if tls_version and tls_version >= 0x0304:
             self.hkdf = TLS13_HKDF(self.hash.name.lower())
         else:
             self.prf = PRF(ciphersuite.hash_alg.name, tls_version)

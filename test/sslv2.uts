@@ -164,11 +164,11 @@ sf.sid == binascii.unhexlify('11c1e8070b2cf249ad3d85caf8854bc8')
 t1 = SSLv2(d1, tls_session=t.tls_session.mirror())
 data1 = t1.msg[0]
 assert(isinstance(data1, Raw))
-assert(data1.load == 'These are horrendous parameters for a TLS session.\n')
+assert(data1.load == b'These are horrendous parameters for a TLS session.\n')
 t2 = SSLv2(d2, tls_session=t1.tls_session)
 data2 = t2.msg[0]
 assert(isinstance(data2, Raw))
-data2.load ==  '*nothing to do here*\n'
+data2.load ==  b'*nothing to do here*\n'
 
 = Reading SSLv2 session - Checking final sequence numbers
 t2.tls_session.rcs.seq_num == 6 and t2.tls_session.wcs.seq_num == 4
@@ -182,15 +182,15 @@ t2.tls_session.rcs.seq_num == 6 and t2.tls_session.wcs.seq_num == 4
 
 = Check TLS-related scapy internals - Checking str() harmlessness (with RC4)
 t1.show()
-assert(t1.msg[0].load == 'These are horrendous parameters for a TLS session.\n')
+assert(t1.msg[0].load == b'These are horrendous parameters for a TLS session.\n')
 assert(t1.tls_session.rcs.seq_num == 6 and t1.tls_session.wcs.seq_num == 4)
-d1 == str(t1)
+d1 == raw(t1)
 
 = Check TLS-related scapy internals - Checking show2() harmlessness (with RC4)
 t2.show2()
-assert(t2.msg[0].load == '*nothing to do here*\n')
+assert(t2.msg[0].load == b'*nothing to do here*\n')
 assert(t2.tls_session.rcs.seq_num == 6 and t2.tls_session.wcs.seq_num == 4)
-d2 == str(t2)
+d2 == raw(t2)
 
 = Check TLS-related scapy internals - Checking show2() harmlessness (with 3DES)
 # These are also taken from a s_client/s_server session.
@@ -234,29 +234,29 @@ t.msg[0].challenge == challenge
 + Build SSLv2 packets
 
 = Building SSLv2 packets - Various default messages
-str(SSLv2())
-str(SSLv2Error())
-str(SSLv2ClientHello())
-str(SSLv2ServerHello())
-str(SSLv2ClientMasterKey())
-str(SSLv2ServerVerify())
-str(SSLv2ClientFinished())
-str(SSLv2RequestCertificate())
-str(SSLv2ClientCertificate())
-str(SSLv2ServerFinished())
+raw(SSLv2())
+raw(SSLv2Error())
+raw(SSLv2ClientHello())
+raw(SSLv2ServerHello())
+raw(SSLv2ClientMasterKey())
+raw(SSLv2ServerVerify())
+raw(SSLv2ClientFinished())
+raw(SSLv2RequestCertificate())
+raw(SSLv2ClientCertificate())
+raw(SSLv2ServerFinished())
 
 = Building SSLv2 packets - Error within clear record
 t = SSLv2(msg=SSLv2Error(code='no_cipher'))
-str(t) == b'\x80\x03\x00\x00\x01'
+raw(t) == b'\x80\x03\x00\x00\x01'
 
 = Building SSLv2 packets - ClientHello with automatic length computation
 ch_pkt = SSLv2ClientHello()
 ch_pkt.msgtype = 'client_hello'
-ch_pkt.version = 'SSLv2'
+ch_pkt.version = 0x002
 ch_pkt.ciphers = [SSL_CK_DES_192_EDE3_CBC_WITH_MD5, SSL_CK_IDEA_128_CBC_WITH_MD5, SSL_CK_RC2_128_CBC_WITH_MD5, SSL_CK_RC4_128_WITH_MD5, SSL_CK_DES_64_CBC_WITH_MD5, SSL_CK_RC2_128_CBC_EXPORT40_WITH_MD5, SSL_CK_RC4_128_EXPORT40_WITH_MD5]
-ch_pkt.challenge = binascii.unhexlify('21326263975ea30d39142ae4d6d40a1e')
+ch_pkt.challenge = b'!2bc\x97^\xa3\r9\x14*\xe4\xd6\xd4\n\x1e'
 t = SSLv2(msg=ch_pkt)
-str(t) == ch
+raw(t) == ch
 
 = Building SSLv2 packets - ClientMasterKey context linking
 mk = SSLv2ClientMasterKey(cipher='SSL_CK_DES_192_EDE3_CBC_WITH_MD5', clearkey=b'\xff'*19, encryptedkey=b'\0'*256, decryptedkey=b'\xaa'*5, keyarg=b'\x01'*8)

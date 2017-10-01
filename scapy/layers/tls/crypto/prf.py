@@ -78,7 +78,7 @@ def _sslv2_PRF(secret, seed, req_len):
     else:
         r = 0
         while r < rounds:
-            label = str(r)
+            label = str(r).encode("utf8")
             res += hash_md5.digest(secret + label + seed)
             r += 1
 
@@ -179,7 +179,7 @@ class PRF(object):
         self.tls_version = tls_version
         self.hash_name = hash_name
 
-        if tls_version < 0x0300:            # SSLv2
+        if (not tls_version) or tls_version < 0x0300:  # SSLv2
             self.prf = _sslv2_PRF
         elif tls_version == 0x0300:         # SSLv3
             self.prf = _ssl_PRF
@@ -203,7 +203,7 @@ class PRF(object):
         client_random and server_random. See RFC 5246, section 6.3.
         """
         seed = client_random + server_random
-        if self.tls_version < 0x0300:
+        if (not self.tls_version) or self.tls_version < 0x0300:
             return None
         elif self.tls_version == 0x0300:
             return self.prf(pre_master_secret, seed, 48)
@@ -217,7 +217,7 @@ class PRF(object):
         requested length. See RFC 5246, section 6.3.
         """
         seed = server_random + client_random
-        if self.tls_version <= 0x0300:
+        if (not self.tls_version) or self.tls_version <= 0x0300:
             return self.prf(master_secret, seed, req_len)
         else:
             return self.prf(master_secret, b"key expansion", seed, req_len)
@@ -234,7 +234,7 @@ class PRF(object):
          prior to this document when TLS 1.2 is negotiated."
         Cipher suites using SHA-384 were defined later on.
         """
-        if self.tls_version < 0x0300:
+        if (not self.tls_version) or self.tls_version < 0x0300:
             return None
         elif self.tls_version == 0x0300:
 
@@ -292,7 +292,7 @@ class PRF(object):
         s = con_end + read_or_write
         s = (s == "clientwrite" or s == "serverread")
 
-        if self.tls_version < 0x0300:
+        if not self.tls_version or self.tls_version < 0x0300:
             return None
         elif self.tls_version == 0x0300:
             if s:
@@ -321,7 +321,7 @@ class PRF(object):
         s = con_end + read_or_write
         s = (s == "clientwrite" or s == "serverread")
 
-        if self.tls_version < 0x0300:
+        if not self.tls_version or self.tls_version < 0x0300:
             return None
         elif self.tls_version == 0x0300:
             if s:
