@@ -9148,8 +9148,8 @@ test_afterglow()
 
 = psdump()
 
-print(test_pyx())
-if test_pyx():
+print("PYX: %d" % PYX)
+if PYX:
     import tempfile
     import os
     filename = tempfile.mktemp(suffix=".ps")
@@ -9160,8 +9160,8 @@ if test_pyx():
 
 = pdfdump()
 
-print(test_pyx())
-if test_pyx():
+print("PYX: %d" % PYX)
+if PYX:
     import tempfile
     import os
     filename = tempfile.mktemp(suffix=".pdf")
