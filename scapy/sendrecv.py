@@ -24,7 +24,7 @@ from scapy.utils import get_temp_file, PcapReader, tcpdump, wrpcap
 from scapy import plist
 from scapy.error import log_runtime, log_interactive
 from scapy.base_classes import SetGen
-from scapy.supersocket import StreamSocket
+from scapy.supersocket import StreamSocket, L3RawSocket
 import scapy.modules.six as six
 from scapy.modules.six.moves import map
 from scapy.modules.six import iteritems
@@ -94,8 +94,8 @@ def _sndrcv_rcv(pks, tobesent, stopevent, nbrecv, notans, verbose, chainCC,
         def _get_pkt():
             if bpf_select([pks]):
                 return pks.recv()
-    elif conf.use_pcap or (not isinstance(pks, StreamSocket)
-                           and (DARWIN or FREEBSD or OPENBSD)):
+    elif (conf.use_pcap and not isinstance(pks, (StreamSocket, L3RawSocket))) or \
+         (not isinstance(pks, StreamSocket) and (DARWIN or FREEBSD or OPENBSD)):
         def _get_pkt():
             res = pks.nonblock_recv()
             if res is None:
