@@ -76,7 +76,6 @@ class AS_resolver_cymru(AS_resolver):
     server = "whois.cymru.com"
     options = None
     def resolve(self, *ips):
-        ASNlist = []
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.connect((self.server,self.port))
         s.send(b"begin\r\n"+b"\r\n".join(ip.encode("utf8") for ip in ips)+b"\r\nend\r\n")
@@ -87,7 +86,14 @@ class AS_resolver_cymru(AS_resolver):
                 break
             r += l
         s.close()
-        for l in r.splitlines()[1:]:
+
+        return self.parse(r)
+
+    def parse(self, data):
+        """Parse bulk cymru data"""
+
+        ASNlist = []
+        for l in data.splitlines()[1:]:
             l = plain_str(l)
             if "|" not in l:
                 continue
