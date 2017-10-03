@@ -1,4 +1,0 @@
-#! /bin/sh
-DIR=$(dirname $0)
-PYTHONDONTWRITEBYTECODE="True" # Disable __pycache__
-PYTHONPATH=$DIR exec python3 -m scapy.__init__ $@

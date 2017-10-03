@@ -1,0 +1,3 @@
+#! /bin/sh
+PYTHON=python3
+source $(dirname $0)/run_tests "$@"

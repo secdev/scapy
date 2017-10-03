@@ -2271,7 +2271,7 @@ raw(ICMPv6NDOptRedirectedHdr()) == b'\x04\x01\x00\x00\x00\x00\x00\x00'
 
 = ICMPv6NDOptRedirectedHdr - Instantiation with specific values 
 ~ ICMPv6NDOptRedirectedHdr
-raw(ICMPv6NDOptRedirectedHdr(len=0xff, res=0x1111, pkt="somestringthatisnotanipv6packet")) == b'\x04\xff4369\x00\x00somestringthatisnotanipv'
+raw(ICMPv6NDOptRedirectedHdr(len=0xff, res="abcdef", pkt="somestringthatisnotanipv6packet")) == b'\x04\xffabcdefsomestringthatisnotanipv'
 
 = ICMPv6NDOptRedirectedHdr - Instantiation with simple IPv6 packet (no upper layer)
 ~ ICMPv6NDOptRedirectedHdr
