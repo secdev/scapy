@@ -1,6 +1,8 @@
 @echo off
-set PYTHONPATH=%cd% 
-python -m scapy.__init__ %*
+call run_scapy_py2.bat --nopause
+if errorlevel 1 (
+   call run_scapy_py3.bat --nopause
+)
 if errorlevel 1 (
    PAUSE
 )
