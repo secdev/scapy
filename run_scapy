@@ -1,8 +1,5 @@
 #! /bin/sh
 DIR=$(dirname $0)
-if python --version 2>&1 | grep -q '^Python 2'; then
-    PYTHON=python
-else
-    PYTHON=python2
-fi
+PYTHONDONTWRITEBYTECODE=True
+PYTHON=${PYTHON:-python}
 PYTHONPATH=$DIR exec $PYTHON -m scapy.__init__ $@
