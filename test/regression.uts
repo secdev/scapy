@@ -802,8 +802,47 @@ for i in six.moves.range(5):
         break
 
 assert (len(ret) == 2)
-
 all(x[1] == "AS15169" for x in ret)
+
+ret = list()
+success = False
+for i in six.moves.range(5):
+    try:
+        ret = AS_resolver_riswhois().resolve("8.8.8.8")
+    except socket.error:
+        time.sleep(2)
+    else:
+        success = True
+        break
+
+assert (len(ret) == 1)
+assert all(x[1] == "AS15169" for x in ret)
+
+# This test is too buggy, and is simulated below
+#ret = list()
+#success = False
+#for i in six.moves.range(5):
+#    try:
+#        ret = AS_resolver_cymru().resolve("8.8.8.8")
+#    except socket.error:
+#        time.sleep(2)
+#    else:
+#        success = True
+#        break
+#
+#assert (len(ret) == 1)
+#
+#all(x[1] == "AS15169" for x in ret)
+
+cymru_bulk_data = """
+Bulk mode; whois.cymru.com [2017-10-03 08:38:08 +0000]
+24776   | 217.25.178.5     | INFOCLIP-AS, FR
+36459   | 192.30.253.112   | GITHUB - GitHub, Inc., US
+26496   | 68.178.213.61    | AS-26496-GO-DADDY-COM-LLC - GoDaddy.com, LLC, US
+"""
+tmp = AS_resolver_cymru().parse(cymru_bulk_data)
+assert(len(tmp) == 3)
+assert([l[1] for l in tmp] == ['AS24776', 'AS36459', 'AS26496'])
 
 = AS resolver - IPv6
 ~ netaccess IP
@@ -823,34 +862,6 @@ for i in six.moves.range(5):
 
 assert (len(ret) == 2)
 assert all(x[1] == 15169 for x in ret)
-
-success = False
-for i in six.moves.range(5):
-    try:
-        ret = AS_resolver_riswhois().resolve("8.8.8.8")
-    except socket.error:
-        time.sleep(2)
-    else:
-        success = True
-        break
-
-assert (len(ret) == 1)
-assert all(x[1] == "AS15169" for x in ret)
-
-# This test is too buggy
-#success = False
-#for i in six.moves.range(5):
-#    try:
-#        ret = AS_resolver_cymru().resolve("8.8.8.8")
-#    except socket.error:
-#        time.sleep(2)
-#    else:
-#        success = True
-#        break
-#
-#assert (len(ret) == 1)
-#
-#all(x[1] == "AS15169" for x in ret)
 
 
 ############
