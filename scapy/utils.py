@@ -33,11 +33,15 @@ from scapy.base_classes import BasePacketList
 ###########
 
 def get_temp_file(keep=False, autoext=""):
-    with tempfile.NamedTemporaryFile(prefix="scapy") as _f:
-        f = _f.name
+    """Create a temporary file and return its name. When keep is False,
+the file is deleted when scapy exits.
+
+    """
+    fname = tempfile.NamedTemporaryFile(prefix="scapy", suffix=autoext,
+                                        delete=False).name
     if not keep:
-        conf.temp_files.append(f+autoext)
-    return f + autoext
+        conf.temp_files.append(fname)
+    return fname
 
 def sane_color(x):
     r=""
