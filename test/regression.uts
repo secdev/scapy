@@ -7549,6 +7549,29 @@ assert(p[Ether:2].type == 0x800)
 
 ############
 ############
+############
++ Tests of StreamSocket
+
+= Test with DNS over TCP
+~ netaccess
+
+import socket
+sck = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+sck.connect(("8.8.8.8", 53))
+
+class DNSTCP(Packet):
+    name = "DNS over TCP"
+    fields_desc = [ FieldLenField("len", None, fmt="!H", length_of="dns"),
+                    PacketLenField("dns", 0, DNS, length_from=lambda p: p.len)]
+
+ssck = StreamSocket(sck)
+ssck.basecls = DNSTCP
+
+r = ssck.sr1(DNSTCP(dns=DNS(rd=1, qd=DNSQR(qname="www.example.com"))))
+sck.close()
+assert(DNSTCP in r and len(r.dns.an))
+
+############
 + Tests of SSLStreamContext
 
 = Test with recv() calls that return exact packet-length rawings
