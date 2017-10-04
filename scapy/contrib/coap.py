@@ -95,6 +95,7 @@ coap_options = ({
                     "Size1": 60
                 })
 
+PAY_MARK = b'\xff'
 
 def _get_ext_field_size(val):
     if val >= 15:
@@ -150,7 +151,7 @@ class _CoAPOpt(Packet):
         return Packet.do_build(self)
 
     def guess_payload_class(self, payload):
-        if payload[0] != b'\xff':
+        if payload[0] != PAY_MARK:
             return _CoAPOpt
         else:
             return Packet.guess_payload_class(self, payload)
@@ -172,14 +173,16 @@ class _CoAPOptsField(StrField):
 
     def m2i(self, pkt, x):
         opts = []
-        o = _CoAPOpt(x)
-        cur_delta = 0
-        while isinstance(o, _CoAPOpt):
-            cur_delta += _get_abs_val(o.delta, o.delta_ext)
-            # size of this option in bytes
-            u = 1 + len(o.opt_val) + len(o.delta_ext) + len(o.len_ext)
-            opts.append((u, cur_delta, o.opt_val))
-            o = o.payload
+        # check whether there are options at all
+        if x[0] != PAY_MARK:
+            o = _CoAPOpt(x)
+            cur_delta = 0
+            while isinstance(o, _CoAPOpt):
+                cur_delta += _get_abs_val(o.delta, o.delta_ext)
+                # size of this option in bytes
+                u = 1 + len(o.opt_val) + len(o.delta_ext) + len(o.len_ext)
+                opts.append((u, cur_delta, o.opt_val))
+                o = o.payload
         return opts
 
     def i2m(self, pkt, x):
@@ -211,8 +214,8 @@ class _CoAPPaymark(StrField):
         return s[u:], m
 
     def m2i(self, pkt, x):
-        if len(x) > 0 and x[0] == b'\xff':
-            return 1, b'\xff'
+        if len(x) > 0 and x[0] == PAY_MARK:
+            return 1, PAY_MARK
         return 0, '';
 
     def i2m(self, pkt, x):
