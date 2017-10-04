@@ -179,7 +179,7 @@ def sndrcv(pks, pkt, timeout=None, inter=0, verbose=None, chainCC=False,
         autostop = 0
 
     while retry >= 0:
-        if timeout < 0:
+        if timeout is not None and timeout < 0:
             timeout = None
         stopevent = threading.Event()
 
