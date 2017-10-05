@@ -692,6 +692,11 @@ def in6_chksum(nh, u, p):
             final_dest_addr_found == 0):
             rthdr = u.addresses[-1]
             final_dest_addr_found = 1
+        elif (isinstance(u, IPv6ExtHdrSegmentRouting) and
+            u.segleft != 0 and len(u.addresses) != 0 and
+            final_dest_addr_found == 0):
+            rthdr = u.addresses[0]
+            final_dest_addr_found = 1
         elif (isinstance(u, IPv6ExtHdrDestOpt) and (len(u.options) == 1) and
              isinstance(u.options[0], HAO)):
              hahdr  = u.options[0].hoa
