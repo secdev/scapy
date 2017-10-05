@@ -16,6 +16,7 @@ from scapy.packet import *
 from scapy.fields import *
 from scapy.ansmachine import *
 from scapy.data import *
+from scapy.compat import *
 from scapy.layers.inet import UDP,IP
 from scapy.layers.l2 import Ether
 from scapy.base_classes import Net
@@ -43,10 +44,10 @@ class BOOTP(Packet):
                     IPField("yiaddr","0.0.0.0"),
                     IPField("siaddr","0.0.0.0"),
                     IPField("giaddr","0.0.0.0"),
-                    Field("chaddr","", "16s"),
-                    Field("sname","","64s"),
-                    Field("file","","128s"),
-                    StrField("options","") ]
+                    Field("chaddr",b"", "16s"),
+                    Field("sname",b"","64s"),
+                    Field("file",b"","128s"),
+                    StrField("options",b"") ]
     def guess_payload_class(self, payload):
         if self.options[:len(dhcpmagic)] == dhcpmagic:
             return DHCP
@@ -59,7 +60,7 @@ class BOOTP(Packet):
             self.options = self.options[:len(dhcpmagic)]
             return payload, None
         else:
-            return "", None
+            return b"", None
     def hashret(self):
         return struct.pack("L", self.xid)
     def answers(self, other):
@@ -202,11 +203,11 @@ class DHCPOptionsField(StrField):
         return "[%s]" % (" ".join(s))
         
     def getfield(self, pkt, s):
-        return "", self.m2i(pkt, s)
+        return b"", self.m2i(pkt, s)
     def m2i(self, pkt, x):
         opt = []
         while x:
-            o = ord(x[0])
+            o = orb(x[0])
             if o == 255:
                 opt.append("end")
                 x = x[1:]
@@ -215,18 +216,18 @@ class DHCPOptionsField(StrField):
                 opt.append("pad")
                 x = x[1:]
                 continue
-            if len(x) < 2 or len(x) < ord(x[1])+2:
+            if len(x) < 2 or len(x) < orb(x[1])+2:
                 opt.append(x)
                 break
             elif o in DHCPOptions:
                 f = DHCPOptions[o]
 
                 if isinstance(f, str):
-                    olen = ord(x[1])
+                    olen = orb(x[1])
                     opt.append( (f,x[2:olen+2]) )
                     x = x[olen+2:]
                 else:
-                    olen = ord(x[1])
+                    olen = orb(x[1])
                     lval = [f.name]
                     try:
                         left = x[2:olen+2]
@@ -241,49 +242,49 @@ class DHCPOptionsField(StrField):
                     opt.append(otuple)
                     x = x[olen+2:]
             else:
-                olen = ord(x[1])
+                olen = orb(x[1])
                 opt.append((o, x[2:olen+2]))
                 x = x[olen+2:]
         return opt
     def i2m(self, pkt, x):
         if isinstance(x, str):
             return x
-        s = ""
+        s = b""
         for o in x:
             if isinstance(o, tuple) and len(o) >= 2:
                 name = o[0]
                 lval = o[1:]
 
                 if isinstance(name, int):
-                    onum, oval = name, "".join(lval)
+                    onum, oval = name, b"".join(lval)
                 elif name in DHCPRevOptions:
                     onum, f = DHCPRevOptions[name]
                     if  f is not None:
-                        lval = [f.addfield(pkt,"",f.any2i(pkt,val)) for val in lval]
-                    oval = "".join(lval)
+                        lval = [f.addfield(pkt,b"",f.any2i(pkt,val)) for val in lval]
+                    oval = b"".join(lval)
                 else:
-                    warning("Unknown field option %s" % name)
+                    warning("Unknown field option %s", name)
                     continue
 
-                s += chr(onum)
-                s += chr(len(oval))
+                s += chb(onum)
+                s += chb(len(oval))
                 s += oval
 
             elif (isinstance(o, str) and o in DHCPRevOptions and 
                   DHCPRevOptions[o][1] == None):
-                s += chr(DHCPRevOptions[o][0])
+                s += chb(DHCPRevOptions[o][0])
             elif isinstance(o, int):
-                s += chr(o)+b"\0"
-            elif isinstance(o, str):
-                s += o
+                s += chb(o)+b"\0"
+            elif isinstance(o, (str, bytes)):
+                s += raw(o)
             else:
-                warning("Malformed option %s" % o)
+                warning("Malformed option %s", o)
         return s
 
 
 class DHCP(Packet):
     name = "DHCP options"
-    fields_desc = [ DHCPOptionsField("options","") ]
+    fields_desc = [ DHCPOptionsField("options",b"") ]
 
 
 bind_layers( UDP,           BOOTP,         dport=67, sport=68)

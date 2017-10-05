@@ -13,6 +13,7 @@ import socket,struct
 from scapy.config import conf
 from scapy.packet import *
 from scapy.fields import *
+from scapy.compat import *
 from scapy.ansmachine import *
 from scapy.sendrecv import sr1
 from scapy.layers.inet import IP, DestIPField, UDP, TCP
@@ -23,37 +24,36 @@ import scapy.modules.six as six
 from scapy.modules.six.moves import range
 
 class DNSStrField(StrField):
-
     def h2i(self, pkt, x):
-      if x == "":
-        return "."
-      return x
+        if x == "":
+            return "."
+        return x
 
     def i2m(self, pkt, x):
         if x == ".":
           return b"\x00"
 
         # Truncate chunks that cannot be encoded (more than 63 bytes..)
-        x = "".join(chr(len(y)) + y for y in (k[:63] for k in x.split(".")))
-        if x[-1] != b"\x00":
+        x = b"".join(chb(len(y)) + y.encode("utf8") for y in (k[:63] for k in x.split(".")))
+        if orb(x[-1]) != 0:
             x += b"\x00"
         return x
 
     def getfield(self, pkt, s):
         n = ""
 
-        if ord(s[0]) == 0:
-          return s[1:], "."
+        if orb(s[0]) == 0:
+            return s[1:], "."
 
         while True:
-            l = ord(s[0])
+            l = orb(s[0])
             s = s[1:]
             if not l:
                 break
             if l & 0xc0:
                 raise Scapy_Exception("DNS message can't be compressed at this point!")
             else:
-                n += s[:l]+"."
+                n += plain_str(s[:l])+"."
                 s = s[l:]
         return s, n
 
@@ -82,14 +82,14 @@ class DNSRRCountField(ShortField):
 
 
 def DNSgetstr(s,p):
-    name = ""
+    name = b""
     q = 0
     jpath = [p]
     while True:
         if p >= len(s):
             warning("DNS RR prematured end (ofs=%i, len=%i)"%(p,len(s)))
             break
-        l = ord(s[p])
+        l = orb(s[p])
         p += 1
         if l & 0xc0:
             if not q:
@@ -97,14 +97,14 @@ def DNSgetstr(s,p):
             if p >= len(s):
                 warning("DNS incomplete jump token at (ofs=%i)" % p)
                 break
-            p = ((l & 0x3f) << 8) + ord(s[p]) - 12
+            p = ((l & 0x3f) << 8) + orb(s[p]) - 12
             if p in jpath:
                 warning("DNS decompression loop detected")
                 break
             jpath.append(p)
             continue
         elif l > 0:
-            name += s[p:p+l]+"."
+            name += s[p:p+l]+b"."
             p += l
             continue
         break
@@ -122,8 +122,8 @@ class DNSRRField(StrField):
         self.passon = passon
     def i2m(self, pkt, x):
         if x is None:
-            return ""
-        return str(x)
+            return b""
+        return raw(x)
     def decodeRR(self, name, s, p):
         ret = s[p:p+10]
         type,cls,ttl,rdlen = struct.unpack("!HHIH", ret)
@@ -139,7 +139,7 @@ class DNSRRField(StrField):
 
         p += rdlen
 
-        rr.rrname = name
+        rr.rrname = name.decode("utf8")
         return rr,p
     def getfield(self, pkt, s):
         if isinstance(s, tuple) :
@@ -149,8 +149,8 @@ class DNSRRField(StrField):
         ret = None
         c = getattr(pkt, self.countfld)
         if c > len(s):
-            warning("wrong value: DNS.%s=%i" % (self.countfld,c))
-            return s,""
+            warning("wrong value: DNS.%s=%i", self.countfld, c)
+            return s,b""
         while c:
             c -= 1
             name,p = DNSgetstr(s,p)
@@ -170,8 +170,8 @@ class DNSQRField(DNSRRField):
         ret = s[p:p+4]
         p += 4
         rr = DNSQR(b"\x00"+ret)
-        rr.qname = name
-        return rr,p
+        rr.qname = plain_str(name)
+        return rr, p
 
 
 
@@ -183,12 +183,12 @@ class RDataField(StrLenField):
         elif pkt.type == 12: # PTR
             s = DNSgetstr(s, 0)[0]
         elif pkt.type == 16: # TXT
-            ret_s = ""
+            ret_s = b""
             tmp_s = s
             # RDATA contains a list of strings, each are prepended with
             # a byte containing the size of the following string.
             while tmp_s:
-                tmp_len = struct.unpack("!B", tmp_s[0])[0] + 1
+                tmp_len = orb(tmp_s[0]) + 1
                 if tmp_len > len(tmp_s):
                   warning("DNS RR TXT prematured end of character-string (size=%i, remaining bytes=%i)" % (tmp_len, len(tmp_s)))
                 ret_s += tmp_s[1:tmp_len]
@@ -204,12 +204,13 @@ class RDataField(StrLenField):
             if s:
                 s = inet_aton(s)
         elif pkt.type in [2, 3, 4, 5, 12]: # NS, MD, MF, CNAME, PTR
-            s = "".join(chr(len(x)) + x for x in s.split('.'))
-            if ord(s[-1]):
+            s = b"".join(chr(len(x)) + x for x in s.split('.'))
+            if orb(s[-1]):
                 s += b"\x00"
         elif pkt.type == 16: # TXT
             if s:
-                ret_s = ""
+                s = raw(s)
+                ret_s = b""
                 # The initial string must be splitted into a list of strings
                 # prepended with theirs sizes.
                 while len(s) >= 255:
@@ -396,9 +397,9 @@ def bitmap2RRlist(bitmap):
             warning("bitmap too short (%i)" % len(bitmap))
             return
 
-        window_block = ord(bitmap[0]) # window number
-        offset = 256*window_block # offset of the Resource Record
-        bitmap_len = ord(bitmap[1]) # length of the bitmap in bytes
+        window_block = orb(bitmap[0]) # window number
+        offset = 256 * window_block # offset of the Resource Record
+        bitmap_len = orb(bitmap[1]) # length of the bitmap in bytes
 
         if bitmap_len <= 0 or bitmap_len > 32:
             warning("bitmap length is no valid (%i)" % bitmap_len)
@@ -410,7 +411,7 @@ def bitmap2RRlist(bitmap):
         for b in range(len(tmp_bitmap)):
             v = 128
             for i in range(8):
-                if ord(tmp_bitmap[b]) & v:
+                if orb(tmp_bitmap[b]) & v:
                     # each of the RR is encoded as a bit
                     RRlist += [ offset + b*8 + i ]
                 v = v >> 1
@@ -430,10 +431,8 @@ def RRlist2bitmap(lst):
 
     import math
 
-    bitmap = ""
-    lst = sorted(set(lst))
-
-    lst = [abs(x) for x in lst if x <= 65535]
+    bitmap = b""
+    lst = [abs(x) for x in sorted(set(lst)) if x <= 65535]
 
     # number of window blocks
     max_window_blocks = int(math.ceil(lst[-1] / 256.))
@@ -445,7 +444,7 @@ def RRlist2bitmap(lst):
         # First, filter out RR not encoded in the current window block
         # i.e. keep everything between 256*wb <= 256*(wb+1)
         rrlist = sorted(x for x in lst if 256 * wb <= x < 256 * (wb + 1))
-        if rrlist == []:
+        if not rrlist:
             continue
 
         # Compute the number of bytes used to store the bitmap
@@ -453,12 +452,11 @@ def RRlist2bitmap(lst):
             bytes_count = 1
         else:
             max = rrlist[-1] - 256*wb
-            bytes_count = int(math.ceil(max / 8)) + 1  # use at least 1 byte
+            bytes_count = int(math.ceil(max // 8)) + 1  # use at least 1 byte
         if bytes_count > 32: # Don't encode more than 256 bits / values
             bytes_count = 32
 
-        bitmap += struct.pack("B", wb)
-        bitmap += struct.pack("B", bytes_count)
+        bitmap += struct.pack("BB", wb, bytes_count)
 
         # Generate the bitmap
 	# The idea is to remove out of range Resource Records with these steps
@@ -618,6 +616,65 @@ class DNSRRNSEC3PARAM(_DNSRRdummy):
                     StrLenField("salt", "", length_from=lambda pkt: pkt.saltlength)
                   ]
 
+# RFC 2845 - Secret Key Transaction Authentication for DNS (TSIG)
+tsig_algo_sizes = { "HMAC-MD5.SIG-ALG.REG.INT": 16,
+                    "hmac-sha1": 20 }
+
+class TimeSignedField(StrFixedLenField):
+    def __init__(self, name, default):
+        StrFixedLenField.__init__(self, name, default, 6)
+
+    def _convert_seconds(self, packed_seconds):
+        """Unpack the internal representation."""
+        seconds = struct.unpack("!H", packed_seconds[:2])[0]
+        seconds += struct.unpack("!I", packed_seconds[2:])[0]
+        return seconds
+
+    def h2i(self, pkt, seconds):
+        """Convert the number of seconds since 1-Jan-70 UTC to the packed
+           representation."""
+
+        if seconds is None:
+            seconds = 0
+
+        tmp_short = (seconds >> 32) & 0xFFFF
+        tmp_int = seconds & 0xFFFFFFFF
+
+        return struct.pack("!HI", tmp_short, tmp_int)
+
+    def i2h(self, pkt, packed_seconds):
+        """Convert the internal representation to the number of seconds
+           since 1-Jan-70 UTC."""
+
+        if packed_seconds is None:
+            return None
+
+        return self._convert_seconds(packed_seconds)
+
+    def i2repr(self, pkt, packed_seconds):
+        """Convert the internal representation to a nice one using the RFC
+           format."""
+        time_struct = time.gmtime(self._convert_seconds(packed_seconds))
+        return time.strftime("%a %b %d %H:%M:%S %Y", time_struct)
+
+class DNSRRTSIG(_DNSRRdummy):
+    name = "DNS TSIG Resource Record"
+    fields_desc = [ DNSStrField("rrname", ""),
+                    ShortEnumField("type", 250, dnstypes),
+                    ShortEnumField("rclass", 1, dnsclasses),
+                    IntField("ttl", 0),
+                    ShortField("rdlen", None),
+                    DNSStrField("algo_name", "hmac-sha1"),
+                    TimeSignedField("time_signed", 0),
+                    ShortField("fudge", 0),
+                    FieldLenField("mac_len", 20, fmt="!H", length_of="mac_data"),
+                    StrLenField("mac_data", "", length_from=lambda pkt: pkt.mac_len),
+                    ShortField("original_id", 0),
+                    ShortField("error", 0),
+                    FieldLenField("other_len", 0, fmt="!H", length_of="other_data"),
+                    StrLenField("other_data", "", length_from=lambda pkt: pkt.other_len)
+                  ]
+
 
 DNSRR_DISPATCHER = {
     41: DNSRROPT,        # RFC 1671
@@ -627,6 +684,7 @@ DNSRR_DISPATCHER = {
     48: DNSRRDNSKEY,     # RFC 4034
     50: DNSRRNSEC3,      # RFC 5155
     51: DNSRRNSEC3PARAM, # RFC 5155
+    250: DNSRRTSIG,      # RFC 2845
     32769: DNSRRDLV,     # RFC 4431
 }
 

@@ -16,7 +16,7 @@ import socket
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
@@ -33,7 +33,7 @@ assert(e.proto == socket.IPPROTO_ESP)
 assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
-assert('testdata' in e[ESP].data)
+assert(b'testdata' in e[ESP].data)
 
 d = sa.decrypt(e)
 d
@@ -47,11 +47,11 @@ assert(d[TCP] == p[TCP])
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
-                         crypt_algo='DES', crypt_key='8bytekey',
+                         crypt_algo='DES', crypt_key=b'8bytekey',
                          auth_algo='NULL', auth_key=None)
 
 e = sa.encrypt(p)
@@ -66,7 +66,7 @@ assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
 * after encryption the original packet payload should NOT be readable
-assert('testdata' not in e[ESP].data)
+assert(b'testdata' not in e[ESP].data)
 
 d = sa.decrypt(e)
 d
@@ -79,12 +79,12 @@ assert(d[TCP] == p[TCP])
 #    mode tunnel enc 'cbc(des)' '0x38627974656b6579' auth digest_null '' flag align4
 ref = IP() \
     / ESP(spi=0x222,
-          data='\x0f\x6d\x2f\x3d\x1e\xc1\x0b\xc2\xb6\x8f\xfd\x67\x39\xc0\x96\x2c'
-               '\x17\x79\x88\xf6\xbc\x4d\xf7\x45\xd8\x36\x63\x86\xcd\x08\x7c\x08'
-               '\x2b\xf8\xa2\x91\x18\x21\x88\xd9\x26\x00\xc5\x21\x24\xbf\x8f\xf5'
-               '\x6c\x47\xb0\x3a\x8e\xdb\x75\x21\xd9\x33\x85\x5a\x15\xc6\x31\x00'
-               '\x1c\xef\x3e\x12\xce\x70\xec\x8f\x48\xc7\x81\x9b\x66\xcb\xf5\x39'
-               '\x91\xb3\x8e\x72\xfb\x7f\x64\x65\x6c\xf4\xa9\xf2\x5e\x63\x2f\x60',
+          data=b'\x0f\x6d\x2f\x3d\x1e\xc1\x0b\xc2\xb6\x8f\xfd\x67\x39\xc0\x96\x2c'
+               b'\x17\x79\x88\xf6\xbc\x4d\xf7\x45\xd8\x36\x63\x86\xcd\x08\x7c\x08'
+               b'\x2b\xf8\xa2\x91\x18\x21\x88\xd9\x26\x00\xc5\x21\x24\xbf\x8f\xf5'
+               b'\x6c\x47\xb0\x3a\x8e\xdb\x75\x21\xd9\x33\x85\x5a\x15\xc6\x31\x00'
+               b'\x1c\xef\x3e\x12\xce\x70\xec\x8f\x48\xc7\x81\x9b\x66\xcb\xf5\x39'
+               b'\x91\xb3\x8e\x72\xfb\x7f\x64\x65\x6c\xf4\xa9\xf2\x5e\x63\x2f\x60',
           seq=1)
 
 d_ref = sa.decrypt(ref)
@@ -99,11 +99,11 @@ assert(d_ref.haslayer(ICMP))
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
-                         crypt_algo='3DES', crypt_key='threedifferent8byteskeys',
+                         crypt_algo='3DES', crypt_key=b'threedifferent8byteskeys',
                          auth_algo='NULL', auth_key=None)
 
 e = sa.encrypt(p)
@@ -118,7 +118,7 @@ assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
 * after encryption the original packet payload should NOT be readable
-assert('testdata' not in e[ESP].data)
+assert(b'testdata' not in e[ESP].data)
 
 d = sa.decrypt(e)
 d
@@ -131,12 +131,12 @@ assert(d[TCP] == p[TCP])
 #   mode tunnel enc 'cbc(des3_ede)' '0x7468726565646966666572656e743862797465736b657973' auth digest_null '' flag align4
 ref = IP() \
     / ESP(spi=0x222,
-          data='\x36\x5c\x9b\x41\x37\xc8\x59\x1e\x39\x63\xe8\x6b\xf7\x0d\x97\x54'
-               '\x13\x84\xf6\x81\x66\x19\xe7\xcb\x75\x94\xf1\x0b\x8e\xa3\xf1\xa0'
-               '\x3e\x88\x51\xc4\x50\xd0\xa9\x1f\x16\x25\xc6\xbd\xe9\x0b\xdc\xae'
-               '\xf8\x13\x00\xa3\x8c\x53\xee\x1c\x96\xc0\xfe\x99\x70\xab\x94\x77'
-               '\xd7\xc4\xe8\xfd\x9f\x96\x28\xb8\x95\x20\x86\x7b\x19\xbc\x8f\xf5'
-               '\x96\xb0\x7e\xcc\x04\x83\xae\x4d\xa3\xba\x1d\x44\xf0\xba\x2e\xcd',
+          data=b'\x36\x5c\x9b\x41\x37\xc8\x59\x1e\x39\x63\xe8\x6b\xf7\x0d\x97\x54'
+               b'\x13\x84\xf6\x81\x66\x19\xe7\xcb\x75\x94\xf1\x0b\x8e\xa3\xf1\xa0'
+               b'\x3e\x88\x51\xc4\x50\xd0\xa9\x1f\x16\x25\xc6\xbd\xe9\x0b\xdc\xae'
+               b'\xf8\x13\x00\xa3\x8c\x53\xee\x1c\x96\xc0\xfe\x99\x70\xab\x94\x77'
+               b'\xd7\xc4\xe8\xfd\x9f\x96\x28\xb8\x95\x20\x86\x7b\x19\xbc\x8f\xf5'
+               b'\x96\xb0\x7e\xcc\x04\x83\xae\x4d\xa3\xba\x1d\x44\xf0\xba\x2e\xcd',
           seq=1)
 
 d_ref = sa.decrypt(ref)
@@ -151,11 +151,11 @@ assert(d_ref.haslayer(ICMP))
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
-                         crypt_algo='AES-CBC', crypt_key='sixteenbytes key',
+                         crypt_algo='AES-CBC', crypt_key=b'sixteenbytes key',
                          auth_algo='NULL', auth_key=None)
 
 e = sa.encrypt(p)
@@ -169,7 +169,7 @@ assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
 * after encryption the original packet payload should NOT be readable
-assert('testdata' not in e[ESP].data)
+assert(b'testdata' not in e[ESP].data)
 
 d = sa.decrypt(e)
 d
@@ -182,13 +182,13 @@ assert(d[TCP] == p[TCP])
 #   mode tunnel enc 'cbc(aes)' '0x7369787465656e6279746573206b6579' auth digest_null '' flag align4
 ref = IP() \
     / ESP(spi=0x222,
-          data='\x08\x2f\x94\xe6\x53\xd8\x8e\x13\x70\xe8\xff\x61\x52\x90\x27\x3c'
-               '\xf2\xb4\x1f\x75\xd2\xa0\xac\xae\x1c\xa8\x5e\x1c\x78\x21\x4c\x7f'
-               '\xc3\x30\x17\x6a\x8d\xf3\xb1\xa7\xd1\xa8\x42\x01\xd6\x8d\x2d\x7e'
-               '\x5d\x06\xdf\xaa\x05\x27\x42\xb1\x00\x12\xcf\xff\x64\x02\x5a\x40'
-               '\xcd\xca\x1b\x91\xba\xf8\xc8\x59\xe7\xbd\x4d\x19\xb4\x8d\x39\x25'
-               '\x6c\x73\xf1\x2d\xaa\xee\xe1\x0b\x71\xcd\xfc\x11\x1d\x56\xce\x60'
-               '\xed\xd2\x32\x87\xd4\x90\xc3\xf5\x31\x47\x97\x69\x83\x82\x6d\x38',
+          data=b'\x08\x2f\x94\xe6\x53\xd8\x8e\x13\x70\xe8\xff\x61\x52\x90\x27\x3c'
+               b'\xf2\xb4\x1f\x75\xd2\xa0\xac\xae\x1c\xa8\x5e\x1c\x78\x21\x4c\x7f'
+               b'\xc3\x30\x17\x6a\x8d\xf3\xb1\xa7\xd1\xa8\x42\x01\xd6\x8d\x2d\x7e'
+               b'\x5d\x06\xdf\xaa\x05\x27\x42\xb1\x00\x12\xcf\xff\x64\x02\x5a\x40'
+               b'\xcd\xca\x1b\x91\xba\xf8\xc8\x59\xe7\xbd\x4d\x19\xb4\x8d\x39\x25'
+               b'\x6c\x73\xf1\x2d\xaa\xee\xe1\x0b\x71\xcd\xfc\x11\x1d\x56\xce\x60'
+               b'\xed\xd2\x32\x87\xd4\x90\xc3\xf5\x31\x47\x97\x69\x83\x82\x6d\x38',
           seq=1)
 
 d_ref = sa.decrypt(ref)
@@ -203,11 +203,11 @@ assert(d_ref.haslayer(ICMP))
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
-                         crypt_algo='AES-CTR', crypt_key='16bytekey+4bytenonce',
+                         crypt_algo='AES-CTR', crypt_key=b'16bytekey+4bytenonce',
                          auth_algo='NULL', auth_key=None)
 
 e = sa.encrypt(p)
@@ -221,7 +221,7 @@ assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
 * after encryption the original packet payload should NOT be readable
-assert('testdata' not in e[ESP].data)
+assert(b'testdata' not in e[ESP].data)
 
 d = sa.decrypt(e)
 d
@@ -234,12 +234,12 @@ assert(d[TCP] == p[TCP])
 #    mode tunnel enc 'rfc3686(ctr(aes))' '0x3136627974656b65792b34627974656e6f6e6365' auth digest_null '' flag align4
 ref = IP() \
     / ESP(spi=0x222,
-          data='\xc4\xca\x09\x0f\x8b\xd3\x05\x3d\xac\x5a\x2f\x87\xca\x71\x10\x01'
-               '\xa7\x95\xc9\x07\xcc\xd4\x05\x58\x65\x23\x22\x4b\x63\x9b\x1f\xef'
-               '\x55\xb9\x1a\x91\x52\x76\x00\xf7\x94\x7b\x1d\xe1\x8e\x03\x2e\x85'
-               '\xad\xdd\x83\x22\x8a\xc3\x88\x6e\x85\xf5\x9b\xed\xa9\x6e\xb1\xc3'
-               '\x78\x00\x2f\xcd\x77\xe8\x3e\xec\x0e\x77\x94\xb2\x9b\x0f\x64\x5e'
-               '\x09\x83\x03\x7d\x83\x22\x39\xbb\x94\x66\xae\x9f\xbf\x01\xda\xfb',
+          data=b'\xc4\xca\x09\x0f\x8b\xd3\x05\x3d\xac\x5a\x2f\x87\xca\x71\x10\x01'
+               b'\xa7\x95\xc9\x07\xcc\xd4\x05\x58\x65\x23\x22\x4b\x63\x9b\x1f\xef'
+               b'\x55\xb9\x1a\x91\x52\x76\x00\xf7\x94\x7b\x1d\xe1\x8e\x03\x2e\x85'
+               b'\xad\xdd\x83\x22\x8a\xc3\x88\x6e\x85\xf5\x9b\xed\xa9\x6e\xb1\xc3'
+               b'\x78\x00\x2f\xcd\x77\xe8\x3e\xec\x0e\x77\x94\xb2\x9b\x0f\x64\x5e'
+               b'\x09\x83\x03\x7d\x83\x22\x39\xbb\x94\x66\xae\x9f\xbf\x01\xda\xfb',
           seq=1)
 
 d_ref = sa.decrypt(ref)
@@ -254,11 +254,11 @@ assert(d_ref.haslayer(ICMP))
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
-                         crypt_algo='Blowfish', crypt_key='sixteenbytes key',
+                         crypt_algo='Blowfish', crypt_key=b'sixteenbytes key',
                          auth_algo='NULL', auth_key=None)
 
 e = sa.encrypt(p)
@@ -272,7 +272,7 @@ assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
 * after encryption the original packet payload should NOT be readable
-assert('testdata' not in e[ESP].data)
+assert(b'testdata' not in e[ESP].data)
 
 d = sa.decrypt(e)
 d
@@ -285,12 +285,12 @@ assert(d[TCP] == p[TCP])
 #    mode tunnel enc 'cbc(blowfish)' '0x7369787465656e6279746573206b6579' auth digest_null '' flag align4
 ref = IP() \
     / ESP(spi=0x222,
-          data='\x93\x9f\x5a\x10\x55\x57\x30\xa0\xb4\x00\x72\x1e\x46\x42\x46\x20'
-               '\xbc\x01\xef\xc3\x79\xcc\x3e\x55\x64\xba\x09\xc2\x6a\x5a\x5c\xb3'
-               '\xcc\xb5\xd5\x87\x82\xb0\x0a\x94\x58\xfc\x50\x37\x40\xe1\x03\xd3'
-               '\x4a\x09\xb2\x23\x53\x56\xa4\x45\x4c\xbb\x81\x1c\xdb\x31\xa7\x67'
-               '\xbd\x38\x8e\xba\x55\xd9\x1f\xf1\x3c\xeb\x07\x4c\x02\xb0\x3e\xc5'
-               '\xf6\x60\xdd\x68\xe1\xd4\xec\xee\x27\xc0\x6d\x1a\x80\xe2\xcc\x7d',
+          data=b'\x93\x9f\x5a\x10\x55\x57\x30\xa0\xb4\x00\x72\x1e\x46\x42\x46\x20'
+               b'\xbc\x01\xef\xc3\x79\xcc\x3e\x55\x64\xba\x09\xc2\x6a\x5a\x5c\xb3'
+               b'\xcc\xb5\xd5\x87\x82\xb0\x0a\x94\x58\xfc\x50\x37\x40\xe1\x03\xd3'
+               b'\x4a\x09\xb2\x23\x53\x56\xa4\x45\x4c\xbb\x81\x1c\xdb\x31\xa7\x67'
+               b'\xbd\x38\x8e\xba\x55\xd9\x1f\xf1\x3c\xeb\x07\x4c\x02\xb0\x3e\xc5'
+               b'\xf6\x60\xdd\x68\xe1\xd4\xec\xee\x27\xc0\x6d\x1a\x80\xe2\xcc\x7d',
           seq=1)
 
 d_ref = sa.decrypt(ref)
@@ -305,11 +305,11 @@ assert(d_ref.haslayer(ICMP))
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
-                         crypt_algo='CAST', crypt_key='sixteenbytes key',
+                         crypt_algo='CAST', crypt_key=b'sixteenbytes key',
                          auth_algo='NULL', auth_key=None)
 
 e = sa.encrypt(p)
@@ -323,7 +323,7 @@ assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
 * after encryption the original packet payload should NOT be readable
-assert('testdata' not in e[ESP].data)
+assert(b'testdata' not in e[ESP].data)
 
 d = sa.decrypt(e)
 d
@@ -336,12 +336,12 @@ assert(d[TCP] == p[TCP])
 #    mode tunnel enc 'cbc(cast5)' '0x7369787465656e6279746573206b6579' auth digest_null '' flag align4
 ref = IP() \
     / ESP(spi=0x222,
-          data='\xcd\x4a\x46\x05\x51\x54\x73\x35\x1d\xad\x4b\x10\xc1\x15\xe2\x70'
-               '\xbc\x9c\x53\x8f\x4d\x1c\x87\x1a\xc1\xb0\xdf\x80\xd1\x0c\xa4\x59'
-               '\xe6\x50\xde\x46\xdb\x3f\x28\xc2\xda\x6c\x2b\x81\x5e\x7c\x7b\x4f'
-               '\xbc\x8d\xc1\x6d\x4a\x2b\x04\x91\x9e\xc4\x0b\xba\x05\xba\x3b\x71'
-               '\xac\xe3\x16\xcf\x7f\x00\xc5\x87\x7d\x72\x48\xe6\x5b\x43\x19\x24'
-               '\xae\xa6\x2c\xcc\xad\xbf\x37\x6c\x6e\xea\x71\x67\x73\xd6\x11\x9f',
+          data=b'\xcd\x4a\x46\x05\x51\x54\x73\x35\x1d\xad\x4b\x10\xc1\x15\xe2\x70'
+               b'\xbc\x9c\x53\x8f\x4d\x1c\x87\x1a\xc1\xb0\xdf\x80\xd1\x0c\xa4\x59'
+               b'\xe6\x50\xde\x46\xdb\x3f\x28\xc2\xda\x6c\x2b\x81\x5e\x7c\x7b\x4f'
+               b'\xbc\x8d\xc1\x6d\x4a\x2b\x04\x91\x9e\xc4\x0b\xba\x05\xba\x3b\x71'
+               b'\xac\xe3\x16\xcf\x7f\x00\xc5\x87\x7d\x72\x48\xe6\x5b\x43\x19\x24'
+               b'\xae\xa6\x2c\xcc\xad\xbf\x37\x6c\x6e\xea\x71\x67\x73\xd6\x11\x9f',
           seq=1)
 
 d_ref = sa.decrypt(ref)
@@ -360,7 +360,7 @@ assert(d_ref.haslayer(ICMP))
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
@@ -379,7 +379,7 @@ assert(e.proto == socket.IPPROTO_ESP)
 assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
-assert('testdata' in e[ESP].data)
+assert(b'testdata' in e[ESP].data)
 
 d = sa.decrypt(e)
 d
@@ -393,11 +393,11 @@ assert(d[TCP] == p[TCP])
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
-                         crypt_algo='DES', crypt_key='8bytekey',
+                         crypt_algo='DES', crypt_key=b'8bytekey',
                          auth_algo='NULL', auth_key=None,
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
@@ -414,7 +414,7 @@ assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
 * after encryption the original packet payload should NOT be readable
-assert('testdata' not in e[ESP].data)
+assert(b'testdata' not in e[ESP].data)
 
 d = sa.decrypt(e)
 d
@@ -428,11 +428,11 @@ assert(d[TCP] == p[TCP])
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
-                         crypt_algo='3DES', crypt_key='threedifferent8byteskeys',
+                         crypt_algo='3DES', crypt_key=b'threedifferent8byteskeys',
                          auth_algo='NULL', auth_key=None,
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
@@ -449,7 +449,7 @@ assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
 * after encryption the original packet payload should NOT be readable
-assert('testdata' not in e[ESP].data)
+assert(b'testdata' not in e[ESP].data)
 
 d = sa.decrypt(e)
 d
@@ -463,11 +463,11 @@ assert(d[TCP] == p[TCP])
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
-                         crypt_algo='AES-CBC', crypt_key='sixteenbytes key',
+                         crypt_algo='AES-CBC', crypt_key=b'sixteenbytes key',
                          auth_algo='NULL', auth_key=None,
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
@@ -483,7 +483,7 @@ assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
 * after encryption the original packet payload should NOT be readable
-assert('testdata' not in e[ESP].data)
+assert(b'testdata' not in e[ESP].data)
 
 d = sa.decrypt(e)
 d
@@ -497,11 +497,11 @@ assert(d[TCP] == p[TCP])
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
-                         crypt_algo='AES-CTR', crypt_key='16bytekey+4bytenonce',
+                         crypt_algo='AES-CTR', crypt_key=b'16bytekey+4bytenonce',
                          auth_algo='NULL', auth_key=None,
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
@@ -517,7 +517,7 @@ assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
 * after encryption the original packet payload should NOT be readable
-assert('testdata' not in e[ESP].data)
+assert(b'testdata' not in e[ESP].data)
 
 d = sa.decrypt(e)
 d
@@ -531,11 +531,11 @@ assert(d[TCP] == p[TCP])
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
-                         crypt_algo='Blowfish', crypt_key='sixteenbytes key',
+                         crypt_algo='Blowfish', crypt_key=b'sixteenbytes key',
                          auth_algo='NULL', auth_key=None,
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
@@ -551,7 +551,7 @@ assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
 * after encryption the original packet payload should NOT be readable
-assert('testdata' not in e[ESP].data)
+assert(b'testdata' not in e[ESP].data)
 
 d = sa.decrypt(e)
 d
@@ -565,11 +565,11 @@ assert(d[TCP] == p[TCP])
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
-                         crypt_algo='CAST', crypt_key='sixteenbytes key',
+                         crypt_algo='CAST', crypt_key=b'sixteenbytes key',
                          auth_algo='NULL', auth_key=None,
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
@@ -585,7 +585,7 @@ assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
 * after encryption the original packet payload should NOT be readable
-assert('testdata' not in e[ESP].data)
+assert(b'testdata' not in e[ESP].data)
 
 d = sa.decrypt(e)
 d
@@ -602,12 +602,12 @@ assert(d[TCP] == p[TCP])
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
                          crypt_algo='NULL', crypt_key=None,
-                         auth_algo='HMAC-SHA1-96', auth_key='secret key')
+                         auth_algo='HMAC-SHA1-96', auth_key=b'secret key')
 
 e = sa.encrypt(p)
 e
@@ -619,7 +619,7 @@ assert(e.proto == socket.IPPROTO_ESP)
 assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
-assert('testdata' in e[ESP].data)
+assert(b'testdata' in e[ESP].data)
 
 * integrity verification should pass
 d = sa.decrypt(e)
@@ -633,12 +633,12 @@ assert(d[TCP] == p[TCP])
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
                          crypt_algo='NULL', crypt_key=None,
-                         auth_algo='HMAC-SHA1-96', auth_key='secret key')
+                         auth_algo='HMAC-SHA1-96', auth_key=b'secret key')
 
 e = sa.encrypt(p)
 e
@@ -650,7 +650,7 @@ assert(e.proto == socket.IPPROTO_ESP)
 assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
-assert('testdata' in e[ESP].data)
+assert(b'testdata' in e[ESP].data)
 
 * simulate the alteration of the packet before decryption
 e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
@@ -659,7 +659,7 @@ e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
 try:
     d = sa.decrypt(e)
     assert(False)
-except IPSecIntegrityError, err:
+except IPSecIntegrityError as err:
     err
 
 #######################################
@@ -668,12 +668,12 @@ except IPSecIntegrityError, err:
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
                          crypt_algo='NULL', crypt_key=None,
-                         auth_algo='SHA2-256-128', auth_key='secret key')
+                         auth_algo='SHA2-256-128', auth_key=b'secret key')
 
 e = sa.encrypt(p)
 e
@@ -686,7 +686,7 @@ assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
 * after encryption the original packet payload should be readable
-assert('testdata' in e[ESP].data)
+assert(b'testdata' in e[ESP].data)
 
 * integrity verification should pass
 d = sa.decrypt(e)
@@ -700,12 +700,12 @@ assert(d == p)
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
                          crypt_algo='NULL', crypt_key=None,
-                         auth_algo='SHA2-256-128', auth_key='secret key')
+                         auth_algo='SHA2-256-128', auth_key=b'secret key')
 
 e = sa.encrypt(p)
 e
@@ -718,7 +718,7 @@ assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
 * after encryption the original packet payload should be readable
-assert('testdata' in e[ESP].data)
+assert(b'testdata' in e[ESP].data)
 
 * simulate the alteration of the packet before decryption
 e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
@@ -727,7 +727,7 @@ e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
 try:
     d = sa.decrypt(e)
     assert(False)
-except IPSecIntegrityError, err:
+except IPSecIntegrityError as err:
     err
 
 #######################################
@@ -736,12 +736,12 @@ except IPSecIntegrityError, err:
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
                          crypt_algo='NULL', crypt_key=None,
-                         auth_algo='SHA2-384-192', auth_key='secret key')
+                         auth_algo='SHA2-384-192', auth_key=b'secret key')
 
 e = sa.encrypt(p)
 e
@@ -754,7 +754,7 @@ assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
 * after encryption the original packet payload should be readable
-assert('testdata' in e[ESP].data)
+assert(b'testdata' in e[ESP].data)
 
 * integrity verification should pass
 d = sa.decrypt(e)
@@ -768,12 +768,12 @@ assert(d == p)
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
                          crypt_algo='NULL', crypt_key=None,
-                         auth_algo='SHA2-384-192', auth_key='secret key')
+                         auth_algo='SHA2-384-192', auth_key=b'secret key')
 
 e = sa.encrypt(p)
 e
@@ -786,7 +786,7 @@ assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
 * after encryption the original packet payload should be readable
-assert('testdata' in e[ESP].data)
+assert(b'testdata' in e[ESP].data)
 
 * simulate the alteration of the packet before decryption
 e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
@@ -795,7 +795,7 @@ e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
 try:
     d = sa.decrypt(e)
     assert(False)
-except IPSecIntegrityError, err:
+except IPSecIntegrityError as err:
     err
 
 #######################################
@@ -804,12 +804,12 @@ except IPSecIntegrityError, err:
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
                          crypt_algo='NULL', crypt_key=None,
-                         auth_algo='SHA2-512-256', auth_key='secret key')
+                         auth_algo='SHA2-512-256', auth_key=b'secret key')
 
 e = sa.encrypt(p)
 e
@@ -822,7 +822,7 @@ assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
 * after encryption the original packet payload should be readable
-assert('testdata' in e[ESP].data)
+assert(b'testdata' in e[ESP].data)
 
 * integrity verification should pass
 d = sa.decrypt(e)
@@ -836,12 +836,12 @@ assert(d == p)
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
                          crypt_algo='NULL', crypt_key=None,
-                         auth_algo='SHA2-512-256', auth_key='secret key')
+                         auth_algo='SHA2-512-256', auth_key=b'secret key')
 
 e = sa.encrypt(p)
 e
@@ -854,7 +854,7 @@ assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
 * after encryption the original packet payload should be readable
-assert('testdata' in e[ESP].data)
+assert(b'testdata' in e[ESP].data)
 
 * simulate the alteration of the packet before decryption
 e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
@@ -863,7 +863,7 @@ e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
 try:
     d = sa.decrypt(e)
     assert(False)
-except IPSecIntegrityError, err:
+except IPSecIntegrityError as err:
     err
 
 #######################################
@@ -872,12 +872,12 @@ except IPSecIntegrityError, err:
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
                          crypt_algo='NULL', crypt_key=None,
-                         auth_algo='HMAC-MD5-96', auth_key='secret key')
+                         auth_algo='HMAC-MD5-96', auth_key=b'secret key')
 
 e = sa.encrypt(p)
 e
@@ -890,7 +890,7 @@ assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
 * after encryption the original packet payload should be readable
-assert('testdata' in e[ESP].data)
+assert(b'testdata' in e[ESP].data)
 
 * integrity verification should pass
 d = sa.decrypt(e)
@@ -904,12 +904,12 @@ assert(d == p)
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
                          crypt_algo='NULL', crypt_key=None,
-                         auth_algo='HMAC-MD5-96', auth_key='secret key')
+                         auth_algo='HMAC-MD5-96', auth_key=b'secret key')
 
 e = sa.encrypt(p)
 e
@@ -922,7 +922,7 @@ assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
 * after encryption the original packet payload should be readable
-assert('testdata' in e[ESP].data)
+assert(b'testdata' in e[ESP].data)
 
 * simulate the alteration of the packet before decryption
 e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
@@ -931,7 +931,7 @@ e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
 try:
     d = sa.decrypt(e)
     assert(False)
-except IPSecIntegrityError, err:
+except IPSecIntegrityError as err:
     err
 
 #######################################
@@ -940,12 +940,12 @@ except IPSecIntegrityError, err:
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
                          crypt_algo='NULL', crypt_key=None,
-                         auth_algo='AES-CMAC-96', auth_key='sixteenbytes key')
+                         auth_algo='AES-CMAC-96', auth_key=b'sixteenbytes key')
 
 e = sa.encrypt(p)
 e
@@ -958,7 +958,7 @@ assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
 * after encryption the original packet payload should be readable
-assert('testdata' in e[ESP].data)
+assert(b'testdata' in e[ESP].data)
 
 * integrity verification should pass
 d = sa.decrypt(e)
@@ -972,12 +972,12 @@ assert(d == p)
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
                          crypt_algo='NULL', crypt_key=None,
-                         auth_algo='AES-CMAC-96', auth_key='sixteenbytes key')
+                         auth_algo='AES-CMAC-96', auth_key=b'sixteenbytes key')
 
 e = sa.encrypt(p)
 e
@@ -990,7 +990,7 @@ assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
 * after encryption the original packet payload should be readable
-assert('testdata' in e[ESP].data)
+assert(b'testdata' in e[ESP].data)
 
 * simulate the alteration of the packet before decryption
 e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
@@ -999,7 +999,7 @@ e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
 try:
     d = sa.decrypt(e)
     assert(False)
-except IPSecIntegrityError, err:
+except IPSecIntegrityError as err:
     err
 
 ###############################################################################
@@ -1011,12 +1011,12 @@ except IPSecIntegrityError, err:
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
                          crypt_algo='NULL', crypt_key=None,
-                         auth_algo='HMAC-SHA1-96', auth_key='secret key',
+                         auth_algo='HMAC-SHA1-96', auth_key=b'secret key',
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
 e = sa.encrypt(p)
@@ -1030,7 +1030,7 @@ assert(e.proto == socket.IPPROTO_ESP)
 assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
-assert('testdata' in e[ESP].data)
+assert(b'testdata' in e[ESP].data)
 
 * integrity verification should pass
 d = sa.decrypt(e)
@@ -1044,12 +1044,12 @@ assert(d[TCP] == p[TCP])
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
                          crypt_algo='NULL', crypt_key=None,
-                         auth_algo='HMAC-SHA1-96', auth_key='secret key',
+                         auth_algo='HMAC-SHA1-96', auth_key=b'secret key',
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
 e = sa.encrypt(p)
@@ -1063,7 +1063,7 @@ assert(e.proto == socket.IPPROTO_ESP)
 assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
-assert('testdata' in e[ESP].data)
+assert(b'testdata' in e[ESP].data)
 
 * simulate the alteration of the packet before decryption
 e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
@@ -1072,7 +1072,7 @@ e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
 try:
     d = sa.decrypt(e)
     assert(False)
-except IPSecIntegrityError, err:
+except IPSecIntegrityError as err:
     err
 
 #######################################
@@ -1081,12 +1081,12 @@ except IPSecIntegrityError, err:
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
                          crypt_algo='NULL', crypt_key=None,
-                         auth_algo='SHA2-256-128', auth_key='secret key',
+                         auth_algo='SHA2-256-128', auth_key=b'secret key',
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
 e = sa.encrypt(p)
@@ -1101,7 +1101,7 @@ assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
 * after encryption the original packet payload should be readable
-assert('testdata' in e[ESP].data)
+assert(b'testdata' in e[ESP].data)
 
 * integrity verification should pass
 d = sa.decrypt(e)
@@ -1115,12 +1115,12 @@ assert(d == p)
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
                          crypt_algo='NULL', crypt_key=None,
-                         auth_algo='SHA2-256-128', auth_key='secret key',
+                         auth_algo='SHA2-256-128', auth_key=b'secret key',
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
 e = sa.encrypt(p)
@@ -1135,7 +1135,7 @@ assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
 * after encryption the original packet payload should be readable
-assert('testdata' in e[ESP].data)
+assert(b'testdata' in e[ESP].data)
 
 * simulate the alteration of the packet before decryption
 e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
@@ -1144,7 +1144,7 @@ e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
 try:
     d = sa.decrypt(e)
     assert(False)
-except IPSecIntegrityError, err:
+except IPSecIntegrityError as err:
     err
 
 #######################################
@@ -1153,12 +1153,12 @@ except IPSecIntegrityError, err:
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
                          crypt_algo='NULL', crypt_key=None,
-                         auth_algo='SHA2-384-192', auth_key='secret key',
+                         auth_algo='SHA2-384-192', auth_key=b'secret key',
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
 e = sa.encrypt(p)
@@ -1173,7 +1173,7 @@ assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
 * after encryption the original packet payload should be readable
-assert('testdata' in e[ESP].data)
+assert(b'testdata' in e[ESP].data)
 
 * integrity verification should pass
 d = sa.decrypt(e)
@@ -1187,12 +1187,12 @@ assert(d == p)
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
                          crypt_algo='NULL', crypt_key=None,
-                         auth_algo='SHA2-384-192', auth_key='secret key',
+                         auth_algo='SHA2-384-192', auth_key=b'secret key',
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
 e = sa.encrypt(p)
@@ -1207,7 +1207,7 @@ assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
 * after encryption the original packet payload should be readable
-assert('testdata' in e[ESP].data)
+assert(b'testdata' in e[ESP].data)
 
 * simulate the alteration of the packet before decryption
 e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
@@ -1216,7 +1216,7 @@ e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
 try:
     d = sa.decrypt(e)
     assert(False)
-except IPSecIntegrityError, err:
+except IPSecIntegrityError as err:
     err
 
 #######################################
@@ -1225,12 +1225,12 @@ except IPSecIntegrityError, err:
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
                          crypt_algo='NULL', crypt_key=None,
-                         auth_algo='SHA2-512-256', auth_key='secret key',
+                         auth_algo='SHA2-512-256', auth_key=b'secret key',
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
 e = sa.encrypt(p)
@@ -1245,7 +1245,7 @@ assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
 * after encryption the original packet payload should be readable
-assert('testdata' in e[ESP].data)
+assert(b'testdata' in e[ESP].data)
 
 * integrity verification should pass
 d = sa.decrypt(e)
@@ -1259,12 +1259,12 @@ assert(d == p)
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
                          crypt_algo='NULL', crypt_key=None,
-                         auth_algo='SHA2-512-256', auth_key='secret key',
+                         auth_algo='SHA2-512-256', auth_key=b'secret key',
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
 e = sa.encrypt(p)
@@ -1279,7 +1279,7 @@ assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
 * after encryption the original packet payload should be readable
-assert('testdata' in e[ESP].data)
+assert(b'testdata' in e[ESP].data)
 
 * simulate the alteration of the packet before decryption
 e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
@@ -1288,7 +1288,7 @@ e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
 try:
     d = sa.decrypt(e)
     assert(False)
-except IPSecIntegrityError, err:
+except IPSecIntegrityError as err:
     err
 
 #######################################
@@ -1297,12 +1297,12 @@ except IPSecIntegrityError, err:
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
                          crypt_algo='NULL', crypt_key=None,
-                         auth_algo='HMAC-MD5-96', auth_key='secret key',
+                         auth_algo='HMAC-MD5-96', auth_key=b'secret key',
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
 e = sa.encrypt(p)
@@ -1317,7 +1317,7 @@ assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
 * after encryption the original packet payload should be readable
-assert('testdata' in e[ESP].data)
+assert(b'testdata' in e[ESP].data)
 
 * integrity verification should pass
 d = sa.decrypt(e)
@@ -1331,12 +1331,12 @@ assert(d == p)
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
                          crypt_algo='NULL', crypt_key=None,
-                         auth_algo='HMAC-MD5-96', auth_key='secret key',
+                         auth_algo='HMAC-MD5-96', auth_key=b'secret key',
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
 e = sa.encrypt(p)
@@ -1351,7 +1351,7 @@ assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
 * after encryption the original packet payload should be readable
-assert('testdata' in e[ESP].data)
+assert(b'testdata' in e[ESP].data)
 
 * simulate the alteration of the packet before decryption
 e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
@@ -1360,7 +1360,7 @@ e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
 try:
     d = sa.decrypt(e)
     assert(False)
-except IPSecIntegrityError, err:
+except IPSecIntegrityError as err:
     err
 
 #######################################
@@ -1369,12 +1369,12 @@ except IPSecIntegrityError, err:
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
                          crypt_algo='NULL', crypt_key=None,
-                         auth_algo='AES-CMAC-96', auth_key='sixteenbytes key',
+                         auth_algo='AES-CMAC-96', auth_key=b'sixteenbytes key',
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
 e = sa.encrypt(p)
@@ -1389,7 +1389,7 @@ assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
 * after encryption the original packet payload should be readable
-assert('testdata' in e[ESP].data)
+assert(b'testdata' in e[ESP].data)
 
 * integrity verification should pass
 d = sa.decrypt(e)
@@ -1403,12 +1403,12 @@ assert(d == p)
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
                          crypt_algo='NULL', crypt_key=None,
-                         auth_algo='AES-CMAC-96', auth_key='sixteenbytes key',
+                         auth_algo='AES-CMAC-96', auth_key=b'sixteenbytes key',
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
 e = sa.encrypt(p)
@@ -1423,7 +1423,7 @@ assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
 * after encryption the original packet payload should be readable
-assert('testdata' in e[ESP].data)
+assert(b'testdata' in e[ESP].data)
 
 * simulate the alteration of the packet before decryption
 e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
@@ -1432,7 +1432,7 @@ e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
 try:
     d = sa.decrypt(e)
     assert(False)
-except IPSecIntegrityError, err:
+except IPSecIntegrityError as err:
     err
 
 ###############################################################################
@@ -1444,12 +1444,12 @@ except IPSecIntegrityError, err:
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
-                         crypt_algo='AES-CBC', crypt_key='sixteenbytes key',
-                         auth_algo='HMAC-SHA1-96', auth_key='secret key')
+                         crypt_algo='AES-CBC', crypt_key=b'sixteenbytes key',
+                         auth_algo='HMAC-SHA1-96', auth_key=b'secret key')
 
 e = sa.encrypt(p)
 e
@@ -1462,7 +1462,7 @@ assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
 * after encryption the original packet payload should NOT be readable
-assert('testdata' not in e[ESP].data)
+assert(b'testdata' not in e[ESP].data)
 
 d = sa.decrypt(e)
 d
@@ -1476,12 +1476,12 @@ assert(d[TCP] == p[TCP])
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
-                         crypt_algo='AES-CBC', crypt_key='sixteenbytes key',
-                         auth_algo='HMAC-SHA1-96', auth_key='secret key')
+                         crypt_algo='AES-CBC', crypt_key=b'sixteenbytes key',
+                         auth_algo='HMAC-SHA1-96', auth_key=b'secret key')
 
 e = sa.encrypt(p)
 e
@@ -1494,7 +1494,7 @@ assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
 * after encryption the original packet payload should NOT be readable
-assert('testdata' not in e[ESP].data)
+assert(b'testdata' not in e[ESP].data)
 
 * simulate the alteration of the packet before decryption
 e[ESP].seq += 1
@@ -1503,7 +1503,7 @@ e[ESP].seq += 1
 try:
     d = sa.decrypt(e)
     assert(False)
-except IPSecIntegrityError, err:
+except IPSecIntegrityError as err:
     err
 
 #######################################
@@ -1512,11 +1512,11 @@ except IPSecIntegrityError, err:
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
-                         crypt_algo='AES-GCM', crypt_key='16bytekey+4bytenonce',
+                         crypt_algo='AES-GCM', crypt_key=b'16bytekey+4bytenonce',
                          auth_algo='NULL', auth_key=None)
 
 e = sa.encrypt(p)
@@ -1530,7 +1530,7 @@ assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
 * after encryption the original packet payload should NOT be readable
-assert('testdata' not in e[ESP].data)
+assert(b'testdata' not in e[ESP].data)
 
 d = sa.decrypt(e)
 d
@@ -1543,13 +1543,13 @@ assert(d[TCP] == p[TCP])
 #    mode tunnel aead 'rfc4106(gcm(aes))' '0x3136627974656b65792b34627974656e6f6e6365' 128 flag align4
 ref = IP() \
     / ESP(spi=0x222,
-          data='\x66\x00\x28\x86\xe9\xdf\xc5\x24\xb0\xbd\xfd\x62\x61\x7e\xd3\x76'
-               '\x7b\x48\x28\x8e\x76\xaa\xea\x48\xb8\x40\x30\x8a\xce\x50\x71\xbb'
-               '\xc0\xb2\x47\x71\xd7\xa4\xa0\xcb\x03\x68\xd3\x16\x5a\x7c\x37\x84'
-               '\x87\xc7\x19\x59\xb4\x7c\x76\xe3\x48\xc0\x90\x4b\xd2\x36\x95\xc1'
-               '\xb7\xa4\xb6\x7b\x89\xe6\x4f\x10\xae\xdb\x84\x47\x46\x00\xb4\x44'
-               '\xe6\x6d\x16\x55\x5f\x82\x36\xa5\x49\xf7\x52\x81\x65\x90\x4d\x28'
-               '\x92\xb2\xe3\xf1\xa4\x02\xd2\x37\xac\x0b\x7a\x10\xcf\x64\x46\xb9',
+          data=b'\x66\x00\x28\x86\xe9\xdf\xc5\x24\xb0\xbd\xfd\x62\x61\x7e\xd3\x76'
+               b'\x7b\x48\x28\x8e\x76\xaa\xea\x48\xb8\x40\x30\x8a\xce\x50\x71\xbb'
+               b'\xc0\xb2\x47\x71\xd7\xa4\xa0\xcb\x03\x68\xd3\x16\x5a\x7c\x37\x84'
+               b'\x87\xc7\x19\x59\xb4\x7c\x76\xe3\x48\xc0\x90\x4b\xd2\x36\x95\xc1'
+               b'\xb7\xa4\xb6\x7b\x89\xe6\x4f\x10\xae\xdb\x84\x47\x46\x00\xb4\x44'
+               b'\xe6\x6d\x16\x55\x5f\x82\x36\xa5\x49\xf7\x52\x81\x65\x90\x4d\x28'
+               b'\x92\xb2\xe3\xf1\xa4\x02\xd2\x37\xac\x0b\x7a\x10\xcf\x64\x46\xb9',
           seq=1)
 
 d_ref = sa.decrypt(ref)
@@ -1564,11 +1564,11 @@ assert(d_ref.haslayer(ICMP))
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
-                         crypt_algo='AES-GCM', crypt_key='16bytekey+4bytenonce',
+                         crypt_algo='AES-GCM', crypt_key=b'16bytekey+4bytenonce',
                          auth_algo='NULL', auth_key=None)
 
 e = sa.encrypt(p)
@@ -1582,7 +1582,7 @@ assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
 * after encryption the original packet payload should NOT be readable
-assert('testdata' not in e[ESP].data)
+assert(b'testdata' not in e[ESP].data)
 
 * simulate the alteration of the packet before decryption
 e[ESP].seq += 1
@@ -1591,7 +1591,7 @@ e[ESP].seq += 1
 try:
     d = sa.decrypt(e)
     assert(False)
-except IPSecIntegrityError, err:
+except IPSecIntegrityError as err:
     err
 
 #######################################
@@ -1601,11 +1601,11 @@ except IPSecIntegrityError, err:
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
-                         crypt_algo='AES-CCM', crypt_key='16bytekey3bytenonce',
+                         crypt_algo='AES-CCM', crypt_key=b'16bytekey3bytenonce',
                          auth_algo='NULL', auth_key=None)
 
 e = sa.encrypt(p)
@@ -1620,7 +1620,7 @@ assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
 * after encryption the original packet payload should NOT be readable
-assert('testdata' not in e[ESP].data)
+assert(b'testdata' not in e[ESP].data)
 
 d = sa.decrypt(e)
 d
@@ -1633,13 +1633,13 @@ assert(d == p)
 #    mode tunnel aead 'rfc4309(ccm(aes))' '0x3136627974656b657933627974656e6f6e6365' 64
 ref = IP() \
     / ESP(spi=0x222,
-          data='\x2e\x02\x9f\x1f\xad\x76\x80\x58\x8f\xeb\x45\xf1\x66\xe3\xad\xa6'
-               '\x90\x1b\x2b\x7d\xd3\x3d\xa4\x53\x35\xc8\xfa\x92\xfd\xd7\x42\x2f'
-               '\x87\x60\x9b\x46\xb0\x21\x5e\x82\xfb\x2f\x59\xba\xf0\x6c\xe5\x51'
-               '\xb8\x36\x20\x88\xfe\x49\x86\x60\xe8\x0a\x3d\x36\xb5\x8a\x08\xa9'
-               '\x5e\xe3\x87\xfa\x93\x3f\xe8\xc2\xc5\xbf\xb1\x2e\x6f\x7d\xc5\xa5'
-               '\xd8\xe5\xf3\x25\x21\x81\x43\x16\x48\x10\x7c\x04\x31\x20\x07\x7c'
-               '\x7b\xda\x5d\x1a\x72\x45\xc4\x79',
+          data=b'\x2e\x02\x9f\x1f\xad\x76\x80\x58\x8f\xeb\x45\xf1\x66\xe3\xad\xa6'
+               b'\x90\x1b\x2b\x7d\xd3\x3d\xa4\x53\x35\xc8\xfa\x92\xfd\xd7\x42\x2f'
+               b'\x87\x60\x9b\x46\xb0\x21\x5e\x82\xfb\x2f\x59\xba\xf0\x6c\xe5\x51'
+               b'\xb8\x36\x20\x88\xfe\x49\x86\x60\xe8\x0a\x3d\x36\xb5\x8a\x08\xa9'
+               b'\x5e\xe3\x87\xfa\x93\x3f\xe8\xc2\xc5\xbf\xb1\x2e\x6f\x7d\xc5\xa5'
+               b'\xd8\xe5\xf3\x25\x21\x81\x43\x16\x48\x10\x7c\x04\x31\x20\x07\x7c'
+               b'\x7b\xda\x5d\x1a\x72\x45\xc4\x79',
           seq=1)
 
 d_ref = sa.decrypt(ref)
@@ -1655,11 +1655,11 @@ assert(d_ref.haslayer(ICMP))
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
-                         crypt_algo='AES-CCM', crypt_key='16bytekey3bytenonce',
+                         crypt_algo='AES-CCM', crypt_key=b'16bytekey3bytenonce',
                          auth_algo='NULL', auth_key=None)
 
 e = sa.encrypt(p)
@@ -1674,7 +1674,7 @@ assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
 * after encryption the original packet payload should NOT be readable
-assert('testdata' not in e[ESP].data)
+assert(b'testdata' not in e[ESP].data)
 
 * simulate the alteration of the packet before decryption
 e[ESP].seq += 1
@@ -1683,7 +1683,7 @@ e[ESP].seq += 1
 try:
     d = sa.decrypt(e)
     assert(False)
-except IPSecIntegrityError, err:
+except IPSecIntegrityError as err:
     err
 
 #######################################
@@ -1692,12 +1692,12 @@ except IPSecIntegrityError, err:
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
-                         crypt_algo='AES-CBC', crypt_key='sixteenbytes key',
-                         auth_algo='HMAC-SHA1-96', auth_key='secret key',
+                         crypt_algo='AES-CBC', crypt_key=b'sixteenbytes key',
+                         auth_algo='HMAC-SHA1-96', auth_key=b'secret key',
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
 e = sa.encrypt(p)
@@ -1712,7 +1712,7 @@ assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
 * after encryption the original packet payload should NOT be readable
-assert('testdata' not in e[ESP].data)
+assert(b'testdata' not in e[ESP].data)
 
 d = sa.decrypt(e)
 d
@@ -1726,12 +1726,12 @@ assert(d[TCP] == p[TCP])
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
-                         crypt_algo='AES-CBC', crypt_key='sixteenbytes key',
-                         auth_algo='HMAC-SHA1-96', auth_key='secret key',
+                         crypt_algo='AES-CBC', crypt_key=b'sixteenbytes key',
+                         auth_algo='HMAC-SHA1-96', auth_key=b'secret key',
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
 e = sa.encrypt(p)
@@ -1746,7 +1746,7 @@ assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
 * after encryption the original packet payload should NOT be readable
-assert('testdata' not in e[ESP].data)
+assert(b'testdata' not in e[ESP].data)
 
 * simulate the alteration of the packet before decryption
 e[ESP].seq += 1
@@ -1755,7 +1755,7 @@ e[ESP].seq += 1
 try:
     d = sa.decrypt(e)
     assert(False)
-except IPSecIntegrityError, err:
+except IPSecIntegrityError as err:
     err
 
 #######################################
@@ -1764,11 +1764,11 @@ except IPSecIntegrityError, err:
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
-                         crypt_algo='AES-GCM', crypt_key='16bytekey+4bytenonce',
+                         crypt_algo='AES-GCM', crypt_key=b'16bytekey+4bytenonce',
                          auth_algo='NULL', auth_key=None,
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
@@ -1784,7 +1784,7 @@ assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
 * after encryption the original packet payload should NOT be readable
-assert('testdata' not in e[ESP].data)
+assert(b'testdata' not in e[ESP].data)
 
 d = sa.decrypt(e)
 d
@@ -1798,11 +1798,11 @@ assert(d[TCP] == p[TCP])
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
-                         crypt_algo='AES-GCM', crypt_key='16bytekey+4bytenonce',
+                         crypt_algo='AES-GCM', crypt_key=b'16bytekey+4bytenonce',
                          auth_algo='NULL', auth_key=None,
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
@@ -1818,7 +1818,7 @@ assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
 * after encryption the original packet payload should NOT be readable
-assert('testdata' not in e[ESP].data)
+assert(b'testdata' not in e[ESP].data)
 
 * simulate the alteration of the packet before decryption
 e[ESP].seq += 1
@@ -1827,7 +1827,7 @@ e[ESP].seq += 1
 try:
     d = sa.decrypt(e)
     assert(False)
-except IPSecIntegrityError, err:
+except IPSecIntegrityError as err:
     err
 
 #######################################
@@ -1837,11 +1837,11 @@ except IPSecIntegrityError, err:
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
-                         crypt_algo='AES-CCM', crypt_key='16bytekey3bytenonce',
+                         crypt_algo='AES-CCM', crypt_key=b'16bytekey3bytenonce',
                          auth_algo='NULL', auth_key=None,
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
@@ -1857,7 +1857,7 @@ assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
 * after encryption the original packet payload should NOT be readable
-assert('testdata' not in e[ESP].data)
+assert(b'testdata' not in e[ESP].data)
 
 d = sa.decrypt(e)
 d
@@ -1872,11 +1872,11 @@ assert(d == p)
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
-                         crypt_algo='AES-CCM', crypt_key='16bytekey3bytenonce',
+                         crypt_algo='AES-CCM', crypt_key=b'16bytekey3bytenonce',
                          auth_algo='NULL', auth_key=None,
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
@@ -1892,7 +1892,7 @@ assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
 * after encryption the original packet payload should NOT be readable
-assert('testdata' not in e[ESP].data)
+assert(b'testdata' not in e[ESP].data)
 
 * simulate the alteration of the packet before decryption
 e[ESP].seq += 1
@@ -1901,7 +1901,7 @@ e[ESP].seq += 1
 try:
     d = sa.decrypt(e)
     assert(False)
-except IPSecIntegrityError, err:
+except IPSecIntegrityError as err:
     err
 
 ###############################################################################
@@ -1913,11 +1913,11 @@ except IPSecIntegrityError, err:
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(AH, spi=0x222,
-                         auth_algo='HMAC-SHA1-96', auth_key='sixteenbytes key')
+                         auth_algo='HMAC-SHA1-96', auth_key=b'sixteenbytes key')
 
 e = sa.encrypt(p)
 e
@@ -1947,11 +1947,11 @@ assert(d[TCP] == p[TCP])
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(AH, spi=0x222,
-                         auth_algo='HMAC-SHA1-96', auth_key='sixteenbytes key')
+                         auth_algo='HMAC-SHA1-96', auth_key=b'sixteenbytes key')
 
 e = sa.encrypt(p)
 e
@@ -1972,7 +1972,7 @@ e[TCP].sport = 5
 try:
     d = sa.decrypt(e)
     assert(False)
-except IPSecIntegrityError, err:
+except IPSecIntegrityError as err:
     err
 
 #######################################
@@ -1981,11 +1981,11 @@ except IPSecIntegrityError, err:
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(AH, spi=0x222,
-                         auth_algo='SHA2-256-128', auth_key='secret key')
+                         auth_algo='SHA2-256-128', auth_key=b'secret key')
 
 e = sa.encrypt(p)
 e
@@ -2015,11 +2015,11 @@ assert(d[TCP] == p[TCP])
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(AH, spi=0x222,
-                         auth_algo='SHA2-256-128', auth_key='secret key')
+                         auth_algo='SHA2-256-128', auth_key=b'secret key')
 
 e = sa.encrypt(p)
 e
@@ -2040,7 +2040,7 @@ e[TCP].dport = 46
 try:
     d = sa.decrypt(e)
     assert(False)
-except IPSecIntegrityError, err:
+except IPSecIntegrityError as err:
     err
 
 #######################################
@@ -2049,11 +2049,11 @@ except IPSecIntegrityError, err:
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(AH, spi=0x222,
-                         auth_algo='SHA2-384-192', auth_key='secret key')
+                         auth_algo='SHA2-384-192', auth_key=b'secret key')
 
 e = sa.encrypt(p)
 e
@@ -2083,11 +2083,11 @@ assert(d[TCP] == p[TCP])
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(AH, spi=0x222,
-                         auth_algo='SHA2-384-192', auth_key='secret key')
+                         auth_algo='SHA2-384-192', auth_key=b'secret key')
 
 e = sa.encrypt(p)
 e
@@ -2108,7 +2108,7 @@ e[TCP].dport = 46
 try:
     d = sa.decrypt(e)
     assert(False)
-except IPSecIntegrityError, err:
+except IPSecIntegrityError as err:
     err
 
 #######################################
@@ -2117,11 +2117,11 @@ except IPSecIntegrityError, err:
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(AH, spi=0x222,
-                         auth_algo='SHA2-512-256', auth_key='secret key')
+                         auth_algo='SHA2-512-256', auth_key=b'secret key')
 
 e = sa.encrypt(p)
 e
@@ -2151,11 +2151,11 @@ assert(d[TCP] == p[TCP])
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(AH, spi=0x222,
-                         auth_algo='SHA2-512-256', auth_key='secret key')
+                         auth_algo='SHA2-512-256', auth_key=b'secret key')
 
 e = sa.encrypt(p)
 e
@@ -2176,7 +2176,7 @@ e[TCP].dport = 46
 try:
     d = sa.decrypt(e)
     assert(False)
-except IPSecIntegrityError, err:
+except IPSecIntegrityError as err:
     err
 
 #######################################
@@ -2185,11 +2185,11 @@ except IPSecIntegrityError, err:
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(AH, spi=0x222,
-                         auth_algo='HMAC-MD5-96', auth_key='secret key')
+                         auth_algo='HMAC-MD5-96', auth_key=b'secret key')
 
 e = sa.encrypt(p)
 e
@@ -2219,11 +2219,11 @@ assert(d[TCP] == p[TCP])
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(AH, spi=0x222,
-                         auth_algo='HMAC-MD5-96', auth_key='secret key')
+                         auth_algo='HMAC-MD5-96', auth_key=b'secret key')
 
 e = sa.encrypt(p)
 e
@@ -2244,7 +2244,7 @@ e[TCP].dport = 46
 try:
     d = sa.decrypt(e)
     assert(False)
-except IPSecIntegrityError, err:
+except IPSecIntegrityError as err:
     err
 
 #######################################
@@ -2253,11 +2253,11 @@ except IPSecIntegrityError, err:
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(AH, spi=0x222,
-                         auth_algo='AES-CMAC-96', auth_key='sixteenbytes key')
+                         auth_algo='AES-CMAC-96', auth_key=b'sixteenbytes key')
 
 e = sa.encrypt(p)
 e
@@ -2287,11 +2287,11 @@ assert(d[TCP] == p[TCP])
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(AH, spi=0x222,
-                         auth_algo='AES-CMAC-96', auth_key='sixteenbytes key')
+                         auth_algo='AES-CMAC-96', auth_key=b'sixteenbytes key')
 
 e = sa.encrypt(p)
 e
@@ -2312,7 +2312,7 @@ e[TCP].dport = 46
 try:
     d = sa.decrypt(e)
     assert(False)
-except IPSecIntegrityError, err:
+except IPSecIntegrityError as err:
     err
 
 ###############################################################################
@@ -2324,11 +2324,11 @@ except IPSecIntegrityError, err:
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(AH, spi=0x222,
-                         auth_algo='HMAC-SHA1-96', auth_key='secret key',
+                         auth_algo='HMAC-SHA1-96', auth_key=b'secret key',
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
 e = sa.encrypt(p)
@@ -2358,11 +2358,11 @@ assert(d[TCP] == p[TCP])
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(AH, spi=0x222,
-                         auth_algo='HMAC-SHA1-96', auth_key='secret key',
+                         auth_algo='HMAC-SHA1-96', auth_key=b'secret key',
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
 e = sa.encrypt(p)
@@ -2383,7 +2383,7 @@ e.dst = '4.4.4.4'
 try:
     d = sa.decrypt(e)
     assert(False)
-except IPSecIntegrityError, err:
+except IPSecIntegrityError as err:
     err
 
 #######################################
@@ -2392,11 +2392,11 @@ except IPSecIntegrityError, err:
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(AH, spi=0x222,
-                         auth_algo='SHA2-256-128', auth_key='secret key',
+                         auth_algo='SHA2-256-128', auth_key=b'secret key',
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
 e = sa.encrypt(p)
@@ -2426,11 +2426,11 @@ assert(d == p)
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(AH, spi=0x222,
-                         auth_algo='SHA2-256-128', auth_key='secret key',
+                         auth_algo='SHA2-256-128', auth_key=b'secret key',
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
 e = sa.encrypt(p)
@@ -2451,7 +2451,7 @@ e.dst = '4.4.4.4'
 try:
     d = sa.decrypt(e)
     assert(False)
-except IPSecIntegrityError, err:
+except IPSecIntegrityError as err:
     err
 
 #######################################
@@ -2460,11 +2460,11 @@ except IPSecIntegrityError, err:
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(AH, spi=0x222,
-                         auth_algo='SHA2-384-192', auth_key='secret key',
+                         auth_algo='SHA2-384-192', auth_key=b'secret key',
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
 e = sa.encrypt(p)
@@ -2494,11 +2494,11 @@ assert(d == p)
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(AH, spi=0x222,
-                         auth_algo='SHA2-384-192', auth_key='secret key',
+                         auth_algo='SHA2-384-192', auth_key=b'secret key',
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
 e = sa.encrypt(p)
@@ -2519,7 +2519,7 @@ e.dst = '4.4.4.4'
 try:
     d = sa.decrypt(e)
     assert(False)
-except IPSecIntegrityError, err:
+except IPSecIntegrityError as err:
     err
 
 #######################################
@@ -2528,11 +2528,11 @@ except IPSecIntegrityError, err:
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(AH, spi=0x222,
-                         auth_algo='SHA2-512-256', auth_key='secret key',
+                         auth_algo='SHA2-512-256', auth_key=b'secret key',
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
 e = sa.encrypt(p)
@@ -2562,11 +2562,11 @@ assert(d == p)
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(AH, spi=0x222,
-                         auth_algo='SHA2-512-256', auth_key='secret key',
+                         auth_algo='SHA2-512-256', auth_key=b'secret key',
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
 e = sa.encrypt(p)
@@ -2587,7 +2587,7 @@ e.dst = '4.4.4.4'
 try:
     d = sa.decrypt(e)
     assert(False)
-except IPSecIntegrityError, err:
+except IPSecIntegrityError as err:
     err
 
 #######################################
@@ -2596,11 +2596,11 @@ except IPSecIntegrityError, err:
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(AH, spi=0x222,
-                         auth_algo='HMAC-MD5-96', auth_key='secret key',
+                         auth_algo='HMAC-MD5-96', auth_key=b'secret key',
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
 e = sa.encrypt(p)
@@ -2630,11 +2630,11 @@ assert(d == p)
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(AH, spi=0x222,
-                         auth_algo='HMAC-MD5-96', auth_key='secret key',
+                         auth_algo='HMAC-MD5-96', auth_key=b'secret key',
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
 e = sa.encrypt(p)
@@ -2655,7 +2655,7 @@ e.dst = '4.4.4.4'
 try:
     d = sa.decrypt(e)
     assert(False)
-except IPSecIntegrityError, err:
+except IPSecIntegrityError as err:
     err
 
 #######################################
@@ -2664,11 +2664,11 @@ except IPSecIntegrityError, err:
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(AH, spi=0x222,
-                         auth_algo='AES-CMAC-96', auth_key='sixteenbytes key',
+                         auth_algo='AES-CMAC-96', auth_key=b'sixteenbytes key',
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
 e = sa.encrypt(p)
@@ -2698,11 +2698,11 @@ assert(d == p)
 p = IP(src='1.1.1.1', dst='2.2.2.2')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IP(str(p))
+p = IP(raw(p))
 p
 
 sa = SecurityAssociation(AH, spi=0x222,
-                         auth_algo='AES-CMAC-96', auth_key='sixteenbytes key',
+                         auth_algo='AES-CMAC-96', auth_key=b'sixteenbytes key',
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
 e = sa.encrypt(p)
@@ -2723,7 +2723,7 @@ e.dst = '4.4.4.4'
 try:
     d = sa.decrypt(e)
     assert(False)
-except IPSecIntegrityError, err:
+except IPSecIntegrityError as err:
     err
 
 ###############################################################################
@@ -2736,7 +2736,7 @@ except IPSecIntegrityError, err:
 p = IPv6(src='11::22', dst='22::11')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IPv6(str(p))
+p = IPv6(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
@@ -2752,7 +2752,7 @@ assert(e.nh == socket.IPPROTO_ESP)
 assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
-assert('testdata' in e[ESP].data)
+assert(b'testdata' in e[ESP].data)
 
 d = sa.decrypt(e)
 d
@@ -2766,11 +2766,11 @@ assert(d[TCP] == p[TCP])
 p = IPv6(src='11::22', dst='22::11')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IPv6(str(p))
+p = IPv6(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
-                         crypt_algo='AES-CBC', crypt_key='sixteenbytes key',
+                         crypt_algo='AES-CBC', crypt_key=b'sixteenbytes key',
                          auth_algo='NULL', auth_key=None)
 
 e = sa.encrypt(p)
@@ -2783,7 +2783,7 @@ assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
 * after encryption the original packet payload should NOT be readable
-assert('testdata' not in e[ESP].data)
+assert(b'testdata' not in e[ESP].data)
 
 d = sa.decrypt(e)
 d
@@ -2797,12 +2797,12 @@ assert(d[TCP] == p[TCP])
 p = IPv6(src='11::22', dst='22::11')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IPv6(str(p))
+p = IPv6(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
                          crypt_algo='NULL', crypt_key=None,
-                         auth_algo='HMAC-SHA1-96', auth_key='secret key')
+                         auth_algo='HMAC-SHA1-96', auth_key=b'secret key')
 
 e = sa.encrypt(p)
 e
@@ -2813,7 +2813,7 @@ assert(e.nh == socket.IPPROTO_ESP)
 assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
-assert('testdata' in e[ESP].data)
+assert(b'testdata' in e[ESP].data)
 
 * integrity verification should pass
 d = sa.decrypt(e)
@@ -2827,12 +2827,12 @@ assert(d[TCP] == p[TCP])
 p = IPv6(src='11::22', dst='22::11')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IPv6(str(p))
+p = IPv6(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
                          crypt_algo='NULL', crypt_key=None,
-                         auth_algo='HMAC-SHA1-96', auth_key='secret key')
+                         auth_algo='HMAC-SHA1-96', auth_key=b'secret key')
 
 e = sa.encrypt(p)
 e
@@ -2843,16 +2843,16 @@ assert(e.nh == socket.IPPROTO_ESP)
 assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
-assert('testdata' in e[ESP].data)
+assert(b'testdata' in e[ESP].data)
 
 * simulate the alteration of the packet before decryption
-e[ESP].data = e[ESP].data.replace('\x01', '\x21')
+e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
 
 * integrity verification should fail
 try:
     d = sa.decrypt(e)
     assert(False)
-except IPSecIntegrityError, err:
+except IPSecIntegrityError as err:
     err
 
 #######################################
@@ -2861,12 +2861,12 @@ except IPSecIntegrityError, err:
 p = IPv6(src='11::22', dst='22::11')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IPv6(str(p))
+p = IPv6(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
-                         crypt_algo='AES-CBC', crypt_key='sixteenbytes key',
-                         auth_algo='HMAC-SHA1-96', auth_key='secret key')
+                         crypt_algo='AES-CBC', crypt_key=b'sixteenbytes key',
+                         auth_algo='HMAC-SHA1-96', auth_key=b'secret key')
 
 e = sa.encrypt(p)
 e
@@ -2878,7 +2878,7 @@ assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
 * after encryption the original packet payload should NOT be readable
-assert('testdata' not in e[ESP].data)
+assert(b'testdata' not in e[ESP].data)
 
 d = sa.decrypt(e)
 d
@@ -2892,12 +2892,12 @@ assert(d[TCP] == p[TCP])
 p = IPv6(src='11::22', dst='22::11')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IPv6(str(p))
+p = IPv6(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
-                         crypt_algo='AES-CBC', crypt_key='sixteenbytes key',
-                         auth_algo='HMAC-SHA1-96', auth_key='secret key')
+                         crypt_algo='AES-CBC', crypt_key=b'sixteenbytes key',
+                         auth_algo='HMAC-SHA1-96', auth_key=b'secret key')
 
 e = sa.encrypt(p)
 e
@@ -2909,7 +2909,7 @@ assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
 * after encryption the original packet payload should NOT be readable
-assert('testdata' not in e[ESP].data)
+assert(b'testdata' not in e[ESP].data)
 
 * simulate the alteration of the packet before decryption
 e[ESP].seq += 1
@@ -2918,7 +2918,7 @@ e[ESP].seq += 1
 try:
     d = sa.decrypt(e)
     assert(False)
-except IPSecIntegrityError, err:
+except IPSecIntegrityError as err:
     err
 
 #######################################
@@ -2927,11 +2927,11 @@ except IPSecIntegrityError, err:
 p = IPv6(src='11::22', dst='22::11')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IPv6(str(p))
+p = IPv6(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
-                         crypt_algo='AES-GCM', crypt_key='16bytekey+4bytenonce',
+                         crypt_algo='AES-GCM', crypt_key=b'16bytekey+4bytenonce',
                          auth_algo='NULL', auth_key=None)
 
 e = sa.encrypt(p)
@@ -2944,7 +2944,7 @@ assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
 * after encryption the original packet payload should NOT be readable
-assert('testdata' not in e[ESP].data)
+assert(b'testdata' not in e[ESP].data)
 
 d = sa.decrypt(e)
 d
@@ -2958,11 +2958,11 @@ assert(d[TCP] == p[TCP])
 p = IPv6(src='11::22', dst='22::11')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IPv6(str(p))
+p = IPv6(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
-                         crypt_algo='AES-GCM', crypt_key='16bytekey+4bytenonce',
+                         crypt_algo='AES-GCM', crypt_key=b'16bytekey+4bytenonce',
                          auth_algo='NULL', auth_key=None)
 
 e = sa.encrypt(p)
@@ -2975,7 +2975,7 @@ assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
 * after encryption the original packet payload should NOT be readable
-assert('testdata' not in e[ESP].data)
+assert(b'testdata' not in e[ESP].data)
 
 * simulate the alteration of the packet before decryption
 e[ESP].seq += 1
@@ -2984,7 +2984,7 @@ e[ESP].seq += 1
 try:
     d = sa.decrypt(e)
     assert(False)
-except IPSecIntegrityError, err:
+except IPSecIntegrityError as err:
     err
 
 #######################################
@@ -2994,11 +2994,11 @@ except IPSecIntegrityError, err:
 p = IPv6(src='11::22', dst='22::11')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IPv6(str(p))
+p = IPv6(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
-                         crypt_algo='AES-CCM', crypt_key='16bytekey3bytenonce',
+                         crypt_algo='AES-CCM', crypt_key=b'16bytekey3bytenonce',
                          auth_algo='NULL', auth_key=None)
 
 e = sa.encrypt(p)
@@ -3011,7 +3011,7 @@ assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
 * after encryption the original packet payload should NOT be readable
-assert('testdata' not in e[ESP].data)
+assert(b'testdata' not in e[ESP].data)
 
 d = sa.decrypt(e)
 d
@@ -3026,11 +3026,11 @@ assert(d[TCP] == p[TCP])
 p = IPv6(src='11::22', dst='22::11')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IPv6(str(p))
+p = IPv6(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
-                         crypt_algo='AES-CCM', crypt_key='16bytekey3bytenonce',
+                         crypt_algo='AES-CCM', crypt_key=b'16bytekey3bytenonce',
                          auth_algo='NULL', auth_key=None)
 
 e = sa.encrypt(p)
@@ -3043,7 +3043,7 @@ assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
 * after encryption the original packet payload should NOT be readable
-assert('testdata' not in e[ESP].data)
+assert(b'testdata' not in e[ESP].data)
 
 * simulate the alteration of the packet before decryption
 e[ESP].seq += 1
@@ -3052,7 +3052,7 @@ e[ESP].seq += 1
 try:
     d = sa.decrypt(e)
     assert(False)
-except IPSecIntegrityError, err:
+except IPSecIntegrityError as err:
     err
 
 #######################################
@@ -3062,7 +3062,7 @@ except IPSecIntegrityError, err:
 p = IPv6(src='11::22', dst='22::11')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IPv6(str(p))
+p = IPv6(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
@@ -3080,7 +3080,7 @@ assert(e.nh == socket.IPPROTO_ESP)
 assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
-assert('testdata' in e[ESP].data)
+assert(b'testdata' in e[ESP].data)
 
 d = sa.decrypt(e)
 d
@@ -3094,11 +3094,11 @@ assert(d[TCP] == p[TCP])
 p = IPv6(src='11::22', dst='22::11')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IPv6(str(p))
+p = IPv6(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
-                         crypt_algo='AES-CBC', crypt_key='sixteenbytes key',
+                         crypt_algo='AES-CBC', crypt_key=b'sixteenbytes key',
                          auth_algo='NULL', auth_key=None,
                          tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
 
@@ -3113,7 +3113,7 @@ assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
 * after encryption the original packet payload should NOT be readable
-assert('testdata' not in e[ESP].data)
+assert(b'testdata' not in e[ESP].data)
 
 d = sa.decrypt(e)
 d
@@ -3127,12 +3127,12 @@ assert(d[TCP] == p[TCP])
 p = IPv6(src='11::22', dst='22::11')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IPv6(str(p))
+p = IPv6(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
                          crypt_algo='NULL', crypt_key=None,
-                         auth_algo='HMAC-SHA1-96', auth_key='secret key',
+                         auth_algo='HMAC-SHA1-96', auth_key=b'secret key',
                          tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
 
 e = sa.encrypt(p)
@@ -3145,7 +3145,7 @@ assert(e.nh == socket.IPPROTO_ESP)
 assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
-assert('testdata' in e[ESP].data)
+assert(b'testdata' in e[ESP].data)
 
 * integrity verification should pass
 d = sa.decrypt(e)
@@ -3159,12 +3159,12 @@ assert(d[TCP] == p[TCP])
 p = IPv6(src='11::22', dst='22::11')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IPv6(str(p))
+p = IPv6(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
                          crypt_algo='NULL', crypt_key=None,
-                         auth_algo='HMAC-SHA1-96', auth_key='secret key',
+                         auth_algo='HMAC-SHA1-96', auth_key=b'secret key',
                          tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
 
 e = sa.encrypt(p)
@@ -3177,7 +3177,7 @@ assert(e.nh == socket.IPPROTO_ESP)
 assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
-assert('testdata' in e[ESP].data)
+assert(b'testdata' in e[ESP].data)
 
 * simulate the alteration of the packet before decryption
 e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
@@ -3186,7 +3186,7 @@ e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
 try:
     d = sa.decrypt(e)
     assert(False)
-except IPSecIntegrityError, err:
+except IPSecIntegrityError as err:
     err
 
 #######################################
@@ -3195,12 +3195,12 @@ except IPSecIntegrityError, err:
 p = IPv6(src='11::22', dst='22::11')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IPv6(str(p))
+p = IPv6(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
-                         crypt_algo='AES-CBC', crypt_key='sixteenbytes key',
-                         auth_algo='HMAC-SHA1-96', auth_key='secret key',
+                         crypt_algo='AES-CBC', crypt_key=b'sixteenbytes key',
+                         auth_algo='HMAC-SHA1-96', auth_key=b'secret key',
                          tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
 
 e = sa.encrypt(p)
@@ -3214,7 +3214,7 @@ assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
 * after encryption the original packet payload should NOT be readable
-assert('testdata' not in e[ESP].data)
+assert(b'testdata' not in e[ESP].data)
 
 d = sa.decrypt(e)
 d
@@ -3228,12 +3228,12 @@ assert(d[TCP] == p[TCP])
 p = IPv6(src='11::22', dst='22::11')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IPv6(str(p))
+p = IPv6(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
-                         crypt_algo='AES-CBC', crypt_key='sixteenbytes key',
-                         auth_algo='HMAC-SHA1-96', auth_key='secret key',
+                         crypt_algo='AES-CBC', crypt_key=b'sixteenbytes key',
+                         auth_algo='HMAC-SHA1-96', auth_key=b'secret key',
                          tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
 
 e = sa.encrypt(p)
@@ -3247,7 +3247,7 @@ assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
 * after encryption the original packet payload should NOT be readable
-assert('testdata' not in e[ESP].data)
+assert(b'testdata' not in e[ESP].data)
 
 * simulate the alteration of the packet before decryption
 e[ESP].seq += 1
@@ -3256,7 +3256,7 @@ e[ESP].seq += 1
 try:
     d = sa.decrypt(e)
     assert(False)
-except IPSecIntegrityError, err:
+except IPSecIntegrityError as err:
     err
 
 #######################################
@@ -3265,11 +3265,11 @@ except IPSecIntegrityError, err:
 p = IPv6(src='11::22', dst='22::11')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IPv6(str(p))
+p = IPv6(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
-                         crypt_algo='AES-GCM', crypt_key='16bytekey+4bytenonce',
+                         crypt_algo='AES-GCM', crypt_key=b'16bytekey+4bytenonce',
                          auth_algo='NULL', auth_key=None,
                          tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
 
@@ -3284,7 +3284,7 @@ assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
 * after encryption the original packet payload should NOT be readable
-assert('testdata' not in e[ESP].data)
+assert(b'testdata' not in e[ESP].data)
 
 d = sa.decrypt(e)
 d
@@ -3298,11 +3298,11 @@ assert(d[TCP] == p[TCP])
 p = IPv6(src='11::22', dst='22::11')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IPv6(str(p))
+p = IPv6(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
-                         crypt_algo='AES-GCM', crypt_key='16bytekey+4bytenonce',
+                         crypt_algo='AES-GCM', crypt_key=b'16bytekey+4bytenonce',
                          auth_algo='NULL', auth_key=None,
                          tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
 
@@ -3317,7 +3317,7 @@ assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
 * after encryption the original packet payload should NOT be readable
-assert('testdata' not in e[ESP].data)
+assert(b'testdata' not in e[ESP].data)
 
 * simulate the alteration of the packet before decryption
 e[ESP].seq += 1
@@ -3326,7 +3326,7 @@ e[ESP].seq += 1
 try:
     d = sa.decrypt(e)
     assert(False)
-except IPSecIntegrityError, err:
+except IPSecIntegrityError as err:
     err
 
 #######################################
@@ -3336,11 +3336,11 @@ except IPSecIntegrityError, err:
 p = IPv6(src='11::22', dst='22::11')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IPv6(str(p))
+p = IPv6(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
-                         crypt_algo='AES-CCM', crypt_key='16bytekey3bytenonce',
+                         crypt_algo='AES-CCM', crypt_key=b'16bytekey3bytenonce',
                          auth_algo='NULL', auth_key=None,
                          tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
 
@@ -3354,7 +3354,7 @@ assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
 * after encryption the original packet payload should NOT be readable
-assert('testdata' not in e[ESP].data)
+assert(b'testdata' not in e[ESP].data)
 
 d = sa.decrypt(e)
 d
@@ -3369,11 +3369,11 @@ assert(d[TCP] == p[TCP])
 p = IPv6(src='11::22', dst='22::11')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IPv6(str(p))
+p = IPv6(raw(p))
 p
 
 sa = SecurityAssociation(ESP, spi=0x222,
-                         crypt_algo='AES-CCM', crypt_key='16bytekey3bytenonce',
+                         crypt_algo='AES-CCM', crypt_key=b'16bytekey3bytenonce',
                          auth_algo='NULL', auth_key=None,
                          tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
 
@@ -3387,7 +3387,7 @@ assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
 * after encryption the original packet payload should NOT be readable
-assert('testdata' not in e[ESP].data)
+assert(b'testdata' not in e[ESP].data)
 
 * simulate the alteration of the packet before decryption
 e[ESP].seq += 1
@@ -3396,7 +3396,7 @@ e[ESP].seq += 1
 try:
     d = sa.decrypt(e)
     assert(False)
-except IPSecIntegrityError, err:
+except IPSecIntegrityError as err:
     err
 
 #######################################
@@ -3409,11 +3409,11 @@ except IPSecIntegrityError, err:
 p = IPv6(src='11::22', dst='22::11')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IPv6(str(p))
+p = IPv6(raw(p))
 p
 
 sa = SecurityAssociation(AH, spi=0x222,
-                         auth_algo='HMAC-SHA1-96', auth_key='secret key')
+                         auth_algo='HMAC-SHA1-96', auth_key=b'secret key')
 
 e = sa.encrypt(p)
 e
@@ -3442,11 +3442,11 @@ assert(d[TCP] == p[TCP])
 p = IPv6(src='11::22', dst='22::11')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IPv6(str(p))
+p = IPv6(raw(p))
 p
 
 sa = SecurityAssociation(AH, spi=0x222,
-                         auth_algo='HMAC-SHA1-96', auth_key='secret key')
+                         auth_algo='HMAC-SHA1-96', auth_key=b'secret key')
 
 e = sa.encrypt(p)
 e
@@ -3466,7 +3466,7 @@ e[TCP].dport = 46
 try:
     d = sa.decrypt(e)
     assert(False)
-except IPSecIntegrityError, err:
+except IPSecIntegrityError as err:
     err
 
 #######################################
@@ -3475,11 +3475,11 @@ except IPSecIntegrityError, err:
 p = IPv6(src='11::22', dst='22::11')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IPv6(str(p))
+p = IPv6(raw(p))
 p
 
 sa = SecurityAssociation(AH, spi=0x222,
-                         auth_algo='SHA2-256-128', auth_key='secret key')
+                         auth_algo='SHA2-256-128', auth_key=b'secret key')
 
 e = sa.encrypt(p)
 e
@@ -3508,11 +3508,11 @@ assert(d[TCP] == p[TCP])
 p = IPv6(src='11::22', dst='22::11')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IPv6(str(p))
+p = IPv6(raw(p))
 p
 
 sa = SecurityAssociation(AH, spi=0x222,
-                         auth_algo='SHA2-256-128', auth_key='secret key')
+                         auth_algo='SHA2-256-128', auth_key=b'secret key')
 
 e = sa.encrypt(p)
 e
@@ -3532,7 +3532,7 @@ e[TCP].dport = 46
 try:
     d = sa.decrypt(e)
     assert(False)
-except IPSecIntegrityError, err:
+except IPSecIntegrityError as err:
     err
 
 #######################################
@@ -3541,11 +3541,11 @@ except IPSecIntegrityError, err:
 p = IPv6(src='11::22', dst='22::11')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IPv6(str(p))
+p = IPv6(raw(p))
 p
 
 sa = SecurityAssociation(AH, spi=0x222,
-                         auth_algo='HMAC-SHA1-96', auth_key='secret key',
+                         auth_algo='HMAC-SHA1-96', auth_key=b'secret key',
                          tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
 
 e = sa.encrypt(p)
@@ -3575,11 +3575,11 @@ assert(d == p)
 p = IPv6(src='11::22', dst='22::11')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IPv6(str(p))
+p = IPv6(raw(p))
 p
 
 sa = SecurityAssociation(AH, spi=0x222,
-                         auth_algo='HMAC-SHA1-96', auth_key='secret key',
+                         auth_algo='HMAC-SHA1-96', auth_key=b'secret key',
                          tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
 
 e = sa.encrypt(p)
@@ -3600,7 +3600,7 @@ e.src = 'cc::ee'
 try:
     d = sa.decrypt(e)
     assert(False)
-except IPSecIntegrityError, err:
+except IPSecIntegrityError as err:
     err
 
 #######################################
@@ -3609,11 +3609,11 @@ except IPSecIntegrityError, err:
 p = IPv6(src='11::22', dst='22::11')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IPv6(str(p))
+p = IPv6(raw(p))
 p
 
 sa = SecurityAssociation(AH, spi=0x222,
-                         auth_algo='SHA2-256-128', auth_key='secret key',
+                         auth_algo='SHA2-256-128', auth_key=b'secret key',
                          tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
 
 e = sa.encrypt(p)
@@ -3643,11 +3643,11 @@ assert(d == p)
 p = IPv6(src='11::22', dst='22::11')
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IPv6(str(p))
+p = IPv6(raw(p))
 p
 
 sa = SecurityAssociation(AH, spi=0x222,
-                         auth_algo='SHA2-256-128', auth_key='secret key',
+                         auth_algo='SHA2-256-128', auth_key=b'secret key',
                          tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
 
 e = sa.encrypt(p)
@@ -3668,7 +3668,7 @@ e.src = 'cc::ee'
 try:
     d = sa.decrypt(e)
     assert(False)
-except IPSecIntegrityError, err:
+except IPSecIntegrityError as err:
     err
 
 ###############################################################################
@@ -3685,11 +3685,11 @@ p /= IPv6ExtHdrDestOpt()
 p /= IPv6ExtHdrFragment()
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IPv6(str(p))
+p = IPv6(raw(p))
 p
 
 sa = SecurityAssociation(AH, spi=0x222,
-                         auth_algo='HMAC-SHA1-96', auth_key='secret key')
+                         auth_algo='HMAC-SHA1-96', auth_key=b'secret key')
 
 e = sa.encrypt(p)
 e
@@ -3707,11 +3707,11 @@ p /= IPv6ExtHdrHopByHop()
 p /= IPv6ExtHdrRouting(addresses=['aa::bb', 'cc::dd', 'ee::ff'])
 p /= TCP(sport=45012, dport=80)
 p /= Raw('testdata')
-p = IPv6(str(p))
+p = IPv6(raw(p))
 p
 
 sa = SecurityAssociation(AH, spi=0x222,
-                         auth_algo='HMAC-SHA1-96', auth_key='secret key')
+                         auth_algo='HMAC-SHA1-96', auth_key=b'secret key')
 
 e = sa.encrypt(p)
 e

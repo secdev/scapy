@@ -13,6 +13,7 @@ from zlib import crc32
 
 from scapy.config import conf, crypto_validator
 from scapy.data import *
+from scapy.compat import *
 from scapy.packet import *
 from scapy.fields import *
 from scapy.ansmachine import *
@@ -178,10 +179,10 @@ class Dot11(Packet):
 
 class Dot11QoS(Packet):
     name = "802.11 QoS"
-    fields_desc = [ BitField("TID",None,4),
-                    BitField("EOSP",None,1),
+    fields_desc = [ BitField("Reserved",None,1),
                     BitField("Ack Policy",None,2),
-                    BitField("Reserved",None,1),
+                    BitField("EOSP",None,1),
+                    BitField("TID",None,4),
                     ByteField("TXOP",None) ]
     def guess_payload_class(self, payload):
         if isinstance(self.underlayer, Dot11):
@@ -221,7 +222,7 @@ class Dot11Elt(Packet):
                     StrLenField("info", "", length_from=lambda x:x.len) ]
     def mysummary(self):
         if self.ID == 0:
-            return "SSID=%s"%repr(self.info),[Dot11]
+            return "SSID=%s"%repr(plain_str(self.info)),[Dot11]
         else:
             return ""
 
@@ -292,7 +293,7 @@ class Dot11WEP(Packet):
             key = conf.wepkey
         if key:
             d = Cipher(
-                algorithms.ARC4(self.iv + key),
+                algorithms.ARC4(self.iv + key.encode("utf8")),
                 None,
                 default_backend(),
             ).decryptor()
@@ -304,7 +305,7 @@ class Dot11WEP(Packet):
     def build_payload(self):
         if self.wepdata is None:
             return Packet.build_payload(self)
-        return ""
+        return b""
 
     @crypto_validator
     def encrypt(self, p, pay, key=None):
@@ -313,22 +314,22 @@ class Dot11WEP(Packet):
         if key:
             if self.icv is None:
                 pay += struct.pack("<I", crc32(pay))
-                icv = ""
+                icv = b""
             else:
                 icv = p[4:8]
             e = Cipher(
-                algorithms.ARC4(self.iv + key),
+                algorithms.ARC4(self.iv + key.encode("utf8")),
                 None,
                 default_backend(),
             ).encryptor()
             return p[:4] + e.update(pay) + e.finalize() + icv
         else:
             warning("No WEP key set (conf.wepkey).. strange results expected..")
-            return ""
+            return b""
 
     def post_build(self, p, pay):
         if self.wepdata is None:
-            p = self.encrypt(p, pay)
+            p = self.encrypt(p, raw(pay))
         return p
 
 
@@ -364,13 +365,13 @@ bind_layers( Dot11Auth,       Dot11Elt,    )
 bind_layers( Dot11Elt,        Dot11Elt,    )
 
 
-conf.l2types.register(105, Dot11)
+conf.l2types.register(DLT_IEEE802_11, Dot11)
 conf.l2types.register_num2layer(801, Dot11)
-conf.l2types.register(119, PrismHeader)
+conf.l2types.register(DLT_PRISM_HEADER, PrismHeader)
 conf.l2types.register_num2layer(802, PrismHeader)
-conf.l2types.register(127, RadioTap)
-conf.l2types.register(0xc0, PPI)
+conf.l2types.register(DLT_IEEE802_11_RADIO, RadioTap)
 conf.l2types.register_num2layer(803, RadioTap)
+conf.l2types.register(DLT_PPI, PPI)
 
 
 class WiFi_am(AnsweringMachine):
@@ -408,7 +409,7 @@ iwconfig wlan0 mode managed
             return 0
         ip = pkt.getlayer(IP)
         tcp = pkt.getlayer(TCP)
-        pay = str(tcp.payload)
+        pay = raw(tcp.payload)
         if not self.ptrn.match(pay):
             return 0
         if self.iptrn.match(pay):
@@ -417,7 +418,7 @@ iwconfig wlan0 mode managed
     def make_reply(self, p):
         ip = p.getlayer(IP)
         tcp = p.getlayer(TCP)
-        pay = str(tcp.payload)
+        pay = raw(tcp.payload)
         del(p.payload.payload.payload)
         p.FCfield="from-DS"
         p.addr1,p.addr2 = p.addr2,p.addr1
@@ -471,7 +472,7 @@ iwconfig wlan0 mode managed
             return
         ip = p.getlayer(IP)
         tcp = p.getlayer(TCP)
-        pay = str(tcp.payload)
+        pay = raw(tcp.payload)
         if not ptrn.match(pay):
             return
         if iptrn.match(pay):

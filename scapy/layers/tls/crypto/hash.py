@@ -12,7 +12,7 @@ from hashlib import md5, sha1, sha224, sha256, sha384, sha512
 import scapy.modules.six as six
 
 
-tls_hash_algs = {}
+_tls_hash_algs = {}
 
 class _GenericHashMetaclass(type):
     """
@@ -25,7 +25,7 @@ class _GenericHashMetaclass(type):
         the_class = super(_GenericHashMetaclass, cls).__new__(cls, hash_name,
                                                               bases, dct)
         if hash_name != "_GenericHash":
-            tls_hash_algs[hash_name[5:]] = the_class
+            _tls_hash_algs[hash_name[5:]] = the_class
         return the_class
 
 

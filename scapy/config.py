@@ -14,7 +14,7 @@ import os,time,socket,sys
 from scapy import VERSION
 from scapy.data import *
 from scapy import base_classes
-from scapy import themes
+from scapy.themes import NoTheme, apply_ipython_style
 from scapy.error import log_scapy
 import scapy.modules.six as six
 
@@ -171,7 +171,8 @@ class CommandsList(list):
 def lsc():
     print(repr(conf.commands))
 
-class CacheInstance(dict):
+class CacheInstance(dict, object):
+    __slots__ = ["timeout", "name", "_timetable", "__dict__"]
     def __init__(self, name="noname", timeout=None):
         self.timeout = timeout
         self.name = name
@@ -179,6 +180,8 @@ class CacheInstance(dict):
     def flush(self):
         self.__init__(name=self.name, timeout=self.timeout)
     def __getitem__(self, item):
+        if item in self.__slots__:
+            return object.__getattribute__(self, item)
         val = dict.__getitem__(self,item)
         if self.timeout is not None:
             t = self._timetable[item]
@@ -193,43 +196,49 @@ class CacheInstance(dict):
         except KeyError:
             return default
     def __setitem__(self, item, v):
+        if item in self.__slots__:
+            return object.__setattr__(self, item, v)
         self._timetable[item] = time.time()
         dict.__setitem__(self, item,v)
     def update(self, other):
-        dict.update(self, other)
-        self._timetable.update(other._timetable)
+        for key, value in other.iteritems():
+            # We only update an element from `other` either if it does
+            # not exist in `self` or if the entry in `self` is older.
+            if key not in self or self._timetable[key] < other._timetable[key]:
+                dict.__setitem__(self, key, value)
+                self._timetable[key] = other._timetable[key]
     def iteritems(self):
         if self.timeout is None:
-            return dict.iteritems(self)
+            return six.iteritems(self.__dict__)
         t0=time.time()
-        return ((k,v) for (k,v) in dict.iteritems(self) if t0-self._timetable[k] < self.timeout) 
+        return ((k,v) for (k,v) in six.iteritems(self.__dict__) if t0-self._timetable[k] < self.timeout)
     def iterkeys(self):
         if self.timeout is None:
-            return dict.iterkeys(self)
+            return six.iterkeys(self.__dict__)
         t0=time.time()
-        return (k for k in dict.iterkeys(self) if t0-self._timetable[k] < self.timeout)
+        return (k for k in six.iterkeys(self.__dict__) if t0-self._timetable[k] < self.timeout)
     def __iter__(self):
-        return six.iterkeys(self)
+        return six.iterkeys(self.__dict__)
     def itervalues(self):
         if self.timeout is None:
-            return dict.itervalues(self)
+            return six.itervalues(self.__dict__)
         t0=time.time()
-        return (v for (k,v) in dict.iteritems(self) if t0-self._timetable[k] < self.timeout)
+        return (v for (k,v) in six.iteritems(self.__dict__) if t0-self._timetable[k] < self.timeout)
     def items(self):
         if self.timeout is None:
             return dict.items(self)
         t0=time.time()
-        return [(k,v) for (k,v) in dict.iteritems(self) if t0-self._timetable[k] < self.timeout]
+        return [(k,v) for (k,v) in six.iteritems(self.__dict__) if t0-self._timetable[k] < self.timeout]
     def keys(self):
         if self.timeout is None:
             return dict.keys(self)
         t0=time.time()
-        return [k for k in dict.iterkeys(self) if t0-self._timetable[k] < self.timeout]
+        return [k for k in six.iterkeys(self.__dict__) if t0-self._timetable[k] < self.timeout]
     def values(self):
         if self.timeout is None:
-            return dict.values(self)
+            return six.values(self)
         t0=time.time()
-        return [v for (k,v) in dict.iteritems(self) if t0-self._timetable[k] < self.timeout]
+        return [v for (k,v) in six.iteritems(self.__dict__) if t0-self._timetable[k] < self.timeout]
     def __len__(self):
         if self.timeout is None:
             return dict.__len__(self)
@@ -239,9 +248,9 @@ class CacheInstance(dict):
     def __repr__(self):
         s = []
         if self:
-            mk = max(len(k) for k in six.iterkeys(self))
+            mk = max(len(k) for k in six.iterkeys(self.__dict__))
             fmt = "%%-%is %%s" % (mk+1)
-            for item in six.iteritems(self):
+            for item in six.iteritems(self.__dict__):
                 s.append(fmt % item)
         return "\n".join(s)
             
@@ -317,26 +326,21 @@ def isCryptographyAdvanced():
     else:
         return True
 
-
-def _prompt_changer(attr,val):
-    prompt = conf.prompt
+def _prompt_changer(attr, val):
+    """Change the current prompt theme"""
     try:
-        ct = val
-        if isinstance(ct, themes.AnsiColorTheme) and ct.prompt(""):
-            ## ^A and ^B delimit invisible characters for readline to count right.
-            ## And we need ct.prompt() to do change something or else ^A and ^B will be
-            ## displayed
-             prompt = b"\001%s\002" % ct.prompt(b"\002"+prompt+b"\001")
-        else:
-            prompt = ct.prompt(prompt)
+        sys.ps1 = conf.color_theme.prompt(conf.prompt)
     except:
         pass
-    sys.ps1 = prompt
+    try:
+        apply_ipython_style(get_ipython())
+    except NameError:
+        pass
 
 class Conf(ConfClass):
     """This object contains the configuration of Scapy.
 session  : filename where the session will be saved
-interactive_shell : If set to "ipython", use IPython as shell. Default: Python
+interactive_shell : can be "ipython", "python" or "auto". Default: Auto
 stealth  : if 1, prevents any unwanted packet to go out (ARP, DNS, ...)
 checkIPID: if 0, doesn't check that IPID matches between IP sent and ICMP IP citation received
            if 1, checks that they either are equal or byte swapped equals (bug in some IP stacks)
@@ -372,7 +376,6 @@ debug_tls:When 1, print some TLS session secrets when they are computed.
     stealth = "not implemented"
     iface = None
     iface6 = None
-    readfunc = None
     layers = LayersList()
     commands = CommandsList()
     logLevel = LogLevel()
@@ -382,7 +385,7 @@ debug_tls:When 1, print some TLS session secrets when they are computed.
     checkIPinIP = True
     check_TCPerror_seqack = 0
     verb = 2
-    prompt = ">>> "
+    prompt = Interceptor("prompt", ">>> ", _prompt_changer)
     promisc = 1
     sniff_promisc = 1
     raw_layer = None
@@ -406,7 +409,7 @@ debug_tls:When 1, print some TLS session secrets when they are computed.
     route6 = None # Filed by route6.py
     auto_fragment = 1
     debug_dissector = 0
-    color_theme = Interceptor("color_theme", themes.NoTheme(), _prompt_changer)
+    color_theme = Interceptor("color_theme", NoTheme(), _prompt_changer)
     warning_threshold = 5
     warning_next_only_once = False
     prog = ProgPath()
@@ -431,7 +434,7 @@ debug_tls:When 1, print some TLS session secrets when they are computed.
     netcache = NetCache()
     geoip_city = '/usr/share/GeoIP/GeoIPCity.dat'
     geoip_city_ipv6 = '/usr/share/GeoIP/GeoIPCityv6.dat'
-    load_layers = ["l2", "inet", "dhcp", "dns", "dot11", "gprs", "tls",
+    load_layers = ["l2", "inet", "dhcp", "dns", "dot11", "gprs",
                    "hsrp", "inet6", "ir", "isakmp", "l2tp", "mgcp",
                    "mobileip", "netbios", "netflow", "ntp", "ppp", "pptp",
                    "radius", "rip", "rtp", "skinny", "smb", "snmp",
@@ -440,6 +443,7 @@ debug_tls:When 1, print some TLS session secrets when they are computed.
     contribs = dict()
     crypto_valid = isCryptographyValid()
     crypto_valid_advanced = isCryptographyAdvanced()
+    fancy_prompt = True
 
 
 if not Conf.ipv6_enabled:
@@ -467,4 +471,3 @@ def crypto_validator(func):
                               "Please install python-cryptography v1.7 or later.")
         return func(*args, **kwargs)
     return func_in
-

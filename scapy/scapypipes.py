@@ -5,11 +5,12 @@
 
 from __future__ import print_function
 import socket
-import Queue
+from scapy.modules.six.moves.queue import Queue, Empty
 from scapy.pipetool import Source,Drain,Sink
 from scapy.config import conf
+from scapy.compat import *
 from scapy.utils import PcapReader, PcapWriter
-
+from scapy.automaton import recv_error
 
 class SniffSource(Source):
     """Read packets from an interface and send them to low exit.
@@ -29,8 +30,14 @@ class SniffSource(Source):
         self.s.close()
     def fileno(self):
         return self.s.fileno()
+    def check_recv(self):
+        return True
     def deliver(self):
-        self._send(self.s.recv())
+        try:
+            self._send(self.s.recv())
+        except recv_error:
+            if not WINDOWS:
+                raise
 
 class RdpcapSource(Source):
     """Read packets from a PCAP file send them to low exit.
@@ -53,6 +60,8 @@ class RdpcapSource(Source):
         self.f.close()
     def fileno(self):
         return self.f.fileno()
+    def check_recv(self):
+        return True
     def deliver(self):    
         p = self.f.recv()
         print("deliver %r" % p)
@@ -100,6 +109,7 @@ class WrpcapSink(Sink):
         self.f = PcapWriter(fname)
     def stop(self):
         self.f.flush()
+        self.f.close()
     def push(self, msg):
         self.f.write(msg)
         
@@ -121,7 +131,7 @@ class UDPDrain(Drain):
         from scapy.layers.inet import IP, UDP
         if IP in msg and msg[IP].proto == 17 and UDP in msg:
             payload = msg[UDP].payload
-            self._high_send(str(payload))
+            self._high_send(raw(payload))
     def high_push(self, msg):
         from scapy.layers.inet import IP, UDP
         p = IP(dst=self.ip)/UDP(sport=1234,dport=self.port)/msg
@@ -155,6 +165,7 @@ class TCPConnectPipe(Source):
    >-|-[addr:port]-|->
      +-------------+
 """
+    __selectable_force_select__ = True
     def __init__(self, addr="", port=0, name=None):
         Source.__init__(self, name=name)
         self.addr = addr
@@ -171,7 +182,13 @@ class TCPConnectPipe(Source):
     def fileno(self):
         return self.fd.fileno()
     def deliver(self):
-        self._send(self.fd.recv(65536))
+        try:
+            msg = self.fd.recv(65536)
+        except socket.error:
+            self.stop()
+            raise
+        if msg:
+            self._send(msg)
 
 class TCPListenPipe(TCPConnectPipe):
     """TCP listen on [addr:]port and use first connection as source and sink ; send peer address to high output
@@ -181,10 +198,11 @@ class TCPListenPipe(TCPConnectPipe):
    >-|-[addr:port]-|->
      +-------------+
 """
+    __selectable_force_select__ = True
     def __init__(self, addr="", port=0, name=None):
         TCPConnectPipe.__init__(self, addr, port, name)
         self.connected = False
-        self.q = Queue.Queue()
+        self.q = Queue()
     def start(self):
         self.connected = False
         self.fd = socket.socket()
@@ -198,7 +216,13 @@ class TCPListenPipe(TCPConnectPipe):
             self.q.put(msg)
     def deliver(self):
         if self.connected:
-            self._send(self.fd.recv(65536))
+            try:
+                msg = self.fd.recv(65536)
+            except socket.error:
+                self.stop()
+                raise
+            if msg:
+                self._send(msg)
         else:
             fd,frm = self.fd.accept()
             self._high_send(frm)
@@ -209,7 +233,7 @@ class TCPListenPipe(TCPConnectPipe):
             while True:
                 try:
                     self.fd.send(self.q.get(block=False))
-                except Queue.Empty:
+                except Empty:
                     break
 
 
@@ -267,7 +291,7 @@ class TriggeredValve(Drain):
             self._send(msg)
     def high_push(self, msg):
         if self.opened:
-            self._send(msg)
+            self._high_send(msg)
     def on_trigger(self, msg):
         self.opened ^= True
         self._trigger(msg)
@@ -283,9 +307,9 @@ class TriggeredQueueingValve(Drain):
     def __init__(self, start_state=True, name=None):
         Drain.__init__(self, name=name)
         self.opened = start_state
-        self.q = Queue.Queue()
+        self.q = Queue()
     def start(self):
-        self.q = Queue.Queue()
+        self.q = Queue()
     def push(self, msg):
         if self.opened:
             self._send(msg)
@@ -295,14 +319,14 @@ class TriggeredQueueingValve(Drain):
         if self.opened:
             self._send(msg)
         else:
-            self.hq.put((False,msg))
+            self.q.put((False,msg))
     def on_trigger(self, msg):
         self.opened ^= True
         self._trigger(msg)
         while True:
             try:
                 low,msg = self.q.get(block=False)
-            except Queue.Empty:
+            except Empty:
                 break
             else:
                 if low:

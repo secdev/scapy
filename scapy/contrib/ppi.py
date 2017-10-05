@@ -21,8 +21,12 @@
 """
 PPI (Per-Packet Information).
 """
-import logging,struct
+import logging
+import struct
+
+
 from scapy.config import conf
+from scapy.data import DLT_EN10MB, DLT_IEEE802_11, DLT_PPI
 from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.l2 import Ether
@@ -88,10 +92,7 @@ class PPI(Packet):
 #Register PPI
 addPPIType("default", PPIGenericFldHdr)
 
-conf.l2types.register(192, PPI)
-conf.l2types.register_num2layer(192, PPI)
+conf.l2types.register(DLT_PPI, PPI)
 
-bind_layers(PPI, Dot11, dlt=conf.l2types.get(Dot11))
-bind_layers(Dot11, PPI)
-bind_layers(PPI, Ether, dlt=conf.l2types.get(Ether))
-bind_layers(Dot11, Ether)
+bind_layers(PPI, Dot11, dlt=DLT_IEEE802_11)
+bind_layers(PPI, Ether, dlt=DLT_EN10MB)

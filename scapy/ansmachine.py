@@ -55,7 +55,7 @@ class AnsweringMachine(six.with_metaclass(ReferenceAM, object)):
         for d in [self.optam2, self.optam1]:
             if attr in d:
                 return d[attr]
-        raise AttributeError,attr
+        raise AttributeError(attr)
                 
     def __setattr__(self, attr, val):
         mode = self.__dict__.get("mode",0)
@@ -70,7 +70,7 @@ class AnsweringMachine(six.with_metaclass(ReferenceAM, object)):
     def parse_all_options(self, mode, kargs):
         sniffopt = {}
         sendopt = {}
-        for k in kargs.keys():  # use .keys(): kargs is modified in the loop
+        for k in list(kargs):  # use list(): kargs is modified in the loop
             if k in self.sniff_options_list:
                 sniffopt[k] = kargs[k]
             if k in self.send_options_list:

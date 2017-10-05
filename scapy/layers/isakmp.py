@@ -11,6 +11,7 @@ from __future__ import absolute_import
 import struct
 from scapy.config import conf
 from scapy.packet import *
+from scapy.compat import *
 from scapy.fields import *
 from scapy.ansmachine import *
 from scapy.layers.inet import IP,UDP
@@ -107,13 +108,13 @@ class ISAKMPTransformSetField(StrLenField):
         typ, val = type_val_tuple
         type_val,enc_dict,tlv = ISAKMPTransformTypes.get(typ, (typ,{},0))
         val = enc_dict.get(val, val)
-        s = ""
+        s = b""
         if (val & ~0xffff):
             if not tlv:
                 warning("%r should not be TLV but is too big => using TLV encoding" % typ)
             n = 0
             while val:
-                s = chr(val&0xff)+s
+                s = chb(val&0xff)+s
                 val >>= 8
                 n += 1
             val = n
@@ -126,9 +127,9 @@ class ISAKMPTransformSetField(StrLenField):
         return (val[0],enc)
     def i2m(self, pkt, i):
         if i is None:
-            return ""
+            return b""
         i = [self.type2num(e) for e in i]
-        return "".join(i)
+        return b"".join(i)
     def m2i(self, pkt, m):
         # I try to ensure that we don't read off the end of our packet based
         # on bad length fields we're provided in the packet. There are still
@@ -232,7 +233,7 @@ class ISAKMP_payload_Transform(ISAKMP_class):
     def post_build(self, p, pay):
         if self.length is None:
             l = len(p)
-            p = p[:2]+chr((l>>8)&0xff)+chr(l&0xff)+p[4:]
+            p = p[:2]+chb((l>>8)&0xff)+chb(l&0xff)+p[4:]
         p += pay
         return p
             

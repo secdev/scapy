@@ -19,7 +19,7 @@ from scapy.pton_ntop import inet_pton
 from scapy.data import *
 
 def str2mac(s):
-    return ("%02x:"*6)[:-1] % tuple(ord(x) for x in s) 
+    return ("%02x:"*6)[:-1] % tuple(orb(x) for x in s)
 
 if not WINDOWS:
     if not scapy.config.conf.use_pcap and not scapy.config.conf.use_dnet:
@@ -68,17 +68,9 @@ elif SOLARIS:
     from scapy.arch.solaris import *
 elif WINDOWS:
     from scapy.arch.windows import *
-    # import only if parent is not route.py
-    # because compatibility.py will require route.py to work (through sendrecv.py)
-    parents = parent_function()
-    if len(parents) >= 3:
-        if not parents[2][1].endswith("route.py"):
-            from scapy.arch.windows.compatibility import *
-    else:
-        from scapy.arch.windows.compatibility import *
 
 if scapy.config.conf.iface is None:
-    scapy.config.conf.iface = LOOPBACK_NAME
+    scapy.config.conf.iface = scapy.consts.LOOPBACK_INTERFACE
 
 
 def get_if_addr6(iff):

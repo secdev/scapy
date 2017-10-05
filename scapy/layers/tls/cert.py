@@ -51,11 +51,13 @@ from scapy.layers.tls.crypto.pkcs1 import (pkcs_os2ip, pkcs_i2osp, _get_hash,
                                            _EncryptAndVerifyRSA,
                                            _DecryptAndSignRSA)
 
+from scapy.compat import *
+
 # Maximum allowed size in bytes for a certificate file, to avoid
 # loading huge file when importing a cert
-MAX_KEY_SIZE = 50*1024
-MAX_CERT_SIZE = 50*1024
-MAX_CRL_SIZE = 10*1024*1024   # some are that big
+_MAX_KEY_SIZE = 50*1024
+_MAX_CERT_SIZE = 50*1024
+_MAX_CRL_SIZE = 10*1024*1024   # some are that big
 
 
 #####################################################################
@@ -66,24 +68,25 @@ MAX_CRL_SIZE = 10*1024*1024   # some are that big
 def der2pem(der_string, obj="UNKNOWN"):
     """Convert DER octet string to PEM format (with optional header)"""
     # Encode a byte string in PEM format. Header advertizes <obj> type.
-    pem_string = "-----BEGIN %s-----\n" % obj
+    obj = raw(obj)
+    pem_string = b"-----BEGIN %s-----\n" % obj
     base64_string = base64.b64encode(der_string)
     chunks = [base64_string[i:i+64] for i in range(0, len(base64_string), 64)]
-    pem_string += '\n'.join(chunks)
-    pem_string += "\n-----END %s-----\n" % obj
+    pem_string += b'\n'.join(chunks)
+    pem_string += b"\n-----END %s-----\n" % obj
     return pem_string
 
 @conf.commands.register
 def pem2der(pem_string):
     """Convert PEM string to DER format"""
     # Encode all lines between the first '-----\n' and the 2nd-to-last '-----'.
-    pem_string = pem_string.replace("\r", "")
-    first_idx = pem_string.find("-----\n") + 6
-    if pem_string.find("-----BEGIN", first_idx) != -1:
+    pem_string = pem_string.replace(b"\r", b"")
+    first_idx = pem_string.find(b"-----\n") + 6
+    if pem_string.find(b"-----BEGIN", first_idx) != -1:
         raise Exception("pem2der() expects only one PEM-encoded object")
-    last_idx = pem_string.rfind("-----", 0, pem_string.rfind("-----"))
+    last_idx = pem_string.rfind(b"-----", 0, pem_string.rfind(b"-----"))
     base64_string = pem_string[first_idx:last_idx]
-    base64_string.replace("\n", "")
+    base64_string.replace(b"\n", b"")
     der_string = base64.b64decode(base64_string)
     return der_string
 
@@ -92,12 +95,12 @@ def split_pem(s):
     Split PEM objects. Useful to process concatenated certificates.
     """
     pem_strings = []
-    while s != "":
-        start_idx = s.find("-----BEGIN")
+    while s != b"":
+        start_idx = s.find(b"-----BEGIN")
         if start_idx == -1:
             break
-        end_idx = s.find("-----END")
-        end_idx = s.find("\n", end_idx) + 1
+        end_idx = s.find(b"-----END")
+        end_idx = s.find(b"\n", end_idx) + 1
         pem_strings.append(s[start_idx:end_idx])
         s = s[end_idx:]
     return pem_strings
@@ -128,6 +131,7 @@ class _PKIObjMaker(type):
 
         if obj_path is None:
             raise Exception(error_msg)
+        obj_path = raw(obj_path)
 
         if (not b'\x00' in obj_path) and os.path.isfile(obj_path):
             _size = os.path.getsize(obj_path)
@@ -135,25 +139,25 @@ class _PKIObjMaker(type):
                 raise Exception(error_msg)
             try:
                 f = open(obj_path)
-                raw = f.read()
+                _raw = f.read()
                 f.close()
             except:
                 raise Exception(error_msg)
         else:
-            raw = obj_path
+            _raw = obj_path
 
         try:
-            if "-----BEGIN" in raw:
+            if b"-----BEGIN" in _raw:
                 frmt = "PEM"
-                pem = raw
-                der_list = split_pem(raw)
-                der = ''.join(map(pem2der, der_list))
+                pem = _raw
+                der_list = split_pem(_raw)
+                der = b''.join(map(pem2der, der_list))
             else:
                 frmt = "DER"
-                der = raw
+                der = _raw
                 pem = ""
                 if pem_marker is not None:
-                    pem = der2pem(raw, pem_marker)
+                    pem = der2pem(_raw, pem_marker)
                 # type identification may be needed for pem_marker
                 # in such case, the pem attribute has to be updated
         except:
@@ -200,7 +204,7 @@ class _PubKeyFactory(_PKIObjMaker):
         # _an X509_SubjectPublicKeyInfo, as processed by openssl;
         # _an RSAPublicKey;
         # _an ECDSAPublicKey.
-        obj = _PKIObjMaker.__call__(cls, key_path, MAX_KEY_SIZE)
+        obj = _PKIObjMaker.__call__(cls, key_path, _MAX_KEY_SIZE)
         try:
             spki = X509_SubjectPublicKeyInfo(obj.der)
             pubkey = spki.subjectPublicKey
@@ -354,7 +358,7 @@ class _PrivKeyFactory(_PKIObjMaker):
             obj.fill_and_store()
             return obj
 
-        obj = _PKIObjMaker.__call__(cls, key_path, MAX_KEY_SIZE)
+        obj = _PKIObjMaker.__call__(cls, key_path, _MAX_KEY_SIZE)
         multiPEM = False
         try:
             privkey = RSAPrivateKey_OpenSSL(obj.der)
@@ -509,7 +513,8 @@ class PrivKeyECDSA(PrivKey):
 
     @crypto_validator
     def import_from_asn1pkt(self, privkey):
-        self.key = serialization.load_der_private_key(str(privkey), None,
+        print(privkey)
+        self.key = serialization.load_der_private_key(raw(privkey), None,
                                                   backend=default_backend())
         self.pubkey = self.key.public_key()
 
@@ -538,7 +543,7 @@ class _CertMaker(_PKIObjMaker):
     """
     def __call__(cls, cert_path):
         obj = _PKIObjMaker.__call__(cls, cert_path,
-                                    MAX_CERT_SIZE, "CERTIFICATE")
+                                    _MAX_CERT_SIZE, "CERTIFICATE")
         obj.__class__ = Cert
         try:
             cert = X509_Cert(obj.der)
@@ -733,7 +738,7 @@ class _CRLMaker(_PKIObjMaker):
     but we reuse the model instead of creating redundant constructors.
     """
     def __call__(cls, cert_path):
-        obj = _PKIObjMaker.__call__(cls, cert_path, MAX_CRL_SIZE, "X509 CRL")
+        obj = _PKIObjMaker.__call__(cls, cert_path, _MAX_CRL_SIZE, "X509 CRL")
         obj.__class__ = CRL
         try:
             crl = X509_CRL(obj.der)

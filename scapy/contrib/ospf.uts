@@ -1,0 +1,28 @@
+# OSPF Related regression tests
+#
+# Type the following command to launch start the tests:
+# $ test/run_tests -P "load_contrib('ospf')" -t scapy/contrib/ospf.uts
+
++ OSPF
+
+= OSPF, basic instanciation
+
+data = '\x01\x00^\x00\x00\x05\x00\xe0\x18\xb1\x0c\xad\x08\x00E\xc0\x00T\x08\x19\x00\x00\x01Ye\xc2\xc0\xa8\xaa\x08\xe0\x00\x00\x05\x02\x04\x00@\xc0\xa8\xaa\x08\x00\x00\x00\x01\x96\x1f\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x03\xe2\x02\x01\xc0\xa8\xaa\x08\xc0\xa8\xaa\x08\x80\x00\r\xc3%\x06\x00$\x02\x00\x00\x01\xc0\xa8\xaa\x00\xff\xff\xff\x00\x03\x00\x00\n'
+
+p = Ether(data)
+
+assert (p[OSPF_LSUpd][OSPF_Router_LSA].age == 994)
+assert (p[OSPF_LSUpd][OSPF_Router_LSA].type == 1)
+assert (p[OSPF_LSUpd][OSPF_Router_LSA].id == '192.168.170.8')
+assert (p[OSPF_LSUpd][OSPF_Router_LSA].adrouter == '192.168.170.8')
+assert (p[OSPF_LSUpd][OSPF_Router_LSA].seq == 0x80000dc3)
+assert (p[OSPF_LSUpd][OSPF_Router_LSA].chksum == 0x2506)
+assert (p[OSPF_LSUpd][OSPF_Router_LSA].len == 36)
+assert (p[OSPF_LSUpd][OSPF_Router_LSA].reserved == 0)
+assert (p[OSPF_LSUpd][OSPF_Router_LSA].linkcount == 1)
+
+assert (p[OSPF_LSUpd][OSPF_Router_LSA].linklist[0][OSPF_Link].id == '192.168.170.0')
+assert (p[OSPF_LSUpd][OSPF_Router_LSA].linklist[0][OSPF_Link].data == '255.255.255.0')
+assert (p[OSPF_LSUpd][OSPF_Router_LSA].linklist[0][OSPF_Link].type == 3)
+assert (p[OSPF_LSUpd][OSPF_Router_LSA].linklist[0][OSPF_Link].toscount == 0)
+assert (p[OSPF_LSUpd][OSPF_Router_LSA].linklist[0][OSPF_Link].metric == 10)

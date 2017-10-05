@@ -10,6 +10,7 @@ RADIUS (Remote Authentication Dial In User Service)
 
 import struct
 import logging
+from scapy.compat import *
 from scapy.packet import Packet, bind_layers
 from scapy.fields import ByteField, ByteEnumField, IntField, StrLenField,\
     XStrLenField, XStrFixedLenField, FieldLenField, PacketField,\
@@ -264,30 +265,22 @@ class RadiusAttribute(Packet):
         """
 
         if _pkt:
-            attr_type = ord(_pkt[0])
+            attr_type = orb(_pkt[0])
             return cls.registered_attributes.get(attr_type, cls)
         return cls
 
     def haslayer(self, cls):
-        if cls == RadiusAttribute:
-            for attr_class in RadiusAttribute.registered_attributes.values():
-                if isinstance(self, attr_class):
-                    return True
-        elif cls in RadiusAttribute.registered_attributes.values() and isinstance(self, cls):
-            return True
-        return False
+        if cls == "RadiusAttribute":
+            if isinstance(self, RadiusAttribute):
+                return True
+        elif issubclass(cls, RadiusAttribute):
+            if isinstance(self, cls):
+                return True
+        return super(RadiusAttribute, self).haslayer(cls)
 
-    def getlayer(self, cls, nb=1, _track=None):
-        layer = None
-        if cls == RadiusAttribute:
-            for attr_class in RadiusAttribute.registered_attributes.values():
-                if isinstance(self, attr_class):
-                    layer = self
-                    break
-        else:
-            layer = Packet.getlayer(self, cls, nb, _track)
-        return layer
-
+    def getlayer(self, cls, nb=1, _track=None, _subclass=True, **flt):
+        return super(RadiusAttribute, self).getlayer(cls, nb=nb, _track=_track,
+                                                     _subclass=True, **flt)
 
     def post_build(self, p, pay):
         length = self.len
@@ -1092,7 +1085,7 @@ class _RADIUSAttrPacketListField(PacketListField):
             remain, ret = s[:length], s[length:]
 
         while remain:
-            attr_len = struct.unpack("!B", remain[1])[0]
+            attr_len = orb(remain[1])
             current = remain[:attr_len]
             remain = remain[attr_len:]
             packet = self.m2i(pkt, current)
@@ -1185,9 +1178,9 @@ class Radius(Packet):
         packed_hdr = struct.pack("!B", self.code)
         packed_hdr += struct.pack("!B", self.id)
         packed_hdr += struct.pack("!H", self.len)
-        packed_attrs = ''
-        for index in range(0, len(self.attributes)):
-            packed_attrs = packed_attrs + str(self.attributes[index])
+        packed_attrs = b''
+        for attr in self.attributes:
+            packed_attrs = packed_attrs + raw(attr)
         packed_data = packed_hdr + packed_request_auth + packed_attrs +\
             shared_secret
 

@@ -1,6 +1,7 @@
 ## This file is part of Scapy
 ## See http://www.secdev.org/projects/scapy for more informations
 ## Copyright (C) Philippe Biondi <phil@secdev.org>
+## Copyright (C) Gabriel Potter <gabriel@potter.fr>
 ## This program is published under a GPLv2 license
 
 """
@@ -13,6 +14,7 @@ import subprocess as sp
 from glob import glob
 import tempfile
 
+import scapy
 from scapy.config import conf, ConfClass
 from scapy.error import Scapy_Exception, log_loading, log_runtime, warning
 from scapy.utils import atol, itom, inet_aton, inet_ntoa, PcapReader
@@ -20,7 +22,7 @@ from scapy.base_classes import Gen, Net, SetGen
 from scapy.data import MTU, ETHER_BROADCAST, ETH_P_ARP
 
 import scapy.modules.six as six
-from scapy.modules.six.moves import range, zip
+from scapy.modules.six.moves import range, zip, input
 
 conf.use_pcap = False
 conf.use_dnet = False
@@ -43,7 +45,7 @@ if not hasattr(socket, 'IPPROTO_GRE'):
 from scapy.arch import pcapdnet
 from scapy.arch.pcapdnet import *
 
-from scapy.consts import LOOPBACK_NAME
+import scapy.consts
 
 def is_new_release(ignoreVBS=False):
     if NEW_RELEASE and conf.prog.powershell is not None:
@@ -109,8 +111,8 @@ def _vbs_get_hardware_iface_guid(devid):
         devid = str(int(devid) + 1)
         guid = iter(_vbs_exec_code("""WScript.Echo CreateObject("WScript.Shell").RegRead("HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\NetworkCards\\%s\\ServiceName")
 """ % devid)).next()
-        guid = guid[:-1] if guid.endswith('}\n') else guid
-        if guid.startswith('{') and guid.endswith('}'):
+        guid = guid[:-1] if guid.endswith(b'}\n') else guid
+        if guid.startswith(b'{') and guid.endswith(b'}'):
             return guid
     except StopIteration:
         return None
@@ -261,7 +263,8 @@ if conf.prog.tcpdump and conf.use_npcap and conf.prog.os_access:
         try:
             p_test_windump = sp.Popen([conf.prog.tcpdump, "-help"], stdout=sp.PIPE, stderr=sp.STDOUT)
             stdout, err = p_test_windump.communicate()
-            return "npcap" in stdout.lower()
+            _output = stdout.lower()
+            return b"npcap" in _output and not b"winpcap" in _output
         except:
             return False
     windump_ok = test_windump_npcap()
@@ -293,7 +296,7 @@ def get_windows_if_list():
         # Name                      InterfaceDescription                    ifIndex Status       MacAddress             LinkSpeed
         # ----                      --------------------                    ------- ------       ----------             ---------
         # Ethernet                  Killer E2200 Gigabit Ethernet Contro...      13 Up           D0-50-99-56-DD-F9         1 Gbps
-        query = exec_query(['Get-NetAdapter -Physical'],
+        query = exec_query(['Get-NetAdapter'],
                            ['InterfaceDescription', 'InterfaceIndex', 'Name',
                             'InterfaceGuid', 'MacAddress']) # It is normal that it is in this order
     else:
@@ -348,7 +351,7 @@ class NetworkInterface(object):
         try:
             if not self.ip:
                 self.ip=get_ip_from_name(data['name'])
-            if not self.ip and self.name == LOOPBACK_NAME:
+            if not self.ip and self.name == scapy.consts.LOOPBACK_NAME:
                 self.ip = "127.0.0.1"
             if not self.ip:
                 # No IP detected
@@ -423,13 +426,13 @@ class NetworkInterfaceDict(UserDict):
             except (KeyError, PcapNameNotFoundError):
                 pass
         
-        if len(self.data) == 0 and conf.use_winpcapy:
+        if not self.data and conf.use_winpcapy:
             _detect = pcap_service_status()
             def _ask_user():
                 if not conf.interactive:
                     return False
                 while True:
-                    _confir = raw_input("Do you want to start it ? (yes/no) [y]: ").lower().strip()
+                    _confir = input("Do you want to start it ? (yes/no) [y]: ").lower().strip()
                     if _confir in ["yes", "y", ""]:
                         return True
                     elif _confir in ["no", "n"]:
@@ -456,7 +459,9 @@ class NetworkInterfaceDict(UserDict):
             self.remove_invalid_ifaces()
             # Replace LOOPBACK_INTERFACE
             try:
-                scapy.consts.LOOPBACK_INTERFACE = self.dev_from_name(LOOPBACK_NAME)
+                scapy.consts.LOOPBACK_INTERFACE = self.dev_from_name(
+                    scapy.consts.LOOPBACK_NAME,
+                )
             except:
                 pass
 
@@ -478,7 +483,7 @@ class NetworkInterfaceDict(UserDict):
 
     def dev_from_index(self, if_index):
         """Return interface name from interface index"""
-        for devname, iface in self.items():
+        for devname, iface in six.iteritems(self):
             if iface.win_index == str(if_index):
                 return iface
         if str(if_index) == "1":
@@ -489,7 +494,8 @@ class NetworkInterfaceDict(UserDict):
 
     def remove_invalid_ifaces(self):
         """Remove all invalid interfaces"""
-        for devname, iface in self.items():
+        for devname in list(self.keys()):
+            iface = self.data[devname]
             if iface.is_invalid():
                 self.data.pop(devname)
 
@@ -600,7 +606,7 @@ def read_routes():
         else:
             routes = _read_routes_7()
     except Exception as e:    
-        warning("Error building scapy IPv4 routing table : %s" % str(e), True)
+        warning("Error building scapy IPv4 routing table : %s", e, onlyOnce=True)
     else:
         if not routes:
             warning("No default IPv4 routes found. Your Windows release may no be supported and you have to enter your routes manually", True)
@@ -630,7 +636,7 @@ def _read_routes_post2008():
             # try:
             #     intf = pcapdnet.dnet.intf().get_dst(pcapdnet.dnet.addr(type=2, addrtxt=dest))
             # except OSError:
-            #     log_loading.warning("Building Scapy's routing table: Couldn't get outgoing interface for destination %s" % dest)
+            #     log_loading.warning("Building Scapy's routing table: Couldn't get outgoing interface for destination %s", dest)
             #     continue               
             routes.append((atol(match.group(2)), itom(int(match.group(3))),
                            match.group(4), iface, iface.ip))
@@ -644,53 +650,24 @@ def in6_getifaddr():
     """
     Returns all IPv6 addresses found on the computer
     """
-    if is_new_release():
-        ret = []
-        ps = sp.Popen([conf.prog.powershell, 'Get-NetRoute', '-AddressFamily IPV6', '|', 'select ifIndex, DestinationPrefix'], stdout = sp.PIPE, universal_newlines = True)
-        stdout, stdin = ps.communicate()
-        netstat_line = '\s+'.join(['(\d+)', ''.join(['([A-z|0-9|:]+)', '(\/\d+)'])])
-        pattern = re.compile(netstat_line)
-        for l in stdout.split('\n'):
-            match = re.search(pattern,l)
-            if match:
-                try:
-                    if_index = match.group(1)
-                    iface = dev_from_index(if_index)
-                except:
-                    continue
-                scope = scapy.utils6.in6_getscope(match.group(2))
-                ret.append((match.group(2), scope, iface)) # (addr,scope,iface)
-                continue
-        return ret
-    else:
-        ret = []
-        # Get-WmiObject Win32_NetworkAdapterConfiguration | select InterfaceIndex, IpAddress
-        for line in exec_query(['Get-WmiObject', 'Win32_NetworkAdapterConfiguration'], ['InterfaceIndex', 'IPAddress']):
-            try:
-                iface = dev_from_index(line[0])
-            except:
-                continue
-            _l_addresses = line[1]
-            _inline = []
-            if _l_addresses:
-                _inline = _l_addresses[1:-1].split(",")
-                for _address in _inline:
-                    _a = _address.strip()
-                    if "." not in _a:
-                        scope = scapy.utils6.in6_getscope(_a)
-                        ret.append((_a, scope, iface)) # (addr,scope,iface)
-        return ret
+    ifaddrs = []
+    for ifaddr in in6_getifaddr_raw():
+        try:
+            ifaddrs.append((ifaddr[0], ifaddr[1], dev_from_pcapname(ifaddr[2])))
+        except ValueError:
+            pass
+    return ifaddrs
 
 def _append_route6(routes, dpref, dp, nh, iface, lifaddr):
     cset = [] # candidate set (possible source addresses)
-    if iface.name == LOOPBACK_NAME:
+    if iface.name == scapy.consts.LOOPBACK_NAME:
         if dpref == '::':
             return
         cset = ['::1']
     else:
         devaddrs = (x for x in lifaddr if x[2] == iface)
         cset = scapy.utils6.construct_source_candidate_set(dpref, dp, devaddrs)
-    if len(cset) == 0:
+    if not cset:
         return
     # APPEND (DESTINATION, NETMASK, NEXT HOP, IFACE, CANDIDATS)
     routes.append((dpref, dp, nh, iface, cset))
@@ -743,7 +720,7 @@ def _read_routes6_7():
     index = 0
     for l in stdout.split('\n'):
         if not l.strip():
-            if len(current_object) == 0:
+            if not current_object:
                 continue
             
             if len(current_object) == len(regex_list):
@@ -782,38 +759,8 @@ def read_routes6():
         else:
             routes6 = _read_routes6_7()
     except Exception as e:    
-        warning("Error building scapy IPv6 routing table : %s" % str(e), True)
+        warning("Error building scapy IPv6 routing table : %s", e, onlyOnce=True)
     return routes6
-
-if conf.interactive_shell != 'ipython' and conf.interactive:
-    try:
-        __IPYTHON__
-    except NameError:
-        def readLineScapy(prompt):
-            result = ""
-            end = False
-            while not end :
-                if not end and result != "":
-                    line = readline.rl.readline("... ")
-                else:
-                    line = readline.rl.readline(prompt)
-                if line.strip().endswith(":"):
-                    end = False
-                elif result == "":
-                    end = True
-                if line.strip() == "":
-                    end = True
-                result = result + "\n" + line
-            return six.text_type(result)
-        try:
-            import readline
-            console = readline.GetOutputFile()
-        except (ImportError, AttributeError):
-            log_loading.info("Could not get readline console. Will not interpret ANSI color codes.") 
-        else:
-            conf.readfunc = readLineScapy
-            orig_stdout = sys.stdout
-            sys.stdout = console
 
 def get_working_if():
     try:
@@ -834,13 +781,13 @@ def route_add_loopback(routes=None, ipv6=False, iflist=None):
     warning("This will completly mess up the routes. Testing purpose only !")
     # Add only if some adpaters already exist
     if ipv6:
-        if len(conf.route6.routes) == 0:
+        if not conf.route6.routes:
             return
     else:
-        if len(conf.route.routes) == 0:
+        if not conf.route.routes:
             return
     data = {}
-    data['name'] = LOOPBACK_NAME
+    data['name'] = scapy.consts.LOOPBACK_NAME
     data['description'] = "Loopback"
     data['win_index'] = -1
     data['guid'] = "{0XX00000-X000-0X0X-X00X-00XXXX000XXX}"
@@ -853,14 +800,21 @@ def route_add_loopback(routes=None, ipv6=False, iflist=None):
     # Remove all LOOPBACK_NAME routes
     for route in list(conf.route.routes):
         iface = route[3]
-        if iface.name == LOOPBACK_NAME:
+        if iface.name == scapy.consts.LOOPBACK_NAME:
             conf.route.routes.remove(route)
     # Remove LOOPBACK_NAME interface
-    for devname, iface in IFACES.items():
-        if iface.name == LOOPBACK_NAME:
+    for devname, iface in list(IFACES.items()):
+        if iface.name == scapy.consts.LOOPBACK_NAME:
             IFACES.pop(devname)
     # Inject interface
     IFACES[data['guid']] = adapter
+    scapy.consts.LOOPBACK_INTERFACE = adapter
+    if isinstance(conf.iface, NetworkInterface):
+        if conf.iface.name == LOOPBACK_NAME:
+            conf.iface = adapter
+    if isinstance(conf.iface6, NetworkInterface):
+        if conf.iface6.name == LOOPBACK_NAME:
+            conf.iface6 = adapter
     # Build the packed network addresses
     loop_net = struct.unpack("!I", socket.inet_aton("127.0.0.0"))[0]
     loop_mask = struct.unpack("!I", socket.inet_aton("255.0.0.0"))[0]
@@ -882,3 +836,16 @@ def route_add_loopback(routes=None, ipv6=False, iflist=None):
             routes.append(loopback_route6_custom)
         else:
             routes.append(loopback_route)
+
+
+if not conf.use_winpcapy:
+
+    class NotAvailableSocket(SuperSocket):
+        desc = "wpcap.dll missing"
+        def __init__(self, *args, **kargs):
+            raise RuntimeError("Sniffing and sending packets is not available: "
+                               "winpcap is not installed")
+
+    conf.L2socket = NotAvailableSocket
+    conf.L2listen = NotAvailableSocket
+    conf.L3socket = NotAvailableSocket

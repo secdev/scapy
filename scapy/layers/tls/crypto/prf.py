@@ -11,9 +11,10 @@ from __future__ import absolute_import
 from scapy.error import warning
 from scapy.utils import strxor
 
-from scapy.layers.tls.crypto.hash import tls_hash_algs
-from scapy.layers.tls.crypto.h_mac import tls_hmac_algs
+from scapy.layers.tls.crypto.hash import _tls_hash_algs
+from scapy.layers.tls.crypto.h_mac import _tls_hmac_algs
 from scapy.modules.six.moves import range
+from scapy.compat import *
 
 
 ### Data expansion functions
@@ -38,11 +39,11 @@ def _tls_P_hash(secret, seed, req_len, hm):
     hash_len = hm.hash_alg.hash_len
     n = (req_len + hash_len - 1) / hash_len
 
-    res = ""
+    res = b""
     a = hm(secret).digest(seed)  # A(1)
 
     while n > 0:
-        res += hm(secret).digest(a + seed)
+        res += hm(secret).digest(a + raw(seed))
         a = hm(secret).digest(a)
         n -= 1
 
@@ -50,28 +51,28 @@ def _tls_P_hash(secret, seed, req_len, hm):
 
 
 def _tls_P_MD5(secret, seed, req_len):
-    return _tls_P_hash(secret, seed, req_len, tls_hmac_algs["HMAC-MD5"])
+    return _tls_P_hash(secret, seed, req_len, _tls_hmac_algs["HMAC-MD5"])
 
 def _tls_P_SHA1(secret, seed, req_len):
-    return _tls_P_hash(secret, seed, req_len, tls_hmac_algs["HMAC-SHA"])
+    return _tls_P_hash(secret, seed, req_len, _tls_hmac_algs["HMAC-SHA"])
 
 def _tls_P_SHA256(secret, seed, req_len):
-    return _tls_P_hash(secret, seed, req_len, tls_hmac_algs["HMAC-SHA256"])
+    return _tls_P_hash(secret, seed, req_len, _tls_hmac_algs["HMAC-SHA256"])
 
 def _tls_P_SHA384(secret, seed, req_len):
-    return _tls_P_hash(secret, seed, req_len, tls_hmac_algs["HMAC-SHA384"])
+    return _tls_P_hash(secret, seed, req_len, _tls_hmac_algs["HMAC-SHA384"])
 
 def _tls_P_SHA512(secret, seed, req_len):
-    return _tls_P_hash(secret, seed, req_len, tls_hmac_algs["HMAC-SHA512"])
+    return _tls_P_hash(secret, seed, req_len, _tls_hmac_algs["HMAC-SHA512"])
 
 
 ### PRF functions, according to the protocol version
 
 def _sslv2_PRF(secret, seed, req_len):
-    hash_md5 = tls_hash_algs["MD5"]()
+    hash_md5 = _tls_hash_algs["MD5"]()
     rounds = (req_len + hash_md5.hash_len - 1) / hash_md5.hash_len
 
-    res = ""
+    res = b""
     if rounds == 1:
         res += hash_md5.digest(secret + seed)
     else:
@@ -101,8 +102,8 @@ def _ssl_PRF(secret, seed, req_len):
     d = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M",
          "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"]
     res = ""
-    hash_sha1 = tls_hash_algs["SHA"]()
-    hash_md5 = tls_hash_algs["MD5"]()
+    hash_sha1 = _tls_hash_algs["SHA"]()
+    hash_md5 = _tls_hash_algs["MD5"]()
     rounds = (req_len + hash_md5.hash_len - 1) / hash_md5.hash_len
 
     for i in range(rounds):
@@ -247,8 +248,8 @@ class PRF(object):
             sslv3_sha1_pad1 = b"\x36"*40
             sslv3_sha1_pad2 = b"\x5c"*40
 
-            md5 = tls_hash_algs["MD5"]()
-            sha1 = tls_hash_algs["SHA"]()
+            md5 = _tls_hash_algs["MD5"]()
+            sha1 = _tls_hash_algs["SHA"]()
 
             md5_hash = md5.digest(master_secret + sslv3_md5_pad2 +
                                   md5.digest(handshake_msg + label +
@@ -267,14 +268,14 @@ class PRF(object):
             label = d[con_end] + " finished"
 
             if self.tls_version <= 0x0302:
-                s1 = tls_hash_algs["MD5"]().digest(handshake_msg)
-                s2 = tls_hash_algs["SHA"]().digest(handshake_msg)
+                s1 = _tls_hash_algs["MD5"]().digest(handshake_msg)
+                s2 = _tls_hash_algs["SHA"]().digest(handshake_msg)
                 verify_data = self.prf(master_secret, label, s1 + s2, 12)
             else:
                 if self.hash_name in ["MD5", "SHA"]:
-                    h = tls_hash_algs["SHA256"]()
+                    h = _tls_hash_algs["SHA256"]()
                 else:
-                    h = tls_hash_algs[self.hash_name]()
+                    h = _tls_hash_algs[self.hash_name]()
                 s = h.digest(handshake_msg)
                 verify_data = self.prf(master_secret, label, s, 12)
 
@@ -297,7 +298,7 @@ class PRF(object):
                 tbh = key + client_random + server_random
             else:
                 tbh = key + server_random + client_random
-            export_key = tls_hash_algs["MD5"]().digest(tbh)[:req_len]
+            export_key = _tls_hash_algs["MD5"]().digest(tbh)[:req_len]
         else:
             if s:
                 tag = "client write key"
@@ -326,7 +327,7 @@ class PRF(object):
                 tbh = client_random + server_random
             else:
                 tbh = server_random + client_random
-            iv = tls_hash_algs["MD5"]().digest(tbh)[:req_len]
+            iv = _tls_hash_algs["MD5"]().digest(tbh)[:req_len]
         else:
             iv_block = self.prf("",
                                 "IV block",

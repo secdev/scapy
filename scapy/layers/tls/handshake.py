@@ -10,10 +10,10 @@ This module covers the handshake TLS subprotocol, except for the key exchange
 mechanisms which are addressed with keyexchange.py.
 """
 
-from __future__ import absolute_import, print_function
+from __future__ import absolute_import
 import math
 
-from scapy.error import warning
+from scapy.error import log_runtime, warning
 from scapy.fields import *
 from scapy.packet import Packet, Raw, Padding
 from scapy.utils import repr_hex
@@ -37,8 +37,7 @@ from scapy.layers.tls.crypto.compression import (_tls_compression_algs,
 from scapy.layers.tls.crypto.suites import (_tls_cipher_suites,
                                             _tls_cipher_suites_cls,
                                             _GenericCipherSuite,
-                                            _GenericCipherSuiteMetaclass,
-                                            TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256)
+                                            _GenericCipherSuiteMetaclass)
 
 
 ###############################################################################
@@ -156,6 +155,8 @@ class _CipherSuitesField(StrLenField):
         return self.i2s.get(x, fmt % x)
 
     def any2i(self, pkt, x):
+        if x is None:
+            return None
         if not isinstance(x, list):
             x = [x]
         return [self.any2i_one(pkt, z) for z in x]
@@ -184,6 +185,8 @@ class _CipherSuitesField(StrLenField):
         return res
 
     def i2len(self, pkt, i):
+        if i is None:
+            return 0
         return len(i)*self.itemsize
 
 
@@ -227,8 +230,7 @@ class TLSClientHello(_TLSHandshake):
 
                     FieldLenField("cipherslen", None, fmt="!H",
                                   length_of="ciphers"),
-                    _CipherSuitesField("ciphers",
-                                       [TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256],
+                    _CipherSuitesField("ciphers", None,
                                        _tls_cipher_suites, itemfmt="!H",
                                        length_from=lambda pkt: pkt.cipherslen),
 
@@ -250,6 +252,21 @@ class TLSClientHello(_TLSHandshake):
     def post_build(self, p, pay):
         if self.random_bytes is None:
             p = p[:10] + randstring(28) + p[10+28:]
+
+        # if no ciphersuites were provided, we add a few usual, supported
+        # ciphersuites along with the appropriate extensions
+        if self.ciphers is None:
+            cipherstart = 39 + (self.sidlen or 0)
+            s = b"001ac02bc023c02fc027009e0067009c003cc009c0130033002f000a"
+            p = p[:cipherstart] + bytes.decode(s, 'hex') + p[cipherstart+2:]
+            if self.ext is None:
+                ext_len = b'\x00\x2c'
+                ext_reneg = b'\xff\x01\x00\x01\x00'
+                ext_sn = b'\x00\x00\x00\x0f\x00\r\x00\x00\nsecdev.org'
+                ext_sigalg = b'\x00\r\x00\x08\x00\x06\x04\x03\x04\x01\x02\x01'
+                ext_supgroups = b'\x00\n\x00\x04\x00\x02\x00\x17'
+                p += ext_len + ext_reneg + ext_sn + ext_sigalg + ext_supgroups
+
         return super(TLSClientHello, self).post_build(p, pay)
 
     def tls_session_update(self, msg_str):
@@ -319,6 +336,11 @@ class TLSServerHello(TLSClientHello):
             if version == 0x0304 or version > 0x7f00:
                 return TLS13ServerHello
         return TLSServerHello
+
+    def post_build(self, p, pay):
+        if self.random_bytes is None:
+            p = p[:10] + randstring(28) + p[10+28:]
+        return super(TLSClientHello, self).post_build(p, pay)
 
     def tls_session_update(self, msg_str):
         """
@@ -715,7 +737,8 @@ class TLSServerKeyExchange(_TLSHandshake):
         """
         s = self.tls_session
         if s.prcs and s.prcs.key_exchange.no_ske:
-            print("USELESS SERVER KEY EXCHANGE")
+            pkt_info = pkt.firstlayer().summary()
+            log_runtime.info("TLS: useless ServerKeyExchange [%s]", pkt_info)
         if (s.prcs and
             not s.prcs.key_exchange.anonymous and
             s.client_random and s.server_random and
@@ -723,7 +746,8 @@ class TLSServerKeyExchange(_TLSHandshake):
             m = s.client_random + s.server_random + str(self.params)
             sig_test = self.sig._verify_sig(m, s.server_certs[0])
             if not sig_test:
-                print("INVALID SERVER KEY EXCHANGE SIGNATURE")
+                pkt_info = pkt.firstlayer().summary()
+                log_runtime.info("TLS: invalid ServerKeyExchange signature [%s]", pkt_info)
 
 
 ###############################################################################
@@ -855,13 +879,15 @@ class TLSCertificateVerify(_TLSHandshake):
             if s.client_certs and len(s.client_certs) > 0:
                 sig_test = self.sig._verify_sig(m, s.client_certs[0])
                 if not sig_test:
-                    print("INVALID CERTIFICATE VERIFY SIGNATURE")
+                    pkt_info = pkt.firstlayer().summary()
+                    log_runtime.info("TLS: invalid CertificateVerify signature [%s]", pkt_info)
         elif s.connection_end == "client":
             # should be TLS 1.3 only
             if s.server_certs and len(s.server_certs) > 0:
                 sig_test = self.sig._verify_sig(m, s.server_certs[0])
                 if not sig_test:
-                    print("INVALID CERTIFICATE VERIFY SIGNATURE")
+                    pkt_info = pkt.firstlayer().summary()
+                    log_runtime.info("TLS: invalid CertificateVerify signature [%s]", pkt_info)
 
 
 ###############################################################################
@@ -964,12 +990,14 @@ class TLSFinished(_TLSHandshake):
                 verify_data = s.rcs.prf.compute_verify_data(con_end, "read",
                                                             handshake_msg, ms)
                 if self.vdata != verify_data:
-                    print("INVALID TLS FINISHED RECEIVED")
+                    pkt_info = pkt.firstlayer().summary()
+                    log_runtime.info("TLS: invalid Finished received [%s]", pkt_info)
             elif s.tls_version >= 0x0304:
                 con_end = s.connection_end
                 verify_data = s.compute_tls13_verify_data(con_end, "read")
                 if self.vdata != verify_data:
-                    print("INVALID TLS FINISHED RECEIVED")
+                    pkt_info = pkt.firstlayer().summary()
+                    log_runtime.info("TLS: invalid Finished received [%s]", pkt_info)
 
     def post_build_tls_session_update(self, msg_str):
         self.tls_session_update(msg_str)

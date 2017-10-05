@@ -16,7 +16,7 @@ install:
   - ps: .\.appveyor\InstallWindump.ps1
   - choco install -y wireshark
   # Install Python modules
-  - "%PYTHON%\\python -m pip install cryptography coverage mock pyreadline"
+  - "%PYTHON%\\python -m pip install cryptography coverage mock"
   - set PATH="%PYTHON%\\Scripts\\;%PATH%"
 
 test_script:
@@ -29,7 +29,7 @@ test_script:
   - 'del test\regression.uts'
 
   # Secondary and contrib unit tests
-  - 'del test\bpf.uts test\linux.uts' # Don't bother with OS dependent regression tests
+  - 'del test\bpf.uts test\linux.uts test\sendsniff.uts' # Don't bother with OS dependent regression tests
   - "%PYTHON%\\python -m coverage run --parallel-mode bin\\UTscapy -c test\\configs\\windows.utsc || exit /b 42"
   
   # TLS unit tests

@@ -5,12 +5,16 @@
   ],
   "onlyfailed": true,
   "preexec": {
-    "..\\scapy\\contrib\\*.uts": "load_contrib(\"%name%\")"
+    "..\\scapy\\contrib\\*.uts": "load_contrib(\"%name%\")",
+    "cert.uts": "load_layer(\"tls\")",
+    "sslv2.uts": "load_layer(\"tls\")",
+    "tls*.uts": "load_layer(\"tls\")"
   },
   "format": "html",
   "kw_ko": [
     "crypto_advanced",
     "mock_read_routes6_bsd",
-    "appveyor_only"
+    "appveyor_only",
+    "linux"
   ]
 }

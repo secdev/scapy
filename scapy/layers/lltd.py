@@ -10,7 +10,6 @@ https://msdn.microsoft.com/en-us/library/cc233983.aspx
 """
 
 from __future__ import absolute_import
-import struct
 from array import array
 
 from scapy.fields import BitField, FlagsField, ByteField, ByteEnumField, \
@@ -24,6 +23,8 @@ from scapy.layers.inet import IPField
 from scapy.layers.inet6 import IP6Field
 from scapy.data import ETHER_ANY
 import scapy.modules.six as six
+from scapy.compat import *
+
 
 # Protocol layers
 ##################
@@ -213,9 +214,9 @@ class LLTDQueryResp(Packet):
         if self.descs_count is None:
             # descs_count should be a FieldLenField but has an
             # unsupported format (14 bits)
-            flags = ord(pkt[0]) & 0xc0
+            flags = orb(pkt[0]) & 0xc0
             count = len(self.descs_list)
-            pkt = chr(flags + (count >> 8)) + chr(count % 256) + pkt[2:]
+            pkt = chb(flags + (count >> 8)) + chb(count % 256) + pkt[2:]
         return pkt + pay
 
     def mysummary(self):
@@ -255,9 +256,9 @@ class LLTDQueryLargeTlvResp(Packet):
         if self.len is None:
             # len should be a FieldLenField but has an unsupported
             # format (14 bits)
-            flags = ord(pkt[0]) & 0xc0
+            flags = orb(pkt[0]) & 0xc0
             length = len(self.value)
-            pkt = chr(flags + (length >> 8)) + chr(length % 256) + pkt[2:]
+            pkt = chb(flags + (length >> 8)) + chb(length % 256) + pkt[2:]
         return pkt + pay
 
     def mysummary(self):
@@ -295,7 +296,7 @@ class LLTDAttribute(Packet):
     @classmethod
     def dispatch_hook(cls, _pkt=None, *_, **kargs):
         if _pkt:
-            cmd = struct.unpack("B", _pkt[0])[0]
+            cmd = orb(_pkt[0])
         elif "type" in kargs:
             cmd = kargs["type"]
             if isinstance(cmd, six.string_types):

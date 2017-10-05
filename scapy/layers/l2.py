@@ -11,16 +11,17 @@ from __future__ import absolute_import
 from __future__ import print_function
 import os, struct, time, socket
 
+import scapy
 from scapy.base_classes import Net
 from scapy.config import conf
 from scapy.data import *
+from scapy.compat import *
 from scapy.packet import *
 from scapy.ansmachine import *
 from scapy.plist import SndRcvList
 from scapy.fields import *
 from scapy.sendrecv import srp, srp1, srpflood
 from scapy.arch import get_if_hwaddr
-from scapy.consts import LOOPBACK_INTERFACE
 from scapy.utils import inet_ntoa, inet_aton
 from scapy.error import warning
 if conf.route is None:
@@ -58,14 +59,14 @@ conf.netcache.new_cache("arp_cache", 120) # cache entries expire after 120s
 @conf.commands.register
 def getmacbyip(ip, chainCC=0):
     """Return MAC address corresponding to a given IP address"""
-    if isinstance(ip,Net):
+    if isinstance(ip, Net):
         ip = iter(ip).next()
     ip = inet_ntoa(inet_aton(ip))
-    tmp = [ord(e) for e in inet_aton(ip)]
+    tmp = [orb(e) for e in inet_aton(ip)]
     if (tmp[0] & 0xf0) == 0xe0: # mcast @
         return "01:00:5e:%.2x:%.2x:%.2x" % (tmp[1]&0x7f,tmp[2],tmp[3])
     iff,a,gw = conf.route.route(ip)
-    if ( (iff == LOOPBACK_INTERFACE) or (ip == conf.route.get_if_bcast(iff)) ):
+    if ( (iff == scapy.consts.LOOPBACK_INTERFACE) or (ip == conf.route.get_if_bcast(iff)) ):
         return "ff:ff:ff:ff:ff:ff"
     if gw != "0.0.0.0":
         ip = gw
@@ -142,6 +143,7 @@ class ARPSourceMACField(SourceMACField):
 ### Layers
 
 ETHER_TYPES['802_AD'] = 0x88a8
+ETHER_TYPES['802_1AE'] = ETH_P_MACSEC
 
 class Ether(Packet):
     name = "Ethernet"
@@ -349,7 +351,7 @@ class GRE(Packet):
         p += pay
         if self.chksum_present and self.chksum is None:
             c = checksum(p)
-            p = p[:4]+chr((c>>8)&0xff)+chr(c&0xff)+p[6:]
+            p = p[:4]+chb((c>>8)&0xff)+chb(c&0xff)+p[6:]
         return p
 
 
@@ -380,7 +382,7 @@ class GRE_PPTP(GRE):
         p += pay
         if self.payload_len is None:
             pay_len = len(pay)
-            p = p[:4] + chr((pay_len >> 8) & 0xff) + chr(pay_len & 0xff) + p[6:]
+            p = p[:4] + chb((pay_len >> 8) & 0xff) + chb(pay_len & 0xff) + p[6:]
         return p
 
 
@@ -408,6 +410,7 @@ class Loopback(Packet):
 
 class Dot1AD(Dot1Q):
     name = '802_1AD'
+
 
 bind_layers( Dot3,          LLC,           )
 bind_layers( Ether,         LLC,           type=122)
@@ -444,9 +447,10 @@ conf.l2types.register(ARPHDR_ETHER, Ether)
 conf.l2types.register_num2layer(ARPHDR_METRICOM, Ether)
 conf.l2types.register_num2layer(ARPHDR_LOOPBACK, Ether)
 conf.l2types.register_layer2num(ARPHDR_ETHER, Dot3)
-conf.l2types.register(144, CookedLinux)  # called LINUX_IRDA, similar to CookedLinux
-conf.l2types.register(113, CookedLinux)
-conf.l2types.register(DLT_NULL, Loopback)
+conf.l2types.register(DLT_LINUX_SLL, CookedLinux)
+conf.l2types.register_num2layer(DLT_LINUX_IRDA, CookedLinux)
+conf.l2types.register(DLT_LOOP, Loopback)
+conf.l2types.register_num2layer(DLT_NULL, Loopback)
 
 conf.l3types.register(ETH_P_ARP, ARP)
 
@@ -468,7 +472,7 @@ arpcachepoison(target, victim, [interval=60]) -> None
         while True:
             sendp(p, iface_hint=target)
             if conf.verb > 1:
-                os.write(1,".")
+                os.write(1, b".")
             time.sleep(interval)
     except KeyboardInterrupt:
         pass

@@ -12,6 +12,7 @@ Ubuntu or OSX. This is why we reluctantly keep some legacy crypto here.
 """
 
 from __future__ import absolute_import
+from scapy.compat import *
 
 from scapy.config import conf, crypto_validator
 if conf.crypto_valid:
@@ -37,7 +38,7 @@ def pkcs_os2ip(s):
     Input : s        octet string to be converted
     Output: n        corresponding nonnegative integer
     """
-    return int(s.encode("hex"), 16)
+    return int(bytes_hex(s), 16)
 
 def pkcs_i2osp(n, sLen):
     """
@@ -52,7 +53,7 @@ def pkcs_i2osp(n, sLen):
     #if n >= 256**sLen:
     #    raise Exception("Integer too large for provided sLen %d" % sLen)
     fmt = "%%0%dx" % (2*sLen)
-    return (fmt % n).decode("hex")
+    return hex_bytes(fmt % n)
 
 def pkcs_ilen(n):
     """
@@ -79,8 +80,8 @@ def _legacy_pkcs1_v1_5_encode_md5_sha1(M, emLen):
         warning("pkcs_emsa_pkcs1_v1_5_encode: "
                 "intended encoded message length too short")
         return None
-    PS = '\xff'*(emLen - 36 - 3)
-    return '\x00' + '\x01' + PS + '\x00' + H
+    PS = b'\xff'*(emLen - 36 - 3)
+    return b'\x00' + b'\x01' + PS + b'\x00' + H
 
 
 #####################################################################
@@ -124,7 +125,7 @@ if conf.crypto_valid:
         elif padStr == "oaep":
             return padding.OAEP(mgf=mgf(h), algorithm=h, label=label)
         else:
-            warning("Key.encrypt(): Unknown padding type (%s)" % padStr)
+            warning("Key.encrypt(): Unknown padding type (%s)", padStr)
             return None
 
 
@@ -161,7 +162,7 @@ class _EncryptAndVerifyRSA(object):
             return False
 
     def _legacy_verify_md5_sha1(self, M, S):
-        k = self._modulusLen / 8
+        k = self._modulusLen // 8
         if len(S) != k:
             warning("invalid signature (len(S) != k)")
             return False
@@ -203,7 +204,7 @@ class _DecryptAndSignRSA(object):
             return self._legacy_sign_md5_sha1(M)
 
     def _legacy_sign_md5_sha1(self, M):
-        k = self._modulusLen / 8
+        k = self._modulusLen // 8
         EM = _legacy_pkcs1_v1_5_encode_md5_sha1(M, k)
         if EM is None:
             warning("Key._rsassa_pkcs1_v1_5_sign(): unable to encode")
@@ -218,4 +219,3 @@ class _DecryptAndSignRSA(object):
         privExp = self.key.private_numbers().d
         s = pow(m, privExp, n)
         return pkcs_i2osp(s, k)
-

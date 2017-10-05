@@ -58,7 +58,7 @@ def autorun_commands(cmds, my_globals=None, ignore_globals=None, verb=0):
                 if cmd:
                     sys.stderr.write(sys.__dict__.get("ps2","... "))
                 else:
-                    sys.stderr.write(str(sys.__dict__.get("ps1",ColorPrompt())))
+                    sys.stderr.write(str(sys.__dict__.get("ps1", sys.ps1)))
                     
                 l = cmds.pop()
                 print(l)

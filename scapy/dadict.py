@@ -11,13 +11,14 @@ from __future__ import absolute_import
 from __future__ import print_function
 from scapy.error import Scapy_Exception
 import scapy.modules.six as six
+from scapy.compat import *
 
 ###############################
 ## Direct Access dictionary  ##
 ###############################
 
 def fixname(x):
-    if x and x[0] in "0123456789":
+    if x and str(x[0]) in "0123456789":
         x = "n_"+x
     return x.translate("________________________________________________0123456789_______ABCDEFGHIJKLMNOPQRSTUVWXYZ______abcdefghijklmnopqrstuvwxyz_____________________________________________________________________________________________________________________________________")
 
@@ -30,7 +31,7 @@ class DADict:
         self._name=_name
         self.update(kargs)
     def fixname(self,val):
-        return fixname(val)
+        return fixname(plain_str(val))
     def __contains__(self, val):
         return val in self.__dict__
     def __getitem__(self, attr):
@@ -38,9 +39,10 @@ class DADict:
     def __setitem__(self, attr, val):        
         return setattr(self, self.fixname(attr), val)
     def __iter__(self):
-        return iter(map(lambda x_y1: x_y1[1],filter(lambda x_y: x_y[0] and x_y[0][0]!="_", self.__dict__.items())))
+        return (value for key, value in six.iteritems(self.__dict__)
+                if key and key[0] != '_')
     def _show(self):
-        for k in self.__dict__.keys():
+        for k in self.__dict__:
             if k and k[0] != "_":
                 print("%10s = %r" % (k,getattr(self,k)))
     def __repr__(self):
@@ -90,7 +92,7 @@ class DADict:
                 r += p
         return r
     def keys(self):
-        return list(six.iterkeys(self))
+        return list(six.iterkeys(self.__dict__))
     def iterkeys(self):
         return (x for x in self.__dict__ if x and x[0] != "_")
     def __len__(self):

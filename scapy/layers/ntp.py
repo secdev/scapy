@@ -22,6 +22,7 @@ PacketListField, FieldListField, ConditionalField, PadField)
 from scapy.layers.inet6 import IP6Field
 from scapy.layers.inet import UDP
 from scapy.utils import lhex
+from scapy.compat import *
 from scapy.config import conf
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
@@ -94,14 +95,6 @@ class TimeStampField(FixedPointField):
         return FixedPointField.i2m(self, pkt, val)
 
 
-def get_cls(name, fallback_cls=conf.raw_layer):
-    """
-    Returns class named "name" if it exists, fallback_cls otherwise.
-    """
-
-    return globals().get(name, fallback_cls)
-
-
 #############################################################################
 ##### NTP
 #############################################################################
@@ -171,42 +164,22 @@ _kiss_codes = {
 
 
 # Used by _ntp_dispatcher to instantiate the appropriate class
-_ntp_cls_by_mode = {
-    0: "NTPHeader",
-    1: "NTPHeader",
-    2: "NTPHeader",
-    3: "NTPHeader",
-    4: "NTPHeader",
-    5: "NTPHeader",
-    6: "NTPControl",
-    7: "NTPPrivate"
-}
-
-
 def _ntp_dispatcher(payload):
     """
     Returns the right class for a given NTP packet.
     """
-
-    cls = conf.raw_layer
-
     # By default, calling NTP() will build a NTP packet as defined in RFC 5905
     # (see the code of NTPHeader). Use NTPHeader for extension fields and MAC.
     if payload is None:
-        cls = get_cls("NTPHeader")
-
+        return NTPHeader
     else:
         length = len(payload)
         if length >= _NTP_PACKET_MIN_SIZE:
-            first_byte = struct.unpack("!B", payload[0])[0]
-
+            first_byte = orb(payload[0])
             # Extract NTP mode
-            mode_mask = 0x07
-            mode = first_byte & mode_mask
-
-            cls = get_cls(_ntp_cls_by_mode.get(mode))
-
-    return cls
+            mode = first_byte & 7
+            return {6: NTPControl, 7: NTPPrivate}.get(mode, NTPHeader)
+    return conf.raw_layer
 
 
 class NTP(Packet):
@@ -237,38 +210,18 @@ class NTP(Packet):
     # NTPHeader, NTPControl and NTPPrivate are NTP packets.
     # This might help, for example when reading a pcap file.
     def haslayer(self, cls):
-        ntp_classes = [
-            get_cls("NTPHeader"),
-            get_cls("NTPControl"),
-            get_cls("NTPPrivate")
-        ]
-        ret = 0
-        if cls == NTP:
-            # If cls is NTP (the parent class), check that the object is an
-            # instance of a NTP packet
-            for ntp_class in ntp_classes:
-                if isinstance(self, ntp_class):
-                    ret = 1
-                    break
-        elif cls in ntp_classes and isinstance(self, cls):
-            ret = 1
-        return ret
+        """Specific: NTPHeader().haslayer(NTP) should return True."""
+        if cls == "NTP":
+            if isinstance(self, NTP):
+                return True
+        elif issubclass(cls, NTP):
+            if isinstance(self, cls):
+                return True
+        return super(NTP, self).haslayer(cls)
 
-    def getlayer(self, cls, nb=1, _track=None):
-        ntp_classes = [
-            get_cls("NTPHeader"),
-            get_cls("NTPControl"),
-            get_cls("NTPPrivate")
-        ]
-        layer = None
-        if cls == NTP:
-            for ntp_class in ntp_classes:
-                if isinstance(self, ntp_class):
-                    layer = self
-                    break
-        else:
-            layer = Packet.getlayer(self, cls, nb, _track)
-        return layer
+    def getlayer(self, cls, nb=1, _track=None, _subclass=True, **flt):
+        return super(NTP, self).getlayer(cls, nb=nb, _track=_track,
+                                         _subclass=True, **flt)
 
     def mysummary(self):
         return self.sprintf("NTP v%ir,NTP.version%, %NTP.mode%")
@@ -306,7 +259,7 @@ class NTPAuthenticator(Packet):
     ]
 
     def extract_padding(self, s):
-        return "", s
+        return b"", s
 
 
 class NTPExtension(Packet):
@@ -659,7 +612,7 @@ class NTPStatusPacket(Packet):
     fields_desc = [ShortField("status", 0)]
 
     def extract_padding(self, s):
-        return "", s
+        return b"", s
 
 
 class NTPSystemStatusPacket(Packet):
@@ -677,7 +630,7 @@ class NTPSystemStatusPacket(Packet):
     ]
 
     def extract_padding(self, s):
-        return "", s
+        return b"", s
 
 
 class NTPPeerStatusPacket(Packet):
@@ -698,7 +651,7 @@ class NTPPeerStatusPacket(Packet):
     ]
 
     def extract_padding(self, s):
-        return "", s
+        return b"", s
 
 
 class NTPClockStatusPacket(Packet):
@@ -713,7 +666,7 @@ class NTPClockStatusPacket(Packet):
     ]
 
     def extract_padding(self, s):
-        return "", s
+        return b"", s
 
 
 class NTPErrorStatusPacket(Packet):
@@ -728,7 +681,7 @@ class NTPErrorStatusPacket(Packet):
     ]
 
     def extract_padding(self, s):
-        return "", s
+        return b"", s
 
 
 class NTPControlStatusField(PacketField):

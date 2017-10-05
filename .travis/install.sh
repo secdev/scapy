@@ -10,15 +10,16 @@ fi
 
 if python --version 2>&1 | grep -q PyPy; then
   # cryptography requires PyPy >= 2.6, Travis CI uses 2.5.0
-  $SCAPY_SUDO pip install $PIP_INSTALL_FLAGS mock
+  $SCAPY_SUDO pip install $PIP_INSTALL_FLAGS -U mock
 else
-  $SCAPY_SUDO pip install $PIP_INSTALL_FLAGS cryptography mock
+  $SCAPY_SUDO pip install $PIP_INSTALL_FLAGS -U cryptography mock
 fi
 
 # Install coverage
 if [ "$SCAPY_COVERAGE" = "yes" ]
 then
   $SCAPY_SUDO pip install $PIP_INSTALL_FLAGS coverage
+  $SCAPY_SUDO apt-get install python-pyx
 fi
 
 # Install pcap & dnet

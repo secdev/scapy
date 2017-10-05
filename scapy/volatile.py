@@ -10,6 +10,7 @@ Fields that hold random numbers.
 from __future__ import absolute_import
 import random,time,math
 from scapy.base_classes import Net
+from scapy.compat import *
 from scapy.utils import corrupt_bits,corrupt_bytes
 from scapy.modules.six.moves import range
 
@@ -37,7 +38,7 @@ class RandomEnumeration:
             n += 1
         self.n =n
 
-        self.fs = min(3,(n+1)/2)
+        self.fs = min(3,(n+1)//2)
         self.fsmask = 2**self.fs-1
         self.rounds = max(self.n,3)
         self.turns = 0
@@ -66,6 +67,7 @@ class RandomEnumeration:
             self.i = 0
             if not self.forever:
                 raise StopIteration
+    __next__ = next
 
 
 class VolatileValue:
@@ -78,9 +80,16 @@ class VolatileValue:
             return False
         return x == y
     def __getattr__(self, attr):
-        if attr == "__setstate__":
+        if attr in ["__setstate__", "__getstate__"]:
             raise AttributeError(attr)
         return getattr(self._fix(),attr)
+    def __str__(self):
+        return str(self._fix())
+    def __bytes__(self):
+        return raw(self._fix())
+    def __len__(self):
+        return len(self._fix())
+
     def _fix(self):
         return None
 
@@ -100,25 +109,37 @@ class RandNum(RandField):
 
     def __int__(self):
         return int(self._fix())
+    def __index__(self):
+        return int(self)
+    def __add__(self, other):
+        return self._fix() + other
+    def __radd__(self, other):
+        return other + self._fix()
+    def __sub__(self, other):
+        return self._fix() - other
+    def __rsub__(self, other):
+        return other - self._fix()
+    def __mul__(self, other):
+        return self._fix() * other
+    def __floordiv__(self, other):
+        return self._fix() / other
+    __div__ = __floordiv__
 
-    def __str__(self):
-        return str(self._fix())
-
-class RandNumGamma(RandField):
+class RandNumGamma(RandNum):
     def __init__(self, alpha, beta):
         self.alpha = alpha
         self.beta = beta
     def _fix(self):
         return int(round(random.gammavariate(self.alpha, self.beta)))
 
-class RandNumGauss(RandField):
+class RandNumGauss(RandNum):
     def __init__(self, mu, sigma):
         self.mu = mu
         self.sigma = sigma
     def _fix(self):
         return int(round(random.gauss(self.mu, self.sigma)))
 
-class RandNumExpo(RandField):
+class RandNumExpo(RandNum):
     def __init__(self, lambd, base=0):
         self.lambd = lambd
         self.base = base
@@ -224,6 +245,8 @@ class RandString(RandField):
         for _ in range(self.size):
             s += random.choice(self.chars)
         return s
+    def __mul__(self, n):
+        return self._fix()*n
 
 class RandBin(RandString):
     def __init__(self, size=None):
@@ -239,7 +262,9 @@ class RandTermString(RandString):
 
     def __str__(self):
         return str(self._fix())
-    
+
+    def __bytes__(self):
+        return raw(self._fix())
     
 
 class RandIP(RandString):
@@ -335,7 +360,7 @@ class RandOID(RandString):
             return "<%s [%s]>" % (self.__class__.__name__, self.ori_fmt)
     def _fix(self):
         if self.fmt is None:
-            return ".".join(map(str, [self.idnum for i in range(1+self.depth)]))
+            return ".".join(str(self.idnum) for _ in range(1 + self.depth))
         else:
             oid = []
             for i in self.fmt:
@@ -623,6 +648,8 @@ class RandSingString(RandSingularity):
 
     def __str__(self):
         return str(self._fix())
+    def __bytes__(self):
+        return raw(self._fix())
                              
 
 class RandPool(RandField):

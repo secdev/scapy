@@ -41,20 +41,20 @@ class Fixed3_6Field(LEIntField):
     def i2h(self, pkt, x):
         if x is not None:
             if (x < 0):
-                warning("Fixed3_6: Internal value too negative: %d" % x)
+                warning("Fixed3_6: Internal value too negative: %d", x)
                 x = 0
             elif (x > 999999999):
-                warning("Fixed3_6: Internal value too positive: %d" % x)
+                warning("Fixed3_6: Internal value too positive: %d", x)
                 x = 999999999
             x = x * 1e-6
         return x
     def h2i(self, pkt, x):
         if x is not None:
             if (x <= -0.5e-6):
-                warning("Fixed3_6: Input value too negative: %.7f" % x)
+                warning("Fixed3_6: Input value too negative: %.7f", x)
                 x = 0
             elif (x >= 999.9999995):
-                warning("Fixed3_6: Input value too positive: %.7f" % x)
+                warning("Fixed3_6: Input value too positive: %.7f", x)
                 x = 999.999999
             x = int(round(x * 1e6))
         return x
@@ -75,20 +75,20 @@ class Fixed3_7Field(LEIntField):
     def i2h(self, pkt, x):
         if x is not None:
             if (x < 0):
-                warning("Fixed3_7: Internal value too negative: %d" % x)
+                warning("Fixed3_7: Internal value too negative: %d",  x)
                 x = 0
             elif (x > 3600000000):
-                warning("Fixed3_7: Internal value too positive: %d" % x)
+                warning("Fixed3_7: Internal value too positive: %d",  x)
                 x = 3600000000
             x = (x - 1800000000) * 1e-7
         return x
     def h2i(self, pkt, x):
         if x is not None:
             if (x <= -180.00000005):
-                warning("Fixed3_7: Input value too negative: %.8f" % x)
+                warning("Fixed3_7: Input value too negative: %.8f",  x)
                 x = -180.0
             elif (x >= 180.00000005):
-                warning("Fixed3_7: Input value too positive: %.8f" % x)
+                warning("Fixed3_7: Input value too positive: %.8f",  x)
                 x = 180.0
             x = int(round((x + 180.0) * 1e7))
         return x
@@ -109,20 +109,20 @@ class Fixed6_4Field(LEIntField):
     def i2h(self, pkt, x):
         if x is not None:
             if (x < 0):
-                warning("Fixed6_4: Internal value too negative: %d" % x)
+                warning("Fixed6_4: Internal value too negative: %d",  x)
                 x = 0
             elif (x > 3600000000):
-                warning("Fixed6_4: Internal value too positive: %d" % x)
+                warning("Fixed6_4: Internal value too positive: %d",  x)
                 x = 3600000000
             x = (x - 1800000000) * 1e-4
         return x
     def h2i(self, pkt, x):
         if x is not None:
             if (x <= -180000.00005):
-                warning("Fixed6_4: Input value too negative: %.5f" % x)
+                warning("Fixed6_4: Input value too negative: %.5f",  x)
                 x = -180000.0
             elif (x >= 180000.00005):
-                warning("Fixed6_4: Input value too positive: %.5f" % x)
+                warning("Fixed6_4: Input value too positive: %.5f",  x)
                 x = 180000.0
             x = int(round((x + 180000.0) * 1e4))
         return x
@@ -144,20 +144,20 @@ class NSCounter_Field(LEIntField):
     def i2h(self, pkt, x): #converts nano-seconds to seconds for output
         if x is not None:
             if (x < 0):
-                warning("NSCounter_Field: Internal value too negative: %d" % x)
+                warning("NSCounter_Field: Internal value too negative: %d",  x)
                 x = 0
             elif (x >= 2**32):
-                warning("NSCounter_Field: Internal value too positive: %d" % x)
+                warning("NSCounter_Field: Internal value too positive: %d",  x)
                 x = 2**32-1
             x = (x / 1e9)
         return x
     def h2i(self, pkt, x): #converts input in seconds into nano-seconds for storage
         if x is not None:
             if (x < 0):
-                warning("NSCounter_Field: Input value too negative: %.10f" % x)
+                warning("NSCounter_Field: Input value too negative: %.10f",  x)
                 x = 0
             elif (x >= (2**32) / 1e9):
-                warning("NSCounter_Field: Input value too positive: %.10f" % x)
+                warning("NSCounter_Field: Input value too positive: %.10f",  x)
                 x = (2**32-1) / 1e9
             x = int(round((x * 1e9)))
         return x
@@ -224,7 +224,7 @@ class VectorFlags_Field(XLEIntField):
                     y &= (~self._relmask)
                     y |= self._relvals[i]
                 else:
-                    #logging.warning("Unknown VectorFlags Argument: %s" % value)
+                    #logging.warning("Unknown VectorFlags Argument: %s",  value)
                     pass
         else:
             y = x

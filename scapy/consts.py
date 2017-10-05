@@ -27,7 +27,7 @@ except (ImportError, RuntimeError):
     MATPLOTLIB_DEFAULT_PLOT_KARGS = dict()
     log_loading.info("Can't import matplotlib. Won't be able to plot.")
 
-def test_pyx():
+def _test_pyx():
     """Returns if PyX is correctly installed or not"""
     try:
         with open(os.devnull, 'wb') as devnull:
@@ -39,7 +39,7 @@ def test_pyx():
 
 try:
     import pyx
-    if test_pyx():
+    if _test_pyx():
         PYX = 1
     else:
         log_loading.warning("PyX dependencies are not installed ! Please install TexLive or MikTeX.")
@@ -68,12 +68,12 @@ if WINDOWS:
             LOOPBACK_NAME = "Microsoft Loopback Adapter"
     except ValueError:
         LOOPBACK_NAME = "Microsoft Loopback Adapter"
+    # Will be different on Windows
+    LOOPBACK_INTERFACE = None
 else:
     uname = os.uname()
     LOOPBACK_NAME = "lo" if LINUX else "lo0"
-
-# Will be different on Windows
-LOOPBACK_INTERFACE = LOOPBACK_NAME
+    LOOPBACK_INTERFACE = LOOPBACK_NAME
 
 def parent_function():
     return inspect.getouterframes(inspect.currentframe())

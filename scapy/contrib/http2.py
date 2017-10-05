@@ -2230,7 +2230,7 @@ class HPackHdrTable(Sized):
     @classmethod
     def init_static_table(cls):
         # type: () -> None
-        cls._static_entries_last_idx = max(cls._static_entries.keys())
+        cls._static_entries_last_idx = max(cls._static_entries)
 
     def __init__(self, dynamic_table_max_size=4096, dynamic_table_cap_size=4096):
         # type: (int, int) -> None
@@ -2379,12 +2379,12 @@ class HPackHdrTable(Sized):
         If no matching header is found, this method returns None.
         """
         name = name.lower()
-        for k in type(self)._static_entries.keys():
-            if type(self)._static_entries[k].name() == name:
-                return k
-        for k in range(0, len(self._dynamic_table)):
-            if self._dynamic_table[k].name() == name:
-                return type(self)._static_entries_last_idx + k + 1
+        for key, val in six.iteritems(type(self)._static_entries):
+            if val.name() == name:
+                return key
+        for idx, val in enumerate(self._dynamic_table):
+            if val.name() == name:
+                return type(self)._static_entries_last_idx + idx + 1
         return None
 
     def get_idx_by_name_and_value(self, name, value):
@@ -2398,14 +2398,12 @@ class HPackHdrTable(Sized):
         If no matching header is found, this method returns None.
         """
         name = name.lower()
-        for k in type(self)._static_entries.keys():
-            elmt = type(self)._static_entries[k]
-            if elmt.name() == name and elmt.value() == value:
-                return k
-        for k in range(0, len(self._dynamic_table)):
-            elmt = self._dynamic_table[k]
-            if elmt.name() == name and elmt.value() == value:
-                return type(self)._static_entries_last_idx + k + 1
+        for key, val in six.iteritems(type(self)._static_entries):
+            if val.name() == name and val.value() == value:
+                return key
+        for idx, val in enumerate(self._dynamic_table):
+            if val.name() == name and val.value() == value:
+                return type(self)._static_entries_last_idx + idx + 1
         return None
 
     def __len__(self):

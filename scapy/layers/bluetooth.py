@@ -71,8 +71,7 @@ class HCI_ACL_Hdr(Packet):
     def post_build(self, p, pay):
         p += pay
         if self.len is None:
-            l = len(p)-4
-            p = p[:2]+chr(l&0xff)+chr((l>>8)&0xff)+p[4:]
+            p = p[:2] + struct.pack("<H", len(pay)) + p[4:]
         return p
 
 
@@ -84,8 +83,7 @@ class L2CAP_Hdr(Packet):
     def post_build(self, p, pay):
         p += pay
         if self.len is None:
-            l = len(pay)
-            p = chr(l&0xff)+chr((l>>8)&0xff)+p[2:]
+            p = struct.pack("<H", len(pay)) + p[2:]
         return p
 
 
@@ -103,8 +101,7 @@ class L2CAP_CmdHdr(Packet):
     def post_build(self, p, pay):
         p += pay
         if self.len is None:
-            l = len(p)-4
-            p = p[:2]+chr(l&0xff)+chr((l>>8)&0xff)+p[4:]
+            p = p[:2] + struct.pack("<H", len(pay)) + p[4:]
         return p
     def answers(self, other):
         if other.id == self.id:
@@ -464,8 +461,7 @@ class HCI_Command_Hdr(Packet):
     def post_build(self, p, pay):
         p += pay
         if self.len is None:
-            l = len(p)-3
-            p = p[:2]+chr(l&0xff)+p[3:]
+            p = p[:2] + struct.pack("B", len(pay)) + p[3:]
         return p
 
 class HCI_Cmd_Reset(Packet):

@@ -16,6 +16,7 @@ from scapy.config import conf
 from scapy.error import Scapy_Exception, warning
 from scapy.volatile import RandField, RandIP
 from scapy.utils import Enum_metaclass, EnumElement, binrepr
+from scapy.compat import plain_str
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
 
@@ -198,6 +199,8 @@ class ASN1_Object(six.with_metaclass(ASN1_Object_metaclass)):
         return "<%s[%r]>" % (self.__dict__.get("name", self.__class__.__name__), self.val)
     def __str__(self):
         return self.enc(conf.ASN1_default_codec)
+    def __bytes__(self):
+        return self.enc(conf.ASN1_default_codec)
     def strshow(self, lvl=0):
         return ("  "*lvl)+repr(self)+"\n"
     def show(self, lvl=0):
@@ -331,7 +334,7 @@ class ASN1_NULL(ASN1_Object):
 class ASN1_OID(ASN1_Object):
     tag = ASN1_Class_UNIVERSAL.OID
     def __init__(self, val):
-        val = conf.mib._oid(val)
+        val = conf.mib._oid(plain_str(val))
         ASN1_Object.__init__(self, val)
         self.oidname = conf.mib._oidname(val)
     def __repr__(self):

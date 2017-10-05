@@ -24,6 +24,7 @@ warnings.filterwarnings("ignore","tempnam",RuntimeWarning, __name__)
 from scapy.config import conf
 from scapy.consts import DARWIN, WINDOWS
 from scapy.data import MTU
+from scapy.compat import *
 from scapy.error import log_runtime, log_loading, log_interactive, Scapy_Exception, warning
 from scapy.base_classes import BasePacketList
 
@@ -32,29 +33,34 @@ from scapy.base_classes import BasePacketList
 ###########
 
 def get_temp_file(keep=False, autoext=""):
-    f = os.tempnam("","scapy")
+    """Create a temporary file and return its name. When keep is False,
+the file is deleted when scapy exits.
+
+    """
+    fname = tempfile.NamedTemporaryFile(prefix="scapy", suffix=autoext,
+                                        delete=False).name
     if not keep:
-        conf.temp_files.append(f+autoext)
-    return f
+        conf.temp_files.append(fname)
+    return fname
 
 def sane_color(x):
     r=""
     for i in x:
-        j = ord(i)
+        j = orb(i)
         if (j < 32) or (j >= 127):
             r=r+conf.color_theme.not_printable(".")
         else:
-            r=r+i
+            r=r+chr(j)
     return r
 
 def sane(x):
     r=""
     for i in x:
-        j = ord(i)
+        j = orb(i)
         if (j < 32) or (j >= 127):
             r=r+"."
         else:
-            r=r+i
+            r=r+chr(j)
     return r
 
 def lhex(x):
@@ -67,6 +73,10 @@ def lhex(x):
     else:
         return x
 
+def to_hex(x):
+    """Turns string or bytes to hex format"""
+    return x if isinstance(x, bytes) and not six.PY2 else x.encode("hex")
+
 @conf.commands.register
 def hexdump(x, dump=False):
     """ Build a tcpdump like hexadecimal view
@@ -76,14 +86,14 @@ def hexdump(x, dump=False):
     :returns: a String only when dump=True
     """
     s = ""
-    x = str(x)
+    x = raw(x)
     l = len(x)
     i = 0
     while i < l:
         s += "%04x  " % i
         for j in range(16):
             if i+j < l:
-                s += "%02X" % ord(x[i+j])
+                s += "%02X" % orb(x[i+j])
             else:
                 s += "  "
             if j%16 == 7:
@@ -114,11 +124,11 @@ def linehexdump(x, onlyasc=0, onlyhex=0, dump=False):
     :returns: a String only when dump=True
     """
     s = ""
-    x = str(x)
+    x = raw(x)
     l = len(x)
     if not onlyasc:
         for i in range(l):
-            s += "%02X" % ord(x[i])
+            s += "%02X" % orb(x[i])
         if not onlyhex:  # separate asc & hex if both are displayed
             s += " "
     if not onlyhex:
@@ -140,8 +150,8 @@ def chexdump(x, dump=False):
     :param dump: print the view if False
     :returns: a String only if dump=True
     """
-    x = str(x)
-    s = str(", ".join("%#04x" % ord(x) for x in x))
+    x = raw(x)
+    s = ", ".join("%#04x" % orb(x) for x in x)
     if dump:
         return s
     else:
@@ -151,14 +161,14 @@ def chexdump(x, dump=False):
 def hexstr(x, onlyasc=0, onlyhex=0):
     s = []
     if not onlyasc:
-        s.append(" ".join("%02x" % ord(b) for b in x))
+        s.append(" ".join("%02x" % orb(b) for b in x))
     if not onlyhex:
         s.append(sane(x)) 
     return "  ".join(s)
 
 def repr_hex(s):
     """ Convert provided bitstring to a simple string of hex digits """
-    return "".join("%02x" % ord(x) for x in s)
+    return "".join("%02x" % orb(x) for x in s)
 
 @conf.commands.register
 def hexdiff(x,y):
@@ -242,7 +252,7 @@ def hexdiff(x,y):
             if i+j < l:
                 if line[j]:
                     col = colorize[(linex[j]!=liney[j])*(doy-dox)]
-                    print(col("%02X" % ord(line[j])), end=' ')
+                    print(col("%02X" % orb(line[j])), end=' ')
                     if linex[j]==liney[j]:
                         cl += sane_color(line[j])
                     else:
@@ -293,7 +303,7 @@ def _fletcher16(charbuf):
     # This is based on the GPLed C implementation in Zebra <http://www.zebra.org/>
     c0 = c1 = 0
     for char in charbuf:
-        c0 += ord(char)
+        c0 += orb(char)
         c1 += c0
 
     c0 %= 255
@@ -343,10 +353,12 @@ def fletcher16_checkbytes(binbuf, offset):
 
 
 def mac2str(mac):
-    return "".join(chr(int(x, 16)) for x in mac.split(':'))
+    return b"".join(chb(int(x, 16)) for x in mac.split(':'))
 
 def str2mac(s):
-    return ("%02x:"*6)[:-1] % tuple(map(ord, s)) 
+    if isinstance(s, str):
+        return ("%02x:"*6)[:-1] % tuple(map(ord, s))
+    return ("%02x:"*6)[:-1] % tuple(s)
 
 def randstring(l):
     """
@@ -365,14 +377,14 @@ def strxor(s1, s2):
     Returns the binary XOR of the 2 provided strings s1 and s2. s1 and s2
     must be of same length.
     """
-    return "".join(map(lambda x,y:chr(ord(x)^ord(y)), s1, s2))
+    return b"".join(map(lambda x,y:chb(orb(x)^orb(y)), s1, s2))
 
 def strand(s1, s2):
     """
     Returns the binary AND of the 2 provided strings s1 and s2. s1 and s2
     must be of same length.
     """
-    return "".join(map(lambda x,y:chr(ord(x)&ord(y)), s1, s2))
+    return b"".join(map(lambda x,y:chb(orb(x)&orb(y)), s1, s2))
 
 
 # Workaround bug 643005 : https://sourceforge.net/tracker/?func=detail&atid=105470&aid=643005&group_id=5470
@@ -388,11 +400,7 @@ else:
     inet_aton = socket.inet_aton
 
 inet_ntoa = socket.inet_ntoa
-try:
-    inet_ntop = socket.inet_ntop
-    inet_pton = socket.inet_pton
-except AttributeError:
-    from scapy.pton_ntop import *
+from scapy.pton_ntop import *
 
 
 def atol(x):
@@ -406,6 +414,59 @@ def ltoa(x):
 
 def itom(x):
     return (0xffffffff00000000>>x)&0xffffffff
+
+class ContextManagerSubprocess(object):
+    """
+    Context manager that eases checking for unknown command.
+
+    Example:
+    >>> with ContextManagerSubprocess("my custom message"):
+    >>>     subprocess.Popen(["unknown_command"])
+
+    """
+    def __init__(self, name):
+        self.name = name
+
+    def __enter__(self):
+        pass
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        if exc_type == OSError:
+            msg = "%s: executing %r failed"
+            log_scapy.error(msg, self.name, conf.prog.wireshark, exc_info=1)
+            return True  # Suppress the exception
+
+class ContextManagerCaptureOutput(object):
+    """
+    Context manager that intercept the console's output.
+
+    Example:
+    >>> with ContextManagerCaptureOutput() as cmco:
+    ...     print("hey")
+    ...     assert cmco.get_output() == "hey"
+    """
+    def __init__(self):
+        self.result_export_object = ""
+        try:
+            import mock
+        except:
+            raise ImportError("The mock module needs to be installed !")
+    def __enter__(self):
+        import mock
+        def write(s, decorator=self):
+            decorator.result_export_object += s
+        mock_stdout = mock.Mock()
+        mock_stdout.write = write
+        self.bck_stdout = sys.stdout
+        sys.stdout = mock_stdout
+        return self
+    def __exit__(self, *exc):
+        sys.stdout = self.bck_stdout
+        return False
+    def get_output(self, eval_bytes=False):
+        if self.result_export_object.startswith("b'") and eval_bytes:
+            return plain_str(eval(self.result_export_object))
+        return self.result_export_object
 
 def do_graph(graph,prog=None,format=None,target=None,type=None,string=None,options=None):
     """do_graph(graph, prog=conf.prog.dot, format="svg",
@@ -431,7 +492,7 @@ def do_graph(graph,prog=None,format=None,target=None,type=None,string=None,optio
     start_viewer=False
     if target is None:
         if WINDOWS:
-            tempfile = os.tempnam("", "scapy") + "." + format
+            tempfile = get_temp_file() + "." + format
             target = "> %s" % tempfile
             start_viewer = True
         else:
@@ -450,13 +511,14 @@ def do_graph(graph,prog=None,format=None,target=None,type=None,string=None,optio
         while not os.path.exists(tempfile):
             time.sleep(0.1)
             if time.time() - waiting_start > 3:
-                warning("Temporary file '%s' could not be written. Graphic will not be displayed." % tempfile)
+                warning("Temporary file '%s' could not be written. Graphic will not be displayed.", tempfile)
                 break
         else:  
             if conf.prog.display == conf.prog._default:
                 os.startfile(tempfile)
             else:
-                subprocess.Popen([conf.prog.display, tempfile])
+                with ContextManagerSubprocess("do_graph()"):
+                    subprocess.Popen([conf.prog.display, tempfile])
 
 _TEX_TR = {
     "{":"{\\tt\\char123}",
@@ -503,7 +565,7 @@ def binrepr(val):
     return bin(val)[2:]
 
 def long_converter(s):
-    return long(s.replace('\n', '').replace(' ', ''), 16)
+    return int(s.replace('\n', '').replace(' ', ''), 16)
 
 #########################
 #### Enum management ####
@@ -520,8 +582,16 @@ class EnumElement:
         return getattr(self._value, attr)
     def __str__(self):
         return self._key
+    def __bytes__(self):
+        return raw(self.__str__())
+    def __hash__(self):
+        return self._value
+    def __int__(self):
+        return int(self._value)
     def __eq__(self, other):
         return self._value == int(other)
+    def __neq__(self, other):
+        return not self.__eq__(other)
 
 
 class Enum_metaclass(type):
@@ -552,12 +622,12 @@ class Enum_metaclass(type):
 
 
 def export_object(obj):
-    print(gzip.zlib.compress(six.moves.cPickle.dumps(obj,2),9).encode("base64"))
+    print(bytes_codec(gzip.zlib.compress(six.moves.cPickle.dumps(obj,2),9), "base64"))
 
 def import_object(obj=None):
     if obj is None:
         obj = sys.stdin.read()
-    return six.moves.cPickle.loads(gzip.zlib.decompress(obj.strip().decode("base64")))
+    return six.moves.cPickle.loads(gzip.zlib.decompress(base64_bytes(obj.strip())))
 
 
 def save_object(fname, obj):
@@ -574,7 +644,7 @@ def load_object(fname):
 @conf.commands.register
 def corrupt_bytes(s, p=0.01, n=None):
     """Corrupt a given percentage or number of bytes from a string"""
-    s = array.array("B",str(s))
+    s = array.array("B",raw(s))
     l = len(s)
     if n is None:
         n = max(1,int(l*p))
@@ -585,12 +655,12 @@ def corrupt_bytes(s, p=0.01, n=None):
 @conf.commands.register
 def corrupt_bits(s, p=0.01, n=None):
     """Flip a given percentage or number of bits from a string"""
-    s = array.array("B",str(s))
+    s = array.array("B",raw(s))
     l = len(s)*8
     if n is None:
         n = max(1,int(l*p))
     for i in random.sample(range(l), n):
-        s[i/8] ^= 1 << (i%8)
+        s[i // 8] ^= 1 << (i % 8)
     return s.tostring()
 
 
@@ -658,6 +728,7 @@ class PcapReader_metaclass(type):
                 try:
                     i.__init__(filename, fdesc, magic)
                 except Scapy_Exception:
+                    raise
                     try:
                         i.f.seek(-4, 1)
                     except:
@@ -674,7 +745,7 @@ class PcapReader_metaclass(type):
                 fdesc = gzip.open(filename,"rb")
                 magic = fdesc.read(4)
             except IOError:
-                fdesc = open(filename,"rb")
+                fdesc = open(filename, "rb")
                 magic = fdesc.read(4)
         else:
             fdesc = filename
@@ -723,6 +794,7 @@ class RawPcapReader(six.with_metaclass(PcapReader_metaclass)):
         if pkt == None:
             raise StopIteration
         return pkt
+    __next__ = next
 
 
     def read_packet(self, size=MTU):
@@ -884,7 +956,7 @@ class RawPcapNgReader(RawPcapReader):
             # 4.2. - Interface Description Block
             # http://xml2rfc.tools.ietf.org/cgi-bin/xml2rfc.cgi?url=https://raw.githubusercontent.com/pcapng/pcapng/master/draft-tuexen-opsawg-pcapng.xml&modeAsFormat=html/ascii&type=ascii#rfc.section.4.2
             if code == 9 and length == 1 and len(options) >= 5:
-                tsresol = ord(options[4])
+                tsresol = orb(options[4])
                 tsresol = (2 if tsresol & 128 else 10) ** (tsresol & 127)
             if code == 0:
                 if length != 0:
@@ -1030,9 +1102,9 @@ nano:       use nanosecond-precision (requires libpcap >= 1.5.0)
             pkt = pkt.__iter__()
             if not self.header_present:
                 try:
-                    p = pkt.next()
+                    p = next(pkt)
                 except StopIteration:
-                    self._write_header("")
+                    self._write_header(b"")
                     return
                 self._write_header(p)
                 self._write_packet(p)
@@ -1085,7 +1157,7 @@ class PcapWriter(RawPcapWriter):
             try:
                 self.linktype = conf.l2types[pkt.__class__]
             except KeyError:
-                warning("PcapWriter: unknown LL type for %s. Using type 1 (Ethernet)" % pkt.__class__.__name__)
+                warning("PcapWriter: unknown LL type for %s. Using type 1 (Ethernet)", pkt.__class__.__name__)
                 self.linktype = 1
         RawPcapWriter._write_header(self, pkt)
 
@@ -1096,7 +1168,7 @@ class PcapWriter(RawPcapWriter):
             return
         sec = int(packet.time)
         usec = int(round((packet.time - sec) * (1000000000 if self.nano else 1000000)))
-        s = str(packet)
+        s = raw(packet)
         caplen = len(s)
         RawPcapWriter._write_packet(self, s, sec, usec, caplen, caplen)
 
@@ -1127,11 +1199,12 @@ def wireshark(pktlist):
     """Run wireshark on a list of packets"""
     f = get_temp_file()
     wrpcap(f, pktlist)
-    subprocess.Popen([conf.prog.wireshark, "-r", f])
+    with ContextManagerSubprocess("wireshark()"):
+        subprocess.Popen([conf.prog.wireshark, "-r", f])
 
 @conf.commands.register
 def tcpdump(pktlist, dump=False, getfd=False, args=None,
-            prog=None):
+            prog=None, getproc=False):
     """Run tcpdump or tshark on a list of packets
 
 pktlist: a Packet instance, a PacketList instance or a list of Packet
@@ -1142,6 +1215,7 @@ pktlist: a Packet instance, a PacketList instance or a list of Packet
 dump:    when set to True, returns a string instead of displaying it.
 getfd:   when set to True, returns a file-like object to read data
          from tcpdump or tshark from.
+getproc: when set to True, the subprocess.Popen object is returned
 args:    arguments (as a list) to pass to tshark (example for tshark:
          args=["-T", "json"]). Defaults to ["-n"].
 prog:    program to use (defaults to tcpdump, will work with tshark)
@@ -1180,53 +1254,60 @@ To get a JSON representation of a tshark-parsed PacketList(), one can:
 u'64'
 
     """
+    getfd = getfd or getproc
     if prog is None:
         prog = [conf.prog.tcpdump]
     elif isinstance(prog, six.string_types):
         prog = [prog]
     if pktlist is None:
-        proc = subprocess.Popen(
-            prog + (args if args is not None else []),
-            stdout=subprocess.PIPE if dump or getfd else None,
-            stderr=open(os.devnull),
-        )
+        with ContextManagerSubprocess("tcpdump()"):
+            proc = subprocess.Popen(
+                prog + (args if args is not None else []),
+                stdout=subprocess.PIPE if dump or getfd else None,
+                stderr=open(os.devnull),
+            )
     elif isinstance(pktlist, six.string_types):
-        proc = subprocess.Popen(
-            prog + ["-r", pktlist] + (args if args is not None else []),
-            stdout=subprocess.PIPE if dump or getfd else None,
-            stderr=open(os.devnull),
-        )
+        with ContextManagerSubprocess("tcpdump()"):
+            proc = subprocess.Popen(
+                prog + ["-r", pktlist] + (args if args is not None else []),
+                stdout=subprocess.PIPE if dump or getfd else None,
+                stderr=open(os.devnull),
+            )
     elif DARWIN:
         # Tcpdump cannot read from stdin, see
         # <http://apple.stackexchange.com/questions/152682/>
         tmpfile = tempfile.NamedTemporaryFile(delete=False)
         try:
-            tmpfile.writelines(iter(lambda: pktlist.read(1048576), ""))
+            tmpfile.writelines(iter(lambda: pktlist.read(1048576), b""))
         except AttributeError:
             wrpcap(tmpfile, pktlist)
         else:
             tmpfile.close()
-        proc = subprocess.Popen(
-            prog + ["-r", tmpfile.name] + (args if args is not None else []),
-            stdout=subprocess.PIPE if dump or getfd else None,
-            stderr=open(os.devnull),
-        )
+        with ContextManagerSubprocess("tcpdump()"):
+            proc = subprocess.Popen(
+                prog + ["-r", tmpfile.name] + (args if args is not None else []),
+                stdout=subprocess.PIPE if dump or getfd else None,
+                stderr=open(os.devnull),
+            )
         conf.temp_files.append(tmpfile.name)
     else:
-        proc = subprocess.Popen(
-            prog + ["-r", "-"] + (args if args is not None else []),
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE if dump or getfd else None,
-            stderr=open(os.devnull),
-        )
+        with ContextManagerSubprocess("tcpdump()"):
+            proc = subprocess.Popen(
+                prog + ["-r", "-"] + (args if args is not None else []),
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE if dump or getfd else None,
+                stderr=open(os.devnull),
+            )
         try:
-            proc.stdin.writelines(iter(lambda: pktlist.read(1048576), ""))
+            proc.stdin.writelines(iter(lambda: pktlist.read(1048576), b""))
         except AttributeError:
             wrpcap(proc.stdin, pktlist)
         else:
             proc.stdin.close()
     if dump:
-        return "".join(iter(lambda: proc.stdout.read(1048576), ""))
+        return b"".join(iter(lambda: proc.stdout.read(1048576), b""))
+    if getproc:
+        return proc
     if getfd:
         return proc.stdout
     proc.wait()
@@ -1235,8 +1316,9 @@ u'64'
 def hexedit(x):
     x = str(x)
     f = get_temp_file()
-    open(f,"w").write(x)
-    subprocess.call([conf.prog.hexedit, f])
+    open(f,"wb").write(x)
+    with ContextManagerSubprocess("hexedit()"):
+        subprocess.call([conf.prog.hexedit, f])
     x = open(f).read()
     os.unlink(f)
     return x
@@ -1286,7 +1368,7 @@ def pretty_routes(rtlst, header, sortBy=0):
     # Append tag
     rtlst = header + rtlst
     # Detect column's width
-    colwidth = [max([len(y) for y in x]) for x in apply(zip, rtlst)]
+    colwidth = [max([len(y) for y in x]) for x in zip(*rtlst)]
     # Make text fit in box (if exist)
     # TODO: find a better and more precise way of doing this. That's currently working but very complicated
     width = get_terminal_width()
@@ -1308,7 +1390,7 @@ def pretty_routes(rtlst, header, sortBy=0):
                 return _r
             rtlst = [tuple([_crop(rtlst[j][i], colwidth[i]) for i in range(0, len(rtlst[j]))]) for j in range(0, len(rtlst))]
             # Recalculate column's width
-            colwidth = [max([len(y) for y in x]) for x in apply(zip, rtlst)]
+            colwidth = [max([len(y) for y in x]) for x in zip(*rtlst)]
     fmt = _space.join(["%%-%ds"%x for x in colwidth])
     rt = "\n".join([fmt % x for x in rtlst])
     return rt
@@ -1395,21 +1477,21 @@ def whois(ip_address):
         query = whois_ip
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.connect(("whois.ripe.net", 43))
-    s.send(query + "\r\n")
-    answer = ''
+    s.send(query.encode("utf8") + b"\r\n")
+    answer = b""
     while True:
         d = s.recv(4096)
         answer += d
         if not d:
             break
     s.close()
-    ignore_tag = "remarks:"
+    ignore_tag = b"remarks:"
     # ignore all lines starting with the ignore_tag
-    lines = [ line for line in answer.split("\n") if not line or (line and not line.startswith(ignore_tag))]
+    lines = [ line for line in answer.split(b"\n") if not line or (line and not line.startswith(ignore_tag))]
     # remove empty lines at the bottom
     for i in range(1, len(lines)):
         if not lines[-i].strip():
             del lines[-i]
         else:
             break
-    return "\n".join(lines[3:])
+    return b"\n".join(lines[3:])

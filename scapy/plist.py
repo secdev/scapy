@@ -416,7 +416,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
             cbb = c.bbox()
             c.text(cbb.left(),cbb.top()+1,r"\font\cmssfont=cmss12\cmssfont{Frame %i/%i}" % (i,l),[pyx.text.size.LARGE])
             if conf.verb >= 2:
-                os.write(1,".")
+                os.write(1, b".")
             d.append(pyx.document.page(c, paperformat=pyx.document.paperformat.A4,
                                        margin=1*pyx.unit.t_cm,
                                        fittosize=1))
@@ -432,7 +432,8 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
         if filename is None:
             filename = get_temp_file(autoext=".ps")
             d.writePSfile(filename)
-            subprocess.Popen([conf.prog.psreader, filename+".ps"])
+            with ContextManagerSubprocess("psdump()"):
+                subprocess.Popen([conf.prog.psreader, filename+".ps"])
         else:
             d.writePSfile(filename)
         print()
@@ -445,7 +446,8 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
         if filename is None:
             filename = get_temp_file(autoext=".pdf")
             d.writePDFfile(filename)
-            subprocess.Popen([conf.prog.pdfreader, filename+".pdf"])
+            with ContextManagerSubprocess("psdump()"):
+                subprocess.Popen([conf.prog.pdfreader, filename+".pdf"])
         else:
             d.writePDFfile(filename)
         print()

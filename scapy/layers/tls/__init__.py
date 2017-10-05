@@ -5,6 +5,7 @@
 
 """
 Tools for handling TLS sessions and digital certificates.
+Use load_layer('tls') to load them to the main namespace.
 
 Prerequisites:
 

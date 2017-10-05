@@ -12,11 +12,12 @@ ApplicationData submessages. For the Handshake type, see tls_handshake.py.
 See the TLS class documentation for more information.
 """
 
-from __future__ import print_function
 import struct
 
 from scapy.config import conf
+from scapy.error import log_runtime
 from scapy.fields import *
+from scapy.compat import *
 from scapy.packet import *
 from scapy.layers.inet import TCP
 from scapy.layers.tls.session import _GenericTLSSessionInheritance
@@ -164,10 +165,10 @@ class _TLSMsgListField(PacketListField):
                cur = p.str_stateful()
                p.post_build_tls_session_update(cur)
            else:
-               cur = str(p)
+               cur = raw(p)
        else:
            pkt.type = 23
-           cur = str(p)
+           cur = raw(p)
        return cur
 
     def addfield(self, pkt, s, val):
@@ -302,7 +303,8 @@ class TLS(_GenericTLSSessionInheritance):
         except CipherError as e:
             return e.args
         except AEADTagError as e:
-            print("INTEGRITY CHECK FAILED")
+            pkt_info = self.firstlayer().summary()
+            log_runtime.info("TLS: record integrity check failed [%s]", pkt_info)
             return e.args
 
     def _tls_decrypt(self, s):
@@ -423,7 +425,8 @@ class TLS(_GenericTLSSessionInheritance):
                 chdr = hdr[:3] + struct.pack('!H', len(cfrag))
                 is_mac_ok = self._tls_hmac_verify(chdr, cfrag, mac)
                 if not is_mac_ok:
-                    print("INTEGRITY CHECK FAILED")
+                    pkt_info = self.firstlayer().summary()
+                    log_runtime.info("TLS: record integrity check failed [%s]", pkt_info)
 
         elif cipher_type == 'stream':
             # Decrypt
@@ -447,7 +450,8 @@ class TLS(_GenericTLSSessionInheritance):
                 chdr = hdr[:3] + struct.pack('!H', len(cfrag))
                 is_mac_ok = self._tls_hmac_verify(chdr, cfrag, mac)
                 if not is_mac_ok:
-                    print("INTEGRITY CHECK FAILED")
+                    pkt_info = self.firstlayer().summary()
+                    log_runtime.info("TLS: record integrity check failed [%s]", pkt_info)
 
         elif cipher_type == 'aead':
             # Authenticated encryption
@@ -735,4 +739,3 @@ class TLSApplicationData(_GenericTLSSessionInheritance):
 
 bind_bottom_up(TCP, TLS, {"dport": 443})
 bind_bottom_up(TCP, TLS, {"sport": 443})
-

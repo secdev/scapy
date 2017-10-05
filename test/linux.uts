@@ -12,9 +12,12 @@
 ~ automaton netaccess linux needs_root
 * This test retries on failure because it often fails
 
+from __future__ import print_function
 import os
 import time
 import signal
+
+from scapy.modules.six.moves import range
 
 def handler(signum, stack_frame):
     raise Exception("Timer expired !")
@@ -28,12 +31,12 @@ IPTABLE_RULE = "iptables -%c INPUT -s %s -p tcp --sport 80 -j DROP"
 assert(os.system(IPTABLE_RULE % ('A', SECDEV_IP4)) == 0)
 
 success = False
-for i in xrange(10):
+for i in range(10):
     tmp = signal.alarm(5)
     try:
         r, w = os.pipe()
         t = TCP_client(SECDEV_IP4, 80, external_fd={ "tcp": (r,w) })
-        tmp = os.write(w, "HEAD / HTTP/1.0\r\n\r\n")
+        tmp = os.write(w, b"HEAD / HTTP/1.0\r\n\r\n")
         t.runbg()
         time.sleep(0.5)
         response = os.read(r, 4096)
@@ -41,18 +44,33 @@ for i in xrange(10):
         t.stop()
         os.close(r)
         os.close(w)
-        if response.startswith("HTTP/1.1 200 OK"):
+        if response.startswith(b"HTTP/1.1 200 OK"):
             success = True
             break
         else:
             time.sleep(0.5)
     except Exception as e:
-        print e
+        print(e)
 
 # Remove the iptables rule
 assert(os.system(IPTABLE_RULE % ('D', SECDEV_IP4)) == 0)
 
 assert(success)
+
+= L3RawSocket
+~ netaccess IP ICMP linux needs_root
+
+old_l3socket = conf.L3socket
+old_debug_dissector = conf.debug_dissector
+conf.debug_dissector = False
+conf.L3socket = L3RawSocket
+x = sr1(IP(dst="www.google.com")/ICMP(),timeout=3)
+conf.debug_dissector = old_debug_dissector
+conf.L3socket = old_l3socket
+x
+assert x[IP].ottl() in [32, 64, 128, 255]
+assert 0 <= x[IP].hops() <= 126
+x is not None and ICMP in x and x[ICMP].type == 0
 
 # TODO: fix this test (randomly stuck)
 # ex: https://travis-ci.org/secdev/scapy/jobs/247473497
@@ -66,3 +84,20 @@ assert(success)
 #socket = conf.L2listen()
 #select.select([socket],[],[],2)
 #_flush_fd(socket.ins)
+
+= Interface aliases
+~ linux needs_root
+
+import os
+exit_status = os.system("ip link add name scapy0 type dummy")
+exit_status = os.system("ip addr add 192.0.2.1/24 dev scapy0")
+exit_status = os.system("ip link set scapy0 up")
+exit_status = os.system("ifconfig scapy0:0 inet 198.51.100.1/24 up")
+exit_status = os.system("ip addr show scapy0")
+print(get_if_list())
+conf.route.resync()
+exit_status = os.system("ip link del name dev scapy0")
+print(conf.route.routes)
+assert(conf.route.route("198.51.100.254") == ("scapy0", "198.51.100.1", "0.0.0.0"))
+route_alias = (3325256704, 4294967040, "0.0.0.0", "scapy0", "198.51.100.1")
+assert(route_alias in conf.route.routes)

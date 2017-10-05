@@ -11,22 +11,37 @@ Color themes for the interactive console.
 ## Color themes ##
 ##################
 
-class Color:
-    normal = b"\033[0m"
-    black = b"\033[30m"
-    red = b"\033[31m"
-    green = b"\033[32m"
-    yellow = b"\033[33m"
-    blue = b"\033[34m"
-    purple = b"\033[35m"
-    cyan = b"\033[36m"
-    grey = b"\033[37m"
+class ColorTable:
+    colors = { # Format: (ansi, pygments)
+        "normal": ("\033[0m", "noinherit"),
+        "black": ("\033[30m", "#ansiblack"),
+        "red": ("\033[31m", "#ansired"),
+        "green": ("\033[32m", "#ansigreen"),
+        "yellow": ("\033[33m", "#ansiyellow"),
+        "blue": ("\033[34m", "#ansiblue"),
+        "purple": ("\033[35m", "#ansipurple"),
+        "cyan": ("\033[36m", "#ansicyan"),
+        "grey": ("\033[37m", "#ansigrey"),
 
-    bold = b"\033[1m"
-    uline = b"\033[4m"
-    blink = b"\033[5m"
-    invert = b"\033[7m"
+        "bold": ("\033[1m", "bold"),
+        "uline": ("\033[4m", "underline"),
+        "blink": ("\033[5m", ""),
+        "invert": ("\033[7m", ""),
+        }
+
+    def __repr__(self):
+        return "<ColorTable>"
+
+    def __getattr__(self, attr):
+        return self.colors.get(attr, [""])[0]
+    
+    def ansi_to_pygments(self, x): # Transform ansi encoded text to Pygments text
+        inv_map = {v[0]: v[1] for k, v in self.colors.items()}
+        for k, v in inv_map.items():
+            x = x.replace(k, " "+v)
+        return x.strip()
         
+Color = ColorTable()
 
 def create_styler(fmt=None, before="", after="", fmt2="%s"):
     def do_style(val, fmt=fmt, before=before, after=after, fmt2=fmt2):
@@ -41,7 +56,12 @@ def create_styler(fmt=None, before="", after="", fmt2="%s"):
 class ColorTheme:
     def __repr__(self):
         return "<%s>" % self.__class__.__name__
+    def __reduce__(self):
+        return (self.__class__, (), ())
     def __getattr__(self, attr):
+        if attr in ["__getstate__", "__setstate__", "__getinitargs__",
+                    "__reduce_ex__"]:
+            raise AttributeError()
         return create_styler()
         
 
@@ -85,6 +105,7 @@ class AnsiColorTheme(ColorTheme):
     style_closed = ""
     style_left = ""
     style_right = ""
+    style_logo = ""
 
 class BlackAndWhite(AnsiColorTheme):
     pass
@@ -112,6 +133,7 @@ class DefaultTheme(AnsiColorTheme):
     style_closed = Color.grey
     style_left = Color.blue+Color.invert
     style_right = Color.red+Color.invert
+    style_logo = Color.green+Color.bold
     
 class BrightTheme(AnsiColorTheme):
     style_normal = Color.normal
@@ -131,6 +153,7 @@ class BrightTheme(AnsiColorTheme):
     style_odd = Color.black
     style_left = Color.cyan+Color.invert
     style_right = Color.purple+Color.invert
+    style_logo = Color.green+Color.bold
 
 
 class RastaTheme(AnsiColorTheme):
@@ -153,6 +176,8 @@ class RastaTheme(AnsiColorTheme):
     style_odd = Color.green
     style_left = Color.yellow+Color.invert
     style_right = Color.red+Color.invert
+    style_logo = Color.green+Color.bold
+
 
 class ColorOnBlackTheme(AnsiColorTheme):
     """Color theme for black backgrounds"""
@@ -178,6 +203,7 @@ class ColorOnBlackTheme(AnsiColorTheme):
     style_closed = Color.black+Color.bold
     style_left = Color.cyan+Color.bold
     style_right = Color.red+Color.bold
+    style_logo = Color.green+Color.bold
 
 
 class FormatTheme(ColorTheme):
@@ -204,6 +230,7 @@ class LatexTheme(FormatTheme):
     style_right = r"\textcolor{red}{%s}"
 #    style_even = r"}{\bf "
 #    style_odd = ""
+    style_logo = r"\textcolor{green}{\bf %s}"
 
 class LatexTheme2(FormatTheme):
     style_prompt = r"@`@textcolor@[@blue@]@@[@%s@]@"
@@ -222,6 +249,7 @@ class LatexTheme2(FormatTheme):
 #    style_odd = r"@`@textcolor@[@black@]@@[@@`@bfseries@[@@]@%s@]@"
     style_left = r"@`@textcolor@[@blue@]@@[@%s@]@"
     style_right = r"@`@textcolor@[@red@]@@[@%s@]@"
+    style_logo = r"@`@textcolor@[@green@]@@[@@`@bfseries@[@@]@%s@]@"
 
 class HTMLTheme(FormatTheme):
     style_prompt = "<span class=prompt>%s</span>"
@@ -260,16 +288,24 @@ class HTMLTheme2(HTMLTheme):
     style_right = "#[#span class=right#]#%s#[#/span#]#"
 
 
-class ColorPrompt:
-    __prompt = ">>> "
-    def __str__(self):
-        try:
-            from scapy import config
-            ct = config.conf.color_theme
-            if isinstance(ct, AnsiColorTheme):
-                ## ^A and ^B delimit invisible characters for readline to count right
-                return b"\001%s\002" % ct.prompt(b"\002"+config.conf.prompt+b"\001")
-            else:
-                return ct.prompt(config.conf.prompt)
-        except:
-            return self.__prompt
+def apply_ipython_style(shell):
+    """Updates the specified IPython console shell with
+    the conf.color_theme scapy theme."""
+    from IPython.terminal.prompts import Prompts, Token
+    from scapy.config import conf
+    if isinstance(conf.prompt, Prompts):
+        shell.prompts_class = conf.prompt # Set custom prompt style
+    else:
+        class ClassicPrompt(Prompts):
+            def in_prompt_tokens(self, cli=None):
+               return [(Token.Prompt, str(conf.prompt)),]
+            def out_prompt_tokens(self):
+               return [(Token.OutPrompt, ''),]
+        shell.prompts_class=ClassicPrompt # Apply classic prompt style
+    shell.highlighting_style_overrides = { # Register and apply scapy color style
+        Token.Prompt: Color.ansi_to_pygments(conf.color_theme.style_prompt),
+    }
+    try:
+        get_ipython().refresh_style()
+    except NameError:
+        pass

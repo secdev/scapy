@@ -17,12 +17,12 @@ class CipherError(Exception):
 
 # We have to keep these imports below CipherError definition
 # in order to avoid circular dependencies.
-from scapy.layers.tls.crypto.cipher_aead import tls_aead_cipher_algs
-from scapy.layers.tls.crypto.cipher_block import tls_block_cipher_algs
-from scapy.layers.tls.crypto.cipher_stream import tls_stream_cipher_algs
+from scapy.layers.tls.crypto.cipher_aead import _tls_aead_cipher_algs
+from scapy.layers.tls.crypto.cipher_block import _tls_block_cipher_algs
+from scapy.layers.tls.crypto.cipher_stream import _tls_stream_cipher_algs
 
-tls_cipher_algs = {}
-tls_cipher_algs.update(tls_block_cipher_algs)
-tls_cipher_algs.update(tls_stream_cipher_algs)
-tls_cipher_algs.update(tls_aead_cipher_algs)
+_tls_cipher_algs = {}
+_tls_cipher_algs.update(_tls_block_cipher_algs)
+_tls_cipher_algs.update(_tls_stream_cipher_algs)
+_tls_cipher_algs.update(_tls_aead_cipher_algs)
 
