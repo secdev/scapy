@@ -1204,7 +1204,7 @@ def wireshark(pktlist):
 
 @conf.commands.register
 def tcpdump(pktlist, dump=False, getfd=False, args=None,
-            prog=None, getproc=False):
+            prog=None, getproc=False, quiet=False):
     """Run tcpdump or tshark on a list of packets
 
 pktlist: a Packet instance, a PacketList instance or a list of Packet
@@ -1219,6 +1219,7 @@ getproc: when set to True, the subprocess.Popen object is returned
 args:    arguments (as a list) to pass to tshark (example for tshark:
          args=["-T", "json"]). Defaults to ["-n"].
 prog:    program to use (defaults to tcpdump, will work with tshark)
+quiet:   when set to True, the process stderr is discarded
 
 Examples:
 
@@ -1264,14 +1265,14 @@ u'64'
             proc = subprocess.Popen(
                 prog + (args if args is not None else []),
                 stdout=subprocess.PIPE if dump or getfd else None,
-                stderr=open(os.devnull),
+                stderr=open(os.devnull) if quiet else None,
             )
     elif isinstance(pktlist, six.string_types):
         with ContextManagerSubprocess("tcpdump()"):
             proc = subprocess.Popen(
                 prog + ["-r", pktlist] + (args if args is not None else []),
                 stdout=subprocess.PIPE if dump or getfd else None,
-                stderr=open(os.devnull),
+                stderr=open(os.devnull) if quiet else None,
             )
     elif DARWIN:
         # Tcpdump cannot read from stdin, see
@@ -1287,7 +1288,7 @@ u'64'
             proc = subprocess.Popen(
                 prog + ["-r", tmpfile.name] + (args if args is not None else []),
                 stdout=subprocess.PIPE if dump or getfd else None,
-                stderr=open(os.devnull),
+                stderr=open(os.devnull) if quiet else None,
             )
         conf.temp_files.append(tmpfile.name)
     else:
@@ -1296,7 +1297,7 @@ u'64'
                 prog + ["-r", "-"] + (args if args is not None else []),
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE if dump or getfd else None,
-                stderr=open(os.devnull),
+                stderr=open(os.devnull) if quiet else None,
             )
         try:
             proc.stdin.writelines(iter(lambda: pktlist.read(1048576), b""))
