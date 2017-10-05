@@ -63,7 +63,7 @@ assert nmap_kdb.filename == None
 
 = Clear temp files
 try:
-	os.remove('nmap-os-fingerprints')
+    os.remove('nmap-os-fingerprints')
 except:
     pass
 
