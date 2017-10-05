@@ -755,11 +755,11 @@ def _test_flood(flood_function, add_ether=False):
     conf.debug_dissector = False
     p = IP(dst="www.google.com")/ICMP()
     if add_ether:
-	p = Ether()/p
+        p = Ether()/p
     x = flood_function(p)
     conf.debug_dissector = old_debug_dissector
     if type(x) == tuple:
-	x = x[0][0][1]
+        x = x[0][0][1]
     x
     assert x[IP].ottl() in [32, 64, 128, 255]
     assert 0 <= x[IP].hops() <= 126

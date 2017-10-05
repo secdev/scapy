@@ -459,17 +459,17 @@ def RRlist2bitmap(lst):
         bitmap += struct.pack("BB", wb, bytes_count)
 
         # Generate the bitmap
-	# The idea is to remove out of range Resource Records with these steps
-	# 1. rescale to fit into 8 bits
-	# 2. x gives the bit position ; compute the corresponding value
-	# 3. sum everything
+        # The idea is to remove out of range Resource Records with these steps
+        # 1. rescale to fit into 8 bits
+        # 2. x gives the bit position ; compute the corresponding value
+        # 3. sum everything
         bitmap += b"".join(
-	    struct.pack(
-		b"B",
-		sum(2 ** (7 - (x - 256 * wb) + (tmp * 8)) for x in rrlist
-		if 256 * wb + 8 * tmp <= x < 256 * wb + 8 * tmp + 8),
-	    ) for tmp in range(bytes_count)
-	)
+            struct.pack(
+                b"B",
+                sum(2 ** (7 - (x - 256 * wb) + (tmp * 8)) for x in rrlist
+                if 256 * wb + 8 * tmp <= x < 256 * wb + 8 * tmp + 8),
+            ) for tmp in range(bytes_count)
+        )
 
     return bitmap
 
