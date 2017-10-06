@@ -402,8 +402,7 @@ if conf.use_pcap:
                 def __getattr__(self, attr):
                     return getattr(self.pcap, attr)
                 def __del__(self):
-                    fd = self.pcap.fileno()
-                    os.close(fd)
+                    os.close(self.pcap.fileno())
             open_pcap = lambda *args,**kargs: _PcapWrapper_libpcap(*args,**kargs)
         elif hasattr(pcap,"open_live"): # python-pcapy
             class _PcapWrapper_pcapy:
@@ -427,7 +426,11 @@ if conf.use_pcap:
                 def __getattr__(self, attr):
                     return getattr(self.pcap, attr)
                 def __del__(self):
-                    warning("__del__: don't know how to close the file descriptor. Bugs ahead ! Please report this bug.")
+                    try:
+                        self.pcap.close()
+                    except AttributeError:
+                        warning("__del__: don't know how to close the file "
+                                "descriptor. Bugs ahead! Please update pcapy!")
             open_pcap = lambda *args,**kargs: _PcapWrapper_pcapy(*args,**kargs)
 
         
