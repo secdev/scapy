@@ -413,7 +413,7 @@ class tlsSession(object):
         self.advertised_tls_version = 0x0303
 
         # The agreed-upon TLS version found in the ServerHello.
-        self.tls_version = 0
+        self.tls_version = None
 
         # These attributes should eventually be known to both sides (SSLv3-TLS 1.2).
         self.client_random = None
