@@ -165,7 +165,7 @@ def set_promisc(s,iff,val=1):
     s.setsockopt(SOL_PACKET, cmd, mreq)
 
 
-def get_alias_address(iface_name, ip_mask):
+def get_alias_address(iface_name, ip_mask, gw_str):
     """
     Get the correct source IP address of an interface alias
     """
@@ -208,7 +208,7 @@ def get_alias_address(iface_name, ip_mask):
         # Check if the source address is included in the network
         if (ifaddr & msk) == ip_mask:
             sck.close()
-            return (ifaddr & msk, msk, "0.0.0.0", ifname,
+            return (ifaddr & msk, msk, gw_str, ifname,
                     scapy.utils.ltoa(ifaddr))
 
     sck.close()
@@ -258,14 +258,17 @@ def read_routes():
         dst_int = socket.htonl(int(dst, 16)) & 0xffffffff
         msk_int = socket.htonl(int(msk, 16)) & 0xffffffff
         ifaddr_int = struct.unpack("!I", ifreq[20:24])[0]
+        gw_str = scapy.utils.inet_ntoa(struct.pack("I", int(gw, 16)))
+
         if ifaddr_int & msk_int != dst_int:
-            tmp_route = get_alias_address(iff, dst_int)
+            tmp_route = get_alias_address(iff, dst_int, gw_str)
             if tmp_route:
                 routes.append(tmp_route)
+            else:
+                routes.append((dst_int, msk_int, gw_str, iff, ifaddr))
+
         else:
-            routes.append((dst_int, msk_int,
-                           scapy.utils.inet_ntoa(struct.pack("I", int(gw, 16))),
-                           iff, ifaddr))
+            routes.append((dst_int, msk_int, gw_str, iff, ifaddr))
     
     f.close()
     return routes
