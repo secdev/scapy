@@ -1453,3 +1453,5 @@ class UTCTimeField(IntField):
         x = int(x) + self.delta
         t = time.strftime(self.strf, time.gmtime(x))
         return "%s (%d)" % (t, x)
+    def i2m(self, pkt, x):
+        return int(x)

@@ -207,8 +207,8 @@ duidhwtypes = {  0: "NET/ROM pseudo", # Not referenced by IANA
 
 class _UTCTimeField(UTCTimeField):
     def __init__(self, *args, **kargs):
-        UTCTimeField.__init__(self, *args, **kargs)
-        self.epoch = (2000, 1, 1, 0, 0, 0, 5, 1, 0) # required Epoch
+        epoch_2000 = (2000, 1, 1, 0, 0, 0, 5, 1, 0) # required Epoch
+        UTCTimeField.__init__(self, epoch=epoch_2000, *args, **kargs)
 
 class _LLAddrField(MACField):
     pass
