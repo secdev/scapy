@@ -75,7 +75,7 @@ def lhex(x):
 
 def to_hex(x):
     """Turns string or bytes to hex format"""
-    return x if isinstance(x, bytes) and not six.PY2 else x.encode("hex")
+    return bytes_hex(x).decode()
 
 @conf.commands.register
 def hexdump(x, dump=False):

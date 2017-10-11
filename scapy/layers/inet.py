@@ -100,7 +100,7 @@ class IPOption(Packet):
                     StrLenField("value", "",length_from=lambda pkt:pkt.length-2) ]
     
     def extract_padding(self, p):
-        return "",p
+        return b"",p
 
     registered_ip_options = {}
     @classmethod
@@ -1578,7 +1578,7 @@ class TCP_client(Automaton):
             self.rcvbuf += data
             if pkt[TCP].flags & 8 != 0: #PUSH
                 self.oi.tcp.send(self.rcvbuf)
-                self.rcvbuf = ""
+                self.rcvbuf = b""
     
     @ATMT.ioevent(ESTABLISHED,name="tcp", as_supersocket="tcplink")
     def outgoing_data_received(self, fd):

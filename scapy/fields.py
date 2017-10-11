@@ -1454,4 +1454,4 @@ class UTCTimeField(IntField):
         t = time.strftime(self.strf, time.gmtime(x))
         return "%s (%d)" % (t, x)
     def i2m(self, pkt, x):
-        return int(x)
+        return int(x) if x != None else 0
