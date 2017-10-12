@@ -160,7 +160,6 @@ class _ESPPlain(Packet):
 if conf.crypto_valid:
     from cryptography.exceptions import InvalidTag
     from cryptography.hazmat.backends import default_backend
-    from cryptography.hazmat.primitives import interfaces
     from cryptography.hazmat.primitives.ciphers import (
         Cipher,
         algorithms,
@@ -169,7 +168,7 @@ if conf.crypto_valid:
 else:
     log_loading.info("Can't import python-cryptography v1.7+. "
                      "Disabled IPsec encryption/authentication.")
-    InvalidTag = default_backend = interfaces = None
+    InvalidTag = default_backend = None
     Cipher = algorithms = modes = None
 
 #------------------------------------------------------------------------------

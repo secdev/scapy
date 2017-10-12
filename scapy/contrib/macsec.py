@@ -22,7 +22,6 @@ from scapy.layers.inet6 import IPv6
 if conf.crypto_valid:
     from cryptography.exceptions import InvalidTag
     from cryptography.hazmat.backends import default_backend
-    from cryptography.hazmat.primitives import interfaces
     from cryptography.hazmat.primitives.ciphers import (
         Cipher,
         algorithms,
