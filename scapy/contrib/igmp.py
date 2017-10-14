@@ -23,6 +23,7 @@ from scapy.fields import *
 from scapy.layers.inet import *
 from scapy.layers.l2 import DestMACField, getmacbyip
 from scapy.error import warning
+from scapy.compat import chb, orb
 
 def isValidMCAddr(ip):
     """convert dotted quad string to long and check the first octet"""
@@ -73,15 +74,15 @@ IGMPv2 message format   http://www.faqs.org/rfcs/rfc2236.html
         p += pay
         if self.chksum is None:
             ck = checksum(p)
-            p = p[:2]+chr(ck>>8)+chr(ck&0xff)+p[4:]
+            p = p[:2]+chb(ck>>8)+chb(ck&0xff)+p[4:]
         return p
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         if _pkt and len(_pkt) >= 4:
-            if ord(_pkt[0]) in [0x22, 0x30, 0x31, 0x32]:
+            if orb(_pkt[0]) in [0x22, 0x30, 0x31, 0x32]:
                 return IGMPv3
-            if ord(_pkt[0]) == 0x11 and len(_pkt) >= 12:
+            if orb(_pkt[0]) == 0x11 and len(_pkt) >= 12:
                 return IGMPv3
         return IGMP
 

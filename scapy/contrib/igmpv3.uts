@@ -13,7 +13,7 @@ x = a/b/c
 x[IGMPv3].igmpize()
 assert x.mrcode == 20
 assert x[IP].dst == "224.0.0.1"
-assert isinstance(IGMP(str(x[IGMPv3])), IGMPv3)
+assert isinstance(IGMP(raw(x[IGMPv3])), IGMPv3)
 
 = Dissect IGMPv3 - IGMPv3mq
 
@@ -22,7 +22,7 @@ assert IGMPv3 in x
 assert IGMPv3mq in x
 assert x[IGMPv3mq].gaddr == "224.0.0.2"
 assert x.summary() == "Ether / IP / IGMPv3: 192.168.0.1 > 127.0.0.1 Membership Query / IGMPv3mq"
-assert isinstance(IGMP(str(x[IGMPv3])), IGMPv3)
+assert isinstance(IGMP(raw(x[IGMPv3])), IGMPv3)
 
 = Dissect IGMPv3 - IGMPv3mr
 
@@ -32,7 +32,7 @@ assert IGMPv3mr in x
 assert len(x[IGMPv3mr].records) == 2
 assert x[IGMPv3mr].records[0].srcaddrs == ["192.168.0.1", "192.168.132.247"]
 assert x[IGMPv3mr].records[1].maddr == "4.4.4.4"
-assert isinstance(IGMP(str(x[IGMPv3])), IGMPv3)
+assert isinstance(IGMP(raw(x[IGMPv3])), IGMPv3)
 
 = Dissect IGMPv3 - IGMPv3mra
 
@@ -41,6 +41,6 @@ assert IGMPv3 in x
 assert IGMPv3mra in x
 assert x[IGMPv3mra].qryIntvl == 3
 assert x[IGMPv3mra].robust == 2
-assert isinstance(IGMP(str(x[IGMPv3])), IGMPv3)
+assert isinstance(IGMP(raw(x[IGMPv3])), IGMPv3)
 
 = IGMP vs IVMPv3 tests

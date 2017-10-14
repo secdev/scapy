@@ -45,7 +45,7 @@ assert x[IP].dst == "224.0.0.1"
 x = Ether(src="00:01:02:03:04:05")/IP()/IGMP(gaddr="224.2.3.4", type=0x12)
 x.mrcode = 1
 x[IGMP].igmpize()
-x = Ether(str(x))
+x = Ether(raw(x))
 assert x.mrcode == 0
 
 x.gaddr = "224.3.2.4"
@@ -64,7 +64,7 @@ assert IGMP().mysummary() == "IGMP Group Membership Query 0.0.0.0"
 ~ netaccess
 
 x = Ether(src="00:01:02:03:04:05")/IP(dst="192.168.0.1")/IGMP(gaddr="www.google.fr", type=0x11)
-x = Ether(str(x))
+x = Ether(raw(x))
 assert not x[IGMP].igmpize()
 assert x[IP].dst == "192.168.0.1"
 
