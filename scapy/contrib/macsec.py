@@ -18,6 +18,7 @@ from scapy.layers.l2 import Ether, Dot1AD, Dot1Q
 from scapy.layers.eap import MACsecSCI
 from scapy.layers.inet import IP
 from scapy.layers.inet6 import IPv6
+import scapy.modules.six as six
 
 if conf.crypto_valid:
     from cryptography.exceptions import InvalidTag
@@ -44,12 +45,12 @@ class MACsecSA(object):
     of MACsec frames
     """
     def __init__(self, sci, an, pn, key, icvlen, encrypt, send_sci):
-        if isinstance(sci, int) or isinstance(sci, long):
+        if isinstance(sci, six.integer_types):
             self.sci = struct.pack('!Q', sci)
-        elif isinstance(sci, str):
+        elif isinstance(sci, bytes):
             self.sci = sci
         else:
-            raise TypeError("SCI must be either str or int")
+            raise TypeError("SCI must be either bytes or int")
         self.an = an
         self.pn = pn
         self.key = key

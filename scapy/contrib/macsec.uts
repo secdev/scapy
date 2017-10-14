@@ -8,7 +8,7 @@
 #       not currently work with the pypy version used by Travis CI.
 
 = MACsec - basic encap - encrypted
-sa = MACsecSA(sci='\x52\x54\x00\x13\x01\x56\x00\x01', an=0, pn=100, key=b'aaaaaaaaaaaaaaaa', icvlen=16, encrypt=1, send_sci=1)
+sa = MACsecSA(sci=b'\x52\x54\x00\x13\x01\x56\x00\x01', an=0, pn=100, key=b'aaaaaaaaaaaaaaaa', icvlen=16, encrypt=1, send_sci=1)
 p = Ether(src='aa:aa:aa:bb:bb:bb', dst='cc:cc:cc:dd:dd:dd')/IP(src='192.168.0.1', dst='192.168.0.2')/ICMP(type='echo-request')/"1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890"
 m = sa.encap(p)
 assert(m.type == ETH_P_MACSEC)
@@ -23,7 +23,7 @@ assert(m[MACsec].C)
 assert(m[MACsec].sci == b'\x52\x54\x00\x13\x01\x56\x00\x01')
 
 = MACsec - basic encryption - encrypted
-sa = MACsecSA(sci='\x52\x54\x00\x13\x01\x56\x00\x01', an=0, pn=100, key=b'aaaaaaaaaaaaaaaa', icvlen=16, encrypt=1, send_sci=1)
+sa = MACsecSA(sci=b'\x52\x54\x00\x13\x01\x56\x00\x01', an=0, pn=100, key=b'aaaaaaaaaaaaaaaa', icvlen=16, encrypt=1, send_sci=1)
 p = Ether(src='aa:aa:aa:bb:bb:bb', dst='cc:cc:cc:dd:dd:dd')/IP(src='192.168.0.1', dst='192.168.0.2')/ICMP(type='echo-request')/"1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890"
 m = sa.encap(p)
 e = sa.encrypt(m)
@@ -39,7 +39,7 @@ assert(e[MACsec].C)
 assert(e[MACsec].sci == b'\x52\x54\x00\x13\x01\x56\x00\x01')
 
 = MACsec - basic decryption - encrypted
-sa = MACsecSA(sci='\x52\x54\x00\x13\x01\x56\x00\x01', an=0, pn=100, key=b'aaaaaaaaaaaaaaaa', icvlen=16, encrypt=1, send_sci=1)
+sa = MACsecSA(sci=b'\x52\x54\x00\x13\x01\x56\x00\x01', an=0, pn=100, key=b'aaaaaaaaaaaaaaaa', icvlen=16, encrypt=1, send_sci=1)
 p = Ether(src='aa:aa:aa:bb:bb:bb', dst='cc:cc:cc:dd:dd:dd')/IP(src='192.168.0.1', dst='192.168.0.2')/ICMP(type='echo-request')/"1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890"
 m = sa.encap(p)
 e = sa.encrypt(m)
@@ -57,7 +57,7 @@ assert(d[MACsec].sci == b'\x52\x54\x00\x13\x01\x56\x00\x01')
 assert(raw(d) == raw(m))
 
 = MACsec - basic decap - decrypted
-sa = MACsecSA(sci='\x52\x54\x00\x13\x01\x56\x00\x01', an=0, pn=100, key=b'aaaaaaaaaaaaaaaa', icvlen=16, encrypt=1, send_sci=1)
+sa = MACsecSA(sci=b'\x52\x54\x00\x13\x01\x56\x00\x01', an=0, pn=100, key=b'aaaaaaaaaaaaaaaa', icvlen=16, encrypt=1, send_sci=1)
 p = Ether(src='aa:aa:aa:bb:bb:bb', dst='cc:cc:cc:dd:dd:dd')/IP(src='192.168.0.1', dst='192.168.0.2')/ICMP(type='echo-request')/"1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890"
 m = sa.encap(p)
 e = sa.encrypt(m)
@@ -68,7 +68,7 @@ assert(raw(r) == raw(p))
 
 
 = MACsec - basic encap - integrity only
-sa = MACsecSA(sci='\x52\x54\x00\x13\x01\x56\x00\x01', an=0, pn=200, key=b'aaaaaaaaaaaaaaaa', icvlen=16, encrypt=0, send_sci=1)
+sa = MACsecSA(sci=b'\x52\x54\x00\x13\x01\x56\x00\x01', an=0, pn=200, key=b'aaaaaaaaaaaaaaaa', icvlen=16, encrypt=0, send_sci=1)
 p = Ether(src='aa:aa:aa:bb:bb:bb', dst='cc:cc:cc:dd:dd:dd')/IP(src='192.168.0.1', dst='192.168.0.2')/ICMP(type='echo-request')/"1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890"
 m = sa.encap(p)
 assert(m.type == ETH_P_MACSEC)
@@ -83,7 +83,7 @@ assert(not m[MACsec].C)
 assert(m[MACsec].sci == b'\x52\x54\x00\x13\x01\x56\x00\x01')
 
 = MACsec - basic encryption - integrity only
-sa = MACsecSA(sci='\x52\x54\x00\x13\x01\x56\x00\x01', an=0, pn=200, key=b'aaaaaaaaaaaaaaaa', icvlen=16, encrypt=0, send_sci=1)
+sa = MACsecSA(sci=b'\x52\x54\x00\x13\x01\x56\x00\x01', an=0, pn=200, key=b'aaaaaaaaaaaaaaaa', icvlen=16, encrypt=0, send_sci=1)
 p = Ether(src='aa:aa:aa:bb:bb:bb', dst='cc:cc:cc:dd:dd:dd')/IP(src='192.168.0.1', dst='192.168.0.2')/ICMP(type='echo-request')/"1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890"
 m = sa.encap(p)
 e = sa.encrypt(m)
@@ -100,7 +100,7 @@ assert(e[MACsec].sci == b'\x52\x54\x00\x13\x01\x56\x00\x01')
 assert(raw(e)[:-16] == raw(m))
 
 = MACsec - basic decryption - integrity only
-sa = MACsecSA(sci='\x52\x54\x00\x13\x01\x56\x00\x01', an=0, pn=200, key=b'aaaaaaaaaaaaaaaa', icvlen=16, encrypt=0, send_sci=1)
+sa = MACsecSA(sci=b'\x52\x54\x00\x13\x01\x56\x00\x01', an=0, pn=200, key=b'aaaaaaaaaaaaaaaa', icvlen=16, encrypt=0, send_sci=1)
 p = Ether(src='aa:aa:aa:bb:bb:bb', dst='cc:cc:cc:dd:dd:dd')/IP(src='192.168.0.1', dst='192.168.0.2')/ICMP(type='echo-request')/"1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890"
 m = sa.encap(p)
 e = sa.encrypt(m)
@@ -118,7 +118,7 @@ assert(d[MACsec].sci == b'\x52\x54\x00\x13\x01\x56\x00\x01')
 assert(raw(d) == raw(m))
 
 = MACsec - basic decap - integrity only
-sa = MACsecSA(sci='\x52\x54\x00\x13\x01\x56\x00\x01', an=0, pn=200, key=b'aaaaaaaaaaaaaaaa', icvlen=16, encrypt=0, send_sci=1)
+sa = MACsecSA(sci=b'\x52\x54\x00\x13\x01\x56\x00\x01', an=0, pn=200, key=b'aaaaaaaaaaaaaaaa', icvlen=16, encrypt=0, send_sci=1)
 p = Ether(src='aa:aa:aa:bb:bb:bb', dst='cc:cc:cc:dd:dd:dd')/IP(src='192.168.0.1', dst='192.168.0.2')/ICMP(type='echo-request')/"1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890"
 m = sa.encap(p)
 e = sa.encrypt(m)
