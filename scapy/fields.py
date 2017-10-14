@@ -522,7 +522,7 @@ class PacketListField(PacketField):
         if x is None:
             return None
         else:
-            return [p if isinstance(p, bytes) else p.copy() for p in x]
+            return [p if isinstance(p, six.string_types) else p.copy() for p in x]
     def getfield(self, pkt, s):
         c = l = cls = None
         if self.length_from is not None:

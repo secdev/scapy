@@ -201,7 +201,7 @@ class NetworkInfoV10(Packet):
                     XByteField("CCoTerminalEID", 0x01) ]
 
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 class StationInfoV10(Packet):
     """
@@ -215,7 +215,7 @@ class StationInfoV10(Packet):
                 XByteField("RXaverage", 0x00) ]
 
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 #""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 #   Networks & Stations informations for MAC Management V1.1 
@@ -236,7 +236,7 @@ class NetworkInfoV11(Packet):
                     X3BytesField("reserved_3", 0x000000) ]
     
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 
 class StationInfoV11(Packet):
@@ -256,7 +256,7 @@ class StationInfoV11(Packet):
                 XByteField("reserved_s4", 0x00) ]
     
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 #""""""""""""""""""""""""" END """"""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
@@ -521,7 +521,7 @@ class ClassifierPriorityMap(Packet):
                 ]
  
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 class ClassifierObj(Packet):
     name = "ClassifierObj"
@@ -534,7 +534,7 @@ class ClassifierObj(Packet):
                 ]
 
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 class AutoConnection(Packet):
     name = "AutoConnection"
@@ -559,7 +559,7 @@ class AutoConnection(Packet):
                 ]
 
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 class PeerNode(Packet):
     name = "PeerNodes"
@@ -568,7 +568,7 @@ class PeerNode(Packet):
                 ]
 
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 class AggregateConfigEntrie(Packet):
     name = "AggregateConfigEntrie"
@@ -577,7 +577,7 @@ class AggregateConfigEntrie(Packet):
                 ]
 
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 class RSVD_CustomAggregationParameter(Packet):
     name = "RSVD_CustomAggregationParameter"
@@ -585,7 +585,7 @@ class RSVD_CustomAggregationParameter(Packet):
                 ]
 
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 class PrescalerValue(Packet):
     name = "PrescalerValue"
@@ -593,7 +593,7 @@ class PrescalerValue(Packet):
                 ]
 
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 class GPIOMap(Packet):
     name = "GPIOMap"
@@ -601,7 +601,7 @@ class GPIOMap(Packet):
                 ]
 
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 class ReservedPercentageForCap(Packet):
     name = "ReservedPercentageForCap"
@@ -609,7 +609,7 @@ class ReservedPercentageForCap(Packet):
                 ]
 
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 class ConfigBit(Packet):
     name = "ConfigBit"
@@ -632,7 +632,7 @@ class ContentionWindowTable(Packet):
                 ]
 
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 class BackoffDeferalCountTable(Packet):
     name = "BackoffDeferalCountTable"
@@ -640,7 +640,7 @@ class BackoffDeferalCountTable(Packet):
                 ]
 
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 class BehaviorBlockArray(Packet):
     name = "BehaviorBlockArray"
@@ -657,7 +657,7 @@ class BehaviorBlockArray(Packet):
                 ]
 
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 class EventBlockArray(Packet):
     name = "EventBlockArray"
@@ -672,7 +672,7 @@ class EventBlockArray(Packet):
                 ]
 
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 class ModulePIB(Packet):
     """
