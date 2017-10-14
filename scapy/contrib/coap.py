@@ -29,6 +29,7 @@ from scapy.fields import *
 from scapy.layers.inet import UDP
 from scapy.packet import *
 from scapy.error import warning
+from scapy.compat import raw
 
 coap_codes = {
     0: "Empty",
@@ -150,7 +151,7 @@ class _CoAPOpt(Packet):
         return Packet.do_build(self)
 
     def guess_payload_class(self, payload):
-        if payload[0] != b'\xff':
+        if payload[:1] != b"\xff":
             return _CoAPOpt
         else:
             return Packet.guess_payload_class(self, payload)
@@ -184,7 +185,7 @@ class _CoAPOptsField(StrField):
 
     def i2m(self, pkt, x):
         if not x:
-            return ""
+            return b""
         opt_lst = []
         for o in x:
             if isinstance(o[0], str):
@@ -199,7 +200,7 @@ class _CoAPOptsField(StrField):
             opts = opts / _CoAPOpt(delta=o[0] - high_opt, opt_val=o[1])
             high_opt = o[0]
 
-        return str(opts)
+        return raw(opts)
 
 class _CoAPPaymark(StrField):
 
@@ -211,9 +212,9 @@ class _CoAPPaymark(StrField):
         return s[u:], m
 
     def m2i(self, pkt, x):
-        if len(x) > 0 and x[0] == b'\xff':
+        if len(x) > 0 and x[:1] == b"\xff":
             return 1, b'\xff'
-        return 0, '';
+        return 0, b'';
 
     def i2m(self, pkt, x):
         return x
@@ -230,7 +231,7 @@ class CoAP(Packet):
                    ShortField("msg_id", 0),
                    StrLenField("token", "", length_from=lambda pkt: pkt.tkl),
                    _CoAPOptsField("options", []),
-                   _CoAPPaymark("paymark", "")
+                   _CoAPPaymark("paymark", b"")
                    ]
 
     def getfieldval(self, attr):
