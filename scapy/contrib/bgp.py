@@ -136,14 +136,13 @@ class BGPFieldIPv4(Field):
         return s + self.i2m(pkt, val)
 
     def getfield(self, pkt, s):
-        length = self.mask2iplen(struct.unpack(">B", s[0])[0]) + 1
+        length = self.mask2iplen(orb(s[0])) + 1
         return s[length:], self.m2i(pkt, s[:length])
 
     def m2i(self, pkt, m):
-        mask = struct.unpack(">B", m[0])[0]
+        mask = orb(m[0])
         mask2iplen_res = self.mask2iplen(mask)
-        ip = "".join(
-            [m[i + 1] if i < mask2iplen_res else b"\x00" for i in range(4)])
+        ip = b"".join(m[i + 1:i + 2] if i < mask2iplen_res else b"\x00" for i in range(4))
         return (mask, socket.inet_ntoa(ip))
 
 
@@ -181,13 +180,12 @@ class BGPFieldIPv6(Field):
         return s + self.i2m(pkt, val)
 
     def getfield(self, pkt, s):
-        length = self.mask2iplen(struct.unpack(">B", s[0])[0]) + 1
+        length = self.mask2iplen(orb(s[0])) + 1
         return s[length:], self.m2i(pkt, s[:length])
 
     def m2i(self, pkt, m):
-        mask = struct.unpack(">B", m[0])[0]
-        ip = "".join(
-            [m[i + 1] if i < self.mask2iplen(mask) else b"\x00" for i in range(16)])
+        mask = orb(m[0])
+        ip = b"".join(m[i + 1:i + 2] if i < self.mask2iplen(mask) else b"\x00" for i in range(16))
         return (mask, pton_ntop.inet_ntop(socket.AF_INET6, ip))
 
 
@@ -226,7 +224,7 @@ class BGPNLRIPacketListField(PacketListField):
     def getfield(self, pkt, s):
         lst = []
         length = None
-        ret = ""
+        ret = b""
 
         if self.length_from is not None:
             length = self.length_from(pkt)
@@ -626,7 +624,7 @@ class BGPCapability(six.with_metaclass(_BGPCapability_metaclass, Packet)):
             # capability packet length - capability code (1 byte) -
             # capability length (1 byte)
             length = len(p) - 2
-            p = p[0] + struct.pack("!B", length) + p[2:]
+            p = chb(p[0]) + chb(length) + p[2:]
         return p + pay
 
 
@@ -917,7 +915,7 @@ class BGPOptParam(Packet):
             else:
                 length = len(p) - \
                     2  # parameter type (1 byte) - parameter length (1 byte)
-            packet = p[0] + struct.pack("!B", length)
+            packet = chb(p[0]) + chb(length)
             if (self.param_type == 2 and self.param_value is not None) or\
                     (self.param_type == 1 and self.authentication_data is not None):
                 packet = packet + p[2:]
@@ -1167,7 +1165,7 @@ class BGPPAASPath(Packet):
             segment_len = self.segment_length
             if segment_len is None:
                 segment_len = len(self.segment_value)
-                p = p[0] + struct.pack("!B", segment_len) + p[2:]
+                p = chb(p[0]) + chb(segment_len) + p[2:]
 
             return p + pay
 
@@ -1196,7 +1194,7 @@ class BGPPAAS4BytesPath(Packet):
             segment_len = self.segment_length
             if segment_len is None:
                 segment_len = len(self.segment_value)
-                p = p[0] + struct.pack("!B", segment_len) + p[2:]
+                p = chb(p[0]) + chb(segment_len) + p[2:]
 
             return p + pay
 
@@ -1821,7 +1819,7 @@ class MPReachNLRIPacketListField(PacketListField):
             if pkt.safi == 1:
                 # BGPNLRI_IPv6
                 while remain:
-                    mask = struct.unpack(">B", remain[0])[0]
+                    mask = orb(remain[0])
                     length_in_bytes = (mask + 7) // 8
                     current = remain[:length_in_bytes + 1]
                     remain = remain[length_in_bytes + 1:]
@@ -1935,7 +1933,7 @@ class BGPPAAS4Path(Packet):
     def post_build(self, p, pay):
         if self.segment_length is None:
             segment_len = len(self.segment_value)
-            p = p[0] + struct.pack("!B", segment_len) + p[2:]
+            p = chb(p[0]) + chb(segment_len) + p[2:]
 
         return p + pay
 
