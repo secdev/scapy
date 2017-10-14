@@ -16,6 +16,7 @@ import struct
 from scapy.fields import *
 from scapy.layers.l2 import *
 from scapy.layers.inet import *
+from scapy.compat import orb
 
 ### If prereq_autocomplete is True then match prerequisites will be
 ### automatically handled. See OFPMatch class.
@@ -199,7 +200,7 @@ class OFPMatch(Packet):
                     p = p[:25] + struct.pack("!B", 0x06) + p[26:]
                     l = l[:-6] + "0" + l[-5:]
 
-        ins = "".join(chr(int("".join(x),2)) for x in zip(*[iter(l)]*8))
+        ins = b"".join(chb(int("".join(x),2)) for x in zip(*[iter(l)]*8))
         p = ins + p[4:]
         return p + pay
 
@@ -1187,18 +1188,18 @@ def OpenFlow(self, payload):
     if self is None or self.dport == 6653 or self.dport == 6633 or self.sport == 6653 or self.sport == 6633:
     # port 6653 has been allocated by IANA, port 6633 should no longer be used
     # OpenFlow function may be called with None self in OFPPacketField
-        of_type = ord(payload[1])
+        of_type = orb(payload[1])
         if of_type == 1:
-            err_type = ord(payload[9])
+            err_type = orb(payload[9])
             # err_type is a short int, but last byte is enough
             if err_type == 255: err_type = 65535
             return ofp_error_cls[err_type]
         elif of_type == 16:
-            mp_type = ord(payload[9])
+            mp_type = orb(payload[9])
             if mp_type == 255: mp_type = 65535
             return ofp_stats_request_cls[mp_type]
         elif of_type == 17:
-            mp_type = ord(payload[9])
+            mp_type = orb(payload[9])
             if mp_type == 255: mp_type = 65535
             return ofp_stats_reply_cls[mp_type]
         else:
