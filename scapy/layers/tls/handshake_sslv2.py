@@ -351,7 +351,7 @@ class SSLv2ClientMasterKey(_SSLv2Handshake):
         else:
             cs_cls = _tls_cipher_suites_cls[cs_val]
 
-        tls_version = s.tls_version
+        tls_version = s.tls_version or 0x0002
         connection_end = s.connection_end
         wcs_seq_num = s.wcs.seq_num
         s.pwcs = writeConnState(ciphersuite=cs_cls,

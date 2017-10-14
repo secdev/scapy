@@ -79,6 +79,8 @@ assert(mk_enc.clearkeylen == 11)
 assert(mk_enc.encryptedkeylen == 256)
 assert(mk_enc.clearkey == binascii.unhexlify('7ec2f99e946902feedc4dc'))
 assert(mk_enc.encryptedkey[:3] == b"\x9b\xe0\xe7" and mk_enc.encryptedkey[-3:] == b"\xea\x57\x2e")
+assert(t_enc.tls_session.pwcs.tls_version == 0x0002)
+assert(t_enc.tls_session.prcs.tls_version == 0x0002)
 mk_enc.decryptedkey is None
 
 = Reading SSLv2 session - Importing server compromised key
