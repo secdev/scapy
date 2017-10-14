@@ -308,7 +308,7 @@ class ModbusReadFileSubResponse(Packet):
     fields_desc = [BitFieldLenField("respLength", None, 8, count_of="recData", adjust=lambda pkt, p: p*2+1),
                    ByteField("refType", 0x06),
                    FieldListField("recData", [0x0000], XShortField("", 0x0000),
-                                  count_from=lambda pkt: (pkt.respLength-1)/2)]
+                                  count_from=lambda pkt: (pkt.respLength-1)//2)]
 
     def guess_payload_class(self, payload):
         return ModbusReadFileSubResponse
@@ -344,7 +344,7 @@ class ModbusWriteFileSubRequest(Packet):
     fields_desc = [ByteField("refType", 0x06),
                    ShortField("fileNumber", 0x0001),
                    ShortField("recordNumber", 0x0000),
-                   BitFieldLenField("recordLength", None, 16, length_of="recordData", adjust=lambda pkt, p: p/2),
+                   BitFieldLenField("recordLength", None, 16, length_of="recordData", adjust=lambda pkt, p: p//2),
                    FieldListField("recordData", [0x0000], ShortField("", 0x0000),
                                   length_from=lambda pkt: pkt.recordLength*2)]
 
@@ -773,10 +773,10 @@ class ModbusADURequest(Packet):
                    XByteField("unitId", 0xff)]  # 0xFF (recommended as non-significant value) or 0x00
 
     def guess_payload_class(self, payload):
-        function_code = int(payload[0].encode("hex"), 16)
+        function_code = orb(payload[0])
 
         if function_code == 0x2B:
-            sub_code = int(payload[1].encode("hex"), 16)
+            sub_code = orb(payload[1])
             try:
                 return _mei_types_request[sub_code]
             except KeyError:
@@ -804,10 +804,10 @@ class ModbusADUResponse(Packet):
                    XByteField("unitId", 0xff)]  # 0xFF or 0x00 should be used for Modbus over TCP/IP
 
     def guess_payload_class(self, payload):
-        function_code = int(payload[0].encode("hex"), 16)
+        function_code = orb(payload[0])
 
         if function_code == 0x2B:
-            sub_code = int(payload[1].encode("hex"), 16)
+            sub_code = orb(payload[1])
             try:
                 return _mei_types_response[sub_code]
             except KeyError:
