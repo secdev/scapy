@@ -808,10 +808,10 @@ class BitField(Field):
     def reverse(self, val):
         if self.size == 16:
             # Replaces socket.ntohs (but work on both little/big endian)
-            val = struct.unpack('>H',struct.pack('<H', val))[0]
+            val = struct.unpack('>H',struct.pack('<H', int(val)))[0]
         elif self.size == 32:
             # Same here but for socket.ntohl
-            val = struct.unpack('>I',struct.pack('<I', val))[0]
+            val = struct.unpack('>I',struct.pack('<I', int(val)))[0]
         return val
 
     def addfield(self, pkt, s, val):

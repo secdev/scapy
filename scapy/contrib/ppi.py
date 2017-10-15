@@ -48,7 +48,7 @@ class PPIGenericFldHdr(Packet):
                     StrLenField("value", "", length_from=lambda p:p.pfh_length) ]
 
     def extract_padding(self, p):
-        return "",p
+        return b"",p
 
 def _PPIGuessPayloadClass(p, **kargs):
     """ This function tells the PacketListField how it should extract the
@@ -67,11 +67,13 @@ def _PPIGuessPayloadClass(p, **kargs):
         out = cls(p[:pfh_len], **kargs)
         if (out.payload):
             out.payload = conf.raw_layer(out.payload.load)
+            out.payload.underlayer = out
             if (len(p) > pfh_len):
                 out.payload.payload = conf.padding_layer(p[pfh_len:])
+                out.payload.payload.underlayer = out.payload
         elif (len(p) > pfh_len):
             out.payload = conf.padding_layer(p[pfh_len:])
-        
+            out.payload.underlayer = out
     else:
         out = conf.raw_layer(p, **kargs)
     return out
