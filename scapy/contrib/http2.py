@@ -33,6 +33,7 @@ import re
 from io import BytesIO
 import struct
 import scapy.modules.six as six
+from scapy.compat import *
 from scapy.modules.six.moves import range
 
 # Only required if using mypy-lang for static typing
@@ -238,8 +239,8 @@ class AbstractUVarIntField(fields.Field):
         @return bool: True if multibyte repr detected, else False.
         @raise AssertionError
         """
-        assert(len(fb) == 1)
-        return (ord(fb) & self._max_value) == self._max_value
+        assert(isinstance(fb, int) or len(fb) == 1)
+        return (orb(fb) & self._max_value) == self._max_value
 
     def _parse_multi_byte(self, s):
         # type: (str) -> int
@@ -258,7 +259,7 @@ class AbstractUVarIntField(fields.Field):
 
         value = 0
         i = 1
-        byte = ord(s[i])
+        byte = orb(s[i])
         # For CPU sake, stops at an arbitrary large number!
         max_value = 1 << 64
         # As long as the MSG is set, an another byte must be read
@@ -270,7 +271,7 @@ class AbstractUVarIntField(fields.Field):
                 )
             i += 1
             assert i < l, 'EINVAL: x: out-of-bound read: the string ends before the AbstractUVarIntField!'
-            byte = ord(s[i])
+            byte = orb(s[i])
         value += byte << (7 * (i - 1))
         value += self._max_value
 
@@ -288,19 +289,19 @@ class AbstractUVarIntField(fields.Field):
         @param str|(str, int) x: the string to convert. If bits were consumed by a previous bitfield-compatible field.
         @raise AssertionError
         """
-        assert(isinstance(x, str) or (isinstance(x, tuple) and x[1] >= 0))
+        assert(isinstance(x, bytes) or (isinstance(x, tuple) and x[1] >= 0))
 
         if isinstance(x, tuple):
             assert (8 - x[1]) == self.size, 'EINVAL: x: not enough bits remaining in current byte to read the prefix'
             val = x[0]
         else:
-            assert isinstance(x, str) and self.size == 8, 'EINVAL: x: tuple expected when prefix_len is not a full byte'
+            assert isinstance(x, bytes) and self.size == 8, 'EINVAL: x: tuple expected when prefix_len is not a full byte'
             val = x
 
         if self._detect_multi_byte(val[0]):
             ret = self._parse_multi_byte(val)
         else:
-            ret = ord(val[0]) & self._max_value
+            ret = orb(val[0]) & self._max_value
 
         assert(ret >= 0)
         return ret
@@ -316,17 +317,17 @@ class AbstractUVarIntField(fields.Field):
         assert(x >= 0)
 
         if x < self._max_value:
-            return chr(x)
+            return chb(x)
         else:
             # The sl list join is a performance trick, because string
             # concatenation is not efficient with Python immutable strings
-            sl = [chr(self._max_value)]
+            sl = [chb(self._max_value)]
             x -= self._max_value
             while x >= 0x80:
-                sl.append(chr(0x80 | (x & 0x7F)))
+                sl.append(chb(0x80 | (x & 0x7F)))
                 x >>= 7
-            sl.append(chr(x))
-            return ''.join(sl)
+            sl.append(chb(x))
+            return b''.join(sl)
 
     def any2i(self, pkt, x):
         # type: (Optional[packet.Packet], Union[None, str, int]) -> Optional[int]
@@ -346,7 +347,7 @@ class AbstractUVarIntField(fields.Field):
             ret = self.h2i(pkt, x)
             assert(isinstance(ret, six.integer_types) and ret >= 0)
             return ret
-        elif isinstance(x, str):
+        elif isinstance(x, bytes):
             ret = self.m2i(pkt, x)
             assert (isinstance(ret, six.integer_types) and ret >= 0)
             return ret
@@ -377,20 +378,20 @@ class AbstractUVarIntField(fields.Field):
         @raise AssertionError
         """
         assert(val >= 0)
-        if isinstance(s, str):
+        if isinstance(s, bytes):
             assert self.size == 8, 'EINVAL: s: tuple expected when prefix_len is not a full byte'
             return s + self.i2m(pkt, val)
 
         # s is a tuple
-        assert(s[1] >= 0)
-        assert(s[2] >= 0)
-        assert (8 - s[1]) == self.size, 'EINVAL: s: not enough bits remaining in current byte to read the prefix'
+        #assert(s[1] >= 0)
+        #assert(s[2] >= 0)
+        #assert (8 - s[1]) == self.size, 'EINVAL: s: not enough bits remaining in current byte to read the prefix'
 
         if val >= self._max_value:
-            return s[0] + chr((s[2] << self.size) + self._max_value) + self.i2m(pkt, val)[1:]
+            return s[0] + chb((s[2] << self.size) + self._max_value) + self.i2m(pkt, val)[1:]
         # This AbstractUVarIntField is only one byte long; setting the prefix value
         # and appending the resulting byte to the string
-        return s[0] + chr((s[2] << self.size) + ord(self.i2m(pkt, val)))
+        return chb(s[0]) + chb((s[2] << self.size) + orb(self.i2m(pkt, val)))
 
     @staticmethod
     def _detect_bytelen_from_str(s):
@@ -408,7 +409,7 @@ class AbstractUVarIntField(fields.Field):
         l = len(s)
 
         i = 1
-        while ord(s[i]) & 0x80 > 0:
+        while orb(s[i]) & 0x80 > 0:
             i += 1
             assert i < l, 'EINVAL: s: out-of-bound read: unfinished AbstractUVarIntField detected'
         ret = i + 1
@@ -458,7 +459,7 @@ class AbstractUVarIntField(fields.Field):
             assert 8 - ti == self.size, 'EINVAL: s: not enough bits remaining in current byte to read the prefix'
             val = ts
         else:
-            assert isinstance(s, str) and self.size == 8, 'EINVAL: s: tuple expected when prefix_len is not a full byte'
+            assert isinstance(s, bytes) and self.size == 8, 'EINVAL: s: tuple expected when prefix_len is not a full byte'
             val = s
 
         if self._detect_multi_byte(val[0]):
@@ -635,6 +636,10 @@ class HPackStringsInterface(six.with_metaclass(abc.ABCMeta, Sized)):
     @abc.abstractmethod
     def __str__(self): pass
 
+    def __bytes__(self):
+        r = self.__str__()
+        return r if isinstance(r, bytes) else raw(r)
+
     @abc.abstractmethod
     def origin(self): pass
 
@@ -658,7 +663,7 @@ class HPackLiteralString(HPackStringsInterface):
 
     def origin(self):
         # type: () -> str
-        return self._s
+        return plain_str(self._s)
 
     def __len__(self):
         # type: () -> int
@@ -997,8 +1002,8 @@ class HPackZString(HPackStringsInterface):
         if isinstance(c, EOS):
             return cls.static_huffman_code[-1]
         else:
-            assert(len(c) == 1)
-        return cls.static_huffman_code[ord(c)]
+            assert(isinstance(c, int) or len(c) == 1)
+        return cls.static_huffman_code[orb(c)]
 
     @classmethod
     def huffman_encode(cls, s):
@@ -1064,7 +1069,7 @@ class HPackZString(HPackStringsInterface):
                     raise AssertionError()
             elif isinstance(elmt, EOS):
                 raise InvalidEncodingException('Huffman decoder met the full EOS symbol')
-            elif isinstance(elmt, str):
+            elif isinstance(elmt, bytes):
                 interrupted = False
                 s.append(elmt)
                 cur = cls.static_huffman_tree
@@ -1084,7 +1089,7 @@ class HPackZString(HPackStringsInterface):
             eos_msb = eos_symbol[0] >> (eos_symbol[1] - cur_sym_bl)
             if eos_msb != cur_sym:
                 raise InvalidEncodingException('Huffman decoder is detecting unexpected padding format')
-        return ''.join(s)
+        return b''.join(s)
 
     @classmethod
     def huffman_conv2str(cls, bit_str, bit_len):
@@ -1100,7 +1105,7 @@ class HPackZString(HPackStringsInterface):
         assert(bit_str >= 0)
         assert(bit_len >= 0)
 
-        byte_len = bit_len/8
+        byte_len = bit_len // 8
         rem_bit = bit_len % 8
         if rem_bit != 0:
             bit_str <<= 8 - rem_bit
@@ -1111,9 +1116,9 @@ class HPackZString(HPackStringsInterface):
         s = []  # type: List[str]
         i = 0
         while i < byte_len:
-            s.insert(0, chr((bit_str >> (i*8)) & 0xFF))
+            s.insert(0, chb((bit_str >> (i*8)) & 0xFF))
             i += 1
-        return ''.join(s)
+        return b''.join(s)
 
     @classmethod
     def huffman_conv2bitstring(cls, s):
@@ -1129,7 +1134,7 @@ class HPackZString(HPackStringsInterface):
         i = 0
         ibl = len(s) * 8
         for c in s:
-            i = (i << 8) + ord(c)
+            i = (i << 8) + orb(c)
 
         ret = i, ibl
         assert(ret[0] >= 0)
@@ -1150,10 +1155,10 @@ class HPackZString(HPackStringsInterface):
             parent = cls.static_huffman_tree
             for idx in range(entry[1] - 1, -1, -1):
                 b = (entry[0] >> idx) & 1
-                if isinstance(parent[b], str):
+                if isinstance(parent[b], bytes):
                     raise InvalidEncodingException('Huffman unique prefix violation :/')
                 if idx == 0:
-                    parent[b] = chr(i) if i < 256 else EOS()
+                    parent[b] = chb(i) if i < 256 else EOS()
                 elif parent[b] is None:
                     parent[b] = HuffmanNode(None, None)
                 parent = parent[b]
@@ -1171,7 +1176,7 @@ class HPackZString(HPackStringsInterface):
 
     def origin(self):
         # type: () -> str
-        return self._s
+        return plain_str(self._s)
 
     def __len__(self):
         # type: () -> int
@@ -1261,7 +1266,7 @@ class HPackStrLenField(fields.Field):
         @return HPackStringsInterface: the Scapy internal value for this field
         @raise AssertionError, InvalidEncodingException
         """
-        if isinstance(x, str):
+        if isinstance(x, bytes):
             assert(isinstance(pkt, packet.Packet))
             return self.m2i(pkt, x)
         assert(isinstance(x, HPackStringsInterface))
@@ -1269,7 +1274,7 @@ class HPackStrLenField(fields.Field):
 
     def i2m(self, pkt, x):
         # type: (Optional[packet.Packet], HPackStringsInterface) -> str
-        return str(x)
+        return raw(x)
 
     def i2len(self, pkt, x):
         # type: (Optional[packet.Packet], HPackStringsInterface) -> int
@@ -1328,7 +1333,7 @@ class HPackHeaders(packet.Packet):
         """
         if s is None:
             return config.conf.raw_layer
-        fb = ord(s[0])
+        fb = orb(s[0])
         if fb & 0x80 != 0:
             return HPackIndexedHdr
         if fb & 0x40 != 0:
@@ -1609,7 +1614,7 @@ class H2PaddedPriorityHeadersFrame(H2AbstractHeadersFrame):
         bit_cnt += self.get_field('stream_dependency').size
         fld, fval = self.getfield_and_val('weight')
         weight_len = fld.i2len(self, fval)
-        ret = (self.s_len
+        ret = int(self.s_len
             - padding_len_len
             - padding_len
             - (bit_cnt / 8)
@@ -1756,7 +1761,7 @@ class H2SettingsFrame(H2FramePayload):
         # RFC7540 par6.5 p36
         assert(
             len(args) == 0 or (
-                isinstance(args[0], str)
+                isinstance(args[0], bytes)
                 and len(args[0]) % 6 == 0
             )
         ), 'Invalid settings frame; length is not a multiple of 6'
@@ -1818,10 +1823,10 @@ class H2PaddedPushPromiseFrame(H2PushPromiseFrame):
         bit_len = self.get_field('reserved').size
         bit_len += self.get_field('stream_id').size
 
-        ret = (self.s_len
+        ret = int(self.s_len
             - padding_len_len
             - padding_len
-            - (bit_len/8)
+            - (bit_len / 8)
         )
         assert(ret >= 0)
         return ret
@@ -1861,7 +1866,8 @@ class H2PingFrame(H2FramePayload):
         # RFC7540 par6.7 p42
         assert(
             len(args) == 0 or (
-                isinstance(args[0], str)
+                (isinstance(args[0], bytes) or
+                isinstance(args[0], str))
                 and len(args[0]) == 8
             )
         ), 'Invalid ping frame; length is not 8'
@@ -1903,7 +1909,8 @@ class H2WindowUpdateFrame(H2FramePayload):
         # RFC7540 par6.9 p46
         assert(
             len(args) == 0 or (
-                isinstance(args[0], str)
+                (isinstance(args[0], bytes) or
+                isinstance(args[0], str))
                 and len(args[0]) == 4
             )
         ), 'Invalid window update frame; length is not 4'
@@ -2079,7 +2086,7 @@ packet.bind_layers(H2Frame, H2ContinuationFrame, {'type': H2ContinuationFrame.ty
 
 ########################################## HTTP/2 Connection Preface ###################################################
 # From RFC 7540 par3.5
-H2_CLIENT_CONNECTION_PREFACE = '505249202a20485454502f322e300d0a0d0a534d0d0a0d0a'.decode('hex')
+H2_CLIENT_CONNECTION_PREFACE = bytes_hex('505249202a20485454502f322e300d0a0d0a534d0d0a0d0a')
 
 
 ########################################################################################################################
@@ -2132,6 +2139,8 @@ class HPackHdrEntry(Sized):
             return "{} {}".format(self._name, self._value)
         else:
             return "{}: {}".format(self._name, self._value)
+    def __bytes__(self):
+        return raw(self.__str__())
 
 
 class HPackHdrTable(Sized):
@@ -2225,7 +2234,6 @@ class HPackHdrTable(Sized):
     # The value of this variable cannot be determined at declaration time. It is
     # initialized by an init_static_table call
     _static_entries_last_idx = None
-    _regexp = None
 
     @classmethod
     def init_static_table(cls):
@@ -2239,6 +2247,7 @@ class HPackHdrTable(Sized):
         @param int dynamic_table_cap_size: the maximum-maximum size of the dynamic entry table in bytes
         @raises AssertionError
         """
+        self._regexp = None
         if isinstance(type(self)._static_entries_last_idx, type(None)):
             type(self).init_static_table()
 
@@ -2569,20 +2578,20 @@ class HPackHdrTable(Sized):
     def _parse_header_line(self, l):
         # type: (str) -> Union[Tuple[None, None], Tuple[str, str]]
 
-        if type(self)._regexp is None:
-            type(self)._regexp = re.compile(r'^(?::([a-z\-0-9]+)|([a-z\-0-9]+):)\s+(.+)$')
+        if self._regexp is None:
+            self._regexp = re.compile(b'^(?::([a-z\-0-9]+)|([a-z\-0-9]+):)\s+(.+)$')
 
         hdr_line = l.rstrip()
-        grp = type(self)._regexp.match(hdr_line)
+        grp = self._regexp.match(hdr_line)
 
         if grp is None or len(grp.groups()) != 3:
             return None, None
 
         if grp.group(1) is not None:
-            hdr_name = ':'+grp.group(1)
+            hdr_name = b':'+grp.group(1)
         else:
             hdr_name = grp.group(2)
-        return hdr_name.lower(), grp.group(3)
+        return plain_str(hdr_name.lower()), plain_str(grp.group(3))
 
     def parse_txt_hdrs(self,
                        s,  # type: str
@@ -2625,7 +2634,7 @@ class HPackHdrTable(Sized):
 
         sio = BytesIO(s)
 
-        base_frm_len = len(str(H2Frame()))
+        base_frm_len = len(raw(H2Frame()))
 
         ret = H2Seq()
         cur_frm = H2HeadersFrame()  # type: Union[H2HeadersFrame, H2ContinuationFrame]
@@ -2640,7 +2649,7 @@ class HPackHdrTable(Sized):
             new_hdr, new_hdr_len = self._convert_a_header_to_a_h2_header(
                 hdr_name, hdr_value, is_sensitive, should_index
             )
-            new_hdr_bin_len = len(str(new_hdr))
+            new_hdr_bin_len = len(raw(new_hdr))
 
             if register and isinstance(new_hdr, HPackLitHdrFldWithIncrIndexing):
                 self.register(new_hdr)
@@ -2655,7 +2664,7 @@ class HPackHdrTable(Sized):
             ):
                 raise Exception('Header too long: {}'.format(hdr_name))
 
-            if (max_frm_sz < len(str(cur_frm)) + base_frm_len + new_hdr_len
+            if (max_frm_sz < len(raw(cur_frm)) + base_frm_len + new_hdr_len
                 or (
                     max_hdr_lst_sz != 0
                     and max_hdr_lst_sz < cur_hdr_sz + new_hdr_len
@@ -2678,7 +2687,7 @@ class HPackHdrTable(Sized):
         ret.frames.append(H2Frame(stream_id=stream_id, flags=flags)/cur_frm)
 
         if body:
-            base_data_frm_len = len(str(H2DataFrame()))
+            base_data_frm_len = len(raw(H2DataFrame()))
             sio = BytesIO(body)
             frgmt = sio.read(max_frm_sz - base_data_frm_len - base_frm_len)
             while frgmt:
