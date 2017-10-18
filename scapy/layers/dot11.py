@@ -394,11 +394,13 @@ iwconfig wlan0 mode managed
     function_name = "airpwn"
     filter = None
     
-    def parse_options(self, iffrom, ifto, replace, pattern="", ignorepattern=""):
+    def parse_options(self, iffrom=conf.iface, ifto=conf.iface, replace="",
+                            pattern="", ignorepattern=""):
         self.iffrom = iffrom
         self.ifto = ifto
-        ptrn = re.compile(pattern)
-        iptrn = re.compile(ignorepattern)
+        self.ptrn = re.compile(pattern)
+        self.iptrn = re.compile(ignorepattern)
+        self.replace = replace
         
     def is_request(self, pkt):
         if not isinstance(pkt,Dot11):
@@ -412,8 +414,9 @@ iwconfig wlan0 mode managed
         pay = raw(tcp.payload)
         if not self.ptrn.match(pay):
             return 0
-        if self.iptrn.match(pay):
+        if self.iptrn.match(pay) == True:
             return 0
+        return True
 
     def make_reply(self, p):
         ip = p.getlayer(IP)
@@ -433,8 +436,9 @@ iwconfig wlan0 mode managed
         q.getlayer(TCP).seq+=len(self.replace)
         return [p,q]
     
-    def print_reply(self):
-        print(self.sprintf("Sent %IP.src%:%IP.sport% > %IP.dst%:%TCP.dport%"))
+    def print_reply(self, query, *reply):
+        p = reply[0][0]
+        print(p.sprintf("Sent %IP.src%:%IP.sport% > %IP.dst%:%TCP.dport%"))
 
     def send_reply(self, reply):
         sendp(reply, iface=self.ifto, **self.optsend)
@@ -443,61 +447,6 @@ iwconfig wlan0 mode managed
         sniff(iface=self.iffrom, **self.optsniff)
 
 
-def airpwn(iffrom, ifto, replace, pattern="", ignorepattern=""):
-    """Before using this, initialize "iffrom" and "ifto" interfaces:
-iwconfig iffrom mode monitor
-iwpriv orig_ifto hostapd 1
-ifconfig ifto up
-note: if ifto=wlan0ap then orig_ifto=wlan0
-note: ifto and iffrom must be set on the same channel
-ex:
-ifconfig eth1 up
-iwconfig eth1 mode monitor
-iwconfig eth1 channel 11
-iwpriv wlan0 hostapd 1
-ifconfig wlan0ap up
-iwconfig wlan0 channel 11
-iwconfig wlan0 essid dontexist
-iwconfig wlan0 mode managed
-"""
-    
-    ptrn = re.compile(pattern)
-    iptrn = re.compile(ignorepattern)
-    def do_airpwn(p, ifto=ifto, replace=replace, ptrn=ptrn, iptrn=iptrn):
-        if not isinstance(p,Dot11):
-            return
-        if not p.FCfield & 1:
-            return
-        if not p.haslayer(TCP):
-            return
-        ip = p.getlayer(IP)
-        tcp = p.getlayer(TCP)
-        pay = raw(tcp.payload)
-        if not ptrn.match(pay):
-            return
-        if iptrn.match(pay):
-            return
-        del(p.payload.payload.payload)
-        p.FCfield="from-DS"
-        p.addr1,p.addr2 = p.addr2,p.addr1
-        q = p.copy()
-        p /= IP(src=ip.dst,dst=ip.src)
-        p /= TCP(sport=tcp.dport, dport=tcp.sport,
-                 seq=tcp.ack, ack=tcp.seq+len(pay),
-                 flags="PA")
-        q = p.copy()
-        p /= replace
-        q.ID += 1
-        q.getlayer(TCP).flags="RA"
-        q.getlayer(TCP).seq+=len(replace)
-        
-        sendp([p,q], iface=ifto, verbose=0)
-        print(p.sprintf("Sent %IP.src%:%IP.sport% > %IP.dst%:%TCP.dport%"))
-
-    sniff(iface=iffrom,prn=do_airpwn)
-
-            
-        
 conf.stats_dot11_protocols += [Dot11WEP, Dot11Beacon, ]
 
 

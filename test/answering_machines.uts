@@ -104,3 +104,21 @@ assert res[UDP].dport == 546
 assert res[DHCP6_Solicit]
 a.print_reply(req, res)
 
+= WiFi_am
+import mock
+@mock.patch("scapy.layers.dot11.sniff")
+def test_WiFi_am(packet_query, check_reply, mock_sniff, **kargs):
+    def sniff(*args,**kargs):
+        kargs["prn"](packet_query)
+    mock_sniff.side_effect = sniff
+    am = WiFi_am(**kargs)
+    am.send_reply = check_reply
+    am()
+
+def check_WiFi_am_reply(packet):
+    assert(isinstance(packet, list) and len(packet) == 2)
+    assert(TCP in packet[0] and Raw in packet[0] and raw(packet[0][Raw]) == "5c4pY")
+
+test_WiFi_am(Dot11(FCfield="to-DS")/IP()/TCP()/"Scapy",
+             check_WiFi_am_reply,
+             iffrom="scapy0", ifto="scapy1", replace="5c4pY", pattern="Scapy")
