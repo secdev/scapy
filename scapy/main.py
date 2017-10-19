@@ -17,11 +17,6 @@ import logging
 from random import choice
 import types
 
-try:
-    import IPython # Allow testing
-except:
-    pass
-
 # Never add any global import, in main.py, that would trigger a warning messsage
 # before the console handlers gets added in interact()
 from scapy.error import log_interactive, log_loading, log_scapy, warning
@@ -477,44 +472,55 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
     if mybanner is not None:
         the_banner += "\n"
         the_banner += mybanner
-    
-    IPYTHON=False
-    if not conf.interactive_shell or conf.interactive_shell.lower() in ["ipython", "auto"]:
+
+    if not conf.interactive_shell or conf.interactive_shell.lower() in [
+            "ipython", "auto"
+    ]:
         try:
-            IPython
-            IPYTHON=True
-        except NameError as e:
-            log_loading.warning("IPython not available. Using standard Python shell instead. "
-                                "AutoCompletion, History are disabled.")
-            IPYTHON=False
+            import IPython
+            from IPython.terminal.embed import InteractiveShellEmbed
+        except ImportError:
+            log_loading.warning(
+                "IPython not available. Using standard Python shell "
+                "instead.\nAutoCompletion, History are disabled."
+            )
+            IPYTHON = False
+        else:
+            IPYTHON = True
+    else:
+        IPYTHON = False
 
     init_session(session_name, mydict)
 
     if IPYTHON:
         banner = the_banner + " using IPython %s\n" % IPython.__version__
-        from IPython.terminal.embed import InteractiveShellEmbed
-        from IPython.terminal.prompts import Prompts, Token
-        from traitlets.config.loader import Config
-        from scapy.packet import Packet
-
-        cfg = Config()
-
         try:
-            get_ipython
-        except NameError:
-            # Set "classic" prompt style when launched from run_scapy(.bat) files
-            apply_ipython_style(shell=cfg.TerminalInteractiveShell) # Register and apply scapy color+prompt style
-            cfg.TerminalInteractiveShell.confirm_exit = False # Remove confirm exit
-            cfg.TerminalInteractiveShell.separate_in = u'' # Remove spacing line
-
-        cfg.TerminalInteractiveShell.hist_file = conf.histfile
-        
-        # configuration can thus be specified here.
-        ipshell = InteractiveShellEmbed(config=cfg,
-                                        banner1=banner,
-                                        hist_file=conf.histfile if conf.histfile else None,
-                                        user_ns=SESSION)
-
+            from traitlets.config.loader import Config
+        except ImportError:
+            log_loading.warning(
+                "traitlets not available. Some Scapy shell features won't be "
+                "available."
+            )
+            ipshell = InteractiveShellEmbed(
+                banner1=banner,
+                user_ns=SESSION,
+            )
+        else:
+            cfg = Config()
+            try:
+                get_ipython
+            except NameError:
+                # Set "classic" prompt style when launched from run_scapy(.bat) files
+                # Register and apply scapy color+prompt style
+                apply_ipython_style(shell=cfg.TerminalInteractiveShell)
+                cfg.TerminalInteractiveShell.confirm_exit = False
+                cfg.TerminalInteractiveShell.separate_in = u''
+            cfg.TerminalInteractiveShell.hist_file = conf.histfile
+            # configuration can thus be specified here.
+            ipshell = InteractiveShellEmbed(config=cfg,
+                                            banner1=banner,
+                                            hist_file=conf.histfile if conf.histfile else None,
+                                            user_ns=SESSION)
         ipshell(local_ns=SESSION)
     else:
         code.interact(banner = the_banner, local=SESSION)

@@ -291,7 +291,14 @@ class HTMLTheme2(HTMLTheme):
 def apply_ipython_style(shell):
     """Updates the specified IPython console shell with
     the conf.color_theme scapy theme."""
-    from IPython.terminal.prompts import Prompts, Token
+    try:
+        from IPython.terminal.prompts import Prompts, Token
+    except:
+        from scapy.error import log_loading
+        log_loading.warning(
+            "IPython too old. Some Scapy shell features won't be available."
+            )
+        return
     from scapy.config import conf
     if isinstance(conf.prompt, Prompts):
         shell.prompts_class = conf.prompt # Set custom prompt style
