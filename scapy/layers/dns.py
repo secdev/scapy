@@ -23,6 +23,13 @@ from functools import reduce
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
 
+class InheritOriginDNSStrPacket(Packet):
+    __slots__ = Packet.__slots__ + ["_orig_s"]
+
+    def __init__(self, _pkt=None, _orig_s=None, *args, **kwargs):
+        self._orig_s = _orig_s
+        Packet.__init__(self, _pkt=_pkt, *args, **kwargs)
+
 class DNSStrField(StrField):
     def h2i(self, pkt, x):
         if x == "":
@@ -41,17 +48,21 @@ class DNSStrField(StrField):
 
     def getfield(self, pkt, s):
         n = ""
-
         if orb(s[0]) == 0:
             return s[1:], "."
-
         while True:
             l = orb(s[0])
             s = s[1:]
             if not l:
                 break
             if l & 0xc0:
-                raise Scapy_Exception("DNS message can't be compressed at this point!")
+                p = ((l & ~0xc0) << 8) + orb(s[0]) - 12
+                if hasattr(pkt, "_orig_s") and pkt._orig_s:
+                    ns = DNSgetstr(pkt._orig_s, p)[0]
+                    n += ns
+                    s = s[1:]
+                else:
+                    raise Scapy_Exception("DNS message can't be compressed at this point!")
             else:
                 n += plain_str(s[:l])+"."
                 s = s[l:]
@@ -81,7 +92,7 @@ class DNSRRCountField(ShortField):
         return x
 
 
-def DNSgetstr(s,p):
+def DNSgetstr(s, p):
     name = b""
     q = 0
     jpath = [p]
@@ -89,21 +100,21 @@ def DNSgetstr(s,p):
         if p >= len(s):
             warning("DNS RR prematured end (ofs=%i, len=%i)"%(p,len(s)))
             break
-        l = orb(s[p])
+        l = orb(s[p]) # current value of the string at p
         p += 1
-        if l & 0xc0:
+        if l & 0xc0: # Pointer label
             if not q:
                 q = p+1
             if p >= len(s):
                 warning("DNS incomplete jump token at (ofs=%i)" % p)
                 break
-            p = ((l & 0x3f) << 8) + orb(s[p]) - 12
+            p = ((l & ~0xc0) << 8) + orb(s[p]) - 12
             if p in jpath:
                 warning("DNS decompression loop detected")
                 break
             jpath.append(p)
             continue
-        elif l > 0:
+        elif l > 0: # Label
             name += s[p:p+l]+b"."
             p += l
             continue
@@ -128,18 +139,18 @@ class DNSRRField(StrField):
         ret = s[p:p+10]
         type,cls,ttl,rdlen = struct.unpack("!HHIH", ret)
         p += 10
-        rr = DNSRR(b"\x00"+ret+s[p:p+rdlen])
+        rr = DNSRR(b"\x00"+ret+s[p:p+rdlen], _orig_s=s)
         if type in [2, 3, 4, 5]:
             rr.rdata = DNSgetstr(s,p)[0]
             del(rr.rdlen)
         elif type in DNSRR_DISPATCHER:
-            rr = DNSRR_DISPATCHER[type](b"\x00"+ret+s[p:p+rdlen])
+            rr = DNSRR_DISPATCHER[type](b"\x00"+ret+s[p:p+rdlen], _orig_s=s)
         else:
           del(rr.rdlen)
 
         p += rdlen
 
-        rr.rrname = name.decode("utf8")
+        rr.rrname = plain_str(name)
         return rr,p
     def getfield(self, pkt, s):
         if isinstance(s, tuple) :
@@ -181,7 +192,12 @@ class RDataField(StrLenField):
         if pkt.type == 1: # A
             family = socket.AF_INET
         elif pkt.type == 12: # PTR
-            s = DNSgetstr(s, 0)[0]
+            l = orb(s[0])
+            if l & 0xc0 and hasattr(pkt, "_orig_s") and pkt._orig_s: # Compression detected
+                p = ((l & ~0xc0) << 8) + orb(s[1]) - 12
+                s = DNSgetstr(pkt._orig_s, p)[0]
+            else: # No compression / Cannot decompress
+                s = DNSgetstr(s, 0)[0]
         elif pkt.type == 16: # TXT
             ret_s = b""
             tmp_s = s
@@ -318,7 +334,7 @@ dnsqtypes.update(dnstypes)
 dnsclasses =  {1: 'IN',  2: 'CS',  3: 'CH',  4: 'HS',  255: 'ANY'}
 
 
-class DNSQR(Packet):
+class DNSQR(InheritOriginDNSStrPacket):
     name = "DNS Question Record"
     show_indent=0
     fields_desc = [DNSStrField("qname", "www.example.com"),
@@ -338,7 +354,7 @@ class EDNS0TLV(Packet):
     def extract_padding(self, p):
         return "", p
 
-class DNSRROPT(Packet):
+class DNSRROPT(InheritOriginDNSStrPacket):
     name = "DNS OPT Resource Record"
     fields_desc = [ DNSStrField("rrname",""),
                     ShortEnumField("type", 41, dnstypes),
@@ -483,10 +499,10 @@ class RRlistField(StrField):
     def i2repr(self, pkt, x):
         x = self.i2h(pkt, x)
         rrlist = bitmap2RRlist(x)
-        return [ dnstypes.get(rr, rr) for rr in rrlist ]
+        return [ dnstypes.get(rr, rr) for rr in rrlist ] if rrlist else repr(x)
 
 
-class _DNSRRdummy(Packet):
+class _DNSRRdummy(InheritOriginDNSStrPacket):
     name = "Dummy class that implements post_build() for Resource Records"
     def post_build(self, pkt, pay):
         if not self.rdlen == None:
@@ -693,7 +709,7 @@ DNSSEC_CLASSES = tuple(six.itervalues(DNSRR_DISPATCHER))
 def isdnssecRR(obj):
     return isinstance(obj, DNSSEC_CLASSES)
 
-class DNSRR(Packet):
+class DNSRR(InheritOriginDNSStrPacket):
     name = "DNS Resource Record"
     show_indent=0
     fields_desc = [ DNSStrField("rrname",""),
