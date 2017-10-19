@@ -988,5 +988,5 @@ assert(dnsf.getfield("", b"\x01x\x00") == (b"", "x."))
 try:
     dnsf.getfield("", b"\xff")
     assert(False)
-except Scapy_Exception:
+except (Scapy_Exception, IndexError):
     pass
