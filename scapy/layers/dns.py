@@ -61,6 +61,8 @@ class DNSStrField(StrField):
                     ns = DNSgetstr(pkt._orig_s, p)[0]
                     n += ns
                     s = s[1:]
+                    if not s:
+                        break
                 else:
                     raise Scapy_Exception("DNS message can't be compressed at this point!")
             else:
@@ -180,7 +182,7 @@ class DNSQRField(DNSRRField):
     def decodeRR(self, name, s, p):
         ret = s[p:p+4]
         p += 4
-        rr = DNSQR(b"\x00"+ret)
+        rr = DNSQR(b"\x00"+ret, _orig_s=s)
         rr.qname = plain_str(name)
         return rr, p
 
@@ -632,6 +634,20 @@ class DNSRRNSEC3PARAM(_DNSRRdummy):
                     StrLenField("salt", "", length_from=lambda pkt: pkt.saltlength)
                   ]
 
+# RFC 2782 - A DNS RR for specifying the location of services (DNS SRV)
+
+class DNSRRSRV(InheritOriginDNSStrPacket):
+    name = "DNS SRV Resource Record"
+    fields_desc = [ DNSStrField("rrname",""),
+                    ShortEnumField("type", 51, dnstypes),
+                    ShortEnumField("rclass", 1, dnsclasses),
+                    IntField("ttl", 0),
+                    ShortField("rdlen", None),
+                    ShortField("priority", 0),
+                    ShortField("weight", 0),
+                    ShortField("port", 0),
+                    DNSStrField("target",""), ]
+
 # RFC 2845 - Secret Key Transaction Authentication for DNS (TSIG)
 tsig_algo_sizes = { "HMAC-MD5.SIG-ALG.REG.INT": 16,
                     "hmac-sha1": 20 }
@@ -693,6 +709,7 @@ class DNSRRTSIG(_DNSRRdummy):
 
 
 DNSRR_DISPATCHER = {
+    33: DNSRRSRV,        # RFC 2782
     41: DNSRROPT,        # RFC 1671
     43: DNSRRDS,         # RFC 4034
     46: DNSRRRSIG,       # RFC 4034
