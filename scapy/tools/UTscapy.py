@@ -368,10 +368,6 @@ def remove_empty_testsets(test_campaign):
 #### RUN CAMPAIGN #####
 
 def run_campaign(test_campaign, get_interactive_session, verb=3, ignore_globals=None):
-    if WINDOWS:
-        # Add a route to 127.0.0.1 and ::1
-        from scapy.arch.windows import route_add_loopback
-        route_add_loopback()
     passed=failed=0
     if test_campaign.preexec:
         test_campaign.preexec_output = get_interactive_session(test_campaign.preexec.strip(), ignore_globals=ignore_globals)[0]
