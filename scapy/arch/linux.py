@@ -165,7 +165,7 @@ def set_promisc(s,iff,val=1):
     s.setsockopt(SOL_PACKET, cmd, mreq)
 
 
-def get_alias_address(iface_name, ip_mask, gw_str):
+def get_alias_address(iface_name, ip_mask, gw_str, metric):
     """
     Get the correct source IP address of an interface alias
     """
@@ -198,7 +198,6 @@ def get_alias_address(iface_name, ip_mask, gw_str):
         ifaddr = struct.unpack(">I", ifreq[20:24])[0]
         ifreq = ioctl(sck, SIOCGIFNETMASK, struct.pack("16s16x", ifname))
         msk = struct.unpack(">I", ifreq[20:24])[0]
-        metric = 1 #TODO
        
         # Get the full interface name
         if b':' in ifname:
@@ -237,7 +236,7 @@ def read_routes():
 
     for l in f.readlines()[1:]:
         l = plain_str(l)
-        iff,dst,gw,flags,x,x,x,msk,x,x,x = l.split()
+        iff,dst,gw,flags,x,x,metric,msk,x,x,x = l.split()
         flags = int(flags,16)
         if flags & RTF_UP == 0:
             continue
@@ -260,10 +259,10 @@ def read_routes():
         msk_int = socket.htonl(int(msk, 16)) & 0xffffffff
         ifaddr_int = struct.unpack("!I", ifreq[20:24])[0]
         gw_str = scapy.utils.inet_ntoa(struct.pack("I", int(gw, 16)))
-        metric = 1 #TODO
+        metric = int(metric)
 
         if ifaddr_int & msk_int != dst_int:
-            tmp_route = get_alias_address(iff, dst_int, gw_str)
+            tmp_route = get_alias_address(iff, dst_int, gw_str, metric)
             if tmp_route:
                 routes.append(tmp_route)
             else:
@@ -328,7 +327,8 @@ def read_routes6():
     lifaddr = in6_getifaddr() 
     for l in f.readlines():
         l = plain_str(l)
-        d,dp,s,sp,nh,m,rc,us,fl,dev = l.split()
+        d,dp,s,sp,nh,metric,rc,us,fl,dev = l.split()
+        metric = int(metric, 16)
         fl = int(fl, 16)
 
         if fl & RTF_UP == 0:
@@ -339,7 +339,6 @@ def read_routes6():
         d = proc2r(d) ; dp = int(dp, 16)
         s = proc2r(s) ; sp = int(sp, 16)
         nh = proc2r(nh)
-        metric = 1 #TODO
 
         cset = [] # candidate set (possible source addresses)
         if dev == LOOPBACK_NAME:
