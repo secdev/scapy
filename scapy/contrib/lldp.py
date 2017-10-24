@@ -466,7 +466,7 @@ class LLDPDUSystemDescription(LLDPDU):
     """
     fields_desc = [
         BitEnumField('_type', 0x06, 7, LLDPDU.TYPES),
-        BitFieldLenField('_length', None, 9, length_of='name'),
+        BitFieldLenField('_length', None, 9, length_of='description'),
         StrLenField('description', '', length_from=lambda pkt: pkt._length)
     ]
 
