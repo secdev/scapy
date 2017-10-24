@@ -670,8 +670,6 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
         for stname in self.states:
             setattr(self, stname, 
                     _instance_state(getattr(self, stname)))
-        
-        self.parse_args(*args, **kargs)
 
         self.start()
 
