@@ -90,7 +90,7 @@ class Dot11Common(Packet):
                     dBmByteField('Antnoise',-128)]
 
     def extract_padding(self, p):
-        return "",p
+        return b"",p
 #Hopefully other CACE defined types will be added here.
 
 #Add the dot11common layer to the PPI array

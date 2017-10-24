@@ -328,7 +328,7 @@ class HCSIPacket(Packet):
         p += pay
         return p
     def extract_padding(self, p):
-        return "",p
+        return b"", p
 
 #GPS Fields
 GPS_Fields = [FlagsField("GPSFlags", None, -32, _hcsi_gps_flags),
