@@ -1434,8 +1434,8 @@ class IP6PrefixField(_IPPrefixFieldBase):
         _IPPrefixFieldBase.__init__(self, name, default, wordbytes, 16, lambda a: inet_pton(socket.AF_INET6, a), lambda n: inet_ntop(socket.AF_INET6, n), length_from)
 
 class UTCTimeField(IntField):
-    __slots__ = ["epoch", "delta", "strf"]
-    def __init__(self, name, default, epoch=None, strf="%a, %d %b %Y %H:%M:%S +0000"):
+    __slots__ = ["epoch", "delta", "strf", "use_nano"]
+    def __init__(self, name, default, epoch=None, use_nano=False, strf="%a, %d %b %Y %H:%M:%S +0000"):
         IntField.__init__(self, name, default)
         if epoch is None:
             mk_epoch = EPOCH
@@ -1444,9 +1444,12 @@ class UTCTimeField(IntField):
         self.epoch = mk_epoch
         self.delta = mk_epoch - EPOCH
         self.strf = strf
+        self.use_nano = use_nano
     def i2repr(self, pkt, x):
         if x is None:
             x = 0
+        elif self.use_nano:
+            x = x/1e9
         x = int(x) + self.delta
         t = time.strftime(self.strf, time.gmtime(x))
         return "%s (%d)" % (t, x)
