@@ -9,13 +9,14 @@
 s = PeriodicSource("hello", 1, name="src")
 d1 = Drain(name="d1")
 c = ConsoleSink(name="c")
-tf = TransformDrain(lambda x:"Got %r" % x)
+tf = TransformDrain(lambda x: "Got %s" % x)
 t = TermSink(name="PipeToolsPeriodicTest", keepterm=False)
 s > d1 > c
 d1 > tf > t
 
 p = PipeEngine(s)
-p.graph(type="png",target="> /tmp/pipe.png")
+p.graph(type="png", target="test.png")
+p.graph(type="png")
 p.start()
 time.sleep(3)
 s.msg = []
@@ -71,8 +72,6 @@ p.stop()
 s = AutoSource()
 p = PipeEngine(s)
 assert p == p
-assert not p < p
-assert not p > p
 
 a = AutoSource()
 b = AutoSource()
@@ -141,7 +140,7 @@ s > d1 > c
 p.add(s)
 p.start()
 
-assert os.read(r, 20) == "hello\n"
+assert os.read(r, 20) == b"hello\n"
 p.wait_and_stop()
 
 = Test QueueSink with CLIFeeder
@@ -464,7 +463,8 @@ s.send("hello")
 s.send("trigger")
 assert c.q.get(timeout=3) == "trigger"
 assert d2.q.qsize() == 0
-assert 'hello' in c.q.queue and 'trigger' in c.q.queue
+assert c.q.get(timeout=3) in ['hello', 'trigger']
+assert c.q.get(timeout=3) in ['hello', 'trigger']
 
 p.stop()
 
@@ -489,7 +489,7 @@ s.send("hello")
 s.send("trigger")
 assert c.q.get(timeout=3) == "trigger"
 assert d2.q.qsize() == 0
-assert c.q.queue == deque(['hello'])
+assert c.q.get(timeout=3) == "hello"
 
 p.stop()
 
@@ -550,8 +550,8 @@ s > d1 > c
 p.add(s)
 p.start()
 
-s.send("GET http://www.google.fr/search?q=scapy&start=1&num=1\n")
+s.send(b"GET http://www.google.fr/search?q=scapy&start=1&num=1\n")
 result = c.q.get(timeout=10)
 p.stop()
 
-assert result.startswith("HTTP/1.0 200 OK")
+assert result.startswith(b"HTTP/1.0 200 OK")

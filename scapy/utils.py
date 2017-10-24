@@ -492,33 +492,31 @@ def do_graph(graph,prog=None,format=None,target=None,type=None,string=None,optio
     start_viewer=False
     if target is None:
         if WINDOWS:
-            tempfile = get_temp_file() + "." + format
-            target = "> %s" % tempfile
+            target = get_temp_file(autoext="."+format)
             start_viewer = True
         else:
             target = "| %s" % conf.prog.display
     if format is not None:
-        format = "-T %s" % format
-    w,r = os.popen2("%s %s %s %s" % (prog,options or "", format or "", target))
-    w.write(graph)
-    try:
-        w.close()
-    except IOError:
-        pass
+        format = "-T%s" % format
+    if isinstance(target, str):
+        target = open(os.path.abspath(target), "wb")
+    proc = subprocess.Popen("%s %s %s" % (prog, options or "", format or ""),
+                            shell=True, stdin=subprocess.PIPE, stdout=target)
+    proc.communicate(input=raw(graph))
     if start_viewer:
         # Workaround for file not found error: We wait until tempfile is written.
         waiting_start = time.time()
-        while not os.path.exists(tempfile):
+        while not os.path.exists(target.name):
             time.sleep(0.1)
             if time.time() - waiting_start > 3:
                 warning("Temporary file '%s' could not be written. Graphic will not be displayed.", tempfile)
                 break
         else:  
             if conf.prog.display == conf.prog._default:
-                os.startfile(tempfile)
+                os.startfile(target.name)
             else:
                 with ContextManagerSubprocess("do_graph()"):
-                    subprocess.Popen([conf.prog.display, tempfile])
+                    subprocess.Popen([conf.prog.display, target.name])
 
 _TEX_TR = {
     "{":"{\\tt\\char123}",

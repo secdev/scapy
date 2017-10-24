@@ -178,6 +178,8 @@ os.remove("scapySession1.dat")
 = Test temporary file creation
 ~ appveyor_only
 
+scapy_delete_temp_files()
+
 tmpfile = get_temp_file(autoext=".ut")
 tmpfile
 if WINDOWS:
