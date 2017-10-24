@@ -5833,7 +5833,7 @@ from io import StringIO
 
 def valid_output_read_routes6(routes):
     """"Return True if 'routes' contains correctly formatted entries, False otherwise"""
-    for destination, plen, next_hop, dev, cset  in routes:
+    for destination, plen, next_hop, dev, cset, me  in routes:
         if not in6_isvalid(destination) or not type(plen) == int:
             return False
         if not in6_isvalid(next_hop) or not isinstance(dev, six.string_types):
