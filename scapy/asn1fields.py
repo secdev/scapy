@@ -200,7 +200,7 @@ class ASN1F_BIT_STRING(ASN1F_field):
     def __init__(self, name, default, default_readable=True, context=None,
                  implicit_tag=None, explicit_tag=None):
         if default is not None and default_readable:
-            default = b"".join(binrepr(ord(x)).zfill(8).encode("utf8") for x in default)
+            default = b"".join(binrepr(orb(x)).zfill(8).encode("utf8") for x in default)
         ASN1F_field.__init__(self, name, default, context=context,
                              implicit_tag=implicit_tag,
                              explicit_tag=explicit_tag)
@@ -563,7 +563,7 @@ class ASN1F_BIT_STRING_ENCAPS(ASN1F_BIT_STRING):
             s = b""
         else:
             s = raw(x)
-        s = b"".join(binrepr(ord(x)).zfill(8) for x in s)
+        s = b"".join(binrepr(orb(x)).zfill(8).encode("utf8") for x in s)
         return ASN1F_BIT_STRING.i2m(self, pkt, s)
 
 class ASN1F_FLAGS(ASN1F_BIT_STRING):

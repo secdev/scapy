@@ -9,7 +9,7 @@ upon the TLS version or ciphersuite, the packet has to provide a TLS context.
 """
 
 from scapy.fields import *
-
+import scapy.modules.six as six
 
 _tls_type = { 20: "change_cipher_spec",
               21: "alert",
@@ -60,7 +60,7 @@ class _TLSClientVersionField(ShortEnumField):
             v = pkt.tls_session.advertised_tls_version
             if v:
                 return _tls13_version_filter(v, 0x0303)
-            return ""
+            return b""
         return x
 
 
@@ -125,7 +125,7 @@ class _TLSIVField(StrField):
         return l
 
     def i2m(self, pkt, x):
-        return x or ""
+        return x or b""
 
     def addfield(self, pkt, s, val):
         return s + self.i2m(pkt, val)
@@ -152,7 +152,7 @@ class _TLSMACField(StrField):
 
     def i2m(self, pkt, x):
         if x is None:
-            return ""
+            return b""
         return x
 
     def addfield(self, pkt, s, val):
@@ -161,9 +161,9 @@ class _TLSMACField(StrField):
 
     def getfield(self, pkt, s):
         if (pkt.tls_session.rcs.cipher.type != "aead" and
-            False in pkt.tls_session.rcs.cipher.ready.itervalues()):
+            False in six.itervalues(pkt.tls_session.rcs.cipher.ready)):
             #XXX Find a more proper way to handle the still-encrypted case
-            return s, ""
+            return s, b""
         l = pkt.tls_session.rcs.mac_len
         return s[l:], self.m2i(pkt, s[:l])
 
@@ -180,7 +180,7 @@ class _TLSPadField(StrField):
 
     def i2m(self, pkt, x):
         if x is None:
-            return ""
+            return b""
         return x
 
     def addfield(self, pkt, s, val):
@@ -194,7 +194,7 @@ class _TLSPadField(StrField):
             # because it's possible that the padding is followed by some data
             # from another TLS record (hence the last byte from s would not be
             # the last byte from the current record padding).
-            l = ord(s[pkt.padlen-1])
+            l = orb(s[pkt.padlen-1])
             return s[l:], self.m2i(pkt, s[:l])
         return s, None
 

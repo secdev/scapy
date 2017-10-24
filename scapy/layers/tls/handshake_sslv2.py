@@ -79,19 +79,19 @@ class _SSLv2CipherSuitesField(_CipherSuitesField):
     def __init__(self, name, default, dico, length_from=None):
         _CipherSuitesField.__init__(self, name, default, dico,
                                     length_from=length_from)
-        self.itemfmt = ""
+        self.itemfmt = b""
         self.itemsize = 3
 
     def i2m(self, pkt, val):
         if val is None:
             val2 = []
         val2 = [(x >> 16, x & 0x00ffff) for x in val]
-        return "".join([struct.pack(">BH", x[0], x[1]) for x in val2])
+        return b"".join([struct.pack(">BH", x[0], x[1]) for x in val2])
 
     def m2i(self, pkt, m):
         res = []
         while m:
-            res.append(struct.unpack("!I", "\x00" + m[:3])[0])
+            res.append(struct.unpack("!I", b"\x00" + m[:3])[0])
             m = m[3:]
         return res
 
@@ -111,13 +111,13 @@ class SSLv2ClientHello(_SSLv2Handshake):
                     FieldLenField("challengelen", None, fmt="!H",
                                   length_of="challenge"),
 
-                    XStrLenField("sid", "",
+                    XStrLenField("sid", b"",
                                  length_from=lambda pkt:pkt.sidlen),
                     _SSLv2CipherSuitesField("ciphers",
                                       [SSL_CK_DES_192_EDE3_CBC_WITH_MD5],
                                       _tls_cipher_suites,
                                       length_from=lambda pkt: pkt.cipherslen),
-                    XStrLenField("challenge", "",
+                    XStrLenField("challenge", b"",
                                  length_from=lambda pkt:pkt.challengelen) ]
 
     def tls_session_update(self, msg_str):
@@ -171,11 +171,11 @@ class SSLv2ServerHello(_SSLv2Handshake):
                     FieldLenField("connection_idlen", None, fmt="!H",
                                   length_of="connection_id"),
 
-                    _SSLv2CertDataField("cert", "",
+                    _SSLv2CertDataField("cert", b"",
                                         length_from=lambda pkt: pkt.certlen),
                     _SSLv2CipherSuitesField("ciphers", [], _tls_cipher_suites,
                                 length_from=lambda pkt: pkt.cipherslen),
-                    XStrLenField("connection_id", "",
+                    XStrLenField("connection_id", b"",
                                 length_from=lambda pkt: pkt.connection_idlen) ]
 
     def tls_session_update(self, msg_str):
@@ -204,7 +204,7 @@ class _SSLv2CipherSuiteField(EnumField):
 
     def i2m(self, pkt, val):
         if val is None:
-            return ""
+            return b""
         val2 = (val >> 16, val & 0x00ffff)
         return struct.pack(">BH", val2[0], val2[1])
 
@@ -212,7 +212,7 @@ class _SSLv2CipherSuiteField(EnumField):
         return s + self.i2m(pkt, val)
 
     def m2i(self, pkt, m):
-        return struct.unpack("!I", "\x00" + m[:3])[0]
+        return struct.unpack("!I", b"\x00" + m[:3])[0]
 
     def getfield(self, pkt, s):
         return s[3:], self.m2i(pkt, s)
@@ -223,7 +223,7 @@ class _SSLv2EncryptedKeyField(XStrLenField):
         if pkt.decryptedkey is not None:
             dx = pkt.decryptedkey
             ds = super(_SSLv2EncryptedKeyField, self).i2repr(pkt, dx)
-            s += "    [decryptedkey= %s]" % ds
+            s += b"    [decryptedkey= %s]" % ds
         return s
 
 class SSLv2ClientMasterKey(_SSLv2Handshake):
@@ -261,7 +261,7 @@ class SSLv2ClientMasterKey(_SSLv2Handshake):
             self.decryptedkey = kargs["decryptedkey"]
             del kargs["decryptedkey"]
         else:
-            self.decryptedkey = ""
+            self.decryptedkey = b""
         super(SSLv2ClientMasterKey, self).__init__(*args, **kargs)
         self.explicit = 1
 
@@ -285,7 +285,7 @@ class SSLv2ClientMasterKey(_SSLv2Handshake):
             if len(cs_vals) == 0:
                 warning("No known common cipher suite between SSLv2 Hellos.")
                 cs_val = 0x0700c0
-                cipher = "\x07\x00\xc0"
+                cipher = b"\x07\x00\xc0"
             else:
                 cs_val = cs_vals[0]         #XXX choose the best one
                 cipher = struct.pack(">BH", cs_val >> 16, cs_val & 0x00ffff)
@@ -293,7 +293,7 @@ class SSLv2ClientMasterKey(_SSLv2Handshake):
             self.cipher = cs_val
         else:
             cipher = pkt[1:4]
-            cs_val = struct.unpack("!I", "\x00" + cipher)[0]
+            cs_val = struct.unpack("!I", b"\x00" + cipher)[0]
             if cs_val not in _tls_cipher_suites_cls:
                 warning("Unknown ciphersuite %d from ClientMasterKey" % cs_val)
                 cs_cls = None
@@ -301,15 +301,15 @@ class SSLv2ClientMasterKey(_SSLv2Handshake):
                 cs_cls = _tls_cipher_suites_cls[cs_val]
 
         if cs_cls:
-            if (self.encryptedkey == "" and
+            if (self.encryptedkey == b"" and
                 len(self.tls_session.server_certs) > 0):
                 # else, the user is responsible for export slicing & encryption
                 key = randstring(cs_cls.cipher_alg.key_len)
 
-                if self.clearkey == "" and cs_cls.kx_alg.export:
+                if self.clearkey == b"" and cs_cls.kx_alg.export:
                     self.clearkey = key[:-5]
 
-                if self.decryptedkey == "":
+                if self.decryptedkey == b"":
                     if cs_cls.kx_alg.export:
                         self.decryptedkey = key[-5:]
                     else:
@@ -318,25 +318,25 @@ class SSLv2ClientMasterKey(_SSLv2Handshake):
                 pubkey = self.tls_session.server_certs[0].pubKey
                 self.encryptedkey = pubkey.encrypt(self.decryptedkey)
 
-            if self.keyarg == "" and cs_cls.cipher_alg.type == "block":
+            if self.keyarg == b"" and cs_cls.cipher_alg.type == "block":
                 self.keyarg = randstring(cs_cls.cipher_alg.block_size)
 
-        clearkey = self.clearkey or ""
+        clearkey = self.clearkey or b""
         if self.clearkeylen is None:
             self.clearkeylen = len(clearkey)
         clearkeylen = struct.pack("!H", self.clearkeylen)
 
-        encryptedkey = self.encryptedkey or ""
+        encryptedkey = self.encryptedkey or b""
         if self.encryptedkeylen is None:
             self.encryptedkeylen = len(encryptedkey)
         encryptedkeylen = struct.pack("!H", self.encryptedkeylen)
 
-        keyarg = self.keyarg or ""
+        keyarg = self.keyarg or b""
         if self.keyarglen is None:
             self.keyarglen = len(keyarg)
         keyarglen = struct.pack("!H", self.keyarglen)
 
-        s = (pkt[0] + cipher
+        s = (chb(pkt[0]) + cipher
              + clearkeylen + encryptedkeylen + keyarglen
              + clearkey + encryptedkey + keyarg)
         return s + pay
@@ -440,7 +440,7 @@ class SSLv2ClientCertificate(_SSLv2Handshake):
                     FieldLenField("responselen", None, fmt="!H",
                                   length_of="responsedata"),
 
-                    _SSLv2CertDataField("certdata", "",
+                    _SSLv2CertDataField("certdata", b"",
                                       length_from=lambda pkt: pkt.certlen),
                     _TLSSignatureField("responsedata", None,
                                 length_from=lambda pkt: pkt.responselen) ]
@@ -460,7 +460,7 @@ class SSLv2ClientCertificate(_SSLv2Handshake):
             self.responsedata = _TLSSignature(tls_session=s)
             self.responsedata._update_sig(m, s.client_key)
         else:
-            self.responsedata = ""
+            self.responsedata = b""
         return super(SSLv2ClientCertificate, self).build(*args, **kargs)
 
     def post_dissection_tls_session_update(self, msg_str):
@@ -501,7 +501,7 @@ class SSLv2ClientFinished(_SSLv2Handshake):
 
     def build(self, *args, **kargs):
         fval = self.getfieldval("connection_id")
-        if fval == "":
+        if fval == b"":
             self.connection_id = self.tls_session.sslv2_connection_id
         return super(SSLv2ClientFinished, self).build(*args, **kargs)
 
@@ -524,7 +524,7 @@ class SSLv2ServerFinished(_SSLv2Handshake):
 
     def build(self, *args, **kargs):
         fval = self.getfieldval("sid")
-        if fval == "":
+        if fval == b"":
             self.sid = self.tls_session.sid
         return super(SSLv2ServerFinished, self).build(*args, **kargs)
 

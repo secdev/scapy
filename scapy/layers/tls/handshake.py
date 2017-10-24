@@ -15,6 +15,7 @@ import math
 
 from scapy.error import log_runtime, warning
 from scapy.fields import *
+from scapy.compat import *
 from scapy.packet import Packet, Raw, Padding
 from scapy.utils import repr_hex
 from scapy.layers.x509 import OCSP_Response
@@ -70,11 +71,11 @@ class _TLSHandshake(_GenericTLSSessionInheritance):
         l = len(p)
         if self.msglen is None:
             l2 = l - 4
-            p = struct.pack("!I", (ord(p[0]) << 24) | l2) + p[4:]
+            p = struct.pack("!I", (orb(p[0]) << 24) | l2) + p[4:]
         return p + pay
 
     def guess_payload_class(self, p):
-        return Padding
+        return conf.padding_layer
 
     def tls_session_update(self, msg_str):
         """
@@ -146,7 +147,7 @@ class _CipherSuitesField(StrLenField):
         if (isinstance(x, _GenericCipherSuite) or
             isinstance(x, _GenericCipherSuiteMetaclass)):
             x = x.val
-        if isinstance(x, str):
+        if isinstance(x, bytes):
             x = self.s2i[x]
         return x
 
@@ -174,7 +175,7 @@ class _CipherSuitesField(StrLenField):
     def i2m(self, pkt, val):
         if val is None:
             val = []
-        return "".join(struct.pack(self.itemfmt, x) for x in val)
+        return b"".join(struct.pack(self.itemfmt, x) for x in val)
 
     def m2i(self, pkt, m):
         res = []
@@ -258,7 +259,7 @@ class TLSClientHello(_TLSHandshake):
         if self.ciphers is None:
             cipherstart = 39 + (self.sidlen or 0)
             s = b"001ac02bc023c02fc027009e0067009c003cc009c0130033002f000a"
-            p = p[:cipherstart] + bytes.decode(s, 'hex') + p[cipherstart+2:]
+            p = p[:cipherstart] + bytes_hex(s) + p[cipherstart+2:]
             if self.ext is None:
                 ext_len = b'\x00\x2c'
                 ext_reneg = b'\xff\x01\x00\x01\x00'
@@ -516,7 +517,7 @@ class _ASN1CertListField(StrLenField):
             l = self.length_from(pkt)
 
         lst = []
-        ret = ""
+        ret = b""
         m = s
         if l is not None:
             m, ret = s[:l], s[l:]
@@ -541,12 +542,12 @@ class _ASN1CertListField(StrLenField):
             return struct.pack("!I", l)[1:4] + s
 
         if i is None:
-            return ""
+            return b""
         if isinstance(i, str):
             return i
         if isinstance(i, Cert):
             i = [i]
-        return "".join(i2m_one(x) for x in i)
+        return b"".join(i2m_one(x) for x in i)
 
     def any2i(self, pkt, x):
         return x
@@ -561,11 +562,11 @@ class _ASN1CertField(StrLenField):
         l = None
         if self.length_from is not None:
             l = self.length_from(pkt)
-        ret = ""
+        ret = b""
         m = s
         if l is not None:
             m, ret = s[:l], s[l:]
-        clen = struct.unpack("!I", '\x00' + m[:3])[0]
+        clen = struct.unpack("!I", b'\x00' + m[:3])[0]
         len_cert = (clen, Cert(m[3:3 + clen]))
         m = m[3 + clen:]
         return m + ret, len_cert
@@ -585,7 +586,7 @@ class _ASN1CertField(StrLenField):
             return struct.pack("!I", l)[1:4] + s
 
         if i is None:
-            return ""
+            return b""
         return i2m_one(i)
 
     def any2i(self, pkt, x):
@@ -627,7 +628,7 @@ class _ASN1CertAndExt(_GenericTLSSessionInheritance):
                     _ExtensionsField("ext", [],
                                      length_from=lambda pkt: pkt.extlen) ]
     def extract_padding(self, s):
-        return "", s
+        return b"", s
 
 class _ASN1CertAndExtListField(PacketListField):
     def m2i(self, pkt, m):
@@ -716,8 +717,8 @@ class TLSServerKeyExchange(_TLSHandshake):
                 if not s.pwcs.key_exchange.anonymous:
                     p = self.params
                     if p is None:
-                        p = ""
-                    m = s.client_random + s.server_random + str(p)
+                        p = b""
+                    m = s.client_random + s.server_random + raw(p)
                     cls = _TLSSignature(tls_session=s)
                     cls._update_sig(m, s.server_key)
                 else:
@@ -743,7 +744,7 @@ class TLSServerKeyExchange(_TLSHandshake):
             not s.prcs.key_exchange.anonymous and
             s.client_random and s.server_random and
             s.server_certs and len(s.server_certs) > 0):
-            m = s.client_random + s.server_random + str(self.params)
+            m = s.client_random + s.server_random + raw(self.params)
             sig_test = self.sig._verify_sig(m, s.server_certs[0])
             if not sig_test:
                 pkt_info = pkt.firstlayer().summary()
@@ -792,7 +793,7 @@ class _CertAuthoritiesField(StrLenField):
         return res
 
     def i2m(self, pkt, i):
-        return "".join(map(lambda x_y: struct.pack("!H", x_y[0]) + x_y[1], i))
+        return b"".join(map(lambda x_y: struct.pack("!H", x_y[0]) + x_y[1], i))
 
     def addfield(self, pkt, s, val):
         return s + self.i2m(pkt, val)
@@ -850,7 +851,7 @@ class TLSCertificateVerify(_TLSHandshake):
         sig = self.getfieldval("sig")
         if sig is None:
             s = self.tls_session
-            m = "".join(s.handshake_messages)
+            m = b"".join(s.handshake_messages)
             if s.tls_version >= 0x0304:
                 if s.connection_end == "client":
                     context_string = "TLS 1.3, client CertificateVerify"
@@ -867,12 +868,12 @@ class TLSCertificateVerify(_TLSHandshake):
 
     def post_dissection(self, pkt):
         s = self.tls_session
-        m = "".join(s.handshake_messages)
+        m = b"".join(s.handshake_messages)
         if s.tls_version >= 0x0304:
             if s.connection_end == "client":
-                context_string = "TLS 1.3, server CertificateVerify"
+                context_string = b"TLS 1.3, server CertificateVerify"
             elif s.connection_end == "server":
-                context_string = "TLS 1.3, client CertificateVerify"
+                context_string = b"TLS 1.3, client CertificateVerify"
             m = b"\x20"*64 + context_string + b"\x00" + s.rcs.hash.digest(m)
 
         if s.connection_end == "server":
@@ -970,7 +971,7 @@ class TLSFinished(_TLSHandshake):
         fval = self.getfieldval("vdata")
         if fval is None:
             s = self.tls_session
-            handshake_msg = "".join(s.handshake_messages)
+            handshake_msg = b"".join(s.handshake_messages)
             con_end = s.connection_end
             if s.tls_version < 0x0304:
                 ms = s.master_secret
@@ -983,7 +984,7 @@ class TLSFinished(_TLSHandshake):
     def post_dissection(self, pkt):
         s = self.tls_session
         if not s.frozen:
-            handshake_msg = "".join(s.handshake_messages)
+            handshake_msg = b"".join(s.handshake_messages)
             if s.tls_version < 0x0304 and s.master_secret is not None:
                 ms = s.master_secret
                 con_end = s.connection_end

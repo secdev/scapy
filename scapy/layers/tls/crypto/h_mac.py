@@ -82,10 +82,10 @@ class Hmac_NULL(_GenericHMAC):
     key_len = 0
 
     def digest(self, tbd):
-        return ""
+        return b""
 
     def digest_sslv3(self, tbd):
-        return ""
+        return b""
 
 class Hmac_MD5(_GenericHMAC):
     pass

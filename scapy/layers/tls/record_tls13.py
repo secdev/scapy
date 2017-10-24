@@ -45,11 +45,11 @@ class TLSInnerPlaintext(_GenericTLSSessionInheritance):
             raise Exception("Invalid InnerPlaintext (too short).")
 
         l = len(s) - 1
-        if s[-1] != "\x00":
+        if s[-1] != b"\x00":
             msg_len = l
         else:
             n = 1
-            while s[-n] != "\x00" and n < l:
+            while s[-n] != b"\x00" and n < l:
                 n += 1
             msg_len = l - n
         self.fields_desc[0].length_from = lambda pkt: msg_len
@@ -82,7 +82,7 @@ class _TLSInnerPlaintextField(PacketField):
             p.tls_session = pkt.tls_session
             if not pkt.tls_session.frozen:
                 return p.str_stateful()
-        return str(p)
+        return raw(p)
 
 
 class TLS13(_GenericTLSSessionInheritance):
@@ -113,7 +113,7 @@ class TLS13(_GenericTLSSessionInheritance):
         read_seq_num = struct.pack("!Q", rcs.seq_num)
         rcs.seq_num += 1
         try:
-            return rcs.cipher.auth_decrypt("", s, read_seq_num)
+            return rcs.cipher.auth_decrypt(b"", s, read_seq_num)
         except CipherError as e:
             return e.args
         except AEADTagError as e:
@@ -177,7 +177,7 @@ class TLS13(_GenericTLSSessionInheritance):
         wcs = self.tls_session.wcs
         write_seq_num = struct.pack("!Q", wcs.seq_num)
         wcs.seq_num += 1
-        return wcs.cipher.auth_encrypt(s, "", write_seq_num)
+        return wcs.cipher.auth_encrypt(s, b"", write_seq_num)
 
     def post_build(self, pkt, pay):
         """

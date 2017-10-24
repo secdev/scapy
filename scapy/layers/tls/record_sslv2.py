@@ -10,6 +10,7 @@ import struct
 
 from scapy.config import conf
 from scapy.error import log_runtime
+from scapy.compat import *
 from scapy.fields import *
 from scapy.packet import *
 from scapy.layers.tls.session import _GenericTLSSessionInheritance
@@ -34,7 +35,7 @@ class _SSLv2MsgListField(_TLSMsgListField):
     def m2i(self, pkt, m):
         cls = Raw
         if len(m) >= 1:
-            msgtype = ord(m[0])
+            msgtype = orb(m[0])
             cls = _sslv2_handshake_cls.get(msgtype, Raw)
 
         if cls is Raw:
@@ -43,20 +44,20 @@ class _SSLv2MsgListField(_TLSMsgListField):
             return cls(m, tls_session=pkt.tls_session)
 
     def i2m(self, pkt, p):
-       cur = ""
+       cur = b""
        if isinstance(p, _GenericTLSSessionInheritance):
            p.tls_session = pkt.tls_session
            if not pkt.tls_session.frozen:
                cur = p.str_stateful()
                p.post_build_tls_session_update(cur)
            else:
-               cur = str(p)
+               cur = raw(p)
        else:
-           cur = str(p)
+           cur = raw(p)
        return cur
 
     def addfield(self, pkt, s, val):
-        res = ""
+        res = b""
         for p in val:
             res += self.i2m(pkt, p)
         return s + res
@@ -70,7 +71,7 @@ class SSLv2(TLS):
     name = "SSLv2"
     fields_desc = [ _SSLv2LengthField("len", None),
                     _SSLv2PadLenField("padlen", None),
-                    _TLSMACField("mac", ""),
+                    _TLSMACField("mac", b""),
                     _SSLv2MsgListField("msg", []),
                     _SSLv2PadField("pad", "") ]
 
@@ -114,7 +115,7 @@ class SSLv2(TLS):
         self.protected_record = s[:hdrlen+msglen_clean]
         r = s[hdrlen+msglen_clean:]
 
-        mac = pad = ""
+        mac = pad = b""
 
         cipher_type = self.tls_session.rcs.cipher.type
 
@@ -124,16 +125,16 @@ class SSLv2(TLS):
         # Extract MAC
         maclen = self.tls_session.rcs.mac_len
         if maclen == 0:
-            mac, pfrag = "", mfrag
+            mac, pfrag = b"", mfrag
         else:
             mac, pfrag = mfrag[:maclen], mfrag[maclen:]
 
         # Extract padding
         padlen = 0
         if hdrlen == 3:
-            padlen = struct.unpack("B", s[2])[0]
+            padlen = orb(s[2])
         if padlen == 0:
-            cfrag, pad = pfrag, ""
+            cfrag, pad = pfrag, b""
         else:
             cfrag, pad = pfrag[:-padlen], pfrag[-padlen:]
 
@@ -191,12 +192,12 @@ class SSLv2(TLS):
         return h + msg
 
     def _sslv2_pad(self, s):
-        padding = ""
+        padding = b""
         block_size = self.tls_session.wcs.cipher.block_size
         padlen = block_size - (len(s) % block_size)
         if padlen == block_size:
             padlen = 0
-        padding = "\x00" * padlen
+        padding = b"\x00" * padlen
         return s + padding
 
     def post_build(self, pkt, pay):
@@ -209,10 +210,10 @@ class SSLv2(TLS):
         else:
             cfrag = pkt[3:]
 
-        if self.pad == "" and self.tls_session.wcs.cipher.type == 'block':
+        if self.pad == b"" and self.tls_session.wcs.cipher.type == 'block':
             pfrag = self._sslv2_pad(cfrag)
         else:
-            pad = self.pad or ""
+            pad = self.pad or b""
             pfrag = cfrag + pad
 
         padlen = self.padlen
@@ -223,7 +224,7 @@ class SSLv2(TLS):
             hdr += struct.pack("B", padlen)
 
         # Integrity
-        if self.mac == "":
+        if self.mac == b"":
             mfrag = self._sslv2_mac_add(pfrag)
         else:
             mfrag = self.mac + pfrag

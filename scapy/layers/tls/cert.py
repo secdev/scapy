@@ -138,7 +138,7 @@ class _PKIObjMaker(type):
             if _size > obj_max_size:
                 raise Exception(error_msg)
             try:
-                f = open(obj_path)
+                f = open(obj_path, "rb")
                 _raw = f.read()
                 f.close()
             except:
@@ -246,8 +246,8 @@ class PubKey(six.with_metaclass(_PubKeyFactory, object)):
         tbsCert = cert.tbsCertificate
         sigAlg = tbsCert.signature
         h = hash_by_oid[sigAlg.algorithm.val]
-        sigVal = str(cert.signatureValue)
-        return self.verify(str(tbsCert), sigVal, h=h, t='pkcs')
+        sigVal = raw(cert.signatureValue)
+        return self.verify(raw(tbsCert), sigVal, h=h, t='pkcs')
 
 
 class PubKeyRSA(PubKey, _EncryptAndVerifyRSA):
@@ -392,7 +392,7 @@ class _PrivKeyFactory(_PKIObjMaker):
         if obj.frmt == "DER":
             if multiPEM:
                 # this does not restore the EC PARAMETERS header
-                obj.pem = der2pem(str(privkey), marker)
+                obj.pem = der2pem(raw(privkey), marker)
             else:
                 obj.pem = der2pem(obj.der, marker)
         return obj
@@ -420,7 +420,7 @@ class PrivKey(six.with_metaclass(_PrivKeyFactory, object)):
         """
         sigAlg = tbsCert.signature
         h = h or hash_by_oid[sigAlg.algorithm.val]
-        sigVal = self.sign(str(tbsCert), h=h, t='pkcs')
+        sigVal = self.sign(raw(tbsCert), h=h, t='pkcs')
         c = X509_Cert()
         c.tbsCertificate = tbsCert
         c.signatureAlgorithm = sigAlg
@@ -436,8 +436,8 @@ class PrivKey(six.with_metaclass(_PrivKeyFactory, object)):
         tbsCert = cert.tbsCertificate
         sigAlg = tbsCert.signature
         h = hash_by_oid[sigAlg.algorithm.val]
-        sigVal = str(cert.signatureValue)
-        return self.verify(str(tbsCert), sigVal, h=h, t='pkcs')
+        sigVal = raw(cert.signatureValue)
+        return self.verify(raw(tbsCert), sigVal, h=h, t='pkcs')
 
 
 class PrivKeyRSA(PrivKey, _EncryptAndVerifyRSA, _DecryptAndSignRSA):
@@ -600,7 +600,7 @@ class Cert(six.with_metaclass(_CertMaker, object)):
             raise Exception(error_msg)
         self.notAfter_str_simple = time.strftime("%x", self.notAfter)
 
-        self.pubKey = PubKey(str(tbsCert.subjectPublicKeyInfo))
+        self.pubKey = PubKey(raw(tbsCert.subjectPublicKeyInfo))
 
         if tbsCert.extensions:
             for extn in tbsCert.extensions:
@@ -615,7 +615,7 @@ class Cert(six.with_metaclass(_CertMaker, object)):
                 elif extn.extnID.oidname == "authorityKeyIdentifier":
                     self.authorityKeyID = extn.extnValue.keyIdentifier.val
 
-        self.signatureValue = str(cert.signatureValue)
+        self.signatureValue = raw(cert.signatureValue)
         self.signatureLen = len(self.signatureValue)
 
     def isIssuerCert(self, other):
@@ -760,7 +760,7 @@ class CRL(six.with_metaclass(_CRLMaker, object)):
         self.x509CRL = crl
 
         tbsCertList = crl.tbsCertList
-        self.tbsCertList = str(tbsCertList)
+        self.tbsCertList = raw(tbsCertList)
 
         if tbsCertList.version:
             self.version = tbsCertList.version.val + 1
@@ -813,7 +813,7 @@ class CRL(six.with_metaclass(_CRLMaker, object)):
                 revoked.append((serial, date))
         self.revoked_cert_serials = revoked
 
-        self.signatureValue = str(crl.signatureValue)
+        self.signatureValue = raw(crl.signatureValue)
         self.signatureLen = len(self.signatureValue)
 
     def isIssuerCert(self, other):

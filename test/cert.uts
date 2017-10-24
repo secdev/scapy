@@ -293,7 +293,7 @@ x.nextUpdate == (2007, 2, 17, 23, 59, 59, 5, 48, -1)
 len(x.revoked_cert_serials) == 7 
 
 = CRL class : Checking presence of one revoked certificate
-(94673785334145723688625287778885438961L, '030109180612') in x.revoked_cert_serials
+(94673785334145723688625287778885438961, '030109180612') in x.revoked_cert_serials
 
 ########### High-level methods ###############################################
 

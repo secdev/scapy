@@ -63,8 +63,8 @@ class _StreamCipher(six.with_metaclass(_StreamCipherMetaclass, object)):
                               backend=default_backend())
         self.encryptor = self._cipher.encryptor()
         self.decryptor = self._cipher.decryptor()
-        self._enc_updated_with = ""
-        self._dec_updated_with = ""
+        self._enc_updated_with = b""
+        self._dec_updated_with = b""
 
     def __setattr__(self, name, val):
         """

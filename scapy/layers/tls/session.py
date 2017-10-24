@@ -12,6 +12,7 @@ import socket
 import struct
 
 from scapy.config import conf
+import scapy.modules.six as six
 from scapy.error import log_runtime, warning
 from scapy.packet import Packet
 from scapy.utils import repr_hex, strxor
@@ -115,9 +116,9 @@ class connState(object):
                               repr_hex(secret))
 
     def derive_keys(self,
-                    client_random="",
-                    server_random="",
-                    master_secret=""):
+                    client_random=b"",
+                    server_random=b"",
+                    master_secret=b""):
         #XXX Can this be called over a non-usable suite? What happens then?
 
         cs = self.ciphersuite
@@ -238,8 +239,8 @@ class connState(object):
         cipher_alg = self.ciphersuite.cipher_alg
         key_len = cipher_alg.key_len
         iv_len = cipher_alg.fixed_iv_len
-        write_key = self.hkdf.expand_label(key_material, "key", "", key_len)
-        write_iv = self.hkdf.expand_label(key_material, "iv", "", iv_len)
+        write_key = self.hkdf.expand_label(key_material, b"key", b"", key_len)
+        write_iv = self.hkdf.expand_label(key_material, b"iv", b"", iv_len)
         self.cipher = cipher_alg(write_key, write_iv)
 
     def snapshot(self):
@@ -581,9 +582,9 @@ class tlsSession(object):
                                                self.tls13_psk_secret)
 
         bk = hkdf.derive_secret(self.tls13_early_secret,
-                                "external psk binder key",
+                                b"external psk binder key",
                                #"resumption psk binder key",
-                                "")
+                                b"")
         self.tls13_derived_secrets["binder_key"] = bk
 
         if len(self.handshake_messages) > 1:
@@ -591,13 +592,13 @@ class tlsSession(object):
             return
 
         cets = hkdf.derive_secret(self.tls13_early_secret,
-                                  "client early traffic secret",
-                                  "".join(self.handshake_messages))
+                                  b"client early traffic secret",
+                                  b"".join(self.handshake_messages))
         self.tls13_derived_secrets["client_early_traffic_secret"] = cets
 
         ees = hkdf.derive_secret(self.tls13_early_secret,
-                                 "early exporter master secret",
-                                 "".join(self.handshake_messages))
+                                 b"early exporter master secret",
+                                 b"".join(self.handshake_messages))
         self.tls13_derived_secrets["early_exporter_secret"] = ees
 
         if self.connection_end == "server":
@@ -619,13 +620,13 @@ class tlsSession(object):
                                                    self.tls13_dhe_secret)
 
         chts = hkdf.derive_secret(self.tls13_handshake_secret,
-                                  "client handshake traffic secret",
-                                  "".join(self.handshake_messages))
+                                  b"client handshake traffic secret",
+                                  b"".join(self.handshake_messages))
         self.tls13_derived_secrets["client_handshake_traffic_secret"] = chts
 
         shts = hkdf.derive_secret(self.tls13_handshake_secret,
-                                  "server handshake traffic secret",
-                                  "".join(self.handshake_messages))
+                                  b"server handshake traffic secret",
+                                  b"".join(self.handshake_messages))
         self.tls13_derived_secrets["server_handshake_traffic_secret"] = shts
 
         if self.connection_end == "server":
@@ -646,18 +647,18 @@ class tlsSession(object):
                                                 None)
 
         cts0 = hkdf.derive_secret(self.tls13_master_secret,
-                                  "client application traffic secret",
-                                  "".join(self.handshake_messages))
+                                  b"client application traffic secret",
+                                  b"".join(self.handshake_messages))
         self.tls13_derived_secrets["client_traffic_secrets"] = [cts0]
 
         sts0 = hkdf.derive_secret(self.tls13_master_secret,
-                                  "server application traffic secret",
-                                  "".join(self.handshake_messages))
+                                  b"server application traffic secret",
+                                  b"".join(self.handshake_messages))
         self.tls13_derived_secrets["server_traffic_secrets"] = [sts0]
 
         es = hkdf.derive_secret(self.tls13_master_secret,
-                                "exporter master secret",
-                                "".join(self.handshake_messages))
+                                b"exporter master secret",
+                                b"".join(self.handshake_messages))
         self.tls13_derived_secrets["exporter_secret"] = es
 
         if self.connection_end == "server":
@@ -694,7 +695,7 @@ class tlsSession(object):
             warning("Missing arguments for verify_data computation!")
             return None
         #XXX this join() works in standard cases, but does it in all of them?
-        handshake_context = "".join(self.handshake_messages)
+        handshake_context = b"".join(self.handshake_messages)
         return hkdf.compute_verify_data(basekey, handshake_context)
 
     def compute_tls13_resumption_secret(self):
@@ -706,8 +707,8 @@ class tlsSession(object):
         elif self.connection_end == "client":
             hkdf = self.pwcs.hkdf
         rs = hkdf.derive_secret(self.tls13_master_secret,
-                                "resumption master secret",
-                                "".join(self.handshake_messages))
+                                b"resumption master secret",
+                                b"".join(self.handshake_messages))
         self.tls13_derived_secrets["resumption_secret"] = rs
 
     def compute_tls13_next_traffic_secrets(self):
@@ -739,7 +740,7 @@ class tlsSession(object):
     def consider_read_padding(self):
         # Return True if padding is needed. Used by TLSPadField.
         return (self.rcs.cipher.type == "block" and
-                not (False in self.rcs.cipher.ready.itervalues()))
+                not (False in six.itervalues(self.rcs.cipher.ready)))
 
     def consider_write_padding(self):
         # Return True if padding is needed. Used by TLSPadField.
@@ -859,18 +860,18 @@ class _GenericTLSSessionInheritance(Packet):
         return pkt
 
     def str_stateful(self):
-        return super(_GenericTLSSessionInheritance, self).__str__()
+        return super(_GenericTLSSessionInheritance, self).__bytes__()
 
-    def __str__(self):
+    def __bytes__(self):
         """
-        The __str__ call has to leave the connection states unchanged.
+        The __bytes__ call has to leave the connection states unchanged.
         We also have to delete raw_packet_cache in order to access post_build.
 
         For performance, the pending connStates are not snapshotted.
         This should not be an issue, but maybe pay attention to this.
 
-        The previous_freeze_state prevents issues with calling a str() calling
-        in turn another str(), which would unfreeze the session too soon.
+        The previous_freeze_state prevents issues with calling a raw() calling
+        in turn another raw(), which would unfreeze the session too soon.
         """
         s = self.tls_session
         rcs_snap = s.rcs.snapshot()
@@ -882,7 +883,7 @@ class _GenericTLSSessionInheritance(Packet):
         self.raw_packet_cache = None
         previous_freeze_state = s.frozen
         s.frozen = True
-        built_packet = super(_GenericTLSSessionInheritance, self).__str__()
+        built_packet = super(_GenericTLSSessionInheritance, self).__bytes__()
         s.frozen = previous_freeze_state
 
         s.rcs = rcs_snap
@@ -899,7 +900,7 @@ class _GenericTLSSessionInheritance(Packet):
         Howether we do not want the tls_session.{r,w}cs.seq_num to be updated.
         We have to bring back the init states (it's possible the cipher context
         has been updated because of parsing) but also to keep the current state
-        and restore it afterwards (the str() call may also update the states).
+        and restore it afterwards (the raw() call may also update the states).
         """
         s = self.tls_session
         rcs_snap = s.rcs.snapshot()
@@ -907,7 +908,7 @@ class _GenericTLSSessionInheritance(Packet):
 
         s.rcs = self.rcs_snap_init
 
-        built_packet = str(self)
+        built_packet = raw(self)
         s.frozen = True
         self.__class__(built_packet, tls_session=s).show()
         s.frozen = False
