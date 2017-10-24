@@ -694,7 +694,7 @@ class IKEv2_payload_Encrypted_Fragment(IKEv2_class):
         ByteEnumField("next_payload",None,IKEv2_payload_type),
         ByteField("res",0),
         FieldLenField("length",None,"load","H",adjust=lambda pkt,x:x+8),
-        ShortField("frag_number",1),
+        ShortField("frag_number", 1),
         ShortField("frag_total", 1),
         StrLenField("load","",length_from=lambda x:x.length-8),
         ]
