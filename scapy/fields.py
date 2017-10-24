@@ -18,6 +18,7 @@ from scapy.utils import *
 from scapy.base_classes import BasePacket, Gen, Net, Field_metaclass
 from scapy.error import warning
 import scapy.modules.six as six
+from scapy.modules.six.moves import range
 
 
 ############
@@ -919,7 +920,7 @@ class _EnumField(Field):
             if isinstance(enum, list):
                 keys = range(len(enum))
             elif isinstance(enum, DADict):
-                keys = enum.keys()
+                keys = enum.iterkeys()
             else:
                 keys = list(enum)
             if any(isinstance(x, str) for x in keys):
