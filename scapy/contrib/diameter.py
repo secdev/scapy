@@ -27,6 +27,8 @@ from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.inet6 import *
 from scapy.layers.sctp import *
+from scapy.modules.six.moves import range
+from scapy.compat import chb, orb, raw, bytes_hex
 from time import ctime
 
 #####################################################################
@@ -45,7 +47,7 @@ class I3BytesEnumField (X3BytesField, EnumField):
         EnumField.__init__(self, name, default, enum, "!I")
 
 
-class I3FieldLenField(X3BytesField):
+class I3FieldLenField(X3BytesField, FieldLenField):
     __slots__ = ["length_of", "count_of", "adjust"]
 
     def __init__(
@@ -83,7 +85,7 @@ class DRFlags (FlagsField):
             nb = 4
             offset = 4
             x >>= 4
-        for i in xrange(nb):
+        for i in range(nb):
             r += (x & 1) and str(self.names[offset + i][0]) or '-'
             x >>= 1
         invert = r[::-1]
@@ -124,7 +126,7 @@ class AVPFlags (FlagsField):
             nb = 3
             offset = 5
             x >>= 5
-        for i in xrange(nb):
+        for i in range(nb):
             r += (x & 1) and str(self.names[offset + i][0]) or '-'
             x >>= 1
         invert = r[::-1]
@@ -208,7 +210,7 @@ class OctetString (StrLenField):
         try:
             return x.decode('ascii')
         except BaseException:
-            return x.encode('hex')
+            return bytes_hex(x)
 
 
 class Integer32 (SignedIntField):
@@ -253,7 +255,7 @@ class Address (StrLenField):
             return inet_ntop(socket.AF_INET6, x[2:])
         else:   # Address format not yet decoded
             print ('Warning: Address format not yet decoded.')
-            return x.encode("hex")
+            return bytes_hex(x)
 
     def any2i(self, pkt, x):
         if x and isinstance(x, str):
@@ -266,7 +268,7 @@ class Address (StrLenField):
                     return b'\x00\x02' + s
                 except BaseException:
                     print ('Warning: Address format not supported yet.')
-        return ''
+        return b''
 
 
 class Time (IntField):
@@ -301,29 +303,29 @@ class QoSFilterRule (StrLenField):        # Defined in 4.1.1 of RFC7155
 
 class ISDN (StrLenField):
     def i2repr(self, pkt, x):
-        out = ''
+        out = b''
         for char in x:
-            c = ord(char)
-            out += chr(48 + (c & 15))  # convert second digit first
+            c = orb(char)
+            out += chb(48 + (c & 15))  # convert second digit first
             v = (c & 240) >> 4
             if v != 15:
-                out += chr(48 + v)
+                out += chb(48 + v)
         return out
 
     def any2i(self, pkt, x):
-        out = ''
+        out = b''
         if x:
             fd = True     # waiting for first digit
             for c in x:
-                digit = ord(c) - 48
+                digit = orb(c) - 48
                 if fd:
                     val = digit
                 else:
                     val = val + 16 * digit
-                    out += chr(val)
+                    out += chb(val)
                 fd = not fd
             if not fd:    # Fill with 'f' if odd number of characters
-                out += chr(240 + val)
+                out += chb(240 + val)
         return out
 
 
@@ -379,7 +381,7 @@ class AVP_Generic (Packet):
         return p + pay
 
     def show2(self):
-        self.__class__(str(self), name=self.name).show()
+        self.__class__(raw(self), name=self.name).show()
 
 
 def AVP(avpId, **fields):
