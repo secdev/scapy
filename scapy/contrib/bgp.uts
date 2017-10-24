@@ -408,7 +408,7 @@ a.origin == 0
 + BGPPAASPath class tests
 
 = BGPPAASPath - Instantiation
-raw(BGPPAASPath()) == ''
+raw(BGPPAASPath()) == b''
 
 = BGPPAASPath - Instantiation with specific values (1)
 raw(BGPPAASPath(segments = [BGPPAASPath.ASPathSegment(segment_type = 2, segment_value = [64496, 64497, 64498])])) == b'\x02\x03\xfb\xf0\xfb\xf1\xfb\xf2'
@@ -520,7 +520,7 @@ a.originator_id == "192.0.2.1"
 + BGPPAClusterList class tests
 
 = BGPPAClusterList - Basic instantiation
-raw(BGPPAClusterList()) == ''
+raw(BGPPAClusterList()) == b''
 
 = BGPPAClusterList - Instantiation with specific values
 raw(BGPPAClusterList(cluster_list = [150000, 165465465, 132132])) == b'\x00\x02I\xf0\t\xdc\xcdy\x00\x02\x04$'
