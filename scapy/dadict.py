@@ -92,7 +92,7 @@ class DADict:
                 r += p
         return r
     def keys(self):
-        return list(six.iterkeys(self.__dict__))
+        return list(self.iterkeys())
     def iterkeys(self):
         return (x for x in self.__dict__ if x and x[0] != "_")
     def __len__(self):
