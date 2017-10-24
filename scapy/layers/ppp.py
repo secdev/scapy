@@ -581,7 +581,7 @@ class PPP_PAP(Packet):
             code = orb(_pkt[0])
         elif "code" in kargs:
             code = kargs["code"]
-            if isinstance(code, basestring):
+            if isinstance(code, six.string_types):
                 code = cls.fields_desc[0].s2i[code]
 
         if code == 1:
@@ -654,7 +654,7 @@ class PPP_CHAP(Packet):
             code = orb(_pkt[0])
         elif "code" in kargs:
             code = kargs["code"]
-            if isinstance(code, basestring):
+            if isinstance(code, six.string_types):
                 code = cls.fields_desc[0].s2i[code]
 
         if code in (1, 2):

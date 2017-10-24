@@ -11,6 +11,7 @@ PPTP (Point to Point Tunneling Protocol)
 
 from scapy.packet import Packet, bind_layers
 from scapy.layers.inet import TCP
+from scapy.compat import *
 from scapy.fields import ByteEnumField, FieldLenField, FlagsField, IntField, IntEnumField,\
                          LenField, XIntField, ShortField, ShortEnumField, StrFixedLenField,\
                          StrLenField, XShortField, XByteField
@@ -68,7 +69,7 @@ class PPTP(Packet):
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         if _pkt:
-            o = ord(_pkt[9])
+            o = orb(_pkt[9])
             return cls.registered_options.get(o, cls)
         return cls
 

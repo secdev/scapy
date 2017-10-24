@@ -73,10 +73,6 @@ def lhex(x):
     else:
         return x
 
-def to_hex(x):
-    """Turns string or bytes to hex format"""
-    return x if isinstance(x, bytes) and not six.PY2 else x.encode("hex")
-
 @conf.commands.register
 def hexdump(x, dump=False):
     """ Build a tcpdump like hexadecimal view
