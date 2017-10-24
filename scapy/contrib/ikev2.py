@@ -383,7 +383,7 @@ IKEv2_payload_type = ["None", "", "Proposal", "Transform"]
 
 IKEv2_payload_type.extend([""] * 29)
 IKEv2_payload_type.extend(["SA","KE","IDi","IDr", "CERT","CERTREQ","AUTH","Nonce","Notify","Delete",
-                       "VendorID","TSi","TSr","Encrypted","CP","EAP"])
+                       "VendorID","TSi","TSr","Encrypted","CP","EAP", "", "", "", "", "Encrypted Fragment"])
 
 IKEv2_exchange_type = [""] * 34
 IKEv2_exchange_type.extend(["IKE_SA_INIT","IKE_AUTH","CREATE_CHILD_SA",
@@ -688,7 +688,7 @@ class IKEv2_payload_Encrypted(IKEv2_class):
 
 
 class IKEv2_payload_Encrypted_Fragment(IKEv2_class):
-    name = "IKEv2 Encrypted and Authenticated Fragment"
+    name = "IKEv2 Encrypted Fragment"
     overload_fields = { IKEv2: { "next_payload":53 }}
     fields_desc = [
         ByteEnumField("next_payload",None,IKEv2_payload_type),
