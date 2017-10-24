@@ -9,6 +9,7 @@ from scapy.fields import FieldLenField, BitEnumField, StrLenField, \
     ShortField, ConditionalField, ByteEnumField, ByteField, StrNullField
 from scapy.layers.inet import TCP
 from scapy.error import Scapy_Exception
+from scapy.compat import orb, chb
 
 
 # CUSTOM FIELDS
@@ -25,7 +26,7 @@ class VariableFieldLenField(FieldLenField):
             else:
                 data.append(val)
                 lastoffset = len(data) - 1
-                data = "".join(chr(val | (0 if i == lastoffset else 128))
+                data = b"".join(chb(val | (0 if i == lastoffset else 128))
                                for i, val in enumerate(data))
                 return s + data
             if len(data) > 3:
@@ -35,7 +36,7 @@ class VariableFieldLenField(FieldLenField):
     def getfield(self, pkt, s):
         value = 0
         for offset, curbyte in enumerate(s):
-            curbyte = ord(curbyte)
+            curbyte = orb(curbyte)
             value += (curbyte & 127) * (128 ** offset)
             if curbyte & 128 == 0:
                 return s[offset + 1:], value

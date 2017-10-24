@@ -28,8 +28,8 @@ assert(publish.DUP == 0)
 assert(publish.RETAIN == 0)
 assert(publish.len == 10)
 assert(publish[MQTTPublish].length == 4)
-assert(publish[MQTTPublish].topic == 'test')
-assert(publish[MQTTPublish].value == 'test')
+assert(publish[MQTTPublish].topic == b'test')
+assert(publish[MQTTPublish].value == b'test')
 
 
 = MQTTConnect, packet instanciation
@@ -42,7 +42,7 @@ assert(c.clientIdlen == 5)
 s = b'\x10\x1f\x00\x06MQIsdp\x03\x02\x00<\x00\x11mosqpub/1440-kali'
 connect = MQTT(s)
 assert(connect.length == 6)
-assert(connect.protoname == 'MQIsdp')
+assert(connect.protoname == b'MQIsdp')
 assert(connect.protolevel == 3)
 assert(connect.usernameflag == 0)
 assert(connect.passwordflag == 0)
@@ -53,7 +53,7 @@ assert(connect.cleansess == 1)
 assert(connect.reserved == 0)
 assert(connect.klive == 60)
 assert(connect.clientIdlen == 17)
-assert(connect.clientId == 'mosqpub/1440-kali')
+assert(connect.clientId == b'mosqpub/1440-kali')
 
 
 =MQTTConnack, packet instanciation
@@ -82,7 +82,7 @@ s = b'\x82\t\x00\x01\x00\x04test\x00'
 subscribe = MQTT(s)
 assert(subscribe.msgid == 1)
 assert(subscribe.length == 4)
-assert(subscribe.topic == 'test')
+assert(subscribe.topic == b'test')
 assert(subscribe.QOS == 1)
 
 
