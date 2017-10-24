@@ -1,11 +1,23 @@
-#!/usr/bin/env python
+# This file is part of Scapy
+# Scapy is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 2 of the License, or
+# any later version.
+#
+# Scapy is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Scapy. If not, see <http://www.gnu.org/licenses/>.
 
-'''
-Copyright (C) 2017 Francois Contat <francois.contat@ssi.gouv.fr>
-This program is published under a GPLv2 license
+# Copyright (C) 2017 Francois Contat <francois.contat@ssi.gouv.fr>
 
-Based on tacacs+ v6 draft https://tools.ietf.org/html/draft-ietf-opsawg-tacacs-06
-'''
+# Based on tacacs+ v6 draft https://tools.ietf.org/html/draft-ietf-opsawg-tacacs-06
+
+# scapy.contrib.description = TACACS+ Protocol
+# scapy.contrib.status = loads
 
 import struct
 import hashlib
@@ -16,7 +28,8 @@ from scapy.fields import FieldListField
 from scapy.fields import FieldLenField, ConditionalField, StrLenField
 from scapy.layers.inet import TCP
 from scapy.config import conf
-
+from scapy.consts import *
+from scapy.modules.six.moves import range
 
 SECRET = 'test'
 
@@ -47,8 +60,7 @@ def obfuscate(pay, secret, session_id, version, seq):
 
     # Obf/Unobfuscation via XOR operation between plaintext and pad
 
-    new_payload = (struct.pack('B', ord(pad[i]) ^ ord(pay[i])) for i in xrange(len(pay)))
-    return "".join(new_payload)
+    return b"".join(chb(orb(pad[i]) ^ orb(pay[i])) for i in range(len(pay)))
 
 TACACSPRIVLEVEL = {15:'Root',
                    1:'User',
