@@ -772,6 +772,14 @@ def get_working_if():
         # no route
         return scapy.consts.LOOPBACK_INTERFACE
 
+def _get_valid_guid():
+    if scapy.consts.LOOPBACK_INTERFACE:
+        return scapy.consts.LOOPBACK_INTERFACE.guid
+    else:
+        for i in IFACES:
+            if not i.is_invalid():
+                return i.guid
+
 def route_add_loopback(routes=None, ipv6=False, iflist=None):
     """Add a route to 127.0.0.1 and ::1 to simplify unit tests on Windows"""
     if not WINDOWS:
@@ -785,16 +793,18 @@ def route_add_loopback(routes=None, ipv6=False, iflist=None):
     else:
         if not conf.route.routes:
             return
-    data = {}
-    data['name'] = scapy.consts.LOOPBACK_NAME
-    data['description'] = "Loopback"
-    data['win_index'] = -1
-    data['guid'] = "{0XX00000-X000-0X0X-X00X-00XXXX000XXX}"
-    data['invalid'] = True
-    data['mac'] = '00:00:00:00:00:00'
+    data = {
+        'name': scapy.consts.LOOPBACK_NAME,
+        'description': "Loopback",
+        'win_index': -1,
+        'guid': _get_valid_guid(),
+        'invalid': False,
+        'mac': '00:00:00:00:00:00',
+    }
+    data['pcap_name'] = six.text_type("\\Device\\NPF_" + data['guid'])
     adapter = NetworkInterface(data)
     if iflist:
-        iflist.append(six.text_type("\\Device\\NPF_" + adapter.guid))
+        iflist.append(adapter.pcap_name)
         return
     # Remove all LOOPBACK_NAME routes
     for route in list(conf.route.routes):
