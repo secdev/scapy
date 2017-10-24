@@ -20,6 +20,7 @@ from scapy.layers.inet import IP, UDP
 from scapy.layers.inet6 import IP6Field
 from scapy.error import warning
 from scapy.modules.six.moves import range
+from scapy.compat import orb, plain_str
 
 # GTP Data types
 
@@ -156,7 +157,7 @@ class TBCDByteField(StrFixedLenField):
     def m2i(self, pkt, val):
         ret = []
         for v in val:
-            byte = ord(v)
+            byte = orb(v)
             left = byte >> 4
             right = byte & 0xf
             if left == 0xf:
@@ -231,11 +232,11 @@ class GTPHeader(Packet):
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         if _pkt and len(_pkt) >= 1:
-            if (struct.unpack("B", _pkt[0])[0] >> 5) & 0x7 == 2:
+            if (orb(_pkt[0]) >> 5) & 0x7 == 2:
                 from . import gtp_v2
                 return gtp_v2.GTPHeader
         if _pkt and len(_pkt) >= 8:
-            _gtp_type = struct.unpack("!B", _pkt[1:2])[0]
+            _gtp_type = orb(_pkt[1:2])
             return GTPforcedTypes.get(_gtp_type, GTPHeader)
         return cls
 
@@ -405,9 +406,9 @@ class APNStrLenField(StrLenField):
     # Inspired by DNSStrField
     def m2i(self, pkt, s):
         ret_s = ""
-        tmp_s = s
+        tmp_s = plain_str(s)
         while tmp_s:
-            tmp_len = struct.unpack("!B", tmp_s[0])[0] + 1
+            tmp_len = orb(tmp_s[0]) + 1
             if tmp_len > len(tmp_s):
                 warning("APN prematured end of character-string (size=%i, remaining bytes=%i)" % (tmp_len, len(tmp_s)))
             ret_s +=  tmp_s[1:tmp_len] 
@@ -744,7 +745,7 @@ def IE_Dispatcher(s):
     if len(s) < 1:
         return Raw(s)
     # Get the IE type
-    ietype = ord(s[0])
+    ietype = orb(s[0])
     cls = ietypecls.get(ietype, Raw)
 
     # if ietype greater than 128 are TLVs
