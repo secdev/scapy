@@ -36,6 +36,7 @@ from scapy.fields import BitEnumField, BitField, ByteField,\
 
 # local imports
 from scapy.contrib.pnio import ProfinetIO
+from scapy.compat import orb
 from scapy.modules.six.moves import range
 
 
@@ -226,13 +227,13 @@ class PNIORealTime(Packet):
         # dissected packets
         pkt_len = self.getfieldval("len")
         if pkt_len is not None:
-            return max(0, pkt_len - len(fld.addfield(self, "", val)) - 4)
+            return max(0, pkt_len - len(fld.addfield(self, b"", val)) - 4)
 
         if isinstance(self.underlayer, ProfinetIO) and \
                 isinstance(self.underlayer.underlayer, UDP):
-            return max(0, 12 - len(fld.addfield(self, "", val)))
+            return max(0, 12 - len(fld.addfield(self, b"", val)))
         else:
-            return max(0, 40 - len(fld.addfield(self, "", val)))
+            return max(0, 40 - len(fld.addfield(self, b"", val)))
 
     @staticmethod
     def analyse_data(packets):
@@ -265,7 +266,7 @@ class PNIORealTime(Packet):
                     counts.extend([0 for _ in range(len(pdu) - len(counts))])
 
                 for i in range(len(pdu)):
-                    if pdu[i] != b"\x80":
+                    if orb(pdu[i]) != 0x80:
                         counts[i] += 1
 
                 comm = (pkt.src, pkt.dst)
@@ -279,7 +280,7 @@ class PNIORealTime(Packet):
             loc = locations[comm] = []
             start = None
             for i in range(length):
-                if counts[i] > total / 2:   # Data if more than half is != 0x80
+                if counts[i] > total // 2:   # Data if more than half is != 0x80
                     if start is None:
                         start = i
                 else:
@@ -421,7 +422,7 @@ def entropy_of_byte(packets, position):
     # Count each byte a appearance
     for pkt in packets:
         if -position <= len(pkt):     # position must be a negative index
-            counter[ord(pkt[position])] += 1
+            counter[orb(pkt[position])] += 1
 
     # Compute the Shannon entropy
     entropy = 0

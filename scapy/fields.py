@@ -665,7 +665,7 @@ class XStrFixedLenField(StrFixedLenField):
 
 class StrLenFieldUtf16(StrLenField):
     def h2i(self, pkt, x):
-        return x.encode('utf-16')[2:]
+        return plain_str(x).encode('utf-16')[2:]
     def i2h(self, pkt, x):
         return x.decode('utf-16')
 
