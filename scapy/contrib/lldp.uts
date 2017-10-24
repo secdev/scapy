@@ -13,7 +13,7 @@ frm = Ether(src='01:01:01:01:01:01', dst=LLDP_NEAREST_BRIDGE_MAC)/ \
       LLDPDUChassisID(subtype=LLDPDUChassisID.SUBTYPE_MAC_ADDRESS, id=b'\x06\x05\x04\x03\x02\x01') / \
       LLDPDUPortID(subtype=LLDPDUPortID.SUBTYPE_MAC_ADDRESS, id=b'\x01\x02\x03\x04\x05\x06')/\
       LLDPDUTimeToLive()/\
-      LLDPDUSystemName(name='mate')/\
+      LLDPDUSystemName(system_name='mate')/\
       LLDPDUSystemCapabilities(telephone_available=1, router_available=1, telephone_enabled=1)/\
       LLDPDUManagementAddress(
             management_address_subtype=LLDPDUManagementAddress.SUBTYPE_MANAGEMENT_ADDRESS_IPV4,

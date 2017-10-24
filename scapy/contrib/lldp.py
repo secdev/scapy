@@ -455,8 +455,8 @@ class LLDPDUSystemName(LLDPDU):
     """
     fields_desc = [
         BitEnumField('_type', 0x05, 7, LLDPDU.TYPES),
-        BitFieldLenField('_length', None, 9, length_of='name'),
-        StrLenField('name', '', length_from=lambda pkt: pkt._length)
+        BitFieldLenField('_length', None, 9, length_of='system_name'),
+        StrLenField('system_name', '', length_from=lambda pkt: pkt._length)
     ]
 
 
