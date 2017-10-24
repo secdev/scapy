@@ -641,7 +641,7 @@ class XStrField(StrField):
     def i2repr(self, pkt, x):
         if not x:
             return repr(x)
-        return to_hex(x)
+        return bytes_hex(x).decode()
 
 class XStrLenField(StrLenField):
     """
@@ -651,7 +651,7 @@ class XStrLenField(StrLenField):
     def i2repr(self, pkt, x):
         if not x:
             return repr(x)
-        return to_hex(x[:self.length_from(pkt)])
+        return bytes_hex(x[:self.length_from(pkt)]).decode()
 
 class XStrFixedLenField(StrFixedLenField):
     """
@@ -661,7 +661,7 @@ class XStrFixedLenField(StrFixedLenField):
     def i2repr(self, pkt, x):
         if not x:
             return repr(x)
-        return to_hex(x[:self.length_from(pkt)])
+        return bytes_hex(x[:self.length_from(pkt)]).decode()
 
 class StrLenFieldUtf16(StrLenField):
     def h2i(self, pkt, x):
