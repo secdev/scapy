@@ -27,8 +27,9 @@ from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.inet import IP, UDP
 from scapy.layers.inet6 import IP6Field
+from scapy.compat import orb
 
-import gtp
+import scapy.contrib.gtp as gtp
 
 RATType = {
     6: "EUTRAN",
@@ -137,7 +138,7 @@ def IE_Dispatcher(s):
     """Choose the correct Information Element class."""
 
     # Get the IE type
-    ietype = ord(s[0])
+    ietype = orb(s[0])
     cls = ietypecls.get(ietype, Raw)
 
     # if ietype greater than 128 are TLVs
@@ -468,7 +469,7 @@ PCO_OPTION_CLASSES = {
 
 def PCO_option_dispatcher(s):
     """Choose the correct PCO element."""
-    option = ord(s[0])
+    option = orb(s[0])
 
     cls = PCO_OPTION_CLASSES.get(option, Raw)
     return cls(s)
@@ -620,7 +621,7 @@ PCO_PROTOCOL_CLASSES = {
 
 def PCO_protocol_dispatcher(s):
     """Choose the correct PCO element."""
-    proto_num = ord(s[0])*256+ord(s[1])
+    proto_num = orb(s[0])*256+orb(s[1])
     cls = PCO_PROTOCOL_CLASSES.get(proto_num, Raw)
     return cls(s)
 
