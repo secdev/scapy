@@ -426,7 +426,70 @@ class SCTPChunkParamAdaptationLayer(_SCTPChunkParam, Packet):
 
 ############## SCTP Chunks
 
+# Dictionary taken from: http://www.iana.org/assignments/sctp-parameters/sctp-parameters.xhtml
+SCTP_PAYLOAD_PROTOCOL_INDENTIFIERS = {
+	0:  'Reserved',
+	1:  'IUA',
+	2:  'M2UA',
+	3:  'M3UA',
+	4:  'SUA',
+	5:  'M2PA',
+	6:  'V5UA',
+	7:  'H.248',
+	8:  'BICC/Q.2150.3',
+	9:  'TALI',
+	10: 'DUA',
+	11: 'ASAP',
+	12: 'ENRP',
+	13: 'H.323',
+	14: 'Q.IPC/Q.2150.3',
+	15: 'SIMCO',
+	16: 'DDP Segment Chunk',
+	17: 'DDP Stream Session Control',
+	18: 'S1AP',
+	19: 'RUA',
+	20: 'HNBAP',
+	21: 'ForCES-HP',
+	22: 'ForCES-MP',
+	23: 'ForCES-LP',
+	24: 'SBc-AP',
+	25: 'NBAP',
+	26: 'Unassigned',
+	27: 'X2AP',
+	28: 'IRCP',
+	29: 'LCS-AP',
+	30: 'MPICH2',
+	31: 'SABP',
+	32: 'FGP',
+	33: 'PPP',
+	34: 'CALCAPP',
+	35: 'SSP',
+	36: 'NPMP-CONTROL',
+	37: 'NPMP-DATA',
+	38: 'ECHO',
+	39: 'DISCARD',
+	40: 'DAYTIME',
+	41: 'CHARGEN',
+	42: '3GPP RNA',
+	43: '3GPP M2AP',
+	44: '3GPP M3AP',
+	45: 'SSH/SCTP',
+	46: 'Diameter/SCTP',
+	47: 'Diameter/DTLS/SCTP',
+	48: 'R14P',
+	49: 'Unassigned',
+	50: 'WebRTC DCEP',
+	51: 'WebRTC String',
+	52: 'WebRTC Binary Partial',
+	53: 'WebRTC Binary',
+	54: 'WebRTC String Partial',
+	55: '3GPP PUA',
+	56: 'WebRTC String Empty',
+	57: 'WebRTC Binary Empty'	
+}
+
 class SCTPChunkData(_SCTPChunkGuessPayload, Packet):
+    # TODO : add a padding function in post build if this layer is used to generate SCTP chunk data
     fields_desc = [ ByteEnumField("type", 0, sctpchunktypes),
                     BitField("reserved", None, 4),
                     BitField("delay_sack", 0, 1),
@@ -437,10 +500,11 @@ class SCTPChunkData(_SCTPChunkGuessPayload, Packet):
                     XIntField("tsn", None),
                     XShortField("stream_id", None),
                     XShortField("stream_seq", None),
-                    XIntField("proto_id", None),
+                    IntEnumField("proto_id", None, SCTP_PAYLOAD_PROTOCOL_INDENTIFIERS),
                     PadField(StrLenField("data", None, length_from=lambda pkt: pkt.len-16),
                              4, padwith=b"\x00"),
                     ]
+
 
 class SCTPChunkInit(_SCTPChunkGuessPayload, Packet):
     fields_desc = [ ByteEnumField("type", 1, sctpchunktypes),
