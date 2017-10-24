@@ -51,11 +51,11 @@ class Route6:
     def __repr__(self):
         rtlst = []
 
-        for net,msk,gw,iface,cset in self.routes:
-            rtlst.append(('%s/%i'% (net,msk), gw, (iface if isinstance(iface, six.string_types) else iface.name), ", ".join(cset) if len(cset) > 0 else ""))
+        for net, msk, gw, iface, cset, metric in self.routes:
+            rtlst.append(('%s/%i'% (net,msk), gw, (iface if isinstance(iface, six.string_types) else iface.name), ", ".join(cset) if len(cset) > 0 else "", str(metric)))
 
         return pretty_routes(rtlst,
-                             [('Destination', 'Next Hop', "Iface", "Src candidates")],
+                             [('Destination', 'Next Hop', "Iface", "Src candidates", "Metric")],
                              sortBy = 1)
 
     # Unlike Scapy's Route.make_route() function, we do not have 'host' and 'net'
@@ -79,7 +79,7 @@ class Route6:
             devaddrs = [x for x in lifaddr if x[2] == dev]
             ifaddr = construct_source_candidate_set(prefix, plen, devaddrs)
 
-        return (prefix, plen, gw, dev, ifaddr)
+        return (prefix, plen, gw, dev, ifaddr, 1)
 
 
     def add(self, *args, **kargs):
@@ -124,13 +124,13 @@ class Route6:
         the_net = inet_ntop(socket.AF_INET6, in6_and(nmask,naddr))
 
         for i, route in enumerate(self.routes):
-            net,plen,gw,iface,addr = route
+            net, plen, gw, iface, addr, metric = route
             if iface != iff:
                 continue
             if gw == '::':
-                self.routes[i] = (the_net,the_plen,gw,iface,[the_addr])
+                self.routes[i] = (the_net,the_plen,gw,iface,[the_addr],metric)
             else:
-                self.routes[i] = (net,plen,gw,iface,[the_addr])
+                self.routes[i] = (net,plen,gw,iface,[the_addr],metric)
         self.invalidate_cache()
         conf.netcache.in6_neighbor.flush()
 
@@ -151,8 +151,8 @@ class Route6:
         Ex: ifadd('eth0', '2001:bd8:cafe:1::1/64') will add following entry into
             Scapy6 internal routing table:
 
-            Destination           Next Hop  iface  Def src @
-            2001:bd8:cafe:1::/64  ::        eth0   2001:bd8:cafe:1::1
+            Destination           Next Hop  iface  Def src @           Metric
+            2001:bd8:cafe:1::/64  ::        eth0   2001:bd8:cafe:1::1  1
 
             prefix length value can be omitted. In that case, a value of 128
             will be used.
@@ -164,7 +164,7 @@ class Route6:
         nmask = in6_cidr2mask(plen)
         prefix = inet_ntop(socket.AF_INET6, in6_and(nmask,naddr))
         self.invalidate_cache()
-        self.routes.append((prefix,plen,'::',iff,[addr]))
+        self.routes.append((prefix,plen,'::',iff,[addr],1))
 
     def route(self, dst, dev=None):
         """
@@ -210,13 +210,13 @@ class Route6:
         #        if we are able to cope with everything possible. I'm convinced
         #        it's not the case.
         # -- arnaud
-        for p, plen, gw, iface, cset in self.routes:
+        for p, plen, gw, iface, cset, me in self.routes:
             if dev is not None and iface != dev:
                 continue
             if in6_isincluded(dst, p, plen):
-                pathes.append((plen, (iface, cset, gw)))
+                pathes.append((plen, me, (iface, cset, gw)))
             elif (in6_ismlladdr(dst) and in6_islladdr(p) and in6_islladdr(cset[0])):
-                pathes.append((plen, (iface, cset, gw)))
+                pathes.append((plen, me, (iface, cset, gw)))
 
         if not pathes:
             warning("No route found for IPv6 destination %s (no default route?)", dst)
@@ -230,14 +230,18 @@ class Route6:
 
         res = []
         for p in pathes: # Here we select best source address for every route
-            tmp = p[1]
-            srcaddr = get_source_addr_from_candidate_set(dst, p[1][1])
+            tmp = p[2]
+            srcaddr = get_source_addr_from_candidate_set(dst, tmp[1])
             if srcaddr is not None:
-                res.append((p[0], (tmp[0], srcaddr, tmp[2])))
+                res.append((p[0], p[1], (tmp[0], srcaddr, tmp[2])))
 
         if res == []:
             warning("Found a route for IPv6 destination '%s', but no possible source address.", dst)
             return (scapy.consts.LOOPBACK_INTERFACE, "::", "::")
+
+        # Tie-breaker: Metrics
+        pathes.sort(key=lambda x: x[1])
+        pathes = [i for i in pathes if i[1] == pathes[0][1]]
 
         # Symptom  : 2 routes with same weight (our weight is plen)
         # Solution :
@@ -247,7 +251,6 @@ class Route6:
         #    interfaces are available. Take main one (conf.iface6)
         #  - if none of the previous or ambiguity persists, be lazy and keep
         #    first one
-        #  XXX TODO : in a _near_ future, include metric in the game
 
         if len(res) > 1:
             tmp = []
@@ -266,9 +269,9 @@ class Route6:
         k = dst
         if dev is not None:
             k = dst + "%%" + (dev if isinstance(dev, six.string_types) else dev.pcap_name)
-        self.cache[k] = res[0][1]
+        self.cache[k] = res[0][2]
 
-        return res[0][1]
+        return res[0][2]
 
 conf.route6 = Route6()
 try:

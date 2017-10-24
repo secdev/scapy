@@ -12,6 +12,7 @@
 conf
 
 IP().src
+scapy.consts.LOOPBACK_INTERFACE
 
 = List layers
 ~ conf command
@@ -87,16 +88,16 @@ if routes6:
         False
 else:
     # IPv6 seems disabled. Force a route to ::1
-    conf.route6.routes.append(("::1", 128, "::", LOOPBACK_NAME, ["::1"]))
+    conf.route6.routes.append(("::1", 128, "::", LOOPBACK_NAME, ["::1"], 1))
     True
 
 = Test read_routes6() - check mandatory routes
 
 if len(routes6):
-    assert(len([r for r in routes6 if r[0] == "::1" and r[-1] == ["::1"]]) >= 1)
+    assert(len([r for r in routes6 if r[0] == "::1" and r[4] == ["::1"]]) >= 1)
     if len(iflist) >= 2:
         assert(len([r for r in routes6 if r[0] == "fe80::" and r[1] == 64]) >= 1)
-        len([r for r in routes6 if in6_islladdr(r[0]) and r[1] == 128 and r[-1] == ["::1"]]) >= 1
+        len([r for r in routes6 if in6_islladdr(r[0]) and r[1] == 128 and r[4] == ["::1"]]) >= 1
 else:
     True
 
@@ -406,7 +407,8 @@ bind_layers(IP, ICMP, frag=0, proto=1)
 = fuzz
 ~ not_pypy
 random.seed(0x2807)
-raw(fuzz(IP()/ICMP())) in [
+raw(fuzz(IP()/ICMP()))
+assert _ in [
     b'u\x14\x00\x1c\xc2\xf6\x80\x00\xde\x01k\xd3\x7f\x00\x00\x01\x7f\x00\x00\x01y\xc9>\xa6\x84\xd8\xc2\xb7',
     b'E\xa7\x00\x1c\xb0c\xc0\x00\xf6\x01U\xd3\x7f\x00\x00\x01\x7f\x00\x00\x01\xfex\xb3\x92B<\x0b\xb8',
 ]
@@ -3193,32 +3195,32 @@ raw(defragment6(l)) == b'`\x00\x00\x00\x0f\xb4\x06@\x00\x00\x00\x00\x00\x00\x00\
 
 = Route6 - Route6 flushing
 conf.route6.routes=[
-(                               '::1', 128,                       '::',   'lo', ['::1']), 
-(          'fe80::20f:1fff:feca:4650', 128,                       '::',   'lo', ['::1'])]
+(                               '::1', 128,                       '::',   'lo', ['::1'], 1), 
+(          'fe80::20f:1fff:feca:4650', 128,                       '::',   'lo', ['::1'], 1)]
 conf.route6.flush()
 not conf.route6.routes
 
 = Route6 - Route6.route
 conf.route6.flush()
 conf.route6.routes=[
-(                               '::1', 128,                       '::',   'lo', ['::1']), 
-(          'fe80::20f:1fff:feca:4650', 128,                       '::',   'lo', ['::1']), 
-(                            'fe80::',  64,                       '::', 'eth0', ['fe80::20f:1fff:feca:4650']),
-('2001:db8:0:4444:20f:1fff:feca:4650', 128,                       '::',   'lo', ['::1']), 
-(                 '2001:db8:0:4444::',  64,                       '::', 'eth0', ['2001:db8:0:4444:20f:1fff:feca:4650']), 
-(                                '::',   0, 'fe80::20f:34ff:fe8a:8aa1', 'eth0', ['2001:db8:0:4444:20f:1fff:feca:4650', '2002:db8:0:4444:20f:1fff:feca:4650'])
+(                               '::1', 128,                       '::',   'lo', ['::1'], 1), 
+(          'fe80::20f:1fff:feca:4650', 128,                       '::',   'lo', ['::1'], 1), 
+(                            'fe80::',  64,                       '::', 'eth0', ['fe80::20f:1fff:feca:4650'], 1),
+('2001:db8:0:4444:20f:1fff:feca:4650', 128,                       '::',   'lo', ['::1'], 1), 
+(                 '2001:db8:0:4444::',  64,                       '::', 'eth0', ['2001:db8:0:4444:20f:1fff:feca:4650'], 1), 
+(                                '::',   0, 'fe80::20f:34ff:fe8a:8aa1', 'eth0', ['2001:db8:0:4444:20f:1fff:feca:4650', '2002:db8:0:4444:20f:1fff:feca:4650'], 1)
 ]
 conf.route6.route("2002::1") == ('eth0', '2002:db8:0:4444:20f:1fff:feca:4650', 'fe80::20f:34ff:fe8a:8aa1') and conf.route6.route("2001::1") == ('eth0', '2001:db8:0:4444:20f:1fff:feca:4650', 'fe80::20f:34ff:fe8a:8aa1') and conf.route6.route("fe80::20f:1fff:feab:4870") == ('eth0', 'fe80::20f:1fff:feca:4650', '::') and conf.route6.route("::1") == ('lo', '::1', '::') and conf.route6.route("::") == ('eth0', '2001:db8:0:4444:20f:1fff:feca:4650', 'fe80::20f:34ff:fe8a:8aa1')
 conf.route6.resync()
 if not len(conf.route6.routes):
     # IPv6 seems disabled. Force a route to ::1
-    conf.route6.routes.append(("::1", 128, "::", LOOPBACK_NAME, ["::1"]))
+    conf.route6.routes.append(("::1", 128, "::", LOOPBACK_NAME, ["::1"], 1))
     True
 
 = Route6 - Route6.make_route
 
 r6 = Route6()
-r6.make_route("2001:db8::1", dev=LOOPBACK_NAME) == ("2001:db8::1", 128, "::", LOOPBACK_NAME, [])
+r6.make_route("2001:db8::1", dev=LOOPBACK_NAME) == ("2001:db8::1", 128, "::", LOOPBACK_NAME, [], 1)
 len_r6 = len(r6.routes)
 
 = Route6 - Route6.add & Route6.delt
@@ -5892,7 +5894,7 @@ from io import StringIO
 
 def valid_output_read_routes6(routes):
     """"Return True if 'routes' contains correctly formatted entries, False otherwise"""
-    for destination, plen, next_hop, dev, cset  in routes:
+    for destination, plen, next_hop, dev, cset, me  in routes:
         if not in6_isvalid(destination) or not type(plen) == int:
             return False
         if not in6_isvalid(next_hop) or not isinstance(dev, six.string_types):
@@ -5904,12 +5906,12 @@ def valid_output_read_routes6(routes):
 
 def check_mandatory_ipv6_routes(routes6):
     """Ensure that mandatory IPv6 routes are present"""
-    if len([r for r in routes6 if r[0] == "::1" and r[-1] == ["::1"]]) < 1:
+    if len([r for r in routes6 if r[0] == "::1" and r[4] == ["::1"]]) < 1:
         return False
     if len([r for r in routes6 if r[0] == "fe80::" and r[1] == 64]) < 1:
         return False
     if len([r for r in routes6 if in6_islladdr(r[0]) and r[1] == 128 and \
-            r[-1] == ["::1"]]) < 1:
+            r[4] == ["::1"]]) < 1:
         return False
     return True
 
@@ -8294,7 +8296,7 @@ len(r4.routes) == len_r4
 
 r4.add(net="192.168.1.0/24", gw="1.2.3.4", dev=get_dummy_interface())
 r4.ifchange(get_dummy_interface(), "5.6.7.8")
-r4.routes[-1][-1] == "5.6.7.8"
+r4.routes[-1][4] == "5.6.7.8"
 
 = ifdel()
 

@@ -34,18 +34,18 @@ class Route:
 
     def __repr__(self):
         rtlst = []
-        
-        for net,msk,gw,iface,addr in self.routes:
+        for net, msk, gw, iface, addr, metric in self.routes:
             rtlst.append((ltoa(net),
                       ltoa(msk),
                       gw,
                       (iface.name if not isinstance(iface, six.string_types) else iface),
-                      addr))
+                      addr,
+                      str(metric)))
 
         return pretty_routes(rtlst,
-                             [("Network", "Netmask", "Gateway", "Iface", "Output IP")])
+                             [("Network", "Netmask", "Gateway", "Iface", "Output IP", "Metric")])
 
-    def make_route(self, host=None, net=None, gw=None, dev=None):
+    def make_route(self, host=None, net=None, gw=None, dev=None, metric=1):
         from scapy.arch import get_if_addr
         if host is not None:
             thenet,msk = host,32
@@ -64,7 +64,7 @@ class Route:
             dev,ifaddr,x = self.route(nhop)
         else:
             ifaddr = get_if_addr(dev)
-        return (atol(thenet), itom(msk), gw, dev, ifaddr)
+        return (atol(thenet), itom(msk), gw, dev, ifaddr, metric)
 
     def add(self, *args, **kargs):
         """Ex:
@@ -93,16 +93,16 @@ class Route:
         
         
         for i, route in enumerate(self.routes):
-            net, msk, gw, iface, addr = route
+            net, msk, gw, iface, addr, metric = route
             if WINDOWS:
                 if iff.guid != iface.guid:
                     continue
             elif iff != iface:
                 continue
             if gw == '0.0.0.0':
-                self.routes[i] = (the_net,the_msk,gw,iface,the_addr)
+                self.routes[i] = (the_net,the_msk,gw,iface,the_addr,metric)
             else:
-                self.routes[i] = (net,msk,gw,iface,the_addr)
+                self.routes[i] = (net,msk,gw,iface,the_addr,metric)
         conf.netcache.flush()
         
                 
@@ -125,7 +125,7 @@ class Route:
         the_msk = itom(int(the_msk))
         the_rawaddr = atol(the_addr)
         the_net = the_rawaddr & the_msk
-        self.routes.append((the_net,the_msk,'0.0.0.0',iff,the_addr))
+        self.routes.append((the_net,the_msk,'0.0.0.0',iff,the_addr,1))
 
 
     def route(self,dest,verbose=None):
@@ -148,27 +148,32 @@ class Route:
             
         dst = atol(dst)
         pathes=[]
-        for d,m,gw,i,a in self.routes:
+        for d,m,gw,i,a,me in self.routes:
             if not a: # some interfaces may not currently be connected
                 continue
             aa = atol(a)
             if aa == dst:
-                pathes.append((0xffffffff,(scapy.consts.LOOPBACK_INTERFACE,a,"0.0.0.0")))
+                pathes.append((0xffffffff, 1, (scapy.consts.LOOPBACK_INTERFACE,a,"0.0.0.0")))
             if (dst & m) == (d & m):
-                pathes.append((m,(i,a,gw)))
+                pathes.append((m, me, (i,a,gw)))
         if not pathes:
             if verbose:
                 warning("No route found (no default route?)")
             return scapy.consts.LOOPBACK_INTERFACE,"0.0.0.0","0.0.0.0"
-        # Choose the more specific route (greatest netmask).
-        # XXX: we don't care about metrics
-        pathes.sort(key=lambda x: x[0])
-        ret = pathes[-1][1]
+        # Choose the more specific route
+        # Sort by greatest netmask
+        pathes.sort(key=lambda x: x[0], reverse=True)
+        # Get all pathes having the (same) greatest mask
+        pathes = [i for i in pathes if i[0] == pathes[0][0]]
+        # Tie-breaker: Metrics
+        pathes.sort(key=lambda x: x[1])
+        # Return interface
+        ret = pathes[0][2]
         self.cache[dest] = ret
         return ret
             
     def get_if_bcast(self, iff):
-        for net, msk, gw, iface, addr in self.routes:
+        for net, msk, gw, iface, addr, metric in self.routes:
             if net == 0:
                 continue
             if WINDOWS:
@@ -186,4 +191,6 @@ conf.route=Route()
 _betteriface = conf.route.route("0.0.0.0", verbose=0)[0]
 if ((_betteriface if (isinstance(_betteriface, six.string_types) or _betteriface is None) else _betteriface.name) != scapy.consts.LOOPBACK_NAME):
     conf.iface = _betteriface
+else:
+    conf.iface = get_working_if()
 del(_betteriface)

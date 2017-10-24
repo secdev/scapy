@@ -165,7 +165,7 @@ def set_promisc(s,iff,val=1):
     s.setsockopt(SOL_PACKET, cmd, mreq)
 
 
-def get_alias_address(iface_name, ip_mask, gw_str):
+def get_alias_address(iface_name, ip_mask, gw_str, metric):
     """
     Get the correct source IP address of an interface alias
     """
@@ -209,7 +209,7 @@ def get_alias_address(iface_name, ip_mask, gw_str):
         if (ifaddr & msk) == ip_mask:
             sck.close()
             return (ifaddr & msk, msk, gw_str, ifname,
-                    scapy.utils.ltoa(ifaddr))
+                    scapy.utils.ltoa(ifaddr), metric)
 
     sck.close()
     return
@@ -230,13 +230,13 @@ def read_routes():
         msk = socket.ntohl(struct.unpack("I",ifreq2[20:24])[0])
         dst = socket.ntohl(struct.unpack("I",ifreq[20:24])[0]) & msk
         ifaddr = scapy.utils.inet_ntoa(ifreq[20:24])
-        routes.append((dst, msk, "0.0.0.0", LOOPBACK_NAME, ifaddr))
+        routes.append((dst, msk, "0.0.0.0", LOOPBACK_NAME, ifaddr, 1))
     else:
         warning("Interface lo: unkown address family (%i)"% addrfamily)
 
     for l in f.readlines()[1:]:
         l = plain_str(l)
-        iff,dst,gw,flags,x,x,x,msk,x,x,x = l.split()
+        iff,dst,gw,flags,x,x,metric,msk,x,x,x = l.split()
         flags = int(flags,16)
         if flags & RTF_UP == 0:
             continue
@@ -259,16 +259,17 @@ def read_routes():
         msk_int = socket.htonl(int(msk, 16)) & 0xffffffff
         ifaddr_int = struct.unpack("!I", ifreq[20:24])[0]
         gw_str = scapy.utils.inet_ntoa(struct.pack("I", int(gw, 16)))
+        metric = int(metric)
 
         if ifaddr_int & msk_int != dst_int:
-            tmp_route = get_alias_address(iff, dst_int, gw_str)
+            tmp_route = get_alias_address(iff, dst_int, gw_str, metric)
             if tmp_route:
                 routes.append(tmp_route)
             else:
-                routes.append((dst_int, msk_int, gw_str, iff, ifaddr))
+                routes.append((dst_int, msk_int, gw_str, iff, ifaddr, metric))
 
         else:
-            routes.append((dst_int, msk_int, gw_str, iff, ifaddr))
+            routes.append((dst_int, msk_int, gw_str, iff, ifaddr, metric))
     
     f.close()
     return routes
@@ -326,7 +327,8 @@ def read_routes6():
     lifaddr = in6_getifaddr() 
     for l in f.readlines():
         l = plain_str(l)
-        d,dp,s,sp,nh,m,rc,us,fl,dev = l.split()
+        d,dp,s,sp,nh,metric,rc,us,fl,dev = l.split()
+        metric = int(metric, 16)
         fl = int(fl, 16)
 
         if fl & RTF_UP == 0:
@@ -348,7 +350,7 @@ def read_routes6():
             cset = scapy.utils6.construct_source_candidate_set(d, dp, devaddrs)
         
         if len(cset) != 0:
-            routes.append((d, dp, nh, dev, cset))
+            routes.append((d, dp, nh, dev, cset, metric))
     f.close()
     return routes   
 
@@ -611,5 +613,3 @@ class L2ListenSocket(SuperSocket):
 conf.L3socket = L3PacketSocket
 conf.L2socket = L2Socket
 conf.L2listen = L2ListenSocket
-
-conf.iface = get_working_if()

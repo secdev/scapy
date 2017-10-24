@@ -22,11 +22,12 @@ assert select_objects([TimeOutSelector()], 1) == []
 = Mocked read_routes6() calls
 
 import mock
+from scapy.tools.UTscapy import Bunch
 from scapy.arch.windows import _read_routes6_post2008
 
 def check_mandatory_ipv6_routes(routes6):
     """Ensure that mandatory IPv6 routes are present."""
-    if len([r for r in routes6 if r[0] == "::" and r[-1] == ["::1"]]) < 1:
+    if len([r for r in routes6 if r[0] == "::" and r[4] == ["::1"]]) < 1:
         return False
     if len([r for r in routes6 if r[0] == "fe80::" and (r[1] == 64 or r[1] == 32)]) < 1:
         return False
@@ -56,24 +57,91 @@ def test_read_routes6_windows(mock_comm, mock_dev_from_index, mock_winpcapylist,
     """Test read_routes6() on Windows"""
     # 'Get-NetRoute -AddressFamily IPV6 | select ifIndex, DestinationPrefix, NextHop'
     get_net_route_output = """
-ifIndex DestinationPrefix                          NextHop
-------- -----------------                          -------
-3 ff00::/8                                   ::
-16 ff00::/8                                   ::
-13 ff00::/8                                   ::
-1 ff00::/8                                   ::
-13 fe80::dc1d:24e8:af00:125e/128              ::
-3 fe80::9402:5804:cb16:fb3b/128              ::
-16 fe80::100:7f:fffe/128                      ::
-3 fe80::/64                                  ::
-16 fe80::/64                                  ::
-13 fe80::/64                                  ::
-13 2a01:e35:2f17:fe60:dc1d:24e8:af00:125e/128 ::
-13 2a01:e35:2f17:fe60::/64                    ::
-1 ::1/128                                    ::
-13 ::/0                                       fe80::224:d4ff:fea0:a6d7
-"""
-    mock_comm.return_value.communicate.return_value = (get_net_route_output, "")
+ifIndex           : 3
+DestinationPrefix : ff00::/8
+NextHop           : ::
+RouteMetric       : 0
+InterfaceMetric   : 1
+
+ifIndex           : 16
+DestinationPrefix : ff00::/8
+NextHop           : ::
+RouteMetric       : 0
+InterfaceMetric   : 1
+
+ifIndex           : 13
+DestinationPrefix : ff00::/8
+NextHop           : ::
+RouteMetric       : 0
+InterfaceMetric   : 1
+
+ifIndex           : 1
+DestinationPrefix : ff00::/8
+NextHop           : ::
+RouteMetric       : 0
+InterfaceMetric   : 1
+
+ifIndex           : 13
+DestinationPrefix : fe80::dc1d:24e8:af00:125e/128
+NextHop           : ::
+RouteMetric       : 20
+InterfaceMetric   : 256
+
+ifIndex           : 3
+DestinationPrefix : fe80::9402:5804:cb16:fb3b/128
+NextHop           : ::
+RouteMetric       : 1
+InterfaceMetric   : 0
+
+ifIndex           : 16
+DestinationPrefix : fe80::100:7f:fffe/128
+NextHop           : ::
+RouteMetric       : 1
+InterfaceMetric   : 0
+
+ifIndex           : 3
+DestinationPrefix : fe80::/64
+NextHop           : ::
+RouteMetric       : 0
+InterfaceMetric   : 1
+
+ifIndex           : 16
+DestinationPrefix : fe80::/64
+NextHop           : ::
+RouteMetric       : 0
+InterfaceMetric   : 1
+
+ifIndex           : 13
+DestinationPrefix : fe80::/64
+NextHop           : ::
+RouteMetric       : 0
+InterfaceMetric   : 1
+
+ifIndex           : 13
+DestinationPrefix : 2a01:e35:2f17:fe60:dc1d:24e8:af00:125e/128
+NextHop           : ::
+RouteMetric       : 20
+InterfaceMetric   : 256
+
+ifIndex           : 13
+DestinationPrefix : 2a01:e35:2f17:fe60::/64
+NextHop           : ::
+RouteMetric       : 30
+InterfaceMetric   : 256
+
+ifIndex           : 1
+DestinationPrefix : ::1/128
+NextHop           : ::
+RouteMetric       : 0
+InterfaceMetric   : 256
+
+ifIndex           : 13
+DestinationPrefix : ::/0
+NextHop           : fe80::224:d4ff:fea0:a6d7
+RouteMetric       : 0
+InterfaceMetric   : 256
+""".split("\n")
+    mock_comm.return_value = Bunch(stdout=get_net_route_output)
     mock_winpcapylist.return_value = [u'\\Device\\NPF_{0EC72537-B662-4F5D-B34E-48BFAE799BBE}', u'\\Device\\NPF_{C56DFFB3-992C-4964-B000-3E7C0F76E8BA}']
     # Mocked in6_getifaddr() output
     mock_dev_from_index.side_effect = dev_from_index_custom

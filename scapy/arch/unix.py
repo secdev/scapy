@@ -94,12 +94,14 @@ def read_routes():
                 netmask = scapy.utils.itom((dest.count(".") + 1) * 8)
             dest += ".0"*(3-dest.count("."))
             dest = scapy.utils.atol(dest)
+        # XXX: TODO: add metrics for unix.py (use -e option on netstat)
+        metric = 1
         if not "G" in flg:
             gw = '0.0.0.0'
         if netif is not None:
             try:
                 ifaddr = get_if_addr(netif)
-                routes.append((dest,netmask,gw,netif,ifaddr))
+                routes.append((dest,netmask, gw, netif, ifaddr, metric))
             except OSError as exc:
                 if exc.message == 'Device not configured':
                     # This means the interface name is probably truncated by
@@ -108,7 +110,7 @@ def read_routes():
                     guessed_netif = _guess_iface_name(netif)
                     if guessed_netif is not None:
                         ifaddr = get_if_addr(guessed_netif)
-                        routes.append((dest, netmask, gw, guessed_netif, ifaddr))
+                        routes.append((dest, netmask, gw, guessed_netif, ifaddr, metric))
                     else:
                         warning("Could not guess partial interface name: %s", netif)
                 else:
@@ -129,8 +131,10 @@ def read_routes():
                     max_rtmask = rtmask
                     gw_if = rtif
                     gw_if_addr = rtaddr
+        # XXX: TODO add metrics
+        metric = 1
         if gw_if:
-            routes.append((dest,netmask,gw,gw_if,gw_if_addr))
+            routes.append((dest,netmask, gw, gw_if, gw_if_addr, metric))
         else:
             warning("Did not find output interface to reach gateway %s", gw)
 
@@ -259,6 +263,9 @@ def read_routes6():
                 continue
             destination, next_hop, flags, dev = splitted_line[:4]
 
+        # XXX: TODO: add metrics for unix.py (use -e option on netstat)
+        metric = 1
+
         # Check flags
         if not "U" in flags:  # usable route
             continue
@@ -323,7 +330,7 @@ def read_routes6():
             cset = construct_source_candidate_set(destination, destination_plen, devaddrs)
 
         if len(cset):
-            routes.append((destination, destination_plen, next_hop, dev, cset))
+            routes.append((destination, destination_plen, next_hop, dev, cset, metric))
 
     fd_netstat.close()
     return routes
