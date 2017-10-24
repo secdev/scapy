@@ -48,6 +48,7 @@ from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.inet import IP
 from scapy.layers.inet6 import *
+from scapy.compat import chb, raw
 
 class EigrpIPField(StrField, IPField):
     """
@@ -162,7 +163,7 @@ class EigrpIP6Field(StrField, IP6Field):
         return inet_ntop(socket.AF_INET6, x)
 
     def prefixlen_to_bytelen(self, l):
-        l = l / 8
+        l = l // 8
 
         if l < 16:
             l += 1
@@ -225,7 +226,7 @@ class EIGRPAuthData(EIGRPGeneric):
 
         if self.keysize is None:
             keysize = len(self.authdata)
-            p = p[:6] + chr((keysize >> 8) & 0xff) + chr(keysize & 0xff) + p[8:]
+            p = p[:6] + chb((keysize >> 8) & 0xff) + chb(keysize & 0xff) + p[8:]
 
         return p
 
@@ -245,7 +246,7 @@ class EIGRPSeq(EIGRPGeneric):
 
         if self.len is None:
             l = len(p)
-            p = p[:2] + chr((l >> 8) & 0xff) + chr(l & 0xff) + p[4:]
+            p = p[:2] + chb((l >> 8) & 0xff) + chb(l & 0xff) + p[4:]
 
         return p
 
@@ -431,12 +432,12 @@ class RepeatedTlvListField(PacketListField):
                 remain = pad.load
                 del(pad.underlayer.payload)
             else:
-                remain = ""
+                remain = b""
             lst.append(p)
         return remain,lst
 
     def addfield(self, pkt, s, val):
-        return s + ''.join(str(v) for v in val)
+        return s + b"".join(raw(v) for v in val)
 
 def _EIGRPGuessPayloadClass(p, **kargs):
     cls = conf.raw_layer
@@ -476,7 +477,7 @@ class EIGRP(Packet):
         p += pay
         if self.chksum is None:
             c = checksum(p)
-            p = p[:2] + chr((c >> 8) & 0xff) + chr(c & 0xff) + p[4:]
+            p = p[:2] + chb((c >> 8) & 0xff) + chb(c & 0xff) + p[4:]
         return p
 
     def mysummary(self):
