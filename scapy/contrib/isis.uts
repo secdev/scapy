@@ -25,7 +25,7 @@ p = Dot3(dst="09:00:2b:00:00:05",src="00:00:00:aa:00:8c")/LLC()/ISIS_CommonHdr()
          tlvs=[
             ISIS_ProtocolsSupportedTlv(nlpids=["IPv4", "IPv6"])
          ])
-p = p.__class__(str(p))
+p = p.__class__(raw(p))
 assert(p[ISIS_P2P_Hello].pdulength == 24)
 assert(network_layer_protocol_ids[p[ISIS_ProtocolsSupportedTlv].nlpids[1]] == "IPv6")
 
@@ -67,7 +67,7 @@ p = Dot3(dst="09:00:2b:00:00:05",src="00:00:00:aa:00:8c")/LLC()/ISIS_CommonHdr()
                  neighbours=[ISIS_ExtendedIsNeighbourEntry(neighbourid="1720.1600.8004.00", metric=10)]
              )
          ])
-p = p.__class__(str(p))
+p = p.__class__(raw(p))
 assert(p[ISIS_L2_LSP].pdulength == 150)
 assert(p[ISIS_L2_LSP].checksum == 0x8701)
 
@@ -126,7 +126,7 @@ p = Dot3(dst="09:00:2b:00:00:05",src="00:00:00:aa:00:8c")/LLC()/ISIS_CommonHdr()
                  ]
              )
          ])
-p = p.__class__(str(p))
+p = p.__class__(raw(p))
 assert(p[ISIS_L2_LSP].pdulength == 231)
 assert(p[ISIS_L2_LSP].checksum == 0xf8df)
 assert(p[ISIS_ExtendedIpReachabilityTlv].pfxs[1].subtlvs[1].tags[0]==54321)

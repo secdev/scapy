@@ -124,7 +124,7 @@ def DNSgetstr(s, p):
         break
     if q:
         p = q
-    return name,p
+    return plain_str(name),p
 
 
 class DNSRRField(StrField):
@@ -226,7 +226,7 @@ class RDataField(StrLenField):
             if s:
                 s = inet_aton(s)
         elif pkt.type in [2, 3, 4, 5, 12]: # NS, MD, MF, CNAME, PTR
-            s = b"".join(chr(len(x)) + x for x in s.split('.'))
+            s = b"".join(chb(len(x)) + x.encode() for x in s.split('.'))
             if orb(s[-1]):
                 s += b"\x00"
         elif pkt.type == 16: # TXT

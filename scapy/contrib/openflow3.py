@@ -16,6 +16,7 @@ import struct
 from scapy.fields import *
 from scapy.layers.l2 import *
 from scapy.layers.inet import *
+from scapy.compat import *
 
 ### If prereq_autocomplete is True then match prerequisites will be
 ### automatically handled. See OFPMatch class.
@@ -271,16 +272,16 @@ ipv6flags = [ "NONEXT",
 ofp_oxm_fields = {}
 def add_ofp_oxm_fields(i, org):
     ofp_oxm_fields[i] = [ ShortEnumField("class", "OFPXMC_OPENFLOW_BASIC", ofp_oxm_classes),
-                          BitEnumField("field", i/2, 7, ofp_oxm_names),
+                          BitEnumField("field", i//2, 7, ofp_oxm_names),
                           BitField("hasmask", i%2, 1) ]
     ofp_oxm_fields[i].append(ByteField("length", org[2]+org[2]*(i%2)))
-    if i/2 == 0:           # OFBInPort
+    if i//2 == 0:           # OFBInPort
         ofp_oxm_fields[i].append(IntEnumField(org[1], 0, ofp_port_no))
-    elif i/2 == 3 or i/2 == 4:          # OFBEthSrc & OFBEthDst
+    elif i//2 == 3 or i//2 == 4:          # OFBEthSrc & OFBEthDst
         ofp_oxm_fields[i].append(MACField(org[1], None))
-    elif i/2 == 11 or i/2 == 12:        # OFBIPv4Src & OFBIPv4Dst
+    elif i//2 == 11 or i//2 == 12:        # OFBIPv4Src & OFBIPv4Dst
         ofp_oxm_fields[i].append(IPField(org[1], "0"))
-    elif i/2 == 39:        # OFBIPv6ExtHdr
+    elif i//2 == 39:        # OFBIPv6ExtHdr
         ofp_oxm_fields[i].append(FlagsField(org[1], 0, 8*org[2], ipv6flags))
     else:
         ofp_oxm_fields[i].append(BitField(org[1], 0, 8*org[2]))
@@ -303,15 +304,15 @@ def create_oxm_cls():
         create_oxm_cls.i = 0
 
     index = create_oxm_cls.i
-    cls_name = ofp_oxm_constr[index/4][0]
+    cls_name = ofp_oxm_constr[index//4][0]
     # we create standard OXM then OXM ID then OXM with mask then OXM-hasmask ID
     if index % 4 == 2:
         cls_name += "HM"
     if index % 2:
         cls_name += "ID"
 
-    oxm_name = ofp_oxm_names[index/4]
-    oxm_fields = ofp_oxm_fields[index/2]
+    oxm_name = ofp_oxm_names[index//4]
+    oxm_fields = ofp_oxm_fields[index//2]
     # for ID classes we just want the first 4 fields (no payload)
     if index % 2:
         oxm_fields = oxm_fields[:4]
@@ -328,9 +329,9 @@ def create_oxm_cls():
     ###                              IntEnumField("in_port", 0, ofp_port_no) ]
 
     if index % 2 == 0:
-        ofp_oxm_cls[index/2] = cls
+        ofp_oxm_cls[index//2] = cls
     else:
-        ofp_oxm_id_cls[index/2] = cls
+        ofp_oxm_id_cls[index//2] = cls
     create_oxm_cls.i += 1
     return cls
 
@@ -565,7 +566,7 @@ class OXMPacketListField(PacketListField):
                     if f2 not in fix_index:
                         self.index.insert(0, f2)
                         prrq = ofp_oxm_cls[f2]()    # never HM
-                        setattr(prrq, ofp_oxm_constr[f2/2][1], prereq[1])
+                        setattr(prrq, ofp_oxm_constr[f2//2][1], prereq[1])
                         val.insert(0, prrq)
                     # we could do more complicated stuff to
                     # make sure prerequisite order is correct
@@ -576,7 +577,7 @@ class OXMPacketListField(PacketListField):
         return val
 
     def m2i(self, pkt, s):
-        t = struct.unpack("!B", s[2])[0]
+        t = orb(s[2])
         nrm_t = t - t%2
         if nrm_t not in self.index:
             self.index.append(nrm_t)
@@ -584,10 +585,10 @@ class OXMPacketListField(PacketListField):
 
     @staticmethod
     def _get_oxm_length(s):
-        return struct.unpack("!B", s[3])[0]
+        return orb(s[3])
 
     def addfield(self, pkt, s, val):
-        return s + "".join(map(str,self.i2m(pkt, val)))
+        return s + b"".join(raw(x) for x in self.i2m(pkt, val))
 
     def getfield(self, pkt, s):
         lst = []
@@ -617,7 +618,7 @@ class OXMPacketListField(PacketListField):
 
 class OXMIDPacketListField(PacketListField):
     def m2i(self, pkt, s):
-        t = struct.unpack("!B", s[2])[0]
+        t = orb(s[2])
         return ofp_oxm_id_cls.get(t, Raw)(s)
 
     def getfield(self, pkt, s):
@@ -671,7 +672,7 @@ class MatchField(PacketField):
         ### i can be <OFPMatch> or <OFPMatch <Padding>>
         ### or <OFPMatch <Raw>> or <OFPMatch <Raw <Padding>>>
         ### and we want to return "", <OFPMatch> or "", <OFPMatch <Padding>>
-        ### or str(<Raw>), <OFPMatch> or str(<Raw>), <OFPMatch <Padding>>
+        ### or raw(<Raw>), <OFPMatch> or raw(<Raw>), <OFPMatch <Padding>>
         if Raw in i:
             r = i[Raw]
             if Padding in r:
@@ -680,7 +681,7 @@ class MatchField(PacketField):
                 del(r.payload)
             return r.load, i
         else:
-            return "", i
+            return b"", i
 
 
 ###################### Actions ######################
@@ -1504,7 +1505,7 @@ class OFPPacketQueue(Packet):
 
     def post_build(self, p, pay):
         if self.properties == []:
-            p += str(OFPQTNone())
+            p += raw(OFPQTNone())
         if self.len is None:
             l = len(p)+len(pay)
             p = p[:4] + struct.pack("!H", l) + p[6:]
@@ -1665,7 +1666,7 @@ class OFPacketField(PacketField):
             remain = s[l:]
             return remain, OpenFlow(None, ofload)(ofload)
         except:
-            return "", Raw(s)
+            return b"", Raw(s)
 
 ofp_error_type = {     0: "OFPET_HELLO_FAILED",
                        1: "OFPET_BAD_REQUEST",
@@ -2705,7 +2706,7 @@ class MeterStatsPacketListField(PacketListField):
     def getfield(self, pkt, s):
         lst = []
         l = 0
-        ret = ""
+        ret = b""
         remain = s
 
         while remain:
@@ -3352,18 +3353,18 @@ def OpenFlow(self, payload):
     if self is None or self.dport == 6653 or self.dport == 6633 or self.sport == 6653 or self.sport == 6633:
     # port 6653 has been allocated by IANA, port 6633 should no longer be used
     # OpenFlow function may be called with None self in OFPPacketField
-        of_type = ord(payload[1])
+        of_type = orb(payload[1])
         if of_type == 1:
-            err_type = ord(payload[9])
+            err_type = orb(payload[9])
             # err_type is a short int, but last byte is enough
             if err_type == 255: err_type = 65535
             return ofp_error_cls[err_type]
         elif of_type == 18:
-            mp_type = ord(payload[9])
+            mp_type = orb(payload[9])
             if mp_type == 255: mp_type = 65535
             return ofp_multipart_request_cls[mp_type]
         elif of_type == 19:
-            mp_type = ord(payload[9])
+            mp_type = orb(payload[9])
             if mp_type == 255: mp_type = 65535
             return ofp_multipart_reply_cls[mp_type]
         else:

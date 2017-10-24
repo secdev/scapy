@@ -6,11 +6,11 @@
 = Ikev2 build
 
 a = IKEv2()
-assert str(a) == '\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00 \x00\x00\x00\x00\x00\x00\x00\x00\x00\x1c'
+assert raw(a) == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00 \x00\x00\x00\x00\x00\x00\x00\x00\x00\x1c'
 
 = Ikev2 dissection
 
-a = IKEv2("\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00! \x00\x00\x00\x00\x00\x00\x00\x00\x000\x00\x00\x00\x14\x00\x00\x00\x10\x01\x01\x00\x00\x00\x00\x00\x08\x02\x00\x00\x03")
+a = IKEv2(b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00! \x00\x00\x00\x00\x00\x00\x00\x00\x000\x00\x00\x00\x14\x00\x00\x00\x10\x01\x01\x00\x00\x00\x00\x00\x08\x02\x00\x00\x03")
 assert a[IKEv2_payload_Transform].transform_type == 2
 assert a[IKEv2_payload_Transform].transform_id == 3
 assert a.next_payload == 33
@@ -24,7 +24,7 @@ a[IKEv2_payload_Transform].show()
 = Build Ikev2 SA request packet
 
 a = IKEv2(init_SPI="MySPI",exch_type=34)/IKEv2_payload_SA(prop=IKEv2_payload_Proposal())
-assert str(a) == b'MySPI\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00! "\x00\x00\x00\x00\x00\x00\x00\x00(\x00\x00\x00\x0c\x00\x00\x00\x08\x01\x01\x00\x00'
+assert raw(a) == b'MySPI\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00! "\x00\x00\x00\x00\x00\x00\x00\x00(\x00\x00\x00\x0c\x00\x00\x00\x08\x01\x01\x00\x00'
 
 
 ## packets taken from
@@ -62,9 +62,9 @@ assert b[IKEv2_payload_Encrypted].load == b'\xa8\x0c\x95{\xac\x15\xc3\xf8\xaf\xd
 
 = Test Certs detection
 
-a = IKEv2_payload_CERT(str(IKEv2_payload_CERT_CRL()))
-b = IKEv2_payload_CERT(str(IKEv2_payload_CERT_STR()))
-c = IKEv2_payload_CERT(str(IKEv2_payload_CERT_CRT()))
+a = IKEv2_payload_CERT(raw(IKEv2_payload_CERT_CRL()))
+b = IKEv2_payload_CERT(raw(IKEv2_payload_CERT_STR()))
+c = IKEv2_payload_CERT(raw(IKEv2_payload_CERT_CRT()))
 
 assert isinstance(a, IKEv2_payload_CERT_CRL)
 assert isinstance(b, IKEv2_payload_CERT_STR)
@@ -72,9 +72,9 @@ assert isinstance(c, IKEv2_payload_CERT_CRT)
 
 = Test TrafficSelector detection
 
-a = TrafficSelector(str(IPv4TrafficSelector()))
-b = TrafficSelector(str(IPv6TrafficSelector()))
-c = TrafficSelector(str(EncryptedTrafficSelector()))
+a = TrafficSelector(raw(IPv4TrafficSelector()))
+b = TrafficSelector(raw(IPv6TrafficSelector()))
+c = TrafficSelector(raw(EncryptedTrafficSelector()))
 
 assert isinstance(a, IPv4TrafficSelector)
 assert isinstance(b, IPv6TrafficSelector)

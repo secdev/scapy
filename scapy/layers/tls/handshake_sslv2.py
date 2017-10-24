@@ -223,7 +223,7 @@ class _SSLv2EncryptedKeyField(XStrLenField):
         if pkt.decryptedkey is not None:
             dx = pkt.decryptedkey
             ds = super(_SSLv2EncryptedKeyField, self).i2repr(pkt, dx)
-            s += b"    [decryptedkey= %s]" % ds
+            s += "    [decryptedkey= %s]" % ds
         return s
 
 class SSLv2ClientMasterKey(_SSLv2Handshake):

@@ -27,6 +27,7 @@ from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.inet6 import *
 from scapy.layers.sctp import *
+import scapy.modules.six as six
 from scapy.modules.six.moves import range
 from scapy.compat import chb, orb, raw, bytes_hex
 from time import ctime
@@ -64,7 +65,7 @@ class I3FieldLenField(X3BytesField, FieldLenField):
         self.adjust = adjust
 
     def i2m(self, pkt, x):
-        return FieldLenField.i2m.im_func(self, pkt, x)
+        return FieldLenField.i2m(self, pkt, x)
 
 ###########################################################
 # Fields for Diameter commands
@@ -208,7 +209,7 @@ AppIDsEnum = {
 class OctetString (StrLenField):
     def i2repr(self, pkt, x):
         try:
-            return x.decode('ascii')
+            return plain_str(x)
         except BaseException:
             return bytes_hex(x)
 
@@ -4778,7 +4779,7 @@ def getCmdParams(cmd, request, **fields):
         val = fields['drAppId']
         if isinstance(val, str):   # Translate into application Id code
             found = False
-            for k, v in AppIDsEnum.iteritems():
+            for k, v in six.iteritems(AppIDsEnum):
                 if v.find(val) != -1:
                     drAppId = k
                     fields['drAppId'] = drAppId
@@ -4793,7 +4794,7 @@ def getCmdParams(cmd, request, **fields):
         else:   # Assume type is int
             drAppId = val
     else:  # Application Id shall be taken from the params found based on cmd
-        drAppId = params[2].keys()[0]   # The first record is taken
+        drAppId = next(iter(params[2]))   # The first record is taken
         fields['drAppId'] = drAppId
     # Set the command name
     name = request and params[0] + '-Request' or params[0] + '-Answer'

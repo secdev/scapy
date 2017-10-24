@@ -10,7 +10,7 @@ pkt = IP() / UDP() / SebekHead() / SebekV1()
 pkt.sport == pkt.dport == 1101 and pkt[SebekHead].version == 1
 
 = Packet dissection 1
-pkt = IP(str(pkt))
+pkt = IP(raw(pkt))
 pkt.sport == pkt.dport == 1101 and pkt[SebekHead].version == 1
 
 = Layer binding 2
@@ -18,7 +18,7 @@ pkt = IP() / UDP() / SebekHead() / SebekV2Sock()
 pkt.sport == pkt.dport == 1101 and pkt[SebekHead].version == 2 and pkt[SebekHead].type ==2
 
 = Packet dissection 2
-pkt = IP(str(pkt))
+pkt = IP(raw(pkt))
 pkt.sport == pkt.dport == 1101 and pkt[SebekHead].version == 2 and pkt[SebekHead].type ==2
 
 = Layer binding 3
@@ -26,5 +26,5 @@ pkt = IPv6()/UDP()/SebekHead()/SebekV3()
 pkt.sport == pkt.dport == 1101 and pkt[SebekHead].version == 3
 
 = Packet dissection 3
-pkt = IPv6(str(pkt))
+pkt = IPv6(raw(pkt))
 pkt.sport == pkt.dport == 1101 and pkt[SebekHead].version == 3
