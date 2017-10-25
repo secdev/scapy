@@ -915,8 +915,9 @@ assert all(x[1] == 15169 for x in ret)
 
 = Implicit logic
 ~ IP TCP
-a=IP(ttl=(5,10))/TCP(dport=[80,443])
+a = Ether() / IP(ttl=(5, 10)) / TCP(dport=[80, 443])
 ls(a)
+ls(a, verbose=True)
 [p for p in a]
 len(_) == 12
 
