@@ -29,7 +29,7 @@ from scapy.modules.six.moves import range, zip
 
 class PacketList(BasePacketList):
     __slots__ = ["stats", "res", "listname"]
-    def __init__(self, res=None, name="PacketList", stats=None):
+    def __init__(self, res=None, name="PacketList", stats=None, plist_post_dissect=True):
         """create a packet list from a list of packets
            res: the list of packets
            stats: a list of classes that will appear in the stats (defaults to [TCP,UDP,ICMP])"""
@@ -42,6 +42,11 @@ class PacketList(BasePacketList):
             res = res.res
         self.res = res
         self.listname = name
+        if plist_post_dissect:
+            self._call_plist_post_dissection()
+    def _call_plist_post_dissection(self):
+        for r in self.res:
+            (r[1] if isinstance(r, tuple) else r).plist_post_dissection(self)
     def __len__(self):
         return len(self.res)
     def _elt2pkt(self, elt):
@@ -127,7 +132,8 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
     def filter(self, func):
         """Returns a packet list filtered by a truth function"""
         return self.__class__([x for x in self.res if func(x)],
-                              name="filtered %s"%self.listname)
+                              name="filtered %s"%self.listname,
+                              plist_post_dissect=False)
     def make_table(self, *args, **kargs):
         """Prints a table using a function that returns for each packet its head column value, head row value and displayed value
         ex: p.make_table(lambda x:(x[IP].dst, x[TCP].dport, x[TCP].sprintf("%flags%")) """
@@ -540,8 +546,8 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
 
 class SndRcvList(PacketList):
     __slots__ = []
-    def __init__(self, res=None, name="Results", stats=None):
-        PacketList.__init__(self, res, name, stats)
+    def __init__(self, res=None, name="Results", stats=None, plist_post_dissect=True):
+        PacketList.__init__(self, res, name, stats, plist_post_dissect)
     def _elt2pkt(self, elt):
         return elt[1]
     def _elt2sum(self, elt):

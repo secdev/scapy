@@ -7,36 +7,6 @@
 
 """
 Cisco NetFlow protocol v1, v5 and v9
-
-
-
-- NetflowV9 build example:
-
-pkt = NetflowHeader()/\
-    NetflowHeaderV9()/\
-    NetflowFlowsetV9(templates=[
-        NetflowTemplateV9(templateID=258, template_fields=[
-            NetflowTemplateFieldV9(fieldType=1),
-            NetflowTemplateFieldV9(fieldType=62),
-        ]),
-        NetflowTemplateV9(templateID=257, template_fields=[
-            NetflowTemplateFieldV9(fieldType=1),
-            NetflowTemplateFieldV9(fieldType=62),
-        ]),
-    ])/NetflowDataflowsetV9(templateID=258, records=[
-        NetflowRecordV9(fieldValue=b"\x01\x02\x03\x05"),
-        NetflowRecordV9(fieldValue=b"\x05\x03\x02\x01\x04\x03\x02\x01\x04\x03\x02\x01\x04\x03\x02\x01"),
-    ])/NetflowDataflowsetV9(templateID=257, records=[
-        NetflowRecordV9(fieldValue=b"\x01\x02\x03\x04"),
-        NetflowRecordV9(fieldValue=b"\x04\x03\x02\x01\x04\x03\x02\x01\x04\x03\x02\x01\x04\x03\x02\x01"),
-    ])/NetflowOptionsFlowsetV9(templateID=256, scopes=[NetflowOptionsFlowsetScopeV9(scopeFieldType=1, scopeFieldlength=4),
-                                                       NetflowOptionsFlowsetScopeV9(scopeFieldType=1, scopeFieldlength=3)], 
-                                               options=[NetflowOptionsFlowsetOptionV9(optionFieldType=1, optionFieldlength=2),
-                                                        NetflowOptionsFlowsetOptionV9(optionFieldType=1, optionFieldlength=1)])/\
-    NetflowOptionsDataRecordV9(templateID=256, records=[NetflowOptionsRecordScopeV9(fieldValue=b"\x01\x02\x03\x04"),
-                                                        NetflowOptionsRecordScopeV9(fieldValue=b"\x01\x02\x03"),
-                                                        NetflowOptionsRecordOptionV9(fieldValue=b"\x01\x02"),
-                                                        NetflowOptionsRecordOptionV9(fieldValue=b"\x01")])
 """
 
 
@@ -50,6 +20,7 @@ class NetflowHeader(Packet):
     name = "Netflow Header"
     fields_desc = [ ShortField("version", 1) ]
 
+bind_layers( UDP, NetflowHeader, dport=2055 )
 
 ###########################################
 ### Netflow Version 1
@@ -298,7 +269,7 @@ class NetflowTemplateFieldV9(Packet):
                     ShortField("fieldLength", 0) ]
     def __init__(self, *args, **kwargs):
         Packet.__init__(self, *args, **kwargs)
-        if self.fieldType != None:
+        if self.fieldType != None and not self.fieldLength and self.fieldType in NetflowV9TemplateFieldDefaultLengths:
             self.fieldLength = NetflowV9TemplateFieldDefaultLengths[self.fieldType]
 
     def default_payload_class(self, p):
@@ -321,6 +292,18 @@ class NetflowFlowsetV9(Packet):
                     PacketListField("templates", [], NetflowTemplateV9,
                                     length_from = lambda pkt: pkt.length-4) ]
 
+class _CustomStrFixedLenField(StrFixedLenField):
+    def i2repr(self, pkt, v):
+        return repr(v)
+
+def _GenNetflowRecordV9(cls, lengths_list):
+    _fields_desc = []
+    for j,k in lengths_list:
+        _fields_desc.append(_CustomStrFixedLenField(NetflowV9TemplateFieldTypes[k], b"", length=j))
+    class NetflowRecordV9I(cls):
+        fields_desc = _fields_desc
+    return NetflowRecordV9I
+
 class NetflowRecordV9(Packet):
     name = "Netflow DataFlowset Record V9"
     fields_desc = [ StrField("fieldValue", "") ]
@@ -341,45 +324,90 @@ class NetflowDataflowsetV9(Packet):
         if _pkt:
             if _pkt[:2] == b"\x00\x01":
                 return NetflowOptionsFlowsetV9
+            if _pkt[:2] == b"\x00\x00":
+                return NetflowFlowsetV9
         return cls
     
-    def post_dissection(self, pkt):
+    def plist_post_dissection(self, _packet_list):
+        pkt = self
+        pkt.payload.plist_post_dissection(_packet_list)
+        ## STEP 1 - NetflowFlowsetV9
         # We need the whole packet to be dissected to access field def in NetflowFlowsetV9
+        packet_list = _packet_list.filter(lambda x: x.haslayer(NetflowFlowsetV9))
         root = pkt.firstlayer()
-        current = root
         # Get all linked NetflowFlowsetV9
-        while current.payload.haslayer(NetflowFlowsetV9):
-            current = current.payload[NetflowFlowsetV9]
+        for p in packet_list:
+            current = p[NetflowFlowsetV9]
             for ntv9 in current.templates:
                 current_ftl = root.getlayer(NetflowDataflowsetV9, templateID=ntv9.templateID)
                 if current_ftl:
                     # Matched
-                    if len(current_ftl.records) > 1:
+                    if len(current_ftl.records) < 0 or (not hasattr(current_ftl.records[0], "fieldValue")):
                         # post_dissection is not necessary
                         return
                     # All data is stored in one record, awaiting to be splitted
                     data = current_ftl.records.pop(0).fieldValue
                     res = []
                     # Now, according to the NetflowFlowsetV9 data, re-dissect NetflowDataflowsetV9
+                    lengths_list = []
                     for template in ntv9.template_fields:
-                        _l = template.fieldLength
-                        if _l:
-                            res.append(NetflowRecordV9(data[:_l]))
-                            data = data[_l:]
-                    if data:
-                        res.append(Raw(data))
+                        lengths_list.append((template.fieldLength, template.fieldType))
+                    if lengths_list:
+                        tot_len = sum(x for x,y in lengths_list)
+                        cls = _GenNetflowRecordV9(NetflowRecordV9, lengths_list)
+                        while len(data) >= tot_len:
+                            res.append(cls(data[:tot_len]))
+                            data = data[tot_len:]
                     # Inject dissected data
                     current_ftl.records = res
+                    current_ftl.do_dissect_payload(data)
+                    break
                 else:
                     warning("[NetflowFlowsetV9 templateID=%s]: No matching NetflowDataflowsetV9 !" % ntv9.templateID)
-
-class NetflowOptionsFlowsetScopeV9(Packet):
-    name = "Netflow Options Template FlowSet V9 - Scope"
-    fields_desc = [ ShortEnumField("scopeFieldType", None, ScopeFieldTypes),
-                    ShortField("scopeFieldlength", 0) ]
-
-    def default_payload_class(self, p):
-        return conf.padding_layer
+        ## STEP 2 - NetflowOptionsFlowsetV9
+        # We need the whole packet to be dissected to access field def in NetflowOptionsFlowsetV9
+        packet_list = _packet_list.filter(lambda x: x.haslayer(NetflowOptionsFlowsetV9))
+        # Get all linked NetflowOptionsFlowsetV9
+        for p in packet_list:
+            current = p[NetflowOptionsFlowsetV9]
+            current_ftl = root.getlayer(NetflowDataflowsetV9, templateID=current.templateID)
+            if current_ftl:
+                # Matched
+                if len(current_ftl.records) < 0 or (not hasattr(current_ftl.records[0], "fieldValue")):
+                    # post_dissection is not necessary
+                    return
+                # All data is stored in one record, awaiting to be splitted
+                data = current_ftl.records.pop(0).fieldValue
+                res = []
+                # Now, according to the NetflowOptionsFlowsetV9 data, re-dissect NetflowDataflowsetV9
+                ## A - Decode scopes
+                lengths_list = []
+                for scope in current.scopes:
+                    lengths_list.append((scope.scopeFieldlength, scope.scopeFieldType))
+                if lengths_list:
+                    tot_len = sum(x for x,y in lengths_list)
+                    cls = _GenNetflowRecordV9(NetflowOptionsRecordScopeV9, lengths_list)
+                    while len(data) >= tot_len:
+                        res.append(cls(data[:tot_len]))
+                        data = data[tot_len:]
+                ## B - Decode options
+                lengths_list = []
+                for option in current.options:
+                    lengths_list.append((option.optionFieldlength, option.optionFieldType))
+                if lengths_list:
+                    tot_len = sum(x for x,y in lengths_list)
+                    cls = _GenNetflowRecordV9(NetflowOptionsRecordOptionV9, lengths_list)
+                    while len(data) >= tot_len:
+                        res.append(cls(data[:tot_len]))
+                        data = data[tot_len:]
+                if data:
+                    res.append(Raw(data))
+                # Inject dissected data
+                current_ftl.records = res
+                current_ftl.name = "Netflow DataFlowSet V9 - OPTIONS"
+                break
+            else:
+                warning("[NetflowFlowsetV9 templateID=%s]: No matching NetflowDataflowsetV9 !" % ntv9.templateID)
 
 class NetflowOptionsRecordScopeV9(NetflowRecordV9):
     name = "Netflow Options Template Record V9 - Scope"
@@ -391,6 +419,14 @@ class NetflowOptionsFlowsetOptionV9(Packet):
     name = "Netflow Options Template FlowSet V9 - Option"
     fields_desc = [ ShortEnumField("optionFieldType", None, NetflowV9TemplateFieldTypes),
                     ShortField("optionFieldlength", 0) ]
+
+    def default_payload_class(self, p):
+        return conf.padding_layer
+
+class NetflowOptionsFlowsetScopeV9(Packet):
+    name = "Netflow Options Template FlowSet V9 - Scope"
+    fields_desc = [ ShortEnumField("scopeFieldType", None, ScopeFieldTypes),
+                    ShortField("scopeFieldlength", 0) ]
 
     def default_payload_class(self, p):
         return conf.padding_layer
@@ -408,41 +444,6 @@ class NetflowOptionsFlowsetV9(Packet):
                                     length_from = lambda pkt: pkt.option_field_length),
                              4, padwith=b"\x00") ]
 
-class NetflowOptionsDataRecordV9(NetflowDataflowsetV9):
-    name = "Netflow Options Data Record V9"
-    fields_desc = [ ShortField("templateID", 255),
-                FieldLenField("length", None, length_of="records", adjust = lambda pkt,x:x+4),
-                PadField(PacketListField("records", [], NetflowRecordV9,
-                                length_from = lambda pkt: pkt.length-4),
-                         4, padwith=b"\x00") ]
-
-    def post_dissection(self, pkt):
-        options_data_record = pkt[NetflowOptionsDataRecordV9]
-        if pkt.haslayer(NetflowOptionsFlowsetV9):
-            options_flowset = pkt[NetflowOptionsFlowsetV9]
-            data = options_data_record.records.pop(0).fieldValue
-            res = []
-            # Now, according to the NetflowOptionsFlowsetV9 data, re-dissect NetflowOptionsDataRecordV9
-            for scope in options_flowset.scopes:
-                _l = scope.scopeFieldlength
-                if _l:
-                    res.append(NetflowOptionsRecordScopeV9(data[:_l]))
-                    data = data[_l:]
-
-            # Now, according to the NetflowOptionsFlowsetV9 data, re-dissect NetflowOptionsDataRecordV9
-            for option in options_flowset.options:
-                _l = option.optionFieldlength
-                if _l:
-                    res.append(NetflowOptionsRecordOptionV9(data[:_l]))
-                    data = data[_l:]
-            if data:
-                res.append(Raw(data))
-            # Inject dissected data
-            options_data_record.records = res
-
 bind_layers( NetflowHeader, NetflowHeaderV9, version=9 )
-bind_layers( NetflowHeaderV9, NetflowFlowsetV9 )
-bind_layers( NetflowFlowsetV9, NetflowDataflowsetV9 )
+bind_layers( NetflowHeaderV9, NetflowDataflowsetV9 )
 bind_layers( NetflowDataflowsetV9, NetflowDataflowsetV9 )
-
-bind_layers( NetflowOptionsFlowsetV9, NetflowOptionsDataRecordV9 )

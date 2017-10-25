@@ -5478,53 +5478,30 @@ nf5.version == 5 and nf5[NetflowHeaderV5].count == 2 and isinstance(nf5[NetflowR
 ############
 + Netflow v9
 
-= NetflowHeaderV9 - advanced building
+= NetflowV9 - advanced dissection
 
-import time
+a = rdpcap("./test/pcaps/netflowv9.pcap" if WINDOWS else "./pcaps/netflowv9.pcap")
 
-pkt = NetflowHeader()/\
-    NetflowHeaderV9(unixSecs=int(time.time()))/\
-    NetflowFlowsetV9(templates=[
-        NetflowTemplateV9(templateID=258, template_fields=[
-            NetflowTemplateFieldV9(fieldType=1),
-            NetflowTemplateFieldV9(fieldType=62),
-        ]),
-        NetflowTemplateV9(templateID=257, template_fields=[
-            NetflowTemplateFieldV9(fieldType=1),
-            NetflowTemplateFieldV9(fieldType=62),
-        ]),
-    ])/NetflowDataflowsetV9(templateID=258, records=[
-        NetflowRecordV9(fieldValue=b"\x01\x02\x03\x05"),
-        NetflowRecordV9(fieldValue=b"\x05\x03\x02\x01\x04\x03\x02\x01\x04\x03\x02\x01\x04\x03\x02\x01"),
-    ])/NetflowDataflowsetV9(templateID=257, records=[
-        NetflowRecordV9(fieldValue=b"\x01\x02\x03\x04"),
-        NetflowRecordV9(fieldValue=b"\x04\x03\x02\x01\x04\x03\x02\x01\x04\x03\x02\x01\x04\x03\x02\x01"),
-    ])/NetflowOptionsFlowsetV9(templateID=256, scopes=[NetflowOptionsFlowsetScopeV9(scopeFieldType=1, scopeFieldlength=4),
-                                                       NetflowOptionsFlowsetScopeV9(scopeFieldType=1, scopeFieldlength=3)], 
-                                               options=[NetflowOptionsFlowsetOptionV9(optionFieldType=1, optionFieldlength=2),
-                                                        NetflowOptionsFlowsetOptionV9(optionFieldType=1, optionFieldlength=1)])/\
-    NetflowOptionsDataRecordV9(templateID=256, records=[NetflowOptionsRecordScopeV9(fieldValue=b"\x01\x02\x03\x04"),
-                                                        NetflowOptionsRecordScopeV9(fieldValue=b"\x01\x02\x03"),
-                                                        NetflowOptionsRecordOptionV9(fieldValue=b"\x01\x02"),
-                                                        NetflowOptionsRecordOptionV9(fieldValue=b"\x01")])
+nfv9_fl = a[4]
+assert NetflowFlowsetV9 in nfv9_fl
+assert len(nfv9_fl.templates[0].template_fields) == 21
 
-assert pkt[NetflowFlowsetV9].templates[0].template_fields[0].fieldLength == 4
-assert pkt[NetflowFlowsetV9].templates[0].template_fields[1].fieldLength == 16
+nfv9_ds = a[61]
+assert NetflowDataflowsetV9 in nfv9_ds
+assert len(nfv9_ds[NetflowDataflowsetV9].records) == 24
+assert nfv9_ds[NetflowDataflowsetV9].records[21].IP_PROTOCOL_VERSION == b'\x04'
+assert inet_ntoa(nfv9_ds.records[21].IPV4_SRC_ADDR) == '20.0.0.248'
+assert inet_ntoa(nfv9_ds.records[21].IPV4_DST_ADDR) == '30.0.0.248'
 
-= NetflowHeaderV9 - advanced dissection
+nfv9_options_fl = a[5]
+assert NetflowOptionsFlowsetV9 in nfv9_options_fl
+assert isinstance(nfv9_options_fl[NetflowOptionsFlowsetV9].scopes[0], NetflowOptionsFlowsetScopeV9)
+assert isinstance(nfv9_options_fl[NetflowOptionsFlowsetV9].options[0], NetflowOptionsFlowsetOptionV9)
+assert nfv9_options_fl[NetflowOptionsFlowsetV9].options[0].optionFieldType == 36
 
-d = NetflowHeader(raw(pkt))
-d.show()
-assert len(d[NetflowDataflowsetV9].records) == 2
-assert d.getlayer(NetflowDataflowsetV9, templateID=257).records[0].fieldValue == b"\x01\x02\x03\x04"
-assert d.getlayer(NetflowDataflowsetV9, templateID=257).records[1].fieldValue == b"\x04\x03\x02\x01\x04\x03\x02\x01\x04\x03\x02\x01\x04\x03\x02\x01"
-
-assert d.getlayer(NetflowDataflowsetV9, templateID=258).records[0].fieldValue == b"\x01\x02\x03\x05"
-assert d.getlayer(NetflowDataflowsetV9, templateID=258).records[1].fieldValue == b"\x05\x03\x02\x01\x04\x03\x02\x01\x04\x03\x02\x01\x04\x03\x02\x01"
-
-assert d[NetflowOptionsFlowsetV9].scopes[0].scopeFieldType == 1
-assert d[NetflowOptionsDataRecordV9].records[1].fieldValue == b"\x01\x02\x03"
-assert d[NetflowOptionsDataRecordV9].records[3].fieldValue == b"\x01"
+nfv9_options_ds = a[255]
+assert NetflowDataflowsetV9 in nfv9_options_ds
+assert isinstance(nfv9_options_ds.records[0], NetflowOptionsRecordScopeV9)
 
 ############
 ############
