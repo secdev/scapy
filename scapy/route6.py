@@ -257,10 +257,10 @@ class Route6:
             if in6_isgladdr(dst) and in6_isaddr6to4(dst):
                 # TODO : see if taking the longest match between dst and
                 #        every source addresses would provide better results
-                tmp = [x for x in res if in6_isaddr6to4(x[1][1])]
+                tmp = [x for x in res if in6_isaddr6to4(x[2][1])]
             elif in6_ismaddr(dst) or in6_islladdr(dst):
                 # TODO : I'm sure we are not covering all addresses. Check that
-                tmp = [x for x in res if x[1][0] == conf.iface6]
+                tmp = [x for x in res if x[2][0] == conf.iface6]
 
             if tmp:
                 res = tmp
