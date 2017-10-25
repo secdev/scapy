@@ -23,6 +23,7 @@ from scapy.data import MTU, ETHER_BROADCAST, ETH_P_ARP
 
 import scapy.modules.six as six
 from scapy.modules.six.moves import range, zip, input
+from scapy.compat import plain_str
 
 conf.use_pcap = False
 conf.use_dnet = False
@@ -699,8 +700,9 @@ def _read_routes6_post2008():
 
 def _get_i6_metric(index):
     # Returns the INTERFACE metric from the interface index
-    ps = sp.Popen([conf.prog.cmd, '/c', 'netsh interface ipv6 show interfaces level=verbose ' + index], stdout = sp.PIPE, universal_newlines = True)
+    ps = sp.Popen([conf.prog.cmd, '/c', 'netsh interface ipv6 show interfaces level=verbose ' + index], stdout = sp.PIPE)
     stdout, stdin = ps.communicate()
+    stdout = stdout.decode("utf8", "ignore")
     metric_line = stdout.split('\n')[6]
     metric = re.search(re.compile(".*:\s+(\d+)"), metric_line).group(1)
     return int(metric)
@@ -708,8 +710,9 @@ def _get_i6_metric(index):
 def _read_routes6_7():
     # Not supported in powershell, we have to use netsh
     routes = []
-    ps = sp.Popen([conf.prog.cmd, '/c', 'netsh interface ipv6 show route level=verbose'], stdout = sp.PIPE, universal_newlines = True)
+    ps = sp.Popen([conf.prog.cmd, '/c', 'netsh interface ipv6 show route level=verbose'], stdout = sp.PIPE)
     stdout, stdin = ps.communicate()
+    stdout = stdout.decode("utf8", "ignore")
     lifaddr = in6_getifaddr()
     # Define regexes
     r_int = [".*:\s+(\d+)"]

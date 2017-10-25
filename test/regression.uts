@@ -1029,7 +1029,7 @@ send_and_sniff(IP(dst="secdev.org")/ICMP(), flt="icmp")
 send_and_sniff(Ether()/IP(dst="secdev.org")/ICMP())
 
 a = L2ListenTcpdump()
-icmp_r = IP(b'E\x00\x00\x1c\x00\x01\x00\x00@\x01p\xc0\x7f\x00\x00\x01\xd9\x19\xb2\x05\x08\x00\xf7\xff\x00\x00\x00\x00')
+icmp_r = IP(dst="secdev.org")/ICMP()
 send_and_sniff(icmp_r, timeout=10, opened_socket=a)
 a.close()
 
