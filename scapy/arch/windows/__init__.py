@@ -299,7 +299,7 @@ def get_windows_if_list():
         # Ethernet                  Killer E2200 Gigabit Ethernet Contro...      13 Up           D0-50-99-56-DD-F9         1 Gbps
         query = exec_query(['Get-NetAdapter'],
                            ['InterfaceDescription', 'InterfaceIndex', 'Name',
-                            'InterfaceGuid', 'MacAddress', 'Name']) # It is normal that it is in this order
+                            'InterfaceGuid', 'MacAddress', 'InterfaceAlias']) # It is normal that it is in this order
     else:
         query = exec_query(['Get-WmiObject', 'Win32_NetworkAdapter'],
                            ['Name', 'InterfaceIndex', 'InterfaceDescription',
