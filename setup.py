@@ -58,6 +58,7 @@ setup(
         'scapy/layers/tls',
         'scapy/layers/tls/crypto',
         'scapy/modules',
+        'scapy/modules/krack',
         'scapy/asn1',
         'scapy/tools',
     ],
