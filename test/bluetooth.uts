@@ -60,6 +60,12 @@ assert a[SM_Identity_Address_Information].address == 'a1:b2:c3:d4:e5:f6'
 assert a[SM_Identity_Address_Information].atype == 0
 a.show()
 
+= Basic HCI_ACL_Hdr build & dissect
+a = HCI_Hdr()/HCI_ACL_Hdr(handle=0xf4c, PB=2, BC=2, len=20)/L2CAP_Hdr(len=16)/L2CAP_CmdHdr(code=8, len=12)/Raw("A"*12)
+assert raw(a) == b'\x02L\xaf\x14\x00\x10\x00\x05\x00\x08\x00\x0c\x00AAAAAAAAAAAA'
+b = HCI_Hdr(raw(a))
+assert a == b
+
 = Complex HCI - L2CAP build
 a = HCI_Hdr()/HCI_ACL_Hdr()/L2CAP_Hdr()/L2CAP_CmdHdr()/L2CAP_ConnReq(scid=1)
 assert raw(a) == b'\x02\x00\x00\x0c\x00\x08\x00\x05\x00\x02\x00\x04\x00\x00\x00\x01\x00'

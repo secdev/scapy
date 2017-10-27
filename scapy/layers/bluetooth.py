@@ -79,14 +79,34 @@ class HCI_Hdr(Packet):
 
 class HCI_ACL_Hdr(Packet):
     name = "HCI ACL header"
-    fields_desc = [ ByteField("handle",0), # Actually, handle is 12 bits and flags is 4.
-                    ByteField("flags",0),  # I wait to write a LEBitField
+    fields_desc = [ BitField("handle",0,12),    # TODO: Create and use LEBitField
+                    BitField("PB",0,2),      # They are recieved as a **combined** LE Short
+                    BitField("BC",0,2),      # Handle is 12 bits, eacg flag is 2 bits.
                     LEShortField("len",None), ]
+
+    def pre_dissect(self, s):
+        # Recieve data as LE stored as
+        # .... 1111 0100 1100 = handle
+        # 1010 .... .... .... = flags
+        # And turn it into
+        # 1111 0100 1100 .... = handle
+        # .... .... .... 1010 = flags
+        hf = socket.ntohs(struct.unpack("!H", s[:2])[0])
+        r = ((hf & 0x0fff) << 4) + (hf >> 12)
+        return struct.pack("!H", r) + s[2:]
+
+    def post_dissect(self, s):
+        self.raw_packet_cache = None # Reset packet to allow post_build
+        return s
+
     def post_build(self, p, pay):
         p += pay
         if self.len is None:
             p = p[:2] + struct.pack("<H", len(pay)) + p[4:]
-        return p
+        # Reverse, opposite of pre_dissect
+        hf = struct.unpack("!H", p[:2])[0]
+        r = socket.ntohs(((hf & 0xf) << 12) + (hf >> 4))
+        return struct.pack("!H", r) + p[2:]
 
 
 class L2CAP_Hdr(Packet):
@@ -689,7 +709,7 @@ bind_layers( HCI_Hdr,       HCI_ACL_Hdr,        type=2)
 bind_layers( HCI_Hdr,       HCI_Event_Hdr,      type=4)
 bind_layers( HCI_Hdr,       conf.raw_layer,           )
 
-conf.l2types.register_num2layer(LINKTYPE_BLUETOOTH_HCI_H4, HCI_Hdr)
+conf.l2types.register(LINKTYPE_BLUETOOTH_HCI_H4, HCI_Hdr)
 
 bind_layers( HCI_Command_Hdr, HCI_Cmd_Reset, opcode=0x0c03)
 bind_layers( HCI_Command_Hdr, HCI_Cmd_Set_Event_Mask, opcode=0x0c01)
