@@ -50,7 +50,7 @@ def dev_from_index_custom(if_index):
     raise ValueError("Unknown network interface index %r" % if_index)
 
 @mock.patch("scapy.utils6.construct_source_candidate_set")
-@mock.patch("scapy.arch.windows.winpcapy_get_if_list")
+@mock.patch("scapy.arch.windows.get_if_list")
 @mock.patch("scapy.arch.windows.dev_from_index")
 @mock.patch("scapy.arch.windows.sp.Popen")
 def test_read_routes6_windows(mock_comm, mock_dev_from_index, mock_winpcapylist, mock_utils6cset):

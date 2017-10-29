@@ -379,7 +379,7 @@ class NetworkInterface(object):
     def _update_pcapdata(self):
         if self.is_invalid():
             return
-        for i in winpcapy_get_if_list():
+        for i in get_if_list():
             if i.endswith(self.data['guid']):
                 self.pcap_name = i
                 return
@@ -690,11 +690,9 @@ def show_interfaces(resolve_mac=True):
 _orig_open_pcap = pcapdnet.open_pcap
 pcapdnet.open_pcap = lambda iface,*args,**kargs: _orig_open_pcap(pcapname(iface),*args,**kargs)
 
-_orig_get_if_raw_hwaddr = pcapdnet.get_if_raw_hwaddr
-pcapdnet.get_if_raw_hwaddr = lambda iface, *args, **kargs: (
+get_if_raw_hwaddr = pcapdnet.get_if_raw_hwaddr = lambda iface, *args, **kargs: (
     ARPHDR_ETHER, mac2str(IFACES.dev_from_pcapname(pcapname(iface)).mac)
 )
-get_if_raw_hwaddr = pcapdnet.get_if_raw_hwaddr
 
 def _read_routes_xp():
     # The InterfaceIndex in Win32_IP4RouteTable does not match the
@@ -770,8 +768,9 @@ def _read_routes_post2008():
         #     log_loading.warning("Building Scapy's routing table: Couldn't get outgoing interface for destination %s", dest)
         #     continue
         dest, mask = line[1].split('/')
+        ip = "127.0.0.1" if line[0] == "1" else iface.ip # Force loopback on iface 1
         routes.append((atol(dest), itom(int(mask)),
-                       line[2], iface, iface.ip, int(line[3])+int(line[4])))
+                       line[2], iface, ip, int(line[3])+int(line[4])))
     return routes
 
 ############

@@ -414,6 +414,8 @@ debug_tls:When 1, print some TLS session secrets when they are computed.
     debug_match = 0
     debug_tls = 0
     wepkey = ""
+    cache_iflist = {}
+    cache_ipaddrs = {}
     route = None # Filed by route.py
     route6 = None # Filed by route6.py
     auto_fragment = 1

@@ -68,30 +68,9 @@ if conf.use_winpcapy:
   class PcapTimeoutElapsed(Scapy_Exception):
       pass
 
-  def get_if_raw_hwaddr(iff):
-    err = create_string_buffer(PCAP_ERRBUF_SIZE)
-    devs = POINTER(pcap_if_t)()
-    ret = b"\0\0\0\0\0\0"
-    
-    if pcap_findalldevs(byref(devs), err) < 0:
-      return ret
-    try:
-      p = devs
-      while p:
-        if p.contents.name.endswith(iff.guid.encode("ascii")):
-          a = p.contents.addresses
-          while a:
-            if hasattr(socket, 'AF_LINK') and a.contents.addr.contents.sa_family == socket.AF_LINK:
-              ap = a.contents.addr
-              val = cast(ap, POINTER(sockaddr_dl))
-              ret = (val.contents.sdl_data[ val.contents.sdl_nlen : val.contents.sdl_nlen + val.contents.sdl_alen ]).encode("utf8")
-            a = a.contents.next
-          break
-        p = p.contents.next
-      return ret
-    finally:
-      pcap_freealldevs(devs)
   def get_if_raw_addr(iff):
+    if iff.guid in conf.cache_ipaddrs:
+        return conf.cache_ipaddrs[iff.guid]
     err = create_string_buffer(PCAP_ERRBUF_SIZE)
     devs = POINTER(pcap_if_t)()
     ret = b"\0\0\0\0"
@@ -111,11 +90,17 @@ if conf.use_winpcapy:
             a = a.contents.next
           break
         p = p.contents.next
+      conf.cache_ipaddrs[iff.guid] = ret
       return ret
     finally:
       pcap_freealldevs(devs)
   if conf.use_winpcapy:
-      get_if_list = winpcapy_get_if_list
+      def get_if_list():
+          if conf.cache_iflist:
+              return conf.cache_iflist
+          iflist = winpcapy_get_if_list()
+          conf.cache_iflist = iflist
+          return iflist
   def in6_getifaddr_raw():
     err = create_string_buffer(PCAP_ERRBUF_SIZE)
     devs = POINTER(pcap_if_t)()
