@@ -24,10 +24,11 @@ import scapy.modules.six as six
 from scapy.modules.six.moves import range
 
 class InheritOriginDNSStrPacket(Packet):
-    __slots__ = Packet.__slots__ + ["_orig_s"]
+    __slots__ = Packet.__slots__ + ["_orig_s", "_orig_p"]
 
-    def __init__(self, _pkt=None, _orig_s=None, *args, **kwargs):
+    def __init__(self, _pkt=None, _orig_s=None, _orig_p=None, *args, **kwargs):
         self._orig_s = _orig_s
+        self._orig_p = _orig_p
         Packet.__init__(self, _pkt=_pkt, *args, **kwargs)
 
 class DNSStrField(StrField):
@@ -141,12 +142,12 @@ class DNSRRField(StrField):
         ret = s[p:p+10]
         type,cls,ttl,rdlen = struct.unpack("!HHIH", ret)
         p += 10
-        rr = DNSRR(b"\x00"+ret+s[p:p+rdlen], _orig_s=s)
+        rr = DNSRR(b"\x00"+ret+s[p:p+rdlen], _orig_s=s, _orig_p=p)
         if type in [2, 3, 4, 5]:
             rr.rdata = DNSgetstr(s,p)[0]
             del(rr.rdlen)
         elif type in DNSRR_DISPATCHER:
-            rr = DNSRR_DISPATCHER[type](b"\x00"+ret+s[p:p+rdlen], _orig_s=s)
+            rr = DNSRR_DISPATCHER[type](b"\x00"+ret+s[p:p+rdlen], _orig_s=s, _orig_p=p)
         else:
           del(rr.rdlen)
 
@@ -182,7 +183,7 @@ class DNSQRField(DNSRRField):
     def decodeRR(self, name, s, p):
         ret = s[p:p+4]
         p += 4
-        rr = DNSQR(b"\x00"+ret, _orig_s=s)
+        rr = DNSQR(b"\x00"+ret, _orig_s=s, _orig_p=p)
         rr.qname = plain_str(name)
         return rr, p
 
@@ -199,7 +200,10 @@ class RDataField(StrLenField):
                 p = ((l & ~0xc0) << 8) + orb(s[1]) - 12
                 s = DNSgetstr(pkt._orig_s, p)[0]
             else: # No compression / Cannot decompress
-                s = DNSgetstr(s, 0)[0]
+                if hasattr(pkt, "_orig_s") and pkt._orig_s:
+                    s = DNSgetstr(pkt._orig_s, pkt._orig_p)[0]
+                else:
+                    s = DNSgetstr(s, 0)[0]
         elif pkt.type == 16: # TXT
             ret_s = b""
             tmp_s = s
