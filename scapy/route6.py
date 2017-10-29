@@ -30,8 +30,8 @@ import scapy.modules.six as six
 class Route6:
 
     def __init__(self):
-        self.invalidate_cache()
         self.resync()
+        self.invalidate_cache()
 
     def invalidate_cache(self):
         self.cache = {}

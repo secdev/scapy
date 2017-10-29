@@ -49,7 +49,7 @@ def dev_from_index_custom(if_index):
             return iface
     raise ValueError("Unknown network interface index %r" % if_index)
 
-@mock.patch("scapy.utils6.construct_source_candidate_set")
+@mock.patch("scapy.arch.windows.construct_source_candidate_set")
 @mock.patch("scapy.arch.windows.get_if_list")
 @mock.patch("scapy.arch.windows.dev_from_index")
 @mock.patch("scapy.arch.windows.sp.Popen")

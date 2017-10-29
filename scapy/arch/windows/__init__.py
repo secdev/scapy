@@ -13,11 +13,13 @@ import os, re, sys, socket, time, itertools, platform
 import subprocess as sp
 from glob import glob
 import tempfile
+from threading import Thread, Event
 
 import scapy
 from scapy.config import conf, ConfClass
 from scapy.error import Scapy_Exception, log_loading, log_runtime, warning
 from scapy.utils import atol, itom, inet_aton, inet_ntoa, PcapReader
+from scapy.utils6 import construct_source_candidate_set
 from scapy.base_classes import Gen, Net, SetGen
 from scapy.data import MTU, ETHER_BROADCAST, ETH_P_ARP
 
@@ -69,16 +71,59 @@ def _encapsulate_admin(cmd):
     # To get admin access, we start a new powershell instance with admin rights, which will execute the command
     return "Start-Process PowerShell -windowstyle hidden -Wait -Verb RunAs -ArgumentList '-command &{%s}'" % cmd
 
+class _PowershellManager(Thread):
+    """Used only when scapy boots. Instance used to send multiple
+    commands on the same Powershell process. Skips the powershell
+    booting time to speed up scapy's boot"""
+    def __init__(self):
+        self.process = sp.Popen([conf.prog.powershell, "-NoLogo", "-NonInteractive", "-Command", "-"], # Start & redirect input
+                         stdout=sp.PIPE,
+                         stdin=sp.PIPE,
+                         stderr=sp.STDOUT,
+                         universal_newlines=True)
+        self.buffer = []
+        self.running = True
+        self.event = Event()
+        Thread.__init__(self)
+        self.start()
+
+    def run(self):
+        while self.running:
+            read_line = self.process.stdout.readline()
+            if read_line == "scapy_end\n":
+                self.event.set()
+            else:
+                self.buffer.append(read_line)
+    def query(self, cmd):
+        self.buffer = []
+        query = cmd + "; echo scapy_end\n"
+        self.process.stdin.write(query)
+        self.process.stdin.flush()
+        self.event.wait()
+        self.event.clear()
+        return self.buffer[1:]
+
+    def close(self):
+        self.running = False
+        try:
+            self.process.stdin.write("exit\n")
+            self.process.terminate()
+        except:
+            pass
+
 def _exec_query_ps(cmd, fields):
     """Execute a PowerShell query"""
     if not conf.prog.powershell:
         raise OSError("Scapy could not detect powershell !")
-    ps = sp.Popen([conf.prog.powershell] + cmd +
-                  ['|', 'select %s' % ', '.join(fields), '|', 'fl'],
-                  stdout=sp.PIPE,
-                  universal_newlines=True)
+    query_cmd = cmd + ['|', 'select %s' % ', '.join(fields), '|', 'fl']
     l=[]
-    for line in ps.stdout:
+    if POWERSHELL_PROCESS.running:
+        stdout = POWERSHELL_PROCESS.query(" ".join(query_cmd))
+    else:
+        stdout = sp.Popen([conf.prog.powershell] + query_cmd,
+                   stdout=sp.PIPE,
+                   universal_newlines=True).stdout
+    for line in stdout:
         if not line.strip(): # skip empty lines
             continue
         sl = line.split(':', 1)
@@ -652,7 +697,11 @@ class NetworkInterfaceDict(UserDict):
 
     def __repr__(self):
         return self.show(print_result=False)
-            
+
+POWERSHELL_PROCESS = _PowershellManager()
+_CACHE_ROUTES = None
+_CACHE_ROUTES6 = None
+
 IFACES = NetworkInterfaceDict()
 IFACES.load_from_powershell()
 
@@ -735,6 +784,11 @@ def read_routes():
     routes = []
     if not conf.prog.os_access:
         return routes
+    global _CACHE_ROUTES
+    if _CACHE_ROUTES:
+        _r = _CACHE_ROUTES
+        _CACHE_ROUTES = None
+        return _r
     release = platform.release()
     try:
         if is_new_release():
@@ -796,7 +850,7 @@ def _append_route6(routes, dpref, dp, nh, iface, lifaddr, metric):
         cset = ['::1']
     else:
         devaddrs = (x for x in lifaddr if x[2] == iface)
-        cset = scapy.utils6.construct_source_candidate_set(dpref, dp, devaddrs)
+        cset = construct_source_candidate_set(dpref, dp, devaddrs)
     if not cset:
         return
     # APPEND (DESTINATION, NETMASK, NEXT HOP, IFACE, CANDIDATS, METRIC)
@@ -824,9 +878,13 @@ def _read_routes6_post2008():
 
 def _get_i6_metric(index):
     # Returns the INTERFACE metric from the interface index
-    ps = sp.Popen([conf.prog.cmd, '/c', 'netsh interface ipv6 show interfaces level=verbose ' + index], stdout = sp.PIPE)
-    stdout, stdin = ps.communicate()
-    stdout = stdout.decode("utf8", "ignore")
+    query_cmd = "netsh interface ipv6 show interfaces level=verbose " + index
+    if POWERSHELL_PROCESS.running:
+        stdout = b"\n" + b"".join(POWERSHELL_PROCESS.query(query_cmd))
+    else:
+        stdout, _ = sp.Popen([conf.prog.cmd, '/c', query_cmd], stdout=sp.PIPE).communicate()
+    if not isinstance(stdout, str):
+        stdout = stdout.decode("utf8", "ignore")
     metric_line = stdout.split('\n')[6]
     metric = re.search(re.compile(".*:\s+(\d+)"), metric_line).group(1)
     return int(metric)
@@ -834,9 +892,13 @@ def _get_i6_metric(index):
 def _read_routes6_7():
     # Not supported in powershell, we have to use netsh
     routes = []
-    ps = sp.Popen([conf.prog.cmd, '/c', 'netsh interface ipv6 show route level=verbose'], stdout = sp.PIPE)
-    stdout, stdin = ps.communicate()
-    stdout = stdout.decode("utf8", "ignore")
+    query_cmd = "netsh interface ipv6 show route level=verbose"
+    if POWERSHELL_PROCESS.running:
+        stdout = b"".join(POWERSHELL_PROCESS.query(query_cmd))
+    else:
+        stdout, _ = sp.Popen([conf.prog.cmd, '/c', query_cmd], stdout=sp.PIPE).communicate()
+    if not isinstance(stdout, str):
+        stdout = stdout.decode("utf8", "ignore")
     lifaddr = in6_getifaddr()
     # Define regexes
     r_int = [".*:\s+(\d+)"]
@@ -881,6 +943,11 @@ def read_routes6():
     routes6 = []
     if not conf.prog.os_access:
         return routes6
+    global _CACHE_ROUTES6
+    if _CACHE_ROUTES6:
+        _r = _CACHE_ROUTES6
+        _CACHE_ROUTES6 = None
+        return _r
     try:
         if is_new_release():
             routes6 = _read_routes6_post2008()
@@ -898,6 +965,13 @@ def get_working_if():
     except ValueError:
         # no route
         return scapy.consts.LOOPBACK_INTERFACE
+
+# Load cache route
+_CACHE_ROUTES = read_routes()
+_CACHE_ROUTES6 = read_routes6()
+
+# End powershell manager
+POWERSHELL_PROCESS.close()
 
 def _get_valid_guid():
     if scapy.consts.LOOPBACK_INTERFACE:
