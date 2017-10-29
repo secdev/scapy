@@ -429,7 +429,7 @@ class ContextManagerSubprocess(object):
     def __exit__(self, exc_type, exc_value, traceback):
         if exc_type == OSError:
             msg = "%s: executing %r failed"
-            log_scapy.error(msg, self.name, conf.prog.wireshark, exc_info=1)
+            log_runtime.error(msg, self.name, conf.prog.wireshark, exc_info=1)
             return True  # Suppress the exception
 
 class ContextManagerCaptureOutput(object):
@@ -487,11 +487,8 @@ def do_graph(graph,prog=None,format=None,target=None,type=None,string=None,optio
         prog = conf.prog.dot
     start_viewer=False
     if target is None:
-        if WINDOWS:
-            target = get_temp_file(autoext="."+format)
-            start_viewer = True
-        else:
-            target = "| %s" % conf.prog.display
+        target = get_temp_file(autoext="."+format)
+        start_viewer = True
     if format is not None:
         format = "-T%s" % format
     if isinstance(target, str):
@@ -508,7 +505,7 @@ def do_graph(graph,prog=None,format=None,target=None,type=None,string=None,optio
                 warning("Temporary file '%s' could not be written. Graphic will not be displayed.", tempfile)
                 break
         else:  
-            if conf.prog.display == conf.prog._default:
+            if WINDOWS and conf.prog.display == conf.prog._default:
                 os.startfile(target.name)
             else:
                 with ContextManagerSubprocess("do_graph()"):
