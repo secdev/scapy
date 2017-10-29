@@ -570,8 +570,7 @@ class NetworkInterfaceDict(UserDict):
                         return False
                 return False
             _error_msg = "No match between your pcap and windows network interfaces found. "
-            if _detect[0] and not _detect[2] and ((hasattr(self, "restarted_adapter") and not self.restarted_adapter)
-                                                 or not hasattr(self, "restarted_adapter")):
+            if _detect[0] and not _detect[2] and (not hasattr(self, "restarted_adapter") or self.restarted_adapter):
                 warning("Scapy has detected that your pcap service is not running !")
                 if not conf.interactive or _ask_user():
                     succeed = pcap_service_start(askadmin=conf.interactive)
@@ -895,7 +894,7 @@ def get_working_if():
     try:
         # return the interface associated with the route with smallest
         # mask (route by default if it exists)
-        return min(read_routes(), key=lambda x: x[1])[3]
+        return min(conf.route.routes, key=lambda x: x[1])[3]
     except ValueError:
         # no route
         return scapy.consts.LOOPBACK_INTERFACE
