@@ -11,7 +11,7 @@ from __future__ import absolute_import
 from scapy.utils import atol, ltoa, itom, pretty_routes
 from scapy.config import conf
 from scapy.error import Scapy_Exception, warning
-from scapy.arch import WINDOWS
+from scapy.arch import WINDOWS, get_working_if
 import scapy.consts
 import scapy.modules.six as six
 
