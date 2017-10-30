@@ -31,8 +31,8 @@ else:
     THREAD_EXCEPTION = thread.error
 
 if WINDOWS:
-    from scapy.arch.pcapdnet import PcapTimeoutElapsed
-    recv_error = PcapTimeoutElapsed
+    from scapy.error import Scapy_Exception
+    recv_error = Scapy_Exception
 else:
     recv_error = ()
 
@@ -371,6 +371,7 @@ class _ATMT_supersocket(SuperSocket):
         except recv_error:
             if not WINDOWS:
                 raise
+            return None
         if self.proto is not None:
             r = self.proto(r)
         return r
@@ -824,14 +825,18 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
                         if fd == self.cmdin:
                             yield self.CommandMessage("Received command message")
                         elif fd == self.listen_sock:
-                            pkt = self.listen_sock.recv(MTU)
-                            if pkt is not None:
-                                if self.master_filter(pkt):
-                                    self.debug(3, "RECVD: %s" % pkt.summary())
-                                    for rcvcond in self.recv_conditions[self.state.state]:
-                                        self._run_condition(rcvcond, pkt, *state_output)
-                                else:
-                                    self.debug(4, "FILTR: %s" % pkt.summary())
+                            try:
+                                pkt = self.listen_sock.recv(MTU)
+                            except recv_error:
+                                pass
+                            else:
+                                if pkt is not None:
+                                    if self.master_filter(pkt):
+                                        self.debug(3, "RECVD: %s" % pkt.summary())
+                                        for rcvcond in self.recv_conditions[self.state.state]:
+                                            self._run_condition(rcvcond, pkt, *state_output)
+                                    else:
+                                        self.debug(4, "FILTR: %s" % pkt.summary())
                         else:
                             self.debug(3, "IOEVENT on %s" % fd.ioname)
                             for ioevt in self.ioevents[self.state.state]:
