@@ -717,7 +717,7 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
     
             # Start the automaton
             self.state=self.initial_states[0](self)
-            self.send_sock = self.send_sock_class()
+            self.send_sock = self.send_sock_class(**self.socket_kargs)
             self.listen_sock = self.recv_sock_class(**self.socket_kargs)
             self.packets = PacketList(name="session[%s]"%self.__class__.__name__)
 
