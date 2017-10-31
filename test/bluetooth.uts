@@ -53,3 +53,60 @@ scapy_packet = HCI_Hdr(scan_resp_raw_data)
 
 assert(scapy_packet[EIR_Manufacturer_Specific_Data].data == b'\x00_B31147D2461\xfc\x00\x03\x0c\x00\x00')
 assert(scapy_packet[EIR_Manufacturer_Specific_Data].company_id == 0x154)
+
+= Basic L2CAP dissect
+a = L2CAP_Hdr(b'\x08\x00\x06\x00\t\x00\xf6\xe5\xd4\xc3\xb2\xa1')
+assert a[SM_Identity_Address_Information].address == 'a1:b2:c3:d4:e5:f6'
+assert a[SM_Identity_Address_Information].atype == 0
+a.show()
+
+= Basic HCI_ACL_Hdr build & dissect
+a = HCI_Hdr()/HCI_ACL_Hdr(handle=0xf4c, PB=2, BC=2, len=20)/L2CAP_Hdr(len=16)/L2CAP_CmdHdr(code=8, len=12)/Raw("A"*12)
+assert raw(a) == b'\x02L\xaf\x14\x00\x10\x00\x05\x00\x08\x00\x0c\x00AAAAAAAAAAAA'
+b = HCI_Hdr(raw(a))
+assert a == b
+
+= Complex HCI - L2CAP build
+a = HCI_Hdr()/HCI_ACL_Hdr()/L2CAP_Hdr()/L2CAP_CmdHdr()/L2CAP_ConnReq(scid=1)
+assert raw(a) == b'\x02\x00\x00\x0c\x00\x08\x00\x05\x00\x02\x00\x04\x00\x00\x00\x01\x00'
+a.show()
+
+= Complex HCI - L2CAP dissect
+a = HCI_Hdr(b'\x02\x00\x00\x11\x00\r\x00\x05\x00\x0b\x00\t\x00\x01\x00\x00\x00debug')
+assert a[L2CAP_InfoResp].result == 0
+assert a[L2CAP_InfoResp].data == "debug"
+
+= Answers
+a = HCI_Hdr(b'\x02\x00\x00\x0c\x00\x08\x00\x05\x00\x02\x00\x04\x00\x00\x00\x9a;')
+b = HCI_Hdr(b'\x02\x00\x00\x10\x00\x0c\x00\x05\x00\x03\x00\x08\x00\x9a;\x00\x00\x00\x00\x01\x00')
+assert b.answers(a)
+assert not a.answers(b)
+
+a = HCI_Hdr(b'\x02\x00\x00\x0c\x00\x08\x00\x05\x00\x04\x00\x04\x00\x15\x00\x00\x00')
+b = HCI_Hdr(b'\x02\x00\x00\x0e\x00\n\x00\x05\x00\x05\x00\x06\x00\x15\x00\x00\x00\x02\x00')
+assert b.answers(a)
+assert not a.answers(b)
+
+= EIR_Hdr - misc
+a = HCI_Hdr()/HCI_Event_Hdr()/HCI_Event_LE_Meta()/HCI_LE_Meta_Advertising_Report(addr = "a1:b2:c3:d4:e5:f6", data=EIR_Hdr()/EIR_CompleteLocalName(local_name="scapy"))
+assert raw(a) == b'\x04>\x00\x02\x00\x00\x00\xf6\xe5\xd4\xc3\xb2\xa1\x07\x06\tscapy\x00'
+b = HCI_Hdr(raw(a))
+assert b.data[0][EIR_CompleteLocalName].local_name == "scapy"
+assert b[HCI_LE_Meta_Advertising_Report].addr == "a1:b2:c3:d4:e5:f6"
+
+assert a.summary() == "HCI Event / HCI_Event_Hdr / HCI_Event_LE_Meta / HCI_LE_Meta_Advertising_Report"
+
+= ATT_Hdr - misc
+a = HCI_Hdr()/HCI_ACL_Hdr()/L2CAP_Hdr()/ATT_Hdr()/ATT_Read_By_Type_Request_128bit(uuid1=0xa14, uuid2=0xa24)
+a = HCI_Hdr(raw(a))
+a.show()
+a.mysummary()
+assert ATT_Read_By_Type_Request_128bit in a
+assert not Raw in a
+
+b = HCI_Hdr()/HCI_ACL_Hdr()/L2CAP_Hdr()/ATT_Hdr()/ATT_Read_By_Type_Request(uuid=0xa14)
+b = HCI_Hdr(raw(b))
+b.show()
+b.mysummary()
+assert ATT_Read_By_Type_Request in b
+assert not Raw in b

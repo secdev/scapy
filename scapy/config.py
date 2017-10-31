@@ -396,6 +396,7 @@ debug_tls:When 1, print some TLS session secrets when they are computed.
     L3socket = None
     L2socket = None
     L2listen = None
+    BTsocket = None
     min_pkt_size = 60
     histfile = os.getenv('SCAPY_HISTFILE',
                          os.path.join(os.path.expanduser("~"),
