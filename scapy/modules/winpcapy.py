@@ -28,6 +28,7 @@ if WINDOWS:
     if os.path.exists(npcap_folder):
         # Try to load npcap
         os.environ['PATH'] = npcap_folder + ";" + os.environ['PATH']
+    del npcap_folder
     _lib=CDLL("wpcap.dll")
 else:
     SOCKET = c_int

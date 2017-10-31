@@ -23,6 +23,7 @@ import scapy.arch
 import scapy.consts
 
 if conf.use_winpcapy:
+  NPCAP_PATH = os.environ["WINDIR"] + "\\System32\\Npcap"
   #mostly code from https://github.com/phaethon/scapy translated to python2.X
   try:
       from scapy.modules.winpcapy import *
@@ -45,7 +46,7 @@ if conf.use_winpcapy:
       # Detect Pcap version
       version = pcap_lib_version()
       if b"winpcap" in version.lower():
-          if os.path.exists(os.environ["WINDIR"] + "\\System32\\Npcap\\wpcap.dll"):
+          if os.path.exists(NPCAP_PATH + "\\wpcap.dll"):
               warning("Winpcap is installed over Npcap. Will use Winpcap (see 'Winpcap/Npcap conflicts' in scapy's docs)", onlyOnce=True)
           elif platform.release() != "XP":
               warning("WinPcap is now deprecated (not maintened). Please use Npcap instead", onlyOnce=True)

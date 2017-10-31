@@ -46,6 +46,8 @@ if not hasattr(socket, 'IPPROTO_GRE'):
 from scapy.arch import pcapdnet
 from scapy.arch.pcapdnet import *
 
+_WlanHelper = NPCAP_PATH + "\\WlanHelper.exe"
+
 import scapy.consts
 
 def is_new_release(ignoreVBS=False):
@@ -330,6 +332,7 @@ class NetworkInterface(object):
         self.description = None
         self.data = data
         self.invalid = False
+        self.raw80211 = None
         if data is not None:
             self.update(data)
 
@@ -363,8 +366,13 @@ class NetworkInterface(object):
                 self.invalid = True
         except (KeyError, AttributeError, NameError) as e:
             print(e)
+
         try:
-            self.mac = data['mac']
+            if self.name == scapy.consts.LOOPBACK_NAME and conf.use_npcap:
+                # https://nmap.org/npcap/guide/npcap-devguide.html
+                self.mac = "00:00:00:00:00:00"
+            else:
+                self.mac = data['mac']
         except KeyError:
             pass
 
@@ -381,6 +389,124 @@ class NetworkInterface(object):
     def is_invalid(self):
         return self.invalid
 
+    def _check_npcap_requirement(self):
+        if not conf.use_npcap:
+            raise OSError("This operation requires Npcap.")
+        if self.raw80211 is None:
+            dot11adapters = iter(_vbs_exec_code("""WScript.Echo CreateObject("WScript.Shell").RegRead("HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\npcap\\Parameters\\Dot11Adapters")""")).next()
+            self.raw80211 = ("\\Device\\" + self.guid).lower() in dot11adapters.lower()
+        if not self.raw80211:
+            raise Scapy_Exception("This interface does not support raw 802.11")
+
+    def mode(self):
+        """Get the interface operation mode.
+        Only available with Npcap."""
+        self._check_npcap_requirement()
+        return sp.Popen([_WlanHelper, self.guid[1:-1], "mode"], stdout=sp.PIPE).communicate()[0].strip()
+
+    def availablemodes(self):
+        """Get all available interface modes.
+        Only available with Npcap."""
+        # According to https://nmap.org/npcap/guide/npcap-devguide.html#npcap-feature-dot11
+        self._check_npcap_requirement()
+        return sp.Popen([_WlanHelper, self.guid[1:-1], "modes"], stdout=sp.PIPE).communicate()[0].strip().split(",")
+
+    def setmode(self, mode):
+        """Set the interface mode. It can be:
+        - 0 or managed: Managed Mode (aka "Extensible Station Mode")
+        - 1 or monitor: Monitor Mode (aka "Network Monitor Mode")
+        - 2 or master: Master Mode (aka "Extensible Access Point") (supported from Windows 7 and later)
+        - 3 or wfd_device: The Wi-Fi Direct Device operation mode (supported from Windows 8 and later)
+        - 4 or wfd_owner: The Wi-Fi Direct Group Owner operation mode (supported from Windows 8 and later)
+        - 5 or wfd_client: The Wi-Fi Direct Client operation mode (supported from Windows 8 and later)
+        Only available with Npcap."""
+        # According to https://nmap.org/npcap/guide/npcap-devguide.html#npcap-feature-dot11
+        self._check_npcap_requirement()
+        _modes = {
+            0: "managed",
+            1: "monitor",
+            2: "master",
+            3: "wfd_device",
+            4: "wfd_owner",
+            5: "wfd_client"
+        }
+        m = _modes.get(mode, "unknown") if isinstance(mode, int) else mode
+        return sp.call(_WlanHelper + " " + self.guid[1:-1] + " mode " + m)
+
+    def channel(self):
+        """Get the channel of the interface.
+        Only available with Npcap."""
+        # According to https://nmap.org/npcap/guide/npcap-devguide.html#npcap-feature-dot11
+        self._check_npcap_requirement()
+        return sp.Popen([_WlanHelper, self.guid[1:-1], "channel"], stdout=sp.PIPE).communicate()[0].strip().strip()
+
+    def setchannel(self, channel):
+        """Set the channel of the interface (1-14):
+        Only available with Npcap."""
+        # According to https://nmap.org/npcap/guide/npcap-devguide.html#npcap-feature-dot11
+        self._check_npcap_requirement()
+        return sp.call(_WlanHelper + " " + self.guid[1:-1] + " channel " + str(channel))
+
+    def frequence(self):
+        """Get the frequence of the interface.
+        Only available with Npcap."""
+        # According to https://nmap.org/npcap/guide/npcap-devguide.html#npcap-feature-dot11
+        self._check_npcap_requirement()
+        return sp.Popen([_WlanHelper, self.guid[1:-1], "freq"], stdout=sp.PIPE).communicate()[0].strip()
+
+    def setfrequence(self, freq):
+        """Set the channel of the interface (1-14):
+        Only available with Npcap."""
+        # According to https://nmap.org/npcap/guide/npcap-devguide.html#npcap-feature-dot11
+        self._check_npcap_requirement()
+        return sp.call(_WlanHelper + " " + self.guid[1:-1] + " freq " + str(freq))
+
+    def availablemodulations(self):
+        """Get all available 802.11 interface modulations.
+        Only available with Npcap."""
+        # According to https://nmap.org/npcap/guide/npcap-devguide.html#npcap-feature-dot11
+        self._check_npcap_requirement()
+        return sp.Popen([_WlanHelper, self.guid[1:-1], "modus"], stdout=sp.PIPE).communicate()[0].strip().split(",")
+
+    def modulation(self):
+        """Get the 802.11 modulation of the interface.
+        Only available with Npcap."""
+        # According to https://nmap.org/npcap/guide/npcap-devguide.html#npcap-feature-dot11
+        self._check_npcap_requirement()
+        return sp.Popen([_WlanHelper, self.guid[1:-1], "modu"], stdout=sp.PIPE).communicate()[0].strip()
+
+    def setmodulation(self, modu):
+        """Set the interface modulation. It can be:
+           - 0: dsss
+           - 1: fhss
+           - 2: irbaseband
+           - 3: ofdm
+           - 4: hrdss
+           - 5: erp
+           - 6: ht
+           - 7: vht
+           - 8: ihv
+           - 9: mimo-ofdm
+           - 10: mimo-ofdm
+        Only available with Npcap."""
+        # According to https://nmap.org/npcap/guide/npcap-devguide.html#npcap-feature-dot11
+        self._check_npcap_requirement()
+        _modus = {
+            0: "dsss",
+            1: "fhss",
+            2: "irbaseband",
+            3: "ofdm",
+            4: "hrdss",
+            5: "erp",
+            6: "ht",
+            7: "vht",
+            8: "ihv",
+            9: "mimo-ofdm",
+            10: "mimo-ofdm",
+        }
+        m = _modus.get(modu, "unknown") if isinstance(modu, int) else modu
+        return sp.call(_WlanHelper + " " + self.guid[1:-1] + " mode " + m)
+
     def __repr__(self):
         return "<%s %s %s>" % (self.__class__.__name__, self.name, self.guid)
 
@@ -390,7 +516,7 @@ def pcap_service_name():
 
 def pcap_service_status():
     """Returns a tuple (name, description, started) of the windows pcap adapter"""
-    for i in exec_query(['Get-Service', 'npcap'], ['Name', 'DisplayName', 'Status']):
+    for i in exec_query(['Get-Service', pcap_service_name()], ['Name', 'DisplayName', 'Status']):
         name = i[0]
         description = i[1]
         started = (i[2].lower().strip() == 'running')
