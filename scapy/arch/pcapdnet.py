@@ -19,6 +19,7 @@ from scapy.utils import mac2str
 from scapy.supersocket import SuperSocket
 from scapy.error import Scapy_Exception, log_loading, warning
 from scapy.pton_ntop import inet_ntop
+from scapy.automaton import SelectableObject
 import scapy.arch
 import scapy.consts
 
@@ -183,7 +184,7 @@ if conf.use_winpcapy:
   class PcapTimeoutElapsed(Scapy_Exception):
       pass
 
-  class L2pcapListenSocket(SuperSocket):
+  class L2pcapListenSocket(SuperSocket, SelectableObject):
       desc = "read packets at layer 2 using libpcap"
       def __init__(self, iface = None, type = ETH_P_ALL, promisc=None, filter=None):
           self.type = type
@@ -210,6 +211,9 @@ if conf.use_winpcapy:
   
       def close(self):
           self.ins.close()
+
+      def check_recv(self):
+          return True
           
       def recv(self, x=MTU):
           ll = self.ins.datalink()
@@ -242,7 +246,7 @@ if conf.use_winpcapy:
   
 
   conf.L2listen = L2pcapListenSocket
-  class L2pcapSocket(SuperSocket):
+  class L2pcapSocket(SuperSocket, SelectableObject):
       desc = "read/write packets at layer 2 using only libpcap"
       def __init__(self, iface = None, type = ETH_P_ALL, promisc=None, filter=None, nofilter=0):
           if iface is None:
@@ -283,6 +287,9 @@ if conf.use_winpcapy:
           if hasattr(x, "sent_time"):
               x.sent_time = time.time()
           return self.outs.send(sx)
+
+      def check_recv(self):
+          return True
 
       def recv(self,x=MTU):
           ll = self.ins.datalink()
