@@ -8,7 +8,6 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.backends import default_backend
 
-from scapy.arch import get_if_hwaddr
 from scapy.automaton import ATMT, Automaton
 from scapy.base_classes import Net
 from scapy.config import conf
@@ -101,7 +100,6 @@ class KrackAP(Automaton):
         super(KrackAP, self).parse_args(**kwargs)
 
         # Main AP options
-        self.iface_mon = kwargs['iface']
         self.mac = ap_mac
         self.ssid = ssid
         self.passphrase = passphrase
