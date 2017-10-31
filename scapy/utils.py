@@ -429,7 +429,7 @@ class ContextManagerSubprocess(object):
     def __exit__(self, exc_type, exc_value, traceback):
         if exc_type == OSError:
             msg = "%s: executing %r failed"
-            log_scapy.error(msg, self.name, conf.prog.wireshark, exc_info=1)
+            log_runtime.error(msg, self.name, conf.prog.wireshark, exc_info=1)
             return True  # Suppress the exception
 
 class ContextManagerCaptureOutput(object):
@@ -491,14 +491,19 @@ def do_graph(graph,prog=None,format=None,target=None,type=None,string=None,optio
             target = get_temp_file(autoext="."+format)
             start_viewer = True
         else:
-            target = "| %s" % conf.prog.display
+            with ContextManagerSubprocess("do_graph()"):
+                target = subprocess.Popen([conf.prog.display], stdin=subprocess.PIPE).stdin
     if format is not None:
         format = "-T%s" % format
     if isinstance(target, str):
         target = open(os.path.abspath(target), "wb")
-    proc = subprocess.Popen("%s %s %s" % (prog, options or "", format or ""),
+    proc = subprocess.Popen("\"%s\" %s %s" % (prog, options or "", format or ""),
                             shell=True, stdin=subprocess.PIPE, stdout=target)
     proc.communicate(input=raw(graph))
+    try:
+        target.close()
+    except:
+        pass
     if start_viewer:
         # Workaround for file not found error: We wait until tempfile is written.
         waiting_start = time.time()
