@@ -27,6 +27,7 @@ from __future__ import absolute_import
 from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.inet6 import *
+from scapy.compat import orb
 from scapy.modules.six.moves import range
 
 
@@ -146,8 +147,8 @@ class CDPAddrRecordIPv6(CDPAddrRecord):
 def _CDPGuessAddrRecord(p, **kargs):
     cls = conf.raw_layer
     if len(p) >= 2:
-        plen = struct.unpack("B", p[1])[0]
-        proto = ''.join(struct.unpack("s" * plen, p[2:plen + 2])[0:plen])
+        plen = orb(p[1])
+        proto = p[2:plen + 2]
 
         if proto == _cdp_addrrecord_proto_ip:
             clsname = "CDPAddrRecordIPv4"
@@ -320,7 +321,7 @@ class _CDPChecksum:
             if last_chr <= b'\x80':
                 return pkt[:-1] + b'\x00' + last_chr
             else:
-                return pkt[:-1] + b'\xff' + chr(ord(last_chr) - 1)
+                return pkt[:-1] + b'\xff' + chb(orb(last_chr) - 1)
         else:
             return pkt
 

@@ -22,6 +22,11 @@ time.sleep(3)
 s.msg = []
 p.stop()
 
+try:
+    os.remove("test.png")
+except OSError:
+    pass
+
 = Test add_pipe
 
 s = AutoSource()

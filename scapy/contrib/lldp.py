@@ -49,6 +49,7 @@ from scapy.layers.l2 import Ether, Dot1Q, bind_layers, \
     XStrLenField
 from scapy.modules.six.moves import range
 from scapy.data import ETHER_TYPES
+from scapy.compat import raw
 
 LLDP_NEAREST_BRIDGE_MAC = '01:80:c2:00:00:0e'
 LLDP_NEAREST_NON_TPMR_BRIDGE_MAC = '01:80:c2:00:00:03'
@@ -122,7 +123,7 @@ class LLDPDU(Packet):
 
     def guess_payload_class(self, payload):
         # type is a 7-bit bitfield spanning bits 1..7 -> div 2
-        lldpdu_tlv_type = struct.unpack("b", payload[0])[0] / 2
+        lldpdu_tlv_type = orb(payload[0]) // 2
         return LLDPDU_CLASS_TYPES[lldpdu_tlv_type]
 
     @staticmethod
@@ -178,7 +179,7 @@ class LLDPDU(Packet):
         if frame_size < LLDPDU.ETHER_FRAME_MIN_LEN:
             pad = Padding()
             pad.load = b'\x00' * (LLDPDU.ETHER_FRAME_MIN_LEN - frame_size)
-            return pkt + pay + str(pad)
+            return pkt + pay + raw(pad)
         else:
             return pkt + pay
 

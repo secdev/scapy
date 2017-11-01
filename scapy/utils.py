@@ -345,7 +345,7 @@ def fletcher16_checkbytes(binbuf, offset):
 
     if (y > 255):
         y -= 255
-    return chr(x) + chr(y)
+    return chb(x) + chb(y)
 
 
 def mac2str(mac):

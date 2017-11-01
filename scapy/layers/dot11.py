@@ -398,8 +398,8 @@ iwconfig wlan0 mode managed
                             pattern="", ignorepattern=""):
         self.iffrom = iffrom
         self.ifto = ifto
-        self.ptrn = re.compile(pattern)
-        self.iptrn = re.compile(ignorepattern)
+        self.ptrn = re.compile(pattern.encode())
+        self.iptrn = re.compile(ignorepattern.encode())
         self.replace = replace
         
     def is_request(self, pkt):

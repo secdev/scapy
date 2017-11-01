@@ -32,6 +32,7 @@ from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.inet import *
 from scapy.layers.inet6 import *
+from scapy.compat import orb
 
 EXT_VERSION = "v0.9.2"
 
@@ -89,7 +90,7 @@ class OSPF_Hdr(Packet):
                 # Checksum is calculated without authentication data
                 # Algorithm is the same as in IP()
                 ck = checksum(p[:16] + p[24:])
-                p = p[:12] + chr(ck >> 8) + chr(ck & 0xff) + p[14:]
+                p = p[:12] + struct.pack("!H", ck) + p[14:]
             # TODO: Handle Crypto: Add message digest  (RFC 2328, D.4.3)
         return p
 
@@ -194,11 +195,11 @@ class OSPF_LLS_Hdr(Packet):
         l = self.len
         if l is None:
             # Length in 32-bit words
-            l = len(p) / 4
+            l = len(p) // 4
             p = p[:2] + struct.pack("!H", l) + p[4:]
         if self.chksum is None:
             c = checksum(p)
-            p = chr((c >> 8) & 0xff) + chr(c & 0xff) + p[2:]
+            p = struct.pack("!H", c) + p[2:]
         return p
 
 _OSPF_LStypes = {1: "router",
@@ -263,7 +264,7 @@ def _LSAGuessPayloadClass(p, **kargs):
     
     cls = conf.raw_layer
     if len(p) >= 4:
-        typ = struct.unpack("!B", p[3])[0]
+        typ = orb(p[3])
         clsname = _OSPF_LSclasses.get(typ, "Raw")
         cls = globals()[clsname]
     return cls(p, **kargs)
@@ -455,7 +456,7 @@ class OSPFv3_Hdr(Packet):
 
         if self.chksum is None:
             chksum = in6_chksum(89, self.underlayer, p)
-            p = p[:12] + chr(chksum >> 8) + chr(chksum & 0xff) + p[14:]
+            p = p[:12] + struct.pack("!H", chksum) + p[14:]
 
         return p
 
