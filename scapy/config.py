@@ -326,6 +326,14 @@ def isCryptographyAdvanced():
     else:
         return True
 
+def isPyPy():
+    """Returns either scapy is running under PyPy or not"""
+    try:
+        import __pypy__
+        return True
+    except ImportError:
+        return False
+
 def _prompt_changer(attr, val):
     """Change the current prompt theme"""
     try:
@@ -417,6 +425,7 @@ debug_tls:When 1, print some TLS session secrets when they are computed.
     resolve = Resolve()
     noenum = Resolve()
     emph = Emphasize()
+    use_pypy = isPyPy()
     use_pcap = os.getenv("SCAPY_USE_PCAPDNET", "").lower().startswith("y")
     use_dnet = os.getenv("SCAPY_USE_PCAPDNET", "").lower().startswith("y")
     use_bpf = False
