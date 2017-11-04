@@ -167,7 +167,8 @@ def sndrcv(pks, pkt, timeout=None, inter=0, verbose=None, chainCC=False,
     debug.recv = plist.PacketList([],"Unanswered")
     debug.sent = plist.PacketList([],"Sent")
     debug.match = plist.SndRcvList([])
-    nbrecv=0
+    nbrecv = 0
+    ans = []
     # do it here to fix random fields, so that parent and child have the same
     tobesent = [p for p in pkt]
     notans = len(tobesent)
@@ -189,8 +190,11 @@ def sndrcv(pks, pkt, timeout=None, inter=0, verbose=None, chainCC=False,
         )
         thread.start()
 
-        hsent, ans, nbrecv, notans = _sndrcv_rcv(pks, tobesent, stopevent, nbrecv, notans, verbose, chainCC, multi)
+        hsent, newans, nbrecv, notans = _sndrcv_rcv(
+            pks, tobesent, stopevent, nbrecv, notans, verbose, chainCC, multi,
+        )
         thread.join()
+        ans.extend(newans)
 
         remain = list(itertools.chain(*six.itervalues(hsent)))
         if multi:
