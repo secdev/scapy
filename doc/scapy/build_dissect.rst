@@ -529,7 +529,7 @@ random  choice  as  all   the  functions  building  the  packet  calls
 ``Packet.__str__()``. However, ``__str__()`` calls another method: ``build()``::
 
     def __str__(self):
-        return self.__iter__().next().build()
+        return next(iter(self)).build()
 
 What is important also to understand  is that usually, you do not care
 about the machine  representation, that is why the  human and internal

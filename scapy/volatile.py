@@ -151,7 +151,7 @@ class RandEnum(RandNum):
     def __init__(self, min, max, seed=None):
         self.seq = RandomEnumeration(min,max,seed)
     def _fix(self):
-        return self.seq.next()
+        return next(self.seq)
 
 class RandByte(RandNum):
     def __init__(self):
@@ -224,7 +224,7 @@ class RandEnumKeys(RandEnum):
         self.seq = RandomEnumeration(0, len(self.enum) - 1, seed)
 
     def _fix(self):
-        return self.enum[self.seq.next()]
+        return self.enum[next(self.seq)]
 
 class RandChoice(RandField):
     def __init__(self, *args):
