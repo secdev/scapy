@@ -94,9 +94,21 @@ class _PowershellManager(Thread):
                 self.event.set()
             else:
                 self.buffer.append(read_line)
-    def query(self, cmd):
+    def query(self, command, cmd=False):
+        if cmd:
+            prog = [conf.prog.cmd, "/c"]
+        else:
+            prog = [conf.prog.powershell]
+        if not self.running:
+            # Not running: create process for this only query
+            stdout, _ = sp.Popen(prog + command,
+                   stdout=sp.PIPE).communicate()
+            if not isinstance(stdout, str):
+                stdout = stdout.decode("utf8", "ignore")
+            return stdout.split("\n")
+        # Call powershell query using running process
         self.buffer = []
-        query = cmd + "; echo scapy_end\n"
+        query = " ".join(command) + "; echo scapy_end\n"
         self.process.stdin.write(query)
         self.process.stdin.flush()
         self.event.wait()
@@ -117,12 +129,7 @@ def _exec_query_ps(cmd, fields):
         raise OSError("Scapy could not detect powershell !")
     query_cmd = cmd + ['|', 'select %s' % ', '.join(fields), '|', 'fl']
     l=[]
-    if POWERSHELL_PROCESS.running:
-        stdout = POWERSHELL_PROCESS.query(" ".join(query_cmd))
-    else:
-        stdout = sp.Popen([conf.prog.powershell] + query_cmd,
-                   stdout=sp.PIPE,
-                   universal_newlines=True).stdout
+    stdout = POWERSHELL_PROCESS.query(query_cmd)
     for line in stdout:
         if not line.strip(): # skip empty lines
             continue
@@ -574,11 +581,8 @@ def pcap_service_control(action, askadmin=True):
     if not conf.prog.powershell:
         return False
     command = action + ' ' + pcap_service_name()
-    ps = sp.Popen([conf.prog.powershell, _encapsulate_admin(command) if askadmin else command],
-                    stdout=sp.PIPE,
-                    universal_newlines=True)
-    stdout, stderr = ps.communicate()
-    return (not "error" in stdout.lower())
+    stdout = POWERSHELL_PROCESS.query([_encapsulate_admin(command) if askadmin else command])
+    return (not "error" in "".join(stdout).lower())
 
 def pcap_service_start(askadmin=True):
     """Starts the pcap adapter. Will ask for admin. Returns True if success"""
@@ -879,13 +883,8 @@ def _read_routes6_post2008():
 def _get_i6_metric(index):
     # Returns the INTERFACE metric from the interface index
     query_cmd = "netsh interface ipv6 show interfaces level=verbose " + index
-    if POWERSHELL_PROCESS.running:
-        stdout = b"\n" + b"".join(POWERSHELL_PROCESS.query(query_cmd))
-    else:
-        stdout, _ = sp.Popen([conf.prog.cmd, '/c', query_cmd], stdout=sp.PIPE).communicate()
-    if not isinstance(stdout, str):
-        stdout = stdout.decode("utf8", "ignore")
-    metric_line = stdout.split('\n')[6]
+    stdout = POWERSHELL_PROCESS.query([query_cmd], cmd=True)
+    metric_line = stdout[6]
     metric = re.search(re.compile(".*:\s+(\d+)"), metric_line).group(1)
     return int(metric)
 
@@ -893,12 +892,7 @@ def _read_routes6_7():
     # Not supported in powershell, we have to use netsh
     routes = []
     query_cmd = "netsh interface ipv6 show route level=verbose"
-    if POWERSHELL_PROCESS.running:
-        stdout = b"".join(POWERSHELL_PROCESS.query(query_cmd))
-    else:
-        stdout, _ = sp.Popen([conf.prog.cmd, '/c', query_cmd], stdout=sp.PIPE).communicate()
-    if not isinstance(stdout, str):
-        stdout = stdout.decode("utf8", "ignore")
+    stdout = POWERSHELL_PROCESS.query([query_cmd], cmd=True)
     lifaddr = in6_getifaddr()
     # Define regexes
     r_int = [".*:\s+(\d+)"]
@@ -908,7 +902,7 @@ def _read_routes6_7():
     regex_list = r_ipv6*2 + r_int + r_all*3 + r_int + r_all*3
     current_object =  []
     index = 0
-    for l in stdout.split('\n'):
+    for l in stdout:
         if not l.strip():
             if not current_object:
                 continue

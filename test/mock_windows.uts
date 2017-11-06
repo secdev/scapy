@@ -140,8 +140,8 @@ DestinationPrefix : ::/0
 NextHop           : fe80::224:d4ff:fea0:a6d7
 RouteMetric       : 0
 InterfaceMetric   : 256
-""".split("\n")
-    mock_comm.return_value = Bunch(stdout=get_net_route_output)
+"""
+    mock_comm.return_value = Bunch(communicate=lambda: (get_net_route_output, ""))
     mock_winpcapylist.return_value = [u'\\Device\\NPF_{0EC72537-B662-4F5D-B34E-48BFAE799BBE}', u'\\Device\\NPF_{C56DFFB3-992C-4964-B000-3E7C0F76E8BA}']
     # Mocked in6_getifaddr() output
     mock_dev_from_index.side_effect = dev_from_index_custom
