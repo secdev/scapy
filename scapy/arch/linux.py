@@ -136,9 +136,10 @@ def attach_filter(s, bpf_filter, iface):
     if not TCPDUMP:
         return
     try:
-        f = os.popen("%s -i %s -ddd -s 1600 '%s'" % (
+        f = os.popen("%s -i %s -ddd -s %d '%s'" % (
             conf.prog.tcpdump,
             conf.iface if iface is None else iface,
+            MTU,
             bpf_filter,
         ))
     except OSError:
