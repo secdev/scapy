@@ -37,7 +37,7 @@ if conf.use_winpcapy:
           try:
               p = devs
               while p:
-                  ret.append(p.contents.name.decode('ascii'))
+                  ret.append(plain_str(p.contents.name))
                   p = p.contents.next
               return ret
           except:
@@ -70,7 +70,7 @@ if conf.use_winpcapy:
 
   def get_if_raw_addr(iff):
     if iff.guid in conf.cache_ipaddrs:
-        return conf.cache_ipaddrs[iff.guid]
+        return conf.cache_ipaddrs[iff.pcap_name]
     err = create_string_buffer(PCAP_ERRBUF_SIZE)
     devs = POINTER(pcap_if_t)()
     ret = b"\0\0\0\0"
@@ -80,18 +80,15 @@ if conf.use_winpcapy:
     try:
       p = devs
       while p:
-        if p.contents.name.endswith(iff.guid.encode("ascii")):
           a = p.contents.addresses
           while a:
             if a.contents.addr.contents.sa_family == socket.AF_INET:
               ap = a.contents.addr
               val = cast(ap, POINTER(sockaddr_in))
-              ret = b"".join(chb(x) for x in val.contents.sin_addr[:4])
+              conf.cache_ipaddrs[plain_str(p.contents.name)] = b"".join(chb(x) for x in val.contents.sin_addr[:4])
             a = a.contents.next
-          break
-        p = p.contents.next
-      conf.cache_ipaddrs[iff.guid] = ret
-      return ret
+          p = p.contents.next
+      return conf.cache_ipaddrs.get(iff.pcap_name, None)
     finally:
       pcap_freealldevs(devs)
   if conf.use_winpcapy:
@@ -118,7 +115,7 @@ if conf.use_winpcapy:
             val = cast(ap, POINTER(sockaddr_in6))
             addr = inet_ntop(socket.AF_INET6, b"".join(chb(x) for x in val.contents.sin6_addr[:]))
             scope = scapy.utils6.in6_getscope(addr)
-            ret.append((addr, scope, p.contents.name.decode('ascii')))
+            ret.append((addr, scope, plain_str(p.contents.name)))
           a = a.contents.next
         p = p.contents.next
       return ret
@@ -129,7 +126,7 @@ if conf.use_winpcapy:
   class _PcapWrapper_pypcap:
       def __init__(self, device, snaplen, promisc, to_ms):
           self.errbuf = create_string_buffer(PCAP_ERRBUF_SIZE)
-          self.iface = create_string_buffer(device.encode('ascii'))
+          self.iface = create_string_buffer(device)
           self.pcap = pcap_open_live(self.iface, snaplen, promisc, to_ms, self.errbuf)
           self.header = POINTER(pcap_pkthdr)()
           self.pkt_data = POINTER(c_ubyte)()
@@ -150,7 +147,7 @@ if conf.use_winpcapy:
             return 0
           return pcap_get_selectable_fd(self.pcap) 
       def setfilter(self, f):
-          filter_exp = create_string_buffer(f.encode('ascii'))
+          filter_exp = create_string_buffer(f)
           if pcap_compile(self.pcap, byref(self.bpf_program), filter_exp, 0, -1) == -1:
             log_loading.error("Could not compile filter expression %s", f)
             return False

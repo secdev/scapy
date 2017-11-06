@@ -95,6 +95,7 @@ class _PowershellManager(Thread):
             else:
                 self.buffer.append(read_line)
     def query(self, command, cmd=False):
+        self.event.clear()
         if cmd:
             prog = [conf.prog.cmd, "/c"]
         else:
@@ -112,7 +113,6 @@ class _PowershellManager(Thread):
         self.process.stdin.write(query)
         self.process.stdin.flush()
         self.event.wait()
-        self.event.clear()
         return self.buffer[1:]
 
     def close(self):
@@ -404,8 +404,8 @@ class NetworkInterface(object):
         self._update_pcapdata()
 
         try:
-            self.ip = socket.inet_ntoa(get_if_raw_addr(data))
-        except (KeyError, AttributeError, NameError):
+            self.ip = socket.inet_ntoa(get_if_raw_addr(self))
+        except (TypeError, NameError):
             pass
 
         try:
