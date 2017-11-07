@@ -467,9 +467,9 @@ s.send("trigger")
 s.send("hello")
 s.send("trigger")
 assert c.q.get(timeout=3) == "trigger"
+assert c.q.get(timeout=3) in ['hello', 'trigger']
+assert c.q.get(timeout=3) in ['hello', 'trigger']
 assert d2.q.qsize() == 0
-assert c.q.get(timeout=3) in ['hello', 'trigger']
-assert c.q.get(timeout=3) in ['hello', 'trigger']
 
 p.stop()
 
@@ -493,8 +493,8 @@ s.send("trigger")
 s.send("hello")
 s.send("trigger")
 assert c.q.get(timeout=3) == "trigger"
-assert d2.q.qsize() == 0
 assert c.q.get(timeout=3) == "hello"
+assert d2.q.qsize() == 0
 
 p.stop()
 
