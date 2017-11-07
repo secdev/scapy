@@ -69,8 +69,8 @@ if conf.use_winpcapy:
       pass
 
   def get_if_raw_addr(iff):
-    if iff.guid in conf.cache_ipaddrs:
-        return conf.cache_ipaddrs[iff.pcap_name]
+    if conf.cache_ipaddrs:
+        return conf.cache_ipaddrs.get(iff.pcap_name, None)
     err = create_string_buffer(PCAP_ERRBUF_SIZE)
     devs = POINTER(pcap_if_t)()
     ret = b"\0\0\0\0"

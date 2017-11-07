@@ -96,10 +96,11 @@ class _PowershellManager(Thread):
                 self.buffer.append(read_line)
     def query(self, command, cmd=False):
         self.event.clear()
-        prog = [conf.prog.powershell]
         if not self.running:
             if cmd:
                 prog = [conf.prog.cmd, "/c"]
+            else:
+                prog = [conf.prog.powershell]
             # Not running: create process for this only query
             stdout, _ = sp.Popen(prog + command,
                    stdout=sp.PIPE).communicate()
