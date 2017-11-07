@@ -8,3 +8,5 @@ scapy/VERSION
 test/*.html
 .tox
 doc/scapy/_build
+
+.idea/
