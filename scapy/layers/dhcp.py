@@ -69,6 +69,13 @@ class BOOTP(Packet):
         return self.xid == other.xid
 
 
+class _DHCPParamReqFieldListField(FieldListField):
+    def getfield(self, pkt, s):
+        ret = []
+        while s:
+            s, val = FieldListField.getfield(self, pkt, s)
+            ret.append(val)
+        return b"", [x[0] for x in ret]
 
 #DHCP_UNKNOWN, DHCP_IP, DHCP_IPLIST, DHCP_TYPE \
 #= range(4)
@@ -122,8 +129,9 @@ DHCPOptions = {
     45: IPField("NetBIOS_dist_server","0.0.0.0"),
     50: IPField("requested_addr","0.0.0.0"),
     51: IntField("lease_time", 43200),
+    53: ByteEnumField("message-type", 1, DHCPTypes),
     54: IPField("server_id","0.0.0.0"),
-    55: "param_req_list",
+    55: _DHCPParamReqFieldListField("param_req_list", [], ByteField("opcode", 0), length_from=lambda x: 1),
     56: "error_message",
     57: ShortField("max_dhcp_size", 1500),
     58: IntField("renewal_time", 21600),
@@ -142,8 +150,6 @@ DHCPOptions = {
     75: IPField("StreetTalk_server","0.0.0.0"),
     76: "StreetTalk_Dir_Assistance",
     82: "relay_agent_Information",
-    53: ByteEnumField("message-type", 1, DHCPTypes),
-    #             55: DHCPRequestListField("request-list"),
     255: "end"
     }
 
