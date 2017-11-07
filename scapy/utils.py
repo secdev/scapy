@@ -1359,7 +1359,7 @@ def get_terminal_width():
         else:
             return None
 
-def pretty_routes(rtlst, header, sortBy=0):
+def pretty_list(rtlst, header, sortBy=0):
     """Pretty route list, and add header"""
     _l_header = len(header[0])
     _space = "  "

@@ -96,11 +96,10 @@ class _PowershellManager(Thread):
                 self.buffer.append(read_line)
     def query(self, command, cmd=False):
         self.event.clear()
-        if cmd:
-            prog = [conf.prog.cmd, "/c"]
-        else:
-            prog = [conf.prog.powershell]
+        prog = [conf.prog.powershell]
         if not self.running:
+            if cmd:
+                prog = [conf.prog.cmd, "/c"]
             # Not running: create process for this only query
             stdout, _ = sp.Popen(prog + command,
                    stdout=sp.PIPE).communicate()
@@ -414,8 +413,7 @@ class NetworkInterface(object):
             if not self.ip and self.name == scapy.consts.LOOPBACK_NAME:
                 self.ip = "127.0.0.1"
             if not self.ip:
-                # No IP detected
-                self.invalid = True
+                self.ip = ""
         except (KeyError, AttributeError, NameError) as e:
             print(e)
 
@@ -686,14 +684,14 @@ class NetworkInterfaceDict(UserDict):
     def show(self, resolve_mac=True, print_result=True):
         """Print list of available network interfaces in human readable form"""
         res = []
-        res.append("%s  %s  %s  %s" % ("INDEX".ljust(5), "IFACE".ljust(35), "IP".ljust(15), "MAC"))
         for iface_name in sorted(self.data):
             dev = self.data[iface_name]
             mac = dev.mac
             if resolve_mac and conf.manufdb:
                 mac = conf.manufdb._resolve_MAC(mac)
-            res.append("%s  %s  %s  %s" % (str(dev.win_index).ljust(5), str(dev.name).ljust(35), str(dev.ip).ljust(15), mac))
-        res = "\n".join(res)
+            res.append((str(dev.win_index).ljust(5), str(dev.name).ljust(35), str(dev.ip).ljust(15), mac))
+
+        res = pretty_list(res, [("INDEX", "IFACE", "IP", "MAC")])
         if print_result:
             print(res)
         else:

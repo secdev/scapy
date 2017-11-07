@@ -37,6 +37,17 @@ test_list_contrib()
 conf.debug_dissector = True
 
 
+###########
+###########
+= UTscapy route check
+* Check that UTscapy has correctly replaced the routes. Many tests won't work otherwise
+
+if WINDOWS:
+    route_add_loopback()
+
+IP().src
+assert _ == "127.0.0.1"
+
 ############
 ############
 + Scapy functions tests
@@ -56,7 +67,10 @@ def get_dummy_interface():
         data["win_index"] = -1
         data["guid"] = "{1XX00000-X000-0X0X-X00X-00XXXX000XXX}"
         data["invalid"] = True
-        return NetworkInterface(data)
+        dummy_int = NetworkInterface(data)
+        dummy_int.pcap_name = "\\Device\\NPF_" + data["guid"]
+        conf.cache_ipaddrs[dummy_int.pcap_name] = b'\x7f\x00\x00\x01'
+        return dummy_int
     else:
         return "dummy0"
 
@@ -3281,18 +3295,6 @@ s == b"`\x00\x00\x00\x00\x18:\x01\xfe\x80\x00\x00\x00\x00\x00\x00\xba\xca:\xff\x
 
 p = IPv6(s)
 ICMPv6MLQuery in p and p[IPv6].dst == "ff02::1"
-
-###########
-###########
-= UTscapy route check
-* Check that UTscapy has correctly replaced the routes. Many tests won't work otherwise
-
-# No more routing/networking tests after this line
-if WINDOWS:
-    route_add_loopback()
-
-IP().src
-assert _ == "127.0.0.1"
 
 ############
 ############

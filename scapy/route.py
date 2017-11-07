@@ -8,7 +8,7 @@ Routing and handling of network interfaces.
 """
 
 from __future__ import absolute_import
-from scapy.utils import atol, ltoa, itom, pretty_routes
+from scapy.utils import atol, ltoa, itom, pretty_list
 from scapy.config import conf
 from scapy.error import Scapy_Exception, warning
 from scapy.arch import get_working_if
@@ -43,7 +43,7 @@ class Route:
                       addr,
                       str(metric)))
 
-        return pretty_routes(rtlst,
+        return pretty_list(rtlst,
                              [("Network", "Netmask", "Gateway", "Iface", "Output IP", "Metric")])
 
     def make_route(self, host=None, net=None, gw=None, dev=None, metric=1):
