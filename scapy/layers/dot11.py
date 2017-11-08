@@ -313,7 +313,7 @@ class Dot11WEP(Packet):
             key = conf.wepkey
         if key:
             if self.icv is None:
-                pay += struct.pack("<I", crc32(pay))
+                pay += struct.pack("<I", crc32(pay) & 0xffffffff)
                 icv = b""
             else:
                 icv = p[4:8]
