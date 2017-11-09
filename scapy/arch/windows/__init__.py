@@ -89,8 +89,8 @@ class _PowershellManager(Thread):
 
     def run(self):
         while self.running:
-            read_line = self.process.stdout.readline()
-            if read_line == "scapy_end\n":
+            read_line = self.process.stdout.readline().strip()
+            if read_line == "scapy_end":
                 self.event.set()
             else:
                 self.buffer.append(read_line)
@@ -917,7 +917,11 @@ def _read_routes6_7():
                 _ip = current_object[0].split("/")
                 dpref = _ip[0]
                 dp = int(_ip[1])
-                nh = current_object[1].split("/")[0]
+                _match = re.search(r_ipv6[0], current_object[3])
+                nh = "::"
+                if _match: # Detect if Next Hop is specified (if not, it will be the IFName)
+                    _nhg1 = _match.group(1)
+                    nh = _nhg1 if re.match(".*:.*:.*", _nhg1) else "::"
                 metric = int(current_object[6]) + _get_i6_metric(if_index)
                 _append_route6(routes, dpref, dp, nh, iface, lifaddr, metric)
 
