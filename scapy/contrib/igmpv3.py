@@ -67,12 +67,13 @@ class IGMPv3(IGMP):
                     ByteField("mrcode", 20),
                     XShortField("chksum", None)]
 
-    def float_encode(self, value):
+    def encode_maxrespcode(self):
         """Convert the integer value to its IGMPv3 encoded time value if needed.
        
         If value < 128, return the value specified. If >= 128, encode as a floating 
         point value. Value can be 0 - 31744.
         """
+        value = self.mrcode
         if value < 128:
             code = value
         elif value > 31743:
@@ -85,7 +86,7 @@ class IGMPv3(IGMP):
                 value>>=1
             exp<<=4
             code = 0x80 | exp | (value & 0x0F)
-        return code
+        self.mrcode = code
 
 
     def mysummary(self):
@@ -107,7 +108,7 @@ class IGMPv3(IGMP):
 class IGMPv3mq(Packet):
     """IGMPv3 Membership Query.
     Payload of IGMPv3 when type=0x11"""
-    name = "IGMPv3gr"
+    name = "IGMPv3mq"
     fields_desc = [ IPField("gaddr", "0.0.0.0"),
                     BitField("resv", 0, 4),
                     BitField("s", 0, 1),

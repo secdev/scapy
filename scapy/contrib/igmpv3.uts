@@ -8,10 +8,10 @@
 
 a=Ether(src="00:01:02:03:04:05")
 b=IP(src="1.2.3.4")
-c=IGMPv3()/IGMPv3mq()
+c=IGMPv3(mrcode=154)/IGMPv3mq()
 x = a/b/c
 x[IGMPv3].igmpize()
-assert x.mrcode == 20
+assert x.mrcode == 131
 assert x[IP].dst == "224.0.0.1"
 assert isinstance(IGMP(raw(x[IGMPv3])), IGMPv3)
 
@@ -44,3 +44,13 @@ assert x[IGMPv3mra].robust == 2
 assert isinstance(IGMP(raw(x[IGMPv3])), IGMPv3)
 
 = IGMP vs IVMPv3 tests
+
+assert isinstance(IGMPv3(raw(IGMP())), IGMP)
+assert isinstance(IGMPv3(raw(IGMP(type=0x11))), IGMP)
+assert isinstance(IGMP(raw(IGMPv3()/IGMPv3mra())), IGMPv3)
+assert isinstance(IGMP(raw(IGMPv3()/IGMPv3mq())), IGMPv3)
+
+= IGMPv3 - summaries
+
+pkt = IGMPv3()/IGMPv3mr(records=[IGMPv3gr(maddr="127.0.0.1")])
+assert pkt.summary() == 'IGMPv3 Version 3 Membership Report / IGMPv3mr'
