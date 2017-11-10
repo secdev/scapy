@@ -86,6 +86,7 @@ class _PowershellManager(Thread):
         self.event = Event()
         Thread.__init__(self)
         self.start()
+        self.query(["$FormatEnumerationLimit=-1"]) # Do not crop long IP lists
 
     def run(self):
         while self.running:
@@ -128,7 +129,8 @@ def _exec_query_ps(cmd, fields):
     """Execute a PowerShell query"""
     if not conf.prog.powershell:
         raise OSError("Scapy could not detect powershell !")
-    query_cmd = cmd + ['|', 'select %s' % ', '.join(fields), '|', 'fl']
+    # Format query: as list + do not crop
+    query_cmd = cmd + ['|', 'select %s' % ', '.join(fields), '|', 'fl', '|', 'out-string', '-Width', '4096']
     l=[]
     stdout = POWERSHELL_PROCESS.query(query_cmd)
     for line in stdout:
@@ -366,13 +368,21 @@ def get_windows_if_list():
         if is_interface_valid(iface)
     ]
 
-def get_ip_from_name(ifname, v6=False):
+def get_ips(v6=False):
+    """Returns all available IPs matching to interfaces, using the windows system.
+    Should only be used as a WinPcapy fallback."""
+    res = {}
     for descr, ipaddr in exec_query(['Get-WmiObject',
                                      'Win32_NetworkAdapterConfiguration'],
                                     ['Description', 'IPAddress']):
-        if descr == ifname.strip():
-            return ipaddr.split(",", 1)[v6].strip('{}').strip()
-    return None
+        if ipaddr.strip():
+            res[descr] = ipaddr.split(",", 1)[v6].strip('{}').strip()
+    return res
+
+def get_ip_from_name(ifname, v6=False):
+    """Backward compatibility: inderectly calls get_ips
+    Deprecated."""
+    return get_ips(v6=v6).get(ifname, "")
         
 class NetworkInterface(object):
     """A network interface of your local host"""
@@ -410,12 +420,8 @@ class NetworkInterface(object):
             pass
 
         try:
-            if not self.ip:
-                self.ip=get_ip_from_name(data['name'])
             if not self.ip and self.name == scapy.consts.LOOPBACK_NAME:
                 self.ip = "127.0.0.1"
-            if not self.ip:
-                self.ip = ""
         except (KeyError, AttributeError, NameError) as e:
             print(e)
 
@@ -599,10 +605,15 @@ class NetworkInterfaceDict(UserDict):
     def load_from_powershell(self):
         if not conf.prog.os_access:
             return
+        ifaces_ips = None
         for i in get_windows_if_list():
             try:
                 interface = NetworkInterface(i)
                 self.data[interface.guid] = interface
+                if not interface.ip:
+                    if not ifaces_ips:
+                        ifaces_ips = get_ips()
+                    interface.ip = ifaces_ips.get(interface.name, "")
             except (KeyError, PcapNameNotFoundError):
                 pass
         
