@@ -94,6 +94,7 @@ class _PowershellManager(Thread):
                 self.event.set()
             else:
                 self.buffer.append(read_line)
+
     def query(self, command, cmd=False):
         self.event.clear()
         if not self.running:
@@ -879,13 +880,22 @@ def _read_routes6_post2008():
         _append_route6(routes6, dpref, dp, nh, iface, lifaddr, metric)
     return routes6
 
-def _get_i6_metric(index):
+def _get_i6_metric():
     # Returns the INTERFACE metric from the interface index
-    query_cmd = "netsh interface ipv6 show interfaces level=verbose " + index
+    query_cmd = "netsh interface ipv6 show interfaces level=verbose"
     stdout = POWERSHELL_PROCESS.query([query_cmd], cmd=True)
-    metric_line = stdout[6]
-    metric = re.search(re.compile(".*:\s+(\d+)"), metric_line).group(1)
-    return int(metric)
+    res = {}
+    _buffer = []
+    for _line in stdout:
+        if not _line.strip():
+            continue
+        _buffer.append(_line)
+        if len(_buffer) == 32:
+            if_index = re.search(re.compile(".*:\s+(\d+)"), _buffer[3]).group(1)
+            if_metric = int(re.search(re.compile(".*:\s+(\d+)"), _buffer[5]).group(1))
+            res[if_index] = if_metric
+            _buffer = []
+    return res
 
 def _read_routes6_7():
     # Not supported in powershell, we have to use netsh
@@ -893,6 +903,7 @@ def _read_routes6_7():
     query_cmd = "netsh interface ipv6 show route level=verbose"
     stdout = POWERSHELL_PROCESS.query([query_cmd], cmd=True)
     lifaddr = in6_getifaddr()
+    if6_metrics = _get_i6_metric()
     # Define regexes
     r_int = [".*:\s+(\d+)"]
     r_all = ["(.*)"]
@@ -922,7 +933,7 @@ def _read_routes6_7():
                 if _match: # Detect if Next Hop is specified (if not, it will be the IFName)
                     _nhg1 = _match.group(1)
                     nh = _nhg1 if re.match(".*:.*:.*", _nhg1) else "::"
-                metric = int(current_object[6]) + _get_i6_metric(if_index)
+                metric = int(current_object[6]) + if6_metrics.get(if_index, 0)
                 _append_route6(routes, dpref, dp, nh, iface, lifaddr, metric)
 
             # Reset current object

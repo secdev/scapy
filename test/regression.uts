@@ -86,6 +86,8 @@ routes6 = read_routes6()
 if WINDOWS:
     route_add_loopback(routes6, True)
 
+routes6
+
 # Expected results:
 # - one route if there is only the loopback interface
 # - three routes if there is a network interface
