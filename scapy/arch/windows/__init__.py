@@ -85,6 +85,7 @@ class _PowershellManager(Thread):
         self.running = True
         self.event = Event()
         Thread.__init__(self)
+        self.daemon = True
         self.start()
         self.query(["$FormatEnumerationLimit=-1"]) # Do not crop long IP lists
 
@@ -96,19 +97,10 @@ class _PowershellManager(Thread):
             else:
                 self.buffer.append(read_line)
 
-    def query(self, command, cmd=False):
+    def query(self, command):
         self.event.clear()
         if not self.running:
-            if cmd:
-                prog = [conf.prog.cmd, "/c"]
-            else:
-                prog = [conf.prog.powershell]
-            # Not running: create process for this only query
-            stdout, _ = sp.Popen(prog + command,
-                   stdout=sp.PIPE).communicate()
-            if not isinstance(stdout, str):
-                stdout = stdout.decode("utf8", "ignore")
-            return stdout.split("\n")
+            self.__init__(self)
         # Call powershell query using running process
         self.buffer = []
         query = " ".join(command) + "; echo scapy_end\n"
@@ -713,9 +705,8 @@ class NetworkInterfaceDict(UserDict):
     def __repr__(self):
         return self.show(print_result=False)
 
+# Init POWERSHELL_PROCESS
 POWERSHELL_PROCESS = _PowershellManager()
-_CACHE_ROUTES = None
-_CACHE_ROUTES6 = None
 
 IFACES = NetworkInterfaceDict()
 IFACES.load_from_powershell()
@@ -799,11 +790,6 @@ def read_routes():
     routes = []
     if not conf.prog.os_access:
         return routes
-    global _CACHE_ROUTES
-    if _CACHE_ROUTES:
-        _r = _CACHE_ROUTES
-        _CACHE_ROUTES = None
-        return _r
     release = platform.release()
     try:
         if is_new_release():
@@ -894,7 +880,7 @@ def _read_routes6_post2008():
 def _get_i6_metric():
     # Returns the INTERFACE metric from the interface index
     query_cmd = "netsh interface ipv6 show interfaces level=verbose"
-    stdout = POWERSHELL_PROCESS.query([query_cmd], cmd=True)
+    stdout = POWERSHELL_PROCESS.query([query_cmd])
     res = {}
     _buffer = []
     for _line in stdout:
@@ -912,7 +898,7 @@ def _read_routes6_7():
     # Not supported in powershell, we have to use netsh
     routes = []
     query_cmd = "netsh interface ipv6 show route level=verbose"
-    stdout = POWERSHELL_PROCESS.query([query_cmd], cmd=True)
+    stdout = POWERSHELL_PROCESS.query([query_cmd])
     lifaddr = in6_getifaddr()
     if6_metrics = _get_i6_metric()
     # Define regexes
@@ -962,11 +948,6 @@ def read_routes6():
     routes6 = []
     if not conf.prog.os_access:
         return routes6
-    global _CACHE_ROUTES6
-    if _CACHE_ROUTES6:
-        _r = _CACHE_ROUTES6
-        _CACHE_ROUTES6 = None
-        return _r
     try:
         if is_new_release():
             routes6 = _read_routes6_post2008()
@@ -984,13 +965,6 @@ def get_working_if():
     except ValueError:
         # no route
         return scapy.consts.LOOPBACK_INTERFACE
-
-# Load cache route
-_CACHE_ROUTES = read_routes()
-_CACHE_ROUTES6 = read_routes6()
-
-# End powershell manager
-POWERSHELL_PROCESS.close()
 
 def _get_valid_guid():
     if scapy.consts.LOOPBACK_INTERFACE:
