@@ -1,5 +1,5 @@
 @echo off
-title UTscapy - All tests
+title UTscapy - All tests - PY2
 set MYDIR=%cd%\..
 set PYTHONPATH=%MYDIR%
 if [%1]==[] (
