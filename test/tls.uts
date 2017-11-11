@@ -1069,7 +1069,7 @@ raw(t) == b'\xde\xad\xbe\xef\xff\x01'
 
 
 = Building packets - TLS record with bad data
-a = TLS(b'\x00\x03\x03\x00\x03data')
+a = TLS(b'\x17\x03\x03\x00\x03data')
 assert a.haslayer(Raw)
 
 
