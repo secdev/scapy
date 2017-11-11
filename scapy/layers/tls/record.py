@@ -119,7 +119,8 @@ class _TLSMsgListField(PacketListField):
             remain, ret = s[:l], s[l:]
 
         if remain == b"":
-            if pkt.tls_session.tls_version > 0x0200 and pkt.type == 23:
+            if ((pkt.tls_session.tls_version or 0x0303 > 0x0200) and
+                hasattr(pkt, "type") and pkt.type == 23):
                 return ret, [TLSApplicationData(data=b"")]
             else:
                 return ret, [Raw(load=b"")]
@@ -182,7 +183,7 @@ class _TLSMsgListField(PacketListField):
         for p in val:
             res += self.i2m(pkt, p)
         if (isinstance(pkt, _GenericTLSSessionInheritance) and
-            pkt.tls_session.tls_version >= 0x0304 and
+            (pkt.tls_session.tls_version or 0x0303 >= 0x0304) and
             not isinstance(pkt, TLS13ServerHello)):
                 return s + res
         if not pkt.type:
