@@ -80,6 +80,7 @@ IGMPv2 message format   http://www.faqs.org/rfcs/rfc2236.html
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         if _pkt and len(_pkt) >= 4:
+            from scapy.contrib.igmpv3 import IGMPv3
             if orb(_pkt[0]) in [0x22, 0x30, 0x31, 0x32]:
                 return IGMPv3
             if orb(_pkt[0]) == 0x11 and len(_pkt) >= 12:
@@ -113,7 +114,7 @@ IGMPv2 message format   http://www.faqs.org/rfcs/rfc2236.html
         adjusted to ensure correct formatting and assignment. The Ethernet header
         is then adjusted to the proper IGMP packet format.
         """
-        gaddr = self.gaddr if self.gaddr else "0.0.0.0"
+        gaddr = self.gaddr if hasattr(self, "gaddr") and self.gaddr else "0.0.0.0"
         underlayer = self.underlayer
         if not self.type in [0x11, 0x30]:                               # General Rule 1
             self.mrcode = 0
@@ -139,6 +140,9 @@ IGMPv2 message format   http://www.faqs.org/rfcs/rfc2236.html
             if _root.haslayer(Ether):
                 # Force recalculate Ether dst
                 _root[Ether].dst = getmacbyip(underlayer.dst)          # Ether rule 1
+        from scapy.contrib.igmpv3 import IGMPv3
+        if isinstance(self, IGMPv3):
+            self.encode_maxrespcode()
         return True
 
     def mysummary(self):
