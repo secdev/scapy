@@ -68,8 +68,9 @@ class IGMPv3(IGMP):
                     XShortField("chksum", None)]
 
     def encode_maxrespcode(self):
-        """Convert the integer value to its IGMPv3 encoded time value if needed.
-       
+        """Encode and replace the mrcode value to its IGMPv3 encoded time value if needed,
+        as specified in rfc3376#section-4.1.1.
+
         If value < 128, return the value specified. If >= 128, encode as a floating 
         point value. Value can be 0 - 31744.
         """
