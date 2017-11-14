@@ -18,7 +18,7 @@ from threading import Thread, Event
 import scapy
 from scapy.config import conf, ConfClass
 from scapy.error import Scapy_Exception, log_loading, log_runtime, warning
-from scapy.utils import atol, itom, inet_aton, inet_ntoa, PcapReader
+from scapy.utils import atol, itom, inet_aton, inet_ntoa, PcapReader, pretty_list
 from scapy.utils6 import construct_source_candidate_set
 from scapy.base_classes import Gen, Net, SetGen
 from scapy.data import MTU, ETHER_BROADCAST, ETH_P_ARP
@@ -72,9 +72,8 @@ def _encapsulate_admin(cmd):
     return "Start-Process PowerShell -windowstyle hidden -Wait -Verb RunAs -ArgumentList '-command &{%s}'" % cmd
 
 class _PowershellManager(Thread):
-    """Used only when scapy boots. Instance used to send multiple
-    commands on the same Powershell process. Skips the powershell
-    booting time to speed up scapy's boot"""
+    """Instance used to send multiple commands on the same Powershell process.
+    Will be instanciate on loading and automatically stopped."""
     def __init__(self):
         self.process = sp.Popen([conf.prog.powershell, "-NoLogo", "-NonInteractive", "-Command", "-"], # Start & redirect input
                          stdout=sp.PIPE,
@@ -83,7 +82,7 @@ class _PowershellManager(Thread):
                          universal_newlines=True)
         self.buffer = []
         self.running = True
-        self.event = Event()
+        self.query_complete = Event()
         Thread.__init__(self)
         self.daemon = True
         self.start()
@@ -93,12 +92,12 @@ class _PowershellManager(Thread):
         while self.running:
             read_line = self.process.stdout.readline().strip()
             if read_line == "scapy_end":
-                self.event.set()
+                self.query_complete.set()
             else:
                 self.buffer.append(read_line)
 
     def query(self, command):
-        self.event.clear()
+        self.query_complete.clear()
         if not self.running:
             self.__init__(self)
         # Call powershell query using running process
@@ -106,7 +105,7 @@ class _PowershellManager(Thread):
         query = " ".join(command) + "; echo scapy_end\n"
         self.process.stdin.write(query)
         self.process.stdin.flush()
-        self.event.wait()
+        self.query_complete.wait()
         return self.buffer[1:]
 
     def close(self):
@@ -580,7 +579,7 @@ def pcap_service_control(action, askadmin=True):
         return False
     command = action + ' ' + pcap_service_name()
     stdout = POWERSHELL_PROCESS.query([_encapsulate_admin(command) if askadmin else command])
-    return (not "error" in "".join(stdout).lower())
+    return "error" not in "".join(stdout).lower()
 
 def pcap_service_start(askadmin=True):
     """Starts the pcap adapter. Will ask for admin. Returns True if success"""
@@ -887,7 +886,7 @@ def _get_i6_metric():
         if not _line.strip():
             continue
         _buffer.append(_line)
-        if len(_buffer) == 32:
+        if len(_buffer) == 32: # An interface, with all parameters, is 32 lines long
             if_index = re.search(re.compile(".*:\s+(\d+)"), _buffer[3]).group(1)
             if_metric = int(re.search(re.compile(".*:\s+(\d+)"), _buffer[5]).group(1))
             res[if_index] = if_metric
