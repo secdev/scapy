@@ -12,7 +12,7 @@
 from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.inet import UDP
-from sdnv import *
+from scapy.contrib.sdnv import *
 
 _ltp_flag_vals = {
     0:  '0x0 Red data, NOT (Checkpoint, EORP or EOB)',

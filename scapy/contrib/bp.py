@@ -12,8 +12,8 @@
 from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.inet import UDP
-from scapy.layers.ltp import *
-from sdnv import *
+from scapy.contrib.ltp import *
+from scapy.contrib.sdnv import *
 
 
 class SDNV2(Field):
