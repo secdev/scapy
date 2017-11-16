@@ -348,6 +348,7 @@ class SSLv2ClientMasterKey(_SSLv2Handshake):
         cs_val = self.cipher
         if cs_val not in _tls_cipher_suites_cls:
             warning("Unknown cipher suite %d from ClientMasterKey" % cs_val)
+            cs_cls = None
         else:
             cs_cls = _tls_cipher_suites_cls[cs_val]
 

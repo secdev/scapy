@@ -94,8 +94,8 @@ def _exec_query_ps(cmd, fields):
 def _vbs_exec_code(code, split_tag="@"):
     if not conf.prog.cscript:
         raise OSError("Scapy could not detect cscript !")
-    tmpfile = tempfile.NamedTemporaryFile(suffix=".vbs", delete=False)
-    tmpfile.write(code)
+    tmpfile = tempfile.NamedTemporaryFile(mode="wb", suffix=".vbs", delete=False)
+    tmpfile.write(raw(code))
     tmpfile.close()
     ps = sp.Popen([conf.prog.cscript, tmpfile.name],
                   stdout=sp.PIPE, stderr=open(os.devnull),
@@ -112,10 +112,10 @@ def _vbs_exec_code(code, split_tag="@"):
 def _vbs_get_hardware_iface_guid(devid):
     try:
         devid = str(int(devid) + 1)
-        guid = iter(_vbs_exec_code("""WScript.Echo CreateObject("WScript.Shell").RegRead("HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\NetworkCards\\%s\\ServiceName")
-""" % devid)).next()
-        guid = guid[:-1] if guid.endswith(b'}\n') else guid
-        if guid.startswith(b'{') and guid.endswith(b'}'):
+        guid = next(iter(_vbs_exec_code("""WScript.Echo CreateObject("WScript.Shell").RegRead("HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\NetworkCards\\%s\\ServiceName")
+""" % devid)))
+        guid = guid[:-1] if guid.endswith('}\n') else guid
+        if guid.startswith('{') and guid.endswith('}'):
             return guid
     except StopIteration:
         return None
@@ -180,7 +180,7 @@ Set line = wmi.Get("Win32_Service.Name='" & serviceName & "'")
     while True:
         yield [None if fld is None else
                _VBS_WMI_OUTPUT.get(cmd[1], {}).get(fld, lambda x: x)(
-                   values.next().strip()
+                   next(values).strip()
                )
                for fld in fields]
 
@@ -393,7 +393,7 @@ class NetworkInterface(object):
         if not conf.use_npcap:
             raise OSError("This operation requires Npcap.")
         if self.raw80211 is None:
-            dot11adapters = iter(_vbs_exec_code("""WScript.Echo CreateObject("WScript.Shell").RegRead("HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\npcap\\Parameters\\Dot11Adapters")""")).next()
+            dot11adapters = next(iter(_vbs_exec_code("""WScript.Echo CreateObject("WScript.Shell").RegRead("HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\npcap\\Parameters\\Dot11Adapters")""")))
             self.raw80211 = ("\\Device\\" + self.guid).lower() in dot11adapters.lower()
         if not self.raw80211:
             raise Scapy_Exception("This interface does not support raw 802.11")
@@ -905,7 +905,7 @@ def _get_valid_guid():
     if scapy.consts.LOOPBACK_INTERFACE:
         return scapy.consts.LOOPBACK_INTERFACE.guid
     else:
-        for i in IFACES:
+        for i in six.itervalues(IFACES):
             if not i.is_invalid():
                 return i.guid
 

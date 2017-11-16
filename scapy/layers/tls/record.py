@@ -36,6 +36,12 @@ from scapy.layers.tls.crypto.cipher_stream import Cipher_NULL
 from scapy.layers.tls.crypto.ciphers import CipherError
 from scapy.layers.tls.crypto.h_mac import HMACError
 
+# Util
+def _tls_version_check(version, min):
+    """Returns if version >= min, or False if version == None"""
+    if version == None:
+        return False
+    return version >= min
 
 ###############################################################################
 ### TLS Record Protocol                                                     ###
@@ -119,7 +125,7 @@ class _TLSMsgListField(PacketListField):
             remain, ret = s[:l], s[l:]
 
         if remain == b"":
-            if ((pkt.tls_session.tls_version or 0x0303 > 0x0200) and
+            if (((pkt.tls_session.tls_version or 0x0303) > 0x0200) and
                 hasattr(pkt, "type") and pkt.type == 23):
                 return ret, [TLSApplicationData(data=b"")]
             else:
@@ -183,7 +189,7 @@ class _TLSMsgListField(PacketListField):
         for p in val:
             res += self.i2m(pkt, p)
         if (isinstance(pkt, _GenericTLSSessionInheritance) and
-            (pkt.tls_session.tls_version or 0x0303 >= 0x0304) and
+            _tls_version_check(pkt.tls_session.tls_version, 0x0304) and
             not isinstance(pkt, TLS13ServerHello)):
                 return s + res
         if not pkt.type:
@@ -278,7 +284,7 @@ class TLS(_GenericTLSSessionInheritance):
                 return SSLv2
             else:
                 s = kargs.get("tls_session", None)
-                if s and s.tls_version >= 0x0304:
+                if s and _tls_version_check(s.tls_version, 0x0304):
                     if s.rcs and not isinstance(s.rcs.cipher, Cipher_NULL):
                         from scapy.layers.tls.record_tls13 import TLS13
                         return TLS13
