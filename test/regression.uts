@@ -266,10 +266,6 @@ Ether(dst="ff:ff:ff:ff:ff:ff", src="ff:ff:ff:ff:ff:ff", type=0x9000)
 assert _.mysummary() in ['ff:ff:ff:ff:ff:ff > ff:ff:ff:ff:ff:ff (%s)' % loop
                          for loop in ['0x9000', 'LOOP']]
 
-= Test fletcher16_* functions
-assert(fletcher16_checksum(b"\x28\x07") == 22319)
-assert(fletcher16_checkbytes(b"ABCDEF", 2) == "\x89\x67")
-
 = Test zerofree_randstring function
 random.seed(0x2807)
 zerofree_randstring(4) in [b"\xd2\x12\xe4\x5b", b'\xd3\x8b\x13\x12']
