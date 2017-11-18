@@ -149,7 +149,7 @@ class IGMPv3mr(Packet):
     """IGMP Membership Report extension for IGMPv3.
     Payload of IGMPv3 when type=0x22"""
     name = "IGMPv3mr"
-    fields_desc = [ ByteField("res2", 0),
+    fields_desc = [ XShortField("res2", 0),
                     FieldLenField("numgrp", None, count_of="records"),
                     PacketListField("records", [], IGMPv3gr, count_from=lambda x: x.numgrp)]
 
