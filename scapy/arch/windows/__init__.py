@@ -73,7 +73,7 @@ def _encapsulate_admin(cmd):
 
 class _PowershellManager(Thread):
     """Instance used to send multiple commands on the same Powershell process.
-    Will be instanciate on loading and automatically stopped."""
+    Will be instantiated on loading and automatically stopped."""
     def __init__(self):
         self.process = sp.Popen([conf.prog.powershell, "-NoLogo", "-NonInteractive", "-Command", "-"], # Start & redirect input
                          stdout=sp.PIPE,
@@ -371,7 +371,7 @@ def get_ips(v6=False):
     return res
 
 def get_ip_from_name(ifname, v6=False):
-    """Backward compatibility: inderectly calls get_ips
+    """Backward compatibility: indirectly calls get_ips
     Deprecated."""
     return get_ips(v6=v6).get(ifname, "")
         
@@ -882,13 +882,14 @@ def _get_i6_metric():
     stdout = POWERSHELL_PROCESS.query([query_cmd])
     res = {}
     _buffer = []
+    _pattern = re.compile(".*:\s+(\d+)")
     for _line in stdout:
         if not _line.strip():
             continue
         _buffer.append(_line)
         if len(_buffer) == 32: # An interface, with all parameters, is 32 lines long
-            if_index = re.search(re.compile(".*:\s+(\d+)"), _buffer[3]).group(1)
-            if_metric = int(re.search(re.compile(".*:\s+(\d+)"), _buffer[5]).group(1))
+            if_index = re.search(_pattern, _buffer[3]).group(1)
+            if_metric = int(re.search(_pattern, _buffer[5]).group(1))
             res[if_index] = if_metric
             _buffer = []
     return res
