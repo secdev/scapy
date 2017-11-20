@@ -8395,7 +8395,8 @@ assert(sane(raw(cb)) in ["ECk@Y", "QB.P."])
 ~ not_pypy
 random.seed(0x2807)
 rek = RandEnumKeys({'a': 1, 'b': 2, 'c': 3}, seed=0x2807)
-assert(rek == ('b' if six.PY2 else 'a'))
+rek.enum.sort()
+assert(rek == ('c' if six.PY2 else 'a'))
 
 = RandSingNum
 ~ not_pypy
