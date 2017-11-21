@@ -1360,7 +1360,7 @@ def get_terminal_width():
             return None
 
 def pretty_list(rtlst, header, sortBy=0):
-    """Pretty route list, and add header"""
+    """Pretty list to fit the terminal, and add header"""
     _l_header = len(header[0])
     _space = "  "
     # Sort correctly

@@ -86,7 +86,7 @@ class _PowershellManager(Thread):
         Thread.__init__(self)
         self.daemon = True
         self.start()
-        self.query(["$FormatEnumerationLimit=-1"]) # Do not crop long IP lists
+        self.query(["$FormatEnumerationLimit=-1"])  # Do not crop long IP lists
 
     def run(self):
         while self.running:

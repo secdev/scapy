@@ -69,6 +69,7 @@ if conf.use_winpcapy:
       pass
 
   def get_if_raw_addr(iff):
+    """Returns the raw ip address corresponding to the NetworkInterface."""
     if conf.cache_ipaddrs:
         return conf.cache_ipaddrs.get(iff.pcap_name, None)
     err = create_string_buffer(PCAP_ERRBUF_SIZE)
@@ -93,12 +94,14 @@ if conf.use_winpcapy:
       pcap_freealldevs(devs)
   if conf.use_winpcapy:
       def get_if_list():
+          """Returns all pcap names"""
           if conf.cache_iflist:
               return conf.cache_iflist
           iflist = winpcapy_get_if_list()
           conf.cache_iflist = iflist
           return iflist
   def in6_getifaddr_raw():
+    """Returns all available IPv6 on the computer, read from winpcap."""
     err = create_string_buffer(PCAP_ERRBUF_SIZE)
     devs = POINTER(pcap_if_t)()
     ret = []
@@ -124,6 +127,7 @@ if conf.use_winpcapy:
 
   from ctypes import POINTER, byref, create_string_buffer
   class _PcapWrapper_pypcap:
+      """Wrapper for the WinPcap calls"""
       def __init__(self, device, snaplen, promisc, to_ms):
           self.errbuf = create_string_buffer(PCAP_ERRBUF_SIZE)
           self.iface = create_string_buffer(device.encode("utf8"))
