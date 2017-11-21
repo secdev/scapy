@@ -410,6 +410,8 @@ def sdp_make_data_element (type, value):
     else:
         raise ValueError ("invalid type %s" % type)
 
+### INIT WINSOCKET SERVICE ###
+
 bt.initwinsock()
 
 # ============== SDP service registration and unregistration ============
@@ -478,9 +480,9 @@ class _WinBluetoothSocket:
     def listen (self, backlog):
         bt.listen (self._sockfd, backlog)
 
-    def accept (self):
+    def _accept (self):
         clientfd, addr, port = bt.accept (self._sockfd)
-        client = BluetoothSocket (self._proto, sockfd=clientfd)
+        client = (self._proto, clientfd)
         return client, (addr, port)
 
     def connect (self, addrport):
@@ -493,7 +495,7 @@ class _WinBluetoothSocket:
     def _recv (self, numbytes):
         return bt.recv (self._sockfd, numbytes)
 
-    def close (self):
+    def _close (self):
         return bt.close (self._sockfd)
 
     def getsockname (self):
@@ -522,7 +524,7 @@ class _WinBluetoothSocket:
         return self._sockfd
 
     def dup (self):
-        return BluetoothSocket (self._proto, sockfd=bt.dup (self._sockfd))
+        return _WinBluetoothSocket (self._proto, sockfd=bt.dup (self._sockfd))
 
     def makefile (self):
         # TODO

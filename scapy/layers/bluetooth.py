@@ -821,11 +821,25 @@ class BluetoothCommandError(BaseException):
 if WINDOWS and WIN_BT_SUPPORT:
     class BluetoothRFCommSocket(WinBTSocket):
         desc = "read/write packets on a connected RFCOMM socket"
+    class BluetoothRFCommServerSocket(WinBTServerSocket):
+        desc = "opens a RFCOMM server socket"
+    class BluetoothL2CAPSocket(WinBTSocket):
+        desc = "read/write packets on a connected L2CAP socket"
+        def __init__ (self, bt_address, port=PORT_ANY, proto=L2CAP, sockfd=None):
+            WinBTSocket.__init__(self, bt_address, port, proto, sockfd)
+    class BluetoothL2CAPServerSocket(WinBTServerSocket):
+        desc = "opens a RFCOMM server socket"
+        def __init__ (self, port=PORT_ANY, proto=L2CAP, sockfd=None,
+                      service_name="ScapyBTServer", service_uuid=WINBT_DEFAULT_UUID):
+            WinBTSocket.__init__(self, port, proto, sockfd, service_name, service_uuid)
 elif WINDOWS:
     class BluetoothRFCommSocket(SuperSocket):
         desc = "Not available"
         def __init__(self, *args, **kargs):
             raise OSError("Bluetooth is not supported: scapy's bluetooth api has failed loading !")
+    BluetoothL2CAPSocket = BluetoothRFCommSocket
+    BluetoothRFCommServerSocket = BluetoothRFCommSocket
+    BluetoothL2CAPServerSocket = BluetoothRFCommSocket
 else:
     class BluetoothL2CAPSocket(SuperSocket):
         desc = "read/write packets on a connected L2CAP socket"
@@ -838,7 +852,7 @@ else:
         def recv(self, x=MTU):
             return L2CAP_CmdHdr(self.ins.recv(x))
 
-    class BluetoothRFCommSocket(BluetoothL2CAPSocket):
+    class BluetoothRFCommSocket(SuperSocket):
         """read/write packets on a connected RFCOMM socket"""
         def __init__(self, bt_address, port=0):
             s = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_RAW,
