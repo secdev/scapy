@@ -1086,3 +1086,24 @@ To enable the RFC 5061 about dynamic address reconfiguration::
 You may also want to use the dynamic address reconfiguration without necessarily enabling the chunk authentication::
 
     $ sudo echo 1 > /proc/sys/net/sctp/addip_noauth_enable
+
+Bluetooth
+=========
+
+Scapy has native support for bluetooth sockets. It supports basic bluetooth layers and provides some sending/recieving functions.
+Scapy supports RFCOMM sockets on all systems, and L2CAP on linux only.
+
+Demo: RFCOMM server and client
+------------------------------
+
+On Windows, server sockets are supported. There are useable such as in the following sample:
+
+Server:
+
+.. image:: graphics/winbt_server.png
+   :scale: 90
+
+Client:
+
+.. image:: graphics/winbt_client.png
+   :scale: 90
