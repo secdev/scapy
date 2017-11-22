@@ -164,11 +164,6 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         """DEV: is called after the dissection of the whole packet"""
         pass
 
-    def plist_post_dissection(self, packet_list):
-        """DEV: is called after the dissection of the packet list containing the packet"""
-        self.payload.plist_post_dissection(packet_list)
-        pass
-
     def get_field(self, fld):
         """DEV: returns the field instance from the name of the field"""
         return self.fieldtype[fld]
@@ -1261,8 +1256,6 @@ class NoPayload(Packet):
         pass
     def dissection_done(self,pkt):
         return
-    def plist_post_dissection(self,list):
-        pass
     def add_payload(self, payload):
         raise Scapy_Exception("Can't add payload to NoPayload instance")
     def remove_payload(self):

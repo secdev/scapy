@@ -5481,6 +5481,7 @@ nf5.version == 5 and nf5[NetflowHeaderV5].count == 2 and isinstance(nf5[NetflowR
 = NetflowV9 - advanced dissection
 
 a = rdpcap("./test/pcaps/netflowv9.pcap" if WINDOWS else "./pcaps/netflowv9.pcap")
+a = netflowv9_defragment(a)
 
 nfv9_fl = a[4]
 assert NetflowFlowsetV9 in nfv9_fl
@@ -5490,8 +5491,8 @@ nfv9_ds = a[61]
 assert NetflowDataflowsetV9 in nfv9_ds
 assert len(nfv9_ds[NetflowDataflowsetV9].records) == 24
 assert nfv9_ds[NetflowDataflowsetV9].records[21].IP_PROTOCOL_VERSION == b'\x04'
-assert inet_ntoa(nfv9_ds.records[21].IPV4_SRC_ADDR) == '20.0.0.248'
-assert inet_ntoa(nfv9_ds.records[21].IPV4_DST_ADDR) == '30.0.0.248'
+assert nfv9_ds.records[21].IPV4_SRC_ADDR == '20.0.0.248'
+assert nfv9_ds.records[21].IPV4_DST_ADDR == '30.0.0.248'
 
 nfv9_options_fl = a[5]
 assert NetflowOptionsFlowsetV9 in nfv9_options_fl
