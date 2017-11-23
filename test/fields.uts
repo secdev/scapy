@@ -22,7 +22,7 @@
 
 = Simple tests
 
-assert LELongField("", None).addfield("", "", 0x44434241) == b'ABCD\x00\x00\x00\x00'
+assert LELongField("test", None).addfield(None, b"", 0x44434241) == b'ABCD\x00\x00\x00\x00'
 
 = MACField class
 ~ core field

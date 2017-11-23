@@ -219,13 +219,13 @@ class _PubKeyFactory(_PKIObjMaker):
                     pass
             else:
                 raise
-            marker = "PUBLIC KEY"
+            marker = b"PUBLIC KEY"
         except:
             try:
                 pubkey = RSAPublicKey(obj.der)
                 obj.__class__ = PubKeyRSA
                 obj.import_from_asn1pkt(pubkey)
-                marker = "RSA PUBLIC KEY"
+                marker = b"RSA PUBLIC KEY"
             except:
                 # We cannot import an ECDSA public key without curve knowledge
                 raise Exception("Unable to import public key")
@@ -364,24 +364,24 @@ class _PrivKeyFactory(_PKIObjMaker):
             privkey = RSAPrivateKey_OpenSSL(obj.der)
             privkey = privkey.privateKey
             obj.__class__ = PrivKeyRSA
-            marker = "PRIVATE KEY"
+            marker = b"PRIVATE KEY"
         except:
             try:
                 privkey = ECDSAPrivateKey_OpenSSL(obj.der)
                 privkey = privkey.privateKey
                 obj.__class__ = PrivKeyECDSA
-                marker = "EC PRIVATE KEY"
+                marker = b"EC PRIVATE KEY"
                 multiPEM = True
             except:
                 try:
                     privkey = RSAPrivateKey(obj.der)
                     obj.__class__ = PrivKeyRSA
-                    marker = "RSA PRIVATE KEY"
+                    marker = b"RSA PRIVATE KEY"
                 except:
                     try:
                         privkey = ECDSAPrivateKey(obj.der)
                         obj.__class__ = PrivKeyECDSA
-                        marker = "EC PRIVATE KEY"
+                        marker = b"EC PRIVATE KEY"
                     except:
                         raise Exception("Unable to import private key")
         try:

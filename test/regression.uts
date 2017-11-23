@@ -316,7 +316,7 @@ def test_export_import_object():
     with ContextManagerCaptureOutput() as cmco:
         export_object(2807)
         result_export_object = cmco.get_output(eval_bytes=True)
-    assert(result_export_object.startswith("eNprYPL9zqUHAAdrAf8=\n"))
+    assert(result_export_object.startswith("eNprYPL9zqUHAAdrAf8="))
     assert(import_object(result_export_object) == 2807)
 
 test_export_import_object()
@@ -779,7 +779,7 @@ assert a.strshow() == '# ASN1_SEQUENCE:\n  <ASN1_Object[1]>\n  <ASN1_Object[0]>\
 a = ASN1_DECODING_ERROR("error", exc=OSError(1))
 assert repr(a) == "<ASN1_DECODING_ERROR['error']{{1}}>"
 b = ASN1_DECODING_ERROR("error", exc=OSError(ASN1_BIT_STRING("0")))
-assert repr(b) == "<ASN1_DECODING_ERROR['error']{{\x00}}>"
+assert repr(b) == "<ASN1_DECODING_ERROR['error']{{<ASN1_BIT_STRING[0] (7 unused bits)>}}>"
 
 = ASN1 - ASN1_INTEGER
 a = ASN1_INTEGER(int("1"*23))
@@ -792,15 +792,15 @@ import random
 
 # ASN1F_NUMERIC_STRING
 random.seed(1514315682)
-str(RandASN1Object())
+raw(RandASN1Object())
 
 # ASN1F_VIDEOTEX_STRING
 random.seed(1240186058)
-str(RandASN1Object())
+raw(RandASN1Object())
 
 # ASN1F_UTC_TIME & ASN1F_GENERALIZED_TIME
 random.seed(1873503288)
-str(RandASN1Object())
+raw(RandASN1Object())
 
 
 ############
