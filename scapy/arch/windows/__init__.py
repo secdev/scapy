@@ -1019,6 +1019,7 @@ def route_add_loopback(routes=None, ipv6=False, iflist=None):
     }
     data['pcap_name'] = six.text_type("\\Device\\NPF_" + data['guid'])
     adapter = NetworkInterface(data)
+    adapter.ip = "127.0.0.1"
     if iflist:
         iflist.append(adapter.pcap_name)
         return
@@ -1032,7 +1033,7 @@ def route_add_loopback(routes=None, ipv6=False, iflist=None):
         if iface.name == scapy.consts.LOOPBACK_NAME:
             IFACES.pop(devname)
     # Inject interface
-    IFACES[data['guid']] = adapter
+    IFACES["{0XX00000-X000-0X0X-X00X-00XXXX000XXX}"] = adapter
     scapy.consts.LOOPBACK_INTERFACE = adapter
     if isinstance(conf.iface, NetworkInterface):
         if conf.iface.name == LOOPBACK_NAME:
