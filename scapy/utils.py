@@ -630,7 +630,7 @@ class Enum_metaclass(type):
 
 
 def export_object(obj):
-    print(bytes_codec(gzip.zlib.compress(six.moves.cPickle.dumps(obj,2),9), "base64"))
+    print(bytes_base64(gzip.zlib.compress(six.moves.cPickle.dumps(obj, 2), 9)))
 
 def import_object(obj=None):
     if obj is None:
