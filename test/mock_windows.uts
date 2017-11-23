@@ -150,7 +150,7 @@ InterfaceMetric   : 256
     # Test the function
     routes = _read_routes6_post2008()
     for r in routes:
-        print r
+        print(r)
     print(len(routes))
     assert(len(routes) == 9)
     assert(check_mandatory_ipv6_routes(routes))

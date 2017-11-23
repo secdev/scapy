@@ -74,7 +74,7 @@ a.show()
 = Complex HCI - L2CAP dissect
 a = HCI_Hdr(b'\x02\x00\x00\x11\x00\r\x00\x05\x00\x0b\x00\t\x00\x01\x00\x00\x00debug')
 assert a[L2CAP_InfoResp].result == 0
-assert a[L2CAP_InfoResp].data == "debug"
+assert a[L2CAP_InfoResp].data == b"debug"
 
 = Answers
 a = HCI_Hdr(b'\x02\x00\x00\x0c\x00\x08\x00\x05\x00\x02\x00\x04\x00\x00\x00\x9a;')
@@ -91,7 +91,7 @@ assert not a.answers(b)
 a = HCI_Hdr()/HCI_Event_Hdr()/HCI_Event_LE_Meta()/HCI_LE_Meta_Advertising_Report(addr = "a1:b2:c3:d4:e5:f6", data=EIR_Hdr()/EIR_CompleteLocalName(local_name="scapy"))
 assert raw(a) == b'\x04>\x00\x02\x00\x00\x00\xf6\xe5\xd4\xc3\xb2\xa1\x07\x06\tscapy\x00'
 b = HCI_Hdr(raw(a))
-assert b.data[0][EIR_CompleteLocalName].local_name == "scapy"
+assert b.data[0][EIR_CompleteLocalName].local_name == b"scapy"
 assert b[HCI_LE_Meta_Advertising_Report].addr == "a1:b2:c3:d4:e5:f6"
 
 assert a.summary() == "HCI Event / HCI_Event_Hdr / HCI_Event_LE_Meta / HCI_LE_Meta_Advertising_Report"
