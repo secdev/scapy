@@ -16,6 +16,7 @@ import importlib
 import logging
 from random import choice
 import types
+import io
 
 # Never add any global import, in main.py, that would trigger a warning messsage
 # before the console handlers gets added in interact()
@@ -176,7 +177,7 @@ def list_contrib(name=None):
         if mod.endswith(".py"):
             mod = mod[:-3]
         desc = { "description":"-", "status":"?", "name":mod }
-        for l in open(f):
+        for l in io.open(f, errors="replace"):
             p = l.find("scapy.contrib.")
             if p >= 0:
                 p += 14
