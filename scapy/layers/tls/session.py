@@ -891,6 +891,7 @@ class _GenericTLSSessionInheritance(Packet):
         self.raw_packet_cache = rpc_snap
 
         return built_packet
+    __str__ = __bytes__
 
     def show2(self):
         """
