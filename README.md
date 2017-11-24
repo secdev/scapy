@@ -15,8 +15,9 @@ Scapy is a powerful Python-based interactive packet manipulation program and
 library.
 
 It is able to forge or decode packets of a wide number of protocols, send them
-on the wire, capture them, match requests and replies, and much more. It
-designed to allow fast packet prototyping by using default values that work.
+on the wire, capture them, store or read them using pcap files, match requests
+and replies, and much more. It is designed to allow fast packet prototyping by
+using default values that work.
 
 It can easily handle most classical tasks like scanning, tracerouting, probing,
 unit tests, attacks or network discovery (it can replace `hping`, 85% of `nmap̀`,
@@ -26,6 +27,8 @@ handle, like sending invalid frames, injecting your own 802.11 frames, combining
 techniques (VLAN hopping+ARP cache poisoning, VoIP decoding on WEP protected
 channel, ...), etc.
 
+Latest version of scapy now supports both Python 2.7 and Python 3. It's intended to
+be cross platform, and supports many different platforms such as Linux, OSX, Windows...
 
 ## Hands-on ##
 
