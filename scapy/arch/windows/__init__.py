@@ -455,8 +455,12 @@ class NetworkInterface(object):
         if not conf.use_npcap:
             raise OSError("This operation requires Npcap.")
         if self.raw80211 is None:
-            dot11adapters = next(iter(_vbs_exec_code("""WScript.Echo CreateObject("WScript.Shell").RegRead("HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\npcap\\Parameters\\Dot11Adapters")""")))
-            self.raw80211 = ("\\Device\\" + self.guid).lower() in dot11adapters.lower()
+            try:
+                dot11adapters = next(iter(_vbs_exec_code("""WScript.Echo CreateObject("WScript.Shell").RegRead("HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\npcap\\Parameters\\Dot11Adapters")""")))
+            except StopIteration:
+                pass
+            else:
+                self.raw80211 = ("\\Device\\" + self.guid).lower() in dot11adapters.lower()
         if not self.raw80211:
             raise Scapy_Exception("This interface does not support raw 802.11")
 
