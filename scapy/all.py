@@ -37,6 +37,7 @@ from scapy.autorun import *
 
 from scapy.main import *
 from scapy.consts import *
+from scapy.compat import raw
 
 from scapy.layers.all import *
 
