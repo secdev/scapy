@@ -12,6 +12,7 @@ import socket
 import struct
 
 from scapy.config import conf
+from scapy.compat import *
 import scapy.modules.six as six
 from scapy.error import log_runtime, warning
 from scapy.packet import Packet
