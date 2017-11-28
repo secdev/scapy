@@ -86,6 +86,10 @@ class connState(object):
             ciphersuite = TLS_NULL_WITH_NULL_NULL
         self.ciphersuite = ciphersuite(tls_version=tls_version)
 
+        if not self.ciphersuite.usable:
+            warning("TLS ciphersuite not useable. Is the cryptography Python module installed ?")
+            return
+
         self.compression = compression_alg()
         self.key_exchange = ciphersuite.kx_alg()
         self.cipher = ciphersuite.cipher_alg()
