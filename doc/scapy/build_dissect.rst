@@ -875,7 +875,8 @@ Legend:
     LESignedIntField
     XIntField
     
-    LongField       
+    LongField
+    LELongField
     XLongField
     LELongField
     
