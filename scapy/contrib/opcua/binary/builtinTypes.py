@@ -228,7 +228,7 @@ class UaGuidField(Field):
             return tuple(parts)
 
         elif isinstance(x, tuple) and \
-                        len(x) == 4 and \
+                len(x) == 4 and \
                 isinstance(x[0], int) and \
                 isinstance(x[1], int) and \
                 isinstance(x[2], int) and \
@@ -241,11 +241,12 @@ class UaGuidField(Field):
             raise TypeError("Cannot convert supplied value to Guid")
 
     def addfield(self, pkt, s, val):
-        return s+struct.pack(self.fmt, *self.i2m(pkt, val))
+        return s + struct.pack(self.fmt, *self.i2m(pkt, val))
 
     def getfield(self, pkt, s):
         """Extract an internal value from a string"""
         return s[self.sz:], self.m2i(pkt, struct.unpack(self.fmt, s[:self.sz]))
+
 
 def _ua_str_len_function(p):
     if p.length < 0:
@@ -323,10 +324,59 @@ class UaLocalizedText(UaTypePacket):
         return maskPart + rest + pay
 
 
-class UaStatusCode(UaUInt32Field):
+class UaStatusCodeField(UaUInt32Field):
     pass
 
 
+class UaEnumerationField(UaInt32Field):
+    pass
+
+
+# TODO: Implement correctly
 class UaVariant(UaTypePacket):
     fields_desc = [UaByteField("EncodingMask", None),
                    UaInt32Field("ArrayLength", None)]
+
+
+class UaNodeId(UaTypePacket):
+    fields_desc = [UaByteField("Encoding", None),
+                   UaUInt16Field("Namespace", 0)]
+
+    encodings = {0x2: "NUMERIC",
+                 0x3: "STRING"}
+
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        if _pkt is not None and len(_pkt) > 0:
+            encodingField = UaByteField("Encoding", None)
+
+            rest, val = encodingField.getfield(None, _pkt)
+            if val == UaTwoByteNodeId.encoding:
+                return UaTwoByteNodeId
+            elif val == UaFourByteNodeId.encoding:
+                return UaFourByteNodeId
+
+        return cls
+
+
+class UaTwoByteNodeId(UaNodeId):
+    encoding = 0x0
+
+    fields_desc = [UaByteField("Encoding", encoding),
+                   UaByteField("Identifier", 0)]
+
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        return super(UaTwoByteNodeId, cls).dispatch_hook(_pkt, args, kargs)
+
+
+class UaFourByteNodeId(UaNodeId):
+    encoding = 0x1
+
+    fields_desc = [UaByteField("Encoding", encoding),
+                   UaByteField("Namespace", 0),
+                   UaInt16Field("Identifier", 0)]
+
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        return super(UaFourByteNodeId, cls).dispatch_hook(_pkt, args, kargs)
