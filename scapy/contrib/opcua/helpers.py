@@ -1,6 +1,6 @@
 # coding=utf-8
-from scapy.fields import Field
-from scapy.packet import Packet, Padding
+from scapy.fields import Field, ConditionalField, PacketField
+from scapy.packet import Packet, Padding, Raw
 from scapy.config import conf
 
 
@@ -11,6 +11,7 @@ class UaTypePacket(Packet):
     in a hierarchical way with PacketFields
 
     """
+
     def guess_payload_class(self, payload):
         return conf.padding_layer
 
@@ -60,7 +61,7 @@ class ByteListField(Field):
 
     def any2i(self, pkt, x):
         if isinstance(x, bytes):
-            return [self.field.any2i(pkt, x[i:i+1]) for i in range(len(x))]
+            return [self.field.any2i(pkt, x[i:i + 1]) for i in range(len(x))]
         elif isinstance(x, str):
             return self.any2i(pkt, self.encode_callback(x))
         if not isinstance(x, list):

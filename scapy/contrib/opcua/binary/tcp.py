@@ -107,11 +107,21 @@ class UaTcp(Packet):
         """
         Determines whether we are dealing with UA TCP messages or with SecureConversation messages
         """
+        if _pkt is None:
+            return cls
+
         messageTypeField = UaBytesField("", None, 3)
 
         rest, val = messageTypeField.getfield(None, _pkt)
-        from scapy.contrib.opcua.binary.secureConversation import UaSecureConversation
+        from scapy.contrib.opcua.binary.secureConversation import UaSecureConversationAsymmetric, \
+            UaSecureConversationSymmetric
 
-        if bytes(val) in UaSecureConversation.message_types:
-            return UaSecureConversation
+        val = bytes(bytearray(val))
+        if val in UaSecureConversationAsymmetric.message_types:
+            return UaSecureConversationAsymmetric
+        elif val in UaSecureConversationSymmetric.message_types:
+            return UaSecureConversationSymmetric
+        elif val in cls.message_types:
+            return cls
+
         return cls
