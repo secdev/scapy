@@ -6,7 +6,7 @@ from scapy.fields import Field, PacketField, ConditionalField
 import binascii
 
 
-class UABooleanField(Field):
+class UaBooleanField(Field):
     """ Field type that represents the UA Boolean data type
 
      Specified in Spec ver 1.03 Part 6 §5.2.2.1
@@ -274,7 +274,7 @@ class UaString(UaByteString):
                                  encode_callback=lambda s: s.encode("utf8"))]
 
 
-class UaXMLElement(UaString):
+class UaXmlElement(UaString):
     pass
 
 
@@ -339,11 +339,9 @@ class UaVariant(UaTypePacket):
 
 
 class UaNodeId(UaTypePacket):
-    fields_desc = [UaByteField("Encoding", None),
-                   UaUInt16Field("Namespace", 0)]
-
-    encodings = {0x2: "NUMERIC",
-                 0x3: "STRING"}
+    fields_desc = [UaByteField("Encoding", 0x02),
+                   UaUInt16Field("Namespace", 0),
+                   UaUInt32Field("Identifier", 0)]
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
@@ -351,16 +349,31 @@ class UaNodeId(UaTypePacket):
             encodingField = UaByteField("Encoding", None)
 
             rest, val = encodingField.getfield(None, _pkt)
+
+            # Mask out the ExpandedNodeId bits
+            val &= ~UaExpandedNodeId.encoding
+
             if val == UaTwoByteNodeId.encoding:
                 return UaTwoByteNodeId
             elif val == UaFourByteNodeId.encoding:
                 return UaFourByteNodeId
+            elif val == UaNumericNodeId.encoding:
+                return UaNumericNodeId
+            elif val == UaStringNodeId.encoding:
+                return UaStringNodeId
+            elif val == UaGuidNodeId.encoding:
+                return UaGuidNodeId
+            elif val == UaByteStringNodeId.encoding:
+                return UaByteStringNodeId
+
+            # TODO: check how we can enable ExpandedNodeIds to be decoded without having to explicitly specify them.
+            # TODO: currently this would cause infinite recursion since ExpandedNodeIds reference the normal NodeId
 
         return cls
 
 
 class UaTwoByteNodeId(UaNodeId):
-    encoding = 0x0
+    encoding = 0x00
 
     fields_desc = [UaByteField("Encoding", encoding),
                    UaByteField("Identifier", 0)]
@@ -371,7 +384,7 @@ class UaTwoByteNodeId(UaNodeId):
 
 
 class UaFourByteNodeId(UaNodeId):
-    encoding = 0x1
+    encoding = 0x01
 
     fields_desc = [UaByteField("Encoding", encoding),
                    UaByteField("Namespace", 0),
@@ -380,3 +393,107 @@ class UaFourByteNodeId(UaNodeId):
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         return super(UaFourByteNodeId, cls).dispatch_hook(_pkt, args, kargs)
+
+
+class UaNumericNodeId(UaNodeId):
+    encoding = 0x02
+
+    fields_desc = [UaByteField("Encoding", encoding),
+                   UaUInt16Field("Namespace", 0),
+                   UaUInt32Field("Identifier", 0)]
+
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        return super(UaNumericNodeId, cls).dispatch_hook(_pkt, args, kargs)
+
+
+class UaStringNodeId(UaNodeId):
+    encoding = 0x03
+
+    fields_desc = [UaByteField("Encoding", encoding),
+                   UaUInt16Field("Namespace", 0),
+                   PacketField("Identifier", UaString(), UaString)]
+
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        return super(UaStringNodeId, cls).dispatch_hook(_pkt, args, kargs)
+
+
+class UaGuidNodeId(UaNodeId):
+    encoding = 0x04
+
+    fields_desc = [UaByteField("Encoding", encoding),
+                   UaUInt16Field("Namespace", 0),
+                   UaGuidField("Identifier", None)]
+
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        return super(UaGuidNodeId, cls).dispatch_hook(_pkt, args, kargs)
+
+
+class UaByteStringNodeId(UaNodeId):
+    encoding = 0x05
+
+    fields_desc = [UaByteField("Encoding", encoding),
+                   UaUInt16Field("Namespace", 0),
+                   PacketField("Identifier", UaByteString(), UaByteString)]
+
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        return super(UaByteStringNodeId, cls).dispatch_hook(_pkt, args, kargs)
+
+
+def _id_has_uri(p):
+    uri = p.getfieldval("NamespaceUri")
+    if uri is not None:
+        return True
+    return p.NodeId.getfieldval("Encoding") & 0x80 != 0
+
+
+class UaExpandedNodeId(UaNodeId):
+    fields_desc = [PacketField("NodeId", UaNodeId(), UaNodeId),
+                   ConditionalField(PacketField("NamespaceUri", None, UaString), _id_has_uri),
+                   ConditionalField(UaUInt32Field("ServerIndex", 0), lambda p: p.NodeId.Encoding == 0x40)]
+
+    encoding = 0x80 | 0x40
+
+    def post_build(self, pkt, pay):
+        encodingField, encoding = self.NodeId.getfield_and_val("Encoding")
+
+        if self.ServerIndex != 0:
+            encoding |= 0x40
+
+        if self.NamespaceUri is not None:
+            uriLen = self.NamespaceUri.length
+            if uriLen is None:
+                uriLen = len(self.NamespaceUri.data)
+            if uriLen <= 0:
+                # TODO:
+                print("Remove string length if it is 0 or -1")
+            else:
+                encoding |= 0x80
+
+        pkt = encodingField.addfield(self, b'', encoding) + pkt[encodingField.sz:]
+
+        return pkt + pay
+
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        return super(UaExpandedNodeId, cls).dispatch_hook(_pkt, *args, **kargs)
+
+
+class UaDataValue(UaTypePacket):
+    # TODO: Implement
+    pass
+
+
+class UaExtensionObject(UaTypePacket):
+    fields_desc = [PacketField("TypeId", UaNodeId(), UaExpandedNodeId),
+                   UaByteField("Encoding", 0x00)]
+    # TODO: Implement
+    pass
+
+
+class UaDiagnosticInfo(UaTypePacket):
+    # TODO: Implement
+    pass

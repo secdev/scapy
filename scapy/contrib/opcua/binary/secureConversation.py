@@ -3,8 +3,9 @@
 from scapy.packet import Raw
 from scapy.contrib.opcua.binary.builtinTypes import *
 from scapy.contrib.opcua.helpers import *
-from scapy.fields import PacketField, ConditionalField
+from scapy.fields import PacketField
 from scapy.contrib.opcua.binary.tcp import UaTcp
+from scapy.contrib.opcua.binary.schemaTypes import *
 
 
 class UaSecureConversationMessageHeader(UaTypePacket):
@@ -31,30 +32,8 @@ class UaSequenceHeader(UaTypePacket):
                    UaUInt32Field("RequestId", 0)]
 
 
-def _is_msg(p):
-    messageType = p.MessageHeader.getfieldval("MessageType")
-    if messageType is None:
-        return isinstance(p.SecurityHeader, UaSymmetricAlgorithmSecurityHeader)
-    return bytes(bytearray(messageType)) == b'MSG'
-
-
-def _is_opn(p):
-    messageType = p.MessageHeader.getfieldval("MessageType")
-    if messageType is None:
-        return isinstance(p.SecurityHeader, UaAsymmetricAlgorithmSecurityHeader)
-    return bytes(bytearray(messageType)) == b'OPN'
-
-
 class UaSecureConversationAsymmetric(UaTcp):
     fields_desc = [PacketField("MessageHeader", UaSecureConversationMessageHeader(), UaSecureConversationMessageHeader),
-                   # UaConditionalField(PacketField("SecurityHeader",
-                   #                               UaAsymmetricAlgorithmSecurityHeader(),
-                   #                               UaAsymmetricAlgorithmSecurityHeader),
-                   #                   _is_opn),
-                   # UaConditionalField(PacketField("SecurityHeader",
-                   #                               UaSymmetricAlgorithmSecurityHeader(),
-                   #                               UaSymmetricAlgorithmSecurityHeader),
-                   #                   _is_msg),
                    PacketField("SecurityHeader",
                                UaAsymmetricAlgorithmSecurityHeader(),
                                UaAsymmetricAlgorithmSecurityHeader),
@@ -92,6 +71,10 @@ class UaSecureConversationAsymmetric(UaTcp):
 
         return pkt + pay
 
+    def pre_dissect(self, s):
+        # TODO: Implement decryption of asymmetric messages?
+        return s
+
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         return super(UaSecureConversationAsymmetric, cls).dispatch_hook(_pkt, args, kargs)
@@ -99,19 +82,11 @@ class UaSecureConversationAsymmetric(UaTcp):
 
 class UaSecureConversationSymmetric(UaSecureConversationAsymmetric):
     fields_desc = [PacketField("MessageHeader", UaSecureConversationMessageHeader(), UaSecureConversationMessageHeader),
-                   # UaConditionalField(PacketField("SecurityHeader",
-                   #                               UaAsymmetricAlgorithmSecurityHeader(),
-                   #                               UaAsymmetricAlgorithmSecurityHeader),
-                   #                   _is_opn),
-                   # UaConditionalField(PacketField("SecurityHeader",
-                   #                               UaSymmetricAlgorithmSecurityHeader(),
-                   #                               UaSymmetricAlgorithmSecurityHeader),
-                   #                   _is_msg),
                    PacketField("SecurityHeader",
                                UaSymmetricAlgorithmSecurityHeader(),
                                UaSymmetricAlgorithmSecurityHeader),
                    PacketField("SequenceHeader", UaSequenceHeader(), UaSequenceHeader),
-                   PacketField("DataTypeEncoding", UaNodeId(), UaNodeId),
+                   PacketField("DataTypeEncoding", UaExpandedNodeId(), UaExpandedNodeId),
                    PacketField("Payload", Raw(), Raw)]
 
     message_types = [b'MSG', b'CLO']
