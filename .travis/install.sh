@@ -1,4 +1,4 @@
-PIP=`which pip || (python --version | grep -q 'Python 2' && which pip2) || (python --version | grep -q 'Python 3' && which pip3)`
+PIP=`which pip || (python --version 2>&1 | grep -q 'Python 2' && which pip2) || (python --version 2>&1 | grep -q 'Python 3' && which pip3)`
 
 # Install dependencies using pip
 if [ -z "$SCAPY_SUDO" -o "$SCAPY_SUDO" = "false" ]
@@ -12,19 +12,19 @@ else
   SCAPY_SUDO="$SCAPY_SUDO -H"
 fi
 
-$SCAPY_SUDO `which pip` install $PIP_INSTALL_FLAGS -U mock
+$SCAPY_SUDO $PIP install $PIP_INSTALL_FLAGS -U mock
 
 if ! python --version 2>&1 | grep -q PyPy; then
   # cryptography requires PyPy >= 2.6, Travis CI uses 2.5.0
-  $SCAPY_SUDO `which pip` install $PIP_INSTALL_FLAGS -U cryptography
+  $SCAPY_SUDO $PIP install $PIP_INSTALL_FLAGS -U cryptography
 fi
 
 # Install coverage
 if [ "$SCAPY_COVERAGE" = "yes" ]
 then
-  $SCAPY_SUDO `which pip` install $PIP_INSTALL_FLAGS -U coverage
-  $SCAPY_SUDO `which pip` install $PIP_INSTALL_FLAGS -U PyX
-  $SCAPY_SUDO `which pip` install $PIP_INSTALL_FLAGS -U codecov
+  $SCAPY_SUDO $PIP install $PIP_INSTALL_FLAGS -U coverage
+  $SCAPY_SUDO $PIP install $PIP_INSTALL_FLAGS -U PyX
+  $SCAPY_SUDO $PIP install $PIP_INSTALL_FLAGS -U codecov
 fi
 
 # Install pcap & dnet
@@ -33,8 +33,8 @@ then
   if [ "$TRAVIS_OS_NAME" = "linux" ]
   then
     $SCAPY_SUDO apt-get install openssl
-    $SCAPY_SUDO `which pip` install $PIP_INSTALL_FLAGS -U pylibpcap
-    $SCAPY_SUDO `which pip` install $PIP_INSTALL_FLAGS -U pydumbnet
+    $SCAPY_SUDO $PIP install $PIP_INSTALL_FLAGS -U pylibpcap
+    $SCAPY_SUDO $PIP install $PIP_INSTALL_FLAGS -U pydumbnet
   elif [ "$TRAVIS_OS_NAME" = "osx" ]
   then
     mkdir -p /Users/travis/Library/Python/2.7/lib/python/site-packages
