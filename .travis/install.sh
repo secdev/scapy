@@ -1,3 +1,5 @@
+PIP=`which pip || (python --version | grep -q 'Python 2' && which pip2) || (python --version | grep -q 'Python 3' && which pip3)`
+
 # Install dependencies using pip
 if [ -z "$SCAPY_SUDO" -o "$SCAPY_SUDO" = "false" ]
 then

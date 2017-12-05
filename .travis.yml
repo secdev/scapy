@@ -33,13 +33,11 @@ matrix:
 
         - os: osx
           language: generic
-          osx_image: xcode7.3
 
         - os: osx
           language: generic
-          osx_image: xcode7.3
           env:
-            - SCAPY_SUDO=false SCAPY_USE_PCAPDNET=yes
+            - SCAPY_USE_PCAPDNET=yes
 
         # Run as root
         - os: linux
@@ -106,13 +104,11 @@ matrix:
 
         - os: osx
           language: generic
-          osx_image: xcode7.3
           env:
             - SCAPY_SUDO=sudo SCAPY_COVERAGE=yes
 
         - os: osx
           language: generic
-          osx_image: xcode7.3
           env:
             - SCAPY_SUDO=sudo SCAPY_USE_PCAPDNET=yes SCAPY_COVERAGE=yes
 
