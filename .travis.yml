@@ -11,9 +11,11 @@ matrix:
 
         - os: osx
           language: generic
+          osx_image: xcode7.3
 
         - os: osx
           language: generic
+          osx_image: xcode7.3
           env:
             - SCAPY_SUDO=false SCAPY_USE_PCAPDNET=yes
 
@@ -38,11 +40,13 @@ matrix:
 
         - os: osx
           language: generic
+          osx_image: xcode7.3
           env:
             - SCAPY_SUDO=sudo SCAPY_COVERAGE=yes
 
         - os: osx
           language: generic
+          osx_image: xcode7.3
           env:
             - SCAPY_SUDO=sudo SCAPY_USE_PCAPDNET=yes SCAPY_COVERAGE=yes
 
