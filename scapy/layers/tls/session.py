@@ -12,6 +12,7 @@ import socket
 import struct
 
 from scapy.config import conf
+from scapy.compat import *
 import scapy.modules.six as six
 from scapy.error import log_runtime, warning
 from scapy.packet import Packet
@@ -84,6 +85,10 @@ class connState(object):
             from scapy.layers.tls.crypto.suites import TLS_NULL_WITH_NULL_NULL
             ciphersuite = TLS_NULL_WITH_NULL_NULL
         self.ciphersuite = ciphersuite(tls_version=tls_version)
+
+        if not self.ciphersuite.usable:
+            warning("TLS ciphersuite not useable. Is the cryptography Python module installed ?")
+            return
 
         self.compression = compression_alg()
         self.key_exchange = ciphersuite.kx_alg()
