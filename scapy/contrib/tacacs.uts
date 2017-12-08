@@ -125,7 +125,7 @@ TacacsAuthorizationReply in pkt and pkt.status == 0  and pkt.arg_cnt is None and
 
 = filled values build -- SSH connection sample secret = test
 
-pkt = Ether(src="00:00:00:00:00")/IP()/TCP(dport=49)/TacacsHeader(seq=2, type=2 , flags=0, session_id=1391595252, length=20)/TacacsAuthorizationReply(status=1, arg_cnt=2, server_msg_len=0, data_len=0, arg_len_list=[11, 1])/TacacsPacketArguments(data='priv-lvl=15')/TacacsPacketArguments(data='a')
+pkt = Ether()/IP()/TCP(dport=49)/TacacsHeader(seq=2, type=2 , flags=0, session_id=1391595252, length=20)/TacacsAuthorizationReply(status=1, arg_cnt=2, server_msg_len=0, data_len=0, arg_len_list=[11, 1])/TacacsPacketArguments(data='priv-lvl=15')/TacacsPacketArguments(data='a')
 raw(pkt) == b'\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x08\x00E\x00\x00H\x00\x01\x00\x00@\x06|\xad\x7f\x00\x00\x01\x7f\x00\x00\x01\x001\x001\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00|G\x00\x00\xc0\x02\x02\x00R\xf2\x0e\xf4\x00\x00\x00\x14\xce^Xp~Z\x9b^\xd8Y\xc9"\xf5\xb0&\xe5Ji\xa8\x15'
 
 = dissection
@@ -169,7 +169,7 @@ TacacsAccountingReply in pkt and pkt.server_msg == '' and pkt.server_msg_len is 
 
 = filled values build  -- SSH connection sample secret = test
 
-pkt = Ether(src="00:00:00:00:00")/IP()/TCP(dport=49)/TacacsHeader(seq=2, type=3 , flags=0, session_id=3059434316, length=5)/TacacsAccountingReply(status=1, server_msg_len=0, data_len=0)
+pkt = Ether()/IP()/TCP(dport=49)/TacacsHeader(seq=2, type=3 , flags=0, session_id=3059434316, length=5)/TacacsAccountingReply(status=1, server_msg_len=0, data_len=0)
 raw(pkt) == b'\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x08\x00E\x00\x009\x00\x01\x00\x00@\x06|\xbc\x7f\x00\x00\x01\x7f\x00\x00\x01\x001\x001\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\xc5\x7f\x00\x00\xc0\x03\x02\x00\xb6[CL\x00\x00\x00\x05\xf4\x0f\xad,o'
 
 = dissection
@@ -181,7 +181,7 @@ pkt.status == 1
 = instanciation
 
 scapy.contrib.tacacs.SECRET = 'foobar'
-pkt = Ether(src="00:00:00:00:00")/IP()/TCP(dport=49)/TacacsHeader(session_id=441255181, type=3, seq=2, length=5)/TacacsAccountingReply(status=1, server_msg_len=0, data_len=0)
+pkt = Ether()/IP()/TCP(dport=49)/TacacsHeader(session_id=441255181, type=3, seq=2, length=5)/TacacsAccountingReply(status=1, server_msg_len=0, data_len=0)
 raw(pkt) == b'\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x08\x00E\x00\x009\x00\x01\x00\x00@\x06|\xbc\x7f\x00\x00\x01\x7f\x00\x00\x01\x001\x001\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00/,\x00\x00\xc0\x03\x02\x00\x1aM\x05\r\x00\x00\x00\x05S)\x9b\xb4\x92'
 
 = dissection

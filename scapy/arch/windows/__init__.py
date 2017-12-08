@@ -455,6 +455,8 @@ class NetworkInterface(object):
         if not conf.use_npcap:
             raise OSError("This operation requires Npcap.")
         if self.raw80211 is None:
+            # This checks if npcap has Dot11 enabled and if the interface is compatible,
+            # by looking for the npcap/Parameters/Dot11Adapters key in the registry.
             try:
                 dot11adapters = next(iter(_vbs_exec_code("""WScript.Echo CreateObject("WScript.Shell").RegRead("HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\npcap\\Parameters\\Dot11Adapters")""")))
             except StopIteration:
