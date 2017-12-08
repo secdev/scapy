@@ -341,7 +341,7 @@ class UaVariant(UaTypePacket):
 class UaNodeId(UaTypePacket):
     fields_desc = [UaByteField("Encoding", 0x02),
                    UaUInt16Field("Namespace", 0),
-                   UaUInt32Field("Identifier", 0)]
+                   UaUInt32Field("Identifier", None)]
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kwargs):
@@ -377,7 +377,7 @@ class UaTwoByteNodeId(UaNodeId):
     encoding = 0x00
 
     fields_desc = [UaByteField("Encoding", encoding),
-                   UaByteField("Identifier", 0)]
+                   UaByteField("Identifier", None)]
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
@@ -389,7 +389,7 @@ class UaFourByteNodeId(UaNodeId):
 
     fields_desc = [UaByteField("Encoding", encoding),
                    UaByteField("Namespace", 0),
-                   UaInt16Field("Identifier", 0)]
+                   UaInt16Field("Identifier", None)]
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
@@ -401,11 +401,11 @@ class UaNumericNodeId(UaNodeId):
 
     fields_desc = [UaByteField("Encoding", encoding),
                    UaUInt16Field("Namespace", 0),
-                   UaUInt32Field("Identifier", 0)]
+                   UaUInt32Field("Identifier", None)]
 
     @classmethod
-    def dispatch_hook(cls, _pkt=None, *args, **kargs):
-        return super(UaNumericNodeId, cls).dispatch_hook(_pkt, args, kargs)
+    def dispatch_hook(cls, _pkt=None, *args, **kwargs):
+        return super(UaNumericNodeId, cls).dispatch_hook(_pkt, args, kwargs)
 
 
 class UaStringNodeId(UaNodeId):
@@ -416,8 +416,8 @@ class UaStringNodeId(UaNodeId):
                    PacketField("Identifier", UaString(), UaString)]
 
     @classmethod
-    def dispatch_hook(cls, _pkt=None, *args, **kargs):
-        return super(UaStringNodeId, cls).dispatch_hook(_pkt, args, kargs)
+    def dispatch_hook(cls, _pkt=None, *args, **kwargs):
+        return super(UaStringNodeId, cls).dispatch_hook(_pkt, args, kwargs)
 
 
 class UaGuidNodeId(UaNodeId):
@@ -428,8 +428,8 @@ class UaGuidNodeId(UaNodeId):
                    UaGuidField("Identifier", None)]
 
     @classmethod
-    def dispatch_hook(cls, _pkt=None, *args, **kargs):
-        return super(UaGuidNodeId, cls).dispatch_hook(_pkt, args, kargs)
+    def dispatch_hook(cls, _pkt=None, *args, **kwargs):
+        return super(UaGuidNodeId, cls).dispatch_hook(_pkt, args, kwargs)
 
 
 class UaByteStringNodeId(UaNodeId):
@@ -440,8 +440,8 @@ class UaByteStringNodeId(UaNodeId):
                    PacketField("Identifier", UaByteString(), UaByteString)]
 
     @classmethod
-    def dispatch_hook(cls, _pkt=None, *args, **kargs):
-        return super(UaByteStringNodeId, cls).dispatch_hook(_pkt, args, kargs)
+    def dispatch_hook(cls, _pkt=None, *args, **kwargs):
+        return super(UaByteStringNodeId, cls).dispatch_hook(_pkt, args, kwargs)
 
 
 def _id_has_uri(p):
@@ -493,8 +493,8 @@ class UaExpandedNodeId(UaNodeId):
         return pkt + pay
 
     @classmethod
-    def dispatch_hook(cls, _pkt=None, *args, **kargs):
-        return super(UaExpandedNodeId, cls).dispatch_hook(_pkt, *args, **kargs)
+    def dispatch_hook(cls, _pkt=None, *args, **kwargs):
+        return super(UaExpandedNodeId, cls).dispatch_hook(_pkt, *args, **kwargs)
 
 
 class UaDataValue(UaTypePacket):

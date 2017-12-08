@@ -154,6 +154,7 @@ class SchemaParser(object):
                     encodingId = row[1]
                     if typeName in self.model.classes:
                         self.model.nodeIdMappings[int(encodingId)] = self.model.classes[typeName]
+                        self.model.classes[typeName].binaryEncodingId = int(encodingId)
                     else:
                         self.logger.warning(
                             "Type '{}' not found. Could not map NodeId '{}'".format(typeName, encodingId))
@@ -319,7 +320,7 @@ class SchemaParser(object):
                                           "dependency. Re-queueing...".format(sType.name))
                         return
 
-            newClass = type(sType.name, (UaTypePacket,), {"fields_desc": fields_desc})
+            newClass = type(sType.name, (UaTypePacket,), {"fields_desc": fields_desc, "binaryEncodingId": None})
 
             self.model.classes[sType.name] = newClass
         except KeyError:

@@ -3,6 +3,8 @@
 from scapy.contrib.opcua.binary.schema.schemaParser import SchemaParser
 import sys
 
+nodeIdMappings = {}
+
 
 def _populate_module(model):
     print("Populating module...")

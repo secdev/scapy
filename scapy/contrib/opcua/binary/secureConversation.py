@@ -1,9 +1,9 @@
 # coding=utf-8
-
 from scapy.contrib.opcua.binary.builtinTypes import *
 from scapy.contrib.opcua.helpers import *
 from scapy.fields import PacketField
 from scapy.contrib.opcua.binary.tcp import UaTcp
+from scapy.contrib.opcua.binary.schemaTypes import *
 
 
 class UaSecureConversationMessageHeader(UaTypePacket):
@@ -11,6 +11,10 @@ class UaSecureConversationMessageHeader(UaTypePacket):
                    UaByteField("IsFinal", b'F'),
                    UaUInt32Field("MessageSize", None),
                    UaUInt32Field("SecureChannelId", 0)]
+
+
+class UaSecureConversationMessageFooter(UaTypePacket):
+    fields_desc = []
 
 
 class UaAsymmetricAlgorithmSecurityHeader(UaTypePacket):
@@ -30,14 +34,52 @@ class UaSequenceHeader(UaTypePacket):
                    UaUInt32Field("RequestId", 0)]
 
 
+class MessageDispatcher(object):
+    pass
+
+
+class UaMessage(UaTypePacket):
+    fields_desc = [PacketField("DataTypeEncoding", UaNodeId(), UaNodeId),
+                   PacketField("Message", None, UaTypePacket)]
+
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kwargs):
+        if _pkt is not None:
+            nodeId = UaExpandedNodeId(_pkt)
+
+            if nodeId.Identifier in nodeIdMappings:
+                dispatchedClass = nodeIdMappings[nodeId.Identifier]
+                fields_desc = [PacketField("DataTypeEncoding", UaNodeId(), UaNodeId),
+                               PacketField("Message", dispatchedClass(), dispatchedClass)]
+                newDict = dict(cls.__dict__)
+                newDict["fields_desc"] = fields_desc
+                return type(cls.__name__, cls.__bases__, newDict)
+
+        return cls
+
+    def post_build(self, pkt, pay):
+        identifierField, identifier = self.DataTypeEncoding.getfield_and_val("Identifier")
+        removeUpTo = len(self.DataTypeEncoding)
+
+        if identifier is None:
+            if self.Message.binaryEncodingId is not None:
+                identifier = self.Message.binaryEncodingId
+                encoding = self.DataTypeEncoding.getfieldval("Encoding")
+                namespace = self.DataTypeEncoding.getfieldval("Namespace")
+
+                pkt = UaNodeId(Encoding=encoding, Namespace=namespace, Identifier=identifier).build() + pkt[removeUpTo:]
+
+        return pkt + pay
+
+
 class UaSecureConversationAsymmetric(UaTcp):
     fields_desc = [PacketField("MessageHeader", UaSecureConversationMessageHeader(), UaSecureConversationMessageHeader),
                    PacketField("SecurityHeader",
                                UaAsymmetricAlgorithmSecurityHeader(),
                                UaAsymmetricAlgorithmSecurityHeader),
                    PacketField("SequenceHeader", UaSequenceHeader(), UaSequenceHeader),
-                   PacketField("DataTypeEncoding", UaNodeId(), UaNodeId),
-                   PacketField("Payload", Raw(), Raw)]
+                   PacketField("Payload", UaMessage(), UaMessage),
+                   PacketField("MessageFooter", UaSecureConversationMessageFooter(), UaSecureConversationMessageFooter)]
 
     message_types = [b'OPN']
 
@@ -84,8 +126,8 @@ class UaSecureConversationSymmetric(UaSecureConversationAsymmetric):
                                UaSymmetricAlgorithmSecurityHeader(),
                                UaSymmetricAlgorithmSecurityHeader),
                    PacketField("SequenceHeader", UaSequenceHeader(), UaSequenceHeader),
-                   PacketField("DataTypeEncoding", UaExpandedNodeId(), UaExpandedNodeId),
-                   PacketField("Payload", Raw(), Raw)]
+                   PacketField("Payload", UaMessage(), UaMessage),
+                   PacketField("MessageFooter", UaSecureConversationMessageFooter(), UaSecureConversationMessageFooter)]
 
     message_types = [b'MSG', b'CLO']
 
