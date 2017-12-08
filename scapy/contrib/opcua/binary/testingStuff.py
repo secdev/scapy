@@ -9,11 +9,6 @@ from scapy.contrib.opcua.binary.secureConversation import *
 from scapy.contrib.opcua.binary.schemaTypes import *
 
 
-class TestPLF(Packet):
-    fields_desc = [UaUInt32Field("len", None, count_of="plist"),
-                   PacketListField("plist", None, UaExpandedNodeId, count_from=lambda pkt: pkt.len)]
-
-
 if __name__ == '__main__':
     conf.debug_dissector = True
     # test = UaBinary()/UaSecureConversation()
@@ -31,10 +26,5 @@ if __name__ == '__main__':
     # print("\n" + repr(test.__str__()))
     # print(repr(test))
 
-    test = TestPLF(plist=[UaNodeId(), UaTwoByteNodeId(),
-                          UaExpandedNodeId(NodeId=UaTwoByteNodeId(), NamespaceUri=UaString(data="lol"),
-                                           ServerIndex=10)])
+    test = UaString()
     test.show2()
-
-    test2 = UaModifySubscriptionResponse()
-    test2.show2()

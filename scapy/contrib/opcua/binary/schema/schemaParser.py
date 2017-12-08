@@ -5,7 +5,7 @@ import sys
 import re
 import scapy.contrib.opcua.binary.builtinTypes
 from scapy.contrib.opcua.helpers import UaTypePacket
-from scapy.fields import PacketField
+from scapy.fields import PacketField, PacketListField, FieldListField
 import logging
 import csv
 import os
@@ -17,6 +17,7 @@ class Field(object):
         self.fieldType = None
         self.lengthOf = None
         self.lengthFrom = None
+        self.lengthInBytes = False
 
     def __str__(self):
         return "{{{}}}: {}".format(self.fieldType, self.name)
@@ -202,7 +203,7 @@ class SchemaParser(object):
                         for field in newType.fields:
                             if field.name == val:
                                 field.lengthOf = newField
-                        newField.lengthFrom = val
+                                newField.lengthFrom = field
                     elif key == "SourceType":
                         # TODO: What to do with this? Ignore for now
                         pass
@@ -258,31 +259,66 @@ class SchemaParser(object):
 
         self.logger.debug("Done creating types")
 
+    @staticmethod
+    def _fill_field_args_dict(field):
+        argsDict = {}
+        if field.lengthOf is not None:
+            if field.lengthInBytes:
+                argsDict["length_of"] = field.lengthOf.name
+            else:
+                argsDict["count_of"] = field.lengthOf.name
+
+        if field.lengthFrom is not None:
+            if field.lengthFrom.lengthInBytes:
+                argsDict["length_from"] = lambda p: getattr(p, field.lengthFrom.name)
+            else:
+                argsDict["count_from"] = lambda p: getattr(p, field.lengthFrom.name)
+
+        return argsDict
+
+    def _create_packet_type_field(self, name, cls, argsDict):
+        if "count_from" in argsDict:
+            field = PacketListField(name, None, cls, **argsDict)
+        else:
+            field = PacketField(name, cls(), cls)
+
+        return field
+
+    def _create_field_type_field(self, name, cls, argsDict):
+        if "count_from" in argsDict:
+            #field = cls(name, None)
+            field = FieldListField(name, None, cls("", None), **argsDict)
+        else:
+            field = cls(name, None, **argsDict)
+
+        return field
+
     def _create_structured_type(self, sType):
         try:
             fields_desc = []
 
             for field in sType.fields:
-                if field.lengthOf is not None:
-                    print("Length of field")
+                argsDict = self._fill_field_args_dict(field)
+
                 if field.fieldType in self.model.builtins["PacketTypes"]:
                     cls = self.model.builtins["PacketTypes"][field.fieldType]
-                    fields_desc.append(PacketField(field.name, cls(), cls))
+                    fields_desc.append(self._create_packet_type_field(field.name, cls, argsDict))
                 elif field.fieldType in self.model.builtins["FieldTypes"]:
                     cls = self.model.builtins["FieldTypes"][field.fieldType]
-                    fields_desc.append(cls(field.name, None))
+                    fields_desc.append(self._create_field_type_field(field.name, cls, argsDict))
                 elif field.fieldType in self.model.enumFields:
                     cls = self.model.enumFields[field.fieldType]
                     fields_desc.append(cls(field.name, 0))
                 else:
                     if field.fieldType in self.model.classes:
                         cls = self.model.classes[field.fieldType]
-                        fields_desc.append(PacketField(field.name, cls(), cls))
+                        fields_desc.append(self._create_packet_type_field(field.name, cls, argsDict))
                     else:
                         self.reparse.append(sType)
                         self.logger.debug("Error adding type '{}' Could not find "
                                           "dependency. Re-queueing...".format(sType.name))
                         return
+
             newClass = type(sType.name, (UaTypePacket,), {"fields_desc": fields_desc})
 
             self.model.classes[sType.name] = newClass
