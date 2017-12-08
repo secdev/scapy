@@ -1,11 +1,9 @@
 # coding=utf-8
 
-from scapy.packet import Raw
 from scapy.contrib.opcua.binary.builtinTypes import *
 from scapy.contrib.opcua.helpers import *
 from scapy.fields import PacketField
 from scapy.contrib.opcua.binary.tcp import UaTcp
-from scapy.contrib.opcua.binary.schemaTypes import *
 
 
 class UaSecureConversationMessageHeader(UaTypePacket):
@@ -76,8 +74,8 @@ class UaSecureConversationAsymmetric(UaTcp):
         return s
 
     @classmethod
-    def dispatch_hook(cls, _pkt=None, *args, **kargs):
-        return super(UaSecureConversationAsymmetric, cls).dispatch_hook(_pkt, args, kargs)
+    def dispatch_hook(cls, _pkt=None, *args, **kwargs):
+        return super(UaSecureConversationAsymmetric, cls).dispatch_hook(_pkt, args, kwargs)
 
 
 class UaSecureConversationSymmetric(UaSecureConversationAsymmetric):
@@ -92,5 +90,5 @@ class UaSecureConversationSymmetric(UaSecureConversationAsymmetric):
     message_types = [b'MSG', b'CLO']
 
     @classmethod
-    def dispatch_hook(cls, _pkt=None, *args, **kargs):
-        return super(UaSecureConversationSymmetric, cls).dispatch_hook(_pkt, args, kargs)
+    def dispatch_hook(cls, _pkt=None, *args, **kwargs):
+        return super(UaSecureConversationSymmetric, cls).dispatch_hook(_pkt, args, kwargs)

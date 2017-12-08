@@ -1,7 +1,7 @@
 # coding=utf-8
 import struct
 
-from scapy.contrib.opcua.helpers import ByteListField, UaTypePacket
+from scapy.contrib.opcua.helpers import ByteListField, UaTypePacket, LengthField
 from scapy.fields import Field, PacketField, ConditionalField
 import binascii
 
@@ -135,34 +135,34 @@ class UaBytesField(UaByteField):
         return s[self.num_bytes:], self.m2i(pkt, s[:self.num_bytes])
 
 
-class UaUInt16Field(Field):
-    def __init__(self, name, default):
-        super(UaUInt16Field, self).__init__(name, default, "<H")
+class UaUInt16Field(LengthField):
+    def __init__(self, name, default, *args, **kwargs):
+        super(UaUInt16Field, self).__init__(name, default, "<H", *args, **kwargs)
 
 
-class UaUInt32Field(Field):
-    def __init__(self, name, default):
-        super(UaUInt32Field, self).__init__(name, default, "<I")
+class UaUInt32Field(LengthField):
+    def __init__(self, name, default, *args, **kwargs):
+        super(UaUInt32Field, self).__init__(name, default, "<I", *args, **kwargs)
 
 
-class UaUInt64Field(Field):
-    def __init__(self, name, default):
-        super(UaUInt64Field, self).__init__(name, default, "<Q")
+class UaUInt64Field(LengthField):
+    def __init__(self, name, default, *args, **kwargs):
+        super(UaUInt64Field, self).__init__(name, default, "<Q", *args, **kwargs)
 
 
-class UaInt16Field(Field):
-    def __init__(self, name, default):
-        super(UaInt16Field, self).__init__(name, default, "<h")
+class UaInt16Field(LengthField):
+    def __init__(self, name, default, *args, **kwargs):
+        super(UaInt16Field, self).__init__(name, default, "<h", *args, **kwargs)
 
 
-class UaInt32Field(Field):
-    def __init__(self, name, default):
-        super(UaInt32Field, self).__init__(name, default, "<i")
+class UaInt32Field(LengthField):
+    def __init__(self, name, default, *args, **kwargs):
+        super(UaInt32Field, self).__init__(name, default, "<i", *args, **kwargs)
 
 
-class UaInt64Field(Field):
-    def __init__(self, name, default):
-        super(UaInt64Field, self).__init__(name, default, "<q")
+class UaInt64Field(LengthField):
+    def __init__(self, name, default, *args, **kwargs):
+        super(UaInt64Field, self).__init__(name, default, "<q", *args, **kwargs)
 
 
 class UaFloatField(Field):
@@ -344,13 +344,17 @@ class UaNodeId(UaTypePacket):
                    UaUInt32Field("Identifier", 0)]
 
     @classmethod
-    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+    def dispatch_hook(cls, _pkt=None, *args, **kwargs):
         if _pkt is not None and len(_pkt) > 0:
             encodingField = UaByteField("Encoding", None)
 
             rest, val = encodingField.getfield(None, _pkt)
 
             # Mask out the ExpandedNodeId bits
+            expanded = val & UaExpandedNodeId.encoding
+            if expanded and "partOfExpanded" not in kwargs:
+                return UaExpandedNodeId
+
             val &= ~UaExpandedNodeId.encoding
 
             if val == UaTwoByteNodeId.encoding:
@@ -365,9 +369,6 @@ class UaNodeId(UaTypePacket):
                 return UaGuidNodeId
             elif val == UaByteStringNodeId.encoding:
                 return UaByteStringNodeId
-
-            # TODO: check how we can enable ExpandedNodeIds to be decoded without having to explicitly specify them.
-            # TODO: currently this would cause infinite recursion since ExpandedNodeIds reference the normal NodeId
 
         return cls
 
@@ -450,10 +451,24 @@ def _id_has_uri(p):
     return p.NodeId.getfieldval("Encoding") & 0x80 != 0
 
 
+def _id_has_index(p):
+    index = p.getfieldval("ServerIndex")
+    if index is not None and index != 0:
+        return True
+    return p.NodeId.getfieldval("Encoding") & 0x40 != 0
+
+
+class _NodeIdNoRecurse(UaNodeId):
+
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kwargs):
+        return super(_NodeIdNoRecurse, cls).dispatch_hook(_pkt, args, kwargs, partOfExpanded=True)
+
+
 class UaExpandedNodeId(UaNodeId):
-    fields_desc = [PacketField("NodeId", UaNodeId(), UaNodeId),
+    fields_desc = [PacketField("NodeId", UaNodeId(), _NodeIdNoRecurse),
                    ConditionalField(PacketField("NamespaceUri", None, UaString), _id_has_uri),
-                   ConditionalField(UaUInt32Field("ServerIndex", 0), lambda p: p.NodeId.Encoding == 0x40)]
+                   ConditionalField(UaUInt32Field("ServerIndex", 0), _id_has_index)]
 
     encoding = 0x80 | 0x40
 

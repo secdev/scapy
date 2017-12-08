@@ -108,3 +108,27 @@ class ByteListField(Field):
             s, v = self.field.getfield(pkt, s)
             val.append(v)
         return s + ret, val
+
+
+class LengthField(Field):
+    __slots__ = ["length_of", "count_of", "adjust"]
+
+    def __init__(self, name, default, fmt, length_of=None, count_of=None, adjust=lambda pkt, x: x):
+        Field.__init__(self, name, default, fmt)
+        self.length_of = length_of
+        self.count_of = count_of
+        self.adjust = adjust
+
+    def i2m(self, pkt, x):
+        if x is None:
+            if self.length_of is not None:
+                fld, fval = pkt.getfield_and_val(self.length_of)
+                f = fld.i2len(pkt, fval)
+                x = self.adjust(pkt, f)
+            elif self.count_of is not None:
+                fld, fval = pkt.getfield_and_val(self.count_of)
+                f = fld.i2count(pkt, fval)
+                x = self.adjust(pkt, f)
+            else:
+                x = 0x0
+        return x
