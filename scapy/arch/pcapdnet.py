@@ -25,7 +25,7 @@ import scapy.consts
 
 if conf.use_winpcapy:
   NPCAP_PATH = os.environ["WINDIR"] + "\\System32\\Npcap"
-  #mostly code from https://github.com/phaethon/scapy translated to python2.X
+  #  Part of the code from https://github.com/phaethon/scapy translated to python2.X
   try:
       from scapy.modules.winpcapy import *
       def winpcapy_get_if_list():
@@ -74,10 +74,9 @@ if conf.use_winpcapy:
         return conf.cache_ipaddrs.get(iff.pcap_name, None)
     err = create_string_buffer(PCAP_ERRBUF_SIZE)
     devs = POINTER(pcap_if_t)()
-    ret = b"\0\0\0\0"
 
     if pcap_findalldevs(byref(devs), err) < 0:
-      return ret
+      return None
     try:
       p = devs
       while p:
@@ -86,7 +85,9 @@ if conf.use_winpcapy:
             if a.contents.addr.contents.sa_family == socket.AF_INET:
               ap = a.contents.addr
               val = cast(ap, POINTER(sockaddr_in))
-              conf.cache_ipaddrs[plain_str(p.contents.name)] = b"".join(chb(x) for x in val.contents.sin_addr[:4])
+              if_raw_addr = b"".join(chb(x) for x in val.contents.sin_addr[:4])
+              if if_raw_addr != b'\x00\x00\x00\x00':
+                  conf.cache_ipaddrs[plain_str(p.contents.name)] = if_raw_addr
             a = a.contents.next
           p = p.contents.next
       return conf.cache_ipaddrs.get(iff.pcap_name, None)

@@ -68,14 +68,19 @@ def is_new_release(ignoreVBS=False):
 
 def _encapsulate_admin(cmd):
     """Encapsulate a command with an Administrator flag"""
-    # To get admin access, we start a new powershell instance with admin rights, which will execute the command
+    # To get admin access, we start a new powershell instance with admin
+    # rights, which will execute the command
     return "Start-Process PowerShell -windowstyle hidden -Wait -Verb RunAs -ArgumentList '-command &{%s}'" % cmd
 
 class _PowershellManager(Thread):
     """Instance used to send multiple commands on the same Powershell process.
-    Will be instantiated on loading and automatically stopped."""
+    Will be instantiated on loading and automatically stopped.
+    """
     def __init__(self):
-        self.process = sp.Popen([conf.prog.powershell, "-NoLogo", "-NonInteractive", "-Command", "-"], # Start & redirect input
+        # Start & redirect input
+        self.process = sp.Popen([conf.prog.powershell,
+                                 "-NoLogo", "-NonInteractive",  # Do not print headers
+                                 "-Command", "-"],  # Listen commands from stdin
                          stdout=sp.PIPE,
                          stdin=sp.PIPE,
                          stderr=sp.STDOUT,
@@ -102,11 +107,12 @@ class _PowershellManager(Thread):
             self.__init__(self)
         # Call powershell query using running process
         self.buffer = []
+        # 'scapy_end' is used as a marker of the end of execution
         query = " ".join(command) + "; echo scapy_end\n"
         self.process.stdin.write(query)
         self.process.stdin.flush()
         self.query_complete.wait()
-        return self.buffer[1:]
+        return self.buffer[1:]  # Crops first line: the command
 
     def close(self):
         self.running = False
@@ -117,13 +123,19 @@ class _PowershellManager(Thread):
             pass
 
 def _exec_query_ps(cmd, fields):
-    """Execute a PowerShell query"""
+    """Execute a PowerShell query, using the cmd command,
+    and select and parse the provided fields.
+    """
     if not conf.prog.powershell:
         raise OSError("Scapy could not detect powershell !")
-    # Format query: as list + do not crop
-    query_cmd = cmd + ['|', 'select %s' % ', '.join(fields), '|', 'fl', '|', 'out-string', '-Width', '4096']
+    # Build query
+    query_cmd = cmd + ['|', 'select %s' % ', '.join(fields),  # select fields
+                       '|', 'fl',  # print as a list
+                       '|', 'out-string', '-Width', '4096']  # do not crop
     l=[]
+    # Ask the powershell manager to process the query
     stdout = POWERSHELL_PROCESS.query(query_cmd)
+    # Process stdout
     for line in stdout:
         if not line.strip(): # skip empty lines
             continue
@@ -413,6 +425,7 @@ class NetworkInterface(object):
         try:
             if not self.ip and self.name == scapy.consts.LOOPBACK_NAME:
                 self.ip = "127.0.0.1"
+                conf.cache_ipaddrs[self.pcap_name] = socket.inet_aton(self.ip)
         except (KeyError, AttributeError, NameError) as e:
             print(e)
 
@@ -601,9 +614,13 @@ class NetworkInterfaceDict(UserDict):
             try:
                 interface = NetworkInterface(i)
                 self.data[interface.guid] = interface
+                # If no IP address was detected using winpcap and if
+                # the interface is not the loopback one, look for
+                # internal windows interfaces
                 if not interface.ip:
-                    if not ifaces_ips:
+                    if not ifaces_ips:  # ifaces_ips is used as a cache
                         ifaces_ips = get_ips()
+                    # If it exists, retrieve the interface's IP from the cache
                     interface.ip = ifaces_ips.get(interface.name, "")
             except (KeyError, PcapNameNotFoundError):
                 pass
@@ -840,6 +857,9 @@ def in6_getifaddr():
             ifaddrs.append((ifaddr[0], ifaddr[1], dev_from_pcapname(ifaddr[2])))
         except ValueError:
             pass
+    # Appends Npcap loopback if available
+    if conf.use_npcap and scapy.consts.LOOPBACK_INTERFACE:
+        ifaddrs.append(("::1", 0, scapy.consts.LOOPBACK_INTERFACE))
     return ifaddrs
 
 def _append_route6(routes, dpref, dp, nh, iface, lifaddr, metric):
@@ -877,7 +897,9 @@ def _read_routes6_post2008():
     return routes6
 
 def _get_i6_metric():
-    # Returns the INTERFACE metric from the interface index
+    """Returns a dict containing all IPv6 interfaces' metric,
+    ordered by their interface index.
+    """
     query_cmd = "netsh interface ipv6 show interfaces level=verbose"
     stdout = POWERSHELL_PROCESS.query([query_cmd])
     res = {}
@@ -887,7 +909,7 @@ def _get_i6_metric():
         if not _line.strip():
             continue
         _buffer.append(_line)
-        if len(_buffer) == 32: # An interface, with all parameters, is 32 lines long
+        if len(_buffer) == 32:  # An interface, with all its parameters, is 32 lines long
             if_index = re.search(_pattern, _buffer[3]).group(1)
             if_metric = int(re.search(_pattern, _buffer[5]).group(1))
             res[if_index] = if_metric
