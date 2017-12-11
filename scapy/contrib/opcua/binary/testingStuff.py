@@ -23,8 +23,8 @@ if __name__ == '__main__':
 
     # pc2 = rdpcap("/home/infinity/bachelor/pcaps/ipfragmented2.pcapng")
 
-    pc = read_pcap()
-    test = pc[34]
+    #pc = read_pcap()
+    #test = pc[24]
 
     # test = UaSecureConversationSymmetric(DataTypeEncoding=UaExpandedNodeId(NamespaceUri=UaString(data="asdf")))
     # test = UaSecureConversationSymmetric(b"MSGF'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x82\x00\x00\x00\x00\x00\x00\x04\x00\x00\x00asdf")
@@ -38,6 +38,7 @@ if __name__ == '__main__':
     # print(msg[28:])
     # UaResponseHeader(msg[28:]).show2()
     # test = UaMessage(msg[24:])
-    test.show()
+    test = UaAxisInformation()
+    #test.show()
     test.show2()
     print(repr(test.build()))

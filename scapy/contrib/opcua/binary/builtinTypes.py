@@ -288,7 +288,7 @@ def _has_locale(p):
         return True
     if p.EncodingMask is None:
         return False
-    return p.EncodingMask[0] & 0x1
+    return p.getfieldval("EncodingMask") & 0x1
 
 
 def _has_text(p):
@@ -296,7 +296,7 @@ def _has_text(p):
         return True
     if p.EncodingMask is None:
         return False
-    return p.EncodingMask[0] & 0x2
+    return p.getfieldval("EncodingMask") & 0x2
 
 
 class UaLocalizedText(UaTypePacket):
