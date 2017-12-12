@@ -25,7 +25,7 @@ import scapy.consts
 
 if conf.use_winpcapy:
   NPCAP_PATH = os.environ["WINDIR"] + "\\System32\\Npcap"
-  #mostly code from https://github.com/phaethon/scapy translated to python2.X
+  #  Part of the code from https://github.com/phaethon/scapy translated to python2.X
   try:
       from scapy.modules.winpcapy import *
       def winpcapy_get_if_list():
@@ -37,7 +37,7 @@ if conf.use_winpcapy:
           try:
               p = devs
               while p:
-                  ret.append(p.contents.name.decode('ascii'))
+                  ret.append(plain_str(p.contents.name))
                   p = p.contents.next
               return ret
           except:
@@ -68,55 +68,41 @@ if conf.use_winpcapy:
   class PcapTimeoutElapsed(Scapy_Exception):
       pass
 
-  def get_if_raw_hwaddr(iff):
-    err = create_string_buffer(PCAP_ERRBUF_SIZE)
-    devs = POINTER(pcap_if_t)()
-    ret = b"\0\0\0\0\0\0"
-    
-    if pcap_findalldevs(byref(devs), err) < 0:
-      return ret
-    try:
-      p = devs
-      while p:
-        if p.contents.name.endswith(iff.guid.encode("ascii")):
-          a = p.contents.addresses
-          while a:
-            if hasattr(socket, 'AF_LINK') and a.contents.addr.contents.sa_family == socket.AF_LINK:
-              ap = a.contents.addr
-              val = cast(ap, POINTER(sockaddr_dl))
-              ret = (val.contents.sdl_data[ val.contents.sdl_nlen : val.contents.sdl_nlen + val.contents.sdl_alen ]).encode("utf8")
-            a = a.contents.next
-          break
-        p = p.contents.next
-      return ret
-    finally:
-      pcap_freealldevs(devs)
   def get_if_raw_addr(iff):
+    """Returns the raw ip address corresponding to the NetworkInterface."""
+    if conf.cache_ipaddrs:
+        return conf.cache_ipaddrs.get(iff.pcap_name, None)
     err = create_string_buffer(PCAP_ERRBUF_SIZE)
     devs = POINTER(pcap_if_t)()
-    ret = b"\0\0\0\0"
 
     if pcap_findalldevs(byref(devs), err) < 0:
-      return ret
+      return None
     try:
       p = devs
       while p:
-        if p.contents.name.endswith(iff.guid.encode("ascii")):
           a = p.contents.addresses
           while a:
             if a.contents.addr.contents.sa_family == socket.AF_INET:
               ap = a.contents.addr
               val = cast(ap, POINTER(sockaddr_in))
-              ret = b"".join(chb(x) for x in val.contents.sin_addr[:4])
+              if_raw_addr = b"".join(chb(x) for x in val.contents.sin_addr[:4])
+              if if_raw_addr != b'\x00\x00\x00\x00':
+                  conf.cache_ipaddrs[plain_str(p.contents.name)] = if_raw_addr
             a = a.contents.next
-          break
-        p = p.contents.next
-      return ret
+          p = p.contents.next
+      return conf.cache_ipaddrs.get(iff.pcap_name, None)
     finally:
       pcap_freealldevs(devs)
   if conf.use_winpcapy:
-      get_if_list = winpcapy_get_if_list
+      def get_if_list():
+          """Returns all pcap names"""
+          if conf.cache_iflist:
+              return conf.cache_iflist
+          iflist = winpcapy_get_if_list()
+          conf.cache_iflist = iflist
+          return iflist
   def in6_getifaddr_raw():
+    """Returns all available IPv6 on the computer, read from winpcap."""
     err = create_string_buffer(PCAP_ERRBUF_SIZE)
     devs = POINTER(pcap_if_t)()
     ret = []
@@ -133,7 +119,7 @@ if conf.use_winpcapy:
             val = cast(ap, POINTER(sockaddr_in6))
             addr = inet_ntop(socket.AF_INET6, b"".join(chb(x) for x in val.contents.sin6_addr[:]))
             scope = scapy.utils6.in6_getscope(addr)
-            ret.append((addr, scope, p.contents.name.decode('ascii')))
+            ret.append((addr, scope, plain_str(p.contents.name)))
           a = a.contents.next
         p = p.contents.next
       return ret
@@ -142,9 +128,10 @@ if conf.use_winpcapy:
 
   from ctypes import POINTER, byref, create_string_buffer
   class _PcapWrapper_pypcap:
+      """Wrapper for the WinPcap calls"""
       def __init__(self, device, snaplen, promisc, to_ms):
           self.errbuf = create_string_buffer(PCAP_ERRBUF_SIZE)
-          self.iface = create_string_buffer(device.encode('ascii'))
+          self.iface = create_string_buffer(device.encode("utf8"))
           self.pcap = pcap_open_live(self.iface, snaplen, promisc, to_ms, self.errbuf)
           self.header = POINTER(pcap_pkthdr)()
           self.pkt_data = POINTER(c_ubyte)()
@@ -165,7 +152,7 @@ if conf.use_winpcapy:
             return 0
           return pcap_get_selectable_fd(self.pcap) 
       def setfilter(self, f):
-          filter_exp = create_string_buffer(f.encode('ascii'))
+          filter_exp = create_string_buffer(f.encode("utf8"))
           if pcap_compile(self.pcap, byref(self.bpf_program), filter_exp, 0, -1) == -1:
             log_loading.error("Could not compile filter expression %s", f)
             return False

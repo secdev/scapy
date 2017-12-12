@@ -8,10 +8,11 @@ Routing and handling of network interfaces.
 """
 
 from __future__ import absolute_import
-from scapy.utils import atol, ltoa, itom, pretty_routes
+from scapy.utils import atol, ltoa, itom, pretty_list
 from scapy.config import conf
 from scapy.error import Scapy_Exception, warning
-from scapy.arch import WINDOWS, get_working_if
+from scapy.arch import get_working_if
+from scapy.consts import WINDOWS
 import scapy.consts
 import scapy.modules.six as six
 
@@ -22,7 +23,7 @@ import scapy.modules.six as six
 class Route:
     def __init__(self):
         self.resync()
-        self.cache = {}
+        self.invalidate_cache()
 
     def invalidate_cache(self):
         self.cache = {}
@@ -42,7 +43,7 @@ class Route:
                       addr,
                       str(metric)))
 
-        return pretty_routes(rtlst,
+        return pretty_list(rtlst,
                              [("Network", "Netmask", "Gateway", "Iface", "Output IP", "Metric")])
 
     def make_route(self, host=None, net=None, gw=None, dev=None, metric=1):

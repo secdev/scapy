@@ -13,11 +13,13 @@ import os, re, sys, socket, time, itertools, platform
 import subprocess as sp
 from glob import glob
 import tempfile
+from threading import Thread, Event
 
 import scapy
 from scapy.config import conf, ConfClass
 from scapy.error import Scapy_Exception, log_loading, log_runtime, warning
-from scapy.utils import atol, itom, inet_aton, inet_ntoa, PcapReader
+from scapy.utils import atol, itom, inet_aton, inet_ntoa, PcapReader, pretty_list
+from scapy.utils6 import construct_source_candidate_set
 from scapy.base_classes import Gen, Net, SetGen
 from scapy.data import MTU, ETHER_BROADCAST, ETH_P_ARP
 
@@ -66,19 +68,75 @@ def is_new_release(ignoreVBS=False):
 
 def _encapsulate_admin(cmd):
     """Encapsulate a command with an Administrator flag"""
-    # To get admin access, we start a new powershell instance with admin rights, which will execute the command
+    # To get admin access, we start a new powershell instance with admin
+    # rights, which will execute the command
     return "Start-Process PowerShell -windowstyle hidden -Wait -Verb RunAs -ArgumentList '-command &{%s}'" % cmd
 
+class _PowershellManager(Thread):
+    """Instance used to send multiple commands on the same Powershell process.
+    Will be instantiated on loading and automatically stopped.
+    """
+    def __init__(self):
+        # Start & redirect input
+        self.process = sp.Popen([conf.prog.powershell,
+                                 "-NoLogo", "-NonInteractive",  # Do not print headers
+                                 "-Command", "-"],  # Listen commands from stdin
+                         stdout=sp.PIPE,
+                         stdin=sp.PIPE,
+                         stderr=sp.STDOUT,
+                         universal_newlines=True)
+        self.buffer = []
+        self.running = True
+        self.query_complete = Event()
+        Thread.__init__(self)
+        self.daemon = True
+        self.start()
+        self.query(["$FormatEnumerationLimit=-1"])  # Do not crop long IP lists
+
+    def run(self):
+        while self.running:
+            read_line = self.process.stdout.readline().strip()
+            if read_line == "scapy_end":
+                self.query_complete.set()
+            else:
+                self.buffer.append(read_line)
+
+    def query(self, command):
+        self.query_complete.clear()
+        if not self.running:
+            self.__init__(self)
+        # Call powershell query using running process
+        self.buffer = []
+        # 'scapy_end' is used as a marker of the end of execution
+        query = " ".join(command) + "; echo scapy_end\n"
+        self.process.stdin.write(query)
+        self.process.stdin.flush()
+        self.query_complete.wait()
+        return self.buffer[1:]  # Crops first line: the command
+
+    def close(self):
+        self.running = False
+        try:
+            self.process.stdin.write("exit\n")
+            self.process.terminate()
+        except:
+            pass
+
 def _exec_query_ps(cmd, fields):
-    """Execute a PowerShell query"""
+    """Execute a PowerShell query, using the cmd command,
+    and select and parse the provided fields.
+    """
     if not conf.prog.powershell:
         raise OSError("Scapy could not detect powershell !")
-    ps = sp.Popen([conf.prog.powershell] + cmd +
-                  ['|', 'select %s' % ', '.join(fields), '|', 'fl'],
-                  stdout=sp.PIPE,
-                  universal_newlines=True)
+    # Build query
+    query_cmd = cmd + ['|', 'select %s' % ', '.join(fields),  # select fields
+                       '|', 'fl',  # print as a list
+                       '|', 'out-string', '-Width', '4096']  # do not crop
     l=[]
-    for line in ps.stdout:
+    # Ask the powershell manager to process the query
+    stdout = POWERSHELL_PROCESS.query(query_cmd)
+    # Process stdout
+    for line in stdout:
         if not line.strip(): # skip empty lines
             continue
         sl = line.split(':', 1)
@@ -313,13 +371,21 @@ def get_windows_if_list():
         if is_interface_valid(iface)
     ]
 
-def get_ip_from_name(ifname, v6=False):
+def get_ips(v6=False):
+    """Returns all available IPs matching to interfaces, using the windows system.
+    Should only be used as a WinPcapy fallback."""
+    res = {}
     for descr, ipaddr in exec_query(['Get-WmiObject',
                                      'Win32_NetworkAdapterConfiguration'],
                                     ['Description', 'IPAddress']):
-        if descr == ifname.strip():
-            return ipaddr.split(",", 1)[v6].strip('{}').strip()
-    return None
+        if ipaddr.strip():
+            res[descr] = ipaddr.split(",", 1)[v6].strip('{}').strip()
+    return res
+
+def get_ip_from_name(ifname, v6=False):
+    """Backward compatibility: indirectly calls get_ips
+    Deprecated."""
+    return get_ips(v6=v6).get(ifname, "")
         
 class NetworkInterface(object):
     """A network interface of your local host"""
@@ -352,18 +418,14 @@ class NetworkInterface(object):
         self._update_pcapdata()
 
         try:
-            self.ip = socket.inet_ntoa(get_if_raw_addr(data))
-        except (KeyError, AttributeError, NameError):
+            self.ip = socket.inet_ntoa(get_if_raw_addr(self))
+        except (TypeError, NameError):
             pass
 
         try:
-            if not self.ip:
-                self.ip=get_ip_from_name(data['name'])
             if not self.ip and self.name == scapy.consts.LOOPBACK_NAME:
                 self.ip = "127.0.0.1"
-            if not self.ip:
-                # No IP detected
-                self.invalid = True
+                conf.cache_ipaddrs[self.pcap_name] = socket.inet_aton(self.ip)
         except (KeyError, AttributeError, NameError) as e:
             print(e)
 
@@ -379,7 +441,7 @@ class NetworkInterface(object):
     def _update_pcapdata(self):
         if self.is_invalid():
             return
-        for i in winpcapy_get_if_list():
+        for i in get_if_list():
             if i.endswith(self.data['guid']):
                 self.pcap_name = i
                 return
@@ -529,11 +591,8 @@ def pcap_service_control(action, askadmin=True):
     if not conf.prog.powershell:
         return False
     command = action + ' ' + pcap_service_name()
-    ps = sp.Popen([conf.prog.powershell, _encapsulate_admin(command) if askadmin else command],
-                    stdout=sp.PIPE,
-                    universal_newlines=True)
-    stdout, stderr = ps.communicate()
-    return (not "error" in stdout.lower())
+    stdout = POWERSHELL_PROCESS.query([_encapsulate_admin(command) if askadmin else command])
+    return "error" not in "".join(stdout).lower()
 
 def pcap_service_start(askadmin=True):
     """Starts the pcap adapter. Will ask for admin. Returns True if success"""
@@ -550,10 +609,19 @@ class NetworkInterfaceDict(UserDict):
     def load_from_powershell(self):
         if not conf.prog.os_access:
             return
+        ifaces_ips = None
         for i in get_windows_if_list():
             try:
                 interface = NetworkInterface(i)
                 self.data[interface.guid] = interface
+                # If no IP address was detected using winpcap and if
+                # the interface is not the loopback one, look for
+                # internal windows interfaces
+                if not interface.ip:
+                    if not ifaces_ips:  # ifaces_ips is used as a cache
+                        ifaces_ips = get_ips()
+                    # If it exists, retrieve the interface's IP from the cache
+                    interface.ip = ifaces_ips.get(interface.name, "")
             except (KeyError, PcapNameNotFoundError):
                 pass
         
@@ -570,8 +638,7 @@ class NetworkInterfaceDict(UserDict):
                         return False
                 return False
             _error_msg = "No match between your pcap and windows network interfaces found. "
-            if _detect[0] and not _detect[2] and ((hasattr(self, "restarted_adapter") and not self.restarted_adapter)
-                                                 or not hasattr(self, "restarted_adapter")):
+            if _detect[0] and not _detect[2] and (not hasattr(self, "restarted_adapter") or self.restarted_adapter):
                 warning("Scapy has detected that your pcap service is not running !")
                 if not conf.interactive or _ask_user():
                     succeed = pcap_service_start(askadmin=conf.interactive)
@@ -638,14 +705,14 @@ class NetworkInterfaceDict(UserDict):
     def show(self, resolve_mac=True, print_result=True):
         """Print list of available network interfaces in human readable form"""
         res = []
-        res.append("%s  %s  %s  %s" % ("INDEX".ljust(5), "IFACE".ljust(35), "IP".ljust(15), "MAC"))
         for iface_name in sorted(self.data):
             dev = self.data[iface_name]
             mac = dev.mac
             if resolve_mac and conf.manufdb:
                 mac = conf.manufdb._resolve_MAC(mac)
-            res.append("%s  %s  %s  %s" % (str(dev.win_index).ljust(5), str(dev.name).ljust(35), str(dev.ip).ljust(15), mac))
-        res = "\n".join(res)
+            res.append((str(dev.win_index).ljust(5), str(dev.name).ljust(35), str(dev.ip).ljust(15), mac))
+
+        res = pretty_list(res, [("INDEX", "IFACE", "IP", "MAC")])
         if print_result:
             print(res)
         else:
@@ -653,7 +720,10 @@ class NetworkInterfaceDict(UserDict):
 
     def __repr__(self):
         return self.show(print_result=False)
-            
+
+# Init POWERSHELL_PROCESS
+POWERSHELL_PROCESS = _PowershellManager()
+
 IFACES = NetworkInterfaceDict()
 IFACES.load_from_powershell()
 
@@ -690,11 +760,9 @@ def show_interfaces(resolve_mac=True):
 _orig_open_pcap = pcapdnet.open_pcap
 pcapdnet.open_pcap = lambda iface,*args,**kargs: _orig_open_pcap(pcapname(iface),*args,**kargs)
 
-_orig_get_if_raw_hwaddr = pcapdnet.get_if_raw_hwaddr
-pcapdnet.get_if_raw_hwaddr = lambda iface, *args, **kargs: (
+get_if_raw_hwaddr = pcapdnet.get_if_raw_hwaddr = lambda iface, *args, **kargs: (
     ARPHDR_ETHER, mac2str(IFACES.dev_from_pcapname(pcapname(iface)).mac)
 )
-get_if_raw_hwaddr = pcapdnet.get_if_raw_hwaddr
 
 def _read_routes_xp():
     # The InterfaceIndex in Win32_IP4RouteTable does not match the
@@ -770,8 +838,9 @@ def _read_routes_post2008():
         #     log_loading.warning("Building Scapy's routing table: Couldn't get outgoing interface for destination %s", dest)
         #     continue
         dest, mask = line[1].split('/')
+        ip = "127.0.0.1" if line[0] == "1" else iface.ip # Force loopback on iface 1
         routes.append((atol(dest), itom(int(mask)),
-                       line[2], iface, iface.ip, int(line[3])+int(line[4])))
+                       line[2], iface, ip, int(line[3])+int(line[4])))
     return routes
 
 ############
@@ -788,6 +857,9 @@ def in6_getifaddr():
             ifaddrs.append((ifaddr[0], ifaddr[1], dev_from_pcapname(ifaddr[2])))
         except ValueError:
             pass
+    # Appends Npcap loopback if available
+    if conf.use_npcap and scapy.consts.LOOPBACK_INTERFACE:
+        ifaddrs.append(("::1", 0, scapy.consts.LOOPBACK_INTERFACE))
     return ifaddrs
 
 def _append_route6(routes, dpref, dp, nh, iface, lifaddr, metric):
@@ -798,7 +870,7 @@ def _append_route6(routes, dpref, dp, nh, iface, lifaddr, metric):
         cset = ['::1']
     else:
         devaddrs = (x for x in lifaddr if x[2] == iface)
-        cset = scapy.utils6.construct_source_candidate_set(dpref, dp, devaddrs)
+        cset = construct_source_candidate_set(dpref, dp, devaddrs)
     if not cset:
         return
     # APPEND (DESTINATION, NETMASK, NEXT HOP, IFACE, CANDIDATS, METRIC)
@@ -824,22 +896,33 @@ def _read_routes6_post2008():
         _append_route6(routes6, dpref, dp, nh, iface, lifaddr, metric)
     return routes6
 
-def _get_i6_metric(index):
-    # Returns the INTERFACE metric from the interface index
-    ps = sp.Popen([conf.prog.cmd, '/c', 'netsh interface ipv6 show interfaces level=verbose ' + index], stdout = sp.PIPE)
-    stdout, stdin = ps.communicate()
-    stdout = stdout.decode("utf8", "ignore")
-    metric_line = stdout.split('\n')[6]
-    metric = re.search(re.compile(".*:\s+(\d+)"), metric_line).group(1)
-    return int(metric)
+def _get_i6_metric():
+    """Returns a dict containing all IPv6 interfaces' metric,
+    ordered by their interface index.
+    """
+    query_cmd = "netsh interface ipv6 show interfaces level=verbose"
+    stdout = POWERSHELL_PROCESS.query([query_cmd])
+    res = {}
+    _buffer = []
+    _pattern = re.compile(".*:\s+(\d+)")
+    for _line in stdout:
+        if not _line.strip():
+            continue
+        _buffer.append(_line)
+        if len(_buffer) == 32:  # An interface, with all its parameters, is 32 lines long
+            if_index = re.search(_pattern, _buffer[3]).group(1)
+            if_metric = int(re.search(_pattern, _buffer[5]).group(1))
+            res[if_index] = if_metric
+            _buffer = []
+    return res
 
 def _read_routes6_7():
     # Not supported in powershell, we have to use netsh
     routes = []
-    ps = sp.Popen([conf.prog.cmd, '/c', 'netsh interface ipv6 show route level=verbose'], stdout = sp.PIPE)
-    stdout, stdin = ps.communicate()
-    stdout = stdout.decode("utf8", "ignore")
+    query_cmd = "netsh interface ipv6 show route level=verbose"
+    stdout = POWERSHELL_PROCESS.query([query_cmd])
     lifaddr = in6_getifaddr()
+    if6_metrics = _get_i6_metric()
     # Define regexes
     r_int = [".*:\s+(\d+)"]
     r_all = ["(.*)"]
@@ -848,7 +931,7 @@ def _read_routes6_7():
     regex_list = r_ipv6*2 + r_int + r_all*3 + r_int + r_all*3
     current_object =  []
     index = 0
-    for l in stdout.split('\n'):
+    for l in stdout:
         if not l.strip():
             if not current_object:
                 continue
@@ -864,8 +947,12 @@ def _read_routes6_7():
                 _ip = current_object[0].split("/")
                 dpref = _ip[0]
                 dp = int(_ip[1])
-                nh = current_object[1].split("/")[0]
-                metric = int(current_object[6]) + _get_i6_metric(if_index)
+                _match = re.search(r_ipv6[0], current_object[3])
+                nh = "::"
+                if _match: # Detect if Next Hop is specified (if not, it will be the IFName)
+                    _nhg1 = _match.group(1)
+                    nh = _nhg1 if re.match(".*:.*:.*", _nhg1) else "::"
+                metric = int(current_object[6]) + if6_metrics.get(if_index, 0)
                 _append_route6(routes, dpref, dp, nh, iface, lifaddr, metric)
 
             # Reset current object
@@ -896,7 +983,7 @@ def get_working_if():
     try:
         # return the interface associated with the route with smallest
         # mask (route by default if it exists)
-        return min(read_routes(), key=lambda x: x[1])[3]
+        return min(conf.route.routes, key=lambda x: x[1])[3]
     except ValueError:
         # no route
         return scapy.consts.LOOPBACK_INTERFACE

@@ -49,10 +49,10 @@ def dev_from_index_custom(if_index):
             return iface
     raise ValueError("Unknown network interface index %r" % if_index)
 
-@mock.patch("scapy.utils6.construct_source_candidate_set")
-@mock.patch("scapy.arch.windows.winpcapy_get_if_list")
+@mock.patch("scapy.arch.windows.construct_source_candidate_set")
+@mock.patch("scapy.arch.windows.get_if_list")
 @mock.patch("scapy.arch.windows.dev_from_index")
-@mock.patch("scapy.arch.windows.sp.Popen")
+@mock.patch("scapy.arch.windows.POWERSHELL_PROCESS.query")
 def test_read_routes6_windows(mock_comm, mock_dev_from_index, mock_winpcapylist, mock_utils6cset):
     """Test read_routes6() on Windows"""
     # 'Get-NetRoute -AddressFamily IPV6 | select ifIndex, DestinationPrefix, NextHop'
@@ -140,8 +140,8 @@ DestinationPrefix : ::/0
 NextHop           : fe80::224:d4ff:fea0:a6d7
 RouteMetric       : 0
 InterfaceMetric   : 256
-""".split("\n")
-    mock_comm.return_value = Bunch(stdout=get_net_route_output)
+"""
+    mock_comm.return_value = get_net_route_output.split("\n")
     mock_winpcapylist.return_value = [u'\\Device\\NPF_{0EC72537-B662-4F5D-B34E-48BFAE799BBE}', u'\\Device\\NPF_{C56DFFB3-992C-4964-B000-3E7C0F76E8BA}']
     # Mocked in6_getifaddr() output
     mock_dev_from_index.side_effect = dev_from_index_custom

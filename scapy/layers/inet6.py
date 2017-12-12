@@ -44,6 +44,7 @@ from scapy.config import conf
 from scapy.base_classes import *
 from scapy.data import *
 from scapy.compat import *
+import scapy.consts
 from scapy.fields import *
 from scapy.packet import *
 from scapy.volatile import *
@@ -117,12 +118,8 @@ def getmacbyip6(ip6, chainCC=0):
 
     iff,a,nh = conf.route6.route(ip6)
 
-    if isinstance(iff, six.string_types):
-        if iff == LOOPBACK_NAME:
-            return "ff:ff:ff:ff:ff:ff"
-    else:
-        if iff.name == LOOPBACK_NAME:
-            return "ff:ff:ff:ff:ff:ff"
+    if iff == scapy.consts.LOOPBACK_INTERFACE:
+        return "ff:ff:ff:ff:ff:ff"
 
     if nh != '::':
         ip6 = nh # Found next hop
