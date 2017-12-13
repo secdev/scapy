@@ -32,6 +32,24 @@ be cross platform, and supports many different platforms such as Linux, OSX, Win
 
 ## Hands-on ##
 
+## Installation ##
+
+Scapy works without any external Python modules on Linux and BSD like operating
+systems. On Windows, you need to install some mandatory dependencies as
+described in [the
+documentation](http://scapy.readthedocs.io/en/latest/installation.html#windows).
+
+On most systems, install Scapy is as simple as running the following commands:
+```
+$ pip install git+https://github.com/secdev/scapy
+```
+
+To benefit from all Scapy features, such as plotting, you might want to install
+Python modules, such as `matplotlib` or `cryptography`. See the
+[documentation](http://scapy.readthedocs.io/en/latest/installation.html) and
+follow the instructions to install them.
+
+
 ### Interactive shell ###
 
 Scapy can easily be used as an interactive shell to interact with the network.
@@ -82,25 +100,6 @@ session](http://scapy.readthedocs.io/en/latest/introduction.html#quick-demo)
 (some examples may be outdated), or play with the
 [HTTP/2](doc/notebooks/HTTP_2_Tuto.ipynb) and [TLS](doc/notebooks/tls)
 notebooks.
-
-
-## Installation ##
-
-Scapy works without any external Python modules on Linux and BSD like operating
-systems. On Windows, you need to install some mandatory dependencies as
-described in [the
-documentation](http://scapy.readthedocs.io/en/latest/installation.html#windows).
-
-On most systems, install Scapy is as simple as running the following commands:
-```
-$ pip install git+https://github.com/secdev/scapy
-```
-
-To benefit from all Scapy features, such as plotting, you might want to install
-Python modules, such as `matplotlib` or `cryptography`. See the
-[documentation](http://scapy.readthedocs.io/en/latest/installation.html) and
-follow the instructions to install them.
-
 
 ## Contributing ##
 
