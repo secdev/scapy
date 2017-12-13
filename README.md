@@ -91,7 +91,7 @@ systems. On Windows, you need to install some mandatory dependencies as
 described in [the
 documentation](http://scapy.readthedocs.io/en/latest/installation.html#windows).
 
-On most systems, using Scapy is as simple as running the following commands:
+On most systems, install Scapy is as simple as running the following commands:
 ```
 $ pip install git+https://github.com/secdev/scapy
 ```
