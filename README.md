@@ -32,11 +32,6 @@ be cross platform, and supports many different platforms such as Linux, OSX, Win
 
 ## Hands-on ##
 
-### Install ###
-```bash
-pip install git+https://github.com/secdev/scapy
-```
-
 ### Interactive shell ###
 
 Scapy can easily be used as an interactive shell to interact with the network.
@@ -102,6 +97,10 @@ git clone https://github.com/secdev/scapy
 cd scapy
 ./run_scapy
 >>>
+```
+or
+```
+pip install git+https://github.com/sendev
 ```
 
 To benefit from all Scapy features, such as plotting, you might want to install
