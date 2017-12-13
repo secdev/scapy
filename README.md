@@ -56,8 +56,8 @@ Scapy can easily be used as an interactive shell to interact with the network.
 The following example shows how to send an ICMP Echo Request message to
 `github.com`, then display the reply source IP address:
 
-```python
-sudo ./run_scapy 
+```bash
+$ scapy
 Welcome to Scapy
 >>> p = IP(dst="github.com")/ICMP()
 >>> r = sr1(p)
