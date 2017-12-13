@@ -93,14 +93,7 @@ documentation](http://scapy.readthedocs.io/en/latest/installation.html#windows).
 
 On most systems, using Scapy is as simple as running the following commands:
 ```
-git clone https://github.com/secdev/scapy
-cd scapy
-./run_scapy
->>>
-```
-or
-```
-pip install git+https://github.com/sendev
+$ pip install git+https://github.com/secdev/scapy
 ```
 
 To benefit from all Scapy features, such as plotting, you might want to install
