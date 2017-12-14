@@ -35,10 +35,7 @@ class RandASN1Object(RandField):
         elif issubclass(o, ASN1_IPADDRESS):
             z = RandIP()._fix()
             return o(z)
-        elif issubclass(o, ASN1_GENERALIZED_TIME):
-            z = GeneralizedTime()._fix()
-            return o(z)
-        elif issubclass(o, ASN1_UTC_TIME):
+        elif issubclass(o, ASN1_GENERALIZED_TIME) or issubclass(o, ASN1_UTC_TIME):
             z = GeneralizedTime()._fix()
             return o(z)
         elif issubclass(o, ASN1_STRING):
