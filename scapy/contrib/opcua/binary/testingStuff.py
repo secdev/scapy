@@ -45,7 +45,7 @@ if __name__ == '__main__':
     # print(msg[28:])
     # UaResponseHeader(msg[28:]).show2()
     # test = UaMessage(msg[24:])
-    test = UaDiagnosticInfo()
+    test = UaLocalizedText()
     test.show()
     test.show2()
     print(repr(test.build()))

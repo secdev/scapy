@@ -6,6 +6,17 @@ from scapy.fields import Field, PacketField, ConditionalField
 import binascii
 
 
+def _make_check_encoding_mask_function(field, mask):
+    def has_field(p):
+        if getattr(p, field) is not None:
+            return True
+        if p.EncodingMask is None:
+            return False
+        return p.getfieldval("EncodingMask") & mask
+
+    return has_field
+
+
 class UaBooleanField(Field):
     """ Field type that represents the UA Boolean data type
 
@@ -291,26 +302,12 @@ class UaQualifiedName(UaTypePacket):
                    PacketField("Name", UaString(), UaString)]
 
 
-def _has_locale(p):
-    if p.Locale is not None:
-        return True
-    if p.EncodingMask is None:
-        return False
-    return p.getfieldval("EncodingMask") & 0x1
-
-
-def _has_text(p):
-    if p.Text is not None:
-        return True
-    if p.EncodingMask is None:
-        return False
-    return p.getfieldval("EncodingMask") & 0x2
-
-
 class UaLocalizedText(UaTypePacket):
     fields_desc = [UaByteField("EncodingMask", None),
-                   ConditionalField(PacketField("Locale", None, UaString), _has_locale),
-                   ConditionalField(PacketField("Text", None, UaString), _has_text)]
+                   ConditionalField(PacketField("Locale", None, UaString),
+                                    _make_check_encoding_mask_function("Locale", 0x01)),
+                   ConditionalField(PacketField("Text", None, UaString),
+                                    _make_check_encoding_mask_function("Text", 0x02))]
 
     def post_build(self, pkt, pay):
 
@@ -517,70 +514,20 @@ class UaExtensionObject(UaTypePacket):
     pass
 
 
-def _di_has_symbolic_id(p):
-    if p.SymbolicId is not None:
-        return True
-    if p.EncodingMask is None:
-        return False
-    return p.getfieldval("EncodingMask") & 0x01
-
-
-def _di_has_namespace_uri(p):
-    if p.NamespaceUri is not None:
-        return True
-    if p.EncodingMask is None:
-        return False
-    return p.getfieldval("EncodingMask") & 0x02
-
-
-def _di_has_localized_text(p):
-    if p.LocalizedText is not None:
-        return True
-    if p.EncodingMask is None:
-        return False
-    return p.getfieldval("EncodingMask") & 0x04
-
-
-def _di_has_locale(p):
-    if p.Locale is not None:
-        return True
-    if p.EncodingMask is None:
-        return False
-    return p.getfieldval("EncodingMask") & 0x08
-
-
-def _di_has_additional_info(p):
-    if p.AdditionalInfo is not None:
-        return True
-    if p.EncodingMask is None:
-        return False
-    return p.getfieldval("EncodingMask") & 0x10
-
-
-def _di_has_inner_statuscode(p):
-    if p.InnerStatusCode is not None:
-        return True
-    if p.EncodingMask is None:
-        return False
-    return p.getfieldval("EncodingMask") & 0x20
-
-
-def _di_has_inner_diagnostic_info(p):
-    if p.InnerDiagnosticInfo is not None:
-        return True
-    if p.EncodingMask is None:
-        return False
-    return p.getfieldval("EncodingMask") & 0x40
-
-
 class UaDiagnosticInfo(UaTypePacket):
     fields_desc = [UaByteField("EncodingMask", None),
-                   ConditionalField(UaInt32Field("SymbolicId", None), _di_has_symbolic_id),
-                   ConditionalField(UaInt32Field("NamespaceUri", None), _di_has_namespace_uri),
-                   ConditionalField(UaInt32Field("LocalizedText", None), _di_has_localized_text),
-                   ConditionalField(UaInt32Field("Locale", None), _di_has_locale),
-                   ConditionalField(PacketField("AdditionalInfo", None, UaString), _di_has_additional_info),
-                   ConditionalField(UaStatusCodeField("InnerStatusCode", None), _di_has_inner_statuscode)]
+                   ConditionalField(UaInt32Field("SymbolicId", None),
+                                    _make_check_encoding_mask_function("SymbolicId", 0x01)),
+                   ConditionalField(UaInt32Field("NamespaceUri", None),
+                                    _make_check_encoding_mask_function("NamespaceUri", 0x02)),
+                   ConditionalField(UaInt32Field("LocalizedText", None),
+                                    _make_check_encoding_mask_function("LocalizedText", 0x04)),
+                   ConditionalField(UaInt32Field("Locale", None),
+                                    _make_check_encoding_mask_function("Locale", 0x08)),
+                   ConditionalField(PacketField("AdditionalInfo", None, UaString),
+                                    _make_check_encoding_mask_function("AdditionalInfo", 0x10)),
+                   ConditionalField(UaStatusCodeField("InnerStatusCode", None),
+                                    _make_check_encoding_mask_function("InnerStatusCode", 0x20))]
 
     def post_build(self, pkt, pay):
 
@@ -613,4 +560,4 @@ class UaDiagnosticInfo(UaTypePacket):
 
 
 UaDiagnosticInfo.fields_desc.append(ConditionalField(PacketField("InnerDiagnosticInfo", None, UaDiagnosticInfo),
-                                                     _di_has_inner_diagnostic_info))
+                                                     _make_check_encoding_mask_function("InnerDiagnosticInfo", 0x40)))
