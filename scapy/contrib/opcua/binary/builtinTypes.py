@@ -256,20 +256,26 @@ def _ua_str_len_function(p):
 
 class UaByteString(UaTypePacket):
     fields_desc = [UaInt32Field("length", None),
-                   ByteListField("data", b'', UaByteField("", 0), length_from=_ua_str_len_function)]
+                   ByteListField("data", None, UaByteField("", None), length_from=_ua_str_len_function)]
 
     def post_build(self, pkt, pay):
         lengthField, length = self.getfield_and_val("length")
         if length is None:
             dataPart = pkt[lengthField.sz:]
-            sizePart = lengthField.addfield(self, b'', len(dataPart))
+            if self.getfieldval("data") is None:
+                sizePart = lengthField.addfield(self, b'', -1)
+            else:
+                sizePart = lengthField.addfield(self, b'', len(dataPart))
             return sizePart + dataPart + pay
         return pkt + pay
 
+    def post_dissect(self, s):
+        self.setfieldval("data", None)
+        return s
 
 class UaString(UaByteString):
     fields_desc = [UaInt32Field("length", None),
-                   ByteListField("data", b'', UaByteField("", 0), length_from=_ua_str_len_function,
+                   ByteListField("data", None, UaByteField("", None), length_from=_ua_str_len_function,
                                  decode_callback=lambda s: s.decode("utf8"),
                                  encode_callback=lambda s: s.encode("utf8"))]
 

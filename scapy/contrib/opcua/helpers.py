@@ -34,14 +34,13 @@ class ByteListField(Field):
                                 is more readable.
         :param encode_callback: gets a string object and should return an encoded bytes object
         """
-        if default is None:
-            default = []  # Create a new list for each instance
         self.field = field
         Field.__init__(self, name, default)
         self.count_from = count_from
         self.length_from = length_from
         self.decode_callback = decode_callback
         self.encode_callback = encode_callback
+        self.default = default
 
         if self.field.sz != 1:
             raise TypeError("Field has to be byte size")
@@ -60,16 +59,20 @@ class ByteListField(Field):
         return val
 
     def any2i(self, pkt, x):
-        if isinstance(x, bytes):
+        if x is None:
+            return None
+        elif isinstance(x, bytes):
             return [self.field.any2i(pkt, x[i:i + 1]) for i in range(len(x))]
         elif isinstance(x, str):
             return self.any2i(pkt, self.encode_callback(x))
-        if not isinstance(x, list):
+        elif not isinstance(x, list):
             return [self.field.any2i(pkt, x)]
         else:
             return [self.field.any2i(pkt, e) for e in x]
 
     def i2repr(self, pkt, x):
+        if x is None:
+            return repr(None)
         res = []
         for v in x:
             res.append(bytes(bytearray([v])))

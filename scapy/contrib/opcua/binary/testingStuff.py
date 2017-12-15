@@ -39,6 +39,6 @@ if __name__ == '__main__':
     # UaResponseHeader(msg[28:]).show2()
     # test = UaMessage(msg[24:])
     test = UaAxisInformation()
-    #test.show()
+    test.show()
     test.show2()
     print(repr(test.build()))
