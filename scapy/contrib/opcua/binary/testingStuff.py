@@ -17,6 +17,13 @@ def read_pcap():
     return pc
 
 
+class Test(Packet):
+    fields_desc = [UaInt32Field("theAnswer", 42)]
+
+
+Test.fields_desc.append(PacketField("test", None, Test))
+
+
 if __name__ == '__main__':
     conf.debug_dissector = True
     # test = UaBinary()/UaSecureConversation()
@@ -38,7 +45,7 @@ if __name__ == '__main__':
     # print(msg[28:])
     # UaResponseHeader(msg[28:]).show2()
     # test = UaMessage(msg[24:])
-    test = UaAxisInformation()
+    test = UaDiagnosticInfo()
     test.show()
     test.show2()
     print(repr(test.build()))

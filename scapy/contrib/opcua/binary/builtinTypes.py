@@ -270,8 +270,10 @@ class UaByteString(UaTypePacket):
         return pkt + pay
 
     def post_dissect(self, s):
-        self.setfieldval("data", None)
+        if self.getfieldval("length") == -1:
+            self.setfieldval("data", None)
         return s
+
 
 class UaString(UaByteString):
     fields_desc = [UaInt32Field("length", None),
@@ -515,6 +517,100 @@ class UaExtensionObject(UaTypePacket):
     pass
 
 
+def _di_has_symbolic_id(p):
+    if p.SymbolicId is not None:
+        return True
+    if p.EncodingMask is None:
+        return False
+    return p.getfieldval("EncodingMask") & 0x01
+
+
+def _di_has_namespace_uri(p):
+    if p.NamespaceUri is not None:
+        return True
+    if p.EncodingMask is None:
+        return False
+    return p.getfieldval("EncodingMask") & 0x02
+
+
+def _di_has_localized_text(p):
+    if p.LocalizedText is not None:
+        return True
+    if p.EncodingMask is None:
+        return False
+    return p.getfieldval("EncodingMask") & 0x04
+
+
+def _di_has_locale(p):
+    if p.Locale is not None:
+        return True
+    if p.EncodingMask is None:
+        return False
+    return p.getfieldval("EncodingMask") & 0x08
+
+
+def _di_has_additional_info(p):
+    if p.AdditionalInfo is not None:
+        return True
+    if p.EncodingMask is None:
+        return False
+    return p.getfieldval("EncodingMask") & 0x10
+
+
+def _di_has_inner_statuscode(p):
+    if p.InnerStatusCode is not None:
+        return True
+    if p.EncodingMask is None:
+        return False
+    return p.getfieldval("EncodingMask") & 0x20
+
+
+def _di_has_inner_diagnostic_info(p):
+    if p.InnerDiagnosticInfo is not None:
+        return True
+    if p.EncodingMask is None:
+        return False
+    return p.getfieldval("EncodingMask") & 0x40
+
+
 class UaDiagnosticInfo(UaTypePacket):
-    # TODO: Implement
-    pass
+    fields_desc = [UaByteField("EncodingMask", None),
+                   ConditionalField(UaInt32Field("SymbolicId", None), _di_has_symbolic_id),
+                   ConditionalField(UaInt32Field("NamespaceUri", None), _di_has_namespace_uri),
+                   ConditionalField(UaInt32Field("LocalizedText", None), _di_has_localized_text),
+                   ConditionalField(UaInt32Field("Locale", None), _di_has_locale),
+                   ConditionalField(PacketField("AdditionalInfo", None, UaString), _di_has_additional_info),
+                   ConditionalField(UaStatusCodeField("InnerStatusCode", None), _di_has_inner_statuscode)]
+
+    def post_build(self, pkt, pay):
+
+        encodingMaskField, encodingMask = self.getfield_and_val("EncodingMask")
+
+        if encodingMask is not None:
+            return pkt + pay
+
+        encodingMask = 0
+        rest = pkt[encodingMaskField.sz:]
+
+        if self.SymbolicId is not None:
+            encodingMask |= 0x01
+        if self.NamespaceUri is not None:
+            encodingMask |= 0x02
+        if self.LocalizedText is not None:
+            encodingMask |= 0x04
+        if self.Locale is not None:
+            encodingMask |= 0x08
+        if self.AdditionalInfo is not None:
+            encodingMask |= 0x10
+        if self.InnerStatusCode is not None:
+            encodingMask |= 0x20
+        if self.InnerDiagnosticInfo is not None:
+            encodingMask |= 0x40
+
+        self.EncodingMask = encodingMask
+        maskPart = encodingMaskField.addfield(self, b'', encodingMask)
+        return maskPart + rest + pay
+
+
+UaDiagnosticInfo.fields_desc.append(ConditionalField(PacketField("InnerDiagnosticInfo", None, UaDiagnosticInfo),
+                                                     _di_has_inner_diagnostic_info))
