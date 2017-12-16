@@ -42,18 +42,23 @@ class UaMessage(UaTypePacket):
     fields_desc = [PacketField("DataTypeEncoding", UaNodeId(), UaNodeId),
                    PacketField("Message", None, UaTypePacket)]
 
+    _cache = {}
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kwargs):
         if _pkt is not None:
             nodeId = UaExpandedNodeId(_pkt)
 
             if nodeId.Identifier in nodeIdMappings:
+                if nodeId.Identifier in UaMessage._cache:
+                    return UaMessage._cache[nodeId.Identifier]
+
                 dispatchedClass = nodeIdMappings[nodeId.Identifier]
                 fields_desc = [PacketField("DataTypeEncoding", UaNodeId(), UaNodeId),
                                PacketField("Message", dispatchedClass(), dispatchedClass)]
                 newDict = dict(cls.__dict__)
                 newDict["fields_desc"] = fields_desc
-                return type(cls.__name__, cls.__bases__, newDict)
+                UaMessage._cache[nodeId.Identifier] = type(cls.__name__, cls.__bases__, newDict)
+                return UaMessage._cache[nodeId.Identifier]
 
         return cls
 

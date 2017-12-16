@@ -13,15 +13,8 @@ from scapy.contrib.opcua.binary.schemaTypes import *
 
 
 def read_pcap():
-    pc = rdpcap("/home/infinity/bachelor/pcaps/open62541_example_client_server_policy_none.pcapng", 35)
+    pc = rdpcap("/home/infinity/bachelor/pcaps/open62541_example_client_server_policy_none.pcapng", 40)
     return pc
-
-
-class Test(Packet):
-    fields_desc = [UaInt32Field("theAnswer", 42)]
-
-
-Test.fields_desc.append(PacketField("test", None, Test))
 
 
 if __name__ == '__main__':
@@ -31,7 +24,7 @@ if __name__ == '__main__':
     # pc2 = rdpcap("/home/infinity/bachelor/pcaps/ipfragmented2.pcapng")
 
     #pc = read_pcap()
-    #test = pc[24]
+    #test = pc[39]
 
     # test = UaSecureConversationSymmetric(DataTypeEncoding=UaExpandedNodeId(NamespaceUri=UaString(data="asdf")))
     # test = UaSecureConversationSymmetric(b"MSGF'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x82\x00\x00\x00\x00\x00\x00\x04\x00\x00\x00asdf")
@@ -45,7 +38,13 @@ if __name__ == '__main__':
     # print(msg[28:])
     # UaResponseHeader(msg[28:]).show2()
     # test = UaMessage(msg[24:])
-    test = UaLocalizedText()
-    test.show()
-    test.show2()
-    print(repr(test.build()))
+    #bstr = bytearray.fromhex("525dd5fbd948d3010b0000000000000000ffffffff0000000100000001000000010000000001000000525dd5fbd948d3010100000001002b03011a000000010000000100000005062a000000ec1489fbd948d301ffffffffffffffffffffffff")
+    #test = UaPublishResponse()
+    #test.show()
+    #test.show2()
+    #print(repr(test.build()))
+    testmsg = bytearray.fromhex("01003d03525dd5fbd948d3010b0000000000000000ffffffff0000000100000001000000010000000001000000525dd5fbd948d3010100000001002b03011a000000010000000100000005062a000000ec1489fbd948d301ffffffffffffffffffffffff")
+    def to_time():
+        UaMessage.dispatch_hook(testmsg)
+
+    print(timeit.timeit(to_time, number=10000))

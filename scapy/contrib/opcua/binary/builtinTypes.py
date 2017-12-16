@@ -337,12 +337,6 @@ class UaEnumerationField(UaInt32Field):
     pass
 
 
-# TODO: Implement correctly
-class UaVariant(UaTypePacket):
-    fields_desc = [UaByteField("EncodingMask", None),
-                   UaInt32Field("ArrayLength", None)]
-
-
 class UaNodeId(UaTypePacket):
     fields_desc = [UaByteField("Encoding", 0x02),
                    UaUInt16Field("Namespace", 0),
@@ -449,6 +443,7 @@ class UaByteStringNodeId(UaNodeId):
         return super(UaByteStringNodeId, cls).dispatch_hook(_pkt, args, kwargs)
 
 
+# TODO: use make function?
 def _id_has_uri(p):
     uri = p.getfieldval("NamespaceUri")
     if uri is not None:
@@ -502,18 +497,6 @@ class UaExpandedNodeId(UaNodeId):
         return super(UaExpandedNodeId, cls).dispatch_hook(_pkt, *args, **kwargs)
 
 
-class UaDataValue(UaTypePacket):
-    # TODO: Implement
-    pass
-
-
-class UaExtensionObject(UaTypePacket):
-    fields_desc = [PacketField("TypeId", UaNodeId(), UaExpandedNodeId),
-                   UaByteField("Encoding", 0x00)]
-    # TODO: Implement
-    pass
-
-
 class UaDiagnosticInfo(UaTypePacket):
     fields_desc = [UaByteField("EncodingMask", None),
                    ConditionalField(UaInt32Field("SymbolicId", None),
@@ -561,3 +544,59 @@ class UaDiagnosticInfo(UaTypePacket):
 
 UaDiagnosticInfo.fields_desc.append(ConditionalField(PacketField("InnerDiagnosticInfo", None, UaDiagnosticInfo),
                                                      _make_check_encoding_mask_function("InnerDiagnosticInfo", 0x40)))
+
+
+class UaExtensionObject(UaTypePacket):
+    fields_desc = [PacketField("TypeId", UaNodeId(), UaExpandedNodeId),
+                   UaByteField("Encoding", 0x00)]
+    # TODO: Implement
+    pass
+
+
+# TODO: Implement correctly
+class UaVariant(UaTypePacket):
+    fields_desc = [UaByteField("EncodingMask", None),
+                   UaInt32Field("ArrayLength", None)]
+
+
+class UaDataValue(UaTypePacket):
+    fields_desc = [UaByteField("EncodingMask", None),
+                   ConditionalField(PacketField("Value", None, UaVariant),
+                                    _make_check_encoding_mask_function("Value", 0x01)),
+                   ConditionalField(UaStatusCodeField("Status", None),
+                                    _make_check_encoding_mask_function("Status", 0x02)),
+                   ConditionalField(UaDateTimeField("SourceTimestamp", None),
+                                    _make_check_encoding_mask_function("SourceTimestamp", 0x04)),
+                   ConditionalField(UaUInt16Field("SourcePicoSeconds", None),
+                                    _make_check_encoding_mask_function("SourcePicoSeconds", 0x10)),
+                   ConditionalField(UaDateTimeField("ServerTimestamp", None),
+                                    _make_check_encoding_mask_function("ServerTimestamp", 0x08)),
+                   ConditionalField(UaUInt16Field("ServerPicoSeconds", None),
+                                    _make_check_encoding_mask_function("ServerPicoSeconds", 0x20))]
+
+    def post_build(self, pkt, pay):
+
+        encodingMaskField, encodingMask = self.getfield_and_val("EncodingMask")
+
+        if encodingMask is not None:
+            return pkt + pay
+
+        encodingMask = 0
+        rest = pkt[encodingMaskField.sz:]
+
+        if self.Value is not None:
+            encodingMask |= 0x01
+        if self.Status is not None:
+            encodingMask |= 0x02
+        if self.SourceTimestamp is not None:
+            encodingMask |= 0x04
+        if self.SourcePicoSeconds is not None:
+            encodingMask |= 0x10
+        if self.ServerTimestamp is not None:
+            encodingMask |= 0x08
+        if self.ServerPicoSeconds is not None:
+            encodingMask |= 0x20
+
+        self.EncodingMask = encodingMask
+        maskPart = encodingMaskField.addfield(self, b'', encodingMask)
+        return maskPart + rest + pay
