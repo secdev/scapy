@@ -14,7 +14,7 @@ import struct
 import time
 
 from scapy.config import conf
-from scapy.consts import LINUX, OPENBSD, BSD
+from scapy.consts import LINUX, OPENBSD, BSD, DARWIN, WINDOWS
 from scapy.data import *
 from scapy.compat import *
 from scapy.error import warning, log_runtime
@@ -199,8 +199,8 @@ class L2ListenTcpdump(SuperSocket):
                     args.extend(['-i', iface])
             else:
                 args.extend(['-i', iface])
-        elif WINDOWS:
-            args.extend(['-i', conf.iface.pcap_name])
+        elif WINDOWS or DARWIN:
+            args.extend(['-i', conf.iface.pcap_name if WINDOWS else conf.iface])
         if not promisc:
             args.append('-p')
         if not nofilter:

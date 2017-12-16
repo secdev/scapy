@@ -1048,10 +1048,18 @@ send_and_sniff(IP(dst="secdev.org")/ICMP())
 send_and_sniff(IP(dst="secdev.org")/ICMP(), flt="icmp")
 send_and_sniff(Ether()/IP(dst="secdev.org")/ICMP())
 
-a = L2ListenTcpdump()
-icmp_r = IP(dst="secdev.org")/ICMP()
-send_and_sniff(icmp_r, timeout=10, opened_socket=a)
-a.close()
+= Test L2ListenTcpdump socket
+~ netaccess
+
+read_s = L2ListenTcpdump()
+out_s = conf.L2socket()
+icmp_r = Ether()/IP(dst="secdev.org")/ICMP()
+res = sndrcv(out_s, icmp_r, timeout=5, rcv_pks=read_s)
+read_s.close()
+out_s.close()
+
+response = res[0][0][1]
+assert response[ICMP].type == 0
 
 ############
 ############

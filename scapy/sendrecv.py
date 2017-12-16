@@ -24,7 +24,7 @@ from scapy.utils import get_temp_file, PcapReader, tcpdump, wrpcap
 from scapy import plist
 from scapy.error import log_runtime, log_interactive
 from scapy.base_classes import SetGen
-from scapy.supersocket import StreamSocket, L3RawSocket
+from scapy.supersocket import StreamSocket, L3RawSocket, L2ListenTcpdump
 import scapy.modules.six as six
 from scapy.modules.six.moves import map
 from scapy.modules.six import iteritems
@@ -94,8 +94,8 @@ def _sndrcv_rcv(pks, tobesent, stopevent, nbrecv, notans, verbose, chainCC,
         def _get_pkt():
             if bpf_select([pks]):
                 return pks.recv()
-    elif (conf.use_pcap and not isinstance(pks, (StreamSocket, L3RawSocket))) or \
-         (not isinstance(pks, StreamSocket) and (DARWIN or FREEBSD or OPENBSD)):
+    elif (conf.use_pcap and not isinstance(pks, (StreamSocket, L3RawSocket, L2ListenTcpdump))) or \
+         (not isinstance(pks, (StreamSocket, L2ListenTcpdump)) and (DARWIN or FREEBSD or OPENBSD)):
         def _get_pkt():
             res = pks.nonblock_recv()
             if res is None:
@@ -159,7 +159,21 @@ def _sndrcv_rcv(pks, tobesent, stopevent, nbrecv, notans, verbose, chainCC,
     return (hsent, ans, nbrecv, notans)
 
 def sndrcv(pks, pkt, timeout=None, inter=0, verbose=None, chainCC=False,
-           retry=0, multi=False):
+           retry=0, multi=False, rcv_pks=None):
+    """Scapy raw function to send a packet and recieve its answer.
+    WARNING: This is an internal function. Using sr/srp/sr1/srp is
+    more appropriate in many cases.
+
+    pks: SuperSocket instance to send/recieve packets
+    pkt: the packet to send
+    rcv_pks: if set, will be used instead of pks to recieve packets. packets will still
+             be sent through pks
+    nofilter: put 1 to avoid use of BPF filters
+    retry:    if positive, how many times to resend unanswered packets
+              if negative, how many times to retry when no more packets are answered
+    timeout:  how much time to wait after the last packet has been sent
+    verbose:  set verbosity level
+    multi:    whether to accept multiple answers for the same stimulus"""
     if not isinstance(pkt, Gen):
         pkt = SetGen(pkt)
     if verbose is None:
@@ -191,7 +205,7 @@ def sndrcv(pks, pkt, timeout=None, inter=0, verbose=None, chainCC=False,
         thread.start()
 
         hsent, newans, nbrecv, notans = _sndrcv_rcv(
-            pks, tobesent, stopevent, nbrecv, notans, verbose, chainCC, multi,
+            (rcv_pks or pks), tobesent, stopevent, nbrecv, notans, verbose, chainCC, multi,
         )
         thread.join()
         ans.extend(newans)
