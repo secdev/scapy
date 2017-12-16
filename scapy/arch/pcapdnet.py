@@ -548,7 +548,7 @@ if conf.use_dnet:
             i = dnet.intf()
             try:
                 return i.get(ifname)["addr"].data
-            except OSError:
+            except (OSError, KeyError):
                 warning("No MAC address found on %s !" % ifname)
                 return b"\0\0\0\0"
 
