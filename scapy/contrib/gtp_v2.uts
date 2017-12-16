@@ -284,6 +284,17 @@ ie.ietype == 114 and ie.Timezone == 20 and ie.DST == 0
 ie = IE_UE_Timezone(ietype='UE Time zone', length=2, Timezone=20, DST=1)
 ie.ietype == 114 and ie.Timezone == 20 and ie.DST == 1
 
+= IE_Port_Number, dissection
+h = "00010203040800808e8f8ab608004500004100010000401169140b00019705000001ec45084b002da8524820001d00000000006e400001000700420061896453f44a0004005f1e1d737e0002004532"
+gtp = Ether(hex_bytes(h))
+ie = gtp.IE_list[2]
+ie.PortNumber == 17714
+
+= IE_Port_Number, basic instantiation
+ie = IE_Port_Number(
+    ietype='Port Number', length=2, PortNumber=17714)
+ie.ietype == 126 and ie.PortNumber == 17714
+
 = IE_APN_Restriction, dissection
 h = "3333333333332222222222228100838408004580006d00000000f31180d20a2a00010a2a0002084b85930059e49a4823004d55819f6500ede7000200020010004c000600111111111111490001003248000800000061a8000249f07f000100005d001300490001000b0200020010005e00040039004f454a0004007f00000436f73a63"
 gtp = Ether(hex_bytes(h))
