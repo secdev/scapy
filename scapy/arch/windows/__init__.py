@@ -31,7 +31,6 @@ conf.use_pcap = False
 conf.use_dnet = False
 conf.use_winpcapy = True
 
-WINDOWS = (os.name == 'nt')
 NEW_RELEASE = None
 
 #hot-patching socket for missing variables on Windows
@@ -51,6 +50,7 @@ from scapy.arch.pcapdnet import *
 _WlanHelper = NPCAP_PATH + "\\WlanHelper.exe"
 
 import scapy.consts
+from scapy.consts import WINDOWS
 
 def is_new_release(ignoreVBS=False):
     if NEW_RELEASE and conf.prog.powershell is not None:
