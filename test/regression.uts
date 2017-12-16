@@ -791,9 +791,11 @@ assert(len(tmp) == 1)
 = Sending an ICMP message 'forever' at layer 2 and layer 3
 ~ netaccess IP ICMP
 tmp = srloop(IP(dst="8.8.8.8")/ICMP(), count=1)
+tmp
 assert(type(tmp) == tuple and len(tmp[0]) == 1)
 
 tmp = srploop(Ether()/IP(dst="8.8.8.8")/ICMP(), count=1)
+tmp
 assert(type(tmp) == tuple and len(tmp[0]) == 1)
 
 = Sending and receiving an ICMP with flooding methods

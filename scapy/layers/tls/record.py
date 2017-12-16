@@ -197,6 +197,10 @@ class _TLSMsgListField(PacketListField):
         hdr = struct.pack("!B", pkt.type) + s[1:5]
         return hdr + res
 
+class TLSContinuation(_GenericTLSSessionInheritance, Padding):
+    """Padding layer for TLS"""
+    name = "TLS Continuation Data"
+    fields_desc = [ StrField("load", "") ]
 
 class TLS(_GenericTLSSessionInheritance):
     """
@@ -288,6 +292,8 @@ class TLS(_GenericTLSSessionInheritance):
                     if s.rcs and not isinstance(s.rcs.cipher, Cipher_NULL):
                         from scapy.layers.tls.record_tls13 import TLS13
                         return TLS13
+        if _pkt and len(_pkt) < 5: # TLS Continuation packet
+            return TLSContinuation
         return TLS
 
     ### Parsing methods
