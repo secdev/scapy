@@ -5544,6 +5544,10 @@ pcapfile = BytesIO(b'\xd4\xc3\xb2\xa1\x02\x00\x04\x00\x00\x00\x00\x00\x00\x00\x0
 values = [tuple(int(val) for val in line[:-1].split(b'\t')) for line in tcpdump(pcapfile, prog=conf.prog.tshark, getfd=True, args=['-T', 'fields', '-e', 'ip.ttl', '-e', 'ip.proto'])]
 assert values == [(64, 6), (64, 17), (64, 1)]
 
+= Run scapy's tshark command
+~ netaccess
+tshark(count=1, timeout=3)
+
 = Check Raw IP pcap files
 
 import tempfile
