@@ -236,6 +236,30 @@ sniff(count=3)
 p.stop()
 assert c.q.get()
 
+= Test exhausted AutoSource and SniffSource
+
+import mock
+from scapy.error import Scapy_Exception
+
+def _fail():
+    raise Scapy_Exception()
+
+a = AutoSource()
+a._send = mock.MagicMock(side_effect=_fail)
+a._wake_up()
+try:
+    a.deliver()
+except:
+    pass
+
+s = SniffSource()
+s.s = mock.MagicMock()
+s.s.recv = mock.MagicMock(side_effect=_fail)
+try:
+    s.deliver()
+except:
+    pass
+
 = Test RdpcapSource and WrpcapSink
 ~ needs_root
 

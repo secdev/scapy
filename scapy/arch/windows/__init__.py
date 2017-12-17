@@ -455,8 +455,14 @@ class NetworkInterface(object):
         if not conf.use_npcap:
             raise OSError("This operation requires Npcap.")
         if self.raw80211 is None:
-            dot11adapters = next(iter(_vbs_exec_code("""WScript.Echo CreateObject("WScript.Shell").RegRead("HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\npcap\\Parameters\\Dot11Adapters")""")))
-            self.raw80211 = ("\\Device\\" + self.guid).lower() in dot11adapters.lower()
+            # This checks if npcap has Dot11 enabled and if the interface is compatible,
+            # by looking for the npcap/Parameters/Dot11Adapters key in the registry.
+            try:
+                dot11adapters = next(iter(_vbs_exec_code("""WScript.Echo CreateObject("WScript.Shell").RegRead("HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\npcap\\Parameters\\Dot11Adapters")""")))
+            except StopIteration:
+                pass
+            else:
+                self.raw80211 = ("\\Device\\" + self.guid).lower() in dot11adapters.lower()
         if not self.raw80211:
             raise Scapy_Exception("This interface does not support raw 802.11")
 
@@ -1019,6 +1025,7 @@ def route_add_loopback(routes=None, ipv6=False, iflist=None):
     }
     data['pcap_name'] = six.text_type("\\Device\\NPF_" + data['guid'])
     adapter = NetworkInterface(data)
+    adapter.ip = "127.0.0.1"
     if iflist:
         iflist.append(adapter.pcap_name)
         return
@@ -1032,7 +1039,7 @@ def route_add_loopback(routes=None, ipv6=False, iflist=None):
         if iface.name == scapy.consts.LOOPBACK_NAME:
             IFACES.pop(devname)
     # Inject interface
-    IFACES[data['guid']] = adapter
+    IFACES["{0XX00000-X000-0X0X-X00X-00XXXX000XXX}"] = adapter
     scapy.consts.LOOPBACK_INTERFACE = adapter
     if isinstance(conf.iface, NetworkInterface):
         if conf.iface.name == LOOPBACK_NAME:

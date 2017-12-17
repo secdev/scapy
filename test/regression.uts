@@ -2280,6 +2280,7 @@ a.code==0 and a.R==0 and a.S==0 and a.O==0 and a.res==0 and a.tgt=="::"
 = ICMPv6ND_NA - Dissection with specific values
 a=ICMPv6ND_NA(b'\x88\x11\x00\x00@\x00\x00\x01\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x11\x11')
 a.code==0x11 and a.R==0 and a.S==1 and a.O==0 and a.res==1 and a.tgt=="ffff::1111"
+assert a.hashret() == b'ffff::1111'
 
 = ICMPv6ND_NS - IPv6 layer fields overloading
 a=IPv6(raw(IPv6()/ICMPv6ND_NS()))
@@ -3273,7 +3274,7 @@ conf.route6.routes=[
 (                 '2001:db8:0:4444::',  64,                       '::', 'eth0', ['2001:db8:0:4444:20f:1fff:feca:4650'], 1), 
 (                                '::',   0, 'fe80::20f:34ff:fe8a:8aa1', 'eth0', ['2001:db8:0:4444:20f:1fff:feca:4650', '2002:db8:0:4444:20f:1fff:feca:4650'], 1)
 ]
-conf.route6.route("2002::1") == ('eth0', '2002:db8:0:4444:20f:1fff:feca:4650', 'fe80::20f:34ff:fe8a:8aa1') and conf.route6.route("2001::1") == ('eth0', '2001:db8:0:4444:20f:1fff:feca:4650', 'fe80::20f:34ff:fe8a:8aa1') and conf.route6.route("fe80::20f:1fff:feab:4870") == ('eth0', 'fe80::20f:1fff:feca:4650', '::') and conf.route6.route("::1") == ('lo', '::1', '::') and conf.route6.route("::") == ('eth0', '2001:db8:0:4444:20f:1fff:feca:4650', 'fe80::20f:34ff:fe8a:8aa1')
+conf.route6.route("2002::1") == ('eth0', '2002:db8:0:4444:20f:1fff:feca:4650', 'fe80::20f:34ff:fe8a:8aa1') and conf.route6.route("2001::1") == ('eth0', '2001:db8:0:4444:20f:1fff:feca:4650', 'fe80::20f:34ff:fe8a:8aa1') and conf.route6.route("fe80::20f:1fff:feab:4870") == ('eth0', 'fe80::20f:1fff:feca:4650', '::') and conf.route6.route("::1") == ('lo', '::1', '::') and conf.route6.route("::") == ('eth0', '2001:db8:0:4444:20f:1fff:feca:4650', 'fe80::20f:34ff:fe8a:8aa1') and conf.route6.route('ff00::') == ('eth0', '2001:db8:0:4444:20f:1fff:feca:4650', 'fe80::20f:34ff:fe8a:8aa1')
 conf.route6.resync()
 if not len(conf.route6.routes):
     # IPv6 seems disabled. Force a route to ::1
@@ -5512,10 +5513,11 @@ assert pkt.nscount == 0
 assert pkt.ancount == 0
 
 = Answers - building
-a = UDP()/LLMNRResponse()
-b = UDP()/LLMNRQuery()
+a = UDP()/LLMNRResponse(id=12)
+b = UDP()/LLMNRQuery(id=12)
 assert a.answers(b)
 assert not b.answers(a)
+assert b.hashret() == b'\x00\x0c'
 
 = Answers - dissecting
 a = Ether(b'\xd0P\x99V\xdd\xf9\x14\x0cv\x8f\xfe(\x08\x00E\x00\x00(\x00\x01\x00\x00@\x11:\xa4\x7f\x00\x00\x01\xc0\xa8\x00w\x14\xeb\x14\xeb\x00\x14\x95\xcf\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')

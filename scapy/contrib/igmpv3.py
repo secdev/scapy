@@ -20,6 +20,7 @@
 from __future__ import print_function
 from scapy.packet import *
 from scapy.fields import *
+from scapy.compat import orb
 from scapy.layers.inet import *
 from scapy.contrib.igmp import IGMP
 
@@ -100,9 +101,9 @@ class IGMPv3(IGMP):
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         if _pkt and len(_pkt) >= 4:
-            if ord(_pkt[0]) in [0x12, 0x16, 0x17]:
+            if orb(_pkt[0]) in [0x12, 0x16, 0x17]:
                 return IGMP
-            elif ord(_pkt[0]) == 0x11 and len(_pkt) < 12:
+            elif orb(_pkt[0]) == 0x11 and len(_pkt) < 12:
                 return IGMP
         return IGMPv3
 

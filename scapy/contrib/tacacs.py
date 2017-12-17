@@ -42,8 +42,8 @@ def obfuscate(pay, secret, session_id, version, seq):
 
     '''
 
-    pad = ''
-    curr_pad = ''
+    pad = b""
+    curr_pad = b""
 
     # pad length must equal the payload to obfuscate.
     # pad = {MD5_1 [,MD5_2 [ ... ,MD5_n]]}
@@ -52,7 +52,7 @@ def obfuscate(pay, secret, session_id, version, seq):
 
         msg = hashlib.md5()
         msg.update(struct.pack('!I', session_id))
-        msg.update(secret)
+        msg.update(secret.encode())
         msg.update(struct.pack('!BB', version, seq))
         msg.update(curr_pad)
         curr_pad = msg.digest()
