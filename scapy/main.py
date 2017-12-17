@@ -534,6 +534,7 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
             del(six.moves.builtins.__dict__[k])
         except:
             pass
+    return 0
 
 if __name__ == "__main__":
-    interact()
+    sys.exit(interact())
