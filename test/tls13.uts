@@ -8,6 +8,14 @@
 # /!\ These tests will not catch our 'INTEGRITY CHECK FAILED's. /!\
 # We deem the knowledge of the plaintext sufficient for passing...
 
+= Build TLS13NewSessionTicket
+
+a = TLS13NewSessionTicket()
+assert isinstance(TLSNewSessionTicket(raw(a)), TLSNewSessionTicket)
+session = tlsSession()
+session.tls_version = 0x0304
+assert isinstance(TLSNewSessionTicket(raw(a), tls_session=session), TLS13NewSessionTicket)
+
 = Reading TLS 1.3 test session (vectors 5 from draft-ietf-tls-tls13-vectors-00)
 ~ crypto
 import binascii

@@ -971,7 +971,7 @@ len(t7.msg[0].load) == 478
 
 = Reading TLS Contination Data
 t8 = Ether(p8_contination)
-assert TLSContinuation in t8
+assert Raw in t8
 
 = Reading TLS msg dissect - Wrong data
 from scapy.layers.tls.record import _TLSMsgListField
@@ -1075,7 +1075,7 @@ raw(t) == b'\xde\xad\xbe\xef\xff\x01'
 
 = Building packets - TLS record with bad data
 a = TLS(b'\x17\x03\x03\x00\x03data')
-assert a.haslayer(TLSContinuation)
+assert a.haslayer(Raw)
 
 
 = Building packets - _CipherSuitesField with no cipher
