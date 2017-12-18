@@ -21,6 +21,15 @@ from scapy.data import MTU
 from scapy.consts import WINDOWS
 from scapy.error import warning, log_loading
 
+WIN_BT_SUPPORT = WINDOWS
+
+if WIN_BT_SUPPORT:
+    try:
+        from scapy.arch.windows.bluetooth_socket import *
+    except:
+        warning("Couldn't load scapy's winbluetooth api.")
+        WIN_BT_SUPPORT = False
+
 LINKTYPE_BLUETOOTH_HCI_H4 = 187
 
 ##########
@@ -809,45 +818,60 @@ class BluetoothSocketError(BaseException):
 class BluetoothCommandError(BaseException):
     pass
 
-class BluetoothL2CAPSocket(SuperSocket):
-    desc = "read/write packets on a connected L2CAP socket"
-    def __init__(self, bt_address):
-        if WINDOWS:
-            warning("Not available on Windows")
-            return
-        s = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_RAW,
-                          socket.BTPROTO_L2CAP)
-        s.connect((bt_address,0))
-        self.ins = self.outs = s
+if WINDOWS and WIN_BT_SUPPORT:
+    class BluetoothRFCommSocket(WinBTSocket):
+        desc = "read/write packets on a connected RFCOMM socket"
+    class BluetoothRFCommServerSocket(WinBTServerSocket):
+        desc = "opens a RFCOMM server socket"
+    class BluetoothL2CAPSocket(WinBTSocket):
+        desc = "read/write packets on a connected L2CAP socket"
+        def __init__ (self, bt_address, port=PORT_ANY, proto=L2CAP, sockfd=None):
+            WinBTSocket.__init__(self, bt_address, port, proto, sockfd)
+    class BluetoothL2CAPServerSocket(WinBTServerSocket):
+        desc = "opens a RFCOMM server socket"
+        def __init__ (self, port=PORT_ANY, proto=L2CAP, sockfd=None,
+                      service_name="ScapyBTServer", service_uuid=WINBT_DEFAULT_UUID):
+            WinBTSocket.__init__(self, port, proto, sockfd, service_name, service_uuid)
+elif WINDOWS:
+    class BluetoothRFCommSocket(SuperSocket):
+        desc = "Not available"
+        def __init__(self, *args, **kargs):
+            raise OSError("Bluetooth is not supported: scapy's bluetooth api has failed loading !")
+    BluetoothL2CAPSocket = BluetoothRFCommSocket
+    BluetoothRFCommServerSocket = BluetoothRFCommSocket
+    BluetoothL2CAPServerSocket = BluetoothRFCommSocket
+else:
+    class BluetoothL2CAPSocket(SuperSocket):
+        desc = "read/write packets on a connected L2CAP socket"
+        def __init__(self, bt_address):
+            s = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_RAW,
+                              socket.BTPROTO_L2CAP)
+            s.connect((bt_address,0))
+            self.ins = self.outs = s
 
-    def recv(self, x=MTU):
-        return L2CAP_CmdHdr(self.ins.recv(x))
+        def recv(self, x=MTU):
+            return L2CAP_CmdHdr(self.ins.recv(x))
 
-class BluetoothRFCommSocket(BluetoothL2CAPSocket):
-    """read/write packets on a connected RFCOMM socket"""
-    def __init__(self, bt_address, port=0):
-        s = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_RAW,
-                          socket.BTPROTO_RFCOMM)
-        s.connect((bt_address,port))
-        self.ins = self.outs = s
+    class BluetoothRFCommSocket(SuperSocket):
+        """read/write packets on a connected RFCOMM socket"""
+        def __init__(self, bt_address, port=0):
+            s = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_RAW,
+                              socket.BTPROTO_RFCOMM)
+            s.connect((bt_address,port))
+            self.ins = self.outs = s
 
-class BluetoothHCISocket(SuperSocket):
-    desc = "read/write on a BlueTooth HCI socket"
-    def __init__(self, iface=0x10000, type=None):
-        if WINDOWS:
-            warning("Not available on Windows")
-            return
-        s = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_RAW, socket.BTPROTO_HCI)
-        s.setsockopt(socket.SOL_HCI, socket.HCI_DATA_DIR,1)
-        s.setsockopt(socket.SOL_HCI, socket.HCI_TIME_STAMP,1)
-        s.setsockopt(socket.SOL_HCI, socket.HCI_FILTER, struct.pack("IIIh2x", 0xffffffff,0xffffffff,0xffffffff,0)) #type mask, event mask, event mask, opcode
-        s.bind((iface,))
-        self.ins = self.outs = s
-#        s.connect((peer,0))
-
-
-    def recv(self, x):
-        return HCI_Hdr(self.ins.recv(x))
+    class BluetoothHCISocket(SuperSocket):
+        desc = "read/write on a BlueTooth HCI socket"
+        def __init__(self, iface=0x10000, type=None):
+            s = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_RAW, socket.BTPROTO_HCI)
+            s.setsockopt(socket.SOL_HCI, socket.HCI_DATA_DIR,1)
+            s.setsockopt(socket.SOL_HCI, socket.HCI_TIME_STAMP,1)
+            s.setsockopt(socket.SOL_HCI, socket.HCI_FILTER, struct.pack("IIIh2x", 0xffffffff,0xffffffff,0xffffffff,0)) #type mask, event mask, event mask, opcode
+            s.bind((iface,))
+            self.ins = self.outs = s
+    #        s.connect((peer,0))
+        def recv(self, x):
+            return HCI_Hdr(self.ins.recv(x))
 
 class sockaddr_hci(Structure):
     _fields_ = [
