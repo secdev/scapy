@@ -686,17 +686,16 @@ class IKEv2_payload_Encrypted(IKEv2_class):
         StrLenField("load","",length_from=lambda x:x.length-4),
         ]
 
-
 class IKEv2_payload_Encrypted_Fragment(IKEv2_class):
     name = "IKEv2 Encrypted Fragment"
-    overload_fields = { IKEv2: { "next_payload":53 }}
+    overload_fields = {IKEv2: {"next_payload": 53}}
     fields_desc = [
-        ByteEnumField("next_payload",None,IKEv2_payload_type),
-        ByteField("res",0),
-        FieldLenField("length",None,"load","H",adjust=lambda pkt,x:x+8),
+        ByteEnumField("next_payload", None, IKEv2_payload_type),
+        ByteField("res", 0),
+        FieldLenField("length", None, "load", "H", adjust=lambda pkt, x: x+8),
         ShortField("frag_number", 1),
         ShortField("frag_total", 1),
-        StrLenField("load","",length_from=lambda x:x.length-8),
+        StrLenField("load", "", length_from=lambda x: x.length-8),
         ]
 
 class IKEv2_payload_CERTREQ(IKEv2_class):
