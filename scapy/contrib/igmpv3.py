@@ -150,7 +150,7 @@ class IGMPv3mr(Packet):
     """IGMP Membership Report extension for IGMPv3.
     Payload of IGMPv3 when type=0x22"""
     name = "IGMPv3mr"
-    fields_desc = [ ByteField("res2", 0),
+    fields_desc = [ XShortField("res2", 0),
                     FieldLenField("numgrp", None, count_of="records"),
                     PacketListField("records", [], IGMPv3gr, count_from=lambda x: x.numgrp)]
 
@@ -164,8 +164,9 @@ class IGMPv3mra(Packet):
 bind_layers(IP,       IGMPv3,   frag=0,
                                 proto=2,
                                 ttl=1,
-                                tos=0xc0)
+                                tos=0xc0,
+                                dst='224.0.0.22')
 
 bind_layers(IGMPv3,   IGMPv3mq, type=0x11)
-bind_layers(IGMPv3,   IGMPv3mr, type=0x22)
+bind_layers(IGMPv3,   IGMPv3mr, type=0x22, mrcode=0x0)
 bind_layers(IGMPv3,   IGMPv3mra, type=0x30)
