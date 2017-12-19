@@ -1179,7 +1179,7 @@ class TLSNewSessionTicket(_TLSHandshake):
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         s = kargs.get("tls_session", None)
-        if s and s.tls_version and s.tls_version >= 0x0304:
+        if s and isinstance(s, tlsSession) and s.tls_version and s.tls_version >= 0x0304:
             return TLS13NewSessionTicket
         return TLSNewSessionTicket
 

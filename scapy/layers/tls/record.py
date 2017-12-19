@@ -197,6 +197,7 @@ class _TLSMsgListField(PacketListField):
         hdr = struct.pack("!B", pkt.type) + s[1:5]
         return hdr + res
 
+
 class TLS(_GenericTLSSessionInheritance):
     """
     The generic TLS Record message, based on section 6.2 of RFC 5246.
@@ -287,10 +288,6 @@ class TLS(_GenericTLSSessionInheritance):
                     if s.rcs and not isinstance(s.rcs.cipher, Cipher_NULL):
                         from scapy.layers.tls.record_tls13 import TLS13
                         return TLS13
-        if _pkt and len(_pkt) < 5:
-            if _pkt != b"\x00":  # record is often b'\x00', used as a separator
-                warning("Invalid TLS record: header is too short")
-            return Raw
         return TLS
 
     ### Parsing methods
