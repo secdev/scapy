@@ -25,6 +25,14 @@ _rtp_payload_types = {
     31: 'H261',          32: 'MPV',
     33: 'MP2T',          34: 'H263' }
 
+
+class RTPExtension(Packet):
+    name = "RTP extension"
+    fields_desc = [ ShortField("header_id", 0),
+                    FieldLenField("header_len", None, count_of="header", fmt="H"),
+                    FieldListField('header', [], IntField("hdr", 0), count_from=lambda pkt: pkt.header_len) ]
+
+
 class RTP(Packet):
     name="RTP"
     fields_desc = [ BitField('version', 2, 2),
@@ -37,4 +45,5 @@ class RTP(Packet):
                     IntField('timestamp', 0),
                     IntField('sourcesync', 0),
                     FieldListField('sync', [], IntField("id",0), count_from=lambda pkt:pkt.numsync) ]
-    
+
+bind_layers(RTP, RTPExtension, extension=1)
