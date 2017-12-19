@@ -63,6 +63,15 @@ def sane(x):
             r=r+chr(j)
     return r
 
+@conf.commands.register
+def restart():
+    """Restarts scapy"""
+    if not conf.interactive or not os.path.isfile(sys.argv[0]):
+        raise OSError("Scapy was not started from console")
+    if WINDOWS:
+        os._exit(subprocess.call([sys.executable] + sys.argv))
+    os.execv(sys.executable, [sys.executable] + sys.argv)
+
 def lhex(x):
     if type(x) in six.integer_types:
         return hex(x)
