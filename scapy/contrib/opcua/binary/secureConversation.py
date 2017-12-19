@@ -8,7 +8,7 @@ from scapy.contrib.opcua.binary.schemaTypes import *
 
 class UaSecureConversationMessageHeader(UaTypePacket):
     fields_desc = [UaBytesField("MessageType", None, 3),
-                   UaByteField("IsFinal", b'F'),
+                   UaByteField("IsFinal", b'F', displayAsChar=True),
                    UaUInt32Field("MessageSize", None),
                    UaUInt32Field("SecureChannelId", 0)]
 
@@ -43,21 +43,20 @@ class UaMessage(UaTypePacket):
                    PacketField("Message", None, UaTypePacket)]
 
     _cache = {}
+
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kwargs):
         if _pkt is not None:
             nodeId = UaExpandedNodeId(_pkt)
 
             if nodeId.Identifier in nodeIdMappings:
-                if nodeId.Identifier in UaMessage._cache:
-                    return UaMessage._cache[nodeId.Identifier]
-
-                dispatchedClass = nodeIdMappings[nodeId.Identifier]
-                fields_desc = [PacketField("DataTypeEncoding", UaNodeId(), UaNodeId),
-                               PacketField("Message", dispatchedClass(), dispatchedClass)]
-                newDict = dict(cls.__dict__)
-                newDict["fields_desc"] = fields_desc
-                UaMessage._cache[nodeId.Identifier] = type(cls.__name__, cls.__bases__, newDict)
+                if nodeId.Identifier not in UaMessage._cache:
+                    dispatchedClass = nodeIdMappings[nodeId.Identifier]
+                    fields_desc = [PacketField("DataTypeEncoding", UaNodeId(), UaNodeId),
+                                   PacketField("Message", dispatchedClass(), dispatchedClass)]
+                    newDict = dict(cls.__dict__)
+                    newDict["fields_desc"] = fields_desc
+                    UaMessage._cache[nodeId.Identifier] = type(cls.__name__, cls.__bases__, newDict)
                 return UaMessage._cache[nodeId.Identifier]
 
         return cls
@@ -67,7 +66,7 @@ class UaMessage(UaTypePacket):
         removeUpTo = len(self.DataTypeEncoding)
 
         if identifier is None:
-            if self.Message.binaryEncodingId is not None:
+            if self.Message is not None and self.Message.binaryEncodingId is not None:
                 identifier = self.Message.binaryEncodingId
                 encoding = self.DataTypeEncoding.getfieldval("Encoding")
                 namespace = self.DataTypeEncoding.getfieldval("Namespace")
@@ -83,7 +82,7 @@ class UaSecureConversationAsymmetric(UaTcp):
                                UaAsymmetricAlgorithmSecurityHeader(),
                                UaAsymmetricAlgorithmSecurityHeader),
                    PacketField("SequenceHeader", UaSequenceHeader(), UaSequenceHeader),
-                   PacketField("Payload", UaMessage(), UaMessage),
+                   PacketField("Payload", UaMessage(Message=UaOpenSecureChannelRequest()), UaMessage),
                    PacketField("MessageFooter", UaSecureConversationMessageFooter(), UaSecureConversationMessageFooter)]
 
     message_types = [b'OPN']

@@ -12,6 +12,7 @@ def _populate_module(model):
     for name, cls in model.classes.items():
         setattr(thismodule, "Ua" + name, cls)
     thismodule.nodeIdMappings = model.nodeIdMappings
+    print("Done!")
 
 
 _parser = SchemaParser()

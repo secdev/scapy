@@ -5,6 +5,7 @@ from scapy.config import conf
 
 
 class UaTypePacket(Packet):
+    binaryEncodingId = None
     """
 
     This helper class makes all types not contain a payload, since they are built
@@ -79,6 +80,8 @@ class ByteListField(Field):
         return repr(self.decode_callback(b''.join(res)))
 
     def i2h(self, pkt, x):
+        if x is None:
+            return None
         res = []
         for v in x:
             r = self.field.i2h(pkt, v)

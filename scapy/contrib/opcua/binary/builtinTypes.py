@@ -56,8 +56,11 @@ class UaByteField(Field):
     Represents the Byte data type according to the OPC UA standard
     """
 
-    def __init__(self, name, default):
-        Field.__init__(self, name, default, "<B")
+    __slots__ = ["displayAsChar"]
+
+    def __init__(self, name, default, displayAsChar=False):
+        super(UaByteField, self).__init__(name, default, "<B")
+        self.displayAsChar = displayAsChar
 
     def h2i(self, pkt, x):
         return struct.unpack("<B", x)[0]
@@ -65,7 +68,9 @@ class UaByteField(Field):
     def i2h(self, pkt, x):
         if x is None:
             return None
-        return struct.pack("<B", x)
+        if self.displayAsChar:
+            return struct.pack("<B", x)
+        return x
 
     def m2i(self, pkt, x):
         return struct.unpack("<B", x)[0]
@@ -546,11 +551,89 @@ UaDiagnosticInfo.fields_desc.append(ConditionalField(PacketField("InnerDiagnosti
                                                      _make_check_encoding_mask_function("InnerDiagnosticInfo", 0x40)))
 
 
+def _extension_obj_has_object(p):
+    if p.Body is not None:
+        return True
+    if p.Encoding is None:
+        return False
+    return p.getfieldval("Encoding") & (0x01 | 0x02)
+
+
+def _create_extended_extension_object(cls, dispatchedClass):
+    fields_desc = cls.fields_desc[:-1]
+    fields_desc.append(ConditionalField(PacketField("Body", None, dispatchedClass),
+                                        _extension_obj_has_object))
+    newDict = dict(cls.__dict__)
+    newDict["fields_desc"] = fields_desc
+    return type(cls.__name__, cls.__bases__, newDict)
+
+
+def _extension_body_len(p):
+    if p.underlayer is None:
+        if p.bytes is None:
+            return 0
+        return len(p.bytes)
+    return p.underlayer.Length
+
+
+class ExtensionObjectRawBytes(UaTypePacket):
+    # TODO: Fix raw class (decoding)
+    __slots__ = ["_length"]
+    fields_desc = [ByteListField("bytes", None, UaByteField("", None), length_from=_extension_body_len)]
+
+
 class UaExtensionObject(UaTypePacket):
-    fields_desc = [PacketField("TypeId", UaNodeId(), UaExpandedNodeId),
-                   UaByteField("Encoding", 0x00)]
-    # TODO: Implement
-    pass
+    fields_desc = [PacketField("TypeId", UaNodeId(), UaNodeId),
+                   UaByteField("Encoding", None),
+                   ConditionalField(UaInt32Field("Length", None, length_of="Body"),
+                                    _extension_obj_has_object),
+                   ConditionalField(PacketField("Body", None, ExtensionObjectRawBytes),
+                                    _extension_obj_has_object)]
+
+    _cache = {}
+
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kwargs):
+        from scapy.contrib.opcua.binary.schemaTypes import nodeIdMappings
+        if _pkt is not None:
+            nodeId = UaExpandedNodeId(_pkt)
+            _, encoding = cls.fields_desc[1].getfield(None, nodeId.payload.load)
+
+            if encoding == 0x01:
+                if nodeId.Identifier in nodeIdMappings:
+                    if nodeId.Identifier not in UaExtensionObject._cache:
+                        dispatchedClass = nodeIdMappings[nodeId.Identifier]
+                        UaExtensionObject._cache[nodeId.Identifier] = \
+                            _create_extended_extension_object(cls, dispatchedClass)
+                    return UaExtensionObject._cache[nodeId.Identifier]
+                return cls
+
+        return cls
+
+    def post_build(self, pkt, pay):
+        identifierField, identifier = self.TypeId.getfield_and_val("Identifier")
+        removeUpToTypeId = len(self.TypeId)
+
+        encodingField, encoding = self.getfield_and_val("Encoding")
+        removeUpToEncoding = encodingField.sz
+
+        if encoding is None:
+            # Use Binary as default encoding
+            if self.Body is not None:
+                encoding = 0x01
+                pkt = encodingField.addfield(self, pkt[:removeUpToTypeId], encoding) \
+                      + pkt[removeUpToTypeId + removeUpToEncoding:]
+
+        if identifier is None:
+            if self.Body is not None and self.Body.binaryEncodingId is not None:
+                identifier = self.Body.binaryEncodingId
+                typeIdEncoding = self.TypeId.getfieldval("Encoding")
+                namespace = self.TypeId.getfieldval("Namespace")
+
+                pkt = UaNodeId(Encoding=typeIdEncoding, Namespace=namespace, Identifier=identifier).build() \
+                      + pkt[removeUpToTypeId:]
+
+        return pkt + pay
 
 
 # TODO: Implement correctly
