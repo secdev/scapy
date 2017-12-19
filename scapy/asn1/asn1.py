@@ -14,7 +14,7 @@ import random
 from datetime import datetime
 from scapy.config import conf
 from scapy.error import Scapy_Exception, warning
-from scapy.volatile import RandField, RandIP
+from scapy.volatile import RandField, RandIP, GeneralizedTime
 from scapy.utils import Enum_metaclass, EnumElement, binrepr
 from scapy.compat import plain_str, chb, raw, orb
 import scapy.modules.six as six
@@ -34,6 +34,9 @@ class RandASN1Object(RandField):
             return o(int(random.gauss(0,1000)))
         elif issubclass(o, ASN1_IPADDRESS):
             z = RandIP()._fix()
+            return o(z)
+        elif issubclass(o, ASN1_GENERALIZED_TIME) or issubclass(o, ASN1_UTC_TIME):
+            z = GeneralizedTime()._fix()
             return o(z)
         elif issubclass(o, ASN1_STRING):
             z = int(random.expovariate(0.05)+1)
