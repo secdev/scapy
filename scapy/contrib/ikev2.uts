@@ -79,3 +79,11 @@ c = TrafficSelector(raw(EncryptedTrafficSelector()))
 assert isinstance(a, IPv4TrafficSelector)
 assert isinstance(b, IPv6TrafficSelector)
 assert isinstance(c, EncryptedTrafficSelector)
+
+= IKEv2_payload_Encrypted_Fragment, simple tests
+
+s = b"\x00\x00\x00\x08\x00\x01\x00\x01"
+assert str(IKEv2_payload_Encrypted_Fragment()) == s
+
+p = IKEv2_payload_Encrypted_Fragment(s)
+assert p.length == 8 and p.frag_number == 1
