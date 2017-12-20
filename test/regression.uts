@@ -786,6 +786,22 @@ a = ASN1_INTEGER(int("1"*23))
 assert repr(a) in ["0x25a55a46e5da99c71c7 <ASN1_INTEGER[1111111111...1111111111]>",
                    "0x25a55a46e5da99c71c7 <ASN1_INTEGER[1111111111...111111111L]>"]
 
+= RandASN1Object(), specific crashes
+
+import random
+
+# ASN1F_NUMERIC_STRING
+random.seed(1514315682)
+str(RandASN1Object())
+
+# ASN1F_VIDEOTEX_STRING
+random.seed(1240186058)
+str(RandASN1Object())
+
+# ASN1F_UTC_TIME & ASN1F_GENERALIZED_TIME
+random.seed(1873503288)
+str(RandASN1Object())
+
 
 ############
 ############
