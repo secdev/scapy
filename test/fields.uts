@@ -19,6 +19,11 @@
 #~ core field
 #False
 
+
+= Simple tests
+
+assert LELongField("", None).addfield("", "", 0x44434241) == b'ABCD\x00\x00\x00\x00'
+
 = MACField class
 ~ core field
 m = MACField("foo", None)
