@@ -232,16 +232,22 @@ def read_routes():
         return []
     routes = []
     s=socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    ifreq = ioctl(s, SIOCGIFADDR,struct.pack("16s16x", LOOPBACK_NAME.encode("utf8")))
-    addrfamily = struct.unpack("h",ifreq[16:18])[0]
-    if addrfamily == socket.AF_INET:
-        ifreq2 = ioctl(s, SIOCGIFNETMASK,struct.pack("16s16x", LOOPBACK_NAME.encode("utf8")))
-        msk = socket.ntohl(struct.unpack("I",ifreq2[20:24])[0])
-        dst = socket.ntohl(struct.unpack("I",ifreq[20:24])[0]) & msk
-        ifaddr = scapy.utils.inet_ntoa(ifreq[20:24])
-        routes.append((dst, msk, "0.0.0.0", LOOPBACK_NAME, ifaddr, 1))
-    else:
-        warning("Interface lo: unkown address family (%i)"% addrfamily)
+    try:
+        ifreq = ioctl(s, SIOCGIFADDR, struct.pack("16s16x", scapy.consts.LOOPBACK_NAME.encode("utf8")))
+        addrfamily = struct.unpack("h", ifreq[16:18])[0]
+        if addrfamily == socket.AF_INET:
+            ifreq2 = ioctl(s, SIOCGIFNETMASK, struct.pack("16s16x", scapy.consts.LOOPBACK_NAME.encode("utf8")))
+            msk = socket.ntohl(struct.unpack("I", ifreq2[20:24])[0])
+            dst = socket.ntohl(struct.unpack("I", ifreq[20:24])[0]) & msk
+            ifaddr = scapy.utils.inet_ntoa(ifreq[20:24])
+            routes.append((dst, msk, "0.0.0.0", scapy.consts.LOOPBACK_NAME, ifaddr, 1))
+        else:
+            warning("Interface lo: unknown address family (%i)" % addrfamily)
+    except IOError as err:
+        if err.errno == 99:
+            warning("Interface lo: no address assigned")
+        else:
+            warning("Interface lo: failed to get address config ({})".format(str(err)))
 
     for l in f.readlines()[1:]:
         l = plain_str(l)
