@@ -995,6 +995,18 @@ for i in six.moves.range(5):
 assert (len(ret) == 2)
 assert all(x[1] == 15169 for x in ret)
 
+= sendpfast
+
+old_interactive = conf.interactive
+conf.interactive = False
+try:
+    sendpfast([])
+    assert False
+except Exception:
+    assert True
+
+conf.interactive = old_interactive
+assert True
 
 ############
 ############
