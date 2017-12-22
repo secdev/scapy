@@ -1,12 +1,11 @@
 # Report installed versions
 echo "### INSTALLED VERSIONS ###"
 python -c 'import sys; print("sys.path:" , sys.path)'
-for DEPENDENCY in "six" "cryptography" "mock" "pcap" "dumbnet"
+for DEPENDENCY in "six" "cryptography" "mock" "pcap" "dumbnet" "coverage"
 do
   python -c 'import '$DEPENDENCY'; print("'$DEPENDENCY': "+str(getattr('$DEPENDENCY', "__version__", "no __version__ attribute")))'
   echo "----"
 done
-
 
 # Dump environment variables
 echo "SCAPY_SUDO=" $SCAPY_SUDO
