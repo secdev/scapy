@@ -35,6 +35,8 @@ matrix:
         - os: linux
           sudo: required
           python: 2.7
+          virtualenv:
+            system_site_packages: true
           env:
             - SCAPY_SUDO=sudo SCAPY_USE_PCAPDNET=yes SCAPY_COVERAGE=yes 
 
