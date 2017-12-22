@@ -1,4 +1,4 @@
-# Install dependencies using pip
+# Install dependencies using pip
 if [ -z "$SCAPY_SUDO" -o "$SCAPY_SUDO" = "false" ]
 then
   SCAPY_SUDO=""
@@ -22,7 +22,7 @@ then
   $SCAPY_SUDO apt-get install python-pyx
 fi
 
-# Install pcap & dnet
+# Install pcap & dnet
 if [ ! -z $SCAPY_USE_PCAPDNET ]
 then
   if [ "$TRAVIS_OS_NAME" = "linux" ]
