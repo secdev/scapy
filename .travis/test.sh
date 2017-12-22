@@ -1,5 +1,6 @@
 # Report installed versions
 echo "### INSTALLED VERSIONS ###"
+python -c 'import sys; print("sys.path:" , sys.path)'
 for DEPENDENCY in "six" "cryptography" "mock" "pcap" "dumbnet"
 do
   python -c 'import '$DEPENDENCY'; print("'$DEPENDENCY': "+str(getattr('$DEPENDENCY', "__version__", "no __version__ attribute")))'
