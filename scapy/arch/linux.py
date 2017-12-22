@@ -234,12 +234,12 @@ def read_routes():
             ifaddr = scapy.utils.inet_ntoa(ifreq[20:24])
             routes.append((dst, msk, "0.0.0.0", scapy.consts.LOOPBACK_NAME, ifaddr, 1))
         else:
-            warning("Interface lo: unknown address family (%i)" % addrfamily)
+            warning("Interface %s: unknown address family (%i)" % (scapy.consts.LOOPBACK_NAME, addrfamily))
     except IOError as err:
         if err.errno == 99:
-            warning("Interface lo: no address assigned")
+            warning("Interface %s: no address assigned" % scapy.consts.LOOPBACK_NAME)
         else:
-            warning("Interface lo: failed to get address config ({})".format(str(err)))
+            warning("Interface %s: failed to get address config (%s)" % (scapy.consts.LOOPBACK_NAME, str(err)))
 
     for l in f.readlines()[1:]:
         l = plain_str(l)
