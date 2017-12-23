@@ -414,12 +414,12 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
         log_loading.error(msg)
         sys.exit(1)
 
+    init_session(session_name, mydict)
+
     if STARTUP_FILE:
         _read_config_file(STARTUP_FILE, interactive=True)
     if PRESTART_FILE:
         _read_config_file(PRESTART_FILE, interactive=True)
-
-    init_session(session_name, mydict)
 
     if conf.fancy_prompt:
 
