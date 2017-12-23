@@ -429,17 +429,22 @@ class ContextManagerSubprocess(object):
     >>>     subprocess.Popen(["unknown_command"])
 
     """
-    def __init__(self, name):
+    def __init__(self, name, prog, _raise=True):
         self.name = name
+        self.prog = prog
+        self._raise = _raise
 
     def __enter__(self):
         pass
 
     def __exit__(self, exc_type, exc_value, traceback):
-        if exc_type == OSError:
-            msg = "%s: executing %r failed"
-            log_runtime.error(msg, self.name, conf.prog.wireshark, exc_info=1)
-            return True  # Suppress the exception
+        if isinstance(exc_value, (OSError, TypeError)):
+            msg = "%s: executing %r failed" % (self.name, self.prog) if self.prog else "Could not execute %s, is it installed ?" % self.name
+            if self._raise:
+                raise OSError(msg)
+            else:
+                log_runtime.error(msg, exc_info=True)
+                return True  # Suppress the exception
 
 class ContextManagerCaptureOutput(object):
     """
@@ -500,7 +505,7 @@ def do_graph(graph,prog=None,format=None,target=None,type=None,string=None,optio
             target = get_temp_file(autoext="."+format)
             start_viewer = True
         else:
-            with ContextManagerSubprocess("do_graph()"):
+            with ContextManagerSubprocess("do_graph()", conf.prog.display, _raise=False):
                 target = subprocess.Popen([conf.prog.display],
                                           stdin=subprocess.PIPE).stdin
     if format is not None:
@@ -532,7 +537,7 @@ def do_graph(graph,prog=None,format=None,target=None,type=None,string=None,optio
             if conf.prog.display == conf.prog._default:
                 os.startfile(target.name)
             else:
-                with ContextManagerSubprocess("do_graph()"):
+                with ContextManagerSubprocess("do_graph()", conf.prog.display):
                     subprocess.Popen([conf.prog.display, target.name])
 
 _TEX_TR = {
@@ -1214,7 +1219,7 @@ def wireshark(pktlist):
     """Run wireshark on a list of packets"""
     f = get_temp_file()
     wrpcap(f, pktlist)
-    with ContextManagerSubprocess("wireshark()"):
+    with ContextManagerSubprocess("wireshark()", conf.prog.wireshark):
         subprocess.Popen([conf.prog.wireshark, "-r", f])
 
 @conf.commands.register
@@ -1275,15 +1280,16 @@ u'64'
         prog = [conf.prog.tcpdump]
     elif isinstance(prog, six.string_types):
         prog = [prog]
+    _prog_name = "windump()" if WINDOWS else "tcpdump()"
     if pktlist is None:
-        with ContextManagerSubprocess("tcpdump()"):
+        with ContextManagerSubprocess(_prog_name, prog[0]):
             proc = subprocess.Popen(
                 prog + (args if args is not None else []),
                 stdout=subprocess.PIPE if dump or getfd else None,
                 stderr=open(os.devnull) if quiet else None,
             )
     elif isinstance(pktlist, six.string_types):
-        with ContextManagerSubprocess("tcpdump()"):
+        with ContextManagerSubprocess(_prog_name, prog[0]):
             proc = subprocess.Popen(
                 prog + ["-r", pktlist] + (args if args is not None else []),
                 stdout=subprocess.PIPE if dump or getfd else None,
@@ -1299,7 +1305,7 @@ u'64'
             wrpcap(tmpfile, pktlist)
         else:
             tmpfile.close()
-        with ContextManagerSubprocess("tcpdump()"):
+        with ContextManagerSubprocess(_prog_name, prog[0]):
             proc = subprocess.Popen(
                 prog + ["-r", tmpfile.name] + (args if args is not None else []),
                 stdout=subprocess.PIPE if dump or getfd else None,
@@ -1307,7 +1313,7 @@ u'64'
             )
         conf.temp_files.append(tmpfile.name)
     else:
-        with ContextManagerSubprocess("tcpdump()"):
+        with ContextManagerSubprocess(_prog_name, prog[0]):
             proc = subprocess.Popen(
                 prog + ["-r", "-"] + (args if args is not None else []),
                 stdin=subprocess.PIPE,
@@ -1333,7 +1339,7 @@ def hexedit(x):
     x = str(x)
     f = get_temp_file()
     open(f,"wb").write(x)
-    with ContextManagerSubprocess("hexedit()"):
+    with ContextManagerSubprocess("hexedit()", conf.prog.hexedit):
         subprocess.call([conf.prog.hexedit, f])
     x = open(f).read()
     os.unlink(f)
