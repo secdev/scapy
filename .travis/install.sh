@@ -22,6 +22,7 @@ if [ "$SCAPY_COVERAGE" = "yes" ]
 then
   $SCAPY_SUDO `which pip` install $PIP_INSTALL_FLAGS -U coverage
   $SCAPY_SUDO `which pip` install $PIP_INSTALL_FLAGS -U PyX
+  $SCAPY_SUDO `which pip` install $PIP_INSTALL_FLAGS -U codecov
 fi
 
 # Install pcap & dnet
