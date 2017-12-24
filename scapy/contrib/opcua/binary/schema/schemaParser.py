@@ -108,6 +108,10 @@ class SchemaParser(object):
                     else:
                         self.model.builtins["PacketTypes"][builtin] = getattr(types_dict, att)
 
+        # Remove packet versions of builtins that have a field version
+        for fieldType in self.model.builtins["FieldTypes"]:
+            if fieldType in self.model.builtins["PacketTypes"]:
+                self.model.builtins["PacketTypes"].pop(fieldType)
         self.logger.debug("Inferred {} builtin types".format(len(self.model.builtins["FieldTypes"]) +
                                                              len(self.model.builtins["PacketTypes"])))
 

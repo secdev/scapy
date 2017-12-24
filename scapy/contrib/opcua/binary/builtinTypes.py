@@ -1,9 +1,14 @@
 # coding=utf-8
+import collections
 import struct
+from functools import reduce
 
-from scapy.contrib.opcua.helpers import ByteListField, UaTypePacket, LengthField
-from scapy.fields import Field, PacketField, ConditionalField
+from scapy.contrib.opcua.helpers import ByteListField, UaTypePacket, LengthField, flatten
+from scapy.fields import Field, PacketField, ConditionalField, FieldListField
+from operator import mul
 import binascii
+
+builtinNodeIdMappings = {}
 
 
 def _make_check_encoding_mask_function(field, mask):
@@ -15,6 +20,10 @@ def _make_check_encoding_mask_function(field, mask):
         return p.getfieldval("EncodingMask") & mask
 
     return has_field
+
+
+class UaBuiltin(UaTypePacket):
+    nodeId = None
 
 
 class UaBooleanField(Field):
@@ -49,6 +58,11 @@ class UaBooleanField(Field):
 
     def getfield(self, pkt, s):
         return s[1:], self.m2i(pkt, s[:1])
+
+
+class UaBoolean(UaBuiltin):
+    nodeId = 1
+    fields_desc = [UaBooleanField("value", None)]
 
 
 class UaByteField(Field):
@@ -95,6 +109,11 @@ class UaByteField(Field):
         return s[1:], self.m2i(pkt, s[:1])
 
 
+class UaByte(UaBuiltin):
+    nodeId = 3
+    fields_desc = [UaByteField("value", None)]
+
+
 class UaSByteField(Field):
     """ Represents a signed byte data type
 
@@ -103,6 +122,11 @@ class UaSByteField(Field):
 
     def __init__(self, name, default):
         Field.__init__(self, name, default, "<b")
+
+
+class UaSByte(UaBuiltin):
+    nodeId = 2
+    fields_desc = [UaSByteField("value", None)]
 
 
 class UaBytesField(UaByteField):
@@ -156,9 +180,19 @@ class UaUInt16Field(LengthField):
         super(UaUInt16Field, self).__init__(name, default, "<H", *args, **kwargs)
 
 
+class UaUInt16(UaBuiltin):
+    nodeId = 5
+    fields_desc = [UaUInt16Field("value", None)]
+
+
 class UaUInt32Field(LengthField):
     def __init__(self, name, default, *args, **kwargs):
         super(UaUInt32Field, self).__init__(name, default, "<I", *args, **kwargs)
+
+
+class UaUInt32(UaBuiltin):
+    nodeId = 7
+    fields_desc = [UaUInt32Field("value", None)]
 
 
 class UaUInt64Field(LengthField):
@@ -166,9 +200,19 @@ class UaUInt64Field(LengthField):
         super(UaUInt64Field, self).__init__(name, default, "<Q", *args, **kwargs)
 
 
+class UaUInt64(UaBuiltin):
+    nodeId = 9
+    fields_desc = [UaUInt64Field("value", None)]
+
+
 class UaInt16Field(LengthField):
     def __init__(self, name, default, *args, **kwargs):
         super(UaInt16Field, self).__init__(name, default, "<h", *args, **kwargs)
+
+
+class UaInt16(UaBuiltin):
+    nodeId = 4
+    fields_desc = [UaInt16Field("value", None)]
 
 
 class UaInt32Field(LengthField):
@@ -176,9 +220,19 @@ class UaInt32Field(LengthField):
         super(UaInt32Field, self).__init__(name, default, "<i", *args, **kwargs)
 
 
+class UaInt32(UaBuiltin):
+    nodeId = 6
+    fields_desc = [UaInt32Field("value", None)]
+
+
 class UaInt64Field(LengthField):
     def __init__(self, name, default, *args, **kwargs):
         super(UaInt64Field, self).__init__(name, default, "<q", *args, **kwargs)
+
+
+class UaInt64(UaBuiltin):
+    nodeId = 8
+    fields_desc = [UaInt64Field("value", None)]
 
 
 class UaFloatField(Field):
@@ -186,14 +240,29 @@ class UaFloatField(Field):
         super(UaFloatField, self).__init__(name, default, "<f")
 
 
+class UaFloat(UaBuiltin):
+    nodeId = 10
+    fields_desc = [UaFloatField("value", None)]
+
+
 class UaDoubleField(Field):
     def __init__(self, name, default):
         super(UaDoubleField, self).__init__(name, default, "<d")
 
 
+class UaDouble(UaBuiltin):
+    nodeId = 11
+    fields_desc = [UaDoubleField("value", None)]
+
+
 class UaDateTimeField(Field):
     def __init__(self, name, default):
         super(UaDateTimeField, self).__init__(name, default, "<q")
+
+
+class UaDateTime(UaBuiltin):
+    nodeId = 13
+    fields_desc = [UaDateTimeField("value", None)]
 
 
 class UaGuidField(Field):
@@ -264,13 +333,19 @@ class UaGuidField(Field):
         return s[self.sz:], self.m2i(pkt, struct.unpack(self.fmt, s[:self.sz]))
 
 
+class UaGuid(UaBuiltin):
+    nodeId = 14
+    fields_desc = [UaGuidField("value", None)]
+
+
 def _ua_str_len_function(p):
     if p.length < 0:
         return 0
     return p.length
 
 
-class UaByteString(UaTypePacket):
+class UaByteString(UaBuiltin):
+    nodeId = 15
     fields_desc = [UaInt32Field("length", None),
                    ByteListField("data", None, UaByteField("", None), length_from=_ua_str_len_function)]
 
@@ -292,6 +367,7 @@ class UaByteString(UaTypePacket):
 
 
 class UaString(UaByteString):
+    nodeId = 12
     fields_desc = [UaInt32Field("length", None),
                    ByteListField("data", None, UaByteField("", None), length_from=_ua_str_len_function,
                                  decode_callback=lambda s: s.decode("utf8"),
@@ -299,15 +375,17 @@ class UaString(UaByteString):
 
 
 class UaXmlElement(UaString):
-    pass
+    nodeId = 16
 
 
-class UaQualifiedName(UaTypePacket):
+class UaQualifiedName(UaBuiltin):
+    nodeId = 20
     fields_desc = [UaUInt16Field("NamespaceIndex", 0),
                    PacketField("Name", UaString(), UaString)]
 
 
-class UaLocalizedText(UaTypePacket):
+class UaLocalizedText(UaBuiltin):
+    nodeId = 21
     fields_desc = [UaByteField("EncodingMask", None),
                    ConditionalField(PacketField("Locale", None, UaString),
                                     _make_check_encoding_mask_function("Locale", 0x01)),
@@ -338,11 +416,17 @@ class UaStatusCodeField(UaUInt32Field):
     pass
 
 
+class UaStatusCode(UaBuiltin):
+    nodeId = 19
+    fields_desc = [UaStatusCodeField("value", None)]
+
+
 class UaEnumerationField(UaInt32Field):
     pass
 
 
-class UaNodeId(UaTypePacket):
+class UaNodeId(UaBuiltin):
+    nodeId = 17
     fields_desc = [UaByteField("Encoding", 0x02),
                    UaUInt16Field("Namespace", 0),
                    UaUInt32Field("Identifier", None)]
@@ -471,6 +555,7 @@ class _NodeIdNoRecurse(UaNodeId):
 
 
 class UaExpandedNodeId(UaNodeId):
+    nodeId = 18
     fields_desc = [PacketField("NodeId", UaNodeId(), _NodeIdNoRecurse),
                    ConditionalField(PacketField("NamespaceUri", None, UaString), _id_has_uri),
                    ConditionalField(UaUInt32Field("ServerIndex", 0), _id_has_index)]
@@ -497,12 +582,22 @@ class UaExpandedNodeId(UaNodeId):
 
         return pkt + pay
 
+    def __getattr__(self, attr):
+        try:
+            fld, v = self.getfield_and_val(attr)
+        except TypeError:
+            return self.NodeId.__getattr__(attr)
+        if fld is not None:
+            return fld.i2h(self, v)
+        return v
+
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kwargs):
         return super(UaExpandedNodeId, cls).dispatch_hook(_pkt, *args, **kwargs)
 
 
-class UaDiagnosticInfo(UaTypePacket):
+class UaDiagnosticInfo(UaBuiltin):
+    nodeId = 25
     fields_desc = [UaByteField("EncodingMask", None),
                    ConditionalField(UaInt32Field("SymbolicId", None),
                                     _make_check_encoding_mask_function("SymbolicId", 0x01)),
@@ -582,7 +677,8 @@ class ExtensionObjectRawBytes(UaTypePacket):
     fields_desc = [ByteListField("bytes", None, UaByteField("", None), length_from=_extension_body_len)]
 
 
-class UaExtensionObject(UaTypePacket):
+class UaExtensionObject(UaBuiltin):
+    nodeId = 22
     fields_desc = [PacketField("TypeId", UaNodeId(), UaNodeId),
                    UaByteField("Encoding", None),
                    ConditionalField(UaInt32Field("Length", None, length_of="Body"),
@@ -636,13 +732,193 @@ class UaExtensionObject(UaTypePacket):
         return pkt + pay
 
 
+def has_value(p):
+    if getattr(p, "Value") is not None and not has_values(p):
+        return True
+    if p.EncodingMask is None:
+        return False
+    return (p.getfieldval("EncodingMask") & 0x80) == 0
+
+
+def has_values(p):
+    if getattr(p, "Values") is not None and getattr(p, "Values") != []:
+        return True
+    if p.EncodingMask is None:
+        return False
+    return p.getfieldval("EncodingMask") & 0x80
+
+
+def has_array_length(p):
+    if getattr(p, "ArrayLength") is not None:
+        return True
+    if p.EncodingMask is None:
+        return has_values(p)
+    return p.getfieldval("EncodingMask") & 0x80
+
+
+def has_dimensions(p):
+    if getattr(p, "ArrayDimensions") is not None and getattr(p, "ArrayDimensions") != []:
+        return True
+    if p.EncodingMask is None:
+        return False
+    return p.getfieldval("EncodingMask") & 0x40
+
+
+def has_dimensions_length(p):
+    if getattr(p, "ArrayDimensionsLength") is not None:
+        return True
+    if p.EncodingMask is None:
+        return has_dimensions(p)
+    return p.getfieldval("EncodingMask") & 0x80
+
+
+class BuiltinListField(Field):
+    __slots__ = ["count_from", "type_from", "field"]
+    islist = 1
+
+    def __init__(self, name, default, type_from, count_from):
+        if default is None:
+            default = []  # Create a new list for each instance
+        super(BuiltinListField, self).__init__(name, default)
+        self.count_from = count_from
+        self.type_from = type_from
+        self.field = PacketField("", None, UaBuiltin)
+
+    def i2count(self, pkt, val):
+        if isinstance(val, list):
+            return len(list(flatten(val)))
+        return 1
+
+    def i2len(self, pkt, val):
+        return int(sum(self.field.i2len(pkt, v) for v in flatten(val)))
+
+    def i2m(self, pkt, val):
+        if val is None:
+            val = []
+        val = list(flatten(val))
+        return val
+
+    def any2i(self, pkt, x):
+        if not isinstance(x, list):
+            return [self.field.any2i(pkt, x)]
+        else:
+            return x
+
+    def i2repr(self, pkt, x):
+        res = []
+        for v in x:
+            r = self.field.i2repr(pkt, v)
+            res.append(r)
+        return "[%s]" % ", ".join(res)
+
+    def addfield(self, pkt, s, val):
+        inner = val
+        dimensions = []
+        while isinstance(inner, list) and inner != []:
+            dimensions.append(len(inner))
+            inner = inner[0]
+
+        if len(pkt.getfieldval("ArrayDimensions")) == 0 and len(dimensions) > 1:
+            pkt.setfieldval("ArrayDimensions", dimensions)
+        val = self.i2m(pkt, val)
+        if len(val) > 0:
+            self.field.cls = builtinNodeIdMappings[val[0].nodeId]
+        for v in val:
+            s = self.field.addfield(pkt, s, v)
+        return s
+
+    def getfield(self, pkt, s):
+        encoding = pkt.getfieldval(self.type_from)
+        encoding &= 0b00111111
+        self.field.cls = builtinNodeIdMappings[encoding]
+        c = None
+        if self.count_from is not None:
+            c = self.count_from(pkt)
+
+        val = []
+        ret = b""
+
+        while s:
+            if c is not None:
+                if c <= 0:
+                    break
+                c -= 1
+            s, v = self.field.getfield(pkt, s)
+            val.append(v)
+        return s + ret, val
+
+
+class BuiltinField(PacketField):
+    __slots__ = ["type_from"]
+
+    def __init__(self, name, default, type_from, remain=0):
+        super(BuiltinField, self).__init__(name, default, UaBuiltin, remain=remain)
+        self.cls = UaBuiltin
+        self.type_from = type_from
+
+    def getfield(self, pkt, s):
+        encoding = pkt.getfieldval(self.type_from)
+        encoding &= 0b00111111
+        self.cls = builtinNodeIdMappings[encoding]
+        return super(BuiltinField, self).getfield(pkt, s)
+
 # TODO: Implement correctly
-class UaVariant(UaTypePacket):
+class UaVariant(UaBuiltin):
+    nodeId = 24
     fields_desc = [UaByteField("EncodingMask", None),
-                   UaInt32Field("ArrayLength", None)]
+                   ConditionalField(UaInt32Field("ArrayLength", None, count_of="Values"),
+                                    has_array_length),
+                   ConditionalField(BuiltinListField("Values", None, type_from="EncodingMask",
+                                                     count_from=lambda p: p.ArrayLength),
+                                    has_values),
+                   ConditionalField(BuiltinField("Value", None, type_from="EncodingMask"),
+                                    has_value),
+                   ConditionalField(UaInt32Field("ArrayDimensionsLength", None, count_of="ArrayDimensions"),
+                                    has_dimensions_length),
+                   ConditionalField(FieldListField("ArrayDimensions", None, UaInt32Field("", None),
+                                                   count_from=lambda p: p.ArrayDimensionsLength),
+                                    has_dimensions)]
+
+    def post_build(self, pkt, pay):
+        encodingMaskField, encodingMask = self.getfield_and_val("EncodingMask")
+
+        if encodingMask is not None:
+            return pkt + pay
+
+        encodingMask = 0
+        rest = pkt[encodingMaskField.sz:]
+
+        if has_values(self):
+            encodingMask |= 0x80
+        if has_dimensions(self):
+            encodingMask |= 0x40
+
+        valuesField, values = self.getfield_and_val("Values")
+        if values is not None and values != []:
+            encodingMask |= valuesField.field.cls.nodeId
+
+        valueField, value = self.getfield_and_val("Value")
+        if value is not None and values == []:
+            encodingMask |= value.nodeId
+
+        maskPart = encodingMaskField.addfield(self, b'', encodingMask)
+        return maskPart + rest + pay
+
+    def post_dissect(self, s):
+        if has_dimensions(self):
+            values = self.Values
+            dimensions = self.ArrayDimensions
+            assert len(values) == reduce(mul, dimensions)
+            # Apply array dimensions to the flat list
+            for dim in reversed(dimensions):
+                values = [values[j:j + dim] for j in range(0, len(values), dim)]
+
+            self.Values = values[0]
+        return s
 
 
-class UaDataValue(UaTypePacket):
+class UaDataValue(UaBuiltin):
+    nodeId = 23
     fields_desc = [UaByteField("EncodingMask", None),
                    ConditionalField(PacketField("Value", None, UaVariant),
                                     _make_check_encoding_mask_function("Value", 0x01)),
@@ -680,6 +956,17 @@ class UaDataValue(UaTypePacket):
         if self.ServerPicoSeconds is not None:
             encodingMask |= 0x20
 
-        self.EncodingMask = encodingMask
         maskPart = encodingMaskField.addfield(self, b'', encodingMask)
         return maskPart + rest + pay
+
+
+def _make_node_id_mappings():
+    from inspect import getmro
+    module = globals()
+    for objname in module:
+        obj = module[objname]
+        if hasattr(obj, "__bases__") and UaBuiltin in getmro(obj):
+            builtinNodeIdMappings[obj.nodeId] = obj
+
+
+_make_node_id_mappings()

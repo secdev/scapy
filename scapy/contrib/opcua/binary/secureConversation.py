@@ -96,19 +96,18 @@ class UaSecureConversationAsymmetric(UaTcp):
 
         if messageType is None:
             if isinstance(self.SecurityHeader, UaAsymmetricAlgorithmSecurityHeader):
-                self.MessageHeader.MessageType = b'OPN'
                 typeBinary = b'OPN'
             elif isinstance(self.SecurityHeader, UaSymmetricAlgorithmSecurityHeader):
-                self.MessageHeader.MessageType = b'MSG'  # TODO: Differentiate between MSG and CLO???
-                typeBinary = b'MSG'
+                if isinstance(self.Payload.Message, (UaCloseSecureChannelRequest, UaCloseSecureChannelResponse)):
+                    typeBinary = B'CLO'
+                else:
+                    typeBinary = b'MSG'
             else:
-                self.MessageHeader.MessageType = b'\x00\x00\x00'
                 typeBinary = b'\x00\x00\x00'
 
         if messageSize is None:
             completePkt = typeBinary + restString + pay
             messageSize = len(completePkt)
-            self.MessageHeader.MessageSize = messageSize
             return messageSizeField.addfield(self,
                                              completePkt[:len(self.MessageHeader)][:-2 * messageSizeField.sz],
                                              messageSize) + completePkt[len(self.MessageHeader) - messageSizeField.sz:]
