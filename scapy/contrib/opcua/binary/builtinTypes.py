@@ -737,7 +737,8 @@ def has_value(p):
         return True
     if p.EncodingMask is None:
         return False
-    return (p.getfieldval("EncodingMask") & 0x80) == 0
+    encodingMask = p.getfieldval("EncodingMask")
+    return (encodingMask & 0x80) == 0 and encodingMask & 0b00111111
 
 
 def has_values(p):
@@ -769,7 +770,7 @@ def has_dimensions_length(p):
         return True
     if p.EncodingMask is None:
         return has_dimensions(p)
-    return p.getfieldval("EncodingMask") & 0x80
+    return p.getfieldval("EncodingMask") & 0x40
 
 
 class BuiltinListField(Field):
