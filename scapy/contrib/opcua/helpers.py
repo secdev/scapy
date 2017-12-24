@@ -138,3 +138,12 @@ class LengthField(Field):
             else:
                 x = 0x0
         return x
+
+
+def flatten(l):
+    for el in l:
+        if isinstance(el, list):
+            for sub in flatten(el):
+                yield sub
+        else:
+            yield el
