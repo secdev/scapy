@@ -41,6 +41,12 @@ then
   UT_FLAGS+=" -K crypto -K not_pypy"
 fi
 
+if python --version 2>&1 | grep -q '^Python 3\.[012345]'
+then
+  # Python 3 < 3.6 has weird behavior with random.seed()
+  UT_FLAGS+=" -K random_weird_py3"
+fi
+
 # Set PATH
 for _path in /sbin /usr/sbin /usr/local/sbin; do
   [ -d "$_path" ] && echo "$PATH" | grep -qvE "(^|:)$_path(:|$)" && export PATH="$PATH:$_path"

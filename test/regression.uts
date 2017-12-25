@@ -441,7 +441,7 @@ assert(Raw in IP(s))
 bind_layers(IP, ICMP, frag=0, proto=1)
 
 = fuzz
-~ not_pypy
+~ not_pypy random_weird_py3
 random.seed(0x2807)
 raw(fuzz(IP()/ICMP()))
 assert _ in [
@@ -762,6 +762,7 @@ assert ASN1_Object(1) != ASN1_Object(2)
 ASN1_Object(2).show()
 
 = ASN1 - RandASN1Object
+~ random_weird_py3
 a = RandASN1Object()
 random.seed(0x2807)
 assert raw(a) in [b'A\x02\x07q', b'C\x02\xfe\x92', b'\x1e\x023V']
@@ -8480,14 +8481,14 @@ cb = CorruptedBits("ABCDE", p=0.2)
 assert(sane(raw(cb)) in ["ECk@Y", "QB.P."])
 
 = RandEnumKeys
-~ not_pypy
+~ not_pypy random_weird_py3
 random.seed(0x2807)
 rek = RandEnumKeys({'a': 1, 'b': 2, 'c': 3}, seed=0x2807)
 rek.enum.sort()
 assert(rek == ('c' if six.PY2 else 'a'))
 
 = RandSingNum
-~ not_pypy
+~ not_pypy random_weird_py3
 random.seed(0x2807)
 rs = RandSingNum(-28, 7)
 assert(rs == (3 if six.PY2 else 2))
