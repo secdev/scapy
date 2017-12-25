@@ -1126,14 +1126,20 @@ send_and_sniff(Ether()/IP(dst="secdev.org")/ICMP())
 = Test L2ListenTcpdump socket
 ~ netaccess
 
-read_s = L2ListenTcpdump()
-out_s = conf.L2socket()
-icmp_r = Ether()/IP(dst="secdev.org")/ICMP()
-res = sndrcv(out_s, icmp_r, timeout=5, rcv_pks=read_s)
-read_s.close()
-out_s.close()
+import time
+for i in range(10):
+    read_s = L2ListenTcpdump(iface=conf.iface)
+    out_s = conf.L2socket(iface=conf.iface)
+    time.sleep(5)  # wait for read_s to be ready
+    icmp_r = Ether()/IP(dst="secdev.org")/ICMP()
+    res = sndrcv(out_s, icmp_r, timeout=5, rcv_pks=read_s)[0]
+    read_s.close()
+    out_s.close()
+    time.sleep(5)
+    if res:
+        break
 
-response = res[0][0][1]
+response = res[0][1]
 assert response[ICMP].type == 0
 
 ############
