@@ -1502,7 +1502,7 @@ class TCP_client(Automaton):
         self.src = self.l4.src
         self.swin=self.l4[TCP].window
         self.dwin=1
-        self.rcvbuf=""
+        self.rcvbuf = b""
         bpf = "host %s  and host %s and port %i and port %i" % (self.src,
                                                                 self.dst,
                                                                 self.sport,
@@ -1576,7 +1576,7 @@ class TCP_client(Automaton):
             self.l4[TCP].flags = "A"
             self.send(self.l4)
             self.rcvbuf += data
-            if pkt[TCP].flags & 8 != 0: #PUSH
+            if pkt[TCP].flags.P:
                 self.oi.tcp.send(self.rcvbuf)
                 self.rcvbuf = b""
     
