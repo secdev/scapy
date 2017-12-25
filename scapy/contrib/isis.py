@@ -105,7 +105,7 @@ def isis_str2sysid(s):
 
 
 def isis_nodeid2str(nodeid):
-    return b"%s%s" % (isis_sysid2str(nodeid[:-3]), hex_bytes(nodeid[-2:]))
+    return isis_sysid2str(nodeid[:-3]) + hex_bytes(nodeid[-2:])
 
 
 def isis_str2nodeid(s):
@@ -113,7 +113,7 @@ def isis_str2nodeid(s):
 
 
 def isis_lspid2str(lspid):
-    return b"%s%s" % (isis_nodeid2str(lspid[:-3]), hex_bytes(lspid[-2:]))
+    return isis_nodeid2str(lspid[:-3]) + hex_bytes(lspid[-2:])
 
 
 def isis_str2lspid(s):
