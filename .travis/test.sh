@@ -47,6 +47,12 @@ then
   UT_FLAGS+=" -K random_weird_py3"
 fi
 
+if python --version 2>&1 | grep -q '^Python 3\.[0123]'
+then
+  # Cannot install cryptography with Python 3 < 3.4
+  UT_FLAGS+=" -K crypto"
+fi
+
 # Set PATH
 for _path in /sbin /usr/sbin /usr/local/sbin; do
   [ -d "$_path" ] && echo "$PATH" | grep -qvE "(^|:)$_path(:|$)" && export PATH="$PATH:$_path"
