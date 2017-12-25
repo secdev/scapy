@@ -223,8 +223,8 @@ assert sys_capabilities.wlan_access_point_enabled == 0
 assert sys_capabilities.mac_bridge_enabled == 0
 assert sys_capabilities.repeater_enabled == 0
 assert sys_capabilities.other_enabled == 0
-assert frm[LLDPDUManagementAddress].management_address == '1.2.3.4'
-assert frm[LLDPDUSystemName].system_name == 'things will'
-assert frm[LLDPDUManagementAddress].object_id == 'burn'
-assert frm[LLDPDUSystemDescription].description == 'without tests.'
-assert frm[LLDPDUPortDescription].description == 'always!'
+assert frm[LLDPDUManagementAddress].management_address == b'1.2.3.4'
+assert frm[LLDPDUSystemName].system_name == b'things will'
+assert frm[LLDPDUManagementAddress].object_id == b'burn'
+assert frm[LLDPDUSystemDescription].description == b'without tests.'
+assert frm[LLDPDUPortDescription].description == b'always!'
