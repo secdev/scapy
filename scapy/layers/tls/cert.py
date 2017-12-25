@@ -68,12 +68,11 @@ _MAX_CRL_SIZE = 10*1024*1024   # some are that big
 def der2pem(der_string, obj="UNKNOWN"):
     """Convert DER octet string to PEM format (with optional header)"""
     # Encode a byte string in PEM format. Header advertizes <obj> type.
-    obj = raw(obj)
-    pem_string = b"-----BEGIN %s-----\n" % obj
+    pem_string = ("-----BEGIN %s-----\n" % obj).encode()
     base64_string = base64.b64encode(der_string)
     chunks = [base64_string[i:i+64] for i in range(0, len(base64_string), 64)]
     pem_string += b'\n'.join(chunks)
-    pem_string += b"\n-----END %s-----\n" % obj
+    pem_string += ("\n-----END %s-----\n" % obj).encode()
     return pem_string
 
 @conf.commands.register
