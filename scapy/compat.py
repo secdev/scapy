@@ -48,15 +48,20 @@ def cmp(a, b):
     """Old Python 2 function"""
     return (a > b) - (a < b)
 
-def orb(x):
-    """Return ord(x) when necessary.
-    Python 3 compatible.
-    
-    """
-    if isinstance(x, (str, bytes)):
-        return ord(x)
-    else:
+
+if six.PY2:
+    def orb(x):
+        """Return ord(x) when necessary."""
+        if isinstance(x, basestring):
+            return ord(x)
         return x
+else:
+    def orb(x):
+        """Return ord(x) when necessary."""
+        if isinstance(x, (bytes, str)):
+            return ord(x)
+        return x
+
 
 if six.PY2:
     def raw(x):
