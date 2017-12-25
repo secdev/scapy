@@ -201,8 +201,9 @@ def get_alias_address(iface_name, ip_mask, gw_str, metric):
         msk = struct.unpack(">I", ifreq[20:24])[0]
        
         # Get the full interface name
-        if b':' in ifname:
-            ifname = ifname[:ifname.index(b':')]
+        ifname = plain_str(ifname)
+        if ':' in ifname:
+            ifname = ifname[:ifname.index(':')]
         else:
             continue
 
