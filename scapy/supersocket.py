@@ -8,6 +8,7 @@ SuperSocket.
 """
 
 from __future__ import absolute_import
+import os
 import socket
 import subprocess
 import struct
@@ -247,6 +248,7 @@ class TunTapInterface(SuperSocket):
             return
         self.outs = self.ins = open(
             "/dev/net/tun" if LINUX else ("/dev/%s" % self.iface), "r+b",
+            buffering=0
         )
         if LINUX:
             from fcntl import ioctl
@@ -255,7 +257,7 @@ class TunTapInterface(SuperSocket):
             # IFF_TAP = 0x0002
             # IFF_NO_PI = 0x1000
             ioctl(self.ins, 0x400454ca, struct.pack(
-                "16sH", self.iface, 0x0001 if self.mode_tun else 0x1002,
+                "16sH", raw(self.iface), 0x0001 if self.mode_tun else 0x1002,
             ))
         self.closed = False
 
@@ -276,7 +278,7 @@ conf.L2listen, conf.L2socket or conf.L3socket.
         )
 
     def send(self, x):
-        sx = str(x)
+        sx = raw(x)
         if hasattr(x, "sent_time"):
             x.sent_time = time.time()
         if self.mode_tun:
