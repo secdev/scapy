@@ -336,8 +336,9 @@ class BERcodec_BIT_STRING(BERcodec_Object):
 class BERcodec_STRING(BERcodec_Object):
     tag = ASN1_Class_UNIVERSAL.STRING
     @classmethod
-    def enc(cls,s):
-        return chb(hash(cls.tag))+BER_len_enc(len(s))+raw(s) # Be sure we are encoding bytes
+    def enc(cls, s):
+        s = str(s)
+        return chb(hash(cls.tag))+BER_len_enc(len(s))+raw(s)  # Be sure we are encoding bytes
     @classmethod
     def do_dec(cls, s, context=None, safe=False):
         l,s,t = cls.check_type_check_len(s)
