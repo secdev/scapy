@@ -136,14 +136,14 @@ def _tzsp_handle_unknown_tag(payload, tag_type):
     payload_len = len(payload)
 
     if payload_len < 2:
-        warning('invalid or unknown tag type (%i) and to short packet - treat remaining data as Raw' % tag_type)
+        warning('invalid or unknown tag type (%i) and too short packet - treat remaining data as Raw' % tag_type)
         return Raw
 
     tag_data_length = struct.unpack('!B', payload[1])[0]
 
     tag_data_fits_in_payload = (tag_data_length + 2) <= payload_len
     if not tag_data_fits_in_payload:
-        warning('invalid or unknown tag type (%i) and to short packet - treat remaining data as Raw' % tag_type)
+        warning('invalid or unknown tag type (%i) and too short packet - treat remaining data as Raw' % tag_type)
         return Raw
 
     warning('invalid or unknown tag type (%i)' % tag_type)
