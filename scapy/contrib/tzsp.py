@@ -196,7 +196,8 @@ class _TZSPTag(Packet):
         TAG_TYPE_RX_CHANNEL: 'RX_CHANNEL',
         TAG_TYPE_PACKET_COUNT: 'PACKET_COUNT',
         TAG_TYPE_RX_FRAME_LENGTH: 'RX_FRAME_LENGTH',
-        TAG_TYPE_WLAN_RADIO_HDR_SERIAL: 'WLAN_RADIO_HDR_SERIAL'
+        TAG_TYPE_WLAN_RADIO_HDR_SERIAL: 'WLAN_RADIO_HDR_SERIAL',
+        (0x02, 0x03, 04, 05, 6, 7, 8, 9): 'unknown'
     }
 
     def guess_payload_class(self, payload):
@@ -357,14 +358,10 @@ class TZSPTagContentionFree(_TZSPTag):
     """
     packet received in contention free period
     """
-    YES = 0x01
     NO = 0x00
+    YES = 0x01
 
-    CONTENTION_STATES = {
-        NO: 'no',
-        YES: 'yes',
-        range(2, 0xff): 'yes'
-    }
+    CONTENTION_STATES = {key: ('yes' if key != 0x00 else 'no') for key in range(0x00, 0x100)}
 
     fields_desc = [
         ByteEnumField('type', _TZSPTag.TAG_TYPE_CONTENTION_FREE, _TZSPTag.TAG_TYPES),
@@ -380,11 +377,7 @@ class TZSPTagDecrypted(_TZSPTag):
     YES = 0x00
     NO = 0x01
 
-    DECRYPTION_STATES = {
-        YES: 'yes',
-        NO: 'no',
-        range(2, 0xff): 'no'
-    }
+    DECRYPTION_STATES = {key: ('yes' if key != 0x01 else 'no') for key in range(0x00, 0x100)}
 
     fields_desc = [
         ByteEnumField('type', _TZSPTag.TAG_TYPE_DECRYPTED, _TZSPTag.TAG_TYPES),
@@ -397,14 +390,11 @@ class TZSPTagError(_TZSPTag):
     """
     frame checksum error
     """
-    YES = 0x01
     NO = 0x00
+    YES = 0x01
+    RESERVED = 0x02
 
-    ERROR_STATES = {
-        NO: 'no',
-        YES: 'yes',
-        range(2, 0xff): 'reserved'
-    }
+    ERROR_STATES = {key: ('reserved' if key > 0x01 else 'no' if key == 0x00 else 'yes') for key in range(0x00, 0x100)}
 
     fields_desc = [
         ByteEnumField('type', _TZSPTag.TAG_TYPE_FCS_ERROR, _TZSPTag.TAG_TYPES),

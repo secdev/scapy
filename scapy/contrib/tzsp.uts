@@ -495,3 +495,63 @@ assert(tzsp_tag_end.type == 1)
 encapsulated_payload = tzsp_tag_end.payload
 encapsulated_ether_lyr = encapsulated_payload.getlayer(Ether)
 assert(encapsulated_ether_lyr.src == '00:03:03:03:03:03')
+
++ corner cases
+
+= state tags value range
+
+== TZSPTagContentionFree
+
+bind_layers(UDP, TZSP, dport=TZSP_PORT_DEFAULT)
+
+frm = Ether(src='00:01:01:01:01:01', dst='00:02:02:02:02:02')/ \
+      IP(src='1.1.1.1', dst='2.2.2.2')/ \
+      UDP(sport=12345, dport=TZSP_PORT_DEFAULT)/ \
+      TZSP()/ \
+      TZSPTagContentionFree(contention_free = 0xff)/ \
+      TZSPTagEnd()
+
+frm = frm.build()
+frm = Ether(frm)
+tzsp_tag_contention_free = frm.getlayer(TZSPTagContentionFree)
+assert(tzsp_tag_contention_free)
+tzsp_tag_contention_free_attr = tzsp_tag_contention_free.get_field('contention_free')
+assert(tzsp_tag_contention_free_attr)
+symb_str = tzsp_tag_contention_free_attr.i2repr(tzsp_tag_contention_free, tzsp_tag_contention_free.contention_free)
+assert(symb_str == 'yes')
+
+== TZSPTagError
+
+bind_layers(UDP, TZSP, dport=TZSP_PORT_DEFAULT)
+
+frm = Ether(src='00:01:01:01:01:01', dst='00:02:02:02:02:02')/ \
+      IP(src='1.1.1.1', dst='2.2.2.2')/ \
+      UDP(sport=12345, dport=TZSP_PORT_DEFAULT)/ \
+      TZSP()/ \
+      TZSPTagError(fcs_error=TZSPTagError.NO)/ \
+      TZSPTagEnd()
+
+frm = frm.build()
+frm = Ether(frm)
+tzsp_tag_error = frm.getlayer(TZSPTagError)
+assert(tzsp_tag_error)
+tzsp_tag_error_attr = tzsp_tag_error.get_field('fcs_error')
+assert(tzsp_tag_error_attr)
+symb_str = tzsp_tag_error_attr.i2repr(tzsp_tag_error, tzsp_tag_error.fcs_error)
+assert(symb_str == 'no')
+
+frm = Ether(src='00:01:01:01:01:01', dst='00:02:02:02:02:02')/ \
+      IP(src='1.1.1.1', dst='2.2.2.2')/ \
+      UDP(sport=12345, dport=TZSP_PORT_DEFAULT)/ \
+      TZSP()/ \
+      TZSPTagError(fcs_error=0xff)/ \
+      TZSPTagEnd()
+
+frm = frm.build()
+frm = Ether(frm)
+tzsp_tag_error = frm.getlayer(TZSPTagError)
+assert(tzsp_tag_error)
+tzsp_tag_error_attr = tzsp_tag_error.get_field('fcs_error')
+assert(tzsp_tag_error_attr)
+symb_str = tzsp_tag_error_attr.i2repr(tzsp_tag_error, tzsp_tag_error.fcs_error)
+assert(symb_str == 'reserved')
