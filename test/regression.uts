@@ -802,6 +802,12 @@ str(RandASN1Object())
 random.seed(1873503288)
 str(RandASN1Object())
 
+= ASN1 - BERcodec_STRING
+random.seed(1873503288)
+a = ASN1_STRING(RandString())
+assert raw(a) in [b'\x04\x0cdrbncqa4KQWO',
+                  b'\x044W866KAD1bZWDQ3paf0xKQG7lFgK8VQvCdgQTjUP4lxfF7C1uYHQX',
+                  b'\x04!1vmXsKntJzyI9ml2kOaeukwq1gRAOg5ir']
 
 ############
 ############
