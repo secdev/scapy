@@ -194,7 +194,7 @@ class RDataField(StrLenField):
         family = None
         if pkt.type == 1: # A
             family = socket.AF_INET
-        elif pkt.type == 12: # PTR
+        elif pkt.type in [2, 5, 12]: # NS, CNAME, PTR
             l = orb(s[0])
             if l & 0xc0 and hasattr(pkt, "_orig_s") and pkt._orig_s: # Compression detected
                 p = ((l & ~0xc0) << 8) + orb(s[1]) - 12
