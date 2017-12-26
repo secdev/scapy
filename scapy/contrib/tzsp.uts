@@ -555,3 +555,33 @@ tzsp_tag_error_attr = tzsp_tag_error.get_field('fcs_error')
 assert(tzsp_tag_error_attr)
 symb_str = tzsp_tag_error_attr.i2repr(tzsp_tag_error, tzsp_tag_error.fcs_error)
 assert(symb_str == 'reserved')
+
+== missing TZSP header before end tag
+
+frm = TZSPTagEnd()/ \
+      Ether(src='00:03:03:03:03:03', dst='00:04:04:04:04:04')/ \
+      ARP()
+
+frm = frm.build()
+try:
+      frm = TZSPTagEnd(frm)
+      assert False
+except TZSPStructureException:
+      pass
+
+== invalid length field for given tag
+
+bind_layers(UDP, TZSP, dport=TZSP_PORT_DEFAULT)
+
+frm = Ether(src='00:01:01:01:01:01', dst='00:02:02:02:02:02') / \
+      IP(src='1.1.1.1', dst='2.2.2.2') / \
+      UDP(sport=12345, dport=TZSP_PORT_DEFAULT) / \
+      TZSP() / \
+      TZSPTagRawRSSIByte(len=3) / \
+      TZSPTagEnd()
+
+frm = frm.build()
+frm = Ether(frm)
+
+tzsp_lyr = frm.getlayer(TZSP)
+assert(type(tzsp_lyr.payload) is Raw )
