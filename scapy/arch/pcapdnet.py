@@ -101,6 +101,9 @@ if conf.use_winpcapy:
           iflist = winpcapy_get_if_list()
           conf.cache_iflist = iflist
           return iflist
+  else:
+    get_if_list = winpcapy_get_if_list
+
   def in6_getifaddr_raw():
     """Returns all available IPv6 on the computer, read from winpcap."""
     err = create_string_buffer(PCAP_ERRBUF_SIZE)
