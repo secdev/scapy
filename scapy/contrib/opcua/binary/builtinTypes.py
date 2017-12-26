@@ -844,6 +844,7 @@ class BuiltinListField(Field):
                 if c <= 0:
                     break
                 c -= 1
+            self.field.cls = builtinNodeIdMappings[encoding]
             s, v = self.field.getfield(pkt, s)
             val.append(v)
         return s + ret, val
@@ -862,6 +863,7 @@ class BuiltinField(PacketField):
         encoding &= 0b00111111
         self.cls = builtinNodeIdMappings[encoding]
         return super(BuiltinField, self).getfield(pkt, s)
+
 
 # TODO: Implement correctly
 class UaVariant(UaBuiltin):
@@ -896,7 +898,7 @@ class UaVariant(UaBuiltin):
 
         valuesField, values = self.getfield_and_val("Values")
         if values is not None and values != []:
-            encodingMask |= valuesField.field.cls.nodeId
+            encodingMask |= next(flatten(values)).nodeId
 
         valueField, value = self.getfield_and_val("Value")
         if value is not None and values == []:
