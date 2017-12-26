@@ -404,6 +404,30 @@ assert(tzsp_tag_sensor_id.sensor_id == SENSOR_ID)
 tzsp_tag_end = tzsp_tag_sensor_id.payload
 assert(tzsp_tag_end.type == 1)
 
+== handling of unknown tag
+
+bind_layers(UDP, TZSP, dport=TZSP_PORT_DEFAULT)
+
+SENSOR_ID = '1E:AT:DE:AD:BE:EF'
+
+frm = Ether(src='00:01:01:01:01:01', dst='00:02:02:02:02:02') / \
+      IP(src='1.1.1.1', dst='2.2.2.2') / \
+      UDP(sport=12345, dport=TZSP_PORT_DEFAULT) / \
+      TZSP() / \
+      TZSPTagUnknown(len=6, data=b'\x06\x05\x04\x03\x02\x01') / \
+      TZSPTagWlanRadioHdrSerial(sensor_id=SENSOR_ID) / \
+      TZSPTagEnd() / \
+      Ether(src='00:03:03:03:03:03', dst='00:04:04:04:04:04') / \
+      Raw('foobar')
+
+frm = frm.build()
+frm = Ether(frm)
+
+tzsp_lyr = frm.getlayer(TZSP)
+assert(tzsp_lyr)
+tzsp_tag_unknown = tzsp_lyr.payload
+assert(type(tzsp_tag_unknown) is TZSPTagUnknown)
+
 = all layers stacked
 
 bind_layers(UDP, TZSP, dport=TZSP_PORT_DEFAULT)
@@ -585,3 +609,45 @@ frm = Ether(frm)
 
 tzsp_lyr = frm.getlayer(TZSP)
 assert(type(tzsp_lyr.payload) is Raw )
+
+== handling of unknown tag - payload to short
+
+bind_layers(UDP, TZSP, dport=TZSP_PORT_DEFAULT)
+
+SENSOR_ID = '1E:AT:DE:AD:BE:EF'
+
+frm = Ether(src='00:01:01:01:01:01', dst='00:02:02:02:02:02') / \
+      IP(src='1.1.1.1', dst='2.2.2.2') / \
+      UDP(sport=12345, dport=TZSP_PORT_DEFAULT) / \
+      TZSP() / \
+      Raw(b'\xff\x0a\x01\x02\x03\x04\x05')
+
+frm = frm.build()
+frm = Ether(frm)
+frm.show()
+tzsp_lyr = frm.getlayer(TZSP)
+assert(tzsp_lyr)
+raw_lyr = tzsp_lyr.payload
+assert(type(raw_lyr) is Raw)
+assert(raw_lyr.load == b'\xff\x0a\x01\x02\x03\x04\x05')
+
+== handling of unknown tag - no payload after tag type
+
+bind_layers(UDP, TZSP, dport=TZSP_PORT_DEFAULT)
+
+SENSOR_ID = '1E:AT:DE:AD:BE:EF'
+
+frm = Ether(src='00:01:01:01:01:01', dst='00:02:02:02:02:02') / \
+      IP(src='1.1.1.1', dst='2.2.2.2') / \
+      UDP(sport=12345, dport=TZSP_PORT_DEFAULT) / \
+      TZSP() / \
+      Raw(b'\xff')
+
+frm = frm.build()
+frm = Ether(frm)
+
+tzsp_lyr = frm.getlayer(TZSP)
+assert(tzsp_lyr)
+raw_lyr = tzsp_lyr.payload
+assert(type(raw_lyr) is Raw)
+assert(raw_lyr.load == b'\xff')

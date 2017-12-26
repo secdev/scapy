@@ -50,7 +50,7 @@ from scapy.fields import ByteField, ShortEnumField, IntField, FieldLenField
 from scapy.layers.dot11 import Packet, Dot11, PrismHeader
 from scapy.layers.l2 import Ether
 import struct
-from scapy.fields import StrLenField, ByteEnumField, ShortField
+from scapy.fields import StrLenField, ByteEnumField, ShortField, XStrLenField
 from scapy.modules.six.moves import range
 from scapy.packet import Raw
 
@@ -131,6 +131,26 @@ class TZSP(Packet):
                 return None
 
 
+def _tzsp_handle_unknown_tag(payload, tag_type):
+
+    payload_len = len(payload)
+
+    if payload_len < 2:
+        warning('invalid or unknown tag type (%i) and to short packet - treat remaining data as Raw' % tag_type)
+        return Raw
+
+    tag_data_length = struct.unpack('!B', payload[1])[0]
+
+    tag_data_fits_in_payload = (tag_data_length + 2) <= payload_len
+    if not tag_data_fits_in_payload:
+        warning('invalid or unknown tag type (%i) and to short packet - treat remaining data as Raw' % tag_type)
+        return Raw
+
+    warning('invalid or unknown tag type (%i)' % tag_type)
+
+    return TZSPTagUnknown
+
+
 def _tzsp_guess_next_tag(payload):
     """
     :return: class representing the next tag, Raw on error, None on missing payload
@@ -146,8 +166,8 @@ def _tzsp_guess_next_tag(payload):
         tag_class_definition = _TZSP_TAG_CLASSES[tag_type]
 
     except KeyError:
-        warning('invalid or unknown tag type (%i) - treat remaining payload as Raw()' % tag_type)
-        return Raw
+
+        return _tzsp_handle_unknown_tag(payload, tag_type)
 
     if type(tag_class_definition) is not dict:
         return tag_class_definition
@@ -196,8 +216,7 @@ class _TZSPTag(Packet):
         TAG_TYPE_RX_CHANNEL: 'RX_CHANNEL',
         TAG_TYPE_PACKET_COUNT: 'PACKET_COUNT',
         TAG_TYPE_RX_FRAME_LENGTH: 'RX_FRAME_LENGTH',
-        TAG_TYPE_WLAN_RADIO_HDR_SERIAL: 'WLAN_RADIO_HDR_SERIAL',
-        (0x02, 0x03, 04, 05, 6, 7, 8, 9): 'unknown'
+        TAG_TYPE_WLAN_RADIO_HDR_SERIAL: 'WLAN_RADIO_HDR_SERIAL'
     }
 
     def guess_payload_class(self, payload):
@@ -446,6 +465,16 @@ class TZSPTagWlanRadioHdrSerial(_TZSPTag):
         StrLenField('sensor_id', '', length_from=lambda pkt:pkt.len)
     ]
 
+
+class TZSPTagUnknown(_TZSPTag):
+    """
+    unknown tag type dummy
+    """
+    fields_desc = [
+        ByteField('type', 0xff),
+        FieldLenField('len', None, length_of='data', fmt='b'),
+        XStrLenField('data', '', length_from=lambda pkt: pkt.len)
+    ]
 
 _TZSP_TAG_CLASSES = {
     _TZSPTag.TAG_TYPE_PADDING: TZSPTagPadding,
