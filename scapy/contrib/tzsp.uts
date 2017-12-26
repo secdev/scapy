@@ -1,15 +1,9 @@
-from enum import test
 % TZSP test campaign
 
 #
 # execute test:
 # > test/run_tests -P "load_contrib('tzsp')" -t scapy/contrib/tzsp.uts
 #
-
-+ syntax check
-= check if the import works
-
-from scapy.contrib.tzsp import *
 
 + Basic layer handling
 

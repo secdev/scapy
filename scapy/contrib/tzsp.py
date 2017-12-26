@@ -45,12 +45,12 @@
 
 """
 from scapy.contrib.avs import AVSWLANHeader
-from scapy.error import warning
+from scapy.error import warning, Scapy_Exception
 from scapy.fields import ByteField, ShortEnumField, IntField, FieldLenField
 from scapy.layers.dot11 import Packet, Dot11, PrismHeader
-from scapy.layers.l2 import Ether, \
-    struct, StrLenField, ByteEnumField, \
-    ShortField, Scapy_Exception
+from scapy.layers.l2 import Ether
+import struct
+from scapy.fields import StrLenField, ByteEnumField, ShortField
 from scapy.modules.six.moves import range
 from scapy.packet import Raw
 
