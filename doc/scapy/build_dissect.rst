@@ -47,7 +47,7 @@ If your protocol is as simple as this, it is ready to use::
     minnie= 0x3 
     donald= happy 
     >>> d.donald="cool" 
-    >>> str(d) 
+    >>> raw(d)
     ’\x00\x01\x03\x00\x00\x00\x02’ 
     >>> Disney( ) 
     <Disney mickey=1 minnie=0x3 donald=cool |> 
@@ -193,7 +193,7 @@ last byte. For instance, 0x123456 will be coded as 0xC8E856::
             s.append( hex(0x80 | (l & 0x7F) ) )
             l = l >> 7
         s.reverse()
-        return "".join(map( lambda(x) : chr(int(x, 16)) , s))
+        return "".join(chr(int(x, 16)) for x in s)
     
     def str2vlenq(s=""):
         i = l = 0
@@ -223,7 +223,7 @@ associated string, but used that encoding format::
                 f = pkt.get_field(self.fld)
                 x = f.i2len(pkt, pkt.getfieldval(self.fld))
                 x = vlenq2str(x)
-            return str(x)
+            return raw(x)
     
         def m2i(self, pkt, x):
             if s is None:
@@ -262,7 +262,7 @@ The method ``show2()`` displays the  fields with their values as they will
 be sent to the network, but in a human readable way, so we see ``len=129``.
 Last but not least, let us look now at the machine representation::
 
-    >>> str(f)
+    >>> raw(f)
     '\x81\x01AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
 
 The first 2 bytes are ``\x81\x01``, which is 129 in this encoding.
@@ -518,15 +518,16 @@ appended altogether.
     0010 7F 00 00 01 00 14 00 50 00 00 00 00 00 00 00 00 .......P........ 
     0020 50 02 20 00 91 7C 00 00 P. ..|.. 
 
-Calling ``str()`` builds the packet:
+Calling ``raw()`` builds the packet:
   - non instanced fields are set to their default value
   - lengths are updated automatically
   - checksums are computed
   - and so on. 
 
-In fact, using ``str()`` rather than  ``show2()`` or any other method is not a
-random  choice  as  all   the  functions  building  the  packet  calls
-``Packet.__str__()``. However, ``__str__()`` calls another method: ``build()``::
+In fact, using ``raw()`` rather than ``show2()`` or any other method
+is not a random choice as all the functions building the packet calls
+``Packet.__str__()`` (or ``Packet.__bytes__()`` under Python
+3). However, ``__str__()`` calls another method: ``build()``::
 
     def __str__(self):
         return next(iter(self)).build()
@@ -668,7 +669,7 @@ in ``post_build()``.
 
 ``len`` is correctly computed now::
 
-    >>> hexdump(str(p))
+    >>> hexdump(raw(p))
     0000   00 32 30 0D 0A 58 58 58  58 58 58 58 58 58 58 58   .20..XXXXXXXXXXX
     0010   58 58 58 58 58 58 58 58  58 58 58 58 58 58 58 58   XXXXXXXXXXXXXXXX
     0020   58 58 58 58 58                                     XXXXX
@@ -826,7 +827,7 @@ Under the hood: putting everything together
 Last but not least, it is very useful to understand when each function
 is called when a packet is built::
 
-    >>> hexdump(str(p))
+    >>> hexdump(raw(p))
     Packet.str=Foo
     Packet.iter=Foo
     Packet.iter=Bar1

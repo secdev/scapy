@@ -100,7 +100,7 @@ class AS_resolver_cymru(AS_resolver):
             asn, ip, desc = [elt.strip() for elt in l.split('|')]
             if asn == "NA":
                 continue
-            asn = "AS" + str(int(asn))
+            asn = "AS%s" % asn
             ASNlist.append((ip, asn, desc))
         return ASNlist
 

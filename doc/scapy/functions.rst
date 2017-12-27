@@ -28,12 +28,12 @@ UDP checksum manually. The following steps must be performed:
 
   # Get the UDP checksum computed by Scapy
   packet = IP(dst="10.11.12.13", src="10.11.12.14")/UDP()/DNS()
-  packet_raw = str(packet)
+  packet_raw = raw(packet)
   checksum_scapy = IP(packet_raw)[UDP].chksum
 
   # Set the UDP checksum to 0 and compute the checksum 'manually'
   packet = IP(dst="10.11.12.13", src="10.11.12.14")/UDP(chksum=0)/DNS()
-  packet_raw = str(packet)
+  packet_raw = raw(packet)
   udp_raw = packet_raw[20:]
   phdr = pseudo_header(packet.src, packet.dst, socket.IPPROTO_UDP, len(udp_raw))
 

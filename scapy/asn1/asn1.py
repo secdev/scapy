@@ -265,12 +265,14 @@ class ASN1_INTEGER(ASN1_Object):
             r = r[:10] + "..." + r[-10:]
         return h + " <%s[%s]>" % (self.__dict__.get("name", self.__class__.__name__), r)
 
+
 class ASN1_BOOLEAN(ASN1_INTEGER):
     tag = ASN1_Class_UNIVERSAL.BOOLEAN
     # BER: 0 means False, anything else means True
     def __repr__(self):
-        return str((not (self.val==0))) + " " + ASN1_Object.__repr__(self)
-    
+        return '%s %s' % (not (self.val==0), ASN1_Object.__repr__(self))
+
+
 class ASN1_BIT_STRING(ASN1_Object):
     """
     /!\ ASN1_BIT_STRING values are bit strings like "011101".
