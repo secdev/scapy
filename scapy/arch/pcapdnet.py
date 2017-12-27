@@ -557,6 +557,19 @@ if conf.use_dnet:
             return [i.get("name", None) for i in dnet.intf()]
 
 
+        def get_working_if():
+            """Returns the first interface than can be used with dnet"""
+
+            if_iter = iter(dnet.intf())
+
+            try:
+                intf = next(if_iter)
+            except StopIteration:
+                return scapy.consts.LOOPBACK_NAME
+
+            return intf.get("name", scapy.consts.LOOPBACK_NAME)
+
+
 if conf.use_pcap and conf.use_dnet:
     class L3dnetSocket(SuperSocket):
         desc = "read/write packets at layer 3 using libdnet and libpcap"
