@@ -108,7 +108,8 @@ fi
 PYTHON=`which python` $SCAPY_SUDO ./run_tests -c ./configs/travis.utsc -T "bpf.uts" -T "mock_windows.uts" $UT_FLAGS || exit $?
 
 # Run unit tests with openssl if we have root privileges
-if [ "$TRAVIS_OS_NAME" = "linux" ] && [ -n "$SCAPY_USE_PCAPDNET" ] && [ -n "$SCAPY_SUDO" ]
+if [ "$TRAVIS_OS_NAME" = "linux" ] && [ -n "$SCAPY_SUDO" ] && \
+       ! python --version 2>&1 | grep -q '^Python 3\.[012345]'
 then
   PYTHON=`which python` $SCAPY_SUDO ./run_tests -q -F -t tls/tests_tls_netaccess.uts $UT_FLAGS || exit $?
 fi
