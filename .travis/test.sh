@@ -54,7 +54,8 @@ then
 fi
 
 # Set PATH
-for _path in /sbin /usr/sbin /usr/local/sbin; do
+## /Users/travis/Library/Python/2.7/bin: pip when non-root on osx
+for _path in /sbin /usr/sbin /usr/local/sbin /Users/travis/Library/Python/2.7/bin; do
   [ -d "$_path" ] && echo "$PATH" | grep -qvE "(^|:)$_path(:|$)" && export PATH="$PATH:$_path"
 done
 
@@ -110,4 +111,9 @@ PYTHON=`which python` $SCAPY_SUDO ./run_tests -c ./configs/travis.utsc -T "bpf.u
 if [ "$TRAVIS_OS_NAME" = "linux" ] && [ -n "$SCAPY_USE_PCAPDNET" ] && [ -n "$SCAPY_SUDO" ]
 then
   PYTHON=`which python` $SCAPY_SUDO ./run_tests -q -F -t tls/tests_tls_netaccess.uts $UT_FLAGS || exit $?
+fi
+
+if [ "$SCAPY_COVERAGE" = "yes" ]; then
+  coverage combine ./
+  codecov
 fi

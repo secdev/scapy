@@ -115,7 +115,3 @@ matrix:
 install: bash .travis/install.sh
 
 script: bash .travis/test.sh
-
-after_success:
-    # With UTScapy, the coverage dot file is located in the test directory
-    - if [ "$SCAPY_COVERAGE" = "yes" ]; then coverage combine ./test; codecov; fi
