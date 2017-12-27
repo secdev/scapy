@@ -30,14 +30,18 @@ matrix:
 
         - os: linux
           python: pypy
-
-        - os: osx
-          language: generic
+          env:
+            - SCAPY_COVERAGE=yes
 
         - os: osx
           language: generic
           env:
-            - SCAPY_USE_PCAPDNET=yes
+            - SCAPY_COVERAGE=yes
+
+        - os: osx
+          language: generic
+          env:
+            - SCAPY_USE_PCAPDNET=yes SCAPY_COVERAGE=yes
 
         # Run as root
         - os: linux
