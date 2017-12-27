@@ -999,3 +999,82 @@ try:
     assert(False)
 except (Scapy_Exception, IndexError):
     pass
+
++ YesNoByteField
+
+= default usage
+
+yn_bf = YesNoByteField('test', 0x00)
+assert(yn_bf.i2repr(None, 0x00) == 'no')
+assert(yn_bf.i2repr(None, 0x01) == 'yes')
+assert(yn_bf.i2repr(None, 0x02) == 'yes')
+assert(yn_bf.i2repr(None, 0xff) == 'yes')
+
+= inverted yes - no (scalar config)
+yn_bf = YesNoByteField('test', 0x00, config={'yes': 0x00, 'no': 0x01})
+assert(yn_bf.i2repr(None, 0x00) == 'yes')
+assert(yn_bf.i2repr(None, 0x01) == 'no')
+assert(yn_bf.i2repr(None, 0x02) == 2)
+assert(yn_bf.i2repr(None, 0xff) == 255)
+
+= inverted yes - no (range config)
+yn_bf = YesNoByteField('test', 0x00, config={'yes': 0x00, 'no': (0x01, 0xff)})
+assert(yn_bf.i2repr(None, 0x00) == 'yes')
+assert(yn_bf.i2repr(None, 0x01) == 'no')
+assert(yn_bf.i2repr(None, 0x02) == 'no')
+assert(yn_bf.i2repr(None, 0xff) == 'no')
+
+= yes - no (using sets)
+yn_bf = YesNoByteField('test', 0x00, config={'yes': [0x00, 0x02], 'no': [0x01, 0x04, 0xff]})
+assert(yn_bf.i2repr(None, 0x00) == 'yes')
+assert(yn_bf.i2repr(None, 0x01) == 'no')
+assert(yn_bf.i2repr(None, 0x02) == 'yes')
+assert(yn_bf.i2repr(None, 0x03) == 3)
+assert(yn_bf.i2repr(None, 0x04) == 'no')
+assert(yn_bf.i2repr(None, 0x05) == 5)
+assert(yn_bf.i2repr(None, 0xff) == 'no')
+
+= yes, no and invalid
+yn_bf = YesNoByteField('test', 0x00, config={'no': 0x00, 'yes': 0x01, 'invalid': (0x02, 0xff)})
+assert(yn_bf.i2repr(None, 0x00) == 'no')
+assert(yn_bf.i2repr(None, 0x01) == 'yes')
+assert(yn_bf.i2repr(None, 0x02) == 'invalid')
+assert(yn_bf.i2repr(None, 0xff) == 'invalid')
+
+= invalid scalar spec
+
+try:
+    YesNoByteField('test', 0x00, config={'no': 0x00, 'yes': 256})
+    assert(False)
+except FieldValueRangeException:
+    pass
+
+= invalid range spec - invalid length
+
+try:
+    YesNoByteField('test', 0x00, config={'no': 0x00, 'yes': (0x00, 0x02, 0x02)})
+    assert(False)
+except FieldAttributeException:
+    pass
+
+= invalid range spec - invalid value
+
+try:
+    YesNoByteField('test', 0x00, config={'no': 0x00, 'yes': (0x100, 0x01)})
+    assert(False)
+except FieldValueRangeException:
+    pass
+
+try:
+    YesNoByteField('test', 0x00, config={'no': 0x00, 'yes': (0x00, 0x100)})
+    assert(False)
+except FieldValueRangeException:
+    pass
+
+= invalid set spec - invalid value
+
+try:
+    YesNoByteField('test', 0x00, config={'no': 0x00, 'yes': [0x01, 0x101]})
+    assert(False)
+except FieldValueRangeException:
+    pass

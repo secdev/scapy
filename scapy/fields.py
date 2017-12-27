@@ -319,6 +319,118 @@ class SignedByteField(Field):
     def __init__(self, name, default):
         Field.__init__(self, name, default, "b")
 
+
+class FieldValueRangeException(Scapy_Exception):
+    pass
+
+
+class FieldAttributeException(Scapy_Exception):
+    pass
+
+
+class YesNoByteField(ByteField):
+    """
+    byte based flag field that shows representation of its number based on a given association
+
+    in its default configuration the following representation is generated:
+        x == 0 : 'no'
+        x != 0 : 'yes'
+
+    in more sophisticated use-cases (e.g. yes/no/invalid) one can use the config attribute to configure
+    key-value, key-range and key-value-set associations that will be used to generate the values representation.
+
+    a range is given by a tuple (<first-val>, <last-value>) including the last value. a single-value tuple
+    is treated as scalar.
+
+    a list defines a set of (probably non consecutive) values that should be associated to a given key.
+
+    all values not associated with a key will be shown as number of type unsigned byte.
+
+    config = {
+                'no' : 0,
+                'foo' : (1,22),
+                'yes' : 23,
+                'bar' : [24,25, 42, 48, 87, 253]
+             }
+
+    generates the following representations:
+
+        x == 0 : 'no'
+        x == 15: 'foo'
+        x == 23: 'yes'
+        x == 42: 'bar'
+        x == 43: 43
+
+    using the config attribute one could also revert the stock-yes-no-behavior:
+
+    config = {
+                'yes' : 0,
+                'no' : (1,255)
+             }
+
+    will generate the following value representation:
+
+        x == 0 : 'yes'
+        x != 0 : 'no'
+
+    """
+    __slots__ = ['eval_fn']
+
+    def _build_config_representation(self, config):
+        assoc_table = dict()
+        for key in config:
+            value_spec = config[key]
+
+            value_spec_type = type(value_spec)
+
+            if value_spec_type is int:
+                if value_spec < 0 or value_spec > 255:
+                    raise FieldValueRangeException('given field value {} invalid - '
+                                                   'must be in range [0..255]'.format(value_spec))
+                assoc_table[value_spec] = key
+
+            elif value_spec_type is list:
+                for value in value_spec:
+                    if value < 0 or value > 255:
+                        raise FieldValueRangeException('given field value {} invalid - '
+                                                       'must be in range [0..255]'.format(value))
+                    assoc_table[value] = key
+
+            elif value_spec_type is tuple:
+                value_spec_len = len(value_spec)
+                if value_spec_len != 2:
+                    raise FieldAttributeException('invalid length {} of given config item tuple {} - must be '
+                                                  '(<start-range>, <end-range>).'.format(value_spec_len, value_spec))
+
+                value_range_start = value_spec[0]
+                if value_range_start < 0 or value_range_start > 255:
+                    raise FieldValueRangeException('given field value {} invalid - '
+                                                   'must be in range [0..255]'.format(value_range_start))
+
+                value_range_end = value_spec[1]
+                if value_range_end < 0 or value_range_end > 255:
+                    raise FieldValueRangeException('given field value {} invalid - '
+                                                   'must be in range [0..255]'.format(value_range_end))
+
+                for value in range(value_range_start, value_range_end + 1):
+
+                    assoc_table[value] = key
+
+        self.eval_fn = lambda x: assoc_table[x] if x in assoc_table else x
+
+    def __init__(self, name, default, config=None, *args, **kargs):
+
+        if not config:
+            # this represents the common use case and therefore it is kept small
+            self.eval_fn = lambda x: 'no' if x == 0 else 'yes'
+        else:
+            self._build_config_representation(config)
+        ByteField.__init__(self, name, default, *args, **kargs)
+
+    def i2repr(self, pkt, x):
+        return self.eval_fn(x)
+
+
 class ShortField(Field):
     def __init__(self, name, default):
         Field.__init__(self, name, default, "H")
