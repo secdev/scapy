@@ -568,7 +568,7 @@ frm = Ether(src='00:01:01:01:01:01', dst='00:02:02:02:02:02')/ \
       IP(src='1.1.1.1', dst='2.2.2.2')/ \
       UDP(sport=12345, dport=TZSP_PORT_DEFAULT)/ \
       TZSP()/ \
-      TZSPTagError(fcs_error=0xff)/ \
+      TZSPTagError(fcs_error=TZSPTagError.YES + 1)/ \
       TZSPTagEnd()
 
 frm = frm.build()

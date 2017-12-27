@@ -46,7 +46,7 @@
 """
 from scapy.contrib.avs import AVSWLANHeader
 from scapy.error import warning, Scapy_Exception
-from scapy.fields import ByteField, ShortEnumField, IntField, FieldLenField
+from scapy.fields import ByteField, ShortEnumField, IntField, FieldLenField, YesNoByteField
 from scapy.layers.dot11 import Packet, Dot11, PrismHeader
 from scapy.layers.l2 import Ether
 import struct
@@ -380,12 +380,10 @@ class TZSPTagContentionFree(_TZSPTag):
     NO = 0x00
     YES = 0x01
 
-    CONTENTION_STATES = {key: ('yes' if key != 0x00 else 'no') for key in range(0x00, 0x100)}
-
     fields_desc = [
         ByteEnumField('type', _TZSPTag.TAG_TYPE_CONTENTION_FREE, _TZSPTag.TAG_TYPES),
         ByteField('len', 1),
-        ByteEnumField('contention_free', NO, CONTENTION_STATES)
+        YesNoByteField('contention_free', NO)
     ]
 
 
@@ -396,12 +394,10 @@ class TZSPTagDecrypted(_TZSPTag):
     YES = 0x00
     NO = 0x01
 
-    DECRYPTION_STATES = {key: ('yes' if key != 0x01 else 'no') for key in range(0x00, 0x100)}
-
     fields_desc = [
         ByteEnumField('type', _TZSPTag.TAG_TYPE_DECRYPTED, _TZSPTag.TAG_TYPES),
         ByteField('len', 1),
-        ByteEnumField('decrypted', NO, DECRYPTION_STATES)
+        YesNoByteField('decrypted', NO, config={'yes': YES, 'no': (NO, 0xff)})
     ]
 
 
@@ -411,14 +407,11 @@ class TZSPTagError(_TZSPTag):
     """
     NO = 0x00
     YES = 0x01
-    RESERVED = 0x02
-
-    ERROR_STATES = {key: ('reserved' if key > 0x01 else 'no' if key == 0x00 else 'yes') for key in range(0x00, 0x100)}
 
     fields_desc = [
         ByteEnumField('type', _TZSPTag.TAG_TYPE_FCS_ERROR, _TZSPTag.TAG_TYPES),
         ByteField('len', 1),
-        ByteEnumField('fcs_error', NO, ERROR_STATES)
+        YesNoByteField('fcs_error', NO, config={'no': NO, 'yes': YES, 'reserved': (YES + 1, 0xff)})
     ]
 
 
