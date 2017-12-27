@@ -30,6 +30,8 @@ channel, ...), etc.
 Latest version of scapy now supports both Python 2.7 and Python 3. It's intended to
 be cross platform, and supports many different platforms such as Linux, OSX, Windows...
 
+[Documentation](http://scapy.readthedocs.io/en/latest/)
+
 ## Hands-on ##
 
 ### Interactive shell ###

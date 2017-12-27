@@ -5,6 +5,10 @@
 Welcome to Scapy's documentation!
 =================================
 
+.. image:: graphics/scapy_logo.png
+   :scale: 20
+   :align: center
+
 :Release: |version|
 :Date: |today|
 

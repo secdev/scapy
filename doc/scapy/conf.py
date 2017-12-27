@@ -35,7 +35,7 @@ master_doc = 'index'
 
 # General substitutions.
 project = 'Scapy'
-copyright = '2008, 2016 Philippe Biondi and the Scapy community'
+copyright = '2008, 2018 Philippe Biondi and the Scapy community'
 
 # The default replacements for |version| and |release|, also used in various
 # other places throughout the built documents.
