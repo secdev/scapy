@@ -27,7 +27,7 @@ if [ ! -z $SCAPY_USE_PCAPDNET ]
 then
   if [ "$TRAVIS_OS_NAME" = "linux" ]
   then
-    $SCAPY_SUDO apt-get install python-libpcap python-dumbnet openssl
+    $SCAPY_SUDO apt-get install python-libpcap python-dumbnet
   elif [ "$TRAVIS_OS_NAME" = "osx" ]
   then
     mkdir -p /Users/travis/Library/Python/2.7/lib/python/site-packages
@@ -42,5 +42,5 @@ fi
 # Install wireshark data
 if [ ! -z "$SCAPY_SUDO" ] && [ "$TRAVIS_OS_NAME" = "linux" ]
 then
-  $SCAPY_SUDO apt-get install libwireshark-data
+  $SCAPY_SUDO apt-get install libwireshark-data openssl
 fi

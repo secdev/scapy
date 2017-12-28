@@ -192,14 +192,11 @@ class L2ListenTcpdump(SuperSocket):
         self.outs = None
         args = ['-w', '-', '-s', '65535']
         if iface is not None:
-            if WINDOWS:
-                try:
-                    args.extend(['-i', iface.pcap_name])
-                except AttributeError:
-                    args.extend(['-i', iface])
-            else:
+            try:
+                args.extend(['-i', iface.pcap_name])
+            except AttributeError:
                 args.extend(['-i', iface])
-        elif WINDOWS or DARWIN:
+        else:  # For safety, we don't let tcpdump decide which iface to use
             args.extend(['-i', conf.iface.pcap_name if WINDOWS else conf.iface])
         if not promisc:
             args.append('-p')
