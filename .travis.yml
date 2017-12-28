@@ -82,30 +82,6 @@ matrix:
           env:
             - SCAPY_SUDO=sudo SCAPY_USE_PCAPDNET=yes SCAPY_COVERAGE=yes
 
-        - os: linux
-          sudo: required
-          python: 3.3
-          env:
-            - SCAPY_SUDO=sudo SCAPY_USE_PCAPDNET=yes SCAPY_COVERAGE=yes
-
-        - os: linux
-          sudo: required
-          python: 3.4
-          env:
-            - SCAPY_SUDO=sudo SCAPY_USE_PCAPDNET=yes SCAPY_COVERAGE=yes
-
-        - os: linux
-          sudo: required
-          python: 3.5
-          env:
-            - SCAPY_SUDO=sudo SCAPY_USE_PCAPDNET=yes SCAPY_COVERAGE=yes
-
-        - os: linux
-          sudo: required
-          python: 3.6
-          env:
-            - SCAPY_SUDO=sudo SCAPY_USE_PCAPDNET=yes SCAPY_COVERAGE=yes
-
         - os: osx
           language: generic
           env:

@@ -1,7 +1,7 @@
 # Report installed versions
 echo "### INSTALLED VERSIONS ###"
 python -c 'import sys; print("sys.path:" , sys.path)'
-for DEPENDENCY in "six" "cryptography" "mock" "pcap" "dumbnet" "coverage"
+for DEPENDENCY in "six" "cryptography" "mock" "pcap" "dnet" "coverage"
 do
   python -c 'import '$DEPENDENCY'; print("'$DEPENDENCY': "+str(getattr('$DEPENDENCY', "__version__", "no __version__ attribute")))'
   echo "----"
@@ -49,7 +49,7 @@ fi
 
 if python --version 2>&1 | grep -q '^Python 3\.[0123]'
 then
-  # Cannot install cryptography with Python 3 < 3.4
+  # cryptography with Python 3 < 3.4 requires 3.3.7, Travis provides 3.3.6
   UT_FLAGS+=" -K crypto"
 fi
 
