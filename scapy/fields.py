@@ -1460,7 +1460,10 @@ class UTCTimeField(IntField):
         elif self.use_nano:
             x = x/1e9
         x = int(x) + self.delta
-        t = time.strftime(self.strf, time.gmtime(x))
+        try:
+            t = time.strftime(self.strf, time.gmtime(x))
+        except:
+            t = "error"
         return "%s (%d)" % (t, x)
     def i2m(self, pkt, x):
         return int(x) if x != None else 0

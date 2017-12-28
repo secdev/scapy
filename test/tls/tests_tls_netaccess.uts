@@ -18,7 +18,7 @@ sys.path.append(os.path.abspath("./tls"))
 from travis_test_server import *
 
 def test_tls_server(suite="", version=""):
-    msg = "TestS_" + suite + "_data"
+    msg = "TestS_%s_data" % suite
     # Run server
     q_ = multiprocessing.Manager().Queue()
     th_ = multiprocessing.Process(target=run_tls_test_server, args=(msg, q_))
@@ -30,9 +30,9 @@ def test_tls_server(suite="", version=""):
     CA_f = os.path.abspath("./tls/pki/ca_cert.pem")
     p = subprocess.Popen("openssl s_client -cipher " + suite + " " + version + " -CAfile " + CA_f, stdout=subprocess.PIPE, universal_newlines=True,
                             stdin=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
-    msg += b"\nstop_server"
+    msg += "\nstop_server"
     out, err = p.communicate(input=msg)
-    print out
+    print(out)
     if p.returncode != 0:
         th_.terminate()
         raise RuntimeError("OpenSSL returned with error code")
@@ -55,7 +55,7 @@ def test_tls_server(suite="", version=""):
         th_.terminate()
         raise RuntimeError("Test timed out")
     # Analyse values
-    print q_.get()
+    print(q_.get())
     assert th_.exitcode == 0
     
 
@@ -83,7 +83,8 @@ test_tls_server("ECDHE-RSA-AES256-GCM-SHA384", "-tls1_2")
 
 = Load client utils functions
 
-import sys, os, threading, Queue
+import sys, os, threading
+from scapy.modules.six.moves.queue import Queue
 
 sys.path.append(os.path.abspath("./tls"))
 
@@ -91,18 +92,18 @@ from travis_test_client import *
 
 def perform_tls_client_test(suite, version):
     # Run test_tls_client in an other thread
-    q = Queue.Queue()
+    q = Queue()
     p = threading.Thread(target=test_tls_client, args=(suite, version, q))
     p.start()
     # Wait for the function to end
     p.join()
     # Analyse data and return
     if not q.empty():
-        print q.get()
+        print(q.get())
     if not q.empty():
         assert q.get() == 0
     else:
-        print "ERROR: Missing one of the return value detected !"
+        print("ERROR: Missing one of the return value detected !")
         assert False
 
 = Testing TLS server and client with SSLv2 and SSL_CK_DES_192_EDE3_CBC_WITH_MD5

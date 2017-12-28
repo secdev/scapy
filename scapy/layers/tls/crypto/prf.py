@@ -271,14 +271,14 @@ class PRF(object):
             if self.tls_version <= 0x0302:
                 s1 = _tls_hash_algs["MD5"]().digest(handshake_msg)
                 s2 = _tls_hash_algs["SHA"]().digest(handshake_msg)
-                verify_data = self.prf(master_secret, label, s1 + s2, 12)
+                verify_data = self.prf(master_secret, label.encode(), s1 + s2, 12)
             else:
                 if self.hash_name in ["MD5", "SHA"]:
                     h = _tls_hash_algs["SHA256"]()
                 else:
                     h = _tls_hash_algs[self.hash_name]()
                 s = h.digest(handshake_msg)
-                verify_data = self.prf(master_secret, label, s, 12)
+                verify_data = self.prf(master_secret, label.encode(), s, 12)
 
         return verify_data
 
@@ -306,7 +306,7 @@ class PRF(object):
             else:
                 tag = "server write key"
             export_key = self.prf(key,
-                                  tag,
+                                  tag.encode(),
                                   client_random + server_random,
                                   req_len)
         return export_key
@@ -331,7 +331,7 @@ class PRF(object):
             iv = _tls_hash_algs["MD5"]().digest(tbh)[:req_len]
         else:
             iv_block = self.prf("",
-                                "IV block",
+                                b"IV block",
                                 client_random + server_random,
                                 2*req_len)
             if s:
