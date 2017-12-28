@@ -428,9 +428,9 @@ assert(p.sport == 2048 and p.dport == 63487)
 conf_color_theme = conf.color_theme
 conf.color_theme = BlackAndWhite()
 p = IP(ttl=64)/ICMP()
-assert(repr(p) == "<IP  frag=0 ttl=64 proto=icmp |<ICMP  |>>")
+assert(repr(p) in ["<IP  frag=0 ttl=64 proto=icmp |<ICMP  |>>", "<IP  frag=0 ttl=64 proto=1 |<ICMP  |>>"])
 p.hide_defaults()
-assert(repr(p) == "<IP  frag=0 proto=icmp |<ICMP  |>>")
+assert(repr(p) in ["<IP  frag=0 proto=icmp |<ICMP  |>>", "<IP  frag=0 proto=1 |<ICMP  |>>"])
 conf.color_theme = conf_color_theme
 
 = split_layers
@@ -3427,8 +3427,8 @@ def test_show():
     expected += "7 2001:db8::7                                3         \n"
     expected += "8 2001:db8::8                                3         \n"
     expected += "9 2001:db8::9                                3         \n"
-    index_result = result.index("1")
-    index_expected = expected.index("1")
+    index_result = result.index("\n1")
+    index_expected = expected.index("\n1")
     assert(result[index_result:] == expected[index_expected:])
 
 test_show()
@@ -9159,8 +9159,8 @@ def test_show():
     expected += "7 192.168.0.7     11 \n"
     expected += "8 192.168.0.8     11 \n"
     expected += "9 192.168.0.9     11 \n"
-    index_result = result_show.index("1")
-    index_expected = expected.index("1")
+    index_result = result_show.index("\n1")
+    index_expected = expected.index("\n1")
     assert(result_show[index_result:] == expected[index_expected:])
 
 test_show()
