@@ -44,12 +44,12 @@
           - doesn't know the packet count tag (40 / 0x28)
 
 """
+from scapy.compat import orb
 from scapy.contrib.avs import AVSWLANHeader
 from scapy.error import warning, Scapy_Exception
 from scapy.fields import ByteField, ShortEnumField, IntField, FieldLenField, YesNoByteField
 from scapy.layers.dot11 import Packet, Dot11, PrismHeader
 from scapy.layers.l2 import Ether
-import struct
 from scapy.fields import StrLenField, ByteEnumField, ShortField, XStrLenField
 from scapy.modules.six.moves import range
 from scapy.packet import Raw
@@ -139,7 +139,7 @@ def _tzsp_handle_unknown_tag(payload, tag_type):
         warning('invalid or unknown tag type (%i) and too short packet - treat remaining data as Raw' % tag_type)
         return Raw
 
-    tag_data_length = struct.unpack('!B', payload[1])[0]
+    tag_data_length = orb(payload[1])
 
     tag_data_fits_in_payload = (tag_data_length + 2) <= payload_len
     if not tag_data_fits_in_payload:
@@ -160,7 +160,7 @@ def _tzsp_guess_next_tag(payload):
         warning('missing payload')
         return None
 
-    tag_type = struct.unpack('!B', payload[0])[0]
+    tag_type = orb(payload[0])
 
     try:
         tag_class_definition = _TZSP_TAG_CLASSES[tag_type]
@@ -173,7 +173,7 @@ def _tzsp_guess_next_tag(payload):
         return tag_class_definition
 
     try:
-        length = struct.unpack('!B', payload[1])[0]
+        length = orb(payload[1])
     except IndexError:
         length = None
 
