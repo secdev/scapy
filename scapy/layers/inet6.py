@@ -2174,18 +2174,18 @@ def names2dnsrepr(x):
     !!!  At the moment, compression is not implemented  !!!
     """
 
-    if isinstance(x, str):
+    if isinstance(x, bytes):
         if x and x[-1] == '\x00': # stupid heuristic
             return x.encode("utf8")
         x = [x]
 
     res = []
     for n in x:
-        termin = "\x00"
-        if n.count('.') == 0: # single-component gets one more
-            termin += '\x00'
-        n = "".join(chr(len(y)) + y for y in n.split('.')) + termin
-        res.append(n.encode("utf8"))
+        termin = b"\x00"
+        if n.count(b'.') == 0: # single-component gets one more
+            termin += b'\x00'
+        n = b"".join(chb(len(y)) + y for y in n.split(b'.')) + termin
+        res.append(n)
     return b"".join(res)
 
 
@@ -2197,25 +2197,23 @@ def dnsrepr2names(x):
     (does not end with a null character, a one element list
     is returned). Result is a list.
     """
-    x = plain_str(x)
     res = []
-    cur = ""
+    cur = b""
     while x:
         l = orb(x[0])
         x = x[1:]
-        if l == 0:
-            if cur and cur[-1] == '.':
+        if not l:
+            if cur and cur[-1:] == b'.':
                 cur = cur[:-1]
             res.append(cur)
-            cur = ""
+            cur = b""
             if x and orb(x[0]) == 0: # single component
                 x = x[1:]
             continue
         if l & 0xc0: # XXX TODO : work on that -- arno
             raise Exception("DNS message can't be compressed at this point!")
-        else:
-            cur += x[:l]+"."
-            x = x[l:]
+        cur += x[:l] + b"."
+        x = x[l:]
     return res
 
 
@@ -2237,18 +2235,20 @@ class NIQueryDataField(StrField):
 
         val = None
         try: # Try IPv6
-            inet_pton(socket.AF_INET6, x)
-            val = (0, x)
+            inet_pton(socket.AF_INET6, x.decode())
+            return (0, x.decode())
         except:
-            try: # Try IPv4
-                inet_pton(socket.AF_INET, x)
-                val = (2, x)
-            except: # Try DNS
-                if x is None:
-                    x = ""
-                x = names2dnsrepr(x)
-                val = (1, x)
-        return val
+            pass
+        try: # Try IPv4
+            inet_pton(socket.AF_INET, x.decode())
+            return (2, x.decode())
+        except:
+            pass
+        # Try DNS
+        if x is None:
+            x = b""
+        x = names2dnsrepr(x)
+        return (1, x)
 
     def i2repr(self, pkt, x):
         x = plain_str(x)
@@ -2389,7 +2389,7 @@ class NIReplyDataField(StrField):
         # No user hint, let's use 'qtype' value for that purpose
         if not isinstance(x, tuple):
             if pkt is not None:
-                qtype = getattr(pkt, "qtype")
+                qtype = pkt.qtype
         else:
             qtype = x[0]
             x = x[1]
@@ -2397,26 +2397,33 @@ class NIReplyDataField(StrField):
         # From that point on, x is the value (second element of the tuple)
 
         if qtype == 2: # DNS name
-            if isinstance(x, str): # listify the string
+            if isinstance(x, (str, bytes)): # listify the string
                 x = [x]
-            if isinstance(x, list) and x and not isinstance(x[0], int): # ttl was omitted : use 0
-                x = [0] + x
-            ttl = x[0]
-            names = x[1:]
+            if isinstance(x, list):
+                x = [val.encode() if isinstance(val, str) else val for val in x]
+            if x and isinstance(x[0], six.integer_types):
+                ttl = x[0]
+                names = x[1:]
+            else:
+                ttl = 0
+                names = x
             return (2, [ttl, names2dnsrepr(names)])
 
         elif qtype in [3, 4]: # IPv4 or IPv6 addr
-            if isinstance(x, str):
+            if not isinstance(x, list):
                 x = [x] # User directly provided an IP, instead of list
 
-            # List elements are not tuples, user probably
-            # omitted ttl value : we will use 0 instead
-            def addttl(x):
-                if isinstance(x, str):
-                    return (0, x)
+            def fixvalue(x):
+                # List elements are not tuples, user probably
+                # omitted ttl value : we will use 0 instead
+                if not isinstance(x, tuple):
+                    x = (0, x)
+                # Decode bytes
+                if six.PY3 and isinstance(x[1], bytes):
+                    x = (x[0], x[1].decode())
                 return x
 
-            return (qtype, [addttl(d) for d in x])
+            return (qtype, [fixvalue(d) for d in x])
 
         return (qtype, x)
 

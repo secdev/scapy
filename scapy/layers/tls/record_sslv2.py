@@ -48,7 +48,7 @@ class _SSLv2MsgListField(_TLSMsgListField):
        if isinstance(p, _GenericTLSSessionInheritance):
            p.tls_session = pkt.tls_session
            if not pkt.tls_session.frozen:
-               cur = p.str_stateful()
+               cur = p.raw_stateful()
                p.post_build_tls_session_update(cur)
            else:
                cur = raw(p)

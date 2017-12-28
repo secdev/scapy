@@ -81,7 +81,7 @@ class _TLSInnerPlaintextField(PacketField):
         if isinstance(p, _GenericTLSSessionInheritance):
             p.tls_session = pkt.tls_session
             if not pkt.tls_session.frozen:
-                return p.str_stateful()
+                return p.raw_stateful()
         return raw(p)
 
 

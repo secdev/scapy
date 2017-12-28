@@ -739,13 +739,12 @@ class DomainNameField(StrLenField):
             l = orb(x[0])
             cur.append(x[1:1+l])
             x = x[l+1:]
-        ret_str = b".".join(cur)
-        return plain_str(ret_str)
+        return b".".join(cur)
 
     def i2m(self, pkt, x):
         if not x:
             return b""
-        return b"".join(chb(len(z)) + z.encode("utf8") for z in x.split('.'))
+        return b"".join(chb(len(z)) + z for z in x.split(b'.'))
 
 class DHCP6OptNISDomain(_DHCP6OptGuessPayload):             #RFC3898
     name = "DHCP6 Option - NIS Domain Name"

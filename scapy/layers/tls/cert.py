@@ -257,7 +257,7 @@ class PubKeyRSA(PubKey, _EncryptAndVerifyRSA):
     @crypto_validator
     def fill_and_store(self, modulus=None, modulusLen=None, pubExp=None):
         pubExp = pubExp or 65537
-        if modulus is None:
+        if not modulus:
             real_modulusLen = modulusLen or 2048
             private_key = rsa.generate_private_key(public_exponent=pubExp,
                                                    key_size=real_modulusLen,

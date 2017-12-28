@@ -12,20 +12,24 @@ expected_data, then we leave with exit code 0. Else we leave with exit code 1.
 If no expected_data was provided and the handshake was ok, we exit with 0.
 """
 
+from ast import literal_eval
 import os
 import sys
 from contextlib import contextmanager
-from io import BytesIO
+from io import BytesIO, StringIO
 
-basedir = os.path.abspath(os.path.join(os.path.dirname(__file__),"../../"))
-sys.path=[basedir]+sys.path
+from scapy.modules import six
+
+basedir = os.path.abspath(os.path.join(os.path.dirname(__file__),
+                                       os.path.pardir, os.path.pardir))
+sys.path = [basedir] + sys.path
 
 from scapy.layers.tls.automaton_srv import TLSServerAutomaton
 
 
 @contextmanager
 def captured_output():
-    new_out, new_err = BytesIO(), BytesIO()
+    new_out, new_err = (StringIO(), StringIO()) if six.PY3 else (BytesIO(), BytesIO())
     old_out, old_err = sys.stdout, sys.stderr
     try:
         sys.stdout, sys.stderr = new_out, new_err
@@ -39,10 +43,10 @@ def check_output_for_data(out, err, expected_data):
         return (False, errored)
     output = out.getvalue().strip()
     if expected_data:
-        lines = output.split("\n")
-        for l in lines:
-            if l == ("> Received: %s" % expected_data):
-                return (True, output)
+        for data in output.split('> Received: ')[1:]:
+            for line in literal_eval(data).split(b'\n'):
+                if line == expected_data:
+                    return (True, output)
         return (False, output)
     else:
         return (True, None)
@@ -51,8 +55,9 @@ def run_tls_test_server(expected_data, q):
     correct = False
     with captured_output() as (out, err):
         # Prepare automaton
-        t = TLSServerAutomaton(mycert=basedir+'/test/tls/pki/srv_cert.pem',
-                               mykey=basedir+'/test/tls/pki/srv_key.pem')
+        crt_basedir = os.path.join(basedir, 'test', 'tls', 'pki')
+        t = TLSServerAutomaton(mycert=os.path.join(crt_basedir, 'srv_cert.pem'),
+                               mykey=os.path.join(crt_basedir, 'srv_key.pem'))
         # Sync threads
         q.put(True)
         # Run server automaton

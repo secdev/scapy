@@ -1049,7 +1049,7 @@ from scapy.layers.tls.crypto.kx_algs import KX_ECDHE_RSA
 from scapy.layers.tls.crypto.cipher_block import Cipher_AES_256_CBC
 sh = TLSServerHello(gmt_unix_time=0x41414141, random_bytes='B'*28, cipher=0xc014)
 t = TLS(msg=sh)
-t.str_stateful()
+t.raw_stateful()
 assert(isinstance(t.tls_session.pwcs.ciphersuite, TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA))
 assert(isinstance(t.tls_session.pwcs.key_exchange, KX_ECDHE_RSA))
 assert(isinstance(t.tls_session.pwcs.cipher, Cipher_AES_256_CBC))

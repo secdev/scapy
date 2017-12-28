@@ -389,11 +389,20 @@ class StrField(Field):
         self.remain = remain
     def i2len(self, pkt, i):
         return len(i)
+    def any2i(self, pkt, x):
+        if isinstance(x, str if six.PY3 else unicode):
+            x = raw(x)
+        return super(StrField, self).any2i(pkt, x)
+    def i2repr(self, pkt, x):
+        val = super(StrField, self).i2repr(pkt, x)
+        if val[:2] in ['b"', "b'"]:
+            return val[1:]
+        return val
     def i2m(self, pkt, x):
         if x is None:
-            x = b""
-        elif not isinstance(x, bytes):
-            x = raw(x)
+            return b""
+        if not isinstance(x, bytes):
+            return raw(x)
         return x
     def addfield(self, pkt, s, val):
         return s + self.i2m(pkt, val)
@@ -585,7 +594,7 @@ class StrFixedLenField(StrField):
     def i2repr(self, pkt, v):
         if isinstance(v, bytes):
             v = v.rstrip(b"\0")
-        return repr(v)
+        return super(StrFixedLenField, self).i2repr(pkt, v)
     def getfield(self, pkt, s):
         l = self.length_from(pkt)
         return s[l:], self.m2i(pkt,s[:l])
@@ -644,7 +653,7 @@ class XStrField(StrField):
     """
 
     def i2repr(self, pkt, x):
-        if not x:
+        if x is None:
             return repr(x)
         return bytes_hex(x).decode()
 

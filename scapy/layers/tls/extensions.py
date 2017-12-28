@@ -582,7 +582,7 @@ class _ExtensionsLenField(FieldLenField):
         l = ext.length_from(pkt)
         if l is None or l <= 0:
             v = pkt.tls_session.tls_version
-            if v < 0x0304:
+            if v is None or v < 0x0304:
                 return s, None
         return super(_ExtensionsLenField, self).getfield(pkt, s)
 
@@ -634,7 +634,7 @@ class _ExtensionsField(StrLenField):
                 for ext in i:
                     if isinstance(ext, _GenericTLSSessionInheritance):
                         ext.tls_session = pkt.tls_session
-                        s += ext.str_stateful()
+                        s += ext.raw_stateful()
                     else:
                         s += raw(ext)
                 return s

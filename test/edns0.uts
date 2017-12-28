@@ -37,7 +37,7 @@ raw(opt) == b'\x05rropt\x00\x00*\x00{\x01\x02\x00\x03\x00\x04\x00*\x00\x0cedns0t
 
 = DNSRROP(), dissection
 opt = DNSRROPT(b'\x05rropt\x00\x00*\x00{\x01\x02\x00\x03\x00\x0c\x00*\x00\x0cedns0tlv')
-opt.rrname == "rropt." and opt.rdlen == 12 and opt.rdata[0].optcode == 42 and opt.rdata[0].optdata == b"edns0tlv"
+opt.rrname == b"rropt." and opt.rdlen == 12 and opt.rdata[0].optcode == 42 and opt.rdata[0].optdata == b"edns0tlv"
 
 + Test EDNS-PING
 

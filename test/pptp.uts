@@ -76,7 +76,7 @@ assert pkt[PPP].proto == 0xc021
 assert pkt[PPP_LCP_Echo].code == 9
 assert pkt[PPP_LCP_Echo].id == 42
 assert pkt[PPP_LCP_Echo].magic_number == 4242
-assert pkt[PPP_LCP_Echo].data == 'abcdef'
+assert pkt[PPP_LCP_Echo].data == b'abcdef'
 
 + PPP LCP Tests
 = Test LCP Echo Request / Reply
@@ -270,7 +270,7 @@ assert code_reject_pkt[PPP_LCP_Code_Reject].id == 42
 assert isinstance(code_reject_pkt[PPP_LCP_Code_Reject].rejected_packet, PPP_LCP)
 assert code_reject[PPP_LCP_Code_Reject].rejected_packet.code == 42
 assert code_reject[PPP_LCP_Code_Reject].rejected_packet.id == 7
-assert code_reject[PPP_LCP_Code_Reject].rejected_packet.data == 'unknown_data'
+assert code_reject[PPP_LCP_Code_Reject].rejected_packet.data == b'unknown_data'
 
 = Test LCP Protocol-Reject
 ~ ppp lcp lcp_protocol_reject
@@ -357,7 +357,7 @@ assert PPP_PAP_Response in pap_response_pkt
 assert pap_response_pkt[PPP_PAP_Response].code == 2
 assert pap_response_pkt[PPP_PAP_Response].id == 42
 assert pap_response_pkt[PPP_PAP_Response].msg_len == 0
-assert pap_response_pkt[PPP_PAP_Response].message == ''
+assert pap_response_pkt[PPP_PAP_Response].message == b''
 assert pap_response_pkt[PPP_PAP_Response].summary() == 'PAP-Ack'
 
 pap_request_pkt = PPP(hex_bytes('c023012a00220d61646d696e6973747261746f720f7365637265745f70617373776f7264'))
@@ -436,7 +436,7 @@ chap_success_pkt = PPP(chap_success_ref_data)
 assert PPP_CHAP in chap_success_pkt
 assert chap_success_pkt[PPP_CHAP].code == 3
 assert chap_success_pkt[PPP_CHAP].id == 47
-assert chap_success_pkt[PPP_CHAP].data == ''
+assert chap_success_pkt[PPP_CHAP].data == b''
 assert chap_success_pkt[PPP_CHAP].summary() in ['CHAP Success message=\'\'', 'CHAP Success message=b\'\'']
 
 chap_response_pkt = PPP(hex_bytes('c223022f001b1000000000000000000000000000000000636c69656e74'))

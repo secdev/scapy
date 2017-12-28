@@ -487,14 +487,14 @@ class TLSServerAutomaton(_TLSAutomaton):
         p = self.buffer_in[0]
         self.buffer_in = self.buffer_in[1:]
 
-        recv_data = ""
+        recv_data = b""
         if isinstance(p, TLSApplicationData):
-            print("> Received: %s" % p.data)
+            print("> Received: %r" % p.data)
             recv_data = p.data
-            lines = recv_data.split("\n")
+            lines = recv_data.split(b"\n")
             stop = False
             for l in lines:
-                if l.startswith("stop_server"):
+                if l.startswith(b"stop_server"):
                     stop = True
                     break
             if stop:
@@ -505,10 +505,10 @@ class TLSServerAutomaton(_TLSAutomaton):
         else:
             print("> Received: %r" % p)
 
-        if recv_data.startswith("GET / HTTP/1.1"):
+        if recv_data.startswith(b"GET / HTTP/1.1"):
             p = TLSApplicationData(data=self.http_sessioninfo())
 
-        if self.is_echo_server or recv_data.startswith("GET / HTTP/1.1"):
+        if self.is_echo_server or recv_data.startswith(b"GET / HTTP/1.1"):
             self.add_record()
             self.add_msg(p)
             raise self.ADDED_SERVERDATA()
@@ -788,8 +788,8 @@ class TLSServerAutomaton(_TLSAutomaton):
         self.buffer_in = self.buffer_in[1:]
         if hasattr(p, "load"):
             cli_data = p.load
-            print("> Received: %s" % cli_data)
-            if cli_data.startswith("goodbye"):
+            print("> Received: %r" % cli_data)
+            if cli_data.startswith(b"goodbye"):
                 self.vprint()
                 self.vprint("Seems like the client left...")
                 raise self.WAITING_CLIENT()
@@ -797,20 +797,20 @@ class TLSServerAutomaton(_TLSAutomaton):
             cli_data = str(p)
             print("> Received: %r" % p)
 
-        lines = cli_data.split("\n")
+        lines = cli_data.split(b"\n")
         stop = False
         for l in lines:
-            if l.startswith("stop_server"):
+            if l.startswith(b"stop_server"):
                 stop = True
                 break
         if stop:
             raise self.SSLv2_CLOSE_NOTIFY_FINAL()
 
-        answer = ""
-        if cli_data.startswith("GET / HTTP/1.1"):
+        answer = b""
+        if cli_data.startswith(b"GET / HTTP/1.1"):
             p = Raw(self.http_sessioninfo())
 
-        if self.is_echo_server or recv_data.startswith("GET / HTTP/1.1"):
+        if self.is_echo_server or recv_data.startswith(b"GET / HTTP/1.1"):
             self.add_record(is_sslv2=True)
             self.add_msg(p)
             raise self.SSLv2_ADDED_SERVERDATA()

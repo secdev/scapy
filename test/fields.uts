@@ -992,7 +992,7 @@ True
 = Raise exception - test data
 
 dnsf = DNSStrField("test", "")
-assert(dnsf.getfield("", b"\x01x\x00") == (b"", "x."))
+assert(dnsf.getfield("", b"\x01x\x00") == (b"", b"x."))
 
 try:
     dnsf.getfield("", b"\xff")

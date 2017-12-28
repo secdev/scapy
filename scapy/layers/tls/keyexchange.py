@@ -895,10 +895,10 @@ class EncryptedPreMasterSecret(_GenericTLSSessionInheritance):
         else:
             warning("No material to encrypt Pre Master Secret")
 
-        l = ""
+        l = b""
         if s.tls_version >= 0x0301:
             l = struct.pack("!H", len(enc))
-        return "%s%s%s" % (l, enc, pay)
+        return l + enc + pay
 
     def guess_payload_class(self, p):
         return Padding

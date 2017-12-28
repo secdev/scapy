@@ -171,7 +171,7 @@ class _TLSMsgListField(PacketListField):
                    pkt.type = 23
            p.tls_session = pkt.tls_session
            if not pkt.tls_session.frozen:
-               cur = p.str_stateful()
+               cur = p.raw_stateful()
                p.post_build_tls_session_update(cur)
            else:
                cur = raw(p)
@@ -249,7 +249,7 @@ class TLS(_GenericTLSSessionInheritance):
     if a PFS ciphersuite was used. However, if you got a master_secret somehow,
     use it with tls_session.(w|r)cs.derive_keys() and leave the rest to Scapy.
 
-    When building a TLS message with str_stateful, we expect the tls_session to
+    When building a TLS message with raw_stateful, we expect the tls_session to
     have the right parameters for ciphering. Else, .post_build() might fail.
     """
     __slots__ = ["deciphered_len"]
@@ -563,7 +563,7 @@ class TLS(_GenericTLSSessionInheritance):
         if version > 0x300:
             h = alg.digest(write_seq_num + hdr + msg)
         elif version == 0x300:
-            h = alg.digest_sslv3(write_seq_num + hdr[0] + hdr[3:5] + msg)
+            h = alg.digest_sslv3(write_seq_num + hdr[:1] + hdr[3:5] + msg)
         else:
             raise Exception("Unrecognized version.")
         return msg + h
@@ -746,5 +746,5 @@ class TLSApplicationData(_GenericTLSSessionInheritance):
 ### Bindings                                                                ###
 ###############################################################################
 
-bind_bottom_up(TCP, TLS, {"dport": 443})
-bind_bottom_up(TCP, TLS, {"sport": 443})
+bind_layers(TCP, TLS, sport=443)
+bind_layers(TCP, TLS, dport=443)
