@@ -66,7 +66,7 @@ PACKET_MR_ALLMULTI     = 2
 SOL_PACKET = 263
 # From asm/socket.h
 SO_ATTACH_FILTER = 26
-SOL_SOCKET = 1
+SOL_SOCKET = socket.SOL_SOCKET if hasattr(socket, "SOL_SOCKET") else 1
 
 # From net/route.h
 RTF_UP = 0x0001  # Route usable
