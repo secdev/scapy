@@ -1,48 +1,41 @@
-# Copyright 2012, The MITRE Corporation
-#
-#                             NOTICE
-#    This software/technical data was produced for the U.S. Government
-#    under Prime Contract No. NASA-03001 and JPL Contract No. 1295026
-#      and is subject to FAR 52.227-14 (6/87) Rights in Data General,
-#        and Article GP-51, Rights in Data  General, respectively.
-#
-#      This software is publicly released under MITRE case #12-3054
+#!/usr/bin/env python
 
+# This file is part of Scapy
+# Scapy is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 2 of the License, or
+# any later version.
+#
+# Scapy is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Scapy. If not, see <http://www.gnu.org/licenses/>.
+
+"""
+ Copyright 2012, The MITRE Corporation
+ 
+                              NOTICE
+    This software/technical data was produced for the U.S. Government
+    under Prime Contract No. NASA-03001 and JPL Contract No. 1295026
+      and is subject to FAR 52.227-14 (6/87) Rights in Data General,
+        and Article GP-51, Rights in Data  General, respectively.
+       This software is publicly released under MITRE case #12-3054
+"""
+
+# scapy.contrib.description = Bundle Protocol (BP)
+# scapy.contrib.status = loads
 
 from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.inet import UDP
 from scapy.contrib.ltp import *
-from scapy.contrib.sdnv import *
-
-
-class SDNV2(Field):
-    """ SDNV2 field """
-
-    def __init__(self, name):
-        Field.__init__(self, name, None)
-
-    def __init__(self, name, default):
-        Field.__init__(self, name, default)
-
-    def i2m(self, pkt, x):
-        return x
-
-    def m2i(self, pkt, x):
-        return x
-
-    def addfield(self, pkt, s, val):
-        return s + str(toSDNV(val))
-
-    def getfield(self, pkt, s):
-        b = bytearray(s)
-        val, len = extractSDNVFromByteArray(b, 0)
-        return s[len:], val
-
 
 class BP(Packet):
     name = "BP"
-    fields_desc = [ByteField('version', 0),
+    fields_desc = [ByteField('version', 0x06),
                    SDNV2('ProcFlags', 0),
                    SDNV2('BlockLen', 0),
                    SDNV2('DSO', 0),
@@ -57,15 +50,14 @@ class BP(Packet):
                    SDNV2('CTSN', 0),
                    SDNV2('LT', 0),
                    SDNV2('DL', 0),
-                   ConditionalField(SDNV2("FO", 0), lambda Packet: (
-                       Packet.ProcFlags & 0x01)),
-                   ConditionalField(SDNV2("ADUL", 0), lambda Packet: (
-                       Packet.ProcFlags & 0x01)),
+                   ConditionalField(SDNV2("FO", 0), lambda x: (
+                       x.ProcFlags & 0x01)),
+                   ConditionalField(SDNV2("ADUL", 0), lambda x: (
+                       x.ProcFlags & 0x01)),
                    ]
 
     def mysummary(self):
-        tmp = ""
-        tmp += "BP(%version%) flags( "
+        tmp = "BP(%version%) flags( "
         if (self.ProcFlags & 0x01):
             tmp += ' FR'
         if (self.ProcFlags & 0x02):
@@ -118,46 +110,13 @@ class BP(Packet):
 class BPBLOCK(Packet):
     fields_desc = [ByteField('Type', 0),
                    SDNV2('ProcFlags', 0),
-                   SDNV2('BlockLen', 0),
-                   StrLenField("the_varfield", "the_default_value",
-                               length_from=lambda pkt: pkt.BlockLen)
+                   SDNV2FieldLenField('BlockLen', None, length_of="load"),
+                   StrLenField("load", "", length_from=lambda pkt: pkt.BlockLen)
                    ]
 
     def mysummary(self):
-        tmp = ""
-        tmp += "BLOCK(%Type%) Flags: %ProcFlags% Len: %BlockLen%"
-        return self.sprintf(tmp), [BP]
-
-
-class BPBLOCK2(Packet):
-    fields_desc = [ByteField('Type', 0),
-                   SDNV2('ProcFlags', 0),
-                   SDNV2('BlockLen', 0),
-                   StrLenField("the_varfield", "the_default_value",
-                               length_from=lambda pkt: pkt.BlockLen)
-                   ]
-
-    def mysummary(self):
-        tmp = ""
-        tmp += "BLOCK(%Type%) Flags: %ProcFlags% Len: %BlockLen%"
-        return self.sprintf(tmp), [BPBLOCK]
-
-
-class BPBLOCK3(Packet):
-    fields_desc = [ByteField('Type', 0),
-                   SDNV2('ProcFlags', 0),
-                   SDNV2('BlockLen', 0),
-                   StrLenField("the_varfield", "the_default_value",
-                               length_from=lambda pkt: pkt.BlockLen)
-                   ]
-
-    def mysummary(self):
-        tmp = ""
-        tmp += "BLOCK(%Type%) Flags: %ProcFlags% Len: %BlockLen%"
-        return self.sprintf(tmp), [BPBLOCK2]
-
+        return self.sprintf("BPBLOCK(%Type%) Flags: %ProcFlags% Len: %BlockLen%")
 
 bind_layers(LTP,                    BP, ClientServiceID=1)
 bind_layers(BP,                     BPBLOCK)
-bind_layers(BPBLOCK,                BPBLOCK2)
-bind_layers(BPBLOCK2,               BPBLOCK3)
+bind_layers(BPBLOCK,                BPBLOCK)

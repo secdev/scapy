@@ -1,18 +1,41 @@
-# Copyright 2012, The MITRE Corporation
-#
-#                             NOTICE
-#    This software/technical data was produced for the U.S. Government
-#    under Prime Contract No. NASA-03001 and JPL Contract No. 1295026
-#      and is subject to FAR 52.227-14 (6/87) Rights in Data General,
-#        and Article GP-51, Rights in Data  General, respectively.
-#
-#      This software is publicly released under MITRE case #12-3054
+#!/usr/bin/env python
 
+# This file is part of Scapy
+# Scapy is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 2 of the License, or
+# any later version.
+#
+# Scapy is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Scapy. If not, see <http://www.gnu.org/licenses/>.
+
+"""
+ Copyright 2012, The MITRE Corporation
+ 
+                              NOTICE
+    This software/technical data was produced for the U.S. Government
+    under Prime Contract No. NASA-03001 and JPL Contract No. 1295026
+      and is subject to FAR 52.227-14 (6/87) Rights in Data General,
+        and Article GP-51, Rights in Data  General, respectively.
+       This software is publicly released under MITRE case #12-3054
+"""
+
+# scapy.contrib.description = Licklider Transmission Protocol (LTP)
+# scapy.contrib.status = loads
 
 from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.inet import UDP
+from scapy.config import conf
 from scapy.contrib.sdnv import *
+from sys import *
+
+## LTP
 
 _ltp_flag_vals = {
     0:  '0x0 Red data, NOT (Checkpoint, EORP or EOB)',
@@ -42,174 +65,106 @@ _ltp_cancel_reasons = {
     6:  'RESERVED'}   # Reserved 0x06-0xFF
 
 _ltp_data_segment = [0, 1, 2, 3, 4, 5, 6, 7]
-
 _ltp_checkpoint_segment = [1, 2, 3]
 
-_ltp_report_segment = [8]
+class LTPex(Packet):
+    name = "LTP Extension"
+    fields_desc = [ ByteField("ExTag", 0),
+                    SDNV2("ExLength", 0),
+                    StrLenField("ExData", "", length_from=lambda x: x.ExLength)]
 
+    def default_payload_class(self, pay):
+        return conf.padding_layer
 
-class SDNV2(Field):
-    """ SDNV2 field """
+class LTPReceptionClaim(Packet):
+    name = "LTP Reception Claim"
+    fields_desc = [ SDNV2("ReceptionClaimOffset", 0),
+                    SDNV2("ReceptionClaimLength", 0) ]
 
-    def __init__(self, name, default):
-        Field.__init__(self, name, default)
-
-    def i2m(self, pkt, x):
-        return x
-
-    def m2i(self, pkt, x):
-        return x
-
-    def addfield(self, pkt, s, val):
-        return s+str(toSDNV(val))
-
-    def getfield(self, pkt, s):
-        b = bytearray(s)
-        val, len = extractSDNVFromByteArray(b, 0)
-        return s[len:], val
-
+    def default_payload_class(self, pay):
+        return conf.padding_layer
 
 class LTP(Packet):
     name = "LTP"
-    fields_desc = [BitField('version', 0, 4),
-                   BitEnumField('flags', 0, 4, _ltp_flag_vals),
+    fields_desc = [ByteField('version', 0),
+                   ByteEnumField('flags', 0, _ltp_flag_vals),
                    SDNV2("SessionOriginator", 0),
                    SDNV2("SessionNumber", 0),
-                   BitField('HeaderExtensionCount', 0, 4),
-                   BitField('TrailerExtensionCount', 0, 4),
-
-                   #
-                   # Header extensions.  I really have difficulty dealing correctly with a variable
-                   # number of these things followed by the rest of the LTP header stuff, so for
-                   # now we're going to support up to 3 header extensions.
-                   #
-                   ConditionalField(ByteField("HEx1Tag", 0),
-                                    lambda Packet: (Packet.HeaderExtensionCount > 0)),
-                   ConditionalField(SDNV2("HEx1Length", 0),
-                                    lambda Packet: (Packet.HeaderExtensionCount > 0)),
-                   ConditionalField(StrLenField("Hex1Data", 0,
-                                                length_from=lambda Packet: (Packet.HEx1Length)),
-                                    lambda Packet: Packet.HeaderExtensionCount > 0),
-                   ConditionalField(ByteField("HEx2Tag", 0),
-                                    lambda Packet: (Packet.HeaderExtensionCount > 1)),
-                   ConditionalField(SDNV2("HEx2Length", 0),
-                                    lambda Packet: (Packet.HeaderExtensionCount > 1)),
-                   ConditionalField(StrLenField("Hex3Data", 0,
-                                                length_from=lambda Packet: (Packet.HEx2Length)),
-                                    lambda Packet: Packet.HeaderExtensionCount > 1),
-                   ConditionalField(ByteField("HEx3Tag", 0),
-                                    lambda Packet: (Packet.HeaderExtensionCount > 2)),
-                   ConditionalField(SDNV2("HEx3Length", 0),
-                                    lambda Packet: (Packet.HeaderExtensionCount > 2)),
-                   ConditionalField(StrLenField("Hex2Data", 0,
-                                                length_from=lambda Packet: (Packet.HEx3Length)),
-                                    lambda Packet: Packet.HeaderExtensionCount > 2),
+                   FieldLenField("HeaderExtensionCount", None, count_of="HeaderExtensions", fmt="B"),
+                   FieldLenField("TrailerExtensionCount", None, count_of="TrailerExtensions", fmt="B"),
+                   PacketListField("HeaderExtensions", [], LTPex, count_from=lambda x: x.HeaderExtensionCount),
 
                    #
                    # LTP segments containing data have a DATA header
                    #
                    ConditionalField(SDNV2("DATA_ClientServiceID", 0),
-                                    lambda Packet: (Packet.flags in _ltp_data_segment)),
+                                    lambda x: x.flags in _ltp_data_segment),
                    ConditionalField(SDNV2("DATA_PayloadOffset", 0),
-                                    lambda Packet: (Packet.flags in _ltp_data_segment)),
+                                    lambda x: x.flags in _ltp_data_segment),
                    ConditionalField(SDNV2("DATA_PayloadLength", 0),
-                                    lambda Packet: (Packet.flags in _ltp_data_segment)),
+                                    lambda x: x.flags in _ltp_data_segment),
 
                    #
                    # LTP segments that are checkpoints will have a checkpoint serial number and report serial number.
                    #
                    ConditionalField(SDNV2("CheckpointSerialNo", 0),
-                                    lambda Packet: (Packet.flags in _ltp_checkpoint_segment)),
+                                    lambda x: x.flags in _ltp_checkpoint_segment),
                    ConditionalField(SDNV2("ReportSerialNo", 0),
-                                    lambda Packet: (Packet.flags in _ltp_checkpoint_segment)),
+                                    lambda x: x.flags in _ltp_checkpoint_segment),
 
                    #
                    # Then comes the actual payload for data carrying segments.
                    #
-                   ConditionalField(StrLenField("LTP_Payload", 0,
-                                                length_from=lambda Packet: (Packet.DATA_PayloadLength)),
-                                    lambda Packet: (Packet.flags in _ltp_data_segment)),
+                   ConditionalField(StrLenField("LTP_Payload", "",
+                                                length_from=lambda x: x.DATA_PayloadLength),
+                                    lambda x: x.flags in _ltp_data_segment),
 
                    #
                    # Report ACKS acknowledge a particular report serial number.
                    #
                    ConditionalField(SDNV2("RA_ReportSerialNo", 0),
-                                    lambda Packet: (Packet.flags in [9])),
+                                    lambda x: x.flags == 9),
 
                    #
-                   # Reception reports have the following fields.  Again with the variable number of receptionclaims,
-                   # I'm supporting up to 5.
+                   # Reception reports have the following fields.
                    #
                    ConditionalField(SDNV2("ReportSerialNo", 0),
-                                    lambda Packet: (Packet.flags in _ltp_report_segment)),
-                   ConditionalField(SDNV2("ReportSerialNo", 0),
-                                    lambda Packet: (Packet.flags in _ltp_report_segment)),
+                                    lambda x: x.flags == 8),
                    ConditionalField(SDNV2("ReportCheckpointSerialNo", 0),
-                                    lambda Packet: (Packet.flags in _ltp_report_segment)),
+                                    lambda x: x.flags == 8),
                    ConditionalField(SDNV2("ReportUpperBound", 0),
-                                    lambda Packet: (Packet.flags in _ltp_report_segment)),
+                                    lambda x: x.flags == 8),
                    ConditionalField(SDNV2("ReportLowerBound", 0),
-                                    lambda Packet: (Packet.flags in _ltp_report_segment)),
-                   ConditionalField(SDNV2("ReportReceptionClaimCount", 0),
-                                    lambda Packet: (Packet.flags in _ltp_report_segment)),
-                   ConditionalField(SDNV2("ReceptionClaimOffset1", 0),
-                                    lambda Packet: (Packet.ReportReceptionClaimCount > 0)),
-                   ConditionalField(SDNV2("ReceptionClaimLength1", 0),
-                                    lambda Packet: (Packet.ReportReceptionClaimCount > 0)),
-                   ConditionalField(SDNV2("ReceptionClaimOffset2", 0),
-                                    lambda Packet: (Packet.ReportReceptionClaimCount > 1)),
-                   ConditionalField(SDNV2("ReceptionClaimLength2", 0),
-                                    lambda Packet: (Packet.ReportReceptionClaimCount > 1)),
-                   ConditionalField(SDNV2("ReceptionClaimOffset3", 0),
-                                    lambda Packet: (Packet.ReportReceptionClaimCount > 2)),
-                   ConditionalField(SDNV2("ReceptionClaimLength3", 0),
-                                    lambda Packet: (Packet.ReportReceptionClaimCount > 2)),
-                   ConditionalField(SDNV2("ReceptionClaimOffset4", 0),
-                                    lambda Packet: (Packet.ReportReceptionClaimCount > 3)),
-                   ConditionalField(SDNV2("ReceptionClaimLength4", 0),
-                                    lambda Packet: (Packet.ReportReceptionClaimCount > 3)),
-                   ConditionalField(SDNV2("ReceptionClaimOffset5", 0),
-                                    lambda Packet: (Packet.ReportReceptionClaimCount > 4)),
-                   ConditionalField(SDNV2("ReceptionClaimLength5", 0),
-                                    lambda Packet: (Packet.ReportReceptionClaimCount > 4)),
+                                    lambda x: x.flags == 8),
+                   ConditionalField(SDNV2FieldLenField("ReportReceptionClaimCount", None, count_of="ReportReceptionClaims"),
+                                    lambda x: x.flags == 8),
+                   ConditionalField(PacketListField("ReportReceptionClaims", [], LTPReceptionClaim,
+                                                    count_from=lambda x: x.ReportReceptionClaimCount),
+                                    lambda x: x.ReportReceptionClaimCount and x.ReportReceptionClaimCount > 0),
 
-                   #
                    #
                    # Cancellation Requests
                    #
                    ConditionalField(ByteEnumField("CancelFromSenderReason",
                                                   15, _ltp_cancel_reasons),
-                                    lambda Packet: (Packet.flags in [12])),
+                                    lambda x: x.flags == 12),
                    ConditionalField(ByteEnumField("CancelFromReceiverReason",
                                                   15, _ltp_cancel_reasons),
-                                    lambda Packet: (Packet.flags in [14])),
+                                    lambda x: x.flags == 14),
 
                    #
                    # Cancellation Acknowldgements
                    #
                    ConditionalField(SDNV2("CancelAckToBlockSender", 0),
-                                    lambda Packet: (Packet.flags in [13])),
+                                    lambda x: x.flags == 13),
                    ConditionalField(SDNV2("CancelAckToBlockReceiver", 0),
-                                    lambda Packet: (Packet.flags in [15])),
+                                    lambda x: x.flags == 15),
 
                    #
                    # Finally, trailing extensions
                    #
-                   ConditionalField(ByteField("TEx1Tag", 0),
-                                    lambda Packet: (Packet.TrailerExtensionCount > 0)),
-                   ConditionalField(SDNV2("TEx1Length", 0),
-                                    lambda Packet: (Packet.TrailerExtensionCount > 0)),
-                   ConditionalField(StrLenField("TEx1Data", 0,
-                                                length_from=lambda Packet: (Packet.TEx1Length)),
-                                    lambda Packet: Packet.TrailerExtensionCount > 0),
-                   ConditionalField(ByteField("TEx2Tag", 0),
-                                    lambda Packet: (Packet.TrailerExtensionCount > 1)),
-                   ConditionalField(SDNV2("TEx2Length", 0),
-                                    lambda Packet: (Packet.TrailerExtensionCount > 1)),
-                   ConditionalField(StrLenField("TEx2Data", 0,
-                                                length_from=lambda Packet: (Packet.TEx2Length)),
-                                    lambda Packet: Packet.TrailerExtensionCount > 1)
-                   ]
+                   PacketListField("TrailerExtensions", [], LTPex, count_from=lambda x: x.TrailerExtensionCount)
+                ]
 
     def mysummary(self):
         return self.sprintf("LTP %SessionNumber%"), [UDP]
