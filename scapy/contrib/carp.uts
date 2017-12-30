@@ -1,0 +1,11 @@
+% Regression tests for the avs module
+
++ Basic CARP test
+
+= Build
+
+pkt = Ether()/IP()/CARP()
+pkt = Ether(raw(pkt))
+assert CARP in pkt
+assert pkt[CARP].chksum
+assert pkt[CARP].build_hmac_sha1(ip4l=['192.168.0.111']) == b'\xbd\x82\xc7\x8f6\x1a\x0e\xff\xcfl\x14\xa2v\xedW;>ic\xa3'
