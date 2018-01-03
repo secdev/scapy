@@ -742,7 +742,7 @@ def has_value(p):
 
 
 def has_values(p):
-    if getattr(p, "Values") is not None and getattr(p, "Values") != []:
+    if getattr(p, "Values"):
         return True
     if p.EncodingMask is None:
         return False
@@ -758,7 +758,7 @@ def has_array_length(p):
 
 
 def has_dimensions(p):
-    if getattr(p, "ArrayDimensions") is not None and getattr(p, "ArrayDimensions") != []:
+    if getattr(p, "ArrayDimensions"):
         return True
     if p.EncodingMask is None:
         return False
