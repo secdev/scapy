@@ -477,7 +477,7 @@ class UaFourByteNodeId(UaNodeId):
 
     fields_desc = [UaByteField("Encoding", encoding),
                    UaByteField("Namespace", 0),
-                   UaInt16Field("Identifier", None)]
+                   UaUInt16Field("Identifier", None)]
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
