@@ -140,7 +140,23 @@ class LengthField(Field):
         return x
 
 
+class UaPacketField(PacketField):
+    """
+    Specialized version of PacketField to make containing packets available as underlayer
+    """
+    def m2i(self, pkt, m):
+        return self.cls(m, _underlayer=pkt)
+
+
 def flatten(l):
+    """
+    Flattens arbitrarily deep lists of lists.
+    Idea taken from https://stackoverflow.com/questions/2158395/flatten-an-irregular-list-of-lists
+
+    :param l: the list to flatten
+    :return A generator for the flattened list
+    """
+
     for el in l:
         if isinstance(el, list):
             for sub in flatten(el):

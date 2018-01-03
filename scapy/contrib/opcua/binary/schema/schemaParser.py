@@ -4,8 +4,8 @@ import xml.etree.ElementTree as ElementTree
 import sys
 import re
 import scapy.contrib.opcua.binary.builtinTypes
-from scapy.contrib.opcua.helpers import UaTypePacket
-from scapy.fields import PacketField, PacketListField, FieldListField
+from scapy.contrib.opcua.helpers import UaTypePacket, UaPacketField
+from scapy.fields import PacketListField, FieldListField
 import logging
 import csv
 import os
@@ -285,7 +285,7 @@ class SchemaParser(object):
         if "count_from" in argsDict:
             field = PacketListField(name, None, cls, **argsDict)
         else:
-            field = PacketField(name, cls(), cls)
+            field = UaPacketField(name, cls(), cls)
 
         return field
 

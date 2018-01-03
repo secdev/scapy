@@ -3,8 +3,8 @@ import collections
 import struct
 from functools import reduce
 
-from scapy.contrib.opcua.helpers import ByteListField, UaTypePacket, LengthField, flatten
-from scapy.fields import Field, PacketField, ConditionalField, FieldListField
+from scapy.contrib.opcua.helpers import ByteListField, UaTypePacket, LengthField, flatten, UaPacketField
+from scapy.fields import Field, ConditionalField, FieldListField
 from operator import mul
 import binascii
 
@@ -381,15 +381,15 @@ class UaXmlElement(UaString):
 class UaQualifiedName(UaBuiltin):
     nodeId = 20
     fields_desc = [UaUInt16Field("NamespaceIndex", 0),
-                   PacketField("Name", UaString(), UaString)]
+                   UaPacketField("Name", UaString(), UaString)]
 
 
 class UaLocalizedText(UaBuiltin):
     nodeId = 21
     fields_desc = [UaByteField("EncodingMask", None),
-                   ConditionalField(PacketField("Locale", None, UaString),
+                   ConditionalField(UaPacketField("Locale", None, UaString),
                                     _make_check_encoding_mask_function("Locale", 0x01)),
-                   ConditionalField(PacketField("Text", None, UaString),
+                   ConditionalField(UaPacketField("Text", None, UaString),
                                     _make_check_encoding_mask_function("Text", 0x02))]
 
     def post_build(self, pkt, pay):
@@ -501,7 +501,7 @@ class UaStringNodeId(UaNodeId):
 
     fields_desc = [UaByteField("Encoding", encoding),
                    UaUInt16Field("Namespace", 0),
-                   PacketField("Identifier", UaString(), UaString)]
+                   UaPacketField("Identifier", UaString(), UaString)]
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kwargs):
@@ -525,7 +525,7 @@ class UaByteStringNodeId(UaNodeId):
 
     fields_desc = [UaByteField("Encoding", encoding),
                    UaUInt16Field("Namespace", 0),
-                   PacketField("Identifier", UaByteString(), UaByteString)]
+                   UaPacketField("Identifier", UaByteString(), UaByteString)]
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kwargs):
@@ -556,8 +556,8 @@ class _NodeIdNoRecurse(UaNodeId):
 
 class UaExpandedNodeId(UaNodeId):
     nodeId = 18
-    fields_desc = [PacketField("NodeId", UaNodeId(), _NodeIdNoRecurse),
-                   ConditionalField(PacketField("NamespaceUri", None, UaString), _id_has_uri),
+    fields_desc = [UaPacketField("NodeId", UaNodeId(), _NodeIdNoRecurse),
+                   ConditionalField(UaPacketField("NamespaceUri", None, UaString), _id_has_uri),
                    ConditionalField(UaUInt32Field("ServerIndex", 0), _id_has_index)]
 
     encoding = 0x80 | 0x40
@@ -607,7 +607,7 @@ class UaDiagnosticInfo(UaBuiltin):
                                     _make_check_encoding_mask_function("LocalizedText", 0x04)),
                    ConditionalField(UaInt32Field("Locale", None),
                                     _make_check_encoding_mask_function("Locale", 0x08)),
-                   ConditionalField(PacketField("AdditionalInfo", None, UaString),
+                   ConditionalField(UaPacketField("AdditionalInfo", None, UaString),
                                     _make_check_encoding_mask_function("AdditionalInfo", 0x10)),
                    ConditionalField(UaStatusCodeField("InnerStatusCode", None),
                                     _make_check_encoding_mask_function("InnerStatusCode", 0x20))]
@@ -642,7 +642,7 @@ class UaDiagnosticInfo(UaBuiltin):
         return maskPart + rest + pay
 
 
-UaDiagnosticInfo.fields_desc.append(ConditionalField(PacketField("InnerDiagnosticInfo", None, UaDiagnosticInfo),
+UaDiagnosticInfo.fields_desc.append(ConditionalField(UaPacketField("InnerDiagnosticInfo", None, UaDiagnosticInfo),
                                                      _make_check_encoding_mask_function("InnerDiagnosticInfo", 0x40)))
 
 
@@ -656,7 +656,7 @@ def _extension_obj_has_object(p):
 
 def _create_extended_extension_object(cls, dispatchedClass):
     fields_desc = cls.fields_desc[:-1]
-    fields_desc.append(ConditionalField(PacketField("Body", None, dispatchedClass),
+    fields_desc.append(ConditionalField(UaPacketField("Body", None, dispatchedClass),
                                         _extension_obj_has_object))
     newDict = dict(cls.__dict__)
     newDict["fields_desc"] = fields_desc
@@ -672,18 +672,16 @@ def _extension_body_len(p):
 
 
 class ExtensionObjectRawBytes(UaTypePacket):
-    # TODO: Fix raw class (decoding)
-    __slots__ = ["_length"]
     fields_desc = [ByteListField("bytes", None, UaByteField("", None), length_from=_extension_body_len)]
 
 
 class UaExtensionObject(UaBuiltin):
     nodeId = 22
-    fields_desc = [PacketField("TypeId", UaNodeId(), UaNodeId),
+    fields_desc = [UaPacketField("TypeId", UaNodeId(), UaNodeId),
                    UaByteField("Encoding", None),
                    ConditionalField(UaInt32Field("Length", None, length_of="Body"),
                                     _extension_obj_has_object),
-                   ConditionalField(PacketField("Body", None, ExtensionObjectRawBytes),
+                   ConditionalField(UaPacketField("Body", None, ExtensionObjectRawBytes),
                                     _extension_obj_has_object)]
 
     _cache = {}
@@ -783,7 +781,7 @@ class BuiltinListField(Field):
         super(BuiltinListField, self).__init__(name, default)
         self.count_from = count_from
         self.type_from = type_from
-        self.field = PacketField("", None, UaBuiltin)
+        self.field = UaPacketField("", None, UaBuiltin)
 
     def i2count(self, pkt, val):
         if isinstance(val, list):
@@ -850,7 +848,7 @@ class BuiltinListField(Field):
         return s + ret, val
 
 
-class BuiltinField(PacketField):
+class BuiltinField(UaPacketField):
     __slots__ = ["type_from"]
 
     def __init__(self, name, default, type_from, remain=0):
@@ -923,7 +921,7 @@ class UaVariant(UaBuiltin):
 class UaDataValue(UaBuiltin):
     nodeId = 23
     fields_desc = [UaByteField("EncodingMask", None),
-                   ConditionalField(PacketField("Value", None, UaVariant),
+                   ConditionalField(UaPacketField("Value", None, UaVariant),
                                     _make_check_encoding_mask_function("Value", 0x01)),
                    ConditionalField(UaStatusCodeField("Status", None),
                                     _make_check_encoding_mask_function("Status", 0x02)),
