@@ -44,12 +44,12 @@
 from scapy.config import conf
 from scapy.layers.dot11 import Packet
 from scapy.layers.l2 import Ether, Dot1Q, bind_layers, \
-    struct, BitField, StrLenField, ByteEnumField, BitEnumField, \
+    BitField, StrLenField, ByteEnumField, BitEnumField, \
     BitFieldLenField, ShortField, Padding, Scapy_Exception, \
     XStrLenField
 from scapy.modules.six.moves import range
 from scapy.data import ETHER_TYPES
-from scapy.compat import raw
+from scapy.compat import orb, raw
 
 LLDP_NEAREST_BRIDGE_MAC = '01:80:c2:00:00:0e'
 LLDP_NEAREST_NON_TPMR_BRIDGE_MAC = '01:80:c2:00:00:03'
@@ -145,7 +145,7 @@ class LLDPDU(Packet):
 
     def post_build(self, pkt, pay):
 
-        last_layer = not len(pay)
+        last_layer = not pay
         if last_layer and conf.contribs['LLDP'].strict_mode() and \
                         type(self).__name__ != LLDPDUEndOfLLDPDU.__name__:
             raise LLDPInvalidLastLayerException('Last layer must be instance '
@@ -162,8 +162,7 @@ class LLDPDU(Packet):
             else:
                 return pkt + pay
 
-        not_lowest_lldpdu = under_layer.__class__.__base__.__name__ is 'LLDPDU'
-        if not_lowest_lldpdu:
+        if isinstance(under_layer, LLDPDU):
             return pkt + pay
 
         frame_size, under_layer = LLDPDU._dot1q_headers_size(under_layer)
@@ -177,11 +176,8 @@ class LLDPDU(Packet):
         frame_size += LLDPDU.ETHER_HEADER_LEN
         frame_size += len(pkt) + len(pay) + LLDPDU.ETHER_FSC_LEN
         if frame_size < LLDPDU.ETHER_FRAME_MIN_LEN:
-            pad = Padding()
-            pad.load = b'\x00' * (LLDPDU.ETHER_FRAME_MIN_LEN - frame_size)
-            return pkt + pay + raw(pad)
-        else:
-            return pkt + pay
+            return pkt + pay + b'\x00' * (LLDPDU.ETHER_FRAME_MIN_LEN - frame_size)
+        return pkt + pay
 
     @staticmethod
     def _frame_structure_check(structure_description):
@@ -255,7 +251,7 @@ class LLDPDU(Packet):
                                     standard_tlv_multiplicity,
                                     tlv_type_count[tlv_type_name]))
 
-            except KeyError as err:
+            except KeyError:
                 raise LLDPInvalidTLVCount('Missing TLV layer of type '
                                           '{}.'.format(tlv_type_name))
 
@@ -269,7 +265,7 @@ class LLDPDU(Packet):
                 LLDPDU.LAYER_STACK.append(self.__class__.__name__)
                 try:
                     LLDPDU.LAYER_MULTIPLICITIES[self.__class__.__name__] += 1
-                except KeyError as err:
+                except KeyError:
                     LLDPDU.LAYER_MULTIPLICITIES[self.__class__.__name__] = 1
 
         return s
@@ -321,7 +317,7 @@ class LLDPDUChassisID(LLDPDU):
         """
         run layer specific checks
         """
-        if conf.contribs['LLDP'].strict_mode() and len(self.id) == 0:
+        if conf.contribs['LLDP'].strict_mode() and not self.id:
             raise LLDPInvalidLengthField('id must be >= 1 characters long')
 
     def post_dissect(self, s):
@@ -370,7 +366,7 @@ class LLDPDUPortID(LLDPDU):
         """
         run layer specific checks
         """
-        if conf.contribs['LLDP'].strict_mode() and len(self.id) == 0:
+        if conf.contribs['LLDP'].strict_mode() and not self.id:
             raise LLDPInvalidLengthField('id must be >= 1 characters long')
 
     def post_dissect(self, s):
