@@ -502,10 +502,13 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
                 "traitlets not available. Some Scapy shell features won't be "
                 "available."
             )
-            ipshell = InteractiveShellEmbed(
-                banner1=banner,
-                user_ns=SESSION,
-            )
+            try:
+                ipshell = InteractiveShellEmbed(
+                    banner1=banner,
+                    user_ns=SESSION,
+                )
+            except:
+                code.interact(banner = the_banner, local=SESSION)
         else:
             cfg = Config()
             try:
@@ -518,10 +521,20 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
                 cfg.TerminalInteractiveShell.separate_in = u''
             cfg.TerminalInteractiveShell.hist_file = conf.histfile
             # configuration can thus be specified here.
-            ipshell = InteractiveShellEmbed(config=cfg,
-                                            banner1=banner,
-                                            hist_file=conf.histfile if conf.histfile else None,
-                                            user_ns=SESSION)
+            try:
+                ipshell = InteractiveShellEmbed(config=cfg,
+                                                banner1=banner,
+                                                hist_file=conf.histfile if conf.histfile else None,
+                                                user_ns=SESSION)
+            except (AttributeError, TypeError):
+                log_loading.warning("IPython too old. Won't support history and color style.")
+                try:
+                    ipshell = InteractiveShellEmbed(
+                        banner1=banner,
+                        user_ns=SESSION,
+                    )
+                except:
+                    code.interact(banner = the_banner, local=SESSION)
         ipshell(local_ns=SESSION)
     else:
         code.interact(banner = the_banner, local=SESSION)
