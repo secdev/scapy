@@ -80,27 +80,22 @@ class UaTcp(Packet):
 
         if messageType is None:
             if isinstance(self.Message, UaTcpHelloMessage):
-                self.TcpMessageHeader.MessageType = b'HEL'
                 typeBinary = b'HEL'
             elif isinstance(self.Message, UaTcpAcknowledgeMessage):
-                self.TcpMessageHeader.MessageType = b'ACK'
                 typeBinary = b'ACK'
             elif isinstance(self.Message, UaTcpErrorMessage):
-                self.TcpMessageHeader.MessageType = b'ERR'
                 typeBinary = b'ERR'
             else:
-                self.TcpMessageHeader.MessageType = b'\x00\x00\x00'
                 typeBinary = b'\x00\x00\x00'
 
-        if messageSize is None:
-            completePkt = typeBinary + restString + pay
-            messageSize = len(completePkt)
-            self.TcpMessageHeader.MessageSize = messageSize
-            return messageSizeField.addfield(completePkt,
-                                             completePkt[:len(self.TcpMessageHeader)][:-messageSizeField.sz],
-                                             messageSize) + completePkt[len(self.TcpMessageHeader):]
+        completePkt = typeBinary + restString + pay
 
-        return pkt + pay
+        if messageSize is None:
+            messageSize = len(completePkt)
+
+        return messageSizeField.addfield(completePkt,
+                                         completePkt[:len(self.TcpMessageHeader)][:-messageSizeField.sz],
+                                         messageSize) + completePkt[len(self.TcpMessageHeader):]
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
