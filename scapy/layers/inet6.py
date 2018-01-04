@@ -26,9 +26,14 @@ IPv6 (Internet Protocol v6).
 
 from __future__ import absolute_import
 from __future__ import print_function
+
+from hashlib import md5
 import random
+import re
 import socket
-import sys
+import struct
+from time import gmtime, strftime
+
 import scapy.modules.six as six
 from scapy.modules.six.moves import range, zip
 if not socket.has_ipv6:
@@ -40,22 +45,31 @@ if not hasattr(socket, "IPPROTO_IPIP"):
     # Workaround for https://bitbucket.org/secdev/scapy/issue/5119
     socket.IPPROTO_IPIP = 4
 
+from scapy.arch import get_if_hwaddr
 from scapy.config import conf
-from scapy.base_classes import *
-from scapy.data import *
-from scapy.compat import *
+from scapy.base_classes import Gen
+from scapy.data import DLT_IPV6, DLT_RAW, DLT_RAW_ALT, ETHER_ANY, ETH_P_IPV6, \
+    MTU
+from scapy.compat import chb, orb, raw, plain_str
 import scapy.consts
-from scapy.fields import *
-from scapy.packet import *
-from scapy.volatile import *
-from scapy.sendrecv import sr,sr1,srp1
+from scapy.fields import BitEnumField, BitField, ByteEnumField, ByteField, \
+    DestField, Field, FieldLenField, FlagsField, IntField, LongField, \
+    MACField, PacketLenField, PacketListField, ShortEnumField, ShortField, \
+    StrField, StrFixedLenField, StrLenField, X3BytesField, XBitField, \
+    XIntField, XShortField
+from scapy.packet import bind_layers, Packet, Raw
+from scapy.volatile import RandInt, RandIP6, RandShort
+from scapy.sendrecv import sendp, sniff, sr, srp1
 from scapy.as_resolvers import AS_resolver_riswhois
-from scapy.supersocket import SuperSocket,L3RawSocket
-from scapy.arch import *
-from scapy.utils6 import *
-from scapy.layers.l2 import *
-from scapy.layers.inet import *
-from scapy.utils import inet_pton, inet_ntop, strxor
+from scapy.supersocket import SuperSocket, L3RawSocket
+from scapy.utils6 import in6_6to4ExtractAddr, in6_and, in6_cidr2mask, \
+    in6_getnsma, in6_getnsmac, in6_isaddr6to4, in6_isaddrllallnodes, \
+    in6_isaddrllallservers, in6_isaddrTeredo, in6_isllsnmaddr, in6_ismaddr, \
+    in6_ptop, teredoAddrExtractInfo
+from scapy.layers.l2 import CookedLinux, Ether, GRE, Loopback, SNAP
+from scapy.layers.inet import IP, IPTools, TCP, TCPerror, TracerouteResult, \
+    UDP, UDPerror
+from scapy.utils import checksum, inet_pton, inet_ntop, strxor
 from scapy.error import warning
 if conf.route6 is None:
     # unused import, only to initialize conf.route6
@@ -239,7 +253,7 @@ class IP6Field(Field):
             return self.i2h(pkt,x)
         elif not isinstance(x, Net6) and not isinstance(x, list):
             if in6_isaddrTeredo(x):   # print Teredo info
-                server, flag, maddr, mport = teredoAddrExtractInfo(x)
+                server, _, maddr, mport = teredoAddrExtractInfo(x)
                 return "%s [Teredo srv: %s cli: %s:%s]" % (self.i2h(pkt, x), server, maddr,mport)
             elif in6_isaddr6to4(x):   # print encapsulated address
                 vaddr = in6_6to4ExtractAddr(x)
@@ -493,7 +507,7 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
         if not isinstance(other, IPv6): # self is reply, other is request
             return False
         if conf.checkIPaddr:
-            ss = inet_pton(socket.AF_INET6, self.src)
+            # ss = inet_pton(socket.AF_INET6, self.src)
             sd = inet_pton(socket.AF_INET6, self.dst)
             os = inet_pton(socket.AF_INET6, other.src)
             od = inet_pton(socket.AF_INET6, other.dst)
@@ -1116,7 +1130,6 @@ def defragment6(packets):
     llen = len(l)
 
     # reorder fragments
-    i = 0
     res = []
     while l:
         min_pos = 0
@@ -2127,10 +2140,9 @@ class NonceField(StrFixedLenField):
 @conf.commands.register
 def computeNIGroupAddr(name):
     """Compute the NI group Address. Can take a FQDN as input parameter"""
-    import hashlib
     name = name.lower().split(".")[0]
     record = chr(len(name))+name
-    h = hashlib.md5(record.encode("utf8"))
+    h = md5(record.encode("utf8"))
     h = h.digest()
     addr = "ff02::2:%2x%2x:%2x%2x" % struct.unpack("BBBB", h[:4])
     return addr
@@ -2170,8 +2182,8 @@ def names2dnsrepr(x):
     """
 
     if isinstance(x, bytes):
-        if x and x[-1] == '\x00': # stupid heuristic
-            return x.encode("utf8")
+        if x and x[-1:] == b'\x00': # stupid heuristic
+            return x
         x = [x]
 
     res = []
@@ -2228,13 +2240,14 @@ class NIQueryDataField(StrField):
         if x is tuple and isinstance(x[0], int):
             return x
 
-        val = None
-        try: # Try IPv6
+        # Try IPv6
+        try:
             inet_pton(socket.AF_INET6, x.decode())
             return (0, x.decode())
         except:
             pass
-        try: # Try IPv4
+        # Try IPv4
+        try:
             inet_pton(socket.AF_INET, x.decode())
             return (2, x.decode())
         except:
@@ -2252,15 +2265,10 @@ class NIQueryDataField(StrField):
             # we don't use dnsrepr2names() to deal with
             # possible weird data extracted info
             res = []
-            weird = None
             while val:
                 l = orb(val[0])
                 val = val[1:]
                 if l == 0:
-                    if (len(res) > 1 and val): # fqdn with data behind
-                        weird = val
-                    elif len(val) > 1: # single label with data behind
-                        weird = val[1:]
                     break
                 res.append(val[:l]+".")
                 val = val[l:]
@@ -2729,8 +2737,7 @@ class NTPTimestampField(LongField):
         i = int(x >> 32)
         j = float(x & 0xffffffff) * 2.0**-32
         res = i + j + delta
-        from time import strftime
-        t = time.strftime("%a, %d %b %Y %H:%M:%S +0000", time.gmtime(res))
+        t = strftime("%a, %d %b %Y %H:%M:%S +0000", gmtime(res))
 
         return "%s (%d)" % (t, x)
 
@@ -3027,7 +3034,7 @@ class MIP6MH_CoT(MIP6MH_HoT):
     def hashret(self):
         return raw(self.cookie)
 
-    def answers(self):
+    def answers(self, other):
         if (isinstance(other, MIP6MH_CoTI) and
             self.cookie == other.cookie):
             return 1
