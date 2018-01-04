@@ -30,7 +30,7 @@ import random
 import socket
 import sys
 import scapy.modules.six as six
-from scapy.modules.six.moves import range
+from scapy.modules.six.moves import range, zip
 if not socket.has_ipv6:
     raise socket.error("can't use AF_INET6, IPv6 is disabled")
 if not hasattr(socket, "IPPROTO_IPV6"):
@@ -165,33 +165,28 @@ class Net6(Gen): # syntax ex. fec0::/126
         self.plen = netmask
 
     def __iter__(self):
-        def m8(i):
-            if i % 8 == 0:
-                return i
-        tuple = [x for x in range(8, 129) if m8(x)]
 
-        a = in6_and(self.net, self.mask)
-        tmp = [x for x in struct.unpack("16B", a)]
+        def parse_digit(value, netmask):
+            netmask = min(8, max(netmask, 0))
+            value = int(value)
+            return (value & (0xff << netmask),
+                    (value | (0xff >> (8 - netmask))) + 1)
 
-        def parse_digit(a, netmask):
-            netmask = min(8,max(netmask,0))
-            a = (int(a) & (0xff<<netmask),(int(a) | (0xff>>(8-netmask)))+1)
-            return a
-        self.parsed = list(map(lambda x,y: parse_digit(x,y), tmp, map(lambda x,nm=self.plen: x-nm, tuple)))
+        self.parsed = [
+            parse_digit(x, y) for x, y in zip(
+                struct.unpack("16B", in6_and(self.net, self.mask)),
+                (x - self.plen for x in range(8, 129, 8)),
+            )
+        ]
 
         def rec(n, l):
-            if n and  n % 2 == 0:
-                sep = ':'
-            else:
-                sep = ''
+            sep = ':' if n and  n % 2 == 0 else ''
             if n == 16:
                 return l
-            else:
-                ll = []
-                for i in range(*self.parsed[n]):
-                    for y in l:
-                        ll += [y+sep+'%.2x'%i]
-                return rec(n+1, ll)
+            return rec(n + 1, [y + sep + '%.2x' % i
+                               # faster than '%s%s%.2x' % (y, sep, i)
+                               for i in range(*self.parsed[n])
+                               for y in l])
 
         return iter(rec(0, ['']))
 
