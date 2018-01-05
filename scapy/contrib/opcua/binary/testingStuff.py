@@ -10,7 +10,7 @@ from scapy.layers.inet import *
 from scapy.layers.all import *
 from scapy.contrib.opcua.binary.secureConversation import *
 from scapy.contrib.opcua.binary.schemaTypes import *
-from scapy.contrib.opcua.binary.automaton import UaClient
+from scapy.contrib.opcua.binary.clientAutomaton import UaClient
 
 
 def read_pcap():

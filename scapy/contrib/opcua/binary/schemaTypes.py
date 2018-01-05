@@ -2,17 +2,19 @@
 
 from scapy.contrib.opcua.binary.schema.schemaParser import SchemaParser
 import sys
+import logging
+_logger = logging.getLogger(__name__)
 
 nodeIdMappings = {}
 
 
 def _populate_module(model):
-    print("Populating module...")
+    _logger.debug("Populating module...")
     thismodule = sys.modules[__name__]
     for name, cls in model.classes.items():
         setattr(thismodule, "Ua" + name, cls)
     thismodule.nodeIdMappings = model.nodeIdMappings
-    print("Done!")
+    _logger.debug("Done!")
 
 
 _parser = SchemaParser()
