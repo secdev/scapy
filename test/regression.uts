@@ -1122,8 +1122,9 @@ send_and_sniff(IP(dst="secdev.org")/ICMP(), flt="icmp")
 send_and_sniff(Ether()/IP(dst="secdev.org")/ICMP())
 
 = Test L2ListenTcpdump socket
-~ netaccess
+~ netaccess FIXME_py3
 
+# Often (but not always) fails with Python 3
 import time
 for i in range(10):
     read_s = L2ListenTcpdump(iface=conf.iface)
