@@ -1,5 +1,10 @@
 # coding=utf-8
+"""
+This module generates all OPC UA types that are defined in the Opc.Ua.Types.bsd file using the schemaParser module.
+It adds all generated classes to its own global namespace so it can be used like the other types modules.
 
+If all OPC UA basic data types are needed load the uaTypes module
+"""
 from scapy.contrib.opcua.binary.schema.schemaParser import SchemaParser
 import sys
 import logging

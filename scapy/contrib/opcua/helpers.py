@@ -1,16 +1,19 @@
 # coding=utf-8
-from scapy.fields import Field, ConditionalField, PacketField
-from scapy.packet import Packet, Padding, Raw
+"""
+This module contains helper functions that the implementation of the OPC UA protocol needs.
+"""
+from scapy.fields import Field, PacketField
+from scapy.packet import Packet
 from scapy.config import conf
 
 
 class UaTypePacket(Packet):
     binaryEncodingId = None
     """
-
     This helper class makes all types not contain a payload, since they are built
-    in a hierarchical way with PacketFields
-
+    in a hierarchical way with PacketFields.
+    Almost all of the OPC UA types are modelled as 'Packets' due to the complex structure (e.g. types that contain
+    other types). The 'padding' of a packet is passed on to the fields after this one.
     """
 
     def guess_payload_class(self, payload):
@@ -117,6 +120,9 @@ class ByteListField(Field):
 
 
 class LengthField(Field):
+    """
+    This helper class enables fields that inherit from it (e.g. UaUInt32) to be used as length fields.
+    """
     __slots__ = ["length_of", "count_of", "adjust"]
 
     def __init__(self, name, default, fmt, length_of=None, count_of=None, adjust=lambda pkt, x: x):

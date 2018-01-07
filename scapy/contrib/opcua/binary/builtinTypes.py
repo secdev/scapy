@@ -1,5 +1,16 @@
 # coding=utf-8
-import collections
+"""
+This module implements all builtin data types as specified by the OPC UA standard.
+Refer to OPC UA Specification Part 3 and 6 (Version 1.04)
+
+Every data type is available as a UaTypePacket. When using these as a field they need to be wrapped in
+a UaPacketField. Normal scapy PacketFields can be used if they do not need access to the containing packet.
+If possible use UaPacketField.
+
+Some data types are available as UA___Field. Using these is preferred if possible, since they induce less overhead.
+
+If all OPC UA basic data types are needed load the types module
+"""
 import struct
 from functools import reduce
 
@@ -77,6 +88,8 @@ class UaByteField(Field):
         self.displayAsChar = displayAsChar
 
     def h2i(self, pkt, x):
+        if isinstance(x, str):
+            x = bytearray(x, "ascii")
         return struct.unpack("<B", x)[0]
 
     def i2h(self, pkt, x):
@@ -637,11 +650,12 @@ class UaDiagnosticInfo(UaBuiltin):
         if self.InnerDiagnosticInfo is not None:
             encodingMask |= 0x40
 
-        self.EncodingMask = encodingMask
+        # self.EncodingMask = encodingMask
         maskPart = encodingMaskField.addfield(self, b'', encodingMask)
         return maskPart + rest + pay
 
 
+# We need to append the InnerDiagnosticInfo field after declaring the class, since it can contain itself
 UaDiagnosticInfo.fields_desc.append(ConditionalField(UaPacketField("InnerDiagnosticInfo", None, UaDiagnosticInfo),
                                                      _make_check_encoding_mask_function("InnerDiagnosticInfo", 0x40)))
 
@@ -863,7 +877,6 @@ class BuiltinField(UaPacketField):
         return super(BuiltinField, self).getfield(pkt, s)
 
 
-# TODO: Implement correctly
 class UaVariant(UaBuiltin):
     nodeId = 24
     fields_desc = [UaByteField("EncodingMask", None),

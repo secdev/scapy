@@ -1,9 +1,17 @@
 # coding=utf-8
-from scapy.contrib.opcua.binary.builtinTypes import *
-from scapy.contrib.opcua.helpers import *
+"""
+This module implements all networking structures required for OPC UA secure conversation communication.
+For SecureConversation messages refer to secureConversation.py
+
+If all OPC UA basic data types are needed load the uaTypes module
+"""
+from scapy.contrib.opcua.helpers import UaTypePacket
+from scapy.contrib.opcua.binary.builtinTypes import UaBytesField, UaByteField, UaUInt32Field, UaByteString, \
+    UaExpandedNodeId, UaNodeId
 from scapy.fields import PacketField
 from scapy.contrib.opcua.binary.tcp import UaTcp
-from scapy.contrib.opcua.binary.schemaTypes import *
+from scapy.contrib.opcua.binary.schemaTypes import UaOpenSecureChannelRequest, UaCloseSecureChannelRequest, \
+    UaCloseSecureChannelResponse, nodeIdMappings
 
 
 class UaSecureConversationMessageHeader(UaTypePacket):
