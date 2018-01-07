@@ -74,6 +74,3 @@ else:
     uname = os.uname()
     LOOPBACK_NAME = "lo" if LINUX else "lo0"
     LOOPBACK_INTERFACE = LOOPBACK_NAME
-
-def parent_function():
-    return inspect.getouterframes(inspect.currentframe())

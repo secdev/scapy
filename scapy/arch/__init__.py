@@ -12,7 +12,7 @@ import socket
 
 from scapy.consts import LINUX, OPENBSD, FREEBSD, NETBSD, DARWIN, \
     SOLARIS, WINDOWS, BSD, IS_64BITS, LOOPBACK_NAME, plt, MATPLOTLIB_INLINED, \
-    MATPLOTLIB_DEFAULT_PLOT_KARGS, PYX, parent_function
+    MATPLOTLIB_DEFAULT_PLOT_KARGS, PYX
 from scapy.error import *
 import scapy.config
 from scapy.pton_ntop import inet_pton
