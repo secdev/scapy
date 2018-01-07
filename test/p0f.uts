@@ -1,0 +1,52 @@
+% Tests for Scapy's p0f module.
+
+~ p0f
+
+
+############
+############
++ Basic p0f module tests
+
+= Module loading
+load_module('p0f')
+
+
+############
+############
++ Tests for p0f_impersonate
+
+# XXX: a lot of pieces of p0f_impersonate don't have tests yet.
+
+= Use valid option values from original packet
+sig = ('S4', 64, 1, 60, 'M*,W*,T', '.', 'Phony Sys', '1.0')
+opts = [('MSS', 1400), ('WScale', 3), ('Timestamp', (97256, 0))]
+pkt = p0f_impersonate(IP()/TCP(options=opts), signature=sig)
+assert pkt.payload.options == opts
+
+= Use valid option values when multiples required
+sig = ('S4', 64, 1, 60, 'M%37,W%19', '.', 'Phony Sys', '1.0')
+opts = [('MSS', 37*15), ('WScale', 19*12)]
+pkt = p0f_impersonate(IP()/TCP(options=opts), signature=sig)
+assert pkt.payload.options == opts
+
+= Discard non-multiple option values when multiples required
+sig = ('S4', 64, 1, 60, 'M%37,W%19', '.', 'Phony Sys', '1.0')
+opts = [('MSS', 37*15 + 1), ('WScale', 19*12 + 1)]
+pkt = p0f_impersonate(IP()/TCP(options=opts), signature=sig)
+assert pkt.payload.options[0][1] % 37 == 0
+assert pkt.payload.options[1][1] % 19 == 0
+
+= Discard bad timestamp values
+sig = ('S4', 64, 1, 60, 'M*,T', '.', 'Phony Sys', '1.0')
+opts = [('Timestamp', (0, 1000))]
+pkt = p0f_impersonate(IP()/TCP(options=opts), signature=sig)
+# since option is "T" and not "T0":
+assert pkt.payload.options[1][1][0] > 0
+# since T quirk is not present:
+assert pkt.payload.options[1][1][1] == 0
+
+= Discard 2nd timestamp of 0 if "T" quirk is present
+sig = ('S4', 64, 1, 60, 'M*,T', 'T', 'Phony Sys', '1.0')
+opts = [('Timestamp', (54321, 0))]
+pkt = p0f_impersonate(IP()/TCP(options=opts), signature=sig)
+assert pkt.payload.options[1][1][1] > 0
