@@ -1,5 +1,9 @@
-from scapy.fields import *
-from scapy.packet import Packet
+"""
+This module implements all networking structures required for OPC UA TCP communication.
+For SecureConversation messages refer to secureConversation.py
+
+If all OPC UA basic data types are needed load the uaTypes module
+"""
 from scapy.contrib.opcua.binary.builtinTypes import *
 from scapy.contrib.opcua.helpers import *
 
@@ -12,10 +16,10 @@ class UaTcpMessageHeader(UaTypePacket):
 
 class UaTcpHelloMessage(UaTypePacket):
     fields_desc = [UaUInt32Field("ProtocolVersion", 0),
-                   UaUInt32Field("ReceiveBufferSize", 0),
-                   UaUInt32Field("SendBufferSize", 0),
-                   UaUInt32Field("MaxMessageSize", 0),
-                   UaUInt32Field("MaxChunkCount", 0),
+                   UaUInt32Field("ReceiveBufferSize", 1 << 12),
+                   UaUInt32Field("SendBufferSize", 1 << 12),
+                   UaUInt32Field("MaxMessageSize", 1 << 12),
+                   UaUInt32Field("MaxChunkCount", 1),
                    PacketField("EndpointUrl", UaString(), UaString)]
 
 
@@ -36,7 +40,7 @@ def isHEL(p):
     messageType = p.TcpMessageHeader.getfieldval("MessageType")
     if messageType is None:
         return isinstance(p.Message, UaTcpHelloMessage)
-    return p.TcpMessageHeader.MessageType == b'HEL'
+    return p.TcpMessageHeader.MessageType == b'HEL' or isinstance(p.Message, UaTcpHelloMessage)
 
 
 def isACK(p):
