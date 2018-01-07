@@ -8,10 +8,18 @@ Linux specific functions.
 """
 
 from __future__ import absolute_import
-import sys, os, struct, socket, time
-from select import select
+
+
+import array
+import ctypes
 from fcntl import ioctl
-import array, ctypes
+import os
+from select import select
+import socket
+import struct
+import sys
+import time
+
 
 from scapy.compat import *
 from scapy.consts import LOOPBACK_NAME, IS_64BITS
@@ -408,11 +416,10 @@ class L3PacketSocket(SuperSocket):
         if self.promisc:
             if iface is None:
                 self.iff = get_if_list()
+            elif isinstance(iface, list):
+                self.iff = iface
             else:
-                if iface.__class__ is list:
-                    self.iff = iface
-                else:
-                    self.iff = [iface]
+                self.iff = [iface]
             for i in self.iff:
                 set_promisc(self.ins, i)
     def close(self):
@@ -566,11 +573,10 @@ class L2ListenSocket(SuperSocket):
         self.promisc = promisc
         if iface is None:
             self.iff = get_if_list()
+        elif isinstance(iface, list):
+            self.iff = iface
         else:
-            if iface.__class__ is list:
-                self.iff = iface
-            else:
-                self.iff = [iface]
+            self.iff = [iface]
         if self.promisc:
             for i in self.iff:
                 set_promisc(self.ins, i)
