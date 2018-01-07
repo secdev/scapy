@@ -66,7 +66,6 @@ PACKET_MR_ALLMULTI     = 2
 SOL_PACKET = 263
 # From asm/socket.h
 SO_ATTACH_FILTER = 26
-SOL_SOCKET = 1
 
 # From net/route.h
 RTF_UP = 0x0001  # Route usable
@@ -155,7 +154,7 @@ def attach_filter(s, bpf_filter, iface):
         return
     
     bp = get_bpf_pointer(lines)
-    s.setsockopt(SOL_SOCKET, SO_ATTACH_FILTER, bp)
+    s.setsockopt(socket.SOL_SOCKET, SO_ATTACH_FILTER, bp)
 
 def set_promisc(s,iff,val=1):
     mreq = struct.pack("IHH8s", get_if_index(iff), PACKET_MR_PROMISC, 0, b"")
