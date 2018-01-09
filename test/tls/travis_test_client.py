@@ -26,22 +26,22 @@ send_data = cipher_suite_code = version = None
 
 def run_tls_test_client(send_data=None, cipher_suite_code=None, version=None):
     if version == "0002":
-        t = TLSClientAutomaton(data=[send_data, "stop_server", "quit"], version="sslv2")
+        t = TLSClientAutomaton(data=[send_data, b"stop_server", b"quit"], version="sslv2")
     else:
         ch = TLSClientHello(version=int(version, 16), ciphers=int(cipher_suite_code, 16))
-        t = TLSClientAutomaton(client_hello=ch, data=[send_data, "stop_server", "quit"])
+        t = TLSClientAutomaton(client_hello=ch, data=[send_data, b"stop_server", b"quit"], debug=1)
     t.run()
 
 from travis_test_server import run_tls_test_server
 
 def test_tls_client(suite, version, q):
-    msg = "TestC_" + suite + "_data"
+    msg = ("TestC_%s_data" % suite).encode()
     # Run server
     q_ = multiprocessing.Manager().Queue()
     th_ = multiprocessing.Process(target=run_tls_test_server, args=(msg, q_))
     th_.start()
     # Synchronise threads
-    q_.get()
+    assert q_.get() is True
     time.sleep(1)
     # Run client
     run_tls_test_client(msg, suite, version)

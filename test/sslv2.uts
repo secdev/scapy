@@ -265,7 +265,7 @@ mk = SSLv2ClientMasterKey(cipher='SSL_CK_DES_192_EDE3_CBC_WITH_MD5', clearkey=b'
 t = SSLv2(msg=mk)
 t.tls_session.sslv2_connection_id = b'\xba'*16
 t.tls_session.sslv2_challenge = b'\x42'*16
-t.str_stateful()
+t.raw_stateful()
 s = t.tls_session
 assert(s.master_secret == b'\xff'*19 + b'\xaa'*5)
 assert(isinstance(s.rcs.ciphersuite, SSL_CK_DES_192_EDE3_CBC_WITH_MD5))

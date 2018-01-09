@@ -9,7 +9,8 @@ Python 2 and 3 link classes.
 """
 
 from __future__ import absolute_import
-import codecs
+import base64
+import binascii
 
 import scapy.modules.six as six
 
@@ -47,15 +48,20 @@ def cmp(a, b):
     """Old Python 2 function"""
     return (a > b) - (a < b)
 
-def orb(x):
-    """Return ord(x) when necessary.
-    Python 3 compatible.
-    
-    """
-    if isinstance(x, (str, bytes)):
-        return ord(x)
-    else:
+
+if six.PY2:
+    def orb(x):
+        """Return ord(x) when necessary."""
+        if isinstance(x, basestring):
+            return ord(x)
         return x
+else:
+    def orb(x):
+        """Return ord(x) when necessary."""
+        if isinstance(x, (bytes, str)):
+            return ord(x)
+        return x
+
 
 if six.PY2:
     def raw(x):
@@ -108,31 +114,22 @@ else:
                 return bytes([int(x)])
             return bytes([x])
 
-def bytes_codec(x, codec, force_str=False):
-    """Encode a str or a bytes object with a codec"""
-    if six.PY2:
-        return str(x).encode(codec)
-    else:
-        hex_ = codecs.getencoder(codec)(raw(x))[0]
-        if force_str:
-            hex_ = hex_.decode('utf8')
-        return hex_
-
-def codec_bytes(x, codec):
-    """Decode a str or a byte object with a codec"""
-    if six.PY2:
-        return str(x).decode(codec)
-    else:
-        return codecs.getdecoder(codec)(x)[0]
-
-def bytes_hex(x, force_str=False):
+def bytes_hex(x):
     """Hexify a str or a bytes object"""
-    return bytes_codec(x, "hex", force_str)
+    return binascii.b2a_hex(raw(x))
 
 def hex_bytes(x):
     """De-hexify a str or a byte object"""
-    return codec_bytes(x, "hex")
+    return binascii.a2b_hex(raw(x))
 
 def base64_bytes(x):
     """Turn base64 into bytes"""
-    return codec_bytes(raw(x), "base64")
+    if six.PY2:
+        return base64.decodestring(x)
+    return base64.decodebytes(raw(x))
+
+def bytes_base64(x):
+    """Turn bytes into base64"""
+    if six.PY2:
+        return base64.encodestring(x).replace('\n', '')
+    return base64.encodebytes(raw(x)).replace(b'\n', b'')

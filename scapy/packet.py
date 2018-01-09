@@ -498,7 +498,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
             fname = get_temp_file(autoext=".eps")
             canvas.writeEPSfile(fname)
             with ContextManagerSubprocess("psdump()"):
-                subprocess.Popen([conf.prog.psreader, fname+".eps"])
+                subprocess.Popen([conf.prog.psreader, fname])
         else:
             canvas.writeEPSfile(filename)
 
@@ -516,7 +516,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
             fname = get_temp_file(autoext=".pdf")
             canvas.writePDFfile(fname)
             with ContextManagerSubprocess("pdfdump()"):
-                subprocess.Popen([conf.prog.pdfreader, fname+".pdf"])
+                subprocess.Popen([conf.prog.pdfreader, fname])
         else:
             canvas.writePDFfile(filename)
 

@@ -27,8 +27,8 @@ from scapy.fields import ByteEnumField, ByteField, IntField
 from scapy.fields import FieldListField
 from scapy.fields import FieldLenField, ConditionalField, StrLenField
 from scapy.layers.inet import TCP
+from scapy.compat import chb, orb
 from scapy.config import conf
-from scapy.consts import *
 from scapy.modules.six.moves import range
 
 SECRET = 'test'

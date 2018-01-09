@@ -501,14 +501,21 @@ def do_graph(graph,prog=None,format=None,target=None,type=None,string=None,optio
             start_viewer = True
         else:
             with ContextManagerSubprocess("do_graph()"):
-                target = subprocess.Popen([conf.prog.display], stdin=subprocess.PIPE).stdin
+                target = subprocess.Popen([conf.prog.display],
+                                          stdin=subprocess.PIPE).stdin
     if format is not None:
         format = "-T%s" % format
     if isinstance(target, str):
-        target = open(os.path.abspath(target), "wb")
+        if target.startswith('|'):
+            target = subprocess.Popen(target[1:].lstrip(), shell=True,
+                                      stdin=subprocess.PIPE).stdin
+        elif target.startswith('>'):
+            target = open(target[1:].lstrip(), "wb")
+        else:
+            target = open(os.path.abspath(target), "wb")
     proc = subprocess.Popen("\"%s\" %s %s" % (prog, options or "", format or ""),
                             shell=True, stdin=subprocess.PIPE, stdout=target)
-    proc.communicate(input=raw(graph))
+    proc.stdin.write(raw(graph))
     try:
         target.close()
     except:
@@ -630,7 +637,7 @@ class Enum_metaclass(type):
 
 
 def export_object(obj):
-    print(bytes_codec(gzip.zlib.compress(six.moves.cPickle.dumps(obj,2),9), "base64"))
+    print(bytes_base64(gzip.zlib.compress(six.moves.cPickle.dumps(obj, 2), 9)))
 
 def import_object(obj=None):
     if obj is None:

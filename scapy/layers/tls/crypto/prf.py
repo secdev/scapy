@@ -239,9 +239,9 @@ class PRF(object):
         elif self.tls_version == 0x0300:
 
             if read_or_write == "write":
-                d = {"client": "CLNT", "server": "SRVR"}
+                d = {"client": b"CLNT", "server": b"SRVR"}
             else:
-                d = {"client": "SRVR", "server": "CLNT"}
+                d = {"client": b"SRVR", "server": b"CLNT"}
             label = d[con_end]
 
             sslv3_md5_pad1 = b"\x36"*48
@@ -266,7 +266,7 @@ class PRF(object):
                 d = {"client": "client", "server": "server"}
             else:
                 d = {"client": "server", "server": "client"}
-            label = d[con_end] + " finished"
+            label = ("%s finished" % d[con_end]).encode()
 
             if self.tls_version <= 0x0302:
                 s1 = _tls_hash_algs["MD5"]().digest(handshake_msg)
@@ -302,9 +302,9 @@ class PRF(object):
             export_key = _tls_hash_algs["MD5"]().digest(tbh)[:req_len]
         else:
             if s:
-                tag = "client write key"
+                tag = b"client write key"
             else:
-                tag = "server write key"
+                tag = b"server write key"
             export_key = self.prf(key,
                                   tag,
                                   client_random + server_random,
@@ -331,7 +331,7 @@ class PRF(object):
             iv = _tls_hash_algs["MD5"]().digest(tbh)[:req_len]
         else:
             iv_block = self.prf("",
-                                "IV block",
+                                b"IV block",
                                 client_random + server_random,
                                 2*req_len)
             if s:

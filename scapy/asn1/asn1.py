@@ -234,7 +234,7 @@ class ASN1_DECODING_ERROR(ASN1_Object):
         ASN1_Object.__init__(self, val)
         self.exc = exc
     def __repr__(self):
-        return "<%s[%r]{{%s}}>" % (self.__dict__.get("name", self.__class__.__name__),
+        return "<%s[%r]{{%r}}>" % (self.__dict__.get("name", self.__class__.__name__),
                                    self.val, self.exc.args[0])
     def enc(self, codec):
         if isinstance(self.val, ASN1_Object):
@@ -265,12 +265,14 @@ class ASN1_INTEGER(ASN1_Object):
             r = r[:10] + "..." + r[-10:]
         return h + " <%s[%s]>" % (self.__dict__.get("name", self.__class__.__name__), r)
 
+
 class ASN1_BOOLEAN(ASN1_INTEGER):
     tag = ASN1_Class_UNIVERSAL.BOOLEAN
     # BER: 0 means False, anything else means True
     def __repr__(self):
-        return str((not (self.val==0))) + " " + ASN1_Object.__repr__(self)
-    
+        return '%s %s' % (not (self.val==0), ASN1_Object.__repr__(self))
+
+
 class ASN1_BIT_STRING(ASN1_Object):
     """
     /!\ ASN1_BIT_STRING values are bit strings like "011101".
@@ -323,12 +325,12 @@ class ASN1_BIT_STRING(ASN1_Object):
             super(ASN1_Object, self).__setattr__(name, value)
     def __repr__(self):
         if len(self.val) <= 16:
-            return "<%s[%r] (%d unused bit%s)>" % (self.__dict__.get("name", self.__class__.__name__), self.val, self.unused_bits, "s" if self.unused_bits>1 else "")
+            return "<%s[%s] (%d unused bit%s)>" % (self.__dict__.get("name", self.__class__.__name__), self.val.decode(), self.unused_bits, "s" if self.unused_bits>1 else "")
         else:
             s = self.val_readable
             if len(s) > 20:
                 s = s[:10] + b"..." + s[-10:]
-            return "<%s[%r] (%d unused bit%s)>" % (self.__dict__.get("name", self.__class__.__name__), s, self.unused_bits, "s" if self.unused_bits>1 else "")
+            return "<%s[%s] (%d unused bit%s)>" % (self.__dict__.get("name", self.__class__.__name__), s.decode(), self.unused_bits, "s" if self.unused_bits>1 else "")
     def __str__(self):
         return self.val_readable
     def __bytes__(self):

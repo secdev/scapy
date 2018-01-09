@@ -15,8 +15,6 @@ s > d1 > c
 d1 > tf > t
 
 p = PipeEngine(s)
-p.graph(type="png", target="test.png")
-p.graph(type="png")
 p.start()
 time.sleep(3)
 s.msg = []

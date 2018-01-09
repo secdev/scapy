@@ -864,8 +864,11 @@ class _GenericTLSSessionInheritance(Packet):
         pkt.tls_session = self.tls_session
         return pkt
 
-    def str_stateful(self):
+    def raw_stateful(self):
         return super(_GenericTLSSessionInheritance, self).__bytes__()
+
+    def str_stateful(self):
+        return self.raw_stateful()
 
     def __bytes__(self):
         """

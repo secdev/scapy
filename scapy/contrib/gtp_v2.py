@@ -308,7 +308,7 @@ class IE_APN(gtp.IE_Base):
                    ShortField("length",  None),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
-                   gtp.APNStrLenField("APN", "nternet",
+                   gtp.APNStrLenField("APN", "internet",
                                          length_from=lambda x: x.length)]
 
 

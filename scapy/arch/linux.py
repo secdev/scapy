@@ -201,8 +201,9 @@ def get_alias_address(iface_name, ip_mask, gw_str, metric):
         msk = struct.unpack(">I", ifreq[20:24])[0]
        
         # Get the full interface name
-        if b':' in ifname:
-            ifname = ifname[:ifname.index(b':')]
+        ifname = plain_str(ifname)
+        if ':' in ifname:
+            ifname = ifname[:ifname.index(':')]
         else:
             continue
 
@@ -290,18 +291,19 @@ def in6_getifaddr():
     """
     ret = []
     try:
-        f = open("/proc/net/if_inet6", "rb")
+        fdesc = open("/proc/net/if_inet6", "rb")
     except IOError as err:    
         return ret
-    l = f.readlines()
-    for i in l:
-        l = plain_str(l)
+    for line in fdesc:
         # addr, index, plen, scope, flags, ifname
-        tmp = i.split()
-        addr = struct.unpack('4s4s4s4s4s4s4s4s', tmp[0])
-        addr = scapy.utils6.in6_ptop(b':'.join(addr).decode())
+        tmp = plain_str(line).split()
+        addr = scapy.utils6.in6_ptop(
+            b':'.join(
+                struct.unpack('4s4s4s4s4s4s4s4s', tmp[0].encode())
+            ).decode()
+        )
         # (addr, scope, iface)
-        ret.append((addr, int(tmp[3], 16), tmp[5].decode()))
+        ret.append((addr, int(tmp[3], 16), tmp[5]))
     return ret
 
 def read_routes6():

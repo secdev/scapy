@@ -16,7 +16,13 @@ try:
 except ImportError:
     from urllib2 import urlopen
 
-open('nmap-os-fingerprints', 'wb').write(urlopen('https://raw.githubusercontent.com/nmap/nmap/9efe1892/nmap-os-fingerprints').read())
+for i in range(10):
+    try:
+        open('nmap-os-fingerprints', 'wb').write(urlopen('https://raw.githubusercontent.com/nmap/nmap/9efe1892/nmap-os-fingerprints').read())
+        break
+    except:
+        pass
+
 conf.nmap_base = 'nmap-os-fingerprints'
 
 = Database loading

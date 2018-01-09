@@ -35,6 +35,7 @@ from scapy.layers.tls.keyexchange_tls13 import (TLS_Ext_KeyShare_CH,
                                                 KeyShareEntry)
 from scapy.layers.tls.record import (TLS, TLSAlert, TLSChangeCipherSpec,
                                      TLSApplicationData)
+from scapy.modules import six
 
 
 class TLSClientAutomaton(_TLSAutomaton):
@@ -96,13 +97,12 @@ class TLSClientAutomaton(_TLSAutomaton):
                 self.advertised_tls_version = v
 
         self.linebreak = False
-        if isinstance(data, str):
+        if isinstance(data, bytes):
             self.data_to_send = [data]
+        elif isinstance(data, six.string_types):
+            self.data_to_send = [raw(data)]
         elif isinstance(data, list):
-            # parse_args is called two times, this is why we have to copy
-            # the data list for reversing it afterwards...
-            self.data_to_send = list(data)
-            self.data_to_send.reverse()
+            self.data_to_send = list(raw(d) for d in reversed(data))
         else:
             self.data_to_send = []
 
@@ -445,15 +445,13 @@ class TLSClientAutomaton(_TLSAutomaton):
         Special characters are handled so that it becomes a valid HTTP request.
         """
         if not self.data_to_send:
-            data = raw_input()
-            data = data.replace("\\r", "\r")
-            data = data.replace("\\n", "\n")
+            data = six.moves.input().replace('\\r', '\r').replace('\\n', '\n').encode()
         else:
             data = self.data_to_send.pop()
-        if data == "quit":
+        if data == b"quit":
             return
         if self.linebreak:
-            data += "\n"
+            data += b"\n"
         self.add_record()
         self.add_msg(TLSApplicationData(data=data))
         raise self.ADDED_CLIENTDATA()
@@ -490,7 +488,7 @@ class TLSClientAutomaton(_TLSAutomaton):
             raise self.WAIT_CLIENTDATA()
         p = self.buffer_in[0]
         if isinstance(p, TLSApplicationData):
-            print("> Received: %s" % p.data)
+            print("> Received: %r" % p.data)
         elif isinstance(p, TLSAlert):
             print("> Received: %r" % p)
             raise self.CLOSE_NOTIFY()
@@ -735,9 +733,7 @@ class TLSClientAutomaton(_TLSAutomaton):
     @ATMT.condition(SSLv2_WAITING_CLIENTDATA, prio=1)
     def sslv2_add_ClientData(self):
         if not self.data_to_send:
-            data = raw_input()
-            data = data.replace("\\r", "\r")
-            data = data.replace("\\n", "\n")
+            data = six.moves.input().replace('\\r', '\r').replace('\\n', '\n').encode()
         else:
             data = self.data_to_send.pop()
             self.vprint("> Read from list: %s" % data)
@@ -780,8 +776,8 @@ class TLSClientAutomaton(_TLSAutomaton):
         if not self.buffer_in:
             raise self.SSLv2_WAITING_CLIENTDATA()
         p = self.buffer_in[0]
-        print("> Received: %s" % p.load)
-        if p.load.startswith("goodbye"):
+        print("> Received: %r" % p.load)
+        if p.load.startswith(b"goodbye"):
             raise self.SSLv2_CLOSE_NOTIFY()
         self.buffer_in = self.buffer_in[1:]
         raise self.SSLv2_HANDLED_SERVERDATA()

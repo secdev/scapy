@@ -26,11 +26,16 @@ IPv6 (Internet Protocol v6).
 
 from __future__ import absolute_import
 from __future__ import print_function
+
+from hashlib import md5
 import random
+import re
 import socket
-import sys
+import struct
+from time import gmtime, strftime
+
 import scapy.modules.six as six
-from scapy.modules.six.moves import range
+from scapy.modules.six.moves import range, zip
 if not socket.has_ipv6:
     raise socket.error("can't use AF_INET6, IPv6 is disabled")
 if not hasattr(socket, "IPPROTO_IPV6"):
@@ -40,22 +45,31 @@ if not hasattr(socket, "IPPROTO_IPIP"):
     # Workaround for https://bitbucket.org/secdev/scapy/issue/5119
     socket.IPPROTO_IPIP = 4
 
+from scapy.arch import get_if_hwaddr
 from scapy.config import conf
-from scapy.base_classes import *
-from scapy.data import *
-from scapy.compat import *
+from scapy.base_classes import Gen
+from scapy.data import DLT_IPV6, DLT_RAW, DLT_RAW_ALT, ETHER_ANY, ETH_P_IPV6, \
+    MTU
+from scapy.compat import chb, orb, raw, plain_str
 import scapy.consts
-from scapy.fields import *
-from scapy.packet import *
-from scapy.volatile import *
-from scapy.sendrecv import sr,sr1,srp1
+from scapy.fields import BitEnumField, BitField, ByteEnumField, ByteField, \
+    DestField, Field, FieldLenField, FlagsField, IntField, LongField, \
+    MACField, PacketLenField, PacketListField, ShortEnumField, ShortField, \
+    StrField, StrFixedLenField, StrLenField, X3BytesField, XBitField, \
+    XIntField, XShortField
+from scapy.packet import bind_layers, Packet, Raw
+from scapy.volatile import RandInt, RandIP6, RandShort
+from scapy.sendrecv import sendp, sniff, sr, srp1
 from scapy.as_resolvers import AS_resolver_riswhois
-from scapy.supersocket import SuperSocket,L3RawSocket
-from scapy.arch import *
-from scapy.utils6 import *
-from scapy.layers.l2 import *
-from scapy.layers.inet import *
-from scapy.utils import inet_pton, inet_ntop, strxor
+from scapy.supersocket import SuperSocket, L3RawSocket
+from scapy.utils6 import in6_6to4ExtractAddr, in6_and, in6_cidr2mask, \
+    in6_getnsma, in6_getnsmac, in6_isaddr6to4, in6_isaddrllallnodes, \
+    in6_isaddrllallservers, in6_isaddrTeredo, in6_isllsnmaddr, in6_ismaddr, \
+    in6_ptop, teredoAddrExtractInfo
+from scapy.layers.l2 import CookedLinux, Ether, GRE, Loopback, SNAP
+from scapy.layers.inet import IP, IPTools, TCP, TCPerror, TracerouteResult, \
+    UDP, UDPerror
+from scapy.utils import checksum, inet_pton, inet_ntop, strxor
 from scapy.error import warning
 if conf.route6 is None:
     # unused import, only to initialize conf.route6
@@ -165,33 +179,28 @@ class Net6(Gen): # syntax ex. fec0::/126
         self.plen = netmask
 
     def __iter__(self):
-        def m8(i):
-            if i % 8 == 0:
-                return i
-        tuple = [x for x in range(8, 129) if m8(x)]
 
-        a = in6_and(self.net, self.mask)
-        tmp = [x for x in struct.unpack("16B", a)]
+        def parse_digit(value, netmask):
+            netmask = min(8, max(netmask, 0))
+            value = int(value)
+            return (value & (0xff << netmask),
+                    (value | (0xff >> (8 - netmask))) + 1)
 
-        def parse_digit(a, netmask):
-            netmask = min(8,max(netmask,0))
-            a = (int(a) & (0xff<<netmask),(int(a) | (0xff>>(8-netmask)))+1)
-            return a
-        self.parsed = list(map(lambda x,y: parse_digit(x,y), tmp, map(lambda x,nm=self.plen: x-nm, tuple)))
+        self.parsed = [
+            parse_digit(x, y) for x, y in zip(
+                struct.unpack("16B", in6_and(self.net, self.mask)),
+                (x - self.plen for x in range(8, 129, 8)),
+            )
+        ]
 
         def rec(n, l):
-            if n and  n % 2 == 0:
-                sep = ':'
-            else:
-                sep = ''
+            sep = ':' if n and  n % 2 == 0 else ''
             if n == 16:
                 return l
-            else:
-                ll = []
-                for i in range(*self.parsed[n]):
-                    for y in l:
-                        ll += [y+sep+'%.2x'%i]
-                return rec(n+1, ll)
+            return rec(n + 1, [y + sep + '%.2x' % i
+                               # faster than '%s%s%.2x' % (y, sep, i)
+                               for i in range(*self.parsed[n])
+                               for y in l])
 
         return iter(rec(0, ['']))
 
@@ -244,7 +253,7 @@ class IP6Field(Field):
             return self.i2h(pkt,x)
         elif not isinstance(x, Net6) and not isinstance(x, list):
             if in6_isaddrTeredo(x):   # print Teredo info
-                server, flag, maddr, mport = teredoAddrExtractInfo(x)
+                server, _, maddr, mport = teredoAddrExtractInfo(x)
                 return "%s [Teredo srv: %s cli: %s:%s]" % (self.i2h(pkt, x), server, maddr,mport)
             elif in6_isaddr6to4(x):   # print encapsulated address
                 vaddr = in6_6to4ExtractAddr(x)
@@ -498,7 +507,7 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
         if not isinstance(other, IPv6): # self is reply, other is request
             return False
         if conf.checkIPaddr:
-            ss = inet_pton(socket.AF_INET6, self.src)
+            # ss = inet_pton(socket.AF_INET6, self.src)
             sd = inet_pton(socket.AF_INET6, self.dst)
             os = inet_pton(socket.AF_INET6, other.src)
             od = inet_pton(socket.AF_INET6, other.dst)
@@ -1121,7 +1130,6 @@ def defragment6(packets):
     llen = len(l)
 
     # reorder fragments
-    i = 0
     res = []
     while l:
         min_pos = 0
@@ -2132,10 +2140,9 @@ class NonceField(StrFixedLenField):
 @conf.commands.register
 def computeNIGroupAddr(name):
     """Compute the NI group Address. Can take a FQDN as input parameter"""
-    import hashlib
     name = name.lower().split(".")[0]
     record = chr(len(name))+name
-    h = hashlib.md5(record.encode("utf8"))
+    h = md5(record.encode("utf8"))
     h = h.digest()
     addr = "ff02::2:%2x%2x:%2x%2x" % struct.unpack("BBBB", h[:4])
     return addr
@@ -2174,18 +2181,18 @@ def names2dnsrepr(x):
     !!!  At the moment, compression is not implemented  !!!
     """
 
-    if isinstance(x, str):
-        if x and x[-1] == '\x00': # stupid heuristic
-            return x.encode("utf8")
+    if isinstance(x, bytes):
+        if x and x[-1:] == b'\x00': # stupid heuristic
+            return x
         x = [x]
 
     res = []
     for n in x:
-        termin = "\x00"
-        if n.count('.') == 0: # single-component gets one more
-            termin += '\x00'
-        n = "".join(chr(len(y)) + y for y in n.split('.')) + termin
-        res.append(n.encode("utf8"))
+        termin = b"\x00"
+        if n.count(b'.') == 0: # single-component gets one more
+            termin += b'\x00'
+        n = b"".join(chb(len(y)) + y for y in n.split(b'.')) + termin
+        res.append(n)
     return b"".join(res)
 
 
@@ -2197,25 +2204,23 @@ def dnsrepr2names(x):
     (does not end with a null character, a one element list
     is returned). Result is a list.
     """
-    x = plain_str(x)
     res = []
-    cur = ""
+    cur = b""
     while x:
         l = orb(x[0])
         x = x[1:]
-        if l == 0:
-            if cur and cur[-1] == '.':
+        if not l:
+            if cur and cur[-1:] == b'.':
                 cur = cur[:-1]
             res.append(cur)
-            cur = ""
+            cur = b""
             if x and orb(x[0]) == 0: # single component
                 x = x[1:]
             continue
         if l & 0xc0: # XXX TODO : work on that -- arno
             raise Exception("DNS message can't be compressed at this point!")
-        else:
-            cur += x[:l]+"."
-            x = x[l:]
+        cur += x[:l] + b"."
+        x = x[l:]
     return res
 
 
@@ -2235,20 +2240,23 @@ class NIQueryDataField(StrField):
         if x is tuple and isinstance(x[0], int):
             return x
 
-        val = None
-        try: # Try IPv6
-            inet_pton(socket.AF_INET6, x)
-            val = (0, x)
+        # Try IPv6
+        try:
+            inet_pton(socket.AF_INET6, x.decode())
+            return (0, x.decode())
         except:
-            try: # Try IPv4
-                inet_pton(socket.AF_INET, x)
-                val = (2, x)
-            except: # Try DNS
-                if x is None:
-                    x = ""
-                x = names2dnsrepr(x)
-                val = (1, x)
-        return val
+            pass
+        # Try IPv4
+        try:
+            inet_pton(socket.AF_INET, x.decode())
+            return (2, x.decode())
+        except:
+            pass
+        # Try DNS
+        if x is None:
+            x = b""
+        x = names2dnsrepr(x)
+        return (1, x)
 
     def i2repr(self, pkt, x):
         x = plain_str(x)
@@ -2257,15 +2265,10 @@ class NIQueryDataField(StrField):
             # we don't use dnsrepr2names() to deal with
             # possible weird data extracted info
             res = []
-            weird = None
             while val:
                 l = orb(val[0])
                 val = val[1:]
                 if l == 0:
-                    if (len(res) > 1 and val): # fqdn with data behind
-                        weird = val
-                    elif len(val) > 1: # single label with data behind
-                        weird = val[1:]
                     break
                 res.append(val[:l]+".")
                 val = val[l:]
@@ -2389,7 +2392,7 @@ class NIReplyDataField(StrField):
         # No user hint, let's use 'qtype' value for that purpose
         if not isinstance(x, tuple):
             if pkt is not None:
-                qtype = getattr(pkt, "qtype")
+                qtype = pkt.qtype
         else:
             qtype = x[0]
             x = x[1]
@@ -2397,26 +2400,33 @@ class NIReplyDataField(StrField):
         # From that point on, x is the value (second element of the tuple)
 
         if qtype == 2: # DNS name
-            if isinstance(x, str): # listify the string
+            if isinstance(x, (str, bytes)): # listify the string
                 x = [x]
-            if isinstance(x, list) and x and not isinstance(x[0], int): # ttl was omitted : use 0
-                x = [0] + x
-            ttl = x[0]
-            names = x[1:]
+            if isinstance(x, list):
+                x = [val.encode() if isinstance(val, str) else val for val in x]
+            if x and isinstance(x[0], six.integer_types):
+                ttl = x[0]
+                names = x[1:]
+            else:
+                ttl = 0
+                names = x
             return (2, [ttl, names2dnsrepr(names)])
 
         elif qtype in [3, 4]: # IPv4 or IPv6 addr
-            if isinstance(x, str):
+            if not isinstance(x, list):
                 x = [x] # User directly provided an IP, instead of list
 
-            # List elements are not tuples, user probably
-            # omitted ttl value : we will use 0 instead
-            def addttl(x):
-                if isinstance(x, str):
-                    return (0, x)
+            def fixvalue(x):
+                # List elements are not tuples, user probably
+                # omitted ttl value : we will use 0 instead
+                if not isinstance(x, tuple):
+                    x = (0, x)
+                # Decode bytes
+                if six.PY3 and isinstance(x[1], bytes):
+                    x = (x[0], x[1].decode())
                 return x
 
-            return (qtype, [addttl(d) for d in x])
+            return (qtype, [fixvalue(d) for d in x])
 
         return (qtype, x)
 
@@ -2727,8 +2737,7 @@ class NTPTimestampField(LongField):
         i = int(x >> 32)
         j = float(x & 0xffffffff) * 2.0**-32
         res = i + j + delta
-        from time import strftime
-        t = time.strftime("%a, %d %b %Y %H:%M:%S +0000", time.gmtime(res))
+        t = strftime("%a, %d %b %Y %H:%M:%S +0000", gmtime(res))
 
         return "%s (%d)" % (t, x)
 
@@ -3025,7 +3034,7 @@ class MIP6MH_CoT(MIP6MH_HoT):
     def hashret(self):
         return raw(self.cookie)
 
-    def answers(self):
+    def answers(self, other):
         if (isinstance(other, MIP6MH_CoTI) and
             self.cookie == other.cookie):
             return 1

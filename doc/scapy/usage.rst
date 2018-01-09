@@ -84,7 +84,7 @@ The ``/`` operator has been used as a composition operator between two layers. W
 
 Each packet can be build or dissected (note: in Python ``_`` (underscore) is the latest result)::
 
-    >>> str(IP())
+    >>> raw(IP())
     'E\x00\x00\x14\x00\x01\x00\x00@\x00|\xe7\x7f\x00\x00\x01\x7f\x00\x00\x01'
     >>> IP(_)
     <IP version=4L ihl=5L tos=0x0 len=20 id=1 flags= frag=0L ttl=64 proto=IP
@@ -97,7 +97,7 @@ Each packet can be build or dissected (note: in Python ``_`` (underscore) is the
     20 00 BB 39 00 00 47 45 54 20 2F 69 6E 64 65 78   ..9..GET /index
     2E 68 74 6D 6C 20 48 54 54 50 2F 31 2E 30 20 0A  .html HTTP/1.0 .
     0A                                               .
-    >>> b=str(a)
+    >>> b=raw(a)
     >>> b
     '\x00\x02\x157\xa2D\x00\xae\xf3R\xaa\xd1\x08\x00E\x00\x00C\x00\x01\x00\x00@\x06x<\xc0
      \xa8\x05\x15B#\xfa\x97\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00
@@ -148,7 +148,7 @@ If you have PyX installed, you can make a graphical PostScript/PDF dump of a pac
 =======================   ====================================================
 Command                   Effect
 =======================   ====================================================
-str(pkt)                  assemble the packet 
+raw(pkt)                  assemble the packet
 hexdump(pkt)              have an hexadecimal dump 
 ls(pkt)                   have the list of fields values 
 pkt.summary()             for a one-line summary 
@@ -760,10 +760,10 @@ Hexdump above can be reimported back into Scapy using ``import_hexcap()``::
     \x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e
     \x1f !"#$%&\'()*+,-./01234567' |>>>>
 
-Hex string
-^^^^^^^^^^
+Binary string
+^^^^^^^^^^^^^
 
-You can also convert entire packet into a hex string using the ``str()`` function::
+You can also convert entire packet into a binary string using the ``raw()`` function::
 
     >>> pkts = sniff(count = 1)
     >>> pkt = pkts[0]
@@ -774,16 +774,16 @@ You can also convert entire packet into a hex string using the ``str()`` functio
     chksum=0x9c90 id=0x5a61 seq=0x1 |<Raw  load='\xe6\xdapI\xb6\xe5\x08\x00\x08\t\n
     \x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e
     \x1f !"#$%&\'()*+,-./01234567' |>>>>
-    >>> pkt_str = str(pkt)
-    >>> pkt_str
+    >>> pkt_raw = raw(pkt)
+    >>> pkt_raw
     '\x00PV\xfc\xceP\x00\x0c)+S\x19\x08\x00E\x00\x00T\x00\x00@\x00@\x01Z|\xc0\xa8
     \x19\x82\x04\x02\x02\x01\x08\x00\x9c\x90Za\x00\x01\xe6\xdapI\xb6\xe5\x08\x00
     \x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b
     \x1c\x1d\x1e\x1f !"#$%&\'()*+,-./01234567'
 
-We can reimport the produced hex string by selecting the appropriate starting layer (e.g. ``Ether()``).
+We can reimport the produced binary string by selecting the appropriate first layer (e.g. ``Ether()``).
 
-    >>> new_pkt = Ether(pkt_str)
+    >>> new_pkt = Ether(pkt_raw)
     >>> new_pkt
     <Ether  dst=00:50:56:fc:ce:50 src=00:0c:29:2b:53:19 type=0x800 |<IP  version=4L 
     ihl=5L tos=0x0 len=84 id=0 flags=DF frag=0L ttl=64 proto=icmp chksum=0x5a7c 
@@ -833,7 +833,7 @@ Sessions
 At last Scapy is capable of saving all session variables using the ``save_session()`` function:
 
 >>> dir()
-['__builtins__', 'conf', 'new_pkt', 'pkt', 'pkt_export', 'pkt_hex', 'pkt_str', 'pkts']
+['__builtins__', 'conf', 'new_pkt', 'pkt', 'pkt_export', 'pkt_hex', 'pkt_raw', 'pkts']
 >>> save_session("session.scapy")
 
 Next time you start Scapy you can load the previous saved session using the ``load_session()`` command::
@@ -842,7 +842,7 @@ Next time you start Scapy you can load the previous saved session using the ``lo
     ['__builtins__', 'conf']
     >>> load_session("session.scapy")
     >>> dir()
-    ['__builtins__', 'conf', 'new_pkt', 'pkt', 'pkt_export', 'pkt_hex', 'pkt_str', 'pkts']
+    ['__builtins__', 'conf', 'new_pkt', 'pkt', 'pkt_export', 'pkt_hex', 'pkt_raw', 'pkts']
 
 
 Making tables
@@ -1089,12 +1089,12 @@ We can find unfiltered ports in answered packets::
 
     >>> for s,r in ans:
     ...     if s[TCP].dport == r[TCP].sport:
-    ...        print str(s[TCP].dport) + " is unfiltered"
+    ...        print("%d is unfiltered" % s[TCP].dport)
 
 Similarly, filtered ports can be found with unanswered packets::
 
     >>> for s in unans:     
-    ...     print str(s[TCP].dport) + " is filtered"
+    ...     print("%d is filtered" % s[TCP].dport)
 
 
 Xmas Scan
@@ -1492,9 +1492,9 @@ Scapy can be used to analyze ISN (Initial Sequence Number) increments to possibl
 Once we obtain a reasonable number of responses we can start analyzing collected data with something like this:
 
     >>> temp = 0
-    >>> for s,r in ans:
+    >>> for s, r in ans:
     ...    temp = r[TCP].seq - temp
-    ...    print str(r[TCP].seq) + "\t+" + str(temp)
+    ...    print("%d\t+%d" % (r[TCP].seq, temp))
     ... 
     4278709328      +4275758673
     4279655607      +3896934

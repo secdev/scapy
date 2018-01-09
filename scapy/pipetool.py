@@ -517,23 +517,23 @@ class TermSink(Sink):
             self.name = "Scapy" if self.name is None else self.name
             # Start a powershell in a new window and print the PID
             cmd = "$app = Start-Process PowerShell -ArgumentList '-command &{$host.ui.RawUI.WindowTitle=\\\"%s\\\";Get-Content \\\"%s\\\" -wait}' -passthru; echo $app.Id" % (self.name, self.__f.replace("\\", "\\\\"))
-            _p = subprocess.Popen([conf.prog.powershell, cmd], stdout=subprocess.PIPE)
-            _output, _stderr = _p.communicate()
+            proc = subprocess.Popen([conf.prog.powershell, cmd], stdout=subprocess.PIPE)
+            output, _ = proc.communicate()
             # This is the process PID
-            self.__p = int(_output)
-            print(("PID:" + str(self.__p)))
+            self.pid = int(output)
+            print("PID: %d" % self.pid)
     def _start_unix(self):
         if not self.opened:
             self.opened = True
-            self.__r,self.__w = os.pipe()
+            rdesc, self.wdesc = os.pipe()
             cmd = ["xterm"]
             if self.name is not None:
                 cmd.extend(["-title",self.name])
             if self.keepterm:
                 cmd.append("-hold")
-            cmd.extend(["-e", "cat 0<&%i" % self.__r])
-            self.__p = subprocess.Popen(cmd, shell=True, executable="/bin/bash")
-            os.close(self.__r)
+            cmd.extend(["-e", "cat <&%d" % rdesc])
+            self.proc = subprocess.Popen(cmd, close_fds=False)
+            os.close(rdesc)
     def start(self):
         if WINDOWS:
             return self._start_windows()
@@ -546,15 +546,14 @@ class TermSink(Sink):
             # http://code.activestate.com/recipes/347462-terminating-a-subprocess-on-windows/
             import ctypes
             PROCESS_TERMINATE = 1
-            handle = ctypes.windll.kernel32.OpenProcess(PROCESS_TERMINATE, False, self.__p)
+            handle = ctypes.windll.kernel32.OpenProcess(PROCESS_TERMINATE, False, self.pid)
             ctypes.windll.kernel32.TerminateProcess(handle, -1)
             ctypes.windll.kernel32.CloseHandle(handle)
     def _stop_unix(self):
         if not self.keepterm:
             self.opened = False
-            os.close(self.__w)
-            self.__p.kill()
-            self.__p.wait()
+            self.proc.kill()
+            self.proc.wait()
     def stop(self):
         if WINDOWS:
             return self._stop_windows()
@@ -564,11 +563,11 @@ class TermSink(Sink):
         if self.newlines:
             s+="\n"
         if WINDOWS:
-            self.__w = open(self.__f, "a")
-            self.__w.write(s)
-            self.__w.close()
+            wdesc = open(self.__f, "a")
+            wdesc.write(s)
+            wdesc.close()
         else:
-            os.write(self.__w, s.encode())
+            os.write(self.wdesc, s.encode())
     def push(self, msg):
         self._print(str(msg))
     def high_push(self, msg):

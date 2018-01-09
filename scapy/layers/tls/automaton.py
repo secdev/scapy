@@ -54,7 +54,7 @@ class _TLSAutomaton(Automaton):
         super(_TLSAutomaton, self).parse_args(**kargs)
 
         self.socket = None
-        self.remain_in = ""
+        self.remain_in = b""
         self.buffer_in = []         # these are 'fragments' inside records
         self.buffer_out = []        # these are records
 
@@ -103,8 +103,8 @@ class _TLSAutomaton(Automaton):
                 grablen = struct.unpack('!H', self.remain_in[3:5])[0] + 5
                 still_getting_len = False
             elif grablen == 2 and len(self.remain_in) >= 2:
-                byte0 = struct.unpack("B", self.remain_in[0])[0]
-                byte1 = struct.unpack("B", self.remain_in[1])[0]
+                byte0 = struct.unpack("B", self.remain_in[:1])[0]
+                byte1 = struct.unpack("B", self.remain_in[1:2])[0]
                 if (byte0 in _tls_type) and (byte1 == 3):
                     # Retry following TLS scheme. This will cause failure
                     # for SSLv2 packets with length 0x1{4-7}03.
@@ -132,16 +132,17 @@ class _TLSAutomaton(Automaton):
             except:
                 retry -= 1
 
-        if self.remain_in < 2 or len(self.remain_in) != grablen:
+        if len(self.remain_in) < 2 or len(self.remain_in) != grablen:
             # Remote peer is not willing to respond
             return
 
         p = TLS(self.remain_in, tls_session=self.cur_session)
         self.cur_session = p.tls_session
-        self.remain_in = ""
+        self.remain_in = b""
         if isinstance(p, SSLv2) and not p.msg:
             p.msg = Raw("")
-        if self.cur_session.tls_version < 0x0304:
+        if self.cur_session.tls_version is None or \
+           self.cur_session.tls_version < 0x0304:
             self.buffer_in += p.msg
         else:
             if isinstance(p, TLS13):
@@ -156,7 +157,8 @@ class _TLSAutomaton(Automaton):
                 p = p.payload
             elif isinstance(p.payload, TLS):
                 p = p.payload
-                if self.cur_session.tls_version < 0x0304:
+                if self.cur_session.tls_version is None or \
+                   self.cur_session.tls_version < 0x0304:
                     self.buffer_in += p.msg
                 else:
                     self.buffer_in += p.inner.msg
@@ -213,7 +215,7 @@ class _TLSAutomaton(Automaton):
         """
         Send all buffered records and update the session accordingly.
         """
-        s = "".join([p.str_stateful() for p in self.buffer_out])
+        s = b"".join(p.raw_stateful() for p in self.buffer_out)
         self.socket.send(s)
         self.buffer_out = []
 

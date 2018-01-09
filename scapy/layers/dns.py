@@ -33,24 +33,24 @@ class InheritOriginDNSStrPacket(Packet):
 
 class DNSStrField(StrField):
     def h2i(self, pkt, x):
-        if x == "":
-            return "."
+        if not x:
+            return b"."
         return x
 
     def i2m(self, pkt, x):
-        if x == ".":
+        if x == b".":
           return b"\x00"
 
         # Truncate chunks that cannot be encoded (more than 63 bytes..)
-        x = b"".join(chb(len(y)) + y.encode("utf8") for y in (k[:63] for k in x.split(".")))
+        x = b"".join(chb(len(y)) + y for y in (k[:63] for k in x.split(b".")))
         if orb(x[-1]) != 0:
             x += b"\x00"
         return x
 
     def getfield(self, pkt, s):
-        n = ""
+        n = b""
         if orb(s[0]) == 0:
-            return s[1:], "."
+            return s[1:], b"."
         while True:
             l = orb(s[0])
             s = s[1:]
@@ -67,7 +67,7 @@ class DNSStrField(StrField):
                 else:
                     raise Scapy_Exception("DNS message can't be compressed at this point!")
             else:
-                n += plain_str(s[:l])+"."
+                n += s[:l] + b"."
                 s = s[l:]
         return s, n
 
@@ -118,13 +118,13 @@ def DNSgetstr(s, p):
             jpath.append(p)
             continue
         elif l > 0: # Label
-            name += s[p:p+l]+b"."
+            name += s[p:p+l] + b"."
             p += l
             continue
         break
     if q:
         p = q
-    return plain_str(name),p
+    return name, p
 
 
 class DNSRRField(StrField):
@@ -153,8 +153,8 @@ class DNSRRField(StrField):
 
         p += rdlen
 
-        rr.rrname = plain_str(name)
-        return rr,p
+        rr.rrname = name
+        return rr, p
     def getfield(self, pkt, s):
         if isinstance(s, tuple) :
             s,p = s
@@ -184,7 +184,7 @@ class DNSQRField(DNSRRField):
         ret = s[p:p+4]
         p += 4
         rr = DNSQR(b"\x00"+ret, _orig_s=s, _orig_p=p)
-        rr.qname = plain_str(name)
+        rr.qname = name
         return rr, p
 
 
@@ -226,7 +226,7 @@ class RDataField(StrLenField):
             if s:
                 s = inet_aton(s)
         elif pkt.type in [2, 3, 4, 5, 12]: # NS, MD, MF, CNAME, PTR
-            s = b"".join(chb(len(x)) + x.encode() for x in s.split('.'))
+            s = b"".join(chb(len(x)) + x for x in s.split(b'.'))
             if orb(s[-1]):
                 s += b"\x00"
         elif pkt.type == 16: # TXT

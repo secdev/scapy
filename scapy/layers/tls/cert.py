@@ -68,12 +68,11 @@ _MAX_CRL_SIZE = 10*1024*1024   # some are that big
 def der2pem(der_string, obj="UNKNOWN"):
     """Convert DER octet string to PEM format (with optional header)"""
     # Encode a byte string in PEM format. Header advertizes <obj> type.
-    obj = raw(obj)
-    pem_string = b"-----BEGIN %s-----\n" % obj
+    pem_string = ("-----BEGIN %s-----\n" % obj).encode()
     base64_string = base64.b64encode(der_string)
     chunks = [base64_string[i:i+64] for i in range(0, len(base64_string), 64)]
     pem_string += b'\n'.join(chunks)
-    pem_string += b"\n-----END %s-----\n" % obj
+    pem_string += ("\n-----END %s-----\n" % obj).encode()
     return pem_string
 
 @conf.commands.register
@@ -219,13 +218,13 @@ class _PubKeyFactory(_PKIObjMaker):
                     pass
             else:
                 raise
-            marker = "PUBLIC KEY"
+            marker = b"PUBLIC KEY"
         except:
             try:
                 pubkey = RSAPublicKey(obj.der)
                 obj.__class__ = PubKeyRSA
                 obj.import_from_asn1pkt(pubkey)
-                marker = "RSA PUBLIC KEY"
+                marker = b"RSA PUBLIC KEY"
             except:
                 # We cannot import an ECDSA public key without curve knowledge
                 raise Exception("Unable to import public key")
@@ -258,7 +257,7 @@ class PubKeyRSA(PubKey, _EncryptAndVerifyRSA):
     @crypto_validator
     def fill_and_store(self, modulus=None, modulusLen=None, pubExp=None):
         pubExp = pubExp or 65537
-        if modulus is None:
+        if not modulus:
             real_modulusLen = modulusLen or 2048
             private_key = rsa.generate_private_key(public_exponent=pubExp,
                                                    key_size=real_modulusLen,
@@ -364,24 +363,24 @@ class _PrivKeyFactory(_PKIObjMaker):
             privkey = RSAPrivateKey_OpenSSL(obj.der)
             privkey = privkey.privateKey
             obj.__class__ = PrivKeyRSA
-            marker = "PRIVATE KEY"
+            marker = b"PRIVATE KEY"
         except:
             try:
                 privkey = ECDSAPrivateKey_OpenSSL(obj.der)
                 privkey = privkey.privateKey
                 obj.__class__ = PrivKeyECDSA
-                marker = "EC PRIVATE KEY"
+                marker = b"EC PRIVATE KEY"
                 multiPEM = True
             except:
                 try:
                     privkey = RSAPrivateKey(obj.der)
                     obj.__class__ = PrivKeyRSA
-                    marker = "RSA PRIVATE KEY"
+                    marker = b"RSA PRIVATE KEY"
                 except:
                     try:
                         privkey = ECDSAPrivateKey(obj.der)
                         obj.__class__ = PrivKeyECDSA
-                        marker = "EC PRIVATE KEY"
+                        marker = b"EC PRIVATE KEY"
                     except:
                         raise Exception("Unable to import private key")
         try:

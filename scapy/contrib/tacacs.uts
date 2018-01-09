@@ -2,6 +2,7 @@
 
 = default instanciation
 
+from scapy.consts import WINDOWS
 if WINDOWS:
     route_add_loopback()
 
@@ -77,7 +78,7 @@ raw(pkt) == b'E\x00\x009\x00\x01\x00\x00@\x06|\xbc\x7f\x00\x00\x01\x7f\x00\x00\x
 = default values build
 
 pkt = TacacsAuthenticationContinue()
-TacacsAuthenticationContinue in pkt and pkt.data == '' and pkt.user_msg == '' and pkt.data_len is None and pkt.user_msg_len is None
+TacacsAuthenticationContinue in pkt and pkt.data == b'' and pkt.user_msg == b'' and pkt.data_len is None and pkt.user_msg_len is None
 
 = filled values build -- SSH connection sample secret = test, password = pass
 
@@ -165,7 +166,7 @@ raw(pkt) == b'E\x00\x009\x00\x01\x00\x00@\x06|\xbc\x7f\x00\x00\x01\x7f\x00\x00\x
 = default values build
 
 pkt = IP()/TCP(dport=49)/TacacsHeader(seq=2, type=3)/TacacsAccountingReply()
-TacacsAccountingReply in pkt and pkt.server_msg == '' and pkt.server_msg_len is None and pkt.status is None
+TacacsAccountingReply in pkt and pkt.server_msg == b'' and pkt.server_msg_len is None and pkt.status is None
 
 = filled values build  -- SSH connection sample secret = test
 

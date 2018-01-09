@@ -20,7 +20,7 @@ from scapy.layers.inet import IP, UDP
 from scapy.layers.inet6 import IP6Field
 from scapy.error import warning
 from scapy.modules.six.moves import range
-from scapy.compat import orb, plain_str
+from scapy.compat import chb, orb, plain_str
 
 # GTP Data types
 
@@ -151,9 +151,6 @@ class TBCDByteField(StrFixedLenField):
     def i2h(self, pkt, val):
         return val
 
-    def i2repr(self, pkt, x):
-        return repr(self.i2h(pkt,x))
-
     def m2i(self, pkt, val):
         ret = []
         for v in val:
@@ -161,10 +158,10 @@ class TBCDByteField(StrFixedLenField):
             left = byte >> 4
             right = byte & 0xf
             if left == 0xf:
-                ret += [TBCD_TO_ASCII[right]]
+                ret.append(TBCD_TO_ASCII[right:right + 1])
             else:
-                ret += [TBCD_TO_ASCII[right], TBCD_TO_ASCII[left]]
-        return "".join(ret)
+                ret += [TBCD_TO_ASCII[right:right + 1], TBCD_TO_ASCII[left:left + 1]]
+        return b"".join(ret)
 
     def i2m(self, pkt, val):
         val = str(val)
@@ -178,7 +175,7 @@ class TBCDByteField(StrFixedLenField):
         return ret_string
 
 
-TBCD_TO_ASCII = "0123456789*#abc"
+TBCD_TO_ASCII = b"0123456789*#abc"
 
 class GTP_ExtensionHeader(Packet):
     @classmethod
@@ -405,8 +402,8 @@ class IE_EndUserAddress(IE_Base):
 class APNStrLenField(StrLenField):
     # Inspired by DNSStrField
     def m2i(self, pkt, s):
-        ret_s = ""
-        tmp_s = plain_str(s)
+        ret_s = b""
+        tmp_s = s
         while tmp_s:
             tmp_len = orb(tmp_s[0]) + 1
             if tmp_len > len(tmp_s):
@@ -414,11 +411,11 @@ class APNStrLenField(StrLenField):
             ret_s +=  tmp_s[1:tmp_len] 
             tmp_s = tmp_s[tmp_len:]
             if len(tmp_s) :
-                ret_s += "."
+                ret_s += b"."
         s = ret_s
         return s
     def i2m(self, pkt, s):
-        s = "".join((chr(len(x))+x for x in s.split(".")))
+        s = b"".join(chb(len(x)) + x for x in s.split("."))
         return s
 
 
