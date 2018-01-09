@@ -201,7 +201,7 @@ class ASN1_Object(six.with_metaclass(ASN1_Object_metaclass)):
     def __repr__(self):
         return "<%s[%r]>" % (self.__dict__.get("name", self.__class__.__name__), self.val)
     def __str__(self):
-        return self.enc(conf.ASN1_default_codec)
+        return plain_str(self.enc(conf.ASN1_default_codec))
     def __bytes__(self):
         return self.enc(conf.ASN1_default_codec)
     def strshow(self, lvl=0):
@@ -332,7 +332,7 @@ class ASN1_BIT_STRING(ASN1_Object):
                 s = s[:10] + b"..." + s[-10:]
             return "<%s[%s] (%d unused bit%s)>" % (self.__dict__.get("name", self.__class__.__name__), s.decode(), self.unused_bits, "s" if self.unused_bits>1 else "")
     def __str__(self):
-        return self.val_readable
+        return plain_str(self.val_readable)
     def __bytes__(self):
         return self.val_readable
 

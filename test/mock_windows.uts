@@ -167,21 +167,25 @@ test_read_routes6_windows()
 from scapy.config import conf
 assert conf.prog.powershell != None
 
-= Test all VBS fallback
+= Store powershell results
 import mock
 from scapy.config import conf
 
 ps_ip = get_ip_from_name(conf.iface.name)
+ps_ip
 ps_if_list = get_windows_if_list()
+ps_if_list
 ps_read_routes = read_routes()
+ps_read_routes
 
 # Turn on VBS mode
 conf.prog.powershell = None
 
-# Test get_ip_from_name
+= Test get_ip_from_name with VBS
+
 assert get_ip_from_name(conf.iface.name) == ps_ip
 
-# Test get_windows_if_list
+= Test get_windows_if_list with VBS
 
 def is_in_if_list(i, list):
     for j in list:
@@ -190,6 +194,7 @@ def is_in_if_list(i, list):
     return False
 
 vbs_if_list = get_windows_if_list()
+vbs_if_list
 _correct = True
 for i in ps_if_list:
     if not is_in_if_list(i, vbs_if_list):
@@ -198,7 +203,7 @@ for i in ps_if_list:
 
 assert _correct
 
-# Test read_routes
+= Test read_routes with VBS
 
 def is_in_route_list(i, list):
     for j in list:
@@ -210,6 +215,7 @@ def is_in_route_list(i, list):
     return False
 
 vbs_read_routes = read_routes()
+vbs_read_routes
 _correct = True
 for i in ps_read_routes:
     if not is_in_route_list(i, vbs_read_routes):
@@ -223,23 +229,19 @@ conf.prog._reload()
 = show_interfaces
 
 from scapy.arch import show_interfaces
-from io import BytesIO
 
-@mock.patch('sys.stdout', new_callable=BytesIO)
-def test_show_interfaces(mock_stdout):
+with ContextManagerCaptureOutput() as cmco:
     show_interfaces()
-    lines = mock_stdout.getvalue().split("\n")[1:]
+    lines = cmco.get_output().split("\n")[1:]
     for l in lines:
         if not l.strip():
             continue
         try:
             int(l[:2])
         except:
-            sys.stderr.write(l)
-            return False
-    return True
+            raise
 
-assert test_show_interfaces()
+True
 
 = dev_from_pcapname
 

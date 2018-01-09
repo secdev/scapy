@@ -968,6 +968,15 @@ assert(not t7.pad and not t7.padlen)
 assert(isinstance(t7.msg[0], _TLSEncryptedContent))
 len(t7.msg[0].load) == 478
 
+
+= Dissect TLSNewSessionTicket with tls_session=None
+
+a = TLSNewSessionTicket(b'\x04\x00\x00\x0c\xff\xff\xff\xff\x00\x06cookie', tls_session=None)
+assert a.ticket == b"cookie"
+assert a.ticketlen == 6
+assert a.lifetime == 4294967295
+
+
 = Reading TLS msg dissect - Wrong data
 from scapy.layers.tls.record import _TLSMsgListField
 assert isinstance(_TLSMsgListField.m2i(_TLSMsgListField("", []), TLS(type=0), '\x00\x03\x03\x00\x03abc'), Raw)
