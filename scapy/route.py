@@ -7,14 +7,16 @@
 Routing and handling of network interfaces.
 """
 
+
 from __future__ import absolute_import
-from scapy.utils import atol, ltoa, itom, pretty_list
+
+
 from scapy.config import conf
+from scapy.consts import WINDOWS, LOOPBACK_INTERFACE
 from scapy.error import Scapy_Exception, warning
-from scapy.arch import get_working_if
-from scapy.consts import WINDOWS
-import scapy.consts
-import scapy.modules.six as six
+from scapy.modules import six
+from scapy.utils import atol, ltoa, itom, pretty_list
+
 
 ##############################
 ## Routing/Interfaces stuff ##
@@ -62,7 +64,7 @@ class Route:
                 nhop = gw
             else:
                 nhop = thenet
-            dev,ifaddr,x = self.route(nhop)
+            dev, ifaddr, _ = self.route(nhop)
         else:
             ifaddr = get_if_addr(dev)
         return (atol(thenet), itom(msk), gw, dev, ifaddr, metric)
@@ -154,13 +156,15 @@ class Route:
                 continue
             aa = atol(a)
             if aa == dst:
-                pathes.append((0xffffffff, 1, (scapy.consts.LOOPBACK_INTERFACE,a,"0.0.0.0")))
+                pathes.append(
+                    (0xffffffff, 1, (LOOPBACK_INTERFACE, a, "0.0.0.0"))
+                )
             if (dst & m) == (d & m):
                 pathes.append((m, me, (i,a,gw)))
         if not pathes:
             if verbose:
                 warning("No route found (no default route?)")
-            return scapy.consts.LOOPBACK_INTERFACE,"0.0.0.0","0.0.0.0"
+            return LOOPBACK_INTERFACE, "0.0.0.0", "0.0.0.0"
         # Choose the more specific route
         # Sort by greatest netmask
         pathes.sort(key=lambda x: x[0], reverse=True)
@@ -188,10 +192,12 @@ class Route:
 
 conf.route=Route()
 
-#XXX use "with"
-_betteriface = conf.route.route("0.0.0.0", verbose=0)[0]
-if ((_betteriface if (isinstance(_betteriface, six.string_types) or _betteriface is None) else _betteriface.name) != scapy.consts.LOOPBACK_NAME):
-    conf.iface = _betteriface
-else:
+iface = conf.route.route("0.0.0.0", verbose=0)[0]
+
+if (iface.name if hasattr(iface, "name") else iface) == LOOPBACK_INTERFACE:
+    from scapy.arch import get_working_if
     conf.iface = get_working_if()
-del(_betteriface)
+else:
+    conf.iface = iface
+
+del iface
