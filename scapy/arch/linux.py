@@ -8,10 +8,18 @@ Linux specific functions.
 """
 
 from __future__ import absolute_import
-import sys, os, struct, socket, time
-from select import select
+
+
+import array
+import ctypes
 from fcntl import ioctl
-import array, ctypes
+import os
+from select import select
+import socket
+import struct
+import sys
+import time
+
 
 from scapy.compat import *
 from scapy.consts import LOOPBACK_NAME, IS_64BITS
@@ -66,7 +74,6 @@ PACKET_MR_ALLMULTI     = 2
 SOL_PACKET = 263
 # From asm/socket.h
 SO_ATTACH_FILTER = 26
-SOL_SOCKET = 1
 
 # From net/route.h
 RTF_UP = 0x0001  # Route usable
@@ -155,7 +162,7 @@ def attach_filter(s, bpf_filter, iface):
         return
     
     bp = get_bpf_pointer(lines)
-    s.setsockopt(SOL_SOCKET, SO_ATTACH_FILTER, bp)
+    s.setsockopt(socket.SOL_SOCKET, SO_ATTACH_FILTER, bp)
 
 def set_promisc(s,iff,val=1):
     mreq = struct.pack("IHH8s", get_if_index(iff), PACKET_MR_PROMISC, 0, b"")
@@ -411,11 +418,10 @@ class L3PacketSocket(SuperSocket):
         if self.promisc:
             if iface is None:
                 self.iff = get_if_list()
+            elif isinstance(iface, list):
+                self.iff = iface
             else:
-                if iface.__class__ is list:
-                    self.iff = iface
-                else:
-                    self.iff = [iface]
+                self.iff = [iface]
             for i in self.iff:
                 set_promisc(self.ins, i)
     def close(self):
@@ -569,11 +575,10 @@ class L2ListenSocket(SuperSocket):
         self.promisc = promisc
         if iface is None:
             self.iff = get_if_list()
+        elif isinstance(iface, list):
+            self.iff = iface
         else:
-            if iface.__class__ is list:
-                self.iff = iface
-            else:
-                self.iff = [iface]
+            self.iff = [iface]
         if self.promisc:
             for i in self.iff:
                 set_promisc(self.ins, i)
