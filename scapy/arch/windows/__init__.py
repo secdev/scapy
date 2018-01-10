@@ -418,25 +418,30 @@ class NetworkInterface(object):
         self._update_pcapdata()
 
         try:
+            # Npcap loopback interface
+            if self.name == scapy.consts.LOOPBACK_NAME and conf.use_npcap:
+                # https://nmap.org/npcap/guide/npcap-devguide.html
+                self.mac = "00:00:00:00:00:00"
+                self.ip = "127.0.0.1"
+                conf.cache_ipaddrs[self.pcap_name] = socket.inet_aton(self.ip)
+                return
+            else:
+                self.mac = data['mac']
+        except KeyError:
+            pass
+
+        try:
             self.ip = socket.inet_ntoa(get_if_raw_addr(self))
         except (TypeError, NameError):
             pass
 
         try:
+            # Windows native loopback interface
             if not self.ip and self.name == scapy.consts.LOOPBACK_NAME:
                 self.ip = "127.0.0.1"
                 conf.cache_ipaddrs[self.pcap_name] = socket.inet_aton(self.ip)
         except (KeyError, AttributeError, NameError) as e:
             print(e)
-
-        try:
-            if self.name == scapy.consts.LOOPBACK_NAME and conf.use_npcap:
-                # https://nmap.org/npcap/guide/npcap-devguide.html
-                self.mac = "00:00:00:00:00:00"
-            else:
-                self.mac = data['mac']
-        except KeyError:
-            pass
 
     def _update_pcapdata(self):
         if self.is_invalid():
@@ -705,6 +710,7 @@ class NetworkInterfaceDict(UserDict):
 
     def reload(self):
         """Reload interface list"""
+        self.restarted_adapter = False
         self.data.clear()
         self.load_from_powershell()
 
