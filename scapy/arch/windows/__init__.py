@@ -644,7 +644,7 @@ class NetworkInterfaceDict(UserDict):
                         return False
                 return False
             _error_msg = "No match between your pcap and windows network interfaces found. "
-            if _detect[0] and not _detect[2] and (not hasattr(self, "restarted_adapter") or self.restarted_adapter):
+            if _detect[0] and not _detect[2] and not (hasattr(self, "restarted_adapter") and self.restarted_adapter):
                 warning("Scapy has detected that your pcap service is not running !")
                 if not conf.interactive or _ask_user():
                     succeed = pcap_service_start(askadmin=conf.interactive)
