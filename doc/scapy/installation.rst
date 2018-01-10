@@ -7,21 +7,20 @@ Download and Installation
 Overview
 ========
 
- 0. Install `Python 2.7.X <https://www.python.org/downloads/>`_.
+ 0. Install `Python 2.7.X or 3.3+ <https://www.python.org/downloads/>`_.
  1. `Download and install Scapy. <#installing-scapy-v2-x>`_
  2. `Follow the platform specific instructions (depedencies) <#platform-specific-instructions>`_.
- 3. (Optional): `Install additional software <#optional-packages>`_ for `special features <#optional-software-for-special-features>`_.
+ 3. (Optional): `Install additional software for special features <#optional-software-for-special-features>`_.
  4. Run Scapy with root privileges.
  
 Each of these steps can be done in a different way dependent on your platform and on the version of Scapy you want to use. 
 
 At the moment, there are two different versions of Scapy:
 
-* **Scapy v1.x**. It consists of only one file and works on Python 2.4, so it might be easier to install.
+* **Scapy v2.x**. The current up-to-date version. It consists of several files  packaged in the standard distutils way.
+  Scapy v2 <= 2.3.3 needs Python 2.5, Scapy v2 > 2.3.3 needs Python 2.7 or 3.3+.
+* **Scapy v1.x (deprecated)**. It does not support Python 3. It consists of only one file and works on Python 2.4, so it might be easier to install.
   Moreover, your OS may already have a specially prepared packages or ports for it. Last version is v1.2.2.
-* **Scapy v2.x**. The current development version adds several features (e.g. IPv6). It consists of several
-  files  packaged in the standard distutils way. Scapy v2 <= 2.3.3 needs Python 2.5, Scapy v2 > 2.3.3 needs
-  Python 2.7.
 
 .. note::
 
@@ -139,20 +138,22 @@ Optional software for special features
 ======================================
 
 For some special features you have to install more software. 
-Platform-specific instructions on how to install those packages can be found in the next chapter.
+Most of those softwares are installable via ``pip``.
 Here are the topics involved and some examples that you can use to try if your installation was successful.
 
 .. index::
    single: plot()
 
-* Plotting. ``plot()`` needs `Gnuplot-py <http://gnuplot-py.sourceforge.net/>`_ which needs `GnuPlot <http://www.gnuplot.info/>`_ and `NumPy <http://numpy.scipy.org/>`__.
+* Plotting. ``plot()`` needs `Matplotlib <https://matplotlib.org/>`_. It is installable via ``pip install matplotlib``
  
   .. code-block:: python
    
      >>> p=sniff(count=50)
      >>> p.plot(lambda x:len(x))
  
-* 2D graphics. ``psdump()`` and ``pdfdump()`` need `PyX <http://pyx.sourceforge.net/>`_ which in turn needs a `LaTeX distribution <http://www.tug.org/texlive/>`_. For viewing the PDF and PS files interactively, you also need `Adobe Reader <http://www.adobe.com/products/reader/>`_ (``acroread``) and `gv <http://wwwthep.physik.uni-mainz.de/~plass/gv/>`_ (``gv``). 
+* 2D graphics. ``psdump()`` and ``pdfdump()`` need `PyX <http://pyx.sourceforge.net/>`_ which in turn needs a LaTeX distribution: `texlive (Unix) <http://www.tug.org/texlive/>`_ or `MikTex (Windows) <https://miktex.org/>`_. For viewing the PDF and PS files interactively, you also need `Adobe Reader <http://www.adobe.com/products/reader/>`_ (``acroread``) and `gv <http://wwwthep.physik.uni-mainz.de/~plass/gv/>`_ (``gv``). 
+  
+  Note: PyX requires version 0.12 on Python 2.7. This means that on Python 2.7, it needs to be installed via ``pip install pyx==0.12``. Otherwise ``pip install pyx``
   
   .. code-block:: python
    
@@ -178,6 +179,8 @@ Here are the topics involved and some examples that you can use to try if your i
 
 * WEP decryption. ``unwep()`` needs `cryptography <https://cryptography.io>`_. Example using a `Weplap test file <http://weplab.sourceforge.net/caps/weplab-64bit-AA-managed.pcap>`_:
 
+    Cryptography is installable via ``pip install cryptography``
+
   .. code-block:: python
 
      >>> enc=rdpcap("weplab-64bit-AA-managed.pcap")
@@ -201,11 +204,13 @@ Here are the topics involved and some examples that you can use to try if your i
      Received 19 packets, got 4 answers, remaining 4 packets
      (0.88749999999999996, ['Draytek Vigor 2000 ISDN router'])
 
+* Queso is used withing the queso module: `queso-980922.tar.gz <http://www.packetstormsecurity.org/UNIX/scanners/queso-980922.tar.gz>`_. Extract the tar.gz file (e.g. using `7-Zip <http://www.7-zip.org/>`_) and put ``queso.conf`` into your Scapy directory
+
 .. index::
    single: VOIP
  
 * VOIP. ``voip_play()`` needs `SoX <http://sox.sourceforge.net/>`_.
- 
+
 Platform-specific instructions
 ==============================
 
@@ -214,7 +219,7 @@ Linux native
 
 Scapy can run natively on Linux, without libdnet and libpcap.
 
-* Install `Python 2.7 <http://www.python.org>`_.
+* Install `Python 2.7 or 3.3+ <http://www.python.org>`_.
 * Install `tcpdump <http://www.tcpdump.org>`_ and make sure it is in the $PATH. (It's only used to compile BPF filters (``-ddd option``))
 * Make sure your kernel has Packet sockets selected (``CONFIG_PACKET``)
 * If your kernel is < 2.6, make sure that Socket filtering is selected ``CONFIG_FILTER``) 
@@ -377,104 +382,17 @@ Scapy is primarily being developed for Unix-like systems and works best on those
 
 You need the following software packages in order to install Scapy on Windows:
 
-  * `Python <http://www.python.org>`_: `python-2.7.13.amd64.msi <https://www.python.org/ftp/python/2.7.13/python-2.7.13.amd64.msi>`_ (64bits) or `python-2.7.13.msi <https://www.python.org/ftp/python/2.7.13/python-2.7.13.msi>`_ (32bits). After installation, add the Python installation directory and its \Scripts subdirectory to your PATH. Depending on your Python version, the defaults would be ``C:\Python27`` and ``C:\Python27\Scripts`` respectively.
+  * `Python <http://www.python.org>`_: `Python 2.7.X or 3.3+ <https://www.python.org/downloads/>`_. After installation, add the Python installation directory and its \Scripts subdirectory to your PATH. Depending on your Python version, the defaults would be ``C:\Python27`` and ``C:\Python27\Scripts`` respectively.
   * `Npcap <https://nmap.org/npcap/>`_: `the latest version <https://nmap.org/npcap/#download>`_. Default values are recommanded. Scapy will also work with Winpcap.
   * `Scapy <http://www.secdev.org/projects/scapy/>`_: `latest development version <https://github.com/secdev/scapy/archive/master.zip>`_ from the `Git repository <https://github.com/secdev/scapy>`_. Unzip the archive, open a command prompt in that directory and run "python setup.py install". 
 
 Just download the files and run the setup program. Choosing the default installation options should be safe.
 
-For your convenience direct links are given to the version that is supported (Python 2.7). If these links do not work or if you are using a different Python version (which will surely not work), just visit the homepage of the respective package and look for a Windows binary. As a last resort, search the web for the filename.
+For your convenience direct links are given to the version that is supported (Python 2.7 and 3.3+). If these links do not work or if you are using a different Python version (which will surely not work), just visit the homepage of the respective package and look for a Windows binary. As a last resort, search the web for the filename.
 
 After all packages are installed, open a command prompt (cmd.exe) and run Scapy by typing ``scapy``. If you have set the PATH correctly, this will find a little batch file in your ``C:\Python27\Scripts`` directory and instruct the Python interpreter to load Scapy.
 
 If really nothing seems to work, consider skipping the Windows version and using Scapy from a Linux Live CD -- either in a virtual machine on your Windows host or by booting from CDROM: An older version of Scapy is already included in grml and BackTrack for example. While using the Live CD you can easily upgrade to the latest Scapy version by typing ``cd /tmp && wget scapy.net``.
-
-Optional packages
-^^^^^^^^^^^^^^^^^
-
-.. note::
-   If you are using OpenBSD, follow `this <#optional-packages-openbsd-only>`__ instead
-
-1. (Recommanded) Auto install: Using pip
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
- Plotting (``plot``): 
-
-  * GnuPlot and Gnuplot-py need a manual install.
-  * Install Numpy:
-  
-    .. code-block:: text
-
-        # pip install numpy 
- 
- 2D Graphics (``psdump``, ``pdfdump``):
- 
-  * MikTeX need a manual install.
-  * Install pyx:
- 
-    .. code-block:: text
-
-        # pip install pyx
-        
- Graphs (conversations):
- 
-  * Install graphviz:
-
-    .. code-block:: text
-     
-        # pip install graphviz
-        
- 3D Graphics (trace3d):
- 
-  * Install VPython:
-  
-    .. code-block:: text
-     
-        # pip install vpython
-        
- WEP decryption:
- 
-  * Install cryptography:
-    
-    .. code-block:: text
-     
-        # pip install cryptography
-       
- Fingerprinting:
- 
- * Nmap and Queso need to be installed manualy.
- 
-2. (Advanced) Manual install
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
- Plotting (``plot``)
-
- * `GnuPlot <http://www.gnuplot.info/>`_: `gp504-win64-mingw.exe <https://sourceforge.net/projects/gnuplot/files/gnuplot/5.0.4/gp504-win64-mingw.exe/download>`_ (64bits) or `gp504-win32-mingw.exe <https://sourceforge.net/projects/gnuplot/files/gnuplot/5.0.4/gp504-win32-mingw.exe/download>`_ (32bits).
- * `NumPy <http://www.numpy.org/>`_: `numpy-1.11.2.zip <https://sourceforge.net/projects/numpy/files/NumPy/1.11.2/numpy-1.11.2.zip/download>`_. Extract to temp dir, open command prompt, change to tempdir and type ``python setup.py install``. Gnuplot-py 1.8 needs NumPy.
- * `Gnuplot-py <http://gnuplot-py.sourceforge.net/>`_: `gnuplot-py-1.8.zip <http://downloads.sourceforge.net/project/gnuplot-py/Gnuplot-py/1.8/gnuplot-py-1.8.zip>`_. As numpy, use a tempdir.
-
- 2D Graphics (``psdump``, ``pdfdump``)
-
- * `PyX <http://pyx.sourceforge.net/>`_: `PyX-0.14.1.tar.gz <https://pypi.python.org/packages/b4/a0/75d9d39bbd0bcd3aac7bf909b1c356188734a865552607a8c6bba3bf30bd/PyX-0.14.1.tar.gz>`_. Extract to temp dir, open command prompt, change to tempdir and type ``python setup.py install``
- * `MikTeX <http://miktex.org/>`_: `Basic MiKTeX 2.8 Installer <https://miktex.org/2.9/setup>`_. PyX needs a LaTeX installation. Choose an installation directory WITHOUT spaces (e.g. ``C:\MikTex2.8`` and check that the ``(INSTALLDIR)\miktex\bin`` subdirectory is added to your PATH.
-
- Graphs (conversations)
-
- * `Graphviz <http://www.graphviz.org/>`_: `graphviz-2.38.exe <http://www.graphviz.org/pub/graphviz/stable/windows/graphviz-2.38.msi>`_. Add ``(INSTALLDIR)\ATT\Graphviz\bin`` to your PATH.
-
- 3D Graphics (trace3d)
-
- * `VPython <http://www.vpython.org/>`_: `VPython-Win-64-Py2.7-6.11.exe <http://sourceforge.net/projects/vpythonwx/files/6.11-release/VPython-Win-64-Py2.7-6.11.exe/download>`_ (64bits) or `VPython-Win-32-Py2.7-6.11.exe <http://sourceforge.net/projects/vpythonwx/files/6.11-release/VPython-Win-32-Py2.7-6.11.exe/download>`_ (32bits).
-
- WEP decryption
-
- * `cryptography <https://cryptography.io>`_: `HowTo <https://cryptography.io/en/latest/installation/#on-windows>`_
-
- Fingerprinting
-
-  * `Nmap <http://nmap.org>`_. `nmap-4.20-setup.exe <http://download.insecure.org/nmap/dist-old/nmap-4.20-setup.exe>`_. If you use the default installation directory, Scapy should automatically find the fingerprints file.
-  * Queso: `queso-980922.tar.gz <http://www.packetstormsecurity.org/UNIX/scanners/queso-980922.tar.gz>`_. Extract the tar.gz file (e.g. using `7-Zip <http://www.7-zip.org/>`_) and put ``queso.conf`` into your Scapy directory
-
 
 Screenshot
 ^^^^^^^^^^
