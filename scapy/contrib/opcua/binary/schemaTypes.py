@@ -18,6 +18,8 @@ def _populate_module(model):
     thismodule = sys.modules[__name__]
     for name, cls in model.classes.items():
         setattr(thismodule, "Ua" + name, cls)
+    for name, cls in model.enums.items():
+        setattr(thismodule, "Ua" + name, cls)
     thismodule.nodeIdMappings = model.nodeIdMappings
     _logger.debug("Done!")
 

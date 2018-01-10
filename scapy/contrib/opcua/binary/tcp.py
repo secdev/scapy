@@ -57,7 +57,7 @@ def isERR(p):
     return p.TcpMessageHeader.MessageType == b'ERR'
 
 
-class UaTcp(Packet):
+class UaTcp(UaTypePacket):
     fields_desc = [PacketField("TcpMessageHeader", UaTcpMessageHeader(), UaTcpMessageHeader),
                    ConditionalField(PacketField("Message",
                                                 UaTcpErrorMessage(),

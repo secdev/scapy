@@ -60,6 +60,7 @@ class Model(object):
         self.classes = {}
         self.nodeIdMappings = {}
         self.enumFields = {}
+        self.enums = {}
 
 
 class SchemaParser(object):
@@ -70,6 +71,7 @@ class SchemaParser(object):
         """
 
         :param schemaPath: Path to the schema .bsd file
+        :param nodeIdsPath Path to the .csv file that contains the node ids
         :param builtins: A dict of builtins where the PacketTypes element is a dict of builtin Packet types and the
                          FieldTypes element a dict of builtin Field types. Each dict should contain a string identifier
                          and the associated class. If nothing is passed, the types are inferred from the
@@ -242,9 +244,16 @@ class SchemaParser(object):
                     typeString = "UInt" + str(eType.lengthInBits)
 
                 self.model.enumFields[eType.name] = self.model.builtins["FieldTypes"][typeString]
+                self.model.enums[eType.name] = self._create_enum(eType)
             except KeyError:
                 self.logger.warning("Error adding enumerated type '{}' Could not find "
                                     "builtinType with bit length {}".format(eType.name, eType.lengthInBits))
+
+    def _create_enum(self, eType):
+        class_dict = dict(map(lambda value: (value.name, int(value.value)), eType.values))
+        if eType.doc:
+            class_dict["__doc__"] = eType.doc
+        return type(eType.name, (Enum,), class_dict)
 
     def _create_structured_types(self):
 
@@ -298,10 +307,33 @@ class SchemaParser(object):
 
         return field
 
+    def _create_post_build(self, fields):
+        if "SecurityMode" in fields:
+            def post_build_security_mode(self, pkt, pay):
+                if self.securityPolicy is not None:
+                    skip = 0
+                    for fld in self.fields_desc:
+                        if fld.name == "SecurityMode":
+                            break
+                        val = getattr(self, fld.name)
+                        if isinstance(fld, UaPacketField):
+                            skip += len(val)
+                        else:
+                            skip += fld.sz
+                    modeField, mode = self.getfield_and_val("SecurityMode")
+                    if mode is None:
+                        mode = self.securityPolicy.Mode
+                        return modeField.addfield(self, pkt[:skip], mode) + pkt[skip+modeField.sz:] + pay
+                    return pkt + pay
+
+                return pkt + pay
+            return post_build_security_mode
+        return None
+
     def _create_structured_type(self, sType):
         try:
             fields_desc = []
-
+            classDict = {}
             for field in sType.fields:
                 argsDict = self._fill_field_args_dict(field)
 
@@ -313,7 +345,7 @@ class SchemaParser(object):
                     fields_desc.append(self._create_field_type_field(field.name, cls, argsDict))
                 elif field.fieldType in self.model.enumFields:
                     cls = self.model.enumFields[field.fieldType]
-                    fields_desc.append(cls(field.name, 0))
+                    fields_desc.append(cls(field.name, None))
                 else:
                     if field.fieldType in self.model.classes:
                         cls = self.model.classes[field.fieldType]
@@ -324,7 +356,13 @@ class SchemaParser(object):
                                           "dependency. Re-queueing...".format(sType.name))
                         return
 
-            newClass = type(sType.name, (UaTypePacket,), {"fields_desc": fields_desc, "binaryEncodingId": None})
+            classDict["fields_desc"] = fields_desc
+            classDict["binaryEncodingId"] = None
+
+            postBuildMethod = self._create_post_build([f.name for f in sType.fields])
+            if postBuildMethod is not None:
+                classDict["post_build"] = postBuildMethod
+            newClass = type(sType.name, (UaTypePacket,), classDict)
 
             self.model.classes[sType.name] = newClass
         except KeyError:

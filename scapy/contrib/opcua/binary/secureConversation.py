@@ -5,10 +5,9 @@ For SecureConversation messages refer to secureConversation.py
 
 If all OPC UA basic data types are needed load the uaTypes module
 """
-from scapy.contrib.opcua.helpers import UaTypePacket
+from scapy.contrib.opcua.helpers import UaTypePacket, UaPacketField
 from scapy.contrib.opcua.binary.builtinTypes import UaBytesField, UaByteField, UaUInt32Field, UaByteString, \
     UaExpandedNodeId, UaNodeId
-from scapy.fields import PacketField
 from scapy.contrib.opcua.binary.tcp import UaTcp
 from scapy.contrib.opcua.binary.schemaTypes import UaOpenSecureChannelRequest, UaCloseSecureChannelRequest, \
     UaCloseSecureChannelResponse, nodeIdMappings
@@ -26,11 +25,20 @@ class UaSecureConversationMessageFooter(UaTypePacket):
 
 
 class UaAsymmetricAlgorithmSecurityHeader(UaTypePacket):
-    fields_desc = [PacketField("SecurityPolicyUri",
-                               UaByteString(length=None, data=b'http://opcfoundation.org/UA/SecurityPolicy#None'),
-                               UaByteString),
-                   PacketField("SenderCertificate", UaByteString(), UaByteString),
-                   PacketField("ReceiverCertificateThumbprint", UaByteString(), UaByteString)]
+    fields_desc = [UaPacketField("SecurityPolicyUri",
+                                 UaByteString(length=None, data=b'http://opcfoundation.org/UA/SecurityPolicy#None'),
+                                 UaByteString),
+                   UaPacketField("SenderCertificate", UaByteString(), UaByteString),
+                   UaPacketField("ReceiverCertificateThumbprint", UaByteString(), UaByteString)]
+
+    def post_build(self, pkt, pay):
+        if self.securityPolicy is not None:
+            policyField, policy = self.getfield_and_val("SecurityPolicyUri")
+            removeTo = len(policy)
+            policy = bytes(UaByteString(data=self.securityPolicy.URI))
+            return policy + pkt[removeTo:] + pay
+
+        return pkt + pay
 
 
 class UaSymmetricAlgorithmSecurityHeader(UaTypePacket):
@@ -47,8 +55,8 @@ class MessageDispatcher(object):
 
 
 class UaMessage(UaTypePacket):
-    fields_desc = [PacketField("DataTypeEncoding", UaNodeId(), UaNodeId),
-                   PacketField("Message", None, UaTypePacket)]
+    fields_desc = [UaPacketField("DataTypeEncoding", UaNodeId(), UaNodeId),
+                   UaPacketField("Message", None, UaTypePacket)]
 
     _cache = {}
 
@@ -60,8 +68,8 @@ class UaMessage(UaTypePacket):
             if nodeId.Identifier in nodeIdMappings:
                 if nodeId.Identifier not in UaMessage._cache:
                     dispatchedClass = nodeIdMappings[nodeId.Identifier]
-                    fields_desc = [PacketField("DataTypeEncoding", UaNodeId(), UaNodeId),
-                                   PacketField("Message", dispatchedClass(), dispatchedClass)]
+                    fields_desc = [UaPacketField("DataTypeEncoding", UaNodeId(), UaNodeId),
+                                   UaPacketField("Message", dispatchedClass(), dispatchedClass)]
                     newDict = dict(cls.__dict__)
                     newDict["fields_desc"] = fields_desc
                     UaMessage._cache[nodeId.Identifier] = type(cls.__name__, cls.__bases__, newDict)
@@ -85,13 +93,14 @@ class UaMessage(UaTypePacket):
 
 
 class UaSecureConversationAsymmetric(UaTcp):
-    fields_desc = [PacketField("MessageHeader", UaSecureConversationMessageHeader(), UaSecureConversationMessageHeader),
-                   PacketField("SecurityHeader",
-                               UaAsymmetricAlgorithmSecurityHeader(),
-                               UaAsymmetricAlgorithmSecurityHeader),
-                   PacketField("SequenceHeader", UaSequenceHeader(), UaSequenceHeader),
-                   PacketField("Payload", UaMessage(Message=UaOpenSecureChannelRequest()), UaMessage),
-                   PacketField("MessageFooter", UaSecureConversationMessageFooter(), UaSecureConversationMessageFooter)]
+    fields_desc = [
+        UaPacketField("MessageHeader", UaSecureConversationMessageHeader(), UaSecureConversationMessageHeader),
+        UaPacketField("SecurityHeader",
+                      UaAsymmetricAlgorithmSecurityHeader(),
+                      UaAsymmetricAlgorithmSecurityHeader),
+        UaPacketField("SequenceHeader", UaSequenceHeader(), UaSequenceHeader),
+        UaPacketField("Payload", UaMessage(Message=UaOpenSecureChannelRequest()), UaMessage),
+        UaPacketField("MessageFooter", UaSecureConversationMessageFooter(), UaSecureConversationMessageFooter)]
 
     message_types = [b'OPN']
 
@@ -113,8 +122,21 @@ class UaSecureConversationAsymmetric(UaTcp):
             else:
                 typeBinary = b'\x00\x00\x00'
 
+        completePkt = typeBinary + restString + pay
+
+        # if we are using a security policy always encrypt, because we exchange keys for signing as well
+        if self.securityPolicy is not None:
+            unencryptedSize = len(self.MessageHeader) + len(self.SecurityHeader)
+            dataToEncrypt = completePkt[unencryptedSize:]
+            dataToEncryptSize = len(dataToEncrypt)
+            padding = self.securityPolicy.asymmetric_cryptography.padding(dataToEncryptSize)
+            completePkt += padding
+            completePkt += self.securityPolicy.asymmetric_cryptography.signature(completePkt)
+            dataToEncrypt = completePkt[unencryptedSize:]
+            encrypted = self.securityPolicy.asymmetric_cryptography.encrypt(dataToEncrypt)
+            completePkt = completePkt[:unencryptedSize] + encrypted
+
         if messageSize is None:
-            completePkt = typeBinary + restString + pay
             messageSize = len(completePkt)
             return messageSizeField.addfield(self,
                                              completePkt[:len(self.MessageHeader)][:-2 * messageSizeField.sz],
@@ -132,13 +154,14 @@ class UaSecureConversationAsymmetric(UaTcp):
 
 
 class UaSecureConversationSymmetric(UaSecureConversationAsymmetric):
-    fields_desc = [PacketField("MessageHeader", UaSecureConversationMessageHeader(), UaSecureConversationMessageHeader),
-                   PacketField("SecurityHeader",
-                               UaSymmetricAlgorithmSecurityHeader(),
-                               UaSymmetricAlgorithmSecurityHeader),
-                   PacketField("SequenceHeader", UaSequenceHeader(), UaSequenceHeader),
-                   PacketField("Payload", UaMessage(), UaMessage),
-                   PacketField("MessageFooter", UaSecureConversationMessageFooter(), UaSecureConversationMessageFooter)]
+    fields_desc = [
+        UaPacketField("MessageHeader", UaSecureConversationMessageHeader(), UaSecureConversationMessageHeader),
+        UaPacketField("SecurityHeader",
+                      UaSymmetricAlgorithmSecurityHeader(),
+                      UaSymmetricAlgorithmSecurityHeader),
+        UaPacketField("SequenceHeader", UaSequenceHeader(), UaSequenceHeader),
+        UaPacketField("Payload", UaMessage(), UaMessage),
+        UaPacketField("MessageFooter", UaSecureConversationMessageFooter(), UaSecureConversationMessageFooter)]
 
     message_types = [b'MSG', b'CLO']
 

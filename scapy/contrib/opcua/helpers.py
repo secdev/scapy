@@ -8,6 +8,7 @@ from scapy.config import conf
 
 
 class UaTypePacket(Packet):
+    __slots__ = ["securityPolicy"]
     binaryEncodingId = None
     """
     This helper class makes all types not contain a payload, since they are built
@@ -16,8 +17,22 @@ class UaTypePacket(Packet):
     other types). The 'padding' of a packet is passed on to the fields after this one.
     """
 
+    def __init__(self, _pkt=b"", securityPolicy=None, post_transform=None, _internal=0, _underlayer=None, **fields):
+        self.securityPolicy = securityPolicy
+        super(UaTypePacket, self).__init__(_pkt, post_transform, _internal, _underlayer, **fields)
+
     def guess_payload_class(self, payload):
         return conf.padding_layer
+
+    def copy(self):
+        pkt = super(UaTypePacket,self).copy()
+        pkt.securityPolicy = self.securityPolicy
+        return pkt
+
+    def clone_with(self, payload=None, **kargs):
+        pkt = super(UaTypePacket, self).clone_with(payload, **kargs)
+        pkt.securityPolicy = self.securityPolicy
+        return pkt
 
 
 class ByteListField(Field):
@@ -152,6 +167,10 @@ class UaPacketField(PacketField):
     """
     def m2i(self, pkt, m):
         return self.cls(m, _underlayer=pkt)
+
+    def addfield(self, pkt, s, val):
+        val.securityPolicy = pkt.securityPolicy
+        return super(UaPacketField, self).addfield(pkt, s, val)
 
 
 def flatten(l):
