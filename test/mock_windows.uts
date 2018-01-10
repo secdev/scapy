@@ -223,9 +223,11 @@ conf.prog._reload()
 = show_interfaces
 
 from scapy.arch import show_interfaces
-from io import BytesIO
+from io import StringIO, BytesIO
 
-@mock.patch('sys.stdout', new_callable=BytesIO)
+storage = BytesIO if six.PY2 else StringIO
+
+@mock.patch('sys.stdout', new_callable=storage)
 def test_show_interfaces(mock_stdout):
     show_interfaces()
     lines = mock_stdout.getvalue().split("\n")[1:]
@@ -235,7 +237,7 @@ def test_show_interfaces(mock_stdout):
         try:
             int(l[:2])
         except:
-            sys.stderr.write(l)
+            sys.stdout.write(l)
             return False
     return True
 
