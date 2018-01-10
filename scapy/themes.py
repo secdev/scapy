@@ -296,7 +296,7 @@ def apply_ipython_style(shell):
     except:
         from scapy.error import log_loading
         log_loading.warning(
-            "IPython too old. Some Scapy shell features won't be available."
+            "IPython too old. Shell color won't be handled."
             )
         return
     from scapy.config import conf
