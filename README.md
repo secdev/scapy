@@ -31,8 +31,6 @@ Scapy supports Python 2.7 and Python 3 (3.3 to 3.6). It's intended to
 be cross platform, and runs on many different platforms (Linux, OSX,
 *BSD, and Windows).
 
-[Documentation](http://scapy.readthedocs.io/en/latest/)
-
 ## Hands-on ##
 
 ### Interactive shell ###
@@ -75,7 +73,7 @@ sudo python send_tcp_syn.py
 IP / TCP 192.30.253.113:http > 192.168.46.10:ftp_data SA / Padding
 ```
 
-### [](#tutorials)Tutorials ###
+### Resources ###
 
 To begin with Scapy, you should check [the notebook
 hands-on](doc/notebooks/Scapy%20in%2015%20minutes.ipynb) and the [interactive
@@ -86,6 +84,8 @@ session](http://scapy.readthedocs.io/en/latest/introduction.html#quick-demo)
 [HTTP/2](doc/notebooks/HTTP_2_Tuto.ipynb) and [TLS](doc/notebooks/tls)
 notebooks.
 
+The [documentation](http://scapy.readthedocs.io/en/latest/) contains more
+advanced use cases, and examples.
 
 ## Installation ##
 
@@ -106,7 +106,6 @@ To benefit from all Scapy features, such as plotting, you might want to install
 Python modules, such as `matplotlib` or `cryptography`. See the
 [documentation](http://scapy.readthedocs.io/en/latest/installation.html) and
 follow the instructions to install them.
-
 
 ## Contributing ##
 
