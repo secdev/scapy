@@ -265,3 +265,17 @@ assert pcap_service_status()[2] == False
 
 pcap_service_start()
 assert pcap_service_status()[2] == True
+
+= Test auto-pcap start UI
+
+old_ifaces = IFACES.data
+
+@mock.patch("scapy.arch.windows.get_if_list")
+def _test_autostart_ui(mocked_getiflist):
+    mocked_getiflist.side_effect = lambda: []
+    IFACES.reload()
+    assert IFACES.data == {}
+
+_test_autostart_ui()
+
+IFACES.data = old_ifaces
