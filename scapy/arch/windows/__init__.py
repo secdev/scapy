@@ -843,8 +843,29 @@ def read_routes():
             warning("No default IPv4 routes found. Your Windows release may no be supported and you have to enter your routes manually", onlyOnce=True)
     return routes
 
+def _get_metrics(ipv6=False):
+    """Returns a dict containing all IPv4 or IPv6 interfaces' metric,
+    ordered by their interface index.
+    """
+    query_cmd = "netsh interface " + ("ipv6" if ipv6 else "ipv4") + " show interfaces level=verbose"
+    stdout = POWERSHELL_PROCESS.query([query_cmd])
+    res = {}
+    _buffer = []
+    _pattern = re.compile(".*:\s+(\d+)")
+    for _line in stdout:
+        if not _line.strip():
+            continue
+        _buffer.append(_line)
+        if len(_buffer) == 32:  # An interface, with all its parameters, is 32 lines long
+            if_index = re.search(_pattern, _buffer[3]).group(1)
+            if_metric = int(re.search(_pattern, _buffer[5]).group(1))
+            res[if_index] = if_metric
+            _buffer = []
+    return res
+
 def _read_routes_post2008():
     routes = []
+    if4_metrics = None
     # This works only starting from Windows 8/2012 and up. For older Windows another solution is needed
     # Get-NetRoute -AddressFamily IPV4 | select ifIndex, DestinationPrefix, NextHop, RouteMetric, InterfaceMetric | fl
     for line in exec_query(['Get-NetRoute', '-AddressFamily IPV4'], ['ifIndex', 'DestinationPrefix', 'NextHop', 'RouteMetric', 'InterfaceMetric']):
@@ -861,8 +882,14 @@ def _read_routes_post2008():
         #     continue
         dest, mask = line[1].split('/')
         ip = "127.0.0.1" if line[0] == "1" else iface.ip # Force loopback on iface 1
+        if not line[4].strip():  # InterfaceMetric is not available. Load it from netsh
+            if not if4_metrics:
+                 if4_metrics = _get_metrics()
+            metric = int(line[3]) + if4_metrics.get(iface.win_index, 0)  # RouteMetric + InterfaceMetric
+        else:
+            metric = int(line[3]) + int(line[4])  # RouteMetric + InterfaceMetric
         routes.append((atol(dest), itom(int(mask)),
-                       line[2], iface, ip, int(line[3])+int(line[4])))
+                       line[2], iface, ip, metric))
     return routes
 
 ############
@@ -918,33 +945,13 @@ def _read_routes6_post2008():
         _append_route6(routes6, dpref, dp, nh, iface, lifaddr, metric)
     return routes6
 
-def _get_i6_metric():
-    """Returns a dict containing all IPv6 interfaces' metric,
-    ordered by their interface index.
-    """
-    query_cmd = "netsh interface ipv6 show interfaces level=verbose"
-    stdout = POWERSHELL_PROCESS.query([query_cmd])
-    res = {}
-    _buffer = []
-    _pattern = re.compile(".*:\s+(\d+)")
-    for _line in stdout:
-        if not _line.strip():
-            continue
-        _buffer.append(_line)
-        if len(_buffer) == 32:  # An interface, with all its parameters, is 32 lines long
-            if_index = re.search(_pattern, _buffer[3]).group(1)
-            if_metric = int(re.search(_pattern, _buffer[5]).group(1))
-            res[if_index] = if_metric
-            _buffer = []
-    return res
-
 def _read_routes6_7():
     # Not supported in powershell, we have to use netsh
     routes = []
     query_cmd = "netsh interface ipv6 show route level=verbose"
     stdout = POWERSHELL_PROCESS.query([query_cmd])
     lifaddr = in6_getifaddr()
-    if6_metrics = _get_i6_metric()
+    if6_metrics = _get_metrics(ipv6=True)
     # Define regexes
     r_int = [".*:\s+(\d+)"]
     r_all = ["(.*)"]
