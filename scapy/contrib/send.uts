@@ -1,0 +1,5 @@
++ SEND (IPv6) tests
+
+= Several basic SEND builds
+
+pkt = Ether()/IPv6()/ICMPv6NDOptNonce()

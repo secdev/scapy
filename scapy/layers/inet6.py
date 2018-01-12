@@ -75,15 +75,6 @@ if conf.route6 is None:
     # unused import, only to initialize conf.route6
     import scapy.route6
 
-
-#############################################################################
-# Helpers                                                                  ##
-#############################################################################
-
-def get_cls(name, fallback_cls):
-    return globals().get(name, fallback_cls)
-
-
 ##########################
 ## Neighbor cache stuff ##
 ##########################
@@ -403,13 +394,13 @@ class _IPv6GuessPayload:
                 if t == 130 and len(p) >= 28:
                     # RFC 3810 - 8.1. Query Version Distinctions
                     return ICMPv6MLQuery2
-                return get_cls(icmp6typescls.get(t, "Raw"), "Raw")
+                return icmp6typescls.get(t,Raw)
             return Raw
         elif self.nh == 135 and len(p) > 3: # Mobile IPv6
             return _mip6_mhtype2cls.get(orb(p[2]), MIP6MH_Generic)
         elif self.nh == 43 and orb(p[2]) == 4:  # Segment Routing header
             return IPv6ExtHdrSegmentRouting
-        return get_cls(ipv6nhcls.get(self.nh, "Raw"), "Raw")
+        return ipv6nhcls.get(self.nh, Raw)
 
 class IPv6(_IPv6GuessPayload, Packet, IPTools):
     name = "IPv6"
@@ -1719,10 +1710,10 @@ icmp6ndoptscls = { 1: "ICMPv6NDOptSrcLLAddr",
                    8: "ICMPv6NDOptHAInfo",
                    9: "ICMPv6NDOptSrcAddrList",
                   10: "ICMPv6NDOptTgtAddrList",
-                  #11: Do Me,
-                  #12: Do Me,
-                  #13: Do Me,
-                  #14: Do Me,
+                  #11: ICMPv6NDOptCGA, RFC3971 - contrib/send.py
+                  #12: ICMPv6NDOptRsaSig, RFC3971 - contrib/send.py
+                  #13: ICMPv6NDOptTmstp, RFC3971 - contrib/send.py
+                  #14: ICMPv6NDOptNonce, RFC3971 - contrib/send.py
                   #15: Do Me,
                   #16: Do Me,
                   17: "ICMPv6NDOptIPAddr",
@@ -1744,7 +1735,7 @@ class _ICMPv6NDGuessPayload:
     name = "Dummy ND class that implements guess_payload_class()"
     def guess_payload_class(self,p):
         if len(p) > 1:
-            return get_cls(icmp6ndoptscls.get(orb(p[0]),"Raw"), "Raw") # s/Raw/ICMPv6NDOptUnknown/g ?
+            return icmp6ndoptscls.get(orb(p[0]), Raw) # s/Raw/ICMPv6NDOptUnknown/g ?
 
 
 # Beginning of ICMPv6 Neighbor Discovery Options.
@@ -3978,6 +3969,20 @@ def NDP_Attack_Fake_Router(ra, iface=None, mac_src_filter=None,
           prn=lambda x: ra_reply_callback(x, iface),
           iface=iface)
 
+#############################################################################
+# Pre-load classes                                                         ##
+#############################################################################
+
+def _get_cls(name):
+    return globals().get(name, Raw)
+
+def _load_dict(d):
+    for k, v in d.items():
+        d[k] = _get_cls(v)
+
+_load_dict(icmp6ndoptscls)
+_load_dict(icmp6typescls)
+_load_dict(ipv6nhcls)
 
 #############################################################################
 #############################################################################
