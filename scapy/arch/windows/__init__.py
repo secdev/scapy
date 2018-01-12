@@ -78,28 +78,38 @@ class _PowershellManager(Thread):
     """
     def __init__(self):
         # Start & redirect input
-        self.process = sp.Popen([conf.prog.powershell,
-                                 "-NoLogo", "-NonInteractive",  # Do not print headers
-                                 "-Command", "-"],  # Listen commands from stdin
-                         stdout=sp.PIPE,
-                         stdin=sp.PIPE,
-                         stderr=sp.STDOUT,
-                         universal_newlines=True)
+        if conf.prog.powershell:
+            self.process = sp.Popen([conf.prog.powershell,
+                                     "-NoLogo", "-NonInteractive",  # Do not print headers
+                                     "-Command", "-"],  # Listen commands from stdin
+                             stdout=sp.PIPE,
+                             stdin=sp.PIPE,
+                             stderr=sp.STDOUT)
+            self.cmd = False
+        else:  # Fallback on CMD (powershell-only commands will fail, but scapy use the VBS fallback)
+            self.process = sp.Popen([conf.prog.cmd],
+                             stdout=sp.PIPE,
+                             stdin=sp.PIPE,
+                             stderr=sp.STDOUT)
+            self.cmd = True
         self.buffer = []
         self.running = True
         self.query_complete = Event()
         Thread.__init__(self)
         self.daemon = True
         self.start()
-        self.query(["$FormatEnumerationLimit=-1"])  # Do not crop long IP lists
+        if self.cmd:
+            self.query(["echo @off"])  # Remove header
+        else:
+            self.query(["$FormatEnumerationLimit=-1"])  # Do not crop long IP lists
 
     def run(self):
         while self.running:
             read_line = self.process.stdout.readline().strip()
-            if read_line == "scapy_end":
+            if read_line == b"scapy_end":
                 self.query_complete.set()
             else:
-                self.buffer.append(read_line)
+                self.buffer.append(read_line.decode("utf8", "ignore") if six.PY3 else read_line)
 
     def query(self, command):
         self.query_complete.clear()
@@ -108,8 +118,8 @@ class _PowershellManager(Thread):
         # Call powershell query using running process
         self.buffer = []
         # 'scapy_end' is used as a marker of the end of execution
-        query = " ".join(command) + "; echo scapy_end\n"
-        self.process.stdin.write(query)
+        query = " ".join(command) + ("&" if self.cmd else ";") + " echo scapy_end\n"
+        self.process.stdin.write(query.encode())
         self.process.stdin.flush()
         self.query_complete.wait()
         return self.buffer[1:]  # Crops first line: the command
