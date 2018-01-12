@@ -840,6 +840,7 @@ class SecurityAssociation(object):
         else:
             self.crypt_algo = CRYPT_ALGOS['NULL']
             self.crypt_key = None
+            self.crypt_salt = None
 
         if auth_algo:
             if auth_algo not in AUTH_ALGOS:
