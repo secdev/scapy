@@ -158,6 +158,40 @@ InterfaceMetric   : 256
 
 test_read_routes6_windows()
 
+= Test _read_routes_post2008 with missing InterfaceMetric
+
+from scapy.arch.windows import _read_routes_post2008
+
+@mock.patch("scapy.arch.windows._get_metrics")
+@mock.patch("scapy.arch.windows.POWERSHELL_PROCESS.query")
+@mock.patch("scapy.arch.windows.get_if_list")
+@mock.patch("scapy.arch.windows.dev_from_index")
+def test_missing_ifacemetric(mock_dev_from_index, mock_winpcapylist, mock_exec_query, mock_get_metrics):
+    exc_query_output = """ifIndex           : 3
+DestinationPrefix : 255.255.255.255/0
+NextHop           : 192.168.103.1
+RouteMetric       : 10
+InterfaceMetric   : 256
+
+ifIndex           : 13
+DestinationPrefix : 255.255.255.255/32
+NextHop           : 0.0.0.0
+RouteMetric       : 20
+InterfaceMetric   :
+"""
+    mock_exec_query.side_effect = lambda *args, **kargs: exc_query_output.split("\n")
+    mock_winpcapylist.return_value = [u'\\Device\\NPF_{0EC72537-B662-4F5D-B34E-48BFAE799BBE}', u'\\Device\\NPF_{C56DFFB3-992C-4964-B000-3E7C0F76E8BA}']
+    mock_dev_from_index.side_effect = dev_from_index_custom
+    mock_get_metrics.side_effect = lambda: {'16': 0, '13': 123}
+    routes = _read_routes_post2008()
+    for r in routes:
+        print(r)
+    assert len(routes) == 2
+    # Test if metrics were correctly read/guessed
+    assert routes[0][5] == 266
+    assert routes[1][5] == 143
+
+test_missing_ifacemetric()
 
 ############
 ############
