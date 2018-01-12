@@ -11,6 +11,7 @@ from scapy.contrib.opcua.binary.builtinTypes import UaBytesField, UaByteField, U
 from scapy.contrib.opcua.binary.tcp import UaTcp
 from scapy.contrib.opcua.binary.schemaTypes import UaOpenSecureChannelRequest, UaCloseSecureChannelRequest, \
     UaCloseSecureChannelResponse, nodeIdMappings
+import hashlib
 
 
 class UaSecureConversationMessageHeader(UaTypePacket):
@@ -33,10 +34,29 @@ class UaAsymmetricAlgorithmSecurityHeader(UaTypePacket):
 
     def post_build(self, pkt, pay):
         if self.securityPolicy is not None:
+            result = b''
             policyField, policy = self.getfield_and_val("SecurityPolicyUri")
-            removeTo = len(policy)
-            policy = bytes(UaByteString(data=self.securityPolicy.URI))
-            return policy + pkt[removeTo:] + pay
+            policyLen = len(policy)
+            policy = UaByteString(data=self.securityPolicy.URI)
+            result += bytes(policy)
+
+            certField, cert = self.getfield_and_val("SenderCertificate")
+            certLen = len(cert)
+            if cert.data is None:
+                cert = UaByteString(data=self.securityPolicy.client_certificate)
+                result += bytes(cert)
+            else:
+                result += pkt[policyLen:][:certLen]
+
+            thumbPrintField, thumbPrint = self.getfield_and_val("ReceiverCertificateThumbprint")
+            if thumbPrint.data is None:
+                thumbPrintBytes = hashlib.sha1(self.securityPolicy.server_certificate).digest()
+                thumbPrint = UaByteString(data=thumbPrintBytes)
+                result += bytes(thumbPrint)
+            else:
+                result += pkt[policyLen + certLen:]
+
+            return result + pay
 
         return pkt + pay
 
@@ -128,9 +148,7 @@ class UaSecureConversationAsymmetric(UaTcp):
         if self.securityPolicy is not None:
             unencryptedSize = len(self.MessageHeader) + len(self.SecurityHeader)
             dataToEncrypt = completePkt[unencryptedSize:]
-            dataToEncryptSize = len(dataToEncrypt)
-            padding = self.securityPolicy.asymmetric_cryptography.padding(dataToEncryptSize)
-            completePkt += padding
+            completePkt += self.securityPolicy.asymmetric_cryptography.padding(len(dataToEncrypt))
             completePkt += self.securityPolicy.asymmetric_cryptography.signature(completePkt)
             dataToEncrypt = completePkt[unencryptedSize:]
             encrypted = self.securityPolicy.asymmetric_cryptography.encrypt(dataToEncrypt)
@@ -168,3 +186,6 @@ class UaSecureConversationSymmetric(UaSecureConversationAsymmetric):
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kwargs):
         return super(UaSecureConversationSymmetric, cls).dispatch_hook(_pkt, args, kwargs)
+
+    def post_build(self, pkt, pay):
+        return pkt + pay
