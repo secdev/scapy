@@ -1065,6 +1065,11 @@ Provided that your wireless card and driver are correctly configured for frame i
     $ iw dev wlan0 interface add mon0 type monitor
     $ ifconfig mon0 up
 
+On Windows, if using Npcap, the equivalent would be to call
+
+    # Of course, conf.iface can be replaced by any interfaces accessed through IFACES
+    >>> conf.iface.setmode(1)
+
 you can have a kind of FakeAP::
 
     >>> sendp(RadioTap()/
