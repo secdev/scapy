@@ -191,7 +191,7 @@ Here are the topics involved and some examples that you can use to try if your i
      >>> dec.show()
      >>> dec[0]
  
-* PKI operations and TLS decryption. `cryptography <https://cryptography.io>` is also needed.
+* PKI operations and TLS decryption. `cryptography <https://cryptography.io>`_ is also needed.
 
 * Fingerprinting. ``nmap_fp()`` needs `Nmap <http://nmap.org>`_. You need an `old version <http://nmap.org/dist-old/>`_ (before v4.23) that still supports first generation fingerprinting.
 
