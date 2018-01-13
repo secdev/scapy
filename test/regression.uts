@@ -777,6 +777,10 @@ a = ASN1_BIT_STRING("test", "value")
 a
 assert raw(a) == b'test'
 
+a = ASN1_BIT_STRING(b"\xff"*16, "value")
+a
+assert raw(a) == b'\xff'*16
+
 = ASN1 - ASN1_SEQUENCE
 a = ASN1_SEQUENCE([ASN1_Object(1), ASN1_Object(0)])
 assert a.strshow() == '# ASN1_SEQUENCE:\n  <ASN1_Object[1]>\n  <ASN1_Object[0]>\n'
