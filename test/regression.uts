@@ -136,7 +136,7 @@ b = six.moves.cPickle.dumps(a)
 c = six.moves.cPickle.loads(b)
 
 assert c[IP].dst == "192.168.0.1"
-assert str(c) == str(a)
+assert raw(c) == raw(a)
 
 = Usage test
 
