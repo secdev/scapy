@@ -9206,10 +9206,12 @@ def test_summary():
         result_summary = cmco.get_output()
     assert(len(result_summary.split('\n')) == 10)
     assert(any(
-        "IP / TCP 192.168.0.254:ftp_data > 192.168.0.1:%s S / Raw ==> "
+        "IP / TCP 192.168.0.254:%s > 192.168.0.1:%s S / Raw ==> "
         "IP / ICMP 192.168.0.9 > 192.168.0.254 time-exceeded "
         "ttl-zero-during-transit / IPerror / TCPerror / "
-        "Raw" % http in result_summary for http in ['http', 'www_http', 'www']
+        "Raw" % (ftp_data, http) in result_summary
+        for ftp_data in ['21', 'ftp_data']
+        for http in ['80', 'http', 'www_http', 'www']
     ))
 
 test_summary()
