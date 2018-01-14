@@ -143,24 +143,40 @@ class UaSecureConversationAsymmetric(UaTcp):
                 typeBinary = b'\x00\x00\x00'
 
         completePkt = typeBinary + restString + pay
+        unencryptedSize = len(self.MessageHeader) + len(self.SecurityHeader)
+        padding = b''
+        numEncryptionBlocks = 0
+
+        # If we are encrypting the final size of the chunk has to be known in advance, since the signature includes
+        # the messageSize and the signature needs to be encrypted. Here we only calculate the number of blocks.
+        # Later we can multiply the number of blocks by the encrypted block size to get the actual size.
+        if self.securityPolicy is not None:
+            body = completePkt[unencryptedSize:]
+            padding = self.securityPolicy.asymmetric_cryptography.padding(len(body))
+            sigLen = self.securityPolicy.asymmetric_cryptography.signature_size()
+            blockSize = self.securityPolicy.asymmetric_cryptography.plain_block_size()
+            numEncryptionBlocks = (len(body) + len(padding) + sigLen) // blockSize
+
+        if messageSize is None:
+            if self.securityPolicy is not None:
+                messageSize = unencryptedSize
+                messageSize += numEncryptionBlocks * self.securityPolicy.asymmetric_cryptography.encrypted_block_size()
+            else:
+                messageSize = len(completePkt)
+            completePkt = messageSizeField.addfield(self,
+                                                    completePkt[:len(self.MessageHeader)][:-2 * messageSizeField.sz],
+                                                    messageSize) + completePkt[
+                                                                   len(self.MessageHeader) - messageSizeField.sz:]
 
         # if we are using a security policy always encrypt, because we exchange keys for signing as well
         if self.securityPolicy is not None:
-            unencryptedSize = len(self.MessageHeader) + len(self.SecurityHeader)
-            dataToEncrypt = completePkt[unencryptedSize:]
-            completePkt += self.securityPolicy.asymmetric_cryptography.padding(len(dataToEncrypt))
+            completePkt += padding
             completePkt += self.securityPolicy.asymmetric_cryptography.signature(completePkt)
             dataToEncrypt = completePkt[unencryptedSize:]
             encrypted = self.securityPolicy.asymmetric_cryptography.encrypt(dataToEncrypt)
             completePkt = completePkt[:unencryptedSize] + encrypted
 
-        if messageSize is None:
-            messageSize = len(completePkt)
-            return messageSizeField.addfield(self,
-                                             completePkt[:len(self.MessageHeader)][:-2 * messageSizeField.sz],
-                                             messageSize) + completePkt[len(self.MessageHeader) - messageSizeField.sz:]
-
-        return pkt + pay
+        return completePkt
 
     def pre_dissect(self, s):
         # TODO: Implement decryption of asymmetric messages?
