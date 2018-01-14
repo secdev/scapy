@@ -5,6 +5,9 @@ from scapy.contrib.opcua.binary.bindings import *
 from scapy.layers.inet import *
 from scapy.contrib.opcua.binary.secureConversation import *
 from scapy.contrib.opcua.binary.clientAutomaton import UaClient
+from scapy.contrib.opcua.binary.uaTypes import *
+from scapy.contrib.opcua.crypto.securityPolicies import *
+from scapy.contrib.opcua.crypto.uacrypto import *
 
 
 def read_pcap():
@@ -15,5 +18,24 @@ def read_pcap():
 if __name__ == '__main__':
     conf.debug_dissector = True
 
-    client = UaClient()
-    client.run()
+    server_cert = load_certificate("../crypto/server_cert.der")
+    server_pk = load_private_key("../crypto/server_key.pem")
+    #server_cert = load_certificate("../crypto/server_cert4096.der")
+    #server_pk = load_private_key("../crypto/server_key4096.der")
+    client_cert = load_certificate("../crypto/uaexpert.der")
+    client_pk = load_private_key("../crypto/uaexpert_key.pem")
+
+    policy = SecurityPolicyBasic256(server_cert, server_pk, client_cert, client_pk, UaMessageSecurityMode.Sign)
+    #policy = SecurityPolicy()
+
+    test = UaSecureConversationAsymmetric(securityPolicy=policy)
+    #test = UaSecureConversationAsymmetric()
+    #test = UaSecureConversationSymmetric()
+    print(bytes(test))
+
+    test.show()
+    test.show2()
+
+    #print(bytes(test))
+    #client = UaClient()
+    #client.run()
