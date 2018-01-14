@@ -2,6 +2,7 @@
 """
 This module contains helper functions that the implementation of the OPC UA protocol needs.
 """
+from scapy.compat import raw
 from scapy.fields import Field, PacketField
 from scapy.packet import Packet
 from scapy.config import conf
@@ -33,6 +34,13 @@ class UaTypePacket(Packet):
         pkt = super(UaTypePacket, self).clone_with(payload, **kargs)
         pkt.securityPolicy = self.securityPolicy
         return pkt
+
+    def show2(self, dump=False, indent=3, lvl="", label_lvl=""):
+        """
+        This method needs to be overridden because the securityPolicy needs to be passed on.
+        Otherwise the packet cannot be decrypted
+        """
+        return self.__class__(raw(self), securityPolicy=self.securityPolicy).show(dump, indent, lvl, label_lvl)
 
 
 class ByteListField(Field):
@@ -166,10 +174,11 @@ class UaPacketField(PacketField):
     Specialized version of PacketField to make containing packets available as underlayer
     """
     def m2i(self, pkt, m):
-        return self.cls(m, _underlayer=pkt)
+        return self.cls(m, _underlayer=pkt, securityPolicy=pkt.securityPolicy)
 
     def addfield(self, pkt, s, val):
-        val.securityPolicy = pkt.securityPolicy
+        if val is not None:
+            val.securityPolicy = pkt.securityPolicy
         return super(UaPacketField, self).addfield(pkt, s, val)
 
 

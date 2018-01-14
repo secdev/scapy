@@ -76,15 +76,15 @@ class UaBoolean(UaBuiltin):
     fields_desc = [UaBooleanField("value", None)]
 
 
-class UaByteField(Field):
+class UaByteField(LengthField):
     """
     Represents the Byte data type according to the OPC UA standard
     """
 
     __slots__ = ["displayAsChar"]
 
-    def __init__(self, name, default, displayAsChar=False):
-        super(UaByteField, self).__init__(name, default, "<B")
+    def __init__(self, name, default, displayAsChar=False, *args, **kwargs):
+        super(UaByteField, self).__init__(name, default, "<B", *args, **kwargs)
         self.displayAsChar = displayAsChar
 
     def h2i(self, pkt, x):
@@ -103,9 +103,7 @@ class UaByteField(Field):
         return struct.unpack("<B", x)[0]
 
     def i2m(self, pkt, x):
-        if x is None:
-            x = 0
-        return struct.pack("<B", x)
+        return struct.pack("<B", super(UaByteField, self).i2m(pkt, x))
 
     def any2i(self, pkt, x):
         if isinstance(x, bytes) and len(x) == 1:
