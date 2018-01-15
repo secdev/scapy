@@ -10190,3 +10190,21 @@ assert "RTPExtension" not in parsed
 #    assert(output == expected)
 #
 #test_snmpwalk("secdev.org")
+
+############
+############
++ BIER tests
+
+= BIER - build/dissection
+from scapy.contrib.bier import BIERLength, BIFT, BIER
+p1 = MPLS()/BIER(length=BIERLength.BIER_LEN_256)/IP()/UDP()
+assert(p1[MPLS].s == 1)
+p2 = BIFT()/BIER(length=BIERLength.BIER_LEN_64)()/IP()/UDP()
+assert(p2[BIFT].s == 1)
+
+p1[MPLS]
+p1[BIER]
+p1[IP]
+p2[BIFT]
+p2[BIER]
+p2[IP]
