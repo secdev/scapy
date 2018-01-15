@@ -8,8 +8,22 @@ from scapy.packet import Packet
 from scapy.config import conf
 
 
+class UaConnectionContext(object):
+    """
+    This class contains all connection related data. If it is passed to packets while assembling or dissecting,
+    it will be used to fill in fields like the sequence number if they are set to None.
+    The state needs to be manually updated or one of the available automatons needs to be used. The automatons
+    automatically update the context when messages are sent and received.
+    """
+    
+    def __init__(self):
+        from scapy.contrib.opcua.binary.schemaTypes import UaChannelSecurityToken
+        self.securityPolicy = None
+        self.securityToken = UaChannelSecurityToken()
+
+
 class UaTypePacket(Packet):
-    __slots__ = ["securityPolicy"]
+    __slots__ = ["connectionContext"]
     binaryEncodingId = None
     """
     This helper class makes all types not contain a payload, since they are built
@@ -18,8 +32,9 @@ class UaTypePacket(Packet):
     other types). The 'padding' of a packet is passed on to the fields after this one.
     """
 
-    def __init__(self, _pkt=b"", securityPolicy=None, post_transform=None, _internal=0, _underlayer=None, **fields):
-        self.securityPolicy = securityPolicy
+    def __init__(self, _pkt=b"", connectionContext=None,
+                 post_transform=None, _internal=0, _underlayer=None, **fields):
+        self.connectionContext = connectionContext
         super(UaTypePacket, self).__init__(_pkt, post_transform, _internal, _underlayer, **fields)
 
     def guess_payload_class(self, payload):
@@ -27,20 +42,20 @@ class UaTypePacket(Packet):
 
     def copy(self):
         pkt = super(UaTypePacket,self).copy()
-        pkt.securityPolicy = self.securityPolicy
+        pkt.connectionContext = self.connectionContext
         return pkt
 
     def clone_with(self, payload=None, **kargs):
         pkt = super(UaTypePacket, self).clone_with(payload, **kargs)
-        pkt.securityPolicy = self.securityPolicy
+        pkt.connectionContext = self.connectionContext
         return pkt
 
     def show2(self, dump=False, indent=3, lvl="", label_lvl=""):
         """
-        This method needs to be overridden because the securityPolicy needs to be passed on.
+        This method needs to be overridden because the connectionContext needs to be passed on.
         Otherwise the packet cannot be decrypted
         """
-        return self.__class__(raw(self), securityPolicy=self.securityPolicy).show(dump, indent, lvl, label_lvl)
+        return self.__class__(raw(self), connectionContext=self.connectionContext).show(dump, indent, lvl, label_lvl)
 
 
 class ByteListField(Field):
@@ -174,11 +189,11 @@ class UaPacketField(PacketField):
     Specialized version of PacketField to make containing packets available as underlayer
     """
     def m2i(self, pkt, m):
-        return self.cls(m, _underlayer=pkt, securityPolicy=pkt.securityPolicy)
+        return self.cls(m, _underlayer=pkt, connectionContext=pkt.connectionContext)
 
     def addfield(self, pkt, s, val):
         if val is not None:
-            val.securityPolicy = pkt.securityPolicy
+            val.connectionContext = pkt.connectionContext
         return super(UaPacketField, self).addfield(pkt, s, val)
 
 

@@ -7,6 +7,7 @@ If all OPC UA basic data types are needed load the uaTypes module
 """
 import six
 
+from cryptography.exceptions import InvalidSignature
 from scapy.compat import raw
 from scapy.fields import ConditionalField, FieldListField
 from scapy.contrib.opcua.helpers import UaTypePacket, UaPacketField, ByteListField
@@ -22,11 +23,22 @@ class UaSecureConversationMessageHeader(UaTypePacket):
     fields_desc = [UaBytesField("MessageType", None, 3),
                    UaByteField("IsFinal", b'F', displayAsChar=True),
                    UaUInt32Field("MessageSize", None),
-                   UaUInt32Field("SecureChannelId", 0)]
+                   UaUInt32Field("SecureChannelId", None)]
+
+    def post_build(self, pkt, pay):
+        
+        idField, id = self.getfield_and_val("SecureChannelId")
+        
+        if id is None and self.connectionContext is not None:
+            pkt = idField.addfield(self, pkt[:-idField.sz], self.connectionContext.securityToken.ChannelId)
+        
+        return pkt + pay
 
 
 def _has_padding(pkt):
-    hasPadding = pkt.securityPolicy is not None
+    if pkt.connectionContext is None:
+        return False
+    hasPadding = pkt.connectionContext.securityPolicy is not None
     if not hasPadding:
         return hasPadding
     
@@ -36,21 +48,22 @@ def _has_padding(pkt):
     except AttributeError:
         return False
     
-    hasPadding = pkt.securityPolicy.Mode == UaMessageSecurityMode.SignAndEncrypt
+    hasPadding = pkt.connectionContext.securityPolicy.Mode == UaMessageSecurityMode.SignAndEncrypt
     return hasPadding
 
 
 def _has_signature(pkt):
-    return pkt.securityPolicy is not None and \
-           pkt.securityPolicy.Mode > getattr(UaMessageSecurityMode, "None")
+    return pkt.connectionContext is not None and \
+           pkt.connectionContext.securityPolicy is not None and \
+           pkt.connectionContext.securityPolicy.Mode > getattr(UaMessageSecurityMode, "None")
 
 
 class UaSecureConversationMessageFooter(UaTypePacket):
     fields_desc = [ConditionalField(UaByteField("PaddingSize", None, count_of="Padding"), _has_padding),
                    ConditionalField(FieldListField("Padding", None, UaByteField("", None, False),
                                                    count_from=lambda p: p.PaddingSize), _has_padding),
-                   ConditionalField(ByteListField("Signature", None, UaByteField("", None), length_from=lambda
-                       p: p.underlayer.securityPolicy.asymmetric_cryptography.signature_size()),
+                   ConditionalField(ByteListField("Signature", None, UaByteField("", None, True), length_from=lambda
+                       p: p.connectionContext.securityPolicy.asymmetric_cryptography.vsignature_size()),
                                     _has_signature)]
     
     # We override this method because we don't want to add anything that is set to none
@@ -90,26 +103,26 @@ class UaAsymmetricAlgorithmSecurityHeader(UaTypePacket):
         policyField, policy = self.getfield_and_val("SecurityPolicyUri")
         policyLen = len(policy)
         
-        if self.securityPolicy is None and policy.data is None:
+        if self.connectionContext is None or self.connectionContext.securityPolicy is None and policy.data is None:
             policy = UaByteString(data=b'http://opcfoundation.org/UA/SecurityPolicy#None')
             return bytes(policy) + pkt[policyLen:] + pay
         
-        if self.securityPolicy is not None:
+        if self.connectionContext.securityPolicy is not None:
             result = b''
-            policy = UaByteString(data=self.securityPolicy.URI)
+            policy = UaByteString(data=self.connectionContext.securityPolicy.URI)
             result += bytes(policy)
             
             certField, cert = self.getfield_and_val("SenderCertificate")
             certLen = len(cert)
             if cert.data is None:
-                cert = UaByteString(data=self.securityPolicy.client_certificate)
+                cert = UaByteString(data=self.connectionContext.securityPolicy.client_certificate)
                 result += bytes(cert)
             else:
                 result += pkt[policyLen:][:certLen]
             
             thumbPrintField, thumbPrint = self.getfield_and_val("ReceiverCertificateThumbprint")
-            if thumbPrint.data is None and self.securityPolicy.client_certificate is not None:
-                thumbPrintBytes = hashlib.sha1(self.securityPolicy.server_certificate).digest()
+            if thumbPrint.data is None and self.connectionContext.securityPolicy.client_certificate is not None:
+                thumbPrintBytes = hashlib.sha1(self.connectionContext.securityPolicy.server_certificate).digest()
                 thumbPrint = UaByteString(data=thumbPrintBytes)
                 result += bytes(thumbPrint)
             else:
@@ -121,7 +134,15 @@ class UaAsymmetricAlgorithmSecurityHeader(UaTypePacket):
 
 
 class UaSymmetricAlgorithmSecurityHeader(UaTypePacket):
-    fields_desc = [UaUInt32Field("TokenId", 0)]
+    fields_desc = [UaUInt32Field("TokenId", None)]
+    
+    def post_build(self, pkt, pay):
+        
+        tokenIdField, tokenId = self.getfield_and_val("TokenId")
+        
+        if tokenId is None and self.connectionContext is not None:
+            pkt = tokenIdField.addfield(self, b'', self.connectionContext.securityToken.TokenId)
+        return pkt + pay
 
 
 class UaSequenceHeader(UaTypePacket):
@@ -210,18 +231,18 @@ class UaSecureConversationAsymmetric(UaTcp):
         # If we are encrypting the final size of the chunk has to be known in advance, since the signature includes
         # the messageSize and the signature needs to be encrypted. Here we only calculate the number of blocks.
         # Later we can multiply the number of blocks by the encrypted block size to get the actual size.
-        if self.securityPolicy is not None:
+        if self.connectionContext is not None and self.connectionContext.securityPolicy is not None:
             body = completePkt[unencryptedSize:]
             if self.MessageFooter.getfieldval("PaddingSize") is None:
-                padding = self.securityPolicy.asymmetric_cryptography.padding(len(body))
-            sigLen = self.securityPolicy.asymmetric_cryptography.signature_size()
-            blockSize = self.securityPolicy.asymmetric_cryptography.plain_block_size()
+                padding = self.connectionContext.securityPolicy.asymmetric_cryptography.padding(len(body))
+            sigLen = self.connectionContext.securityPolicy.asymmetric_cryptography.signature_size()
+            blockSize = self.connectionContext.securityPolicy.asymmetric_cryptography.plain_block_size()
             numEncryptionBlocks = (len(body) + len(padding) + sigLen) // blockSize
         
         if messageSize is None:
-            if self.securityPolicy is not None:
+            if self.connectionContext is not None and self.connectionContext.securityPolicy is not None:
                 messageSize = unencryptedSize
-                messageSize += numEncryptionBlocks * self.securityPolicy.asymmetric_cryptography.encrypted_block_size()
+                messageSize += numEncryptionBlocks * self.connectionContext.securityPolicy.asymmetric_cryptography.encrypted_block_size()
             else:
                 messageSize = len(completePkt)
             completePkt = messageSizeField.addfield(self,
@@ -230,17 +251,17 @@ class UaSecureConversationAsymmetric(UaTcp):
                                                                    len(self.MessageHeader) - messageSizeField.sz:]
         
         # if we are using a security policy always encrypt, because we exchange keys for signing as well
-        if self.securityPolicy is not None:
+        if self.connectionContext is not None and self.connectionContext.securityPolicy is not None:
             completePkt += padding
-            completePkt += self.securityPolicy.asymmetric_cryptography.signature(completePkt)
+            completePkt += self.connectionContext.securityPolicy.asymmetric_cryptography.signature(completePkt)
             dataToEncrypt = completePkt[unencryptedSize:]
-            encrypted = self.securityPolicy.asymmetric_cryptography.encrypt(dataToEncrypt)
+            encrypted = self.connectionContext.securityPolicy.asymmetric_cryptography.encrypt(dataToEncrypt)
             completePkt = completePkt[:unencryptedSize] + encrypted
         
         return completePkt
     
     def pre_dissect(self, s):
-        if self.securityPolicy is not None:
+        if self.connectionContext is not None and self.connectionContext.securityPolicy is not None:
             header = UaSecureConversationMessageHeader(s)
             securityHeader = UaAsymmetricAlgorithmSecurityHeader(header.payload)
             header.remove_payload()
@@ -248,12 +269,20 @@ class UaSecureConversationAsymmetric(UaTcp):
             
             unencryptedLength = len(header) + len(securityHeader)
             
-            decrypted = self.securityPolicy.asymmetric_cryptography.decrypt(s[unencryptedLength:])
+            decrypted = self.connectionContext.securityPolicy.asymmetric_cryptography.decrypt(s[unencryptedLength:])
             
             s = s[:unencryptedLength] + decrypted
+
+            sigLen = self.connectionContext.securityPolicy.asymmetric_cryptography.vsignature_size()
+            try:
+                self.connectionContext.securityPolicy.asymmetric_cryptography.verify(s[:-sigLen], s[-sigLen:])
+            except InvalidSignature:
+                print("Failed to verify signature")
+                # TODO: Make this configurable, so that the user can decide if an exception is thrown, or
+                # TODO: if only a log message is created. (Replace print with log)
         
         return s
-    
+
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kwargs):
         return super(UaSecureConversationAsymmetric, cls).dispatch_hook(_pkt, args, kwargs)

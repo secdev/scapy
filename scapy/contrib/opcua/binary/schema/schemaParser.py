@@ -310,7 +310,7 @@ class SchemaParser(object):
     def _create_post_build(self, fields):
         if "SecurityMode" in fields:
             def post_build_security_mode(self, pkt, pay):
-                if self.securityPolicy is not None:
+                if self.connectionContext is not None and self.connectionContext.securityPolicy is not None:
                     skip = 0
                     for fld in self.fields_desc:
                         if fld.name == "SecurityMode":
@@ -322,7 +322,7 @@ class SchemaParser(object):
                             skip += fld.sz
                     modeField, mode = self.getfield_and_val("SecurityMode")
                     if mode is None:
-                        mode = self.securityPolicy.Mode
+                        mode = self.connectionContext.securityPolicy.Mode
                         return modeField.addfield(self, pkt[:skip], mode) + pkt[skip+modeField.sz:] + pay
                     return pkt + pay
 

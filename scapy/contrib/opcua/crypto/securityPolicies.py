@@ -435,7 +435,8 @@ class SecurityPolicyBasic128Rsa15(SecurityPolicy):
         self.asymmetric_cryptography.Verifier = VerifierRsa(server_cert)
         self.asymmetric_cryptography.Encrypter = EncrypterRsa(server_cert, uacrypto.encrypt_rsa15, 11)
         self.asymmetric_cryptography.Decrypter = DecrypterRsa(client_pk, uacrypto.decrypt_rsa15, 11)
-        self.asymmetric_cryptography.RemoteDecrypter = DecrypterRsa(server_pk, uacrypto.decrypt_rsa15, 11)
+        if server_pk is not None:
+            self.asymmetric_cryptography.RemoteDecrypter = DecrypterRsa(server_pk, uacrypto.decrypt_rsa15, 11)
         self.symmetric_cryptography = Cryptography(mode)
         self.Mode = mode
         self.server_certificate = uacrypto.der_from_x509(server_cert)
@@ -505,7 +506,8 @@ class SecurityPolicyBasic256(SecurityPolicy):
             server_cert, uacrypto.encrypt_rsa_oaep, 42)
         self.asymmetric_cryptography.Decrypter = DecrypterRsa(
             client_pk, uacrypto.decrypt_rsa_oaep, 42)
-        self.asymmetric_cryptography.RemoteDecrypter = DecrypterRsa(server_pk, uacrypto.decrypt_rsa_oaep, 42)
+        if server_pk is not None:
+            self.asymmetric_cryptography.RemoteDecrypter = DecrypterRsa(server_pk, uacrypto.decrypt_rsa_oaep, 42)
         self.symmetric_cryptography = Cryptography(mode)
         self.Mode = mode
         self.server_certificate = uacrypto.der_from_x509(server_cert)

@@ -7,10 +7,10 @@ import threading
 
 import select
 from time import sleep
-
 from six.moves import queue
 from scapy.automaton import Automaton
 import scapy.contrib.opcua.binary.uaTypes as UA
+from scapy.contrib.opcua.helpers import UaConnectionContext
 
 
 class _UaAutomaton(Automaton):
@@ -24,8 +24,10 @@ class _UaAutomaton(Automaton):
         self.logger = logging.getLogger(__name__)
         self.pktcount = 0
 
-    def parse_args(self, debug=0, store=1, **kwargs):
+    def parse_args(self, debug=0, store=1, securityPolicy=None, **kwargs):
         super(_UaAutomaton, self).parse_args(debug, store, **kwargs)
+        self.connectionContext = UaConnectionContext()
+        self.connectionContext.securityPolicy = securityPolicy
 
     def recv(self):
         return self.receivedPackets.get()
@@ -57,7 +59,8 @@ class _UaAutomaton(Automaton):
                 self.logger.error("Could net receive body. expected {} bytes".format(size))
                 self.lock.release()
                 return
-            pkt = UA.UaTcp(header + body)
+            print("Received packet: {}".format(header + body))
+            pkt = UA.UaTcp(header + body, connectionContext=self.connectionContext)
             self.receivedPackets.put(pkt)
             self.lock.release()
 

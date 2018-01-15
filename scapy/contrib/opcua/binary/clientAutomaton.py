@@ -96,16 +96,9 @@ class UaClient(_UaAutomaton):
 
     @ATMT.condition(CONNECTED)
     def open_secure_channel(self):
-        ##########################
-        server_cert = load_certificate("../crypto/server_cert.der")
-        client_cert = load_certificate("../crypto/uaexpert.der")
-        client_pk = load_private_key("../crypto/uaexpert_key.pem")
-
-        policy = SecurityPolicyBasic128Rsa15(server_cert, client_cert, client_pk, UaMessageSecurityMode.SignAndEncrypt)
-        ###############################
         #message = UaMessage(Message=UaOpenSecureChannelRequest(SecurityMode=1))
         print("attempting to open SecureChannel")
-        self.send(UaSecureConversationAsymmetric(securityPolicy=policy))
+        self.send(UaSecureConversationAsymmetric(connectionContext=self.connectionContext))
         raise self.SECURE_CHANNEL_ESTABLISHING()
 
     @ATMT.condition(SECURE_CHANNEL_ESTABLISHING)
@@ -113,6 +106,7 @@ class UaClient(_UaAutomaton):
         pkt = self.recv()
         if isinstance(pkt, UaSecureConversationAsymmetric) and \
                 isinstance(pkt.Payload.Message, UaOpenSecureChannelResponse):
+            self.connectionContext.securityToken = pkt.Payload.Message.SecurityToken
             print("securechannel established")
             raise self.SECURE_CHANNEL_ESTABLISHED()
         else:
@@ -121,7 +115,7 @@ class UaClient(_UaAutomaton):
     @ATMT.condition(SECURE_CHANNEL_ESTABLISHED)
     def create_session(self):
         message = UaMessage(Message=UaCreateSessionRequest())
-        self.send(UaSecureConversationSymmetric(Payload=message))
+        self.send(UaSecureConversationSymmetric(Payload=message, connectionContext=self.connectionContext))
         print("attempting to create a session")
         raise self.SESSION_CREATING()
 
