@@ -123,6 +123,10 @@ def cipher_decrypt(cipher, data):
     return decryptor.update(data) + decryptor.finalize()
 
 
+def create_nonce(size=32):
+    return os.urandom(size)
+
+
 def hmac_sha1(key, message):
     hasher = hmac.HMAC(key, hashes.SHA1(), backend=default_backend())
     hasher.update(message)

@@ -159,6 +159,7 @@ class Cryptography(CryptographyNone):
         self.Encrypter = None
         self.Decrypter = None
         self.RemoteDecrypter = None
+        self.RemoteVerifier = None
         assert mode in (UaMessageSecurityMode.Sign,
                         UaMessageSecurityMode.SignAndEncrypt)
         self.is_encrypted = (mode == UaMessageSecurityMode.SignAndEncrypt)
@@ -209,20 +210,24 @@ class Cryptography(CryptographyNone):
 
     def verify(self, data, sig):
         self.Verifier.verify(data, sig)
+        
+    def verify_remote(self, data, sig):
+        self.RemoteVerifier.verify(data, sig)
 
     def encrypt(self, data):
         if self.is_encrypted:
             assert len(data) % self.Encrypter.plain_block_size() == 0
             return self.Encrypter.encrypt(data)
         return data
-
+    
     def decrypt(self, data):
         if self.is_encrypted:
-            try:
-                return self.Decrypter.decrypt(data)
-            except ValueError:
-                return self.RemoteDecrypter.decrypt(data)
+            return self.Decrypter.decrypt(data)
         return data
+    
+    def decrypt_remote(self, data):
+        if self.is_encrypted:
+            return self.RemoteDecrypter.decrypt(data)
 
     def remove_padding(self, data):
         if self.is_encrypted:
@@ -437,6 +442,7 @@ class SecurityPolicyBasic128Rsa15(SecurityPolicy):
         self.asymmetric_cryptography.Decrypter = DecrypterRsa(client_pk, uacrypto.decrypt_rsa15, 11)
         if server_pk is not None:
             self.asymmetric_cryptography.RemoteDecrypter = DecrypterRsa(server_pk, uacrypto.decrypt_rsa15, 11)
+        self.asymmetric_cryptography.RemoteVerifier = VerifierRsa(client_cert)
         self.symmetric_cryptography = Cryptography(mode)
         self.Mode = mode
         self.server_certificate = uacrypto.der_from_x509(server_cert)
@@ -451,6 +457,8 @@ class SecurityPolicyBasic128Rsa15(SecurityPolicy):
         (sigkey, key, init_vec) = uacrypto.p_sha1(nonce2, nonce1, key_sizes)
         self.symmetric_cryptography.Signer = SignerAesCbc(sigkey)
         self.symmetric_cryptography.Encrypter = EncryptorAesCbc(key, init_vec)
+        self.symmetric_cryptography.RemoteDecrypter = DecryptorAesCbc(key, init_vec)
+        self.symmetric_cryptography.RemoteVerifier = VerifierAesCbc(sigkey)
 
         (sigkey, key, init_vec) = uacrypto.p_sha1(nonce1, nonce2, key_sizes)
         self.symmetric_cryptography.Verifier = VerifierAesCbc(sigkey)
@@ -508,6 +516,7 @@ class SecurityPolicyBasic256(SecurityPolicy):
             client_pk, uacrypto.decrypt_rsa_oaep, 42)
         if server_pk is not None:
             self.asymmetric_cryptography.RemoteDecrypter = DecrypterRsa(server_pk, uacrypto.decrypt_rsa_oaep, 42)
+        self.asymmetric_cryptography.RemoteVerifier = VerifierRsa(client_cert)
         self.symmetric_cryptography = Cryptography(mode)
         self.Mode = mode
         self.server_certificate = uacrypto.der_from_x509(server_cert)
@@ -523,6 +532,8 @@ class SecurityPolicyBasic256(SecurityPolicy):
         (sigkey, key, init_vec) = uacrypto.p_sha1(nonce2, nonce1, key_sizes)
         self.symmetric_cryptography.Signer = SignerAesCbc(sigkey)
         self.symmetric_cryptography.Encrypter = EncryptorAesCbc(key, init_vec)
+        self.symmetric_cryptography.RemoteDecrypter = DecryptorAesCbc(key, init_vec)
+        self.symmetric_cryptography.RemoteVerifier = VerifierAesCbc(sigkey)
 
         (sigkey, key, init_vec) = uacrypto.p_sha1(nonce1, nonce2, key_sizes)
         self.symmetric_cryptography.Verifier = VerifierAesCbc(sigkey)

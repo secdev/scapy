@@ -17,6 +17,7 @@ from scapy.contrib.opcua.binary.tcp import UaTcp
 from scapy.contrib.opcua.binary.schemaTypes import UaOpenSecureChannelRequest, UaCloseSecureChannelRequest, \
     UaCloseSecureChannelResponse, nodeIdMappings, UaMessageSecurityMode
 import hashlib
+import logging
 
 
 class UaSecureConversationMessageHeader(UaTypePacket):
@@ -24,9 +25,8 @@ class UaSecureConversationMessageHeader(UaTypePacket):
                    UaByteField("IsFinal", b'F', displayAsChar=True),
                    UaUInt32Field("MessageSize", None),
                    UaUInt32Field("SecureChannelId", None)]
-
+    
     def post_build(self, pkt, pay):
-        
         idField, id = self.getfield_and_val("SecureChannelId")
         
         if id is None and self.connectionContext is not None:
@@ -137,7 +137,6 @@ class UaSymmetricAlgorithmSecurityHeader(UaTypePacket):
     fields_desc = [UaUInt32Field("TokenId", None)]
     
     def post_build(self, pkt, pay):
-        
         tokenIdField, tokenId = self.getfield_and_val("TokenId")
         
         if tokenId is None and self.connectionContext is not None:
@@ -146,8 +145,20 @@ class UaSymmetricAlgorithmSecurityHeader(UaTypePacket):
 
 
 class UaSequenceHeader(UaTypePacket):
-    fields_desc = [UaUInt32Field("SequenceNumber", 0),
-                   UaUInt32Field("RequestId", 0)]
+    fields_desc = [UaUInt32Field("SequenceNumber", None),
+                   UaUInt32Field("RequestId", None)]
+    
+    def post_build(self, pkt, pay):
+        sequenceNumberField, sequenceNumber = self.getfield_and_val("SequenceNumber")
+        
+        if sequenceNumber is None and self.connectionContext is not None:
+            # Set the send sequence number. The receive sequence number is only used for checking messages that
+            # are received from a remote.
+            pkt = sequenceNumberField.addfield(self, b'', self.connectionContext.sendSequenceNumber) + \
+                  pkt[sequenceNumberField.sz:]
+            
+        # TODO: use connectionContext to replace request id?
+        return pkt + pay
 
 
 class UaMessage(UaTypePacket):
@@ -200,6 +211,8 @@ class UaSecureConversationAsymmetric(UaTcp):
     
     message_types = [b'OPN']
     
+    _logger = logging.getLogger(__name__)
+    
     def _get_type_binary(self):
         if isinstance(self.SecurityHeader, UaAsymmetricAlgorithmSecurityHeader):
             typeBinary = b'OPN'
@@ -213,9 +226,22 @@ class UaSecureConversationAsymmetric(UaTcp):
         
         return typeBinary
     
-    def post_build(self, pkt, pay):
+    def _get_num_encryption_blocks_and_padding(self, body, crypto_module):
+        padding = b''
+        if self.MessageFooter.getfieldval("PaddingSize") is None:
+            padding = crypto_module.padding(len(body))
+        sigLen = crypto_module.signature_size()
+        blockSize = crypto_module.plain_block_size()
+        return (len(body) + len(padding) + sigLen) // blockSize, padding
+    
+    def post_build(self, pkt, pay, cryptoModule=None):
         messageTypeField, messageType = self.MessageHeader.getfield_and_val("MessageType")
         messageSizeField, messageSize = self.MessageHeader.getfield_and_val("MessageSize")
+        
+        if cryptoModule is None and \
+                self.connectionContext is not None and \
+                self.connectionContext.securityPolicy is not None:
+            cryptoModule = self.connectionContext.securityPolicy.asymmetric_cryptography
         
         typeBinary = pkt[:messageTypeField.sz]
         restString = pkt[messageTypeField.sz:]
@@ -231,18 +257,14 @@ class UaSecureConversationAsymmetric(UaTcp):
         # If we are encrypting the final size of the chunk has to be known in advance, since the signature includes
         # the messageSize and the signature needs to be encrypted. Here we only calculate the number of blocks.
         # Later we can multiply the number of blocks by the encrypted block size to get the actual size.
-        if self.connectionContext is not None and self.connectionContext.securityPolicy is not None:
+        if cryptoModule is not None:
             body = completePkt[unencryptedSize:]
-            if self.MessageFooter.getfieldval("PaddingSize") is None:
-                padding = self.connectionContext.securityPolicy.asymmetric_cryptography.padding(len(body))
-            sigLen = self.connectionContext.securityPolicy.asymmetric_cryptography.signature_size()
-            blockSize = self.connectionContext.securityPolicy.asymmetric_cryptography.plain_block_size()
-            numEncryptionBlocks = (len(body) + len(padding) + sigLen) // blockSize
+            numEncryptionBlocks, padding = self._get_num_encryption_blocks_and_padding(body, cryptoModule)
         
         if messageSize is None:
-            if self.connectionContext is not None and self.connectionContext.securityPolicy is not None:
+            if cryptoModule is not None:
                 messageSize = unencryptedSize
-                messageSize += numEncryptionBlocks * self.connectionContext.securityPolicy.asymmetric_cryptography.encrypted_block_size()
+                messageSize += numEncryptionBlocks * cryptoModule.encrypted_block_size()
             else:
                 messageSize = len(completePkt)
             completePkt = messageSizeField.addfield(self,
@@ -250,39 +272,50 @@ class UaSecureConversationAsymmetric(UaTcp):
                                                     messageSize) + completePkt[
                                                                    len(self.MessageHeader) - messageSizeField.sz:]
         
-        # if we are using a security policy always encrypt, because we exchange keys for signing as well
-        if self.connectionContext is not None and self.connectionContext.securityPolicy is not None:
+        if cryptoModule is not None:
             completePkt += padding
-            completePkt += self.connectionContext.securityPolicy.asymmetric_cryptography.signature(completePkt)
+            completePkt += cryptoModule.signature(completePkt)
             dataToEncrypt = completePkt[unencryptedSize:]
-            encrypted = self.connectionContext.securityPolicy.asymmetric_cryptography.encrypt(dataToEncrypt)
+            encrypted = cryptoModule.encrypt(dataToEncrypt)
             completePkt = completePkt[:unencryptedSize] + encrypted
         
         return completePkt
     
-    def pre_dissect(self, s):
-        if self.connectionContext is not None and self.connectionContext.securityPolicy is not None:
+    def pre_dissect(self, s, cryptoModule=None, securityHeader=UaAsymmetricAlgorithmSecurityHeader):
+        if cryptoModule is None and \
+                self.connectionContext is not None and \
+                self.connectionContext.securityPolicy is not None:
+            cryptoModule = self.connectionContext.securityPolicy.asymmetric_cryptography
+        if cryptoModule is not None:
             header = UaSecureConversationMessageHeader(s)
-            securityHeader = UaAsymmetricAlgorithmSecurityHeader(header.payload)
+            securityHeader = securityHeader(header.payload)
             header.remove_payload()
             securityHeader.remove_payload()
-            
+    
             unencryptedLength = len(header) + len(securityHeader)
-            
-            decrypted = self.connectionContext.securityPolicy.asymmetric_cryptography.decrypt(s[unencryptedLength:])
-            
+    
+            if self.connectionContext.decodeRemote:
+                decrypted = cryptoModule.decrypt_remote(s[unencryptedLength:])
+            else:
+                decrypted = cryptoModule.decrypt(s[unencryptedLength:])
+    
             s = s[:unencryptedLength] + decrypted
 
-            sigLen = self.connectionContext.securityPolicy.asymmetric_cryptography.vsignature_size()
             try:
-                self.connectionContext.securityPolicy.asymmetric_cryptography.verify(s[:-sigLen], s[-sigLen:])
+                if self.connectionContext.decodeRemote:
+                    sigLen = cryptoModule.signature_size()
+                    cryptoModule.verify_remote(s[:-sigLen], s[-sigLen:])
+                else:
+                    sigLen = cryptoModule.vsignature_size()
+                    cryptoModule.verify(s[:-sigLen], s[-sigLen:])
             except InvalidSignature:
-                print("Failed to verify signature")
+                self._logger.warning("Failed to verify signature")
                 # TODO: Make this configurable, so that the user can decide if an exception is thrown, or
                 # TODO: if only a log message is created. (Replace print with log)
+
         
         return s
-
+    
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kwargs):
         return super(UaSecureConversationAsymmetric, cls).dispatch_hook(_pkt, args, kwargs)
@@ -300,31 +333,15 @@ class UaSecureConversationSymmetric(UaSecureConversationAsymmetric):
     
     message_types = [b'MSG', b'CLO']
     
-    def post_build(self, pkt, pay):
-        messageTypeField, messageType = self.MessageHeader.getfield_and_val("MessageType")
-        messageSizeField, messageSize = self.MessageHeader.getfield_and_val("MessageSize")
-        
-        typeBinary = pkt[:messageTypeField.sz]
-        restString = pkt[messageTypeField.sz:]
-        
-        if messageType is None:
-            typeBinary = self._get_type_binary()
-        
-        completePkt = typeBinary + restString + pay
-        
-        # TODO: symmetric encryption
-        
-        if messageSize is None:
-            messageSize = len(completePkt)
-            completePkt = messageSizeField.addfield(self,
-                                                    completePkt[:len(self.MessageHeader)][:-2 * messageSizeField.sz],
-                                                    messageSize) + completePkt[
-                                                                   len(self.MessageHeader) - messageSizeField.sz:]
-        
-        return completePkt
+    def post_build(self, pkt, pay, cryptoModule=None):
+        if self.connectionContext is not None and self.connectionContext.securityPolicy is not None:
+            cryptoModule = self.connectionContext.securityPolicy.symmetric_cryptography
+        return super(UaSecureConversationSymmetric, self).post_build(pkt, pay, cryptoModule)
     
-    def pre_dissect(self, s):
-        return s
+    def pre_dissect(self, s, cryptoModule=None, securityHeader=UaSymmetricAlgorithmSecurityHeader):
+        if self.connectionContext is not None and self.connectionContext.securityPolicy is not None:
+            cryptoModule = self.connectionContext.securityPolicy.symmetric_cryptography
+        return super(UaSecureConversationSymmetric, self).pre_dissect(s, cryptoModule, securityHeader)
     
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kwargs):

@@ -358,7 +358,7 @@ def _ua_str_len_function(p):
 class UaByteString(UaBuiltin):
     nodeId = 15
     fields_desc = [UaInt32Field("length", None),
-                   ByteListField("data", None, UaByteField("", None), length_from=_ua_str_len_function)]
+                   ByteListField("data", None, UaByteField("", None, True), length_from=_ua_str_len_function)]
 
     def post_build(self, pkt, pay):
         lengthField, length = self.getfield_and_val("length")

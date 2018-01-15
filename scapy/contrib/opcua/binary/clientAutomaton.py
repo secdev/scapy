@@ -1,8 +1,8 @@
 # coding=utf-8
 import socket
-from contrib.opcua.binary.automaton import _UaAutomaton
-from contrib.opcua.crypto.securityPolicies import SecurityPolicyBasic128Rsa15
-from contrib.opcua.crypto.uacrypto import load_certificate, load_private_key
+from scapy.contrib.opcua.binary.automaton import _UaAutomaton
+from scapy.contrib.opcua.crypto.securityPolicies import SecurityPolicyBasic128Rsa15
+from scapy.contrib.opcua.crypto.uacrypto import load_certificate, load_private_key, create_nonce
 from scapy.automaton import ATMT
 from scapy.contrib.opcua.binary.uaTypes import *
 
@@ -96,9 +96,11 @@ class UaClient(_UaAutomaton):
 
     @ATMT.condition(CONNECTED)
     def open_secure_channel(self):
-        #message = UaMessage(Message=UaOpenSecureChannelRequest(SecurityMode=1))
         print("attempting to open SecureChannel")
-        self.send(UaSecureConversationAsymmetric(connectionContext=self.connectionContext))
+        pkt = UaSecureConversationAsymmetric(connectionContext=self.connectionContext)
+        self.connectionContext.localNonce = create_nonce(self.connectionContext.securityPolicy.symmetric_key_size)
+        pkt.Payload.Message.ClientNonce = UaByteString(data=self.connectionContext.localNonce)
+        self.send(pkt)
         raise self.SECURE_CHANNEL_ESTABLISHING()
 
     @ATMT.condition(SECURE_CHANNEL_ESTABLISHING)
@@ -107,6 +109,9 @@ class UaClient(_UaAutomaton):
         if isinstance(pkt, UaSecureConversationAsymmetric) and \
                 isinstance(pkt.Payload.Message, UaOpenSecureChannelResponse):
             self.connectionContext.securityToken = pkt.Payload.Message.SecurityToken
+            self.connectionContext.remoteNonce = pkt.Payload.Message.ServerNonce.data
+            self.connectionContext.securityPolicy.make_symmetric_key(self.connectionContext.localNonce,
+                                                                     self.connectionContext.remoteNonce)
             print("securechannel established")
             raise self.SECURE_CHANNEL_ESTABLISHED()
         else:

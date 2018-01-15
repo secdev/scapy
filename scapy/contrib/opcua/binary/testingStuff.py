@@ -1,5 +1,15 @@
 # coding=utf-8
-import timeit
+
+import logging
+import sys
+root = logging.getLogger()
+root.setLevel(logging.DEBUG)
+ch = logging.StreamHandler(sys.stdout)
+ch.setLevel(logging.DEBUG)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+ch.setFormatter(formatter)
+root.addHandler(ch)
+
 
 from scapy.contrib.opcua.binary.bindings import *
 from scapy.layers.inet import *
@@ -25,12 +35,14 @@ if __name__ == '__main__':
     client_cert = load_certificate("../crypto/uaexpert.der")
     client_pk = load_private_key("../crypto/uaexpert_key.pem")
     
-    policy = SecurityPolicyBasic128Rsa15(server_cert, server_pk, client_cert, client_pk, UaMessageSecurityMode.Sign)
+    policy = SecurityPolicyBasic128Rsa15(server_cert, server_pk, client_cert, client_pk, UaMessageSecurityMode.SignAndEncrypt)
+    connectionContext = UaConnectionContext()
+    connectionContext.securityPolicy = policy
     # policy = SecurityPolicy()
     
-    # test = UaSecureConversationAsymmetric(securityPolicy=policy)
+    # test = UaSecureConversationAsymmetric(connectionContext=connectionContext)
     # test = UaSecureConversationAsymmetric()
-    # test = UaSecureConversationSymmetric()
+    # test = UaSecureConversationSymmetric(connectionContext=connectionContext)
     # print(bytes(test))
     #
     # test.show()

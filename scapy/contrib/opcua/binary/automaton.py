@@ -59,8 +59,9 @@ class _UaAutomaton(Automaton):
                 self.logger.error("Could net receive body. expected {} bytes".format(size))
                 self.lock.release()
                 return
-            print("Received packet: {}".format(header + body))
+            print("Received packet: ")
             pkt = UA.UaTcp(header + body, connectionContext=self.connectionContext)
+            pkt.show()
             self.receivedPackets.put(pkt)
             self.lock.release()
 
@@ -73,7 +74,8 @@ class _UaAutomaton(Automaton):
             self.lock.release()
             raise self.START()
         data = bytes(pkt)
-        #print(data)
+        print("Sent packet: ")
+        pkt.show2()
         sent = 0
         try:
             while sent < len(data):
@@ -81,6 +83,7 @@ class _UaAutomaton(Automaton):
                 if part == 0:
                     raise RuntimeError("Connection broke")
                 sent += part
+            self.connectionContext.sendSequenceNumber += 1
         except BrokenPipeError as e:
             print(e)
             #self.lock.release()

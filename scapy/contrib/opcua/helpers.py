@@ -20,6 +20,11 @@ class UaConnectionContext(object):
         from scapy.contrib.opcua.binary.schemaTypes import UaChannelSecurityToken
         self.securityPolicy = None
         self.securityToken = UaChannelSecurityToken()
+        self.remoteNonce = None
+        self.localNonce = None
+        self.sendSequenceNumber = 0
+        self.receiveSequenceNumber = 0
+        self.decodeRemote = False
 
 
 class UaTypePacket(Packet):
@@ -55,7 +60,12 @@ class UaTypePacket(Packet):
         This method needs to be overridden because the connectionContext needs to be passed on.
         Otherwise the packet cannot be decrypted
         """
-        return self.__class__(raw(self), connectionContext=self.connectionContext).show(dump, indent, lvl, label_lvl)
+        if self.connectionContext is not None:
+            self.connectionContext.decodeRemote = True
+        ret = self.__class__(raw(self), connectionContext=self.connectionContext).show(dump, indent, lvl, label_lvl)
+        if self.connectionContext is not None:
+            self.connectionContext.decodeRemote = False
+        return ret
 
 
 class ByteListField(Field):
