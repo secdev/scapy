@@ -80,10 +80,8 @@ _INET_PTON = {
 def inet_pton(af, addr):
     """Convert an IP address from text representation into binary form."""
     # Will replace Net/Net6 objects
-    if not isinstance(addr, str):
-        addr = str(addr)
-    # Use inet_pton if available
     addr = plain_str(addr)
+    # Use inet_pton if available
     try:
         return socket.inet_pton(af, addr)
     except AttributeError:
