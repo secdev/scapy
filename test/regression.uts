@@ -136,7 +136,7 @@ b = six.moves.cPickle.dumps(a)
 c = six.moves.cPickle.loads(b)
 
 assert c[IP].dst == "192.168.0.1"
-assert str(c) == str(a)
+assert raw(c) == raw(a)
 
 = Usage test
 
@@ -776,6 +776,10 @@ assert raw(a) in [b'A\x02\x07q', b'C\x02\xfe\x92', b'\x1e\x023V']
 a = ASN1_BIT_STRING("test", "value")
 a
 assert raw(a) == b'test'
+
+a = ASN1_BIT_STRING(b"\xff"*16, "value")
+a
+assert raw(a) == b'\xff'*16
 
 = ASN1 - ASN1_SEQUENCE
 a = ASN1_SEQUENCE([ASN1_Object(1), ASN1_Object(0)])
