@@ -166,7 +166,7 @@ class Packet_metaclass(type):
                         resolved_fld.append(f2)
                 else:
                     resolved_fld.append(f)
-        else: # look for a field_desc in parent classes
+        else: # look for a fields_desc in parent classes
             resolved_fld = None
             for b in bases:
                 if hasattr(b,"fields_desc"):
