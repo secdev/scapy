@@ -68,8 +68,8 @@ class _FFDHParamsMetaclass(type):
         return the_class
 
 
-class _FFDHParams(object):
-    __metaclass__ = _FFDHParamsMetaclass
+class _FFDHParams(six.with_metaclass(_FFDHParamsMetaclass)):
+    pass
 
 
 class modp768(_FFDHParams):

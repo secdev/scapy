@@ -120,7 +120,7 @@ class SigValField(StrLenField):
         s = pkt.tls_session
         if s.tls_version and s.tls_version < 0x0300:
             if len(s.client_certs) > 0:
-                sig_len = s.client_certs[0].pubKey.pubkey.key_size / 8
+                sig_len = s.client_certs[0].pubKey.pubkey.key_size // 8
             else:
                 warning("No client certificate provided. "
                         "We're making a wild guess about the signature size.")
@@ -308,7 +308,7 @@ class ServerDHParams(_GenericTLSSessionInheritance):
         default_mLen = _ffdh_groups['modp2048'][1]
 
         if not self.dh_p:
-            self.dh_p = pkcs_i2osp(default_params.p, default_mLen/8)
+            self.dh_p = pkcs_i2osp(default_params.p, default_mLen//8)
         if not self.dh_plen:
             self.dh_plen = len(self.dh_p)
 
@@ -325,7 +325,7 @@ class ServerDHParams(_GenericTLSSessionInheritance):
             s.server_kx_privkey = real_params.generate_private_key()
             pubkey = s.server_kx_privkey.public_key()
             y = pubkey.public_numbers().y
-            self.dh_Ys = pkcs_i2osp(y, pubkey.key_size/8)
+            self.dh_Ys = pkcs_i2osp(y, pubkey.key_size//8)
         # else, we assume that the user wrote the server_kx_privkey by himself
         if not self.dh_Yslen:
             self.dh_Yslen = len(self.dh_Ys)
@@ -643,7 +643,7 @@ class ServerRSAParams(_GenericTLSSessionInheritance):
         pubNum = k.pubkey.public_numbers()
 
         if not self.rsamod:
-            self.rsamod = pkcs_i2osp(pubNum.n, k.pubkey.key_size/8)
+            self.rsamod = pkcs_i2osp(pubNum.n, k.pubkey.key_size//8)
         if not self.rsamodlen:
             self.rsamodlen = len(self.rsamod)
 
@@ -722,7 +722,7 @@ class ClientDiffieHellmanPublic(_GenericTLSSessionInheritance):
         s.client_kx_privkey = params.generate_private_key()
         pubkey = s.client_kx_privkey.public_key()
         y = pubkey.public_numbers().y
-        self.dh_Yc = pkcs_i2osp(y, pubkey.key_size/8)
+        self.dh_Yc = pkcs_i2osp(y, pubkey.key_size//8)
 
         if s.client_kx_privkey and s.server_kx_pubkey:
             pms = s.client_kx_privkey.exchange(s.server_kx_pubkey)
@@ -782,8 +782,8 @@ class ClientECDiffieHellmanPublic(_GenericTLSSessionInheritance):
         x = pubkey.public_numbers().x
         y = pubkey.public_numbers().y
         self.ecdh_Yc = (b"\x04" +
-                        pkcs_i2osp(x, params.key_size/8) +
-                        pkcs_i2osp(y, params.key_size/8))
+                        pkcs_i2osp(x, params.key_size//8) +
+                        pkcs_i2osp(y, params.key_size//8))
 
         if s.client_kx_privkey and s.server_kx_pubkey:
             pms = s.client_kx_privkey.exchange(ec.ECDH(), s.server_kx_pubkey)
