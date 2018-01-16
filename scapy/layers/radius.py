@@ -10,6 +10,8 @@ RADIUS (Remote Authentication Dial In User Service)
 
 import struct
 import logging
+import hashlib
+import hmac
 from scapy.compat import *
 from scapy.packet import Packet, bind_layers
 from scapy.fields import ByteField, ByteEnumField, IntField, StrLenField,\
@@ -19,20 +21,6 @@ from scapy.layers.inet import UDP
 from scapy.layers.eap import EAP
 from scapy.config import conf
 from scapy.error import Scapy_Exception
-
-
-g_log_loading = logging.getLogger("scapy.logging")
-
-_crypto_loading_failure_message = \
-    "Could not import python-cryptography."\
-    "Computations for the \"authenticator\" field (RADIUS packets) and"\
-    "\"Message-Authenticator\" attribute value field are disabled."
-
-if conf.crypto_valid:
-    from cryptography.hazmat.backends import default_backend
-    from cryptography.hazmat.primitives import hashes, hmac
-else:
-    g_log_loading.info(_crypto_loading_failure_message)
 
 
 # https://www.iana.org/assignments/radius-types/radius-types.xhtml
@@ -540,6 +528,23 @@ class RadiusAttr_State(_RadiusAttrHexStringVal):
     val = 24
 
 
+
+def prepare_packed_data(radius_packet, packed_req_authenticator):
+    """
+    Pack RADIUS data prior computing the authentication MAC
+    """
+
+    packed_hdr = struct.pack("!B", radius_packet.code)
+    packed_hdr += struct.pack("!B", radius_packet.id)
+    packed_hdr += struct.pack("!H", radius_packet.len)
+
+    packed_attrs = b''
+    for attr in radius_packet.attributes:
+        packed_attrs += raw(attr)
+
+    return packed_hdr + packed_req_authenticator + packed_attrs
+
+
 class RadiusAttr_Message_Authenticator(_RadiusAttrHexStringVal):
     """RFC 2869"""
     val = 80
@@ -556,35 +561,16 @@ class RadiusAttr_Message_Authenticator(_RadiusAttrHexStringVal):
     ]
 
     @staticmethod
-    def compute_message_authenticator(
-            radius_packet,
-            packed_req_authenticator,
-            shared_secret
-    ):
+    def compute_message_authenticator(radius_packet, packed_req_authenticator,
+                                      shared_secret):
         """
         Computes the "Message-Authenticator" of a given RADIUS packet.
         """
 
-        if not conf.crypto_valid:
-            g_log_loading.info(_crypto_loading_failure_message)
-            return None
+        data = prepare_packed_data(radius_packet, packed_req_authenticator)
+        radius_hmac = hmac.new(shared_secret, data, hashlib.md5)
 
-        packed_hdr = struct.pack("!B", radius_packet.code)
-        packed_hdr += struct.pack("!B", radius_packet.id)
-        packed_hdr += struct.pack("!H", radius_packet.len)
-        packed_attrs = ''
-        for index in range(0, len(radius_packet.attributes)):
-            packed_attrs = packed_attrs + str(radius_packet.attributes[index])
-
-        hmac_ = hmac.HMAC(
-            shared_secret,
-            hashes.MD5(),
-            backend=default_backend()
-        )
-        packed_data = packed_hdr + packed_req_authenticator + packed_attrs
-        hmac_.update(packed_data)
-        return hmac_.finalize()
-
+        return radius_hmac.digest()
 
 #
 # RADIUS attributes which values are IPv4 prefixes
@@ -1171,23 +1157,9 @@ class Radius(Packet):
         Computes the authenticator field (RFC 2865 - Section 3)
         """
 
-        if not conf.crypto_valid:
-            g_log_loading.info(_crypto_loading_failure_message)
-            return None
-
-        packed_hdr = struct.pack("!B", self.code)
-        packed_hdr += struct.pack("!B", self.id)
-        packed_hdr += struct.pack("!H", self.len)
-        packed_attrs = b''
-        for attr in self.attributes:
-            packed_attrs = packed_attrs + raw(attr)
-        packed_data = packed_hdr + packed_request_auth + packed_attrs +\
-            shared_secret
-
-        digest = hashes.Hash(hashes.MD5(), backend=default_backend())
-        digest.update(packed_data)
-        return digest.finalize()
-
+        data = prepare_packed_data(self, packed_request_auth)
+        radius_mac = hashlib.md5(data + shared_secret)
+        return radius_mac.digest()
 
     def post_build(self, p, pay):
         p += pay
