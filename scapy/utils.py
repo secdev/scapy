@@ -1411,40 +1411,40 @@ def pretty_list(rtlst, header, sortBy=0):
     rt = "\n".join([fmt % x for x in rtlst])
     return rt
 
-def __make_table(yfmtfunc, fmtfunc, endline, list, fxyz, sortx=None, sorty=None, seplinefunc=None):
+def __make_table(yfmtfunc, fmtfunc, endline, data, fxyz, sortx=None, sorty=None, seplinefunc=None):
     vx = {} 
     vy = {} 
     vz = {}
     vxf = {}
     vyf = {}
     l = 0
-    for e in list:
+    for e in data:
         xx, yy, zz = [str(s) for s in fxyz(e)]
         l = max(len(yy),l)
         vx[xx] = max(vx.get(xx,0), len(xx), len(zz))
         vy[yy] = None
         vz[(xx,yy)] = zz
 
-    vxk = sorted(vx.keys())
-    vyk = sorted(vy.keys())
+    vxk = list(vx)
+    vyk = list(vy)
     if sortx:
-        vxk.sort(sortx)
+        vxk.sort(key=sortx)
     else:
         try:
-            vxk.sort(lambda x,y:int(x)-int(y))
+            vxk.sort(key=int)
         except:
             try:
-                vxk.sort(lambda x,y: cmp(atol(x),atol(y)))
+                vxk.sort(key=atol)
             except:
                 vxk.sort()
     if sorty:
-        vyk.sort(sorty)
+        vyk.sort(key=sorty)
     else:
         try:
-            vyk.sort(lambda x,y:int(x)-int(y))
+            vyk.sort(key=int)
         except:
             try:
-                vyk.sort(lambda x,y: cmp(atol(x),atol(y)))
+                vyk.sort(key=atol)
             except:
                 vyk.sort()
 
