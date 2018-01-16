@@ -279,9 +279,9 @@ class PubKeyRSA(PubKey, _EncryptAndVerifyRSA):
     def import_from_tuple(self, tup):
         # this is rarely used
         e, m, mLen = tup
-        if isinstance(m, str):
+        if isinstance(m, (str, bytes)):
             m = pkcs_os2ip(m)
-        if isinstance(e, str):
+        if isinstance(e, (str, bytes)):
             e = pkcs_os2ip(e)
         self.fill_and_store(modulus=m, pubExp=e)
         self.pem = self.pubkey.public_bytes(
@@ -512,7 +512,6 @@ class PrivKeyECDSA(PrivKey):
 
     @crypto_validator
     def import_from_asn1pkt(self, privkey):
-        print(privkey)
         self.key = serialization.load_der_private_key(raw(privkey), None,
                                                   backend=default_backend())
         self.pubkey = self.key.public_key()

@@ -130,6 +130,7 @@ class _TLSAutomaton(Automaton):
                 else:
                     self.remain_in += tmp
             except:
+                self.vprint("Could not join host ! Retrying...")
                 retry -= 1
 
         if len(self.remain_in) < 2 or len(self.remain_in) != grablen:

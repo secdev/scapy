@@ -99,7 +99,7 @@ class _TLSMsgListField(PacketListField):
                 return cls(m, tls_session=pkt.tls_session)
             except:
                 if conf.debug_dissector:
-                    traceback.print_exc()
+                    raise
                 return Raw(m)
 
     def getfield(self, pkt, s):
@@ -352,7 +352,7 @@ class TLS(_GenericTLSSessionInheritance):
             if version > 0x300:
                 h = alg.digest(read_seq_num + hdr + msg)
             elif version == 0x300:
-                h = alg.digest_sslv3(read_seq_num + hdr[0] + hdr[3:5] + msg)
+                h = alg.digest_sslv3(read_seq_num + hdr[:1] + hdr[3:5] + msg)
             else:
                 raise Exception("Unrecognized version.")
         except HMACError:

@@ -84,7 +84,7 @@ class KeyShareEntry(Packet):
         if self.group is None:
             self.group = 23     # secp256r1
 
-        if self.key_exchange == "":
+        if not self.key_exchange:
             try:
                 self.create_privkey()
             except ImportError:
