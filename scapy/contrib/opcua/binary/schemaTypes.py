@@ -5,12 +5,19 @@ It adds all generated classes to its own global namespace so it can be used like
 
 If all OPC UA basic data types are needed load the uaTypes module
 """
+from enum import Enum
+
 from scapy.contrib.opcua.binary.schema.schemaParser import SchemaParser
 import sys
 import logging
 _logger = logging.getLogger(__name__)
 
 nodeIdMappings = {}
+statusCodes = {}
+
+
+class UaStatusCodes(Enum):
+    pass
 
 
 def _populate_module(model):
@@ -21,6 +28,11 @@ def _populate_module(model):
     for name, cls in model.enums.items():
         setattr(thismodule, "Ua" + name, cls)
     thismodule.nodeIdMappings = model.nodeIdMappings
+    
+    for id, (name, _) in model.statusCodes.items():
+        setattr(UaStatusCodes, name, id)
+    
+    thismodule.statusCodes = model.statusCodes
     _logger.debug("Done!")
 
 

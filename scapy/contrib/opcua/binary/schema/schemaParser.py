@@ -59,6 +59,7 @@ class Model(object):
         self.enumTypes = []
         self.classes = {}
         self.nodeIdMappings = {}
+        self.statusCodes = {}
         self.enumFields = {}
         self.enums = {}
 
@@ -67,7 +68,7 @@ class SchemaParser(object):
     class ParseError(Exception):
         pass
 
-    def __init__(self, schemaPath=None, nodeIdsPath=None, builtins=None):
+    def __init__(self, schemaPath=None, nodeIdsPath=None, statusCodesPath=None, builtins=None):
         """
 
         :param schemaPath: Path to the schema .bsd file
@@ -85,10 +86,15 @@ class SchemaParser(object):
         if nodeIdsPath is None:
             nodeIdsPath = "NodeIds.csv"
             nodeIdsPath = os.path.join(os.path.dirname(__file__), nodeIdsPath)
+            
+        if statusCodesPath is None:
+            statusCodesPath = "Opc.Ua.StatusCodes.csv"
+            statusCodesPath = os.path.join(os.path.dirname(__file__), statusCodesPath)
 
         self.logger = logging.getLogger(__name__)
         self.schemaPath = schemaPath
         self.nodeIdsPath = nodeIdsPath
+        self.statusCodesPath = statusCodesPath
         self.xmlSchema = None
         self.model = Model()
         self.reparse = []
@@ -133,6 +139,7 @@ class SchemaParser(object):
         self._parse_xml_schema()
         self._create_types()
         self._parse_node_ids()
+        self._parse_status_codes()
 
     def _parse_xml_schema(self):
         self.xmlSchema = ElementTree.parse(self.schemaPath).getroot()
@@ -164,6 +171,17 @@ class SchemaParser(object):
                     else:
                         self.logger.warning(
                             "Type '{}' not found. Could not map NodeId '{}'".format(typeName, encodingId))
+                        
+    def _parse_status_codes(self):
+        with open(self.statusCodesPath) as statusCodesFile:
+            reader = csv.reader(statusCodesFile)
+            
+            self.model.statusCodes[0] = ("Good", "No error encountered, result good")
+            for row in reader:
+                name = row[0]
+                desc = ','.join(row[2:])
+                id = int(row[1], 16)
+                self.model.statusCodes[id] = (name, desc)
 
     def _parse_enum_type(self, element):
         enum = Enum()

@@ -62,3 +62,9 @@ if __name__ == '__main__':
     # print(bytes(test))
     client = UaClient(securityPolicy=policy)
     client.run()
+
+    bla = UaResponseHeader()
+    bla.ServiceResult = "Good"
+    bla.ServiceResult = "BadCertificateInvalid"
+    bla.ServiceResult = "Good"
+    bla.ServiceResult = "BadCertificateInvalid"
