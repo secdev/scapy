@@ -178,8 +178,8 @@ def repr_hex(s):
 @conf.commands.register
 def hexdiff(x,y):
     """Show differences between 2 binary strings"""
-    x=str(x)[::-1]
-    y=str(y)[::-1]
+    x=raw(x)[::-1]
+    y=raw(y)[::-1]
     SUBST=1
     INSERT=1
     d = {(-1, -1): (0, (-1, -1))}
