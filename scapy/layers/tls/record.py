@@ -288,6 +288,11 @@ class TLS(_GenericTLSSessionInheritance):
                     if s.rcs and not isinstance(s.rcs.cipher, Cipher_NULL):
                         from scapy.layers.tls.record_tls13 import TLS13
                         return TLS13
+        if _pkt and len(_pkt) < 5:
+                # Layer detected as TLS but too small to be a real packet (len<5).
+                # Those packets appear when sessions are interrupted or to flush buffers.
+                # Scapy should not try to decode them
+            return conf.raw_layer
         return TLS
 
     ### Parsing methods
