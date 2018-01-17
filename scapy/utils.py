@@ -429,10 +429,9 @@ class ContextManagerSubprocess(object):
     >>>     subprocess.Popen(["unknown_command"])
 
     """
-    def __init__(self, name, prog, _raise=True):
+    def __init__(self, name, prog):
         self.name = name
         self.prog = prog
-        self._raise = _raise
 
     def __enter__(self):
         pass
@@ -440,7 +439,7 @@ class ContextManagerSubprocess(object):
     def __exit__(self, exc_type, exc_value, traceback):
         if isinstance(exc_value, (OSError, TypeError)):
             msg = "%s: executing %r failed" % (self.name, self.prog) if self.prog else "Could not execute %s, is it installed ?" % self.name
-            if self._raise:
+            if not conf.interactive:
                 raise OSError(msg)
             else:
                 log_runtime.error(msg, exc_info=True)
@@ -505,7 +504,7 @@ def do_graph(graph,prog=None,format=None,target=None,type=None,string=None,optio
             target = get_temp_file(autoext="."+format)
             start_viewer = True
         else:
-            with ContextManagerSubprocess("do_graph()", conf.prog.display, _raise=False):
+            with ContextManagerSubprocess("do_graph()", conf.prog.display):
                 target = subprocess.Popen([conf.prog.display],
                                           stdin=subprocess.PIPE).stdin
     if format is not None:
