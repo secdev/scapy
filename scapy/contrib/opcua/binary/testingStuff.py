@@ -48,23 +48,17 @@ if __name__ == '__main__':
     # test = UaSecureConversationAsymmetric()
     msg = UaCreateSessionRequest()
     msg.ClientCertificate = UaByteString(data="A"*10000)
-    test = UaSecureConversationSymmetric(Payload=UaMessage(Message=msg), connectionContext=connectionContext)
-    # test.MessageHeader.IsFinal = b'M'
-    # pkts = chunkify(test)
+    # test = UaSecureConversationSymmetric(Payload=UaMessage(Message=msg), connectionContext=connectionContext)
+    test = UaSecureConversationSymmetric(Payload=UaMessage(Message=msg))
+    pkts = chunkify(test)
     
-    # for pkt in pkts:
-    #     print(bytes(pkt))
-    #     pkt.show2()
-    #
+    for pkt in pkts:
+        print(bytes(pkt))
+        pkt.show2()
+    
     # test.show()
     # test.show2()
     
     # print(bytes(test))
-    client = UaClient(securityPolicy=policy)
-    client.run()
-
-    bla = UaResponseHeader()
-    bla.ServiceResult = "Good"
-    bla.ServiceResult = "BadCertificateInvalid"
-    bla.ServiceResult = "Good"
-    bla.ServiceResult = "BadCertificateInvalid"
+    # client = UaClient(securityPolicy=policy)
+    # client.run()
