@@ -279,9 +279,9 @@ class PubKeyRSA(PubKey, _EncryptAndVerifyRSA):
     def import_from_tuple(self, tup):
         # this is rarely used
         e, m, mLen = tup
-        if isinstance(m, (str, bytes)):
+        if isinstance(m, bytes):
             m = pkcs_os2ip(m)
-        if isinstance(e, (str, bytes)):
+        if isinstance(e, bytes):
             e = pkcs_os2ip(e)
         self.fill_and_store(modulus=m, pubExp=e)
         self.pem = self.pubkey.public_bytes(
