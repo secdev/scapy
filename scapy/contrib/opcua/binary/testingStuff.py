@@ -2,6 +2,9 @@
 
 import logging
 import sys
+
+from contrib.opcua.binary.networking import chunkify
+
 root = logging.getLogger()
 root.setLevel(logging.DEBUG)
 ch = logging.StreamHandler(sys.stdout)
@@ -36,18 +39,26 @@ if __name__ == '__main__':
     client_pk = load_private_key("../crypto/uaexpert_key.pem")
     
     policy = SecurityPolicyBasic128Rsa15(server_cert, server_pk, client_cert, client_pk, UaMessageSecurityMode.SignAndEncrypt)
+    policy.make_symmetric_key(b'aaa', b'bbb')
     connectionContext = UaConnectionContext()
     connectionContext.securityPolicy = policy
     # policy = SecurityPolicy()
     
     # test = UaSecureConversationAsymmetric(connectionContext=connectionContext)
     # test = UaSecureConversationAsymmetric()
-    # test = UaSecureConversationSymmetric(connectionContext=connectionContext)
-    # print(bytes(test))
+    msg = UaCreateSessionRequest()
+    msg.ClientCertificate = UaByteString(data="A"*10000)
+    test = UaSecureConversationSymmetric(Payload=UaMessage(Message=msg), connectionContext=connectionContext)
+    test.MessageHeader.IsFinal = b'M'
+    pkts = chunkify(test)
+    
+    for pkt in pkts:
+        print(bytes(pkt))
+        pkt.show2()
     #
     # test.show()
     # test.show2()
     
     # print(bytes(test))
-    client = UaClient(securityPolicy=policy)
-    client.run()
+    # client = UaClient(securityPolicy=policy)
+    # client.run()

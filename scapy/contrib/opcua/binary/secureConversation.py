@@ -161,15 +161,40 @@ class UaSequenceHeader(UaTypePacket):
         return pkt + pay
 
 
+def _chunked_data_length(pkt):
+    
+    reduceBy = 0
+    
+    if pkt.connectionContext is not None and pkt.connectionContext.securityPolicy is not None:
+        signatureSize = pkt.connectionContext.securityPolicy.symmetric_cryptography.vsignature_size()
+        reduceBy += signatureSize
+        if pkt.connectionContext.securityPolicy.symmetric_cryptography.is_encrypted:
+            paddingSize = int(pkt.original[-signatureSize - 1])  # TODO: calculate correctly for keys > 2048 bit
+            reduceBy += paddingSize + 1  # no padding bytes and no PaddingSize byte
+    
+    return len(pkt.original[:-reduceBy])
+
+
 class UaMessage(UaTypePacket):
     fields_desc = [UaPacketField("DataTypeEncoding", UaNodeId(), UaNodeId),
                    UaPacketField("Message", None, UaTypePacket)]
     
     _cache = {}
+    _intermediate = None
     
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kwargs):
         if _pkt is not None:
+            if "_underlayer" in kwargs:
+                underlayer = kwargs["_underlayer"]
+                if underlayer.MessageHeader.IsFinal == b'M':
+                    if UaMessage._intermediate is None:
+                        fields_desc = [ByteListField("ChunkedData", None, UaByteField("", None, True),
+                                                     count_from=_chunked_data_length)]
+                        newDict = dict(cls.__dict__)
+                        newDict["fields_desc"] = fields_desc
+                        UaMessage._intermediate = type(cls.__name__, cls.__bases__, newDict)
+                    return UaMessage._intermediate
             nodeId = UaExpandedNodeId(_pkt)
             
             if nodeId.Identifier in nodeIdMappings:
@@ -200,6 +225,7 @@ class UaMessage(UaTypePacket):
 
 
 class UaSecureConversationAsymmetric(UaTcp):
+    __slots__ = ["original_decrypted"]
     fields_desc = [
         UaPacketField("MessageHeader", UaSecureConversationMessageHeader(), UaSecureConversationMessageHeader),
         UaPacketField("SecurityHeader",
@@ -313,7 +339,7 @@ class UaSecureConversationAsymmetric(UaTcp):
                 # TODO: Make this configurable, so that the user can decide if an exception is thrown, or
                 # TODO: if only a log message is created. (Replace print with log)
 
-        
+        self.original_decrypted = s
         return s
     
     @classmethod

@@ -89,3 +89,7 @@ class _UaAutomaton(Automaton):
             #self.lock.release()
             #raise self.START()
         self.lock.release()
+
+    def send_multiple(self, packets):
+        for packet in packets:
+            self.send(packet)

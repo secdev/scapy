@@ -1,5 +1,7 @@
 # coding=utf-8
 import socket
+
+from contrib.opcua.binary.networking import chunkify
 from scapy.contrib.opcua.binary.automaton import _UaAutomaton
 from scapy.contrib.opcua.crypto.securityPolicies import SecurityPolicyBasic128Rsa15
 from scapy.contrib.opcua.crypto.uacrypto import load_certificate, load_private_key, create_nonce
@@ -119,8 +121,12 @@ class UaClient(_UaAutomaton):
 
     @ATMT.condition(SECURE_CHANNEL_ESTABLISHED)
     def create_session(self):
-        message = UaMessage(Message=UaCreateSessionRequest())
-        self.send(UaSecureConversationSymmetric(Payload=message, connectionContext=self.connectionContext))
+        request = UaCreateSessionRequest()
+        request.ClientCertificate = UaByteString(data="A"*20000)
+        message = UaMessage(Message=request)
+        pkt = UaSecureConversationSymmetric(Payload=message, connectionContext=self.connectionContext)
+        pkts = chunkify(pkt)
+        self.send_multiple(pkts)
         print("attempting to create a session")
         raise self.SESSION_CREATING()
 
@@ -135,6 +141,10 @@ class UaClient(_UaAutomaton):
                 print("Unexpected message")
                 raise self.END()
         if isinstance(pkt.Payload.Message, UaCreateSessionResponse):
+            serviceResult = pkt.Payload.Message.ResponseHeader.ServiceResult
+            if serviceResult != 0:
+                print("Error creating session. Status code: {}".format(serviceResult))
+                raise self.END()
             print("session established")
             raise self.SESSION_CREATED()
         elif isinstance(pkt.Payload.Message, UaServiceFault):
