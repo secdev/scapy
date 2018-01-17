@@ -228,6 +228,7 @@ class Cryptography(CryptographyNone):
     def decrypt_remote(self, data):
         if self.is_encrypted:
             return self.RemoteDecrypter.decrypt(data)
+        return data
 
     def remove_padding(self, data):
         if self.is_encrypted:
