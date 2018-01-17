@@ -31,6 +31,10 @@ GLOBKEYS = []
 LAYER_ALIASES = {
     "tls": "tls.all"
 }
+WILDCARD_CONTRIB_IGNORE = [
+    "carp",  # Conflicts with VRRP
+    "gsm_um", # Not working
+]
 
 QUOTES = [
     ("Craft packets like it is your last day on earth.", "Lao-Tze"),
@@ -157,6 +161,13 @@ def load_contrib(name):
     a layer module, since a contrib module may become a layer module.
 
     """
+    if "*" in name:
+        if not name.endswith(".py"):
+            name += ".py"
+        _contribs = (x for x in list_contrib(name, retur=True).keys() if x not in WILDCARD_CONTRIB_IGNORE)
+        for x in _contribs:
+            load_contrib(x)
+        return
     try:
         importlib.import_module("scapy.contrib." + name)
         _load("scapy.contrib." + name)
@@ -164,11 +175,16 @@ def load_contrib(name):
         # if layer not found in contrib, try in layers
         load_layer(name)
 
-def list_contrib(name=None):
+def list_contrib(name=None, retur=False):
+    """Prints (or returns) a list of all scapy available contrib modules.
+    Params:
+     - name: filter (may contain *)
+     - retur: wether or not return the list instead of printing it"""
     if name is None:
         name="*.py"
     elif "*" not in name and "?" not in name and not name.endswith(".py"):
         name += ".py"
+    _result = {}
     name = os.path.join(os.path.dirname(__file__), "contrib", name)
     for f in sorted(glob.glob(name)):
         mod = os.path.basename(f)
@@ -185,7 +201,13 @@ def list_contrib(name=None):
                 key = l[p:q].strip()
                 value = l[q+1:].strip()
                 desc[key] = value
-        print("%(name)-20s: %(description)-40s status=%(status)s" % desc)
+        if retur:
+            _result[desc["name"]] = desc
+        else:
+            print("%(name)-20s: %(description)-40s status=%(status)s" % desc)
+    if retur:
+        return _result
+
 
                         
 
