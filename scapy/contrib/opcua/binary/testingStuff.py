@@ -49,16 +49,16 @@ if __name__ == '__main__':
     msg = UaCreateSessionRequest()
     msg.ClientCertificate = UaByteString(data="A"*10000)
     test = UaSecureConversationSymmetric(Payload=UaMessage(Message=msg), connectionContext=connectionContext)
-    test.MessageHeader.IsFinal = b'M'
-    pkts = chunkify(test)
+    # test.MessageHeader.IsFinal = b'M'
+    # pkts = chunkify(test)
     
-    for pkt in pkts:
-        print(bytes(pkt))
-        pkt.show2()
+    # for pkt in pkts:
+    #     print(bytes(pkt))
+    #     pkt.show2()
     #
     # test.show()
     # test.show2()
     
     # print(bytes(test))
-    # client = UaClient(securityPolicy=policy)
-    # client.run()
+    client = UaClient(securityPolicy=policy)
+    client.run()

@@ -156,13 +156,12 @@ class UaSequenceHeader(UaTypePacket):
             # are received from a remote.
             pkt = sequenceNumberField.addfield(self, b'', self.connectionContext.sendSequenceNumber) + \
                   pkt[sequenceNumberField.sz:]
-            
+        
         # TODO: use connectionContext to replace request id?
         return pkt + pay
 
 
 def _chunked_data_length(pkt):
-    
     reduceBy = 0
     
     if pkt.connectionContext is not None and pkt.connectionContext.securityPolicy is not None:
@@ -175,25 +174,23 @@ def _chunked_data_length(pkt):
     return len(pkt.original[:-reduceBy])
 
 
+class UaChunkedData(UaTypePacket):
+    fields_desc = [ByteListField("Message", None, UaByteField("", None, True), count_from=_chunked_data_length)]
+
+
 class UaMessage(UaTypePacket):
     fields_desc = [UaPacketField("DataTypeEncoding", UaNodeId(), UaNodeId),
                    UaPacketField("Message", None, UaTypePacket)]
     
     _cache = {}
-    _intermediate = None
+    _intermediate = UaChunkedData
     
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kwargs):
         if _pkt is not None:
             if "_underlayer" in kwargs:
                 underlayer = kwargs["_underlayer"]
-                if underlayer.MessageHeader.IsFinal == b'M':
-                    if UaMessage._intermediate is None:
-                        fields_desc = [ByteListField("ChunkedData", None, UaByteField("", None, True),
-                                                     count_from=_chunked_data_length)]
-                        newDict = dict(cls.__dict__)
-                        newDict["fields_desc"] = fields_desc
-                        UaMessage._intermediate = type(cls.__name__, cls.__bases__, newDict)
+                if underlayer.MessageHeader.IsFinal == b'C':
                     return UaMessage._intermediate
             nodeId = UaExpandedNodeId(_pkt)
             
@@ -317,16 +314,16 @@ class UaSecureConversationAsymmetric(UaTcp):
             securityHeader = securityHeader(header.payload)
             header.remove_payload()
             securityHeader.remove_payload()
-    
+            
             unencryptedLength = len(header) + len(securityHeader)
-    
+            
             if self.connectionContext.decodeRemote:
                 decrypted = cryptoModule.decrypt_remote(s[unencryptedLength:])
             else:
                 decrypted = cryptoModule.decrypt(s[unencryptedLength:])
-    
+            
             s = s[:unencryptedLength] + decrypted
-
+            
             try:
                 if self.connectionContext.decodeRemote:
                     sigLen = cryptoModule.signature_size()
@@ -338,7 +335,7 @@ class UaSecureConversationAsymmetric(UaTcp):
                 self._logger.warning("Failed to verify signature")
                 # TODO: Make this configurable, so that the user can decide if an exception is thrown, or
                 # TODO: if only a log message is created. (Replace print with log)
-
+        
         self.original_decrypted = s
         return s
     

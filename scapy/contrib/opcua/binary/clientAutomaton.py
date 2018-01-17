@@ -125,6 +125,7 @@ class UaClient(_UaAutomaton):
         request.ClientCertificate = UaByteString(data="A"*20000)
         message = UaMessage(Message=request)
         pkt = UaSecureConversationSymmetric(Payload=message, connectionContext=self.connectionContext)
+        pkt.SequenceHeader.RequestId = 42
         pkts = chunkify(pkt)
         self.send_multiple(pkts)
         print("attempting to create a session")

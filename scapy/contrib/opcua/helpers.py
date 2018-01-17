@@ -8,6 +8,14 @@ from scapy.packet import Packet
 from scapy.config import conf
 
 
+class BufferSizes(object):
+    def __init__(self):
+        self.maxMessageSize = None
+        self.receiveBufferSize = None
+        self.sendBufferSize = None
+        self.maxChunks = None
+
+
 class UaConnectionContext(object):
     """
     This class contains all connection related data. If it is passed to packets while assembling or dissecting,
@@ -25,6 +33,8 @@ class UaConnectionContext(object):
         self.sendSequenceNumber = 0
         self.receiveSequenceNumber = 0
         self.decodeRemote = False
+        self.localBufferSizes = BufferSizes()
+        self.remoteBufferSizes = BufferSizes()
 
 
 class UaTypePacket(Packet):
