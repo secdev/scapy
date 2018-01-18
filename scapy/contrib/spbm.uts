@@ -1,0 +1,18 @@
+% Regression tests for the spbm module
+
++ Basic SPBM test
+
+= Test build and dissection
+
+backboneEther     = Ether(dst='00:bb:00:00:90:00', src='00:bb:00:00:40:00', type=0x8100)
+backboneDot1Q     = Dot1Q(vlan=4051,type=0x88e7)
+backboneServiceID = SPBM(prio=1,isid=20011)
+customerEther     = Ether(dst='00:1b:4f:5e:ca:00',src='00:00:00:00:00:01',type=0x8100)
+customerDot1Q     = Dot1Q(prio=1,vlan=11,type=0x0800)
+customerIP        = IP(src='10.100.11.10',dst='10.100.12.10',id=0x0629,len=106)
+customerUDP       = UDP(sport=1024,dport=1025,chksum=0,len=86)
+
+pkt = backboneEther/backboneDot1Q/backboneServiceID/customerEther/customerDot1Q/customerIP/customerUDP/"Payload"
+pkt = Ether(raw(pkt))
+assert SPBM in pkt
+assert pkt[SPBM].payload.payload.payload.src == '10.100.11.10'
