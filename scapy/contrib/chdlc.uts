@@ -5,14 +5,15 @@
 = Default build, storage and dissection
 
 pkt = CHDLC()/SLARP()
-wrpcap("test.pcap", pkt)
-pkt1 = rdpcap("test.pcap")[0]
+_filepath = get_temp_file(autoext=".pcap")
+wrpcap(_filepath, pkt)
+pkt1 = rdpcap(_filepath)[0]
 assert raw(pkt) == raw(pkt1)
 assert CHDLC in pkt
 assert SLARP in pkt
 
 try:
-    os.remove("test.pcap")
+    os.remove(_filepath)
 except:
     pass
 
