@@ -13,6 +13,7 @@ from ctypes import *
 from select import select
 
 from scapy.config import conf
+from scapy.data import DLT_BLUETOOTH_HCI_H4
 from scapy.packet import *
 from scapy.fields import *
 from scapy.supersocket import SuperSocket
@@ -21,7 +22,6 @@ from scapy.data import MTU
 from scapy.consts import WINDOWS
 from scapy.error import warning, log_loading
 
-LINKTYPE_BLUETOOTH_HCI_H4 = 187
 
 ##########
 # Fields #
@@ -709,7 +709,7 @@ bind_layers( HCI_Hdr,       HCI_ACL_Hdr,        type=2)
 bind_layers( HCI_Hdr,       HCI_Event_Hdr,      type=4)
 bind_layers( HCI_Hdr,       conf.raw_layer,           )
 
-conf.l2types.register(LINKTYPE_BLUETOOTH_HCI_H4, HCI_Hdr)
+conf.l2types.register(DLT_BLUETOOTH_HCI_H4, HCI_Hdr)
 
 bind_layers( HCI_Command_Hdr, HCI_Cmd_Reset, opcode=0x0c03)
 bind_layers( HCI_Command_Hdr, HCI_Cmd_Set_Event_Mask, opcode=0x0c01)
