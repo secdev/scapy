@@ -9,7 +9,7 @@
 ### DISCLAIMER: Those tests are slow ###
 
 = Load server util functions
-~ open_ssl_client
+~ open_ssl_client crypto
 
 from __future__ import print_function
 
@@ -64,28 +64,29 @@ def test_tls_server(suite="", version=""):
 
 
 = Testing TLS server with TLS 1.0 and TLS_RSA_WITH_RC4_128_SHA
-~ open_ssl_client FIXME_py3
+~ open_ssl_client crypto
 
 test_tls_server("RC4-SHA", "-tls1")
 
 = Testing TLS server with TLS 1.1 and TLS_DHE_RSA_WITH_3DES_EDE_CBC_SHA
-~ open_ssl_client FIXME_py3
+~ open_ssl_client crypto
 
 test_tls_server("EDH-RSA-DES-CBC3-SHA", "-tls1_1")
 
 = Testing TLS server with TLS 1.2 and TLS_DHE_RSA_WITH_AES_128_CBC_SHA256
-~ open_ssl_client FIXME_py3
+~ open_ssl_client crypto
 
 test_tls_server("DHE-RSA-AES128-SHA256", "-tls1_2")
 
 = Testing TLS server with TLS 1.2 and TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
-~ open_ssl_client FIXME_py3
+~ open_ssl_client crypto
 
 test_tls_server("ECDHE-RSA-AES256-GCM-SHA384", "-tls1_2")
 
 + TLS client automaton tests
 
 = Load client utils functions
+~ crypto
 
 import sys, os, threading
 
@@ -112,26 +113,32 @@ def perform_tls_client_test(suite, version):
         assert False
 
 = Testing TLS server and client with SSLv2 and SSL_CK_DES_192_EDE3_CBC_WITH_MD5
+~ crypto
 
 perform_tls_client_test("0700c0", "0002")
 
 = Testing TLS client with SSLv3 and TLS_RSA_EXPORT_WITH_RC4_40_MD5
+~ crypto
 
 perform_tls_client_test("0003", "0300")
 
 = Testing TLS client with TLS 1.0 and TLS_DHE_RSA_WITH_CAMELLIA_256_CBC_SHA
+~ crypto
 
 perform_tls_client_test("0088", "0301")
 
 = Testing TLS client with TLS 1.1 and TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA
+~ crypto
 
 perform_tls_client_test("c013", "0302")
 
 = Testing TLS client with TLS 1.2 and TLS_DHE_RSA_WITH_AES_128_GCM_SHA256
+~ crypto
 
 perform_tls_client_test("009e", "0303")
 
 = Testing TLS client with TLS 1.2 and TLS_ECDH_anon_WITH_RC4_128_SHA
+~ crypto
 
 perform_tls_client_test("c016", "0303")
 
