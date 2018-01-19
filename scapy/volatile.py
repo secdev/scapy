@@ -121,6 +121,8 @@ class RandNum(RandField):
         return other - self._fix()
     def __mul__(self, other):
         return self._fix() * other
+    def __rmul__(self, other):
+        return other * self._fix()
     def __floordiv__(self, other):
         return self._fix() / other
     __div__ = __floordiv__

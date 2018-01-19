@@ -400,7 +400,7 @@ Some specifications of the p0f.fp file are not (yet) implemented."""
                 # MSS might have a maximum size because of window size
                 # specification
                 if pers[0][0] == 'S':
-                    maxmss = (2**16-1) / int(pers[0][1:])
+                    maxmss = (2**16-1) // int(pers[0][1:])
                 else:
                     maxmss = (2**16-1)
                 # disregard hint if out of range
@@ -421,7 +421,7 @@ Some specifications of the p0f.fp file are not (yet) implemented."""
                         options.append(('MSS', mss_hint))
                     else:
                         options.append((
-                            'MSS', coef*random.randint(1, maxmss/coef)))
+                            'MSS', coef*random.randint(1, maxmss//coef)))
                 else:
                     options.append(('MSS', int(opt[1:])))
             elif opt[0] == 'W':
@@ -438,7 +438,7 @@ Some specifications of the p0f.fp file are not (yet) implemented."""
                         options.append(('WScale', wscale_hint))
                     else:
                         options.append((
-                            'WScale', coef*RandNum(min=1, max=(2**8-1)/coef)))
+                            'WScale', coef*RandNum(min=1, max=(2**8-1)//coef)))
                 else:
                     options.append(('WScale', int(opt[1:])))
             elif opt == 'T0':
@@ -494,7 +494,7 @@ Some specifications of the p0f.fp file are not (yet) implemented."""
         pkt.payload.window = int(pers[0])
     elif pers[0][0] == '%':
         coef = int(pers[0][1:])
-        pkt.payload.window = coef * RandNum(min=1,max=(2**16-1)/coef)
+        pkt.payload.window = coef * RandNum(min=1, max=(2**16-1)//coef)
     elif pers[0][0] == 'T':
         pkt.payload.window = mtu * int(pers[0][1:])
     elif pers[0][0] == 'S':
@@ -502,7 +502,7 @@ Some specifications of the p0f.fp file are not (yet) implemented."""
         mss = [x for x in options if x[0] == 'MSS']
         if not mss:
             raise Scapy_Exception("TCP window value requires MSS, and MSS option not set")
-        pkt.payload.window = filter(lambda x: x[0] == 'MSS', options)[0][1] * int(pers[0][1:])
+        pkt.payload.window = mss[0][1] * int(pers[0][1:])
     else:
         raise Scapy_Exception('Unhandled window size specification')
     
@@ -524,7 +524,7 @@ Some specifications of the p0f.fp file are not (yet) implemented."""
                 if db == p0fo_kdb:
                     pkt.payload.flags |= 0x20 # U
                 else:
-                    pkt.payload.flags |= RandChoice(8, 32, 40) #P / U / PU
+                    pkt.payload.flags |= random.choice([8, 32, 40])  # P/U/PU
             elif qq == 'D' and db != p0fo_kdb:
                 pkt /= conf.raw_layer(load=RandString(random.randint(1, 10))) # XXX p0fo.fp
             elif qq == 'Q': pkt.payload.seq = pkt.payload.ack
