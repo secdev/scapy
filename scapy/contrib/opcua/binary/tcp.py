@@ -58,6 +58,7 @@ def isERR(p):
 
 
 class UaTcp(UaTypePacket):
+    __slots__ = []
     fields_desc = [PacketField("TcpMessageHeader", UaTcpMessageHeader(), UaTcpMessageHeader),
                    ConditionalField(PacketField("Message",
                                                 UaTcpErrorMessage(),

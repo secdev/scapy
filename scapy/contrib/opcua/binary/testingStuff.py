@@ -3,7 +3,7 @@
 import logging
 import sys
 
-from contrib.opcua.binary.networking import chunkify
+from contrib.opcua.binary.networking import chunkify, dechunkify, dechunkify_all
 
 root = logging.getLogger()
 root.setLevel(logging.DEBUG)
@@ -49,11 +49,19 @@ if __name__ == '__main__':
     msg = UaCreateSessionRequest()
     msg.ClientCertificate = UaByteString(data="A"*10000)
     test = UaSecureConversationSymmetric(Payload=UaMessage(Message=msg), connectionContext=connectionContext)
-    # test = UaSecureConversationSymmetric(Payload=UaMessage(Message=msg))
-    pkts = chunkify(test)
+    test2 = UaSecureConversationSymmetric(Payload=UaMessage(Message=msg))
+    test2.SequenceHeader.RequestId = 2
+    test2.SequenceHeader.SequenceNumber = 1
+    pkts = list(chunkify(test))
+    pkts += list(chunkify(test2))
     
-    for pkt in pkts:
-        print(bytes(pkt))
+    # for pkt in pkts:
+    #     print(bytes(pkt))
+    #     pkt.show2()
+    
+    dechunked = dechunkify_all(pkts)
+    
+    for pkt in dechunked:
         pkt.show2()
     
     # test.show()

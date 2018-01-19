@@ -8,6 +8,7 @@ If all OPC UA basic data types are needed load the uaTypes module
 import six
 
 from cryptography.exceptions import InvalidSignature
+
 from scapy.compat import raw
 from scapy.fields import ConditionalField, FieldListField
 from scapy.contrib.opcua.helpers import UaTypePacket, UaPacketField, ByteListField
@@ -179,7 +180,8 @@ class UaChunkedData(UaTypePacket):
     fields_desc = [ByteListField("Message", None, UaByteField("", None, True), count_from=_chunked_data_length)]
     
     def post_dissect(self, s):
-        UaMessage._chunks[self.underlayer.SequenceHeader.RequestId].append(self.underlayer)
+        requestId = self.underlayer.SequenceHeader.RequestId
+        UaMessage._chunks[requestId].append(self.underlayer)
         return s
 
 
@@ -231,7 +233,7 @@ class UaMessage(UaTypePacket):
 
 
 class UaSecureConversationAsymmetric(UaTcp):
-    __slots__ = ["original_decrypted"]
+    __slots__ = ["original_decrypted", "reassembled"]
     fields_desc = [
         UaPacketField("MessageHeader", UaSecureConversationMessageHeader(), UaSecureConversationMessageHeader),
         UaPacketField("SecurityHeader",
@@ -245,6 +247,24 @@ class UaSecureConversationAsymmetric(UaTcp):
     
     _logger = logging.getLogger(__name__)
     
+    def __init__(self, _pkt=b"", connectionContext=None, post_transform=None, _internal=0, _underlayer=None, **fields):
+        self.original_decrypted = None
+        self.reassembled = None
+        super(UaSecureConversationAsymmetric, self).__init__(_pkt, connectionContext, post_transform, _internal,
+                                                             _underlayer, **fields)
+
+    def copy(self):
+        pkt = super(UaSecureConversationAsymmetric, self).copy()
+        pkt.original_decrypted = self.original_decrypted
+        pkt.reassembled = self.reassembled
+        return pkt
+    
+    def clone_with(self, payload=None, **kargs):
+        pkt = super(UaSecureConversationAsymmetric, self).clone_with(payload, **kargs)
+        pkt.original_decrypted = self.original_decrypted
+        pkt.reassembled = self.reassembled
+        return pkt
+
     def _get_type_binary(self):
         if isinstance(self.SecurityHeader, UaAsymmetricAlgorithmSecurityHeader):
             typeBinary = b'OPN'
@@ -347,7 +367,14 @@ class UaSecureConversationAsymmetric(UaTcp):
         
         self.original_decrypted = s
         return s
-    
+
+    def post_dissection(self, pkt):
+        if self.MessageHeader.IsFinal == b'F':
+            from contrib.opcua.binary.networking import dechunkify
+            self.reassembled = dechunkify(UaMessage._chunks[self.SequenceHeader.RequestId])
+            del UaMessage._chunks[self.SequenceHeader.RequestId]
+        return pkt
+
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kwargs):
         return super(UaSecureConversationAsymmetric, cls).dispatch_hook(_pkt, args, kwargs)

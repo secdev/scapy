@@ -52,4 +52,47 @@ def chunkify(packet, maxChunkSize=2048):
 
 
 def dechunkify(packets):
-    pass
+    """
+    Reassembles the packets of one request. All supplied packets have to belong to the same request
+    :param packets:
+    :return:
+    """
+    if not packets:
+        return None
+    
+    carrier = copy.deepcopy(packets[0])
+    carrier.MessageHeader.IsFinal = b'F'
+    data = b''
+    requestId = carrier.SequenceHeader.RequestId
+    
+    for packet in packets:
+        assert (requestId == packet.SequenceHeader.RequestId)
+        data += packet.Payload.Message
+    
+    carrier.Payload = UaMessage(data)
+    return carrier
+
+
+def dechunkify_all(packets):
+    """
+    Tries to reassemble all supplied packets. The packet list may contain chunks from different requests.
+    The reassembled packets are sorted by sequence number.
+    :param packets:
+    :return:
+    """
+    
+    requests = defaultdict(list)
+    
+    for packet in packets:
+        requestId = packet.SequenceHeader.RequestId
+        
+        if requestId not in requests:
+            requests[requestId].append([])
+        requests[requestId][-1].append(packet)
+        if packet.MessageHeader.IsFinal == b'F':
+            requests[requestId].append([])
+    
+    dechunked = [dechunkify(plist) for request in requests.values() for plist in request if plist]
+    dechunked.sort(key=lambda pkt: pkt.SequenceHeader.SequenceNumber if pkt.SequenceHeader.SequenceNumber else 0)
+    
+    return dechunked
