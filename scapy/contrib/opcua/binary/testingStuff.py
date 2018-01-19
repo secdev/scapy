@@ -48,8 +48,8 @@ if __name__ == '__main__':
     # test = UaSecureConversationAsymmetric()
     msg = UaCreateSessionRequest()
     msg.ClientCertificate = UaByteString(data="A"*10000)
-    # test = UaSecureConversationSymmetric(Payload=UaMessage(Message=msg), connectionContext=connectionContext)
-    test = UaSecureConversationSymmetric(Payload=UaMessage(Message=msg))
+    test = UaSecureConversationSymmetric(Payload=UaMessage(Message=msg), connectionContext=connectionContext)
+    # test = UaSecureConversationSymmetric(Payload=UaMessage(Message=msg))
     pkts = chunkify(test)
     
     for pkt in pkts:

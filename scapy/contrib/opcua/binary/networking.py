@@ -12,13 +12,13 @@ def max_body_size(crypto, max_chunk_size, headerSize, sequenceHeaderSize):
     return max_plain_size - sequenceHeaderSize - crypto.signature_size() - crypto.min_padding_size()
 
 
-def chunkify(packet, maxMessageSize=2048):
+def chunkify(packet, maxChunkSize=2048):
     if not isinstance(packet, UaSecureConversationSymmetric):
         raise TypeError("Invalid type to chunkify: {} "
                         "Only UaSecureConversationSymmetric can be chunked".format(type(packet)))
     
     if packet.connectionContext is not None and packet.connectionContext.localBufferSizes.maxMessageSize is not None:
-        maxMessageSize = packet.connectionContext.localBufferSizes.maxMessageSize
+        maxChunkSize = packet.connectionContext.localBufferSizes.sendBufferSize
     
     # Create carrier prototype which will be used for all chunks
     carrier = copy.deepcopy(packet)
@@ -31,24 +31,24 @@ def chunkify(packet, maxMessageSize=2048):
         crypto = packet.connectionContext.securityPolicy.symmetric_cryptography
     except AttributeError:
         crypto = CryptographyNone()
-    maxBodySize = max_body_size(crypto, maxMessageSize, headerSize, sequenceHeaderSize)
+    maxBodySize = max_body_size(crypto, maxChunkSize, headerSize, sequenceHeaderSize)
     
-    chunks = []
     data = bytes(packet.Payload)
     while len(data) > maxBodySize:
         pkt = copy.deepcopy(carrier)
         pkt.Payload.Message = data[:maxBodySize]
-        chunks.append(pkt)
         data = data[maxBodySize:]
         if carrier.SequenceHeader.SequenceNumber is not None:
             carrier.SequenceHeader.SequenceNumber += 1
+        if not data:
+            pkt.MessageHeader.IsFinal = b'F'
+        yield pkt
+    
     if data:
         pkt = copy.deepcopy(carrier)
         pkt.Payload.Message = data
-        chunks.append(pkt)
-    
-    chunks[-1].MessageHeader.IsFinal = b'F'
-    return chunks
+        pkt.MessageHeader.IsFinal = b'F'
+        yield pkt
 
 
 def dechunkify(packets):

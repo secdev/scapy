@@ -18,6 +18,7 @@ from scapy.contrib.opcua.binary.schemaTypes import UaOpenSecureChannelRequest, U
     UaCloseSecureChannelResponse, nodeIdMappings, UaMessageSecurityMode
 import hashlib
 import logging
+from collections import defaultdict
 
 
 class UaSecureConversationMessageHeader(UaTypePacket):
@@ -176,6 +177,10 @@ def _chunked_data_length(pkt):
 
 class UaChunkedData(UaTypePacket):
     fields_desc = [ByteListField("Message", None, UaByteField("", None, True), count_from=_chunked_data_length)]
+    
+    def post_dissect(self, s):
+        UaMessage._chunks[self.underlayer.SequenceHeader.RequestId].append(self.underlayer)
+        return s
 
 
 class UaMessage(UaTypePacket):
@@ -184,6 +189,7 @@ class UaMessage(UaTypePacket):
     
     _cache = {}
     _intermediate = UaChunkedData
+    _chunks = defaultdict(list)
     
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kwargs):
@@ -191,6 +197,9 @@ class UaMessage(UaTypePacket):
             if "_underlayer" in kwargs:
                 underlayer = kwargs["_underlayer"]
                 if underlayer.MessageHeader.IsFinal == b'C':
+                    return UaMessage._intermediate
+                if underlayer.SequenceHeader.RequestId in UaMessage._chunks:
+                    # TODO: assemble whole message and delete _chunks entry
                     return UaMessage._intermediate
             nodeId = UaExpandedNodeId(_pkt)
             
