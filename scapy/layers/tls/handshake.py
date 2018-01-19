@@ -608,7 +608,7 @@ class TLSCertificate(_TLSHandshake):
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         if _pkt:
             tls_session = kargs.get("tls_session", None)
-            if tls_session and tls_session.tls_version >= 0x0304:
+            if tls_session and (tls_session.tls_version or 0) >= 0x0304:
                 return TLS13Certificate
         return TLSCertificate
 

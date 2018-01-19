@@ -19,6 +19,7 @@ In order to run a server listening on tcp/4433:
 from __future__ import print_function
 import socket
 
+from scapy.pton_ntop import inet_pton
 from scapy.utils import randstring, repr_hex
 from scapy.automaton import ATMT
 from scapy.layers.tls.automaton import _TLSAutomaton
@@ -69,9 +70,9 @@ class TLSServerAutomaton(_TLSAutomaton):
                                                    **kargs)
         try:
             if ':' in server:
-                socket.inet_pton(socket.AF_INET6, server)
+                inet_pton(socket.AF_INET6, server)
             else:
-                socket.inet_pton(socket.AF_INET, server)
+                inet_pton(socket.AF_INET, server)
             tmp = socket.getaddrinfo(server, sport)
         except:
             tmp = socket.getaddrinfo(socket.getfqdn(server), sport)

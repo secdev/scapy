@@ -120,7 +120,7 @@ class SigValField(StrLenField):
         s = pkt.tls_session
         if s.tls_version and s.tls_version < 0x0300:
             if len(s.client_certs) > 0:
-                sig_len = s.client_certs[0].pubKey.pubkey.key_size / 8
+                sig_len = s.client_certs[0].pubKey.pubkey.key_size // 8
             else:
                 warning("No client certificate provided. "
                         "We're making a wild guess about the signature size.")
@@ -219,7 +219,7 @@ class _TLSSignatureField(PacketField):
         i = self.m2i(pkt, s)
         if i is None:
             return s, None
-        remain = ""
+        remain = b""
         if conf.padding_layer in i:
             r = i[conf.padding_layer]
             del(r.underlayer.payload)
@@ -307,12 +307,12 @@ class ServerDHParams(_GenericTLSSessionInheritance):
         default_params = _ffdh_groups['modp2048'][0].parameter_numbers()
         default_mLen = _ffdh_groups['modp2048'][1]
 
-        if self.dh_p is "":
-            self.dh_p = pkcs_i2osp(default_params.p, default_mLen/8)
+        if not self.dh_p:
+            self.dh_p = pkcs_i2osp(default_params.p, default_mLen//8)
         if self.dh_plen is None:
             self.dh_plen = len(self.dh_p)
 
-        if self.dh_g is "":
+        if not self.dh_g:
             self.dh_g = pkcs_i2osp(default_params.g, 1)
         if self.dh_glen is None:
             self.dh_glen = 1
@@ -321,11 +321,11 @@ class ServerDHParams(_GenericTLSSessionInheritance):
         g = pkcs_os2ip(self.dh_g)
         real_params = dh.DHParameterNumbers(p, g).parameters(default_backend())
 
-        if self.dh_Ys is "":
+        if not self.dh_Ys:
             s.server_kx_privkey = real_params.generate_private_key()
             pubkey = s.server_kx_privkey.public_key()
             y = pubkey.public_numbers().y
-            self.dh_Ys = pkcs_i2osp(y, pubkey.key_size/8)
+            self.dh_Ys = pkcs_i2osp(y, pubkey.key_size//8)
         # else, we assume that the user wrote the server_kx_privkey by himself
         if self.dh_Yslen is None:
             self.dh_Yslen = len(self.dh_Ys)
@@ -642,13 +642,13 @@ class ServerRSAParams(_GenericTLSSessionInheritance):
         self.tls_session.server_tmp_rsa_key = k
         pubNum = k.pubkey.public_numbers()
 
-        if self.rsamod is "":
-            self.rsamod = pkcs_i2osp(pubNum.n, k.pubkey.key_size/8)
+        if not self.rsamod:
+            self.rsamod = pkcs_i2osp(pubNum.n, k.pubkey.key_size//8)
         if self.rsamodlen is None:
             self.rsamodlen = len(self.rsamod)
 
         rsaexplen = math.ceil(math.log(pubNum.e)/math.log(2)/8.)
-        if self.rsaexp is "":
+        if not self.rsaexp:
             self.rsaexp = pkcs_i2osp(pubNum.e, rsaexplen)
         if self.rsaexplen is None:
             self.rsaexplen = len(self.rsaexp)
@@ -722,7 +722,7 @@ class ClientDiffieHellmanPublic(_GenericTLSSessionInheritance):
         s.client_kx_privkey = params.generate_private_key()
         pubkey = s.client_kx_privkey.public_key()
         y = pubkey.public_numbers().y
-        self.dh_Yc = pkcs_i2osp(y, pubkey.key_size/8)
+        self.dh_Yc = pkcs_i2osp(y, pubkey.key_size//8)
 
         if s.client_kx_privkey and s.server_kx_pubkey:
             pms = s.client_kx_privkey.exchange(s.server_kx_pubkey)
@@ -730,7 +730,7 @@ class ClientDiffieHellmanPublic(_GenericTLSSessionInheritance):
             s.compute_ms_and_derive_keys()
 
     def post_build(self, pkt, pay):
-        if self.dh_Yc == "":
+        if not self.dh_Yc:
             try:
                 self.fill_missing()
             except ImportError:
@@ -782,8 +782,8 @@ class ClientECDiffieHellmanPublic(_GenericTLSSessionInheritance):
         x = pubkey.public_numbers().x
         y = pubkey.public_numbers().y
         self.ecdh_Yc = (b"\x04" +
-                        pkcs_i2osp(x, params.key_size/8) +
-                        pkcs_i2osp(y, params.key_size/8))
+                        pkcs_i2osp(x, params.key_size//8) +
+                        pkcs_i2osp(y, params.key_size//8))
 
         if s.client_kx_privkey and s.server_kx_pubkey:
             pms = s.client_kx_privkey.exchange(ec.ECDH(), s.server_kx_pubkey)
@@ -791,7 +791,7 @@ class ClientECDiffieHellmanPublic(_GenericTLSSessionInheritance):
             s.compute_ms_and_derive_keys()
 
     def post_build(self, pkt, pay):
-        if self.ecdh_Yc == "":
+        if not self.ecdh_Yc:
             try:
                 self.fill_missing()
             except ImportError:

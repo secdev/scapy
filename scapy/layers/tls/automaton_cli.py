@@ -20,6 +20,7 @@ In order to run a client to tcp/50000 with one cipher suite of your choice:
 from __future__ import print_function
 import socket
 
+from scapy.pton_ntop import inet_pton
 from scapy.utils import randstring
 from scapy.automaton import ATMT
 from scapy.layers.tls.automaton import _TLSAutomaton
@@ -70,9 +71,9 @@ class TLSClientAutomaton(_TLSAutomaton):
         self.remote_name = None
         try:
             if ':' in server:
-                socket.inet_pton(socket.AF_INET6, server)
+                inet_pton(socket.AF_INET6, server)
             else:
-                socket.inet_pton(socket.AF_INET, server)
+                inet_pton(socket.AF_INET, server)
         except:
             self.remote_name = socket.getfqdn(server)
             if self.remote_name != server:

@@ -51,7 +51,7 @@ class _BlockCipher(six.with_metaclass(_BlockCipherMetaclass, object)):
             else:
                 l = self.key_len
             key = b"\0" * l
-        if iv is None or iv == "":
+        if not iv:
             self.ready["iv"] = False
             iv = b"\0" * self.block_size
 
