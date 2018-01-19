@@ -44,7 +44,7 @@ class _BlockCipher(six.with_metaclass(_BlockCipherMetaclass, object)):
 
     def __init__(self, key=None, iv=None):
         self.ready = {"key": True, "iv": True}
-        if not key:
+        if key is None:
             self.ready["key"] = False
             if hasattr(self, "expanded_key_len"):
                 l = self.expanded_key_len

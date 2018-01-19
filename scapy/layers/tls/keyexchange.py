@@ -163,7 +163,7 @@ class _TLSSignature(_GenericTLSSessionInheritance):
         Note that, even when 'sig_alg' is not None, we use the signature scheme
         of the PrivKey (neither do we care to compare the both of them).
         """
-        if not self.sig_alg:
+        if self.sig_alg is None:
             if self.tls_session.tls_version >= 0x0300:
                 self.sig_val = key.sign(m, t='pkcs', h='md5-sha1')
             else:
@@ -248,7 +248,7 @@ class _TLSServerParamsField(PacketField):
         l = self.length_from(pkt)
         if s.prcs:
             cls = s.prcs.key_exchange.server_kx_msg_cls(m)
-            if not cls:
+            if cls is None:
                 return None, Raw(m[:l])/Padding(m[l:])
             return cls(m, tls_session=s)
         else:
@@ -309,12 +309,12 @@ class ServerDHParams(_GenericTLSSessionInheritance):
 
         if not self.dh_p:
             self.dh_p = pkcs_i2osp(default_params.p, default_mLen//8)
-        if not self.dh_plen:
+        if self.dh_plen is None:
             self.dh_plen = len(self.dh_p)
 
         if not self.dh_g:
             self.dh_g = pkcs_i2osp(default_params.g, 1)
-        if not self.dh_glen:
+        if self.dh_glen is None:
             self.dh_glen = 1
 
         p = pkcs_os2ip(self.dh_p)
@@ -327,7 +327,7 @@ class ServerDHParams(_GenericTLSSessionInheritance):
             y = pubkey.public_numbers().y
             self.dh_Ys = pkcs_i2osp(y, pubkey.key_size//8)
         # else, we assume that the user wrote the server_kx_privkey by himself
-        if not self.dh_Yslen:
+        if self.dh_Yslen is None:
             self.dh_Yslen = len(self.dh_Ys)
 
         if not s.client_kx_ffdh_params:
@@ -479,7 +479,7 @@ class ServerECDHExplicitPrimeParams(_GenericTLSSessionInheritance):
         Note that if it is not set by the user, the cofactor will always
         be 1. It is true for most, but not all, TLS elliptic curves.
         """
-        if not self.curve_type:
+        if self.curve_type is None:
             self.curve_type = _tls_ec_curve_types["explicit_prime"]
 
     def guess_payload_class(self, p):
@@ -511,7 +511,7 @@ class ServerECDHExplicitChar2Params(_GenericTLSSessionInheritance):
                                 length_from = lambda pkt: pkt.pointlen) ]
 
     def fill_missing(self):
-        if not self.curve_type:
+        if self.curve_type is None:
             self.curve_type = _tls_ec_curve_types["explicit_char2"]
 
     def guess_payload_class(self, p):
@@ -538,10 +538,10 @@ class ServerECDHNamedCurveParams(_GenericTLSSessionInheritance):
         """
         s = self.tls_session
 
-        if not self.curve_type:
+        if self.curve_type is None:
             self.curve_type = _tls_ec_curve_types["named_curve"]
 
-        if not self.named_curve:
+        if self.named_curve is None:
             curve = ec.SECP256R1()
             s.server_kx_privkey = ec.generate_private_key(curve,
                                                           default_backend())
@@ -553,12 +553,12 @@ class ServerECDHNamedCurveParams(_GenericTLSSessionInheritance):
             self.named_curve = curve_id
         else:
             curve_name = _tls_named_curves.get(self.named_curve)
-            if not curve_name:
+            if curve_name is None:
                 # this fallback is arguable
                 curve = ec.SECP256R1()
             else:
                 curve_cls = ec._CURVE_TYPES.get(curve_name)
-                if not curve_cls:
+                if curve_cls is None:
                     # this fallback is arguable
                     curve = ec.SECP256R1()
                 else:
@@ -566,11 +566,11 @@ class ServerECDHNamedCurveParams(_GenericTLSSessionInheritance):
             s.server_kx_privkey = ec.generate_private_key(curve,
                                                           default_backend())
 
-        if not self.point:
+        if self.point is None:
             pubkey = s.server_kx_privkey.public_key()
             self.point = pubkey.public_numbers().encode_point()
         # else, we assume that the user wrote the server_kx_privkey by himself
-        if not self.pointlen:
+        if self.pointlen is None:
             self.pointlen = len(self.point)
 
         if not s.client_kx_ecdh_params:
@@ -644,13 +644,13 @@ class ServerRSAParams(_GenericTLSSessionInheritance):
 
         if not self.rsamod:
             self.rsamod = pkcs_i2osp(pubNum.n, k.pubkey.key_size//8)
-        if not self.rsamodlen:
+        if self.rsamodlen is None:
             self.rsamodlen = len(self.rsamod)
 
         rsaexplen = math.ceil(math.log(pubNum.e)/math.log(2)/8.)
         if not self.rsaexp:
             self.rsaexp = pkcs_i2osp(pubNum.e, rsaexplen)
-        if not self.rsaexplen:
+        if self.rsaexplen is None:
             self.rsaexplen = len(self.rsaexp)
 
     @crypto_validator
@@ -735,7 +735,7 @@ class ClientDiffieHellmanPublic(_GenericTLSSessionInheritance):
                 self.fill_missing()
             except ImportError:
                 pass
-        if not self.dh_Yclen:
+        if self.dh_Yclen is None:
             self.dh_Yclen = len(self.dh_Yc)
         return pkcs_i2osp(self.dh_Yclen, 2) + self.dh_Yc + pay
 
@@ -796,7 +796,7 @@ class ClientECDiffieHellmanPublic(_GenericTLSSessionInheritance):
                 self.fill_missing()
             except ImportError:
                 pass
-        if not self.ecdh_Yclen:
+        if self.ecdh_Yclen is None:
             self.ecdh_Yclen = len(self.ecdh_Yc)
         return pkcs_i2osp(self.ecdh_Yclen, 1) + self.ecdh_Yc + pay
 
@@ -841,7 +841,7 @@ class EncryptedPreMasterSecret(_GenericTLSSessionInheritance):
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         if 'tls_session' in kargs:
             s = kargs['tls_session']
-            if not s.server_tmp_rsa_key and not s.server_rsa_key:
+            if s.server_tmp_rsa_key is None and s.server_rsa_key is None:
                 return _UnEncryptedPreMasterSecret
         return EncryptedPreMasterSecret
 
@@ -857,11 +857,11 @@ class EncryptedPreMasterSecret(_GenericTLSSessionInheritance):
                 warning(err)
             else:
                 tbd = m[2:]
-        if s.server_tmp_rsa_key:
+        if s.server_tmp_rsa_key is not None:
             # priority is given to the tmp_key, if there is one
             decrypted = s.server_tmp_rsa_key.decrypt(tbd)
             pms = decrypted[-48:]
-        elif s.server_rsa_key:
+        elif s.server_rsa_key is not None:
             decrypted = s.server_rsa_key.decrypt(tbd)
             pms = decrypted[-48:]
         else:
@@ -888,9 +888,9 @@ class EncryptedPreMasterSecret(_GenericTLSSessionInheritance):
         s.pre_master_secret = enc
         s.compute_ms_and_derive_keys()
 
-        if s.server_tmp_rsa_key:
+        if s.server_tmp_rsa_key is not None:
             enc = s.server_tmp_rsa_key.encrypt(pkt, t="pkcs")
-        elif s.server_certs and len(s.server_certs) > 0:
+        elif s.server_certs is not None and len(s.server_certs) > 0:
             enc = s.server_certs[0].encrypt(pkt, t="pkcs")
         else:
             warning("No material to encrypt Pre Master Secret")
