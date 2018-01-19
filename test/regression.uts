@@ -238,6 +238,20 @@ assert interact_emulator()  # Default
 assert not interact_emulator(extra_args=["-?"])  # Failing
 assert interact_emulator(extra_args=["-d"])  # Extended
 
+= Test load_contrib function
+
+path = os.path.join(os.path.dirname(scapy.__file__), "contrib", "debugmodule.py")
+_f = open(path, "wb")
+_f.write(b"""# Debug module used during load_contrib tests
+DEBUGMODULEDATA = True
+""")
+_f.close()
+load_contrib("debug*")
+
+assert DEBUGMODULEDATA == True
+
+os.remove(path)
+
 = Test sane function
 sane("A\x00\xFFB") == "A..B"
 
