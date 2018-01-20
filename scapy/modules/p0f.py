@@ -17,6 +17,7 @@ import random
 
 from scapy.data import KnowledgeBase
 from scapy.config import conf
+from scapy.compat import raw
 from scapy.layers.inet import IP, TCP, TCPOptions
 from scapy.packet import NoPayload, Packet
 from scapy.error import warning, Scapy_Exception, log_runtime
@@ -83,10 +84,16 @@ class p0fKnowledgeBase(KnowledgeBase):
             self.base = None
         f.close()
 
-p0f_kdb = p0fKnowledgeBase(conf.p0f_base)
-p0fa_kdb = p0fKnowledgeBase(conf.p0fa_base)
-p0fr_kdb = p0fKnowledgeBase(conf.p0fr_base)
-p0fo_kdb = p0fKnowledgeBase(conf.p0fo_base)
+p0f_kdb, p0fa_kdb, p0fr_kdb, p0fo_kdb = None, None, None, None
+
+def p0f_load_knowledgebases():
+    global p0f_kdb, p0fa_kdb, p0fr_kdb, p0fo_kdb
+    p0f_kdb = p0fKnowledgeBase(conf.p0f_base)
+    p0fa_kdb = p0fKnowledgeBase(conf.p0fa_base)
+    p0fr_kdb = p0fKnowledgeBase(conf.p0fr_base)
+    p0fo_kdb = p0fKnowledgeBase(conf.p0fo_base)
+
+p0f_load_knowledgebases()
 
 def p0f_selectdb(flags):
     # tested flags: S, R, A
@@ -107,7 +114,7 @@ def p0f_selectdb(flags):
 
 def packet2p0f(pkt):
     pkt = pkt.copy()
-    pkt = pkt.__class__(str(pkt))
+    pkt = pkt.__class__(raw(pkt))
     while pkt.haslayer(IP) and pkt.haslayer(TCP):
         pkt = pkt.getlayer(IP)
         if isinstance(pkt.payload, TCP):
@@ -127,7 +134,6 @@ def packet2p0f(pkt):
     #ttl=t[t.index(pkt.ttl)+1]
     ttl = pkt.ttl
     
-    df = (pkt.flags & 2) / 2
     ss = len(pkt)
     # from p0f/config.h : PACKET_BIG = 100
     if ss > 100:
@@ -243,7 +249,7 @@ def packet2p0f(pkt):
     if qq == "":
         qq = "."
 
-    return (db, (win, ttl, df, ss, ooo, qq))
+    return (db, (win, ttl, pkt.flags.DF, ss, ooo, qq))
 
 def p0f_correl(x,y):
     d = 0
@@ -297,6 +303,7 @@ p0f(packet) -> accuracy, [list of guesses]
     return r
 
 def prnp0f(pkt):
+    """Calls p0f and returns a user-friendly output"""
     # we should print which DB we use
     try:
         r = p0f(pkt)
@@ -351,7 +358,7 @@ specified (as a tuple), we use the signature.
 For now, only TCP Syn packets are supported.
 Some specifications of the p0f.fp file are not (yet) implemented."""
     pkt = pkt.copy()
-    #pkt = pkt.__class__(str(pkt))
+    #pkt = pkt.__class__(raw(pkt))
     while pkt.haslayer(IP) and pkt.haslayer(TCP):
         pkt = pkt.getlayer(IP)
         if isinstance(pkt.payload, TCP):
