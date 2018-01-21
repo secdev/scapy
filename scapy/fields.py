@@ -1474,3 +1474,15 @@ class UTCTimeField(IntField):
         return "%s (%d)" % (t, x)
     def i2m(self, pkt, x):
         return int(x) if x != None else 0
+
+class SecondsIntField(IntField):
+    __slots__ = ["epoch", "delta", "strf", "use_msec"]
+    def __init__(self, name, default, use_msec=False):
+        IntField.__init__(self, name, default)
+        self.use_msec = use_msec
+    def i2repr(self, pkt, x):
+        if x is None:
+            x = 0
+        elif self.use_msec:
+            x = x/1e3
+        return "%s sec" % x

@@ -256,21 +256,57 @@ NetflowV9TemplateFieldDefaultLengths = {
         79: 3,
     }
 
-NetflowV9TemplateFieldDecoders = {
-        8: IPField,
-        12: IPField,
-        15: IPField,
-        18: IPField,
-        27: IP6Field,
-        28: IP6Field,
-        29: IP6Field,
-        30: IP6Field,
-        31: IP6Field,
-        56: MACField,
-        57: MACField,
-        62: IP6Field,
-        63: IP6Field,
-        64: IP6Field,
+# NetflowV9 Ready-made fields
+
+class ShortOrInt(IntField):
+    def getfield(self, pkt, x):
+        if len(x) == 2:
+            Field.__init__(self, self.name, self.default, fmt="!H")
+        return Field.getfield(self, pkt, x)
+
+NetflowV9TemplateFieldDecoders = {  # Only contains fields that have a fixed length
+        4: (ByteEnumField, [IP_PROTOS]),  # PROTOCOL
+        5: XByteField,  # TOS
+        6: ByteField,  # TCP_FLAGS
+        7: ShortField,  # L4_SRC_PORT
+        8: IPField,  # IPV4_SRC_ADDR
+        9: ByteField,  # SRC_MASK
+        11: ShortField,  # L4_DST_PORT
+        12: IPField,  # IPV4_DST_PORT
+        13: ByteField,  # DST_MASK
+        15: IPField,  # IPv4_NEXT_HOP
+        16: ShortOrInt,  # SRC_AS
+        17: ShortOrInt,  # DST_AS
+        18: IPField,  # BGP_IPv4_NEXT_HOP
+        21: (SecondsIntField, [True]),  # LAST_SWITCHED
+        22: (SecondsIntField, [True]),  # FIRST_SWITCHED
+        27: IP6Field,  # IPV6_SRC_ADDR
+        28: IP6Field,  # IPV6_DST_ADDR
+        29: ByteField,  # IPV6_SRC_MASK
+        30: ByteField,  # IPV6_DST_MASK
+        31: ThreeBytesField,  # IPV6_FLOW_LABEL
+        32: XShortField,  # ICMP_TYPE
+        33: ByteField,  # MUL_IGMP_TYPE
+        34: LongField,  # SAMPLING_INTERVAL
+        35: XByteField,  # SAMPLING_ALGORITHM
+        36: ShortField,  # FLOW_ACTIVE_TIMEOUT
+        37: ShortField,  # FLOW_ACTIVE_TIMEOUT
+        38: ByteField,  # ENGINE_TYPE
+        39: ByteField,  # ENGINE_ID
+        46: (ByteEnumField, [{ 0x00: "UNKNOWN", 0x01: "TE-MIDPT", 0x02: "ATOM", 0x03: "VPN", 0x04: "BGP", 0x05: "LDP" }]),  # MPLS_TOP_LABEL_TYPE
+        47: IPField,  # MPLS_TOP_LABEL_IP_ADDR
+        48: ByteField,  # FLOW_SAMPLER_ID
+        49: ByteField,  # FLOW_SAMPLER_MODE
+        50: LongField,  # FLOW_SAMPLER_RANDOM_INTERVAL
+        55: XByteField,  # DST_TOS
+        56: MACField,  # SRC_MAC
+        57: MACField,  # DST_MAC
+        58: ShortField,  # SRC_VLAN
+        59: ShortField,  # DST_VLAN
+        60: ByteField,  # IP_PROTOCOL_VERSION
+        61: (ByteEnumField, [{ 0x00: "Ingress flow", 0x01: "Egress flow" }]),  # DIRECTION
+        62: IP6Field,  # IPV6_NEXT_HOP
+        63: IP6Field,  # BGP_IPV6_NEXT_HOP
     }
 
 class NetflowHeaderV9(Packet):
@@ -317,9 +353,10 @@ class _CustomStrFixedLenField(StrFixedLenField):
 def _GenNetflowRecordV9(cls, lengths_list):
     _fields_desc = []
     for j,k in lengths_list:
-        _f_type = NetflowV9TemplateFieldDecoders.get(k, None)
+        _f_data = NetflowV9TemplateFieldDecoders.get(k, None)
+        _f_type, _f_args = (_f_data) if isinstance(_f_data, tuple) else (_f_data, [])
         if _f_type:
-            _fields_desc.append(_f_type(NetflowV9TemplateFieldTypes.get(k, "unknown_data"), b""))
+            _fields_desc.append(_f_type(NetflowV9TemplateFieldTypes.get(k, "unknown_data"), 0, *_f_args))
         else:
             _fields_desc.append(_CustomStrFixedLenField(NetflowV9TemplateFieldTypes.get(k, "unknown_data"), b"", length=j))
     class NetflowRecordV9I(cls):

@@ -5490,7 +5490,7 @@ assert len(nfv9_fl.templates[0].template_fields) == 21
 nfv9_ds = a[61]
 assert NetflowDataflowsetV9 in nfv9_ds
 assert len(nfv9_ds[NetflowDataflowsetV9].records) == 24
-assert nfv9_ds[NetflowDataflowsetV9].records[21].IP_PROTOCOL_VERSION == b'\x04'
+assert nfv9_ds[NetflowDataflowsetV9].records[21].IP_PROTOCOL_VERSION == 4
 assert nfv9_ds.records[21].IPV4_SRC_ADDR == '20.0.0.248'
 assert nfv9_ds.records[21].IPV4_DST_ADDR == '30.0.0.248'
 
