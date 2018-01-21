@@ -853,14 +853,13 @@ def _get_metrics(ipv6=False):
     _buffer = []
     _pattern = re.compile(".*:\s+(\d+)")
     for _line in stdout:
-        if not _line.strip():
-            continue
-        _buffer.append(_line)
-        if len(_buffer) == 32:  # An interface, with all its parameters, is 32 lines long
+        if not _line.strip() and len(_buffer) > 0:
             if_index = re.search(_pattern, _buffer[3]).group(1)
             if_metric = int(re.search(_pattern, _buffer[5]).group(1))
             res[if_index] = if_metric
             _buffer = []
+        else:
+            _buffer.append(_line)
     return res
 
 def _read_routes_post2008():
