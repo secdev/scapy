@@ -193,6 +193,81 @@ InterfaceMetric   :
 
 test_missing_ifacemetric()
 
+= Test _get_metrics with weird netsh length
+
+from scapy.arch.windows import _get_metrics
+
+@mock.patch("scapy.arch.windows.POWERSHELL_PROCESS.query")
+def test_get_metrics(mock_exec_query):
+    exc_query_output = """Interface Loopback Pseudo-Interface 1 Parameters
+-------------------------------
+IfLuid : loopback_0
+IfIndex : 1
+State : connected
+Metric : 75
+Link MTU : 4294967295 byt
+Reachable Time : 40500 ms
+Base Reachable Time : 30000 ms
+Retransmission Interval : 1000 ms
+DAD Transmits : 0
+Site Prefix Length : 64
+Site Id : 1
+Forwarding : disabled
+Advertising : disabled
+Neighbor Discovery : disabled
+Neighbor Unreachability Detection : disabled
+Router Discovery : dhcp
+Managed Address Configuration : enabled
+Other Stateful Configuration : enabled
+Weak Host Sends : disabled
+Weak Host Receives : disabled
+Use Automatic Metric : enabled
+Ignore Default Routes : disabled
+Advertised Router Lifetime : 1800 seconds
+Advertise Default Route : disabled
+Current Hop Limit : 0
+Force ARPND Wake up patterns : disabled
+Directed MAC Wake up patterns : disabled
+ECN capability : application
+
+Interface Wi-Fi Parameters
+-------------------------------
+IfLuid : wireless_32768
+IfIndex : 7
+State : connected
+Metric : 55
+Link MTU : 1500 bytes
+Reachable Time : 43500 ms
+Base Reachable Time : 30000 ms
+Retransmission Interval : 1000 ms
+DAD Transmits : 3
+Site Prefix Length : 64
+Site Id : 1
+Forwarding : disabled
+Advertising : disabled
+Neighbor Discovery : enabled
+Neighbor Unreachability Detection : enabled
+Router Discovery : dhcp
+Managed Address Configuration : enabled
+Other Stateful Configuration : enabled
+Weak Host Sends : disabled
+Weak Host Receives : disabled
+Use Automatic Metric : enabled
+Ignore Default Routes : disabled
+Advertised Router Lifetime : 1800 seconds
+Advertise Default Route : disabled
+Current Hop Limit : 0
+Force ARPND Wake up patterns : disabled
+Directed MAC Wake up patterns : disabled
+ECN capability : application
+"""
+    mock_exec_query.side_effect = lambda *args, **kargs: exc_query_output.split("\n")
+    metrics = _get_metrics()
+    print(metrics)
+    assert metrics == {'1': 75, '7': 55}
+
+test_get_metrics()
+
 ############
 ############
 + Windows arch unit tests
