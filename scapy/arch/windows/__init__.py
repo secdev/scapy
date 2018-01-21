@@ -521,7 +521,8 @@ class NetworkInterface(object):
         Only available with Npcap."""
         # According to https://nmap.org/npcap/guide/npcap-devguide.html#npcap-feature-dot11
         self._check_npcap_requirement()
-        return sp.Popen([_WlanHelper, self.guid[1:-1], "channel"], stdout=sp.PIPE).communicate()[0].strip().strip()
+        return sp.Popen([_WlanHelper, self.guid[1:-1], "channel"],
+                        stdout=sp.PIPE).communicate()[0].strip()
 
     def setchannel(self, channel):
         """Set the channel of the interface (1-14):
