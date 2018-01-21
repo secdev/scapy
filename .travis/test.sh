@@ -71,7 +71,7 @@ if [ "$SCAPY_COVERAGE" = "yes" ]
 then
   echo '#!/bin/bash' > test/python
   echo "[ \"\$*\" = \"--version\" ] && echo \"`python --version`\" && exit 0" >> test/python
-  echo "`which coverage` run --concurrency=multiprocessing -a \$*" >> test/python
+  echo "`which coverage` run --rcfile=../.coveragerc --concurrency=multiprocessing -a \$*" >> test/python
   chmod +x test/python
 
   # Copy the fake Python interpreter to bypass /etc/sudoers rules on Ubuntu
