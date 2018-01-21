@@ -16,4 +16,3 @@ pkt = backboneEther/backboneDot1Q/backboneServiceID/customerEther/customerDot1Q/
 pkt = Ether(raw(pkt))
 assert SPBM in pkt
 assert pkt[SPBM].payload.payload.payload.src == '10.100.11.10'
-
