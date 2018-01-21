@@ -391,12 +391,10 @@ def netflowv9_defragment(plist):
     """Process all NetflowV9 Packets to match IDs of the DataFlowsets with the Headers.
     plist: the list of mixed NetflowV9 packets."""
     # We need the whole packet to be dissected to access field def in NetflowFlowsetV9 or NetflowOptionsFlowsetV9
-    packet_list = plist.filter(lambda x: x.haslayer(NetflowFlowsetV9) or x.haslayer(NetflowOptionsFlowsetV9))
+    packet_list = [pkt for pkt in plist if (NetflowFlowsetV9 in pkt or NetflowOptionsFlowsetV9 in pkt)]
     # Iterate through initial list
-    for pkt in plist:
+    for pkt in (x for x in plist if NetflowDataflowsetV9 in x):
         root = pkt.firstlayer()
-        if not NetflowDataflowsetV9 in root: # Restrict to NetflowDataflowsetV9
-            continue
         # Get all linked NetflowFlowsetV9
         for p in packet_list:
             if NetflowFlowsetV9 in p: ## STEP 1 - NetflowFlowsetV9
@@ -405,11 +403,14 @@ def netflowv9_defragment(plist):
                     current_ftl = root.getlayer(NetflowDataflowsetV9, templateID=ntv9.templateID)
                     if current_ftl:
                         # Matched
-                        if len(current_ftl.records) < 0 or (not hasattr(current_ftl.records[0], "fieldValue")):
-                            # not necessary
+                        try:
+                            assert(len(current_ftl.records) > 0)
+                            # All data is stored in one record, awaiting to be splitted
+                            data = current_ftl.records[0].fieldValue
+                            # If fieldValue is available, the record has not been defragmented: pop it
+                            current_ftl.records.pop(0)
+                        except (AssertionError, AttributeError):
                             continue
-                        # All data is stored in one record, awaiting to be splitted
-                        data = current_ftl.records.pop(0).fieldValue
                         res = []
                         # Now, according to the NetflowFlowsetV9 data, re-dissect NetflowDataflowsetV9
                         lengths_list = []
@@ -430,11 +431,12 @@ def netflowv9_defragment(plist):
                 current_ftl = root.getlayer(NetflowDataflowsetV9, templateID=current.templateID)
                 if current_ftl:
                     # Matched
-                    if len(current_ftl.records) < 0 or (not hasattr(current_ftl.records[0], "fieldValue")):
-                        # not necessary
+                    try:
+                        assert(len(current_ftl.records) > 0)
+                        # All data is stored in one record, awaiting to be splitted
+                        data = current_ftl.records.pop(0).fieldValue
+                    except (AssertionError, AttributeError):
                         continue
-                    # All data is stored in one record, awaiting to be splitted
-                    data = current_ftl.records.pop(0).fieldValue
                     res = []
                     # Now, according to the NetflowOptionsFlowsetV9 data, re-dissect NetflowDataflowsetV9
                     ## A - Decode scopes
