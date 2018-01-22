@@ -426,14 +426,14 @@ class UaLocalizedText(UaBuiltin):
 class UaStatusCodeField(UaUInt32Field):
     
     def i2h(self, pkt, x):
-        from contrib.opcua.binary.schemaTypes import statusCodes
+        from scapy.contrib.opcua.binary.schemaTypes import statusCodes
         if x is None:
             return None
         return statusCodes[x][0]
 
     def any2i(self, pkt, x):
         if isinstance(x, str):
-            from contrib.opcua.binary.schemaTypes import UaStatusCodes
+            from scapy.contrib.opcua.binary.schemaTypes import UaStatusCodes
             return getattr(UaStatusCodes, x)
         return super(UaStatusCodeField, self).any2i(pkt, x)
 

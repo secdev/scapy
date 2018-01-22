@@ -1,7 +1,7 @@
 # coding=utf-8
 import copy
 
-from contrib.opcua.crypto.securityPolicies import CryptographyNone
+from scapy.contrib.opcua.crypto.securityPolicies import CryptographyNone
 from scapy.contrib.opcua.binary.tcp import *
 from scapy.contrib.opcua.binary.secureConversation import *
 

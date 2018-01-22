@@ -4,8 +4,9 @@ For SecureConversation messages refer to secureConversation.py
 
 If all OPC UA basic data types are needed load the uaTypes module
 """
-from scapy.contrib.opcua.binary.builtinTypes import *
-from scapy.contrib.opcua.helpers import *
+from scapy.contrib.opcua.binary.builtinTypes import UaUInt32Field, UaByteField, UaBytesField, UaString
+from scapy.contrib.opcua.helpers import UaTypePacket, UaPacketField
+from scapy.fields import ConditionalField
 
 
 class UaTcpMessageHeader(UaTypePacket):
@@ -20,7 +21,7 @@ class UaTcpHelloMessage(UaTypePacket):
                    UaUInt32Field("SendBufferSize", 1 << 12),
                    UaUInt32Field("MaxMessageSize", 1 << 12),
                    UaUInt32Field("MaxChunkCount", 1),
-                   PacketField("EndpointUrl", UaString(), UaString)]
+                   UaPacketField("EndpointUrl", UaString(), UaString)]
 
 
 class UaTcpAcknowledgeMessage(UaTypePacket):
@@ -33,7 +34,7 @@ class UaTcpAcknowledgeMessage(UaTypePacket):
 
 class UaTcpErrorMessage(UaTypePacket):
     fields_desc = [UaUInt32Field("Error", 0),
-                   PacketField("Reason", UaString(), UaString)]
+                   UaPacketField("Reason", UaString(), UaString)]
 
 
 def isHEL(p):
@@ -59,30 +60,30 @@ def isERR(p):
 
 class UaTcp(UaTypePacket):
     __slots__ = []
-    fields_desc = [PacketField("TcpMessageHeader", UaTcpMessageHeader(), UaTcpMessageHeader),
-                   ConditionalField(PacketField("Message",
-                                                UaTcpErrorMessage(),
-                                                UaTcpErrorMessage),
+    fields_desc = [UaPacketField("TcpMessageHeader", UaTcpMessageHeader(), UaTcpMessageHeader),
+                   ConditionalField(UaPacketField("Message",
+                                                  UaTcpErrorMessage(),
+                                                  UaTcpErrorMessage),
                                     isERR),
-                   ConditionalField(PacketField("Message",
-                                                UaTcpAcknowledgeMessage(),
-                                                UaTcpAcknowledgeMessage),
+                   ConditionalField(UaPacketField("Message",
+                                                  UaTcpAcknowledgeMessage(),
+                                                  UaTcpAcknowledgeMessage),
                                     isACK),
-                   ConditionalField(PacketField("Message",
-                                                UaTcpHelloMessage(),
-                                                UaTcpHelloMessage),
+                   ConditionalField(UaPacketField("Message",
+                                                  UaTcpHelloMessage(),
+                                                  UaTcpHelloMessage),
                                     isHEL)
                    ]
-
+    
     message_types = [b'HEL', b'ACK', b'ERR']
-
+    
     def post_build(self, pkt, pay):
         messageTypeField, messageType = self.TcpMessageHeader.getfield_and_val("MessageType")
         messageSizeField, messageSize = self.TcpMessageHeader.getfield_and_val("MessageSize")
-
+        
         typeBinary = pkt[:messageTypeField.sz]
         restString = pkt[messageTypeField.sz:]
-
+        
         if messageType is None:
             if isinstance(self.Message, UaTcpHelloMessage):
                 typeBinary = b'HEL'
@@ -92,16 +93,16 @@ class UaTcp(UaTypePacket):
                 typeBinary = b'ERR'
             else:
                 typeBinary = b'\x00\x00\x00'
-
+        
         completePkt = typeBinary + restString + pay
-
+        
         if messageSize is None:
             messageSize = len(completePkt)
-
+        
         return messageSizeField.addfield(completePkt,
                                          completePkt[:len(self.TcpMessageHeader)][:-messageSizeField.sz],
                                          messageSize) + completePkt[len(self.TcpMessageHeader):]
-
+    
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         """
@@ -109,13 +110,13 @@ class UaTcp(UaTypePacket):
         """
         if _pkt is None:
             return cls
-
+        
         messageTypeField = UaBytesField("", None, 3)
-
+        
         rest, val = messageTypeField.getfield(None, _pkt)
         from scapy.contrib.opcua.binary.secureConversation import UaSecureConversationAsymmetric, \
             UaSecureConversationSymmetric
-
+        
         val = bytes(bytearray(val))
         if val in UaSecureConversationAsymmetric.message_types:
             return UaSecureConversationAsymmetric
@@ -123,5 +124,5 @@ class UaTcp(UaTypePacket):
             return UaSecureConversationSymmetric
         elif val in cls.message_types:
             return cls
-
+        
         return cls

@@ -1,7 +1,7 @@
 # coding=utf-8
 import socket
 
-from contrib.opcua.binary.networking import chunkify
+from scapy.contrib.opcua.binary.networking import chunkify
 from scapy.contrib.opcua.binary.automaton import _UaAutomaton
 from scapy.contrib.opcua.crypto.securityPolicies import SecurityPolicyBasic128Rsa15
 from scapy.contrib.opcua.crypto.uacrypto import load_certificate, load_private_key, create_nonce

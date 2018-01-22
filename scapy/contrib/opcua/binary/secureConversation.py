@@ -201,7 +201,6 @@ class UaMessage(UaTypePacket):
                 if underlayer.MessageHeader.IsFinal == b'C':
                     return UaMessage._intermediate
                 if underlayer.SequenceHeader.RequestId in UaMessage._chunks:
-                    # TODO: assemble whole message and delete _chunks entry
                     return UaMessage._intermediate
             nodeId = UaExpandedNodeId(_pkt)
             
@@ -370,7 +369,7 @@ class UaSecureConversationAsymmetric(UaTcp):
 
     def post_dissection(self, pkt):
         if self.MessageHeader.IsFinal == b'F':
-            from contrib.opcua.binary.networking import dechunkify
+            from scapy.contrib.opcua.binary.networking import dechunkify
             self.reassembled = dechunkify(UaMessage._chunks[self.SequenceHeader.RequestId])
             del UaMessage._chunks[self.SequenceHeader.RequestId]
         return pkt
