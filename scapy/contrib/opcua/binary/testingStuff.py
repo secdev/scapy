@@ -1,26 +1,30 @@
 # coding=utf-8
 
-# import logging
-# import sys
-#
-#
-# root = logging.getLogger()
-# root.setLevel(logging.DEBUG)
-# ch = logging.StreamHandler(sys.stdout)
-# ch.setLevel(logging.DEBUG)
-# formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-# ch.setFormatter(formatter)
-# root.addHandler(ch)
+import logging
+import sys
 
+from scapy.main import interact
+
+root = logging.getLogger()
+root.setLevel(logging.DEBUG)
+ch = logging.StreamHandler(sys.stdout)
+ch.setLevel(logging.DEBUG)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+ch.setFormatter(formatter)
+root.addHandler(ch)
+
+from scapy.contrib.opcua.binary.tcpClientAutomaton import UaTcpClient
 from scapy.config import conf
+
 conf.debug_dissector = True
 # from scapy.contrib.opcua.binary.bindings import *
 import scapy.contrib.opcua.binary.bindings
-from scapy.layers.inet import rdpcap
-# from scapy.contrib.opcua.binary.uaTypes import *
+from scapy.layers.inet import rdpcap, TCP_client
+
+
+from scapy.contrib.opcua.binary.uaTypes import *
 # from scapy.contrib.opcua.crypto.securityPolicies import *
 # from scapy.contrib.opcua.crypto.uacrypto import *
-
 
 
 def read_pcap():
@@ -28,8 +32,11 @@ def read_pcap():
     return pc
 
 
+client = UaTcpClient(debug=5)
+opn = UaSecureConversationAsymmetric()
+opn.Payload.Message.SecurityMode = 1
+
 if __name__ == '__main__':
-    
     # server_cert = load_certificate("../crypto/server_cert.der")
     # server_pk = load_private_key("../crypto/server_key.pem")
     # server_cert = load_certificate("../crypto/server_cert4096.der")
@@ -42,9 +49,8 @@ if __name__ == '__main__':
     # connectionContext = UaConnectionContext()
     # connectionContext.securityPolicy = policy
     
-    pc = read_pcap()
-    
-    pc[23].show()
+    # pc = read_pcap()
+    # pc[23].show()
     
     # policy = SecurityPolicy()
     
@@ -54,23 +60,15 @@ if __name__ == '__main__':
     # msg.ClientCertificate = UaByteString(data="A"*10000)
     # test = UaSecureConversationSymmetric(Payload=UaMessage(Message=msg), connectionContext=connectionContext)
     # test2 = UaSecureConversationSymmetric(Payload=UaMessage(Message=msg))
-    # test2.SequenceHeader.RequestId = 2
-    # test2.SequenceHeader.SequenceNumber = 1
-    # pkts = list(chunkify(test))
-    # pkts += list(chunkify(test2))
-    
-    # for pkt in pkts:
-    #     print(bytes(pkt))
-    #     pkt.show2()
-    
-    # dechunked = dechunkify_all(pkts)
-    #
-    # for pkt in dechunked:
-    #     pkt.show2()
     
     # test.show()
     # test.show2()
     
     # print(bytes(test))
-    # client = UaClient(securityPolicy=policy)
+    
     # client.run()
+    s = client.uatcplink(UaTcp)
+    s.send(opn)
+    s.recv().show()
+
+    # interact(globals())

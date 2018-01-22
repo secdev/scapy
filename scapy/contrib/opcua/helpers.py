@@ -13,7 +13,7 @@ class BufferSizes(object):
         self.maxMessageSize = None
         self.receiveBufferSize = None
         self.sendBufferSize = None
-        self.maxChunks = None
+        self.maxChunkCount = None
 
 
 class UaConnectionContext(object):
@@ -33,6 +33,7 @@ class UaConnectionContext(object):
         self.sendSequenceNumber = 0
         self.receiveSequenceNumber = 0
         self.decodeRemote = False
+        self.protocolVersion = None
         self.localBufferSizes = BufferSizes()
         self.remoteBufferSizes = BufferSizes()
 

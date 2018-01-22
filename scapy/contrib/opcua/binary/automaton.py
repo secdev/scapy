@@ -74,8 +74,12 @@ class _UaAutomaton(Automaton):
             self.lock.release()
             raise self.START()
         data = bytes(pkt)
-        print("Sent packet: ")
-        pkt.show2()
+        # print("Sent packet: ")
+        # from scapy.packet import Packet
+        # if isinstance(pkt, Packet):
+        #     pkt.show2()
+        # else:
+        #     print(pkt)
         sent = 0
         try:
             while sent < len(data):
