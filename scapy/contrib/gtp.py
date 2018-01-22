@@ -864,7 +864,6 @@ class GTPmorethan1500(Packet):
 
 # Bind GTP-C
 bind_layers(UDP, GTPHeader, dport = 2123)
-bind_layers(UDP, GTPHeader, sport = 2123)
 bind_layers(GTPHeader, GTPEchoRequest, gtp_type=1, S=1)
 bind_layers(GTPHeader, GTPEchoResponse, gtp_type=2, S=1)
 bind_layers(GTPHeader, GTPCreatePDPContextRequest, gtp_type=16)
@@ -880,7 +879,6 @@ bind_layers(GTPHeader, GTP_PDCP_PDU_ExtensionHeader, next_ex=192, E=1)
 
 # Bind GTP-U
 bind_layers(UDP, GTP_U_Header, dport = 2152)
-bind_layers(UDP, GTP_U_Header, sport = 2152)
 bind_layers(GTP_U_Header, GTPErrorIndication, gtp_type=26, S=1)
 bind_layers(GTP_U_Header, IP, gtp_type = 255)
 
