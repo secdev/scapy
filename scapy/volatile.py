@@ -281,7 +281,12 @@ class RandString(RandField):
 
 class RandBin(RandString):
     def __init__(self, size=None):
-        RandString.__init__(self, size, "".join(map(chr, range(256))))
+        RandString.__init__(self, size, b"".join(map(chb, range(256))))
+    def _fix(self):
+        s = b""
+        for _ in range(self.size):
+            s += chb(random.choice(self.chars))
+        return s
 
 
 class RandTermString(RandString):
