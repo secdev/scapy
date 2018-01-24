@@ -279,9 +279,9 @@ class RandString(RandField):
     def __mul__(self, n):
         return self._fix()*n
 
-class RandBin(RandString):
+class RandBin(RandString, object):
     def __init__(self, size=None):
-        RandString.__init__(self, size, b"".join(map(chb, range(256))))
+        super(RandBin, self).__init__(size=size, chars=b"".join(chb(c) for c in range(256)))
     def _fix(self):
         s = b""
         for _ in range(self.size):

@@ -26,7 +26,7 @@ import socket
 
 from scapy.packet import *
 from scapy.fields import *
-from scapy.layers.x509 import ASN1F_X509_SubjectPublicKeyInfoRSA
+from scapy.layers.x509 import X509_SubjectPublicKeyInfo
 from scapy.layers.inet6 import icmp6ndoptscls, _ICMPv6NDGuessPayload
 
 class ICMPv6NDOptNonce(_ICMPv6NDGuessPayload, Packet):

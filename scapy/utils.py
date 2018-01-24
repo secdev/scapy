@@ -852,12 +852,7 @@ class RawPcapReader(six.with_metaclass(PcapReader_metaclass)):
         res=[]
         while count != 0:
             count -= 1
-            try:
-                p = self.read_packet()
-            except:
-                if conf.debug_dissector:
-                    warning("read_packet failed on packet %s", len(res))
-                raise
+            p = self.read_packet()
             if p is None:
                 break
             res.append(p)
