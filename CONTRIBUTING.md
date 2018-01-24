@@ -80,7 +80,7 @@ guidelines for new code.
 
 Please consider adding tests for your new features or that trigger the
 bug you are fixing. This will prevent a regression from being
-unnoticed.
+unnoticed. Do not use the variable `_`  in your tests, as it could break them.
 
 ### New protocols
 
