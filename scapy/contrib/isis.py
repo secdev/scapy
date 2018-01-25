@@ -262,19 +262,29 @@ class ISIS_GenericSubTlv(_ISIS_GenericTlv_Base):
 ##  ISIS Sub-TLVs for TLVs 22, 23, 141, 222, 223                     ##
 #######################################################################
 _isis_subtlv_classes_1 = {
+    3:  "ISIS_AdministrativeGroupSubTlv",
     4:  "ISIS_LinkLocalRemoteIdentifiersSubTlv",
     6:  "ISIS_IPv4InterfaceAddressSubTlv",
     8:  "ISIS_IPv4NeighborAddressSubTlv",
+    9:  "ISIS_MaxLinkBWSubTlv",
+    10: "ISIS_MaxReservLinkBWSubTlv",
+    11: "ISIS_UnreservBWSubTlv",
     12: "ISIS_IPv6InterfaceAddressSubTlv",
-    13: "ISIS_IPv6NeighborAddressSubTlv"
+    13: "ISIS_IPv6NeighborAddressSubTlv",
+    18: "ISIS_TEDefaultMetricSubTlv"
 }
 
 _isis_subtlv_names_1 = {
+    3:  "Administrative Group",
     4:  "Link Local/Remote Identifiers",
     6:  "IPv4 Interface Address",
     8:  "IPv4 Neighbor Address",
+    9:  "Maximum Link Bandwidth",
+    10: "Maximum Reservable Link Bandwidth",
+    11: "Unreserved Bandwidth",
     12: "IPv6 Interface Address",
-    13: "IPv6 Neighbor Address"
+    13: "IPv6 Neighbor Address",
+    18: "TE Default Metric"
 }
 
 
@@ -316,6 +326,40 @@ class ISIS_IPv6NeighborAddressSubTlv(ISIS_GenericSubTlv):
     fields_desc = [ByteEnumField("type", 13, _isis_subtlv_names_1),
                    FieldLenField("len", None, length_of= "address", fmt="B"),
                    IP6Field("address", "::")]
+
+class ISIS_AdministrativeGroupSubTlv(ISIS_GenericSubTlv):
+    name = "Administrative Group SubTLV"
+    fields_desc = [
+        ByteEnumField("code", 3, _isis_subtlv_names_1),
+        FieldLenField("len", None, length_of="admingroup", fmt="B"),
+        IPField("admingroup", "0.0.0.1")]
+
+#maxbw value needs to be in BYTES per second
+class ISIS_MaxLinkBWSubTlv(ISIS_GenericSubTlv):
+        name = "Maximum Link Bandwidth SubTLV"
+        fields_desc = [ByteEnumField("type", 9, _isis_subtlv_names_1),
+                   FieldLenField("len", None, length_of= "maxbw", fmt="B"),
+                   IEEEFloatField("maxbw", 1000)]
+
+#maxrsvbw value needs to be in BYTES per second
+class ISIS_MaxReservLinkBWSubTlv(ISIS_GenericSubTlv):
+	name = "Maximum Reservable Link Bandwidth SubTLV"
+    	fields_desc = [ByteEnumField("type", 10, _isis_subtlv_names_1),
+                   FieldLenField("len", None, length_of= "maxrsvbw", fmt="B"),
+                   IEEEFloatField("maxrsvbw", 1000)]
+
+#value needs to be in BYTES per second
+class ISIS_UnreservBWSubTlv(ISIS_GenericSubTlv):
+	name = "Unreserved Bandwidth SubTLV"
+    	fields_desc = [ByteEnumField("type", 11, _isis_subtlv_names_1),
+                   FieldLenField("len", None, length_of= "unrsvbw", fmt="B"),
+                   FieldListField("unrsvbw", [1000,1000,1000,1000,1000,1000,1000,1000], IEEEFloatField("", 1000), count_from= lambda pkt: pkt.len / 4 )]
+
+class ISIS_TEDefaultMetricSubTlv(ISIS_GenericSubTlv):
+        name = "TE Default Metric SubTLV"
+        fields_desc = [ByteEnumField("type", 18, _isis_subtlv_names_1),
+                   FieldLenField("len", None, length_of= "temetric", adjust=lambda pkt,x:x-1, fmt="B"),
+                   ThreeBytesField("temetric", 1000)]
 
 
 #######################################################################
@@ -485,6 +529,12 @@ class ISIS_ExtendedIpPrefix(Packet):
     def extract_padding(self, s):
         return "", s
 
+
+class ISIS_TERouterIDTlv(ISIS_GenericTlv):
+    name = "ISIS TE Router ID TLV"
+    fields_desc = [ByteEnumField("type", 134, _isis_tlv_names),
+                   FieldLenField("len", None, length_of= "routerid", fmt="B"),
+                   IPField("routerid", "0.0.0.0")]
  
 class ISIS_ExtendedIpReachabilityTlv(ISIS_GenericTlv):
     name = "ISIS Extended IP Reachability TLV"
