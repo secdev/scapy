@@ -1079,6 +1079,7 @@ del(dns_ans2[UDP].len)
 del(dns_ans2[UDP].chksum)
 assert(b"\x03www\x06secdev\x03org\x00" in raw(dns_ans2))
 assert(DNS in IP(raw(dns_ans2)))
+assert raw(DNSRR(type='A', rdata='1.2.3.4')) == b'\x00\x00\x01\x00\x01\x00\x00\x00\x00\x00\x04\x01\x02\x03\x04'
 
 = Arping
 ~ netaccess
