@@ -266,16 +266,16 @@ _isis_subtlv_classes_1 = {
     4:  "ISIS_LinkLocalRemoteIdentifiersSubTlv",
     6:  "ISIS_IPv4InterfaceAddressSubTlv",
     8:  "ISIS_IPv4NeighborAddressSubTlv",
-    9:  "ISIS_MaxLinkBWSubTlv",
-    10: "ISIS_MaxReservLinkBWSubTlv",
-    11: "ISIS_UnreservBWSubTlv",
+    9:  "ISIS_MaximumLinkBandwidthSubTlv",
+    10: "ISIS_MaximumReservableLinkBandwidthSubTlv",
+    11: "ISIS_UnreservedBandwidthSubTlv",
     12: "ISIS_IPv6InterfaceAddressSubTlv",
     13: "ISIS_IPv6NeighborAddressSubTlv",
     18: "ISIS_TEDefaultMetricSubTlv"
 }
 
 _isis_subtlv_names_1 = {
-    3:  "Administrative Group",
+    3:  "Administrative Group (Color)",
     4:  "Link Local/Remote Identifiers",
     6:  "IPv4 Interface Address",
     8:  "IPv4 Neighbor Address",
@@ -328,28 +328,28 @@ class ISIS_IPv6NeighborAddressSubTlv(ISIS_GenericSubTlv):
                    IP6Field("address", "::")]
 
 class ISIS_AdministrativeGroupSubTlv(ISIS_GenericSubTlv):
-    name = "Administrative Group SubTLV"
+    name = "Administrative Group SubTLV (Color)"
     fields_desc = [
         ByteEnumField("code", 3, _isis_subtlv_names_1),
         FieldLenField("len", None, length_of="admingroup", fmt="B"),
         IPField("admingroup", "0.0.0.1")]
 
 #maxbw value needs to be in BYTES per second
-class ISIS_MaxLinkBWSubTlv(ISIS_GenericSubTlv):
+class ISIS_MaximumLinkBandwidthSubTlv(ISIS_GenericSubTlv):
         name = "Maximum Link Bandwidth SubTLV"
         fields_desc = [ByteEnumField("type", 9, _isis_subtlv_names_1),
                    FieldLenField("len", None, length_of= "maxbw", fmt="B"),
                    IEEEFloatField("maxbw", 1000)]
 
 #maxrsvbw value needs to be in BYTES per second
-class ISIS_MaxReservLinkBWSubTlv(ISIS_GenericSubTlv):
+class ISIS_MaximumReservableLinkBandwidthSubTlv(ISIS_GenericSubTlv):
 	name = "Maximum Reservable Link Bandwidth SubTLV"
     	fields_desc = [ByteEnumField("type", 10, _isis_subtlv_names_1),
                    FieldLenField("len", None, length_of= "maxrsvbw", fmt="B"),
                    IEEEFloatField("maxrsvbw", 1000)]
 
 #value needs to be in BYTES per second
-class ISIS_UnreservBWSubTlv(ISIS_GenericSubTlv):
+class ISIS_UnreservedBandwidthSubTlv(ISIS_GenericSubTlv):
 	name = "Unreserved Bandwidth SubTLV"
     	fields_desc = [ByteEnumField("type", 11, _isis_subtlv_names_1),
                    FieldLenField("len", None, length_of= "unrsvbw", fmt="B"),
