@@ -173,6 +173,9 @@ def _chunked_data_length(pkt):
             paddingSize = int(pkt.original[-signatureSize - 1])  # TODO: calculate correctly for keys > 2048 bit
             reduceBy += paddingSize + 1  # no padding bytes and no PaddingSize byte
     
+    if reduceBy == 0:
+        return len(pkt.original)
+    
     return len(pkt.original[:-reduceBy])
 
 

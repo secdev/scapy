@@ -17,8 +17,9 @@ def chunkify(packet, maxChunkSize=2048):
         raise TypeError("Invalid type to chunkify: {} "
                         "Only UaSecureConversationSymmetric can be chunked".format(type(packet)))
     
-    if packet.connectionContext is not None and packet.connectionContext.localBufferSizes.maxMessageSize is not None:
-        maxChunkSize = packet.connectionContext.localBufferSizes.sendBufferSize
+    if packet.connectionContext is not None \
+            and packet.connectionContext.remoteBufferSizes.receiveBufferSize is not None:
+        maxChunkSize = packet.connectionContext.remoteBufferSizes.receiveBufferSize
     
     # Create carrier prototype which will be used for all chunks
     carrier = copy.deepcopy(packet)

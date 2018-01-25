@@ -19,8 +19,8 @@ class UaTcpHelloMessage(UaTypePacket):
     fields_desc = [UaUInt32Field("ProtocolVersion", 0),
                    UaUInt32Field("ReceiveBufferSize", 1 << 12),
                    UaUInt32Field("SendBufferSize", 1 << 12),
-                   UaUInt32Field("MaxMessageSize", 1 << 12),
-                   UaUInt32Field("MaxChunkCount", 1),
+                   UaUInt32Field("MaxMessageSize", 1 << 14),
+                   UaUInt32Field("MaxChunkCount", 0),
                    UaPacketField("EndpointUrl", UaString(), UaString)]
 
     def post_build(self, pkt, pay):
@@ -28,6 +28,8 @@ class UaTcpHelloMessage(UaTypePacket):
         if self.connectionContext is not None:
             # Just build completely new packet, since we replace a lot
             newPkt = UaTcpHelloMessage()
+            
+            # TODO: only replace when defaults are used
             
             protocolVersion = self.connectionContext.protocolVersion
             if protocolVersion is not None:
