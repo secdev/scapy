@@ -329,35 +329,34 @@ class ISIS_IPv6NeighborAddressSubTlv(ISIS_GenericSubTlv):
 
 class ISIS_AdministrativeGroupSubTlv(ISIS_GenericSubTlv):
     name = "Administrative Group SubTLV (Color)"
-	fields_desc = [
-        ByteEnumField("code", 3, _isis_subtlv_names_1),
-        FieldLenField("len", None, length_of="admingroup", fmt="B"),
-        IPField("admingroup", "0.0.0.1")]
+    fields_desc = [ByteEnumField("code", 3, _isis_subtlv_names_1),
+                   FieldLenField("len", None, length_of="admingroup", fmt="B"),
+                   IPField("admingroup", "0.0.0.1")]
 
 #maxbw value needs to be in BYTES per second
 class ISIS_MaximumLinkBandwidthSubTlv(ISIS_GenericSubTlv):
-        name = "Maximum Link Bandwidth SubTLV"
-	fields_desc = [ByteEnumField("type", 9, _isis_subtlv_names_1),
+    name = "Maximum Link Bandwidth SubTLV"
+    fields_desc = [ByteEnumField("type", 9, _isis_subtlv_names_1),
                    FieldLenField("len", None, length_of= "maxbw", fmt="B"),
                    IEEEFloatField("maxbw", 1000)]
 
 #maxrsvbw value needs to be in BYTES per second
 class ISIS_MaximumReservableLinkBandwidthSubTlv(ISIS_GenericSubTlv):
-	name = "Maximum Reservable Link Bandwidth SubTLV"
-	fields_desc = [ByteEnumField("type", 10, _isis_subtlv_names_1),
+    name = "Maximum Reservable Link Bandwidth SubTLV"
+    fields_desc = [ByteEnumField("type", 10, _isis_subtlv_names_1),
                    FieldLenField("len", None, length_of= "maxrsvbw", fmt="B"),
                    IEEEFloatField("maxrsvbw", 1000)]
 
 #value needs to be in BYTES per second
 class ISIS_UnreservedBandwidthSubTlv(ISIS_GenericSubTlv):
-	name = "Unreserved Bandwidth SubTLV"
-	fields_desc = [ByteEnumField("type", 11, _isis_subtlv_names_1),
+    name = "Unreserved Bandwidth SubTLV"
+    fields_desc = [ByteEnumField("type", 11, _isis_subtlv_names_1),
                    FieldLenField("len", None, length_of= "unrsvbw", fmt="B"),
                    FieldListField("unrsvbw", [1000,1000,1000,1000,1000,1000,1000,1000], IEEEFloatField("", 1000), count_from= lambda pkt: pkt.len / 4 )]
 
 class ISIS_TEDefaultMetricSubTlv(ISIS_GenericSubTlv):
-        name = "TE Default Metric SubTLV"
-	fields_desc = [ByteEnumField("type", 18, _isis_subtlv_names_1),
+    name = "TE Default Metric SubTLV"
+    fields_desc = [ByteEnumField("type", 18, _isis_subtlv_names_1),
                    FieldLenField("len", None, length_of= "temetric", adjust=lambda pkt,x:x-1, fmt="B"),
                    ThreeBytesField("temetric", 1000)]
 
