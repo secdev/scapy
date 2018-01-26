@@ -85,8 +85,10 @@ mk_enc.decryptedkey is None
 
 = Reading SSLv2 session - Importing server compromised key
 import os
-basedir = os.path.abspath(os.path.join(os.path.dirname(__file__),"../"))
-rsa_key = PrivKeyRSA(basedir + '/test/tls/pki/srv_key.pem')
+tmp = "/test/tls/pki/srv_key.pem"
+filename = os.path.abspath(os.path.join(os.path.dirname(__file__),"../")) + tmp
+filename = os.getenv("SCAPY_ROOT_DIR")+tmp if not os.path.exists(filename) else filename
+rsa_key = PrivKeyRSA(filename)
 t.tls_session.server_rsa_key = rsa_key
 
 = Reading SSLv2 session - ClientMasterKey with compromised server key
