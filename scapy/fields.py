@@ -1476,7 +1476,7 @@ class UTCTimeField(IntField):
         return int(x) if x != None else 0
 
 class SecondsIntField(IntField):
-    __slots__ = ["epoch", "delta", "strf", "use_msec"]
+    __slots__ = ["use_msec"]
     def __init__(self, name, default, use_msec=False):
         IntField.__init__(self, name, default)
         self.use_msec = use_msec

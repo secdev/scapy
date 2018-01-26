@@ -7,6 +7,11 @@
 
 """
 Cisco NetFlow protocol v1, v5 and v9
+
+HowTo debug NetflowV9 packets:
+- get a list of packets containing NetflowV9 packets
+- call netflowv9_defragment(plist) to defragment the list
+Caution: this API might be updated
 """
 
 
