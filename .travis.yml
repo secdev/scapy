@@ -38,6 +38,11 @@ matrix:
           env:
             - SCAPY_COVERAGE=yes
 
+        - os: osx
+          language: generic
+          env:
+            - SCAPY_COVERAGE=yes SCAPY_PYTHON3=true
+
 #        - os: osx
 #          language: generic
 #          env:

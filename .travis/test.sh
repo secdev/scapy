@@ -1,3 +1,11 @@
+# Setup Python3 on osx
+if [ "$TRAVIS_OS_NAME" = "osx" ] && [ ! -z "$SCAPY_PYTHON3" ]
+then
+  python --version
+  alias python=python3
+  python --version
+fi
+
 # Report installed versions
 echo "### INSTALLED VERSIONS ###"
 python -c 'import sys; print("sys.path:" , sys.path)'
