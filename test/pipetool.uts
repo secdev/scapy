@@ -223,7 +223,7 @@ assert test_val == "hello"
 + Advanced ScapyPipes pipetools tests
 
 = Test SniffSource
-~ netaccess
+~ netaccess needs_root
 
 p = PipeEngine()
 
