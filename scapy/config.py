@@ -444,8 +444,7 @@ debug_tls:When 1, print some TLS session secrets when they are computed.
     stats_dot11_protocols = []
     temp_files = []
     netcache = NetCache()
-    geoip_city = '/usr/share/GeoIP/GeoIPCity.dat'
-    geoip_city_ipv6 = '/usr/share/GeoIP/GeoIPCityv6.dat'
+    geoip_city = None
     load_layers = ["l2", "inet", "dhcp", "dns", "dot11", "gprs",
                    "hsrp", "inet6", "ir", "isakmp", "l2tp", "mgcp",
                    "mobileip", "netbios", "netflow", "ntp", "ppp", "pptp",
