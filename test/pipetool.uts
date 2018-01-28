@@ -10,9 +10,13 @@ s = PeriodicSource("hello", 1, name="src")
 d1 = Drain(name="d1")
 c = ConsoleSink(name="c")
 tf = TransformDrain(lambda x: "Got %s" % x)
-t = TermSink(name="PipeToolsPeriodicTest", keepterm=False)
 s > d1 > c
-d1 > tf > t
+d1 > tf
+try:
+  t = TermSink(name="PipeToolsPeriodicTest", keepterm=False)
+  tf > t
+except FileNotFoundError:
+  pass
 
 p = PipeEngine(s)
 p.start()
