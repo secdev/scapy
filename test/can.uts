@@ -21,6 +21,12 @@ pkt = CAN(flags="error", identifier=1234, data="test")
 pkt = CAN(raw(pkt))
 pkt.flags == "error" and pkt.identifier == 1234 and pkt.length == 4 and pkt.data == b"test"
 
+= Check flags values
+
+pkt = CAN(flags="remote_transmission_request")
+pkt.flags == 0x2
+pkt = CAN(flags="extended")
+pkt.flags == 0x4
 
 ############
 ############

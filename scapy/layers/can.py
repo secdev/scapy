@@ -14,7 +14,8 @@ from scapy.config import conf
 from scapy.data import DLT_CAN_SOCKETCAN
 from scapy.fields import BitField, FieldLenField, FlagsField, StrLenField, \
     ThreeBytesField, XBitField
-from scapy.packet import Packet
+from scapy.packet import Packet, bind_layers
+from scapy.layers.l2 import CookedLinux
 
 
 class CAN(Packet):
@@ -23,14 +24,14 @@ class CAN(Packet):
 
     """
     fields_desc = [
-        FlagsField("flags", 0, 3, ["extended", "remote_transmission_request",
-                                   "error"]),
-        BitField("unknown", 0, 18),
-        XBitField("identifier", 0, 11),
-        FieldLenField("length", None, length_of="data", fmt="B"),
-        ThreeBytesField("reserved", 0),
-        StrLenField("data", "", length_from=lambda pkt: pkt.length),
+        FlagsField('flags', 0, 3, ['error', 'remote_transmission_request', 'extended']),
+        XBitField('identifier', 0, 29),
+        FieldLenField('length', None, length_of='data', fmt='B'),
+        ThreeBytesField('reserved', 0),
+        StrLenField('data', '', length_from=lambda pkt: pkt.length),
+        StrLenField('padding', '', length_from=lambda pkt: 8 - pkt.length),
     ]
 
 
 conf.l2types.register(DLT_CAN_SOCKETCAN, CAN)
+bind_layers(CookedLinux, CAN, proto=12)
