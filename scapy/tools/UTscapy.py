@@ -229,12 +229,21 @@ def parse_config_file(config_path, verb=3):
             print("### Loaded config file", config_path, file=sys.stderr)
     def get_if_exist(key, default):
         return data[key] if key in data else default
-    return Bunch(testfiles=get_if_exist("testfiles", []), onlyfailed=get_if_exist("onlyfailed", False),
-                 verb=get_if_exist("verb", 3), dump=get_if_exist("dump", 0), crc=get_if_exist("crc", 1),
-                 scapy=get_if_exist("scapy", "scapy"), preexec=get_if_exist("preexec", {}),
-                 global_preexec=get_if_exist("global_preexec", ""), outfile=get_if_exist("outputfile", sys.stdout),
-                 local=get_if_exist("local", 0), num=get_if_exist("num", None), modules=get_if_exist("modules", []),
-                 kw_ok=get_if_exist("kw_ok", []), kw_ko=get_if_exist("kw_ko", []), format=get_if_exist("format", "ansi"))
+    return Bunch(testfiles=get_if_exist("testfiles", []),
+                 remove_testfiles=get_if_exist("remove_testfiles", []),
+                 onlyfailed=get_if_exist("onlyfailed", False),
+                 verb=get_if_exist("verb", 3),
+                 dump=get_if_exist("dump", 0), crc=get_if_exist("crc", 1),
+                 scapy=get_if_exist("scapy", "scapy"),
+                 preexec=get_if_exist("preexec", {}),
+                 global_preexec=get_if_exist("global_preexec", ""),
+                 outfile=get_if_exist("outputfile", sys.stdout),
+                 local=get_if_exist("local", 0),
+                 num=get_if_exist("num", None),
+                 modules=get_if_exist("modules", []),
+                 kw_ok=get_if_exist("kw_ok", []),
+                 kw_ko=get_if_exist("kw_ko", []),
+                 format=get_if_exist("format", "ansi"))
 
 #### PARSE CAMPAIGN ####
 
@@ -749,6 +758,8 @@ def main(argv):
                 except KeyError as msg:
                     raise getopt.GetoptError("Unknown output format %s" % msg)
                 TESTFILES = resolve_testfiles(TESTFILES)
+                for testfile in resolve_testfiles(data.remove_testfiles):
+                    TESTFILES.remove(testfile)
             elif opt == "-o":
                 OUTPUTFILE = open(optarg, "wb")
             elif opt == "-l":
