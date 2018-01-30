@@ -462,10 +462,6 @@ if not Conf.ipv6_enabled:
     for m in ["inet6","dhcp6"]:
         if m in Conf.load_layers:
             Conf.load_layers.remove(m)
-    
-if not Conf.crypto_valid:
-    log_scapy.warning("Crypto-related methods disabled for IPsec, Dot11 "
-                      "and TLS layers (needs python-cryptography v1.7+).")
 
 conf=Conf()
 conf.logLevel=30 # 30=Warning

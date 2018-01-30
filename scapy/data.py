@@ -15,7 +15,7 @@ import time
 
 
 from scapy.dadict import DADict
-from scapy.consts import DARWIN, FREEBSD, NETBSD, OPENBSD
+from scapy.consts import DARWIN, FREEBSD, NETBSD, OPENBSD, WINDOWS
 from scapy.error import log_loading
 from scapy.compat import *
 
@@ -111,8 +111,6 @@ IPV6_ADDR_UNSPECIFIED = 0x10000
 EPOCH = time.mktime((1970, 1, 2, 0, 0, 0, 3, 1, 0))-86400
 
 MTU = 0xffff # a.k.a give me all you have
-
-WINDOWS=sys.platform.startswith("win")
 
  
 # file parsing to get some values :

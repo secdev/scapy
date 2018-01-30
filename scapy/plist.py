@@ -17,10 +17,10 @@ from scapy.config import conf
 from scapy.base_classes import BasePacket,BasePacketList
 from scapy.utils import do_graph,hexdump,make_table,make_lined_table,make_tex_table,get_temp_file
 
-from scapy.consts import plt, MATPLOTLIB_INLINED, MATPLOTLIB_DEFAULT_PLOT_KARGS
+from scapy.extlib import plt, MATPLOTLIB_INLINED, MATPLOTLIB_DEFAULT_PLOT_KARGS
 from functools import reduce
 import scapy.modules.six as six
-from scapy.modules.six.moves import filter, range, zip
+from scapy.modules.six.moves import range
 
 
 #############

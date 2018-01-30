@@ -11,8 +11,7 @@ from __future__ import absolute_import
 import socket
 
 from scapy.consts import LINUX, OPENBSD, FREEBSD, NETBSD, DARWIN, \
-    SOLARIS, WINDOWS, BSD, IS_64BITS, LOOPBACK_NAME, plt, MATPLOTLIB_INLINED, \
-    MATPLOTLIB_DEFAULT_PLOT_KARGS, PYX
+    SOLARIS, WINDOWS, BSD, IS_64BITS, LOOPBACK_NAME
 from scapy.error import *
 import scapy.config
 from scapy.pton_ntop import inet_pton
