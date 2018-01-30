@@ -45,8 +45,9 @@ conf.debug_dissector = True
 if WINDOWS:
     route_add_loopback()
 
-IP().src
-assert _ == "127.0.0.1"
+p = IP().src
+p
+assert p == "127.0.0.1"
 
 ############
 ############
@@ -307,8 +308,9 @@ test_hexdiff()
 
 = Test mysummary functions - Ether
 
-Ether(dst="ff:ff:ff:ff:ff:ff", src="ff:ff:ff:ff:ff:ff", type=0x9000)
-assert _.mysummary() in ['ff:ff:ff:ff:ff:ff > ff:ff:ff:ff:ff:ff (%s)' % loop
+p = Ether(dst="ff:ff:ff:ff:ff:ff", src="ff:ff:ff:ff:ff:ff", type=0x9000)
+p
+assert p.mysummary() in ['ff:ff:ff:ff:ff:ff > ff:ff:ff:ff:ff:ff (%s)' % loop
                          for loop in ['0x9000', 'LOOP']]
 
 = Test zerofree_randstring function
@@ -448,8 +450,9 @@ bind_layers(IP, ICMP, frag=0, proto=1)
 = fuzz
 ~ not_pypy random_weird_py3
 random.seed(0x2807)
-raw(fuzz(IP()/ICMP()))
-assert _ in [
+r = raw(fuzz(IP()/ICMP()))
+r
+assert r in [
     b'u\x14\x00\x1c\xc2\xf6\x80\x00\xde\x01k\xd3\x7f\x00\x00\x01\x7f\x00\x00\x01y\xc9>\xa6\x84\xd8\xc2\xb7',
     b'E\xa7\x00\x1c\xb0c\xc0\x00\xf6\x01U\xd3\x7f\x00\x00\x01\x7f\x00\x00\x01\xfex\xb3\x92B<\x0b\xb8',
 ]
@@ -480,30 +483,34 @@ a=3
 = Checking overloads
 ~ basic IP TCP Ether
 a=Ether()/IP()/TCP()
-a.proto
-_ == 6
+r = a.proto
+r
+r == 6
 
 
 = sprintf() function
 ~ basic sprintf Ether IP UDP NTP
 a=Ether()/IP()/IP(ttl=4)/UDP()/NTP()
-a.sprintf("%type% %IP.ttl% %#05xr,UDP.sport% %IP:2.ttl%")
-_ in [ '0x800 64 0x07b 4', 'IPv4 64 0x07b 4']
+r = a.sprintf("%type% %IP.ttl% %#05xr,UDP.sport% %IP:2.ttl%")
+r
+r in ['0x800 64 0x07b 4', 'IPv4 64 0x07b 4']
 
 
 = sprintf() function 
 ~ basic sprintf IP TCP SNAP LLC Dot11
 * This test is on the conditionnal substring feature of <tt>sprintf()</tt>
 a=Dot11()/LLC()/SNAP()/IP()/TCP()
-a.sprintf("{IP:{TCP:flags=%TCP.flags%}{UDP:port=%UDP.ports%} %IP.src%}")
-_ == 'flags=S 127.0.0.1'
+r = a.sprintf("{IP:{TCP:flags=%TCP.flags%}{UDP:port=%UDP.ports%} %IP.src%}")
+r
+r == 'flags=S 127.0.0.1'
 
 
 = haslayer function
 ~ basic haslayer IP TCP ICMP ISAKMP
 x=IP(id=1)/ISAKMP_payload_SA(prop=ISAKMP_payload_SA(prop=IP()/ICMP()))/TCP()
-TCP in x, ICMP in x, IP in x, UDP in x
-_ == (True,True,True,False)
+r = (TCP in x, ICMP in x, IP in x, UDP in x)
+r
+r == (True,True,True,False)
 
 = getlayer function
 ~ basic getlayer IP ISAKMP UDP
@@ -565,8 +572,7 @@ x=Ether()/IP(version=4)/UDP()
 y=Ether()/IP()/UDP(dport=4)
 z=Ether()/IP()/UDP()/NTP()
 t=Ether()/IP()/TCP()
-x==y, x==z, x==t, y==z, y==t, z==t, w==x
-_ == (False, False, False, False, False, False, True)
+assert x != y and x != z and x != t and y != z and y != t and z != t and w == x
 
 = answers
 ~ basic
@@ -628,22 +634,29 @@ assert not p1.answers(p2)
 + Tests on padding
 
 = Padding assembly
-raw(Padding("abc"))
-assert( _ == b"abc" )
-raw(Padding("abc")/Padding("def"))
-assert( _ == b"abcdef" )
-raw(Raw("ABC")/Padding("abc")/Padding("def"))
-assert( _ == b"ABCabcdef" )
-raw(Raw("ABC")/Padding("abc")/Raw("DEF")/Padding("def"))
-assert( _ == b"ABCDEFabcdef" )
+r = raw(Padding("abc"))
+r
+assert(r == b"abc" )
+r = raw(Padding("abc")/Padding("def"))
+r
+assert(r == b"abcdef" )
+r = raw(Raw("ABC")/Padding("abc")/Padding("def"))
+r
+assert(r == b"ABCabcdef" )
+r = raw(Raw("ABC")/Padding("abc")/Raw("DEF")/Padding("def"))
+r
+assert(r == b"ABCDEFabcdef")
 
 = Padding and length computation
-IP(raw(IP()/Padding("abc")))
-assert( _.len == 20 and len(_) == 23 )
-IP(raw(IP()/Raw("ABC")/Padding("abc")))
-assert( _.len == 23 and len(_) == 26 )
-IP(raw(IP()/Raw("ABC")/Padding("abc")/Padding("def")))
-assert( _.len == 23 and len(_) == 29 )
+p = IP(raw(IP()/Padding("abc")))
+p
+assert(p.len == 20 and len(p) == 23)
+p = IP(raw(IP()/Raw("ABC")/Padding("abc")))
+p
+assert(p.len == 23 and len(p) == 26)
+p = IP(raw(IP()/Raw("ABC")/Padding("abc")/Padding("def")))
+p
+assert(p.len == 23 and len(p) == 29)
 
 = PadField test
 ~ PadField padding
@@ -665,10 +678,12 @@ class IPv3(IP):
 
 = Test of IPv3 class
 a = IPv3()
-a.version, a.ttl
-assert(_ == (3,32))
-raw(a)
-assert(_ == b'5\x00\x00\x14\x00\x01\x00\x00 \x00\xac\xe7\x7f\x00\x00\x01\x7f\x00\x00\x01')
+v,t = a.version, a.ttl
+v,t
+assert((v,t) == (3,32))
+r = raw(a)
+r
+assert(r == b'5\x00\x00\x14\x00\x01\x00\x00 \x00\xac\xe7\x7f\x00\x00\x01\x7f\x00\x00\x01')
 
 
 ############
@@ -684,8 +699,9 @@ p
 
 = ISAKMP manipulation
 ~ ISAKMP
-p[ISAKMP_payload_Transform:2]
-_.res2 == 12345
+r = p[ISAKMP_payload_Transform:2]
+r
+r.res2 == 12345
 
 = ISAKMP assembly
 ~ ISAKMP 
@@ -697,8 +713,9 @@ raw(p) == b"E\x00\x00\x96\x00\x01\x00\x00@\x11\xa7\x9f\xc0\xa8\x08\x0e\n\x00\x00
 ~ ISAKMP
 q=IP(raw(p))
 q.show()
-q[ISAKMP_payload_Transform:2]
-_.res2 == 12345
+r = q[ISAKMP_payload_Transform:2]
+r
+r.res2 == 12345
 
 
 ############
@@ -722,10 +739,12 @@ assert(len(y[TFTP_Options].options) == 2 and y[TFTP_Option].oname == b"blksize")
 = WEP tests
 ~ wifi crypto Dot11 LLC SNAP IP TCP
 conf.wepkey = "Fobar"
-raw(Dot11WEP()/LLC()/SNAP()/IP()/TCP(seq=12345678))
-assert(_ == b'\x00\x00\x00\x00\xe3OjYLw\xc3x_%\xd0\xcf\xdeu-\xc3pH#\x1eK\xae\xf5\xde\xe7\xb8\x1d,\xa1\xfe\xe83\xca\xe1\xfe\xbd\xfe\xec\x00)T`\xde.\x93Td\x95C\x0f\x07\xdd')
-Dot11WEP(_)
-assert(TCP in _ and _[TCP].seq == 12345678)
+r = raw(Dot11WEP()/LLC()/SNAP()/IP()/TCP(seq=12345678))
+r
+assert(r == b'\x00\x00\x00\x00\xe3OjYLw\xc3x_%\xd0\xcf\xdeu-\xc3pH#\x1eK\xae\xf5\xde\xe7\xb8\x1d,\xa1\xfe\xe83\xca\xe1\xfe\xbd\xfe\xec\x00)T`\xde.\x93Td\x95C\x0f\x07\xdd')
+p = Dot11WEP(r)
+p
+assert(TCP in p and p[TCP].seq == 12345678)
 
 = RadioTap Big-Small endian dissection
 data = b'\x00\x00\x1a\x00/H\x00\x00\xe1\xd3\xcb\x05\x00\x00\x00\x00@0x\x14@\x01\xac\x00\x00\x00'
@@ -740,11 +759,14 @@ assert r.present == 18479
 
 = SNMP assembling
 ~ SNMP ASN1
-raw(SNMP())
-assert(_ == b'0\x18\x02\x01\x01\x04\x06public\xa0\x0b\x02\x01\x00\x02\x01\x00\x02\x01\x000\x00')
-SNMP(version="v2c", community="ABC", PDU=SNMPbulk(id=4,varbindlist=[SNMPvarbind(oid="1.2.3.4",value=ASN1_INTEGER(7)),SNMPvarbind(oid="4.3.2.1.2.3",value=ASN1_IA5_STRING("testing123"))]))
-raw(_)
-assert(_ == b'05\x02\x01\x01\x04\x03ABC\xa5+\x02\x01\x04\x02\x01\x00\x02\x01\x000 0\x08\x06\x03*\x03\x04\x02\x01\x070\x14\x06\x06\x81#\x02\x01\x02\x03\x16\ntesting123')
+r = raw(SNMP())
+r
+assert(r == b'0\x18\x02\x01\x01\x04\x06public\xa0\x0b\x02\x01\x00\x02\x01\x00\x02\x01\x000\x00')
+p = SNMP(version="v2c", community="ABC", PDU=SNMPbulk(id=4,varbindlist=[SNMPvarbind(oid="1.2.3.4",value=ASN1_INTEGER(7)),SNMPvarbind(oid="4.3.2.1.2.3",value=ASN1_IA5_STRING("testing123"))]))
+p
+r = raw(p)
+r
+assert(r == b'05\x02\x01\x01\x04\x03ABC\xa5+\x02\x01\x04\x02\x01\x00\x02\x01\x000 0\x08\x06\x03*\x03\x04\x02\x01\x070\x14\x06\x06\x81#\x02\x01\x02\x03\x16\ntesting123')
 
 = SNMP disassembling
 ~ SNMP ASN1
@@ -1026,8 +1048,8 @@ assert True
 a = Ether() / IP(ttl=(5, 10)) / TCP(dport=[80, 443])
 ls(a)
 ls(a, verbose=True)
-[p for p in a]
-len(_) == 12
+l = [p for p in a]
+len(l) == 12
 
 
 ############
@@ -1220,15 +1242,18 @@ class ATMT1(Automaton):
 ~ automaton
 
 a=ATMT1(init="a", ll=lambda: None, recvsock=lambda: None)
-a.run()
-assert( _ == 'aabaaababaaabaaababab' )
-a.result
-assert( _ == 'aabaaababaaabaaababab' )
-a=ATMT1(init="b", ll=lambda: None, recvsock=lambda: None)
-a.run()
-assert( _ == 'babababababababababababababab' )
-a.result
-assert( _ == 'babababababababababababababab' )
+r = a.run()
+r
+assert(r == 'aabaaababaaabaaababab')
+r = a.result
+r
+assert(r == 'aabaaababaaabaaababab')
+a = ATMT1(init="b", ll=lambda: None, recvsock=lambda: None)
+r = a.run()
+r
+assert(r == 'babababababababababababababab')
+r = a.result
+assert(r == 'babababababababababababababab')
 
 = Simple automaton stuck test
 ~ automaton
@@ -1249,17 +1274,21 @@ class ATMT2(ATMT1):
         return "c"+ATMT1.MAIN(self, s).run()
 
 a=ATMT2(init="a", ll=lambda: None, recvsock=lambda: None)
-a.run()
-assert( _ == 'ccccccacabacccacababacccccacabacccacababab' )
+r = a.run()
+r
+assert(r == 'ccccccacabacccacababacccccacabacccacababab')
 
 
-a.result
-assert( _ == 'ccccccacabacccacababacccccacabacccacababab' )
+r = a.result
+r
+assert(r == 'ccccccacabacccacababacccccacabacccacababab')
 a=ATMT2(init="b", ll=lambda: None, recvsock=lambda: None)
-a.run()
-assert( _ == 'cccccbaccbabaccccbaccbabab')
-a.result
-assert( _ == 'cccccbaccbabaccccbaccbabab')
+r = a.run()
+r
+assert(r == 'cccccbaccbabaccccbaccbabab')
+r = a.result
+r
+assert(r == 'cccccbaccbabaccccbaccbabab')
 
 
 = Automaton condition overloading
@@ -1272,16 +1301,20 @@ class ATMT3(ATMT2):
 
 
 a=ATMT3(init="a", debug=2, ll=lambda: None, recvsock=lambda: None)
-a.run()
-assert( _ == 'cccccacabdacccacabdabda')
-a.result
-assert( _ == 'cccccacabdacccacabdabda')
+r = a.run()
+r
+assert(r == 'cccccacabdacccacabdabda')
+r = a.result
+r
+assert(r == 'cccccacabdacccacabdabda')
 a=ATMT3(init="b", ll=lambda: None, recvsock=lambda: None)
-a.run()
-assert( _ == 'cccccbdaccbdabdaccccbdaccbdabdab' )
+r = a.run()
+r
+assert(r == 'cccccbdaccbdabdaccccbdaccbdabdab')
 
-a.result
-assert( _ == 'cccccbdaccbdabdaccccbdaccbdabdab' )
+r = a.result
+r
+assert(r == 'cccccbdaccbdabdaccccbdaccbdabdab')
 
 
 = Automaton action overloading
@@ -1292,15 +1325,19 @@ class ATMT4(ATMT3):
         self.result = "e"+s+"e"
 
 a=ATMT4(init="a", ll=lambda: None, recvsock=lambda: None)
-a.run()
-assert( _ == 'cccccacabdacccacabdabda')
-a.result
-assert( _ == 'ecccccacabdacccacabdabdae')
+r = a.run()
+r
+assert(r == 'cccccacabdacccacabdabda')
+r = a.result
+r
+assert(r == 'ecccccacabdacccacabdabdae')
 a=ATMT4(init="b", ll=lambda: None, recvsock=lambda: None)
-a.run()
-assert( _ == 'cccccbdaccbdabdaccccbdaccbdabdab' )
-a.result
-assert( _ == 'ecccccbdaccbdabdaccccbdaccbdabdabe' )
+r = a.run()
+r
+assert(r == 'cccccbdaccbdabdaccccbdaccbdabdab')
+r = a.result
+r
+assert(r == 'ecccccbdaccbdabdaccccbdaccbdabdabe')
 
 
 = Automaton priorities
@@ -1335,8 +1372,9 @@ class ATMT5(Automaton):
         return self.res
 
 a=ATMT5(ll=lambda: None, recvsock=lambda: None)
-a.run()
-assert( _ == 'Jupiter' )
+r = a.run()
+r
+assert(r == 'Jupiter')
 
 = Automaton test same action for many conditions
 ~ automaton
@@ -1371,12 +1409,13 @@ class ATMT6(Automaton):
         return self.res
 
 a=ATMT6(ll=lambda: None, recvsock=lambda: None)
-a.run()
-assert( _ == 'Mercury' )
+r = a.run()
+assert(r == 'Mercury')
 
 a.restart()
-a.run()
-assert( _ == 'Mercury' )
+r = a.run()
+r
+assert(r == 'Mercury')
 
 = Automaton test io event
 ~ automaton
@@ -1404,18 +1443,22 @@ class ATMT7(Automaton):
 a=ATMT7(ll=lambda: None, recvsock=lambda: None)
 a.run(wait=False)
 a.io.tst.send("at")
-a.io.tst.recv()
-a.io.tst.send(_)
-a.run()
-assert( _ == "Saturn" )
+r = a.io.tst.recv()
+r
+a.io.tst.send(r)
+r = a.run()
+r
+assert(r == "Saturn")
 
 a.restart()
 a.run(wait=False)
 a.io.tst.send("at")
-a.io.tst.recv()
-a.io.tst.send(_)
-a.run()
-assert( _ == "Saturn" )
+r = a.io.tst.recv()
+r
+a.io.tst.send(r)
+r = a.run()
+r
+assert(r == "Saturn")
 
 = Automaton test io event from external fd
 ~ automaton
@@ -1457,15 +1500,17 @@ a.run(wait=False)
 writeOn(w, b"ra")
 writeOn(w, b"nu")
 
-a.run()
-assert( _ == b"Uranus" )
+r = a.run()
+r
+assert(r == b"Uranus")
 
 a.restart()
 a.run(wait=False)
 writeOn(w, b"ra")
 writeOn(w, b"nu")
-a.run()
-assert( _ == b"Uranus" )
+r = a.run()
+r
+assert(r == b"Uranus")
 
 = Automaton test interception_points, and restart
 ~ automaton
@@ -1486,12 +1531,14 @@ class ATMT9(Automaton):
         return self.res
 
 a=ATMT9(debug=5, ll=lambda: None, recvsock=lambda: None)
-a.run()
-assert( _ == "VENUs" )
+r = a.run()
+r
+assert(r == "VENUs")
 
 a.restart()
-a.run()
-assert( _ == "VENUs" )
+r = a.run()
+r
+assert(r == "VENUs")
 
 a.restart()
 a.BEGIN.intercepts()
@@ -1503,8 +1550,9 @@ while True:
     else:
         break
 
-x
-assert( _ == "Venus" )
+r = x
+r
+assert(r == "Venus")
 
 
 ############
@@ -1513,21 +1561,27 @@ assert( _ == "Venus" )
 
 = IP options individual assembly
 ~ IP options
-raw(IPOption())
-assert(_ == b'\x00\x02')
-raw(IPOption_NOP())
-assert(_ == b'\x01')
-raw(IPOption_EOL())
-assert(_ == b'\x00')
-raw(IPOption_LSRR(routers=["1.2.3.4","5.6.7.8"]))
-assert(_ == b'\x83\x0b\x04\x01\x02\x03\x04\x05\x06\x07\x08')
+r = raw(IPOption())
+r
+assert(r == b'\x00\x02')
+r = raw(IPOption_NOP())
+r
+assert(r == b'\x01')
+r = raw(IPOption_EOL())
+r
+assert(r == b'\x00')
+r = raw(IPOption_LSRR(routers=["1.2.3.4","5.6.7.8"]))
+r
+assert(r == b'\x83\x0b\x04\x01\x02\x03\x04\x05\x06\x07\x08')
 
 = IP options individual dissection
 ~ IP options
-IPOption(b"\x00")
-assert(_.option == 0 and isinstance(_, IPOption_EOL))
-IPOption(b"\x01")
-assert(_.option == 1 and isinstance(_, IPOption_NOP))
+io = IPOption(b"\x00")
+io
+assert(io.option == 0 and isinstance(io, IPOption_EOL))
+io = IPOption(b"\x01")
+io
+assert(io.option == 1 and isinstance(io, IPOption_NOP))
 lsrr=b'\x83\x0b\x04\x01\x02\x03\x04\x05\x06\x07\x08'
 p=IPOption_LSRR(lsrr)
 p
@@ -1538,19 +1592,22 @@ assert(p == q)
 = IP assembly and dissection with options
 ~ IP options
 p = IP(src="9.10.11.12",dst="13.14.15.16",options=IPOption_SDBM(addresses=["1.2.3.4","5.6.7.8"]))/TCP()
-raw(p)
-assert(_ == b'H\x00\x004\x00\x01\x00\x00@\x06\xa2q\t\n\x0b\x0c\r\x0e\x0f\x10\x95\n\x01\x02\x03\x04\x05\x06\x07\x08\x00\x00\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00_K\x00\x00')
-q=IP(_)
+r = raw(p)
+r
+assert(r == b'H\x00\x004\x00\x01\x00\x00@\x06\xa2q\t\n\x0b\x0c\r\x0e\x0f\x10\x95\n\x01\x02\x03\x04\x05\x06\x07\x08\x00\x00\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00_K\x00\x00')
+q=IP(r)
 q
 assert( isinstance(q.options[0],IPOption_SDBM) )
 assert( q[IPOption_SDBM].addresses[1] == "5.6.7.8" )
 p.options[0].addresses[0] = '5.6.7.8'
 assert( IP(raw(p)).options[0].addresses[0] == '5.6.7.8' )
-IP(src="9.10.11.12", dst="13.14.15.16", options=[IPOption_NOP(),IPOption_LSRR(routers=["1.2.3.4","5.6.7.8"]),IPOption_Security(transmission_control_code="XYZ")])/TCP()
-raw(_)
-assert(_ == b'K\x00\x00@\x00\x01\x00\x00@\x06\xf3\x83\t\n\x0b\x0c\r\x0e\x0f\x10\x01\x83\x0b\x04\x01\x02\x03\x04\x05\x06\x07\x08\x82\x0b\x00\x00\x00\x00\x00\x00XYZ\x00\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00_K\x00\x00')
-IP(_)
-q=_
+p = IP(src="9.10.11.12", dst="13.14.15.16", options=[IPOption_NOP(),IPOption_LSRR(routers=["1.2.3.4","5.6.7.8"]),IPOption_Security(transmission_control_code="XYZ")])/TCP()
+p
+r = raw(p)
+r
+assert(r == b'K\x00\x00@\x00\x01\x00\x00@\x06\xf3\x83\t\n\x0b\x0c\r\x0e\x0f\x10\x01\x83\x0b\x04\x01\x02\x03\x04\x05\x06\x07\x08\x82\x0b\x00\x00\x00\x00\x00\x00XYZ\x00\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00_K\x00\x00')
+q = IP(r)
+q
 assert(q[IPOption_LSRR].get_current_router() == "1.2.3.4")
 assert(q[IPOption_Security].transmission_control_code == b"XYZ")
 assert(q[TCP].flags == 2)
@@ -1562,41 +1619,44 @@ assert(q[TCP].flags == 2)
 
 = PPP/HDLC
 ~ ppp hdlc
-HDLC()/PPP()/PPP_IPCP()
-raw(_)
-s=_
+p = HDLC()/PPP()/PPP_IPCP()
+p
+s = raw(p)
+s
 assert(s == b'\xff\x03\x80!\x01\x00\x00\x04')
-PPP(s)
-p=_
+p = PPP(s)
+p
 assert(HDLC in p)
 assert(p[HDLC].control==3)
 assert(p[PPP].proto==0x8021)
-PPP(s[2:])
-q=_
+q = PPP(s[2:])
+q
 assert(HDLC not in q)
 assert(q[PPP].proto==0x8021)
 
 
 = PPP IPCP
 ~ ppp ipcp
-PPP(b'\x80!\x01\x01\x00\x10\x03\x06\xc0\xa8\x01\x01\x02\x06\x00-\x0f\x01')
-p=_
+p = PPP(b'\x80!\x01\x01\x00\x10\x03\x06\xc0\xa8\x01\x01\x02\x06\x00-\x0f\x01')
+p
 assert(p[PPP_IPCP].code == 1)
 assert(p[PPP_IPCP_Option_IPAddress].data=="192.168.1.1")
 assert(p[PPP_IPCP_Option].data == b'\x00-\x0f\x01')
 p=PPP()/PPP_IPCP(options=[PPP_IPCP_Option_DNS1(data="1.2.3.4"),PPP_IPCP_Option_DNS2(data="5.6.7.8"),PPP_IPCP_Option_NBNS2(data="9.10.11.12")])
-raw(p)
-assert(_ == b'\x80!\x01\x00\x00\x16\x81\x06\x01\x02\x03\x04\x83\x06\x05\x06\x07\x08\x84\x06\t\n\x0b\x0c')
-PPP(_)
-q=_
+r = raw(p)
+r
+assert(r == b'\x80!\x01\x00\x00\x16\x81\x06\x01\x02\x03\x04\x83\x06\x05\x06\x07\x08\x84\x06\t\n\x0b\x0c')
+q = PPP(r)
+q
 assert(raw(p) == raw(q))
 assert(PPP(raw(q))==q)
-PPP()/PPP_IPCP(options=[PPP_IPCP_Option_DNS1(data="1.2.3.4"),PPP_IPCP_Option_DNS2(data="5.6.7.8"),PPP_IPCP_Option(type=123,data="ABCDEFG"),PPP_IPCP_Option_NBNS2(data="9.10.11.12")])
-p=_
-raw(p)
-assert(_ == b'\x80!\x01\x00\x00\x1f\x81\x06\x01\x02\x03\x04\x83\x06\x05\x06\x07\x08{\tABCDEFG\x84\x06\t\n\x0b\x0c')
-PPP(_)
-q=_
+p = PPP()/PPP_IPCP(options=[PPP_IPCP_Option_DNS1(data="1.2.3.4"),PPP_IPCP_Option_DNS2(data="5.6.7.8"),PPP_IPCP_Option(type=123,data="ABCDEFG"),PPP_IPCP_Option_NBNS2(data="9.10.11.12")])
+p
+r = raw(p)
+r
+assert(r == b'\x80!\x01\x00\x00\x1f\x81\x06\x01\x02\x03\x04\x83\x06\x05\x06\x07\x08{\tABCDEFG\x84\x06\t\n\x0b\x0c')
+q = PPP(r)
+q
 assert( q[PPP_IPCP_Option].type == 123 )
 assert( q[PPP_IPCP_Option].data == b"ABCDEFG" )
 assert( q[PPP_IPCP_Option_NBNS2].data == '9.10.11.12' )
@@ -1605,19 +1665,21 @@ assert( q[PPP_IPCP_Option_NBNS2].data == '9.10.11.12' )
 = PPP ECP
 ~ ppp ecp
 
-PPP()/PPP_ECP(options=[PPP_ECP_Option_OUI(oui="XYZ")])
-p=_
-raw(p)
-assert(_ == b'\x80S\x01\x00\x00\n\x00\x06XYZ\x00')
-PPP(_)
-q=_
-assert( raw(p)==raw(q) )
-PPP()/PPP_ECP(options=[PPP_ECP_Option_OUI(oui="XYZ"),PPP_ECP_Option(type=1,data="ABCDEFG")])
-p=_
-raw(p)
-assert(_ == b'\x80S\x01\x00\x00\x13\x00\x06XYZ\x00\x01\tABCDEFG')
-PPP(_)
-q=_
+p = PPP()/PPP_ECP(options=[PPP_ECP_Option_OUI(oui="XYZ")])
+p
+r = raw(p)
+r
+assert(r == b'\x80S\x01\x00\x00\n\x00\x06XYZ\x00')
+q = PPP(r)
+q
+assert(raw(p) == raw(q))
+p = PPP()/PPP_ECP(options=[PPP_ECP_Option_OUI(oui="XYZ"),PPP_ECP_Option(type=1,data="ABCDEFG")])
+p
+r = raw(p)
+r
+assert(r == b'\x80S\x01\x00\x00\x13\x00\x06XYZ\x00\x01\tABCDEFG')
+q = PPP(r)
+q
 assert( raw(p) == raw(q) )
 assert( q[PPP_ECP_Option].data == b"ABCDEFG" )
 
