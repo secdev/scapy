@@ -317,7 +317,10 @@ def init_session(session_name, mydict=None):
         if SESSION:
             if "conf" in SESSION:
                 conf.configure(SESSION["conf"])
+                conf.session = session_name
                 SESSION["conf"] = conf
+            else:
+                conf.session = session_name
         else:
             conf.session = session_name
             SESSION = {"conf":conf}
@@ -490,8 +493,6 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
             IPYTHON = True
     else:
         IPYTHON = False
-
-    init_session(session_name, mydict)
 
     if IPYTHON:
         banner = the_banner + " using IPython %s\n" % IPython.__version__
