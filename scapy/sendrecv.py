@@ -58,7 +58,7 @@ def _sndrcv_snd(pks, timeout, inter, verbose, tobesent, stopevent):
             i += 1
             time.sleep(inter)
         if verbose:
-            print("Finished to send %i packets." % i)
+            print("Finished sending %i packets." % i)
     except SystemExit:
         pass
     except KeyboardInterrupt:

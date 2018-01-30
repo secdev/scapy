@@ -14,7 +14,7 @@ memory usage, particularly in parts of the code often called.
 
 ## What to contribute?
 
-You want to spend to time working on Scapy but have no (or little)
+You want to spend time working on Scapy but have no (or little)
 idea what to do? You can look for open issues
 [labeled "contributions wanted"](https://github.com/secdev/scapy/labels/contributions%20wanted), or look at the [contributions roadmap](https://github.com/secdev/scapy/issues/399)
 
@@ -61,7 +61,7 @@ of function calls, packet creations, etc.).
 ### Coding style & conventions
 
 First, Scapy "legacy" code contains a lot of code that do not comply
-with the following recommendations, but we try to comply with the some
+with the following recommendations, but we try to comply with some
 guidelines for new code.
 
   - The code should be PEP-8 compliant; you can check your code with
@@ -112,7 +112,7 @@ Scapy's performances.
 
 ### Python 2 and 3 compatibility
 
-The project aims to provide code that works both on Python 2 and Python 3. Therefore, some rules need to be apply to achieve compatibility:
+The project aims to provide code that works both on Python 2 and Python 3. Therefore, some rules need to be applied to achieve compatibility:
 - byte-string must be defined as `b"\x00\x01\x02"`
 - exceptions must comply with the new Python 3 format: `except SomeError as e:`
 - lambdas must be written using a single argument when using tuples: use `lambda x_y: x_y[0] + f(x_y[1])` instead of `lambda (x, y): x + f(y)`.
