@@ -422,7 +422,6 @@ debug_tls:When 1, print some TLS session secrets when they are computed.
     debug_dissector = 0
     color_theme = Interceptor("color_theme", NoTheme(), _prompt_changer)
     warning_threshold = 5
-    warning_next_only_once = False
     prog = ProgPath()
     resolve = Resolve()
     noenum = Resolve()
