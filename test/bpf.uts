@@ -49,10 +49,10 @@ len(iflist) > 0
 
 from scapy.arch.bpf.core import get_working_ifaces
 ifworking = get_working_ifaces()
-len(ifworking)
+assert len(ifworking)
             
 from scapy.arch.bpf.core import get_working_if
-len(ifworking) and get_working_if() == ifworking[0][0]
+assert len(ifworking) and get_working_if() == ifworking[0][0]
 
 
 = Misc functions
