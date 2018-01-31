@@ -2,7 +2,7 @@
 if [ "$TRAVIS_OS_NAME" = "osx" ] && [ ! -z "$TOXENV" ]
 then
   tox -- -K tcpdump
-  exit 0
+  exit $?
 fi
 
 # Report installed versions
