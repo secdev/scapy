@@ -1,3 +1,10 @@
+# Test Python3 Scapy on osx
+if [ "$TRAVIS_OS_NAME" = "osx" ] && [ ! -z "$TOXENV" ]
+then
+  tox -- -K tcpdump
+  exit 0
+fi
+
 # Report installed versions
 echo "### INSTALLED VERSIONS ###"
 python -c 'import sys; print("sys.path:" , sys.path)'
