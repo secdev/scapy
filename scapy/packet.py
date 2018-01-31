@@ -56,7 +56,9 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         # used for sr()
         "_answered",
         # used when sniffing
-        "direction", "sniffed_on"
+        "direction", "sniffed_on",
+        # handle snaplen Vs real length
+        "wirelen",
     ]
     name = None
     fields_desc = []
@@ -123,6 +125,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         self.explicit = 0
         self.raw_packet_cache = None
         self.raw_packet_cache_fields = None
+        self.wirelen = None
         if _pkt:
             self.dissect(_pkt)
             if not _internal:
@@ -202,6 +205,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         clone.raw_packet_cache_fields = self.copy_fields_dict(
             self.raw_packet_cache_fields
         )
+        clone.wirelen = self.wirelen
         clone.post_transforms = self.post_transforms[:]
         clone.payload = self.payload.copy()
         clone.payload.add_underlayer(clone)
@@ -245,6 +249,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
             self.explicit = 0
             self.raw_packet_cache = None
             self.raw_packet_cache_fields = None
+            self.wirelen = None
         elif attr == "payload":
             self.remove_payload()
             self.add_payload(val)
@@ -266,6 +271,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
             self.explicit = 0 # in case a default value must be explicited
             self.raw_packet_cache = None
             self.raw_packet_cache_fields = None
+            self.wirelen = None
         elif attr in self.default_fields:
             pass
         elif attr == "payload":
@@ -384,6 +390,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
                 if self.getfieldval(fname) != fval:
                     self.raw_packet_cache = None
                     self.raw_packet_cache_fields = None
+                    self.wirelen = None
                     break
             if self.raw_packet_cache is not None:
                 return self.raw_packet_cache
@@ -792,6 +799,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         pkt.raw_packet_cache_fields = self.copy_fields_dict(
             self.raw_packet_cache_fields
         )
+        pkt.wirelen = self.wirelen
         if payload is not None:
             pkt.add_payload(payload)
         return pkt

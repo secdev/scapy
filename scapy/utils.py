@@ -826,7 +826,7 @@ class RawPcapReader(six.with_metaclass(PcapReader_metaclass)):
             return None
         sec,usec,caplen,wirelen = struct.unpack(self.endian+"IIII", hdr)
         s = self.f.read(caplen)[:size]
-        return s,(sec,usec,wirelen) # caplen = len(s)
+        return s, (sec, usec, caplen, wirelen)
 
 
     def dispatch(self, callback):
@@ -878,10 +878,10 @@ class PcapReader(RawPcapReader):
             warning("PcapReader: unknown LL type [%i]/[%#x]. Using Raw packets" % (self.linktype,self.linktype))
             self.LLcls = conf.raw_layer
     def read_packet(self, size=MTU):
-        rp = RawPcapReader.read_packet(self, size=size)
+        rp = super(PcapReader, self).read_packet(size=size)
         if rp is None:
             return None
-        s,(sec,usec,wirelen) = rp
+        s, (sec, usec, caplen, wirelen) = rp
         
         try:
             p = self.LLcls(s)
@@ -892,6 +892,7 @@ class PcapReader(RawPcapReader):
                 raise
             p = conf.raw_layer(s)
         p.time = sec + (0.000000001 if self.nano else 0.000001) * usec
+        p.wirelen = wirelen
         return p
     def read_all(self,count=-1):
         res = RawPcapReader.read_all(self, count)
@@ -1028,7 +1029,7 @@ class PcapNgReader(RawPcapNgReader):
         RawPcapNgReader.__init__(self, filename, fdesc, magic)
 
     def read_packet(self, size=MTU):
-        rp = RawPcapNgReader.read_packet(self, size=size)
+        rp = super(PcapNgReader, self).read_packet(size=size)
         if rp is None:
             return None
         s, (linktype, tsresol, tshigh, tslow, wirelen) = rp
@@ -1042,6 +1043,7 @@ class PcapNgReader(RawPcapNgReader):
             p = conf.raw_layer(s)
         if tshigh is not None:
             p.time = float((tshigh << 32) + tslow) / tsresol
+        p.wirelen = wirelen
         return p
     def read_all(self,count=-1):
         res = RawPcapNgReader.read_all(self, count)
@@ -1113,7 +1115,7 @@ nano:       use nanosecond-precision (requires libpcap >= 1.5.0)
         written to the dumpfile
 
         """
-        if isinstance(pkt, str):
+        if isinstance(pkt, bytes):
             if not self.header_present:
                 self._write_header(pkt)
             self._write_packet(pkt)
@@ -1123,7 +1125,6 @@ nano:       use nanosecond-precision (requires libpcap >= 1.5.0)
                 try:
                     p = next(pkt)
                 except StopIteration:
-                    self._write_header(b"")
                     return
                 self._write_header(p)
                 self._write_packet(p)
@@ -1187,9 +1188,10 @@ class PcapWriter(RawPcapWriter):
             return
         sec = int(packet.time)
         usec = int(round((packet.time - sec) * (1000000000 if self.nano else 1000000)))
-        s = raw(packet)
-        caplen = len(s)
-        RawPcapWriter._write_packet(self, s, sec, usec, caplen, caplen)
+        rawpkt = raw(packet)
+        caplen = len(rawpkt)
+        RawPcapWriter._write_packet(self, rawpkt, sec=sec, usec=usec, caplen=caplen,
+                                    wirelen=packet.wirelen or caplen)
 
 
 re_extract_hexcap = re.compile("^((0x)?[0-9a-fA-F]{2,}[ :\t]{,3}|) *(([0-9a-fA-F]{2} {,2}){,16})")
