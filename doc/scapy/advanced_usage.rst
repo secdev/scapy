@@ -827,7 +827,7 @@ To instanciate one of these packets with its configuration, the ``config`` argum
 RTC packet
 ----------
 
-Now that a data packet can be instanciated, a whole RTC packet may be built. ``PNIORealTime`` contains a field ``data`` which is a list of all data packets to add in the buffer, however, without the configuration, Scapy won't be
+Now that a data packet can be instantiated, a whole RTC packet may be built. ``PNIORealTime`` contains a field ``data`` which is a list of all data packets to add in the buffer, however, without the configuration, Scapy won't be
 able to dissect it::
 
     >>> load_contrib("pnio_rtc")

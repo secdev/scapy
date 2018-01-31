@@ -117,12 +117,11 @@ Quick demo
 
 First, we play a bit and create four IP packets at once. Let's see how it works. We first instantiate the IP class. Then, we instantiate it again and we provide a destination that is worth four IP addresses (/30 gives the netmask). Using a Python idiom, we develop this implicit packet in a set of explicit packets. Then, we quit the interpreter. As we provided a session file, the variables we were working on are saved, then reloaded:: 
 
-    # ./scapy.py -s mysession
+    # ./run_scapy -s mysession
     New session [mysession]
-    Welcome to Scapy (0.9.17.108beta)
+    Welcome to Scapy (2.4.0)
     >>> IP()
     <IP |>
-    >>> target="www.target.com"
     >>> target="www.target.com/30"
     >>> ip=IP(dst=target)
     >>> ip
@@ -134,9 +133,9 @@ First, we play a bit and create four IP packets at once. Let's see how it works.
     
 ::
     
-    # scapy -s mysession 
+    # ./run_scapy -s mysession
     Using session [mysession]
-    Welcome to Scapy (0.9.17.108beta)
+    Welcome to Scapy (2.4.0)
     >>> ip
     <IP dst=<Net www.target.com/30> |>
 
