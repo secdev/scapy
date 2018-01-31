@@ -1075,8 +1075,7 @@ len(ans) == 1 and len(unans) == 1
 = Traceroute function
 ~ netaccess
 * Let's test traceroute
-traceroute("www.slashdot.org")
-ans,unans=_
+ans, unans = traceroute("www.slashdot.org")
 
 = Result manipulation
 ~ netaccess
@@ -1106,8 +1105,9 @@ assert raw(DNSRR(type='A', rdata='1.2.3.4')) == b'\x00\x00\x01\x00\x01\x00\x00\x
 = Arping
 ~ netaccess
 * This test assumes the local network is a /24. This is bad.
-conf.route.route("0.0.0.0")[2]
-arping(_+"/24")
+ip_address = conf.route.route("0.0.0.0")[2]
+ip_address
+arping(ip_address+"/24")
 
 = send() and sniff()
 ~ netaccess
