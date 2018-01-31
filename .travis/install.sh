@@ -1,3 +1,12 @@
+# Install Python3 on osx
+if [ "$TRAVIS_OS_NAME" = "osx" ] && [ ! -z "$SCAPY_PYTHON3" ]
+then
+  python --version
+  brew install python3
+  alias python=python3
+  python --version
+fi
+
 PIP=`which pip || (python --version 2>&1 | grep -q 'Python 2' && which pip2) || (python --version 2>&1 | grep -q 'Python 3' && which pip3)`
 
 # Install dependencies using pip
