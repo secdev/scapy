@@ -136,6 +136,6 @@ else
 fi
 
 if [ "$SCAPY_COVERAGE" = "yes" ]; then
-  coverage combine ./
+  coverage combine --rcfile=../.coveragerc ./
   codecov
 fi
