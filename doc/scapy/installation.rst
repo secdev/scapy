@@ -414,11 +414,14 @@ As Winpcap is becoming old, it's recommanded to use Npcap instead. Npcap is part
 
 1. If you get the message 'Winpcap is installed over Npcap.' it means that you have installed both winpcap and npcap versions, which isn't recommanded.
 
-You may uninstall winpcap from your Program Files, then you will need to remove:
+You may **uninstall winpcap from your Program Files**, then you will need to remove:
  * C:/Windows/System32/wpcap.dll
  * C:/Windows/System32/Packet.dll
+And if you are on a x64 machine:
+ * C:/Windows/SysWOW64/wpcap.dll
+ * C:/Windows/SysWOW64/Packet.dll
 
-To use npcap instead.
+To use npcap instead. Those files are not removed by the Winpcap un-installer.
 
 2. If you get the message 'The installed Windump version does not work with Npcap' it means that you have installed an old version of Windump.
 Download the correct one on https://github.com/hsluoyz/WinDump/releases
