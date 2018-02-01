@@ -95,7 +95,7 @@ matrix:
         - os: osx
           language: generic
           env:
-            - TOXENV=py36-osx_non_root,py36-osx_root
+            - TOXENV=py36-osx_non_root,py36-osx_root,codecov
 
 install: bash .travis/install.sh
 
