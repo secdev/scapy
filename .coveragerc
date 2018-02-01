@@ -4,10 +4,13 @@ omit =
     /home/travis/virtualenv/python*
     # Python specific path
     /usr/local/lib/python2.7/*
-    # Scapy specific paths
+    # Scapy specific paths & files
     test/*
     bin/*
     scapy/tools/*
+    */travis_test_client.py
+    */travis_test_server.py
+    */tools/UTscapy.py
     # Libraries
-    scapy/modules/six.py
-    scapy/modules/winpcapy.py
+    */scapy/modules/six.py
+    */scapy/modules/winpcapy.py
