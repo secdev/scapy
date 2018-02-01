@@ -150,14 +150,14 @@ class RSVP_Object(Packet):
 
 class RSVP_Data(Packet):
     name = "Data"
-    overload_fields = { RSVP_Object: { "Class": 0x01}}
+    overload_fields = { RSVP_Object: { "Class": 0x01 } }
     fields_desc = [StrLenField("Data","",length_from= lambda pkt:pkt.underlayer.Length - 4)]
     def default_payload_class(self, payload):
       return RSVP_Object
 
 class RSVP_HOP(Packet):
     name = "HOP"
-    overload_fields = { RSVP_Object: { "Class": 0x03}}
+    overload_fields = { RSVP_Object: { "Class": 0x03 } }
     fields_desc = [ IPField("neighbor","0.0.0.0"),
                   BitField("inface",1,32)]
     def default_payload_class(self, payload):
@@ -165,14 +165,14 @@ class RSVP_HOP(Packet):
 
 class RSVP_Time(Packet):
     name = "Time Val"
-    overload_fields = { RSVP_Object: { "Class": 0x05}}
+    overload_fields = { RSVP_Object: { "Class": 0x05 } }
     fields_desc = [ BitField("refresh",1,32)]
     def default_payload_class(self, payload):
       return RSVP_Object
 
 class RSVP_SenderTSPEC(Packet):
     name = "Sender_TSPEC"
-    overload_fields = { RSVP_Object: { "Class": 0x0c}}
+    overload_fields = { RSVP_Object: { "Class": 0x0c } }
     fields_desc = [ ByteField("Msg_Format",0),
                     ByteField("reserve",0),
                     ShortField("Data_Length",4),
@@ -185,7 +185,7 @@ class RSVP_SenderTSPEC(Packet):
 
 class RSVP_LabelReq(Packet):
     name = "Lable Req"
-    overload_fields = { RSVP_Object: { "Class": 0x13}}
+    overload_fields = { RSVP_Object: { "Class": 0x13 } }
     fields_desc = [  ShortField("reserve",1),
                      ShortField("L3PID",1)]
     def default_payload_class(self, payload):
@@ -193,7 +193,7 @@ class RSVP_LabelReq(Packet):
 
 class RSVP_SessionAttrb(Packet):
     name = "Session_Attribute"
-    overload_fields = { RSVP_Object: { "Class": 0xCF}}
+    overload_fields = { RSVP_Object: { "Class": 0xCF } }
     fields_desc = [  ByteField("Setup_priority",1),
                      ByteField("Hold_priority",1),
                      ByteField("flags",1),
