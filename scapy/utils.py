@@ -1487,9 +1487,9 @@ def make_lined_table(*args, **kargs):
 def make_tex_table(*args, **kargs):
     __make_table(lambda l: "%s", lambda l: "& %s", "\\\\", seplinefunc=lambda a,x:"\\hline", *args, **kargs)
 
-###############################################
-### WHOIS CLIENT (not available on windows) ###
-###############################################
+####################
+### WHOIS CLIENT ###
+####################
 
 def whois(ip_address):
     """Whois client for Python"""

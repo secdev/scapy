@@ -43,10 +43,7 @@ class IPTools(object):
     __slots__ = []
     def whois(self):
         """whois the source and print the output"""
-        if WINDOWS:
-            print(whois(self.src))
-        else:
-            os.system("whois %s" % self.src)
+        print(whois(self.src).decode("utf8", "ignore"))
     def _ttl(self):
         """Returns ttl or hlim, depending on the IP version"""
         return self.hlim if isinstance(self, scapy.layers.inet6.IPv6) else self.ttl
