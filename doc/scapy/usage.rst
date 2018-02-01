@@ -8,17 +8,15 @@ Starting Scapy
 Scapy's interactive shell is run in a terminal session. Root privileges are needed to
 send the packets, so we're using ``sudo`` here::
   
-    $ sudo scapy
-    Welcome to Scapy (2.0.1-dev)
+    $ sudo ./scapy
+    Welcome to Scapy (2.4.0)
     >>> 
 
 On Windows, please open a command prompt (``cmd.exe``) and make sure that you have 
 administrator privileges::
 
     C:\>scapy
-    INFO: No IPv6 support in kernel
-    WARNING: No route found for IPv6 destination :: (no default route?)
-    Welcome to Scapy (2.0.1-dev)
+    Welcome to Scapy (2.4.0)
     >>>
 
 If you do not have all optional packages installed, Scapy will inform you that 
@@ -990,7 +988,7 @@ Scapy also has a powerful TCP traceroute function. Unlike other traceroute progr
     20 193.45.10.88    SA 216.109.118.79  SA 64.241.242.243  SA 66.94.229.254   SA 
     (<Traceroute: UDP:0 TCP:28 ICMP:52 Other:0>, <Unanswered: UDP:0 TCP:0 ICMP:0 Other:0>)
 
-The last line is in fact a the result of the function : a traceroute result object and a packet list of unanswered packets. The traceroute result is a more specialised version (a subclass, in fact) of a classic result object. We can save it to consult the traceroute result again a bit later, or to deeply inspect one of the answers, for example to check padding.
+The last line is in fact the result of the function : a traceroute result object and a packet list of unanswered packets. The traceroute result is a more specialised version (a subclass, in fact) of a classic result object. We can save it to consult the traceroute result again a bit later, or to deeply inspect one of the answers, for example to check padding.
 
     >>> result, unans = _
     >>> result.show()
@@ -1379,7 +1377,7 @@ Recipes
 Simplistic ARP Monitor
 ----------------------
 
-This program uses the ``sniff()`` callback (paramter prn). The store parameter is set to 0 so that the ``sniff()`` function will not store anything (as it would do otherwise) and thus can run forever. The filter parameter is used for better performances on high load : the filter is applied inside the kernel and Scapy will only see ARP traffic.
+This program uses the ``sniff()`` callback (parameter prn). The store parameter is set to 0 so that the ``sniff()`` function will not store anything (as it would do otherwise) and thus can run forever. The filter parameter is used for better performances on high load : the filter is applied inside the kernel and Scapy will only see ARP traffic.
 
 ::
 

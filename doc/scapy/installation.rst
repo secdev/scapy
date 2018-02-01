@@ -410,9 +410,9 @@ Known bugs
 Winpcap/Npcap conflicts
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-As Winpcap is becoming old, it's recommanded to use Npcap instead. Npcap is part of the Nmap project.
+As Winpcap is becoming old, it's recommended to use Npcap instead. Npcap is part of the Nmap project.
 
-1. If you get the message 'Winpcap is installed over Npcap.' it means that you have installed both winpcap and npcap versions, which isn't recommanded.
+1. If you get the message 'Winpcap is installed over Npcap.' it means that you have installed both winpcap and npcap versions, which isn't recommended.
 
 You may uninstall winpcap from your Program Files, then you will need to remove:
  * C:/Windows/System32/wpcap.dll
@@ -451,7 +451,7 @@ If installed, it will be automatically used, but you may disable it by setting `
 UML diagram
 -----------
 Using ``pyreverse`` you can build an UML representation of the Scapy source code's object hierarchy. Here is an
-example on how to build the inheritence graph for the Fields objects : ::
+example on how to build the inheritance graph for the Fields objects : ::
 
    (activate a virtualenv)
    pip install pylint
