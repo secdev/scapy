@@ -6672,6 +6672,9 @@ raw(EAP_FAST()) == b'\x01\x00\x00\x06+\x00'
 = EAP - EAP_TTLS - Basic Instantiation
 raw(EAP_TTLS()) == b'\x01\x00\x00\x06\x15\x00'
 
+= EAP - EAP_PEAP - Basic Instantiation
+raw(EAP_PEAP()) == b'\x01\x00\x00\x06\x19\x01'
+
 = EAP - EAP_MD5 - Basic Instantiation
 raw(EAP_MD5()) == b'\x01\x00\x00\x06\x04\x00'
 
@@ -6728,6 +6731,29 @@ assert(eap[LEAP].count == 24)
 assert(eap[LEAP].challenge_response == b'\xb3\x82[\x82\x8a\xc8M*\xf3\xe7\xb3\xad,7\x8b\xbfG\x81\xda\xbf\xe6\xc1\x9b\x95')
 assert(eap[LEAP].username == b"supplicant-1")
 
+= EAP - PEAP - Request - Dissection
+s = b'\x01\x03\x00\x06\x19 '
+eap = EAP_PEAP(s)
+assert(eap.code == 1)
+assert(eap.id == 3)
+assert(eap.len == 6)
+assert(eap.type == 25)
+assert(eap.haslayer(EAP_PEAP))
+assert(eap[EAP_PEAP].S == 1)
+assert(eap[EAP_PEAP].version == 0)
+
+= EAP - PEAP - Response - Dissection
+s = b'\x02\x03\x008\x19\x01\x16\x03\x03\x00-\x01\x00\x00)\x03\x03Zt9\xb6\xdem\xb9\xd4\x00\xed\xa5Bp>\x9a9\x8a[\x91\xe1U\xfa\xb6H\xd1\xbd\x9b\xd5\xadl\rV\x00\x00\x02\x00/\x01\x00'
+eap = EAP_PEAP(s)
+assert(eap.code == 2)
+assert(eap.id == 3)
+assert(eap.len == 56)
+assert(eap.type == 25)
+assert(eap.haslayer(EAP_PEAP))
+assert(eap[EAP_PEAP].S == 0)
+assert(eap[EAP_PEAP].version == 1)
+assert(hasattr(eap[EAP_PEAP], "tls_data"))
+
 = EAP - Layers (1)
 eap = EAP_MD5()
 assert(EAP_MD5 in eap)
@@ -6754,6 +6780,9 @@ assert(not EAP_TLS in eap)
 assert(not EAP_FAST in eap)
 assert(not LEAP in eap)
 assert(EAP in eap)
+eap = EAP_PEAP()
+assert(EAP_PEAP in eap)
+assert(EAP in eap)
 eap = LEAP()
 assert(not EAP_MD5 in eap)
 assert(not EAP_TLS in eap)
@@ -6770,6 +6799,8 @@ eap = EAP_FAST()
 assert(type(eap[EAP]) == EAP_FAST)
 eap = EAP_TTLS()
 assert(type(eap[EAP]) == EAP_TTLS)
+eap = EAP_PEAP()
+assert(type(eap[EAP]) == EAP_PEAP)
 eap = LEAP()
 assert(type(eap[EAP]) == LEAP)
 
