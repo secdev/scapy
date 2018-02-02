@@ -1049,8 +1049,11 @@ a = Ether() / IP(ttl=(5, 10)) / TCP(dport=[80, 443])
 ls(a)
 ls(a, verbose=True)
 l = [p for p in a]
-len(l) == 12
+assert len(l) == 12
 
+b = Ether() / IP(ttl=[1,2,(5,9)]) / TCP(dport=[80, (121,123), 443])
+l = [p for p in b]
+assert len(l) == 35
 
 ############
 ############
