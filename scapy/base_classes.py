@@ -20,18 +20,23 @@ class Gen(object):
     __slots__ = []
     def __iter__(self):
         return iter([])
-    
+
+def tuple_to_range(t):
+    if (isinstance(t, tuple) and (2 <= len(t) <= 3) and \
+        all(hasattr(i, "__int__") for i in t)):
+        # We use values[1] + 1 as stop value for (x)range to maintain
+        # the behavior of using tuples as field `values`
+        t = range(*((int(t[0]), int(t[1]) + 1)
+                                + tuple(int(v) for v in t[2:])))
+    return t
+
 class SetGen(Gen):
     def __init__(self, values, _iterpacket=1):
         self._iterpacket=_iterpacket
         if isinstance(values, (list, BasePacketList)):
             self.values = list(values)
-        elif (isinstance(values, tuple) and (2 <= len(values) <= 3) and \
-             all(hasattr(i, "__int__") for i in values)):
-            # We use values[1] + 1 as stop value for (x)range to maintain
-            # the behavior of using tuples as field `values`
-            self.values = [range(*((int(values[0]), int(values[1]) + 1)
-                                    + tuple(int(v) for v in values[2:])))]
+        elif isinstance(values, tuple):
+            self.values = [tuple_to_range(values)]
         else:
             self.values = [values]
     def transf(self, element):
@@ -42,6 +47,9 @@ class SetGen(Gen):
                 (self._iterpacket or not isinstance(i,BasePacket))) or (
                     isinstance(i, (range, types.GeneratorType))):
                 for j in i:
+                    yield j
+            elif isinstance(i, tuple):
+                for j in tuple_to_range(i):
                     yield j
             else:
                 yield i
