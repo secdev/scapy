@@ -27,16 +27,13 @@ class RIPng(Packet):
     fields_desc = [
                     ByteEnumField("cmd", 1, {1 : "req", 2 : "resp"}),
                     ByteField("ver", 1),
-                    ShortField("null", 0),
+                    ShortField("null", 0)
             ]
 
 class RIPngEntry(Packet):
     name = "RIPng entry"
     fields_desc = [
-                    ConditionalField(IP6Field("prefix", "::"),
-                                            lambda pkt: pkt.metric != 255),
-                    ConditionalField(IP6Field("nexthop", "::"),
-                                            lambda pkt: pkt.metric == 255),
+                    IP6Field("prefix_or_nh", "::"),
                     ShortField("routetag", 0),
                     ByteField("prefixlen", 0),
                     ByteEnumField("metric", 1, {16 : "Unreach",
@@ -46,8 +43,3 @@ class RIPngEntry(Packet):
 bind_layers(UDP,        RIPng,          sport=521, dport=521)
 bind_layers(RIPng,      RIPngEntry)
 bind_layers(RIPngEntry, RIPngEntry)
-
-if __name__ == "__main__":
-    from scapy.main import interact
-    interact(mydict=globals(), mybanner="RIPng")
-
