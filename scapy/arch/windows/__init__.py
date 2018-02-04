@@ -349,11 +349,15 @@ NEW_RELEASE = is_new_release()
 class PcapNameNotFoundError(Scapy_Exception):
     pass    
 
-def is_interface_valid(iface):
+def _validate_interface(iface):
     if "guid" in iface and iface["guid"]:
         # Fix '-' instead of ':'
         if "mac" in iface:
             iface["mac"] = iface["mac"].replace("-", ":")
+        # Potentially, the default Microsoft KM-TEST would have been translated
+        if "name" in iface:
+            if "KM-TEST" in iface["name"] and iface["name"] != scapy.consts.LOOPBACK_NAME:
+                scapy.consts.LOOPBACK_NAME = iface["name"]
         return True
     return False
 
@@ -378,7 +382,7 @@ def get_windows_if_list():
         iface for iface in
         (dict(zip(['name', 'win_index', 'description', 'guid', 'mac', 'netid'], line))
          for line in query)
-        if is_interface_valid(iface)
+        if _validate_interface(iface)
     ]
 
 def get_ips(v6=False):
