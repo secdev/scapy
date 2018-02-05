@@ -20,20 +20,29 @@ class Gen(object):
     __slots__ = []
     def __iter__(self):
         return iter([])
-    
+
+
+def _get_values(value):
+    """Generate a range object from (start, stop[, step]) tuples, or
+return value.
+
+    """
+    if (isinstance(value, tuple) and (2 <= len(value) <= 3) and \
+        all(hasattr(i, "__int__") for i in value)):
+        # We use values[1] + 1 as stop value for (x)range to maintain
+        # the behavior of using tuples as field `values`
+        return range(*((int(value[0]), int(value[1]) + 1)
+                       + tuple(int(v) for v in value[2:])))
+    return value
+
+
 class SetGen(Gen):
     def __init__(self, values, _iterpacket=1):
         self._iterpacket=_iterpacket
         if isinstance(values, (list, BasePacketList)):
-            self.values = list(values)
-        elif (isinstance(values, tuple) and (2 <= len(values) <= 3) and \
-             all(hasattr(i, "__int__") for i in values)):
-            # We use values[1] + 1 as stop value for (x)range to maintain
-            # the behavior of using tuples as field `values`
-            self.values = [range(*((int(values[0]), int(values[1]) + 1)
-                                    + tuple(int(v) for v in values[2:])))]
+            self.values = [_get_values(val) for val in values]
         else:
-            self.values = [values]
+            self.values = [_get_values(values)]
     def transf(self, element):
         return element
     def __iter__(self):
