@@ -520,6 +520,7 @@ def do_graph(graph,prog=None,format=None,target=None,type=None,string=None,optio
     proc = subprocess.Popen("\"%s\" %s %s" % (prog, options or "", format or ""),
                             shell=True, stdin=subprocess.PIPE, stdout=target)
     proc.stdin.write(raw(graph))
+    proc.stdin.close()
     try:
         target.close()
     except:
