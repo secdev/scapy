@@ -28,14 +28,13 @@
 # scapy.contrib.description = Licklider Transmission Protocol (LTP)
 # scapy.contrib.status = loads
 
-from scapy.packet import *
+from scapy.packet import Packet, bind_layers, bind_top_down
 from scapy.fields import *
 from scapy.layers.inet import UDP
 from scapy.config import conf
 from scapy.contrib.sdnv import *
-from sys import *
 
-## LTP
+## LTP https://tools.ietf.org/html/rfc5326
 
 _ltp_flag_vals = {
     0:  '0x0 Red data, NOT (Checkpoint, EORP or EOB)',
@@ -64,13 +63,20 @@ _ltp_cancel_reasons = {
     5:  'RXMTCYCEXC - Exceeded the retransmission cycles limit.',
     6:  'RESERVED'}   # Reserved 0x06-0xFF
 
+## LTP Extensions https://tools.ietf.org/html/rfc5327
+
+_ltp_extension_tag = {
+    0:  'LTP authentication extension',
+    1:  'LTP cookie extension'
+    }
+
 _ltp_data_segment = [0, 1, 2, 3, 4, 5, 6, 7]
 _ltp_checkpoint_segment = [1, 2, 3]
 
 class LTPex(Packet):
     name = "LTP Extension"
-    fields_desc = [ ByteField("ExTag", 0),
-                    SDNV2("ExLength", 0),
+    fields_desc = [ ByteEnumField("ExTag", 0, _ltp_extension_tag),
+                    SDNV2FieldLenField("ExLength", None, length_of="ExData"), # SDNV2FieldLenField
                     StrLenField("ExData", "", length_from=lambda x: x.ExLength)]
 
     def default_payload_class(self, pay):
@@ -86,12 +92,12 @@ class LTPReceptionClaim(Packet):
 
 class LTP(Packet):
     name = "LTP"
-    fields_desc = [ByteField('version', 0),
-                   ByteEnumField('flags', 0, _ltp_flag_vals),
+    fields_desc = [BitField('version', 0, 4),
+                   BitEnumField('flags', 0, 4, _ltp_flag_vals),
                    SDNV2("SessionOriginator", 0),
                    SDNV2("SessionNumber", 0),
-                   FieldLenField("HeaderExtensionCount", None, count_of="HeaderExtensions", fmt="B"),
-                   FieldLenField("TrailerExtensionCount", None, count_of="TrailerExtensions", fmt="B"),
+                   BitFieldLenField("HeaderExtensionCount", None, 4, count_of="HeaderExtensions"),
+                   BitFieldLenField("TrailerExtensionCount", None, 4, count_of="TrailerExtensions"),
                    PacketListField("HeaderExtensions", [], LTPex, count_from=lambda x: x.HeaderExtensionCount),
 
                    #
@@ -101,7 +107,7 @@ class LTP(Packet):
                                     lambda x: x.flags in _ltp_data_segment),
                    ConditionalField(SDNV2("DATA_PayloadOffset", 0),
                                     lambda x: x.flags in _ltp_data_segment),
-                   ConditionalField(SDNV2("DATA_PayloadLength", 0),
+                   ConditionalField(SDNV2FieldLenField("DATA_PayloadLength", None, length_of="LTP_Payload"),
                                     lambda x: x.flags in _ltp_data_segment),
 
                    #
@@ -140,7 +146,7 @@ class LTP(Packet):
                                     lambda x: x.flags == 8),
                    ConditionalField(PacketListField("ReportReceptionClaims", [], LTPReceptionClaim,
                                                     count_from=lambda x: x.ReportReceptionClaimCount),
-                                    lambda x: x.ReportReceptionClaimCount and x.ReportReceptionClaimCount > 0),
+                                    lambda x: x.flags == 8 and (not x.ReportReceptionClaimCount or x.ReportReceptionClaimCount > 0)),
 
                    #
                    # Cancellation Requests
@@ -169,7 +175,8 @@ class LTP(Packet):
     def mysummary(self):
         return self.sprintf("LTP %SessionNumber%"), [UDP]
 
-bind_layers(UDP, LTP, sport=1113)
-bind_layers(UDP, LTP, dport=1113)
-bind_layers(UDP, LTP, sport=2113)
-bind_layers(UDP, LTP, dport=2113)
+bind_top_down(UDP, LTP, sport=1113)
+bind_top_down(UDP, LTP, dport=1113)
+bind_top_down(UDP, LTP, sport=2113)
+bind_top_down(UDP, LTP, dport=2113)
+bind_layers(UDP, LTP, sport=1113, dport=1113)
