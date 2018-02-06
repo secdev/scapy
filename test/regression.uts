@@ -8428,6 +8428,16 @@ assert isinstance(n1, Net)
 assert n1.ip_regex.match(str(n1))
 ip.show()
 
+= Multiple IP addresses test
+~ netaccess
+
+ip = IP(dst=['192.168.0.1', 'www.google.fr'],ihl=(1,5))
+assert ip.dst[0] == '192.168.0.1'
+assert isinstance(ip.dst[1], Net)
+src = ip.src
+assert src
+assert isinstance(src, str)
+
 = OID
 
 oid = OID("1.2.3.4.5.6-8")
@@ -8446,6 +8456,16 @@ n1 = ip.dst
 assert isinstance(n1, Net6)
 assert n1.ip_regex.match(str(n1))
 ip.show()
+
+= Multiple IPv6 addresses test
+~ netaccess ipv6
+
+ip = IPv6(dst=['2001:db8::1', 'www.google.fr'],hlim=(1,5))
+assert ip.dst[0] == '2001:db8::1'
+assert isinstance(ip.dst[1], Net6)
+src = ip.src
+assert src
+assert isinstance(src, str)
 
 = Test repr on Net
 ~ netaccess

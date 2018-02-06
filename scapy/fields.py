@@ -275,7 +275,7 @@ class SourceIPField(IPField):
         dst = ("0.0.0.0" if self.dstname is None
                else getattr(pkt, self.dstname))
         if isinstance(dst, (Gen, list)):
-            r = {conf.route.route(daddr) for daddr in dst}
+            r = {conf.route.route(str(daddr)) for daddr in dst}
             if len(r) > 1:
                 warning("More than one possible route for %r" % (dst,))
             return min(r)[1]

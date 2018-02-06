@@ -234,13 +234,15 @@ class IP6Field(Field):
     def __init__(self, name, default):
         Field.__init__(self, name, default, "16s")
     def h2i(self, pkt, x):
+        if isinstance(x, bytes):
+            x = plain_str(x)
         if isinstance(x, str):
             try:
                 x = in6_ptop(x)
             except socket.error:
                 x = Net6(x)
         elif isinstance(x, list):
-            x = [Net6(a) for a in x]
+            x = [self.h2i(pkt, n) for n in x]
         return x
     def i2m(self, pkt, x):
         return inet_pton(socket.AF_INET6, plain_str(x))
@@ -280,7 +282,7 @@ class SourceIP6Field(IP6Field):
                 import scapy.route6
             dst = ("::" if self.dstname is None else getattr(pkt, self.dstname))
             if isinstance(dst, (Gen, list)):
-                r = {conf.route6.route(daddr) for daddr in dst}
+                r = {conf.route6.route(str(daddr)) for daddr in dst}
                 if len(r) > 1:
                     warning("More than one possible route for %r" % (dst,))
                 x = min(r)[1]
