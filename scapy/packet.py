@@ -882,8 +882,9 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
 
     def haslayer(self, cls):
         """true if self has a layer that is an instance of cls. Superseded by "cls in self" syntax."""
-        if self.__class__ == cls or self.__class__.__name__ == cls:
-            return 1
+        if self.__class__ == cls or cls in [self.__class__.__name__,
+                                            self._name]:
+            return True
         for f in self.packetfields:
             fvalue_gen = self.getfieldval(f.name)
             if fvalue_gen is None:
@@ -913,7 +914,8 @@ values.
             ccls,fld = cls.split(".",1)
         else:
             ccls,fld = cls,None
-        if cls is None or match(self.__class__, cls) or self.__class__.__name__ == ccls:
+        if cls is None or match(self.__class__, cls) \
+           or ccls in [self.__class__.__name__, self._name]:
             if all(self.getfieldval(fldname) == fldvalue
                    for fldname, fldvalue in six.iteritems(flt)):
                 if nb == 1:
