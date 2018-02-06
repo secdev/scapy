@@ -341,6 +341,28 @@ class EAP_TTLS(EAP):
     ]
 
 
+class EAP_PEAP(EAP):
+    """
+    draft-josefsson-pppext-eap-tls-eap-05.txt - "Protected EAP Protocol (PEAP)"
+    """
+
+    name = "PEAP"
+    fields_desc = [
+        ByteEnumField("code", 1, eap_codes),
+        ByteField("id", 0),
+        FieldLenField("len", None, fmt="H", length_of="tls_data",
+                      adjust=lambda p, x: x + 10 if p.L == 1 else x + 6),
+        ByteEnumField("type", 25, eap_types),
+        BitField("L", 0, 1),
+        BitField("M", 0, 1),
+        BitField("S", 0, 1),
+        BitField("reserved", 0, 3),
+        BitField("version", 1, 2),
+        ConditionalField(IntField("tls_message_len", 0), lambda pkt: pkt.L == 1),
+        XStrLenField("tls_data", "", length_from=lambda pkt: 0 if pkt.len is None else pkt.len - (6 + 4 * pkt.L))
+    ]
+
+
 class EAP_FAST(EAP):
     """
     RFC 4851 - "The Flexible Authentication via Secure Tunneling
