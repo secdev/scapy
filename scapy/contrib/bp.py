@@ -16,7 +16,7 @@
 
 """
  Copyright 2012, The MITRE Corporation
- 
+
                               NOTICE
     This software/technical data was produced for the U.S. Government
     under Prime Contract No. NASA-03001 and JPL Contract No. 1295026
@@ -32,12 +32,14 @@ from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.inet import UDP
 from scapy.contrib.ltp import *
+from scapy.contrib.sdnv import *
+
 
 class BP(Packet):
     name = "BP"
     fields_desc = [ByteField('version', 0x06),
                    SDNV2('ProcFlags', 0),
-                   SDNV2('BlockLen', 0),
+                   SDNV2LenField('BlockLen', None),
                    SDNV2('DSO', 0),
                    SDNV2('DSSO', 0),
                    SDNV2('SSO', 0),
@@ -57,7 +59,7 @@ class BP(Packet):
                    ]
 
     def mysummary(self):
-        tmp = "BP(%version%) flags( "
+        tmp = "BP(%version%) flags("
         if (self.ProcFlags & 0x01):
             tmp += ' FR'
         if (self.ProcFlags & 0x02):
@@ -72,27 +74,30 @@ class BP(Packet):
             tmp += ' ACKME'
         RAWCOS = (self.ProcFlags & 0x0180)
         COS = (self.ProcFlags & 0x180) >> 7
-        tmp += ' Pr: '
+        cos_tmp = ''
         if COS == 0x00:
-            tmp += 'B '
+            cos_tmp += 'B '
         if COS == 0x01:
-            tmp += 'N '
+            cos_tmp += 'N '
         if COS == 0x02:
-            tmp += 'E '
+            cos_tmp += 'E '
         if COS & 0xFE000:
-            tmp += 'SRR: ('
+            cos_tmp += 'SRR: ('
         if COS & 0x02000:
-            tmp += 'Rec '
+            cos_tmp += 'Rec '
         if COS & 0x04000:
-            tmp += 'CA '
+            cos_tmp += 'CA '
         if COS & 0x08000:
-            tmp += 'FWD '
+            cos_tmp += 'FWD '
         if COS & 0x10000:
-            tmp += 'DLV '
+            cos_tmp += 'DLV '
         if COS & 0x20000:
-            tmp += 'DEL '
+            cos_tmp += 'DEL '
         if COS & 0xFE000:
-            tmp += ') '
+            cos_tmp += ') '
+
+        if cos_tmp:
+            tmp += ' Pr: ' + cos_tmp
 
         tmp += " ) len(%BlockLen%) "
         if self.DL == 0:
@@ -108,7 +113,7 @@ class BP(Packet):
 
 
 class BPBLOCK(Packet):
-    fields_desc = [ByteField('Type', 0),
+    fields_desc = [ByteEnumField('Type', 1, {1: "Bundle payload block"}),
                    SDNV2('ProcFlags', 0),
                    SDNV2FieldLenField('BlockLen', None, length_of="load"),
                    StrLenField("load", "", length_from=lambda pkt: pkt.BlockLen)
@@ -117,6 +122,7 @@ class BPBLOCK(Packet):
     def mysummary(self):
         return self.sprintf("BPBLOCK(%Type%) Flags: %ProcFlags% Len: %BlockLen%")
 
-bind_layers(LTP,                    BP, ClientServiceID=1)
+
+ltp_bind_payload(BP, lambda pkt: pkt.DATA_ClientServiceID == 1)
 bind_layers(BP,                     BPBLOCK)
 bind_layers(BPBLOCK,                BPBLOCK)

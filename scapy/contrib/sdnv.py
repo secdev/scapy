@@ -16,7 +16,7 @@
 
 """
  Copyright 2012, The MITRE Corporation
- 
+
                               NOTICE
     This software/technical data was produced for the U.S. Government
     under Prime Contract No. NASA-03001 and JPL Contract No. 1295026
@@ -32,9 +32,11 @@ from scapy.fields import Field, FieldLenField
 
 ## SDNV definitions
 
+
 class SDNVValueError(Exception):
     def __init__(self, maxValue):
         self.maxValue = maxValue
+
 
 class SDNV:
     def __init__(self, maxValue=2**32 - 1):
@@ -82,7 +84,9 @@ class SDNV:
             raise SDNVValueError(self.maxValue)
         return(number, numBytes)
 
+
 SDNVUtil = SDNV()
+
 
 class SDNV2(Field):
     """ SDNV2 field """
@@ -99,3 +103,8 @@ class SDNV2(Field):
 class SDNV2FieldLenField(FieldLenField, SDNV2):
     def addfield(self, pkt, s, val):
         return s+raw(SDNVUtil.encode(FieldLenField.i2m(self, pkt, val)))
+
+
+class SDNV2LenField(LenField, SDNV2):
+    def addfield(self, pkt, s, val):
+        return s+raw(SDNVUtil.encode(LenField.i2m(self, pkt, val)))
