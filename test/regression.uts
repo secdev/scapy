@@ -541,6 +541,20 @@ except IndexError:
 else:
     False
 
+= getlayer / haslayer with name
+~ basic getlayer IP ICMP IPerror TCPerror
+x = IP() / ICMP() / IPerror()
+assert x.getlayer(ICMP) is not None
+assert x.getlayer(IPerror) is not None
+assert x.getlayer("IP in ICMP") is not None
+assert x.getlayer(TCPerror) is None
+assert x.getlayer("TCP in ICMP") is None
+assert x.haslayer(ICMP)
+assert x.haslayer(IPerror)
+assert x.haslayer("IP in ICMP")
+assert not x.haslayer(TCPerror)
+assert not x.haslayer("TCP in ICMP")
+
 = getlayer with a filter
 ~ getlayer IP
 pkt = IP() / IP(ttl=3) / IP()
