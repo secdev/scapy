@@ -111,6 +111,9 @@ class RandNum(RandField):
         return int(self._fix())
     def __index__(self):
         return int(self)
+    def __nonzero__(self):
+        return bool(self.value)
+    __bool__ = __nonzero__
     def __add__(self, other):
         return self._fix() + other
     def __radd__(self, other):
@@ -126,6 +129,32 @@ class RandNum(RandField):
     def __floordiv__(self, other):
         return self._fix() / other
     __div__ = __floordiv__
+
+    def __lt__(self, other):
+        return self._fix() < other
+    def __le__(self, other):
+        return self._fix() <= other
+    def __eq__(self, other):
+        return self._fix() == other
+    def __ne__(self, other):
+        return self._fix() != other
+    def __ge__(self, other):
+        return self._fix() >= other
+    def __gt__(self, other):
+        return self._fix() > other
+
+    def __lshift__(self, other):
+        return self._fix() << other
+    def __rshift__(self, other):
+        return self._fix() >> other
+    def __and__(self, other):
+        return self._fix() & other
+    def __rand__(self, other):
+        return other & self._fix()
+    def __or__(self, other):
+        return self._fix() | other
+    def __ror__(self, other):
+        return other | self._fix()
 
 class RandNumGamma(RandNum):
     def __init__(self, alpha, beta):

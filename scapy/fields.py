@@ -614,7 +614,7 @@ class StrFixedLenEnumField(StrFixedLenField):
         StrFixedLenField.__init__(self, name, default, length=length, length_from=length_from)
         self.enum = enum
     def i2repr(self, pkt, v):
-        r = v.rstrip("\0")
+        r = v.rstrip("\0" if isinstance(v, str) else b"\0")
         rr = repr(r)
         if v in self.enum:
             rr = "%s (%s)" % (rr, self.enum[v])
