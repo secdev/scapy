@@ -258,7 +258,8 @@ class IP6Field(Field):
             elif in6_isaddr6to4(x):   # print encapsulated address
                 vaddr = in6_6to4ExtractAddr(x)
                 return "%s [6to4 GW: %s]" % (self.i2h(pkt, x), vaddr)
-        return self.i2h(pkt, x)       # No specific information to return
+        r = self.i2h(pkt, x)          # No specific information to return
+        return r if isinstance(r, str) else repr(r)
     def randval(self):
         return RandIP6()
 
