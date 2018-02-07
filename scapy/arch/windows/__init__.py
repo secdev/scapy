@@ -479,7 +479,7 @@ class NetworkInterface(object):
             try:
                 dot11adapters = next(iter(_vbs_exec_code("""WScript.Echo CreateObject("WScript.Shell").RegRead("HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\npcap\\Parameters\\Dot11Adapters")""")))
             except StopIteration:
-                pass
+                self.raw80211 = False
             else:
                 self.raw80211 = ("\\Device\\" + self.guid).lower() in dot11adapters.lower()
         if not self.raw80211:
