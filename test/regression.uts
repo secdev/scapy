@@ -1117,6 +1117,24 @@ ans, unans = sr(IP(dst=["8.8.8.8", "1.2.3.4"]) / ICMP(), timeout=2, retry=1)
 conf.debug_dissector = old_debug_dissector
 len(ans) == 1 and len(unans) == 1
 
+= Send & receive with process
+~ netaccess IP ICMP
+old_debug_dissector = conf.debug_dissector
+conf.debug_dissector = False
+ans, unans = sr(IP(dst=["www.google.fr", "www.google.com", "www.google.co.uk"])/ICMP(), process=lambda x, y: (x[IP].dst, y[IP].src))
+conf.debug_dissector = old_debug_dissector
+assert all(x == y for x, y in ans)
+assert isinstance(unans, list)
+
+= Send & receive with store_unanswered=False
+~ netaccess IP ICMP
+old_debug_dissector = conf.debug_dissector
+conf.debug_dissector = False
+ans, unans = sr(IP(dst=["www.google.fr", "www.google.com", "www.google.co.uk"])/ICMP(), store_unanswered=False)
+conf.debug_dissector = old_debug_dissector
+assert isinstance(ans, PacketList)
+assert unans == None
+
 = Traceroute function
 ~ netaccess
 * Let's test traceroute
@@ -6489,6 +6507,8 @@ test_openbsd_6_3()
 + Mocked _parse_tcpreplay_result(stdout, stderr, argv, results_dict)
 ~ mock_parse_tcpreplay_result
 
+= Test mocked _parse_tcpreplay_result
+
 # This is tested with tcpreplay version: 3.4.4
 
 stdout = """Actual: 1024 packets (198929 bytes) sent in 67.88 seconds.              Rated: 2930.6 bps, 0.02 Mbps, 15.09 pps
@@ -8895,9 +8915,11 @@ n1 = Net("192.168.0.0/31")
 
 n2 = Net("192.168.0.*")
 len([ip for ip in n2]) == 256
+assert n2.__iterlen__() == 256
 
 n3 = Net("192.168.0.1-5")
 len([ip for ip in n3]) == 5
+assert n3.__iterlen__() == 5
 
 (n1 == n3) == False
 
@@ -8925,11 +8947,16 @@ assert isinstance(src, str)
 
 oid = OID("1.2.3.4.5.6-8")
 len([ o for o in oid ]) == 3
+assert oid.__iterlen__() == 3
 
 = Net6
 
 n1 = Net6("2001:db8::/127")
 len([ip for ip in n1]) == 2
+
+n2 = Net6("fec0::/110")
+#len([x for x in n2]) returns 262144 (very slow)
+assert n2.__iterlen__() == 262144
 
 = Net6 using web address
 ~ netaccess ipv6

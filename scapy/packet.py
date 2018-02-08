@@ -850,6 +850,34 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
             done = {}
         return loop(todo, done)
 
+    def __iterlen__(self):
+        """Predict the total length of the iterator"""
+        fields = [k for (k, v) in itertools.chain(six.iteritems(self.default_fields),
+                  six.iteritems(self.overloaded_fields))
+                  if isinstance(v, VolatileValue)] + list(self.fields.keys())
+        l = 1
+        for f in fields:
+            v = self.getfieldval(f)
+            if hasattr(v, "__iterlen__"):
+                l *= v.__iterlen__()
+            elif isinstance(v, tuple) and len(v) == 2 and all(isinstance(z, int) for z in v):
+                l *= (v[1] - v[0])
+            elif isinstance(v, list):
+                l2 = 0
+                for x in v:
+                    if hasattr(x, "__iterlen__"):
+                        l2 += x.__iterlen__()
+                    elif isinstance(x, tuple) and len(x) == 2 and all(isinstance(z, int) for z in x):
+                        l2 += (x[1] - x[0])
+                    elif isinstance(x, list):
+                        l2 += len(x)
+                    else:
+                        l2 += 1
+                l *= l2 or 1
+        if not isinstance(self.payload, NoPayload):
+            return l * self.payload.__iterlen__()
+        return l
+
     def __gt__(self, other):
         """True if other is an answer from self (self ==> other)."""
         if isinstance(other, Packet):

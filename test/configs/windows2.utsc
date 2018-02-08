@@ -4,8 +4,8 @@
     "..\\scapy\\contrib\\*.uts"
   ],
   "remove_testfiles": [
-    "test\\cansocket_native.uts",
-    "test\\cansocket_python_can.uts"
+    "cansocket_native.uts",
+    "cansocket_python_can.uts"
   ],
   "onlyfailed": true,
   "preexec": {

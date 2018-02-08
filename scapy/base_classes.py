@@ -12,10 +12,12 @@ Generators and packet meta classes.
 ################
 
 from __future__ import absolute_import
+import operator
 import re
 import random
 import socket
 import types
+from functools import reduce
 from scapy.modules.six.moves import range
 
 
@@ -24,6 +26,9 @@ class Gen(object):
 
     def __iter__(self):
         return iter([])
+
+    def __iterlen__(self):
+        return sum(1 for _ in iter(self))
 
 
 def _get_values(value):
@@ -107,6 +112,9 @@ class Net(Gen):
                     for a in range(*self.parsed[0]):
                         yield "%i.%i.%i.%i" % (a, b, c, d)
 
+    def __iterlen__(self):
+        return reduce(operator.mul, ((y - x) for (x, y) in self.parsed), 1)
+
     def choice(self):
         return ".".join(str(random.randint(v[0], v[1] - 1)) for v in self.parsed)
 
@@ -163,6 +171,9 @@ class OID(Gen):
                 else:
                     ii[i] = self.cmpt[i][0]
                 i += 1
+
+    def __iterlen__(self):
+        return reduce(operator.mul, (max(y - x, 0) + 1 for (x, y) in self.cmpt), 1)
 
 
 ######################################
