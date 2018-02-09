@@ -8447,6 +8447,18 @@ assert isinstance(n1, Net6)
 assert n1.ip_regex.match(str(n1))
 ip.show()
 
+= Test repr on Net
+~ netaccess
+
+conf.color_theme = BlackAndWhite()
+assert "Net('www.google.com')" in repr(IP(src="www.google.com"))
+
+= Test repr on Net
+~ netaccess ipv6
+
+conf.color_theme = BlackAndWhite()
+assert "Net6('www.google.com')" in repr(IPv6(src="www.google.com"))
+
 ############
 ############
 + IPv6 helpers
