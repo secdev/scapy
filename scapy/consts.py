@@ -27,6 +27,7 @@ except (ImportError, RuntimeError):
     MATPLOTLIB_DEFAULT_PLOT_KARGS = dict()
     log_loading.info("Can't import matplotlib. Won't be able to plot.")
 
+
 def _test_pyx():
     """Returns if PyX is correctly installed or not"""
     try:
@@ -36,6 +37,7 @@ def _test_pyx():
         return False
     else:
         return r == 0
+
 
 try:
     import pyx
@@ -47,7 +49,6 @@ try:
 except ImportError:
     log_loading.info("Can't import PyX. Won't be able to use psdump() or pdfdump().")
     PYX = 0
-
 
 LINUX = platform.startswith("linux")
 OPENBSD = platform.startswith("openbsd")

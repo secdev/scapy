@@ -38,27 +38,24 @@ class Route:
     def __repr__(self):
         rtlst = []
         for net, msk, gw, iface, addr, metric in self.routes:
-            rtlst.append((ltoa(net),
-                      ltoa(msk),
-                      gw,
-                      (iface.name if not isinstance(iface, six.string_types) else iface),
-                      addr,
-                      str(metric)))
+            rtlst.append((ltoa(net), ltoa(msk), gw,
+                          (iface.name if not isinstance(iface, six.string_types) else iface),
+                          addr, str(metric)))
 
         return pretty_list(rtlst,
-                             [("Network", "Netmask", "Gateway", "Iface", "Output IP", "Metric")])
+                           [("Network", "Netmask", "Gateway", "Iface", "Output IP", "Metric")])
 
     def make_route(self, host=None, net=None, gw=None, dev=None, metric=1):
         from scapy.arch import get_if_addr
         if host is not None:
-            thenet,msk = host,32
+            thenet, msk = host, 32
         elif net is not None:
-            thenet,msk = net.split("/")
+            thenet, msk = net.split("/")
             msk = int(msk)
         else:
             raise Scapy_Exception("make_route: Incorrect parameters. You should specify a host or a net")
         if gw is None:
-            gw="0.0.0.0"
+            gw = "0.0.0.0"
         if dev is None:
             if gw:
                 nhop = gw
@@ -74,27 +71,25 @@ class Route:
         add(net="192.168.1.0/24",gw="1.2.3.4")
         """
         self.invalidate_cache()
-        self.routes.append(self.make_route(*args,**kargs))
+        self.routes.append(self.make_route(*args, **kargs))
 
-        
-    def delt(self,  *args, **kargs):
+    def delt(self, *args, **kargs):
         """delt(host|net, gw|dev)"""
         self.invalidate_cache()
-        route = self.make_route(*args,**kargs)
+        route = self.make_route(*args, **kargs)
         try:
-            i=self.routes.index(route)
+            i = self.routes.index(route)
             del(self.routes[i])
         except ValueError:
             warning("no matching route found")
-             
+
     def ifchange(self, iff, addr):
         self.invalidate_cache()
-        the_addr,the_msk = (addr.split("/")+["32"])[:2]
+        the_addr, the_msk = (addr.split("/") + ["32"])[:2]
         the_msk = itom(int(the_msk))
         the_rawaddr = atol(the_addr)
         the_net = the_rawaddr & the_msk
-        
-        
+
         for i, route in enumerate(self.routes):
             net, msk, gw, iface, addr, metric = route
             if scapy.consts.WINDOWS:
@@ -103,16 +98,14 @@ class Route:
             elif iff != iface:
                 continue
             if gw == '0.0.0.0':
-                self.routes[i] = (the_net,the_msk,gw,iface,the_addr,metric)
+                self.routes[i] = (the_net, the_msk, gw, iface, the_addr, metric)
             else:
-                self.routes[i] = (net,msk,gw,iface,the_addr,metric)
+                self.routes[i] = (net, msk, gw, iface, the_addr, metric)
         conf.netcache.flush()
-        
-                
 
     def ifdel(self, iff):
         self.invalidate_cache()
-        new_routes=[]
+        new_routes = []
         for rt in self.routes:
             if scapy.consts.WINDOWS:
                 if iff.guid == rt[3].guid:
@@ -120,39 +113,37 @@ class Route:
             elif iff == rt[3]:
                 continue
             new_routes.append(rt)
-        self.routes=new_routes
-        
+        self.routes = new_routes
+
     def ifadd(self, iff, addr):
         self.invalidate_cache()
-        the_addr,the_msk = (addr.split("/")+["32"])[:2]
+        the_addr, the_msk = (addr.split("/") + ["32"])[:2]
         the_msk = itom(int(the_msk))
         the_rawaddr = atol(the_addr)
         the_net = the_rawaddr & the_msk
-        self.routes.append((the_net,the_msk,'0.0.0.0',iff,the_addr,1))
+        self.routes.append((the_net, the_msk, '0.0.0.0', iff, the_addr, 1))
 
-
-    def route(self,dest,verbose=None):
+    def route(self, dest, verbose=None):
         if isinstance(dest, list) and dest:
             dest = dest[0]
         if dest in self.cache:
             return self.cache[dest]
         if verbose is None:
-            verbose=conf.verb
+            verbose = conf.verb
         # Transform "192.168.*.1-5" to one IP of the set
         dst = dest.split("/")[0]
-        dst = dst.replace("*","0") 
+        dst = dst.replace("*", "0")
         while True:
             l = dst.find("-")
             if l < 0:
                 break
-            m = (dst[l:]+".").find(".")
-            dst = dst[:l]+dst[l+m:]
+            m = (dst[l:] + ".").find(".")
+            dst = dst[:l] + dst[l + m:]
 
-            
         dst = atol(dst)
-        pathes=[]
-        for d,m,gw,i,a,me in self.routes:
-            if not a: # some interfaces may not currently be connected
+        pathes = []
+        for d, m, gw, i, a, me in self.routes:
+            if not a:  # some interfaces may not currently be connected
                 continue
             aa = atol(a)
             if aa == dst:
@@ -160,7 +151,7 @@ class Route:
                     (0xffffffff, 1, (scapy.consts.LOOPBACK_INTERFACE, a, "0.0.0.0"))
                 )
             if (dst & m) == (d & m):
-                pathes.append((m, me, (i,a,gw)))
+                pathes.append((m, me, (i, a, gw)))
         if not pathes:
             if verbose:
                 warning("No route found (no default route?)")
@@ -176,7 +167,7 @@ class Route:
         ret = pathes[0][2]
         self.cache[dest] = ret
         return ret
-            
+
     def get_if_bcast(self, iff):
         for net, msk, gw, iface, addr, metric in self.routes:
             if net == 0:
@@ -186,11 +177,12 @@ class Route:
                     continue
             elif iff != iface:
                 continue
-            bcast = atol(addr)|(~msk&0xffffffff); # FIXME: check error in atol()
+            bcast = atol(addr) | (~ msk & 0xffffffff)  # FIXME: check error in atol()
             return ltoa(bcast)
-        warning("No broadcast address found for iface %s\n", iff);
+        warning("No broadcast address found for iface %s\n", iff)
 
-conf.route=Route()
+
+conf.route = Route()
 
 iface = conf.route.route("0.0.0.0", verbose=0)[0]
 
