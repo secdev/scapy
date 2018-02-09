@@ -20,6 +20,7 @@ from scapy.compat import *
 _IP6_ZEROS = re.compile('(?::|^)(0(?::0)+)(?::|$)')
 _INET6_PTON_EXC = socket.error("illegal IP address string passed to inet_pton")
 
+
 def _inet6_pton(addr):
     """Convert an IPv6 address from text representation into binary form,
 used when socket.inet_pton is not available.
@@ -64,8 +65,8 @@ used when socket.inet_pton is not available.
     if joker_pos is not None:
         if len(result) == 16:
             raise _INET6_PTON_EXC
-        result = (result[:joker_pos] + b"\x00" * (16 - len(result))
-                  + result[joker_pos:])
+        result = (result[:joker_pos] + b"\x00" * (16 - len(result)) +
+                  result[joker_pos:])
     if len(result) != 16:
         raise _INET6_PTON_EXC
     return result
