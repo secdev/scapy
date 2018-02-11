@@ -23,11 +23,6 @@ class _TcpSuperSocket(SuperSocket):
         self.open = False
     
     def _send(self, chunk):
-        print(chunk)
-        try:
-            print(len(chunk.Payload))
-        except Exception:
-            pass
         chunk = bytes(chunk)
         sent = 0
         try:
@@ -104,7 +99,7 @@ class _TcpSuperSocket(SuperSocket):
         return self.socket.fileno()
 
 
-class ClientAutomaton(Automaton):
+class TcpClientAutomaton(Automaton):
     """
     This Automaton implements the ua tcp layer functionality.
     It can be used as part of an automaton that implements the SecureChannel layer.
@@ -112,7 +107,7 @@ class ClientAutomaton(Automaton):
     
     def parse_args(self, connectionContext=UaConnectionContext(), target="localhost",
                    targetPort=4840, debug=0, store=1, **kwargs):
-        super(ClientAutomaton, self).parse_args(debug, store, **kwargs)
+        super(TcpClientAutomaton, self).parse_args(debug, store, **kwargs)
         self.target = target
         self.targetPort = targetPort
         self.logger = logging.getLogger(__name__)
@@ -225,7 +220,7 @@ class ClientAutomaton(Automaton):
 class UaTcpSocket(SuperSocket):
     
     def __init__(self, connectionContext, target="localhost", targetPort=4840, endpoint="TODO"):
-        self.atmt = ClientAutomaton(connectionContext=connectionContext, target=target, targetPort=targetPort)
+        self.atmt = TcpClientAutomaton(connectionContext=connectionContext, target=target, targetPort=targetPort)
         self.atmt.runbg()
         self.open = True
         self.logger = logging.getLogger(__name__)
