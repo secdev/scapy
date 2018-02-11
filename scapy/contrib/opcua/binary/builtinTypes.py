@@ -163,6 +163,8 @@ class UaBytesField(UaByteField):
         # return list(map(lambda val, self=self: UaByteField.h2i(self, pkt, val), x))
 
     def i2h(self, pkt, x):
+        if x is None:
+            return x
         return self.i2m(pkt, x)
 
     def m2i(self, pkt, x):
