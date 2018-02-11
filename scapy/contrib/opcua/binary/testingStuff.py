@@ -3,7 +3,7 @@
 import logging
 import sys
 
-from contrib.opcua.helpers import UaConnectionContext
+from scapy.contrib.opcua.helpers import UaConnectionContext
 
 root = logging.getLogger()
 root.setLevel(logging.DEBUG)
@@ -43,7 +43,7 @@ msg.Payload.Message.RequestHeader.AuditEntryId = UaString(data="A"*4017)
 
 if __name__ == '__main__':
     server_cert = load_certificate("./crypto/server_cert.der")
-    server_pk = load_private_key("./crypto/server_key.pem")
+    server_pk = load_private_key("./crypto/server_key.der")
     # server_cert = load_certificate("./crypto/server_cert4096.der")
     # server_pk = load_private_key("./crypto/server_key4096.der")
     client_cert = load_certificate("./crypto/uaexpert.der")
@@ -52,7 +52,7 @@ if __name__ == '__main__':
     policy = SecurityPolicyBasic128Rsa15(server_cert, None, client_cert, client_pk, UaMessageSecurityMode.SignAndEncrypt)
     # policy.make_symmetric_key(b'aaa', b'bbb')
     connectionContext = UaConnectionContext()
-    # connectionContext.securityPolicy = policy
+    connectionContext.securityPolicy = policy
     
     # pc = read_pcap()
     # pc[23].show()
@@ -76,19 +76,19 @@ if __name__ == '__main__':
     # client.io.uatcp.recv().show()
     
     s = UaTcpSocket(connectionContext)
-    # connectionContext.localNonce = create_nonce(connectionContext.securityPolicy.symmetric_key_size)
-    # opn.Payload.Message.ClientNonce = UaByteString(data=connectionContext.localNonce)
+    connectionContext.localNonce = create_nonce(connectionContext.securityPolicy.symmetric_key_size)
+    opn.Payload.Message.ClientNonce = UaByteString(data=connectionContext.localNonce)
     for i in range(1, 3):
         s.connect()
-        opn.Payload.Message.SecurityMode = 1
         s.send(opn)
         rec = s.recv()
         rec.show()
         serverNonce = rec.Payload.Message.ServerNonce.data
         connectionContext.securityToken = rec.Payload.Message.SecurityToken
-        # connectionContext.securityPolicy.make_symmetric_key(connectionContext.localNonce, serverNonce)
+        connectionContext.securityPolicy.make_symmetric_key(connectionContext.localNonce, serverNonce)
         s.send(msg)
-        s.recv()
+        resp = s.recv()
+        resp.show()
         resp = s.recv()
         print(repr(resp.reassembled))
         

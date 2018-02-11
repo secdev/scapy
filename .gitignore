@@ -10,3 +10,6 @@ test/*.html
 doc/scapy/_build
 
 .idea/
+/venv*/
+*.der
+*.pem
