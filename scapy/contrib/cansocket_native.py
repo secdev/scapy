@@ -62,7 +62,7 @@ class CANSocket(SuperSocket):
         self.ins.bind((iface,))
         self.outs = self.ins
 
-    def recv(self, x=CAN_FRAME_SIZE):
+    def recv_raw(self, x=CAN_FRAME_SIZE):
         try:
             pkt, sa_ll = self.ins.recvfrom(x)
         except BlockingIOError:  # noqa: F821
@@ -80,12 +80,9 @@ class CANSocket(SuperSocket):
         # required by the underlaying Linux SocketCAN frame format
         pkt = struct.pack("<I12s", *struct.unpack(">I12s", pkt))
         len = pkt[4]
-        canpkt = CAN(pkt[:len + 8])
-        canpkt.time = get_last_packet_timestamp(self.ins)
-        if self.remove_padding:
-            return canpkt
-        else:
-            return canpkt / Padding(pkt[len + 8:])
+        canpkt = pkt[:len + 8] if self.remove_padding else pkt
+        ts = get_last_packet_timestamp(self.ins)
+        return CAN, canpkt, ts
 
     def send(self, x):
         try:
