@@ -258,7 +258,8 @@ class IPField(Field):
     def any2i(self, pkt, x):
         return self.h2i(pkt,x)
     def i2repr(self, pkt, x):
-        return self.resolve(self.i2h(pkt, x))
+        r = self.resolve(self.i2h(pkt, x))
+        return r if isinstance(r, str) else repr(r)
     def randval(self):
         return RandIP()
 
