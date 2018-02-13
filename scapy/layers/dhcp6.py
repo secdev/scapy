@@ -26,7 +26,7 @@ from scapy.fields import BitField, ByteEnumField, ByteField, FieldLenField, \
     PacketListField, ShortEnumField, ShortField, StrField, StrFixedLenField, \
     StrLenField, UTCTimeField, X3BytesField, XIntField, XShortEnumField, \
     PacketLenField
-from scapy.layers.inet import UDP
+from scapy.layers.inet import UDP, Raw
 from scapy.layers.inet6 import DomainNameListField, IP6Field, IP6ListField, IPv6
 from scapy.packet import Packet, bind_bottom_up
 from scapy.pton_ntop import inet_pton
@@ -903,11 +903,27 @@ class DHCP6(_DHCP6OptGuessPayload):
 # Relayed message is seen as a payload.
 class DHCP6OptRelayMsg(_DHCP6OptGuessPayload):  # RFC sect 22.10
     name = "DHCP6 Relay Message Option"
-    fields_desc = [ ShortEnumField("optcode", 9, dhcp6opts), 
-                    FieldLenField("optlen", None, fmt="!H",
-                        length_of="message"),
-                    PacketLenField("message", DHCP6(), DHCP6,
-                        length_from=lambda p: p.optlen) ]
+    fields_desc = [
+        ShortEnumField("optcode", 9, dhcp6opts),
+        ShortField("optlen", 0)
+    ]
+
+    def post_build(self, pkt, pay):
+        # fix the optlen field
+        payload_len = len(pay)
+        pkt = pkt[:-2] + chb((payload_len >> 8) & 0xff) + chb(payload_len & 0xff) + pkt[4:]
+
+        return pkt + pay
+
+    def guess_payload_class(self, payload):
+        payload_msg_type = orb(payload[0])
+        try:
+            class_type = get_cls(dhcp6_cls_by_type[payload_msg_type], Raw)
+            return class_type
+        except KeyError:
+            pass
+
+        return Packet.guess_payload_class(self, payload)
 
 #####################################################################
 # Solicit Message : sect 17.1.1 RFC3315
