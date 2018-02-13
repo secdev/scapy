@@ -89,12 +89,12 @@ def _hack_windows_subprocess(r=100):
     for fd in range(r):
         try:
             s = os.fstat(fd)
-        except:
+        except OSError:
             continue
         if stat.S_ISREG(s.st_mode):
             handle = wintypes.HANDLE(get_osfhandle(fd))
-            mask   = wintypes.DWORD(HANDLE_FLAG_INHERIT)
-            flags  = wintypes.DWORD(0)
+            mask = wintypes.DWORD(HANDLE_FLAG_INHERIT)
+            flags = wintypes.DWORD(0)
             windll.kernel32.SetHandleInformation(handle, mask, flags)
 
 class _PowershellManager(Thread):
