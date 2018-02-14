@@ -60,8 +60,8 @@ class Interceptor(object):
 
     
 class ProgPath(ConfClass):
-    pdfreader = "acroread"
-    psreader = "gv"
+    pdfreader = "evince"
+    psreader = "evince"
     dot = "dot"
     display = "display"
     tcpdump = "tcpdump"
