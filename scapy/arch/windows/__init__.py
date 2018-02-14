@@ -72,11 +72,11 @@ def _encapsulate_admin(cmd):
     # rights, which will execute the command
     return "Start-Process PowerShell -windowstyle hidden -Wait -Verb RunAs -ArgumentList '-command &{%s}'" % cmd
 
-def _hack_windows_subprocess(r=100):
+def _suppress_file_handles_inheritance(r=100):
     """HACK: python 2.7 file descriptors.
 
     This magic hack fixes https://bugs.python.org/issue19575
-    by suppressing passing HANDLE_FLAG_INHERIT to a range of
+    by suppressing the HANDLE_FLAG_INHERIT flag to a range of
     already opened file descriptors.
     """
     # See https://github.com/secdev/scapy/issues/1136
@@ -105,7 +105,7 @@ class _PowershellManager(Thread):
         if sys.version_info[0:2] < (3, 4): # Bug was fixed on python 3.4+
             # Fix https://bugs.python.org/issue19575
             # and https://github.com/secdev/scapy/issues/1136
-            _hack_windows_subprocess()
+            _suppress_file_handles_inheritance()
         # Start & redirect input
         if conf.prog.powershell:
             self.process = sp.Popen([conf.prog.powershell,
