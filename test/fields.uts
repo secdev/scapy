@@ -1036,3 +1036,29 @@ try:
     assert(False)
 except (Scapy_Exception, IndexError):
     pass
+
+
+############
+############
++ Three3BytesEnumField tests
+
+= Test proper value substitution
+
+three_b_enum_field = ThreeBytesEnumField('test', 0x00,
+                                         {
+                                             0x0e: 'fourteen',
+                                             0x00: 'zero',
+                                             0x5566: 'five-six',
+                                             0x0e0000: 'fourteen-zero-zero',
+                                             0x0e0100: 'fourteen-one-zero',
+                                             0x112233: '1#2#3'
+                                         })
+
+assert(three_b_enum_field.i2repr(None, 0) == 'zero')
+assert(three_b_enum_field.i2repr(None, 0x0e) == 'fourteen')
+assert(three_b_enum_field.i2repr(None, 0x5566) == 'five-six')
+assert(three_b_enum_field.i2repr(None, 0x112233) == '1#2#3')
+assert(three_b_enum_field.i2repr(None, 0x0e0000) == 'fourteen-zero-zero')
+assert(three_b_enum_field.i2repr(None, 0x0e0100) == 'fourteen-one-zero')
+assert(three_b_enum_field.i2repr(None, 0x01) == '1')
+assert(three_b_enum_field.i2repr(None, 0x49763) == '300899')
