@@ -3547,7 +3547,7 @@ def NDP_Attack_NA_Spoofing(iface=None, mac_src_filter=None, tgt_filter=None,
             # Otherwise, the NS is a NUD related one, i.e. the peer is
             # unicasting the NS to check the target is still alive (L2
             # information is still in its cache and it is verified)
-            received_snma = socket.inet_pton(socket.AF_INET6, dst)
+            received_snma = inet_pton(socket.AF_INET6, dst)
             expected_snma = in6_getnsma(tgt)
             if received_snma != expected_snma:
                 print("solicited node multicast @ does not match target @!")
