@@ -28,7 +28,7 @@
             - IEEE 802.1AB 2016 - LLDP protocol, topology and MIB description
 
     :TODO:
-        - organization specific TLV e.g. ProfiNet
+        - organization specific TLV e.g. ProfiNet (see LLDPDUGenericOrganisationSpecific for a starting point)
 
     :NOTES:
         - you can find the layer configuration options at the end of this file
@@ -46,7 +46,7 @@ from scapy.layers.dot11 import Packet
 from scapy.layers.l2 import Ether, Dot1Q, bind_layers, \
     BitField, StrLenField, ByteEnumField, BitEnumField, \
     BitFieldLenField, ShortField, Padding, Scapy_Exception, \
-    XStrLenField
+    XStrLenField, ByteField, ThreeBytesEnumField
 from scapy.modules.six.moves import range
 from scapy.data import ETHER_TYPES
 from scapy.compat import orb, raw
@@ -664,6 +664,31 @@ class LLDPDUManagementAddress(LLDPDU):
         self._check()
         return super(LLDPDUManagementAddress, self).do_build()
 
+
+class LLDPDUGenericOrganisationSpecific(LLDPDU):
+
+    ORG_UNIQUE_CODE_PNO = 0x000ecf
+    ORG_UNIQUE_CODE_IEEE_802_1 = 0x0080c2
+    ORG_UNIQUE_CODE_IEEE_802_3 = 0x00120f
+    ORG_UNIQUE_CODE_TIA_TR_41_MED = 0x0012bb
+    ORG_UNIQUE_CODE_HYTEC = 0x30b216
+
+    ORG_UNIQUE_CODES = {
+        ORG_UNIQUE_CODE_PNO: "PROFIBUS International (PNO)",
+        ORG_UNIQUE_CODE_IEEE_802_1: "IEEE 802.1",
+        ORG_UNIQUE_CODE_IEEE_802_3: "IEEE 802.3",
+        ORG_UNIQUE_CODE_TIA_TR_41_MED: "TIA TR-41 Committee . Media Endpoint Discovery",
+        ORG_UNIQUE_CODE_HYTEC: "Hytec Geraetebau GmbH"
+    }
+
+    fields_desc = [
+        BitEnumField('_type', 127, 7, LLDPDU.TYPES),
+        BitFieldLenField('_length', None, 9, length_of='data', adjust=lambda pkt, x: len(pkt.data) + 4),
+        ThreeBytesEnumField('org_code', 0, ORG_UNIQUE_CODES),
+        ByteField('subtype', 0x00),
+        XStrLenField('data', '', length_from=lambda pkt: pkt._length - 4)
+    ]
+
 LLDPDU_CLASS_TYPES = {
     0x00: LLDPDUEndOfLLDPDU,
     0x01: LLDPDUChassisID,
@@ -675,7 +700,7 @@ LLDPDU_CLASS_TYPES = {
     0x07: LLDPDUSystemCapabilities,
     0x08: LLDPDUManagementAddress,
     range(0x09, 0x7e): None,  # reserved - future standardization
-    127: None  # organisation specific TLV
+    127: LLDPDUGenericOrganisationSpecific
 }
 
 class LLDPConfiguration(object):
