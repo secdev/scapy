@@ -50,6 +50,7 @@ from scapy.layers.l2 import Ether, Dot1Q, bind_layers, \
 from scapy.modules.six.moves import range
 from scapy.data import ETHER_TYPES
 from scapy.compat import orb, raw
+from scapy.packet import Raw
 
 LLDP_NEAREST_BRIDGE_MAC = '01:80:c2:00:00:0e'
 LLDP_NEAREST_NON_TPMR_BRIDGE_MAC = '01:80:c2:00:00:03'
@@ -123,8 +124,13 @@ class LLDPDU(Packet):
 
     def guess_payload_class(self, payload):
         # type is a 7-bit bitfield spanning bits 1..7 -> div 2
-        lldpdu_tlv_type = orb(payload[0]) // 2
-        return LLDPDU_CLASS_TYPES[lldpdu_tlv_type]
+        try:
+            lldpdu_tlv_type = orb(payload[0]) // 2
+            return LLDPDU_CLASS_TYPES[lldpdu_tlv_type]
+        except (KeyError, IndexError):
+            pass
+
+        return Raw
 
     @staticmethod
     def _dot1q_headers_size(layer):
@@ -689,6 +695,7 @@ class LLDPDUGenericOrganisationSpecific(LLDPDU):
         XStrLenField('data', '', length_from=lambda pkt: pkt._length - 4)
     ]
 
+# 0x09 .. 0x7e is reserved for future standardization and for now treated as Raw() data
 LLDPDU_CLASS_TYPES = {
     0x00: LLDPDUEndOfLLDPDU,
     0x01: LLDPDUChassisID,
@@ -699,7 +706,6 @@ LLDPDU_CLASS_TYPES = {
     0x06: LLDPDUSystemDescription,
     0x07: LLDPDUSystemCapabilities,
     0x08: LLDPDUManagementAddress,
-    range(0x09, 0x7e): None,  # reserved - future standardization
     127: LLDPDUGenericOrganisationSpecific
 }
 
