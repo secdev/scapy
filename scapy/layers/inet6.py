@@ -733,7 +733,7 @@ def in6_chksum(nh, u, p):
 
 # Inherited by all extension header classes
 class _IPv6ExtHdr(_IPv6GuessPayload, Packet):
-    name = 'Abstract IPV6 Option Header'
+    name = 'Abstract IPv6 Option Header'
     aliastypes = [IPv6, IPerror6] # TODO ...
 
 
