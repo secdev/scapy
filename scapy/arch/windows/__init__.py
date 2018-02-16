@@ -108,6 +108,169 @@ def _suppress_file_handles_inheritance(r=100):
             flags = wintypes.DWORD(0)
             windll.kernel32.SetHandleInformation(handle, mask, flags)
 
+
+def _get_opened_handles():
+
+    import ctypes
+    from ctypes import windll
+    from ctypes import wintypes
+
+    pid = os.getpid()
+    if pid == 0:
+        # otherwise we'd get NoSuchProcess
+        raise AccessDenied("")
+
+    SYSTEM_INFORMATION_CLASS = ctypes.c_int
+    SystemExtendedHandleInformation = SYSTEM_INFORMATION_CLASS(64)
+
+    NTSTATUS = ctypes.c_ulong
+    STATUS_INFO_LENGTH_MISMATCH = NTSTATUS(0xC0000004)
+
+    PVOID = ctypes.c_void_p
+
+    class SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX(ctypes.Structure):
+        _fields_ = [                                # Size=28
+        ("Object",                PVOID),           # Size=4
+        ("UniqueProcessId",       wintypes.ULONG),  # Size=4
+        ("HandleValue",           wintypes.ULONG),  # Size=4
+        ("GrantedAccess",         wintypes.ULONG),  # Size=4
+        ("CreatorBackTraceIndex", wintypes.USHORT), # Size=2
+        ("ObjectTypeIndex",       wintypes.USHORT), # Size=2
+        ("HandleAttributes",      wintypes.ULONG),  # Size=4
+        ("Reserved",              wintypes.ULONG),  # Size=4
+    ]
+
+    open_handles = []
+
+    handles_count = 0x10000
+    while True:
+
+        class SYSTEM_HANDLE_INFORMATION_EX(ctypes.Structure):
+            _fields_ = [                          # Size=36
+            ("NumberOfHandles", wintypes.ULONG),  # Size=4
+            ("Reserved",        wintypes.ULONG),  # Size=4
+            ("Handles",         (SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX * handles_count)),
+        ]
+
+        system_handle_info = SYSTEM_HANDLE_INFORMATION_EX(0, 0)
+        handle_info_size   = wintypes.DWORD(ctypes.sizeof(system_handle_info))
+        return_info_size   = wintypes.DWORD(0)
+        status = NTSTATUS(windll.ntdll.NtQuerySystemInformation(
+                                       SystemExtendedHandleInformation,
+                                       ctypes.cast(ctypes.pointer(system_handle_info), PVOID),
+                                       handle_info_size,
+                                       ctypes.byref(return_info_size)))
+        if status.value != STATUS_INFO_LENGTH_MISMATCH.value:
+            break
+
+        # NtQuerySystemInformation on't give us the correct buffer size,
+        # so we guess by doubling the buffer size.
+        handles_count *= 2
+
+    # NtQuerySystemInformation stopped giving us STATUS_INFO_LENGTH_MISMATCH
+    if status.value: # NT_SUCCESS(status.value):
+        raise PyErr_SetFromWindowsErr(HRESULT_FROM_NT(status));
+
+    for i in range(system_handle_info.NumberOfHandles):
+        hinfo = system_handle_info.Handles[i] # PSYSTEM_HANDLE_TABLE_ENTRY_INFO_EX
+        # Check if this hinfo belongs to the PID the user specified.
+        if hinfo.UniqueProcessId == pid:
+            open_handles.append(hinfo)
+
+    return open_handles
+
+
+# ctypes's backport from PY3's os module.
+
+
+def get_inheritable(fd):
+
+    from ctypes import byref
+    from ctypes import windll
+    from ctypes import wintypes
+    from ctypes import WinError
+    from msvcrt import get_osfhandle
+
+    HANDLE_FLAG_INHERIT = 1
+
+    handle = wintypes.HANDLE(get_osfhandle(fd))
+    flags  = wintypes.DWORD()
+    if not windll.kernel32.GetHandleInformation(handle, byref(flags)):
+        raise WinError()
+
+    return bool(flags.value & HANDLE_FLAG_INHERIT)
+
+
+def set_inheritable(fd, inheritable):
+
+    from ctypes import windll
+    from ctypes import wintypes
+    from ctypes import WinError
+    from msvcrt import get_osfhandle
+
+    HANDLE_FLAG_INHERIT = 1
+
+    handle = wintypes.HANDLE(get_osfhandle(fd))
+    mask   = wintypes.DWORD(HANDLE_FLAG_INHERIT)
+    flags  = wintypes.DWORD(HANDLE_FLAG_INHERIT if inheritable else 0)
+    if not windll.kernel32.SetHandleInformation(handle, mask, flags):
+        raise WinError()
+
+
+"""
+print(len(get_open_handles()))
+
+with open("XXX", "w") as f:
+    f.write("LALA")
+    print([handle.HandleValue for handle in get_open_handles() if handle.HandleValue == f.fileno()])
+
+print(len(get_open_handles()))
+"""
+
+"""
+with open("AAA.txt", "w") as f:
+    print(get_inheritable(f.fileno()))
+    set_inheritable(f.fileno(), False)
+    print(get_inheritable(f.fileno()))
+
+
+import os
+with os.fdopen(os.open("XXX.txt", os.O_NOINHERIT | os.O_WRONLY | os.O_CREAT), "w") as f:
+    print(get_inheritable(f.fileno()))
+    from scapy import all as scapy  # TROUBLE AHEAD
+os.remove("XXX.txt")
+
+# Displays: False (czyli OK).
+"""
+
+"""
+def test_pass_fds_inheritable(self):
+    script = support.findfile("fd_status.py", subdir="subprocessdata")
+
+    inheritable, non_inheritable = os.pipe()
+    self.addCleanup(os.close, inheritable)
+    self.addCleanup(os.close, non_inheritable)
+    os.set_inheritable(inheritable, True)
+    os.set_inheritable(non_inheritable, False)
+    pass_fds = (inheritable, non_inheritable)
+    args = [sys.executable, script]
+    args += list(map(str, pass_fds))
+
+    p = subprocess.Popen(args,
+                         stdout=subprocess.PIPE, close_fds=True,
+                         pass_fds=pass_fds)
+    output, ignored = p.communicate()
+    fds = set(map(int, output.split(b',')))
+
+    # the inheritable file descriptor must be inherited, so its inheritable
+    # flag must be set in the child process after fork() and before exec()
+    self.assertEqual(fds, set(pass_fds), "output=%a" % output)
+
+    # inheritable flag must not be changed in the parent process
+    self.assertEqual(os.get_inheritable(inheritable), True)
+    self.assertEqual(os.get_inheritable(non_inheritable), False) 
+"""
+
 class _PowershellManager(Thread):
     """Instance used to send multiple commands on the same Powershell process.
     Will be instantiated on loading and automatically stopped.
