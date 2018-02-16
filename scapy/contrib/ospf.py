@@ -54,6 +54,10 @@ _OSPF_types = {1: "Hello",
 
 
 class _NoLLSLenField(LenField):
+    """
+    LenField that will ignore the size of OSPF_LLS_Hdr if it exists
+    in the payload
+    """
     def i2m(self, pkt, x):
         if x is None:
             x = self.adjust(len(pkt.payload))
