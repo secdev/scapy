@@ -126,11 +126,9 @@ class LLDPDU(Packet):
         # type is a 7-bit bitfield spanning bits 1..7 -> div 2
         try:
             lldpdu_tlv_type = orb(payload[0]) // 2
-            return LLDPDU_CLASS_TYPES[lldpdu_tlv_type]
-        except (KeyError, IndexError):
-            pass
-
-        return Raw
+            return LLDPDU_CLASS_TYPES.get(lldpdu_tlv_type, Raw)
+        except IndexError:
+            return Raw
 
     @staticmethod
     def _dot1q_headers_size(layer):
