@@ -1049,13 +1049,6 @@ class XShortEnumField(ShortEnumField):
                     return ret
         return lhex(x)
 
-
-class ThreeBytesEnumField(EnumField, ThreeBytesField):
-
-    def __init__(self, name, default, enum):
-        EnumField.__init__(self, name, default, enum, "!I")
-
-
 class _MultiEnumField(_EnumField):
     def __init__(self, name, default, enum, depends_on, fmt = "H"):
 

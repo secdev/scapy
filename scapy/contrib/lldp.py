@@ -46,7 +46,7 @@ from scapy.layers.dot11 import Packet
 from scapy.layers.l2 import Ether, Dot1Q, bind_layers, \
     BitField, StrLenField, ByteEnumField, BitEnumField, \
     BitFieldLenField, ShortField, Padding, Scapy_Exception, \
-    XStrLenField, ByteField, ThreeBytesEnumField
+    XStrLenField, ByteField, EnumField, ThreeBytesField
 from scapy.modules.six.moves import range
 from scapy.data import ETHER_TYPES
 from scapy.compat import orb, raw
@@ -667,6 +667,12 @@ class LLDPDUManagementAddress(LLDPDU):
     def do_build(self):
         self._check()
         return super(LLDPDUManagementAddress, self).do_build()
+
+
+class ThreeBytesEnumField(EnumField, ThreeBytesField):
+
+    def __init__(self, name, default, enum):
+        EnumField.__init__(self, name, default, enum, "!I")
 
 
 class LLDPDUGenericOrganisationSpecific(LLDPDU):
