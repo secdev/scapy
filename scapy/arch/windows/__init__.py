@@ -9,6 +9,7 @@ Customizations needed to support Microsoft Windows.
 """
 from __future__ import absolute_import
 from __future__ import print_function
+import ctypes
 import os, re, sys, socket, time, itertools, platform
 import subprocess as sp
 from glob import glob
@@ -83,7 +84,7 @@ def _windows_title(title=None):
         title = title or "Scapy v" + conf.version
         ctypes.windll.kernel32.SetConsoleTitleW(title)
 
-def _suppress_file_handles_inheritance(r=100):
+def _suppress_file_handles_inheritance():
     """HACK: python 2.7 file descriptors.
 
     This magic hack fixes https://bugs.python.org/issue19575
@@ -91,130 +92,142 @@ def _suppress_file_handles_inheritance(r=100):
     already opened file descriptors.
     """
     # See https://github.com/secdev/scapy/issues/1136
-    import stat
-    from ctypes import windll, wintypes
-    from msvcrt import get_osfhandle
+    # import stat
+    #
+    # for fd in range(r):
+    #    try:
+    #        s = os.fstat(fd)
+    #    except OSError:
+    #        continue
+    #    if stat.S_ISREG(s.st_mode):
 
-    HANDLE_FLAG_INHERIT = 0x00000001
-
-    for fd in range(r):
+    handles = []
+    for hinfo in _get_opened_handles():
+        handle = hinfo.HandleValue
         try:
-            s = os.fstat(fd)
-        except OSError:
-            continue
-        if stat.S_ISREG(s.st_mode):
-            handle = wintypes.HANDLE(get_osfhandle(fd))
-            mask = wintypes.DWORD(HANDLE_FLAG_INHERIT)
-            flags = wintypes.DWORD(0)
-            windll.kernel32.SetHandleInformation(handle, mask, flags)
+            flag = _get_handle_inheritable(handle)
+            _set_handle_inheritable(handle, False)
+        except ctypes.WinError:
+            pass
+        else:
+            handles.append((handle, flag))
+
+    return handles
+
+
+def _restore_file_handles_inheritance(handles):
+    """HACK: python 2.7 file descriptors.
+
+    This magic hack fixes https://bugs.python.org/issue19575
+    by suppressing the HANDLE_FLAG_INHERIT flag to a range of
+    already opened file descriptors.
+    """
+    # See https://github.com/secdev/scapy/issues/1136
+    for handle, flag in handles:
+        try:
+            _set_handle_inheritable(handle, flag)
+        except ctypes.WinError:
+            pass
 
 
 def _get_opened_handles():
 
-    import ctypes
     from ctypes import windll
     from ctypes import wintypes
-
-    pid = os.getpid()
-    if pid == 0:
-        # otherwise we'd get NoSuchProcess
-        raise AccessDenied("")
-
-    SYSTEM_INFORMATION_CLASS = ctypes.c_int
-    SystemExtendedHandleInformation = SYSTEM_INFORMATION_CLASS(64)
-
-    NTSTATUS = ctypes.c_ulong
-    STATUS_INFO_LENGTH_MISMATCH = NTSTATUS(0xC0000004)
+    from msvcrt import get_osfhandle
 
     PVOID = ctypes.c_void_p
+    SYSTEM_INFORMATION_CLASS = ctypes.c_int
+    NTSTATUS = ctypes.c_ulong
+
+    SystemExtendedHandleInformation = SYSTEM_INFORMATION_CLASS(64)
+
+    STATUS_INFO_LENGTH_MISMATCH = NTSTATUS(0xC0000004)
 
     class SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX(ctypes.Structure):
-        _fields_ = [                                # Size=28
-        ("Object",                PVOID),           # Size=4
-        ("UniqueProcessId",       wintypes.ULONG),  # Size=4
-        ("HandleValue",           wintypes.ULONG),  # Size=4
-        ("GrantedAccess",         wintypes.ULONG),  # Size=4
-        ("CreatorBackTraceIndex", wintypes.USHORT), # Size=2
-        ("ObjectTypeIndex",       wintypes.USHORT), # Size=2
-        ("HandleAttributes",      wintypes.ULONG),  # Size=4
-        ("Reserved",              wintypes.ULONG),  # Size=4
+        _fields_ = [
+        ("Object",                PVOID),
+        ("UniqueProcessId",       wintypes.ULONG),
+        ("HandleValue",           wintypes.ULONG),
+        ("GrantedAccess",         wintypes.ULONG),
+        ("CreatorBackTraceIndex", wintypes.USHORT),
+        ("ObjectTypeIndex",       wintypes.USHORT),
+        ("HandleAttributes",      wintypes.ULONG),
+        ("Reserved",              wintypes.ULONG),
     ]
-
-    open_handles = []
 
     handles_count = 0x10000
     while True:
 
         class SYSTEM_HANDLE_INFORMATION_EX(ctypes.Structure):
-            _fields_ = [                          # Size=36
-            ("NumberOfHandles", wintypes.ULONG),  # Size=4
-            ("Reserved",        wintypes.ULONG),  # Size=4
-            ("Handles",         (SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX * handles_count)),
+            _fields_ = [
+            ("NumberOfHandles", wintypes.ULONG),
+            ("Reserved",        wintypes.ULONG),
+            ("Handles", (SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX * handles_count)),
         ]
 
         system_handle_info = SYSTEM_HANDLE_INFORMATION_EX(0, 0)
-        handle_info_size   = wintypes.DWORD(ctypes.sizeof(system_handle_info))
-        return_info_size   = wintypes.DWORD(0)
+        handle_info_size = wintypes.DWORD(ctypes.sizeof(system_handle_info))
+        return_info_size = wintypes.DWORD(0)
         status = NTSTATUS(windll.ntdll.NtQuerySystemInformation(
-                                       SystemExtendedHandleInformation,
-                                       ctypes.cast(ctypes.pointer(system_handle_info), PVOID),
-                                       handle_info_size,
-                                       ctypes.byref(return_info_size)))
+                          SystemExtendedHandleInformation,
+                          ctypes.cast(ctypes.pointer(system_handle_info), PVOID),
+                          handle_info_size,
+                          ctypes.byref(return_info_size)))
         if status.value != STATUS_INFO_LENGTH_MISMATCH.value:
             break
 
-        # NtQuerySystemInformation on't give us the correct buffer size,
+        # NtQuerySystemInformation won't give us the correct buffer size,
         # so we guess by doubling the buffer size.
         handles_count *= 2
 
-    # NtQuerySystemInformation stopped giving us STATUS_INFO_LENGTH_MISMATCH
     if status.value: # NT_SUCCESS(status.value):
         raise PyErr_SetFromWindowsErr(HRESULT_FROM_NT(status));
 
+    # Get the current process PID.
+    pid = wintypes.DWORD(windll.kernel32.GetCurrentProcessId()).value
+
+    opened_handles = []
     for i in range(system_handle_info.NumberOfHandles):
-        hinfo = system_handle_info.Handles[i] # PSYSTEM_HANDLE_TABLE_ENTRY_INFO_EX
-        # Check if this hinfo belongs to the PID the user specified.
+        hinfo = system_handle_info.Handles[i]
+        # Check if this hinfo belongs to the current process PID.
         if hinfo.UniqueProcessId == pid:
-            open_handles.append(hinfo)
+            opened_handles.append(hinfo)
 
-    return open_handles
-
-
-# ctypes's backport from PY3's os module.
+    return opened_handles
 
 
-def get_inheritable(fd):
+def _get_handle_inheritable(handle):
 
-    from ctypes import byref
+    # ctypes's backport from PY3's os module.
+
     from ctypes import windll
     from ctypes import wintypes
-    from ctypes import WinError
-    from msvcrt import get_osfhandle
 
     HANDLE_FLAG_INHERIT = 1
 
-    handle = wintypes.HANDLE(get_osfhandle(fd))
+    handle = wintypes.HANDLE(handle)
     flags  = wintypes.DWORD()
-    if not windll.kernel32.GetHandleInformation(handle, byref(flags)):
-        raise WinError()
+    if not windll.kernel32.GetHandleInformation(handle, ctypes.byref(flags)):
+        raise ctypes.WinError()
 
     return bool(flags.value & HANDLE_FLAG_INHERIT)
 
 
-def set_inheritable(fd, inheritable):
+def _set_handle_inheritable(handle, inheritable):
+
+    # ctypes's backport from PY3's os module.
 
     from ctypes import windll
     from ctypes import wintypes
-    from ctypes import WinError
-    from msvcrt import get_osfhandle
 
     HANDLE_FLAG_INHERIT = 1
 
-    handle = wintypes.HANDLE(get_osfhandle(fd))
+    handle = wintypes.HANDLE(handle)
     mask   = wintypes.DWORD(HANDLE_FLAG_INHERIT)
     flags  = wintypes.DWORD(HANDLE_FLAG_INHERIT if inheritable else 0)
     if not windll.kernel32.SetHandleInformation(handle, mask, flags):
-        raise WinError()
+        raise ctypes.WinError()
 
 
 """
@@ -271,30 +284,416 @@ def test_pass_fds_inheritable(self):
     self.assertEqual(os.get_inheritable(non_inheritable), False) 
 """
 
+SERVICE_STOPPED          = 0x00000001  # The service is not running.
+SERVICE_START_PENDING    = 0x00000002  # The service is starting.
+SERVICE_STOP_PENDING     = 0x00000003  # The service is stopping.
+SERVICE_RUNNING          = 0x00000004  # The service is running.
+SERVICE_CONTINUE_PENDING = 0x00000005  # The service continue is pending.
+SERVICE_PAUSE_PENDING    = 0x00000006  # The service pause is pending.
+SERVICE_PAUSED           = 0x00000007  # The service is paused.
+
+
+def start_service(service_name, service_args=None):
+
+    service_args = ([service_name] + service_args if service_args else [])
+
+    SC_MANAGER_ALL_ACCESS = 0xF003F
+    SERVICE_ALL_ACCESS    = 0xF01FF
+
+    hscm = _open_service_manager(SC_MANAGER_ALL_ACCESS)
+    try:
+        sch = _open_service(hscm, service_name, SERVICE_ALL_ACCESS)
+        try:
+            _start_service(sch, service_args)
+        finally:
+            _close_service_handle(sch)
+    finally:
+        _close_service_handle(hscm)
+
+
+def stop_service(service_name):
+
+    SC_MANAGER_ALL_ACCESS = 0xF003F
+    SERVICE_ALL_ACCESS    = 0xF01FF
+
+    hscm = _open_service_manager(SC_MANAGER_ALL_ACCESS)
+    try:
+        sch = _open_service(hscm, service_name, SERVICE_ALL_ACCESS)
+        try:
+            return _stop_service(sch)
+        finally:
+            _close_service_handle(sch)
+    finally:
+        _close_service_handle(hscm)
+
+
+def query_service_status(service_name):
+
+    SC_MANAGER_CONNECT   = 0x0001
+    SERVICE_QUERY_STATUS = 0x0004
+
+    hscm = _open_service_manager(SC_MANAGER_CONNECT)
+    try:
+        sch = _open_service(hscm, service_name, SERVICE_QUERY_STATUS)
+        try:
+            return _query_service_status(sch)
+        finally:
+            _close_service_handle(sch)
+    finally:
+        _close_service_handle(hscm)
+
+
+def get_service_key_name(service_name):
+
+    SC_MANAGER_CONNECT = 0x0001
+
+    hscm = _open_service_manager(SC_MANAGER_CONNECT)
+    try:
+        return _get_service_key_name(hscm, service_name)
+    finally:
+        _close_service_handle(hscm)
+
+
+def get_service_display_name(service_name):
+
+    SC_MANAGER_CONNECT = 0x0001
+
+    hscm = _open_service_manager(SC_MANAGER_CONNECT)
+    try:
+        return _get_service_display_name(hscm, service_name)
+    finally:
+        _close_service_handle(hscm)
+
+
+def _open_service_manager(access):
+
+    from ctypes import windll
+    from ctypes import wintypes
+
+    machine_name   = wintypes.LPCWSTR(0)
+    database_name  = wintypes.LPCWSTR(0)
+    desired_access = wintypes.DWORD(access)
+    hscm = wintypes.SC_HANDLE(windll.advapi32.OpenSCManagerW(machine_name,
+                                                             database_name,
+                                                             desired_access))
+    return hscm
+
+
+def _open_service(hscm, service_name, access):
+
+    from ctypes import windll
+    from ctypes import wintypes
+
+    SERVICE_ALL_ACCESS = 0xF01FF
+
+    ERROR_INVALID_NAME           = 123
+    ERROR_SERVICE_DOES_NOT_EXIST = 1060
+
+    service_name   = wintypes.LPCWSTR(service_name)
+    desired_access = wintypes.DWORD(SERVICE_ALL_ACCESS)
+
+    sch = wintypes.SC_HANDLE(windll.advapi32.OpenServiceW(hscm, service_name,
+                                                          desired_access))
+    if sch:
+        return sch
+    error_code = windll.kernel32.GetLastError()
+    if error_code not in (ERROR_INVALID_NAME, ERROR_SERVICE_DOES_NOT_EXIST):
+        raise WinAPIError("OpenServiceW")
+
+    key_name = ctypes.create_unicode_buffer(256)
+    key_size = wintypes.DWORD(256)
+    if not windll.advapi32.GetServiceKeyNameW(hscm, service_name,
+                                              key_name, ctypes.byref(key_size)):
+        raise WinAPIError("GetServiceKeyName")
+
+    sch = wintypes.SC_HANDLE(windll.advapi32.OpenServiceW(hscm, key_name,
+                                                          desired_access))
+    if not sch:
+        raise WinAPIError("OpenServiceW")
+
+    return sch
+
+
+def _start_service(sch, service_args):
+
+    from ctypes import windll
+    from ctypes import wintypes
+
+    srv_args_size = wintypes.DWORD(0)    # !!!
+    service_args  = wintypes.LPCWSTR(0)  # !!!
+    if not windll.advapi32.StartServiceW(sch, srv_args_size, service_args):
+        raise WinAPIError("StartService")
+
+
+def _stop_service(sch):
+
+    from ctypes import windll
+    from ctypes import wintypes
+
+    SERVICE_CONTROL_STOP = 0x00000001
+
+    class SERVICE_STATUS(ctypes.Structure):
+        _fields_ = [
+        ("dwServiceType",             wintypes.DWORD),
+        ("dwCurrentState",            wintypes.DWORD),
+        ("dwControlsAccepted",        wintypes.DWORD),
+        ("dwWin32ExitCode",           wintypes.DWORD),
+        ("dwServiceSpecificExitCode", wintypes.DWORD),
+        ("dwCheckPoint",              wintypes.DWORD),
+        ("dwWaitHint",                wintypes.DWORD),
+    ]
+
+    control_code   = wintypes.DWORD(SERVICE_CONTROL_STOP)
+    service_status = SERVICE_STATUS()
+    if not windll.advapi32.ControlService(sch, control_code,
+                                          ctypes.byref(service_status)):
+        raise WinAPIError("StartService")
+
+    return (service_status.dwServiceType,
+            service_status.dwCurrentState,
+            service_status.dwControlsAccepted,
+            service_status.dwWin32ExitCode,
+            service_status.dwServiceSpecificExitCode,
+            service_status.dwCheckPoint,
+            service_status.dwWaitHint)
+
+
+def _query_service_status(sch):
+
+    from ctypes import windll
+    from ctypes import wintypes
+
+    SC_STATUS_TYPE = ctypes.c_int
+
+    SC_STATUS_PROCESS_INFO = SC_STATUS_TYPE(0)
+
+    class SERVICE_STATUS_PROCESS(ctypes.Structure):
+        _fields_ = [
+        ("dwServiceType",             wintypes.DWORD),
+        ("dwCurrentState",            wintypes.DWORD),
+        ("dwControlsAccepted",        wintypes.DWORD),
+        ("dwWin32ExitCode",           wintypes.DWORD),
+        ("dwServiceSpecificExitCode", wintypes.DWORD),
+        ("dwCheckPoint",              wintypes.DWORD),
+        ("dwWaitHint",                wintypes.DWORD),
+        ("dwProcessId",               wintypes.DWORD),
+        ("dwServiceFlags",            wintypes.DWORD),
+    ]
+
+    info_level     = SC_STATUS_PROCESS_INFO
+    service_status = SERVICE_STATUS_PROCESS()
+    buf_size       = wintypes.DWORD(ctypes.sizeof(SERVICE_STATUS_PROCESS))
+    req_size       = wintypes.DWORD(0)
+    if not windll.advapi32.QueryServiceStatusEx(sch, info_level,
+                                                ctypes.cast(ctypes.pointer(service_status),
+                                                            wintypes.LPBYTE),
+                                                buf_size, ctypes.byref(req_size)):
+        raise WinAPIError("QueryServiceStatusEx")
+
+    return {"ServiceType":             service_status.dwServiceType,
+            "CurrentState":            service_status.dwCurrentState,
+            "ControlsAccepted":        service_status.dwControlsAccepted,
+            "Win32ExitCode":           service_status.dwWin32ExitCode,
+            "ServiceSpecificExitCode": service_status.dwServiceSpecificExitCode,
+            "CheckPoint":              service_status.dwCheckPoint,
+            "WaitHint":                service_status.dwWaitHint,
+            "ProcessId":               service_status.dwProcessId,
+            "ServiceFlags":            service_status.dwServiceFlags}
+
+
+def _get_service_key_name(hscm, service_name):
+
+    from ctypes import windll
+    from ctypes import wintypes
+
+    service_name = wintypes.LPCWSTR(service_name)
+
+    key_name = ctypes.create_unicode_buffer(256)
+    key_size = wintypes.DWORD(256)
+    if windll.advapi32.GetServiceKeyNameW(hscm, service_name, key_name,
+                                          ctypes.byref(key_size)):
+        return key_name[:key_size.value]
+
+    display_name = ctypes.create_unicode_buffer(4096)
+    display_size = wintypes.DWORD(4096)
+    if not windll.advapi32.GetServiceDisplayNameW(hscm, service_name, display_name,
+                                                  ctypes.byref(display_size)):
+        raise WinAPIError("GetServiceDisplayNameW")
+
+    if not windll.advapi32.GetServiceKeyNameW(hscm, display_name, key_name,
+                                              ctypes.byref(key_size)):
+        raise WinAPIError("GetServiceKeyNameW")
+
+    return key_name[:key_size.value]
+
+
+def _get_service_display_name(hscm, service_name):
+
+    from ctypes import windll
+    from ctypes import wintypes
+
+    service_name = wintypes.LPCWSTR(service_name)
+
+    display_name = ctypes.create_unicode_buffer(4096)
+    display_size = wintypes.DWORD(4096)
+    if windll.advapi32.GetServiceDisplayNameW(hscm, service_name, display_name,
+                                              ctypes.byref(display_size)):
+        return display_name[:display_size.value]
+
+    key_name = ctypes.create_unicode_buffer(256)
+    key_size = wintypes.DWORD(256)
+    if not windll.advapi32.GetServiceKeyNameW(hscm, service_name, key_name,
+                                              ctypes.byref(key_size)):
+        raise WinAPIError("GetServiceKeyNameW")
+
+    if not windll.advapi32.GetServiceDisplayNameW(hscm, key_name, display_name,
+                                                  ctypes.byref(display_size)):
+        raise WinAPIError("GetServiceDisplayNameW")
+
+    return display_name[:display_size.value]
+
+
+def _close_service_handle(sch):
+
+    from ctypes import windll
+
+    if not windll.advapi32.CloseServiceHandle(sch):
+        raise WinAPIError("CloseServiceHandle")
+
+
+class WinAPIError(Exception):
+
+    def __init__(func_name, err=0):
+
+        from ctypes import windll
+        from ctypes import wintypes
+
+        error_code = wintypes.DWORD(err or windll.kernel32.GetLastError())
+
+        error_message = None
+        if error_code:
+
+            FORMAT_MESSAGE_FROM_SYSTEM     = 0x00001000
+            FORMAT_MESSAGE_FROM_HMODULE    = 0x00000800
+            FORMAT_MESSAGE_IGNORE_INSERTS  = 0x00000200
+            FORMAT_MESSAGE_ALLOCATE_BUFFER = 0x00000100
+
+            format_flags = wintypes.DWORD(FORMAT_MESSAGE_FROM_SYSTEM |
+                                          FORMAT_MESSAGE_IGNORE_INSERTS |
+                                          FORMAT_MESSAGE_ALLOCATE_BUFFER)
+            # try and find the hmodule providing this error.
+            hmodule = PyWin_GetErrorMessageModule(error_code) # !!! HMODULE
+            if hmodule:
+                format_flags |= FORMAT_MESSAGE_FROM_HMODULE
+              
+            buf = wintypes.LPCWSTR(0)
+            try:
+                windll.kernel32.FormatMessageW(format_flags, hmodule,
+                                               error_code, wintypes.DWORD(0),
+                                               ctypes.byref(buf), wintypes.DWORD(0),
+                                               wintypes.LPCVOID(0))
+                error_message = buf.value.rstrip("\n\r")
+            finally:
+                if buf:
+                    windll.kernel32.LocalFree(wintypes.HLOCAL(buf))
+
+        self.winerror = error_code.value()
+        self.funcname = func_name
+        self.strerror = (error_message if error_message is not None
+                         else "No error message is available")
+        super(WinAPIError, self).__init__(self.winerror, self.funcname, self.strerror)
+
+
+# SC_HANDLE WINAPI OpenSCManager(
+#   _In_opt_ LPCTSTR lpMachineName,
+#   _In_opt_ LPCTSTR lpDatabaseName,
+#   _In_     DWORD   dwDesiredAccess
+# );
+
+# BOOL WINAPI GetServiceKeyName(
+#   _In_      SC_HANDLE hSCManager,
+#   _In_      LPCTSTR   lpDisplayName,
+#   _Out_opt_ LPTSTR    lpServiceName,
+#   _Inout_   LPDWORD   lpcchBuffer
+# );
+
+# BOOL WINAPI GetServiceDisplayName(
+#   _In_      SC_HANDLE hSCManager,
+#   _In_      LPCTSTR   lpServiceName,
+#   _Out_opt_ LPTSTR    lpDisplayName,
+#   _Inout_   LPDWORD   lpcchBuffer
+# );
+
+# SC_HANDLE WINAPI OpenService(
+#   _In_ SC_HANDLE hSCManager,
+#   _In_ LPCTSTR   lpServiceName,
+#   _In_ DWORD     dwDesiredAccess
+# );
+
+# BOOL WINAPI StartService(
+#   _In_     SC_HANDLE hService,
+#   _In_     DWORD     dwNumServiceArgs,
+#   _In_opt_ LPCTSTR   *lpServiceArgVectors
+# );
+
+# BOOL WINAPI ControlService(
+#   _In_  SC_HANDLE        hService,
+#   _In_  DWORD            dwControl,
+#   _Out_ LPSERVICE_STATUS lpServiceStatus
+# );
+
+# BOOL WINAPI QueryServiceStatusEx(
+#   _In_      SC_HANDLE      hService,
+#   _In_      SC_STATUS_TYPE InfoLevel,
+#   _Out_opt_ LPBYTE         lpBuffer,
+#   _In_      DWORD          cbBufSize,
+#   _Out_     LPDWORD        pcbBytesNeeded
+# );
+
+# BOOL WINAPI CloseServiceHandle(
+#   _In_ SC_HANDLE hSCObject
+# );
+
+"""
+print(query_service_status("AdobeARMservice"))
+print(get_service_key_name("AdobeARMservice"))
+print(get_service_display_name("AdobeARMservice"))
+print()
+print(query_service_status("Adobe Acrobat Update Service"))
+print(get_service_key_name("Adobe Acrobat Update Service"))
+print(get_service_display_name("Adobe Acrobat Update Service"))
+
+"""
+
+
 class _PowershellManager(Thread):
     """Instance used to send multiple commands on the same Powershell process.
     Will be instantiated on loading and automatically stopped.
     """
     def __init__(self):
-        if sys.version_info[0:2] < (3, 4): # Bug was fixed on python 3.4+
+        if sys.version_info[0:2] < (3, 4):  # Bug was fixed on python 3.4+
             # Fix https://bugs.python.org/issue19575
             # and https://github.com/secdev/scapy/issues/1136
-            _suppress_file_handles_inheritance()
-        # Start & redirect input
-        if conf.prog.powershell:
-            self.process = sp.Popen([conf.prog.powershell,
-                                     "-NoLogo", "-NonInteractive",  # Do not print headers
-                                     "-Command", "-"],  # Listen commands from stdin
-                             stdout=sp.PIPE,
-                             stdin=sp.PIPE,
-                             stderr=sp.STDOUT)
-            self.cmd = False
-        else:  # Fallback on CMD (powershell-only commands will fail, but scapy use the VBS fallback)
-            self.process = sp.Popen([conf.prog.cmd],
-                             stdout=sp.PIPE,
-                             stdin=sp.PIPE,
-                             stderr=sp.STDOUT)
-            self.cmd = True
+            opened_handles = _suppress_file_handles_inheritance()
+        try:
+            # Start & redirect input
+            if conf.prog.powershell:
+                self.process = sp.Popen([conf.prog.powershell,
+                                         "-NoLogo", "-NonInteractive",  # Do not print headers
+                                         "-Command", "-"],  # Listen commands from stdin
+                                 stdout=sp.PIPE,
+                                 stdin=sp.PIPE,
+                                 stderr=sp.STDOUT)
+                self.cmd = False
+            else:  # Fallback on CMD (powershell-only commands will fail, but scapy use the VBS fallback)
+                self.process = sp.Popen([conf.prog.cmd],
+                                 stdout=sp.PIPE,
+                                 stdin=sp.PIPE,
+                                 stderr=sp.STDOUT)
+                self.cmd = True
+        finally:
+            if sys.version_info[0:2] < (3, 4):
+                _restore_file_handles_inheritance(opened_handles)
         self.buffer = []
         self.running = True
         self.query_complete = Event()
