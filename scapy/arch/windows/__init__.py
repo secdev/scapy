@@ -32,7 +32,6 @@ conf.use_dnet = False
 conf.use_winpcapy = True
 
 WINDOWS = (os.name == 'nt')
-NEW_RELEASE = None
 
 #hot-patching socket for missing variables on Windows
 import socket
@@ -52,18 +51,23 @@ _WlanHelper = NPCAP_PATH + "\\WlanHelper.exe"
 
 import scapy.consts
 
-def is_new_release(ignoreVBS=False):
-    if NEW_RELEASE and conf.prog.powershell is not None:
-        return True
+def is_new_release(win10more=False):
     release = platform.release()
-    if conf.prog.powershell is None and not ignoreVBS:
+    if conf.prog.powershell is None:
         return False
-    try:
-         if float(release) >= 8:
-             return True
-    except ValueError:
-        if (release=="post2008Server"):
-            return True
+    if win10more:
+        try:
+            if float(release) >= 10:
+                return True
+        except:
+            pass
+    else:
+        try:
+             if float(release) >= 8:
+                 return True
+        except ValueError:
+            if (release=="post2008Server"):
+                return True
     return False
 
 def _encapsulate_admin(cmd):
@@ -371,9 +375,6 @@ if conf.prog.tcpdump and conf.use_npcap and conf.prog.os_access:
     if not windump_ok:
         warning("The installed Windump version does not work with Npcap ! Refer to 'Winpcap/Npcap conflicts' in scapy's doc", onlyOnce=True)
     del windump_ok
-
-# Auto-detect release
-NEW_RELEASE = is_new_release()
 
 class PcapNameNotFoundError(Scapy_Exception):
     pass    
@@ -1033,7 +1034,8 @@ def read_routes6():
     if not conf.prog.os_access:
         return routes6
     try:
-        if is_new_release():
+        # Interface metrics have been added to powershell in win10+
+        if is_new_release(win10more=True):
             routes6 = _read_routes6_post2008()
         else:
             routes6 = _read_routes6_7()
