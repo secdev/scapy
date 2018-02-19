@@ -1558,6 +1558,72 @@ class ICMPv6MLDone(_ICMPv6ML): # RFC 2710
     overload_fields = {IPv6: { "dst": "ff02::2", "hlim": 1, "nh": 58}}
 
 
+############################### MLDv2 Support ############################
+##Added by Antonios Atlasis, aatlasis@secfu.net 
+
+class ICMPv6MLQuery2(_ICMPv6): # RFC 3810
+	name = "MLDv2 - Multicast Listener Query"
+	fields_desc = [ 
+	ByteEnumField("type", 130, icmp6types),
+	ByteField("code", 0),
+	XShortField("cksum", None),
+	ShortField("mrd", 10000),
+	ShortField("reserved", 0),
+	IP6Field("mladdr","::"),
+	BitField("Resv", 0, 4),
+	BitField("S", 0, 1),
+	BitField("QRV", 0, 3),
+	ByteField("QQIC", 0),
+	ShortField("no_of_sources", 0),
+	IP6ListField("addresses", [],
+ 	length_from = lambda pkt: 8*pkt.len)
+	]
+	overload_fields = {IPv6: { "dst": "ff02::1", "hlim": 1 , "nh":58}} 
+	def hashret(self):
+		if self.mladdr != "::":
+			return struct.pack("HH",self.mladdr)+self.payload.hashret()
+		else:
+			return self.payload.hashret()
+	icmp6mldrecords = { 1: "ICMPv6MultAddrRec"
+  	}
+
+class _ICMPv6MLDGuessPayload:
+	name = "Dummy MLD class that implements guess_payload_class()"
+	def guess_payload_class(self,p):
+		if len(p) > 1:
+			return get_cls(icmp6mldrecords.get(ord(p[0]),"Raw"), "Raw")  
+
+class ICMPv6MLDMultAddrRec(_ICMPv6MLDGuessPayload, Packet):
+	name = "ICMPv6 MLDv2 - Multicast Address Record"
+	fields_desc = [  
+	ByteField("rtype", 4), 
+	ByteField("auxdatalen", 0),
+	ShortField("no_of_sources", 0), 
+	IP6Field("dst", "::"),		
+	IP6ListField("saddresses", [], length_from = lambda pkt: 8*pkt.len),
+	StrField("auxdata", "")
+	]
+	def mysummary(self):                        
+		return self.sprintf("%name% %saddresses%")
+
+class ICMPv6MLReport2(_ICMPv6): # RFC 3810
+	name = "MLDv2 - Multicast Listener Report"
+	fields_desc = [ 
+	ByteEnumField("type", 143, icmp6types),
+	ByteField("res", 0),
+	XShortField("cksum", None),
+	ShortField("reserved", 0),
+	ShortField("no_of_multicast_address_records", 0)
+	]
+	overload_fields = {IPv6: { "dst": "ff02::16", "hlim": 1 , "nh":58}} 
+	def hashret(self):
+		if self.mladdr != "::":
+			return struct.pack("HH",self.mladdr)+self.payload.hashret()
+		else:
+			return self.payload.hashret()
+#####################################################################
+###################### end of  MLDv2 Support ########################
+
 ########## ICMPv6 MRD - Multicast Router Discovery (RFC 4286) ###############
 
 # TODO:
