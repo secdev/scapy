@@ -780,7 +780,7 @@ class NetworkInterfaceDict(UserDict):
 # Init POWERSHELL_PROCESS
 POWERSHELL_PROCESS = _PowershellManager()
 
-IFACES = NetworkInterfaceDict()
+IFACES = ifaces = NetworkInterfaceDict()
 IFACES.load_from_powershell()
 
 def pcapname(dev):
