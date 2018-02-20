@@ -1385,38 +1385,42 @@ def get_terminal_width():
 
 def pretty_list(rtlst, header, sortBy=0):
     """Pretty list to fit the terminal, and add header"""
-    _l_header = len(header[0])
     _space = "  "
+    # Windows has a fat terminal border
+    _spacelen = len(_space) * (len(header)-1) + (10 if WINDOWS else 0)
+    _croped = False
     # Sort correctly
     rtlst.sort(key=lambda x: x[sortBy])
     # Append tag
     rtlst = header + rtlst
     # Detect column's width
     colwidth = [max([len(y) for y in x]) for x in zip(*rtlst)]
-    # Make text fit in box (if exist)
-    # TODO: find a better and more precise way of doing this. That's currently working but very complicated
+    # Make text fit in box (if required)
     width = get_terminal_width()
-    if width:
-        if sum(colwidth) > width:
+    if conf.auto_crop_tables and width:
+        width = width - _spacelen
+        while sum(colwidth) > width:
+            _croped = True
             # Needs to be cropped
-            _med = (width // _l_header) - (1 if WINDOWS else 0) # Windows has a fat window border
-            # Crop biggest until size is correct
-            for i in range(1, len(colwidth)): # Should use while, but this is safer
-                if (sum(colwidth)+6) <= width:
-                    break
-                _max = max(colwidth)
-                colwidth = [_med if x == _max else x for x in colwidth]
-            def _crop(x, width):
-                _r = x[:width]
-                if _r != x:
-                    _r = x[:width-3]
-                    return _r + "..."
-                return _r
-            rtlst = [tuple([_crop(rtlst[j][i], colwidth[i]) for i in range(0, len(rtlst[j]))]) for j in range(0, len(rtlst))]
-            # Recalculate column's width
-            colwidth = [max([len(y) for y in x]) for x in zip(*rtlst)]
-    fmt = _space.join(["%%-%ds"%x for x in colwidth])
-    rt = "\n".join([fmt % x for x in rtlst])
+            # Get the longest row
+            i = colwidth.index(max(colwidth))
+            # Get all elements of this row
+            row = [len(x[i]) for x in rtlst]
+            # Get biggest element of this row: biggest of the array
+            j = row.index(max(row))
+            # Re-build column tuple with the edited element
+            t = list(rtlst[j])
+            t[i] = t[i][:-2]+"_"
+            rtlst[j] = tuple(t)
+            # Update max size
+            row[j] = len(t[i])
+            colwidth[i] = max(row)
+    if _croped:
+        log_runtime.info("Table cropped to fit the terminal (conf.auto_crop_tables==True)")
+    # Generate padding scheme
+    fmt = _space.join(["%%-%ds" % x for x in colwidth])
+    # Compile
+    rt = "\n".join(((fmt % x).strip() for x in rtlst))
     return rt
 
 def __make_table(yfmtfunc, fmtfunc, endline, data, fxyz, sortx=None, sorty=None, seplinefunc=None):

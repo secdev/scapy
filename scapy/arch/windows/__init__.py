@@ -766,7 +766,7 @@ class NetworkInterfaceDict(UserDict):
             mac = dev.mac
             if resolve_mac and conf.manufdb:
                 mac = conf.manufdb._resolve_MAC(mac)
-            res.append((str(dev.win_index).ljust(5), str(dev.name).ljust(35), str(dev.ip).ljust(15), mac))
+            res.append((str(dev.win_index), str(dev.name), str(dev.ip), mac))
 
         res = pretty_list(res, [("INDEX", "IFACE", "IP", "MAC")])
         if print_result:
