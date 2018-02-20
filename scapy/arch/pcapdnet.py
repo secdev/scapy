@@ -132,10 +132,20 @@ if conf.use_winpcapy:
   from ctypes import POINTER, byref, create_string_buffer
   class _PcapWrapper_pypcap:
       """Wrapper for the WinPcap calls"""
-      def __init__(self, device, snaplen, promisc, to_ms):
+      def __init__(self, device, snaplen, promisc, to_ms, monitor=False):
           self.errbuf = create_string_buffer(PCAP_ERRBUF_SIZE)
           self.iface = create_string_buffer(device.encode("utf8"))
-          self.pcap = pcap_open_live(self.iface, snaplen, promisc, to_ms, self.errbuf)
+          if monitor:
+              self.pcap = pcap_create(self.iface, self.errbuf)
+              pcap_set_snaplen(self.pcap, snaplen)
+              pcap_set_promisc(self.pcap, promisc)
+              pcap_set_timeout(self.pcap, to_ms)
+              if pcap_set_rfmon(self.pcap, 1) != 0:
+                  warning("Could not set monitor mode")
+              if pcap_activate(self.pcap) != 0:
+                  warning("Could not activate the handler")
+          else:
+              self.pcap = pcap_open_live(self.iface, snaplen, promisc, to_ms, self.errbuf)
           self.header = POINTER(pcap_pkthdr)()
           self.pkt_data = POINTER(c_ubyte)()
           self.bpf_program = bpf_program()
@@ -153,7 +163,7 @@ if conf.use_winpcapy:
           if sys.platform.startswith("win"):
             log_loading.error("Cannot get selectable PCAP fd on Windows")
             return 0
-          return pcap_get_selectable_fd(self.pcap) 
+          return pcap_get_selectable_fd(self.pcap)
       def setfilter(self, f):
           filter_exp = create_string_buffer(f.encode("utf8"))
           if pcap_compile(self.pcap, byref(self.bpf_program), filter_exp, 0, -1) == -1:
@@ -176,7 +186,7 @@ if conf.use_winpcapy:
 
   class L2pcapListenSocket(SuperSocket, SelectableObject):
       desc = "read packets at layer 2 using libpcap"
-      def __init__(self, iface = None, type = ETH_P_ALL, promisc=None, filter=None):
+      def __init__(self, iface = None, type = ETH_P_ALL, promisc=None, filter=None, monitor=False):
           self.type = type
           self.outs = None
           self.iface = iface
@@ -185,7 +195,7 @@ if conf.use_winpcapy:
           if promisc is None:
               promisc = conf.sniff_promisc
           self.promisc = promisc
-          self.ins = open_pcap(iface, 1600, self.promisc, 100)
+          self.ins = open_pcap(iface, 1600, self.promisc, 100, monitor=monitor)
           try:
               ioctl(self.ins.fileno(),BIOCIMMEDIATE,struct.pack("I",1))
           except:
@@ -238,14 +248,15 @@ if conf.use_winpcapy:
   conf.L2listen = L2pcapListenSocket
   class L2pcapSocket(SuperSocket, SelectableObject):
       desc = "read/write packets at layer 2 using only libpcap"
-      def __init__(self, iface = None, type = ETH_P_ALL, promisc=None, filter=None, nofilter=0):
+      def __init__(self, iface = None, type = ETH_P_ALL, promisc=None, filter=None, nofilter=0,
+                   monitor=False):
           if iface is None:
               iface = conf.iface
           self.iface = iface
           if promisc is None:
               promisc = 0
           self.promisc = promisc
-          self.ins = open_pcap(iface, 1600, self.promisc, 100)
+          self.ins = open_pcap(iface, 1600, self.promisc, 100, monitor=monitor)
           # We need to have a different interface open because of an
           # access violation in Npcap that occurs in multi-threading
           # (see https://github.com/nmap/nmap/issues/982)
