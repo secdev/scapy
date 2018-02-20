@@ -536,7 +536,7 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
             # a specific task. Currently, don't see any use ...
             return self.payload.payload.answers(other)
         elif other.nh == 0 and isinstance(other.payload, IPv6ExtHdrHopByHop):
-            return self.payload.answers(other.payload.payload)
+            return self.payload.answers(other.payload)
         elif other.nh == 44 and isinstance(other.payload, IPv6ExtHdrFragment):
             return self.payload.answers(other.payload.payload)
         elif other.nh == 43 and isinstance(other.payload, IPv6ExtHdrRouting):
@@ -1499,7 +1499,7 @@ class ICMPv6EchoReply(ICMPv6EchoRequest):
                 self.data == other.data)
 
 
-############ ICMPv6 Multicast Listener Discovery (RFC3810) ##################
+############ ICMPv6 Multicast Listener Discovery (RFC2710) ##################
 
 # tous les messages MLD sont emis avec une adresse source lien-locale
 # -> Y veiller dans le post_build si aucune n'est specifiee
@@ -1528,14 +1528,7 @@ class ICMPv6MLQuery(_ICMPv6ML): # RFC 2710
     type   = 130
     mrd    = 10000 # 10s for mrd
     mladdr = "::"
-    overload_fields = {IPv6: { "dst": "ff02::1", "hlim": 1, "nh": 58 }}
-    def hashret(self):
-        if self.mladdr != "::":
-            return (
-                inet_pton(socket.AF_INET6, self.mladdr) + self.payload.hashret()
-            )
-        else:
-            return self.payload.hashret()
+    overload_fields = {IPv6: { "dst": "ff02::1", "hlim": 1, "nh": 58}}
 
 
 # TODO : See what we can do to automatically include a Router Alert
@@ -1544,7 +1537,10 @@ class ICMPv6MLReport(_ICMPv6ML): # RFC 2710
     name = "MLD - Multicast Listener Report"
     type = 131
     overload_fields = {IPv6: {"hlim": 1, "nh": 58}}
-    # implementer le hashret et le answers
+
+    def answers(self, query):
+        """Check the query type"""
+        return ICMPv6MLQuery in query
 
 # When a node ceases to listen to a multicast address on an interface,
 # it SHOULD send a single Done message to the link-scope all-routers
