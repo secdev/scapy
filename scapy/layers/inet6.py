@@ -398,7 +398,10 @@ class _IPv6GuessPayload:
             if len(p) > 2 and (t == 139 or t == 140): # Node Info Query
                 return _niquery_guesser(p)
             if len(p) >= icmp6typesminhdrlen.get(t, float("inf")): # Other ICMPv6 messages
-                return get_cls(icmp6typescls.get(t,"Raw"), "Raw")
+                if t == 130 and len(p) >= 28:
+                    # RFC 3810 - 8.1. Query Version Distinctions
+                    return ICMPv6MLQuery2
+                return get_cls(icmp6typescls.get(t, "Raw"), "Raw")
             return Raw
         elif self.nh == 135 and len(p) > 3: # Mobile IPv6
             return _mip6_mhtype2cls.get(orb(p[2]), MIP6MH_Generic)
@@ -1309,7 +1312,7 @@ icmp6typescls = {    1: "ICMPv6DestUnreach",
                      4: "ICMPv6ParamProblem",
                    128: "ICMPv6EchoRequest",
                    129: "ICMPv6EchoReply",
-                   130: "ICMPv6MLQuery",
+                   130: "ICMPv6MLQuery",  # MLDv1 or MLDv2
                    131: "ICMPv6MLReport",
                    132: "ICMPv6MLDone",
                    133: "ICMPv6ND_RS",
@@ -1322,7 +1325,7 @@ icmp6typescls = {    1: "ICMPv6DestUnreach",
                    140: "ICMPv6NIReply",
                    141: "ICMPv6ND_INDSol",
                    142: "ICMPv6ND_INDAdv",
-                  #143: Do Me - RFC 3810
+                   143: "ICMPv6MLReport2",
                    144: "ICMPv6HAADRequest",
                    145: "ICMPv6HAADReply",
                    146: "ICMPv6MPSol",
@@ -1352,6 +1355,7 @@ icmp6typesminhdrlen = {    1: 8,
                          #140
                          141: 8,
                          142: 8,
+                         143: 8,
                          144: 8,
                          145: 8,
                          146: 8,
@@ -1382,7 +1386,7 @@ icmp6types = { 1 : "Destination unreachable",
              140 : "ICMP Node Information Response",
              141 : "Inverse Neighbor Discovery Solicitation Message",
              142 : "Inverse Neighbor Discovery Advertisement Message",
-             143 : "Version 2 Multicast Listener Report",
+             143 : "MLD Report Version 2",
              144 : "Home Agent Address Discovery Request Message",
              145 : "Home Agent Address Discovery Reply Message",
              146 : "Mobile Prefix Solicitation",
@@ -1554,71 +1558,79 @@ class ICMPv6MLDone(_ICMPv6ML): # RFC 2710
     overload_fields = {IPv6: { "dst": "ff02::2", "hlim": 1, "nh": 58}}
 
 
-############################### MLDv2 Support ############################
-##Added by Antonios Atlasis, aatlasis@secfu.net 
+############ Multicast Listener Discovery Version 2 (MLDv2) (RFC3810) #######
 
 class ICMPv6MLQuery2(_ICMPv6): # RFC 3810
-	name = "MLDv2 - Multicast Listener Query"
-	fields_desc = [ 
-	ByteEnumField("type", 130, icmp6types),
-	ByteField("code", 0),
-	XShortField("cksum", None),
-	ShortField("mrd", 10000),
-	ShortField("reserved", 0),
-	IP6Field("mladdr","::"),
-	BitField("Resv", 0, 4),
-	BitField("S", 0, 1),
-	BitField("QRV", 0, 3),
-	ByteField("QQIC", 0),
-	ShortField("no_of_sources", 0),
-	IP6ListField("addresses", [],
- 	length_from = lambda pkt: 8*pkt.len)
-	]
-	overload_fields = {IPv6: { "dst": "ff02::1", "hlim": 1 , "nh":58}} 
-	def hashret(self):
-		if self.mladdr != "::":
-			return struct.pack("HH",self.mladdr)+self.payload.hashret()
-		else:
-			return self.payload.hashret()
-	icmp6mldrecords = { 1: "ICMPv6MultAddrRec"
-  	}
+    name = "MLDv2 - Multicast Listener Query"
+    fields_desc = [ ByteEnumField("type", 130, icmp6types),
+                    ByteField("code", 0),
+                    XShortField("cksum", None),
+                    ShortField("mrd", 10000),
+                    ShortField("reserved", 0),
+                    IP6Field("mladdr","::"),
+                    BitField("Resv", 0, 4),
+                    BitField("S", 0, 1),
+                    BitField("QRV", 0, 3),
+                    ByteField("QQIC", 0),
+                    ShortField("sources_number", None),
+                    IP6ListField("sources", [],
+                                 count_from=lambda pkt: pkt.sources_number) ]
 
-class _ICMPv6MLDGuessPayload:
-	name = "Dummy MLD class that implements guess_payload_class()"
-	def guess_payload_class(self,p):
-		if len(p) > 1:
-			return get_cls(icmp6mldrecords.get(ord(p[0]),"Raw"), "Raw")  
+    # RFC8810 - 4. Message Formats
+    overload_fields = {IPv6: {"dst": "ff02::1", "hlim": 1 , "nh": 58}} 
 
-class ICMPv6MLDMultAddrRec(_ICMPv6MLDGuessPayload, Packet):
-	name = "ICMPv6 MLDv2 - Multicast Address Record"
-	fields_desc = [  
-	ByteField("rtype", 4), 
-	ByteField("auxdatalen", 0),
-	ShortField("no_of_sources", 0), 
-	IP6Field("dst", "::"),		
-	IP6ListField("saddresses", [], length_from = lambda pkt: 8*pkt.len),
-	StrField("auxdata", "")
-	]
-	def mysummary(self):                        
-		return self.sprintf("%name% %saddresses%")
+    def post_build(self, packet, payload):
+        """Compute the 'sources_number' field when needed"""
+        if self.sources_number is None:
+            srcnum = struct.pack("!H", len(self.sources))
+            packet = packet[:26] + srcnum + packet[28:]
+        return _ICMPv6.post_build(self, packet, payload)
+
+
+class ICMPv6MLDMultAddrRec(Packet):
+    name = "ICMPv6 MLDv2 - Multicast Address Record"
+    fields_desc = [ ByteField("rtype", 4), 
+                    FieldLenField("auxdata_len", None,
+                                  length_of="auxdata"),
+                    FieldLenField("sources_number", None,
+                                  length_of="sources",
+                                  adjust=lambda p,num: num//16),
+                    IP6Field("dst", "::"),
+                    IP6ListField("sources", [],
+                                 length_from=lambda p: 16*p.sources_number),
+                     StrLenField("auxdata", "",
+                                 length_from=lambda p: p.auxdata_len) ]
+
+    def default_payload_class(self, packet):
+        """Multicast Address Record followed by another one"""
+        return self.__class__
+
 
 class ICMPv6MLReport2(_ICMPv6): # RFC 3810
-	name = "MLDv2 - Multicast Listener Report"
-	fields_desc = [ 
-	ByteEnumField("type", 143, icmp6types),
-	ByteField("res", 0),
-	XShortField("cksum", None),
-	ShortField("reserved", 0),
-	ShortField("no_of_multicast_address_records", 0)
-	]
-	overload_fields = {IPv6: { "dst": "ff02::16", "hlim": 1 , "nh":58}} 
-	def hashret(self):
-		if self.mladdr != "::":
-			return struct.pack("HH",self.mladdr)+self.payload.hashret()
-		else:
-			return self.payload.hashret()
-#####################################################################
-###################### end of  MLDv2 Support ########################
+    name = "MLDv2 - Multicast Listener Report"
+    fields_desc = [ ByteEnumField("type", 143, icmp6types),
+                    ByteField("res", 0),
+                    XShortField("cksum", None),
+                    ShortField("reserved", 0),
+                    ShortField("records_number", None),
+                    PacketListField("records", [],
+                                    ICMPv6MLDMultAddrRec,
+                                    count_from=lambda p: p.records_number) ]
+
+    # RFC8810 - 4. Message Formats
+    overload_fields = {IPv6: {"dst": "ff02::16", "hlim": 1 , "nh": 58}}
+
+    def post_build(self, packet, payload):
+        """Compute the 'records_number' field when needed"""
+        if self.records_number is None:
+            recnum = struct.pack("!H", len(self.records))
+            packet = packet[:6] + recnum + packet[8:]
+        return _ICMPv6.post_build(self, packet, payload)
+
+    def answers(self, query):
+        """Check the query type"""
+        return isinstance(query, ICMPv6MLQuery2)
+
 
 ########## ICMPv6 MRD - Multicast Router Discovery (RFC 4286) ###############
 
