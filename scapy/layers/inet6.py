@@ -2220,7 +2220,7 @@ icmp6_niqtypes = { 0: "NOOP",
 
 class _ICMPv6NIHashret:
     def hashret(self):
-        return self.nonce
+        return raw(self.nonce)
 
 class _ICMPv6NIAnswers:
     def answers(self, other):
@@ -2355,7 +2355,6 @@ class NIQueryDataField(StrField):
         return (1, x)
 
     def i2repr(self, pkt, x):
-        x = plain_str(x)
         t,val = x
         if t == 1: # DNS Name
             # we don't use dnsrepr2names() to deal with
@@ -2366,7 +2365,7 @@ class NIQueryDataField(StrField):
                 val = val[1:]
                 if l == 0:
                     break
-                res.append(val[:l]+".")
+                res.append(plain_str(val[:l])+".")
                 val = val[l:]
             tmp = "".join(res)
             if tmp and tmp[-1] == '.':
@@ -2588,7 +2587,8 @@ class NIReplyDataField(StrField):
             if t == 2: # DNS names
                 ttl,l = val
                 l = dnsrepr2names(l)
-                return "ttl:%d %s" % (ttl, ", ".join(l))
+                names_list = (plain_str(name) for name in l)
+                return "ttl:%d %s" % (ttl, ",".join(names_list))
             elif t == 3 or t == 4:
                 return "[ %s ]" % (", ".join(map(lambda x_y: "(%d, %s)" % (x_y[0], x_y[1]), val)))
             return repr(val)
