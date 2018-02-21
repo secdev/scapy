@@ -41,6 +41,25 @@ from scapy.utils6 import in6_addrtovendor, in6_islladdr
 def get_cls(name, fallback_cls):
     return globals().get(name, fallback_cls)
 
+dhcp6_cls_by_type = {  1: "DHCP6_Solicit",
+                       2: "DHCP6_Advertise",
+                       3: "DHCP6_Request",
+                       4: "DHCP6_Confirm",
+                       5: "DHCP6_Renew",
+                       6: "DHCP6_Rebind",
+                       7: "DHCP6_Reply",
+                       8: "DHCP6_Release",
+                       9: "DHCP6_Decline",
+                      10: "DHCP6_Reconf",
+                      11: "DHCP6_InfoRequest",
+                      12: "DHCP6_RelayForward",
+                      13: "DHCP6_RelayReply" }
+
+def _dhcp6_dispatcher(x, *args, **kargs):
+    cls = conf.raw_layer
+    if len(x) >= 2:
+        cls = get_cls(dhcp6_cls_by_type.get(orb(x[0]), "Raw"), conf.raw_layer)
+    return cls(x, *args, **kargs)
 
 #############################################################################
 #############################################################################
@@ -906,7 +925,7 @@ class DHCP6OptRelayMsg(_DHCP6OptGuessPayload):  # RFC sect 22.10
     fields_desc = [ ShortEnumField("optcode", 9, dhcp6opts), 
                     FieldLenField("optlen", None, fmt="!H",
                         length_of="message"),
-                    PacketLenField("message", DHCP6(), DHCP6,
+                    PacketLenField("message", DHCP6(), _dhcp6_dispatcher,
                         length_from=lambda p: p.optlen) ]
 
 #####################################################################
@@ -1169,26 +1188,6 @@ class DHCP6_RelayReply(DHCP6_RelayForward):
                 self.linkaddr == other.linkaddr and
                 self.peeraddr == other.peeraddr )
 
-
-dhcp6_cls_by_type = {  1: "DHCP6_Solicit",
-                       2: "DHCP6_Advertise",
-                       3: "DHCP6_Request",
-                       4: "DHCP6_Confirm",
-                       5: "DHCP6_Renew",
-                       6: "DHCP6_Rebind",
-                       7: "DHCP6_Reply",
-                       8: "DHCP6_Release",
-                       9: "DHCP6_Decline",
-                      10: "DHCP6_Reconf",
-                      11: "DHCP6_InfoRequest",
-                      12: "DHCP6_RelayForward",
-                      13: "DHCP6_RelayReply" }
-
-def _dhcp6_dispatcher(x, *args, **kargs):
-    cls = conf.raw_layer
-    if len(x) >= 2:
-        cls = get_cls(dhcp6_cls_by_type.get(orb(x[0]), "Raw"), conf.raw_layer)
-    return cls(x, *args, **kargs)
 
 bind_bottom_up(UDP, _dhcp6_dispatcher, { "dport": 547 } )
 bind_bottom_up(UDP, _dhcp6_dispatcher, { "dport": 546 } )
