@@ -14,7 +14,7 @@ from scapy.consts import LINUX, OPENBSD, FREEBSD, NETBSD, DARWIN, \
     SOLARIS, WINDOWS, BSD, IS_64BITS, LOOPBACK_NAME
 from scapy.error import *
 import scapy.config
-from scapy.pton_ntop import inet_pton
+from scapy.pton_ntop import inet_pton, inet_ntop
 from scapy.data import *
 
 def str2mac(s):
@@ -25,7 +25,7 @@ if not WINDOWS:
         from scapy.arch.bpf.core import get_if_raw_addr
 
 def get_if_addr(iff):
-    return socket.inet_ntoa(get_if_raw_addr(iff))
+    return inet_ntop(socket.AF_INET, get_if_raw_addr(iff))
     
 def get_if_hwaddr(iff):
     addrfamily, mac = get_if_raw_hwaddr(iff)
