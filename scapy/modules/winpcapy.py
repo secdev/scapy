@@ -271,6 +271,45 @@ pcap_open_offline = _lib.pcap_open_offline
 pcap_open_offline.restype = POINTER(pcap_t)
 pcap_open_offline.argtypes = [STRING, STRING]
 
+try:  # NPCAP ONLY function
+    #int pcap_set_rfmon (pcap_t *p)
+    #   sets whether monitor mode should be set on a capture handle when the handle is activated.
+    pcap_set_rfmon = _lib.pcap_set_rfmon
+    pcap_set_rfmon.restype = c_int
+    pcap_set_rfmon.argtypes = [POINTER(pcap_t), c_int]
+
+    #int pcap_create (pcap_t *p)
+    #   create a packet capture handle to look at packets on the network.
+    pcap_create = _lib.pcap_create
+    pcap_create.restype = POINTER(pcap_t)
+    pcap_create.argtypes = [STRING, STRING]
+
+    #int pcap_set_snaplen(pcap_t *p, int snaplen)
+    #   set the snapshot length for a not-yet-activated capture handle
+    pcap_set_snaplen = _lib.pcap_set_snaplen
+    pcap_set_snaplen.restype = c_int
+    pcap_set_snaplen.argtypes = [POINTER(pcap_t), c_int]
+
+    #int pcap_set_promisc(pcap_t *p, int promisc)
+    #   set promiscuous mode for a not-yet-activated capture handle
+    pcap_set_promisc = _lib.pcap_set_promisc
+    pcap_set_promisc.restype = c_int
+    pcap_set_promisc.argtypes = [POINTER(pcap_t), c_int]
+
+    #int pcap_set_timeout(pcap_t *p, int to_ms)
+    #   set the packet buffer timeout for a not-yet-activated capture handle
+    pcap_set_timeout = _lib.pcap_set_timeout
+    pcap_set_timeout.restype = c_int
+    pcap_set_timeout.argtypes = [POINTER(pcap_t), c_int]
+
+    #int pcap_activate(pcap_t *p)
+    #   activate a capture handle
+    pcap_activate = _lib.pcap_activate
+    pcap_activate.restype = c_int
+    pcap_activate.argtypes = [POINTER(pcap_t)]
+except AttributeError:
+    pass
+
 #pcap_dumper_t *   pcap_dump_open (pcap_t *p, const char *fname)
 #   Open a file to write packets.
 pcap_dump_open = _lib.pcap_dump_open

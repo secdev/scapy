@@ -519,14 +519,31 @@ class NetworkInterface(object):
         """Get the interface operation mode.
         Only available with Npcap."""
         self._check_npcap_requirement()
-        return sp.Popen([_WlanHelper, self.guid[1:-1], "mode"], stdout=sp.PIPE).communicate()[0].strip()
+        return plain_str(sp.Popen([_WlanHelper, self.guid[1:-1], "mode"], stdout=sp.PIPE).communicate()[0].strip())
+
+    def ismonitor(self):
+        """Returns True if the interface is in monitor mode.
+        Only available with Npcap."""
+        try:
+            self._check_npcap_requirement()
+            return self.mode() == "monitor"
+        except Scapy_Exception:
+            return False
+
+    def setmonitor(self, enable=True):
+        """Alias for setmode('monitor') or setmode('managed')
+        Only availble with Npcap"""
+        if enable:
+            return self.setmode('monitor')
+        else:
+            return self.setmode('managed')
 
     def availablemodes(self):
         """Get all available interface modes.
         Only available with Npcap."""
         # According to https://nmap.org/npcap/guide/npcap-devguide.html#npcap-feature-dot11
         self._check_npcap_requirement()
-        return sp.Popen([_WlanHelper, self.guid[1:-1], "modes"], stdout=sp.PIPE).communicate()[0].strip().split(",")
+        return plain_str(sp.Popen([_WlanHelper, self.guid[1:-1], "modes"], stdout=sp.PIPE).communicate()[0].strip()).split(",")
 
     def setmode(self, mode):
         """Set the interface mode. It can be:
@@ -548,50 +565,51 @@ class NetworkInterface(object):
             5: "wfd_client"
         }
         m = _modes.get(mode, "unknown") if isinstance(mode, int) else mode
-        return sp.call(_WlanHelper + " " + self.guid[1:-1] + " mode " + m)
+        return not POWERSHELL_PROCESS.query([_encapsulate_admin(_WlanHelper + " " + self.guid[1:-1] + " mode " + m)])
 
     def channel(self):
         """Get the channel of the interface.
         Only available with Npcap."""
         # According to https://nmap.org/npcap/guide/npcap-devguide.html#npcap-feature-dot11
         self._check_npcap_requirement()
-        return sp.Popen([_WlanHelper, self.guid[1:-1], "channel"],
-                        stdout=sp.PIPE).communicate()[0].strip()
+        x = plain_str(sp.Popen([_WlanHelper, self.guid[1:-1], "channel"],
+                        stdout=sp.PIPE).communicate()[0].strip())
+        return int(x)
 
     def setchannel(self, channel):
         """Set the channel of the interface (1-14):
         Only available with Npcap."""
         # According to https://nmap.org/npcap/guide/npcap-devguide.html#npcap-feature-dot11
         self._check_npcap_requirement()
-        return sp.call(_WlanHelper + " " + self.guid[1:-1] + " channel " + str(channel))
+        return not POWERSHELL_PROCESS.query([_encapsulate_admin(_WlanHelper + " " + self.guid[1:-1] + " channel " + str(channel))])
 
     def frequence(self):
         """Get the frequence of the interface.
         Only available with Npcap."""
         # According to https://nmap.org/npcap/guide/npcap-devguide.html#npcap-feature-dot11
         self._check_npcap_requirement()
-        return sp.Popen([_WlanHelper, self.guid[1:-1], "freq"], stdout=sp.PIPE).communicate()[0].strip()
+        return plain_str(sp.Popen([_WlanHelper, self.guid[1:-1], "freq"], stdout=sp.PIPE).communicate()[0].strip())
 
     def setfrequence(self, freq):
         """Set the channel of the interface (1-14):
         Only available with Npcap."""
         # According to https://nmap.org/npcap/guide/npcap-devguide.html#npcap-feature-dot11
         self._check_npcap_requirement()
-        return sp.call(_WlanHelper + " " + self.guid[1:-1] + " freq " + str(freq))
+        return not POWERSHELL_PROCESS.query([_encapsulate_admin(_WlanHelper + " " + self.guid[1:-1] + " freq " + str(freq))])
 
     def availablemodulations(self):
         """Get all available 802.11 interface modulations.
         Only available with Npcap."""
         # According to https://nmap.org/npcap/guide/npcap-devguide.html#npcap-feature-dot11
         self._check_npcap_requirement()
-        return sp.Popen([_WlanHelper, self.guid[1:-1], "modus"], stdout=sp.PIPE).communicate()[0].strip().split(",")
+        return plain_str(sp.Popen([_WlanHelper, self.guid[1:-1], "modus"], stdout=sp.PIPE).communicate()[0].strip()).split(",")
 
     def modulation(self):
         """Get the 802.11 modulation of the interface.
         Only available with Npcap."""
         # According to https://nmap.org/npcap/guide/npcap-devguide.html#npcap-feature-dot11
         self._check_npcap_requirement()
-        return sp.Popen([_WlanHelper, self.guid[1:-1], "modu"], stdout=sp.PIPE).communicate()[0].strip()
+        return plain_str(sp.Popen([_WlanHelper, self.guid[1:-1], "modu"], stdout=sp.PIPE).communicate()[0].strip())
 
     def setmodulation(self, modu):
         """Set the interface modulation. It can be:
@@ -623,7 +641,7 @@ class NetworkInterface(object):
             10: "mimo-ofdm",
         }
         m = _modus.get(modu, "unknown") if isinstance(modu, int) else modu
-        return sp.call(_WlanHelper + " " + self.guid[1:-1] + " mode " + m)
+        return not POWERSHELL_PROCESS.query([_encapsulate_admin(_WlanHelper + " " + self.guid[1:-1] + " mode " + m)])
 
     def __repr__(self):
         return "<%s %s %s>" % (self.__class__.__name__, self.name, self.guid)
@@ -815,7 +833,11 @@ def show_interfaces(resolve_mac=True):
     return IFACES.show(resolve_mac)
 
 _orig_open_pcap = pcapdnet.open_pcap
-pcapdnet.open_pcap = lambda iface,*args,**kargs: _orig_open_pcap(pcapname(iface),*args,**kargs)
+def open_pcap(iface, *args, **kargs):
+    if iface.ismonitor():
+        kargs["monitor"] = True
+    return _orig_open_pcap(pcapname(iface), *args, **kargs)
+pcapdnet.open_pcap = open_pcap
 
 get_if_raw_hwaddr = pcapdnet.get_if_raw_hwaddr = lambda iface, *args, **kargs: (
     ARPHDR_ETHER, mac2str(IFACES.dev_from_pcapname(pcapname(iface)).mac)
