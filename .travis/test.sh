@@ -123,6 +123,9 @@ then
   UT_FLAGS+=" -K osx"
 fi
 
+# Dump UT_FLAGS
+echo "UT_FLAGS=$UT_FLAGS"
+
 # Run all normal and contrib tests
 PYTHON="$PYTHON" $SCAPY_SUDO ./run_tests -c ./configs/travis.utsc -T "bpf.uts" -T "mock_windows.uts" $UT_FLAGS || exit $?
 
