@@ -454,6 +454,7 @@ debug_tls:When 1, print some TLS session secrets when they are computed.
     crypto_valid = isCryptographyValid()
     crypto_valid_advanced = isCryptographyAdvanced()
     fancy_prompt = True
+    auto_crop_tables = True
 
 
 if not Conf.ipv6_enabled:
